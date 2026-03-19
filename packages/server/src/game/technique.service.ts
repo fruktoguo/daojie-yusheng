@@ -120,7 +120,7 @@ export class TechniqueService {
     const messages: TechniqueMessage[] = [];
 
     if (technique.realm !== TechniqueRealm.Perfection && technique.expToNext > 0) {
-      technique.exp += Math.max(1, Math.round(CULTIVATE_EXP_PER_TICK * (1 + techniqueExpBonus)));
+      technique.exp += this.applyRateBonus(CULTIVATE_EXP_PER_TICK, techniqueExpBonus);
       while (technique.expToNext > 0 && technique.exp >= technique.expToNext && technique.realm !== TechniqueRealm.Perfection) {
         technique.exp -= technique.expToNext;
         technique.level += 1;
@@ -255,7 +255,7 @@ export class TechniqueService {
     }
 
     const baseGain = 1 + technique.realm + Math.floor(technique.level / 3);
-    const gain = Math.max(1, Math.round(baseGain * (1 + expBonus)));
+    const gain = this.applyRateBonus(baseGain, expBonus);
     const previousProgress = realm.progress;
     realm.progress = Math.min(realm.progressToNext, realm.progress + gain);
     realm.breakthroughReady = realm.progress >= realm.progressToNext;
@@ -277,6 +277,16 @@ export class TechniqueService {
     }
 
     return { changed: true, messages };
+  }
+
+  private applyRateBonus(base: number, bonusRate: number): number {
+    const exactGain = Math.max(1, base * (1 + Math.max(0, bonusRate)));
+    const guaranteed = Math.floor(exactGain);
+    const remainder = exactGain - guaranteed;
+    if (remainder <= 0) {
+      return guaranteed;
+    }
+    return guaranteed + (Math.random() < remainder ? 1 : 0);
   }
 
   private validateTechniqueGate(player: PlayerState, realm: PlayerRealmState): string | null {

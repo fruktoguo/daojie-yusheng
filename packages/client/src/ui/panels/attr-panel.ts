@@ -1,4 +1,5 @@
 import {
+  ATTR_TO_PERCENT_NUMERIC_WEIGHTS,
   ATTR_TO_NUMERIC_WEIGHTS,
   AttrBonus,
   AttrKey,
@@ -106,13 +107,17 @@ const NUMERIC_TOOLTIP_DESCRIPTIONS: Partial<Record<NumericCardKey, string>> = {
   techniqueExpRate: '提高功法经验获取效率。',
   lootRate: '提高常规掉落收益。',
   rareLootRate: '提高稀有掉落收益。',
-  moveSpeed: '影响移动效率与位移节奏。',
+  moveSpeed: '每 100 点移动速度会在每 tick 额外获得 1 次稳定移动，剩余数值按百分比作为再额外移动 1 格的概率。',
   viewRange: '决定地图上的可见范围。',
 };
 
 function formatRateBp(value: number): string {
   const percent = value / 100;
   return `${percent.toFixed(percent % 1 === 0 ? 0 : percent % 0.1 === 0 ? 1 : 2)}%`;
+}
+
+function formatSimplePercent(value: number): string {
+  return `${value.toFixed(value % 1 === 0 ? 0 : value % 0.1 === 0 ? 1 : 2)}%`;
 }
 
 function formatCritDamageBonus(value: number): string {
@@ -145,29 +150,33 @@ function formatNumericTooltipValue(key: NumericCardKey, value: number): string {
 }
 
 function buildAttrConversionSummary(key: AttrKey, totalValue: number): string {
-  const weights = ATTR_TO_NUMERIC_WEIGHTS[key];
-  if (!weights) return '暂无具体转化';
-  const parts = Object.entries(weights)
-    .filter(([entryKey, entryValue]) => entryKey !== 'elementDamageBonus' && entryKey !== 'elementDamageReduce' && typeof entryValue === 'number' && entryValue !== 0)
-    .map(([entryKey, entryValue]) => {
-      const numericKey = entryKey as NumericCardKey;
-      const total = entryValue * totalValue;
-      return `${NUMERIC_TOOLTIP_LABELS[numericKey] ?? entryKey} +${formatNumericTooltipValue(numericKey, total)}`;
-    });
+  const parts = buildAttrConversionEntries(key, totalValue);
   return parts.length > 0 ? parts.join('，') : '暂无具体转化';
 }
 
 function buildAttrConversionLines(key: AttrKey, totalValue: number): string[] {
+  const parts = buildAttrConversionEntries(key, totalValue);
+  return parts.length > 0 ? parts : ['暂无具体转化'];
+}
+
+function buildAttrConversionEntries(key: AttrKey, totalValue: number): string[] {
+  const percentWeights = ATTR_TO_PERCENT_NUMERIC_WEIGHTS[key];
   const weights = ATTR_TO_NUMERIC_WEIGHTS[key];
-  if (!weights) return ['暂无具体转化'];
-  const parts = Object.entries(weights)
+  const percentParts = Object.entries(percentWeights)
+    .filter(([, entryValue]) => typeof entryValue === 'number' && entryValue !== 0)
+    .map(([entryKey, entryValue]) => {
+      const numericKey = entryKey as NumericCardKey;
+      const total = entryValue * totalValue;
+      return `${NUMERIC_TOOLTIP_LABELS[numericKey] ?? entryKey} +${formatSimplePercent(total)}`;
+    });
+  const flatParts = Object.entries(weights)
     .filter(([entryKey, entryValue]) => entryKey !== 'elementDamageBonus' && entryKey !== 'elementDamageReduce' && typeof entryValue === 'number' && entryValue !== 0)
     .map(([entryKey, entryValue]) => {
       const numericKey = entryKey as NumericCardKey;
       const total = entryValue * totalValue;
       return `${NUMERIC_TOOLTIP_LABELS[numericKey] ?? entryKey} +${formatNumericTooltipValue(numericKey, total)}`;
     });
-  return parts.length > 0 ? parts : ['暂无具体转化'];
+  return [...percentParts, ...flatParts];
 }
 
 function splitTooltipLines(detail: string): string[] {
@@ -186,6 +195,16 @@ function formatDefenseReduction(value: number): string {
   return formatRatioPercent(value, DEFAULT_RATIO_DIVISOR);
 }
 
+function formatMoveSpeedEffect(value: number): string {
+  const safeValue = Math.max(0, value);
+  const guaranteed = Math.floor(safeValue / 100);
+  const chance = safeValue - guaranteed * 100;
+  if (chance <= 0) {
+    return `每 tick 额外稳定移动 ${guaranteed} 格`;
+  }
+  return `每 tick 额外稳定移动 ${guaranteed} 格，另有 ${chance.toFixed(chance % 1 === 0 ? 0 : 2)}% 概率再移动 1 格`;
+}
+
 function buildNumericTooltip(label: string, key: NumericCardKey, numericValue: number, ratioValueText?: string): string {
   const lines = [
     NUMERIC_TOOLTIP_DESCRIPTIONS[key] ?? '该属性影响角色的实际战斗表现。',
@@ -193,6 +212,8 @@ function buildNumericTooltip(label: string, key: NumericCardKey, numericValue: n
   ];
   if (key === 'physDef' || key === 'spellDef') {
     lines.push(`实际减伤：${formatDefenseReduction(numericValue)}`);
+  } else if (key === 'moveSpeed') {
+    lines.push(`实际效果：${formatMoveSpeedEffect(numericValue)}`);
   } else if (ratioValueText && key !== 'critDamage') {
     lines.push(ratioValueText);
   }
@@ -307,6 +328,7 @@ export class AttrPanel {
       keys: ['viewRange', 'moveSpeed', 'playerExpRate', 'techniqueExpRate', 'lootRate', 'rareLootRate'],
       ratioKeys: [],
       legends: {
+        viewRange: '视野范围',
         moveSpeed: '移动速度',
         playerExpRate: '角色经验',
         techniqueExpRate: '功法经验',
@@ -367,8 +389,8 @@ export class AttrPanel {
         tooltipTitle: `${ELEMENT_NAMES[key]}灵根`,
         tooltipDetail: [
           `当前：${roundedBonus} 点`,
-          `伤害增幅：${roundedBonus}%`,
-          `受到伤害减少：${formatRatioPercent(
+          `${ELEMENT_NAMES[key]}属性伤害增幅：${roundedBonus}%`,
+          `${ELEMENT_NAMES[key]}属性伤害削减：${formatRatioPercent(
           stats.elementDamageReduce[key],
           reductionDivisor,
         )}`,
@@ -494,6 +516,9 @@ export class AttrPanel {
         sub = actualLine;
       } else if (RATE_BP_KEYS.has(key) && key !== 'critDamage') {
         actualLine = `实际：${formatRateBp(numericValue)}`;
+        sub = actualLine;
+      } else if (key === 'moveSpeed') {
+        actualLine = `效果：${formatMoveSpeedEffect(numericValue)}`;
         sub = actualLine;
       }
       const displayValue = key === 'critDamage'

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
+  ATTR_TO_PERCENT_NUMERIC_WEIGHTS,
   ATTR_TO_NUMERIC_WEIGHTS,
   Attributes,
   AttrBonus,
@@ -18,6 +19,7 @@ import {
 } from '@mud/shared';
 
 const ATTR_KEYS: AttrKey[] = ['constitution', 'spirit', 'perception', 'talent', 'comprehension', 'luck'];
+type PercentBonusAccumulator = Pick<NumericStats, 'maxHp' | 'maxQi' | 'physAtk' | 'spellAtk'>;
 
 function createAttributeSnapshot(initial = 0): Attributes {
   return {
@@ -147,6 +149,12 @@ export class AttrService {
     target: NumericStats,
   ): NumericStats {
     const template = PLAYER_REALM_NUMERIC_TEMPLATES[stage] ?? PLAYER_REALM_NUMERIC_TEMPLATES[DEFAULT_PLAYER_REALM_STAGE];
+    const percentBonuses: PercentBonusAccumulator = {
+      maxHp: 0,
+      maxQi: 0,
+      physAtk: 0,
+      spellAtk: 0,
+    };
     resetNumericStats(target);
     addPartialNumericStats(target, template.stats);
 
@@ -154,11 +162,14 @@ export class AttrService {
       const value = finalAttrs[key];
       if (value === 0) continue;
       this.applyAttrWeight(target, key, value);
+      this.accumulateAttrPercentBonus(percentBonuses, key, value);
     }
 
     for (const bonus of bonuses) {
       addPartialNumericStats(target, bonus.stats);
     }
+
+    this.applyPercentBonuses(target, percentBonuses);
 
     return target;
   }
@@ -188,5 +199,22 @@ export class AttrService {
     if (weight.lootRate !== undefined) target.lootRate += weight.lootRate * value;
     if (weight.rareLootRate !== undefined) target.rareLootRate += weight.rareLootRate * value;
     if (weight.moveSpeed !== undefined) target.moveSpeed += weight.moveSpeed * value;
+  }
+
+  private accumulateAttrPercentBonus(target: PercentBonusAccumulator, key: AttrKey, value: number): void {
+    const weight = ATTR_TO_PERCENT_NUMERIC_WEIGHTS[key];
+    if (!weight) return;
+
+    if (weight.maxHp !== undefined) target.maxHp += weight.maxHp * value;
+    if (weight.maxQi !== undefined) target.maxQi += weight.maxQi * value;
+    if (weight.physAtk !== undefined) target.physAtk += weight.physAtk * value;
+    if (weight.spellAtk !== undefined) target.spellAtk += weight.spellAtk * value;
+  }
+
+  private applyPercentBonuses(target: NumericStats, bonuses: PercentBonusAccumulator): void {
+    if (bonuses.maxHp !== 0) target.maxHp *= 1 + bonuses.maxHp / 100;
+    if (bonuses.maxQi !== 0) target.maxQi *= 1 + bonuses.maxQi / 100;
+    if (bonuses.physAtk !== 0) target.physAtk *= 1 + bonuses.physAtk / 100;
+    if (bonuses.spellAtk !== 0) target.spellAtk *= 1 + bonuses.spellAtk / 100;
   }
 }

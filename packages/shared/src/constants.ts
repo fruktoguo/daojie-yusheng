@@ -91,48 +91,55 @@ export const HP_PER_CONSTITUTION = 10;
 /** 基础最大HP */
 export const BASE_MAX_HP = 50;
 
-/** 六维到具体属性的初版权重 */
+type AttrPercentStatKey = 'maxHp' | 'maxQi' | 'physAtk' | 'spellAtk';
+
+/** 六维提供的原始点数加成 */
 export const ATTR_TO_NUMERIC_WEIGHTS: Record<AttrKey, PartialNumericStats> = {
   constitution: {
-    maxHp: 10,
-    physAtk: 1,
     physDef: 1,
-    hpRegenRate: 8,
   },
   spirit: {
-    maxQi: 12,
-    spellAtk: 1,
     spellDef: 1,
-    maxQiOutputPerTick: 1,
-    qiRegenRate: 10,
   },
   perception: {
-    hit: 2,
+    hit: 1,
     dodge: 1,
-    crit: 1,
-    cooldownSpeed: 1,
     moveSpeed: 1,
   },
   talent: {
-    maxHp: 4,
-    maxQi: 4,
-    physDef: 1,
-    spellDef: 1,
     resolvePower: 1,
   },
   comprehension: {
-    spellAtk: 1,
-    cooldownSpeed: 1,
-    auraPowerRate: 25,
-    techniqueExpRate: 50,
+    playerExpRate: 100,
+    techniqueExpRate: 100,
+    auraPowerRate: 1,
+    breakPower: 1,
   },
   luck: {
     crit: 1,
-    critDamage: 25,
-    breakPower: 1,
-    lootRate: 50,
-    rareLootRate: 20,
+    hit: 1,
+    dodge: 1,
+    lootRate: 100,
   },
+};
+
+/** 六维提供的百分比加成，按最终汇总值乘算 */
+export const ATTR_TO_PERCENT_NUMERIC_WEIGHTS: Record<AttrKey, Partial<Record<AttrPercentStatKey, number>>> = {
+  constitution: {
+    maxHp: 1,
+    physAtk: 1,
+  },
+  spirit: {
+    maxQi: 1,
+    spellAtk: 1,
+  },
+  perception: {},
+  talent: {
+    maxHp: 1,
+    maxQi: 1,
+  },
+  comprehension: {},
+  luck: {},
 };
 
 /** 修炼每 tick 获得经验 */
