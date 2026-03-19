@@ -5,6 +5,9 @@ export interface TargetingOverlayState {
   originX: number;
   originY: number;
   range: number;
+  shape?: 'single' | 'line' | 'area';
+  radius?: number;
+  affectedCells?: Array<{ x: number; y: number }>;
   hoverX?: number;
   hoverY?: number;
 }

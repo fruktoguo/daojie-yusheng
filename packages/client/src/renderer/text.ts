@@ -81,6 +81,7 @@ export class TextRenderer implements IRenderer {
   private pathCells: { x: number; y: number }[] = [];
   private pathKeys = new Set<string>();
   private targetingOverlay: TargetingOverlayState | null = null;
+  private targetingAffectedKeys = new Set<string>();
   private floatingTexts: FloatingText[] = [];
   private attackTrails: AttackTrail[] = [];
   private nextFloatingTextId = 1;
@@ -104,6 +105,7 @@ export class TextRenderer implements IRenderer {
 
   setTargetingOverlay(state: TargetingOverlayState | null) {
     this.targetingOverlay = state;
+    this.targetingAffectedKeys = new Set((state?.affectedCells ?? []).map((cell) => `${cell.x},${cell.y}`));
   }
 
   renderWorld(camera: Camera, tileCache: Map<string, Tile>, visibleTiles: Set<string>, playerX: number, playerY: number) {
@@ -173,10 +175,15 @@ export class TextRenderer implements IRenderer {
             const distanceSq = dx * dx + dy * dy;
             if (distanceSq > 0 && distanceSq <= this.targetingOverlay.range * this.targetingOverlay.range) {
               const hovered = gx === this.targetingOverlay.hoverX && gy === this.targetingOverlay.hoverY;
-              ctx.fillStyle = hovered ? 'rgba(208, 76, 56, 0.34)' : 'rgba(212, 164, 71, 0.18)';
+              const affected = this.targetingAffectedKeys.has(key);
+              ctx.fillStyle = affected
+                ? (hovered ? 'rgba(208, 76, 56, 0.42)' : 'rgba(198, 72, 48, 0.3)')
+                : (hovered ? 'rgba(208, 76, 56, 0.34)' : 'rgba(212, 164, 71, 0.18)');
               ctx.fillRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
-              ctx.strokeStyle = hovered ? 'rgba(166, 37, 31, 0.92)' : 'rgba(123, 91, 20, 0.55)';
-              ctx.lineWidth = hovered ? 2 : 1;
+              ctx.strokeStyle = affected
+                ? (hovered ? 'rgba(150, 28, 24, 0.98)' : 'rgba(171, 56, 36, 0.9)')
+                : (hovered ? 'rgba(166, 37, 31, 0.92)' : 'rgba(123, 91, 20, 0.55)');
+              ctx.lineWidth = hovered || affected ? 2 : 1;
               ctx.strokeRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3);
             }
           }

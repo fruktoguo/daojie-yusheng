@@ -17,7 +17,7 @@ import { ActionPanel } from './ui/panels/action-panel';
 import { GmPanel } from './ui/panels/gm-panel';
 import { WorldPanel } from './ui/panels/world-panel';
 import { adjustZoom, cycleZoom, getZoom } from './display';
-import { Direction, MapMeta, PlayerState, Tile, TileType, VisibleTile, S2C_Init, S2C_Tick, VIEW_RADIUS, TechniqueRealm } from '@mud/shared';
+import { Direction, MapMeta, PlayerState, SkillDef, Tile, TileType, VisibleTile, S2C_Init, S2C_Tick, VIEW_RADIUS, TechniqueRealm } from '@mud/shared';
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 const canvasHost = document.getElementById('game-stage') as HTMLElement;
@@ -63,7 +63,17 @@ const targetingBadgeEl = document.getElementById('map-targeting-indicator');
 const observeModalEl = document.getElementById('observe-modal');
 const observeModalBodyEl = document.getElementById('observe-modal-body');
 const observeModalSubtitleEl = document.getElementById('observe-modal-subtitle');
-let pendingTargetedAction: { actionId: string; actionName: string; targetMode?: string; range: number; hoverX?: number; hoverY?: number } | null = null;
+let pendingTargetedAction: {
+  actionId: string;
+  actionName: string;
+  targetMode?: string;
+  range: number;
+  shape?: 'single' | 'line' | 'area';
+  radius?: number;
+  maxTargets?: number;
+  hoverX?: number;
+  hoverY?: number;
+} | null = null;
 
 const TILE_TYPE_NAMES: Record<TileType, string> = {
   [TileType.Floor]: '地面',
@@ -97,16 +107,25 @@ function syncTargetingOverlay() {
     targetingBadgeEl?.classList.add('hidden');
     return;
   }
+  const affectedCells = computeAffectedCells(pendingTargetedAction);
   renderer.setTargetingOverlay({
     originX: myPlayer.x,
     originY: myPlayer.y,
     range: pendingTargetedAction.range,
+    shape: pendingTargetedAction.shape,
+    radius: pendingTargetedAction.radius,
+    affectedCells,
     hoverX: pendingTargetedAction.hoverX,
     hoverY: pendingTargetedAction.hoverY,
   });
   if (targetingBadgeEl) {
     const rangeLabel = pendingTargetedAction.actionId === 'client:observe' ? `视野 ${pendingTargetedAction.range}` : `射程 ${pendingTargetedAction.range}`;
-    targetingBadgeEl.textContent = `选定 ${pendingTargetedAction.actionName} 目标 · ${rangeLabel}`;
+    const shapeLabel = pendingTargetedAction.shape === 'line'
+      ? ` · 直线${pendingTargetedAction.maxTargets ? ` ${pendingTargetedAction.maxTargets}目标` : ''}`
+      : pendingTargetedAction.shape === 'area'
+        ? ` · 范围半径 ${Math.max(0, pendingTargetedAction.radius ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
+        : '';
+    targetingBadgeEl.textContent = `选定 ${pendingTargetedAction.actionName} 目标 · ${rangeLabel}${shapeLabel}`;
     targetingBadgeEl.classList.remove('hidden');
   }
 }
@@ -120,16 +139,31 @@ function cancelTargeting(showMessage = false) {
   }
 }
 
+function getSkillDefByActionId(actionId: string): SkillDef | null {
+  if (!myPlayer) return null;
+  for (const technique of myPlayer.techniques) {
+    const skill = technique.skills.find((entry) => entry.id === actionId);
+    if (skill) {
+      return skill;
+    }
+  }
+  return null;
+}
+
 function beginTargeting(actionId: string, actionName: string, targetMode?: string, range = 1) {
   if (pendingTargetedAction?.actionId === actionId) {
     cancelTargeting(true);
     return;
   }
+  const skill = getSkillDefByActionId(actionId);
   pendingTargetedAction = {
     actionId,
     actionName,
     targetMode,
     range: Math.max(1, range),
+    shape: skill?.targeting?.shape ?? 'single',
+    radius: skill?.targeting?.radius,
+    maxTargets: skill?.targeting?.maxTargets,
   };
   syncTargetingOverlay();
   if (actionId === 'client:observe') {
@@ -137,6 +171,58 @@ function beginTargeting(actionId: string, actionName: string, targetMode?: strin
     return;
   }
   showToast(`请选择 ${Math.max(1, range)} 格内目标，Esc 或右键取消`);
+}
+
+function computeAffectedCells(action: NonNullable<typeof pendingTargetedAction>): Array<{ x: number; y: number }> {
+  if (!myPlayer || action.hoverX === undefined || action.hoverY === undefined) {
+    return [];
+  }
+  if (!isTargetInRange(action.hoverX, action.hoverY, action.range)) {
+    return [];
+  }
+  if (action.shape === 'line') {
+    return getLineCells(myPlayer.x, myPlayer.y, action.hoverX, action.hoverY).slice(1);
+  }
+  if (action.shape === 'area') {
+    const cells: Array<{ x: number; y: number }> = [];
+    const radius = Math.max(0, action.radius ?? 1);
+    for (let dy = -radius; dy <= radius; dy += 1) {
+      for (let dx = -radius; dx <= radius; dx += 1) {
+        if (dx * dx + dy * dy > radius * radius) continue;
+        cells.push({ x: action.hoverX + dx, y: action.hoverY + dy });
+      }
+    }
+    return cells;
+  }
+  return [{ x: action.hoverX, y: action.hoverY }];
+}
+
+function getLineCells(startX: number, startY: number, endX: number, endY: number): Array<{ x: number; y: number }> {
+  const cells: Array<{ x: number; y: number }> = [];
+  let x = startX;
+  let y = startY;
+  const dx = Math.abs(endX - startX);
+  const dy = Math.abs(endY - startY);
+  const sx = startX < endX ? 1 : -1;
+  const sy = startY < endY ? 1 : -1;
+  let err = dx - dy;
+
+  while (true) {
+    cells.push({ x, y });
+    if (x === endX && y === endY) {
+      break;
+    }
+    const e2 = err * 2;
+    if (e2 > -dy) {
+      err -= dy;
+      x += sx;
+    }
+    if (e2 < dx) {
+      err += dx;
+      y += sy;
+    }
+  }
+  return cells;
 }
 
 function isTargetInRange(targetX: number, targetY: number, range: number): boolean {
@@ -344,6 +430,9 @@ socket.onAttrUpdate((data) => {
     techniquePanel.update(myPlayer.techniques, myPlayer.cultivatingTechId, myPlayer.numericStats?.spellAtk ?? 0);
   }
   attrPanel.update(data);
+  if (myPlayer) {
+    actionPanel.update(myPlayer.actions, myPlayer.autoBattle, myPlayer.autoRetaliate, myPlayer);
+  }
   refreshUiChrome();
 });
 socket.onInventoryUpdate((data) => {
@@ -368,7 +457,7 @@ socket.onActionsUpdate((data) => {
     myPlayer.autoBattle = data.autoBattle ?? inferAutoBattle(myPlayer.autoBattle, data.actions);
     myPlayer.autoRetaliate = data.autoRetaliate ?? inferAutoRetaliate(myPlayer.autoRetaliate !== false, data.actions);
   }
-  actionPanel.update(data.actions, data.autoBattle ?? myPlayer?.autoBattle, data.autoRetaliate ?? myPlayer?.autoRetaliate);
+  actionPanel.update(data.actions, data.autoBattle ?? myPlayer?.autoBattle, data.autoRetaliate ?? myPlayer?.autoRetaliate, myPlayer ?? undefined);
   refreshUiChrome();
 });
 socket.onQuestUpdate((data) => {
