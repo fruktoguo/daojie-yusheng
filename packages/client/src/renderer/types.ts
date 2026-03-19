@@ -1,9 +1,18 @@
 import { Tile } from '@mud/shared';
 import { Camera } from './camera';
 
+export interface TargetingOverlayState {
+  originX: number;
+  originY: number;
+  range: number;
+  hoverX?: number;
+  hoverY?: number;
+}
+
 export interface IRenderer {
   init(canvas: HTMLCanvasElement): void;
   clear(): void;
+  setTargetingOverlay(state: TargetingOverlayState | null): void;
   renderWorld(camera: Camera, tileCache: Map<string, Tile>, visibleTiles: Set<string>, playerX: number, playerY: number): void;
   updateEntities(list: { id: string; wx: number; wy: number; char: string; color: string; name?: string; kind?: string; hp?: number; maxHp?: number }[], movedId?: string, shiftX?: number, shiftY?: number): void;
   renderEntities(camera: Camera, progress?: number): void;

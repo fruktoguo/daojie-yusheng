@@ -24,7 +24,7 @@
       --font-body: 'Noto Serif SC', serif;
       --title-rail-size: 34px;
       --split-rail-size: 38px;
-      --map-rail-size: 34px;
+      --map-rail-size: 42px;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -372,11 +372,19 @@
     .hud-panel {
       display: grid;
       grid-template-columns: var(--title-rail-size) minmax(0, 1fr);
-      grid-template-rows: auto auto minmax(0, 1fr) auto;
+      grid-template-rows: auto auto auto minmax(0, 1fr);
       column-gap: 12px;
       row-gap: 12px;
       height: 100%;
+      min-height: 0;
       padding: 14px;
+    }
+    .hud-top-row {
+      grid-column: 2;
+      display: flex;
+      align-items: stretch;
+      justify-content: space-between;
+      gap: 12px;
     }
     .hud-identity {
       grid-column: 1;
@@ -386,8 +394,102 @@
       align-items: center;
       justify-content: center;
       gap: 10px;
-      padding: 4px 8px;
+      padding: 6px 8px;
       border-right: 1px solid var(--wash-ink);
+    }
+    .hud-realm-block {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 3px;
+      padding: 8px 12px;
+      border: 1px solid var(--wash-ink);
+      background: rgba(255,255,255,0.45);
+      min-width: 144px;
+    }
+    .hud-realm-label {
+      font-size: 11px;
+      color: var(--ink-grey);
+    }
+    .hud-realm-value {
+      font-size: 18px;
+      font-family: var(--font-heading-sub);
+      color: var(--ink-black);
+    }
+    .hud-realm-sub {
+      font-size: 12px;
+      color: var(--stamp-red);
+    }
+    .hud-top-spacer {
+      flex: 1 1 auto;
+    }
+    .hud-resource-bars {
+      grid-column: 2;
+      display: grid;
+      gap: 8px;
+    }
+    .hud-resource-bar {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .hud-resource-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .hud-resource-meter {
+      position: relative;
+      height: 8px;
+      border: 1px solid rgba(17, 17, 17, 0.12);
+      border-radius: 999px;
+      background: rgba(17, 17, 17, 0.08);
+      overflow: hidden;
+    }
+    .hud-resource-fill {
+      position: absolute;
+      inset: 0;
+      width: 0%;
+      background: linear-gradient(90deg, rgba(207,90,64,0.9), rgba(207,90,64,0.5));
+      transition: width 0.2s;
+    }
+    .hud-resource-meter--qi .hud-resource-fill {
+      background: linear-gradient(90deg, rgba(86,124,164,0.9), rgba(86,124,164,0.5));
+    }
+    .hud-resource-text {
+      font-size: 12px;
+      font-weight: bold;
+      color: var(--ink-black);
+    }
+    .hud-progress-shell {
+      grid-column: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .hud-progress-label {
+      font-size: 11px;
+      color: var(--ink-grey);
+    }
+    .hud-progress-track {
+      position: relative;
+      height: 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(17, 17, 17, 0.12);
+      background: rgba(17, 17, 17, 0.08);
+    }
+    .hud-progress-fill {
+      position: absolute;
+      inset: 0;
+      width: 0%;
+      background: linear-gradient(90deg, rgba(124,37,31,0.9), rgba(207,90,64,0.7));
+    }
+    .hud-progress-value {
+      font-size: 11px;
+      color: var(--ink-black);
+      text-align: right;
     }
     .hud-name {
       font-family: var(--font-heading-main);
@@ -411,6 +513,12 @@
       padding: 12px;
       border: 1px solid var(--wash-ink);
       background: rgba(255,255,255,0.45);
+    }
+    .hud-topline {
+      grid-column: 2;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 180px;
+      gap: 10px;
     }
     .hud-highlight-label {
       font-size: 11px;
@@ -455,11 +563,96 @@
       background: linear-gradient(90deg, #c53c3c, #e49b5d);
       transition: width 0.25s ease;
     }
+    .hud-bars {
+      grid-column: 2;
+      display: grid;
+      gap: 8px;
+    }
+    .hud-bar-card {
+      padding: 10px 12px;
+      border: 1px solid var(--wash-ink);
+      background: rgba(255,255,255,0.45);
+    }
+    .hud-bar-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 6px;
+      font-size: 11px;
+      color: var(--ink-grey);
+    }
+    .hud-bar-track {
+      position: relative;
+      height: 18px;
+      background: rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+      border: 1px solid rgba(0,0,0,0.06);
+    }
+    .hud-bar-fill {
+      width: 0;
+      height: 100%;
+      transition: width 0.25s ease;
+    }
+    .hud-bar-fill.hp {
+      background: linear-gradient(90deg, #9f2626, #d56a54);
+    }
+    .hud-bar-fill.qi {
+      background: linear-gradient(90deg, #285b78, #67a7b8);
+    }
+    .hud-bar-fill.cultivation {
+      background: linear-gradient(90deg, #7b5b14, #d4a447);
+    }
+    .hud-bar-text {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: bold;
+      color: var(--ink-black);
+      text-shadow: 0 1px 0 rgba(255,255,255,0.7);
+    }
+    .hud-toggle-stack {
+      display: grid;
+      gap: 8px;
+    }
+    .hud-toggle-card {
+      padding: 10px 12px;
+      border: 1px solid var(--wash-ink);
+      background: rgba(255,255,255,0.42);
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, transform 0.2s;
+      text-align: left;
+    }
+    .hud-toggle-card:hover {
+      background: rgba(255,255,255,0.6);
+      border-color: rgba(0,0,0,0.12);
+    }
+    .hud-toggle-card.active {
+      box-shadow: inset 0 -2px 0 var(--stamp-red);
+      background: rgba(255,255,255,0.68);
+    }
+    .hud-toggle-card:active {
+      transform: translateY(1px);
+    }
+    .hud-toggle-title {
+      font-size: 11px;
+      color: var(--ink-grey);
+      margin-bottom: 4px;
+    }
+    .hud-toggle-value {
+      font-family: var(--font-heading-sub);
+      font-size: 16px;
+      color: var(--ink-black);
+    }
     .hud-grid {
       grid-column: 2;
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 8px;
+      flex: 1 1 auto;
+      align-content: start;
     }
     .hud-row {
       display: flex;
@@ -481,25 +674,28 @@
       font-size: 14px;
       word-break: break-word;
     }
-    .hud-panel > .hud-row:last-child {
-      grid-column: 2;
-    }
-
     .map-shell {
       display: grid;
-      grid-template-columns: var(--map-rail-size) minmax(0, 1fr);
+      grid-template-columns: var(--map-rail-size) minmax(0, 1fr) var(--map-rail-size);
       height: 100%;
       min-height: 0;
     }
-    .map-tools {
+    .map-side-rail {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 10px;
-      padding: 12px 6px;
+      gap: 14px;
+      padding: 12px 8px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.38), rgba(255,255,255,0.08));
+    }
+    .map-side-rail.left {
+      grid-column: 1;
       border-right: 1px solid var(--wash-ink);
-      background: linear-gradient(90deg, rgba(255,255,255,0.38), rgba(255,255,255,0));
+    }
+    .map-side-rail.right {
+      grid-column: 3;
+      border-left: 1px solid var(--wash-ink);
     }
     .map-zoom-btn {
       width: 24px;
@@ -517,13 +713,56 @@
       color: var(--paper-light);
     }
     .map-zoom-value {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
       font-family: var(--font-heading-sub);
-      font-size: 12px;
+      font-size: 14px;
       color: var(--ink-grey);
-      writing-mode: vertical-rl;
-      text-orientation: mixed;
+      line-height: 1.1;
+    }
+    .map-zoom-value span {
+      display: block;
+    }
+    .map-tool-controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .map-tick-rate {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+    }
+    .map-tick-rate-char,
+    .map-tick-rate-number {
+      display: block;
+      line-height: 1;
+      text-align: center;
+    }
+    .map-tick-rate-char {
+      font-family: var(--font-heading-main);
+      font-size: 14px;
+      color: var(--ink-grey);
+    }
+    .map-tick-rate-value {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+    .map-tick-rate-number {
+      font-family: var(--font-heading-main);
+      font-size: 22px;
+      color: var(--ink-black);
     }
     #game-stage {
+      grid-column: 2;
       position: relative;
       width: 100%;
       height: 100%;
@@ -536,6 +775,133 @@
       display: block;
       width: 100%;
       height: 100%;
+    }
+    .map-targeting-indicator {
+      position: absolute;
+      left: 12px;
+      top: 12px;
+      z-index: 3;
+      padding: 6px 10px;
+      border: 1px solid rgba(34, 26, 19, 0.18);
+      background: rgba(248, 248, 245, 0.92);
+      color: var(--ink-black);
+      font-size: 12px;
+      font-family: var(--font-heading-sub);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+      pointer-events: none;
+    }
+    .map-targeting-indicator.hidden {
+      display: none;
+    }
+    .observe-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 120;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(12, 10, 8, 0.42);
+      backdrop-filter: blur(2px);
+    }
+    .observe-modal.hidden {
+      display: none;
+    }
+    .observe-modal-card {
+      width: min(520px, 100%);
+      max-height: min(76vh, 720px);
+      overflow-y: auto;
+      padding: 18px 18px 16px;
+      background: rgba(245, 245, 241, 0.97);
+      border: 1.5px solid var(--ink-black);
+      box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.12);
+    }
+    .observe-modal-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--wash-ink);
+    }
+    .observe-modal-title {
+      font-family: var(--font-heading-sub);
+      font-size: 20px;
+      color: var(--ink-black);
+    }
+    .observe-modal-subtitle {
+      font-size: 12px;
+      color: var(--ink-grey);
+    }
+    .observe-modal-hint {
+      font-size: 11px;
+      color: var(--ink-grey);
+    }
+    .observe-modal-section + .observe-modal-section {
+      margin-top: 14px;
+    }
+    .observe-modal-section-title {
+      font-family: var(--font-heading-sub);
+      font-size: 15px;
+      color: var(--ink-black);
+      padding-bottom: 4px;
+      margin-bottom: 8px;
+      border-bottom: 1px solid var(--wash-ink);
+    }
+    .observe-modal-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .observe-modal-row {
+      padding: 9px 10px;
+      border: 1px solid var(--wash-ink);
+      background: rgba(255,255,255,0.55);
+    }
+    .observe-modal-label {
+      display: block;
+      font-size: 11px;
+      color: var(--ink-grey);
+      margin-bottom: 4px;
+    }
+    .observe-modal-value {
+      display: block;
+      font-size: 14px;
+      font-weight: bold;
+      color: var(--ink-black);
+      word-break: break-word;
+      line-height: 1.5;
+    }
+    .observe-entity-list {
+      display: grid;
+      gap: 8px;
+    }
+    .observe-entity-card {
+      padding: 10px;
+      border: 1px solid var(--wash-ink);
+      background: rgba(255,255,255,0.55);
+    }
+    .observe-entity-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .observe-entity-name {
+      font-family: var(--font-heading-sub);
+      font-size: 15px;
+      color: var(--ink-black);
+    }
+    .observe-entity-kind {
+      font-size: 11px;
+      color: var(--ink-grey);
+    }
+    .observe-entity-line {
+      font-size: 12px;
+      color: var(--ink-dark);
+      line-height: 1.6;
     }
 
     /* ====== 滚动条 ====== */
@@ -780,53 +1146,156 @@
       font-size: 12px;
       color: var(--ink-grey);
     }
+    .attr-layout {
+      display: grid;
+      gap: 14px;
+    }
+    .attr-radar-shell {
+      display: grid;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid var(--wash-ink);
+      background: linear-gradient(180deg, rgba(255,255,255,0.66), rgba(255,255,255,0.38));
+    }
+    .attr-radar-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .attr-radar-title {
+      font-family: var(--font-heading-sub);
+      font-size: 16px;
+      color: var(--ink-black);
+    }
+    .attr-radar-scale {
+      font-size: 11px;
+      color: var(--ink-grey);
+    }
+    .attr-radar {
+      width: 100%;
+      max-width: 320px;
+      margin: 0 auto;
+      display: block;
+      overflow: visible;
+    }
+    .attr-radar-ring {
+      fill: none;
+      stroke: rgba(34, 26, 19, 0.14);
+      stroke-width: 1;
+    }
+    .attr-radar-axis {
+      stroke: rgba(34, 26, 19, 0.14);
+      stroke-width: 1;
+    }
+    .attr-radar-area {
+      fill: rgba(124, 37, 31, 0.14);
+      stroke: rgba(124, 37, 31, 0.78);
+      stroke-width: 2;
+    }
+    .attr-radar-node circle {
+      fill: var(--stamp-red);
+      stroke: rgba(255,255,255,0.9);
+      stroke-width: 1.5;
+    }
+    .attr-radar-label {
+      font-family: var(--font-heading-sub);
+      font-size: 12px;
+      fill: var(--ink-black);
+    }
+    .attr-radar-value {
+      font-size: 11px;
+      fill: var(--ink-grey);
+    }
+    .attr-note {
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--ink-grey);
+    }
+    .attr-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .attr-grid.wide {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .attr-mini {
+      padding: 9px 10px;
+      border: 1px solid var(--wash-ink);
+      background: rgba(255,255,255,0.46);
+    }
+    .attr-mini-label {
+      font-size: 11px;
+      color: var(--ink-grey);
+      margin-bottom: 4px;
+    }
+    .attr-mini-value {
+      font-size: 15px;
+      font-weight: bold;
+      color: var(--ink-black);
+    }
+    .attr-mini-sub {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--ink-grey);
+      line-height: 1.45;
+    }
 
-    /* 物品格子 */
-    .item-slot {
+    /* 背包格子 */
+    .inventory-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .inventory-cell {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 8px;
+      min-height: 122px;
+      padding: 10px;
+      border: 1px solid var(--wash-ink);
+      background: linear-gradient(180deg, rgba(255,255,255,0.72), rgba(247,244,237,0.92));
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.5);
+      transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    }
+    .inventory-cell:hover {
+      transform: translateY(-1px);
+      border-color: rgba(0,0,0,0.15);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.65), 0 8px 18px rgba(0,0,0,0.08);
+    }
+    .inventory-cell-head {
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
-      gap: 12px;
-      padding: 10px;
-      margin-bottom: 6px;
-      background: var(--paper-white);
-      border: 1px solid var(--wash-ink);
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    .item-slot:hover { background: var(--highlight); }
-    .item-copy { flex: 1; min-width: 0; }
-    .item-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
       gap: 8px;
     }
-    .item-name { font-size: 13px; color: var(--ink-black); }
-    .item-count { font-size: 12px; color: var(--ink-grey); }
-    .item-meta-row {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      margin: 6px 0 4px;
-    }
-    .item-type-tag {
-      padding: 1px 6px;
-      border: 1px solid var(--wash-ink);
-      font-size: 11px;
-      color: var(--ink-dark);
-      background: rgba(255,255,255,0.72);
-    }
-    .item-type-tag.subtle {
+    .inventory-cell-type {
+      font-size: 10px;
+      line-height: 1.2;
       color: var(--ink-grey);
     }
-    .item-desc,
-    .item-bonus {
+    .inventory-cell-count {
       font-size: 12px;
-      line-height: 1.45;
-      color: var(--ink-grey);
+      font-weight: bold;
+      color: var(--ink-black);
     }
-    .item-actions { display: flex; gap: 4px; }
+    .inventory-cell-name {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-family: var(--font-heading-sub);
+      font-size: 18px;
+      color: var(--ink-black);
+      letter-spacing: 1px;
+      min-height: 42px;
+    }
+    .inventory-cell-actions {
+      display: flex;
+      justify-content: space-between;
+      gap: 6px;
+    }
 
     .small-btn {
       padding: 2px 8px;
@@ -842,6 +1311,14 @@
     .small-btn:hover {
       background: var(--ink-black);
       color: var(--paper-light);
+    }
+    .small-btn.ghost {
+      border-color: rgba(34, 26, 19, 0.18);
+      color: var(--ink-grey);
+    }
+    .small-btn.ghost:hover {
+      background: rgba(34, 26, 19, 0.08);
+      color: var(--ink-black);
     }
     .small-btn.danger { border-color: var(--stamp-red); color: var(--stamp-red); }
     .small-btn.danger:hover { background: var(--stamp-red); color: var(--paper-light); }
@@ -997,6 +1474,16 @@
     }
     .action-name { font-size: 13px; color: var(--ink-black); }
     .action-type { font-size: 11px; color: var(--ink-grey); }
+    .action-shortcut-tag {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 1px 6px;
+      border: 1px solid rgba(34, 26, 19, 0.14);
+      background: rgba(255,255,255,0.72);
+      font-size: 10px;
+      color: var(--stamp-red);
+      vertical-align: middle;
+    }
     .action-desc {
       margin-top: 4px;
       font-size: 12px;
@@ -1005,6 +1492,9 @@
     }
     .action-cta {
       flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
     .action-cd { font-size: 12px; color: var(--stamp-red); }
     .action-tab-bar {
@@ -1218,6 +1708,12 @@
       font-size: 12px;
       color: var(--ink-grey);
     }
+    .action-card-side {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
     .gm-form-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1240,21 +1736,21 @@
     }
 
     @media (max-width: 1180px) {
+      .hud-top-row,
       .hud-resources,
       .hud-grid,
       .intel-grid,
       .world-hero {
         grid-template-columns: 1fr;
       }
-      .section-shell,
-      .hud-panel {
+      .section-shell {
         grid-template-columns: max(28px, calc(var(--title-rail-size) - 6px)) minmax(0, 1fr);
       }
       .split-tabs-shell {
         grid-template-columns: max(30px, calc(var(--split-rail-size) - 4px)) minmax(0, 1fr);
       }
       .map-shell {
-        grid-template-columns: max(28px, calc(var(--map-rail-size) - 4px)) minmax(0, 1fr);
+        grid-template-columns: minmax(0, 1fr) max(56px, calc(var(--map-rail-size) - 4px));
       }
       .chat-tabs .tab-btn {
         padding: 9px 8px;
@@ -1279,14 +1775,12 @@
         grid-template-rows: auto;
       }
       .section-shell,
-      .hud-panel,
       .split-tabs-shell,
       .map-shell {
         grid-template-columns: 1fr;
         grid-template-rows: auto auto minmax(0, 1fr) auto;
       }
-      .section-header,
-      .hud-identity {
+      .section-header {
         grid-column: 1;
         grid-row: auto;
         flex-direction: row;
@@ -1305,7 +1799,7 @@
       .hud-name,
       .hud-title,
       .split-tab-btn,
-      .map-zoom-value {
+      .map-tick-rate {
         writing-mode: horizontal-tb;
         text-orientation: mixed;
       }
@@ -1329,12 +1823,39 @@
       .map-shell {
         grid-template-rows: auto minmax(0, 1fr);
       }
-      .split-tabs-rail,
-      .map-tools {
+      .hud-panel {
+        padding: 12px;
+      }
+      .hud-top-row {
+        flex-direction: column;
+      }
+      .hud-auto-column {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        min-width: 0;
+      }
+      .hud-grid,
+      .attr-grid.wide {
+        grid-template-columns: 1fr;
+      }
+      .split-tabs-rail {
         flex-direction: row;
         border-right: none;
         border-bottom: 1px solid var(--wash-ink);
         padding: 8px;
+      }
+      .map-side-rail {
+        flex-direction: row;
+        justify-content: space-between;
+        border: none;
+        border-bottom: 1px solid var(--wash-ink);
+        padding: 8px 12px;
+      }
+      .map-side-rail.right {
+        border-top: 1px solid var(--wash-ink);
+        border-bottom: none;
+      }
+      .map-tool-controls {
+        flex-direction: row;
       }
       .split-tab-btn {
         border-bottom: none;
@@ -1411,23 +1932,41 @@
               <div class="hud-name" id="hud-name">修行者</div>
               <div class="hud-title" id="hud-title">无号散修</div>
             </div>
-            <div class="hud-highlight">
-              <div class="hud-highlight-label">当前境界</div>
-              <div class="hud-highlight-value" id="hud-realm">-</div>
-              <div class="hud-meter"><div class="hud-meter-fill" id="hud-hp-bar"></div></div>
+            <div class="hud-top-row">
+              <div class="hud-realm-block">
+                <div class="hud-realm-label">境界</div>
+                <div class="hud-realm-value" id="hud-realm">-</div>
+                <div class="hud-realm-sub" id="hud-realm-sub">-</div>
+              </div>
+              <div class="hud-top-spacer"></div>
             </div>
-            <div class="hud-resources">
-              <div class="hud-resource-card">
-                <div class="hud-resource-label">生命值</div>
-                <div class="hud-resource-value" id="hud-hp">0/0</div>
+            <div class="hud-resource-bars">
+              <div class="hud-resource-bar">
+                <div class="hud-resource-head">
+                  <div class="hud-resource-label">生命值</div>
+                  <div class="hud-resource-text" id="hud-hp-text">0/0</div>
+                </div>
+                <div class="hud-resource-meter">
+                  <div class="hud-resource-fill" id="hud-hp-bar"></div>
+                </div>
               </div>
-              <div class="hud-resource-card">
-                <div class="hud-resource-label">灵力</div>
-                <div class="hud-resource-value" id="hud-qi">0</div>
+              <div class="hud-resource-bar">
+                <div class="hud-resource-head">
+                  <div class="hud-resource-label">灵力</div>
+                  <div class="hud-resource-text" id="hud-qi-text">0/0</div>
+                </div>
+                <div class="hud-resource-meter hud-resource-meter--qi">
+                  <div class="hud-resource-fill" id="hud-qi-bar"></div>
+                </div>
               </div>
-              <div class="hud-resource-card">
-                <div class="hud-resource-label">体力</div>
-                <div class="hud-resource-value" id="hud-stamina">0</div>
+            </div>
+            <div class="hud-progress-shell">
+              <div class="hud-resource-head">
+                <div class="hud-progress-label">修为进度</div>
+                <div class="hud-progress-value" id="hud-cultivate">-</div>
+              </div>
+              <div class="hud-progress-track">
+                <div class="hud-progress-fill" id="hud-cultivate-bar"></div>
               </div>
             </div>
             <div class="hud-grid">
@@ -1440,25 +1979,13 @@
                 <span class="hud-value" id="hud-pos">(0, 0)</span>
               </div>
               <div class="hud-row">
-                <span class="hud-label">修炼</span>
-                <span class="hud-value" id="hud-cultivate">-</span>
-              </div>
-              <div class="hud-row">
-                <span class="hud-label">Tick</span>
-                <span class="hud-value" id="hud-tick">-</span>
-              </div>
-              <div class="hud-row">
-                <span class="hud-label">自动战斗</span>
-                <span class="hud-value" id="hud-auto-battle">关闭</span>
+                <span class="hud-label">当前目标</span>
+                <span class="hud-value" id="hud-objective">暂无</span>
               </div>
               <div class="hud-row">
                 <span class="hud-label">威胁</span>
                 <span class="hud-value" id="hud-threat">平稳</span>
               </div>
-            </div>
-            <div class="hud-row">
-              <span class="hud-label">当前目标</span>
-              <span class="hud-value" id="hud-objective">暂无</span>
             </div>
           </div>
         </div>
@@ -1469,16 +1996,11 @@
           <div class="section-header">
             <div>
               <div class="section-title">修行卷</div>
-              <div class="section-subtitle">属性与任务</div>
+              <div class="section-subtitle">属性总览</div>
             </div>
           </div>
-          <div class="section-tabs">
-            <button class="tab-btn active" data-tab="attr" type="button">属性</button>
-            <button class="tab-btn" data-tab="quest" type="button">任务</button>
-          </div>
           <div class="section-body">
-            <div class="tab-pane active" id="pane-attr" data-pane="attr"></div>
-            <div class="tab-pane" id="pane-quest" data-pane="quest"></div>
+            <div class="tab-pane active" id="pane-attr"></div>
           </div>
         </div>
       </section>
@@ -1487,14 +2009,32 @@
     <main id="layout-center" class="layout-column">
       <section class="layout-section map-section">
         <div class="map-shell">
-          <div class="map-tools">
-            <button id="zoom-in" class="map-zoom-btn" type="button">+</button>
-            <div id="zoom-level" class="map-zoom-value">1x</div>
-            <button id="zoom-out" class="map-zoom-btn" type="button">-</button>
+          <div class="map-side-rail left">
+            <div class="map-tool-controls">
+              <button id="zoom-in" class="map-zoom-btn" type="button">+</button>
+              <div id="zoom-level" class="map-zoom-value"><span>x</span><span>1</span></div>
+              <button id="zoom-out" class="map-zoom-btn" type="button">-</button>
+            </div>
           </div>
           <div id="game-stage">
+            <div id="map-targeting-indicator" class="map-targeting-indicator hidden"></div>
             <canvas id="game-canvas"></canvas>
           </div>
+        <div class="map-side-rail right">
+          <div id="map-tick-rate" class="map-tick-rate">
+            <span class="map-tick-rate-char">时</span>
+            <span class="map-tick-rate-char">间</span>
+            <span class="map-tick-rate-char">流</span>
+            <span class="map-tick-rate-char">速</span>
+            <span class="map-tick-rate-value" id="map-tick-rate-value">
+              <span class="map-tick-rate-number" data-part="int">1</span>
+              <span class="map-tick-rate-number" data-part="dot">.</span>
+              <span class="map-tick-rate-number" data-part="frac-a">0</span>
+              <span class="map-tick-rate-number" data-part="frac-b">0</span>
+            </span>
+            <span class="map-tick-rate-char">秒</span>
+          </div>
+        </div>
         </div>
       </section>
 
@@ -1561,12 +2101,14 @@
             <button class="tab-btn active" data-tab="inventory" type="button">背包</button>
             <button class="tab-btn" data-tab="equipment" type="button">装备</button>
             <button class="tab-btn" data-tab="technique" type="button">功法</button>
+            <button class="tab-btn" data-tab="quest" type="button">任务</button>
             <button class="tab-btn" data-tab="gm" type="button">GM</button>
           </div>
           <div class="section-body">
             <div class="tab-pane active" id="pane-inventory" data-pane="inventory"></div>
             <div class="tab-pane" id="pane-equipment" data-pane="equipment"></div>
             <div class="tab-pane" id="pane-technique" data-pane="technique"></div>
+            <div class="tab-pane" id="pane-quest" data-pane="quest"></div>
             <div class="tab-pane" id="pane-gm" data-pane="gm"></div>
           </div>
         </div>
@@ -1577,7 +2119,7 @@
           <div class="section-header">
             <div>
               <div class="section-title">行动栏</div>
-              <div class="section-subtitle">常驻操作与战斗姿态</div>
+              <div class="section-subtitle">常驻操作与技能切换</div>
             </div>
           </div>
           <div class="section-body">
@@ -1586,6 +2128,19 @@
         </div>
       </section>
     </aside>
+  </div>
+
+  <div id="observe-modal" class="observe-modal hidden" aria-hidden="true">
+    <div class="observe-modal-card">
+      <div class="observe-modal-head">
+        <div>
+          <div class="observe-modal-title">观察</div>
+          <div id="observe-modal-subtitle" class="observe-modal-subtitle"></div>
+        </div>
+        <div class="observe-modal-hint">点击任意位置关闭</div>
+      </div>
+      <div id="observe-modal-body"></div>
+    </div>
   </div>
 
   <div id="debug-panel" class="hidden">

@@ -17,13 +17,29 @@ import { ActionPanel } from './ui/panels/action-panel';
 import { GmPanel } from './ui/panels/gm-panel';
 import { WorldPanel } from './ui/panels/world-panel';
 import { adjustZoom, cycleZoom, getZoom } from './display';
-import { Direction, MapMeta, PlayerState, Tile, VisibleTile, S2C_Init, S2C_Tick, VIEW_RADIUS, TechniqueRealm } from '@mud/shared';
+import { Direction, MapMeta, PlayerState, Tile, TileType, VisibleTile, S2C_Init, S2C_Tick, VIEW_RADIUS, TechniqueRealm } from '@mud/shared';
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 const canvasHost = document.getElementById('game-stage') as HTMLElement;
 const zoomInBtn = document.getElementById('zoom-in') as HTMLButtonElement | null;
 const zoomOutBtn = document.getElementById('zoom-out') as HTMLButtonElement | null;
 const zoomLevelEl = document.getElementById('zoom-level');
+const tickRateEl = document.getElementById('map-tick-rate');
+const tickRateValueEl = document.getElementById('map-tick-rate-value');
+const tickRateIntEl = tickRateValueEl?.querySelector<HTMLElement>('[data-part="int"]');
+const tickRateDotEl = tickRateValueEl?.querySelector<HTMLElement>('[data-part="dot"]');
+const tickRateFracAEl = tickRateValueEl?.querySelector<HTMLElement>('[data-part="frac-a"]');
+const tickRateFracBEl = tickRateValueEl?.querySelector<HTMLElement>('[data-part="frac-b"]');
+
+function renderTickRate(seconds: number) {
+  const [integer, fraction] = seconds.toFixed(2).split('.');
+  if (tickRateIntEl) tickRateIntEl.textContent = integer;
+  if (tickRateDotEl) tickRateDotEl.textContent = '.';
+  if (tickRateFracAEl) tickRateFracAEl.textContent = fraction[0] ?? '0';
+  if (tickRateFracBEl) tickRateFracBEl.textContent = fraction[1] ?? '0';
+}
+
+renderTickRate(1);
 const socket = new SocketManager();
 const camera = new Camera();
 const renderer = new TextRenderer();
@@ -43,7 +59,197 @@ const questPanel = new QuestPanel();
 const actionPanel = new ActionPanel();
 const gmPanel = new GmPanel();
 const worldPanel = new WorldPanel();
-let pendingTargetedAction: { actionId: string; targetMode?: string } | null = null;
+const targetingBadgeEl = document.getElementById('map-targeting-indicator');
+const observeModalEl = document.getElementById('observe-modal');
+const observeModalBodyEl = document.getElementById('observe-modal-body');
+const observeModalSubtitleEl = document.getElementById('observe-modal-subtitle');
+let pendingTargetedAction: { actionId: string; actionName: string; targetMode?: string; range: number; hoverX?: number; hoverY?: number } | null = null;
+
+const TILE_TYPE_NAMES: Record<TileType, string> = {
+  [TileType.Floor]: '地面',
+  [TileType.Wall]: '墙体',
+  [TileType.Door]: '门扉',
+  [TileType.Portal]: '传送阵',
+  [TileType.Grass]: '草地',
+  [TileType.Water]: '水域',
+  [TileType.Tree]: '树木',
+  [TileType.Stone]: '岩石',
+};
+
+const ENTITY_KIND_NAMES: Record<string, string> = {
+  player: '修士',
+  monster: '妖兽',
+  npc: '人物',
+};
+
+function escapeHtml(input: string): string {
+  return input
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function syncTargetingOverlay() {
+  if (!myPlayer || !pendingTargetedAction) {
+    renderer.setTargetingOverlay(null);
+    targetingBadgeEl?.classList.add('hidden');
+    return;
+  }
+  renderer.setTargetingOverlay({
+    originX: myPlayer.x,
+    originY: myPlayer.y,
+    range: pendingTargetedAction.range,
+    hoverX: pendingTargetedAction.hoverX,
+    hoverY: pendingTargetedAction.hoverY,
+  });
+  if (targetingBadgeEl) {
+    const rangeLabel = pendingTargetedAction.actionId === 'client:observe' ? `视野 ${pendingTargetedAction.range}` : `射程 ${pendingTargetedAction.range}`;
+    targetingBadgeEl.textContent = `选定 ${pendingTargetedAction.actionName} 目标 · ${rangeLabel}`;
+    targetingBadgeEl.classList.remove('hidden');
+  }
+}
+
+function cancelTargeting(showMessage = false) {
+  if (!pendingTargetedAction) return;
+  pendingTargetedAction = null;
+  syncTargetingOverlay();
+  if (showMessage) {
+    showToast('已取消目标选择');
+  }
+}
+
+function beginTargeting(actionId: string, actionName: string, targetMode?: string, range = 1) {
+  if (pendingTargetedAction?.actionId === actionId) {
+    cancelTargeting(true);
+    return;
+  }
+  pendingTargetedAction = {
+    actionId,
+    actionName,
+    targetMode,
+    range: Math.max(1, range),
+  };
+  syncTargetingOverlay();
+  if (actionId === 'client:observe') {
+    showToast('请选择当前视野内的目标格，Esc 或右键取消');
+    return;
+  }
+  showToast(`请选择 ${Math.max(1, range)} 格内目标，Esc 或右键取消`);
+}
+
+function isTargetInRange(targetX: number, targetY: number, range: number): boolean {
+  if (!myPlayer) return false;
+  const dx = targetX - myPlayer.x;
+  const dy = targetY - myPlayer.y;
+  return dx * dx + dy * dy <= range * range;
+}
+
+function resolveTargetRefForAction(
+  target: { x: number; y: number; entityId?: string; entityKind?: string },
+  targetMode?: string,
+): string | null {
+  if (targetMode === 'entity') {
+    return target.entityKind === 'monster' && target.entityId ? target.entityId : null;
+  }
+  if (targetMode === 'tile') {
+    return `tile:${target.x}:${target.y}`;
+  }
+  if (target.entityKind === 'monster' && target.entityId) {
+    return target.entityId;
+  }
+  return `tile:${target.x}:${target.y}`;
+}
+
+function getTileKey(x: number, y: number): string {
+  return `${x},${y}`;
+}
+
+function getVisibleTileAt(x: number, y: number): Tile | null {
+  const key = getTileKey(x, y);
+  if (!currentVisibleTiles.has(key)) return null;
+  return tileCache.get(key) ?? null;
+}
+
+function hideObserveModal(): void {
+  observeModalEl?.classList.add('hidden');
+  observeModalEl?.setAttribute('aria-hidden', 'true');
+}
+
+function buildObservationRows(rows: Array<{ label: string; value: string }>): string {
+  return rows
+    .map((row) => `<div class="observe-modal-row"><span class="observe-modal-label">${escapeHtml(row.label)}</span><span class="observe-modal-value">${escapeHtml(row.value)}</span></div>`)
+    .join('');
+}
+
+function buildObservedEntitiesHtml(entities: typeof latestEntities): string {
+  if (entities.length === 0) {
+    return '<div class="observe-modal-row"><span class="observe-modal-label">实体</span><span class="observe-modal-value">该格暂无实体</span></div>';
+  }
+  return `<div class="observe-entity-list">${entities.map((entity) => {
+    const lines = [
+      `类型：${ENTITY_KIND_NAMES[entity.kind ?? ''] ?? '未知'}`,
+      `标识：${entity.id}`,
+      typeof entity.hp === 'number' && typeof entity.maxHp === 'number'
+        ? `生命：${Math.max(0, Math.round(entity.hp))} / ${Math.max(0, Math.round(entity.maxHp))}`
+        : '生命：未知',
+      `坐标：(${entity.wx}, ${entity.wy})`,
+    ];
+    return `<div class="observe-entity-card">
+      <div class="observe-entity-head">
+        <span class="observe-entity-name">${escapeHtml(entity.name ?? entity.id)}</span>
+        <span class="observe-entity-kind">${escapeHtml(ENTITY_KIND_NAMES[entity.kind ?? ''] ?? '未知')}</span>
+      </div>
+      ${lines.map((line) => `<div class="observe-entity-line">${escapeHtml(line)}</div>`).join('')}
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function showObserveModal(targetX: number, targetY: number): void {
+  const tile = getVisibleTileAt(targetX, targetY);
+  if (!tile) {
+    showToast('只能观察当前视野内的格子');
+    return;
+  }
+
+  const entities = latestEntities.filter((entity) => entity.wx === targetX && entity.wy === targetY);
+  const terrainRows = [
+    { label: '地面类型', value: TILE_TYPE_NAMES[tile.type] ?? tile.type },
+    { label: '是否可通行', value: tile.walkable ? '可通行' : '不可通行' },
+    { label: '是否阻挡视线', value: tile.blocksSight ? '会阻挡' : '不会阻挡' },
+  ];
+  if (typeof tile.hp === 'number' && typeof tile.maxHp === 'number') {
+    terrainRows.push({
+      label: tile.type === TileType.Wall ? '墙体耐久' : '结构耐久',
+      value: `${Math.max(0, Math.round(tile.hp))} / ${Math.max(0, Math.round(tile.maxHp))}${tile.hpVisible ? '' : '（未显式显示）'}`,
+    });
+  }
+  if (tile.occupiedBy) {
+    terrainRows.push({ label: '占用标识', value: tile.occupiedBy });
+  }
+  if (tile.modifiedAt) {
+    terrainRows.push({ label: '最近变动', value: `第 ${tile.modifiedAt} tick` });
+  }
+
+  if (observeModalSubtitleEl) {
+    observeModalSubtitleEl.textContent = `坐标 (${targetX}, ${targetY})`;
+  }
+  if (observeModalBodyEl) {
+    observeModalBodyEl.innerHTML = `
+      <section class="observe-modal-section">
+        <div class="observe-modal-section-title">地块信息</div>
+        <div class="observe-modal-grid">${buildObservationRows(terrainRows)}</div>
+      </section>
+      <section class="observe-modal-section">
+        <div class="observe-modal-section-title">实体信息</div>
+        ${buildObservedEntitiesHtml(entities)}
+      </section>
+    `;
+  }
+  observeModalEl?.classList.remove('hidden');
+  observeModalEl?.setAttribute('aria-hidden', 'false');
+}
 
 // 面板回调绑定
 inventoryPanel.setCallbacks(
@@ -58,13 +264,13 @@ techniquePanel.setCallbacks(
   (techId) => socket.sendCultivate(techId),
 );
 actionPanel.setCallbacks(
-  (actionId, requiresTarget, targetMode) => {
+  (actionId, requiresTarget, targetMode, range, actionName) => {
     if (requiresTarget) {
-      pendingTargetedAction = { actionId, targetMode };
-      showToast('请选择技能目标');
+      beginTargeting(actionId, actionName ?? actionId, targetMode, actionId === 'client:observe' ? getViewRadius() : (range ?? 1));
       return;
     }
-    pendingTargetedAction = null;
+    cancelTargeting();
+    hideObserveModal();
     socket.sendAction(actionId);
   },
 );
@@ -109,12 +315,28 @@ zoomOutBtn?.addEventListener('click', () => {
   }
 });
 
+document.getElementById('hud-toggle-auto-battle')?.addEventListener('click', () => {
+  socket.sendAction('toggle:auto_battle');
+});
+document.getElementById('hud-toggle-auto-retaliate')?.addEventListener('click', () => {
+  socket.sendAction('toggle:auto_retaliate');
+});
+document.querySelector<HTMLElement>('[data-tab="gm"]')?.addEventListener('click', () => {
+  socket.sendGmGetState();
+  lastGmSyncAt = performance.now();
+});
+
 // S2C 更新回调
 socket.onAttrUpdate((data) => {
   if (myPlayer) {
     myPlayer.baseAttrs = data.baseAttrs;
     myPlayer.bonuses = data.bonuses;
+    myPlayer.finalAttrs = data.finalAttrs;
+    myPlayer.numericStats = data.numericStats;
+    myPlayer.ratioDivisors = data.ratioDivisors;
     myPlayer.maxHp = data.maxHp;
+    myPlayer.qi = data.qi;
+    myPlayer.viewRange = Math.max(1, Math.round(data.numericStats.viewRange || myPlayer.viewRange));
     myPlayer.realm = data.realm;
     myPlayer.realmName = data.realm?.name;
     myPlayer.realmStage = data.realm?.shortName;
@@ -249,7 +471,7 @@ function showToast(message: string, kind: 'system' | 'chat' | 'quest' | 'combat'
 
 function refreshZoomChrome(zoom = getZoom()) {
   if (zoomLevelEl) {
-    zoomLevelEl.textContent = `${zoom}x`;
+    zoomLevelEl.innerHTML = `<span>x</span><span>${zoom}</span>`;
   }
 }
 
@@ -331,6 +553,9 @@ function refreshUiChrome() {
     threatLabel: resolveThreatLabel(myPlayer),
     titleLabel: resolveTitleLabel(myPlayer),
   });
+  if (shouldPauseWorldPanelRefresh()) {
+    return;
+  }
   worldPanel.update({
     player: myPlayer,
     mapMeta: currentMapMeta,
@@ -338,6 +563,23 @@ function refreshUiChrome() {
     actions: myPlayer.actions,
     quests: myPlayer.quests,
   });
+}
+
+function hasSelectionWithin(root: HTMLElement | null): boolean {
+  if (!root) return false;
+  const selection = window.getSelection();
+  if (!selection || selection.isCollapsed || selection.rangeCount === 0) return false;
+  const anchor = selection.anchorNode;
+  const focus = selection.focusNode;
+  return !!anchor && !!focus && root.contains(anchor) && root.contains(focus);
+}
+
+function shouldPauseWorldPanelRefresh(): boolean {
+  return hasSelectionWithin(document.getElementById('layout-center'));
+}
+
+function isGmPaneActive(): boolean {
+  return document.getElementById('pane-gm')?.classList.contains('active') ?? false;
 }
 
 function inferAutoRetaliate(current: boolean, actions: { id: string; name: string; desc: string }[]): boolean {
@@ -384,6 +626,8 @@ function resetGameState() {
   currentVisibleTiles.clear();
   lastGmSyncAt = 0;
   pendingTargetedAction = null;
+  hideObserveModal();
+  syncTargetingOverlay();
   sidePanel.hide();
   chatUI.hide();
   chatUI.clear();
@@ -440,7 +684,27 @@ function resizeCanvas() {
 resizeCanvas();
 refreshZoomChrome();
 window.addEventListener('resize', resizeCanvas);
-window.addEventListener('contextmenu', (event) => event.preventDefault());
+window.addEventListener('contextmenu', (event) => {
+  if (pendingTargetedAction) {
+    event.preventDefault();
+    cancelTargeting(true);
+    return;
+  }
+  event.preventDefault();
+});
+window.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !(observeModalEl?.classList.contains('hidden') ?? true)) {
+    hideObserveModal();
+    return;
+  }
+  if (event.key === 'Escape' && pendingTargetedAction) {
+    cancelTargeting(true);
+  }
+});
+
+observeModalEl?.addEventListener('click', () => {
+  hideObserveModal();
+});
 
 // 鼠标输入
 mouseInput.init(
@@ -452,9 +716,26 @@ mouseInput.init(
   () => ({ x: tileOriginX, y: tileOriginY }),
   (target) => {
     if (pendingTargetedAction) {
-      const targetRef = target.entityId ?? `tile:${target.x}:${target.y}`;
+      if (pendingTargetedAction.actionId === 'client:observe') {
+        if (!getVisibleTileAt(target.x, target.y)) {
+          showToast('只能观察当前视野内的格子');
+          return;
+        }
+        showObserveModal(target.x, target.y);
+        cancelTargeting();
+        return;
+      }
+      if (!isTargetInRange(target.x, target.y, pendingTargetedAction.range)) {
+        showToast(`超出施法范围，最多 ${pendingTargetedAction.range} 格`);
+        return;
+      }
+      const targetRef = resolveTargetRefForAction(target, pendingTargetedAction.targetMode);
+      if (!targetRef) {
+        showToast('该技能需要选中有效目标');
+        return;
+      }
       socket.sendAction(pendingTargetedAction.actionId, targetRef);
-      pendingTargetedAction = null;
+      cancelTargeting();
       return;
     }
     if (target.entityKind === 'monster' && target.entityId) {
@@ -467,12 +748,20 @@ mouseInput.init(
     }
     planPathTo(target);
   },
+  (target) => {
+    if (!pendingTargetedAction) return;
+    pendingTargetedAction.hoverX = target?.x;
+    pendingTargetedAction.hoverY = target?.y;
+    syncTargetingOverlay();
+  },
 );
 
 // 初始化
 socket.onInit((data: S2C_Init) => {
   pendingTargetedAction = null;
+  hideObserveModal();
   myPlayer = data.self;
+  syncTargetingOverlay();
   currentMapMeta = data.mapMeta;
   currentTiles = data.tiles;
   tileOriginX = myPlayer.x - getViewRadius();
@@ -509,8 +798,10 @@ socket.onInit((data: S2C_Init) => {
   questPanel.initFromPlayer(myPlayer);
   actionPanel.initFromPlayer(myPlayer);
   refreshUiChrome();
-  socket.sendGmGetState();
-  lastGmSyncAt = performance.now();
+  if (isGmPaneActive()) {
+    socket.sendGmGetState();
+    lastGmSyncAt = performance.now();
+  }
 });
 
 // Tick 更新
@@ -528,7 +819,10 @@ socket.onTick((data: S2C_Tick) => {
 
   if (data.dt) {
     tickDuration = data.dt;
-    hud.updateTick(data.dt);
+    if (tickRateEl) {
+      const seconds = Math.max(data.dt, 0) / 1000;
+      renderTickRate(seconds);
+    }
   }
 
   if (data.m) {
@@ -536,6 +830,8 @@ socket.onTick((data: S2C_Tick) => {
       clearCurrentPath();
       tileCache.clear();
       currentVisibleTiles.clear();
+      hideObserveModal();
+      cancelTargeting();
     }
     myPlayer.mapId = data.m;
   }
@@ -545,6 +841,9 @@ socket.onTick((data: S2C_Tick) => {
 
   if (typeof data.hp === 'number') {
     myPlayer.hp = data.hp;
+  }
+  if (typeof data.qi === 'number') {
+    myPlayer.qi = data.qi;
   }
   if (data.f !== undefined) {
     myPlayer.facing = data.f;
@@ -579,6 +878,7 @@ socket.onTick((data: S2C_Tick) => {
   }));
   entities.push(...mapEntities);
   latestEntities = entities;
+  syncTargetingOverlay();
   refreshUiChrome();
 
   if (moved) {
@@ -604,7 +904,7 @@ socket.onTick((data: S2C_Tick) => {
   }
 
   tickStartTime = performance.now();
-  if (performance.now() - lastGmSyncAt >= 2000) {
+  if (isGmPaneActive() && performance.now() - lastGmSyncAt >= 2000) {
     socket.sendGmGetState();
     lastGmSyncAt = performance.now();
   }

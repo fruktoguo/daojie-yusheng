@@ -1,4 +1,4 @@
-import { IRenderer } from './types';
+import { IRenderer, TargetingOverlayState } from './types';
 import { Tile, TileType } from '@mud/shared';
 import { Camera } from './camera';
 import { getCellSize } from '../display';
@@ -80,6 +80,7 @@ export class TextRenderer implements IRenderer {
   private entities: Map<string, AnimEntity> = new Map();
   private pathCells: { x: number; y: number }[] = [];
   private pathKeys = new Set<string>();
+  private targetingOverlay: TargetingOverlayState | null = null;
   private floatingTexts: FloatingText[] = [];
   private attackTrails: AttackTrail[] = [];
   private nextFloatingTextId = 1;
@@ -99,6 +100,10 @@ export class TextRenderer implements IRenderer {
   setPathHighlight(cells: { x: number; y: number }[]) {
     this.pathCells = cells;
     this.pathKeys = new Set(cells.map((cell) => `${cell.x},${cell.y}`));
+  }
+
+  setTargetingOverlay(state: TargetingOverlayState | null) {
+    this.targetingOverlay = state;
   }
 
   renderWorld(camera: Camera, tileCache: Map<string, Tile>, visibleTiles: Set<string>, playerX: number, playerY: number) {
@@ -160,6 +165,20 @@ export class TextRenderer implements IRenderer {
             ctx.fillRect(barX, barY, barW, 3);
             ctx.fillStyle = '#d6c8ae';
             ctx.fillRect(barX, barY, barW * ratio, 3);
+          }
+
+          if (this.targetingOverlay) {
+            const dx = gx - this.targetingOverlay.originX;
+            const dy = gy - this.targetingOverlay.originY;
+            const distanceSq = dx * dx + dy * dy;
+            if (distanceSq > 0 && distanceSq <= this.targetingOverlay.range * this.targetingOverlay.range) {
+              const hovered = gx === this.targetingOverlay.hoverX && gy === this.targetingOverlay.hoverY;
+              ctx.fillStyle = hovered ? 'rgba(208, 76, 56, 0.34)' : 'rgba(212, 164, 71, 0.18)';
+              ctx.fillRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
+              ctx.strokeStyle = hovered ? 'rgba(166, 37, 31, 0.92)' : 'rgba(123, 91, 20, 0.55)';
+              ctx.lineWidth = hovered ? 2 : 1;
+              ctx.strokeRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3);
+            }
           }
         } else {
           ctx.fillStyle = '#0d0b0a';
@@ -251,9 +270,6 @@ export class TextRenderer implements IRenderer {
       ctx.beginPath();
       ctx.ellipse(sx + cellSize / 2, sy + cellSize - 3, cellSize * 0.32, cellSize * 0.1, 0, 0, Math.PI * 2);
       ctx.fill();
-
-      ctx.fillStyle = 'rgba(0,0,0,0.35)';
-      ctx.fillRect(sx + 2, sy + 2, cellSize - 4, cellSize - 4);
 
       ctx.fillStyle = anim.color;
       ctx.font = `bold ${cellSize * 0.75}px "Ma Shan Zheng", cursive`;

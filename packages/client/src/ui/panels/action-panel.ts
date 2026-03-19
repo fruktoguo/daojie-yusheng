@@ -5,38 +5,58 @@ const TYPE_NAMES: Record<string, string> = {
   gather: '采集',
   interact: '交互',
   battle: '战斗',
-  toggle: '开关',
+  toggle: '操作',
   quest: '任务',
   travel: '传送',
   breakthrough: '突破',
 };
+const ACTION_SHORTCUTS_KEY = 'mud.action.shortcuts.v1';
+
+function normalizeShortcutKey(key: string): string | null {
+  if (key.length !== 1) return null;
+  const lower = key.toLowerCase();
+  if ((lower >= 'a' && lower <= 'z') || (lower >= '0' && lower <= '9')) {
+    return lower;
+  }
+  return null;
+}
 
 /** 行动面板：显示可用行动列表 */
 export class ActionPanel {
   private pane = document.getElementById('pane-action')!;
-  private onAction: ((actionId: string, requiresTarget?: boolean, targetMode?: string) => void) | null = null;
+  private onAction: ((actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string) => void) | null = null;
+  private activeTab: 'dialogue' | 'skill' | 'toggle' = 'dialogue';
   private autoBattle = false;
   private autoRetaliate = true;
-  private activeTab: 'dialogue' | 'skill' | 'toggle' = 'dialogue';
+  private currentActions: ActionDef[] = [];
+  private shortcutBindings = new Map<string, string>();
+  private bindingActionId: string | null = null;
+
+  constructor() {
+    this.shortcutBindings = this.loadShortcutBindings();
+    window.addEventListener('keydown', (event) => this.handleGlobalKeydown(event));
+  }
 
   clear(): void {
     this.pane.innerHTML = '<div class="empty-hint">暂无可用行动</div>';
   }
 
-  setCallbacks(onAction: (actionId: string, requiresTarget?: boolean, targetMode?: string) => void): void {
+  setCallbacks(onAction: (actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string) => void): void {
     this.onAction = onAction;
   }
 
-  update(actions: ActionDef[], autoBattle?: boolean, autoRetaliate?: boolean): void {
-    if (autoBattle !== undefined) this.autoBattle = autoBattle;
-    if (autoRetaliate !== undefined) this.autoRetaliate = autoRetaliate;
-    this.render(actions);
+  update(actions: ActionDef[], _autoBattle?: boolean, _autoRetaliate?: boolean): void {
+    this.currentActions = this.withUtilityActions(actions);
+    if (_autoBattle !== undefined) this.autoBattle = _autoBattle;
+    if (_autoRetaliate !== undefined) this.autoRetaliate = _autoRetaliate;
+    this.render(this.currentActions);
   }
 
   initFromPlayer(player: PlayerState): void {
+    this.currentActions = this.withUtilityActions(player.actions);
     this.autoBattle = player.autoBattle ?? false;
     this.autoRetaliate = player.autoRetaliate !== false;
-    this.render(player.actions);
+    this.render(this.currentActions);
   }
 
   private render(actions: ActionDef[]): void {
@@ -52,7 +72,7 @@ export class ActionPanel {
     }> = [
       { id: 'dialogue', label: '对话', types: ['quest', 'interact', 'travel'] },
       { id: 'skill', label: '技能', types: ['skill', 'battle', 'gather', 'breakthrough'] },
-      { id: 'toggle', label: '开关', types: ['toggle'] },
+      { id: 'toggle', label: '操作', types: ['toggle'] },
     ];
     const groups = new Map<string, ActionDef[]>();
     for (const action of actions) {
@@ -62,20 +82,31 @@ export class ActionPanel {
     }
 
     let html = `<div class="panel-section">
-      <div class="panel-section-title">战斗姿态</div>
+      <div class="panel-section-title">战斗开关</div>
       <div class="intel-grid compact">
-        <div class="intel-card">
-          <div class="intel-label">自动战斗</div>
-          <div class="intel-value">${this.autoBattle ? '开启' : '关闭'}</div>
+        <div class="gm-player-row ${this.autoBattle ? 'active' : ''}" data-action-card="toggle:auto_battle" role="button" tabindex="0">
+          <div>
+            <div class="gm-player-name">自动战斗</div>
+            <div class="gm-player-meta">${this.autoBattle ? '当前已开启' : '当前已关闭'}${this.renderShortcutMeta('toggle:auto_battle')}</div>
+          </div>
+          <div class="action-card-side">
+            <div class="gm-player-stat">${this.autoBattle ? '开' : '关'}</div>
+            <button class="small-btn ghost" data-bind-action="toggle:auto_battle" type="button">${this.getBindButtonLabel('toggle:auto_battle')}</button>
+          </div>
         </div>
-        <div class="intel-card">
-          <div class="intel-label">受击反应</div>
-          <div class="intel-value">${this.autoRetaliate ? '自动开战' : '保持克制'}</div>
+        <div class="gm-player-row ${this.autoRetaliate ? 'active' : ''}" data-action-card="toggle:auto_retaliate" role="button" tabindex="0">
+          <div>
+            <div class="gm-player-name">自动反击</div>
+            <div class="gm-player-meta">${this.autoRetaliate ? '受到攻击自动开战' : '受到攻击保持克制'}${this.renderShortcutMeta('toggle:auto_retaliate')}</div>
+          </div>
+          <div class="action-card-side">
+            <div class="gm-player-stat">${this.autoRetaliate ? '开' : '关'}</div>
+            <button class="small-btn ghost" data-bind-action="toggle:auto_retaliate" type="button">${this.getBindButtonLabel('toggle:auto_retaliate')}</button>
+          </div>
         </div>
       </div>
-    </div>`;
-
-    html += `<div class="action-tab-bar">
+    </div>
+    <div class="action-tab-bar">
       ${tabGroups.map((tab) => `
         <button class="action-tab-btn ${this.activeTab === tab.id ? 'active' : ''}" data-action-tab="${tab.id}" type="button">${tab.label}</button>
       `).join('')}
@@ -83,6 +114,33 @@ export class ActionPanel {
 
     for (const tab of tabGroups) {
       html += `<div class="action-tab-pane ${this.activeTab === tab.id ? 'active' : ''}" data-action-pane="${tab.id}">`;
+      if (tab.id === 'toggle') {
+        const utilityEntries = actions.filter((action) => action.id === 'client:observe');
+        if (utilityEntries.length === 0) {
+          html += '<div class="empty-hint">当前分组暂无内容</div></div>';
+          continue;
+        }
+        html += `<div class="panel-section">
+          <div class="panel-section-title">环境观察</div>`;
+        for (const action of utilityEntries) {
+          html += `<div class="action-item">
+            <div class="action-copy">
+              <div>
+                <span class="action-name">${action.name}</span>
+                <span class="action-type">[操作]</span>
+                ${this.renderShortcutBadge(action.id)}
+              </div>
+              <div class="action-desc">${action.desc}</div>
+            </div>
+            <div class="action-cta">
+              <button class="small-btn ghost" data-bind-action="${action.id}" type="button">${this.getBindButtonLabel(action.id)}</button>
+              <button class="small-btn" data-action="${action.id}" data-action-name="${action.name}" data-action-range="${action.range ?? ''}" data-action-target="${action.requiresTarget ? '1' : '0'}" data-action-target-mode="${action.targetMode ?? ''}">执行</button>
+            </div>
+          </div>`;
+        }
+        html += '</div></div>';
+        continue;
+      }
       const relevantTypes = tab.types.filter((type) => (groups.get(type)?.length ?? 0) > 0);
       if (relevantTypes.length === 0) {
         html += '<div class="empty-hint">当前分组暂无内容</div>';
@@ -98,13 +156,16 @@ export class ActionPanel {
                 <div>
                   <span class="action-name">${action.name}</span>
                   <span class="action-type">[${TYPE_NAMES[action.type] || action.type}]</span>
+                  ${typeof action.range === 'number' ? `<span class="action-type">射程 ${action.range}</span>` : ''}
+                  ${this.renderShortcutBadge(action.id)}
                 </div>
                 <div class="action-desc">${action.desc}</div>
               </div>
               <div class="action-cta">
+                <button class="small-btn ghost" data-bind-action="${action.id}" type="button">${this.getBindButtonLabel(action.id)}</button>
                 ${onCd
                   ? `<span class="action-cd">冷却 ${action.cooldownLeft}s</span>`
-                  : `<button class="small-btn" data-action="${action.id}" data-action-target="${action.requiresTarget ? '1' : '0'}" data-action-target-mode="${action.targetMode ?? ''}">执行</button>`
+                  : `<button class="small-btn" data-action="${action.id}" data-action-name="${action.name}" data-action-range="${action.range ?? ''}" data-action-target="${action.requiresTarget ? '1' : '0'}" data-action-target-mode="${action.targetMode ?? ''}">执行</button>`
                 }
               </div>
             </div>`;
@@ -125,13 +186,128 @@ export class ActionPanel {
         this.render(actions);
       });
     });
+    this.pane.querySelectorAll<HTMLElement>('[data-action-card]').forEach((button) => {
+      button.addEventListener('click', () => {
+        if ((button as HTMLElement).dataset.bindAction) return;
+        const actionId = button.dataset.actionCard;
+        if (!actionId) return;
+        const action = this.currentActions.find((entry) => entry.id === actionId);
+        this.onAction?.(actionId, action?.requiresTarget, action?.targetMode, action?.range, action?.name ?? actionId);
+      });
+    });
     this.pane.querySelectorAll('[data-action]').forEach(btn => {
       btn.addEventListener('click', () => {
         const actionId = (btn as HTMLElement).dataset.action!;
+        const actionName = (btn as HTMLElement).dataset.actionName || actionId;
         const requiresTarget = (btn as HTMLElement).dataset.actionTarget === '1';
         const targetMode = (btn as HTMLElement).dataset.actionTargetMode || undefined;
-        this.onAction?.(actionId, requiresTarget, targetMode);
+        const rangeText = (btn as HTMLElement).dataset.actionRange;
+        const range = rangeText ? Number(rangeText) : undefined;
+        this.onAction?.(actionId, requiresTarget, targetMode, Number.isFinite(range) ? range : undefined, actionName);
       });
     });
+    this.pane.querySelectorAll<HTMLElement>('[data-bind-action]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const actionId = button.dataset.bindAction;
+        if (!actionId) return;
+        this.bindingActionId = this.bindingActionId === actionId ? null : actionId;
+        this.render(this.currentActions);
+      });
+    });
+  }
+
+  private handleGlobalKeydown(event: KeyboardEvent): void {
+    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+    if (event.target instanceof HTMLElement && event.target.isContentEditable) return;
+    if (event.ctrlKey || event.altKey || event.metaKey) return;
+
+    if (this.bindingActionId) {
+      if (event.key === 'Escape') {
+        this.bindingActionId = null;
+        this.render(this.currentActions);
+        return;
+      }
+      const normalized = normalizeShortcutKey(event.key);
+      if (!normalized) return;
+      event.preventDefault();
+      for (const [actionId, binding] of this.shortcutBindings.entries()) {
+        if (binding === normalized) {
+          this.shortcutBindings.delete(actionId);
+        }
+      }
+      this.shortcutBindings.set(this.bindingActionId, normalized);
+      this.saveShortcutBindings();
+      this.bindingActionId = null;
+      this.render(this.currentActions);
+      return;
+    }
+
+    const normalized = normalizeShortcutKey(event.key);
+    if (!normalized) return;
+    const actionId = [...this.shortcutBindings.entries()].find(([, binding]) => binding === normalized)?.[0];
+    if (!actionId) return;
+    const action = this.currentActions.find((entry) => entry.id === actionId);
+    if (!action || action.cooldownLeft > 0) return;
+    event.preventDefault();
+    this.onAction?.(action.id, action.requiresTarget, action.targetMode, action.range, action.name);
+  }
+
+  private renderShortcutBadge(actionId: string): string {
+    const binding = this.shortcutBindings.get(actionId);
+    return binding ? `<span class="action-shortcut-tag">键 ${binding.toUpperCase()}</span>` : '';
+  }
+
+  private renderShortcutMeta(actionId: string): string {
+    const binding = this.shortcutBindings.get(actionId);
+    return binding ? ` · 快捷键 ${binding.toUpperCase()}` : '';
+  }
+
+  private getBindButtonLabel(actionId: string): string {
+    if (this.bindingActionId === actionId) {
+      return '按键中';
+    }
+    const binding = this.shortcutBindings.get(actionId);
+    return binding ? `改键 ${binding.toUpperCase()}` : '绑定键';
+  }
+
+  private loadShortcutBindings(): Map<string, string> {
+    try {
+      const raw = localStorage.getItem(ACTION_SHORTCUTS_KEY);
+      if (!raw) return new Map();
+      const parsed = JSON.parse(raw) as Record<string, string>;
+      const result = new Map<string, string>();
+      for (const [actionId, key] of Object.entries(parsed)) {
+        const normalized = normalizeShortcutKey(key);
+        if (normalized) {
+          result.set(actionId, normalized);
+        }
+      }
+      return result;
+    } catch {
+      return new Map();
+    }
+  }
+
+  private saveShortcutBindings(): void {
+    const payload = Object.fromEntries(this.shortcutBindings.entries());
+    localStorage.setItem(ACTION_SHORTCUTS_KEY, JSON.stringify(payload));
+  }
+
+  private withUtilityActions(actions: ActionDef[]): ActionDef[] {
+    const result = [...actions];
+    if (!result.some((action) => action.id === 'client:observe')) {
+      result.push({
+        id: 'client:observe',
+        name: '观察',
+        type: 'toggle',
+        desc: '选定视野范围内任意一格，查看地面、实体与耐久等详细信息。',
+        cooldownLeft: 0,
+        requiresTarget: true,
+        targetMode: 'tile',
+      });
+    }
+    return result;
   }
 }

@@ -7,6 +7,7 @@ const ITEM_TYPE_LABELS: Record<string, string> = {
   quest_item: '任务物',
   skill_book: '功法书',
 };
+const TOOLTIP_STYLE_ID = 'inventory-panel-tooltip-style';
 
 /** 背包面板：显示物品列表，支持使用和丢弃 */
 export class InventoryPanel {
@@ -14,6 +15,11 @@ export class InventoryPanel {
   private onUseItem: ((slotIndex: number) => void) | null = null;
   private onDropItem: ((slotIndex: number, count: number) => void) | null = null;
   private onEquipItem: ((slotIndex: number) => void) | null = null;
+  private tooltip: HTMLDivElement | null = null;
+
+  constructor() {
+    this.ensureTooltipStyle();
+  }
 
   clear(): void {
     this.pane.innerHTML = '<div class="empty-hint">背包空空如也</div>';
@@ -44,34 +50,36 @@ export class InventoryPanel {
     }
 
     let html = `<div class="panel-section">
-      <div class="panel-section-title">背包 (${inventory.items.length}/${inventory.capacity})</div>`;
+      <div class="panel-section-title">背包 (${inventory.items.length}/${inventory.capacity})</div>
+      <div class="inventory-grid">`;
 
     inventory.items.forEach((item, i) => {
-      const bonusText = item.equipAttrs
-        ? Object.entries(item.equipAttrs).map(([key, value]) => `${key}+${value}`).join(' / ')
-        : '';
-      html += `<div class="item-slot">
-        <div class="item-copy">
-          <div class="item-head">
-            <span class="item-name">${item.name}</span>
-            <span class="item-count">x${item.count}</span>
-          </div>
-          <div class="item-meta-row">
-            <span class="item-type-tag">${ITEM_TYPE_LABELS[item.type] ?? item.type}</span>
-            ${item.equipSlot ? `<span class="item-type-tag subtle">${item.equipSlot}</span>` : ''}
-          </div>
-          <div class="item-desc">${item.desc}</div>
-          ${bonusText ? `<div class="item-bonus">${bonusText}</div>` : ''}
+      const bonusLines = item.equipAttrs
+        ? Object.entries(item.equipAttrs).map(([key, value]) => `${key} +${value}`)
+        : [];
+      const tooltipLines = [
+        item.desc,
+        `类型：${ITEM_TYPE_LABELS[item.type] ?? item.type}`,
+        item.equipSlot ? `部位：${item.equipSlot}` : '',
+        ...bonusLines,
+      ].filter((line) => line.length > 0);
+      const shortName = [...item.name].slice(0, 4).join('');
+      html += `<div class="inventory-cell" data-tooltip-title="${this.escapeHtml(item.name)}" data-tooltip-detail="${this.escapeHtml(tooltipLines.join('\n'))}">
+        <div class="inventory-cell-head">
+          <span class="inventory-cell-type">${ITEM_TYPE_LABELS[item.type] ?? item.type}</span>
+          <span class="inventory-cell-count">x${item.count}</span>
         </div>
-        <div class="item-actions">
-          ${item.type === 'equipment' ? `<button class="small-btn" data-equip="${i}">装备</button>` : `<button class="small-btn" data-use="${i}">使用</button>`}
-          <button class="small-btn danger" data-drop="${i}">丢弃</button>
+        <div class="inventory-cell-name">${this.escapeHtml(shortName)}</div>
+        <div class="inventory-cell-actions">
+          ${item.type === 'equipment' ? `<button class="small-btn" data-equip="${i}" type="button">装备</button>` : `<button class="small-btn" data-use="${i}" type="button">使用</button>`}
+          <button class="small-btn danger" data-drop="${i}" type="button">丢弃</button>
         </div>
       </div>`;
     });
 
-    html += '</div>';
+    html += '</div></div>';
     this.pane.innerHTML = html;
+    this.bindTooltips();
 
     // 绑定按钮事件
     this.pane.querySelectorAll('[data-use]').forEach(btn => {
@@ -92,5 +100,97 @@ export class InventoryPanel {
         this.onEquipItem?.(idx);
       });
     });
+  }
+
+  private getTooltip(): HTMLDivElement {
+    if (!this.tooltip) {
+      const tooltip = document.createElement('div');
+      tooltip.className = 'inventory-tooltip';
+      document.body.appendChild(tooltip);
+      this.tooltip = tooltip;
+    }
+    return this.tooltip;
+  }
+
+  private bindTooltips(): void {
+    const tooltip = this.getTooltip();
+    const cells = this.pane.querySelectorAll<HTMLElement>('.inventory-cell');
+    const show = (title: string, detail: string, event: PointerEvent) => {
+      const lines = detail
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+      tooltip.innerHTML = `<div class="inventory-tooltip-body"><strong>${title}</strong>${lines.length > 0 ? `<div class="inventory-tooltip-detail">${lines.map((line) => `<span class="inventory-tooltip-line">${line}</span>`).join('')}</div>` : ''}</div>`;
+      tooltip.style.left = `${event.clientX + 14}px`;
+      tooltip.style.top = `${event.clientY + 10}px`;
+      tooltip.classList.add('visible');
+    };
+
+    cells.forEach((cell) => {
+      const title = cell.dataset.tooltipTitle ?? '';
+      const detail = cell.dataset.tooltipDetail ?? '';
+      cell.addEventListener('pointerenter', (event) => show(title, detail, event));
+      cell.addEventListener('pointermove', (event) => {
+        tooltip.style.left = `${event.clientX + 14}px`;
+        tooltip.style.top = `${event.clientY + 10}px`;
+      });
+      cell.addEventListener('pointerleave', () => {
+        tooltip.classList.remove('visible');
+      });
+    });
+  }
+
+  private ensureTooltipStyle(): void {
+    if (document.getElementById(TOOLTIP_STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = TOOLTIP_STYLE_ID;
+    style.textContent = `
+      .inventory-tooltip {
+        position: fixed;
+        pointer-events: none;
+        background: rgba(255,255,255,0.96);
+        border: 1px solid rgba(34,26,19,0.15);
+        padding: 8px 12px;
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+        font-size: 13px;
+        color: #1a120a;
+        z-index: 2000;
+        opacity: 0;
+        transition: opacity 120ms ease;
+        min-width: 160px;
+      }
+      .inventory-tooltip.visible {
+        opacity: 1;
+      }
+      .inventory-tooltip-body {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        line-height: 1.4;
+      }
+      .inventory-tooltip-body strong {
+        display: block;
+      }
+      .inventory-tooltip-detail {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        color: #5c5349;
+      }
+      .inventory-tooltip-line {
+        display: block;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
   }
 }

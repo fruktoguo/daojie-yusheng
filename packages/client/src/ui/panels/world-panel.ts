@@ -137,6 +137,7 @@ export class WorldPanel {
   private mapPane = document.getElementById('pane-map-intel')!;
   private nearbyPane = document.getElementById('pane-nearby')!;
   private suggestionPane = document.getElementById('pane-suggestions')!;
+  private lastRenderSignature: string | null = null;
 
   update(input: {
     player: PlayerState;
@@ -177,6 +178,51 @@ export class WorldPanel {
     const quickActions = input.actions
       .filter((action) => action.cooldownLeft === 0)
       .slice(0, 6);
+
+    const snapshot = {
+      mapId: input.player.mapId,
+      mapName: input.mapMeta?.name ?? '',
+      danger,
+      recommend,
+      guide: {
+        title: guide.title,
+        route: guide.route,
+        mood: guide.mood,
+        desc: guide.desc,
+        resources: guide.resources,
+        threats: guide.threats,
+      },
+      playerRealmName: input.player.realmName ?? '',
+      playerRealmStage: input.player.realmStage ?? '',
+      cultivatingId: cultivating?.techId ?? null,
+      cultivatingName: cultivating?.name ?? '',
+      quest: currentQuest
+        ? {
+            id: currentQuest.id,
+            status: currentQuest.status,
+            progress: currentQuest.progress,
+            required: currentQuest.required,
+          }
+        : null,
+      nearbyMonsters: nearbyMonsters.map((monster) => ({
+        id: monster.id ?? monster.name ?? '',
+        distance: monster.distance,
+        hp: monster.hp ?? 0,
+        maxHp: monster.maxHp ?? 0,
+      })),
+      nearbyNpcs: nearbyNpcs.map((npc) => npc.id ?? npc.name ?? ''),
+      quickActions: quickActions.map((action) => ({
+        id: action.id,
+        cooldown: action.cooldownLeft,
+        name: action.name,
+        desc: action.desc,
+      })),
+    };
+    const signature = JSON.stringify(snapshot);
+    if (signature === this.lastRenderSignature) {
+      return;
+    }
+    this.lastRenderSignature = signature;
 
     this.mapPane.innerHTML = `
       <div class="world-hero compact">
@@ -260,5 +306,6 @@ export class WorldPanel {
     this.mapPane.innerHTML = '<div class="empty-hint">尚未进入世界</div>';
     this.nearbyPane.innerHTML = '<div class="empty-hint">尚未进入世界</div>';
     this.suggestionPane.innerHTML = '<div class="empty-hint">尚未进入世界</div>';
+    this.lastRenderSignature = null;
   }
 }

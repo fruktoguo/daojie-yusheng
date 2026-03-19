@@ -5,10 +5,6 @@ const KEY_MAP: Record<string, Direction> = {
   ArrowDown: Direction.South,
   ArrowRight: Direction.East,
   ArrowLeft: Direction.West,
-  w: Direction.North,
-  s: Direction.South,
-  d: Direction.East,
-  a: Direction.West,
 };
 
 export class KeyboardInput {
