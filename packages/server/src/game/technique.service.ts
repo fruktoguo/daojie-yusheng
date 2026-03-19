@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   ActionDef,
   AttrBonus,
-  Attributes,
+  calcTechniqueFinalAttrBonus,
   CULTIVATE_EXP_PER_TICK,
   DEFAULT_PLAYER_REALM_STAGE,
   PLAYER_REALM_CONFIG,
@@ -11,6 +11,8 @@ import {
   PlayerRealmState,
   PlayerState,
   TECHNIQUE_EXP_TABLE,
+  TechniqueAttrCurves,
+  TechniqueGrade,
   TechniqueRealm,
   TechniqueState,
   SkillDef,
@@ -84,7 +86,14 @@ export class TechniqueService {
     this.initializePlayerProgression(player);
   }
 
-  learnTechnique(player: PlayerState, techId: string, name: string, skills: SkillDef[], attrGrowth?: Partial<Attributes>): string | null {
+  learnTechnique(
+    player: PlayerState,
+    techId: string,
+    name: string,
+    skills: SkillDef[],
+    grade?: TechniqueGrade,
+    attrCurves?: TechniqueAttrCurves,
+  ): string | null {
     this.initializePlayerProgression(player);
     if (player.techniques.find((entry) => entry.techId === techId)) {
       return '已学会该功法';
@@ -98,7 +107,8 @@ export class TechniqueService {
       expToNext: TECHNIQUE_EXP_TABLE[TechniqueRealm.Entry],
       realm: TechniqueRealm.Entry,
       skills,
-      attrGrowth,
+      grade,
+      attrCurves,
     };
     player.techniques.push(technique);
     this.applyTechniqueBonuses(player);
@@ -384,14 +394,11 @@ export class TechniqueService {
 
   private applyTechniqueBonuses(player: PlayerState): void {
     const nextBonuses = player.bonuses.filter((bonus) => !bonus.source.startsWith(TECHNIQUE_SOURCE_PREFIX));
-    for (const technique of player.techniques) {
-      const growth = technique.attrGrowth ?? this.contentService.getTechnique(technique.techId)?.attrGrowth;
-      if (!growth) continue;
-      const attrs = this.scaleTechniqueAttrGrowth(growth, technique.level);
-      if (!Object.values(attrs).some((value) => value > 0)) continue;
+    const attrs = calcTechniqueFinalAttrBonus(player.techniques);
+    if (Object.values(attrs).some((value) => value > 0)) {
       nextBonuses.push({
-        source: `${TECHNIQUE_SOURCE_PREFIX}${technique.techId}`,
-        label: `${technique.name} ${technique.level} 层`,
+        source: `${TECHNIQUE_SOURCE_PREFIX}aggregate`,
+        label: '功法总池',
         attrs,
       });
     }
@@ -402,19 +409,9 @@ export class TechniqueService {
     for (const technique of player.techniques) {
       const template = this.contentService.getTechnique(technique.techId);
       if (!template) continue;
-      technique.attrGrowth = template.attrGrowth;
+      technique.grade = template.grade;
+      technique.attrCurves = template.attrCurves;
     }
-  }
-
-  private scaleTechniqueAttrGrowth(base: Partial<Attributes>, level: number): AttrBonus['attrs'] {
-    return {
-      constitution: (base.constitution ?? 0) * level,
-      spirit: (base.spirit ?? 0) * level,
-      perception: (base.perception ?? 0) * level,
-      talent: (base.talent ?? 0) * level,
-      comprehension: (base.comprehension ?? 0) * level,
-      luck: (base.luck ?? 0) * level,
-    };
   }
 
   private getHighestTechnique(player: PlayerState): TechniqueState | undefined {

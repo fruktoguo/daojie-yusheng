@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import {
-  Attributes,
   DEFAULT_INVENTORY_CAPACITY,
   EquipmentSlots,
   EQUIP_SLOTS,
@@ -8,6 +7,8 @@ import {
   ItemStack,
   PlayerRealmStage,
   SkillDef,
+  TechniqueAttrCurves,
+  TechniqueGrade,
   TechniqueRealm,
 } from '@mud/shared';
 
@@ -15,7 +16,8 @@ interface TechniqueTemplate {
   id: string;
   name: string;
   skills: SkillDef[];
-  attrGrowth: Partial<Attributes>;
+  grade: TechniqueGrade;
+  attrCurves: TechniqueAttrCurves;
 }
 
 interface ItemTemplate extends Omit<ItemStack, 'count'> {
@@ -29,7 +31,18 @@ export class ContentService {
     ['qingmu_sword', {
       id: 'qingmu_sword',
       name: '青木剑诀',
-      attrGrowth: { perception: 1, spirit: 1 },
+      grade: 'yellow',
+      attrCurves: {
+        perception: [
+          { startLevel: 1, endLevel: 4, gainPerLevel: 1.2 },
+          { startLevel: 5, endLevel: 8, gainPerLevel: 0.8 },
+          { startLevel: 9, gainPerLevel: 0.4 },
+        ],
+        spirit: [
+          { startLevel: 1, endLevel: 5, gainPerLevel: 0.8 },
+          { startLevel: 6, gainPerLevel: 0.3 },
+        ],
+      },
       skills: [
         {
           id: 'skill.qingmu_slash',
@@ -47,7 +60,18 @@ export class ContentService {
     ['redflame_art', {
       id: 'redflame_art',
       name: '赤焰诀',
-      attrGrowth: { spirit: 1, comprehension: 1 },
+      grade: 'mystic',
+      attrCurves: {
+        spirit: [
+          { startLevel: 1, endLevel: 4, gainPerLevel: 1.6 },
+          { startLevel: 5, endLevel: 8, gainPerLevel: 1.0 },
+          { startLevel: 9, gainPerLevel: 0.5 },
+        ],
+        comprehension: [
+          { startLevel: 1, endLevel: 6, gainPerLevel: 0.7 },
+          { startLevel: 7, gainPerLevel: 0.25 },
+        ],
+      },
       skills: [
         {
           id: 'skill.fire_talisman',
@@ -65,7 +89,18 @@ export class ContentService {
     ['wind_step', {
       id: 'wind_step',
       name: '踏风步',
-      attrGrowth: { perception: 2 },
+      grade: 'yellow',
+      attrCurves: {
+        perception: [
+          { startLevel: 1, endLevel: 5, gainPerLevel: 1.8 },
+          { startLevel: 6, endLevel: 10, gainPerLevel: 1.1 },
+          { startLevel: 11, gainPerLevel: 0.55 },
+        ],
+        luck: [
+          { startLevel: 1, endLevel: 8, gainPerLevel: 0.2 },
+          { startLevel: 9, gainPerLevel: 0.08 },
+        ],
+      },
       skills: [
         {
           id: 'skill.wind_edge',
@@ -83,7 +118,18 @@ export class ContentService {
     ['thunder_palm', {
       id: 'thunder_palm',
       name: '惊雷掌',
-      attrGrowth: { constitution: 1, spirit: 1 },
+      grade: 'earth',
+      attrCurves: {
+        constitution: [
+          { startLevel: 1, endLevel: 5, gainPerLevel: 1.1 },
+          { startLevel: 6, endLevel: 10, gainPerLevel: 0.7 },
+          { startLevel: 11, gainPerLevel: 0.35 },
+        ],
+        spirit: [
+          { startLevel: 1, endLevel: 5, gainPerLevel: 1.0 },
+          { startLevel: 6, gainPerLevel: 0.45 },
+        ],
+      },
       skills: [
         {
           id: 'skill.thunder_palm',
@@ -101,7 +147,18 @@ export class ContentService {
     ['stillheart', {
       id: 'stillheart',
       name: '止念诀',
-      attrGrowth: { spirit: 1, comprehension: 2 },
+      grade: 'heaven',
+      attrCurves: {
+        spirit: [
+          { startLevel: 1, endLevel: 5, gainPerLevel: 1.7 },
+          { startLevel: 6, endLevel: 10, gainPerLevel: 1.1 },
+          { startLevel: 11, gainPerLevel: 0.55 },
+        ],
+        comprehension: [
+          { startLevel: 1, endLevel: 6, gainPerLevel: 1.0 },
+          { startLevel: 7, gainPerLevel: 0.45 },
+        ],
+      },
       skills: [
         {
           id: 'skill.stillheart_seal',
@@ -119,7 +176,18 @@ export class ContentService {
     ['iron_bone_art', {
       id: 'iron_bone_art',
       name: '铁骨功',
-      attrGrowth: { constitution: 2, talent: 1 },
+      grade: 'mortal',
+      attrCurves: {
+        constitution: [
+          { startLevel: 1, endLevel: 6, gainPerLevel: 2.0 },
+          { startLevel: 7, endLevel: 12, gainPerLevel: 1.2 },
+          { startLevel: 13, gainPerLevel: 0.6 },
+        ],
+        talent: [
+          { startLevel: 1, endLevel: 8, gainPerLevel: 0.8 },
+          { startLevel: 9, gainPerLevel: 0.3 },
+        ],
+      },
       skills: [
         {
           id: 'skill.iron_bone_strike',
@@ -146,7 +214,19 @@ export class ContentService {
     ['cloud_blade', {
       id: 'cloud_blade',
       name: '流云刀谱',
-      attrGrowth: { constitution: 1, perception: 1 },
+      grade: 'mystic',
+      attrCurves: {
+        constitution: [
+          { startLevel: 1, endLevel: 4, gainPerLevel: 0.9 },
+          { startLevel: 5, endLevel: 8, gainPerLevel: 0.5 },
+          { startLevel: 9, gainPerLevel: 0.2 },
+        ],
+        perception: [
+          { startLevel: 1, endLevel: 5, gainPerLevel: 1.4 },
+          { startLevel: 6, endLevel: 10, gainPerLevel: 0.9 },
+          { startLevel: 11, gainPerLevel: 0.45 },
+        ],
+      },
       skills: [
         {
           id: 'skill.cloud_cut',
@@ -173,7 +253,18 @@ export class ContentService {
     ['frost_sutra', {
       id: 'frost_sutra',
       name: '寒魄经',
-      attrGrowth: { spirit: 1, talent: 1 },
+      grade: 'earth',
+      attrCurves: {
+        spirit: [
+          { startLevel: 1, endLevel: 5, gainPerLevel: 1.2 },
+          { startLevel: 6, endLevel: 10, gainPerLevel: 0.8 },
+          { startLevel: 11, gainPerLevel: 0.35 },
+        ],
+        talent: [
+          { startLevel: 1, endLevel: 6, gainPerLevel: 0.9 },
+          { startLevel: 7, gainPerLevel: 0.4 },
+        ],
+      },
       skills: [
         {
           id: 'skill.frost_mark',
@@ -200,7 +291,18 @@ export class ContentService {
     ['spirit_anchor', {
       id: 'spirit_anchor',
       name: '镇灵篇',
-      attrGrowth: { spirit: 2, comprehension: 1 },
+      grade: 'spirit',
+      attrCurves: {
+        spirit: [
+          { startLevel: 1, endLevel: 5, gainPerLevel: 1.9 },
+          { startLevel: 6, endLevel: 10, gainPerLevel: 1.2 },
+          { startLevel: 11, gainPerLevel: 0.6 },
+        ],
+        comprehension: [
+          { startLevel: 1, endLevel: 5, gainPerLevel: 1.1 },
+          { startLevel: 6, gainPerLevel: 0.5 },
+        ],
+      },
       skills: [
         {
           id: 'skill.anchor_pulse',
@@ -227,7 +329,19 @@ export class ContentService {
     ['starfall_spear', {
       id: 'starfall_spear',
       name: '陨星枪诀',
-      attrGrowth: { constitution: 1, perception: 2 },
+      grade: 'saint',
+      attrCurves: {
+        constitution: [
+          { startLevel: 1, endLevel: 5, gainPerLevel: 1.3 },
+          { startLevel: 6, endLevel: 10, gainPerLevel: 0.8 },
+          { startLevel: 11, gainPerLevel: 0.4 },
+        ],
+        perception: [
+          { startLevel: 1, endLevel: 5, gainPerLevel: 1.9 },
+          { startLevel: 6, endLevel: 10, gainPerLevel: 1.2 },
+          { startLevel: 11, gainPerLevel: 0.6 },
+        ],
+      },
       skills: [
         {
           id: 'skill.starfall_thrust',

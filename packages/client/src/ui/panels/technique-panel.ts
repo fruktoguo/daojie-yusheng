@@ -1,4 +1,15 @@
-import { Attributes, TechniqueState, TechniqueRealm, PlayerState } from '@mud/shared';
+import {
+  Attributes,
+  calcTechniqueAttrValues,
+  calcTechniqueNextLevelGains,
+  TechniqueAttrCurveSegment,
+  TechniqueAttrCurves,
+  TECHNIQUE_ATTR_KEYS,
+  TECHNIQUE_GRADE_LABELS,
+  TechniqueState,
+  TechniqueRealm,
+  PlayerState,
+} from '@mud/shared';
 
 const REALM_NAMES: Record<TechniqueRealm, string> = {
   [TechniqueRealm.Entry]: '入门',
@@ -15,20 +26,42 @@ const ATTR_NAMES: Record<keyof Attributes, string> = {
   luck: '气运',
 };
 
-function formatTechniqueGrowth(attrs?: Partial<Attributes>, level = 1): { perLevel: string; total: string } {
-  if (!attrs) {
-    return { perLevel: '暂无六维加成', total: '当前总加成 0' };
-  }
-  const entries = Object.entries(attrs).filter(([, value]) => typeof value === 'number' && value !== 0) as [keyof Attributes, number][];
+function formatNumber(value: number): string {
+  return value.toFixed(value % 1 === 0 ? 0 : value % 0.1 === 0 ? 1 : 2);
+}
+
+function formatAttrMap(prefix: string, attrs: Partial<Attributes>): string {
+  const entries = TECHNIQUE_ATTR_KEYS
+    .map((key) => [key, attrs[key] ?? 0] as const)
+    .filter(([, value]) => value > 0);
   if (entries.length === 0) {
-    return { perLevel: '暂无六维加成', total: '当前总加成 0' };
+    return `${prefix}无`;
   }
-  const perLevel = entries.map(([key, value]) => `${ATTR_NAMES[key]}+${value}`).join(' / ');
-  const total = entries.map(([key, value]) => `${ATTR_NAMES[key]}+${value * level}`).join(' / ');
-  return {
-    perLevel: `每层加成 ${perLevel}`,
-    total: `当前总加成 ${total}`,
-  };
+  return `${prefix}${entries.map(([key, value]) => `${ATTR_NAMES[key]}+${formatNumber(value)}`).join(' / ')}`;
+}
+
+function formatSegmentRange(segment: TechniqueAttrCurveSegment): string {
+  if (segment.endLevel === undefined) {
+    return `${segment.startLevel}层后`;
+  }
+  if (segment.startLevel === segment.endLevel) {
+    return `${segment.startLevel}层`;
+  }
+  return `${segment.startLevel}-${segment.endLevel}层`;
+}
+
+function formatCurveDetails(curves?: TechniqueAttrCurves): string {
+  if (!curves) return '成长曲线：暂无';
+  const parts = TECHNIQUE_ATTR_KEYS
+    .map((key) => {
+      const segments = curves[key];
+      if (!segments || segments.length === 0) return '';
+      return `${ATTR_NAMES[key]} ${segments
+        .map((segment) => `${formatSegmentRange(segment)}+${formatNumber(segment.gainPerLevel)}/层`)
+        .join(' / ')}`;
+    })
+    .filter((entry) => entry.length > 0);
+  return parts.length > 0 ? `成长曲线：${parts.join('；')}` : '成长曲线：暂无';
 }
 
 /** 功法面板：显示已学功法、境界、经验和技能 */
@@ -62,7 +95,9 @@ export class TechniquePanel {
     for (const tech of techniques) {
       const isCultivating = cultivatingTechId === tech.techId;
       const expPercent = tech.expToNext > 0 ? Math.floor((tech.exp / tech.expToNext) * 100) : 100;
-      const growth = formatTechniqueGrowth(tech.attrGrowth, tech.level);
+      const currentAttrs = calcTechniqueAttrValues(tech.level, tech.attrCurves);
+      const nextAttrs = calcTechniqueNextLevelGains(tech.level, tech.attrCurves);
+      const curveDetails = formatCurveDetails(tech.attrCurves);
       const skillHtml = tech.skills.length > 0
         ? tech.skills.map((skill) => `
             <div class="skill-chip">
@@ -75,6 +110,7 @@ export class TechniquePanel {
       html += `<div class="tech-card">
         <div class="tech-head">
           <span class="tech-name">${tech.name}</span>
+          <span class="tech-realm">${tech.grade ? TECHNIQUE_GRADE_LABELS[tech.grade] : '无品'}</span>
           <span class="tech-realm">${REALM_NAMES[tech.realm]}</span>
         </div>
         <div class="tech-exp-bar">
@@ -85,9 +121,10 @@ export class TechniquePanel {
           <span>经验 ${tech.exp}/${tech.expToNext > 0 ? tech.expToNext : '满'}</span>
         </div>`;
       html += `<div class="tech-meta">
-          <span>${growth.perLevel}</span>
-          <span>${growth.total}</span>
+          <span>${formatAttrMap('本法原始加成 ', currentAttrs)}</span>
+          <span>${formatAttrMap('下层原始收益 ', nextAttrs)}</span>
         </div>`;
+      html += `<div class="tech-meta"><span>${curveDetails}</span></div>`;
 
       html += `<div class="tech-skills">${skillHtml}</div>`;
 

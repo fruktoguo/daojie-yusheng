@@ -134,6 +134,19 @@ export enum TechniqueRealm {
   Perfection = 3,
 }
 
+/** 功法品阶 */
+export type TechniqueGrade = 'mortal' | 'yellow' | 'mystic' | 'earth' | 'heaven' | 'spirit' | 'saint' | 'emperor';
+
+/** 功法单属性成长分段 */
+export interface TechniqueAttrCurveSegment {
+  startLevel: number;
+  endLevel?: number;
+  gainPerLevel: number;
+}
+
+/** 功法六维成长曲线 */
+export type TechniqueAttrCurves = Partial<Record<AttrKey, TechniqueAttrCurveSegment[]>>;
+
 /** 玩家大境界 */
 export enum PlayerRealmStage {
   Mortal = 0,
@@ -185,7 +198,8 @@ export interface TechniqueState {
   expToNext: number;
   realm: TechniqueRealm;
   skills: SkillDef[];
-  attrGrowth?: Partial<Attributes>;
+  grade?: TechniqueGrade;
+  attrCurves?: TechniqueAttrCurves;
 }
 
 /** 行动类型 */
