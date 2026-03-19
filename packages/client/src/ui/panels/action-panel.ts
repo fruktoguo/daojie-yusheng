@@ -1,4 +1,6 @@
-import { ActionDef, PlayerState } from '@mud/shared';
+import { ActionDef, PlayerState, SkillDef } from '@mud/shared';
+import { FloatingTooltip } from '../floating-tooltip';
+import { buildSkillTooltipLines } from '../skill-tooltip';
 
 const TYPE_NAMES: Record<string, string> = {
   skill: '技能',
@@ -21,7 +23,15 @@ function normalizeShortcutKey(key: string): string | null {
   return null;
 }
 
-/** 行动面板：显示可用行动列表 */
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
 export class ActionPanel {
   private pane = document.getElementById('pane-action')!;
   private onAction: ((actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string) => void) | null = null;
@@ -31,6 +41,8 @@ export class ActionPanel {
   private currentActions: ActionDef[] = [];
   private shortcutBindings = new Map<string, string>();
   private bindingActionId: string | null = null;
+  private skillLookup = new Map<string, SkillDef>();
+  private tooltip = new FloatingTooltip();
 
   constructor() {
     this.shortcutBindings = this.loadShortcutBindings();
@@ -45,7 +57,10 @@ export class ActionPanel {
     this.onAction = onAction;
   }
 
-  update(actions: ActionDef[], _autoBattle?: boolean, _autoRetaliate?: boolean): void {
+  update(actions: ActionDef[], _autoBattle?: boolean, _autoRetaliate?: boolean, player?: PlayerState): void {
+    if (player) {
+      this.syncPlayerContext(player);
+    }
     this.currentActions = this.withUtilityActions(actions);
     if (_autoBattle !== undefined) this.autoBattle = _autoBattle;
     if (_autoRetaliate !== undefined) this.autoRetaliate = _autoRetaliate;
@@ -53,10 +68,17 @@ export class ActionPanel {
   }
 
   initFromPlayer(player: PlayerState): void {
+    this.syncPlayerContext(player);
     this.currentActions = this.withUtilityActions(player.actions);
     this.autoBattle = player.autoBattle ?? false;
     this.autoRetaliate = player.autoRetaliate !== false;
     this.render(this.currentActions);
+  }
+
+  private syncPlayerContext(player: PlayerState): void {
+    this.skillLookup = new Map(
+      player.techniques.flatMap((technique) => technique.skills.map((skill) => [skill.id, skill] as const)),
+    );
   }
 
   private render(actions: ActionDef[]): void {
@@ -126,15 +148,15 @@ export class ActionPanel {
           html += `<div class="action-item">
             <div class="action-copy">
               <div>
-                <span class="action-name">${action.name}</span>
+                <span class="action-name">${escapeHtml(action.name)}</span>
                 <span class="action-type">[操作]</span>
                 ${this.renderShortcutBadge(action.id)}
               </div>
-              <div class="action-desc">${action.desc}</div>
+              <div class="action-desc">${escapeHtml(action.desc)}</div>
             </div>
             <div class="action-cta">
               <button class="small-btn ghost" data-bind-action="${action.id}" type="button">${this.getBindButtonLabel(action.id)}</button>
-              <button class="small-btn" data-action="${action.id}" data-action-name="${action.name}" data-action-range="${action.range ?? ''}" data-action-target="${action.requiresTarget ? '1' : '0'}" data-action-target-mode="${action.targetMode ?? ''}">执行</button>
+              <button class="small-btn" data-action="${action.id}" data-action-name="${escapeHtml(action.name)}" data-action-range="${action.range ?? ''}" data-action-target="${action.requiresTarget ? '1' : '0'}" data-action-target-mode="${action.targetMode ?? ''}">执行</button>
             </div>
           </div>`;
         }
@@ -151,21 +173,26 @@ export class ActionPanel {
             <div class="panel-section-title">${TYPE_NAMES[type] || type}</div>`;
           for (const action of entries) {
             const onCd = action.cooldownLeft > 0;
+            const skill = this.skillLookup.get(action.id);
+            const tooltipLines = skill ? buildSkillTooltipLines(skill) : [];
+            const tooltipAttrs = skill
+              ? ` data-action-tooltip-title="${escapeHtml(skill.name)}" data-action-tooltip-detail="${escapeHtml(tooltipLines.join('\n'))}"`
+              : '';
             html += `<div class="action-item ${onCd ? 'cooldown' : ''}">
-              <div class="action-copy">
+              <div class="action-copy ${skill ? 'action-copy-tooltip' : ''}"${tooltipAttrs}>
                 <div>
-                  <span class="action-name">${action.name}</span>
+                  <span class="action-name">${escapeHtml(action.name)}</span>
                   <span class="action-type">[${TYPE_NAMES[action.type] || action.type}]</span>
                   ${typeof action.range === 'number' ? `<span class="action-type">射程 ${action.range}</span>` : ''}
                   ${this.renderShortcutBadge(action.id)}
                 </div>
-                <div class="action-desc">${action.desc}</div>
+                <div class="action-desc">${escapeHtml(action.desc)}</div>
               </div>
               <div class="action-cta">
                 <button class="small-btn ghost" data-bind-action="${action.id}" type="button">${this.getBindButtonLabel(action.id)}</button>
                 ${onCd
                   ? `<span class="action-cd">冷却 ${action.cooldownLeft}s</span>`
-                  : `<button class="small-btn" data-action="${action.id}" data-action-name="${action.name}" data-action-range="${action.range ?? ''}" data-action-target="${action.requiresTarget ? '1' : '0'}" data-action-target-mode="${action.targetMode ?? ''}">执行</button>`
+                  : `<button class="small-btn" data-action="${action.id}" data-action-name="${escapeHtml(action.name)}" data-action-range="${action.range ?? ''}" data-action-target="${action.requiresTarget ? '1' : '0'}" data-action-target-mode="${action.targetMode ?? ''}">执行</button>`
                 }
               </div>
             </div>`;
@@ -177,7 +204,11 @@ export class ActionPanel {
     }
 
     this.pane.innerHTML = html;
+    this.bindEvents(actions);
+    this.bindTooltips();
+  }
 
+  private bindEvents(actions: ActionDef[]): void {
     this.pane.querySelectorAll<HTMLElement>('[data-action-tab]').forEach((button) => {
       button.addEventListener('click', () => {
         const tab = button.dataset.actionTab as 'dialogue' | 'skill' | 'toggle' | undefined;
@@ -188,20 +219,20 @@ export class ActionPanel {
     });
     this.pane.querySelectorAll<HTMLElement>('[data-action-card]').forEach((button) => {
       button.addEventListener('click', () => {
-        if ((button as HTMLElement).dataset.bindAction) return;
+        if (button.dataset.bindAction) return;
         const actionId = button.dataset.actionCard;
         if (!actionId) return;
         const action = this.currentActions.find((entry) => entry.id === actionId);
         this.onAction?.(actionId, action?.requiresTarget, action?.targetMode, action?.range, action?.name ?? actionId);
       });
     });
-    this.pane.querySelectorAll('[data-action]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const actionId = (btn as HTMLElement).dataset.action!;
-        const actionName = (btn as HTMLElement).dataset.actionName || actionId;
-        const requiresTarget = (btn as HTMLElement).dataset.actionTarget === '1';
-        const targetMode = (btn as HTMLElement).dataset.actionTargetMode || undefined;
-        const rangeText = (btn as HTMLElement).dataset.actionRange;
+    this.pane.querySelectorAll<HTMLElement>('[data-action]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const actionId = button.dataset.action!;
+        const actionName = button.dataset.actionName || actionId;
+        const requiresTarget = button.dataset.actionTarget === '1';
+        const targetMode = button.dataset.actionTargetMode || undefined;
+        const rangeText = button.dataset.actionRange;
         const range = rangeText ? Number(rangeText) : undefined;
         this.onAction?.(actionId, requiresTarget, targetMode, Number.isFinite(range) ? range : undefined, actionName);
       });
@@ -214,6 +245,23 @@ export class ActionPanel {
         if (!actionId) return;
         this.bindingActionId = this.bindingActionId === actionId ? null : actionId;
         this.render(this.currentActions);
+      });
+    });
+  }
+
+  private bindTooltips(): void {
+    this.pane.querySelectorAll<HTMLElement>('[data-action-tooltip-title]').forEach((node) => {
+      const title = node.dataset.actionTooltipTitle ?? '';
+      const detail = node.dataset.actionTooltipDetail ?? '';
+      const lines = detail.split('\n');
+      node.addEventListener('pointerenter', (event) => {
+        this.tooltip.show(title, lines, event.clientX, event.clientY);
+      });
+      node.addEventListener('pointermove', (event) => {
+        this.tooltip.move(event.clientX, event.clientY);
+      });
+      node.addEventListener('pointerleave', () => {
+        this.tooltip.hide();
       });
     });
   }

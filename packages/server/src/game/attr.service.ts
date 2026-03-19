@@ -6,9 +6,13 @@ import {
   AttrBonus,
   AttrKey,
   DEFAULT_PLAYER_REALM_STAGE,
+  ELEMENT_KEYS,
+  NUMERIC_SCALAR_STAT_KEYS,
   PlayerState,
   PLAYER_REALM_NUMERIC_TEMPLATES,
   PlayerRealmStage,
+  PartialNumericStats,
+  TemporaryBuffState,
   VIEW_RADIUS,
   addPartialNumericStats,
   cloneNumericRatioDivisors,
@@ -30,6 +34,50 @@ function createAttributeSnapshot(initial = 0): Attributes {
     comprehension: initial,
     luck: initial,
   };
+}
+
+function scaleBuffAttributes(attrs: Partial<Attributes> | undefined, stacks: number): Partial<Attributes> | undefined {
+  if (!attrs || stacks <= 0) return undefined;
+  const result: Partial<Attributes> = {};
+  for (const key of ATTR_KEYS) {
+    const value = attrs[key];
+    if (value === undefined) continue;
+    result[key] = value * stacks;
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function scaleBuffStats(stats: PartialNumericStats | undefined, stacks: number): PartialNumericStats | undefined {
+  if (!stats || stacks <= 0) return undefined;
+  const result: PartialNumericStats = {};
+  for (const key of NUMERIC_SCALAR_STAT_KEYS) {
+    const value = stats[key];
+    if (value === undefined) continue;
+    result[key] = value * stacks;
+  }
+  if (stats.elementDamageBonus) {
+    const group: PartialNumericStats['elementDamageBonus'] = {};
+    for (const key of ELEMENT_KEYS) {
+      const value = stats.elementDamageBonus[key];
+      if (value === undefined) continue;
+      group[key] = value * stacks;
+    }
+    if (Object.keys(group).length > 0) {
+      result.elementDamageBonus = group;
+    }
+  }
+  if (stats.elementDamageReduce) {
+    const group: PartialNumericStats['elementDamageReduce'] = {};
+    for (const key of ELEMENT_KEYS) {
+      const value = stats.elementDamageReduce[key];
+      if (value === undefined) continue;
+      group[key] = value * stacks;
+    }
+    if (Object.keys(group).length > 0) {
+      result.elementDamageReduce = group;
+    }
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
 }
 
 @Injectable()
@@ -81,15 +129,16 @@ export class AttrService {
   /** 重算玩家六维缓存、具体属性缓存，并同步 HP/QI 上限等运行时字段 */
   recalcPlayer(player: PlayerState): void {
     const previousMaxQi = Math.max(0, Math.round(player.numericStats?.maxQi ?? player.qi ?? 0));
+    const effectiveBonuses = this.getEffectiveBonuses(player);
     const finalAttrs = this.computeFinal(
       player.baseAttrs,
-      player.bonuses,
+      effectiveBonuses,
       player.finalAttrs ?? createAttributeSnapshot(),
     );
     const stage = player.realm?.stage ?? DEFAULT_PLAYER_REALM_STAGE;
     const stats = this.computeNumericStats(
       finalAttrs,
-      player.bonuses,
+      effectiveBonuses,
       stage,
       player.numericStats ?? createNumericStats(),
     );
@@ -120,6 +169,30 @@ export class AttrService {
       player.qi = Math.max(0, Math.min(newMaxQi, Math.round(player.qi)));
     }
     player.viewRange = Math.max(1, Math.round(stats.viewRange || VIEW_RADIUS));
+  }
+
+  private getEffectiveBonuses(player: PlayerState): AttrBonus[] {
+    const temporaryBonuses = (player.temporaryBuffs ?? [])
+      .filter((buff) => buff.remainingTicks > 0 && buff.stacks > 0)
+      .map((buff) => this.buildTemporaryBuffBonus(buff));
+    if (temporaryBonuses.length === 0) {
+      return player.bonuses;
+    }
+    return [...player.bonuses, ...temporaryBonuses];
+  }
+
+  private buildTemporaryBuffBonus(buff: TemporaryBuffState): AttrBonus {
+    return {
+      source: `temp-buff:${buff.buffId}`,
+      label: buff.name,
+      attrs: scaleBuffAttributes(buff.attrs, buff.stacks) ?? {},
+      stats: scaleBuffStats(buff.stats, buff.stacks),
+      meta: {
+        sourceSkillId: buff.sourceSkillId,
+        remainingTicks: buff.remainingTicks,
+        stacks: buff.stacks,
+      },
+    };
   }
 
   private getRatioDivisorsForStage(stage: PlayerRealmStage, previous?: NumericRatioDivisors): NumericRatioDivisors {

@@ -265,7 +265,9 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
 
           let result: WorldUpdate;
           if (action.type === 'skill' || action.type === 'battle') {
-            result = this.worldService.performTargetedSkill(player, actionId, target);
+            result = action.requiresTarget === false
+              ? this.worldService.performSkill(player, actionId)
+              : this.worldService.performTargetedSkill(player, actionId, target);
             if (!result.error) {
               const cooldownError = this.actionService.beginCooldown(player, actionId);
               if (cooldownError) {
@@ -318,6 +320,9 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       }
 
       this.applyNaturalRecovery(player);
+      if (this.tickTemporaryBuffs(player)) {
+        this.playerService.markDirty(player.id, 'attr');
+      }
 
       if (this.actionService.tickCooldowns(player)) {
         this.playerService.markDirty(player.id, 'actions');
@@ -370,7 +375,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         messages.push({ playerId: player.id, text: '技能书内容残缺，无法参悟。', kind: 'system' });
         return;
       }
-      const err = this.techniqueService.learnTechnique(player, technique.id, technique.name, technique.skills, technique.grade, technique.attrCurves);
+      const err = this.techniqueService.learnTechnique(player, technique.id, technique.name, technique.skills, technique.grade, technique.layers);
       if (err) {
         messages.push({ playerId: player.id, text: err, kind: 'system' });
         return;
@@ -419,6 +424,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
 
   private flushDirtyUpdates(players: PlayerState[]) {
     for (const player of players) {
+      this.techniqueService.initializePlayerProgression(player);
       const flags = this.playerService.getDirtyFlags(player.id);
       if (!flags || flags.size === 0) continue;
       const socket = this.playerService.getSocket(player.id);
@@ -560,6 +566,22 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       const recover = Math.max(1, Math.round(maxQi * (numericStats.qiRegenRate / 10000)));
       player.qi = Math.min(maxQi, player.qi + recover);
     }
+  }
+
+  private tickTemporaryBuffs(player: PlayerState): boolean {
+    if (!player.temporaryBuffs || player.temporaryBuffs.length === 0) {
+      return false;
+    }
+    const before = player.temporaryBuffs.length;
+    for (const buff of player.temporaryBuffs) {
+      buff.remainingTicks -= 1;
+    }
+    player.temporaryBuffs = player.temporaryBuffs.filter((buff) => buff.remainingTicks > 0 && buff.stacks > 0);
+    if (player.temporaryBuffs.length !== before) {
+      this.attrService.recalcPlayer(player);
+      return true;
+    }
+    return false;
   }
 
 }

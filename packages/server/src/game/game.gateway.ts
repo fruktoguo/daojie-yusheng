@@ -146,6 +146,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       dead: false,
       baseAttrs: { ...DEFAULT_BASE_ATTRS },
       bonuses: [],
+      temporaryBuffs: [],
       inventory: this.contentService.getStarterInventory(),
       equipment: { weapon: null, head: null, body: null, legs: null, accessory: null },
       techniques: [],

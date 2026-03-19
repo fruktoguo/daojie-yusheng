@@ -1,4 +1,4 @@
-import type { NumericRatioDivisors, NumericStats, PartialNumericStats } from './numeric';
+import type { NumericRatioDivisors, NumericScalarStatKey, NumericStats, PartialNumericStats } from './numeric';
 
 /** 地形类型 */
 export enum TileType {
@@ -147,6 +147,13 @@ export interface TechniqueAttrCurveSegment {
 /** 功法六维成长曲线 */
 export type TechniqueAttrCurves = Partial<Record<AttrKey, TechniqueAttrCurveSegment[]>>;
 
+/** 功法单层配置 */
+export interface TechniqueLayerDef {
+  level: number;
+  expToNext: number;
+  attrs?: Partial<Attributes>;
+}
+
 /** 玩家大境界 */
 export enum PlayerRealmStage {
   Mortal = 0,
@@ -175,6 +182,67 @@ export interface PlayerRealmState {
 }
 
 /** 技能定义 */
+export type SkillDamageKind = 'physical' | 'spell';
+
+export type SkillFormulaVar =
+  | 'techLevel'
+  | 'targetCount'
+  | 'caster.hp'
+  | 'caster.maxHp'
+  | 'caster.qi'
+  | 'caster.maxQi'
+  | 'target.hp'
+  | 'target.maxHp'
+  | 'target.qi'
+  | 'target.maxQi'
+  | `caster.stat.${NumericScalarStatKey}`
+  | `target.stat.${NumericScalarStatKey}`;
+
+export type SkillFormula =
+  | number
+  | {
+      var: SkillFormulaVar;
+      scale?: number;
+    }
+  | {
+      op: 'add' | 'sub' | 'mul' | 'div' | 'min' | 'max';
+      args: SkillFormula[];
+    }
+  | {
+      op: 'clamp';
+      value: SkillFormula;
+      min?: SkillFormula;
+      max?: SkillFormula;
+    };
+
+export interface SkillTargetingDef {
+  shape?: 'single' | 'line' | 'area';
+  range?: number;
+  radius?: number;
+  maxTargets?: number;
+  requiresTarget?: boolean;
+  targetMode?: 'any' | 'entity' | 'tile';
+}
+
+export interface SkillDamageEffectDef {
+  type: 'damage';
+  damageKind?: SkillDamageKind;
+  formula: SkillFormula;
+}
+
+export interface SkillBuffEffectDef {
+  type: 'buff';
+  target: 'self';
+  buffId: string;
+  name: string;
+  duration: number;
+  maxStacks?: number;
+  attrs?: Partial<Attributes>;
+  stats?: PartialNumericStats;
+}
+
+export type SkillEffectDef = SkillDamageEffectDef | SkillBuffEffectDef;
+
 export interface SkillDef {
   id: string;
   name: string;
@@ -182,11 +250,24 @@ export interface SkillDef {
   cooldown: number;
   cost: number;
   range: number;
-  power: number;
-  unlockRealm: TechniqueRealm;
+  targeting?: SkillTargetingDef;
+  effects: SkillEffectDef[];
+  unlockLevel?: number;
+  unlockRealm?: TechniqueRealm;
   unlockPlayerRealm?: PlayerRealmStage;
   requiresTarget?: boolean;
   targetMode?: 'any' | 'entity' | 'tile';
+}
+
+export interface TemporaryBuffState {
+  buffId: string;
+  name: string;
+  sourceSkillId: string;
+  remainingTicks: number;
+  stacks: number;
+  maxStacks: number;
+  attrs?: Partial<Attributes>;
+  stats?: PartialNumericStats;
 }
 
 /** 功法状态 */
@@ -199,6 +280,7 @@ export interface TechniqueState {
   realm: TechniqueRealm;
   skills: SkillDef[];
   grade?: TechniqueGrade;
+  layers?: TechniqueLayerDef[];
   attrCurves?: TechniqueAttrCurves;
 }
 
@@ -281,6 +363,7 @@ export interface PlayerState {
   dead: boolean;
   baseAttrs: Attributes;
   bonuses: AttrBonus[];
+  temporaryBuffs?: TemporaryBuffState[];
   finalAttrs?: Attributes;
   numericStats?: NumericStats;
   ratioDivisors?: NumericRatioDivisors;

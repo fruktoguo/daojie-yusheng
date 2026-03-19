@@ -2,20 +2,16 @@ import {
   Attributes,
   calcTechniqueAttrValues,
   calcTechniqueNextLevelGains,
-  TechniqueAttrCurves,
+  getTechniqueMaxLevel,
+  PlayerState,
+  resolveSkillUnlockLevel,
   TECHNIQUE_ATTR_KEYS,
   TECHNIQUE_GRADE_LABELS,
+  TechniqueLayerDef,
   TechniqueState,
-  TechniqueRealm,
-  PlayerState,
 } from '@mud/shared';
-
-const REALM_NAMES: Record<TechniqueRealm, string> = {
-  [TechniqueRealm.Entry]: '入门',
-  [TechniqueRealm.Minor]: '小成',
-  [TechniqueRealm.Major]: '大成',
-  [TechniqueRealm.Perfection]: '圆满',
-};
+import { FloatingTooltip } from '../floating-tooltip';
+import { buildSkillTooltipLines } from '../skill-tooltip';
 
 const ATTR_NAMES: Record<keyof Attributes, string> = {
   constitution: '体魄',
@@ -25,8 +21,6 @@ const ATTR_NAMES: Record<keyof Attributes, string> = {
   comprehension: '悟性',
   luck: '气运',
 };
-
-const TOOLTIP_STYLE_CLASS = 'tech-tooltip';
 
 type TechniquePanelState = {
   cultivatingTechId?: string;
@@ -38,16 +32,6 @@ function formatNumber(value: number): string {
   return value.toFixed(value % 1 === 0 ? 0 : value % 0.1 === 0 ? 1 : 2);
 }
 
-function formatAttrMap(prefix: string, attrs: Partial<Attributes>): string {
-  const entries = TECHNIQUE_ATTR_KEYS
-    .map((key) => [key, attrs[key] ?? 0] as const)
-    .filter(([, value]) => value > 0);
-  if (entries.length === 0) {
-    return `${prefix}无`;
-  }
-  return `${prefix}${entries.map(([key, value]) => `${ATTR_NAMES[key]}+${formatNumber(value)}`).join(' / ')}`;
-}
-
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -57,89 +41,44 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-function unlockLayerForRealm(realm: TechniqueRealm): number {
-  return realm + 1;
-}
-
-function formatLayerRange(startLevel: number, endLevel?: number): string {
-  if (endLevel === undefined) {
-    return `第${startLevel}层后`;
+function formatAttrMap(attrs: Partial<Attributes>, fallback = '无属性提升'): string {
+  const entries = TECHNIQUE_ATTR_KEYS
+    .map((key) => [key, attrs[key] ?? 0] as const)
+    .filter(([, value]) => value > 0);
+  if (entries.length === 0) {
+    return fallback;
   }
-  if (startLevel === endLevel) {
-    return `第${startLevel}层`;
-  }
-  return `第${startLevel}-${endLevel}层`;
-}
-
-function buildLayerGrowthRows(curves?: TechniqueAttrCurves): string[] {
-  if (!curves) return ['当前未配置成长明细'];
-  const boundaries = new Set<number>();
-  for (const key of TECHNIQUE_ATTR_KEYS) {
-    const segments = curves[key];
-    if (!segments) continue;
-    for (const segment of segments) {
-      boundaries.add(segment.startLevel);
-      if (segment.endLevel !== undefined) {
-        boundaries.add(segment.endLevel + 1);
-      }
-    }
-  }
-
-  const sorted = [...boundaries].filter((value) => value > 0).sort((left, right) => left - right);
-  if (sorted.length === 0) return ['当前未配置成长明细'];
-
-  const rows: string[] = [];
-  for (let index = 0; index < sorted.length; index += 1) {
-    const start = sorted[index];
-    const next = sorted[index + 1];
-    const end = next === undefined ? undefined : next - 1;
-    const parts: string[] = [];
-
-    for (const key of TECHNIQUE_ATTR_KEYS) {
-      const segments = curves[key];
-      const active = segments?.find((segment) => {
-        const segmentEnd = segment.endLevel ?? Number.POSITIVE_INFINITY;
-        return start >= segment.startLevel && start <= segmentEnd;
-      });
-      if (!active || active.gainPerLevel <= 0) continue;
-      parts.push(`${ATTR_NAMES[key]}+${formatNumber(active.gainPerLevel)}/层`);
-    }
-
-    if (parts.length === 0) continue;
-    rows.push(`${formatLayerRange(start, end)}：${parts.join('，')}`);
-  }
-
-  return rows.length > 0 ? rows : ['当前未配置成长明细'];
-}
-
-function buildSkillTooltip(technique: TechniqueState, spellAtk: number) {
-  return technique.skills.map((skill) => {
-    const unlockLayer = unlockLayerForRealm(skill.unlockRealm);
-    const preDefense = skill.power + Math.round(spellAtk);
-    const detail = [
-      skill.desc,
-      `解锁层数：第${unlockLayer}层（${REALM_NAMES[skill.unlockRealm]}）`,
-      `基础威力：${skill.power}`,
-      `属性加成：法术攻击 +${Math.round(spellAtk)}`,
-      `当前理论伤害前置值：${preDefense}`,
-      `灵力消耗：${skill.cost}`,
-      `射程：${skill.range}`,
-      `冷却：${skill.cooldown} 秒`,
-      '实际伤害仍会受命中、闪避、破招、化解、暴击与目标法术防御影响。',
-    ].join('\n');
-    return { skillId: skill.id, detail };
-  });
+  return entries.map(([key, value]) => `${ATTR_NAMES[key]}+${formatNumber(value)}`).join(' / ');
 }
 
 export class TechniquePanel {
   private pane = document.getElementById('pane-technique')!;
+  private modal = document.getElementById('technique-modal')!;
+  private modalTitle = document.getElementById('technique-modal-title')!;
+  private modalSubtitle = document.getElementById('technique-modal-subtitle')!;
+  private modalBody = document.getElementById('technique-modal-body')!;
   private onCultivate: ((techId: string | null) => void) | null = null;
-  private expandedTechIds = new Set<string>();
-  private tooltip: HTMLDivElement | null = null;
+  private tooltip = new FloatingTooltip();
+  private openTechId: string | null = null;
   private lastState: TechniquePanelState = { techniques: [], spellAtk: 0 };
+
+  constructor() {
+    this.modal.addEventListener('click', () => {
+      this.closeModal();
+    });
+    this.modal.querySelector('.tech-modal-card')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+    });
+    window.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        this.closeModal();
+      }
+    });
+  }
 
   clear(): void {
     this.pane.innerHTML = '<div class="empty-hint">尚未习得功法</div>';
+    this.closeModal();
   }
 
   setCallbacks(onCultivate: (techId: string | null) => void): void {
@@ -148,150 +87,183 @@ export class TechniquePanel {
 
   update(techniques: TechniqueState[], cultivatingTechId?: string, spellAtk = 0): void {
     this.lastState = { techniques, cultivatingTechId, spellAtk };
-    this.render(techniques, cultivatingTechId, spellAtk);
+    this.renderList();
+    this.renderModal();
   }
 
   initFromPlayer(player: PlayerState): void {
     this.update(player.techniques, player.cultivatingTechId, player.numericStats?.spellAtk ?? 0);
   }
 
-  private render(techniques: TechniqueState[], cultivatingTechId?: string, spellAtk = 0): void {
+  private renderList(): void {
+    const { techniques } = this.lastState;
     if (techniques.length === 0) {
       this.clear();
       return;
     }
 
-    let html = '';
-    for (const tech of techniques) {
-      const isCultivating = cultivatingTechId === tech.techId;
-      const isExpanded = this.expandedTechIds.has(tech.techId);
-      const expPercent = tech.expToNext > 0 ? Math.floor((tech.exp / tech.expToNext) * 100) : 100;
-      const currentAttrs = calcTechniqueAttrValues(tech.level, tech.attrCurves);
-      const nextAttrs = calcTechniqueNextLevelGains(tech.level, tech.attrCurves);
-      const growthRows = buildLayerGrowthRows(tech.attrCurves);
-      const skills = [...tech.skills].sort((left, right) => left.unlockRealm - right.unlockRealm);
-      const tooltips = new Map(buildSkillTooltip(tech, spellAtk).map((entry) => [entry.skillId, entry.detail]));
+    this.pane.innerHTML = techniques.map((tech) => {
+      const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
+      const isCultivating = this.lastState.cultivatingTechId === tech.techId;
+      return `<button class="tech-card ${isCultivating ? 'cultivating' : ''}" data-tech-open="${tech.techId}" type="button">
+        <span class="tech-summary-main">
+          <span class="tech-name">${escapeHtml(tech.name)}</span>
+          <span class="tech-realm">${tech.grade ? TECHNIQUE_GRADE_LABELS[tech.grade] : '无品'}</span>
+          <span class="tech-layer">第${tech.level}/${maxLevel}层</span>
+        </span>
+      </button>`;
+    }).join('');
 
-      const skillHtml = skills.length > 0
-        ? skills.map((skill) => {
-          const unlockLayer = unlockLayerForRealm(skill.unlockRealm);
-          const unlocked = tech.level >= unlockLayer;
-          return `
-            <div class="skill-chip ${unlocked ? '' : 'locked'}"
-              data-tech-tooltip-title="${escapeHtml(skill.name)}"
-              data-tech-tooltip-detail="${escapeHtml(tooltips.get(skill.id) ?? skill.desc)}">
-              <div class="skill-chip-title">${skill.name}</div>
-              <div class="skill-chip-meta">第${unlockLayer}层解锁 · ${REALM_NAMES[skill.unlockRealm]} · ${unlocked ? '已解锁' : '未解锁'}</div>
-            </div>
-          `;
-        }).join('')
-        : '<div class="empty-hint compact">暂无可用招式</div>';
+    this.pane.querySelectorAll<HTMLElement>('[data-tech-open]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const techId = button.dataset.techOpen;
+        if (!techId) return;
+        this.openTechId = techId;
+        this.renderModal();
+      });
+    });
+  }
 
-      const growthHtml = growthRows.map((row) => {
-        const [layer, detail] = row.split('：');
-        return `<div class="tech-growth-row"><span class="tech-growth-layer">${layer}</span><span>${detail ?? ''}</span></div>`;
-      }).join('');
+  private renderModal(): void {
+    if (!this.openTechId) {
+      this.closeModal();
+      return;
+    }
+    const tech = this.lastState.techniques.find((entry) => entry.techId === this.openTechId);
+    if (!tech) {
+      this.closeModal();
+      return;
+    }
 
-      html += `<div class="tech-card ${isExpanded ? 'expanded' : ''}">
-        <button class="tech-summary" data-tech-toggle="${tech.techId}" type="button">
-          <span class="tech-summary-main">
-            <span class="tech-name">${tech.name}</span>
-            <span class="tech-realm">${tech.grade ? TECHNIQUE_GRADE_LABELS[tech.grade] : '无品'}</span>
-            <span class="tech-layer">第${tech.level}层</span>
-          </span>
-          <span class="tech-arrow">▶</span>
-        </button>
-        <div class="tech-details">
-          <div class="tech-exp-bar">
-            <div class="tech-exp-fill" style="width:${expPercent}%"></div>
-          </div>
-          <div class="tech-meta">
-            <span>当前境界：${REALM_NAMES[tech.realm]}</span>
-            <span>经验 ${tech.exp}/${tech.expToNext > 0 ? tech.expToNext : '满'}</span>
-          </div>
-          <div class="tech-meta">
-            <span>${formatAttrMap('本法当前原始加成 ', currentAttrs)}</span>
-            <span>${formatAttrMap('下一层原始收益 ', nextAttrs)}</span>
-          </div>
-          <div class="tech-section-title">层数成长</div>
-          <div class="tech-growth-list">${growthHtml}</div>
-          <div class="tech-section-title">技能解锁</div>
-          <div class="tech-skills">${skillHtml}</div>
-          ${isCultivating
-            ? `<button class="small-btn danger" data-cultivate-stop="${tech.techId}" type="button">停止修炼</button>`
-            : `<button class="small-btn" data-cultivate="${tech.techId}" type="button">修炼</button>`}
+    const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
+    const currentAttrs = calcTechniqueAttrValues(tech.level, tech.layers, tech.attrCurves);
+    const nextAttrs = calcTechniqueNextLevelGains(tech.level, tech.layers, tech.attrCurves);
+    const isCultivating = this.lastState.cultivatingTechId === tech.techId;
+    const skillsByLevel = new Map<number, TechniqueState['skills']>();
+    for (const skill of tech.skills) {
+      const unlockLevel = resolveSkillUnlockLevel(skill);
+      const current = skillsByLevel.get(unlockLevel) ?? [];
+      current.push(skill);
+      skillsByLevel.set(unlockLevel, current);
+    }
+
+    this.modalTitle.textContent = tech.name;
+    this.modalSubtitle.textContent = `${tech.grade ? TECHNIQUE_GRADE_LABELS[tech.grade] : '无品'} · 第 ${tech.level}/${maxLevel} 层`;
+
+    const layers = tech.layers && tech.layers.length > 0
+      ? [...tech.layers].sort((left, right) => left.level - right.level)
+      : this.buildLegacyLayers(tech, maxLevel);
+    const layerRows = layers.map((layer) => this.renderLayerRow(layer, tech.level, skillsByLevel)).join('');
+    this.modalBody.innerHTML = `
+      <div class="tech-modal-summary">
+        <div class="tech-modal-stat">
+          <span class="tech-modal-label">当前经验</span>
+          <span>${tech.expToNext > 0 ? `${tech.exp}/${tech.expToNext}` : '已满层'}</span>
         </div>
-      </div>`;
+        <div class="tech-modal-stat">
+          <span class="tech-modal-label">当前原始总加成</span>
+          <span>${escapeHtml(formatAttrMap(currentAttrs))}</span>
+        </div>
+        <div class="tech-modal-stat">
+          <span class="tech-modal-label">下一层原始收益</span>
+          <span>${escapeHtml(formatAttrMap(nextAttrs, '已无下一层'))}</span>
+        </div>
+      </div>
+      <div class="tech-modal-section-title">逐层详情</div>
+      <div class="tech-layer-list">${layerRows}</div>
+      <div class="tech-modal-actions">
+        ${isCultivating
+          ? `<button class="small-btn danger" data-cultivate-stop="${tech.techId}" type="button">停止修炼</button>`
+          : `<button class="small-btn" data-cultivate="${tech.techId}" type="button">设为当前修炼</button>`}
+      </div>
+    `;
+
+    this.modal.classList.remove('hidden');
+    this.modal.setAttribute('aria-hidden', 'false');
+    this.bindModalActions();
+    this.bindSkillTooltips();
+  }
+
+  private buildLegacyLayers(tech: TechniqueState, maxLevel: number): TechniqueLayerDef[] {
+    const rows: TechniqueLayerDef[] = [];
+    for (let level = 1; level <= maxLevel; level += 1) {
+      rows.push({
+        level,
+        expToNext: level >= maxLevel ? 0 : 0,
+        attrs: calcTechniqueNextLevelGains(level - 1, undefined, tech.attrCurves),
+      });
+    }
+    return rows;
+  }
+
+  private renderLayerRow(layer: TechniqueLayerDef, currentLevel: number, skillsByLevel: Map<number, TechniqueState['skills']>): string {
+    const skills = skillsByLevel.get(layer.level) ?? [];
+    const skillTags = skills.length > 0
+      ? skills.map((skill) => {
+        const detail = {
+          title: skill.name,
+          lines: buildSkillTooltipLines(skill, resolveSkillUnlockLevel(skill)),
+        };
+        return `<span class="tech-skill-tag"
+          data-skill-tooltip-title="${escapeHtml(detail.title)}"
+          data-skill-tooltip-detail="${escapeHtml(detail.lines.join('\n'))}">${escapeHtml(skill.name)}</span>`;
+      }).join('')
+      : '<span class="tech-layer-empty">本层无新技能</span>';
+
+    let expText = '已满层';
+    if (layer.expToNext > 0) {
+      expText = `升下一层需 ${layer.expToNext} 修炼经验`;
     }
 
-    this.pane.innerHTML = html;
-    this.bindActions();
-    this.bindTooltips();
+    return `<div class="tech-layer-row ${layer.level === currentLevel ? 'current' : ''} ${layer.level < currentLevel ? 'passed' : ''}">
+      <div class="tech-layer-row-head">
+        <span class="tech-layer-index">第 ${layer.level} 层</span>
+        <span class="tech-layer-exp">${expText}</span>
+      </div>
+      <div class="tech-layer-attrs">${escapeHtml(formatAttrMap(layer.attrs ?? {}, '本层不增加六维'))}</div>
+      <div class="tech-layer-skills">
+        <span class="tech-modal-label">解锁技能</span>
+        <span class="tech-layer-skill-list">${skillTags}</span>
+      </div>
+    </div>`;
   }
 
-  private bindActions(): void {
-    this.pane.querySelectorAll<HTMLElement>('[data-tech-toggle]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const techId = button.dataset.techToggle;
-        if (!techId) return;
-        if (this.expandedTechIds.has(techId)) {
-          this.expandedTechIds.delete(techId);
-        } else {
-          this.expandedTechIds.add(techId);
-        }
-        this.render(this.lastState.techniques, this.lastState.cultivatingTechId, this.lastState.spellAtk);
-      });
+  private bindModalActions(): void {
+    this.modalBody.querySelector<HTMLElement>('[data-cultivate]')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const techId = (event.currentTarget as HTMLElement).dataset.cultivate;
+      if (!techId) return;
+      this.onCultivate?.(techId);
+      this.renderModal();
     });
-
-    this.pane.querySelectorAll<HTMLElement>('[data-cultivate]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const techId = button.dataset.cultivate;
-        if (!techId) return;
-        this.onCultivate?.(techId);
-      });
-    });
-
-    this.pane.querySelectorAll<HTMLElement>('[data-cultivate-stop]').forEach((button) => {
-      button.addEventListener('click', () => {
-        this.onCultivate?.(null);
-      });
+    this.modalBody.querySelector<HTMLElement>('[data-cultivate-stop]')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      this.onCultivate?.(null);
+      this.renderModal();
     });
   }
 
-  private getTooltip(): HTMLDivElement {
-    if (!this.tooltip) {
-      const tooltip = document.createElement('div');
-      tooltip.className = TOOLTIP_STYLE_CLASS;
-      document.body.appendChild(tooltip);
-      this.tooltip = tooltip;
-    }
-    return this.tooltip;
-  }
-
-  private bindTooltips(): void {
-    const tooltip = this.getTooltip();
-    const show = (title: string, detail: string, event: PointerEvent) => {
-      const lines = detail
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0);
-      tooltip.innerHTML = `<div class="tech-tooltip-body"><strong>${escapeHtml(title)}</strong>${lines.length > 0 ? `<div class="tech-tooltip-detail">${lines.map((line) => `<span class="tech-tooltip-line">${escapeHtml(line)}</span>`).join('')}</div>` : ''}</div>`;
-      tooltip.style.left = `${event.clientX + 14}px`;
-      tooltip.style.top = `${event.clientY + 10}px`;
-      tooltip.classList.add('visible');
-    };
-
-    this.pane.querySelectorAll<HTMLElement>('[data-tech-tooltip-title]').forEach((node) => {
-      const title = node.dataset.techTooltipTitle ?? '';
-      const detail = node.dataset.techTooltipDetail ?? '';
-      node.addEventListener('pointerenter', (event) => show(title, detail, event));
+  private bindSkillTooltips(): void {
+    this.modalBody.querySelectorAll<HTMLElement>('[data-skill-tooltip-title]').forEach((node) => {
+      const title = node.dataset.skillTooltipTitle ?? '';
+      const detail = node.dataset.skillTooltipDetail ?? '';
+      const lines = detail.split('\n');
+      node.addEventListener('pointerenter', (event) => {
+        this.tooltip.show(title, lines, event.clientX, event.clientY);
+      });
       node.addEventListener('pointermove', (event) => {
-        tooltip.style.left = `${event.clientX + 14}px`;
-        tooltip.style.top = `${event.clientY + 10}px`;
+        this.tooltip.move(event.clientX, event.clientY);
       });
       node.addEventListener('pointerleave', () => {
-        tooltip.classList.remove('visible');
+        this.tooltip.hide();
       });
     });
+  }
+
+  private closeModal(): void {
+    this.openTechId = null;
+    this.modal.classList.add('hidden');
+    this.modal.setAttribute('aria-hidden', 'true');
+    this.tooltip.hide();
   }
 }

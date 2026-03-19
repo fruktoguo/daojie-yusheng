@@ -90,6 +90,7 @@ export class PlayerService {
       dead: entity.dead,
       baseAttrs: (entity.baseAttrs ?? { ...DEFAULT_BASE_ATTRS }) as Attributes,
       bonuses: (entity.bonuses ?? []) as AttrBonus[],
+      temporaryBuffs: [],
       inventory: (entity.inventory as unknown ?? { items: [], capacity: DEFAULT_INVENTORY_CAPACITY }) as Inventory,
       equipment: (entity.equipment ?? { weapon: null, head: null, body: null, legs: null, accessory: null }) as EquipmentSlots,
       techniques: (entity.techniques ?? []) as TechniqueState[],
@@ -112,6 +113,7 @@ export class PlayerService {
     // 用默认值填充新字段
     if (!state.baseAttrs) state.baseAttrs = { ...DEFAULT_BASE_ATTRS };
     if (!state.bonuses) state.bonuses = [];
+    if (!state.temporaryBuffs) state.temporaryBuffs = [];
     if (!state.inventory) state.inventory = { items: [], capacity: DEFAULT_INVENTORY_CAPACITY };
     if (!state.equipment) state.equipment = { weapon: null, head: null, body: null, legs: null, accessory: null };
     state.inventory = this.contentService.normalizeInventory(state.inventory);

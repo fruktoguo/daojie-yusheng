@@ -47,6 +47,7 @@ export class BotService {
         dead: false,
         baseAttrs: { ...DEFAULT_BASE_ATTRS },
         bonuses: [],
+        temporaryBuffs: [],
         inventory: { items: [], capacity: DEFAULT_INVENTORY_CAPACITY },
         equipment: { weapon: null, head: null, body: null, legs: null, accessory: null },
         techniques: [],

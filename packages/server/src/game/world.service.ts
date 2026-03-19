@@ -15,6 +15,11 @@ import {
   RenderEntity,
   ratioValue,
   SkillDef,
+  SkillDamageKind,
+  SkillEffectDef,
+  SkillFormula,
+  SkillFormulaVar,
+  TemporaryBuffState,
 } from '@mud/shared';
 import { AttrService } from './attr.service';
 import { ContentService } from './content.service';
@@ -25,7 +30,6 @@ import { TechniqueService } from './technique.service';
 
 type MessageKind = 'system' | 'quest' | 'combat' | 'loot';
 type WorldDirtyFlag = 'inv' | 'quest' | 'actions' | 'tech' | 'attr';
-type DamageKind = 'physical' | 'spell';
 
 interface RuntimeMonster extends MonsterSpawnConfig {
   runtimeId: string;
@@ -109,6 +113,20 @@ interface ResolvedHit {
   resolved: boolean;
   broken: boolean;
   qiCost: number;
+}
+
+type ResolvedTarget =
+  | { kind: 'monster'; x: number; y: number; monster: RuntimeMonster }
+  | { kind: 'tile'; x: number; y: number; tileType?: string };
+
+interface SkillFormulaContext {
+  player: PlayerState;
+  skill: SkillDef;
+  techLevel: number;
+  targetCount: number;
+  casterStats: NumericStats;
+  target?: ResolvedTarget;
+  targetStats?: NumericStats;
 }
 
 @Injectable()
@@ -306,15 +324,7 @@ export class WorldService {
       .find((skill): skill is SkillDef => Boolean(skill));
 
     if (availableSkill && this.isWithinRange(player.x, player.y, target.x, target.y, availableSkill.range)) {
-      this.faceToward(player, target.x, target.y);
-      const update = this.attackMonster(
-        player,
-        target,
-        availableSkill.power,
-        `${availableSkill.name}击中`,
-        'spell',
-        availableSkill,
-      );
+      const update = this.performTargetedSkill(player, availableSkill.id, target.runtimeId);
       if (!update.error) {
         return { ...update, usedActionId: availableSkill.id };
       }
@@ -340,7 +350,10 @@ export class WorldService {
     if (!skill) {
       return { ...EMPTY_UPDATE, error: '技能不存在' };
     }
-    return { ...EMPTY_UPDATE, error: '缺少目标' };
+    if (skill.requiresTarget !== false) {
+      return { ...EMPTY_UPDATE, error: '缺少目标' };
+    }
+    return this.castSkill(player, skill);
   }
 
   performTargetedSkill(player: PlayerState, skillId: string, targetRef?: string): WorldUpdate {
@@ -360,16 +373,71 @@ export class WorldService {
       return { ...EMPTY_UPDATE, error: '目标超出技能范围' };
     }
 
-    this.faceToward(player, target.x, target.y);
-    if (target.kind === 'monster') {
-      return this.attackMonster(player, target.monster, skill.power, `${skill.name}击中`, 'spell', skill);
+    return this.castSkill(player, skill, target);
+  }
+
+  private castSkill(player: PlayerState, skill: SkillDef, primaryTarget?: ResolvedTarget): WorldUpdate {
+    if (primaryTarget) {
+      this.faceToward(player, primaryTarget.x, primaryTarget.y);
+    }
+    const selectedTargets = this.selectSkillTargets(player, skill, primaryTarget);
+    if (skill.requiresTarget !== false && selectedTargets.length === 0) {
+      return { ...EMPTY_UPDATE, error: '没有可命中的目标' };
     }
 
     const qiCost = this.consumeQiForSkill(player, skill);
     if (typeof qiCost === 'string') {
       return { ...EMPTY_UPDATE, error: qiCost };
     }
-    return this.attackTerrain(player, target.x, target.y, skill.power + Math.round(this.attrService.getPlayerNumericStats(player).spellAtk), skill.name, target.tileType ?? '目标');
+
+    const casterStats = this.attrService.getPlayerNumericStats(player);
+    const techLevel = this.getSkillTechniqueLevel(player, skill.id);
+    const result: WorldUpdate = { messages: [], dirty: [] };
+    const dirty = new Set<WorldDirtyFlag>();
+
+    for (const effect of skill.effects) {
+      if (effect.type === 'damage') {
+        const damageTargets = this.pickDamageTargets(selectedTargets, primaryTarget);
+        if (damageTargets.length === 0) {
+          continue;
+        }
+        for (const target of damageTargets) {
+          const context: SkillFormulaContext = {
+            player,
+            skill,
+            techLevel,
+            targetCount: damageTargets.length,
+            casterStats,
+            target,
+            targetStats: target.kind === 'monster' ? this.getMonsterCombatSnapshot(target.monster).stats : undefined,
+          };
+          const baseDamage = Math.max(1, Math.round(this.evaluateSkillFormula(effect.formula, context)));
+          const update = target.kind === 'monster'
+            ? this.attackMonster(player, target.monster, baseDamage, `${skill.name}击中`, effect.damageKind ?? 'spell', skill, qiCost)
+            : this.attackTerrain(player, target.x, target.y, baseDamage, skill.name, target.tileType ?? '目标');
+          result.messages.push(...update.messages);
+          for (const flag of update.dirty) {
+            dirty.add(flag);
+          }
+          if (update.error) {
+            result.error = update.error;
+          }
+        }
+        continue;
+      }
+
+      const update = this.applyBuffEffect(player, skill, effect);
+      result.messages.push(...update.messages);
+      for (const flag of update.dirty) {
+        dirty.add(flag);
+      }
+      if (update.error) {
+        result.error = update.error;
+      }
+    }
+
+    result.dirty = [...dirty];
+    return result;
   }
 
   engageTarget(player: PlayerState, targetRef?: string): WorldUpdate {
@@ -388,6 +456,188 @@ export class WorldService {
     const dirty = new Set(update.dirty);
     dirty.add('actions');
     return { ...update, dirty: [...dirty] };
+  }
+
+  private selectSkillTargets(player: PlayerState, skill: SkillDef, primaryTarget?: ResolvedTarget): ResolvedTarget[] {
+    if (!primaryTarget) {
+      return [];
+    }
+    const targeting = skill.targeting;
+    const shape = targeting?.shape ?? 'single';
+    if (shape === 'single') {
+      return [primaryTarget];
+    }
+
+    const monsters = this.monstersByMap.get(player.mapId) ?? [];
+    const maxTargets = Math.max(1, targeting?.maxTargets ?? 99);
+    if (shape === 'line') {
+      const cells = this.getLineCells(player.x, player.y, primaryTarget.x, primaryTarget.y).slice(1);
+      return monsters
+        .filter((monster) => monster.alive && cells.some((cell) => cell.x === monster.x && cell.y === monster.y))
+        .sort((left, right) => this.distanceSquared(player.x, player.y, left.x, left.y) - this.distanceSquared(player.x, player.y, right.x, right.y))
+        .slice(0, maxTargets)
+        .map((monster) => ({ kind: 'monster', x: monster.x, y: monster.y, monster }));
+    }
+
+    const radius = Math.max(0, targeting?.radius ?? 1);
+    return monsters
+      .filter((monster) => monster.alive && this.isWithinRange(primaryTarget.x, primaryTarget.y, monster.x, monster.y, radius))
+      .sort((left, right) => this.distanceSquared(player.x, player.y, left.x, left.y) - this.distanceSquared(player.x, player.y, right.x, right.y))
+      .slice(0, maxTargets)
+      .map((monster) => ({ kind: 'monster', x: monster.x, y: monster.y, monster }));
+  }
+
+  private pickDamageTargets(selectedTargets: ResolvedTarget[], primaryTarget?: ResolvedTarget): ResolvedTarget[] {
+    if (selectedTargets.length > 0) {
+      return selectedTargets;
+    }
+    return primaryTarget ? [primaryTarget] : [];
+  }
+
+  private applyBuffEffect(player: PlayerState, skill: SkillDef, effect: Extract<SkillEffectDef, { type: 'buff' }>): WorldUpdate {
+    if (effect.target !== 'self') {
+      return { ...EMPTY_UPDATE, error: '当前仅支持对自身施加增益效果' };
+    }
+
+    const maxStacks = Math.max(1, effect.maxStacks ?? 1);
+    const remainingTicks = Math.max(1, effect.duration) + 1;
+    player.temporaryBuffs ??= [];
+    const existing = player.temporaryBuffs.find((entry) => entry.buffId === effect.buffId);
+    if (existing) {
+      existing.remainingTicks = remainingTicks;
+      existing.stacks = Math.min(maxStacks, existing.stacks + 1);
+      existing.maxStacks = maxStacks;
+      existing.attrs = effect.attrs;
+      existing.stats = effect.stats;
+    } else {
+      const buff: TemporaryBuffState = {
+        buffId: effect.buffId,
+        name: effect.name,
+        sourceSkillId: skill.id,
+        remainingTicks,
+        stacks: 1,
+        maxStacks,
+        attrs: effect.attrs,
+        stats: effect.stats,
+      };
+      player.temporaryBuffs.push(buff);
+    }
+    this.attrService.recalcPlayer(player);
+    const current = player.temporaryBuffs.find((entry) => entry.buffId === effect.buffId);
+    const stackText = current && current.maxStacks > 1 ? `（${current.stacks}层）` : '';
+    return {
+      messages: [{
+        playerId: player.id,
+        text: `你获得了 ${effect.name}${stackText}，持续 ${effect.duration} 回合。`,
+        kind: 'combat',
+      }],
+      dirty: ['attr'],
+    };
+  }
+
+  private getSkillTechniqueLevel(player: PlayerState, skillId: string): number {
+    for (const technique of player.techniques) {
+      if (technique.skills.some((entry) => entry.id === skillId)) {
+        return Math.max(1, technique.level);
+      }
+    }
+    return 1;
+  }
+
+  private evaluateSkillFormula(formula: SkillFormula, context: SkillFormulaContext): number {
+    if (typeof formula === 'number') {
+      return formula;
+    }
+    if ('var' in formula) {
+      return this.resolveSkillFormulaVar(formula.var, context) * (formula.scale ?? 1);
+    }
+    if (formula.op === 'clamp') {
+      const value = this.evaluateSkillFormula(formula.value, context);
+      const min = formula.min === undefined ? Number.NEGATIVE_INFINITY : this.evaluateSkillFormula(formula.min, context);
+      const max = formula.max === undefined ? Number.POSITIVE_INFINITY : this.evaluateSkillFormula(formula.max, context);
+      return Math.min(max, Math.max(min, value));
+    }
+
+    const values = formula.args.map((entry) => this.evaluateSkillFormula(entry, context));
+    switch (formula.op) {
+      case 'add':
+        return values.reduce((sum, value) => sum + value, 0);
+      case 'sub':
+        return values.slice(1).reduce((sum, value) => sum - value, values[0] ?? 0);
+      case 'mul':
+        return values.reduce((sum, value) => sum * value, 1);
+      case 'div':
+        return values.slice(1).reduce((sum, value) => (value === 0 ? sum : sum / value), values[0] ?? 0);
+      case 'min':
+        return values.length > 0 ? Math.min(...values) : 0;
+      case 'max':
+        return values.length > 0 ? Math.max(...values) : 0;
+      default:
+        return 0;
+    }
+  }
+
+  private resolveSkillFormulaVar(variable: SkillFormulaVar, context: SkillFormulaContext): number {
+    switch (variable) {
+      case 'techLevel':
+        return context.techLevel;
+      case 'targetCount':
+        return context.targetCount;
+      case 'caster.hp':
+        return context.player.hp;
+      case 'caster.maxHp':
+        return context.player.maxHp;
+      case 'caster.qi':
+        return context.player.qi;
+      case 'caster.maxQi':
+        return Math.max(0, Math.round(context.casterStats.maxQi));
+      case 'target.hp':
+        return context.target?.kind === 'monster' ? context.target.monster.hp : 0;
+      case 'target.maxHp':
+        return context.target?.kind === 'monster' ? context.target.monster.maxHp : 0;
+      case 'target.qi':
+      case 'target.maxQi':
+        return 0;
+      default:
+        if (variable.startsWith('caster.stat.')) {
+          const key = variable.slice('caster.stat.'.length) as keyof NumericStats;
+          return typeof context.casterStats[key] === 'number' ? context.casterStats[key] as number : 0;
+        }
+        if (variable.startsWith('target.stat.')) {
+          const key = variable.slice('target.stat.'.length) as keyof NumericStats;
+          const targetStats = context.targetStats;
+          return targetStats && typeof targetStats[key] === 'number' ? targetStats[key] as number : 0;
+        }
+        return 0;
+    }
+  }
+
+  private getLineCells(startX: number, startY: number, endX: number, endY: number): Array<{ x: number; y: number }> {
+    const cells: Array<{ x: number; y: number }> = [];
+    let x = startX;
+    let y = startY;
+    const dx = Math.abs(endX - startX);
+    const dy = Math.abs(endY - startY);
+    const sx = startX < endX ? 1 : -1;
+    const sy = startY < endY ? 1 : -1;
+    let err = dx - dy;
+
+    while (true) {
+      cells.push({ x, y });
+      if (x === endX && y === endY) {
+        break;
+      }
+      const e2 = err * 2;
+      if (e2 > -dy) {
+        err -= dy;
+        x += sx;
+      }
+      if (e2 < dx) {
+        err += dx;
+        y += sy;
+      }
+    }
+    return cells;
   }
 
   resetPlayerToSpawn(player: PlayerState): WorldUpdate {
@@ -608,13 +858,11 @@ export class WorldService {
     monster: RuntimeMonster,
     baseDamage: number,
     prefix: string,
-    damageKind: DamageKind = 'physical',
+    damageKind: SkillDamageKind = 'physical',
     skill?: SkillDef,
+    qiCost = 0,
   ): WorldUpdate {
-    const resolved = this.resolvePlayerAttack(player, monster, baseDamage, damageKind, skill);
-    if (typeof resolved === 'string') {
-      return { ...EMPTY_UPDATE, error: resolved };
-    }
+    const resolved = this.resolvePlayerAttack(player, monster, baseDamage, damageKind, skill, qiCost);
 
     this.pushEffect(player.mapId, {
       type: 'attack',
@@ -681,16 +929,16 @@ export class WorldService {
     player: PlayerState,
     monster: RuntimeMonster,
     baseDamage: number,
-    damageKind: DamageKind,
+    damageKind: SkillDamageKind,
     skill?: SkillDef,
-  ): ResolvedHit | string {
+    qiCost = 0,
+  ): ResolvedHit {
     const attacker = this.getPlayerCombatSnapshot(player);
     const defender = this.getMonsterCombatSnapshot(monster);
-    const qiCost = skill ? this.consumeQiForSkill(player, skill) : 0;
-    if (typeof qiCost === 'string') {
-      return qiCost;
-    }
-    return this.resolveHit(attacker, defender, baseDamage, damageKind, qiCost, skill ? SKILL_ELEMENTS[skill.id] : undefined, (damage) => {
+    const rawDamage = skill
+      ? baseDamage
+      : baseDamage + (damageKind === 'physical' ? attacker.stats.physAtk : attacker.stats.spellAtk);
+    return this.resolveHit(attacker, defender, rawDamage, damageKind, qiCost, skill ? SKILL_ELEMENTS[skill.id] : undefined, (damage) => {
       monster.hp = Math.max(0, monster.hp - damage);
     });
   }
@@ -699,7 +947,9 @@ export class WorldService {
     const attacker = this.getMonsterCombatSnapshot(monster);
     const defender = this.getPlayerCombatSnapshot(player);
     const element = this.inferMonsterElement(monster);
-    return this.resolveHit(attacker, defender, monster.attack, element ? 'spell' : 'physical', 0, element, (damage) => {
+    const damageKind: SkillDamageKind = element ? 'spell' : 'physical';
+    const rawDamage = monster.attack + (damageKind === 'physical' ? attacker.stats.physAtk : attacker.stats.spellAtk);
+    return this.resolveHit(attacker, defender, rawDamage, damageKind, 0, element, (damage) => {
       player.hp = Math.max(0, player.hp - damage);
     });
   }
@@ -708,7 +958,7 @@ export class WorldService {
     attacker: CombatSnapshot,
     defender: CombatSnapshot,
     baseDamage: number,
-    damageKind: DamageKind,
+    damageKind: SkillDamageKind,
     qiCost: number,
     element: ElementKey | undefined,
     applyDamage: (damage: number) => void,
@@ -737,7 +987,7 @@ export class WorldService {
     const critStat = attacker.stats.crit * (broken ? 2 : 1);
     const crit = critStat > 0 && Math.random() < ratioValue(critStat, attacker.ratios.crit);
 
-    let damage = Math.max(1, Math.round(baseDamage + (damageKind === 'physical' ? attacker.stats.physAtk : attacker.stats.spellAtk)));
+    let damage = Math.max(1, Math.round(baseDamage));
     if (element) {
       damage = Math.max(1, Math.round(damage * (1 + Math.max(0, attacker.stats.elementDamageBonus[element]) / 100)));
     }
@@ -1190,7 +1440,7 @@ export class WorldService {
   private resolveTargetRef(
     player: PlayerState,
     targetRef: string,
-  ): { kind: 'monster'; x: number; y: number; monster: RuntimeMonster } | { kind: 'tile'; x: number; y: number; tileType?: string } | null {
+  ): ResolvedTarget | null {
     if (targetRef.startsWith('monster:')) {
       const monster = (this.monstersByMap.get(player.mapId) ?? []).find((entry) => entry.runtimeId === targetRef && entry.alive);
       if (!monster) return null;

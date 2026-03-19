@@ -3,28 +3,43 @@
     "id": "redflame_art",
     "name": "赤焰诀",
     "grade": "mystic",
-    "attrCurves": {
-      "spirit": [
-        { "startLevel": 1, "endLevel": 4, "gainPerLevel": 1.6 },
-        { "startLevel": 5, "endLevel": 8, "gainPerLevel": 1.0 },
-        { "startLevel": 9, "gainPerLevel": 0.5 }
-      ],
-      "comprehension": [
-        { "startLevel": 1, "endLevel": 6, "gainPerLevel": 0.7 },
-        { "startLevel": 7, "gainPerLevel": 0.25 }
-      ]
-    },
+    "layers": [
+      { "level": 1, "expToNext": 30, "attrs": { "spirit": 3, "comprehension": 1 } },
+      { "level": 2, "expToNext": 34, "attrs": { "spirit": 3, "comprehension": 1 } },
+      { "level": 3, "expToNext": 38, "attrs": { "spirit": 3, "comprehension": 1 } },
+      { "level": 4, "expToNext": 44, "attrs": { "spirit": 3, "comprehension": 2 } },
+      { "level": 5, "expToNext": 50, "attrs": { "spirit": 4, "comprehension": 2 } },
+      { "level": 6, "expToNext": 58, "attrs": { "spirit": 4, "comprehension": 2 } },
+      { "level": 7, "expToNext": 66, "attrs": { "spirit": 4, "comprehension": 2 } },
+      { "level": 8, "expToNext": 76, "attrs": { "spirit": 4, "comprehension": 2 } },
+      { "level": 9, "expToNext": 88, "attrs": { "spirit": 4, "comprehension": 2 } },
+      { "level": 10, "expToNext": 100, "attrs": { "spirit": 4, "comprehension": 2 } },
+      { "level": 11, "expToNext": 114, "attrs": { "spirit": 5, "comprehension": 2 } },
+      { "level": 12, "expToNext": 0, "attrs": { "spirit": 5, "comprehension": 3 } }
+    ],
     "skills": [
       {
         "id": "skill.fire_talisman",
         "name": "离火符",
         "desc": "引燃符火，攻击三格内的目标。",
         "cooldown": 3,
-        "cost": 7,
+        "cost": 8,
         "range": 3,
-        "power": 18,
-        "unlockRealm": "Entry",
-        "unlockPlayerRealm": "Meridian"
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "formula": {
+              "op": "add",
+              "args": [
+                26,
+                { "var": "techLevel", "scale": 2.5 },
+                { "var": "caster.stat.spellAtk", "scale": 1.1 }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 1
       }
     ]
   },
@@ -32,28 +47,50 @@
     "id": "thunder_palm",
     "name": "惊雷掌",
     "grade": "earth",
-    "attrCurves": {
-      "constitution": [
-        { "startLevel": 1, "endLevel": 5, "gainPerLevel": 1.1 },
-        { "startLevel": 6, "endLevel": 10, "gainPerLevel": 0.7 },
-        { "startLevel": 11, "gainPerLevel": 0.35 }
-      ],
-      "spirit": [
-        { "startLevel": 1, "endLevel": 5, "gainPerLevel": 1.0 },
-        { "startLevel": 6, "gainPerLevel": 0.45 }
-      ]
-    },
+    "layers": [
+      { "level": 1, "expToNext": 34, "attrs": { "constitution": 4, "spirit": 3, "perception": 1 } },
+      { "level": 2, "expToNext": 38, "attrs": { "constitution": 4, "spirit": 3, "perception": 1 } },
+      { "level": 3, "expToNext": 44, "attrs": { "constitution": 4, "spirit": 3, "perception": 1 } },
+      { "level": 4, "expToNext": 50, "attrs": { "constitution": 4, "spirit": 3, "perception": 1 } },
+      { "level": 5, "expToNext": 58, "attrs": { "constitution": 4, "spirit": 3, "perception": 1 } },
+      { "level": 6, "expToNext": 66, "attrs": { "constitution": 4, "spirit": 3, "perception": 1 } },
+      { "level": 7, "expToNext": 76, "attrs": { "constitution": 5, "spirit": 3, "perception": 2 } },
+      { "level": 8, "expToNext": 88, "attrs": { "constitution": 5, "spirit": 3, "perception": 2 } },
+      { "level": 9, "expToNext": 100, "attrs": { "constitution": 5, "spirit": 3, "perception": 2 } },
+      { "level": 10, "expToNext": 114, "attrs": { "constitution": 5, "spirit": 3, "perception": 1 } },
+      { "level": 11, "expToNext": 130, "attrs": { "constitution": 5, "spirit": 4, "perception": 1 } },
+      { "level": 12, "expToNext": 148, "attrs": { "constitution": 5, "spirit": 4, "perception": 1 } },
+      { "level": 13, "expToNext": 168, "attrs": { "constitution": 6, "spirit": 4, "perception": 2 } },
+      { "level": 14, "expToNext": 0, "attrs": { "constitution": 6, "spirit": 4, "perception": 2 } }
+    ],
     "skills": [
       {
         "id": "skill.thunder_palm",
         "name": "惊雷掌",
         "desc": "掌心引雷，重创近中距离目标。",
         "cooldown": 4,
-        "cost": 9,
+        "cost": 10,
         "range": 2,
-        "power": 24,
-        "unlockRealm": "Entry",
-        "unlockPlayerRealm": "Innate"
+        "targeting": {
+          "shape": "line",
+          "maxTargets": 3
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "formula": {
+              "op": "add",
+              "args": [
+                24,
+                { "var": "techLevel", "scale": 3 },
+                { "var": "caster.stat.spellAtk", "scale": 1.05 },
+                { "var": "target.stat.physDef", "scale": 0.3 }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 1
       }
     ]
   },
@@ -61,18 +98,20 @@
     "id": "cloud_blade",
     "name": "流云刀谱",
     "grade": "mystic",
-    "attrCurves": {
-      "constitution": [
-        { "startLevel": 1, "endLevel": 4, "gainPerLevel": 0.9 },
-        { "startLevel": 5, "endLevel": 8, "gainPerLevel": 0.5 },
-        { "startLevel": 9, "gainPerLevel": 0.2 }
-      ],
-      "perception": [
-        { "startLevel": 1, "endLevel": 5, "gainPerLevel": 1.4 },
-        { "startLevel": 6, "endLevel": 10, "gainPerLevel": 0.9 },
-        { "startLevel": 11, "gainPerLevel": 0.45 }
-      ]
-    },
+    "layers": [
+      { "level": 1, "expToNext": 30, "attrs": { "perception": 3, "constitution": 1 } },
+      { "level": 2, "expToNext": 34, "attrs": { "perception": 3, "constitution": 1 } },
+      { "level": 3, "expToNext": 40, "attrs": { "perception": 3, "constitution": 1 } },
+      { "level": 4, "expToNext": 46, "attrs": { "perception": 3, "constitution": 2 } },
+      { "level": 5, "expToNext": 52, "attrs": { "perception": 4, "constitution": 2 } },
+      { "level": 6, "expToNext": 60, "attrs": { "perception": 4, "constitution": 2 } },
+      { "level": 7, "expToNext": 68, "attrs": { "perception": 4, "constitution": 2 } },
+      { "level": 8, "expToNext": 78, "attrs": { "perception": 4, "constitution": 2 } },
+      { "level": 9, "expToNext": 90, "attrs": { "perception": 4, "constitution": 2 } },
+      { "level": 10, "expToNext": 102, "attrs": { "perception": 4, "constitution": 2 } },
+      { "level": 11, "expToNext": 116, "attrs": { "perception": 5, "constitution": 2 } },
+      { "level": 12, "expToNext": 0, "attrs": { "perception": 5, "constitution": 3 } }
+    ],
     "skills": [
       {
         "id": "skill.cloud_cut",
@@ -81,18 +120,54 @@
         "cooldown": 2,
         "cost": 7,
         "range": 2,
-        "power": 21,
-        "unlockRealm": "Entry"
+        "targeting": {
+          "shape": "line",
+          "maxTargets": 3
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "formula": {
+              "op": "add",
+              "args": [
+                20,
+                { "var": "techLevel", "scale": 2.5 },
+                { "var": "caster.stat.physAtk", "scale": 1.05 }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 1
       },
       {
         "id": "skill.dragon_turn",
         "name": "回龙转锋",
         "desc": "连环变招，重创三格内目标。",
         "cooldown": 4,
-        "cost": 11,
+        "cost": 12,
         "range": 3,
-        "power": 34,
-        "unlockRealm": "Major"
+        "targeting": {
+          "shape": "area",
+          "radius": 1,
+          "maxTargets": 4
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "formula": {
+              "op": "add",
+              "args": [
+                28,
+                { "var": "techLevel", "scale": 3 },
+                { "var": "caster.stat.physAtk", "scale": 1.15 },
+                { "var": "target.maxHp", "scale": 0.02 }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 8
       }
     ]
   },
@@ -100,17 +175,22 @@
     "id": "frost_sutra",
     "name": "寒魄经",
     "grade": "earth",
-    "attrCurves": {
-      "spirit": [
-        { "startLevel": 1, "endLevel": 5, "gainPerLevel": 1.2 },
-        { "startLevel": 6, "endLevel": 10, "gainPerLevel": 0.8 },
-        { "startLevel": 11, "gainPerLevel": 0.35 }
-      ],
-      "talent": [
-        { "startLevel": 1, "endLevel": 6, "gainPerLevel": 0.9 },
-        { "startLevel": 7, "gainPerLevel": 0.4 }
-      ]
-    },
+    "layers": [
+      { "level": 1, "expToNext": 34, "attrs": { "spirit": 4, "talent": 2, "comprehension": 1 } },
+      { "level": 2, "expToNext": 38, "attrs": { "spirit": 4, "talent": 2, "comprehension": 1 } },
+      { "level": 3, "expToNext": 44, "attrs": { "spirit": 4, "talent": 2, "comprehension": 1 } },
+      { "level": 4, "expToNext": 50, "attrs": { "spirit": 4, "talent": 2, "comprehension": 1 } },
+      { "level": 5, "expToNext": 58, "attrs": { "spirit": 4, "talent": 2, "comprehension": 1 } },
+      { "level": 6, "expToNext": 66, "attrs": { "spirit": 4, "talent": 3, "comprehension": 1 } },
+      { "level": 7, "expToNext": 76, "attrs": { "spirit": 5, "talent": 3, "comprehension": 1 } },
+      { "level": 8, "expToNext": 88, "attrs": { "spirit": 5, "talent": 3, "comprehension": 1 } },
+      { "level": 9, "expToNext": 100, "attrs": { "spirit": 5, "talent": 3, "comprehension": 1 } },
+      { "level": 10, "expToNext": 114, "attrs": { "spirit": 5, "talent": 3, "comprehension": 1 } },
+      { "level": 11, "expToNext": 130, "attrs": { "spirit": 5, "talent": 3, "comprehension": 1 } },
+      { "level": 12, "expToNext": 148, "attrs": { "spirit": 5, "talent": 4, "comprehension": 1 } },
+      { "level": 13, "expToNext": 168, "attrs": { "spirit": 6, "talent": 4, "comprehension": 2 } },
+      { "level": 14, "expToNext": 0, "attrs": { "spirit": 6, "talent": 4, "comprehension": 2 } }
+    ],
     "skills": [
       {
         "id": "skill.frost_mark",
@@ -119,18 +199,50 @@
         "cooldown": 3,
         "cost": 8,
         "range": 3,
-        "power": 24,
-        "unlockRealm": "Entry"
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "formula": {
+              "op": "add",
+              "args": [
+                26,
+                { "var": "techLevel", "scale": 3 },
+                { "var": "caster.stat.spellAtk", "scale": 1.2 }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 1
       },
       {
         "id": "skill.cold_moon_seal",
         "name": "寒月印",
         "desc": "凝寒印镇压四格内敌手。",
         "cooldown": 5,
-        "cost": 12,
+        "cost": 13,
         "range": 4,
-        "power": 36,
-        "unlockRealm": "Minor"
+        "targeting": {
+          "shape": "area",
+          "radius": 1,
+          "maxTargets": 5
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "formula": {
+              "op": "add",
+              "args": [
+                34,
+                { "var": "techLevel", "scale": 3.5 },
+                { "var": "caster.stat.spellAtk", "scale": 1.15 },
+                { "var": "target.maxHp", "scale": 0.03 }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 6
       }
     ]
   }
