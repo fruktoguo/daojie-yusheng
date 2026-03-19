@@ -64,6 +64,7 @@ export class TechniqueService {
     player.realmStage = normalized.shortName;
     player.breakthroughReady = normalized.breakthroughReady;
 
+    this.syncTechniqueMetadata(player);
     this.applyRealmBonus(player, normalized);
     this.applyTechniqueBonuses(player);
     this.applyRealmStateMirror(player, normalized);
@@ -83,7 +84,7 @@ export class TechniqueService {
     this.initializePlayerProgression(player);
   }
 
-  learnTechnique(player: PlayerState, techId: string, name: string, skills: SkillDef[]): string | null {
+  learnTechnique(player: PlayerState, techId: string, name: string, skills: SkillDef[], attrGrowth?: Partial<Attributes>): string | null {
     this.initializePlayerProgression(player);
     if (player.techniques.find((entry) => entry.techId === techId)) {
       return '已学会该功法';
@@ -97,6 +98,7 @@ export class TechniqueService {
       expToNext: TECHNIQUE_EXP_TABLE[TechniqueRealm.Entry],
       realm: TechniqueRealm.Entry,
       skills,
+      attrGrowth,
     };
     player.techniques.push(technique);
     this.applyTechniqueBonuses(player);
@@ -383,8 +385,7 @@ export class TechniqueService {
   private applyTechniqueBonuses(player: PlayerState): void {
     const nextBonuses = player.bonuses.filter((bonus) => !bonus.source.startsWith(TECHNIQUE_SOURCE_PREFIX));
     for (const technique of player.techniques) {
-      const template = this.contentService.getTechnique(technique.techId);
-      const growth = template?.attrGrowth;
+      const growth = technique.attrGrowth ?? this.contentService.getTechnique(technique.techId)?.attrGrowth;
       if (!growth) continue;
       const attrs = this.scaleTechniqueAttrGrowth(growth, technique.level);
       if (!Object.values(attrs).some((value) => value > 0)) continue;
@@ -395,6 +396,14 @@ export class TechniqueService {
       });
     }
     player.bonuses = nextBonuses;
+  }
+
+  private syncTechniqueMetadata(player: PlayerState): void {
+    for (const technique of player.techniques) {
+      const template = this.contentService.getTechnique(technique.techId);
+      if (!template) continue;
+      technique.attrGrowth = template.attrGrowth;
+    }
   }
 
   private scaleTechniqueAttrGrowth(base: Partial<Attributes>, level: number): AttrBonus['attrs'] {

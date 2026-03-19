@@ -19,6 +19,7 @@ import {
 import { Socket } from 'socket.io';
 import { PlayerEntity } from '../database/entities/player.entity';
 import { RedisService } from '../database/redis.service';
+import { ContentService } from './content.service';
 import { TechniqueService } from './technique.service';
 
 export interface PlayerCommand {
@@ -49,6 +50,7 @@ export class PlayerService {
     @InjectRepository(PlayerEntity)
     private readonly playerRepo: Repository<PlayerEntity>,
     private readonly redisService: RedisService,
+    private readonly contentService: ContentService,
     private readonly techniqueService: TechniqueService,
   ) {}
 
@@ -97,6 +99,8 @@ export class PlayerService {
       actions: [],
       cultivatingTechId: entity.cultivatingTechId ?? undefined,
     };
+    state.inventory = this.contentService.normalizeInventory(state.inventory);
+    state.equipment = this.contentService.normalizeEquipment(state.equipment);
     this.techniqueService.initializePlayerProgression(state);
     this.players.set(state.id, state);
     await this.redisService.setPlayer(state);
@@ -110,6 +114,8 @@ export class PlayerService {
     if (!state.bonuses) state.bonuses = [];
     if (!state.inventory) state.inventory = { items: [], capacity: DEFAULT_INVENTORY_CAPACITY };
     if (!state.equipment) state.equipment = { weapon: null, head: null, body: null, legs: null, accessory: null };
+    state.inventory = this.contentService.normalizeInventory(state.inventory);
+    state.equipment = this.contentService.normalizeEquipment(state.equipment);
     if (!state.techniques) state.techniques = [];
     if (!state.quests) state.quests = [];
     if (state.autoBattle === undefined) state.autoBattle = false;

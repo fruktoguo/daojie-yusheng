@@ -370,7 +370,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         messages.push({ playerId: player.id, text: '技能书内容残缺，无法参悟。', kind: 'system' });
         return;
       }
-      const err = this.techniqueService.learnTechnique(player, technique.id, technique.name, technique.skills);
+      const err = this.techniqueService.learnTechnique(player, technique.id, technique.name, technique.skills, technique.attrGrowth);
       if (err) {
         messages.push({ playerId: player.id, text: err, kind: 'system' });
         return;

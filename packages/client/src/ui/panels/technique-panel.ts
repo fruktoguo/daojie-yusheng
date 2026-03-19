@@ -1,4 +1,4 @@
-import { TechniqueState, TechniqueRealm, PlayerState } from '@mud/shared';
+import { Attributes, TechniqueState, TechniqueRealm, PlayerState } from '@mud/shared';
 
 const REALM_NAMES: Record<TechniqueRealm, string> = {
   [TechniqueRealm.Entry]: '入门',
@@ -6,6 +6,30 @@ const REALM_NAMES: Record<TechniqueRealm, string> = {
   [TechniqueRealm.Major]: '大成',
   [TechniqueRealm.Perfection]: '圆满',
 };
+const ATTR_NAMES: Record<keyof Attributes, string> = {
+  constitution: '体魄',
+  spirit: '神识',
+  perception: '身法',
+  talent: '根骨',
+  comprehension: '悟性',
+  luck: '气运',
+};
+
+function formatTechniqueGrowth(attrs?: Partial<Attributes>, level = 1): { perLevel: string; total: string } {
+  if (!attrs) {
+    return { perLevel: '暂无六维加成', total: '当前总加成 0' };
+  }
+  const entries = Object.entries(attrs).filter(([, value]) => typeof value === 'number' && value !== 0) as [keyof Attributes, number][];
+  if (entries.length === 0) {
+    return { perLevel: '暂无六维加成', total: '当前总加成 0' };
+  }
+  const perLevel = entries.map(([key, value]) => `${ATTR_NAMES[key]}+${value}`).join(' / ');
+  const total = entries.map(([key, value]) => `${ATTR_NAMES[key]}+${value * level}`).join(' / ');
+  return {
+    perLevel: `每层加成 ${perLevel}`,
+    total: `当前总加成 ${total}`,
+  };
+}
 
 /** 功法面板：显示已学功法、境界、经验和技能 */
 export class TechniquePanel {
@@ -38,6 +62,7 @@ export class TechniquePanel {
     for (const tech of techniques) {
       const isCultivating = cultivatingTechId === tech.techId;
       const expPercent = tech.expToNext > 0 ? Math.floor((tech.exp / tech.expToNext) * 100) : 100;
+      const growth = formatTechniqueGrowth(tech.attrGrowth, tech.level);
       const skillHtml = tech.skills.length > 0
         ? tech.skills.map((skill) => `
             <div class="skill-chip">
@@ -58,6 +83,10 @@ export class TechniquePanel {
         <div class="tech-meta">
           <span>层级 ${tech.level}</span>
           <span>经验 ${tech.exp}/${tech.expToNext > 0 ? tech.expToNext : '满'}</span>
+        </div>`;
+      html += `<div class="tech-meta">
+          <span>${growth.perLevel}</span>
+          <span>${growth.total}</span>
         </div>`;
 
       html += `<div class="tech-skills">${skillHtml}</div>`;

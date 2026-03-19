@@ -185,6 +185,7 @@ export interface TechniqueState {
   expToNext: number;
   realm: TechniqueRealm;
   skills: SkillDef[];
+  attrGrowth?: Partial<Attributes>;
 }
 
 /** 行动类型 */

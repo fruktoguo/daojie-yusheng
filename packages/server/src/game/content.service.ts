@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import {
   Attributes,
   DEFAULT_INVENTORY_CAPACITY,
+  EquipmentSlots,
+  EQUIP_SLOTS,
   Inventory,
   ItemStack,
   PlayerRealmStage,
@@ -544,6 +546,30 @@ export class ContentService {
       equipAttrs: item.equipAttrs,
       equipStats: item.equipStats,
     };
+  }
+
+  normalizeItemStack(item: ItemStack): ItemStack {
+    const normalized = this.createItem(item.itemId, item.count);
+    if (!normalized) {
+      return { ...item };
+    }
+    return normalized;
+  }
+
+  normalizeInventory(inventory: Inventory): Inventory {
+    return {
+      capacity: inventory.capacity,
+      items: inventory.items.map((item) => this.normalizeItemStack(item)),
+    };
+  }
+
+  normalizeEquipment(equipment: EquipmentSlots): EquipmentSlots {
+    const normalized = { weapon: null, head: null, body: null, legs: null, accessory: null } as EquipmentSlots;
+    for (const slot of EQUIP_SLOTS) {
+      const item = equipment[slot];
+      normalized[slot] = item ? this.normalizeItemStack(item) : null;
+    }
+    return normalized;
   }
 
   getItem(itemId: string): ItemTemplate | undefined {
