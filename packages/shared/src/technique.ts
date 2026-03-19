@@ -1,11 +1,15 @@
 import type {
   AttrKey,
   Attributes,
+  SkillDef,
   TechniqueAttrCurveSegment,
   TechniqueAttrCurves,
   TechniqueGrade,
+  TechniqueLayerDef,
+  TechniqueRealm,
   TechniqueState,
 } from './types';
+import { TechniqueRealm as TechniqueRealmEnum } from './types';
 
 export const TECHNIQUE_ATTR_KEYS: AttrKey[] = [
   'constitution',
@@ -80,12 +84,17 @@ export function createZeroAttributes(): Attributes {
   };
 }
 
+function normalizeLayers(layers?: TechniqueLayerDef[]): TechniqueLayerDef[] {
+  if (!layers || layers.length === 0) return [];
+  return [...layers].sort((left, right) => left.level - right.level);
+}
+
 function normalizeSegments(segments?: TechniqueAttrCurveSegment[]): TechniqueAttrCurveSegment[] {
   if (!segments || segments.length === 0) return [];
   return [...segments].sort((left, right) => left.startLevel - right.startLevel);
 }
 
-export function calcTechniqueCurveValue(level: number, segments?: TechniqueAttrCurveSegment[]): number {
+function calcTechniqueCurveValue(level: number, segments?: TechniqueAttrCurveSegment[]): number {
   if (level <= 0) return 0;
   let total = 0;
   for (const segment of normalizeSegments(segments)) {
@@ -97,7 +106,7 @@ export function calcTechniqueCurveValue(level: number, segments?: TechniqueAttrC
   return total;
 }
 
-export function calcTechniqueCurveNextGain(level: number, segments?: TechniqueAttrCurveSegment[]): number {
+function calcTechniqueCurveNextGain(level: number, segments?: TechniqueAttrCurveSegment[]): number {
   const targetLevel = Math.max(1, level + 1);
   for (const segment of normalizeSegments(segments)) {
     const segmentEnd = segment.endLevel ?? Number.POSITIVE_INFINITY;
@@ -108,23 +117,85 @@ export function calcTechniqueCurveNextGain(level: number, segments?: TechniqueAt
   return 0;
 }
 
-export function calcTechniqueAttrValues(level: number, curves?: TechniqueAttrCurves): Partial<Attributes> {
+export function getTechniqueMaxLevel(layers?: TechniqueLayerDef[], currentLevel = 1, legacyCurves?: TechniqueAttrCurves): number {
+  const normalized = normalizeLayers(layers);
+  if (normalized.length > 0) {
+    return normalized[normalized.length - 1].level;
+  }
+  if (legacyCurves && Object.keys(legacyCurves).length > 0) {
+    return Math.max(4, currentLevel);
+  }
+  return Math.max(1, currentLevel);
+}
+
+export function getTechniqueLayerDef(level: number, layers?: TechniqueLayerDef[]): TechniqueLayerDef | undefined {
+  return normalizeLayers(layers).find((entry) => entry.level === level);
+}
+
+export function getTechniqueExpToNext(level: number, layers?: TechniqueLayerDef[]): number {
+  return Math.max(0, getTechniqueLayerDef(level, layers)?.expToNext ?? 0);
+}
+
+export function resolveSkillUnlockLevel(skill: Pick<SkillDef, 'unlockLevel' | 'unlockRealm'>): number {
+  if (typeof skill.unlockLevel === 'number' && skill.unlockLevel > 0) {
+    return skill.unlockLevel;
+  }
+  if (typeof skill.unlockRealm === 'number') {
+    return skill.unlockRealm + 1;
+  }
+  return 1;
+}
+
+export function deriveTechniqueRealm(level: number, layers?: TechniqueLayerDef[], legacyCurves?: TechniqueAttrCurves): TechniqueRealm {
+  const maxLevel = Math.max(1, getTechniqueMaxLevel(layers, level, legacyCurves));
+  if (level >= maxLevel) return TechniqueRealmEnum.Perfection;
+  const progress = maxLevel <= 1 ? 1 : level / maxLevel;
+  if (progress >= 0.66) return TechniqueRealmEnum.Major;
+  if (progress >= 0.33) return TechniqueRealmEnum.Minor;
+  return TechniqueRealmEnum.Entry;
+}
+
+export function calcTechniqueAttrValues(level: number, layers?: TechniqueLayerDef[], legacyCurves?: TechniqueAttrCurves): Partial<Attributes> {
   const result: Partial<Attributes> = {};
-  if (!curves) return result;
-  for (const key of TECHNIQUE_ATTR_KEYS) {
-    const value = calcTechniqueCurveValue(level, curves[key]);
-    if (value > 0) {
-      result[key] = value;
+  if (level <= 0) return result;
+  const normalized = normalizeLayers(layers);
+  if (normalized.length > 0) {
+    for (const layer of normalized) {
+      if (layer.level > level) break;
+      for (const key of TECHNIQUE_ATTR_KEYS) {
+        const value = layer.attrs?.[key] ?? 0;
+        if (value <= 0) continue;
+        result[key] = (result[key] ?? 0) + value;
+      }
     }
+    return result;
+  }
+  if (!legacyCurves) return result;
+  for (const key of TECHNIQUE_ATTR_KEYS) {
+    const value = calcTechniqueCurveValue(level, legacyCurves[key]);
+    if (value <= 0) continue;
+    result[key] = value;
   }
   return result;
 }
 
-export function calcTechniqueNextLevelGains(level: number, curves?: TechniqueAttrCurves): Partial<Attributes> {
+export function calcTechniqueNextLevelGains(level: number, layers?: TechniqueLayerDef[], legacyCurves?: TechniqueAttrCurves): Partial<Attributes> {
+  const normalized = normalizeLayers(layers);
+  if (normalized.length > 0) {
+    const nextLayer = normalized.find((entry) => entry.level === level + 1);
+    if (!nextLayer?.attrs) return {};
+    const result: Partial<Attributes> = {};
+    for (const key of TECHNIQUE_ATTR_KEYS) {
+      const gain = nextLayer.attrs[key] ?? 0;
+      if (gain <= 0) continue;
+      result[key] = gain;
+    }
+    return result;
+  }
   const result: Partial<Attributes> = {};
-  if (!curves) return result;
+  if (!legacyCurves) return result;
   for (const key of TECHNIQUE_ATTR_KEYS) {
-    const gain = calcTechniqueCurveNextGain(level, curves[key]);
+    const gain = calcTechniqueCurveNextGain(level, legacyCurves[key]);
     if (gain > 0) {
       result[key] = gain;
     }
@@ -141,7 +212,7 @@ export function calcTechniqueFinalAttrBonus(techniques: readonly TechniqueState[
     for (const grade of TECHNIQUE_GRADE_ORDER) {
       const contributions = techniques
         .filter((technique) => technique.grade === grade)
-        .map((technique) => calcTechniqueCurveValue(technique.level, technique.attrCurves?.[key]))
+        .map((technique) => calcTechniqueAttrValues(technique.level, technique.layers, technique.attrCurves)[key] ?? 0)
         .filter((value) => value > 0)
         .sort((left, right) => right - left);
 
@@ -163,4 +234,3 @@ export function calcTechniqueFinalAttrBonus(techniques: readonly TechniqueState[
 
   return result;
 }
-

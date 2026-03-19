@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>道劫余生</title>
+  <link rel="icon" type="image/png" href="/logo.png" />
   <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;700&family=Zhi+Mang+Xing&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -89,6 +90,13 @@
       color: var(--ink-black);
       margin-bottom: 6px;
       letter-spacing: 8px;
+    }
+
+    .login-logo {
+      width: min(168px, 46vw);
+      display: block;
+      margin: 0 auto 16px;
+      filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.12));
     }
 
     .login-subtitle {
@@ -1347,26 +1355,23 @@
 
     /* 功法卡片 */
     .tech-card {
-      padding: 10px;
+      width: 100%;
+      padding: 11px 12px;
       margin-bottom: 8px;
       background: var(--paper-white);
       border: 1px solid var(--wash-ink);
-    }
-    .tech-card.expanded {
-      border-color: rgba(139, 48, 35, 0.35);
-      box-shadow: inset 0 0 0 1px rgba(139, 48, 35, 0.06);
-    }
-    .tech-summary {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      border: 0;
-      background: transparent;
-      padding: 0;
       text-align: left;
       cursor: pointer;
+      transition: border-color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
+    }
+    .tech-card:hover {
+      border-color: rgba(139, 48, 35, 0.35);
+      transform: translateY(-1px);
+      box-shadow: 0 8px 18px rgba(17, 17, 17, 0.06);
+    }
+    .tech-card.cultivating {
+      border-color: rgba(139, 48, 35, 0.4);
+      box-shadow: inset 0 0 0 1px rgba(139, 48, 35, 0.08);
     }
     .tech-summary-main {
       display: flex;
@@ -1377,105 +1382,150 @@
     }
     .tech-name { font-family: var(--font-heading-sub); font-size: 15px; color: var(--ink-black); }
     .tech-realm { font-size: 12px; color: var(--stamp-red); margin-left: 6px; }
-    .tech-head {
+    .tech-layer {
+      font-size: 12px;
+      color: var(--ink-grey);
+    }
+    .tech-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 130;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(12, 10, 8, 0.44);
+      backdrop-filter: blur(2px);
+    }
+    .tech-modal.hidden {
+      display: none;
+    }
+    .tech-modal-card {
+      width: min(760px, 100%);
+      max-height: min(80vh, 760px);
+      overflow-y: auto;
+      padding: 20px 20px 18px;
+      background: rgba(245, 245, 241, 0.98);
+      border: 1.5px solid var(--ink-black);
+      box-shadow: 12px 12px 0 rgba(0, 0, 0, 0.12);
+    }
+    .tech-modal-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--wash-ink);
+    }
+    .tech-modal-title {
+      font-family: var(--font-heading-sub);
+      font-size: 22px;
+      color: var(--ink-black);
+    }
+    .tech-modal-subtitle {
+      font-size: 12px;
+      color: var(--ink-grey);
+    }
+    .tech-modal-hint {
+      font-size: 11px;
+      color: var(--ink-grey);
+    }
+    .tech-modal-summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .tech-modal-stat {
+      display: grid;
+      gap: 4px;
+      padding: 10px;
+      background: rgba(255,255,255,0.46);
+      border: 1px solid rgba(60, 47, 39, 0.08);
+      font-size: 12px;
+      color: var(--ink-grey);
+    }
+    .tech-modal-label {
+      font-family: var(--font-heading-sub);
+      font-size: 12px;
+      color: var(--ink-black);
+    }
+    .tech-modal-section-title {
+      font-family: var(--font-heading-sub);
+      font-size: 15px;
+      color: var(--ink-black);
+      padding-bottom: 4px;
+      margin-bottom: 10px;
+      border-bottom: 1px solid var(--wash-ink);
+    }
+    .tech-layer-list {
+      display: grid;
+      gap: 8px;
+    }
+    .tech-layer-row {
+      padding: 10px 11px;
+      background: rgba(255,255,255,0.44);
+      border: 1px solid rgba(60, 47, 39, 0.08);
+    }
+    .tech-layer-row.current {
+      border-color: rgba(139, 48, 35, 0.34);
+      background: rgba(197, 60, 60, 0.05);
+    }
+    .tech-layer-row.passed {
+      opacity: 0.88;
+    }
+    .tech-layer-row-head {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
     }
-    .tech-layer {
-      font-size: 12px;
-      color: var(--ink-grey);
-    }
-    .tech-arrow {
-      font-size: 13px;
-      color: var(--ink-grey);
-      transition: transform 0.18s ease;
-      flex-shrink: 0;
-    }
-    .tech-card.expanded .tech-arrow {
-      transform: rotate(90deg);
-    }
-    .tech-details {
-      display: none;
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 1px solid rgba(60, 47, 39, 0.08);
-    }
-    .tech-card.expanded .tech-details {
-      display: block;
-    }
-    .tech-exp-bar {
-      height: 6px;
-      background: var(--wash-ink);
-      margin: 6px 0;
-      position: relative;
-    }
-    .tech-exp-fill {
-      height: 100%;
-      background: var(--stamp-red);
-      transition: width 0.3s;
-    }
-    .tech-meta {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      flex-wrap: wrap;
-      gap: 8px;
-      font-size: 12px;
-      color: var(--ink-grey);
-      margin-bottom: 8px;
-    }
-    .tech-growth-list {
-      display: grid;
-      gap: 6px;
-      margin-bottom: 10px;
-    }
-    .tech-section-title {
-      margin: 10px 0 6px;
+    .tech-layer-index {
       font-family: var(--font-heading-sub);
-      font-size: 13px;
-      color: var(--ink-black);
-      letter-spacing: 1px;
-    }
-    .tech-growth-row {
-      display: flex;
-      gap: 8px;
-      font-size: 12px;
-      color: var(--ink-grey);
-      padding: 7px 8px;
-      background: rgba(255,255,255,0.42);
-      border: 1px solid rgba(60, 47, 39, 0.08);
-    }
-    .tech-growth-layer {
-      min-width: 72px;
-      color: var(--ink-black);
-      font-family: var(--font-heading-sub);
-    }
-    .tech-skills {
-      display: grid;
-      gap: 6px;
-      margin-bottom: 10px;
-    }
-    .skill-chip {
-      padding: 8px;
-      border: 1px solid var(--wash-ink);
-      background: rgba(255,255,255,0.4);
-      cursor: help;
-    }
-    .skill-chip.locked {
-      opacity: 0.68;
-    }
-    .skill-chip-title {
-      font-size: 13px;
+      font-size: 14px;
       color: var(--ink-black);
     }
-    .skill-chip-meta {
-      margin-top: 4px;
+    .tech-layer-exp {
       font-size: 11px;
       color: var(--ink-grey);
     }
-    .tech-tooltip {
+    .tech-layer-attrs {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--ink-grey);
+    }
+    .tech-layer-skills {
+      margin-top: 8px;
+      display: grid;
+      gap: 5px;
+      font-size: 12px;
+      color: var(--ink-grey);
+    }
+    .tech-layer-skill-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .tech-skill-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 8px;
+      border: 1px solid rgba(34, 26, 19, 0.14);
+      background: rgba(255,255,255,0.72);
+      color: var(--ink-black);
+      cursor: help;
+    }
+    .tech-layer-empty {
+      color: var(--ink-light);
+      font-style: italic;
+    }
+    .tech-modal-actions {
+      margin-top: 14px;
+      display: flex;
+      justify-content: flex-end;
+    }
+    .floating-tooltip {
       position: fixed;
       pointer-events: none;
       background: rgba(255,255,255,0.96);
@@ -1489,24 +1539,24 @@
       opacity: 0;
       transition: opacity 120ms ease;
       min-width: 180px;
-      max-width: 280px;
+      max-width: min(320px, calc(100vw - 24px));
     }
-    .tech-tooltip.visible {
+    .floating-tooltip.visible {
       opacity: 1;
     }
-    .tech-tooltip-body {
+    .floating-tooltip-body {
       display: flex;
       flex-direction: column;
       gap: 4px;
       line-height: 1.45;
     }
-    .tech-tooltip-detail {
+    .floating-tooltip-detail {
       display: flex;
       flex-direction: column;
       gap: 2px;
       color: #5c5349;
     }
-    .tech-tooltip-line {
+    .floating-tooltip-line {
       display: block;
     }
 
@@ -1582,6 +1632,9 @@
     .action-copy {
       flex: 1;
       min-width: 0;
+    }
+    .action-copy-tooltip {
+      cursor: help;
     }
     .action-name { font-size: 13px; color: var(--ink-black); }
     .action-type { font-size: 11px; color: var(--ink-grey); }
@@ -1948,6 +2001,14 @@
       .attr-grid.wide {
         grid-template-columns: 1fr;
       }
+      .tech-modal-summary {
+        grid-template-columns: 1fr;
+      }
+      .tech-modal-card {
+        width: min(100%, calc(100vw - 24px));
+        max-height: min(82vh, 760px);
+        padding: 16px;
+      }
       .split-tabs-rail {
         flex-direction: row;
         border-right: none;
@@ -2007,6 +2068,7 @@
   <div id="login-overlay">
     <div class="login-box">
       <div class="login-stamp">入</div>
+      <img class="login-logo" src="/logo.png" alt="道劫余生" />
       <h1 class="login-title">道劫余生</h1>
       <p class="login-subtitle">道劫余生</p>
       <div class="form-group">
@@ -2239,6 +2301,19 @@
         </div>
       </section>
     </aside>
+  </div>
+
+  <div id="technique-modal" class="tech-modal hidden" aria-hidden="true">
+    <div class="tech-modal-card">
+      <div class="tech-modal-head">
+        <div>
+          <div id="technique-modal-title" class="tech-modal-title">功法</div>
+          <div id="technique-modal-subtitle" class="tech-modal-subtitle"></div>
+        </div>
+        <div class="tech-modal-hint">点击空白处关闭</div>
+      </div>
+      <div id="technique-modal-body"></div>
+    </div>
   </div>
 
   <div id="observe-modal" class="observe-modal hidden" aria-hidden="true">

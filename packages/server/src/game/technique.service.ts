@@ -5,16 +5,19 @@ import {
   calcTechniqueFinalAttrBonus,
   CULTIVATE_EXP_PER_TICK,
   DEFAULT_PLAYER_REALM_STAGE,
+  deriveTechniqueRealm,
+  getTechniqueExpToNext,
+  getTechniqueMaxLevel,
   PLAYER_REALM_CONFIG,
   PLAYER_REALM_ORDER,
   PlayerRealmStage,
   PlayerRealmState,
   PlayerState,
-  TECHNIQUE_EXP_TABLE,
-  TechniqueAttrCurves,
   TechniqueGrade,
+  TechniqueLayerDef,
   TechniqueRealm,
   TechniqueState,
+  resolveSkillUnlockLevel,
   SkillDef,
 } from '@mud/shared';
 import { AttrService } from './attr.service';
@@ -92,7 +95,7 @@ export class TechniqueService {
     name: string,
     skills: SkillDef[],
     grade?: TechniqueGrade,
-    attrCurves?: TechniqueAttrCurves,
+    layers?: TechniqueLayerDef[],
   ): string | null {
     this.initializePlayerProgression(player);
     if (player.techniques.find((entry) => entry.techId === techId)) {
@@ -104,11 +107,11 @@ export class TechniqueService {
       name,
       level: 1,
       exp: 0,
-      expToNext: TECHNIQUE_EXP_TABLE[TechniqueRealm.Entry],
-      realm: TechniqueRealm.Entry,
+      expToNext: getTechniqueExpToNext(1, layers),
+      realm: deriveTechniqueRealm(1, layers),
       skills,
       grade,
-      attrCurves,
+      layers,
     };
     player.techniques.push(technique);
     this.applyTechniqueBonuses(player);
@@ -137,16 +140,19 @@ export class TechniqueService {
     const messages: TechniqueMessage[] = [];
     let techniqueLeveledUp = false;
 
-    if (technique.realm !== TechniqueRealm.Perfection && technique.expToNext > 0) {
+    const maxLevel = getTechniqueMaxLevel(technique.layers);
+    if (technique.level < maxLevel && technique.expToNext > 0) {
       technique.exp += this.applyRateBonus(CULTIVATE_EXP_PER_TICK, techniqueExpBonus);
-      while (technique.expToNext > 0 && technique.exp >= technique.expToNext && technique.realm !== TechniqueRealm.Perfection) {
+      while (technique.expToNext > 0 && technique.exp >= technique.expToNext && technique.level < maxLevel) {
         technique.exp -= technique.expToNext;
         technique.level += 1;
-        technique.realm += 1;
-        technique.expToNext = TECHNIQUE_EXP_TABLE[technique.realm] ?? 0;
+        technique.expToNext = getTechniqueExpToNext(technique.level, technique.layers);
+        technique.realm = deriveTechniqueRealm(technique.level, technique.layers);
         techniqueLeveledUp = true;
         messages.push({
-          text: `${technique.name} 突破至${this.techniqueRealmLabel(technique.realm)}。`,
+          text: technique.expToNext > 0
+            ? `${technique.name} 提升至第 ${technique.level} 层。`
+            : `${technique.name} 修至圆满，共第 ${technique.level} 层。`,
           kind: 'quest',
         });
         dirty.add('actions');
@@ -181,7 +187,7 @@ export class TechniqueService {
     for (const technique of player.techniques) {
       for (const skill of technique.skills) {
         const unlockPlayerRealm = skill.unlockPlayerRealm ?? DEFAULT_PLAYER_REALM_STAGE;
-        if (technique.realm < skill.unlockRealm || playerRealmStage < unlockPlayerRealm) {
+        if (technique.level < resolveSkillUnlockLevel(skill) || playerRealmStage < unlockPlayerRealm) {
           continue;
         }
         actions.push({
@@ -279,7 +285,7 @@ export class TechniqueService {
       return { changed: false, messages: [] };
     }
 
-    const baseGain = 1 + technique.realm + Math.floor(technique.level / 3);
+    const baseGain = 1 + Math.floor(technique.level / 2);
     const gain = this.applyRateBonus(baseGain, expBonus);
     const previousProgress = realm.progress;
     realm.progress = Math.min(realm.progressToNext, realm.progress + gain);
@@ -410,7 +416,22 @@ export class TechniqueService {
       const template = this.contentService.getTechnique(technique.techId);
       if (!template) continue;
       technique.grade = template.grade;
-      technique.attrCurves = template.attrCurves;
+      technique.layers = template.layers;
+      technique.skills = template.skills;
+      const maxLevel = getTechniqueMaxLevel(template.layers);
+      if (technique.level > maxLevel) {
+        technique.level = maxLevel;
+      }
+      if (technique.level < 1) {
+        technique.level = 1;
+      }
+      technique.realm = deriveTechniqueRealm(technique.level, template.layers);
+      technique.expToNext = getTechniqueExpToNext(technique.level, template.layers);
+      if (technique.expToNext <= 0) {
+        technique.exp = 0;
+      } else if (technique.exp >= technique.expToNext) {
+        technique.exp = Math.max(0, technique.expToNext - 1);
+      }
     }
   }
 

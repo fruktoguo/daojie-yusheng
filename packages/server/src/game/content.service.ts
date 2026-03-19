@@ -9,9 +9,10 @@ import {
   ItemStack,
   PlayerRealmStage,
   SkillDef,
-  TechniqueAttrCurves,
   TechniqueGrade,
+  TechniqueLayerDef,
   TechniqueRealm,
+  resolveSkillUnlockLevel,
 } from '@mud/shared';
 
 interface TechniqueTemplate {
@@ -19,7 +20,7 @@ interface TechniqueTemplate {
   name: string;
   skills: SkillDef[];
   grade: TechniqueGrade;
-  attrCurves: TechniqueAttrCurves;
+  layers: TechniqueLayerDef[];
 }
 
 interface ItemTemplate extends Omit<ItemStack, 'count'> {
@@ -33,7 +34,7 @@ interface StarterInventoryEntry {
 }
 
 interface RawSkillDef extends Omit<SkillDef, 'unlockRealm' | 'unlockPlayerRealm'> {
-  unlockRealm: keyof typeof TechniqueRealm | TechniqueRealm;
+  unlockRealm?: keyof typeof TechniqueRealm | TechniqueRealm;
   unlockPlayerRealm?: keyof typeof PlayerRealmStage | PlayerRealmStage;
 }
 
@@ -41,7 +42,7 @@ interface RawTechniqueTemplate {
   id: string;
   name: string;
   grade: TechniqueGrade;
-  attrCurves: TechniqueAttrCurves;
+  layers: TechniqueLayerDef[];
   skills: RawSkillDef[];
 }
 
@@ -75,10 +76,14 @@ export class ContentService implements OnModuleInit {
         id: raw.id,
         name: raw.name,
         grade: raw.grade,
-        attrCurves: raw.attrCurves ?? {},
+        layers: [...(raw.layers ?? [])].sort((left, right) => left.level - right.level),
         skills: raw.skills.map((skill) => ({
           ...skill,
-          unlockRealm: this.parseTechniqueRealm(skill.unlockRealm),
+          unlockLevel: resolveSkillUnlockLevel({
+            unlockLevel: skill.unlockLevel,
+            unlockRealm: skill.unlockRealm === undefined ? undefined : this.parseTechniqueRealm(skill.unlockRealm),
+          }),
+          unlockRealm: skill.unlockRealm === undefined ? undefined : this.parseTechniqueRealm(skill.unlockRealm),
           unlockPlayerRealm: skill.unlockPlayerRealm === undefined
             ? undefined
             : this.parsePlayerRealmStage(skill.unlockPlayerRealm),
