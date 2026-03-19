@@ -7,6 +7,13 @@
 - `start-first + healthcheck + rollback` 提供近零停机更新
 - 服务端通过 Nest shutdown hooks 做优雅停机
 
+当前默认对外端口规划：
+
+- 前端发布端口：`11921`
+- 后端发布端口：`11922`
+
+这两个端口适合交给现有 Caddy 做反向代理，避免直接占用服务器的 `80/443`。
+
 ## 发布链路
 
 1. 推送代码到 `main`
@@ -60,6 +67,24 @@ docker swarm init
 - [.github/workflows/deploy.yml](../.github/workflows/deploy.yml)
 - [packages/server/src/main.ts](../packages/server/src/main.ts)
 - [packages/server/src/health.controller.ts](../packages/server/src/health.controller.ts)
+
+## Caddy 转发示例
+
+如果你已有宿主机上的 Caddy，可将域名转发到这两个发布端口：
+
+```caddyfile
+daojie.yuohira.com {
+  reverse_proxy /auth* 127.0.0.1:11922
+  reverse_proxy /socket.io* 127.0.0.1:11922
+  reverse_proxy 127.0.0.1:11921
+}
+```
+
+说明：
+
+- 前端静态站点由 `11921` 提供
+- 后端 API 与 Socket.IO 由 `11922` 提供
+- Caddy 负责对外暴露 `80/443` 与自动 HTTPS
 
 ## 更新行为
 

@@ -3,7 +3,7 @@ services:
     image: ghcr.io/fruktoguo/daojie-yusheng-client:${CLIENT_IMAGE_TAG:-latest}
     ports:
       - target: 80
-        published: 80
+        published: 11921
         protocol: tcp
         mode: ingress
     networks:
@@ -47,7 +47,7 @@ services:
       REDIS_URL: redis://redis:6379
     ports:
       - target: 3000
-        published: 3000
+        published: 11922
         protocol: tcp
         mode: ingress
     networks:

@@ -43,7 +43,7 @@ services:
       REDIS_PORT: 6379
       REDIS_URL: redis://redis:6379
     ports:
-      - "3000:3000"
+      - "11922:3000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -62,7 +62,7 @@ services:
       context: .
       dockerfile: packages/client/Dockerfile
     ports:
-      - "80:80"
+      - "11921:80"
     depends_on:
       server:
         condition: service_healthy

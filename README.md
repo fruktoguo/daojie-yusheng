@@ -118,6 +118,7 @@ pnpm dev:server
 - 构建完成后，Actions 会通过 SSH 连接生产服务器并执行 Docker Swarm 发布
 - 生产环境使用 `start-first + healthcheck + rollback` 做近零停机滚动更新
 - 服务端启用健康检查与优雅停机，更新时会先拉起新实例，再摘除旧实例
+- 默认发布端口为前端 `11921`、后端 `11922`，适合由现有 Caddy 统一反向代理到域名
 
 关键文件：
 
