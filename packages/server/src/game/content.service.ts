@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
+  Attributes,
   DEFAULT_INVENTORY_CAPACITY,
   Inventory,
   ItemStack,
@@ -12,6 +13,7 @@ interface TechniqueTemplate {
   id: string;
   name: string;
   skills: SkillDef[];
+  attrGrowth: Partial<Attributes>;
 }
 
 interface ItemTemplate extends Omit<ItemStack, 'count'> {
@@ -25,6 +27,7 @@ export class ContentService {
     ['qingmu_sword', {
       id: 'qingmu_sword',
       name: '青木剑诀',
+      attrGrowth: { perception: 1, spirit: 1 },
       skills: [
         {
           id: 'skill.qingmu_slash',
@@ -42,6 +45,7 @@ export class ContentService {
     ['redflame_art', {
       id: 'redflame_art',
       name: '赤焰诀',
+      attrGrowth: { spirit: 1, comprehension: 1 },
       skills: [
         {
           id: 'skill.fire_talisman',
@@ -59,6 +63,7 @@ export class ContentService {
     ['wind_step', {
       id: 'wind_step',
       name: '踏风步',
+      attrGrowth: { perception: 2 },
       skills: [
         {
           id: 'skill.wind_edge',
@@ -76,6 +81,7 @@ export class ContentService {
     ['thunder_palm', {
       id: 'thunder_palm',
       name: '惊雷掌',
+      attrGrowth: { constitution: 1, spirit: 1 },
       skills: [
         {
           id: 'skill.thunder_palm',
@@ -93,6 +99,7 @@ export class ContentService {
     ['stillheart', {
       id: 'stillheart',
       name: '止念诀',
+      attrGrowth: { spirit: 1, comprehension: 2 },
       skills: [
         {
           id: 'skill.stillheart_seal',
@@ -110,6 +117,7 @@ export class ContentService {
     ['iron_bone_art', {
       id: 'iron_bone_art',
       name: '铁骨功',
+      attrGrowth: { constitution: 2, talent: 1 },
       skills: [
         {
           id: 'skill.iron_bone_strike',
@@ -136,6 +144,7 @@ export class ContentService {
     ['cloud_blade', {
       id: 'cloud_blade',
       name: '流云刀谱',
+      attrGrowth: { constitution: 1, perception: 1 },
       skills: [
         {
           id: 'skill.cloud_cut',
@@ -162,6 +171,7 @@ export class ContentService {
     ['frost_sutra', {
       id: 'frost_sutra',
       name: '寒魄经',
+      attrGrowth: { spirit: 1, talent: 1 },
       skills: [
         {
           id: 'skill.frost_mark',
@@ -188,6 +198,7 @@ export class ContentService {
     ['spirit_anchor', {
       id: 'spirit_anchor',
       name: '镇灵篇',
+      attrGrowth: { spirit: 2, comprehension: 1 },
       skills: [
         {
           id: 'skill.anchor_pulse',
@@ -214,6 +225,7 @@ export class ContentService {
     ['starfall_spear', {
       id: 'starfall_spear',
       name: '陨星枪诀',
+      attrGrowth: { constitution: 1, perception: 2 },
       skills: [
         {
           id: 'skill.starfall_thrust',
@@ -351,7 +363,7 @@ export class ContentService {
       type: 'equipment',
       desc: '镇防旧库翻出的制式长刀。',
       equipSlot: 'weapon',
-      equipAttrs: { constitution: 2, perception: 1 },
+      equipStats: { physAtk: 6, hit: 2 },
     }],
     ['equip.hunter_cap', {
       itemId: 'equip.hunter_cap',
@@ -359,7 +371,7 @@ export class ContentService {
       type: 'equipment',
       desc: '荒野猎户常用的轻便头具。',
       equipSlot: 'head',
-      equipAttrs: { perception: 2, luck: 1 },
+      equipStats: { dodge: 3, crit: 1 },
     }],
     ['equip.leather_vest', {
       itemId: 'equip.leather_vest',
@@ -367,7 +379,7 @@ export class ContentService {
       type: 'equipment',
       desc: '由粗皮与铜扣缝制的护身衣。',
       equipSlot: 'body',
-      equipAttrs: { constitution: 3 },
+      equipStats: { maxHp: 24, physDef: 4 },
     }],
     ['equip.step_boots', {
       itemId: 'equip.step_boots',
@@ -375,7 +387,7 @@ export class ContentService {
       type: 'equipment',
       desc: '鞋底附有防滑纹路，适合野外奔袭。',
       equipSlot: 'legs',
-      equipAttrs: { spirit: 1, perception: 2 },
+      equipStats: { moveSpeed: 25, dodge: 2 },
     }],
     ['equip.black_iron_sword', {
       itemId: 'equip.black_iron_sword',
@@ -383,7 +395,7 @@ export class ContentService {
       type: 'equipment',
       desc: '经矿洞灵铁锻造，兼具锋锐与韧性。',
       equipSlot: 'weapon',
-      equipAttrs: { spirit: 3, perception: 3 },
+      equipStats: { physAtk: 11, spellAtk: 4, hit: 4 },
     }],
     ['equip.miner_helmet', {
       itemId: 'equip.miner_helmet',
@@ -391,7 +403,7 @@ export class ContentService {
       type: 'equipment',
       desc: '旧矿卫制式铁盔，防护结实。',
       equipSlot: 'head',
-      equipAttrs: { constitution: 4, talent: 1 },
+      equipStats: { maxHp: 18, physDef: 6, resolvePower: 2 },
     }],
     ['equip.rune_robe', {
       itemId: 'equip.rune_robe',
@@ -399,7 +411,7 @@ export class ContentService {
       type: 'equipment',
       desc: '遗迹残纹织就的法袍，能稳固神识。',
       equipSlot: 'body',
-      equipAttrs: { spirit: 4, comprehension: 2 },
+      equipStats: { maxQi: 32, spellAtk: 7, spellDef: 5 },
     }],
     ['equip.cloud_boots', {
       itemId: 'equip.cloud_boots',
@@ -407,7 +419,7 @@ export class ContentService {
       type: 'equipment',
       desc: '鞋底镶有浮云阵纹，行走轻灵。',
       equipSlot: 'legs',
-      equipAttrs: { perception: 3, luck: 2 },
+      equipStats: { moveSpeed: 40, dodge: 4, hit: 2 },
     }],
     ['equip.spirit_ring', {
       itemId: 'equip.spirit_ring',
@@ -415,7 +427,7 @@ export class ContentService {
       type: 'equipment',
       desc: '可缓慢聚拢逸散灵气的戒指。',
       equipSlot: 'accessory',
-      equipAttrs: { spirit: 4, luck: 3 },
+      equipStats: { maxQi: 28, qiRegenRate: 120, crit: 2 },
     }],
     ['equip.valley_fang_blade', {
       itemId: 'equip.valley_fang_blade',
@@ -423,7 +435,7 @@ export class ContentService {
       type: 'equipment',
       desc: '以妖狼獠牙打磨出的偏锋战刃。',
       equipSlot: 'weapon',
-      equipAttrs: { constitution: 4, spirit: 4 },
+      equipStats: { physAtk: 13, spellAtk: 8, breakPower: 3 },
     }],
     ['equip.rift_guard_armor', {
       itemId: 'equip.rift_guard_armor',
@@ -431,7 +443,7 @@ export class ContentService {
       type: 'equipment',
       desc: '兽谷旧镇守使战甲，残存阵纹庇护。',
       equipSlot: 'body',
-      equipAttrs: { constitution: 6, talent: 2 },
+      equipStats: { maxHp: 42, physDef: 8, spellDef: 5, resolvePower: 4 },
     }],
     ['equip.moonshadow_boots', {
       itemId: 'equip.moonshadow_boots',
@@ -439,7 +451,7 @@ export class ContentService {
       type: 'equipment',
       desc: '夜行无声，适合高危区域机动。',
       equipSlot: 'legs',
-      equipAttrs: { perception: 3, luck: 4 },
+      equipStats: { moveSpeed: 55, dodge: 6, crit: 3 },
     }],
     ['equip.celestial_crown', {
       itemId: 'equip.celestial_crown',
@@ -447,7 +459,7 @@ export class ContentService {
       type: 'equipment',
       desc: '破碎天宫遗留的仪礼冠冕。',
       equipSlot: 'head',
-      equipAttrs: { spirit: 5, talent: 4 },
+      equipStats: { maxQi: 36, spellDef: 8, hit: 3, viewRange: 1 },
     }],
     ['equip.starfall_spear', {
       itemId: 'equip.starfall_spear',
@@ -455,7 +467,7 @@ export class ContentService {
       type: 'equipment',
       desc: '铭刻星砂纹路的重枪，杀伐极强。',
       equipSlot: 'weapon',
-      equipAttrs: { spirit: 6, perception: 5 },
+      equipStats: { physAtk: 16, spellAtk: 10, hit: 5, breakPower: 4 },
     }],
     ['equip.void_talisman', {
       itemId: 'equip.void_talisman',
@@ -463,7 +475,7 @@ export class ContentService {
       type: 'equipment',
       desc: '能压制杂念与心魔的古老符坠。',
       equipSlot: 'accessory',
-      equipAttrs: { comprehension: 5, spirit: 5 },
+      equipStats: { maxQi: 40, spellDef: 8, techniqueExpRate: 200, playerExpRate: 200 },
     }],
     ['mat.beast_bone', {
       itemId: 'mat.beast_bone',
@@ -530,6 +542,7 @@ export class ContentService {
       desc: item.desc,
       equipSlot: item.equipSlot,
       equipAttrs: item.equipAttrs,
+      equipStats: item.equipStats,
     };
   }
 

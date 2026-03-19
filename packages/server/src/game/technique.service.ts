@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   ActionDef,
   AttrBonus,
+  Attributes,
   CULTIVATE_EXP_PER_TICK,
   DEFAULT_PLAYER_REALM_STAGE,
   PLAYER_REALM_CONFIG,
@@ -41,6 +42,7 @@ interface BreakthroughResult {
 const EMPTY_CULTIVATION: CultivationResult = { changed: false, dirty: [], messages: [] };
 const REALM_STAGE_SOURCE = 'realm:stage';
 const REALM_STATE_SOURCE = 'realm:state';
+const TECHNIQUE_SOURCE_PREFIX = 'technique:';
 
 @Injectable()
 export class TechniqueService {
@@ -63,6 +65,7 @@ export class TechniqueService {
     player.breakthroughReady = normalized.breakthroughReady;
 
     this.applyRealmBonus(player, normalized);
+    this.applyTechniqueBonuses(player);
     this.applyRealmStateMirror(player, normalized);
     this.attrService.recalcPlayer(player);
 
@@ -96,6 +99,8 @@ export class TechniqueService {
       skills,
     };
     player.techniques.push(technique);
+    this.applyTechniqueBonuses(player);
+    this.attrService.recalcPlayer(player);
     return null;
   }
 
@@ -118,6 +123,7 @@ export class TechniqueService {
 
     const dirty = new Set<TechniqueDirtyFlag>(['tech']);
     const messages: TechniqueMessage[] = [];
+    let techniqueLeveledUp = false;
 
     if (technique.realm !== TechniqueRealm.Perfection && technique.expToNext > 0) {
       technique.exp += this.applyRateBonus(CULTIVATE_EXP_PER_TICK, techniqueExpBonus);
@@ -126,12 +132,19 @@ export class TechniqueService {
         technique.level += 1;
         technique.realm += 1;
         technique.expToNext = TECHNIQUE_EXP_TABLE[technique.realm] ?? 0;
+        techniqueLeveledUp = true;
         messages.push({
           text: `${technique.name} 突破至${this.techniqueRealmLabel(technique.realm)}。`,
           kind: 'quest',
         });
         dirty.add('actions');
       }
+    }
+
+    if (techniqueLeveledUp) {
+      this.applyTechniqueBonuses(player);
+      this.attrService.recalcPlayer(player);
+      dirty.add('attr');
     }
 
     const realmProgress = this.advanceRealmProgress(player, technique, realmExpBonus);
@@ -364,6 +377,34 @@ export class TechniqueService {
     return {
       stage: typeof stage === 'number' ? stage as PlayerRealmStage : undefined,
       progress: typeof progress === 'number' ? progress : undefined,
+    };
+  }
+
+  private applyTechniqueBonuses(player: PlayerState): void {
+    const nextBonuses = player.bonuses.filter((bonus) => !bonus.source.startsWith(TECHNIQUE_SOURCE_PREFIX));
+    for (const technique of player.techniques) {
+      const template = this.contentService.getTechnique(technique.techId);
+      const growth = template?.attrGrowth;
+      if (!growth) continue;
+      const attrs = this.scaleTechniqueAttrGrowth(growth, technique.level);
+      if (!Object.values(attrs).some((value) => value > 0)) continue;
+      nextBonuses.push({
+        source: `${TECHNIQUE_SOURCE_PREFIX}${technique.techId}`,
+        label: `${technique.name} ${technique.level} 层`,
+        attrs,
+      });
+    }
+    player.bonuses = nextBonuses;
+  }
+
+  private scaleTechniqueAttrGrowth(base: Partial<Attributes>, level: number): AttrBonus['attrs'] {
+    return {
+      constitution: (base.constitution ?? 0) * level,
+      spirit: (base.spirit ?? 0) * level,
+      perception: (base.perception ?? 0) * level,
+      talent: (base.talent ?? 0) * level,
+      comprehension: (base.comprehension ?? 0) * level,
+      luck: (base.luck ?? 0) * level,
     };
   }
 

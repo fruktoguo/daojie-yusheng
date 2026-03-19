@@ -375,7 +375,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         messages.push({ playerId: player.id, text: err, kind: 'system' });
         return;
       }
-      this.markDirty(player.id, ['tech', 'actions']);
+      this.markDirty(player.id, ['tech', 'actions', 'attr']);
       messages.push({
         playerId: player.id,
         text: `你参悟了 ${technique.name}。`,

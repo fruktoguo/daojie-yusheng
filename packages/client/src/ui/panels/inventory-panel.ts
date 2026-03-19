@@ -8,6 +8,57 @@ const ITEM_TYPE_LABELS: Record<string, string> = {
   skill_book: '功法书',
 };
 const TOOLTIP_STYLE_ID = 'inventory-panel-tooltip-style';
+const SLOT_LABELS: Record<string, string> = {
+  weapon: '武器',
+  head: '头部',
+  body: '身体',
+  legs: '腿部',
+  accessory: '饰品',
+};
+const ATTR_LABELS: Record<string, string> = {
+  constitution: '体魄',
+  spirit: '神识',
+  perception: '身法',
+  talent: '根骨',
+  comprehension: '悟性',
+  luck: '气运',
+};
+const STAT_LABELS: Record<string, string> = {
+  maxHp: '最大生命',
+  maxQi: '最大灵力',
+  physAtk: '物理攻击',
+  spellAtk: '法术攻击',
+  physDef: '物理防御',
+  spellDef: '法术防御',
+  hit: '命中',
+  dodge: '闪避',
+  crit: '暴击',
+  critDamage: '暴击伤害',
+  breakPower: '破招',
+  resolvePower: '化解',
+  maxQiOutputPerTick: '灵力输出速率',
+  qiRegenRate: '灵力回复',
+  hpRegenRate: '生命回复',
+  cooldownSpeed: '冷却速度',
+  auraCostReduce: '光环消耗缩减',
+  auraPowerRate: '光环效果增强',
+  playerExpRate: '角色经验',
+  techniqueExpRate: '功法经验',
+  lootRate: '掉落增幅',
+  rareLootRate: '稀有掉落',
+  viewRange: '视野范围',
+  moveSpeed: '移动速度',
+};
+
+function formatBonusValue(key: string, value: number): string {
+  if (key === 'critDamage') {
+    return `${value / 10}%`;
+  }
+  if (['qiRegenRate', 'hpRegenRate', 'auraCostReduce', 'auraPowerRate', 'playerExpRate', 'techniqueExpRate', 'lootRate', 'rareLootRate'].includes(key)) {
+    return `${value / 100}%`;
+  }
+  return `${value}`;
+}
 
 /** 背包面板：显示物品列表，支持使用和丢弃 */
 export class InventoryPanel {
@@ -54,14 +105,20 @@ export class InventoryPanel {
       <div class="inventory-grid">`;
 
     inventory.items.forEach((item, i) => {
-      const bonusLines = item.equipAttrs
-        ? Object.entries(item.equipAttrs).map(([key, value]) => `${key} +${value}`)
+      const attrLines = item.equipAttrs
+        ? Object.entries(item.equipAttrs).map(([key, value]) => `${ATTR_LABELS[key] ?? key} +${value}`)
+        : [];
+      const statLines = item.equipStats
+        ? Object.entries(item.equipStats)
+          .filter(([, value]) => typeof value === 'number' && value !== 0)
+          .map(([key, value]) => `${STAT_LABELS[key] ?? key} +${formatBonusValue(key, value as number)}`)
         : [];
       const tooltipLines = [
         item.desc,
         `类型：${ITEM_TYPE_LABELS[item.type] ?? item.type}`,
-        item.equipSlot ? `部位：${item.equipSlot}` : '',
-        ...bonusLines,
+        item.equipSlot ? `部位：${SLOT_LABELS[item.equipSlot] ?? item.equipSlot}` : '',
+        ...attrLines,
+        ...statLines,
       ].filter((line) => line.length > 0);
       const shortName = [...item.name].slice(0, 4).join('');
       html += `<div class="inventory-cell" data-tooltip-title="${this.escapeHtml(item.name)}" data-tooltip-detail="${this.escapeHtml(tooltipLines.join('\n'))}">
