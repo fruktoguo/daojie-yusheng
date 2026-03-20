@@ -80,7 +80,7 @@
       "char": "星",
       "color": "#e5e6ff",
       "role": "quest_giver",
-      "dialogue": "天宫已坠，封印将崩。若你能续上封柱，这方天地还能再偷来百年安稳。"
+      "dialogue": "天宫已坠，封印将崩。若你能续上封柱，这方天地还能再偷来百年安稳。",
       "quests": [
         {
           "id": "q_sky_star_metal",

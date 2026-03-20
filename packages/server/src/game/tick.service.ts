@@ -296,7 +296,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
             result = action.requiresTarget === false
               ? this.worldService.performSkill(player, actionId)
               : this.worldService.performTargetedSkill(player, actionId, target);
-            if (!result.error) {
+            if (result.consumedAction) {
               const cooldownError = this.actionService.beginCooldown(player, actionId);
               if (cooldownError) {
                 result = { ...result, error: cooldownError };

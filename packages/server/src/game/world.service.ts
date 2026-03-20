@@ -10,6 +10,7 @@ import {
   distanceSquared,
   Direction,
   ElementKey,
+  getDamageTrailColor,
   isPointInRange,
   ItemStack,
   NumericRatioDivisors,
@@ -100,6 +101,7 @@ export interface WorldUpdate {
   dirty: WorldDirtyFlag[];
   dirtyPlayers?: string[];
   usedActionId?: string;
+  consumedAction?: boolean;
 }
 
 const EMPTY_UPDATE: WorldUpdate = { messages: [], dirty: [] };
@@ -422,7 +424,7 @@ export class WorldService {
 
     if (availableSkillDef && isPointInRange(player, target, availableSkillDef.range)) {
       const update = this.performTargetedSkill(player, availableSkillDef.id, target.runtimeId);
-      if (!update.error) {
+      if (update.consumedAction) {
         return { ...update, usedActionId: availableSkillDef.id };
       }
       if (isPointInRange(player, target, 1)) {
@@ -489,8 +491,10 @@ export class WorldService {
 
     const casterStats = this.attrService.getPlayerNumericStats(player);
     const techLevel = this.getSkillTechniqueLevel(player, skill.id);
-    const result: WorldUpdate = { messages: [], dirty: [] };
+    const result: WorldUpdate = { messages: [], dirty: [], consumedAction: true };
     const dirty = new Set<WorldDirtyFlag>();
+    let appliedEffect = false;
+    let firstError: string | undefined;
 
     for (const effect of skill.effects) {
       if (effect.type === 'damage') {
@@ -511,13 +515,15 @@ export class WorldService {
           const baseDamage = Math.max(1, Math.round(this.evaluateSkillFormula(effect.formula, context)));
           const update = target.kind === 'monster'
             ? this.attackMonster(player, target.monster, baseDamage, `${skill.name}击中`, effect.damageKind ?? 'spell', effect.element, qiCost)
-            : this.attackTerrain(player, target.x, target.y, baseDamage, skill.name, target.tileType ?? '目标');
+            : this.attackTerrain(player, target.x, target.y, baseDamage, skill.name, target.tileType ?? '目标', effect.damageKind ?? 'spell', effect.element);
           result.messages.push(...update.messages);
           for (const flag of update.dirty) {
             dirty.add(flag);
           }
           if (update.error) {
-            result.error = update.error;
+            firstError ??= update.error;
+          } else {
+            appliedEffect = true;
           }
         }
         continue;
@@ -529,10 +535,15 @@ export class WorldService {
         dirty.add(flag);
       }
       if (update.error) {
-        result.error = update.error;
+        firstError ??= update.error;
+      } else {
+        appliedEffect = true;
       }
     }
 
+    if (!appliedEffect && firstError) {
+      result.error = firstError;
+    }
     result.dirty = [...dirty];
     return result;
   }
@@ -894,6 +905,8 @@ export class WorldService {
 
       if (isPointInRange(monster, target, 1)) {
         const resolved = this.resolveMonsterAttack(monster, target);
+        const monsterElement = this.inferMonsterElement(monster);
+        const effectColor = getDamageTrailColor(monsterElement ? 'spell' : 'physical', monsterElement);
         if (target.hp > 0 && target.autoRetaliate !== false && !target.autoBattle) {
           target.autoBattle = true;
           this.navigationService.clearMoveTarget(target.id);
@@ -905,16 +918,16 @@ export class WorldService {
           fromY: monster.y,
           toX: target.x,
           toY: target.y,
-          color: '#ff8a7a',
+          color: effectColor,
         });
         this.pushEffect(mapId, {
           type: 'float',
           x: target.x,
           y: target.y,
           text: resolved.hit ? `-${resolved.damage}` : '闪',
-          color: '#ff8a7a',
+          color: effectColor,
         });
-        allMessages.push(this.buildMonsterAttackMessage(monster, target, resolved));
+        allMessages.push(this.buildMonsterAttackMessage(monster, target, resolved, effectColor));
         if (target.hp <= 0) {
           allMessages.push({
             playerId: target.id,
@@ -1086,6 +1099,7 @@ export class WorldService {
     qiCost = 0,
   ): WorldUpdate {
     const resolved = this.resolvePlayerAttack(player, monster, baseDamage, damageKind, element, qiCost);
+    const effectColor = getDamageTrailColor(damageKind, element);
 
     this.pushEffect(player.mapId, {
       type: 'attack',
@@ -1093,16 +1107,16 @@ export class WorldService {
       fromY: player.y,
       toX: monster.x,
       toY: monster.y,
-      color: '#ffd27a',
+      color: effectColor,
     });
     this.pushEffect(player.mapId, {
       type: 'float',
       x: monster.x,
       y: monster.y,
       text: resolved.hit ? `-${resolved.damage}` : '闪',
-      color: '#ffd27a',
+      color: effectColor,
     });
-    const messages: WorldMessage[] = [this.buildPlayerAttackMessage(player, monster, prefix, resolved)];
+    const messages: WorldMessage[] = [this.buildPlayerAttackMessage(player, monster, prefix, resolved, effectColor)];
     const dirty = new Set<WorldDirtyFlag>();
 
     if (monster.hp <= 0) {
@@ -1241,7 +1255,13 @@ export class WorldService {
     };
   }
 
-  private buildPlayerAttackMessage(player: PlayerState, monster: RuntimeMonster, prefix: string, resolved: ResolvedHit): WorldMessage {
+  private buildPlayerAttackMessage(
+    player: PlayerState,
+    monster: RuntimeMonster,
+    prefix: string,
+    resolved: ResolvedHit,
+    floatColor: string,
+  ): WorldMessage {
     const suffix: string[] = [];
     if (resolved.broken) suffix.push('破招');
     if (resolved.crit) suffix.push('暴击');
@@ -1258,12 +1278,17 @@ export class WorldService {
         x: monster.x,
         y: monster.y,
         text: resolved.hit ? `-${resolved.damage}` : '闪',
-        color: '#ffd27a',
+        color: floatColor,
       },
     };
   }
 
-  private buildMonsterAttackMessage(monster: RuntimeMonster, player: PlayerState, resolved: ResolvedHit): WorldMessage {
+  private buildMonsterAttackMessage(
+    monster: RuntimeMonster,
+    player: PlayerState,
+    resolved: ResolvedHit,
+    floatColor: string,
+  ): WorldMessage {
     const suffix: string[] = [];
     if (resolved.broken) suffix.push('破招');
     if (resolved.crit) suffix.push('暴击');
@@ -1280,7 +1305,7 @@ export class WorldService {
         x: player.x,
         y: player.y,
         text: resolved.hit ? `-${resolved.damage}` : '闪',
-        color: '#ff8a7a',
+        color: floatColor,
       },
     };
   }
@@ -2095,7 +2120,16 @@ export class WorldService {
     return null;
   }
 
-  private attackTerrain(player: PlayerState, x: number, y: number, damage: number, skillName: string, targetName: string): WorldUpdate {
+  private attackTerrain(
+    player: PlayerState,
+    x: number,
+    y: number,
+    damage: number,
+    skillName: string,
+    targetName: string,
+    damageKind: SkillDamageKind = 'physical',
+    element?: ElementKey,
+  ): WorldUpdate {
     const result = this.mapService.damageTile(player.mapId, x, y, damage);
     if (!result) {
       return { ...EMPTY_UPDATE, error: '该目标无法被攻击' };
@@ -2107,14 +2141,14 @@ export class WorldService {
       fromY: player.y,
       toX: x,
       toY: y,
-      color: '#d7d0c2',
+      color: getDamageTrailColor(damageKind, element),
     });
     this.pushEffect(player.mapId, {
       type: 'float',
       x,
       y,
       text: `-${damage}`,
-      color: '#e7e1d2',
+      color: getDamageTrailColor(damageKind, element),
     });
 
     const messages: WorldMessage[] = [{

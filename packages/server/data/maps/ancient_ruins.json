@@ -90,7 +90,7 @@
       "char": "纹",
       "color": "#95b3ff",
       "role": "quest_giver",
-      "dialogue": "替我收束遗迹灵纹，我便把通往上界残宫的路标交给你。"
+      "dialogue": "替我收束遗迹灵纹，我便把通往上界残宫的路标交给你。",
       "quests": [
         {
           "id": "q_ruin_shard_survey",
