@@ -17,6 +17,7 @@ import { ActionPanel } from './ui/panels/action-panel';
 import { GmPanel } from './ui/panels/gm-panel';
 import { WorldPanel } from './ui/panels/world-panel';
 import { adjustZoom, cycleZoom, getZoom } from './display';
+import { hydrateTileCacheFromMemory, rememberVisibleTiles } from './map-memory';
 import {
   computeAffectedCellsFromAnchor,
   Direction,
@@ -280,6 +281,17 @@ function getVisibleTileAt(x: number, y: number): Tile | null {
   const key = getTileKey(x, y);
   if (!currentVisibleTiles.has(key)) return null;
   return tileCache.get(key) ?? null;
+}
+
+function getKnownTileAt(x: number, y: number): Tile | null {
+  return tileCache.get(getTileKey(x, y)) ?? null;
+}
+
+function isWithinDisplayedMemoryBounds(x: number, y: number): boolean {
+  if (!myPlayer) {
+    return false;
+  }
+  return Math.abs(x - myPlayer.x) <= VIEW_RADIUS && Math.abs(y - myPlayer.y) <= VIEW_RADIUS;
 }
 
 function hideObserveModal(): void {
@@ -813,8 +825,9 @@ function resetGameState() {
 }
 
 /** 将服务端发来的 tiles 写入缓存 */
-function cacheTiles(tiles: VisibleTile[][], originX: number, originY: number) {
+function cacheTiles(mapId: string, tiles: VisibleTile[][], originX: number, originY: number) {
   currentVisibleTiles.clear();
+  rememberVisibleTiles(mapId, tiles, originX, originY);
   for (let r = 0; r < tiles.length; r++) {
     for (let c = 0; c < tiles[r].length; c++) {
       const tile = tiles[r][c];
@@ -878,10 +891,9 @@ observeModalEl?.addEventListener('click', () => {
 mouseInput.init(
   canvas,
   () => camera,
-  () => currentTiles,
+  (x, y) => getKnownTileAt(x, y),
   () => latestEntities,
   () => currentMapMeta,
-  () => ({ x: tileOriginX, y: tileOriginY }),
   (target) => {
     if (pendingTargetedAction) {
       if (pendingTargetedAction.actionId === 'client:observe') {
@@ -914,7 +926,16 @@ mouseInput.init(
       socket.sendAction('battle:engage', target.entityId);
       return;
     }
-    if (!target.walkable) {
+    if (!isWithinDisplayedMemoryBounds(target.x, target.y)) {
+      showToast('只能点击当前显示区域内的格子');
+      return;
+    }
+    const knownTile = getKnownTileAt(target.x, target.y);
+    if (!knownTile) {
+      showToast('完全未知的黑色区域无法点击移动');
+      return;
+    }
+    if (!knownTile.walkable) {
       showToast('无法到达该位置');
       return;
     }
@@ -940,7 +961,8 @@ socket.onInit((data: S2C_Init) => {
   tileOriginY = myPlayer.y - getViewRadius();
 
   tileCache.clear();
-  cacheTiles(currentTiles, tileOriginX, tileOriginY);
+  hydrateTileCacheFromMemory(myPlayer.mapId, tileCache);
+  cacheTiles(myPlayer.mapId, currentTiles, tileOriginX, tileOriginY);
 
   camera.snap(myPlayer);
   viewCenterX = myPlayer.x;
@@ -995,14 +1017,19 @@ socket.onTick((data: S2C_Tick) => {
   }
 
   if (data.m) {
-    if (myPlayer.mapId !== data.m) {
+    const mapChanged = myPlayer.mapId !== data.m;
+    if (mapChanged) {
       clearCurrentPath();
+      currentTiles = [];
       tileCache.clear();
       currentVisibleTiles.clear();
       hideObserveModal();
       cancelTargeting();
     }
     myPlayer.mapId = data.m;
+    if (mapChanged) {
+      hydrateTileCacheFromMemory(myPlayer.mapId, tileCache);
+    }
   }
   if (data.mapMeta) {
     currentMapMeta = data.mapMeta;
@@ -1033,7 +1060,7 @@ socket.onTick((data: S2C_Tick) => {
     currentTiles = data.v;
     tileOriginX = myPlayer.x - getViewRadius();
     tileOriginY = myPlayer.y - getViewRadius();
-    cacheTiles(currentTiles, tileOriginX, tileOriginY);
+    cacheTiles(myPlayer.mapId, currentTiles, tileOriginX, tileOriginY);
   }
   camera.follow(myPlayer);
 

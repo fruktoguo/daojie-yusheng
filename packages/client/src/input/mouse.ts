@@ -1,4 +1,4 @@
-import { MapMeta, VisibleTile } from '@mud/shared';
+import { MapMeta, Tile } from '@mud/shared';
 import { Camera } from '../renderer/camera';
 import { getCellSize } from '../display';
 
@@ -12,10 +12,9 @@ interface ClickTarget {
 
 export class MouseInput {
   private getCamera: (() => Camera) | null = null;
-  private getTiles: (() => VisibleTile[][]) | null = null;
+  private getTileAt: ((x: number, y: number) => Tile | null) | null = null;
   private getEntities: (() => { id: string; wx: number; wy: number; kind?: string }[]) | null = null;
   private getMapMeta: (() => MapMeta | null) | null = null;
-  private getTileOrigin: (() => { x: number; y: number }) | null = null;
   private onTarget: ((target: ClickTarget) => void) | null = null;
   private onHover: ((target: ClickTarget | null) => void) | null = null;
   private canvas: HTMLCanvasElement | null = null;
@@ -23,19 +22,17 @@ export class MouseInput {
   init(
     canvas: HTMLCanvasElement,
     getCamera: () => Camera,
-    getTiles: () => VisibleTile[][],
+    getTileAt: (x: number, y: number) => Tile | null,
     getEntities: () => { id: string; wx: number; wy: number; kind?: string }[],
     getMapMeta: () => MapMeta | null,
-    getTileOrigin: () => { x: number; y: number },
     onTarget: (target: ClickTarget) => void,
     onHover?: (target: ClickTarget | null) => void,
   ) {
     this.canvas = canvas;
     this.getCamera = getCamera;
-    this.getTiles = getTiles;
+    this.getTileAt = getTileAt;
     this.getEntities = getEntities;
     this.getMapMeta = getMapMeta;
-    this.getTileOrigin = getTileOrigin;
     this.onTarget = onTarget;
     this.onHover = onHover ?? null;
     canvas.addEventListener('click', (e) => this.onClick(e));
@@ -54,7 +51,7 @@ export class MouseInput {
   }
 
   private resolveTargetFromMouse(e: MouseEvent): ClickTarget | null {
-    if (!this.canvas || !this.getCamera || !this.getTiles || !this.getEntities || !this.getMapMeta || !this.getTileOrigin || !this.onTarget) return null;
+    if (!this.canvas || !this.getCamera || !this.getTileAt || !this.getEntities || !this.getMapMeta || !this.onTarget) return null;
 
     const cam = this.getCamera();
     const rect = this.canvas.getBoundingClientRect();
@@ -78,19 +75,7 @@ export class MouseInput {
       return null;
     }
 
-    const origin = this.getTileOrigin();
-    const tileIdxX = worldGX - origin.x;
-    const tileIdxY = worldGY - origin.y;
-
-    const tiles = this.getTiles();
-    const rows = tiles.length;
-    const cols = rows > 0 ? tiles[0].length : 0;
-
-    if (tileIdxX < 0 || tileIdxX >= cols || tileIdxY < 0 || tileIdxY >= rows) {
-      return this.buildTarget(worldGX, worldGY, true);
-    }
-
-    const tile = tiles[tileIdxY]?.[tileIdxX];
+    const tile = this.getTileAt(worldGX, worldGY);
     return this.buildTarget(worldGX, worldGY, tile?.walkable ?? false);
   }
 

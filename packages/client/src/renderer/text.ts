@@ -1,5 +1,5 @@
 import { IRenderer, TargetingOverlayState } from './types';
-import { Tile, TileType } from '@mud/shared';
+import { Tile, TileType, VIEW_RADIUS } from '@mud/shared';
 import { Camera } from './camera';
 import { getCellSize } from '../display';
 
@@ -143,8 +143,8 @@ export class TextRenderer implements IRenderer {
         const tile = tileCache.get(key);
         const isVisible = visibleTiles.has(key);
 
-        if (!isVisible && Math.abs(gx - playerX) > 10) continue;
-        if (!isVisible && Math.abs(gy - playerY) > 10) continue;
+        if (!isVisible && Math.abs(gx - playerX) > VIEW_RADIUS) continue;
+        if (!isVisible && Math.abs(gy - playerY) > VIEW_RADIUS) continue;
 
         if (tile) {
           ctx.fillStyle = TILE_BG[tile.type] ?? '#333';
@@ -518,7 +518,7 @@ export class TextRenderer implements IRenderer {
 
   private isPathCellRenderable(x: number, y: number, visibleTiles: Set<string>, playerX: number, playerY: number): boolean {
     const key = `${x},${y}`;
-    return visibleTiles.has(key) || (Math.abs(x - playerX) <= 10 && Math.abs(y - playerY) <= 10);
+    return visibleTiles.has(key) || (Math.abs(x - playerX) <= VIEW_RADIUS && Math.abs(y - playerY) <= VIEW_RADIUS);
   }
 
   private drawOutlinedText(text: string, x: number, y: number, fill: string, stroke: string) {
