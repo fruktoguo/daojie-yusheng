@@ -1,4 +1,5 @@
-import { Inventory, ItemType, PlayerState } from '@mud/shared';
+import { Inventory, ItemStack, ItemType, PlayerState } from '@mud/shared';
+import { detailModalHost } from '../detail-modal-host';
 import { FloatingTooltip } from '../floating-tooltip';
 import { preserveSelection } from '../selection-preserver';
 
@@ -62,6 +63,7 @@ const FILTER_TABS: Array<{ id: InventoryFilter; label: string }> = [
   { id: 'consumable', label: '消耗品' },
   { id: 'quest_item', label: '任务物' },
 ];
+const USABLE_ITEM_TYPES: ReadonlySet<ItemType> = new Set(['consumable', 'skill_book']);
 
 function formatBonusValue(key: string, value: number): string {
   if (key === 'critDamage') {
@@ -75,6 +77,7 @@ function formatBonusValue(key: string, value: number): string {
 
 /** 背包面板：显示物品列表，支持使用和丢弃 */
 export class InventoryPanel {
+  private static readonly MODAL_OWNER = 'inventory-panel';
   private pane = document.getElementById('pane-inventory')!;
   private onUseItem: ((slotIndex: number) => void) | null = null;
   private onDropItem: ((slotIndex: number, count: number) => void) | null = null;
@@ -83,6 +86,8 @@ export class InventoryPanel {
   private tooltip = new FloatingTooltip('floating-tooltip inventory-tooltip');
   private activeFilter: InventoryFilter = 'all';
   private lastInventory: Inventory | null = null;
+  private selectedSlotIndex: number | null = null;
+  private selectedItemKey: string | null = null;
 
   constructor() {
     this.ensureTooltipStyle();
@@ -91,8 +96,11 @@ export class InventoryPanel {
   clear(): void {
     this.activeFilter = 'all';
     this.lastInventory = null;
+    this.selectedSlotIndex = null;
+    this.selectedItemKey = null;
     this.tooltip.hide();
     this.pane.innerHTML = '<div class="empty-hint">背包空空如也</div>';
+    detailModalHost.close(InventoryPanel.MODAL_OWNER);
   }
 
   setCallbacks(
@@ -110,11 +118,13 @@ export class InventoryPanel {
   update(inventory: Inventory): void {
     this.lastInventory = inventory;
     this.render(inventory);
+    this.renderModal();
   }
 
   initFromPlayer(player: PlayerState): void {
     this.lastInventory = player.inventory;
     this.render(player.inventory);
+    this.renderModal();
   }
 
   private render(inventory: Inventory): void {
@@ -164,16 +174,17 @@ export class InventoryPanel {
         ...attrLines,
         ...statLines,
       ].filter((line) => line.length > 0);
-      const shortName = [...item.name].slice(0, 4).join('');
-      html += `<div class="inventory-cell" data-tooltip-title="${this.escapeHtml(item.name)}" data-tooltip-detail="${this.escapeHtml(tooltipLines.join('\n'))}">
+      const nameClass = this.getNameClass(item.name);
+      const primaryAction = this.getPrimaryAction(item);
+      html += `<div class="inventory-cell" data-open-item="${slotIndex}" data-tooltip-title="${this.escapeHtml(item.name)}" data-tooltip-detail="${this.escapeHtml(tooltipLines.join('\n'))}">
         <div class="inventory-cell-head">
           <span class="inventory-cell-type">${ITEM_TYPE_LABELS[item.type] ?? item.type}</span>
           <span class="inventory-cell-count">x${item.count}</span>
         </div>
-        <div class="inventory-cell-name">${this.escapeHtml(shortName)}</div>
+        <div class="inventory-cell-name ${nameClass}" title="${this.escapeHtml(item.name)}">${this.escapeHtml(item.name)}</div>
         <div class="inventory-cell-actions">
-          ${item.type === 'equipment' ? `<button class="small-btn" data-equip="${slotIndex}" type="button">装备</button>` : `<button class="small-btn" data-use="${slotIndex}" type="button">使用</button>`}
-          <button class="small-btn danger" data-drop="${slotIndex}" type="button">丢弃</button>
+          ${primaryAction ? `<button class="small-btn" data-inline-primary="${slotIndex}" type="button">${primaryAction.label}</button>` : ''}
+          <button class="small-btn danger" data-inline-drop="${slotIndex}" type="button">删除</button>
         </div>
       </div>`;
     });
@@ -202,22 +213,47 @@ export class InventoryPanel {
     this.pane.querySelector<HTMLElement>('[data-sort-inventory]')?.addEventListener('click', () => {
       this.onSortInventory?.();
     });
-    this.pane.querySelectorAll('[data-use]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const idx = parseInt((btn as HTMLElement).dataset.use!);
-        this.onUseItem?.(idx);
+    this.pane.querySelectorAll<HTMLElement>('[data-open-item]').forEach((cell) => {
+      cell.addEventListener('click', () => {
+        const rawIndex = cell.dataset.openItem;
+        if (!rawIndex) {
+          return;
+        }
+        this.selectedSlotIndex = parseInt(rawIndex, 10);
+        const item = this.lastInventory?.items[this.selectedSlotIndex];
+        this.selectedItemKey = item ? this.getItemIdentity(item) : null;
+        this.tooltip.hide();
+        this.renderModal();
       });
     });
-    this.pane.querySelectorAll('[data-drop]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const idx = parseInt((btn as HTMLElement).dataset.drop!);
-        this.onDropItem?.(idx, 1);
+    this.pane.querySelectorAll<HTMLElement>('[data-inline-primary]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const rawIndex = button.dataset.inlinePrimary;
+        if (!rawIndex) {
+          return;
+        }
+        const slotIndex = parseInt(rawIndex, 10);
+        const item = this.lastInventory?.items[slotIndex];
+        const action = item ? this.getPrimaryAction(item) : null;
+        if (!action) {
+          return;
+        }
+        if (action.kind === 'equip') {
+          this.onEquipItem?.(slotIndex);
+          return;
+        }
+        this.onUseItem?.(slotIndex);
       });
     });
-    this.pane.querySelectorAll('[data-equip]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const idx = parseInt((btn as HTMLElement).dataset.equip!);
-        this.onEquipItem?.(idx);
+    this.pane.querySelectorAll<HTMLElement>('[data-inline-drop]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const rawIndex = button.dataset.inlineDrop;
+        if (!rawIndex) {
+          return;
+        }
+        this.onDropItem?.(parseInt(rawIndex, 10), 1);
       });
     });
   }
@@ -286,6 +322,149 @@ export class InventoryPanel {
       }
     `;
     document.head.appendChild(style);
+  }
+
+  private renderModal(): void {
+    if (!this.lastInventory || !this.selectedItemKey) {
+      detailModalHost.close(InventoryPanel.MODAL_OWNER);
+      return;
+    }
+
+    const resolved = this.resolveSelectedItem(this.lastInventory);
+    if (!resolved) {
+      this.closeModal();
+      return;
+    }
+
+    const { item, slotIndex } = resolved;
+    const attrLines = item.equipAttrs
+      ? Object.entries(item.equipAttrs).map(([key, value]) => `${ATTR_LABELS[key] ?? key} +${value}`)
+      : [];
+    const statLines = item.equipStats
+      ? Object.entries(item.equipStats)
+        .filter(([, value]) => typeof value === 'number' && value !== 0)
+        .map(([key, value]) => `${STAT_LABELS[key] ?? key} +${formatBonusValue(key, value as number)}`)
+      : [];
+    const bonusLines = [...attrLines, ...statLines];
+    const primaryAction = this.getPrimaryAction(item);
+
+    detailModalHost.open({
+      ownerId: InventoryPanel.MODAL_OWNER,
+      title: item.name,
+      subtitle: `${ITEM_TYPE_LABELS[item.type] ?? item.type} · 数量 x${item.count}`,
+      bodyHtml: `
+        <div class="quest-detail-grid inventory-detail-grid">
+          <div class="quest-detail-section">
+            <strong>物品类型</strong>
+            <span>${this.escapeHtml(ITEM_TYPE_LABELS[item.type] ?? item.type)}</span>
+          </div>
+          <div class="quest-detail-section">
+            <strong>当前数量</strong>
+            <span>x${item.count}</span>
+          </div>
+          ${item.equipSlot ? `<div class="quest-detail-section">
+            <strong>装备部位</strong>
+            <span>${this.escapeHtml(SLOT_LABELS[item.equipSlot] ?? item.equipSlot)}</span>
+          </div>` : ''}
+        </div>
+        <div class="quest-detail-section">
+          <strong>物品说明</strong>
+          <span>${this.escapeHtml(item.desc)}</span>
+        </div>
+        ${bonusLines.length > 0 ? `<div class="quest-detail-section">
+          <strong>附加词条</strong>
+          <span>${this.escapeHtml(bonusLines.join(' / '))}</span>
+        </div>` : ''}
+        <div class="inventory-detail-actions">
+          ${primaryAction ? `<button class="small-btn" data-inventory-primary="true" type="button">${primaryAction.label}</button>` : ''}
+          <button class="small-btn danger" data-inventory-drop="true" type="button">删除 1 个</button>
+        </div>
+      `,
+      onClose: () => {
+        this.selectedSlotIndex = null;
+        this.selectedItemKey = null;
+      },
+      onAfterRender: (body) => {
+        body.querySelector<HTMLElement>('[data-inventory-primary]')?.addEventListener('click', (event) => {
+          event.stopPropagation();
+          if (primaryAction?.kind === 'equip') {
+            this.onEquipItem?.(slotIndex);
+            return;
+          }
+          this.onUseItem?.(slotIndex);
+        });
+        body.querySelector<HTMLElement>('[data-inventory-drop]')?.addEventListener('click', (event) => {
+          event.stopPropagation();
+          this.onDropItem?.(slotIndex, 1);
+        });
+      },
+    });
+  }
+
+  private resolveSelectedItem(inventory: Inventory): { item: ItemStack; slotIndex: number } | null {
+    if (!this.selectedItemKey) {
+      return null;
+    }
+
+    if (this.selectedSlotIndex !== null) {
+      const current = inventory.items[this.selectedSlotIndex];
+      if (current && this.getItemIdentity(current) === this.selectedItemKey) {
+        return { item: current, slotIndex: this.selectedSlotIndex };
+      }
+    }
+
+    const slotIndex = inventory.items.findIndex((item) => this.getItemIdentity(item) === this.selectedItemKey);
+    if (slotIndex < 0) {
+      return null;
+    }
+    this.selectedSlotIndex = slotIndex;
+    return { item: inventory.items[slotIndex], slotIndex };
+  }
+
+  private canUseItem(item: ItemStack): boolean {
+    return USABLE_ITEM_TYPES.has(item.type);
+  }
+
+  private getPrimaryAction(item: ItemStack): { label: string; kind: 'use' | 'equip' } | null {
+    if (item.type === 'equipment') {
+      return { label: '装备', kind: 'equip' };
+    }
+    if (item.type === 'skill_book') {
+      return { label: '学习', kind: 'use' };
+    }
+    if (this.canUseItem(item)) {
+      return { label: '使用', kind: 'use' };
+    }
+    return null;
+  }
+
+  private getNameClass(name: string): string {
+    const length = [...name].length;
+    if (length >= 7) {
+      return 'inventory-cell-name--tiny';
+    }
+    if (length >= 5) {
+      return 'inventory-cell-name--compact';
+    }
+    return '';
+  }
+
+  private getItemIdentity(item: ItemStack): string {
+    return JSON.stringify({
+      itemId: item.itemId,
+      name: item.name,
+      type: item.type,
+      desc: item.desc,
+      equipSlot: item.equipSlot ?? null,
+      equipAttrs: item.equipAttrs ?? null,
+      equipStats: item.equipStats ?? null,
+    });
+  }
+
+  private closeModal(): void {
+    this.selectedSlotIndex = null;
+    this.selectedItemKey = null;
+    detailModalHost.close(InventoryPanel.MODAL_OWNER);
   }
 
   private escapeHtml(value: string): string {

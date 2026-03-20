@@ -238,7 +238,7 @@ export class ContentService implements OnModuleInit {
 
   normalizeInventory(inventory: Inventory): Inventory {
     return {
-      capacity: inventory.capacity,
+      capacity: Math.max(DEFAULT_INVENTORY_CAPACITY, Number.isFinite(inventory.capacity) ? inventory.capacity : 0),
       items: inventory.items.map((item) => this.normalizeItemStack(item)),
     };
   }

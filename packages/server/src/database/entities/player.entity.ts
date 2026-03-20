@@ -4,7 +4,7 @@ import {
   Column,
   UpdateDateColumn,
 } from 'typeorm';
-import { DEFAULT_BASE_ATTRS, Direction, VIEW_RADIUS } from '@mud/shared';
+import { DEFAULT_BASE_ATTRS, DEFAULT_INVENTORY_CAPACITY, Direction, VIEW_RADIUS } from '@mud/shared';
 
 @Entity('players')
 export class PlayerEntity {
@@ -50,7 +50,7 @@ export class PlayerEntity {
   @Column({ type: 'jsonb', default: () => `'[]'` })
   bonuses!: unknown[];
 
-  @Column({ type: 'jsonb', default: () => `'{"items":[],"capacity":30}'` })
+  @Column({ type: 'jsonb', default: () => `'{"items":[],"capacity":${DEFAULT_INVENTORY_CAPACITY}}'` })
   inventory!: Record<string, unknown>;
 
   @Column({ type: 'jsonb', default: () => `'{"weapon":null,"head":null,"body":null,"legs":null,"accessory":null}'` })
