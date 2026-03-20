@@ -274,9 +274,14 @@ function hasAffectableTargetInArea(
   if (affectedCells.length === 0) {
     return false;
   }
-  return latestEntities.some((entity) =>
-    entity.kind === 'monster' && affectedCells.some((cell) => cell.x === entity.wx && cell.y === entity.wy),
-  );
+  return affectedCells.some((cell) => {
+    const hasMonster = latestEntities.some((entity) => entity.kind === 'monster' && entity.wx === cell.x && entity.wy === cell.y);
+    if (hasMonster) {
+      return true;
+    }
+    const tile = getVisibleTileAt(cell.x, cell.y);
+    return Boolean(tile?.hp && tile.hp > 0 && tile.maxHp && tile.maxHp > 0);
+  });
 }
 
 function getTileKey(x: number, y: number): string {
@@ -373,6 +378,7 @@ inventoryPanel.setCallbacks(
   (slotIndex) => socket.sendUseItem(slotIndex),
   (slotIndex, count) => socket.sendDropItem(slotIndex, count),
   (slotIndex) => socket.sendEquip(slotIndex),
+  () => socket.sendSortInventory(),
 );
 equipmentPanel.setCallbacks(
   (slot) => socket.sendUnequip(slot),
@@ -854,7 +860,7 @@ mouseInput.init(
         return;
       }
       if (!hasAffectableTargetInArea(pendingTargetedAction, target.x, target.y)) {
-        showToast('该位置范围内没有可命中的目标');
+        showToast('该位置范围内没有可命中的目标或可受影响的地块');
         return;
       }
       const targetRef = resolveTargetRefForAction(pendingTargetedAction, target);
