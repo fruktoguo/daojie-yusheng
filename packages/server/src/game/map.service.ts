@@ -86,6 +86,14 @@ interface MapData {
   spawnPoint: { x: number; y: number };
 }
 
+export interface NpcLocation {
+  mapId: string;
+  mapName: string;
+  x: number;
+  y: number;
+  name: string;
+}
+
 @Injectable()
 export class MapService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(MapService.name);
@@ -519,6 +527,22 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
   getNpcs(mapId: string): NpcConfig[] {
     return this.maps.get(mapId)?.npcs ?? [];
+  }
+
+  getNpcLocation(npcId: string): NpcLocation | undefined {
+    for (const [mapId, map] of this.maps.entries()) {
+      const npc = map.npcs.find((entry) => entry.id === npcId);
+      if (npc) {
+        return {
+          mapId,
+          mapName: map.meta.name,
+          x: npc.x,
+          y: npc.y,
+          name: npc.name,
+        };
+      }
+    }
+    return undefined;
   }
 
   getMonsterSpawns(mapId: string): MonsterSpawnConfig[] {

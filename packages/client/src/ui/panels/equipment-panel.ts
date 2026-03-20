@@ -1,4 +1,5 @@
 import { EquipmentSlots, EquipSlot, PlayerState } from '@mud/shared';
+import { preserveSelection } from '../selection-preserver';
 
 const SLOT_NAMES: Record<EquipSlot, string> = {
   weapon: '武器',
@@ -117,12 +118,14 @@ export class EquipmentPanel {
     }
 
     html += '</div>';
-    this.pane.innerHTML = html;
+    preserveSelection(this.pane, () => {
+      this.pane.innerHTML = html;
 
-    this.pane.querySelectorAll('[data-unequip]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const slot = (btn as HTMLElement).dataset.unequip as EquipSlot;
-        this.onUnequip?.(slot);
+      this.pane.querySelectorAll('[data-unequip]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const slot = (btn as HTMLElement).dataset.unequip as EquipSlot;
+          this.onUnequip?.(slot);
+        });
       });
     });
   }

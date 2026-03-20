@@ -21,6 +21,8 @@ import { Socket } from 'socket.io';
 import { PlayerEntity } from '../database/entities/player.entity';
 import { RedisService } from '../database/redis.service';
 import { ContentService } from './content.service';
+import { MapService } from './map.service';
+import { resolveQuestTargetName } from './quest-display';
 import { TechniqueService } from './technique.service';
 
 export interface PlayerCommand {
@@ -52,6 +54,7 @@ export class PlayerService {
     private readonly playerRepo: Repository<PlayerEntity>,
     private readonly redisService: RedisService,
     private readonly contentService: ContentService,
+    private readonly mapService: MapService,
     private readonly techniqueService: TechniqueService,
   ) {}
 
@@ -351,7 +354,16 @@ export class PlayerService {
         ? quest.line
         : 'side',
       objectiveType: quest.objectiveType ?? 'kill',
-      targetName: quest.targetName ?? quest.title,
+      targetName: resolveQuestTargetName({
+        objectiveType: quest.objectiveType ?? 'kill',
+        title: quest.title,
+        targetName: quest.targetName,
+        targetMonsterId: quest.targetMonsterId,
+        targetTechniqueId: quest.targetTechniqueId,
+        targetRealmStage: quest.targetRealmStage,
+        resolveMonsterName: (monsterId) => this.mapService.getMonsterSpawn(monsterId)?.name,
+        resolveTechniqueName: (techniqueId) => this.contentService.getTechnique(techniqueId)?.name,
+      }),
       targetMonsterId: quest.targetMonsterId ?? '',
       rewardItemId: quest.rewardItemId ?? quest.rewardItemIds?.[0] ?? '',
       rewardItemIds: Array.isArray(quest.rewardItemIds)
@@ -360,6 +372,12 @@ export class PlayerService {
           ? [quest.rewardItemId]
           : [],
       rewards: Array.isArray(quest.rewards) ? quest.rewards.map((reward) => ({ ...reward })) : [],
+      giverMapId: quest.giverMapId,
+      giverMapName: quest.giverMapId && (!quest.giverMapName || quest.giverMapName === quest.giverMapId)
+        ? this.mapService.getMapMeta(quest.giverMapId)?.name ?? quest.giverMapName
+        : quest.giverMapName,
+      giverX: quest.giverX,
+      giverY: quest.giverY,
     }));
   }
 }

@@ -11,7 +11,9 @@ import {
   TechniqueState,
 } from '@mud/shared';
 import { FloatingTooltip } from '../floating-tooltip';
+import { detailModalHost } from '../detail-modal-host';
 import { buildSkillTooltipLines } from '../skill-tooltip';
+import { preserveSelection } from '../selection-preserver';
 
 const ATTR_NAMES: Record<keyof Attributes, string> = {
   constitution: '体魄',
@@ -52,29 +54,12 @@ function formatAttrMap(attrs: Partial<Attributes>, fallback = '无属性提升')
 }
 
 export class TechniquePanel {
+  private static readonly MODAL_OWNER = 'technique-panel';
   private pane = document.getElementById('pane-technique')!;
-  private modal = document.getElementById('technique-modal')!;
-  private modalTitle = document.getElementById('technique-modal-title')!;
-  private modalSubtitle = document.getElementById('technique-modal-subtitle')!;
-  private modalBody = document.getElementById('technique-modal-body')!;
   private onCultivate: ((techId: string | null) => void) | null = null;
   private tooltip = new FloatingTooltip();
   private openTechId: string | null = null;
   private lastState: TechniquePanelState = { techniques: [] };
-
-  constructor() {
-    this.modal.addEventListener('click', () => {
-      this.closeModal();
-    });
-    this.modal.querySelector('.tech-modal-card')?.addEventListener('click', (event) => {
-      event.stopPropagation();
-    });
-    window.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') {
-        this.closeModal();
-      }
-    });
-  }
 
   clear(): void {
     this.pane.innerHTML = '<div class="empty-hint">尚未习得功法</div>';
@@ -102,24 +87,26 @@ export class TechniquePanel {
       return;
     }
 
-    this.pane.innerHTML = techniques.map((tech) => {
-      const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
-      const isCultivating = this.lastState.cultivatingTechId === tech.techId;
-      return `<button class="tech-card ${isCultivating ? 'cultivating' : ''}" data-tech-open="${tech.techId}" type="button">
-        <span class="tech-summary-main">
-          <span class="tech-name">${escapeHtml(tech.name)}</span>
-          <span class="tech-realm">${tech.grade ? TECHNIQUE_GRADE_LABELS[tech.grade] : '无品'}</span>
-          <span class="tech-layer">第${tech.level}/${maxLevel}层</span>
-        </span>
-      </button>`;
-    }).join('');
+    preserveSelection(this.pane, () => {
+      this.pane.innerHTML = techniques.map((tech) => {
+        const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
+        const isCultivating = this.lastState.cultivatingTechId === tech.techId;
+        return `<button class="tech-card ${isCultivating ? 'cultivating' : ''}" data-tech-open="${tech.techId}" type="button">
+          <span class="tech-summary-main">
+            <span class="tech-name">${escapeHtml(tech.name)}</span>
+            <span class="tech-realm">${tech.grade ? TECHNIQUE_GRADE_LABELS[tech.grade] : '无品'}</span>
+            <span class="tech-layer">第${tech.level}/${maxLevel}层</span>
+          </span>
+        </button>`;
+      }).join('');
 
-    this.pane.querySelectorAll<HTMLElement>('[data-tech-open]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const techId = button.dataset.techOpen;
-        if (!techId) return;
-        this.openTechId = techId;
-        this.renderModal();
+      this.pane.querySelectorAll<HTMLElement>('[data-tech-open]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const techId = button.dataset.techOpen;
+          if (!techId) return;
+          this.openTechId = techId;
+          this.renderModal();
+        });
       });
     });
   }
@@ -147,14 +134,16 @@ export class TechniquePanel {
       skillsByLevel.set(unlockLevel, current);
     }
 
-    this.modalTitle.textContent = tech.name;
-    this.modalSubtitle.textContent = `${tech.grade ? TECHNIQUE_GRADE_LABELS[tech.grade] : '无品'} · 第 ${tech.level}/${maxLevel} 层`;
-
     const layers = tech.layers && tech.layers.length > 0
       ? [...tech.layers].sort((left, right) => left.level - right.level)
       : this.buildLegacyLayers(tech, maxLevel);
     const layerRows = layers.map((layer) => this.renderLayerRow(layer, tech.level, skillsByLevel)).join('');
-    this.modalBody.innerHTML = `
+    detailModalHost.open({
+      ownerId: TechniquePanel.MODAL_OWNER,
+      variantClass: 'detail-modal--technique',
+      title: tech.name,
+      subtitle: `${tech.grade ? TECHNIQUE_GRADE_LABELS[tech.grade] : '无品'} · 第 ${tech.level}/${maxLevel} 层`,
+      bodyHtml: `
       <div class="tech-modal-summary">
         <div class="tech-modal-stat">
           <span class="tech-modal-label">当前经验</span>
@@ -176,12 +165,16 @@ export class TechniquePanel {
           ? `<button class="small-btn danger" data-cultivate-stop="${tech.techId}" type="button">停止修炼</button>`
           : `<button class="small-btn" data-cultivate="${tech.techId}" type="button">设为当前修炼</button>`}
       </div>
-    `;
-
-    this.modal.classList.remove('hidden');
-    this.modal.setAttribute('aria-hidden', 'false');
-    this.bindModalActions();
-    this.bindSkillTooltips();
+    `,
+      onClose: () => {
+        this.openTechId = null;
+        this.tooltip.hide();
+      },
+      onAfterRender: (body) => {
+        this.bindModalActions(body);
+        this.bindSkillTooltips(body);
+      },
+    });
   }
 
   private buildLegacyLayers(tech: TechniqueState, maxLevel: number): TechniqueLayerDef[] {
@@ -233,23 +226,23 @@ export class TechniquePanel {
     </div>`;
   }
 
-  private bindModalActions(): void {
-    this.modalBody.querySelector<HTMLElement>('[data-cultivate]')?.addEventListener('click', (event) => {
+  private bindModalActions(modalBody: HTMLElement): void {
+    modalBody.querySelector<HTMLElement>('[data-cultivate]')?.addEventListener('click', (event) => {
       event.stopPropagation();
       const techId = (event.currentTarget as HTMLElement).dataset.cultivate;
       if (!techId) return;
       this.onCultivate?.(techId);
       this.renderModal();
     });
-    this.modalBody.querySelector<HTMLElement>('[data-cultivate-stop]')?.addEventListener('click', (event) => {
+    modalBody.querySelector<HTMLElement>('[data-cultivate-stop]')?.addEventListener('click', (event) => {
       event.stopPropagation();
       this.onCultivate?.(null);
       this.renderModal();
     });
   }
 
-  private bindSkillTooltips(): void {
-    this.modalBody.querySelectorAll<HTMLElement>('[data-skill-tooltip-title]').forEach((node) => {
+  private bindSkillTooltips(modalBody: HTMLElement): void {
+    modalBody.querySelectorAll<HTMLElement>('[data-skill-tooltip-title]').forEach((node) => {
       const title = node.dataset.skillTooltipTitle ?? '';
       const detail = node.dataset.skillTooltipDetail ?? '';
       const rich = node.dataset.skillTooltipRich === '1';
@@ -268,8 +261,7 @@ export class TechniquePanel {
 
   private closeModal(): void {
     this.openTechId = null;
-    this.modal.classList.add('hidden');
-    this.modal.setAttribute('aria-hidden', 'true');
+    detailModalHost.close(TechniquePanel.MODAL_OWNER);
     this.tooltip.hide();
   }
 }

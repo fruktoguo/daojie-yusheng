@@ -386,6 +386,10 @@ export interface QuestState {
   nextQuestId?: string;
   giverId: string;
   giverName: string;
+  giverMapId?: string;
+  giverMapName?: string;
+  giverX?: number;
+  giverY?: number;
 }
 
 /** 玩家状态 */

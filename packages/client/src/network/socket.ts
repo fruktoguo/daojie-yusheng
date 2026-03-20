@@ -101,8 +101,13 @@ export class SocketManager {
     this.socket?.emit(C2S.Move, { d: direction } satisfies C2S_Move);
   }
 
-  sendMoveTo(x: number, y: number) {
-    this.socket?.emit(C2S.MoveTo, { x, y } satisfies C2S_MoveTo);
+  sendMoveTo(x: number, y: number, options?: { ignoreVisibilityLimit?: boolean; allowNearestReachable?: boolean }) {
+    this.socket?.emit(C2S.MoveTo, {
+      x,
+      y,
+      ignoreVisibilityLimit: options?.ignoreVisibilityLimit,
+      allowNearestReachable: options?.allowNearestReachable,
+    } satisfies C2S_MoveTo);
   }
 
   sendGmGetState() {

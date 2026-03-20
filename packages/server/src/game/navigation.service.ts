@@ -25,6 +25,10 @@ interface MoveTargetState {
   blockedTicks: number;
 }
 
+interface SetMoveTargetOptions {
+  allowNearestReachable?: boolean;
+}
+
 interface MoveChargeState {
   intentKey: string;
   points: number;
@@ -130,13 +134,30 @@ export class NavigationService {
     return state.path.map((step) => [step.x, step.y]);
   }
 
-  setMoveTarget(player: PlayerState, x: number, y: number): string | null {
-    if ((player.x !== x || player.y !== y) && !this.mapService.canOccupy(player.mapId, x, y, player.id)) {
+  setMoveTarget(player: PlayerState, x: number, y: number, options?: SetMoveTargetOptions): string | null {
+    let targetX = x;
+    let targetY = y;
+
+    if ((player.x !== targetX || player.y !== targetY) && !this.mapService.canOccupy(player.mapId, targetX, targetY, player.id)) {
+      if (!options?.allowNearestReachable) {
+        this.clearMoveTarget(player.id);
+        return '无法到达该位置';
+      }
+      const fallback = this.mapService.findNearbyWalkable(player.mapId, targetX, targetY, 8);
+      if (!fallback) {
+        this.clearMoveTarget(player.id);
+        return '无法到达该位置';
+      }
+      targetX = fallback.x;
+      targetY = fallback.y;
+    }
+
+    if ((player.x !== targetX || player.y !== targetY) && !this.mapService.canOccupy(player.mapId, targetX, targetY, player.id)) {
       this.clearMoveTarget(player.id);
       return '无法到达该位置';
     }
 
-    const path = this.findPath(player.mapId, player.x, player.y, x, y, player.id);
+    const path = this.findPath(player.mapId, player.x, player.y, targetX, targetY, player.id);
     if (path === null) {
       this.clearMoveTarget(player.id);
       return '无法到达该位置';
@@ -148,8 +169,8 @@ export class NavigationService {
     }
 
     this.moveTargets.set(player.id, {
-      targetX: x,
-      targetY: y,
+      targetX,
+      targetY,
       path,
       blockedTicks: 0,
     });

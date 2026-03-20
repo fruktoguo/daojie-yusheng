@@ -34,6 +34,7 @@ import { ContentService } from './content.service';
 import { InventoryService } from './inventory.service';
 import { DropConfig, MapService, MonsterSpawnConfig, NpcConfig, QuestConfig } from './map.service';
 import { NavigationService } from './navigation.service';
+import { isLikelyInternalContentId, resolveQuestTargetName } from './quest-display';
 import { TechniqueService } from './technique.service';
 
 type MessageKind = 'system' | 'quest' | 'combat' | 'loot';
@@ -365,13 +366,41 @@ export class WorldService {
       if (quest.status === 'completed') continue;
       const config = this.mapService.getQuest(quest.id);
       if (!config) continue;
+      if (
+        (
+          !quest.giverMapName
+          || quest.giverX === undefined
+          || quest.giverY === undefined
+          || (quest.giverMapId && quest.giverMapName === quest.giverMapId)
+        )
+        && quest.giverId
+      ) {
+        const npcLocation = this.mapService.getNpcLocation(quest.giverId);
+        if (npcLocation) {
+          quest.giverMapId = npcLocation.mapId;
+          quest.giverMapName = npcLocation.mapName;
+          quest.giverX = npcLocation.x;
+          quest.giverY = npcLocation.y;
+          changed = true;
+        }
+      }
       const nextProgress = this.resolveQuestProgress(player, quest, config);
       if (nextProgress !== quest.progress) {
         quest.progress = nextProgress;
         changed = true;
       }
-      if (config.objectiveType !== 'kill' && quest.targetName !== config.targetName) {
-        quest.targetName = config.targetName;
+      const targetName = resolveQuestTargetName({
+        objectiveType: config.objectiveType,
+        title: quest.title,
+        targetName: quest.targetName,
+        targetMonsterId: quest.targetMonsterId || config.targetMonsterId,
+        targetTechniqueId: quest.targetTechniqueId || config.targetTechniqueId,
+        targetRealmStage: quest.targetRealmStage ?? config.targetRealmStage,
+        resolveMonsterName: (monsterId) => this.mapService.getMonsterSpawn(monsterId)?.name,
+        resolveTechniqueName: (techniqueId) => this.contentService.getTechnique(techniqueId)?.name,
+      });
+      if (quest.targetName !== targetName) {
+        quest.targetName = targetName;
         changed = true;
       }
     }
@@ -834,9 +863,6 @@ export class WorldService {
     }
 
     if (!interaction.questState) {
-      const targetMonster = interaction.quest.targetMonsterId
-        ? this.mapService.getMonsterSpawn(interaction.quest.targetMonsterId)
-        : undefined;
       const questState: QuestState = {
         id: interaction.quest.id,
         title: interaction.quest.title,
@@ -849,7 +875,16 @@ export class WorldService {
         objectiveText: interaction.quest.objectiveText,
         progress: 0,
         required: interaction.quest.required,
-        targetName: interaction.quest.targetName || targetMonster?.name || interaction.quest.targetMonsterId || interaction.quest.title,
+        targetName: resolveQuestTargetName({
+          objectiveType: interaction.quest.objectiveType,
+          title: interaction.quest.title,
+          targetName: interaction.quest.targetName,
+          targetMonsterId: interaction.quest.targetMonsterId,
+          targetTechniqueId: interaction.quest.targetTechniqueId,
+          targetRealmStage: interaction.quest.targetRealmStage,
+          resolveMonsterName: (monsterId) => this.mapService.getMonsterSpawn(monsterId)?.name,
+          resolveTechniqueName: (techniqueId) => this.contentService.getTechnique(techniqueId)?.name,
+        }),
         targetTechniqueId: interaction.quest.targetTechniqueId,
         targetRealmStage: interaction.quest.targetRealmStage,
         rewardText: interaction.quest.rewardText,
@@ -862,6 +897,10 @@ export class WorldService {
         nextQuestId: interaction.quest.nextQuestId,
         giverId: npc.id,
         giverName: npc.name,
+        giverMapId: player.mapId,
+        giverMapName: this.mapService.getMapMeta(player.mapId)?.name ?? '未知地界',
+        giverX: npc.x,
+        giverY: npc.y,
       };
       questState.progress = this.resolveQuestProgress(player, questState, interaction.quest);
       player.quests.push(questState);
@@ -1747,7 +1786,8 @@ export class WorldService {
         break;
     }
     if (questConfig?.requiredItemId) {
-      const itemName = this.contentService.getItem(questConfig.requiredItemId)?.name ?? questConfig.requiredItemId;
+      const itemName = this.contentService.getItem(questConfig.requiredItemId)?.name
+        ?? (isLikelyInternalContentId(questConfig.requiredItemId) ? '任务物品' : questConfig.requiredItemId);
       parts.push(`提交物品 ${itemName} x${questConfig.requiredItemCount ?? 1}`);
     }
     return parts.join('，');

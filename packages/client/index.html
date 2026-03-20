@@ -1413,6 +1413,16 @@
     }
     .small-btn.danger { border-color: var(--stamp-red); color: var(--stamp-red); }
     .small-btn.danger:hover { background: var(--stamp-red); color: var(--paper-light); }
+    .small-btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+      background: rgba(34, 26, 19, 0.04);
+      color: var(--ink-light);
+    }
+    .small-btn:disabled:hover {
+      background: rgba(34, 26, 19, 0.04);
+      color: var(--ink-light);
+    }
 
     /* 装备槽 */
     .equip-slot {
@@ -1469,10 +1479,10 @@
       font-size: 12px;
       color: var(--ink-grey);
     }
-    .tech-modal {
+    .detail-modal {
       position: fixed;
       inset: 0;
-      z-index: 130;
+      z-index: 160;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -1480,10 +1490,10 @@
       background: rgba(12, 10, 8, 0.44);
       backdrop-filter: blur(2px);
     }
-    .tech-modal.hidden {
+    .detail-modal.hidden {
       display: none;
     }
-    .tech-modal-card {
+    .detail-modal-card {
       width: min(760px, 100%);
       max-height: min(80vh, 760px);
       overflow-y: auto;
@@ -1492,7 +1502,15 @@
       border: 1.5px solid var(--ink-black);
       box-shadow: 12px 12px 0 rgba(0, 0, 0, 0.12);
     }
-    .tech-modal-head {
+    .detail-modal-card.detail-modal--quest {
+      width: min(720px, calc(100vw - 32px));
+      max-height: min(82vh, 820px);
+      background:
+        radial-gradient(circle at top right, rgba(214, 188, 142, 0.16), transparent 32%),
+        linear-gradient(180deg, rgba(249, 247, 241, 0.98), rgba(239, 235, 225, 0.97));
+      box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.16);
+    }
+    .detail-modal-head {
       display: flex;
       align-items: baseline;
       justify-content: space-between;
@@ -1501,16 +1519,16 @@
       margin-bottom: 12px;
       border-bottom: 1px solid var(--wash-ink);
     }
-    .tech-modal-title {
+    .detail-modal-title {
       font-family: var(--font-heading-sub);
       font-size: 22px;
       color: var(--ink-black);
     }
-    .tech-modal-subtitle {
+    .detail-modal-subtitle {
       font-size: 12px;
       color: var(--ink-grey);
     }
-    .tech-modal-hint {
+    .detail-modal-hint {
       font-size: 11px;
       color: var(--ink-grey);
     }
@@ -1759,11 +1777,57 @@
     }
 
     /* 任务卡片 */
+    .quest-subtabs {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .quest-subtab-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 7px 8px;
+      border: 1px solid var(--wash-ink);
+      background: rgba(255,255,255,0.46);
+      color: var(--ink-grey);
+      font-family: var(--font-heading-sub);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+    .quest-subtab-btn:hover {
+      background: var(--highlight);
+      color: var(--ink-black);
+    }
+    .quest-subtab-btn.active {
+      border-color: var(--stamp-red);
+      background: rgba(125, 27, 27, 0.08);
+      color: var(--stamp-red);
+      box-shadow: inset 0 -2px 0 var(--stamp-red);
+    }
+    .quest-subtab-count {
+      min-width: 16px;
+      padding: 1px 5px;
+      border: 1px solid currentColor;
+      font-size: 11px;
+      line-height: 1.1;
+    }
     .quest-card {
       padding: 10px;
       margin-bottom: 8px;
       background: var(--paper-white);
       border: 1px solid var(--wash-ink);
+    }
+    .quest-card-toggle {
+      width: 100%;
+      text-align: left;
+      cursor: pointer;
+    }
+    .quest-card-toggle:hover {
+      border-color: rgba(125, 27, 27, 0.35);
+      background: rgba(255,255,255,0.68);
     }
     .quest-title-row {
       display: flex;
@@ -1811,6 +1875,44 @@
       font-size: 11px;
       color: var(--ink-grey);
       margin-top: 2px;
+    }
+    .quest-expand-hint {
+      margin-top: 6px;
+      font-size: 11px;
+      color: #7b6a58;
+    }
+    .quest-detail-line {
+      font-family: var(--font-heading-sub);
+      font-size: 12px;
+      color: var(--stamp-red);
+      letter-spacing: 0.08em;
+      margin-bottom: 4px;
+    }
+    .quest-detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 14px;
+      margin-bottom: 10px;
+    }
+    .quest-detail-section {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 10px;
+      font-size: 12px;
+      color: var(--ink-grey);
+    }
+    .quest-detail-section strong {
+      font-family: var(--font-heading-sub);
+      font-size: 12px;
+      color: var(--ink-black);
+    }
+    .quest-detail-location-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
     }
 
     /* 行动按钮 */
@@ -2146,6 +2248,12 @@
       .world-hero {
         grid-template-columns: 1fr;
       }
+      .quest-subtabs {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .quest-detail-grid {
+        grid-template-columns: 1fr;
+      }
       .section-shell {
         grid-template-columns: max(28px, calc(var(--title-rail-size) - 6px)) minmax(0, 1fr);
       }
@@ -2243,7 +2351,7 @@
       .tech-modal-summary {
         grid-template-columns: 1fr;
       }
-      .tech-modal-card {
+      .detail-modal-card {
         width: min(100%, calc(100vw - 24px));
         max-height: min(82vh, 760px);
         padding: 16px;
@@ -2542,16 +2650,16 @@
     </aside>
   </div>
 
-  <div id="technique-modal" class="tech-modal hidden" aria-hidden="true">
-    <div class="tech-modal-card">
-      <div class="tech-modal-head">
+  <div id="detail-modal" class="detail-modal hidden" aria-hidden="true">
+    <div id="detail-modal-card" class="detail-modal-card">
+      <div class="detail-modal-head">
         <div>
-          <div id="technique-modal-title" class="tech-modal-title">功法</div>
-          <div id="technique-modal-subtitle" class="tech-modal-subtitle"></div>
+          <div id="detail-modal-title" class="detail-modal-title">详情</div>
+          <div id="detail-modal-subtitle" class="detail-modal-subtitle"></div>
         </div>
-        <div class="tech-modal-hint">点击空白处关闭</div>
+        <div id="detail-modal-hint" class="detail-modal-hint">点击空白处关闭</div>
       </div>
-      <div id="technique-modal-body"></div>
+      <div id="detail-modal-body"></div>
     </div>
   </div>
 

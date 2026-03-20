@@ -440,6 +440,9 @@ equipmentPanel.setCallbacks(
 techniquePanel.setCallbacks(
   (techId) => socket.sendCultivate(techId),
 );
+questPanel.setCallbacks((x, y) => {
+  planPathTo({ x, y }, { ignoreVisibilityLimit: true, allowNearestReachable: true });
+});
 actionPanel.setCallbacks(
   (actionId, requiresTarget, targetMode, range, actionName) => {
     if (requiresTarget) {
@@ -523,6 +526,7 @@ socket.onAttrUpdate((data) => {
     myPlayer.breakthroughReady = data.realm?.breakthroughReady;
   }
   attrPanel.update(data);
+  refreshHudChrome();
 });
 socket.onInventoryUpdate((data) => {
   if (myPlayer) myPlayer.inventory = data.inventory;
@@ -568,10 +572,13 @@ socket.onActionsUpdate((data) => {
   if (shouldRefreshActionPanel) {
     actionPanel.update(data.actions, nextAutoBattle, nextAutoRetaliate, myPlayer ?? undefined);
     refreshUiChrome();
+  } else {
+    actionPanel.syncDynamic(data.actions, nextAutoBattle, nextAutoRetaliate, myPlayer ?? undefined);
   }
 });
 socket.onQuestUpdate((data) => {
   if (myPlayer) myPlayer.quests = data.quests;
+  questPanel.setCurrentMapId(myPlayer?.mapId);
   questPanel.update(data.quests);
   refreshUiChrome();
 });
@@ -771,15 +778,8 @@ function resolveThreatLabel(player: PlayerState): string {
 }
 
 function refreshUiChrome() {
+  refreshHudChrome();
   if (!myPlayer) return;
-  hud.update(myPlayer, {
-    mapName: currentMapMeta?.name ?? myPlayer.mapId,
-    mapDanger: resolveMapDanger(),
-    realmLabel: resolveRealmLabel(myPlayer),
-    objectiveLabel: resolveObjectiveLabel(myPlayer),
-    threatLabel: resolveThreatLabel(myPlayer),
-    titleLabel: resolveTitleLabel(myPlayer),
-  });
   if (shouldPauseWorldPanelRefresh()) {
     return;
   }
@@ -789,6 +789,18 @@ function refreshUiChrome() {
     entities: latestEntities,
     actions: myPlayer.actions,
     quests: myPlayer.quests,
+  });
+}
+
+function refreshHudChrome() {
+  if (!myPlayer) return;
+  hud.update(myPlayer, {
+    mapName: currentMapMeta?.name ?? myPlayer.mapId,
+    mapDanger: resolveMapDanger(),
+    realmLabel: resolveRealmLabel(myPlayer),
+    objectiveLabel: resolveObjectiveLabel(myPlayer),
+    threatLabel: resolveThreatLabel(myPlayer),
+    titleLabel: resolveTitleLabel(myPlayer),
   });
 }
 
@@ -835,11 +847,11 @@ function sendMoveCommand(dir: Direction) {
   socket.sendMove(dir);
 }
 
-function planPathTo(target: { x: number; y: number }) {
+function planPathTo(target: { x: number; y: number }, options?: { ignoreVisibilityLimit?: boolean; allowNearestReachable?: boolean }) {
   if (!myPlayer) return;
   pathTarget = target;
   pathCells = [{ x: target.x, y: target.y }];
-  socket.sendMoveTo(target.x, target.y);
+  socket.sendMoveTo(target.x, target.y, options);
 }
 
 function resetGameState() {
@@ -1074,6 +1086,7 @@ socket.onTick((data: S2C_Tick) => {
       cancelTargeting();
     }
     myPlayer.mapId = data.m;
+    questPanel.setCurrentMapId(myPlayer.mapId);
     if (mapChanged) {
       hydrateTileCacheFromMemory(myPlayer.mapId, tileCache);
     }
@@ -1118,6 +1131,7 @@ socket.onTick((data: S2C_Tick) => {
   entities.push(...mapEntities);
   latestEntities = entities;
   syncTargetingOverlay();
+  refreshHudChrome();
 
   if (moved) {
     const shiftX = myPlayer.x - oldX;

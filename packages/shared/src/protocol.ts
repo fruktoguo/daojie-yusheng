@@ -57,6 +57,8 @@ export interface C2S_Move {
 export interface C2S_MoveTo {
   x: number;
   y: number;
+  ignoreVisibilityLimit?: boolean;
+  allowNearestReachable?: boolean;
 }
 
 export interface C2S_GmGetState {}

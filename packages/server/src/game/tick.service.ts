@@ -171,8 +171,8 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
             player.combatTargetId = undefined;
             this.playerService.markDirty(player.id, 'actions');
           }
-          const { x, y } = cmd.data as { x: number; y: number };
-          const error = this.navigationService.setMoveTarget(player, x, y);
+          const { x, y, allowNearestReachable } = cmd.data as { x: number; y: number; allowNearestReachable?: boolean };
+          const error = this.navigationService.setMoveTarget(player, x, y, { allowNearestReachable });
           if (error) {
             messages.push({ playerId: player.id, text: error, kind: 'system' });
           }

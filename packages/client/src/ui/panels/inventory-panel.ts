@@ -1,5 +1,6 @@
 import { Inventory, ItemType, PlayerState } from '@mud/shared';
 import { FloatingTooltip } from '../floating-tooltip';
+import { preserveSelection } from '../selection-preserver';
 
 const ITEM_TYPE_LABELS: Record<string, string> = {
   consumable: '消耗品',
@@ -138,8 +139,10 @@ export class InventoryPanel {
     if (visibleItems.length === 0) {
       html += `<div class="empty-hint">${inventory.items.length === 0 ? '背包空空如也' : '当前分类暂无物品'}</div>`;
       html += '</div>';
-      this.pane.innerHTML = html;
-      this.bindActions();
+      preserveSelection(this.pane, () => {
+        this.pane.innerHTML = html;
+        this.bindActions();
+      });
       return;
     }
 
@@ -176,9 +179,11 @@ export class InventoryPanel {
     });
 
     html += '</div></div>';
-    this.pane.innerHTML = html;
-    this.bindTooltips();
-    this.bindActions();
+    preserveSelection(this.pane, () => {
+      this.pane.innerHTML = html;
+      this.bindTooltips();
+      this.bindActions();
+    });
   }
 
   private bindActions(): void {

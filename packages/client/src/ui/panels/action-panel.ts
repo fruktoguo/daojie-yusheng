@@ -1,6 +1,7 @@
 import { ActionDef, AutoBattleSkillConfig, PlayerState, SkillDef } from '@mud/shared';
 import { FloatingTooltip } from '../floating-tooltip';
 import { buildSkillTooltipLines } from '../skill-tooltip';
+import { preserveSelection } from '../selection-preserver';
 
 const TYPE_NAMES: Record<string, string> = {
   skill: '技能',
@@ -77,6 +78,20 @@ export class ActionPanel {
     this.render(this.currentActions);
   }
 
+  syncDynamic(actions: ActionDef[], _autoBattle?: boolean, _autoRetaliate?: boolean, player?: PlayerState): void {
+    if (player) {
+      this.previewPlayer = player;
+      this.syncPlayerContext(player);
+    }
+    this.currentActions = this.withUtilityActions(actions);
+    if (_autoBattle !== undefined) this.autoBattle = _autoBattle;
+    if (_autoRetaliate !== undefined) this.autoRetaliate = _autoRetaliate;
+
+    if (!this.patchToggleCards() || !this.patchActionRows()) {
+      this.render(this.currentActions);
+    }
+  }
+
   initFromPlayer(player: PlayerState): void {
     this.previewPlayer = player;
     this.syncPlayerContext(player);
@@ -123,20 +138,20 @@ export class ActionPanel {
         <div class="gm-player-row ${this.autoBattle ? 'active' : ''}" data-action-card="toggle:auto_battle" role="button" tabindex="0">
           <div>
             <div class="gm-player-name">自动战斗</div>
-            <div class="gm-player-meta">${this.autoBattle ? '当前已开启' : '当前已关闭'}${this.renderShortcutMeta('toggle:auto_battle')}</div>
+            <div class="gm-player-meta" data-toggle-meta="toggle:auto_battle">${this.autoBattle ? '当前已开启' : '当前已关闭'}${this.renderShortcutMeta('toggle:auto_battle')}</div>
           </div>
           <div class="action-card-side">
-            <div class="gm-player-stat">${this.autoBattle ? '开' : '关'}</div>
+            <div class="gm-player-stat" data-toggle-stat="toggle:auto_battle">${this.autoBattle ? '开' : '关'}</div>
             <button class="small-btn ghost" data-bind-action="toggle:auto_battle" type="button">${this.getBindButtonLabel('toggle:auto_battle')}</button>
           </div>
         </div>
         <div class="gm-player-row ${this.autoRetaliate ? 'active' : ''}" data-action-card="toggle:auto_retaliate" role="button" tabindex="0">
           <div>
             <div class="gm-player-name">自动反击</div>
-            <div class="gm-player-meta">${this.autoRetaliate ? '受到攻击自动开战' : '受到攻击保持克制'}${this.renderShortcutMeta('toggle:auto_retaliate')}</div>
+            <div class="gm-player-meta" data-toggle-meta="toggle:auto_retaliate">${this.autoRetaliate ? '受到攻击自动开战' : '受到攻击保持克制'}${this.renderShortcutMeta('toggle:auto_retaliate')}</div>
           </div>
           <div class="action-card-side">
-            <div class="gm-player-stat">${this.autoRetaliate ? '开' : '关'}</div>
+            <div class="gm-player-stat" data-toggle-stat="toggle:auto_retaliate">${this.autoRetaliate ? '开' : '关'}</div>
             <button class="small-btn ghost" data-bind-action="toggle:auto_retaliate" type="button">${this.getBindButtonLabel('toggle:auto_retaliate')}</button>
           </div>
         </div>
@@ -203,9 +218,11 @@ export class ActionPanel {
       html += '</div>';
     }
 
-    this.pane.innerHTML = html;
-    this.bindEvents(actions);
-    this.bindTooltips();
+    preserveSelection(this.pane, () => {
+      this.pane.innerHTML = html;
+      this.bindEvents(actions);
+      this.bindTooltips();
+    });
   }
 
   private bindEvents(actions: ActionDef[]): void {
@@ -442,13 +459,16 @@ export class ActionPanel {
          <button class="small-btn ghost action-drag-handle" data-auto-battle-drag="${action.id}" draggable="true" type="button">拖拽</button>`
       : '';
 
-    return `<div class="action-item ${onCd ? 'cooldown' : ''} ${isAutoBattleSkill ? 'action-item-draggable' : ''}"${rowAttrs}>
+    return `<div class="action-item ${onCd ? 'cooldown' : ''} ${isAutoBattleSkill ? 'action-item-draggable' : ''}" data-action-row="${action.id}"${rowAttrs}>
       <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''}"${tooltipAttrs}>
         <div>
           <span class="action-name">${escapeHtml(action.name)}</span>
           <span class="action-type">[${TYPE_NAMES[action.type] || action.type}]</span>
           ${typeof action.range === 'number' ? `<span class="action-type">射程 ${action.range}</span>` : ''}
-          ${autoBattleMeta}
+          ${isAutoBattleSkill
+            ? `<span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}" data-action-auto-state="${action.id}">${autoBattleEnabled ? '自动已启用' : '自动已停用'}</span>
+               <span class="action-type" data-action-auto-order="${action.id}"${autoBattleOrder ? '' : ' hidden'}>${autoBattleOrder ? `顺位 ${autoBattleOrder}` : ''}</span>`
+            : autoBattleMeta}
           ${this.renderShortcutBadge(action.id)}
         </div>
         <div class="action-desc">${escapeHtml(action.desc)}</div>
@@ -456,10 +476,8 @@ export class ActionPanel {
       <div class="action-cta">
         ${autoBattleControls}
         <button class="small-btn ghost" data-bind-action="${action.id}" type="button">${this.getBindButtonLabel(action.id)}</button>
-        ${onCd
-          ? `<span class="action-cd">冷却 ${action.cooldownLeft} 息</span>`
-          : `<button class="small-btn" data-action="${action.id}" data-action-name="${escapeHtml(action.name)}" data-action-range="${action.range ?? ''}" data-action-target="${action.requiresTarget ? '1' : '0'}" data-action-target-mode="${action.targetMode ?? ''}">执行</button>`
-        }
+        <span class="action-cd" data-action-cd="${action.id}"${onCd ? '' : ' hidden'}>${onCd ? `冷却 ${action.cooldownLeft} 息` : ''}</span>
+        <button class="small-btn" data-action="${action.id}" data-action-exec="${action.id}" data-action-name="${escapeHtml(action.name)}" data-action-range="${action.range ?? ''}" data-action-target="${action.requiresTarget ? '1' : '0'}" data-action-target-mode="${action.targetMode ?? ''}"${onCd ? ' hidden' : ''}>执行</button>
       </div>
     </div>`;
   }
@@ -550,5 +568,64 @@ export class ActionPanel {
     this.dragOverSkillId = null;
     this.dragOverPosition = null;
     this.updateDragIndicators();
+  }
+
+  private patchToggleCards(): boolean {
+    const autoBattleCard = this.pane.querySelector<HTMLElement>('[data-action-card="toggle:auto_battle"]');
+    const autoBattleMeta = this.pane.querySelector<HTMLElement>('[data-toggle-meta="toggle:auto_battle"]');
+    const autoBattleStat = this.pane.querySelector<HTMLElement>('[data-toggle-stat="toggle:auto_battle"]');
+    const autoRetaliateCard = this.pane.querySelector<HTMLElement>('[data-action-card="toggle:auto_retaliate"]');
+    const autoRetaliateMeta = this.pane.querySelector<HTMLElement>('[data-toggle-meta="toggle:auto_retaliate"]');
+    const autoRetaliateStat = this.pane.querySelector<HTMLElement>('[data-toggle-stat="toggle:auto_retaliate"]');
+    if (!autoBattleCard || !autoBattleMeta || !autoBattleStat || !autoRetaliateCard || !autoRetaliateMeta || !autoRetaliateStat) {
+      return false;
+    }
+
+    autoBattleCard.classList.toggle('active', this.autoBattle);
+    autoBattleMeta.textContent = `${this.autoBattle ? '当前已开启' : '当前已关闭'}${this.renderShortcutMeta('toggle:auto_battle')}`;
+    autoBattleStat.textContent = this.autoBattle ? '开' : '关';
+
+    autoRetaliateCard.classList.toggle('active', this.autoRetaliate);
+    autoRetaliateMeta.textContent = `${this.autoRetaliate ? '受到攻击自动开战' : '受到攻击保持克制'}${this.renderShortcutMeta('toggle:auto_retaliate')}`;
+    autoRetaliateStat.textContent = this.autoRetaliate ? '开' : '关';
+    return true;
+  }
+
+  private patchActionRows(): boolean {
+    for (const action of this.currentActions) {
+      const row = this.pane.querySelector<HTMLElement>(`[data-action-row="${CSS.escape(action.id)}"]`);
+      if (!row) {
+        return false;
+      }
+      const onCd = action.cooldownLeft > 0;
+      row.classList.toggle('cooldown', onCd);
+
+      const cdNode = this.pane.querySelector<HTMLElement>(`[data-action-cd="${CSS.escape(action.id)}"]`);
+      const execNode = this.pane.querySelector<HTMLButtonElement>(`[data-action-exec="${CSS.escape(action.id)}"]`);
+      if (!cdNode || !execNode) {
+        return false;
+      }
+      cdNode.textContent = onCd ? `冷却 ${action.cooldownLeft} 息` : '';
+      cdNode.hidden = !onCd;
+      execNode.hidden = onCd;
+      execNode.disabled = onCd;
+
+      if (action.type === 'skill') {
+        const stateNode = this.pane.querySelector<HTMLElement>(`[data-action-auto-state="${CSS.escape(action.id)}"]`);
+        const orderNode = this.pane.querySelector<HTMLElement>(`[data-action-auto-order="${CSS.escape(action.id)}"]`);
+        if (!stateNode || !orderNode) {
+          return false;
+        }
+        const enabled = action.autoBattleEnabled !== false;
+        const order = typeof action.autoBattleOrder === 'number' ? action.autoBattleOrder + 1 : null;
+        stateNode.textContent = enabled ? '自动已启用' : '自动已停用';
+        stateNode.classList.toggle('auto-battle-enabled', enabled);
+        stateNode.classList.toggle('auto-battle-disabled', !enabled);
+        orderNode.hidden = order === null;
+        orderNode.textContent = order === null ? '' : `顺位 ${order}`;
+      }
+    }
+
+    return true;
   }
 }

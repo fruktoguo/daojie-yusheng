@@ -1,4 +1,5 @@
 import { ActionDef, manhattanDistance, MapMeta, PlayerState, QuestState, TechniqueRealm } from '@mud/shared';
+import { preserveSelection } from '../selection-preserver';
 
 interface VisibleEntity {
   id: string;
@@ -26,6 +27,13 @@ const TECH_REALM_LABELS: Record<TechniqueRealm, string> = {
   [TechniqueRealm.Minor]: '后天圆熟',
   [TechniqueRealm.Major]: '先天凝意',
   [TechniqueRealm.Perfection]: '半步修真',
+};
+
+const TECH_REALM_NAME_BY_KEY: Record<string, string> = {
+  Entry: TECH_REALM_LABELS[TechniqueRealm.Entry],
+  Minor: TECH_REALM_LABELS[TechniqueRealm.Minor],
+  Major: TECH_REALM_LABELS[TechniqueRealm.Major],
+  Perfection: TECH_REALM_LABELS[TechniqueRealm.Perfection],
 };
 
 const WORLD_GUIDE: Record<string, WorldGuide> = {
@@ -133,6 +141,18 @@ function inferRealm(player: PlayerState): string {
   return TECH_REALM_LABELS[highest.realm] ?? '修行中';
 }
 
+function resolveRecommendedRealmLabel(raw: string | undefined, fallback: string): string {
+  if (!raw) return fallback;
+  if (/[^\x00-\x7F]/.test(raw)) return raw;
+  const parts = raw.split('-').map((part) => part.trim()).filter(Boolean);
+  if (parts.length === 0) return fallback;
+  const labels = parts.map((part) => TECH_REALM_NAME_BY_KEY[part]);
+  if (labels.some((label) => !label)) {
+    return fallback;
+  }
+  return labels.join('到');
+}
+
 export class WorldPanel {
   private mapPane = document.getElementById('pane-map-intel')!;
   private nearbyPane = document.getElementById('pane-nearby')!;
@@ -158,7 +178,7 @@ export class WorldPanel {
     };
 
     const danger = input.mapMeta?.dangerLevel ?? guide.danger;
-    const recommend = input.mapMeta?.recommendedRealm ?? guide.recommendedRealm;
+    const recommend = resolveRecommendedRealmLabel(input.mapMeta?.recommendedRealm, guide.recommendedRealm);
     const cultivating = input.player.cultivatingTechId
       ? input.player.techniques.find((entry) => entry.techId === input.player.cultivatingTechId)
       : null;
@@ -224,7 +244,7 @@ export class WorldPanel {
     }
     this.lastRenderSignature = signature;
 
-    this.mapPane.innerHTML = `
+    const mapHtml = `
       <div class="world-hero compact">
         <div>
           <div class="world-kicker">${escapeHtml(guide.mood)}</div>
@@ -246,7 +266,7 @@ export class WorldPanel {
       </div>
     `;
 
-    this.nearbyPane.innerHTML = `
+    const nearbyHtml = `
       ${nearbyMonsters.length === 0 && nearbyNpcs.length === 0 ? '<div class="empty-hint">附近暂时平静</div>' : ''}
       ${nearbyMonsters.length > 0 ? `
         <div class="panel-section">
@@ -281,7 +301,7 @@ export class WorldPanel {
       ` : ''}
     `;
 
-    this.suggestionPane.innerHTML = `
+    const suggestionHtml = `
       <div class="panel-section">
         <div class="panel-section-title">当前建议</div>
         <div class="info-list">
@@ -300,6 +320,16 @@ export class WorldPanel {
         </div>
       `}
     `;
+
+    preserveSelection(this.mapPane, () => {
+      this.mapPane.innerHTML = mapHtml;
+    });
+    preserveSelection(this.nearbyPane, () => {
+      this.nearbyPane.innerHTML = nearbyHtml;
+    });
+    preserveSelection(this.suggestionPane, () => {
+      this.suggestionPane.innerHTML = suggestionHtml;
+    });
   }
 
   clear(): void {
