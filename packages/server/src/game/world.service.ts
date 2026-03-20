@@ -28,6 +28,7 @@ import {
   SkillFormula,
   SkillFormulaVar,
   TemporaryBuffState,
+  VisibleBuffState,
 } from '@mud/shared';
 import { AttrService } from './attr.service';
 import { ContentService } from './content.service';
@@ -48,6 +49,7 @@ interface RuntimeMonster extends MonsterSpawnConfig {
   hp: number;
   alive: boolean;
   respawnLeft: number;
+  temporaryBuffs: TemporaryBuffState[];
 }
 
 interface NpcInteractionState {
@@ -174,6 +176,10 @@ interface SkillFormulaContext {
   targetStats?: NumericStats;
 }
 
+type BuffTargetEntity =
+  | { kind: 'player'; player: PlayerState }
+  | { kind: 'monster'; monster: RuntimeMonster };
+
 @Injectable()
 export class WorldService {
   private readonly monstersByMap = new Map<string, RuntimeMonster[]>();
@@ -217,6 +223,7 @@ export class WorldService {
       maxHp: target.maxHp,
       qi: target.qi,
       maxQi: snapshot.maxQi,
+      buffs: this.getRenderableBuffs(target.temporaryBuffs),
       observation: this.buildObservationInsight(
         viewer,
         snapshot,
@@ -533,7 +540,7 @@ export class WorldService {
         continue;
       }
 
-      const update = this.applyBuffEffect(player, skill, effect);
+      const update = this.applyBuffEffect(player, skill, effect, selectedTargets, primaryTarget);
       result.messages.push(...update.messages);
       for (const flag of update.dirty) {
         dirty.add(flag);
@@ -640,44 +647,122 @@ export class WorldService {
     return primaryTarget ? [primaryTarget] : [];
   }
 
-  private applyBuffEffect(player: PlayerState, skill: SkillDef, effect: Extract<SkillEffectDef, { type: 'buff' }>): WorldUpdate {
-    if (effect.target !== 'self') {
-      return { ...EMPTY_UPDATE, error: '当前仅支持对自身施加增益效果' };
+  private normalizeBuffShortMark(effect: Extract<SkillEffectDef, { type: 'buff' }>): string {
+    const raw = effect.shortMark?.trim();
+    if (raw) {
+      return [...raw][0] ?? raw;
+    }
+    const fallback = [...effect.name.trim()][0];
+    return fallback ?? '气';
+  }
+
+  private buildTemporaryBuffState(skill: SkillDef, effect: Extract<SkillEffectDef, { type: 'buff' }>): TemporaryBuffState {
+    const maxStacks = Math.max(1, effect.maxStacks ?? 1);
+    const duration = Math.max(1, effect.duration);
+    return {
+      buffId: effect.buffId,
+      name: effect.name,
+      desc: effect.desc,
+      shortMark: this.normalizeBuffShortMark(effect),
+      category: effect.category ?? (effect.target === 'self' ? 'buff' : 'debuff'),
+      visibility: effect.visibility ?? 'public',
+      remainingTicks: duration + 1,
+      duration,
+      stacks: 1,
+      maxStacks,
+      sourceSkillId: skill.id,
+      sourceSkillName: skill.name,
+      color: effect.color,
+      attrs: effect.attrs,
+      stats: effect.stats,
+    };
+  }
+
+  private applyBuffState(targetBuffs: TemporaryBuffState[], nextBuff: TemporaryBuffState): TemporaryBuffState {
+    const existing = targetBuffs.find((entry) => entry.buffId === nextBuff.buffId);
+    if (existing) {
+      existing.name = nextBuff.name;
+      existing.desc = nextBuff.desc;
+      existing.shortMark = nextBuff.shortMark;
+      existing.category = nextBuff.category;
+      existing.visibility = nextBuff.visibility;
+      existing.remainingTicks = nextBuff.remainingTicks;
+      existing.duration = nextBuff.duration;
+      existing.stacks = Math.min(nextBuff.maxStacks, existing.stacks + 1);
+      existing.maxStacks = nextBuff.maxStacks;
+      existing.sourceSkillId = nextBuff.sourceSkillId;
+      existing.sourceSkillName = nextBuff.sourceSkillName;
+      existing.color = nextBuff.color;
+      existing.attrs = nextBuff.attrs;
+      existing.stats = nextBuff.stats;
+      return existing;
+    }
+    targetBuffs.push(nextBuff);
+    return nextBuff;
+  }
+
+  private getRenderableBuffs(buffs: TemporaryBuffState[] | undefined): VisibleBuffState[] | undefined {
+    if (!buffs || buffs.length === 0) {
+      return undefined;
+    }
+    const visible = buffs
+      .filter((buff) => buff.remainingTicks > 0 && buff.visibility !== 'hidden')
+      .map<VisibleBuffState>((buff) => ({
+        buffId: buff.buffId,
+        name: buff.name,
+        desc: buff.desc,
+        shortMark: buff.shortMark,
+        category: buff.category,
+        visibility: buff.visibility,
+        remainingTicks: buff.remainingTicks,
+        duration: buff.duration,
+        stacks: buff.stacks,
+        maxStacks: buff.maxStacks,
+        sourceSkillId: buff.sourceSkillId,
+        sourceSkillName: buff.sourceSkillName,
+        color: buff.color,
+      }));
+    return visible.length > 0 ? visible : undefined;
+  }
+
+  private applyBuffEffect(
+    player: PlayerState,
+    skill: SkillDef,
+    effect: Extract<SkillEffectDef, { type: 'buff' }>,
+    selectedTargets: ResolvedTarget[],
+    primaryTarget?: ResolvedTarget,
+  ): WorldUpdate {
+    const affected: Array<{ target: BuffTargetEntity; buff: TemporaryBuffState }> = [];
+    if (effect.target === 'self') {
+      player.temporaryBuffs ??= [];
+      const current = this.applyBuffState(player.temporaryBuffs, this.buildTemporaryBuffState(skill, effect));
+      this.attrService.recalcPlayer(player);
+      affected.push({ target: { kind: 'player', player }, buff: current });
+    } else {
+      const targets = this.pickDamageTargets(selectedTargets, primaryTarget).filter((entry): entry is Extract<ResolvedTarget, { kind: 'monster' }> => entry.kind === 'monster');
+      if (targets.length === 0) {
+        return { ...EMPTY_UPDATE, error: '当前技能没有可施加状态的有效目标' };
+      }
+      for (const target of targets) {
+        target.monster.temporaryBuffs ??= [];
+        const current = this.applyBuffState(target.monster.temporaryBuffs, this.buildTemporaryBuffState(skill, effect));
+        affected.push({ target: { kind: 'monster', monster: target.monster }, buff: current });
+      }
     }
 
-    const maxStacks = Math.max(1, effect.maxStacks ?? 1);
-    const remainingTicks = Math.max(1, effect.duration) + 1;
-    player.temporaryBuffs ??= [];
-    const existing = player.temporaryBuffs.find((entry) => entry.buffId === effect.buffId);
-    if (existing) {
-      existing.remainingTicks = remainingTicks;
-      existing.stacks = Math.min(maxStacks, existing.stacks + 1);
-      existing.maxStacks = maxStacks;
-      existing.attrs = effect.attrs;
-      existing.stats = effect.stats;
-    } else {
-      const buff: TemporaryBuffState = {
-        buffId: effect.buffId,
-        name: effect.name,
-        sourceSkillId: skill.id,
-        remainingTicks,
-        stacks: 1,
-        maxStacks,
-        attrs: effect.attrs,
-        stats: effect.stats,
-      };
-      player.temporaryBuffs.push(buff);
-    }
-    this.attrService.recalcPlayer(player);
-    const current = player.temporaryBuffs.find((entry) => entry.buffId === effect.buffId);
-    const stackText = current && current.maxStacks > 1 ? `（${current.stacks}层）` : '';
+    const selfDirty = affected.some((entry) => entry.target.kind === 'player');
+    const targetNames = affected.map((entry) => entry.target.kind === 'player' ? '你' : entry.target.monster.name);
+    const uniqueNames = [...new Set(targetNames)];
+    const summary = uniqueNames.join('、');
+    const primaryBuff = affected[0]?.buff;
+    const stackText = primaryBuff && primaryBuff.maxStacks > 1 ? `（${primaryBuff.stacks}层）` : '';
     return {
       messages: [{
         playerId: player.id,
-        text: `你获得了 ${effect.name}${stackText}，持续 ${effect.duration} 息。`,
+        text: `${summary}获得了 ${effect.name}${stackText}，持续 ${Math.max(1, effect.duration)} 息。`,
         kind: 'combat',
       }],
-      dirty: ['attr'],
+      dirty: selfDirty ? ['attr'] : [],
     };
   }
 
@@ -768,6 +853,8 @@ export class WorldService {
     player.x = pos.x;
     player.y = pos.y;
     player.facing = Direction.South;
+    player.temporaryBuffs = [];
+    this.attrService.recalcPlayer(player);
     player.hp = player.maxHp;
     player.qi = Math.round(player.numericStats?.maxQi ?? player.qi);
     player.dead = false;
@@ -801,12 +888,20 @@ export class WorldService {
             monster.y = pos.y;
             monster.hp = monster.maxHp;
             monster.alive = true;
+            monster.temporaryBuffs = [];
             this.mapService.setOccupied(mapId, monster.x, monster.y, monster.runtimeId);
           } else {
             monster.respawnLeft = 1;
           }
         }
         continue;
+      }
+
+      if (monster.temporaryBuffs.length > 0) {
+        for (const buff of monster.temporaryBuffs) {
+          buff.remainingTicks -= 1;
+        }
+        monster.temporaryBuffs = monster.temporaryBuffs.filter((buff) => buff.remainingTicks > 0 && buff.stacks > 0);
       }
 
       const target = this.findNearestPlayer(monster, players);
@@ -1028,6 +1123,7 @@ export class WorldService {
     if (monster.hp <= 0) {
       monster.alive = false;
       monster.respawnLeft = Math.max(1, monster.respawnTicks);
+      monster.temporaryBuffs = [];
       this.mapService.setOccupied(monster.mapId, monster.x, monster.y, null);
       messages.push({
         playerId: player.id,
@@ -1213,6 +1309,56 @@ export class WorldService {
     };
   }
 
+  private applyMonsterBuffStats(stats: NumericStats, buffs: TemporaryBuffState[] | undefined): void {
+    if (!buffs || buffs.length === 0) {
+      return;
+    }
+    for (const buff of buffs) {
+      if (buff.remainingTicks <= 0 || buff.stacks <= 0 || !buff.stats) {
+        continue;
+      }
+      const stacks = Math.max(1, buff.stacks);
+      if (buff.stats.maxHp !== undefined) stats.maxHp += buff.stats.maxHp * stacks;
+      if (buff.stats.maxQi !== undefined) stats.maxQi += buff.stats.maxQi * stacks;
+      if (buff.stats.physAtk !== undefined) stats.physAtk += buff.stats.physAtk * stacks;
+      if (buff.stats.spellAtk !== undefined) stats.spellAtk += buff.stats.spellAtk * stacks;
+      if (buff.stats.physDef !== undefined) stats.physDef += buff.stats.physDef * stacks;
+      if (buff.stats.spellDef !== undefined) stats.spellDef += buff.stats.spellDef * stacks;
+      if (buff.stats.hit !== undefined) stats.hit += buff.stats.hit * stacks;
+      if (buff.stats.dodge !== undefined) stats.dodge += buff.stats.dodge * stacks;
+      if (buff.stats.crit !== undefined) stats.crit += buff.stats.crit * stacks;
+      if (buff.stats.critDamage !== undefined) stats.critDamage += buff.stats.critDamage * stacks;
+      if (buff.stats.breakPower !== undefined) stats.breakPower += buff.stats.breakPower * stacks;
+      if (buff.stats.resolvePower !== undefined) stats.resolvePower += buff.stats.resolvePower * stacks;
+      if (buff.stats.maxQiOutputPerTick !== undefined) stats.maxQiOutputPerTick += buff.stats.maxQiOutputPerTick * stacks;
+      if (buff.stats.qiRegenRate !== undefined) stats.qiRegenRate += buff.stats.qiRegenRate * stacks;
+      if (buff.stats.hpRegenRate !== undefined) stats.hpRegenRate += buff.stats.hpRegenRate * stacks;
+      if (buff.stats.cooldownSpeed !== undefined) stats.cooldownSpeed += buff.stats.cooldownSpeed * stacks;
+      if (buff.stats.auraCostReduce !== undefined) stats.auraCostReduce += buff.stats.auraCostReduce * stacks;
+      if (buff.stats.auraPowerRate !== undefined) stats.auraPowerRate += buff.stats.auraPowerRate * stacks;
+      if (buff.stats.playerExpRate !== undefined) stats.playerExpRate += buff.stats.playerExpRate * stacks;
+      if (buff.stats.techniqueExpRate !== undefined) stats.techniqueExpRate += buff.stats.techniqueExpRate * stacks;
+      if (buff.stats.lootRate !== undefined) stats.lootRate += buff.stats.lootRate * stacks;
+      if (buff.stats.rareLootRate !== undefined) stats.rareLootRate += buff.stats.rareLootRate * stacks;
+      if (buff.stats.viewRange !== undefined) stats.viewRange += buff.stats.viewRange * stacks;
+      if (buff.stats.moveSpeed !== undefined) stats.moveSpeed += buff.stats.moveSpeed * stacks;
+      if (buff.stats.elementDamageBonus) {
+        for (const key of ['metal', 'wood', 'water', 'fire', 'earth'] as const) {
+          if (buff.stats.elementDamageBonus[key] !== undefined) {
+            stats.elementDamageBonus[key] += buff.stats.elementDamageBonus[key]! * stacks;
+          }
+        }
+      }
+      if (buff.stats.elementDamageReduce) {
+        for (const key of ['metal', 'wood', 'water', 'fire', 'earth'] as const) {
+          if (buff.stats.elementDamageReduce[key] !== undefined) {
+            stats.elementDamageReduce[key] += buff.stats.elementDamageReduce[key]! * stacks;
+          }
+        }
+      }
+    }
+  }
+
   private getMonsterCombatSnapshot(monster: RuntimeMonster): CombatSnapshot {
     const stats = createNumericStats();
     const level = Math.max(1, monster.level ?? Math.round(monster.attack / 6));
@@ -1226,6 +1372,7 @@ export class WorldService {
     stats.critDamage = level * 6;
     stats.breakPower = level * 3;
     stats.resolvePower = level * 3;
+    this.applyMonsterBuffStats(stats, monster.temporaryBuffs);
     return {
       stats,
       ratios: DEFAULT_MONSTER_RATIO_DIVISORS,
@@ -1246,6 +1393,7 @@ export class WorldService {
       maxHp: monster.maxHp,
       qi: snapshot.qi,
       maxQi: snapshot.maxQi,
+      buffs: this.getRenderableBuffs(monster.temporaryBuffs),
       observation: this.buildObservationInsight(
         viewer,
         snapshot,
@@ -1627,6 +1775,7 @@ export class WorldService {
           hp: spawn.maxHp,
           alive: true,
           respawnLeft: 0,
+          temporaryBuffs: [],
         };
         const pos = this.findSpawnPosition(mapId, runtime);
         if (pos && this.mapService.isWalkable(mapId, pos.x, pos.y)) {

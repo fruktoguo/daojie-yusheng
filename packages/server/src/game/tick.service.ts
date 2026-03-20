@@ -369,6 +369,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     messages.push(...monsterUpdates.messages);
     for (const playerId of monsterUpdates.dirtyPlayers ?? []) {
       this.playerService.markDirty(playerId, 'actions');
+      this.playerService.markDirty(playerId, 'attr');
     }
 
     for (const player of mapPlayers) {

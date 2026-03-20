@@ -98,6 +98,11 @@
             "target": "self",
             "buffId": "buff.anchor_focus",
             "name": "镇灵凝神",
+            "desc": "凝聚心神，暂时提高法术攻击与暴击，便于衔接后续神识技。",
+            "shortMark": "凝",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#7f9cff",
             "duration": 3,
             "maxStacks": 2,
             "stats": {

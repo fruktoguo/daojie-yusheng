@@ -16,6 +16,7 @@ import { QuestPanel } from './ui/panels/quest-panel';
 import { ActionPanel } from './ui/panels/action-panel';
 import { GmPanel } from './ui/panels/gm-panel';
 import { WorldPanel } from './ui/panels/world-panel';
+import { FloatingTooltip } from './ui/floating-tooltip';
 import { adjustZoom, cycleZoom, getZoom } from './display';
 import { hydrateTileCacheFromMemory, rememberVisibleTiles } from './map-memory';
 import {
@@ -38,6 +39,7 @@ import {
   S2C_Tick,
   TargetingGeometrySpec,
   TargetingShape,
+  VisibleBuffState,
   VIEW_RADIUS,
   TechniqueRealm,
   getTileTraversalCost,
@@ -87,6 +89,7 @@ const targetingBadgeEl = document.getElementById('map-targeting-indicator');
 const observeModalEl = document.getElementById('observe-modal');
 const observeModalBodyEl = document.getElementById('observe-modal-body');
 const observeModalSubtitleEl = document.getElementById('observe-modal-subtitle');
+const observeBuffTooltip = new FloatingTooltip();
 let pendingTargetedAction: {
   actionId: string;
   actionName: string;
@@ -130,6 +133,7 @@ type ObservedEntity = {
   maxQi?: number;
   npcQuestMarker?: RenderEntity['npcQuestMarker'];
   observation?: RenderEntity['observation'];
+  buffs?: VisibleBuffState[];
 };
 
 function escapeHtml(input: string): string {
@@ -298,6 +302,7 @@ function isWithinDisplayedMemoryBounds(x: number, y: number): boolean {
 }
 
 function hideObserveModal(): void {
+  observeBuffTooltip.hide();
   observeModalEl?.classList.add('hidden');
   observeModalEl?.setAttribute('aria-hidden', 'true');
 }
@@ -315,6 +320,55 @@ function formatCurrentMax(current?: number, max?: number): string {
   return `${Math.max(0, Math.round(current))} / ${Math.max(0, Math.round(max))}`;
 }
 
+function formatBuffDuration(buff: VisibleBuffState): string {
+  return `${Math.max(0, Math.round(buff.remainingTicks))} / ${Math.max(1, Math.round(buff.duration))} 息`;
+}
+
+function buildBuffTooltipLines(buff: VisibleBuffState): string[] {
+  const lines = [
+    `类别：${buff.category === 'debuff' ? '减益' : '增益'}`,
+    `剩余：${formatBuffDuration(buff)}`,
+  ];
+  if (buff.maxStacks > 1) {
+    lines.push(`层数：${buff.stacks} / ${buff.maxStacks}`);
+  }
+  if (buff.sourceSkillName || buff.sourceSkillId) {
+    lines.push(`来源：${buff.sourceSkillName ?? buff.sourceSkillId}`);
+  }
+  if (buff.desc) {
+    lines.push(buff.desc);
+  }
+  return lines;
+}
+
+function buildBuffBadgeHtml(buff: VisibleBuffState): string {
+  const title = escapeHtml(buff.name);
+  const detail = escapeHtml(buildBuffTooltipLines(buff).join('\n'));
+  const stackText = buff.maxStacks > 1 ? `<span class="observe-buff-stack">${buff.stacks}</span>` : '';
+  const durationText = `<span class="observe-buff-duration">${escapeHtml(formatBuffDuration(buff))}</span>`;
+  const className = buff.category === 'debuff' ? 'observe-buff-chip debuff' : 'observe-buff-chip buff';
+  return `<button class="${className}"
+    type="button"
+    data-buff-tooltip-title="${title}"
+    data-buff-tooltip-detail="${detail}">
+    <span class="observe-buff-mark">${escapeHtml(buff.shortMark)}</span>
+    <span class="observe-buff-main">
+      <span class="observe-buff-name">${escapeHtml(buff.name)}</span>
+      ${durationText}
+    </span>
+    ${stackText}
+  </button>`;
+}
+
+function buildBuffSectionHtml(title: string, buffs: VisibleBuffState[], emptyText: string): string {
+  return `<section class="observe-buff-section">
+    <div class="observe-buff-title">${escapeHtml(title)}</div>
+    ${buffs.length > 0
+      ? `<div class="observe-buff-list">${buffs.map((buff) => buildBuffBadgeHtml(buff)).join('')}</div>`
+      : `<div class="observe-entity-empty">${escapeHtml(emptyText)}</div>`}
+  </section>`;
+}
+
 function toObservedEntity(entity: RenderEntity): ObservedEntity {
   return {
     id: entity.id,
@@ -330,6 +384,7 @@ function toObservedEntity(entity: RenderEntity): ObservedEntity {
     maxQi: entity.maxQi,
     npcQuestMarker: entity.npcQuestMarker,
     observation: entity.observation,
+    buffs: entity.buffs,
   };
 }
 
@@ -351,6 +406,15 @@ function buildObservedEntityCardHtml(entity: ObservedEntity): string {
     : [];
   const detailRows = entity.observation?.lines ?? [];
   const detailGrid = [...vitalRows, ...detailRows];
+  const visibleBuffs = entity.buffs ?? [];
+  const publicBuffs = visibleBuffs.filter((buff) => buff.visibility === 'public' && buff.category === 'buff');
+  const publicDebuffs = visibleBuffs.filter((buff) => buff.visibility === 'public' && buff.category === 'debuff');
+  const observeOnlyBuffs = visibleBuffs.filter((buff) => buff.visibility === 'observe_only' && buff.category === 'buff');
+  const observeOnlyDebuffs = visibleBuffs.filter((buff) => buff.visibility === 'observe_only' && buff.category === 'debuff');
+  const buffSection = `<div class="observe-buff-columns">
+    ${buildBuffSectionHtml('增益状态', [...publicBuffs, ...observeOnlyBuffs], '当前未见明显增益状态')}
+    ${buildBuffSectionHtml('减益状态', [...publicDebuffs, ...observeOnlyDebuffs], '当前未见明显减益状态')}
+  </div>`;
   return `<div class="observe-entity-card">
     <div class="observe-entity-head">
       <span class="observe-entity-name">${escapeHtml(entity.name ?? entity.id)}</span>
@@ -360,6 +424,7 @@ function buildObservedEntityCardHtml(entity: ObservedEntity): string {
     ${detailGrid.length > 0
       ? `<div class="observe-entity-grid">${buildObservationRows(detailGrid)}</div>`
       : '<div class="observe-entity-empty">此身气机尽藏，暂未看出更多端倪。</div>'}
+    ${buffSection}
   </div>`;
 }
 
@@ -370,6 +435,23 @@ function buildObservedEntitySectionHtml(entities: ObservedEntity[]): string {
       ? `<div class="observe-entity-list">${entities.map((entity) => buildObservedEntityCardHtml(entity)).join('')}</div>`
       : '<div class="observe-entity-empty">该地块当前没有角色、怪物或 NPC。</div>'}
   </section>`;
+}
+
+function bindObserveBuffTooltips(root: ParentNode): void {
+  root.querySelectorAll<HTMLElement>('[data-buff-tooltip-title]').forEach((node) => {
+    const title = node.dataset.buffTooltipTitle ?? '';
+    const detail = node.dataset.buffTooltipDetail ?? '';
+    const lines = detail.split('\n').filter(Boolean);
+    node.addEventListener('mouseenter', (event) => {
+      observeBuffTooltip.show(title, lines, event.clientX, event.clientY);
+    });
+    node.addEventListener('mousemove', (event) => {
+      observeBuffTooltip.move(event.clientX, event.clientY);
+    });
+    node.addEventListener('mouseleave', () => {
+      observeBuffTooltip.hide();
+    });
+  });
 }
 
 function showObserveModal(targetX: number, targetY: number): void {
@@ -422,6 +504,7 @@ function showObserveModal(targetX: number, targetY: number): void {
       </div>
       ${buildObservedEntitySectionHtml(sortedEntities)}
     `;
+    bindObserveBuffTooltips(observeModalBodyEl);
   }
   observeModalEl?.classList.remove('hidden');
   observeModalEl?.setAttribute('aria-hidden', 'false');

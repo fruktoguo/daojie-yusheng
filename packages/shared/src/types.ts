@@ -71,6 +71,7 @@ export interface RenderEntity {
   maxQi?: number;
   npcQuestMarker?: NpcQuestMarker;
   observation?: ObservationInsight;
+  buffs?: VisibleBuffState[];
 }
 
 export type NpcQuestMarkerState = 'available' | 'ready' | 'active';
@@ -91,6 +92,26 @@ export interface ObservationInsight {
   clarity: ObservationClarity;
   verdict: string;
   lines: ObservationLine[];
+}
+
+export type BuffCategory = 'buff' | 'debuff';
+
+export type BuffVisibility = 'public' | 'observe_only' | 'hidden';
+
+export interface VisibleBuffState {
+  buffId: string;
+  name: string;
+  desc?: string;
+  shortMark: string;
+  category: BuffCategory;
+  visibility: BuffVisibility;
+  remainingTicks: number;
+  duration: number;
+  stacks: number;
+  maxStacks: number;
+  sourceSkillId: string;
+  sourceSkillName?: string;
+  color?: string;
 }
 
 /** 视口 */
@@ -257,9 +278,14 @@ export interface SkillDamageEffectDef {
 
 export interface SkillBuffEffectDef {
   type: 'buff';
-  target: 'self';
+  target: 'self' | 'target';
   buffId: string;
   name: string;
+  desc?: string;
+  shortMark?: string;
+  category?: BuffCategory;
+  visibility?: BuffVisibility;
+  color?: string;
   duration: number;
   maxStacks?: number;
   attrs?: Partial<Attributes>;
@@ -284,13 +310,7 @@ export interface SkillDef {
   targetMode?: 'any' | 'entity' | 'tile';
 }
 
-export interface TemporaryBuffState {
-  buffId: string;
-  name: string;
-  sourceSkillId: string;
-  remainingTicks: number;
-  stacks: number;
-  maxStacks: number;
+export interface TemporaryBuffState extends VisibleBuffState {
   attrs?: Partial<Attributes>;
   stats?: PartialNumericStats;
 }

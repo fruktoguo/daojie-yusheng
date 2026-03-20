@@ -1,5 +1,5 @@
 import { IRenderer, TargetingOverlayState } from './types';
-import { NpcQuestMarker, Tile, TileType, VIEW_RADIUS } from '@mud/shared';
+import { NpcQuestMarker, Tile, TileType, VIEW_RADIUS, VisibleBuffState } from '@mud/shared';
 import { Camera } from './camera';
 import { getCellSize } from '../display';
 
@@ -60,6 +60,7 @@ interface AnimEntity {
   hp?: number;
   maxHp?: number;
   npcQuestMarker?: NpcQuestMarker;
+  buffs?: VisibleBuffState[];
 }
 
 interface FloatingText {
@@ -229,7 +230,7 @@ export class TextRenderer implements IRenderer {
   }
 
   updateEntities(
-    list: { id: string; wx: number; wy: number; char: string; color: string; name?: string; kind?: string; hp?: number; maxHp?: number; npcQuestMarker?: NpcQuestMarker }[],
+    list: { id: string; wx: number; wy: number; char: string; color: string; name?: string; kind?: string; hp?: number; maxHp?: number; npcQuestMarker?: NpcQuestMarker; buffs?: VisibleBuffState[] }[],
     movedId?: string,
     shiftX = 0,
     shiftY = 0,
@@ -253,6 +254,7 @@ export class TextRenderer implements IRenderer {
         anim.hp = e.hp;
         anim.maxHp = e.maxHp;
         anim.npcQuestMarker = e.npcQuestMarker;
+        anim.buffs = e.buffs;
         if (e.id === movedId) {
           anim.oldWX = (e.wx - shiftX) * cellSize;
           anim.oldWY = (e.wy - shiftY) * cellSize;
@@ -271,6 +273,7 @@ export class TextRenderer implements IRenderer {
           hp: e.hp,
           maxHp: e.maxHp,
           npcQuestMarker: e.npcQuestMarker,
+          buffs: e.buffs,
         });
       }
     }
@@ -321,15 +324,17 @@ export class TextRenderer implements IRenderer {
         this.drawOutlinedText(
           label,
           sx + cellSize / 2,
-          sy - 4,
+          sy - Math.max(6, cellSize * 0.18),
           isMonster ? '#ffddcc' : isPlayer ? '#d8f3c3' : '#cce7ff',
           'rgba(15,12,10,0.9)',
         );
 
+        this.drawBuffRows(sx, sy, cellSize, anim.buffs);
+
         if ((anim.maxHp ?? 0) > 0) {
           const ratio = Math.max(0, Math.min(1, (anim.hp ?? 0) / (anim.maxHp ?? 1)));
           const barX = sx + 3;
-          const barY = sy - 2;
+          const barY = sy + cellSize - 5;
           const barW = cellSize - 6;
           ctx.fillStyle = 'rgba(0,0,0,0.45)';
           ctx.fillRect(barX, barY, barW, 3);
@@ -341,6 +346,94 @@ export class TextRenderer implements IRenderer {
           this.drawNpcQuestMarker(sx, sy, cellSize, anim.npcQuestMarker);
         }
       }
+    }
+  }
+
+  private drawBuffRows(sx: number, sy: number, cellSize: number, buffs?: VisibleBuffState[]) {
+    if (!this.ctx || !buffs || buffs.length === 0) return;
+    const visible = buffs.filter((buff) => buff.visibility === 'public');
+    if (visible.length === 0) return;
+    const buffsByCategory = visible.filter((buff) => buff.category === 'buff');
+    const debuffsByCategory = visible.filter((buff) => buff.category === 'debuff');
+    const badgeSize = Math.max(8, Math.floor(cellSize * 0.24));
+    const gap = 2;
+    this.drawBuffRow(sx, sy + 1, cellSize, buffsByCategory, badgeSize, gap, '#7fd69a');
+    this.drawBuffRow(sx, sy + badgeSize + 4, cellSize, debuffsByCategory, badgeSize, gap, '#ff9072');
+  }
+
+  private drawBuffRow(
+    sx: number,
+    y: number,
+    cellSize: number,
+    buffs: VisibleBuffState[],
+    badgeSize: number,
+    gap: number,
+    fallbackColor: string,
+  ) {
+    if (!this.ctx || buffs.length === 0) return;
+    const ctx = this.ctx;
+    const visibleLimit = 4;
+    const displayed = buffs.slice(0, visibleLimit);
+    const overflow = buffs.length - displayed.length;
+    const badges = overflow > 0
+      ? [...displayed.slice(0, Math.max(0, visibleLimit - 1)), {
+          buffId: '__overflow__',
+          name: `其余 ${overflow} 项`,
+          shortMark: `+${overflow}`,
+          category: 'buff' as const,
+          visibility: 'public' as const,
+          remainingTicks: 0,
+          duration: 0,
+          stacks: 1,
+          maxStacks: 1,
+          sourceSkillId: '',
+        }]
+      : displayed;
+    const totalWidth = badges.length * badgeSize + Math.max(0, badges.length - 1) * gap;
+    let x = sx + Math.round((cellSize - totalWidth) / 2);
+    for (const buff of badges) {
+      const accent = buff.color ?? fallbackColor;
+      const centerX = x + badgeSize / 2;
+      const centerY = y + badgeSize / 2;
+      const ratio = buff.duration > 0 ? Math.max(0, Math.min(1, buff.remainingTicks / buff.duration)) : 1;
+      ctx.save();
+      ctx.fillStyle = 'rgba(15, 12, 10, 0.78)';
+      ctx.strokeStyle = 'rgba(250, 244, 233, 0.14)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(x, y, badgeSize, badgeSize, 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, badgeSize * 0.62, -Math.PI / 2, Math.PI * 1.5);
+      ctx.stroke();
+
+      if (buff.duration > 0) {
+        ctx.strokeStyle = accent;
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, badgeSize * 0.62, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ratio);
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = '#f7f0dd';
+      ctx.font = `bold ${Math.max(6, badgeSize * 0.62)}px "Noto Serif SC", serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(buff.shortMark, centerX, centerY + 0.5);
+
+      if (buff.stacks > 1) {
+        ctx.fillStyle = '#ffd76f';
+        ctx.font = `bold ${Math.max(5, badgeSize * 0.42)}px "Noto Serif SC", serif`;
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'top';
+        ctx.fillText(`${buff.stacks}`, x + badgeSize - 1, y);
+      }
+      ctx.restore();
+      x += badgeSize + gap;
     }
   }
 
