@@ -19,6 +19,7 @@ import { WorldPanel } from './ui/panels/world-panel';
 import { adjustZoom, cycleZoom, getZoom } from './display';
 import { hydrateTileCacheFromMemory, rememberVisibleTiles } from './map-memory';
 import {
+  ActionDef,
   computeAffectedCellsFromAnchor,
   Direction,
   encodeTileTargetRef,
@@ -31,6 +32,7 @@ import {
   SkillDef,
   Tile,
   TileType,
+  TechniqueState,
   VisibleTile,
   S2C_Init,
   S2C_Tick,
@@ -446,6 +448,9 @@ actionPanel.setCallbacks(
     hideObserveModal();
     socket.sendAction(actionId);
   },
+  (skills) => {
+    socket.sendUpdateAutoBattleSkills(skills);
+  },
 );
 gmPanel.setCallbacks({
   onRefresh: () => socket.sendGmGetState(),
@@ -514,13 +519,8 @@ socket.onAttrUpdate((data) => {
     myPlayer.realmName = data.realm?.name;
     myPlayer.realmStage = data.realm?.shortName;
     myPlayer.breakthroughReady = data.realm?.breakthroughReady;
-    techniquePanel.update(myPlayer.techniques, myPlayer.cultivatingTechId, myPlayer);
   }
   attrPanel.update(data);
-  if (myPlayer) {
-    actionPanel.update(myPlayer.actions, myPlayer.autoBattle, myPlayer.autoRetaliate, myPlayer);
-  }
-  refreshUiChrome();
 });
 socket.onInventoryUpdate((data) => {
   if (myPlayer) myPlayer.inventory = data.inventory;
@@ -531,24 +531,42 @@ socket.onEquipmentUpdate((data) => {
   equipmentPanel.update(data.equipment);
 });
 socket.onTechniqueUpdate((data) => {
+  const shouldRefreshTechniquePanel = !myPlayer
+    || buildTechniqueRenderSignature(myPlayer.techniques, myPlayer.cultivatingTechId) !== buildTechniqueRenderSignature(data.techniques, data.cultivatingTechId);
   if (myPlayer) {
     myPlayer.techniques = data.techniques;
     myPlayer.cultivatingTechId = data.cultivatingTechId;
   }
-  techniquePanel.update(data.techniques, data.cultivatingTechId, myPlayer ?? undefined);
-  if (myPlayer) {
-    actionPanel.update(myPlayer.actions, myPlayer.autoBattle, myPlayer.autoRetaliate, myPlayer);
+  if (shouldRefreshTechniquePanel) {
+    techniquePanel.update(data.techniques, data.cultivatingTechId, myPlayer ?? undefined);
+    refreshUiChrome();
   }
-  refreshUiChrome();
 });
 socket.onActionsUpdate((data) => {
+  const previousActions = myPlayer?.actions ?? [];
+  const previousAutoBattle = myPlayer?.autoBattle ?? false;
+  const previousAutoRetaliate = myPlayer?.autoRetaliate ?? true;
+  const nextAutoBattle = data.autoBattle ?? myPlayer?.autoBattle ?? false;
+  const nextAutoRetaliate = data.autoRetaliate ?? myPlayer?.autoRetaliate ?? true;
+  const shouldRefreshActionPanel = !myPlayer
+    || previousAutoBattle !== nextAutoBattle
+    || previousAutoRetaliate !== nextAutoRetaliate
+    || buildActionRenderSignature(previousActions) !== buildActionRenderSignature(data.actions);
   if (myPlayer) {
     myPlayer.actions = data.actions;
+    myPlayer.autoBattleSkills = data.actions
+      .filter((action) => action.type === 'skill')
+      .map((action) => ({
+        skillId: action.id,
+        enabled: action.autoBattleEnabled !== false,
+      }));
     myPlayer.autoBattle = data.autoBattle ?? inferAutoBattle(myPlayer.autoBattle, data.actions);
     myPlayer.autoRetaliate = data.autoRetaliate ?? inferAutoRetaliate(myPlayer.autoRetaliate !== false, data.actions);
   }
-  actionPanel.update(data.actions, data.autoBattle ?? myPlayer?.autoBattle, data.autoRetaliate ?? myPlayer?.autoRetaliate, myPlayer ?? undefined);
-  refreshUiChrome();
+  if (shouldRefreshActionPanel) {
+    actionPanel.update(data.actions, nextAutoBattle, nextAutoRetaliate, myPlayer ?? undefined);
+    refreshUiChrome();
+  }
 });
 socket.onQuestUpdate((data) => {
   if (myPlayer) myPlayer.quests = data.quests;
@@ -670,6 +688,33 @@ function inferAutoBattle(current: boolean, actions: { id: string; name: string; 
   if (toggle.desc.includes('已开启')) return true;
   if (toggle.desc.includes('已关闭')) return false;
   return current;
+}
+
+function buildActionRenderSignature(actions: ActionDef[]): string {
+  return JSON.stringify(actions.map((action) => ({
+    id: action.id,
+    name: action.name,
+    desc: action.desc,
+    type: action.type,
+    range: action.range,
+    requiresTarget: action.requiresTarget,
+    targetMode: action.targetMode,
+    autoBattleEnabled: action.autoBattleEnabled,
+    autoBattleOrder: action.autoBattleOrder,
+  })));
+}
+
+function buildTechniqueRenderSignature(techniques: TechniqueState[], cultivatingTechId?: string): string {
+  return JSON.stringify({
+    cultivatingTechId: cultivatingTechId ?? null,
+    techniques: techniques.map((technique) => ({
+      techId: technique.techId,
+      name: technique.name,
+      level: technique.level,
+      realm: technique.realm,
+      skills: technique.skills.map((skill) => skill.id),
+    })),
+  });
 }
 
 function resolveMapDanger(): string {
@@ -1071,7 +1116,6 @@ socket.onTick((data: S2C_Tick) => {
   entities.push(...mapEntities);
   latestEntities = entities;
   syncTargetingOverlay();
-  refreshUiChrome();
 
   if (moved) {
     const shiftX = myPlayer.x - oldX;
@@ -1096,10 +1140,6 @@ socket.onTick((data: S2C_Tick) => {
   }
 
   tickStartTime = performance.now();
-  if (isGmPaneActive() && performance.now() - lastGmSyncAt >= 2000) {
-    socket.sendGmGetState();
-    lastGmSyncAt = performance.now();
-  }
 });
 
 let lastFrameTime = performance.now();

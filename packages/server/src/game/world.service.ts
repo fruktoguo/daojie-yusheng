@@ -17,6 +17,7 @@ import {
   ObservationInsight,
   parseTileTargetRef,
   PlayerState,
+  PlayerRealmStage,
   QuestState,
   RenderEntity,
   ratioValue,
@@ -224,7 +225,7 @@ export class WorldService {
   }
 
   getContextActions(player: PlayerState): ActionDef[] {
-    this.refreshQuestStatuses(player);
+    this.syncQuestState(player);
 
     const actions: ActionDef[] = [{
       id: 'toggle:auto_battle',
@@ -356,6 +357,31 @@ export class WorldService {
     return this.handleNpcInteraction(player, npc);
   }
 
+  syncQuestState(player: PlayerState): WorldDirtyFlag[] {
+    let changed = false;
+
+    for (const quest of player.quests) {
+      if (quest.status === 'completed') continue;
+      const config = this.mapService.getQuest(quest.id);
+      if (!config) continue;
+      const nextProgress = this.resolveQuestProgress(player, quest, config);
+      if (nextProgress !== quest.progress) {
+        quest.progress = nextProgress;
+        changed = true;
+      }
+      if (config.objectiveType !== 'kill' && quest.targetName !== config.targetName) {
+        quest.targetName = config.targetName;
+        changed = true;
+      }
+    }
+
+    const statusChanged = this.refreshQuestStatuses(player);
+    if (changed || statusChanged) {
+      return statusChanged ? ['quest', 'actions'] : ['quest'];
+    }
+    return [];
+  }
+
   performAutoBattle(player: PlayerState): WorldUpdate {
     if (!player.autoBattle || player.dead) return EMPTY_UPDATE;
 
@@ -363,15 +389,21 @@ export class WorldService {
     if (!target) return EMPTY_UPDATE;
     player.combatTargetId = target.runtimeId;
 
-    const availableSkill = player.actions
-      .filter((action) => action.type === 'skill' && action.cooldownLeft === 0)
-      .map((action) => this.contentService.getSkill(action.id))
-      .find((skill): skill is SkillDef => Boolean(skill));
+    const skillActionMap = new Map(
+      player.actions
+        .filter((action) => action.type === 'skill')
+        .map((action) => [action.id, action] as const),
+    );
+    const availableSkill = player.autoBattleSkills
+      .filter((entry) => entry.enabled)
+      .map((entry) => skillActionMap.get(entry.skillId))
+      .find((action): action is ActionDef => action !== undefined && action.cooldownLeft === 0);
+    const availableSkillDef = availableSkill ? this.contentService.getSkill(availableSkill.id) : null;
 
-    if (availableSkill && isPointInRange(player, target, availableSkill.range)) {
-      const update = this.performTargetedSkill(player, availableSkill.id, target.runtimeId);
+    if (availableSkillDef && isPointInRange(player, target, availableSkillDef.range)) {
+      const update = this.performTargetedSkill(player, availableSkillDef.id, target.runtimeId);
       if (!update.error) {
-        return { ...update, usedActionId: availableSkill.id };
+        return { ...update, usedActionId: availableSkillDef.id };
       }
       if (isPointInRange(player, target, 1)) {
         return this.attackMonster(player, target, 6, '你挥剑斩中', 'physical');
@@ -790,7 +822,7 @@ export class WorldService {
   }
 
   private handleNpcInteraction(player: PlayerState, npc: NpcConfig): WorldUpdate {
-    this.refreshQuestStatuses(player);
+    this.syncQuestState(player);
     const interaction = this.getNpcInteractionState(player, npc);
 
     if (!interaction.quest) {
@@ -801,17 +833,26 @@ export class WorldService {
     }
 
     if (!interaction.questState) {
-      const targetMonster = this.mapService.getMonsterSpawn(interaction.quest.targetMonsterId);
-      player.quests.push({
+      const targetMonster = interaction.quest.targetMonsterId
+        ? this.mapService.getMonsterSpawn(interaction.quest.targetMonsterId)
+        : undefined;
+      const questState: QuestState = {
         id: interaction.quest.id,
         title: interaction.quest.title,
         desc: interaction.quest.desc,
+        line: interaction.quest.line,
+        chapter: interaction.quest.chapter,
+        story: interaction.quest.story,
         status: 'active',
+        objectiveType: interaction.quest.objectiveType,
+        objectiveText: interaction.quest.objectiveText,
         progress: 0,
         required: interaction.quest.required,
-        targetName: targetMonster?.name ?? interaction.quest.targetMonsterId,
+        targetName: interaction.quest.targetName || targetMonster?.name || interaction.quest.targetMonsterId || interaction.quest.title,
+        targetTechniqueId: interaction.quest.targetTechniqueId,
+        targetRealmStage: interaction.quest.targetRealmStage,
         rewardText: interaction.quest.rewardText,
-        targetMonsterId: interaction.quest.targetMonsterId,
+        targetMonsterId: interaction.quest.targetMonsterId ?? '',
         rewardItemId: interaction.quest.rewardItemId,
         rewardItemIds: [...interaction.quest.rewardItemIds],
         rewards: interaction.quest.rewards
@@ -820,10 +861,16 @@ export class WorldService {
         nextQuestId: interaction.quest.nextQuestId,
         giverId: npc.id,
         giverName: npc.name,
-      });
-      this.refreshQuestStatuses(player);
+      };
+      questState.progress = this.resolveQuestProgress(player, questState, interaction.quest);
+      player.quests.push(questState);
+      this.syncQuestState(player);
       return {
-        messages: [{ playerId: player.id, text: `${npc.name}：${interaction.quest.desc}`, kind: 'quest' }],
+        messages: [{
+          playerId: player.id,
+          text: `${npc.name}：${interaction.quest.story ?? interaction.quest.desc}`,
+          kind: 'quest',
+        }],
         dirty: ['quest', 'actions'],
       };
     }
@@ -1467,7 +1514,7 @@ export class WorldService {
   private advanceQuestProgress(player: PlayerState, monsterId: string, monsterName: string): WorldDirtyFlag[] {
     let changed = false;
     for (const quest of player.quests) {
-      if (quest.status !== 'active' || quest.targetMonsterId !== monsterId) continue;
+      if (quest.status !== 'active' || quest.objectiveType !== 'kill' || quest.targetMonsterId !== monsterId) continue;
       quest.progress = Math.min(quest.required, quest.progress + 1);
       quest.targetName = monsterName;
       changed = true;
@@ -1483,6 +1530,7 @@ export class WorldService {
     let changed = false;
     for (const quest of player.quests) {
       const config = this.mapService.getQuest(quest.id);
+      if (!config) continue;
       const hasKillProgress = quest.progress >= quest.required;
       const hasItems = !config?.requiredItemId || this.getInventoryCount(player, config.requiredItemId) >= (config.requiredItemCount ?? 1);
       if (quest.status === 'active' && hasKillProgress && hasItems) {
@@ -1494,6 +1542,32 @@ export class WorldService {
       }
     }
     return changed;
+  }
+
+  private resolveQuestProgress(player: PlayerState, questState: QuestState, config: QuestConfig): number {
+    switch (config.objectiveType) {
+      case 'learn_technique':
+        return player.techniques.some((entry) => entry.techId === config.targetTechniqueId)
+          ? questState.required
+          : 0;
+      case 'realm_progress': {
+        if (config.targetRealmStage === undefined || !player.realm) return 0;
+        if (player.realm.stage > config.targetRealmStage) {
+          return questState.required;
+        }
+        if (player.realm.stage < config.targetRealmStage) {
+          return 0;
+        }
+        return Math.min(questState.required, player.realm.progress);
+      }
+      case 'realm_stage':
+        return config.targetRealmStage !== undefined && player.realm && player.realm.stage >= config.targetRealmStage
+          ? questState.required
+          : 0;
+      case 'kill':
+      default:
+        return questState.progress;
+    }
   }
 
   private ensureMapInitialized(mapId: string) {
@@ -1537,6 +1611,12 @@ export class WorldService {
         return { quest, questState };
       }
       if (!questState) {
+        const hasLaterProgress = npc.quests
+          .slice(npc.quests.indexOf(quest) + 1)
+          .some((candidate) => player.quests.some((entry) => entry.id === candidate.id));
+        if (hasLaterProgress) {
+          continue;
+        }
         const previousIncomplete = npc.quests
           .slice(0, npc.quests.indexOf(quest))
           .some((candidate) => player.quests.find((entry) => entry.id === candidate.id)?.status !== 'completed');
@@ -1629,12 +1709,52 @@ export class WorldService {
   }
 
   private describeQuestProgress(questState: QuestState, questConfig?: QuestConfig): string {
-    const parts = [`${questState.desc} 当前进度 ${questState.progress}/${questState.required}`];
+    const objective = questState.objectiveText ?? questConfig?.objectiveText ?? questState.desc;
+    const parts = [objective];
+    switch (questState.objectiveType) {
+      case 'learn_technique':
+        parts.push(questState.progress >= questState.required
+          ? `已参悟 ${questState.targetName}`
+          : `尚未参悟 ${questState.targetName}`);
+        break;
+      case 'realm_stage':
+        parts.push(`境界进度 ${questState.progress}/${questState.required}`);
+        if (questConfig?.targetRealmStage !== undefined) {
+          parts.push(`目标境界 ${this.getRealmStageName(questConfig.targetRealmStage)}`);
+        }
+        break;
+      case 'realm_progress':
+      case 'kill':
+      default:
+        parts.push(`当前进度 ${questState.progress}/${questState.required}`);
+        break;
+    }
     if (questConfig?.requiredItemId) {
       const itemName = this.contentService.getItem(questConfig.requiredItemId)?.name ?? questConfig.requiredItemId;
       parts.push(`提交物品 ${itemName} x${questConfig.requiredItemCount ?? 1}`);
     }
     return parts.join('，');
+  }
+
+  private getRealmStageName(stage: PlayerRealmStage): string {
+    switch (stage) {
+      case PlayerRealmStage.Mortal:
+        return '凡俗境';
+      case PlayerRealmStage.BodyTempering:
+        return '炼体境';
+      case PlayerRealmStage.BoneForging:
+        return '锻骨境';
+      case PlayerRealmStage.Meridian:
+        return '通脉境';
+      case PlayerRealmStage.Innate:
+        return '先天境';
+      case PlayerRealmStage.QiRefining:
+        return '练气境';
+      case PlayerRealmStage.Foundation:
+        return '筑基境';
+      default:
+        return '未知境界';
+    }
   }
 
   private findNearestLivingMonster(player: PlayerState, maxDistance: number): RuntimeMonster | undefined {

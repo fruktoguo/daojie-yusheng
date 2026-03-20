@@ -25,6 +25,7 @@ import {
   C2S_Cultivate,
   C2S_DebugResetSpawn,
   C2S_Action,
+  C2S_UpdateAutoBattleSkills,
   C2S_Chat,
   PlayerState,
   S2C_Init,
@@ -154,6 +155,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       actions: [],
       quests: [],
       autoBattle: false,
+      autoBattleSkills: [],
       autoRetaliate: true,
     };
 
@@ -229,6 +231,20 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       playerId,
       type: 'action',
       data: { actionId: data.actionId ?? data.type, target: data.target },
+      timestamp: Date.now(),
+    });
+  }
+
+  @SubscribeMessage(C2S.UpdateAutoBattleSkills)
+  handleUpdateAutoBattleSkills(client: Socket, data: C2S_UpdateAutoBattleSkills) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+
+    this.playerService.enqueueCommand(player.mapId, {
+      playerId,
+      type: 'updateAutoBattleSkills',
+      data,
       timestamp: Date.now(),
     });
   }

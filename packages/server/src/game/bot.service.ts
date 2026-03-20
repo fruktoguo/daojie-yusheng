@@ -54,6 +54,7 @@ export class BotService {
         actions: [],
         quests: [],
         autoBattle: false,
+        autoBattleSkills: [],
         autoRetaliate: false,
       };
       this.attrService.recalcPlayer(bot);

@@ -65,6 +65,9 @@ export class PlayerEntity {
   @Column({ type: 'boolean', default: false })
   autoBattle!: boolean;
 
+  @Column({ type: 'jsonb', default: () => `'[]'` })
+  autoBattleSkills!: unknown[];
+
   @Column({ type: 'boolean', default: true })
   autoRetaliate!: boolean;
 

@@ -212,19 +212,14 @@ export class TechniqueService {
     if (!realm?.breakthroughReady || realm.nextStage === undefined) return null;
 
     const nextConfig = PLAYER_REALM_CONFIG[realm.nextStage];
-    const requirementText = realm.breakthroughItems
-      .map((entry) => {
-        const name = this.contentService.getItem(entry.itemId)?.name ?? entry.itemId;
-        return `${name} x${entry.count}`;
-      })
-      .join('、');
+    const requirementText = this.describeBreakthroughRequirements(player, realm);
 
     return {
       id: 'realm:breakthrough',
       name: `突破至 ${nextConfig.shortName}`,
       type: 'breakthrough',
       desc: requirementText
-        ? `满足修行条件，可消耗 ${requirementText} 冲击下一境。`
+        ? `修为已满，冲境前仍需确认：${requirementText}。`
         : '满足修行条件，可直接冲击下一境。',
       cooldownLeft: 0,
     };
@@ -301,8 +296,11 @@ export class TechniqueService {
       const nextName = realm.nextStage !== undefined
         ? PLAYER_REALM_CONFIG[realm.nextStage].name
         : '更高境界';
+      const requirementText = this.describeBreakthroughRequirements(player, realm);
       messages.push({
-        text: `你的${realm.name}已圆满，可尝试突破至 ${nextName}。`,
+        text: requirementText
+          ? `你的${realm.name}已圆满，可冲击 ${nextName}。当前仍需备齐：${requirementText}。`
+          : `你的${realm.name}已圆满，可尝试突破至 ${nextName}。`,
         kind: 'quest',
       });
     }
@@ -332,6 +330,28 @@ export class TechniqueService {
       return `至少需要一门功法达到${this.techniqueRealmLabel(realm.minTechniqueRealm)}`;
     }
     return null;
+  }
+
+  private describeBreakthroughRequirements(player: PlayerState, realm: PlayerRealmState): string {
+    const parts: string[] = [];
+    const missingItems = realm.breakthroughItems
+      .filter((entry) => this.getInventoryCount(player, entry.itemId) < entry.count)
+      .map((entry) => `${this.contentService.getItem(entry.itemId)?.name ?? entry.itemId} x${entry.count}`);
+    if (missingItems.length > 0) {
+      parts.push(missingItems.join('、'));
+    } else if (realm.breakthroughItems.length > 0) {
+      const allItems = realm.breakthroughItems
+        .map((entry) => `${this.contentService.getItem(entry.itemId)?.name ?? entry.itemId} x${entry.count}`)
+        .join('、');
+      parts.push(`材料已齐(${allItems})`);
+    }
+
+    const techniqueGateError = this.validateTechniqueGate(player, realm);
+    if (techniqueGateError) {
+      parts.push(techniqueGateError);
+    }
+
+    return parts.join('；');
   }
 
   private createRealmState(stage: PlayerRealmStage, progress = 0): PlayerRealmState {

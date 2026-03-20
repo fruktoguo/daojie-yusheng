@@ -1,5 +1,18 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
-import { manhattanDistance, Tile, TileType, MapMeta, Portal, VIEW_RADIUS, ItemType, VisibleTile, getTileTraversalCost } from '@mud/shared';
+import {
+  manhattanDistance,
+  Tile,
+  TileType,
+  MapMeta,
+  Portal,
+  VIEW_RADIUS,
+  ItemType,
+  VisibleTile,
+  getTileTraversalCost,
+  PlayerRealmStage,
+  QuestLine,
+  QuestObjectiveType,
+} from '@mud/shared';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -7,7 +20,15 @@ export interface QuestConfig {
   id: string;
   title: string;
   desc: string;
-  targetMonsterId: string;
+  line: QuestLine;
+  chapter?: string;
+  story?: string;
+  objectiveType: QuestObjectiveType;
+  objectiveText?: string;
+  targetName: string;
+  targetMonsterId?: string;
+  targetTechniqueId?: string;
+  targetRealmStage?: PlayerRealmStage;
   required: number;
   rewards: DropConfig[];
   rewardItemIds: string[];
@@ -258,7 +279,15 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
           id?: string;
           title?: string;
           desc?: string;
+          line?: QuestLine;
+          chapter?: string;
+          story?: string;
+          objectiveType?: QuestObjectiveType;
+          objectiveText?: string;
+          targetName?: string;
           targetMonsterId?: string;
+          targetTechniqueId?: string;
+          targetRealmStage?: keyof typeof PlayerRealmStage | PlayerRealmStage;
           required?: number;
           targetCount?: number;
           rewardItemId?: string;
@@ -268,6 +297,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
           requiredItemId?: string;
           requiredItemCount?: number;
         };
+        const objectiveType = rawQuest.objectiveType ?? 'kill';
         const required = Number.isInteger(rawQuest.required) ? rawQuest.required : rawQuest.targetCount;
         const rewardItemIds = Array.isArray(rawQuest.reward)
           ? rawQuest.reward
@@ -296,26 +326,57 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
                 chance: 1,
               }))
           : [];
+        const parsedRealmStage = typeof rawQuest.targetRealmStage === 'number'
+          ? rawQuest.targetRealmStage
+          : typeof rawQuest.targetRealmStage === 'string'
+            ? PlayerRealmStage[rawQuest.targetRealmStage]
+            : undefined;
+        const validByObjective = (
+          objectiveType === 'kill' && typeof rawQuest.targetMonsterId === 'string' && Number.isInteger(required)
+        ) || (
+          objectiveType === 'learn_technique' && typeof rawQuest.targetTechniqueId === 'string'
+        ) || (
+          objectiveType === 'realm_progress' && Number.isInteger(required) && parsedRealmStage !== undefined
+        ) || (
+          objectiveType === 'realm_stage' && parsedRealmStage !== undefined
+        );
         const validQuest =
           typeof rawQuest.id === 'string' &&
           typeof rawQuest.title === 'string' &&
           typeof rawQuest.desc === 'string' &&
-          typeof rawQuest.targetMonsterId === 'string' &&
-          Number.isInteger(required) &&
-          rewardItemIds.length > 0;
+          validByObjective &&
+          (rewardItemIds.length > 0 || rewards.length > 0 || typeof rawQuest.rewardText === 'string');
         if (!validQuest) {
           this.logger.warn(`地图 ${meta.id} 的 NPC 任务配置非法: ${npc.id}`);
           continue;
         }
+        const normalizedRequired = Number.isInteger(required) ? required! : 1;
+        const targetName = typeof rawQuest.targetName === 'string'
+          ? rawQuest.targetName
+          : objectiveType === 'kill'
+            ? rawQuest.targetMonsterId!
+            : objectiveType === 'learn_technique'
+              ? rawQuest.targetTechniqueId!
+              : parsedRealmStage !== undefined
+                ? PlayerRealmStage[parsedRealmStage]
+                : rawQuest.title!;
         quests.push({
           id: rawQuest.id!,
           title: rawQuest.title!,
           desc: rawQuest.desc!,
-          targetMonsterId: rawQuest.targetMonsterId!,
-          required: required!,
+          line: rawQuest.line === 'main' ? 'main' : 'side',
+          chapter: typeof rawQuest.chapter === 'string' ? rawQuest.chapter : undefined,
+          story: typeof rawQuest.story === 'string' ? rawQuest.story : undefined,
+          objectiveType,
+          objectiveText: typeof rawQuest.objectiveText === 'string' ? rawQuest.objectiveText : undefined,
+          targetName,
+          targetMonsterId: typeof rawQuest.targetMonsterId === 'string' ? rawQuest.targetMonsterId : undefined,
+          targetTechniqueId: typeof rawQuest.targetTechniqueId === 'string' ? rawQuest.targetTechniqueId : undefined,
+          targetRealmStage: parsedRealmStage,
+          required: normalizedRequired,
           rewards,
           rewardItemIds,
-          rewardItemId: rewardItemIds[0],
+          rewardItemId: rewardItemIds[0] ?? '',
           rewardText,
           nextQuestId: typeof rawQuest.nextQuestId === 'string' ? rawQuest.nextQuestId : undefined,
           requiredItemId: typeof rawQuest.requiredItemId === 'string' ? rawQuest.requiredItemId : undefined,

@@ -1406,6 +1406,11 @@
       background: rgba(34, 26, 19, 0.08);
       color: var(--ink-black);
     }
+    .small-btn.ghost.active {
+      border-color: rgba(128, 28, 26, 0.42);
+      background: rgba(128, 28, 26, 0.08);
+      color: var(--stamp-red);
+    }
     .small-btn.danger { border-color: var(--stamp-red); color: var(--stamp-red); }
     .small-btn.danger:hover { background: var(--stamp-red); color: var(--paper-light); }
 
@@ -1822,6 +1827,19 @@
     .action-item.cooldown {
       opacity: 0.7;
     }
+    .action-item-draggable {
+      transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+    }
+    .action-item-draggable.dragging {
+      opacity: 0.45;
+      transform: scale(0.99);
+    }
+    .action-item-draggable.drag-over-before {
+      border-top: 2px solid var(--stamp-red);
+    }
+    .action-item-draggable.drag-over-after {
+      border-bottom: 2px solid var(--stamp-red);
+    }
     .action-copy {
       flex: 1;
       min-width: 0;
@@ -1847,11 +1865,39 @@
       line-height: 1.45;
       color: var(--ink-grey);
     }
+    .action-section-hint {
+      margin-bottom: 8px;
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--ink-grey);
+    }
+    .action-skill-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .action-skill-list .action-item {
+      margin-bottom: 0;
+    }
     .action-cta {
       flex: 0 0 auto;
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
+      justify-content: flex-end;
       gap: 6px;
+    }
+    .action-drag-handle {
+      cursor: grab;
+    }
+    .action-drag-handle:active {
+      cursor: grabbing;
+    }
+    .auto-battle-enabled {
+      color: #7c2d12;
+    }
+    .auto-battle-disabled {
+      color: var(--ink-grey);
     }
     .action-cd { font-size: 12px; color: var(--stamp-red); }
     .action-tab-bar {

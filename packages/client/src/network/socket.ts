@@ -1,11 +1,11 @@
 import { io, Socket } from 'socket.io-client';
 import {
-  C2S, S2C, C2S_Move, C2S_MoveTo, C2S_GmGetState, C2S_GmSpawnBots, C2S_GmRemoveBots, C2S_GmUpdatePlayer, C2S_GmResetPlayer, C2S_Action, C2S_DebugResetSpawn, C2S_UseItem, C2S_DropItem,
+  C2S, S2C, C2S_Move, C2S_MoveTo, C2S_GmGetState, C2S_GmSpawnBots, C2S_GmRemoveBots, C2S_GmUpdatePlayer, C2S_GmResetPlayer, C2S_Action, C2S_UpdateAutoBattleSkills, C2S_DebugResetSpawn, C2S_UseItem, C2S_DropItem,
   C2S_SortInventory, C2S_Equip, C2S_Unequip, C2S_Cultivate, C2S_Chat,
   S2C_Tick, S2C_Init, S2C_AttrUpdate, S2C_InventoryUpdate,
   S2C_EquipmentUpdate, S2C_TechniqueUpdate, S2C_ActionsUpdate, S2C_QuestUpdate, S2C_SystemMsg, S2C_GmState,
   S2C_Error,
-  Direction, EquipSlot,
+  AutoBattleSkillConfig, Direction, EquipSlot,
 } from '@mud/shared';
 
 export class SocketManager {
@@ -151,6 +151,10 @@ export class SocketManager {
 
   sendAction(actionId: string, target?: string) {
     this.socket?.emit(C2S.Action, { actionId, type: actionId, target } satisfies C2S_Action);
+  }
+
+  sendUpdateAutoBattleSkills(skills: AutoBattleSkillConfig[]) {
+    this.socket?.emit(C2S.UpdateAutoBattleSkills, { skills } satisfies C2S_UpdateAutoBattleSkills);
   }
 
   sendDebugResetSpawn() {

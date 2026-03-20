@@ -87,7 +87,7 @@
       "char": "修",
       "color": "#b0d6ff",
       "role": "quest_giver",
-      "dialogue": "走到这里，已不只是江湖客了。接下来的路，拼的是神识与心性。",
+      "dialogue": "灵岭之后便是残宫。你若还带着凡武的迟疑，天门不会为你开。"
       "quests": [
         {
           "id": "q_ridge_trial",

@@ -304,6 +304,11 @@ export interface TechniqueState {
 /** 行动类型 */
 export type ActionType = 'skill' | 'gather' | 'interact' | 'quest' | 'toggle' | 'battle' | 'travel' | 'breakthrough';
 
+export interface AutoBattleSkillConfig {
+  skillId: string;
+  enabled: boolean;
+}
+
 /** 行动定义 */
 export interface ActionDef {
   id: string;
@@ -314,6 +319,8 @@ export interface ActionDef {
   range?: number;
   requiresTarget?: boolean;
   targetMode?: 'any' | 'entity' | 'tile';
+  autoBattleEnabled?: boolean;
+  autoBattleOrder?: number;
 }
 
 export interface CombatEffectAttack {
@@ -341,15 +348,28 @@ export type EntityKind = 'npc' | 'monster';
 /** 任务状态 */
 export type QuestStatus = 'available' | 'active' | 'ready' | 'completed';
 
+/** 任务线类型 */
+export type QuestLine = 'main' | 'side';
+
+/** 任务目标类型 */
+export type QuestObjectiveType = 'kill' | 'learn_technique' | 'realm_progress' | 'realm_stage';
+
 /** 任务进度 */
 export interface QuestState {
   id: string;
   title: string;
   desc: string;
+  line: QuestLine;
+  chapter?: string;
+  story?: string;
   status: QuestStatus;
+  objectiveType: QuestObjectiveType;
+  objectiveText?: string;
   progress: number;
   required: number;
   targetName: string;
+  targetTechniqueId?: string;
+  targetRealmStage?: PlayerRealmStage;
   rewardText: string;
   targetMonsterId: string;
   rewardItemId: string;
@@ -390,6 +410,7 @@ export interface PlayerState {
   actions: ActionDef[];
   quests: QuestState[];
   autoBattle: boolean;
+  autoBattleSkills: AutoBattleSkillConfig[];
   combatTargetId?: string;
   cultivatingTechId?: string;
   realm?: PlayerRealmState;

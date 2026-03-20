@@ -1,4 +1,4 @@
-import { ActionDef, PlayerState, SkillDef } from '@mud/shared';
+import { ActionDef, AutoBattleSkillConfig, PlayerState, SkillDef } from '@mud/shared';
 import { FloatingTooltip } from '../floating-tooltip';
 import { buildSkillTooltipLines } from '../skill-tooltip';
 
@@ -35,12 +35,16 @@ function escapeHtml(value: string): string {
 export class ActionPanel {
   private pane = document.getElementById('pane-action')!;
   private onAction: ((actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string) => void) | null = null;
+  private onUpdateAutoBattleSkills: ((skills: AutoBattleSkillConfig[]) => void) | null = null;
   private activeTab: 'dialogue' | 'skill' | 'toggle' = 'dialogue';
   private autoBattle = false;
   private autoRetaliate = true;
   private currentActions: ActionDef[] = [];
   private shortcutBindings = new Map<string, string>();
   private bindingActionId: string | null = null;
+  private draggingSkillId: string | null = null;
+  private dragOverSkillId: string | null = null;
+  private dragOverPosition: 'before' | 'after' | null = null;
   private previewPlayer?: PlayerState;
   private skillLookup = new Map<string, { skill: SkillDef; techLevel: number }>();
   private tooltip = new FloatingTooltip();
@@ -54,8 +58,12 @@ export class ActionPanel {
     this.pane.innerHTML = '<div class="empty-hint">暂无可用行动</div>';
   }
 
-  setCallbacks(onAction: (actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string) => void): void {
+  setCallbacks(
+    onAction: (actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string) => void,
+    onUpdateAutoBattleSkills?: (skills: AutoBattleSkillConfig[]) => void,
+  ): void {
     this.onAction = onAction;
+    this.onUpdateAutoBattleSkills = onUpdateAutoBattleSkills ?? null;
   }
 
   update(actions: ActionDef[], _autoBattle?: boolean, _autoRetaliate?: boolean, player?: PlayerState): void {
@@ -177,34 +185,17 @@ export class ActionPanel {
           const entries = groups.get(type) ?? [];
           html += `<div class="panel-section">
             <div class="panel-section-title">${TYPE_NAMES[type] || type}</div>`;
+          if (type === 'skill') {
+            html += '<div class="action-section-hint">自动战斗会按列表从上到下尝试已启用技能，可直接拖拽调整优先级。</div>';
+          }
+          if (type === 'skill') {
+            html += '<div class="action-skill-list">';
+          }
           for (const action of entries) {
-            const onCd = action.cooldownLeft > 0;
-            const skillContext = this.skillLookup.get(action.id);
-            const tooltipLines = skillContext ? buildSkillTooltipLines(skillContext.skill, {
-              techLevel: skillContext.techLevel,
-              player: this.previewPlayer,
-            }) : [];
-            const tooltipAttrs = skillContext
-              ? ` data-action-tooltip-title="${escapeHtml(skillContext.skill.name)}" data-action-tooltip-detail="${escapeHtml(tooltipLines.join('\n'))}" data-action-tooltip-rich="1"`
-              : '';
-            html += `<div class="action-item ${onCd ? 'cooldown' : ''}">
-              <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''}"${tooltipAttrs}>
-                <div>
-                  <span class="action-name">${escapeHtml(action.name)}</span>
-                  <span class="action-type">[${TYPE_NAMES[action.type] || action.type}]</span>
-                  ${typeof action.range === 'number' ? `<span class="action-type">射程 ${action.range}</span>` : ''}
-                  ${this.renderShortcutBadge(action.id)}
-                </div>
-                <div class="action-desc">${escapeHtml(action.desc)}</div>
-              </div>
-              <div class="action-cta">
-                <button class="small-btn ghost" data-bind-action="${action.id}" type="button">${this.getBindButtonLabel(action.id)}</button>
-                ${onCd
-                  ? `<span class="action-cd">冷却 ${action.cooldownLeft} 息</span>`
-                  : `<button class="small-btn" data-action="${action.id}" data-action-name="${escapeHtml(action.name)}" data-action-range="${action.range ?? ''}" data-action-target="${action.requiresTarget ? '1' : '0'}" data-action-target-mode="${action.targetMode ?? ''}">执行</button>`
-                }
-              </div>
-            </div>`;
+            html += this.renderActionItem(action);
+          }
+          if (type === 'skill') {
+            html += '</div>';
           }
           html += '</div>';
         }
@@ -254,6 +245,63 @@ export class ActionPanel {
         if (!actionId) return;
         this.bindingActionId = this.bindingActionId === actionId ? null : actionId;
         this.render(this.currentActions);
+      });
+    });
+    this.pane.querySelectorAll<HTMLElement>('[data-auto-battle-toggle]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const actionId = button.dataset.autoBattleToggle;
+        if (!actionId) return;
+        this.toggleAutoBattleSkill(actionId);
+      });
+    });
+    this.pane.querySelectorAll<HTMLElement>('[data-auto-battle-drag]').forEach((handle) => {
+      handle.addEventListener('dragstart', (event) => {
+        const actionId = handle.dataset.autoBattleDrag;
+        if (!actionId || !(event.dataTransfer instanceof DataTransfer)) return;
+        this.draggingSkillId = actionId;
+        this.dragOverSkillId = null;
+        this.dragOverPosition = null;
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', actionId);
+        this.updateDragIndicators();
+      });
+      handle.addEventListener('dragend', () => {
+        this.clearDragState();
+      });
+    });
+    this.pane.querySelectorAll<HTMLElement>('[data-auto-battle-skill-row]').forEach((row) => {
+      row.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        const actionId = row.dataset.autoBattleSkillRow;
+        if (!actionId || !this.draggingSkillId || actionId === this.draggingSkillId) return;
+        const rect = row.getBoundingClientRect();
+        const midpoint = rect.top + rect.height / 2;
+        this.dragOverSkillId = actionId;
+        this.dragOverPosition = event.clientY < midpoint ? 'before' : 'after';
+        this.updateDragIndicators();
+      });
+      row.addEventListener('dragleave', (event) => {
+        const related = event.relatedTarget;
+        if (related instanceof Node && row.contains(related)) {
+          return;
+        }
+        if (this.dragOverSkillId === row.dataset.autoBattleSkillRow) {
+          this.dragOverSkillId = null;
+          this.dragOverPosition = null;
+          this.updateDragIndicators();
+        }
+      });
+      row.addEventListener('drop', (event) => {
+        event.preventDefault();
+        const targetId = row.dataset.autoBattleSkillRow;
+        if (!this.draggingSkillId || !targetId || !this.dragOverPosition) {
+          this.clearDragState();
+          return;
+        }
+        this.moveAutoBattleSkill(this.draggingSkillId, targetId, this.dragOverPosition);
+        this.clearDragState();
       });
     });
   }
@@ -367,5 +415,140 @@ export class ActionPanel {
       });
     }
     return result;
+  }
+
+  private renderActionItem(action: ActionDef): string {
+    const onCd = action.cooldownLeft > 0;
+    const isAutoBattleSkill = action.type === 'skill';
+    const skillContext = this.skillLookup.get(action.id);
+    const tooltipLines = skillContext ? buildSkillTooltipLines(skillContext.skill, {
+      techLevel: skillContext.techLevel,
+      player: this.previewPlayer,
+    }) : [];
+    const tooltipAttrs = skillContext
+      ? ` data-action-tooltip-title="${escapeHtml(skillContext.skill.name)}" data-action-tooltip-detail="${escapeHtml(tooltipLines.join('\n'))}" data-action-tooltip-rich="1"`
+      : '';
+    const autoBattleEnabled = action.autoBattleEnabled !== false;
+    const autoBattleOrder = typeof action.autoBattleOrder === 'number' ? action.autoBattleOrder + 1 : undefined;
+    const rowAttrs = isAutoBattleSkill
+      ? ` data-auto-battle-skill-row="${action.id}"`
+      : '';
+    const autoBattleMeta = isAutoBattleSkill
+      ? `<span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${autoBattleEnabled ? '自动已启用' : '自动已停用'}</span>
+         ${autoBattleOrder ? `<span class="action-type">顺位 ${autoBattleOrder}</span>` : ''}`
+      : '';
+    const autoBattleControls = isAutoBattleSkill
+      ? `<button class="small-btn ghost ${autoBattleEnabled ? 'active' : ''}" data-auto-battle-toggle="${action.id}" type="button">${autoBattleEnabled ? '自动 开' : '自动 关'}</button>
+         <button class="small-btn ghost action-drag-handle" data-auto-battle-drag="${action.id}" draggable="true" type="button">拖拽</button>`
+      : '';
+
+    return `<div class="action-item ${onCd ? 'cooldown' : ''} ${isAutoBattleSkill ? 'action-item-draggable' : ''}"${rowAttrs}>
+      <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''}"${tooltipAttrs}>
+        <div>
+          <span class="action-name">${escapeHtml(action.name)}</span>
+          <span class="action-type">[${TYPE_NAMES[action.type] || action.type}]</span>
+          ${typeof action.range === 'number' ? `<span class="action-type">射程 ${action.range}</span>` : ''}
+          ${autoBattleMeta}
+          ${this.renderShortcutBadge(action.id)}
+        </div>
+        <div class="action-desc">${escapeHtml(action.desc)}</div>
+      </div>
+      <div class="action-cta">
+        ${autoBattleControls}
+        <button class="small-btn ghost" data-bind-action="${action.id}" type="button">${this.getBindButtonLabel(action.id)}</button>
+        ${onCd
+          ? `<span class="action-cd">冷却 ${action.cooldownLeft} 息</span>`
+          : `<button class="small-btn" data-action="${action.id}" data-action-name="${escapeHtml(action.name)}" data-action-range="${action.range ?? ''}" data-action-target="${action.requiresTarget ? '1' : '0'}" data-action-target-mode="${action.targetMode ?? ''}">执行</button>`
+        }
+      </div>
+    </div>`;
+  }
+
+  private toggleAutoBattleSkill(actionId: string): void {
+    this.applyAutoBattleSkillMutation((skills) => skills.map((action) => (
+      action.id === actionId
+        ? { ...action, autoBattleEnabled: action.autoBattleEnabled === false }
+        : action
+    )));
+  }
+
+  private moveAutoBattleSkill(actionId: string, targetId: string, position: 'before' | 'after'): void {
+    if (actionId === targetId) return;
+    this.applyAutoBattleSkillMutation((skills) => {
+      const sourceIndex = skills.findIndex((action) => action.id === actionId);
+      const targetIndex = skills.findIndex((action) => action.id === targetId);
+      if (sourceIndex < 0 || targetIndex < 0) {
+        return skills;
+      }
+      const next = [...skills];
+      const [moved] = next.splice(sourceIndex, 1);
+      const baseIndex = next.findIndex((action) => action.id === targetId);
+      const insertIndex = position === 'before' ? baseIndex : baseIndex + 1;
+      next.splice(insertIndex, 0, moved);
+      return next;
+    });
+  }
+
+  private applyAutoBattleSkillMutation(mutator: (skills: ActionDef[]) => ActionDef[]): void {
+    const skillActions = this.currentActions
+      .filter((action) => action.type === 'skill')
+      .map((action) => ({
+        ...action,
+        autoBattleEnabled: action.autoBattleEnabled !== false,
+      }));
+    const mutated = this.withSequentialAutoBattleOrder(mutator(skillActions));
+    this.currentActions = this.replaceSkillActions(mutated);
+    if (this.previewPlayer) {
+      this.previewPlayer.actions = this.currentActions.filter((action) => action.id !== 'client:observe');
+      this.previewPlayer.autoBattleSkills = this.getAutoBattleSkillConfigs(this.currentActions);
+    }
+    this.render(this.currentActions);
+    this.onUpdateAutoBattleSkills?.(this.getAutoBattleSkillConfigs(this.currentActions));
+  }
+
+  private withSequentialAutoBattleOrder(actions: ActionDef[]): ActionDef[] {
+    return actions.map((action, index) => ({
+      ...action,
+      autoBattleEnabled: action.autoBattleEnabled !== false,
+      autoBattleOrder: index,
+    }));
+  }
+
+  private replaceSkillActions(skillActions: ActionDef[]): ActionDef[] {
+    let skillIndex = 0;
+    return this.currentActions.map((action) => {
+      if (action.type !== 'skill') {
+        return action;
+      }
+      return skillActions[skillIndex++] ?? action;
+    });
+  }
+
+  private getAutoBattleSkillConfigs(actions: ActionDef[]): AutoBattleSkillConfig[] {
+    return actions
+      .filter((action) => action.type === 'skill')
+      .map((action) => ({
+        skillId: action.id,
+        enabled: action.autoBattleEnabled !== false,
+      }));
+  }
+
+  private updateDragIndicators(): void {
+    this.pane.querySelectorAll<HTMLElement>('[data-auto-battle-skill-row]').forEach((row) => {
+      const actionId = row.dataset.autoBattleSkillRow;
+      const isDragging = actionId === this.draggingSkillId;
+      const isBefore = actionId === this.dragOverSkillId && this.dragOverPosition === 'before';
+      const isAfter = actionId === this.dragOverSkillId && this.dragOverPosition === 'after';
+      row.classList.toggle('dragging', isDragging);
+      row.classList.toggle('drag-over-before', isBefore);
+      row.classList.toggle('drag-over-after', isAfter);
+    });
+  }
+
+  private clearDragState(): void {
+    this.draggingSkillId = null;
+    this.dragOverSkillId = null;
+    this.dragOverPosition = null;
+    this.updateDragIndicators();
   }
 }

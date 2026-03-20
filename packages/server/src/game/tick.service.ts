@@ -1,5 +1,6 @@
 import { Injectable, OnModuleDestroy, OnModuleInit, Logger } from '@nestjs/common';
 import {
+  AutoBattleSkillConfig,
   CombatEffect,
   Direction,
   PlayerState,
@@ -236,8 +237,29 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         }
         case 'cultivate': {
           const { techId } = cmd.data as { techId: string | null };
-          player.cultivatingTechId = techId ?? undefined;
+          if (!techId) {
+            player.cultivatingTechId = undefined;
+            messages.push({ playerId: player.id, text: '你收束气机，暂时停止修炼。', kind: 'quest' });
+            this.playerService.markDirty(player.id, 'tech');
+            break;
+          }
+
+          const technique = player.techniques.find((entry) => entry.techId === techId);
+          if (!technique) {
+            messages.push({ playerId: player.id, text: '尚未掌握该功法，无法运转修炼。', kind: 'system' });
+            break;
+          }
+
+          player.cultivatingTechId = techId;
+          messages.push({ playerId: player.id, text: `你开始运转 ${technique.name}，持续凝练修为。`, kind: 'quest' });
           this.playerService.markDirty(player.id, 'tech');
+          break;
+        }
+        case 'updateAutoBattleSkills': {
+          const { skills } = cmd.data as { skills: AutoBattleSkillConfig[] };
+          if (this.actionService.updateAutoBattleSkills(player, skills)) {
+            this.playerService.markDirty(player.id, 'actions');
+          }
           break;
         }
         case 'debugResetSpawn': {
@@ -323,6 +345,10 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         for (const message of cultivation.messages) {
           messages.push({ playerId: player.id, text: message.text, kind: message.kind });
         }
+      }
+
+      for (const flag of this.worldService.syncQuestState(player)) {
+        this.playerService.markDirty(player.id, flag);
       }
 
       this.applyNaturalRecovery(player);
@@ -416,6 +442,8 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       desc: action.desc,
       cooldownLeft: action.cooldownLeft,
       type: action.type,
+      autoBattleEnabled: action.autoBattleEnabled,
+      autoBattleOrder: action.autoBattleOrder,
     })));
     this.actionService.rebuildActions(player, this.worldService.getContextActions(player));
     const after = JSON.stringify(player.actions.map((action) => ({
@@ -424,6 +452,8 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       desc: action.desc,
       cooldownLeft: action.cooldownLeft,
       type: action.type,
+      autoBattleEnabled: action.autoBattleEnabled,
+      autoBattleOrder: action.autoBattleOrder,
     })));
     return before !== after;
   }

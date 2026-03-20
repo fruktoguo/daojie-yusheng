@@ -66,7 +66,7 @@
       "char": "魂",
       "color": "#c0d6ff",
       "role": "quest_hint",
-      "dialogue": "信标在深矿区，矿魈会在钟乳洞口巡游。"
+      "dialogue": "失落信标在深矿区，矿魈专守钟乳洞口。若你是替云来镇而来，就别让炉火彻底灭掉。"
     },
     {
       "id": "npc_mine_smith",
@@ -76,7 +76,7 @@
       "char": "炉",
       "color": "#e7a66a",
       "role": "quest_giver",
-      "dialogue": "玄铁要趁热打，修行也一样。",
+      "dialogue": "矿火未熄，脉火就还能接上。你若真想通脉，就别浪费这里每一块玄铁。",
       "quests": [
         {
           "id": "q_mine_crystal_route",

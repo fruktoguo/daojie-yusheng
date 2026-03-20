@@ -9,6 +9,7 @@ import {
   EquipmentSlots,
   TechniqueState,
   ActionDef,
+  AutoBattleSkillConfig,
   QuestState,
   DEFAULT_BASE_ATTRS,
   DEFAULT_INVENTORY_CAPACITY,
@@ -24,7 +25,7 @@ import { TechniqueService } from './technique.service';
 
 export interface PlayerCommand {
   playerId: string;
-  type: 'move' | 'moveTo' | 'action' | 'useItem' | 'dropItem' | 'sortInventory' | 'equip' | 'unequip' | 'cultivate' | 'debugResetSpawn';
+  type: 'move' | 'moveTo' | 'action' | 'useItem' | 'dropItem' | 'sortInventory' | 'equip' | 'unequip' | 'cultivate' | 'debugResetSpawn' | 'updateAutoBattleSkills';
   data: unknown;
   timestamp: number;
 }
@@ -94,8 +95,9 @@ export class PlayerService {
       inventory: (entity.inventory as unknown ?? { items: [], capacity: DEFAULT_INVENTORY_CAPACITY }) as Inventory,
       equipment: (entity.equipment ?? { weapon: null, head: null, body: null, legs: null, accessory: null }) as EquipmentSlots,
       techniques: (entity.techniques ?? []) as TechniqueState[],
-      quests: (entity.quests ?? []) as QuestState[],
+      quests: this.normalizeQuests((entity.quests ?? []) as QuestState[]),
       autoBattle: entity.autoBattle ?? false,
+      autoBattleSkills: (entity.autoBattleSkills ?? []) as AutoBattleSkillConfig[],
       autoRetaliate: entity.autoRetaliate ?? true,
       actions: [],
       cultivatingTechId: entity.cultivatingTechId ?? undefined,
@@ -121,6 +123,7 @@ export class PlayerService {
     if (!state.techniques) state.techniques = [];
     if (!state.quests) state.quests = [];
     if (state.autoBattle === undefined) state.autoBattle = false;
+    if (!state.autoBattleSkills) state.autoBattleSkills = [];
     if (state.autoRetaliate === undefined) state.autoRetaliate = true;
     if (!state.actions) state.actions = [];
     if (state.facing === undefined) state.facing = Direction.South;
@@ -153,6 +156,7 @@ export class PlayerService {
       techniques: state.techniques as any,
       quests: state.quests as any,
       autoBattle: state.autoBattle,
+      autoBattleSkills: state.autoBattleSkills as any,
       autoRetaliate: state.autoRetaliate,
       cultivatingTechId: state.cultivatingTechId ?? null,
     });
@@ -183,6 +187,7 @@ export class PlayerService {
       techniques: state.techniques as any,
       quests: state.quests as any,
       autoBattle: state.autoBattle,
+      autoBattleSkills: state.autoBattleSkills as any,
       autoRetaliate: state.autoRetaliate,
       cultivatingTechId: state.cultivatingTechId ?? null,
     });
@@ -214,6 +219,7 @@ export class PlayerService {
       techniques: s.techniques as any,
       quests: s.quests as any,
       autoBattle: s.autoBattle,
+      autoBattleSkills: s.autoBattleSkills as any,
       autoRetaliate: s.autoRetaliate,
       cultivatingTechId: s.cultivatingTechId ?? null,
     }));
@@ -336,5 +342,22 @@ export class PlayerService {
       map.set(`${cmd.playerId}:${cmd.type}`, cmd);
     }
     return [...map.values()];
+  }
+
+  private normalizeQuests(quests: QuestState[]): QuestState[] {
+    return quests.map((quest) => ({
+      ...quest,
+      line: quest.line === 'main' ? 'main' : 'side',
+      objectiveType: quest.objectiveType ?? 'kill',
+      targetName: quest.targetName ?? quest.title,
+      targetMonsterId: quest.targetMonsterId ?? '',
+      rewardItemId: quest.rewardItemId ?? quest.rewardItemIds?.[0] ?? '',
+      rewardItemIds: Array.isArray(quest.rewardItemIds)
+        ? [...quest.rewardItemIds]
+        : quest.rewardItemId
+          ? [quest.rewardItemId]
+          : [],
+      rewards: Array.isArray(quest.rewards) ? quest.rewards.map((reward) => ({ ...reward })) : [],
+    }));
   }
 }

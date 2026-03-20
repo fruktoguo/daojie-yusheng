@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ActionDef, PlayerState, ratioValue } from '@mud/shared';
+import { ActionDef, AutoBattleSkillConfig, PlayerState, ratioValue } from '@mud/shared';
 import { AttrService } from './attr.service';
 import { TechniqueService } from './technique.service';
 
@@ -14,11 +14,27 @@ export class ActionService {
   rebuildActions(player: PlayerState, contextActions: ActionDef[] = []): void {
     const cooldowns = new Map(player.actions.map((action) => [action.id, action.cooldownLeft]));
     const skillActions = this.techniqueService.getSkillActions(player);
-    const merged = [...contextActions, ...skillActions].map((action) => ({
+    const autoBattleSkills = this.normalizeAutoBattleSkills(skillActions, player.autoBattleSkills);
+    const skillOrder = new Map(autoBattleSkills.map((entry, index) => [entry.skillId, index]));
+    const skillEnabled = new Map(autoBattleSkills.map((entry) => [entry.skillId, entry.enabled]));
+    const orderedSkillActions = [...skillActions]
+      .sort((left, right) => (skillOrder.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (skillOrder.get(right.id) ?? Number.MAX_SAFE_INTEGER));
+    const merged = [...contextActions, ...orderedSkillActions].map((action) => ({
       ...action,
       cooldownLeft: cooldowns.get(action.id) ?? action.cooldownLeft,
+      autoBattleEnabled: action.type === 'skill' ? (skillEnabled.get(action.id) ?? true) : action.autoBattleEnabled,
+      autoBattleOrder: action.type === 'skill' ? skillOrder.get(action.id) : action.autoBattleOrder,
     }));
+    player.autoBattleSkills = autoBattleSkills;
     player.actions = merged;
+  }
+
+  updateAutoBattleSkills(player: PlayerState, input: AutoBattleSkillConfig[]): boolean {
+    const skillActions = this.techniqueService.getSkillActions(player);
+    const next = this.normalizeAutoBattleSkills(skillActions, input);
+    const changed = JSON.stringify(player.autoBattleSkills) !== JSON.stringify(next);
+    player.autoBattleSkills = next;
+    return changed;
   }
 
   getAction(player: PlayerState, actionId: string): ActionDef | undefined {
@@ -55,5 +71,35 @@ export class ActionService {
       }
     }
     return changed;
+  }
+
+  private normalizeAutoBattleSkills(skillActions: ActionDef[], input: AutoBattleSkillConfig[] | undefined): AutoBattleSkillConfig[] {
+    const availableIds = new Set(skillActions.map((action) => action.id));
+    const normalized: AutoBattleSkillConfig[] = [];
+    const seen = new Set<string>();
+
+    for (const entry of input ?? []) {
+      if (seen.has(entry.skillId) || !availableIds.has(entry.skillId)) {
+        continue;
+      }
+      normalized.push({
+        skillId: entry.skillId,
+        enabled: entry.enabled !== false,
+      });
+      seen.add(entry.skillId);
+    }
+
+    for (const action of skillActions) {
+      if (seen.has(action.id)) {
+        continue;
+      }
+      normalized.push({
+        skillId: action.id,
+        enabled: true,
+      });
+      seen.add(action.id);
+    }
+
+    return normalized;
   }
 }

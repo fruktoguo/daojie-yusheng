@@ -88,7 +88,7 @@
       "char": "巡",
       "color": "#89d185",
       "role": "quest_hint",
-      "dialogue": "沿主径走，别钻竹海。矿洞与遗迹都在林子尽头。"
+      "dialogue": "镇里派你来的？沿主径走，狼群先清，竹蛇再杀，别被竹海里的旧路牌骗了。"
     },
     {
       "id": "npc_broken_cart",
@@ -108,7 +108,7 @@
       "char": "隐",
       "color": "#8ac6a0",
       "role": "quest_giver",
-      "dialogue": "你若能在这片竹海站稳，便说明已不只是初入江湖的菜鸟。",
+      "dialogue": "清玄让你来磨骨？那就别只顾杀狼，竹灵与刃螳留下的东西，才是真正能入身的药引。",
       "quests": [
         {
           "id": "q_bamboo_heart",

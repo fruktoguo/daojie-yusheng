@@ -1,4 +1,4 @@
-import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, PlayerRealmState, QuestState, CombatEffect } from './types';
+import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, PlayerRealmState, QuestState, CombatEffect, AutoBattleSkillConfig } from './types';
 import { NumericRatioDivisors, NumericStats } from './numeric';
 
 // ===== 事件名 =====
@@ -13,6 +13,7 @@ export const C2S = {
   GmUpdatePlayer: 'c:gmUpdatePlayer',
   GmResetPlayer: 'c:gmResetPlayer',
   Action: 'c:action',
+  UpdateAutoBattleSkills: 'c:updateAutoBattleSkills',
   DebugResetSpawn: 'c:debugResetSpawn',
   Chat: 'c:chat',
   UseItem: 'c:useItem',
@@ -87,6 +88,10 @@ export interface C2S_Action {
   type?: string;
   actionId?: string;
   target?: string;
+}
+
+export interface C2S_UpdateAutoBattleSkills {
+  skills: AutoBattleSkillConfig[];
 }
 
 /** 调试：回出生点 */

@@ -80,7 +80,7 @@
       "char": "碑",
       "color": "#d9d2ff",
       "role": "lore",
-      "dialogue": "武道尽头是炼神，炼神之后才是寻仙。"
+      "dialogue": "矿火补肉身，碑纹补神识。少了这里的残纹，你的通脉只会停在皮相。"
     },
     {
       "id": "npc_rune_keeper",
@@ -90,7 +90,7 @@
       "char": "纹",
       "color": "#95b3ff",
       "role": "quest_giver",
-      "dialogue": "替我收束遗迹灵纹，我便告诉你上界路标。",
+      "dialogue": "替我收束遗迹灵纹，我便把通往上界残宫的路标交给你。"
       "quests": [
         {
           "id": "q_ruin_shard_survey",
