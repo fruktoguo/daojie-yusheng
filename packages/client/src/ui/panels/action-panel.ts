@@ -41,7 +41,8 @@ export class ActionPanel {
   private currentActions: ActionDef[] = [];
   private shortcutBindings = new Map<string, string>();
   private bindingActionId: string | null = null;
-  private skillLookup = new Map<string, SkillDef>();
+  private previewPlayer?: PlayerState;
+  private skillLookup = new Map<string, { skill: SkillDef; techLevel: number }>();
   private tooltip = new FloatingTooltip();
 
   constructor() {
@@ -59,6 +60,7 @@ export class ActionPanel {
 
   update(actions: ActionDef[], _autoBattle?: boolean, _autoRetaliate?: boolean, player?: PlayerState): void {
     if (player) {
+      this.previewPlayer = player;
       this.syncPlayerContext(player);
     }
     this.currentActions = this.withUtilityActions(actions);
@@ -68,6 +70,7 @@ export class ActionPanel {
   }
 
   initFromPlayer(player: PlayerState): void {
+    this.previewPlayer = player;
     this.syncPlayerContext(player);
     this.currentActions = this.withUtilityActions(player.actions);
     this.autoBattle = player.autoBattle ?? false;
@@ -77,7 +80,10 @@ export class ActionPanel {
 
   private syncPlayerContext(player: PlayerState): void {
     this.skillLookup = new Map(
-      player.techniques.flatMap((technique) => technique.skills.map((skill) => [skill.id, skill] as const)),
+      player.techniques.flatMap((technique) => technique.skills.map((skill) => [
+        skill.id,
+        { skill, techLevel: technique.level },
+      ] as const)),
     );
   }
 
@@ -173,13 +179,16 @@ export class ActionPanel {
             <div class="panel-section-title">${TYPE_NAMES[type] || type}</div>`;
           for (const action of entries) {
             const onCd = action.cooldownLeft > 0;
-            const skill = this.skillLookup.get(action.id);
-            const tooltipLines = skill ? buildSkillTooltipLines(skill) : [];
-            const tooltipAttrs = skill
-              ? ` data-action-tooltip-title="${escapeHtml(skill.name)}" data-action-tooltip-detail="${escapeHtml(tooltipLines.join('\n'))}"`
+            const skillContext = this.skillLookup.get(action.id);
+            const tooltipLines = skillContext ? buildSkillTooltipLines(skillContext.skill, {
+              techLevel: skillContext.techLevel,
+              player: this.previewPlayer,
+            }) : [];
+            const tooltipAttrs = skillContext
+              ? ` data-action-tooltip-title="${escapeHtml(skillContext.skill.name)}" data-action-tooltip-detail="${escapeHtml(tooltipLines.join('\n'))}" data-action-tooltip-rich="1"`
               : '';
             html += `<div class="action-item ${onCd ? 'cooldown' : ''}">
-              <div class="action-copy ${skill ? 'action-copy-tooltip' : ''}"${tooltipAttrs}>
+              <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''}"${tooltipAttrs}>
                 <div>
                   <span class="action-name">${escapeHtml(action.name)}</span>
                   <span class="action-type">[${TYPE_NAMES[action.type] || action.type}]</span>
@@ -253,9 +262,10 @@ export class ActionPanel {
     this.pane.querySelectorAll<HTMLElement>('[data-action-tooltip-title]').forEach((node) => {
       const title = node.dataset.actionTooltipTitle ?? '';
       const detail = node.dataset.actionTooltipDetail ?? '';
+      const rich = node.dataset.actionTooltipRich === '1';
       const lines = detail.split('\n');
       node.addEventListener('pointerenter', (event) => {
-        this.tooltip.show(title, lines, event.clientX, event.clientY);
+        this.tooltip.show(title, lines, event.clientX, event.clientY, { allowHtml: rich });
       });
       node.addEventListener('pointermove', (event) => {
         this.tooltip.move(event.clientX, event.clientY);

@@ -24,7 +24,7 @@ const ATTR_NAMES: Record<keyof Attributes, string> = {
 
 type TechniquePanelState = {
   cultivatingTechId?: string;
-  spellAtk: number;
+  previewPlayer?: PlayerState;
   techniques: TechniqueState[];
 };
 
@@ -60,7 +60,7 @@ export class TechniquePanel {
   private onCultivate: ((techId: string | null) => void) | null = null;
   private tooltip = new FloatingTooltip();
   private openTechId: string | null = null;
-  private lastState: TechniquePanelState = { techniques: [], spellAtk: 0 };
+  private lastState: TechniquePanelState = { techniques: [] };
 
   constructor() {
     this.modal.addEventListener('click', () => {
@@ -85,14 +85,14 @@ export class TechniquePanel {
     this.onCultivate = onCultivate;
   }
 
-  update(techniques: TechniqueState[], cultivatingTechId?: string, spellAtk = 0): void {
-    this.lastState = { techniques, cultivatingTechId, spellAtk };
+  update(techniques: TechniqueState[], cultivatingTechId?: string, previewPlayer?: PlayerState): void {
+    this.lastState = { techniques, cultivatingTechId, previewPlayer };
     this.renderList();
     this.renderModal();
   }
 
   initFromPlayer(player: PlayerState): void {
-    this.update(player.techniques, player.cultivatingTechId, player.numericStats?.spellAtk ?? 0);
+    this.update(player.techniques, player.cultivatingTechId, player);
   }
 
   private renderList(): void {
@@ -202,11 +202,16 @@ export class TechniquePanel {
       ? skills.map((skill) => {
         const detail = {
           title: skill.name,
-          lines: buildSkillTooltipLines(skill, resolveSkillUnlockLevel(skill)),
+          lines: buildSkillTooltipLines(skill, {
+            unlockLevel: resolveSkillUnlockLevel(skill),
+            techLevel: currentLevel,
+            player: this.lastState.previewPlayer,
+          }),
         };
         return `<span class="tech-skill-tag"
           data-skill-tooltip-title="${escapeHtml(detail.title)}"
-          data-skill-tooltip-detail="${escapeHtml(detail.lines.join('\n'))}">${escapeHtml(skill.name)}</span>`;
+          data-skill-tooltip-detail="${escapeHtml(detail.lines.join('\n'))}"
+          data-skill-tooltip-rich="1">${escapeHtml(skill.name)}</span>`;
       }).join('')
       : '<span class="tech-layer-empty">本层无新技能</span>';
 
@@ -247,9 +252,10 @@ export class TechniquePanel {
     this.modalBody.querySelectorAll<HTMLElement>('[data-skill-tooltip-title]').forEach((node) => {
       const title = node.dataset.skillTooltipTitle ?? '';
       const detail = node.dataset.skillTooltipDetail ?? '';
+      const rich = node.dataset.skillTooltipRich === '1';
       const lines = detail.split('\n');
       node.addEventListener('pointerenter', (event) => {
-        this.tooltip.show(title, lines, event.clientX, event.clientY);
+        this.tooltip.show(title, lines, event.clientX, event.clientY, { allowHtml: rich });
       });
       node.addEventListener('pointermove', (event) => {
         this.tooltip.move(event.clientX, event.clientY);

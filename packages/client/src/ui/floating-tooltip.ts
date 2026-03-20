@@ -7,6 +7,10 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+interface FloatingTooltipShowOptions {
+  allowHtml?: boolean;
+}
+
 export class FloatingTooltip {
   private readonly el: HTMLDivElement;
   private lastPoint = { x: 0, y: 0 };
@@ -17,11 +21,14 @@ export class FloatingTooltip {
     document.body.appendChild(this.el);
   }
 
-  show(title: string, lines: string[], clientX: number, clientY: number): void {
+  show(title: string, lines: string[], clientX: number, clientY: number, options?: FloatingTooltipShowOptions): void {
     const content = lines
       .map((line) => line.trim())
       .filter((line) => line.length > 0);
-    this.el.innerHTML = `<div class="floating-tooltip-body"><strong>${escapeHtml(title)}</strong>${content.length > 0 ? `<div class="floating-tooltip-detail">${content.map((line) => `<span class="floating-tooltip-line">${escapeHtml(line)}</span>`).join('')}</div>` : ''}</div>`;
+    const renderedContent = content
+      .map((line) => `<span class="floating-tooltip-line">${options?.allowHtml ? line : escapeHtml(line)}</span>`)
+      .join('');
+    this.el.innerHTML = `<div class="floating-tooltip-body"><strong>${escapeHtml(title)}</strong>${content.length > 0 ? `<div class="floating-tooltip-detail">${renderedContent}</div>` : ''}</div>`;
     this.el.classList.add('visible');
     this.move(clientX, clientY);
   }
