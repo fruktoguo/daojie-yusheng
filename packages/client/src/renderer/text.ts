@@ -194,9 +194,10 @@ export class TextRenderer implements IRenderer {
             const dx = gx - this.targetingOverlay.originX;
             const dy = gy - this.targetingOverlay.originY;
             const distanceSq = dx * dx + dy * dy;
-            if (distanceSq > 0 && distanceSq <= this.targetingOverlay.range * this.targetingOverlay.range) {
-              const hovered = gx === this.targetingOverlay.hoverX && gy === this.targetingOverlay.hoverY;
-              const affected = this.targetingAffectedKeys.has(key);
+            const hovered = gx === this.targetingOverlay.hoverX && gy === this.targetingOverlay.hoverY;
+            const affected = this.targetingAffectedKeys.has(key);
+            const inCastRange = distanceSq > 0 && distanceSq <= this.targetingOverlay.range * this.targetingOverlay.range;
+            if (inCastRange || affected) {
               ctx.fillStyle = affected
                 ? (hovered ? 'rgba(208, 76, 56, 0.42)' : 'rgba(198, 72, 48, 0.3)')
                 : (hovered ? 'rgba(208, 76, 56, 0.34)' : 'rgba(212, 164, 71, 0.18)');
