@@ -174,14 +174,25 @@ function beginTargeting(actionId: string, actionName: string, targetMode?: strin
 }
 
 function computeAffectedCells(action: NonNullable<typeof pendingTargetedAction>): Array<{ x: number; y: number }> {
-  if (!myPlayer || action.hoverX === undefined || action.hoverY === undefined) {
+  if (action.hoverX === undefined || action.hoverY === undefined) {
     return [];
   }
-  if (!isTargetInRange(action.hoverX, action.hoverY, action.range)) {
+  return computeAffectedCellsFromAnchor(action, action.hoverX, action.hoverY);
+}
+
+function computeAffectedCellsFromAnchor(
+  action: Pick<NonNullable<typeof pendingTargetedAction>, 'range' | 'shape' | 'radius'>,
+  anchorX: number,
+  anchorY: number,
+): Array<{ x: number; y: number }> {
+  if (!myPlayer) {
+    return [];
+  }
+  if (!isTargetInRange(anchorX, anchorY, action.range)) {
     return [];
   }
   if (action.shape === 'line') {
-    return getLineCells(myPlayer.x, myPlayer.y, action.hoverX, action.hoverY).slice(1);
+    return getLineCells(myPlayer.x, myPlayer.y, anchorX, anchorY).slice(1);
   }
   if (action.shape === 'area') {
     const cells: Array<{ x: number; y: number }> = [];
@@ -189,12 +200,12 @@ function computeAffectedCells(action: NonNullable<typeof pendingTargetedAction>)
     for (let dy = -radius; dy <= radius; dy += 1) {
       for (let dx = -radius; dx <= radius; dx += 1) {
         if (dx * dx + dy * dy > radius * radius) continue;
-        cells.push({ x: action.hoverX + dx, y: action.hoverY + dy });
+        cells.push({ x: anchorX + dx, y: anchorY + dy });
       }
     }
     return cells;
   }
-  return [{ x: action.hoverX, y: action.hoverY }];
+  return [{ x: anchorX, y: anchorY }];
 }
 
 function getLineCells(startX: number, startY: number, endX: number, endY: number): Array<{ x: number; y: number }> {
@@ -233,19 +244,39 @@ function isTargetInRange(targetX: number, targetY: number, range: number): boole
 }
 
 function resolveTargetRefForAction(
+  action: Pick<NonNullable<typeof pendingTargetedAction>, 'shape' | 'targetMode'>,
   target: { x: number; y: number; entityId?: string; entityKind?: string },
-  targetMode?: string,
 ): string | null {
-  if (targetMode === 'entity') {
+  if (action.shape && action.shape !== 'single') {
+    return `tile:${target.x}:${target.y}`;
+  }
+  if (action.targetMode === 'entity') {
     return target.entityKind === 'monster' && target.entityId ? target.entityId : null;
   }
-  if (targetMode === 'tile') {
+  if (action.targetMode === 'tile') {
     return `tile:${target.x}:${target.y}`;
   }
   if (target.entityKind === 'monster' && target.entityId) {
     return target.entityId;
   }
   return `tile:${target.x}:${target.y}`;
+}
+
+function hasAffectableTargetInArea(
+  action: Pick<NonNullable<typeof pendingTargetedAction>, 'shape' | 'range' | 'radius'>,
+  anchorX: number,
+  anchorY: number,
+): boolean {
+  if (!action.shape || action.shape === 'single') {
+    return true;
+  }
+  const affectedCells = computeAffectedCellsFromAnchor(action, anchorX, anchorY);
+  if (affectedCells.length === 0) {
+    return false;
+  }
+  return latestEntities.some((entity) =>
+    entity.kind === 'monster' && affectedCells.some((cell) => cell.x === entity.wx && cell.y === entity.wy),
+  );
 }
 
 function getTileKey(x: number, y: number): string {
@@ -822,7 +853,11 @@ mouseInput.init(
         showToast(`超出施法范围，最多 ${pendingTargetedAction.range} 格`);
         return;
       }
-      const targetRef = resolveTargetRefForAction(target, pendingTargetedAction.targetMode);
+      if (!hasAffectableTargetInArea(pendingTargetedAction, target.x, target.y)) {
+        showToast('该位置范围内没有可命中的目标');
+        return;
+      }
+      const targetRef = resolveTargetRefForAction(pendingTargetedAction, target);
       if (!targetRef) {
         showToast('该技能需要选中有效目标');
         return;
