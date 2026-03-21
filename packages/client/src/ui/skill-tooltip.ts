@@ -356,72 +356,107 @@ function renderVariableFormula(varName: SkillFormulaVar, scale: number, context:
   };
 }
 
-function flattenAddTerms(formula: SkillFormula): SkillFormula[] {
-  if (typeof formula === 'number' || 'var' in formula || formula.op !== 'add') {
-    return [formula];
-  }
-  return formula.args.flatMap((entry) => flattenAddTerms(entry));
-}
-
 function joinFormulaParts(parts: string[], operator: string): string {
   return parts.join(`<span class="skill-formula-operator"> ${operator} </span>`);
 }
 
-function formatFormulaRich(formula: SkillFormula, context: SkillTooltipPreviewContext): string {
+function previewFormula(formula: SkillFormula, context: SkillTooltipPreviewContext): FormulaPreview {
   if (typeof formula === 'number') {
-    return formatNumber(formula);
+    return {
+      html: formatNumber(formula),
+      resolved: formula,
+    };
   }
   if ('var' in formula) {
-    return renderVariableFormula(formula.var, formula.scale ?? 1, context).html;
+    return renderVariableFormula(formula.var, formula.scale ?? 1, context);
   }
   if (formula.op === 'clamp') {
-    const parts = [`值=${formatFormulaRich(formula.value, context)}`];
-    if (formula.min !== undefined) parts.push(`下限=${formatFormulaRich(formula.min, context)}`);
-    if (formula.max !== undefined) parts.push(`上限=${formatFormulaRich(formula.max, context)}`);
-    return `限制(${parts.join('，')})`;
+    const valuePreview = previewFormula(formula.value, context);
+    const minPreview = formula.min !== undefined ? previewFormula(formula.min, context) : null;
+    const maxPreview = formula.max !== undefined ? previewFormula(formula.max, context) : null;
+    const parts = [`值=${valuePreview.html}`];
+    if (minPreview) parts.push(`下限=${minPreview.html}`);
+    if (maxPreview) parts.push(`上限=${maxPreview.html}`);
+    let resolved = valuePreview.resolved;
+    if (minPreview) {
+      resolved = resolved === null || minPreview.resolved === null
+        ? null
+        : Math.max(resolved, minPreview.resolved);
+    }
+    if (maxPreview) {
+      resolved = resolved === null || maxPreview.resolved === null
+        ? null
+        : Math.min(resolved, maxPreview.resolved);
+    }
+    return {
+      html: `限制(${parts.join('，')})`,
+      resolved,
+    };
   }
-  const args = formula.args.map((entry) => formatFormulaRich(entry, context));
+  const args = formula.args.map((entry) => previewFormula(entry, context));
+  const parts = args.map((entry) => entry.html);
+  const allResolved = args.every((entry) => entry.resolved !== null);
   switch (formula.op) {
     case 'add':
-      return joinFormulaParts(args, '+');
+      return {
+        html: joinFormulaParts(parts, '+'),
+        resolved: allResolved ? args.reduce((sum, entry) => sum + (entry.resolved ?? 0), 0) : null,
+      };
     case 'sub':
-      return joinFormulaParts(args, '-');
+      return {
+        html: joinFormulaParts(parts, '-'),
+        resolved: allResolved
+          ? args.slice(1).reduce((sum, entry) => sum - (entry.resolved ?? 0), args[0]?.resolved ?? 0)
+          : null,
+      };
     case 'mul':
-      return args.map((entry) => `(${entry})`).join('<span class="skill-formula-operator"> × </span>');
+      return {
+        html: parts.map((entry) => `(${entry})`).join('<span class="skill-formula-operator"> × </span>'),
+        resolved: allResolved ? args.reduce((product, entry) => product * (entry.resolved ?? 1), 1) : null,
+      };
     case 'div':
-      return args.map((entry) => `(${entry})`).join('<span class="skill-formula-operator"> ÷ </span>');
+      if (!allResolved) {
+        return {
+          html: parts.map((entry) => `(${entry})`).join('<span class="skill-formula-operator"> ÷ </span>'),
+          resolved: null,
+        };
+      }
+      return {
+        html: parts.map((entry) => `(${entry})`).join('<span class="skill-formula-operator"> ÷ </span>'),
+        resolved: args.slice(1).reduce<number | null>((quotient, entry) => {
+          if (quotient === null || (entry.resolved ?? 0) === 0) {
+            return null;
+          }
+          return quotient / (entry.resolved ?? 1);
+        }, args[0]?.resolved ?? 0),
+      };
     case 'min':
-      return `min(${args.join(', ')})`;
+      return {
+        html: `min(${parts.join(', ')})`,
+        resolved: allResolved ? Math.min(...args.map((entry) => entry.resolved ?? 0)) : null,
+      };
     case 'max':
-      return `max(${args.join(', ')})`;
+      return {
+        html: `max(${parts.join(', ')})`,
+        resolved: allResolved ? Math.max(...args.map((entry) => entry.resolved ?? 0)) : null,
+      };
     default:
-      return args.join(', ');
+      return {
+        html: parts.join(', '),
+        resolved: null,
+      };
   }
 }
 
 function formatDamageFormula(formula: SkillFormula, context: SkillTooltipPreviewContext, damageKind: 'physical' | 'spell'): string {
-  const terms = flattenAddTerms(formula).map((entry) => {
-    if (typeof entry === 'number') {
-      return { html: renderFormulaTerm(formatNumber(entry), 'skill-formula-term-base'), resolved: entry };
-    }
-    if ('var' in entry) {
-      return renderVariableFormula(entry.var, entry.scale ?? 1, context);
-    }
-    return { html: formatFormulaRich(entry, context), resolved: null };
-  });
-
-  if (terms.length === 1) {
-    return terms[0].html;
+  const preview = previewFormula(formula, context);
+  if (typeof formula === 'number' || 'var' in formula) {
+    return preview.html;
   }
-
-  const detail = joinFormulaParts(terms.map((entry) => entry.html), '+');
-  const fullyResolved = terms.every((entry) => entry.resolved !== null);
-  if (!fullyResolved) {
-    return detail;
+  if (preview.resolved === null) {
+    return preview.html;
   }
-
-  const total = terms.reduce((sum, entry) => sum + (entry.resolved ?? 0), 0);
-  return `<span class="skill-damage-total skill-damage-total-${damageKind}">${formatNumber(total)}</span><span class="skill-formula-breakdown">（${detail}）</span>`;
+  return `<span class="skill-damage-total skill-damage-total-${damageKind}">${formatNumber(preview.resolved)}</span><span class="skill-formula-breakdown">（${preview.html}）</span>`;
 }
 
 function formatTargeting(skill: SkillDef): string {
