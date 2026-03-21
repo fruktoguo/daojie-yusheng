@@ -9,9 +9,12 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  GmMapDetailRes,
+  GmMapListRes,
   GmRemoveBotsReq,
   GmSpawnBotsReq,
   GmStateRes,
+  GmUpdateMapReq,
   GmUpdatePlayerReq,
 } from '@mud/shared';
 import { GmAuthGuard } from './gm-auth.guard';
@@ -25,6 +28,35 @@ export class GmController {
   @Get('state')
   getState(): Promise<GmStateRes> {
     return this.gmService.getState();
+  }
+
+  @Get('maps')
+  getMaps(): GmMapListRes {
+    return this.gmService.getEditableMapList();
+  }
+
+  @Get('maps/:mapId')
+  getMap(@Param('mapId') mapId: string): GmMapDetailRes {
+    const map = this.gmService.getEditableMap(mapId);
+    if (!map) {
+      throw new BadRequestException('目标地图不存在');
+    }
+    return { map };
+  }
+
+  @Put('maps/:mapId')
+  async updateMap(
+    @Param('mapId') mapId: string,
+    @Body() body: GmUpdateMapReq,
+  ): Promise<{ ok: true }> {
+    if (!body?.map) {
+      throw new BadRequestException('缺少地图数据');
+    }
+    const error = await this.gmService.saveEditableMap(mapId, body.map);
+    if (error) {
+      throw new BadRequestException(error);
+    }
+    return { ok: true };
   }
 
   @Put('players/:playerId')

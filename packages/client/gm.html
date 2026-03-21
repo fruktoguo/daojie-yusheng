@@ -28,6 +28,8 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       min-height: 100vh;
+      height: 100vh;
+      overflow: hidden;
       background:
         radial-gradient(circle at top left, rgba(255,255,255,0.08), transparent 28%),
         linear-gradient(180deg, rgba(236,236,232,0.08), rgba(17,17,17,0));
@@ -260,11 +262,71 @@
     }
 
     #gm-shell {
-      min-height: 100vh;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 14px;
+      overflow: hidden;
+    }
+
+    .shell-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 14px 18px;
+      border: 1.5px solid var(--ink-black);
+      background: rgba(236, 236, 232, 0.96);
+      box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.12);
+    }
+
+    .shell-brand {
+      font-family: var(--font-heading-sub);
+      font-size: 18px;
+      color: var(--ink-black);
+      letter-spacing: 2px;
+    }
+
+    .shell-tabs {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .shell-tab {
+      padding: 8px 14px;
+      border: 1px solid var(--ink-black);
+      background: rgba(255,255,255,0.5);
+      color: var(--ink-black);
+      cursor: pointer;
+      font-family: var(--font-heading-sub);
+      font-size: 14px;
+    }
+
+    .shell-tab.active {
+      border-width: 2px;
+      border-color: var(--stamp-red);
+      background: rgba(197, 60, 60, 0.08);
+      color: var(--stamp-red);
+    }
+
+    .workspace-grid {
+      flex: 1;
+      min-height: 0;
       display: grid;
       grid-template-columns: minmax(280px, 0.85fr) minmax(320px, 1fr) minmax(420px, 1.45fr);
       gap: 14px;
-      padding: 14px;
+      overflow: hidden;
+    }
+
+    .map-workspace {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(280px, 0.82fr) minmax(520px, 1.35fr) minmax(360px, 1fr);
+      gap: 14px;
+      overflow: hidden;
     }
 
     .layout-section {
@@ -621,13 +683,173 @@
       text-align: center;
     }
 
+    .map-canvas-host {
+      position: relative;
+      flex: 1;
+      min-height: 520px;
+      border: 1px solid var(--wash-ink);
+      background:
+        radial-gradient(circle at top, rgba(255,255,255,0.08), transparent 30%),
+        linear-gradient(180deg, rgba(17,17,17,0.05), rgba(255,255,255,0.08));
+      overflow: hidden;
+    }
+
+    #map-editor-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: #1a1816;
+      cursor: crosshair;
+    }
+
+    .map-summary-card {
+      padding: 12px;
+      border: 1px solid var(--wash-ink);
+      background: rgba(255,255,255,0.56);
+      font-size: 13px;
+      color: var(--ink-grey);
+      line-height: 1.65;
+    }
+
+    .map-tool-grid,
+    .map-tile-palette,
+    .map-entity-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .map-tool-btn,
+    .map-tile-btn,
+    .map-entity-btn {
+      padding: 8px 10px;
+      border: 1px solid var(--ink-black);
+      background: rgba(255,255,255,0.72);
+      color: var(--ink-black);
+      cursor: pointer;
+      font-family: var(--font-heading-sub);
+      font-size: 13px;
+    }
+
+    .map-tool-btn.active,
+    .map-tile-btn.active,
+    .map-entity-btn.active {
+      border-color: var(--stamp-red);
+      background: rgba(197, 60, 60, 0.08);
+      color: var(--stamp-red);
+    }
+
+    .map-tile-btn {
+      min-width: 62px;
+      text-align: center;
+    }
+
+    .map-form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .map-form-grid.compact {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .map-field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .map-field.wide {
+      grid-column: 1 / -1;
+    }
+
+    .map-field span {
+      font-size: 12px;
+      color: var(--ink-grey);
+    }
+
+    .map-field input,
+    .map-field select,
+    .map-field textarea {
+      width: 100%;
+      padding: 9px 10px;
+      border: 1px solid var(--ink-light);
+      background: rgba(255,255,255,0.88);
+      color: var(--ink-dark);
+      font-family: var(--font-body);
+      font-size: 13px;
+      outline: none;
+    }
+
+    .map-field textarea {
+      min-height: 120px;
+      resize: vertical;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      line-height: 1.45;
+    }
+
+    .map-field input:focus,
+    .map-field select:focus,
+    .map-field textarea:focus {
+      border-color: var(--ink-black);
+    }
+
+    .map-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .map-row {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--wash-ink);
+      background: var(--paper-white);
+      color: var(--ink-dark);
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .map-row.active {
+      border-color: var(--stamp-red);
+      background: rgba(197, 60, 60, 0.06);
+    }
+
+    .map-row:hover {
+      border-color: rgba(17, 17, 17, 0.28);
+    }
+
+    .map-row-title {
+      font-family: var(--font-heading-sub);
+      font-size: 16px;
+      color: var(--ink-black);
+    }
+
+    .map-row-meta {
+      margin-top: 5px;
+      font-size: 12px;
+      color: var(--ink-grey);
+      line-height: 1.55;
+    }
+
+    .map-overlay-note {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--ink-grey);
+      line-height: 1.55;
+    }
+
     @media (max-width: 1200px) {
-      #gm-shell {
+      .workspace-grid,
+      .map-workspace {
         grid-template-columns: 1fr;
       }
       .editor-grid,
       .editor-grid.compact,
-      .editor-stat-grid {
+      .editor-stat-grid,
+      .map-form-grid,
+      .map-form-grid.compact {
         grid-template-columns: 1fr;
       }
       .editor-textarea {
@@ -643,18 +865,29 @@
       <img class="login-logo" src="/logo.png" alt="道劫余生" />
       <div class="login-title">监察司</div>
       <div class="login-subtitle">独立 GM 管理台 · 仅限持密进入</div>
-      <div class="form-group">
-        <label for="gm-password">GM 密码</label>
-        <input id="gm-password" type="password" placeholder="输入 GM 管理密码" />
-      </div>
-      <div class="login-actions">
-        <button id="login-submit" class="action-btn primary" type="button">入司</button>
-      </div>
+      <form id="gm-login-form">
+        <div class="form-group">
+          <label for="gm-password">GM 密码</label>
+          <input id="gm-password" type="password" placeholder="输入 GM 管理密码" autocomplete="current-password" />
+        </div>
+        <div class="login-actions">
+          <button id="login-submit" class="action-btn primary" type="submit">入司</button>
+        </div>
+      </form>
       <div id="login-error" class="login-error"></div>
     </div>
   </div>
 
   <main id="gm-shell" class="hidden">
+    <div class="shell-bar">
+      <div class="shell-brand">道劫余生 · 监察司</div>
+      <div class="shell-tabs">
+        <button class="shell-tab active" id="gm-tab-players" data-gm-tab="players" type="button">角色管理</button>
+        <button class="shell-tab" id="gm-tab-maps" data-gm-tab="maps" type="button">地图编辑</button>
+      </div>
+    </div>
+
+    <section id="player-workspace" class="workspace-grid">
     <section class="layout-section">
       <div class="panel-stamp">司</div>
       <div class="section-head">
@@ -704,6 +937,29 @@
           在线玩家的修改会由服务端在下一息统一执行。离线玩家会直接更新存档。<br />
           编辑器展示的是完整玩家快照；像 `actions`、`finalAttrs`、`numericStats`、`realm` 这类派生字段，保存后仍以服务端重算结果为准。
         </div>
+        <div class="editor-section" style="margin-top: 12px;">
+          <div class="editor-section-head">
+            <div>
+              <div class="editor-section-title">GM 密码</div>
+              <div class="editor-section-note">修改后立即生效，当前登录态不受影响。</div>
+            </div>
+          </div>
+          <form id="gm-password-form">
+            <div class="editor-grid compact">
+              <label class="editor-field">
+                <span>当前密码</span>
+                <input id="gm-password-current" type="password" autocomplete="current-password" />
+              </label>
+              <label class="editor-field">
+                <span>新密码</span>
+                <input id="gm-password-next" type="password" autocomplete="new-password" />
+              </label>
+            </div>
+            <div class="button-row" style="margin-top: 10px;">
+              <button id="gm-password-save" class="small-btn" type="submit">修改 GM 密码</button>
+            </div>
+          </form>
+        </div>
       </div>
     </section>
 
@@ -752,6 +1008,80 @@
           </details>
         </div>
       </div>
+    </section>
+    </section>
+
+    <section id="map-workspace" class="map-workspace hidden">
+      <section class="layout-section">
+        <div class="section-head">
+          <div class="section-title">地图册</div>
+          <div class="section-subtitle">选择任意地图进入完整格子地图编辑</div>
+        </div>
+        <div class="section-body">
+          <div class="filter-row">
+            <input id="map-search" class="search-input" type="text" placeholder="搜索地图 ID / 名称 / 推荐境界" />
+          </div>
+          <div class="button-row" style="margin-bottom: 12px;">
+            <button id="map-refresh-list" class="small-btn" type="button">刷新地图目录</button>
+          </div>
+          <div id="map-list" class="map-list"></div>
+        </div>
+      </section>
+
+      <section class="layout-section">
+        <div class="section-head">
+          <div class="section-title">地图画布</div>
+          <div class="section-subtitle">复用游戏内 TextRenderer 的地块显示语义</div>
+        </div>
+        <div class="section-body" style="display:flex; flex-direction:column; gap:12px;">
+          <div class="button-row">
+            <button id="map-save" class="small-btn primary" type="button">保存当前地图</button>
+            <button id="map-reset" class="small-btn" type="button">放弃未保存修改</button>
+            <button id="map-reload" class="small-btn" type="button">重新载入</button>
+            <button id="map-center" class="small-btn" type="button">视角居中</button>
+            <button id="map-zoom-out" class="small-btn" type="button">缩小</button>
+            <button id="map-zoom-in" class="small-btn" type="button">放大</button>
+          </div>
+          <div class="map-overlay-note">左键按当前工具操作，右键拖动画布，滚轮缩放。传送点、NPC、怪物刷新点、出生点与灵气点都会直接叠加在地图上。</div>
+          <div id="map-editor-host" class="map-canvas-host">
+            <canvas id="map-editor-canvas"></canvas>
+            <div id="map-canvas-empty" class="empty-hint">从左侧地图册中选择一张地图后开始编辑。</div>
+          </div>
+          <div id="map-status-bar" class="status-bar"></div>
+        </div>
+      </section>
+
+      <section class="layout-section">
+        <div class="section-head">
+          <div class="section-title">地图检视</div>
+          <div class="section-subtitle">图块绘制、对象布局、属性编辑与高级 JSON</div>
+        </div>
+        <div class="section-body">
+          <div id="map-editor-empty" class="empty-hint">请选择一张地图。</div>
+          <div id="map-editor-panel" class="hidden">
+            <div id="map-summary" class="map-summary-card"></div>
+            <div class="editor-section" style="margin-top: 12px;">
+              <div class="editor-section-head">
+                <div>
+                  <div class="editor-section-title">编辑工具</div>
+                  <div class="editor-section-note">选择操作模式与当前地块笔刷。</div>
+                </div>
+              </div>
+              <div id="map-tool-buttons" class="map-tool-grid"></div>
+              <div id="map-tile-palette" class="map-tile-palette" style="margin-top: 10px;"></div>
+            </div>
+            <div id="map-inspector-content" class="editor-stack" style="margin-top: 12px;"></div>
+            <details class="editor-section editor-advanced" style="margin-top: 12px;">
+              <summary class="editor-section-title">高级模式 · 地图 JSON</summary>
+              <div class="editor-note" style="margin-top:8px;">这里用于整体导入、快速比对或处理暂未展开成表单的复杂结构。</div>
+              <div class="button-row" style="margin: 10px 0;">
+                <button id="map-apply-json" class="small-btn" type="button">应用 JSON 到可视化</button>
+              </div>
+              <textarea id="map-json" class="editor-textarea" spellcheck="false"></textarea>
+            </details>
+          </div>
+        </div>
+      </section>
     </section>
   </main>
 

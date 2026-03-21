@@ -4,7 +4,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { AuthTokenRes, DisplayNameAvailabilityRes, GmLoginRes } from '@mud/shared';
+import * as fs from 'fs';
 import { UserEntity } from '../database/entities/user.entity';
+import { resolveServerDataPath } from '../common/data-path';
 import {
   normalizeDisplayName,
   normalizeUsername,
@@ -15,6 +17,12 @@ import {
 } from './account-validation';
 
 const GM_TOKEN_EXPIRES_IN = 60 * 60 * 12;
+const GM_CONFIG_PATH = resolveServerDataPath('gm-config.json');
+
+interface GmConfigFile {
+  passwordHash: string;
+  updatedAt: string;
+}
 
 @Injectable()
 export class AuthService {
@@ -115,12 +123,10 @@ export class AuthService {
     }
   }
 
-  loginGm(password: string): GmLoginRes {
-    const configuredPassword = process.env.GM_PASSWORD;
-    if (!configuredPassword) {
-      throw new UnauthorizedException('GM 密码未配置');
-    }
-    if (password !== configuredPassword) {
+  async loginGm(password: string): Promise<GmLoginRes> {
+    const passwordHash = await this.getOrCreateGmPasswordHash();
+    const valid = await bcrypt.compare(password, passwordHash);
+    if (!valid) {
       throw new UnauthorizedException('GM 密码错误');
     }
 
@@ -131,6 +137,25 @@ export class AuthService {
       ),
       expiresInSec: GM_TOKEN_EXPIRES_IN,
     };
+  }
+
+  async changeGmPassword(currentPassword: string, newPassword: string): Promise<void> {
+    const passwordHash = await this.getOrCreateGmPasswordHash();
+    const valid = await bcrypt.compare(currentPassword, passwordHash);
+    if (!valid) {
+      throw new UnauthorizedException('当前 GM 密码错误');
+    }
+
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      throw new BadRequestException(passwordError);
+    }
+
+    const nextHash = await bcrypt.hash(newPassword, 10);
+    this.writeGmConfig({
+      passwordHash: nextHash,
+      updatedAt: new Date().toISOString(),
+    });
   }
 
   validateGmToken(token: string): boolean {
@@ -161,5 +186,43 @@ export class AuthService {
           .orWhere('(user.displayName IS NULL AND LEFT(user.username, 1) = :displayName)', { displayName });
       }))
       .getOne();
+  }
+
+  private async getOrCreateGmPasswordHash(): Promise<string> {
+    const existing = this.readGmConfig();
+    if (existing?.passwordHash) {
+      return existing.passwordHash;
+    }
+
+    const initialPassword = process.env.GM_PASSWORD?.trim() || 'admin123';
+    const passwordHash = await bcrypt.hash(initialPassword, 10);
+    this.writeGmConfig({
+      passwordHash,
+      updatedAt: new Date().toISOString(),
+    });
+    return passwordHash;
+  }
+
+  private readGmConfig(): GmConfigFile | null {
+    try {
+      if (!fs.existsSync(GM_CONFIG_PATH)) {
+        return null;
+      }
+      const raw = JSON.parse(fs.readFileSync(GM_CONFIG_PATH, 'utf-8')) as Partial<GmConfigFile>;
+      if (typeof raw.passwordHash !== 'string' || !raw.passwordHash.trim()) {
+        return null;
+      }
+      return {
+        passwordHash: raw.passwordHash,
+        updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : new Date(0).toISOString(),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private writeGmConfig(config: GmConfigFile): void {
+    fs.mkdirSync(resolveServerDataPath(), { recursive: true });
+    fs.writeFileSync(GM_CONFIG_PATH, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
   }
 }

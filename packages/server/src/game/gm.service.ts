@@ -121,19 +121,7 @@ export class GmService {
       return '目标地图不存在';
     }
 
-    for (const player of this.playerService.getPlayersByMap(mapId)) {
-      if (player.x >= document.width || player.y >= document.height || player.x < 0 || player.y < 0) {
-        return `在线角色 ${player.name} 超出新地图范围，请先移动角色后再保存`;
-      }
-      const row = document.tiles[player.y];
-      if (!row) {
-        return `在线角色 ${player.name} 所在坐标无对应地图行`;
-      }
-      const tileType = getTileTypeFromMapChar(row[player.x] ?? '#');
-      if (!isTileTypeWalkable(tileType)) {
-        return `在线角色 ${player.name} 当前站位会被改成不可通行地块，请先移动角色后再保存`;
-      }
-    }
+    const runtimePlayers = this.playerService.getPlayersByMap(mapId).map((player) => this.clonePlayer(player));
 
     const error = this.mapService.saveEditableMap(mapId, document);
     if (error) {
@@ -141,6 +129,18 @@ export class GmService {
     }
 
     this.worldService.reloadMapRuntime(mapId);
+    for (const player of runtimePlayers) {
+      const relocation = this.resolveMapSaveRelocation(player);
+      if (!relocation) continue;
+      const snapshot = this.clonePlayer(player);
+      snapshot.x = relocation.x;
+      snapshot.y = relocation.y;
+      this.enqueue(mapId, {
+        type: 'updatePlayer',
+        playerId: player.id,
+        snapshot,
+      });
+    }
     return null;
   }
 
@@ -476,6 +476,43 @@ export class GmService {
     const commands = this.commandsByMap.get(mapId) ?? [];
     commands.push(command);
     this.commandsByMap.set(mapId, commands);
+  }
+
+  private resolveMapSaveRelocation(player: PlayerState): { x: number; y: number } | null {
+    const mapMeta = this.mapService.getMapMeta(player.mapId);
+    if (!mapMeta) return null;
+
+    const inBounds =
+      player.x >= 0 &&
+      player.y >= 0 &&
+      player.x < mapMeta.width &&
+      player.y < mapMeta.height;
+
+    if (inBounds && this.mapService.canOccupy(player.mapId, player.x, player.y, player.id)) {
+      return null;
+    }
+
+    const origin = inBounds
+      ? { x: player.x, y: player.y }
+      : {
+          x: Math.min(mapMeta.width - 1, Math.max(0, player.x)),
+          y: Math.min(mapMeta.height - 1, Math.max(0, player.y)),
+        };
+
+    const nearby = this.mapService.findNearbyWalkable(player.mapId, origin.x, origin.y, 10);
+    if (nearby) return nearby;
+
+    const spawn = this.mapService.getSpawnPoint(player.mapId);
+    if (spawn && this.mapService.canOccupy(player.mapId, spawn.x, spawn.y, player.id)) {
+      return spawn;
+    }
+
+    if (spawn) {
+      const nearSpawn = this.mapService.findNearbyWalkable(player.mapId, spawn.x, spawn.y, 12);
+      if (nearSpawn) return nearSpawn;
+    }
+
+    return null;
   }
 
   private markDirty(playerId: string, flags: DirtyFlag[]): void {

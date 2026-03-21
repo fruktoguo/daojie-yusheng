@@ -316,6 +316,11 @@ export interface GmLoginRes {
   expiresInSec: number;
 }
 
+export interface GmChangePasswordReq {
+  currentPassword: string;
+  newPassword: string;
+}
+
 export interface GmManagedPlayerMeta {
   userId?: string;
   isBot: boolean;
@@ -377,6 +382,14 @@ export interface GmMapAuraRecord {
   x: number;
   y: number;
   value: number;
+}
+
+export interface GmMapLandmarkRecord {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  desc?: string;
 }
 
 export interface GmMapDropRecord {
@@ -458,6 +471,7 @@ export interface GmMapDocument {
     y: number;
   };
   auras?: GmMapAuraRecord[];
+  landmarks?: GmMapLandmarkRecord[];
   npcs: GmMapNpcRecord[];
   monsterSpawns: GmMapMonsterSpawnRecord[];
 }

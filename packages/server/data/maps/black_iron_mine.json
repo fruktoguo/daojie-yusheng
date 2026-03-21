@@ -3,11 +3,14 @@
   "name": "玄铁矿洞",
   "width": 30,
   "height": 30,
+  "description": "",
+  "dangerLevel": 3,
+  "recommendedRealm": "Minor-Major",
   "tiles": [
     "##############################",
-    "#ooooooo,,,,,,,,,,,,,,,,,oooo#",
-    "#oPooooo,##########,,,,,,oooP#",
-    "#ooooooo,#........#,,,,,,oooo#",
+    "#...oooo,,,,,,,,,,,,,,,,,oo..#",
+    "#.P.oooo,##########,,,,,,oo.P#",
+    "#...oooo,#........#,,,,,,oo..#",
     "#ooooooo,#.oooooo.#,,,,,,oooo#",
     "#ooooooo,#.o....o.#,,,,,,oooo#",
     "#ooooooo,#.o....o.#,,,,,,oooo#",
@@ -51,12 +54,11 @@
       "targetY": 25
     }
   ],
-  "dangerLevel": 3,
-  "recommendedRealm": "Minor-Major",
   "spawnPoint": {
     "x": 3,
-    "y": 3
+    "y": 1
   },
+  "auras": [],
   "npcs": [
     {
       "id": "npc_mine_overseer_ghost",
@@ -65,8 +67,9 @@
       "y": 16,
       "char": "魂",
       "color": "#c0d6ff",
+      "dialogue": "失落信标在深矿区，矿魈专守钟乳洞口。若你是替云来镇而来，就别让炉火彻底灭掉。",
       "role": "quest_hint",
-      "dialogue": "失落信标在深矿区，矿魈专守钟乳洞口。若你是替云来镇而来，就别让炉火彻底灭掉。"
+      "quests": []
     },
     {
       "id": "npc_mine_smith",
@@ -75,8 +78,8 @@
       "y": 16,
       "char": "炉",
       "color": "#e7a66a",
-      "role": "quest_giver",
       "dialogue": "矿火未熄，脉火就还能接上。你若真想通脉，就别浪费这里每一块玄铁。",
+      "role": "quest_giver",
       "quests": [
         {
           "id": "q_mine_crystal_route",
@@ -132,16 +135,16 @@
     {
       "id": "m_mine_ghoul",
       "name": "矿魈",
-      "char": "魈",
-      "color": "#8f7fa8",
       "x": 20,
       "y": 14,
+      "char": "魈",
+      "color": "#8f7fa8",
+      "hp": 78,
+      "attack": 14,
       "radius": 8,
       "maxAlive": 7,
       "respawnSec": 24,
       "level": 4,
-      "hp": 78,
-      "attack": 14,
       "drops": [
         {
           "itemId": "mine_signal_core",
@@ -169,16 +172,16 @@
     {
       "id": "m_crystal_bat",
       "name": "晶背蝠",
-      "char": "蝠",
-      "color": "#9ac3ff",
       "x": 8,
       "y": 23,
+      "char": "蝠",
+      "color": "#9ac3ff",
+      "hp": 48,
+      "attack": 9,
       "radius": 5,
       "maxAlive": 5,
       "respawnSec": 20,
       "level": 3,
-      "hp": 48,
-      "attack": 9,
       "drops": [
         {
           "itemId": "crystal_dust",
@@ -192,16 +195,16 @@
     {
       "id": "m_tunnel_stalker",
       "name": "隧影潜猎者",
-      "char": "潜",
-      "color": "#6f84a8",
       "x": 24,
       "y": 24,
+      "char": "潜",
+      "color": "#6f84a8",
+      "hp": 90,
+      "attack": 16,
       "radius": 5,
       "maxAlive": 4,
       "respawnSec": 22,
       "level": 5,
-      "hp": 90,
-      "attack": 16,
       "drops": [
         {
           "itemId": "black_iron_chunk",
@@ -222,16 +225,16 @@
     {
       "id": "m_ore_colossus",
       "name": "矿脉巨像",
-      "char": "像",
-      "color": "#8f8a7b",
       "x": 15,
       "y": 16,
+      "char": "像",
+      "color": "#8f8a7b",
+      "hp": 170,
+      "attack": 28,
       "radius": 3,
       "maxAlive": 2,
       "respawnSec": 60,
       "level": 7,
-      "hp": 170,
-      "attack": 28,
       "drops": [
         {
           "itemId": "colossus_heart",

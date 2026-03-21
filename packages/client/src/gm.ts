@@ -1,5 +1,7 @@
 import {
+  type BasicOkRes,
   Direction,
+  type GmChangePasswordReq,
   TechniqueRealm,
   type AttrKey,
   type AutoBattleSkillConfig,
@@ -17,6 +19,7 @@ import {
   type TechniqueState,
   type TemporaryBuffState,
 } from '@mud/shared';
+import { GmMapEditor } from './gm-map-editor';
 
 const TOKEN_KEY = 'mud:gm-access-token';
 const POLL_INTERVAL_MS = 5000;
@@ -59,6 +62,7 @@ const TECHNIQUE_GRADE_OPTIONS = ['mortal', 'yellow', 'mystic', 'earth', 'heaven'
 
 const loginOverlay = document.getElementById('login-overlay') as HTMLDivElement;
 const gmShell = document.getElementById('gm-shell') as HTMLDivElement;
+const loginForm = document.getElementById('gm-login-form') as HTMLFormElement;
 const passwordInput = document.getElementById('gm-password') as HTMLInputElement;
 const loginSubmitBtn = document.getElementById('login-submit') as HTMLButtonElement;
 const loginErrorEl = document.getElementById('login-error') as HTMLDivElement;
@@ -84,6 +88,14 @@ const summaryBotsEl = document.getElementById('summary-bots') as HTMLDivElement;
 const summaryTickEl = document.getElementById('summary-tick') as HTMLDivElement;
 const summaryCpuEl = document.getElementById('summary-cpu') as HTMLDivElement;
 const summaryMemoryEl = document.getElementById('summary-memory') as HTMLDivElement;
+const gmPasswordForm = document.getElementById('gm-password-form') as HTMLFormElement;
+const gmPasswordCurrentInput = document.getElementById('gm-password-current') as HTMLInputElement;
+const gmPasswordNextInput = document.getElementById('gm-password-next') as HTMLInputElement;
+const gmPasswordSaveBtn = document.getElementById('gm-password-save') as HTMLButtonElement;
+const playerWorkspaceEl = document.getElementById('player-workspace') as HTMLElement;
+const mapWorkspaceEl = document.getElementById('map-workspace') as HTMLElement;
+const playerTabBtn = document.getElementById('gm-tab-players') as HTMLButtonElement;
+const mapTabBtn = document.getElementById('gm-tab-maps') as HTMLButtonElement;
 
 let token = sessionStorage.getItem(TOKEN_KEY) ?? '';
 let state: GmStateRes | null = null;
@@ -92,6 +104,7 @@ let draftSnapshot: PlayerState | null = null;
 let editorDirty = false;
 let draftSourcePlayerId: string | null = null;
 let pollTimer: number | null = null;
+let currentTab: 'players' | 'maps' = 'players';
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -115,6 +128,21 @@ function setStatus(message: string, isError = false): void {
   statusBarEl.style.color = isError ? 'var(--stamp-red)' : 'var(--ink-grey)';
 }
 
+const mapEditor = new GmMapEditor(request, setStatus);
+
+function switchTab(tab: 'players' | 'maps'): void {
+  currentTab = tab;
+  playerTabBtn.classList.toggle('active', tab === 'players');
+  mapTabBtn.classList.toggle('active', tab === 'maps');
+  playerWorkspaceEl.classList.toggle('hidden', tab !== 'players');
+  mapWorkspaceEl.classList.toggle('hidden', tab !== 'maps');
+  if (tab === 'maps') {
+    mapEditor.ensureLoaded().catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '加载地图编辑器失败', true);
+    });
+  }
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers ?? {});
   if (!headers.has('Content-Type') && init.body) {
@@ -126,7 +154,14 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   const response = await fetch(path, { ...init, headers });
   const text = await response.text();
-  const data = text ? JSON.parse(text) as unknown : null;
+  let data: unknown = null;
+  if (text) {
+    try {
+      data = JSON.parse(text) as unknown;
+    } catch {
+      data = text;
+    }
+  }
 
   if (response.status === 401) {
     logout('GM 登录已失效，请重新输入密码');
@@ -135,7 +170,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!response.ok) {
     const message = typeof data === 'object' && data && 'message' in data
       ? String((data as { message: unknown }).message)
-      : '请求失败';
+      : typeof data === 'string' && data.trim().length > 0
+        ? data
+        : '请求失败';
     throw new Error(message);
   }
   return data as T;
@@ -938,6 +975,8 @@ function logout(message?: string): void {
   playerListEl.innerHTML = '';
   editorContentEl.innerHTML = '';
   playerJsonEl.value = '';
+  mapEditor.reset();
+  switchTab('players');
   loginErrorEl.textContent = message ?? '';
   setStatus('');
   showLogin();
@@ -976,6 +1015,33 @@ async function login(): Promise<void> {
     loginErrorEl.textContent = error instanceof Error ? error.message : '登录失败';
   } finally {
     loginSubmitBtn.disabled = false;
+  }
+}
+
+async function changeGmPassword(): Promise<void> {
+  const currentPassword = gmPasswordCurrentInput.value.trim();
+  const newPassword = gmPasswordNextInput.value.trim();
+  if (!currentPassword || !newPassword) {
+    setStatus('请填写当前密码和新密码', true);
+    return;
+  }
+
+  gmPasswordSaveBtn.disabled = true;
+  try {
+    await request<BasicOkRes>('/auth/gm/password', {
+      method: 'POST',
+      body: JSON.stringify({
+        currentPassword,
+        newPassword,
+      } satisfies GmChangePasswordReq),
+    });
+    gmPasswordCurrentInput.value = '';
+    gmPasswordNextInput.value = '';
+    setStatus('GM 密码已更新');
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : 'GM 密码修改失败', true);
+  } finally {
+    gmPasswordSaveBtn.disabled = false;
   }
 }
 
@@ -1207,14 +1273,10 @@ editorContentEl.addEventListener('change', () => {
 });
 
 playerSearchInput.addEventListener('input', () => render());
-passwordInput.addEventListener('keydown', (event) => {
-  if (event.key === 'Enter') {
-    event.preventDefault();
-    login().catch(() => {});
-  }
-});
-
-loginSubmitBtn.addEventListener('click', () => {
+playerTabBtn.addEventListener('click', () => switchTab('players'));
+mapTabBtn.addEventListener('click', () => switchTab('maps'));
+loginForm.addEventListener('submit', (event) => {
+  event.preventDefault();
   login().catch(() => {});
 });
 
@@ -1234,6 +1296,10 @@ document.getElementById('spawn-bots')?.addEventListener('click', () => {
 document.getElementById('remove-all-bots')?.addEventListener('click', () => {
   removeAllBots().catch(() => {});
 });
+gmPasswordForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  changeGmPassword().catch(() => {});
+});
 savePlayerBtn.addEventListener('click', () => {
   saveSelectedPlayer().catch(() => {});
 });
@@ -1246,6 +1312,7 @@ removeBotBtn.addEventListener('click', () => {
 
 if (token) {
   showShell();
+  switchTab('players');
   loadState()
     .then(() => startPolling())
     .catch(() => logout('GM 登录已失效，请重新输入密码'));

@@ -5,6 +5,7 @@ import {
   getTileTypeFromMapChar,
   GmMapAuraRecord,
   GmMapDocument,
+  GmMapLandmarkRecord,
   GmMapListRes,
   GmMapMonsterSpawnRecord,
   GmMapNpcRecord,
@@ -28,6 +29,7 @@ import {
 } from '@mud/shared';
 import * as fs from 'fs';
 import * as path from 'path';
+import { resolveServerDataPath } from '../common/data-path';
 import { resolveRealmStageTargetLabel } from './quest-display';
 
 export interface QuestConfig {
@@ -186,7 +188,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   private monsters: Map<string, MonsterSpawnConfig> = new Map();
   private revisions: Map<string, number> = new Map();
   private watchers: fs.FSWatcher[] = [];
-  private mapsDir = path.join(process.cwd(), 'data', 'maps');
+  private mapsDir = resolveServerDataPath('maps');
 
   onModuleInit() {
     this.loadAllMaps();
@@ -876,11 +878,14 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       ? source.tiles.map((row) => typeof row === 'string' ? row : '')
       : [];
     const auras = Array.isArray(source.auras) ? source.auras : [];
+    const landmarks = Array.isArray((source as { landmarks?: unknown[] }).landmarks)
+      ? (source as { landmarks: unknown[] }).landmarks
+      : [];
     const portals = Array.isArray(source.portals) ? source.portals : [];
     const npcs = Array.isArray(source.npcs) ? source.npcs : [];
     const monsterSpawns = Array.isArray(source.monsterSpawns) ? source.monsterSpawns : [];
 
-    return this.syncPortalTiles({
+    return this.repairEditableMapDocument(this.syncPortalTiles({
       id: typeof source.id === 'string' ? source.id : '',
       name: typeof source.name === 'string' ? source.name : '',
       width: Number.isInteger(source.width) ? Number(source.width) : 0,
@@ -904,6 +909,15 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         x: Number((point as GmMapAuraRecord).x ?? 0),
         y: Number((point as GmMapAuraRecord).y ?? 0),
         value: Number((point as GmMapAuraRecord).value ?? 0),
+      })),
+      landmarks: landmarks.map((landmark) => ({
+        id: String((landmark as GmMapLandmarkRecord).id ?? ''),
+        name: String((landmark as GmMapLandmarkRecord).name ?? ''),
+        x: Number((landmark as GmMapLandmarkRecord).x ?? 0),
+        y: Number((landmark as GmMapLandmarkRecord).y ?? 0),
+        desc: typeof (landmark as GmMapLandmarkRecord).desc === 'string'
+          ? (landmark as GmMapLandmarkRecord).desc
+          : undefined,
       })),
       npcs: npcs.map((npc) => ({
         id: String((npc as GmMapNpcRecord).id ?? ''),
@@ -955,11 +969,11 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
           ? JSON.parse(JSON.stringify((spawn as GmMapMonsterSpawnRecord).drops))
           : [],
       })),
-    });
+    }));
   }
 
   private syncPortalTiles(document: GmMapDocument): GmMapDocument {
-    const rows = document.tiles.map((row) => [...row]);
+    const rows = document.tiles.map((row) => [...row].map((char) => char === 'P' ? '.' : char));
     for (const portal of document.portals) {
       if (!rows[portal.y]?.[portal.x]) continue;
       rows[portal.y]![portal.x] = 'P';
@@ -968,6 +982,51 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       ...document,
       tiles: rows.map((row) => row.join('')),
     };
+  }
+
+  private repairEditableMapDocument(document: GmMapDocument): GmMapDocument {
+    const repairedSpawnPoint = this.resolveNearestWalkablePointInDocument(document, document.spawnPoint)
+      ?? document.spawnPoint;
+    return {
+      ...document,
+      spawnPoint: repairedSpawnPoint,
+    };
+  }
+
+  private resolveNearestWalkablePointInDocument(
+    document: GmMapDocument,
+    origin: { x: number; y: number },
+  ): { x: number; y: number } | null {
+    if (document.width <= 0 || document.height <= 0) {
+      return null;
+    }
+
+    const clamped = {
+      x: Math.min(document.width - 1, Math.max(0, Math.floor(origin.x))),
+      y: Math.min(document.height - 1, Math.max(0, Math.floor(origin.y))),
+    };
+
+    let portalFallback: { x: number; y: number } | null = null;
+    for (let radius = 0; radius <= Math.max(document.width, document.height); radius += 1) {
+      for (let dy = -radius; dy <= radius; dy += 1) {
+        for (let dx = -radius; dx <= radius; dx += 1) {
+          if (Math.abs(dx) + Math.abs(dy) > radius) continue;
+          const x = clamped.x + dx;
+          const y = clamped.y + dy;
+          if (x < 0 || x >= document.width || y < 0 || y >= document.height) continue;
+          const type = getTileTypeFromMapChar(document.tiles[y]?.[x] ?? '#');
+          if (type === TileType.Portal) {
+            portalFallback ??= { x, y };
+            continue;
+          }
+          if (isTileTypeWalkable(type)) {
+            return { x, y };
+          }
+        }
+      }
+    }
+
+    return portalFallback;
   }
 
   private validateEditableMapDocument(document: GmMapDocument): string | null {
@@ -1029,6 +1088,15 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       if (error) return error;
     }
 
+    for (let index = 0; index < (document.landmarks?.length ?? 0); index += 1) {
+      const landmark = document.landmarks![index]!;
+      const label = `地标 ${landmark.id || index + 1}`;
+      if (!landmark.id.trim()) return `${label} 的 ID 不能为空`;
+      if (!landmark.name.trim()) return `${label} 的名称不能为空`;
+      const error = ensurePointInBounds(landmark.x, landmark.y, label);
+      if (error) return error;
+    }
+
     for (let index = 0; index < document.npcs.length; index += 1) {
       const npc = document.npcs[index]!;
       const label = `NPC ${npc.id || index + 1}`;
@@ -1045,7 +1113,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       if (!spawn.id.trim()) return `${label} 的 ID 不能为空`;
       if (!spawn.name.trim()) return `${label} 的名称不能为空`;
       if (!spawn.char.trim()) return `${label} 的字符不能为空`;
-      const error = ensureWalkablePoint(spawn.x, spawn.y, label);
+      const error = ensurePointInBounds(spawn.x, spawn.y, label);
       if (error) return error;
     }
 
