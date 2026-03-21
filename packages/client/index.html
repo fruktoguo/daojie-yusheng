@@ -890,6 +890,15 @@
       justify-content: center;
       gap: 2px;
     }
+    .map-side-info-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      align-self: stretch;
+      flex: 1;
+      padding: 10px 0;
+    }
     .map-tick-rate-char,
     .map-tick-rate-number {
       display: block;
@@ -911,6 +920,15 @@
       font-family: var(--font-heading-main);
       font-size: 22px;
       color: var(--ink-black);
+    }
+    .map-side-phase {
+      font-family: var(--font-heading-sub);
+      font-size: 12px;
+      color: var(--ink-grey);
+      letter-spacing: 2px;
+      writing-mode: vertical-rl;
+      text-orientation: upright;
+      line-height: 1.1;
     }
     #game-stage {
       grid-column: 2;
@@ -1811,6 +1829,10 @@
         linear-gradient(180deg, rgba(249, 247, 241, 0.98), rgba(239, 235, 225, 0.97));
       box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.16);
     }
+    .detail-modal-card.detail-modal--loot {
+      width: min(860px, calc(100vw - 32px));
+      max-height: min(84vh, 860px);
+    }
     .detail-modal-head {
       display: flex;
       align-items: baseline;
@@ -1832,6 +1854,67 @@
     .detail-modal-hint {
       font-size: 11px;
       color: var(--ink-grey);
+    }
+    .loot-source-section + .loot-source-section {
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid var(--wash-ink);
+    }
+    .loot-source-head {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .loot-source-title {
+      font-family: var(--font-heading-sub);
+      font-size: 18px;
+      color: var(--ink-black);
+    }
+    .loot-source-subtitle,
+    .loot-source-desc {
+      font-size: 12px;
+      color: var(--ink-grey);
+      line-height: 1.5;
+    }
+    .loot-search-state {
+      margin-bottom: 12px;
+      padding: 12px;
+      border: 1px solid rgba(34, 26, 19, 0.08);
+      background: rgba(255,255,255,0.46);
+    }
+    .loot-search-copy {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 12px;
+      color: var(--ink-grey);
+    }
+    .loot-search-bar {
+      width: 100%;
+      height: 8px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(34, 26, 19, 0.08);
+    }
+    .loot-search-fill {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, rgba(167, 64, 41, 0.88), rgba(214, 138, 74, 0.92));
+    }
+    .loot-item-grid {
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    }
+    .loot-source-empty {
+      padding: 14px 16px;
+      border: 1px solid rgba(34, 26, 19, 0.08);
+      background: rgba(255,255,255,0.42);
+      color: var(--ink-grey);
+      font-size: 13px;
     }
     .account-settings-section + .account-settings-section {
       margin-top: 14px;
@@ -2915,6 +2998,14 @@
       .map-tool-controls {
         flex-direction: row;
       }
+      .map-side-info-stack {
+        flex-direction: row;
+        justify-content: space-between;
+        align-self: auto;
+        flex: 0 1 auto;
+        gap: 18px;
+        padding: 0;
+      }
       .split-tab-btn {
         border-bottom: none;
         border-right: 1px solid var(--wash-ink);
@@ -3085,23 +3176,39 @@
               <button id="zoom-out" class="map-zoom-btn" type="button">-</button>
             </div>
           </div>
-          <div id="game-stage">
+        <div id="game-stage">
             <div id="map-targeting-indicator" class="map-targeting-indicator hidden"></div>
             <canvas id="game-canvas"></canvas>
           </div>
         <div class="map-side-rail right">
-          <div id="map-tick-rate" class="map-tick-rate">
-            <span class="map-tick-rate-char">流</span>
-            <span class="map-tick-rate-char">转</span>
-            <span class="map-tick-rate-char">间</span>
-            <span class="map-tick-rate-char">隔</span>
-            <span class="map-tick-rate-value" id="map-tick-rate-value">
-              <span class="map-tick-rate-number" data-part="int">1</span>
-              <span class="map-tick-rate-number" data-part="dot">.</span>
-              <span class="map-tick-rate-number" data-part="frac-a">0</span>
-              <span class="map-tick-rate-number" data-part="frac-b">0</span>
-            </span>
-            <span class="map-tick-rate-char">息</span>
+          <div class="map-side-info-stack">
+            <div id="map-current-time" class="map-tick-rate">
+              <span class="map-tick-rate-char">当</span>
+              <span class="map-tick-rate-char">前</span>
+              <span class="map-tick-rate-char">时</span>
+              <span class="map-tick-rate-char">间</span>
+              <span class="map-tick-rate-value" id="map-current-time-value">
+                <span class="map-tick-rate-number" data-time-part="hour-a">-</span>
+                <span class="map-tick-rate-number" data-time-part="hour-b">-</span>
+                <span class="map-tick-rate-number" data-time-part="dot">:</span>
+                <span class="map-tick-rate-number" data-time-part="min-a">-</span>
+                <span class="map-tick-rate-number" data-time-part="min-b">-</span>
+              </span>
+              <span class="map-side-phase" id="map-current-time-phase">未明</span>
+            </div>
+            <div id="map-tick-rate" class="map-tick-rate">
+              <span class="map-tick-rate-char">流</span>
+              <span class="map-tick-rate-char">转</span>
+              <span class="map-tick-rate-char">间</span>
+              <span class="map-tick-rate-char">隔</span>
+              <span class="map-tick-rate-value" id="map-tick-rate-value">
+                <span class="map-tick-rate-number" data-part="int">1</span>
+                <span class="map-tick-rate-number" data-part="dot">.</span>
+                <span class="map-tick-rate-number" data-part="frac-a">0</span>
+                <span class="map-tick-rate-number" data-part="frac-b">0</span>
+              </span>
+              <span class="map-tick-rate-char">息</span>
+            </div>
           </div>
         </div>
         </div>

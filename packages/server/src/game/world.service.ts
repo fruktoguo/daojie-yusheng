@@ -10,6 +10,7 @@ import {
   distanceSquared,
   Direction,
   ElementKey,
+  GameTimeState,
   getDamageTrailColor,
   getRealmGapDamageMultiplier,
   isPointInRange,
@@ -33,13 +34,16 @@ import {
   VisibleBuffState,
 } from '@mud/shared';
 import { AttrService } from './attr.service';
+import { AoiService } from './aoi.service';
 import { ContentService } from './content.service';
 import { InventoryService } from './inventory.service';
+import { LootService } from './loot.service';
 import { DropConfig, MapService, MonsterSpawnConfig, NpcConfig, QuestConfig } from './map.service';
 import { NavigationService } from './navigation.service';
 import { PlayerService } from './player.service';
 import { isLikelyInternalContentId, resolveQuestTargetName } from './quest-display';
 import { TechniqueService } from './technique.service';
+import { TimeService } from './time.service';
 
 type MessageKind = 'system' | 'quest' | 'combat' | 'loot';
 type WorldDirtyFlag = 'inv' | 'quest' | 'actions' | 'tech' | 'attr';
@@ -54,6 +58,7 @@ interface RuntimeMonster extends MonsterSpawnConfig {
   respawnLeft: number;
   temporaryBuffs: TemporaryBuffState[];
   damageContributors: Map<string, number>;
+  targetPlayerId?: string;
 }
 
 interface NpcInteractionState {
@@ -184,10 +189,33 @@ export class WorldService {
     private readonly techniqueService: TechniqueService,
     private readonly attrService: AttrService,
     private readonly playerService: PlayerService,
+    private readonly aoiService: AoiService,
+    private readonly lootService: LootService,
+    private readonly timeService: TimeService,
   ) {}
 
   getVisibleEntities(player: PlayerState, visibleKeys: Set<string>): RenderEntity[] {
     this.ensureMapInitialized(player.mapId);
+
+    const containers = this.mapService.getContainers(player.mapId)
+      .filter((container) => visibleKeys.has(`${container.x},${container.y}`))
+      .map<RenderEntity>((container) => ({
+        id: `container:${player.mapId}:${container.id}`,
+        x: container.x,
+        y: container.y,
+        char: '箱',
+        color: '#c18b46',
+        name: container.name,
+        kind: 'container',
+        observation: {
+          clarity: 'clear',
+          verdict: '这是一口可搜索的箱具，翻找后或许会有收获。',
+          lines: [
+            { label: '类别', value: '可搜索容器' },
+            { label: '搜索阶次', value: `${container.grade}` },
+          ],
+        },
+      }));
 
     const npcs = this.mapService.getNpcs(player.mapId)
       .filter((npc) => visibleKeys.has(`${npc.x},${npc.y}`))
@@ -197,7 +225,7 @@ export class WorldService {
       .filter((monster) => monster.alive && visibleKeys.has(`${monster.x},${monster.y}`))
       .map<RenderEntity>((monster) => this.buildMonsterRenderEntity(player, monster));
 
-    return [...npcs, ...monsters];
+    return [...containers, ...npcs, ...monsters];
   }
 
   reloadMapRuntime(mapId: string): void {
@@ -240,6 +268,7 @@ export class WorldService {
 
   getContextActions(player: PlayerState): ActionDef[] {
     this.syncQuestState(player);
+    const effectiveViewRange = this.timeService.getEffectiveViewRangeFromBuff(player.viewRange, player.temporaryBuffs);
 
     const actions: ActionDef[] = [{
       id: 'toggle:auto_battle',
@@ -279,7 +308,7 @@ export class WorldService {
       cooldownLeft: 0,
       requiresTarget: true,
       targetMode: 'any',
-      range: Math.max(1, player.viewRange),
+      range: effectiveViewRange,
     }];
 
     const breakthroughAction = this.techniqueService.getBreakthroughAction(player);
@@ -490,6 +519,12 @@ export class WorldService {
 
     let target = this.resolveCombatTarget(player);
     const dirty = new Set<WorldDirtyFlag>();
+    const effectiveViewRange = this.timeService.getEffectiveViewRangeFromBuff(player.viewRange, player.temporaryBuffs);
+
+    if (target && !this.canPlayerSeeTarget(player, target, effectiveViewRange)) {
+      target = undefined;
+      this.clearCombatTarget(player);
+    }
 
     if (!target) {
       if (player.combatTargetLocked) {
@@ -504,7 +539,7 @@ export class WorldService {
           dirty: ['actions'],
         };
       }
-      const fallback = this.findNearestLivingMonster(player, 8);
+      const fallback = this.findNearestLivingMonster(player, effectiveViewRange);
       if (!fallback) {
         this.clearCombatTarget(player);
         return EMPTY_UPDATE;
@@ -726,7 +761,8 @@ export class WorldService {
     if (!target) {
       return { ...EMPTY_UPDATE, error: '目标不存在或不可选中' };
     }
-    if (!isPointInRange(player, target, Math.max(1, player.viewRange))) {
+    const effectiveViewRange = this.timeService.getEffectiveViewRangeFromBuff(player.viewRange, player.temporaryBuffs);
+    if (!isPointInRange(player, target, effectiveViewRange) || !this.canPlayerSeeTarget(player, target, effectiveViewRange)) {
       return { ...EMPTY_UPDATE, error: '目标超出可锁定范围' };
     }
 
@@ -1105,6 +1141,7 @@ export class WorldService {
             monster.alive = true;
             monster.temporaryBuffs = [];
             monster.damageContributors.clear();
+            monster.targetPlayerId = undefined;
             this.mapService.setOccupied(mapId, monster.x, monster.y, monster.runtimeId);
           } else {
             monster.respawnLeft = 1;
@@ -1120,8 +1157,14 @@ export class WorldService {
         monster.temporaryBuffs = monster.temporaryBuffs.filter((buff) => buff.remainingTicks > 0 && buff.stacks > 0);
       }
 
-      const target = this.findNearestPlayer(monster, players);
-      if (!target) continue;
+      const timeState = this.timeService.syncMonsterTimeEffects(monster);
+      let target = this.resolveMonsterTarget(monster, players, timeState);
+      if (!target) {
+        if (monster.x !== monster.spawnX || monster.y !== monster.spawnY) {
+          this.stepToward(mapId, monster, monster.spawnX, monster.spawnY, monster.runtimeId);
+        }
+        continue;
+      }
 
       if (isPointInRange(monster, target, 1)) {
         const cultivation = this.techniqueService.interruptCultivation(target, 'hit');
@@ -1378,6 +1421,7 @@ export class WorldService {
       monster.respawnLeft = Math.max(1, monster.respawnTicks);
       monster.temporaryBuffs = [];
       monster.damageContributors.clear();
+      monster.targetPlayerId = undefined;
       this.mapService.setOccupied(monster.mapId, monster.x, monster.y, null);
       messages.push({
         playerId: player.id,
@@ -1403,9 +1447,10 @@ export class WorldService {
           });
           dirty.add('inv');
         } else {
+          this.lootService.dropToGround(monster.mapId, monster.x, monster.y, loot);
           messages.push({
             playerId: player.id,
-            text: `${loot.name} 掉落在地上，但你的背包已满。`,
+            text: `${loot.name} 掉落在 (${monster.x}, ${monster.y}) 的地面上，但你的背包已满。`,
             kind: 'loot',
           });
         }
@@ -1425,6 +1470,7 @@ export class WorldService {
       return;
     }
     monster.damageContributors.set(playerId, (monster.damageContributors.get(playerId) ?? 0) + damage);
+    monster.targetPlayerId = playerId;
   }
 
   private resolveMonsterExpRecipients(monster: RuntimeMonster, killer: PlayerState): PlayerState[] {
@@ -1864,6 +1910,7 @@ export class WorldService {
   }
 
   private buildMonsterRenderEntity(viewer: PlayerState, monster: RuntimeMonster): RenderEntity {
+    this.timeService.syncMonsterTimeEffects(monster);
     const snapshot = this.createMonsterObservationSnapshot(monster);
     return {
       id: monster.runtimeId,
@@ -2261,6 +2308,7 @@ export class WorldService {
           respawnLeft: 0,
           temporaryBuffs: [],
           damageContributors: new Map(),
+          targetPlayerId: undefined,
         };
         const pos = this.findSpawnPosition(mapId, runtime);
         if (pos && this.mapService.isWalkable(mapId, pos.x, pos.y)) {
@@ -2439,6 +2487,7 @@ export class WorldService {
       if (!monster.alive) continue;
       const distanceSq = distanceSquared(player, monster);
       if (distanceSq > maxDistance * maxDistance) continue;
+      if (!this.aoiService.inView(player, monster.x, monster.y, maxDistance)) continue;
       if (distanceSq < bestDistance) {
         best = monster;
         bestDistance = distanceSq;
@@ -2447,19 +2496,58 @@ export class WorldService {
     return best;
   }
 
-  private findNearestPlayer(monster: RuntimeMonster, players: PlayerState[]): PlayerState | undefined {
+  private findNearestPlayer(monster: RuntimeMonster, players: PlayerState[], viewRange: number): PlayerState | undefined {
     let best: PlayerState | undefined;
     let bestDistance = Number.MAX_SAFE_INTEGER;
     for (const player of players) {
       if (player.dead || player.mapId !== monster.mapId) continue;
       const distanceSq = distanceSquared(player, monster);
-      if (distanceSq > monster.aggroRange * monster.aggroRange) continue;
+      if (distanceSq > viewRange * viewRange) continue;
+      if (!this.aoiService.inViewAt(monster.mapId, monster.x, monster.y, viewRange, player.x, player.y, monster.runtimeId)) continue;
       if (distanceSq < bestDistance) {
         best = player;
         bestDistance = distanceSq;
       }
     }
     return best;
+  }
+
+  private resolveMonsterTarget(monster: RuntimeMonster, players: PlayerState[], timeState: GameTimeState): PlayerState | undefined {
+    if (monster.targetPlayerId) {
+      const target = players.find((player) => (
+        player.id === monster.targetPlayerId
+        && !player.dead
+        && player.mapId === monster.mapId
+      ));
+      if (target && this.aoiService.inViewAt(monster.mapId, monster.x, monster.y, timeState.effectiveViewRange, target.x, target.y, monster.runtimeId)) {
+        return target;
+      }
+      monster.targetPlayerId = undefined;
+    }
+
+    if (!this.isMonsterAutoAggroEnabled(monster, timeState)) {
+      return undefined;
+    }
+
+    const target = this.findNearestPlayer(monster, players, timeState.effectiveViewRange);
+    if (target) {
+      monster.targetPlayerId = target.id;
+    }
+    return target;
+  }
+
+  private isMonsterAutoAggroEnabled(monster: RuntimeMonster, timeState: GameTimeState): boolean {
+    switch (monster.aggroMode) {
+      case 'retaliate':
+        return false;
+      case 'day_only':
+        return !this.timeService.isNightAggroWindow(timeState);
+      case 'night_only':
+        return this.timeService.isNightAggroWindow(timeState);
+      case 'always':
+      default:
+        return true;
+    }
   }
 
   private respawnPlayer(player: PlayerState) {
@@ -2557,6 +2645,13 @@ export class WorldService {
       return undefined;
     }
     return target;
+  }
+
+  private canPlayerSeeTarget(player: PlayerState, target: ResolvedTarget, effectiveViewRange: number): boolean {
+    if (!isPointInRange(player, target, effectiveViewRange)) {
+      return false;
+    }
+    return this.aoiService.inView(player, target.x, target.y, effectiveViewRange);
   }
 
   private resolveTargetRef(

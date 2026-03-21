@@ -14,6 +14,7 @@ import {
   C2S_MoveTo,
   C2S_UseItem,
   C2S_DropItem,
+  C2S_TakeLoot,
   C2S_SortInventory,
   C2S_Equip,
   C2S_Unequip,
@@ -37,6 +38,7 @@ import { ContentService } from './content.service';
 import { PlayerService } from './player.service';
 import { MapService } from './map.service';
 import { AoiService } from './aoi.service';
+import { TimeService } from './time.service';
 import { WorldService } from './world.service';
 
 const DEFAULT_MAP = 'spawn';
@@ -56,6 +58,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly mapService: MapService,
     private readonly aoiService: AoiService,
     private readonly worldService: WorldService,
+    private readonly timeService: TimeService,
   ) {}
 
   async handleConnection(client: Socket) {
@@ -289,6 +292,20 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
+  @SubscribeMessage(C2S.TakeLoot)
+  handleTakeLoot(client: Socket, data: C2S_TakeLoot) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+
+    this.playerService.enqueueCommand(player.mapId, {
+      playerId,
+      type: 'takeLoot',
+      data,
+      timestamp: Date.now(),
+    });
+  }
+
   @SubscribeMessage(C2S.SortInventory)
   handleSortInventory(client: Socket, data: C2S_SortInventory) {
     const playerId = client.data?.playerId as string;
@@ -371,9 +388,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private sendInit(client: Socket, player: PlayerState) {
     const mapMeta = this.mapService.getMapMeta(player.mapId);
     if (!mapMeta) return;
+    this.timeService.syncPlayerTimeEffects(player);
     this.actionService.rebuildActions(player, this.worldService.getContextActions(player));
 
-    const visibility = this.aoiService.getVisibility(player);
+    const time = this.timeService.buildPlayerTimeState(player);
+    const visibility = this.aoiService.getVisibility(player, time.effectiveViewRange);
     const nearbyPlayers = this.playerService.getPlayersByMap(player.mapId)
       .filter((target) => visibility.visibleKeys.has(`${target.x},${target.y}`))
       .map((target) => this.worldService.buildPlayerRenderEntity(
@@ -382,7 +401,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         target.id === player.id ? '#ff0' : target.isBot ? '#6bb8ff' : '#0f0',
       ));
 
-    const initData: S2C_Init = { self: player, mapMeta, tiles: visibility.tiles, players: nearbyPlayers };
+    const initData: S2C_Init = { self: player, mapMeta, tiles: visibility.tiles, players: nearbyPlayers, time };
     client.emit(S2C.Init, initData);
   }
 

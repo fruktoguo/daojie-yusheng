@@ -1,5 +1,5 @@
 import { IRenderer, SenseQiOverlayState, TargetingOverlayState } from './types';
-import { NpcQuestMarker, Tile, TileType, VIEW_RADIUS, VisibleBuffState } from '@mud/shared';
+import { GameTimeState, NpcQuestMarker, Tile, TileType, VisibleBuffState } from '@mud/shared';
 import { Camera } from './camera';
 import { getCellSize } from '../display';
 
@@ -157,7 +157,16 @@ export class TextRenderer implements IRenderer {
     this.senseQiOverlay = state;
   }
 
-  renderWorld(camera: Camera, tileCache: Map<string, Tile>, visibleTiles: Set<string>, playerX: number, playerY: number) {
+  renderWorld(
+    camera: Camera,
+    tileCache: Map<string, Tile>,
+    visibleTiles: Set<string>,
+    playerX: number,
+    playerY: number,
+    displayRangeX: number,
+    displayRangeY: number,
+    time: GameTimeState | null,
+  ) {
     if (!this.ctx) return;
     const ctx = this.ctx;
     const sw = ctx.canvas.width;
@@ -181,14 +190,14 @@ export class TextRenderer implements IRenderer {
         const tile = tileCache.get(key);
         const isVisible = visibleTiles.has(key);
 
-        if (!isVisible && Math.abs(gx - playerX) > VIEW_RADIUS) continue;
-        if (!isVisible && Math.abs(gy - playerY) > VIEW_RADIUS) continue;
+        if (!isVisible && Math.abs(gx - playerX) > displayRangeX) continue;
+        if (!isVisible && Math.abs(gy - playerY) > displayRangeY) continue;
 
         if (tile) {
           ctx.fillStyle = TILE_BG[tile.type] ?? '#333';
           ctx.fillRect(sx, sy, cellSize, cellSize);
 
-          if (this.senseQiOverlay) {
+          if (this.senseQiOverlay && isVisible) {
             ctx.fillStyle = getSenseQiOverlayStyle(tile.aura);
             ctx.fillRect(sx, sy, cellSize, cellSize);
           }
@@ -233,7 +242,7 @@ export class TextRenderer implements IRenderer {
             ctx.fillRect(barX, barY, barW * ratio, 3);
           }
 
-          if (this.senseQiOverlay && gx === this.senseQiOverlay.hoverX && gy === this.senseQiOverlay.hoverY) {
+          if (this.senseQiOverlay && isVisible && gx === this.senseQiOverlay.hoverX && gy === this.senseQiOverlay.hoverY) {
             ctx.strokeStyle = SENSE_QI_HOVER_STROKE;
             ctx.lineWidth = 2;
             ctx.strokeRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
@@ -273,7 +282,8 @@ export class TextRenderer implements IRenderer {
       }
     }
 
-    this.renderPathArrows(camera, visibleTiles, playerX, playerY);
+    this.renderPathArrows(camera, visibleTiles, playerX, playerY, displayRangeX, displayRangeY);
+    this.renderTimeOverlay(time);
   }
 
   updateEntities(
@@ -365,14 +375,15 @@ export class TextRenderer implements IRenderer {
         const isMonster = anim.kind === 'monster';
         const isPlayer = anim.kind === 'player';
         const isNpc = anim.kind === 'npc';
-        const label = anim.name ?? (isMonster ? '妖兽' : isPlayer ? '修士' : '道人');
+        const isContainer = anim.kind === 'container';
+        const label = anim.name ?? (isMonster ? '妖兽' : isPlayer ? '修士' : isContainer ? '箱具' : '道人');
         ctx.textBaseline = 'alphabetic';
         ctx.font = `${cellSize * 0.3}px "Noto Serif SC", serif`;
         this.drawOutlinedText(
           label,
           sx + cellSize / 2,
           sy - Math.max(6, cellSize * 0.18),
-          isMonster ? '#ffddcc' : isPlayer ? '#d8f3c3' : '#cce7ff',
+          isMonster ? '#ffddcc' : isPlayer ? '#d8f3c3' : isContainer ? '#ffe3b8' : '#cce7ff',
           'rgba(15,12,10,0.9)',
         );
 
@@ -385,7 +396,7 @@ export class TextRenderer implements IRenderer {
           const barW = cellSize - 6;
           ctx.fillStyle = 'rgba(0,0,0,0.45)';
           ctx.fillRect(barX, barY, barW, 3);
-          ctx.fillStyle = isMonster ? '#d15252' : isNpc ? '#58a8ff' : '#63c46b';
+          ctx.fillStyle = isMonster ? '#d15252' : isNpc ? '#58a8ff' : isContainer ? '#c18b46' : '#63c46b';
           ctx.fillRect(barX, barY, barW * ratio, 3);
         }
 
@@ -723,7 +734,14 @@ export class TextRenderer implements IRenderer {
     };
   }
 
-  private renderPathArrows(camera: Camera, visibleTiles: Set<string>, playerX: number, playerY: number) {
+  private renderPathArrows(
+    camera: Camera,
+    visibleTiles: Set<string>,
+    playerX: number,
+    playerY: number,
+    displayRangeX: number,
+    displayRangeY: number,
+  ) {
     if (!this.ctx || this.pathCells.length === 0) return;
     const ctx = this.ctx;
     const sw = ctx.canvas.width;
@@ -742,7 +760,10 @@ export class TextRenderer implements IRenderer {
       if (!this.pathIndexByKey.has(toKey)) {
         continue;
       }
-      if (!this.isPathCellRenderable(from.x, from.y, visibleTiles, playerX, playerY) && !this.isPathCellRenderable(to.x, to.y, visibleTiles, playerX, playerY)) {
+      if (
+        !this.isPathCellRenderable(from.x, from.y, visibleTiles, playerX, playerY, displayRangeX, displayRangeY)
+        && !this.isPathCellRenderable(to.x, to.y, visibleTiles, playerX, playerY, displayRangeX, displayRangeY)
+      ) {
         continue;
       }
 
@@ -800,9 +821,40 @@ export class TextRenderer implements IRenderer {
     ctx.restore();
   }
 
-  private isPathCellRenderable(x: number, y: number, visibleTiles: Set<string>, playerX: number, playerY: number): boolean {
+  private isPathCellRenderable(
+    x: number,
+    y: number,
+    visibleTiles: Set<string>,
+    playerX: number,
+    playerY: number,
+    displayRangeX: number,
+    displayRangeY: number,
+  ): boolean {
     const key = `${x},${y}`;
-    return visibleTiles.has(key) || (Math.abs(x - playerX) <= VIEW_RADIUS && Math.abs(y - playerY) <= VIEW_RADIUS);
+    return visibleTiles.has(key) || (Math.abs(x - playerX) <= displayRangeX && Math.abs(y - playerY) <= displayRangeY);
+  }
+
+  private renderTimeOverlay(time: GameTimeState | null): void {
+    if (!this.ctx || !time || time.overlayAlpha <= 0) {
+      return;
+    }
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.fillStyle = this.toOverlayColor(time.tint, time.overlayAlpha);
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.restore();
+  }
+
+  private toOverlayColor(hex: string, alpha: number): string {
+    const value = hex.trim().replace('#', '');
+    const normalized = value.length === 3
+      ? value.split('').map((char) => char + char).join('')
+      : value.padEnd(6, '0').slice(0, 6);
+    const red = Number.parseInt(normalized.slice(0, 2), 16) || 0;
+    const green = Number.parseInt(normalized.slice(2, 4), 16) || 0;
+    const blue = Number.parseInt(normalized.slice(4, 6), 16) || 0;
+    const safeAlpha = Math.max(0, Math.min(1, alpha));
+    return `rgba(${red}, ${green}, ${blue}, ${safeAlpha.toFixed(3)})`;
   }
 
   private drawOutlinedText(text: string, x: number, y: number, fill: string, stroke: string) {

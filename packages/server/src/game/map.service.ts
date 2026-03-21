@@ -1,9 +1,11 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
 import {
   calculateTerrainDurability,
+  DEFAULT_MAP_TIME_CONFIG,
   doesTileTypeBlockSight,
   getTileTypeFromMapChar,
   GmMapAuraRecord,
+  GmMapContainerRecord,
   GmMapDocument,
   GmMapLandmarkRecord,
   GmMapListRes,
@@ -16,6 +18,8 @@ import {
   Tile,
   TileType,
   MapMeta,
+  MapTimeConfig,
+  MonsterAggroMode,
   Portal,
   VIEW_RADIUS,
   ItemType,
@@ -76,6 +80,17 @@ export interface DropConfig {
   chance: number;
 }
 
+export interface ContainerConfig {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  desc?: string;
+  grade: TechniqueGrade;
+  refreshTicks?: number;
+  drops: DropConfig[];
+}
+
 export interface MonsterSpawnConfig {
   id: string;
   name: string;
@@ -89,6 +104,8 @@ export interface MonsterSpawnConfig {
   radius: number;
   maxAlive: number;
   aggroRange: number;
+  viewRange: number;
+  aggroMode: MonsterAggroMode;
   respawnTicks: number;
   level?: number;
   expMultiplier: number;
@@ -100,6 +117,7 @@ interface MapData {
   tiles: Tile[][];
   portals: Portal[];
   auraPoints: MapAuraPoint[];
+  containers: ContainerConfig[];
   npcs: NpcConfig[];
   monsterSpawns: MonsterSpawnConfig[];
   spawnPoint: { x: number; y: number };
@@ -285,6 +303,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    const containers = this.normalizeContainers(document.landmarks, meta);
     const npcs = this.normalizeNpcs(document.npcs, meta);
     const monsterSpawns = this.normalizeMonsterSpawns(document.monsterSpawns, meta);
 
@@ -302,6 +321,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       tiles,
       portals,
       auraPoints,
+      containers,
       npcs,
       monsterSpawns,
       spawnPoint: { ...document.spawnPoint },
@@ -630,24 +650,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
                   : 1,
               }]
             : []);
-      const drops: DropConfig[] = [];
-      for (const rawDrop of rawDrops) {
-        const drop = rawDrop as Partial<DropConfig>;
-        if (
-          typeof drop.itemId !== 'string' ||
-          typeof drop.name !== 'string' ||
-          typeof drop.type !== 'string'
-        ) {
-          continue;
-        }
-        drops.push({
-          itemId: drop.itemId,
-          name: drop.name,
-          type: drop.type as ItemType,
-          count: Number.isInteger(drop.count) ? drop.count! : 1,
-          chance: typeof drop.chance === 'number' ? drop.chance : 1,
-        });
-      }
+      const drops = this.normalizeDrops(rawDrops);
       result.push({
         id: spawn.id!,
         name: spawn.name!,
@@ -661,6 +664,10 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         radius: Number.isInteger((spawn as { radius?: number }).radius) ? (spawn as { radius: number }).radius : 3,
         maxAlive: Number.isInteger((spawn as { maxAlive?: number }).maxAlive) ? (spawn as { maxAlive: number }).maxAlive : 1,
         aggroRange: Number.isInteger(spawn.aggroRange) ? spawn.aggroRange! : 6,
+        viewRange: Number.isInteger((spawn as { viewRange?: number }).viewRange)
+          ? (spawn as { viewRange: number }).viewRange
+          : (Number.isInteger(spawn.aggroRange) ? spawn.aggroRange! : 6),
+        aggroMode: spawn.aggroMode ?? 'always',
         respawnTicks: Number.isInteger(spawn.respawnTicks)
           ? spawn.respawnTicks!
           : Math.max(1, (spawn as { respawnSec?: number }).respawnSec ?? 15),
@@ -674,8 +681,93 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     return result;
   }
 
+  private normalizeContainers(rawLandmarks: unknown, meta: MapMeta): ContainerConfig[] {
+    if (!Array.isArray(rawLandmarks)) {
+      return [];
+    }
+
+    const result: ContainerConfig[] = [];
+    for (const candidate of rawLandmarks) {
+      const landmark = candidate as GmMapLandmarkRecord;
+      if (!landmark?.container || typeof landmark.id !== 'string' || typeof landmark.name !== 'string') {
+        continue;
+      }
+      if (!Number.isInteger(landmark.x) || !Number.isInteger(landmark.y)) {
+        continue;
+      }
+      if (landmark.x < 0 || landmark.x >= meta.width || landmark.y < 0 || landmark.y >= meta.height) {
+        this.logger.warn(`地图 ${meta.id} 的容器越界: ${landmark.id}`);
+        continue;
+      }
+
+      result.push({
+        id: landmark.id,
+        name: landmark.name,
+        x: landmark.x,
+        y: landmark.y,
+        desc: typeof landmark.desc === 'string' ? landmark.desc : undefined,
+        grade: this.normalizeContainerGrade(landmark.container.grade),
+        refreshTicks: Number.isInteger(landmark.container.refreshTicks) && landmark.container.refreshTicks! > 0
+          ? Number(landmark.container.refreshTicks)
+          : undefined,
+        drops: this.normalizeDrops(landmark.container.drops),
+      });
+    }
+
+    return result;
+  }
+
+  private normalizeContainerGrade(grade: unknown): TechniqueGrade {
+    if (
+      grade === 'mortal' ||
+      grade === 'yellow' ||
+      grade === 'mystic' ||
+      grade === 'earth' ||
+      grade === 'heaven' ||
+      grade === 'spirit' ||
+      grade === 'saint' ||
+      grade === 'emperor'
+    ) {
+      return grade;
+    }
+    return 'mortal';
+  }
+
+  private normalizeDrops(rawDrops: unknown): DropConfig[] {
+    if (!Array.isArray(rawDrops)) {
+      return [];
+    }
+
+    const drops: DropConfig[] = [];
+    for (const rawDrop of rawDrops) {
+      const drop = rawDrop as Partial<DropConfig>;
+      if (
+        typeof drop.itemId !== 'string' ||
+        typeof drop.name !== 'string' ||
+        typeof drop.type !== 'string'
+      ) {
+        continue;
+      }
+      drops.push({
+        itemId: drop.itemId,
+        name: drop.name,
+        type: drop.type as ItemType,
+        count: Number.isInteger(drop.count) ? Number(drop.count) : 1,
+        chance: typeof drop.chance === 'number' ? drop.chance : 1,
+      });
+    }
+    return drops;
+  }
+
   getMapMeta(mapId: string): MapMeta | undefined {
     return this.maps.get(mapId)?.meta;
+  }
+
+  getMapTimeConfig(mapId: string): MapTimeConfig {
+    const source = this.maps.get(mapId)?.source.time;
+    return source
+      ? JSON.parse(JSON.stringify(source)) as MapTimeConfig
+      : JSON.parse(JSON.stringify(DEFAULT_MAP_TIME_CONFIG)) as MapTimeConfig;
   }
 
   getMapRevision(mapId: string): number {
@@ -704,6 +796,18 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
   getNpcs(mapId: string): NpcConfig[] {
     return this.maps.get(mapId)?.npcs ?? [];
+  }
+
+  getContainers(mapId: string): ContainerConfig[] {
+    return this.maps.get(mapId)?.containers ?? [];
+  }
+
+  getContainerAt(mapId: string, x: number, y: number): ContainerConfig | undefined {
+    return this.maps.get(mapId)?.containers.find((container) => container.x === x && container.y === y);
+  }
+
+  getContainerById(mapId: string, containerId: string): ContainerConfig | undefined {
+    return this.maps.get(mapId)?.containers.find((container) => container.id === containerId);
   }
 
   getNpcLocation(npcId: string): NpcLocation | undefined {
@@ -905,6 +1009,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         x: Number((source.spawnPoint as { x?: number } | undefined)?.x ?? 0),
         y: Number((source.spawnPoint as { y?: number } | undefined)?.y ?? 0),
       },
+      time: this.normalizeMapTimeConfig((source as { time?: unknown }).time),
       auras: auras.map((point) => ({
         x: Number((point as GmMapAuraRecord).x ?? 0),
         y: Number((point as GmMapAuraRecord).y ?? 0),
@@ -918,6 +1023,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         desc: typeof (landmark as GmMapLandmarkRecord).desc === 'string'
           ? (landmark as GmMapLandmarkRecord).desc
           : undefined,
+        container: this.normalizeEditableContainerRecord((landmark as GmMapLandmarkRecord).container),
       })),
       npcs: npcs.map((npc) => ({
         id: String((npc as GmMapNpcRecord).id ?? ''),
@@ -953,6 +1059,10 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         aggroRange: Number.isFinite((spawn as GmMapMonsterSpawnRecord).aggroRange)
           ? Number((spawn as GmMapMonsterSpawnRecord).aggroRange)
           : undefined,
+        viewRange: Number.isFinite((spawn as GmMapMonsterSpawnRecord).viewRange)
+          ? Number((spawn as GmMapMonsterSpawnRecord).viewRange)
+          : undefined,
+        aggroMode: this.normalizeMonsterAggroMode((spawn as GmMapMonsterSpawnRecord).aggroMode),
         respawnSec: Number.isFinite((spawn as GmMapMonsterSpawnRecord).respawnSec)
           ? Number((spawn as GmMapMonsterSpawnRecord).respawnSec)
           : undefined,
@@ -970,6 +1080,67 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
           : [],
       })),
     }));
+  }
+
+  private normalizeEditableContainerRecord(input: unknown): GmMapContainerRecord | undefined {
+    if (!input || typeof input !== 'object') {
+      return undefined;
+    }
+    const container = input as GmMapContainerRecord;
+    return {
+      grade: this.normalizeContainerGrade(container.grade),
+      refreshTicks: Number.isFinite(container.refreshTicks) ? Number(container.refreshTicks) : undefined,
+      drops: Array.isArray(container.drops)
+        ? container.drops.map((drop) => ({
+          itemId: String(drop.itemId ?? ''),
+          name: String(drop.name ?? ''),
+          type: drop.type,
+          count: Number.isFinite(drop.count) ? Number(drop.count) : 1,
+          chance: Number.isFinite(drop.chance) ? Number(drop.chance) : undefined,
+        }))
+        : [],
+    };
+  }
+
+  private normalizeMapTimeConfig(raw: unknown): MapTimeConfig {
+    const candidate = (raw ?? {}) as Partial<MapTimeConfig>;
+    const palette = candidate.palette && typeof candidate.palette === 'object' ? candidate.palette : {};
+    const normalizedPalette = Object.fromEntries(
+      Object.entries(palette).flatMap(([phase, entry]) => {
+        if (!entry || typeof entry !== 'object') {
+          return [];
+        }
+        const tint = typeof entry.tint === 'string' ? entry.tint : undefined;
+        const alpha = typeof entry.alpha === 'number' && Number.isFinite(entry.alpha)
+          ? Math.max(0, Math.min(1, entry.alpha))
+          : undefined;
+        return [[phase, { tint, alpha }]];
+      }),
+    ) as NonNullable<MapTimeConfig['palette']>;
+
+    return {
+      offsetTicks: Number.isFinite(candidate.offsetTicks)
+        ? Math.round(candidate.offsetTicks ?? 0)
+        : DEFAULT_MAP_TIME_CONFIG.offsetTicks,
+      scale: typeof candidate.scale === 'number' && Number.isFinite(candidate.scale) && candidate.scale > 0
+        ? candidate.scale
+        : DEFAULT_MAP_TIME_CONFIG.scale,
+      light: {
+        base: typeof candidate.light?.base === 'number' && Number.isFinite(candidate.light.base)
+          ? Math.max(0, Math.min(100, candidate.light.base))
+          : DEFAULT_MAP_TIME_CONFIG.light?.base,
+        timeInfluence: typeof candidate.light?.timeInfluence === 'number' && Number.isFinite(candidate.light.timeInfluence)
+          ? Math.max(0, Math.min(100, candidate.light.timeInfluence))
+          : DEFAULT_MAP_TIME_CONFIG.light?.timeInfluence,
+      },
+      palette: normalizedPalette,
+    };
+  }
+
+  private normalizeMonsterAggroMode(value: unknown): MonsterAggroMode | undefined {
+    return value === 'always' || value === 'retaliate' || value === 'day_only' || value === 'night_only'
+      ? value
+      : undefined;
   }
 
   private syncPortalTiles(document: GmMapDocument): GmMapDocument {
@@ -1095,6 +1266,12 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       if (!landmark.name.trim()) return `${label} 的名称不能为空`;
       const error = ensurePointInBounds(landmark.x, landmark.y, label);
       if (error) return error;
+      if (landmark.container) {
+        const refreshTicks = landmark.container.refreshTicks;
+        if (refreshTicks !== undefined && (!Number.isInteger(refreshTicks) || refreshTicks <= 0)) {
+          return `${label} 的容器刷新时间必须为正整数`;
+        }
+      }
     }
 
     for (let index = 0; index < document.npcs.length; index += 1) {

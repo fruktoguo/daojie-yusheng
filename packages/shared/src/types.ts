@@ -122,6 +122,50 @@ export interface VisibleBuffState {
   stats?: PartialNumericStats;
 }
 
+export type TimePhaseId =
+  | 'deep_night'
+  | 'late_night'
+  | 'before_dawn'
+  | 'dawn'
+  | 'day'
+  | 'dusk'
+  | 'first_night'
+  | 'night'
+  | 'midnight';
+
+export interface TimePaletteEntry {
+  tint?: string;
+  alpha?: number;
+}
+
+export interface MapLightConfig {
+  base?: number;
+  timeInfluence?: number;
+}
+
+export interface MapTimeConfig {
+  offsetTicks?: number;
+  scale?: number;
+  light?: MapLightConfig;
+  palette?: Partial<Record<TimePhaseId, TimePaletteEntry>>;
+}
+
+export type MonsterAggroMode = 'always' | 'retaliate' | 'day_only' | 'night_only';
+
+export interface GameTimeState {
+  totalTicks: number;
+  localTicks: number;
+  dayLength: number;
+  phase: TimePhaseId;
+  phaseLabel: string;
+  darknessStacks: number;
+  visionMultiplier: number;
+  lightPercent: number;
+  effectiveViewRange: number;
+  tint: string;
+  overlayAlpha: number;
+}
+
 /** 视口 */
 export interface Viewport {
   x: number;
@@ -169,6 +213,51 @@ export interface ItemStack {
 export interface Inventory {
   items: ItemStack[];
   capacity: number;
+}
+
+export type LootSourceKind = 'ground' | 'container';
+
+export interface GroundItemEntryView {
+  itemKey: string;
+  name: string;
+  count: number;
+}
+
+export interface GroundItemPileView {
+  sourceId: string;
+  x: number;
+  y: number;
+  items: GroundItemEntryView[];
+}
+
+export interface LootSearchProgressView {
+  totalTicks: number;
+  remainingTicks: number;
+  elapsedTicks: number;
+}
+
+export interface LootWindowItemView {
+  itemKey: string;
+  item: ItemStack;
+}
+
+export interface LootWindowSourceView {
+  sourceId: string;
+  kind: LootSourceKind;
+  title: string;
+  desc?: string;
+  grade?: TechniqueGrade;
+  searchable: boolean;
+  search?: LootSearchProgressView;
+  items: LootWindowItemView[];
+  emptyText?: string;
+}
+
+export interface LootWindowState {
+  tileX: number;
+  tileY: number;
+  title: string;
+  sources: LootWindowSourceView[];
 }
 
 /** 装备槽位映射 */
@@ -410,7 +499,7 @@ export interface CombatEffectFloat {
 export type CombatEffect = CombatEffectAttack | CombatEffectFloat;
 
 /** 场景实体类型 */
-export type EntityKind = 'npc' | 'monster';
+export type EntityKind = 'npc' | 'monster' | 'container';
 
 /** 任务状态 */
 export type QuestStatus = 'available' | 'active' | 'ready' | 'completed';

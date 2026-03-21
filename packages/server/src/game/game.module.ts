@@ -21,6 +21,8 @@ import { NavigationService } from './navigation.service';
 import { BotService } from './bot.service';
 import { GmService } from './gm.service';
 import { PerformanceService } from './performance.service';
+import { LootService } from './loot.service';
+import { TimeService } from './time.service';
 import { PlayerEntity } from '../database/entities/player.entity';
 import { UserEntity } from '../database/entities/user.entity';
 
@@ -48,6 +50,8 @@ import { UserEntity } from '../database/entities/user.entity';
     BotService,
     GmService,
     PerformanceService,
+    LootService,
+    TimeService,
     WorldService,
   ],
   exports: [MapService, PlayerService],

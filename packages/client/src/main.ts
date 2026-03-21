@@ -14,17 +14,20 @@ import { EquipmentPanel } from './ui/panels/equipment-panel';
 import { TechniquePanel } from './ui/panels/technique-panel';
 import { QuestPanel } from './ui/panels/quest-panel';
 import { ActionPanel } from './ui/panels/action-panel';
+import { LootPanel } from './ui/panels/loot-panel';
 import { SettingsPanel } from './ui/panels/settings-panel';
 import { WorldPanel } from './ui/panels/world-panel';
 import { FloatingTooltip } from './ui/floating-tooltip';
 import { detailModalHost } from './ui/detail-modal-host';
-import { adjustZoom, getZoom } from './display';
+import { adjustZoom, getDisplayRangeX, getDisplayRangeY, getZoom, updateDisplayMetrics } from './display';
 import { hydrateTileCacheFromMemory, rememberVisibleTiles } from './map-memory';
 import {
   ActionDef,
   computeAffectedCellsFromAnchor,
   Direction,
   encodeTileTargetRef,
+  GameTimeState,
+  GroundItemPileView,
   GridPoint,
   isPointInRange,
   MapMeta,
@@ -53,6 +56,14 @@ const zoomInBtn = document.getElementById('zoom-in') as HTMLButtonElement | null
 const zoomOutBtn = document.getElementById('zoom-out') as HTMLButtonElement | null;
 const zoomLevelEl = document.getElementById('zoom-level');
 const tickRateEl = document.getElementById('map-tick-rate');
+const currentTimeEl = document.getElementById('map-current-time');
+const currentTimeValueEl = document.getElementById('map-current-time-value');
+const currentTimePhaseEl = document.getElementById('map-current-time-phase');
+const currentTimeHourAEl = currentTimeValueEl?.querySelector<HTMLElement>('[data-time-part="hour-a"]');
+const currentTimeHourBEl = currentTimeValueEl?.querySelector<HTMLElement>('[data-time-part="hour-b"]');
+const currentTimeDotEl = currentTimeValueEl?.querySelector<HTMLElement>('[data-time-part="dot"]');
+const currentTimeMinAEl = currentTimeValueEl?.querySelector<HTMLElement>('[data-time-part="min-a"]');
+const currentTimeMinBEl = currentTimeValueEl?.querySelector<HTMLElement>('[data-time-part="min-b"]');
 const tickRateValueEl = document.getElementById('map-tick-rate-value');
 const tickRateIntEl = tickRateValueEl?.querySelector<HTMLElement>('[data-part="int"]');
 const tickRateDotEl = tickRateValueEl?.querySelector<HTMLElement>('[data-part="dot"]');
@@ -67,7 +78,25 @@ function renderTickRate(seconds: number) {
   if (tickRateFracBEl) tickRateFracBEl.textContent = fraction[1] ?? '0';
 }
 
+function renderCurrentTime(state: GameTimeState | null) {
+  const totalMinutes = state
+    ? Math.floor((state.localTicks / Math.max(1, state.dayLength)) * 24 * 60)
+    : null;
+  const hours = totalMinutes === null ? '--' : String(Math.floor(totalMinutes / 60) % 24).padStart(2, '0');
+  const minutes = totalMinutes === null ? '--' : String(totalMinutes % 60).padStart(2, '0');
+  if (currentTimeHourAEl) currentTimeHourAEl.textContent = hours[0] ?? '-';
+  if (currentTimeHourBEl) currentTimeHourBEl.textContent = hours[1] ?? '-';
+  if (currentTimeDotEl) currentTimeDotEl.textContent = ':';
+  if (currentTimeMinAEl) currentTimeMinAEl.textContent = minutes[0] ?? '-';
+  if (currentTimeMinBEl) currentTimeMinBEl.textContent = minutes[1] ?? '-';
+  if (currentTimePhaseEl) currentTimePhaseEl.textContent = state?.phaseLabel ?? '未明';
+  if (currentTimeEl) {
+    currentTimeEl.setAttribute('title', state ? `${state.phaseLabel} ${hours}:${minutes}` : '当前时间未同步');
+  }
+}
+
 renderTickRate(1);
+renderCurrentTime(null);
 const socket = new SocketManager();
 const camera = new Camera();
 const renderer = new TextRenderer();
@@ -85,6 +114,7 @@ const equipmentPanel = new EquipmentPanel();
 const techniquePanel = new TechniquePanel();
 const questPanel = new QuestPanel();
 const actionPanel = new ActionPanel();
+const lootPanel = new LootPanel();
 const worldPanel = new WorldPanel();
 const settingsPanel = new SettingsPanel();
 const targetingBadgeEl = document.getElementById('map-targeting-indicator');
@@ -135,6 +165,7 @@ const ENTITY_KIND_NAMES: Record<string, string> = {
   player: '修士',
   monster: '妖兽',
   npc: '人物',
+  container: '容器',
 };
 
 const ATTR_LABELS = {
@@ -419,6 +450,10 @@ function getKnownTileAt(x: number, y: number): Tile | null {
   return tileCache.get(getTileKey(x, y)) ?? null;
 }
 
+function getVisibleGroundPileAt(x: number, y: number): GroundItemPileView | null {
+  return visibleGroundPiles.get(getTileKey(x, y)) ?? null;
+}
+
 function syncSenseQiOverlay(): void {
   if (!myPlayer?.senseQiActive) {
     renderer.setSenseQiOverlay(null);
@@ -436,7 +471,7 @@ function syncSenseQiOverlay(): void {
     return;
   }
 
-  const tile = getKnownTileAt(hoveredMapTile.x, hoveredMapTile.y);
+  const tile = getVisibleTileAt(hoveredMapTile.x, hoveredMapTile.y);
   if (!tile) {
     senseQiTooltip.hide();
     return;
@@ -457,7 +492,7 @@ function isWithinDisplayedMemoryBounds(x: number, y: number): boolean {
   if (!myPlayer) {
     return false;
   }
-  return Math.abs(x - myPlayer.x) <= VIEW_RADIUS && Math.abs(y - myPlayer.y) <= VIEW_RADIUS;
+  return Math.abs(x - myPlayer.x) <= getDisplayRangeX() && Math.abs(y - myPlayer.y) <= getDisplayRangeY();
 }
 
 function hideObserveModal(): void {
@@ -656,9 +691,10 @@ function showObserveModal(targetX: number, targetY: number): void {
     return;
   }
 
+  const groundPile = getVisibleGroundPileAt(targetX, targetY);
   const entities = latestEntities.filter((entity) => entity.wx === targetX && entity.wy === targetY);
   const sortedEntities = [...entities].sort((left, right) => {
-    const order = (kind?: string): number => (kind === 'player' ? 0 : kind === 'npc' ? 1 : kind === 'monster' ? 2 : 3);
+    const order = (kind?: string): number => (kind === 'player' ? 0 : kind === 'container' ? 1 : kind === 'npc' ? 2 : kind === 'monster' ? 3 : 4);
     return order(left.kind) - order(right.kind);
   });
   const terrainRows = [
@@ -687,6 +723,14 @@ function showObserveModal(targetX: number, targetY: number): void {
     observeModalSubtitleEl.textContent = `坐标 (${targetX}, ${targetY})`;
   }
   if (observeModalBodyEl) {
+    const groundHtml = groundPile && groundPile.items.length > 0
+      ? `<div class="observe-entity-list">${groundPile.items.map((entry) => `
+          <div class="observe-modal-row">
+            <span class="observe-modal-label">${escapeHtml(entry.name)}</span>
+            <span class="observe-modal-value">x${entry.count}</span>
+          </div>
+        `).join('')}</div>`
+      : '<div class="observe-entity-empty">该地块当前没有可见地面物品。</div>';
     observeModalBodyEl.innerHTML = `
       <div class="observe-modal-top">
         <section class="observe-modal-section">
@@ -695,7 +739,7 @@ function showObserveModal(targetX: number, targetY: number): void {
         </section>
         <section class="observe-modal-section">
           <div class="observe-modal-section-title">地面物品</div>
-          <div class="observe-entity-empty">暂未接入地面掉落显示，当前没有可展示物品。</div>
+          ${groundHtml}
         </section>
       </div>
       ${buildObservedEntitySectionHtml(sortedEntities)}
@@ -713,6 +757,9 @@ inventoryPanel.setCallbacks(
   (slotIndex) => socket.sendEquip(slotIndex),
   () => socket.sendSortInventory(),
 );
+lootPanel.setCallbacks((sourceId, itemKey) => {
+  socket.sendTakeLoot(sourceId, itemKey);
+});
 equipmentPanel.setCallbacks(
   (slot) => socket.sendUnequip(slot),
 );
@@ -724,6 +771,10 @@ questPanel.setCallbacks((x, y) => {
 });
 actionPanel.setCallbacks(
   (actionId, requiresTarget, targetMode, range, actionName) => {
+    if (actionId === 'client:take') {
+      beginTargeting(actionId, actionName ?? actionId, targetMode, range ?? 1);
+      return;
+    }
     if (actionId === 'realm:breakthrough') {
       cancelTargeting();
       hideObserveModal();
@@ -731,7 +782,7 @@ actionPanel.setCallbacks(
       return;
     }
     if (requiresTarget) {
-      beginTargeting(actionId, actionName ?? actionId, targetMode, actionId === 'client:observe' ? getViewRadius() : (range ?? 1));
+      beginTargeting(actionId, actionName ?? actionId, targetMode, actionId === 'client:observe' ? getInfoRadius() : (range ?? 1));
       return;
     }
     cancelTargeting();
@@ -861,6 +912,9 @@ socket.onActionsUpdate((data) => {
   }
   syncSenseQiOverlay();
 });
+socket.onLootWindowUpdate((data) => {
+  lootPanel.update(data.window);
+});
 socket.onQuestUpdate((data) => {
   if (myPlayer) myPlayer.quests = data.quests;
   questPanel.setCurrentMapId(myPlayer?.mapId);
@@ -916,7 +970,9 @@ let tickStartTime = performance.now();
 let tickDuration = 1000;
 let myPlayer: PlayerState | null = null;
 let currentMapMeta: MapMeta | null = null;
+let currentTimeState: GameTimeState | null = null;
 let latestEntities: ObservedEntity[] = [];
+let visibleGroundPiles = new Map<string, GroundItemPileView>();
 
 // 视野中心平滑值（浮点格子坐标），无延迟快速 lerp
 let viewCenterX = 0;
@@ -963,6 +1019,7 @@ function refreshZoomChrome(zoom = getZoom()) {
 }
 
 function refreshZoomViewport() {
+  syncDisplayMetrics();
   if (myPlayer) {
     camera.snap(myPlayer);
   }
@@ -1110,8 +1167,13 @@ function inferAutoRetaliate(current: boolean, actions: { id: string; name: strin
   return current;
 }
 
-function getViewRadius(): number {
-  return myPlayer?.viewRange ?? VIEW_RADIUS;
+function getInfoRadius(): number {
+  return currentTimeState?.effectiveViewRange ?? myPlayer?.viewRange ?? VIEW_RADIUS;
+}
+
+function syncDisplayMetrics(): void {
+  const baseRadius = myPlayer?.viewRange ?? VIEW_RADIUS;
+  updateDisplayMetrics(canvas.width, canvas.height, baseRadius);
 }
 
 function clearCurrentPath() {
@@ -1136,12 +1198,15 @@ function planPathTo(target: { x: number; y: number }, options?: { ignoreVisibili
 function resetGameState() {
   myPlayer = null;
   currentMapMeta = null;
+  currentTimeState = null;
+  renderCurrentTime(null);
   clearCurrentPath();
   currentTiles = [];
   tileOriginX = 0;
   tileOriginY = 0;
   tileCache.clear();
   currentVisibleTiles.clear();
+  visibleGroundPiles.clear();
   pendingTargetedAction = null;
   hoveredMapTile = null;
   hideObserveModal();
@@ -1156,6 +1221,7 @@ function resetGameState() {
   techniquePanel.clear();
   questPanel.clear();
   actionPanel.clear();
+  lootPanel.clear();
   worldPanel.clear();
   resizeCanvas();
   document.getElementById('hud')?.classList.add('hidden');
@@ -1234,6 +1300,7 @@ function resizeCanvas() {
   const height = Math.max(1, Math.floor(rect.height * dpr));
   canvas.width = width;
   canvas.height = height;
+  syncDisplayMetrics();
 }
 resizeCanvas();
 refreshZoomChrome();
@@ -1275,6 +1342,15 @@ mouseInput.init(
           return;
         }
         showObserveModal(target.x, target.y);
+        cancelTargeting();
+        return;
+      }
+      if (pendingTargetedAction.actionId === 'client:take') {
+        if (!myPlayer || !isPointInRange({ x: myPlayer.x, y: myPlayer.y }, { x: target.x, y: target.y }, pendingTargetedAction.range)) {
+          showToast(`超出拿取范围，最多 ${pendingTargetedAction.range} 格`);
+          return;
+        }
+        socket.sendAction('loot:open', encodeTileTargetRef({ x: target.x, y: target.y }));
         cancelTargeting();
         return;
       }
@@ -1339,18 +1415,21 @@ socket.onInit((data: S2C_Init) => {
   hoveredMapTile = null;
   hideObserveModal();
   myPlayer = data.self;
+  currentTimeState = data.time ?? null;
+  renderCurrentTime(currentTimeState);
   myPlayer.senseQiActive = myPlayer.senseQiActive === true;
   syncTargetingOverlay();
   currentMapMeta = data.mapMeta;
   currentTiles = data.tiles;
-  tileOriginX = myPlayer.x - getViewRadius();
-  tileOriginY = myPlayer.y - getViewRadius();
+  tileOriginX = myPlayer.x - getInfoRadius();
+  tileOriginY = myPlayer.y - getInfoRadius();
 
   tileCache.clear();
   hydrateTileCacheFromMemory(myPlayer.mapId, tileCache);
   cacheTiles(myPlayer.mapId, currentTiles, tileOriginX, tileOriginY);
   syncSenseQiOverlay();
 
+  syncDisplayMetrics();
   camera.snap(myPlayer);
   viewCenterX = myPlayer.x;
   viewCenterY = myPlayer.y;
@@ -1381,6 +1460,10 @@ socket.onInit((data: S2C_Init) => {
 // Tick 更新
 socket.onTick((data: S2C_Tick) => {
   if (!myPlayer) return;
+  if (data.time) {
+    currentTimeState = data.time;
+    renderCurrentTime(currentTimeState);
+  }
   if (data.fx) {
     for (const effect of data.fx) {
       if (effect.type === 'attack') {
@@ -1406,8 +1489,10 @@ socket.onTick((data: S2C_Tick) => {
       currentTiles = [];
       tileCache.clear();
       currentVisibleTiles.clear();
+      visibleGroundPiles.clear();
       hoveredMapTile = null;
       hideObserveModal();
+      lootPanel.clear();
       cancelTargeting();
     }
     myPlayer.mapId = data.m;
@@ -1446,11 +1531,12 @@ socket.onTick((data: S2C_Tick) => {
 
   if (data.v) {
     currentTiles = data.v;
-    tileOriginX = myPlayer.x - getViewRadius();
-    tileOriginY = myPlayer.y - getViewRadius();
+    tileOriginX = myPlayer.x - getInfoRadius();
+    tileOriginY = myPlayer.y - getInfoRadius();
     cacheTiles(myPlayer.mapId, currentTiles, tileOriginX, tileOriginY);
     syncSenseQiOverlay();
   }
+  visibleGroundPiles = new Map((data.g ?? []).map((pile) => [`${pile.x},${pile.y}`, pile]));
   camera.follow(myPlayer);
 
   const moved = myPlayer.x !== oldX || myPlayer.y !== oldY;
@@ -1495,6 +1581,10 @@ function gameLoop() {
   lastFrameTime = now;
   const progress = Math.min((now - tickStartTime) / tickDuration, 1);
 
+  if (myPlayer) {
+    syncDisplayMetrics();
+    camera.follow(myPlayer);
+  }
   camera.update(frameDt);
 
   // 视野中心平滑追赶玩家，无延迟
@@ -1510,7 +1600,16 @@ function gameLoop() {
 
   if (myPlayer) {
     renderer.setPathHighlight(pathCells);
-    renderer.renderWorld(camera, tileCache, currentVisibleTiles, myPlayer.x, myPlayer.y);
+    renderer.renderWorld(
+      camera,
+      tileCache,
+      currentVisibleTiles,
+      myPlayer.x,
+      myPlayer.y,
+      getDisplayRangeX(),
+      getDisplayRangeY(),
+      currentTimeState,
+    );
     renderer.renderAttackTrails(camera);
     renderer.renderEntities(camera, progress);
     renderer.renderFloatingTexts(camera);

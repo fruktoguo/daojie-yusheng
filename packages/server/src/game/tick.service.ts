@@ -3,12 +3,14 @@ import {
   AutoBattleSkillConfig,
   CombatEffect,
   Direction,
+  parseTileTargetRef,
   PlayerState,
   S2C,
   S2C_ActionsUpdate,
   S2C_AttrUpdate,
   S2C_EquipmentUpdate,
   S2C_InventoryUpdate,
+  S2C_LootWindowUpdate,
   S2C_QuestUpdate,
   S2C_SystemMsg,
   S2C_TechniqueUpdate,
@@ -27,9 +29,11 @@ import { MapService } from './map.service';
 import { NavigationService } from './navigation.service';
 import { BotService } from './bot.service';
 import { GmService } from './gm.service';
+import { LootService } from './loot.service';
 import { PerformanceService } from './performance.service';
 import { DirtyFlag, PlayerService } from './player.service';
 import { TechniqueService } from './technique.service';
+import { TimeService } from './time.service';
 import { WorldMessage, WorldService, WorldUpdate } from './world.service';
 
 const CONFIG_PATH = path.resolve(__dirname, '../../data/config.json');
@@ -57,7 +61,9 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     private readonly techniqueService: TechniqueService,
     private readonly actionService: ActionService,
     private readonly contentService: ContentService,
+    private readonly lootService: LootService,
     private readonly worldService: WorldService,
+    private readonly timeService: TimeService,
   ) {}
 
   onModuleInit() {
@@ -156,6 +162,11 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    const lootTick = this.lootService.tick(mapId, this.playerService.getPlayersByMap(mapId));
+    for (const playerId of lootTick.dirtyPlayers) {
+      this.playerService.markDirty(playerId, 'loot');
+    }
+
     for (const cmd of commands) {
       const player = this.playerService.getPlayer(cmd.playerId);
       if (!player || player.mapId !== mapId) continue;
@@ -217,11 +228,33 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         }
         case 'dropItem': {
           const { slotIndex, count } = cmd.data as { slotIndex: number; count: number };
-          const err = this.inventoryService.dropItem(player, slotIndex, count);
-          if (!err) {
+          const dropped = this.inventoryService.dropItem(player, slotIndex, count);
+          if (!dropped) {
+            messages.push({ playerId: player.id, text: '物品不存在或数量不足', kind: 'system' });
+            break;
+          }
+          this.playerService.markDirty(player.id, 'inv');
+          for (const dirtyPlayerId of this.lootService.dropToGround(player.mapId, player.x, player.y, dropped)) {
+            this.playerService.markDirty(dirtyPlayerId, 'loot');
+          }
+          messages.push({ playerId: player.id, text: `你将 ${dropped.name} x${dropped.count} 丢在了地上。`, kind: 'loot' });
+          break;
+        }
+        case 'takeLoot': {
+          const { sourceId, itemKey } = cmd.data as { sourceId: string; itemKey: string };
+          const result = this.lootService.takeFromSource(player, sourceId, itemKey);
+          if (result.error) {
+            messages.push({ playerId: player.id, text: result.error, kind: 'system' });
+            break;
+          }
+          if (result.inventoryChanged) {
             this.playerService.markDirty(player.id, 'inv');
-          } else {
-            messages.push({ playerId: player.id, text: err, kind: 'system' });
+          }
+          for (const dirtyPlayerId of result.dirtyPlayers) {
+            this.playerService.markDirty(dirtyPlayerId, 'loot');
+          }
+          for (const message of result.messages) {
+            messages.push({ playerId: message.playerId, text: message.text, kind: message.kind });
           }
           break;
         }
@@ -296,6 +329,22 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
             this.applyWorldUpdate(player.id, result, messages);
             break;
           }
+          if (actionId === 'loot:open') {
+            const tileTarget = target ? parseTileTargetRef(target) : null;
+            if (!tileTarget) {
+              messages.push({ playerId: player.id, text: '拿取需要指定目标格子。', kind: 'system' });
+              break;
+            }
+            const result = this.lootService.openLootWindow(player, tileTarget.x, tileTarget.y);
+            if (result.error) {
+              messages.push({ playerId: player.id, text: result.error, kind: 'system' });
+              break;
+            }
+            for (const dirtyPlayerId of result.dirtyPlayers) {
+              this.playerService.markDirty(dirtyPlayerId, 'loot');
+            }
+            break;
+          }
           if (actionId === 'battle:engage') {
             const result = this.worldService.engageTarget(player, target);
             this.applyWorldUpdate(player.id, result, messages);
@@ -342,6 +391,10 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     for (const player of mapPlayers) {
       affectedPlayers.set(player.id, player);
       if (player.dead) continue;
+      const timeUpdate = this.timeService.syncPlayerTimeEffects(player, now);
+      if (timeUpdate.changed) {
+        this.playerService.markDirty(player.id, 'actions');
+      }
 
       if (!player.autoBattle) {
         const navigation = this.navigationService.stepPlayerTowardTarget(player);
@@ -549,6 +602,12 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         };
         socket.emit(S2C.ActionsUpdate, update);
       }
+      if (flags.has('loot')) {
+        const update: S2C_LootWindowUpdate = {
+          window: this.lootService.buildLootWindow(player),
+        };
+        socket.emit(S2C.LootWindowUpdate, update);
+      }
       if (flags.has('quest')) {
         const update: S2C_QuestUpdate = { quests: player.quests };
         socket.emit(S2C.QuestUpdate, update);
@@ -576,7 +635,8 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     for (const viewer of players) {
       const socket = this.playerService.getSocket(viewer.id);
       if (!socket) continue;
-      const visibility = this.aoiService.getVisibility(viewer);
+      const time = this.timeService.buildPlayerTimeState(viewer);
+      const visibility = this.aoiService.getVisibility(viewer, time.effectiveViewRange);
 
       const visiblePlayers = players
         .filter((player) => visibility.visibleKeys.has(`${player.x},${player.y}`))
@@ -591,6 +651,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         p: visiblePlayers,
         t: [],
         e: visibleEntities,
+        g: this.lootService.getVisibleGroundPiles(viewer, visibility.visibleKeys),
         fx: this.filterEffectsForViewer(effects, visibility.visibleKeys),
         v: visibility.tiles,
         dt,
@@ -600,6 +661,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         hp: viewer.hp,
         qi: viewer.qi,
         f: viewer.facing,
+        time,
       };
 
       socket.emit(S2C.Tick, tickData);

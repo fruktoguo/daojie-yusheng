@@ -1,4 +1,4 @@
-import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, PlayerRealmState, QuestState, CombatEffect, AutoBattleSkillConfig, ItemType, QuestLine, QuestObjectiveType } from './types';
+import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, PlayerRealmState, QuestState, CombatEffect, AutoBattleSkillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, TechniqueGrade, GroundItemPileView, LootWindowState } from './types';
 import { NumericRatioDivisors, NumericStats } from './numeric';
 
 // ===== 事件名 =====
@@ -18,6 +18,7 @@ export const C2S = {
   Chat: 'c:chat',
   UseItem: 'c:useItem',
   DropItem: 'c:dropItem',
+  TakeLoot: 'c:takeLoot',
   SortInventory: 'c:sortInventory',
   Equip: 'c:equip',
   Unequip: 'c:unequip',
@@ -42,6 +43,7 @@ export const S2C = {
   EquipmentUpdate: 's:equipmentUpdate',
   TechniqueUpdate: 's:techniqueUpdate',
   ActionsUpdate: 's:actionsUpdate',
+  LootWindowUpdate: 's:lootWindowUpdate',
   QuestUpdate: 's:questUpdate',
   SystemMsg: 's:systemMsg',
 } as const;
@@ -111,6 +113,7 @@ export interface S2C_Tick {
   p: RenderEntity[];                              // 玩家可见实体（含自身）
   t: [number, number, string][];                  // [x, y, tileType]
   e: RenderEntity[];                              // 怪物 / NPC 可见实体
+  g?: GroundItemPileView[];                       // 视野内地面物品
   fx?: CombatEffect[];                            // 当前 tick 触发的战斗特效
   v?: VisibleTile[][];                            // 视野 tiles（null 表示当前不可见）
   dt?: number;                                    // 实际 tick 间隔（毫秒）
@@ -120,6 +123,7 @@ export interface S2C_Tick {
   hp?: number;                                    // 当前玩家 HP
   qi?: number;                                    // 当前玩家灵力
   f?: Direction;                                  // 当前玩家朝向
+  time?: GameTimeState;                           // 当前地图时间状态
 }
 
 /** 实体进入视野 */
@@ -138,6 +142,7 @@ export interface S2C_Init {
   mapMeta: MapMeta;
   tiles: VisibleTile[][];
   players: RenderEntity[]; // 初始可见玩家实体（含自身）
+  time?: GameTimeState;
 }
 
 export interface GmPlayerSummary {
@@ -181,6 +186,12 @@ export interface C2S_UseItem {
 export interface C2S_DropItem {
   slotIndex: number;
   count: number;
+}
+
+/** 拿取战利品 */
+export interface C2S_TakeLoot {
+  sourceId: string;
+  itemKey: string;
 }
 
 /** 整理背包 */
@@ -235,6 +246,10 @@ export interface S2C_ActionsUpdate {
   autoBattle?: boolean;
   autoRetaliate?: boolean;
   senseQiActive?: boolean;
+}
+
+export interface S2C_LootWindowUpdate {
+  window: LootWindowState | null;
 }
 
 /** 任务列表更新 */
@@ -390,6 +405,7 @@ export interface GmMapLandmarkRecord {
   x: number;
   y: number;
   desc?: string;
+  container?: GmMapContainerRecord;
 }
 
 export interface GmMapDropRecord {
@@ -398,6 +414,12 @@ export interface GmMapDropRecord {
   type: ItemType;
   count: number;
   chance?: number;
+}
+
+export interface GmMapContainerRecord {
+  grade?: TechniqueGrade;
+  refreshTicks?: number;
+  drops?: GmMapDropRecord[];
 }
 
 export interface GmMapQuestRecord {
@@ -449,6 +471,8 @@ export interface GmMapMonsterSpawnRecord {
   radius?: number;
   maxAlive?: number;
   aggroRange?: number;
+  viewRange?: number;
+  aggroMode?: MonsterAggroMode;
   respawnSec?: number;
   respawnTicks?: number;
   level?: number;
@@ -470,6 +494,7 @@ export interface GmMapDocument {
     x: number;
     y: number;
   };
+  time?: MapTimeConfig;
   auras?: GmMapAuraRecord[];
   landmarks?: GmMapLandmarkRecord[];
   npcs: GmMapNpcRecord[];

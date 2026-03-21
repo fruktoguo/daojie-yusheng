@@ -19,13 +19,17 @@ export class AoiService {
   constructor(private readonly mapService: MapService) {}
 
   /** 判断目标坐标是否在玩家视野内 */
-  inView(player: PlayerState, x: number, y: number): boolean {
-    return this.getVisibleKeys(player).has(`${x},${y}`);
+  inView(player: PlayerState, x: number, y: number, rangeOverride?: number): boolean {
+    return this.getVisibleKeys(player, rangeOverride).has(`${x},${y}`);
+  }
+
+  inViewAt(mapId: string, originX: number, originY: number, range: number, x: number, y: number, cacheId: string): boolean {
+    return this.getVisibleKeysAt(mapId, originX, originY, range, cacheId).has(`${x},${y}`);
   }
 
   /** 获取玩家视野范围 */
-  getViewport(player: PlayerState) {
-    const range = player.viewRange ?? VIEW_RADIUS;
+  getViewport(player: PlayerState, rangeOverride?: number) {
+    const range = rangeOverride ?? player.viewRange ?? VIEW_RADIUS;
     return {
       x: player.x - range,
       y: player.y - range,
@@ -34,24 +38,28 @@ export class AoiService {
     };
   }
 
-  getVisibility(player: PlayerState): VisibilitySnapshot {
-    const range = player.viewRange ?? VIEW_RADIUS;
-    const visibleKeys = this.getVisibleKeys(player);
+  getVisibility(player: PlayerState, rangeOverride?: number): VisibilitySnapshot {
+    const range = rangeOverride ?? player.viewRange ?? VIEW_RADIUS;
+    const visibleKeys = this.getVisibleKeys(player, range);
     const tiles = this.mapService.getViewTiles(player.mapId, player.x, player.y, range, visibleKeys);
     return { visibleKeys, tiles };
   }
 
-  getVisibleKeys(player: PlayerState): Set<string> {
-    const range = player.viewRange ?? VIEW_RADIUS;
-    const cacheKey = this.buildCacheKey(player, range);
-    const cached = this.visibilityCache.get(player.id);
+  getVisibleKeys(player: PlayerState, rangeOverride?: number): Set<string> {
+    const range = rangeOverride ?? player.viewRange ?? VIEW_RADIUS;
+    return this.getVisibleKeysAt(player.mapId, player.x, player.y, range, player.id);
+  }
+
+  getVisibleKeysAt(mapId: string, originX: number, originY: number, range: number, cacheId: string): Set<string> {
+    const cacheKey = this.buildCacheKey(mapId, originX, originY, range);
+    const cached = this.visibilityCache.get(cacheId);
     if (cached?.key === cacheKey) {
       return cached.visibleKeys;
     }
 
     const visibleKeys = new Set<string>();
-    const cx = player.x;
-    const cy = player.y;
+    const cx = originX;
+    const cy = originY;
     visibleKeys.add(`${cx},${cy}`);
 
     const octants: Array<[number, number, number, number]> = [
@@ -66,19 +74,19 @@ export class AoiService {
     ];
 
     for (const [xx, xy, yx, yy] of octants) {
-      this.castLight(player.mapId, cx, cy, 1, 1.0, 0.0, range, xx, xy, yx, yy, visibleKeys);
+      this.castLight(mapId, cx, cy, 1, 1.0, 0.0, range, xx, xy, yx, yy, visibleKeys);
     }
 
-    this.visibilityCache.set(player.id, { key: cacheKey, visibleKeys });
+    this.visibilityCache.set(cacheId, { key: cacheKey, visibleKeys });
     return visibleKeys;
   }
 
-  private buildCacheKey(player: PlayerState, range: number): string {
+  private buildCacheKey(mapId: string, x: number, y: number, range: number): string {
     return [
-      player.mapId,
-      this.mapService.getMapRevision(player.mapId),
-      player.x,
-      player.y,
+      mapId,
+      this.mapService.getMapRevision(mapId),
+      x,
+      y,
       range,
     ].join(':');
   }
