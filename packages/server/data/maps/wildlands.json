@@ -356,7 +356,16 @@
       "name": "匪营篝火",
       "x": 27,
       "y": 14,
-      "desc": "荒野匪徒聚集点，常有小股巡逻。"
+      "desc": "荒野匪徒聚集点，常有小股巡逻。",
+      "container": {
+        "grade": "mystic",
+        "refreshTicks": 2400,
+        "drops": [
+          { "itemId": "bandit_insignia", "name": "匪徒腰牌", "type": "material", "count": 2, "chance": 0.85 },
+          { "itemId": "frost_heart_paste", "name": "寒心膏", "type": "consumable", "count": 1, "chance": 0.45 },
+          { "itemId": "equip.step_boots", "name": "游侠靴", "type": "equipment", "count": 1, "chance": 0.12 }
+        ]
+      }
     },
     {
       "id": "lm_mire_pool",

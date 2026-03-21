@@ -250,7 +250,16 @@
       "name": "残宫观星台",
       "x": 13,
       "y": 18,
-      "desc": "从此处可俯瞰下界诸域。"
+      "desc": "从此处可俯瞰下界诸域。",
+      "container": {
+        "grade": "saint",
+        "refreshTicks": 4800,
+        "drops": [
+          { "itemId": "star_metal", "name": "星陨金", "type": "material", "count": 2, "chance": 0.8 },
+          { "itemId": "void_shard", "name": "虚蚀碎片", "type": "material", "count": 1, "chance": 0.65 },
+          { "itemId": "equip.void_talisman", "name": "空劫符坠", "type": "equipment", "count": 1, "chance": 0.08 }
+        ]
+      }
     }
   ]
 }

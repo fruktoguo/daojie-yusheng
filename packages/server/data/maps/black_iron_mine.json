@@ -266,7 +266,16 @@
       "name": "旧锻炉台",
       "x": 22,
       "y": 16,
-      "desc": "矿线装备成长与中期功法转折点。"
+      "desc": "矿线装备成长与中期功法转折点。",
+      "container": {
+        "grade": "earth",
+        "refreshTicks": 3000,
+        "drops": [
+          { "itemId": "black_iron_chunk", "name": "玄铁矿块", "type": "material", "count": 2, "chance": 0.8 },
+          { "itemId": "crystal_dust", "name": "晶尘", "type": "material", "count": 2, "chance": 0.6 },
+          { "itemId": "equip.miner_helmet", "name": "矿卫盔", "type": "equipment", "count": 1, "chance": 0.14 }
+        ]
+      }
     }
   ]
 }

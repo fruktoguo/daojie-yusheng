@@ -261,7 +261,16 @@
       "name": "岭顶关门",
       "x": 14,
       "y": 26,
-      "desc": "从这里起，怪物强度显著跃迁。"
+      "desc": "从这里起，怪物强度显著跃迁。",
+      "container": {
+        "grade": "heaven",
+        "refreshTicks": 3600,
+        "drops": [
+          { "itemId": "ridge_beast_claw", "name": "岭兽爪", "type": "material", "count": 2, "chance": 0.8 },
+          { "itemId": "frost_essence", "name": "霜华精粹", "type": "material", "count": 1, "chance": 0.55 },
+          { "itemId": "equip.spirit_ring", "name": "凝灵戒", "type": "equipment", "count": 1, "chance": 0.1 }
+        ]
+      }
     },
     {
       "id": "lm_ridge_sky_lift",
