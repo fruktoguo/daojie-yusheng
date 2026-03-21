@@ -234,10 +234,20 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
             break;
           }
           this.playerService.markDirty(player.id, 'inv');
-          for (const dirtyPlayerId of this.lootService.dropToGround(player.mapId, player.x, player.y, dropped)) {
+          const container = this.mapService.getContainerAt(player.mapId, player.x, player.y);
+          const dirtyPlayerIds = container
+            ? this.lootService.dropToContainer(player.mapId, container.id, dropped)
+            : this.lootService.dropToGround(player.mapId, player.x, player.y, dropped);
+          for (const dirtyPlayerId of dirtyPlayerIds) {
             this.playerService.markDirty(dirtyPlayerId, 'loot');
           }
-          messages.push({ playerId: player.id, text: `你将 ${dropped.name} x${dropped.count} 丢在了地上。`, kind: 'loot' });
+          messages.push({
+            playerId: player.id,
+            text: container
+              ? `你将 ${dropped.name} x${dropped.count} 放进了 ${container.name}。`
+              : `你将 ${dropped.name} x${dropped.count} 丢在了地上。`,
+            kind: 'loot',
+          });
           break;
         }
         case 'takeLoot': {

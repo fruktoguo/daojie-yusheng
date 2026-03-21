@@ -29,12 +29,12 @@ import { resolveDisplayName } from '../auth/account-validation';
 
 export interface PlayerCommand {
   playerId: string;
-  type: 'move' | 'moveTo' | 'action' | 'useItem' | 'dropItem' | 'sortInventory' | 'equip' | 'unequip' | 'cultivate' | 'debugResetSpawn' | 'updateAutoBattleSkills';
+  type: 'move' | 'moveTo' | 'action' | 'useItem' | 'dropItem' | 'takeLoot' | 'sortInventory' | 'equip' | 'unequip' | 'cultivate' | 'debugResetSpawn' | 'updateAutoBattleSkills';
   data: unknown;
   timestamp: number;
 }
 
-export type DirtyFlag = 'attr' | 'inv' | 'equip' | 'tech' | 'actions' | 'quest';
+export type DirtyFlag = 'attr' | 'inv' | 'equip' | 'tech' | 'actions' | 'loot' | 'quest';
 
 interface RetainedSession {
   player: PlayerState;

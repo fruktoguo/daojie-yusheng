@@ -422,6 +422,18 @@ export class ActionPanel {
 
   private withUtilityActions(actions: ActionDef[]): ActionDef[] {
     const result = [...actions];
+    if (!result.some((action) => action.id === 'client:take')) {
+      result.push({
+        id: 'client:take',
+        name: '拿取',
+        type: 'toggle',
+        desc: '选定 1 格内的目标，查看地面物品或搜索容器后拿取。',
+        cooldownLeft: 0,
+        requiresTarget: true,
+        targetMode: 'tile',
+        range: 1,
+      });
+    }
     if (!result.some((action) => action.id === 'client:observe')) {
       result.push({
         id: 'client:observe',

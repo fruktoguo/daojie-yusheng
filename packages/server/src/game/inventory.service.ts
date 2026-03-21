@@ -66,12 +66,9 @@ export class InventoryService {
     return null;
   }
 
-  /** 丢弃物品，返回错误信息或 null */
-  dropItem(player: PlayerState, slotIndex: number, count: number): string | null {
-    if (!this.removeItem(player, slotIndex, count)) {
-      return '物品不存在或数量不足';
-    }
-    return null;
+  /** 丢弃物品，返回被移除的物品栈 */
+  dropItem(player: PlayerState, slotIndex: number, count: number): ItemStack | null {
+    return this.removeItem(player, slotIndex, count);
   }
 
   /** 查找物品在背包中的槽位索引，-1 表示未找到 */

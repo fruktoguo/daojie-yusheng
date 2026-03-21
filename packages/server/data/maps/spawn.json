@@ -734,7 +734,32 @@
       "name": "镇防铁砧",
       "x": 13,
       "y": 20,
-      "desc": "韩铁匠常驻此地，提供基础装备成长线。"
+      "desc": "韩铁匠常驻此地，提供基础装备成长线。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1800,
+        "drops": [
+          { "itemId": "minor_qi_pill", "name": "小还灵丹", "type": "consumable", "count": 1, "chance": 0.75 },
+          { "itemId": "rat_tail", "name": "鼠尾", "type": "material", "count": 2, "chance": 0.6 },
+          { "itemId": "equip.rust_saber", "name": "旧铁长刀", "type": "equipment", "count": 1, "chance": 0.15 }
+        ]
+      }
+    },
+    {
+      "id": "lm_town_house_chest",
+      "name": "旧木储物箱",
+      "x": 8,
+      "y": 14,
+      "desc": "云来镇民居里留下的旧箱子，适合直接测试室内容器拿取。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1200,
+        "drops": [
+          { "itemId": "minor_qi_pill", "name": "小还灵丹", "type": "consumable", "count": 1, "chance": 0.8 },
+          { "itemId": "rat_tail", "name": "鼠尾", "type": "material", "count": 2, "chance": 0.55 },
+          { "itemId": "book_wind_step", "name": "《踏风步》残页", "type": "skill_book", "count": 1, "chance": 0.12 }
+        ]
+      }
     },
     {
       "id": "lm_spirit_plaque",

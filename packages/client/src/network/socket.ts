@@ -1,9 +1,9 @@
 import { io, Socket } from 'socket.io-client';
 import {
   C2S, S2C, C2S_Move, C2S_MoveTo, C2S_GmGetState, C2S_GmSpawnBots, C2S_GmRemoveBots, C2S_GmUpdatePlayer, C2S_GmResetPlayer, C2S_Action, C2S_UpdateAutoBattleSkills, C2S_DebugResetSpawn, C2S_UseItem, C2S_DropItem,
-  C2S_SortInventory, C2S_Equip, C2S_Unequip, C2S_Cultivate, C2S_Chat,
+  C2S_TakeLoot, C2S_SortInventory, C2S_Equip, C2S_Unequip, C2S_Cultivate, C2S_Chat,
   S2C_Tick, S2C_Init, S2C_AttrUpdate, S2C_InventoryUpdate,
-  S2C_EquipmentUpdate, S2C_TechniqueUpdate, S2C_ActionsUpdate, S2C_QuestUpdate, S2C_SystemMsg, S2C_GmState,
+  S2C_EquipmentUpdate, S2C_TechniqueUpdate, S2C_ActionsUpdate, S2C_LootWindowUpdate, S2C_QuestUpdate, S2C_SystemMsg, S2C_GmState,
   S2C_Error,
   AutoBattleSkillConfig, Direction, EquipSlot,
 } from '@mud/shared';
@@ -18,6 +18,7 @@ export class SocketManager {
   private onEquipmentUpdateCallbacks: Array<(data: S2C_EquipmentUpdate) => void> = [];
   private onTechniqueUpdateCallbacks: Array<(data: S2C_TechniqueUpdate) => void> = [];
   private onActionsUpdateCallbacks: Array<(data: S2C_ActionsUpdate) => void> = [];
+  private onLootWindowUpdateCallbacks: Array<(data: S2C_LootWindowUpdate) => void> = [];
   private onQuestUpdateCallbacks: Array<(data: S2C_QuestUpdate) => void> = [];
   private onSystemMsgCallbacks: Array<(data: S2C_SystemMsg) => void> = [];
   private onErrorCallbacks: Array<(data: S2C_Error) => void> = [];
@@ -65,6 +66,10 @@ export class SocketManager {
 
     this.socket.on(S2C.ActionsUpdate, (data: S2C_ActionsUpdate) => {
       this.onActionsUpdateCallbacks.forEach(cb => cb(data));
+    });
+
+    this.socket.on(S2C.LootWindowUpdate, (data: S2C_LootWindowUpdate) => {
+      this.onLootWindowUpdateCallbacks.forEach(cb => cb(data));
     });
 
     this.socket.on(S2C.QuestUpdate, (data: S2C_QuestUpdate) => {
@@ -138,6 +143,10 @@ export class SocketManager {
     this.socket?.emit(C2S.DropItem, { slotIndex, count } satisfies C2S_DropItem);
   }
 
+  sendTakeLoot(sourceId: string, itemKey: string) {
+    this.socket?.emit(C2S.TakeLoot, { sourceId, itemKey } satisfies C2S_TakeLoot);
+  }
+
   sendSortInventory() {
     this.socket?.emit(C2S.SortInventory, {} satisfies C2S_SortInventory);
   }
@@ -179,6 +188,7 @@ export class SocketManager {
   onEquipmentUpdate(cb: (data: S2C_EquipmentUpdate) => void) { this.onEquipmentUpdateCallbacks.push(cb); }
   onTechniqueUpdate(cb: (data: S2C_TechniqueUpdate) => void) { this.onTechniqueUpdateCallbacks.push(cb); }
   onActionsUpdate(cb: (data: S2C_ActionsUpdate) => void) { this.onActionsUpdateCallbacks.push(cb); }
+  onLootWindowUpdate(cb: (data: S2C_LootWindowUpdate) => void) { this.onLootWindowUpdateCallbacks.push(cb); }
   onQuestUpdate(cb: (data: S2C_QuestUpdate) => void) { this.onQuestUpdateCallbacks.push(cb); }
   onSystemMsg(cb: (data: S2C_SystemMsg) => void) { this.onSystemMsgCallbacks.push(cb); }
   onError(cb: (data: S2C_Error) => void) { this.onErrorCallbacks.push(cb); }
