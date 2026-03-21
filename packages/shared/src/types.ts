@@ -397,6 +397,7 @@ export interface CombatEffectFloat {
   y: number;
   text: string;
   color?: string;
+  variant?: 'damage' | 'action';
 }
 
 export type CombatEffect = CombatEffectAttack | CombatEffectFloat;

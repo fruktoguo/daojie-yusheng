@@ -237,7 +237,6 @@ function openBreakthroughModal() {
   });
 }
 
-
 hud.setCallbacks(() => {
   cancelTargeting();
   hideObserveModal();
@@ -1259,7 +1258,7 @@ socket.onTick((data: S2C_Tick) => {
       if (effect.type === 'attack') {
         renderer.addAttackTrail(effect.fromX, effect.fromY, effect.toX, effect.toY, effect.color);
       } else {
-        renderer.addFloatingText(effect.x, effect.y, effect.text, effect.color);
+        renderer.addFloatingText(effect.x, effect.y, effect.text, effect.color, effect.variant);
       }
     }
   }

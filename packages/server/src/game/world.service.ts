@@ -579,6 +579,7 @@ export class WorldService {
     if (typeof qiCost === 'string') {
       return { ...EMPTY_UPDATE, error: qiCost };
     }
+    this.pushActionLabelEffect(player.mapId, player.x, player.y, skill.name);
 
     const casterStats = this.attrService.getPlayerNumericStats(player);
     const techLevel = this.getSkillTechniqueLevel(player, skill.id);
@@ -924,7 +925,7 @@ export class WorldService {
     return {
       messages: [{
         playerId: player.id,
-        text: `${summary}获得了 ${effect.name}${stackText}，持续 ${Math.max(1, effect.duration)} 息。`,
+        text: `${skill.name}生效，${summary}获得了 ${effect.name}${stackText}，持续 ${Math.max(1, effect.duration)} 息。`,
         kind: 'combat',
       }],
       dirty: selfDirty ? ['attr'] : [],
@@ -2556,6 +2557,18 @@ export class WorldService {
     list.push(effect);
     this.effectsByMap.set(mapId, list);
   }
+
+  private pushActionLabelEffect(mapId: string, x: number, y: number, text: string) {
+    this.pushEffect(mapId, {
+      type: 'float',
+      x,
+      y,
+      text,
+      color: '#efe3c2',
+      variant: 'action',
+    });
+  }
+
   private faceToward(player: PlayerState, targetX: number, targetY: number) {
     const dx = targetX - player.x;
     const dy = targetY - player.y;
@@ -2569,6 +2582,7 @@ export class WorldService {
   }
 
   private performBasicAttack(player: PlayerState, target: ResolvedTarget): WorldUpdate {
+    this.pushActionLabelEffect(player.mapId, player.x, player.y, '挥剑');
     if (target.kind === 'monster') {
       return this.attackMonster(player, target.monster, 6, '你挥剑斩中', 'physical', undefined, 0, true);
     }

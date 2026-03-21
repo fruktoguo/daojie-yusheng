@@ -84,6 +84,7 @@ interface FloatingText {
   y: number;
   text: string;
   color: string;
+  variant: 'damage' | 'action';
   createdAt: number;
   duration: number;
 }
@@ -534,15 +535,16 @@ export class TextRenderer implements IRenderer {
     }
   }
 
-  addFloatingText(x: number, y: number, text: string, color = '#ffd27a') {
+  addFloatingText(x: number, y: number, text: string, color = '#ffd27a', variant: 'damage' | 'action' = 'damage') {
     this.floatingTexts.push({
       id: this.nextFloatingTextId++,
       x,
       y,
       text,
       color,
+      variant,
       createdAt: performance.now(),
-      duration: 850,
+      duration: variant === 'action' ? 1000 : 850,
     });
   }
 
@@ -570,7 +572,7 @@ export class TextRenderer implements IRenderer {
     this.floatingTexts = this.floatingTexts.filter((entry) => now - entry.createdAt < entry.duration);
     const groups = new Map<string, FloatingText[]>();
     for (const entry of this.floatingTexts) {
-      const key = `${entry.x},${entry.y}`;
+      const key = `${entry.x},${entry.y},${entry.variant}`;
       const group = groups.get(key);
       if (group) {
         group.push(entry);
@@ -584,28 +586,52 @@ export class TextRenderer implements IRenderer {
 
     for (const entry of this.floatingTexts) {
       const progress = Math.min(1, (now - entry.createdAt) / entry.duration);
-      const rise = cellSize * (0.2 + progress * 0.8);
+      const motionProgress = entry.variant === 'action' ? progress * progress : progress;
+      const rise = entry.variant === 'action'
+        ? cellSize * (0.08 + motionProgress * 0.46)
+        : cellSize * (0.2 + progress * 0.8);
       const alpha = 1 - progress;
       const worldX = entry.x * cellSize;
       const worldY = entry.y * cellSize;
       const { sx, sy } = camera.worldToScreen(worldX, worldY, sw, sh);
       if (sx + cellSize < 0 || sx > sw || sy + cellSize < 0 || sy > sh) continue;
-      const group = groups.get(`${entry.x},${entry.y}`) ?? [entry];
+      const group = groups.get(`${entry.x},${entry.y},${entry.variant}`) ?? [entry];
       const index = group.findIndex((item) => item.id === entry.id);
       const burst = this.getFloatingTextBurstOffset(index, group.length, cellSize);
 
       ctx.save();
       ctx.globalAlpha = alpha;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'alphabetic';
-      ctx.font = `bold ${Math.max(14, cellSize * 0.45)}px "Noto Serif SC", serif`;
-      this.drawOutlinedText(
-        entry.text,
-        sx + cellSize / 2 + burst.offsetX,
-        sy - rise - burst.offsetY,
-        entry.color,
-        'rgba(15,12,10,0.95)',
-      );
+      if (entry.variant === 'action') {
+        const fontSize = Math.max(10, cellSize * 0.28);
+        const scale = 0.98 + motionProgress * 0.08;
+        ctx.translate(
+          sx - cellSize * 0.06 + burst.offsetX,
+          sy - cellSize * 0.08 - rise - burst.offsetY,
+        );
+        ctx.scale(scale, scale);
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.font = `${fontSize}px "Ma Shan Zheng", cursive`;
+        this.drawOutlinedVerticalText(
+          entry.text,
+          0,
+          0,
+          entry.color,
+          'rgba(15,12,10,0.9)',
+          fontSize * 1.12,
+        );
+      } else {
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        ctx.font = `bold ${Math.max(14, cellSize * 0.45)}px "Noto Serif SC", serif`;
+        this.drawOutlinedText(
+          entry.text,
+          sx + cellSize / 2 + burst.offsetX,
+          sy - rise - burst.offsetY,
+          entry.color,
+          'rgba(15,12,10,0.95)',
+        );
+      }
       ctx.restore();
     }
   }
@@ -761,5 +787,23 @@ export class TextRenderer implements IRenderer {
     this.ctx.strokeText(text, x, y);
     this.ctx.fillStyle = fill;
     this.ctx.fillText(text, x, y);
+  }
+
+  private drawOutlinedVerticalText(text: string, x: number, y: number, fill: string, stroke: string, lineHeight: number) {
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+    const chars = [...text.trim()].filter((char) => char.trim().length > 0);
+    if (chars.length === 0) {
+      return;
+    }
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 2.4;
+    ctx.strokeStyle = stroke;
+    ctx.fillStyle = fill;
+    chars.forEach((char, index) => {
+      const drawY = y + lineHeight * index;
+      ctx.strokeText(char, x, drawY);
+      ctx.fillText(char, x, drawY);
+    });
   }
 }
