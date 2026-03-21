@@ -37,8 +37,7 @@
       "requirements": [
         { "id": "bw_4_5_bamboo_heart", "type": "item", "itemId": "bamboo_heart", "count": 1, "label": "备齐翠竹心 1 枚，洗练腑髓", "reduceAttrRequirementPct": 20 },
         { "id": "bw_4_5_tech_level", "type": "technique", "minLevel": 6, "count": 1, "label": "至少有 1 门功法修至 6 级", "reduceAttrRequirementPct": 65 },
-        { "id": "bw_4_5_constitution", "type": "attribute", "attr": "constitution", "minValue": 61, "label": "体魄达到 61" },
-        { "id": "bw_4_5_comprehension", "type": "attribute", "attr": "comprehension", "minValue": 54, "label": "悟性达到 54" }
+        { "id": "bw_4_5_constitution", "type": "attribute", "attr": "constitution", "minValue": 61, "label": "体魄达到 61" }
       ]
     },
     {
@@ -70,8 +69,7 @@
       "requirements": [
         { "id": "bw_7_8_wolf_fang", "type": "item", "itemId": "wolf_fang", "count": 2, "label": "备齐狼牙 2 枚，引劲淬锋", "reduceAttrRequirementPct": 20 },
         { "id": "bw_7_8_tech_realm", "type": "technique", "minRealm": "Minor", "count": 1, "label": "至少有 1 门功法达到小成", "reduceAttrRequirementPct": 65 },
-        { "id": "bw_7_8_spirit", "type": "attribute", "attr": "spirit", "minValue": 97, "label": "神识达到 97" },
-        { "id": "bw_7_8_comprehension", "type": "attribute", "attr": "comprehension", "minValue": 75, "label": "悟性达到 75" }
+        { "id": "bw_7_8_spirit", "type": "attribute", "attr": "spirit", "minValue": 97, "label": "神识达到 97" }
       ]
     },
     {
@@ -104,7 +102,6 @@
       "requirements": [
         { "id": "bw_10_11_black_iron_chunk", "type": "item", "itemId": "black_iron_chunk", "count": 2, "label": "备齐玄铁矿块 2 枚，借重压定桩架", "reduceAttrRequirementPct": 20 },
         { "id": "bw_10_11_yellow_major", "type": "technique", "minGrade": "yellow", "minRealm": "Major", "count": 1, "label": "至少有 1 门黄阶功法达到大成", "reduceAttrRequirementPct": 72 },
-        { "id": "bw_10_11_comprehension", "type": "attribute", "attr": "comprehension", "minValue": 130, "label": "悟性达到 130" },
         { "id": "bw_10_11_spirit", "type": "attribute", "attr": "spirit", "minValue": 139, "label": "神识达到 139" }
       ]
     },
@@ -115,8 +112,7 @@
       "requirements": [
         { "id": "bw_11_12_rune_shard", "type": "item", "itemId": "rune_shard", "count": 2, "label": "备齐断纹石片 2 枚，观纹藏锋", "reduceAttrRequirementPct": 20 },
         { "id": "bw_11_12_yellow_major", "type": "technique", "minGrade": "yellow", "minRealm": "Major", "count": 1, "label": "至少有 1 门黄阶功法达到大成", "reduceAttrRequirementPct": 72 },
-        { "id": "bw_11_12_spirit", "type": "attribute", "attr": "spirit", "minValue": 166, "label": "神识达到 166" },
-        { "id": "bw_11_12_comprehension", "type": "attribute", "attr": "comprehension", "minValue": 148, "label": "悟性达到 148" }
+        { "id": "bw_11_12_spirit", "type": "attribute", "attr": "spirit", "minValue": 166, "label": "神识达到 166" }
       ]
     },
     {
@@ -161,8 +157,7 @@
         { "id": "bw_15_16_valley_core", "type": "item", "itemId": "valley_core", "count": 1, "label": "备齐兽谷核心 1 枚，借异质归炁", "reduceAttrRequirementPct": 20 },
         { "id": "bw_15_16_spirit_iron_fragment", "type": "item", "itemId": "spirit_iron_fragment", "count": 4, "label": "备齐灵铁碎片 4 枚，束住一身真劲", "reduceAttrRequirementPct": 20 },
         { "id": "bw_15_16_yellow_perfect", "type": "technique", "minGrade": "yellow", "minLevel": 10, "count": 1, "label": "至少有 1 门黄阶功法修至圆满", "reduceAttrRequirementPct": 78 },
-        { "id": "bw_15_16_constitution", "type": "attribute", "attr": "constitution", "minValue": 462, "label": "体魄达到 462" },
-        { "id": "bw_15_16_comprehension", "type": "attribute", "attr": "comprehension", "minValue": 363, "label": "悟性达到 363" }
+        { "id": "bw_15_16_constitution", "type": "attribute", "attr": "constitution", "minValue": 462, "label": "体魄达到 462" }
       ]
     },
     {
@@ -173,8 +168,7 @@
         { "id": "bw_16_17_blood_feather", "type": "item", "itemId": "blood_feather", "count": 4, "label": "备齐血羽 4 枚，借煞意照心", "reduceAttrRequirementPct": 20 },
         { "id": "bw_16_17_demon_wolf_bone", "type": "item", "itemId": "demon_wolf_bone", "count": 4, "label": "备齐妖狼骨 4 枚，压住临渊杀势", "reduceAttrRequirementPct": 20 },
         { "id": "bw_16_17_two_major", "type": "technique", "minRealm": "Major", "count": 2, "label": "至少有 2 门功法达到大成", "reduceAttrRequirementPct": 80 },
-        { "id": "bw_16_17_spirit", "type": "attribute", "attr": "spirit", "minValue": 508, "label": "神识达到 508" },
-        { "id": "bw_16_17_comprehension", "type": "attribute", "attr": "comprehension", "minValue": 461, "label": "悟性达到 461" }
+        { "id": "bw_16_17_spirit", "type": "attribute", "attr": "spirit", "minValue": 508, "label": "神识达到 508" }
       ]
     },
     {
@@ -196,8 +190,7 @@
       "title": "道基初誓",
       "requirements": [
         { "id": "bw_24_25_yellow_tech", "type": "technique", "minGrade": "yellow", "count": 1, "label": "至少掌握 1 门黄阶功法", "reduceAttrRequirementPct": 70 },
-        { "id": "bw_24_25_spirit", "type": "attribute", "attr": "spirit", "minValue": 44, "label": "神识达到 44" },
-        { "id": "bw_24_25_comprehension", "type": "attribute", "attr": "comprehension", "minValue": 37, "label": "悟性达到 37" }
+        { "id": "bw_24_25_spirit", "type": "attribute", "attr": "spirit", "minValue": 44, "label": "神识达到 44" }
       ]
     }
   ]
