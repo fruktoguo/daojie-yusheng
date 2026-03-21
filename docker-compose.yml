@@ -33,6 +33,7 @@ services:
       HOST: 0.0.0.0
       PORT: 3000
       JWT_SECRET: daojie-yusheng-production-secret
+      GM_PASSWORD: admin123
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USERNAME: mud

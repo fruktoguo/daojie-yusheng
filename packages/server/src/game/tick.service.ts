@@ -26,6 +26,7 @@ import { InventoryService } from './inventory.service';
 import { MapService } from './map.service';
 import { NavigationService } from './navigation.service';
 import { BotService } from './bot.service';
+import { GmService } from './gm.service';
 import { PerformanceService } from './performance.service';
 import { DirtyFlag, PlayerService } from './player.service';
 import { TechniqueService } from './technique.service';
@@ -48,6 +49,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     private readonly aoiService: AoiService,
     private readonly navigationService: NavigationService,
     private readonly botService: BotService,
+    private readonly gmService: GmService,
     private readonly performanceService: PerformanceService,
     private readonly attrService: AttrService,
     private readonly inventoryService: InventoryService,
@@ -141,8 +143,18 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     this.lastTickTime.set(mapId, now);
 
     const messages: WorldMessage[] = [];
+    const gmCommands = this.gmService.drainCommands(mapId);
     const commands = this.playerService.drainCommands(mapId);
     const affectedPlayers = new Map<string, PlayerState>();
+
+    for (const command of gmCommands) {
+      const error = this.gmService.applyCommand(command);
+      if (!error) continue;
+
+      if ('playerId' in command && typeof command.playerId === 'string') {
+        messages.push({ playerId: command.playerId, text: error, kind: 'system' });
+      }
+    }
 
     for (const cmd of commands) {
       const player = this.playerService.getPlayer(cmd.playerId);

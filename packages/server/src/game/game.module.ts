@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module';
 import { GameGateway } from './game.gateway';
+import { GmController } from './gm.controller';
+import { GmAuthGuard } from './gm-auth.guard';
 import { TickService } from './tick.service';
 import { MapService } from './map.service';
 import { PlayerService } from './player.service';
@@ -24,8 +26,10 @@ import { PlayerEntity } from '../database/entities/player.entity';
     AuthModule,
     TypeOrmModule.forFeature([PlayerEntity]),
   ],
+  controllers: [GmController],
   providers: [
     GameGateway,
+    GmAuthGuard,
     TickService,
     MapService,
     PlayerService,

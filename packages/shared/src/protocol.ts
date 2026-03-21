@@ -274,3 +274,61 @@ export interface AuthTokenRes {
   accessToken: string;
   refreshToken: string;
 }
+
+export interface GmLoginReq {
+  password: string;
+}
+
+export interface GmLoginRes {
+  accessToken: string;
+  expiresInSec: number;
+}
+
+export interface GmManagedPlayerMeta {
+  userId?: string;
+  isBot: boolean;
+  online: boolean;
+  updatedAt?: string;
+  dirtyFlags: string[];
+}
+
+export interface GmManagedPlayerRecord {
+  id: string;
+  name: string;
+  mapId: string;
+  x: number;
+  y: number;
+  hp: number;
+  maxHp: number;
+  qi: number;
+  dead: boolean;
+  autoBattle: boolean;
+  autoRetaliate: boolean;
+  meta: GmManagedPlayerMeta;
+  snapshot: PlayerState;
+}
+
+export interface GmStateRes {
+  players: GmManagedPlayerRecord[];
+  mapIds: string[];
+  botCount: number;
+  perf: {
+    cpuPercent: number;
+    memoryMb: number;
+    tickMs: number;
+  };
+}
+
+export interface GmUpdatePlayerReq {
+  snapshot: PlayerState;
+}
+
+export interface GmSpawnBotsReq {
+  anchorPlayerId: string;
+  count: number;
+}
+
+export interface GmRemoveBotsReq {
+  playerIds?: string[];
+  all?: boolean;
+}

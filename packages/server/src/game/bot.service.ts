@@ -24,11 +24,15 @@ export class BotService {
   ) {}
 
   spawnBots(anchor: PlayerState, count: number): number {
+    return this.spawnBotsAt(anchor.mapId, anchor.x, anchor.y, count);
+  }
+
+  spawnBotsAt(mapId: string, centerX: number, centerY: number, count: number): number {
     const targetCount = Math.max(0, Math.min(50, Math.floor(count)));
     let created = 0;
 
     for (let index = 0; index < targetCount; index++) {
-      const pos = this.findSpawnPosition(anchor.mapId, anchor.x, anchor.y);
+      const pos = this.findSpawnPosition(mapId, centerX, centerY);
       if (!pos) break;
 
       const botId = `bot_${Date.now()}_${this.nextBotSeq++}`;
@@ -36,7 +40,7 @@ export class BotService {
         id: botId,
         name: `傀儡${String(this.nextBotSeq - 1).padStart(2, '0')}`,
         isBot: true,
-        mapId: anchor.mapId,
+        mapId,
         x: pos.x,
         y: pos.y,
         facing: Direction.South,

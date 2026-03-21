@@ -14,11 +14,10 @@ import { EquipmentPanel } from './ui/panels/equipment-panel';
 import { TechniquePanel } from './ui/panels/technique-panel';
 import { QuestPanel } from './ui/panels/quest-panel';
 import { ActionPanel } from './ui/panels/action-panel';
-import { GmPanel } from './ui/panels/gm-panel';
 import { WorldPanel } from './ui/panels/world-panel';
 import { FloatingTooltip } from './ui/floating-tooltip';
 import { detailModalHost } from './ui/detail-modal-host';
-import { adjustZoom, cycleZoom, getZoom } from './display';
+import { adjustZoom, getZoom } from './display';
 import { hydrateTileCacheFromMemory, rememberVisibleTiles } from './map-memory';
 import {
   ActionDef,
@@ -85,7 +84,6 @@ const equipmentPanel = new EquipmentPanel();
 const techniquePanel = new TechniquePanel();
 const questPanel = new QuestPanel();
 const actionPanel = new ActionPanel();
-const gmPanel = new GmPanel();
 const worldPanel = new WorldPanel();
 const targetingBadgeEl = document.getElementById('map-targeting-indicator');
 const observeModalEl = document.getElementById('observe-modal');
@@ -674,23 +672,6 @@ actionPanel.setCallbacks(
     socket.sendUpdateAutoBattleSkills(skills);
   },
 );
-gmPanel.setCallbacks({
-  onRefresh: () => socket.sendGmGetState(),
-  onResetSelf: () => {
-    showToast('已发送回出生点请求');
-    socket.sendDebugResetSpawn();
-  },
-  onCycleZoom: () => {
-    const zoom = cycleZoom();
-    refreshZoomChrome(zoom);
-    refreshZoomViewport();
-    showToast(`缩放已切换为 ${zoom}x`);
-  },
-  onSpawnBots: (count) => socket.sendGmSpawnBots(count),
-  onRemoveBots: (playerIds, all) => socket.sendGmRemoveBots(playerIds, all),
-  onUpdatePlayer: (payload) => socket.sendGmUpdatePlayer(payload),
-  onResetPlayer: (playerId) => socket.sendGmResetPlayer(playerId),
-});
 debugPanel.setCallbacks(() => {
   showToast('已发送回出生点请求');
   socket.sendDebugResetSpawn();
@@ -721,11 +702,6 @@ document.getElementById('hud-toggle-auto-battle')?.addEventListener('click', () 
 document.getElementById('hud-toggle-auto-retaliate')?.addEventListener('click', () => {
   socket.sendAction('toggle:auto_retaliate');
 });
-document.querySelector<HTMLElement>('[data-tab="gm"]')?.addEventListener('click', () => {
-  socket.sendGmGetState();
-  lastGmSyncAt = performance.now();
-});
-
 // S2C 更新回调
 socket.onAttrUpdate((data) => {
   if (myPlayer) {
@@ -826,9 +802,6 @@ socket.onError(async (data) => {
   }
   showToast(data.message);
 });
-socket.onGmState((data) => {
-  gmPanel.update(data);
-});
 socket.onKick(() => {
   resetGameState();
   loginUI.logout('账号已在其他位置登录');
@@ -850,8 +823,6 @@ let pathTarget: { x: number; y: number } | null = null;
 // 动画状态
 let tickStartTime = performance.now();
 let tickDuration = 1000;
-let lastGmSyncAt = 0;
-
 let myPlayer: PlayerState | null = null;
 let currentMapMeta: MapMeta | null = null;
 let latestEntities: ObservedEntity[] = [];
@@ -1038,10 +1009,6 @@ function shouldPauseWorldPanelRefresh(): boolean {
   return hasSelectionWithin(document.getElementById('layout-center'));
 }
 
-function isGmPaneActive(): boolean {
-  return document.getElementById('pane-gm')?.classList.contains('active') ?? false;
-}
-
 function inferAutoRetaliate(current: boolean, actions: { id: string; name: string; desc: string }[]): boolean {
   const toggle = actions.find(a => a.id.includes('auto_retaliate') || a.name.includes('受击'));
   if (!toggle) return current;
@@ -1084,7 +1051,6 @@ function resetGameState() {
   tileOriginY = 0;
   tileCache.clear();
   currentVisibleTiles.clear();
-  lastGmSyncAt = 0;
   pendingTargetedAction = null;
   hideObserveModal();
   syncTargetingOverlay();
@@ -1099,7 +1065,6 @@ function resetGameState() {
   questPanel.clear();
   actionPanel.clear();
   worldPanel.clear();
-  gmPanel.clear();
   resizeCanvas();
   document.getElementById('hud')?.classList.add('hidden');
 }
@@ -1269,10 +1234,6 @@ socket.onInit((data: S2C_Init) => {
   questPanel.initFromPlayer(myPlayer);
   actionPanel.initFromPlayer(myPlayer);
   refreshUiChrome();
-  if (isGmPaneActive()) {
-    socket.sendGmGetState();
-    lastGmSyncAt = performance.now();
-  }
 });
 
 // Tick 更新

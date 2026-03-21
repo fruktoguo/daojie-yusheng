@@ -3,8 +3,10 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { AuthTokenRes } from '@mud/shared';
+import { AuthTokenRes, GmLoginRes } from '@mud/shared';
 import { UserEntity } from '../database/entities/user.entity';
+
+const GM_TOKEN_EXPIRES_IN = 60 * 60 * 12;
 
 @Injectable()
 export class AuthService {
@@ -45,9 +47,40 @@ export class AuthService {
   validateToken(token: string): { userId: string; username: string } | null {
     try {
       const payload = this.jwtService.verify(token);
+      if (payload?.role === 'gm') return null;
+      if (typeof payload?.sub !== 'string' || typeof payload?.username !== 'string') {
+        return null;
+      }
       return { userId: payload.sub, username: payload.username };
     } catch {
       return null;
+    }
+  }
+
+  loginGm(password: string): GmLoginRes {
+    const configuredPassword = process.env.GM_PASSWORD;
+    if (!configuredPassword) {
+      throw new UnauthorizedException('GM 密码未配置');
+    }
+    if (password !== configuredPassword) {
+      throw new UnauthorizedException('GM 密码错误');
+    }
+
+    return {
+      accessToken: this.jwtService.sign(
+        { role: 'gm' },
+        { expiresIn: `${GM_TOKEN_EXPIRES_IN}s` },
+      ),
+      expiresInSec: GM_TOKEN_EXPIRES_IN,
+    };
+  }
+
+  validateGmToken(token: string): boolean {
+    try {
+      const payload = this.jwtService.verify(token);
+      return payload?.role === 'gm';
+    } catch {
+      return false;
     }
   }
 

@@ -12,11 +12,6 @@ import {
   S2C,
   C2S_Move,
   C2S_MoveTo,
-  C2S_GmGetState,
-  C2S_GmSpawnBots,
-  C2S_GmRemoveBots,
-  C2S_GmUpdatePlayer,
-  C2S_GmResetPlayer,
   C2S_UseItem,
   C2S_DropItem,
   C2S_SortInventory,
@@ -30,7 +25,6 @@ import {
   PlayerState,
   S2C_Init,
   S2C_SystemMsg,
-  S2C_GmState,
   DEFAULT_BASE_ATTRS,
   BASE_MAX_HP,
   HP_PER_CONSTITUTION,
@@ -44,7 +38,6 @@ import { PlayerService } from './player.service';
 import { MapService } from './map.service';
 import { AoiService } from './aoi.service';
 import { WorldService } from './world.service';
-import { GmService } from './gm.service';
 
 const DEFAULT_MAP = 'spawn';
 
@@ -63,7 +56,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly mapService: MapService,
     private readonly aoiService: AoiService,
     private readonly worldService: WorldService,
-    private readonly gmService: GmService,
   ) {}
 
   async handleConnection(client: Socket) {
@@ -249,52 +241,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
-  @SubscribeMessage(C2S.GmGetState)
-  handleGmGetState(client: Socket, _data: C2S_GmGetState) {
-    this.emitGmState(client);
-  }
-
-  @SubscribeMessage(C2S.GmSpawnBots)
-  handleGmSpawnBots(client: Socket, data: C2S_GmSpawnBots) {
-    const playerId = client.data?.playerId as string;
-    const error = this.gmService.spawnBots(playerId, data.count);
-    if (error) {
-      client.emit(S2C.Error, { code: 'GM_FAIL', message: error });
-      return;
-    }
-    this.emitGmState(client);
-  }
-
-  @SubscribeMessage(C2S.GmRemoveBots)
-  handleGmRemoveBots(client: Socket, data: C2S_GmRemoveBots) {
-    const error = this.gmService.removeBots(data.playerIds, data.all);
-    if (error) {
-      client.emit(S2C.Error, { code: 'GM_FAIL', message: error });
-      return;
-    }
-    this.emitGmState(client);
-  }
-
-  @SubscribeMessage(C2S.GmUpdatePlayer)
-  handleGmUpdatePlayer(client: Socket, data: C2S_GmUpdatePlayer) {
-    const error = this.gmService.updatePlayer(data);
-    if (error) {
-      client.emit(S2C.Error, { code: 'GM_FAIL', message: error });
-      return;
-    }
-    this.emitGmState(client);
-  }
-
-  @SubscribeMessage(C2S.GmResetPlayer)
-  handleGmResetPlayer(client: Socket, data: C2S_GmResetPlayer) {
-    const error = this.gmService.resetPlayer(data.playerId);
-    if (error) {
-      client.emit(S2C.Error, { code: 'GM_FAIL', message: error });
-      return;
-    }
-    this.emitGmState(client);
-  }
-
   @SubscribeMessage(C2S.DebugResetSpawn)
   handleDebugResetSpawn(client: Socket, data: C2S_DebugResetSpawn) {
     const playerId = client.data?.playerId as string;
@@ -434,11 +380,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const initData: S2C_Init = { self: player, mapMeta, tiles: visibility.tiles, players: nearbyPlayers };
     client.emit(S2C.Init, initData);
-  }
-
-  private emitGmState(client: Socket) {
-    const state: S2C_GmState = this.gmService.getState();
-    client.emit(S2C.GmState, state);
   }
 
   private resolveLoginPosition(mapId: string, x: number, y: number): { x: number; y: number } {

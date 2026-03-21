@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>道劫余生 · 监察司</title>
+  <link rel="icon" type="image/png" href="/logo.png" />
+  <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;700&family=Zhi+Mang+Xing&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper-bg: #ecece8;
+      --paper-light: #f5f5f1;
+      --paper-white: #f8f8f5;
+      --wash-ink: rgba(17, 17, 17, 0.08);
+      --light-ink: #8a8a8a;
+      --ink-black: #111111;
+      --ink-dark: #2c2f33;
+      --ink-grey: #6e6e6e;
+      --ink-light: #cccccc;
+      --stamp-red: #c53c3c;
+      --stamp-red-hover: #a12b2b;
+      --highlight: rgba(30, 30, 30, 0.08);
+      --font-heading-main: 'Zhi Mang Xing', cursive;
+      --font-heading-sub: 'Ma Shan Zheng', cursive;
+      --font-body: 'Noto Serif SC', serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,0.08), transparent 28%),
+        linear-gradient(180deg, rgba(236,236,232,0.08), rgba(17,17,17,0));
+      background-color: #111;
+      color: var(--ink-dark);
+      font-family: var(--font-body);
+    }
+
+    .hidden { display: none !important; }
+
+    .login-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.82);
+      backdrop-filter: blur(4px);
+      padding: 24px;
+      z-index: 10;
+    }
+
+    .login-box,
+    .layout-section {
+      position: relative;
+      background: rgba(236, 236, 232, 0.96);
+      border: 1.5px solid var(--ink-black);
+      box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.12);
+      overflow: hidden;
+    }
+
+    .login-box {
+      width: min(440px, 100%);
+      padding: 38px 34px;
+      background: var(--paper-light);
+    }
+
+    .login-box::before,
+    .login-box::after,
+    .layout-section::before,
+    .layout-section::after {
+      content: '';
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--ink-black);
+      pointer-events: none;
+      opacity: 0.72;
+    }
+
+    .login-box::before,
+    .layout-section::before {
+      top: 8px;
+      left: 8px;
+      border-right: none;
+      border-bottom: none;
+    }
+
+    .login-box::after,
+    .layout-section::after {
+      right: 8px;
+      bottom: 8px;
+      border-left: none;
+      border-top: none;
+    }
+
+    .login-stamp,
+    .panel-stamp {
+      position: absolute;
+      top: 16px;
+      right: 18px;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-heading-sub);
+      font-size: 15px;
+      color: var(--paper-bg);
+      background: var(--stamp-red);
+      box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.8);
+      opacity: 0.88;
+      transform: rotate(6deg);
+    }
+
+    .login-logo {
+      width: min(168px, 44vw);
+      display: block;
+      margin: 0 auto 16px;
+      filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.12));
+    }
+
+    .login-title,
+    .shell-title {
+      font-family: var(--font-heading-main);
+      color: var(--ink-black);
+      letter-spacing: 6px;
+    }
+
+    .login-title {
+      font-size: 50px;
+      text-align: center;
+      margin-bottom: 4px;
+    }
+
+    .login-subtitle,
+    .shell-subtitle {
+      font-family: var(--font-heading-sub);
+      color: var(--ink-grey);
+      letter-spacing: 3px;
+    }
+
+    .login-subtitle {
+      font-size: 15px;
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 18px;
+    }
+
+    .form-group label,
+    .section-title,
+    .section-subtitle,
+    .panel-title,
+    .action-btn,
+    .small-btn,
+    .pill,
+    .player-name {
+      font-family: var(--font-heading-sub);
+    }
+
+    .form-group label {
+      font-size: 16px;
+    }
+
+    .form-group input,
+    .search-input,
+    .number-input,
+    .editor-textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--ink-light);
+      background: #fff;
+      color: var(--ink-dark);
+      font-family: var(--font-body);
+      font-size: 14px;
+      outline: none;
+    }
+
+    .form-group input:focus,
+    .search-input:focus,
+    .number-input:focus,
+    .editor-textarea:focus {
+      border-color: var(--ink-black);
+    }
+
+    .login-actions,
+    .button-row,
+    .filter-row,
+    .summary-grid,
+    .meta-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .action-btn,
+    .small-btn {
+      position: relative;
+      background: transparent;
+      border: 1px solid var(--ink-black);
+      color: var(--ink-black);
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+
+    .action-btn {
+      flex: 1;
+      padding: 12px 0;
+      font-size: 20px;
+    }
+
+    .small-btn {
+      padding: 8px 12px;
+      font-size: 13px;
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    .small-btn.primary,
+    .action-btn.primary {
+      border-width: 2px;
+      border-color: var(--stamp-red);
+    }
+
+    .small-btn.danger {
+      border-color: var(--stamp-red);
+      color: var(--stamp-red);
+    }
+
+    .small-btn:hover,
+    .action-btn:hover {
+      background: var(--ink-black);
+      color: var(--paper-light);
+    }
+
+    .small-btn.primary:hover,
+    .action-btn.primary:hover {
+      background: var(--stamp-red);
+      border-color: var(--stamp-red-hover);
+    }
+
+    .small-btn:disabled,
+    .action-btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+      background: rgba(255,255,255,0.3);
+      color: var(--ink-grey);
+    }
+
+    .login-error,
+    .status-bar {
+      min-height: 22px;
+      font-size: 13px;
+      color: var(--stamp-red);
+    }
+
+    #gm-shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: minmax(280px, 0.85fr) minmax(320px, 1fr) minmax(420px, 1.45fr);
+      gap: 14px;
+      padding: 14px;
+    }
+
+    .layout-section {
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .section-head {
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid var(--wash-ink);
+      background: rgba(255,255,255,0.32);
+    }
+
+    .section-title {
+      font-size: 20px;
+      color: var(--ink-black);
+    }
+
+    .section-subtitle {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--ink-grey);
+    }
+
+    .section-body {
+      flex: 1;
+      min-height: 0;
+      padding: 16px;
+      overflow: auto;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .summary-card,
+    .note-card {
+      padding: 12px;
+      border: 1px solid var(--wash-ink);
+      background: rgba(255,255,255,0.56);
+    }
+
+    .panel-title {
+      font-size: 14px;
+      color: var(--ink-grey);
+    }
+
+    .panel-value {
+      margin-top: 6px;
+      font-size: 24px;
+      color: var(--ink-black);
+    }
+
+    .note-card {
+      line-height: 1.65;
+      font-size: 13px;
+      color: var(--ink-grey);
+    }
+
+    .filter-row {
+      margin-bottom: 12px;
+      align-items: center;
+    }
+
+    .search-input {
+      flex: 1;
+      min-width: 0;
+      padding: 10px 12px;
+    }
+
+    .number-input {
+      width: 88px;
+      padding: 10px 12px;
+    }
+
+    .player-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .player-row {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--wash-ink);
+      background: var(--paper-white);
+      color: var(--ink-dark);
+      text-align: left;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .player-row.active {
+      border-color: var(--stamp-red);
+      background: rgba(197, 60, 60, 0.06);
+    }
+
+    .player-row:hover {
+      border-color: rgba(17, 17, 17, 0.28);
+    }
+
+    .player-top,
+    .editor-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .player-name {
+      font-size: 16px;
+      color: var(--ink-black);
+    }
+
+    .player-meta,
+    .player-subline,
+    .editor-note,
+    .empty-hint {
+      margin-top: 5px;
+      font-size: 12px;
+      color: var(--ink-grey);
+      line-height: 1.55;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3px 9px;
+      border: 1px solid var(--wash-ink);
+      font-size: 12px;
+      color: var(--ink-dark);
+      background: rgba(255,255,255,0.72);
+    }
+
+    .pill.online {
+      border-color: rgba(57, 109, 46, 0.22);
+      color: #396d2e;
+      background: rgba(57, 109, 46, 0.08);
+    }
+
+    .pill.bot {
+      border-color: rgba(63, 121, 154, 0.22);
+      color: #3f799a;
+      background: rgba(63, 121, 154, 0.08);
+    }
+
+    .pill.offline {
+      border-color: rgba(110, 110, 110, 0.18);
+    }
+
+    .editor-head {
+      margin-bottom: 10px;
+      align-items: flex-start;
+    }
+
+    .editor-main-title {
+      font-size: 22px;
+      color: var(--ink-black);
+      font-family: var(--font-heading-sub);
+    }
+
+    .editor-main-subtitle {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--ink-grey);
+      line-height: 1.55;
+    }
+
+    .meta-row {
+      margin-bottom: 12px;
+    }
+
+    .editor-textarea {
+      min-height: 480px;
+      resize: vertical;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      line-height: 1.5;
+      font-size: 13px;
+      background: rgba(255,255,255,0.86);
+    }
+
+    .empty-hint {
+      padding: 32px 12px;
+      text-align: center;
+    }
+
+    @media (max-width: 1200px) {
+      #gm-shell {
+        grid-template-columns: 1fr;
+      }
+      .editor-textarea {
+        min-height: 360px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="login-overlay" class="login-overlay">
+    <div class="login-box">
+      <div class="login-stamp">禁</div>
+      <img class="login-logo" src="/logo.png" alt="道劫余生" />
+      <div class="login-title">监察司</div>
+      <div class="login-subtitle">独立 GM 管理台 · 仅限持密进入</div>
+      <div class="form-group">
+        <label for="gm-password">GM 密码</label>
+        <input id="gm-password" type="password" placeholder="输入 GM 管理密码" />
+      </div>
+      <div class="login-actions">
+        <button id="login-submit" class="action-btn primary" type="button">入司</button>
+      </div>
+      <div id="login-error" class="login-error"></div>
+    </div>
+  </div>
+
+  <main id="gm-shell" class="hidden">
+    <section class="layout-section">
+      <div class="panel-stamp">司</div>
+      <div class="section-head">
+        <div class="shell-title">道劫余生</div>
+        <div class="shell-subtitle">全服监察总览</div>
+      </div>
+      <div class="section-body">
+        <div class="summary-grid">
+          <div class="summary-card">
+            <div class="panel-title">角色总数</div>
+            <div id="summary-total" class="panel-value">0</div>
+          </div>
+          <div class="summary-card">
+            <div class="panel-title">在线人数</div>
+            <div id="summary-online" class="panel-value">0</div>
+          </div>
+          <div class="summary-card">
+            <div class="panel-title">机器人</div>
+            <div id="summary-bots" class="panel-value">0</div>
+          </div>
+          <div class="summary-card">
+            <div class="panel-title">单息耗时</div>
+            <div id="summary-tick" class="panel-value">0 ms</div>
+          </div>
+        </div>
+        <div class="summary-grid">
+          <div class="summary-card">
+            <div class="panel-title">CPU 压力</div>
+            <div id="summary-cpu" class="panel-value">0%</div>
+          </div>
+          <div class="summary-card">
+            <div class="panel-title">内存占用</div>
+            <div id="summary-memory" class="panel-value">0 MB</div>
+          </div>
+        </div>
+        <div class="button-row" style="margin-bottom: 12px;">
+          <input id="spawn-count" class="number-input" type="number" min="1" max="50" value="5" />
+          <button id="spawn-bots" class="small-btn" type="button">在选中角色附近生傀儡</button>
+          <button id="remove-all-bots" class="small-btn danger" type="button">移除全部机器人</button>
+        </div>
+        <div class="button-row" style="margin-bottom: 12px;">
+          <button id="refresh-state" class="small-btn" type="button">立即刷新</button>
+          <button id="logout" class="small-btn" type="button">退出管理台</button>
+        </div>
+        <div id="status-bar" class="status-bar"></div>
+        <div class="note-card">
+          在线玩家的修改会由服务端在下一息统一执行。离线玩家会直接更新存档。<br />
+          编辑器展示的是完整玩家快照；像 `actions`、`finalAttrs`、`numericStats`、`realm` 这类派生字段，保存后仍以服务端重算结果为准。
+        </div>
+      </div>
+    </section>
+
+    <section class="layout-section">
+      <div class="section-head">
+        <div class="section-title">角色册</div>
+        <div class="section-subtitle">支持按名字、ID、用户 ID、地图搜索</div>
+      </div>
+      <div class="section-body">
+        <div class="filter-row">
+          <input id="player-search" class="search-input" type="text" placeholder="搜索玩家 / 用户 / 地图" />
+        </div>
+        <div id="player-list" class="player-list"></div>
+      </div>
+    </section>
+
+    <section class="layout-section">
+      <div class="section-head">
+        <div class="section-title">全量数据编辑</div>
+        <div class="section-subtitle">完整 JSON 视图，保存即写回服务端</div>
+      </div>
+      <div class="section-body">
+        <div id="editor-empty" class="empty-hint">从左侧选择一个角色后，可查看并修改其完整数据。</div>
+        <div id="editor-panel" class="hidden">
+          <div class="editor-head">
+            <div>
+              <div id="editor-title" class="editor-main-title">未选择角色</div>
+              <div id="editor-subtitle" class="editor-main-subtitle"></div>
+            </div>
+          </div>
+          <div id="editor-meta" class="meta-row"></div>
+          <div class="button-row" style="margin-bottom: 10px;">
+            <button id="save-player" class="small-btn primary" type="button">保存修改</button>
+            <button id="reset-player" class="small-btn" type="button">回出生点</button>
+            <button id="remove-bot" class="small-btn danger" type="button">移除该机器人</button>
+          </div>
+          <div class="editor-note">保存前请保证 JSON 可被解析。在线玩家通常会在下一次 tick 后反映到客户端。</div>
+          <textarea id="player-json" class="editor-textarea" spellcheck="false"></textarea>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="/src/gm.ts"></script>
+</body>
+</html>

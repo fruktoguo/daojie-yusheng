@@ -30,6 +30,7 @@ case "$MODE" in
     fi
 
     export JWT_SECRET="${JWT_SECRET:-daojie-yusheng-dev-secret}"
+    export GM_PASSWORD="${GM_PASSWORD:-admin123}"
     export DB_HOST="${DB_HOST:-localhost}"
     export DB_PORT="${DB_PORT:-5432}"
     export DB_USERNAME="${DB_USERNAME:-postgres}"
