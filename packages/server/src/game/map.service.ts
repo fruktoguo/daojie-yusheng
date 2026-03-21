@@ -32,6 +32,9 @@ import {
   QuestLine,
   QuestObjectiveType,
   TerrainDurabilityMaterial,
+  TERRAIN_DESTROYED_RESTORE_TICKS,
+  TERRAIN_REGEN_RATE_PER_TICK,
+  TERRAIN_RESTORE_RETRY_DELAY_TICKS,
   TechniqueGrade,
 } from '@mud/shared';
 import * as fs from 'fs';
@@ -133,6 +136,29 @@ interface MapAuraPoint {
   value: number;
 }
 
+interface DynamicTileState {
+  x: number;
+  y: number;
+  originalType: TileType;
+  hp: number;
+  maxHp: number;
+  destroyed: boolean;
+  restoreTicksLeft?: number;
+}
+
+interface PersistedDynamicTileRecord {
+  x: number;
+  y: number;
+  hp: number;
+  destroyed: boolean;
+  restoreTicksLeft?: number;
+}
+
+interface PersistedDynamicTileSnapshot {
+  version: 1;
+  maps: Record<string, PersistedDynamicTileRecord[]>;
+}
+
 type TerrainDurabilityProfile = {
   grade: TechniqueGrade;
   material: TerrainDurabilityMaterial;
@@ -213,6 +239,11 @@ interface ProjectedPoint {
   y: number;
 }
 
+interface PortalObservationHint {
+  title: string;
+  desc?: string;
+}
+
 @Injectable()
 export class MapService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(MapService.name);
@@ -220,17 +251,82 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   private quests: Map<string, QuestConfig> = new Map();
   private monsters: Map<string, MonsterSpawnConfig> = new Map();
   private revisions: Map<string, number> = new Map();
+  private dynamicTileStates: Map<string, Map<string, DynamicTileState>> = new Map();
+  private persistedDynamicTileStates: Map<string, Map<string, PersistedDynamicTileRecord>> = new Map();
+  private dynamicTileStatesDirty = false;
   private watchers: fs.FSWatcher[] = [];
   private mapsDir = resolveServerDataPath('maps');
+  private readonly dynamicTileStatePath = resolveServerDataPath('runtime', 'dynamic-map-state.json');
 
   onModuleInit() {
+    this.loadPersistedDynamicTileStates();
     this.loadAllMaps();
     this.watchMaps();
   }
 
   onModuleDestroy() {
+    this.persistDynamicTileStates();
     for (const w of this.watchers) w.close();
     this.watchers = [];
+  }
+
+  private loadPersistedDynamicTileStates() {
+    this.persistedDynamicTileStates.clear();
+    if (!fs.existsSync(this.dynamicTileStatePath)) {
+      return;
+    }
+
+    try {
+      const snapshot = JSON.parse(fs.readFileSync(this.dynamicTileStatePath, 'utf-8')) as Partial<PersistedDynamicTileSnapshot>;
+      const rawMaps = snapshot?.maps;
+      if (!rawMaps || typeof rawMaps !== 'object') {
+        this.logger.warn('动态地块持久化文件格式非法，已忽略');
+        return;
+      }
+
+      let stateCount = 0;
+      for (const [mapId, rawRecords] of Object.entries(rawMaps)) {
+        if (!Array.isArray(rawRecords)) {
+          continue;
+        }
+
+        const records = new Map<string, PersistedDynamicTileRecord>();
+        for (const rawRecord of rawRecords) {
+          const record = rawRecord as Partial<PersistedDynamicTileRecord>;
+          if (
+            !Number.isInteger(record.x) ||
+            !Number.isInteger(record.y) ||
+            !Number.isFinite(record.hp) ||
+            typeof record.destroyed !== 'boolean'
+          ) {
+            continue;
+          }
+
+          const normalized: PersistedDynamicTileRecord = {
+            x: Number(record.x),
+            y: Number(record.y),
+            hp: Math.max(0, Math.round(Number(record.hp))),
+            destroyed: record.destroyed,
+            restoreTicksLeft: record.destroyed
+              ? this.normalizeRestoreTicksLeft(record.restoreTicksLeft)
+              : undefined,
+          };
+          records.set(this.tileStateKey(normalized.x, normalized.y), normalized);
+        }
+
+        if (records.size > 0) {
+          this.persistedDynamicTileStates.set(mapId, records);
+          stateCount += records.size;
+        }
+      }
+
+      if (stateCount > 0) {
+        this.logger.log(`已加载 ${stateCount} 条动态地块状态`);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`读取动态地块持久化文件失败: ${message}`);
+    }
   }
 
   private loadAllMaps() {
@@ -328,6 +424,8 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    this.rehydrateDynamicTileStates(document.id, document, tiles);
+
     const containers = this.normalizeContainers(document.landmarks, meta);
     const npcs = this.normalizeNpcs(document.npcs, meta);
     const monsterSpawns = this.normalizeMonsterSpawns(document.monsterSpawns, meta);
@@ -399,6 +497,230 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  persistDynamicTileStates() {
+    if (!this.dynamicTileStatesDirty) {
+      return;
+    }
+
+    try {
+      const snapshot: PersistedDynamicTileSnapshot = {
+        version: 1,
+        maps: {},
+      };
+
+      const sortedMaps = [...this.dynamicTileStates.entries()]
+        .sort(([left], [right]) => left.localeCompare(right, 'zh-CN'));
+      for (const [mapId, stateMap] of sortedMaps) {
+        if (stateMap.size === 0) {
+          continue;
+        }
+
+        snapshot.maps[mapId] = [...stateMap.values()]
+          .sort((left, right) => left.y - right.y || left.x - right.x)
+          .map((state) => ({
+            x: state.x,
+            y: state.y,
+            hp: state.hp,
+            destroyed: state.destroyed,
+            restoreTicksLeft: state.destroyed ? this.normalizeRestoreTicksLeft(state.restoreTicksLeft) : undefined,
+          }));
+      }
+
+      fs.mkdirSync(path.dirname(this.dynamicTileStatePath), { recursive: true });
+      fs.writeFileSync(this.dynamicTileStatePath, `${JSON.stringify(snapshot, null, 2)}\n`, 'utf-8');
+      this.dynamicTileStatesDirty = false;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`动态地块持久化失败: ${message}`);
+    }
+  }
+
+  tickDynamicTiles(mapId: string) {
+    const stateMap = this.dynamicTileStates.get(mapId);
+    if (!stateMap || stateMap.size === 0) {
+      return;
+    }
+
+    let changed = false;
+    let visibilityChanged = false;
+    for (const [key, state] of [...stateMap.entries()]) {
+      if (state.hp < state.maxHp) {
+        const regen = this.calculateTileRegen(state.maxHp);
+        const nextHp = Math.min(state.maxHp, state.hp + regen);
+        if (nextHp !== state.hp) {
+          state.hp = nextHp;
+          changed = true;
+        }
+      }
+
+      if (state.destroyed) {
+        const nextRestoreTicksLeft = Math.max(0, (state.restoreTicksLeft ?? 0) - 1);
+        if (nextRestoreTicksLeft !== (state.restoreTicksLeft ?? 0)) {
+          state.restoreTicksLeft = nextRestoreTicksLeft;
+          changed = true;
+        }
+
+        if ((state.restoreTicksLeft ?? 0) <= 0) {
+          if (this.hasBlockingEntityAt(mapId, state.x, state.y)) {
+            state.restoreTicksLeft = TERRAIN_RESTORE_RETRY_DELAY_TICKS;
+            changed = true;
+          } else {
+            state.destroyed = false;
+            state.restoreTicksLeft = undefined;
+            changed = true;
+            visibilityChanged = true;
+          }
+        }
+      }
+
+      const tile = this.getTile(mapId, state.x, state.y);
+      if (!tile) {
+        stateMap.delete(key);
+        changed = true;
+        continue;
+      }
+
+      if (!state.destroyed && state.hp >= state.maxHp) {
+        stateMap.delete(key);
+        this.resetTileToBaseState(mapId, state.x, state.y);
+        changed = true;
+        continue;
+      }
+
+      this.applyDynamicTileStateToTile(tile, state);
+    }
+
+    if (stateMap.size === 0) {
+      this.dynamicTileStates.delete(mapId);
+    }
+    if (visibilityChanged) {
+      this.bumpMapRevision(mapId);
+    }
+    if (changed) {
+      this.dynamicTileStatesDirty = true;
+    }
+  }
+
+  private rehydrateDynamicTileStates(mapId: string, document: GmMapDocument, tiles: Tile[][]) {
+    const persistedSourceStates = this.persistedDynamicTileStates.get(mapId);
+    const sourceStates = this.dynamicTileStates.get(mapId) ?? persistedSourceStates;
+    if (!sourceStates || sourceStates.size === 0) {
+      this.dynamicTileStates.delete(mapId);
+      if (persistedSourceStates) {
+        this.persistedDynamicTileStates.delete(mapId);
+      }
+      return;
+    }
+
+    const sourceCount = sourceStates.size;
+    const nextStates = new Map<string, DynamicTileState>();
+    for (const rawState of sourceStates.values()) {
+      const originalType = getTileTypeFromMapChar(document.tiles[rawState.y]?.[rawState.x] ?? '#');
+      const maxHp = this.tileDurability(mapId, originalType);
+      const tile = tiles[rawState.y]?.[rawState.x];
+      if (!tile || maxHp <= 0) {
+        continue;
+      }
+
+      const hp = Math.max(0, Math.min(maxHp, Math.round(rawState.hp)));
+      const destroyed = rawState.destroyed === true;
+      const normalized: DynamicTileState = {
+        x: rawState.x,
+        y: rawState.y,
+        originalType,
+        hp,
+        maxHp,
+        destroyed,
+        restoreTicksLeft: destroyed
+          ? this.normalizeRestoreTicksLeft(rawState.restoreTicksLeft)
+          : undefined,
+      };
+
+      if (!destroyed && normalized.hp >= normalized.maxHp) {
+        continue;
+      }
+
+      this.applyDynamicTileStateToTile(tile, normalized);
+      nextStates.set(this.tileStateKey(normalized.x, normalized.y), normalized);
+    }
+
+    if (nextStates.size === 0) {
+      this.dynamicTileStates.delete(mapId);
+      if (sourceCount > 0) {
+        this.dynamicTileStatesDirty = true;
+      }
+      if (persistedSourceStates) {
+        this.persistedDynamicTileStates.delete(mapId);
+      }
+      return;
+    }
+    this.dynamicTileStates.set(mapId, nextStates);
+    if (nextStates.size !== sourceCount) {
+      this.dynamicTileStatesDirty = true;
+    }
+    if (persistedSourceStates) {
+      this.persistedDynamicTileStates.delete(mapId);
+    }
+  }
+
+  private applyDynamicTileStateToTile(tile: Tile, state: DynamicTileState) {
+    const type = state.destroyed ? this.destroyedTileType(state.originalType) : state.originalType;
+    tile.type = type;
+    tile.walkable = isTileTypeWalkable(type);
+    tile.blocksSight = doesTileTypeBlockSight(type);
+    tile.hp = state.destroyed ? undefined : state.hp;
+    tile.maxHp = state.destroyed ? undefined : state.maxHp;
+    tile.hpVisible = !state.destroyed && state.hp < state.maxHp;
+    tile.modifiedAt = state.destroyed || state.hp < state.maxHp ? Date.now() : null;
+  }
+
+  private resetTileToBaseState(mapId: string, x: number, y: number) {
+    const tile = this.getTile(mapId, x, y);
+    const originalType = this.getBaseTileType(mapId, x, y);
+    if (!tile || originalType === null) {
+      return;
+    }
+
+    const maxHp = this.tileDurability(mapId, originalType);
+    tile.type = originalType;
+    tile.walkable = isTileTypeWalkable(originalType);
+    tile.blocksSight = doesTileTypeBlockSight(originalType);
+    tile.hp = maxHp > 0 ? maxHp : undefined;
+    tile.maxHp = maxHp > 0 ? maxHp : undefined;
+    tile.hpVisible = false;
+    tile.modifiedAt = null;
+  }
+
+  private getBaseTileType(mapId: string, x: number, y: number): TileType | null {
+    const row = this.maps.get(mapId)?.source.tiles[y];
+    if (!row) {
+      return null;
+    }
+    return getTileTypeFromMapChar(row[x] ?? '#');
+  }
+
+  private hasBlockingEntityAt(mapId: string, x: number, y: number): boolean {
+    const tile = this.getTile(mapId, x, y);
+    if (!tile) {
+      return false;
+    }
+    return tile.occupiedBy !== null || this.hasNpcAt(mapId, x, y);
+  }
+
+  private calculateTileRegen(maxHp: number): number {
+    return Math.max(1, Math.floor(maxHp * TERRAIN_REGEN_RATE_PER_TICK));
+  }
+
+  private normalizeRestoreTicksLeft(value: unknown): number {
+    return Number.isInteger(value) && Number(value) > 0
+      ? Number(value)
+      : TERRAIN_DESTROYED_RESTORE_TICKS;
+  }
+
+  private tileStateKey(x: number, y: number): string {
+    return `${x},${y}`;
+  }
+
   private normalizeAuraPoints(rawAuras: unknown, meta: MapMeta): MapAuraPoint[] {
     if (!Array.isArray(rawAuras)) return [];
 
@@ -462,6 +784,9 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         targetY: portal.targetY!,
         kind: this.normalizePortalKind(portal.kind),
         trigger: this.normalizePortalTrigger(portal.trigger, portal.kind),
+        hidden: portal.hidden === true,
+        observeTitle: typeof portal.observeTitle === 'string' ? portal.observeTitle.trim() || undefined : undefined,
+        observeDesc: typeof portal.observeDesc === 'string' ? portal.observeDesc.trim() || undefined : undefined,
       });
     }
     return result;
@@ -894,6 +1219,28 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     return map.portals.find((portal) => portal.x === x && portal.y === y && this.matchesPortalQuery(portal, options));
   }
 
+  getHiddenPortalObservationAt(mapId: string, x: number, y: number): PortalObservationHint | undefined {
+    const localPortal = this.getPortalAt(mapId, x, y);
+    if (localPortal?.hidden) {
+      return this.toPortalObservationHint(localPortal);
+    }
+
+    const parentMapId = this.getOverlayParentMapId(mapId);
+    if (!parentMapId || this.isPointInMapBounds(mapId, x, y)) {
+      return undefined;
+    }
+
+    const projected = this.projectPointToMap(parentMapId, mapId, x, y);
+    if (!projected) {
+      return undefined;
+    }
+    const parentPortal = this.getPortalAt(parentMapId, projected.x, projected.y);
+    if (!parentPortal?.hidden) {
+      return undefined;
+    }
+    return this.toPortalObservationHint(parentPortal);
+  }
+
   getPortalNear(mapId: string, x: number, y: number, maxDistance = 1, options?: PortalQueryOptions): Portal | undefined {
     const map = this.maps.get(mapId);
     if (!map) return undefined;
@@ -906,6 +1253,17 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     if (options.trigger && portal.trigger !== options.trigger) return false;
     if (options.kind && portal.kind !== options.kind) return false;
     return true;
+  }
+
+  private toPortalObservationHint(portal: Portal): PortalObservationHint {
+    return {
+      title: portal.observeTitle
+        ?? (portal.kind === 'stairs' ? '隐藏楼梯' : '隐匿入口'),
+      desc: portal.observeDesc
+        ?? (portal.kind === 'stairs'
+          ? '细看之下，这里像是藏着一道被刻意掩去痕迹的阶口。'
+          : '细看之下，这里隐约残留着一处被刻意遮掩的入口痕迹。'),
+    };
   }
 
   getNpcs(mapId: string): NpcConfig[] {
@@ -1021,25 +1379,53 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
   damageTile(mapId: string, x: number, y: number, damage: number): { destroyed: boolean; hp: number; maxHp: number } | null {
     const tile = this.getTile(mapId, x, y);
-    if (!tile || !tile.maxHp || !tile.hp) return null;
+    const originalType = this.getBaseTileType(mapId, x, y);
+    if (!tile || originalType === null) return null;
 
-    tile.hpVisible = true;
-    tile.hp = Math.max(0, tile.hp - damage);
-    tile.modifiedAt = Date.now();
-
-    if (tile.hp <= 0) {
-      const replacement = this.destroyedTileType(tile.type);
-      tile.type = replacement;
-      tile.walkable = isTileTypeWalkable(replacement);
-      tile.blocksSight = doesTileTypeBlockSight(replacement);
-      tile.hp = undefined;
-      tile.maxHp = undefined;
-      tile.hpVisible = false;
-      this.bumpMapRevision(mapId);
-      return { destroyed: true, hp: 0, maxHp: 0 };
+    const maxHp = this.tileDurability(mapId, originalType);
+    if (maxHp <= 0) {
+      return null;
     }
 
-    return { destroyed: false, hp: tile.hp, maxHp: tile.maxHp };
+    const mapStates = this.dynamicTileStates.get(mapId) ?? new Map<string, DynamicTileState>();
+    const key = this.tileStateKey(x, y);
+    const current = mapStates.get(key);
+    if (current?.destroyed) {
+      return null;
+    }
+
+    const nextDamage = Math.max(0, Math.round(damage));
+    if (nextDamage <= 0) {
+      const hp = current?.hp ?? tile.hp ?? maxHp;
+      return { destroyed: false, hp, maxHp };
+    }
+
+    const state: DynamicTileState = current ?? {
+      x,
+      y,
+      originalType,
+      hp: tile.hp ?? maxHp,
+      maxHp,
+      destroyed: false,
+    };
+
+    state.originalType = originalType;
+    state.maxHp = maxHp;
+    state.hp = Math.max(0, state.hp - nextDamage);
+    state.destroyed = state.hp <= 0;
+    state.restoreTicksLeft = state.destroyed ? TERRAIN_DESTROYED_RESTORE_TICKS : undefined;
+    this.applyDynamicTileStateToTile(tile, state);
+
+    mapStates.set(key, state);
+    this.dynamicTileStates.set(mapId, mapStates);
+    this.dynamicTileStatesDirty = true;
+
+    if (state.destroyed) {
+      this.bumpMapRevision(mapId);
+      return { destroyed: true, hp: 0, maxHp };
+    }
+
+    return { destroyed: false, hp: state.hp, maxHp: state.maxHp };
   }
 
   findNearbyWalkable(mapId: string, x: number, y: number, maxRadius = 6): { x: number; y: number } | null {
@@ -1072,14 +1458,16 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
           row.push(null);
           continue;
         }
-        row.push(this.getCompositeTile(mapId, wx, wy) ?? {
+        const tile = this.getCompositeTile(mapId, wx, wy) ?? {
           type: TileType.Wall,
           walkable: false,
           blocksSight: true,
           aura: 0,
           occupiedBy: null,
           modifiedAt: null,
-        });
+        };
+        const hiddenEntrance = this.getHiddenPortalObservationAt(mapId, wx, wy);
+        row.push(hiddenEntrance ? { ...tile, hiddenEntrance } : tile);
       }
       result.push(row);
     }
@@ -1134,6 +1522,13 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         targetY: Number((portal as GmMapPortalRecord).targetY ?? 0),
         kind: this.normalizePortalKind((portal as GmMapPortalRecord).kind),
         trigger: this.normalizePortalTrigger((portal as GmMapPortalRecord).trigger, (portal as GmMapPortalRecord).kind),
+        hidden: (portal as GmMapPortalRecord).hidden === true,
+        observeTitle: typeof (portal as GmMapPortalRecord).observeTitle === 'string'
+          ? (portal as GmMapPortalRecord).observeTitle
+          : undefined,
+        observeDesc: typeof (portal as GmMapPortalRecord).observeDesc === 'string'
+          ? (portal as GmMapPortalRecord).observeDesc
+          : undefined,
       })),
       spawnPoint: {
         x: Number((source.spawnPoint as { x?: number } | undefined)?.x ?? 0),
@@ -1276,6 +1671,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   private syncPortalTiles(document: GmMapDocument): GmMapDocument {
     const rows = document.tiles.map((row) => [...row].map((char) => (char === 'P' || char === 'S') ? '.' : char));
     for (const portal of document.portals) {
+      if (portal.hidden) continue;
       if (!rows[portal.y]?.[portal.x]) continue;
       rows[portal.y]![portal.x] = portal.kind === 'stairs' ? 'S' : 'P';
     }
@@ -1346,7 +1742,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     if (!Number.isInteger(document.height) || document.height <= 0) return '地图高度必须为正整数';
     if (document.tiles.length !== document.height) return '地图行数必须与高度一致';
 
-    const supportedChars = new Set(['#', '.', '=', ':', 'P', '+', ',', '^', ';', '%', '~', 'T', 'o']);
+    const supportedChars = new Set(['#', '.', '=', ':', 'P', 'S', '+', 'W', 'B', ',', '^', ';', '%', '~', 'T', 'o']);
     for (let y = 0; y < document.tiles.length; y += 1) {
       const row = document.tiles[y] ?? '';
       if (row.length !== document.width) {

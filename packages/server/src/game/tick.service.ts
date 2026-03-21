@@ -75,7 +75,10 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     }, 0);
 
     this.persistTimer = setInterval(() => {
-      this.playerService.persistAll().catch((err) => {
+      Promise.all([
+        this.playerService.persistAll(),
+        Promise.resolve().then(() => this.mapService.persistDynamicTileStates()),
+      ]).catch((err) => {
         this.logger.error(`定时落盘失败: ${err.message}`);
       });
     }, PERSIST_INTERVAL * 1000);
@@ -95,6 +98,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       this.watcher.close();
       this.watcher = null;
     }
+    this.mapService.persistDynamicTileStates();
     await this.playerService.persistAll().catch((err) => {
       this.logger.error(`关闭落盘失败: ${err.message}`);
     });
@@ -146,6 +150,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     const last = this.lastTickTime.get(mapId) ?? now;
     const dt = now - last;
     this.lastTickTime.set(mapId, now);
+    this.mapService.tickDynamicTiles(mapId);
 
     const messages: WorldMessage[] = [];
     const gmCommands = this.gmService.drainCommands(mapId);

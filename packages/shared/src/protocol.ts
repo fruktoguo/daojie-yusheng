@@ -393,6 +393,9 @@ export interface GmMapPortalRecord {
   targetY: number;
   kind?: 'portal' | 'stairs';
   trigger?: 'manual' | 'auto';
+  hidden?: boolean;
+  observeTitle?: string;
+  observeDesc?: string;
 }
 
 export interface GmMapAuraRecord {

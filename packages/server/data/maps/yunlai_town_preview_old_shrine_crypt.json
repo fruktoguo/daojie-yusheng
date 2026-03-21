@@ -1,0 +1,105 @@
+{
+  "id": "yunlai_town_preview_old_shrine_crypt",
+  "name": "云来镇·旧祠暗室",
+  "width": 16,
+  "height": 10,
+  "parentMapId": "yunlai_town_preview",
+  "parentOriginX": 43,
+  "parentOriginY": 24,
+  "floorLevel": -1,
+  "floorName": "暗室",
+  "spaceVisionMode": "parent_overlay",
+  "description": "旧祠供桌下还压着一间暗室，潮气重，香灰和纸钱味一直散不干净。",
+  "tiles": [
+    "################",
+    "#......oo......#",
+    "#..####..####..#",
+    "#..#..#..#..#..#",
+    "#..#..#..#..#..#",
+    "#..#..####..#..#",
+    "#..#........#..#",
+    "#..###.S..###..#",
+    "#.....;;.......#",
+    "################"
+  ],
+  "portals": [
+    {
+      "x": 7,
+      "y": 7,
+      "targetMapId": "yunlai_town_preview",
+      "targetX": 50,
+      "targetY": 31,
+      "kind": "stairs",
+      "trigger": "auto"
+    }
+  ],
+  "dangerLevel": 1,
+  "recommendedRealm": "Entry",
+  "spawnPoint": {
+    "x": 8,
+    "y": 7
+  },
+  "time": {
+    "offsetTicks": 120,
+    "scale": 1,
+    "light": {
+      "base": 18,
+      "timeInfluence": 4
+    }
+  },
+  "auras": [
+    {
+      "x": 6,
+      "y": 6,
+      "value": 1
+    },
+    {
+      "x": 7,
+      "y": 6,
+      "value": 2
+    },
+    {
+      "x": 8,
+      "y": 6,
+      "value": 1
+    }
+  ],
+  "landmarks": [
+    {
+      "id": "lm_preview_old_shrine_crypt_casket",
+      "name": "灰石供匣",
+      "x": 7,
+      "y": 1,
+      "desc": "供匣里混着旧香灰、残页和不知哪一代人留下的压箱杂物。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 2400,
+        "drops": [
+          {
+            "itemId": "spider_silk",
+            "name": "阴沼丝",
+            "type": "material",
+            "count": 1,
+            "chance": 0.3
+          },
+          {
+            "itemId": "minor_qi_pill",
+            "name": "小还灵丹",
+            "type": "consumable",
+            "count": 1,
+            "chance": 0.25
+          },
+          {
+            "itemId": "book_wind_step",
+            "name": "《踏风步》残页",
+            "type": "skill_book",
+            "count": 1,
+            "chance": 0.08
+          }
+        ]
+      }
+    }
+  ],
+  "npcs": [],
+  "monsterSpawns": []
+}

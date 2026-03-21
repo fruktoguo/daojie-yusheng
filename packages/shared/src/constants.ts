@@ -71,8 +71,14 @@ export const DEFAULT_MAP_TIME_CONFIG: MapTimeConfig = {
   palette: {},
 };
 
-/** 地形恢复时间（秒） */
-export const TERRAIN_RESTORE_TIME = 300;
+/** 地形被摧毁后的自动恢复时间（息） */
+export const TERRAIN_DESTROYED_RESTORE_TICKS = 7200;
+
+/** 地形恢复受阻时的顺延时间（息） */
+export const TERRAIN_RESTORE_RETRY_DELAY_TICKS = 60;
+
+/** 可摧毁地形每息自动恢复比例 */
+export const TERRAIN_REGEN_RATE_PER_TICK = 0.001;
 
 /** 死亡等待时间（秒） */
 export const DEATH_WAIT_TIME = 10;

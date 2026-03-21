@@ -726,6 +726,9 @@ function showObserveModal(targetX: number, targetY: number): void {
   if (tile.modifiedAt) {
     terrainRows.push({ label: '最近变动', value: '此地近期发生过变化' });
   }
+  if (tile.hiddenEntrance) {
+    terrainRows.push({ label: '异状', value: tile.hiddenEntrance.title });
+  }
 
   if (observeModalSubtitleEl) {
     observeModalSubtitleEl.textContent = `坐标 (${targetX}, ${targetY})`;
@@ -745,6 +748,18 @@ function showObserveModal(targetX: number, targetY: number): void {
           <div class="observe-modal-section-title">地块信息</div>
           <div class="observe-modal-grid">${buildObservationRows(terrainRows)}</div>
         </section>
+        ${tile.hiddenEntrance ? `
+          <section class="observe-modal-section">
+            <div class="observe-modal-section-title">隐藏入口</div>
+            <div class="observe-entity-list">
+              <div class="observe-modal-row">
+                <span class="observe-modal-label">痕迹</span>
+                <span class="observe-modal-value">${escapeHtml(tile.hiddenEntrance.title)}</span>
+              </div>
+              <div class="observe-entity-empty">${escapeHtml(tile.hiddenEntrance.desc ?? '这里隐约残留着一处被刻意遮掩的入口痕迹。')}</div>
+            </div>
+          </section>
+        ` : ''}
         <section class="observe-modal-section">
           <div class="observe-modal-section-title">地面物品</div>
           ${groundHtml}

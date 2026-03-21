@@ -30,6 +30,11 @@ export enum Direction {
 }
 
 /** 格子数据 */
+export interface HiddenEntranceObservation {
+  title: string;
+  desc?: string;
+}
+
 export interface Tile {
   type: TileType;
   walkable: boolean;
@@ -40,6 +45,7 @@ export interface Tile {
   hp?: number;
   maxHp?: number;
   hpVisible?: boolean;
+  hiddenEntrance?: HiddenEntranceObservation;
 }
 
 /** 玩家当前视野窗口中的格子。null 表示当前不可见。 */
@@ -76,6 +82,9 @@ export interface Portal {
   targetY: number;
   kind: PortalKind;
   trigger: PortalTrigger;
+  hidden?: boolean;
+  observeTitle?: string;
+  observeDesc?: string;
 }
 
 /** 渲染用实体 */

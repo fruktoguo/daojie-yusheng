@@ -374,7 +374,7 @@ export class WorldService {
     }
 
     const portal = this.mapService.getPortalNear(player.mapId, player.x, player.y, 1, { trigger: 'manual' });
-    if (portal) {
+    if (portal && !portal.hidden) {
       const targetMap = this.mapService.getMapMeta(portal.targetMapId);
       actions.push({
         id: 'portal:travel',
