@@ -19,18 +19,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up SSH key
-        env:
-          GITEE_PRIVATE_KEY: ${{ secrets.GITEE_PRIVATE_KEY }}
-        run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "$GITEE_PRIVATE_KEY" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan gitee.com >> ~/.ssh/known_hosts
-
       - name: Push main branch to Gitee
         env:
           GITEE_OWNER: ${{ vars.GITEE_OWNER }}
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
         run: |
-          git remote add gitee "git@gitee.com:${GITEE_OWNER}/${GITHUB_REPOSITORY#*/}.git"
+          cat <<EOF > ~/.netrc
+          machine gitee.com
+            login ${GITEE_OWNER}
+            password ${GITEE_TOKEN}
+          EOF
+          chmod 600 ~/.netrc
+          git remote add gitee "https://gitee.com/${GITEE_OWNER}/${GITHUB_REPOSITORY#*/}.git"
           git push gitee main
