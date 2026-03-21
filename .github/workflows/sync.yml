@@ -14,13 +14,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Mirror main branch to Gitee
-        uses: Yikun/hub-mirror-action@09420c987e7b1670577495eed7d8c8062e938050
+      - name: Checkout
+        uses: actions/checkout@v5
         with:
-          src: github/${{ github.repository_owner }}
-          dst: gitee/${{ vars.GITEE_OWNER }}
-          dst_key: ${{ secrets.GITEE_PRIVATE_KEY }}
-          dst_token: ${{ secrets.GITEE_TOKEN }}
-          account_type: user
-          clone_style: https
-          static_list: ${{ github.event.repository.name }}
+          fetch-depth: 0
+
+      - name: Set up SSH key
+        env:
+          GITEE_PRIVATE_KEY: ${{ secrets.GITEE_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$GITEE_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan gitee.com >> ~/.ssh/known_hosts
+
+      - name: Push main branch to Gitee
+        env:
+          GITEE_OWNER: ${{ vars.GITEE_OWNER }}
+        run: |
+          git remote add gitee "git@gitee.com:${GITEE_OWNER}/${GITHUB_REPOSITORY#*/}.git"
+          git push gitee main

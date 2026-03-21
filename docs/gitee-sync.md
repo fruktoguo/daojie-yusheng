@@ -6,7 +6,7 @@
 
 1. 本地 `git push origin main`
 2. GitHub Actions 触发 [`.github/workflows/sync.yml`](../.github/workflows/sync.yml)
-3. Actions 使用 Gitee SSH 私钥把当前仓库镜像同步到 Gitee
+3. Actions 使用 Gitee SSH 私钥直接执行 `git push` 到 Gitee
 4. Gitee 仓库收到更新后触发 WebHook
 5. 国内服务器监听 WebHook，执行 `git pull`、构建和重启
 
@@ -18,11 +18,7 @@
 
 在 Gitee 网页端使用“从 GitHub/Git 导入仓库”，导入当前 GitHub 仓库。建议保持仓库名与 GitHub 一致，这样工作流可以直接复用仓库名，不需要再改 YAML。
 
-### 2. 生成 Gitee 私人令牌
-
-进入 Gitee 个人设置，生成一个用于仓库同步的私人令牌。后面把它存进 GitHub Secrets 的 `GITEE_TOKEN`。
-
-### 3. 生成一对新的 SSH 密钥
+### 2. 生成一对新的 SSH 密钥
 
 建议单独为 GitHub Actions 生成一对新密钥，不与本机常用登录密钥混用：
 
@@ -55,7 +51,6 @@ cat ~/.ssh/gitee_mirror_ed25519
 
 新增以下 Secrets：
 
-- `GITEE_TOKEN`：上一步生成的 Gitee 私人令牌
 - `GITEE_PRIVATE_KEY`：上一步生成的 SSH 私钥全文
 
 新增以下 Repository variable：
@@ -64,18 +59,18 @@ cat ~/.ssh/gitee_mirror_ed25519
 
 说明：
 
-- 当前 [`.github/workflows/sync.yml`](../.github/workflows/sync.yml) 默认 `account_type: user`
-- 如果你的 Gitee 仓库挂在组织下，把 `account_type` 改成 `org`
+- `GITEE_TOKEN` 不是这版工作流的必需项；如果你已经配了，可以保留，不影响运行
+- 当前工作流直接按 `git@gitee.com:<owner>/<repo>.git` 推送，所以只需要 `GITEE_OWNER`
 
 ## 第三步：提交同步工作流
 
 仓库已提供 [`.github/workflows/sync.yml`](../.github/workflows/sync.yml)，默认行为如下：
 
 - 只在 `push main` 和手动触发时运行
-- 将当前 GitHub 仓库同步到 Gitee 同名仓库
+- 将当前 GitHub 仓库的 `main` 分支直接推送到 Gitee 同名仓库
 - 不影响现有 [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) 的生产部署
 
-如果你在 Gitee 导入时改了仓库名，需要把工作流里的 `static_list` 改成 Gitee 上的目标仓库名。
+如果你在 Gitee 导入时改了仓库名，需要把工作流里的目标地址从 `${GITHUB_REPOSITORY#*/}.git` 改成实际仓库名。
 
 首次提交后，可在 GitHub 的 `Actions` 页面查看 `Sync To Gitee` 是否成功。
 
@@ -157,7 +152,9 @@ createServer(async (req, res) => {
 
 ### 什么时候需要 Gitee 令牌
 
-当前工作流使用 `Yikun/hub-mirror-action`，同时传入了 `dst_token` 和 `dst_key`。这样兼容性更好，排查也更直接。
+当前这版工作流直接通过 SSH 执行 `git push`，所以不依赖 Gitee API，也不强制要求 `GITEE_TOKEN`。
+
+如果你后续要改回通过 Gitee API 自动建仓，才需要再使用令牌。
 
 ### 什么时候会触发同步
 
