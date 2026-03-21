@@ -27,6 +27,7 @@ import {
   Direction,
   encodeTileTargetRef,
   GameTimeState,
+  GroundItemPilePatch,
   GroundItemPileView,
   GridPoint,
   isPointInRange,
@@ -34,7 +35,10 @@ import {
   manhattanDistance,
   PlayerState,
   RenderEntity,
+  S2C_AttrUpdate,
   TickRenderEntity,
+  TechniqueUpdateEntry,
+  ActionUpdateEntry,
   NUMERIC_SCALAR_STAT_KEYS,
   SkillDef,
   Tile,
@@ -637,6 +641,10 @@ function applyNullablePatch<T>(value: T | null | undefined, fallback: T | undefi
   return fallback;
 }
 
+function cloneJson<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
 function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedEntity): ObservedEntity {
   return {
     id: patch.id,
@@ -668,6 +676,130 @@ function mergeTickEntities(playerPatches: TickRenderEntity[], entityPatches: Tic
 
   latestEntityMap = nextMap;
   return merged;
+}
+
+function buildAttrStateFromPlayer(player: PlayerState): S2C_AttrUpdate {
+  return {
+    baseAttrs: cloneJson(player.baseAttrs),
+    bonuses: cloneJson(player.bonuses),
+    finalAttrs: cloneJson(player.finalAttrs ?? player.baseAttrs),
+    numericStats: player.numericStats ? cloneJson(player.numericStats) : undefined,
+    ratioDivisors: player.ratioDivisors ? cloneJson(player.ratioDivisors) : undefined,
+    maxHp: player.maxHp,
+    qi: player.qi,
+    realm: player.realm ? cloneJson(player.realm) : null,
+  };
+}
+
+function mergeAttrUpdatePatch(previous: S2C_AttrUpdate | null, patch: S2C_AttrUpdate): S2C_AttrUpdate {
+  return {
+    baseAttrs: patch.baseAttrs ? cloneJson(patch.baseAttrs) : cloneJson(previous?.baseAttrs ?? myPlayer?.baseAttrs ?? {
+      constitution: 0,
+      spirit: 0,
+      perception: 0,
+      talent: 0,
+      comprehension: 0,
+      luck: 0,
+    }),
+    bonuses: patch.bonuses ? cloneJson(patch.bonuses) : cloneJson(previous?.bonuses ?? myPlayer?.bonuses ?? []),
+    finalAttrs: patch.finalAttrs ? cloneJson(patch.finalAttrs) : cloneJson(previous?.finalAttrs ?? myPlayer?.finalAttrs ?? previous?.baseAttrs ?? myPlayer?.baseAttrs ?? {
+      constitution: 0,
+      spirit: 0,
+      perception: 0,
+      talent: 0,
+      comprehension: 0,
+      luck: 0,
+    }),
+    numericStats: patch.numericStats ? cloneJson(patch.numericStats) : (previous?.numericStats ? cloneJson(previous.numericStats) : undefined),
+    ratioDivisors: patch.ratioDivisors ? cloneJson(patch.ratioDivisors) : (previous?.ratioDivisors ? cloneJson(previous.ratioDivisors) : undefined),
+    maxHp: patch.maxHp ?? previous?.maxHp ?? myPlayer?.maxHp ?? 0,
+    qi: patch.qi ?? previous?.qi ?? myPlayer?.qi ?? 0,
+    realm: patch.realm === null ? null : patch.realm ? cloneJson(patch.realm) : (previous?.realm ? cloneJson(previous.realm) : null),
+  };
+}
+
+function mergeTechniquePatch(patch: TechniqueUpdateEntry, previous?: TechniqueState): TechniqueState {
+  return {
+    techId: patch.techId,
+    level: patch.level,
+    exp: patch.exp,
+    expToNext: patch.expToNext,
+    realm: patch.realm,
+    name: applyNullablePatch(patch.name, previous?.name) ?? patch.techId,
+    skills: applyNullablePatch(patch.skills, previous?.skills) ? cloneJson(applyNullablePatch(patch.skills, previous?.skills) ?? []) : [],
+    grade: applyNullablePatch(patch.grade, previous?.grade),
+    layers: applyNullablePatch(patch.layers, previous?.layers)
+      ? cloneJson(applyNullablePatch(patch.layers, previous?.layers) ?? [])
+      : undefined,
+    attrCurves: applyNullablePatch(patch.attrCurves, previous?.attrCurves)
+      ? cloneJson(applyNullablePatch(patch.attrCurves, previous?.attrCurves) ?? {})
+      : undefined,
+  };
+}
+
+function mergeTechniqueStates(patches: TechniqueUpdateEntry[]): TechniqueState[] {
+  const merged: TechniqueState[] = [];
+  const nextMap = new Map<string, TechniqueState>();
+
+  for (const patch of patches) {
+    const next = mergeTechniquePatch(patch, latestTechniqueMap.get(patch.techId));
+    merged.push(next);
+    nextMap.set(next.techId, next);
+  }
+
+  latestTechniqueMap = nextMap;
+  return merged;
+}
+
+function mergeActionPatch(patch: ActionUpdateEntry, previous?: ActionDef): ActionDef {
+  return {
+    id: patch.id,
+    cooldownLeft: patch.cooldownLeft,
+    autoBattleEnabled: applyNullablePatch(patch.autoBattleEnabled, previous?.autoBattleEnabled),
+    autoBattleOrder: applyNullablePatch(patch.autoBattleOrder, previous?.autoBattleOrder),
+    name: applyNullablePatch(patch.name, previous?.name) ?? patch.id,
+    type: applyNullablePatch(patch.type, previous?.type) ?? 'interact',
+    desc: applyNullablePatch(patch.desc, previous?.desc) ?? '',
+    range: applyNullablePatch(patch.range, previous?.range),
+    requiresTarget: applyNullablePatch(patch.requiresTarget, previous?.requiresTarget),
+    targetMode: applyNullablePatch(patch.targetMode, previous?.targetMode),
+  };
+}
+
+function mergeActionStates(patches: ActionUpdateEntry[]): ActionDef[] {
+  const merged: ActionDef[] = [];
+  const nextMap = new Map<string, ActionDef>();
+
+  for (const patch of patches) {
+    const next = mergeActionPatch(patch, latestActionMap.get(patch.id));
+    merged.push(next);
+    nextMap.set(next.id, next);
+  }
+
+  latestActionMap = nextMap;
+  return merged;
+}
+
+function mergeGroundItemPatches(patches: GroundItemPilePatch[]): Map<string, GroundItemPileView> {
+  const nextMap = new Map(visibleGroundPiles);
+
+  for (const patch of patches) {
+    if (patch.items === null) {
+      nextMap.delete(`${patch.x},${patch.y}`);
+      continue;
+    }
+    if (patch.items === undefined) {
+      continue;
+    }
+    nextMap.set(`${patch.x},${patch.y}`, {
+      sourceId: patch.sourceId,
+      x: patch.x,
+      y: patch.y,
+      items: cloneJson(patch.items),
+    });
+  }
+
+  return nextMap;
 }
 
 function formatTraversalCost(tile: Tile): string {
@@ -910,22 +1042,25 @@ document.getElementById('hud-toggle-auto-retaliate')?.addEventListener('click', 
 });
 // S2C 更新回调
 socket.onAttrUpdate((data) => {
+  latestAttrUpdate = mergeAttrUpdatePatch(latestAttrUpdate, data);
   if (myPlayer) {
-    myPlayer.baseAttrs = data.baseAttrs;
-    myPlayer.bonuses = data.bonuses;
-    myPlayer.finalAttrs = data.finalAttrs;
-    myPlayer.numericStats = data.numericStats;
-    myPlayer.ratioDivisors = data.ratioDivisors;
-    myPlayer.maxHp = data.maxHp;
-    myPlayer.qi = data.qi;
-    myPlayer.viewRange = Math.max(1, Math.round(data.numericStats.viewRange || myPlayer.viewRange));
-    myPlayer.realm = data.realm;
-    myPlayer.realmName = data.realm?.name;
-    myPlayer.realmStage = data.realm?.shortName;
-    myPlayer.realmReview = data.realm?.review;
-    myPlayer.breakthroughReady = data.realm?.breakthroughReady;
+    myPlayer.baseAttrs = latestAttrUpdate.baseAttrs ?? myPlayer.baseAttrs;
+    myPlayer.bonuses = latestAttrUpdate.bonuses ?? myPlayer.bonuses;
+    myPlayer.finalAttrs = latestAttrUpdate.finalAttrs ?? myPlayer.finalAttrs;
+    myPlayer.numericStats = latestAttrUpdate.numericStats ?? myPlayer.numericStats;
+    myPlayer.ratioDivisors = latestAttrUpdate.ratioDivisors ?? myPlayer.ratioDivisors;
+    myPlayer.maxHp = latestAttrUpdate.maxHp ?? myPlayer.maxHp;
+    myPlayer.qi = latestAttrUpdate.qi ?? myPlayer.qi;
+    if (latestAttrUpdate.numericStats?.viewRange !== undefined) {
+      myPlayer.viewRange = Math.max(1, Math.round(latestAttrUpdate.numericStats.viewRange || myPlayer.viewRange));
+    }
+    myPlayer.realm = latestAttrUpdate.realm ?? undefined;
+    myPlayer.realmName = latestAttrUpdate.realm?.name;
+    myPlayer.realmStage = latestAttrUpdate.realm?.shortName;
+    myPlayer.realmReview = latestAttrUpdate.realm?.review;
+    myPlayer.breakthroughReady = latestAttrUpdate.realm?.breakthroughReady;
   }
-  attrPanel.update(data);
+  attrPanel.update(latestAttrUpdate);
   refreshHudChrome();
 });
 socket.onInventoryUpdate((data) => {
@@ -937,18 +1072,20 @@ socket.onEquipmentUpdate((data) => {
   equipmentPanel.update(data.equipment);
 });
 socket.onTechniqueUpdate((data) => {
+  const mergedTechniques = mergeTechniqueStates(data.techniques);
   const shouldRefreshTechniquePanel = !myPlayer
-    || buildTechniqueRenderSignature(myPlayer.techniques, myPlayer.cultivatingTechId) !== buildTechniqueRenderSignature(data.techniques, data.cultivatingTechId);
+    || buildTechniqueRenderSignature(myPlayer.techniques, myPlayer.cultivatingTechId) !== buildTechniqueRenderSignature(mergedTechniques, data.cultivatingTechId);
   if (myPlayer) {
-    myPlayer.techniques = data.techniques;
+    myPlayer.techniques = mergedTechniques;
     myPlayer.cultivatingTechId = data.cultivatingTechId;
   }
   if (shouldRefreshTechniquePanel) {
-    techniquePanel.update(data.techniques, data.cultivatingTechId, myPlayer ?? undefined);
+    techniquePanel.update(mergedTechniques, data.cultivatingTechId, myPlayer ?? undefined);
     refreshUiChrome();
   }
 });
 socket.onActionsUpdate((data) => {
+  const mergedActions = mergeActionStates(data.actions);
   const previousActions = myPlayer?.actions ?? [];
   const previousAutoBattle = myPlayer?.autoBattle ?? false;
   const previousAutoRetaliate = myPlayer?.autoRetaliate ?? true;
@@ -961,25 +1098,25 @@ socket.onActionsUpdate((data) => {
     || previousAutoBattle !== nextAutoBattle
     || previousAutoRetaliate !== nextAutoRetaliate
     || previousAutoIdleCultivation !== nextAutoIdleCultivation
-    || buildActionRenderSignature(previousActions) !== buildActionRenderSignature(data.actions);
+    || buildActionRenderSignature(previousActions) !== buildActionRenderSignature(mergedActions);
   if (myPlayer) {
-    myPlayer.actions = data.actions;
-    myPlayer.autoBattleSkills = data.actions
+    myPlayer.actions = mergedActions;
+    myPlayer.autoBattleSkills = mergedActions
       .filter((action) => action.type === 'skill')
       .map((action) => ({
         skillId: action.id,
         enabled: action.autoBattleEnabled !== false,
       }));
-    myPlayer.autoBattle = data.autoBattle ?? inferAutoBattle(myPlayer.autoBattle, data.actions);
-    myPlayer.autoRetaliate = data.autoRetaliate ?? inferAutoRetaliate(myPlayer.autoRetaliate !== false, data.actions);
+    myPlayer.autoBattle = data.autoBattle ?? inferAutoBattle(myPlayer.autoBattle, mergedActions);
+    myPlayer.autoRetaliate = data.autoRetaliate ?? inferAutoRetaliate(myPlayer.autoRetaliate !== false, mergedActions);
     myPlayer.autoIdleCultivation = nextAutoIdleCultivation;
     myPlayer.senseQiActive = nextSenseQiActive;
   }
   if (shouldRefreshActionPanel) {
-    actionPanel.update(data.actions, nextAutoBattle, nextAutoRetaliate, myPlayer ?? undefined);
+    actionPanel.update(mergedActions, nextAutoBattle, nextAutoRetaliate, myPlayer ?? undefined);
     refreshUiChrome();
   } else {
-    actionPanel.syncDynamic(data.actions, nextAutoBattle, nextAutoRetaliate, myPlayer ?? undefined);
+    actionPanel.syncDynamic(mergedActions, nextAutoBattle, nextAutoRetaliate, myPlayer ?? undefined);
   }
   syncSenseQiOverlay();
 });
@@ -1042,6 +1179,9 @@ let tickDuration = 1000;
 let myPlayer: PlayerState | null = null;
 let currentMapMeta: MapMeta | null = null;
 let currentTimeState: GameTimeState | null = null;
+let latestAttrUpdate: S2C_AttrUpdate | null = null;
+let latestTechniqueMap = new Map<string, TechniqueState>();
+let latestActionMap = new Map<string, ActionDef>();
 let latestEntities: ObservedEntity[] = [];
 let latestEntityMap = new Map<string, ObservedEntity>();
 let visibleGroundPiles = new Map<string, GroundItemPileView>();
@@ -1132,7 +1272,10 @@ function buildTechniqueRenderSignature(techniques: TechniqueState[], cultivating
       exp: technique.exp,
       expToNext: technique.expToNext,
       realm: technique.realm,
+      grade: technique.grade,
       skills: technique.skills.map((skill) => skill.id),
+      layers: technique.layers ?? null,
+      attrCurves: technique.attrCurves ?? null,
     })),
   });
 }
@@ -1271,6 +1414,7 @@ function resetGameState() {
   myPlayer = null;
   currentMapMeta = null;
   currentTimeState = null;
+  latestAttrUpdate = null;
   renderCurrentTime(null);
   clearCurrentPath();
   currentTiles = [];
@@ -1279,6 +1423,8 @@ function resetGameState() {
   tileCache.clear();
   currentVisibleTiles.clear();
   visibleGroundPiles.clear();
+  latestTechniqueMap.clear();
+  latestActionMap.clear();
   latestEntities = [];
   latestEntityMap.clear();
   pendingTargetedAction = null;
@@ -1498,6 +1644,7 @@ socket.onInit((data: S2C_Init) => {
   hideObserveModal();
   myPlayer = data.self;
   currentTimeState = data.time ?? null;
+  latestAttrUpdate = buildAttrStateFromPlayer(myPlayer);
   renderCurrentTime(currentTimeState);
   myPlayer.senseQiActive = myPlayer.senseQiActive === true;
   myPlayer.autoIdleCultivation = myPlayer.autoIdleCultivation !== false;
@@ -1518,6 +1665,8 @@ socket.onInit((data: S2C_Init) => {
   viewCenterY = myPlayer.y;
 
   const entities = data.players.map(toObservedEntity);
+  latestTechniqueMap = new Map((myPlayer.techniques ?? []).map((technique) => [technique.techId, cloneJson(technique)]));
+  latestActionMap = new Map((myPlayer.actions ?? []).map((action) => [action.id, cloneJson(action)]));
   latestEntities = entities;
   latestEntityMap = new Map(entities.map((entity) => [entity.id, entity]));
   renderer.updateEntities(entities);
@@ -1624,7 +1773,9 @@ socket.onTick((data: S2C_Tick) => {
     cacheTiles(myPlayer.mapId, currentTiles, tileOriginX, tileOriginY);
     syncSenseQiOverlay();
   }
-  visibleGroundPiles = new Map((data.g ?? []).map((pile) => [`${pile.x},${pile.y}`, pile]));
+  if (data.g) {
+    visibleGroundPiles = mergeGroundItemPatches(data.g);
+  }
   if (mapChanged) {
     camera.snap(myPlayer);
   } else {

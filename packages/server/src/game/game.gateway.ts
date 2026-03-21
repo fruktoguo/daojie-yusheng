@@ -41,6 +41,7 @@ import { AoiService } from './aoi.service';
 import { TimeService } from './time.service';
 import { WorldService } from './world.service';
 import { PerformanceService } from './performance.service';
+import { TickService } from './tick.service';
 
 const DEFAULT_MAP = 'spawn';
 
@@ -61,6 +62,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly worldService: WorldService,
     private readonly timeService: TimeService,
     private readonly performanceService: PerformanceService,
+    private readonly tickService: TickService,
   ) {}
 
   async handleConnection(client: Socket) {
@@ -184,6 +186,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const player = this.playerService.getPlayer(playerId);
     if (player) {
+      this.tickService.resetPlayerSyncState(playerId);
       await this.playerService.savePlayer(playerId);
       this.mapService.removeOccupant(player.mapId, player.x, player.y, player.id);
       const userId = client.data?.userId as string;
@@ -393,6 +396,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private sendInit(client: Socket, player: PlayerState) {
     const mapMeta = this.mapService.getMapMeta(player.mapId);
     if (!mapMeta) return;
+    this.tickService.resetPlayerSyncState(player.id);
     this.timeService.syncPlayerTimeEffects(player);
     this.actionService.rebuildActions(player, this.worldService.getContextActions(player));
 

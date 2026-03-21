@@ -1030,10 +1030,11 @@ function mutateDraft(mutator: (draft: PlayerState) => void): boolean {
   return true;
 }
 
-async function loadState(silent = false): Promise<void> {
+async function loadState(silent = false, refreshDetail = false): Promise<void> {
   if (!token) return;
   const data = await request<GmStateRes>('/gm/state');
   state = data;
+  const previousSelectedPlayerId = selectedPlayerId;
   if (!selectedPlayerId || !data.players.some((player) => player.id === selectedPlayerId)) {
     selectedPlayerId = data.players[0]?.id ?? null;
     if (selectedPlayerDetail?.id !== selectedPlayerId) {
@@ -1041,9 +1042,14 @@ async function loadState(silent = false): Promise<void> {
     }
   }
   render();
-  if (selectedPlayerId) {
+  const shouldLoadDetail = !!selectedPlayerId && (
+    refreshDetail
+    || selectedPlayerId !== previousSelectedPlayerId
+    || selectedPlayerDetail?.id !== selectedPlayerId
+  );
+  if (shouldLoadDetail && selectedPlayerId) {
     await loadSelectedPlayerDetail(selectedPlayerId, true);
-  } else {
+  } else if (!selectedPlayerId) {
     selectedPlayerDetail = null;
     loadingPlayerDetailId = null;
   }
@@ -1123,7 +1129,7 @@ function logout(message?: string): void {
 async function delayRefresh(message: string): Promise<void> {
   setStatus(message);
   await new Promise((resolve) => window.setTimeout(resolve, APPLY_DELAY_MS));
-  await loadState(true);
+  await loadState(true, true);
   setStatus(`${message}，已完成同步`);
 }
 
@@ -1430,7 +1436,7 @@ jsonViewRuntimeBtn.addEventListener('click', () => switchJsonView('runtime'));
 jsonViewPersistedBtn.addEventListener('click', () => switchJsonView('persisted'));
 
 document.getElementById('refresh-state')?.addEventListener('click', () => {
-  loadState().catch((error: unknown) => {
+  loadState(false, true).catch((error: unknown) => {
     setStatus(error instanceof Error ? error.message : '刷新失败', true);
   });
 });

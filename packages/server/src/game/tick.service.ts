@@ -1,9 +1,13 @@
 import { Injectable, OnModuleDestroy, OnModuleInit, Logger } from '@nestjs/common';
 import {
   AUTO_IDLE_CULTIVATION_DELAY_TICKS,
+  ActionDef,
+  ActionUpdateEntry,
   AutoBattleSkillConfig,
   CombatEffect,
   Direction,
+  GroundItemPilePatch,
+  GroundItemPileView,
   parseTileTargetRef,
   PlayerState,
   RenderEntity,
@@ -17,6 +21,8 @@ import {
   S2C_SystemMsg,
   S2C_TechniqueUpdate,
   S2C_Tick,
+  TechniqueState,
+  TechniqueUpdateEntry,
   TickRenderEntity,
   PERSIST_INTERVAL,
 } from '@mud/shared';
@@ -56,6 +62,10 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
   private timers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private lastTickTime: Map<string, number> = new Map();
   private lastSentTickState: Map<string, LastSentTickState> = new Map();
+  private lastSentAttrUpdates: Map<string, S2C_AttrUpdate> = new Map();
+  private lastSentTechniqueStates: Map<string, Map<string, TechniqueState>> = new Map();
+  private lastSentActionStates: Map<string, Map<string, ActionDef>> = new Map();
+  private lastSentGroundPiles: Map<string, Map<string, GroundItemPileView>> = new Map();
   private lastSentRenderEntities: Map<string, Map<string, RenderEntity>> = new Map();
   private persistTimer: ReturnType<typeof setInterval> | null = null;
   private minTickInterval = 1000;
@@ -98,6 +108,15 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       });
     }, PERSIST_INTERVAL * 1000);
     this.logger.log(`定时落盘已启动，间隔: ${PERSIST_INTERVAL}s`);
+  }
+
+  resetPlayerSyncState(playerId: string): void {
+    this.lastSentTickState.delete(playerId);
+    this.lastSentAttrUpdates.delete(playerId);
+    this.lastSentTechniqueStates.delete(playerId);
+    this.lastSentActionStates.delete(playerId);
+    this.lastSentGroundPiles.delete(playerId);
+    this.lastSentRenderEntities.delete(playerId);
   }
 
   async onModuleDestroy() {
@@ -674,7 +693,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         const finalAttrs = this.attrService.getPlayerFinalAttrs(player);
         const numericStats = this.attrService.getPlayerNumericStats(player);
         const ratioDivisors = this.attrService.getPlayerRatioDivisors(player);
-        const update: S2C_AttrUpdate = {
+        const update = this.buildSparseAttrUpdate(player.id, {
           baseAttrs: player.baseAttrs,
           bonuses: player.bonuses,
           finalAttrs,
@@ -683,8 +702,10 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
           maxHp: player.maxHp,
           qi: player.qi,
           realm: player.realm,
-        };
-        socket.emit(S2C.AttrUpdate, update);
+        });
+        if (update) {
+          socket.emit(S2C.AttrUpdate, update);
+        }
       }
       if (flags.has('inv')) {
         const update: S2C_InventoryUpdate = { inventory: player.inventory };
@@ -696,14 +717,14 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       }
       if (flags.has('tech')) {
         const update: S2C_TechniqueUpdate = {
-          techniques: player.techniques,
+          techniques: this.buildSparseTechniqueStates(player.id, player.techniques),
           cultivatingTechId: player.cultivatingTechId,
         };
         socket.emit(S2C.TechniqueUpdate, update);
       }
       if (flags.has('actions')) {
         const update: S2C_ActionsUpdate = {
-          actions: player.actions,
+          actions: this.buildSparseActionStates(player.id, player.actions),
           autoBattle: player.autoBattle,
           autoRetaliate: player.autoRetaliate,
           autoIdleCultivation: player.autoIdleCultivation,
@@ -797,22 +818,29 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         ));
       }
 
-      const previous = this.lastSentTickState.get(viewer.id);
+      let previous = this.lastSentTickState.get(viewer.id);
       const path = this.navigationService.getPathPoints(viewer.id);
       const pathSignature = this.buildPathSignature(path);
       const mapChanged = previous?.mapId !== viewer.mapId;
+      if (mapChanged) {
+        this.resetPlayerSyncState(viewer.id);
+        previous = undefined;
+      }
       const visibilityKey = this.buildVisibilityKey(viewer, time.effectiveViewRange);
       const mapMeta = this.mapService.getMapMeta(viewer.mapId);
       const mapMetaSignature = this.buildMapMetaSignature(mapMeta);
       const visibleEntityIds = new Set<string>();
+      const groundPilePatches = this.buildSparseGroundPiles(viewer.id, visibleGroundPiles);
       const tickData: S2C_Tick = {
         p: this.buildSparseRenderEntities(viewer.id, visiblePlayers, visibleEntityIds),
         e: this.buildSparseRenderEntities(viewer.id, visibleEntities, visibleEntityIds),
-        g: visibleGroundPiles,
         fx: this.filterEffectsForViewer(effects, visibility.visibleKeys),
         dt,
         time,
       };
+      if (groundPilePatches.length > 0) {
+        tickData.g = groundPilePatches;
+      }
       this.pruneRenderEntityCache(viewer.id, visibleEntityIds);
       if (!previous || previous.visibilityKey !== visibilityKey) {
         tickData.v = visibility.tiles;
@@ -868,6 +896,161 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
 
   private buildMapMetaSignature(mapMeta: ReturnType<MapService['getMapMeta']>): string {
     return JSON.stringify(mapMeta ?? null);
+  }
+
+  private buildSparseAttrUpdate(playerId: string, nextState: S2C_AttrUpdate): S2C_AttrUpdate | null {
+    const previous = this.lastSentAttrUpdates.get(playerId);
+    const patch: S2C_AttrUpdate = {};
+
+    if (!previous || !this.isStructuredEqual(previous.baseAttrs, nextState.baseAttrs)) {
+      patch.baseAttrs = JSON.parse(JSON.stringify(nextState.baseAttrs)) as typeof nextState.baseAttrs;
+    }
+    if (!previous || !this.isStructuredEqual(previous.bonuses, nextState.bonuses)) {
+      patch.bonuses = JSON.parse(JSON.stringify(nextState.bonuses)) as typeof nextState.bonuses;
+    }
+    if (!previous || !this.isStructuredEqual(previous.finalAttrs, nextState.finalAttrs)) {
+      patch.finalAttrs = JSON.parse(JSON.stringify(nextState.finalAttrs)) as typeof nextState.finalAttrs;
+    }
+    if (!previous || !this.isStructuredEqual(previous.numericStats, nextState.numericStats)) {
+      patch.numericStats = JSON.parse(JSON.stringify(nextState.numericStats)) as typeof nextState.numericStats;
+    }
+    if (!previous || !this.isStructuredEqual(previous.ratioDivisors, nextState.ratioDivisors)) {
+      patch.ratioDivisors = JSON.parse(JSON.stringify(nextState.ratioDivisors)) as typeof nextState.ratioDivisors;
+    }
+    if (!previous || previous.maxHp !== nextState.maxHp) {
+      patch.maxHp = nextState.maxHp;
+    }
+    if (!previous || previous.qi !== nextState.qi) {
+      patch.qi = nextState.qi;
+    }
+    if (!previous || !this.isStructuredEqual(previous.realm, nextState.realm)) {
+      patch.realm = nextState.realm ? JSON.parse(JSON.stringify(nextState.realm)) as typeof nextState.realm : null;
+    }
+
+    this.lastSentAttrUpdates.set(playerId, JSON.parse(JSON.stringify(nextState)) as S2C_AttrUpdate);
+    return Object.keys(patch).length > 0 ? patch : null;
+  }
+
+  private buildSparseTechniqueStates(playerId: string, techniques: TechniqueState[]): TechniqueUpdateEntry[] {
+    let cache = this.lastSentTechniqueStates.get(playerId);
+    if (!cache) {
+      cache = new Map<string, TechniqueState>();
+      this.lastSentTechniqueStates.set(playerId, cache);
+    }
+
+    const nextCache = new Map<string, TechniqueState>();
+    const patches = techniques.map((technique) => {
+      const previous = cache!.get(technique.techId);
+      const patch: TechniqueUpdateEntry = {
+        techId: technique.techId,
+        level: technique.level,
+        exp: technique.exp,
+        expToNext: technique.expToNext,
+        realm: technique.realm,
+      };
+
+      if (!previous || previous.name !== technique.name) patch.name = technique.name ?? null;
+      if (!previous || previous.grade !== technique.grade) patch.grade = technique.grade ?? null;
+      if (!previous || !this.isStructuredEqual(previous.skills, technique.skills)) {
+        patch.skills = technique.skills ? JSON.parse(JSON.stringify(technique.skills)) as typeof technique.skills : null;
+      }
+      if (!previous || !this.isStructuredEqual(previous.layers, technique.layers)) {
+        patch.layers = technique.layers ? JSON.parse(JSON.stringify(technique.layers)) as typeof technique.layers : null;
+      }
+      if (!previous || !this.isStructuredEqual(previous.attrCurves, technique.attrCurves)) {
+        patch.attrCurves = technique.attrCurves ? JSON.parse(JSON.stringify(technique.attrCurves)) as typeof technique.attrCurves : null;
+      }
+
+      nextCache.set(technique.techId, JSON.parse(JSON.stringify(technique)) as TechniqueState);
+      return patch;
+    });
+
+    this.lastSentTechniqueStates.set(playerId, nextCache);
+    return patches;
+  }
+
+  private buildSparseActionStates(playerId: string, actions: ActionDef[]): ActionUpdateEntry[] {
+    let cache = this.lastSentActionStates.get(playerId);
+    if (!cache) {
+      cache = new Map<string, ActionDef>();
+      this.lastSentActionStates.set(playerId, cache);
+    }
+
+    const nextCache = new Map<string, ActionDef>();
+    const patches = actions.map((action) => {
+      const previous = cache!.get(action.id);
+      const patch: ActionUpdateEntry = {
+        id: action.id,
+        cooldownLeft: action.cooldownLeft,
+      };
+
+      if (!previous || previous.autoBattleEnabled !== action.autoBattleEnabled) {
+        patch.autoBattleEnabled = action.autoBattleEnabled ?? null;
+      }
+      if (!previous || previous.autoBattleOrder !== action.autoBattleOrder) {
+        patch.autoBattleOrder = action.autoBattleOrder ?? null;
+      }
+      if (!previous || previous.name !== action.name) patch.name = action.name ?? null;
+      if (!previous || previous.type !== action.type) patch.type = action.type ?? null;
+      if (!previous || previous.desc !== action.desc) patch.desc = action.desc ?? null;
+      if (!previous || previous.range !== action.range) patch.range = action.range ?? null;
+      if (!previous || previous.requiresTarget !== action.requiresTarget) {
+        patch.requiresTarget = action.requiresTarget ?? null;
+      }
+      if (!previous || previous.targetMode !== action.targetMode) {
+        patch.targetMode = action.targetMode ?? null;
+      }
+
+      nextCache.set(action.id, JSON.parse(JSON.stringify(action)) as ActionDef);
+      return patch;
+    });
+
+    this.lastSentActionStates.set(playerId, nextCache);
+    return patches;
+  }
+
+  private buildSparseGroundPiles(viewerId: string, piles: GroundItemPileView[]): GroundItemPilePatch[] {
+    let cache = this.lastSentGroundPiles.get(viewerId);
+    if (!cache) {
+      cache = new Map<string, GroundItemPileView>();
+      this.lastSentGroundPiles.set(viewerId, cache);
+    }
+
+    const nextCache = new Map<string, GroundItemPileView>();
+    const patches: GroundItemPilePatch[] = [];
+
+    for (const pile of piles) {
+      const previous = cache.get(pile.sourceId);
+      if (
+        !previous
+        || previous.x !== pile.x
+        || previous.y !== pile.y
+        || !this.isStructuredEqual(previous.items, pile.items)
+      ) {
+        patches.push({
+          sourceId: pile.sourceId,
+          x: pile.x,
+          y: pile.y,
+          items: JSON.parse(JSON.stringify(pile.items)) as typeof pile.items,
+        });
+      }
+      nextCache.set(pile.sourceId, JSON.parse(JSON.stringify(pile)) as GroundItemPileView);
+    }
+
+    for (const [sourceId, previous] of cache.entries()) {
+      if (nextCache.has(sourceId)) {
+        continue;
+      }
+      patches.push({
+        sourceId,
+        x: previous.x,
+        y: previous.y,
+        items: null,
+      });
+    }
+
+    this.lastSentGroundPiles.set(viewerId, nextCache);
+    return patches;
   }
 
   private buildSparseRenderEntities(

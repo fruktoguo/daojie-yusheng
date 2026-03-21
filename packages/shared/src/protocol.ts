@@ -1,4 +1,4 @@
-import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, QuestState, CombatEffect, AutoBattleSkillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, TechniqueGrade, GroundItemPileView, LootWindowState, VisibleBuffState } from './types';
+import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, QuestState, CombatEffect, AutoBattleSkillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, TechniqueGrade, GroundItemPileView, LootWindowState, VisibleBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView } from './types';
 import { NumericRatioDivisors, NumericStats } from './numeric';
 
 // ===== 事件名 =====
@@ -126,11 +126,18 @@ export interface TickRenderEntity {
   buffs?: VisibleBuffState[] | null;
 }
 
+export interface GroundItemPilePatch {
+  sourceId: string;
+  x: number;
+  y: number;
+  items?: GroundItemEntryView[] | null;
+}
+
 export interface S2C_Tick {
   p: TickRenderEntity[];                          // 玩家可见实体（含自身）
   t?: [number, number, string][];                 // [x, y, tileType]
   e: TickRenderEntity[];                          // 怪物 / NPC 可见实体
-  g?: GroundItemPileView[];                       // 视野内地面物品
+  g?: GroundItemPilePatch[];                      // 视野内地面物品 patch
   fx?: CombatEffect[];                            // 当前 tick 触发的战斗特效
   v?: VisibleTile[][];                            // 视野 tiles（null 表示当前不可见）
   dt?: number;                                    // 实际 tick 间隔（毫秒）
@@ -244,14 +251,14 @@ export interface C2S_Cultivate {
 
 /** 属性更新 */
 export interface S2C_AttrUpdate {
-  baseAttrs: Attributes;
-  bonuses: AttrBonus[];
-  finalAttrs: Attributes;
-  numericStats: NumericStats;
-  ratioDivisors: NumericRatioDivisors;
-  maxHp: number;
-  qi: number;
-  realm?: PlayerRealmState;
+  baseAttrs?: Attributes;
+  bonuses?: AttrBonus[];
+  finalAttrs?: Attributes;
+  numericStats?: NumericStats;
+  ratioDivisors?: NumericRatioDivisors;
+  maxHp?: number;
+  qi?: number;
+  realm?: PlayerRealmState | null;
 }
 
 /** 背包更新 */
@@ -264,15 +271,41 @@ export interface S2C_EquipmentUpdate {
   equipment: EquipmentSlots;
 }
 
+export interface TechniqueUpdateEntry {
+  techId: string;
+  level: number;
+  exp: number;
+  expToNext: number;
+  realm: TechniqueRealm;
+  name?: string | null;
+  grade?: TechniqueGrade | null;
+  skills?: SkillDef[] | null;
+  layers?: TechniqueLayerDef[] | null;
+  attrCurves?: TechniqueAttrCurves | null;
+}
+
 /** 功法更新 */
 export interface S2C_TechniqueUpdate {
-  techniques: TechniqueState[];
+  techniques: TechniqueUpdateEntry[];
   cultivatingTechId?: string;
+}
+
+export interface ActionUpdateEntry {
+  id: string;
+  cooldownLeft: number;
+  autoBattleEnabled?: boolean | null;
+  autoBattleOrder?: number | null;
+  name?: string | null;
+  type?: ActionType | null;
+  desc?: string | null;
+  range?: number | null;
+  requiresTarget?: boolean | null;
+  targetMode?: 'any' | 'entity' | 'tile' | null;
 }
 
 /** 行动列表更新 */
 export interface S2C_ActionsUpdate {
-  actions: ActionDef[];
+  actions: ActionUpdateEntry[];
   autoBattle?: boolean;
   autoRetaliate?: boolean;
   autoIdleCultivation?: boolean;

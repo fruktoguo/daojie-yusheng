@@ -264,6 +264,10 @@ export class AttrPanel {
   }
 
   update(data: S2C_AttrUpdate): void {
+    if (!data.baseAttrs || !data.bonuses || !data.finalAttrs) {
+      this.clear();
+      return;
+    }
     this.render(data.baseAttrs, data.bonuses, data.finalAttrs, data.numericStats, data.ratioDivisors);
   }
 
