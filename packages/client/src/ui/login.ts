@@ -11,25 +11,36 @@ import {
 } from './auth-api';
 import { validateDisplayName, validatePassword, validateRegisterUsername } from './account-rules';
 
+type AuthMode = 'login' | 'register';
+
 export class LoginUI {
   private overlay = document.getElementById('login-overlay')!;
+  private loginTab = document.getElementById('tab-login') as HTMLButtonElement;
+  private registerTab = document.getElementById('tab-register') as HTMLButtonElement;
+  private usernameLabel = document.getElementById('username-label')!;
   private usernameInput = document.getElementById('input-username') as HTMLInputElement;
   private passwordInput = document.getElementById('input-password') as HTMLInputElement;
+  private displayNameGroup = document.getElementById('register-display-name-group') as HTMLElement;
   private displayNameInput = document.getElementById('input-display-name') as HTMLInputElement;
   private displayNameStatus = document.getElementById('display-name-status')!;
-  private loginBtn = document.getElementById('btn-login')!;
-  private registerBtn = document.getElementById('btn-register')!;
+  private submitBtn = document.getElementById('btn-auth-submit') as HTMLButtonElement;
+  private submitText = document.getElementById('auth-submit-text')!;
   private errorDiv = document.getElementById('login-error')!;
   private displayNameCheckTimer: ReturnType<typeof setTimeout> | null = null;
   private displayNameAbortController: AbortController | null = null;
   private displayNameAvailable = false;
+  private mode: AuthMode | null = null;
 
   constructor(private socket: SocketManager) {
-    this.loginBtn.addEventListener('click', () => this.handleLogin());
-    this.registerBtn.addEventListener('click', () => this.handleRegister());
+    this.loginTab.addEventListener('click', () => this.setMode('login'));
+    this.registerTab.addEventListener('click', () => this.setMode('register'));
+    this.submitBtn.addEventListener('click', () => {
+      void this.handleSubmit();
+    });
     this.displayNameInput.addEventListener('input', () => {
       void this.scheduleDisplayNameCheck();
     });
+    this.setMode('login');
   }
 
   async restoreSession(): Promise<boolean> {
@@ -53,6 +64,7 @@ export class LoginUI {
   }
 
   show(message = ''): void {
+    this.setMode('login');
     this.overlay.classList.remove('hidden');
     if (message) {
       this.setError(message);
@@ -74,6 +86,14 @@ export class LoginUI {
 
   hasRefreshToken(): boolean {
     return Boolean(getRefreshToken());
+  }
+
+  private async handleSubmit(): Promise<void> {
+    if (this.mode === 'register') {
+      await this.handleRegister();
+      return;
+    }
+    await this.handleLogin();
   }
 
   private async handleLogin(): Promise<void> {
@@ -145,6 +165,9 @@ export class LoginUI {
   }
 
   private async scheduleDisplayNameCheck(): Promise<void> {
+    if (this.mode !== 'register') {
+      return;
+    }
     if (this.displayNameCheckTimer) {
       clearTimeout(this.displayNameCheckTimer);
     }
@@ -209,5 +232,40 @@ export class LoginUI {
 
   private setError(message: string): void {
     this.errorDiv.textContent = message;
+  }
+
+  private setMode(mode: AuthMode): void {
+    if (this.mode === mode) {
+      return;
+    }
+    this.mode = mode;
+    const isRegister = mode === 'register';
+    this.loginTab.classList.toggle('active', !isRegister);
+    this.loginTab.setAttribute('aria-selected', String(!isRegister));
+    this.registerTab.classList.toggle('active', isRegister);
+    this.registerTab.setAttribute('aria-selected', String(isRegister));
+    this.displayNameGroup.classList.toggle('hidden', !isRegister);
+    this.usernameLabel.textContent = isRegister ? '用户名' : '账号';
+    this.usernameInput.placeholder = isRegister ? '输入用户名' : '输入账号';
+    this.submitText.textContent = isRegister ? '注册' : '登录';
+    this.setError('');
+    if (!isRegister) {
+      this.resetDisplayNameState();
+    } else {
+      this.setDisplayNameStatus('注册时必填', '');
+    }
+  }
+
+  private resetDisplayNameState(): void {
+    if (this.displayNameCheckTimer) {
+      clearTimeout(this.displayNameCheckTimer);
+      this.displayNameCheckTimer = null;
+    }
+    if (this.displayNameAbortController) {
+      this.displayNameAbortController.abort();
+      this.displayNameAbortController = null;
+    }
+    this.displayNameAvailable = false;
+    this.setDisplayNameStatus('注册时必填', '');
   }
 }

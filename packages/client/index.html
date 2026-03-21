@@ -108,6 +108,36 @@
       letter-spacing: 4px;
     }
 
+    .login-mode-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .login-mode-tab {
+      flex: 1;
+      padding: 10px 0;
+      border: 1.5px solid var(--ink-light);
+      background: rgba(255, 255, 255, 0.66);
+      font-family: var(--font-heading-sub);
+      font-size: 18px;
+      color: var(--ink-grey);
+      letter-spacing: 4px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s, color 0.2s;
+    }
+
+    .login-mode-tab:hover {
+      border-color: var(--ink-dark);
+      color: var(--ink-dark);
+    }
+
+    .login-mode-tab.active {
+      border-color: var(--stamp-red);
+      background: rgba(197, 60, 60, 0.08);
+      color: var(--ink-black);
+    }
+
     .login-stamp {
       position: absolute;
       top: 16px;
@@ -131,6 +161,10 @@
       flex-direction: column;
       gap: 6px;
       margin-bottom: 18px;
+    }
+
+    .form-group.hidden {
+      display: none;
     }
     .form-group label {
       font-family: var(--font-heading-sub);
@@ -2923,27 +2957,27 @@
       <img class="login-logo" src="/logo.png" alt="道劫余生" />
       <h1 class="login-title">道劫余生</h1>
       <p class="login-subtitle">道劫余生</p>
+      <div class="login-mode-tabs" role="tablist" aria-label="登录模式切换">
+        <button class="login-mode-tab active" id="tab-login" type="button" role="tab" aria-selected="true">登录</button>
+        <button class="login-mode-tab" id="tab-register" type="button" role="tab" aria-selected="false">注册</button>
+      </div>
       <div class="form-group">
-        <label>道号</label>
-        <input id="input-username" type="text" placeholder="输入用户名" />
+        <label id="username-label">账号</label>
+        <input id="input-username" type="text" placeholder="输入账号" />
       </div>
       <div class="form-group">
         <label>口令</label>
         <input id="input-password" type="password" placeholder="输入密码" />
       </div>
-      <div class="form-group">
+      <div class="form-group hidden" id="register-display-name-group">
         <label>显示名</label>
         <input id="input-display-name" type="text" maxlength="1" placeholder="注册时必填，仅 1 个字" />
         <div class="form-help">注册时必须选择 1 个唯一显示字。未设置的旧账号默认取账号首字。</div>
         <div class="field-status" id="display-name-status">注册时必填</div>
       </div>
       <div class="login-actions">
-        <button class="action-btn primary-btn" id="btn-login">
-          <span class="btn-text">登录</span>
-          <span class="btn-border"></span>
-        </button>
-        <button class="action-btn" id="btn-register">
-          <span class="btn-text">注册</span>
+        <button class="action-btn primary-btn" id="btn-auth-submit">
+          <span class="btn-text" id="auth-submit-text">登录</span>
           <span class="btn-border"></span>
         </button>
       </div>
