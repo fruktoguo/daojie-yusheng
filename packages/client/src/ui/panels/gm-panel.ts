@@ -19,6 +19,10 @@ function createEmptyGmState(): S2C_GmState {
       cpuPercent: 0,
       memoryMb: 0,
       tickMs: 0,
+      networkInBytes: 0,
+      networkOutBytes: 0,
+      networkInBuckets: [],
+      networkOutBuckets: [],
     },
   };
 }

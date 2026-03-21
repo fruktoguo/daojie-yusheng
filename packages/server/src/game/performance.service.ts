@@ -1,16 +1,72 @@
 import { Injectable } from '@nestjs/common';
+import { GmNetworkBucket, GmPerformanceSnapshot } from '@mud/shared';
+
+interface NetworkBucketCounter {
+  label: string;
+  bytes: number;
+  count: number;
+}
 
 @Injectable()
 export class PerformanceService {
   private lastCpuUsage = process.cpuUsage();
   private lastCpuTime = process.hrtime.bigint();
   private lastTickMs = 0;
+  private totalNetworkInBytes = 0;
+  private totalNetworkOutBytes = 0;
+  private readonly networkInBuckets = new Map<string, NetworkBucketCounter>();
+  private readonly networkOutBuckets = new Map<string, NetworkBucketCounter>();
 
   recordTick(elapsedMs: number) {
     this.lastTickMs = elapsedMs;
   }
 
-  getSnapshot(): { cpuPercent: number; memoryMb: number; tickMs: number } {
+  recordNetworkInBytes(bytes: number, key = 'unknown', label = key): void {
+    this.totalNetworkInBytes += this.recordNetworkBytes(this.networkInBuckets, bytes, key, label);
+  }
+
+  recordNetworkOutBytes(bytes: number, key = 'unknown', label = key): void {
+    this.totalNetworkOutBytes += this.recordNetworkBytes(this.networkOutBuckets, bytes, key, label);
+  }
+
+  private recordNetworkBytes(
+    buckets: Map<string, NetworkBucketCounter>,
+    bytes: number,
+    key: string,
+    label: string,
+  ): number {
+    if (!Number.isFinite(bytes) || bytes <= 0) {
+      return 0;
+    }
+    const safeBytes = Math.floor(bytes);
+    const bucket = buckets.get(key) ?? { label, bytes: 0, count: 0 };
+    bucket.label = label;
+    bucket.bytes += safeBytes;
+    bucket.count += 1;
+    buckets.set(key, bucket);
+    return safeBytes;
+  }
+
+  private buildBucketSnapshot(buckets: Map<string, NetworkBucketCounter>): GmNetworkBucket[] {
+    return [...buckets.entries()]
+      .map(([key, bucket]) => ({
+        key,
+        label: bucket.label,
+        bytes: bucket.bytes,
+        count: bucket.count,
+      }))
+      .sort((left, right) => {
+        if (right.bytes !== left.bytes) {
+          return right.bytes - left.bytes;
+        }
+        if (right.count !== left.count) {
+          return right.count - left.count;
+        }
+        return left.label.localeCompare(right.label, 'zh-CN');
+      });
+  }
+
+  getSnapshot(): GmPerformanceSnapshot {
     const now = process.hrtime.bigint();
     const cpuUsage = process.cpuUsage(this.lastCpuUsage);
     const elapsedMicros = Number(now - this.lastCpuTime) / 1000;
@@ -28,6 +84,10 @@ export class PerformanceService {
       cpuPercent: Number(cpuPercent.toFixed(1)),
       memoryMb: Number(memoryMb.toFixed(1)),
       tickMs: Number(this.lastTickMs.toFixed(1)),
+      networkInBytes: this.totalNetworkInBytes,
+      networkOutBytes: this.totalNetworkOutBytes,
+      networkInBuckets: this.buildBucketSnapshot(this.networkInBuckets),
+      networkOutBuckets: this.buildBucketSnapshot(this.networkOutBuckets),
     };
   }
 }

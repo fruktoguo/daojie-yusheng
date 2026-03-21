@@ -6,6 +6,9 @@ import {
   type AttrKey,
   type AutoBattleSkillConfig,
   type EquipmentSlots,
+  type GmNetworkBucket,
+  type GmManagedPlayerSummary,
+  type GmPlayerDetailRes,
   type GmLoginReq,
   type GmLoginRes,
   type GmManagedPlayerRecord,
@@ -77,7 +80,12 @@ const editorSubtitleEl = document.getElementById('editor-subtitle') as HTMLDivEl
 const editorMetaEl = document.getElementById('editor-meta') as HTMLDivElement;
 const editorContentEl = document.getElementById('editor-content') as HTMLDivElement;
 const playerJsonEl = document.getElementById('player-json') as HTMLTextAreaElement;
+const playerPersistedJsonEl = document.getElementById('player-persisted-json') as HTMLTextAreaElement;
 const applyRawJsonBtn = document.getElementById('apply-raw-json') as HTMLButtonElement;
+const jsonViewRuntimeBtn = document.getElementById('json-view-runtime') as HTMLButtonElement;
+const jsonViewPersistedBtn = document.getElementById('json-view-persisted') as HTMLButtonElement;
+const runtimeJsonPanelEl = document.getElementById('runtime-json-panel') as HTMLDivElement;
+const persistedJsonPanelEl = document.getElementById('persisted-json-panel') as HTMLDivElement;
 const savePlayerBtn = document.getElementById('save-player') as HTMLButtonElement;
 const resetPlayerBtn = document.getElementById('reset-player') as HTMLButtonElement;
 const removeBotBtn = document.getElementById('remove-bot') as HTMLButtonElement;
@@ -88,6 +96,10 @@ const summaryBotsEl = document.getElementById('summary-bots') as HTMLDivElement;
 const summaryTickEl = document.getElementById('summary-tick') as HTMLDivElement;
 const summaryCpuEl = document.getElementById('summary-cpu') as HTMLDivElement;
 const summaryMemoryEl = document.getElementById('summary-memory') as HTMLDivElement;
+const summaryNetInEl = document.getElementById('summary-net-in') as HTMLDivElement;
+const summaryNetOutEl = document.getElementById('summary-net-out') as HTMLDivElement;
+const summaryNetInBreakdownEl = document.getElementById('summary-net-in-breakdown') as HTMLDivElement;
+const summaryNetOutBreakdownEl = document.getElementById('summary-net-out-breakdown') as HTMLDivElement;
 const gmPasswordForm = document.getElementById('gm-password-form') as HTMLFormElement;
 const gmPasswordCurrentInput = document.getElementById('gm-password-current') as HTMLInputElement;
 const gmPasswordNextInput = document.getElementById('gm-password-next') as HTMLInputElement;
@@ -100,11 +112,15 @@ const mapTabBtn = document.getElementById('gm-tab-maps') as HTMLButtonElement;
 let token = sessionStorage.getItem(TOKEN_KEY) ?? '';
 let state: GmStateRes | null = null;
 let selectedPlayerId: string | null = null;
+let selectedPlayerDetail: GmManagedPlayerRecord | null = null;
+let loadingPlayerDetailId: string | null = null;
+let detailRequestNonce = 0;
 let draftSnapshot: PlayerState | null = null;
 let editorDirty = false;
 let draftSourcePlayerId: string | null = null;
 let pollTimer: number | null = null;
 let currentTab: 'players' | 'maps' = 'players';
+let currentJsonView: 'runtime' | 'persisted' = 'runtime';
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -121,6 +137,57 @@ function escapeHtml(input: string): string {
 
 function formatJson(value: unknown): string {
   return JSON.stringify(value ?? null, null, 2);
+}
+
+function formatBytes(bytes: number | undefined): string {
+  const safe = Number.isFinite(bytes) ? Math.max(0, Number(bytes)) : 0;
+  if (safe < 1024) return `${Math.round(safe)} B`;
+  if (safe < 1024 * 1024) return `${(safe / 1024).toFixed(1)} KB`;
+  if (safe < 1024 * 1024 * 1024) return `${(safe / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(safe / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+function formatPercent(numerator: number, denominator: number): string {
+  if (!Number.isFinite(numerator) || numerator <= 0 || !Number.isFinite(denominator) || denominator <= 0) {
+    return '0.0%';
+  }
+  return `${((numerator / denominator) * 100).toFixed(1)}%`;
+}
+
+function renderNetworkBucketList(totalBytes: number, buckets: GmNetworkBucket[], emptyText: string): string {
+  if (buckets.length === 0 || totalBytes <= 0) {
+    return `<div class="empty-hint">${escapeHtml(emptyText)}</div>`;
+  }
+
+  const visibleBuckets = buckets.slice(0, 8);
+  const hiddenBuckets = buckets.slice(8);
+  if (hiddenBuckets.length > 0) {
+    const otherBytes = hiddenBuckets.reduce((sum, bucket) => sum + bucket.bytes, 0);
+    const otherCount = hiddenBuckets.reduce((sum, bucket) => sum + bucket.count, 0);
+    visibleBuckets.push({
+      key: 'other',
+      label: `其余 ${hiddenBuckets.length} 项`,
+      bytes: otherBytes,
+      count: otherCount,
+    });
+  }
+
+  return visibleBuckets.map((bucket) => `
+    <div class="network-row">
+      <div class="network-row-main">
+        <div class="network-row-label">${escapeHtml(bucket.label)}</div>
+        <div class="network-row-meta">${formatBytes(bucket.bytes)} · ${formatPercent(bucket.bytes, totalBytes)} · ${bucket.count} 次</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function switchJsonView(view: 'runtime' | 'persisted'): void {
+  currentJsonView = view;
+  jsonViewRuntimeBtn.classList.toggle('primary', view === 'runtime');
+  jsonViewPersistedBtn.classList.toggle('primary', view === 'persisted');
+  runtimeJsonPanelEl.classList.toggle('hidden', view !== 'runtime');
+  persistedJsonPanelEl.classList.toggle('hidden', view !== 'persisted');
 }
 
 function setStatus(message: string, isError = false): void {
@@ -178,9 +245,15 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return data as T;
 }
 
-function getSelectedPlayer(): GmManagedPlayerRecord | null {
+function getSelectedPlayer(): GmManagedPlayerSummary | null {
   if (!state || !selectedPlayerId) return null;
   return state.players.find((player) => player.id === selectedPlayerId) ?? null;
+}
+
+function getSelectedPlayerDetail(): GmManagedPlayerRecord | null {
+  return selectedPlayerDetail && selectedPlayerDetail.id === selectedPlayerId
+    ? selectedPlayerDetail
+    : null;
 }
 
 function createDefaultItem(equipSlot?: string): ItemStack {
@@ -287,6 +360,7 @@ function createDefaultPlayerSnapshot(source?: PlayerState): PlayerState {
     autoBattle: false,
     autoBattleSkills: [],
     autoRetaliate: true,
+    autoIdleCultivation: true,
     revealedBreakthroughRequirementIds: [],
   };
 }
@@ -773,6 +847,18 @@ function renderSummary(data: GmStateRes): void {
   summaryTickEl.textContent = `${Math.round(data.perf.tickMs)} ms`;
   summaryCpuEl.textContent = `${Math.round(data.perf.cpuPercent)}%`;
   summaryMemoryEl.textContent = `${Math.round(data.perf.memoryMb)} MB`;
+  summaryNetInEl.textContent = formatBytes(data.perf.networkInBytes);
+  summaryNetOutEl.textContent = formatBytes(data.perf.networkOutBytes);
+  summaryNetInBreakdownEl.innerHTML = renderNetworkBucketList(
+    data.perf.networkInBytes,
+    data.perf.networkInBuckets,
+    '当前还没有累计上行事件。',
+  );
+  summaryNetOutBreakdownEl.innerHTML = renderNetworkBucketList(
+    data.perf.networkOutBytes,
+    data.perf.networkOutBuckets,
+    '当前还没有累计下行事件。',
+  );
 }
 
 function renderPlayerList(data: GmStateRes): void {
@@ -812,46 +898,61 @@ function renderEditor(data: GmStateRes): void {
     editorPanelEl.classList.add('hidden');
     draftSnapshot = null;
     draftSourcePlayerId = null;
+    selectedPlayerDetail = null;
+    loadingPlayerDetailId = null;
+    playerJsonEl.value = '';
+    playerPersistedJsonEl.value = '';
     return;
   }
 
-  if (!draftSnapshot || draftSourcePlayerId !== selected.id || !editorDirty) {
-    draftSnapshot = createDefaultPlayerSnapshot(selected.snapshot);
-    draftSourcePlayerId = selected.id;
+  const detail = getSelectedPlayerDetail();
+  if (!detail) {
+    editorEmptyEl.classList.remove('hidden');
+    editorEmptyEl.textContent = loadingPlayerDetailId === selected.id ? '正在加载角色详情…' : '当前角色详情暂不可用。';
+    editorPanelEl.classList.add('hidden');
+    playerJsonEl.value = '';
+    playerPersistedJsonEl.value = '';
+    return;
+  }
+
+  if (!draftSnapshot || draftSourcePlayerId !== detail.id || !editorDirty) {
+    draftSnapshot = createDefaultPlayerSnapshot(detail.snapshot);
+    draftSourcePlayerId = detail.id;
     editorDirty = false;
   }
 
   editorEmptyEl.classList.add('hidden');
   editorPanelEl.classList.remove('hidden');
 
-  editorTitleEl.textContent = selected.name;
+  editorTitleEl.textContent = detail.name;
   editorSubtitleEl.textContent = [
-    `角色 ID: ${selected.id}`,
-    selected.meta.userId ? `用户 ID: ${selected.meta.userId}` : '用户 ID: 无',
-    `地图: ${selected.mapId} (${selected.x}, ${selected.y})`,
-    selected.meta.updatedAt ? `最近落盘: ${new Date(selected.meta.updatedAt).toLocaleString('zh-CN')}` : '最近落盘: 运行时角色',
+    `角色 ID: ${detail.id}`,
+    detail.meta.userId ? `用户 ID: ${detail.meta.userId}` : '用户 ID: 无',
+    `地图: ${detail.mapId} (${detail.x}, ${detail.y})`,
+    detail.meta.updatedAt ? `最近落盘: ${new Date(detail.meta.updatedAt).toLocaleString('zh-CN')}` : '最近落盘: 运行时角色',
   ].join(' · ');
 
   const pills: string[] = [
-    `<span class="pill ${selected.meta.online ? 'online' : 'offline'}">${selected.meta.online ? '在线' : '离线'}</span>`,
-    `<span class="pill ${selected.meta.isBot ? 'bot' : ''}">${selected.meta.isBot ? '机器人' : '玩家'}</span>`,
-    `<span class="pill">${selected.dead ? '死亡' : '存活'}</span>`,
-    `<span class="pill">${selected.autoBattle ? '自动战斗开' : '自动战斗关'}</span>`,
-    `<span class="pill">${selected.autoRetaliate ? '自动反击开' : '自动反击关'}</span>`,
+    `<span class="pill ${detail.meta.online ? 'online' : 'offline'}">${detail.meta.online ? '在线' : '离线'}</span>`,
+    `<span class="pill ${detail.meta.isBot ? 'bot' : ''}">${detail.meta.isBot ? '机器人' : '玩家'}</span>`,
+    `<span class="pill">${detail.dead ? '死亡' : '存活'}</span>`,
+    `<span class="pill">${detail.autoBattle ? '自动战斗开' : '自动战斗关'}</span>`,
+    `<span class="pill">${detail.autoRetaliate ? '自动反击开' : '自动反击关'}</span>`,
   ];
-  if (selected.meta.dirtyFlags.length > 0) {
-    pills.push(`<span class="pill">脏标记: ${escapeHtml(selected.meta.dirtyFlags.join(', '))}</span>`);
+  if (detail.meta.dirtyFlags.length > 0) {
+    pills.push(`<span class="pill">脏标记: ${escapeHtml(detail.meta.dirtyFlags.join(', '))}</span>`);
   }
   if (editorDirty) {
     pills.push('<span class="pill">编辑中</span>');
   }
   editorMetaEl.innerHTML = pills.join('');
 
-  editorContentEl.innerHTML = renderVisualEditor(selected, draftSnapshot);
+  editorContentEl.innerHTML = renderVisualEditor(detail, draftSnapshot);
   playerJsonEl.value = formatJson(draftSnapshot);
+  playerPersistedJsonEl.value = formatJson(detail.persistedSnapshot);
 
-  removeBotBtn.style.display = selected.meta.isBot ? '' : 'none';
-  removeBotBtn.disabled = !selected.meta.isBot;
+  removeBotBtn.style.display = detail.meta.isBot ? '' : 'none';
+  removeBotBtn.disabled = !detail.meta.isBot;
 }
 
 function render(): void {
@@ -933,9 +1034,42 @@ async function loadState(silent = false): Promise<void> {
   if (!token) return;
   const data = await request<GmStateRes>('/gm/state');
   state = data;
+  if (!selectedPlayerId || !data.players.some((player) => player.id === selectedPlayerId)) {
+    selectedPlayerId = data.players[0]?.id ?? null;
+    if (selectedPlayerDetail?.id !== selectedPlayerId) {
+      selectedPlayerDetail = null;
+    }
+  }
   render();
+  if (selectedPlayerId) {
+    await loadSelectedPlayerDetail(selectedPlayerId, true);
+  } else {
+    selectedPlayerDetail = null;
+    loadingPlayerDetailId = null;
+  }
   if (!silent) {
     setStatus(`已同步 ${data.players.length} 条角色数据`);
+  }
+}
+
+async function loadSelectedPlayerDetail(playerId: string, silent = false): Promise<void> {
+  const nonce = ++detailRequestNonce;
+  loadingPlayerDetailId = playerId;
+  render();
+  try {
+    const data = await request<GmPlayerDetailRes>(`/gm/players/${encodeURIComponent(playerId)}`);
+    if (nonce !== detailRequestNonce || selectedPlayerId !== playerId) {
+      return;
+    }
+    selectedPlayerDetail = data.player;
+    if (!silent) {
+      setStatus(`已加载 ${data.player.name} 的角色详情`);
+    }
+  } finally {
+    if (nonce === detailRequestNonce && loadingPlayerDetailId === playerId) {
+      loadingPlayerDetailId = null;
+    }
+    render();
   }
 }
 
@@ -964,6 +1098,8 @@ function logout(message?: string): void {
   token = '';
   state = null;
   selectedPlayerId = null;
+  selectedPlayerDetail = null;
+  loadingPlayerDetailId = null;
   draftSnapshot = null;
   editorDirty = false;
   draftSourcePlayerId = null;
@@ -975,8 +1111,10 @@ function logout(message?: string): void {
   playerListEl.innerHTML = '';
   editorContentEl.innerHTML = '';
   playerJsonEl.value = '';
+  playerPersistedJsonEl.value = '';
   mapEditor.reset();
   switchTab('players');
+  switchJsonView('runtime');
   loginErrorEl.textContent = message ?? '';
   setStatus('');
   showLogin();
@@ -1250,10 +1388,15 @@ playerListEl.addEventListener('click', (event) => {
     return;
   }
   selectedPlayerId = playerId;
+  selectedPlayerDetail = null;
+  loadingPlayerDetailId = playerId;
   draftSnapshot = null;
   draftSourcePlayerId = null;
   editorDirty = false;
   render();
+  loadSelectedPlayerDetail(playerId, true).catch((error: unknown) => {
+    setStatus(error instanceof Error ? error.message : '加载角色详情失败', true);
+  });
 });
 
 editorContentEl.addEventListener('click', (event) => {
@@ -1283,6 +1426,8 @@ loginForm.addEventListener('submit', (event) => {
 applyRawJsonBtn.addEventListener('click', () => {
   applyRawJson().catch(() => {});
 });
+jsonViewRuntimeBtn.addEventListener('click', () => switchJsonView('runtime'));
+jsonViewPersistedBtn.addEventListener('click', () => switchJsonView('persisted'));
 
 document.getElementById('refresh-state')?.addEventListener('click', () => {
   loadState().catch((error: unknown) => {
@@ -1313,6 +1458,7 @@ removeBotBtn.addEventListener('click', () => {
 if (token) {
   showShell();
   switchTab('players');
+  switchJsonView(currentJsonView);
   loadState()
     .then(() => startPolling())
     .catch(() => logout('GM 登录已失效，请重新输入密码'));

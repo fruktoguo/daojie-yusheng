@@ -390,6 +390,51 @@
       color: var(--ink-grey);
     }
 
+    .network-breakdown {
+      margin-bottom: 14px;
+      padding: 12px;
+      border: 1px solid var(--wash-ink);
+      background: rgba(255,255,255,0.5);
+    }
+
+    .network-breakdown-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .network-breakdown-subtitle {
+      font-size: 12px;
+      color: var(--ink-grey);
+    }
+
+    .network-breakdown-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .network-row {
+      padding: 8px 10px;
+      border: 1px solid rgba(17, 17, 17, 0.08);
+      background: rgba(255,255,255,0.68);
+    }
+
+    .network-row-label {
+      font-family: var(--font-heading-sub);
+      font-size: 15px;
+      color: var(--ink-black);
+      word-break: break-all;
+    }
+
+    .network-row-meta {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--ink-grey);
+    }
+
     .filter-row {
       margin-bottom: 12px;
       align-items: center;
@@ -922,6 +967,14 @@
             <div class="panel-title">内存占用</div>
             <div id="summary-memory" class="panel-value">0 MB</div>
           </div>
+          <div class="summary-card">
+            <div class="panel-title">累计上行</div>
+            <div id="summary-net-in" class="panel-value">0 B</div>
+          </div>
+          <div class="summary-card">
+            <div class="panel-title">累计下行</div>
+            <div id="summary-net-out" class="panel-value">0 B</div>
+          </div>
         </div>
         <div class="button-row" style="margin-bottom: 12px;">
           <input id="spawn-count" class="number-input" type="number" min="1" max="50" value="5" />
@@ -932,10 +985,28 @@
           <button id="refresh-state" class="small-btn" type="button">立即刷新</button>
           <button id="logout" class="small-btn" type="button">退出管理台</button>
         </div>
+        <div class="network-breakdown">
+          <div class="network-breakdown-head">
+            <div class="panel-title">网络事件上行榜</div>
+            <div class="network-breakdown-subtitle">客户端 -> 服务端累计字节</div>
+          </div>
+          <div id="summary-net-in-breakdown" class="network-breakdown-list">
+            <div class="empty-hint">当前还没有累计上行事件。</div>
+          </div>
+        </div>
+        <div class="network-breakdown">
+          <div class="network-breakdown-head">
+            <div class="panel-title">网络事件下行榜</div>
+            <div class="network-breakdown-subtitle">服务端 -> 客户端累计字节</div>
+          </div>
+          <div id="summary-net-out-breakdown" class="network-breakdown-list">
+            <div class="empty-hint">当前还没有累计下行事件。</div>
+          </div>
+        </div>
         <div id="status-bar" class="status-bar"></div>
         <div class="note-card">
           在线玩家的修改会由服务端在下一息统一执行。离线玩家会直接更新存档。<br />
-          编辑器展示的是完整玩家快照；像 `actions`、`finalAttrs`、`numericStats`、`realm` 这类派生字段，保存后仍以服务端重算结果为准。
+          默认编辑器展示的是完整运行态快照；高级区可切换查看真实存档态 JSON。像 `actions`、`finalAttrs`、`numericStats`、`realm` 这类派生字段，保存后仍以服务端重算结果为准。
         </div>
         <div class="editor-section" style="margin-top: 12px;">
           <div class="editor-section-head">
@@ -1000,11 +1071,20 @@
           <div id="editor-content" class="editor-stack"></div>
           <details class="editor-section editor-advanced">
             <summary class="editor-section-title">高级模式 · 原始 JSON</summary>
-            <div class="editor-note" style="margin-top:8px;">这里用于导入、兜底修改或核对完整快照。改完后需要点击“应用原始 JSON 到可视化”。</div>
+            <div class="editor-note" style="margin-top:8px;">运行态 JSON 用于导入、兜底修改或核对完整快照；存档态 JSON 用于查看真实落盘结构。</div>
             <div class="button-row" style="margin: 10px 0;">
-              <button id="apply-raw-json" class="small-btn" type="button">应用原始 JSON 到可视化</button>
+              <button id="json-view-runtime" class="small-btn primary" type="button">运行态 JSON</button>
+              <button id="json-view-persisted" class="small-btn" type="button">存档态 JSON</button>
             </div>
-            <textarea id="player-json" class="editor-textarea" spellcheck="false"></textarea>
+            <div id="runtime-json-panel">
+              <div class="button-row" style="margin: 10px 0;">
+                <button id="apply-raw-json" class="small-btn" type="button">应用运行态 JSON 到可视化</button>
+              </div>
+              <textarea id="player-json" class="editor-textarea" spellcheck="false"></textarea>
+            </div>
+            <div id="persisted-json-panel" class="hidden">
+              <textarea id="player-persisted-json" class="editor-textarea" spellcheck="false" readonly></textarea>
+            </div>
           </details>
         </div>
       </div>

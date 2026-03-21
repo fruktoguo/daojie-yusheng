@@ -77,6 +77,9 @@ export class PlayerEntity {
   @Column({ type: 'boolean', default: true })
   autoRetaliate!: boolean;
 
+  @Column({ type: 'boolean', default: true })
+  autoIdleCultivation!: boolean;
+
   @Column({ type: 'varchar', nullable: true })
   cultivatingTechId!: string | null;
 

@@ -11,6 +11,7 @@ import {
 import {
   GmMapDetailRes,
   GmMapListRes,
+  GmPlayerDetailRes,
   GmRemoveBotsReq,
   GmSpawnBotsReq,
   GmStateRes,
@@ -28,6 +29,15 @@ export class GmController {
   @Get('state')
   getState(): Promise<GmStateRes> {
     return this.gmService.getState();
+  }
+
+  @Get('players/:playerId')
+  async getPlayer(@Param('playerId') playerId: string): Promise<GmPlayerDetailRes> {
+    const player = await this.gmService.getPlayerDetail(playerId);
+    if (!player) {
+      throw new BadRequestException('目标玩家不存在');
+    }
+    return { player };
   }
 
   @Get('maps')

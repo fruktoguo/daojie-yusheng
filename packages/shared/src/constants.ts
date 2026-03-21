@@ -202,6 +202,7 @@ export const ATTR_TO_PERCENT_NUMERIC_WEIGHTS: Record<AttrKey, Partial<Record<Att
 
 /** 修炼每 tick 获得经验 */
 export const CULTIVATE_EXP_PER_TICK = 10;
+export const AUTO_IDLE_CULTIVATION_DELAY_TICKS = 60;
 
 /** 功法层级经验基准值 */
 export const TECHNIQUE_EXP_BASE = 1000;

@@ -1,4 +1,4 @@
-import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, PlayerRealmState, QuestState, CombatEffect, AutoBattleSkillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, TechniqueGrade, GroundItemPileView, LootWindowState } from './types';
+import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, QuestState, CombatEffect, AutoBattleSkillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, TechniqueGrade, GroundItemPileView, LootWindowState, VisibleBuffState } from './types';
 import { NumericRatioDivisors, NumericStats } from './numeric';
 
 // ===== 事件名 =====
@@ -109,10 +109,27 @@ export interface C2S_Chat {
 }
 
 /** Tick 更新（紧凑格式） */
+export interface TickRenderEntity {
+  id: string;
+  x: number;
+  y: number;
+  char?: string;
+  color?: string;
+  name?: string | null;
+  kind?: EntityKind | 'player' | null;
+  hp?: number | null;
+  maxHp?: number | null;
+  qi?: number | null;
+  maxQi?: number | null;
+  npcQuestMarker?: NpcQuestMarker | null;
+  observation?: ObservationInsight | null;
+  buffs?: VisibleBuffState[] | null;
+}
+
 export interface S2C_Tick {
-  p: RenderEntity[];                              // 玩家可见实体（含自身）
-  t: [number, number, string][];                  // [x, y, tileType]
-  e: RenderEntity[];                              // 怪物 / NPC 可见实体
+  p: TickRenderEntity[];                          // 玩家可见实体（含自身）
+  t?: [number, number, string][];                 // [x, y, tileType]
+  e: TickRenderEntity[];                          // 怪物 / NPC 可见实体
   g?: GroundItemPileView[];                       // 视野内地面物品
   fx?: CombatEffect[];                            // 当前 tick 触发的战斗特效
   v?: VisibleTile[][];                            // 视野 tiles（null 表示当前不可见）
@@ -158,15 +175,28 @@ export interface GmPlayerSummary {
   isBot: boolean;
 }
 
+export interface GmNetworkBucket {
+  key: string;
+  label: string;
+  bytes: number;
+  count: number;
+}
+
+export interface GmPerformanceSnapshot {
+  cpuPercent: number;
+  memoryMb: number;
+  tickMs: number;
+  networkInBytes: number;
+  networkOutBytes: number;
+  networkInBuckets: GmNetworkBucket[];
+  networkOutBuckets: GmNetworkBucket[];
+}
+
 export interface S2C_GmState {
   players: GmPlayerSummary[];
   mapIds: string[];
   botCount: number;
-  perf: {
-    cpuPercent: number;
-    memoryMb: number;
-    tickMs: number;
-  };
+  perf: GmPerformanceSnapshot;
 }
 
 /** 错误信息 */
@@ -245,6 +275,7 @@ export interface S2C_ActionsUpdate {
   actions: ActionDef[];
   autoBattle?: boolean;
   autoRetaliate?: boolean;
+  autoIdleCultivation?: boolean;
   senseQiActive?: boolean;
 }
 
@@ -344,7 +375,7 @@ export interface GmManagedPlayerMeta {
   dirtyFlags: string[];
 }
 
-export interface GmManagedPlayerRecord {
+export interface GmManagedPlayerSummary {
   id: string;
   name: string;
   mapId: string;
@@ -357,18 +388,22 @@ export interface GmManagedPlayerRecord {
   autoBattle: boolean;
   autoRetaliate: boolean;
   meta: GmManagedPlayerMeta;
+}
+
+export interface GmManagedPlayerRecord extends GmManagedPlayerSummary {
   snapshot: PlayerState;
+  persistedSnapshot: unknown;
 }
 
 export interface GmStateRes {
-  players: GmManagedPlayerRecord[];
+  players: GmManagedPlayerSummary[];
   mapIds: string[];
   botCount: number;
-  perf: {
-    cpuPercent: number;
-    memoryMb: number;
-    tickMs: number;
-  };
+  perf: GmPerformanceSnapshot;
+}
+
+export interface GmPlayerDetailRes {
+  player: GmManagedPlayerRecord;
 }
 
 export interface GmUpdatePlayerReq {

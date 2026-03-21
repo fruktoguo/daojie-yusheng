@@ -64,6 +64,12 @@ export interface QuestConfig {
   requiredItemId?: string;
   requiredItemCount?: number;
   unlockBreakthroughRequirementIds?: string[];
+  giverId: string;
+  giverName: string;
+  giverMapId: string;
+  giverMapName: string;
+  giverX: number;
+  giverY: number;
 }
 
 export interface NpcConfig {
@@ -1017,6 +1023,12 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
           unlockBreakthroughRequirementIds: Array.isArray(rawQuest.unlockBreakthroughRequirementIds)
             ? rawQuest.unlockBreakthroughRequirementIds.filter((entry): entry is string => typeof entry === 'string')
             : undefined,
+          giverId: npc.id!,
+          giverName: npc.name!,
+          giverMapId: meta.id,
+          giverMapName: meta.name,
+          giverX: npc.x!,
+          giverY: npc.y!,
         });
       }
 

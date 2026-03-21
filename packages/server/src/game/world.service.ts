@@ -340,6 +340,14 @@ export class WorldService {
       desc: player.autoRetaliate === false ? '被攻击时不会自动开启自动战斗。' : '被攻击时自动开启自动战斗。',
       cooldownLeft: 0,
     }, {
+      id: 'toggle:auto_idle_cultivation',
+      name: player.autoIdleCultivation === false ? '闲置自动修炼已关' : '闲置自动修炼已开',
+      type: 'toggle',
+      desc: player.autoIdleCultivation === false
+        ? '关闭后，角色闲置 60 息也不会自动开始修炼。'
+        : '开启后，无行为和移动持续 60 息会自动开始修炼。',
+      cooldownLeft: 0,
+    }, {
       id: 'cultivation:toggle',
       name: this.techniqueService.hasCultivationBuff(player) ? '停止修炼' : '开始修炼',
       type: 'toggle',
@@ -449,6 +457,19 @@ export class WorldService {
           playerId: player.id,
           text: player.autoRetaliate ? '已开启受击自动开战。' : '已关闭受击自动开战。',
           kind: 'combat',
+        }],
+        dirty: ['actions'],
+      };
+    }
+
+    if (actionId === 'toggle:auto_idle_cultivation') {
+      player.autoIdleCultivation = player.autoIdleCultivation === false ? true : false;
+      player.idleTicks = 0;
+      return {
+        messages: [{
+          playerId: player.id,
+          text: player.autoIdleCultivation ? '已开启闲置自动修炼。' : '已关闭闲置自动修炼。',
+          kind: 'quest',
         }],
         dirty: ['actions'],
       };

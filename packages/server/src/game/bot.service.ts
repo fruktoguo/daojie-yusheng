@@ -60,6 +60,8 @@ export class BotService {
         autoBattle: false,
         autoBattleSkills: [],
         autoRetaliate: false,
+        autoIdleCultivation: false,
+        idleTicks: 0,
       };
       this.attrService.recalcPlayer(bot);
       bot.hp = bot.maxHp;

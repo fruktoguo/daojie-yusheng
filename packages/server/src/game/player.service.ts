@@ -27,6 +27,14 @@ import { MapService } from './map.service';
 import { resolveQuestTargetName } from './quest-display';
 import { TechniqueService } from './technique.service';
 import { resolveDisplayName } from '../auth/account-validation';
+import {
+  buildPersistedPlayerCollections,
+  hydrateEquipmentSnapshot,
+  hydrateInventorySnapshot,
+  hydrateQuestSnapshots,
+  hydrateTemporaryBuffSnapshots,
+  hydrateTechniqueSnapshots,
+} from './player-storage';
 
 export interface PlayerCommand {
   playerId: string;
@@ -81,6 +89,14 @@ export class PlayerService {
     this.dirtyFlags.delete(playerId);
   }
 
+  private buildPersistedCollections(state: PlayerState) {
+    return buildPersistedPlayerCollections(state, this.contentService, this.mapService);
+  }
+
+  private syncPlayerCache(state: PlayerState): Promise<void> {
+    return this.redisService.setPlayer(state, this.buildPersistedCollections(state));
+  }
+
   /** 从 PG 加载玩家存档，写入内存 + Redis */
   async loadPlayer(userId: string): Promise<PlayerState | null> {
     const [entity, user] = await Promise.all([
@@ -107,26 +123,26 @@ export class PlayerService {
       dead: entity.dead,
       baseAttrs: (entity.baseAttrs ?? { ...DEFAULT_BASE_ATTRS }) as Attributes,
       bonuses: (entity.bonuses ?? []) as AttrBonus[],
-      temporaryBuffs: this.normalizeTemporaryBuffs(entity.temporaryBuffs),
-      inventory: (entity.inventory as unknown ?? { items: [], capacity: DEFAULT_INVENTORY_CAPACITY }) as Inventory,
-      equipment: (entity.equipment ?? { weapon: null, head: null, body: null, legs: null, accessory: null }) as EquipmentSlots,
-      techniques: (entity.techniques ?? []) as TechniqueState[],
-      quests: this.normalizeQuests((entity.quests ?? []) as QuestState[]),
+      temporaryBuffs: this.normalizeTemporaryBuffs(hydrateTemporaryBuffSnapshots(entity.temporaryBuffs, this.contentService)),
+      inventory: hydrateInventorySnapshot(entity.inventory, this.contentService),
+      equipment: hydrateEquipmentSnapshot(entity.equipment, this.contentService),
+      techniques: hydrateTechniqueSnapshots(entity.techniques),
+      quests: this.normalizeQuests(hydrateQuestSnapshots(entity.quests, this.mapService, this.contentService)),
       revealedBreakthroughRequirementIds: Array.isArray(entity.revealedBreakthroughRequirementIds)
         ? entity.revealedBreakthroughRequirementIds.filter((entry): entry is string => typeof entry === 'string')
         : [],
       autoBattle: entity.autoBattle ?? false,
       autoBattleSkills: (entity.autoBattleSkills ?? []) as AutoBattleSkillConfig[],
       autoRetaliate: entity.autoRetaliate ?? true,
+      autoIdleCultivation: entity.autoIdleCultivation ?? true,
       actions: [],
       cultivatingTechId: entity.cultivatingTechId ?? undefined,
+      idleTicks: 0,
       combatTargetLocked: false,
     };
-    state.inventory = this.contentService.normalizeInventory(state.inventory);
-    state.equipment = this.contentService.normalizeEquipment(state.equipment);
     this.techniqueService.initializePlayerProgression(state);
     this.players.set(state.id, state);
-    await this.redisService.setPlayer(state);
+    await this.syncPlayerCache(state);
     return state;
   }
 
@@ -147,8 +163,10 @@ export class PlayerService {
     if (state.combatTargetLocked === undefined) state.combatTargetLocked = false;
     if (!state.autoBattleSkills) state.autoBattleSkills = [];
     if (state.autoRetaliate === undefined) state.autoRetaliate = true;
+    if (state.autoIdleCultivation === undefined) state.autoIdleCultivation = true;
     if (!state.actions) state.actions = [];
     if (state.senseQiActive === undefined) state.senseQiActive = false;
+    state.idleTicks = 0;
     if (state.facing === undefined) state.facing = Direction.South;
     if (!state.viewRange) state.viewRange = VIEW_RADIUS;
     this.techniqueService.initializePlayerProgression(state);
@@ -158,6 +176,7 @@ export class PlayerService {
     if (!Number.isFinite(state.qi) || state.qi < 0) {
       state.qi = 0;
     }
+    const persisted = this.buildPersistedCollections(state);
 
     const entity = this.playerRepo.create({
       id: state.id,
@@ -174,20 +193,21 @@ export class PlayerService {
       dead: state.dead,
       baseAttrs: state.baseAttrs as any,
       bonuses: state.bonuses as any,
-      temporaryBuffs: this.normalizeTemporaryBuffs(state.temporaryBuffs) as any,
-      inventory: state.inventory as any,
-      equipment: state.equipment as any,
-      techniques: state.techniques as any,
-      quests: state.quests as any,
+      temporaryBuffs: persisted.temporaryBuffs as any,
+      inventory: persisted.inventory as any,
+      equipment: persisted.equipment as any,
+      techniques: persisted.techniques as any,
+      quests: persisted.quests as any,
       revealedBreakthroughRequirementIds: state.revealedBreakthroughRequirementIds as any,
       autoBattle: state.autoBattle,
       autoBattleSkills: state.autoBattleSkills as any,
       autoRetaliate: state.autoRetaliate,
+      autoIdleCultivation: state.autoIdleCultivation,
       cultivatingTechId: state.cultivatingTechId ?? null,
     });
     await this.playerRepo.save(entity);
     this.players.set(state.id, state);
-    await this.redisService.setPlayer(state);
+    await this.redisService.setPlayer(state, persisted);
   }
 
   /** 单个玩家落盘到 PG */
@@ -195,6 +215,7 @@ export class PlayerService {
     const state = this.players.get(playerId);
     if (!state || state.isBot) return;
     this.techniqueService.preparePlayerForPersistence(state);
+    const persisted = this.buildPersistedCollections(state);
     await this.playerRepo.update(playerId, {
       mapId: state.mapId,
       x: state.x,
@@ -207,15 +228,16 @@ export class PlayerService {
       dead: state.dead,
       baseAttrs: state.baseAttrs as any,
       bonuses: state.bonuses as any,
-      temporaryBuffs: this.normalizeTemporaryBuffs(state.temporaryBuffs) as any,
-      inventory: state.inventory as any,
-      equipment: state.equipment as any,
-      techniques: state.techniques as any,
-      quests: state.quests as any,
+      temporaryBuffs: persisted.temporaryBuffs as any,
+      inventory: persisted.inventory as any,
+      equipment: persisted.equipment as any,
+      techniques: persisted.techniques as any,
+      quests: persisted.quests as any,
       revealedBreakthroughRequirementIds: state.revealedBreakthroughRequirementIds as any,
       autoBattle: state.autoBattle,
       autoBattleSkills: state.autoBattleSkills as any,
       autoRetaliate: state.autoRetaliate,
+      autoIdleCultivation: state.autoIdleCultivation,
       cultivatingTechId: state.cultivatingTechId ?? null,
     });
   }
@@ -227,38 +249,42 @@ export class PlayerService {
     for (const state of states) {
       this.techniqueService.preparePlayerForPersistence(state);
     }
-    const entities = states.map(s => this.playerRepo.create({
-      id: s.id,
-      name: s.name,
-      mapId: s.mapId,
-      x: s.x,
-      y: s.y,
-      facing: s.facing,
-      viewRange: s.viewRange,
-      hp: s.hp,
-      maxHp: s.maxHp,
-      qi: s.qi,
-      dead: s.dead,
-      baseAttrs: s.baseAttrs as any,
-      bonuses: s.bonuses as any,
-      temporaryBuffs: this.normalizeTemporaryBuffs(s.temporaryBuffs) as any,
-      inventory: s.inventory as any,
-      equipment: s.equipment as any,
-      techniques: s.techniques as any,
-      quests: s.quests as any,
-      revealedBreakthroughRequirementIds: s.revealedBreakthroughRequirementIds as any,
-      autoBattle: s.autoBattle,
-      autoBattleSkills: s.autoBattleSkills as any,
-      autoRetaliate: s.autoRetaliate,
-      cultivatingTechId: s.cultivatingTechId ?? null,
-    }));
+    const entities = states.map((state) => {
+      const persisted = this.buildPersistedCollections(state);
+      return this.playerRepo.create({
+        id: state.id,
+        name: state.name,
+        mapId: state.mapId,
+        x: state.x,
+        y: state.y,
+        facing: state.facing,
+        viewRange: state.viewRange,
+        hp: state.hp,
+        maxHp: state.maxHp,
+        qi: state.qi,
+        dead: state.dead,
+        baseAttrs: state.baseAttrs as any,
+        bonuses: state.bonuses as any,
+        temporaryBuffs: persisted.temporaryBuffs as any,
+        inventory: persisted.inventory as any,
+        equipment: persisted.equipment as any,
+        techniques: persisted.techniques as any,
+        quests: persisted.quests as any,
+        revealedBreakthroughRequirementIds: state.revealedBreakthroughRequirementIds as any,
+        autoBattle: state.autoBattle,
+        autoBattleSkills: state.autoBattleSkills as any,
+        autoRetaliate: state.autoRetaliate,
+        autoIdleCultivation: state.autoIdleCultivation,
+        cultivatingTechId: state.cultivatingTechId ?? null,
+      });
+    });
     await this.playerRepo.save(entities);
     this.logger.log(`批量落盘 ${entities.length} 名玩家`);
   }
 
   addPlayer(state: PlayerState) {
     this.players.set(state.id, state);
-    this.redisService.setPlayer(state).catch(() => {});
+    this.syncPlayerCache(state).catch(() => {});
   }
 
   addRuntimePlayer(state: PlayerState) {
@@ -310,6 +336,15 @@ export class PlayerService {
     return this.userToPlayer.get(userId);
   }
 
+  getUserIdByPlayerId(playerId: string): string | undefined {
+    for (const [userId, mappedPlayerId] of this.userToPlayer.entries()) {
+      if (mappedPlayerId === playerId) {
+        return userId;
+      }
+    }
+    return undefined;
+  }
+
   setUserMapping(userId: string, playerId: string) {
     this.userToPlayer.set(userId, playerId);
   }
@@ -342,7 +377,7 @@ export class PlayerService {
 
     this.retainedSessions.delete(userId);
     this.players.set(retained.player.id, retained.player);
-    this.redisService.setPlayer(retained.player).catch(() => {});
+    this.syncPlayerCache(retained.player).catch(() => {});
     return retained.player;
   }
 
@@ -365,7 +400,7 @@ export class PlayerService {
       return;
     }
     player.displayName = displayName;
-    await this.redisService.setPlayer(player);
+    await this.syncPlayerCache(player);
   }
 
   async updatePlayerRoleName(userId: string, roleName: string): Promise<void> {
@@ -378,7 +413,7 @@ export class PlayerService {
       return;
     }
     player.name = roleName;
-    await this.redisService.setPlayer(player);
+    await this.syncPlayerCache(player);
   }
 
   enqueueCommand(mapId: string, cmd: PlayerCommand) {

@@ -1,6 +1,7 @@
 import { Injectable, OnModuleDestroy, Logger } from '@nestjs/common';
 import Redis from 'ioredis';
 import { PlayerState } from '@mud/shared';
+import type { PersistedPlayerCollections } from '../game/player-storage';
 
 const PLAYER_KEY = (id: string) => `player:${id}`;
 
@@ -28,7 +29,7 @@ export class RedisService implements OnModuleDestroy {
   }
 
   /** 缓存玩家状态到 Redis */
-  async setPlayer(state: PlayerState): Promise<void> {
+  async setPlayer(state: PlayerState, persisted?: PersistedPlayerCollections): Promise<void> {
     await this.client.hset(PLAYER_KEY(state.id), {
       name: state.name,
       mapId: state.mapId,
@@ -42,14 +43,16 @@ export class RedisService implements OnModuleDestroy {
       dead: state.dead ? '1' : '0',
       baseAttrs: JSON.stringify(state.baseAttrs),
       bonuses: JSON.stringify(state.bonuses),
-      inventory: JSON.stringify(state.inventory),
-      equipment: JSON.stringify(state.equipment),
-      techniques: JSON.stringify(state.techniques),
-      quests: JSON.stringify(state.quests),
+      temporaryBuffs: JSON.stringify(persisted?.temporaryBuffs ?? state.temporaryBuffs ?? []),
+      inventory: JSON.stringify(persisted?.inventory ?? state.inventory),
+      equipment: JSON.stringify(persisted?.equipment ?? state.equipment),
+      techniques: JSON.stringify(persisted?.techniques ?? state.techniques),
+      quests: JSON.stringify(persisted?.quests ?? state.quests),
       actions: JSON.stringify(state.actions),
       autoBattle: state.autoBattle ? '1' : '0',
       autoBattleSkills: JSON.stringify(state.autoBattleSkills),
       autoRetaliate: state.autoRetaliate === false ? '0' : '1',
+      autoIdleCultivation: state.autoIdleCultivation === false ? '0' : '1',
       cultivatingTechId: state.cultivatingTechId ?? '',
     });
   }

@@ -574,6 +574,7 @@ export interface PlayerState {
   isBot?: boolean;
   senseQiActive?: boolean;
   autoRetaliate?: boolean;
+  autoIdleCultivation?: boolean;
   realmLv?: number;
   realmName?: string;
   realmStage?: string;
@@ -604,6 +605,7 @@ export interface PlayerState {
   combatTargetId?: string;
   combatTargetLocked?: boolean;
   cultivatingTechId?: string;
+  idleTicks?: number;
   revealedBreakthroughRequirementIds?: string[];
   realm?: PlayerRealmState;
 }

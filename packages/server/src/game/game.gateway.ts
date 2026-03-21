@@ -40,6 +40,7 @@ import { MapService } from './map.service';
 import { AoiService } from './aoi.service';
 import { TimeService } from './time.service';
 import { WorldService } from './world.service';
+import { PerformanceService } from './performance.service';
 
 const DEFAULT_MAP = 'spawn';
 
@@ -59,9 +60,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly aoiService: AoiService,
     private readonly worldService: WorldService,
     private readonly timeService: TimeService,
+    private readonly performanceService: PerformanceService,
   ) {}
 
   async handleConnection(client: Socket) {
+    this.instrumentSocket(client);
     const token = client.handshake?.auth?.token as string;
     if (!token) {
       client.disconnect();
@@ -156,6 +159,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       autoBattle: false,
       autoBattleSkills: [],
       autoRetaliate: true,
+      autoIdleCultivation: true,
+      idleTicks: 0,
     };
 
     const startPos = this.resolveLoginPosition(playerState.mapId, playerState.x, playerState.y);
@@ -410,5 +415,32 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return { x, y };
     }
     return this.mapService.findNearbyWalkable(mapId, x, y, 8, { actorType: 'player' }) ?? { x, y };
+  }
+
+  private instrumentSocket(client: Socket): void {
+    if ((client.data as { __networkInstrumented?: boolean }).__networkInstrumented) {
+      return;
+    }
+    (client.data as { __networkInstrumented?: boolean }).__networkInstrumented = true;
+
+    const originalEmit = client.emit.bind(client);
+    client.emit = ((event: string, ...args: unknown[]) => {
+      const label = `WS ${event}`;
+      this.performanceService.recordNetworkOutBytes(this.estimateSocketPacketBytes(event, args), label, label);
+      return originalEmit(event, ...args);
+    }) as typeof client.emit;
+
+    client.onAny((event, ...args) => {
+      const label = `WS ${event}`;
+      this.performanceService.recordNetworkInBytes(this.estimateSocketPacketBytes(event, args), label, label);
+    });
+  }
+
+  private estimateSocketPacketBytes(event: string, args: unknown[]): number {
+    try {
+      return Buffer.byteLength(JSON.stringify([event, ...args]));
+    } catch {
+      return Buffer.byteLength(String(event));
+    }
   }
 }

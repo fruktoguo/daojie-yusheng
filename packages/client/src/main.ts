@@ -34,6 +34,7 @@ import {
   manhattanDistance,
   PlayerState,
   RenderEntity,
+  TickRenderEntity,
   NUMERIC_SCALAR_STAT_KEYS,
   SkillDef,
   Tile,
@@ -626,6 +627,49 @@ function toObservedEntity(entity: RenderEntity): ObservedEntity {
   };
 }
 
+function applyNullablePatch<T>(value: T | null | undefined, fallback: T | undefined): T | undefined {
+  if (value === null) {
+    return undefined;
+  }
+  if (value !== undefined) {
+    return value;
+  }
+  return fallback;
+}
+
+function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedEntity): ObservedEntity {
+  return {
+    id: patch.id,
+    wx: patch.x,
+    wy: patch.y,
+    char: patch.char ?? previous?.char ?? '?',
+    color: patch.color ?? previous?.color ?? '#fff',
+    name: applyNullablePatch(patch.name, previous?.name),
+    kind: applyNullablePatch(patch.kind, previous?.kind),
+    hp: applyNullablePatch(patch.hp, previous?.hp),
+    maxHp: applyNullablePatch(patch.maxHp, previous?.maxHp),
+    qi: applyNullablePatch(patch.qi, previous?.qi),
+    maxQi: applyNullablePatch(patch.maxQi, previous?.maxQi),
+    npcQuestMarker: applyNullablePatch(patch.npcQuestMarker, previous?.npcQuestMarker),
+    observation: applyNullablePatch(patch.observation, previous?.observation),
+    buffs: applyNullablePatch(patch.buffs, previous?.buffs),
+  };
+}
+
+function mergeTickEntities(playerPatches: TickRenderEntity[], entityPatches: TickRenderEntity[]): ObservedEntity[] {
+  const merged: ObservedEntity[] = [];
+  const nextMap = new Map<string, ObservedEntity>();
+
+  for (const patch of [...playerPatches, ...entityPatches]) {
+    const next = mergeObservedEntityPatch(patch, latestEntityMap.get(patch.id));
+    merged.push(next);
+    nextMap.set(next.id, next);
+  }
+
+  latestEntityMap = nextMap;
+  return merged;
+}
+
 function formatTraversalCost(tile: Tile): string {
   if (!tile.walkable) {
     return '无法通行';
@@ -908,12 +952,15 @@ socket.onActionsUpdate((data) => {
   const previousActions = myPlayer?.actions ?? [];
   const previousAutoBattle = myPlayer?.autoBattle ?? false;
   const previousAutoRetaliate = myPlayer?.autoRetaliate ?? true;
+  const previousAutoIdleCultivation = myPlayer?.autoIdleCultivation ?? true;
   const nextAutoBattle = data.autoBattle ?? myPlayer?.autoBattle ?? false;
   const nextAutoRetaliate = data.autoRetaliate ?? myPlayer?.autoRetaliate ?? true;
+  const nextAutoIdleCultivation = data.autoIdleCultivation ?? myPlayer?.autoIdleCultivation ?? true;
   const nextSenseQiActive = data.senseQiActive ?? myPlayer?.senseQiActive ?? false;
   const shouldRefreshActionPanel = !myPlayer
     || previousAutoBattle !== nextAutoBattle
     || previousAutoRetaliate !== nextAutoRetaliate
+    || previousAutoIdleCultivation !== nextAutoIdleCultivation
     || buildActionRenderSignature(previousActions) !== buildActionRenderSignature(data.actions);
   if (myPlayer) {
     myPlayer.actions = data.actions;
@@ -925,6 +972,7 @@ socket.onActionsUpdate((data) => {
       }));
     myPlayer.autoBattle = data.autoBattle ?? inferAutoBattle(myPlayer.autoBattle, data.actions);
     myPlayer.autoRetaliate = data.autoRetaliate ?? inferAutoRetaliate(myPlayer.autoRetaliate !== false, data.actions);
+    myPlayer.autoIdleCultivation = nextAutoIdleCultivation;
     myPlayer.senseQiActive = nextSenseQiActive;
   }
   if (shouldRefreshActionPanel) {
@@ -995,6 +1043,7 @@ let myPlayer: PlayerState | null = null;
 let currentMapMeta: MapMeta | null = null;
 let currentTimeState: GameTimeState | null = null;
 let latestEntities: ObservedEntity[] = [];
+let latestEntityMap = new Map<string, ObservedEntity>();
 let visibleGroundPiles = new Map<string, GroundItemPileView>();
 
 // 视野中心平滑值（浮点格子坐标），无延迟快速 lerp
@@ -1230,6 +1279,8 @@ function resetGameState() {
   tileCache.clear();
   currentVisibleTiles.clear();
   visibleGroundPiles.clear();
+  latestEntities = [];
+  latestEntityMap.clear();
   pendingTargetedAction = null;
   hoveredMapTile = null;
   hideObserveModal();
@@ -1449,6 +1500,7 @@ socket.onInit((data: S2C_Init) => {
   currentTimeState = data.time ?? null;
   renderCurrentTime(currentTimeState);
   myPlayer.senseQiActive = myPlayer.senseQiActive === true;
+  myPlayer.autoIdleCultivation = myPlayer.autoIdleCultivation !== false;
   syncTargetingOverlay();
   currentMapMeta = data.mapMeta;
   currentTiles = data.tiles;
@@ -1467,6 +1519,7 @@ socket.onInit((data: S2C_Init) => {
 
   const entities = data.players.map(toObservedEntity);
   latestEntities = entities;
+  latestEntityMap = new Map(entities.map((entity) => [entity.id, entity]));
   renderer.updateEntities(entities);
 
   tickStartTime = performance.now();
@@ -1522,6 +1575,8 @@ socket.onTick((data: S2C_Tick) => {
       tileCache.clear();
       currentVisibleTiles.clear();
       visibleGroundPiles.clear();
+      latestEntities = [];
+      latestEntityMap.clear();
       hoveredMapTile = null;
       hideObserveModal();
       lootPanel.clear();
@@ -1578,9 +1633,7 @@ socket.onTick((data: S2C_Tick) => {
 
   const moved = !mapChanged && (myPlayer.x !== oldX || myPlayer.y !== oldY);
 
-  const entities = data.p.map(toObservedEntity);
-  const mapEntities = data.e.map(toObservedEntity);
-  entities.push(...mapEntities);
+  const entities = mergeTickEntities(data.p, data.e);
   latestEntities = entities;
   syncTargetingOverlay();
   refreshHudChrome();

@@ -12,6 +12,7 @@ import {
   GmMapDocument,
   GmMapListRes,
   GmManagedPlayerRecord,
+  GmManagedPlayerSummary,
   GmStateRes,
   Inventory,
   PlayerState,
@@ -28,6 +29,14 @@ import { ContentService } from './content.service';
 import { MapService } from './map.service';
 import { NavigationService } from './navigation.service';
 import { PerformanceService } from './performance.service';
+import {
+  buildPersistedPlayerCollections,
+  hydrateEquipmentSnapshot,
+  hydrateInventorySnapshot,
+  hydrateQuestSnapshots,
+  hydrateTemporaryBuffSnapshots,
+  hydrateTechniqueSnapshots,
+} from './player-storage';
 import { DirtyFlag, PlayerService } from './player.service';
 import { TechniqueService } from './technique.service';
 import { WorldService } from './world.service';
@@ -80,17 +89,17 @@ export class GmService {
     ]);
 
     const runtimeById = new Map(runtimePlayers.map((player) => [player.id, player]));
-    const records: GmManagedPlayerRecord[] = [];
+    const records: GmManagedPlayerSummary[] = [];
 
     for (const entity of entities) {
       const runtime = runtimeById.get(entity.id);
       const snapshot = runtime ? this.clonePlayer(runtime) : this.hydrateStoredPlayer(entity);
-      records.push(this.buildRecord(snapshot, entity.userId, runtime ? true : false, entity.updatedAt));
+      records.push(this.buildSummary(snapshot, entity.userId, runtime ? true : false, entity.updatedAt));
       runtimeById.delete(entity.id);
     }
 
     for (const runtime of runtimeById.values()) {
-      records.push(this.buildRecord(runtime, undefined, true, undefined));
+      records.push(this.buildSummary(runtime, undefined, true, undefined));
     }
 
     records.sort((left, right) => {
@@ -106,6 +115,20 @@ export class GmService {
       botCount: this.botService.getBotCount(),
       perf: this.performanceService.getSnapshot(),
     };
+  }
+
+  async getPlayerDetail(playerId: string): Promise<GmManagedPlayerRecord | null> {
+    const runtime = this.playerService.getPlayer(playerId);
+    if (runtime) {
+      return this.buildRecord(runtime, this.playerService.getUserIdByPlayerId(playerId), true, undefined);
+    }
+
+    const entity = await this.playerRepo.findOne({ where: { id: playerId } });
+    if (!entity) {
+      return null;
+    }
+
+    return this.buildRecord(this.hydrateStoredPlayer(entity), entity.userId, false, entity.updatedAt);
   }
 
   getEditableMapList(): GmMapListRes {
@@ -285,13 +308,12 @@ export class GmService {
     return null;
   }
 
-  private buildRecord(
+  private buildSummary(
     player: PlayerState,
     userId: string | undefined,
     online: boolean,
     updatedAt: Date | undefined,
-  ): GmManagedPlayerRecord {
-    const snapshot = this.clonePlayer(player);
+  ): GmManagedPlayerSummary {
     return {
       id: player.id,
       name: player.name,
@@ -311,7 +333,47 @@ export class GmService {
         updatedAt: updatedAt?.toISOString(),
         dirtyFlags: [...(this.playerService.getDirtyFlags(player.id) ?? [])],
       },
+    };
+  }
+
+  private buildRecord(
+    player: PlayerState,
+    userId: string | undefined,
+    online: boolean,
+    updatedAt: Date | undefined,
+  ): GmManagedPlayerRecord {
+    const summary = this.buildSummary(player, userId, online, updatedAt);
+    const snapshot = this.clonePlayer(player);
+    const persistedCollections = buildPersistedPlayerCollections(player, this.contentService, this.mapService);
+    return {
+      ...summary,
       snapshot,
+      persistedSnapshot: {
+        id: player.id,
+        name: player.name,
+        mapId: player.mapId,
+        x: player.x,
+        y: player.y,
+        facing: player.facing,
+        viewRange: player.viewRange,
+        hp: player.hp,
+        maxHp: player.maxHp,
+        qi: player.qi,
+        dead: player.dead,
+        baseAttrs: player.baseAttrs,
+        bonuses: player.bonuses,
+        temporaryBuffs: persistedCollections.temporaryBuffs,
+        inventory: persistedCollections.inventory,
+        equipment: persistedCollections.equipment,
+        techniques: persistedCollections.techniques,
+        quests: persistedCollections.quests,
+        revealedBreakthroughRequirementIds: player.revealedBreakthroughRequirementIds ?? [],
+        autoBattle: player.autoBattle,
+        autoBattleSkills: player.autoBattleSkills,
+        autoRetaliate: player.autoRetaliate,
+        autoIdleCultivation: player.autoIdleCultivation,
+        cultivatingTechId: player.cultivatingTechId ?? null,
+      },
     };
   }
 
@@ -331,16 +393,18 @@ export class GmService {
       dead: Boolean(entity.dead),
       baseAttrs: this.normalizeAttributes(entity.baseAttrs),
       bonuses: this.cloneArray<AttrBonus>(entity.bonuses),
-      temporaryBuffs: this.normalizeTemporaryBuffs(entity.temporaryBuffs),
-      inventory: this.contentService.normalizeInventory(this.normalizeInventory(entity.inventory)),
-      equipment: this.contentService.normalizeEquipment(this.normalizeEquipment(entity.equipment)),
-      techniques: this.cloneArray<TechniqueState>(entity.techniques),
-      quests: this.cloneArray<QuestState>(entity.quests),
+      temporaryBuffs: this.normalizeTemporaryBuffs(hydrateTemporaryBuffSnapshots(entity.temporaryBuffs, this.contentService)),
+      inventory: hydrateInventorySnapshot(entity.inventory, this.contentService),
+      equipment: hydrateEquipmentSnapshot(entity.equipment, this.contentService),
+      techniques: hydrateTechniqueSnapshots(entity.techniques),
+      quests: this.normalizeQuests(hydrateQuestSnapshots(entity.quests, this.mapService, this.contentService)),
       autoBattle: entity.autoBattle ?? false,
       autoBattleSkills: this.cloneArray<AutoBattleSkillConfig>(entity.autoBattleSkills),
       autoRetaliate: entity.autoRetaliate ?? true,
+      autoIdleCultivation: entity.autoIdleCultivation ?? true,
       actions: [],
       cultivatingTechId: entity.cultivatingTechId ?? undefined,
+      idleTicks: 0,
       revealedBreakthroughRequirementIds: Array.isArray(entity.revealedBreakthroughRequirementIds)
         ? entity.revealedBreakthroughRequirementIds.filter((entry): entry is string => typeof entry === 'string')
         : [],
@@ -385,6 +449,10 @@ export class GmService {
     player.quests = this.cloneArray<QuestState>(snapshot.quests);
     player.autoBattleSkills = this.cloneArray<AutoBattleSkillConfig>(snapshot.autoBattleSkills);
     player.autoRetaliate = snapshot.autoRetaliate !== false;
+    player.autoIdleCultivation = snapshot.autoIdleCultivation !== undefined
+      ? snapshot.autoIdleCultivation !== false
+      : player.autoIdleCultivation !== false;
+    player.idleTicks = 0;
     player.revealedBreakthroughRequirementIds = Array.isArray(snapshot.revealedBreakthroughRequirementIds)
       ? snapshot.revealedBreakthroughRequirementIds.filter((entry): entry is string => typeof entry === 'string')
       : [];
@@ -447,6 +515,7 @@ export class GmService {
 
   private async persistOfflinePlayer(entity: PlayerEntity, player: PlayerState): Promise<void> {
     this.techniqueService.preparePlayerForPersistence(player);
+    const persisted = buildPersistedPlayerCollections(player, this.contentService, this.mapService);
     await this.playerRepo.update(entity.id, {
       name: player.name,
       mapId: player.mapId,
@@ -460,15 +529,16 @@ export class GmService {
       dead: player.dead,
       baseAttrs: player.baseAttrs as any,
       bonuses: player.bonuses as any,
-      temporaryBuffs: this.normalizeTemporaryBuffs(player.temporaryBuffs) as any,
-      inventory: player.inventory as any,
-      equipment: player.equipment as any,
-      techniques: player.techniques as any,
-      quests: player.quests as any,
+      temporaryBuffs: persisted.temporaryBuffs as any,
+      inventory: persisted.inventory as any,
+      equipment: persisted.equipment as any,
+      techniques: persisted.techniques as any,
+      quests: persisted.quests as any,
       revealedBreakthroughRequirementIds: player.revealedBreakthroughRequirementIds as any,
       autoBattle: player.autoBattle,
       autoBattleSkills: player.autoBattleSkills as any,
       autoRetaliate: player.autoRetaliate,
+      autoIdleCultivation: player.autoIdleCultivation,
       cultivatingTechId: player.cultivatingTechId ?? null,
     });
   }
@@ -571,6 +641,10 @@ export class GmService {
 
   private normalizeTemporaryBuffs(value: unknown): TemporaryBuffState[] {
     return Array.isArray(value) ? this.cloneArray<TemporaryBuffState>(value) : [];
+  }
+
+  private normalizeQuests(quests: QuestState[]): QuestState[] {
+    return this.cloneArray<QuestState>(quests);
   }
 
   private normalizeDirection(value: unknown): Direction {

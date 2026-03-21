@@ -44,6 +44,7 @@ export class ActionPanel {
   private activeSkillTab: SkillSubTab = 'auto';
   private autoBattle = false;
   private autoRetaliate = true;
+  private autoIdleCultivation = true;
   private currentActions: ActionDef[] = [];
   private shortcutBindings = new Map<string, string>();
   private bindingActionId: string | null = null;
@@ -75,6 +76,7 @@ export class ActionPanel {
     if (player) {
       this.previewPlayer = player;
       this.syncPlayerContext(player);
+      this.autoIdleCultivation = player.autoIdleCultivation !== false;
     }
     this.currentActions = this.withUtilityActions(actions);
     if (_autoBattle !== undefined) this.autoBattle = _autoBattle;
@@ -86,6 +88,7 @@ export class ActionPanel {
     if (player) {
       this.previewPlayer = player;
       this.syncPlayerContext(player);
+      this.autoIdleCultivation = player.autoIdleCultivation !== false;
     }
     this.currentActions = this.withUtilityActions(actions);
     if (_autoBattle !== undefined) this.autoBattle = _autoBattle;
@@ -102,6 +105,7 @@ export class ActionPanel {
     this.currentActions = this.withUtilityActions(player.actions);
     this.autoBattle = player.autoBattle ?? false;
     this.autoRetaliate = player.autoRetaliate !== false;
+    this.autoIdleCultivation = player.autoIdleCultivation !== false;
     this.render(this.currentActions);
   }
 
@@ -160,6 +164,16 @@ export class ActionPanel {
             <button class="small-btn ghost" data-bind-action="toggle:auto_retaliate" type="button">${this.getBindButtonLabel('toggle:auto_retaliate')}</button>
           </div>
         </div>
+        <div class="gm-player-row ${this.autoIdleCultivation ? 'active' : ''}" data-action-card="toggle:auto_idle_cultivation" role="button" tabindex="0">
+          <div>
+            <div class="gm-player-name">闲置自动修炼</div>
+            <div class="gm-player-meta" data-toggle-meta="toggle:auto_idle_cultivation">${this.autoIdleCultivation ? '闲置 60 息后自动开始修炼' : '关闭后不会自动开始修炼'}${this.renderShortcutMeta('toggle:auto_idle_cultivation')}</div>
+          </div>
+          <div class="action-card-side">
+            <div class="gm-player-stat" data-toggle-stat="toggle:auto_idle_cultivation">${this.autoIdleCultivation ? '开' : '关'}</div>
+            <button class="small-btn ghost" data-bind-action="toggle:auto_idle_cultivation" type="button">${this.getBindButtonLabel('toggle:auto_idle_cultivation')}</button>
+          </div>
+        </div>
       </div>
     </div>
     <div class="action-tab-bar">
@@ -171,7 +185,10 @@ export class ActionPanel {
     for (const tab of tabGroups) {
       html += `<div class="action-tab-pane ${this.activeTab === tab.id ? 'active' : ''}" data-action-pane="${tab.id}">`;
       if (tab.id === 'toggle') {
-        const utilityEntries = actions.filter((action) => action.type === 'toggle' && action.id !== 'toggle:auto_battle' && action.id !== 'toggle:auto_retaliate');
+        const utilityEntries = actions.filter((action) => action.type === 'toggle'
+          && action.id !== 'toggle:auto_battle'
+          && action.id !== 'toggle:auto_retaliate'
+          && action.id !== 'toggle:auto_idle_cultivation');
         if (utilityEntries.length === 0) {
           html += '<div class="empty-hint">当前分组暂无内容</div></div>';
           continue;
@@ -599,7 +616,20 @@ export class ActionPanel {
     const autoRetaliateCard = this.pane.querySelector<HTMLElement>('[data-action-card="toggle:auto_retaliate"]');
     const autoRetaliateMeta = this.pane.querySelector<HTMLElement>('[data-toggle-meta="toggle:auto_retaliate"]');
     const autoRetaliateStat = this.pane.querySelector<HTMLElement>('[data-toggle-stat="toggle:auto_retaliate"]');
-    if (!autoBattleCard || !autoBattleMeta || !autoBattleStat || !autoRetaliateCard || !autoRetaliateMeta || !autoRetaliateStat) {
+    const autoIdleCultivationCard = this.pane.querySelector<HTMLElement>('[data-action-card="toggle:auto_idle_cultivation"]');
+    const autoIdleCultivationMeta = this.pane.querySelector<HTMLElement>('[data-toggle-meta="toggle:auto_idle_cultivation"]');
+    const autoIdleCultivationStat = this.pane.querySelector<HTMLElement>('[data-toggle-stat="toggle:auto_idle_cultivation"]');
+    if (
+      !autoBattleCard
+      || !autoBattleMeta
+      || !autoBattleStat
+      || !autoRetaliateCard
+      || !autoRetaliateMeta
+      || !autoRetaliateStat
+      || !autoIdleCultivationCard
+      || !autoIdleCultivationMeta
+      || !autoIdleCultivationStat
+    ) {
       return false;
     }
 
@@ -610,6 +640,10 @@ export class ActionPanel {
     autoRetaliateCard.classList.toggle('active', this.autoRetaliate);
     autoRetaliateMeta.textContent = `${this.autoRetaliate ? '受到攻击自动开战' : '受到攻击保持克制'}${this.renderShortcutMeta('toggle:auto_retaliate')}`;
     autoRetaliateStat.textContent = this.autoRetaliate ? '开' : '关';
+
+    autoIdleCultivationCard.classList.toggle('active', this.autoIdleCultivation);
+    autoIdleCultivationMeta.textContent = `${this.autoIdleCultivation ? '闲置 60 息后自动开始修炼' : '关闭后不会自动开始修炼'}${this.renderShortcutMeta('toggle:auto_idle_cultivation')}`;
+    autoIdleCultivationStat.textContent = this.autoIdleCultivation ? '开' : '关';
     return true;
   }
 
@@ -619,6 +653,7 @@ export class ActionPanel {
       if (
         action.id === 'toggle:auto_battle'
         || action.id === 'toggle:auto_retaliate'
+        || action.id === 'toggle:auto_idle_cultivation'
         || action.id === 'client:observe'
         || action.type === 'breakthrough'
       ) {

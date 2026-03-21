@@ -1,10 +1,12 @@
 import { Injectable, OnModuleDestroy, OnModuleInit, Logger } from '@nestjs/common';
 import {
+  AUTO_IDLE_CULTIVATION_DELAY_TICKS,
   AutoBattleSkillConfig,
   CombatEffect,
   Direction,
   parseTileTargetRef,
   PlayerState,
+  RenderEntity,
   S2C,
   S2C_ActionsUpdate,
   S2C_AttrUpdate,
@@ -15,6 +17,7 @@ import {
   S2C_SystemMsg,
   S2C_TechniqueUpdate,
   S2C_Tick,
+  TickRenderEntity,
   PERSIST_INTERVAL,
 } from '@mud/shared';
 import * as fs from 'fs';
@@ -38,10 +41,22 @@ import { WorldMessage, WorldService, WorldUpdate } from './world.service';
 
 const CONFIG_PATH = path.resolve(__dirname, '../../data/config.json');
 
+interface LastSentTickState {
+  mapId?: string;
+  hp?: number;
+  qi?: number;
+  facing?: Direction;
+  pathSignature: string;
+  visibilityKey?: string;
+  mapMetaSignature?: string;
+}
+
 @Injectable()
 export class TickService implements OnModuleInit, OnModuleDestroy {
   private timers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private lastTickTime: Map<string, number> = new Map();
+  private lastSentTickState: Map<string, LastSentTickState> = new Map();
+  private lastSentRenderEntities: Map<string, Map<string, RenderEntity>> = new Map();
   private persistTimer: ReturnType<typeof setInterval> | null = null;
   private minTickInterval = 1000;
   private watcher: fs.FSWatcher | null = null;
@@ -156,6 +171,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     const gmCommands = this.gmService.drainCommands(mapId);
     const commands = this.playerService.drainCommands(mapId);
     const affectedPlayers = new Map<string, PlayerState>();
+    const activePlayerIds = new Set<string>();
 
     for (const command of gmCommands) {
       const error = this.gmService.applyCommand(command);
@@ -179,6 +195,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         (cmd.type === 'action' && (cmd.data as { actionId?: string })?.actionId === 'debug:reset_spawn');
       if (player.dead && !isDebugReset) continue;
       affectedPlayers.set(player.id, player);
+      this.markPlayerActive(player, activePlayerIds);
 
       switch (cmd.type) {
         case 'move': {
@@ -419,11 +436,22 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
           messages.push({ playerId: player.id, text: navigation.error, kind: 'system' });
         }
         if (navigation.moved && this.applyAutoTravelIfNeeded(player, messages)) {
+          this.markPlayerActive(player, activePlayerIds);
           continue;
         }
       }
 
+      const autoBattleStartX = player.x;
+      const autoBattleStartY = player.y;
       const autoBattle = this.worldService.performAutoBattle(player);
+      if (
+        autoBattle.usedActionId
+        || autoBattle.consumedAction
+        || player.x !== autoBattleStartX
+        || player.y !== autoBattleStartY
+      ) {
+        this.markPlayerActive(player, activePlayerIds);
+      }
       if (autoBattle.usedActionId) {
         const cooldownError = this.actionService.beginCooldown(player, autoBattle.usedActionId);
         if (!cooldownError) {
@@ -431,6 +459,8 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         }
       }
       this.applyWorldUpdate(player.id, autoBattle, messages);
+
+      this.tryStartIdleCultivation(player, activePlayerIds, messages);
 
       const cultivation = this.techniqueService.cultivateTick(player);
       if (cultivation.changed) {
@@ -460,11 +490,17 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    const hpBeforeMonsterTick = new Map(mapPlayers.map((player) => [player.id, player.hp] as const));
     const monsterUpdates = this.worldService.tickMonsters(mapId, mapPlayers);
     messages.push(...monsterUpdates.messages);
     for (const playerId of monsterUpdates.dirtyPlayers ?? []) {
       this.playerService.markDirty(playerId, 'actions');
       this.playerService.markDirty(playerId, 'attr');
+    }
+    for (const player of mapPlayers) {
+      if ((hpBeforeMonsterTick.get(player.id) ?? player.hp) !== player.hp) {
+        this.markPlayerActive(player, activePlayerIds);
+      }
     }
 
     for (const player of mapPlayers) {
@@ -555,6 +591,42 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  private markPlayerActive(player: PlayerState, activePlayerIds: Set<string>) {
+    player.idleTicks = 0;
+    activePlayerIds.add(player.id);
+  }
+
+  private tryStartIdleCultivation(player: PlayerState, activePlayerIds: Set<string>, messages: WorldMessage[]) {
+    if (
+      player.dead
+      || player.autoIdleCultivation === false
+      || this.techniqueService.hasCultivationBuff(player)
+    ) {
+      player.idleTicks = 0;
+      return;
+    }
+
+    if (activePlayerIds.has(player.id)) {
+      player.idleTicks = 0;
+      return;
+    }
+
+    player.idleTicks = (player.idleTicks ?? 0) + 1;
+    if (player.idleTicks < AUTO_IDLE_CULTIVATION_DELAY_TICKS) {
+      return;
+    }
+
+    player.idleTicks = 0;
+    const result = this.techniqueService.startCultivation(player);
+    if (!result.changed) {
+      return;
+    }
+    this.markDirty(player.id, result.dirty as DirtyFlag[]);
+    for (const message of result.messages) {
+      messages.push({ playerId: player.id, text: message.text, kind: message.kind });
+    }
+  }
+
   private markDirty(playerId: string, flags: DirtyFlag[]) {
     for (const flag of flags) {
       this.playerService.markDirty(playerId, flag);
@@ -634,6 +706,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
           actions: player.actions,
           autoBattle: player.autoBattle,
           autoRetaliate: player.autoRetaliate,
+          autoIdleCultivation: player.autoIdleCultivation,
           senseQiActive: player.senseQiActive,
         };
         socket.emit(S2C.ActionsUpdate, update);
@@ -724,25 +797,137 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         ));
       }
 
+      const previous = this.lastSentTickState.get(viewer.id);
+      const path = this.navigationService.getPathPoints(viewer.id);
+      const pathSignature = this.buildPathSignature(path);
+      const mapChanged = previous?.mapId !== viewer.mapId;
+      const visibilityKey = this.buildVisibilityKey(viewer, time.effectiveViewRange);
+      const mapMeta = this.mapService.getMapMeta(viewer.mapId);
+      const mapMetaSignature = this.buildMapMetaSignature(mapMeta);
+      const visibleEntityIds = new Set<string>();
       const tickData: S2C_Tick = {
-        p: visiblePlayers,
-        t: [],
-        e: visibleEntities,
+        p: this.buildSparseRenderEntities(viewer.id, visiblePlayers, visibleEntityIds),
+        e: this.buildSparseRenderEntities(viewer.id, visibleEntities, visibleEntityIds),
         g: visibleGroundPiles,
         fx: this.filterEffectsForViewer(effects, visibility.visibleKeys),
-        v: visibility.tiles,
         dt,
-        m: viewer.mapId,
-        mapMeta: this.mapService.getMapMeta(viewer.mapId),
-        path: this.navigationService.getPathPoints(viewer.id),
-        hp: viewer.hp,
-        qi: viewer.qi,
-        f: viewer.facing,
         time,
       };
+      this.pruneRenderEntityCache(viewer.id, visibleEntityIds);
+      if (!previous || previous.visibilityKey !== visibilityKey) {
+        tickData.v = visibility.tiles;
+      }
+      if (mapChanged) {
+        tickData.m = viewer.mapId;
+      }
+      if (mapChanged || previous?.mapMetaSignature !== mapMetaSignature) {
+        tickData.mapMeta = mapMeta;
+      }
+      if (!previous || previous.hp !== viewer.hp) {
+        tickData.hp = viewer.hp;
+      }
+      if (!previous || previous.qi !== viewer.qi) {
+        tickData.qi = viewer.qi;
+      }
+      if (!previous || previous.facing !== viewer.facing) {
+        tickData.f = viewer.facing;
+      }
+      if (!previous || previous.pathSignature !== pathSignature) {
+        tickData.path = path;
+      }
 
       socket.emit(S2C.Tick, tickData);
+      this.lastSentTickState.set(viewer.id, {
+        mapId: viewer.mapId,
+        hp: viewer.hp,
+        qi: viewer.qi,
+        facing: viewer.facing,
+        pathSignature,
+        visibilityKey,
+        mapMetaSignature,
+      });
     }
+  }
+
+  private buildPathSignature(path: [number, number][] | undefined): string {
+    if (!path || path.length === 0) {
+      return '';
+    }
+    return path.map(([x, y]) => `${x},${y}`).join('|');
+  }
+
+  private buildVisibilityKey(viewer: PlayerState, effectiveViewRange: number): string {
+    return [
+      viewer.mapId,
+      this.mapService.getVisibilityRevision(viewer.mapId),
+      viewer.x,
+      viewer.y,
+      effectiveViewRange,
+    ].join(':');
+  }
+
+  private buildMapMetaSignature(mapMeta: ReturnType<MapService['getMapMeta']>): string {
+    return JSON.stringify(mapMeta ?? null);
+  }
+
+  private buildSparseRenderEntities(
+    viewerId: string,
+    entities: RenderEntity[],
+    visibleEntityIds: Set<string>,
+  ): TickRenderEntity[] {
+    let cache = this.lastSentRenderEntities.get(viewerId);
+    if (!cache) {
+      cache = new Map<string, RenderEntity>();
+      this.lastSentRenderEntities.set(viewerId, cache);
+    }
+
+    return entities.map((entity) => {
+      visibleEntityIds.add(entity.id);
+      const previous = cache.get(entity.id);
+      const next: TickRenderEntity = {
+        id: entity.id,
+        x: entity.x,
+        y: entity.y,
+      };
+
+      if (!previous || previous.char !== entity.char) next.char = entity.char;
+      if (!previous || previous.color !== entity.color) next.color = entity.color;
+      if (!previous || previous.name !== entity.name) next.name = entity.name ?? null;
+      if (!previous || previous.kind !== entity.kind) next.kind = entity.kind ?? null;
+      if (!previous || previous.hp !== entity.hp) next.hp = entity.hp ?? null;
+      if (!previous || previous.maxHp !== entity.maxHp) next.maxHp = entity.maxHp ?? null;
+      if (!previous || previous.qi !== entity.qi) next.qi = entity.qi ?? null;
+      if (!previous || previous.maxQi !== entity.maxQi) next.maxQi = entity.maxQi ?? null;
+      if (!previous || !this.isStructuredEqual(previous.npcQuestMarker, entity.npcQuestMarker)) {
+        next.npcQuestMarker = entity.npcQuestMarker ?? null;
+      }
+      if (!previous || !this.isStructuredEqual(previous.observation, entity.observation)) {
+        next.observation = entity.observation ?? null;
+      }
+      if (!previous || !this.isStructuredEqual(previous.buffs, entity.buffs)) {
+        next.buffs = entity.buffs ? JSON.parse(JSON.stringify(entity.buffs)) as typeof entity.buffs : null;
+      }
+
+      cache.set(entity.id, JSON.parse(JSON.stringify(entity)) as RenderEntity);
+      return next;
+    });
+  }
+
+  private pruneRenderEntityCache(viewerId: string, visibleEntityIds: Set<string>): void {
+    const cache = this.lastSentRenderEntities.get(viewerId);
+    if (!cache) {
+      return;
+    }
+
+    for (const entityId of cache.keys()) {
+      if (!visibleEntityIds.has(entityId)) {
+        cache.delete(entityId);
+      }
+    }
+  }
+
+  private isStructuredEqual(left: unknown, right: unknown): boolean {
+    return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
   }
 
   private filterEffectsForViewer(effects: CombatEffect[], visibleKeys: Set<string>): CombatEffect[] {

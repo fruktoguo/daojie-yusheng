@@ -1025,6 +1025,7 @@ export class TechniqueService {
     for (const technique of player.techniques) {
       const template = this.contentService.getTechnique(technique.techId);
       if (!template) continue;
+      technique.name = template.name;
       technique.grade = template.grade;
       technique.layers = template.layers;
       technique.skills = template.skills;
