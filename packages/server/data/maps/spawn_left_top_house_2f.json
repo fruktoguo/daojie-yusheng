@@ -1,0 +1,57 @@
+{
+  "id": "spawn_left_top_house_2f",
+  "name": "云来镇左上民居二楼",
+  "width": 12,
+  "height": 8,
+  "parentMapId": "spawn",
+  "floorLevel": 2,
+  "floorName": "二楼",
+  "description": "云来镇左上角民居的二层木楼，临窗处放着一只旧木宝箱。",
+  "tiles": [
+    "############",
+    "#..........#",
+    "#..........#",
+    "#....oo....#",
+    "#..........#",
+    "#.S........#",
+    "#..........#",
+    "############"
+  ],
+  "portals": [
+    {
+      "x": 2,
+      "y": 5,
+      "targetMapId": "spawn",
+      "targetX": 7,
+      "targetY": 11,
+      "kind": "stairs",
+      "trigger": "auto"
+    }
+  ],
+  "dangerLevel": 1,
+  "recommendedRealm": "Entry",
+  "spawnPoint": {
+    "x": 3,
+    "y": 5
+  },
+  "landmarks": [
+    {
+      "id": "lm_spawn_left_top_house_2f_chest",
+      "name": "阁楼旧木宝箱",
+      "x": 8,
+      "y": 2,
+      "desc": "被人藏到二楼角落的旧木宝箱，正适合拿来测试上下楼与容器拾取。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 300,
+        "drops": [
+          { "itemId": "minor_qi_pill", "name": "小还灵丹", "type": "consumable", "count": 1, "chance": 1 },
+          { "itemId": "pill.minor_heal", "name": "回春散", "type": "consumable", "count": 2, "chance": 1 },
+          { "itemId": "book_wind_step", "name": "《踏风步》", "type": "skill_book", "count": 1, "chance": 0.3 }
+        ]
+      }
+    }
+  ],
+  "npcs": [],
+  "monsterSpawns": []
+}

@@ -391,6 +391,8 @@ export interface GmMapPortalRecord {
   targetMapId: string;
   targetX: number;
   targetY: number;
+  kind?: 'portal' | 'stairs';
+  trigger?: 'manual' | 'auto';
 }
 
 export interface GmMapAuraRecord {
@@ -485,6 +487,9 @@ export interface GmMapDocument {
   name: string;
   width: number;
   height: number;
+  parentMapId?: string;
+  floorLevel?: number;
+  floorName?: string;
   description?: string;
   dangerLevel?: number;
   recommendedRealm?: string;

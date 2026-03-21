@@ -21,6 +21,8 @@ import {
   MapTimeConfig,
   MonsterAggroMode,
   Portal,
+  PortalKind,
+  PortalTrigger,
   VIEW_RADIUS,
   ItemType,
   VisibleTile,
@@ -198,6 +200,11 @@ export interface NpcLocation {
   name: string;
 }
 
+interface PortalQueryOptions {
+  trigger?: PortalTrigger;
+  kind?: PortalKind;
+}
+
 @Injectable()
 export class MapService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(MapService.name);
@@ -279,6 +286,13 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       name: document.name,
       width: document.width,
       height: document.height,
+      parentMapId: typeof document.parentMapId === 'string' && document.parentMapId.trim()
+        ? document.parentMapId
+        : undefined,
+      floorLevel: Number.isInteger(document.floorLevel) ? Number(document.floorLevel) : undefined,
+      floorName: typeof document.floorName === 'string' && document.floorName.trim()
+        ? document.floorName
+        : undefined,
       dangerLevel: Number.isFinite(document.dangerLevel) ? Number(document.dangerLevel) : undefined,
       recommendedRealm: typeof document.recommendedRealm === 'string' ? document.recommendedRealm : undefined,
       description: typeof document.description === 'string' ? document.description : undefined,
@@ -290,7 +304,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     for (const portal of portals) {
       const tile = tiles[portal.y]?.[portal.x];
       if (tile) {
-        tile.type = TileType.Portal;
+        tile.type = portal.kind === 'stairs' ? TileType.Stairs : TileType.Portal;
         tile.walkable = true;
         tile.blocksSight = false;
       }
@@ -435,9 +449,22 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         targetMapId: portal.targetMapId!,
         targetX: portal.targetX!,
         targetY: portal.targetY!,
+        kind: this.normalizePortalKind(portal.kind),
+        trigger: this.normalizePortalTrigger(portal.trigger, portal.kind),
       });
     }
     return result;
+  }
+
+  private normalizePortalKind(kind: unknown): PortalKind {
+    return kind === 'stairs' ? 'stairs' : 'portal';
+  }
+
+  private normalizePortalTrigger(trigger: unknown, kind?: unknown): PortalTrigger {
+    if (trigger === 'manual' || trigger === 'auto') {
+      return trigger;
+    }
+    return kind === 'stairs' ? 'auto' : 'manual';
   }
 
   private normalizeNpcs(rawNpcs: unknown, meta: MapMeta): NpcConfig[] {
@@ -782,16 +809,24 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     return this.maps.get(mapId)?.spawnPoint;
   }
 
-  getPortalAt(mapId: string, x: number, y: number): Portal | undefined {
+  getPortalAt(mapId: string, x: number, y: number, options?: PortalQueryOptions): Portal | undefined {
     const map = this.maps.get(mapId);
     if (!map) return undefined;
-    return map.portals.find(p => p.x === x && p.y === y);
+    return map.portals.find((portal) => portal.x === x && portal.y === y && this.matchesPortalQuery(portal, options));
   }
 
-  getPortalNear(mapId: string, x: number, y: number, maxDistance = 1): Portal | undefined {
+  getPortalNear(mapId: string, x: number, y: number, maxDistance = 1, options?: PortalQueryOptions): Portal | undefined {
     const map = this.maps.get(mapId);
     if (!map) return undefined;
-    return map.portals.find((portal) => manhattanDistance(portal, { x, y }) <= maxDistance);
+    return map.portals.find((portal) =>
+      manhattanDistance(portal, { x, y }) <= maxDistance && this.matchesPortalQuery(portal, options));
+  }
+
+  private matchesPortalQuery(portal: Portal, options?: PortalQueryOptions): boolean {
+    if (!options) return true;
+    if (options.trigger && portal.trigger !== options.trigger) return false;
+    if (options.kind && portal.kind !== options.kind) return false;
+    return true;
   }
 
   getNpcs(mapId: string): NpcConfig[] {
@@ -898,16 +933,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     if (tile.hp <= 0) {
       const replacement = this.destroyedTileType(tile.type);
       tile.type = replacement;
-      tile.walkable =
-        replacement === TileType.Floor ||
-        replacement === TileType.Road ||
-        replacement === TileType.Trail ||
-        replacement === TileType.Door ||
-        replacement === TileType.Portal ||
-        replacement === TileType.Grass ||
-        replacement === TileType.Hill ||
-        replacement === TileType.Mud ||
-        replacement === TileType.Swamp;
+      tile.walkable = isTileTypeWalkable(replacement);
       tile.blocksSight = doesTileTypeBlockSight(replacement);
       tile.hp = undefined;
       tile.maxHp = undefined;
@@ -994,6 +1020,9 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       name: typeof source.name === 'string' ? source.name : '',
       width: Number.isInteger(source.width) ? Number(source.width) : 0,
       height: Number.isInteger(source.height) ? Number(source.height) : 0,
+      parentMapId: typeof source.parentMapId === 'string' ? source.parentMapId : undefined,
+      floorLevel: Number.isInteger(source.floorLevel) ? Number(source.floorLevel) : undefined,
+      floorName: typeof source.floorName === 'string' ? source.floorName : undefined,
       description: typeof source.description === 'string' ? source.description : undefined,
       dangerLevel: Number.isFinite(source.dangerLevel) ? Number(source.dangerLevel) : undefined,
       recommendedRealm: typeof source.recommendedRealm === 'string' ? source.recommendedRealm : undefined,
@@ -1004,6 +1033,8 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         targetMapId: String((portal as GmMapPortalRecord).targetMapId ?? ''),
         targetX: Number((portal as GmMapPortalRecord).targetX ?? 0),
         targetY: Number((portal as GmMapPortalRecord).targetY ?? 0),
+        kind: this.normalizePortalKind((portal as GmMapPortalRecord).kind),
+        trigger: this.normalizePortalTrigger((portal as GmMapPortalRecord).trigger, (portal as GmMapPortalRecord).kind),
       })),
       spawnPoint: {
         x: Number((source.spawnPoint as { x?: number } | undefined)?.x ?? 0),
@@ -1144,10 +1175,10 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   }
 
   private syncPortalTiles(document: GmMapDocument): GmMapDocument {
-    const rows = document.tiles.map((row) => [...row].map((char) => char === 'P' ? '.' : char));
+    const rows = document.tiles.map((row) => [...row].map((char) => (char === 'P' || char === 'S') ? '.' : char));
     for (const portal of document.portals) {
       if (!rows[portal.y]?.[portal.x]) continue;
-      rows[portal.y]![portal.x] = 'P';
+      rows[portal.y]![portal.x] = portal.kind === 'stairs' ? 'S' : 'P';
     }
     return {
       ...document,
@@ -1186,7 +1217,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
           const y = clamped.y + dy;
           if (x < 0 || x >= document.width || y < 0 || y >= document.height) continue;
           const type = getTileTypeFromMapChar(document.tiles[y]?.[x] ?? '#');
-          if (type === TileType.Portal) {
+          if (type === TileType.Portal || type === TileType.Stairs) {
             portalFallback ??= { x, y };
             continue;
           }
@@ -1203,6 +1234,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   private validateEditableMapDocument(document: GmMapDocument): string | null {
     if (!document.id.trim()) return '地图 ID 不能为空';
     if (!document.name.trim()) return '地图名称不能为空';
+    if (document.parentMapId?.trim() === document.id.trim()) return '子地图的父地图不能指向自己';
     if (!Number.isInteger(document.width) || document.width <= 0) return '地图宽度必须为正整数';
     if (!Number.isInteger(document.height) || document.height <= 0) return '地图高度必须为正整数';
     if (document.tiles.length !== document.height) return '地图行数必须与高度一致';

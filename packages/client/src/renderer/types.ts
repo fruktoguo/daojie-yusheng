@@ -20,6 +20,7 @@ export interface SenseQiOverlayState {
 export interface IRenderer {
   init(canvas: HTMLCanvasElement): void;
   clear(): void;
+  resetScene(): void;
   setTargetingOverlay(state: TargetingOverlayState | null): void;
   setSenseQiOverlay(state: SenseQiOverlayState | null): void;
   renderWorld(

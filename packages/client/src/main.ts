@@ -148,6 +148,7 @@ const TILE_TYPE_NAMES: Record<TileType, string> = {
   [TileType.Wall]: '墙体',
   [TileType.Door]: '门扉',
   [TileType.Portal]: '传送阵',
+  [TileType.Stairs]: '楼梯',
   [TileType.Grass]: '草地',
   [TileType.Hill]: '山地',
   [TileType.Mud]: '泥地',
@@ -1460,6 +1461,7 @@ socket.onInit((data: S2C_Init) => {
 // Tick 更新
 socket.onTick((data: S2C_Tick) => {
   if (!myPlayer) return;
+  let mapChanged = false;
   if (data.time) {
     currentTimeState = data.time;
     renderCurrentTime(currentTimeState);
@@ -1483,7 +1485,7 @@ socket.onTick((data: S2C_Tick) => {
   }
 
   if (data.m) {
-    const mapChanged = myPlayer.mapId !== data.m;
+    mapChanged = myPlayer.mapId !== data.m;
     if (mapChanged) {
       clearCurrentPath();
       currentTiles = [];
@@ -1494,6 +1496,7 @@ socket.onTick((data: S2C_Tick) => {
       hideObserveModal();
       lootPanel.clear();
       cancelTargeting();
+      renderer.resetScene();
     }
     myPlayer.mapId = data.m;
     questPanel.setCurrentMapId(myPlayer.mapId);
@@ -1537,9 +1540,13 @@ socket.onTick((data: S2C_Tick) => {
     syncSenseQiOverlay();
   }
   visibleGroundPiles = new Map((data.g ?? []).map((pile) => [`${pile.x},${pile.y}`, pile]));
-  camera.follow(myPlayer);
+  if (mapChanged) {
+    camera.snap(myPlayer);
+  } else {
+    camera.follow(myPlayer);
+  }
 
-  const moved = myPlayer.x !== oldX || myPlayer.y !== oldY;
+  const moved = !mapChanged && (myPlayer.x !== oldX || myPlayer.y !== oldY);
 
   const entities = data.p.map(toObservedEntity);
   const mapEntities = data.e.map(toObservedEntity);

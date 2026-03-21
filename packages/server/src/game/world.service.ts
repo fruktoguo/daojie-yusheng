@@ -22,6 +22,7 @@ import {
   parseTileTargetRef,
   PlayerState,
   PlayerRealmStage,
+  Portal,
   QuestState,
   RenderEntity,
   ratioValue,
@@ -46,7 +47,7 @@ import { TechniqueService } from './technique.service';
 import { TimeService } from './time.service';
 
 type MessageKind = 'system' | 'quest' | 'combat' | 'loot';
-type WorldDirtyFlag = 'inv' | 'quest' | 'actions' | 'tech' | 'attr';
+type WorldDirtyFlag = 'inv' | 'quest' | 'actions' | 'tech' | 'attr' | 'loot';
 
 interface RuntimeMonster extends MonsterSpawnConfig {
   runtimeId: string;
@@ -316,7 +317,7 @@ export class WorldService {
       actions.push(breakthroughAction);
     }
 
-    const portal = this.mapService.getPortalNear(player.mapId, player.x, player.y, 1);
+    const portal = this.mapService.getPortalNear(player.mapId, player.x, player.y, 1, { trigger: 'manual' });
     if (portal) {
       const targetMap = this.mapService.getMapMeta(portal.targetMapId);
       actions.push({
@@ -1342,15 +1343,34 @@ export class WorldService {
   }
 
   private handlePortalTravel(player: PlayerState): WorldUpdate {
-    const portal = this.mapService.getPortalNear(player.mapId, player.x, player.y, 1);
+    const portal = this.mapService.getPortalNear(player.mapId, player.x, player.y, 1, { trigger: 'manual' });
     if (!portal) {
       return { ...EMPTY_UPDATE, error: '你需要站在传送阵上才能传送' };
     }
-    if (!this.mapService.getMapMeta(portal.targetMapId)) {
-      return { ...EMPTY_UPDATE, error: '传送失败：目标地图不存在' };
+    return this.travelThroughPortal(player, portal);
+  }
+
+  tryAutoTravel(player: PlayerState): WorldUpdate | null {
+    const portal = this.mapService.getPortalAt(player.mapId, player.x, player.y, { trigger: 'auto' });
+    if (!portal) {
+      return null;
+    }
+    return this.travelThroughPortal(player, portal);
+  }
+
+  private travelThroughPortal(player: PlayerState, portal: Portal): WorldUpdate {
+    const targetMapMeta = this.mapService.getMapMeta(portal.targetMapId);
+    if (!targetMapMeta) {
+      return {
+        ...EMPTY_UPDATE,
+        error: portal.kind === 'stairs' ? '楼梯通往的目标地图不存在' : '传送失败：目标地图不存在',
+      };
     }
     if (!this.mapService.isWalkable(portal.targetMapId, portal.targetX, portal.targetY)) {
-      return { ...EMPTY_UPDATE, error: '传送失败：目标传送阵被占用或不可到达' };
+      return {
+        ...EMPTY_UPDATE,
+        error: portal.kind === 'stairs' ? '楼梯落点被占用或不可到达' : '传送失败：目标传送阵被占用或不可到达',
+      };
     }
 
     this.navigationService.clearMoveTarget(player.id);
@@ -1362,14 +1382,12 @@ export class WorldService {
     this.clearCombatTarget(player);
     this.mapService.setOccupied(player.mapId, player.x, player.y, player.id);
 
-    const targetMapMeta = this.mapService.getMapMeta(player.mapId);
+    const text = portal.kind === 'stairs'
+      ? `你踏上楼梯，来到 ${targetMapMeta.name}。`
+      : `你启动界门，抵达 ${targetMapMeta.name} 的传送阵。`;
     return {
-      messages: [{
-        playerId: player.id,
-        text: targetMapMeta ? `你启动界门，抵达 ${targetMapMeta.name} 的传送阵。` : '你启动界门，抵达新的地图。',
-        kind: 'quest',
-      }],
-      dirty: ['actions'],
+      messages: [{ playerId: player.id, text, kind: 'quest' }],
+      dirty: ['actions', 'loot'],
     };
   }
 

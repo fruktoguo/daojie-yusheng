@@ -66,6 +66,15 @@
       "targetMapId": "spirit_ridge",
       "targetX": 2,
       "targetY": 2
+    },
+    {
+      "x": 6,
+      "y": 11,
+      "targetMapId": "spawn_left_top_house_2f",
+      "targetX": 3,
+      "targetY": 5,
+      "kind": "stairs",
+      "trigger": "auto"
     }
   ],
   "dangerLevel": 1,

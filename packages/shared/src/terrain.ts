@@ -11,6 +11,7 @@ export const TILE_TRAVERSAL_COST: Record<TileType, number> = {
   [TileType.Wall]: 400,
   [TileType.Door]: 100,
   [TileType.Portal]: 100,
+  [TileType.Stairs]: 100,
   [TileType.Grass]: 80,
   [TileType.Hill]: 120,
   [TileType.Mud]: 200,
@@ -27,6 +28,7 @@ export const TILE_TYPE_TO_MAP_CHAR: Record<TileType, string> = {
   [TileType.Wall]: '#',
   [TileType.Door]: '+',
   [TileType.Portal]: 'P',
+  [TileType.Stairs]: 'S',
   [TileType.Grass]: ',',
   [TileType.Hill]: '^',
   [TileType.Mud]: ';',
@@ -59,6 +61,7 @@ export function isTileTypeWalkable(type: TileType): boolean {
     type === TileType.Trail ||
     type === TileType.Door ||
     type === TileType.Portal ||
+    type === TileType.Stairs ||
     type === TileType.Grass ||
     type === TileType.Hill ||
     type === TileType.Mud ||

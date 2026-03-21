@@ -10,6 +10,7 @@ const TILE_BG: Record<TileType, string> = {
   [TileType.Wall]: '#3e3a35',
   [TileType.Door]: '#8b7355',
   [TileType.Portal]: '#5c3d7a',
+  [TileType.Stairs]: '#7f5a34',
   [TileType.Grass]: '#b8c98b',
   [TileType.Hill]: '#b7a17f',
   [TileType.Mud]: '#8b6a4c',
@@ -26,6 +27,7 @@ const TILE_CHAR: Record<TileType, string> = {
   [TileType.Wall]: '▓',
   [TileType.Door]: '门',
   [TileType.Portal]: '阵',
+  [TileType.Stairs]: '阶',
   [TileType.Grass]: '草',
   [TileType.Hill]: '坡',
   [TileType.Mud]: '泥',
@@ -42,6 +44,7 @@ const CHAR_COLOR: Record<TileType, string> = {
   [TileType.Wall]: 'rgba(255,255,255,0.2)',
   [TileType.Door]: '#f0e0c0',
   [TileType.Portal]: '#d0b0f0',
+  [TileType.Stairs]: '#f3d19c',
   [TileType.Grass]: 'rgba(50,80,30,0.35)',
   [TileType.Hill]: 'rgba(92,60,32,0.36)',
   [TileType.Mud]: 'rgba(250,240,220,0.34)',
@@ -139,6 +142,12 @@ export class TextRenderer implements IRenderer {
     const { width, height } = this.ctx.canvas;
     this.ctx.fillStyle = '#1a1816';
     this.ctx.fillRect(0, 0, width, height);
+  }
+
+  resetScene() {
+    this.entities.clear();
+    this.floatingTexts = [];
+    this.attackTrails = [];
   }
 
   setPathHighlight(cells: { x: number; y: number }[]) {

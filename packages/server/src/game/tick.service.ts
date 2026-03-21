@@ -70,9 +70,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     this.loadConfig();
     this.watchConfig();
     setTimeout(() => {
-      for (const mapId of this.mapService.getAllMapIds()) {
-        this.startMapTick(mapId);
-      }
+      this.ensureMapTicks();
       this.logger.log(`Tick 引擎已启动，地图数: ${this.timers.size}`);
     }, 0);
 
@@ -144,6 +142,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
   }
 
   private tick(mapId: string, now: number) {
+    this.ensureMapTicks();
     const last = this.lastTickTime.get(mapId) ?? now;
     const dt = now - last;
     this.lastTickTime.set(mapId, now);
@@ -187,7 +186,10 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
           }
           this.applyCultivationResult(player.id, this.techniqueService.interruptCultivation(player, 'move'), messages);
           const { d } = cmd.data as { d: Direction };
-          this.navigationService.stepPlayerByDirection(player, d);
+          const moved = this.navigationService.stepPlayerByDirection(player, d);
+          if (moved) {
+            this.applyAutoTravelIfNeeded(player, messages);
+          }
           break;
         }
         case 'moveTo': {
@@ -411,6 +413,9 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         if (navigation.error) {
           messages.push({ playerId: player.id, text: navigation.error, kind: 'system' });
         }
+        if (navigation.moved && this.applyAutoTravelIfNeeded(player, messages)) {
+          continue;
+        }
       }
 
       const autoBattle = this.worldService.performAutoBattle(player);
@@ -471,6 +476,13 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     this.flushDirtyUpdates([...affectedPlayers.values()]);
     this.flushMessages(messages);
     this.broadcastTicks(mapId, finalMapPlayers, dt);
+    this.ensureMapTicks();
+  }
+
+  private ensureMapTicks() {
+    for (const mapId of this.mapService.getAllMapIds()) {
+      this.startMapTick(mapId);
+    }
   }
 
   private applyItemEffect(player: PlayerState, itemId: string, messages: WorldMessage[]) {
@@ -517,6 +529,15 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       this.playerService.markDirty(dirtyPlayerId, 'attr');
       this.playerService.markDirty(dirtyPlayerId, 'actions');
     }
+  }
+
+  private applyAutoTravelIfNeeded(player: PlayerState, messages: WorldMessage[]): boolean {
+    const update = this.worldService.tryAutoTravel(player);
+    if (!update) {
+      return false;
+    }
+    this.applyWorldUpdate(player.id, update, messages);
+    return true;
   }
 
   private applyCultivationResult(playerId: string, result: ReturnType<TechniqueService['interruptCultivation']>, messages: WorldMessage[]) {

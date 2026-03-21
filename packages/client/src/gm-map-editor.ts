@@ -54,6 +54,7 @@ const TILE_LABELS: Record<TileType, string> = {
   [TileType.Wall]: '墙体',
   [TileType.Door]: '门',
   [TileType.Portal]: '传送阵',
+  [TileType.Stairs]: '楼梯',
   [TileType.Grass]: '草地',
   [TileType.Hill]: '山地',
   [TileType.Mud]: '泥地',
@@ -70,6 +71,7 @@ const TILE_BG: Record<TileType, string> = {
   [TileType.Wall]: '#3e3a35',
   [TileType.Door]: '#8b7355',
   [TileType.Portal]: '#5c3d7a',
+  [TileType.Stairs]: '#7f5a34',
   [TileType.Grass]: '#b8c98b',
   [TileType.Hill]: '#b7a17f',
   [TileType.Mud]: '#8b6a4c',
@@ -86,6 +88,7 @@ const TILE_CHAR: Record<TileType, string> = {
   [TileType.Wall]: '▓',
   [TileType.Door]: '门',
   [TileType.Portal]: '阵',
+  [TileType.Stairs]: '阶',
   [TileType.Grass]: '草',
   [TileType.Hill]: '坡',
   [TileType.Mud]: '泥',
@@ -102,6 +105,7 @@ const CHAR_COLOR: Record<TileType, string> = {
   [TileType.Wall]: 'rgba(255,255,255,0.2)',
   [TileType.Door]: '#f0e0c0',
   [TileType.Portal]: '#d0b0f0',
+  [TileType.Stairs]: '#f3d19c',
   [TileType.Grass]: 'rgba(50,80,30,0.35)',
   [TileType.Hill]: 'rgba(92,60,32,0.36)',
   [TileType.Mud]: 'rgba(250,240,220,0.34)',
@@ -177,6 +181,23 @@ function numberField(label: string, path: string, value: number | undefined, ext
     <label class="map-field ${extraClass}">
       <span>${escapeHtml(label)}</span>
       <input type="number" data-map-bind="${escapeHtml(path)}" data-map-kind="number" value="${Number.isFinite(value) ? String(value) : '0'}" />
+    </label>
+  `;
+}
+
+function selectField(
+  label: string,
+  path: string,
+  value: string | undefined,
+  options: Array<{ value: string; label: string }>,
+  extraClass = '',
+): string {
+  return `
+    <label class="map-field ${extraClass}">
+      <span>${escapeHtml(label)}</span>
+      <select data-map-bind="${escapeHtml(path)}" data-map-kind="string">
+        ${options.map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === (value ?? '') ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
+      </select>
     </label>
   `;
 }
@@ -575,7 +596,7 @@ export class GmMapEditor {
         <div class="map-entity-list" style="margin-top: 8px;">
           ${this.draft.portals.map((portal, index) => `
             <button class="map-entity-btn ${this.selectedEntity?.kind === 'portal' && this.selectedEntity.index === index ? 'active' : ''}" data-entity-kind="portal" data-entity-index="${index}" type="button">
-              ${escapeHtml(`(${portal.x},${portal.y}) -> ${portal.targetMapId}`)}
+              ${escapeHtml(`${portal.kind === 'stairs' ? '楼梯' : '传送阵'} (${portal.x},${portal.y}) -> ${portal.targetMapId}`)}
             </button>
           `).join('') || '<div class="editor-note">暂无传送点。</div>'}
         </div>
@@ -638,6 +659,8 @@ export class GmMapEditor {
     if (this.selectedEntity.kind === 'portal') {
       const portal = this.draft.portals[this.selectedEntity.index];
       if (!portal) return '';
+      const portalKind = portal.kind === 'stairs' ? 'stairs' : 'portal';
+      const portalTrigger = portal.trigger ?? (portalKind === 'stairs' ? 'auto' : 'manual');
       return `
         <section class="editor-section">
           <div class="editor-section-head">
@@ -650,6 +673,14 @@ export class GmMapEditor {
           <div class="map-form-grid">
             ${numberField('X', `portals.${this.selectedEntity.index}.x`, portal.x)}
             ${numberField('Y', `portals.${this.selectedEntity.index}.y`, portal.y)}
+            ${selectField('类型', `portals.${this.selectedEntity.index}.kind`, portalKind, [
+              { value: 'portal', label: '传送阵' },
+              { value: 'stairs', label: '楼梯' },
+            ])}
+            ${selectField('触发', `portals.${this.selectedEntity.index}.trigger`, portalTrigger, [
+              { value: 'manual', label: '手动' },
+              { value: 'auto', label: '自动' },
+            ])}
             ${textField('目标地图', `portals.${this.selectedEntity.index}.targetMapId`, portal.targetMapId)}
             ${numberField('目标 X', `portals.${this.selectedEntity.index}.targetX`, portal.targetX)}
             ${numberField('目标 Y', `portals.${this.selectedEntity.index}.targetY`, portal.targetY)}
@@ -867,7 +898,7 @@ export class GmMapEditor {
     const { x, y } = this.selectedCell!;
     if (!this.ensureWalkableSelection('传送点')) return;
     const targetMapId = this.mapList.find((map) => map.id !== this.draft!.id)?.id ?? this.draft!.id;
-    this.draft!.portals.push({ x, y, targetMapId, targetX: 0, targetY: 0 });
+    this.draft!.portals.push({ x, y, targetMapId, targetX: 0, targetY: 0, kind: 'portal', trigger: 'manual' });
     this.selectedEntity = { kind: 'portal', index: this.draft!.portals.length - 1 };
     this.markDirty();
   }
@@ -1261,7 +1292,17 @@ export class GmMapEditor {
     };
 
     drawEntity(this.draft.spawnPoint.x, this.draft.spawnPoint.y, '生', '#ffd27a', '出生点', 'spawn');
-    this.draft.portals.forEach((portal) => drawEntity(portal.x, portal.y, '阵', '#c8a2f2', `传送:${portal.targetMapId}`, 'npc'));
+    this.draft.portals.forEach((portal) => {
+      const isStairs = portal.kind === 'stairs';
+      drawEntity(
+        portal.x,
+        portal.y,
+        isStairs ? '阶' : '阵',
+        isStairs ? '#d7b27c' : '#c8a2f2',
+        `${isStairs ? '楼梯' : '传送'}:${portal.targetMapId}`,
+        'npc',
+      );
+    });
     this.draft.npcs.forEach((npc) => drawEntity(npc.x, npc.y, npc.char || '人', npc.color || '#d6d0c4', npc.name || npc.id, 'npc'));
     this.draft.monsterSpawns.forEach((spawn) => drawEntity(spawn.x, spawn.y, spawn.char || '妖', spawn.color || '#d27a7a', spawn.name || spawn.id, 'monster'));
     (this.draft.auras ?? []).forEach((point) => drawEntity(point.x, point.y, '灵', '#77b8ff', `灵气:${point.value}`, 'npc'));

@@ -9,6 +9,7 @@ export enum TileType {
   Wall = 'wall',
   Door = 'door',
   Portal = 'portal',
+  Stairs = 'stairs',
   Grass = 'grass',
   Hill = 'hill',
   Mud = 'mud',
@@ -48,10 +49,16 @@ export interface MapMeta {
   name: string;
   width: number;
   height: number;
+  parentMapId?: string;
+  floorLevel?: number;
+  floorName?: string;
   dangerLevel?: number;
   recommendedRealm?: string;
   description?: string;
 }
+
+export type PortalKind = 'portal' | 'stairs';
+export type PortalTrigger = 'manual' | 'auto';
 
 /** 传送点 */
 export interface Portal {
@@ -60,6 +67,8 @@ export interface Portal {
   targetMapId: string;
   targetX: number;
   targetY: number;
+  kind: PortalKind;
+  trigger: PortalTrigger;
 }
 
 /** 渲染用实体 */
