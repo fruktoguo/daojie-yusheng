@@ -8,6 +8,7 @@ import {
   DEFAULT_PLAYER_REALM_STAGE,
   ELEMENT_KEYS,
   getRealmAttributeMultiplier,
+  getRealmLinearGrowthMultiplier,
   NUMERIC_SCALAR_STAT_KEYS,
   PlayerState,
   PLAYER_REALM_NUMERIC_TEMPLATES,
@@ -25,11 +26,18 @@ import {
 
 const ATTR_KEYS: AttrKey[] = ['constitution', 'spirit', 'perception', 'talent', 'comprehension', 'luck'];
 type PercentBonusAccumulator = Pick<NumericStats, 'maxHp' | 'maxQi' | 'physAtk' | 'spellAtk'>;
-const REALM_SCALING_NUMERIC_KEYS: Array<
+const REALM_EXPONENTIAL_NUMERIC_KEYS: Array<
   'maxHp'
-  | 'maxQi'
   | 'physAtk'
   | 'spellAtk'
+> = [
+  'maxHp',
+  'physAtk',
+  'spellAtk',
+];
+
+const REALM_LINEAR_NUMERIC_KEYS: Array<
+  'maxQi'
   | 'physDef'
   | 'spellDef'
   | 'hit'
@@ -43,10 +51,7 @@ const REALM_SCALING_NUMERIC_KEYS: Array<
   | 'hpRegenRate'
   | 'cooldownSpeed'
 > = [
-  'maxHp',
   'maxQi',
-  'physAtk',
-  'spellAtk',
   'physDef',
   'spellDef',
   'hit',
@@ -172,7 +177,6 @@ export class AttrService {
       effectiveBonuses,
       player.finalAttrs ?? createAttributeSnapshot(),
     );
-    this.applyRealmAttributeScaling(finalAttrs, realmLv);
     const stage = player.realm?.stage ?? DEFAULT_PLAYER_REALM_STAGE;
     const stats = this.computeNumericStats(
       finalAttrs,
@@ -334,27 +338,24 @@ export class AttrService {
     return Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
   }
 
-  private applyRealmAttributeScaling(target: Attributes, realmLv: number): void {
-    const multiplier = getRealmAttributeMultiplier(realmLv);
-    if (multiplier === 1) {
-      return;
-    }
-    for (const key of ATTR_KEYS) {
-      target[key] = Math.max(0, Math.round(target[key] * multiplier));
-    }
-  }
-
   private applyRealmNumericScaling(target: NumericStats, realmLv: number): void {
-    const multiplier = getRealmAttributeMultiplier(realmLv);
-    if (multiplier === 1) {
+    const exponentialMultiplier = getRealmAttributeMultiplier(realmLv);
+    if (exponentialMultiplier !== 1) {
+      for (const key of REALM_EXPONENTIAL_NUMERIC_KEYS) {
+        target[key] = Math.max(0, Math.round(target[key] * exponentialMultiplier));
+      }
+    }
+
+    const linearMultiplier = getRealmLinearGrowthMultiplier(realmLv);
+    if (linearMultiplier === 1) {
       return;
     }
-    for (const key of REALM_SCALING_NUMERIC_KEYS) {
-      target[key] = Math.max(0, Math.round(target[key] * multiplier));
+    for (const key of REALM_LINEAR_NUMERIC_KEYS) {
+      target[key] = Math.max(0, Math.round(target[key] * linearMultiplier));
     }
     for (const key of ELEMENT_KEYS) {
-      target.elementDamageBonus[key] = Math.max(0, Math.round(target.elementDamageBonus[key] * multiplier));
-      target.elementDamageReduce[key] = Math.max(0, Math.round(target.elementDamageReduce[key] * multiplier));
+      target.elementDamageBonus[key] = Math.max(0, Math.round(target.elementDamageBonus[key] * linearMultiplier));
+      target.elementDamageReduce[key] = Math.max(0, Math.round(target.elementDamageReduce[key] * linearMultiplier));
     }
   }
 }

@@ -4,6 +4,7 @@ import type { SkillDamageKind } from './types';
 export const DAMAGE_TRAIL_PHYSICAL_COLOR = '#cf7a32';
 export const DAMAGE_TRAIL_SPELL_COLOR = '#2b5fae';
 export const REALM_ATTRIBUTE_GROWTH_RATE = 0.2;
+export const REALM_COMBAT_LINEAR_GROWTH_RATE = 0.1;
 export const REALM_DAMAGE_ADVANTAGE_RATE = 0.2;
 export const REALM_DAMAGE_DISADVANTAGE_RATE = 0.2;
 
@@ -25,6 +26,11 @@ export function getDamageTrailColor(damageKind: SkillDamageKind, element?: Eleme
 export function getRealmAttributeMultiplier(realmLv: number): number {
   const normalizedRealmLv = Math.max(1, Math.floor(realmLv));
   return Math.pow(1 + REALM_ATTRIBUTE_GROWTH_RATE, normalizedRealmLv - 1);
+}
+
+export function getRealmLinearGrowthMultiplier(realmLv: number): number {
+  const normalizedRealmLv = Math.max(1, Math.floor(realmLv));
+  return 1 + REALM_COMBAT_LINEAR_GROWTH_RATE * (normalizedRealmLv - 1);
 }
 
 export function getRealmGapDamageMultiplier(attackerRealmLv: number, defenderRealmLv: number): number {
