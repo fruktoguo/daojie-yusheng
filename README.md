@@ -125,9 +125,13 @@ pnpm dev:server
 
 - [docker-stack.yml](./docker-stack.yml)
 - [.github/workflows/deploy.yml](./.github/workflows/deploy.yml)
+- [.github/workflows/sync.yml](./.github/workflows/sync.yml)
 - [docs/deploy.md](./docs/deploy.md)
+- [docs/gitee-sync.md](./docs/gitee-sync.md)
 
 如果要配置生产环境、GitHub Secrets 或查看回滚方式，请直接参考 [docs/deploy.md](./docs/deploy.md)。
+
+如果要增加 GitHub -> Gitee -> 国内服务器 WebHook 的镜像链路，请参考 [docs/gitee-sync.md](./docs/gitee-sync.md)。
 
 ## 说明
 

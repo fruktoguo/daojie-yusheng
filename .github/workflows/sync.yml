@@ -1,0 +1,26 @@
+name: Sync To Gitee
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Mirror main branch to Gitee
+        uses: Yikun/hub-mirror-action@09420c987e7b1670577495eed7d8c8062e938050
+        with:
+          src: github/${{ github.repository_owner }}
+          dst: gitee/${{ vars.GITEE_OWNER }}
+          dst_key: ${{ secrets.GITEE_PRIVATE_KEY }}
+          dst_token: ${{ secrets.GITEE_TOKEN }}
+          account_type: user
+          clone_style: https
+          static_list: ${{ github.event.repository.name }}
