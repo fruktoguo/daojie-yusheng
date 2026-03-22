@@ -586,6 +586,7 @@ export class Minimap {
     this.modal?.classList.add('hidden');
     this.modal?.setAttribute('aria-hidden', 'true');
     this.refreshChrome();
+    this.scheduleRender();
   }
 
   private resetModalViewport(): void {
