@@ -4,12 +4,18 @@
 
 const BASE_CELL_SIZE = 32;
 let zoom = 2;
-const DEFAULT_ZOOM = 2;
-const MIN_ZOOM = 1;
-const MAX_ZOOM = 3;
+const DEFAULT_ZOOM = 1;
+export const MIN_ZOOM = 0.5;
+export const MAX_ZOOM = 4;
+const ZOOM_STEP = 0.1;
 let cellSize = BASE_CELL_SIZE * zoom;
 let displayRangeX = 10;
 let displayRangeY = 10;
+
+function clampZoom(value: number): number {
+  const clamped = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, value));
+  return Number(clamped.toFixed(2));
+}
 
 /** 获取当前缩放倍率 */
 export function getZoom(): number {
@@ -18,13 +24,19 @@ export function getZoom(): number {
 
 /** 循环切换缩放倍率（到最大后回到最小） */
 export function cycleZoom(): number {
-  zoom = zoom >= MAX_ZOOM ? MIN_ZOOM : zoom + 1;
+  zoom = zoom >= MAX_ZOOM ? MIN_ZOOM : clampZoom(zoom + ZOOM_STEP);
+  return zoom;
+}
+
+/** 直接设置缩放倍率，自动钳位到合法范围 */
+export function setZoom(level: number): number {
+  zoom = clampZoom(level);
   return zoom;
 }
 
 /** 按增量调整缩放倍率，自动钳位到合法范围 */
 export function adjustZoom(delta: number): number {
-  zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom + delta));
+  zoom = clampZoom(zoom + delta);
   return zoom;
 }
 

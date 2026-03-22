@@ -71,9 +71,17 @@ const PATH_TARGET_FILL_COLOR = 'rgba(244, 144, 64, 0.34)';
 const PATH_TARGET_STROKE_COLOR = 'rgba(255, 216, 138, 0.96)';
 const PATH_TARGET_CORE_COLOR = 'rgba(255, 244, 219, 0.98)';
 const SENSE_QI_HOVER_STROKE = 'rgba(189, 231, 255, 0.95)';
+const TILE_HIDDEN_FADE_MS = 220;
 
 function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3);
+}
+
+function easeInOutCubic(t: number): number {
+  if (t < 0.5) {
+    return 4 * t * t * t;
+  }
+  return 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
 function getSenseQiOverlayStyle(aura: number): string {
@@ -87,6 +95,8 @@ function getSenseQiOverlayStyle(aura: number): string {
 
 interface AnimEntity {
   id: string;
+  gridX: number;
+  gridY: number;
   oldWX: number;
   oldWY: number;
   targetWX: number;
@@ -143,6 +153,9 @@ export class TextRenderer implements IRenderer {
   private attackTrails: AttackTrail[] = [];
   private nextFloatingTextId = 1;
   private nextAttackTrailId = 1;
+  private previousVisibleTileKeys = new Set<string>();
+  private hiddenTileFadeStartedAt = new Map<string, number>();
+  private visibleTileFadeStartedAt = new Map<string, number>();
 
   init(canvas: HTMLCanvasElement) {
     this.ctx = canvas.getContext('2d')!;
@@ -159,6 +172,9 @@ export class TextRenderer implements IRenderer {
     this.entities.clear();
     this.floatingTexts = [];
     this.attackTrails = [];
+    this.previousVisibleTileKeys.clear();
+    this.hiddenTileFadeStartedAt.clear();
+    this.visibleTileFadeStartedAt.clear();
   }
 
   /** 设置寻路路径高亮格子列表 */
@@ -194,6 +210,9 @@ export class TextRenderer implements IRenderer {
     const sw = ctx.canvas.width;
     const sh = ctx.canvas.height;
     const cellSize = getCellSize();
+    const now = performance.now();
+
+    this.syncTileVisibilityTransitions(visibleTiles, tileCache, now);
 
     // 屏幕可见格子范围
     const camWorldX = camera.x - sw / 2;
@@ -211,6 +230,8 @@ export class TextRenderer implements IRenderer {
         const key = `${gx},${gy}`;
         const tile = tileCache.get(key);
         const isVisible = visibleTiles.has(key);
+        const hiddenFade = this.getHiddenTileFade(key, now);
+        const visibleFade = this.getVisibleTileFade(key, now);
 
         if (!isVisible && Math.abs(gx - playerX) > displayRangeX) continue;
         if (!isVisible && Math.abs(gy - playerY) > displayRangeY) continue;
@@ -293,7 +314,14 @@ export class TextRenderer implements IRenderer {
         }
 
         if (!isVisible) {
-          ctx.fillStyle = tile ? 'rgba(12, 10, 8, 0.72)' : 'rgba(8, 6, 5, 0.94)';
+          const overlayAlpha = tile ? 0.72 * hiddenFade : 0.94 * hiddenFade;
+          ctx.fillStyle = tile
+            ? `rgba(12, 10, 8, ${overlayAlpha.toFixed(3)})`
+            : `rgba(8, 6, 5, ${overlayAlpha.toFixed(3)})`;
+          ctx.fillRect(sx, sy, cellSize, cellSize);
+        } else if (visibleFade > 0) {
+          const overlayAlpha = 0.72 * visibleFade;
+          ctx.fillStyle = `rgba(12, 10, 8, ${overlayAlpha.toFixed(3)})`;
           ctx.fillRect(sx, sy, cellSize, cellSize);
         }
       }
@@ -303,12 +331,61 @@ export class TextRenderer implements IRenderer {
     this.renderTimeOverlay(time);
   }
 
+  private syncTileVisibilityTransitions(visibleTiles: Set<string>, tileCache: Map<string, Tile>, now: number): void {
+    const shouldAnimateVisibleEnter = this.previousVisibleTileKeys.size > 0;
+    for (const key of this.previousVisibleTileKeys) {
+      if (!visibleTiles.has(key) && tileCache.has(key) && !this.hiddenTileFadeStartedAt.has(key)) {
+        this.hiddenTileFadeStartedAt.set(key, now);
+      }
+    }
+    for (const key of visibleTiles) {
+      if (shouldAnimateVisibleEnter && !this.previousVisibleTileKeys.has(key) && tileCache.has(key) && !this.visibleTileFadeStartedAt.has(key)) {
+        this.visibleTileFadeStartedAt.set(key, now);
+      }
+      this.hiddenTileFadeStartedAt.delete(key);
+    }
+    for (const key of this.previousVisibleTileKeys) {
+      if (!visibleTiles.has(key)) {
+        this.visibleTileFadeStartedAt.delete(key);
+      }
+    }
+    for (const [key, startedAt] of this.hiddenTileFadeStartedAt) {
+      if (!tileCache.has(key) || now - startedAt >= TILE_HIDDEN_FADE_MS) {
+        this.hiddenTileFadeStartedAt.delete(key);
+      }
+    }
+    for (const [key, startedAt] of this.visibleTileFadeStartedAt) {
+      if (!visibleTiles.has(key) || !tileCache.has(key) || now - startedAt >= TILE_HIDDEN_FADE_MS) {
+        this.visibleTileFadeStartedAt.delete(key);
+      }
+    }
+    this.previousVisibleTileKeys = new Set(visibleTiles);
+  }
+
+  private getHiddenTileFade(key: string, now: number): number {
+    const startedAt = this.hiddenTileFadeStartedAt.get(key);
+    if (startedAt === undefined) {
+      return 1;
+    }
+    return Math.max(0, Math.min(1, (now - startedAt) / TILE_HIDDEN_FADE_MS));
+  }
+
+  private getVisibleTileFade(key: string, now: number): number {
+    const startedAt = this.visibleTileFadeStartedAt.get(key);
+    if (startedAt === undefined) {
+      return 0;
+    }
+    const progress = Math.max(0, Math.min(1, (now - startedAt) / TILE_HIDDEN_FADE_MS));
+    return 1 - progress;
+  }
+
   /** 更新实体列表，记录旧位置用于插值动画 */
   updateEntities(
     list: { id: string; wx: number; wy: number; char: string; color: string; name?: string; kind?: string; hp?: number; maxHp?: number; npcQuestMarker?: NpcQuestMarker; buffs?: VisibleBuffState[] }[],
     movedId?: string,
     shiftX = 0,
     shiftY = 0,
+    settleMotion = false,
   ) {
     const seen = new Set<string>();
     const cellSize = getCellSize();
@@ -318,10 +395,33 @@ export class TextRenderer implements IRenderer {
       const twy = e.wy * cellSize;
       const anim = this.entities.get(e.id);
       if (anim) {
-        anim.oldWX = anim.targetWX;
-        anim.oldWY = anim.targetWY;
-        anim.targetWX = twx;
-        anim.targetWY = twy;
+        const sameGrid = anim.gridX === e.wx && anim.gridY === e.wy;
+        const sameTarget = anim.targetWX === twx && anim.targetWY === twy;
+        if (e.id === movedId) {
+          anim.oldWX = (e.wx - shiftX) * cellSize;
+          anim.oldWY = (e.wy - shiftY) * cellSize;
+          anim.targetWX = twx;
+          anim.targetWY = twy;
+        } else if (settleMotion) {
+          anim.oldWX = twx;
+          anim.oldWY = twy;
+          anim.targetWX = twx;
+          anim.targetWY = twy;
+        } else if (sameGrid && sameTarget) {
+          // 重复同步同一帧的实体快照时，保留已有插值状态，避免动画被覆盖掉。
+        } else if (sameGrid) {
+          anim.oldWX = twx;
+          anim.oldWY = twy;
+          anim.targetWX = twx;
+          anim.targetWY = twy;
+        } else {
+          anim.oldWX = anim.targetWX;
+          anim.oldWY = anim.targetWY;
+          anim.targetWX = twx;
+          anim.targetWY = twy;
+        }
+        anim.gridX = e.wx;
+        anim.gridY = e.wy;
         anim.char = e.char;
         anim.color = e.color;
         anim.name = e.name;
@@ -330,13 +430,11 @@ export class TextRenderer implements IRenderer {
         anim.maxHp = e.maxHp;
         anim.npcQuestMarker = e.npcQuestMarker;
         anim.buffs = e.buffs;
-        if (e.id === movedId) {
-          anim.oldWX = (e.wx - shiftX) * cellSize;
-          anim.oldWY = (e.wy - shiftY) * cellSize;
-        }
       } else {
         this.entities.set(e.id, {
           id: e.id,
+          gridX: e.wx,
+          gridY: e.wy,
           oldWX: twx,
           oldWY: twy,
           targetWX: twx,
@@ -366,15 +464,10 @@ export class TextRenderer implements IRenderer {
     const cellSize = getCellSize();
 
     for (const anim of this.entities.values()) {
-      let wx: number, wy: number;
-      if (progress < 0.4) {
-        const t = easeOutCubic(progress / 0.4);
-        wx = anim.oldWX + (anim.targetWX - anim.oldWX) * t;
-        wy = anim.oldWY + (anim.targetWY - anim.oldWY) * t;
-      } else {
-        wx = anim.targetWX;
-        wy = anim.targetWY;
-      }
+      const motionProgress = Math.max(0, Math.min(1, progress));
+      const t = easeInOutCubic(motionProgress);
+      const wx = anim.oldWX + (anim.targetWX - anim.oldWX) * t;
+      const wy = anim.oldWY + (anim.targetWY - anim.oldWY) * t;
 
       const { sx, sy } = camera.worldToScreen(wx, wy, sw, sh);
       if (sx + cellSize < 0 || sx > sw || sy + cellSize < 0 || sy > sh) continue;

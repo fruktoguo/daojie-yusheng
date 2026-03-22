@@ -3,10 +3,7 @@
  */
 
 import { SocketManager } from './network/socket';
-import { TextRenderer } from './renderer/text';
-import { Camera } from './renderer/camera';
 import { KeyboardInput } from './input/keyboard';
-import { MouseInput } from './input/mouse';
 import { LoginUI } from './ui/login';
 import { HUD } from './ui/hud';
 import { ChatUI } from './ui/chat';
@@ -23,14 +20,12 @@ import { SettingsPanel } from './ui/panels/settings-panel';
 import { WorldPanel } from './ui/panels/world-panel';
 import { SuggestionPanel } from './ui/suggestion-panel';
 import { ChangelogPanel } from './ui/changelog-panel';
-import { Minimap } from './ui/minimap';
 import { createClientPanelSystem } from './ui/panel-system/bootstrap';
+import { createMapRuntime } from './game-map/runtime/map-runtime';
 
 import { FloatingTooltip } from './ui/floating-tooltip';
 import { detailModalHost } from './ui/detail-modal-host';
-import { adjustZoom, getDisplayRangeX, getDisplayRangeY, getZoom, updateDisplayMetrics } from './display';
-import { getRememberedMarkers, hydrateTileCacheFromMemory, rememberVisibleMarkers, rememberVisibleTiles } from './map-memory';
-import { cacheMapMeta, cacheMapSnapshot, cacheUnlockedMinimapLibrary, getCachedMapSnapshot } from './map-static-cache';
+import { MAX_ZOOM, MIN_ZOOM, getDisplayRangeX, getDisplayRangeY, getZoom, setZoom } from './display';
 import { getAccessToken } from './ui/auth-api';
 import {
   ActionDef,
@@ -38,13 +33,9 @@ import {
   Direction,
   encodeTileTargetRef,
   GameTimeState,
-  GroundItemPilePatch,
   GroundItemPileView,
   GridPoint,
   isPointInRange,
-  MapMeta,
-  MapMinimapMarker,
-  MapMinimapSnapshot,
   manhattanDistance,
   PlayerState,
   RenderEntity,
@@ -52,13 +43,11 @@ import {
   TickRenderEntity,
   TechniqueUpdateEntry,
   ActionUpdateEntry,
-  VisibleTilePatch,
   NUMERIC_SCALAR_STAT_KEYS,
   SkillDef,
   Tile,
   TileType,
   TechniqueState,
-  VisibleTile,
   S2C_Init,
   S2C_Tick,
   TargetingGeometrySpec,
@@ -69,10 +58,8 @@ import {
   getTileTraversalCost,
 } from '@mud/shared';
 
-const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 const canvasHost = document.getElementById('game-stage') as HTMLElement;
-const zoomInBtn = document.getElementById('zoom-in') as HTMLButtonElement | null;
-const zoomOutBtn = document.getElementById('zoom-out') as HTMLButtonElement | null;
+const zoomSlider = document.getElementById('zoom-slider') as HTMLInputElement | null;
 const zoomLevelEl = document.getElementById('zoom-level');
 const tickRateEl = document.getElementById('map-tick-rate');
 const currentTimeEl = document.getElementById('map-current-time');
@@ -280,12 +267,10 @@ renderTickRate(1);
 renderCurrentTime(null);
 renderPingLatency(null, '待测');
 const socket = new SocketManager();
-const camera = new Camera();
-const renderer = new TextRenderer();
+const mapRuntime = createMapRuntime();
 const loginUI = new LoginUI(socket);
 const hud = new HUD();
 const chatUI = new ChatUI();
-const mouseInput = new MouseInput();
 const debugPanel = new DebugPanel();
 
 // 修仙系统面板
@@ -301,9 +286,9 @@ const worldPanel = new WorldPanel();
 const settingsPanel = new SettingsPanel();
 const suggestionPanel = new SuggestionPanel(socket);
 new ChangelogPanel();
-const minimap = new Minimap();
 const panelSystem = createClientPanelSystem(window);
-minimap.setMoveHandler((x, y) => {
+mapRuntime.attach(canvasHost);
+mapRuntime.setMoveHandler((x, y) => {
   planPathTo({ x, y });
 });
 const targetingBadgeEl = document.getElementById('map-targeting-indicator');
@@ -487,13 +472,13 @@ hud.setCallbacks(() => {
 
 function syncTargetingOverlay() {
   if (!myPlayer || !pendingTargetedAction) {
-    renderer.setTargetingOverlay(null);
+    mapRuntime.setTargetingOverlay(null);
     targetingBadgeEl?.classList.add('hidden');
     syncSenseQiOverlay();
     return;
   }
   const affectedCells = computeAffectedCells(pendingTargetedAction);
-  renderer.setTargetingOverlay({
+  mapRuntime.setTargetingOverlay({
     originX: myPlayer.x,
     originY: myPlayer.y,
     range: pendingTargetedAction.range,
@@ -628,37 +613,32 @@ function hasAffectableTargetInArea(
   });
 }
 
-function getTileKey(x: number, y: number): string {
-  return `${x},${y}`;
-}
-
 function getVisibleTileAt(x: number, y: number): Tile | null {
-  const key = getTileKey(x, y);
-  if (!currentVisibleTiles.has(key)) return null;
-  return tileCache.get(key) ?? null;
+  return mapRuntime.getVisibleTileAt(x, y);
 }
 
 function getKnownTileAt(x: number, y: number): Tile | null {
-  return tileCache.get(getTileKey(x, y)) ?? null;
+  return mapRuntime.getKnownTileAt(x, y);
 }
 
 function isPointInsideCurrentMap(x: number, y: number): boolean {
-  if (!currentMapMeta) return true;
-  return x >= 0 && y >= 0 && x < currentMapMeta.width && y < currentMapMeta.height;
+  const mapMeta = mapRuntime.getMapMeta();
+  if (!mapMeta) return true;
+  return x >= 0 && y >= 0 && x < mapMeta.width && y < mapMeta.height;
 }
 
 function getVisibleGroundPileAt(x: number, y: number): GroundItemPileView | null {
-  return visibleGroundPiles.get(getTileKey(x, y)) ?? null;
+  return mapRuntime.getGroundPileAt(x, y);
 }
 
 function syncSenseQiOverlay(): void {
   if (!myPlayer?.senseQiActive) {
-    renderer.setSenseQiOverlay(null);
+    mapRuntime.setSenseQiOverlay(null);
     senseQiTooltip.hide();
     return;
   }
 
-  renderer.setSenseQiOverlay({
+  mapRuntime.setSenseQiOverlay({
     hoverX: hoveredMapTile?.x,
     hoverY: hoveredMapTile?.y,
   });
@@ -964,42 +944,6 @@ function mergeActionStates(patches: ActionUpdateEntry[]): ActionDef[] {
   return merged;
 }
 
-function mergeGroundItemPatches(patches: GroundItemPilePatch[]): Map<string, GroundItemPileView> {
-  const nextMap = new Map(visibleGroundPiles);
-
-  for (const patch of patches) {
-    if (patch.items === null) {
-      nextMap.delete(`${patch.x},${patch.y}`);
-      continue;
-    }
-    if (patch.items === undefined) {
-      continue;
-    }
-    nextMap.set(`${patch.x},${patch.y}`, {
-      sourceId: patch.sourceId,
-      x: patch.x,
-      y: patch.y,
-      items: cloneJson(patch.items),
-    });
-  }
-
-  return nextMap;
-}
-
-function applyVisibleTilePatches(patches: VisibleTilePatch[]): void {
-  for (const patch of patches) {
-    const key = `${patch.x},${patch.y}`;
-    if (patch.tile) {
-      currentVisibleTiles.add(key);
-      tileCache.set(key, cloneJson(patch.tile));
-      continue;
-    }
-    currentVisibleTiles.delete(key);
-    tileCache.delete(key);
-  }
-  minimapMemoryVersion += 1;
-}
-
 function formatTraversalCost(tile: Tile): string {
   if (!tile.walkable) {
     return '无法通行';
@@ -1213,23 +1157,24 @@ settingsPanel.setOptions({
     loginUI.logout('已退出登录');
   },
 });
-zoomInBtn?.addEventListener('click', () => {
+function applyZoomChange(nextZoom: number): number {
   const previous = getZoom();
-  const zoom = adjustZoom(1);
+  const zoom = setZoom(nextZoom);
   refreshZoomChrome(zoom);
   if (zoom !== previous) {
     refreshZoomViewport();
-    showToast(`缩放已切换为 ${zoom}x`);
   }
+  return zoom;
+}
+
+zoomSlider?.setAttribute('min', String(MIN_ZOOM));
+zoomSlider?.setAttribute('max', String(MAX_ZOOM));
+zoomSlider?.addEventListener('input', () => {
+  applyZoomChange(Number(zoomSlider.value));
 });
-zoomOutBtn?.addEventListener('click', () => {
-  const previous = getZoom();
-  const zoom = adjustZoom(-1);
-  refreshZoomChrome(zoom);
-  if (zoom !== previous) {
-    refreshZoomViewport();
-    showToast(`缩放已切换为 ${zoom}x`);
-  }
+zoomSlider?.addEventListener('change', () => {
+  const zoom = applyZoomChange(Number(zoomSlider.value));
+  showToast(`缩放已调整为 ${formatZoom(zoom)}x`);
 });
 
 document.getElementById('hud-toggle-auto-battle')?.addEventListener('click', () => {
@@ -1312,6 +1257,9 @@ socket.onActionsUpdate((data) => {
     myPlayer.autoIdleCultivation = nextAutoIdleCultivation;
     myPlayer.senseQiActive = nextSenseQiActive;
   }
+  if (!previousAutoBattle && nextAutoBattle && (pathTarget || pathCells.length > 0)) {
+    clearCurrentPath();
+  }
   if (shouldRefreshActionPanel) {
     actionPanel.update(mergedActions, nextAutoBattle, nextAutoRetaliate, myPlayer ?? undefined);
     refreshUiChrome();
@@ -1390,36 +1338,14 @@ socket.onPong((data) => {
 let pathCells: { x: number; y: number }[] = [];
 let pathTarget: { x: number; y: number } | null = null;
 
-// 动画状态
-let tickStartTime = performance.now();
-let tickDuration = 1000;
 let myPlayer: PlayerState | null = null;
-let currentMapMeta: MapMeta | null = null;
-let currentMinimap: MapMinimapSnapshot | null = null;
-let currentVisibleMinimapMarkers: MapMinimapMarker[] = [];
 let currentTimeState: GameTimeState | null = null;
 let latestAttrUpdate: S2C_AttrUpdate | null = null;
 let latestTechniqueMap = new Map<string, TechniqueState>();
 let latestActionMap = new Map<string, ActionDef>();
 let latestEntities: ObservedEntity[] = [];
 let latestEntityMap = new Map<string, ObservedEntity>();
-let visibleGroundPiles = new Map<string, GroundItemPileView>();
-
-// 视野中心平滑值（浮点格子坐标），无延迟快速 lerp
-let viewCenterX = 0;
-let viewCenterY = 0;
 let pendingLayoutViewportSync = false;
-const VIEW_LERP_SPEED = 12;
-
-// 世界地图缓存：key = "x,y" → Tile
-const tileCache = new Map<string, Tile>();
-const currentVisibleTiles = new Set<string>();
-let minimapMemoryVersion = 0;
-
-// 当前服务端发来的 tiles 及其 origin
-let currentTiles: VisibleTile[][] = [];
-let tileOriginX = 0;
-let tileOriginY = 0;
 
 const MAP_FALLBACK: Record<string, { danger: number; recommendedRealm: string }> = {
   spawn: { danger: 1, recommendedRealm: '锻体到后天' },
@@ -1445,18 +1371,23 @@ function showToast(message: string, kind: 'system' | 'chat' | 'quest' | 'combat'
   }, 2500);
 }
 
+function formatZoom(zoom: number): string {
+  return zoom.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
+}
+
 function refreshZoomChrome(zoom = getZoom()) {
+  if (zoomSlider) {
+    zoomSlider.value = zoom.toFixed(2);
+  }
   if (zoomLevelEl) {
-    zoomLevelEl.innerHTML = `<span>x</span><span>${zoom}</span>`;
+    zoomLevelEl.innerHTML = `<span>x</span><span>${formatZoom(zoom)}</span>`;
   }
 }
 
 function refreshZoomViewport() {
-  syncDisplayMetrics();
-  if (myPlayer) {
-    snapCameraToPlayer();
-  }
-  renderer.updateEntities(latestEntities);
+  resizeCanvas();
+  mapRuntime.setZoom(getZoom());
+  mapRuntime.replaceVisibleEntities(latestEntities);
 }
 
 function inferAutoBattle(current: boolean, actions: { id: string; name: string; desc: string }[]): boolean {
@@ -1501,7 +1432,7 @@ function buildTechniqueStructureSignature(techniques: TechniqueState[], cultivat
 
 function resolveMapDanger(): string {
   const fallback = myPlayer ? MAP_FALLBACK[myPlayer.mapId] : undefined;
-  const danger = currentMapMeta?.dangerLevel ?? fallback?.danger;
+  const danger = mapRuntime.getMapMeta()?.dangerLevel ?? fallback?.danger;
   return danger ? `危 ${danger}/5` : '未知';
 }
 
@@ -1558,7 +1489,7 @@ function refreshUiChrome() {
   }
   worldPanel.update({
     player: myPlayer,
-    mapMeta: currentMapMeta,
+    mapMeta: mapRuntime.getMapMeta(),
     entities: latestEntities,
     actions: myPlayer.actions,
     quests: myPlayer.quests,
@@ -1568,29 +1499,13 @@ function refreshUiChrome() {
 function refreshHudChrome() {
   if (!myPlayer) return;
   hud.update(myPlayer, {
-    mapName: currentMapMeta?.name ?? myPlayer.mapId,
+    mapName: mapRuntime.getMapMeta()?.name ?? myPlayer.mapId,
     mapDanger: resolveMapDanger(),
     realmLabel: myPlayer.realm?.displayName ?? resolveRealmLabel(myPlayer),
     realmReviewLabel: myPlayer.realm?.review ?? myPlayer.realmReview,
     objectiveLabel: resolveObjectiveLabel(myPlayer),
     threatLabel: resolveThreatLabel(myPlayer),
     titleLabel: resolveTitleLabel(myPlayer),
-  });
-}
-
-function syncMinimap() {
-  minimap.updateScene({
-    mapMeta: currentMapMeta,
-    snapshot: currentMinimap,
-    rememberedMarkers: myPlayer ? getRememberedMarkers(myPlayer.mapId) : [],
-    visibleMarkers: currentVisibleMinimapMarkers,
-    tileCache,
-    visibleTiles: currentVisibleTiles,
-    visibleEntities: latestEntities,
-    groundPiles: visibleGroundPiles,
-    player: myPlayer ? { x: myPlayer.x, y: myPlayer.y } : null,
-    viewRadius: getInfoRadius(),
-    memoryVersion: minimapMemoryVersion,
   });
 }
 
@@ -1621,20 +1536,6 @@ function getInfoRadius(): number {
   return currentTimeState?.effectiveViewRange ?? myPlayer?.viewRange ?? VIEW_RADIUS;
 }
 
-function syncDisplayMetrics(): void {
-  const baseRadius = myPlayer?.viewRange ?? VIEW_RADIUS;
-  updateDisplayMetrics(canvas.width, canvas.height, baseRadius);
-}
-
-function snapCameraToPlayer(): void {
-  if (!myPlayer) {
-    return;
-  }
-  camera.snap(myPlayer);
-  viewCenterX = myPlayer.x;
-  viewCenterY = myPlayer.y;
-}
-
 function scheduleLayoutViewportSync(): void {
   if (pendingLayoutViewportSync) {
     return;
@@ -1643,13 +1544,13 @@ function scheduleLayoutViewportSync(): void {
   requestAnimationFrame(() => {
     pendingLayoutViewportSync = false;
     resizeCanvas();
-    snapCameraToPlayer();
   });
 }
 
 function clearCurrentPath() {
   pathCells = [];
   pathTarget = null;
+  mapRuntime.setPathCells(pathCells);
 }
 
 function sendMoveCommand(dir: Direction) {
@@ -1663,24 +1564,16 @@ function planPathTo(target: { x: number; y: number }, options?: { ignoreVisibili
   if (!myPlayer) return;
   pathTarget = target;
   pathCells = [{ x: target.x, y: target.y }];
+  mapRuntime.setPathCells(pathCells);
   socket.sendMoveTo(target.x, target.y, options);
 }
 
 function resetGameState() {
   myPlayer = null;
-  currentMapMeta = null;
-  currentMinimap = null;
   currentTimeState = null;
   latestAttrUpdate = null;
   renderCurrentTime(null);
   clearCurrentPath();
-  currentTiles = [];
-  tileOriginX = 0;
-  tileOriginY = 0;
-  tileCache.clear();
-  currentVisibleTiles.clear();
-  minimapMemoryVersion = 0;
-  visibleGroundPiles.clear();
   latestTechniqueMap.clear();
   latestActionMap.clear();
   latestEntities = [];
@@ -1701,7 +1594,7 @@ function resetGameState() {
   actionPanel.clear();
   lootPanel.clear();
   worldPanel.clear();
-  minimap.clear();
+  mapRuntime.reset();
   panelSystem.store.setRuntime({
     connected: false,
     playerId: null,
@@ -1726,7 +1619,7 @@ function applyLocalDisplayName(displayName: string) {
       char: [...displayName][0] ?? entity.char,
     };
   });
-  renderer.updateEntities(latestEntities);
+  mapRuntime.replaceVisibleEntities(latestEntities);
   refreshHudChrome();
 }
 
@@ -1744,24 +1637,8 @@ function applyLocalRoleName(roleName: string) {
       name: roleName,
     };
   });
-  renderer.updateEntities(latestEntities);
+  mapRuntime.replaceVisibleEntities(latestEntities);
   refreshHudChrome();
-}
-
-/** 将服务端发来的 tiles 写入缓存 */
-function cacheTiles(mapId: string, tiles: VisibleTile[][], originX: number, originY: number) {
-  currentVisibleTiles.clear();
-  rememberVisibleTiles(mapId, tiles, originX, originY);
-  for (let r = 0; r < tiles.length; r++) {
-    for (let c = 0; c < tiles[r].length; c++) {
-      const tile = tiles[r][c];
-      const key = `${originX + c},${originY + r}`;
-      if (!tile) continue;
-      currentVisibleTiles.add(key);
-      tileCache.set(key, tile);
-    }
-  }
-  minimapMemoryVersion += 1;
 }
 
 // 键盘输入
@@ -1772,7 +1649,6 @@ const keyboard = new KeyboardInput((dirs: Direction[]) => {
   }
 });
 
-renderer.init(canvas);
 sidePanel.setVisibilityChangeCallback((visible) => {
   panelSystem.store.setRuntime({ shellVisible: visible });
   if (visible) {
@@ -1788,14 +1664,7 @@ sidePanel.setLayoutChangeCallback(() => {
 
 function resizeCanvas() {
   const rect = canvasHost.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  const width = Math.max(1, Math.floor(rect.width * dpr));
-  const height = Math.max(1, Math.floor(rect.height * dpr));
-  canvas.width = width;
-  canvas.height = height;
-  syncDisplayMetrics();
-  minimap.resize();
-  syncMinimap();
+  mapRuntime.setViewportSize(rect.width, rect.height, window.devicePixelRatio || 1);
 }
 resizeCanvas();
 refreshZoomChrome();
@@ -1846,14 +1715,8 @@ observeModalEl?.addEventListener('click', () => {
   hideObserveModal();
 });
 
-// 鼠标输入
-mouseInput.init(
-  canvas,
-  () => camera,
-  (x, y) => getKnownTileAt(x, y),
-  () => latestEntities,
-  () => currentMapMeta,
-  (target) => {
+mapRuntime.setInteractionCallbacks({
+  onTarget: (target) => {
     if (pendingTargetedAction) {
       if (pendingTargetedAction.actionId !== 'client:observe' && !isPointInsideCurrentMap(target.x, target.y)) {
         showToast('窗外投影当前仅支持观察');
@@ -1899,6 +1762,7 @@ mouseInput.init(
       return;
     }
     if (target.entityKind === 'monster' && target.entityId) {
+      clearCurrentPath();
       socket.sendAction('battle:engage', target.entityId);
       return;
     }
@@ -1917,7 +1781,7 @@ mouseInput.init(
     }
     planPathTo(target);
   },
-  (target) => {
+  onHover: (target) => {
     hoveredMapTile = target && typeof target.clientX === 'number' && typeof target.clientY === 'number'
       ? {
           x: target.x,
@@ -1934,7 +1798,7 @@ mouseInput.init(
     }
     syncSenseQiOverlay();
   },
-);
+});
 
 // 初始化
 socket.onInit((data: S2C_Init) => {
@@ -1948,42 +1812,18 @@ socket.onInit((data: S2C_Init) => {
   myPlayer.senseQiActive = myPlayer.senseQiActive === true;
   myPlayer.autoIdleCultivation = myPlayer.autoIdleCultivation !== false;
   syncTargetingOverlay();
-  currentMapMeta = data.mapMeta;
-  cacheMapMeta(data.mapMeta);
-  currentVisibleMinimapMarkers = data.visibleMinimapMarkers ?? [];
-  rememberVisibleMarkers(myPlayer.mapId, currentVisibleMinimapMarkers);
-  cacheUnlockedMinimapLibrary(data.minimapLibrary);
-  myPlayer.unlockedMinimapIds = data.minimapLibrary.map((entry) => entry.mapId).sort();
-  currentMinimap = data.minimap ?? (
-    myPlayer.unlockedMinimapIds.includes(myPlayer.mapId)
-      ? getCachedMapSnapshot(myPlayer.mapId)
-      : null
-  );
-  if (data.minimap) {
-    cacheMapSnapshot(myPlayer.mapId, data.minimap, { meta: data.mapMeta, unlocked: true });
-  }
-  currentTiles = data.tiles;
-  tileOriginX = myPlayer.x - getInfoRadius();
-  tileOriginY = myPlayer.y - getInfoRadius();
-
-  tileCache.clear();
-  hydrateTileCacheFromMemory(myPlayer.mapId, tileCache);
-  cacheTiles(myPlayer.mapId, currentTiles, tileOriginX, tileOriginY);
+  mapRuntime.applyInit(data);
   syncSenseQiOverlay();
-  syncMinimap();
-
-  syncDisplayMetrics();
-  snapCameraToPlayer();
 
   const entities = data.players.map(toObservedEntity);
   latestTechniqueMap = new Map((myPlayer.techniques ?? []).map((technique) => [technique.techId, cloneJson(technique)]));
   latestActionMap = new Map((myPlayer.actions ?? []).map((action) => [action.id, cloneJson(action)]));
   latestEntities = entities;
   latestEntityMap = new Map(entities.map((entity) => [entity.id, entity]));
-  renderer.updateEntities(entities);
+  mapRuntime.replaceVisibleEntities(entities, { snapCamera: true });
 
-  tickStartTime = performance.now();
   clearCurrentPath();
+  mapRuntime.setPathCells(pathCells);
 
   // 显示主界面布局并初始化各子面板
   sidePanel.show();
@@ -2017,76 +1857,34 @@ socket.onSuggestionUpdate((data) => {
 socket.onTick((data: S2C_Tick) => {
   if (!myPlayer) return;
   let mapChanged = false;
+  const previousMapId = myPlayer.mapId;
   if (data.time) {
     currentTimeState = data.time;
     renderCurrentTime(currentTimeState);
   }
-  if (data.fx) {
-    for (const effect of data.fx) {
-      if (effect.type === 'attack') {
-        renderer.addAttackTrail(effect.fromX, effect.fromY, effect.toX, effect.toY, effect.color);
-      } else {
-        renderer.addFloatingText(effect.x, effect.y, effect.text, effect.color, effect.variant);
-      }
-    }
-  }
 
   if (data.dt) {
-    tickDuration = data.dt;
     if (tickRateEl) {
       const seconds = Math.max(data.dt, 0) / 1000;
       renderTickRate(seconds);
     }
   }
+  mapRuntime.applyTick(data);
 
   if (data.m) {
-    mapChanged = myPlayer.mapId !== data.m;
+    mapChanged = previousMapId !== data.m;
     if (mapChanged) {
       clearCurrentPath();
-      currentMapMeta = null;
-      currentTiles = [];
-      tileCache.clear();
-      currentVisibleTiles.clear();
-      minimapMemoryVersion = 0;
-      currentMinimap = null;
-      currentVisibleMinimapMarkers = [];
-      visibleGroundPiles.clear();
       latestEntities = [];
       latestEntityMap.clear();
       hoveredMapTile = null;
       hideObserveModal();
       lootPanel.clear();
       cancelTargeting();
-      renderer.resetScene();
     }
     myPlayer.mapId = data.m;
     panelSystem.store.setRuntime({ mapId: myPlayer.mapId });
     questPanel.setCurrentMapId(myPlayer.mapId);
-    if (mapChanged) {
-      currentMinimap = (myPlayer.unlockedMinimapIds ?? []).includes(myPlayer.mapId)
-        ? getCachedMapSnapshot(myPlayer.mapId)
-        : null;
-      hydrateTileCacheFromMemory(myPlayer.mapId, tileCache);
-    }
-  }
-  if (data.mapMeta) {
-    currentMapMeta = data.mapMeta;
-    cacheMapMeta(data.mapMeta);
-  }
-  if (data.minimapLibrary) {
-    cacheUnlockedMinimapLibrary(data.minimapLibrary);
-    myPlayer.unlockedMinimapIds = data.minimapLibrary.map((entry) => entry.mapId).sort();
-    if (!currentMinimap && myPlayer.unlockedMinimapIds.includes(myPlayer.mapId)) {
-      currentMinimap = getCachedMapSnapshot(myPlayer.mapId);
-    }
-  }
-  if (data.visibleMinimapMarkers) {
-    currentVisibleMinimapMarkers = data.visibleMinimapMarkers;
-    rememberVisibleMarkers(myPlayer.mapId, currentVisibleMinimapMarkers);
-  }
-  if (data.minimap) {
-    currentMinimap = data.minimap;
-    cacheMapSnapshot(myPlayer.mapId, data.minimap, { meta: currentMapMeta, unlocked: true });
   }
 
   if (typeof data.hp === 'number') {
@@ -2112,24 +1910,8 @@ socket.onTick((data: S2C_Tick) => {
       break;
     }
   }
-
-  if (data.v) {
-    currentTiles = data.v;
-    tileOriginX = myPlayer.x - getInfoRadius();
-    tileOriginY = myPlayer.y - getInfoRadius();
-    cacheTiles(myPlayer.mapId, currentTiles, tileOriginX, tileOriginY);
+  if (data.v || data.t) {
     syncSenseQiOverlay();
-  }
-  if (data.t) {
-    applyVisibleTilePatches(data.t);
-  }
-  if (data.g) {
-    visibleGroundPiles = mergeGroundItemPatches(data.g);
-  }
-  if (mapChanged) {
-    camera.snap(myPlayer);
-  } else {
-    camera.follow(myPlayer);
   }
 
   const moved = !mapChanged && (myPlayer.x !== oldX || myPlayer.y !== oldY);
@@ -2138,18 +1920,17 @@ socket.onTick((data: S2C_Tick) => {
   latestEntities = entities;
   syncTargetingOverlay();
   refreshHudChrome();
-  syncMinimap();
 
   if (moved) {
     const shiftX = myPlayer.x - oldX;
     const shiftY = myPlayer.y - oldY;
-    renderer.updateEntities(entities, myPlayer.id, shiftX, shiftY);
+    mapRuntime.replaceVisibleEntities(entities, { movedId: myPlayer.id, shiftX, shiftY });
 
     while (pathCells.length > 0 && pathCells[0].x === myPlayer.x && pathCells[0].y === myPlayer.y) {
       pathCells.shift();
     }
   } else {
-    renderer.updateEntities(entities);
+    mapRuntime.replaceVisibleEntities(entities, mapChanged ? { snapCamera: true } : null);
   }
 
   if (pathTarget && myPlayer.x === pathTarget.x && myPlayer.y === pathTarget.y) {
@@ -2161,56 +1942,8 @@ socket.onTick((data: S2C_Tick) => {
       clearCurrentPath();
     }
   }
-
-  tickStartTime = performance.now();
+  mapRuntime.setPathCells(pathCells);
 });
-
-let lastFrameTime = performance.now();
-
-function gameLoop() {
-  const now = performance.now();
-  const frameDt = (now - lastFrameTime) / 1000;
-  lastFrameTime = now;
-  const progress = Math.min((now - tickStartTime) / tickDuration, 1);
-
-  if (myPlayer) {
-    syncDisplayMetrics();
-    camera.follow(myPlayer);
-  }
-  camera.update(frameDt);
-
-  // 视野中心平滑追赶玩家，无延迟
-  if (myPlayer) {
-    const vt = 1 - Math.exp(-VIEW_LERP_SPEED * frameDt);
-    viewCenterX += (myPlayer.x - viewCenterX) * vt;
-    viewCenterY += (myPlayer.y - viewCenterY) * vt;
-    if (Math.abs(viewCenterX - myPlayer.x) < 0.01) viewCenterX = myPlayer.x;
-    if (Math.abs(viewCenterY - myPlayer.y) < 0.01) viewCenterY = myPlayer.y;
-  }
-
-  renderer.clear();
-
-  if (myPlayer) {
-    renderer.setPathHighlight(pathCells);
-    renderer.renderWorld(
-      camera,
-      tileCache,
-      currentVisibleTiles,
-      myPlayer.x,
-      myPlayer.y,
-      getDisplayRangeX(),
-      getDisplayRangeY(),
-      currentTimeState,
-    );
-    renderer.renderAttackTrails(camera);
-    renderer.renderEntities(camera, progress);
-    renderer.renderFloatingTexts(camera);
-  }
-
-  requestAnimationFrame(gameLoop);
-}
-
-requestAnimationFrame(gameLoop);
 
 restartPingLoop();
 void loginUI.restoreSession();
