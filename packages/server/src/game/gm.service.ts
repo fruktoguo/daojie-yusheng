@@ -15,15 +15,19 @@ import {
   EquipmentSlots,
   GmMapDocument,
   GmMapListRes,
+  GmMapRuntimeRes,
   GmManagedPlayerRecord,
   GmManagedPlayerSummary,
+  GmRuntimeEntity,
   GmStateRes,
+  GmUpdateMapTimeReq,
   Inventory,
   PlayerState,
   QuestState,
   TechniqueState,
   TemporaryBuffState,
   VIEW_RADIUS,
+  VisibleTile,
   getTileTypeFromMapChar,
   isTileTypeWalkable,
 } from '@mud/shared';
@@ -43,6 +47,7 @@ import {
 } from './player-storage';
 import { DirtyFlag, PlayerService } from './player.service';
 import { TechniqueService } from './technique.service';
+import { TimeService } from './time.service';
 import { WorldService } from './world.service';
 
 type GmCommand =
@@ -84,6 +89,7 @@ export class GmService {
     private readonly worldService: WorldService,
     private readonly contentService: ContentService,
     private readonly techniqueService: TechniqueService,
+    private readonly timeService: TimeService,
   ) {}
 
   /** 获取全局 GM 状态：所有玩家摘要、地图列表、Bot 数量、性能快照 */
@@ -716,5 +722,120 @@ export class GmService {
 
   private cloneObject<T>(value: T): T {
     return JSON.parse(JSON.stringify(value)) as T;
+  }
+
+  /** 获取指定区域的运行时地图快照（GM 世界管理用） */
+  getMapRuntime(
+    mapId: string,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    tickSpeed: number,
+    tickPaused: boolean,
+  ): GmMapRuntimeRes | null {
+    const meta = this.mapService.getMapMeta(mapId);
+    if (!meta) return null;
+
+    const clampedW = Math.min(20, Math.max(1, w));
+    const clampedH = Math.min(20, Math.max(1, h));
+    const startX = Math.max(0, Math.min(x, meta.width - 1));
+    const startY = Math.max(0, Math.min(y, meta.height - 1));
+    const endX = Math.min(meta.width, startX + clampedW);
+    const endY = Math.min(meta.height, startY + clampedH);
+
+    // 收集地块
+    const tiles: (VisibleTile | null)[][] = [];
+    for (let dy = startY; dy < endY; dy++) {
+      const row: (VisibleTile | null)[] = [];
+      for (let dx = startX; dx < endX; dx++) {
+        const tile = this.mapService.getTile(mapId, dx, dy);
+        row.push(tile ? { type: tile.type, walkable: tile.walkable, aura: tile.aura } as VisibleTile : null);
+      }
+      tiles.push(row);
+    }
+
+    // 收集区域内实体
+    const entities: GmRuntimeEntity[] = [];
+
+    // 玩家
+    for (const player of this.playerService.getPlayersByMap(mapId)) {
+      if (player.x >= startX && player.x < endX && player.y >= startY && player.y < endY) {
+        entities.push({
+          id: player.id,
+          x: player.x,
+          y: player.y,
+          char: '人',
+          color: player.online ? '#4caf50' : '#888',
+          name: player.name,
+          kind: 'player',
+          hp: player.hp,
+          maxHp: player.maxHp,
+          dead: player.dead,
+          online: player.online === true,
+          autoBattle: player.autoBattle,
+          isBot: Boolean(player.isBot),
+        });
+      }
+    }
+
+    // 怪物
+    for (const m of this.worldService.getRuntimeMonstersForGm(mapId)) {
+      if (m.x >= startX && m.x < endX && m.y >= startY && m.y < endY) {
+        entities.push({
+          id: m.id,
+          x: m.x,
+          y: m.y,
+          char: m.char,
+          color: m.color,
+          name: m.name,
+          kind: 'monster',
+          hp: m.hp,
+          maxHp: m.maxHp,
+          dead: !m.alive,
+          alive: m.alive,
+          targetPlayerId: m.targetPlayerId,
+          respawnLeft: m.respawnLeft,
+        });
+      }
+    }
+
+    // NPC
+    for (const npc of this.mapService.getNpcs(mapId)) {
+      if (npc.x >= startX && npc.x < endX && npc.y >= startY && npc.y < endY) {
+        entities.push({
+          id: npc.id,
+          x: npc.x,
+          y: npc.y,
+          char: npc.char,
+          color: npc.color,
+          name: npc.name,
+          kind: 'npc',
+        });
+      }
+    }
+
+    const time = this.timeService.buildPlayerTimeState(
+      { mapId, viewRange: VIEW_RADIUS } as PlayerState,
+    );
+    const timeConfig = this.mapService.getMapTimeConfig(mapId);
+
+    return {
+      mapId,
+      mapName: meta.name,
+      width: meta.width,
+      height: meta.height,
+      tiles,
+      entities,
+      time,
+      timeConfig,
+      tickSpeed,
+      tickPaused,
+    };
+  }
+
+  /** GM 修改地图时间配置 */
+  updateMapTime(mapId: string, req: GmUpdateMapTimeReq): string | null {
+    return this.mapService.updateMapTimeConfig(mapId, req);
   }
 }
