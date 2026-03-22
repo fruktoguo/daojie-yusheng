@@ -22,6 +22,7 @@ import { LootPanel } from './ui/panels/loot-panel';
 import { SettingsPanel } from './ui/panels/settings-panel';
 import { WorldPanel } from './ui/panels/world-panel';
 import { SuggestionPanel } from './ui/suggestion-panel';
+import { ChangelogPanel } from './ui/changelog-panel';
 import { Minimap } from './ui/minimap';
 
 import { FloatingTooltip } from './ui/floating-tooltip';
@@ -134,6 +135,7 @@ const lootPanel = new LootPanel();
 const worldPanel = new WorldPanel();
 const settingsPanel = new SettingsPanel();
 const suggestionPanel = new SuggestionPanel(socket);
+new ChangelogPanel();
 const minimap = new Minimap();
 minimap.setMoveHandler((x, y) => {
   planPathTo({ x, y });

@@ -2143,6 +2143,44 @@
       min-height: 0;
       overflow: hidden;
     }
+    .chronicle-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .chronicle-entry-items {
+      padding-left: 20px;
+      line-height: 1.8;
+    }
+    .chronicle-entry-items li {
+      margin-bottom: 4px;
+    }
+    .chronicle-entry-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .chronicle-entry {
+      border: 1px solid var(--wash-ink);
+      background: linear-gradient(180deg, rgba(255,255,255,0.7), rgba(236,236,232,0.92));
+      padding: 14px 16px;
+      box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.06);
+    }
+    .chronicle-entry-head {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .chronicle-entry-time {
+      font-family: var(--font-heading-sub);
+      color: var(--stamp-red);
+      letter-spacing: 1px;
+    }
+    .chronicle-entry-summary {
+      font-size: 16px;
+      color: var(--ink-black);
+    }
     .detail-modal-head {
       display: flex;
       align-items: baseline;
@@ -3704,6 +3742,7 @@
             <div class="hud-corner-actions">
               <button id="hud-open-settings" class="hud-corner-btn" type="button">设置</button>
               <button id="hud-open-suggestions" class="hud-corner-btn" type="button">意见</button>
+              <button id="hud-open-chronicle" class="hud-corner-btn" type="button">史书</button>
               <button id="hud-logout" class="hud-corner-btn danger" type="button">登出</button>
             </div>
           </div>
