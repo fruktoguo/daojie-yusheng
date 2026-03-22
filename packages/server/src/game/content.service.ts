@@ -210,7 +210,7 @@ export class ContentService implements OnModuleInit {
             ...layer,
             expToNext: layer.expFactor === undefined
               ? Math.max(0, layer.expToNext ?? 0)
-              : scaleTechniqueExp(layer.expFactor),
+              : scaleTechniqueExp(layer.expFactor, raw.grade),
           }))
           .sort((left, right) => left.level - right.level),
         skills: raw.skills.map((skill) => ({

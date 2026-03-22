@@ -236,10 +236,15 @@ export const TECHNIQUE_GRADE_EXP_BASE_FACTORS: Record<TechniqueGrade, number> = 
   emperor: 21870,
 };
 
-/** 根据经验倍率计算功法实际经验需求 */
-export function scaleTechniqueExp(expFactor: number): number {
+const TECHNIQUE_GRADE_ORDER: TechniqueGrade[] = [
+  'mortal', 'yellow', 'mystic', 'earth', 'heaven', 'spirit', 'saint', 'emperor',
+];
+
+/** 根据经验倍率与品阶计算功法实际经验需求 */
+export function scaleTechniqueExp(expFactor: number, grade: TechniqueGrade = 'mortal'): number {
   if (expFactor <= 0) return 0;
-  return Math.max(0, Math.round(expFactor * TECHNIQUE_EXP_BASE));
+  const gradeIndex = Math.max(0, TECHNIQUE_GRADE_ORDER.indexOf(grade));
+  return Math.max(0, Math.round(expFactor * TECHNIQUE_EXP_BASE * (2 ** gradeIndex)));
 }
 
 /** 旧版固定功法经验表，当前内容已按逐层配置为准 */
