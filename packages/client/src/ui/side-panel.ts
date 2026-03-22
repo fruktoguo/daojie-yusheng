@@ -123,7 +123,7 @@ export class SidePanel {
           const next = this.clamp(event.clientX - this.dragState.shellRect.left, 220, Math.min(520, this.dragState.shellRect.width * 0.4));
           this.panel.style.setProperty('--layout-left-size', `${next}px`);
         } else if (this.dragState.target === 'right') {
-          const next = this.clamp(this.dragState.shellRect.right - event.clientX, 240, Math.min(560, this.dragState.shellRect.width * 0.42));
+          const next = this.clamp(this.dragState.shellRect.right - event.clientX, 240, Math.min(680, this.dragState.shellRect.width * 0.5));
           this.panel.style.setProperty('--layout-right-size', `${next}px`);
         } else {
           const next = this.clamp(this.dragState.shellRect.bottom - event.clientY, 140, Math.min(480, this.dragState.shellRect.height * 0.55));
