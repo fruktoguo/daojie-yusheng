@@ -1,6 +1,11 @@
+/**
+ * 渲染器接口定义 —— 约束所有渲染器实现必须提供的能力
+ */
+
 import { GameTimeState, GridPoint, NpcQuestMarker, TargetingShape, Tile } from '@mud/shared';
 import { Camera } from './camera';
 
+/** 技能瞄准叠加层状态 */
 export interface TargetingOverlayState {
   originX: number;
   originY: number;
@@ -12,11 +17,13 @@ export interface TargetingOverlayState {
   hoverY?: number;
 }
 
+/** 感气视角叠加层状态 */
 export interface SenseQiOverlayState {
   hoverX?: number;
   hoverY?: number;
 }
 
+/** 渲染器统一接口，当前由 TextRenderer 实现，后续可替换为 SpriteRenderer */
 export interface IRenderer {
   init(canvas: HTMLCanvasElement): void;
   clear(): void;

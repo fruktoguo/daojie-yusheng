@@ -1,3 +1,6 @@
+/**
+ * 全局游戏常量：tick 参数、视野、昼夜、修仙境界配置、属性权重等。
+ */
 import {
   Attributes,
   AttrKey,
@@ -37,6 +40,7 @@ export const WORLD_DARKNESS_BUFF_ID = 'world:darkness';
 /** 夜色环境效果持续时间 */
 export const WORLD_DARKNESS_BUFF_DURATION = 2;
 
+/** 时间段定义（昼夜循环中的一个阶段） */
 export interface TimePhaseDefinition {
   id: TimePhaseId;
   label: string;
@@ -47,6 +51,7 @@ export interface TimePhaseDefinition {
   overlayAlpha: number;
 }
 
+/** 昼夜各时段配置表 */
 export const GAME_TIME_PHASES: TimePhaseDefinition[] = [
   { id: 'deep_night', label: '子夜', startTick: 0, endTick: 900, skyLightPercent: 50, tint: '#06101c', overlayAlpha: 0.48 },
   { id: 'late_night', label: '深宵', startTick: 900, endTick: 1500, skyLightPercent: 60, tint: '#0a1726', overlayAlpha: 0.42 },
@@ -59,8 +64,10 @@ export const GAME_TIME_PHASES: TimePhaseDefinition[] = [
   { id: 'midnight', label: '夜阑', startTick: 6900, endTick: GAME_DAY_TICKS, skyLightPercent: 60, tint: '#111b2d', overlayAlpha: 0.4 },
 ];
 
+/** 夜色层数对视野的衰减系数表 */
 export const DARKNESS_STACK_TO_VISION_MULTIPLIER = [1, 0.9, 0.8, 0.7, 0.6, 0.5] as const;
 
+/** 默认地图时间配置 */
 export const DEFAULT_MAP_TIME_CONFIG: MapTimeConfig = {
   offsetTicks: 0,
   scale: 1,
@@ -202,6 +209,7 @@ export const ATTR_TO_PERCENT_NUMERIC_WEIGHTS: Record<AttrKey, Partial<Record<Att
 
 /** 修炼每 tick 获得经验 */
 export const CULTIVATE_EXP_PER_TICK = 10;
+/** 闲置自动修炼延迟（息） */
 export const AUTO_IDLE_CULTIVATION_DELAY_TICKS = 60;
 
 /** 功法层级经验基准值 */
@@ -219,6 +227,7 @@ export const TECHNIQUE_GRADE_EXP_BASE_FACTORS: Record<TechniqueGrade, number> = 
   emperor: 21870,
 };
 
+/** 根据经验倍率计算功法实际经验需求 */
 export function scaleTechniqueExp(expFactor: number): number {
   if (expFactor <= 0) return 0;
   return Math.max(0, Math.round(expFactor * TECHNIQUE_EXP_BASE));

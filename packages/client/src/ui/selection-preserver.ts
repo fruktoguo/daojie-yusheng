@@ -1,3 +1,8 @@
+/**
+ * 文本选区保持工具
+ * 在 innerHTML 重写前后自动保存和恢复用户的文本选区
+ */
+
 interface SelectionSnapshot {
   start: number;
   end: number;
@@ -77,6 +82,7 @@ function restoreSelection(root: HTMLElement, snapshot: SelectionSnapshot | null)
   selection.addRange(range);
 }
 
+/** 在执行 mutate 前后自动保存和恢复 root 内的文本选区 */
 export function preserveSelection(root: HTMLElement, mutate: () => void): void {
   const snapshot = captureSelection(root);
   mutate();

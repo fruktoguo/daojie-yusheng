@@ -1,3 +1,7 @@
+/**
+ * 键盘输入处理 —— 监听方向键，转换为移动指令
+ */
+
 import { Direction } from '@mud/shared';
 
 const KEY_MAP: Record<string, Direction> = {
@@ -7,6 +11,7 @@ const KEY_MAP: Record<string, Direction> = {
   ArrowLeft: Direction.West,
 };
 
+/** 键盘输入，将方向键映射为移动方向并回调 */
 export class KeyboardInput {
   constructor(private onPath: (dirs: Direction[]) => void) {
     window.addEventListener('keydown', (e) => this.onKeyDown(e));

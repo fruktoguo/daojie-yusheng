@@ -1,3 +1,6 @@
+/**
+ * 用户账号实体 —— 存储登录凭据与显示名称
+ */
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -5,17 +8,21 @@ import {
   CreateDateColumn,
 } from 'typeorm';
 
+/** 用户表，一个用户对应一个游戏角色 */
 @Entity('users')
 export class UserEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
+  /** 登录用户名（唯一） */
   @Column({ type: 'varchar', length: 50, unique: true })
   username!: string;
 
+  /** 地图上显示的单字符名称，为空时回退到用户名首字符 */
   @Column({ type: 'varchar', length: 16, unique: true, nullable: true })
   displayName!: string | null;
 
+  /** bcrypt 密码哈希 */
   @Column({ type: 'varchar', length: 255 })
   passwordHash!: string;
 

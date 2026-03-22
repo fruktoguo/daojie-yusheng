@@ -1,3 +1,6 @@
+/**
+ * 数据库模块 —— 配置 PostgreSQL (TypeORM) 连接与 Redis 服务，全局导出
+ */
 import { Module, Global } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -5,6 +8,7 @@ import { UserEntity } from './entities/user.entity';
 import { PlayerEntity } from './entities/player.entity';
 import { RedisService } from './redis.service';
 
+/** 全局数据库模块，提供 TypeORM Repository 和 RedisService */
 @Global()
 @Module({
   imports: [

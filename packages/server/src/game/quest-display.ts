@@ -1,3 +1,6 @@
+/**
+ * 任务显示辅助：解析任务目标的显示名称（怪物、功法、境界等）
+ */
 import { PlayerRealmStage, QuestObjectiveType } from '@mud/shared';
 
 type ResolveQuestTargetNameOptions = {
@@ -11,6 +14,7 @@ type ResolveQuestTargetNameOptions = {
   resolveTechniqueName?: (techniqueId: string) => string | undefined;
 };
 
+/** 判断字符串是否像内部内容 ID（纯 ASCII、含分隔符、无空格） */
 export function isLikelyInternalContentId(value?: string | null): boolean {
   if (!value) return false;
   const trimmed = value.trim();
@@ -18,6 +22,7 @@ export function isLikelyInternalContentId(value?: string | null): boolean {
   return /^[\x00-\x7F]+$/.test(trimmed) && /[._-]/.test(trimmed) && !/\s/.test(trimmed);
 }
 
+/** 将境界阶段枚举转为中文标签 */
 export function resolveRealmStageTargetLabel(stage?: PlayerRealmStage): string | undefined {
   switch (stage) {
     case PlayerRealmStage.Mortal:
@@ -39,6 +44,7 @@ export function resolveRealmStageTargetLabel(stage?: PlayerRealmStage): string |
   }
 }
 
+/** 解析任务目标的显示名称，优先使用人类可读名称 */
 export function resolveQuestTargetName({
   objectiveType,
   title,

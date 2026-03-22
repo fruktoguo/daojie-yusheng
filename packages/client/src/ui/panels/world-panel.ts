@@ -1,3 +1,8 @@
+/**
+ * 世界面板
+ * 展示当前地图情报、附近实体、任务建议与可执行行动
+ */
+
 import { ActionDef, manhattanDistance, MapMeta, PlayerState, QuestState, TechniqueRealm } from '@mud/shared';
 import { preserveSelection } from '../selection-preserver';
 
@@ -159,6 +164,7 @@ export class WorldPanel {
   private suggestionPane = document.getElementById('pane-suggestions')!;
   private lastRenderSignature: string | null = null;
 
+  /** 根据玩家、地图、实体、行动、任务数据刷新三个子面板 */
   update(input: {
     player: PlayerState;
     mapMeta: MapMeta | null;

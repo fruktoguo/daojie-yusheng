@@ -1,3 +1,8 @@
+/**
+ * 角色状态 HUD
+ * 显示名称、坐标、地图、境界、气血/灵力/修炼进度条及突破按钮
+ */
+
 import { PlayerState } from '@mud/shared';
 
 interface HUDMeta {
@@ -39,6 +44,7 @@ export class HUD {
     this.onBreakthrough = onBreakthrough;
   }
 
+  /** 根据玩家状态刷新所有 HUD 元素 */
   update(player: PlayerState, meta?: HUDMeta) {
     this.nameDiv.textContent = player.displayName ?? player.name;
     this.titleDiv.textContent = meta?.titleLabel ?? '无号散修';

@@ -1,3 +1,6 @@
+/**
+ * 掉落与拾取服务：地面物品堆、容器搜索、拾取窗口、物品过期
+ */
 import { Injectable } from '@nestjs/common';
 import {
   createItemStackSignature,
@@ -100,6 +103,7 @@ export class LootService {
     private readonly inventoryService: InventoryService,
   ) {}
 
+  /** 每 tick 处理掉落物过期、容器刷新、搜索进度 */
   tick(mapId: string, players: PlayerState[]): LootTickResult {
     const currentTick = (this.mapTicks.get(mapId) ?? 0) + 1;
     this.mapTicks.set(mapId, currentTick);
@@ -199,6 +203,7 @@ export class LootService {
     return { dirtyPlayers: [...dirtyPlayers] };
   }
 
+  /** 将物品掉落到地面 */
   dropToGround(mapId: string, x: number, y: number, item: ItemStack): string[] {
     const sourceId = this.buildGroundSourceId(mapId, x, y);
     const currentTick = this.getCurrentTick(mapId);
@@ -219,6 +224,7 @@ export class LootService {
     return this.getTileViewerIds(mapId, x, y);
   }
 
+  /** 将物品放入容器 */
   dropToContainer(mapId: string, containerId: string, item: ItemStack): string[] {
     const container = this.mapService.getContainerById(mapId, containerId);
     if (!container) {
@@ -233,6 +239,7 @@ export class LootService {
     return this.getTileViewerIds(mapId, container.x, container.y);
   }
 
+  /** 打开拾取窗口 */
   openLootWindow(player: PlayerState, x: number, y: number): LootActionResult {
     if (!this.isPlayerWithinLootRange(player, x, y)) {
       return { error: '拿取范围只有 1 格。', messages: [], dirtyPlayers: [] };
@@ -258,6 +265,7 @@ export class LootService {
     return { messages: [], dirtyPlayers: [player.id] };
   }
 
+  /** 从指定来源拾取物品 */
   takeFromSource(player: PlayerState, sourceId: string, itemKey: string): LootActionResult {
     const session = this.sessions.get(player.id);
     if (!session || session.mapId !== player.mapId) {
@@ -277,6 +285,7 @@ export class LootService {
     return { error: '未知的拿取来源。', messages: [], dirtyPlayers: [] };
   }
 
+  /** 构建当前拾取窗口的视图数据 */
   buildLootWindow(player: PlayerState): LootWindowState | null {
     const session = this.sessions.get(player.id);
     if (!session || session.mapId !== player.mapId) {
@@ -339,6 +348,7 @@ export class LootService {
     };
   }
 
+  /** 获取玩家视野内的地面物品堆视图 */
   getVisibleGroundPiles(viewer: PlayerState, visibleKeys: Set<string>): GroundItemPileView[] {
     const result: GroundItemPileView[] = [];
     for (const pile of this.groundPiles.values()) {
@@ -359,6 +369,7 @@ export class LootService {
     return result;
   }
 
+  /** 获取投影坐标系下的可见地面物品堆（用于跨地图视野） */
   getProjectedVisibleGroundPiles(
     sourceMapId: string,
     visibleKeys: Set<string>,

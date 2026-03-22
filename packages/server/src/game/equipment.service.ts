@@ -1,3 +1,6 @@
+/**
+ * 装备管理：穿戴、卸下、装备属性加成刷新
+ */
 import { Injectable } from '@nestjs/common';
 import {
   PlayerState,

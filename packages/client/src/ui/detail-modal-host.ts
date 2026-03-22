@@ -1,5 +1,11 @@
+/**
+ * 全局单实例详情弹层宿主
+ * 所有"点击展开详情"类交互共用此弹层，通过 ownerId 区分归属
+ */
+
 import { preserveSelection } from './selection-preserver';
 
+/** 弹层配置项 */
 type DetailModalOptions = {
   ownerId: string;
   variantClass?: string;
@@ -23,6 +29,7 @@ class DetailModalHost {
   private variantClass = '';
   private initialized = false;
 
+  /** 打开弹层，若已有其他 owner 的弹层则先关闭 */
   open(options: DetailModalOptions): void {
     this.ensureInitialized();
     if (this.ownerId && this.ownerId !== options.ownerId) {
@@ -44,11 +51,13 @@ class DetailModalHost {
     options.onAfterRender?.(this.body);
   }
 
+  /** 仅当 ownerId 匹配时关闭弹层 */
   close(ownerId: string): void {
     if (this.ownerId !== ownerId) return;
     this.dismiss(false);
   }
 
+  /** 判断当前弹层是否属于指定 owner 且处于打开状态 */
   isOpenFor(ownerId: string): boolean {
     return this.ownerId === ownerId && !this.modal.classList.contains('hidden');
   }

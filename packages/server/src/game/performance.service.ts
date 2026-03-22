@@ -1,3 +1,6 @@
+/**
+ * 性能监控服务：采集 CPU、内存、tick 耗时、网络流量统计
+ */
 import { Injectable } from '@nestjs/common';
 import { GmNetworkBucket, GmPerformanceSnapshot } from '@mud/shared';
 
@@ -17,14 +20,17 @@ export class PerformanceService {
   private readonly networkInBuckets = new Map<string, NetworkBucketCounter>();
   private readonly networkOutBuckets = new Map<string, NetworkBucketCounter>();
 
+  /** 记录单次 tick 耗时 */
   recordTick(elapsedMs: number) {
     this.lastTickMs = elapsedMs;
   }
 
+  /** 记录入站网络字节数 */
   recordNetworkInBytes(bytes: number, key = 'unknown', label = key): void {
     this.totalNetworkInBytes += this.recordNetworkBytes(this.networkInBuckets, bytes, key, label);
   }
 
+  /** 记录出站网络字节数 */
   recordNetworkOutBytes(bytes: number, key = 'unknown', label = key): void {
     this.totalNetworkOutBytes += this.recordNetworkBytes(this.networkOutBuckets, bytes, key, label);
   }
@@ -66,6 +72,7 @@ export class PerformanceService {
       });
   }
 
+  /** 生成当前性能快照（CPU、内存、tick 耗时、网络统计） */
   getSnapshot(): GmPerformanceSnapshot {
     const now = process.hrtime.bigint();
     const cpuUsage = process.cpuUsage(this.lastCpuUsage);

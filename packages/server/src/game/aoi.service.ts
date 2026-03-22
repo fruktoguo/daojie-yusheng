@@ -1,7 +1,11 @@
+/**
+ * AOI（Area of Interest）视野服务：基于 Shadowcasting 算法计算玩家可见区域
+ */
 import { Injectable } from '@nestjs/common';
 import { PlayerState, VIEW_RADIUS, VisibleTile } from '@mud/shared';
 import { MapService } from './map.service';
 
+/** 视野快照：可见坐标集合与对应地块数据 */
 export interface VisibilitySnapshot {
   visibleKeys: Set<string>;
   tiles: VisibleTile[][];
@@ -23,6 +27,7 @@ export class AoiService {
     return this.getVisibleKeys(player, rangeOverride).has(`${x},${y}`);
   }
 
+  /** 判断指定坐标是否在某位置的视野内（带缓存） */
   inViewAt(mapId: string, originX: number, originY: number, range: number, x: number, y: number, cacheId: string): boolean {
     return this.getVisibleKeysAt(mapId, originX, originY, range, cacheId).has(`${x},${y}`);
   }
@@ -38,6 +43,7 @@ export class AoiService {
     };
   }
 
+  /** 获取玩家视野快照（可见坐标集 + 地块数据） */
   getVisibility(player: PlayerState, rangeOverride?: number): VisibilitySnapshot {
     const range = rangeOverride ?? player.viewRange ?? VIEW_RADIUS;
     const visibleKeys = this.getVisibleKeys(player, range);
@@ -45,11 +51,13 @@ export class AoiService {
     return { visibleKeys, tiles };
   }
 
+  /** 获取玩家视野内所有可见坐标 key 集合 */
   getVisibleKeys(player: PlayerState, rangeOverride?: number): Set<string> {
     const range = rangeOverride ?? player.viewRange ?? VIEW_RADIUS;
     return this.getVisibleKeysAt(player.mapId, player.x, player.y, range, player.id);
   }
 
+  /** 计算指定位置的可见坐标集合（带缓存） */
   getVisibleKeysAt(mapId: string, originX: number, originY: number, range: number, cacheId: string): Set<string> {
     const cacheKey = this.buildCacheKey(mapId, originX, originY, range);
     const cached = this.visibilityCache.get(cacheId);
@@ -91,6 +99,7 @@ export class AoiService {
     ].join(':');
   }
 
+  /** Recursive Shadowcasting：递归计算单个八分区的可见格子 */
   private castLight(
     mapId: string,
     cx: number,

@@ -1,3 +1,6 @@
+/**
+ * 属性计算服务：六维属性合并、数值面板计算、境界缩放
+ */
 import { Injectable } from '@nestjs/common';
 import {
   ATTR_TO_PERCENT_NUMERIC_WEIGHTS,
@@ -146,6 +149,7 @@ export class AttrService {
     return result;
   }
 
+  /** 获取玩家最终六维属性（带缓存） */
   getPlayerFinalAttrs(player: PlayerState): Attributes {
     if (!player.finalAttrs) {
       player.finalAttrs = this.computeFinal(player.baseAttrs, player.bonuses);
@@ -153,6 +157,7 @@ export class AttrService {
     return player.finalAttrs;
   }
 
+  /** 获取玩家数值面板（带缓存） */
   getPlayerNumericStats(player: PlayerState): NumericStats {
     if (!player.numericStats) {
       this.recalcPlayer(player);
@@ -160,6 +165,7 @@ export class AttrService {
     return player.numericStats!;
   }
 
+  /** 获取玩家比率除数（用于命中/闪避/暴击等百分比换算） */
   getPlayerRatioDivisors(player: PlayerState): NumericRatioDivisors {
     if (!player.ratioDivisors) {
       this.recalcPlayer(player);
@@ -214,6 +220,7 @@ export class AttrService {
     player.viewRange = Math.max(1, Math.round(stats.viewRange || VIEW_RADIUS));
   }
 
+  /** 收集生效的加成列表（含临时 Buff） */
   private getEffectiveBonuses(player: PlayerState): AttrBonus[] {
     const temporaryBonuses = (player.temporaryBuffs ?? [])
       .filter((buff) => buff.remainingTicks > 0 && buff.stacks > 0)
@@ -224,6 +231,7 @@ export class AttrService {
     return [...player.bonuses, ...temporaryBonuses];
   }
 
+  /** 将临时 Buff 转换为 AttrBonus（按层数缩放） */
   private buildTemporaryBuffBonus(buff: TemporaryBuffState): AttrBonus {
     return {
       source: `temp-buff:${buff.buffId}`,
@@ -238,6 +246,7 @@ export class AttrService {
     };
   }
 
+  /** 获取当前境界阶段对应的比率除数 */
   private getRatioDivisorsForStage(stage: PlayerRealmStage, previous?: NumericRatioDivisors): NumericRatioDivisors {
     const template = PLAYER_REALM_NUMERIC_TEMPLATES[stage] ?? PLAYER_REALM_NUMERIC_TEMPLATES[DEFAULT_PLAYER_REALM_STAGE];
     const snapshot = cloneNumericRatioDivisors(template.ratioDivisors);
@@ -258,6 +267,7 @@ export class AttrService {
     return previous;
   }
 
+  /** 从六维属性和加成计算完整数值面板 */
   private computeNumericStats(
     finalAttrs: Attributes,
     bonuses: AttrBonus[],
@@ -338,6 +348,7 @@ export class AttrService {
     return Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
   }
 
+  /** 按境界等级对数值面板进行指数/线性缩放 */
   private applyRealmNumericScaling(target: NumericStats, realmLv: number): void {
     const exponentialMultiplier = getRealmAttributeMultiplier(realmLv);
     if (exponentialMultiplier !== 1) {

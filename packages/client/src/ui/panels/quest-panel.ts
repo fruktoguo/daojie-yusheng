@@ -1,3 +1,5 @@
+/** 任务面板：按任务线分类展示，并支持全局单实例详情弹层 */
+
 import { PlayerState, QuestState } from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
 import { preserveSelection } from '../selection-preserver';
@@ -55,6 +57,7 @@ export class QuestPanel {
     this.renderModal();
   }
 
+  /** 更新任务列表并刷新列表与弹层 */
   update(quests: QuestState[]): void {
     this.lastQuests = quests;
     this.renderList();

@@ -1,3 +1,8 @@
+/**
+ * 背包面板
+ * 展示物品网格列表，支持分类筛选、使用/装备/丢弃操作与物品详情弹层
+ */
+
 import { Inventory, ItemStack, ItemType, PlayerState, createItemStackSignature } from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
 import { FloatingTooltip } from '../floating-tooltip';
@@ -117,6 +122,7 @@ export class InventoryPanel {
     this.onSortInventory = onSort;
   }
 
+  /** 更新背包数据并刷新列表与弹层 */
   update(inventory: Inventory): void {
     this.lastInventory = inventory;
     this.render(inventory);

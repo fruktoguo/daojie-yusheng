@@ -1,3 +1,7 @@
+/**
+ * 文字渲染器 —— 基于 Canvas 2D 的地图、实体、特效绘制，实现 IRenderer 接口
+ */
+
 import { IRenderer, SenseQiOverlayState, TargetingOverlayState } from './types';
 import { GameTimeState, NpcQuestMarker, Tile, TileType, VisibleBuffState } from '@mud/shared';
 import { Camera } from './camera';
@@ -124,6 +128,7 @@ interface FloatingTextBurstOffset {
   offsetY: number;
 }
 
+/** 文字渲染器，用汉字字符绘制地图地块、实体角色和战斗特效 */
 export class TextRenderer implements IRenderer {
   private ctx: CanvasRenderingContext2D | null = null;
   private entities: Map<string, AnimEntity> = new Map();
@@ -156,6 +161,7 @@ export class TextRenderer implements IRenderer {
     this.attackTrails = [];
   }
 
+  /** 设置寻路路径高亮格子列表 */
   setPathHighlight(cells: { x: number; y: number }[]) {
     this.pathCells = cells;
     this.pathKeys = new Set(cells.map((cell) => `${cell.x},${cell.y}`));
@@ -172,6 +178,7 @@ export class TextRenderer implements IRenderer {
     this.senseQiOverlay = state;
   }
 
+  /** 绘制地图地块、路径高亮、瞄准叠加层和感气视角 */
   renderWorld(
     camera: Camera,
     tileCache: Map<string, Tile>,
@@ -296,6 +303,7 @@ export class TextRenderer implements IRenderer {
     this.renderTimeOverlay(time);
   }
 
+  /** 更新实体列表，记录旧位置用于插值动画 */
   updateEntities(
     list: { id: string; wx: number; wy: number; char: string; color: string; name?: string; kind?: string; hp?: number; maxHp?: number; npcQuestMarker?: NpcQuestMarker; buffs?: VisibleBuffState[] }[],
     movedId?: string,
@@ -349,6 +357,7 @@ export class TextRenderer implements IRenderer {
     }
   }
 
+  /** 绘制所有实体（角色/怪物/NPC），含位置插值动画 */
   renderEntities(camera: Camera, progress = 1) {
     if (!this.ctx) return;
     const ctx = this.ctx;
@@ -582,6 +591,7 @@ export class TextRenderer implements IRenderer {
     }
   }
 
+  /** 添加浮动文字特效（伤害数字或动作提示） */
   addFloatingText(x: number, y: number, text: string, color = '#ffd27a', variant: 'damage' | 'action' = 'damage') {
     this.floatingTexts.push({
       id: this.nextFloatingTextId++,
@@ -595,6 +605,7 @@ export class TextRenderer implements IRenderer {
     });
   }
 
+  /** 添加攻击拖尾特效（从攻击者到目标的箭头线段） */
   addAttackTrail(fromX: number, fromY: number, toX: number, toY: number, color = '#ffd27a') {
     this.attackTrails.push({
       id: this.nextAttackTrailId++,
@@ -608,6 +619,7 @@ export class TextRenderer implements IRenderer {
     });
   }
 
+  /** 绘制所有浮动文字，自动清理过期条目 */
   renderFloatingTexts(camera: Camera) {
     if (!this.ctx || this.floatingTexts.length === 0) return;
     const ctx = this.ctx;
@@ -683,6 +695,7 @@ export class TextRenderer implements IRenderer {
     }
   }
 
+  /** 绘制所有攻击拖尾，自动清理过期条目 */
   renderAttackTrails(camera: Camera) {
     if (!this.ctx || this.attackTrails.length === 0) return;
     const ctx = this.ctx;

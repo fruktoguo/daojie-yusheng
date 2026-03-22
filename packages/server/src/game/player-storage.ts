@@ -1,3 +1,8 @@
+/**
+ * 玩家存档序列化/反序列化 —— 负责将内存中的玩家集合数据（背包、装备、
+ * 功法、Buff、任务）与持久化快照格式互相转换。
+ * 已知物品/技能走精简快照（仅存 ID），未知的则保留完整字段以防丢失。
+ */
 import {
   DEFAULT_INVENTORY_CAPACITY,
   EQUIP_SLOTS,
@@ -68,6 +73,7 @@ export interface PersistedInventorySnapshot {
 
 export type PersistedEquipmentSnapshot = Record<EquipSlot, PersistedEquipmentEntry | null>;
 
+/** 持久化后的玩家集合数据（背包、装备、功法、Buff、任务） */
 export interface PersistedPlayerCollections {
   inventory: PersistedInventorySnapshot;
   equipment: PersistedEquipmentSnapshot;
@@ -475,6 +481,7 @@ function dehydrateQuest(quest: QuestState, mapService: MapService): PersistedQue
   };
 }
 
+/** 从持久化快照还原背包数据，补全物品定义 */
 export function hydrateInventorySnapshot(snapshot: unknown, contentService: ContentService): Inventory {
   const source = isPlainObject(snapshot) ? snapshot : {};
   const items = Array.isArray(source.items)
@@ -489,6 +496,7 @@ export function hydrateInventorySnapshot(snapshot: unknown, contentService: Cont
   });
 }
 
+/** 从持久化快照还原装备数据，补全物品定义 */
 export function hydrateEquipmentSnapshot(snapshot: unknown, contentService: ContentService): EquipmentSlots {
   const source = isPlainObject(snapshot) ? snapshot : {};
   const equipment = { weapon: null, head: null, body: null, legs: null, accessory: null } as EquipmentSlots;
@@ -501,6 +509,7 @@ export function hydrateEquipmentSnapshot(snapshot: unknown, contentService: Cont
   return contentService.normalizeEquipment(equipment);
 }
 
+/** 从持久化快照还原功法列表 */
 export function hydrateTechniqueSnapshots(snapshot: unknown): TechniqueState[] {
   if (!Array.isArray(snapshot)) {
     return [];
@@ -511,6 +520,7 @@ export function hydrateTechniqueSnapshots(snapshot: unknown): TechniqueState[] {
     .filter((entry): entry is TechniqueState => entry !== null);
 }
 
+/** 从持久化快照还原临时 Buff 列表，根据技能定义补全完整字段 */
 export function hydrateTemporaryBuffSnapshots(snapshot: unknown, contentService: ContentService): TemporaryBuffState[] {
   if (!Array.isArray(snapshot)) {
     return [];
@@ -521,6 +531,7 @@ export function hydrateTemporaryBuffSnapshots(snapshot: unknown, contentService:
     .filter((entry): entry is TemporaryBuffState => entry !== null);
 }
 
+/** 从持久化快照还原任务列表，根据任务配置补全完整字段 */
 export function hydrateQuestSnapshots(snapshot: unknown, mapService: MapService, contentService: ContentService): QuestState[] {
   if (!Array.isArray(snapshot)) {
     return [];
@@ -531,6 +542,7 @@ export function hydrateQuestSnapshots(snapshot: unknown, mapService: MapService,
     .filter((entry): entry is QuestState => entry !== null);
 }
 
+/** 将玩家内存状态转换为持久化快照（已知内容走精简格式，未知保留完整字段） */
 export function buildPersistedPlayerCollections(player: PlayerStorageState, contentService: ContentService, mapService: MapService): PersistedPlayerCollections {
   const equipment = { weapon: null, head: null, body: null, legs: null, accessory: null } as PersistedEquipmentSnapshot;
 

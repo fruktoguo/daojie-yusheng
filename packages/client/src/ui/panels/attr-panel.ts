@@ -1,3 +1,8 @@
+/**
+ * 属性面板
+ * 以雷达图和数值卡片展示六维、灵根、斗法、灵力、特殊五大分类属性
+ */
+
 import {
   ATTR_TO_PERCENT_NUMERIC_WEIGHTS,
   ATTR_TO_NUMERIC_WEIGHTS,
@@ -263,6 +268,7 @@ export class AttrPanel {
     this.pane.innerHTML = '<div class="empty-hint">尚未观测到角色属性</div>';
   }
 
+  /** 接收属性更新事件并重新渲染 */
   update(data: S2C_AttrUpdate): void {
     if (!data.baseAttrs || !data.bonuses || !data.finalAttrs) {
       this.clear();

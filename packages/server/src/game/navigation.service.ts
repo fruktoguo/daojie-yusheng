@@ -1,3 +1,6 @@
+/**
+ * 寻路与移动服务：A* 寻路、路径跟随、方向移动、移动点数管理
+ */
 import { Injectable } from '@nestjs/common';
 import {
   CARDINAL_DIRECTION_STEPS,
@@ -38,6 +41,7 @@ interface HeapNode {
   score: number;
 }
 
+/** 单步寻路结果 */
 export interface NavigationStepResult {
   moved: boolean;
   reached: boolean;
@@ -115,6 +119,7 @@ export class NavigationService {
     private readonly attrService: AttrService,
   ) {}
 
+  /** 清除寻路目标和关联的移动点数 */
   clearMoveTarget(playerId: string) {
     this.moveTargets.delete(playerId);
     const charge = this.moveCharges.get(playerId);
@@ -127,12 +132,14 @@ export class NavigationService {
     return this.moveTargets.has(playerId);
   }
 
+  /** 获取当前寻路路径的坐标序列 */
   getPathPoints(playerId: string): Array<[number, number]> {
     const state = this.moveTargets.get(playerId);
     if (!state) return [];
     return state.path.map((step) => [step.x, step.y]);
   }
 
+  /** 设置玩家寻路目标，自动计算路径 */
   setMoveTarget(player: PlayerState, x: number, y: number, options?: SetMoveTargetOptions): string | null {
     let targetX = x;
     let targetY = y;
@@ -185,6 +192,7 @@ export class NavigationService {
     return null;
   }
 
+  /** 每 tick 沿路径推进玩家位置 */
   stepPlayerTowardTarget(player: PlayerState): NavigationStepResult {
     const state = this.moveTargets.get(player.id);
     if (!state) {
@@ -243,6 +251,7 @@ export class NavigationService {
     return { moved: false, reached: false, blocked: attempt.blocked };
   }
 
+  /** 按方向键移动玩家（消耗移动点数，可连续移动多格） */
   stepPlayerByDirection(player: PlayerState, direction: Direction): boolean {
     const [dx, dy] = directionToDelta(direction);
     player.facing = direction;
@@ -357,6 +366,7 @@ export class NavigationService {
     return traversalCost;
   }
 
+  /** A* 寻路，返回路径步骤数组或 null（不可达） */
   private findPath(
     mapId: string,
     startX: number,

@@ -1,3 +1,6 @@
+/**
+ * GM 接口鉴权守卫：校验 Bearer Token 是否为合法 GM 令牌
+ */
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from '../auth/auth.service';
 

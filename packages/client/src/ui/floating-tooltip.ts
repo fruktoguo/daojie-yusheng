@@ -1,3 +1,8 @@
+/**
+ * 通用浮动提示框
+ * 跟随鼠标显示标题、多行文本及可选的侧栏卡片
+ */
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -27,6 +32,7 @@ export class FloatingTooltip {
     document.body.appendChild(this.el);
   }
 
+  /** 显示提示框并定位到鼠标附近 */
   show(title: string, lines: string[], clientX: number, clientY: number, options?: FloatingTooltipShowOptions): void {
     const content = lines
       .map((line) => line.trim())
@@ -54,6 +60,7 @@ export class FloatingTooltip {
     this.move(clientX, clientY);
   }
 
+  /** 跟随鼠标移动重新定位，自动避免溢出视口 */
   move(clientX: number, clientY: number): void {
     this.lastPoint = { x: clientX, y: clientY };
     const padding = 12;
@@ -73,6 +80,7 @@ export class FloatingTooltip {
     this.el.classList.remove('visible');
   }
 
+  /** 使用上次记录的坐标重新定位（窗口 resize 后调用） */
   refresh(): void {
     if (!this.el.classList.contains('visible')) return;
     this.move(this.lastPoint.x, this.lastPoint.y);

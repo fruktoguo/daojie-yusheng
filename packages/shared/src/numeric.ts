@@ -1,11 +1,18 @@
+/**
+ * 数值属性系统：战斗数值结构定义、五行元素属性组、RatioValue 计算、灵力消耗公式。
+ */
 import type { Attributes } from './types';
 import { PlayerRealmStage } from './types';
 
+/** 五行元素键列表 */
 export const ELEMENT_KEYS = ['metal', 'wood', 'water', 'fire', 'earth'] as const;
+/** 五行元素键类型 */
 export type ElementKey = typeof ELEMENT_KEYS[number];
 
+/** 数值属性的值类型分类 */
 export type NumericValueType = 'flat' | 'ratio_value' | 'rate_bp' | 'throughput';
 
+/** 五行元素属性组 */
 export interface ElementStatGroup {
   metal: number;
   wood: number;
@@ -14,8 +21,10 @@ export interface ElementStatGroup {
   earth: number;
 }
 
+/** 五行元素部分属性组 */
 export type PartialElementStatGroup = Partial<Record<ElementKey, number>>;
 
+/** 所有标量数值属性键列表 */
 export const NUMERIC_SCALAR_STAT_KEYS = [
   'maxHp',
   'maxQi',
@@ -45,8 +54,10 @@ export const NUMERIC_SCALAR_STAT_KEYS = [
   'moveSpeed',
 ] as const;
 
+/** 标量数值属性键类型 */
 export type NumericScalarStatKey = typeof NUMERIC_SCALAR_STAT_KEYS[number];
 
+/** 完整数值属性集（含五行元素加成/减免） */
 export interface NumericStats {
   maxHp: number;
   maxQi: number;
@@ -78,11 +89,13 @@ export interface NumericStats {
   elementDamageReduce: ElementStatGroup;
 }
 
+/** 部分数值属性（用于增量叠加） */
 export interface PartialNumericStats extends Partial<Omit<NumericStats, 'elementDamageBonus' | 'elementDamageReduce'>> {
   elementDamageBonus?: PartialElementStatGroup;
   elementDamageReduce?: PartialElementStatGroup;
 }
 
+/** 数值修改器（来源标识 + 属性/数值增量） */
 export interface NumericModifier {
   source: string;
   baseAttrs?: Partial<Attributes>;
@@ -91,6 +104,7 @@ export interface NumericModifier {
   meta?: Record<string, unknown>;
 }
 
+/** RatioValue 除数配置（控制闪避/暴击等属性的收益递减曲线） */
 export interface NumericRatioDivisors {
   dodge: number;
   crit: number;
@@ -101,12 +115,14 @@ export interface NumericRatioDivisors {
   elementDamageReduce: ElementStatGroup;
 }
 
+/** 境界数值模板（基础属性 + RatioValue 除数） */
 export interface RealmNumericTemplate {
   stage: PlayerRealmStage;
   stats: NumericStats;
   ratioDivisors: NumericRatioDivisors;
 }
 
+/** 各标量属性的值类型分类映射 */
 export const NUMERIC_SCALAR_STAT_VALUE_TYPES: Record<NumericScalarStatKey, NumericValueType> = {
   maxHp: 'flat',
   maxQi: 'flat',
@@ -136,8 +152,10 @@ export const NUMERIC_SCALAR_STAT_VALUE_TYPES: Record<NumericScalarStatKey, Numer
   moveSpeed: 'flat',
 };
 
+/** 默认 RatioValue 除数 */
 export const DEFAULT_RATIO_DIVISOR = 100;
 
+/** 创建全零五行元素属性组 */
 export function createElementStatGroup(initialValue = 0): ElementStatGroup {
   return {
     metal: initialValue,
@@ -148,6 +166,7 @@ export function createElementStatGroup(initialValue = 0): ElementStatGroup {
   };
 }
 
+/** 深拷贝五行元素属性组 */
 export function cloneElementStatGroup(source: ElementStatGroup): ElementStatGroup {
   return {
     metal: source.metal,
@@ -158,6 +177,7 @@ export function cloneElementStatGroup(source: ElementStatGroup): ElementStatGrou
   };
 }
 
+/** 重置五行元素属性组为指定值 */
 export function resetElementStatGroup(target: ElementStatGroup, value = 0): ElementStatGroup {
   target.metal = value;
   target.wood = value;
@@ -167,6 +187,7 @@ export function resetElementStatGroup(target: ElementStatGroup, value = 0): Elem
   return target;
 }
 
+/** 将部分五行属性叠加到目标上 */
 export function addPartialElementStatGroup(target: ElementStatGroup, patch?: PartialElementStatGroup): ElementStatGroup {
   if (!patch) return target;
   if (patch.metal !== undefined) target.metal += patch.metal;
@@ -177,6 +198,7 @@ export function addPartialElementStatGroup(target: ElementStatGroup, patch?: Par
   return target;
 }
 
+/** 创建全零数值属性集 */
 export function createNumericStats(): NumericStats {
   return {
     maxHp: 0,
@@ -210,6 +232,7 @@ export function createNumericStats(): NumericStats {
   };
 }
 
+/** 深拷贝数值属性集 */
 export function cloneNumericStats(source: NumericStats): NumericStats {
   return {
     maxHp: source.maxHp,
@@ -243,6 +266,7 @@ export function cloneNumericStats(source: NumericStats): NumericStats {
   };
 }
 
+/** 重置数值属性集为全零 */
 export function resetNumericStats(target: NumericStats): NumericStats {
   target.maxHp = 0;
   target.maxQi = 0;
@@ -275,6 +299,7 @@ export function resetNumericStats(target: NumericStats): NumericStats {
   return target;
 }
 
+/** 将部分数值属性叠加到目标上 */
 export function addPartialNumericStats(target: NumericStats, patch?: PartialNumericStats): NumericStats {
   if (!patch) return target;
   if (patch.maxHp !== undefined) target.maxHp += patch.maxHp;
@@ -308,6 +333,7 @@ export function addPartialNumericStats(target: NumericStats, patch?: PartialNume
   return target;
 }
 
+/** 合并基础数值与多个增量补丁 */
 export function mergeNumericStats(base: NumericStats, patches: readonly PartialNumericStats[]): NumericStats {
   const result = cloneNumericStats(base);
   for (const patch of patches) {
@@ -316,6 +342,7 @@ export function mergeNumericStats(base: NumericStats, patches: readonly PartialN
   return result;
 }
 
+/** 创建 RatioValue 除数配置 */
 export function createNumericRatioDivisors(initialValue = DEFAULT_RATIO_DIVISOR): NumericRatioDivisors {
   return {
     dodge: initialValue,
@@ -328,6 +355,7 @@ export function createNumericRatioDivisors(initialValue = DEFAULT_RATIO_DIVISOR)
   };
 }
 
+/** 深拷贝 RatioValue 除数配置 */
 export function cloneNumericRatioDivisors(source: NumericRatioDivisors): NumericRatioDivisors {
   return {
     dodge: source.dodge,
@@ -340,20 +368,24 @@ export function cloneNumericRatioDivisors(source: NumericRatioDivisors): Numeric
   };
 }
 
+/** RatioValue 计算：value / (value + divisor)，实现收益递减 */
 export function ratioValue(value: number, divisor: number): number {
   if (value === 0) return 0;
   if (divisor <= 0) return value > 0 ? 1 : -1;
   return value > 0 ? value / (value + divisor) : -value / divisor;
 }
 
+/** 获取指定标量属性的 RatioValue 百分比 */
 export function getScalarRatioValue(stats: NumericStats, divisors: NumericRatioDivisors, key: keyof Omit<NumericRatioDivisors, 'elementDamageReduce'>): number {
   return ratioValue(stats[key], divisors[key]);
 }
 
+/** 获取指定元素的伤害减免百分比 */
 export function getElementDamageReduceRatio(stats: NumericStats, divisors: NumericRatioDivisors, element: ElementKey): number {
   return ratioValue(stats.elementDamageReduce[element], divisors.elementDamageReduce[element]);
 }
 
+/** 计算灵力消耗（超出每 tick 输出上限时递增惩罚） */
 export function calcQiCostWithOutputLimit(plannedCost: number, maxQiOutputPerTick: number): number {
   if (plannedCost <= 0) return 0;
   if (maxQiOutputPerTick <= 0) return Number.POSITIVE_INFINITY;

@@ -1,3 +1,6 @@
+/**
+ * 功法与境界系统：修炼推进、功法升级、突破判定、技能解锁
+ */
 import { Injectable } from '@nestjs/common';
 import {
   ActionDef,
@@ -85,6 +88,7 @@ export class TechniqueService {
     private readonly mapService: MapService,
   ) {}
 
+  /** 初始化玩家境界与功法进度（加载时、持久化前调用） */
   initializePlayerProgression(player: PlayerState): void {
     const previousHp = player.hp;
     const previousMaxHp = player.maxHp;
@@ -110,6 +114,7 @@ export class TechniqueService {
     this.initializePlayerProgression(player);
   }
 
+  /** 学习新功法 */
   learnTechnique(
     player: PlayerState,
     techId: string,
@@ -140,6 +145,7 @@ export class TechniqueService {
     return null;
   }
 
+  /** 每 tick 修炼推进：增加境界经验和功法经验 */
   cultivateTick(player: PlayerState): CultivationResult {
     this.initializePlayerProgression(player);
     const technique = this.resolveCultivatingTechnique(player);
@@ -191,6 +197,7 @@ export class TechniqueService {
     return Boolean(this.getCultivationBuff(player));
   }
 
+  /** 开始修炼（添加修炼 Buff） */
   startCultivation(player: PlayerState): CultivationResult {
     this.initializePlayerProgression(player);
     const technique = this.resolveCultivatingTechnique(player);
@@ -225,6 +232,7 @@ export class TechniqueService {
     };
   }
 
+  /** 停止修炼（移除修炼 Buff） */
   stopCultivation(player: PlayerState, reason = '你收束气机，停止了修炼。', kind: TechniqueMessageKind = 'quest'): CultivationResult {
     const removed = this.removeCultivationBuff(player);
     if (!removed) {
@@ -237,6 +245,7 @@ export class TechniqueService {
     };
   }
 
+  /** 因移动/攻击/受击打断修炼 */
   interruptCultivation(player: PlayerState, reason: 'move' | 'attack' | 'hit'): CultivationResult {
     switch (reason) {
       case 'move':
@@ -250,6 +259,7 @@ export class TechniqueService {
     }
   }
 
+  /** 击杀怪物后发放境界和功法经验 */
   grantCombatExpFromMonsterKill(player: PlayerState, input: MonsterKillExpInput = {}): CultivationResult {
     this.initializePlayerProgression(player);
     const numericStats = this.attrService.getPlayerNumericStats(player);
@@ -306,6 +316,7 @@ export class TechniqueService {
     };
   }
 
+  /** 收集玩家已解锁的技能行动列表 */
   getSkillActions(player: PlayerState): ActionDef[] {
     this.initializePlayerProgression(player);
     const playerRealmStage = player.realm?.stage ?? DEFAULT_PLAYER_REALM_STAGE;
@@ -333,6 +344,7 @@ export class TechniqueService {
     return actions;
   }
 
+  /** 获取突破行动（境界圆满时可用） */
   getBreakthroughAction(player: PlayerState): ActionDef | null {
     this.initializePlayerProgression(player);
     const realm = player.realm;
@@ -346,6 +358,7 @@ export class TechniqueService {
     };
   }
 
+  /** 尝试突破到下一境界 */
   attemptBreakthrough(player: PlayerState): BreakthroughResult {
     this.initializePlayerProgression(player);
     const realm = player.realm;
@@ -725,6 +738,7 @@ export class TechniqueService {
     this.applyRealmStateMirror(player, nextRealm);
   }
 
+  /** 揭示隐藏的突破条件 */
   revealBreakthroughRequirements(player: PlayerState, requirementIds: readonly string[]): boolean {
     if (requirementIds.length === 0) return false;
     const known = new Set(player.revealedBreakthroughRequirementIds ?? []);

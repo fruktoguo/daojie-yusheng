@@ -1,3 +1,8 @@
+/**
+ * 聊天面板 UI
+ * 管理多频道消息展示、频道切换与消息发送
+ */
+
 export class ChatUI {
   private panel = document.getElementById('chat-panel')!;
   private input = document.getElementById('chat-input') as HTMLInputElement;
@@ -48,6 +53,7 @@ export class ChatUI {
     this.input.value = '';
   }
 
+  /** 向指定频道追加一条消息，自动限制最大行数 */
   addMessage(text: string, from?: string, kind: 'system' | 'chat' | 'quest' | 'combat' | 'loot' = 'system'): void {
     const line = document.createElement('div');
     line.className = `chat-line chat-kind-${kind}`;

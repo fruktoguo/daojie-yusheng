@@ -1,3 +1,6 @@
+/**
+ * CLI 工具：输出所有类别（装备/功法/技能/Buff）的价值报表
+ */
 import {
   buildBuffRows,
   buildEquipmentRows,

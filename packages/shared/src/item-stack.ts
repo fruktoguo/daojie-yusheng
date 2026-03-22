@@ -1,3 +1,6 @@
+/**
+ * 物品堆叠判定工具：通过签名比较判断两个 ItemStack 能否合并。
+ */
 import { ItemStack } from './types';
 
 type ComparableValue =
@@ -42,6 +45,7 @@ export function createItemStackSignature(item: ItemStack): string {
   return JSON.stringify(Object.fromEntries(comparableEntries));
 }
 
+/** 判断两个物品堆叠是否可合并（签名一致即可叠加） */
 export function canStackItemStacks(left: ItemStack, right: ItemStack): boolean {
   return createItemStackSignature(left) === createItemStackSignature(right);
 }

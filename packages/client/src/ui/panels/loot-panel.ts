@@ -1,3 +1,8 @@
+/**
+ * 拾取面板
+ * 以弹层形式展示地面物品和容器搜索结果，支持逐件拿取
+ */
+
 import { LootWindowState } from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
 
@@ -24,6 +29,7 @@ export class LootPanel {
     detailModalHost.close(LootPanel.MODAL_OWNER);
   }
 
+  /** 更新拾取窗口状态，null 时关闭弹层 */
   update(windowState: LootWindowState | null): void {
     this.windowState = windowState;
     if (!windowState) {

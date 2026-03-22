@@ -1,3 +1,6 @@
+/**
+ * 认证模块 —— 注册 JWT 签发、用户认证相关服务与控制器
+ */
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -5,6 +8,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { UserEntity } from '../database/entities/user.entity';
 
+/** 认证模块，导出 AuthService 供其他模块使用 */
 @Module({
   imports: [
     TypeOrmModule.forFeature([UserEntity]),

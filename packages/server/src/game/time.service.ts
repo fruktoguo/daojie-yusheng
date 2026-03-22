@@ -1,3 +1,6 @@
+/**
+ * 游戏时间服务：昼夜循环、光照计算、黑暗 Buff 同步
+ */
 import { Injectable } from '@nestjs/common';
 import {
   DARKNESS_STACK_TO_VISION_MULTIPLIER,
@@ -26,10 +29,12 @@ export class TimeService {
 
   constructor(private readonly mapService: MapService) {}
 
+  /** 获取自世界纪元以来的总 tick 数 */
   getTotalTicks(now = Date.now()): number {
     return Math.max(0, Math.floor((now - this.worldEpochMs) / 1000));
   }
 
+  /** 构建玩家当前时间状态（含光照、黑暗层数、有效视野） */
   buildPlayerTimeState(player: PlayerState, now = Date.now()): GameTimeState {
     return this.buildTimeState(player.mapId, Math.max(1, player.viewRange), now);
   }
@@ -38,6 +43,7 @@ export class TimeService {
     return this.buildTimeState(monster.mapId, Math.max(1, monster.viewRange), now);
   }
 
+  /** 同步玩家的黑暗 Buff 并返回时间状态和是否有变化 */
   syncPlayerTimeEffects(player: PlayerState, now = Date.now()): { state: GameTimeState; changed: boolean } {
     const previousRange = this.getEffectiveViewRangeFromBuff(player.viewRange, player.temporaryBuffs);
     const previousStacks = this.getDarknessStacks(player.temporaryBuffs);
@@ -57,11 +63,13 @@ export class TimeService {
     return state;
   }
 
+  /** 根据黑暗 Buff 层数计算实际有效视野 */
   getEffectiveViewRangeFromBuff(baseViewRange: number, buffs?: TemporaryBuffState[]): number {
     const stacks = this.getDarknessStacks(buffs);
     return this.applyVisionMultiplier(baseViewRange, stacks);
   }
 
+  /** 判断当前黑暗层数是否达到夜间仇恨触发阈值 */
   isNightAggroWindow(state: GameTimeState): boolean {
     return state.darknessStacks >= 2;
   }

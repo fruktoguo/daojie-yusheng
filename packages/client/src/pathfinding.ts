@@ -1,3 +1,7 @@
+/**
+ * 客户端 A* 寻路 —— 基于地块通行代价的最短路径搜索
+ */
+
 import { CARDINAL_DIRECTION_STEPS, deltaToDirection, Direction, getTileTraversalCost, manhattanDistance, Tile } from '@mud/shared';
 
 interface HeapNode {
@@ -5,6 +9,7 @@ interface HeapNode {
   score: number;
 }
 
+/** 用于 A* 的最小堆，按 score 排序 */
 class MinHeap {
   private items: HeapNode[] = [];
 

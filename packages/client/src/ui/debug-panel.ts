@@ -1,3 +1,4 @@
+/** 调试面板：提供重置出生点等开发调试操作 */
 export class DebugPanel {
   private panel = document.getElementById('debug-panel')!;
   private resetBtn = document.getElementById('debug-reset-spawn') as HTMLButtonElement;

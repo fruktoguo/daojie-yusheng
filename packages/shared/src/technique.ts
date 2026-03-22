@@ -1,3 +1,6 @@
+/**
+ * 功法系统计算：层级经验、境界推导、属性成长曲线、品阶软衰减。
+ */
 import type {
   AttrKey,
   Attributes,
@@ -11,6 +14,7 @@ import type {
 } from './types';
 import { TechniqueRealm as TechniqueRealmEnum } from './types';
 
+/** 六维属性键列表 */
 export const TECHNIQUE_ATTR_KEYS: AttrKey[] = [
   'constitution',
   'spirit',
@@ -20,6 +24,7 @@ export const TECHNIQUE_ATTR_KEYS: AttrKey[] = [
   'luck',
 ];
 
+/** 功法品阶从低到高排序 */
 export const TECHNIQUE_GRADE_ORDER: TechniqueGrade[] = [
   'mortal',
   'yellow',
@@ -31,6 +36,7 @@ export const TECHNIQUE_GRADE_ORDER: TechniqueGrade[] = [
   'emperor',
 ];
 
+/** 品阶中文标签 */
 export const TECHNIQUE_GRADE_LABELS: Record<TechniqueGrade, string> = {
   mortal: '凡阶',
   yellow: '黄阶',
@@ -42,6 +48,7 @@ export const TECHNIQUE_GRADE_LABELS: Record<TechniqueGrade, string> = {
   emperor: '帝阶',
 };
 
+/** 各品阶属性无衰减上限（超出后进入软衰减区间） */
 export const TECHNIQUE_GRADE_ATTR_FREE_LIMITS: Record<TechniqueGrade, Attributes> = {
   mortal: { constitution: 44, spirit: 44, perception: 44, talent: 44, comprehension: 44, luck: 44 },
   yellow: { constitution: 64, spirit: 64, perception: 64, talent: 64, comprehension: 64, luck: 64 },
@@ -53,8 +60,10 @@ export const TECHNIQUE_GRADE_ATTR_FREE_LIMITS: Record<TechniqueGrade, Attributes
   emperor: { constitution: 3520, spirit: 3520, perception: 3520, talent: 3520, comprehension: 3520, luck: 3520 },
 };
 
+/** 软衰减对数曲线的缩放系数 */
 export const TECHNIQUE_GRADE_ATTR_DECAY_K = 0.8;
 
+/** 各品阶属性软衰减跨度（控制衰减速率） */
 export const TECHNIQUE_GRADE_ATTR_DECAY_SPANS: Record<TechniqueGrade, Attributes> = {
   mortal: { constitution: 35.2, spirit: 35.2, perception: 35.2, talent: 35.2, comprehension: 35.2, luck: 35.2 },
   yellow: { constitution: 51.2, spirit: 51.2, perception: 51.2, talent: 51.2, comprehension: 51.2, luck: 51.2 },
@@ -66,6 +75,7 @@ export const TECHNIQUE_GRADE_ATTR_DECAY_SPANS: Record<TechniqueGrade, Attributes
   emperor: { constitution: 2816, spirit: 2816, perception: 2816, talent: 2816, comprehension: 2816, luck: 2816 },
 };
 
+/** 创建全零六维属性对象 */
 export function createZeroAttributes(): Attributes {
   return {
     constitution: 0,
@@ -110,6 +120,7 @@ function calcTechniqueCurveNextGain(level: number, segments?: TechniqueAttrCurve
   return 0;
 }
 
+/** 获取功法最大层数 */
 export function getTechniqueMaxLevel(layers?: TechniqueLayerDef[], currentLevel = 1, legacyCurves?: TechniqueAttrCurves): number {
   const normalized = normalizeLayers(layers);
   if (normalized.length > 0) {
@@ -121,14 +132,17 @@ export function getTechniqueMaxLevel(layers?: TechniqueLayerDef[], currentLevel 
   return Math.max(1, currentLevel);
 }
 
+/** 获取指定层的配置定义 */
 export function getTechniqueLayerDef(level: number, layers?: TechniqueLayerDef[]): TechniqueLayerDef | undefined {
   return normalizeLayers(layers).find((entry) => entry.level === level);
 }
 
+/** 获取当前层升级所需经验 */
 export function getTechniqueExpToNext(level: number, layers?: TechniqueLayerDef[]): number {
   return Math.max(0, getTechniqueLayerDef(level, layers)?.expToNext ?? 0);
 }
 
+/** 解析技能解锁层数（优先 unlockLevel，其次 unlockRealm+1） */
 export function resolveSkillUnlockLevel(skill: Pick<SkillDef, 'unlockLevel' | 'unlockRealm'>): number {
   if (typeof skill.unlockLevel === 'number' && skill.unlockLevel > 0) {
     return skill.unlockLevel;
@@ -139,6 +153,7 @@ export function resolveSkillUnlockLevel(skill: Pick<SkillDef, 'unlockLevel' | 'u
   return 1;
 }
 
+/** 根据当前层数推导功法境界（入门/小成/大成/圆满） */
 export function deriveTechniqueRealm(level: number, layers?: TechniqueLayerDef[], legacyCurves?: TechniqueAttrCurves): TechniqueRealm {
   const maxLevel = Math.max(1, getTechniqueMaxLevel(layers, level, legacyCurves));
   if (level >= maxLevel) return TechniqueRealmEnum.Perfection;
@@ -148,6 +163,7 @@ export function deriveTechniqueRealm(level: number, layers?: TechniqueLayerDef[]
   return TechniqueRealmEnum.Entry;
 }
 
+/** 计算功法在指定层数时累计提供的六维属性加成 */
 export function calcTechniqueAttrValues(level: number, layers?: TechniqueLayerDef[], legacyCurves?: TechniqueAttrCurves): Partial<Attributes> {
   const result: Partial<Attributes> = {};
   if (level <= 0) return result;
@@ -172,6 +188,7 @@ export function calcTechniqueAttrValues(level: number, layers?: TechniqueLayerDe
   return result;
 }
 
+/** 计算下一层升级时各属性的增量 */
 export function calcTechniqueNextLevelGains(level: number, layers?: TechniqueLayerDef[], legacyCurves?: TechniqueAttrCurves): Partial<Attributes> {
   const normalized = normalizeLayers(layers);
   if (normalized.length > 0) {
@@ -204,6 +221,7 @@ function calcTechniqueSoftDecayedPool(rawPool: number, freeLimit: number, decayS
   return freeLimit + decaySpan * Math.log1p(overflow / decaySpan);
 }
 
+/** 汇总所有已学功法的最终属性加成（按品阶分组并应用软衰减） */
 export function calcTechniqueFinalAttrBonus(techniques: readonly TechniqueState[]): Attributes {
   const result = createZeroAttributes();
 

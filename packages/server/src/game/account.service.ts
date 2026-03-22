@@ -1,3 +1,6 @@
+/**
+ * 账号管理业务逻辑：密码修改、显示名称与角色名变更
+ */
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository } from 'typeorm';
@@ -24,6 +27,7 @@ export class AccountService {
     private readonly playerService: PlayerService,
   ) {}
 
+  /** 验证旧密码后更新为新密码 */
   async updatePassword(userId: string, currentPassword: string, newPassword: string): Promise<BasicOkRes> {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) {
@@ -45,6 +49,7 @@ export class AccountService {
     return { ok: true };
   }
 
+  /** 更新用户显示名称，同步到在线玩家状态 */
   async updateDisplayName(userId: string, displayName: string): Promise<{ displayName: string }> {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) {
@@ -73,6 +78,7 @@ export class AccountService {
     return { displayName: normalizedDisplayName };
   }
 
+  /** 更新角色名，同步到在线玩家状态 */
   async updateRoleName(userId: string, roleName: string): Promise<{ roleName: string }> {
     const normalizedRoleName = roleName.normalize('NFC').trim();
     const roleNameError = validateRoleName(normalizedRoleName);
@@ -85,6 +91,7 @@ export class AccountService {
     return { roleName: normalizedRoleName };
   }
 
+  /** 按生效显示名称查找用户（含 displayName 为空时回退到 username 首字的情况） */
   private findUserByEffectiveDisplayName(displayName: string, excludeUserId: string): Promise<UserEntity | null> {
     return this.userRepo.createQueryBuilder('user')
       .where(new Brackets((qb) => {

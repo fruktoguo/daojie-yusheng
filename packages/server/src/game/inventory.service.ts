@@ -1,3 +1,6 @@
+/**
+ * 背包管理：物品增删、使用、丢弃、整理排序
+ */
 import { Injectable } from '@nestjs/common';
 import { PlayerState, ItemStack, ItemType, EquipSlot, createItemStackSignature } from '@mud/shared';
 
@@ -19,6 +22,7 @@ const EQUIP_SLOT_ORDER: Record<EquipSlot, number> = {
 
 @Injectable()
 export class InventoryService {
+  /** 获取背包指定槽位的物品 */
   getItem(player: PlayerState, slotIndex: number): ItemStack | null {
     return player.inventory.items[slotIndex] ?? null;
   }

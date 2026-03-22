@@ -1,3 +1,6 @@
+/**
+ * 认证服务 —— 用户注册 / 登录 / 令牌签发与刷新，以及 GM 认证管理
+ */
 import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -16,9 +19,12 @@ import {
   validateUsername,
 } from './account-validation';
 
+/** GM 令牌有效期（秒） */
 const GM_TOKEN_EXPIRES_IN = 60 * 60 * 12;
+/** GM 密码配置文件路径 */
 const GM_CONFIG_PATH = resolveServerDataPath('gm-config.json');
 
+/** GM 密码配置文件结构 */
 interface GmConfigFile {
   passwordHash: string;
   updatedAt: string;
@@ -32,6 +38,7 @@ export class AuthService {
     private readonly userRepo: Repository<UserEntity>,
   ) {}
 
+  /** 用户注册：校验输入、查重、创建账号并签发令牌 */
   async register(username: string, password: string, displayName: string): Promise<AuthTokenRes> {
     const normalizedUsername = normalizeUsername(username);
     const normalizedDisplayName = normalizeDisplayName(displayName);
@@ -67,6 +74,7 @@ export class AuthService {
     return this.issueTokens(user);
   }
 
+  /** 用户登录：验证密码并签发令牌 */
   async login(username: string, password: string): Promise<AuthTokenRes> {
     const user = await this.userRepo.findOne({ where: { username: normalizeUsername(username) } });
     if (!user) throw new UnauthorizedException('用户不存在');
@@ -75,6 +83,7 @@ export class AuthService {
     return this.issueTokens(user);
   }
 
+  /** 使用 refreshToken 刷新访问令牌 */
   async refresh(refreshToken: string): Promise<AuthTokenRes> {
     try {
       const payload = this.jwtService.verify(refreshToken);
@@ -91,6 +100,7 @@ export class AuthService {
     }
   }
 
+  /** 检查显示名称是否可用 */
   async checkDisplayNameAvailability(displayName: string): Promise<DisplayNameAvailabilityRes> {
     const normalizedDisplayName = normalizeDisplayName(displayName);
     const error = validateDisplayName(normalizedDisplayName);
@@ -104,6 +114,7 @@ export class AuthService {
     return { available: true };
   }
 
+  /** 校验玩家 JWT，返回用户信息或 null（GM 令牌不通过） */
   validateToken(token: string): { userId: string; username: string; displayName: string } | null {
     try {
       const payload = this.jwtService.verify(token);
@@ -123,6 +134,7 @@ export class AuthService {
     }
   }
 
+  /** GM 登录：验证密码并签发 GM 专用令牌 */
   async loginGm(password: string): Promise<GmLoginRes> {
     const passwordHash = await this.getOrCreateGmPasswordHash();
     const valid = await bcrypt.compare(password, passwordHash);
@@ -139,6 +151,7 @@ export class AuthService {
     };
   }
 
+  /** 修改 GM 密码 */
   async changeGmPassword(currentPassword: string, newPassword: string): Promise<void> {
     const passwordHash = await this.getOrCreateGmPasswordHash();
     const valid = await bcrypt.compare(currentPassword, passwordHash);
@@ -158,6 +171,7 @@ export class AuthService {
     });
   }
 
+  /** 校验 GM 令牌是否有效 */
   validateGmToken(token: string): boolean {
     try {
       const payload = this.jwtService.verify(token);
@@ -167,6 +181,7 @@ export class AuthService {
     }
   }
 
+  /** 为用户签发 accessToken 和 refreshToken */
   private issueTokens(user: UserEntity): AuthTokenRes {
     const payload = {
       sub: user.id,
@@ -179,6 +194,7 @@ export class AuthService {
     };
   }
 
+  /** 按有效显示名称查找用户（含未设置 displayName 时回退到用户名首字符的情况） */
   private findUserByEffectiveDisplayName(displayName: string): Promise<UserEntity | null> {
     return this.userRepo.createQueryBuilder('user')
       .where(new Brackets((qb) => {
@@ -188,6 +204,7 @@ export class AuthService {
       .getOne();
   }
 
+  /** 获取或首次创建 GM 密码哈希（首次使用环境变量或默认密码） */
   private async getOrCreateGmPasswordHash(): Promise<string> {
     const existing = this.readGmConfig();
     if (existing?.passwordHash) {

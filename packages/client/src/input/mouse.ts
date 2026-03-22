@@ -1,3 +1,7 @@
+/**
+ * 鼠标输入处理 —— 将画布点击/悬停转换为世界格子坐标与实体目标
+ */
+
 import { MapMeta, Tile } from '@mud/shared';
 import { Camera } from '../renderer/camera';
 import { getCellSize } from '../display';
@@ -12,6 +16,7 @@ interface ClickTarget {
   walkable?: boolean;
 }
 
+/** 鼠标输入，将画布上的点击和悬停事件解析为游戏世界中的目标 */
 export class MouseInput {
   private getCamera: (() => Camera) | null = null;
   private getTileAt: ((x: number, y: number) => Tile | null) | null = null;
@@ -21,6 +26,7 @@ export class MouseInput {
   private onHover: ((target: ClickTarget | null) => void) | null = null;
   private canvas: HTMLCanvasElement | null = null;
 
+  /** 初始化鼠标监听，绑定画布事件和坐标转换所需的依赖 */
   init(
     canvas: HTMLCanvasElement,
     getCamera: () => Camera,
@@ -52,6 +58,7 @@ export class MouseInput {
     this.onHover?.(this.resolveTargetFromMouse(e));
   }
 
+  /** 将鼠标事件的屏幕坐标转换为世界格子坐标，并查找该格上的实体 */
   private resolveTargetFromMouse(e: MouseEvent): ClickTarget | null {
     if (!this.canvas || !this.getCamera || !this.getTileAt || !this.getEntities || !this.getMapMeta || !this.onTarget) return null;
 

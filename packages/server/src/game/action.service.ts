@@ -1,3 +1,6 @@
+/**
+ * 行动管理：技能行动列表构建、冷却计算、自动战斗配置
+ */
 import { Injectable } from '@nestjs/common';
 import { ActionDef, AutoBattleSkillConfig, PlayerState, ratioValue } from '@mud/shared';
 import { AttrService } from './attr.service';
@@ -29,6 +32,7 @@ export class ActionService {
     player.actions = merged;
   }
 
+  /** 更新自动战斗技能配置，返回是否有变化 */
   updateAutoBattleSkills(player: PlayerState, input: AutoBattleSkillConfig[]): boolean {
     const skillActions = this.techniqueService.getSkillActions(player);
     const next = this.normalizeAutoBattleSkills(skillActions, input);
@@ -37,10 +41,12 @@ export class ActionService {
     return changed;
   }
 
+  /** 获取玩家指定行动定义 */
   getAction(player: PlayerState, actionId: string): ActionDef | undefined {
     return player.actions.find((action) => action.id === actionId);
   }
 
+  /** 触发技能冷却，返回 null 表示成功 */
   beginCooldown(player: PlayerState, actionId: string): string | null {
     const action = player.actions.find(a => a.id === actionId);
     if (!action) return '行动不存在';
@@ -73,6 +79,7 @@ export class ActionService {
     return changed;
   }
 
+  /** 规范化自动战斗技能列表，补全缺失的技能条目 */
   private normalizeAutoBattleSkills(skillActions: ActionDef[], input: AutoBattleSkillConfig[] | undefined): AutoBattleSkillConfig[] {
     const availableIds = new Set(skillActions.map((action) => action.id));
     const normalized: AutoBattleSkillConfig[] = [];

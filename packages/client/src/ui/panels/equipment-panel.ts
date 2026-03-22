@@ -1,3 +1,8 @@
+/**
+ * 装备面板
+ * 展示 5 个装备槽位的当前装备与词条，支持卸下操作
+ */
+
 import { EquipmentSlots, EquipSlot, PlayerState } from '@mud/shared';
 import { preserveSelection } from '../selection-preserver';
 
@@ -84,6 +89,7 @@ export class EquipmentPanel {
     this.onUnequip = onUnequip;
   }
 
+  /** 更新装备数据并重新渲染 */
   update(equipment: EquipmentSlots): void {
     this.render(equipment);
   }

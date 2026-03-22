@@ -1,3 +1,8 @@
+/**
+ * 登录/注册界面
+ * 管理登录、注册表单切换，显示名称可用性检测，以及 token 会话恢复
+ */
+
 import { AuthLoginReq, AuthRegisterReq, AuthTokenRes } from '@mud/shared';
 import { SocketManager } from '../network/socket';
 import {
@@ -43,6 +48,7 @@ export class LoginUI {
     this.setMode('login');
   }
 
+  /** 尝试用 localStorage 中的 refreshToken 恢复登录态 */
   async restoreSession(): Promise<boolean> {
     const refreshToken = getRefreshToken();
     if (!refreshToken) return false;
@@ -75,6 +81,7 @@ export class LoginUI {
     this.overlay.classList.add('hidden');
   }
 
+  /** 登出并显示登录界面 */
   logout(message = ''): void {
     this.clearSession();
     this.show(message);

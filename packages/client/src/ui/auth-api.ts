@@ -1,3 +1,8 @@
+/**
+ * 认证与账号 HTTP API 封装
+ * 负责 token 存取、登录/注册/刷新请求、账号信息修改
+ */
+
 import {
   AccountUpdateDisplayNameReq,
   AccountUpdateDisplayNameRes,
@@ -12,6 +17,7 @@ import {
 export const ACCESS_TOKEN_KEY = 'accessToken';
 export const REFRESH_TOKEN_KEY = 'refreshToken';
 
+/** HTTP 请求失败时抛出，携带状态码 */
 export class RequestError extends Error {
   constructor(message: string, readonly status: number) {
     super(message);
@@ -25,24 +31,29 @@ type RequestOptions = {
   signal?: AbortSignal;
 };
 
+/** 从 localStorage 读取 accessToken */
 export function getAccessToken(): string | null {
   return localStorage.getItem(ACCESS_TOKEN_KEY);
 }
 
+/** 从 localStorage 读取 refreshToken */
 export function getRefreshToken(): string | null {
   return localStorage.getItem(REFRESH_TOKEN_KEY);
 }
 
+/** 将 token 对写入 localStorage */
 export function storeTokens(data: AuthTokenRes): void {
   localStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
   localStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
 }
 
+/** 清除 localStorage 中的 token */
 export function clearStoredTokens(): void {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
 }
 
+/** 通用 JSON 请求，自动处理 body 序列化与 Bearer 鉴权 */
 export async function requestJson<TResponse>(url: string, options: RequestOptions = {}): Promise<TResponse> {
   const headers: Record<string, string> = {};
   if (options.body !== undefined) {
@@ -69,6 +80,7 @@ export async function requestJson<TResponse>(url: string, options: RequestOption
   return res.json() as Promise<TResponse>;
 }
 
+/** 用 refreshToken 换取新 token 对 */
 export function restoreTokens(refreshToken: string): Promise<AuthTokenRes> {
   return requestJson<AuthTokenRes>('/auth/refresh', {
     method: 'POST',
@@ -76,6 +88,7 @@ export function restoreTokens(refreshToken: string): Promise<AuthTokenRes> {
   });
 }
 
+/** 检查显示名称是否可用 */
 export function checkDisplayNameAvailability(
   displayName: string,
   signal?: AbortSignal,
@@ -84,6 +97,7 @@ export function checkDisplayNameAvailability(
   return requestJson<DisplayNameAvailabilityRes>(`/auth/display-name/check?${params.toString()}`, { signal });
 }
 
+/** 修改密码 */
 export function updatePassword(
   accessToken: string,
   body: AccountUpdatePasswordReq,
@@ -95,6 +109,7 @@ export function updatePassword(
   });
 }
 
+/** 修改显示名称 */
 export function updateDisplayName(
   accessToken: string,
   body: AccountUpdateDisplayNameReq,
@@ -106,6 +121,7 @@ export function updateDisplayName(
   });
 }
 
+/** 修改角色名称 */
 export function updateRoleName(
   accessToken: string,
   body: AccountUpdateRoleNameReq,

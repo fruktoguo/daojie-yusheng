@@ -1,18 +1,25 @@
+/**
+ * 技能目标选取几何计算：单体、直线、范围三种形状的受影响格子计算。
+ */
 import { isPointInRange } from './geometry';
 
+/** 格子坐标 */
 export interface GridPoint {
   x: number;
   y: number;
 }
 
+/** 目标选取形状 */
 export type TargetingShape = 'single' | 'line' | 'area';
 
+/** 目标选取几何参数 */
 export interface TargetingGeometrySpec {
   range: number;
   shape?: TargetingShape;
   radius?: number;
 }
 
+/** 用 Bresenham 算法计算两点间直线经过的格子 */
 export function getLineCells(start: GridPoint, end: GridPoint): GridPoint[] {
   const cells: GridPoint[] = [];
   let x = start.x;
@@ -42,6 +49,7 @@ export function getLineCells(start: GridPoint, end: GridPoint): GridPoint[] {
   return cells;
 }
 
+/** 计算以中心点为圆心、指定半径内的所有格子 */
 export function getAreaCells(center: GridPoint, radius: number): GridPoint[] {
   const cells: GridPoint[] = [];
   const normalizedRadius = Math.max(0, radius);
@@ -56,6 +64,7 @@ export function getAreaCells(center: GridPoint, radius: number): GridPoint[] {
   return cells;
 }
 
+/** 根据施法者位置、锚点和几何参数，计算受影响的格子列表 */
 export function computeAffectedCellsFromAnchor(
   origin: GridPoint,
   anchor: GridPoint,
