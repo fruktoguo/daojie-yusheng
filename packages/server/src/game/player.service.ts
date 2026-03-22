@@ -1,6 +1,6 @@
 /**
- * 玩家服务 —— 管理所有在线玩家的内存状态、Socket 映射、命令队列、
- * 脏标记系统、断线保留，以及与 PG/Redis 的存档读写。
+ * 玩家服务 —— 管理所有已加载玩家的内存状态、Socket 映射、命令队列、
+ * 脏标记系统，以及与 PG/Redis 的存档读写。
  */
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -18,7 +18,6 @@ import {
   QuestState,
   DEFAULT_BASE_ATTRS,
   DEFAULT_INVENTORY_CAPACITY,
-  DISCONNECT_RETAIN_TIME,
   Direction,
   VIEW_RADIUS,
 } from '@mud/shared';
@@ -51,12 +50,6 @@ export interface PlayerCommand {
 /** 数据变更类型标记，用于增量同步 */
 export type DirtyFlag = 'attr' | 'inv' | 'equip' | 'tech' | 'actions' | 'loot' | 'quest';
 
-/** 断线保留会话，在保留期内重连可恢复状态 */
-interface RetainedSession {
-  player: PlayerState;
-  expiresAt: number;
-}
-
 function normalizeUnlockedMinimapIds(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
@@ -71,7 +64,6 @@ export class PlayerService {
   private socketMap: Map<string, Socket> = new Map();
   private userToPlayer: Map<string, string> = new Map();
   private dirtyFlags: Map<string, Set<DirtyFlag>> = new Map();
-  private retainedSessions: Map<string, RetainedSession> = new Map();
   private readonly logger = new Logger(PlayerService.name);
 
   constructor(
@@ -155,6 +147,10 @@ export class PlayerService {
       cultivatingTechId: entity.cultivatingTechId ?? undefined,
       idleTicks: 0,
       combatTargetLocked: false,
+      online: entity.online ?? false,
+      inWorld: entity.inWorld ?? false,
+      lastHeartbeatAt: entity.lastHeartbeatAt?.getTime(),
+      offlineSinceAt: entity.offlineSinceAt?.getTime(),
     };
     this.techniqueService.initializePlayerProgression(state);
     this.players.set(state.id, state);
@@ -181,6 +177,8 @@ export class PlayerService {
     if (!state.autoBattleSkills) state.autoBattleSkills = [];
     if (state.autoRetaliate === undefined) state.autoRetaliate = true;
     if (state.autoIdleCultivation === undefined) state.autoIdleCultivation = true;
+    if (state.online === undefined) state.online = false;
+    if (state.inWorld === undefined) state.inWorld = true;
     if (!state.actions) state.actions = [];
     if (state.senseQiActive === undefined) state.senseQiActive = false;
     state.idleTicks = 0;
@@ -222,6 +220,10 @@ export class PlayerService {
       autoRetaliate: state.autoRetaliate,
       autoIdleCultivation: state.autoIdleCultivation,
       cultivatingTechId: state.cultivatingTechId ?? null,
+      online: state.online === true,
+      inWorld: state.inWorld !== false,
+      lastHeartbeatAt: state.lastHeartbeatAt ? new Date(state.lastHeartbeatAt) : null,
+      offlineSinceAt: state.offlineSinceAt ? new Date(state.offlineSinceAt) : null,
     });
     await this.playerRepo.save(entity);
     this.players.set(state.id, state);
@@ -258,10 +260,14 @@ export class PlayerService {
       autoRetaliate: state.autoRetaliate,
       autoIdleCultivation: state.autoIdleCultivation,
       cultivatingTechId: state.cultivatingTechId ?? null,
+      online: state.online === true,
+      inWorld: state.inWorld !== false,
+      lastHeartbeatAt: state.lastHeartbeatAt ? new Date(state.lastHeartbeatAt) : null,
+      offlineSinceAt: state.offlineSinceAt ? new Date(state.offlineSinceAt) : null,
     });
   }
 
-  /** 批量落盘所有在线玩家 */
+  /** 批量落盘所有已加载玩家 */
   async persistAll(): Promise<void> {
     const states = [...this.players.values()].filter((player) => !player.isBot);
     if (states.length === 0) return;
@@ -296,6 +302,10 @@ export class PlayerService {
         autoRetaliate: state.autoRetaliate,
         autoIdleCultivation: state.autoIdleCultivation,
         cultivatingTechId: state.cultivatingTechId ?? null,
+        online: state.online === true,
+        inWorld: state.inWorld !== false,
+        lastHeartbeatAt: state.lastHeartbeatAt ? new Date(state.lastHeartbeatAt) : null,
+        offlineSinceAt: state.offlineSinceAt ? new Date(state.offlineSinceAt) : null,
       });
     });
     await this.playerRepo.save(entities);
@@ -318,6 +328,10 @@ export class PlayerService {
     this.players.delete(playerId);
     this.socketMap.delete(playerId);
     this.dirtyFlags.delete(playerId);
+    const userId = this.getUserIdByPlayerId(playerId);
+    if (userId) {
+      this.userToPlayer.delete(userId);
+    }
     this.redisService.removePlayer(playerId).catch(() => {});
   }
 
@@ -335,7 +349,7 @@ export class PlayerService {
   getPlayersByMap(mapId: string): PlayerState[] {
     const result: PlayerState[] = [];
     for (const p of this.players.values()) {
-      if (p.mapId === mapId) result.push(p);
+      if (p.mapId === mapId && p.inWorld !== false) result.push(p);
     }
     return result;
   }
@@ -377,44 +391,46 @@ export class PlayerService {
     this.userToPlayer.delete(userId);
   }
 
-  /** 将玩家移入断线保留池，从活跃列表中移除但保留状态 */
-  retainPlayer(userId: string, playerId: string) {
+  syncPlayerRealtimeState(playerId: string) {
     const player = this.players.get(playerId);
-    if (!player) return;
+    if (!player) {
+      return;
+    }
+    this.syncPlayerCache(player).catch(() => {});
+  }
 
-    this.retainedSessions.set(userId, {
-      player,
-      expiresAt: Date.now() + DISCONNECT_RETAIN_TIME * 1000,
-    });
+  markPlayerOnline(playerId: string, timestamp = Date.now()) {
+    const player = this.players.get(playerId);
+    if (!player) {
+      return;
+    }
+    player.online = true;
+    player.inWorld = true;
+    player.lastHeartbeatAt = timestamp;
+    player.offlineSinceAt = undefined;
+    this.syncPlayerRealtimeState(playerId);
+  }
 
-    this.players.delete(playerId);
+  touchHeartbeat(playerId: string, timestamp = Date.now()) {
+    const player = this.players.get(playerId);
+    if (!player) {
+      return;
+    }
+    player.lastHeartbeatAt = timestamp;
+    player.online = true;
+    player.offlineSinceAt = undefined;
+    this.syncPlayerRealtimeState(playerId);
+  }
+
+  markPlayerOffline(playerId: string, timestamp = Date.now()) {
+    const player = this.players.get(playerId);
+    if (!player) {
+      return;
+    }
+    player.online = false;
+    player.offlineSinceAt = player.offlineSinceAt ?? timestamp;
     this.socketMap.delete(playerId);
-    this.dirtyFlags.delete(playerId);
-  }
-
-  /** 从断线保留池恢复玩家状态（未过期时） */
-  restoreRetainedPlayer(userId: string): PlayerState | null {
-    const retained = this.retainedSessions.get(userId);
-    if (!retained) return null;
-    if (retained.expiresAt <= Date.now()) {
-      this.retainedSessions.delete(userId);
-      return null;
-    }
-
-    this.retainedSessions.delete(userId);
-    this.players.set(retained.player.id, retained.player);
-    this.syncPlayerCache(retained.player).catch(() => {});
-    return retained.player;
-  }
-
-  /** 清理已过期的断线保留会话 */
-  clearExpiredRetainedSessions() {
-    const now = Date.now();
-    for (const [userId, retained] of this.retainedSessions.entries()) {
-      if (retained.expiresAt <= now) {
-        this.retainedSessions.delete(userId);
-      }
-    }
+    this.syncPlayerRealtimeState(playerId);
   }
 
   async updatePlayerDisplayName(userId: string, displayName: string): Promise<void> {

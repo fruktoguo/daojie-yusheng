@@ -59,6 +59,10 @@ export class RedisService implements OnModuleDestroy {
       autoRetaliate: state.autoRetaliate === false ? '0' : '1',
       autoIdleCultivation: state.autoIdleCultivation === false ? '0' : '1',
       cultivatingTechId: state.cultivatingTechId ?? '',
+      online: state.online === true ? '1' : '0',
+      inWorld: state.inWorld === false ? '0' : '1',
+      lastHeartbeatAt: state.lastHeartbeatAt ? String(state.lastHeartbeatAt) : '',
+      offlineSinceAt: state.offlineSinceAt ? String(state.offlineSinceAt) : '',
     });
   }
 

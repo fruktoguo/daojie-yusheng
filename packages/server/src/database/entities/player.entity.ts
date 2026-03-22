@@ -107,6 +107,22 @@ export class PlayerEntity {
   @Column({ type: 'varchar', nullable: true })
   cultivatingTechId!: string | null;
 
+  /** 当前是否在线 */
+  @Column({ type: 'boolean', default: false })
+  online!: boolean;
+
+  /** 当前是否仍在世界中 */
+  @Column({ type: 'boolean', default: false })
+  inWorld!: boolean;
+
+  /** 最近一次收到心跳的时间 */
+  @Column({ type: 'timestamptz', nullable: true })
+  lastHeartbeatAt!: Date | null;
+
+  /** 最近一次进入离线状态的时间 */
+  @Column({ type: 'timestamptz', nullable: true })
+  offlineSinceAt!: Date | null;
+
   @UpdateDateColumn()
   updatedAt!: Date;
 }

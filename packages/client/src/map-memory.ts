@@ -237,7 +237,19 @@ function flushPersistMemory(): void {
   }
 
   try {
-    storage.setItem(MAP_MEMORY_STORAGE_KEY, JSON.stringify(buildSerializedMapMemory()));
+    const envelope = buildSerializedMapMemory();
+    const nextJson = JSON.stringify(envelope);
+
+    // 安全检查：如果即将写入的数据比已有数据小很多，可能是加载失败后的残留写入
+    const existingRaw = storage.getItem(MAP_MEMORY_STORAGE_KEY);
+    if (existingRaw && nextJson.length < existingRaw.length * 0.5 && existingRaw.length > 1024) {
+      disablePersistence(
+        `写入数据异常缩小（${nextJson.length} < ${existingRaw.length} * 0.5），已停止持久化以避免覆盖。`,
+      );
+      return;
+    }
+
+    storage.setItem(MAP_MEMORY_STORAGE_KEY, nextJson);
     hasPendingPersist = false;
   } catch (error) {
     disablePersistence('写入本地地图记忆失败，已停止自动持久化以避免覆盖现有数据。', error);
@@ -306,7 +318,15 @@ function ensureMemoryLoaded(): void {
       return;
     }
     if (!importRememberedMaps(envelope.maps)) {
-      console.warn('[map-memory] 本地地图记忆中没有可恢复的有效内容，已跳过加载。');
+      disablePersistence('本地地图记忆中没有可恢复的有效内容，已保留原始数据且停止本次会话持久化。');
+      return;
+    }
+    const loadedMapCount = rememberedTilesByMap.size + rememberedMarkersByMap.size;
+    const storedMapCount = Object.keys(envelope.maps).length;
+    if (loadedMapCount < storedMapCount) {
+      console.warn(`[map-memory] 部分地图记忆未能恢复（已加载 ${loadedMapCount}/${storedMapCount}），已保留原始数据且停止本次会话持久化。`);
+      disablePersistence('部分地图记忆未能恢复，停止持久化以避免覆盖。');
+      return;
     }
   } catch (error) {
     disablePersistence('解析本地地图记忆失败，已保留原始数据且停止本次会话持久化。', error);

@@ -97,6 +97,8 @@ const removeBotBtn = document.getElementById('remove-bot') as HTMLButtonElement;
 
 const summaryTotalEl = document.getElementById('summary-total') as HTMLDivElement;
 const summaryOnlineEl = document.getElementById('summary-online') as HTMLDivElement;
+const summaryOfflineHangingEl = document.getElementById('summary-offline-hanging') as HTMLDivElement;
+const summaryOfflineEl = document.getElementById('summary-offline') as HTMLDivElement;
 const summaryBotsEl = document.getElementById('summary-bots') as HTMLDivElement;
 const summaryTickEl = document.getElementById('summary-tick') as HTMLDivElement;
 const summaryCpuEl = document.getElementById('summary-cpu') as HTMLDivElement;
@@ -161,6 +163,19 @@ function formatPercent(numerator: number, denominator: number): string {
     return '0.0%';
   }
   return `${((numerator / denominator) * 100).toFixed(1)}%`;
+}
+
+function getPlayerPresenceMeta(player: Pick<GmManagedPlayerSummary, 'meta'>): {
+  className: 'online' | 'offline';
+  label: '在线' | '离线挂机' | '离线';
+} {
+  if (player.meta.online) {
+    return { className: 'online', label: '在线' };
+  }
+  if (player.meta.inWorld) {
+    return { className: 'offline', label: '离线挂机' };
+  }
+  return { className: 'offline', label: '离线' };
 }
 
 function renderNetworkBucketList(totalBytes: number, buckets: GmNetworkBucket[], emptyText: string): string {
@@ -920,9 +935,14 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
 }
 
 function renderSummary(data: GmStateRes): void {
-  const onlineCount = data.players.filter((player) => player.meta.online && !player.meta.isBot).length;
-  summaryTotalEl.textContent = `${data.players.filter((player) => !player.meta.isBot).length}`;
+  const humanPlayers = data.players.filter((player) => !player.meta.isBot);
+  const onlineCount = humanPlayers.filter((player) => player.meta.online).length;
+  const offlineHangingCount = humanPlayers.filter((player) => !player.meta.online && player.meta.inWorld).length;
+  const offlineCount = humanPlayers.filter((player) => !player.meta.online && !player.meta.inWorld).length;
+  summaryTotalEl.textContent = `${humanPlayers.length}`;
   summaryOnlineEl.textContent = `${onlineCount}`;
+  summaryOfflineHangingEl.textContent = `${offlineHangingCount}`;
+  summaryOfflineEl.textContent = `${offlineCount}`;
   summaryBotsEl.textContent = `${data.botCount}`;
   summaryTickEl.textContent = `${Math.round(data.perf.tickMs)} ms`;
   summaryCpuEl.textContent = `${Math.round(data.perf.cpuPercent)}%`;
@@ -962,7 +982,7 @@ function renderPlayerList(data: GmStateRes): void {
     <button class="player-row ${player.id === selectedPlayerId ? 'active' : ''}" data-player-id="${escapeHtml(player.id)}" type="button">
       <div class="player-top">
         <div class="player-name">${escapeHtml(player.name)}</div>
-        <div class="pill ${player.meta.online ? 'online' : 'offline'}">${player.meta.online ? '在线' : '离线'}</div>
+        <div class="pill ${getPlayerPresenceMeta(player).className}">${getPlayerPresenceMeta(player).label}</div>
       </div>
       <div class="player-meta">${player.meta.isBot ? '机器人' : '玩家'} · ${escapeHtml(player.mapId)} · (${player.x}, ${player.y})</div>
       <div class="player-subline">ID: ${escapeHtml(player.id)}${player.meta.userId ? ` · 用户: ${escapeHtml(player.meta.userId)}` : ''}</div>
@@ -1013,7 +1033,7 @@ function renderEditor(data: GmStateRes): void {
   ].join(' · ');
 
   const pills: string[] = [
-    `<span class="pill ${detail.meta.online ? 'online' : 'offline'}">${detail.meta.online ? '在线' : '离线'}</span>`,
+    `<span class="pill ${getPlayerPresenceMeta(detail).className}">${getPlayerPresenceMeta(detail).label}</span>`,
     `<span class="pill ${detail.meta.isBot ? 'bot' : ''}">${detail.meta.isBot ? '机器人' : '玩家'}</span>`,
     `<span class="pill">${detail.dead ? '死亡' : '存活'}</span>`,
     `<span class="pill">${detail.autoBattle ? '自动战斗开' : '自动战斗关'}</span>`,

@@ -1254,6 +1254,38 @@ export class WorldService {
     };
   }
 
+  removePlayerFromWorld(player: PlayerState, reason: 'death' | 'timeout'): void {
+    if (player.inWorld === false) {
+      return;
+    }
+
+    this.techniqueService.stopCultivation(
+      player,
+      reason === 'death'
+        ? '你在离线中被击倒，当前修炼已终止。'
+        : '你离线过久，已退出世界，当前修炼随之中止。',
+      'system',
+    );
+
+    if (reason === 'death') {
+      this.restorePlayerAfterDefeat(player, false);
+    } else {
+      this.navigationService.clearMoveTarget(player.id);
+      this.mapService.removeOccupant(player.mapId, player.x, player.y, player.id);
+      player.autoBattle = false;
+      this.clearCombatTarget(player);
+    }
+
+    player.inWorld = false;
+    player.online = false;
+    player.idleTicks = 0;
+    this.playerService.removeSocket(player.id);
+    this.playerService.syncPlayerRealtimeState(player.id);
+    void this.playerService.savePlayer(player.id).catch((error: Error) => {
+      this.logger.error(`玩家退出世界落盘失败: ${player.id} ${error.message}`);
+    });
+  }
+
   tickMonsters(mapId: string, players: PlayerState[]): WorldUpdate {
     this.ensureMapInitialized(mapId);
     const monsters = this.monstersByMap.get(mapId) ?? [];
@@ -1338,10 +1370,16 @@ export class WorldService {
         if (target.hp <= 0) {
           allMessages.push({
             playerId: target.id,
-            text: '你被击倒，已被护山阵法送回复活点。',
+            text: target.online === false
+              ? '你在离线中被击倒，已退出当前世界。'
+              : '你被击倒，已被护山阵法送回复活点。',
             kind: 'combat',
           });
-          this.respawnPlayer(target);
+          if (target.online === false) {
+            this.removePlayerFromWorld(target, 'death');
+          } else {
+            this.respawnPlayer(target);
+          }
           dirtyPlayers.add(target.id);
         }
       } else {
@@ -1745,10 +1783,16 @@ export class WorldService {
       });
       messages.push({
         playerId: target.id,
-        text: '你被击倒，已被护山阵法送回复活点。',
+        text: target.online === false
+          ? '你在离线中被击倒，已退出当前世界。'
+          : '你被击倒，已被护山阵法送回复活点。',
         kind: 'combat',
       });
-      this.respawnPlayer(target);
+      if (target.online === false) {
+        this.removePlayerFromWorld(target, 'death');
+      } else {
+        this.respawnPlayer(target);
+      }
       dirtyPlayers.add(target.id);
     }
 
@@ -2703,6 +2747,10 @@ export class WorldService {
   }
 
   private respawnPlayer(player: PlayerState) {
+    this.restorePlayerAfterDefeat(player, true);
+  }
+
+  private restorePlayerAfterDefeat(player: PlayerState, occupy: boolean) {
     const spawn = this.mapService.getSpawnPoint(player.mapId) ?? { x: player.x, y: player.y };
     const pos = this.findNearbyWalkable(player.mapId, spawn.x, spawn.y, 4) ?? spawn;
     this.navigationService.clearMoveTarget(player.id);
@@ -2715,7 +2763,9 @@ export class WorldService {
     player.dead = false;
     player.autoBattle = false;
     this.clearCombatTarget(player);
-    this.mapService.addOccupant(player.mapId, player.x, player.y, player.id, 'player');
+    if (occupy) {
+      this.mapService.addOccupant(player.mapId, player.x, player.y, player.id, 'player');
+    }
   }
 
   private stepToward(

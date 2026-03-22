@@ -6,16 +6,18 @@ import { io, Socket } from 'socket.io-client';
 import {
   C2S, S2C, C2S_Move, C2S_MoveTo, C2S_GmGetState, C2S_GmSpawnBots, C2S_GmRemoveBots, C2S_GmUpdatePlayer, C2S_GmResetPlayer, C2S_Action, C2S_UpdateAutoBattleSkills, C2S_DebugResetSpawn, C2S_UseItem, C2S_DropItem,
   C2S_TakeLoot, C2S_SortInventory, C2S_Equip, C2S_Unequip, C2S_Cultivate, C2S_Chat,
+  C2S_Heartbeat,
   S2C_Tick, S2C_Init, S2C_AttrUpdate, S2C_InventoryUpdate,
   S2C_EquipmentUpdate, S2C_TechniqueUpdate, S2C_ActionsUpdate, S2C_LootWindowUpdate, S2C_QuestUpdate, S2C_SystemMsg, S2C_GmState,
   S2C_SuggestionUpdate,
   S2C_Error, decodeServerEventPayload, encodeClientEventPayload,
-  AutoBattleSkillConfig, Direction, EquipSlot,
+  AutoBattleSkillConfig, Direction, EquipSlot, PLAYER_HEARTBEAT_INTERVAL_MS,
 } from '@mud/shared';
 
 /** 客户端 Socket.IO 连接管理，负责协议编解码与事件分发 */
 export class SocketManager {
   private socket: Socket | null = null;
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private onTickCallbacks: Array<(data: S2C_Tick) => void> = [];
   private onKickCallbacks: Array<() => void> = [];
   private onInitCallbacks: Array<(data: S2C_Init) => void> = [];
@@ -43,6 +45,11 @@ export class SocketManager {
       transports: ['websocket'],
     });
 
+    this.socket.on('connect', () => {
+      this.startHeartbeat();
+      this.sendHeartbeat();
+    });
+
     this.bindServerEvent(S2C.Init, this.onInitCallbacks);
     this.bindServerEvent(S2C.Tick, this.onTickCallbacks);
     this.bindServerEvent(S2C.AttrUpdate, this.onAttrUpdateCallbacks);
@@ -62,6 +69,7 @@ export class SocketManager {
     });
 
     this.socket.on('disconnect', (reason: string) => {
+      this.stopHeartbeat();
       this.onDisconnectCallbacks.forEach(cb => cb(reason));
     });
 
@@ -84,8 +92,28 @@ export class SocketManager {
   }
 
   disconnect() {
+    this.stopHeartbeat();
     this.socket?.disconnect();
     this.socket = null;
+  }
+
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
+    this.heartbeatTimer = setInterval(() => {
+      this.sendHeartbeat();
+    }, PLAYER_HEARTBEAT_INTERVAL_MS);
+  }
+
+  private stopHeartbeat(): void {
+    if (!this.heartbeatTimer) {
+      return;
+    }
+    clearInterval(this.heartbeatTimer);
+    this.heartbeatTimer = null;
+  }
+
+  private sendHeartbeat(): void {
+    this.emitServer(C2S.Heartbeat, { clientAt: Date.now() } satisfies C2S_Heartbeat);
   }
 
   sendMove(direction: Direction) {

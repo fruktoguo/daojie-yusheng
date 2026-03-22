@@ -653,6 +653,10 @@ export interface PlayerState {
   name: string;
   displayName?: string;
   isBot?: boolean;
+  online?: boolean;
+  inWorld?: boolean;
+  lastHeartbeatAt?: number;
+  offlineSinceAt?: number;
   senseQiActive?: boolean;
   autoRetaliate?: boolean;
   autoIdleCultivation?: boolean;

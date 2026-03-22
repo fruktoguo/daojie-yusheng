@@ -16,6 +16,7 @@ import {
   S2C,
   C2S_Move,
   C2S_MoveTo,
+  C2S_Heartbeat,
   C2S_UseItem,
   C2S_DropItem,
   C2S_TakeLoot,
@@ -93,8 +94,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     const { userId, username, displayName } = payload;
-    this.playerService.clearExpiredRetainedSessions();
-
     // 顶号检测
     const existingPlayerId = this.playerService.getPlayerByUserId(userId);
     if (existingPlayerId) {
@@ -106,37 +105,33 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const existing = this.playerService.getPlayer(existingPlayerId);
       if (existing) {
         existing.displayName = displayName;
+        if (existing.inWorld === false) {
+          const pos = this.resolveLoginPosition(existing.mapId, existing.x, existing.y);
+          existing.x = pos.x;
+          existing.y = pos.y;
+          this.mapService.addOccupant(existing.mapId, existing.x, existing.y, existing.id, 'player');
+        }
         this.playerService.setSocket(existingPlayerId, client);
+        this.playerService.setUserMapping(userId, existingPlayerId);
+        this.playerService.markPlayerOnline(existingPlayerId);
         client.data = { userId, playerId: existingPlayerId };
         this.sendInit(client, existing);
         this.logger.log(`顶号: ${username} 接管 ${existingPlayerId}`);
         return;
       }
-    }
-
-    const retained = this.playerService.restoreRetainedPlayer(userId);
-    if (retained) {
-      retained.displayName = displayName;
-      const pos = this.resolveLoginPosition(retained.mapId, retained.x, retained.y);
-      retained.x = pos.x;
-      retained.y = pos.y;
-      this.playerService.setSocket(retained.id, client);
-      this.playerService.setUserMapping(userId, retained.id);
-      this.mapService.addOccupant(retained.mapId, retained.x, retained.y, retained.id, 'player');
-      client.data = { userId, playerId: retained.id };
-      this.sendInit(client, retained);
-      this.logger.log(`玩家恢复(断线保留): ${username} (${retained.id})`);
-      return;
+      this.playerService.removeUserMapping(userId);
     }
 
     // 从 PG 加载存档
     const saved = await this.playerService.loadPlayer(userId);
     if (saved) {
+      saved.displayName = displayName;
       const pos = this.resolveLoginPosition(saved.mapId, saved.x, saved.y);
       saved.x = pos.x;
       saved.y = pos.y;
       this.playerService.setSocket(saved.id, client);
       this.playerService.setUserMapping(userId, saved.id);
+      this.playerService.markPlayerOnline(saved.id);
       this.mapService.addOccupant(saved.mapId, saved.x, saved.y, saved.id, 'player');
       client.data = { userId, playerId: saved.id };
       this.sendInit(client, saved);
@@ -176,6 +171,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       autoRetaliate: true,
       autoIdleCultivation: true,
       idleTicks: 0,
+      online: false,
+      inWorld: true,
     };
 
     const startPos = this.resolveLoginPosition(playerState.mapId, playerState.x, playerState.y);
@@ -185,6 +182,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     await this.playerService.createPlayer(playerState, userId);
     this.playerService.setSocket(playerId, client);
     this.playerService.setUserMapping(userId, playerId);
+    this.playerService.markPlayerOnline(playerId);
     this.mapService.addOccupant(playerState.mapId, playerState.x, playerState.y, playerId, 'player');
 
     client.data = { userId, playerId };
@@ -192,7 +190,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.logger.log(`玩家上线(新建): ${username} (${playerId})`);
   }
 
-  /** 客户端断开时：保存存档、移除占位、进入断线保留期 */
+  /** 客户端断开时：仅标记离线，玩家仍留在世界中 */
   async handleDisconnect(client: Socket) {
     const playerId = client.data?.playerId as string;
     if (!playerId) return;
@@ -201,17 +199,17 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const player = this.playerService.getPlayer(playerId);
     if (player) {
       this.tickService.resetPlayerSyncState(playerId);
+      this.playerService.markPlayerOffline(playerId);
       await this.playerService.savePlayer(playerId);
-      this.mapService.removeOccupant(player.mapId, player.x, player.y, player.id);
-      const userId = client.data?.userId as string;
-      if (userId) {
-        this.playerService.removeUserMapping(userId);
-        this.playerService.retainPlayer(userId, playerId);
-      } else {
-        this.playerService.removePlayer(playerId);
-      }
-      this.logger.log(`玩家离线(保留中): ${playerId}`);
+      this.logger.log(`玩家离线(留在世界): ${playerId}`);
     }
+  }
+
+  @SubscribeMessage(C2S.Heartbeat)
+  handleHeartbeat(client: Socket, _data: C2S_Heartbeat) {
+    const playerId = client.data?.playerId as string;
+    if (!playerId) return;
+    this.playerService.touchHeartbeat(playerId);
   }
 
   @SubscribeMessage(C2S.Move)

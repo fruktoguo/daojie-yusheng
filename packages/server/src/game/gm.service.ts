@@ -99,12 +99,12 @@ export class GmService {
     for (const entity of entities) {
       const runtime = runtimeById.get(entity.id);
       const snapshot = runtime ? this.clonePlayer(runtime) : this.hydrateStoredPlayer(entity);
-      records.push(this.buildSummary(snapshot, entity.userId, runtime ? true : false, entity.updatedAt));
+      records.push(this.buildSummary(snapshot, entity.userId, runtime ? snapshot.online === true : false, entity.updatedAt));
       runtimeById.delete(entity.id);
     }
 
     for (const runtime of runtimeById.values()) {
-      records.push(this.buildSummary(runtime, undefined, true, undefined));
+      records.push(this.buildSummary(runtime, undefined, runtime.online === true, undefined));
     }
 
     records.sort((left, right) => {
@@ -126,7 +126,7 @@ export class GmService {
   async getPlayerDetail(playerId: string): Promise<GmManagedPlayerRecord | null> {
     const runtime = this.playerService.getPlayer(playerId);
     if (runtime) {
-      return this.buildRecord(runtime, this.playerService.getUserIdByPlayerId(playerId), true, undefined);
+      return this.buildRecord(runtime, this.playerService.getUserIdByPlayerId(playerId), runtime.online === true, undefined);
     }
 
     const entity = await this.playerRepo.findOne({ where: { id: playerId } });
@@ -343,6 +343,9 @@ export class GmService {
         userId,
         isBot: Boolean(player.isBot),
         online,
+        inWorld: player.inWorld !== false,
+        lastHeartbeatAt: player.lastHeartbeatAt ? new Date(player.lastHeartbeatAt).toISOString() : undefined,
+        offlineSinceAt: player.offlineSinceAt ? new Date(player.offlineSinceAt).toISOString() : undefined,
         updatedAt: updatedAt?.toISOString(),
         dirtyFlags: [...(this.playerService.getDirtyFlags(player.id) ?? [])],
       },
@@ -387,6 +390,10 @@ export class GmService {
         autoRetaliate: player.autoRetaliate,
         autoIdleCultivation: player.autoIdleCultivation,
         cultivatingTechId: player.cultivatingTechId ?? null,
+        online: player.online,
+        inWorld: player.inWorld,
+        lastHeartbeatAt: player.lastHeartbeatAt,
+        offlineSinceAt: player.offlineSinceAt,
       },
     };
   }
@@ -420,6 +427,10 @@ export class GmService {
       actions: [],
       cultivatingTechId: entity.cultivatingTechId ?? undefined,
       idleTicks: 0,
+      online: entity.online ?? false,
+      inWorld: entity.inWorld ?? false,
+      lastHeartbeatAt: entity.lastHeartbeatAt?.getTime(),
+      offlineSinceAt: entity.offlineSinceAt?.getTime(),
       revealedBreakthroughRequirementIds: Array.isArray(entity.revealedBreakthroughRequirementIds)
         ? entity.revealedBreakthroughRequirementIds.filter((entry): entry is string => typeof entry === 'string')
         : [],
@@ -564,6 +575,10 @@ export class GmService {
       autoRetaliate: player.autoRetaliate,
       autoIdleCultivation: player.autoIdleCultivation,
       cultivatingTechId: player.cultivatingTechId ?? null,
+      online: player.online === true,
+      inWorld: player.inWorld !== false,
+      lastHeartbeatAt: player.lastHeartbeatAt ? new Date(player.lastHeartbeatAt) : null,
+      offlineSinceAt: player.offlineSinceAt ? new Date(player.offlineSinceAt) : null,
     });
   }
 

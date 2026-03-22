@@ -11,6 +11,7 @@ import { NumericRatioDivisors, NumericStats } from './numeric';
 export const C2S = {
   Move: 'c:move',
   MoveTo: 'c:moveTo',
+  Heartbeat: 'c:heartbeat',
   GmGetState: 'c:gmGetState',
   GmSpawnBots: 'c:gmSpawnBots',
   GmRemoveBots: 'c:gmRemoveBots',
@@ -70,6 +71,11 @@ export interface C2S_MoveTo {
   y: number;
   ignoreVisibilityLimit?: boolean;
   allowNearestReachable?: boolean;
+}
+
+/** 在线心跳 */
+export interface C2S_Heartbeat {
+  clientAt?: number;
 }
 
 export interface C2S_GmGetState {}
@@ -474,6 +480,9 @@ export interface GmManagedPlayerMeta {
   userId?: string;
   isBot: boolean;
   online: boolean;
+  inWorld: boolean;
+  lastHeartbeatAt?: string;
+  offlineSinceAt?: string;
   updatedAt?: string;
   dirtyFlags: string[];
 }

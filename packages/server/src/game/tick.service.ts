@@ -10,10 +10,12 @@ import {
   ActionUpdateEntry,
   AutoBattleSkillConfig,
   CombatEffect,
+  DEFAULT_OFFLINE_PLAYER_TIMEOUT_SEC,
   Direction,
   GroundItemPilePatch,
   GroundItemPileView,
   parseTileTargetRef,
+  PLAYER_HEARTBEAT_TIMEOUT_MS,
   PlayerState,
   RenderEntity,
   S2C,
@@ -80,6 +82,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
   private lastSentRenderEntities: Map<string, Map<string, RenderEntity>> = new Map();
   private persistTimer: ReturnType<typeof setInterval> | null = null;
   private minTickInterval = 1000;
+  private offlinePlayerTimeoutMs = DEFAULT_OFFLINE_PLAYER_TIMEOUT_SEC * 1000;
   private watcher: fs.FSWatcher | null = null;
   private readonly logger = new Logger(TickService.name);
 
@@ -159,6 +162,10 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         this.minTickInterval = cfg.minTickInterval;
         this.logger.log(`配置已加载: minTickInterval=${this.minTickInterval}ms`);
       }
+      if (typeof cfg.offlinePlayerTimeoutSec === 'number' && cfg.offlinePlayerTimeoutSec > 0) {
+        this.offlinePlayerTimeoutMs = Math.floor(cfg.offlinePlayerTimeoutSec * 1000);
+        this.logger.log(`配置已加载: offlinePlayerTimeoutSec=${cfg.offlinePlayerTimeoutSec}s`);
+      }
     } catch (error) {
       this.logger.warn(`读取配置失败，使用默认值: ${error}`);
     }
@@ -225,9 +232,11 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       this.playerService.markDirty(playerId, 'loot');
     }
 
+    this.tickPlayerPresence(mapId, now);
+
     for (const cmd of commands) {
       const player = this.playerService.getPlayer(cmd.playerId);
-      if (!player || player.mapId !== mapId) continue;
+      if (!player || player.mapId !== mapId || player.inWorld === false) continue;
       const isDebugReset =
         cmd.type === 'debugResetSpawn' ||
         (cmd.type === 'action' && (cmd.data as { actionId?: string })?.actionId === 'debug:reset_spawn');
@@ -571,6 +580,27 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
   private ensureMapTicks() {
     for (const mapId of this.mapService.getAllMapIds()) {
       this.startMapTick(mapId);
+    }
+  }
+
+  private tickPlayerPresence(mapId: string, now: number) {
+    const mapPlayers = this.playerService.getPlayersByMap(mapId);
+    for (const player of mapPlayers) {
+      if (player.isBot) {
+        continue;
+      }
+
+      const lastHeartbeatAt = player.lastHeartbeatAt ?? 0;
+      if (player.online === true && lastHeartbeatAt > 0 && now - lastHeartbeatAt > PLAYER_HEARTBEAT_TIMEOUT_MS) {
+        const socket = this.playerService.getSocket(player.id);
+        socket?.disconnect(true);
+        this.playerService.markPlayerOffline(player.id, now);
+      }
+
+      const offlineSinceAt = player.offlineSinceAt ?? 0;
+      if (player.online !== true && offlineSinceAt > 0 && now - offlineSinceAt >= this.offlinePlayerTimeoutMs) {
+        this.worldService.removePlayerFromWorld(player, 'timeout');
+      }
     }
   }
 
