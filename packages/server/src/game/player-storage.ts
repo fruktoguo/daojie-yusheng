@@ -43,6 +43,7 @@ interface PersistedTechniqueItem {
   techId: string;
   level: number;
   exp: number;
+  expToNext?: number;
 }
 
 interface PersistedTemporaryBuffItem {
@@ -195,17 +196,20 @@ function hydrateTechnique(snapshot: unknown): TechniqueState | null {
 function dehydrateTechnique(technique: TechniqueState, contentService: ContentService): PersistedTechniqueEntry {
   const level = normalizePositiveInt(technique.level, 1);
   const exp = normalizeNonNegativeInt(technique.exp, 0);
+  const expToNext = normalizeNonNegativeInt(technique.expToNext, 0);
   if (contentService.getTechnique(technique.techId)) {
     return {
       techId: technique.techId,
       level,
       exp,
+      expToNext,
     };
   }
   return {
     ...technique,
     level,
     exp,
+    expToNext,
   };
 }
 

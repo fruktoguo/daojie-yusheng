@@ -1039,6 +1039,7 @@ export class TechniqueService {
     for (const technique of player.techniques) {
       const template = this.contentService.getTechnique(technique.techId);
       if (!template) continue;
+      const previousExpToNext = Math.max(0, technique.expToNext);
       technique.name = template.name;
       technique.grade = template.grade;
       technique.layers = template.layers;
@@ -1054,6 +1055,9 @@ export class TechniqueService {
       technique.expToNext = getTechniqueExpToNext(technique.level, template.layers);
       if (technique.expToNext <= 0) {
         technique.exp = 0;
+      } else if (previousExpToNext > 0 && previousExpToNext !== technique.expToNext) {
+        const progressRate = Math.max(0, Math.min(1, technique.exp / previousExpToNext));
+        technique.exp = Math.floor(progressRate * technique.expToNext);
       } else if (technique.exp >= technique.expToNext) {
         technique.exp = Math.max(0, technique.expToNext - 1);
       }
