@@ -1,5 +1,5 @@
 /**
- * GM 管理 HTTP 接口：玩家管理、地图编辑、Bot 控制、建议反馈
+ * GM 管理 HTTP 接口：玩家管理、地图编辑、Bot 控制、建议反馈、世界管理
  */
 import {
   BadRequestException,
@@ -10,22 +10,27 @@ import {
   Param,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
   GmMapDetailRes,
   GmMapListRes,
+  GmMapRuntimeRes,
   GmPlayerDetailRes,
   GmRemoveBotsReq,
   GmSpawnBotsReq,
   GmStateRes,
   GmUpdateMapReq,
+  GmUpdateMapTickReq,
+  GmUpdateMapTimeReq,
   GmUpdatePlayerReq,
   Suggestion,
 } from '@mud/shared';
 import { GmAuthGuard } from './gm-auth.guard';
 import { GmService } from './gm.service';
 import { SuggestionService } from './suggestion.service';
+import { TickService } from './tick.service';
 
 @Controller('gm')
 @UseGuards(GmAuthGuard)
@@ -33,6 +38,7 @@ export class GmController {
   constructor(
     private readonly gmService: GmService,
     private readonly suggestionService: SuggestionService,
+    private readonly tickService: TickService,
   ) {}
 
   /** 获取全局 GM 状态 */
@@ -72,6 +78,60 @@ export class GmController {
   @Get('maps')
   getMaps(): GmMapListRes {
     return this.gmService.getEditableMapList();
+  }
+
+  /** 获取运行时地图快照（世界管理用，必须在 maps/:mapId 之前） */
+  @Get('maps/:mapId/runtime')
+  getMapRuntime(
+    @Param('mapId') mapId: string,
+    @Query('x') qx: string,
+    @Query('y') qy: string,
+    @Query('w') qw: string,
+    @Query('h') qh: string,
+  ): GmMapRuntimeRes {
+    const x = parseInt(qx, 10) || 0;
+    const y = parseInt(qy, 10) || 0;
+    const w = parseInt(qw, 10) || 20;
+    const h = parseInt(qh, 10) || 20;
+    const result = this.gmService.getMapRuntime(
+      mapId, x, y, w, h,
+      this.tickService.getMapTickSpeed(mapId),
+      this.tickService.isMapPaused(mapId),
+    );
+    if (!result) {
+      throw new BadRequestException('目标地图不存在');
+    }
+    return result;
+  }
+
+  /** 修改地图 tick 速率（必须在 maps/:mapId 之前） */
+  @Put('maps/:mapId/tick')
+  updateMapTick(
+    @Param('mapId') mapId: string,
+    @Body() body: GmUpdateMapTickReq,
+  ): { ok: true } {
+    if (body?.paused === true || body?.speed === 0) {
+      this.tickService.setMapTickSpeed(mapId, 0);
+    } else if (typeof body?.speed === 'number') {
+      this.tickService.setMapTickSpeed(mapId, body.speed);
+    } else if (body?.paused === false) {
+      const current = this.tickService.getMapTickSpeed(mapId);
+      this.tickService.setMapTickSpeed(mapId, current || 1);
+    }
+    return { ok: true };
+  }
+
+  /** 修改地图时间配置（必须在 maps/:mapId 之前） */
+  @Put('maps/:mapId/time')
+  updateMapTime(
+    @Param('mapId') mapId: string,
+    @Body() body: GmUpdateMapTimeReq,
+  ): { ok: true } {
+    const error = this.gmService.updateMapTime(mapId, body ?? {});
+    if (error) {
+      throw new BadRequestException(error);
+    }
+    return { ok: true };
   }
 
   @Get('maps/:mapId')

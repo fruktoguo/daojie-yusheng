@@ -1386,6 +1386,22 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       : JSON.parse(JSON.stringify(DEFAULT_MAP_TIME_CONFIG)) as MapTimeConfig;
   }
 
+  /** GM 运行时修改地图时间配置（不持久化，重启恢复默认） */
+  updateMapTimeConfig(mapId: string, patch: { scale?: number; offsetTicks?: number }): string | null {
+    const map = this.maps.get(mapId);
+    if (!map) return '目标地图不存在';
+    if (!map.source.time) {
+      map.source.time = JSON.parse(JSON.stringify(DEFAULT_MAP_TIME_CONFIG)) as MapTimeConfig;
+    }
+    if (typeof patch.scale === 'number' && patch.scale >= 0) {
+      map.source.time!.scale = patch.scale;
+    }
+    if (typeof patch.offsetTicks === 'number' && Number.isFinite(patch.offsetTicks)) {
+      map.source.time!.offsetTicks = Math.round(patch.offsetTicks);
+    }
+    return null;
+  }
+
   getMapRevision(mapId: string): number {
     return this.revisions.get(mapId) ?? 0;
   }

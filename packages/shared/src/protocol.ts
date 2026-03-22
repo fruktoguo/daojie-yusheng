@@ -709,3 +709,57 @@ export interface GmMapDetailRes {
 export interface GmUpdateMapReq {
   map: GmMapDocument;
 }
+
+// ===== GM 世界管理 =====
+
+/** GM 运行时地图实体 */
+export interface GmRuntimeEntity {
+  id: string;
+  x: number;
+  y: number;
+  char: string;
+  color: string;
+  name: string;
+  kind: 'player' | 'monster' | 'npc' | 'container';
+  hp?: number;
+  maxHp?: number;
+  dead?: boolean;
+  alive?: boolean;
+  targetPlayerId?: string;
+  respawnLeft?: number;
+  online?: boolean;
+  autoBattle?: boolean;
+  isBot?: boolean;
+}
+
+/** GM 运行时地图快照响应 */
+export interface GmMapRuntimeRes {
+  mapId: string;
+  mapName: string;
+  width: number;
+  height: number;
+  /** 视口区域内的地块，tiles[dy][dx]，dy/dx 相对于请求的 x,y */
+  tiles: (VisibleTile | null)[][];
+  /** 视口区域内的实体 */
+  entities: GmRuntimeEntity[];
+  /** 当前地图时间状态 */
+  time: GameTimeState;
+  /** 当前地图时间配置 */
+  timeConfig: MapTimeConfig;
+  /** 当前 tick 倍率，0=暂停 */
+  tickSpeed: number;
+  /** 地图 tick 是否暂停 */
+  tickPaused: boolean;
+}
+
+/** GM 修改地图 tick 速率请求 */
+export interface GmUpdateMapTickReq {
+  speed?: number;
+  paused?: boolean;
+}
+
+/** GM 修改地图时间配置请求 */
+export interface GmUpdateMapTimeReq {
+  scale?: number;
+  offsetTicks?: number;
+}

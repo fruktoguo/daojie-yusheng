@@ -3001,4 +3001,26 @@ export class WorldService {
     player.combatTargetId = undefined;
     player.combatTargetLocked = false;
   }
+
+  /** 获取指定地图的所有运行时怪物（GM 世界管理用） */
+  getRuntimeMonstersForGm(mapId: string): {
+    id: string; x: number; y: number; char: string; color: string;
+    name: string; hp: number; maxHp: number; alive: boolean;
+    targetPlayerId?: string; respawnLeft: number;
+  }[] {
+    this.ensureMapInitialized(mapId);
+    return (this.monstersByMap.get(mapId) ?? []).map((m) => ({
+      id: m.runtimeId,
+      x: m.x,
+      y: m.y,
+      char: m.char || '妖',
+      color: m.color || '#d27a7a',
+      name: m.name || m.id,
+      hp: m.hp,
+      maxHp: m.maxHp ?? m.hp,
+      alive: m.alive,
+      targetPlayerId: m.targetPlayerId,
+      respawnLeft: m.respawnLeft,
+    }));
+  }
 }

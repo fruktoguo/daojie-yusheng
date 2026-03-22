@@ -73,6 +73,8 @@ interface LastSentTickState {
 export class TickService implements OnModuleInit, OnModuleDestroy {
   private timers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private lastTickTime: Map<string, number> = new Map();
+  private mapTickSpeed: Map<string, number> = new Map();
+  private pausedMaps: Set<string> = new Set();
   private lastSentTickState: Map<string, LastSentTickState> = new Map();
   private lastSentAttrUpdates: Map<string, S2C_AttrUpdate> = new Map();
   private lastSentTechniqueStates: Map<string, Map<string, TechniqueState>> = new Map();
@@ -188,13 +190,49 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     this.scheduleNextTick(mapId, this.minTickInterval);
   }
 
+  /** 设置地图 tick 倍率，0 = 暂停 */
+  setMapTickSpeed(mapId: string, speed: number): void {
+    const clamped = Math.max(0, Math.min(10, speed));
+    this.mapTickSpeed.set(mapId, clamped);
+    if (clamped === 0) {
+      this.pausedMaps.add(mapId);
+    } else {
+      const wasPaused = this.pausedMaps.has(mapId);
+      this.pausedMaps.delete(mapId);
+      if (wasPaused && !this.timers.has(mapId)) {
+        this.lastTickTime.set(mapId, Date.now());
+        this.scheduleNextTick(mapId, this.getEffectiveInterval(mapId));
+      }
+    }
+  }
+
+  getMapTickSpeed(mapId: string): number {
+    if (this.pausedMaps.has(mapId)) return 0;
+    return this.mapTickSpeed.get(mapId) ?? 1;
+  }
+
+  isMapPaused(mapId: string): boolean {
+    return this.pausedMaps.has(mapId);
+  }
+
+  private getEffectiveInterval(mapId: string): number {
+    const speed = this.mapTickSpeed.get(mapId) ?? 1;
+    if (speed <= 0) return this.minTickInterval;
+    return Math.max(50, Math.round(this.minTickInterval / speed));
+  }
+
   private scheduleNextTick(mapId: string, delay: number) {
+    if (this.pausedMaps.has(mapId)) {
+      this.timers.delete(mapId);
+      return;
+    }
     const timer = setTimeout(() => {
       const start = Date.now();
       this.tick(mapId, start);
       const elapsed = Date.now() - start;
       this.performanceService.recordTick(elapsed);
-      const nextDelay = Math.max(0, this.minTickInterval - elapsed);
+      const effectiveInterval = this.getEffectiveInterval(mapId);
+      const nextDelay = Math.max(0, effectiveInterval - elapsed);
       this.scheduleNextTick(mapId, nextDelay);
     }, delay);
     this.timers.set(mapId, timer);
