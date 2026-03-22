@@ -12,6 +12,7 @@ export const C2S = {
   Move: 'c:move',
   MoveTo: 'c:moveTo',
   Heartbeat: 'c:heartbeat',
+  Ping: 'c:ping',
   GmGetState: 'c:gmGetState',
   GmSpawnBots: 'c:gmSpawnBots',
   GmRemoveBots: 'c:gmRemoveBots',
@@ -38,6 +39,7 @@ export const C2S = {
 export const S2C = {
   Init: 's:init',
   Tick: 's:tick',
+  Pong: 's:pong',
   GmState: 's:gmState',
   // 预留事件：当前服务端尚未正式使用
   Enter: 's:enter',
@@ -76,6 +78,17 @@ export interface C2S_MoveTo {
 /** 在线心跳 */
 export interface C2S_Heartbeat {
   clientAt?: number;
+}
+
+/** 客户端主动延迟探测 */
+export interface C2S_Ping {
+  clientAt: number;
+}
+
+/** 服务端立即回显延迟探测 */
+export interface S2C_Pong {
+  clientAt: number;
+  serverAt: number;
 }
 
 export interface C2S_GmGetState {}

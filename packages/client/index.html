@@ -835,7 +835,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       gap: 14px;
       padding: 12px 8px;
       background: linear-gradient(180deg, rgba(255,255,255,0.38), rgba(255,255,255,0.08));
@@ -847,6 +847,21 @@
     .map-side-rail.right {
       grid-column: 3;
       border-left: 1px solid var(--wash-ink);
+    }
+    .map-side-tool-top {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      align-self: stretch;
+      padding-top: 10px;
+    }
+    .map-side-tool-center {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      flex: 1;
     }
     .map-zoom-btn {
       width: 24px;
@@ -3594,6 +3609,18 @@
       .map-tool-controls {
         flex-direction: row;
       }
+      .map-side-tool-top {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        align-self: auto;
+        gap: 18px;
+        padding-top: 0;
+      }
+      .map-side-tool-center {
+        flex: 0 0 auto;
+        width: auto;
+      }
       .map-side-info-stack {
         flex-direction: row;
         justify-content: space-between;
@@ -3768,10 +3795,26 @@
       <section class="layout-section map-section">
         <div class="map-shell">
           <div class="map-side-rail left">
-            <div class="map-tool-controls">
-              <button id="zoom-in" class="map-zoom-btn" type="button">+</button>
-              <div id="zoom-level" class="map-zoom-value"><span>x</span><span>1</span></div>
-              <button id="zoom-out" class="map-zoom-btn" type="button">-</button>
+            <div class="map-side-tool-top">
+              <div id="map-ping-rate" class="map-tick-rate" title="通过当前访问域名检测游戏服务器延迟">
+                <span class="map-tick-rate-char">灵</span>
+                <span class="map-tick-rate-char">网</span>
+                <span class="map-tick-rate-char">延</span>
+                <span class="map-tick-rate-char">迟</span>
+                <span class="map-tick-rate-value" id="map-ping-value">
+                  <span class="map-tick-rate-number" data-ping-part="hundreds">-</span>
+                  <span class="map-tick-rate-number" data-ping-part="tens">-</span>
+                  <span class="map-tick-rate-number" data-ping-part="ones">-</span>
+                </span>
+                <span class="map-side-phase" id="map-ping-unit">待测</span>
+              </div>
+            </div>
+            <div class="map-side-tool-center">
+              <div class="map-tool-controls">
+                <button id="zoom-in" class="map-zoom-btn" type="button">+</button>
+                <div id="zoom-level" class="map-zoom-value"><span>x</span><span>1</span></div>
+                <button id="zoom-out" class="map-zoom-btn" type="button">-</button>
+              </div>
             </div>
           </div>
         <div id="game-stage">

@@ -7,9 +7,11 @@ import {
   C2S, S2C, C2S_Move, C2S_MoveTo, C2S_GmGetState, C2S_GmSpawnBots, C2S_GmRemoveBots, C2S_GmUpdatePlayer, C2S_GmResetPlayer, C2S_Action, C2S_UpdateAutoBattleSkills, C2S_DebugResetSpawn, C2S_UseItem, C2S_DropItem,
   C2S_TakeLoot, C2S_SortInventory, C2S_Equip, C2S_Unequip, C2S_Cultivate, C2S_Chat,
   C2S_Heartbeat,
+  C2S_Ping,
   S2C_Tick, S2C_Init, S2C_AttrUpdate, S2C_InventoryUpdate,
   S2C_EquipmentUpdate, S2C_TechniqueUpdate, S2C_ActionsUpdate, S2C_LootWindowUpdate, S2C_QuestUpdate, S2C_SystemMsg, S2C_GmState,
   S2C_SuggestionUpdate,
+  S2C_Pong,
   S2C_Error, decodeServerEventPayload, encodeClientEventPayload,
   AutoBattleSkillConfig, Direction, EquipSlot, PLAYER_HEARTBEAT_INTERVAL_MS,
 } from '@mud/shared';
@@ -17,6 +19,7 @@ import {
 /** 客户端 Socket.IO 连接管理，负责协议编解码与事件分发 */
 export class SocketManager {
   private socket: Socket | null = null;
+  private accessToken: string | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private onTickCallbacks: Array<(data: S2C_Tick) => void> = [];
   private onKickCallbacks: Array<() => void> = [];
@@ -32,17 +35,24 @@ export class SocketManager {
   private onErrorCallbacks: Array<(data: S2C_Error) => void> = [];
   private onGmStateCallbacks: Array<(data: S2C_GmState) => void> = [];
   private onSuggestionUpdateCallbacks: Array<(data: S2C_SuggestionUpdate) => void> = [];
+  private onPongCallbacks: Array<(data: S2C_Pong) => void> = [];
   private onDisconnectCallbacks: Array<(reason: string) => void> = [];
   private onConnectErrorCallbacks: Array<(message: string) => void> = [];
 
   /** 建立 WebSocket 连接并绑定所有服务端事件 */
   connect(token: string) {
-    this.disconnect();
+    this.accessToken = token;
+    this.disposeSocket({ clearToken: false });
     this.socket = io({
       auth: { token },
       // Swarm rolling updates and reverse proxies can route polling requests
       // to a different task, while a single WebSocket connection avoids SID drift.
       transports: ['websocket'],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 8000,
     });
 
     this.socket.on('connect', () => {
@@ -61,6 +71,7 @@ export class SocketManager {
     this.bindServerEvent(S2C.QuestUpdate, this.onQuestUpdateCallbacks);
     this.bindServerEvent(S2C.SystemMsg, this.onSystemMsgCallbacks);
     this.bindServerEvent(S2C.SuggestionUpdate, this.onSuggestionUpdateCallbacks);
+    this.bindServerEvent(S2C.Pong, this.onPongCallbacks);
     this.bindServerEvent(S2C.Error, this.onErrorCallbacks);
     this.bindServerEvent(S2C.GmState, this.onGmStateCallbacks);
     this.socket.on(S2C.Kick, () => {
@@ -92,6 +103,22 @@ export class SocketManager {
   }
 
   disconnect() {
+    this.disposeSocket({ clearToken: true });
+  }
+
+  reconnect(token?: string): boolean {
+    const nextToken = token ?? this.accessToken;
+    if (!nextToken) {
+      return false;
+    }
+    this.connect(nextToken);
+    return true;
+  }
+
+  private disposeSocket(options: { clearToken: boolean }) {
+    if (options.clearToken) {
+      this.accessToken = null;
+    }
     this.stopHeartbeat();
     this.socket?.disconnect();
     this.socket = null;
@@ -114,6 +141,11 @@ export class SocketManager {
 
   private sendHeartbeat(): void {
     this.emitServer(C2S.Heartbeat, { clientAt: Date.now() } satisfies C2S_Heartbeat);
+  }
+
+  sendPing(clientAt = Date.now()): number {
+    this.emitServer(C2S.Ping, { clientAt } satisfies C2S_Ping);
+    return clientAt;
   }
 
   sendMove(direction: Direction) {
@@ -206,6 +238,7 @@ export class SocketManager {
   onQuestUpdate(cb: (data: S2C_QuestUpdate) => void) { this.onQuestUpdateCallbacks.push(cb); }
   onSystemMsg(cb: (data: S2C_SystemMsg) => void) { this.onSystemMsgCallbacks.push(cb); }
   onSuggestionUpdate(cb: (data: S2C_SuggestionUpdate) => void) { this.onSuggestionUpdateCallbacks.push(cb); }
+  onPong(cb: (data: S2C_Pong) => void) { this.onPongCallbacks.push(cb); }
   onError(cb: (data: S2C_Error) => void) { this.onErrorCallbacks.push(cb); }
   onGmState(cb: (data: S2C_GmState) => void) { this.onGmStateCallbacks.push(cb); }
   onDisconnect(cb: (reason: string) => void) { this.onDisconnectCallbacks.push(cb); }

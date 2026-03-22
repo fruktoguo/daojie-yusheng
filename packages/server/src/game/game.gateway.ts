@@ -17,6 +17,7 @@ import {
   C2S_Move,
   C2S_MoveTo,
   C2S_Heartbeat,
+  C2S_Ping,
   C2S_UseItem,
   C2S_DropItem,
   C2S_TakeLoot,
@@ -35,6 +36,7 @@ import {
   PlayerState,
   S2C_Init,
   S2C_SystemMsg,
+  S2C_Pong,
   DEFAULT_BASE_ATTRS,
   BASE_MAX_HP,
   HP_PER_CONSTITUTION,
@@ -210,6 +212,18 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const playerId = client.data?.playerId as string;
     if (!playerId) return;
     this.playerService.touchHeartbeat(playerId);
+  }
+
+  @SubscribeMessage(C2S.Ping)
+  handlePing(client: Socket, data: C2S_Ping) {
+    const playerId = client.data?.playerId as string;
+    if (!playerId) {
+      return;
+    }
+    client.emit(S2C.Pong, {
+      clientAt: data.clientAt,
+      serverAt: Date.now(),
+    } satisfies S2C_Pong);
   }
 
   @SubscribeMessage(C2S.Move)

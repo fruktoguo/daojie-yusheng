@@ -30,6 +30,7 @@ import { detailModalHost } from './ui/detail-modal-host';
 import { adjustZoom, getDisplayRangeX, getDisplayRangeY, getZoom, updateDisplayMetrics } from './display';
 import { getRememberedMarkers, hydrateTileCacheFromMemory, rememberVisibleMarkers, rememberVisibleTiles } from './map-memory';
 import { cacheMapMeta, cacheMapSnapshot, cacheUnlockedMinimapLibrary, getCachedMapSnapshot } from './map-static-cache';
+import { getAccessToken } from './ui/auth-api';
 import {
   ActionDef,
   computeAffectedCellsFromAnchor,
@@ -86,6 +87,28 @@ const tickRateIntEl = tickRateValueEl?.querySelector<HTMLElement>('[data-part="i
 const tickRateDotEl = tickRateValueEl?.querySelector<HTMLElement>('[data-part="dot"]');
 const tickRateFracAEl = tickRateValueEl?.querySelector<HTMLElement>('[data-part="frac-a"]');
 const tickRateFracBEl = tickRateValueEl?.querySelector<HTMLElement>('[data-part="frac-b"]');
+const pingLatencyEl = document.getElementById('map-ping-rate');
+const pingValueEl = document.getElementById('map-ping-value');
+const pingUnitEl = document.getElementById('map-ping-unit');
+const pingHundredsEl = pingValueEl?.querySelector<HTMLElement>('[data-ping-part="hundreds"]');
+const pingTensEl = pingValueEl?.querySelector<HTMLElement>('[data-ping-part="tens"]');
+const pingOnesEl = pingValueEl?.querySelector<HTMLElement>('[data-ping-part="ones"]');
+
+const CONNECTION_RECOVERY_RETRY_MS = 1200;
+const SERVER_PING_INTERVAL_MS = 5000;
+const SOCKET_PING_TIMEOUT_MS = 4000;
+
+let connectionRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
+let connectionRecoveryPromise: Promise<void> | null = null;
+let pingTimer: ReturnType<typeof setTimeout> | null = null;
+let pingRequestSerial = 0;
+let pendingSocketPing:
+  | {
+      serial: number;
+      clientAt: number;
+      timeoutId: ReturnType<typeof setTimeout>;
+    }
+  | null = null;
 
 function renderTickRate(seconds: number) {
   const [integer, fraction] = seconds.toFixed(2).split('.');
@@ -112,8 +135,149 @@ function renderCurrentTime(state: GameTimeState | null) {
   }
 }
 
+function renderPingLatency(latencyMs: number | null, status = '毫秒') {
+  const digits = (() => {
+    if (latencyMs === null) {
+      return ['-', '-', '-'];
+    }
+    const rounded = String(Math.min(999, Math.max(0, Math.round(latencyMs))));
+    if (rounded.length >= 3) {
+      return rounded.split('');
+    }
+    if (rounded.length === 2) {
+      return ['·', rounded[0], rounded[1]];
+    }
+    return ['·', '·', rounded[0] ?? '0'];
+  })();
+  if (pingHundredsEl) pingHundredsEl.textContent = digits[0] ?? '-';
+  if (pingTensEl) pingTensEl.textContent = digits[1] ?? '-';
+  if (pingOnesEl) pingOnesEl.textContent = digits[2] ?? '-';
+  if (pingUnitEl) pingUnitEl.textContent = status;
+  if (pingLatencyEl) {
+    const title = latencyMs === null
+      ? `当前域名 ${window.location.host} 的服务器延迟${status === '离线' ? '不可用' : `状态：${status}`}`
+      : `当前域名 ${window.location.host} 上游戏连接往返约 ${Math.round(latencyMs)}ms`;
+    pingLatencyEl.setAttribute('title', title);
+  }
+}
+
+async function waitFor(ms: number): Promise<void> {
+  await new Promise<void>((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+async function recoverConnection(forceRefresh = false): Promise<void> {
+  if (connectionRecoveryPromise) {
+    return connectionRecoveryPromise;
+  }
+  connectionRecoveryPromise = (async () => {
+    if (document.visibilityState === 'hidden') {
+      return;
+    }
+    if (socket.connected || !loginUI.hasRefreshToken()) {
+      return;
+    }
+
+    const accessToken = forceRefresh ? null : getAccessToken();
+    if (accessToken) {
+      socket.reconnect(accessToken);
+      await waitFor(CONNECTION_RECOVERY_RETRY_MS);
+      if (socket.connected) {
+        return;
+      }
+    }
+
+    await loginUI.restoreSession();
+  })().finally(() => {
+    connectionRecoveryPromise = null;
+  });
+  return connectionRecoveryPromise;
+}
+
+function scheduleConnectionRecovery(delayMs = 0, forceRefresh = false): void {
+  if (connectionRecoveryTimer !== null) {
+    window.clearTimeout(connectionRecoveryTimer);
+  }
+  connectionRecoveryTimer = window.setTimeout(() => {
+    connectionRecoveryTimer = null;
+    void recoverConnection(forceRefresh);
+  }, delayMs);
+}
+
+function clearPendingSocketPing(): void {
+  if (!pendingSocketPing) {
+    return;
+  }
+  window.clearTimeout(pendingSocketPing.timeoutId);
+  pendingSocketPing = null;
+}
+
+function markSocketPingTimeout(serial: number): void {
+  if (!pendingSocketPing || pendingSocketPing.serial !== serial) {
+    return;
+  }
+  pendingSocketPing = null;
+  renderPingLatency(null, socket.connected ? '超时' : '离线');
+}
+
+function sampleServerPing(): void {
+  if (document.visibilityState === 'hidden') {
+    return;
+  }
+  clearPendingSocketPing();
+  if (!navigator.onLine) {
+    renderPingLatency(null, '断网');
+    return;
+  }
+  if (!socket.connected) {
+    renderPingLatency(null, loginUI.hasRefreshToken() ? '重连' : '离线');
+    return;
+  }
+  const serial = ++pingRequestSerial;
+  const clientAt = performance.now();
+  socket.sendPing(clientAt);
+  const timeoutId = window.setTimeout(() => {
+    markSocketPingTimeout(serial);
+  }, SOCKET_PING_TIMEOUT_MS);
+  pendingSocketPing = { serial, clientAt, timeoutId };
+}
+
+function stopPingLoop(): void {
+  if (pingTimer !== null) {
+    window.clearTimeout(pingTimer);
+    pingTimer = null;
+  }
+  clearPendingSocketPing();
+}
+
+function scheduleNextPing(delayMs = SERVER_PING_INTERVAL_MS): void {
+  if (pingTimer !== null) {
+    window.clearTimeout(pingTimer);
+  }
+  pingTimer = window.setTimeout(() => {
+    pingTimer = null;
+    sampleServerPing();
+    scheduleNextPing(SERVER_PING_INTERVAL_MS);
+  }, delayMs);
+}
+
+function restartPingLoop(immediate = true): void {
+  stopPingLoop();
+  if (document.visibilityState === 'hidden') {
+    return;
+  }
+  if (!immediate) {
+    scheduleNextPing();
+    return;
+  }
+  sampleServerPing();
+  scheduleNextPing(SERVER_PING_INTERVAL_MS);
+}
+
 renderTickRate(1);
 renderCurrentTime(null);
+renderPingLatency(null, '待测');
 const socket = new SocketManager();
 const camera = new Camera();
 const renderer = new TextRenderer();
@@ -1193,13 +1357,29 @@ socket.onKick(() => {
 });
 socket.onConnectError((message) => {
   if (socket.connected) return;
-  if (loginUI.hasRefreshToken()) return;
+  if (loginUI.hasRefreshToken()) {
+    renderPingLatency(null, '重连');
+    scheduleConnectionRecovery(300, true);
+    return;
+  }
   showToast(`连接失败: ${message}`);
 });
 socket.onDisconnect((reason) => {
   if (reason === 'io client disconnect') return;
-  if (!myPlayer) return;
-  showToast('连接已断开，正在等待重新登录或恢复');
+  clearPendingSocketPing();
+  renderPingLatency(null, navigator.onLine ? '重连' : '断网');
+  if (myPlayer) {
+    showToast('连接已断开，正在尝试恢复');
+  }
+  scheduleConnectionRecovery(document.visibilityState === 'visible' ? 300 : 0);
+});
+socket.onPong((data) => {
+  if (!pendingSocketPing || data.clientAt !== pendingSocketPing.clientAt) {
+    return;
+  }
+  window.clearTimeout(pendingSocketPing.timeoutId);
+  pendingSocketPing = null;
+  renderPingLatency(performance.now() - data.clientAt);
 });
 
 let pathCells: { x: number; y: number }[] = [];
@@ -1582,6 +1762,30 @@ function resizeCanvas() {
 resizeCanvas();
 refreshZoomChrome();
 window.addEventListener('resize', resizeCanvas);
+window.addEventListener('focus', () => {
+  scheduleConnectionRecovery(150);
+  restartPingLoop();
+});
+window.addEventListener('pageshow', () => {
+  scheduleConnectionRecovery(150);
+  restartPingLoop();
+});
+window.addEventListener('online', () => {
+  scheduleConnectionRecovery(150);
+  restartPingLoop();
+});
+window.addEventListener('offline', () => {
+  clearPendingSocketPing();
+  renderPingLatency(null, '断网');
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    stopPingLoop();
+    return;
+  }
+  scheduleConnectionRecovery(150);
+  restartPingLoop();
+});
 window.addEventListener('contextmenu', (event) => {
   if (pendingTargetedAction) {
     event.preventDefault();
@@ -1965,4 +2169,5 @@ function gameLoop() {
 
 requestAnimationFrame(gameLoop);
 
+restartPingLoop();
 void loginUI.restoreSession();

@@ -35,6 +35,7 @@ export class LoginUI {
   private displayNameAbortController: AbortController | null = null;
   private displayNameAvailable = false;
   private mode: AuthMode | null = null;
+  private restoreSessionPromise: Promise<boolean> | null = null;
 
   constructor(private socket: SocketManager) {
     this.loginTab.addEventListener('click', () => this.setMode('login'));
@@ -50,6 +51,16 @@ export class LoginUI {
 
   /** 尝试用 localStorage 中的 refreshToken 恢复登录态 */
   async restoreSession(): Promise<boolean> {
+    if (this.restoreSessionPromise) {
+      return this.restoreSessionPromise;
+    }
+    this.restoreSessionPromise = this.performRestoreSession().finally(() => {
+      this.restoreSessionPromise = null;
+    });
+    return this.restoreSessionPromise;
+  }
+
+  private async performRestoreSession(): Promise<boolean> {
     const refreshToken = getRefreshToken();
     if (!refreshToken) return false;
 
