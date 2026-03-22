@@ -10,3 +10,4 @@ coverage
 .env
 .env.*
 参考
+packages/server/data/runtime
