@@ -39,10 +39,13 @@ import {
   hydrateTechniqueSnapshots,
 } from './player-storage';
 
+/** 即时执行的操作类型（不入队，gateway 收到后直接执行） */
+export type ImmediateCommandType = 'equip' | 'unequip' | 'sortInventory' | 'useItem' | 'dropItem' | 'cultivate' | 'updateAutoBattleSkills';
+
 /** 玩家指令，由客户端消息转化后入队，在 tick 中统一执行 */
 export interface PlayerCommand {
   playerId: string;
-  type: 'move' | 'moveTo' | 'action' | 'useItem' | 'dropItem' | 'takeLoot' | 'sortInventory' | 'equip' | 'unequip' | 'cultivate' | 'debugResetSpawn' | 'updateAutoBattleSkills';
+  type: 'move' | 'moveTo' | 'action' | 'takeLoot' | 'debugResetSpawn';
   data: unknown;
   timestamp: number;
 }

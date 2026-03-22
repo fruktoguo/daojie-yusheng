@@ -49,7 +49,7 @@ import { BotService } from './bot.service';
 import { GmService } from './gm.service';
 import { LootService } from './loot.service';
 import { PerformanceService } from './performance.service';
-import { DirtyFlag, PlayerService } from './player.service';
+import { DirtyFlag, ImmediateCommandType, PlayerService } from './player.service';
 import { TechniqueService } from './technique.service';
 import { TimeService } from './time.service';
 import { WorldMessage, WorldService, WorldUpdate } from './world.service';
@@ -276,60 +276,6 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
           }
           break;
         }
-        case 'useItem': {
-          const { slotIndex } = cmd.data as { slotIndex: number };
-          const item = this.inventoryService.getItem(player, slotIndex);
-          if (!item) {
-            messages.push({ playerId: player.id, text: '物品不存在', kind: 'system' });
-            break;
-          }
-          const itemDef = this.contentService.getItem(item.itemId);
-          if (itemDef?.learnTechniqueId && player.techniques.some((technique) => technique.techId === itemDef.learnTechniqueId)) {
-            messages.push({ playerId: player.id, text: '你已经学会这门功法了。', kind: 'system' });
-            break;
-          }
-          if (itemDef?.mapUnlockId && (player.unlockedMinimapIds ?? []).includes(itemDef.mapUnlockId)) {
-            const mapMeta = this.mapService.getMapMeta(itemDef.mapUnlockId);
-            messages.push({
-              playerId: player.id,
-              text: mapMeta ? `${mapMeta.name} 的地图你早已记下。` : '这份地图你早已记下。',
-              kind: 'system',
-            });
-            break;
-          }
-          const err = this.inventoryService.useItem(player, slotIndex);
-          if (err) {
-            messages.push({ playerId: player.id, text: err, kind: 'system' });
-            break;
-          }
-          this.playerService.markDirty(player.id, 'inv');
-          this.applyItemEffect(player, item.itemId, messages);
-          break;
-        }
-        case 'dropItem': {
-          const { slotIndex, count } = cmd.data as { slotIndex: number; count: number };
-          const dropped = this.inventoryService.dropItem(player, slotIndex, count);
-          if (!dropped) {
-            messages.push({ playerId: player.id, text: '物品不存在或数量不足', kind: 'system' });
-            break;
-          }
-          this.playerService.markDirty(player.id, 'inv');
-          const container = this.mapService.getContainerAt(player.mapId, player.x, player.y);
-          const dirtyPlayerIds = container
-            ? this.lootService.dropToContainer(player.mapId, container.id, dropped)
-            : this.lootService.dropToGround(player.mapId, player.x, player.y, dropped);
-          for (const dirtyPlayerId of dirtyPlayerIds) {
-            this.playerService.markDirty(dirtyPlayerId, 'loot');
-          }
-          messages.push({
-            playerId: player.id,
-            text: container
-              ? `你将 ${dropped.name} x${dropped.count} 放进了 ${container.name}。`
-              : `你将 ${dropped.name} x${dropped.count} 丢在了地上。`,
-            kind: 'loot',
-          });
-          break;
-        }
         case 'takeLoot': {
           const { sourceId, itemKey } = cmd.data as { sourceId: string; itemKey: string };
           const result = this.lootService.takeFromSource(player, sourceId, itemKey);
@@ -345,63 +291,6 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
           }
           for (const message of result.messages) {
             messages.push({ playerId: message.playerId, text: message.text, kind: message.kind });
-          }
-          break;
-        }
-        case 'sortInventory': {
-          this.inventoryService.sortInventory(player);
-          this.playerService.markDirty(player.id, 'inv');
-          messages.push({ playerId: player.id, text: '背包已整理', kind: 'system' });
-          break;
-        }
-        case 'equip': {
-          const { slotIndex } = cmd.data as { slotIndex: number };
-          const err = this.equipmentService.equip(player, slotIndex);
-          if (!err) {
-            this.markDirty(player.id, ['inv', 'equip', 'attr']);
-          } else {
-            messages.push({ playerId: player.id, text: err, kind: 'system' });
-          }
-          break;
-        }
-        case 'unequip': {
-          const { slot } = cmd.data as { slot: string };
-          const err = this.equipmentService.unequip(player, slot as any);
-          if (!err) {
-            this.markDirty(player.id, ['inv', 'equip', 'attr']);
-          } else {
-            messages.push({ playerId: player.id, text: err, kind: 'system' });
-          }
-          break;
-        }
-        case 'cultivate': {
-          const { techId } = cmd.data as { techId: string | null };
-          if (!techId) {
-            const cultivation = this.techniqueService.stopCultivation(player, '你收束气机，停止了当前修炼。', 'quest');
-            player.cultivatingTechId = undefined;
-            this.applyCultivationResult(player.id, cultivation, messages);
-            messages.push({ playerId: player.id, text: '你收束气机，取消了当前主修功法。', kind: 'quest' });
-            this.playerService.markDirty(player.id, 'tech');
-            this.playerService.markDirty(player.id, 'actions');
-            break;
-          }
-
-          const technique = player.techniques.find((entry) => entry.techId === techId);
-          if (!technique) {
-            messages.push({ playerId: player.id, text: '尚未掌握该功法，无法设为主修。', kind: 'system' });
-            break;
-          }
-
-          player.cultivatingTechId = techId;
-          messages.push({ playerId: player.id, text: `你将 ${technique.name} 设为当前主修，修炼与战斗所得功法经验都会优先流入此法。`, kind: 'quest' });
-          this.playerService.markDirty(player.id, 'tech');
-          this.playerService.markDirty(player.id, 'actions');
-          break;
-        }
-        case 'updateAutoBattleSkills': {
-          const { skills } = cmd.data as { skills: AutoBattleSkillConfig[] };
-          if (this.actionService.updateAutoBattleSkills(player, skills)) {
-            this.playerService.markDirty(player.id, 'actions');
           }
           break;
         }
@@ -771,76 +660,227 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     return before !== after;
   }
 
+  /**
+   * 即时执行不涉及位置竞争的玩家操作，立即推送结果。
+   * 由 gateway 在 socket 事件处理器中直接调用。
+   */
+  executeImmediate(player: PlayerState, type: ImmediateCommandType, data: unknown): void {
+    if (!player || player.inWorld === false || player.dead) return;
+
+    const messages: WorldMessage[] = [];
+
+    switch (type) {
+      case 'useItem': {
+        const { slotIndex } = data as { slotIndex: number };
+        const item = this.inventoryService.getItem(player, slotIndex);
+        if (!item) {
+          messages.push({ playerId: player.id, text: '物品不存在', kind: 'system' });
+          break;
+        }
+        const itemDef = this.contentService.getItem(item.itemId);
+        if (itemDef?.learnTechniqueId && player.techniques.some((technique) => technique.techId === itemDef.learnTechniqueId)) {
+          messages.push({ playerId: player.id, text: '你已经学会这门功法了。', kind: 'system' });
+          break;
+        }
+        if (itemDef?.mapUnlockId && (player.unlockedMinimapIds ?? []).includes(itemDef.mapUnlockId)) {
+          const mapMeta = this.mapService.getMapMeta(itemDef.mapUnlockId);
+          messages.push({
+            playerId: player.id,
+            text: mapMeta ? `${mapMeta.name} 的地图你早已记下。` : '这份地图你早已记下。',
+            kind: 'system',
+          });
+          break;
+        }
+        const useErr = this.inventoryService.useItem(player, slotIndex);
+        if (useErr) {
+          messages.push({ playerId: player.id, text: useErr, kind: 'system' });
+          break;
+        }
+        this.playerService.markDirty(player.id, 'inv');
+        this.applyItemEffect(player, item.itemId, messages);
+        break;
+      }
+      case 'dropItem': {
+        const { slotIndex, count } = data as { slotIndex: number; count: number };
+        const dropped = this.inventoryService.dropItem(player, slotIndex, count);
+        if (!dropped) {
+          messages.push({ playerId: player.id, text: '物品不存在或数量不足', kind: 'system' });
+          break;
+        }
+        this.playerService.markDirty(player.id, 'inv');
+        const container = this.mapService.getContainerAt(player.mapId, player.x, player.y);
+        const dirtyPlayerIds = container
+          ? this.lootService.dropToContainer(player.mapId, container.id, dropped)
+          : this.lootService.dropToGround(player.mapId, player.x, player.y, dropped);
+        // 其他玩家的 loot 脏标记留给下一次 tick 推送
+        for (const dirtyPlayerId of dirtyPlayerIds) {
+          this.playerService.markDirty(dirtyPlayerId, 'loot');
+        }
+        messages.push({
+          playerId: player.id,
+          text: container
+            ? `你将 ${dropped.name} x${dropped.count} 放进了 ${container.name}。`
+            : `你将 ${dropped.name} x${dropped.count} 丢在了地上。`,
+          kind: 'loot',
+        });
+        break;
+      }
+      case 'sortInventory': {
+        this.inventoryService.sortInventory(player);
+        this.playerService.markDirty(player.id, 'inv');
+        messages.push({ playerId: player.id, text: '背包已整理', kind: 'system' });
+        break;
+      }
+      case 'equip': {
+        const { slotIndex } = data as { slotIndex: number };
+        const equipErr = this.equipmentService.equip(player, slotIndex);
+        if (!equipErr) {
+          this.markDirty(player.id, ['inv', 'equip', 'attr']);
+        } else {
+          messages.push({ playerId: player.id, text: equipErr, kind: 'system' });
+        }
+        break;
+      }
+      case 'unequip': {
+        const { slot } = data as { slot: string };
+        const unequipErr = this.equipmentService.unequip(player, slot as any);
+        if (!unequipErr) {
+          this.markDirty(player.id, ['inv', 'equip', 'attr']);
+        } else {
+          messages.push({ playerId: player.id, text: unequipErr, kind: 'system' });
+        }
+        break;
+      }
+      case 'cultivate': {
+        const { techId } = data as { techId: string | null };
+        if (!techId) {
+          const cultivation = this.techniqueService.stopCultivation(player, '你收束气机，停止了当前修炼。', 'quest');
+          player.cultivatingTechId = undefined;
+          this.applyCultivationResult(player.id, cultivation, messages);
+          messages.push({ playerId: player.id, text: '你收束气机，取消了当前主修功法。', kind: 'quest' });
+          this.playerService.markDirty(player.id, 'tech');
+          this.playerService.markDirty(player.id, 'actions');
+          break;
+        }
+
+        const technique = player.techniques.find((entry) => entry.techId === techId);
+        if (!technique) {
+          messages.push({ playerId: player.id, text: '尚未掌握该功法，无法设为主修。', kind: 'system' });
+          break;
+        }
+
+        player.cultivatingTechId = techId;
+        messages.push({ playerId: player.id, text: `你将 ${technique.name} 设为当前主修，修炼与战斗所得功法经验都会优先流入此法。`, kind: 'quest' });
+        this.playerService.markDirty(player.id, 'tech');
+        this.playerService.markDirty(player.id, 'actions');
+        break;
+      }
+      case 'updateAutoBattleSkills': {
+        const { skills } = data as { skills: AutoBattleSkillConfig[] };
+        if (this.actionService.updateAutoBattleSkills(player, skills)) {
+          this.playerService.markDirty(player.id, 'actions');
+        }
+        break;
+      }
+    }
+
+    // 即时推送操作者自身的脏数据
+    this.flushPlayerDirtyUpdates(player);
+    // 即时推送操作者的系统消息
+    this.flushImmediateMessages(player.id, messages);
+  }
+
   /** 将所有脏标记对应的数据变更推送给各玩家客户端 */
   private flushDirtyUpdates(players: PlayerState[]) {
     for (const player of players) {
-      this.techniqueService.initializePlayerProgression(player);
-      const flags = this.playerService.getDirtyFlags(player.id);
-      if (!flags || flags.size === 0) continue;
-      if (
-        player.realm?.breakthroughReady
-        && (flags.has('inv') || flags.has('equip') || flags.has('tech'))
-      ) {
-        flags.add('attr');
-      }
-      const socket = this.playerService.getSocket(player.id);
-      if (!socket) continue;
+      this.flushPlayerDirtyUpdates(player);
+    }
+  }
 
-      if (flags.has('attr')) {
-        const finalAttrs = this.attrService.getPlayerFinalAttrs(player);
-        const numericStats = this.attrService.getPlayerNumericStats(player);
-        const ratioDivisors = this.attrService.getPlayerRatioDivisors(player);
-        const update = this.buildSparseAttrUpdate(player.id, {
-          baseAttrs: player.baseAttrs,
-          bonuses: player.bonuses,
-          finalAttrs,
-          numericStats,
-          ratioDivisors,
-          maxHp: player.maxHp,
-          qi: player.qi,
-          realm: player.realm,
-        });
-        if (update) {
-          socket.emit(S2C.AttrUpdate, update);
-        }
-      }
-      if (flags.has('inv')) {
-        const update: S2C_InventoryUpdate = { inventory: player.inventory };
-        socket.emit(S2C.InventoryUpdate, update);
-      }
-      if (flags.has('equip')) {
-        const update: S2C_EquipmentUpdate = { equipment: player.equipment };
-        socket.emit(S2C.EquipmentUpdate, update);
-      }
-      if (flags.has('tech')) {
-        const update: S2C_TechniqueUpdate = {
-          techniques: this.buildSparseTechniqueStates(player.id, player.techniques),
-          cultivatingTechId: player.cultivatingTechId,
-        };
-        socket.emit(S2C.TechniqueUpdate, update);
-      }
-      if (flags.has('actions')) {
-        const update: S2C_ActionsUpdate = {
-          actions: this.buildSparseActionStates(player.id, player.actions),
-          autoBattle: player.autoBattle,
-          autoRetaliate: player.autoRetaliate,
-          autoIdleCultivation: player.autoIdleCultivation,
-          senseQiActive: player.senseQiActive,
-        };
-        socket.emit(S2C.ActionsUpdate, update);
-      }
-      if (flags.has('loot')) {
-        const update: S2C_LootWindowUpdate = {
-          window: this.lootService.buildLootWindow(player),
-        };
-        socket.emit(S2C.LootWindowUpdate, update);
-      }
-      if (flags.has('quest')) {
-        const update: S2C_QuestUpdate = { quests: player.quests };
-        socket.emit(S2C.QuestUpdate, update);
-      }
+  /** 推送单个玩家的脏标记数据并清除标记 */
+  private flushPlayerDirtyUpdates(player: PlayerState) {
+    this.techniqueService.initializePlayerProgression(player);
+    const flags = this.playerService.getDirtyFlags(player.id);
+    if (!flags || flags.size === 0) return;
+    if (
+      player.realm?.breakthroughReady
+      && (flags.has('inv') || flags.has('equip') || flags.has('tech'))
+    ) {
+      flags.add('attr');
+    }
+    const socket = this.playerService.getSocket(player.id);
+    if (!socket) return;
 
-      this.playerService.clearDirtyFlags(player.id);
+    if (flags.has('attr')) {
+      const finalAttrs = this.attrService.getPlayerFinalAttrs(player);
+      const numericStats = this.attrService.getPlayerNumericStats(player);
+      const ratioDivisors = this.attrService.getPlayerRatioDivisors(player);
+      const update = this.buildSparseAttrUpdate(player.id, {
+        baseAttrs: player.baseAttrs,
+        bonuses: player.bonuses,
+        finalAttrs,
+        numericStats,
+        ratioDivisors,
+        maxHp: player.maxHp,
+        qi: player.qi,
+        realm: player.realm,
+      });
+      if (update) {
+        socket.emit(S2C.AttrUpdate, update);
+      }
+    }
+    if (flags.has('inv')) {
+      const update: S2C_InventoryUpdate = { inventory: player.inventory };
+      socket.emit(S2C.InventoryUpdate, update);
+    }
+    if (flags.has('equip')) {
+      const update: S2C_EquipmentUpdate = { equipment: player.equipment };
+      socket.emit(S2C.EquipmentUpdate, update);
+    }
+    if (flags.has('tech')) {
+      const update: S2C_TechniqueUpdate = {
+        techniques: this.buildSparseTechniqueStates(player.id, player.techniques),
+        cultivatingTechId: player.cultivatingTechId,
+      };
+      socket.emit(S2C.TechniqueUpdate, update);
+    }
+    if (flags.has('actions')) {
+      const update: S2C_ActionsUpdate = {
+        actions: this.buildSparseActionStates(player.id, player.actions),
+        autoBattle: player.autoBattle,
+        autoRetaliate: player.autoRetaliate,
+        autoIdleCultivation: player.autoIdleCultivation,
+        senseQiActive: player.senseQiActive,
+      };
+      socket.emit(S2C.ActionsUpdate, update);
+    }
+    if (flags.has('loot')) {
+      const update: S2C_LootWindowUpdate = {
+        window: this.lootService.buildLootWindow(player),
+      };
+      socket.emit(S2C.LootWindowUpdate, update);
+    }
+    if (flags.has('quest')) {
+      const update: S2C_QuestUpdate = { quests: player.quests };
+      socket.emit(S2C.QuestUpdate, update);
+    }
+
+    this.playerService.clearDirtyFlags(player.id);
+  }
+
+  /** 即时推送指定玩家的系统消息 */
+  private flushImmediateMessages(playerId: string, messages: WorldMessage[]) {
+    if (messages.length === 0) return;
+    const socket = this.playerService.getSocket(playerId);
+    if (!socket) return;
+    for (const msg of messages) {
+      if (msg.playerId !== playerId) continue;
+      const payload: S2C_SystemMsg = {
+        text: msg.text,
+        kind: msg.kind,
+        floating: msg.floating,
+      };
+      socket.emit(S2C.SystemMsg, payload);
     }
   }
 

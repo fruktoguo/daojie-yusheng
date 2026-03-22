@@ -273,13 +273,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
-
-    this.playerService.enqueueCommand(player.mapId, {
-      playerId,
-      type: 'updateAutoBattleSkills',
-      data,
-      timestamp: Date.now(),
-    });
+    this.tickService.executeImmediate(player, 'updateAutoBattleSkills', data);
   }
 
   @SubscribeMessage(C2S.DebugResetSpawn)
@@ -303,13 +297,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
-
-    this.playerService.enqueueCommand(player.mapId, {
-      playerId,
-      type: 'useItem',
-      data,
-      timestamp: Date.now(),
-    });
+    this.tickService.executeImmediate(player, 'useItem', data);
   }
 
   @SubscribeMessage(C2S.DropItem)
@@ -317,13 +305,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
-
-    this.playerService.enqueueCommand(player.mapId, {
-      playerId,
-      type: 'dropItem',
-      data,
-      timestamp: Date.now(),
-    });
+    this.tickService.executeImmediate(player, 'dropItem', data);
   }
 
   @SubscribeMessage(C2S.TakeLoot)
@@ -345,13 +327,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
-
-    this.playerService.enqueueCommand(player.mapId, {
-      playerId,
-      type: 'sortInventory',
-      data,
-      timestamp: Date.now(),
-    });
+    this.tickService.executeImmediate(player, 'sortInventory', data);
   }
 
   @SubscribeMessage(C2S.Equip)
@@ -359,13 +335,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
-
-    this.playerService.enqueueCommand(player.mapId, {
-      playerId,
-      type: 'equip',
-      data,
-      timestamp: Date.now(),
-    });
+    this.tickService.executeImmediate(player, 'equip', data);
   }
 
   @SubscribeMessage(C2S.Unequip)
@@ -373,13 +343,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
-
-    this.playerService.enqueueCommand(player.mapId, {
-      playerId,
-      type: 'unequip',
-      data,
-      timestamp: Date.now(),
-    });
+    this.tickService.executeImmediate(player, 'unequip', data);
   }
 
   @SubscribeMessage(C2S.Cultivate)
@@ -387,13 +351,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
-
-    this.playerService.enqueueCommand(player.mapId, {
-      playerId,
-      type: 'cultivate',
-      data,
-      timestamp: Date.now(),
-    });
+    this.tickService.executeImmediate(player, 'cultivate', data);
   }
 
   @SubscribeMessage(C2S.Chat)
