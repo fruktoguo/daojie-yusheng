@@ -152,9 +152,13 @@ function hydrateItemStack(snapshot: unknown, contentService: ContentService, cou
     type: isItemType(snapshot.type) ? snapshot.type : 'material',
     count,
     desc: typeof snapshot.desc === 'string' ? snapshot.desc : '',
+    grade: isTechniqueGrade(snapshot.grade) ? snapshot.grade : undefined,
+    level: Number.isFinite(snapshot.level) ? Math.max(1, Math.floor(Number(snapshot.level))) : undefined,
     equipSlot: isEquipSlot(snapshot.equipSlot) ? snapshot.equipSlot : undefined,
     equipAttrs: isPlainObject(snapshot.equipAttrs) ? snapshot.equipAttrs as ItemStack['equipAttrs'] : undefined,
     equipStats: isPlainObject(snapshot.equipStats) ? snapshot.equipStats as ItemStack['equipStats'] : undefined,
+    effects: Array.isArray(snapshot.effects) ? snapshot.effects as ItemStack['effects'] : undefined,
+    tags: Array.isArray(snapshot.tags) ? snapshot.tags.filter((entry): entry is string => typeof entry === 'string' && entry.length > 0) : undefined,
   };
 }
 

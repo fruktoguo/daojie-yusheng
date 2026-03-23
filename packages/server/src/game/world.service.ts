@@ -43,6 +43,7 @@ import {
 import { AttrService } from './attr.service';
 import { AoiService } from './aoi.service';
 import { ContentService } from './content.service';
+import { EquipmentEffectService } from './equipment-effect.service';
 import { InventoryService } from './inventory.service';
 import { LootService } from './loot.service';
 import { DropConfig, MapService, MonsterSpawnConfig, NpcConfig, QuestConfig } from './map.service';
@@ -201,6 +202,7 @@ export class WorldService {
     private readonly playerService: PlayerService,
     private readonly aoiService: AoiService,
     private readonly lootService: LootService,
+    private readonly equipmentEffectService: EquipmentEffectService,
     private readonly timeService: TimeService,
     private readonly performanceService: PerformanceService,
   ) {}
@@ -829,6 +831,24 @@ export class WorldService {
     if (!appliedEffect && firstError) {
       result.error = firstError;
     }
+    const castTarget = primaryTarget ?? selectedTargets[0];
+    const equipmentResult = this.equipmentEffectService.dispatch(player, {
+      trigger: 'on_skill_cast',
+      targetKind: castTarget?.kind,
+      target: this.toEquipmentEffectTarget(castTarget),
+    });
+    for (const flag of equipmentResult.dirty) {
+      dirty.add(flag as WorldDirtyFlag);
+    }
+    for (const playerId of equipmentResult.dirtyPlayers ?? []) {
+      if (playerId === player.id) {
+        continue;
+      }
+      result.dirtyPlayers ??= [];
+      if (!result.dirtyPlayers.includes(playerId)) {
+        result.dirtyPlayers.push(playerId);
+      }
+    }
     result.dirty = [...dirty];
     return result;
   }
@@ -964,6 +984,23 @@ export class WorldService {
       return selectedTargets;
     }
     return primaryTarget ? [primaryTarget] : [];
+  }
+
+  private toEquipmentEffectTarget(target: ResolvedTarget | undefined):
+    | { kind: 'player'; player: PlayerState }
+    | { kind: 'monster'; monster: RuntimeMonster }
+    | { kind: 'tile' }
+    | undefined {
+    if (!target) {
+      return undefined;
+    }
+    if (target.kind === 'player') {
+      return { kind: 'player', player: target.player };
+    }
+    if (target.kind === 'monster') {
+      return { kind: 'monster', monster: target.monster };
+    }
+    return { kind: 'tile' };
   }
 
   private normalizeBuffShortMark(effect: Extract<SkillEffectDef, { type: 'buff' }>): string {
@@ -1245,6 +1282,7 @@ export class WorldService {
     player.autoBattle = false;
     this.clearCombatTarget(player);
     this.mapService.addOccupant(player.mapId, player.x, player.y, player.id, 'player');
+    const equipmentResult = this.equipmentEffectService.dispatch(player, { trigger: 'on_enter_map' });
 
     return {
       messages: [{
@@ -1252,7 +1290,7 @@ export class WorldService {
         text: '调试指令已执行，你被送回云来镇出生点。',
         kind: 'system',
       }],
-      dirty: ['actions'],
+      dirty: [...new Set<WorldDirtyFlag>(['actions', ...(equipmentResult.dirty as WorldDirtyFlag[])])],
     };
   }
 
@@ -1356,6 +1394,19 @@ export class WorldService {
           }
           if (cultivation.changed) {
             dirtyPlayers.add(target.id);
+          }
+          if (resolved.hit) {
+            const hitEquipment = this.equipmentEffectService.dispatch(target, {
+              trigger: 'on_hit',
+              targetKind: 'monster',
+              target: { kind: 'monster', monster },
+            });
+            if (hitEquipment.dirty.length > 0) {
+              dirtyPlayers.add(target.id);
+            }
+            for (const playerId of hitEquipment.dirtyPlayers ?? []) {
+              dirtyPlayers.add(playerId);
+            }
           }
           if (target.hp > 0 && target.autoRetaliate !== false && !target.autoBattle) {
             target.autoBattle = true;
@@ -1571,13 +1622,14 @@ export class WorldService {
     player.autoBattle = false;
     this.clearCombatTarget(player);
     this.mapService.addOccupant(player.mapId, player.x, player.y, player.id, 'player');
+    const equipmentResult = this.equipmentEffectService.dispatch(player, { trigger: 'on_enter_map' });
 
     const text = portal.kind === 'stairs'
       ? `你踏上楼梯，来到 ${targetMapMeta.name}。`
       : `你启动界门，抵达 ${targetMapMeta.name} 的传送阵。`;
     return {
       messages: [{ playerId: player.id, text, kind: 'quest' }],
-      dirty: ['actions', 'loot'],
+      dirty: [...new Set<WorldDirtyFlag>(['actions', 'loot', ...(equipmentResult.dirty as WorldDirtyFlag[])])],
     };
   }
 
@@ -1621,6 +1673,14 @@ export class WorldService {
       this.buildPlayerAttackMessage(player, monster, prefix, resolved, effectColor),
     ];
     const dirty = new Set<WorldDirtyFlag>(cultivation.dirty as WorldDirtyFlag[]);
+    const attackEquipment = this.equipmentEffectService.dispatch(player, {
+      trigger: 'on_attack',
+      targetKind: 'monster',
+      target: { kind: 'monster', monster },
+    });
+    for (const flag of attackEquipment.dirty) {
+      dirty.add(flag as WorldDirtyFlag);
+    }
     this.recordMonsterDamage(monster, player.id, resolved.damage);
 
     if (monster.hp <= 0) {
@@ -1667,6 +1727,15 @@ export class WorldService {
       if (this.refreshQuestStatuses(player)) {
         dirty.add('quest');
         dirty.add('actions');
+      }
+
+      const killEquipment = this.equipmentEffectService.dispatch(player, {
+        trigger: 'on_kill',
+        targetKind: 'monster',
+        target: { kind: 'monster', monster },
+      });
+      for (const flag of killEquipment.dirty) {
+        dirty.add(flag as WorldDirtyFlag);
       }
     }
 
@@ -1768,6 +1837,30 @@ export class WorldService {
 
     const dirty = new Set<WorldDirtyFlag>((attackerCultivation.dirty as WorldDirtyFlag[]));
     const dirtyPlayers = new Set<string>();
+    const attackEquipment = this.equipmentEffectService.dispatch(attacker, {
+      trigger: 'on_attack',
+      targetKind: 'player',
+      target: { kind: 'player', player: target },
+    });
+    for (const flag of attackEquipment.dirty) {
+      dirty.add(flag as WorldDirtyFlag);
+    }
+    for (const playerId of attackEquipment.dirtyPlayers ?? []) {
+      dirtyPlayers.add(playerId);
+    }
+    if (resolved.hit) {
+      const hitEquipment = this.equipmentEffectService.dispatch(target, {
+        trigger: 'on_hit',
+        targetKind: 'player',
+        target: { kind: 'player', player: attacker },
+      });
+      if (hitEquipment.dirty.length > 0) {
+        dirtyPlayers.add(target.id);
+      }
+      for (const playerId of hitEquipment.dirtyPlayers ?? []) {
+        dirtyPlayers.add(playerId);
+      }
+    }
     if (targetCultivation.changed) {
       dirtyPlayers.add(target.id);
     }
@@ -1813,6 +1906,17 @@ export class WorldService {
         this.respawnPlayer(target);
       }
       dirtyPlayers.add(target.id);
+      const killEquipment = this.equipmentEffectService.dispatch(attacker, {
+        trigger: 'on_kill',
+        targetKind: 'player',
+        target: { kind: 'player', player: target },
+      });
+      for (const flag of killEquipment.dirty) {
+        dirty.add(flag as WorldDirtyFlag);
+      }
+      for (const playerId of killEquipment.dirtyPlayers ?? []) {
+        dirtyPlayers.add(playerId);
+      }
     }
 
     return { messages, dirty: [...dirty], dirtyPlayers: [...dirtyPlayers] };
@@ -2785,6 +2889,7 @@ export class WorldService {
     if (occupy) {
       this.mapService.addOccupant(player.mapId, player.x, player.y, player.id, 'player');
     }
+    this.equipmentEffectService.dispatch(player, { trigger: 'on_enter_map' });
   }
 
   private stepToward(

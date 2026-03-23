@@ -17,6 +17,7 @@ import { AoiService } from './aoi.service';
 import { AttrService } from './attr.service';
 import { InventoryService } from './inventory.service';
 import { EquipmentService } from './equipment.service';
+import { EquipmentEffectService } from './equipment-effect.service';
 import { TechniqueService } from './technique.service';
 import { ActionService } from './action.service';
 import { ContentService } from './content.service';
@@ -48,6 +49,7 @@ import { UserEntity } from '../database/entities/user.entity';
     AttrService,
     InventoryService,
     EquipmentService,
+    EquipmentEffectService,
     TechniqueService,
     ActionService,
     ContentService,

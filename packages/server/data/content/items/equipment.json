@@ -13,5 +13,122 @@
   { "itemId": "equip.moonshadow_boots", "name": "月影履", "type": "equipment", "grade": "earth", "level": 4, "desc": "夜行无声，适合高危区域机动。", "equipSlot": "legs", "equipStats": { "moveSpeed": 28, "dodge": 4, "crit": 2 } },
   { "itemId": "equip.celestial_crown", "name": "观星冠", "type": "equipment", "grade": "earth", "level": 4, "desc": "破碎天宫遗留的仪礼冠冕。", "equipSlot": "head", "equipStats": { "maxQi": 42, "spellDef": 10, "hit": 4, "viewRange": 2 } },
   { "itemId": "equip.starfall_spear", "name": "陨星枪", "type": "equipment", "grade": "heaven", "level": 5, "desc": "铭刻星砂纹路的重枪，杀伐极强。", "equipSlot": "weapon", "equipStats": { "physAtk": 17, "spellAtk": 11, "hit": 5, "breakPower": 5 } },
-  { "itemId": "equip.void_talisman", "name": "空劫符坠", "type": "equipment", "grade": "heaven", "level": 5, "desc": "能压制杂念与心魔的古老符坠。", "equipSlot": "accessory", "equipStats": { "maxQi": 40, "spellDef": 8, "techniqueExpRate": 12, "playerExpRate": 12 } }
+  { "itemId": "equip.void_talisman", "name": "空劫符坠", "type": "equipment", "grade": "heaven", "level": 5, "desc": "能压制杂念与心魔的古老符坠。", "equipSlot": "accessory", "equipStats": { "maxQi": 40, "spellDef": 8, "techniqueExpRate": 12, "playerExpRate": 12 } },
+  {
+    "itemId": "equip.blood_burn_rope",
+    "name": "焚脉黑绳",
+    "type": "equipment",
+    "grade": "yellow",
+    "level": 3,
+    "desc": "以焦血浸过的黑绳缠腕，行功时会反噬经脉，却也逼得气机转得更快。",
+    "equipSlot": "accessory",
+    "tags": ["fanren", "evil_path", "cultivation"],
+    "effects": [
+      {
+        "effectId": "blood-burn-drain",
+        "type": "periodic_cost",
+        "trigger": "on_cultivation_tick",
+        "resource": "hp",
+        "mode": "max_ratio_bp",
+        "value": 80,
+        "minRemain": 1
+      },
+      {
+        "effectId": "blood-burn-growth",
+        "type": "progress_boost",
+        "conditions": {
+          "mode": "all",
+          "items": [
+            { "type": "is_cultivating", "value": true }
+          ]
+        },
+        "stats": {
+          "techniqueExpPerTick": 10,
+          "realmExpPerTick": 2
+        }
+      }
+    ]
+  },
+  {
+    "itemId": "equip.soul_devour_token",
+    "name": "噬元骨牌",
+    "type": "equipment",
+    "grade": "mystic",
+    "level": 4,
+    "desc": "骨牌内封着一缕不肯散去的残意，静修时吸血夺元，杀敌时反能回涌一口浊气。",
+    "equipSlot": "accessory",
+    "tags": ["fanren", "evil_path", "cultivation"],
+    "effects": [
+      {
+        "effectId": "soul-devour-drain",
+        "type": "periodic_cost",
+        "trigger": "on_cultivation_tick",
+        "resource": "hp",
+        "mode": "current_ratio_bp",
+        "value": 120,
+        "minRemain": 1
+      },
+      {
+        "effectId": "soul-devour-growth",
+        "type": "progress_boost",
+        "conditions": {
+          "mode": "all",
+          "items": [
+            { "type": "is_cultivating", "value": true }
+          ]
+        },
+        "stats": {
+          "techniqueExpPerTick": 16,
+          "realmExpPerTick": 4
+        }
+      },
+      {
+        "effectId": "soul-devour-feast",
+        "type": "timed_buff",
+        "trigger": "on_kill",
+        "target": "self",
+        "cooldown": 6,
+        "buff": {
+          "buffId": "equip.soul_devour_feast",
+          "name": "食煞回元",
+          "desc": "斩杀后残意反涌，短时间内灵力回复与功法运转更快。",
+          "duration": 8,
+          "shortMark": "煞",
+          "category": "buff",
+          "visibility": "public",
+          "color": "#8a3f2d",
+          "stats": {
+            "qiRegenRate": 160,
+            "techniqueExpRate": 600
+          }
+        }
+      }
+    ]
+  },
+  {
+    "itemId": "equip.crow_night_mask",
+    "name": "夜鸦面",
+    "type": "equipment",
+    "grade": "yellow",
+    "level": 3,
+    "desc": "镇外守夜人留下的旧面具，白天沉闷，入夜后反而看得更远。",
+    "equipSlot": "head",
+    "tags": ["fanren", "night_walk"],
+    "effects": [
+      {
+        "effectId": "crow-night-sight",
+        "type": "stat_aura",
+        "conditions": {
+          "mode": "all",
+          "items": [
+            { "type": "time_segment", "in": ["late_night", "before_dawn", "first_night", "night", "deep_night", "dusk"] }
+          ]
+        },
+        "stats": {
+          "viewRange": 1,
+          "hit": 2
+        }
+      }
+    ]
+  }
 ]

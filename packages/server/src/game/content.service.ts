@@ -7,11 +7,18 @@ import * as path from 'path';
 import {
   createItemStackSignature,
   AttrKey,
+  Attributes,
   DEFAULT_INVENTORY_CAPACITY,
+  ELEMENT_KEYS,
+  EquipmentConditionDef,
+  EquipmentConditionGroup,
+  EquipmentEffectDef,
+  EquipmentTrigger,
   EquipmentSlots,
   EQUIP_SLOTS,
   Inventory,
   ItemStack,
+  NUMERIC_SCALAR_STAT_KEYS,
   PlayerRealmStage,
   scaleTechniqueExp,
   SkillDef,
@@ -166,6 +173,34 @@ const PLAYER_REALM_STAGE_LEVEL_RANGES: Record<PlayerRealmStage, { levelFrom: num
   [PlayerRealmStage.Foundation]: { levelFrom: 25, levelTo: 30 },
 };
 
+const ATTR_KEYS: AttrKey[] = ['constitution', 'spirit', 'perception', 'talent', 'comprehension', 'luck'];
+const EQUIPMENT_TRIGGERS: readonly EquipmentTrigger[] = [
+  'on_equip',
+  'on_unequip',
+  'on_tick',
+  'on_move',
+  'on_attack',
+  'on_hit',
+  'on_kill',
+  'on_skill_cast',
+  'on_cultivation_tick',
+  'on_time_segment_changed',
+  'on_enter_map',
+];
+const TIME_PHASE_IDS = ['deep_night', 'late_night', 'before_dawn', 'dawn', 'day', 'dusk', 'first_night', 'night'] as const;
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function normalizeStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const normalized = [...new Set(value.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0).map((entry) => entry.trim()))];
+  return normalized.length > 0 ? normalized : undefined;
+}
+
 @Injectable()
 export class ContentService implements OnModuleInit {
   private readonly logger = new Logger(ContentService.name);
@@ -238,8 +273,225 @@ export class ContentService implements OnModuleInit {
     return normalized;
   }
 
+  private normalizeItemAttrs(attrs: unknown): Partial<Attributes> | undefined {
+    if (!isPlainObject(attrs)) {
+      return undefined;
+    }
+    const normalized: Partial<Attributes> = {};
+    for (const key of ATTR_KEYS) {
+      const value = attrs[key];
+      if (!Number.isFinite(value)) continue;
+      normalized[key] = Number(value);
+    }
+    return Object.keys(normalized).length > 0 ? normalized : undefined;
+  }
+
+  private normalizeItemStats(stats: unknown): ItemStack['equipStats'] {
+    if (!isPlainObject(stats)) {
+      return undefined;
+    }
+    const normalized: NonNullable<ItemStack['equipStats']> = {};
+    for (const key of NUMERIC_SCALAR_STAT_KEYS) {
+      const value = stats[key];
+      if (!Number.isFinite(value)) continue;
+      normalized[key] = Number(value);
+    }
+    if (isPlainObject(stats.elementDamageBonus)) {
+      const group: NonNullable<ItemStack['equipStats']>['elementDamageBonus'] = {};
+      for (const key of ELEMENT_KEYS) {
+        const value = stats.elementDamageBonus[key];
+        if (!Number.isFinite(value)) continue;
+        group[key] = Number(value);
+      }
+      if (Object.keys(group).length > 0) {
+        normalized.elementDamageBonus = group;
+      }
+    }
+    if (isPlainObject(stats.elementDamageReduce)) {
+      const group: NonNullable<ItemStack['equipStats']>['elementDamageReduce'] = {};
+      for (const key of ELEMENT_KEYS) {
+        const value = stats.elementDamageReduce[key];
+        if (!Number.isFinite(value)) continue;
+        group[key] = Number(value);
+      }
+      if (Object.keys(group).length > 0) {
+        normalized.elementDamageReduce = group;
+      }
+    }
+    return Object.keys(normalized).length > 0 ? normalized : undefined;
+  }
+
+  private normalizeEquipmentConditionGroup(input: unknown): EquipmentConditionGroup | undefined {
+    if (!isPlainObject(input) || !Array.isArray(input.items)) {
+      return undefined;
+    }
+    const items = input.items
+      .flatMap((entry) => this.normalizeEquipmentCondition(entry));
+    if (items.length === 0) {
+      return undefined;
+    }
+    return {
+      mode: input.mode === 'any' ? 'any' : 'all',
+      items,
+    };
+  }
+
+  private normalizeEquipmentCondition(input: unknown): EquipmentConditionDef[] {
+    if (!isPlainObject(input) || typeof input.type !== 'string') {
+      return [];
+    }
+    switch (input.type) {
+      case 'time_segment': {
+        const phases = Array.isArray(input.in)
+          ? input.in.filter((entry): entry is typeof TIME_PHASE_IDS[number] => typeof entry === 'string' && TIME_PHASE_IDS.includes(entry as typeof TIME_PHASE_IDS[number]))
+          : [];
+        return phases.length > 0 ? [{ type: 'time_segment', in: phases }] : [];
+      }
+      case 'map': {
+        const mapIds = normalizeStringArray(input.mapIds);
+        return mapIds ? [{ type: 'map', mapIds }] : [];
+      }
+      case 'hp_ratio':
+      case 'qi_ratio': {
+        const op = input.op === '>=' ? '>=' : input.op === '<=' ? '<=' : null;
+        const rawValue = Number(input.value);
+        if (!op || !Number.isFinite(rawValue)) {
+          return [];
+        }
+        const value = rawValue > 1 ? rawValue / 100 : rawValue;
+        return value >= 0 ? [{ type: input.type, op, value: Math.min(1, value) }] : [];
+      }
+      case 'is_cultivating': {
+        return typeof input.value === 'boolean' ? [{ type: 'is_cultivating', value: input.value }] : [];
+      }
+      case 'has_buff': {
+        if (typeof input.buffId !== 'string' || input.buffId.trim().length === 0) {
+          return [];
+        }
+        return [{
+          type: 'has_buff',
+          buffId: input.buffId.trim(),
+          minStacks: Number.isFinite(input.minStacks) ? Math.max(1, Math.floor(Number(input.minStacks))) : undefined,
+        }];
+      }
+      case 'target_kind': {
+        const targetKinds = Array.isArray(input.in)
+          ? input.in.filter((entry): entry is 'monster' | 'player' | 'tile' => entry === 'monster' || entry === 'player' || entry === 'tile')
+          : [];
+        return targetKinds.length > 0 ? [{ type: 'target_kind', in: targetKinds }] : [];
+      }
+      default:
+        return [];
+    }
+  }
+
+  private normalizeEquipmentEffects(input: unknown, itemId: string): EquipmentEffectDef[] | undefined {
+    if (!Array.isArray(input)) {
+      return undefined;
+    }
+    const effects = input.flatMap((entry, index) => this.normalizeEquipmentEffect(entry, itemId, index));
+    return effects.length > 0 ? effects : undefined;
+  }
+
+  private normalizeEquipmentEffect(input: unknown, itemId: string, index: number): EquipmentEffectDef[] {
+    if (!isPlainObject(input) || typeof input.type !== 'string') {
+      return [];
+    }
+    const effectId = typeof input.effectId === 'string' && input.effectId.trim().length > 0
+      ? input.effectId.trim()
+      : `${itemId}#${index + 1}`;
+    const conditions = this.normalizeEquipmentConditionGroup(input.conditions);
+
+    switch (input.type) {
+      case 'stat_aura':
+        return [{
+          effectId,
+          type: 'stat_aura',
+          conditions,
+          attrs: this.normalizeItemAttrs(input.attrs),
+          stats: this.normalizeItemStats(input.stats),
+        }];
+      case 'progress_boost':
+        return [{
+          effectId,
+          type: 'progress_boost',
+          conditions,
+          attrs: this.normalizeItemAttrs(input.attrs),
+          stats: this.normalizeItemStats(input.stats),
+        }];
+      case 'periodic_cost': {
+        const trigger = input.trigger === 'on_cultivation_tick' ? 'on_cultivation_tick' : input.trigger === 'on_tick' ? 'on_tick' : null;
+        if (!trigger) {
+          return [];
+        }
+        const resource = input.resource === 'qi' ? 'qi' : input.resource === 'hp' ? 'hp' : null;
+        const mode = input.mode === 'max_ratio_bp' || input.mode === 'current_ratio_bp' || input.mode === 'flat'
+          ? input.mode
+          : null;
+        const value = Number(input.value);
+        if (!resource || !mode || !Number.isFinite(value) || value <= 0) {
+          return [];
+        }
+        return [{
+          effectId,
+          type: 'periodic_cost',
+          trigger,
+          conditions,
+          resource,
+          mode,
+          value: Math.max(0, Math.round(value)),
+          minRemain: Number.isFinite(input.minRemain) ? Math.max(0, Math.floor(Number(input.minRemain))) : undefined,
+        }];
+      }
+      case 'timed_buff': {
+        const trigger = EQUIPMENT_TRIGGERS.includes(input.trigger as EquipmentTrigger)
+          ? input.trigger as EquipmentTrigger
+          : null;
+        const buff = isPlainObject(input.buff) ? input.buff : null;
+        if (!trigger || !buff || typeof buff.buffId !== 'string' || buff.buffId.trim().length === 0 || typeof buff.name !== 'string' || !Number.isFinite(buff.duration)) {
+          return [];
+        }
+        return [{
+          effectId,
+          type: 'timed_buff',
+          trigger,
+          target: input.target === 'target' ? 'target' : 'self',
+          cooldown: Number.isFinite(input.cooldown) ? Math.max(0, Math.floor(Number(input.cooldown))) : undefined,
+          chance: Number.isFinite(input.chance) ? Math.max(0, Math.min(1, Number(input.chance))) : undefined,
+          conditions,
+          buff: {
+            buffId: buff.buffId.trim(),
+            name: buff.name,
+            desc: typeof buff.desc === 'string' ? buff.desc : undefined,
+            shortMark: typeof buff.shortMark === 'string' ? buff.shortMark : undefined,
+            category: buff.category === 'debuff' ? 'debuff' : buff.category === 'buff' ? 'buff' : undefined,
+            visibility: buff.visibility === 'hidden' || buff.visibility === 'observe_only' || buff.visibility === 'public'
+              ? buff.visibility
+              : undefined,
+            color: typeof buff.color === 'string' ? buff.color : undefined,
+            duration: Math.max(1, Math.floor(Number(buff.duration))),
+            maxStacks: Number.isFinite(buff.maxStacks) ? Math.max(1, Math.floor(Number(buff.maxStacks))) : undefined,
+            attrs: this.normalizeItemAttrs(buff.attrs),
+            stats: this.normalizeItemStats(buff.stats),
+          },
+        }];
+      }
+      default:
+        return [];
+    }
+  }
+
   private loadItems(): void {
-    for (const item of this.readJsonEntries<ItemTemplate>(this.itemsDir)) {
+    for (const raw of this.readJsonEntries<ItemTemplate>(this.itemsDir)) {
+      const item: ItemTemplate = {
+        ...raw,
+        grade: raw.grade,
+        level: Number.isFinite(raw.level) ? Math.max(1, Math.floor(Number(raw.level))) : undefined,
+        equipAttrs: this.normalizeItemAttrs(raw.equipAttrs),
+        equipStats: this.normalizeItemStats(raw.equipStats),
+        effects: this.normalizeEquipmentEffects(raw.effects, raw.itemId),
+        tags: normalizeStringArray(raw.tags),
+      };
       this.items.set(item.itemId, item);
     }
   }
@@ -370,9 +622,13 @@ export class ContentService implements OnModuleInit {
       type: item.type,
       count,
       desc: item.desc,
+      grade: item.grade,
+      level: item.level,
       equipSlot: item.equipSlot,
       equipAttrs: item.equipAttrs,
       equipStats: item.equipStats,
+      effects: item.effects,
+      tags: item.tags,
       mapUnlockId: item.mapUnlockId,
     };
   }

@@ -34,6 +34,7 @@ import {
 import { PlayerEntity } from '../database/entities/player.entity';
 import { BotService } from './bot.service';
 import { ContentService } from './content.service';
+import { EquipmentService } from './equipment.service';
 import { MapService } from './map.service';
 import { NavigationService } from './navigation.service';
 import { PerformanceService } from './performance.service';
@@ -88,6 +89,7 @@ export class GmService {
     private readonly performanceService: PerformanceService,
     private readonly worldService: WorldService,
     private readonly contentService: ContentService,
+    private readonly equipmentService: EquipmentService,
     private readonly techniqueService: TechniqueService,
     private readonly timeService: TimeService,
   ) {}
@@ -500,6 +502,7 @@ export class GmService {
       : undefined;
 
     this.techniqueService.initializePlayerProgression(player);
+    this.equipmentService.rebuildBonuses(player);
 
     player.hp = Math.min(player.maxHp, requestedHp);
     player.qi = Math.min(Math.max(0, Math.round(player.numericStats?.maxQi ?? player.qi)), requestedQi);

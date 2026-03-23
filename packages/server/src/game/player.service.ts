@@ -28,6 +28,7 @@ import { RedisService } from '../database/redis.service';
 import { ContentService } from './content.service';
 import { MapService } from './map.service';
 import { resolveQuestTargetName } from './quest-display';
+import { EquipmentService } from './equipment.service';
 import { TechniqueService } from './technique.service';
 import { resolveDisplayName } from '../auth/account-validation';
 import {
@@ -77,6 +78,7 @@ export class PlayerService {
     private readonly redisService: RedisService,
     private readonly contentService: ContentService,
     private readonly mapService: MapService,
+    private readonly equipmentService: EquipmentService,
     private readonly techniqueService: TechniqueService,
   ) {}
 
@@ -156,6 +158,7 @@ export class PlayerService {
       offlineSinceAt: entity.offlineSinceAt?.getTime(),
     };
     this.techniqueService.initializePlayerProgression(state);
+    this.equipmentService.rebuildBonuses(state);
     this.players.set(state.id, state);
     await this.syncPlayerCache(state);
     return state;
@@ -188,6 +191,7 @@ export class PlayerService {
     if (state.facing === undefined) state.facing = Direction.South;
     if (!state.viewRange) state.viewRange = VIEW_RADIUS;
     this.techniqueService.initializePlayerProgression(state);
+    this.equipmentService.rebuildBonuses(state);
     if (state.hp <= 0) {
       state.hp = state.maxHp;
     }

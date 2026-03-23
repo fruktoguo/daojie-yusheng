@@ -41,6 +41,7 @@ import { ActionService } from './action.service';
 import { AoiService } from './aoi.service';
 import { AttrService } from './attr.service';
 import { ContentService } from './content.service';
+import { EquipmentEffectService } from './equipment-effect.service';
 import { EquipmentService } from './equipment.service';
 import { InventoryService } from './inventory.service';
 import { MapService } from './map.service';
@@ -99,6 +100,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     private readonly attrService: AttrService,
     private readonly inventoryService: InventoryService,
     private readonly equipmentService: EquipmentService,
+    private readonly equipmentEffectService: EquipmentEffectService,
     private readonly techniqueService: TechniqueService,
     private readonly actionService: ActionService,
     private readonly contentService: ContentService,
@@ -445,11 +447,17 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     for (const player of mapPlayers) {
       affectedPlayers.set(player.id, player);
       if (player.dead) continue;
+      const startX = player.x;
+      const startY = player.y;
       const timeUpdate = this.measureCpuSection('time_effects', '时间与环境效果', () => (
         this.timeService.syncPlayerTimeEffects(player)
       ));
       if (timeUpdate.changed) {
         this.playerService.markDirty(player.id, 'actions');
+      }
+      const phaseDispatch = this.equipmentEffectService.syncTimePhase(player, timeUpdate.state.phase);
+      if (phaseDispatch.dirty.length > 0) {
+        this.markDirty(player.id, phaseDispatch.dirty as DirtyFlag[]);
       }
 
       if (!player.autoBattle) {
@@ -490,6 +498,10 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         this.tryStartIdleCultivation(player, activePlayerIds, messages);
       });
 
+      const cultivationEffects = this.equipmentEffectService.dispatch(player, { trigger: 'on_cultivation_tick' });
+      if (cultivationEffects.dirty.length > 0) {
+        this.markDirty(player.id, cultivationEffects.dirty as DirtyFlag[]);
+      }
       const cultivation = this.techniqueService.cultivateTick(player);
       if (cultivation.changed) {
         for (const flag of cultivation.dirty) {
@@ -507,12 +519,23 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       this.measureCpuSection('state_recovery', '角色状态: 自然恢复', () => {
         this.applyNaturalRecovery(player);
       });
+      const tickEffects = this.equipmentEffectService.dispatch(player, { trigger: 'on_tick' });
+      if (tickEffects.dirty.length > 0) {
+        this.markDirty(player.id, tickEffects.dirty as DirtyFlag[]);
+      }
       if (this.measureCpuSection('state_buffs', '角色状态: Buff 推进', () => this.tickTemporaryBuffs(player))) {
         this.playerService.markDirty(player.id, 'attr');
       }
 
       if (this.measureCpuSection('state_cooldowns', '角色状态: 冷却推进', () => this.actionService.tickCooldowns(player))) {
         this.playerService.markDirty(player.id, 'actions');
+      }
+
+      if (player.x !== startX || player.y !== startY) {
+        const moveEffects = this.equipmentEffectService.dispatch(player, { trigger: 'on_move' });
+        if (moveEffects.dirty.length > 0) {
+          this.markDirty(player.id, moveEffects.dirty as DirtyFlag[]);
+        }
       }
 
       if (this.syncActions(player)) {

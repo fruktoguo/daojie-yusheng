@@ -280,6 +280,100 @@ export type ItemType = 'consumable' | 'equipment' | 'material' | 'quest_item' | 
 /** 装备槽位 */
 export type EquipSlot = 'weapon' | 'head' | 'body' | 'legs' | 'accessory';
 
+/** 装备效果触发器 */
+export type EquipmentTrigger =
+  | 'on_equip'
+  | 'on_unequip'
+  | 'on_tick'
+  | 'on_move'
+  | 'on_attack'
+  | 'on_hit'
+  | 'on_kill'
+  | 'on_skill_cast'
+  | 'on_cultivation_tick'
+  | 'on_time_segment_changed'
+  | 'on_enter_map';
+
+/** 装备条件组合 */
+export interface EquipmentConditionGroup {
+  mode?: 'all' | 'any';
+  items: EquipmentConditionDef[];
+}
+
+/** 装备条件定义 */
+export type EquipmentConditionDef =
+  | { type: 'time_segment'; in: TimePhaseId[] }
+  | { type: 'map'; mapIds: string[] }
+  | { type: 'hp_ratio'; op: '<=' | '>='; value: number }
+  | { type: 'qi_ratio'; op: '<=' | '>='; value: number }
+  | { type: 'is_cultivating'; value: boolean }
+  | { type: 'has_buff'; buffId: string; minStacks?: number }
+  | { type: 'target_kind'; in: Array<'monster' | 'player' | 'tile'> };
+
+/** 装备 Buff 定义 */
+export interface EquipmentBuffDef {
+  buffId: string;
+  name: string;
+  desc?: string;
+  shortMark?: string;
+  category?: BuffCategory;
+  visibility?: BuffVisibility;
+  color?: string;
+  duration: number;
+  maxStacks?: number;
+  attrs?: Partial<Attributes>;
+  stats?: PartialNumericStats;
+}
+
+/** 装备常驻数值效果 */
+export interface EquipmentStatAuraEffectDef {
+  effectId?: string;
+  type: 'stat_aura';
+  conditions?: EquipmentConditionGroup;
+  attrs?: Partial<Attributes>;
+  stats?: PartialNumericStats;
+}
+
+/** 装备成长推进效果 */
+export interface EquipmentProgressEffectDef {
+  effectId?: string;
+  type: 'progress_boost';
+  conditions?: EquipmentConditionGroup;
+  attrs?: Partial<Attributes>;
+  stats?: PartialNumericStats;
+}
+
+/** 装备持续代价效果 */
+export interface EquipmentPeriodicCostEffectDef {
+  effectId?: string;
+  type: 'periodic_cost';
+  trigger: 'on_tick' | 'on_cultivation_tick';
+  conditions?: EquipmentConditionGroup;
+  resource: 'hp' | 'qi';
+  mode: 'flat' | 'max_ratio_bp' | 'current_ratio_bp';
+  value: number;
+  minRemain?: number;
+}
+
+/** 装备触发 Buff 效果 */
+export interface EquipmentTimedBuffEffectDef {
+  effectId?: string;
+  type: 'timed_buff';
+  trigger: EquipmentTrigger;
+  target?: 'self' | 'target';
+  cooldown?: number;
+  chance?: number;
+  conditions?: EquipmentConditionGroup;
+  buff: EquipmentBuffDef;
+}
+
+/** 装备效果联合类型 */
+export type EquipmentEffectDef =
+  | EquipmentStatAuraEffectDef
+  | EquipmentProgressEffectDef
+  | EquipmentPeriodicCostEffectDef
+  | EquipmentTimedBuffEffectDef;
+
 /** 物品堆叠 */
 export interface ItemStack {
   itemId: string;
@@ -287,9 +381,13 @@ export interface ItemStack {
   type: ItemType;
   count: number;
   desc: string;
+  grade?: TechniqueGrade;
+  level?: number;
   equipSlot?: EquipSlot;
   equipAttrs?: Partial<Attributes>;
   equipStats?: PartialNumericStats;
+  effects?: EquipmentEffectDef[];
+  tags?: string[];
   mapUnlockId?: string;
 }
 

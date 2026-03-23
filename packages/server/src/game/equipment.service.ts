@@ -10,6 +10,7 @@ import {
   EQUIP_SLOTS,
 } from '@mud/shared';
 import { AttrService } from './attr.service';
+import { EquipmentEffectService } from './equipment-effect.service';
 import { InventoryService } from './inventory.service';
 
 @Injectable()
@@ -17,6 +18,7 @@ export class EquipmentService {
   constructor(
     private readonly attrService: AttrService,
     private readonly inventoryService: InventoryService,
+    private readonly equipmentEffectService: EquipmentEffectService,
   ) {}
 
   /** 从背包装备到槽位，已有装备则交换回背包 */
@@ -43,6 +45,10 @@ export class EquipmentService {
 
     player.equipment[slot] = { ...removed, count: 1 };
     this.refreshBonuses(player);
+    this.equipmentEffectService.handleEquipmentChange(player, {
+      equipped: player.equipment[slot],
+      unequipped: current,
+    });
     return null;
   }
 
@@ -57,7 +63,16 @@ export class EquipmentService {
 
     player.equipment[slot] = null;
     this.refreshBonuses(player);
+    this.equipmentEffectService.handleEquipmentChange(player, {
+      unequipped: item,
+    });
     return null;
+  }
+
+  /** 登录、读档或 GM 修改后，重建装备静态与动态加成 */
+  rebuildBonuses(player: PlayerState): void {
+    this.refreshBonuses(player);
+    this.equipmentEffectService.handleEquipmentChange(player, {});
   }
 
   /** 获取所有装备提供的属性加成 */
