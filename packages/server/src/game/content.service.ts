@@ -104,7 +104,7 @@ type RawBreakthroughItemRequirement = {
   count: number;
   label?: string;
   hidden?: boolean;
-  reduceAttrRequirementPct?: number;
+  increaseAttrRequirementPct?: number;
 };
 
 type RawBreakthroughTechniqueRequirement = {
@@ -117,7 +117,7 @@ type RawBreakthroughTechniqueRequirement = {
   count?: number;
   label?: string;
   hidden?: boolean;
-  reduceAttrRequirementPct?: number;
+  increaseAttrRequirementPct?: number;
 };
 
 type RawBreakthroughAttributeRequirement = {
@@ -208,6 +208,7 @@ export class ContentService implements OnModuleInit {
         layers: [...(raw.layers ?? [])]
           .map((layer) => ({
             ...layer,
+            attrs: this.normalizeTechniqueLayerAttrs(layer.attrs),
             expToNext: layer.expFactor === undefined
               ? Math.max(0, layer.expToNext ?? 0)
               : scaleTechniqueExp(layer.expFactor, raw.grade),
@@ -227,6 +228,14 @@ export class ContentService implements OnModuleInit {
       };
       this.techniques.set(technique.id, technique);
     }
+  }
+
+  private normalizeTechniqueLayerAttrs(attrs: TechniqueLayerDef['attrs']): TechniqueLayerDef['attrs'] {
+    if (!attrs) return attrs;
+    const normalized = { ...attrs };
+    delete normalized.comprehension;
+    delete normalized.luck;
+    return normalized;
   }
 
   private loadItems(): void {
@@ -279,8 +288,8 @@ export class ContentService implements OnModuleInit {
         count: Math.max(1, Number(input.count)),
         label: typeof input.label === 'string' ? input.label : undefined,
         hidden: input.hidden === true,
-        reduceAttrRequirementPct: typeof input.reduceAttrRequirementPct === 'number' && Number.isFinite(input.reduceAttrRequirementPct)
-          ? Math.max(0, Math.min(95, Math.floor(input.reduceAttrRequirementPct)))
+        increaseAttrRequirementPct: typeof input.increaseAttrRequirementPct === 'number' && Number.isFinite(input.increaseAttrRequirementPct)
+          ? Math.max(0, Math.floor(input.increaseAttrRequirementPct))
           : undefined,
       }];
     }
@@ -295,8 +304,8 @@ export class ContentService implements OnModuleInit {
         count: Number.isInteger(input.count) ? Math.max(1, Number(input.count)) : undefined,
         label: typeof input.label === 'string' ? input.label : undefined,
         hidden: input.hidden === true,
-        reduceAttrRequirementPct: typeof input.reduceAttrRequirementPct === 'number' && Number.isFinite(input.reduceAttrRequirementPct)
-          ? Math.max(0, Math.min(95, Math.floor(input.reduceAttrRequirementPct)))
+        increaseAttrRequirementPct: typeof input.increaseAttrRequirementPct === 'number' && Number.isFinite(input.increaseAttrRequirementPct)
+          ? Math.max(0, Math.floor(input.increaseAttrRequirementPct))
           : undefined,
       }];
     }

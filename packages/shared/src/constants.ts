@@ -128,8 +128,8 @@ export const DEFAULT_BASE_ATTRS = {
   spirit: 10,
   perception: 10,
   talent: 10,
-  comprehension: 10,
-  luck: 10,
+  comprehension: 0,
+  luck: 0,
 } as const;
 
 /** 基础最大灵力 */

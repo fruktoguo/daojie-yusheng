@@ -9,7 +9,6 @@
         "expFactor": 41,
         "attrs": {
           "spirit": 4,
-          "comprehension": 2,
           "talent": 1
         }
       },
@@ -18,7 +17,6 @@
         "expFactor": 44,
         "attrs": {
           "spirit": 4,
-          "comprehension": 2,
           "talent": 1
         }
       },
@@ -27,7 +25,6 @@
         "expFactor": 47,
         "attrs": {
           "spirit": 4,
-          "comprehension": 2,
           "talent": 1
         }
       },
@@ -36,7 +33,6 @@
         "expFactor": 50,
         "attrs": {
           "spirit": 4,
-          "comprehension": 2,
           "talent": 1
         }
       },
@@ -45,7 +41,6 @@
         "expFactor": 54,
         "attrs": {
           "spirit": 4,
-          "comprehension": 2,
           "talent": 1
         }
       },
@@ -54,7 +49,6 @@
         "expFactor": 59,
         "attrs": {
           "spirit": 4,
-          "comprehension": 2,
           "talent": 1
         }
       },
@@ -63,7 +57,6 @@
         "expFactor": 64,
         "attrs": {
           "spirit": 5,
-          "comprehension": 2,
           "talent": 1
         }
       },
@@ -72,7 +65,6 @@
         "expFactor": 69,
         "attrs": {
           "spirit": 5,
-          "comprehension": 2,
           "talent": 1
         }
       },
@@ -81,7 +73,6 @@
         "expFactor": 75,
         "attrs": {
           "spirit": 5,
-          "comprehension": 2,
           "talent": 1
         }
       },
@@ -90,7 +81,6 @@
         "expFactor": 85,
         "attrs": {
           "spirit": 5,
-          "comprehension": 2,
           "talent": 1
         }
       },
@@ -99,7 +89,6 @@
         "expFactor": 93,
         "attrs": {
           "spirit": 5,
-          "comprehension": 2,
           "talent": 1
         }
       },
@@ -108,7 +97,6 @@
         "expFactor": 101,
         "attrs": {
           "spirit": 5,
-          "comprehension": 2,
           "talent": 1
         }
       },
@@ -117,7 +105,6 @@
         "expFactor": 111,
         "attrs": {
           "spirit": 5,
-          "comprehension": 3,
           "talent": 1
         }
       },
@@ -126,7 +113,6 @@
         "expFactor": 121,
         "attrs": {
           "spirit": 5,
-          "comprehension": 3,
           "talent": 1
         }
       },
@@ -135,7 +121,6 @@
         "expFactor": 133,
         "attrs": {
           "spirit": 5,
-          "comprehension": 3,
           "talent": 1
         }
       },
@@ -144,7 +129,6 @@
         "expFactor": 146,
         "attrs": {
           "spirit": 5,
-          "comprehension": 3,
           "talent": 1
         }
       },
@@ -153,7 +137,6 @@
         "expFactor": 0,
         "attrs": {
           "spirit": 6,
-          "comprehension": 3,
           "talent": 2
         }
       }

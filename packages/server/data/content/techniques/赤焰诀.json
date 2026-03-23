@@ -8,88 +8,77 @@
         "level": 1,
         "expFactor": 18,
         "attrs": {
-          "spirit": 3,
-          "comprehension": 1
+          "spirit": 3
         }
       },
       {
         "level": 2,
         "expFactor": 19,
         "attrs": {
-          "spirit": 3,
-          "comprehension": 1
+          "spirit": 3
         }
       },
       {
         "level": 3,
         "expFactor": 21,
         "attrs": {
-          "spirit": 3,
-          "comprehension": 1
+          "spirit": 3
         }
       },
       {
         "level": 4,
         "expFactor": 23,
         "attrs": {
-          "spirit": 3,
-          "comprehension": 2
+          "spirit": 3
         }
       },
       {
         "level": 5,
         "expFactor": 25,
         "attrs": {
-          "spirit": 4,
-          "comprehension": 2
+          "spirit": 4
         }
       },
       {
         "level": 6,
         "expFactor": 28,
         "attrs": {
-          "spirit": 4,
-          "comprehension": 2
+          "spirit": 4
         }
       },
       {
         "level": 7,
         "expFactor": 31,
         "attrs": {
-          "spirit": 4,
-          "comprehension": 2
+          "spirit": 4
         }
       },
       {
         "level": 8,
         "expFactor": 34,
         "attrs": {
-          "spirit": 4,
-          "comprehension": 2
+          "spirit": 4
         }
       },
       {
         "level": 9,
         "expFactor": 38,
         "attrs": {
-          "spirit": 4,
-          "comprehension": 2
+          "spirit": 4
         }
       },
       {
         "level": 10,
         "expFactor": 43,
         "attrs": {
-          "spirit": 4,
-          "comprehension": 2
+          "spirit": 4
         }
       },
       {
         "level": 11,
         "expFactor": 0,
         "attrs": {
-          "spirit": 5,
-          "comprehension": 2
+          "spirit": 5
         }
       }
     ],

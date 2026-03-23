@@ -481,8 +481,8 @@ function openBreakthroughModal() {
     title: `突破至 ${preview.targetDisplayName}`,
     subtitle: `${currentRealm.displayName} · 核心要求 ${preview.completedBlockingRequirements}/${preview.blockingRequirements}`,
     hint: preview.canBreakthrough
-      ? (hasConsumableRequirements ? '含材料减免项，已生效的材料会在突破后消耗' : '点击空白处关闭')
-      : (hasConsumableRequirements ? '材料和功法减免项都是可选的；未生效时会保留更高的基础属性要求' : '未达成的隐藏条件需通过任务逐步解锁'),
+      ? (hasConsumableRequirements ? '已生效的材料会在突破后消耗；未生效的材料或功法会抬高属性要求' : '点击空白处关闭')
+      : (hasConsumableRequirements ? '未生效的材料或功法会抬高属性要求' : '未达成的隐藏条件需通过任务逐步解锁'),
     bodyHtml: `
       <div class="panel-section">
         <div class="panel-section-title">突破要求</div>
@@ -490,7 +490,7 @@ function openBreakthroughModal() {
       </div>
       ${hasConsumableRequirements ? `
         <div class="panel-section">
-          <div class="empty-hint">提示：材料和功法减免项不会卡死突破；只要减免后的属性要求满足即可。已生效的材料会在突破成功后直接消耗。</div>
+          <div class="empty-hint">提示：材料和功法条件未生效时，会按配置上浮全部属性要求；已生效的材料会在突破成功后消耗。</div>
         </div>
       ` : ''}
       <div class="tech-modal-actions">

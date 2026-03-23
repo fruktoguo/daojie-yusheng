@@ -8,144 +8,112 @@
         "level": 1,
         "expFactor": 39,
         "attrs": {
-          "spirit": 4,
-          "comprehension": 2,
-          "luck": 1
+          "spirit": 4
         }
       },
       {
         "level": 2,
         "expFactor": 42,
         "attrs": {
-          "spirit": 4,
-          "comprehension": 2,
-          "luck": 1
+          "spirit": 4
         }
       },
       {
         "level": 3,
         "expFactor": 45,
         "attrs": {
-          "spirit": 4,
-          "comprehension": 2,
-          "luck": 1
+          "spirit": 4
         }
       },
       {
         "level": 4,
         "expFactor": 48,
         "attrs": {
-          "spirit": 4,
-          "comprehension": 2,
-          "luck": 1
+          "spirit": 4
         }
       },
       {
         "level": 5,
         "expFactor": 52,
         "attrs": {
-          "spirit": 4,
-          "comprehension": 2,
-          "luck": 1
+          "spirit": 4
         }
       },
       {
         "level": 6,
         "expFactor": 56,
         "attrs": {
-          "spirit": 4,
-          "comprehension": 2,
-          "luck": 1
+          "spirit": 4
         }
       },
       {
         "level": 7,
         "expFactor": 61,
         "attrs": {
-          "spirit": 4,
-          "comprehension": 2,
-          "luck": 1
+          "spirit": 4
         }
       },
       {
         "level": 8,
         "expFactor": 66,
         "attrs": {
-          "spirit": 4,
-          "comprehension": 2,
-          "luck": 1
+          "spirit": 4
         }
       },
       {
         "level": 9,
         "expFactor": 74,
         "attrs": {
-          "spirit": 5,
-          "comprehension": 2,
-          "luck": 1
+          "spirit": 5
         }
       },
       {
         "level": 10,
         "expFactor": 82,
         "attrs": {
-          "spirit": 5,
-          "comprehension": 2,
-          "luck": 1
+          "spirit": 5
         }
       },
       {
         "level": 11,
         "expFactor": 91,
         "attrs": {
-          "spirit": 5,
-          "comprehension": 2,
-          "luck": 1
+          "spirit": 5
         }
       },
       {
         "level": 12,
         "expFactor": 101,
         "attrs": {
-          "spirit": 5,
-          "comprehension": 2,
-          "luck": 1
+          "spirit": 5
         }
       },
       {
         "level": 13,
         "expFactor": 113,
         "attrs": {
-          "spirit": 5,
-          "comprehension": 3,
-          "luck": 1
+          "spirit": 5
         }
       },
       {
         "level": 14,
         "expFactor": 126,
         "attrs": {
-          "spirit": 5,
-          "comprehension": 3,
-          "luck": 1
+          "spirit": 5
         }
       },
       {
         "level": 15,
         "expFactor": 140,
         "attrs": {
-          "spirit": 6,
-          "comprehension": 3,
-          "luck": 2
+          "spirit": 6
         }
       },
       {
         "level": 16,
         "expFactor": 0,
         "attrs": {
-          "spirit": 6,
-          "comprehension": 4,
-          "luck": 2
+          "spirit": 6
         }
       }
     ],

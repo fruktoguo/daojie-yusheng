@@ -8,80 +8,70 @@
         "level": 1,
         "expFactor": 16,
         "attrs": {
-          "perception": 4,
-          "luck": 1
+          "perception": 4
         }
       },
       {
         "level": 2,
         "expFactor": 18,
         "attrs": {
-          "perception": 4,
-          "luck": 1
+          "perception": 4
         }
       },
       {
         "level": 3,
         "expFactor": 20,
         "attrs": {
-          "perception": 4,
-          "luck": 1
+          "perception": 4
         }
       },
       {
         "level": 4,
         "expFactor": 22,
         "attrs": {
-          "perception": 4,
-          "luck": 1
+          "perception": 4
         }
       },
       {
         "level": 5,
         "expFactor": 25,
         "attrs": {
-          "perception": 4,
-          "luck": 1
+          "perception": 4
         }
       },
       {
         "level": 6,
         "expFactor": 29,
         "attrs": {
-          "perception": 4,
-          "luck": 1
+          "perception": 4
         }
       },
       {
         "level": 7,
         "expFactor": 33,
         "attrs": {
-          "perception": 4,
-          "luck": 1
+          "perception": 4
         }
       },
       {
         "level": 8,
         "expFactor": 38,
         "attrs": {
-          "perception": 4,
-          "luck": 1
+          "perception": 4
         }
       },
       {
         "level": 9,
         "expFactor": 44,
         "attrs": {
-          "perception": 5,
-          "luck": 1
+          "perception": 5
         }
       },
       {
         "level": 10,
         "expFactor": 0,
         "attrs": {
-          "perception": 5,
-          "luck": 2
+          "perception": 5
         }
       }
     ],

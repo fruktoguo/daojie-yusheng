@@ -816,21 +816,20 @@ export class TechniqueService {
   } {
     const config = this.getBreakthroughConfig(fromRealmLv);
     const revealed = new Set(player.revealedBreakthroughRequirementIds ?? []);
-    const reductionMultiplier = config.requirements.reduce((multiplier, def) => {
-      if (!this.isOptionalBreakthroughReducer(def) || !this.isBreakthroughRequirementCompleted(player, def)) {
+    const increaseMultiplier = config.requirements.reduce((multiplier, def) => {
+      if (!this.isOptionalAttributeIncreaser(def) || this.isBreakthroughRequirementCompleted(player, def)) {
         return multiplier;
       }
-      const reductionRate = this.getRequirementReductionRate(def);
-      return multiplier * (1 - reductionRate);
+      return multiplier * (1 + this.getRequirementIncreaseRate(def));
     }, 1);
     const requirements = config.requirements.map((def) => {
       const blocksBreakthrough = this.doesRequirementBlockBreakthrough(def);
-      const completed = this.isBreakthroughRequirementCompleted(player, def, reductionMultiplier);
+      const completed = this.isBreakthroughRequirementCompleted(player, def, increaseMultiplier);
       const hidden = def.hidden === true && !completed && !revealed.has(def.id);
       const view = this.buildBreakthroughRequirementView(player, def, {
         hidden,
         completed,
-        reductionMultiplier,
+        increaseMultiplier,
         blocksBreakthrough,
       });
       return { def, completed, blocksBreakthrough, view };
@@ -857,7 +856,7 @@ export class TechniqueService {
   private isBreakthroughRequirementCompleted(
     player: PlayerState,
     requirement: BreakthroughRequirementDef,
-    reductionMultiplier = 1,
+    increaseMultiplier = 1,
   ): boolean {
     switch (requirement.type) {
       case 'item':
@@ -874,7 +873,7 @@ export class TechniqueService {
       }
       case 'attribute': {
         const currentValue = player.finalAttrs?.[requirement.attr] ?? player.baseAttrs[requirement.attr] ?? 0;
-        return currentValue >= this.getEffectiveAttributeRequirement(requirement.minValue, reductionMultiplier);
+        return currentValue >= this.getEffectiveAttributeRequirement(requirement.minValue, increaseMultiplier);
       }
       default:
         return false;
@@ -885,27 +884,27 @@ export class TechniqueService {
     if (requirement.type === 'attribute') {
       return true;
     }
-    return !this.isOptionalBreakthroughReducer(requirement);
+    return !this.isOptionalAttributeIncreaser(requirement);
   }
 
-  private isOptionalBreakthroughReducer(requirement: BreakthroughRequirementDef): boolean {
+  private isOptionalAttributeIncreaser(requirement: BreakthroughRequirementDef): boolean {
     return (requirement.type === 'item' || requirement.type === 'technique')
-      && this.getRequirementReductionPct(requirement) > 0;
+      && this.getRequirementIncreasePct(requirement) > 0;
   }
 
-  private getRequirementReductionPct(requirement: BreakthroughRequirementDef): number {
+  private getRequirementIncreasePct(requirement: BreakthroughRequirementDef): number {
     if (requirement.type !== 'item' && requirement.type !== 'technique') {
       return 0;
     }
-    return Math.max(0, Math.min(95, Math.floor(requirement.reduceAttrRequirementPct ?? 0)));
+    return Math.max(0, Math.floor(requirement.increaseAttrRequirementPct ?? 0));
   }
 
-  private getRequirementReductionRate(requirement: BreakthroughRequirementDef): number {
-    return this.getRequirementReductionPct(requirement) / 100;
+  private getRequirementIncreaseRate(requirement: BreakthroughRequirementDef): number {
+    return this.getRequirementIncreasePct(requirement) / 100;
   }
 
-  private getEffectiveAttributeRequirement(baseValue: number, reductionMultiplier: number): number {
-    return Math.max(1, Math.ceil(baseValue * Math.max(0.05, reductionMultiplier)));
+  private getEffectiveAttributeRequirement(baseValue: number, increaseMultiplier: number): number {
+    return Math.max(1, Math.ceil(baseValue * Math.max(1, increaseMultiplier)));
   }
 
   private buildBreakthroughRequirementView(
@@ -914,11 +913,11 @@ export class TechniqueService {
     options: {
       hidden: boolean;
       completed: boolean;
-      reductionMultiplier: number;
+      increaseMultiplier: number;
       blocksBreakthrough: boolean;
     },
   ): BreakthroughRequirementView {
-    const { hidden, completed, reductionMultiplier, blocksBreakthrough } = options;
+    const { hidden, completed, increaseMultiplier, blocksBreakthrough } = options;
     if (hidden) {
       return {
         id: requirement.id,
@@ -931,16 +930,16 @@ export class TechniqueService {
     return {
       id: requirement.id,
       type: requirement.type,
-      label: this.formatBreakthroughRequirementLabel(requirement, reductionMultiplier),
+      label: this.formatBreakthroughRequirementLabel(requirement, increaseMultiplier),
       completed,
       hidden,
       optional: !blocksBreakthrough,
       blocksBreakthrough,
-      detail: this.formatBreakthroughRequirementDetail(player, requirement, completed, reductionMultiplier, blocksBreakthrough),
+      detail: this.formatBreakthroughRequirementDetail(player, requirement, completed, increaseMultiplier, blocksBreakthrough),
     };
   }
 
-  private formatBreakthroughRequirementLabel(requirement: BreakthroughRequirementDef, reductionMultiplier = 1): string {
+  private formatBreakthroughRequirementLabel(requirement: BreakthroughRequirementDef, increaseMultiplier = 1): string {
     if (requirement.type !== 'attribute' && requirement.label) return requirement.label;
     switch (requirement.type) {
       case 'item': {
@@ -967,8 +966,10 @@ export class TechniqueService {
         return parts.join('');
       }
       case 'attribute': {
-        const effectiveValue = this.getEffectiveAttributeRequirement(requirement.minValue, reductionMultiplier);
-        return `${this.attrLabel(requirement.attr)}达到 ${effectiveValue}（基础 ${requirement.minValue}）`;
+        const effectiveValue = this.getEffectiveAttributeRequirement(requirement.minValue, increaseMultiplier);
+        return effectiveValue > requirement.minValue
+          ? `${this.attrLabel(requirement.attr)}达到 ${effectiveValue}（基础 ${requirement.minValue}）`
+          : `${this.attrLabel(requirement.attr)}达到 ${requirement.minValue}`;
       }
       default:
         return '???';
@@ -979,27 +980,26 @@ export class TechniqueService {
     player: PlayerState,
     requirement: BreakthroughRequirementDef,
     completed: boolean,
-    reductionMultiplier: number,
+    increaseMultiplier: number,
     blocksBreakthrough: boolean,
   ): string {
     if (requirement.type === 'attribute') {
       const currentValue = player.finalAttrs?.[requirement.attr] ?? player.baseAttrs[requirement.attr] ?? 0;
-      const effectiveValue = this.getEffectiveAttributeRequirement(requirement.minValue, reductionMultiplier);
-      const reducedPercent = Math.max(0, Math.round((1 - reductionMultiplier) * 100));
-      return reducedPercent > 0
-        ? `当前${this.attrLabel(requirement.attr)} ${currentValue} / ${effectiveValue}，基础要求 ${requirement.minValue}，已乘算减免 ${reducedPercent}%`
-        : `当前${this.attrLabel(requirement.attr)} ${currentValue} / ${effectiveValue}，基础要求 ${requirement.minValue}`;
+      const effectiveValue = this.getEffectiveAttributeRequirement(requirement.minValue, increaseMultiplier);
+      return effectiveValue > requirement.minValue
+        ? `当前${this.attrLabel(requirement.attr)} ${currentValue} / ${effectiveValue}，基础要求 ${requirement.minValue}`
+        : `当前${this.attrLabel(requirement.attr)} ${currentValue} / ${requirement.minValue}`;
     }
-    if (this.isOptionalBreakthroughReducer(requirement)) {
-      const reductionPct = this.getRequirementReductionPct(requirement);
+    if (this.isOptionalAttributeIncreaser(requirement)) {
+      const increasePct = this.getRequirementIncreasePct(requirement);
       if (requirement.type === 'item') {
         return completed
-          ? `当前已生效，突破成功后会消耗该材料，并将全部属性要求按乘算降低 ${reductionPct}%`
-          : `当前未生效；若备齐该材料，突破时会消耗，并将全部属性要求按乘算降低 ${reductionPct}%`;
+          ? `当前已生效，突破成功后会消耗该材料；若缺少该材料，全部属性要求上浮 ${increasePct}%`
+          : `当前未生效；若缺少该材料，全部属性要求上浮 ${increasePct}%`;
       }
       return completed
-        ? `当前已生效，已将全部属性要求按乘算降低 ${reductionPct}%`
-        : `当前未生效；若满足该功法条件，可将全部属性要求按乘算降低 ${reductionPct}%`;
+        ? `当前已生效；若不满足该功法条件，全部属性要求上浮 ${increasePct}%`
+        : `当前未生效；若不满足该功法条件，全部属性要求上浮 ${increasePct}%`;
     }
     if (requirement.type === 'item') {
       return completed ? '当前已满足，确认突破后会消耗对应材料。' : '当前尚未满足。';
