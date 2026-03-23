@@ -6,6 +6,7 @@
 import { EquipmentEffectDef, Inventory, ItemStack, ItemType, PlayerState, createItemStackSignature } from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
 import { FloatingTooltip } from '../floating-tooltip';
+import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { preserveSelection } from '../selection-preserver';
 
 const ITEM_TYPE_LABELS: Record<string, string> = {
@@ -252,10 +253,9 @@ export class InventoryPanel {
     html += '<div class="inventory-grid" data-inventory-grid="true">';
 
     visibleItems.forEach(({ item, slotIndex }) => {
-      const tooltip = this.buildTooltipPayload(item);
       const nameClass = this.getNameClass(item.name);
       const primaryAction = this.getPrimaryAction(item);
-      html += `<div class="inventory-cell" data-open-item="${slotIndex}" data-item-slot="${slotIndex}" data-item-key="${this.escapeHtml(this.getItemIdentity(item))}" data-tooltip-title="${this.escapeHtml(tooltip.title)}" data-tooltip-detail="${this.escapeHtml(tooltip.detail)}">
+      html += `<div class="inventory-cell" data-open-item="${slotIndex}" data-item-slot="${slotIndex}" data-item-key="${this.escapeHtml(this.getItemIdentity(item))}">
         <div class="inventory-cell-head">
           <span class="inventory-cell-type" data-item-type="true">${ITEM_TYPE_LABELS[item.type] ?? item.type}</span>
           <span class="inventory-cell-count" data-item-count="true">x${item.count}</span>
@@ -350,13 +350,20 @@ export class InventoryPanel {
 
   private bindTooltipEvents(): void {
     const show = (cell: HTMLElement, event: PointerEvent) => {
-      const title = cell.dataset.tooltipTitle ?? '';
-      const detail = cell.dataset.tooltipDetail ?? '';
-      const lines = detail
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0);
-      this.tooltip.show(title, lines, event.clientX, event.clientY);
+      const rawIndex = cell.dataset.itemSlot;
+      if (!rawIndex || !this.lastInventory) {
+        return;
+      }
+      const slotIndex = parseInt(rawIndex, 10);
+      const item = this.lastInventory.items[slotIndex];
+      if (!item) {
+        return;
+      }
+      const tooltip = this.buildTooltipPayload(item);
+      this.tooltip.show(tooltip.title, tooltip.lines, event.clientX, event.clientY, {
+        allowHtml: tooltip.allowHtml,
+        asideCards: tooltip.asideCards,
+      });
     };
 
     this.pane.addEventListener('pointermove', (event) => {
@@ -567,13 +574,10 @@ export class InventoryPanel {
         return false;
       }
 
-      const tooltip = this.buildTooltipPayload(item);
       const primaryAction = this.getPrimaryAction(item);
       const primaryButton = cell.querySelector<HTMLButtonElement>('[data-item-primary="true"]');
 
       cell.dataset.itemKey = this.getItemIdentity(item);
-      cell.dataset.tooltipTitle = tooltip.title;
-      cell.dataset.tooltipDetail = tooltip.detail;
       typeNode.textContent = ITEM_TYPE_LABELS[item.type] ?? item.type;
       countNode.textContent = `x${item.count}`;
       nameNode.textContent = item.name;
@@ -694,29 +698,11 @@ export class InventoryPanel {
     });
   }
 
-  private buildTooltipPayload(item: ItemStack): { title: string; detail: string } {
-    const attrLines = item.equipAttrs
-      ? Object.entries(item.equipAttrs).map(([key, value]) => `${ATTR_LABELS[key] ?? key} +${value}`)
-      : [];
-    const statLines = item.equipStats
-      ? Object.entries(item.equipStats)
-        .filter(([, value]) => typeof value === 'number' && value !== 0)
-        .map(([key, value]) => `${STAT_LABELS[key] ?? key} +${formatBonusValue(key, value as number)}`)
-      : [];
-    const effectLines = formatItemEffects(item);
-    const detail = [
-      item.desc,
-      `类型：${ITEM_TYPE_LABELS[item.type] ?? item.type}`,
-      item.equipSlot ? `部位：${SLOT_LABELS[item.equipSlot] ?? item.equipSlot}` : '',
-      ...attrLines,
-      ...statLines,
-      ...effectLines,
-    ].filter((line) => line.length > 0).join('\n');
-
-    return {
-      title: item.name,
-      detail,
-    };
+  private buildTooltipPayload(item: ItemStack) {
+    return buildItemTooltipPayload({
+      ...item,
+      type: item.type === 'skill_book' ? 'skill_book' : item.type,
+    });
   }
 
   private closeModal(): void {

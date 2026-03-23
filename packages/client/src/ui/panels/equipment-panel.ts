@@ -5,6 +5,8 @@
 
 import { EquipmentEffectDef, EquipmentSlots, EquipSlot, PlayerState } from '@mud/shared';
 import { preserveSelection } from '../selection-preserver';
+import { FloatingTooltip } from '../floating-tooltip';
+import { buildItemTooltipPayload } from '../equipment-tooltip';
 
 const SLOT_NAMES: Record<EquipSlot, string> = {
   weapon: '武器',
@@ -159,8 +161,19 @@ function formatItemBonuses(item: EquipmentSlots[EquipSlot]): string {
 export class EquipmentPanel {
   private pane = document.getElementById('pane-equipment')!;
   private onUnequip: ((slot: EquipSlot) => void) | null = null;
+  private lastEquipment: EquipmentSlots | null = null;
+  private tooltip = new FloatingTooltip('floating-tooltip equipment-tooltip');
+  private tooltipSlot: EquipSlot | null = null;
+
+  constructor() {
+    this.ensureTooltipStyle();
+    this.bindTooltipEvents();
+  }
 
   clear(): void {
+    this.lastEquipment = null;
+    this.tooltipSlot = null;
+    this.tooltip.hide();
     this.pane.innerHTML = '<div class="empty-hint">尚未装备任何物品</div>';
   }
 
@@ -170,10 +183,12 @@ export class EquipmentPanel {
 
   /** 更新装备数据并重新渲染 */
   update(equipment: EquipmentSlots): void {
+    this.lastEquipment = equipment;
     this.render(equipment);
   }
 
   initFromPlayer(player: PlayerState): void {
+    this.lastEquipment = player.equipment;
     this.render(player.equipment);
   }
 
@@ -185,7 +200,7 @@ export class EquipmentPanel {
       const item = equipment[slot];
       if (item) {
         const bonusText = formatItemBonuses(item);
-        html += `<div class="equip-slot">
+        html += `<div class="equip-slot" data-equip-tooltip-slot="${slot}">
           <div class="equip-copy">
             <span class="equip-slot-name">${SLOT_NAMES[slot]}</span>
             <span class="equip-slot-item">${item.name}</span>
@@ -215,5 +230,102 @@ export class EquipmentPanel {
         });
       });
     });
+  }
+
+  private bindTooltipEvents(): void {
+    this.pane.addEventListener('pointermove', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        if (this.tooltipSlot) {
+          this.tooltipSlot = null;
+          this.tooltip.hide();
+        }
+        return;
+      }
+
+      const slotNode = target.closest<HTMLElement>('[data-equip-tooltip-slot]');
+      if (!slotNode || !this.lastEquipment) {
+        if (this.tooltipSlot) {
+          this.tooltipSlot = null;
+          this.tooltip.hide();
+        }
+        return;
+      }
+
+      const slot = slotNode.dataset.equipTooltipSlot as EquipSlot | undefined;
+      const item = slot ? this.lastEquipment[slot] : null;
+      if (!slot || !item) {
+        if (this.tooltipSlot) {
+          this.tooltipSlot = null;
+          this.tooltip.hide();
+        }
+        return;
+      }
+
+      if (this.tooltipSlot !== slot) {
+        this.tooltipSlot = slot;
+        const tooltip = buildItemTooltipPayload(item);
+        this.tooltip.show(tooltip.title, tooltip.lines, event.clientX, event.clientY, {
+          allowHtml: tooltip.allowHtml,
+          asideCards: tooltip.asideCards,
+        });
+        return;
+      }
+
+      this.tooltip.move(event.clientX, event.clientY);
+    });
+
+    this.pane.addEventListener('pointerleave', () => {
+      this.tooltipSlot = null;
+      this.tooltip.hide();
+    });
+
+    this.pane.addEventListener('pointerdown', () => {
+      if (this.tooltipSlot) {
+        this.tooltipSlot = null;
+        this.tooltip.hide();
+      }
+    });
+  }
+
+  private ensureTooltipStyle(): void {
+    if (document.getElementById('equipment-panel-tooltip-style')) return;
+    const style = document.createElement('style');
+    style.id = 'equipment-panel-tooltip-style';
+    style.textContent = `
+      .equipment-tooltip {
+        position: fixed;
+        pointer-events: none;
+        font-size: var(--font-size-13);
+        color: var(--ink-black);
+        z-index: 2000;
+        opacity: 0;
+        transition: opacity 120ms ease;
+        min-width: 0;
+      }
+      .equipment-tooltip.visible {
+        opacity: 1;
+      }
+      .equipment-tooltip .floating-tooltip-body {
+        min-width: 180px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        line-height: 1.4;
+      }
+      .equipment-tooltip .floating-tooltip-body strong {
+        display: block;
+      }
+      .equipment-tooltip .floating-tooltip-detail {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        color: var(--ink-grey);
+      }
+      .equipment-tooltip .floating-tooltip-line {
+        display: block;
+      }
+    `;
+    document.head.appendChild(style);
   }
 }
