@@ -7,7 +7,7 @@
     "level": 3,
     "desc": "刀身细窄，专为林路斜切和借身转步而造。",
     "equipSlot": "weapon",
-    "equipStats": { "physAtk": 7, "dodge": 2, "hit": 2 }
+    "equipValueStats": { "physAtk": 7, "dodge": 2, "hit": 2 }
   },
   {
     "itemId": "equip.bamboo_hat",
@@ -17,7 +17,7 @@
     "level": 3,
     "desc": "青竹骨架压得极薄，进林后能把风响听得更清。",
     "equipSlot": "head",
-    "equipStats": { "dodge": 3, "viewRange": 1 },
+    "equipValueStats": { "dodge": 3, "viewRange": 1 },
     "effects": [
       {
         "effectId": "bamboo-forest-read",
@@ -28,11 +28,11 @@
             { "type": "map", "mapIds": ["bamboo_forest"] }
           ]
         },
-        "stats": { "hit": 2 }
+        "valueStats": { "hit": 2 }
       }
     ]
   },
-  { "itemId": "equip.herb_mist_robe", "name": "药烟轻袍", "type": "equipment", "grade": "yellow", "level": 3, "desc": "晒药时沾过苦烟的薄袍，能稍稍护住气海。", "equipSlot": "body", "equipStats": { "maxQi": 18, "spellDef": 4, "qiRegenRate": 40 } },
+  { "itemId": "equip.herb_mist_robe", "name": "药烟轻袍", "type": "equipment", "grade": "yellow", "level": 3, "desc": "晒药时沾过苦烟的薄袍，能稍稍护住气海。", "equipSlot": "body", "equipValueStats": { "maxQi": 2.25, "spellDef": 4, "qiRegenRate": 0.4 } },
   {
     "itemId": "equip.dewstep_boots",
     "name": "引露行靴",
@@ -41,7 +41,7 @@
     "level": 3,
     "desc": "晨露未干时最显轻灵，踏步后脚尖总像还留着一层滑意。",
     "equipSlot": "legs",
-    "equipStats": { "moveSpeed": 16, "crit": 2 },
+    "equipValueStats": { "moveSpeed": 16, "crit": 2 },
     "effects": [
       {
         "effectId": "dewstep-dash",
@@ -58,10 +58,10 @@
           "category": "buff",
           "visibility": "public",
           "color": "#8fb7c9",
-          "stats": { "moveSpeed": 8, "dodge": 2 }
+          "valueStats": { "moveSpeed": 8, "dodge": 2 }
         }
       }
     ]
   },
-  { "itemId": "equip.gather_qi_pendant", "name": "采气木坠", "type": "equipment", "grade": "yellow", "level": 3, "desc": "刻着简陋聚气纹的木坠，聊胜于无。", "equipSlot": "accessory", "equipStats": { "maxQi": 12, "techniqueExpRate": 500 } }
+  { "itemId": "equip.gather_qi_pendant", "name": "采气木坠", "type": "equipment", "grade": "yellow", "level": 3, "desc": "刻着简陋聚气纹的木坠，聊胜于无。", "equipSlot": "accessory", "equipValueStats": { "maxQi": 1.5, "techniqueExpRate": 5 } }
 ]

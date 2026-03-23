@@ -168,7 +168,7 @@
             "color": "#63b9d7",
             "duration": 14,
             "maxStacks": 8,
-            "stats": {
+            "valueStats": {
               "spellDef": -2,
               "dodge": -4,
               "hit": -3
@@ -235,7 +235,7 @@
             "color": "#63b9d7",
             "duration": 14,
             "maxStacks": 8,
-            "stats": {
+            "valueStats": {
               "spellDef": -2,
               "dodge": -4,
               "hit": -3
@@ -307,7 +307,7 @@
             "color": "#7bd6f5",
             "duration": 12,
             "maxStacks": 6,
-            "stats": {
+            "valueStats": {
               "dodge": -5,
               "breakPower": -5
             }

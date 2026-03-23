@@ -128,7 +128,7 @@
             "color": "#68b96c",
             "duration": 12,
             "maxStacks": 6,
-            "stats": {
+            "valueStats": {
               "spellDef": -2,
               "dodge": -3,
               "resolvePower": -3

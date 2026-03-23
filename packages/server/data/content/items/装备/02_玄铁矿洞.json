@@ -1,7 +1,7 @@
 [
-  { "itemId": "equip.black_iron_sword", "name": "玄铁长剑", "type": "equipment", "grade": "mystic", "level": 3, "desc": "经矿洞灵铁锻造，兼具锋锐与韧性。", "equipSlot": "weapon", "equipStats": { "physAtk": 11, "spellAtk": 4, "hit": 4 } },
-  { "itemId": "equip.miner_helmet", "name": "矿卫盔", "type": "equipment", "grade": "mystic", "level": 3, "desc": "旧矿卫制式铁盔，防护结实。", "equipSlot": "head", "equipStats": { "maxHp": 24, "physDef": 7, "resolvePower": 3 } },
-  { "itemId": "equip.orebreak_hammer", "name": "矿卫破岩锤", "type": "equipment", "grade": "mystic", "level": 3, "desc": "锤头沉得惊人，砸石和砸骨头时都带着同一种闷响。", "equipSlot": "weapon", "equipStats": { "physAtk": 10, "breakPower": 4, "hit": 2 } },
+  { "itemId": "equip.black_iron_sword", "name": "玄铁长剑", "type": "equipment", "grade": "mystic", "level": 3, "desc": "经矿洞灵铁锻造，兼具锋锐与韧性。", "equipSlot": "weapon", "equipValueStats": { "physAtk": 11, "spellAtk": 4, "hit": 4 } },
+  { "itemId": "equip.miner_helmet", "name": "矿卫盔", "type": "equipment", "grade": "mystic", "level": 3, "desc": "旧矿卫制式铁盔，防护结实。", "equipSlot": "head", "equipValueStats": { "maxHp": 2, "physDef": 7, "resolvePower": 3 } },
+  { "itemId": "equip.orebreak_hammer", "name": "矿卫破岩锤", "type": "equipment", "grade": "mystic", "level": 3, "desc": "锤头沉得惊人，砸石和砸骨头时都带着同一种闷响。", "equipSlot": "weapon", "equipValueStats": { "physAtk": 10, "breakPower": 4, "hit": 2 } },
   {
     "itemId": "equip.soot_lamp_hood",
     "name": "熄火矿灯冠",
@@ -10,7 +10,7 @@
     "level": 3,
     "desc": "矿灯虽然熄了，旧灯罩仍能帮人摸清黑暗里的轮廓。",
     "equipSlot": "head",
-    "equipStats": { "viewRange": 1, "resolvePower": 2, "maxHp": 16 },
+    "equipValueStats": { "viewRange": 1, "resolvePower": 2, "maxHp": 1.33 },
     "effects": [
       {
         "effectId": "mine-sight",
@@ -21,11 +21,11 @@
             { "type": "map", "mapIds": ["black_iron_mine"] }
           ]
         },
-        "stats": { "viewRange": 1, "hit": 2 }
+        "valueStats": { "viewRange": 1, "hit": 2 }
       }
     ]
   },
-  { "itemId": "equip.blackiron_brigandine", "name": "黑铁束身甲", "type": "equipment", "grade": "mystic", "level": 3, "desc": "以旧矿卫残片拼出来的束身甲，缝里还残留着铁腥味。", "equipSlot": "body", "equipStats": { "maxHp": 38, "physDef": 6, "resolvePower": 3 } },
-  { "itemId": "equip.ash_tread", "name": "炉灰踏靴", "type": "equipment", "grade": "yellow", "level": 3, "desc": "鞋底结了层灰壳，踩在碎石和熄火矿渣上比常鞋稳。", "equipSlot": "legs", "equipStats": { "moveSpeed": 10, "physDef": 2 } },
-  { "itemId": "equip.orevein_ring", "name": "矿脉扣环", "type": "equipment", "grade": "yellow", "level": 3, "desc": "矿工拿来记矿脉方位的铁环，久了也能养出一点破势。", "equipSlot": "accessory", "equipStats": { "breakPower": 3, "lootRate": 400 } }
+  { "itemId": "equip.blackiron_brigandine", "name": "黑铁束身甲", "type": "equipment", "grade": "mystic", "level": 3, "desc": "以旧矿卫残片拼出来的束身甲，缝里还残留着铁腥味。", "equipSlot": "body", "equipValueStats": { "maxHp": 3.17, "physDef": 6, "resolvePower": 3 } },
+  { "itemId": "equip.ash_tread", "name": "炉灰踏靴", "type": "equipment", "grade": "yellow", "level": 3, "desc": "鞋底结了层灰壳，踩在碎石和熄火矿渣上比常鞋稳。", "equipSlot": "legs", "equipValueStats": { "moveSpeed": 10, "physDef": 2 } },
+  { "itemId": "equip.orevein_ring", "name": "矿脉扣环", "type": "equipment", "grade": "yellow", "level": 3, "desc": "矿工拿来记矿脉方位的铁环，久了也能养出一点破势。", "equipSlot": "accessory", "equipValueStats": { "breakPower": 3, "lootRate": 4 } }
 ]

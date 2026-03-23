@@ -151,7 +151,7 @@
             "color": "#95c5a4",
             "duration": 12,
             "maxStacks": 6,
-            "stats": {
+            "valueStats": {
               "moveSpeed": 10,
               "dodge": 5,
               "crit": 4
@@ -221,7 +221,7 @@
             "color": "#95c5a4",
             "duration": 12,
             "maxStacks": 6,
-            "stats": {
+            "valueStats": {
               "moveSpeed": 10,
               "dodge": 5,
               "crit": 4

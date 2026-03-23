@@ -617,6 +617,7 @@ export interface GmEditorItemOption {
   desc?: string;
   equipAttrs?: ItemStack['equipAttrs'];
   equipStats?: ItemStack['equipStats'];
+  equipValueStats?: ItemStack['equipValueStats'];
   tags?: string[];
   effects?: EquipmentEffectDef[];
 }

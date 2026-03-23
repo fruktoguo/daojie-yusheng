@@ -176,7 +176,7 @@
             "color": "#8f8a70",
             "duration": 14,
             "maxStacks": 6,
-            "stats": {
+            "valueStats": {
               "spellAtk": -3,
               "breakPower": -3,
               "resolvePower": -4

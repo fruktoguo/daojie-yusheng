@@ -61,6 +61,36 @@ export const NUMERIC_STAT_POINTS_PER_VALUE = {
   moveSpeed: 1,
 } satisfies Record<typeof NUMERIC_SCALAR_STAT_KEYS[number], number>;
 
+/** 配置层每 1 价值对应的真实数值点数 */
+export const NUMERIC_STAT_ACTUAL_POINTS_PER_CONFIG_VALUE = {
+  maxHp: 12,
+  maxQi: 8,
+  physAtk: 1,
+  spellAtk: 1,
+  physDef: 1,
+  spellDef: 1,
+  hit: 1,
+  dodge: 1,
+  crit: 1,
+  critDamage: 1,
+  breakPower: 1,
+  resolvePower: 1,
+  maxQiOutputPerTick: 1,
+  qiRegenRate: 100,
+  hpRegenRate: 100,
+  cooldownSpeed: 1,
+  auraCostReduce: 100,
+  auraPowerRate: 100,
+  playerExpRate: 100,
+  techniqueExpRate: 100,
+  realmExpPerTick: 1,
+  techniqueExpPerTick: 1,
+  lootRate: 100,
+  rareLootRate: 100,
+  viewRange: 1,
+  moveSpeed: 1,
+} satisfies Record<typeof NUMERIC_SCALAR_STAT_KEYS[number], number>;
+
 type QuantifiableFormulaVar =
   | 'caster.maxHp'
   | 'caster.maxQi'
@@ -178,8 +208,107 @@ function formatNumber(value: number): string {
   return value.toFixed(2).replace(/\.?0+$/, '');
 }
 
+const UNLIMITED_STACK_DISPLAY_THRESHOLD = 1_000_000;
+
+export function formatBuffMaxStacks(maxStacks?: number): string | null {
+  if (!Number.isFinite(maxStacks) || (maxStacks ?? 0) <= 1) {
+    return null;
+  }
+  return maxStacks! >= UNLIMITED_STACK_DISPLAY_THRESHOLD
+    ? '无限'
+    : formatNumber(maxStacks!);
+}
+
 function formatPercent(scale: number): string {
   return `${formatNumber(scale * 100)}%`;
+}
+
+export function compileValueStatsToActualStats(valueStats?: PartialNumericStats): PartialNumericStats | undefined {
+  if (!valueStats) {
+    return undefined;
+  }
+
+  const actual: PartialNumericStats = {};
+  for (const key of NUMERIC_SCALAR_STAT_KEYS) {
+    const amount = valueStats[key];
+    if (!amount) {
+      continue;
+    }
+    // 运行时真实数值仍沿用整数口径，避免价值配置换算后的浮点噪声渗入结算。
+    actual[key] = Math.round(amount * NUMERIC_STAT_ACTUAL_POINTS_PER_CONFIG_VALUE[key]);
+  }
+
+  if (valueStats.elementDamageBonus) {
+    const elementBonus: NonNullable<PartialNumericStats['elementDamageBonus']> = {};
+    for (const element of ELEMENT_KEYS) {
+      const amount = valueStats.elementDamageBonus[element];
+      if (!amount) {
+        continue;
+      }
+      elementBonus[element] = amount;
+    }
+    if (Object.keys(elementBonus).length > 0) {
+      actual.elementDamageBonus = elementBonus;
+    }
+  }
+
+  if (valueStats.elementDamageReduce) {
+    const elementReduce: NonNullable<PartialNumericStats['elementDamageReduce']> = {};
+    for (const element of ELEMENT_KEYS) {
+      const amount = valueStats.elementDamageReduce[element];
+      if (!amount) {
+        continue;
+      }
+      elementReduce[element] = amount;
+    }
+    if (Object.keys(elementReduce).length > 0) {
+      actual.elementDamageReduce = elementReduce;
+    }
+  }
+
+  return Object.keys(actual).length > 0 ? actual : undefined;
+}
+
+export function calculateConfiguredValueStatsValue(valueStats?: PartialNumericStats): ValueSummary {
+  const breakdown: ValueBreakdownEntry[] = [];
+  if (valueStats) {
+    for (const key of NUMERIC_SCALAR_STAT_KEYS) {
+      const amount = valueStats[key] ?? 0;
+      if (!amount) {
+        continue;
+      }
+      breakdown.push({
+        kind: 'stat',
+        key,
+        amount,
+        quantifiedValue: amount,
+        note: '配置值 1 = 1 价值',
+      });
+    }
+    for (const element of ELEMENT_KEYS) {
+      const bonus = valueStats.elementDamageBonus?.[element] ?? 0;
+      if (bonus) {
+        breakdown.push({
+          kind: 'element',
+          key: `elementDamageBonus.${element}`,
+          amount: bonus,
+          quantifiedValue: bonus,
+          note: '配置值 1 = 1 价值',
+        });
+      }
+      const reduce = valueStats.elementDamageReduce?.[element] ?? 0;
+      if (reduce) {
+        breakdown.push({
+          kind: 'element',
+          key: `elementDamageReduce.${element}`,
+          amount: reduce,
+          quantifiedValue: reduce,
+          note: '配置值 1 = 1 价值',
+        });
+      }
+    }
+  }
+  return finalizeSummary(breakdown, []);
 }
 
 function getAttrLabel(key: string): string {
@@ -444,11 +573,15 @@ function describeEquipmentEffect(effect: EquipmentEffectDef): string {
       return `持续代价:${triggerLabel}损失 ${amount}${conditionText}`;
     }
     case 'timed_buff': {
+      const stackLimit = formatBuffMaxStacks(effect.buff.maxStacks);
       const metaParts = [
         getEquipmentTriggerLabel(effect.trigger),
         effect.target === 'target' ? '目标' : '自身',
         `${effect.buff.duration}息`,
       ];
+      if (stackLimit) {
+        metaParts.push(`最多${stackLimit}层`);
+      }
       if (effect.cooldown !== undefined) {
         metaParts.push(`冷却${formatNumber(effect.cooldown)}息`);
       }
@@ -800,16 +933,25 @@ export function calculateAttrBonusValue(bonus: Pick<AttrBonus, 'attrs' | 'stats'
 
 /** 计算装备的价值 */
 export function calculateEquipmentValue(
-  item: Pick<ItemStack, 'equipAttrs' | 'equipStats' | 'effects' | 'grade' | 'level'>,
+  item: Pick<ItemStack, 'equipAttrs' | 'equipStats' | 'effects' | 'grade' | 'level'> & {
+    equipValueStats?: PartialNumericStats;
+  },
 ): EquipmentValueSummary {
-  const baseSummary = calculateAttrBonusValue({
-    attrs: item.equipAttrs ?? {},
-    stats: item.equipStats,
-  });
+  const baseAttrSummary = calculateAttributesValue(item.equipAttrs ?? {});
+  const baseStatSummary = item.equipValueStats
+    ? calculateConfiguredValueStatsValue(item.equipValueStats)
+    : calculateNumericStatsValue(item.equipStats);
+  const baseSummary = finalizeSummary(
+    [...baseAttrSummary.breakdown, ...baseStatSummary.breakdown],
+    [...baseAttrSummary.unquantified, ...baseStatSummary.unquantified],
+  );
 
   const gradeMultiplier = getEquipmentGradeMultiplier(item.grade);
   const scaledAttrs = scaleAttributes(item.equipAttrs, gradeMultiplier);
-  const scaledStats = scaleNumericStats(item.equipStats, gradeMultiplier, item.level);
+  const actualBaseStats = item.equipValueStats
+    ? compileValueStatsToActualStats(item.equipValueStats)
+    : item.equipStats;
+  const scaledStats = scaleNumericStats(actualBaseStats, gradeMultiplier, item.level);
   const attrPoints = sumAttributePoints(scaledAttrs);
   const attrValueMultiplier = 1 + attrPoints * 0.03;
 

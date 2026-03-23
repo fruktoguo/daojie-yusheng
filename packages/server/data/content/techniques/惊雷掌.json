@@ -190,7 +190,7 @@
             "color": "#d6c34a",
             "duration": 12,
             "maxStacks": 6,
-            "stats": {
+            "valueStats": {
               "hit": 3,
               "crit": 5,
               "breakPower": 4

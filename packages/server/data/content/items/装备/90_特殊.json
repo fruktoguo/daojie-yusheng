@@ -27,7 +27,7 @@
             { "type": "is_cultivating", "value": true }
           ]
         },
-        "stats": {
+        "valueStats": {
           "techniqueExpPerTick": 10,
           "realmExpPerTick": 2
         }
@@ -40,18 +40,31 @@
     "type": "equipment",
     "grade": "mystic",
     "level": 4,
-    "desc": "骨牌内封着一缕不肯散去的残意，静修时吸血夺元，杀敌时反能回涌一口浊气。",
+    "desc": "骨牌内封着一缕不肯散去的残意，静修时残意会层层侵体，杀敌时反能回涌一口浊气。",
     "equipSlot": "accessory",
     "tags": ["fanren", "evil_path", "cultivation"],
     "effects": [
       {
-        "effectId": "soul-devour-drain",
-        "type": "periodic_cost",
+        "effectId": "soul-devour-erosion",
+        "type": "timed_buff",
         "trigger": "on_cultivation_tick",
-        "resource": "hp",
-        "mode": "current_ratio_bp",
-        "value": 120,
-        "minRemain": 1
+        "target": "self",
+        "buff": {
+          "buffId": "equip.soul_devour_erosion",
+          "name": "噬元侵骨",
+          "desc": "每息叠一层，体魄、神识、身法各降 1 点；此残意即使身死也不会散去。",
+          "duration": 3600,
+          "shortMark": "蚀",
+          "category": "debuff",
+          "visibility": "public",
+          "color": "#6e4a3f",
+          "maxStacks": 2147483647,
+          "attrs": {
+            "constitution": -1,
+            "spirit": -1,
+            "perception": -1
+          }
+        }
       },
       {
         "effectId": "soul-devour-growth",
@@ -62,7 +75,7 @@
             { "type": "is_cultivating", "value": true }
           ]
         },
-        "stats": {
+        "valueStats": {
           "techniqueExpPerTick": 16,
           "realmExpPerTick": 4
         }
@@ -82,9 +95,9 @@
           "category": "buff",
           "visibility": "public",
           "color": "#8a3f2d",
-          "stats": {
-            "qiRegenRate": 160,
-            "techniqueExpRate": 600
+          "valueStats": {
+            "qiRegenRate": 1.6,
+            "techniqueExpRate": 6
           }
         }
       }
@@ -109,7 +122,7 @@
             { "type": "time_segment", "in": ["late_night", "before_dawn", "first_night", "night", "deep_night", "dusk"] }
           ]
         },
-        "stats": {
+        "valueStats": {
           "viewRange": 1,
           "hit": 2
         }

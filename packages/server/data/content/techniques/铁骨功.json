@@ -127,7 +127,7 @@
             "color": "#a28d74",
             "duration": 14,
             "maxStacks": 8,
-            "stats": {
+            "valueStats": {
               "physDef": 2,
               "resolvePower": 3
             }
@@ -201,7 +201,7 @@
             "color": "#a28d74",
             "duration": 14,
             "maxStacks": 8,
-            "stats": {
+            "valueStats": {
               "physDef": 2,
               "resolvePower": 3
             }

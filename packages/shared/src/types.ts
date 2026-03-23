@@ -323,6 +323,7 @@ export interface EquipmentBuffDef {
   maxStacks?: number;
   attrs?: Partial<Attributes>;
   stats?: PartialNumericStats;
+  valueStats?: PartialNumericStats;
 }
 
 /** 装备常驻数值效果 */
@@ -332,6 +333,7 @@ export interface EquipmentStatAuraEffectDef {
   conditions?: EquipmentConditionGroup;
   attrs?: Partial<Attributes>;
   stats?: PartialNumericStats;
+  valueStats?: PartialNumericStats;
 }
 
 /** 装备成长推进效果 */
@@ -341,6 +343,7 @@ export interface EquipmentProgressEffectDef {
   conditions?: EquipmentConditionGroup;
   attrs?: Partial<Attributes>;
   stats?: PartialNumericStats;
+  valueStats?: PartialNumericStats;
 }
 
 /** 装备持续代价效果 */
@@ -386,6 +389,7 @@ export interface ItemStack {
   equipSlot?: EquipSlot;
   equipAttrs?: Partial<Attributes>;
   equipStats?: PartialNumericStats;
+  equipValueStats?: PartialNumericStats;
   effects?: EquipmentEffectDef[];
   tags?: string[];
   mapUnlockId?: string;
@@ -619,6 +623,7 @@ export interface SkillBuffEffectDef {
   maxStacks?: number;
   attrs?: Partial<Attributes>;
   stats?: PartialNumericStats;
+  valueStats?: PartialNumericStats;
 }
 
 /** 技能效果联合类型 */

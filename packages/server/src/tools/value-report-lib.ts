@@ -8,6 +8,7 @@ import {
   ItemStack,
   TECHNIQUE_GRADE_LABELS,
   calculateBuffValue,
+  compileValueStatsToActualStats,
   calculateEquipmentValue,
   calculateSkillValue,
   calculateTechniqueValue,
@@ -38,7 +39,8 @@ type RawEquipment = {
   equipSlot?: string;
   equipAttrs?: ItemStack['equipAttrs'];
   equipStats?: ItemStack['equipStats'];
-  effects?: EquipmentEffectDef[];
+  equipValueStats?: ItemStack['equipStats'];
+  effects?: unknown;
 };
 
 type RawMap = {
@@ -73,6 +75,10 @@ function readJsonEntries<T>(dirPath: string): T[] {
     entries.push(...readJsonFile<T[]>(filePath));
   }
   return entries;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function collectJsonFiles(dirPath: string): string[] {
@@ -120,6 +126,47 @@ export function readTechniques(): RawTechnique[] {
 export function readEquipmentItems(): RawEquipment[] {
   return readJsonEntries<RawEquipment>(path.join(getContentRoot(), 'items'))
     .filter((entry) => entry.type === 'equipment');
+}
+
+function compileEquipmentEffectsForReport(input: unknown): EquipmentEffectDef[] | undefined {
+  if (!Array.isArray(input)) {
+    return undefined;
+  }
+
+  const effects: EquipmentEffectDef[] = [];
+  for (const entry of input) {
+    if (!isPlainObject(entry) || typeof entry.type !== 'string') {
+      continue;
+    }
+
+    if (entry.type === 'stat_aura' || entry.type === 'progress_boost') {
+      effects.push({
+        ...entry,
+        type: entry.type as 'stat_aura' | 'progress_boost',
+        stats: compileValueStatsToActualStats(entry.valueStats as ItemStack['equipStats']) ?? entry.stats as ItemStack['equipStats'] | undefined,
+      } as EquipmentEffectDef);
+      continue;
+    }
+
+    if (entry.type === 'timed_buff' && isPlainObject(entry.buff)) {
+      effects.push({
+        ...entry,
+        type: 'timed_buff',
+        buff: {
+          ...entry.buff,
+          stats: compileValueStatsToActualStats(entry.buff.valueStats as ItemStack['equipStats']) ?? entry.buff.stats as ItemStack['equipStats'] | undefined,
+        },
+      } as EquipmentEffectDef);
+      continue;
+    }
+
+    if (entry.type === 'periodic_cost') {
+      effects.push({ ...entry, type: 'periodic_cost' } as EquipmentEffectDef);
+      continue;
+    }
+  }
+
+  return effects.length > 0 ? effects : undefined;
 }
 
 function formatTechniqueGrade(grade: TechniqueGrade): string {
@@ -305,7 +352,12 @@ function resolveSkillDamageTargets(skill: SkillDef): string {
 export function buildEquipmentRows(): ValueReportRow[] {
   const dangerIndex = buildEquipmentMapDangerIndex();
   return readEquipmentItems().map((item) => {
-    const summary = calculateEquipmentValue(item);
+    const summary = calculateEquipmentValue({
+      ...item,
+      equipStats: item.equipStats ?? compileValueStatsToActualStats(item.equipValueStats),
+      equipValueStats: item.equipValueStats,
+      effects: compileEquipmentEffectsForReport(item.effects),
+    });
     const dangerLevel = dangerIndex.get(item.itemId);
     const grade = item.grade
       ? formatTechniqueGrade(item.grade)

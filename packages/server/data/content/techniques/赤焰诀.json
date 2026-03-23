@@ -133,7 +133,7 @@
             "color": "#ef6b3b",
             "duration": 12,
             "maxStacks": 10,
-            "stats": {
+            "valueStats": {
               "spellDef": -3,
               "resolvePower": -3
             }
@@ -199,7 +199,7 @@
             "color": "#ef6b3b",
             "duration": 12,
             "maxStacks": 10,
-            "stats": {
+            "valueStats": {
               "spellDef": -3,
               "resolvePower": -3
             }

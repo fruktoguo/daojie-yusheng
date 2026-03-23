@@ -220,7 +220,7 @@
             "color": "#d6a86a",
             "duration": 14,
             "maxStacks": 6,
-            "stats": {
+            "valueStats": {
               "hit": 3,
               "breakPower": 3,
               "crit": 4
@@ -286,7 +286,7 @@
             "color": "#d6a86a",
             "duration": 14,
             "maxStacks": 6,
-            "stats": {
+            "valueStats": {
               "hit": 3,
               "breakPower": 3,
               "crit": 4

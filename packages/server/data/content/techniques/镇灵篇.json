@@ -192,7 +192,7 @@
             "color": "#7f9cff",
             "duration": 12,
             "maxStacks": 6,
-            "stats": {
+            "valueStats": {
               "spellAtk": 3,
               "crit": 5,
               "resolvePower": 4
@@ -259,7 +259,7 @@
             "color": "#7f9cff",
             "duration": 12,
             "maxStacks": 6,
-            "stats": {
+            "valueStats": {
               "spellAtk": 3,
               "crit": 5,
               "resolvePower": 4
@@ -330,7 +330,7 @@
             "color": "#9280c6",
             "duration": 14,
             "maxStacks": 6,
-            "stats": {
+            "valueStats": {
               "spellDef": -2,
               "dodge": -4,
               "resolvePower": -4
