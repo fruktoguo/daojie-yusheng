@@ -219,6 +219,13 @@
           "type": "material",
           "count": 1,
           "chance": 0.45
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
         }
       ]
     },
@@ -249,6 +256,13 @@
           "type": "material",
           "count": 1,
           "chance": 0.18
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
         }
       ]
     },
@@ -279,6 +293,13 @@
           "type": "equipment",
           "count": 1,
           "chance": 0.07
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
         }
       ]
     },
@@ -309,6 +330,13 @@
           "type": "consumable",
           "count": 1,
           "chance": 0.1
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
         }
       ]
     },
@@ -339,6 +367,13 @@
           "type": "skill_book",
           "count": 1,
           "chance": 0.04
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
         }
       ]
     }
@@ -361,9 +396,27 @@
         "grade": "mystic",
         "refreshTicks": 2400,
         "drops": [
-          { "itemId": "bandit_insignia", "name": "匪徒腰牌", "type": "material", "count": 2, "chance": 0.85 },
-          { "itemId": "frost_heart_paste", "name": "寒心膏", "type": "consumable", "count": 1, "chance": 0.45 },
-          { "itemId": "equip.step_boots", "name": "游侠靴", "type": "equipment", "count": 1, "chance": 0.12 }
+          {
+            "itemId": "bandit_insignia",
+            "name": "匪徒腰牌",
+            "type": "material",
+            "count": 2,
+            "chance": 0.85
+          },
+          {
+            "itemId": "frost_heart_paste",
+            "name": "寒心膏",
+            "type": "consumable",
+            "count": 1,
+            "chance": 0.45
+          },
+          {
+            "itemId": "equip.step_boots",
+            "name": "游侠靴",
+            "type": "equipment",
+            "count": 1,
+            "chance": 0.12
+          }
         ]
       }
     },

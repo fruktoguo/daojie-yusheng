@@ -166,6 +166,13 @@
           "type": "material",
           "count": 1,
           "chance": 0.44
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
         }
       ]
     },
@@ -196,6 +203,13 @@
           "type": "skill_book",
           "count": 1,
           "chance": 0.07
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
         }
       ]
     },
@@ -233,6 +247,13 @@
           "type": "skill_book",
           "count": 1,
           "chance": 0.25
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
         }
       ]
     }
@@ -255,9 +276,27 @@
         "grade": "saint",
         "refreshTicks": 4800,
         "drops": [
-          { "itemId": "star_metal", "name": "星陨金", "type": "material", "count": 2, "chance": 0.8 },
-          { "itemId": "void_shard", "name": "虚蚀碎片", "type": "material", "count": 1, "chance": 0.65 },
-          { "itemId": "equip.void_talisman", "name": "空劫符坠", "type": "equipment", "count": 1, "chance": 0.08 }
+          {
+            "itemId": "star_metal",
+            "name": "星陨金",
+            "type": "material",
+            "count": 2,
+            "chance": 0.8
+          },
+          {
+            "itemId": "void_shard",
+            "name": "虚蚀碎片",
+            "type": "material",
+            "count": 1,
+            "chance": 0.65
+          },
+          {
+            "itemId": "equip.void_talisman",
+            "name": "空劫符坠",
+            "type": "equipment",
+            "count": 1,
+            "chance": 0.08
+          }
         ]
       }
     }

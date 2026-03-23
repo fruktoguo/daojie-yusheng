@@ -157,6 +157,12 @@
               "name": "观星冠",
               "type": "equipment",
               "count": 1
+            },
+            {
+              "itemId": "equip.soul_devour_token",
+              "name": "噬元骨牌",
+              "type": "equipment",
+              "count": 1
             }
           ]
         }
@@ -191,6 +197,13 @@
           "type": "equipment",
           "count": 1,
           "chance": 0.08
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
         }
       ]
     },
@@ -221,6 +234,13 @@
           "type": "skill_book",
           "count": 1,
           "chance": 0.06
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
         }
       ]
     },
@@ -251,6 +271,20 @@
           "type": "material",
           "count": 1,
           "chance": 0.4
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
+        },
+        {
+          "itemId": "equip.soul_devour_token",
+          "name": "噬元骨牌",
+          "type": "equipment",
+          "count": 1,
+          "chance": 0.05
         }
       ]
     }
@@ -266,9 +300,27 @@
         "grade": "heaven",
         "refreshTicks": 3600,
         "drops": [
-          { "itemId": "ridge_beast_claw", "name": "岭兽爪", "type": "material", "count": 2, "chance": 0.8 },
-          { "itemId": "frost_essence", "name": "霜华精粹", "type": "material", "count": 1, "chance": 0.55 },
-          { "itemId": "equip.spirit_ring", "name": "凝灵戒", "type": "equipment", "count": 1, "chance": 0.1 }
+          {
+            "itemId": "ridge_beast_claw",
+            "name": "岭兽爪",
+            "type": "material",
+            "count": 2,
+            "chance": 0.8
+          },
+          {
+            "itemId": "frost_essence",
+            "name": "霜华精粹",
+            "type": "material",
+            "count": 1,
+            "chance": 0.55
+          },
+          {
+            "itemId": "equip.spirit_ring",
+            "name": "凝灵戒",
+            "type": "equipment",
+            "count": 1,
+            "chance": 0.1
+          }
         ]
       }
     },

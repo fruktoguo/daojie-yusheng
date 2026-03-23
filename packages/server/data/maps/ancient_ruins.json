@@ -130,6 +130,12 @@
               "name": "《镇灵篇》",
               "type": "skill_book",
               "count": 1
+            },
+            {
+              "itemId": "equip.soul_devour_token",
+              "name": "噬元骨牌",
+              "type": "equipment",
+              "count": 1
             }
           ]
         }
@@ -157,6 +163,13 @@
           "type": "material",
           "count": 1,
           "chance": 0.57
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
         }
       ]
     },
@@ -187,6 +200,20 @@
           "type": "material",
           "count": 1,
           "chance": 0.4
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
+        },
+        {
+          "itemId": "equip.soul_devour_token",
+          "name": "噬元骨牌",
+          "type": "equipment",
+          "count": 1,
+          "chance": 0.03
         }
       ]
     },
@@ -217,6 +244,13 @@
           "type": "skill_book",
           "count": 1,
           "chance": 0.06
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
         }
       ]
     },
@@ -247,6 +281,13 @@
           "type": "material",
           "count": 1,
           "chance": 0.42
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
         }
       ]
     }

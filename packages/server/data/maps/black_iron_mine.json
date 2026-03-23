@@ -166,6 +166,13 @@
           "type": "quest_item",
           "count": 1,
           "chance": 0.14
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
         }
       ]
     },
@@ -189,6 +196,13 @@
           "type": "material",
           "count": 1,
           "chance": 0.6
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
         }
       ]
     },
@@ -219,6 +233,13 @@
           "type": "equipment",
           "count": 1,
           "chance": 0.06
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
         }
       ]
     },
@@ -249,6 +270,13 @@
           "type": "equipment",
           "count": 1,
           "chance": 0.1
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
         }
       ]
     }
@@ -271,9 +299,27 @@
         "grade": "earth",
         "refreshTicks": 3000,
         "drops": [
-          { "itemId": "black_iron_chunk", "name": "玄铁矿块", "type": "material", "count": 2, "chance": 0.8 },
-          { "itemId": "crystal_dust", "name": "晶尘", "type": "material", "count": 2, "chance": 0.6 },
-          { "itemId": "equip.miner_helmet", "name": "矿卫盔", "type": "equipment", "count": 1, "chance": 0.14 }
+          {
+            "itemId": "black_iron_chunk",
+            "name": "玄铁矿块",
+            "type": "material",
+            "count": 2,
+            "chance": 0.8
+          },
+          {
+            "itemId": "crystal_dust",
+            "name": "晶尘",
+            "type": "material",
+            "count": 2,
+            "chance": 0.6
+          },
+          {
+            "itemId": "equip.miner_helmet",
+            "name": "矿卫盔",
+            "type": "equipment",
+            "count": 1,
+            "chance": 0.14
+          }
         ]
       }
     }

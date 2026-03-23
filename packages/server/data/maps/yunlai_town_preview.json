@@ -764,6 +764,13 @@
           "type": "material",
           "count": 1,
           "chance": 0.6
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
         }
       ]
     },
@@ -787,6 +794,13 @@
           "type": "material",
           "count": 1,
           "chance": 0.62
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
         }
       ]
     },
@@ -810,6 +824,13 @@
           "type": "material",
           "count": 1,
           "chance": 0.55
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
         }
       ]
     },
@@ -841,6 +862,13 @@
           "type": "skill_book",
           "count": 1,
           "chance": 0.05
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
         }
       ]
     }

@@ -133,6 +133,12 @@
               "name": "《寒魄经》",
               "type": "skill_book",
               "count": 1
+            },
+            {
+              "itemId": "equip.soul_devour_token",
+              "name": "噬元骨牌",
+              "type": "equipment",
+              "count": 1
             }
           ]
         }
@@ -160,6 +166,13 @@
           "type": "material",
           "count": 1,
           "chance": 0.62
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
         }
       ]
     },
@@ -183,6 +196,13 @@
           "type": "material",
           "count": 1,
           "chance": 0.53
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
         }
       ]
     },
@@ -213,6 +233,20 @@
           "type": "quest_item",
           "count": 1,
           "chance": 1
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
+        },
+        {
+          "itemId": "equip.soul_devour_token",
+          "name": "噬元骨牌",
+          "type": "equipment",
+          "count": 1,
+          "chance": 0.08
         }
       ]
     },
@@ -236,6 +270,13 @@
           "type": "material",
           "count": 1,
           "chance": 0.54
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
         }
       ]
     },
@@ -271,6 +312,20 @@
           "itemId": "book.spirit_anchor",
           "name": "《镇灵篇》",
           "type": "skill_book",
+          "count": 1,
+          "chance": 0.12
+        },
+        {
+          "itemId": "spirit_stone",
+          "name": "灵石",
+          "type": "consumable",
+          "count": 1,
+          "chance": 0.001
+        },
+        {
+          "itemId": "equip.soul_devour_token",
+          "name": "噬元骨牌",
+          "type": "equipment",
           "count": 1,
           "chance": 0.12
         }
