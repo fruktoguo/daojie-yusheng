@@ -452,7 +452,7 @@ equipmentEffectService.dispatch(player, event)
 
 当前装备都堆在：
 
-- `packages/server/data/content/items/equipment.json`
+- `packages/server/data/content/items/equipment.*.json`
 
 如果以后装备效果丰富起来，建议拆分为：
 
