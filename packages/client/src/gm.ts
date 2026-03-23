@@ -169,6 +169,8 @@ let currentTab: 'server' | 'players' | 'maps' | 'suggestions' | 'world' = 'serve
 let currentServerTab: 'overview' | 'traffic' | 'cpu' = 'overview';
 let currentCpuBreakdownSort: 'total' | 'count' | 'avg' = 'total';
 let currentJsonView: 'runtime' | 'persisted' = 'runtime';
+let lastPlayerListStructureKey: string | null = null;
+let lastEditorStructureKey: string | null = null;
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -239,6 +241,277 @@ function getPlayerPresenceMeta(player: Pick<GmManagedPlayerSummary, 'meta'>): {
     return { className: 'offline', label: '离线挂机' };
   }
   return { className: 'offline', label: '离线' };
+}
+
+function getFilteredPlayers(data: GmStateRes): GmManagedPlayerSummary[] {
+  const keyword = playerSearchInput.value.trim().toLowerCase();
+  return data.players.filter((player) => {
+    if (!keyword) return true;
+    return [player.id, player.name, player.mapId, player.meta.userId ?? '']
+      .some((value) => value.toLowerCase().includes(keyword));
+  });
+}
+
+function getPlayerIdentityLine(player: GmManagedPlayerSummary): string {
+  return `ID: ${player.id}${player.meta.userId ? ` · 用户: ${player.meta.userId}` : ''}`;
+}
+
+function getPlayerStatsLine(player: GmManagedPlayerSummary): string {
+  return `HP ${player.hp}/${player.maxHp} · QI ${player.qi} · ${player.dead ? '已死亡' : '存活'} · ${player.autoBattle ? '自动战斗开' : '自动战斗关'}`;
+}
+
+function getPlayerRowMarkup(player: GmManagedPlayerSummary): string {
+  return `
+    <button class="player-row" data-player-id="${escapeHtml(player.id)}" type="button">
+      <div class="player-top">
+        <div class="player-name" data-role="name"></div>
+        <div class="pill" data-role="presence"></div>
+      </div>
+      <div class="player-meta" data-role="meta"></div>
+      <div class="player-subline" data-role="identity"></div>
+      <div class="player-subline" data-role="stats"></div>
+    </button>
+  `;
+}
+
+function patchPlayerRow(button: HTMLButtonElement, player: GmManagedPlayerSummary, isActive: boolean): void {
+  const presence = getPlayerPresenceMeta(player);
+  button.classList.toggle('active', isActive);
+  button.querySelector<HTMLElement>('[data-role="name"]')!.textContent = player.name;
+  const presenceEl = button.querySelector<HTMLElement>('[data-role="presence"]')!;
+  presenceEl.classList.toggle('online', presence.className === 'online');
+  presenceEl.classList.toggle('offline', presence.className === 'offline');
+  presenceEl.textContent = presence.label;
+  button.querySelector<HTMLElement>('[data-role="meta"]')!.textContent = `${player.meta.isBot ? '机器人' : '玩家'} · ${player.mapId} · (${player.x}, ${player.y})`;
+  button.querySelector<HTMLElement>('[data-role="identity"]')!.textContent = getPlayerIdentityLine(player);
+  button.querySelector<HTMLElement>('[data-role="stats"]')!.textContent = getPlayerStatsLine(player);
+}
+
+function getEditorSubtitle(detail: GmManagedPlayerRecord): string {
+  return [
+    `角色 ID: ${detail.id}`,
+    detail.meta.userId ? `用户 ID: ${detail.meta.userId}` : '用户 ID: 无',
+    `地图: ${detail.mapId} (${detail.x}, ${detail.y})`,
+    detail.meta.updatedAt ? `最近落盘: ${new Date(detail.meta.updatedAt).toLocaleString('zh-CN')}` : '最近落盘: 运行时角色',
+  ].join(' · ');
+}
+
+function getEditorMetaMarkup(detail: GmManagedPlayerRecord): string {
+  const presence = getPlayerPresenceMeta(detail);
+  const pills: string[] = [
+    `<span class="pill ${presence.className}">${presence.label}</span>`,
+    `<span class="pill ${detail.meta.isBot ? 'bot' : ''}">${detail.meta.isBot ? '机器人' : '玩家'}</span>`,
+    `<span class="pill">${detail.dead ? '死亡' : '存活'}</span>`,
+    `<span class="pill">${detail.autoBattle ? '自动战斗开' : '自动战斗关'}</span>`,
+    `<span class="pill">${detail.autoRetaliate ? '自动反击开' : '自动反击关'}</span>`,
+  ];
+  if (detail.meta.dirtyFlags.length > 0) {
+    pills.push(`<span class="pill">脏标记: ${escapeHtml(detail.meta.dirtyFlags.join(', '))}</span>`);
+  }
+  if (editorDirty) {
+    pills.push('<span class="pill">编辑中</span>');
+  }
+  return pills.join('');
+}
+
+function getEditorBodyChipMarkup(player: GmManagedPlayerRecord, draft: PlayerState): string {
+  return [
+    `<span class="pill ${player.meta.online ? 'online' : 'offline'}">${player.meta.online ? '在线' : '离线'}</span>`,
+    `<span class="pill ${player.meta.isBot ? 'bot' : ''}">${player.meta.isBot ? '机器人' : '玩家'}</span>`,
+    editorDirty ? '<span class="pill">有未保存修改</span>' : '',
+    draft.dead ? '<span class="pill">草稿标记为死亡</span>' : '',
+  ].filter(Boolean).join('');
+}
+
+function getEquipmentCardTitle(item: ItemStack | null): string {
+  return item ? item.name || '未命名装备' : '';
+}
+
+function getEquipmentCardMeta(item: ItemStack | null): string {
+  return item ? `${item.itemId || '空 ID'} · ${item.grade || '无品阶'} · Lv.${item.level ?? 1}` : '当前为空';
+}
+
+function getBonusCardTitle(bonus: PlayerState['bonuses'][number] | undefined, index: number): string {
+  return bonus?.label || bonus?.source || `加成 ${index + 1}`;
+}
+
+function getBonusCardMeta(bonus: PlayerState['bonuses'][number] | undefined): string {
+  return bonus?.source || '未填写来源';
+}
+
+function getBuffCardTitle(buff: TemporaryBuffState | undefined, index: number): string {
+  return buff?.name || buff?.buffId || `临时效果 ${index + 1}`;
+}
+
+function getBuffCardMeta(buff: TemporaryBuffState | undefined): string {
+  if (!buff) return '';
+  return `${buff.buffId || '未填写 buffId'} · ${buff.category} · ${buff.visibility}`;
+}
+
+function getInventoryCardTitle(item: ItemStack | undefined, index: number): string {
+  return item?.name || item?.itemId || `物品 ${index + 1}`;
+}
+
+function getInventoryCardMeta(item: ItemStack | undefined): string {
+  if (!item) return '';
+  return `${item.itemId || '未填写 ID'} · ${item.type} · 数量 ${item.count}`;
+}
+
+function getAutoSkillCardTitle(entry: AutoBattleSkillConfig | undefined, index: number): string {
+  return entry?.skillId || `技能槽 ${index + 1}`;
+}
+
+function getAutoSkillCardMeta(entry: AutoBattleSkillConfig | undefined): string {
+  return entry?.enabled ? '启用' : '禁用';
+}
+
+function getTechniqueCardTitle(technique: TechniqueState | undefined, index: number): string {
+  return technique?.name || technique?.techId || `功法 ${index + 1}`;
+}
+
+function getTechniqueCardMeta(technique: TechniqueState | undefined): string {
+  if (!technique) return '';
+  return `${technique.techId || '未填写功法 ID'} · 等级 ${technique.level} · ${TECHNIQUE_REALM_OPTIONS.find((option) => option.value === technique.realm)?.label ?? technique.realm}`;
+}
+
+function getQuestCardTitle(quest: QuestState | undefined, index: number): string {
+  return quest?.title || quest?.id || `任务 ${index + 1}`;
+}
+
+function getQuestCardMeta(quest: QuestState | undefined): string {
+  if (!quest) return '';
+  return `${quest.id || '未填写任务 ID'} · ${quest.line} · ${quest.status}`;
+}
+
+function getReadonlyPreviewValue(draft: PlayerState, path: string): string {
+  switch (path) {
+    case 'finalAttrs':
+      return formatJson(draft.finalAttrs ?? {});
+    case 'numericStats':
+      return formatJson(draft.numericStats ?? {});
+    case 'ratioDivisors':
+      return formatJson(draft.ratioDivisors ?? {});
+    case 'realm':
+      return formatJson(draft.realm ?? {});
+    case 'actions':
+      return formatJson(draft.actions ?? []);
+    default:
+      return formatJson(null);
+  }
+}
+
+function buildEditorStructureKey(detail: GmManagedPlayerRecord, draft: PlayerState): string {
+  const mapIds = Array.from(new Set([...(state?.mapIds ?? []), draft.mapId])).sort().join(',');
+  const equipmentPresence = EQUIP_SLOTS.map((slot) => (draft.equipment[slot] ? '1' : '0')).join('');
+  return [
+    detail.id,
+    mapIds,
+    equipmentPresence,
+    ensureArray(draft.bonuses).length,
+    ensureArray(draft.temporaryBuffs).length,
+    ensureArray(draft.inventory.items).length,
+    ensureArray(draft.autoBattleSkills).length,
+    ensureArray(draft.techniques).length,
+    ensureArray(draft.quests).length,
+  ].join('|');
+}
+
+function setTextLikeValue(
+  field: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
+  value: string,
+  preserveFocusedField = true,
+): void {
+  if (field.value === value) return;
+  if (preserveFocusedField && document.activeElement === field) {
+    return;
+  }
+  field.value = value;
+}
+
+function syncVisualEditorFieldsFromDraft(draft: PlayerState): void {
+  const fields = editorContentEl.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('[data-bind]');
+  for (const field of fields) {
+    const path = field.dataset.bind;
+    const kind = field.dataset.kind;
+    if (!path || !kind) continue;
+    const rawValue = getValueByPath(draft, path);
+    if (kind === 'boolean' && field instanceof HTMLInputElement) {
+      const checked = Boolean(rawValue);
+      if (document.activeElement === field) continue;
+      if (field.checked !== checked) {
+        field.checked = checked;
+      }
+      continue;
+    }
+    if (kind === 'number') {
+      setTextLikeValue(field, Number.isFinite(rawValue) ? String(rawValue) : '0');
+      continue;
+    }
+    if (kind === 'nullable-string') {
+      setTextLikeValue(field, typeof rawValue === 'string' ? rawValue : '');
+      continue;
+    }
+    if (kind === 'string-array') {
+      setTextLikeValue(field, Array.isArray(rawValue) ? rawValue.join('\n') : '');
+      continue;
+    }
+    if (kind === 'json') {
+      const emptyJson = field.dataset.emptyJson;
+      const fallback = emptyJson === 'array' ? [] : emptyJson === 'null' ? null : {};
+      setTextLikeValue(field, formatJson(rawValue ?? fallback));
+      continue;
+    }
+    setTextLikeValue(field, rawValue == null ? '' : String(rawValue));
+  }
+}
+
+function patchEditorPreview(detail: GmManagedPlayerRecord, draft: PlayerState): void {
+  const equipment = draft.equipment as EquipmentSlots;
+  for (const slot of EQUIP_SLOTS) {
+    const item = equipment[slot];
+    editorContentEl.querySelector<HTMLElement>(`[data-preview="equipment-title"][data-slot="${slot}"]`)!.textContent = getEquipmentCardTitle(item);
+    editorContentEl.querySelector<HTMLElement>(`[data-preview="equipment-meta"][data-slot="${slot}"]`)!.textContent = getEquipmentCardMeta(item);
+  }
+
+  ensureArray(draft.bonuses).forEach((bonus, index) => {
+    editorContentEl.querySelector<HTMLElement>(`[data-preview="bonus-title"][data-index="${index}"]`)!.textContent = getBonusCardTitle(bonus, index);
+    editorContentEl.querySelector<HTMLElement>(`[data-preview="bonus-meta"][data-index="${index}"]`)!.textContent = getBonusCardMeta(bonus);
+  });
+  ensureArray(draft.temporaryBuffs).forEach((buff, index) => {
+    editorContentEl.querySelector<HTMLElement>(`[data-preview="buff-title"][data-index="${index}"]`)!.textContent = getBuffCardTitle(buff, index);
+    editorContentEl.querySelector<HTMLElement>(`[data-preview="buff-meta"][data-index="${index}"]`)!.textContent = getBuffCardMeta(buff);
+  });
+  ensureArray(draft.inventory.items).forEach((item, index) => {
+    editorContentEl.querySelector<HTMLElement>(`[data-preview="inventory-title"][data-index="${index}"]`)!.textContent = getInventoryCardTitle(item, index);
+    editorContentEl.querySelector<HTMLElement>(`[data-preview="inventory-meta"][data-index="${index}"]`)!.textContent = getInventoryCardMeta(item);
+  });
+  ensureArray(draft.autoBattleSkills).forEach((entry, index) => {
+    editorContentEl.querySelector<HTMLElement>(`[data-preview="auto-skill-title"][data-index="${index}"]`)!.textContent = getAutoSkillCardTitle(entry, index);
+    editorContentEl.querySelector<HTMLElement>(`[data-preview="auto-skill-meta"][data-index="${index}"]`)!.textContent = getAutoSkillCardMeta(entry);
+  });
+  ensureArray(draft.techniques).forEach((technique, index) => {
+    editorContentEl.querySelector<HTMLElement>(`[data-preview="technique-title"][data-index="${index}"]`)!.textContent = getTechniqueCardTitle(technique, index);
+    editorContentEl.querySelector<HTMLElement>(`[data-preview="technique-meta"][data-index="${index}"]`)!.textContent = getTechniqueCardMeta(technique);
+  });
+  ensureArray(draft.quests).forEach((quest, index) => {
+    editorContentEl.querySelector<HTMLElement>(`[data-preview="quest-title"][data-index="${index}"]`)!.textContent = getQuestCardTitle(quest, index);
+    editorContentEl.querySelector<HTMLElement>(`[data-preview="quest-meta"][data-index="${index}"]`)!.textContent = getQuestCardMeta(quest);
+  });
+
+  const chipListEl = editorContentEl.querySelector<HTMLElement>('[data-preview="base-chips"]');
+  if (chipListEl) {
+    chipListEl.innerHTML = getEditorBodyChipMarkup(detail, draft);
+  }
+  editorContentEl.querySelectorAll<HTMLElement>('[data-preview="readonly"]').forEach((element) => {
+    const path = element.dataset.path;
+    if (!path) return;
+    element.textContent = getReadonlyPreviewValue(draft, path);
+  });
+}
+
+function clearEditorRenderCache(): void {
+  lastEditorStructureKey = null;
+  editorContentEl.innerHTML = '';
 }
 
 function renderNetworkBucketList(
@@ -728,11 +1001,11 @@ function stringArrayField(label: string, path: string, value: string[] | undefin
   `;
 }
 
-function readonlyCodeBlock(title: string, value: unknown): string {
+function readonlyCodeBlock(title: string, path: string, value: unknown): string {
   return `
     <div class="editor-field wide">
       <span>${escapeHtml(title)}</span>
-      <div class="editor-code">${escapeHtml(formatJson(value))}</div>
+      <div class="editor-code" data-preview="readonly" data-path="${escapeHtml(path)}">${escapeHtml(formatJson(value))}</div>
     </div>
   `;
 }
@@ -773,7 +1046,8 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
         <div class="editor-card-head">
           <div>
             <div class="editor-card-title">${escapeHtml(EQUIP_SLOT_LABELS[slot])}</div>
-            <div class="editor-card-meta">${item ? `${item.name || '未命名装备'} · ${item.itemId || '空 ID'}` : '当前为空'}</div>
+            <div class="editor-card-meta" data-preview="equipment-title" data-slot="${slot}">${escapeHtml(getEquipmentCardTitle(item))}</div>
+            <div class="editor-card-meta" data-preview="equipment-meta" data-slot="${slot}">${escapeHtml(getEquipmentCardMeta(item))}</div>
           </div>
           <div class="button-row">
             ${item
@@ -791,8 +1065,8 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
       <div class="editor-card">
         <div class="editor-card-head">
           <div>
-            <div class="editor-card-title">${escapeHtml(bonus.label || bonus.source || `加成 ${index + 1}`)}</div>
-            <div class="editor-card-meta">${escapeHtml(bonus.source || '未填写来源')}</div>
+            <div class="editor-card-title" data-preview="bonus-title" data-index="${index}">${escapeHtml(getBonusCardTitle(bonus, index))}</div>
+            <div class="editor-card-meta" data-preview="bonus-meta" data-index="${index}">${escapeHtml(getBonusCardMeta(bonus))}</div>
           </div>
           <button class="small-btn danger" type="button" data-action="remove-bonus" data-index="${index}">删除</button>
         </div>
@@ -812,8 +1086,8 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
       <div class="editor-card">
         <div class="editor-card-head">
           <div>
-            <div class="editor-card-title">${escapeHtml(buff.name || buff.buffId || `临时效果 ${index + 1}`)}</div>
-            <div class="editor-card-meta">${escapeHtml(buff.buffId || '未填写 buffId')} · ${escapeHtml(buff.category)} · ${escapeHtml(buff.visibility)}</div>
+            <div class="editor-card-title" data-preview="buff-title" data-index="${index}">${escapeHtml(getBuffCardTitle(buff, index))}</div>
+            <div class="editor-card-meta" data-preview="buff-meta" data-index="${index}">${escapeHtml(getBuffCardMeta(buff))}</div>
           </div>
           <button class="small-btn danger" type="button" data-action="remove-buff" data-index="${index}">删除</button>
         </div>
@@ -843,8 +1117,8 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
       <div class="editor-card">
         <div class="editor-card-head">
           <div>
-            <div class="editor-card-title">${escapeHtml(item.name || item.itemId || `物品 ${index + 1}`)}</div>
-            <div class="editor-card-meta">${escapeHtml(item.itemId || '未填写 ID')} · ${escapeHtml(item.type)} · 数量 ${item.count}</div>
+            <div class="editor-card-title" data-preview="inventory-title" data-index="${index}">${escapeHtml(getInventoryCardTitle(item, index))}</div>
+            <div class="editor-card-meta" data-preview="inventory-meta" data-index="${index}">${escapeHtml(getInventoryCardMeta(item))}</div>
           </div>
           <button class="small-btn danger" type="button" data-action="remove-inventory-item" data-index="${index}">删除</button>
         </div>
@@ -858,8 +1132,8 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
       <div class="editor-card">
         <div class="editor-card-head">
           <div>
-            <div class="editor-card-title">${escapeHtml(entry.skillId || `技能槽 ${index + 1}`)}</div>
-            <div class="editor-card-meta">${entry.enabled ? '启用' : '禁用'}</div>
+            <div class="editor-card-title" data-preview="auto-skill-title" data-index="${index}">${escapeHtml(getAutoSkillCardTitle(entry, index))}</div>
+            <div class="editor-card-meta" data-preview="auto-skill-meta" data-index="${index}">${escapeHtml(getAutoSkillCardMeta(entry))}</div>
           </div>
           <button class="small-btn danger" type="button" data-action="remove-auto-skill" data-index="${index}">删除</button>
         </div>
@@ -882,8 +1156,8 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
       <div class="editor-card">
         <div class="editor-card-head">
           <div>
-            <div class="editor-card-title">${escapeHtml(technique.name || technique.techId || `功法 ${index + 1}`)}</div>
-            <div class="editor-card-meta">${escapeHtml(technique.techId || '未填写功法 ID')} · 等级 ${technique.level} · ${TECHNIQUE_REALM_OPTIONS.find((option) => option.value === technique.realm)?.label ?? technique.realm}</div>
+            <div class="editor-card-title" data-preview="technique-title" data-index="${index}">${escapeHtml(getTechniqueCardTitle(technique, index))}</div>
+            <div class="editor-card-meta" data-preview="technique-meta" data-index="${index}">${escapeHtml(getTechniqueCardMeta(technique))}</div>
           </div>
           <button class="small-btn danger" type="button" data-action="remove-technique" data-index="${index}">删除</button>
         </div>
@@ -908,8 +1182,8 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
       <div class="editor-card">
         <div class="editor-card-head">
           <div>
-            <div class="editor-card-title">${escapeHtml(quest.title || quest.id || `任务 ${index + 1}`)}</div>
-            <div class="editor-card-meta">${escapeHtml(quest.id || '未填写任务 ID')} · ${escapeHtml(quest.line)} · ${escapeHtml(quest.status)}</div>
+            <div class="editor-card-title" data-preview="quest-title" data-index="${index}">${escapeHtml(getQuestCardTitle(quest, index))}</div>
+            <div class="editor-card-meta" data-preview="quest-meta" data-index="${index}">${escapeHtml(getQuestCardMeta(quest))}</div>
           </div>
           <button class="small-btn danger" type="button" data-action="remove-quest" data-index="${index}">删除</button>
         </div>
@@ -952,10 +1226,8 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
           <div class="editor-section-title">基础资料</div>
           <div class="editor-section-note">人物本体、坐标、资源与运行时开关。</div>
         </div>
-        <div class="editor-chip-list">
-          <span class="pill ${player.meta.online ? 'online' : 'offline'}">${player.meta.online ? '在线' : '离线'}</span>
-          <span class="pill ${player.meta.isBot ? 'bot' : ''}">${player.meta.isBot ? '机器人' : '玩家'}</span>
-          ${editorDirty ? '<span class="pill">有未保存修改</span>' : ''}
+        <div class="editor-chip-list" data-preview="base-chips">
+          ${getEditorBodyChipMarkup(player, draft)}
         </div>
       </div>
       <div class="editor-grid">
@@ -1081,11 +1353,11 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
         </div>
       </div>
       <div class="editor-grid compact">
-        ${readonlyCodeBlock('最终属性', draft.finalAttrs ?? {})}
-        ${readonlyCodeBlock('数值属性', draft.numericStats ?? {})}
-        ${readonlyCodeBlock('比率分母', draft.ratioDivisors ?? {})}
-        ${readonlyCodeBlock('境界状态', draft.realm ?? {})}
-        ${readonlyCodeBlock('动作列表', draft.actions ?? [])}
+        ${readonlyCodeBlock('最终属性', 'finalAttrs', draft.finalAttrs ?? {})}
+        ${readonlyCodeBlock('数值属性', 'numericStats', draft.numericStats ?? {})}
+        ${readonlyCodeBlock('比率分母', 'ratioDivisors', draft.ratioDivisors ?? {})}
+        ${readonlyCodeBlock('境界状态', 'realm', draft.realm ?? {})}
+        ${readonlyCodeBlock('动作列表', 'actions', draft.actions ?? [])}
       </div>
     </section>
   `;
@@ -1153,33 +1425,33 @@ function renderSummary(data: GmStateRes): void {
 }
 
 function renderPlayerList(data: GmStateRes): void {
-  const keyword = playerSearchInput.value.trim().toLowerCase();
-  const filtered = data.players.filter((player) => {
-    if (!keyword) return true;
-    return [player.id, player.name, player.mapId, player.meta.userId ?? '']
-      .some((value) => value.toLowerCase().includes(keyword));
-  });
+  const filtered = getFilteredPlayers(data);
 
   if (!selectedPlayerId || !filtered.some((player) => player.id === selectedPlayerId)) {
     selectedPlayerId = filtered[0]?.id ?? data.players[0]?.id ?? null;
   }
 
   if (filtered.length === 0) {
-    playerListEl.innerHTML = '<div class="empty-hint">没有符合筛选条件的角色。</div>';
+    if (lastPlayerListStructureKey !== 'empty') {
+      playerListEl.innerHTML = '<div class="empty-hint">没有符合筛选条件的角色。</div>';
+      lastPlayerListStructureKey = 'empty';
+    }
     return;
   }
 
-  playerListEl.innerHTML = filtered.map((player) => `
-    <button class="player-row ${player.id === selectedPlayerId ? 'active' : ''}" data-player-id="${escapeHtml(player.id)}" type="button">
-      <div class="player-top">
-        <div class="player-name">${escapeHtml(player.name)}</div>
-        <div class="pill ${getPlayerPresenceMeta(player).className}">${getPlayerPresenceMeta(player).label}</div>
-      </div>
-      <div class="player-meta">${player.meta.isBot ? '机器人' : '玩家'} · ${escapeHtml(player.mapId)} · (${player.x}, ${player.y})</div>
-      <div class="player-subline">ID: ${escapeHtml(player.id)}${player.meta.userId ? ` · 用户: ${escapeHtml(player.meta.userId)}` : ''}</div>
-      <div class="player-subline">HP ${player.hp}/${player.maxHp} · QI ${player.qi} · ${player.dead ? '已死亡' : '存活'} · ${player.autoBattle ? '自动战斗开' : '自动战斗关'}</div>
-    </button>
-  `).join('');
+  const structureKey = filtered.map((player) => player.id).join('|');
+  if (lastPlayerListStructureKey !== structureKey) {
+    playerListEl.innerHTML = filtered.map((player) => getPlayerRowMarkup(player)).join('');
+    lastPlayerListStructureKey = structureKey;
+  }
+
+  filtered.forEach((player, index) => {
+    const row = playerListEl.children[index];
+    if (!(row instanceof HTMLButtonElement)) {
+      return;
+    }
+    patchPlayerRow(row, player, player.id === selectedPlayerId);
+  });
 }
 
 function renderEditor(data: GmStateRes): void {
@@ -1193,6 +1465,9 @@ function renderEditor(data: GmStateRes): void {
     loadingPlayerDetailId = null;
     playerJsonEl.value = '';
     playerPersistedJsonEl.value = '';
+    removeBotBtn.style.display = 'none';
+    removeBotBtn.disabled = true;
+    clearEditorRenderCache();
     return;
   }
 
@@ -1203,6 +1478,9 @@ function renderEditor(data: GmStateRes): void {
     editorPanelEl.classList.add('hidden');
     playerJsonEl.value = '';
     playerPersistedJsonEl.value = '';
+    removeBotBtn.style.display = 'none';
+    removeBotBtn.disabled = true;
+    clearEditorRenderCache();
     return;
   }
 
@@ -1216,31 +1494,22 @@ function renderEditor(data: GmStateRes): void {
   editorPanelEl.classList.remove('hidden');
 
   editorTitleEl.textContent = detail.name;
-  editorSubtitleEl.textContent = [
-    `角色 ID: ${detail.id}`,
-    detail.meta.userId ? `用户 ID: ${detail.meta.userId}` : '用户 ID: 无',
-    `地图: ${detail.mapId} (${detail.x}, ${detail.y})`,
-    detail.meta.updatedAt ? `最近落盘: ${new Date(detail.meta.updatedAt).toLocaleString('zh-CN')}` : '最近落盘: 运行时角色',
-  ].join(' · ');
+  editorSubtitleEl.textContent = getEditorSubtitle(detail);
+  editorMetaEl.innerHTML = getEditorMetaMarkup(detail);
 
-  const pills: string[] = [
-    `<span class="pill ${getPlayerPresenceMeta(detail).className}">${getPlayerPresenceMeta(detail).label}</span>`,
-    `<span class="pill ${detail.meta.isBot ? 'bot' : ''}">${detail.meta.isBot ? '机器人' : '玩家'}</span>`,
-    `<span class="pill">${detail.dead ? '死亡' : '存活'}</span>`,
-    `<span class="pill">${detail.autoBattle ? '自动战斗开' : '自动战斗关'}</span>`,
-    `<span class="pill">${detail.autoRetaliate ? '自动反击开' : '自动反击关'}</span>`,
-  ];
-  if (detail.meta.dirtyFlags.length > 0) {
-    pills.push(`<span class="pill">脏标记: ${escapeHtml(detail.meta.dirtyFlags.join(', '))}</span>`);
+  const structureKey = buildEditorStructureKey(detail, draftSnapshot);
+  if (lastEditorStructureKey !== structureKey) {
+    editorContentEl.innerHTML = renderVisualEditor(detail, draftSnapshot);
+    lastEditorStructureKey = structureKey;
+  } else {
+    if (!editorDirty) {
+      syncVisualEditorFieldsFromDraft(draftSnapshot);
+    }
+    patchEditorPreview(detail, draftSnapshot);
   }
-  if (editorDirty) {
-    pills.push('<span class="pill">编辑中</span>');
-  }
-  editorMetaEl.innerHTML = pills.join('');
 
-  editorContentEl.innerHTML = renderVisualEditor(detail, draftSnapshot);
-  playerJsonEl.value = formatJson(draftSnapshot);
-  playerPersistedJsonEl.value = formatJson(detail.persistedSnapshot);
+  setTextLikeValue(playerJsonEl, formatJson(draftSnapshot));
+  setTextLikeValue(playerPersistedJsonEl, formatJson(detail.persistedSnapshot));
 
   removeBotBtn.style.display = detail.meta.isBot ? '' : 'none';
   removeBotBtn.disabled = !detail.meta.isBot;
@@ -1249,7 +1518,6 @@ function renderEditor(data: GmStateRes): void {
 function render(): void {
   if (!state) return;
   switchServerTab(currentServerTab);
-  setCpuBreakdownSort(currentCpuBreakdownSort);
   renderSummary(state);
   renderPlayerList(state);
   renderEditor(state);
@@ -1358,6 +1626,7 @@ async function loadState(silent = false, refreshDetail = false): Promise<void> {
 async function loadSelectedPlayerDetail(playerId: string, silent = false): Promise<void> {
   const nonce = ++detailRequestNonce;
   loadingPlayerDetailId = playerId;
+  clearEditorRenderCache();
   render();
   try {
     const data = await request<GmPlayerDetailRes>(`/gm/players/${encodeURIComponent(playerId)}`);
@@ -1412,7 +1681,8 @@ function logout(message?: string): void {
     pollTimer = null;
   }
   playerListEl.innerHTML = '';
-  editorContentEl.innerHTML = '';
+  lastPlayerListStructureKey = null;
+  clearEditorRenderCache();
   playerJsonEl.value = '';
   playerPersistedJsonEl.value = '';
   mapEditor.reset();
@@ -1498,6 +1768,7 @@ async function applyRawJson(): Promise<void> {
     draftSnapshot = JSON.parse(playerJsonEl.value) as PlayerState;
     draftSourcePlayerId = selected.id;
     editorDirty = true;
+    lastEditorStructureKey = null;
     renderEditor(state!);
     setStatus('原始 JSON 已应用到可视化编辑区');
   } catch {
@@ -1731,10 +2002,32 @@ editorContentEl.addEventListener('change', () => {
     setStatus(synced.message, true);
     return;
   }
-  renderEditor(state!);
+  const detail = getSelectedPlayerDetail();
+  if (detail && draftSnapshot) {
+    editorMetaEl.innerHTML = getEditorMetaMarkup(detail);
+    patchEditorPreview(detail, draftSnapshot);
+  }
 });
 
-playerSearchInput.addEventListener('input', () => render());
+playerSearchInput.addEventListener('input', () => {
+  if (!state) return;
+  const previousSelectedPlayerId = selectedPlayerId;
+  renderPlayerList(state);
+  const selectedChanged = previousSelectedPlayerId !== selectedPlayerId;
+  if (selectedChanged) {
+    selectedPlayerDetail = null;
+    loadingPlayerDetailId = selectedPlayerId;
+    draftSnapshot = null;
+    draftSourcePlayerId = null;
+    editorDirty = false;
+  }
+  renderEditor(state);
+  if (selectedChanged && selectedPlayerId) {
+    loadSelectedPlayerDetail(selectedPlayerId, true).catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '加载角色详情失败', true);
+    });
+  }
+});
 playerTabBtn.addEventListener('click', () => switchTab('players'));
 mapTabBtn.addEventListener('click', () => switchTab('maps'));
 suggestionTabBtn.addEventListener('click', () => switchTab('suggestions'));
