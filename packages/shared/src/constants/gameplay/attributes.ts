@@ -5,6 +5,16 @@ import type { AttrKey } from '../../types';
  * 角色属性与基础数值常量。
  */
 
+/** 六维属性键顺序。 */
+export const ATTR_KEYS: AttrKey[] = [
+  'constitution',
+  'spirit',
+  'perception',
+  'talent',
+  'comprehension',
+  'luck',
+];
+
 /** 默认六维属性 */
 export const DEFAULT_BASE_ATTRS = {
   constitution: 10,

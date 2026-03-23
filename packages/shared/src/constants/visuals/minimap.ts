@@ -1,0 +1,37 @@
+import { TileType } from '../../types';
+import type { MapMinimapMarkerKind } from '../../types';
+
+/**
+ * 小地图渲染视觉常量。
+ */
+
+/** 小地图地形颜色映射。 */
+export const TILE_MINIMAP_COLORS: Record<TileType, string> = {
+  [TileType.Floor]: '#bdb6aa',
+  [TileType.Road]: '#b58f63',
+  [TileType.Trail]: '#97714a',
+  [TileType.Wall]: '#2d2a28',
+  [TileType.Door]: '#8b6c47',
+  [TileType.Window]: '#7ba3ba',
+  [TileType.BrokenWindow]: '#8f969a',
+  [TileType.Portal]: '#69458f',
+  [TileType.Stairs]: '#9b7438',
+  [TileType.Grass]: '#79915d',
+  [TileType.Hill]: '#8c7358',
+  [TileType.Mud]: '#6e5740',
+  [TileType.Swamp]: '#526243',
+  [TileType.Water]: '#4f7696',
+  [TileType.Tree]: '#365133',
+  [TileType.Stone]: '#605c58',
+};
+
+/** 小地图标记颜色映射。 */
+export const MINIMAP_MARKER_COLORS: Record<MapMinimapMarkerKind, string> = {
+  landmark: '#f0d38a',
+  container: '#d7a35c',
+  npc: '#7ad9e8',
+  monster_spawn: '#ff7a6b',
+  portal: '#b48cff',
+  stairs: '#ffd38c',
+};
+

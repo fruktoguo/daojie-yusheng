@@ -14,12 +14,6 @@ export const DEATH_WAIT_TIME = 10;
 /** 断线保留时间（秒） */
 export const DISCONNECT_RETAIN_TIME = 120;
 
-/** 玩家心跳发送间隔（毫秒） */
-export const PLAYER_HEARTBEAT_INTERVAL_MS = 15_000;
-
-/** 玩家心跳超时判定（毫秒） */
-export const PLAYER_HEARTBEAT_TIMEOUT_MS = 45_000;
-
 /** 离线玩家在世界中保留的默认时长（秒） */
 export const DEFAULT_OFFLINE_PLAYER_TIMEOUT_SEC = 48 * 60 * 60;
 

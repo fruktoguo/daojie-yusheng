@@ -4,6 +4,7 @@
 export * from './types';
 export * from './constants';
 export * as gameplayConstants from './constants/gameplay';
+export * as networkConstants from './constants/network';
 export * as uiLabels from './constants/ui';
 export * as visualConstants from './constants/visuals';
 export * from './protocol';

@@ -1,11 +1,15 @@
 import type { ElementKey, NumericScalarStatKey } from '../../numeric';
-import { TechniqueRealm, TileType } from '../../types';
+import { Direction, TechniqueRealm, TileType } from '../../types';
 import type {
+  ActionType,
   AttrKey,
   EntityKind,
   EquipSlot,
   ItemType,
   MapMinimapMarkerKind,
+  QuestLine,
+  QuestObjectiveType,
+  QuestStatus,
   SkillFormulaVar,
   TechniqueGrade,
 } from '../../types';
@@ -101,6 +105,26 @@ export const MAP_MINIMAP_MARKER_KIND_LABELS: Record<MapMinimapMarkerKind, string
   stairs: '楼梯',
 };
 
+/** 方向中文标签 */
+export const DIRECTION_LABELS: Record<Direction, string> = {
+  [Direction.North]: '北',
+  [Direction.South]: '南',
+  [Direction.East]: '东',
+  [Direction.West]: '西',
+};
+
+/** 行动类型中文标签 */
+export const ACTION_TYPE_LABELS: Record<ActionType, string> = {
+  skill: '技能',
+  gather: '采集',
+  interact: '交互',
+  quest: '任务',
+  toggle: '行动',
+  battle: '战斗',
+  travel: '传送',
+  breakthrough: '突破',
+};
+
 /** 物品类型中文标签 */
 export const ITEM_TYPE_LABELS: Record<ItemType, string> = {
   consumable: '消耗品',
@@ -129,6 +153,30 @@ export const TECHNIQUE_GRADE_LABELS: Record<TechniqueGrade, string> = {
   spirit: '灵阶',
   saint: '圣阶',
   emperor: '帝阶',
+};
+
+/** 任务状态中文标签 */
+export const QUEST_STATUS_LABELS: Record<QuestStatus, string> = {
+  available: '可接取',
+  active: '进行中',
+  ready: '可交付',
+  completed: '已完成',
+};
+
+/** 任务线中文标签 */
+export const QUEST_LINE_LABELS: Record<QuestLine, string> = {
+  main: '主线',
+  side: '支线',
+  daily: '日常',
+  encounter: '奇遇',
+};
+
+/** 任务目标类型中文标签 */
+export const QUEST_OBJECTIVE_TYPE_LABELS: Record<QuestObjectiveType, string> = {
+  kill: '击杀目标',
+  learn_technique: '习得功法',
+  realm_progress: '境界推进',
+  realm_stage: '境界阶段',
 };
 
 /** 功法境界中文标签 */

@@ -1,3 +1,4 @@
+import { ATTR_KEYS } from './attributes';
 import type { AttrKey, Attributes, TechniqueGrade } from '../../types';
 
 /**
@@ -26,14 +27,7 @@ export const TECHNIQUE_GRADE_EXP_BASE_FACTORS: Record<TechniqueGrade, number> = 
 };
 
 /** 六维属性键顺序。 */
-export const TECHNIQUE_ATTR_KEYS: AttrKey[] = [
-  'constitution',
-  'spirit',
-  'perception',
-  'talent',
-  'comprehension',
-  'luck',
-];
+export const TECHNIQUE_ATTR_KEYS: AttrKey[] = ATTR_KEYS;
 
 /** 功法品阶从低到高排序 */
 export const TECHNIQUE_GRADE_ORDER: TechniqueGrade[] = [

@@ -4,6 +4,9 @@ import type { MapTimeConfig, TimePhaseId } from '../../types';
  * 地图世界常量（视野、昼夜与时间流）。
  */
 
+/** 新角色默认出生地图 ID。 */
+export const DEFAULT_PLAYER_MAP_ID = 'spawn';
+
 /** 默认视野范围（半径，格子数） */
 export const VIEW_RADIUS = 10;
 

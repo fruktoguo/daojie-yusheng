@@ -8,11 +8,12 @@
  * - `combat`：战斗成长与境界压制规则常量。
  * - `terrain`：地形恢复与耐久流转规则。
  * - `inventory`：背包与地面掉落规则。
+ * - `quest`：任务系统键集合与顺序。
  * - `attributes`：角色基础数值与六维换算。
  * - `technique`：修炼与功法成长规则。
  * - `realm`：境界阶段与境界模板。
  * - `equipment`：装备系统通用枚举常量。
- * - `combat`：战斗成长与境界压制规则。
+ * - `navigation`：寻路与移动流程常量。
  */
 export * from './core';
 export * from './world';
@@ -20,8 +21,10 @@ export * from './aura';
 export * from './combat';
 export * from './terrain';
 export * from './inventory';
+export * from './quest';
 export * from './attributes';
 export * from './technique';
 export * from './realm';
 export * from './equipment';
+export * from './navigation';
 export * from './combat';

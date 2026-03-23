@@ -6,4 +6,6 @@
  * - `packages/shared/src/constants.ts` 仍保留为兼容层，避免一次性破坏旧引用。
  */
 export * from './gameplay';
+export * from './network';
 export * from './ui';
+export * from './visuals';

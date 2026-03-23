@@ -3,7 +3,7 @@
  */
 
 /** 每境界属性指数成长率 */
-export const REALM_ATTRIBUTE_GROWTH_RATE = 0.2;
+export const REALM_ATTRIBUTE_GROWTH_RATE = 0.1;
 
 /** 每境界战斗线性成长率 */
 export const REALM_COMBAT_LINEAR_GROWTH_RATE = 0.1;
