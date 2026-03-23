@@ -10,6 +10,7 @@ import {
   calcTechniqueFinalAttrBonus,
   DEFAULT_PLAYER_REALM_STAGE,
   deriveTechniqueRealm,
+  getAuraLevel,
   getTechniqueExpToNext,
   getTechniqueMaxLevel,
   PLAYER_REALM_CONFIG,
@@ -124,12 +125,18 @@ export class TechniqueService {
   }
 
   setRealmLevel(player: PlayerState, realmLv: number): void {
+    this.setRealmState(player, realmLv, 0);
+  }
+
+  setRealmProgress(player: PlayerState, progress: number): void {
     this.initializePlayerProgression(player);
-    const nextRealm = this.normalizeRealmState(realmLv, 0);
-    this.applyRealmBonus(player, nextRealm);
-    this.applyTechniqueBonuses(player);
-    this.attrService.recalcPlayer(player);
-    this.syncRealmPresentation(player, nextRealm);
+    const currentRealmLv = Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
+    this.applyResolvedRealmState(player, this.normalizeRealmState(currentRealmLv, progress));
+  }
+
+  setRealmState(player: PlayerState, realmLv: number, progress = 0): void {
+    this.initializePlayerProgression(player);
+    this.applyResolvedRealmState(player, this.normalizeRealmState(realmLv, progress));
   }
 
   /** 学习新功法 */
@@ -564,8 +571,9 @@ export class TechniqueService {
   }
 
   private getCultivationAuraMultiplier(player: PlayerState): number {
-    const aura = this.mapService.getTileAura(player.mapId, player.x, player.y);
-    return 1 + Math.max(0, aura);
+    const auraValue = this.mapService.getTileAura(player.mapId, player.x, player.y);
+    const auraLevel = getAuraLevel(auraValue, this.mapService.getAuraLevelBaseValue());
+    return 1 + Math.max(0, auraLevel);
   }
 
   private buildCultivationBuffState(techniqueName: string): TemporaryBuffState {
@@ -706,6 +714,13 @@ export class TechniqueService {
 
   private normalizeRealmState(realmLv: number, progress = 0): PlayerRealmState {
     return this.createRealmStateFromLevel(realmLv, Math.max(0, Math.floor(progress)));
+  }
+
+  private applyResolvedRealmState(player: PlayerState, realm: PlayerRealmState): void {
+    this.applyRealmBonus(player, realm);
+    this.applyTechniqueBonuses(player);
+    this.attrService.recalcPlayer(player);
+    this.syncRealmPresentation(player, realm);
   }
 
   private resolveInitialRealmState(

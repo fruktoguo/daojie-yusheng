@@ -15,14 +15,12 @@ import {
 } from '@nestjs/common';
 import {
   GmEditorCatalogRes,
-  GmMapDetailRes,
   GmMapListRes,
   GmMapRuntimeRes,
   GmPlayerDetailRes,
   GmRemoveBotsReq,
   GmSpawnBotsReq,
   GmStateRes,
-  GmUpdateMapReq,
   GmUpdateMapTickReq,
   GmUpdateMapTimeReq,
   GmUpdatePlayerReq,
@@ -51,6 +49,11 @@ export class GmController {
   @Get('editor-catalog')
   getEditorCatalog(): GmEditorCatalogRes {
     return this.gmService.getEditorCatalog();
+  }
+
+  @Get('maps')
+  getMaps(): GmMapListRes {
+    return this.gmService.getEditableMapList();
   }
 
   /** 获取所有玩家建议 */
@@ -93,11 +96,6 @@ export class GmController {
       throw new BadRequestException('目标玩家不存在');
     }
     return { player };
-  }
-
-  @Get('maps')
-  getMaps(): GmMapListRes {
-    return this.gmService.getEditableMapList();
   }
 
   /** 获取运行时地图快照（世界管理用，必须在 maps/:mapId 之前） */
@@ -148,31 +146,6 @@ export class GmController {
     @Body() body: GmUpdateMapTimeReq,
   ): { ok: true } {
     const error = this.gmService.updateMapTime(mapId, body ?? {});
-    if (error) {
-      throw new BadRequestException(error);
-    }
-    return { ok: true };
-  }
-
-  @Get('maps/:mapId')
-  getMap(@Param('mapId') mapId: string): GmMapDetailRes {
-    const map = this.gmService.getEditableMap(mapId);
-    if (!map) {
-      throw new BadRequestException('目标地图不存在');
-    }
-    return { map };
-  }
-
-  /** 保存地图编辑 */
-  @Put('maps/:mapId')
-  async updateMap(
-    @Param('mapId') mapId: string,
-    @Body() body: GmUpdateMapReq,
-  ): Promise<{ ok: true }> {
-    if (!body?.map) {
-      throw new BadRequestException('缺少地图数据');
-    }
-    const error = await this.gmService.saveEditableMap(mapId, body.map);
     if (error) {
       throw new BadRequestException(error);
     }

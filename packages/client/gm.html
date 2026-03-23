@@ -1149,7 +1149,6 @@
         <button class="shell-tab" id="gm-tab-players" data-gm-tab="players" type="button">玩家管理</button>
         <button class="shell-tab" id="gm-tab-world" data-gm-tab="world" type="button">世界管理</button>
         <span style="border-left:1px solid var(--ink-light); margin:0 4px;"></span>
-        <button class="shell-tab shell-tab-minor" id="gm-tab-maps" data-gm-tab="maps" type="button">地图编辑</button>
         <button class="shell-tab shell-tab-minor" id="gm-tab-suggestions" data-gm-tab="suggestions" type="button">建议反馈</button>
       </div>
     </div>
@@ -1376,81 +1375,6 @@
         </div>
         <div class="section-body">
           <div id="world-info"><div class="empty-hint">从左侧选择一张地图</div></div>
-        </div>
-      </section>
-    </section>
-
-    <!-- ===== 地图编辑 ===== -->
-    <section id="map-workspace" class="map-workspace hidden">
-      <section class="layout-section">
-        <div class="section-head">
-          <div class="section-title">地图册</div>
-          <div class="section-subtitle">选择任意地图进入完整格子地图编辑</div>
-        </div>
-        <div class="section-body">
-          <div class="filter-row">
-            <input id="map-search" class="search-input" type="text" placeholder="搜索地图 ID / 名称 / 推荐境界" />
-          </div>
-          <div class="button-row" style="margin-bottom: 12px;">
-            <button id="map-refresh-list" class="small-btn" type="button">刷新地图目录</button>
-          </div>
-          <div id="map-list" class="map-list"></div>
-        </div>
-      </section>
-
-      <section class="layout-section">
-        <div class="section-head">
-          <div class="section-title">地图画布</div>
-          <div class="section-subtitle">复用游戏内 TextRenderer 的地块显示语义</div>
-        </div>
-        <div class="section-body" style="display:flex; flex-direction:column; gap:12px;">
-          <div class="button-row">
-            <button id="map-save" class="small-btn primary" type="button">保存当前地图</button>
-            <button id="map-undo" class="small-btn" type="button">撤销</button>
-            <button id="map-reset" class="small-btn" type="button">放弃未保存修改</button>
-            <button id="map-reload" class="small-btn" type="button">重新载入</button>
-            <button id="map-center" class="small-btn" type="button">视角居中</button>
-            <button id="map-zoom-out" class="small-btn" type="button">缩小</button>
-            <button id="map-zoom-in" class="small-btn" type="button">放大</button>
-          </div>
-          <div class="map-overlay-note">左键按当前工具操作，右键拖动画布，滚轮缩放。Shift + 左键先设线刷起点，再点终点可整线填充；Ctrl/Cmd + Z 可撤销。传送点、NPC、怪物刷新点、出生点与灵气点都会直接叠加在地图上。</div>
-          <div id="map-editor-host" class="map-canvas-host">
-            <canvas id="map-editor-canvas"></canvas>
-            <div id="map-canvas-empty" class="empty-hint">从左侧地图册中选择一张地图后开始编辑。</div>
-          </div>
-          <div id="map-status-bar" class="status-bar"></div>
-        </div>
-      </section>
-
-      <section class="layout-section">
-        <div class="section-head">
-          <div class="section-title">地图检视</div>
-          <div class="section-subtitle">图块绘制、对象布局、属性编辑与高级 JSON</div>
-        </div>
-        <div class="section-body">
-          <div id="map-editor-empty" class="empty-hint">请选择一张地图。</div>
-          <div id="map-editor-panel" class="hidden">
-            <div id="map-summary" class="map-summary-card"></div>
-            <div class="editor-section" style="margin-top: 12px;">
-              <div class="editor-section-head">
-                <div>
-                  <div class="editor-section-title">编辑工具</div>
-                  <div class="editor-section-note">选择操作模式与当前地块笔刷。</div>
-                </div>
-              </div>
-              <div id="map-tool-buttons" class="map-tool-grid"></div>
-              <div id="map-tile-palette" class="map-tile-palette" style="margin-top: 10px;"></div>
-            </div>
-            <div id="map-inspector-content" class="editor-stack" style="margin-top: 12px;"></div>
-            <details class="editor-section editor-advanced" style="margin-top: 12px;">
-              <summary class="editor-section-title">高级模式 · 地图 JSON</summary>
-              <div class="editor-note" style="margin-top:8px;">这里用于整体导入、快速比对或处理暂未展开成表单的复杂结构。</div>
-              <div class="button-row" style="margin: 10px 0;">
-                <button id="map-apply-json" class="small-btn" type="button">应用 JSON 到可视化</button>
-              </div>
-              <textarea id="map-json" class="editor-textarea" spellcheck="false"></textarea>
-            </details>
-          </div>
         </div>
       </section>
     </section>

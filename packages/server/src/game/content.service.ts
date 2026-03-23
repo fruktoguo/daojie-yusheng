@@ -514,6 +514,10 @@ export class ContentService implements OnModuleInit {
         equipStats: this.normalizeItemStats(raw.equipStats),
         effects: this.normalizeEquipmentEffects(raw.effects, raw.itemId),
         tags: normalizeStringArray(raw.tags),
+        tileAuraGainAmount: Number.isFinite(raw.tileAuraGainAmount)
+          ? Math.max(1, Math.floor(Number(raw.tileAuraGainAmount)))
+          : undefined,
+        allowBatchUse: raw.allowBatchUse === true,
       };
       this.items.set(item.itemId, item);
     }
@@ -675,6 +679,8 @@ export class ContentService implements OnModuleInit {
       effects: item.effects,
       tags: item.tags,
       mapUnlockId: item.mapUnlockId,
+      tileAuraGainAmount: item.tileAuraGainAmount,
+      allowBatchUse: item.allowBatchUse,
     };
   }
 

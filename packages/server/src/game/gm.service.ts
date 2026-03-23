@@ -483,6 +483,9 @@ export class GmService {
 
     const requestedHp = this.normalizeNonNegativeInt(snapshot.hp);
     const requestedQi = this.normalizeNonNegativeInt(snapshot.qi);
+    const requestedRealmProgress = typeof snapshot.realm?.progress === 'number'
+      ? this.normalizeNonNegativeInt(snapshot.realm.progress)
+      : undefined;
 
     const previousMapId = player.mapId;
     const previousX = player.x;
@@ -518,7 +521,13 @@ export class GmService {
 
     this.techniqueService.initializePlayerProgression(player);
     if (typeof snapshot.realmLv === 'number' && snapshot.realmLv > 0) {
-      this.techniqueService.setRealmLevel(player, snapshot.realmLv);
+      if (requestedRealmProgress !== undefined) {
+        this.techniqueService.setRealmState(player, snapshot.realmLv, requestedRealmProgress);
+      } else {
+        this.techniqueService.setRealmLevel(player, snapshot.realmLv);
+      }
+    } else if (requestedRealmProgress !== undefined) {
+      this.techniqueService.setRealmProgress(player, requestedRealmProgress);
     }
     this.equipmentService.rebuildBonuses(player);
 

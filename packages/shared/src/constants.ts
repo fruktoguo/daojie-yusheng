@@ -114,6 +114,73 @@ export const PERSIST_INTERVAL = 60;
 /** 服务端默认端口 */
 export const SERVER_PORT = 3000;
 
+// ===== 灵气与感气系统常量 =====
+
+/**
+ * 灵气等级的基础阈值。
+ *
+ * 说明：
+ * - 当地块灵气值达到该值时，视为灵气 1 级。
+ * - 此后每提升 1 级，所需灵气值按 2 倍递增。
+ * - 例如基准值为 1000 时，1000/2000/4000/8000 分别对应 1/2/3/4 级。
+ */
+export const DEFAULT_AURA_LEVEL_BASE_VALUE = 1000;
+
+/**
+ * 地块灵气流转的半衰期时长，单位为息。
+ *
+ * 说明：
+ * - 当地块没有源点回补时，灵气值经过该时长后会衰减到原来的一半。
+ * - 当地块存在源点回补时，当前灵气值与源点基准值之间的差值，经过该时长后会缩小为原来的一半。
+ * - 当前配置为 86400，按 1Hz tick 计算即约为现实中的 24 小时。
+ */
+export const TILE_AURA_HALF_LIFE_TICKS = 86400;
+
+/**
+ * 地块灵气半衰期结算使用的固定点精度基数。
+ *
+ * 说明：
+ * - 灵气流转需要落盘并在整数数值上稳定运行，因此使用固定点而不是直接持久化浮点误差。
+ * - 该值越大，半衰期离散近似越精细，但余数累积的整数规模也越大。
+ */
+export const TILE_AURA_HALF_LIFE_RATE_SCALE = 1_000_000_000;
+
+/**
+ * 地块灵气每息向目标状态收敛的固定点速率。
+ *
+ * 说明：
+ * - 该值由半衰期公式 `1 - 0.5^(1 / 半衰期息数)` 换算得到。
+ * - 服务端每息会分别按此速率结算“当前灵气的自然衰减量”和“源点基准值提供的回补量”。
+ * - 与 `TILE_AURA_HALF_LIFE_RATE_SCALE` 搭配使用，可在整数余数模型中近似连续半衰期。
+ */
+export const TILE_AURA_HALF_LIFE_RATE_SCALED = Math.max(
+  1,
+  Math.round((1 - Math.pow(0.5, 1 / TILE_AURA_HALF_LIFE_TICKS)) * TILE_AURA_HALF_LIFE_RATE_SCALE),
+);
+
+/**
+ * 感气视角遮罩的统一视觉配置。
+ *
+ * 说明：
+ * - 感气效果本质上是叠加在原有格子渲染结果之上的一层暗蓝色遮罩。
+ * - `maxAuraLevel` 用于将灵气等级压缩到颜色映射区间，避免高等级直接拉爆颜色。
+ * - `base*` 与 `*Range` 共同决定无灵气到高灵气时的颜色渐变。
+ * - `baseAlpha` 与 `alphaRange` 决定遮罩总体深浅以及高灵气区域的透明度变化。
+ * - `hoverStroke` 用于鼠标悬停格子时的描边高亮颜色。
+ */
+export const SENSE_QI_OVERLAY_STYLE = {
+  maxAuraLevel: 6,
+  baseRed: 8,
+  redRange: 28,
+  baseGreen: 12,
+  greenRange: 96,
+  baseBlue: 16,
+  blueRange: 224,
+  baseAlpha: 0.72,
+  alphaRange: 0.18,
+  hoverStroke: 'rgba(189, 231, 255, 0.95)',
+} as const;
+
 // ===== 修仙系统常量 =====
 
 /** 默认背包容量 */

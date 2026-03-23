@@ -1,5 +1,5 @@
 /**
- * GM 管理后台前端 —— 登录鉴权、角色列表/编辑器、机器人管理、地图编辑器、建议反馈
+ * GM 管理后台前端 —— 登录鉴权、角色列表/编辑器、机器人管理、建议反馈
  */
 
 import {
@@ -31,7 +31,6 @@ import {
   type TechniqueState,
   type TemporaryBuffState,
 } from '@mud/shared';
-import { GmMapEditor } from './gm-map-editor';
 import { GmWorldViewer } from './gm-world-viewer';
 
 const TOKEN_KEY = 'mud:gm-access-token';
@@ -157,13 +156,11 @@ const gmPasswordCurrentInput = document.getElementById('gm-password-current') as
 const gmPasswordNextInput = document.getElementById('gm-password-next') as HTMLInputElement;
 const gmPasswordSaveBtn = document.getElementById('gm-password-save') as HTMLButtonElement;
 const playerWorkspaceEl = document.getElementById('player-workspace') as HTMLElement;
-const mapWorkspaceEl = document.getElementById('map-workspace') as HTMLElement;
 const suggestionWorkspaceEl = document.getElementById('suggestion-workspace') as HTMLElement;
 const serverWorkspaceEl = document.getElementById('server-workspace') as HTMLElement;
 const worldWorkspaceEl = document.getElementById('world-workspace') as HTMLElement;
 const serverTabBtn = document.getElementById('gm-tab-server') as HTMLButtonElement;
 const playerTabBtn = document.getElementById('gm-tab-players') as HTMLButtonElement;
-const mapTabBtn = document.getElementById('gm-tab-maps') as HTMLButtonElement;
 const suggestionTabBtn = document.getElementById('gm-tab-suggestions') as HTMLButtonElement;
 const worldTabBtn = document.getElementById('gm-tab-world') as HTMLButtonElement;
 const suggestionListEl = document.getElementById('gm-suggestion-list') as HTMLElement;
@@ -180,7 +177,7 @@ let draftSnapshot: PlayerState | null = null;
 let editorDirty = false;
 let draftSourcePlayerId: string | null = null;
 let pollTimer: number | null = null;
-let currentTab: 'server' | 'players' | 'maps' | 'suggestions' | 'world' = 'server';
+let currentTab: 'server' | 'players' | 'suggestions' | 'world' = 'server';
 let currentServerTab: 'overview' | 'traffic' | 'cpu' = 'overview';
 let currentCpuBreakdownSort: 'total' | 'count' | 'avg' = 'total';
 let currentEditorTab: 'attributes' | 'techniques' | 'items' | 'persisted' = 'attributes';
@@ -917,7 +914,6 @@ function setStatus(message: string, isError = false): void {
   statusBarEl.style.color = isError ? 'var(--stamp-red)' : 'var(--ink-grey)';
 }
 
-const mapEditor = new GmMapEditor(request, setStatus);
 const worldViewer = new GmWorldViewer(request, setStatus);
 
 function switchServerTab(tab: 'overview' | 'traffic' | 'cpu'): void {
@@ -941,7 +937,7 @@ function setCpuBreakdownSort(sort: 'total' | 'count' | 'avg'): void {
   }
 }
 
-function switchTab(tab: 'server' | 'players' | 'maps' | 'suggestions' | 'world'): void {
+function switchTab(tab: 'server' | 'players' | 'suggestions' | 'world'): void {
   // 离开世界管理时停止轮询
   if (currentTab === 'world' && tab !== 'world') {
     worldViewer.stopPolling();
@@ -950,18 +946,12 @@ function switchTab(tab: 'server' | 'players' | 'maps' | 'suggestions' | 'world')
   serverTabBtn.classList.toggle('active', tab === 'server');
   playerTabBtn.classList.toggle('active', tab === 'players');
   worldTabBtn.classList.toggle('active', tab === 'world');
-  mapTabBtn.classList.toggle('active', tab === 'maps');
   suggestionTabBtn.classList.toggle('active', tab === 'suggestions');
   serverWorkspaceEl.classList.toggle('hidden', tab !== 'server');
   playerWorkspaceEl.classList.toggle('hidden', tab !== 'players');
   worldWorkspaceEl.classList.toggle('hidden', tab !== 'world');
-  mapWorkspaceEl.classList.toggle('hidden', tab !== 'maps');
   suggestionWorkspaceEl.classList.toggle('hidden', tab !== 'suggestions');
-  if (tab === 'maps') {
-    mapEditor.ensureLoaded().catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '加载地图编辑器失败', true);
-    });
-  } else if (tab === 'suggestions') {
+  if (tab === 'suggestions') {
     loadSuggestions().catch(() => {});
   } else if (tab === 'world') {
     worldViewer.mount();
@@ -1546,6 +1536,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
         ${numberField('最大 HP', 'maxHp', draft.maxHp)}
         ${numberField('QI', 'qi', draft.qi)}
         ${selectField('当前境界', 'realmLv', typeof draft.realmLv === 'number' ? draft.realmLv : 1, getRealmCatalogOptions())}
+        ${numberField('当前境界经验', 'realm.progress', draft.realm?.progress)}
         <div class="editor-field wide">
           <span>角色标识</span>
           <div class="editor-code">ID: ${escapeHtml(draft.id)}</div>
@@ -2055,7 +2046,6 @@ function logout(message?: string): void {
   cpuBreakdownListEl.innerHTML = '';
   playerJsonEl.value = '';
   playerPersistedJsonEl.value = '';
-  mapEditor.reset();
   worldViewer.stopPolling();
   switchTab('server');
   switchEditorTab('attributes');
@@ -2487,7 +2477,6 @@ playerSearchInput.addEventListener('input', () => {
   }
 });
 playerTabBtn.addEventListener('click', () => switchTab('players'));
-mapTabBtn.addEventListener('click', () => switchTab('maps'));
 suggestionTabBtn.addEventListener('click', () => switchTab('suggestions'));
 serverTabBtn.addEventListener('click', () => switchTab('server'));
 worldTabBtn.addEventListener('click', () => switchTab('world'));

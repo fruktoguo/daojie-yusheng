@@ -56,12 +56,14 @@ export class InventoryService {
   }
 
   /** 使用物品，返回错误信息或 null */
-  useItem(player: PlayerState, slotIndex: number): string | null {
+  useItem(player: PlayerState, slotIndex: number, count = 1): string | null {
     const item = player.inventory.items[slotIndex];
     if (!item) return '物品不存在';
     if (item.type !== 'consumable' && item.type !== 'skill_book') return '该物品不可使用';
-    // 消耗一个
-    item.count -= 1;
+    const consumeCount = Number.isInteger(count) ? count : Math.floor(count);
+    if (consumeCount <= 0) return '使用数量无效';
+    if (item.count < consumeCount) return '物品数量不足';
+    item.count -= consumeCount;
     if (item.count <= 0) {
       player.inventory.items.splice(slotIndex, 1);
     }
@@ -70,6 +72,11 @@ export class InventoryService {
 
   /** 丢弃物品，返回被移除的物品栈 */
   dropItem(player: PlayerState, slotIndex: number, count: number): ItemStack | null {
+    return this.removeItem(player, slotIndex, count);
+  }
+
+  /** 摧毁物品，返回被移除的物品栈 */
+  destroyItem(player: PlayerState, slotIndex: number, count: number): ItemStack | null {
     return this.removeItem(player, slotIndex, count);
   }
 

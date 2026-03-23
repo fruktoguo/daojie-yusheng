@@ -21,6 +21,10 @@ import {
 
 type RequestFn = <T>(path: string, init?: RequestInit) => Promise<T>;
 type StatusFn = (message: string, isError?: boolean) => void;
+type GmMapEditorOptions = {
+  mapApiBasePath?: string;
+  syncedSummaryLabel?: string;
+};
 
 type MapEntitySelection =
   | { kind: 'portal'; index: number }
@@ -33,6 +37,8 @@ type MapEntitySelection =
 type MapEntityKind = 'portal' | 'npc' | 'monster' | 'aura' | 'landmark';
 
 type MapTool = 'select' | 'paint' | 'pan';
+type PaintLayer = 'tile' | 'aura';
+type InspectorTabId = 'selection' | 'meta' | 'portal' | 'npc' | 'monster' | 'aura' | 'landmark';
 type GridPoint = { x: number; y: number };
 
 type EditorUndoEntry = {
@@ -142,6 +148,23 @@ const TOOL_OPTIONS: Array<{ value: MapTool; label: string; note: string }> = [
   { value: 'select', label: '选取', note: '检查当前格与对象' },
   { value: 'paint', label: '绘制', note: '左键拖拽刷地块' },
   { value: 'pan', label: '平移', note: '左键拖动画布' },
+];
+
+const PAINT_LAYER_OPTIONS: Array<{ value: PaintLayer; label: string }> = [
+  { value: 'tile', label: '地块' },
+  { value: 'aura', label: '灵气' },
+];
+
+const AURA_BRUSH_LEVELS = [0, 1, 2, 3, 4, 5, 6] as const;
+
+const INSPECTOR_TABS: Array<{ value: InspectorTabId; label: string }> = [
+  { value: 'selection', label: '选区' },
+  { value: 'meta', label: '地图' },
+  { value: 'portal', label: '传送点' },
+  { value: 'npc', label: 'NPC' },
+  { value: 'monster', label: '怪物' },
+  { value: 'aura', label: '灵气' },
+  { value: 'landmark', label: '地标' },
 ];
 
 const EDITOR_BASE_CELL_SIZE = 32;
@@ -287,21 +310,28 @@ export class GmMapEditor {
   private readonly editorPanelEl = document.getElementById('map-editor-panel') as HTMLDivElement;
   private readonly summaryEl = document.getElementById('map-summary') as HTMLDivElement;
   private readonly toolButtonsEl = document.getElementById('map-tool-buttons') as HTMLDivElement;
+  private readonly paintLayerTabsEl = document.getElementById('map-paint-layer-tabs') as HTMLDivElement | null;
   private readonly tilePaletteEl = document.getElementById('map-tile-palette') as HTMLDivElement;
   private readonly inspectorEl = document.getElementById('map-inspector-content') as HTMLDivElement;
   private readonly jsonEl = document.getElementById('map-json') as HTMLTextAreaElement;
   private readonly applyJsonBtn = document.getElementById('map-apply-json') as HTMLButtonElement;
   private readonly ctx = this.canvas.getContext('2d');
+  private readonly mapApiBasePath: string;
+  private readonly syncedSummaryLabel: string;
 
   private mapList: GmMapSummary[] = [];
   private selectedMapId: string | null = null;
   private draft: GmMapDocument | null = null;
   private dirty = false;
   private activeTool: MapTool = 'paint';
+  private forcedTool: MapTool | null = null;
   private paintTileType: TileType = TileType.Grass;
+  private paintLayer: PaintLayer = 'tile';
+  private auraPaintValue = 1;
   private selectedCell: { x: number; y: number } | null = null;
   private hoveredCell: { x: number; y: number } | null = null;
   private selectedEntity: MapEntitySelection = null;
+  private currentInspectorTab: InspectorTabId = 'selection';
   private resizeWidth = 0;
   private resizeHeight = 0;
   private resizeFillTileType: TileType = TileType.Grass;
@@ -319,13 +349,19 @@ export class GmMapEditor {
   private listLoaded = false;
   private zoomLevelIndex = DEFAULT_EDITOR_ZOOM_INDEX;
   private paintSessionHasUndoSnapshot = false;
+  private dragEntityActive = false;
+  private dragSessionHasUndoSnapshot = false;
   private linePaintStart: GridPoint | null = null;
   private undoStack: EditorUndoEntry[] = [];
+  private renderFrameId: number | null = null;
 
   constructor(
     private readonly request: RequestFn,
     private readonly setGlobalStatus: StatusFn,
+    options: GmMapEditorOptions = {},
   ) {
+    this.mapApiBasePath = options.mapApiBasePath ?? '/gm/maps';
+    this.syncedSummaryLabel = options.syncedSummaryLabel ?? '已与服务端同步';
     this.bindEvents();
     this.renderToolControls();
     this.renderCanvas();
@@ -340,6 +376,10 @@ export class GmMapEditor {
 
   /** 重置编辑器状态（登出时调用） */
   reset(): void {
+    if (this.renderFrameId !== null) {
+      window.cancelAnimationFrame(this.renderFrameId);
+      this.renderFrameId = null;
+    }
     this.mapList = [];
     this.selectedMapId = null;
     this.draft = null;
@@ -347,6 +387,7 @@ export class GmMapEditor {
     this.selectedCell = null;
     this.hoveredCell = null;
     this.selectedEntity = null;
+    this.currentInspectorTab = 'selection';
     this.linePaintStart = null;
     this.undoStack = [];
     this.listLoaded = false;
@@ -359,6 +400,29 @@ export class GmMapEditor {
     this.canvasEmptyEl.classList.remove('hidden');
     this.updateUndoButtonState();
     this.setStatus('');
+  }
+
+  forceTool(tool: MapTool): void {
+    if (this.forcedTool === tool) return;
+    this.endPointerInteraction();
+    this.forcedTool = tool;
+    if (tool !== 'paint') {
+      this.linePaintStart = null;
+    }
+    this.renderToolControls();
+    this.renderCanvas();
+  }
+
+  clearForcedTool(): void {
+    if (this.forcedTool === null) return;
+    this.endPointerInteraction();
+    this.forcedTool = null;
+    this.renderToolControls();
+    this.renderCanvas();
+  }
+
+  private getCurrentTool(): MapTool {
+    return this.forcedTool ?? this.activeTool;
   }
 
   private bindEvents(): void {
@@ -391,6 +455,7 @@ export class GmMapEditor {
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-tool]');
       const tool = button?.dataset.tool as MapTool | undefined;
       if (!tool) return;
+      this.clearForcedTool();
       this.activeTool = tool;
       if (tool !== 'paint') {
         this.linePaintStart = null;
@@ -400,16 +465,40 @@ export class GmMapEditor {
       this.renderCanvas();
     });
 
+    this.paintLayerTabsEl?.addEventListener('click', (event) => {
+      const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-paint-layer]');
+      const nextLayer = button?.dataset.paintLayer as PaintLayer | undefined;
+      if (!nextLayer || this.paintLayer === nextLayer) return;
+      this.paintLayer = nextLayer;
+      this.renderToolControls();
+      this.renderInspector();
+    });
+
     this.tilePaletteEl.addEventListener('click', (event) => {
-      const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-tile-type]');
-      const tileType = button?.dataset.tileType as TileType | undefined;
-      if (!tileType) return;
-      this.paintTileType = tileType;
+      const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
+      if (!button) return;
+      const tileType = button.dataset.tileType as TileType | undefined;
+      if (tileType) {
+        this.paintTileType = tileType;
+        this.renderToolControls();
+        this.renderInspector();
+        return;
+      }
+      const auraValue = Number(button.dataset.auraValue ?? Number.NaN);
+      if (!Number.isFinite(auraValue)) return;
+      this.auraPaintValue = Math.max(0, Math.floor(auraValue));
       this.renderToolControls();
       this.renderInspector();
     });
 
     this.inspectorEl.addEventListener('click', (event) => {
+      const tabButton = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-map-inspector-tab]');
+      const tab = tabButton?.dataset.mapInspectorTab as InspectorTabId | undefined;
+      if (tab) {
+        this.currentInspectorTab = tab;
+        this.renderInspector();
+        return;
+      }
       const actionEl = (event.target as HTMLElement).closest<HTMLElement>('[data-map-action]');
       const action = actionEl?.dataset.mapAction;
       if (action) {
@@ -422,6 +511,7 @@ export class GmMapEditor {
       const index = Number(entityButton.dataset.entityIndex ?? '-1');
       if (Number.isInteger(index) && kind) {
         this.selectedEntity = { kind, index } as Exclude<MapEntitySelection, null>;
+        this.currentInspectorTab = kind;
         const point = this.getSelectedEntityPoint();
         if (point) this.selectedCell = point;
         this.renderInspector();
@@ -453,7 +543,7 @@ export class GmMapEditor {
     this.canvas.addEventListener('pointercancel', () => this.endPointerInteraction());
     this.canvas.addEventListener('lostpointercapture', () => this.endPointerInteraction());
     this.canvas.addEventListener('pointerleave', () => {
-      if (!this.paintActive && !this.panActive) {
+      if (!this.paintActive && !this.panActive && !this.dragEntityActive) {
         this.hoveredCell = null;
       }
     });
@@ -472,21 +562,36 @@ export class GmMapEditor {
   }
 
   private renderToolControls(): void {
+    const currentTool = this.getCurrentTool();
     this.toolButtonsEl.innerHTML = TOOL_OPTIONS.map((tool) => `
-      <button class="map-tool-btn ${this.activeTool === tool.value ? 'active' : ''}" data-tool="${tool.value}" type="button">
-        ${escapeHtml(tool.label)} · ${escapeHtml(tool.note)}
+      <button class="map-tool-btn ${currentTool === tool.value ? 'active' : ''}" data-tool="${tool.value}" type="button">
+        ${escapeHtml(tool.label)} · ${escapeHtml(tool.value === 'paint' ? `左键拖拽刷${this.paintLayer === 'tile' ? '地块' : '灵气'}` : tool.note)}
       </button>
     `).join('');
 
-    this.tilePaletteEl.innerHTML = PAINT_TILE_TYPES.map((tileType) => `
-      <button class="map-tile-btn ${this.paintTileType === tileType ? 'active' : ''}" data-tile-type="${tileType}" type="button">
-        ${escapeHtml(TILE_LABELS[tileType])}
+    if (this.paintLayerTabsEl) {
+      this.paintLayerTabsEl.innerHTML = PAINT_LAYER_OPTIONS.map((option) => `
+      <button class="side-tab ${this.paintLayer === option.value ? 'active' : ''}" data-paint-layer="${option.value}" type="button">
+        ${escapeHtml(option.label)}
       </button>
-    `).join('');
+      `).join('');
+    }
+
+    this.tilePaletteEl.innerHTML = this.paintLayer === 'tile'
+      ? PAINT_TILE_TYPES.map((tileType) => `
+        <button class="map-tile-btn ${this.paintTileType === tileType ? 'active' : ''}" data-tile-type="${tileType}" type="button">
+          ${escapeHtml(TILE_LABELS[tileType])}
+        </button>
+      `).join('')
+      : AURA_BRUSH_LEVELS.map((value) => `
+        <button class="map-tile-btn ${this.auraPaintValue === value ? 'active' : ''}" data-aura-value="${value}" type="button">
+          ${value === 0 ? '清除' : `灵气 ${value}`}
+        </button>
+      `).join('');
   }
 
   private async loadMapList(force = false): Promise<void> {
-    const data = await this.request<GmMapListRes>('/gm/maps');
+    const data = await this.request<GmMapListRes>(this.mapApiBasePath);
     this.mapList = data.maps;
     this.listLoaded = true;
     if (force && this.selectedMapId) {
@@ -533,13 +638,14 @@ export class GmMapEditor {
   }
 
   private async loadMap(mapId: string, announce = true): Promise<void> {
-    const data = await this.request<GmMapDetailRes>(`/gm/maps/${encodeURIComponent(mapId)}`);
+    const data = await this.request<GmMapDetailRes>(`${this.mapApiBasePath}/${encodeURIComponent(mapId)}`);
     this.selectedMapId = mapId;
     this.draft = clone(data.map);
     this.dirty = false;
     this.selectedCell = { x: data.map.spawnPoint.x, y: data.map.spawnPoint.y };
     this.hoveredCell = null;
     this.selectedEntity = null;
+    this.currentInspectorTab = 'selection';
     this.linePaintStart = null;
     this.undoStack = [];
     this.resizeWidth = data.map.width;
@@ -579,22 +685,69 @@ export class GmMapEditor {
       `怪物刷新点 ${this.draft.monsterSpawns.length}`,
       `灵气点 ${this.draft.auras?.length ?? 0}`,
       `地标 ${this.draft.landmarks?.length ?? 0}`,
-      this.dirty ? '有未保存修改' : '已与服务端同步',
+      this.dirty ? '有未保存修改' : this.syncedSummaryLabel,
     ];
     this.summaryEl.textContent = summaryBits.join(' · ');
+    this.inspectorEl.innerHTML = `
+      <div class="inspector-layout">
+        <div class="inspector-tabs">
+          ${INSPECTOR_TABS.map((tab) => `
+            <button class="side-tab inspector-tab-btn ${this.currentInspectorTab === tab.value ? 'active' : ''}" data-map-inspector-tab="${tab.value}" type="button">
+              ${escapeHtml(tab.label)}
+            </button>
+          `).join('')}
+        </div>
+        <div class="inspector-panel">
+          ${this.renderInspectorTabContent(selectedCell, selectedTileType, selectedEntityPoint)}
+        </div>
+      </div>
+    `;
+    this.jsonEl.value = formatJson(this.draft);
+    this.renderCanvas();
+  }
 
-    const selectionMarkup = `
+  private renderInspectorTabContent(
+    selectedCell: { x: number; y: number } | null,
+    selectedTileType: TileType | null,
+    selectedEntityPoint: { x: number; y: number } | null,
+  ): string {
+    switch (this.currentInspectorTab) {
+      case 'selection':
+        return this.renderSelectionTab(selectedCell, selectedTileType);
+      case 'meta':
+        return this.renderMetaTab();
+      case 'portal':
+        return this.renderPortalTab(selectedEntityPoint);
+      case 'npc':
+        return this.renderNpcTab(selectedEntityPoint);
+      case 'monster':
+        return this.renderMonsterTab(selectedEntityPoint);
+      case 'aura':
+        return this.renderAuraTab(selectedEntityPoint);
+      case 'landmark':
+        return this.renderLandmarkTab(selectedEntityPoint);
+      default:
+        return '';
+    }
+  }
+
+  private renderSelectionTab(selectedCell: { x: number; y: number } | null, selectedTileType: TileType | null): string {
+    const selectedAura = selectedCell ? this.getAuraAt(selectedCell.x, selectedCell.y) : null;
+    return `
       <section class="editor-section">
         <div class="editor-section-head">
           <div>
             <div class="editor-section-title">当前选区</div>
-            <div class="editor-section-note">画布点击后会同步这里的坐标与对象。</div>
+            <div class="editor-section-note">切到检视或 JSON 时会强制进入选取模式，回到工具面板再恢复你原本的工具。</div>
           </div>
         </div>
         <div class="map-form-grid compact">
           ${readonlyField('当前格', selectedCell ? `(${selectedCell.x}, ${selectedCell.y})` : '未选择')}
           ${readonlyField('悬停格', this.hoveredCell ? `(${this.hoveredCell.x}, ${this.hoveredCell.y})` : '无')}
           ${readonlyField('地块', selectedTileType ? TILE_LABELS[selectedTileType] : '无')}
+          ${readonlyField('灵气', selectedAura ? String(selectedAura.value) : '0')}
+          ${readonlyField('当前工具', this.getCurrentTool() === 'paint' ? `绘制 · ${this.paintLayer === 'tile' ? '地块' : '灵气'}` : this.getCurrentTool() === 'pan' ? '平移' : '选取')}
+          ${readonlyField('选中对象', this.describeSelectedEntity())}
         </div>
         <div class="button-row" style="margin-top: 10px;">
           <button class="small-btn" type="button" data-map-action="pick-tile">用当前地块作画笔</button>
@@ -603,8 +756,11 @@ export class GmMapEditor {
         </div>
       </section>
     `;
+  }
 
-    const metaMarkup = `
+  private renderMetaTab(): string {
+    if (!this.draft) return '';
+    return `
       <section class="editor-section">
         <div class="editor-section-head">
           <div>
@@ -644,56 +800,120 @@ export class GmMapEditor {
         </div>
       </section>
     `;
+  }
 
-    const entitiesMarkup = `
+  private renderPortalTab(selectedPoint: { x: number; y: number } | null): string {
+    if (!this.draft) return '';
+    return `
       <section class="editor-section">
         <div class="editor-section-head">
           <div>
-            <div class="editor-section-title">地图对象</div>
-            <div class="editor-section-note">以当前格为锚点新增或切换对象。</div>
+            <div class="editor-section-title">传送点</div>
+            <div class="editor-section-note">可从列表选中，也可直接在地图上拖动移动。</div>
           </div>
-          <div class="button-row">
-            <button class="small-btn" type="button" data-map-action="add-portal">新建传送点</button>
-            <button class="small-btn" type="button" data-map-action="add-npc">新建 NPC</button>
-            <button class="small-btn" type="button" data-map-action="add-monster">新建怪物点</button>
-            <button class="small-btn" type="button" data-map-action="add-aura">新建灵气点</button>
-            <button class="small-btn" type="button" data-map-action="add-landmark">新建地标</button>
-          </div>
+          <button class="small-btn" type="button" data-map-action="add-portal">新建传送点</button>
         </div>
-        <div class="editor-section-note">传送点</div>
-        <div class="map-entity-list" style="margin-top: 8px;">
+        <div class="map-entity-list">
           ${this.draft.portals.map((portal, index) => `
             <button class="map-entity-btn ${this.selectedEntity?.kind === 'portal' && this.selectedEntity.index === index ? 'active' : ''}" data-entity-kind="portal" data-entity-index="${index}" type="button">
-              ${escapeHtml(`${portal.hidden ? '隐藏' : ''}${portal.kind === 'stairs' ? '楼梯' : '传送阵'} (${portal.x},${portal.y}) -> ${portal.targetMapId}`)}
+              ${escapeHtml(`${portal.hidden ? '隐藏' : ''}${portal.kind === 'stairs' ? '楼梯' : '传送阵'} (${portal.x},${portal.y}) -> ${this.formatMapTargetLabel(portal.targetMapId)}`)}
             </button>
           `).join('') || '<div class="editor-note">暂无传送点。</div>'}
         </div>
-        <div class="editor-section-note" style="margin-top: 12px;">NPC</div>
-        <div class="map-entity-list" style="margin-top: 8px;">
+      </section>
+      ${this.selectedEntity?.kind === 'portal'
+        ? this.renderSelectedEntitySection(selectedPoint)
+        : '<div class="editor-note">选中一个传送点后可在下方编辑属性。</div>'}
+    `;
+  }
+
+  private renderNpcTab(selectedPoint: { x: number; y: number } | null): string {
+    if (!this.draft) return '';
+    return `
+      <section class="editor-section">
+        <div class="editor-section-head">
+          <div>
+            <div class="editor-section-title">NPC</div>
+            <div class="editor-section-note">选中后可直接拖动位置，也可继续改属性。</div>
+          </div>
+          <button class="small-btn" type="button" data-map-action="add-npc">新建 NPC</button>
+        </div>
+        <div class="map-entity-list">
           ${this.draft.npcs.map((npc, index) => `
             <button class="map-entity-btn ${this.selectedEntity?.kind === 'npc' && this.selectedEntity.index === index ? 'active' : ''}" data-entity-kind="npc" data-entity-index="${index}" type="button">
               ${escapeHtml(`${npc.name || npc.id} @ (${npc.x},${npc.y})`)}
             </button>
           `).join('') || '<div class="editor-note">暂无 NPC。</div>'}
         </div>
-        <div class="editor-section-note" style="margin-top: 12px;">怪物刷新点</div>
-        <div class="map-entity-list" style="margin-top: 8px;">
+      </section>
+      ${this.selectedEntity?.kind === 'npc'
+        ? this.renderSelectedEntitySection(selectedPoint)
+        : '<div class="editor-note">选中一个 NPC 后可在下方编辑属性。</div>'}
+    `;
+  }
+
+  private renderMonsterTab(selectedPoint: { x: number; y: number } | null): string {
+    if (!this.draft) return '';
+    return `
+      <section class="editor-section">
+        <div class="editor-section-head">
+          <div>
+            <div class="editor-section-title">怪物刷新点</div>
+            <div class="editor-section-note">支持在地图中拖动移动生成点。</div>
+          </div>
+          <button class="small-btn" type="button" data-map-action="add-monster">新建怪物点</button>
+        </div>
+        <div class="map-entity-list">
           ${this.draft.monsterSpawns.map((spawn, index) => `
             <button class="map-entity-btn ${this.selectedEntity?.kind === 'monster' && this.selectedEntity.index === index ? 'active' : ''}" data-entity-kind="monster" data-entity-index="${index}" type="button">
               ${escapeHtml(`${spawn.name || spawn.id} @ (${spawn.x},${spawn.y})`)}
             </button>
           `).join('') || '<div class="editor-note">暂无怪物刷新点。</div>'}
         </div>
-        <div class="editor-section-note" style="margin-top: 12px;">灵气点</div>
-        <div class="map-entity-list" style="margin-top: 8px;">
+      </section>
+      ${this.selectedEntity?.kind === 'monster'
+        ? this.renderSelectedEntitySection(selectedPoint)
+        : '<div class="editor-note">选中一个怪物刷新点后可在下方编辑属性。</div>'}
+    `;
+  }
+
+  private renderAuraTab(selectedPoint: { x: number; y: number } | null): string {
+    if (!this.draft) return '';
+    return `
+      <section class="editor-section">
+        <div class="editor-section-head">
+          <div>
+            <div class="editor-section-title">灵气点</div>
+            <div class="editor-section-note">切到工具面板后可选灵气等级直接笔刷，0 表示清除。</div>
+          </div>
+          <button class="small-btn" type="button" data-map-action="add-aura">新建灵气点</button>
+        </div>
+        <div class="map-entity-list">
           ${(this.draft.auras ?? []).map((point, index) => `
             <button class="map-entity-btn ${this.selectedEntity?.kind === 'aura' && this.selectedEntity.index === index ? 'active' : ''}" data-entity-kind="aura" data-entity-index="${index}" type="button">
               ${escapeHtml(`(${point.x},${point.y}) = ${point.value}`)}
             </button>
           `).join('') || '<div class="editor-note">暂无灵气点。</div>'}
         </div>
-        <div class="editor-section-note" style="margin-top: 12px;">地标</div>
-        <div class="map-entity-list" style="margin-top: 8px;">
+      </section>
+      ${this.selectedEntity?.kind === 'aura'
+        ? this.renderSelectedEntitySection(selectedPoint)
+        : '<div class="editor-note">选中一个灵气点后可在下方编辑属性。</div>'}
+    `;
+  }
+
+  private renderLandmarkTab(selectedPoint: { x: number; y: number } | null): string {
+    if (!this.draft) return '';
+    return `
+      <section class="editor-section">
+        <div class="editor-section-head">
+          <div>
+            <div class="editor-section-title">地标</div>
+            <div class="editor-section-note">用于区域名和地图标识，也支持拖动位置。</div>
+          </div>
+          <button class="small-btn" type="button" data-map-action="add-landmark">新建地标</button>
+        </div>
+        <div class="map-entity-list">
           ${(this.draft.landmarks ?? []).map((landmark, index) => `
             <button class="map-entity-btn ${this.selectedEntity?.kind === 'landmark' && this.selectedEntity.index === index ? 'active' : ''}" data-entity-kind="landmark" data-entity-index="${index}" type="button">
               ${escapeHtml(`${landmark.name || landmark.id} @ (${landmark.x},${landmark.y})`)}
@@ -701,12 +921,10 @@ export class GmMapEditor {
           `).join('') || '<div class="editor-note">暂无地标。</div>'}
         </div>
       </section>
+      ${this.selectedEntity?.kind === 'landmark'
+        ? this.renderSelectedEntitySection(selectedPoint)
+        : '<div class="editor-note">选中一个地标后可在下方编辑属性。</div>'}
     `;
-
-    const selectedEntityMarkup = this.renderSelectedEntitySection(selectedEntityPoint);
-    this.inspectorEl.innerHTML = `${selectionMarkup}${metaMarkup}${entitiesMarkup}${selectedEntityMarkup}`;
-    this.jsonEl.value = formatJson(this.draft);
-    this.renderCanvas();
   }
 
   private renderSelectedEntitySection(selectedPoint: { x: number; y: number } | null): string {
@@ -865,6 +1083,45 @@ export class GmMapEditor {
     `;
   }
 
+  private describeSelectedEntity(): string {
+    if (!this.draft || !this.selectedEntity) {
+      return '无';
+    }
+    if (this.selectedEntity.kind === 'portal') {
+      const portal = this.draft.portals[this.selectedEntity.index];
+      return portal ? `${portal.kind === 'stairs' ? '楼梯' : '传送阵'} (${portal.x}, ${portal.y}) -> ${this.formatMapTargetLabel(portal.targetMapId)}` : '无';
+    }
+    if (this.selectedEntity.kind === 'npc') {
+      const npc = this.draft.npcs[this.selectedEntity.index];
+      return npc ? `NPC ${npc.name || npc.id}` : '无';
+    }
+    if (this.selectedEntity.kind === 'monster') {
+      const spawn = this.draft.monsterSpawns[this.selectedEntity.index];
+      return spawn ? `怪物 ${spawn.name || spawn.id}` : '无';
+    }
+    if (this.selectedEntity.kind === 'aura') {
+      const aura = this.draft.auras?.[this.selectedEntity.index];
+      return aura ? `灵气 ${aura.value}` : '无';
+    }
+    const landmark = this.draft.landmarks?.[this.selectedEntity.index];
+    return landmark ? `地标 ${landmark.name || landmark.id}` : '无';
+  }
+
+  private getAuraAt(x: number, y: number): { x: number; y: number; value: number } | null {
+    if (!this.draft) return null;
+    return this.draft.auras?.find((point) => point.x === x && point.y === y) ?? null;
+  }
+
+  private formatMapTargetLabel(mapId: string): string {
+    const target = this.mapList.find((map) => map.id === mapId);
+    if (!target) {
+      return mapId;
+    }
+    return target.name && target.name !== mapId
+      ? `${target.name} (${mapId})`
+      : target.name || mapId;
+  }
+
   private handleUiFieldChange(field: string, value: string): void {
     if (field === 'resizeWidth') {
       this.resizeWidth = Math.max(1, Math.floor(Number(value) || 1));
@@ -949,18 +1206,23 @@ export class GmMapEditor {
         this.moveSelectedEntityToCurrentCell();
         return;
       case 'add-portal':
+        this.currentInspectorTab = 'portal';
         this.addPortalAtCurrentCell();
         return;
       case 'add-npc':
+        this.currentInspectorTab = 'npc';
         this.addNpcAtCurrentCell();
         return;
       case 'add-monster':
+        this.currentInspectorTab = 'monster';
         this.addMonsterAtCurrentCell();
         return;
       case 'add-aura':
+        this.currentInspectorTab = 'aura';
         this.addAuraAtCurrentCell();
         return;
       case 'add-landmark':
+        this.currentInspectorTab = 'landmark';
         this.addLandmarkAtCurrentCell();
         return;
       case 'remove-selected':
@@ -1049,10 +1311,12 @@ export class GmMapEditor {
   private addAuraAtCurrentCell(): void {
     if (!this.ensureSelectedCell()) return;
     const { x, y } = this.selectedCell!;
-    this.captureUndoState();
-    this.draft!.auras = this.draft!.auras ?? [];
-    this.draft!.auras.push({ x, y, value: 1 });
-    this.selectedEntity = { kind: 'aura', index: this.draft!.auras.length - 1 };
+    const changed = this.applyAuraPaint([{ x, y }], true, 1);
+    if (!changed) return;
+    const index = this.draft!.auras?.findIndex((point) => point.x === x && point.y === y) ?? -1;
+    if (index >= 0) {
+      this.selectedEntity = { kind: 'aura', index };
+    }
     this.markDirty();
   }
 
@@ -1077,56 +1341,80 @@ export class GmMapEditor {
       this.setStatus('请先选中对象和目标格', true);
       return;
     }
-    const { x, y } = this.selectedCell;
-    if (this.selectedEntity.kind === 'aura') {
-      const aura = this.draft.auras?.[this.selectedEntity.index];
-      if (aura && (aura.x !== x || aura.y !== y)) {
-        this.captureUndoState();
-        aura.x = x;
-        aura.y = y;
-        this.markDirty();
-      }
-      return;
+    const moved = this.moveSelectedEntityToPoint(this.selectedCell.x, this.selectedCell.y, true, false);
+    if (moved) {
+      this.markDirty();
     }
-    if (this.selectedEntity.kind === 'landmark') {
-      const landmark = this.draft.landmarks?.[this.selectedEntity.index];
-      if (landmark && (landmark.x !== x || landmark.y !== y)) {
-        this.captureUndoState();
-        landmark.x = x;
-        landmark.y = y;
-        this.markDirty();
-      }
-      return;
+  }
+
+  private moveSelectedEntityToPoint(x: number, y: number, recordUndo: boolean, silent: boolean): boolean {
+    if (!this.draft || !this.selectedEntity) return false;
+    const selection = this.selectedEntity;
+    const currentPoint = this.getSelectedEntityPoint();
+    if (!currentPoint) return false;
+    if (currentPoint.x === x && currentPoint.y === y) {
+      return false;
     }
+
+    if (selection.kind === 'aura') {
+      const aura = this.draft.auras?.[selection.index];
+      if (!aura) return false;
+      if (this.hasAuraAt(x, y, selection.index)) {
+        if (!silent) this.setStatus('目标格已有灵气点', true);
+        return false;
+      }
+      if (recordUndo) this.captureUndoState();
+      aura.x = x;
+      aura.y = y;
+      this.selectedCell = { x, y };
+      this.markDirty(false);
+      return true;
+    }
+
+    if (selection.kind === 'landmark') {
+      const landmark = this.draft.landmarks?.[selection.index];
+      if (!landmark) return false;
+      if (this.hasLandmarkAt(x, y, selection.index)) {
+        if (!silent) this.setStatus('目标格已有地标', true);
+        return false;
+      }
+      if (recordUndo) this.captureUndoState();
+      landmark.x = x;
+      landmark.y = y;
+      this.selectedCell = { x, y };
+      this.markDirty(false);
+      return true;
+    }
+
     if (!isTileTypeWalkable(this.getTileTypeAt(x, y))) {
-      this.setStatus('目标格不是可通行地块，无法放置对象', true);
-      return;
+      if (!silent) this.setStatus('目标格不是可通行地块，无法放置对象', true);
+      return false;
     }
-    if (this.selectedEntity.kind === 'portal') {
-      const portal = this.draft.portals[this.selectedEntity.index];
-      if (portal && (portal.x !== x || portal.y !== y)) {
-        this.captureUndoState();
-        portal.x = x;
-        portal.y = y;
-        this.markDirty();
-      }
-    } else if (this.selectedEntity.kind === 'npc') {
-      const npc = this.draft.npcs[this.selectedEntity.index];
-      if (npc && (npc.x !== x || npc.y !== y)) {
-        this.captureUndoState();
-        npc.x = x;
-        npc.y = y;
-        this.markDirty();
-      }
-    } else if (this.selectedEntity.kind === 'monster') {
-      const spawn = this.draft.monsterSpawns[this.selectedEntity.index];
-      if (spawn && (spawn.x !== x || spawn.y !== y)) {
-        this.captureUndoState();
-        spawn.x = x;
-        spawn.y = y;
-        this.markDirty();
-      }
+    if (this.hasBlockingMapObjectAt(x, y, selection)) {
+      if (!silent) this.setStatus('目标格已有出生点或阻挡对象', true);
+      return false;
     }
+
+    if (recordUndo) this.captureUndoState();
+    if (selection.kind === 'portal') {
+      const portal = this.draft.portals[selection.index];
+      if (!portal) return false;
+      portal.x = x;
+      portal.y = y;
+    } else if (selection.kind === 'npc') {
+      const npc = this.draft.npcs[selection.index];
+      if (!npc) return false;
+      npc.x = x;
+      npc.y = y;
+    } else if (selection.kind === 'monster') {
+      const spawn = this.draft.monsterSpawns[selection.index];
+      if (!spawn) return false;
+      spawn.x = x;
+      spawn.y = y;
+    }
+    this.selectedCell = { x, y };
+    this.markDirty(false);
+    return true;
   }
 
   private removeSelectedEntity(): void {
@@ -1228,6 +1516,7 @@ export class GmMapEditor {
       this.resizeWidth = next.width;
       this.resizeHeight = next.height;
       this.selectedCell = { x: next.spawnPoint.x, y: next.spawnPoint.y };
+      this.currentInspectorTab = 'selection';
       this.linePaintStart = null;
       this.dirty = true;
       this.centerView();
@@ -1251,7 +1540,7 @@ export class GmMapEditor {
     }
     this.saveBtn.disabled = true;
     try {
-      await this.request<{ ok: true }>(`/gm/maps/${encodeURIComponent(this.selectedMapId)}`, {
+      await this.request<{ ok: true }>(`${this.mapApiBasePath}/${encodeURIComponent(this.selectedMapId)}`, {
         method: 'PUT',
         body: JSON.stringify({ map: this.draft } satisfies GmUpdateMapReq),
       });
@@ -1292,6 +1581,16 @@ export class GmMapEditor {
   }
 
   private renderCanvas(): void {
+    if (this.renderFrameId !== null) {
+      return;
+    }
+    this.renderFrameId = window.requestAnimationFrame(() => {
+      this.renderFrameId = null;
+      this.flushCanvasRender();
+    });
+  }
+
+  private flushCanvasRender(): void {
     this.resizeCanvas();
     const ctx = this.ctx;
     if (!ctx) return;
@@ -1307,6 +1606,11 @@ export class GmMapEditor {
     const startGY = Math.floor(camWorldY / cellSize) - 1;
     const endGX = Math.ceil((camWorldX + screenW) / cellSize) + 1;
     const endGY = Math.ceil((camWorldY + screenH) / cellSize) + 1;
+    const auraPointKeys = new Set((this.draft.auras ?? []).map((point) => `${point.x},${point.y}`));
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `${cellSize * 0.6}px "Ma Shan Zheng", cursive`;
 
     for (let gy = startGY; gy <= endGY; gy += 1) {
       for (let gx = startGX; gx <= endGX; gx += 1) {
@@ -1332,14 +1636,10 @@ export class GmMapEditor {
         const ch = TILE_CHAR[type];
         if (ch) {
           ctx.fillStyle = CHAR_COLOR[type];
-          ctx.font = `${cellSize * 0.6}px "Ma Shan Zheng", cursive`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
           ctx.fillText(ch, sx + cellSize / 2, sy + cellSize / 2 + 1);
         }
 
-        const aura = (this.draft.auras ?? []).find((point) => point.x === gx && point.y === gy);
-        if (aura) {
+        if (auraPointKeys.has(`${gx},${gy}`)) {
           ctx.fillStyle = 'rgba(90, 170, 255, 0.18)';
           ctx.fillRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
         }
@@ -1370,6 +1670,7 @@ export class GmMapEditor {
 
   private drawEntities(ctx: CanvasRenderingContext2D, screenW: number, screenH: number, cellSize: number): void {
     if (!this.draft) return;
+    const showEntityLabels = cellSize >= 18;
     const drawEntity = (wx: number, wy: number, char: string, color: string, name: string, kind: 'npc' | 'monster' | 'spawn'): void => {
       const sx = wx * cellSize - this.viewCenterX + screenW / 2;
       const sy = wy * cellSize - this.viewCenterY + screenH / 2;
@@ -1386,6 +1687,9 @@ export class GmMapEditor {
       ctx.font = `bold ${cellSize * 0.75}px "Ma Shan Zheng", cursive`;
       ctx.strokeText(char, sx + cellSize / 2, sy + cellSize / 2);
       ctx.fillText(char, sx + cellSize / 2, sy + cellSize / 2);
+      if (!showEntityLabels) {
+        return;
+      }
       ctx.font = `${cellSize * 0.3}px "Noto Serif SC", serif`;
       ctx.strokeStyle = 'rgba(15,12,10,0.9)';
       ctx.fillStyle = kind === 'monster' ? '#ffddcc' : kind === 'spawn' ? '#fff0b0' : '#cce7ff';
@@ -1395,6 +1699,9 @@ export class GmMapEditor {
     };
 
     const drawLandmark = (landmark: GmMapLandmarkRecord): void => {
+      if (!showEntityLabels) {
+        return;
+      }
       const sx = landmark.x * cellSize - this.viewCenterX + screenW / 2;
       const sy = landmark.y * cellSize - this.viewCenterY + screenH / 2;
       if (sx + cellSize < 0 || sx > screenW || sy + cellSize < 0 || sy > screenH) return;
@@ -1427,7 +1734,7 @@ export class GmMapEditor {
         portal.y,
         isStairs ? '阶' : '阵',
         isStairs ? '#d7b27c' : '#c8a2f2',
-        `${isStairs ? '楼梯' : '传送'}:${portal.targetMapId}`,
+        `${isStairs ? '楼梯' : '传送'}:${this.formatMapTargetLabel(portal.targetMapId)}`,
         'npc',
       );
     });
@@ -1447,9 +1754,11 @@ export class GmMapEditor {
 
   private handleCanvasPointerDown(event: PointerEvent): void {
     const point = this.screenToGrid(event.clientX, event.clientY);
-    const wantsPan = event.button === 2 || (this.activeTool === 'pan' && event.button === 0);
+    const currentTool = this.getCurrentTool();
+    const wantsPan = event.button === 2 || (currentTool === 'pan' && event.button === 0);
     if (wantsPan) {
       this.panActive = true;
+      this.dragEntityActive = false;
       this.paintActive = false;
       this.activePointerId = event.pointerId;
       this.activePanButtonMask = event.button === 2 ? 2 : 1;
@@ -1465,8 +1774,15 @@ export class GmMapEditor {
     if (event.button !== 0) return;
     if (!point) return;
     this.selectedCell = point;
-    this.selectedEntity = this.findEntityAt(point.x, point.y);
-    if (this.activeTool === 'paint') {
+    const hitEntity = this.findEntityAt(point.x, point.y);
+    this.selectedEntity = hitEntity;
+    if (currentTool === 'paint') {
+      if (event.altKey && this.paintLayer === 'tile') {
+        this.sampleTileAt(point.x, point.y);
+        this.renderInspector();
+        this.renderCanvas();
+        return;
+      }
       if (this.linePaintStart) {
         this.applyLinePaint(this.linePaintStart, point);
         this.linePaintStart = null;
@@ -1486,10 +1802,31 @@ export class GmMapEditor {
       this.paintSessionHasUndoSnapshot = false;
       this.canvas.setPointerCapture(event.pointerId);
       this.paintActive = true;
-      const changed = this.paintTileAt(point.x, point.y, true);
+      const changed = this.paintLayer === 'tile'
+        ? this.paintTileAt(point.x, point.y, true)
+        : this.paintAuraAt(point.x, point.y, true);
       this.paintSessionHasUndoSnapshot = changed;
+      this.renderCanvas();
+      return;
+    }
+
+    if (currentTool === 'select' && hitEntity) {
+      this.activePointerId = event.pointerId;
+      this.activePanButtonMask = 0;
+      this.dragSessionHasUndoSnapshot = false;
+      this.dragEntityActive = true;
+      this.paintActive = false;
+      this.canvas.setPointerCapture(event.pointerId);
     }
     this.renderInspector();
+    this.renderCanvas();
+  }
+
+  private sampleTileAt(x: number, y: number): void {
+    const nextType = this.getTileTypeAt(x, y);
+    this.paintTileType = nextType;
+    this.setStatus(`已吸取地块 ${TILE_LABELS[nextType]} (${x}, ${y})`);
+    this.renderToolControls();
   }
 
   private handleCanvasPointerMove(event: PointerEvent): void {
@@ -1506,6 +1843,19 @@ export class GmMapEditor {
       this.renderCanvas();
       return;
     }
+    if (this.dragEntityActive) {
+      if ((event.buttons & 1) === 0) {
+        this.endPointerInteraction();
+        return;
+      }
+      if (point) {
+        this.selectedCell = point;
+        const changed = this.moveSelectedEntityToPoint(point.x, point.y, !this.dragSessionHasUndoSnapshot, true);
+        this.dragSessionHasUndoSnapshot = this.dragSessionHasUndoSnapshot || changed;
+      }
+      this.renderCanvas();
+      return;
+    }
     if (this.paintActive) {
       if ((event.buttons & 1) === 0) {
         this.endPointerInteraction();
@@ -1513,7 +1863,9 @@ export class GmMapEditor {
       }
     }
     if (this.paintActive && point) {
-      const changed = this.paintTileAt(point.x, point.y, !this.paintSessionHasUndoSnapshot);
+      const changed = this.paintLayer === 'tile'
+        ? this.paintTileAt(point.x, point.y, !this.paintSessionHasUndoSnapshot)
+        : this.paintAuraAt(point.x, point.y, !this.paintSessionHasUndoSnapshot);
       this.paintSessionHasUndoSnapshot = this.paintSessionHasUndoSnapshot || changed;
       this.renderCanvas();
       return;
@@ -1524,12 +1876,14 @@ export class GmMapEditor {
     if (this.activePointerId !== null && this.canvas.hasPointerCapture(this.activePointerId)) {
       this.canvas.releasePointerCapture(this.activePointerId);
     }
-    if (this.paintActive && this.draft) {
+    if ((this.paintActive || this.dragEntityActive) && this.draft) {
       this.renderInspector();
     }
     this.paintActive = false;
+    this.dragEntityActive = false;
     this.panActive = false;
     this.paintSessionHasUndoSnapshot = false;
+    this.dragSessionHasUndoSnapshot = false;
     this.lastPaintKey = null;
     this.activePointerId = null;
     this.activePanButtonMask = 0;
@@ -1559,10 +1913,20 @@ export class GmMapEditor {
     return this.applyTilePaint([{ x, y }], recordUndo) > 0;
   }
 
+  private paintAuraAt(x: number, y: number, recordUndo = false): boolean {
+    if (!this.draft) return false;
+    const key = `${x},${y}`;
+    if (this.lastPaintKey === key) return false;
+    this.lastPaintKey = key;
+    return this.applyAuraPaint([{ x, y }], recordUndo) > 0;
+  }
+
   private applyLinePaint(start: GridPoint, end: GridPoint): void {
-    const changed = this.applyTilePaint(this.getLinePoints(start, end), true);
+    const changed = this.paintLayer === 'tile'
+      ? this.applyTilePaint(this.getLinePoints(start, end), true)
+      : this.applyAuraPaint(this.getLinePoints(start, end), true);
     if (changed > 0) {
-      this.setStatus(`已沿直线填充 ${changed} 个格子`);
+      this.setStatus(`已沿直线填充 ${changed} 个${this.paintLayer === 'tile' ? '格子' : '灵气点'}`);
     }
   }
 
@@ -1603,6 +1967,50 @@ export class GmMapEditor {
     return changedPoints.length;
   }
 
+  private applyAuraPaint(points: GridPoint[], recordUndo: boolean, overrideValue?: number): number {
+    if (!this.draft) return 0;
+    const nextValue = Math.max(0, Math.floor(overrideValue ?? this.auraPaintValue));
+    const selectedAuraPoint = this.selectedEntity?.kind === 'aura' ? this.getSelectedEntityPoint() : null;
+    const nextAuras = [...(this.draft.auras ?? [])];
+    const changedKeys = new Set<string>();
+
+    for (const point of points) {
+      const key = `${point.x},${point.y}`;
+      if (changedKeys.has(key)) continue;
+      const index = nextAuras.findIndex((candidate) => candidate.x === point.x && candidate.y === point.y);
+      if (nextValue === 0) {
+        if (index >= 0) {
+          nextAuras.splice(index, 1);
+          changedKeys.add(key);
+        }
+        continue;
+      }
+      if (index >= 0) {
+        if (nextAuras[index]!.value !== nextValue) {
+          nextAuras[index] = { ...nextAuras[index]!, value: nextValue };
+          changedKeys.add(key);
+        }
+        continue;
+      }
+      nextAuras.push({ x: point.x, y: point.y, value: nextValue });
+      changedKeys.add(key);
+    }
+
+    if (changedKeys.size === 0) {
+      return 0;
+    }
+    if (recordUndo) {
+      this.captureUndoState();
+    }
+    this.draft.auras = nextAuras;
+    if (selectedAuraPoint) {
+      const nextIndex = nextAuras.findIndex((point) => point.x === selectedAuraPoint.x && point.y === selectedAuraPoint.y);
+      this.selectedEntity = nextIndex >= 0 ? { kind: 'aura', index: nextIndex } : null;
+    }
+    this.markDirty(false);
+    return changedKeys.size;
+  }
+
   private getLinePoints(start: GridPoint, end: GridPoint): GridPoint[] {
     const points: GridPoint[] = [];
     let x0 = start.x;
@@ -1632,13 +2040,23 @@ export class GmMapEditor {
     return points;
   }
 
-  private hasBlockingMapObjectAt(x: number, y: number): boolean {
+  private hasBlockingMapObjectAt(x: number, y: number, ignoredSelection: MapEntitySelection = null): boolean {
     if (!this.draft) return false;
     if (this.draft.spawnPoint.x === x && this.draft.spawnPoint.y === y) return true;
-    if (this.draft.portals.some((portal) => portal.x === x && portal.y === y)) return true;
-    if (this.draft.npcs.some((npc) => npc.x === x && npc.y === y)) return true;
-    if (this.draft.monsterSpawns.some((spawn) => spawn.x === x && spawn.y === y)) return true;
+    if (this.draft.portals.some((portal, index) => !(ignoredSelection?.kind === 'portal' && ignoredSelection.index === index) && portal.x === x && portal.y === y)) return true;
+    if (this.draft.npcs.some((npc, index) => !(ignoredSelection?.kind === 'npc' && ignoredSelection.index === index) && npc.x === x && npc.y === y)) return true;
+    if (this.draft.monsterSpawns.some((spawn, index) => !(ignoredSelection?.kind === 'monster' && ignoredSelection.index === index) && spawn.x === x && spawn.y === y)) return true;
     return false;
+  }
+
+  private hasAuraAt(x: number, y: number, ignoredIndex?: number): boolean {
+    if (!this.draft) return false;
+    return (this.draft.auras ?? []).some((point, index) => index !== ignoredIndex && point.x === x && point.y === y);
+  }
+
+  private hasLandmarkAt(x: number, y: number, ignoredIndex?: number): boolean {
+    if (!this.draft) return false;
+    return (this.draft.landmarks ?? []).some((landmark, index) => index !== ignoredIndex && landmark.x === x && landmark.y === y);
   }
 
   private ensureSelectedCell(): boolean {
@@ -1733,8 +2151,10 @@ export class GmMapEditor {
     this.dirty = entry.dirty;
     this.linePaintStart = null;
     this.paintActive = false;
+    this.dragEntityActive = false;
     this.panActive = false;
     this.paintSessionHasUndoSnapshot = false;
+    this.dragSessionHasUndoSnapshot = false;
     this.lastPaintKey = null;
     this.renderInspector();
     this.renderCanvas();

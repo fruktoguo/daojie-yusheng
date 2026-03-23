@@ -62,6 +62,14 @@ const STAT_LABELS: Record<string, string> = {
 };
 
 type InventoryFilter = 'all' | ItemType;
+type InventoryActionKind = 'use' | 'drop' | 'destroy';
+
+interface InventoryActionDialogState {
+  kind: InventoryActionKind;
+  slotIndex: number;
+  defaultCount: number;
+  confirmDestroy: boolean;
+}
 
 const FILTER_TABS: Array<{ id: InventoryFilter; label: string }> = [
   { id: 'all', label: '全部' },
@@ -165,8 +173,9 @@ function formatItemEffects(item: ItemStack): string[] {
 export class InventoryPanel {
   private static readonly MODAL_OWNER = 'inventory-panel';
   private pane = document.getElementById('pane-inventory')!;
-  private onUseItem: ((slotIndex: number) => void) | null = null;
+  private onUseItem: ((slotIndex: number, count?: number) => void) | null = null;
   private onDropItem: ((slotIndex: number, count: number) => void) | null = null;
+  private onDestroyItem: ((slotIndex: number, count: number) => void) | null = null;
   private onEquipItem: ((slotIndex: number) => void) | null = null;
   private onSortInventory: (() => void) | null = null;
   private tooltip = new FloatingTooltip('floating-tooltip inventory-tooltip');
@@ -175,6 +184,7 @@ export class InventoryPanel {
   private lastStructureKey: string | null = null;
   private selectedSlotIndex: number | null = null;
   private selectedItemKey: string | null = null;
+  private actionDialog: InventoryActionDialogState | null = null;
   private tooltipCell: HTMLElement | null = null;
 
   constructor() {
@@ -189,6 +199,7 @@ export class InventoryPanel {
     this.lastStructureKey = null;
     this.selectedSlotIndex = null;
     this.selectedItemKey = null;
+    this.actionDialog = null;
     this.tooltipCell = null;
     this.tooltip.hide();
     this.pane.innerHTML = '<div class="empty-hint">背包空空如也</div>';
@@ -196,13 +207,15 @@ export class InventoryPanel {
   }
 
   setCallbacks(
-    onUse: (slotIndex: number) => void,
+    onUse: (slotIndex: number, count?: number) => void,
     onDrop: (slotIndex: number, count: number) => void,
+    onDestroy: (slotIndex: number, count: number) => void,
     onEquip: (slotIndex: number) => void,
     onSort: () => void,
   ): void {
     this.onUseItem = onUse;
     this.onDropItem = onDrop;
+    this.onDestroyItem = onDestroy;
     this.onEquipItem = onEquip;
     this.onSortInventory = onSort;
   }
@@ -263,7 +276,7 @@ export class InventoryPanel {
         <div class="inventory-cell-name ${nameClass}" data-item-name="true" title="${this.escapeHtml(item.name)}">${this.escapeHtml(item.name)}</div>
         <div class="inventory-cell-actions">
           ${primaryAction ? `<button class="small-btn" data-inline-primary="${slotIndex}" data-item-primary="true" type="button">${primaryAction.label}</button>` : ''}
-          <button class="small-btn danger" data-inline-drop="${slotIndex}" type="button">删除</button>
+          <button class="small-btn danger" data-inline-drop="${slotIndex}" type="button">丢下</button>
         </div>
       </div>`;
     });
@@ -461,6 +474,14 @@ export class InventoryPanel {
     }
 
     const { item, slotIndex } = resolved;
+    if (this.actionDialog && this.actionDialog.slotIndex !== slotIndex) {
+      this.actionDialog = null;
+    }
+    if (this.actionDialog) {
+      this.renderActionDialog(item, slotIndex, this.actionDialog);
+      return;
+    }
+
     const attrLines = item.equipAttrs
       ? Object.entries(item.equipAttrs).map(([key, value]) => `${ATTR_LABELS[key] ?? key} +${value}`)
       : [];
@@ -472,6 +493,8 @@ export class InventoryPanel {
     const effectLines = formatItemEffects(item);
     const bonusLines = [...attrLines, ...statLines];
     const primaryAction = this.getPrimaryAction(item);
+    const canBatchUse = primaryAction?.kind === 'use' && this.canBatchUseItem(item);
+    const canBatchDropOrDestroy = this.canBatchDropOrDestroy(item);
 
     detailModalHost.open({
       ownerId: InventoryPanel.MODAL_OWNER,
@@ -505,26 +528,172 @@ export class InventoryPanel {
           <span data-inventory-modal-effects="true">${this.escapeHtml(effectLines.join(' / '))}</span>
         </div>` : ''}
         <div class="inventory-detail-actions">
-          ${primaryAction ? `<button class="small-btn" data-inventory-primary="true" type="button">${primaryAction.label}</button>` : ''}
-          <button class="small-btn danger" data-inventory-drop="true" type="button">删除 1 个</button>
+          <div class="inventory-detail-actions-group inventory-detail-actions-group--left">
+            ${primaryAction ? `<button class="small-btn" data-inventory-primary="true" type="button">${primaryAction.label}</button>` : ''}
+            ${canBatchUse ? `<button class="small-btn ghost" data-inventory-open-action="use" data-default-count="1" type="button">批量使用</button>` : ''}
+          </div>
+          <div class="inventory-detail-actions-group inventory-detail-actions-group--right">
+            <button class="small-btn ghost" data-inventory-open-action="drop" data-default-count="1" type="button">丢下</button>
+            ${canBatchDropOrDestroy ? `<button class="small-btn ghost" data-inventory-open-action="drop" data-default-count="${item.count}" type="button">批量丢下</button>` : ''}
+            <button class="small-btn danger" data-inventory-open-action="destroy" data-default-count="1" type="button">摧毁</button>
+            ${canBatchDropOrDestroy ? `<button class="small-btn danger" data-inventory-open-action="destroy" data-default-count="${item.count}" type="button">批量摧毁</button>` : ''}
+          </div>
         </div>
       `,
       onClose: () => {
         this.selectedSlotIndex = null;
         this.selectedItemKey = null;
+        this.actionDialog = null;
       },
       onAfterRender: (body) => {
         body.querySelector<HTMLElement>('[data-inventory-primary]')?.addEventListener('click', (event) => {
           event.stopPropagation();
           if (primaryAction?.kind === 'equip') {
             this.onEquipItem?.(slotIndex);
+            this.closeModal();
             return;
           }
-          this.onUseItem?.(slotIndex);
+          this.onUseItem?.(slotIndex, 1);
+          this.closeModal();
         });
-        body.querySelector<HTMLElement>('[data-inventory-drop]')?.addEventListener('click', (event) => {
+        body.querySelectorAll<HTMLElement>('[data-inventory-open-action]').forEach((button) => button.addEventListener('click', (event) => {
           event.stopPropagation();
-          this.onDropItem?.(slotIndex, 1);
+          const kind = button.dataset.inventoryOpenAction as InventoryActionKind | undefined;
+          const defaultCount = Number.parseInt(button.dataset.defaultCount ?? '1', 10);
+          if (!kind) {
+            return;
+          }
+          this.openActionDialog(kind, slotIndex, Number.isFinite(defaultCount) ? defaultCount : 1);
+        }));
+      },
+    });
+  }
+
+  private renderActionDialog(item: ItemStack, slotIndex: number, dialog: InventoryActionDialogState): void {
+    const labels = this.resolveActionLabels(dialog.kind);
+    const maxCount = item.count;
+    const halfCount = Math.max(1, Math.ceil(maxCount / 2));
+    const selectedCount = Math.max(1, Math.min(maxCount, dialog.defaultCount));
+
+    if (dialog.confirmDestroy) {
+      detailModalHost.open({
+        ownerId: InventoryPanel.MODAL_OWNER,
+        title: '确认摧毁',
+        subtitle: `${item.name} · 数量 x${selectedCount}`,
+        hint: '点击空白处取消',
+        bodyHtml: `
+          <div class="panel-section">
+            <div class="empty-hint">摧毁后物品会永久消失，无法找回。</div>
+          </div>
+          <div class="inventory-detail-actions">
+            <div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch">
+              <button class="small-btn ghost" type="button" data-inventory-destroy-back>返回修改数量</button>
+              <button class="small-btn danger" type="button" data-inventory-destroy-confirm>确认摧毁</button>
+            </div>
+          </div>
+        `,
+        onClose: () => {
+          this.selectedSlotIndex = null;
+          this.selectedItemKey = null;
+          this.actionDialog = null;
+        },
+        onAfterRender: (body) => {
+          body.querySelector<HTMLElement>('[data-inventory-destroy-back]')?.addEventListener('click', (event) => {
+            event.stopPropagation();
+            this.actionDialog = {
+              ...dialog,
+              confirmDestroy: false,
+            };
+            this.renderModal();
+          });
+          body.querySelector<HTMLElement>('[data-inventory-destroy-confirm]')?.addEventListener('click', (event) => {
+            event.stopPropagation();
+            this.onDestroyItem?.(slotIndex, selectedCount);
+            this.closeModal();
+          });
+        },
+      });
+      return;
+    }
+
+    detailModalHost.open({
+      ownerId: InventoryPanel.MODAL_OWNER,
+      title: labels.title,
+      subtitle: `${item.name} · 当前最多 ${maxCount} 个`,
+      hint: '点击空白处取消',
+      bodyHtml: `
+        <div class="quest-detail-section">
+          <strong>选择数量</strong>
+          <div class="inventory-batch-use-row inventory-batch-use-row--dialog">
+            <button class="small-btn ghost" type="button" data-inventory-quick-count="1">1 个</button>
+            <button class="small-btn ghost" type="button" data-inventory-quick-count="${halfCount}">一半</button>
+            <button class="small-btn ghost" type="button" data-inventory-quick-count="${maxCount}">全部</button>
+            <input
+              class="gm-inline-input"
+              data-inventory-action-count="true"
+              type="number"
+              min="1"
+              max="${maxCount}"
+              step="1"
+              value="${selectedCount}"
+              inputmode="numeric"
+            />
+          </div>
+        </div>
+        <div class="inventory-detail-actions">
+          <div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch">
+            <button class="small-btn ghost" type="button" data-inventory-action-cancel>返回详情</button>
+            <button class="small-btn ${labels.danger ? 'danger' : ''}" type="button" data-inventory-action-confirm>${labels.confirm}</button>
+          </div>
+        </div>
+      `,
+      onClose: () => {
+        this.selectedSlotIndex = null;
+        this.selectedItemKey = null;
+        this.actionDialog = null;
+      },
+      onAfterRender: (body) => {
+        const countInput = body.querySelector<HTMLInputElement>('[data-inventory-action-count="true"]');
+        this.syncActionCountInputWidth(countInput, maxCount);
+        countInput?.addEventListener('input', () => {
+          const nextValue = String(this.getUseCountFromInput(countInput, maxCount));
+          if (countInput.value !== nextValue) {
+            countInput.value = nextValue;
+          }
+          this.syncActionCountInputWidth(countInput, maxCount);
+        });
+        body.querySelectorAll<HTMLElement>('[data-inventory-quick-count]').forEach((button) => button.addEventListener('click', (event) => {
+          event.stopPropagation();
+          if (!countInput) {
+            return;
+          }
+          countInput.value = button.dataset.inventoryQuickCount ?? '1';
+          this.syncActionCountInputWidth(countInput, maxCount);
+        }));
+        body.querySelector<HTMLElement>('[data-inventory-action-cancel]')?.addEventListener('click', (event) => {
+          event.stopPropagation();
+          this.actionDialog = null;
+          this.renderModal();
+        });
+        body.querySelector<HTMLElement>('[data-inventory-action-confirm]')?.addEventListener('click', (event) => {
+          event.stopPropagation();
+          const selected = this.getUseCountFromInput(countInput, maxCount);
+          if (dialog.kind === 'use') {
+            this.onUseItem?.(slotIndex, selected);
+            this.closeModal();
+            return;
+          }
+          if (dialog.kind === 'drop') {
+            this.onDropItem?.(slotIndex, selected);
+            this.closeModal();
+            return;
+          }
+          this.actionDialog = {
+            ...dialog,
+            defaultCount: selected,
+            confirmDestroy: true,
+          };
+          this.renderModal();
         });
       },
     });
@@ -613,21 +782,7 @@ export class InventoryPanel {
       this.closeModal();
       return true;
     }
-
-    const { item } = resolved;
-    const subtitleNode = document.getElementById('detail-modal-subtitle');
-    const typeNode = document.querySelector<HTMLElement>('[data-inventory-modal-type="true"]');
-    const countNode = document.querySelector<HTMLElement>('[data-inventory-modal-count="true"]');
-    const descNode = document.querySelector<HTMLElement>('[data-inventory-modal-desc="true"]');
-    if (!subtitleNode || !typeNode || !countNode || !descNode) {
-      return false;
-    }
-
-    subtitleNode.textContent = `${ITEM_TYPE_LABELS[item.type] ?? item.type} · 数量 x${item.count}`;
-    typeNode.textContent = ITEM_TYPE_LABELS[item.type] ?? item.type;
-    countNode.textContent = `x${item.count}`;
-    descNode.textContent = item.desc;
-    return true;
+    return false;
   }
 
   private resolveSelectedItem(inventory: Inventory): { item: ItemStack; slotIndex: number } | null {
@@ -652,6 +807,60 @@ export class InventoryPanel {
 
   private canUseItem(item: ItemStack): boolean {
     return USABLE_ITEM_TYPES.has(item.type);
+  }
+
+  private canBatchUseItem(item: ItemStack): boolean {
+    return item.allowBatchUse === true && this.canUseItem(item) && item.count > 1;
+  }
+
+  private getUseCountFromInput(input: HTMLInputElement | null, maxCount: number): number {
+    const rawValue = input?.value ?? '1';
+    const parsed = Number.parseInt(rawValue, 10);
+    if (!Number.isFinite(parsed)) {
+      return 1;
+    }
+    return Math.max(1, Math.min(maxCount, parsed));
+  }
+
+  private syncActionCountInputWidth(input: HTMLInputElement | null, maxCount: number): void {
+    if (!input) {
+      return;
+    }
+    const valueLength = Math.max(1, input.value.trim().length);
+    const maxLength = Math.max(1, String(maxCount).length);
+    const chars = Math.max(4, valueLength, maxLength) + 1;
+    input.style.width = `calc(${chars}ch + 18px)`;
+  }
+
+  private canBatchDropOrDestroy(item: ItemStack): boolean {
+    return item.count > 1;
+  }
+
+  private openActionDialog(kind: InventoryActionKind, slotIndex: number, defaultCount: number): void {
+    this.actionDialog = {
+      kind,
+      slotIndex,
+      defaultCount: Math.max(1, defaultCount),
+      confirmDestroy: false,
+    };
+    this.renderModal();
+  }
+
+  private resolveActionLabels(kind: InventoryActionKind): {
+    title: string;
+    confirm: string;
+    danger: boolean;
+  } {
+    switch (kind) {
+      case 'use':
+        return { title: '批量使用', confirm: '确认使用', danger: false };
+      case 'drop':
+        return { title: '丢下物品', confirm: '确认丢下', danger: true };
+      case 'destroy':
+        return { title: '摧毁物品', confirm: '继续摧毁', danger: true };
+      default:
+        return { title: '操作物品', confirm: '确认', danger: false };
+    }
   }
 
   private getPrimaryAction(item: ItemStack): { label: string; kind: 'use' | 'equip' } | null {
@@ -708,6 +917,7 @@ export class InventoryPanel {
   private closeModal(): void {
     this.selectedSlotIndex = null;
     this.selectedItemKey = null;
+    this.actionDialog = null;
     this.tooltipCell = null;
     detailModalHost.close(InventoryPanel.MODAL_OWNER);
   }

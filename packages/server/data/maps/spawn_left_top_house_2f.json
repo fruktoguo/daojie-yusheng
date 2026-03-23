@@ -10,33 +10,47 @@
   "floorName": "二楼",
   "spaceVisionMode": "parent_overlay",
   "description": "云来镇左上角民居的二层木楼，临窗处放着一只旧木宝箱。",
+  "dangerLevel": 1,
+  "recommendedRealm": "Entry",
   "tiles": [
     "WWW######WWW",
-    "#..........#",
+    "#S.........#",
     "#..........#",
     "#....oo....#",
     "#..........#",
-    "#.S........#",
+    "#..........#",
     "#..........#",
     "WWW######WWW"
   ],
   "portals": [
     {
-      "x": 2,
-      "y": 5,
+      "x": 1,
+      "y": 1,
       "targetMapId": "spawn",
       "targetX": 7,
       "targetY": 11,
       "kind": "stairs",
-      "trigger": "auto"
+      "trigger": "auto",
+      "allowPlayerOverlap": true,
+      "hidden": false,
+      "observeTitle": "",
+      "observeDesc": ""
     }
   ],
-  "dangerLevel": 1,
-  "recommendedRealm": "Entry",
   "spawnPoint": {
     "x": 3,
     "y": 5
   },
+  "time": {
+    "offsetTicks": 0,
+    "scale": 1,
+    "light": {
+      "base": 0,
+      "timeInfluence": 100
+    },
+    "palette": {}
+  },
+  "auras": [],
   "landmarks": [
     {
       "id": "lm_spawn_left_top_house_2f_chest",
@@ -48,9 +62,27 @@
         "grade": "mortal",
         "refreshTicks": 300,
         "drops": [
-          { "itemId": "minor_qi_pill", "name": "小还灵丹", "type": "consumable", "count": 1, "chance": 1 },
-          { "itemId": "pill.minor_heal", "name": "回春散", "type": "consumable", "count": 2, "chance": 1 },
-          { "itemId": "book_wind_step", "name": "《踏风步》", "type": "skill_book", "count": 1, "chance": 0.3 }
+          {
+            "itemId": "minor_qi_pill",
+            "name": "小还灵丹",
+            "type": "consumable",
+            "count": 1,
+            "chance": 1
+          },
+          {
+            "itemId": "pill.minor_heal",
+            "name": "回春散",
+            "type": "consumable",
+            "count": 2,
+            "chance": 1
+          },
+          {
+            "itemId": "book_wind_step",
+            "name": "《踏风步》",
+            "type": "skill_book",
+            "count": 1,
+            "chance": 0.3
+          }
         ]
       }
     }

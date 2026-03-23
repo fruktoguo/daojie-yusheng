@@ -31,6 +31,7 @@ import { getAccessToken } from './ui/auth-api';
 import {
   ActionDef,
   computeAffectedCellsFromAnchor,
+  DEFAULT_AURA_LEVEL_BASE_VALUE,
   Direction,
   encodeTileTargetRef,
   GAME_TIME_PHASES,
@@ -51,6 +52,7 @@ import {
   TileType,
   TechniqueState,
   S2C_Init,
+  S2C_TileRuntimeDetail,
   S2C_Tick,
   TargetingGeometrySpec,
   TargetingShape,
@@ -88,6 +90,15 @@ const CONNECTION_RECOVERY_RETRY_MS = 1200;
 const SERVER_PING_INTERVAL_MS = 5000;
 const SOCKET_PING_TIMEOUT_MS = 4000;
 const CURRENT_TIME_REFRESH_MS = 250;
+let auraLevelBaseValue = DEFAULT_AURA_LEVEL_BASE_VALUE;
+let activeObservedTile:
+  | {
+      mapId: string;
+      x: number;
+      y: number;
+    }
+  | null = null;
+let activeObservedTileDetail: S2C_TileRuntimeDetail | null = null;
 
 let connectionRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
 let connectionRecoveryPromise: Promise<void> | null = null;
@@ -339,6 +350,8 @@ const targetingBadgeEl = document.getElementById('map-targeting-indicator');
 const observeModalEl = document.getElementById('observe-modal');
 const observeModalBodyEl = document.getElementById('observe-modal-body');
 const observeModalSubtitleEl = document.getElementById('observe-modal-subtitle');
+const observeModalShellEl = observeModalEl?.querySelector('.observe-modal-shell') as HTMLElement | null;
+const observeModalAsideEl = document.getElementById('observe-modal-aside');
 const observeBuffTooltip = new FloatingTooltip();
 const senseQiTooltip = new FloatingTooltip();
 let pendingTargetedAction: {
@@ -687,6 +700,7 @@ function syncSenseQiOverlay(): void {
   mapRuntime.setSenseQiOverlay({
     hoverX: hoveredMapTile?.x,
     hoverY: hoveredMapTile?.y,
+    levelBaseValue: auraLevelBaseValue,
   });
 
   if (pendingTargetedAction || !hoveredMapTile) {
@@ -704,7 +718,7 @@ function syncSenseQiOverlay(): void {
     '感气视角',
     [
       `坐标 (${hoveredMapTile.x}, ${hoveredMapTile.y})`,
-      `灵气 ${Math.max(0, Math.floor(tile.aura ?? 0))}`,
+      formatAuraLevelText(tile.aura ?? 0),
     ],
     hoveredMapTile.clientX,
     hoveredMapTile.clientY,
@@ -722,11 +736,15 @@ function hideObserveModal(): void {
   observeBuffTooltip.hide();
   observeModalEl?.classList.add('hidden');
   observeModalEl?.setAttribute('aria-hidden', 'true');
+  observeModalAsideEl?.classList.add('hidden');
+  observeModalAsideEl?.setAttribute('aria-hidden', 'true');
+  activeObservedTile = null;
+  activeObservedTileDetail = null;
 }
 
-function buildObservationRows(rows: Array<{ label: string; value: string }>): string {
+function buildObservationRows(rows: Array<{ label: string; value?: string; valueHtml?: string }>): string {
   return rows
-    .map((row) => `<div class="observe-modal-row"><span class="observe-modal-label">${escapeHtml(row.label)}</span><span class="observe-modal-value">${escapeHtml(row.value)}</span></div>`)
+    .map((row) => `<div class="observe-modal-row"><span class="observe-modal-label">${escapeHtml(row.label)}</span><span class="observe-modal-value">${row.valueHtml ?? escapeHtml(row.value ?? '')}</span></div>`)
     .join('');
 }
 
@@ -735,6 +753,139 @@ function formatCurrentMax(current?: number, max?: number): string {
     return '未明';
   }
   return `${Math.max(0, Math.round(current))} / ${Math.max(0, Math.round(max))}`;
+}
+
+function syncAuraLevelBaseValue(nextValue?: number): void {
+  if (typeof nextValue !== 'number' || !Number.isFinite(nextValue) || nextValue <= 0) {
+    return;
+  }
+  auraLevelBaseValue = Math.max(1, Math.round(nextValue));
+}
+
+function formatAuraLevelText(auraValue: number): string {
+  return `灵气 ${Math.max(0, Math.round(auraValue))}`;
+}
+
+function formatAuraValueText(auraValue: number): string {
+  return `${Math.max(0, Math.round(auraValue))}`;
+}
+
+type TileRuntimeResourceDetail = S2C_TileRuntimeDetail['resources'][number];
+type ObserveAsideCard = {
+  mark?: string;
+  title: string;
+  lines: string[];
+  tone?: 'buff' | 'debuff';
+};
+
+function getObservedTileRuntimeResources(targetX: number, targetY: number): TileRuntimeResourceDetail[] {
+  if (
+    !myPlayer
+    || !activeObservedTile
+    || activeObservedTile.mapId !== myPlayer.mapId
+    || activeObservedTile.x !== targetX
+    || activeObservedTile.y !== targetY
+    || !activeObservedTileDetail
+  ) {
+    return [];
+  }
+  return activeObservedTileDetail.resources;
+}
+
+function formatObservedResourceOverview(resource: TileRuntimeResourceDetail, fallbackLevel?: number): string {
+  if (typeof resource.level === 'number') {
+    return `${Math.max(0, Math.round(resource.level))}`;
+  }
+  if (typeof fallbackLevel === 'number') {
+    return `${Math.max(0, Math.round(fallbackLevel))}`;
+  }
+  return formatAuraValueText(resource.value);
+}
+
+function buildObservedResourceAsideLines(resource: TileRuntimeResourceDetail): string[] {
+  const lines = [`当前数值：${formatAuraValueText(resource.value)}`];
+  if (typeof resource.level === 'number') {
+    lines.unshift(`当前等级：${Math.max(0, Math.round(resource.level))}`);
+  }
+  if (typeof resource.sourceValue === 'number' && resource.sourceValue > 0) {
+    lines.push(`源点基准：${formatAuraValueText(resource.sourceValue)}`);
+  }
+  return lines;
+}
+
+function isMatchingObservedTile(targetX: number, targetY: number): boolean {
+  return Boolean(
+    myPlayer
+    && activeObservedTile
+    && activeObservedTile.mapId === myPlayer.mapId
+    && activeObservedTile.x === targetX
+    && activeObservedTile.y === targetY,
+  );
+}
+
+function buildObservedResourceAsideCards(targetX: number, targetY: number, tile: Tile): ObserveAsideCard[] {
+  if (!myPlayer?.senseQiActive || !isMatchingObservedTile(targetX, targetY)) {
+    return [];
+  }
+
+  const detailResources = getObservedTileRuntimeResources(targetX, targetY);
+  if (!activeObservedTileDetail) {
+    if ((tile.aura ?? 0) <= 0) {
+      return [];
+    }
+    return [{
+      mark: '气',
+      title: '气机细察',
+      lines: [
+        `灵气等级：${Math.max(0, Math.round(tile.aura ?? 0))}`,
+        '感气决运转中，正在细察此地气机。',
+      ],
+      tone: 'buff',
+    }];
+  }
+
+  if (detailResources.length === 0) {
+    return [];
+  }
+
+  return detailResources.map((resource) => {
+    const lines = buildObservedResourceAsideLines(resource);
+    if (resource.key === 'aura' && !lines.some((line) => line.startsWith('当前等级：'))) {
+      lines.unshift(`当前等级：${formatObservedResourceOverview(resource, tile.aura ?? 0)}`);
+    }
+    return {
+      mark: resource.label.slice(0, 1),
+      title: resource.label,
+      lines,
+      tone: 'buff',
+    };
+  });
+}
+
+function renderObserveAsideCards(cards: ObserveAsideCard[]): void {
+  if (!observeModalAsideEl) {
+    return;
+  }
+  if (cards.length === 0) {
+    observeModalAsideEl.innerHTML = '';
+    observeModalAsideEl.classList.add('hidden');
+    observeModalAsideEl.setAttribute('aria-hidden', 'true');
+    return;
+  }
+  observeModalAsideEl.innerHTML = cards.map((card) => {
+    const detail = card.lines
+      .map((line) => `<span class="floating-tooltip-aside-line">${escapeHtml(line)}</span>`)
+      .join('');
+    return `<div class="floating-tooltip-aside-card ${card.tone === 'debuff' ? 'debuff' : 'buff'}">
+      <div class="floating-tooltip-aside-head">
+        ${card.mark ? `<span class="floating-tooltip-aside-mark">${escapeHtml(card.mark)}</span>` : ''}
+        <strong>${escapeHtml(card.title)}</strong>
+      </div>
+      ${detail ? `<div class="floating-tooltip-aside-detail">${detail}</div>` : ''}
+    </div>`;
+  }).join('');
+  observeModalAsideEl.classList.remove('hidden');
+  observeModalAsideEl.setAttribute('aria-hidden', 'false');
 }
 
 function formatBuffDuration(buff: VisibleBuffState): string {
@@ -1056,7 +1207,7 @@ function bindObserveBuffTooltips(root: ParentNode): void {
   });
 }
 
-function showObserveModal(targetX: number, targetY: number): void {
+function renderObserveModal(targetX: number, targetY: number): void {
   const tile = getVisibleTileAt(targetX, targetY);
   if (!tile) {
     showToast('只能观察当前视野内的格子');
@@ -1071,7 +1222,6 @@ function showObserveModal(targetX: number, targetY: number): void {
   });
   const terrainRows = [
     { label: '地貌', value: getTileTypeName(tile.type) },
-    { label: '灵气', value: `${Math.max(0, Math.floor(tile.aura ?? 0))}` },
     { label: '是否可通行', value: tile.walkable ? '可通行' : '不可通行' },
     { label: '行走消耗', value: formatTraversalCost(tile) },
     { label: '是否阻挡视线', value: tile.blocksSight ? '会阻挡' : '不会阻挡' },
@@ -1133,14 +1283,28 @@ function showObserveModal(targetX: number, targetY: number): void {
     `;
     bindObserveBuffTooltips(observeModalBodyEl);
   }
+  renderObserveAsideCards(buildObservedResourceAsideCards(targetX, targetY, tile));
   observeModalEl?.classList.remove('hidden');
   observeModalEl?.setAttribute('aria-hidden', 'false');
 }
 
+function showObserveModal(targetX: number, targetY: number): void {
+  if (!myPlayer) {
+    return;
+  }
+  activeObservedTile = { mapId: myPlayer.mapId, x: targetX, y: targetY };
+  activeObservedTileDetail = null;
+  renderObserveModal(targetX, targetY);
+  if (myPlayer.senseQiActive) {
+    socket.sendInspectTileRuntime(targetX, targetY);
+  }
+}
+
 // 面板回调绑定
 inventoryPanel.setCallbacks(
-  (slotIndex) => socket.sendUseItem(slotIndex),
+  (slotIndex, count) => socket.sendUseItem(slotIndex, count),
   (slotIndex, count) => socket.sendDropItem(slotIndex, count),
+  (slotIndex, count) => socket.sendDestroyItem(slotIndex, count),
   (slotIndex) => socket.sendEquip(slotIndex),
   () => socket.sendSortInventory(),
 );
@@ -1316,6 +1480,19 @@ socket.onActionsUpdate((data) => {
 });
 socket.onLootWindowUpdate((data) => {
   lootPanel.update(data.window);
+});
+socket.onTileRuntimeDetail((data) => {
+  if (
+    !myPlayer
+    || !activeObservedTile
+    || activeObservedTile.mapId !== myPlayer.mapId
+    || activeObservedTile.x !== data.x
+    || activeObservedTile.y !== data.y
+  ) {
+    return;
+  }
+  activeObservedTileDetail = data;
+  renderObserveModal(data.x, data.y);
 });
 socket.onQuestUpdate((data) => {
   if (myPlayer) myPlayer.quests = data.quests;
@@ -1760,6 +1937,9 @@ window.addEventListener('keydown', (event) => {
 observeModalEl?.addEventListener('click', () => {
   hideObserveModal();
 });
+observeModalShellEl?.addEventListener('click', (event) => {
+  event.stopPropagation();
+});
 
 mapRuntime.setInteractionCallbacks({
   onTarget: (target) => {
@@ -1851,6 +2031,7 @@ socket.onInit((data: S2C_Init) => {
   pendingTargetedAction = null;
   hoveredMapTile = null;
   hideObserveModal();
+  syncAuraLevelBaseValue(data.auraLevelBaseValue);
   myPlayer = data.self;
   syncCurrentTimeState(data.time ?? null);
   latestAttrUpdate = buildAttrStateFromPlayer(myPlayer);
@@ -1903,6 +2084,7 @@ socket.onTick((data: S2C_Tick) => {
   if (!myPlayer) return;
   let mapChanged = false;
   const previousMapId = myPlayer.mapId;
+  syncAuraLevelBaseValue(data.auraLevelBaseValue);
   syncCurrentTimeTickInterval(data.dt);
   if (data.time) {
     syncCurrentTimeState(data.time);
@@ -1955,7 +2137,7 @@ socket.onTick((data: S2C_Tick) => {
       break;
     }
   }
-  if (data.v || data.t) {
+  if (data.v || data.t || data.auraLevelBaseValue !== undefined) {
     syncSenseQiOverlay();
   }
 

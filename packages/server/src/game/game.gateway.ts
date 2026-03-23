@@ -17,9 +17,11 @@ import {
   C2S_Move,
   C2S_MoveTo,
   C2S_Heartbeat,
+  C2S_InspectTileRuntime,
   C2S_Ping,
   C2S_UseItem,
   C2S_DropItem,
+  C2S_DestroyItem,
   C2S_TakeLoot,
   C2S_SortInventory,
   C2S_Equip,
@@ -37,10 +39,13 @@ import {
   S2C_Init,
   S2C_SystemMsg,
   S2C_Pong,
+  S2C_TileRuntimeDetail,
   DEFAULT_BASE_ATTRS,
   BASE_MAX_HP,
   HP_PER_CONSTITUTION,
   Direction,
+  getAuraLevel,
+  VisibleTile,
   VIEW_RADIUS,
   encodeServerEventPayload,
 } from '@mud/shared';
@@ -308,6 +313,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.tickService.executeImmediate(player, 'dropItem', data);
   }
 
+  @SubscribeMessage(C2S.DestroyItem)
+  handleDestroyItem(client: Socket, data: C2S_DestroyItem) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+    this.tickService.executeImmediate(player, 'destroyItem', data);
+  }
+
   @SubscribeMessage(C2S.TakeLoot)
   handleTakeLoot(client: Socket, data: C2S_TakeLoot) {
     const playerId = client.data?.playerId as string;
@@ -328,6 +341,26 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     this.tickService.executeImmediate(player, 'sortInventory', data);
+  }
+
+  @SubscribeMessage(C2S.InspectTileRuntime)
+  handleInspectTileRuntime(client: Socket, data: C2S_InspectTileRuntime) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+
+    const time = this.timeService.buildPlayerTimeState(player);
+    const visibility = this.aoiService.getVisibility(player, time.effectiveViewRange);
+    const key = `${Math.round(data.x)},${Math.round(data.y)}`;
+    if (!visibility.visibleKeys.has(key)) {
+      return;
+    }
+
+    const detail = this.mapService.getTileRuntimeDetail(player.mapId, Math.round(data.x), Math.round(data.y));
+    if (!detail) {
+      return;
+    }
+    client.emit(S2C.TileRuntimeDetail, detail satisfies S2C_TileRuntimeDetail);
   }
 
   @SubscribeMessage(C2S.Equip)
@@ -401,7 +434,17 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         target.id === player.id ? '#ff0' : target.isBot ? '#6bb8ff' : '#0f0',
       ));
 
-    const initData: S2C_Init = { self: player, mapMeta, minimap, visibleMinimapMarkers, minimapLibrary, tiles: visibility.tiles, players: nearbyPlayers, time };
+    const initData: S2C_Init = {
+      self: player,
+      mapMeta,
+      minimap,
+      visibleMinimapMarkers,
+      minimapLibrary,
+      tiles: this.toClientVisibleTiles(visibility.tiles),
+      players: nearbyPlayers,
+      time,
+      auraLevelBaseValue: this.tickService.getAuraLevelBaseValue(),
+    };
     client.emit(S2C.Init, initData);
     client.emit(S2C.SuggestionUpdate, { suggestions: this.suggestionService.getAll() });
   }
@@ -446,6 +489,19 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private broadcastSuggestions() {
     const suggestions = this.suggestionService.getAll();
     this.server.emit(S2C.SuggestionUpdate, { suggestions });
+  }
+
+  private toClientVisibleTiles(tiles: VisibleTile[][]): VisibleTile[][] {
+    const auraLevelBaseValue = this.tickService.getAuraLevelBaseValue();
+    return tiles.map((row) => row.map((tile) => {
+      if (!tile) {
+        return null;
+      }
+      return {
+        ...tile,
+        aura: getAuraLevel(tile.aura ?? 0, auraLevelBaseValue),
+      } satisfies NonNullable<VisibleTile>;
+    }));
   }
 
   /** 解析登录位置：若原坐标不可通行则就近寻找可行走格 */

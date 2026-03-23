@@ -3,7 +3,17 @@
  */
 
 import { IRenderer, SenseQiOverlayState, TargetingOverlayState } from './types';
-import { GameTimeState, NpcQuestMarker, Tile, TileType, TimePhaseId, VisibleBuffState } from '@mud/shared';
+import {
+  DEFAULT_AURA_LEVEL_BASE_VALUE,
+  GameTimeState,
+  NpcQuestMarker,
+  normalizeAuraLevelBaseValue,
+  SENSE_QI_OVERLAY_STYLE,
+  Tile,
+  TileType,
+  TimePhaseId,
+  VisibleBuffState,
+} from '@mud/shared';
 import { Camera } from './camera';
 import { getCellSize } from '../display';
 
@@ -70,7 +80,6 @@ const PATH_ARROW_COLOR = 'rgba(179, 244, 255, 0.95)';
 const PATH_TARGET_FILL_COLOR = 'rgba(244, 144, 64, 0.34)';
 const PATH_TARGET_STROKE_COLOR = 'rgba(255, 216, 138, 0.96)';
 const PATH_TARGET_CORE_COLOR = 'rgba(255, 244, 219, 0.98)';
-const SENSE_QI_HOVER_STROKE = 'rgba(189, 231, 255, 0.95)';
 const TILE_HIDDEN_FADE_MS = 220;
 const TIME_FILTER_LERP = 0.12;
 
@@ -114,12 +123,13 @@ function easeInOutCubic(t: number): number {
   return 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
-function getSenseQiOverlayStyle(aura: number): string {
-  const normalized = Math.max(0, Math.min(aura, 6)) / 6;
-  const red = Math.round(8 + normalized * 28);
-  const green = Math.round(12 + normalized * 96);
-  const blue = Math.round(16 + normalized * 224);
-  const alpha = 0.72 - normalized * 0.18;
+function getSenseQiOverlayStyle(aura: number, levelBaseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): string {
+  void levelBaseValue;
+  const normalized = Math.max(0, Math.min(aura, SENSE_QI_OVERLAY_STYLE.maxAuraLevel)) / SENSE_QI_OVERLAY_STYLE.maxAuraLevel;
+  const red = Math.round(SENSE_QI_OVERLAY_STYLE.baseRed + normalized * SENSE_QI_OVERLAY_STYLE.redRange);
+  const green = Math.round(SENSE_QI_OVERLAY_STYLE.baseGreen + normalized * SENSE_QI_OVERLAY_STYLE.greenRange);
+  const blue = Math.round(SENSE_QI_OVERLAY_STYLE.baseBlue + normalized * SENSE_QI_OVERLAY_STYLE.blueRange);
+  const alpha = SENSE_QI_OVERLAY_STYLE.baseAlpha - normalized * SENSE_QI_OVERLAY_STYLE.alphaRange;
   return `rgba(${red}, ${green}, ${blue}, ${alpha.toFixed(3)})`;
 }
 
@@ -249,6 +259,7 @@ export class TextRenderer implements IRenderer {
     const sh = ctx.canvas.height;
     const cellSize = getCellSize();
     const now = performance.now();
+    const senseQiLevelBaseValue = normalizeAuraLevelBaseValue(this.senseQiOverlay?.levelBaseValue);
 
     this.syncTileVisibilityTransitions(visibleTiles, tileCache, now);
 
@@ -278,11 +289,6 @@ export class TextRenderer implements IRenderer {
         if (tile) {
           ctx.fillStyle = TILE_BG[tile.type] ?? '#333';
           ctx.fillRect(sx, sy, cellSize, cellSize);
-
-          if (this.senseQiOverlay && isVisible) {
-            ctx.fillStyle = getSenseQiOverlayStyle(tile.aura);
-            ctx.fillRect(sx, sy, cellSize, cellSize);
-          }
 
           // 路径高亮
           if (this.pathKeys.has(key)) {
@@ -324,12 +330,6 @@ export class TextRenderer implements IRenderer {
             ctx.fillRect(barX, barY, barW * ratio, 3);
           }
 
-          if (this.senseQiOverlay && isVisible && gx === this.senseQiOverlay.hoverX && gy === this.senseQiOverlay.hoverY) {
-            ctx.strokeStyle = SENSE_QI_HOVER_STROKE;
-            ctx.lineWidth = 2;
-            ctx.strokeRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
-          }
-
           if (this.targetingOverlay) {
             const dx = gx - this.targetingOverlay.originX;
             const dy = gy - this.targetingOverlay.originY;
@@ -361,6 +361,17 @@ export class TextRenderer implements IRenderer {
           const overlayAlpha = 0.72 * visibleFade;
           ctx.fillStyle = `rgba(12, 10, 8, ${overlayAlpha.toFixed(3)})`;
           ctx.fillRect(sx, sy, cellSize, cellSize);
+        }
+
+        if (tile && this.senseQiOverlay) {
+          const senseQiAura = isVisible ? tile.aura : 0;
+          ctx.fillStyle = getSenseQiOverlayStyle(senseQiAura, senseQiLevelBaseValue);
+          ctx.fillRect(sx, sy, cellSize, cellSize);
+          if (isVisible && gx === this.senseQiOverlay.hoverX && gy === this.senseQiOverlay.hoverY) {
+            ctx.strokeStyle = SENSE_QI_OVERLAY_STYLE.hoverStroke;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
+          }
         }
       }
     }

@@ -1560,7 +1560,15 @@
     .observe-modal.hidden {
       display: none;
     }
+    .observe-modal-shell {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 14px;
+      width: min(1520px, 100%);
+    }
     .observe-modal-card {
+      flex: 1 1 auto;
       width: min(1280px, 100%);
       max-height: min(84vh, 860px);
       overflow-y: auto;
@@ -1570,6 +1578,17 @@
         var(--surface-gradient-paper);
       border: 1.5px solid var(--ink-black);
       box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.16);
+    }
+    .observe-modal-aside {
+      display: grid;
+      gap: 8px;
+      width: min(220px, calc(100vw - 48px));
+      max-height: min(84vh, 860px);
+      overflow-y: auto;
+      flex: 0 0 auto;
+    }
+    .observe-modal-aside.hidden {
+      display: none;
     }
     .observe-modal-head {
       display: flex;
@@ -1762,6 +1781,16 @@
       text-align: center;
     }
     @media (max-width: 820px) {
+      .observe-modal-shell {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .observe-modal-card {
+        width: 100%;
+      }
+      .observe-modal-aside {
+        width: 100%;
+      }
       .observe-modal-top {
         grid-template-columns: minmax(0, 1fr);
       }
@@ -3723,22 +3752,51 @@
     .inventory-detail-grid {
       margin-bottom: 4px;
     }
+    .inventory-batch-use-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .inventory-batch-use-row--dialog {
+      margin-top: 4px;
+    }
+    .inventory-batch-use-row .gm-inline-input {
+      width: auto;
+      min-width: calc(5ch + 18px);
+    }
+    .inventory-batch-use-hint {
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+    }
     .inventory-detail-actions {
       display: flex;
-      justify-content: flex-end;
+      align-items: center;
+      justify-content: space-between;
       gap: 8px;
       flex-wrap: wrap;
       margin-top: 16px;
+    }
+    .inventory-detail-actions-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .inventory-detail-actions-group--right {
+      justify-content: flex-end;
+      margin-left: auto;
+    }
+    .inventory-detail-actions-group--stretch {
+      width: 100%;
     }
     .inventory-detail-actions .small-btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-width: 26px;
-      min-height: 44px;
-      padding: 4px 2px;
-      writing-mode: vertical-rl;
-      text-orientation: mixed;
+      min-width: 84px;
+      min-height: 32px;
+      padding: 4px 10px;
     }
 
     /* 行动按钮 */
@@ -4703,15 +4761,18 @@
   </div>
 
   <div id="observe-modal" class="observe-modal hidden" aria-hidden="true">
-    <div class="observe-modal-card">
-      <div class="observe-modal-head">
-        <div>
-          <div class="observe-modal-title">观察</div>
-          <div id="observe-modal-subtitle" class="observe-modal-subtitle"></div>
+    <div class="observe-modal-shell">
+      <div class="observe-modal-card">
+        <div class="observe-modal-head">
+          <div>
+            <div class="observe-modal-title">观察</div>
+            <div id="observe-modal-subtitle" class="observe-modal-subtitle"></div>
+          </div>
+          <div class="observe-modal-hint">点击空白处关闭</div>
         </div>
-        <div class="observe-modal-hint">点击空白处关闭</div>
+        <div id="observe-modal-body"></div>
       </div>
-      <div id="observe-modal-body"></div>
+      <aside id="observe-modal-aside" class="observe-modal-aside hidden" aria-hidden="true"></aside>
     </div>
   </div>
 

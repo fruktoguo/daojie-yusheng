@@ -51,6 +51,7 @@ export interface MapTargetingOverlayState {
 export interface MapSenseQiOverlayState {
   hoverX?: number;
   hoverY?: number;
+  levelBaseValue?: number;
 }
 
 export interface MapOverlayState {

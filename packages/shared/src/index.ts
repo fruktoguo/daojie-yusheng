@@ -15,3 +15,5 @@ export * from './value';
 export * from './combat';
 export * from './item-stack';
 export * from './network-protobuf';
+export * from './map-document';
+export * from './aura';

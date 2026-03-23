@@ -21,6 +21,7 @@ export interface TargetingOverlayState {
 export interface SenseQiOverlayState {
   hoverX?: number;
   hoverY?: number;
+  levelBaseValue?: number;
 }
 
 /** 渲染器统一接口，当前由 TextRenderer 实现，后续可替换为 SpriteRenderer */

@@ -1,5 +1,6 @@
 [
   { "itemId": "pill.minor_heal", "name": "回春散", "type": "consumable", "desc": "疗养筋骨，恢复少量气血。", "healAmount": 20 },
+  { "itemId": "spirit_stone", "name": "灵石", "type": "consumable", "desc": "内蕴温和灵机，捏碎后可滋养脚下地脉。使用时为当前所处地块增加 100 点灵力，可批量使用。", "tileAuraGainAmount": 100, "allowBatchUse": true },
   { "itemId": "minor_qi_pill", "name": "小还灵丹", "type": "consumable", "desc": "温养经脉，恢复较多气血。", "healAmount": 36 },
   { "itemId": "major_qi_pill", "name": "大还灵丹", "type": "consumable", "desc": "药力浑厚，适合中阶修士快速恢复。", "healAmount": 62 },
   { "itemId": "pure_yang_pill", "name": "纯阳丹", "type": "consumable", "desc": "以烈阳药引炼制，可在恶战后快速回气。", "healAmount": 90 },

@@ -10,10 +10,13 @@ import {
   ActionUpdateEntry,
   AutoBattleSkillConfig,
   CombatEffect,
+  DEFAULT_AURA_LEVEL_BASE_VALUE,
   DEFAULT_OFFLINE_PLAYER_TIMEOUT_SEC,
   Direction,
+  getAuraLevel,
   GroundItemPilePatch,
   GroundItemPileView,
+  normalizeAuraLevelBaseValue,
   parseTileTargetRef,
   PLAYER_HEARTBEAT_TIMEOUT_MS,
   PlayerState,
@@ -63,6 +66,7 @@ interface LastSentTickState {
   hp?: number;
   qi?: number;
   facing?: Direction;
+  auraLevelBaseValue?: number;
   pathSignature: string;
   visibilityKey?: string;
   tilePatchRevision?: number;
@@ -91,6 +95,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
   private persistTimer: ReturnType<typeof setInterval> | null = null;
   private minTickInterval = 1000;
   private offlinePlayerTimeoutMs = DEFAULT_OFFLINE_PLAYER_TIMEOUT_SEC * 1000;
+  private auraLevelBaseValue = DEFAULT_AURA_LEVEL_BASE_VALUE;
   private watcher: fs.FSWatcher | null = null;
   private readonly logger = new Logger(TickService.name);
 
@@ -126,7 +131,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       const startedAt = process.hrtime.bigint();
       Promise.all([
         this.playerService.persistAll(),
-        Promise.resolve().then(() => this.mapService.persistDynamicTileStates()),
+        Promise.resolve().then(() => this.mapService.persistTileRuntimeStates()),
       ]).then(() => {
         const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
         this.performanceService.recordCpuSection(elapsedMs, 'io_persist', '落盘与外部 I/O');
@@ -161,7 +166,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       this.watcher.close();
       this.watcher = null;
     }
-    this.mapService.persistDynamicTileStates();
+    this.mapService.persistTileRuntimeStates();
     await this.playerService.persistAll().catch((err) => {
       this.logger.error(`关闭落盘失败: ${err.message}`);
     });
@@ -179,9 +184,19 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         this.offlinePlayerTimeoutMs = Math.floor(cfg.offlinePlayerTimeoutSec * 1000);
         this.logger.log(`配置已加载: offlinePlayerTimeoutSec=${cfg.offlinePlayerTimeoutSec}s`);
       }
+      const nextAuraLevelBaseValue = normalizeAuraLevelBaseValue(cfg.auraLevelBaseValue, this.auraLevelBaseValue);
+      if (nextAuraLevelBaseValue !== this.auraLevelBaseValue) {
+        this.auraLevelBaseValue = nextAuraLevelBaseValue;
+        this.logger.log(`配置已加载: auraLevelBaseValue=${this.auraLevelBaseValue}`);
+      }
+      this.mapService.setAuraLevelBaseValue(this.auraLevelBaseValue);
     } catch (error) {
       this.logger.warn(`读取配置失败，使用默认值: ${error}`);
     }
+  }
+
+  getAuraLevelBaseValue(): number {
+    return this.auraLevelBaseValue;
   }
 
   private watchConfig() {
@@ -629,15 +644,34 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
   }
 
   /** 使用物品后应用其效果（回血、学功法、解锁地图等） */
-  private applyItemEffect(player: PlayerState, itemId: string, messages: WorldMessage[]) {
+  private applyItemEffect(player: PlayerState, itemId: string, messages: WorldMessage[], count = 1) {
     const item = this.contentService.getItem(itemId);
     if (!item) return;
 
     if (item.healAmount) {
-      player.hp = Math.min(player.maxHp, player.hp + item.healAmount);
+      const actualCount = Math.max(1, Math.floor(count));
+      const previousHp = player.hp;
+      player.hp = Math.min(player.maxHp, player.hp + item.healAmount * actualCount);
       messages.push({
         playerId: player.id,
-        text: `你服下 ${item.name}，恢复了 ${item.healAmount} 点气血。`,
+        text: `你服下 ${item.name}${actualCount > 1 ? ` x${actualCount}` : ''}，恢复了 ${player.hp - previousHp} 点气血。`,
+        kind: 'loot',
+      });
+      return;
+    }
+
+    if (item.tileAuraGainAmount) {
+      const actualCount = Math.max(1, Math.floor(count));
+      const currentAura = this.mapService.getTileAura(player.mapId, player.x, player.y);
+      const addedAura = item.tileAuraGainAmount * actualCount;
+      const nextAura = this.mapService.setTileAura(player.mapId, player.x, player.y, currentAura + addedAura);
+      if (nextAura === null) {
+        messages.push({ playerId: player.id, text: '此地灵脉紊乱，灵石未能生效。', kind: 'system' });
+        return;
+      }
+      messages.push({
+        playerId: player.id,
+        text: `你捏碎 ${item.name}${actualCount > 1 ? ` x${actualCount}` : ''}，脚下地块灵力增加 ${addedAura} 点。当前灵力 ${nextAura}。`,
         kind: 'loot',
       });
       return;
@@ -825,13 +859,22 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
 
     switch (type) {
       case 'useItem': {
-        const { slotIndex } = data as { slotIndex: number };
+        const { slotIndex, count } = data as { slotIndex: number; count?: number };
         const item = this.inventoryService.getItem(player, slotIndex);
         if (!item) {
           messages.push({ playerId: player.id, text: '物品不存在', kind: 'system' });
           break;
         }
+        const requestedCount = Number.isInteger(count) ? Number(count) : 1;
+        if (requestedCount <= 0) {
+          messages.push({ playerId: player.id, text: '使用数量无效', kind: 'system' });
+          break;
+        }
         const itemDef = this.contentService.getItem(item.itemId);
+        if (requestedCount > 1 && itemDef?.allowBatchUse !== true) {
+          messages.push({ playerId: player.id, text: '该物品不支持批量使用', kind: 'system' });
+          break;
+        }
         if (itemDef?.learnTechniqueId && player.techniques.some((technique) => technique.techId === itemDef.learnTechniqueId)) {
           messages.push({ playerId: player.id, text: '你已经学会这门功法了。', kind: 'system' });
           break;
@@ -845,13 +888,13 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
           });
           break;
         }
-        const useErr = this.inventoryService.useItem(player, slotIndex);
+        const useErr = this.inventoryService.useItem(player, slotIndex, requestedCount);
         if (useErr) {
           messages.push({ playerId: player.id, text: useErr, kind: 'system' });
           break;
         }
         this.playerService.markDirty(player.id, 'inv');
-        this.applyItemEffect(player, item.itemId, messages);
+        this.applyItemEffect(player, item.itemId, messages, requestedCount);
         break;
       }
       case 'dropItem': {
@@ -876,6 +919,21 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
             ? `你将 ${dropped.name} x${dropped.count} 放进了 ${container.name}。`
             : `你将 ${dropped.name} x${dropped.count} 丢在了地上。`,
           kind: 'loot',
+        });
+        break;
+      }
+      case 'destroyItem': {
+        const { slotIndex, count } = data as { slotIndex: number; count: number };
+        const destroyed = this.inventoryService.destroyItem(player, slotIndex, count);
+        if (!destroyed) {
+          messages.push({ playerId: player.id, text: '物品不存在或数量不足', kind: 'system' });
+          break;
+        }
+        this.playerService.markDirty(player.id, 'inv');
+        messages.push({
+          playerId: player.id,
+          text: `你摧毁了 ${destroyed.name} x${destroyed.count}。`,
+          kind: 'system',
         });
         break;
       }
@@ -1090,6 +1148,9 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       const visibility = this.measureCpuSection('broadcast_aoi', '广播: AOI 可见性', () => (
         this.aoiService.getVisibility(viewer, time.effectiveViewRange)
       ));
+      const clientVisibleTiles = this.measureCpuSection('broadcast_patch_tiles_transform', '地块 Patch: 客户端视图转换', () => (
+        this.toClientVisibleTiles(visibility.tiles)
+      ));
       const overlayParentMapId = this.mapService.getOverlayParentMapId(viewer.mapId);
 
       const visiblePlayers = this.measureCpuSection('broadcast_players', '广播: 玩家实体构建', () => (
@@ -1187,19 +1248,19 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
             ? []
             : this.buildSparseDirtyVisibleTilePatches(
               viewer.id,
-              visibility.tiles,
+              clientVisibleTiles,
               tileOriginX,
               tileOriginY,
               this.mapService.getDirtyTileKeys(viewer.mapId),
             )
           : this.buildSparseVisibleTilePatches(
             viewer.id,
-            visibility.tiles,
+            clientVisibleTiles,
             tileOriginX,
             tileOriginY,
           );
       if (visibilityChanged) {
-        this.syncVisibleTileCache(viewer.id, visibility.tiles, tileOriginX, tileOriginY);
+        this.syncVisibleTileCache(viewer.id, clientVisibleTiles, tileOriginX, tileOriginY);
       }
       const tickData: S2C_Tick = {
         p: this.buildSparseRenderEntities(viewer.id, visiblePlayers, visibleEntityIds),
@@ -1220,7 +1281,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         this.pruneRenderEntityCache(viewer.id, visibleEntityIds);
       });
       if (visibilityChanged) {
-        tickData.v = visibility.tiles;
+        tickData.v = clientVisibleTiles;
         tickData.visibleMinimapMarkers = this.mapService.getVisibleMinimapMarkers(viewer.mapId, visibility.visibleKeys);
       }
       if (mapChanged) {
@@ -1246,6 +1307,9 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       if (!previous || previous.facing !== viewer.facing) {
         tickData.f = viewer.facing;
       }
+      if (!previous || previous.auraLevelBaseValue !== this.auraLevelBaseValue) {
+        tickData.auraLevelBaseValue = this.auraLevelBaseValue;
+      }
       if (!previous || previous.pathSignature !== pathSignature) {
         tickData.path = path;
       }
@@ -1258,6 +1322,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         hp: viewer.hp,
         qi: viewer.qi,
         facing: viewer.facing,
+        auraLevelBaseValue: this.auraLevelBaseValue,
         pathSignature,
         visibilityKey,
         tilePatchRevision,
@@ -1273,6 +1338,20 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       return '';
     }
     return path.map(([x, y]) => `${x},${y}`).join('|');
+  }
+
+  private toClientVisibleTiles(tiles: VisibleTile[][]): VisibleTile[][] {
+    return tiles.map((row) => row.map((tile) => this.toClientVisibleTile(tile)));
+  }
+
+  private toClientVisibleTile(tile: VisibleTile): VisibleTile {
+    if (!tile) {
+      return null;
+    }
+    return {
+      ...this.cloneStructured(tile),
+      aura: getAuraLevel(tile.aura ?? 0, this.auraLevelBaseValue),
+    };
   }
 
   private buildVisibilityKey(viewer: PlayerState, effectiveViewRange: number): string {

@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@mud/shared": ["../shared/src/index.ts"]
+    }
+  },
+  "include": ["src", "../client/src/gm-map-editor.ts"]
+}

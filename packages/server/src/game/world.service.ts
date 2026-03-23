@@ -381,7 +381,7 @@ export class WorldService {
       type: 'toggle',
       desc: player.senseQiActive
         ? '收束神识回响，退出感气视角。'
-        : '展开感气视角，直接感知地块灵气浓淡与具体数值。',
+        : '展开感气视角，可直接感知地块灵气等阶；配合观察还能细察灵气值。',
       cooldownLeft: 0,
     }, {
       id: 'battle:force_attack',
@@ -514,7 +514,7 @@ export class WorldService {
       return {
         messages: [{
           playerId: player.id,
-          text: player.senseQiActive ? '你运起感气决，视野中诸地灵气浓淡尽显。' : '你收束感气决，周遭灵光重新隐去。',
+          text: player.senseQiActive ? '你运起感气决，视野中诸地灵气层次渐次显露。' : '你收束感气决，周遭灵光重新隐去。',
           kind: 'system',
         }],
         dirty: ['actions'],

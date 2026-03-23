@@ -389,6 +389,8 @@ export interface ItemStack {
   effects?: EquipmentEffectDef[];
   tags?: string[];
   mapUnlockId?: string;
+  tileAuraGainAmount?: number;
+  allowBatchUse?: boolean;
 }
 
 /** 背包 */

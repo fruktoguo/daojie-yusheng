@@ -28,6 +28,7 @@ message TickPayload {
   optional string minimapJson = 15;
   optional string minimapLibraryJson = 16;
   optional string visibleMinimapMarkersJson = 17;
+  optional uint32 auraLevelBaseValue = 18;
 }
 
 message TickRenderEntityPayload {
@@ -702,6 +703,7 @@ function toWireTick(payload: S2C_Tick): Record<string, unknown> {
   if (payload.minimap) wire.minimapJson = JSON.stringify(payload.minimap);
   if (payload.minimapLibrary) wire.minimapLibraryJson = JSON.stringify(payload.minimapLibrary);
   if (payload.visibleMinimapMarkers) wire.visibleMinimapMarkersJson = JSON.stringify(payload.visibleMinimapMarkers);
+  if (payload.auraLevelBaseValue !== undefined) wire.auraLevelBaseValue = payload.auraLevelBaseValue;
   return wire;
 }
 
@@ -768,6 +770,9 @@ function fromWireTick(wire: Record<string, unknown>): S2C_Tick {
   }
   if (hasOwn(wire, 'visibleMinimapMarkersJson') && typeof wire.visibleMinimapMarkersJson === 'string') {
     payload.visibleMinimapMarkers = parseJson<NonNullable<S2C_Tick['visibleMinimapMarkers']>>(wire.visibleMinimapMarkersJson);
+  }
+  if (hasOwn(wire, 'auraLevelBaseValue')) {
+    payload.auraLevelBaseValue = Number(wire.auraLevelBaseValue ?? 0);
   }
   return payload;
 }

@@ -24,8 +24,10 @@ export const C2S = {
   Chat: 'c:chat',
   UseItem: 'c:useItem',
   DropItem: 'c:dropItem',
+  DestroyItem: 'c:destroyItem',
   TakeLoot: 'c:takeLoot',
   SortInventory: 'c:sortInventory',
+  InspectTileRuntime: 'c:inspectTileRuntime',
   Equip: 'c:equip',
   Unequip: 'c:unequip',
   Cultivate: 'c:cultivate',
@@ -55,6 +57,7 @@ export const S2C = {
   TechniqueUpdate: 's:techniqueUpdate',
   ActionsUpdate: 's:actionsUpdate',
   LootWindowUpdate: 's:lootWindowUpdate',
+  TileRuntimeDetail: 's:tileRuntimeDetail',
   QuestUpdate: 's:questUpdate',
   SystemMsg: 's:systemMsg',
   SuggestionUpdate: 's:suggestionUpdate',
@@ -83,6 +86,11 @@ export interface C2S_Heartbeat {
 /** 客户端主动延迟探测 */
 export interface C2S_Ping {
   clientAt: number;
+}
+
+export interface C2S_InspectTileRuntime {
+  x: number;
+  y: number;
 }
 
 /** 服务端立即回显延迟探测 */
@@ -187,6 +195,7 @@ export interface S2C_Tick {
   qi?: number;                                    // 当前玩家灵力
   f?: Direction;                                  // 当前玩家朝向
   time?: GameTimeState;                           // 当前地图时间状态
+  auraLevelBaseValue?: number;                    // 灵气等级基准值
 }
 
 /** 实体进入视野 */
@@ -209,6 +218,7 @@ export interface S2C_Init {
   tiles: VisibleTile[][];
   players: RenderEntity[]; // 初始可见玩家实体（含自身）
   time?: GameTimeState;
+  auraLevelBaseValue?: number;
 }
 
 /** GM 玩家摘要 */
@@ -295,10 +305,17 @@ export interface S2C_Error {
 /** 使用物品 */
 export interface C2S_UseItem {
   slotIndex: number;
+  count?: number;
 }
 
 /** 丢弃物品 */
 export interface C2S_DropItem {
+  slotIndex: number;
+  count: number;
+}
+
+/** 摧毁物品 */
+export interface C2S_DestroyItem {
   slotIndex: number;
   count: number;
 }
@@ -395,6 +412,23 @@ export interface S2C_ActionsUpdate {
 /** 战利品窗口更新 */
 export interface S2C_LootWindowUpdate {
   window: LootWindowState | null;
+}
+
+export interface S2C_TileRuntimeDetail {
+  mapId: string;
+  x: number;
+  y: number;
+  hp?: number;
+  maxHp?: number;
+  destroyed?: boolean;
+  restoreTicksLeft?: number;
+  resources: Array<{
+    key: string;
+    label: string;
+    value: number;
+    level?: number;
+    sourceValue?: number;
+  }>;
 }
 
 /** 任务列表更新 */

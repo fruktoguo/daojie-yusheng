@@ -4,14 +4,16 @@
 
 import { io, Socket } from 'socket.io-client';
 import {
-  C2S, S2C, C2S_Move, C2S_MoveTo, C2S_GmGetState, C2S_GmSpawnBots, C2S_GmRemoveBots, C2S_GmUpdatePlayer, C2S_GmResetPlayer, C2S_Action, C2S_UpdateAutoBattleSkills, C2S_DebugResetSpawn, C2S_UseItem, C2S_DropItem,
+  C2S, S2C, C2S_Move, C2S_MoveTo, C2S_GmGetState, C2S_GmSpawnBots, C2S_GmRemoveBots, C2S_GmUpdatePlayer, C2S_GmResetPlayer, C2S_Action, C2S_UpdateAutoBattleSkills, C2S_DebugResetSpawn, C2S_UseItem, C2S_DropItem, C2S_DestroyItem,
   C2S_TakeLoot, C2S_SortInventory, C2S_Equip, C2S_Unequip, C2S_Cultivate, C2S_Chat,
   C2S_Heartbeat,
+  C2S_InspectTileRuntime,
   C2S_Ping,
   S2C_Tick, S2C_Init, S2C_AttrUpdate, S2C_InventoryUpdate,
   S2C_EquipmentUpdate, S2C_TechniqueUpdate, S2C_ActionsUpdate, S2C_LootWindowUpdate, S2C_QuestUpdate, S2C_SystemMsg, S2C_GmState,
   S2C_SuggestionUpdate,
   S2C_Pong,
+  S2C_TileRuntimeDetail,
   S2C_Error, decodeServerEventPayload, encodeClientEventPayload,
   AutoBattleSkillConfig, Direction, EquipSlot, PLAYER_HEARTBEAT_INTERVAL_MS,
 } from '@mud/shared';
@@ -30,6 +32,7 @@ export class SocketManager {
   private onTechniqueUpdateCallbacks: Array<(data: S2C_TechniqueUpdate) => void> = [];
   private onActionsUpdateCallbacks: Array<(data: S2C_ActionsUpdate) => void> = [];
   private onLootWindowUpdateCallbacks: Array<(data: S2C_LootWindowUpdate) => void> = [];
+  private onTileRuntimeDetailCallbacks: Array<(data: S2C_TileRuntimeDetail) => void> = [];
   private onQuestUpdateCallbacks: Array<(data: S2C_QuestUpdate) => void> = [];
   private onSystemMsgCallbacks: Array<(data: S2C_SystemMsg) => void> = [];
   private onErrorCallbacks: Array<(data: S2C_Error) => void> = [];
@@ -68,6 +71,7 @@ export class SocketManager {
     this.bindServerEvent(S2C.TechniqueUpdate, this.onTechniqueUpdateCallbacks);
     this.bindServerEvent(S2C.ActionsUpdate, this.onActionsUpdateCallbacks);
     this.bindServerEvent(S2C.LootWindowUpdate, this.onLootWindowUpdateCallbacks);
+    this.bindServerEvent(S2C.TileRuntimeDetail, this.onTileRuntimeDetailCallbacks);
     this.bindServerEvent(S2C.QuestUpdate, this.onQuestUpdateCallbacks);
     this.bindServerEvent(S2C.SystemMsg, this.onSystemMsgCallbacks);
     this.bindServerEvent(S2C.SuggestionUpdate, this.onSuggestionUpdateCallbacks);
@@ -181,12 +185,16 @@ export class SocketManager {
     this.emitServer(C2S.GmResetPlayer, { playerId } satisfies C2S_GmResetPlayer);
   }
 
-  sendUseItem(slotIndex: number) {
-    this.emitServer(C2S.UseItem, { slotIndex } satisfies C2S_UseItem);
+  sendUseItem(slotIndex: number, count?: number) {
+    this.emitServer(C2S.UseItem, { slotIndex, count } satisfies C2S_UseItem);
   }
 
   sendDropItem(slotIndex: number, count: number) {
     this.emitServer(C2S.DropItem, { slotIndex, count } satisfies C2S_DropItem);
+  }
+
+  sendDestroyItem(slotIndex: number, count: number) {
+    this.emitServer(C2S.DestroyItem, { slotIndex, count } satisfies C2S_DestroyItem);
   }
 
   sendTakeLoot(sourceId: string, itemKey: string) {
@@ -195,6 +203,10 @@ export class SocketManager {
 
   sendSortInventory() {
     this.emitServer(C2S.SortInventory, {} satisfies C2S_SortInventory);
+  }
+
+  sendInspectTileRuntime(x: number, y: number) {
+    this.emitServer(C2S.InspectTileRuntime, { x, y } satisfies C2S_InspectTileRuntime);
   }
 
   sendEquip(slotIndex: number) {
@@ -235,6 +247,7 @@ export class SocketManager {
   onTechniqueUpdate(cb: (data: S2C_TechniqueUpdate) => void) { this.onTechniqueUpdateCallbacks.push(cb); }
   onActionsUpdate(cb: (data: S2C_ActionsUpdate) => void) { this.onActionsUpdateCallbacks.push(cb); }
   onLootWindowUpdate(cb: (data: S2C_LootWindowUpdate) => void) { this.onLootWindowUpdateCallbacks.push(cb); }
+  onTileRuntimeDetail(cb: (data: S2C_TileRuntimeDetail) => void) { this.onTileRuntimeDetailCallbacks.push(cb); }
   onQuestUpdate(cb: (data: S2C_QuestUpdate) => void) { this.onQuestUpdateCallbacks.push(cb); }
   onSystemMsg(cb: (data: S2C_SystemMsg) => void) { this.onSystemMsgCallbacks.push(cb); }
   onSuggestionUpdate(cb: (data: S2C_SuggestionUpdate) => void) { this.onSuggestionUpdateCallbacks.push(cb); }
