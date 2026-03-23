@@ -58,6 +58,20 @@ packages/
 docs/       设计与架构文档
 ```
 
+其中共享常量当前采用目录化组织：
+
+- 主目录为 `packages/shared/src/constants/`
+- 外层分类优先使用符合非开发者认知的 `gameplay`、`network`、`ui`、`visuals`
+- `packages/shared/src/constants.ts` 仍保留为兼容层，用于承接旧导入路径，不再作为新增常量的首选落点
+
+同时，单端私有常量也按端内目录集中维护：
+
+- 客户端私有常量位于 `packages/client/src/constants/`
+- 服务端私有常量位于 `packages/server/src/constants/`
+- 客户端目录优先按 `ui`、`visuals`、`world`、`editor`、`input` 拆分
+- 服务端目录优先按 `auth`、`storage`、`gameplay`、`world` 拆分
+- 仅单端使用的缩放参数、UI 默认配置、服务端运行时哨兵值等，不再继续散落在业务文件顶部
+
 ## 环境要求
 
 - Node.js 18+
@@ -138,3 +152,4 @@ pnpm dev:server
 - 客户端不负责游戏规则正确性判定，所有关键状态以服务端为准
 - 服务端状态更新围绕 tick 驱动流程组织
 - `packages/shared` 是前后端协议一致性的单一来源
+- 共享常量默认放在 `packages/shared/src/constants/` 的分类目录下；`packages/shared/src/constants.ts` 目前仅承担兼容导出职责

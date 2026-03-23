@@ -26,7 +26,10 @@
 
 - 所有代码保持 TypeScript strict 兼容，不引入无必要的弱类型逃逸
 - 前后端通信类型统一定义在 `packages/shared/src/protocol.ts`
-- 游戏常量统一定义在 `packages/shared/src/constants.ts`
+- 共享常量按 `gameplay`、`network`、`ui`、`visuals` 分类组织在 `packages/shared/src/constants/`，分类命名应符合非开发者对“玩法 / 网络 / 界面 / 视觉”的直觉认知
+- `packages/shared/src/constants.ts` 作为迁移期兼容层保留，已有旧引用未清理前不要把它当作新的常量落点
+- 客户端私有常量集中放在 `packages/client/src/constants/`，优先按 `ui`、`visuals`、`world`、`editor`、`input` 这类普通人能直观看懂的目录拆分
+- 服务端私有常量集中放在 `packages/server/src/constants/`，优先按 `auth`、`storage`、`gameplay`、`world` 这类业务认知拆分，不要把仅单端使用的常量继续散落回业务文件
 - 服务端所有游戏状态变更必须发生在 tick 驱动的受控流程内
 - 禁止在客户端实现任何影响正确性的游戏规则判定，例如移动合法性、碰撞、结算
 - 数据库访问通过模块化入口组织，不在业务逻辑中散落 SQL 风格实现

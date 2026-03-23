@@ -15,6 +15,22 @@
                      └─────────────────────┘
 ```
 
+### shared 共享层组织
+
+- 共享协议定义位于 `packages/shared/src/protocol.ts`
+- 共享常量按 `packages/shared/src/constants/` 下的分类目录组织
+- 顶层分类优先使用符合非开发者认知的 `gameplay`、`network`、`ui`、`visuals`
+- `packages/shared/src/constants.ts` 当前作为兼容层保留，用于承接旧导入路径；新增共享常量应优先落到对应分类目录
+
+### 单端私有常量组织
+
+- 客户端私有常量集中在 `packages/client/src/constants/`
+- 服务端私有常量集中在 `packages/server/src/constants/`
+- 客户端目录优先按 `ui`、`visuals`、`world`、`editor`、`input` 拆分
+- 服务端目录优先按 `auth`、`storage`、`gameplay`、`world` 拆分
+- 划分原则依旧优先贴近非开发者认知，例如视觉、交互、存储、玩法配置，而不是按技术实现碎片化散放
+- 仅单端使用的键位映射、缩放参数、缓存键、运行时哨兵值等，不进入 shared
+
 ## 2. 服务端模块职责
 
 ### AuthModule
