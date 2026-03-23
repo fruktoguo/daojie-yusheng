@@ -507,9 +507,13 @@ function createDefaultItem(equipSlot?: string): ItemStack {
     type: equipSlot ? 'equipment' : 'material',
     count: 1,
     desc: '',
+    grade: equipSlot ? 'mortal' : undefined,
+    level: equipSlot ? 1 : undefined,
     equipSlot: equipSlot as ItemStack['equipSlot'],
     equipAttrs: equipSlot ? {} : undefined,
     equipStats: equipSlot ? {} : undefined,
+    tags: equipSlot ? [] : undefined,
+    effects: equipSlot ? [] : undefined,
   };
 }
 
@@ -740,10 +744,14 @@ function renderItemFields(basePath: string, item: ItemStack): string {
       ${textField('名称', `${basePath}.name`, item.name)}
       ${selectField('类型', `${basePath}.type`, item.type, ITEM_TYPES.map((value) => ({ value, label: value })))}
       ${numberField('数量', `${basePath}.count`, item.count)}
+      ${nullableTextField('品阶', `${basePath}.grade`, item.grade, 'undefined')}
+      ${numberField('等级', `${basePath}.level`, item.level)}
       ${nullableTextField('装备槽', `${basePath}.equipSlot`, item.equipSlot, 'undefined')}
       ${textField('描述', `${basePath}.desc`, item.desc, 'wide')}
+      ${stringArrayField('标签', `${basePath}.tags`, item.tags, 'wide')}
       ${jsonField('装备属性', `${basePath}.equipAttrs`, item.equipAttrs ?? {}, 'object')}
       ${jsonField('装备数值', `${basePath}.equipStats`, item.equipStats ?? {}, 'object')}
+      ${jsonField('特效配置', `${basePath}.effects`, item.effects ?? [], 'array', 'wide')}
     </div>
   `;
 }
