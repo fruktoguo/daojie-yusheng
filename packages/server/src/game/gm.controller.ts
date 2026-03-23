@@ -53,6 +53,13 @@ export class GmController {
     return this.suggestionService.getAll();
   }
 
+  /** 重置 GM 网络流量统计 */
+  @Post('perf/network/reset')
+  resetNetworkPerf(): { ok: true } {
+    this.tickService.resetNetworkPerf();
+    return { ok: true };
+  }
+
   @Post('suggestions/:id/complete')
   async completeSuggestion(@Param('id') id: string): Promise<{ ok: true }> {
     await this.suggestionService.markCompleted(id);

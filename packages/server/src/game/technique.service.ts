@@ -31,6 +31,7 @@ import { AttrService } from './attr.service';
 import { BreakthroughConfigEntry, BreakthroughRequirementDef, ContentService } from './content.service';
 import { InventoryService } from './inventory.service';
 import { MapService } from './map.service';
+import { PerformanceService } from './performance.service';
 
 type TechniqueDirtyFlag = 'inv' | 'tech' | 'attr' | 'actions';
 type TechniqueMessageKind = 'system' | 'quest' | 'combat' | 'loot';
@@ -86,6 +87,7 @@ export class TechniqueService {
     private readonly inventoryService: InventoryService,
     private readonly contentService: ContentService,
     private readonly mapService: MapService,
+    private readonly performanceService: PerformanceService,
   ) {}
 
   /** 初始化玩家境界与功法进度（加载时、持久化前调用） */
@@ -147,38 +149,52 @@ export class TechniqueService {
 
   /** 每 tick 修炼推进：增加境界经验和功法经验 */
   cultivateTick(player: PlayerState): CultivationResult {
-    this.initializePlayerProgression(player);
-    const technique = this.resolveCultivatingTechnique(player);
+    this.measureCpuSection('cultivation_init', '修炼: 初始化校正', () => {
+      this.initializePlayerProgression(player);
+    });
+    const technique = this.measureCpuSection('cultivation_resolve', '修炼: 主修解析', () => (
+      this.resolveCultivatingTechnique(player)
+    ));
     if (!technique) {
       return this.clearInvalidCultivation(player);
     }
-    const cultivationBuff = this.getCultivationBuff(player);
+    const cultivationBuff = this.measureCpuSection('cultivation_resolve', '修炼: 主修解析', () => (
+      this.getCultivationBuff(player)
+    ));
     if (!cultivationBuff) return EMPTY_CULTIVATION;
     this.refreshCultivationBuff(cultivationBuff, technique.name);
 
-    const numericStats = this.attrService.getPlayerNumericStats(player);
-    const auraMultiplier = this.getCultivationAuraMultiplier(player);
+    const numericStats = this.measureCpuSection('cultivation_stats', '修炼: 数值采集', () => (
+      this.attrService.getPlayerNumericStats(player)
+    ));
+    const auraMultiplier = this.measureCpuSection('cultivation_stats', '修炼: 数值采集', () => (
+      this.getCultivationAuraMultiplier(player)
+    ));
     const realmExpBonus = Math.max(0, numericStats.playerExpRate) / 10000;
     const techniqueExpBonus = Math.max(0, numericStats.techniqueExpRate) / 10000;
     const dirty = new Set<TechniqueDirtyFlag>();
     const messages: TechniqueMessage[] = [];
 
-    const realmResult = this.advanceRealmProgress(
-      player,
-      Math.max(0, Math.round(numericStats.realmExpPerTick * auraMultiplier)),
-      realmExpBonus,
-    );
+    const realmResult = this.measureCpuSection('cultivation_realm', '修炼: 境界推进', () => (
+      this.advanceRealmProgress(
+        player,
+        Math.max(0, Math.round(numericStats.realmExpPerTick * auraMultiplier)),
+        realmExpBonus,
+      )
+    ));
     if (realmResult.changed) {
       dirty.add('attr');
       dirty.add('actions');
       messages.push(...realmResult.messages);
     }
 
-    const techniqueResult = this.advanceTechniqueProgress(
-      player,
-      Math.max(0, Math.round(numericStats.techniqueExpPerTick * auraMultiplier)),
-      techniqueExpBonus,
-    );
+    const techniqueResult = this.measureCpuSection('cultivation_technique', '修炼: 功法推进', () => (
+      this.advanceTechniqueProgress(
+        player,
+        Math.max(0, Math.round(numericStats.techniqueExpPerTick * auraMultiplier)),
+        techniqueExpBonus,
+      )
+    ));
     if (techniqueResult.changed) {
       for (const flag of techniqueResult.dirty) {
         dirty.add(flag);
@@ -191,6 +207,19 @@ export class TechniqueService {
       dirty: [...dirty],
       messages,
     };
+  }
+
+  private measureCpuSection<T>(key: string, label: string, work: () => T): T {
+    const startedAt = process.hrtime.bigint();
+    try {
+      return work();
+    } finally {
+      this.performanceService.recordCpuSection(
+        Number(process.hrtime.bigint() - startedAt) / 1_000_000,
+        key,
+        label,
+      );
+    }
   }
 
   hasCultivationBuff(player: PlayerState): boolean {

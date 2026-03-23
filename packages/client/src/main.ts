@@ -32,6 +32,7 @@ import {
   computeAffectedCellsFromAnchor,
   Direction,
   encodeTileTargetRef,
+  GAME_TIME_PHASES,
   GameTimeState,
   GroundItemPileView,
   GridPoint,
@@ -85,6 +86,7 @@ const pingOnesEl = pingValueEl?.querySelector<HTMLElement>('[data-ping-part="one
 const CONNECTION_RECOVERY_RETRY_MS = 1200;
 const SERVER_PING_INTERVAL_MS = 5000;
 const SOCKET_PING_TIMEOUT_MS = 4000;
+const CURRENT_TIME_REFRESH_MS = 250;
 
 let connectionRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
 let connectionRecoveryPromise: Promise<void> | null = null;
@@ -97,6 +99,8 @@ let pendingSocketPing:
       timeoutId: ReturnType<typeof setTimeout>;
     }
   | null = null;
+let currentTimeStateSyncedAt = performance.now();
+let currentTimeTickIntervalMs = 1000;
 
 function renderTickRate(seconds: number) {
   const [integer, fraction] = seconds.toFixed(2).split('.');
@@ -106,21 +110,53 @@ function renderTickRate(seconds: number) {
   if (tickRateFracBEl) tickRateFracBEl.textContent = fraction[1] ?? '0';
 }
 
-function renderCurrentTime(state: GameTimeState | null) {
-  const totalMinutes = state
-    ? Math.floor((state.localTicks / Math.max(1, state.dayLength)) * 24 * 60)
-    : null;
+function resolveDisplayedLocalTicks(state: GameTimeState | null, now = performance.now()): number | null {
+  if (!state) {
+    return null;
+  }
+  const dayLength = Math.max(1, state.dayLength);
+  const timeScale = Number.isFinite(state.timeScale) && state.timeScale >= 0 ? state.timeScale : 1;
+  const tickIntervalMs = Math.max(1, currentTimeTickIntervalMs);
+  const elapsedMs = Math.max(0, Math.min(now - currentTimeStateSyncedAt, tickIntervalMs));
+  const elapsedTicks = elapsedMs / tickIntervalMs * timeScale;
+  return ((state.localTicks + elapsedTicks) % dayLength + dayLength) % dayLength;
+}
+
+function resolveDisplayedPhaseLabel(state: GameTimeState, localTicks: number): string {
+  const phase = GAME_TIME_PHASES.find((entry) => localTicks >= entry.startTick && localTicks < entry.endTick);
+  return phase?.label ?? state.phaseLabel;
+}
+
+function renderCurrentTime(state: GameTimeState | null, now = performance.now()) {
+  const localTicks = resolveDisplayedLocalTicks(state, now);
+  const totalMinutes = localTicks === null
+    ? null
+    : Math.floor((localTicks / Math.max(1, state?.dayLength ?? 1)) * 24 * 60);
   const hours = totalMinutes === null ? '--' : String(Math.floor(totalMinutes / 60) % 24).padStart(2, '0');
   const minutes = totalMinutes === null ? '--' : String(totalMinutes % 60).padStart(2, '0');
+  const phaseLabel = state && localTicks !== null ? resolveDisplayedPhaseLabel(state, localTicks) : '未明';
   if (currentTimeHourAEl) currentTimeHourAEl.textContent = hours[0] ?? '-';
   if (currentTimeHourBEl) currentTimeHourBEl.textContent = hours[1] ?? '-';
   if (currentTimeDotEl) currentTimeDotEl.textContent = ':';
   if (currentTimeMinAEl) currentTimeMinAEl.textContent = minutes[0] ?? '-';
   if (currentTimeMinBEl) currentTimeMinBEl.textContent = minutes[1] ?? '-';
-  if (currentTimePhaseEl) currentTimePhaseEl.textContent = state?.phaseLabel ?? '未明';
+  if (currentTimePhaseEl) currentTimePhaseEl.textContent = phaseLabel;
   if (currentTimeEl) {
-    currentTimeEl.setAttribute('title', state ? `${state.phaseLabel} ${hours}:${minutes}` : '当前时间未同步');
+    currentTimeEl.setAttribute('title', state ? `${phaseLabel} ${hours}:${minutes}` : '当前时间未同步');
   }
+}
+
+function syncCurrentTimeState(state: GameTimeState | null): void {
+  currentTimeState = state;
+  currentTimeStateSyncedAt = performance.now();
+  renderCurrentTime(currentTimeState, currentTimeStateSyncedAt);
+}
+
+function syncCurrentTimeTickInterval(dtMs: number | null | undefined): void {
+  if (typeof dtMs !== 'number' || !Number.isFinite(dtMs) || dtMs <= 0) {
+    return;
+  }
+  currentTimeTickIntervalMs = dtMs;
 }
 
 function renderPingLatency(latencyMs: number | null, status = '毫秒') {
@@ -266,6 +302,12 @@ function restartPingLoop(immediate = true): void {
 renderTickRate(1);
 renderCurrentTime(null);
 renderPingLatency(null, '待测');
+window.setInterval(() => {
+  if (!currentTimeState) {
+    return;
+  }
+  renderCurrentTime(currentTimeState);
+}, CURRENT_TIME_REFRESH_MS);
 const socket = new SocketManager();
 const mapRuntime = createMapRuntime();
 const loginUI = new LoginUI(socket);
@@ -1570,9 +1612,9 @@ function planPathTo(target: { x: number; y: number }, options?: { ignoreVisibili
 
 function resetGameState() {
   myPlayer = null;
-  currentTimeState = null;
+  currentTimeTickIntervalMs = 1000;
+  syncCurrentTimeState(null);
   latestAttrUpdate = null;
-  renderCurrentTime(null);
   clearCurrentPath();
   latestTechniqueMap.clear();
   latestActionMap.clear();
@@ -1806,9 +1848,8 @@ socket.onInit((data: S2C_Init) => {
   hoveredMapTile = null;
   hideObserveModal();
   myPlayer = data.self;
-  currentTimeState = data.time ?? null;
+  syncCurrentTimeState(data.time ?? null);
   latestAttrUpdate = buildAttrStateFromPlayer(myPlayer);
-  renderCurrentTime(currentTimeState);
   myPlayer.senseQiActive = myPlayer.senseQiActive === true;
   myPlayer.autoIdleCultivation = myPlayer.autoIdleCultivation !== false;
   syncTargetingOverlay();
@@ -1858,9 +1899,9 @@ socket.onTick((data: S2C_Tick) => {
   if (!myPlayer) return;
   let mapChanged = false;
   const previousMapId = myPlayer.mapId;
+  syncCurrentTimeTickInterval(data.dt);
   if (data.time) {
-    currentTimeState = data.time;
-    renderCurrentTime(currentTimeState);
+    syncCurrentTimeState(data.time);
   }
 
   if (data.dt) {

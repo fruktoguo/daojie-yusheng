@@ -233,11 +233,43 @@ export interface GmNetworkBucket {
   count: number;
 }
 
+/** GM CPU 统计快照 */
+export interface GmCpuSectionSnapshot {
+  key: string;
+  label: string;
+  totalMs: number;
+  percent: number;
+  count: number;
+  avgMs: number;
+}
+
+/** GM CPU 统计快照 */
+export interface GmCpuSnapshot {
+  cores: number;
+  loadAvg1m: number;
+  loadAvg5m: number;
+  loadAvg15m: number;
+  processUptimeSec: number;
+  systemUptimeSec: number;
+  userCpuMs: number;
+  systemCpuMs: number;
+  rssMb: number;
+  heapUsedMb: number;
+  heapTotalMb: number;
+  externalMb: number;
+  profileStartedAt: number;
+  profileElapsedSec: number;
+  breakdown: GmCpuSectionSnapshot[];
+}
+
 /** GM 性能快照 */
 export interface GmPerformanceSnapshot {
   cpuPercent: number;
   memoryMb: number;
   tickMs: number;
+  cpu: GmCpuSnapshot;
+  networkStatsStartedAt: number;
+  networkStatsElapsedSec: number;
   networkInBytes: number;
   networkOutBytes: number;
   networkInBuckets: GmNetworkBucket[];

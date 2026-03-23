@@ -116,10 +116,14 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     }, 0);
 
     this.persistTimer = setInterval(() => {
+      const startedAt = process.hrtime.bigint();
       Promise.all([
         this.playerService.persistAll(),
         Promise.resolve().then(() => this.mapService.persistDynamicTileStates()),
-      ]).catch((err) => {
+      ]).then(() => {
+        const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+        this.performanceService.recordCpuSection(elapsedMs, 'io_persist', '落盘与外部 I/O');
+      }).catch((err) => {
         this.logger.error(`定时落盘失败: ${err.message}`);
       });
     }, PERSIST_INTERVAL * 1000);
@@ -192,7 +196,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
 
   /** 设置地图 tick 倍率，0 = 暂停 */
   setMapTickSpeed(mapId: string, speed: number): void {
-    const clamped = Math.max(0, Math.min(10, speed));
+    const clamped = Math.max(0, Math.min(100, speed));
     this.mapTickSpeed.set(mapId, clamped);
     if (clamped === 0) {
       this.pausedMaps.add(mapId);
@@ -215,10 +219,14 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     return this.pausedMaps.has(mapId);
   }
 
+  resetNetworkPerf(): void {
+    this.performanceService.resetNetworkStats();
+  }
+
   private getEffectiveInterval(mapId: string): number {
     const speed = this.mapTickSpeed.get(mapId) ?? 1;
     if (speed <= 0) return this.minTickInterval;
-    return Math.max(50, Math.round(this.minTickInterval / speed));
+    return Math.max(10, Math.round(this.minTickInterval / speed));
   }
 
   private scheduleNextTick(mapId: string, delay: number) {
@@ -248,29 +256,36 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     const last = this.lastTickTime.get(mapId) ?? now;
     const dt = now - last;
     this.lastTickTime.set(mapId, now);
-    this.mapService.tickDynamicTiles(mapId);
+    this.timeService.advanceMapTicks(mapId);
+    this.measureCpuSection('map_runtime', '地图动态状态', () => {
+      this.mapService.tickDynamicTiles(mapId);
+    });
 
     const messages: WorldMessage[] = [];
-    const gmCommands = this.gmService.drainCommands(mapId);
-    const commands = this.playerService.drainCommands(mapId);
+    const gmCommands = this.measureCpuSection('gm_commands', 'GM 指令处理', () => this.gmService.drainCommands(mapId));
+    const commands = this.measureCpuSection('player_command_queue', '玩家指令出队', () => this.playerService.drainCommands(mapId));
     const affectedPlayers = new Map<string, PlayerState>();
     const activePlayerIds = new Set<string>();
 
-    for (const command of gmCommands) {
-      const error = this.gmService.applyCommand(command);
-      if (!error) continue;
+    this.measureCpuSection('gm_commands', 'GM 指令处理', () => {
+      for (const command of gmCommands) {
+        const error = this.gmService.applyCommand(command);
+        if (!error) continue;
 
-      if ('playerId' in command && typeof command.playerId === 'string') {
-        messages.push({ playerId: command.playerId, text: error, kind: 'system' });
+        if ('playerId' in command && typeof command.playerId === 'string') {
+          messages.push({ playerId: command.playerId, text: error, kind: 'system' });
+        }
       }
-    }
+    });
 
-    const lootTick = this.lootService.tick(mapId, this.playerService.getPlayersByMap(mapId));
+    const lootTick = this.measureCpuSection('loot', '掉落与容器', () => this.lootService.tick(mapId, this.playerService.getPlayersByMap(mapId)));
     for (const playerId of lootTick.dirtyPlayers) {
       this.playerService.markDirty(playerId, 'loot');
     }
 
-    this.tickPlayerPresence(mapId, now);
+    this.measureCpuSection('player_presence', '在线态与保活', () => {
+      this.tickPlayerPresence(mapId, now);
+    });
 
     for (const cmd of commands) {
       const player = this.playerService.getPlayer(cmd.playerId);
@@ -284,87 +299,101 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
 
       switch (cmd.type) {
         case 'move': {
-          this.navigationService.clearMoveTarget(player.id);
-          if (player.autoBattle) {
-            player.autoBattle = false;
-            player.combatTargetId = undefined;
-            player.combatTargetLocked = false;
-            this.playerService.markDirty(player.id, 'actions');
-          }
-          this.applyCultivationResult(player.id, this.techniqueService.interruptCultivation(player, 'move'), messages);
-          const { d } = cmd.data as { d: Direction };
-          const moved = this.navigationService.stepPlayerByDirection(player, d);
-          if (moved) {
-            this.applyAutoTravelIfNeeded(player, messages);
-          }
+          this.measureCpuSection('pathfinding', '寻路与移动', () => {
+            this.navigationService.clearMoveTarget(player.id);
+            if (player.autoBattle) {
+              player.autoBattle = false;
+              player.combatTargetId = undefined;
+              player.combatTargetLocked = false;
+              this.playerService.markDirty(player.id, 'actions');
+            }
+            this.applyCultivationResult(player.id, this.techniqueService.interruptCultivation(player, 'move'), messages);
+            const { d } = cmd.data as { d: Direction };
+            const moved = this.navigationService.stepPlayerByDirection(player, d);
+            if (moved) {
+              this.applyAutoTravelIfNeeded(player, messages);
+            }
+          });
           break;
         }
         case 'moveTo': {
-          if (player.autoBattle) {
-            player.autoBattle = false;
-            player.combatTargetId = undefined;
-            player.combatTargetLocked = false;
-            this.playerService.markDirty(player.id, 'actions');
-          }
-          this.applyCultivationResult(player.id, this.techniqueService.interruptCultivation(player, 'move'), messages);
-          const { x, y, allowNearestReachable } = cmd.data as { x: number; y: number; allowNearestReachable?: boolean };
-          const error = this.navigationService.setMoveTarget(player, x, y, { allowNearestReachable });
-          if (error) {
-            messages.push({ playerId: player.id, text: error, kind: 'system' });
-          }
+          this.measureCpuSection('pathfinding', '寻路与移动', () => {
+            if (player.autoBattle) {
+              player.autoBattle = false;
+              player.combatTargetId = undefined;
+              player.combatTargetLocked = false;
+              this.playerService.markDirty(player.id, 'actions');
+            }
+            this.applyCultivationResult(player.id, this.techniqueService.interruptCultivation(player, 'move'), messages);
+            const { x, y, allowNearestReachable } = cmd.data as { x: number; y: number; allowNearestReachable?: boolean };
+            const error = this.navigationService.setMoveTarget(player, x, y, { allowNearestReachable });
+            if (error) {
+              messages.push({ playerId: player.id, text: error, kind: 'system' });
+            }
+          });
           break;
         }
         case 'takeLoot': {
-          const { sourceId, itemKey } = cmd.data as { sourceId: string; itemKey: string };
-          const result = this.lootService.takeFromSource(player, sourceId, itemKey);
-          if (result.error) {
-            messages.push({ playerId: player.id, text: result.error, kind: 'system' });
-            break;
-          }
-          if (result.inventoryChanged) {
-            this.playerService.markDirty(player.id, 'inv');
-          }
-          for (const dirtyPlayerId of result.dirtyPlayers) {
-            this.playerService.markDirty(dirtyPlayerId, 'loot');
-          }
-          for (const message of result.messages) {
-            messages.push({ playerId: message.playerId, text: message.text, kind: message.kind });
-          }
+          this.measureCpuSection('loot', '掉落与容器', () => {
+            const { sourceId, itemKey } = cmd.data as { sourceId: string; itemKey: string };
+            const result = this.lootService.takeFromSource(player, sourceId, itemKey);
+            if (result.error) {
+              messages.push({ playerId: player.id, text: result.error, kind: 'system' });
+              return;
+            }
+            if (result.inventoryChanged) {
+              this.playerService.markDirty(player.id, 'inv');
+            }
+            for (const dirtyPlayerId of result.dirtyPlayers) {
+              this.playerService.markDirty(dirtyPlayerId, 'loot');
+            }
+            for (const message of result.messages) {
+              messages.push({ playerId: message.playerId, text: message.text, kind: message.kind });
+            }
+          });
           break;
         }
         case 'debugResetSpawn': {
-          this.logger.log(`执行调试回城: ${player.id}`);
-          const result = this.worldService.resetPlayerToSpawn(player);
-          this.applyWorldUpdate(player.id, result, messages);
+          this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+            this.logger.log(`执行调试回城: ${player.id}`);
+            const result = this.worldService.resetPlayerToSpawn(player);
+            this.applyWorldUpdate(player.id, result, messages);
+          });
           break;
         }
         case 'action': {
           const { actionId, target } = cmd.data as { actionId: string; target?: string };
           if (actionId === 'debug:reset_spawn') {
-            this.logger.log(`执行兼容调试回城(action): ${player.id}`);
-            const result = this.worldService.resetPlayerToSpawn(player);
-            this.applyWorldUpdate(player.id, result, messages);
+            this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+              this.logger.log(`执行兼容调试回城(action): ${player.id}`);
+              const result = this.worldService.resetPlayerToSpawn(player);
+              this.applyWorldUpdate(player.id, result, messages);
+            });
             break;
           }
           if (actionId === 'loot:open') {
-            const tileTarget = target ? parseTileTargetRef(target) : null;
-            if (!tileTarget) {
-              messages.push({ playerId: player.id, text: '拿取需要指定目标格子。', kind: 'system' });
-              break;
-            }
-            const result = this.lootService.openLootWindow(player, tileTarget.x, tileTarget.y);
-            if (result.error) {
-              messages.push({ playerId: player.id, text: result.error, kind: 'system' });
-              break;
-            }
-            for (const dirtyPlayerId of result.dirtyPlayers) {
-              this.playerService.markDirty(dirtyPlayerId, 'loot');
-            }
+            this.measureCpuSection('loot', '掉落与容器', () => {
+              const tileTarget = target ? parseTileTargetRef(target) : null;
+              if (!tileTarget) {
+                messages.push({ playerId: player.id, text: '拿取需要指定目标格子。', kind: 'system' });
+                return;
+              }
+              const result = this.lootService.openLootWindow(player, tileTarget.x, tileTarget.y);
+              if (result.error) {
+                messages.push({ playerId: player.id, text: result.error, kind: 'system' });
+                return;
+              }
+              for (const dirtyPlayerId of result.dirtyPlayers) {
+                this.playerService.markDirty(dirtyPlayerId, 'loot');
+              }
+            });
             break;
           }
           if (actionId === 'battle:engage') {
-            const result = this.worldService.engageTarget(player, target);
-            this.applyWorldUpdate(player.id, result, messages);
+            this.measureCpuSection('combat', '战斗与技能计算', () => {
+              const result = this.worldService.engageTarget(player, target);
+              this.applyWorldUpdate(player.id, result, messages);
+            });
             break;
           }
           const action = this.actionService.getAction(player, actionId);
@@ -379,21 +408,27 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
 
           let result: WorldUpdate;
           if (action.type === 'skill' || action.type === 'battle') {
-            result = action.requiresTarget === false
-              ? this.worldService.performSkill(player, actionId)
-              : this.worldService.performTargetedSkill(player, actionId, target);
-            if (result.consumedAction) {
-              const cooldownError = this.actionService.beginCooldown(player, actionId);
-              if (cooldownError) {
-                result = { ...result, error: cooldownError };
-              } else {
-                result.dirty.push('actions');
+            result = this.measureCpuSection('combat', '战斗与技能计算', () => {
+              const skillResult = action.requiresTarget === false
+                ? this.worldService.performSkill(player, actionId)
+                : this.worldService.performTargetedSkill(player, actionId, target);
+              if (skillResult.consumedAction) {
+                const cooldownError = this.actionService.beginCooldown(player, actionId);
+                if (cooldownError) {
+                  return { ...skillResult, error: cooldownError };
+                }
+                skillResult.dirty.push('actions');
               }
-            }
+              return skillResult;
+            });
           } else if (action.requiresTarget) {
-            result = this.worldService.handleTargetedInteraction(player, actionId, target);
+            result = this.measureCpuSection('player_actions', '玩家交互与杂项', () => (
+              this.worldService.handleTargetedInteraction(player, actionId, target)
+            ));
           } else {
-            result = this.worldService.handleInteraction(player, actionId);
+            result = this.measureCpuSection('player_actions', '玩家交互与杂项', () => (
+              this.worldService.handleInteraction(player, actionId)
+            ));
           }
 
           this.applyWorldUpdate(player.id, result, messages);
@@ -402,23 +437,29 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    this.botService.tickBots(mapId);
+    this.measureCpuSection('bot_ai', '机器人 AI', () => {
+      this.botService.tickBots(mapId);
+    });
 
     const mapPlayers = this.playerService.getPlayersByMap(mapId);
     for (const player of mapPlayers) {
       affectedPlayers.set(player.id, player);
       if (player.dead) continue;
-      const timeUpdate = this.timeService.syncPlayerTimeEffects(player, now);
+      const timeUpdate = this.measureCpuSection('time_effects', '时间与环境效果', () => (
+        this.timeService.syncPlayerTimeEffects(player)
+      ));
       if (timeUpdate.changed) {
         this.playerService.markDirty(player.id, 'actions');
       }
 
       if (!player.autoBattle) {
-        const navigation = this.navigationService.stepPlayerTowardTarget(player);
+        const navigation = this.measureCpuSection('pathfinding', '寻路与移动', () => (
+          this.navigationService.stepPlayerTowardTarget(player)
+        ));
         if (navigation.error) {
           messages.push({ playerId: player.id, text: navigation.error, kind: 'system' });
         }
-        if (navigation.moved && this.applyAutoTravelIfNeeded(player, messages)) {
+        if (navigation.moved && this.measureCpuSection('pathfinding', '寻路与移动', () => this.applyAutoTravelIfNeeded(player, messages))) {
           this.markPlayerActive(player, activePlayerIds);
           continue;
         }
@@ -426,7 +467,9 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
 
       const autoBattleStartX = player.x;
       const autoBattleStartY = player.y;
-      const autoBattle = this.worldService.performAutoBattle(player);
+      const autoBattle = this.measureCpuSection('combat', '战斗与技能计算', () => (
+        this.worldService.performAutoBattle(player)
+      ));
       if (
         autoBattle.usedActionId
         || autoBattle.consumedAction
@@ -443,7 +486,9 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       }
       this.applyWorldUpdate(player.id, autoBattle, messages);
 
-      this.tryStartIdleCultivation(player, activePlayerIds, messages);
+      this.measureCpuSection('cultivation_idle', '修炼: 挂机起修', () => {
+        this.tryStartIdleCultivation(player, activePlayerIds, messages);
+      });
 
       const cultivation = this.techniqueService.cultivateTick(player);
       if (cultivation.changed) {
@@ -455,16 +500,18 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         }
       }
 
-      for (const flag of this.worldService.syncQuestState(player)) {
+      for (const flag of this.measureCpuSection('state_quest', '角色状态: 任务同步', () => this.worldService.syncQuestState(player))) {
         this.playerService.markDirty(player.id, flag);
       }
 
-      this.applyNaturalRecovery(player);
-      if (this.tickTemporaryBuffs(player)) {
+      this.measureCpuSection('state_recovery', '角色状态: 自然恢复', () => {
+        this.applyNaturalRecovery(player);
+      });
+      if (this.measureCpuSection('state_buffs', '角色状态: Buff 推进', () => this.tickTemporaryBuffs(player))) {
         this.playerService.markDirty(player.id, 'attr');
       }
 
-      if (this.actionService.tickCooldowns(player)) {
+      if (this.measureCpuSection('state_cooldowns', '角色状态: 冷却推进', () => this.actionService.tickCooldowns(player))) {
         this.playerService.markDirty(player.id, 'actions');
       }
 
@@ -498,7 +545,9 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     }
 
     this.flushDirtyUpdates([...affectedPlayers.values()]);
-    this.flushMessages(messages);
+    this.measureCpuSection('broadcast_messages', '广播: 系统消息分发', () => {
+      this.flushMessages(messages);
+    });
     this.broadcastTicks(mapId, finalMapPlayers, dt);
     this.ensureMapTicks();
   }
@@ -585,6 +634,16 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
 
   private getUnlockedMinimapIds(player: PlayerState): string[] {
     return [...new Set((player.unlockedMinimapIds ?? []).filter((entry): entry is string => typeof entry === 'string' && entry.length > 0))].sort();
+  }
+
+  private measureCpuSection<T>(key: string, label: string, work: () => T): T {
+    const startedAt = process.hrtime.bigint();
+    try {
+      return work();
+    } finally {
+      const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+      this.performanceService.recordCpuSection(elapsedMs, key, label);
+    }
   }
 
   private buildMinimapLibrarySignature(unlockedMinimapIds: string[]): string {
@@ -676,25 +735,34 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
 
   /** 重新构建玩家的可用行动列表，返回是否发生变化 */
   private syncActions(player: PlayerState): boolean {
-    const before = JSON.stringify(player.actions.map((action) => ({
-      id: action.id,
-      name: action.name,
-      desc: action.desc,
-      cooldownLeft: action.cooldownLeft,
-      type: action.type,
-      autoBattleEnabled: action.autoBattleEnabled,
-      autoBattleOrder: action.autoBattleOrder,
-    })));
-    this.actionService.rebuildActions(player, this.worldService.getContextActions(player));
-    const after = JSON.stringify(player.actions.map((action) => ({
-      id: action.id,
-      name: action.name,
-      desc: action.desc,
-      cooldownLeft: action.cooldownLeft,
-      type: action.type,
-      autoBattleEnabled: action.autoBattleEnabled,
-      autoBattleOrder: action.autoBattleOrder,
-    })));
+    const before = this.measureCpuSection('state_actions_before', '动作重建: 重建前快照', () => (
+      JSON.stringify(player.actions.map((action) => ({
+        id: action.id,
+        name: action.name,
+        desc: action.desc,
+        cooldownLeft: action.cooldownLeft,
+        type: action.type,
+        autoBattleEnabled: action.autoBattleEnabled,
+        autoBattleOrder: action.autoBattleOrder,
+      })))
+    ));
+    const contextActions = this.measureCpuSection('state_actions_context', '动作重建: 场景动作收集', () => (
+      this.worldService.getContextActions(player)
+    ));
+    this.measureCpuSection('state_actions_core', '动作重建: 核心构建', () => {
+      this.actionService.rebuildActions(player, contextActions);
+    });
+    const after = this.measureCpuSection('state_actions_after', '动作重建: 重建后快照', () => (
+      JSON.stringify(player.actions.map((action) => ({
+        id: action.id,
+        name: action.name,
+        desc: action.desc,
+        cooldownLeft: action.cooldownLeft,
+        type: action.type,
+        autoBattleEnabled: action.autoBattleEnabled,
+        autoBattleOrder: action.autoBattleOrder,
+      })))
+    ));
     return before !== after;
   }
 
@@ -850,57 +918,71 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     if (!socket) return;
 
     if (flags.has('attr')) {
-      const finalAttrs = this.attrService.getPlayerFinalAttrs(player);
-      const numericStats = this.attrService.getPlayerNumericStats(player);
-      const ratioDivisors = this.attrService.getPlayerRatioDivisors(player);
-      const update = this.buildSparseAttrUpdate(player.id, {
-        baseAttrs: player.baseAttrs,
-        bonuses: player.bonuses,
-        finalAttrs,
-        numericStats,
-        ratioDivisors,
-        maxHp: player.maxHp,
-        qi: player.qi,
-        realm: player.realm,
+      this.measureCpuSection('state_sync_attr', '状态同步: 属性面板', () => {
+        const finalAttrs = this.attrService.getPlayerFinalAttrs(player);
+        const numericStats = this.attrService.getPlayerNumericStats(player);
+        const ratioDivisors = this.attrService.getPlayerRatioDivisors(player);
+        const update = this.buildSparseAttrUpdate(player.id, {
+          baseAttrs: player.baseAttrs,
+          bonuses: player.bonuses,
+          finalAttrs,
+          numericStats,
+          ratioDivisors,
+          maxHp: player.maxHp,
+          qi: player.qi,
+          realm: player.realm,
+        });
+        if (update) {
+          socket.emit(S2C.AttrUpdate, update);
+        }
       });
-      if (update) {
-        socket.emit(S2C.AttrUpdate, update);
-      }
     }
     if (flags.has('inv')) {
-      const update: S2C_InventoryUpdate = { inventory: player.inventory };
-      socket.emit(S2C.InventoryUpdate, update);
+      this.measureCpuSection('state_sync_inventory', '状态同步: 背包与装备', () => {
+        const update: S2C_InventoryUpdate = { inventory: player.inventory };
+        socket.emit(S2C.InventoryUpdate, update);
+      });
     }
     if (flags.has('equip')) {
-      const update: S2C_EquipmentUpdate = { equipment: player.equipment };
-      socket.emit(S2C.EquipmentUpdate, update);
+      this.measureCpuSection('state_sync_inventory', '状态同步: 背包与装备', () => {
+        const update: S2C_EquipmentUpdate = { equipment: player.equipment };
+        socket.emit(S2C.EquipmentUpdate, update);
+      });
     }
     if (flags.has('tech')) {
-      const update: S2C_TechniqueUpdate = {
-        techniques: this.buildSparseTechniqueStates(player.id, player.techniques),
-        cultivatingTechId: player.cultivatingTechId,
-      };
-      socket.emit(S2C.TechniqueUpdate, update);
+      this.measureCpuSection('state_sync_tech', '状态同步: 功法面板', () => {
+        const update: S2C_TechniqueUpdate = {
+          techniques: this.buildSparseTechniqueStates(player.id, player.techniques),
+          cultivatingTechId: player.cultivatingTechId,
+        };
+        socket.emit(S2C.TechniqueUpdate, update);
+      });
     }
     if (flags.has('actions')) {
-      const update: S2C_ActionsUpdate = {
-        actions: this.buildSparseActionStates(player.id, player.actions),
-        autoBattle: player.autoBattle,
-        autoRetaliate: player.autoRetaliate,
-        autoIdleCultivation: player.autoIdleCultivation,
-        senseQiActive: player.senseQiActive,
-      };
-      socket.emit(S2C.ActionsUpdate, update);
+      this.measureCpuSection('state_sync_actions', '状态同步: 动作面板', () => {
+        const update: S2C_ActionsUpdate = {
+          actions: this.buildSparseActionStates(player.id, player.actions),
+          autoBattle: player.autoBattle,
+          autoRetaliate: player.autoRetaliate,
+          autoIdleCultivation: player.autoIdleCultivation,
+          senseQiActive: player.senseQiActive,
+        };
+        socket.emit(S2C.ActionsUpdate, update);
+      });
     }
     if (flags.has('loot')) {
-      const update: S2C_LootWindowUpdate = {
-        window: this.lootService.buildLootWindow(player),
-      };
-      socket.emit(S2C.LootWindowUpdate, update);
+      this.measureCpuSection('state_sync_loot', '状态同步: 掉落面板', () => {
+        const update: S2C_LootWindowUpdate = {
+          window: this.lootService.buildLootWindow(player),
+        };
+        socket.emit(S2C.LootWindowUpdate, update);
+      });
     }
     if (flags.has('quest')) {
-      const update: S2C_QuestUpdate = { quests: player.quests };
-      socket.emit(S2C.QuestUpdate, update);
+      this.measureCpuSection('state_sync_quest', '状态同步: 任务面板', () => {
+        const update: S2C_QuestUpdate = { quests: player.quests };
+        socket.emit(S2C.QuestUpdate, update);
+      });
     }
 
     this.playerService.clearDirtyFlags(player.id);
@@ -911,15 +993,17 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     if (messages.length === 0) return;
     const socket = this.playerService.getSocket(playerId);
     if (!socket) return;
-    for (const msg of messages) {
-      if (msg.playerId !== playerId) continue;
-      const payload: S2C_SystemMsg = {
-        text: msg.text,
-        kind: msg.kind,
-        floating: msg.floating,
-      };
-      socket.emit(S2C.SystemMsg, payload);
-    }
+    this.measureCpuSection('broadcast_messages', '广播: 系统消息分发', () => {
+      for (const msg of messages) {
+        if (msg.playerId !== playerId) continue;
+        const payload: S2C_SystemMsg = {
+          text: msg.text,
+          kind: msg.kind,
+          floating: msg.floating,
+        };
+        socket.emit(S2C.SystemMsg, payload);
+      }
+    });
   }
 
   /** 将本 tick 产生的系统消息逐条推送给对应玩家 */
@@ -938,61 +1022,79 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
 
   /** 向地图内所有玩家广播增量 tick 数据包（视野、实体、地块、特效等） */
   private broadcastTicks(mapId: string, players: PlayerState[], dt: number) {
-    const effects = this.worldService.drainEffects(mapId);
+    const effects = this.measureCpuSection('broadcast_effects', '广播: 特效提取', () => (
+      this.worldService.drainEffects(mapId)
+    ));
     for (const viewer of players) {
       const socket = this.playerService.getSocket(viewer.id);
       if (!socket) continue;
-      const time = this.timeService.buildPlayerTimeState(viewer);
-      const visibility = this.aoiService.getVisibility(viewer, time.effectiveViewRange);
+      const time = this.measureCpuSection('broadcast_time', '广播: 时间状态构建', () => (
+        this.timeService.buildPlayerTimeState(viewer)
+      ));
+      const visibility = this.measureCpuSection('broadcast_aoi', '广播: AOI 可见性', () => (
+        this.aoiService.getVisibility(viewer, time.effectiveViewRange)
+      ));
       const overlayParentMapId = this.mapService.getOverlayParentMapId(viewer.mapId);
 
-      const visiblePlayers = players
-        .filter((player) => visibility.visibleKeys.has(`${player.x},${player.y}`))
-        .map((player) => this.worldService.buildPlayerRenderEntity(
-          viewer,
-          player,
-          player.id === viewer.id ? '#ff0' : player.isBot ? '#6bb8ff' : '#0f0',
-        ));
+      const visiblePlayers = this.measureCpuSection('broadcast_players', '广播: 玩家实体构建', () => (
+        players
+          .filter((player) => visibility.visibleKeys.has(`${player.x},${player.y}`))
+          .map((player) => this.worldService.buildPlayerRenderEntity(
+            viewer,
+            player,
+            player.id === viewer.id ? '#ff0' : player.isBot ? '#6bb8ff' : '#0f0',
+          ))
+      ));
       if (overlayParentMapId) {
-        const projectedParentPlayers = this.playerService.getPlayersByMap(overlayParentMapId)
-          .flatMap((player) => {
-            const projected = this.mapService.projectPointToMap(viewer.mapId, overlayParentMapId, player.x, player.y);
-            if (!projected || this.mapService.isPointInMapBounds(viewer.mapId, projected.x, projected.y)) {
-              return [];
-            }
-            if (!visibility.visibleKeys.has(`${projected.x},${projected.y}`)) {
-              return [];
-            }
-            return [{
-              ...this.worldService.buildPlayerRenderEntity(
-                viewer,
-                player,
-                player.id === viewer.id ? '#ff0' : player.isBot ? '#6bb8ff' : '#0f0',
-              ),
-              x: projected.x,
-              y: projected.y,
-            }];
-          });
+        const projectedParentPlayers = this.measureCpuSection('broadcast_players', '广播: 玩家实体构建', () => (
+          this.playerService.getPlayersByMap(overlayParentMapId)
+            .flatMap((player) => {
+              const projected = this.mapService.projectPointToMap(viewer.mapId, overlayParentMapId, player.x, player.y);
+              if (!projected || this.mapService.isPointInMapBounds(viewer.mapId, projected.x, projected.y)) {
+                return [];
+              }
+              if (!visibility.visibleKeys.has(`${projected.x},${projected.y}`)) {
+                return [];
+              }
+              return [{
+                ...this.worldService.buildPlayerRenderEntity(
+                  viewer,
+                  player,
+                  player.id === viewer.id ? '#ff0' : player.isBot ? '#6bb8ff' : '#0f0',
+                ),
+                x: projected.x,
+                y: projected.y,
+              }];
+            })
+        ));
         visiblePlayers.push(...projectedParentPlayers);
       }
 
-      const visibleEntities = this.worldService.getVisibleEntities(viewer, visibility.visibleKeys);
+      const visibleEntities = this.measureCpuSection('broadcast_entities', '广播: 环境实体构建', () => (
+        this.worldService.getVisibleEntities(viewer, visibility.visibleKeys)
+      ));
       if (overlayParentMapId) {
-        visibleEntities.push(...this.worldService.getProjectedVisibleEntities(viewer, overlayParentMapId, visibility.visibleKeys));
+        visibleEntities.push(...this.measureCpuSection('broadcast_entities', '广播: 环境实体构建', () => (
+          this.worldService.getProjectedVisibleEntities(viewer, overlayParentMapId, visibility.visibleKeys)
+        )));
       }
-      const visibleGroundPiles = this.lootService.getVisibleGroundPiles(viewer, visibility.visibleKeys);
+      const visibleGroundPiles = this.measureCpuSection('broadcast_ground', '广播: 地面掉落构建', () => (
+        this.lootService.getVisibleGroundPiles(viewer, visibility.visibleKeys)
+      ));
       if (overlayParentMapId) {
-        visibleGroundPiles.push(...this.lootService.getProjectedVisibleGroundPiles(
-          overlayParentMapId,
-          visibility.visibleKeys,
-          (x, y) => {
-            const projected = this.mapService.projectPointToMap(viewer.mapId, overlayParentMapId, x, y);
-            if (!projected || this.mapService.isPointInMapBounds(viewer.mapId, projected.x, projected.y)) {
-              return null;
-            }
-            return projected;
-          },
-        ));
+        visibleGroundPiles.push(...this.measureCpuSection('broadcast_ground', '广播: 地面掉落构建', () => (
+          this.lootService.getProjectedVisibleGroundPiles(
+            overlayParentMapId,
+            visibility.visibleKeys,
+            (x, y) => {
+              const projected = this.mapService.projectPointToMap(viewer.mapId, overlayParentMapId, x, y);
+              if (!projected || this.mapService.isPointInMapBounds(viewer.mapId, projected.x, projected.y)) {
+                return null;
+              }
+              return projected;
+            },
+          )
+        )));
       }
 
       let previous = this.lastSentTickState.get(viewer.id);
@@ -1012,7 +1114,9 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         : '';
       const minimapLibrarySignature = this.buildMinimapLibrarySignature(unlockedMinimapIds);
       const visibleEntityIds = new Set<string>();
-      const groundPilePatches = this.buildSparseGroundPiles(viewer.id, visibleGroundPiles);
+      const groundPilePatches = this.measureCpuSection('broadcast_patch_ground', '广播: 掉落差量 Patch', () => (
+        this.buildSparseGroundPiles(viewer.id, visibleGroundPiles)
+      ));
       const tilePatches = this.buildSparseVisibleTilePatches(
         viewer.id,
         visibility.tiles,
@@ -1022,7 +1126,9 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       const tickData: S2C_Tick = {
         p: this.buildSparseRenderEntities(viewer.id, visiblePlayers, visibleEntityIds),
         e: this.buildSparseRenderEntities(viewer.id, visibleEntities, visibleEntityIds),
-        fx: this.filterEffectsForViewer(effects, visibility.visibleKeys),
+        fx: this.measureCpuSection('broadcast_patch_effects', '广播: 特效过滤', () => (
+          this.filterEffectsForViewer(effects, visibility.visibleKeys)
+        )),
         dt,
         time,
       };
@@ -1032,7 +1138,9 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       if (tilePatches.length > 0) {
         tickData.t = tilePatches;
       }
-      this.pruneRenderEntityCache(viewer.id, visibleEntityIds);
+      this.measureCpuSection('broadcast_cache', '广播: 缓存修剪', () => {
+        this.pruneRenderEntityCache(viewer.id, visibleEntityIds);
+      });
       if (!previous || previous.visibilityKey !== visibilityKey) {
         tickData.v = visibility.tiles;
         tickData.visibleMinimapMarkers = this.mapService.getVisibleMinimapMarkers(viewer.mapId, visibility.visibleKeys);
@@ -1064,7 +1172,9 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         tickData.path = path;
       }
 
-      socket.emit(S2C.Tick, tickData);
+      this.measureCpuSection('broadcast_emit', '广播: Socket 发送', () => {
+        socket.emit(S2C.Tick, tickData);
+      });
       this.lastSentTickState.set(viewer.id, {
         mapId: viewer.mapId,
         hp: viewer.hp,
@@ -1274,28 +1384,41 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
 
     const nextCache = new Map<string, VisibleTile>();
     const patches: VisibleTilePatch[] = [];
+    const changedTiles: Array<{ x: number; y: number; tile: VisibleTile }> = [];
+    const nextEntries: Array<{ key: string; tile: VisibleTile }> = [];
 
-    for (let row = 0; row < tiles.length; row += 1) {
-      for (let col = 0; col < tiles[row].length; col += 1) {
-        const tile = tiles[row][col];
-        if (!tile) {
-          continue;
-        }
+    this.measureCpuSection('broadcast_patch_tiles_scan', '地块 Patch: 扫描比较', () => {
+      for (let row = 0; row < tiles.length; row += 1) {
+        for (let col = 0; col < tiles[row].length; col += 1) {
+          const tile = tiles[row][col];
+          if (!tile) {
+            continue;
+          }
 
-        const x = originX + col;
-        const y = originY + row;
-        const key = `${x},${y}`;
-        const previous = cache.get(key);
-        if (!previous || !this.isStructuredEqual(previous, tile)) {
-          patches.push({
-            x,
-            y,
-            tile: JSON.parse(JSON.stringify(tile)) as VisibleTile,
-          });
+          const x = originX + col;
+          const y = originY + row;
+          const key = `${x},${y}`;
+          const previous = cache.get(key);
+          if (!previous || !this.isStructuredEqual(previous, tile)) {
+            changedTiles.push({ x, y, tile });
+          }
+          nextEntries.push({ key, tile });
         }
-        nextCache.set(key, JSON.parse(JSON.stringify(tile)) as VisibleTile);
       }
-    }
+    });
+
+    this.measureCpuSection('broadcast_patch_tiles_clone', '地块 Patch: 快照复制', () => {
+      for (const { x, y, tile } of changedTiles) {
+        patches.push({
+          x,
+          y,
+          tile: this.cloneStructured(tile),
+        });
+      }
+      for (const { key, tile } of nextEntries) {
+        nextCache.set(key, this.cloneStructured(tile));
+      }
+    });
 
     this.lastSentVisibleTiles.set(viewerId, nextCache);
     return patches;
@@ -1313,36 +1436,49 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       this.lastSentRenderEntities.set(viewerId, cache);
     }
 
-    return entities.map((entity) => {
-      visibleEntityIds.add(entity.id);
-      const previous = cache.get(entity.id);
-      const next: TickRenderEntity = {
-        id: entity.id,
-        x: entity.x,
-        y: entity.y,
-      };
+    const pending: Array<{ entity: RenderEntity; next: TickRenderEntity; syncBuffs: boolean }> = [];
 
-      if (!previous || previous.char !== entity.char) next.char = entity.char;
-      if (!previous || previous.color !== entity.color) next.color = entity.color;
-      if (!previous || previous.name !== entity.name) next.name = entity.name ?? null;
-      if (!previous || previous.kind !== entity.kind) next.kind = entity.kind ?? null;
-      if (!previous || previous.hp !== entity.hp) next.hp = entity.hp ?? null;
-      if (!previous || previous.maxHp !== entity.maxHp) next.maxHp = entity.maxHp ?? null;
-      if (!previous || previous.qi !== entity.qi) next.qi = entity.qi ?? null;
-      if (!previous || previous.maxQi !== entity.maxQi) next.maxQi = entity.maxQi ?? null;
-      if (!previous || !this.isStructuredEqual(previous.npcQuestMarker, entity.npcQuestMarker)) {
-        next.npcQuestMarker = entity.npcQuestMarker ?? null;
-      }
-      if (!previous || !this.isStructuredEqual(previous.observation, entity.observation)) {
-        next.observation = entity.observation ?? null;
-      }
-      if (!previous || !this.isStructuredEqual(previous.buffs, entity.buffs)) {
-        next.buffs = entity.buffs ? JSON.parse(JSON.stringify(entity.buffs)) as typeof entity.buffs : null;
-      }
+    this.measureCpuSection('broadcast_patch_entities_scan', '实体 Patch: 扫描比较', () => {
+      for (const entity of entities) {
+        visibleEntityIds.add(entity.id);
+        const previous = cache.get(entity.id);
+        const next: TickRenderEntity = {
+          id: entity.id,
+          x: entity.x,
+          y: entity.y,
+        };
 
-      cache.set(entity.id, JSON.parse(JSON.stringify(entity)) as RenderEntity);
-      return next;
+        if (!previous || previous.char !== entity.char) next.char = entity.char;
+        if (!previous || previous.color !== entity.color) next.color = entity.color;
+        if (!previous || previous.name !== entity.name) next.name = entity.name ?? null;
+        if (!previous || previous.kind !== entity.kind) next.kind = entity.kind ?? null;
+        if (!previous || previous.hp !== entity.hp) next.hp = entity.hp ?? null;
+        if (!previous || previous.maxHp !== entity.maxHp) next.maxHp = entity.maxHp ?? null;
+        if (!previous || previous.qi !== entity.qi) next.qi = entity.qi ?? null;
+        if (!previous || previous.maxQi !== entity.maxQi) next.maxQi = entity.maxQi ?? null;
+        if (!previous || !this.isStructuredEqual(previous.npcQuestMarker, entity.npcQuestMarker)) {
+          next.npcQuestMarker = entity.npcQuestMarker ?? null;
+        }
+        if (!previous || !this.isStructuredEqual(previous.observation, entity.observation)) {
+          next.observation = entity.observation ?? null;
+        }
+        pending.push({
+          entity,
+          next,
+          syncBuffs: !previous || !this.isStructuredEqual(previous.buffs, entity.buffs),
+        });
+      }
     });
+
+    return this.measureCpuSection('broadcast_patch_entities_clone', '实体 Patch: 快照复制', () => (
+      pending.map(({ entity, next, syncBuffs }) => {
+        if (syncBuffs) {
+          next.buffs = entity.buffs ? this.cloneStructured(entity.buffs) : null;
+        }
+        cache.set(entity.id, this.cloneStructured(entity));
+        return next;
+      })
+    ));
   }
 
   /** 清理已离开视野的渲染实体缓存 */
@@ -1361,6 +1497,10 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
 
   private isStructuredEqual(left: unknown, right: unknown): boolean {
     return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
+  }
+
+  private cloneStructured<T>(value: T): T {
+    return JSON.parse(JSON.stringify(value)) as T;
   }
 
   /** 过滤出观察者视野范围内的战斗特效 */

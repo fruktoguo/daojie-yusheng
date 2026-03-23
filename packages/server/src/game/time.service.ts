@@ -25,29 +25,37 @@ interface TimedEntity {
 
 @Injectable()
 export class TimeService {
-  private readonly worldEpochMs = Date.now();
+  private readonly mapTicks = new Map<string, number>();
 
   constructor(private readonly mapService: MapService) {}
 
-  /** 获取自世界纪元以来的总 tick 数 */
-  getTotalTicks(now = Date.now()): number {
-    return Math.max(0, Math.floor((now - this.worldEpochMs) / 1000));
+  /** 推进指定地图的世界时间 tick */
+  advanceMapTicks(mapId: string, ticks = 1): number {
+    const safeTicks = Number.isFinite(ticks) ? Math.max(0, Math.floor(ticks)) : 0;
+    const next = (this.mapTicks.get(mapId) ?? 0) + safeTicks;
+    this.mapTicks.set(mapId, next);
+    return next;
+  }
+
+  /** 获取地图当前累计 tick 数 */
+  getTotalTicks(mapId: string): number {
+    return Math.max(0, Math.floor(this.mapTicks.get(mapId) ?? 0));
   }
 
   /** 构建玩家当前时间状态（含光照、黑暗层数、有效视野） */
-  buildPlayerTimeState(player: PlayerState, now = Date.now()): GameTimeState {
-    return this.buildTimeState(player.mapId, Math.max(1, player.viewRange), now);
+  buildPlayerTimeState(player: PlayerState): GameTimeState {
+    return this.buildTimeState(player.mapId, Math.max(1, player.viewRange));
   }
 
-  buildMonsterTimeState(monster: Pick<TimedEntity, 'mapId' | 'viewRange'>, now = Date.now()): GameTimeState {
-    return this.buildTimeState(monster.mapId, Math.max(1, monster.viewRange), now);
+  buildMonsterTimeState(monster: Pick<TimedEntity, 'mapId' | 'viewRange'>): GameTimeState {
+    return this.buildTimeState(monster.mapId, Math.max(1, monster.viewRange));
   }
 
   /** 同步玩家的黑暗 Buff 并返回时间状态和是否有变化 */
-  syncPlayerTimeEffects(player: PlayerState, now = Date.now()): { state: GameTimeState; changed: boolean } {
+  syncPlayerTimeEffects(player: PlayerState): { state: GameTimeState; changed: boolean } {
     const previousRange = this.getEffectiveViewRangeFromBuff(player.viewRange, player.temporaryBuffs);
     const previousStacks = this.getDarknessStacks(player.temporaryBuffs);
-    const state = this.buildPlayerTimeState(player, now);
+    const state = this.buildPlayerTimeState(player);
     player.temporaryBuffs ??= [];
     this.syncDarknessBuff(player, state.darknessStacks);
     return {
@@ -56,8 +64,8 @@ export class TimeService {
     };
   }
 
-  syncMonsterTimeEffects(monster: TimedEntity, now = Date.now()): GameTimeState {
-    const state = this.buildTimeState(monster.mapId, Math.max(1, monster.viewRange), now);
+  syncMonsterTimeEffects(monster: TimedEntity): GameTimeState {
+    const state = this.buildTimeState(monster.mapId, Math.max(1, monster.viewRange));
     monster.temporaryBuffs ??= [];
     this.syncDarknessBuff(monster, state.darknessStacks);
     return state;
@@ -74,10 +82,11 @@ export class TimeService {
     return state.darknessStacks >= 2;
   }
 
-  private buildTimeState(mapId: string, baseViewRange: number, now: number): GameTimeState {
-    const totalTicks = this.getTotalTicks(now);
+  private buildTimeState(mapId: string, baseViewRange: number): GameTimeState {
+    const totalTicks = this.getTotalTicks(mapId);
     const config = this.mapService.getMapTimeConfig(mapId);
-    const localTicks = this.getLocalTicks(totalTicks, config);
+    const timeScale = this.getTimeScale(config);
+    const localTicks = this.getLocalTicks(totalTicks, config, timeScale);
     const phase = this.resolvePhase(localTicks);
     const lightPercent = this.resolveLightPercent(config, phase);
     const darknessStacks = this.resolveDarknessStacks(lightPercent);
@@ -87,6 +96,7 @@ export class TimeService {
       totalTicks,
       localTicks,
       dayLength: GAME_DAY_TICKS,
+      timeScale,
       phase: phase.id,
       phaseLabel: phase.label,
       darknessStacks,
@@ -98,11 +108,14 @@ export class TimeService {
     };
   }
 
-  private getLocalTicks(totalTicks: number, config: MapTimeConfig): number {
-    const scale = typeof config.scale === 'number' && config.scale > 0 ? config.scale : 1;
+  private getLocalTicks(totalTicks: number, config: MapTimeConfig, timeScale = this.getTimeScale(config)): number {
     const offset = Number.isFinite(config.offsetTicks) ? Math.round(config.offsetTicks ?? 0) : 0;
-    const scaled = Math.floor(totalTicks * scale) + offset;
+    const scaled = Math.floor(totalTicks * timeScale) + offset;
     return ((scaled % GAME_DAY_TICKS) + GAME_DAY_TICKS) % GAME_DAY_TICKS;
+  }
+
+  private getTimeScale(config: MapTimeConfig): number {
+    return typeof config.scale === 'number' && Number.isFinite(config.scale) && config.scale >= 0 ? config.scale : 1;
   }
 
   private resolvePhase(localTicks: number): TimePhaseDefinition {

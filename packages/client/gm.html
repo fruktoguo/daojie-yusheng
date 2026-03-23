@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>道劫余生 · 监察司</title>
   <link rel="icon" type="image/png" href="/logo.png" />
-  <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;700&family=Zhi+Mang+Xing&display=swap" rel="stylesheet">
   <style>
     :root {
       --paper-bg: #ecece8;
@@ -20,9 +19,9 @@
       --stamp-red: #c53c3c;
       --stamp-red-hover: #a12b2b;
       --highlight: rgba(30, 30, 30, 0.08);
-      --font-heading-main: 'Zhi Mang Xing', cursive;
-      --font-heading-sub: 'Ma Shan Zheng', cursive;
-      --font-body: 'Noto Serif SC', serif;
+      --font-heading-main: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      --font-heading-sub: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      --font-body: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -126,7 +125,8 @@
     .shell-title {
       font-family: var(--font-heading-main);
       color: var(--ink-black);
-      letter-spacing: 6px;
+      letter-spacing: 1px;
+      font-weight: 700;
     }
 
     .login-title {
@@ -139,7 +139,7 @@
     .shell-subtitle {
       font-family: var(--font-heading-sub);
       color: var(--ink-grey);
-      letter-spacing: 3px;
+      letter-spacing: 0.5px;
     }
 
     .login-subtitle {
@@ -430,6 +430,63 @@
     }
 
     .network-row-meta {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--ink-grey);
+    }
+
+    .workspace-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .workspace-tab {
+      padding: 8px 14px;
+      border: 1px solid var(--ink-black);
+      background: rgba(255,255,255,0.5);
+      color: var(--ink-black);
+      cursor: pointer;
+      font-family: var(--font-heading-sub);
+      font-size: 14px;
+    }
+
+    .workspace-tab.active {
+      border-color: var(--stamp-red);
+      border-width: 2px;
+    }
+
+    .server-tab-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .stats-card {
+      padding: 12px;
+      border: 1px solid var(--wash-ink);
+      background: rgba(255,255,255,0.56);
+    }
+
+    .stats-card-label {
+      font-size: 13px;
+      color: var(--ink-grey);
+    }
+
+    .stats-card-value {
+      margin-top: 6px;
+      font-size: 22px;
+      color: var(--ink-black);
+    }
+
+    .stats-card-note {
       margin-top: 4px;
       font-size: 12px;
       color: var(--ink-grey);
@@ -1075,53 +1132,114 @@
         <div class="shell-subtitle">全服监察总览</div>
       </div>
       <div class="section-body">
-        <div class="summary-grid">
-          <div class="summary-card"><div class="panel-title">角色总数</div><div id="summary-total" class="panel-value">0</div></div>
-          <div class="summary-card"><div class="panel-title">在线人数</div><div id="summary-online" class="panel-value">0</div></div>
-          <div class="summary-card"><div class="panel-title">离线挂机</div><div id="summary-offline-hanging" class="panel-value">0</div></div>
-          <div class="summary-card"><div class="panel-title">离线人数</div><div id="summary-offline" class="panel-value">0</div></div>
+        <div class="workspace-tabs">
+          <button class="workspace-tab active" id="server-subtab-overview" type="button">总览</button>
+          <button class="workspace-tab" id="server-subtab-traffic" type="button">流量统计</button>
+          <button class="workspace-tab" id="server-subtab-cpu" type="button">CPU 信息</button>
         </div>
-        <div class="summary-grid">
-          <div class="summary-card"><div class="panel-title">机器人</div><div id="summary-bots" class="panel-value">0</div></div>
-          <div class="summary-card"><div class="panel-title">单息耗时</div><div id="summary-tick" class="panel-value">0 ms</div></div>
-          <div class="summary-card"><div class="panel-title">CPU 压力</div><div id="summary-cpu" class="panel-value">0%</div></div>
-          <div class="summary-card"><div class="panel-title">内存占用</div><div id="summary-memory" class="panel-value">0 MB</div></div>
+        <div id="server-panel-overview" class="server-tab-panel">
+          <div class="summary-grid">
+            <div class="summary-card"><div class="panel-title">角色总数</div><div id="summary-total" class="panel-value">0</div></div>
+            <div class="summary-card"><div class="panel-title">在线人数</div><div id="summary-online" class="panel-value">0</div></div>
+            <div class="summary-card"><div class="panel-title">离线挂机</div><div id="summary-offline-hanging" class="panel-value">0</div></div>
+            <div class="summary-card"><div class="panel-title">离线人数</div><div id="summary-offline" class="panel-value">0</div></div>
+          </div>
+          <div class="summary-grid">
+            <div class="summary-card"><div class="panel-title">机器人</div><div id="summary-bots" class="panel-value">0</div></div>
+            <div class="summary-card"><div class="panel-title">单息耗时</div><div id="summary-tick" class="panel-value">0 ms</div></div>
+            <div class="summary-card"><div class="panel-title">CPU 压力</div><div id="summary-cpu" class="panel-value">0%</div></div>
+            <div class="summary-card"><div class="panel-title">内存占用</div><div id="summary-memory" class="panel-value">0 MB</div></div>
+          </div>
+          <div class="summary-grid">
+            <div class="summary-card"><div class="panel-title">累计上行</div><div id="summary-net-in" class="panel-value">0 B</div></div>
+            <div class="summary-card"><div class="panel-title">累计下行</div><div id="summary-net-out" class="panel-value">0 B</div></div>
+          </div>
+          <div class="button-row" style="margin-bottom: 12px;">
+            <input id="spawn-count" class="number-input" type="number" min="1" max="50" value="5" />
+            <button id="spawn-bots" class="small-btn" type="button">在选中角色附近生傀儡</button>
+            <button id="remove-all-bots" class="small-btn danger" type="button">移除全部机器人</button>
+          </div>
+          <div class="button-row" style="margin-bottom: 12px;">
+            <button id="refresh-state" class="small-btn" type="button">立即刷新</button>
+            <button id="logout" class="small-btn" type="button">退出管理台</button>
+          </div>
+          <div id="status-bar" class="status-bar"></div>
+          <div class="note-card">
+            在线玩家的修改会由服务端在下一息统一执行。离线玩家会直接更新存档。<br />
+            默认编辑器展示的是完整运行态快照；高级区可切换查看真实存档态 JSON。像 `actions`、`finalAttrs`、`numericStats`、`realm` 这类派生字段，保存后仍以服务端重算结果为准。
+          </div>
+          <div class="editor-section" style="margin-top: 12px;">
+            <div class="editor-section-head"><div><div class="editor-section-title">GM 密码</div><div class="editor-section-note">修改后立即生效，当前登录态不受影响。</div></div></div>
+            <form id="gm-password-form">
+              <div class="editor-grid compact">
+                <label class="editor-field"><span>当前密码</span><input id="gm-password-current" type="password" autocomplete="current-password" /></label>
+                <label class="editor-field"><span>新密码</span><input id="gm-password-next" type="password" autocomplete="new-password" /></label>
+              </div>
+              <div class="button-row" style="margin-top: 10px;"><button id="gm-password-save" class="small-btn" type="submit">修改 GM 密码</button></div>
+            </form>
+          </div>
         </div>
-        <div class="summary-grid">
-          <div class="summary-card"><div class="panel-title">累计上行</div><div id="summary-net-in" class="panel-value">0 B</div></div>
-          <div class="summary-card"><div class="panel-title">累计下行</div><div id="summary-net-out" class="panel-value">0 B</div></div>
-        </div>
-        <div class="button-row" style="margin-bottom: 12px;">
-          <input id="spawn-count" class="number-input" type="number" min="1" max="50" value="5" />
-          <button id="spawn-bots" class="small-btn" type="button">在选中角色附近生傀儡</button>
-          <button id="remove-all-bots" class="small-btn danger" type="button">移除全部机器人</button>
-        </div>
-        <div class="button-row" style="margin-bottom: 12px;">
-          <button id="refresh-state" class="small-btn" type="button">立即刷新</button>
-          <button id="logout" class="small-btn" type="button">退出管理台</button>
-        </div>
-        <div class="network-breakdown">
-          <div class="network-breakdown-head"><div class="panel-title">网络事件上行榜</div><div class="network-breakdown-subtitle">客户端 -> 服务端累计字节</div></div>
-          <div id="summary-net-in-breakdown" class="network-breakdown-list"><div class="empty-hint">当前还没有累计上行事件。</div></div>
-        </div>
-        <div class="network-breakdown">
-          <div class="network-breakdown-head"><div class="panel-title">网络事件下行榜</div><div class="network-breakdown-subtitle">服务端 -> 客户端累计字节</div></div>
-          <div id="summary-net-out-breakdown" class="network-breakdown-list"><div class="empty-hint">当前还没有累计下行事件。</div></div>
-        </div>
-        <div id="status-bar" class="status-bar"></div>
-        <div class="note-card">
-          在线玩家的修改会由服务端在下一息统一执行。离线玩家会直接更新存档。<br />
-          默认编辑器展示的是完整运行态快照；高级区可切换查看真实存档态 JSON。像 `actions`、`finalAttrs`、`numericStats`、`realm` 这类派生字段，保存后仍以服务端重算结果为准。
-        </div>
-        <div class="editor-section" style="margin-top: 12px;">
-          <div class="editor-section-head"><div><div class="editor-section-title">GM 密码</div><div class="editor-section-note">修改后立即生效，当前登录态不受影响。</div></div></div>
-          <form id="gm-password-form">
-            <div class="editor-grid compact">
-              <label class="editor-field"><span>当前密码</span><input id="gm-password-current" type="password" autocomplete="current-password" /></label>
-              <label class="editor-field"><span>新密码</span><input id="gm-password-next" type="password" autocomplete="new-password" /></label>
+        <div id="server-panel-traffic" class="server-tab-panel hidden">
+          <div class="button-row">
+            <button id="reset-network-stats" class="small-btn danger" type="button">重置流量统计</button>
+          </div>
+          <div id="traffic-reset-meta" class="note-card">统计区间尚未开始。</div>
+          <div class="stats-grid">
+            <div class="stats-card">
+              <div class="stats-card-label">上行总量</div>
+              <div id="traffic-total-in" class="stats-card-value">0 B</div>
+              <div id="traffic-total-in-note" class="stats-card-note">均次 0 B · 均秒 0 B/s</div>
             </div>
-            <div class="button-row" style="margin-top: 10px;"><button id="gm-password-save" class="small-btn" type="submit">修改 GM 密码</button></div>
-          </form>
+            <div class="stats-card">
+              <div class="stats-card-label">下行总量</div>
+              <div id="traffic-total-out" class="stats-card-value">0 B</div>
+              <div id="traffic-total-out-note" class="stats-card-note">均次 0 B · 均秒 0 B/s</div>
+            </div>
+          </div>
+          <div class="network-breakdown">
+            <div class="network-breakdown-head"><div class="panel-title">网络事件上行榜</div><div class="network-breakdown-subtitle">客户端 -> 服务端累计字节</div></div>
+            <div id="summary-net-in-breakdown" class="network-breakdown-list"><div class="empty-hint">当前还没有累计上行事件。</div></div>
+          </div>
+          <div class="network-breakdown">
+            <div class="network-breakdown-head"><div class="panel-title">网络事件下行榜</div><div class="network-breakdown-subtitle">服务端 -> 客户端累计字节</div></div>
+            <div id="summary-net-out-breakdown" class="network-breakdown-list"><div class="empty-hint">当前还没有累计下行事件。</div></div>
+          </div>
+        </div>
+        <div id="server-panel-cpu" class="server-tab-panel hidden">
+          <div id="cpu-profile-meta" class="note-card">CPU 画像尚未开始。</div>
+          <div class="stats-grid">
+            <div class="stats-card"><div class="stats-card-label">当前 CPU 压力</div><div id="cpu-current-percent" class="stats-card-value">0%</div><div class="stats-card-note">基于最近一次采样窗口</div></div>
+            <div class="stats-card"><div class="stats-card-label">逻辑核心数</div><div id="cpu-core-count" class="stats-card-value">0</div><div class="stats-card-note">Node 进程可见 CPU 核心</div></div>
+            <div class="stats-card"><div class="stats-card-label">用户态 CPU 时间</div><div id="cpu-user-ms" class="stats-card-value">0 ms</div><div class="stats-card-note">进程累计 user CPU</div></div>
+            <div class="stats-card"><div class="stats-card-label">内核态 CPU 时间</div><div id="cpu-system-ms" class="stats-card-value">0 ms</div><div class="stats-card-note">进程累计 system CPU</div></div>
+          </div>
+          <div class="stats-grid">
+            <div class="stats-card"><div class="stats-card-label">1 分钟负载</div><div id="cpu-load-1m" class="stats-card-value">0</div><div class="stats-card-note">系统 load average</div></div>
+            <div class="stats-card"><div class="stats-card-label">5 分钟负载</div><div id="cpu-load-5m" class="stats-card-value">0</div><div class="stats-card-note">系统 load average</div></div>
+            <div class="stats-card"><div class="stats-card-label">15 分钟负载</div><div id="cpu-load-15m" class="stats-card-value">0</div><div class="stats-card-note">系统 load average</div></div>
+            <div class="stats-card"><div class="stats-card-label">进程运行时长</div><div id="cpu-process-uptime" class="stats-card-value">0s</div><div class="stats-card-note">Node 进程 uptime</div></div>
+          </div>
+          <div class="stats-grid">
+            <div class="stats-card"><div class="stats-card-label">系统运行时长</div><div id="cpu-system-uptime" class="stats-card-value">0s</div><div class="stats-card-note">宿主机 uptime</div></div>
+            <div class="stats-card"><div class="stats-card-label">RSS 内存</div><div id="cpu-rss-memory" class="stats-card-value">0 MB</div><div class="stats-card-note">进程常驻内存</div></div>
+            <div class="stats-card"><div class="stats-card-label">Heap 已用</div><div id="cpu-heap-used" class="stats-card-value">0 MB</div><div class="stats-card-note">V8 已使用堆</div></div>
+            <div class="stats-card"><div class="stats-card-label">Heap 总量</div><div id="cpu-heap-total" class="stats-card-value">0 MB</div><div class="stats-card-note">V8 堆总量</div></div>
+          </div>
+          <div class="stats-grid">
+            <div class="stats-card"><div class="stats-card-label">外部内存</div><div id="cpu-external-memory" class="stats-card-value">0 MB</div><div class="stats-card-note">Buffer / C++ 对象等</div></div>
+          </div>
+          <div class="network-breakdown">
+            <div class="network-breakdown-head">
+              <div class="panel-title">CPU 热点分项</div>
+              <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                <button id="cpu-breakdown-sort-total" class="small-btn primary" type="button">总耗时</button>
+                <button id="cpu-breakdown-sort-count" class="small-btn" type="button">次数</button>
+                <button id="cpu-breakdown-sort-avg" class="small-btn" type="button">单次</button>
+              </div>
+            </div>
+            <div class="network-breakdown-subtitle">点击切换排序，快速判断是累计占比高、调用次数多，还是单次耗时高</div>
+            <div id="cpu-breakdown-list" class="network-breakdown-list"><div class="empty-hint">当前还没有 CPU 分项数据。</div></div>
+          </div>
         </div>
       </div>
     </section>

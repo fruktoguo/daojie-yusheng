@@ -36,6 +36,19 @@ function escapeHtml(s: string): string {
   return s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 }
 
+function formatClockFromTicks(localTicks: number, dayLength: number): string {
+  const safeDayLength = Math.max(1, dayLength);
+  const normalizedTicks = ((localTicks % safeDayLength) + safeDayLength) % safeDayLength;
+  const totalMinutes = Math.floor((normalizedTicks / safeDayLength) * 24 * 60);
+  const hours = String(Math.floor(totalMinutes / 60) % 24).padStart(2, '0');
+  const minutes = String(totalMinutes % 60).padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+function formatDebugNumber(value: number, digits = 2): string {
+  return Number.isFinite(value) ? value.toFixed(digits) : '-';
+}
+
 export class GmWorldViewer {
   private canvas: HTMLCanvasElement;
   private mapListEl: HTMLElement;
@@ -67,6 +80,8 @@ export class GmWorldViewer {
   private pollTimer: number | null = null;
   private rafId: number | null = null;
   private mounted = false;
+  private speedDraft: string | null = null;
+  private offsetDraft: string | null = null;
 
   constructor(
     private readonly request: RequestFn,
@@ -420,24 +435,88 @@ export class GmWorldViewer {
 
   // ===== 时间操控 =====
 
+  private captureTimeControlDraftState(): {
+    focusedField: 'speed' | 'offset' | null;
+    selectionStart: number | null;
+    selectionEnd: number | null;
+  } {
+    const speedInput = this.timeControlEl.querySelector<HTMLInputElement>('[data-world-speed-input]');
+    const offsetInput = this.timeControlEl.querySelector<HTMLInputElement>('[data-world-offset-input]');
+    const active = document.activeElement;
+    const focusedInput = active instanceof HTMLInputElement ? active : null;
+    const focusedField = focusedInput === speedInput
+      ? 'speed'
+      : focusedInput === offsetInput
+        ? 'offset'
+        : null;
+    if (speedInput) {
+      this.speedDraft = focusedField === 'speed' ? speedInput.value : null;
+    }
+    if (offsetInput) {
+      this.offsetDraft = focusedField === 'offset' ? offsetInput.value : null;
+    }
+    return {
+      focusedField,
+      selectionStart: focusedInput?.selectionStart ?? null,
+      selectionEnd: focusedInput?.selectionEnd ?? null,
+    };
+  }
+
+  private restoreTimeControlFocus(state: {
+    focusedField: 'speed' | 'offset' | null;
+    selectionStart: number | null;
+    selectionEnd: number | null;
+  }): void {
+    if (!state.focusedField) {
+      return;
+    }
+    const selector = state.focusedField === 'speed' ? '[data-world-speed-input]' : '[data-world-offset-input]';
+    const input = this.timeControlEl.querySelector<HTMLInputElement>(selector);
+    if (!input) {
+      return;
+    }
+    input.focus();
+    if (state.selectionStart !== null || state.selectionEnd !== null) {
+      input.setSelectionRange(state.selectionStart ?? input.value.length, state.selectionEnd ?? input.value.length);
+    }
+  }
+
   private renderTimeControl(): void {
     if (!this.runtimeData) {
       this.timeControlEl.innerHTML = '<div class="empty-hint">未选择地图</div>';
       return;
     }
 
+    const previousControlState = this.captureTimeControlDraftState();
     const { time, tickSpeed, tickPaused, timeConfig } = this.runtimeData;
-    const speeds = [0, 0.5, 1, 2, 5, 10];
+    const configuredScale = typeof timeConfig.scale === 'number' ? timeConfig.scale : 1;
+    const offsetTicks = typeof timeConfig.offsetTicks === 'number' ? timeConfig.offsetTicks : 0;
+    const realtimeTickRate = tickPaused ? 0 : tickSpeed;
+    const localTicksPerSecond = realtimeTickRate * configuredScale;
+    const realtimeMinutesPerSecond = time.dayLength > 0
+      ? localTicksPerSecond / time.dayLength * 24 * 60
+      : 0;
+    const speedValue = this.speedDraft ?? String(realtimeTickRate);
+    const offsetValue = this.offsetDraft ?? String(offsetTicks);
+    const speeds = [0, 0.5, 1, 2, 5, 10, 20, 50, 100];
 
     this.timeControlEl.innerHTML = `
       <div class="world-time-info">
+        <div class="panel-row"><span class="panel-label">当前时刻</span><span class="panel-value">${formatClockFromTicks(time.localTicks, time.dayLength)}</span></div>
         <div class="panel-row"><span class="panel-label">时辰</span><span class="panel-value">${escapeHtml(time.phaseLabel)}</span></div>
         <div class="panel-row"><span class="panel-label">光照</span><span class="panel-value">${time.lightPercent}%</span></div>
         <div class="panel-row"><span class="panel-label">黑暗层数</span><span class="panel-value">${time.darknessStacks}</span></div>
-        <div class="panel-row"><span class="panel-label">时间流速</span><span class="panel-value">${timeConfig.scale ?? 1}x</span></div>
+        <div class="panel-row"><span class="panel-label">时间控制</span><span class="panel-value">${tickPaused ? '已暂停' : `${formatDebugNumber(realtimeTickRate)}x`}</span></div>
+        <div class="panel-row"><span class="panel-label">总 Tick</span><span class="panel-value">${time.totalTicks}</span></div>
+        <div class="panel-row"><span class="panel-label">本地 Tick</span><span class="panel-value">${formatDebugNumber(time.localTicks, 2)} / ${time.dayLength}</span></div>
+        <div class="panel-row"><span class="panel-label">时间偏移</span><span class="panel-value">${offsetTicks}</span></div>
+        <div class="panel-row"><span class="panel-label">基础倍率</span><span class="panel-value">${configuredScale}x</span></div>
+        <div class="panel-row"><span class="panel-label">地图 Tick</span><span class="panel-value">${tickPaused ? '已暂停' : `${formatDebugNumber(realtimeTickRate)} 次/秒`}</span></div>
+        <div class="panel-row"><span class="panel-label">时间推进</span><span class="panel-value">${tickPaused ? '已暂停' : `${formatDebugNumber(localTicksPerSecond)} 本地 Tick/秒`}</span></div>
+        <div class="panel-row"><span class="panel-label">时钟速度</span><span class="panel-value">${tickPaused ? '已暂停' : `${formatDebugNumber(realtimeMinutesPerSecond)} 分钟/秒`}</span></div>
       </div>
       <div class="world-tick-control">
-        <div class="panel-section-title">Tick 控制</div>
+        <div class="panel-section-title">时间控制</div>
         <div class="world-speed-btns">
           ${speeds.map((s) => `
             <button class="small-btn world-speed-btn ${(tickPaused && s === 0) || (!tickPaused && tickSpeed === s) ? 'active' : ''}" data-speed="${s}">
@@ -445,25 +524,51 @@ export class GmWorldViewer {
             </button>
           `).join('')}
         </div>
+        <div class="gm-btn-row" style="margin-top:6px;">
+          <input
+            type="number"
+            class="gm-inline-input"
+            data-world-speed-input
+            value="${escapeHtml(speedValue)}"
+            step="0.1"
+            min="0"
+            max="100"
+            style="width:96px"
+          />
+          <button class="small-btn" id="world-speed-apply">应用速度</button>
+        </div>
       </div>
       <div class="world-time-adjust">
         <div class="panel-section-title">时间偏移</div>
         <div class="gm-btn-row">
-          <input type="number" id="world-time-offset" class="gm-inline-input" value="${timeConfig.offsetTicks ?? 0}" style="width:80px" />
+          <input type="number" id="world-time-offset" data-world-offset-input class="gm-inline-input" value="${escapeHtml(offsetValue)}" style="width:80px" />
           <button class="small-btn" id="world-time-apply">应用</button>
-        </div>
-        <div class="gm-btn-row" style="margin-top:4px;">
-          <input type="number" id="world-time-scale" class="gm-inline-input" value="${timeConfig.scale ?? 1}" step="0.1" min="0" style="width:80px" />
-          <button class="small-btn" id="world-time-scale-apply">设置流速</button>
         </div>
       </div>
     `;
 
+    const speedInput = this.timeControlEl.querySelector<HTMLInputElement>('[data-world-speed-input]');
+    const offsetInput = this.timeControlEl.querySelector<HTMLInputElement>('[data-world-offset-input]');
+    speedInput?.addEventListener('input', () => {
+      this.speedDraft = speedInput.value;
+    });
+    offsetInput?.addEventListener('input', () => {
+      this.offsetDraft = offsetInput.value;
+    });
+
     this.timeControlEl.querySelectorAll('.world-speed-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         const speed = parseFloat((btn as HTMLElement).dataset.speed ?? '1');
-        this.setTickSpeed(speed).catch(() => {});
+        this.speedDraft = String(speed);
+        this.setWorldSpeed(speed).catch(() => {});
       });
+    });
+
+    document.getElementById('world-speed-apply')?.addEventListener('click', () => {
+      const speed = parseFloat(speedInput?.value ?? '1');
+      if (Number.isFinite(speed)) {
+        this.setWorldSpeed(speed).catch(() => {});
+      }
     });
 
     document.getElementById('world-time-apply')?.addEventListener('click', () => {
@@ -474,28 +579,31 @@ export class GmWorldViewer {
       }
     });
 
-    document.getElementById('world-time-scale-apply')?.addEventListener('click', () => {
-      const input = document.getElementById('world-time-scale') as HTMLInputElement;
-      const scale = parseFloat(input.value);
-      if (Number.isFinite(scale) && scale >= 0) {
-        this.updateTime({ scale }).catch(() => {});
-      }
-    });
+    this.restoreTimeControlFocus(previousControlState);
   }
 
-  private async setTickSpeed(speed: number): Promise<void> {
+  private async setWorldSpeed(speed: number): Promise<void> {
     if (!this.currentMapId) return;
+    const clamped = Math.max(0, Math.min(100, speed));
     try {
-      await this.request<{ ok: true }>(`/gm/maps/${this.currentMapId}/tick`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ speed } satisfies GmUpdateMapTickReq),
-      });
-      this.setStatus(`Tick 速率已设为 ${speed === 0 ? '暂停' : speed + 'x'}`);
+      await Promise.all([
+        this.request<{ ok: true }>(`/gm/maps/${this.currentMapId}/tick`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ speed: clamped } satisfies GmUpdateMapTickReq),
+        }),
+        this.request<{ ok: true }>(`/gm/maps/${this.currentMapId}/time`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scale: 1 } satisfies GmUpdateMapTimeReq),
+        }),
+      ]);
+      this.speedDraft = null;
+      this.setStatus(`时间速度已设为 ${clamped === 0 ? '暂停' : `${clamped}x`}`);
       await this.loadRuntime();
       this.renderAll();
     } catch (err) {
-      this.setStatus(err instanceof Error ? err.message : '设置 tick 速率失败', true);
+      this.setStatus(err instanceof Error ? err.message : '设置时间速度失败', true);
     }
   }
 
@@ -507,6 +615,9 @@ export class GmWorldViewer {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(req),
       });
+      if (req.offsetTicks !== undefined) {
+        this.offsetDraft = null;
+      }
       this.setStatus('时间配置已更新');
       await this.loadRuntime();
       this.renderAll();

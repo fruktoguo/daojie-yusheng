@@ -465,15 +465,27 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const originalEmit = client.emit.bind(client);
     client.emit = ((event: string, ...args: unknown[]) => {
+      const startedAt = process.hrtime.bigint();
       const encodedArgs = args.map((arg) => encodeServerEventPayload(event, arg));
       const label = `WS ${event}`;
       this.performanceService.recordNetworkOutBytes(this.estimateSocketPacketBytes(event, encodedArgs), label, label);
+      this.performanceService.recordCpuSection(
+        Number(process.hrtime.bigint() - startedAt) / 1_000_000,
+        'network',
+        '网络编解码与收发',
+      );
       return originalEmit(event, ...encodedArgs);
     }) as typeof client.emit;
 
     client.onAny((event, ...args) => {
+      const startedAt = process.hrtime.bigint();
       const label = `WS ${event}`;
       this.performanceService.recordNetworkInBytes(this.estimateSocketPacketBytes(event, args), label, label);
+      this.performanceService.recordCpuSection(
+        Number(process.hrtime.bigint() - startedAt) / 1_000_000,
+        'network',
+        '网络编解码与收发',
+      );
     });
   }
 

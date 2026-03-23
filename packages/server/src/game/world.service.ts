@@ -47,6 +47,7 @@ import { InventoryService } from './inventory.service';
 import { LootService } from './loot.service';
 import { DropConfig, MapService, MonsterSpawnConfig, NpcConfig, QuestConfig } from './map.service';
 import { NavigationService } from './navigation.service';
+import { PerformanceService } from './performance.service';
 import { PlayerService } from './player.service';
 import { isLikelyInternalContentId, resolveQuestTargetName } from './quest-display';
 import { TechniqueService } from './technique.service';
@@ -201,6 +202,7 @@ export class WorldService {
     private readonly aoiService: AoiService,
     private readonly lootService: LootService,
     private readonly timeService: TimeService,
+    private readonly performanceService: PerformanceService,
   ) {}
 
   /** 获取玩家视野内的可见实体（容器、NPC、怪物） */
@@ -1294,96 +1296,113 @@ export class WorldService {
 
     for (const monster of monsters) {
       if (!monster.alive) {
-        monster.respawnLeft -= 1;
-        if (monster.respawnLeft <= 0) {
-          const pos = this.findSpawnPosition(mapId, monster);
-          if (pos && this.mapService.isWalkable(mapId, pos.x, pos.y, { actorType: 'monster' })) {
-            monster.x = pos.x;
-            monster.y = pos.y;
-            monster.hp = monster.maxHp;
-            monster.alive = true;
-            monster.temporaryBuffs = [];
-            monster.damageContributors.clear();
-            monster.targetPlayerId = undefined;
-            this.mapService.addOccupant(mapId, monster.x, monster.y, monster.runtimeId, 'monster');
-          } else {
-            monster.respawnLeft = 1;
+        this.measureCpuSection('monster_respawn', '怪物: 重生处理', () => {
+          monster.respawnLeft -= 1;
+          if (monster.respawnLeft <= 0) {
+            const pos = this.findSpawnPosition(mapId, monster);
+            if (pos && this.mapService.isWalkable(mapId, pos.x, pos.y, { actorType: 'monster' })) {
+              monster.x = pos.x;
+              monster.y = pos.y;
+              monster.hp = monster.maxHp;
+              monster.alive = true;
+              monster.temporaryBuffs = [];
+              monster.damageContributors.clear();
+              monster.targetPlayerId = undefined;
+              this.mapService.addOccupant(mapId, monster.x, monster.y, monster.runtimeId, 'monster');
+            } else {
+              monster.respawnLeft = 1;
+            }
           }
-        }
+        });
         continue;
       }
 
       if (monster.temporaryBuffs.length > 0) {
-        for (const buff of monster.temporaryBuffs) {
-          buff.remainingTicks -= 1;
-        }
-        monster.temporaryBuffs = monster.temporaryBuffs.filter((buff) => buff.remainingTicks > 0 && buff.stacks > 0);
+        this.measureCpuSection('monster_buffs', '怪物: Buff 推进', () => {
+          for (const buff of monster.temporaryBuffs) {
+            buff.remainingTicks -= 1;
+          }
+          monster.temporaryBuffs = monster.temporaryBuffs.filter((buff) => buff.remainingTicks > 0 && buff.stacks > 0);
+        });
       }
 
-      const timeState = this.timeService.syncMonsterTimeEffects(monster);
-      let target = this.resolveMonsterTarget(monster, players, timeState);
+      const timeState = this.measureCpuSection('monster_time', '怪物: 时间效果', () => (
+        this.timeService.syncMonsterTimeEffects(monster)
+      ));
+      const target = this.measureCpuSection('monster_target', '怪物: 目标选择', () => (
+        this.resolveMonsterTarget(monster, players, timeState)
+      ));
       if (!target) {
         if (monster.x !== monster.spawnX || monster.y !== monster.spawnY) {
-          this.stepToward(mapId, monster, monster.spawnX, monster.spawnY, monster.runtimeId);
+          this.measureCpuSection('monster_return', '怪物: 回巢移动', () => {
+            this.stepToward(mapId, monster, monster.spawnX, monster.spawnY, monster.runtimeId);
+          });
         }
         continue;
       }
 
       if (isPointInRange(monster, target, 1)) {
-        const cultivation = this.techniqueService.interruptCultivation(target, 'hit');
-        const resolved = this.resolveMonsterAttack(monster, target);
-        const monsterElement = this.inferMonsterElement(monster);
-        const effectColor = getDamageTrailColor(monsterElement ? 'spell' : 'physical', monsterElement);
-        for (const message of cultivation.messages) {
-          allMessages.push({
-            playerId: target.id,
-            text: message.text,
-            kind: message.kind,
-          });
-        }
-        if (cultivation.changed) {
-          dirtyPlayers.add(target.id);
-        }
-        if (target.hp > 0 && target.autoRetaliate !== false && !target.autoBattle) {
-          target.autoBattle = true;
-          target.combatTargetId = monster.runtimeId;
-          target.combatTargetLocked = false;
-          this.navigationService.clearMoveTarget(target.id);
-          dirtyPlayers.add(target.id);
-        }
-        this.pushEffect(mapId, {
-          type: 'attack',
-          fromX: monster.x,
-          fromY: monster.y,
-          toX: target.x,
-          toY: target.y,
-          color: effectColor,
-        });
-        this.pushEffect(mapId, {
-          type: 'float',
-          x: target.x,
-          y: target.y,
-          text: resolved.hit ? `-${resolved.damage}` : '闪',
-          color: effectColor,
-        });
-        allMessages.push(this.buildMonsterAttackMessage(monster, target, resolved, effectColor));
-        if (target.hp <= 0) {
-          allMessages.push({
-            playerId: target.id,
-            text: target.online === false
-              ? '你在离线中被击倒，已退出当前世界。'
-              : '你被击倒，已被护山阵法送回复活点。',
-            kind: 'combat',
-          });
-          if (target.online === false) {
-            this.removePlayerFromWorld(target, 'death');
-          } else {
-            this.respawnPlayer(target);
+        const defeated = this.measureCpuSection('monster_attack', '怪物: 攻击结算', () => {
+          const cultivation = this.techniqueService.interruptCultivation(target, 'hit');
+          const resolved = this.resolveMonsterAttack(monster, target);
+          const monsterElement = this.inferMonsterElement(monster);
+          const effectColor = getDamageTrailColor(monsterElement ? 'spell' : 'physical', monsterElement);
+          for (const message of cultivation.messages) {
+            allMessages.push({
+              playerId: target.id,
+              text: message.text,
+              kind: message.kind,
+            });
           }
-          dirtyPlayers.add(target.id);
+          if (cultivation.changed) {
+            dirtyPlayers.add(target.id);
+          }
+          if (target.hp > 0 && target.autoRetaliate !== false && !target.autoBattle) {
+            target.autoBattle = true;
+            target.combatTargetId = monster.runtimeId;
+            target.combatTargetLocked = false;
+            this.navigationService.clearMoveTarget(target.id);
+            dirtyPlayers.add(target.id);
+          }
+          this.pushEffect(mapId, {
+            type: 'attack',
+            fromX: monster.x,
+            fromY: monster.y,
+            toX: target.x,
+            toY: target.y,
+            color: effectColor,
+          });
+          this.pushEffect(mapId, {
+            type: 'float',
+            x: target.x,
+            y: target.y,
+            text: resolved.hit ? `-${resolved.damage}` : '闪',
+            color: effectColor,
+          });
+          allMessages.push(this.buildMonsterAttackMessage(monster, target, resolved, effectColor));
+          return target.hp <= 0;
+        });
+        if (defeated) {
+          this.measureCpuSection('monster_death_post', '怪物: 死亡后处理', () => {
+            allMessages.push({
+              playerId: target.id,
+              text: target.online === false
+                ? '你在离线中被击倒，已退出当前世界。'
+                : '你被击倒，已被护山阵法送回复活点。',
+              kind: 'combat',
+            });
+            if (target.online === false) {
+              this.removePlayerFromWorld(target, 'death');
+            } else {
+              this.respawnPlayer(target);
+            }
+            dirtyPlayers.add(target.id);
+          });
         }
       } else {
-        this.stepToward(mapId, monster, target.x, target.y, monster.runtimeId);
+        this.measureCpuSection('monster_chase', '怪物: 追击移动', () => {
+          this.stepToward(mapId, monster, target.x, target.y, monster.runtimeId);
+        });
       }
     }
 
@@ -2797,6 +2816,19 @@ export class WorldService {
       return option.facing;
     }
     return null;
+  }
+
+  private measureCpuSection<T>(key: string, label: string, work: () => T): T {
+    const startedAt = process.hrtime.bigint();
+    try {
+      return work();
+    } finally {
+      this.performanceService.recordCpuSection(
+        Number(process.hrtime.bigint() - startedAt) / 1_000_000,
+        key,
+        label,
+      );
+    }
   }
 
   private getAdjacentNpcs(player: PlayerState): NpcConfig[] {

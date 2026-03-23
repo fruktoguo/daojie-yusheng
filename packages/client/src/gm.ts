@@ -108,6 +108,36 @@ const summaryNetInEl = document.getElementById('summary-net-in') as HTMLDivEleme
 const summaryNetOutEl = document.getElementById('summary-net-out') as HTMLDivElement;
 const summaryNetInBreakdownEl = document.getElementById('summary-net-in-breakdown') as HTMLDivElement;
 const summaryNetOutBreakdownEl = document.getElementById('summary-net-out-breakdown') as HTMLDivElement;
+const serverSubtabOverviewBtn = document.getElementById('server-subtab-overview') as HTMLButtonElement;
+const serverSubtabTrafficBtn = document.getElementById('server-subtab-traffic') as HTMLButtonElement;
+const serverSubtabCpuBtn = document.getElementById('server-subtab-cpu') as HTMLButtonElement;
+const serverPanelOverviewEl = document.getElementById('server-panel-overview') as HTMLElement;
+const serverPanelTrafficEl = document.getElementById('server-panel-traffic') as HTMLElement;
+const serverPanelCpuEl = document.getElementById('server-panel-cpu') as HTMLElement;
+const trafficResetMetaEl = document.getElementById('traffic-reset-meta') as HTMLDivElement;
+const trafficTotalInEl = document.getElementById('traffic-total-in') as HTMLDivElement;
+const trafficTotalInNoteEl = document.getElementById('traffic-total-in-note') as HTMLDivElement;
+const trafficTotalOutEl = document.getElementById('traffic-total-out') as HTMLDivElement;
+const trafficTotalOutNoteEl = document.getElementById('traffic-total-out-note') as HTMLDivElement;
+const resetNetworkStatsBtn = document.getElementById('reset-network-stats') as HTMLButtonElement;
+const cpuCurrentPercentEl = document.getElementById('cpu-current-percent') as HTMLDivElement;
+const cpuProfileMetaEl = document.getElementById('cpu-profile-meta') as HTMLDivElement;
+const cpuCoreCountEl = document.getElementById('cpu-core-count') as HTMLDivElement;
+const cpuUserMsEl = document.getElementById('cpu-user-ms') as HTMLDivElement;
+const cpuSystemMsEl = document.getElementById('cpu-system-ms') as HTMLDivElement;
+const cpuLoad1mEl = document.getElementById('cpu-load-1m') as HTMLDivElement;
+const cpuLoad5mEl = document.getElementById('cpu-load-5m') as HTMLDivElement;
+const cpuLoad15mEl = document.getElementById('cpu-load-15m') as HTMLDivElement;
+const cpuProcessUptimeEl = document.getElementById('cpu-process-uptime') as HTMLDivElement;
+const cpuSystemUptimeEl = document.getElementById('cpu-system-uptime') as HTMLDivElement;
+const cpuRssMemoryEl = document.getElementById('cpu-rss-memory') as HTMLDivElement;
+const cpuHeapUsedEl = document.getElementById('cpu-heap-used') as HTMLDivElement;
+const cpuHeapTotalEl = document.getElementById('cpu-heap-total') as HTMLDivElement;
+const cpuExternalMemoryEl = document.getElementById('cpu-external-memory') as HTMLDivElement;
+const cpuBreakdownListEl = document.getElementById('cpu-breakdown-list') as HTMLDivElement;
+const cpuBreakdownSortTotalBtn = document.getElementById('cpu-breakdown-sort-total') as HTMLButtonElement;
+const cpuBreakdownSortCountBtn = document.getElementById('cpu-breakdown-sort-count') as HTMLButtonElement;
+const cpuBreakdownSortAvgBtn = document.getElementById('cpu-breakdown-sort-avg') as HTMLButtonElement;
 const gmPasswordForm = document.getElementById('gm-password-form') as HTMLFormElement;
 const gmPasswordCurrentInput = document.getElementById('gm-password-current') as HTMLInputElement;
 const gmPasswordNextInput = document.getElementById('gm-password-next') as HTMLInputElement;
@@ -136,6 +166,8 @@ let editorDirty = false;
 let draftSourcePlayerId: string | null = null;
 let pollTimer: number | null = null;
 let currentTab: 'server' | 'players' | 'maps' | 'suggestions' | 'world' = 'server';
+let currentServerTab: 'overview' | 'traffic' | 'cpu' = 'overview';
+let currentCpuBreakdownSort: 'total' | 'count' | 'avg' = 'total';
 let currentJsonView: 'runtime' | 'persisted' = 'runtime';
 
 function clone<T>(value: T): T {
@@ -170,6 +202,32 @@ function formatPercent(numerator: number, denominator: number): string {
   return `${((numerator / denominator) * 100).toFixed(1)}%`;
 }
 
+function formatBytesPerSecond(bytes: number, elapsedSec: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0 || !Number.isFinite(elapsedSec) || elapsedSec <= 0) {
+    return '0 B/s';
+  }
+  return `${formatBytes(bytes / elapsedSec)}/s`;
+}
+
+function formatAverageBytesPerEvent(bytes: number, count: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0 || !Number.isFinite(count) || count <= 0) {
+    return '0 B';
+  }
+  return formatBytes(bytes / count);
+}
+
+function formatDurationSeconds(seconds: number): string {
+  const safe = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
+  const days = Math.floor(safe / 86400);
+  const hours = Math.floor((safe % 86400) / 3600);
+  const minutes = Math.floor((safe % 3600) / 60);
+  const secs = safe % 60;
+  if (days > 0) return `${days}天 ${hours}时 ${minutes}分`;
+  if (hours > 0) return `${hours}时 ${minutes}分 ${secs}秒`;
+  if (minutes > 0) return `${minutes}分 ${secs}秒`;
+  return `${secs}秒`;
+}
+
 function getPlayerPresenceMeta(player: Pick<GmManagedPlayerSummary, 'meta'>): {
   className: 'online' | 'offline';
   label: '在线' | '离线挂机' | '离线';
@@ -183,7 +241,12 @@ function getPlayerPresenceMeta(player: Pick<GmManagedPlayerSummary, 'meta'>): {
   return { className: 'offline', label: '离线' };
 }
 
-function renderNetworkBucketList(totalBytes: number, buckets: GmNetworkBucket[], emptyText: string): string {
+function renderNetworkBucketList(
+  totalBytes: number,
+  buckets: GmNetworkBucket[],
+  elapsedSec: number,
+  emptyText: string,
+): string {
   if (buckets.length === 0 || totalBytes <= 0) {
     return `<div class="empty-hint">${escapeHtml(emptyText)}</div>`;
   }
@@ -205,7 +268,51 @@ function renderNetworkBucketList(totalBytes: number, buckets: GmNetworkBucket[],
     <div class="network-row">
       <div class="network-row-main">
         <div class="network-row-label">${escapeHtml(bucket.label)}</div>
-        <div class="network-row-meta">${formatBytes(bucket.bytes)} · ${formatPercent(bucket.bytes, totalBytes)} · ${bucket.count} 次</div>
+        <div class="network-row-meta">${formatBytes(bucket.bytes)} · ${formatPercent(bucket.bytes, totalBytes)} · ${bucket.count} 次 · 均次 ${formatAverageBytesPerEvent(bucket.bytes, bucket.count)} · 均秒 ${formatBytesPerSecond(bucket.bytes, elapsedSec)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderCpuBreakdownList(data: GmStateRes): string {
+  const sections = [...data.perf.cpu.breakdown];
+  if (sections.length === 0) {
+    return '<div class="empty-hint">当前还没有 CPU 分项数据。</div>';
+  }
+
+  sections.sort((left, right) => {
+    if (currentCpuBreakdownSort === 'count') {
+      if (right.count !== left.count) {
+        return right.count - left.count;
+      }
+      if (right.totalMs !== left.totalMs) {
+        return right.totalMs - left.totalMs;
+      }
+      return left.label.localeCompare(right.label, 'zh-CN');
+    }
+    if (currentCpuBreakdownSort === 'avg') {
+      if (right.avgMs !== left.avgMs) {
+        return right.avgMs - left.avgMs;
+      }
+      if (right.totalMs !== left.totalMs) {
+        return right.totalMs - left.totalMs;
+      }
+      return left.label.localeCompare(right.label, 'zh-CN');
+    }
+    if (right.totalMs !== left.totalMs) {
+      return right.totalMs - left.totalMs;
+    }
+    if (right.count !== left.count) {
+      return right.count - left.count;
+    }
+    return left.label.localeCompare(right.label, 'zh-CN');
+  });
+
+  return sections.slice(0, 12).map((section) => `
+    <div class="network-row">
+      <div class="network-row-main">
+        <div class="network-row-label">${escapeHtml(section.label)}</div>
+        <div class="network-row-meta">${section.totalMs.toFixed(2)} ms · ${section.percent.toFixed(1)}% · ${section.count} 次 · 均次 ${section.avgMs.toFixed(3)} ms</div>
       </div>
     </div>
   `).join('');
@@ -226,6 +333,26 @@ function setStatus(message: string, isError = false): void {
 
 const mapEditor = new GmMapEditor(request, setStatus);
 const worldViewer = new GmWorldViewer(request, setStatus);
+
+function switchServerTab(tab: 'overview' | 'traffic' | 'cpu'): void {
+  currentServerTab = tab;
+  serverSubtabOverviewBtn.classList.toggle('active', tab === 'overview');
+  serverSubtabTrafficBtn.classList.toggle('active', tab === 'traffic');
+  serverSubtabCpuBtn.classList.toggle('active', tab === 'cpu');
+  serverPanelOverviewEl.classList.toggle('hidden', tab !== 'overview');
+  serverPanelTrafficEl.classList.toggle('hidden', tab !== 'traffic');
+  serverPanelCpuEl.classList.toggle('hidden', tab !== 'cpu');
+}
+
+function setCpuBreakdownSort(sort: 'total' | 'count' | 'avg'): void {
+  currentCpuBreakdownSort = sort;
+  cpuBreakdownSortTotalBtn.classList.toggle('primary', sort === 'total');
+  cpuBreakdownSortCountBtn.classList.toggle('primary', sort === 'count');
+  cpuBreakdownSortAvgBtn.classList.toggle('primary', sort === 'avg');
+  if (state) {
+    cpuBreakdownListEl.innerHTML = renderCpuBreakdownList(state);
+  }
+}
 
 function switchTab(tab: 'server' | 'players' | 'maps' | 'suggestions' | 'world'): void {
   // 离开世界管理时停止轮询
@@ -255,6 +382,8 @@ function switchTab(tab: 'server' | 'players' | 'maps' | 'suggestions' | 'world')
       worldViewer.updateMapIds(state.mapIds);
     }
     worldViewer.startPolling();
+  } else if (tab === 'server') {
+    switchServerTab(currentServerTab);
   }
 }
 
@@ -959,6 +1088,8 @@ function renderSummary(data: GmStateRes): void {
   const onlineCount = humanPlayers.filter((player) => player.meta.online).length;
   const offlineHangingCount = humanPlayers.filter((player) => !player.meta.online && player.meta.inWorld).length;
   const offlineCount = humanPlayers.filter((player) => !player.meta.online && !player.meta.inWorld).length;
+  const elapsedSec = Math.max(0, data.perf.networkStatsElapsedSec);
+  const startedAt = data.perf.networkStatsStartedAt > 0 ? new Date(data.perf.networkStatsStartedAt) : null;
   summaryTotalEl.textContent = `${humanPlayers.length}`;
   summaryOnlineEl.textContent = `${onlineCount}`;
   summaryOfflineHangingEl.textContent = `${offlineHangingCount}`;
@@ -969,16 +1100,48 @@ function renderSummary(data: GmStateRes): void {
   summaryMemoryEl.textContent = `${Math.round(data.perf.memoryMb)} MB`;
   summaryNetInEl.textContent = formatBytes(data.perf.networkInBytes);
   summaryNetOutEl.textContent = formatBytes(data.perf.networkOutBytes);
+  trafficResetMetaEl.textContent = startedAt
+    ? `统计起点：${startedAt.toLocaleString()} · 已累计 ${formatDurationSeconds(elapsedSec)}`
+    : '统计区间尚未开始。';
+  trafficTotalInEl.textContent = formatBytes(data.perf.networkInBytes);
+  trafficTotalInNoteEl.textContent = `均次 ${formatAverageBytesPerEvent(
+    data.perf.networkInBytes,
+    data.perf.networkInBuckets.reduce((sum, bucket) => sum + bucket.count, 0),
+  )} · 均秒 ${formatBytesPerSecond(data.perf.networkInBytes, elapsedSec)}`;
+  trafficTotalOutEl.textContent = formatBytes(data.perf.networkOutBytes);
+  trafficTotalOutNoteEl.textContent = `均次 ${formatAverageBytesPerEvent(
+    data.perf.networkOutBytes,
+    data.perf.networkOutBuckets.reduce((sum, bucket) => sum + bucket.count, 0),
+  )} · 均秒 ${formatBytesPerSecond(data.perf.networkOutBytes, elapsedSec)}`;
   summaryNetInBreakdownEl.innerHTML = renderNetworkBucketList(
     data.perf.networkInBytes,
     data.perf.networkInBuckets,
+    elapsedSec,
     '当前还没有累计上行事件。',
   );
   summaryNetOutBreakdownEl.innerHTML = renderNetworkBucketList(
     data.perf.networkOutBytes,
     data.perf.networkOutBuckets,
+    elapsedSec,
     '当前还没有累计下行事件。',
   );
+  cpuCurrentPercentEl.textContent = `${Math.round(data.perf.cpuPercent)}%`;
+  cpuProfileMetaEl.textContent = data.perf.cpu.profileStartedAt > 0
+    ? `CPU 画像起点：${new Date(data.perf.cpu.profileStartedAt).toLocaleString()} · 已累计 ${formatDurationSeconds(data.perf.cpu.profileElapsedSec)}`
+    : 'CPU 画像尚未开始。';
+  cpuCoreCountEl.textContent = `${data.perf.cpu.cores}`;
+  cpuUserMsEl.textContent = `${Math.round(data.perf.cpu.userCpuMs)} ms`;
+  cpuSystemMsEl.textContent = `${Math.round(data.perf.cpu.systemCpuMs)} ms`;
+  cpuLoad1mEl.textContent = `${data.perf.cpu.loadAvg1m.toFixed(2)}`;
+  cpuLoad5mEl.textContent = `${data.perf.cpu.loadAvg5m.toFixed(2)}`;
+  cpuLoad15mEl.textContent = `${data.perf.cpu.loadAvg15m.toFixed(2)}`;
+  cpuProcessUptimeEl.textContent = formatDurationSeconds(data.perf.cpu.processUptimeSec);
+  cpuSystemUptimeEl.textContent = formatDurationSeconds(data.perf.cpu.systemUptimeSec);
+  cpuRssMemoryEl.textContent = `${Math.round(data.perf.cpu.rssMb)} MB`;
+  cpuHeapUsedEl.textContent = `${Math.round(data.perf.cpu.heapUsedMb)} MB`;
+  cpuHeapTotalEl.textContent = `${Math.round(data.perf.cpu.heapTotalMb)} MB`;
+  cpuExternalMemoryEl.textContent = `${Math.round(data.perf.cpu.externalMb)} MB`;
+  cpuBreakdownListEl.innerHTML = renderCpuBreakdownList(data);
 }
 
 function renderPlayerList(data: GmStateRes): void {
@@ -1077,6 +1240,8 @@ function renderEditor(data: GmStateRes): void {
 
 function render(): void {
   if (!state) return;
+  switchServerTab(currentServerTab);
+  setCpuBreakdownSort(currentCpuBreakdownSort);
   renderSummary(state);
   renderPlayerList(state);
   renderEditor(state);
@@ -1443,6 +1608,21 @@ async function removeAllBots(): Promise<void> {
   }
 }
 
+async function resetNetworkStats(): Promise<void> {
+  resetNetworkStatsBtn.disabled = true;
+  try {
+    await request<{ ok: true }>('/gm/perf/network/reset', {
+      method: 'POST',
+    });
+    await loadState(true);
+    setStatus('流量统计已重置');
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '重置流量统计失败', true);
+  } finally {
+    resetNetworkStatsBtn.disabled = false;
+  }
+}
+
 function handleEditorAction(action: string, trigger: HTMLElement): void {
   if (!draftSnapshot) return;
 
@@ -1552,6 +1732,12 @@ mapTabBtn.addEventListener('click', () => switchTab('maps'));
 suggestionTabBtn.addEventListener('click', () => switchTab('suggestions'));
 serverTabBtn.addEventListener('click', () => switchTab('server'));
 worldTabBtn.addEventListener('click', () => switchTab('world'));
+serverSubtabOverviewBtn.addEventListener('click', () => switchServerTab('overview'));
+serverSubtabTrafficBtn.addEventListener('click', () => switchServerTab('traffic'));
+serverSubtabCpuBtn.addEventListener('click', () => switchServerTab('cpu'));
+cpuBreakdownSortTotalBtn.addEventListener('click', () => setCpuBreakdownSort('total'));
+cpuBreakdownSortCountBtn.addEventListener('click', () => setCpuBreakdownSort('count'));
+cpuBreakdownSortAvgBtn.addEventListener('click', () => setCpuBreakdownSort('avg'));
 loginForm.addEventListener('submit', (event) => {
   event.preventDefault();
   login().catch(() => {});
@@ -1575,6 +1761,9 @@ document.getElementById('spawn-bots')?.addEventListener('click', () => {
 document.getElementById('remove-all-bots')?.addEventListener('click', () => {
   removeAllBots().catch(() => {});
 });
+resetNetworkStatsBtn.addEventListener('click', () => {
+  resetNetworkStats().catch(() => {});
+});
 gmPasswordForm.addEventListener('submit', (event) => {
   event.preventDefault();
   changeGmPassword().catch(() => {});
@@ -1592,6 +1781,8 @@ removeBotBtn.addEventListener('click', () => {
 if (token) {
   showShell();
   switchTab('server');
+  switchServerTab(currentServerTab);
+  setCpuBreakdownSort(currentCpuBreakdownSort);
   switchJsonView(currentJsonView);
   loadState()
     .then(() => startPolling())

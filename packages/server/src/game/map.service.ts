@@ -1966,7 +1966,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       offsetTicks: Number.isFinite(candidate.offsetTicks)
         ? Math.round(candidate.offsetTicks ?? 0)
         : DEFAULT_MAP_TIME_CONFIG.offsetTicks,
-      scale: typeof candidate.scale === 'number' && Number.isFinite(candidate.scale) && candidate.scale > 0
+      scale: typeof candidate.scale === 'number' && Number.isFinite(candidate.scale) && candidate.scale >= 0
         ? candidate.scale
         : DEFAULT_MAP_TIME_CONFIG.scale,
       light: {

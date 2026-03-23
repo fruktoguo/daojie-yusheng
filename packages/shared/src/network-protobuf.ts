@@ -138,14 +138,15 @@ message GameTimeStatePayload {
   optional uint32 totalTicks = 1;
   optional uint32 localTicks = 2;
   optional uint32 dayLength = 3;
-  optional string phase = 4;
-  optional string phaseLabel = 5;
-  optional uint32 darknessStacks = 6;
-  optional float visionMultiplier = 7;
-  optional float lightPercent = 8;
-  optional uint32 effectiveViewRange = 9;
-  optional string tint = 10;
-  optional float overlayAlpha = 11;
+  optional float timeScale = 4;
+  optional string phase = 5;
+  optional string phaseLabel = 6;
+  optional uint32 darknessStacks = 7;
+  optional float visionMultiplier = 8;
+  optional float lightPercent = 9;
+  optional uint32 effectiveViewRange = 10;
+  optional string tint = 11;
+  optional float overlayAlpha = 12;
 }
 
 message TechniqueUpdatePayload {

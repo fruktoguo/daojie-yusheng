@@ -238,6 +238,7 @@ export interface GameTimeState {
   totalTicks: number;
   localTicks: number;
   dayLength: number;
+  timeScale: number;
   phase: TimePhaseId;
   phaseLabel: string;
   darknessStacks: number;
