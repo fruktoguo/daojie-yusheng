@@ -4,63 +4,18 @@
  */
 
 import { EquipmentEffectDef, Inventory, ItemStack, ItemType, PlayerState, createItemStackSignature } from '@mud/shared';
+import {
+  getAttrKeyLabel,
+  getEquipSlotLabel,
+  getItemTypeLabel,
+  getNumericScalarStatKeyLabel,
+} from '../../domain-labels';
 import { detailModalHost } from '../detail-modal-host';
 import { FloatingTooltip } from '../floating-tooltip';
 import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { preserveSelection } from '../selection-preserver';
 
-const ITEM_TYPE_LABELS: Record<string, string> = {
-  consumable: '消耗品',
-  equipment: '装备',
-  material: '材料',
-  quest_item: '任务物',
-  skill_book: '功法书',
-};
 const TOOLTIP_STYLE_ID = 'inventory-panel-tooltip-style';
-const SLOT_LABELS: Record<string, string> = {
-  weapon: '武器',
-  head: '头部',
-  body: '身体',
-  legs: '腿部',
-  accessory: '饰品',
-};
-const ATTR_LABELS: Record<string, string> = {
-  constitution: '体魄',
-  spirit: '神识',
-  perception: '身法',
-  talent: '根骨',
-  comprehension: '悟性',
-  luck: '气运',
-};
-const STAT_LABELS: Record<string, string> = {
-  maxHp: '最大生命',
-  maxQi: '最大灵力',
-  physAtk: '物理攻击',
-  spellAtk: '法术攻击',
-  physDef: '物理防御',
-  spellDef: '法术防御',
-  hit: '命中',
-  dodge: '闪避',
-  crit: '暴击',
-  critDamage: '暴击伤害',
-  breakPower: '破招',
-  resolvePower: '化解',
-  maxQiOutputPerTick: '灵力输出速率',
-  qiRegenRate: '灵力回复',
-  hpRegenRate: '生命回复',
-  cooldownSpeed: '冷却速度',
-  auraCostReduce: '光环消耗缩减',
-  auraPowerRate: '光环效果增强',
-  playerExpRate: '角色经验',
-  techniqueExpRate: '功法经验',
-  realmExpPerTick: '每息境界经验',
-  techniqueExpPerTick: '每息功法经验',
-  lootRate: '掉落增幅',
-  rareLootRate: '稀有掉落',
-  viewRange: '视野范围',
-  moveSpeed: '移动速度',
-};
-
 type InventoryFilter = 'all' | ItemType;
 type InventoryActionKind = 'use' | 'drop' | 'destroy';
 
@@ -129,12 +84,12 @@ function formatItemEffects(item: ItemStack): string[] {
       case 'stat_aura':
       case 'progress_boost': {
         const attrParts = effect.attrs
-          ? Object.entries(effect.attrs).map(([key, value]) => `${ATTR_LABELS[key] ?? key}+${value}`)
+          ? Object.entries(effect.attrs).map(([key, value]) => `${getAttrKeyLabel(key)}+${value}`)
           : [];
         const statParts = effect.stats
           ? Object.entries(effect.stats)
             .filter(([, value]) => typeof value === 'number' && value !== 0)
-            .map(([key, value]) => `${STAT_LABELS[key] ?? key}+${formatBonusValue(key, value as number)}`)
+            .map(([key, value]) => `${getNumericScalarStatKeyLabel(key)}+${formatBonusValue(key, value as number)}`)
           : [];
         return `特效:${[...attrParts, ...statParts].join(' / ')}${conditionText}`;
       }
@@ -270,7 +225,7 @@ export class InventoryPanel {
       const primaryAction = this.getPrimaryAction(item);
       html += `<div class="inventory-cell" data-open-item="${slotIndex}" data-item-slot="${slotIndex}" data-item-key="${this.escapeHtml(this.getItemIdentity(item))}">
         <div class="inventory-cell-head">
-          <span class="inventory-cell-type" data-item-type="true">${ITEM_TYPE_LABELS[item.type] ?? item.type}</span>
+          <span class="inventory-cell-type" data-item-type="true">${getItemTypeLabel(item.type)}</span>
           <span class="inventory-cell-count" data-item-count="true">x${item.count}</span>
         </div>
         <div class="inventory-cell-name ${nameClass}" data-item-name="true" title="${this.escapeHtml(item.name)}">${this.escapeHtml(item.name)}</div>
@@ -483,12 +438,12 @@ export class InventoryPanel {
     }
 
     const attrLines = item.equipAttrs
-      ? Object.entries(item.equipAttrs).map(([key, value]) => `${ATTR_LABELS[key] ?? key} +${value}`)
+      ? Object.entries(item.equipAttrs).map(([key, value]) => `${getAttrKeyLabel(key)} +${value}`)
       : [];
     const statLines = item.equipStats
       ? Object.entries(item.equipStats)
         .filter(([, value]) => typeof value === 'number' && value !== 0)
-        .map(([key, value]) => `${STAT_LABELS[key] ?? key} +${formatBonusValue(key, value as number)}`)
+        .map(([key, value]) => `${getNumericScalarStatKeyLabel(key)} +${formatBonusValue(key, value as number)}`)
       : [];
     const effectLines = formatItemEffects(item);
     const bonusLines = [...attrLines, ...statLines];
@@ -499,12 +454,12 @@ export class InventoryPanel {
     detailModalHost.open({
       ownerId: InventoryPanel.MODAL_OWNER,
       title: item.name,
-      subtitle: `${ITEM_TYPE_LABELS[item.type] ?? item.type} · 数量 x${item.count}`,
+      subtitle: `${getItemTypeLabel(item.type)} · 数量 x${item.count}`,
       bodyHtml: `
         <div class="quest-detail-grid inventory-detail-grid">
           <div class="quest-detail-section">
             <strong>物品类型</strong>
-            <span data-inventory-modal-type="true">${this.escapeHtml(ITEM_TYPE_LABELS[item.type] ?? item.type)}</span>
+            <span data-inventory-modal-type="true">${this.escapeHtml(getItemTypeLabel(item.type))}</span>
           </div>
           <div class="quest-detail-section">
             <strong>当前数量</strong>
@@ -512,7 +467,7 @@ export class InventoryPanel {
           </div>
           ${item.equipSlot ? `<div class="quest-detail-section">
             <strong>装备部位</strong>
-            <span data-inventory-modal-slot="true">${this.escapeHtml(SLOT_LABELS[item.equipSlot] ?? item.equipSlot)}</span>
+            <span data-inventory-modal-slot="true">${this.escapeHtml(getEquipSlotLabel(item.equipSlot))}</span>
           </div>` : ''}
         </div>
         <div class="quest-detail-section">
@@ -747,7 +702,7 @@ export class InventoryPanel {
       const primaryButton = cell.querySelector<HTMLButtonElement>('[data-item-primary="true"]');
 
       cell.dataset.itemKey = this.getItemIdentity(item);
-      typeNode.textContent = ITEM_TYPE_LABELS[item.type] ?? item.type;
+      typeNode.textContent = getItemTypeLabel(item.type);
       countNode.textContent = `x${item.count}`;
       nameNode.textContent = item.name;
       nameNode.title = item.name;

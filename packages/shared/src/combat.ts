@@ -2,30 +2,31 @@
  * 战斗数值公式与境界差异计算。
  * 提供伤害颜色、境界属性成长倍率、境界压制/优势伤害系数等。
  */
+import {
+  REALM_ATTRIBUTE_GROWTH_RATE,
+  REALM_COMBAT_LINEAR_GROWTH_RATE,
+  REALM_DAMAGE_ADVANTAGE_RATE,
+  REALM_DAMAGE_DISADVANTAGE_RATE,
+} from './constants/gameplay/combat';
 import type { ElementKey } from './numeric';
 import type { SkillDamageKind } from './types';
+import {
+  DAMAGE_TRAIL_PHYSICAL_COLOR,
+  DAMAGE_TRAIL_SPELL_COLOR,
+  ELEMENT_DAMAGE_TRAIL_COLORS,
+} from './constants/visuals/combat';
 
-/** 物理伤害飘字颜色 */
-export const DAMAGE_TRAIL_PHYSICAL_COLOR = '#cf7a32';
-/** 法术伤害飘字颜色 */
-export const DAMAGE_TRAIL_SPELL_COLOR = '#2b5fae';
-/** 每境界属性指数成长率 */
-export const REALM_ATTRIBUTE_GROWTH_RATE = 0.2;
-/** 每境界战斗线性成长率 */
-export const REALM_COMBAT_LINEAR_GROWTH_RATE = 0.1;
-/** 高境界对低境界的伤害加成率 */
-export const REALM_DAMAGE_ADVANTAGE_RATE = 0.2;
-/** 低境界对高境界的伤害衰减率 */
-export const REALM_DAMAGE_DISADVANTAGE_RATE = 0.2;
-
-/** 五行元素伤害飘字颜色 */
-export const ELEMENT_DAMAGE_TRAIL_COLORS: Record<ElementKey, string> = {
-  metal: '#f9a825',
-  wood: '#7cb342',
-  water: '#039be5',
-  fire: '#e53935',
-  earth: '#8d6e63',
-};
+export {
+  REALM_ATTRIBUTE_GROWTH_RATE,
+  REALM_COMBAT_LINEAR_GROWTH_RATE,
+  REALM_DAMAGE_ADVANTAGE_RATE,
+  REALM_DAMAGE_DISADVANTAGE_RATE,
+} from './constants/gameplay/combat';
+export {
+  DAMAGE_TRAIL_PHYSICAL_COLOR,
+  DAMAGE_TRAIL_SPELL_COLOR,
+  ELEMENT_DAMAGE_TRAIL_COLORS,
+} from './constants/visuals/combat';
 
 /** 根据伤害类型和元素获取飘字颜色 */
 export function getDamageTrailColor(damageKind: SkillDamageKind, element?: ElementKey): string {

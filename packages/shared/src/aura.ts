@@ -1,4 +1,4 @@
-import { DEFAULT_AURA_LEVEL_BASE_VALUE } from './constants';
+import { DEFAULT_AURA_LEVEL_BASE_VALUE } from './constants/gameplay/aura';
 
 export function normalizeAuraLevelBaseValue(value: unknown, fallback = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
   const normalizedFallback = Number.isFinite(fallback) && Number(fallback) > 0

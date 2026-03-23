@@ -6,6 +6,7 @@
 import { getTileTypeFromMapChar, GroundItemPileView, isTileTypeWalkable, MapMeta, MapMinimapMarker, MapMinimapSnapshot, Tile, TileType } from '@mud/shared';
 import { deleteRememberedMap, getRememberedMarkers, getRememberedTiles, listRememberedMapIds } from '../map-memory';
 import { getCachedMapMeta, getCachedMapSnapshot, listCachedUnlockedMapSummaries } from '../map-static-cache';
+import { getMinimapMarkerKindLabel, getTileTypeLabel } from '../domain-labels';
 import { detailModalHost } from './detail-modal-host';
 
 const TILE_MINIMAP_COLOR: Record<TileType, string> = {
@@ -27,25 +28,6 @@ const TILE_MINIMAP_COLOR: Record<TileType, string> = {
   [TileType.Stone]: '#605c58',
 };
 
-const TILE_LABEL: Record<TileType, string> = {
-  [TileType.Floor]: '地面',
-  [TileType.Road]: '大路',
-  [TileType.Trail]: '小路',
-  [TileType.Wall]: '墙体',
-  [TileType.Door]: '门扉',
-  [TileType.Window]: '窗户',
-  [TileType.BrokenWindow]: '破窗',
-  [TileType.Portal]: '传送阵',
-  [TileType.Stairs]: '楼梯',
-  [TileType.Grass]: '草地',
-  [TileType.Hill]: '山地',
-  [TileType.Mud]: '泥地',
-  [TileType.Swamp]: '沼泽',
-  [TileType.Water]: '水域',
-  [TileType.Tree]: '树木',
-  [TileType.Stone]: '岩石',
-};
-
 const MARKER_COLOR: Record<MapMinimapMarker['kind'], string> = {
   landmark: '#f0d38a',
   container: '#d7a35c',
@@ -53,15 +35,6 @@ const MARKER_COLOR: Record<MapMinimapMarker['kind'], string> = {
   monster_spawn: '#ff7a6b',
   portal: '#b48cff',
   stairs: '#ffd38c',
-};
-
-const MARKER_KIND_LABEL: Record<MapMinimapMarker['kind'], string> = {
-  landmark: '地标',
-  container: '容器',
-  npc: '人物',
-  monster_spawn: '怪物',
-  portal: '传送',
-  stairs: '楼梯',
 };
 
 const EMPTY_VISIBLE_TILES = new Set<string>();
@@ -1192,7 +1165,7 @@ export class Minimap {
           kind: 'portal',
           x: point.x,
           y: point.y,
-          label: TILE_LABEL[TileType.Portal],
+          label: getTileTypeLabel(TileType.Portal),
           detail: '当前视野内传送地块',
         });
       } else if (type === TileType.Stairs) {
@@ -1204,7 +1177,7 @@ export class Minimap {
           kind: 'stairs',
           x: point.x,
           y: point.y,
-          label: TILE_LABEL[TileType.Stairs],
+          label: getTileTypeLabel(TileType.Stairs),
           detail: '当前视野内楼梯',
         });
       }
@@ -1547,14 +1520,14 @@ export class Minimap {
 
     const tile = this.getTileAt(display, x, y);
     if (tile) {
-      lines.push(`地表：${TILE_LABEL[tile.type]}`);
+      lines.push(`地表：${getTileTypeLabel(tile.type)}`);
     } else {
       lines.push('地表：此处尚未记下');
     }
 
     const tileMarkers = this.getDisplayMarkers(display).filter((marker) => marker.x === x && marker.y === y);
     for (const marker of tileMarkers.slice(0, 3)) {
-      lines.push(`${MARKER_KIND_LABEL[marker.kind]}：${marker.label}${marker.detail ? ` · ${marker.detail}` : ''}`);
+      lines.push(`${getMinimapMarkerKindLabel(marker.kind)}：${marker.label}${marker.detail ? ` · ${marker.detail}` : ''}`);
     }
 
     if (display.isCurrent && display.player?.x === x && display.player.y === y) {

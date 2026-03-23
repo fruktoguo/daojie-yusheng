@@ -12,25 +12,16 @@ import {
   PlayerState,
   resolveSkillUnlockLevel,
   TECHNIQUE_ATTR_KEYS,
-  TECHNIQUE_GRADE_LABELS,
   TechniqueLayerDef,
   TechniqueRealm,
   TechniqueState,
 } from '@mud/shared';
+import { ATTR_KEY_LABELS, getTechniqueGradeLabel, getTechniqueRealmLabel } from '../../domain-labels';
 import { FloatingTooltip } from '../floating-tooltip';
 import { detailModalHost } from '../detail-modal-host';
 import { buildSkillTooltipContent } from '../skill-tooltip';
 import { preserveSelection } from '../selection-preserver';
 import { TechniqueConstellationCanvas, TechniqueConstellationCanvasData, TechniqueConstellationHoverPayload } from './technique-constellation-canvas';
-
-const ATTR_NAMES: Record<keyof Attributes, string> = {
-  constitution: '体魄',
-  spirit: '神识',
-  perception: '身法',
-  talent: '根骨',
-  comprehension: '悟性',
-  luck: '气运',
-};
 
 type TechniquePanelState = {
   cultivatingTechId?: string;
@@ -58,7 +49,7 @@ function formatAttrMap(attrs: Partial<Attributes>, fallback = '无属性提升')
   if (entries.length === 0) {
     return fallback;
   }
-  return entries.map(([key, value]) => `${ATTR_NAMES[key]}+${formatNumber(value)}`).join(' / ');
+  return entries.map(([key, value]) => `${ATTR_KEY_LABELS[key]}+${formatNumber(value)}`).join(' / ');
 }
 
 function getTechniqueProgressRatio(tech: TechniqueState): number {
@@ -73,19 +64,6 @@ function getTechniqueRemainingExp(tech: TechniqueState): number {
     return 0;
   }
   return Math.max(0, tech.expToNext - tech.exp);
-}
-
-function getTechniqueRealmLabel(realm: TechniqueRealm): string {
-  switch (realm) {
-    case TechniqueRealm.Entry:
-      return '入门';
-    case TechniqueRealm.Minor:
-      return '小成';
-    case TechniqueRealm.Major:
-      return '大成';
-    case TechniqueRealm.Perfection:
-      return '圆满';
-  }
 }
 
 function findTechniqueRealmStartLevel(
@@ -181,7 +159,7 @@ export class TechniquePanel {
           <button class="tech-card-main" data-tech-open="${tech.techId}" type="button">
             <span class="tech-summary-main">
               <span class="tech-name">${escapeHtml(tech.name)}</span>
-              <span class="tech-realm">${tech.grade ? TECHNIQUE_GRADE_LABELS[tech.grade] : '无品'}</span>
+              <span class="tech-realm">${getTechniqueGradeLabel(tech.grade)}</span>
               <span class="tech-layer" data-tech-layer="${tech.techId}">第${tech.level}/${maxLevel}层</span>
             </span>
             <span class="tech-progress-meta">
@@ -239,7 +217,7 @@ export class TechniquePanel {
       ownerId: TechniquePanel.MODAL_OWNER,
       variantClass: 'detail-modal--technique',
       title: tech.name,
-      subtitle: `${tech.grade ? TECHNIQUE_GRADE_LABELS[tech.grade] : '无品'} · ${getTechniqueRealmLabel(tech.realm)} · 第 ${tech.level}/${maxLevel} 层`,
+      subtitle: `${getTechniqueGradeLabel(tech.grade)} · ${getTechniqueRealmLabel(tech.realm)} · 第 ${tech.level}/${maxLevel} 层`,
       bodyHtml: `
       <div class="tech-modal-summary">
         <div class="tech-modal-stat">
@@ -590,7 +568,7 @@ export class TechniquePanel {
     const selectedLevel = this.resolveOpenLayerLevel(layers, tech.level);
 
     titleNode.textContent = tech.name;
-    subtitleNode.textContent = `${tech.grade ? TECHNIQUE_GRADE_LABELS[tech.grade] : '无品'} · ${getTechniqueRealmLabel(tech.realm)} · 第 ${tech.level}/${maxLevel} 层`;
+    subtitleNode.textContent = `${getTechniqueGradeLabel(tech.grade)} · ${getTechniqueRealmLabel(tech.realm)} · 第 ${tech.level}/${maxLevel} 层`;
     expNode.textContent = tech.expToNext > 0 ? `${tech.exp}/${tech.expToNext}` : '已满层';
     currentAttrsNode.textContent = formatAttrMap(currentAttrs);
     nextAttrsNode.textContent = formatAttrMap(nextAttrs, '已无下一层');

@@ -12,7 +12,6 @@ import {
   BASE_MOVE_POINTS_PER_TICK,
   DEFAULT_RATIO_DIVISOR,
   ELEMENT_KEYS,
-  ElementKey,
   NumericRatioDivisors,
   NumericStats,
   PlayerState,
@@ -21,20 +20,12 @@ import {
   TileType,
   getTileTraversalCost,
 } from '@mud/shared';
+import { ATTR_KEY_LABELS, ELEMENT_KEY_LABELS } from '../../domain-labels';
 import { FloatingTooltip } from '../floating-tooltip';
 import { preserveSelection } from '../selection-preserver';
 
 type AttrTab = 'base' | 'root' | 'combat' | 'qi' | 'special';
 type NumericCardKey = Exclude<keyof NumericStats, 'elementDamageBonus' | 'elementDamageReduce'>;
-
-const ATTR_NAMES: Record<AttrKey, string> = {
-  constitution: '体魄',
-  spirit: '神识',
-  perception: '身法',
-  talent: '根骨',
-  comprehension: '悟性',
-  luck: '气运',
-};
 
 const ATTR_KEYS: AttrKey[] = ['constitution', 'spirit', 'perception', 'talent', 'comprehension', 'luck'];
 
@@ -44,14 +35,6 @@ const ATTR_TAB_LABELS: Record<AttrTab, string> = {
   combat: '斗法',
   qi: '灵力',
   special: '特殊',
-};
-
-const ELEMENT_NAMES: Record<ElementKey, string> = {
-  metal: '金',
-  wood: '木',
-  water: '水',
-  fire: '火',
-  earth: '土',
 };
 
 const ATTR_COLORS = ['#ff8a65', '#ffd54f', '#4fc3f7', '#4db6ac', '#ba68c8', '#f06292'];
@@ -439,10 +422,10 @@ export class AttrPanel {
       const bonusValue = totalBonus[key] ?? 0;
       const roundedValue = Math.round(finalValue);
       return {
-        label: ATTR_NAMES[key],
+        label: ATTR_KEY_LABELS[key],
         value: finalValue,
         valueLabel: `${roundedValue}`,
-        tooltipTitle: ATTR_NAMES[key],
+        tooltipTitle: ATTR_KEY_LABELS[key],
         tooltipDetail: [
           `当前：${roundedValue}`,
           `基础：${baseValue}`,
@@ -463,14 +446,14 @@ export class AttrPanel {
       const reductionDivisor = ratioDivisors.elementDamageReduce[key] || 100;
       const roundedBonus = Math.round(damageBonus);
       return {
-        label: `${ELEMENT_NAMES[key]}灵根`,
+        label: `${ELEMENT_KEY_LABELS[key]}灵根`,
         value: damageBonus,
         valueLabel: `${roundedBonus}`,
-        tooltipTitle: `${ELEMENT_NAMES[key]}灵根`,
+        tooltipTitle: `${ELEMENT_KEY_LABELS[key]}灵根`,
         tooltipDetail: [
           `当前：${roundedBonus} 点`,
-          `${ELEMENT_NAMES[key]}属性伤害增幅：${roundedBonus}%`,
-          `${ELEMENT_NAMES[key]}属性伤害削减：${formatRatioPercent(stats.elementDamageReduce[key], reductionDivisor)}`,
+          `${ELEMENT_KEY_LABELS[key]}属性伤害增幅：${roundedBonus}%`,
+          `${ELEMENT_KEY_LABELS[key]}属性伤害削减：${formatRatioPercent(stats.elementDamageReduce[key], reductionDivisor)}`,
         ].join('\n'),
         color: ELEMENT_COLORS[index % ELEMENT_COLORS.length],
       };

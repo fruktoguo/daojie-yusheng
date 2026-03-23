@@ -4,75 +4,18 @@
  */
 
 import {
-  ElementKey,
   EquipmentEffectDef,
   ItemStack,
   NUMERIC_SCALAR_STAT_KEYS,
-  NumericScalarStatKey,
 } from '@mud/shared';
+import {
+  getAttrKeyLabel,
+  getElementKeyLabel,
+  getEquipSlotLabel,
+  getItemTypeLabel,
+  getNumericScalarStatKeyLabel,
+} from '../domain-labels';
 import { SkillTooltipAsideCard, SkillTooltipContent } from './skill-tooltip';
-
-const SLOT_LABELS: Record<string, string> = {
-  weapon: '武器',
-  head: '头部',
-  body: '身体',
-  legs: '腿部',
-  accessory: '饰品',
-};
-
-const ITEM_TYPE_LABELS: Record<string, string> = {
-  consumable: '消耗品',
-  equipment: '装备',
-  material: '材料',
-  quest_item: '任务物',
-  skill_book: '功法书',
-};
-
-const ATTR_LABELS = {
-  constitution: '体魄',
-  spirit: '神识',
-  perception: '身法',
-  talent: '根骨',
-  comprehension: '悟性',
-  luck: '气运',
-} as const;
-
-const NUMERIC_STAT_LABELS: Partial<Record<NumericScalarStatKey, string>> = {
-  maxHp: '最大生命',
-  maxQi: '最大灵力',
-  physAtk: '物理攻击',
-  spellAtk: '法术攻击',
-  physDef: '物理防御',
-  spellDef: '法术防御',
-  hit: '命中',
-  dodge: '闪避',
-  crit: '暴击',
-  critDamage: '暴击伤害',
-  breakPower: '破招',
-  resolvePower: '化解',
-  maxQiOutputPerTick: '灵力输出',
-  qiRegenRate: '灵力回复',
-  hpRegenRate: '生命回复',
-  cooldownSpeed: '冷却速度',
-  auraCostReduce: '灵耗减免',
-  auraPowerRate: '术法增幅',
-  playerExpRate: '角色经验',
-  techniqueExpRate: '功法经验',
-  realmExpPerTick: '每息境界经验',
-  techniqueExpPerTick: '每息功法经验',
-  lootRate: '掉落增幅',
-  rareLootRate: '稀有掉落',
-  viewRange: '视野',
-  moveSpeed: '移动速度',
-};
-
-const ELEMENT_NAMES: Record<ElementKey, string> = {
-  metal: '金',
-  wood: '木',
-  water: '水',
-  fire: '火',
-  earth: '土',
-};
 
 function escapeHtml(value: string): string {
   return value
@@ -140,25 +83,25 @@ function describeBuffStats(
   if (attrs) {
     for (const [key, value] of Object.entries(attrs)) {
       if (typeof value !== 'number' || value === 0) continue;
-      lines.push(`${ATTR_LABELS[key as keyof typeof ATTR_LABELS] ?? key} ${formatSignedValue(value)}`);
+      lines.push(`${getAttrKeyLabel(key)} ${formatSignedValue(value)}`);
     }
   }
   if (stats) {
     for (const key of NUMERIC_SCALAR_STAT_KEYS) {
       const value = stats[key];
       if (typeof value !== 'number' || value === 0) continue;
-      lines.push(`${NUMERIC_STAT_LABELS[key] ?? key} ${formatSignedValue(value)}`);
+      lines.push(`${getNumericScalarStatKeyLabel(key)} ${formatSignedValue(value)}`);
     }
     if (stats.elementDamageBonus) {
       for (const [key, value] of Object.entries(stats.elementDamageBonus)) {
         if (typeof value !== 'number' || value === 0) continue;
-        lines.push(`${ELEMENT_NAMES[key as ElementKey]}行增伤 ${formatSignedValue(value)}`);
+        lines.push(`${getElementKeyLabel(key)}行增伤 ${formatSignedValue(value)}`);
       }
     }
     if (stats.elementDamageReduce) {
       for (const [key, value] of Object.entries(stats.elementDamageReduce)) {
         if (typeof value !== 'number' || value === 0) continue;
-        lines.push(`${ELEMENT_NAMES[key as ElementKey]}行减伤 ${formatSignedValue(value)}`);
+        lines.push(`${getElementKeyLabel(key)}行减伤 ${formatSignedValue(value)}`);
       }
     }
   }
@@ -294,7 +237,7 @@ export function buildItemTooltipPayload(item: ItemStack): ItemTooltipPayload {
   if (item.type !== 'equipment') {
     const lines = [
       item.desc,
-      `类型：${ITEM_TYPE_LABELS[item.type] ?? item.type}`,
+      `类型：${getItemTypeLabel(item.type)}`,
     ].filter((line) => line.length > 0);
     return {
       title: item.name,
@@ -310,8 +253,8 @@ export function buildItemTooltipPayload(item: ItemStack): ItemTooltipPayload {
   const effectSummaries = (item.effects ?? []).map((effect) => buildEffectSummary(effect));
   const lines: string[] = [
     `<span class="skill-tooltip-desc">${escapeHtml(item.desc ?? '')}</span>`,
-    renderPlainLine('类型', ITEM_TYPE_LABELS[item.type] ?? item.type),
-    ...(item.equipSlot ? [renderPlainLine('部位', SLOT_LABELS[item.equipSlot] ?? item.equipSlot)] : []),
+    renderPlainLine('类型', getItemTypeLabel(item.type)),
+    ...(item.equipSlot ? [renderPlainLine('部位', getEquipSlotLabel(item.equipSlot))] : []),
     ...(staticLines.length > 0 ? [renderPlainLine('静态词条', staticLines.join('，'))] : []),
     ...effectSummaries.flatMap((entry) => entry.lines),
   ];

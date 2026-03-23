@@ -17,6 +17,7 @@ import {
   PLAYER_REALM_NUMERIC_TEMPLATES,
   PlayerRealmStage,
   PartialNumericStats,
+  TECHNIQUE_ATTR_KEYS,
   TemporaryBuffState,
   VIEW_RADIUS,
   addPartialNumericStats,
@@ -27,7 +28,7 @@ import {
   resetNumericStats,
 } from '@mud/shared';
 
-const ATTR_KEYS: AttrKey[] = ['constitution', 'spirit', 'perception', 'talent', 'comprehension', 'luck'];
+const ATTR_KEYS: readonly AttrKey[] = TECHNIQUE_ATTR_KEYS;
 type PercentBonusAccumulator = Pick<NumericStats, 'maxHp' | 'maxQi' | 'physAtk' | 'spellAtk'>;
 const REALM_EXPONENTIAL_NUMERIC_KEYS: Array<
   'maxHp'

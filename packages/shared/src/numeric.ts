@@ -3,9 +3,20 @@
  */
 import type { Attributes } from './types';
 import { PlayerRealmStage } from './types';
+import {
+  DEFAULT_RATIO_DIVISOR,
+  ELEMENT_KEYS,
+  NUMERIC_SCALAR_STAT_KEYS,
+  NUMERIC_SCALAR_STAT_VALUE_TYPES,
+} from './constants/gameplay/attributes';
 
-/** 五行元素键列表 */
-export const ELEMENT_KEYS = ['metal', 'wood', 'water', 'fire', 'earth'] as const;
+export {
+  DEFAULT_RATIO_DIVISOR,
+  ELEMENT_KEYS,
+  NUMERIC_SCALAR_STAT_KEYS,
+  NUMERIC_SCALAR_STAT_VALUE_TYPES,
+} from './constants/gameplay/attributes';
+
 /** 五行元素键类型 */
 export type ElementKey = typeof ELEMENT_KEYS[number];
 
@@ -23,36 +34,6 @@ export interface ElementStatGroup {
 
 /** 五行元素部分属性组 */
 export type PartialElementStatGroup = Partial<Record<ElementKey, number>>;
-
-/** 所有标量数值属性键列表 */
-export const NUMERIC_SCALAR_STAT_KEYS = [
-  'maxHp',
-  'maxQi',
-  'physAtk',
-  'spellAtk',
-  'physDef',
-  'spellDef',
-  'hit',
-  'dodge',
-  'crit',
-  'critDamage',
-  'breakPower',
-  'resolvePower',
-  'maxQiOutputPerTick',
-  'qiRegenRate',
-  'hpRegenRate',
-  'cooldownSpeed',
-  'auraCostReduce',
-  'auraPowerRate',
-  'playerExpRate',
-  'techniqueExpRate',
-  'realmExpPerTick',
-  'techniqueExpPerTick',
-  'lootRate',
-  'rareLootRate',
-  'viewRange',
-  'moveSpeed',
-] as const;
 
 /** 标量数值属性键类型 */
 export type NumericScalarStatKey = typeof NUMERIC_SCALAR_STAT_KEYS[number];
@@ -121,39 +102,6 @@ export interface RealmNumericTemplate {
   stats: NumericStats;
   ratioDivisors: NumericRatioDivisors;
 }
-
-/** 各标量属性的值类型分类映射 */
-export const NUMERIC_SCALAR_STAT_VALUE_TYPES: Record<NumericScalarStatKey, NumericValueType> = {
-  maxHp: 'flat',
-  maxQi: 'flat',
-  physAtk: 'flat',
-  spellAtk: 'flat',
-  physDef: 'flat',
-  spellDef: 'flat',
-  hit: 'flat',
-  dodge: 'ratio_value',
-  crit: 'ratio_value',
-  critDamage: 'rate_bp',
-  breakPower: 'ratio_value',
-  resolvePower: 'ratio_value',
-  maxQiOutputPerTick: 'throughput',
-  qiRegenRate: 'rate_bp',
-  hpRegenRate: 'rate_bp',
-  cooldownSpeed: 'ratio_value',
-  auraCostReduce: 'rate_bp',
-  auraPowerRate: 'rate_bp',
-  playerExpRate: 'rate_bp',
-  techniqueExpRate: 'rate_bp',
-  realmExpPerTick: 'throughput',
-  techniqueExpPerTick: 'throughput',
-  lootRate: 'rate_bp',
-  rareLootRate: 'rate_bp',
-  viewRange: 'flat',
-  moveSpeed: 'flat',
-};
-
-/** 默认 RatioValue 除数 */
-export const DEFAULT_RATIO_DIVISOR = 100;
 
 /** 创建全零五行元素属性组 */
 export function createElementStatGroup(initialValue = 0): ElementStatGroup {

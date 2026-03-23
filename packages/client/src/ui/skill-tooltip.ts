@@ -3,8 +3,14 @@
  * 根据 SkillDef 和玩家上下文生成带公式预览的富文本提示内容
  */
 
-import { ElementKey, NumericScalarStatKey, NUMERIC_SCALAR_STAT_KEYS, SkillDef, SkillFormula, SkillFormulaVar, TemporaryBuffState } from '@mud/shared';
+import { NumericScalarStatKey, NUMERIC_SCALAR_STAT_KEYS, SkillDef, SkillFormula, SkillFormulaVar, TemporaryBuffState } from '@mud/shared';
 import type { PlayerState } from '@mud/shared';
+import {
+  SKILL_FORMULA_BASE_VAR_LABELS,
+  getAttrKeyLabel,
+  getElementKeyLabel,
+  getNumericScalarStatKeyLabel,
+} from '../domain-labels';
 
 type SkillTooltipPreviewPlayer = Pick<PlayerState, 'hp' | 'maxHp' | 'qi' | 'numericStats' | 'temporaryBuffs'>;
 
@@ -67,64 +73,16 @@ export interface SkillTooltipContent {
 }
 
 const FORMULA_VAR_LABELS: Record<string, string> = {
-  techLevel: '功法层数',
+  ...SKILL_FORMULA_BASE_VAR_LABELS,
+  ...Object.fromEntries(NUMERIC_SCALAR_STAT_KEYS.flatMap((key) => [
+    [`caster.stat.${key}`, `自身${getNumericScalarStatKeyLabel(key)}`],
+    [`target.stat.${key}`, `目标${getNumericScalarStatKeyLabel(key)}`],
+  ])),
   targetCount: '命中目标数',
   'caster.hp': '自身当前气血',
   'caster.maxHp': '自身最大气血',
-  'caster.qi': '自身当前灵力',
-  'caster.maxQi': '自身最大灵力',
   'target.hp': '目标当前气血',
   'target.maxHp': '目标最大气血',
-  'target.qi': '目标当前灵力',
-  'target.maxQi': '目标最大灵力',
-  'caster.stat.maxHp': '自身气血上限',
-  'caster.stat.maxQi': '自身灵力上限',
-  'caster.stat.physAtk': '自身物攻',
-  'caster.stat.spellAtk': '自身法攻',
-  'caster.stat.physDef': '自身护甲',
-  'caster.stat.spellDef': '自身法抗',
-  'caster.stat.hit': '自身命中',
-  'caster.stat.dodge': '自身闪避',
-  'caster.stat.crit': '自身暴击',
-  'caster.stat.critDamage': '自身暴伤',
-  'caster.stat.breakPower': '自身破招',
-  'caster.stat.resolvePower': '自身化解',
-  'caster.stat.maxQiOutputPerTick': '自身灵力输出',
-  'caster.stat.qiRegenRate': '自身灵力回复',
-  'caster.stat.hpRegenRate': '自身气血回复',
-  'caster.stat.cooldownSpeed': '自身冷却速度',
-  'caster.stat.auraCostReduce': '自身灵耗减免',
-  'caster.stat.auraPowerRate': '自身灵术增幅',
-  'caster.stat.playerExpRate': '自身角色经验',
-  'caster.stat.techniqueExpRate': '自身功法经验',
-  'caster.stat.lootRate': '自身掉宝率',
-  'caster.stat.rareLootRate': '自身稀有掉落率',
-  'caster.stat.viewRange': '自身视野',
-  'caster.stat.moveSpeed': '自身移速',
-  'target.stat.maxHp': '目标气血上限',
-  'target.stat.maxQi': '目标灵力上限',
-  'target.stat.physAtk': '目标物攻',
-  'target.stat.spellAtk': '目标法攻',
-  'target.stat.physDef': '目标护甲',
-  'target.stat.spellDef': '目标法抗',
-  'target.stat.hit': '目标命中',
-  'target.stat.dodge': '目标闪避',
-  'target.stat.crit': '目标暴击',
-  'target.stat.critDamage': '目标暴伤',
-  'target.stat.breakPower': '目标破招',
-  'target.stat.resolvePower': '目标化解',
-  'target.stat.maxQiOutputPerTick': '目标灵力输出',
-  'target.stat.qiRegenRate': '目标灵力回复',
-  'target.stat.hpRegenRate': '目标气血回复',
-  'target.stat.cooldownSpeed': '目标冷却速度',
-  'target.stat.auraCostReduce': '目标灵耗减免',
-  'target.stat.auraPowerRate': '目标灵术增幅',
-  'target.stat.playerExpRate': '目标角色经验',
-  'target.stat.techniqueExpRate': '目标功法经验',
-  'target.stat.lootRate': '目标掉宝率',
-  'target.stat.rareLootRate': '目标稀有掉落率',
-  'target.stat.viewRange': '目标视野',
-  'target.stat.moveSpeed': '目标移速',
 };
 
 const FORMULA_VAR_META: Partial<Record<SkillFormulaVar, ScalingMeta>> = {
@@ -143,52 +101,6 @@ const FORMULA_VAR_META: Partial<Record<SkillFormulaVar, ScalingMeta>> = {
   'target.stat.physDef': { badgeClassName: 'skill-scaling-phys-def', icon: '🛡', label: '目标护甲', termClassName: 'skill-formula-term-phys-def' },
   'target.stat.spellDef': { badgeClassName: 'skill-scaling-spell-def', icon: '◈', label: '目标法抗', termClassName: 'skill-formula-term-spell-def' },
   'target.stat.resolvePower': { badgeClassName: 'skill-scaling-resolve', icon: '⬢', label: '目标化解', termClassName: 'skill-formula-term-resolve' },
-};
-
-const ELEMENT_NAMES: Record<ElementKey, string> = {
-  metal: '金',
-  wood: '木',
-  water: '水',
-  fire: '火',
-  earth: '土',
-};
-
-const ATTR_LABELS = {
-  constitution: '体魄',
-  spirit: '神识',
-  perception: '身法',
-  talent: '根骨',
-  comprehension: '悟性',
-  luck: '气运',
-} as const;
-
-const NUMERIC_STAT_LABELS: Partial<Record<NumericScalarStatKey, string>> = {
-  maxHp: '最大生命',
-  maxQi: '最大灵力',
-  physAtk: '物理攻击',
-  spellAtk: '法术攻击',
-  physDef: '物理防御',
-  spellDef: '法术防御',
-  hit: '命中',
-  dodge: '闪避',
-  crit: '暴击',
-  critDamage: '暴击伤害',
-  breakPower: '破招',
-  resolvePower: '化解',
-  maxQiOutputPerTick: '灵力输出',
-  qiRegenRate: '灵力回复',
-  hpRegenRate: '生命回复',
-  cooldownSpeed: '冷却速度',
-  auraCostReduce: '灵耗减免',
-  auraPowerRate: '术法增幅',
-  playerExpRate: '角色经验',
-  techniqueExpRate: '功法经验',
-  realmExpPerTick: '每息境界经验',
-  techniqueExpPerTick: '每息功法经验',
-  lootRate: '掉落增幅',
-  rareLootRate: '稀有掉落',
-  viewRange: '视野',
-  moveSpeed: '移动速度',
 };
 
 function escapeHtml(value: string): string {
@@ -237,25 +149,25 @@ function describeBuffEffect(effect: Extract<SkillDef['effects'][number], { type:
   if (effect.attrs) {
     for (const [key, value] of Object.entries(effect.attrs)) {
       if (typeof value !== 'number' || value === 0) continue;
-      lines.push(`${ATTR_LABELS[key as keyof typeof ATTR_LABELS] ?? key} ${formatSignedValue(value)}`);
+      lines.push(`${getAttrKeyLabel(key)} ${formatSignedValue(value)}`);
     }
   }
   if (effect.stats) {
     for (const key of NUMERIC_SCALAR_STAT_KEYS) {
       const value = effect.stats[key];
       if (typeof value !== 'number' || value === 0) continue;
-      lines.push(`${NUMERIC_STAT_LABELS[key] ?? key} ${formatSignedValue(value)}`);
+      lines.push(`${getNumericScalarStatKeyLabel(key)} ${formatSignedValue(value)}`);
     }
     if (effect.stats.elementDamageBonus) {
       for (const [key, value] of Object.entries(effect.stats.elementDamageBonus)) {
         if (typeof value !== 'number' || value === 0) continue;
-        lines.push(`${ELEMENT_NAMES[key as ElementKey]}行增伤 ${formatSignedValue(value)}`);
+        lines.push(`${getElementKeyLabel(key)}行增伤 ${formatSignedValue(value)}`);
       }
     }
     if (effect.stats.elementDamageReduce) {
       for (const [key, value] of Object.entries(effect.stats.elementDamageReduce)) {
         if (typeof value !== 'number' || value === 0) continue;
-        lines.push(`${ELEMENT_NAMES[key as ElementKey]}行减伤 ${formatSignedValue(value)}`);
+        lines.push(`${getElementKeyLabel(key)}行减伤 ${formatSignedValue(value)}`);
       }
     }
   }
@@ -695,8 +607,8 @@ export function buildSkillTooltipContent(skill: SkillDef, context: SkillTooltipP
     if (effect.type === 'damage') {
       const damageKind = effect.damageKind === 'physical' ? 'physical' : 'spell';
       const damageLabel = damageKind === 'physical'
-        ? (effect.element ? `${ELEMENT_NAMES[effect.element]}行物理伤害` : '物理伤害')
-        : `${effect.element ? `${ELEMENT_NAMES[effect.element]}行` : ''}法术伤害`;
+        ? (effect.element ? `${getElementKeyLabel(effect.element)}行物理伤害` : '物理伤害')
+        : `${effect.element ? `${getElementKeyLabel(effect.element)}行` : ''}法术伤害`;
       lines.push(renderLabelLine(damageLabel, formatDamageFormula(effect.formula, context, damageKind)));
       continue;
     }

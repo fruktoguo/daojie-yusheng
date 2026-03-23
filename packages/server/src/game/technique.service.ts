@@ -8,6 +8,7 @@ import {
   BreakthroughPreviewState,
   BreakthroughRequirementView,
   calcTechniqueFinalAttrBonus,
+  CULTIVATE_EXP_PER_TICK,
   DEFAULT_PLAYER_REALM_STAGE,
   deriveTechniqueRealm,
   getAuraLevel,
@@ -78,7 +79,7 @@ const CULTIVATION_BUFF_ID = 'cultivation:active';
 const CULTIVATION_ACTION_ID = 'cultivation:toggle';
 const CULTIVATION_BUFF_DURATION = 1;
 const CULTIVATION_REALM_EXP_PER_TICK = 2;
-const CULTIVATION_TECHNIQUE_EXP_PER_TICK = 10;
+const CULTIVATION_TECHNIQUE_EXP_PER_TICK = CULTIVATE_EXP_PER_TICK;
 const MONSTER_KILL_TECHNIQUE_EXP_MULTIPLIER = 5;
 const PATH_SEVERED_BREAKTHROUGH_LABEL = '仙路断绝';
 const PATH_SEVERED_BREAKTHROUGH_REASON = '仙路断绝，你的前路已被无形天堑阻断，暂时无法继续突破。';

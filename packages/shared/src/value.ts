@@ -2,7 +2,8 @@
  * 价值量化系统：将属性、数值、装备、Buff、技能、功法等游戏要素
  * 统一折算为可比较的"价值点"，用于平衡性分析。
  */
-import { ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, PartialNumericStats } from './numeric';
+import { ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS } from './constants/gameplay/attributes';
+import type { PartialNumericStats } from './numeric';
 import { calcTechniqueAttrValues } from './technique';
 import type {
   AttrBonus,

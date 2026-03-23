@@ -10,6 +10,7 @@ import {
   Attributes,
   DEFAULT_INVENTORY_CAPACITY,
   ELEMENT_KEYS,
+  GAME_TIME_PHASES,
   EquipmentConditionDef,
   EquipmentConditionGroup,
   EquipmentEffectDef,
@@ -22,9 +23,11 @@ import {
   PlayerRealmStage,
   scaleTechniqueExp,
   SkillDef,
+  TECHNIQUE_ATTR_KEYS,
   TechniqueGrade,
   TechniqueLayerDef,
   TechniqueRealm,
+  TimePhaseId,
   resolveSkillUnlockLevel,
 } from '@mud/shared';
 
@@ -196,7 +199,7 @@ const PLAYER_REALM_STAGE_LEVEL_RANGES: Record<PlayerRealmStage, { levelFrom: num
   [PlayerRealmStage.Foundation]: { levelFrom: 25, levelTo: 30 },
 };
 
-const ATTR_KEYS: AttrKey[] = ['constitution', 'spirit', 'perception', 'talent', 'comprehension', 'luck'];
+const ATTR_KEYS: readonly AttrKey[] = TECHNIQUE_ATTR_KEYS;
 const EQUIPMENT_TRIGGERS: readonly EquipmentTrigger[] = [
   'on_equip',
   'on_unequip',
@@ -210,7 +213,7 @@ const EQUIPMENT_TRIGGERS: readonly EquipmentTrigger[] = [
   'on_time_segment_changed',
   'on_enter_map',
 ];
-const TIME_PHASE_IDS = ['deep_night', 'late_night', 'before_dawn', 'dawn', 'day', 'dusk', 'first_night', 'night'] as const;
+const TIME_PHASE_IDS: readonly TimePhaseId[] = GAME_TIME_PHASES.map((phase) => phase.id);
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -366,7 +369,7 @@ export class ContentService implements OnModuleInit {
     switch (input.type) {
       case 'time_segment': {
         const phases = Array.isArray(input.in)
-          ? input.in.filter((entry): entry is typeof TIME_PHASE_IDS[number] => typeof entry === 'string' && TIME_PHASE_IDS.includes(entry as typeof TIME_PHASE_IDS[number]))
+          ? input.in.filter((entry): entry is TimePhaseId => typeof entry === 'string' && TIME_PHASE_IDS.includes(entry as TimePhaseId))
           : [];
         return phases.length > 0 ? [{ type: 'time_segment', in: phases }] : [];
       }
@@ -596,7 +599,7 @@ export class ContentService implements OnModuleInit {
       }];
     }
     if (input.type === 'attribute') {
-      if (!['constitution', 'spirit', 'perception', 'talent', 'comprehension', 'luck'].includes(input.attr) || !Number.isFinite(input.minValue)) {
+      if (!ATTR_KEYS.includes(input.attr) || !Number.isFinite(input.minValue)) {
         return [];
       }
       return [{

@@ -9,6 +9,7 @@ import {
   EquipmentConditionDef,
   EquipmentConditionGroup,
   EquipmentEffectDef,
+  EquipmentTrigger,
   EquipmentTimedBuffEffectDef,
   EQUIP_SLOTS,
   ItemStack,
@@ -26,18 +27,7 @@ type EquipmentEventTarget =
   | { kind: 'tile' };
 
 export interface EquipmentEffectEvent {
-  trigger:
-    | 'on_equip'
-    | 'on_unequip'
-    | 'on_tick'
-    | 'on_move'
-    | 'on_attack'
-    | 'on_hit'
-    | 'on_kill'
-    | 'on_skill_cast'
-    | 'on_cultivation_tick'
-    | 'on_time_segment_changed'
-    | 'on_enter_map';
+  trigger: EquipmentTrigger;
   target?: EquipmentEventTarget;
   targetKind?: 'monster' | 'player' | 'tile';
 }

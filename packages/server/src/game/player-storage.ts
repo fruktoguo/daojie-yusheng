@@ -4,6 +4,7 @@
  * 已知物品/技能走精简快照（仅存 ID），未知的则保留完整字段以防丢失。
  */
 import {
+  CULTIVATE_EXP_PER_TICK,
   DEFAULT_INVENTORY_CAPACITY,
   EQUIP_SLOTS,
   EquipmentSlots,
@@ -16,6 +17,7 @@ import {
   QuestStatus,
   SkillDef,
   SkillEffectDef,
+  TECHNIQUE_GRADE_ORDER,
   TechniqueAttrCurves,
   TechniqueGrade,
   TechniqueLayerDef,
@@ -92,7 +94,7 @@ interface PlayerStorageState {
 }
 
 const ITEM_TYPES: readonly ItemType[] = ['consumable', 'equipment', 'material', 'quest_item', 'skill_book'];
-const TECHNIQUE_GRADES: readonly TechniqueGrade[] = ['mortal', 'yellow', 'mystic', 'earth', 'heaven', 'spirit', 'saint', 'emperor'];
+const TECHNIQUE_GRADES: readonly TechniqueGrade[] = TECHNIQUE_GRADE_ORDER;
 const QUEST_STATUSES: readonly QuestStatus[] = ['available', 'active', 'ready', 'completed'];
 const QUEST_OBJECTIVE_TYPES: readonly QuestObjectiveType[] = ['kill', 'learn_technique', 'realm_progress', 'realm_stage'];
 const CULTIVATION_BUFF_ID = 'cultivation:active';
@@ -281,7 +283,7 @@ function buildSystemBuffState(snapshot: PersistedTemporaryBuffItem): TemporaryBu
       sourceSkillName: '修炼',
       stats: {
         realmExpPerTick: 2,
-        techniqueExpPerTick: 10,
+        techniqueExpPerTick: CULTIVATE_EXP_PER_TICK,
       },
     };
   }

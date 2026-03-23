@@ -23,6 +23,7 @@ import { ChangelogPanel } from './ui/changelog-panel';
 import { initializeUiStyleConfig } from './ui/ui-style-config';
 import { createClientPanelSystem } from './ui/panel-system/bootstrap';
 import { createMapRuntime } from './game-map/runtime/map-runtime';
+import { getAttrKeyLabel, getEntityKindLabel, getNumericScalarStatKeyLabel, getTileTypeLabel } from './domain-labels';
 
 import { FloatingTooltip } from './ui/floating-tooltip';
 import { detailModalHost } from './ui/detail-modal-host';
@@ -372,73 +373,9 @@ let hoveredMapTile: {
   clientY: number;
 } | null = null;
 
-const TILE_TYPE_NAMES: Record<TileType, string> = {
-  [TileType.Floor]: '地面',
-  [TileType.Road]: '大路',
-  [TileType.Trail]: '小路',
-  [TileType.Wall]: '墙体',
-  [TileType.Door]: '门扉',
-  [TileType.Window]: '窗户',
-  [TileType.BrokenWindow]: '破窗',
-  [TileType.Portal]: '传送阵',
-  [TileType.Stairs]: '楼梯',
-  [TileType.Grass]: '草地',
-  [TileType.Hill]: '山地',
-  [TileType.Mud]: '泥地',
-  [TileType.Swamp]: '沼泽',
-  [TileType.Water]: '水域',
-  [TileType.Tree]: '树木',
-  [TileType.Stone]: '岩石',
-};
-
 function getTileTypeName(type: TileType): string {
-  return TILE_TYPE_NAMES[type] ?? '未知地貌';
+  return getTileTypeLabel(type, '未知地貌');
 }
-
-const ENTITY_KIND_NAMES: Record<string, string> = {
-  player: '修士',
-  monster: '妖兽',
-  npc: '人物',
-  container: '容器',
-};
-
-const ATTR_LABELS = {
-  constitution: '体魄',
-  spirit: '神识',
-  perception: '身法',
-  talent: '根骨',
-  comprehension: '悟性',
-  luck: '气运',
-} as const;
-
-const NUMERIC_STAT_LABELS: Partial<Record<(typeof NUMERIC_SCALAR_STAT_KEYS)[number], string>> = {
-  maxHp: '最大生命',
-  maxQi: '最大灵力',
-  physAtk: '物理攻击',
-  spellAtk: '法术攻击',
-  physDef: '物理防御',
-  spellDef: '法术防御',
-  hit: '命中',
-  dodge: '闪避',
-  crit: '暴击',
-  critDamage: '暴击伤害',
-  breakPower: '破招',
-  resolvePower: '化解',
-  maxQiOutputPerTick: '灵力输出',
-  qiRegenRate: '灵力回复',
-  hpRegenRate: '生命回复',
-  cooldownSpeed: '冷却速度',
-  auraCostReduce: '灵耗减免',
-  auraPowerRate: '术法增幅',
-  playerExpRate: '角色经验',
-  techniqueExpRate: '功法经验',
-  realmExpPerTick: '每息境界经验',
-  techniqueExpPerTick: '每息功法经验',
-  lootRate: '掉落增幅',
-  rareLootRate: '稀有掉落',
-  viewRange: '视野',
-  moveSpeed: '移动速度',
-};
 
 type ObservedEntity = {
   id: string;
@@ -901,7 +838,7 @@ function buildBuffEffectLines(buff: VisibleBuffState): string[] {
   if (buff.attrs) {
     for (const [key, value] of Object.entries(buff.attrs)) {
       if (typeof value !== 'number' || value === 0) continue;
-      const label = ATTR_LABELS[key as keyof typeof ATTR_LABELS] ?? key;
+      const label = getAttrKeyLabel(key);
       lines.push(`${label} ${formatSignedValue(value)}`);
     }
   }
@@ -909,7 +846,7 @@ function buildBuffEffectLines(buff: VisibleBuffState): string[] {
     for (const key of NUMERIC_SCALAR_STAT_KEYS) {
       const value = buff.stats[key];
       if (typeof value !== 'number' || value === 0) continue;
-      lines.push(`${NUMERIC_STAT_LABELS[key] ?? key} ${formatSignedValue(value)}`);
+      lines.push(`${getNumericScalarStatKeyLabel(key)} ${formatSignedValue(value)}`);
     }
     if (buff.stats.elementDamageBonus) {
       for (const [key, value] of Object.entries(buff.stats.elementDamageBonus)) {
@@ -1171,7 +1108,7 @@ function buildObservedEntityCardHtml(entity: ObservedEntity): string {
   return `<div class="observe-entity-card">
     <div class="observe-entity-head">
       <span class="observe-entity-name">${escapeHtml(entity.name ?? entity.id)}</span>
-      <span class="observe-entity-kind">${escapeHtml(ENTITY_KIND_NAMES[entity.kind ?? ''] ?? '未知')}</span>
+      <span class="observe-entity-kind">${escapeHtml(getEntityKindLabel(entity.kind, '未知'))}</span>
     </div>
     <div class="observe-entity-verdict">${escapeHtml(entity.observation?.verdict ?? '神识轻拂而过，未得更多回响。')}</div>
     ${detailGrid.length > 0
@@ -1233,7 +1170,7 @@ function renderObserveModal(targetX: number, targetY: number): void {
     });
   }
   if (entities.length > 0) {
-    terrainRows.push({ label: '驻足气息', value: entities.map((entity) => entity.name ?? ENTITY_KIND_NAMES[entity.kind ?? ''] ?? entity.id).join('、') });
+    terrainRows.push({ label: '驻足气息', value: entities.map((entity) => entity.name ?? getEntityKindLabel(entity.kind, entity.id)).join('、') });
   } else if (tile.occupiedBy) {
     terrainRows.push({ label: '驻足气息', value: '此地留有生灵立身之痕' });
   }
