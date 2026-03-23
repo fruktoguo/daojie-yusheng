@@ -806,13 +806,13 @@ export class AttrPanel {
       .attr-tooltip {
         position: fixed;
         pointer-events: none;
-        font-size: 13px;
-        color: #1a120a;
+        font-size: var(--font-size-13);
+        color: var(--ink-black);
         z-index: 2000;
         transition: opacity 120ms ease, transform 120ms ease;
         opacity: 0;
         transform: translateY(-8px);
-        font-family: var(--font-text);
+        font-family: var(--font-body);
         min-width: 0;
       }
       .attr-tooltip.visible {
@@ -832,7 +832,7 @@ export class AttrPanel {
         padding: 8px 12px;
         border-radius: 8px;
         border: 1px solid rgba(34,26,19,0.15);
-        background: rgba(255,255,255,0.96);
+        background: var(--surface-card-strong);
         box-shadow: 0 8px 24px rgba(0,0,0,0.18);
       }
       .attr-tooltip .floating-tooltip-body strong {
@@ -844,7 +844,7 @@ export class AttrPanel {
         display: block;
       }
       .attr-tooltip .floating-tooltip-detail {
-        font-size: 12px;
+        font-size: var(--font-size-12);
         line-height: 1.4;
         color: var(--ink-grey);
       }
@@ -854,7 +854,7 @@ export class AttrPanel {
         padding: 14px 16px 18px;
         border-radius: 10px;
         border: 1px solid rgba(34,26,19,0.18);
-        background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,255,255,0.68));
+        background: var(--surface-gradient-tooltip);
         box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35), 0 6px 18px rgba(0,0,0,0.08);
       }
       .attr-radar-head {
@@ -865,11 +865,11 @@ export class AttrPanel {
       }
       .attr-radar-title {
         font-family: var(--font-heading-sub);
-        font-size: 16px;
+        font-size: var(--font-size-16);
         color: var(--ink-black);
       }
       .attr-radar-scale {
-        font-size: 11px;
+        font-size: var(--font-size-11);
         color: var(--ink-grey);
       }
       .attr-radar {
@@ -882,10 +882,11 @@ export class AttrPanel {
       }
       .attr-radar-ring {
         fill: none;
-        stroke: rgba(34, 26, 19, 0.11);
+        stroke: var(--radar-grid-stroke);
         stroke-width: 1;
       }
       .attr-radar-axis {
+        stroke: var(--radar-grid-stroke-strong);
         stroke-width: 1.5;
       }
       .attr-radar-area {
@@ -894,11 +895,11 @@ export class AttrPanel {
       }
       .attr-radar-label {
         font-family: var(--font-heading-sub);
-        font-size: 12px;
+        font-size: var(--font-size-12);
         fill: var(--ink-black);
       }
       .attr-radar-value {
-        font-size: 11px;
+        font-size: var(--font-size-11);
         fill: var(--ink-grey);
       }
     `;

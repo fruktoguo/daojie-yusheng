@@ -406,8 +406,8 @@ export class InventoryPanel {
       .inventory-tooltip {
         position: fixed;
         pointer-events: none;
-        font-size: 13px;
-        color: #1a120a;
+        font-size: var(--font-size-13);
+        color: var(--ink-black);
         z-index: 2000;
         opacity: 0;
         transition: opacity 120ms ease;
@@ -432,7 +432,7 @@ export class InventoryPanel {
         display: flex;
         flex-direction: column;
         gap: 2px;
-        color: #5c5349;
+        color: var(--ink-grey);
       }
       .inventory-tooltip .floating-tooltip-line {
         display: block;

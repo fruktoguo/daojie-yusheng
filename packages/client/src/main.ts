@@ -20,6 +20,7 @@ import { SettingsPanel } from './ui/panels/settings-panel';
 import { WorldPanel } from './ui/panels/world-panel';
 import { SuggestionPanel } from './ui/suggestion-panel';
 import { ChangelogPanel } from './ui/changelog-panel';
+import { initializeUiStyleConfig } from './ui/ui-style-config';
 import { createClientPanelSystem } from './ui/panel-system/bootstrap';
 import { createMapRuntime } from './game-map/runtime/map-runtime';
 
@@ -302,6 +303,7 @@ function restartPingLoop(immediate = true): void {
 renderTickRate(1);
 renderCurrentTime(null);
 renderPingLatency(null, '待测');
+initializeUiStyleConfig();
 window.setInterval(() => {
   if (!currentTimeState) {
     return;
