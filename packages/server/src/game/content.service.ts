@@ -119,6 +119,7 @@ interface RealmLevelSegment {
 interface RealmLevelsConfig {
   version: number;
   baseLevelKey: string;
+  expMultiplier?: number;
   gradeSpan: number;
   immortalStageSpan: number;
   segments: RealmLevelSegment[];
@@ -525,8 +526,15 @@ export class ContentService implements OnModuleInit {
 
   private loadRealmLevels(): void {
     const raw = JSON.parse(fs.readFileSync(this.realmLevelsPath, 'utf-8')) as RealmLevelsConfig;
-    this.realmLevelsConfig = raw;
-    for (const entry of raw.levels ?? []) {
+    const expMultiplier = Number.isFinite(raw.expMultiplier) ? Math.max(0, Math.floor(raw.expMultiplier ?? 1)) : 1;
+    const levels = (raw.levels ?? []).map((entry) => ({
+      ...entry,
+      expToNext: entry.expToNext === undefined
+        ? undefined
+        : Math.max(0, Math.floor(entry.expToNext)) * expMultiplier,
+    }));
+    this.realmLevelsConfig = { ...raw, expMultiplier, levels };
+    for (const entry of levels) {
       this.realmLevels.set(entry.realmLv, entry);
     }
   }
