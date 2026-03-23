@@ -35,6 +35,8 @@ type InternalNode = TechniqueConstellationNode & {
   floatPhaseX: number;
   floatPhaseY: number;
   floatSpeed: number;
+  anchorDirX: number;
+  anchorDirY: number;
 };
 
 type RawNode = InternalNode;
@@ -103,6 +105,7 @@ export class TechniqueConstellationCanvas {
   private pixelHeight = 0;
   private hoveredLevel: number | null = null;
   private mounted = false;
+  private openedAt = 0;
   private state: TechniqueConstellationCanvasData;
 
   constructor(
@@ -158,6 +161,7 @@ export class TechniqueConstellationCanvas {
 
   private mount(): void {
     this.mounted = true;
+    this.openedAt = performance.now();
     this.collectSkillAnchors();
     this.canvas.addEventListener('mousemove', this.handleMouseMove);
     this.canvas.addEventListener('mouseleave', this.handleMouseLeave);
@@ -191,6 +195,7 @@ export class TechniqueConstellationCanvas {
 
   private rebuildScene(): void {
     this.currentNodes = this.generateConstellation();
+    this.freezeAnchorDirections();
     this.initParticles();
     this.syncSkillAnchorStates();
     this.positionSkillAnchors();
@@ -241,6 +246,8 @@ export class TechniqueConstellationCanvas {
         floatSpeed: nodeRng.nextRange(0.0004, 0.0012),
         displayX: 0,
         displayY: 0,
+        anchorDirX: 1,
+        anchorDirY: 0,
         milestone: node.milestone,
         hoverTitle: node.hoverTitle,
         hoverLines: node.hoverLines,
@@ -341,6 +348,7 @@ export class TechniqueConstellationCanvas {
       stableLength: number;
     }> = [];
     let totalUnlockedLength = 0;
+    let fullPathLength = 0;
     const distances = [0];
     const progressStartIndex = this.state.currentLevel - 1;
 
@@ -352,6 +360,7 @@ export class TechniqueConstellationCanvas {
       const stableStart = { x: fromNode.x, y: fromNode.y };
       const stableEnd = { x: toNode.x, y: toNode.y };
       const stableDistance = Math.hypot(stableEnd.x - stableStart.x, stableEnd.y - stableStart.y);
+      fullPathLength += stableDistance;
 
       if (i < progressStartIndex) {
         unlockedPath.push({
@@ -445,7 +454,7 @@ export class TechniqueConstellationCanvas {
 
     if (totalUnlockedLength > 0) {
       const flowSpeed = 0.25;
-      const flowPos = (time * flowSpeed) % (totalUnlockedLength + 600);
+      const flowPos = (time * flowSpeed) % (fullPathLength + 600);
 
       if (flowPos < totalUnlockedLength) {
         let segmentIndex = 0;
@@ -570,6 +579,7 @@ export class TechniqueConstellationCanvas {
 
     ctx.globalCompositeOperation = 'source-over';
     ctx.shadowBlur = 0;
+    this.updateSkillReveal(time);
     this.animationFrameId = requestAnimationFrame(this.render);
   };
 
@@ -710,7 +720,6 @@ export class TechniqueConstellationCanvas {
     }
     const width = Math.max(1, this.root.clientWidth);
     const height = Math.max(1, this.root.clientHeight);
-    const center = { x: width / 2, y: height / 2 };
     const anchorsByLevel = new Map<number, typeof this.skillAnchors>();
     for (const anchor of this.skillAnchors) {
       const current = anchorsByLevel.get(anchor.level) ?? [];
@@ -723,7 +732,10 @@ export class TechniqueConstellationCanvas {
       if (!anchors || anchors.length === 0) {
         continue;
       }
-      const anchorDirection = this.resolveAnchorDirection(node, center);
+      const anchorDirection = this.normalize({
+        x: node.anchorDirX,
+        y: node.anchorDirY,
+      });
       const spreadDirection = this.normalize({
         x: -anchorDirection.y,
         y: anchorDirection.x,
@@ -734,6 +746,7 @@ export class TechniqueConstellationCanvas {
         const anchor = anchors[index];
         const labelWidth = anchor.labelEl.offsetWidth || 88;
         const labelHeight = anchor.labelEl.offsetHeight || 28;
+        const lineInset = Math.min(12, Math.max(6, Math.min(labelWidth, labelHeight) * 0.28));
         const stackOffset = (index - (anchors.length - 1) / 2) * (labelHeight + 10);
         const halfDepth = Math.abs(anchorDirection.x) * labelWidth / 2 + Math.abs(anchorDirection.y) * labelHeight / 2;
         const anchorCenter = {
@@ -747,8 +760,8 @@ export class TechniqueConstellationCanvas {
           y: top + labelHeight / 2,
         };
         const lineEnd = {
-          x: rectCenter.x - anchorDirection.x * halfDepth,
-          y: rectCenter.y - anchorDirection.y * halfDepth,
+          x: rectCenter.x - anchorDirection.x * Math.max(0, halfDepth - lineInset),
+          y: rectCenter.y - anchorDirection.y * Math.max(0, halfDepth - lineInset),
         };
         const firstBend = {
           x: node.displayX + anchorDirection.x * stubLength,
@@ -783,14 +796,29 @@ export class TechniqueConstellationCanvas {
     }
   }
 
+  private freezeAnchorDirections(): void {
+    const center = {
+      x: Math.max(1, this.root.clientWidth) / 2,
+      y: Math.max(1, this.root.clientHeight) / 2,
+    };
+    this.currentNodes = this.currentNodes.map((node) => {
+      const direction = this.resolveAnchorDirection(node, center);
+      return {
+        ...node,
+        anchorDirX: direction.x,
+        anchorDirY: direction.y,
+      };
+    });
+  }
+
   private resolveAnchorDirection(node: InternalNode, center: { x: number; y: number }): { x: number; y: number } {
     const prev = this.currentNodes[node.index - 1] ?? null;
     const next = this.currentNodes[node.index + 1] ?? null;
     const neighborVectors = [prev, next]
       .filter((entry): entry is InternalNode => entry !== null)
       .map((entry) => this.normalize({
-        x: entry.displayX - node.displayX,
-        y: entry.displayY - node.displayY,
+        x: entry.x - node.x,
+        y: entry.y - node.y,
       }))
       .filter((entry) => this.length(entry) > 0);
     const crowd = neighborVectors.reduce((sum, entry) => ({
@@ -806,18 +834,18 @@ export class TechniqueConstellationCanvas {
     let tangent = { x: 0, y: 0 };
     if (prev && next) {
       tangent = this.normalize({
-        x: next.displayX - prev.displayX,
-        y: next.displayY - prev.displayY,
+        x: next.x - prev.x,
+        y: next.y - prev.y,
       });
     } else if (next) {
       tangent = this.normalize({
-        x: next.displayX - node.displayX,
-        y: next.displayY - node.displayY,
+        x: next.x - node.x,
+        y: next.y - node.y,
       });
     } else if (prev) {
       tangent = this.normalize({
-        x: node.displayX - prev.displayX,
-        y: node.displayY - prev.displayY,
+        x: node.x - prev.x,
+        y: node.y - prev.y,
       });
     }
 
@@ -843,6 +871,20 @@ export class TechniqueConstellationCanvas {
       return { x: 1, y: 0 };
     }
     return chosen;
+  }
+
+  private updateSkillReveal(time: number): void {
+    const totalLevels = Math.max(1, this.state.maxLevels);
+    const progress = Math.max(0, Math.min(1, (time - this.openedAt) / 1100));
+    for (const anchor of this.skillAnchors) {
+      const threshold = totalLevels <= 1 ? 0 : (anchor.level - 1) / (totalLevels - 1);
+      const local = Math.max(0, Math.min(1, (progress - threshold) / 0.16));
+      const eased = local * local * (3 - 2 * local);
+      anchor.labelEl.style.opacity = eased.toFixed(3);
+      if (anchor.lineEl) {
+        anchor.lineEl.style.opacity = eased.toFixed(3);
+      }
+    }
   }
 
   private length(vector: { x: number; y: number }): number {
