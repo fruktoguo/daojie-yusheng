@@ -65,9 +65,14 @@ interface LastSentTickState {
   facing?: Direction;
   pathSignature: string;
   visibilityKey?: string;
+  tilePatchRevision?: number;
   mapMetaSignature?: string;
   minimapSignature?: string;
   minimapLibrarySignature?: string;
+}
+
+interface SyncActionsOptions {
+  skipQuestSync?: boolean;
 }
 
 @Injectable()
@@ -223,6 +228,10 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
 
   resetNetworkPerf(): void {
     this.performanceService.resetNetworkStats();
+  }
+
+  resetCpuPerf(): void {
+    this.performanceService.resetCpuStats();
   }
 
   private getEffectiveInterval(mapId: string): number {
@@ -447,6 +456,12 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     for (const player of mapPlayers) {
       affectedPlayers.set(player.id, player);
       if (player.dead) continue;
+      if (player.isBot) {
+        this.measureCpuSection('pathfinding', '寻路与移动', () => {
+          this.navigationService.stepPlayerTowardTarget(player);
+        });
+        continue;
+      }
       const startX = player.x;
       const startY = player.y;
       const timeUpdate = this.measureCpuSection('time_effects', '时间与环境效果', () => (
@@ -545,8 +560,13 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
 
     const hpBeforeMonsterTick = new Map(mapPlayers.map((player) => [player.id, player.hp] as const));
     const monsterUpdates = this.worldService.tickMonsters(mapId, mapPlayers);
+    const monsterAffectedPlayerIds = new Set(monsterUpdates.dirtyPlayers ?? []);
     messages.push(...monsterUpdates.messages);
-    for (const playerId of monsterUpdates.dirtyPlayers ?? []) {
+    for (const playerId of monsterAffectedPlayerIds) {
+      const player = this.playerService.getPlayer(playerId);
+      if (player?.isBot) {
+        continue;
+      }
       this.playerService.markDirty(playerId, 'actions');
       this.playerService.markDirty(playerId, 'attr');
     }
@@ -556,8 +576,12 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    for (const player of mapPlayers) {
-      if (this.syncActions(player)) {
+    for (const playerId of monsterAffectedPlayerIds) {
+      const player = this.playerService.getPlayer(playerId);
+      if (!player || player.isBot) {
+        continue;
+      }
+      if (this.syncActions(player, { skipQuestSync: true })) {
         this.playerService.markDirty(player.id, 'actions');
       }
     }
@@ -572,6 +596,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       this.flushMessages(messages);
     });
     this.broadcastTicks(mapId, finalMapPlayers, dt);
+    this.mapService.clearDirtyTileKeys(mapId);
     this.ensureMapTicks();
   }
 
@@ -757,7 +782,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
   }
 
   /** 重新构建玩家的可用行动列表，返回是否发生变化 */
-  private syncActions(player: PlayerState): boolean {
+  private syncActions(player: PlayerState, options?: SyncActionsOptions): boolean {
     const before = this.measureCpuSection('state_actions_before', '动作重建: 重建前快照', () => (
       JSON.stringify(player.actions.map((action) => ({
         id: action.id,
@@ -770,7 +795,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       })))
     ));
     const contextActions = this.measureCpuSection('state_actions_context', '动作重建: 场景动作收集', () => (
-      this.worldService.getContextActions(player)
+      this.worldService.getContextActions(player, { skipQuestSync: options?.skipQuestSync })
     ));
     this.measureCpuSection('state_actions_core', '动作重建: 核心构建', () => {
       this.actionService.rebuildActions(player, contextActions);
@@ -928,9 +953,17 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
 
   /** 推送单个玩家的脏标记数据并清除标记 */
   private flushPlayerDirtyUpdates(player: PlayerState) {
-    this.techniqueService.initializePlayerProgression(player);
     const flags = this.playerService.getDirtyFlags(player.id);
     if (!flags || flags.size === 0) return;
+    const needsProgressionSync =
+      flags.has('attr')
+      || flags.has('inv')
+      || flags.has('equip')
+      || flags.has('tech')
+      || flags.has('actions');
+    if (needsProgressionSync) {
+      this.techniqueService.initializePlayerProgression(player);
+    }
     if (
       player.realm?.breakthroughReady
       && (flags.has('inv') || flags.has('equip') || flags.has('tech'))
@@ -1129,6 +1162,11 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         previous = undefined;
       }
       const visibilityKey = this.buildVisibilityKey(viewer, time.effectiveViewRange);
+      const visibilityChanged = !previous || previous.visibilityKey !== visibilityKey;
+      const canUseDirtyTilePatches = !overlayParentMapId;
+      const tilePatchRevision = canUseDirtyTilePatches
+        ? this.mapService.getTilePatchRevision(viewer.mapId)
+        : undefined;
       const mapMeta = this.mapService.getMapMeta(viewer.mapId);
       const mapMetaSignature = this.buildMapMetaSignature(mapMeta);
       const unlockedMinimapIds = this.getUnlockedMinimapIds(viewer);
@@ -1137,15 +1175,32 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         : '';
       const minimapLibrarySignature = this.buildMinimapLibrarySignature(unlockedMinimapIds);
       const visibleEntityIds = new Set<string>();
+      const tileOriginX = viewer.x - time.effectiveViewRange;
+      const tileOriginY = viewer.y - time.effectiveViewRange;
       const groundPilePatches = this.measureCpuSection('broadcast_patch_ground', '广播: 掉落差量 Patch', () => (
         this.buildSparseGroundPiles(viewer.id, visibleGroundPiles)
       ));
-      const tilePatches = this.buildSparseVisibleTilePatches(
-        viewer.id,
-        visibility.tiles,
-        viewer.x - time.effectiveViewRange,
-        viewer.y - time.effectiveViewRange,
-      );
+      const tilePatches = visibilityChanged
+        ? []
+        : canUseDirtyTilePatches
+          ? previous?.tilePatchRevision === tilePatchRevision
+            ? []
+            : this.buildSparseDirtyVisibleTilePatches(
+              viewer.id,
+              visibility.tiles,
+              tileOriginX,
+              tileOriginY,
+              this.mapService.getDirtyTileKeys(viewer.mapId),
+            )
+          : this.buildSparseVisibleTilePatches(
+            viewer.id,
+            visibility.tiles,
+            tileOriginX,
+            tileOriginY,
+          );
+      if (visibilityChanged) {
+        this.syncVisibleTileCache(viewer.id, visibility.tiles, tileOriginX, tileOriginY);
+      }
       const tickData: S2C_Tick = {
         p: this.buildSparseRenderEntities(viewer.id, visiblePlayers, visibleEntityIds),
         e: this.buildSparseRenderEntities(viewer.id, visibleEntities, visibleEntityIds),
@@ -1164,7 +1219,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       this.measureCpuSection('broadcast_cache', '广播: 缓存修剪', () => {
         this.pruneRenderEntityCache(viewer.id, visibleEntityIds);
       });
-      if (!previous || previous.visibilityKey !== visibilityKey) {
+      if (visibilityChanged) {
         tickData.v = visibility.tiles;
         tickData.visibleMinimapMarkers = this.mapService.getVisibleMinimapMarkers(viewer.mapId, visibility.visibleKeys);
       }
@@ -1205,6 +1260,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         facing: viewer.facing,
         pathSignature,
         visibilityKey,
+        tilePatchRevision,
         mapMetaSignature,
         minimapSignature,
         minimapLibrarySignature,
@@ -1393,6 +1449,85 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
   }
 
   /** 构建可见地块增量包，仅发送与上次不同的地块 */
+  private syncVisibleTileCache(
+    viewerId: string,
+    tiles: VisibleTile[][],
+    originX: number,
+    originY: number,
+  ): void {
+    const nextCache = new Map<string, VisibleTile>();
+    this.measureCpuSection('broadcast_patch_tiles_reset', '地块 Patch: 全量缓存同步', () => {
+      for (let row = 0; row < tiles.length; row += 1) {
+        for (let col = 0; col < tiles[row].length; col += 1) {
+          const tile = tiles[row][col];
+          if (!tile) {
+            continue;
+          }
+
+          const x = originX + col;
+          const y = originY + row;
+          nextCache.set(`${x},${y}`, this.cloneStructured(tile));
+        }
+      }
+    });
+    this.lastSentVisibleTiles.set(viewerId, nextCache);
+  }
+
+  /** 仅按脏格构建可见地块 Patch，避免稳定视野下全量扫描 */
+  private buildSparseDirtyVisibleTilePatches(
+    viewerId: string,
+    tiles: VisibleTile[][],
+    originX: number,
+    originY: number,
+    dirtyTileKeys: string[],
+  ): VisibleTilePatch[] {
+    if (dirtyTileKeys.length === 0) {
+      return [];
+    }
+
+    let cache = this.lastSentVisibleTiles.get(viewerId);
+    if (!cache) {
+      cache = new Map<string, VisibleTile>();
+      this.lastSentVisibleTiles.set(viewerId, cache);
+    }
+
+    const patches: VisibleTilePatch[] = [];
+    const changedTiles: Array<{ key: string; x: number; y: number; tile: VisibleTile }> = [];
+    this.measureCpuSection('broadcast_patch_tiles_scan', '地块 Patch: 扫描比较', () => {
+      const maxRow = tiles.length - 1;
+      const maxCol = tiles[0]?.length ? tiles[0].length - 1 : -1;
+      for (const key of dirtyTileKeys) {
+        const [x, y] = key.split(',').map((value) => Number.parseInt(value, 10));
+        const row = y - originY;
+        const col = x - originX;
+        if (row < 0 || col < 0 || row > maxRow || col > maxCol) {
+          continue;
+        }
+
+        const tile = tiles[row]?.[col];
+        if (!tile) {
+          continue;
+        }
+
+        const previous = cache.get(key);
+        if (previous && this.isStructuredEqual(previous, tile)) {
+          continue;
+        }
+
+        changedTiles.push({ key, x, y, tile });
+      }
+    });
+    this.measureCpuSection('broadcast_patch_tiles_clone', '地块 Patch: 快照复制', () => {
+      for (const { key, x, y, tile } of changedTiles) {
+        const nextTile = this.cloneStructured(tile);
+        patches.push({ x, y, tile: nextTile });
+        cache.set(key, nextTile);
+      }
+    });
+    return patches;
+  }
+
+  /** 构建可见地块增量包，仅发送与上次不同的地块 */
   private buildSparseVisibleTilePatches(
     viewerId: string,
     tiles: VisibleTile[][],
@@ -1405,10 +1540,9 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       this.lastSentVisibleTiles.set(viewerId, cache);
     }
 
-    const nextCache = new Map<string, VisibleTile>();
     const patches: VisibleTilePatch[] = [];
-    const changedTiles: Array<{ x: number; y: number; tile: VisibleTile }> = [];
-    const nextEntries: Array<{ key: string; tile: VisibleTile }> = [];
+    const changedTiles: Array<{ key: string; x: number; y: number; tile: VisibleTile }> = [];
+    const visibleKeys = new Set<string>();
 
     this.measureCpuSection('broadcast_patch_tiles_scan', '地块 Patch: 扫描比较', () => {
       for (let row = 0; row < tiles.length; row += 1) {
@@ -1421,29 +1555,40 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
           const x = originX + col;
           const y = originY + row;
           const key = `${x},${y}`;
+          visibleKeys.add(key);
           const previous = cache.get(key);
           if (!previous || !this.isStructuredEqual(previous, tile)) {
-            changedTiles.push({ x, y, tile });
+            changedTiles.push({ key, x, y, tile });
           }
-          nextEntries.push({ key, tile });
         }
       }
     });
 
     this.measureCpuSection('broadcast_patch_tiles_clone', '地块 Patch: 快照复制', () => {
-      for (const { x, y, tile } of changedTiles) {
+      for (const { key, x, y, tile } of changedTiles) {
+        const nextTile = this.cloneStructured(tile);
         patches.push({
           x,
           y,
-          tile: this.cloneStructured(tile),
+          tile: nextTile,
         });
+        cache.set(key, nextTile);
       }
-      for (const { key, tile } of nextEntries) {
-        nextCache.set(key, this.cloneStructured(tile));
+
+      for (const [key] of cache.entries()) {
+        if (visibleKeys.has(key)) {
+          continue;
+        }
+        const [x, y] = key.split(',').map((value) => Number.parseInt(value, 10));
+        patches.push({
+          x,
+          y,
+          tile: null,
+        });
+        cache.delete(key);
       }
     });
 
-    this.lastSentVisibleTiles.set(viewerId, nextCache);
     return patches;
   }
 

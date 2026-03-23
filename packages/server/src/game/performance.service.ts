@@ -123,6 +123,12 @@ export class PerformanceService {
     this.networkOutBuckets.clear();
   }
 
+  resetCpuStats(): void {
+    this.cpuProfileStartedAt = Date.now();
+    this.lastTickMs = 0;
+    this.cpuSections.clear();
+  }
+
   /** 生成当前性能快照（CPU、内存、tick 耗时、网络统计） */
   getSnapshot(): GmPerformanceSnapshot {
     const now = process.hrtime.bigint();

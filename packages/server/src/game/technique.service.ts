@@ -82,6 +82,8 @@ const MONSTER_KILL_TECHNIQUE_EXP_MULTIPLIER = 5;
 
 @Injectable()
 export class TechniqueService {
+  private readonly progressionInitialized = new WeakSet<PlayerState>();
+
   constructor(
     private readonly attrService: AttrService,
     private readonly inventoryService: InventoryService,
@@ -103,6 +105,7 @@ export class TechniqueService {
     this.syncRealmPresentation(player, normalized);
 
     if (previousMaxHp <= 0) {
+      this.progressionInitialized.add(player);
       player.hp = player.maxHp;
       return;
     }
@@ -110,10 +113,21 @@ export class TechniqueService {
     if (player.hp <= 0) {
       player.hp = Math.min(player.maxHp, Math.max(1, previousHp));
     }
+
+    this.progressionInitialized.add(player);
   }
 
   preparePlayerForPersistence(player: PlayerState): void {
     this.initializePlayerProgression(player);
+  }
+
+  setRealmLevel(player: PlayerState, realmLv: number): void {
+    this.initializePlayerProgression(player);
+    const nextRealm = this.normalizeRealmState(realmLv, 0);
+    this.applyRealmBonus(player, nextRealm);
+    this.applyTechniqueBonuses(player);
+    this.attrService.recalcPlayer(player);
+    this.syncRealmPresentation(player, nextRealm);
   }
 
   /** 学习新功法 */
@@ -149,9 +163,11 @@ export class TechniqueService {
 
   /** 每 tick 修炼推进：增加境界经验和功法经验 */
   cultivateTick(player: PlayerState): CultivationResult {
-    this.measureCpuSection('cultivation_init', '修炼: 初始化校正', () => {
-      this.initializePlayerProgression(player);
-    });
+    if (!this.progressionInitialized.has(player)) {
+      this.measureCpuSection('cultivation_init', '修炼: 初始化校正', () => {
+        this.initializePlayerProgression(player);
+      });
+    }
     const technique = this.measureCpuSection('cultivation_resolve', '修炼: 主修解析', () => (
       this.resolveCultivatingTechnique(player)
     ));

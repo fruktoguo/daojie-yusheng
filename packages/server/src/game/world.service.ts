@@ -339,8 +339,10 @@ export class WorldService {
   }
 
   /** 根据玩家当前位置和状态，构建可用的上下文行动列表 */
-  getContextActions(player: PlayerState): ActionDef[] {
-    this.syncQuestState(player);
+  getContextActions(player: PlayerState, options?: { skipQuestSync?: boolean }): ActionDef[] {
+    if (!options?.skipQuestSync) {
+      this.syncQuestState(player);
+    }
     const effectiveViewRange = this.timeService.getEffectiveViewRangeFromBuff(player.viewRange, player.temporaryBuffs);
 
     const actions: ActionDef[] = [{

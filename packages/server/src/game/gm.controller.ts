@@ -14,6 +14,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  GmEditorCatalogRes,
   GmMapDetailRes,
   GmMapListRes,
   GmMapRuntimeRes,
@@ -47,6 +48,11 @@ export class GmController {
     return this.gmService.getState();
   }
 
+  @Get('editor-catalog')
+  getEditorCatalog(): GmEditorCatalogRes {
+    return this.gmService.getEditorCatalog();
+  }
+
   /** 获取所有玩家建议 */
   @Get('suggestions')
   getSuggestions(): Suggestion[] {
@@ -57,6 +63,13 @@ export class GmController {
   @Post('perf/network/reset')
   resetNetworkPerf(): { ok: true } {
     this.tickService.resetNetworkPerf();
+    return { ok: true };
+  }
+
+  /** 重置 GM CPU 统计 */
+  @Post('perf/cpu/reset')
+  resetCpuPerf(): { ok: true } {
+    this.tickService.resetCpuPerf();
     return { ok: true };
   }
 

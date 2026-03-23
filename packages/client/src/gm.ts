@@ -121,6 +121,7 @@ const trafficTotalInNoteEl = document.getElementById('traffic-total-in-note') as
 const trafficTotalOutEl = document.getElementById('traffic-total-out') as HTMLDivElement;
 const trafficTotalOutNoteEl = document.getElementById('traffic-total-out-note') as HTMLDivElement;
 const resetNetworkStatsBtn = document.getElementById('reset-network-stats') as HTMLButtonElement;
+const resetCpuStatsBtn = document.getElementById('reset-cpu-stats') as HTMLButtonElement;
 const cpuCurrentPercentEl = document.getElementById('cpu-current-percent') as HTMLDivElement;
 const cpuProfileMetaEl = document.getElementById('cpu-profile-meta') as HTMLDivElement;
 const cpuCoreCountEl = document.getElementById('cpu-core-count') as HTMLDivElement;
@@ -2010,6 +2011,21 @@ async function resetNetworkStats(): Promise<void> {
   }
 }
 
+async function resetCpuStats(): Promise<void> {
+  resetCpuStatsBtn.disabled = true;
+  try {
+    await request<{ ok: true }>('/gm/perf/cpu/reset', {
+      method: 'POST',
+    });
+    await loadState(true);
+    setStatus('CPU 统计已重置');
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '重置 CPU 统计失败', true);
+  } finally {
+    resetCpuStatsBtn.disabled = false;
+  }
+}
+
 function handleEditorAction(action: string, trigger: HTMLElement): void {
   if (!draftSnapshot) return;
 
@@ -2189,6 +2205,9 @@ document.getElementById('remove-all-bots')?.addEventListener('click', () => {
 });
 resetNetworkStatsBtn.addEventListener('click', () => {
   resetNetworkStats().catch(() => {});
+});
+resetCpuStatsBtn.addEventListener('click', () => {
+  resetCpuStats().catch(() => {});
 });
 gmPasswordForm.addEventListener('submit', (event) => {
   event.preventDefault();

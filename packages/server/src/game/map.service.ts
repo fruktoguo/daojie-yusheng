@@ -273,6 +273,8 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   private quests: Map<string, QuestConfig> = new Map();
   private monsters: Map<string, MonsterSpawnConfig> = new Map();
   private revisions: Map<string, number> = new Map();
+  private tilePatchRevisions: Map<string, number> = new Map();
+  private dirtyTileKeysByMap: Map<string, Set<string>> = new Map();
   private occupantsByMap: Map<string, Map<string, Map<string, OccupantKind>>> = new Map();
   private playerOverlapPointsByMap: Map<string, Set<string>> = new Map();
   private dynamicTileStates: Map<string, Map<string, DynamicTileState>> = new Map();
@@ -595,6 +597,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         if (nextHp !== state.hp) {
           state.hp = nextHp;
           changed = true;
+          this.markTileDirty(mapId, state.x, state.y);
         }
       }
 
@@ -603,17 +606,20 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         if (nextRestoreTicksLeft !== (state.restoreTicksLeft ?? 0)) {
           state.restoreTicksLeft = nextRestoreTicksLeft;
           changed = true;
+          this.markTileDirty(mapId, state.x, state.y);
         }
 
         if ((state.restoreTicksLeft ?? 0) <= 0) {
           if (this.hasBlockingEntityAt(mapId, state.x, state.y)) {
             state.restoreTicksLeft = TERRAIN_RESTORE_RETRY_DELAY_TICKS;
             changed = true;
+            this.markTileDirty(mapId, state.x, state.y);
           } else {
             state.destroyed = false;
             state.restoreTicksLeft = undefined;
             changed = true;
             visibilityChanged = true;
+            this.markTileDirty(mapId, state.x, state.y);
           }
         }
       }
@@ -629,6 +635,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         stateMap.delete(key);
         this.resetTileToBaseState(mapId, state.x, state.y);
         changed = true;
+        this.markTileDirty(mapId, state.x, state.y);
         continue;
       }
 
@@ -1415,8 +1422,28 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     return String(current);
   }
 
+  getTilePatchRevision(mapId: string): number {
+    return this.tilePatchRevisions.get(mapId) ?? 0;
+  }
+
+  getDirtyTileKeys(mapId: string): string[] {
+    return [...(this.dirtyTileKeysByMap.get(mapId) ?? new Set<string>()).values()];
+  }
+
+  clearDirtyTileKeys(mapId: string): void {
+    this.dirtyTileKeysByMap.delete(mapId);
+  }
+
   private bumpMapRevision(mapId: string) {
     this.revisions.set(mapId, (this.revisions.get(mapId) ?? 0) + 1);
+  }
+
+  private markTileDirty(mapId: string, x: number, y: number): void {
+    const key = this.tileStateKey(x, y);
+    const dirtyKeys = this.dirtyTileKeysByMap.get(mapId) ?? new Set<string>();
+    dirtyKeys.add(key);
+    this.dirtyTileKeysByMap.set(mapId, dirtyKeys);
+    this.tilePatchRevisions.set(mapId, (this.tilePatchRevisions.get(mapId) ?? 0) + 1);
   }
 
   getSpawnPoint(mapId: string): { x: number; y: number } | undefined {
@@ -1669,6 +1696,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     mapOccupants.set(key, occupants);
     this.occupantsByMap.set(mapId, mapOccupants);
     this.syncOccupancyDisplay(mapId, x, y);
+    this.markTileDirty(mapId, x, y);
   }
 
   removeOccupant(mapId: string, x: number, y: number, occupancyId: string): void {
@@ -1687,6 +1715,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       this.occupantsByMap.delete(mapId);
     }
     this.syncOccupancyDisplay(mapId, x, y);
+    this.markTileDirty(mapId, x, y);
   }
 
   damageTile(mapId: string, x: number, y: number, damage: number): { destroyed: boolean; hp: number; maxHp: number } | null {
@@ -1727,6 +1756,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     state.destroyed = state.hp <= 0;
     state.restoreTicksLeft = state.destroyed ? TERRAIN_DESTROYED_RESTORE_TICKS : undefined;
     this.applyDynamicTileStateToTile(tile, state);
+    this.markTileDirty(mapId, x, y);
 
     mapStates.set(key, state);
     this.dynamicTileStates.set(mapId, mapStates);
