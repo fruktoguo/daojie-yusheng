@@ -7,18 +7,21 @@ import {
   Attributes,
   calcTechniqueAttrValues,
   calcTechniqueNextLevelGains,
+  deriveTechniqueRealm,
   getTechniqueMaxLevel,
   PlayerState,
   resolveSkillUnlockLevel,
   TECHNIQUE_ATTR_KEYS,
   TECHNIQUE_GRADE_LABELS,
   TechniqueLayerDef,
+  TechniqueRealm,
   TechniqueState,
 } from '@mud/shared';
 import { FloatingTooltip } from '../floating-tooltip';
 import { detailModalHost } from '../detail-modal-host';
 import { buildSkillTooltipContent } from '../skill-tooltip';
 import { preserveSelection } from '../selection-preserver';
+import { TechniqueConstellationCanvas, TechniqueConstellationCanvasData, TechniqueConstellationHoverPayload } from './technique-constellation-canvas';
 
 const ATTR_NAMES: Record<keyof Attributes, string> = {
   constitution: '体魄',
@@ -72,12 +75,52 @@ function getTechniqueRemainingExp(tech: TechniqueState): number {
   return Math.max(0, tech.expToNext - tech.exp);
 }
 
+function getTechniqueRealmLabel(realm: TechniqueRealm): string {
+  switch (realm) {
+    case TechniqueRealm.Entry:
+      return '入门';
+    case TechniqueRealm.Minor:
+      return '小成';
+    case TechniqueRealm.Major:
+      return '大成';
+    case TechniqueRealm.Perfection:
+      return '圆满';
+  }
+}
+
+function findTechniqueRealmStartLevel(
+  realm: TechniqueRealm,
+  maxLevel: number,
+  layers?: TechniqueLayerDef[],
+  legacyCurves?: TechniqueState['attrCurves'],
+): number | null {
+  for (let level = 1; level <= maxLevel; level += 1) {
+    if (deriveTechniqueRealm(level, layers, legacyCurves) === realm) {
+      return level;
+    }
+  }
+  return null;
+}
+
+function buildTechniqueMilestones(tech: TechniqueState, maxLevel: number): Map<number, TechniqueRealm> {
+  const milestones = new Map<number, TechniqueRealm>();
+  for (const realm of [TechniqueRealm.Minor, TechniqueRealm.Major, TechniqueRealm.Perfection]) {
+    const level = findTechniqueRealmStartLevel(realm, maxLevel, tech.layers, tech.attrCurves);
+    if (level !== null) {
+      milestones.set(level, realm);
+    }
+  }
+  return milestones;
+}
+
 export class TechniquePanel {
   private static readonly MODAL_OWNER = 'technique-panel';
   private pane = document.getElementById('pane-technique')!;
   private onCultivate: ((techId: string | null) => void) | null = null;
   private tooltip = new FloatingTooltip();
+  private constellationCanvas: TechniqueConstellationCanvas | null = null;
   private openTechId: string | null = null;
+  private openLayerLevel: number | null = null;
   private lastState: TechniquePanelState = { techniques: [] };
 
   constructor() {
@@ -103,8 +146,10 @@ export class TechniquePanel {
   /** 仅同步经验、进度条与主修状态，避免高频整块重绘 */
   syncDynamic(techniques: TechniqueState[], cultivatingTechId?: string, previewPlayer?: PlayerState): void {
     this.lastState = { techniques, cultivatingTechId, previewPlayer };
-    if (!this.patchList() || !this.patchModal()) {
+    if (!this.patchList()) {
       this.renderList();
+    }
+    if (!this.patchModal()) {
       this.renderModal();
     }
   }
@@ -174,6 +219,7 @@ export class TechniquePanel {
     const currentAttrs = calcTechniqueAttrValues(tech.level, tech.layers, tech.attrCurves);
     const nextAttrs = calcTechniqueNextLevelGains(tech.level, tech.layers, tech.attrCurves);
     const skillsByLevel = new Map<number, TechniqueState['skills']>();
+    const milestones = buildTechniqueMilestones(tech, maxLevel);
     for (const skill of tech.skills) {
       const unlockLevel = resolveSkillUnlockLevel(skill);
       const current = skillsByLevel.get(unlockLevel) ?? [];
@@ -184,12 +230,16 @@ export class TechniquePanel {
     const layers = tech.layers && tech.layers.length > 0
       ? [...tech.layers].sort((left, right) => left.level - right.level)
       : this.buildLegacyLayers(tech, maxLevel);
-    const layerRows = layers.map((layer) => this.renderLayerRow(layer, tech.level, skillsByLevel)).join('');
+    const selectedLevel = this.resolveOpenLayerLevel(layers, tech.level);
+    const constellationHtml = this.renderConstellation(tech, layers, tech.level, selectedLevel, skillsByLevel, milestones);
+    const focusHtml = this.renderLayerFocus(tech, layers, selectedLevel, skillsByLevel, milestones);
+    const constellationSignature = this.buildConstellationStructureSignature(layers, skillsByLevel);
+    const focusSignature = this.buildFocusStructureSignature(selectedLevel, skillsByLevel, milestones);
     detailModalHost.open({
       ownerId: TechniquePanel.MODAL_OWNER,
       variantClass: 'detail-modal--technique',
       title: tech.name,
-      subtitle: `${tech.grade ? TECHNIQUE_GRADE_LABELS[tech.grade] : '无品'} · 第 ${tech.level}/${maxLevel} 层`,
+      subtitle: `${tech.grade ? TECHNIQUE_GRADE_LABELS[tech.grade] : '无品'} · ${getTechniqueRealmLabel(tech.realm)} · 第 ${tech.level}/${maxLevel} 层`,
       bodyHtml: `
       <div class="tech-modal-summary">
         <div class="tech-modal-stat">
@@ -198,21 +248,26 @@ export class TechniquePanel {
         </div>
         <div class="tech-modal-stat">
           <span class="tech-modal-label">当前原始总加成</span>
-          <span>${escapeHtml(formatAttrMap(currentAttrs))}</span>
+          <span data-tech-modal-current-attrs="true">${escapeHtml(formatAttrMap(currentAttrs))}</span>
         </div>
         <div class="tech-modal-stat">
           <span class="tech-modal-label">下一层原始收益</span>
-          <span>${escapeHtml(formatAttrMap(nextAttrs, '已无下一层'))}</span>
+          <span data-tech-modal-next-attrs="true">${escapeHtml(formatAttrMap(nextAttrs, '已无下一层'))}</span>
         </div>
       </div>
-      <div class="tech-modal-section-title">逐层详情</div>
-      <div class="tech-layer-list">${layerRows}</div>
+      <div class="tech-modal-section-title">周天星图</div>
+      <div data-tech-modal-constellation-shell="true" data-tech-modal-constellation-signature="${escapeHtml(constellationSignature)}">${constellationHtml}</div>
+      <div class="tech-modal-section-title">星位注解</div>
+      <div data-tech-modal-focus-shell="true" data-tech-modal-focus-signature="${escapeHtml(focusSignature)}">${focusHtml}</div>
     `,
       onClose: () => {
         this.openTechId = null;
+        this.openLayerLevel = null;
+        this.destroyConstellationCanvas();
         this.tooltip.hide();
       },
       onAfterRender: (body) => {
+        this.mountConstellation(body, tech, layers, selectedLevel, skillsByLevel, milestones);
         this.bindSkillTooltips(body);
       },
     });
@@ -230,7 +285,15 @@ export class TechniquePanel {
     return rows;
   }
 
-  private renderLayerRow(layer: TechniqueLayerDef, currentLevel: number, skillsByLevel: Map<number, TechniqueState['skills']>): string {
+  private renderLayerFocus(
+    tech: TechniqueState,
+    layers: TechniqueLayerDef[],
+    selectedLevel: number,
+    skillsByLevel: Map<number, TechniqueState['skills']>,
+    milestones: Map<number, TechniqueRealm>,
+  ): string {
+    const layer = layers.find((entry) => entry.level === selectedLevel) ?? layers[0];
+    const selectedRealm = deriveTechniqueRealm(layer.level, tech.layers, tech.attrCurves);
     const skills = skillsByLevel.get(layer.level) ?? [];
     const skillTags = skills.length > 0
       ? skills.map((skill) => {
@@ -240,24 +303,98 @@ export class TechniquePanel {
           data-skill-tooltip-unlock-level="${resolveSkillUnlockLevel(skill)}"
           data-skill-tooltip-rich="1">${escapeHtml(skill.name)}</span>`;
       }).join('')
-      : '<span class="tech-layer-empty">本层无新技能</span>';
+      : '<span class="tech-layer-empty">此层未解锁新技能</span>';
 
-    let expText = '已满层';
-    if (layer.expToNext > 0) {
-      expText = `升下一层需 ${layer.expToNext} 功法经验`;
-    }
+    const layerAttrs = formatAttrMap(layer.attrs ?? {}, '本层不增加六维');
+    const totalAttrs = formatAttrMap(calcTechniqueAttrValues(layer.level, tech.layers, tech.attrCurves));
+    const milestone = milestones.get(layer.level);
+    const stateLabel = layer.level < tech.level ? '已贯通' : layer.level === tech.level ? '当前停驻' : '尚未抵达';
+    const expText = layer.expToNext > 0 ? `升下一层需 ${layer.expToNext} 功法经验` : '此层已是终点';
+    const milestoneText = milestone ? `此层踏入${getTechniqueRealmLabel(milestone)}` : `此层属${getTechniqueRealmLabel(selectedRealm)}阶段`;
 
-    return `<div class="tech-layer-row ${layer.level === currentLevel ? 'current' : ''} ${layer.level < currentLevel ? 'passed' : ''}">
-      <div class="tech-layer-row-head">
-        <span class="tech-layer-index">第 ${layer.level} 层</span>
-        <span class="tech-layer-exp">${expText}</span>
+    return `<section class="tech-focus-card ${layer.level < tech.level ? 'passed' : ''} ${layer.level === tech.level ? 'current' : ''}" data-tech-focus-card="true">
+      <div class="tech-focus-head">
+        <div>
+          <div class="tech-focus-title" data-tech-focus-title="true">第 ${layer.level} 层星位</div>
+          <div class="tech-focus-subtitle" data-tech-focus-subtitle="true">${escapeHtml(milestoneText)}</div>
+        </div>
+        <div class="tech-focus-state" data-tech-focus-state="true">${stateLabel}</div>
       </div>
-      <div class="tech-layer-attrs">${escapeHtml(formatAttrMap(layer.attrs ?? {}, '本层不增加六维'))}</div>
-      <div class="tech-layer-skills">
-        <span class="tech-modal-label">解锁技能</span>
-        <span class="tech-layer-skill-list">${skillTags}</span>
+      <div class="tech-focus-grid">
+        <div class="tech-focus-stat">
+          <span class="tech-modal-label">层位进度</span>
+          <span data-tech-focus-exp="true">${expText}</span>
+        </div>
+        <div class="tech-focus-stat">
+          <span class="tech-modal-label">本层原始收益</span>
+          <span data-tech-focus-layer-attrs="true">${escapeHtml(layerAttrs)}</span>
+        </div>
+        <div class="tech-focus-stat">
+          <span class="tech-modal-label">至此累计加成</span>
+          <span data-tech-focus-total-attrs="true">${escapeHtml(totalAttrs)}</span>
+        </div>
       </div>
+      <div class="tech-focus-skills">
+        <span class="tech-modal-label">技能节点</span>
+        <span class="tech-layer-skill-list" data-tech-focus-skills="true">${skillTags}</span>
+      </div>
+    </section>`;
+  }
+
+  private renderConstellation(
+    tech: TechniqueState,
+    layers: TechniqueLayerDef[],
+    currentLevel: number,
+    selectedLevel: number,
+    skillsByLevel: Map<number, TechniqueState['skills']>,
+    milestones: Map<number, TechniqueRealm>,
+  ): string {
+    const note = currentLevel < layers.length
+      ? `当前停驻第 ${currentLevel} 层，周天流转 ${(getTechniqueProgressRatio(tech) * 100).toFixed(0)}%，点击任意星位切换下方注解。`
+      : `当前已抵达 ${layers.length} 层圆满，点击任意星位切换下方注解。`;
+    return `<div class="tech-starfield-shell">
+      <div class="tech-starfield-canvas-shell" data-tech-constellation-root="true">
+        <canvas class="tech-starfield-canvas" data-tech-starfield-canvas="true"></canvas>
+        <svg class="tech-starfield-skill-lines" data-tech-starfield-skill-lines="true" aria-hidden="true">
+          ${layers.map((layer) => {
+            return (skillsByLevel.get(layer.level) ?? []).map((_, skillIndex) => {
+              return `<polyline class="tech-starfield-skill-line" data-tech-skill-line-level="${layer.level}" data-tech-skill-line-index="${skillIndex}"></polyline>`;
+            }).join('');
+          }).join('')}
+        </svg>
+        <div class="tech-starfield-skill-layer">
+          ${layers.map((layer) => {
+            return (skillsByLevel.get(layer.level) ?? []).map((skill, skillIndex) => {
+              const unlocked = layer.level <= currentLevel;
+              return `<button
+                class="tech-skill-tag tech-starfield-skill-label ${unlocked ? 'unlocked' : 'locked'}"
+                data-tech-skill-anchor-level="${layer.level}"
+                data-tech-skill-anchor-index="${skillIndex}"
+                data-skill-tooltip-title="${escapeHtml(skill.name)}"
+                data-skill-tooltip-skill-id="${escapeHtml(skill.id)}"
+                data-skill-tooltip-unlock-level="${resolveSkillUnlockLevel(skill)}"
+                data-skill-tooltip-rich="1"
+                type="button"
+              >${escapeHtml(skill.name)}</button>`;
+            }).join('');
+          }).join('')}
+        </div>
+      </div>
+      <div class="tech-starfield-note">${escapeHtml(note)}</div>
     </div>`;
+  }
+
+  private resolveOpenLayerLevel(layers: TechniqueLayerDef[], fallbackLevel: number): number {
+    if (layers.length === 0) {
+      return fallbackLevel;
+    }
+    const levels = new Set(layers.map((entry) => entry.level));
+    if (this.openLayerLevel && levels.has(this.openLayerLevel)) {
+      return this.openLayerLevel;
+    }
+    const clamped = Math.min(Math.max(fallbackLevel, layers[0].level), layers[layers.length - 1].level);
+    this.openLayerLevel = clamped;
+    return clamped;
   }
 
   private bindPaneEvents(): void {
@@ -295,12 +432,50 @@ export class TechniquePanel {
         return;
       }
       this.openTechId = techId;
+      const openedTech = this.lastState.techniques.find((entry) => entry.techId === techId);
+      this.openLayerLevel = openedTech?.level ?? null;
       this.renderModal();
+    });
+  }
+
+  private mountConstellation(
+    modalBody: HTMLElement,
+    tech: TechniqueState,
+    layers: TechniqueLayerDef[],
+    selectedLevel: number,
+    skillsByLevel: Map<number, TechniqueState['skills']>,
+    milestones: Map<number, TechniqueRealm>,
+  ): void {
+    const root = modalBody.querySelector<HTMLElement>('[data-tech-constellation-root="true"]');
+    if (!root) {
+      this.destroyConstellationCanvas();
+      return;
+    }
+    const data = this.buildConstellationData(tech, layers, selectedLevel, skillsByLevel, milestones);
+    this.destroyConstellationCanvas();
+    this.constellationCanvas = new TechniqueConstellationCanvas(root, data, (level) => {
+      if (this.openLayerLevel === level) {
+        return;
+      }
+      this.openLayerLevel = level;
+      if (!this.patchModal()) {
+        this.renderModal();
+      }
+    }, (payload, clientX, clientY) => {
+      this.showConstellationTooltip(payload, clientX, clientY);
+    }, (clientX, clientY) => {
+      this.tooltip.move(clientX, clientY);
+    }, () => {
+      this.tooltip.hide();
     });
   }
 
   private bindSkillTooltips(modalBody: HTMLElement): void {
     modalBody.querySelectorAll<HTMLElement>('[data-skill-tooltip-title]').forEach((node) => {
+      if (node.dataset.skillTooltipBound === '1') {
+        return;
+      }
+      node.dataset.skillTooltipBound = '1';
       const title = node.dataset.skillTooltipTitle ?? '';
       const rich = node.dataset.skillTooltipRich === '1';
       const skillId = node.dataset.skillTooltipSkillId ?? '';
@@ -330,6 +505,8 @@ export class TechniquePanel {
 
   private closeModal(): void {
     this.openTechId = null;
+    this.openLayerLevel = null;
+    this.destroyConstellationCanvas();
     detailModalHost.close(TechniquePanel.MODAL_OWNER);
     this.tooltip.hide();
   }
@@ -387,10 +564,194 @@ export class TechniquePanel {
     }
 
     const expNode = document.querySelector<HTMLElement>('[data-tech-modal-current-exp="true"]');
-    if (!expNode) {
+    const currentAttrsNode = document.querySelector<HTMLElement>('[data-tech-modal-current-attrs="true"]');
+    const nextAttrsNode = document.querySelector<HTMLElement>('[data-tech-modal-next-attrs="true"]');
+    const focusShell = document.querySelector<HTMLElement>('[data-tech-modal-focus-shell="true"]');
+    const constellationShell = document.querySelector<HTMLElement>('[data-tech-modal-constellation-shell="true"]');
+    const titleNode = document.getElementById('detail-modal-title');
+    const subtitleNode = document.getElementById('detail-modal-subtitle');
+    if (!expNode || !currentAttrsNode || !nextAttrsNode || !focusShell || !constellationShell || !titleNode || !subtitleNode) {
       return false;
     }
+    const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
+    const currentAttrs = calcTechniqueAttrValues(tech.level, tech.layers, tech.attrCurves);
+    const nextAttrs = calcTechniqueNextLevelGains(tech.level, tech.layers, tech.attrCurves);
+    const skillsByLevel = new Map<number, TechniqueState['skills']>();
+    for (const skill of tech.skills) {
+      const unlockLevel = resolveSkillUnlockLevel(skill);
+      const current = skillsByLevel.get(unlockLevel) ?? [];
+      current.push(skill);
+      skillsByLevel.set(unlockLevel, current);
+    }
+    const layers = tech.layers && tech.layers.length > 0
+      ? [...tech.layers].sort((left, right) => left.level - right.level)
+      : this.buildLegacyLayers(tech, maxLevel);
+    const milestones = buildTechniqueMilestones(tech, maxLevel);
+    const selectedLevel = this.resolveOpenLayerLevel(layers, tech.level);
+
+    titleNode.textContent = tech.name;
+    subtitleNode.textContent = `${tech.grade ? TECHNIQUE_GRADE_LABELS[tech.grade] : '无品'} · ${getTechniqueRealmLabel(tech.realm)} · 第 ${tech.level}/${maxLevel} 层`;
     expNode.textContent = tech.expToNext > 0 ? `${tech.exp}/${tech.expToNext}` : '已满层';
+    currentAttrsNode.textContent = formatAttrMap(currentAttrs);
+    nextAttrsNode.textContent = formatAttrMap(nextAttrs, '已无下一层');
+
+    const focusSignature = this.buildFocusStructureSignature(selectedLevel, skillsByLevel, milestones);
+    if (focusShell.dataset.techModalFocusSignature !== focusSignature) {
+      focusShell.dataset.techModalFocusSignature = focusSignature;
+      focusShell.innerHTML = this.renderLayerFocus(tech, layers, selectedLevel, skillsByLevel, milestones);
+      this.bindSkillTooltips(focusShell);
+    } else {
+      this.patchLayerFocus(focusShell, tech, layers, selectedLevel, skillsByLevel, milestones);
+    }
+
+    const constellationSignature = this.buildConstellationStructureSignature(layers, skillsByLevel);
+    if (constellationShell.dataset.techModalConstellationSignature !== constellationSignature) {
+      constellationShell.dataset.techModalConstellationSignature = constellationSignature;
+      constellationShell.innerHTML = this.renderConstellation(tech, layers, tech.level, selectedLevel, skillsByLevel, milestones);
+      this.mountConstellation(constellationShell, tech, layers, selectedLevel, skillsByLevel, milestones);
+      this.bindSkillTooltips(constellationShell);
+    }
+
+    const noteNode = document.querySelector<HTMLElement>('.tech-starfield-note');
+    if (noteNode) {
+      noteNode.textContent = tech.level < layers.length
+        ? `当前停驻第 ${tech.level} 层，周天流转 ${(getTechniqueProgressRatio(tech) * 100).toFixed(0)}%，点击任意星位切换下方注解。`
+        : `当前已抵达 ${layers.length} 层圆满，点击任意星位切换下方注解。`;
+    }
+    const constellationData = this.buildConstellationData(tech, layers, selectedLevel, skillsByLevel, milestones);
+    const constellationRoot = constellationShell.querySelector<HTMLElement>('[data-tech-constellation-root="true"]');
+    if (!constellationRoot) {
+      return false;
+    }
+    if (this.constellationCanvas) {
+      this.constellationCanvas.update(constellationData);
+    } else {
+      this.constellationCanvas = new TechniqueConstellationCanvas(constellationRoot, constellationData, (level) => {
+        if (this.openLayerLevel === level) {
+          return;
+        }
+        this.openLayerLevel = level;
+        if (!this.patchModal()) {
+          this.renderModal();
+        }
+      }, (payload, clientX, clientY) => {
+        this.showConstellationTooltip(payload, clientX, clientY);
+      }, (clientX, clientY) => {
+        this.tooltip.move(clientX, clientY);
+      }, () => {
+        this.tooltip.hide();
+      });
+    }
     return true;
+  }
+
+  private buildConstellationData(
+    tech: TechniqueState,
+    layers: TechniqueLayerDef[],
+    selectedLevel: number,
+    skillsByLevel: Map<number, TechniqueState['skills']>,
+    milestones: Map<number, TechniqueRealm>,
+  ): TechniqueConstellationCanvasData {
+    return {
+      techniqueName: tech.name,
+      maxLevels: layers.length,
+      currentLevel: tech.level,
+      expPercent: Math.round(getTechniqueProgressRatio(tech) * 100),
+      selectedLevel,
+      nodes: layers.map((layer) => {
+        const layerRealm = deriveTechniqueRealm(layer.level, tech.layers, tech.attrCurves);
+        const layerAttrs = formatAttrMap(layer.attrs ?? {}, '本层不增加六维');
+        const totalAttrs = formatAttrMap(calcTechniqueAttrValues(layer.level, tech.layers, tech.attrCurves));
+        const progressText = layer.level < tech.level
+          ? '进度：已贯通'
+          : layer.level === tech.level
+            ? `进度：当前停驻，周天流转 ${(getTechniqueProgressRatio(tech) * 100).toFixed(0)}%`
+            : layer.level === tech.level + 1 && tech.level < layers.length && tech.expToNext > 0
+              ? `进度：正在突破，承接 ${(getTechniqueProgressRatio(tech) * 100).toFixed(0)}%`
+              : '进度：境界未至';
+        const milestone = milestones.get(layer.level);
+        return {
+          level: layer.level,
+          milestone: milestone ? getTechniqueRealmLabel(milestone) as '小成' | '大成' | '圆满' : undefined,
+          hoverTitle: `第 ${layer.level} 层星位`,
+          hoverLines: [
+            progressText,
+            `收益：${layerAttrs}`,
+            `累计：${totalAttrs}`,
+            `境界：${getTechniqueRealmLabel(layerRealm)}`,
+          ],
+        };
+      }),
+    };
+  }
+
+  private destroyConstellationCanvas(): void {
+    this.constellationCanvas?.destroy();
+    this.constellationCanvas = null;
+  }
+
+  private showConstellationTooltip(payload: TechniqueConstellationHoverPayload, clientX: number, clientY: number): void {
+    this.tooltip.show(payload.title, payload.lines, clientX, clientY);
+  }
+
+  private buildConstellationStructureSignature(
+    layers: TechniqueLayerDef[],
+    skillsByLevel: Map<number, TechniqueState['skills']>,
+  ): string {
+    return layers.map((layer) => {
+      const skills = skillsByLevel.get(layer.level) ?? [];
+      return `${layer.level}:${skills.map((skill) => skill.id).join(',')}`;
+    }).join('|');
+  }
+
+  private buildFocusStructureSignature(
+    selectedLevel: number,
+    skillsByLevel: Map<number, TechniqueState['skills']>,
+    milestones: Map<number, TechniqueRealm>,
+  ): string {
+    const skills = skillsByLevel.get(selectedLevel) ?? [];
+    const milestone = milestones.get(selectedLevel) ?? '';
+    return [
+      selectedLevel,
+      milestone,
+      skills.map((skill) => skill.id).join(','),
+    ].join('|');
+  }
+
+  private patchLayerFocus(
+    focusShell: HTMLElement,
+    tech: TechniqueState,
+    layers: TechniqueLayerDef[],
+    selectedLevel: number,
+    skillsByLevel: Map<number, TechniqueState['skills']>,
+    milestones: Map<number, TechniqueRealm>,
+  ): void {
+    const layer = layers.find((entry) => entry.level === selectedLevel) ?? layers[0];
+    const card = focusShell.querySelector<HTMLElement>('[data-tech-focus-card="true"]');
+    const title = focusShell.querySelector<HTMLElement>('[data-tech-focus-title="true"]');
+    const subtitle = focusShell.querySelector<HTMLElement>('[data-tech-focus-subtitle="true"]');
+    const state = focusShell.querySelector<HTMLElement>('[data-tech-focus-state="true"]');
+    const exp = focusShell.querySelector<HTMLElement>('[data-tech-focus-exp="true"]');
+    const layerAttrsNode = focusShell.querySelector<HTMLElement>('[data-tech-focus-layer-attrs="true"]');
+    const totalAttrsNode = focusShell.querySelector<HTMLElement>('[data-tech-focus-total-attrs="true"]');
+    if (!layer || !card || !title || !subtitle || !state || !exp || !layerAttrsNode || !totalAttrsNode) {
+      return;
+    }
+    const selectedRealm = deriveTechniqueRealm(layer.level, tech.layers, tech.attrCurves);
+    const milestone = milestones.get(layer.level);
+    const stateLabel = layer.level < tech.level ? '已贯通' : layer.level === tech.level ? '当前停驻' : '尚未抵达';
+    const expText = layer.expToNext > 0 ? `升下一层需 ${layer.expToNext} 功法经验` : '此层已是终点';
+    const milestoneText = milestone ? `此层踏入${getTechniqueRealmLabel(milestone)}` : `此层属${getTechniqueRealmLabel(selectedRealm)}阶段`;
+    const layerAttrs = formatAttrMap(layer.attrs ?? {}, '本层不增加六维');
+    const totalAttrs = formatAttrMap(calcTechniqueAttrValues(layer.level, tech.layers, tech.attrCurves));
+
+    card.classList.toggle('passed', layer.level < tech.level);
+    card.classList.toggle('current', layer.level === tech.level);
+    title.textContent = `第 ${layer.level} 层星位`;
+    subtitle.textContent = milestoneText;
+    state.textContent = stateLabel;
+    exp.textContent = expText;
+    layerAttrsNode.textContent = layerAttrs;
+    totalAttrsNode.textContent = totalAttrs;
   }
 }

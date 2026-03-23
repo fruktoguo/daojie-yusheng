@@ -2289,6 +2289,14 @@
       width: min(860px, calc(100vw - 32px));
       max-height: min(84vh, 860px);
     }
+    .detail-modal-card.detail-modal--technique {
+      width: min(1120px, calc(100vw - 24px));
+      max-height: min(90vh, calc(100vh - 24px));
+      background:
+        radial-gradient(circle at top right, rgba(124, 161, 219, 0.12), transparent 32%),
+        linear-gradient(180deg, rgba(249, 247, 241, 0.98), rgba(239, 235, 225, 0.97));
+      box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.16);
+    }
     .detail-modal.detail-modal--suggestion {
       padding: 12px;
     }
@@ -2753,46 +2761,229 @@
       margin-bottom: 10px;
       border-bottom: 1px solid var(--wash-ink);
     }
-    .tech-layer-list {
+    .tech-starfield-shell {
       display: grid;
-      gap: 8px;
+      gap: 10px;
+      margin-bottom: 14px;
     }
-    .tech-layer-row {
-      padding: 10px 11px;
-      background: rgba(255,255,255,0.44);
-      border: 1px solid rgba(60, 47, 39, 0.08);
+    .tech-starfield-canvas-shell {
+      position: relative;
+      min-height: clamp(360px, 54vh, 620px);
+      border: 1px solid rgba(56, 189, 248, 0.14);
+      border-radius: 14px;
+      overflow: hidden;
+      background: #020205;
+      box-shadow:
+        inset 0 0 20px rgba(56, 189, 248, 0.05),
+        0 14px 36px rgba(4, 8, 18, 0.24);
     }
-    .tech-layer-row.current {
-      border-color: rgba(139, 48, 35, 0.34);
-      background: rgba(197, 60, 60, 0.05);
+    .tech-starfield-canvas {
+      position: absolute;
+      inset: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
     }
-    .tech-layer-row.passed {
-      opacity: 0.88;
+    .tech-starfield-skill-lines {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      pointer-events: none;
+      z-index: 1;
     }
-    .tech-layer-row-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
+    .tech-starfield-skill-line {
+      fill: none;
+      stroke: rgba(233, 240, 252, 0.62);
+      stroke-width: 1.35;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      filter: drop-shadow(0 0 5px rgba(15, 23, 42, 0.32));
     }
-    .tech-layer-index {
-      font-family: var(--font-heading-sub);
-      font-size: 14px;
-      color: var(--ink-black);
+    .tech-starfield-skill-line.unlocked {
+      stroke: rgba(241, 245, 249, 0.9);
+      filter: drop-shadow(0 0 7px rgba(125, 211, 252, 0.22));
     }
-    .tech-layer-exp {
+    .tech-starfield-skill-line.locked {
+      stroke: rgba(100, 116, 139, 0.54);
+      stroke-dasharray: 5 5;
+      filter: none;
+    }
+    .tech-starfield-skill-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .tech-starfield-skill-label {
+      position: absolute;
+      left: 0;
+      top: 0;
+      white-space: nowrap;
+      pointer-events: auto;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      line-height: 1.2;
+      letter-spacing: 0.01em;
+      box-shadow: 0 8px 20px rgba(8, 15, 28, 0.24);
+      transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease, color 120ms ease;
+    }
+    .tech-starfield-skill-label.unlocked {
+      border-color: rgba(34, 26, 19, 0.12);
+      background: linear-gradient(180deg, rgba(255,255,255,0.86), rgba(243, 246, 251, 0.82));
+      color: #1b2431;
+      backdrop-filter: blur(3px);
+    }
+    .tech-starfield-skill-label.locked {
+      border-color: rgba(100, 116, 139, 0.32);
+      background: linear-gradient(180deg, rgba(203, 213, 225, 0.34), rgba(148, 163, 184, 0.26));
+      color: #64748b;
+      backdrop-filter: blur(2px);
+      filter: saturate(0.35);
+    }
+    .tech-starfield-skill-label:hover {
+      transform: translateY(-1px) scale(1.02);
+      box-shadow: 0 10px 22px rgba(8, 15, 28, 0.28);
+    }
+    .tech-starfield-tooltip {
+      position: absolute;
+      min-width: 180px;
+      max-width: min(320px, calc(100vw - 48px));
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #38bdf8;
+      background: rgba(5, 8, 15, 0.95);
+      box-shadow: 0 0 25px rgba(56, 189, 248, 0.4), inset 0 0 10px rgba(56, 189, 248, 0.2);
+      color: #fff;
+      pointer-events: none;
+      opacity: 0;
+      transform: translate(-50%, -120%);
+      transition: opacity 0.2s, transform 0.1s;
+      z-index: 2;
+    }
+    .tech-starfield-tooltip.visible {
+      opacity: 1;
+    }
+    .tech-starfield-tooltip::after {
+      content: "";
+      position: absolute;
+      bottom: -6px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 6px 6px 0;
+      border-style: solid;
+      border-color: rgba(56, 189, 248, 0.9) transparent transparent transparent;
+    }
+    .tech-starfield-tooltip-title {
+      padding-bottom: 6px;
+      margin-bottom: 8px;
+      border-bottom: 1px solid rgba(71, 85, 105, 0.9);
+      font-size: 13px;
+      font-weight: 700;
+      color: #38bdf8;
+    }
+    .tech-starfield-tooltip-badge {
+      margin-left: 6px;
+      color: #fbbf24;
       font-size: 11px;
-      color: var(--ink-grey);
+      font-weight: 700;
     }
-    .tech-layer-attrs {
-      margin-top: 6px;
+    .tech-starfield-tooltip-status {
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+    .tech-starfield-tooltip-status.unlocked {
+      color: #38bdf8;
+    }
+    .tech-starfield-tooltip-status.current {
+      color: #7dd3fc;
+    }
+    .tech-starfield-tooltip-status.progress {
+      color: #c084fc;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+    .tech-starfield-tooltip-status.locked {
+      color: #64748b;
+    }
+    .tech-starfield-tooltip-status.milestone {
+      color: #fbbf24;
+      font-weight: 700;
+    }
+    .tech-starfield-tooltip-attrs {
+      display: grid;
+      gap: 4px;
+      font-size: 13px;
+      color: #dbeafe;
+      line-height: 1.45;
+    }
+    .tech-starfield-note {
       font-size: 12px;
       color: var(--ink-grey);
     }
-    .tech-layer-skills {
-      margin-top: 8px;
+    .tech-focus-card {
       display: grid;
-      gap: 5px;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid rgba(60, 47, 39, 0.08);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.66), rgba(247, 241, 229, 0.72)),
+        linear-gradient(135deg, rgba(227, 206, 170, 0.16), rgba(147, 172, 204, 0.08));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.42);
+    }
+    .tech-focus-card.current {
+      border-color: rgba(168, 95, 35, 0.22);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.42), 0 0 0 1px rgba(232, 195, 124, 0.24);
+    }
+    .tech-focus-card.passed {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.62), rgba(242, 233, 214, 0.7)),
+        linear-gradient(135deg, rgba(212, 177, 128, 0.14), rgba(147, 172, 204, 0.06));
+    }
+    .tech-focus-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .tech-focus-title {
+      font-family: var(--font-heading-sub);
+      font-size: 16px;
+      color: var(--ink-black);
+    }
+    .tech-focus-subtitle {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--ink-grey);
+    }
+    .tech-focus-state {
+      flex: none;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(91, 77, 61, 0.08);
+      color: var(--ink-black);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .tech-focus-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .tech-focus-stat {
+      display: grid;
+      gap: 4px;
+      padding: 9px 10px;
+      background: rgba(255,255,255,0.52);
+      border: 1px solid rgba(60, 47, 39, 0.08);
+      font-size: 12px;
+      color: var(--ink-grey);
+    }
+    .tech-focus-skills {
+      display: grid;
+      gap: 6px;
       font-size: 12px;
       color: var(--ink-grey);
     }
@@ -3732,6 +3923,23 @@
       }
       .tech-modal-summary {
         grid-template-columns: 1fr;
+      }
+      .tech-focus-grid {
+        grid-template-columns: 1fr;
+      }
+      .detail-modal-card.detail-modal--technique {
+        width: min(100vw - 16px, 1120px);
+        max-height: min(94vh, calc(100vh - 16px));
+        padding: 16px 14px;
+      }
+      .tech-starfield-canvas-shell {
+        min-height: clamp(300px, 48vh, 460px);
+      }
+      .tech-starfield-tooltip {
+        display: none;
+      }
+      .tech-focus-head {
+        flex-direction: column;
       }
       .tech-card {
         flex-direction: column;
