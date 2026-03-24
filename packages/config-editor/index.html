@@ -205,6 +205,7 @@
     }
 
     .files-workspace,
+    .monsters-workspace,
     .service-workspace {
       display: grid;
       gap: 16px;
@@ -213,6 +214,10 @@
 
     .files-workspace {
       grid-template-columns: 320px minmax(480px, 1fr);
+    }
+
+    .monsters-workspace {
+      grid-template-columns: 320px minmax(560px, 1fr);
     }
 
     .service-workspace {
@@ -439,6 +444,263 @@
       color: var(--text-muted);
     }
 
+    .monster-form-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .monster-editor-layout {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+      align-items: start;
+    }
+
+    .monster-editor-column {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+    }
+
+    .monster-editor-column.editable {
+      background:
+        linear-gradient(180deg, rgba(15, 20, 26, 0.96) 0%, rgba(19, 26, 33, 0.92) 100%);
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .monster-editor-column.preview {
+      background:
+        linear-gradient(180deg, rgba(24, 42, 36, 0.92) 0%, rgba(20, 34, 43, 0.94) 100%);
+      border-color: rgba(117, 193, 143, 0.34);
+      box-shadow: inset 0 1px 0 rgba(117, 193, 143, 0.1);
+    }
+
+    .monster-column-head {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .monster-column-title {
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .monster-column-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.55;
+    }
+
+    .monster-editor-column.preview .monster-column-subtitle {
+      color: #caecd5;
+    }
+
+    .monster-editor-column.editable .editor-section,
+    .monster-editor-column.preview .editor-section,
+    .monster-editor-column.preview .note-card {
+      margin: 0;
+    }
+
+    .monster-editor-column.editable .editor-section {
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 14px;
+    }
+
+    .monster-editor-column.preview .editor-section,
+    .monster-editor-column.preview .note-card {
+      background: rgba(117, 193, 143, 0.08);
+      border: 1px solid rgba(117, 193, 143, 0.18);
+      border-radius: 16px;
+      padding: 14px;
+    }
+
+    .monster-editor-column.preview .map-field span,
+    .monster-editor-column.preview .editor-note {
+      color: #caecd5;
+    }
+
+    .monster-editor-column.preview .map-field input,
+    .monster-editor-column.preview .editor-textarea[readonly] {
+      background: rgba(8, 16, 18, 0.5);
+      border-color: rgba(117, 193, 143, 0.24);
+      color: #f4fff7;
+    }
+
+    .monster-preview-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .monster-preview-card {
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(117, 193, 143, 0.16);
+      background: rgba(6, 15, 13, 0.34);
+    }
+
+    .monster-preview-card .map-field {
+      gap: 8px;
+    }
+
+    .monster-preview-card input[readonly] {
+      font-size: 18px;
+      font-weight: 700;
+      text-align: right;
+    }
+
+    .monster-preview-textarea {
+      min-height: 420px;
+    }
+
+    .monster-stat-section,
+    .monster-drop-section,
+    .monster-computed-section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .monster-stat-grid,
+    .monster-computed-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .monster-stat-card,
+    .monster-computed-card,
+    .monster-element-card,
+    .monster-drop-row {
+      border-radius: 14px;
+      padding: 12px;
+    }
+
+    .monster-stat-card,
+    .monster-drop-row {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .monster-computed-card,
+    .monster-element-card {
+      border: 1px solid rgba(117, 193, 143, 0.16);
+      background: rgba(6, 15, 13, 0.34);
+    }
+
+    .monster-stat-card .map-field input,
+    .monster-element-card .map-field input,
+    .monster-drop-row .map-field input,
+    .monster-drop-row .map-field select {
+      background: rgba(8, 16, 18, 0.5);
+    }
+
+    .monster-group-head {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 2px;
+    }
+
+    .monster-group-title {
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .monster-group-note {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    .monster-inline-note {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .monster-stat-card .map-field span {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .monster-stat-suffix {
+      color: rgba(202, 236, 213, 0.8);
+      font-size: 11px;
+    }
+
+    .monster-element-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+
+    .monster-drop-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .monster-drop-row {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .monster-drop-row-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .monster-drop-row-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #f4fff7;
+    }
+
+    .monster-drop-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+
+    .monster-drop-grid .map-field.wide {
+      grid-column: span 2;
+    }
+
+    .monster-computed-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .monster-computed-card {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .monster-computed-label {
+      font-size: 12px;
+      color: #caecd5;
+    }
+
+    .monster-computed-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: #f4fff7;
+      word-break: break-all;
+    }
+
     .map-canvas-host {
       position: relative;
       width: min(100%, calc(100vh - 195px));
@@ -573,6 +835,7 @@
     @media (max-width: 1440px) {
       .map-workspace,
       .files-workspace,
+      .monsters-workspace,
       .service-workspace {
         grid-template-columns: 1fr;
       }
@@ -580,6 +843,16 @@
 
     @media (max-width: 900px) {
       .inspector-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .monster-editor-layout,
+      .monster-stat-grid,
+      .monster-computed-grid,
+      .monster-drop-grid,
+      .monster-preview-grid,
+      .monster-form-grid,
+      .monster-element-grid {
         grid-template-columns: 1fr;
       }
 
@@ -611,6 +884,7 @@
 
     <div class="tabbar">
       <button id="page-tab-maps" class="page-tab active" type="button">地图编辑</button>
+      <button id="page-tab-monsters" class="page-tab" type="button">怪物模板</button>
       <button id="page-tab-files" class="page-tab" type="button">配置文件</button>
       <button id="page-tab-service" class="page-tab" type="button">服务控制</button>
     </div>
@@ -686,6 +960,188 @@
         </section>
       </section>
 
+      <section id="page-monsters" class="page monsters-workspace hidden">
+        <section class="layout-section">
+          <div class="section-head">
+            <div class="section-title">怪物模板目录</div>
+            <div class="section-subtitle">按名字或 ID 搜索，直接维护 `packages/server/data/content/monsters` 下的模板。</div>
+          </div>
+          <div class="section-body config-file-list-body">
+            <div class="filter-row">
+              <input id="monster-search" class="search-input" type="text" placeholder="搜索怪物名字 / ID / 文件路径" />
+            </div>
+            <div class="button-row" style="margin: 12px 0;">
+              <button id="monster-refresh" class="small-btn" type="button">刷新怪物列表</button>
+            </div>
+            <div class="config-file-list-scroll">
+              <div id="monster-list" class="config-file-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="layout-section">
+          <div class="section-head">
+            <div class="section-title">怪物模板编辑</div>
+            <div class="section-subtitle">保存后会写回模板文件；若修改怪物 ID，会同步更新地图里的模板引用。</div>
+          </div>
+          <div class="section-body" style="display:flex; flex-direction:column; gap:12px;">
+            <div id="monster-empty" class="empty-hint">从左侧选择一个怪物模板。</div>
+            <div id="monster-panel" class="hidden" style="display:flex; flex-direction:column; gap:12px; min-height:0;">
+              <div class="note-card">
+                <div id="monster-current-name" class="config-file-name">未选择怪物</div>
+                <div id="monster-current-meta" class="config-file-meta"></div>
+              </div>
+              <div class="button-row">
+                <button id="monster-save" class="small-btn primary" type="button">保存怪物模板</button>
+                <button id="monster-reload" class="small-btn" type="button">重新读取</button>
+              </div>
+
+              <div class="monster-editor-layout">
+                <div class="monster-editor-column editable">
+                  <div class="monster-column-head">
+                    <div class="monster-column-title">可编辑配置</div>
+                    <div class="monster-column-subtitle">左侧只放会保存回模板的数据。基准值、掉落和基础参数都在这里改，不再和预览字段混排。</div>
+                  </div>
+
+                  <div class="monster-form-grid">
+                    <label class="map-field">
+                      <span>怪物 ID</span>
+                      <input id="monster-id" type="text" />
+                    </label>
+                    <label class="map-field">
+                      <span>名称</span>
+                      <input id="monster-name" type="text" />
+                    </label>
+                    <label class="map-field">
+                      <span>字符</span>
+                      <input id="monster-char" type="text" maxlength="4" />
+                    </label>
+                    <label class="map-field">
+                      <span>颜色</span>
+                      <input id="monster-color" type="text" placeholder="#91d88d" />
+                    </label>
+
+                    <label class="map-field">
+                      <span>品阶</span>
+                      <select id="monster-grade"></select>
+                    </label>
+                    <label class="map-field">
+                      <span>仇恨模式</span>
+                      <select id="monster-aggro-mode"></select>
+                    </label>
+                    <label class="map-field">
+                      <span>等级</span>
+                      <input id="monster-level" type="number" min="1" step="1" />
+                    </label>
+                    <label class="map-field">
+                      <span>数量</span>
+                      <input id="monster-count" type="number" min="1" step="1" />
+                    </label>
+
+                    <label class="map-field">
+                      <span>同时存活上限</span>
+                      <input id="monster-max-alive" type="number" min="1" step="1" />
+                    </label>
+                    <label class="map-field">
+                      <span>活动半径</span>
+                      <input id="monster-radius" type="number" min="0" step="1" />
+                    </label>
+                    <label class="map-field">
+                      <span>经验倍率</span>
+                      <input id="monster-exp-multiplier" type="number" min="0" step="0.1" />
+                    </label>
+                    <label class="map-field">
+                      <span>仇恨范围</span>
+                      <input id="monster-aggro-range" type="number" min="0" step="1" />
+                    </label>
+
+                    <label class="map-field">
+                      <span>视野范围</span>
+                      <input id="monster-view-range" type="number" min="0" step="1" />
+                    </label>
+                    <label class="map-field">
+                      <span>重生秒数</span>
+                      <input id="monster-respawn-sec" type="number" min="1" step="1" />
+                    </label>
+                    <label class="map-field">
+                      <span>重生 Tick 覆盖</span>
+                      <input id="monster-respawn-ticks" type="number" min="1" step="1" />
+                    </label>
+                  </div>
+
+                  <div class="editor-section">
+                    <div class="editor-section-head">
+                      <div>
+                        <div class="editor-section-title">基准数值</div>
+                        <div class="editor-note">这里直接调每项基准值。例如 `maxHp` 填 1，会按共享常量换算为 12 点生命，再按等级自动套用成长。</div>
+                      </div>
+                    </div>
+                    <div id="monster-value-stats-editor" class="monster-stat-section"></div>
+                  </div>
+
+                  <div class="editor-section">
+                    <div class="editor-section-head">
+                      <div>
+                        <div class="editor-section-title">掉落配置</div>
+                        <div class="editor-note">每行就是一个掉落项，支持直接增删，不需要再手写 JSON。</div>
+                      </div>
+                      <button id="monster-drop-add" class="small-btn" type="button">新增掉落</button>
+                    </div>
+                    <div id="monster-drops-editor" class="monster-drop-list"></div>
+                  </div>
+                </div>
+
+                <div class="monster-editor-column preview">
+                  <div class="monster-column-head">
+                    <div class="monster-column-title">实际数值预览</div>
+                    <div class="monster-column-subtitle">右侧只读显示当前等级下的换算结果。这里不参与保存，用来校对怪物和玩家的成长模型是否对齐。</div>
+                  </div>
+
+                  <div class="monster-preview-grid">
+                    <div class="monster-preview-card">
+                      <label class="map-field">
+                        <span>当前生命</span>
+                        <input id="monster-hp" type="number" min="1" step="1" readonly />
+                      </label>
+                    </div>
+                    <div class="monster-preview-card">
+                      <label class="map-field">
+                        <span>最大生命</span>
+                        <input id="monster-max-hp" type="number" min="1" step="1" readonly />
+                      </label>
+                    </div>
+                    <div class="monster-preview-card">
+                      <label class="map-field">
+                        <span>物理攻击</span>
+                        <input id="monster-attack" type="number" min="1" step="1" readonly />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div class="note-card">
+                    <div class="editor-section-title">预览说明</div>
+                    <div class="editor-note">右侧数值会随着左侧等级和 `valueStats` 实时重算。</div>
+                    <div class="editor-note">完整面板展示的是换算后的 `numericStats`，只读，不会写回模板。</div>
+                  </div>
+
+                  <div class="editor-section">
+                    <div class="editor-section-head">
+                      <div>
+                        <div class="editor-section-title">完整面板</div>
+                        <div class="editor-note">以下是按当前等级自动换算后的完整属性，不可编辑，只用于对照玩家实际战斗属性。</div>
+                      </div>
+                    </div>
+                    <div id="monster-computed-stats-preview" class="monster-computed-section"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="monster-status" class="status-bar"></div>
+            </div>
+          </div>
+        </section>
+      </section>
+
       <section id="page-files" class="page files-workspace hidden">
         <section class="layout-section">
           <div class="section-head">
@@ -748,6 +1204,7 @@
               <div class="editor-section-title">行为说明</div>
               <div class="editor-note">地图编辑只写本地文件，地图本身仍可依赖服务端热重载。</div>
               <div class="editor-note">内容配置文件保存后，编辑器会自动重启由它托管的本地服务实例。</div>
+              <div class="editor-note">编辑器前端由 Vite 托管，页面与脚本改动会热更新；本地 API 现在也会随源码变更自动重启。</div>
               <div class="editor-note">这个工具不参与线上服务运行，也不对外暴露鉴权入口。</div>
             </div>
           </div>

@@ -7,7 +7,14 @@ cd "$ROOT_DIR"
 echo "[config-editor] 构建共享类型"
 pnpm --filter @mud/shared build
 
+echo "[config-editor] 启动共享包监听构建"
+pnpm --filter @mud/shared build:watch &
+SHARED_PID=$!
+
 cleanup() {
+  if [[ -n "${SHARED_PID:-}" ]]; then
+    kill "$SHARED_PID" 2>/dev/null || true
+  fi
   if [[ -n "${VITE_PID:-}" ]]; then
     kill "$VITE_PID" 2>/dev/null || true
   fi
@@ -28,4 +35,4 @@ VITE_PID=$!
 
 echo "[config-editor] 默认地址 http://127.0.0.1:5174，如端口占用请以 Vite 输出为准"
 
-wait -n "$API_PID" "$VITE_PID"
+wait -n "$SHARED_PID" "$API_PID" "$VITE_PID"

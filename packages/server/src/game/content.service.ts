@@ -19,9 +19,14 @@ import {
   EquipmentSlots,
   EQUIP_SLOTS,
   Inventory,
+  ItemType,
   ItemStack,
+  MonsterAggroMode,
+  MonsterCombatModel,
   NUMERIC_SCALAR_STAT_KEYS,
+  NumericStats,
   PlayerRealmStage,
+  PartialNumericStats,
   scaleTechniqueExp,
   SkillDef,
   SkillEffectDef,
@@ -30,13 +35,16 @@ import {
   TechniqueLayerDef,
   TechniqueRealm,
   TimePhaseId,
+  inferMonsterValueStatsFromLegacy,
   resolveSkillUnlockLevel,
+  resolveMonsterNumericStatsFromValueStats,
 } from '@mud/shared';
 import {
   EQUIPMENT_TRIGGERS,
   PLAYER_REALM_STAGE_LEVEL_RANGES,
   TIME_PHASE_IDS,
 } from '../constants/gameplay/content';
+import { resolveServerDataPath } from '../common/data-path';
 
 interface TechniqueTemplate {
   id: string;
@@ -80,6 +88,38 @@ interface StarterInventoryEntry {
   count?: number;
 }
 
+export interface MonsterTemplateDrop {
+  itemId: string;
+  name: string;
+  type: ItemType;
+  count: number;
+  chance?: number;
+}
+
+export interface MonsterTemplate {
+  id: string;
+  name: string;
+  char: string;
+  color: string;
+  grade: TechniqueGrade;
+  valueStats?: PartialNumericStats;
+  numericStats: NumericStats;
+  combatModel: MonsterCombatModel;
+  hp: number;
+  maxHp: number;
+  attack: number;
+  count: number;
+  radius: number;
+  maxAlive: number;
+  aggroRange: number;
+  viewRange: number;
+  aggroMode: MonsterAggroMode;
+  respawnTicks: number;
+  level?: number;
+  expMultiplier: number;
+  drops: MonsterTemplateDrop[];
+}
+
 interface RawSkillDef extends Omit<SkillDef, 'unlockRealm' | 'unlockPlayerRealm' | 'effects'> {
   effects: unknown;
   unlockRealm?: keyof typeof TechniqueRealm | TechniqueRealm;
@@ -90,6 +130,22 @@ interface RawItemTemplate extends Omit<ItemTemplate, 'equipStats' | 'equipValueS
   equipStats?: unknown;
   equipValueStats?: unknown;
   effects?: unknown;
+}
+
+interface RawMonsterTemplate extends Omit<MonsterTemplate, 'grade' | 'valueStats' | 'numericStats' | 'combatModel' | 'count' | 'maxHp' | 'radius' | 'maxAlive' | 'aggroRange' | 'viewRange' | 'aggroMode' | 'respawnTicks' | 'expMultiplier' | 'drops'> {
+  grade?: TechniqueGrade;
+  valueStats?: unknown;
+  maxHp?: number;
+  count?: number;
+  radius?: number;
+  maxAlive?: number;
+  aggroRange?: number;
+  viewRange?: number;
+  aggroMode?: MonsterAggroMode;
+  respawnSec?: number;
+  respawnTicks?: number;
+  expMultiplier?: number;
+  drops?: MonsterTemplateDrop[];
 }
 
 interface RawTechniqueLayerDef extends Omit<TechniqueLayerDef, 'expToNext'> {
@@ -222,32 +278,45 @@ export class ContentService implements OnModuleInit {
   private readonly logger = new Logger(ContentService.name);
   private readonly techniques = new Map<string, TechniqueTemplate>();
   private readonly items = new Map<string, ItemTemplate>();
+  private readonly monsters = new Map<string, MonsterTemplate>();
+  private loaded = false;
   private realmLevelsConfig: RealmLevelsConfig | null = null;
   private readonly realmLevels = new Map<number, RealmLevelEntry>();
   private readonly breakthroughConfigs = new Map<number, BreakthroughConfigEntry>();
   private starterInventoryEntries: StarterInventoryEntry[] = [];
-  private readonly contentDir = path.join(process.cwd(), 'data', 'content');
+  private readonly contentDir = resolveServerDataPath('content');
   private readonly techniquesDir = path.join(this.contentDir, 'techniques');
   private readonly itemsDir = path.join(this.contentDir, 'items');
+  private readonly monstersDir = path.join(this.contentDir, 'monsters');
   private readonly starterInventoryPath = path.join(this.contentDir, 'starter-inventory.json');
   private readonly realmLevelsPath = path.join(this.contentDir, 'realm-levels.json');
   private readonly breakthroughConfigPath = path.join(this.contentDir, 'breakthroughs.json');
 
   onModuleInit(): void {
+    this.ensureLoaded();
+  }
+
+  ensureLoaded(): void {
+    if (this.loaded) {
+      return;
+    }
     this.loadContent();
+    this.loaded = true;
   }
 
   private loadContent(): void {
     this.techniques.clear();
     this.items.clear();
+    this.monsters.clear();
     this.realmLevels.clear();
     this.breakthroughConfigs.clear();
     this.loadTechniques();
     this.loadItems();
+    this.loadMonsters();
     this.loadStarterInventory();
     this.loadRealmLevels();
     this.loadBreakthroughConfigs();
-    this.logger.log(`内容已加载：功法 ${this.techniques.size} 条，物品 ${this.items.size} 条，境界 ${this.realmLevels.size} 条，突破配置 ${this.breakthroughConfigs.size} 条`);
+    this.logger.log(`内容已加载：功法 ${this.techniques.size} 条，物品 ${this.items.size} 条，怪物 ${this.monsters.size} 条，境界 ${this.realmLevels.size} 条，突破配置 ${this.breakthroughConfigs.size} 条`);
   }
 
   private loadTechniques(): void {
@@ -529,6 +598,82 @@ export class ContentService implements OnModuleInit {
     }
   }
 
+  private loadMonsters(): void {
+    if (!fs.existsSync(this.monstersDir)) {
+      return;
+    }
+    for (const raw of this.readJsonEntries<RawMonsterTemplate>(this.monstersDir)) {
+      const configuredValueStats = this.normalizeItemStats(raw.valueStats);
+      if (
+        typeof raw.id !== 'string'
+        || typeof raw.name !== 'string'
+        || typeof raw.char !== 'string'
+        || typeof raw.color !== 'string'
+        || (!configuredValueStats && (!Number.isInteger(raw.hp) || !Number.isInteger(raw.attack)))
+      ) {
+        continue;
+      }
+      const level = Number.isInteger(raw.level) ? Math.max(1, Number(raw.level)) : undefined;
+      const valueStats = configuredValueStats
+        ?? inferMonsterValueStatsFromLegacy({
+          maxHp: Number.isInteger(raw.maxHp) ? Math.max(1, Number(raw.maxHp)) : Math.max(1, Number(raw.hp)),
+          attack: Math.max(1, Number(raw.attack)),
+          level,
+          viewRange: Number.isInteger(raw.viewRange)
+            ? Math.max(0, Number(raw.viewRange))
+            : (Number.isInteger(raw.aggroRange) ? Math.max(0, Number(raw.aggroRange)) : 6),
+        });
+      const numericStats = resolveMonsterNumericStatsFromValueStats(valueStats, level);
+      const combatModel: MonsterCombatModel = configuredValueStats ? 'value_stats' : 'legacy';
+      const monster: MonsterTemplate = {
+        id: raw.id,
+        name: raw.name,
+        char: raw.char,
+        color: raw.color,
+        grade: raw.grade ?? 'mortal',
+        valueStats,
+        numericStats,
+        combatModel,
+        hp: Math.max(1, Math.round(numericStats.maxHp || Number(raw.hp))),
+        maxHp: Math.max(1, Math.round(numericStats.maxHp || (Number.isInteger(raw.maxHp) ? Number(raw.maxHp) : Number(raw.hp)))),
+        attack: Math.max(1, Math.round(numericStats.physAtk || numericStats.spellAtk || Number(raw.attack) || 1)),
+        count: Number.isInteger(raw.count)
+          ? Math.max(1, Number(raw.count))
+          : (Number.isInteger(raw.maxAlive) ? Math.max(1, Number(raw.maxAlive)) : 1),
+        radius: Number.isInteger(raw.radius) ? Math.max(0, Number(raw.radius)) : 3,
+        maxAlive: Number.isInteger(raw.maxAlive)
+          ? Math.max(1, Number(raw.maxAlive))
+          : (Number.isInteger(raw.count) ? Math.max(1, Number(raw.count)) : 1),
+        aggroRange: Number.isInteger(raw.aggroRange) ? Math.max(0, Number(raw.aggroRange)) : 6,
+        viewRange: Number.isInteger(raw.viewRange)
+          ? Math.max(0, Number(raw.viewRange))
+          : (Number.isInteger(raw.aggroRange) ? Math.max(0, Number(raw.aggroRange)) : 6),
+        aggroMode: raw.aggroMode ?? 'always',
+        respawnTicks: Number.isInteger(raw.respawnTicks)
+          ? Math.max(1, Number(raw.respawnTicks))
+          : Math.max(1, Number(raw.respawnSec ?? 15)),
+        level,
+        expMultiplier: typeof raw.expMultiplier === 'number' ? Math.max(0, raw.expMultiplier) : 1,
+        drops: Array.isArray(raw.drops)
+          ? raw.drops.flatMap((drop) => (
+            typeof drop?.itemId === 'string'
+            && typeof drop?.name === 'string'
+            && typeof drop?.type === 'string'
+              ? [{
+                  itemId: drop.itemId,
+                  name: drop.name,
+                  type: drop.type,
+                  count: Number.isFinite(drop.count) ? Math.max(1, Math.floor(Number(drop.count))) : 1,
+                  chance: Number.isFinite(drop.chance) ? Number(drop.chance) : undefined,
+                }]
+              : []
+          ))
+          : [],
+      };
+      this.monsters.set(monster.id, monster);
+    }
+  }
+
   private normalizeSkillEffects(input: unknown): SkillEffectDef[] {
     if (!Array.isArray(input)) {
       return [];
@@ -714,6 +859,7 @@ export class ContentService implements OnModuleInit {
 
   /** 获取新角色初始背包 */
   getStarterInventory(): Inventory {
+    this.ensureLoaded();
     return this.normalizeInventory({
       capacity: DEFAULT_INVENTORY_CAPACITY,
       items: this.starterInventoryEntries
@@ -724,6 +870,7 @@ export class ContentService implements OnModuleInit {
 
   /** 根据物品 ID 创建物品栈 */
   createItem(itemId: string, count = 1): ItemStack | null {
+    this.ensureLoaded();
     const item = this.items.get(itemId);
     if (!item) return null;
     return {
@@ -795,7 +942,13 @@ export class ContentService implements OnModuleInit {
   }
 
   getItem(itemId: string): ItemTemplate | undefined {
+    this.ensureLoaded();
     return this.items.get(itemId);
+  }
+
+  getMonsterTemplate(monsterId: string): MonsterTemplate | undefined {
+    this.ensureLoaded();
+    return this.monsters.get(monsterId);
   }
 
   getTechnique(techniqueId: string): TechniqueTemplate | undefined {
