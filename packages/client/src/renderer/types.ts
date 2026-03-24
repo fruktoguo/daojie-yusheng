@@ -41,7 +41,25 @@ export interface IRenderer {
     displayRangeY: number,
     time: GameTimeState | null,
   ): void;
-  updateEntities(list: { id: string; wx: number; wy: number; char: string; color: string; name?: string; kind?: string; hp?: number; maxHp?: number; npcQuestMarker?: NpcQuestMarker }[], movedId?: string, shiftX?: number, shiftY?: number): void;
+  updateEntities(
+    list: {
+      id: string;
+      wx: number;
+      wy: number;
+      char: string;
+      color: string;
+      name?: string;
+      kind?: string;
+      hp?: number;
+      maxHp?: number;
+      npcQuestMarker?: NpcQuestMarker;
+    }[],
+    movedId?: string,
+    shiftX?: number,
+    shiftY?: number,
+    settleMotion?: boolean,
+    settleEntityId?: string,
+  ): void;
   renderEntities(camera: Camera, progress?: number): void;
   addFloatingText(x: number, y: number, text: string, color?: string): void;
   addAttackTrail(fromX: number, fromY: number, toX: number, toY: number, color?: string): void;

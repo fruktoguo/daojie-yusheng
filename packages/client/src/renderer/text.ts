@@ -364,6 +364,7 @@ export class TextRenderer implements IRenderer {
     shiftX = 0,
     shiftY = 0,
     settleMotion = false,
+    settleEntityId?: string,
   ) {
     const seen = new Set<string>();
     const cellSize = getCellSize();
@@ -380,7 +381,7 @@ export class TextRenderer implements IRenderer {
           anim.oldWY = (e.wy - shiftY) * cellSize;
           anim.targetWX = twx;
           anim.targetWY = twy;
-        } else if (settleMotion) {
+        } else if (settleMotion && e.id === settleEntityId) {
           anim.oldWX = twx;
           anim.oldWY = twy;
           anim.targetWX = twx;
