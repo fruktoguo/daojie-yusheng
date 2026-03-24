@@ -542,9 +542,11 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         this.tryStartIdleCultivation(player, activePlayerIds, messages);
       });
 
-      const cultivationEffects = this.equipmentEffectService.dispatch(player, { trigger: 'on_cultivation_tick' });
-      if (cultivationEffects.dirty.length > 0) {
-        this.markDirty(player.id, cultivationEffects.dirty as DirtyFlag[]);
+      if (this.techniqueService.hasCultivationBuff(player)) {
+        const cultivationEffects = this.equipmentEffectService.dispatch(player, { trigger: 'on_cultivation_tick' });
+        if (cultivationEffects.dirty.length > 0) {
+          this.markDirty(player.id, cultivationEffects.dirty as DirtyFlag[]);
+        }
       }
       const cultivation = this.techniqueService.cultivateTick(player);
       if (cultivation.changed) {

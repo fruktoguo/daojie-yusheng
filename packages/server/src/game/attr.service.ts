@@ -28,6 +28,8 @@ import {
   resetNumericStats,
 } from '@mud/shared';
 import { REALM_EXPONENTIAL_NUMERIC_KEYS, REALM_LINEAR_NUMERIC_KEYS } from '../constants/gameplay/attr';
+import { SOUL_DEVOUR_EROSION_BUFF_ID } from '../constants/gameplay/equipment';
+import { getSoulDevourErosionRatio } from './buff-presentation';
 
 type PercentBonusAccumulator = Pick<NumericStats, 'maxHp' | 'maxQi' | 'physAtk' | 'spellAtk'>;
 
@@ -86,10 +88,23 @@ function scaleBuffStats(stats: PartialNumericStats | undefined, stacks: number):
   return Object.keys(result).length > 0 ? result : undefined;
 }
 
+function sumBuffStacks(buffs: readonly TemporaryBuffState[], buffId: string): number {
+  return buffs.reduce((total, buff) => (
+    buff.buffId === buffId && buff.remainingTicks > 0 && buff.stacks > 0
+      ? total + buff.stacks
+      : total
+  ), 0);
+}
+
 @Injectable()
 export class AttrService {
   /** 合并基础属性与所有加成，得到最终属性 */
-  computeFinal(base: Attributes, bonuses: AttrBonus[], target?: Attributes): Attributes {
+  computeFinal(
+    base: Attributes,
+    bonuses: AttrBonus[],
+    target?: Attributes,
+    activeBuffs: readonly TemporaryBuffState[] = [],
+  ): Attributes {
     const result = target ?? createAttributeSnapshot();
     result.constitution = base.constitution;
     result.spirit = base.spirit;
@@ -108,6 +123,8 @@ export class AttrService {
       if (attrs.luck !== undefined) result.luck += attrs.luck;
     }
 
+    this.applyDynamicTemporaryBuffAttrModifiers(result, activeBuffs);
+
     result.constitution = Math.max(0, result.constitution);
     result.spirit = Math.max(0, result.spirit);
     result.perception = Math.max(0, result.perception);
@@ -121,9 +138,9 @@ export class AttrService {
   /** 获取玩家最终六维属性（带缓存） */
   getPlayerFinalAttrs(player: PlayerState): Attributes {
     if (!player.finalAttrs) {
-      player.finalAttrs = this.computeFinal(player.baseAttrs, player.bonuses);
+      this.recalcPlayer(player);
     }
-    return player.finalAttrs;
+    return player.finalAttrs!;
   }
 
   /** 获取玩家数值面板（带缓存） */
@@ -145,12 +162,14 @@ export class AttrService {
   /** 重算玩家六维缓存、具体属性缓存，并同步 HP/QI 上限等运行时字段 */
   recalcPlayer(player: PlayerState): void {
     const previousMaxQi = Math.max(0, Math.round(player.numericStats?.maxQi ?? player.qi ?? 0));
-    const effectiveBonuses = this.getEffectiveBonuses(player);
+    const activeTemporaryBuffs = this.getActiveTemporaryBuffs(player);
+    const effectiveBonuses = this.getEffectiveBonuses(player, activeTemporaryBuffs);
     const realmLv = this.resolvePlayerRealmLv(player);
     const finalAttrs = this.computeFinal(
       player.baseAttrs,
       effectiveBonuses,
       player.finalAttrs ?? createAttributeSnapshot(),
+      activeTemporaryBuffs,
     );
     const stage = player.realm?.stage ?? DEFAULT_PLAYER_REALM_STAGE;
     const stats = this.computeNumericStats(
@@ -189,11 +208,13 @@ export class AttrService {
     player.viewRange = Math.max(1, Math.round(stats.viewRange || VIEW_RADIUS));
   }
 
+  private getActiveTemporaryBuffs(player: PlayerState): TemporaryBuffState[] {
+    return (player.temporaryBuffs ?? []).filter((buff) => buff.remainingTicks > 0 && buff.stacks > 0);
+  }
+
   /** 收集生效的加成列表（含临时 Buff） */
-  private getEffectiveBonuses(player: PlayerState): AttrBonus[] {
-    const temporaryBonuses = (player.temporaryBuffs ?? [])
-      .filter((buff) => buff.remainingTicks > 0 && buff.stacks > 0)
-      .map((buff) => this.buildTemporaryBuffBonus(buff));
+  private getEffectiveBonuses(player: PlayerState, activeTemporaryBuffs: readonly TemporaryBuffState[]): AttrBonus[] {
+    const temporaryBonuses = activeTemporaryBuffs.map((buff) => this.buildTemporaryBuffBonus(buff));
     if (temporaryBonuses.length === 0) {
       return player.bonuses;
     }
@@ -213,6 +234,17 @@ export class AttrService {
         stacks: buff.stacks,
       },
     };
+  }
+
+  private applyDynamicTemporaryBuffAttrModifiers(target: Attributes, activeBuffs: readonly TemporaryBuffState[]): void {
+    const soulDevourStacks = sumBuffStacks(activeBuffs, SOUL_DEVOUR_EROSION_BUFF_ID);
+    if (soulDevourStacks <= 0) {
+      return;
+    }
+    const multiplier = 1 - getSoulDevourErosionRatio(soulDevourStacks);
+    for (const key of ATTR_KEYS) {
+      target[key] *= multiplier;
+    }
   }
 
   /** 获取当前境界阶段对应的比率除数 */

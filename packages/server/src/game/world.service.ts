@@ -42,6 +42,7 @@ import {
 } from '@mud/shared';
 import { AttrService } from './attr.service';
 import { AoiService } from './aoi.service';
+import { syncDynamicBuffPresentation } from './buff-presentation';
 import { ContentService } from './content.service';
 import { EquipmentEffectService } from './equipment-effect.service';
 import { InventoryService } from './inventory.service';
@@ -1019,7 +1020,7 @@ export class WorldService {
   private buildTemporaryBuffState(skill: SkillDef, effect: Extract<SkillEffectDef, { type: 'buff' }>): TemporaryBuffState {
     const maxStacks = Math.max(1, effect.maxStacks ?? 1);
     const duration = Math.max(1, effect.duration);
-    return {
+    return syncDynamicBuffPresentation({
       buffId: effect.buffId,
       name: effect.name,
       desc: effect.desc,
@@ -1035,7 +1036,7 @@ export class WorldService {
       color: effect.color,
       attrs: effect.attrs,
       stats: effect.stats,
-    };
+    });
   }
 
   private applyBuffState(targetBuffs: TemporaryBuffState[], nextBuff: TemporaryBuffState): TemporaryBuffState {
@@ -1055,9 +1056,10 @@ export class WorldService {
       existing.color = nextBuff.color;
       existing.attrs = nextBuff.attrs;
       existing.stats = nextBuff.stats;
+      syncDynamicBuffPresentation(existing);
       return existing;
     }
-    targetBuffs.push(nextBuff);
+    targetBuffs.push(syncDynamicBuffPresentation(nextBuff));
     return nextBuff;
   }
 
@@ -1070,7 +1072,7 @@ export class WorldService {
       .map<VisibleBuffState>((buff) => ({
         buffId: buff.buffId,
         name: buff.name,
-        desc: buff.desc,
+        desc: syncDynamicBuffPresentation(buff).desc,
         shortMark: buff.shortMark,
         category: buff.category,
         visibility: buff.visibility,

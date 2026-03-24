@@ -49,21 +49,22 @@
         "type": "timed_buff",
         "trigger": "on_cultivation_tick",
         "target": "self",
+        "conditions": {
+          "mode": "all",
+          "items": [
+            { "type": "is_cultivating", "value": true }
+          ]
+        },
         "buff": {
           "buffId": "equip.soul_devour_erosion",
           "name": "噬元侵骨",
-          "desc": "每息叠一层，体魄、神识、身法各降 1 点；此残意即使身死也不会散去。",
+          "desc": "每息叠一层，六维压制会随着层数不断加深；当前实际降幅会直接显示在状态说明里。",
           "duration": 3600,
           "shortMark": "蚀",
           "category": "debuff",
           "visibility": "public",
           "color": "#6e4a3f",
-          "maxStacks": 2147483647,
-          "attrs": {
-            "constitution": -1,
-            "spirit": -1,
-            "perception": -1
-          }
+          "maxStacks": 2147483647
         }
       },
       {

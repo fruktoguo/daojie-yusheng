@@ -18,6 +18,7 @@ import {
   TimePhaseId,
 } from '@mud/shared';
 import { AttrService } from './attr.service';
+import { syncDynamicBuffPresentation } from './buff-presentation';
 import { TimeService } from './time.service';
 import { CULTIVATION_BUFF_ID } from '../constants/gameplay/technique';
 import {
@@ -401,7 +402,7 @@ export class EquipmentEffectService {
   private buildBuffState(item: ItemStack, effect: EquipmentTimedBuffEffectDef): TemporaryBuffState {
     const buff = effect.buff;
     const duration = Math.max(1, buff.duration);
-    return {
+    return syncDynamicBuffPresentation({
       buffId: buff.buffId,
       name: buff.name,
       desc: buff.desc,
@@ -417,7 +418,7 @@ export class EquipmentEffectService {
       color: buff.color,
       attrs: buff.attrs,
       stats: buff.stats,
-    };
+    });
   }
 
   private applyBuffState(player: PlayerState, nextBuff: TemporaryBuffState): void {
@@ -443,9 +444,10 @@ export class EquipmentEffectService {
       existing.color = nextBuff.color;
       existing.attrs = nextBuff.attrs;
       existing.stats = nextBuff.stats;
+      syncDynamicBuffPresentation(existing);
       return;
     }
-    targetBuffs.push(nextBuff);
+    targetBuffs.push(syncDynamicBuffPresentation(nextBuff));
   }
 
   private tickRuntimeStates(player: PlayerState): void {

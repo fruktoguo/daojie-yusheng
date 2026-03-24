@@ -35,6 +35,7 @@ import {
   CULTIVATION_BUFF_ID,
   TECHNIQUE_GRADES,
 } from '../constants/gameplay/player-storage';
+import { syncDynamicBuffPresentation } from './buff-presentation';
 import { ContentService } from './content.service';
 import { MapService } from './map.service';
 import { resolveQuestTargetName } from './quest-display';
@@ -230,7 +231,7 @@ function normalizeBuffShortMark(effect: Extract<SkillEffectDef, { type: 'buff' }
 }
 
 function buildSkillBuffState(skill: SkillDef, effect: Extract<SkillEffectDef, { type: 'buff' }>, snapshot: PersistedTemporaryBuffItem): TemporaryBuffState {
-  return {
+  return syncDynamicBuffPresentation({
     buffId: effect.buffId,
     name: effect.name,
     desc: effect.desc,
@@ -246,7 +247,7 @@ function buildSkillBuffState(skill: SkillDef, effect: Extract<SkillEffectDef, { 
     color: effect.color,
     attrs: effect.attrs,
     stats: effect.stats,
-  };
+  });
 }
 
 function buildSystemBuffState(snapshot: PersistedTemporaryBuffItem): TemporaryBuffState | null {
@@ -323,7 +324,7 @@ function hydrateTemporaryBuff(snapshot: unknown, contentService: ContentService)
     return null;
   }
 
-  return {
+  const hydrated: TemporaryBuffState = {
     ...snapshot,
     buffId: minimal.buffId,
     sourceSkillId: minimal.sourceSkillId,
@@ -341,6 +342,7 @@ function hydrateTemporaryBuff(snapshot: unknown, contentService: ContentService)
     attrs: isPlainObject(snapshot.attrs) ? snapshot.attrs as TemporaryBuffState['attrs'] : undefined,
     stats: isPlainObject(snapshot.stats) ? snapshot.stats as TemporaryBuffState['stats'] : undefined,
   };
+  return syncDynamicBuffPresentation(hydrated);
 }
 
 function dehydrateTemporaryBuff(buff: TemporaryBuffState, contentService: ContentService): PersistedTemporaryBuffEntry {
