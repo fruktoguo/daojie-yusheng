@@ -777,6 +777,7 @@ export class TechniqueService {
       path: realmEntry?.path ?? config.path,
       narrative: config.narrative,
       review: realmEntry?.review,
+      lifespanYears: realmEntry?.lifespanYears ?? null,
       progress: cappedProgress,
       progressToNext: expToNext,
       breakthroughReady,
@@ -874,6 +875,7 @@ export class TechniqueService {
     player.realmName = nextRealm.name;
     player.realmStage = nextRealm.shortName || undefined;
     player.realmReview = nextRealm.review;
+    player.lifespanYears = nextRealm.lifespanYears;
     player.breakthroughReady = nextRealm.breakthroughReady;
     this.applyRealmStateMirror(player, nextRealm);
   }

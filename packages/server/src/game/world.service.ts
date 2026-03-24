@@ -42,6 +42,7 @@ import {
   SkillFormula,
   SkillFormulaVar,
   TemporaryBuffState,
+  TileType,
   VisibleBuffState,
 } from '@mud/shared';
 import { AttrService } from './attr.service';
@@ -66,6 +67,12 @@ import {
   OBSERVATION_BLIND_RATIO,
   OBSERVATION_FULL_RATIO,
 } from '../constants/world/overview';
+import {
+  SPIRIT_ORE_REWARD_BASE_DAMAGE,
+  SPIRIT_ORE_REWARD_BASE_CHANCE_BPS,
+  SPIRIT_ORE_REWARD_DAMAGE_SCALE,
+  SPIRIT_ORE_REWARD_ITEM_ID,
+} from '../constants/gameplay/terrain';
 
 type MessageKind = 'system' | 'quest' | 'combat' | 'loot';
 type WorldDirtyFlag = 'inv' | 'quest' | 'actions' | 'tech' | 'attr' | 'loot';
@@ -3486,10 +3493,12 @@ export class WorldService {
     const cultivation = activeAttackBehavior
       ? this.techniqueService.interruptCultivation(player, 'attack')
       : { changed: false, dirty: [], messages: [] };
+    const dirty = new Set<WorldDirtyFlag>(cultivation.dirty as WorldDirtyFlag[]);
     const result = this.mapService.damageTile(player.mapId, x, y, damage);
     if (!result) {
       return { ...EMPTY_UPDATE, error: '该目标无法被攻击' };
     }
+    const appliedDamage = result.appliedDamage;
 
     this.pushEffect(player.mapId, {
       type: 'attack',
@@ -3503,7 +3512,7 @@ export class WorldService {
       type: 'float',
       x,
       y,
-      text: `-${damage}`,
+      text: `-${appliedDamage}`,
       color: getDamageTrailColor(damageKind, element),
     });
 
@@ -3515,10 +3524,17 @@ export class WorldService {
       })),
       {
         playerId: player.id,
-        text: `${skillName}击中${targetName}，造成 ${damage} 点伤害。`,
+        text: `${skillName}击中${targetName}，造成 ${appliedDamage} 点伤害。`,
         kind: 'combat',
       },
     ];
+    if (targetName === TileType.SpiritOre) {
+      const reward = this.tryGrantSpiritOreReward(player, x, y, appliedDamage);
+      messages.push(...reward.messages);
+      for (const flag of reward.dirty) {
+        dirty.add(flag);
+      }
+    }
     if (result.destroyed) {
       messages.push({
         playerId: player.id,
@@ -3526,7 +3542,61 @@ export class WorldService {
         kind: 'combat',
       });
     }
-    return { messages, dirty: cultivation.dirty as WorldDirtyFlag[] };
+    return { messages, dirty: [...dirty] };
+  }
+
+  private tryGrantSpiritOreReward(
+    player: PlayerState,
+    x: number,
+    y: number,
+    appliedDamage: number,
+  ): WorldUpdate {
+    const chanceBps = this.getSpiritOreRewardChanceBps(appliedDamage);
+    if (chanceBps <= 0 || Math.random() * 10000 >= chanceBps) {
+      return EMPTY_UPDATE;
+    }
+
+    const reward = this.contentService.createItem(SPIRIT_ORE_REWARD_ITEM_ID, 1);
+    if (!reward) {
+      this.logger.warn(`灵石矿奖励物品缺失: ${SPIRIT_ORE_REWARD_ITEM_ID}`);
+      return EMPTY_UPDATE;
+    }
+
+    if (this.inventoryService.addItem(player, reward)) {
+      return {
+        messages: [{
+          playerId: player.id,
+          text: `灵石矿震落出 ${reward.name} x${reward.count}。`,
+          kind: 'loot',
+        }],
+        dirty: ['inv'],
+      };
+    }
+
+    this.lootService.dropToGround(player.mapId, x, y, reward);
+    return {
+      messages: [{
+        playerId: player.id,
+        text: `${reward.name} 掉落在 (${x}, ${y}) 的地面上，但你的背包已满。`,
+        kind: 'loot',
+      }],
+      dirty: ['loot'],
+    };
+  }
+
+  private getSpiritOreRewardChanceBps(appliedDamage: number): number {
+    const normalizedDamage = Math.max(0, Math.floor(appliedDamage));
+    if (normalizedDamage < SPIRIT_ORE_REWARD_BASE_DAMAGE) {
+      return 0;
+    }
+
+    let chanceBps = SPIRIT_ORE_REWARD_BASE_CHANCE_BPS;
+    let nextThreshold = SPIRIT_ORE_REWARD_BASE_DAMAGE;
+    while (normalizedDamage >= nextThreshold * SPIRIT_ORE_REWARD_DAMAGE_SCALE) {
+      chanceBps += SPIRIT_ORE_REWARD_BASE_CHANCE_BPS;
+      nextThreshold *= SPIRIT_ORE_REWARD_DAMAGE_SCALE;
+    }
+    return Math.min(10000, chanceBps);
   }
 
   private pushEffect(mapId: string, effect: CombatEffect) {

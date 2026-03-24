@@ -54,7 +54,7 @@ export class HUD {
     this.posDiv.textContent = `(${player.x}, ${player.y})`;
     this.mapDiv.textContent = meta?.mapDanger ? `${meta.mapName ?? player.mapId} · ${meta.mapDanger}` : (meta?.mapName ?? player.mapId);
     this.objectiveDiv.textContent = meta?.boneAgeLabel ?? this.buildBoneAgeLabel(player);
-    this.threatDiv.textContent = meta?.lifespanLabel ?? (player.lifespanYears == null ? '???' : `${formatDisplayInteger(player.lifespanYears)} 岁`);
+    this.threatDiv.textContent = meta?.lifespanLabel ?? this.buildLifespanLabel(player);
 
     const realmLabel = meta?.realmLabel ?? player.realm?.displayName ?? player.realmName ?? player.realmStage ?? '-';
     this.realmValue.textContent = realmLabel;
@@ -94,5 +94,13 @@ export class HUD {
     return age.days > 0
       ? `${formatDisplayInteger(age.years)} 岁零 ${formatDisplayInteger(age.days)} 天`
       : `${formatDisplayInteger(age.years)} 岁`;
+  }
+
+  private buildLifespanLabel(player: PlayerState): string {
+    const lifespanYears = player.lifespanYears ?? player.realm?.lifespanYears ?? null;
+    if (lifespanYears == null || lifespanYears <= 0) {
+      return '???';
+    }
+    return `${formatDisplayInteger(lifespanYears)} 岁`;
   }
 }

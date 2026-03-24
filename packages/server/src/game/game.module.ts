@@ -30,6 +30,8 @@ import { LootService } from './loot.service';
 import { TimeService } from './time.service';
 import { SuggestionService } from './suggestion.service';
 import { ThreatService } from './threat.service';
+import { PathRequestSchedulerService } from './pathfinding/path-request-scheduler.service';
+import { PathWorkerPoolService } from './pathfinding/path-worker-pool.service';
 import { PlayerEntity } from '../database/entities/player.entity';
 import { SuggestionEntity } from '../database/entities/suggestion.entity';
 import { UserEntity } from '../database/entities/user.entity';
@@ -64,6 +66,8 @@ import { UserEntity } from '../database/entities/user.entity';
     ThreatService,
     WorldService,
     SuggestionService,
+    PathRequestSchedulerService,
+    PathWorkerPoolService,
   ],
   exports: [MapService, PlayerService, SuggestionService],
 })

@@ -81,6 +81,11 @@ export const TERRAIN_DURABILITY_PROFILES: Record<TerrainDurabilityProfileId, Par
   },
 };
 
+/** 特殊地形的耐久倍率。 */
+export const SPECIAL_TILE_DURABILITY_MULTIPLIERS: Partial<Record<TileType, number>> = {
+  [TileType.SpiritOre]: 1000,
+};
+
 /** 旧地图 ID 到地形耐久预设 ID 的兼容映射。 */
 export const LEGACY_MAP_TERRAIN_PROFILE_IDS: Partial<Record<string, TerrainDurabilityProfileId>> = {
   spawn: 'mortal_settlement',

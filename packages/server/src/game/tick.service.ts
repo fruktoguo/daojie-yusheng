@@ -498,6 +498,9 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     this.measureCpuSection('bot_ai', '机器人 AI', () => {
       this.botService.tickBots(mapId);
     });
+    this.measureCpuSection('pathfinding', '寻路与移动', () => {
+      this.navigationService.pumpScheduledPaths(mapId);
+    });
 
     const mapPlayers = this.playerService.getPlayersByMap(mapId);
     for (const player of mapPlayers) {

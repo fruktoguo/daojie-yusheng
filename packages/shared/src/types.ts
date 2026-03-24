@@ -548,6 +548,7 @@ export interface PlayerRealmState {
   path: 'martial' | 'immortal' | 'ascended';
   narrative: string;
   review?: string;
+  lifespanYears: number | null;
   progress: number;
   progressToNext: number;
   breakthroughReady: boolean;

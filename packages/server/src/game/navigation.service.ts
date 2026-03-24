@@ -1,20 +1,41 @@
 /**
- * 寻路与移动服务：A* 寻路、路径跟随、方向移动、移动点数管理
+ * 寻路与移动服务：路径状态管理、请求调度接入、方向移动、移动点数管理。
  */
 import { Injectable } from '@nestjs/common';
 import {
-  CARDINAL_DIRECTION_STEPS,
   directionFromTo,
   directionToDelta,
   Direction,
   getMovePointsPerTick,
   manhattanDistance,
   MAX_STORED_MOVE_POINTS,
-  PATHFINDING_MIN_STEP_COST,
+  PATHFINDING_APPROACH_MAX_EXPANDED_NODES,
+  PATHFINDING_APPROACH_MAX_PATH_LENGTH,
+  PATHFINDING_BOT_MAX_EXPANDED_NODES,
+  PATHFINDING_BOT_MAX_PATH_LENGTH,
+  PATHFINDING_PLAYER_MAX_EXPANDED_NODES,
+  PATHFINDING_PLAYER_MAX_PATH_LENGTH,
+  PATHFINDING_PLAYER_MAX_TARGET_DISTANCE,
+  PATHFINDING_REPATH_MAX_EXPANDED_NODES,
+  PATHFINDING_REPATH_MAX_PATH_LENGTH,
   PlayerState,
 } from '@mud/shared';
+import {
+  PATH_REQUEST_IMMEDIATE_PLAYER_MAX_EXPANDED_NODES,
+  PATH_REQUEST_IMMEDIATE_PLAYER_MAX_PATH_LENGTH,
+  PATH_REQUEST_PLAYER_CHUNK_LENGTH,
+  PATH_REQUEST_PLAYER_CHUNK_PREFETCH_THRESHOLD,
+  PATH_REPATH_COOLDOWN_TICKS,
+  PATH_REQUEST_PRIORITY_BOT_ROAM,
+  PATH_REQUEST_PRIORITY_PLAYER_MOVE,
+  PATH_REQUEST_PRIORITY_PLAYER_REPATH,
+  PATH_RETRY_BACKOFF_TICKS,
+} from '../constants/gameplay/pathfinding';
 import { AttrService } from './attr.service';
 import { MapService } from './map.service';
+import { PathRequestSchedulerService } from './pathfinding/path-request-scheduler.service';
+import { findBoundedPath } from './pathfinding/pathfinding-core';
+import { PathRequestKind, PathfindingActorType } from './pathfinding/pathfinding.types';
 
 interface PathStep {
   x: number;
@@ -26,6 +47,13 @@ interface MoveTargetState {
   targetY: number;
   path: PathStep[];
   blockedTicks: number;
+  pendingRequestId?: string;
+  pendingError?: string;
+  pathComplete: boolean;
+  failureCount: number;
+  repathAvailableTick: number;
+  showFailureMessage: boolean;
+  requestKind: PathRequestKind;
 }
 
 interface SetMoveTargetOptions {
@@ -35,11 +63,6 @@ interface SetMoveTargetOptions {
 interface MoveChargeState {
   intentKey: string;
   points: number;
-}
-
-interface HeapNode {
-  index: number;
-  score: number;
 }
 
 /** 单步寻路结果 */
@@ -63,71 +86,28 @@ interface PathMoveAttemptResult {
   points: number;
 }
 
-class MinHeap {
-  private items: HeapNode[] = [];
-
-  push(node: HeapNode) {
-    this.items.push(node);
-    this.bubbleUp(this.items.length - 1);
-  }
-
-  pop(): HeapNode | undefined {
-    if (this.items.length === 0) return undefined;
-    const head = this.items[0];
-    const tail = this.items.pop()!;
-    if (this.items.length > 0) {
-      this.items[0] = tail;
-      this.bubbleDown(0);
-    }
-    return head;
-  }
-
-  get size(): number {
-    return this.items.length;
-  }
-
-  private bubbleUp(index: number) {
-    while (index > 0) {
-      const parent = Math.floor((index - 1) / 2);
-      if (this.items[parent].score <= this.items[index].score) break;
-      [this.items[parent], this.items[index]] = [this.items[index], this.items[parent]];
-      index = parent;
-    }
-  }
-
-  private bubbleDown(index: number) {
-    const last = this.items.length - 1;
-    while (true) {
-      const left = index * 2 + 1;
-      const right = left + 1;
-      let smallest = index;
-
-      if (left <= last && this.items[left].score < this.items[smallest].score) {
-        smallest = left;
-      }
-      if (right <= last && this.items[right].score < this.items[smallest].score) {
-        smallest = right;
-      }
-      if (smallest === index) break;
-      [this.items[smallest], this.items[index]] = [this.items[index], this.items[smallest]];
-      index = smallest;
-    }
-  }
-}
-
 @Injectable()
 export class NavigationService {
   private readonly moveTargets = new Map<string, MoveTargetState>();
   private readonly moveCharges = new Map<string, MoveChargeState>();
+  private readonly mapPathTicks = new Map<string, number>();
 
   constructor(
     private readonly mapService: MapService,
     private readonly attrService: AttrService,
+    private readonly pathRequestScheduler: PathRequestSchedulerService,
   ) {}
 
+  /** 每息统一派发当前地图的寻路请求。 */
+  pumpScheduledPaths(mapId: string): void {
+    this.mapPathTicks.set(mapId, (this.mapPathTicks.get(mapId) ?? 0) + 1);
+    this.pathRequestScheduler.pumpMap(mapId);
+  }
+
   /** 清除寻路目标和关联的移动点数 */
-  clearMoveTarget(playerId: string) {
+  clearMoveTarget(playerId: string): void {
     this.moveTargets.delete(playerId);
+    this.pathRequestScheduler.cancelActor(playerId);
     const charge = this.moveCharges.get(playerId);
     if (charge?.intentKey.startsWith('target:')) {
       this.moveCharges.delete(playerId);
@@ -145,10 +125,20 @@ export class NavigationService {
     return state.path.map((step) => [step.x, step.y]);
   }
 
-  /** 设置玩家寻路目标，自动计算路径 */
+  /** 设置玩家寻路目标，交由统一调度器异步计算路径 */
   setMoveTarget(player: PlayerState, x: number, y: number, options?: SetMoveTargetOptions): string | null {
     let targetX = x;
     let targetY = y;
+
+    if (player.x === targetX && player.y === targetY) {
+      this.clearMoveTarget(player.id);
+      return null;
+    }
+
+    if (!player.isBot && manhattanDistance(player, { x: targetX, y: targetY }) > PATHFINDING_PLAYER_MAX_TARGET_DISTANCE) {
+      this.clearMoveTarget(player.id);
+      return '目标过远，无法规划路径';
+    }
 
     if ((player.x !== targetX || player.y !== targetY) && !this.mapService.canOccupy(player.mapId, targetX, targetY, {
       occupancyId: player.id,
@@ -178,22 +168,51 @@ export class NavigationService {
       return '无法到达该位置';
     }
 
-    const path = this.findPath(player.mapId, player.x, player.y, targetX, targetY, player.id, 'player');
-    if (path === null) {
-      this.clearMoveTarget(player.id);
-      return '无法到达该位置';
-    }
-
-    if (path.length === 0) {
-      this.clearMoveTarget(player.id);
+    const existing = this.moveTargets.get(player.id);
+    if (
+      existing
+      && existing.targetX === targetX
+      && existing.targetY === targetY
+      && (existing.pendingRequestId || existing.path.length > 0)
+    ) {
       return null;
     }
 
+    const requestKind: PathRequestKind = player.isBot ? 'bot_roam' : 'player_move_to';
+    if (!player.isBot) {
+      const immediate = this.tryPlanPathImmediate(player, targetX, targetY);
+      if (immediate === 'unreachable') {
+        this.clearMoveTarget(player.id);
+        return '无法到达该位置';
+      }
+      if (immediate) {
+        this.moveTargets.set(player.id, {
+          targetX,
+          targetY,
+          path: immediate.path,
+          blockedTicks: 0,
+          pathComplete: immediate.complete,
+          failureCount: 0,
+          repathAvailableTick: this.getCurrentMapPathTick(player.mapId),
+          showFailureMessage: true,
+          requestKind,
+        });
+        return null;
+      }
+    }
+
+    const requestId = this.enqueuePathRequest(player, requestKind, targetX, targetY);
     this.moveTargets.set(player.id, {
       targetX,
       targetY,
-      path,
+      path: [],
       blockedTicks: 0,
+      pendingRequestId: requestId,
+      pathComplete: false,
+      failureCount: 0,
+      repathAvailableTick: this.getCurrentMapPathTick(player.mapId),
+      showFailureMessage: !player.isBot,
+      requestKind,
     });
     return null;
   }
@@ -205,27 +224,57 @@ export class NavigationService {
       return { moved: false, reached: false, blocked: false };
     }
 
+    this.consumeResolvedPath(player, state);
+    if (!this.moveTargets.has(player.id)) {
+      return { moved: false, reached: false, blocked: false };
+    }
+    if (state.pendingError) {
+      const error = state.pendingError;
+      this.clearMoveTarget(player.id);
+      return { moved: false, reached: false, blocked: false, error };
+    }
+
     if (player.x === state.targetX && player.y === state.targetY) {
       this.clearMoveTarget(player.id);
       return { moved: false, reached: true, blocked: false };
     }
 
     if (!this.syncPath(player, state)) {
-      this.clearMoveTarget(player.id);
-      return { moved: false, reached: false, blocked: false, error: '无法到达该位置' };
+      this.queueRepath(player, state);
+      return { moved: false, reached: false, blocked: false };
     }
 
     const next = state.path[0];
     if (!next) {
-      this.clearMoveTarget(player.id);
-      return { moved: false, reached: true, blocked: false };
+      if (state.pendingRequestId) {
+        return { moved: false, reached: false, blocked: false };
+      }
+      if (!state.pathComplete) {
+        this.extendPathChunk(player, state);
+        if (state.path.length > 0) {
+          return this.stepPlayerTowardTarget(player);
+        }
+        if (state.pendingError) {
+          return { moved: false, reached: false, blocked: false };
+        }
+      }
+      this.queueRepath(player, state);
+      return { moved: false, reached: false, blocked: false };
     }
 
     const intentKey = `target:${player.mapId}:${state.targetX},${state.targetY}`;
     const availablePoints = this.rechargeMovePoints(player, intentKey);
-    const attempt = this.tryMoveAlongPath(player, state, availablePoints);
+    const attempt = this.consumePathWithinTick(player, state, availablePoints);
     this.commitMovePoints(player.id, intentKey, attempt.points);
     if (attempt.moved) {
+      if (
+        !state.pathComplete
+        && !state.pendingRequestId
+        && state.path.length <= PATH_REQUEST_PLAYER_CHUNK_PREFETCH_THRESHOLD
+        && (player.x !== state.targetX || player.y !== state.targetY)
+      ) {
+        this.extendPathChunk(player, state);
+      }
       const reached = player.x === state.targetX && player.y === state.targetY;
       if (reached) {
         this.clearMoveTarget(player.id);
@@ -235,23 +284,7 @@ export class NavigationService {
 
     if (attempt.blocked) {
       state.blockedTicks += 1;
-      if (this.rebuildPath(player, state)) {
-        const alternate = state.path[0];
-        const retry = alternate ? this.tryMoveAlongPath(player, state, attempt.points) : null;
-        if (retry) {
-          this.commitMovePoints(player.id, intentKey, retry.points);
-        }
-        if (retry?.moved) {
-          const reached = player.x === state.targetX && player.y === state.targetY;
-          if (reached) {
-            this.clearMoveTarget(player.id);
-          }
-          return { moved: true, reached, blocked: false };
-        }
-      } else {
-        this.clearMoveTarget(player.id);
-        return { moved: false, reached: false, blocked: false, error: '无法到达该位置' };
-      }
+      this.queueRepath(player, state);
     }
 
     return { moved: false, reached: false, blocked: attempt.blocked };
@@ -294,56 +327,37 @@ export class NavigationService {
     selfOccupancyId: string,
     actorType: NavigationActorType = 'player',
   ): NavigationGoalPoint | null {
-    let bestPath: PathStep[] | null = null;
-    let bestCost = Number.POSITIVE_INFINITY;
-    let bestLength = Number.POSITIVE_INFINITY;
-    const seenGoals = new Set<string>();
-
-    for (const goal of goals) {
-      const goalKey = `${goal.x},${goal.y}`;
-      if (seenGoals.has(goalKey)) continue;
-      seenGoals.add(goalKey);
-      if (goal.x === startX && goal.y === startY) {
-        return { x: startX, y: startY };
-      }
-
-      const path = this.findPath(mapId, startX, startY, goal.x, goal.y, selfOccupancyId, actorType);
-      if (!path || path.length === 0) {
-        continue;
-      }
-
-      const cost = this.measurePathCost(mapId, path);
-      if (!Number.isFinite(cost)) {
-        continue;
-      }
-
-      if (cost < bestCost || (cost === bestCost && path.length < bestLength)) {
-        bestPath = path;
-        bestCost = cost;
-        bestLength = path.length;
-      }
+    const staticGrid = this.mapService.getPathfindingStaticGrid(mapId);
+    const blocked = this.mapService.buildPathfindingBlockedGrid(mapId, actorType as PathfindingActorType, selfOccupancyId);
+    if (!staticGrid || !blocked || goals.length === 0) {
+      return null;
     }
 
-    const next = bestPath?.[0];
+    const result = findBoundedPath(
+      staticGrid,
+      blocked,
+      startX,
+      startY,
+      goals,
+      {
+        maxExpandedNodes: PATHFINDING_APPROACH_MAX_EXPANDED_NODES,
+        maxPathLength: PATHFINDING_APPROACH_MAX_PATH_LENGTH,
+      },
+    );
+    if (result.status !== 'success') {
+      return null;
+    }
+
+    const next = result.path[0];
     return next ? { x: next.x, y: next.y } : null;
   }
 
   private syncPath(player: PlayerState, state: MoveTargetState): boolean {
     const next = state.path[0];
     if (!next) {
-      return this.rebuildPath(player, state);
+      return false;
     }
-    if (manhattanDistance(next, player) !== 1) {
-      return this.rebuildPath(player, state);
-    }
-    return true;
-  }
-
-  private rebuildPath(player: PlayerState, state: MoveTargetState): boolean {
-    const path = this.findPath(player.mapId, player.x, player.y, state.targetX, state.targetY, player.id, 'player');
-    if (path === null) return false;
-    state.path = path;
-    return true;
+    return manhattanDistance(next, player) === 1;
   }
 
   private tryMovePlayer(player: PlayerState, x: number, y: number): boolean {
@@ -388,6 +402,31 @@ export class NavigationService {
     return { moved, blocked, points };
   }
 
+  private consumePathWithinTick(player: PlayerState, state: MoveTargetState, initialPoints: number): PathMoveAttemptResult {
+    let attempt = this.tryMoveAlongPath(player, state, initialPoints);
+    while (
+      attempt.moved
+      && !attempt.blocked
+      && attempt.points > 0
+      && !state.pathComplete
+      && !state.pendingRequestId
+      && state.path.length === 0
+      && (player.x !== state.targetX || player.y !== state.targetY)
+    ) {
+      this.extendPathChunk(player, state);
+      if (state.pendingError || state.pendingRequestId || state.path.length === 0) {
+        break;
+      }
+      const continued = this.tryMoveAlongPath(player, state, attempt.points);
+      attempt = {
+        moved: attempt.moved || continued.moved,
+        blocked: continued.blocked,
+        points: continued.points,
+      };
+    }
+    return attempt;
+  }
+
   private rechargeMovePoints(player: PlayerState, intentKey: string): number {
     const existing = this.moveCharges.get(player.id);
     const current = existing?.intentKey === intentKey ? existing.points : 0;
@@ -414,116 +453,195 @@ export class NavigationService {
     return traversalCost;
   }
 
-  /** A* 寻路，返回路径步骤数组或 null（不可达） */
-  private findPath(
-    mapId: string,
-    startX: number,
-    startY: number,
+  private enqueuePathRequest(
+    player: PlayerState,
+    requestKind: PathRequestKind,
     targetX: number,
     targetY: number,
-    selfOccupancyId: string,
-    actorType: NavigationActorType,
-  ): PathStep[] | null {
-    const meta = this.mapService.getMapMeta(mapId);
-    if (!meta) return null;
-    if (startX === targetX && startY === targetY) return [];
-    if (!this.mapService.isTerrainWalkable(mapId, targetX, targetY)) return null;
+  ): string {
+    const moveSpeed = this.attrService.getPlayerNumericStats(player).moveSpeed;
+    const { priority, limits } = this.resolveRequestPolicy(player, requestKind);
+    return this.pathRequestScheduler.enqueue({
+      actorId: player.id,
+      actorType: 'player',
+      selfOccupancyId: player.id,
+      kind: requestKind,
+      mapId: player.mapId,
+      priority,
+      moveSpeed,
+      startX: player.x,
+      startY: player.y,
+      goals: [{ x: targetX, y: targetY }],
+      limits,
+    });
+  }
 
-    const width = meta.width;
-    const height = meta.height;
-    const total = width * height;
-    const startIndex = this.toIndex(startX, startY, width);
-    const goalIndex = this.toIndex(targetX, targetY, width);
-    const gScore = new Float64Array(total);
-    gScore.fill(Number.POSITIVE_INFINITY);
-    const parent = new Int32Array(total);
-    parent.fill(-1);
-    const closed = new Uint8Array(total);
-    const heap = new MinHeap();
-
-    gScore[startIndex] = 0;
-    heap.push({ index: startIndex, score: this.heuristic(startX, startY, targetX, targetY) });
-
-    while (heap.size > 0) {
-      const current = heap.pop();
-      if (!current) break;
-      if (closed[current.index]) continue;
-      closed[current.index] = 1;
-
-      if (current.index === goalIndex) {
-        return this.reconstructPath(parent, goalIndex, startIndex, width);
-      }
-
-      const x = current.index % width;
-      const y = Math.floor(current.index / width);
-      for (const { dx, dy } of CARDINAL_DIRECTION_STEPS) {
-        const nx = x + dx;
-        const ny = y + dy;
-        if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
-        if (!this.mapService.isTerrainWalkable(mapId, nx, ny)) continue;
-
-        const nextIndex = this.toIndex(nx, ny, width);
-        if (closed[nextIndex]) continue;
-
-        const stepCost = this.mapService.getTraversalCost(mapId, nx, ny) + this.occupancyPenalty(mapId, nx, ny, selfOccupancyId, actorType);
-        if (!Number.isFinite(stepCost)) continue;
-        const nextScore = gScore[current.index] + stepCost;
-        if (nextScore >= gScore[nextIndex]) continue;
-
-        gScore[nextIndex] = nextScore;
-        parent[nextIndex] = current.index;
-        heap.push({
-          index: nextIndex,
-          score: nextScore + this.heuristic(nx, ny, targetX, targetY),
-        });
-      }
+  private queueRepath(player: PlayerState, state: MoveTargetState): void {
+    if (state.pendingRequestId) {
+      return;
     }
 
-    return null;
-  }
-
-  private heuristic(x: number, y: number, targetX: number, targetY: number): number {
-    return manhattanDistance({ x, y }, { x: targetX, y: targetY }) * PATHFINDING_MIN_STEP_COST;
-  }
-
-  private occupancyPenalty(
-    mapId: string,
-    x: number,
-    y: number,
-    selfOccupancyId: string,
-    actorType: NavigationActorType,
-  ): number {
-    if (this.mapService.canOccupy(mapId, x, y, { occupancyId: selfOccupancyId, actorType })) return 0;
-    return Number.POSITIVE_INFINITY;
-  }
-
-  private reconstructPath(parent: Int32Array, goalIndex: number, startIndex: number, width: number): PathStep[] {
-    const path: PathStep[] = [];
-    let current = goalIndex;
-    while (current !== startIndex && current !== -1) {
-      path.push({
-        x: current % width,
-        y: Math.floor(current / width),
-      });
-      current = parent[current];
+    const currentTick = this.getCurrentMapPathTick(player.mapId);
+    if (currentTick < state.repathAvailableTick) {
+      return;
     }
-    path.reverse();
-    return path;
+
+    state.pendingRequestId = this.enqueuePathRequest(
+      player,
+      player.isBot ? 'bot_roam' : 'player_repath',
+      state.targetX,
+      state.targetY,
+    );
+    state.repathAvailableTick = currentTick + PATH_REPATH_COOLDOWN_TICKS;
   }
 
-  private toIndex(x: number, y: number, width: number): number {
-    return y * width + x;
-  }
-
-  private measurePathCost(mapId: string, path: PathStep[]): number {
-    let totalCost = 0;
-    for (const step of path) {
-      const cost = this.mapService.getTraversalCost(mapId, step.x, step.y);
-      if (!Number.isFinite(cost)) {
-        return Number.POSITIVE_INFINITY;
-      }
-      totalCost += cost;
+  private consumeResolvedPath(player: PlayerState, state: MoveTargetState): void {
+    if (!state.pendingRequestId) {
+      return;
     }
-    return totalCost;
+
+    const result = this.pathRequestScheduler.takeResult(player.id, state.pendingRequestId);
+    if (!result) {
+      return;
+    }
+
+    state.pendingRequestId = undefined;
+    if (result.status === 'success') {
+      state.path = result.path.map((step) => ({ x: step.x, y: step.y }));
+      state.pathComplete = result.complete;
+      state.blockedTicks = 0;
+      state.failureCount = 0;
+      state.repathAvailableTick = this.getCurrentMapPathTick(player.mapId);
+      return;
+    }
+
+    state.path = [];
+    state.pathComplete = false;
+    state.blockedTicks = 0;
+    state.failureCount += 1;
+    state.repathAvailableTick = this.getCurrentMapPathTick(player.mapId) + (PATH_RETRY_BACKOFF_TICKS * state.failureCount);
+    if (state.showFailureMessage) {
+      state.pendingError = this.translateFailureReason(result.reason);
+      return;
+    }
+    this.clearMoveTarget(player.id);
+  }
+
+  private resolveRequestPolicy(
+    player: PlayerState,
+    requestKind: PathRequestKind,
+  ): {
+    priority: number;
+    limits: {
+      maxExpandedNodes: number;
+      maxPathLength: number;
+      maxGoalDistance?: number;
+      allowPartialPath?: boolean;
+    };
+  } {
+    if (requestKind === 'bot_roam' || player.isBot) {
+      return {
+        priority: PATH_REQUEST_PRIORITY_BOT_ROAM,
+        limits: {
+          maxExpandedNodes: PATHFINDING_BOT_MAX_EXPANDED_NODES,
+          maxPathLength: PATHFINDING_BOT_MAX_PATH_LENGTH,
+        },
+      };
+    }
+
+    if (requestKind === 'player_repath') {
+      return {
+        priority: PATH_REQUEST_PRIORITY_PLAYER_REPATH,
+        limits: {
+          maxExpandedNodes: PATHFINDING_REPATH_MAX_EXPANDED_NODES,
+          maxPathLength: player.isBot ? PATHFINDING_REPATH_MAX_PATH_LENGTH : PATH_REQUEST_PLAYER_CHUNK_LENGTH,
+          maxGoalDistance: PATHFINDING_PLAYER_MAX_TARGET_DISTANCE,
+          allowPartialPath: !player.isBot,
+        },
+      };
+    }
+
+    return {
+      priority: PATH_REQUEST_PRIORITY_PLAYER_MOVE,
+      limits: {
+        maxExpandedNodes: PATHFINDING_PLAYER_MAX_EXPANDED_NODES,
+        maxPathLength: player.isBot ? PATHFINDING_PLAYER_MAX_PATH_LENGTH : PATH_REQUEST_PLAYER_CHUNK_LENGTH,
+        maxGoalDistance: PATHFINDING_PLAYER_MAX_TARGET_DISTANCE,
+        allowPartialPath: !player.isBot,
+      },
+    };
+  }
+
+  private translateFailureReason(reason: string): string {
+    switch (reason) {
+      case 'target_too_far':
+        return '目标过远，无法规划路径';
+      case 'step_limit':
+      case 'path_too_long':
+      case 'no_path':
+      case 'invalid_goal':
+      default:
+        return '无法到达该位置';
+    }
+  }
+
+  private getCurrentMapPathTick(mapId: string): number {
+    return this.mapPathTicks.get(mapId) ?? 0;
+  }
+
+  private tryPlanPathImmediate(
+    player: PlayerState,
+    targetX: number,
+    targetY: number,
+  ): { path: PathStep[]; complete: boolean } | 'unreachable' | null {
+    const staticGrid = this.mapService.getPathfindingStaticGrid(player.mapId);
+    const blocked = this.mapService.buildPathfindingBlockedGrid(player.mapId, 'player', player.id);
+    if (!staticGrid || !blocked) {
+      return 'unreachable';
+    }
+
+    const result = findBoundedPath(
+      staticGrid,
+      blocked,
+      player.x,
+      player.y,
+      [{ x: targetX, y: targetY }],
+      {
+        maxExpandedNodes: PATH_REQUEST_IMMEDIATE_PLAYER_MAX_EXPANDED_NODES,
+        maxPathLength: PATH_REQUEST_IMMEDIATE_PLAYER_MAX_PATH_LENGTH,
+        maxGoalDistance: PATHFINDING_PLAYER_MAX_TARGET_DISTANCE,
+        allowPartialPath: true,
+      },
+    );
+
+    if (result.status === 'success') {
+      return {
+        path: result.path.map((step) => ({ x: step.x, y: step.y })),
+        complete: result.complete,
+      };
+    }
+
+    if (result.reason === 'step_limit' || result.reason === 'path_too_long') {
+      return null;
+    }
+
+    return 'unreachable';
+  }
+
+  private extendPathChunk(player: PlayerState, state: MoveTargetState): void {
+    const immediate = this.tryPlanPathImmediate(player, state.targetX, state.targetY);
+    if (immediate && immediate !== 'unreachable') {
+      state.path = immediate.path;
+      state.pathComplete = immediate.complete;
+      state.blockedTicks = 0;
+      return;
+    }
+
+    if (immediate === 'unreachable') {
+      state.pendingError = '无法到达该位置';
+      return;
+    }
+
+    this.queueRepath(player, state);
   }
 }

@@ -88,6 +88,7 @@
       "grade": "mortal",
       "gradeLabel": "凡阶",
       "review": "尘根未醒",
+      "lifespanYears": 80,
       "expToNext": 10
     },
     {
@@ -100,6 +101,7 @@
       "grade": "mortal",
       "gradeLabel": "凡阶",
       "review": "皮坚肉紧",
+      "lifespanYears": 86,
       "expToNext": 12
     },
     {
@@ -112,6 +114,7 @@
       "grade": "mortal",
       "gradeLabel": "凡阶",
       "review": "骨沉如铁",
+      "lifespanYears": 92,
       "expToNext": 15
     },
     {
@@ -124,6 +127,7 @@
       "grade": "mortal",
       "gradeLabel": "凡阶",
       "review": "筋开力长",
+      "lifespanYears": 100,
       "expToNext": 20
     },
     {
@@ -136,6 +140,7 @@
       "grade": "mortal",
       "gradeLabel": "凡阶",
       "review": "洗垢生新",
+      "lifespanYears": 110,
       "expToNext": 25
     },
     {
@@ -148,6 +153,7 @@
       "grade": "mortal",
       "gradeLabel": "凡阶",
       "review": "一气养周天",
+      "lifespanYears": 118,
       "expToNext": 30
     },
     {
@@ -160,6 +166,7 @@
       "grade": "mortal",
       "gradeLabel": "凡阶",
       "review": "百脉始归流",
+      "lifespanYears": 128,
       "expToNext": 50
     },
     {
@@ -172,6 +179,7 @@
       "grade": "mortal",
       "gradeLabel": "凡阶",
       "review": "星火照命门",
+      "lifespanYears": 140,
       "expToNext": 60
     },
     {
@@ -184,6 +192,7 @@
       "grade": "mortal",
       "gradeLabel": "凡阶",
       "review": "开阳悬胆，锋意渐生",
+      "lifespanYears": 142,
       "expToNext": 70
     },
     {
@@ -196,6 +205,7 @@
       "grade": "mortal",
       "gradeLabel": "凡阶",
       "review": "玉衡定步，进退有章",
+      "lifespanYears": 144,
       "expToNext": 90
     },
     {
@@ -208,6 +218,7 @@
       "grade": "mortal",
       "gradeLabel": "凡阶",
       "review": "一念权衡定去留",
+      "lifespanYears": 146,
       "expToNext": 110
     },
     {
@@ -220,6 +231,7 @@
       "grade": "mortal",
       "gradeLabel": "凡阶",
       "review": "玄机暗转藏锋处",
+      "lifespanYears": 148,
       "expToNext": 130
     },
     {
@@ -232,6 +244,7 @@
       "grade": "yellow",
       "gradeLabel": "黄阶",
       "review": "天璇照骨，气走八荒",
+      "lifespanYears": 150,
       "expToNext": 160
     },
     {
@@ -244,6 +257,7 @@
       "grade": "yellow",
       "gradeLabel": "黄阶",
       "review": "北斗归枢，我身为轴",
+      "lifespanYears": 152,
       "expToNext": 250
     },
     {
@@ -256,6 +270,7 @@
       "grade": "yellow",
       "gradeLabel": "黄阶",
       "review": "开宗立势，名动一方",
+      "lifespanYears": 154,
       "expToNext": 300
     },
     {
@@ -268,6 +283,7 @@
       "grade": "yellow",
       "gradeLabel": "黄阶",
       "review": "满堂风雨，不折其锋",
+      "lifespanYears": 156,
       "expToNext": 400
     },
     {
@@ -280,6 +296,7 @@
       "grade": "yellow",
       "gradeLabel": "黄阶",
       "review": "临渊羡鱼",
+      "lifespanYears": 158,
       "expToNext": 500
     },
     {
@@ -292,6 +309,7 @@
       "grade": "yellow",
       "gradeLabel": "黄阶",
       "review": "回首人间再叩天",
+      "lifespanYears": 160,
       "expToNext": 800
     },
     {
@@ -304,6 +322,7 @@
       "grade": "yellow",
       "gradeLabel": "黄阶",
       "review": "灵息入海",
+      "lifespanYears": 300,
       "expToNext": 1000
     },
     {
@@ -316,6 +335,7 @@
       "grade": "yellow",
       "gradeLabel": "黄阶",
       "review": "气海起微澜",
+      "lifespanYears": 312,
       "expToNext": 1200
     },
     {
@@ -328,6 +348,7 @@
       "grade": "yellow",
       "gradeLabel": "黄阶",
       "review": "一缕真炁绕周身",
+      "lifespanYears": 326,
       "expToNext": 1500
     },
     {
@@ -340,6 +361,7 @@
       "grade": "yellow",
       "gradeLabel": "黄阶",
       "review": "气走百脉，念动成锋",
+      "lifespanYears": 344,
       "expToNext": 1800
     },
     {
@@ -352,6 +374,7 @@
       "grade": "yellow",
       "gradeLabel": "黄阶",
       "review": "周天无漏，灵泉自生",
+      "lifespanYears": 368,
       "expToNext": 2200
     },
     {
@@ -364,6 +387,7 @@
       "grade": "yellow",
       "gradeLabel": "黄阶",
       "review": "道基只待一念成",
+      "lifespanYears": 400,
       "expToNext": 3000
     },
     {
@@ -376,6 +400,7 @@
       "grade": "mystic",
       "gradeLabel": "玄阶",
       "review": "道台初立",
+      "lifespanYears": 600,
       "expToNext": 3600
     },
     {
@@ -388,6 +413,7 @@
       "grade": "mystic",
       "gradeLabel": "玄阶",
       "review": "真基稳如岳",
+      "lifespanYears": 630,
       "expToNext": 4300
     },
     {
@@ -400,6 +426,7 @@
       "grade": "mystic",
       "gradeLabel": "玄阶",
       "review": "灵台澄澈照尘寰",
+      "lifespanYears": 670,
       "expToNext": 5200
     },
     {
@@ -412,6 +439,7 @@
       "grade": "mystic",
       "gradeLabel": "玄阶",
       "review": "基成无缺，法起无滞",
+      "lifespanYears": 730,
       "expToNext": 6200
     },
     {
@@ -424,6 +452,7 @@
       "grade": "mystic",
       "gradeLabel": "玄阶",
       "review": "道骨已成，百脉齐鸣",
+      "lifespanYears": 810,
       "expToNext": 7500
     },
     {
@@ -436,6 +465,7 @@
       "grade": "mystic",
       "gradeLabel": "玄阶",
       "review": "丹光隐现候天时",
+      "lifespanYears": 900,
       "expToNext": 10000
     },
     {
@@ -448,6 +478,7 @@
       "grade": "mystic",
       "gradeLabel": "玄阶",
       "review": "一丹在腹",
+      "lifespanYears": 1400,
       "expToNext": 12000
     },
     {
@@ -460,6 +491,7 @@
       "grade": "mystic",
       "gradeLabel": "玄阶",
       "review": "丹华照五脏",
+      "lifespanYears": 1460,
       "expToNext": 14500
     },
     {
@@ -472,6 +504,7 @@
       "grade": "mystic",
       "gradeLabel": "玄阶",
       "review": "金辉流转映灵台",
+      "lifespanYears": 1560,
       "expToNext": 17400
     },
     {
@@ -484,6 +517,7 @@
       "grade": "mystic",
       "gradeLabel": "玄阶",
       "review": "丹转九息，内景如昼",
+      "lifespanYears": 1710,
       "expToNext": 21000
     },
     {
@@ -496,6 +530,7 @@
       "grade": "mystic",
       "gradeLabel": "玄阶",
       "review": "金性圆明，照彻形神",
+      "lifespanYears": 1920,
       "expToNext": 25000
     },
     {
@@ -508,6 +543,7 @@
       "grade": "mystic",
       "gradeLabel": "玄阶",
       "review": "紫气东来孕婴神",
+      "lifespanYears": 2200,
       "expToNext": 35000
     },
     {
@@ -520,6 +556,7 @@
       "grade": "earth",
       "gradeLabel": "地阶",
       "review": "婴神初坐",
+      "lifespanYears": 3400,
       "expToNext": 42000
     },
     {
@@ -532,6 +569,7 @@
       "grade": "earth",
       "gradeLabel": "地阶",
       "review": "紫府开新天",
+      "lifespanYears": 3520,
       "expToNext": 50000
     },
     {
@@ -544,6 +582,7 @@
       "grade": "earth",
       "gradeLabel": "地阶",
       "review": "一念神游越千山",
+      "lifespanYears": 3720,
       "expToNext": 60000
     },
     {
@@ -556,6 +595,7 @@
       "grade": "earth",
       "gradeLabel": "地阶",
       "review": "婴照四极，念覆八荒",
+      "lifespanYears": 4080,
       "expToNext": 72000
     },
     {
@@ -568,6 +608,7 @@
       "grade": "earth",
       "gradeLabel": "地阶",
       "review": "神婴无瑕，心映万象",
+      "lifespanYears": 4560,
       "expToNext": 86000
     },
     {
@@ -580,6 +621,7 @@
       "grade": "earth",
       "gradeLabel": "地阶",
       "review": "神火将燃蜕旧身",
+      "lifespanYears": 5200,
       "expToNext": 120000
     },
     {
@@ -592,6 +634,7 @@
       "grade": "earth",
       "gradeLabel": "地阶",
       "review": "神意离壳",
+      "lifespanYears": 8000,
       "expToNext": 140000
     },
     {
@@ -604,6 +647,7 @@
       "grade": "earth",
       "gradeLabel": "地阶",
       "review": "一念化万形",
+      "lifespanYears": 8280,
       "expToNext": 170000
     },
     {
@@ -616,6 +660,7 @@
       "grade": "earth",
       "gradeLabel": "地阶",
       "review": "神机入微驭诸法",
+      "lifespanYears": 8760,
       "expToNext": 200000
     },
     {
@@ -628,6 +673,7 @@
       "grade": "earth",
       "gradeLabel": "地阶",
       "review": "元神高举，天地共鸣",
+      "lifespanYears": 9600,
       "expToNext": 240000
     },
     {
@@ -640,6 +686,7 @@
       "grade": "earth",
       "gradeLabel": "地阶",
       "review": "神明澄彻，虚妄皆明",
+      "lifespanYears": 10700,
       "expToNext": 290000
     },
     {
@@ -652,6 +699,7 @@
       "grade": "earth",
       "gradeLabel": "地阶",
       "review": "身返于虚开界隙",
+      "lifespanYears": 12200,
       "expToNext": 400000
     },
     {
@@ -664,6 +712,7 @@
       "grade": "heaven",
       "gradeLabel": "天阶",
       "review": "虚境初开",
+      "lifespanYears": 18000,
       "expToNext": 480000
     },
     {
@@ -676,6 +725,7 @@
       "grade": "heaven",
       "gradeLabel": "天阶",
       "review": "形神两相忘",
+      "lifespanYears": 18600,
       "expToNext": 580000
     },
     {
@@ -688,6 +738,7 @@
       "grade": "heaven",
       "gradeLabel": "天阶",
       "review": "一念入空万相轻",
+      "lifespanYears": 19600,
       "expToNext": 700000
     },
     {
@@ -700,6 +751,7 @@
       "grade": "heaven",
       "gradeLabel": "天阶",
       "review": "虚实互映，法界徐开",
+      "lifespanYears": 21400,
       "expToNext": 840000
     },
     {
@@ -712,6 +764,7 @@
       "grade": "heaven",
       "gradeLabel": "天阶",
       "review": "炼尽有形，真我独存",
+      "lifespanYears": 23800,
       "expToNext": 1000000
     },
     {
@@ -724,6 +777,7 @@
       "grade": "heaven",
       "gradeLabel": "天阶",
       "review": "身道将合同天心",
+      "lifespanYears": 27000,
       "expToNext": 1400000
     },
     {
@@ -736,6 +790,7 @@
       "grade": "heaven",
       "gradeLabel": "天阶",
       "review": "身神相契",
+      "lifespanYears": 40000,
       "expToNext": 1700000
     },
     {
@@ -748,6 +803,7 @@
       "grade": "heaven",
       "gradeLabel": "天阶",
       "review": "三元归一处",
+      "lifespanYears": 41200,
       "expToNext": 2000000
     },
     {
@@ -760,6 +816,7 @@
       "grade": "heaven",
       "gradeLabel": "天阶",
       "review": "精炁神合镇山河",
+      "lifespanYears": 43400,
       "expToNext": 2400000
     },
     {
@@ -772,6 +829,7 @@
       "grade": "heaven",
       "gradeLabel": "天阶",
       "review": "内外无间，道体初圆",
+      "lifespanYears": 47200,
       "expToNext": 2900000
     },
     {
@@ -784,6 +842,7 @@
       "grade": "heaven",
       "gradeLabel": "天阶",
       "review": "天人相抱，万象同流",
+      "lifespanYears": 52600,
       "expToNext": 3500000
     },
     {
@@ -796,6 +855,7 @@
       "grade": "heaven",
       "gradeLabel": "天阶",
       "review": "法舟已满待长风",
+      "lifespanYears": 60000,
       "expToNext": 5000000
     },
     {
@@ -808,6 +868,7 @@
       "grade": "spirit",
       "gradeLabel": "灵阶",
       "review": "大道载身",
+      "lifespanYears": 90000,
       "expToNext": 6000000
     },
     {
@@ -820,6 +881,7 @@
       "grade": "spirit",
       "gradeLabel": "灵阶",
       "review": "举念契天机",
+      "lifespanYears": 92600,
       "expToNext": 7200000
     },
     {
@@ -832,6 +894,7 @@
       "grade": "spirit",
       "gradeLabel": "灵阶",
       "review": "身若乾坤吞山海",
+      "lifespanYears": 97200,
       "expToNext": 8600000
     },
     {
@@ -844,6 +907,7 @@
       "grade": "spirit",
       "gradeLabel": "灵阶",
       "review": "大乘法满，诸界侧目",
+      "lifespanYears": 106000,
       "expToNext": 10300000
     },
     {
@@ -856,6 +920,7 @@
       "grade": "spirit",
       "gradeLabel": "灵阶",
       "review": "圆融无碍，近道而行",
+      "lifespanYears": 118000,
       "expToNext": 12400000
     },
     {
@@ -868,6 +933,7 @@
       "grade": "spirit",
       "gradeLabel": "灵阶",
       "review": "雷门将启照心关",
+      "lifespanYears": 135000,
       "expToNext": 18000000
     },
     {
@@ -880,6 +946,7 @@
       "grade": "spirit",
       "gradeLabel": "灵阶",
       "review": "劫云初压",
+      "lifespanYears": 200000,
       "expToNext": 22000000
     },
     {
@@ -892,6 +959,7 @@
       "grade": "spirit",
       "gradeLabel": "灵阶",
       "review": "雷火洗真身",
+      "lifespanYears": 206000,
       "expToNext": 26000000
     },
     {
@@ -904,6 +972,7 @@
       "grade": "spirit",
       "gradeLabel": "灵阶",
       "review": "万劫加身道更坚",
+      "lifespanYears": 216000,
       "expToNext": 31000000
     },
     {
@@ -916,6 +985,7 @@
       "grade": "spirit",
       "gradeLabel": "灵阶",
       "review": "天威尽落，我意长明",
+      "lifespanYears": 236000,
       "expToNext": 37000000
     },
     {
@@ -928,6 +998,7 @@
       "grade": "spirit",
       "gradeLabel": "灵阶",
       "review": "劫数已尽，道果将成",
+      "lifespanYears": 262000,
       "expToNext": 45000000
     },
     {
@@ -940,6 +1011,7 @@
       "grade": "spirit",
       "gradeLabel": "灵阶",
       "review": "旧界难留待登天",
+      "lifespanYears": 300000,
       "expToNext": 65000000
     },
     {
@@ -952,6 +1024,7 @@
       "grade": "saint",
       "gradeLabel": "圣阶",
       "review": "一朝拔界去",
+      "lifespanYears": 450000,
       "expToNext": 80000000
     },
     {
@@ -964,6 +1037,7 @@
       "grade": "saint",
       "gradeLabel": "圣阶",
       "review": "仙籍初留名",
+      "lifespanYears": 462000,
       "expToNext": 96000000
     },
     {
@@ -976,6 +1050,7 @@
       "grade": "saint",
       "gradeLabel": "圣阶",
       "review": "厚土承仙命",
+      "lifespanYears": 484000,
       "expToNext": 115000000
     },
     {
@@ -988,6 +1063,7 @@
       "grade": "saint",
       "gradeLabel": "圣阶",
       "review": "乘风上青冥",
+      "lifespanYears": 528000,
       "expToNext": 138000000
     },
     {
@@ -1000,6 +1076,7 @@
       "grade": "saint",
       "gradeLabel": "圣阶",
       "review": "真性无尘，仙光自满",
+      "lifespanYears": 588000,
       "expToNext": 166000000
     },
     {
@@ -1012,6 +1089,7 @@
       "grade": "saint",
       "gradeLabel": "圣阶",
       "review": "玄理在握驭天机",
+      "lifespanYears": 680000,
       "expToNext": 200000000
     },
     {
@@ -1024,6 +1102,7 @@
       "grade": "saint",
       "gradeLabel": "圣阶",
       "review": "金性不朽，岁月难侵",
+      "lifespanYears": 1000000,
       "expToNext": 240000000
     },
     {
@@ -1036,6 +1115,7 @@
       "grade": "saint",
       "gradeLabel": "圣阶",
       "review": "太一含元镇万灵",
+      "lifespanYears": 1030000,
       "expToNext": 320000000
     },
     {
@@ -1048,6 +1128,7 @@
       "grade": "saint",
       "gradeLabel": "圣阶",
       "review": "圣机初孕",
+      "lifespanYears": 1080000,
       "expToNext": 400000000
     },
     {
@@ -1060,6 +1141,7 @@
       "grade": "saint",
       "gradeLabel": "圣阶",
       "review": "一步入圣门",
+      "lifespanYears": 1180000,
       "expToNext": 480000000
     },
     {
@@ -1072,6 +1154,7 @@
       "grade": "saint",
       "gradeLabel": "圣阶",
       "review": "圣威如海镇八荒",
+      "lifespanYears": 1320000,
       "expToNext": 580000000
     },
     {
@@ -1084,6 +1167,7 @@
       "grade": "saint",
       "gradeLabel": "圣阶",
       "review": "诸圣拱服，王座初成",
+      "lifespanYears": 1500000,
       "expToNext": 800000000
     },
     {
@@ -1096,6 +1180,7 @@
       "grade": "emperor",
       "gradeLabel": "帝阶",
       "review": "帝气初生",
+      "lifespanYears": 2200000,
       "expToNext": 1000000000
     },
     {
@@ -1108,6 +1193,7 @@
       "grade": "emperor",
       "gradeLabel": "帝阶",
       "review": "君临一域定山河",
+      "lifespanYears": 2260000,
       "expToNext": 1200000000
     },
     {
@@ -1120,6 +1206,7 @@
       "grade": "emperor",
       "gradeLabel": "帝阶",
       "review": "帝威横世，万族低首",
+      "lifespanYears": 2360000,
       "expToNext": 1450000000
     },
     {
@@ -1132,6 +1219,7 @@
       "grade": "emperor",
       "gradeLabel": "帝阶",
       "review": "古意临今压诸天",
+      "lifespanYears": 2580000,
       "expToNext": 1740000000
     },
     {
@@ -1144,6 +1232,7 @@
       "grade": "emperor",
       "gradeLabel": "帝阶",
       "review": "高坐九霄，俯瞰万界",
+      "lifespanYears": 2860000,
       "expToNext": 2090000000
     },
     {
@@ -1156,6 +1245,7 @@
       "grade": "emperor",
       "gradeLabel": "帝阶",
       "review": "尊在诸帝上",
+      "lifespanYears": 3300000,
       "expToNext": 2500000000
     },
     {
@@ -1168,6 +1258,7 @@
       "grade": "emperor",
       "gradeLabel": "帝阶",
       "review": "身横岁月贯古今",
+      "lifespanYears": 5000000,
       "expToNext": 3000000000
     },
     {
@@ -1180,6 +1271,7 @@
       "grade": "emperor",
       "gradeLabel": "帝阶",
       "review": "太上忘形，道意独尊",
+      "lifespanYears": 5140000,
       "expToNext": 3600000000
     },
     {
@@ -1192,6 +1284,7 @@
       "grade": "emperor",
       "gradeLabel": "帝阶",
       "review": "举世无并照寰宇",
+      "lifespanYears": 5400000,
       "expToNext": 4300000000
     },
     {
@@ -1204,6 +1297,7 @@
       "grade": "emperor",
       "gradeLabel": "帝阶",
       "review": "万古唯一",
+      "lifespanYears": 5900000,
       "expToNext": 5200000000
     },
     {
@@ -1216,6 +1310,7 @@
       "grade": "emperor",
       "gradeLabel": "帝阶",
       "review": "诸天俯首，万界同尊",
+      "lifespanYears": 6560000,
       "expToNext": 6200000000
     },
     {
@@ -1228,6 +1323,7 @@
       "grade": "emperor",
       "gradeLabel": "帝阶",
       "review": "立尽长天只问道",
+      "lifespanYears": 7600000,
       "expToNext": 0
     }
   ]

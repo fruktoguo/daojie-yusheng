@@ -30,6 +30,7 @@ export interface IRenderer {
   clear(): void;
   resetScene(): void;
   setThreatArrows(arrows: Array<{ ownerId: string; targetId: string }>): void;
+  setPathHighlight(cells: GridPoint[], fadeDurationMs?: number): void;
   setTargetingOverlay(state: TargetingOverlayState | null): void;
   setSenseQiOverlay(state: SenseQiOverlayState | null): void;
   renderWorld(

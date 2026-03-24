@@ -64,10 +64,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { resolveServerDataPath } from '../common/data-path';
 import { ContentService } from './content.service';
+import { PathfindingActorType, PathfindingStaticGrid } from './pathfinding/pathfinding.types';
 import { resolveRealmStageTargetLabel } from './quest-display';
 import {
   DEFAULT_TERRAIN_DURABILITY_BY_TILE,
   LEGACY_MAP_TERRAIN_PROFILE_IDS,
+  SPECIAL_TILE_DURABILITY_MULTIPLIERS,
   TERRAIN_DURABILITY_PROFILES,
   TerrainDurabilityProfile,
 } from '../constants/world/terrain';
@@ -289,6 +291,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   private monsters: Map<string, MonsterSpawnConfig> = new Map();
   private revisions: Map<string, number> = new Map();
   private tilePatchRevisions: Map<string, number> = new Map();
+  private pathfindingStaticGrids: Map<string, PathfindingStaticGrid> = new Map();
   private dirtyTileKeysByMap: Map<string, Set<string>> = new Map();
   private occupantsByMap: Map<string, Map<string, Map<string, OccupantKind>>> = new Map();
   private playerOverlapPointsByMap: Map<string, Set<string>> = new Map();
@@ -1927,6 +1930,94 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     return this.revisions.get(mapId) ?? 0;
   }
 
+  getPathfindingStaticGrid(mapId: string): PathfindingStaticGrid | null {
+    const map = this.maps.get(mapId);
+    if (!map) {
+      return null;
+    }
+
+    const revision = this.getMapRevision(mapId);
+    const cached = this.pathfindingStaticGrids.get(mapId);
+    if (cached && cached.mapRevision === revision) {
+      return cached;
+    }
+
+    const total = map.meta.width * map.meta.height;
+    const walkable = new Uint8Array(total);
+    const traversalCost = new Uint16Array(total);
+    for (let y = 0; y < map.meta.height; y += 1) {
+      for (let x = 0; x < map.meta.width; x += 1) {
+        const index = y * map.meta.width + x;
+        const tile = map.tiles[y]?.[x];
+        if (!tile || !tile.walkable) {
+          walkable[index] = 0;
+          traversalCost[index] = 0;
+          continue;
+        }
+        walkable[index] = 1;
+        traversalCost[index] = getTileTraversalCost(tile.type);
+      }
+    }
+
+    const snapshot: PathfindingStaticGrid = {
+      mapId,
+      mapRevision: revision,
+      width: map.meta.width,
+      height: map.meta.height,
+      walkable,
+      traversalCost,
+    };
+    this.pathfindingStaticGrids.set(mapId, snapshot);
+    return snapshot;
+  }
+
+  buildPathfindingBlockedGrid(
+    mapId: string,
+    actorType: PathfindingActorType,
+    selfOccupancyId?: string | null,
+  ): Uint8Array | null {
+    const grid = this.getPathfindingStaticGrid(mapId);
+    const map = this.maps.get(mapId);
+    if (!grid || !map) {
+      return null;
+    }
+
+    const blocked = new Uint8Array(grid.width * grid.height);
+    for (const npc of map.npcs) {
+      if (npc.x < 0 || npc.x >= grid.width || npc.y < 0 || npc.y >= grid.height) {
+        continue;
+      }
+      blocked[npc.y * grid.width + npc.x] = 1;
+    }
+
+    const occupants = this.occupantsByMap.get(mapId);
+    if (!occupants) {
+      return blocked;
+    }
+
+    for (const [key, entries] of occupants.entries()) {
+      const [rawX, rawY] = key.split(',');
+      const x = Number(rawX);
+      const y = Number(rawY);
+      if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || x >= grid.width || y < 0 || y >= grid.height) {
+        continue;
+      }
+      const blockers = [...entries.entries()].filter(([id]) => id !== selfOccupancyId);
+      if (blockers.length === 0) {
+        continue;
+      }
+      if (actorType !== 'player' || !this.supportsPlayerOverlap(mapId, x, y)) {
+        blocked[y * grid.width + x] = 1;
+        continue;
+      }
+      if (blockers.some(([, kind]) => kind !== 'player')) {
+        blocked[y * grid.width + x] = 1;
+      }
+    }
+
+    return blocked;
+  }
+
   getVisibilityRevision(mapId: string): string {
     const meta = this.getMapMeta(mapId);
     const current = this.getMapRevision(mapId);
@@ -2334,7 +2425,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     this.markTileDirty(mapId, x, y);
   }
 
-  damageTile(mapId: string, x: number, y: number, damage: number): { destroyed: boolean; hp: number; maxHp: number } | null {
+  damageTile(mapId: string, x: number, y: number, damage: number): { destroyed: boolean; hp: number; maxHp: number; appliedDamage: number } | null {
     const tile = this.getTile(mapId, x, y);
     const originalType = this.getBaseTileType(mapId, x, y);
     if (!tile || originalType === null) return null;
@@ -2354,7 +2445,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     const nextDamage = Math.max(0, Math.round(damage));
     if (nextDamage <= 0) {
       const hp = current?.hp ?? tile.hp ?? maxHp;
-      return { destroyed: false, hp, maxHp };
+      return { destroyed: false, hp, maxHp, appliedDamage: 0 };
     }
 
     const state: DynamicTileState = current ?? {
@@ -2368,7 +2459,9 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
     state.originalType = originalType;
     state.maxHp = maxHp;
-    state.hp = Math.max(0, state.hp - nextDamage);
+    const currentHp = state.hp;
+    const appliedDamage = Math.min(currentHp, nextDamage);
+    state.hp = Math.max(0, currentHp - appliedDamage);
     state.destroyed = state.hp <= 0;
     state.restoreTicksLeft = state.destroyed ? TERRAIN_DESTROYED_RESTORE_TICKS : undefined;
     this.applyDynamicTileStateToTile(tile, state);
@@ -2380,10 +2473,10 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
     if (state.destroyed) {
       this.bumpMapRevision(mapId);
-      return { destroyed: true, hp: 0, maxHp };
+      return { destroyed: true, hp: 0, maxHp, appliedDamage };
     }
 
-    return { destroyed: false, hp: state.hp, maxHp: state.maxHp };
+    return { destroyed: false, hp: state.hp, maxHp: state.maxHp, appliedDamage };
   }
 
   findNearbyWalkable(
@@ -2667,7 +2760,9 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     if (!profile) {
       return 0;
     }
-    return calculateTerrainDurability(profile.grade, profile.material);
+    const baseDurability = calculateTerrainDurability(profile.grade, profile.material);
+    const multiplier = SPECIAL_TILE_DURABILITY_MULTIPLIERS[type] ?? 1;
+    return Math.max(1, Math.round(baseDurability * multiplier));
   }
 
   private resolveTerrainProfileId(mapId: string): string {

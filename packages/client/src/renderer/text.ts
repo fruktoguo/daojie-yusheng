@@ -261,6 +261,18 @@ interface FloatingTextBurstOffset {
   offsetY: number;
 }
 
+interface FadingPathState {
+  cells: { x: number; y: number }[];
+  keys: Set<string>;
+  indexByKey: Map<string, number>;
+  targetKey: string | null;
+  startedAt: number;
+  durationMs: number;
+}
+
+const DEFAULT_PATH_TRAIL_FADE_MS = 500;
+const PATH_TRAIL_FADE_ALPHA = 0.7;
+
 /** 文字渲染器，用汉字字符绘制地图地块、实体角色和战斗特效 */
 export class TextRenderer implements IRenderer {
   private ctx: CanvasRenderingContext2D | null = null;
@@ -272,6 +284,7 @@ export class TextRenderer implements IRenderer {
   private pathKeys = new Set<string>();
   private pathIndexByKey = new Map<string, number>();
   private pathTargetKey: string | null = null;
+  private fadingPath: FadingPathState | null = null;
   private targetingOverlay: TargetingOverlayState | null = null;
   private senseQiOverlay: SenseQiOverlayState | null = null;
   private targetingAffectedKeys = new Set<string>();
@@ -314,10 +327,21 @@ export class TextRenderer implements IRenderer {
     this.hiddenTileFadeStartedAt.clear();
     this.visibleTileFadeStartedAt.clear();
     this.timeAtmosphere.initialized = false;
+    this.fadingPath = null;
   }
 
   /** 设置寻路路径高亮格子列表 */
-  setPathHighlight(cells: { x: number; y: number }[]) {
+  setPathHighlight(cells: { x: number; y: number }[], fadeDurationMs = DEFAULT_PATH_TRAIL_FADE_MS) {
+    if (this.pathCells.length > 0 && !this.arePathCellsEqual(this.pathCells, cells)) {
+      this.fadingPath = {
+        cells: this.pathCells.map((cell) => ({ x: cell.x, y: cell.y })),
+        keys: new Set(this.pathKeys),
+        indexByKey: new Map(this.pathIndexByKey),
+        targetKey: this.pathTargetKey,
+        startedAt: performance.now(),
+        durationMs: Math.max(1, Math.round(fadeDurationMs)),
+      };
+    }
     this.pathCells = cells;
     this.pathKeys = new Set(cells.map((cell) => `${cell.x},${cell.y}`));
     this.pathIndexByKey = new Map(cells.map((cell, index) => [`${cell.x},${cell.y}`, index]));
@@ -359,6 +383,7 @@ export class TextRenderer implements IRenderer {
     const cellSize = getCellSize();
     const now = performance.now();
     const senseQiLevelBaseValue = normalizeAuraLevelBaseValue(this.senseQiOverlay?.levelBaseValue);
+    const fadingPathAlpha = this.getFadingPathAlpha(now);
 
     this.syncTileVisibilityTransitions(visibleTiles, tileCache, now);
 
@@ -389,20 +414,18 @@ export class TextRenderer implements IRenderer {
           ctx.fillStyle = TILE_VISUAL_BG_COLORS[tile.type] ?? '#333';
           ctx.fillRect(sx, sy, cellSize, cellSize);
 
+          if (
+            this.fadingPath
+            && fadingPathAlpha > 0
+            && !this.pathKeys.has(key)
+            && this.fadingPath.keys.has(key)
+          ) {
+            this.drawPathCellHighlight(ctx, sx, sy, cellSize, key === this.fadingPath.targetKey, fadingPathAlpha * PATH_TRAIL_FADE_ALPHA);
+          }
+
           // 路径高亮
           if (this.pathKeys.has(key)) {
-            const isTargetCell = key === this.pathTargetKey;
-            ctx.fillStyle = isTargetCell ? PATH_TARGET_FILL_COLOR : PATH_FILL_COLOR;
-            ctx.fillRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
-            ctx.strokeStyle = isTargetCell ? PATH_TARGET_STROKE_COLOR : PATH_STROKE_COLOR;
-            ctx.lineWidth = isTargetCell ? 2 : 1.5;
-            ctx.strokeRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3);
-            if (isTargetCell) {
-              ctx.fillStyle = PATH_TARGET_CORE_COLOR;
-              ctx.beginPath();
-              ctx.arc(sx + cellSize / 2, sy + cellSize / 2, Math.max(3, cellSize * 0.12), 0, Math.PI * 2);
-              ctx.fill();
-            }
+            this.drawPathCellHighlight(ctx, sx, sy, cellSize, key === this.pathTargetKey, 1);
           }
 
           ctx.strokeStyle = 'rgba(0,0,0,0.1)';
@@ -1112,6 +1135,7 @@ export class TextRenderer implements IRenderer {
     this.pathKeys.clear();
     this.pathIndexByKey.clear();
     this.pathTargetKey = null;
+    this.fadingPath = null;
     this.floatingTexts = [];
     this.attackTrails = [];
     this.lastMotionSyncToken = undefined;
@@ -1138,14 +1162,72 @@ export class TextRenderer implements IRenderer {
     displayRangeX: number,
     displayRangeY: number,
   ) {
-    if (!this.ctx || this.pathCells.length === 0) return;
+    if (!this.ctx) return;
     const ctx = this.ctx;
     const sw = ctx.canvas.width;
     const sh = ctx.canvas.height;
-    const cellSize = getCellSize();
-    const route = [{ x: playerX, y: playerY }, ...this.pathCells];
+    const fadingPathAlpha = this.getFadingPathAlpha(performance.now());
 
+    if (this.fadingPath && fadingPathAlpha > 0) {
+      this.renderPathArrowLayer(
+        ctx,
+        camera,
+        sw,
+        sh,
+        visibleTiles,
+        playerX,
+        playerY,
+        displayRangeX,
+        displayRangeY,
+        this.fadingPath.cells,
+        this.fadingPath.indexByKey,
+        this.fadingPath.targetKey,
+        fadingPathAlpha * PATH_TRAIL_FADE_ALPHA,
+      );
+    }
+
+    if (this.pathCells.length > 0) {
+      this.renderPathArrowLayer(
+        ctx,
+        camera,
+        sw,
+        sh,
+        visibleTiles,
+        playerX,
+        playerY,
+        displayRangeX,
+        displayRangeY,
+        this.pathCells,
+        this.pathIndexByKey,
+        this.pathTargetKey,
+        1,
+      );
+    }
+  }
+
+  private renderPathArrowLayer(
+    ctx: CanvasRenderingContext2D,
+    camera: Camera,
+    sw: number,
+    sh: number,
+    visibleTiles: Set<string>,
+    playerX: number,
+    playerY: number,
+    displayRangeX: number,
+    displayRangeY: number,
+    cells: { x: number; y: number }[],
+    indexByKey: Map<string, number>,
+    targetKey: string | null,
+    alpha: number,
+  ) {
+    if (cells.length === 0 || alpha <= 0.001) {
+      return;
+    }
+
+    const cellSize = getCellSize();
+    const route = [{ x: playerX, y: playerY }, ...cells];
     ctx.save();
+    ctx.globalAlpha *= alpha;
     ctx.lineCap = 'butt';
     ctx.lineJoin = 'round';
 
@@ -1153,7 +1235,7 @@ export class TextRenderer implements IRenderer {
       const from = route[index];
       const to = route[index + 1];
       const toKey = `${to.x},${to.y}`;
-      if (!this.pathIndexByKey.has(toKey)) {
+      if (!indexByKey.has(toKey)) {
         continue;
       }
       if (
@@ -1180,7 +1262,7 @@ export class TextRenderer implements IRenderer {
       const startY = fromPos.sy + uy * startPadding;
       const tipX = toPos.sx - ux * endPadding;
       const tipY = toPos.sy - uy * endPadding;
-      const isFinalSegment = toKey === this.pathTargetKey;
+      const isFinalSegment = toKey === targetKey;
       const arrowColor = isFinalSegment ? PATH_TARGET_STROKE_COLOR : PATH_ARROW_COLOR;
       const headLength = Math.max(8, cellSize * 0.2);
       const headWidth = Math.max(5, cellSize * 0.12);
@@ -1215,6 +1297,54 @@ export class TextRenderer implements IRenderer {
     }
 
     ctx.restore();
+  }
+
+  private drawPathCellHighlight(
+    ctx: CanvasRenderingContext2D,
+    sx: number,
+    sy: number,
+    cellSize: number,
+    isTargetCell: boolean,
+    alpha: number,
+  ) {
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.fillStyle = isTargetCell ? PATH_TARGET_FILL_COLOR : PATH_FILL_COLOR;
+    ctx.fillRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
+    ctx.strokeStyle = isTargetCell ? PATH_TARGET_STROKE_COLOR : PATH_STROKE_COLOR;
+    ctx.lineWidth = isTargetCell ? 2 : 1.5;
+    ctx.strokeRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3);
+    if (isTargetCell) {
+      ctx.fillStyle = PATH_TARGET_CORE_COLOR;
+      ctx.beginPath();
+      ctx.arc(sx + cellSize / 2, sy + cellSize / 2, Math.max(3, cellSize * 0.12), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  private getFadingPathAlpha(now: number): number {
+    if (!this.fadingPath) {
+      return 0;
+    }
+    const progress = (now - this.fadingPath.startedAt) / this.fadingPath.durationMs;
+    if (progress >= 1) {
+      this.fadingPath = null;
+      return 0;
+    }
+    return Math.max(0, 1 - progress);
+  }
+
+  private arePathCellsEqual(a: { x: number; y: number }[], b: { x: number; y: number }[]): boolean {
+    if (a.length !== b.length) {
+      return false;
+    }
+    for (let index = 0; index < a.length; index++) {
+      if (a[index].x !== b[index].x || a[index].y !== b[index].y) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private isPathCellRenderable(

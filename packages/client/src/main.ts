@@ -32,6 +32,7 @@ import { describePreviewBonuses } from './ui/stat-preview';
 import { MAX_ZOOM, MIN_ZOOM, getDisplayRangeX, getDisplayRangeY, getZoom, setZoom } from './display';
 import { getAccessToken } from './ui/auth-api';
 import { formatDisplayCountBadge, formatDisplayCurrentMax, formatDisplayInteger } from './utils/number';
+import { findPath } from './pathfinding';
 import {
   ActionDef,
   computeAffectedCellsFromAnchor,
@@ -67,6 +68,7 @@ import {
   VisibleBuffState,
   VIEW_RADIUS,
   TechniqueRealm,
+  directionToDelta,
   getTileTraversalCost,
 } from '@mud/shared';
 
@@ -1709,9 +1711,58 @@ function sendMoveCommand(dir: Direction) {
 function planPathTo(target: { x: number; y: number }, options?: { ignoreVisibilityLimit?: boolean; allowNearestReachable?: boolean }) {
   if (!myPlayer) return;
   pathTarget = target;
-  pathCells = [{ x: target.x, y: target.y }];
+  pathCells = buildClientPreviewPath(myPlayer.x, myPlayer.y, target.x, target.y) ?? [{ x: target.x, y: target.y }];
   mapRuntime.setPathCells(pathCells);
   socket.sendMoveTo(target.x, target.y, options);
+}
+
+function buildClientPreviewPath(
+  startX: number,
+  startY: number,
+  targetX: number,
+  targetY: number,
+): { x: number; y: number }[] | null {
+  const mapMeta = mapRuntime.getMapMeta();
+  if (!mapMeta) {
+    return null;
+  }
+
+  if (
+    startX < 0 || startY < 0 || targetX < 0 || targetY < 0
+    || startX >= mapMeta.width || targetX >= mapMeta.width
+    || startY >= mapMeta.height || targetY >= mapMeta.height
+  ) {
+    return null;
+  }
+
+  const tiles: Tile[][] = [];
+  for (let y = 0; y < mapMeta.height; y++) {
+    const row: Tile[] = [];
+    for (let x = 0; x < mapMeta.width; x++) {
+      const tile = getKnownTileAt(x, y);
+      row.push(tile ?? ({
+        type: TileType.Wall,
+        walkable: false,
+      } as Tile));
+    }
+    tiles.push(row);
+  }
+
+  const previewDirections = findPath(tiles, startX, startY, targetX, targetY);
+  if (!previewDirections) {
+    return null;
+  }
+
+  const previewCells: { x: number; y: number }[] = [];
+  let currentX = startX;
+  let currentY = startY;
+  for (const direction of previewDirections) {
+    const [dx, dy] = directionToDelta(direction);
+    currentX += dx;
+    currentY += dy;
+    previewCells.push({ x: currentX, y: currentY });
+  }
+  return previewCells;
 }
 
 function resetGameState() {
@@ -2077,10 +2128,6 @@ socket.onTick((data: S2C_Tick) => {
     const shiftX = myPlayer.x - oldX;
     const shiftY = myPlayer.y - oldY;
     mapRuntime.replaceVisibleEntities(entities, { movedId: myPlayer.id, shiftX, shiftY });
-
-    while (pathCells.length > 0 && pathCells[0].x === myPlayer.x && pathCells[0].y === myPlayer.y) {
-      pathCells.shift();
-    }
   } else {
     mapRuntime.replaceVisibleEntities(entities, mapChanged ? { snapCamera: true } : null);
   }

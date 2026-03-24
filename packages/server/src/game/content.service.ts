@@ -174,6 +174,7 @@ export interface RealmLevelEntry {
   grade: TechniqueGrade;
   gradeLabel: string;
   review: string;
+  lifespanYears: number;
   expToNext?: number;
 }
 
@@ -751,6 +752,7 @@ export class ContentService implements OnModuleInit {
     const expMultiplier = Number.isFinite(raw.expMultiplier) ? Math.max(0, Math.floor(raw.expMultiplier ?? 1)) : 1;
     const levels = (raw.levels ?? []).map((entry) => ({
       ...entry,
+      lifespanYears: Number.isFinite(entry.lifespanYears) ? Math.max(1, Math.floor(entry.lifespanYears)) : 0,
       expToNext: entry.expToNext === undefined
         ? undefined
         : Math.max(0, Math.floor(entry.expToNext)) * expMultiplier,
@@ -1070,6 +1072,7 @@ export class ContentService implements OnModuleInit {
         grade: 'mortal',
         gradeLabel: '凡阶',
         review: '',
+        lifespanYears: 0,
       };
   }
 
