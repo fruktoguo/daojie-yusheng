@@ -31,6 +31,7 @@ export const C2S = {
   Equip: 'c:equip',
   Unequip: 'c:unequip',
   Cultivate: 'c:cultivate',
+  RequestSuggestions: 'c:requestSuggestions',
   CreateSuggestion: 'c:createSuggestion',
   VoteSuggestion: 'c:voteSuggestion',
   GmMarkSuggestionCompleted: 'c:gmMarkSuggestionCompleted',
@@ -459,6 +460,9 @@ export interface S2C_SystemMsg {
 // ===== 建议系统 Payload =====
 
 /** 建议系统 Payload */
+
+/** 主动请求最新建议列表 */
+export interface C2S_RequestSuggestions {}
 
 /** 创建建议 */
 export interface C2S_CreateSuggestion {

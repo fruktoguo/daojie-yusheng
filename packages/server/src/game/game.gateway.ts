@@ -27,6 +27,7 @@ import {
   C2S_Equip,
   C2S_Unequip,
   C2S_Cultivate,
+  C2S_RequestSuggestions,
   C2S_DebugResetSpawn,
   C2S_Action,
   C2S_UpdateAutoBattleSkills,
@@ -451,6 +452,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       auraLevelBaseValue: this.tickService.getAuraLevelBaseValue(),
     };
     client.emit(S2C.Init, initData);
+    client.emit(S2C.SuggestionUpdate, { suggestions: this.suggestionService.getAll() });
+  }
+
+  @SubscribeMessage(C2S.RequestSuggestions)
+  async handleRequestSuggestions(client: Socket, _data: C2S_RequestSuggestions) {
     client.emit(S2C.SuggestionUpdate, { suggestions: this.suggestionService.getAll() });
   }
 

@@ -1,5 +1,7 @@
 import { Suggestion, C2S, C2S_CreateSuggestion, C2S_VoteSuggestion } from '@mud/shared';
+import type { SocketManager } from '../network/socket';
 import { detailModalHost } from './detail-modal-host';
+import { SUGGESTION_PANEL_REFRESH_INTERVAL_MS } from '../constants/ui/suggestion';
 
 /** 意见收集面板 */
 export class SuggestionPanel {
@@ -8,8 +10,10 @@ export class SuggestionPanel {
   private playerId: string = '';
   private draftTitle = '';
   private draftDescription = '';
+  private lastSuggestionSyncAt = 0;
+  private lastRefreshRequestAt = 0;
 
-  constructor(private socket: any) {
+  constructor(private readonly socket: SocketManager) {
     this.setupGlobalListeners();
   }
 
@@ -19,6 +23,7 @@ export class SuggestionPanel {
 
   updateSuggestions(suggestions: Suggestion[]) {
     this.suggestions = suggestions;
+    this.lastSuggestionSyncAt = Date.now();
     this.render();
   }
 
@@ -29,6 +34,7 @@ export class SuggestionPanel {
   }
 
   open(): void {
+    this.requestSuggestionsIfNeeded();
     detailModalHost.open({
       ownerId: SuggestionPanel.MODAL_OWNER,
       title: '意见收集',
@@ -38,6 +44,24 @@ export class SuggestionPanel {
       bodyHtml: this.buildBodyHtml(),
       onAfterRender: (el: HTMLElement) => this.bindEvents(el),
     });
+  }
+
+  private requestSuggestionsIfNeeded(): void {
+    if (!this.socket.connected) {
+      return;
+    }
+
+    const now = Date.now();
+    if (now - this.lastRefreshRequestAt < SUGGESTION_PANEL_REFRESH_INTERVAL_MS) {
+      return;
+    }
+
+    if (this.suggestions.length > 0 && now - this.lastSuggestionSyncAt < SUGGESTION_PANEL_REFRESH_INTERVAL_MS) {
+      return;
+    }
+
+    this.lastRefreshRequestAt = now;
+    this.socket.sendRequestSuggestions();
   }
 
   private buildBodyHtml(): string {

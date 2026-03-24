@@ -9,6 +9,7 @@ import {
   C2S_Heartbeat,
   C2S_InspectTileRuntime,
   C2S_Ping,
+  C2S_RequestSuggestions,
   S2C_Tick, S2C_Init, S2C_AttrUpdate, S2C_InventoryUpdate,
   S2C_EquipmentUpdate, S2C_TechniqueUpdate, S2C_ActionsUpdate, S2C_LootWindowUpdate, S2C_QuestUpdate, S2C_SystemMsg, S2C_GmState,
   S2C_SuggestionUpdate,
@@ -221,6 +222,10 @@ export class SocketManager {
 
   sendCultivate(techId: string | null) {
     this.emitServer(C2S.Cultivate, { techId } satisfies C2S_Cultivate);
+  }
+
+  sendRequestSuggestions() {
+    this.emitServer(C2S.RequestSuggestions, {} satisfies C2S_RequestSuggestions);
   }
 
   sendAction(actionId: string, target?: string) {
