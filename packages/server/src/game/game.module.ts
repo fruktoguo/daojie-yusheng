@@ -31,12 +31,13 @@ import { TimeService } from './time.service';
 import { SuggestionService } from './suggestion.service';
 import { ThreatService } from './threat.service';
 import { PlayerEntity } from '../database/entities/player.entity';
+import { SuggestionEntity } from '../database/entities/suggestion.entity';
 import { UserEntity } from '../database/entities/user.entity';
 
 @Module({
   imports: [
     AuthModule,
-    TypeOrmModule.forFeature([PlayerEntity, UserEntity]),
+    TypeOrmModule.forFeature([PlayerEntity, UserEntity, SuggestionEntity]),
   ],
   controllers: [GmController, AccountController],
   providers: [
