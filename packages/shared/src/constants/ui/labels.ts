@@ -85,6 +85,7 @@ export const NUMERIC_SCALAR_STAT_LABELS: Record<NumericScalarStatKey, string> = 
   rareLootRate: '稀有掉落',
   viewRange: '视野',
   moveSpeed: '移动速度',
+  extraAggroRate: '额外仇恨值',
 };
 
 /** 实体类型中文标签 */

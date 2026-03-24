@@ -29,6 +29,7 @@ import { PerformanceService } from './performance.service';
 import { LootService } from './loot.service';
 import { TimeService } from './time.service';
 import { SuggestionService } from './suggestion.service';
+import { ThreatService } from './threat.service';
 import { PlayerEntity } from '../database/entities/player.entity';
 import { UserEntity } from '../database/entities/user.entity';
 
@@ -59,6 +60,7 @@ import { UserEntity } from '../database/entities/user.entity';
     PerformanceService,
     LootService,
     TimeService,
+    ThreatService,
     WorldService,
     SuggestionService,
   ],

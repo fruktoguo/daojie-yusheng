@@ -55,6 +55,8 @@ export interface NavigationGoalPoint {
   y: number;
 }
 
+type NavigationActorType = 'player' | 'monster';
+
 interface PathMoveAttemptResult {
   moved: boolean;
   blocked: boolean;
@@ -176,7 +178,7 @@ export class NavigationService {
       return '无法到达该位置';
     }
 
-    const path = this.findPath(player.mapId, player.x, player.y, targetX, targetY, player.id);
+    const path = this.findPath(player.mapId, player.x, player.y, targetX, targetY, player.id, 'player');
     if (path === null) {
       this.clearMoveTarget(player.id);
       return '无法到达该位置';
@@ -290,6 +292,7 @@ export class NavigationService {
     startY: number,
     goals: NavigationGoalPoint[],
     selfOccupancyId: string,
+    actorType: NavigationActorType = 'player',
   ): NavigationGoalPoint | null {
     let bestPath: PathStep[] | null = null;
     let bestCost = Number.POSITIVE_INFINITY;
@@ -304,7 +307,7 @@ export class NavigationService {
         return { x: startX, y: startY };
       }
 
-      const path = this.findPath(mapId, startX, startY, goal.x, goal.y, selfOccupancyId);
+      const path = this.findPath(mapId, startX, startY, goal.x, goal.y, selfOccupancyId, actorType);
       if (!path || path.length === 0) {
         continue;
       }
@@ -337,7 +340,7 @@ export class NavigationService {
   }
 
   private rebuildPath(player: PlayerState, state: MoveTargetState): boolean {
-    const path = this.findPath(player.mapId, player.x, player.y, state.targetX, state.targetY, player.id);
+    const path = this.findPath(player.mapId, player.x, player.y, state.targetX, state.targetY, player.id, 'player');
     if (path === null) return false;
     state.path = path;
     return true;
@@ -419,6 +422,7 @@ export class NavigationService {
     targetX: number,
     targetY: number,
     selfOccupancyId: string,
+    actorType: NavigationActorType,
   ): PathStep[] | null {
     const meta = this.mapService.getMapMeta(mapId);
     if (!meta) return null;
@@ -461,7 +465,7 @@ export class NavigationService {
         const nextIndex = this.toIndex(nx, ny, width);
         if (closed[nextIndex]) continue;
 
-        const stepCost = this.mapService.getTraversalCost(mapId, nx, ny) + this.occupancyPenalty(mapId, nx, ny, selfOccupancyId);
+        const stepCost = this.mapService.getTraversalCost(mapId, nx, ny) + this.occupancyPenalty(mapId, nx, ny, selfOccupancyId, actorType);
         if (!Number.isFinite(stepCost)) continue;
         const nextScore = gScore[current.index] + stepCost;
         if (nextScore >= gScore[nextIndex]) continue;
@@ -487,8 +491,9 @@ export class NavigationService {
     x: number,
     y: number,
     selfOccupancyId: string,
+    actorType: NavigationActorType,
   ): number {
-    if (this.mapService.canOccupy(mapId, x, y, { occupancyId: selfOccupancyId, actorType: 'player' })) return 0;
+    if (this.mapService.canOccupy(mapId, x, y, { occupancyId: selfOccupancyId, actorType })) return 0;
     return Number.POSITIVE_INFINITY;
   }
 

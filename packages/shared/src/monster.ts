@@ -29,6 +29,7 @@ const MONSTER_LINEAR_NUMERIC_KEYS = [
   'qiRegenRate',
   'hpRegenRate',
   'cooldownSpeed',
+  'extraAggroRate',
 ] as const satisfies readonly NumericScalarStatKey[];
 
 export interface LegacyMonsterNumericProfile {

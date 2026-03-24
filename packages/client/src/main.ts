@@ -959,6 +959,9 @@ function buildAttrStateFromPlayer(player: PlayerState): S2C_AttrUpdate {
     maxHp: player.maxHp,
     qi: player.qi,
     realm: player.realm ? cloneJson(player.realm) : null,
+    boneAgeBaseYears: player.boneAgeBaseYears,
+    lifeElapsedTicks: player.lifeElapsedTicks,
+    lifespanYears: player.lifespanYears ?? null,
   };
 }
 
@@ -986,6 +989,11 @@ function mergeAttrUpdatePatch(previous: S2C_AttrUpdate | null, patch: S2C_AttrUp
     maxHp: patch.maxHp ?? previous?.maxHp ?? myPlayer?.maxHp ?? 0,
     qi: patch.qi ?? previous?.qi ?? myPlayer?.qi ?? 0,
     realm: patch.realm === null ? null : patch.realm ? cloneJson(patch.realm) : (previous?.realm ? cloneJson(previous.realm) : null),
+    boneAgeBaseYears: patch.boneAgeBaseYears ?? previous?.boneAgeBaseYears ?? myPlayer?.boneAgeBaseYears ?? undefined,
+    lifeElapsedTicks: patch.lifeElapsedTicks ?? previous?.lifeElapsedTicks ?? myPlayer?.lifeElapsedTicks ?? undefined,
+    lifespanYears: patch.lifespanYears === null
+      ? null
+      : patch.lifespanYears ?? previous?.lifespanYears ?? myPlayer?.lifespanYears ?? null,
   };
 }
 
@@ -1337,6 +1345,11 @@ socket.onInventoryUpdate((data) => {
 });
 socket.onEquipmentUpdate((data) => {
   if (myPlayer) myPlayer.equipment = data.equipment;
+    myPlayer.boneAgeBaseYears = latestAttrUpdate.boneAgeBaseYears ?? myPlayer.boneAgeBaseYears;
+    myPlayer.lifeElapsedTicks = latestAttrUpdate.lifeElapsedTicks ?? myPlayer.lifeElapsedTicks;
+    myPlayer.lifespanYears = latestAttrUpdate.lifespanYears === undefined
+      ? myPlayer.lifespanYears
+      : latestAttrUpdate.lifespanYears;
   equipmentPanel.update(data.equipment);
 });
 socket.onTechniqueUpdate((data) => {

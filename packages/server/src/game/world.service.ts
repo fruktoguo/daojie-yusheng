@@ -15,6 +15,7 @@ import {
   DEFAULT_RATIO_DIVISOR,
   Direction,
   ElementKey,
+  gameplayConstants,
   GameTimeState,
   getDamageTrailColor,
   gridDistance,
@@ -54,6 +55,7 @@ import { PerformanceService } from './performance.service';
 import { PlayerService } from './player.service';
 import { isLikelyInternalContentId, resolveQuestTargetName } from './quest-display';
 import { TechniqueService } from './technique.service';
+import { ThreatService } from './threat.service';
 import { TimeService } from './time.service';
 import {
   DEFAULT_MONSTER_RATIO_DIVISORS,
@@ -76,6 +78,7 @@ interface RuntimeMonster extends MonsterSpawnConfig {
   respawnLeft: number;
   temporaryBuffs: TemporaryBuffState[];
   damageContributors: Map<string, number>;
+  facing?: Direction;
   targetPlayerId?: string;
 }
 
@@ -187,6 +190,7 @@ export class WorldService {
     private readonly equipmentEffectService: EquipmentEffectService,
     private readonly timeService: TimeService,
     private readonly performanceService: PerformanceService,
+    private readonly threatService: ThreatService,
   ) {}
 
   /** 获取玩家视野内的可见实体（容器、NPC、怪物） */
@@ -288,6 +292,7 @@ export class WorldService {
       if (this.mapService.hasOccupant(mapId, monster.x, monster.y, monster.runtimeId)) {
         this.mapService.removeOccupant(mapId, monster.x, monster.y, monster.runtimeId);
       }
+      this.threatService.clearThreat(monster.runtimeId);
     }
     this.monstersByMap.delete(mapId);
     this.effectsByMap.delete(mapId);
@@ -621,37 +626,8 @@ export class WorldService {
   performAutoBattle(player: PlayerState): WorldUpdate {
     if (!player.autoBattle || player.dead) return EMPTY_UPDATE;
 
-    let target = this.resolveCombatTarget(player);
     const dirty = new Set<WorldDirtyFlag>();
     const effectiveViewRange = this.timeService.getEffectiveViewRangeFromBuff(player.viewRange, player.temporaryBuffs);
-
-    if (target && !this.canPlayerSeeTarget(player, target, effectiveViewRange)) {
-      target = undefined;
-      this.clearCombatTarget(player);
-    }
-
-    if (!target) {
-      if (player.combatTargetLocked) {
-        player.autoBattle = false;
-        this.clearCombatTarget(player);
-        return {
-          messages: [{
-            playerId: player.id,
-            text: '强制攻击目标已经失去踪迹，自动战斗已停止。',
-            kind: 'combat',
-          }],
-          dirty: ['actions'],
-        };
-      }
-      const fallback = this.findNearestLivingMonster(player, effectiveViewRange);
-      if (!fallback) {
-        this.clearCombatTarget(player);
-        return EMPTY_UPDATE;
-      }
-      target = { kind: 'monster', x: fallback.x, y: fallback.y, monster: fallback };
-      player.combatTargetId = fallback.runtimeId;
-    }
-
     const skillActionMap = new Map(
       player.actions
         .filter((action) => action.type === 'skill')
@@ -662,6 +638,44 @@ export class WorldService {
       .map((entry) => skillActionMap.get(entry.skillId))
       .find((action): action is ActionDef => action !== undefined && action.cooldownLeft === 0);
     const availableSkillDef = availableSkill ? this.contentService.getSkill(availableSkill.id) : null;
+    const preferredRange = availableSkillDef?.range ?? 1;
+
+    let target: ResolvedTarget | undefined;
+
+    if (player.combatTargetLocked) {
+      target = this.resolveCombatTarget(player);
+      if (target && !this.canPlayerSeeTarget(player, target, effectiveViewRange)) {
+        target = undefined;
+        this.clearCombatTarget(player);
+      }
+      if (player.combatTargetLocked) {
+        if (!target) {
+          player.autoBattle = false;
+          this.clearCombatTarget(player);
+          return {
+            messages: [{
+              playerId: player.id,
+              text: '强制攻击目标已经失去踪迹，自动战斗已停止。',
+              kind: 'combat',
+            }],
+            dirty: ['actions'],
+          };
+        }
+      } else {
+        target = undefined;
+      }
+    }
+
+    if (!target) {
+      target = this.selectPlayerAutoBattleTarget(player, effectiveViewRange, preferredRange);
+      if (!target) {
+        this.clearCombatTarget(player);
+        return EMPTY_UPDATE;
+      }
+      player.combatTargetId = this.getTargetRef(target);
+      player.combatTargetLocked = false;
+    }
+
     const targetRef = this.getTargetRef(target);
 
     if (availableSkillDef && targetRef && isPointInRange(player, target, availableSkillDef.range)) {
@@ -871,6 +885,7 @@ export class WorldService {
     }
 
     player.autoBattle = true;
+    this.addThreatToTarget(this.getPlayerThreatId(player), player, target, gameplayConstants.DEFAULT_AGGRO_THRESHOLD);
     player.combatTargetId = target.monster.runtimeId;
     player.combatTargetLocked = false;
     this.navigationService.clearMoveTarget(player.id);
@@ -894,6 +909,9 @@ export class WorldService {
     }
 
     player.autoBattle = true;
+    if (target.kind !== 'tile') {
+      this.addThreatToTarget(this.getPlayerThreatId(player), player, target, gameplayConstants.DEFAULT_AGGRO_THRESHOLD);
+    }
     player.combatTargetId = this.getTargetRef(target);
     player.combatTargetLocked = true;
     this.navigationService.clearMoveTarget(player.id);
@@ -1288,6 +1306,7 @@ export class WorldService {
     player.qi = Math.round(player.numericStats?.maxQi ?? player.qi);
     player.dead = false;
     player.autoBattle = false;
+    this.threatService.clearThreat(this.getPlayerThreatId(player));
     this.clearCombatTarget(player);
     this.mapService.addOccupant(player.mapId, player.x, player.y, player.id, 'player');
     const equipmentResult = this.equipmentEffectService.dispatch(player, { trigger: 'on_enter_map' });
@@ -1321,6 +1340,7 @@ export class WorldService {
       this.navigationService.clearMoveTarget(player.id);
       this.mapService.removeOccupant(player.mapId, player.x, player.y, player.id);
       player.autoBattle = false;
+      this.threatService.clearThreat(this.getPlayerThreatId(player));
       this.clearCombatTarget(player);
     }
 
@@ -1353,6 +1373,7 @@ export class WorldService {
               monster.alive = true;
               monster.temporaryBuffs = [];
               monster.damageContributors.clear();
+              this.threatService.clearThreat(this.getMonsterThreatId(monster));
               monster.targetPlayerId = undefined;
               this.mapService.addOccupant(mapId, monster.x, monster.y, monster.runtimeId, 'monster');
             } else {
@@ -1403,6 +1424,15 @@ export class WorldService {
           if (cultivation.changed) {
             dirtyPlayers.add(target.id);
           }
+          if (resolved.hit && resolved.damage > 0) {
+            this.threatService.addThreat({
+              ownerId: this.getPlayerThreatId(target),
+              targetId: this.getMonsterThreatId(monster),
+              baseThreat: resolved.damage,
+              targetExtraAggroRate: this.getExtraAggroRate(monster),
+              distance: gridDistance(target, monster),
+            });
+          }
           if (resolved.hit) {
             const hitEquipment = this.equipmentEffectService.dispatch(target, {
               trigger: 'on_hit',
@@ -1418,8 +1448,6 @@ export class WorldService {
           }
           if (target.hp > 0 && target.autoRetaliate !== false && !target.autoBattle) {
             target.autoBattle = true;
-            target.combatTargetId = monster.runtimeId;
-            target.combatTargetLocked = false;
             this.navigationService.clearMoveTarget(target.id);
             dirtyPlayers.add(target.id);
           }
@@ -1460,7 +1488,7 @@ export class WorldService {
         }
       } else {
         this.measureCpuSection('monster_chase', '怪物: 追击移动', () => {
-          this.stepToward(mapId, monster, target.x, target.y, monster.runtimeId);
+          this.stepMonsterTowardAttackPosition(monster, target, 1);
         });
       }
     }
@@ -1755,7 +1783,17 @@ export class WorldService {
       return;
     }
     monster.damageContributors.set(playerId, (monster.damageContributors.get(playerId) ?? 0) + damage);
-    monster.targetPlayerId = playerId;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) {
+      return;
+    }
+    this.threatService.addThreat({
+      ownerId: this.getMonsterThreatId(monster),
+      targetId: this.getPlayerThreatId(player),
+      baseThreat: damage,
+      targetExtraAggroRate: this.getExtraAggroRate(player),
+      distance: gridDistance(monster, player),
+    });
   }
 
   private resolveMonsterExpRecipients(monster: RuntimeMonster, killer: PlayerState): PlayerState[] {
@@ -1887,10 +1925,18 @@ export class WorldService {
       this.buildPlayerUnderAttackMessage(attacker, target, resolved, effectColor),
     ];
 
+    if (resolved.hit && resolved.damage > 0) {
+      this.threatService.addThreat({
+        ownerId: this.getPlayerThreatId(target),
+        targetId: this.getPlayerThreatId(attacker),
+        baseThreat: resolved.damage,
+        targetExtraAggroRate: this.getExtraAggroRate(attacker),
+        distance: gridDistance(target, attacker),
+      });
+    }
+
     if (target.hp > 0 && target.autoRetaliate !== false && !target.autoBattle) {
       target.autoBattle = true;
-      target.combatTargetId = `player:${attacker.id}`;
-      target.combatTargetLocked = false;
       this.navigationService.clearMoveTarget(target.id);
       dirtyPlayers.add(target.id);
     }
@@ -2840,27 +2886,23 @@ export class WorldService {
   }
 
   private resolveMonsterTarget(monster: RuntimeMonster, players: PlayerState[], timeState: GameTimeState): PlayerState | undefined {
-    if (monster.targetPlayerId) {
-      const target = players.find((player) => (
-        player.id === monster.targetPlayerId
-        && !player.dead
-        && player.mapId === monster.mapId
-      ));
-      if (target && this.aoiService.inViewAt(monster.mapId, monster.x, monster.y, timeState.effectiveViewRange, target.x, target.y, monster.runtimeId)) {
-        return target;
+    this.refreshMonsterThreats(monster, players, timeState);
+    const ownerId = this.getMonsterThreatId(monster);
+    const targetId = this.threatService.getHighestAttackableThreatTarget(ownerId, (candidateId) => {
+      const target = this.resolveThreatPlayerForMonster(monster, candidateId);
+      if (!target) {
+        return false;
       }
+      return this.canMonsterAttackTarget(monster, target, timeState);
+    });
+    if (!targetId) {
       monster.targetPlayerId = undefined;
-    }
-
-    if (!this.isMonsterAutoAggroEnabled(monster, timeState)) {
       return undefined;
     }
 
-    const target = this.findNearestPlayer(monster, players, timeState.effectiveViewRange);
-    if (target) {
-      monster.targetPlayerId = target.id;
-    }
-    return target;
+    const target = this.resolveThreatPlayerForMonster(monster, targetId);
+    monster.targetPlayerId = target?.id;
+    return target ?? undefined;
   }
 
   private isMonsterAutoAggroEnabled(monster: RuntimeMonster, timeState: GameTimeState): boolean {
@@ -2893,6 +2935,7 @@ export class WorldService {
     player.qi = Math.round(player.numericStats?.maxQi ?? player.qi);
     player.dead = false;
     player.autoBattle = false;
+    this.threatService.clearThreat(this.getPlayerThreatId(player));
     this.clearCombatTarget(player);
     if (occupy) {
       this.mapService.addOccupant(player.mapId, player.x, player.y, player.id, 'player');
@@ -2933,17 +2976,13 @@ export class WorldService {
     target: ResolvedTarget,
     range: number,
   ): Direction | null {
-    const goals = this.collectAttackApproachGoals(player.mapId, target, Math.max(1, range), player.id);
-    if (goals.length === 0) {
-      return null;
-    }
-
-    const next = this.navigationService.findNextStepTowardClosestGoal(
+    const next = this.findNextAttackApproachStep(
       player.mapId,
-      player.x,
-      player.y,
-      goals,
+      player,
+      target,
+      range,
       player.id,
+      'player',
     );
     if (!next || (next.x === player.x && next.y === player.y)) {
       return null;
@@ -2955,11 +2994,70 @@ export class WorldService {
     return player.facing ?? null;
   }
 
+  private stepMonsterTowardAttackPosition(
+    monster: RuntimeMonster,
+    target: PlayerState,
+    range: number,
+  ): Direction | null {
+    const next = this.findNextAttackApproachStep(
+      monster.mapId,
+      monster,
+      { kind: 'player', x: target.x, y: target.y, player: target },
+      range,
+      monster.runtimeId,
+      'monster',
+    );
+    if (!next || (next.x === monster.x && next.y === monster.y)) {
+      return null;
+    }
+    if (!this.moveActorTo(monster.mapId, monster, next.x, next.y, monster.runtimeId, 'monster')) {
+      return null;
+    }
+    return monster.facing ?? null;
+  }
+
+  private findNextAttackApproachStep(
+    mapId: string,
+    actor: { x: number; y: number },
+    target: ResolvedTarget,
+    range: number,
+    occupancyId: string,
+    actorType: 'player' | 'monster',
+  ): { x: number; y: number } | null {
+    const goals = this.collectAttackApproachGoals(mapId, target, Math.max(1, range), occupancyId, actorType);
+    if (goals.length === 0) {
+      return null;
+    }
+    return this.navigationService.findNextStepTowardClosestGoal(
+      mapId,
+      actor.x,
+      actor.y,
+      goals,
+      occupancyId,
+      actorType,
+    );
+  }
+
+  private canReachAttackPosition(
+    mapId: string,
+    actor: { x: number; y: number },
+    target: ResolvedTarget,
+    range: number,
+    occupancyId: string,
+    actorType: 'player' | 'monster',
+  ): boolean {
+    if (isPointInRange(actor, target, Math.max(1, range))) {
+      return true;
+    }
+    return this.findNextAttackApproachStep(mapId, actor, target, range, occupancyId, actorType) !== null;
+  }
+
   private collectAttackApproachGoals(
     mapId: string,
     target: ResolvedTarget,
     range: number,
     occupancyId: string,
+    actorType: 'player' | 'monster',
   ): Array<{ x: number; y: number }> {
     const goals: Array<{ x: number; y: number }> = [];
     for (let dy = -range; dy <= range; dy++) {
@@ -2969,7 +3067,7 @@ export class WorldService {
         if (!isOffsetInRange(dx, dy, range)) {
           continue;
         }
-        if (!this.mapService.canOccupy(mapId, x, y, { occupancyId, actorType: 'player' })) {
+        if (!this.mapService.canOccupy(mapId, x, y, { occupancyId, actorType })) {
           continue;
         }
         goals.push({ x, y });
@@ -3060,6 +3158,196 @@ export class WorldService {
       }
     }
     return null;
+  }
+
+  private getPlayerThreatId(player: PlayerState): string {
+    return `player:${player.id}`;
+  }
+
+  private getMonsterThreatId(monster: RuntimeMonster): string {
+    return monster.runtimeId;
+  }
+
+  private getExtraAggroRate(target: PlayerState | RuntimeMonster): number {
+    return target.numericStats?.extraAggroRate ?? 0;
+  }
+
+  private getAggroThreshold(_owner: PlayerState | RuntimeMonster): number {
+    return gameplayConstants.DEFAULT_AGGRO_THRESHOLD;
+  }
+
+  private addThreatToTarget(
+    ownerId: string,
+    ownerPosition: { x: number; y: number },
+    target: ResolvedTarget,
+    baseThreat: number,
+  ): void {
+    if (target.kind === 'tile') {
+      return;
+    }
+    const targetId = target.kind === 'monster'
+      ? this.getMonsterThreatId(target.monster)
+      : this.getPlayerThreatId(target.player);
+    const targetEntity = target.kind === 'monster' ? target.monster : target.player;
+    this.threatService.addThreat({
+      ownerId,
+      targetId,
+      baseThreat,
+      targetExtraAggroRate: this.getExtraAggroRate(targetEntity),
+      distance: gridDistance(ownerPosition, target),
+    });
+  }
+
+  private selectPlayerAutoBattleTarget(
+    player: PlayerState,
+    effectiveViewRange: number,
+    preferredRange: number,
+  ): ResolvedTarget | undefined {
+    this.refreshPlayerThreats(player, effectiveViewRange);
+    const ownerId = this.getPlayerThreatId(player);
+    const threshold = this.getAggroThreshold(player);
+    const targetId = this.threatService.getHighestAttackableThreatTarget(ownerId, (candidateId) => {
+      if (this.threatService.getThreat(ownerId, candidateId) < threshold) {
+        return false;
+      }
+      const target = this.resolveThreatTargetForPlayer(player, candidateId);
+      if (!target || target.kind === 'tile') {
+        return false;
+      }
+      return this.canPlayerAttackTarget(player, target, effectiveViewRange, preferredRange);
+    });
+    if (!targetId) {
+      return undefined;
+    }
+    return this.resolveThreatTargetForPlayer(player, targetId) ?? undefined;
+  }
+
+  private refreshPlayerThreats(player: PlayerState, effectiveViewRange: number): void {
+    const ownerId = this.getPlayerThreatId(player);
+    for (const monster of this.monstersByMap.get(player.mapId) ?? []) {
+      if (!monster.alive) continue;
+      if (!this.canPlayerSeeTarget(player, { kind: 'monster', x: monster.x, y: monster.y, monster }, effectiveViewRange)) {
+        continue;
+      }
+      this.threatService.addThreat({
+        ownerId,
+        targetId: this.getMonsterThreatId(monster),
+        baseThreat: gameplayConstants.DEFAULT_PASSIVE_THREAT_PER_TICK,
+        targetExtraAggroRate: this.getExtraAggroRate(monster),
+        distance: gridDistance(player, monster),
+      });
+    }
+
+    for (const entry of this.threatService.getThreatEntries(ownerId)) {
+      const target = this.resolveThreatTargetForPlayer(player, entry.targetId);
+      if (!target || target.kind === 'tile' || !this.canPlayerSeeTarget(player, target, effectiveViewRange)) {
+        this.threatService.decayThreat(ownerId, entry.targetId, player.maxHp);
+      }
+    }
+  }
+
+  private resolveThreatTargetForPlayer(player: PlayerState, targetId: string): ResolvedTarget | null {
+    return this.resolveTargetRef(player, targetId);
+  }
+
+  private canPlayerAttackTarget(
+    player: PlayerState,
+    target: ResolvedTarget,
+    effectiveViewRange: number,
+    range: number,
+  ): boolean {
+    if (target.kind === 'tile') {
+      return false;
+    }
+    if (!this.canPlayerSeeTarget(player, target, effectiveViewRange)) {
+      return false;
+    }
+    return this.canReachAttackPosition(player.mapId, player, target, range, player.id, 'player');
+  }
+
+  private refreshMonsterThreats(
+    monster: RuntimeMonster,
+    players: PlayerState[],
+    timeState: GameTimeState,
+  ): void {
+    const ownerId = this.getMonsterThreatId(monster);
+    const scanRange = Math.max(0, Math.min(monster.aggroRange, timeState.effectiveViewRange));
+
+    if (this.isMonsterAutoAggroEnabled(monster, timeState)) {
+      for (const player of players) {
+        if (!this.canMonsterSeeTarget(monster, player, timeState, scanRange)) {
+          continue;
+        }
+        this.threatService.addThreat({
+          ownerId,
+          targetId: this.getPlayerThreatId(player),
+          baseThreat: gameplayConstants.DEFAULT_PASSIVE_THREAT_PER_TICK,
+          targetExtraAggroRate: this.getExtraAggroRate(player),
+          distance: gridDistance(monster, player),
+        });
+      }
+    }
+
+    for (const entry of this.threatService.getThreatEntries(ownerId)) {
+      const target = this.resolveThreatPlayerForMonster(monster, entry.targetId);
+      if (!target || !this.canMonsterSeeTarget(monster, target, timeState, scanRange)) {
+        this.threatService.decayThreat(ownerId, entry.targetId, monster.maxHp);
+      }
+    }
+  }
+
+  private resolveThreatPlayerForMonster(monster: RuntimeMonster, targetId: string): PlayerState | null {
+    if (!targetId.startsWith('player:')) {
+      return null;
+    }
+    const playerId = targetId.slice('player:'.length);
+    const player = this.playerService.getPlayer(playerId);
+    if (!player || player.dead || player.mapId !== monster.mapId) {
+      return null;
+    }
+    return player;
+  }
+
+  private canMonsterSeeTarget(
+    monster: RuntimeMonster,
+    target: PlayerState,
+    timeState: GameTimeState,
+    scanRange: number,
+  ): boolean {
+    if (target.dead || target.mapId !== monster.mapId) {
+      return false;
+    }
+    if (!isPointInRange(monster, target, scanRange)) {
+      return false;
+    }
+    return this.aoiService.inViewAt(
+      monster.mapId,
+      monster.x,
+      monster.y,
+      timeState.effectiveViewRange,
+      target.x,
+      target.y,
+      monster.runtimeId,
+    );
+  }
+
+  private canMonsterAttackTarget(
+    monster: RuntimeMonster,
+    target: PlayerState,
+    timeState: GameTimeState,
+  ): boolean {
+    const scanRange = Math.max(0, Math.min(monster.aggroRange, timeState.effectiveViewRange));
+    if (!this.canMonsterSeeTarget(monster, target, timeState, scanRange)) {
+      return false;
+    }
+    return this.canReachAttackPosition(
+      monster.mapId,
+      monster,
+      { kind: 'player', x: target.x, y: target.y, player: target },
+      1,
+      monster.runtimeId,
+      'monster',
+    );
   }
 
   private resolveCombatTarget(player: PlayerState): ResolvedTarget | undefined {

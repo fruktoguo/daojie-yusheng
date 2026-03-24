@@ -89,6 +89,7 @@ export const NUMERIC_SCALAR_STAT_KEYS = [
   'rareLootRate',
   'viewRange',
   'moveSpeed',
+  'extraAggroRate',
 ] as const;
 
 type AttrPercentStatKey = 'maxHp' | 'maxQi' | 'physAtk' | 'spellAtk';
@@ -170,6 +171,7 @@ export const NUMERIC_SCALAR_STAT_VALUE_TYPES = {
   rareLootRate: 'rate_bp',
   viewRange: 'flat',
   moveSpeed: 'flat',
+  extraAggroRate: 'flat',
 } satisfies Record<typeof NUMERIC_SCALAR_STAT_KEYS[number], NumericValueType>;
 
 /** 默认 RatioValue 除数 */
