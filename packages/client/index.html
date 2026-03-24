@@ -62,6 +62,29 @@
       --input-border-strong: rgba(17, 17, 17, 0.38);
       --overlay-backdrop: rgba(12, 10, 8, 0.44);
       --success-ink: #2e6d46;
+      --ghost-btn-border: rgba(34, 26, 19, 0.18);
+      --ghost-btn-hover-bg: rgba(34, 26, 19, 0.08);
+      --ghost-btn-active-border: rgba(128, 28, 26, 0.42);
+      --ghost-btn-active-bg: rgba(128, 28, 26, 0.08);
+      --ghost-btn-active-ink: var(--stamp-red);
+      --auto-battle-enabled-ink: #7c2d12;
+      --auto-battle-disabled-ink: var(--ink-grey);
+      --observe-buff-section-border: rgba(44, 47, 51, 0.1);
+      --observe-buff-section-bg: var(--surface-muted);
+      --observe-buff-chip-border: rgba(44, 47, 51, 0.14);
+      --observe-buff-chip-bg: var(--surface-hover);
+      --observe-buff-buff-accent: rgba(69, 147, 93, 0.72);
+      --observe-buff-debuff-accent: rgba(176, 68, 49, 0.72);
+      --observe-buff-mark-bg: rgba(22, 17, 13, 0.88);
+      --observe-buff-mark-ink: #f7efda;
+      --observe-buff-stack-bg: rgba(31, 26, 20, 0.1);
+      --observe-buff-stack-ink: var(--ink-black);
+      --tooltip-buff-entry-bg: rgba(34, 26, 19, 0.06);
+      --tooltip-buff-entry-ink: #2f241b;
+      --tooltip-buff-entry-buff-bg: rgba(69, 147, 93, 0.1);
+      --tooltip-buff-entry-debuff-bg: rgba(176, 68, 49, 0.1);
+      --tooltip-buff-mark-bg: rgba(22, 17, 13, 0.88);
+      --tooltip-buff-mark-ink: #f7efda;
       --tooltip-ink: #1a120a;
       --tooltip-muted-ink: #5c5349;
       --tooltip-head-ink: #1f1710;
@@ -146,6 +169,29 @@
       --input-border-strong: rgba(246, 238, 224, 0.32);
       --overlay-backdrop: rgba(0, 0, 0, 0.62);
       --success-ink: #63ba84;
+      --ghost-btn-border: rgba(246, 238, 224, 0.28);
+      --ghost-btn-hover-bg: rgba(246, 238, 224, 0.12);
+      --ghost-btn-active-border: rgba(234, 140, 121, 0.68);
+      --ghost-btn-active-bg: rgba(211, 111, 92, 0.22);
+      --ghost-btn-active-ink: #ffd6c7;
+      --auto-battle-enabled-ink: #ffbf9f;
+      --auto-battle-disabled-ink: #d8cbbd;
+      --observe-buff-section-border: rgba(246, 238, 224, 0.18);
+      --observe-buff-section-bg: rgba(90, 78, 70, 0.94);
+      --observe-buff-chip-border: rgba(246, 238, 224, 0.24);
+      --observe-buff-chip-bg: rgba(117, 102, 92, 0.98);
+      --observe-buff-buff-accent: rgba(110, 212, 141, 0.96);
+      --observe-buff-debuff-accent: rgba(255, 142, 116, 0.94);
+      --observe-buff-mark-bg: rgba(246, 238, 224, 0.16);
+      --observe-buff-mark-ink: #fff4e8;
+      --observe-buff-stack-bg: rgba(246, 238, 224, 0.16);
+      --observe-buff-stack-ink: #fff4e6;
+      --tooltip-buff-entry-bg: rgba(246, 238, 224, 0.2);
+      --tooltip-buff-entry-ink: #fff4e8;
+      --tooltip-buff-entry-buff-bg: rgba(110, 212, 141, 0.32);
+      --tooltip-buff-entry-debuff-bg: rgba(255, 142, 116, 0.32);
+      --tooltip-buff-mark-bg: rgba(246, 238, 224, 0.24);
+      --tooltip-buff-mark-ink: #fff8f0;
       --tooltip-ink: var(--ink-black);
       --tooltip-muted-ink: var(--ink-grey);
       --tooltip-head-ink: var(--ink-black);
@@ -1732,8 +1778,8 @@
       flex-direction: column;
       gap: 8px;
       padding: 10px;
-      border: 1px solid rgba(44, 47, 51, 0.1);
-      background: var(--surface-muted);
+      border: 1px solid var(--observe-buff-section-border);
+      background: var(--observe-buff-section-bg);
     }
     .observe-buff-title {
       font-family: var(--font-heading-sub);
@@ -1752,17 +1798,17 @@
       gap: 6px;
       max-width: 100%;
       padding: 6px 8px;
-      border: 1px solid rgba(44, 47, 51, 0.14);
-      background: var(--surface-hover);
+      border: 1px solid var(--observe-buff-chip-border);
+      background: var(--observe-buff-chip-bg);
       text-align: left;
       color: var(--ink-black);
       cursor: help;
     }
     .observe-buff-chip.buff {
-      box-shadow: inset 3px 0 0 rgba(69, 147, 93, 0.72);
+      box-shadow: inset 3px 0 0 var(--observe-buff-buff-accent);
     }
     .observe-buff-chip.debuff {
-      box-shadow: inset 3px 0 0 rgba(176, 68, 49, 0.72);
+      box-shadow: inset 3px 0 0 var(--observe-buff-debuff-accent);
     }
     .observe-buff-mark {
       display: inline-flex;
@@ -1771,8 +1817,8 @@
       width: 28px;
       height: 28px;
       border-radius: 999px;
-      background: rgba(22, 17, 13, 0.88);
-      color: #f7efda;
+      background: var(--observe-buff-mark-bg);
+      color: var(--observe-buff-mark-ink);
       font-family: var(--font-heading-sub);
       font-size: var(--font-size-14);
       line-height: 1;
@@ -1792,8 +1838,8 @@
       min-width: 16px;
       padding: 1px 5px;
       border-radius: 999px;
-      background: rgba(31, 26, 20, 0.1);
-      color: var(--ink-black);
+      background: var(--observe-buff-stack-bg);
+      color: var(--observe-buff-stack-ink);
       font-size: var(--font-size-11);
       font-weight: bold;
       text-align: center;
@@ -2299,17 +2345,17 @@
       color: var(--paper-light);
     }
     .small-btn.ghost {
-      border-color: rgba(34, 26, 19, 0.18);
+      border-color: var(--ghost-btn-border);
       color: var(--ink-grey);
     }
     .small-btn.ghost:hover {
-      background: rgba(34, 26, 19, 0.08);
+      background: var(--ghost-btn-hover-bg);
       color: var(--ink-black);
     }
     .small-btn.ghost.active {
-      border-color: rgba(128, 28, 26, 0.42);
-      background: rgba(128, 28, 26, 0.08);
-      color: var(--stamp-red);
+      border-color: var(--ghost-btn-active-border);
+      background: var(--ghost-btn-active-bg);
+      color: var(--ghost-btn-active-ink);
     }
     .small-btn.danger { border-color: var(--stamp-red); color: var(--stamp-red); }
     .small-btn.danger:hover { background: var(--stamp-red); color: var(--paper-light); }
@@ -3473,15 +3519,15 @@
       gap: 6px;
       padding: 2px 6px;
       border-radius: 999px;
-      background: rgba(34, 26, 19, 0.06);
-      color: #2f241b;
+      background: var(--tooltip-buff-entry-bg);
+      color: var(--tooltip-buff-entry-ink);
       font-weight: 600;
     }
     .skill-tooltip-buff-entry.debuff {
-      background: rgba(176, 68, 49, 0.1);
+      background: var(--tooltip-buff-entry-debuff-bg);
     }
     .skill-tooltip-buff-entry.buff {
-      background: rgba(69, 147, 93, 0.1);
+      background: var(--tooltip-buff-entry-buff-bg);
     }
     .skill-tooltip-buff-mark {
       display: inline-flex;
@@ -3490,8 +3536,8 @@
       width: 18px;
       height: 18px;
       border-radius: 999px;
-      background: rgba(22, 17, 13, 0.88);
-      color: #f7efda;
+      background: var(--tooltip-buff-mark-bg);
+      color: var(--tooltip-buff-mark-ink);
       font-size: var(--font-size-11);
       line-height: 1;
       font-family: var(--font-heading-sub);
@@ -3911,10 +3957,10 @@
       cursor: grabbing;
     }
     .auto-battle-enabled {
-      color: #7c2d12;
+      color: var(--auto-battle-enabled-ink);
     }
     .auto-battle-disabled {
-      color: var(--ink-grey);
+      color: var(--auto-battle-disabled-ink);
     }
     .action-cd { font-size: var(--font-size-12); color: var(--stamp-red); }
     .action-tab-bar {
