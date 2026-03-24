@@ -1177,6 +1177,24 @@
       outline: 2px solid rgba(120, 79, 43, 0.42);
       outline-offset: 4px;
     }
+    .map-zoom-reset {
+      min-width: 0;
+      margin-top: 8px;
+      padding: 4px 8px;
+      border: 1px solid var(--wash-ink);
+      background: var(--surface-base);
+      color: var(--ink-grey);
+      font-family: var(--font-heading-sub);
+      font-size: var(--font-size-11);
+      line-height: 1;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+    .map-zoom-reset:hover {
+      background: var(--surface-hover);
+      color: var(--ink-black);
+      border-color: var(--ink-light);
+    }
     .map-tick-rate {
       display: flex;
       flex-direction: column;
