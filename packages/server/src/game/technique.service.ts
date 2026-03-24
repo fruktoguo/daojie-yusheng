@@ -11,6 +11,9 @@ import {
   CULTIVATE_EXP_PER_TICK,
   DEFAULT_PLAYER_REALM_STAGE,
   deriveTechniqueRealm,
+  ELEMENT_KEYS,
+  ELEMENT_KEY_LABELS,
+  ElementKey,
   getAuraLevel,
   getTechniqueExpToNext,
   getTechniqueMaxLevel,
@@ -1020,6 +1023,8 @@ export class TechniqueService {
         const currentValue = player.finalAttrs?.[requirement.attr] ?? player.baseAttrs[requirement.attr] ?? 0;
         return currentValue >= this.getEffectiveAttributeRequirement(requirement.minValue, increaseMultiplier);
       }
+      case 'root':
+        return this.getCurrentRootRequirementValue(player, requirement.element) >= requirement.minValue;
       default:
         return false;
     }
@@ -1116,6 +1121,10 @@ export class TechniqueService {
           ? `${this.attrLabel(requirement.attr)}达到 ${effectiveValue}（基础 ${requirement.minValue}）`
           : `${this.attrLabel(requirement.attr)}达到 ${requirement.minValue}`;
       }
+      case 'root':
+        return requirement.element
+          ? `${this.rootLabel(requirement.element)}灵根达到 ${requirement.minValue}`
+          : `任意灵根达到 ${requirement.minValue}`;
       default:
         return '???';
     }
@@ -1134,6 +1143,12 @@ export class TechniqueService {
       return effectiveValue > requirement.minValue
         ? `当前${this.attrLabel(requirement.attr)} ${currentValue} / ${effectiveValue}，基础要求 ${requirement.minValue}`
         : `当前${this.attrLabel(requirement.attr)} ${currentValue} / ${requirement.minValue}`;
+    }
+    if (requirement.type === 'root') {
+      const currentValue = this.getCurrentRootRequirementValue(player, requirement.element);
+      return requirement.element
+        ? `当前${this.rootLabel(requirement.element)}灵根 ${currentValue} / ${requirement.minValue}`
+        : `当前最高灵根 ${currentValue} / ${requirement.minValue}`;
     }
     if (this.isOptionalAttributeIncreaser(requirement)) {
       const increasePct = this.getRequirementIncreasePct(requirement);
@@ -1174,6 +1189,18 @@ export class TechniqueService {
       default:
         return String(attr);
     }
+  }
+
+  private rootLabel(element: ElementKey): string {
+    return ELEMENT_KEY_LABELS[element] ?? String(element);
+  }
+
+  private getCurrentRootRequirementValue(player: PlayerState, element?: ElementKey): number {
+    const rootStats = this.attrService.getPlayerNumericStats(player).elementDamageBonus;
+    if (element) {
+      return Math.max(0, Math.round(rootStats[element] ?? 0));
+    }
+    return ELEMENT_KEYS.reduce((maxValue, key) => Math.max(maxValue, Math.round(rootStats[key] ?? 0)), 0);
   }
 
   private resolveStageForRealmLevel(realmLv: number): PlayerRealmStage {

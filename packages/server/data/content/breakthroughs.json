@@ -180,6 +180,7 @@
         { "id": "bw_18_19_demon_wolf_bone", "type": "item", "itemId": "demon_wolf_bone", "count": 6, "label": "备齐妖狼骨 6 枚，稳住凡躯根底", "increaseAttrRequirementPct": 25 },
         { "id": "bw_18_19_spirit_iron_fragment", "type": "item", "itemId": "spirit_iron_fragment", "count": 6, "label": "备齐灵铁碎片 6 枚，束骨成炉", "increaseAttrRequirementPct": 25 },
         { "id": "bw_18_19_yellow_perfect", "type": "technique", "minGrade": "yellow", "minLevel": 10, "count": 1, "label": "至少有 1 门黄阶功法修至圆满", "increaseAttrRequirementPct": 400 },
+        { "id": "bw_18_19_any_root", "type": "root", "minValue": 1, "label": "任意灵根达到 1" },
         { "id": "bw_18_19_constitution", "type": "attribute", "attr": "constitution", "minValue": 73, "label": "体魄达到 73" },
         { "id": "bw_18_19_spirit", "type": "attribute", "attr": "spirit", "minValue": 71, "label": "神识达到 71" }
       ]

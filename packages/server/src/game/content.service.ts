@@ -12,6 +12,7 @@ import {
   Attributes,
   DEFAULT_INVENTORY_CAPACITY,
   ELEMENT_KEYS,
+  ElementKey,
   EquipmentConditionDef,
   EquipmentConditionGroup,
   EquipmentEffectDef,
@@ -234,15 +235,26 @@ type RawBreakthroughAttributeRequirement = {
   hidden?: boolean;
 };
 
+type RawBreakthroughRootRequirement = {
+  id: string;
+  type: 'root';
+  element?: ElementKey;
+  minValue: number;
+  label?: string;
+  hidden?: boolean;
+};
+
 type RawBreakthroughRequirement =
   | RawBreakthroughItemRequirement
   | RawBreakthroughTechniqueRequirement
-  | RawBreakthroughAttributeRequirement;
+  | RawBreakthroughAttributeRequirement
+  | RawBreakthroughRootRequirement;
 
 export type BreakthroughRequirementDef =
   | RawBreakthroughItemRequirement
   | (Omit<RawBreakthroughTechniqueRequirement, 'minRealm'> & { minRealm?: TechniqueRealm })
-  | RawBreakthroughAttributeRequirement;
+  | RawBreakthroughAttributeRequirement
+  | RawBreakthroughRootRequirement;
 
 export interface BreakthroughConfigEntry {
   fromRealmLv: number;
@@ -809,6 +821,19 @@ export class ContentService implements OnModuleInit {
         id: input.id,
         type: 'attribute',
         attr: input.attr,
+        minValue: Math.max(1, Math.floor(input.minValue)),
+        label: typeof input.label === 'string' ? input.label : undefined,
+        hidden: input.hidden === true,
+      }];
+    }
+    if (input.type === 'root') {
+      if (!Number.isFinite(input.minValue)) {
+        return [];
+      }
+      return [{
+        id: input.id,
+        type: 'root',
+        element: input.element && ELEMENT_KEYS.includes(input.element) ? input.element : undefined,
         minValue: Math.max(1, Math.floor(input.minValue)),
         label: typeof input.label === 'string' ? input.label : undefined,
         hidden: input.hidden === true,

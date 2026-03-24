@@ -471,7 +471,7 @@ export interface BreakthroughItemRequirement {
 }
 
 /** 突破需求类型 */
-export type BreakthroughRequirementType = 'item' | 'technique' | 'attribute';
+export type BreakthroughRequirementType = 'item' | 'technique' | 'attribute' | 'root';
 
 /** 突破需求视图条目 */
 export interface BreakthroughRequirementView {
