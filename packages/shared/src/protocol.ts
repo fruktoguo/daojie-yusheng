@@ -323,7 +323,8 @@ export interface C2S_DestroyItem {
 /** 拿取战利品 */
 export interface C2S_TakeLoot {
   sourceId: string;
-  itemKey: string;
+  itemKey?: string;
+  takeAll?: boolean;
 }
 
 /** 整理背包 */

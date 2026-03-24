@@ -1218,9 +1218,14 @@ inventoryPanel.setCallbacks(
   (slotIndex) => socket.sendEquip(slotIndex),
   () => socket.sendSortInventory(),
 );
-lootPanel.setCallbacks((sourceId, itemKey) => {
-  socket.sendTakeLoot(sourceId, itemKey);
-});
+lootPanel.setCallbacks(
+  (sourceId, itemKey) => {
+    socket.sendTakeLoot(sourceId, itemKey);
+  },
+  (sourceId) => {
+    socket.sendTakeLoot(sourceId, undefined, true);
+  },
+);
 equipmentPanel.setCallbacks(
   (slot) => socket.sendUnequip(slot),
 );

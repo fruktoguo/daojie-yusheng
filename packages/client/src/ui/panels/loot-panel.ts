@@ -1,6 +1,6 @@
 /**
  * 拾取面板
- * 以弹层形式展示地面物品和容器搜索结果，支持逐件拿取
+ * 以弹层形式展示地面物品和容器搜索结果，支持逐件或批量拿取
  */
 
 import { LootWindowState } from '@mud/shared';
@@ -20,9 +20,14 @@ export class LootPanel {
   private static readonly MODAL_OWNER = 'loot-panel';
   private windowState: LootWindowState | null = null;
   private onTake: ((sourceId: string, itemKey: string) => void) | null = null;
+  private onTakeAll: ((sourceId: string) => void) | null = null;
 
-  setCallbacks(onTake: (sourceId: string, itemKey: string) => void): void {
+  setCallbacks(
+    onTake: (sourceId: string, itemKey: string) => void,
+    onTakeAll: (sourceId: string) => void,
+  ): void {
     this.onTake = onTake;
+    this.onTakeAll = onTakeAll;
   }
 
   clear(): void {
@@ -84,7 +89,10 @@ export class LootPanel {
                 <div class="loot-source-title">${escapeHtml(source.title)}</div>
                 <div class="loot-source-subtitle">${escapeHtml(source.kind === 'ground' ? '直接拾取' : `容器搜索${source.grade ? ` · ${source.grade}` : ''}`)}</div>
               </div>
-              ${source.desc ? `<div class="loot-source-desc">${escapeHtml(source.desc)}</div>` : ''}
+              <div class="loot-source-actions">
+                ${source.items.length > 0 ? `<button class="small-btn" data-loot-take-all="true" data-source-id="${escapeHtml(source.sourceId)}" type="button">全部拿取</button>` : ''}
+                ${source.desc ? `<div class="loot-source-desc">${escapeHtml(source.desc)}</div>` : ''}
+              </div>
             </div>
             ${searchHtml}
             ${itemsHtml}
@@ -101,6 +109,16 @@ export class LootPanel {
               return;
             }
             this.onTake?.(sourceId, itemKey);
+          });
+        });
+        body.querySelectorAll<HTMLElement>('[data-loot-take-all="true"]').forEach((button) => {
+          button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const sourceId = button.dataset.sourceId;
+            if (!sourceId) {
+              return;
+            }
+            this.onTakeAll?.(sourceId);
           });
         });
       },

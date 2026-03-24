@@ -199,8 +199,8 @@ export class SocketManager {
     this.emitServer(C2S.DestroyItem, { slotIndex, count } satisfies C2S_DestroyItem);
   }
 
-  sendTakeLoot(sourceId: string, itemKey: string) {
-    this.emitServer(C2S.TakeLoot, { sourceId, itemKey } satisfies C2S_TakeLoot);
+  sendTakeLoot(sourceId: string, itemKey?: string, takeAll = false) {
+    this.emitServer(C2S.TakeLoot, { sourceId, itemKey, takeAll } satisfies C2S_TakeLoot);
   }
 
   sendSortInventory() {

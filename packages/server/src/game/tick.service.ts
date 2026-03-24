@@ -373,8 +373,10 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
         }
         case 'takeLoot': {
           this.measureCpuSection('loot', '掉落与容器', () => {
-            const { sourceId, itemKey } = cmd.data as { sourceId: string; itemKey: string };
-            const result = this.lootService.takeFromSource(player, sourceId, itemKey);
+            const { sourceId, itemKey, takeAll } = cmd.data as { sourceId: string; itemKey?: string; takeAll?: boolean };
+            const result = takeAll
+              ? this.lootService.takeAllFromSource(player, sourceId)
+              : this.lootService.takeFromSource(player, sourceId, itemKey ?? '');
             if (result.error) {
               messages.push({ playerId: player.id, text: result.error, kind: 'system' });
               return;

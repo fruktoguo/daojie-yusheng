@@ -275,6 +275,26 @@ export class LootService {
     return { error: '未知的拿取来源。', messages: [], dirtyPlayers: [] };
   }
 
+  /** 从指定来源拿取当前可见的全部物品 */
+  takeAllFromSource(player: PlayerState, sourceId: string): LootActionResult {
+    const session = this.sessions.get(player.id);
+    if (!session || session.mapId !== player.mapId) {
+      return { error: '请先打开拿取界面。', messages: [], dirtyPlayers: [] };
+    }
+    if (!this.isPlayerWithinLootRange(player, session.tileX, session.tileY)) {
+      this.sessions.delete(player.id);
+      return { error: '你已离开拿取范围。', messages: [], dirtyPlayers: [player.id] };
+    }
+
+    if (sourceId.startsWith('ground:')) {
+      return this.takeAllFromGround(player, session, sourceId);
+    }
+    if (sourceId.startsWith('container:')) {
+      return this.takeAllFromContainer(player, session, sourceId);
+    }
+    return { error: '未知的拿取来源。', messages: [], dirtyPlayers: [] };
+  }
+
   /** 构建当前拾取窗口的视图数据 */
   buildLootWindow(player: PlayerState): LootWindowState | null {
     const session = this.sessions.get(player.id);
@@ -422,6 +442,49 @@ export class LootService {
     };
   }
 
+  private takeAllFromGround(player: PlayerState, session: LootSession, sourceId: string): LootActionResult {
+    const expectedSourceId = this.buildGroundSourceId(session.mapId, session.tileX, session.tileY);
+    if (sourceId !== expectedSourceId) {
+      return { error: '当前拿取界面与目标地面物品不一致。', messages: [], dirtyPlayers: [] };
+    }
+
+    const pile = this.groundPiles.get(sourceId);
+    if (!pile || pile.entries.length === 0) {
+      return { error: '地面物品已经被拿走了。', messages: [], dirtyPlayers: this.getTileViewerIds(session.mapId, session.tileX, session.tileY) };
+    }
+
+    const rows = this.groupLootEntries(pile.entries);
+    const result = this.takeRowsWithCapacity(player, rows);
+    if (result.takenRows.length === 0) {
+      return { error: '背包空间不足，无法继续拿取。', messages: [], dirtyPlayers: [] };
+    }
+
+    const keySet = new Set(result.takenRows.flatMap((row) => row.entries));
+    pile.entries = pile.entries.filter((entry) => !keySet.has(entry));
+    if (pile.entries.length === 0) {
+      this.groundPiles.delete(sourceId);
+    }
+
+    const messages: LootMessage[] = [{
+      playerId: player.id,
+      text: `你拾起了 ${this.formatTakenRowsSummary(result.takenRows)}。`,
+      kind: 'loot',
+    }];
+    if (result.blockedByCapacity) {
+      messages.push({
+        playerId: player.id,
+        text: '背包空间不足，剩余物品暂时拿不下。',
+        kind: 'system',
+      });
+    }
+
+    return {
+      messages,
+      dirtyPlayers: this.getTileViewerIds(session.mapId, session.tileX, session.tileY),
+      inventoryChanged: true,
+    };
+  }
+
   private takeFromContainer(player: PlayerState, session: LootSession, sourceId: string, itemKey: string): LootActionResult {
     const container = this.mapService.getContainerAt(session.mapId, session.tileX, session.tileY);
     if (!container) {
@@ -452,6 +515,51 @@ export class LootService {
         text: `你从 ${container.name} 中拿走了 ${row.item.name} x${row.item.count}。`,
         kind: 'loot',
       }],
+      dirtyPlayers: this.getTileViewerIds(session.mapId, session.tileX, session.tileY),
+      inventoryChanged: true,
+    };
+  }
+
+  private takeAllFromContainer(player: PlayerState, session: LootSession, sourceId: string): LootActionResult {
+    const container = this.mapService.getContainerAt(session.mapId, session.tileX, session.tileY);
+    if (!container) {
+      return { error: '该格子当前没有容器。', messages: [], dirtyPlayers: [player.id] };
+    }
+
+    const expectedSourceId = this.buildContainerSourceId(session.mapId, container.id);
+    if (sourceId !== expectedSourceId) {
+      return { error: '当前拿取界面与目标容器不一致。', messages: [], dirtyPlayers: [] };
+    }
+
+    const state = this.ensureContainerState(session.mapId, container);
+    const rows = this.groupLootEntries(state.entries.filter((entry) => entry.visible));
+    if (rows.length === 0) {
+      return { error: '当前没有可拿取的物品。', messages: [], dirtyPlayers: this.getTileViewerIds(session.mapId, session.tileX, session.tileY) };
+    }
+
+    const result = this.takeRowsWithCapacity(player, rows);
+    if (result.takenRows.length === 0) {
+      return { error: '背包空间不足，无法继续拿取。', messages: [], dirtyPlayers: [] };
+    }
+
+    const keySet = new Set(result.takenRows.flatMap((row) => row.entries));
+    state.entries = state.entries.filter((entry) => !keySet.has(entry));
+
+    const messages: LootMessage[] = [{
+      playerId: player.id,
+      text: `你从 ${container.name} 中拿走了 ${this.formatTakenRowsSummary(result.takenRows)}。`,
+      kind: 'loot',
+    }];
+    if (result.blockedByCapacity) {
+      messages.push({
+        playerId: player.id,
+        text: '背包空间不足，剩余物品暂时拿不下。',
+        kind: 'system',
+      });
+    }
+
+    return {
+      messages,
       dirtyPlayers: this.getTileViewerIds(session.mapId, session.tileX, session.tileY),
       inventoryChanged: true,
     };
@@ -533,6 +641,50 @@ export class LootService {
     return true;
   }
 
+  private takeRowsWithCapacity(
+    player: PlayerState,
+    rows: GroupedLootRow[],
+  ): { takenRows: GroupedLootRow[]; blockedByCapacity: boolean } {
+    const simulated = player.inventory.items.map((item) => ({ ...item }));
+    const takenRows: GroupedLootRow[] = [];
+    let blockedByCapacity = false;
+
+    for (const row of rows) {
+      if (!this.canAddItemsToInventory(simulated, player.inventory.capacity, row.entries.map((entry) => entry.item))) {
+        blockedByCapacity = true;
+        break;
+      }
+      this.addItems(player, row.entries.map((entry) => entry.item));
+      takenRows.push(row);
+    }
+
+    return { takenRows, blockedByCapacity };
+  }
+
+  private canAddItemsToInventory(simulated: ItemStack[], capacity: number, items: ItemStack[]): boolean {
+    for (const item of items) {
+      const signature = createItemStackSignature(item);
+      const existing = simulated.find((entry) => createItemStackSignature(entry) === signature);
+      if (existing) {
+        existing.count += item.count;
+        continue;
+      }
+      if (simulated.length >= capacity) {
+        return false;
+      }
+      simulated.push({ ...item });
+    }
+    return true;
+  }
+
+  private formatTakenRowsSummary(rows: GroupedLootRow[]): string {
+    const preview = rows.slice(0, 3).map((row) => `${row.item.name} x${row.item.count}`);
+    if (rows.length <= 3) {
+      return preview.join('、');
+    }
+    return `${preview.join('、')} 等 ${rows.length} 种物品`;
+  }
+
   private addItems(player: PlayerState, items: ItemStack[]): void {
     for (const item of items) {
       this.inventoryService.addItem(player, { ...item });
@@ -580,12 +732,8 @@ export class LootService {
     }
     return entries;
   }
-      itemId: entry.item.itemId,
 
-      type: entry.item.type,
   private beginContainerSearch(mapId: string, container: ContainerConfig): void {
-      grade: entry.item.grade,
-      groundLabel: entry.item.groundLabel,
     const state = this.ensureContainerState(mapId, container);
     if (state.activeSearch) {
       return;
