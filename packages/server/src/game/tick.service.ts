@@ -121,8 +121,7 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     this.loadConfig();
     this.watchConfig();
     setTimeout(() => {
-      this.ensureMapTicks();
-      this.logger.log(`Tick 引擎已启动，地图数: ${this.timers.size}`);
+      void this.bootstrapRuntimeState();
     }, 0);
 
     this.persistTimer = setInterval(() => {
@@ -195,6 +194,21 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
 
   getAuraLevelBaseValue(): number {
     return this.auraLevelBaseValue;
+  }
+
+  private async bootstrapRuntimeState(): Promise<void> {
+    try {
+      const recovered = await this.playerService.restoreRetainedPlayers(this.offlinePlayerTimeoutMs);
+      this.logger.log(
+        `启动恢复完成: 恢复离线挂机 ${recovered.restored} 名, 超时离场 ${recovered.expired} 名, 修正在线残留 ${recovered.recoveredOnline} 名`,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`启动恢复离线挂机失败: ${message}`);
+    } finally {
+      this.ensureMapTicks();
+      this.logger.log(`Tick 引擎已启动，地图数: ${this.timers.size}`);
+    }
   }
 
   private watchConfig() {

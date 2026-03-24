@@ -4,7 +4,7 @@
  */
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import {
   PlayerState,
   Attributes,
@@ -18,6 +18,7 @@ import {
   QuestState,
   DEFAULT_BASE_ATTRS,
   DEFAULT_INVENTORY_CAPACITY,
+  DEFAULT_PLAYER_MAP_ID,
   Direction,
   VIEW_RADIUS,
 } from '@mud/shared';
@@ -116,52 +117,81 @@ export class PlayerService {
       this.userRepo.findOne({ where: { id: userId } }),
     ]);
     if (!entity) return null;
-    const resolvedName = user
+    const state = this.hydratePlayerState(entity, user
       ? resolveDisplayName(user.displayName, user.username)
-      : entity.name;
-    const state: PlayerState = {
-      id: entity.id,
-      name: entity.name,
-      displayName: resolvedName,
-      mapId: entity.mapId,
-      x: entity.x,
-      y: entity.y,
-      senseQiActive: false,
-      facing: (entity.facing as Direction | null) ?? Direction.South,
-      viewRange: entity.viewRange ?? VIEW_RADIUS,
-      hp: entity.hp,
-      maxHp: entity.maxHp,
-      qi: entity.qi ?? 0,
-      dead: entity.dead,
-      baseAttrs: (entity.baseAttrs ?? { ...DEFAULT_BASE_ATTRS }) as Attributes,
-      bonuses: (entity.bonuses ?? []) as AttrBonus[],
-      temporaryBuffs: this.normalizeTemporaryBuffs(hydrateTemporaryBuffSnapshots(entity.temporaryBuffs, this.contentService)),
-      inventory: hydrateInventorySnapshot(entity.inventory, this.contentService),
-      equipment: hydrateEquipmentSnapshot(entity.equipment, this.contentService),
-      techniques: hydrateTechniqueSnapshots(entity.techniques),
-      quests: this.normalizeQuests(hydrateQuestSnapshots(entity.quests, this.mapService, this.contentService)),
-      revealedBreakthroughRequirementIds: Array.isArray(entity.revealedBreakthroughRequirementIds)
-        ? entity.revealedBreakthroughRequirementIds.filter((entry): entry is string => typeof entry === 'string')
-        : [],
-      unlockedMinimapIds: normalizeUnlockedMinimapIds(entity.unlockedMinimapIds),
-      autoBattle: entity.autoBattle ?? false,
-      autoBattleSkills: (entity.autoBattleSkills ?? []) as AutoBattleSkillConfig[],
-      autoRetaliate: entity.autoRetaliate ?? true,
-      autoIdleCultivation: entity.autoIdleCultivation ?? true,
-      actions: [],
-      cultivatingTechId: entity.cultivatingTechId ?? undefined,
-      idleTicks: 0,
-      combatTargetLocked: false,
-      online: entity.online ?? false,
-      inWorld: entity.inWorld ?? false,
-      lastHeartbeatAt: entity.lastHeartbeatAt?.getTime(),
-      offlineSinceAt: entity.offlineSinceAt?.getTime(),
-    };
-    this.techniqueService.initializePlayerProgression(state);
-    this.equipmentService.rebuildBonuses(state);
+      : entity.name);
     this.players.set(state.id, state);
     await this.syncPlayerCache(state);
     return state;
+  }
+
+  /**
+   * 启动时恢复仍应留在世界中的玩家。
+   * 规则：
+   * - `inWorld=true` 的角色都会重新进入运行时；
+   * - 重启前残留为 `online=true` 的角色，会在恢复时转为离线挂机；
+   * - 若已超过离线超时，则直接按超时离场收口，不再恢复到世界中。
+   */
+  async restoreRetainedPlayers(offlinePlayerTimeoutMs: number, now = Date.now()): Promise<{
+    restored: number;
+    expired: number;
+    recoveredOnline: number;
+  }> {
+    const entities = await this.playerRepo.find({
+      where: { inWorld: true },
+      order: {
+        updatedAt: 'ASC',
+        id: 'ASC',
+      },
+    });
+    if (entities.length === 0) {
+      return { restored: 0, expired: 0, recoveredOnline: 0 };
+    }
+
+    const users = await this.userRepo.findBy({
+      id: In(entities.map((entity) => entity.userId)),
+    });
+    const userById = new Map(users.map((user) => [user.id, user]));
+
+    let restored = 0;
+    let expired = 0;
+    let recoveredOnline = 0;
+
+    for (const entity of entities) {
+      const user = userById.get(entity.userId);
+      const displayName = user
+        ? resolveDisplayName(user.displayName, user.username)
+        : entity.name;
+      const state = this.hydratePlayerState(entity, displayName);
+
+      if (state.online === true) {
+        recoveredOnline += 1;
+      }
+      state.online = false;
+      state.offlineSinceAt = state.offlineSinceAt ?? now;
+
+      if (state.offlineSinceAt > 0 && now - state.offlineSinceAt >= offlinePlayerTimeoutMs) {
+        await this.expireRetainedPlayer(state);
+        expired += 1;
+        continue;
+      }
+
+      const resolvedPosition = this.resolveRetainedPlayerPosition(state);
+      state.mapId = resolvedPosition.mapId;
+      state.x = resolvedPosition.x;
+      state.y = resolvedPosition.y;
+      state.inWorld = true;
+      state.idleTicks = 0;
+
+      this.players.set(state.id, state);
+      this.userToPlayer.set(entity.userId, state.id);
+      this.mapService.addOccupant(state.mapId, state.x, state.y, state.id, 'player');
+      await this.persistPlayerState(state);
+      await this.syncPlayerCache(state);
+      restored += 1;
+    }
+
+    return { restored, expired, recoveredOnline };
   }
 
   /** 创建新玩家并持久化到 PG */
@@ -241,37 +271,7 @@ export class PlayerService {
   async savePlayer(playerId: string): Promise<void> {
     const state = this.players.get(playerId);
     if (!state || state.isBot) return;
-    this.techniqueService.preparePlayerForPersistence(state);
-    const persisted = this.buildPersistedCollections(state);
-    await this.playerRepo.update(playerId, {
-      mapId: state.mapId,
-      x: state.x,
-      y: state.y,
-      facing: state.facing,
-      viewRange: state.viewRange,
-      hp: state.hp,
-      maxHp: state.maxHp,
-      qi: state.qi,
-      dead: state.dead,
-      baseAttrs: state.baseAttrs as any,
-      bonuses: state.bonuses as any,
-      temporaryBuffs: persisted.temporaryBuffs as any,
-      inventory: persisted.inventory as any,
-      equipment: persisted.equipment as any,
-      techniques: persisted.techniques as any,
-      quests: persisted.quests as any,
-      revealedBreakthroughRequirementIds: state.revealedBreakthroughRequirementIds as any,
-      unlockedMinimapIds: state.unlockedMinimapIds as any,
-      autoBattle: state.autoBattle,
-      autoBattleSkills: state.autoBattleSkills as any,
-      autoRetaliate: state.autoRetaliate,
-      autoIdleCultivation: state.autoIdleCultivation,
-      cultivatingTechId: state.cultivatingTechId ?? null,
-      online: state.online === true,
-      inWorld: state.inWorld !== false,
-      lastHeartbeatAt: state.lastHeartbeatAt ? new Date(state.lastHeartbeatAt) : null,
-      offlineSinceAt: state.offlineSinceAt ? new Date(state.offlineSinceAt) : null,
-    });
+    await this.persistPlayerState(state);
   }
 
   /** 批量落盘所有已加载玩家 */
@@ -550,5 +550,128 @@ export class PlayerService {
 
   private cloneJson<T>(value: T): T {
     return JSON.parse(JSON.stringify(value)) as T;
+  }
+
+  private hydratePlayerState(entity: PlayerEntity, displayName: string): PlayerState {
+    const state: PlayerState = {
+      id: entity.id,
+      name: entity.name,
+      displayName,
+      mapId: entity.mapId,
+      x: entity.x,
+      y: entity.y,
+      senseQiActive: false,
+      facing: (entity.facing as Direction | null) ?? Direction.South,
+      viewRange: entity.viewRange ?? VIEW_RADIUS,
+      hp: entity.hp,
+      maxHp: entity.maxHp,
+      qi: entity.qi ?? 0,
+      dead: entity.dead,
+      baseAttrs: (entity.baseAttrs ?? { ...DEFAULT_BASE_ATTRS }) as Attributes,
+      bonuses: (entity.bonuses ?? []) as AttrBonus[],
+      temporaryBuffs: this.normalizeTemporaryBuffs(hydrateTemporaryBuffSnapshots(entity.temporaryBuffs, this.contentService)),
+      inventory: hydrateInventorySnapshot(entity.inventory, this.contentService),
+      equipment: hydrateEquipmentSnapshot(entity.equipment, this.contentService),
+      techniques: hydrateTechniqueSnapshots(entity.techniques),
+      quests: this.normalizeQuests(hydrateQuestSnapshots(entity.quests, this.mapService, this.contentService)),
+      revealedBreakthroughRequirementIds: Array.isArray(entity.revealedBreakthroughRequirementIds)
+        ? entity.revealedBreakthroughRequirementIds.filter((entry): entry is string => typeof entry === 'string')
+        : [],
+      unlockedMinimapIds: normalizeUnlockedMinimapIds(entity.unlockedMinimapIds),
+      autoBattle: entity.autoBattle ?? false,
+      autoBattleSkills: (entity.autoBattleSkills ?? []) as AutoBattleSkillConfig[],
+      autoRetaliate: entity.autoRetaliate ?? true,
+      autoIdleCultivation: entity.autoIdleCultivation ?? true,
+      autoSwitchCultivation: entity.autoSwitchCultivation === true,
+      actions: [],
+      cultivatingTechId: entity.cultivatingTechId ?? undefined,
+      idleTicks: 0,
+      combatTargetLocked: false,
+      online: entity.online ?? false,
+      inWorld: entity.inWorld ?? false,
+      lastHeartbeatAt: entity.lastHeartbeatAt?.getTime(),
+      offlineSinceAt: entity.offlineSinceAt?.getTime(),
+    };
+    this.techniqueService.initializePlayerProgression(state);
+    this.equipmentService.rebuildBonuses(state);
+    return state;
+  }
+
+  private resolveRetainedPlayerPosition(player: PlayerState): { mapId: string; x: number; y: number } {
+    const preferredMapId = this.mapService.getMapMeta(player.mapId) ? player.mapId : DEFAULT_PLAYER_MAP_ID;
+    const occupancyOptions = { occupancyId: player.id, actorType: 'player' as const };
+    if (this.mapService.canOccupy(preferredMapId, player.x, player.y, occupancyOptions)) {
+      return { mapId: preferredMapId, x: player.x, y: player.y };
+    }
+
+    const nearby = this.mapService.findNearbyWalkable(preferredMapId, player.x, player.y, 10, occupancyOptions);
+    if (nearby) {
+      return { mapId: preferredMapId, x: nearby.x, y: nearby.y };
+    }
+
+    const spawn = this.mapService.getSpawnPoint(preferredMapId);
+    if (spawn && this.mapService.canOccupy(preferredMapId, spawn.x, spawn.y, occupancyOptions)) {
+      return { mapId: preferredMapId, x: spawn.x, y: spawn.y };
+    }
+
+    if (spawn) {
+      const nearSpawn = this.mapService.findNearbyWalkable(preferredMapId, spawn.x, spawn.y, 12, occupancyOptions);
+      if (nearSpawn) {
+        return { mapId: preferredMapId, x: nearSpawn.x, y: nearSpawn.y };
+      }
+    }
+
+    return { mapId: preferredMapId, x: player.x, y: player.y };
+  }
+
+  private async expireRetainedPlayer(state: PlayerState): Promise<void> {
+    this.techniqueService.stopCultivation(
+      state,
+      '你离线过久，已退出世界，当前修炼随之中止。',
+      'system',
+    );
+    state.online = false;
+    state.inWorld = false;
+    state.autoBattle = false;
+    state.combatTargetId = undefined;
+    state.combatTargetLocked = false;
+    state.idleTicks = 0;
+    await this.persistPlayerState(state);
+    await this.syncPlayerCache(state);
+  }
+
+  private async persistPlayerState(state: PlayerState): Promise<void> {
+    this.techniqueService.preparePlayerForPersistence(state);
+    const persisted = this.buildPersistedCollections(state);
+    await this.playerRepo.update(state.id, {
+      mapId: state.mapId,
+      x: state.x,
+      y: state.y,
+      facing: state.facing,
+      viewRange: state.viewRange,
+      hp: state.hp,
+      maxHp: state.maxHp,
+      qi: state.qi,
+      dead: state.dead,
+      baseAttrs: state.baseAttrs as any,
+      bonuses: state.bonuses as any,
+      temporaryBuffs: persisted.temporaryBuffs as any,
+      inventory: persisted.inventory as any,
+      equipment: persisted.equipment as any,
+      techniques: persisted.techniques as any,
+      quests: persisted.quests as any,
+      revealedBreakthroughRequirementIds: state.revealedBreakthroughRequirementIds as any,
+      unlockedMinimapIds: state.unlockedMinimapIds as any,
+      autoBattle: state.autoBattle,
+      autoBattleSkills: state.autoBattleSkills as any,
+      autoRetaliate: state.autoRetaliate,
+      autoIdleCultivation: state.autoIdleCultivation,
+      autoSwitchCultivation: state.autoSwitchCultivation === true,
+      cultivatingTechId: state.cultivatingTechId ?? null,
+      online: state.online === true,
+      inWorld: state.inWorld !== false,
+      lastHeartbeatAt: state.lastHeartbeatAt ? new Date(state.lastHeartbeatAt) : null,
+      offlineSinceAt: state.offlineSinceAt ? new Date(state.offlineSinceAt) : null,
+    });
   }
 }
