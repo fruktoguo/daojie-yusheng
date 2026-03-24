@@ -11,6 +11,9 @@ COPY packages/client packages/client
 RUN pnpm --filter @mud/client build
 
 FROM nginx:alpine
-COPY packages/client/nginx.conf /etc/nginx/conf.d/default.conf
+ENV NGINX_WORKER_PROCESSES=auto
+ENV NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx
+COPY packages/client/nginx/nginx.conf.template /etc/nginx/templates/nginx.conf.template
+COPY packages/client/nginx/default.conf.template /etc/nginx/templates/conf.d/default.conf.template
 COPY --from=builder /app/packages/client/dist /usr/share/nginx/html
 EXPOSE 80

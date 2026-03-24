@@ -62,6 +62,8 @@ services:
     build:
       context: .
       dockerfile: packages/client/Dockerfile
+    environment:
+      NGINX_WORKER_PROCESSES: ${NGINX_WORKER_PROCESSES:-auto}
     ports:
       - "11921:80"
     depends_on:

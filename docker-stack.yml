@@ -1,6 +1,8 @@
 services:
   client:
     image: ghcr.io/fruktoguo/daojie-yusheng-client:${CLIENT_IMAGE_TAG:-latest}
+    environment:
+      NGINX_WORKER_PROCESSES: ${NGINX_WORKER_PROCESSES:-auto}
     ports:
       - target: 80
         published: 11921
