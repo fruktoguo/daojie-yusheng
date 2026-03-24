@@ -9,6 +9,7 @@ import { FORMULA_VAR_LABELS, FORMULA_VAR_META, type SkillScalingMeta } from '../
 import { getElementKeyLabel } from '../domain-labels';
 import { resolvePreviewSkill, resolvePreviewSkills } from '../content/local-templates';
 import { describePreviewBonuses } from './stat-preview';
+import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../utils/number';
 
 type SkillTooltipPreviewPlayer = Pick<PlayerState, 'hp' | 'maxHp' | 'qi' | 'numericStats' | 'temporaryBuffs'>;
 
@@ -74,18 +75,8 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-function formatNumber(value: number): string {
-  if (!Number.isFinite(value)) {
-    return '0';
-  }
-  if (Math.abs(value % 1) < 1e-6) {
-    return String(Math.round(value));
-  }
-  return value.toFixed(2).replace(/\.?0+$/, '');
-}
-
 function formatPercent(scale: number): string {
-  return `${formatNumber(scale * 100)}%`;
+  return formatDisplayPercent(scale * 100);
 }
 
 function normalizeBuffMark(name: string, shortMark?: string): string {
@@ -120,7 +111,7 @@ function buildBuffAsideCard(effect: Extract<SkillDef['effects'][number], { type:
   const effectLines = describeBuffEffect(effect);
   const stackLimit = formatBuffMaxStacks(effect.maxStacks);
   const lines = [
-    `${effect.target === 'target' ? '目标' : '自身'} · ${effect.duration} 息${stackLimit ? ` · 最多 ${stackLimit} 层` : ''}`,
+    `${effect.target === 'target' ? '目标' : '自身'} · ${formatDisplayInteger(effect.duration)} 息${stackLimit ? ` · 最多 ${stackLimit} 层` : ''}`,
     ...(effectLines.length > 0 ? [`效果：${effectLines.join('，')}`] : []),
     ...(effect.desc ? [effect.desc] : []),
   ];
@@ -183,9 +174,9 @@ function buildBuffStackReference(varName: SkillFormulaVar, context: SkillTooltip
   const sideLabel = parsed.side === 'caster' ? '自身' : '目标';
   const buffMeta = resolveBuffFormulaMeta(varName, context);
   if (!buffMeta) {
-    return `<span class="skill-formula-buff-ref"><span class="skill-formula-buff-side">${escapeHtml(sideLabel)}</span><span class="skill-formula-buff-stacks">${stacks === null || stacks === undefined ? '状态层数' : `${formatNumber(stacks)}层`}</span></span>`;
+    return `<span class="skill-formula-buff-ref"><span class="skill-formula-buff-side">${escapeHtml(sideLabel)}</span><span class="skill-formula-buff-stacks">${stacks === null || stacks === undefined ? '状态层数' : `${formatDisplayNumber(stacks)}层`}</span></span>`;
   }
-  return `<span class="skill-formula-buff-ref"><span class="skill-formula-buff-side">${escapeHtml(sideLabel)}</span>${buildBuffInlineBadgeFromMeta(buffMeta)}<span class="skill-formula-buff-stacks">${stacks === null || stacks === undefined ? '层数' : `${formatNumber(stacks)}层`}</span></span>`;
+  return `<span class="skill-formula-buff-ref"><span class="skill-formula-buff-side">${escapeHtml(sideLabel)}</span>${buildBuffInlineBadgeFromMeta(buffMeta)}<span class="skill-formula-buff-stacks">${stacks === null || stacks === undefined ? '层数' : `${formatDisplayNumber(stacks)}层`}</span></span>`;
 }
 
 function resolveStatValue(player: PreviewPlayer | null | undefined, key: NumericScalarStatKey): ResolvedPreviewValue {
@@ -254,9 +245,9 @@ function renderVariableFormula(varName: SkillFormulaVar, scale: number, context:
     const techLevel = context.techLevel;
     if (typeof techLevel === 'number') {
       const contribution = techLevel * scale;
-      const detail = `<span class="skill-scaling skill-scaling-tech"><span class="skill-scaling-icon">◎</span><span>${escapeHtml(`${formatNumber(techLevel)}层`)}</span></span>`;
+      const detail = `<span class="skill-scaling skill-scaling-tech"><span class="skill-scaling-icon">◎</span><span>${escapeHtml(`${formatDisplayNumber(techLevel)}层`)}</span></span>`;
       return {
-        html: renderFormulaTerm(`${formatNumber(contribution)}(${detail})`, 'skill-formula-term-tech'),
+        html: renderFormulaTerm(`${formatDisplayNumber(contribution)}(${detail})`, 'skill-formula-term-tech'),
         resolved: contribution,
       };
     }
@@ -268,7 +259,7 @@ function renderVariableFormula(varName: SkillFormulaVar, scale: number, context:
     const contribution = resolved.value * scale;
     return {
       html: resolved.known
-        ? renderFormulaTerm(`${formatNumber(contribution)}(${formatPercent(scale)} ${buildBuffStackReference(varName, context, resolved.value)})`, 'skill-formula-term-buff-stack')
+        ? renderFormulaTerm(`${formatDisplayNumber(contribution)}(${formatPercent(scale)} ${buildBuffStackReference(varName, context, resolved.value)})`, 'skill-formula-term-buff-stack')
         : renderFormulaTerm(`${formatPercent(scale)} ${buffReference}`, 'skill-formula-term-buff-stack'),
       resolved: resolved.known ? contribution : null,
     };
@@ -281,7 +272,7 @@ function renderVariableFormula(varName: SkillFormulaVar, scale: number, context:
     if (resolvedValue !== null) {
       const contribution = resolvedValue * scale;
       return {
-        html: renderFormulaTerm(`${formatNumber(contribution)}(${formatPercent(scale)} ${badge})`, meta.termClassName),
+        html: renderFormulaTerm(`${formatDisplayNumber(contribution)}(${formatPercent(scale)} ${badge})`, meta.termClassName),
         resolved: contribution,
       };
     }
@@ -295,14 +286,14 @@ function renderVariableFormula(varName: SkillFormulaVar, scale: number, context:
   if (resolvedValue !== null) {
     const contribution = resolvedValue * scale;
     return {
-      html: renderFormulaTerm(`${formatNumber(contribution)}(${escapeHtml(label)})`, 'skill-formula-term-generic'),
+      html: renderFormulaTerm(`${formatDisplayNumber(contribution)}(${escapeHtml(label)})`, 'skill-formula-term-generic'),
       resolved: contribution,
     };
   }
 
   return {
     html: renderFormulaTerm(
-      Math.abs(scale - 1) < 1e-6 ? escapeHtml(label) : `${formatNumber(scale)}*${escapeHtml(label)}`,
+      Math.abs(scale - 1) < 1e-6 ? escapeHtml(label) : `${formatDisplayNumber(scale)}*${escapeHtml(label)}`,
       'skill-formula-term-generic',
     ),
     resolved: null,
@@ -374,7 +365,7 @@ function previewPercentPart(formula: SkillFormula, context: SkillTooltipPreviewC
       };
     }
     if (formula.var === 'techLevel') {
-      const badge = `<span class="skill-scaling skill-scaling-tech"><span class="skill-scaling-icon">◎</span><span>${escapeHtml(`${formatNumber(resolved.value)}层`)}</span></span>`;
+      const badge = `<span class="skill-scaling skill-scaling-tech"><span class="skill-scaling-icon">◎</span><span>${escapeHtml(`${formatDisplayNumber(resolved.value)}层`)}</span></span>`;
       return {
         html: renderFormulaTerm(
           resolved.known ? `${formatPercent(resolvedPercent)}（${badge}×${formatPercent(formula.scale ?? 1)}）` : `${escapeHtml(FORMULA_VAR_LABELS[formula.var] ?? formula.var)}×${formatPercent(formula.scale ?? 1)}`,
@@ -412,7 +403,7 @@ function joinFormulaParts(parts: string[], operator: string): string {
 function previewFormula(formula: SkillFormula, context: SkillTooltipPreviewContext): FormulaPreview {
   if (typeof formula === 'number') {
     return {
-      html: formatNumber(formula),
+      html: formatDisplayNumber(formula),
       resolved: formula,
     };
   }
@@ -500,11 +491,11 @@ function previewFormula(formula: SkillFormula, context: SkillTooltipPreviewConte
 function formatDamageFormula(formula: SkillFormula, context: SkillTooltipPreviewContext, damageKind: 'physical' | 'spell'): string {
   const structured = extractStructuredDamagePreview(formula, context);
   if (structured) {
-    const fixedPart = `<span class="skill-formula-group">${formatNumber(structured.fixedTotal)}<span class="skill-formula-breakdown">（${structured.fixedHtml}）</span></span>`;
+    const fixedPart = `<span class="skill-formula-group">${formatDisplayNumber(structured.fixedTotal)}<span class="skill-formula-breakdown">（${structured.fixedHtml}）</span></span>`;
     const percentPart = structured.percentHtml.startsWith('<span class="skill-formula-empty">')
       ? `<span class="skill-formula-group">${formatPercent(structured.percentTotal)}</span>`
       : `<span class="skill-formula-group">${formatPercent(structured.percentTotal)}<span class="skill-formula-breakdown">（${structured.percentHtml}）</span></span>`;
-    return `<span class="skill-damage-total skill-damage-total-${damageKind}">${formatNumber(structured.total)}</span><span class="skill-formula-equals"> = </span>${fixedPart}<span class="skill-formula-operator"> × </span>${percentPart}`;
+    return `<span class="skill-damage-total skill-damage-total-${damageKind}">${formatDisplayNumber(structured.total)}</span><span class="skill-formula-equals"> = </span>${fixedPart}<span class="skill-formula-operator"> × </span>${percentPart}`;
   }
   const preview = previewFormula(formula, context);
   if (typeof formula === 'number' || 'var' in formula) {
@@ -513,16 +504,16 @@ function formatDamageFormula(formula: SkillFormula, context: SkillTooltipPreview
   if (preview.resolved === null) {
     return preview.html;
   }
-  return `<span class="skill-damage-total skill-damage-total-${damageKind}">${formatNumber(preview.resolved)}</span><span class="skill-formula-breakdown">（${preview.html}）</span>`;
+  return `<span class="skill-damage-total skill-damage-total-${damageKind}">${formatDisplayNumber(preview.resolved)}</span><span class="skill-formula-breakdown">（${preview.html}）</span>`;
 }
 
 function formatTargeting(skill: SkillDef): string {
   const shape = skill.targeting?.shape ?? 'single';
   if (shape === 'line') {
-    return `直线，最多命中 ${skill.targeting?.maxTargets ?? 99} 个目标`;
+    return `直线，最多命中 ${formatDisplayInteger(skill.targeting?.maxTargets ?? 99)} 个目标`;
   }
   if (shape === 'area') {
-    return `范围，半径 ${skill.targeting?.radius ?? 1}，最多命中 ${skill.targeting?.maxTargets ?? 99} 个目标`;
+    return `范围，半径 ${formatDisplayNumber(skill.targeting?.radius ?? 1)}，最多命中 ${formatDisplayInteger(skill.targeting?.maxTargets ?? 99)} 个目标`;
   }
   return skill.targetMode === 'tile' ? '单体地块' : '单体';
 }
@@ -533,9 +524,9 @@ export function buildSkillTooltipContent(skill: SkillDef, context: SkillTooltipP
   const lines: string[] = [`<span class="skill-tooltip-desc">${escapeHtml(previewSkill.desc)}</span>`];
   const asideCards: SkillTooltipAsideCard[] = [];
   if (context.unlockLevel !== undefined) {
-    lines.push(renderPlainLine('解锁层数', `第 ${context.unlockLevel} 层`));
+    lines.push(renderPlainLine('解锁层数', `第 ${formatDisplayInteger(context.unlockLevel)} 层`));
   }
-  lines.push(renderPlainLine('施法距离', String(previewSkill.range)));
+  lines.push(renderPlainLine('施法距离', formatDisplayNumber(previewSkill.range)));
   lines.push(renderPlainLine('作用方式', formatTargeting(previewSkill)));
   for (const effect of previewSkill.effects) {
     if (effect.type === 'damage') {
@@ -551,15 +542,15 @@ export function buildSkillTooltipContent(skill: SkillDef, context: SkillTooltipP
     const categoryLabel = effect.category === 'debuff' ? '减益' : '增益';
     const targetLabel = effect.target === 'target' ? '目标' : '自身';
     const badge = buildBuffInlineBadge(effect);
-    lines.push(renderLabelLine(categoryLabel, `${badge}<span class="skill-tooltip-buff-meta">${escapeHtml(` ${targetLabel} · ${effect.duration} 息${stackText}`)}</span>`));
+    lines.push(renderLabelLine(categoryLabel, `${badge}<span class="skill-tooltip-buff-meta">${escapeHtml(` ${targetLabel} · ${formatDisplayInteger(effect.duration)} 息${stackText}`)}</span>`));
     const effectLines = describeBuffEffect(effect);
     if (effectLines.length > 0) {
       lines.push(renderPlainLine('效果', effectLines.join('，')));
     }
     asideCards.push(buildBuffAsideCard(effect));
   }
-  lines.push(renderPlainLine('灵力消耗', String(previewSkill.cost)));
-  lines.push(renderPlainLine('冷却', `${previewSkill.cooldown} 息`));
+  lines.push(renderPlainLine('灵力消耗', formatDisplayNumber(previewSkill.cost)));
+  lines.push(renderPlainLine('冷却', `${formatDisplayInteger(previewSkill.cooldown)} 息`));
   lines.push('<span class="skill-tooltip-note">实际结算仍会受命中、闪避、破招、化解、暴击与目标防御影响。</span>');
   return { lines, asideCards };
 }

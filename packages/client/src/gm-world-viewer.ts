@@ -283,6 +283,7 @@ export class GmWorldViewer {
     }
 
     this.renderer.clear();
+    this.renderer.setGroundPiles([]);
     this.renderer.renderWorld(
       this.camera,
       this.currentTileCache,

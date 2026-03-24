@@ -14,6 +14,7 @@ import {
   MAX_MODAL_ZOOM,
   MIN_MODAL_ZOOM,
 } from '../constants/visuals/minimap';
+import { formatDisplayCountBadge, formatDisplayInteger } from '../utils/number';
 
 type CatalogFilter = 'all' | 'memory' | 'unlock';
 
@@ -1510,8 +1511,8 @@ export class Minimap {
     if (display.isCurrent) {
       const pile = [...display.groundPiles.values()].find((entry) => entry.x === x && entry.y === y);
       if (pile) {
-        const itemsLabel = pile.items.slice(0, 2).map((entry) => `${entry.name} × ${entry.count}`).join('、');
-        const suffix = pile.items.length > 2 ? ` 等 ${pile.items.length} 件` : '';
+        const itemsLabel = pile.items.slice(0, 2).map((entry) => `${entry.name} ${formatDisplayCountBadge(entry.count)}`).join('、');
+        const suffix = pile.items.length > 2 ? ` 等 ${formatDisplayInteger(pile.items.length)} 件` : '';
         lines.push(`地面：${itemsLabel}${suffix}`);
       }
     }

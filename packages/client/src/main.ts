@@ -31,6 +31,7 @@ import { detailModalHost } from './ui/detail-modal-host';
 import { describePreviewBonuses } from './ui/stat-preview';
 import { MAX_ZOOM, MIN_ZOOM, getDisplayRangeX, getDisplayRangeY, getZoom, setZoom } from './display';
 import { getAccessToken } from './ui/auth-api';
+import { formatDisplayCountBadge, formatDisplayCurrentMax, formatDisplayInteger } from './utils/number';
 import {
   ActionDef,
   computeAffectedCellsFromAnchor,
@@ -691,7 +692,7 @@ function formatCurrentMax(current?: number, max?: number): string {
   if (typeof current !== 'number' || typeof max !== 'number') {
     return '未明';
   }
-  return `${Math.max(0, Math.round(current))} / ${Math.max(0, Math.round(max))}`;
+  return formatDisplayCurrentMax(Math.max(0, Math.round(current)), Math.max(0, Math.round(max)));
 }
 
 function syncAuraLevelBaseValue(nextValue?: number): void {
@@ -702,11 +703,11 @@ function syncAuraLevelBaseValue(nextValue?: number): void {
 }
 
 function formatAuraLevelText(auraValue: number): string {
-  return `灵气 ${Math.max(0, Math.round(auraValue))}`;
+  return `灵气 ${formatDisplayInteger(Math.max(0, Math.round(auraValue)))}`;
 }
 
 function formatAuraValueText(auraValue: number): string {
-  return `${Math.max(0, Math.round(auraValue))}`;
+  return formatDisplayInteger(Math.max(0, Math.round(auraValue)));
 }
 
 type TileRuntimeResourceDetail = S2C_TileRuntimeDetail['resources'][number];
@@ -733,10 +734,10 @@ function getObservedTileRuntimeResources(targetX: number, targetY: number): Tile
 
 function formatObservedResourceOverview(resource: TileRuntimeResourceDetail, fallbackLevel?: number): string {
   if (typeof resource.level === 'number') {
-    return `${Math.max(0, Math.round(resource.level))}`;
+    return formatDisplayInteger(Math.max(0, Math.round(resource.level)));
   }
   if (typeof fallbackLevel === 'number') {
-    return `${Math.max(0, Math.round(fallbackLevel))}`;
+    return formatDisplayInteger(Math.max(0, Math.round(fallbackLevel)));
   }
   return formatAuraValueText(resource.value);
 }
@@ -744,7 +745,7 @@ function formatObservedResourceOverview(resource: TileRuntimeResourceDetail, fal
 function buildObservedResourceAsideLines(resource: TileRuntimeResourceDetail): string[] {
   const lines = [`当前数值：${formatAuraValueText(resource.value)}`];
   if (typeof resource.level === 'number') {
-    lines.unshift(`当前等级：${Math.max(0, Math.round(resource.level))}`);
+    lines.unshift(`当前等级：${formatDisplayInteger(Math.max(0, Math.round(resource.level)))}`);
   }
   if (typeof resource.sourceValue === 'number' && resource.sourceValue > 0) {
     lines.push(`源点基准：${formatAuraValueText(resource.sourceValue)}`);
@@ -776,7 +777,7 @@ function buildObservedResourceAsideCards(targetX: number, targetY: number, tile:
       mark: '气',
       title: '气机细察',
       lines: [
-        `灵气等级：${Math.max(0, Math.round(tile.aura ?? 0))}`,
+        `灵气等级：${formatDisplayInteger(Math.max(0, Math.round(tile.aura ?? 0)))}`,
         '感气决运转中，正在细察此地气机。',
       ],
       tone: 'buff',
@@ -828,7 +829,7 @@ function renderObserveAsideCards(cards: ObserveAsideCard[]): void {
 }
 
 function formatBuffDuration(buff: VisibleBuffState): string {
-  return `${Math.max(0, Math.round(buff.remainingTicks))} / ${Math.max(1, Math.round(buff.duration))} 息`;
+  return `${formatDisplayInteger(Math.max(0, Math.round(buff.remainingTicks)))} / ${formatDisplayInteger(Math.max(1, Math.round(buff.duration)))} 息`;
 }
 
 function buildBuffEffectLines(buff: VisibleBuffState): string[] {
@@ -842,7 +843,7 @@ function buildBuffTooltipLines(buff: VisibleBuffState): string[] {
   ];
   const stackLimit = formatBuffMaxStacks(buff.maxStacks);
   if (stackLimit) {
-    lines.push(`层数：${buff.stacks} / ${stackLimit}`);
+    lines.push(`层数：${formatDisplayInteger(buff.stacks)} / ${stackLimit}`);
   }
   if (buff.sourceSkillName || buff.sourceSkillId) {
     lines.push(`来源：${buff.sourceSkillName ?? buff.sourceSkillId}`);
@@ -860,7 +861,7 @@ function buildBuffTooltipLines(buff: VisibleBuffState): string[] {
 function buildBuffBadgeHtml(buff: VisibleBuffState): string {
   const title = escapeHtml(buff.name);
   const detail = escapeHtml(buildBuffTooltipLines(buff).join('\n'));
-  const stackText = buff.maxStacks > 1 ? `<span class="observe-buff-stack">${buff.stacks}</span>` : '';
+  const stackText = buff.maxStacks > 1 ? `<span class="observe-buff-stack">${formatDisplayInteger(buff.stacks)}</span>` : '';
   const className = buff.category === 'debuff' ? 'observe-buff-chip debuff' : 'observe-buff-chip buff';
   return `<button class="${className}"
     type="button"
@@ -1161,7 +1162,7 @@ function renderObserveModal(targetX: number, targetY: number): void {
       ? `<div class="observe-entity-list">${groundPile.items.map((entry) => `
           <div class="observe-modal-row">
             <span class="observe-modal-label">${escapeHtml(entry.name)}</span>
-            <span class="observe-modal-value">x${entry.count}</span>
+            <span class="observe-modal-value">${formatDisplayCountBadge(entry.count)}</span>
           </div>
         `).join('')}</div>`
       : '<div class="observe-entity-empty">该地块当前没有可见地面物品。</div>';

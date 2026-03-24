@@ -6,31 +6,22 @@ import {
 } from '@mud/shared';
 import { getAttrKeyLabel, getElementKeyLabel, getNumericScalarStatKeyLabel } from '../domain-labels';
 import { PERCENT_STAT_KEYS } from '../constants/ui/stat-preview';
-
-function formatNumber(value: number): string {
-  if (!Number.isFinite(value)) {
-    return '0';
-  }
-  if (Math.abs(value % 1) < 1e-6) {
-    return String(Math.round(value));
-  }
-  return value.toFixed(2).replace(/\.?0+$/, '');
-}
+import { formatDisplayNumber, formatDisplaySignedNumber, formatDisplayPercent } from '../utils/number';
 
 function formatSignedNumber(value: number): string {
-  return `${value >= 0 ? '+' : ''}${formatNumber(value)}`;
+  return formatDisplaySignedNumber(value);
 }
 
 function formatSignedStatValue(key: string, value: number): string {
   const sign = value >= 0 ? '+' : '-';
   const absValue = Math.abs(value);
   if (key === 'critDamage') {
-    return `${sign}${formatNumber(absValue / 10)}%`;
+    return `${sign}${formatDisplayPercent(absValue / 10)}`;
   }
   if (PERCENT_STAT_KEYS.has(key)) {
-    return `${sign}${formatNumber(absValue / 100)}%`;
+    return `${sign}${formatDisplayPercent(absValue / 100)}`;
   }
-  return `${sign}${formatNumber(absValue)}`;
+  return `${sign}${formatDisplayNumber(absValue)}`;
 }
 
 export function resolvePreviewStats(

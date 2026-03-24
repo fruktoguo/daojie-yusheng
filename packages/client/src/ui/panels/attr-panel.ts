@@ -22,7 +22,7 @@ import {
   getTileTraversalCost,
 } from '@mud/shared';
 import { ATTR_KEY_LABELS, ELEMENT_KEY_LABELS } from '../../domain-labels';
-import { FloatingTooltip } from '../floating-tooltip';
+import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { preserveSelection } from '../selection-preserver';
 import {
   ATTR_COLORS,
@@ -35,20 +35,21 @@ import {
   type AttrTab,
   type NumericCardKey,
 } from '../../constants/ui/attr-panel';
+import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../../utils/number';
 
 
 function formatRateBp(value: number): string {
   const percent = value / 100;
-  return `${percent.toFixed(percent % 1 === 0 ? 0 : percent % 0.1 === 0 ? 1 : 2)}%`;
+  return formatDisplayPercent(percent);
 }
 
 function formatSimplePercent(value: number): string {
-  return `${value.toFixed(value % 1 === 0 ? 0 : value % 0.1 === 0 ? 1 : 2)}%`;
+  return formatDisplayPercent(value);
 }
 
 function formatCritDamageBonus(value: number): string {
   const percent = value / 10;
-  return `${percent.toFixed(percent % 1 === 0 ? 0 : percent % 0.1 === 0 ? 1 : 2)}%`;
+  return formatDisplayPercent(percent);
 }
 
 function colorWithAlpha(color: string, alpha: number): string {
@@ -62,7 +63,7 @@ function colorWithAlpha(color: string, alpha: number): string {
 }
 
 function formatRatioPercent(raw: number, divisor: number): string {
-  return `${(ratioValue(raw, divisor) * 100).toFixed(2)}%`;
+  return formatDisplayPercent(ratioValue(raw, divisor) * 100);
 }
 
 function formatNumericTooltipValue(key: NumericCardKey, value: number): string {
@@ -72,7 +73,7 @@ function formatNumericTooltipValue(key: NumericCardKey, value: number): string {
   if (RATE_BP_KEYS.has(key)) {
     return formatRateBp(value);
   }
-  return `${Math.round(value)}`;
+  return formatDisplayInteger(value);
 }
 
 function buildAttrConversionSummary(key: AttrKey, totalValue: number): string {
@@ -114,7 +115,7 @@ function splitTooltipLines(detail: string): string[] {
 
 function formatCritDamageDisplay(value: number): string {
   const total = 200 + value / 10;
-  return `${total.toFixed(total % 1 === 0 ? 0 : total % 0.1 === 0 ? 1 : 2)}%`;
+  return formatDisplayPercent(total);
 }
 
 function formatDefenseReduction(value: number): string {
@@ -128,17 +129,17 @@ function formatMoveSpeedEffect(value: number): string {
   const trailTiles = movePoints / getTileTraversalCost(TileType.Trail);
   const grassTiles = movePoints / getTileTraversalCost(TileType.Grass);
   const swampTiles = movePoints / getTileTraversalCost(TileType.Swamp);
-  return `每息获得 ${movePoints.toFixed(movePoints % 1 === 0 ? 0 : 2)} 点移动预算，约等于 ${roadTiles.toFixed(roadTiles % 1 === 0 ? 0 : 2)} 格大路 / ${trailTiles.toFixed(trailTiles % 1 === 0 ? 0 : 2)} 格小路 / ${grassTiles.toFixed(grassTiles % 1 === 0 ? 0 : 2)} 格草地 / ${swampTiles.toFixed(swampTiles % 1 === 0 ? 0 : 2)} 格沼泽`;
+  return `每息获得 ${formatDisplayNumber(movePoints)} 点移动预算，约等于 ${formatDisplayNumber(roadTiles)} 格大路 / ${formatDisplayNumber(trailTiles)} 格小路 / ${formatDisplayNumber(grassTiles)} 格草地 / ${formatDisplayNumber(swampTiles)} 格沼泽`;
 }
 
 function formatMoveSpeedDisplay(value: number): string {
-  return `${Math.round(BASE_MOVE_POINTS_PER_TICK + Math.max(0, value))}`;
+  return formatDisplayInteger(BASE_MOVE_POINTS_PER_TICK + Math.max(0, value));
 }
 
 function buildNumericTooltip(label: string, key: NumericCardKey, numericValue: number, ratioValueText?: string): string {
   const lines = [
     NUMERIC_TOOLTIP_DESCRIPTIONS[key] ?? '该属性影响角色的实际战斗表现。',
-    `当前数值：${key === 'critDamage' ? formatCritDamageDisplay(numericValue) : key === 'moveSpeed' ? formatMoveSpeedDisplay(numericValue) : RATE_BP_KEYS.has(key) ? formatRateBp(numericValue) : Math.round(numericValue)}`,
+    `当前数值：${key === 'critDamage' ? formatCritDamageDisplay(numericValue) : key === 'moveSpeed' ? formatMoveSpeedDisplay(numericValue) : RATE_BP_KEYS.has(key) ? formatRateBp(numericValue) : formatDisplayInteger(numericValue)}`,
   ];
   if (key === 'physDef' || key === 'spellDef') {
     lines.push(`实际减伤：${formatDefenseReduction(numericValue)}`);
@@ -237,7 +238,7 @@ export class AttrPanel {
     this.lastSnapshot = null;
     this.lastStructureKey = null;
     this.tooltipTarget = null;
-    this.tooltip.hide();
+    this.tooltip.hide(true);
     this.pane.innerHTML = '<div class="empty-hint">尚未观测到角色属性</div>';
   }
 
@@ -353,12 +354,12 @@ export class AttrPanel {
       return {
         label: ATTR_KEY_LABELS[key],
         value: finalValue,
-        valueLabel: `${roundedValue}`,
+        valueLabel: formatDisplayInteger(roundedValue),
         tooltipTitle: ATTR_KEY_LABELS[key],
         tooltipDetail: [
-          `当前：${roundedValue}`,
-          `基础：${baseValue}`,
-          `增益：${(bonusValue >= 0 ? '+' : '') + bonusValue}`,
+          `当前：${formatDisplayInteger(roundedValue)}`,
+          `基础：${formatDisplayInteger(baseValue)}`,
+          `增益：${bonusValue >= 0 ? '+' : ''}${formatDisplayInteger(bonusValue)}`,
           '实际转化：',
           ...buildAttrConversionLines(key, finalValue),
         ].join('\n'),
@@ -377,11 +378,11 @@ export class AttrPanel {
       return {
         label: `${ELEMENT_KEY_LABELS[key]}灵根`,
         value: damageBonus,
-        valueLabel: `${roundedBonus}`,
+        valueLabel: formatDisplayInteger(roundedBonus),
         tooltipTitle: `${ELEMENT_KEY_LABELS[key]}灵根`,
         tooltipDetail: [
-          `当前：${roundedBonus} 点`,
-          `${ELEMENT_KEY_LABELS[key]}属性伤害增幅：${roundedBonus}%`,
+          `当前：${formatDisplayInteger(roundedBonus)} 点`,
+          `${ELEMENT_KEY_LABELS[key]}属性伤害增幅：${formatDisplayPercent(roundedBonus)}`,
           `${ELEMENT_KEY_LABELS[key]}属性伤害削减：${formatRatioPercent(stats.elementDamageReduce[key], reductionDivisor)}`,
         ].join('\n'),
         color: ELEMENT_COLORS[index % ELEMENT_COLORS.length],
@@ -439,7 +440,7 @@ export class AttrPanel {
       };
       return {
         label: entry.label,
-        valueLabel: entry.valueLabel ?? Math.round(entry.value).toString(),
+        valueLabel: entry.valueLabel ?? formatDisplayInteger(entry.value),
         color: entry.color,
         dotX: dot.x.toFixed(2),
         dotY: dot.y.toFixed(2),
@@ -503,7 +504,7 @@ export class AttrPanel {
             ? formatMoveSpeedDisplay(numericValue)
             : RATE_BP_KEYS.has(key)
               ? formatRateBp(numericValue)
-              : `${Math.round(numericValue)}`;
+              : formatDisplayInteger(numericValue);
         return {
           key,
           label,
@@ -819,7 +820,36 @@ export class AttrPanel {
   }
 
   private bindTooltipEvents(): void {
+    const tapMode = prefersPinnedTooltipInteraction();
+    this.pane.addEventListener('click', (event) => {
+      if (!tapMode) {
+        return;
+      }
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+      const tooltipNode = target.closest<HTMLElement>('[data-tooltip-title]');
+      if (!tooltipNode) {
+        return;
+      }
+      if (this.tooltip.isPinnedTo(tooltipNode)) {
+        this.tooltipTarget = null;
+        this.tooltip.hide(true);
+        return;
+      }
+      this.tooltipTarget = tooltipNode;
+      const title = tooltipNode.getAttribute('data-tooltip-title') ?? '';
+      const detail = tooltipNode.getAttribute('data-tooltip-detail') ?? '';
+      this.tooltip.showPinned(tooltipNode, title, splitTooltipLines(detail), event.clientX, event.clientY);
+      event.preventDefault();
+      event.stopPropagation();
+    }, true);
+
     this.pane.addEventListener('pointermove', (event) => {
+      if (tapMode && this.tooltip.isPinned()) {
+        return;
+      }
       const target = event.target;
       if (!(target instanceof Element)) {
         if (this.tooltipTarget) {

@@ -4,6 +4,7 @@
  */
 
 import { PlayerState } from '@mud/shared';
+import { formatDisplayCurrentMax, formatDisplayInteger } from '../utils/number';
 
 interface HUDMeta {
   mapName?: string;
@@ -73,7 +74,7 @@ export class HUD {
     if (player.realm && player.realm.progressToNext > 0) {
       const ratio = Math.min(1, player.realm.progress / player.realm.progressToNext);
       this.cultivateBar.style.width = `${Math.round(ratio * 100)}%`;
-      this.cultivateText.textContent = `境界经验 (${player.realm.progress}/${player.realm.progressToNext})`;
+      this.cultivateText.textContent = `境界经验 (${formatDisplayInteger(player.realm.progress)}/${formatDisplayInteger(player.realm.progressToNext)})`;
     } else {
       this.cultivateBar.style.width = '0%';
       this.cultivateText.textContent = '境界经验 (已满)';
@@ -83,6 +84,6 @@ export class HUD {
   private setResource(bar: HTMLElement, text: HTMLElement, value: number, max: number) {
     const ratio = max <= 0 ? 0 : Math.max(0, Math.min(1, value / max));
     bar.style.width = `${Math.round(ratio * 100)}%`;
-    text.textContent = `${Math.max(0, Math.round(value))}/${Math.max(0, Math.round(max))}`;
+    text.textContent = formatDisplayCurrentMax(Math.max(0, Math.round(value)), Math.max(0, Math.round(max)));
   }
 }

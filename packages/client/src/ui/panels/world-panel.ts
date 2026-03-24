@@ -6,6 +6,7 @@
 import { ActionDef, manhattanDistance, MapMeta, PlayerState, QuestState } from '@mud/shared';
 import { preserveSelection } from '../selection-preserver';
 import { TECH_REALM_LABELS, TECH_REALM_NAME_BY_KEY, WORLD_GUIDE, type WorldGuide } from '../../constants/world/world-panel';
+import { formatDisplayCurrentMax, formatDisplayInteger } from '../../utils/number';
 
 interface VisibleEntity {
   id: string;
@@ -261,7 +262,7 @@ export class WorldPanel {
               <div class="entity-card threat" data-world-monster-card="${escapeHtml(monster.id)}">
                 <div>
                   <div class="entity-name" data-world-monster-name="${escapeHtml(monster.id)}">${escapeHtml(monster.name)}</div>
-                  <div class="entity-meta" data-world-monster-meta="${escapeHtml(monster.id)}">距离 ${monster.distance} 格 · HP ${monster.hp}/${monster.maxHp}</div>
+                  <div class="entity-meta" data-world-monster-meta="${escapeHtml(monster.id)}">距离 ${formatDisplayInteger(monster.distance)} 格 · HP ${formatDisplayCurrentMax(monster.hp, monster.maxHp)}</div>
                 </div>
                 <div class="entity-hp" data-world-monster-status="${escapeHtml(monster.id)}">${buildMonsterStatus(monster.distance)}</div>
               </div>
@@ -368,7 +369,7 @@ export class WorldPanel {
         return false;
       }
       nameNode.textContent = monster.name;
-      metaNode.textContent = `距离 ${monster.distance} 格 · HP ${monster.hp}/${monster.maxHp}`;
+      metaNode.textContent = `距离 ${formatDisplayInteger(monster.distance)} 格 · HP ${formatDisplayCurrentMax(monster.hp, monster.maxHp)}`;
       statusNode.textContent = buildMonsterStatus(monster.distance);
     }
 

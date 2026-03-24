@@ -10,11 +10,12 @@ import {
 } from '../../domain-labels';
 import { resolvePreviewItem } from '../../content/local-templates';
 import { detailModalHost } from '../detail-modal-host';
-import { FloatingTooltip } from '../floating-tooltip';
+import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { preserveSelection } from '../selection-preserver';
 import { describePreviewBonuses } from '../stat-preview';
 import { INVENTORY_FILTER_TABS, InventoryFilter } from '../../constants/ui/inventory';
+import { formatDisplayCountBadge, formatDisplayInteger, formatDisplayPercent } from '../../utils/number';
 import {
   INVENTORY_PANEL_TOOLTIP_STYLE_ID,
   INVENTORY_PANEL_USABLE_ITEM_TYPES,
@@ -41,9 +42,9 @@ function formatEffectCondition(effect: EquipmentEffectDef): string {
       case 'map':
         return `地图:${condition.mapIds.join('/')}`;
       case 'hp_ratio':
-        return `生命${condition.op}${Math.round(condition.value * 100)}%`;
+        return `生命${condition.op}${formatDisplayPercent(condition.value * 100)}`;
       case 'qi_ratio':
-        return `灵力${condition.op}${Math.round(condition.value * 100)}%`;
+        return `灵力${condition.op}${formatDisplayPercent(condition.value * 100)}`;
       case 'is_cultivating':
         return condition.value ? '修炼中' : '未修炼';
       case 'has_buff':
@@ -72,10 +73,10 @@ function formatItemEffects(item: ItemStack): string[] {
       }
       case 'periodic_cost': {
         const modeLabel = effect.mode === 'flat'
-          ? `${effect.value}`
+          ? `${formatDisplayInteger(effect.value)}`
           : effect.mode === 'max_ratio_bp'
-            ? `${effect.value / 100}% 最大${effect.resource === 'hp' ? '生命' : '灵力'}`
-            : `${effect.value / 100}% 当前${effect.resource === 'hp' ? '生命' : '灵力'}`;
+            ? `${formatDisplayPercent(effect.value / 100)} 最大${effect.resource === 'hp' ? '生命' : '灵力'}`
+            : `${formatDisplayPercent(effect.value / 100)} 当前${effect.resource === 'hp' ? '生命' : '灵力'}`;
         const triggerLabel = effect.trigger === 'on_cultivation_tick' ? '修炼时每息' : '每息';
         return `代价:${triggerLabel}损失 ${modeLabel}${conditionText}`;
       }
@@ -134,7 +135,7 @@ export class InventoryPanel {
     this.selectedItemKey = null;
     this.actionDialog = null;
     this.tooltipCell = null;
-    this.tooltip.hide();
+    this.tooltip.hide(true);
     this.pane.innerHTML = '<div class="empty-hint">背包空空如也</div>';
     detailModalHost.close(InventoryPanel.MODAL_OWNER);
   }
@@ -176,7 +177,7 @@ export class InventoryPanel {
 
     let html = `<div class="panel-section">
       <div class="inventory-panel-head">
-        <div class="panel-section-title" data-inventory-title="true">背包 (${inventory.items.length}/${inventory.capacity})</div>
+        <div class="panel-section-title" data-inventory-title="true">背包 (${formatDisplayInteger(inventory.items.length)}/${formatDisplayInteger(inventory.capacity)})</div>
         <button class="small-btn" data-sort-inventory type="button">一键整理</button>
       </div>
       <div class="inventory-filter-tabs">`;
@@ -204,7 +205,7 @@ export class InventoryPanel {
       html += `<div class="inventory-cell" data-open-item="${slotIndex}" data-item-slot="${slotIndex}" data-item-key="${this.escapeHtml(this.getItemIdentity(item))}">
         <div class="inventory-cell-head">
           <span class="inventory-cell-type" data-item-type="true">${getItemTypeLabel(item.type)}</span>
-          <span class="inventory-cell-count" data-item-count="true">x${item.count}</span>
+          <span class="inventory-cell-count" data-item-count="true">${formatDisplayCountBadge(item.count)}</span>
         </div>
         <div class="inventory-cell-name ${nameClass}" data-item-name="true" title="${this.escapeHtml(item.name)}">${this.escapeHtml(item.name)}</div>
         <div class="inventory-cell-actions">
@@ -295,6 +296,7 @@ export class InventoryPanel {
   }
 
   private bindTooltipEvents(): void {
+    const tapMode = prefersPinnedTooltipInteraction();
     const show = (cell: HTMLElement, event: PointerEvent) => {
       const rawIndex = cell.dataset.itemSlot;
       if (!rawIndex || !this.lastInventory) {
@@ -312,7 +314,46 @@ export class InventoryPanel {
       });
     };
 
+    this.pane.addEventListener('click', (event) => {
+      if (!tapMode) {
+        return;
+      }
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      const cell = target.closest<HTMLElement>('.inventory-cell');
+      if (!cell) {
+        return;
+      }
+      if (this.tooltip.isPinnedTo(cell)) {
+        this.tooltipCell = null;
+        this.tooltip.hide(true);
+        return;
+      }
+      const rawIndex = cell.dataset.itemSlot;
+      if (!rawIndex || !this.lastInventory) {
+        return;
+      }
+      const slotIndex = parseInt(rawIndex, 10);
+      const item = this.lastInventory.items[slotIndex];
+      if (!item) {
+        return;
+      }
+      const tooltip = this.buildTooltipPayload(item);
+      this.tooltipCell = cell;
+      this.tooltip.showPinned(cell, tooltip.title, tooltip.lines, event.clientX, event.clientY, {
+        allowHtml: tooltip.allowHtml,
+        asideCards: tooltip.asideCards,
+      });
+      event.preventDefault();
+      event.stopPropagation();
+    }, true);
+
     this.pane.addEventListener('pointermove', (event) => {
+      if (tapMode && this.tooltip.isPinned()) {
+        return;
+      }
       const target = event.target;
       if (!(target instanceof HTMLElement)) {
         if (this.tooltipCell) {
@@ -425,7 +466,7 @@ export class InventoryPanel {
     detailModalHost.open({
       ownerId: InventoryPanel.MODAL_OWNER,
       title: item.name,
-      subtitle: `${getItemTypeLabel(item.type)} · 数量 x${item.count}`,
+      subtitle: `${getItemTypeLabel(item.type)} · 数量 ${formatDisplayCountBadge(item.count)}`,
       bodyHtml: `
         <div class="quest-detail-grid inventory-detail-grid">
           <div class="quest-detail-section">
@@ -434,7 +475,7 @@ export class InventoryPanel {
           </div>
           <div class="quest-detail-section">
             <strong>当前数量</strong>
-            <span data-inventory-modal-count="true">x${item.count}</span>
+            <span data-inventory-modal-count="true">${formatDisplayCountBadge(item.count)}</span>
           </div>
           ${item.equipSlot ? `<div class="quest-detail-section">
             <strong>装备部位</strong>
@@ -505,7 +546,7 @@ export class InventoryPanel {
       detailModalHost.open({
         ownerId: InventoryPanel.MODAL_OWNER,
         title: '确认摧毁',
-        subtitle: `${item.name} · 数量 x${selectedCount}`,
+        subtitle: `${item.name} · 数量 ${formatDisplayCountBadge(selectedCount)}`,
         hint: '点击空白处取消',
         bodyHtml: `
           <div class="panel-section">
@@ -545,7 +586,7 @@ export class InventoryPanel {
     detailModalHost.open({
       ownerId: InventoryPanel.MODAL_OWNER,
       title: labels.title,
-      subtitle: `${item.name} · 当前最多 ${maxCount} 个`,
+      subtitle: `${item.name} · 当前最多 ${formatDisplayInteger(maxCount)} 个`,
       hint: '点击空白处取消',
       bodyHtml: `
         <div class="quest-detail-section">
@@ -630,7 +671,7 @@ export class InventoryPanel {
     if (!titleNode) {
       return false;
     }
-    titleNode.textContent = `背包 (${inventory.items.length}/${inventory.capacity})`;
+    titleNode.textContent = `背包 (${formatDisplayInteger(inventory.items.length)}/${formatDisplayInteger(inventory.capacity)})`;
 
     for (const tab of INVENTORY_FILTER_TABS) {
       const button = this.pane.querySelector<HTMLElement>(`[data-filter-button="${CSS.escape(tab.id)}"]`);
@@ -674,7 +715,7 @@ export class InventoryPanel {
 
       cell.dataset.itemKey = this.getItemIdentity(item);
       typeNode.textContent = getItemTypeLabel(item.type);
-      countNode.textContent = `x${item.count}`;
+      countNode.textContent = formatDisplayCountBadge(item.count);
       nameNode.textContent = item.name;
       nameNode.title = item.name;
       nameNode.className = `inventory-cell-name ${this.getNameClass(item.name)}`.trim();

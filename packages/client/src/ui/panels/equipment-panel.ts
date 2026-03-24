@@ -7,9 +7,10 @@ import { EquipmentEffectDef, EquipmentSlots, EQUIP_SLOTS, EquipSlot, PlayerState
 import { getEquipSlotLabel } from '../../domain-labels';
 import { resolvePreviewItem } from '../../content/local-templates';
 import { preserveSelection } from '../selection-preserver';
-import { FloatingTooltip } from '../floating-tooltip';
+import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { describePreviewBonuses } from '../stat-preview';
+import { formatDisplayInteger, formatDisplayPercent } from '../../utils/number';
 
 function formatEffectCondition(effect: EquipmentEffectDef): string {
   const conditions = effect?.conditions?.items ?? [];
@@ -23,9 +24,9 @@ function formatEffectCondition(effect: EquipmentEffectDef): string {
       case 'map':
         return `地图:${condition.mapIds.join('/')}`;
       case 'hp_ratio':
-        return `生命${condition.op}${Math.round(condition.value * 100)}%`;
+        return `生命${condition.op}${formatDisplayPercent(condition.value * 100)}`;
       case 'qi_ratio':
-        return `灵力${condition.op}${Math.round(condition.value * 100)}%`;
+        return `灵力${condition.op}${formatDisplayPercent(condition.value * 100)}`;
       case 'is_cultivating':
         return condition.value ? '修炼中' : '未修炼';
       case 'has_buff':
@@ -54,10 +55,10 @@ function formatItemEffects(item: EquipmentSlots[EquipSlot]): string[] {
       }
       case 'periodic_cost': {
         const modeLabel = effect.mode === 'flat'
-          ? `${effect.value}`
+          ? `${formatDisplayInteger(effect.value)}`
           : effect.mode === 'max_ratio_bp'
-            ? `${effect.value / 100}% 最大${effect.resource === 'hp' ? '生命' : '灵力'}`
-            : `${effect.value / 100}% 当前${effect.resource === 'hp' ? '生命' : '灵力'}`;
+            ? `${formatDisplayPercent(effect.value / 100)} 最大${effect.resource === 'hp' ? '生命' : '灵力'}`
+            : `${formatDisplayPercent(effect.value / 100)} 当前${effect.resource === 'hp' ? '生命' : '灵力'}`;
         const triggerLabel = effect.trigger === 'on_cultivation_tick' ? '修炼时每息' : '每息';
         return `代价:${triggerLabel}损失 ${modeLabel}${conditionText}`;
       }
@@ -109,7 +110,7 @@ export class EquipmentPanel {
   clear(): void {
     this.lastEquipment = null;
     this.tooltipSlot = null;
-    this.tooltip.hide();
+    this.tooltip.hide(true);
     this.pane.innerHTML = '<div class="empty-hint">尚未装备任何物品</div>';
   }
 
@@ -169,7 +170,43 @@ export class EquipmentPanel {
   }
 
   private bindTooltipEvents(): void {
+    const tapMode = prefersPinnedTooltipInteraction();
+    this.pane.addEventListener('click', (event) => {
+      if (!tapMode) {
+        return;
+      }
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || target.closest('[data-unequip]')) {
+        return;
+      }
+      const slotNode = target.closest<HTMLElement>('[data-equip-tooltip-slot]');
+      if (!slotNode || !this.lastEquipment) {
+        return;
+      }
+      if (this.tooltip.isPinnedTo(slotNode)) {
+        this.tooltipSlot = null;
+        this.tooltip.hide(true);
+        return;
+      }
+      const slot = slotNode.dataset.equipTooltipSlot as EquipSlot | undefined;
+      const item = slot ? this.lastEquipment[slot] : null;
+      if (!slot || !item) {
+        return;
+      }
+      const tooltip = buildItemTooltipPayload(item);
+      this.tooltipSlot = slot;
+      this.tooltip.showPinned(slotNode, tooltip.title, tooltip.lines, event.clientX, event.clientY, {
+        allowHtml: tooltip.allowHtml,
+        asideCards: tooltip.asideCards,
+      });
+      event.preventDefault();
+      event.stopPropagation();
+    }, true);
+
     this.pane.addEventListener('pointermove', (event) => {
+      if (tapMode && this.tooltip.isPinned()) {
+        return;
+      }
       const target = event.target;
       if (!(target instanceof HTMLElement)) {
         if (this.tooltipSlot) {

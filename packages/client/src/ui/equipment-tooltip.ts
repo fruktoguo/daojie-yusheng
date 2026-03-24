@@ -15,6 +15,7 @@ import {
 import { resolvePreviewItem } from '../content/local-templates';
 import { SkillTooltipAsideCard, SkillTooltipContent } from './skill-tooltip';
 import { describePreviewBonuses } from './stat-preview';
+import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../utils/number';
 
 function escapeHtml(value: string): string {
   return value
@@ -31,12 +32,6 @@ function renderLabelLine(label: string, value: string): string {
 
 function renderPlainLine(label: string, value: string): string {
   return renderLabelLine(label, escapeHtml(value));
-}
-
-function formatNumber(value: number): string {
-  if (!Number.isFinite(value)) return '0';
-  if (Math.abs(value % 1) < 1e-6) return String(Math.round(value));
-  return value.toFixed(2).replace(/\.?0+$/, '');
 }
 
 function normalizeBuffMark(name: string, shortMark?: string): string {
@@ -68,9 +63,9 @@ function formatConditionText(effect: EquipmentEffectDef): string[] {
       case 'map':
         return `地图：${condition.mapIds.join(' / ')}`;
       case 'hp_ratio':
-        return `生命 ${condition.op} ${Math.round(condition.value * 100)}%`;
+        return `生命 ${condition.op} ${formatDisplayPercent(condition.value * 100)}`;
       case 'qi_ratio':
-        return `灵力 ${condition.op} ${Math.round(condition.value * 100)}%`;
+        return `灵力 ${condition.op} ${formatDisplayPercent(condition.value * 100)}`;
       case 'is_cultivating':
         return condition.value ? '仅修炼中生效' : '仅未修炼时生效';
       case 'has_buff':
@@ -106,9 +101,9 @@ function buildTimedBuffAsideCard(effect: Extract<EquipmentEffectDef, { type: 'ti
   const conditionLines = formatConditionText(effect);
   const buffLines = describeBuffStats(effect.buff.attrs, effect.buff.stats, effect.buff.valueStats);
   const lines = [
-    `${formatTriggerLabel(effect.trigger)} · ${effect.target === 'target' ? '目标' : '自身'} · ${effect.buff.duration} 息${stackText}`,
-    ...(effect.cooldown !== undefined ? [`冷却：${effect.cooldown} 息`] : []),
-    ...(effect.chance !== undefined ? [`触发概率：${formatNumber(effect.chance * 100)}%`] : []),
+    `${formatTriggerLabel(effect.trigger)} · ${effect.target === 'target' ? '目标' : '自身'} · ${formatDisplayInteger(effect.buff.duration)} 息${stackText}`,
+    ...(effect.cooldown !== undefined ? [`冷却：${formatDisplayInteger(effect.cooldown)} 息`] : []),
+    ...(effect.chance !== undefined ? [`触发概率：${formatDisplayPercent(effect.chance * 100)}`] : []),
     ...(conditionLines.length > 0 ? [`条件：${conditionLines.join('，')}`] : []),
     ...(buffLines.length > 0 ? [`效果：${buffLines.join('，')}`] : []),
     ...(effect.buff.desc ? [effect.buff.desc] : []),
@@ -144,10 +139,10 @@ function buildEffectSummary(effect: EquipmentEffectDef): { lines: string[]; asid
     }
     case 'periodic_cost': {
       const modeLabel = effect.mode === 'flat'
-        ? `${effect.value}`
+        ? `${formatDisplayNumber(effect.value)}`
         : effect.mode === 'max_ratio_bp'
-          ? `${effect.value / 100}% 最大${effect.resource === 'hp' ? '生命' : '灵力'}`
-          : `${effect.value / 100}% 当前${effect.resource === 'hp' ? '生命' : '灵力'}`;
+          ? `${formatDisplayPercent(effect.value / 100)} 最大${effect.resource === 'hp' ? '生命' : '灵力'}`
+          : `${formatDisplayPercent(effect.value / 100)} 当前${effect.resource === 'hp' ? '生命' : '灵力'}`;
       return {
         lines: [
           renderPlainLine('持续代价', `${effect.trigger === 'on_cultivation_tick' ? '修炼时每息' : '每息'}损失 ${modeLabel}`),
@@ -161,10 +156,10 @@ function buildEffectSummary(effect: EquipmentEffectDef): { lines: string[]; asid
       const meta: string[] = [
         formatTriggerLabel(effect.trigger),
         effect.target === 'target' ? '目标' : '自身',
-        `${effect.buff.duration} 息${stackText}`,
+        `${formatDisplayInteger(effect.buff.duration)} 息${stackText}`,
       ];
-      if (effect.cooldown !== undefined) meta.push(`冷却 ${effect.cooldown} 息`);
-      if (effect.chance !== undefined) meta.push(`${formatNumber(effect.chance * 100)}%`);
+      if (effect.cooldown !== undefined) meta.push(`冷却 ${formatDisplayInteger(effect.cooldown)} 息`);
+      if (effect.chance !== undefined) meta.push(formatDisplayPercent(effect.chance * 100));
       return {
         lines: [
           renderLabelLine(

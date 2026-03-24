@@ -43,6 +43,7 @@ export class LegacyCanvasTextRendererAdapter {
     this.renderer.setPathHighlight(scene.overlays.pathCells);
     this.renderer.setTargetingOverlay(scene.overlays.targeting);
     this.renderer.setSenseQiOverlay(scene.overlays.senseQi);
+    this.renderer.setGroundPiles(scene.groundPiles.values());
     const settleEntityId = transition?.settleMotion === true ? scene.player?.id : undefined;
     this.renderer.updateEntities(
       scene.entities.map((entity) => ({

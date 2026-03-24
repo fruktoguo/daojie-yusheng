@@ -6,6 +6,7 @@ import { IRenderer, SenseQiOverlayState, TargetingOverlayState } from './types';
 import {
   DEFAULT_AURA_LEVEL_BASE_VALUE,
   GameTimeState,
+  GroundItemPileView,
   NpcQuestMarker,
   TILE_VISUAL_BG_COLORS,
   TILE_VISUAL_GLYPHS,
@@ -18,6 +19,7 @@ import {
 } from '@mud/shared';
 import { Camera } from './camera';
 import { getCellSize } from '../display';
+import { formatDisplayInteger } from '../utils/number';
 import {
   PATH_ARROW_COLOR,
   PATH_FILL_COLOR,
@@ -111,6 +113,8 @@ interface FloatingTextBurstOffset {
 export class TextRenderer implements IRenderer {
   private ctx: CanvasRenderingContext2D | null = null;
   private entities: Map<string, AnimEntity> = new Map();
+  private groundPiles = new Map<string, GroundItemPileView>();
+  private containerTileKeys = new Set<string>();
   private pathCells: { x: number; y: number }[] = [];
   private pathKeys = new Set<string>();
   private pathIndexByKey = new Map<string, number>();
@@ -146,6 +150,8 @@ export class TextRenderer implements IRenderer {
 
   resetScene() {
     this.entities.clear();
+    this.groundPiles.clear();
+    this.containerTileKeys.clear();
     this.floatingTexts = [];
     this.attackTrails = [];
     this.previousVisibleTileKeys.clear();
@@ -169,6 +175,10 @@ export class TextRenderer implements IRenderer {
 
   setSenseQiOverlay(state: SenseQiOverlayState | null) {
     this.senseQiOverlay = state;
+  }
+
+  setGroundPiles(piles: Iterable<GroundItemPileView>) {
+    this.groundPiles = new Map([...piles].map((pile) => [`${pile.x},${pile.y}`, pile]));
   }
 
   /** 绘制地图地块、路径高亮、瞄准叠加层和感气视角 */
@@ -257,6 +267,13 @@ export class TextRenderer implements IRenderer {
             ctx.fillRect(barX, barY, barW, 3);
             ctx.fillStyle = '#d6c8ae';
             ctx.fillRect(barX, barY, barW * ratio, 3);
+          }
+
+          if (isVisible) {
+            const pile = this.groundPiles.get(key);
+            if (pile && !this.containerTileKeys.has(key)) {
+              this.drawGroundPileIndicator(sx, sy, cellSize, pile);
+            }
           }
 
           if (this.targetingOverlay) {
@@ -368,6 +385,11 @@ export class TextRenderer implements IRenderer {
   ) {
     const seen = new Set<string>();
     const cellSize = getCellSize();
+    this.containerTileKeys = new Set(
+      list
+        .filter((entry) => entry.kind === 'container')
+        .map((entry) => `${entry.wx},${entry.wy}`),
+    );
     for (const e of list) {
       seen.add(e.id);
       const twx = e.wx * cellSize;
@@ -809,6 +831,8 @@ export class TextRenderer implements IRenderer {
   destroy() {
     this.ctx = null;
     this.entities.clear();
+    this.groundPiles.clear();
+    this.containerTileKeys.clear();
     this.pathKeys.clear();
     this.pathIndexByKey.clear();
     this.pathTargetKey = null;
@@ -1041,6 +1065,47 @@ export class TextRenderer implements IRenderer {
   private toOverlayColor(color: [number, number, number, number]): string {
     const [red, green, blue, alpha] = color;
     return `rgba(${red.toFixed(2)}, ${green.toFixed(2)}, ${blue.toFixed(2)}, ${Math.max(0, Math.min(1, alpha)).toFixed(3)})`;
+  }
+
+  private drawGroundPileIndicator(sx: number, sy: number, cellSize: number, pile: GroundItemPileView) {
+    if (!this.ctx) {
+      return;
+    }
+    const ctx = this.ctx;
+    const iconSize = Math.max(8, Math.floor(cellSize / 3));
+    const iconX = sx + cellSize - iconSize - Math.max(2, Math.floor(cellSize * 0.08));
+    const iconY = sy + cellSize - iconSize - Math.max(2, Math.floor(cellSize * 0.08));
+    const totalCount = pile.items.reduce((sum, entry) => sum + Math.max(0, entry.count), 0);
+    const countText = formatDisplayInteger(totalCount);
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(16, 11, 8, 0.82)';
+    ctx.strokeStyle = 'rgba(255, 229, 168, 0.92)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(iconX, iconY, iconSize, iconSize, Math.max(2, iconSize * 0.24));
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#f5d88e';
+    ctx.beginPath();
+    ctx.moveTo(iconX + iconSize * 0.28, iconY + iconSize * 0.2);
+    ctx.lineTo(iconX + iconSize * 0.72, iconY + iconSize * 0.2);
+    ctx.lineTo(iconX + iconSize * 0.8, iconY + iconSize * 0.78);
+    ctx.lineTo(iconX + iconSize * 0.2, iconY + iconSize * 0.78);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = '#fff5d9';
+    ctx.font = `bold ${Math.max(6, iconSize * 0.52)}px "Noto Serif SC", serif`;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'bottom';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(15,12,10,0.95)';
+    ctx.strokeText(countText, sx + cellSize - 1, sy + cellSize - iconSize - 1);
+    ctx.fillText(countText, sx + cellSize - 1, sy + cellSize - iconSize - 1);
+    ctx.restore();
   }
 
   private drawOutlinedText(text: string, x: number, y: number, fill: string, stroke: string) {

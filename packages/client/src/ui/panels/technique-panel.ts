@@ -23,16 +23,13 @@ import { detailModalHost } from '../detail-modal-host';
 import { buildSkillTooltipContent } from '../skill-tooltip';
 import { preserveSelection } from '../selection-preserver';
 import { TechniqueConstellationCanvas, TechniqueConstellationCanvasData, TechniqueConstellationHoverPayload } from './technique-constellation-canvas';
+import { formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
 
 type TechniquePanelState = {
   cultivatingTechId?: string;
   previewPlayer?: PlayerState;
   techniques: TechniqueState[];
 };
-
-function formatNumber(value: number): string {
-  return value.toFixed(value % 1 === 0 ? 0 : value % 0.1 === 0 ? 1 : 2);
-}
 
 function escapeHtml(value: string): string {
   return value
@@ -50,7 +47,7 @@ function formatAttrMap(attrs: Partial<Attributes>, fallback = '无属性提升')
   if (entries.length === 0) {
     return fallback;
   }
-  return entries.map(([key, value]) => `${ATTR_KEY_LABELS[key]}+${formatNumber(value)}`).join(' / ');
+  return entries.map(([key, value]) => `${ATTR_KEY_LABELS[key]}+${formatDisplayNumber(value)}`).join(' / ');
 }
 
 function getTechniqueProgressRatio(tech: TechniqueState): number {
@@ -65,6 +62,18 @@ function getTechniqueRemainingExp(tech: TechniqueState): number {
     return 0;
   }
   return Math.max(0, tech.expToNext - tech.exp);
+}
+
+function formatTechniqueProgressText(tech: TechniqueState): string {
+  return tech.expToNext > 0
+    ? `${formatDisplayInteger(tech.exp)}/${formatDisplayInteger(tech.expToNext)}`
+    : '已满层';
+}
+
+function formatTechniqueRemainText(tech: TechniqueState): string {
+  return tech.expToNext > 0
+    ? `距下一层还需 ${formatDisplayInteger(getTechniqueRemainingExp(tech))} 功法经验`
+    : '当前已达圆满层';
 }
 
 function findTechniqueRealmStartLevel(
@@ -149,13 +158,8 @@ export class TechniquePanel {
         const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
         const isCultivating = this.lastState.cultivatingTechId === tech.techId;
         const progressRatio = getTechniqueProgressRatio(tech);
-        const remainingExp = getTechniqueRemainingExp(tech);
-        const progressText = tech.expToNext > 0
-          ? `${tech.exp}/${tech.expToNext}`
-          : '已满层';
-        const remainText = tech.expToNext > 0
-          ? `距下一层还需 ${remainingExp} 功法经验`
-          : '当前已达圆满层';
+        const progressText = formatTechniqueProgressText(tech);
+        const remainText = formatTechniqueRemainText(tech);
         return `<div class="tech-card ${isCultivating ? 'cultivating' : ''}" data-tech-card="${tech.techId}">
           <button class="tech-card-main" data-tech-open="${tech.techId}" type="button">
             <span class="tech-summary-main">
@@ -218,12 +222,12 @@ export class TechniquePanel {
       ownerId: TechniquePanel.MODAL_OWNER,
       variantClass: 'detail-modal--technique',
       title: tech.name,
-      subtitle: `${getTechniqueGradeLabel(tech.grade)} · ${getTechniqueRealmLabel(tech.realm)} · 第 ${tech.level}/${maxLevel} 层`,
+      subtitle: `${getTechniqueGradeLabel(tech.grade)} · ${getTechniqueRealmLabel(tech.realm)} · 第 ${formatDisplayInteger(tech.level)}/${formatDisplayInteger(maxLevel)} 层`,
       bodyHtml: `
       <div class="tech-modal-summary">
         <div class="tech-modal-stat">
           <span class="tech-modal-label">当前经验</span>
-          <span data-tech-modal-current-exp="true">${tech.expToNext > 0 ? `${tech.exp}/${tech.expToNext}` : '已满层'}</span>
+          <span data-tech-modal-current-exp="true">${formatTechniqueProgressText(tech)}</span>
         </div>
         <div class="tech-modal-stat">
           <span class="tech-modal-label">当前原始总加成</span>
@@ -288,13 +292,13 @@ export class TechniquePanel {
     const totalAttrs = formatAttrMap(calcTechniqueAttrValues(layer.level, tech.layers, tech.attrCurves));
     const milestone = milestones.get(layer.level);
     const stateLabel = layer.level < tech.level ? '已贯通' : layer.level === tech.level ? '当前停驻' : '尚未抵达';
-    const expText = layer.expToNext > 0 ? `升下一层需 ${layer.expToNext} 功法经验` : '此层已是终点';
+    const expText = layer.expToNext > 0 ? `升下一层需 ${formatDisplayInteger(layer.expToNext)} 功法经验` : '此层已是终点';
     const milestoneText = milestone ? `此层踏入${getTechniqueRealmLabel(milestone)}` : `此层属${getTechniqueRealmLabel(selectedRealm)}阶段`;
 
     return `<section class="tech-focus-card ${layer.level < tech.level ? 'passed' : ''} ${layer.level === tech.level ? 'current' : ''}" data-tech-focus-card="true">
       <div class="tech-focus-head">
         <div>
-          <div class="tech-focus-title" data-tech-focus-title="true">第 ${layer.level} 层星位</div>
+          <div class="tech-focus-title" data-tech-focus-title="true">第 ${formatDisplayInteger(layer.level)} 层星位</div>
           <div class="tech-focus-subtitle" data-tech-focus-subtitle="true">${escapeHtml(milestoneText)}</div>
         </div>
         <div class="tech-focus-state" data-tech-focus-state="true">${stateLabel}</div>
@@ -329,8 +333,8 @@ export class TechniquePanel {
     milestones: Map<number, TechniqueRealm>,
   ): string {
     const note = currentLevel < layers.length
-      ? `当前停驻第 ${currentLevel} 层，周天流转 ${(getTechniqueProgressRatio(tech) * 100).toFixed(0)}%，点击任意星位切换下方注解。`
-      : `当前已抵达 ${layers.length} 层圆满，点击任意星位切换下方注解。`;
+      ? `当前停驻第 ${formatDisplayInteger(currentLevel)} 层，周天流转 ${formatDisplayInteger(getTechniqueProgressRatio(tech) * 100)}%，点击任意星位切换下方注解。`
+      : `当前已抵达 ${formatDisplayInteger(layers.length)} 层圆满，点击任意星位切换下方注解。`;
     return `<div class="tech-starfield-shell">
       <div class="tech-starfield-canvas-shell" data-tech-constellation-root="true">
         <canvas class="tech-starfield-canvas" data-tech-starfield-canvas="true"></canvas>
@@ -512,11 +516,8 @@ export class TechniquePanel {
       const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
       const isCultivating = cultivatingTechId === tech.techId;
       const progressRatio = getTechniqueProgressRatio(tech);
-      const remainingExp = getTechniqueRemainingExp(tech);
-      const progressText = tech.expToNext > 0 ? `${tech.exp}/${tech.expToNext}` : '已满层';
-      const remainText = tech.expToNext > 0
-        ? `距下一层还需 ${remainingExp} 功法经验`
-        : '当前已达圆满层';
+      const progressText = formatTechniqueProgressText(tech);
+      const remainText = formatTechniqueRemainText(tech);
 
       card.classList.toggle('cultivating', isCultivating);
       layerNode.textContent = `第${tech.level}/${maxLevel}层`;
@@ -571,8 +572,8 @@ export class TechniquePanel {
     const selectedLevel = this.resolveOpenLayerLevel(layers, tech.level);
 
     titleNode.textContent = tech.name;
-    subtitleNode.textContent = `${getTechniqueGradeLabel(tech.grade)} · ${getTechniqueRealmLabel(tech.realm)} · 第 ${tech.level}/${maxLevel} 层`;
-    expNode.textContent = tech.expToNext > 0 ? `${tech.exp}/${tech.expToNext}` : '已满层';
+    subtitleNode.textContent = `${getTechniqueGradeLabel(tech.grade)} · ${getTechniqueRealmLabel(tech.realm)} · 第 ${formatDisplayInteger(tech.level)}/${formatDisplayInteger(maxLevel)} 层`;
+    expNode.textContent = formatTechniqueProgressText(tech);
     currentAttrsNode.textContent = formatAttrMap(currentAttrs);
     nextAttrsNode.textContent = formatAttrMap(nextAttrs, '已无下一层');
 
@@ -596,8 +597,8 @@ export class TechniquePanel {
     const noteNode = document.querySelector<HTMLElement>('.tech-starfield-note');
     if (noteNode) {
       noteNode.textContent = tech.level < layers.length
-        ? `当前停驻第 ${tech.level} 层，周天流转 ${(getTechniqueProgressRatio(tech) * 100).toFixed(0)}%，点击任意星位切换下方注解。`
-        : `当前已抵达 ${layers.length} 层圆满，点击任意星位切换下方注解。`;
+        ? `当前停驻第 ${formatDisplayInteger(tech.level)} 层，周天流转 ${formatDisplayInteger(getTechniqueProgressRatio(tech) * 100)}%，点击任意星位切换下方注解。`
+        : `当前已抵达 ${formatDisplayInteger(layers.length)} 层圆满，点击任意星位切换下方注解。`;
     }
     const constellationData = this.buildConstellationData(tech, layers, selectedLevel, skillsByLevel, milestones);
     const constellationRoot = constellationShell.querySelector<HTMLElement>('[data-tech-constellation-root="true"]');
@@ -646,15 +647,15 @@ export class TechniquePanel {
         const progressText = layer.level < tech.level
           ? '进度：已贯通'
           : layer.level === tech.level
-            ? `进度：当前停驻，周天流转 ${(getTechniqueProgressRatio(tech) * 100).toFixed(0)}%`
+            ? `进度：当前停驻，周天流转 ${formatDisplayInteger(getTechniqueProgressRatio(tech) * 100)}%`
             : layer.level === tech.level + 1 && tech.level < layers.length && tech.expToNext > 0
-              ? `进度：正在突破，承接 ${(getTechniqueProgressRatio(tech) * 100).toFixed(0)}%`
+              ? `进度：正在突破，承接 ${formatDisplayInteger(getTechniqueProgressRatio(tech) * 100)}%`
               : '进度：境界未至';
         const milestone = milestones.get(layer.level);
         return {
           level: layer.level,
           milestone: milestone ? getTechniqueRealmLabel(milestone) as '小成' | '大成' | '圆满' : undefined,
-          hoverTitle: `第 ${layer.level} 层星位`,
+          hoverTitle: `第 ${formatDisplayInteger(layer.level)} 层星位`,
           hoverLines: [
             progressText,
             `收益：${layerAttrs}`,
@@ -721,14 +722,14 @@ export class TechniquePanel {
     const selectedRealm = deriveTechniqueRealm(layer.level, tech.layers, tech.attrCurves);
     const milestone = milestones.get(layer.level);
     const stateLabel = layer.level < tech.level ? '已贯通' : layer.level === tech.level ? '当前停驻' : '尚未抵达';
-    const expText = layer.expToNext > 0 ? `升下一层需 ${layer.expToNext} 功法经验` : '此层已是终点';
+    const expText = layer.expToNext > 0 ? `升下一层需 ${formatDisplayInteger(layer.expToNext)} 功法经验` : '此层已是终点';
     const milestoneText = milestone ? `此层踏入${getTechniqueRealmLabel(milestone)}` : `此层属${getTechniqueRealmLabel(selectedRealm)}阶段`;
     const layerAttrs = formatAttrMap(layer.attrs ?? {}, '本层不增加六维');
     const totalAttrs = formatAttrMap(calcTechniqueAttrValues(layer.level, tech.layers, tech.attrCurves));
 
     card.classList.toggle('passed', layer.level < tech.level);
     card.classList.toggle('current', layer.level === tech.level);
-    title.textContent = `第 ${layer.level} 层星位`;
+    title.textContent = `第 ${formatDisplayInteger(layer.level)} 层星位`;
     subtitle.textContent = milestoneText;
     state.textContent = stateLabel;
     exp.textContent = expText;

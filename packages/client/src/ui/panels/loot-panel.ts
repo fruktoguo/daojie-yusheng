@@ -5,6 +5,7 @@
 
 import { LootWindowState } from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
+import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
 
 function escapeHtml(value: string): string {
   return value
@@ -55,7 +56,7 @@ export class LootPanel {
           ? `<div class="loot-search-state">
               <div class="loot-search-copy">
                 <strong>搜索中</strong>
-                <span>${source.search.elapsedTicks} / ${source.search.totalTicks} 息</span>
+                <span>${formatDisplayInteger(source.search.elapsedTicks)} / ${formatDisplayInteger(source.search.totalTicks)} 息</span>
               </div>
               <div class="loot-search-bar"><span class="loot-search-fill" style="width:${Math.max(0, Math.min(100, (source.search.elapsedTicks / Math.max(1, source.search.totalTicks)) * 100))}%"></span></div>
             </div>`
@@ -66,7 +67,7 @@ export class LootPanel {
                 <div class="inventory-cell">
                   <div class="inventory-cell-head">
                     <span class="inventory-cell-type">${source.kind === 'ground' ? '地面' : '容器'}</span>
-                    <span class="inventory-cell-count">x${entry.item.count}</span>
+                    <span class="inventory-cell-count">${formatDisplayCountBadge(entry.item.count)}</span>
                   </div>
                   <div class="inventory-cell-name" title="${escapeHtml(entry.item.name)}">${escapeHtml(entry.item.name)}</div>
                   <div class="inventory-cell-actions">
