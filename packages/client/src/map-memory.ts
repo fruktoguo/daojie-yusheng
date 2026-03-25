@@ -10,6 +10,7 @@ import {
   Tile,
   TileType,
   VisibleTile,
+  VisibleTilePatch,
 } from '@mud/shared';
 
 type RememberedTile = Pick<Tile, 'type' | 'walkable' | 'blocksSight' | 'aura'>;
@@ -433,6 +434,41 @@ export function rememberVisibleTiles(
       remembered.set(key, nextTile);
       changed = true;
     }
+  }
+
+  if (changed) {
+    persistMemory();
+  }
+}
+
+/** 将增量地块 patch 写入记忆，仅记录当前已知地块，不处理“暂时不可见”的清除 patch */
+export function rememberVisibleTilePatches(mapId: string, patches: VisibleTilePatch[]): void {
+  if (patches.length === 0) {
+    return;
+  }
+
+  const remembered = getRememberedTileMap(mapId);
+  let changed = false;
+
+  for (const patch of patches) {
+    if (!patch.tile) {
+      continue;
+    }
+
+    const key = `${patch.x},${patch.y}`;
+    const nextTile = toRememberedTile(patch.tile);
+    const previous = remembered.get(key);
+    if (
+      previous?.type === nextTile.type
+      && previous.walkable === nextTile.walkable
+      && previous.blocksSight === nextTile.blocksSight
+      && previous.aura === nextTile.aura
+    ) {
+      continue;
+    }
+
+    remembered.set(key, nextTile);
+    changed = true;
   }
 
   if (changed) {

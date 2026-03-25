@@ -18,6 +18,7 @@ import {
   getRememberedMarkers,
   hydrateTileCacheFromMemory,
   rememberVisibleMarkers,
+  rememberVisibleTilePatches,
   rememberVisibleTiles,
 } from '../../map-memory';
 import {
@@ -222,7 +223,7 @@ export class MapStore {
       this.cacheVisibleTiles(this.player.mapId, data.v, this.player.x - this.getViewRadius(), this.player.y - this.getViewRadius());
     }
     if (data.t) {
-      this.applyVisibleTilePatches(data.t);
+      this.applyVisibleTilePatches(this.player.mapId, data.t);
     }
     if (data.g) {
       this.groundPiles = this.mergeGroundItemPatches(data.g);
@@ -397,7 +398,8 @@ export class MapStore {
     return nextMap;
   }
 
-  private applyVisibleTilePatches(patches: VisibleTilePatch[]): void {
+  private applyVisibleTilePatches(mapId: string, patches: VisibleTilePatch[]): void {
+    rememberVisibleTilePatches(mapId, patches);
     for (const patch of patches) {
       const key = `${patch.x},${patch.y}`;
       if (patch.tile) {
@@ -406,7 +408,6 @@ export class MapStore {
         continue;
       }
       this.visibleTiles.delete(key);
-      this.tileCache.delete(key);
     }
     this.minimapMemoryVersion += 1;
   }
