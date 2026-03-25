@@ -42,9 +42,7 @@ import {
   CULTIVATION_BUFF_DURATION,
   CULTIVATION_BUFF_ID,
   CULTIVATION_REALM_EXP_PER_TICK,
-  CULTIVATION_TECHNIQUE_EXP_PER_TICK,
   EMPTY_CULTIVATION_RESULT,
-  MONSTER_KILL_TECHNIQUE_EXP_MULTIPLIER,
   PATH_SEVERED_BREAKTHROUGH_LABEL,
   PATH_SEVERED_BREAKTHROUGH_REASON,
   REALM_STATE_SOURCE,
@@ -245,7 +243,7 @@ export class TechniqueService {
     const techniqueResult = this.measureCpuSection('cultivation_technique', '修炼: 功法推进', () => (
       this.advanceTechniqueProgress(
         player,
-        Math.max(0, Math.round(numericStats.techniqueExpPerTick * auraMultiplier)),
+        this.getTechniqueExpFromRealmGain(realmResult.gained),
         techniqueExpBonus,
       )
     ));
@@ -370,7 +368,7 @@ export class TechniqueService {
 
     const techniqueResult = this.advanceTechniqueCombatExp(
       player,
-      this.getTechniqueCombatExp(realmBaseExp),
+      this.getTechniqueExpFromRealmGain(realmResult.gained),
       techniqueExpBonus,
     );
     if (techniqueResult.changed) {
@@ -767,7 +765,6 @@ export class TechniqueService {
       sourceSkillName: '修炼',
       stats: {
         realmExpPerTick: CULTIVATION_REALM_EXP_PER_TICK,
-        techniqueExpPerTick: CULTIVATION_TECHNIQUE_EXP_PER_TICK,
       },
     };
   }
@@ -786,7 +783,6 @@ export class TechniqueService {
     buff.sourceSkillName = '修炼';
     buff.stats = {
       realmExpPerTick: CULTIVATION_REALM_EXP_PER_TICK,
-      techniqueExpPerTick: CULTIVATION_TECHNIQUE_EXP_PER_TICK,
     };
   }
 
@@ -834,8 +830,8 @@ export class TechniqueService {
     return (expToNext * normalizedMultiplier * levelAdjustment) / (1000 * normalizedParticipantCount);
   }
 
-  private getTechniqueCombatExp(realmCombatExp: number): number {
-    return realmCombatExp * MONSTER_KILL_TECHNIQUE_EXP_MULTIPLIER;
+  private getTechniqueExpFromRealmGain(realmGain: number): number {
+    return Math.max(0, Math.floor(realmGain)) * 5;
   }
 
   private getMonsterKillRealmExpAdjustment(playerRealmLv: number, monsterLevel: number): number {

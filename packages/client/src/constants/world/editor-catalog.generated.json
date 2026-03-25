@@ -2922,7 +2922,6 @@
             ]
           },
           "valueStats": {
-            "techniqueExpPerTick": 10,
             "realmExpPerTick": 2
           }
         }
@@ -3403,7 +3402,6 @@
             ]
           },
           "valueStats": {
-            "techniqueExpPerTick": 16,
             "realmExpPerTick": 4
           }
         },

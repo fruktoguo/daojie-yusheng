@@ -4,7 +4,6 @@
  * 已知物品/技能走精简快照（仅存 ID），未知的则保留完整字段以防丢失。
  */
 import {
-  CULTIVATE_EXP_PER_TICK,
   DEFAULT_INVENTORY_CAPACITY,
   EQUIP_SLOTS,
   EquipmentSlots,
@@ -288,7 +287,6 @@ function buildSystemBuffState(snapshot: PersistedTemporaryBuffItem): TemporaryBu
       sourceSkillName: '修炼',
       stats: {
         realmExpPerTick: 2,
-        techniqueExpPerTick: CULTIVATE_EXP_PER_TICK,
       },
     };
   }

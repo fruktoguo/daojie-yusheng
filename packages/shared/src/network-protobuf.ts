@@ -269,7 +269,6 @@ message NumericStatsPayload {
   optional sint32 playerExpRate = 19;
   optional sint32 techniqueExpRate = 20;
   optional sint32 realmExpPerTick = 21;
-  optional sint32 techniqueExpPerTick = 22;
   optional sint32 lootRate = 23;
   optional sint32 rareLootRate = 24;
   optional sint32 viewRange = 25;

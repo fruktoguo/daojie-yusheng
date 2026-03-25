@@ -231,7 +231,7 @@ const MONSTER_VALUE_STAT_GROUPS: Array<{ title: string; note: string; keys: Nume
   {
     title: '额外倍率',
     note: '保留给特殊怪物使用，通常不用每项都配置。',
-    keys: ['auraCostReduce', 'auraPowerRate', 'playerExpRate', 'techniqueExpRate', 'realmExpPerTick', 'techniqueExpPerTick', 'lootRate', 'rareLootRate'],
+    keys: ['auraCostReduce', 'auraPowerRate', 'playerExpRate', 'techniqueExpRate', 'realmExpPerTick', 'lootRate', 'rareLootRate'],
   },
 ];
 

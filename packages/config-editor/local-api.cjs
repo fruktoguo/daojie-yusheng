@@ -186,7 +186,6 @@ function normalizeMonsterValueStats(rawValueStats) {
     'playerExpRate',
     'techniqueExpRate',
     'realmExpPerTick',
-    'techniqueExpPerTick',
     'lootRate',
     'rareLootRate',
     'viewRange',
