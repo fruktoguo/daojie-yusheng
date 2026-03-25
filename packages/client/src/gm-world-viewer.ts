@@ -539,6 +539,12 @@ export class GmWorldViewer {
           <button class="small-btn" id="world-time-apply">应用</button>
         </div>
       </div>
+      <div class="world-time-adjust">
+        <div class="panel-section-title">运行配置</div>
+        <div class="gm-btn-row">
+          <button class="small-btn" id="world-reload-tick-config">重新加载服务端配置</button>
+        </div>
+      </div>
     `;
 
     const speedInput = this.timeControlEl.querySelector<HTMLInputElement>('[data-world-speed-input]');
@@ -571,6 +577,10 @@ export class GmWorldViewer {
       if (Number.isFinite(offset)) {
         this.updateTime({ offsetTicks: offset }).catch(() => {});
       }
+    });
+
+    document.getElementById('world-reload-tick-config')?.addEventListener('click', () => {
+      this.reloadTickConfig().catch(() => {});
     });
 
     this.restoreTimeControlFocus(previousControlState);
@@ -610,6 +620,21 @@ export class GmWorldViewer {
       this.renderAll();
     } catch (err) {
       this.setStatus(err instanceof Error ? err.message : '更新时间配置失败', true);
+    }
+  }
+
+  private async reloadTickConfig(): Promise<void> {
+    try {
+      await this.request<{ ok: true }>('/gm/tick-config/reload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      this.setStatus('服务端 Tick 配置已重新加载');
+      await this.loadRuntime();
+      this.renderAll();
+    } catch (err) {
+      this.setStatus(err instanceof Error ? err.message : '重新加载服务端配置失败', true);
     }
   }
 
