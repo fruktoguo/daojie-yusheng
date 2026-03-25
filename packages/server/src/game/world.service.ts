@@ -2218,14 +2218,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     resolved: ResolvedHit,
     floatColor: string,
   ): WorldMessage {
-    const suffix: string[] = [];
-    if (resolved.broken) suffix.push('破招');
-    if (resolved.crit) suffix.push('暴击');
-    if (resolved.resolved) suffix.push('化解');
-    const tag = suffix.length > 0 ? `（${suffix.join(' / ')}）` : '';
+    const tag = this.buildCombatDetailTag(resolved, `目标气血 ${this.formatCombatHp(monster.hp, monster.maxHp)}`);
     const text = resolved.hit
       ? `${prefix} ${monster.name}${tag}，造成 ${resolved.damage} 点伤害。`
-      : `${monster.name}身形一晃，避开了你的攻势。`;
+      : `${monster.name}身形一晃，避开了你的攻势${tag}。`;
     return {
       playerId: player.id,
       text,
@@ -2245,14 +2241,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     resolved: ResolvedHit,
     floatColor: string,
   ): WorldMessage {
-    const suffix: string[] = [];
-    if (resolved.broken) suffix.push('破招');
-    if (resolved.crit) suffix.push('暴击');
-    if (resolved.resolved) suffix.push('化解');
-    const tag = suffix.length > 0 ? `（${suffix.join(' / ')}）` : '';
+    const tag = this.buildCombatDetailTag(resolved, `你剩余气血 ${this.formatCombatHp(player.hp, player.maxHp)}`);
     const text = resolved.hit
       ? `${monster.name}扑击你${tag}，造成 ${resolved.damage} 点伤害。`
-      : `${monster.name}扑了个空，你险险避开。`;
+      : `${monster.name}扑了个空，你险险避开${tag}。`;
     return {
       playerId: player.id,
       text,
@@ -2273,14 +2265,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     resolved: ResolvedHit,
     floatColor: string,
   ): WorldMessage {
-    const suffix: string[] = [];
-    if (resolved.broken) suffix.push('破招');
-    if (resolved.crit) suffix.push('暴击');
-    if (resolved.resolved) suffix.push('化解');
-    const tag = suffix.length > 0 ? `（${suffix.join(' / ')}）` : '';
+    const tag = this.buildCombatDetailTag(resolved, `对方气血 ${this.formatCombatHp(target.hp, target.maxHp)}`);
     const text = resolved.hit
       ? `${prefix} ${target.name}${tag}，造成 ${resolved.damage} 点伤害。`
-      : `${target.name}身形一晃，避开了你的攻势。`;
+      : `${target.name}身形一晃，避开了你的攻势${tag}。`;
     return {
       playerId: attacker.id,
       text,
@@ -2300,14 +2288,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     resolved: ResolvedHit,
     floatColor: string,
   ): WorldMessage {
-    const suffix: string[] = [];
-    if (resolved.broken) suffix.push('破招');
-    if (resolved.crit) suffix.push('暴击');
-    if (resolved.resolved) suffix.push('化解');
-    const tag = suffix.length > 0 ? `（${suffix.join(' / ')}）` : '';
+    const tag = this.buildCombatDetailTag(resolved, `你剩余气血 ${this.formatCombatHp(target.hp, target.maxHp)}`);
     const text = resolved.hit
       ? `${attacker.name}袭向你${tag}，造成 ${resolved.damage} 点伤害。`
-      : `${attacker.name}的攻势被你险险避开。`;
+      : `${attacker.name}的攻势被你险险避开${tag}。`;
     return {
       playerId: target.id,
       text,
@@ -2319,6 +2303,20 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         color: floatColor,
       },
     };
+  }
+
+  private buildCombatDetailTag(resolved: ResolvedHit, hpText: string): string {
+    const details: string[] = [];
+    if (resolved.broken) details.push('破招');
+    if (resolved.crit) details.push('暴击');
+    if (resolved.resolved) details.push('化解');
+    if (resolved.qiCost > 0) details.push(`耗气 ${resolved.qiCost}`);
+    details.push(hpText);
+    return `（${details.join(' / ')}）`;
+  }
+
+  private formatCombatHp(current: number, max: number): string {
+    return `${Math.max(0, Math.round(current))}/${Math.max(1, Math.round(max))}`;
   }
 
   private getPlayerCombatSnapshot(player: PlayerState): CombatSnapshot {

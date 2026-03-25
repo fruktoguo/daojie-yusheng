@@ -1866,7 +1866,7 @@ function resetGameState() {
   syncTargetingOverlay();
   sidePanel.hide();
   chatUI.hide();
-  chatUI.clear();
+  chatUI.setPersistenceScope(null);
   debugPanel.hide();
   attrPanel.clear();
   inventoryPanel.clear();
@@ -2115,7 +2115,7 @@ socket.onInit((data: S2C_Init) => {
 
   // 显示主界面布局并初始化各子面板
   sidePanel.show();
-  chatUI.clear();
+  chatUI.setPersistenceScope(myPlayer.id);
   chatUI.show();
   document.getElementById('hud')?.classList.remove('hidden');
   resizeCanvas();
