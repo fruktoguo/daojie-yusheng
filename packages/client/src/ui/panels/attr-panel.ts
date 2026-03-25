@@ -500,7 +500,6 @@ export class AttrPanel {
           sub = actualLine;
         } else if (key === 'moveSpeed') {
           actualLine = `效果：${formatMoveSpeedEffect(numericValue)}`;
-          sub = actualLine;
         }
         const value = key === 'critDamage'
           ? formatCritDamageDisplay(numericValue)
