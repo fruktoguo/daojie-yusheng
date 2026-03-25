@@ -23,8 +23,7 @@ import {
 import {
   PATH_REQUEST_IMMEDIATE_PLAYER_MAX_EXPANDED_NODES,
   PATH_REQUEST_IMMEDIATE_PLAYER_MAX_PATH_LENGTH,
-  PATH_REQUEST_PLAYER_CHUNK_LENGTH,
-  PATH_REQUEST_PLAYER_CHUNK_PREFETCH_THRESHOLD,
+  PATH_REQUEST_MAX_PER_TICK_PER_PLAYER,
   PATH_REPATH_COOLDOWN_TICKS,
   PATH_REQUEST_PRIORITY_BOT_ROAM,
   PATH_REQUEST_PRIORITY_PLAYER_MOVE,
@@ -36,6 +35,7 @@ import { MapService } from './map.service';
 import { PathRequestSchedulerService } from './pathfinding/path-request-scheduler.service';
 import { findBoundedPath } from './pathfinding/pathfinding-core';
 import { PathRequestKind, PathfindingActorType } from './pathfinding/pathfinding.types';
+import { TimeService } from './time.service';
 
 interface PathStep {
   x: number;
@@ -58,6 +58,12 @@ interface MoveTargetState {
 
 interface SetMoveTargetOptions {
   allowNearestReachable?: boolean;
+  forceReplan?: boolean;
+}
+
+interface MoveRequestQuotaState {
+  tick: number;
+  count: number;
 }
 
 interface MoveChargeState {
@@ -91,11 +97,13 @@ export class NavigationService {
   private readonly moveTargets = new Map<string, MoveTargetState>();
   private readonly moveCharges = new Map<string, MoveChargeState>();
   private readonly mapPathTicks = new Map<string, number>();
+  private readonly moveRequestQuotaByPlayer = new Map<string, MoveRequestQuotaState>();
 
   constructor(
     private readonly mapService: MapService,
     private readonly attrService: AttrService,
     private readonly pathRequestScheduler: PathRequestSchedulerService,
+    private readonly timeService: TimeService,
   ) {}
 
   /** 每息统一派发当前地图的寻路请求。 */
@@ -116,6 +124,17 @@ export class NavigationService {
 
   hasMoveTarget(playerId: string): boolean {
     return this.moveTargets.has(playerId);
+  }
+
+  /** 玩家点击移动时，立刻启动寻路；状态生效仍然只在 tick 中完成。 */
+  primeMoveTarget(player: PlayerState, x: number, y: number, options?: SetMoveTargetOptions): string | null {
+    if (!this.consumePlayerMoveRequestQuota(player)) {
+      return '本息调整目标过于频繁';
+    }
+    return this.setMoveTarget(player, x, y, {
+      ...options,
+      forceReplan: true,
+    });
   }
 
   /** 获取当前寻路路径的坐标序列 */
@@ -170,7 +189,8 @@ export class NavigationService {
 
     const existing = this.moveTargets.get(player.id);
     if (
-      existing
+      !options?.forceReplan
+      && existing
       && existing.targetX === targetX
       && existing.targetY === targetY
       && (existing.pendingRequestId || existing.path.length > 0)
@@ -250,7 +270,7 @@ export class NavigationService {
         return { moved: false, reached: false, blocked: false };
       }
       if (!state.pathComplete) {
-        this.extendPathChunk(player, state);
+        this.refillPathTowardTarget(player, state);
         if (state.path.length > 0) {
           return this.stepPlayerTowardTarget(player);
         }
@@ -267,14 +287,6 @@ export class NavigationService {
     const attempt = this.consumePathWithinTick(player, state, availablePoints);
     this.commitMovePoints(player.id, intentKey, attempt.points);
     if (attempt.moved) {
-      if (
-        !state.pathComplete
-        && !state.pendingRequestId
-        && state.path.length <= PATH_REQUEST_PLAYER_CHUNK_PREFETCH_THRESHOLD
-        && (player.x !== state.targetX || player.y !== state.targetY)
-      ) {
-        this.extendPathChunk(player, state);
-      }
       const reached = player.x === state.targetX && player.y === state.targetY;
       if (reached) {
         this.clearMoveTarget(player.id);
@@ -413,7 +425,7 @@ export class NavigationService {
       && state.path.length === 0
       && (player.x !== state.targetX || player.y !== state.targetY)
     ) {
-      this.extendPathChunk(player, state);
+      this.refillPathTowardTarget(player, state);
       if (state.pendingError || state.pendingRequestId || state.path.length === 0) {
         break;
       }
@@ -511,6 +523,7 @@ export class NavigationService {
       state.pathComplete = result.complete;
       state.blockedTicks = 0;
       state.failureCount = 0;
+      state.pendingError = undefined;
       state.repathAvailableTick = this.getCurrentMapPathTick(player.mapId);
       return;
     }
@@ -554,7 +567,7 @@ export class NavigationService {
         priority: PATH_REQUEST_PRIORITY_PLAYER_REPATH,
         limits: {
           maxExpandedNodes: PATHFINDING_REPATH_MAX_EXPANDED_NODES,
-          maxPathLength: player.isBot ? PATHFINDING_REPATH_MAX_PATH_LENGTH : PATH_REQUEST_PLAYER_CHUNK_LENGTH,
+          maxPathLength: PATHFINDING_REPATH_MAX_PATH_LENGTH,
           maxGoalDistance: PATHFINDING_PLAYER_MAX_TARGET_DISTANCE,
           allowPartialPath: !player.isBot,
         },
@@ -565,7 +578,7 @@ export class NavigationService {
       priority: PATH_REQUEST_PRIORITY_PLAYER_MOVE,
       limits: {
         maxExpandedNodes: PATHFINDING_PLAYER_MAX_EXPANDED_NODES,
-        maxPathLength: player.isBot ? PATHFINDING_PLAYER_MAX_PATH_LENGTH : PATH_REQUEST_PLAYER_CHUNK_LENGTH,
+        maxPathLength: PATHFINDING_PLAYER_MAX_PATH_LENGTH,
         maxGoalDistance: PATHFINDING_PLAYER_MAX_TARGET_DISTANCE,
         allowPartialPath: !player.isBot,
       },
@@ -576,6 +589,8 @@ export class NavigationService {
     switch (reason) {
       case 'target_too_far':
         return '目标过远，无法规划路径';
+      case 'cancelled':
+        return '寻路已取消';
       case 'step_limit':
       case 'path_too_long':
       case 'no_path':
@@ -586,7 +601,24 @@ export class NavigationService {
   }
 
   private getCurrentMapPathTick(mapId: string): number {
-    return this.mapPathTicks.get(mapId) ?? 0;
+    return this.mapPathTicks.get(mapId) ?? this.timeService.getTotalTicks(mapId);
+  }
+
+  private consumePlayerMoveRequestQuota(player: PlayerState): boolean {
+    const currentTick = this.timeService.getTotalTicks(player.mapId);
+    const quota = this.moveRequestQuotaByPlayer.get(player.id);
+    if (!quota || quota.tick !== currentTick) {
+      this.moveRequestQuotaByPlayer.set(player.id, {
+        tick: currentTick,
+        count: 1,
+      });
+      return true;
+    }
+    if (quota.count >= PATH_REQUEST_MAX_PER_TICK_PER_PLAYER) {
+      return false;
+    }
+    quota.count += 1;
+    return true;
   }
 
   private tryPlanPathImmediate(
@@ -628,12 +660,13 @@ export class NavigationService {
     return 'unreachable';
   }
 
-  private extendPathChunk(player: PlayerState, state: MoveTargetState): void {
+  private refillPathTowardTarget(player: PlayerState, state: MoveTargetState): void {
     const immediate = this.tryPlanPathImmediate(player, state.targetX, state.targetY);
     if (immediate && immediate !== 'unreachable') {
       state.path = immediate.path;
       state.pathComplete = immediate.complete;
       state.blockedTicks = 0;
+      state.pendingError = undefined;
       return;
     }
 

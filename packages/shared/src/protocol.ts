@@ -274,12 +274,45 @@ export interface GmCpuSnapshot {
   breakdown: GmCpuSectionSnapshot[];
 }
 
+export interface GmPathfindingFailureBucket {
+  reason: string;
+  label: string;
+  count: number;
+}
+
+export interface GmPathfindingSnapshot {
+  statsStartedAt: number;
+  statsElapsedSec: number;
+  workerCount: number;
+  runningWorkers: number;
+  idleWorkers: number;
+  peakRunningWorkers: number;
+  queueDepth: number;
+  peakQueueDepth: number;
+  enqueued: number;
+  dispatched: number;
+  completed: number;
+  succeeded: number;
+  failed: number;
+  cancelled: number;
+  droppedPending: number;
+  droppedStaleResults: number;
+  avgQueueMs: number;
+  maxQueueMs: number;
+  avgRunMs: number;
+  maxRunMs: number;
+  avgExpandedNodes: number;
+  maxExpandedNodes: number;
+  failureReasons: GmPathfindingFailureBucket[];
+}
+
 /** GM 性能快照 */
 export interface GmPerformanceSnapshot {
   cpuPercent: number;
   memoryMb: number;
   tickMs: number;
   cpu: GmCpuSnapshot;
+  pathfinding: GmPathfindingSnapshot;
   networkStatsStartedAt: number;
   networkStatsElapsedSec: number;
   networkInBytes: number;

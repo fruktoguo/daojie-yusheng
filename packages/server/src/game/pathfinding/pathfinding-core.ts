@@ -15,6 +15,11 @@ interface HeapNode {
   score: number;
 }
 
+interface PathfindingRunOptions {
+  cancelFlag?: Int32Array;
+  cancelCheckInterval?: number;
+}
+
 class MinHeap {
   private readonly items: HeapNode[] = [];
 
@@ -113,6 +118,13 @@ function nearestGoalHeuristic(x: number, y: number, goals: PathPoint[]): number 
   return best * PATHFINDING_MIN_STEP_COST;
 }
 
+function isCancelled(cancelFlag?: Int32Array): boolean {
+  if (!cancelFlag || cancelFlag.length === 0) {
+    return false;
+  }
+  return Atomics.load(cancelFlag, 0) === 1;
+}
+
 function validateGoals(
   grid: PathfindingStaticGrid,
   blocked: Uint8Array,
@@ -172,6 +184,7 @@ export function findBoundedPath(
   startY: number,
   goals: PathPoint[],
   limits: PathfindingSearchLimits,
+  options?: PathfindingRunOptions,
 ): PathfindingSearchResult {
   if (
     startX < 0
@@ -230,8 +243,13 @@ export function findBoundedPath(
   let bestPartialGoal: PathPoint | null = null;
   let bestPartialHeuristic = Number.POSITIVE_INFINITY;
   let bestPartialCost = Number.POSITIVE_INFINITY;
+  const cancelCheckInterval = Math.max(1, options?.cancelCheckInterval ?? 32);
 
   while (heap.size > 0) {
+    if (expandedNodes > 0 && expandedNodes % cancelCheckInterval === 0 && isCancelled(options?.cancelFlag)) {
+      return failed('cancelled', expandedNodes);
+    }
+
     const current = heap.pop();
     if (!current) {
       break;
@@ -316,6 +334,10 @@ export function findBoundedPath(
         score: nextScore + nearestGoalHeuristic(nx, ny, goals),
       });
     }
+  }
+
+  if (isCancelled(options?.cancelFlag)) {
+    return failed('cancelled', expandedNodes);
   }
 
   if (limits.allowPartialPath && bestPartialIndex !== -1 && bestPartialGoal) {

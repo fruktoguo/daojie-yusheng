@@ -4,6 +4,7 @@
 import { Injectable } from '@nestjs/common';
 import * as os from 'os';
 import { GmNetworkBucket, GmPerformanceSnapshot } from '@mud/shared';
+import { PathfindingTaskResult } from './pathfinding/pathfinding.types';
 
 interface NetworkBucketCounter {
   label: string;
@@ -15,6 +16,36 @@ interface CpuSectionCounter {
   label: string;
   totalMs: number;
   count: number;
+}
+
+interface PathfindingFailureCounter {
+  reason: string;
+  label: string;
+  count: number;
+}
+
+interface PathfindingStatsState {
+  startedAt: number;
+  workerCount: number;
+  runningWorkers: number;
+  peakRunningWorkers: number;
+  queueDepth: number;
+  peakQueueDepth: number;
+  enqueued: number;
+  dispatched: number;
+  completed: number;
+  succeeded: number;
+  failed: number;
+  cancelled: number;
+  droppedPending: number;
+  droppedStaleResults: number;
+  totalQueueMs: number;
+  maxQueueMs: number;
+  totalRunMs: number;
+  maxRunMs: number;
+  totalExpandedNodes: number;
+  maxExpandedNodes: number;
+  failureReasons: Map<string, PathfindingFailureCounter>;
 }
 
 @Injectable()
@@ -29,6 +60,7 @@ export class PerformanceService {
   private readonly networkInBuckets = new Map<string, NetworkBucketCounter>();
   private readonly networkOutBuckets = new Map<string, NetworkBucketCounter>();
   private readonly cpuSections = new Map<string, CpuSectionCounter>();
+  private pathfindingStats = this.createPathfindingStatsState();
 
   /** 记录单次 tick 耗时 */
   recordTick(elapsedMs: number) {
@@ -129,6 +161,178 @@ export class PerformanceService {
     this.cpuSections.clear();
   }
 
+  resetPathfindingStats(): void {
+    const previous = this.pathfindingStats;
+    this.pathfindingStats = this.createPathfindingStatsState();
+    this.pathfindingStats.workerCount = previous.workerCount;
+    this.pathfindingStats.runningWorkers = previous.runningWorkers;
+    this.pathfindingStats.queueDepth = previous.queueDepth;
+    this.pathfindingStats.peakRunningWorkers = previous.runningWorkers;
+    this.pathfindingStats.peakQueueDepth = previous.queueDepth;
+  }
+
+  setPathfindingQueueDepth(queueDepth: number): void {
+    const normalized = Math.max(0, Math.floor(queueDepth));
+    this.pathfindingStats.queueDepth = normalized;
+    this.pathfindingStats.peakQueueDepth = Math.max(this.pathfindingStats.peakQueueDepth, normalized);
+  }
+
+  setPathfindingWorkerState(workerCount: number, runningWorkers: number): void {
+    const normalizedWorkers = Math.max(0, Math.floor(workerCount));
+    const normalizedRunning = Math.max(0, Math.min(normalizedWorkers, Math.floor(runningWorkers)));
+    this.pathfindingStats.workerCount = normalizedWorkers;
+    this.pathfindingStats.runningWorkers = normalizedRunning;
+    this.pathfindingStats.peakRunningWorkers = Math.max(this.pathfindingStats.peakRunningWorkers, normalizedRunning);
+  }
+
+  recordPathfindingEnqueued(count = 1): void {
+    if (!Number.isFinite(count) || count <= 0) {
+      return;
+    }
+    this.pathfindingStats.enqueued += Math.floor(count);
+  }
+
+  recordPathfindingPendingDropped(count = 1): void {
+    if (!Number.isFinite(count) || count <= 0) {
+      return;
+    }
+    this.pathfindingStats.droppedPending += Math.floor(count);
+  }
+
+  recordPathfindingStaleResultDropped(count = 1): void {
+    if (!Number.isFinite(count) || count <= 0) {
+      return;
+    }
+    this.pathfindingStats.droppedStaleResults += Math.floor(count);
+  }
+
+  recordPathfindingDispatched(waitMs: number): void {
+    this.pathfindingStats.dispatched += 1;
+    if (!Number.isFinite(waitMs) || waitMs < 0) {
+      return;
+    }
+    this.pathfindingStats.totalQueueMs += waitMs;
+    this.pathfindingStats.maxQueueMs = Math.max(this.pathfindingStats.maxQueueMs, waitMs);
+  }
+
+  recordPathfindingCompleted(result: PathfindingTaskResult): void {
+    this.pathfindingStats.completed += 1;
+    if (Number.isFinite(result.elapsedMs) && result.elapsedMs > 0) {
+      this.pathfindingStats.totalRunMs += result.elapsedMs;
+      this.pathfindingStats.maxRunMs = Math.max(this.pathfindingStats.maxRunMs, result.elapsedMs);
+    }
+    if (Number.isFinite(result.expandedNodes) && result.expandedNodes >= 0) {
+      this.pathfindingStats.totalExpandedNodes += result.expandedNodes;
+      this.pathfindingStats.maxExpandedNodes = Math.max(this.pathfindingStats.maxExpandedNodes, result.expandedNodes);
+    }
+
+    if (result.status === 'success') {
+      this.pathfindingStats.succeeded += 1;
+      return;
+    }
+
+    if (result.reason === 'cancelled') {
+      this.pathfindingStats.cancelled += 1;
+    } else {
+      this.pathfindingStats.failed += 1;
+    }
+
+    const bucket = this.pathfindingStats.failureReasons.get(result.reason) ?? {
+      reason: result.reason,
+      label: this.getPathfindingFailureLabel(result.reason),
+      count: 0,
+    };
+    bucket.count += 1;
+    this.pathfindingStats.failureReasons.set(result.reason, bucket);
+  }
+
+  private createPathfindingStatsState(): PathfindingStatsState {
+    return {
+      startedAt: Date.now(),
+      workerCount: 0,
+      runningWorkers: 0,
+      peakRunningWorkers: 0,
+      queueDepth: 0,
+      peakQueueDepth: 0,
+      enqueued: 0,
+      dispatched: 0,
+      completed: 0,
+      succeeded: 0,
+      failed: 0,
+      cancelled: 0,
+      droppedPending: 0,
+      droppedStaleResults: 0,
+      totalQueueMs: 0,
+      maxQueueMs: 0,
+      totalRunMs: 0,
+      maxRunMs: 0,
+      totalExpandedNodes: 0,
+      maxExpandedNodes: 0,
+      failureReasons: new Map<string, PathfindingFailureCounter>(),
+    };
+  }
+
+  private getPathfindingFailureLabel(reason: string): string {
+    switch (reason) {
+      case 'cancelled':
+        return '已取消';
+      case 'step_limit':
+        return '超出展开上限';
+      case 'path_too_long':
+        return '路径过长';
+      case 'target_too_far':
+        return '目标过远';
+      case 'invalid_goal':
+        return '目标非法';
+      case 'no_path':
+      default:
+        return '无路可达';
+    }
+  }
+
+  private buildPathfindingSnapshot() {
+    const stats = this.pathfindingStats;
+    const elapsedSec = Math.max(0, (Date.now() - stats.startedAt) / 1000);
+    const completed = Math.max(0, stats.completed);
+    const dispatched = Math.max(0, stats.dispatched);
+    return {
+      statsStartedAt: stats.startedAt,
+      statsElapsedSec: Number(elapsedSec.toFixed(1)),
+      workerCount: stats.workerCount,
+      runningWorkers: stats.runningWorkers,
+      idleWorkers: Math.max(0, stats.workerCount - stats.runningWorkers),
+      peakRunningWorkers: stats.peakRunningWorkers,
+      queueDepth: stats.queueDepth,
+      peakQueueDepth: stats.peakQueueDepth,
+      enqueued: stats.enqueued,
+      dispatched: stats.dispatched,
+      completed: stats.completed,
+      succeeded: stats.succeeded,
+      failed: stats.failed,
+      cancelled: stats.cancelled,
+      droppedPending: stats.droppedPending,
+      droppedStaleResults: stats.droppedStaleResults,
+      avgQueueMs: dispatched > 0 ? Number((stats.totalQueueMs / dispatched).toFixed(2)) : 0,
+      maxQueueMs: Number(stats.maxQueueMs.toFixed(2)),
+      avgRunMs: completed > 0 ? Number((stats.totalRunMs / completed).toFixed(2)) : 0,
+      maxRunMs: Number(stats.maxRunMs.toFixed(2)),
+      avgExpandedNodes: completed > 0 ? Number((stats.totalExpandedNodes / completed).toFixed(1)) : 0,
+      maxExpandedNodes: stats.maxExpandedNodes,
+      failureReasons: [...stats.failureReasons.values()]
+        .sort((left, right) => {
+          if (right.count !== left.count) {
+            return right.count - left.count;
+          }
+          return left.label.localeCompare(right.label, 'zh-CN');
+        })
+        .map((bucket) => ({
+          reason: bucket.reason,
+          label: bucket.label,
+          count: bucket.count,
+        })),
+    };
+  }
+
   /** 生成当前性能快照（CPU、内存、tick 耗时、网络统计） */
   getSnapshot(): GmPerformanceSnapshot {
     const now = process.hrtime.bigint();
@@ -170,6 +374,7 @@ export class PerformanceService {
         profileElapsedSec: Number(cpuProfileElapsedSec.toFixed(1)),
         breakdown: this.buildCpuBreakdownSnapshot(),
       },
+      pathfinding: this.buildPathfindingSnapshot(),
       networkStatsStartedAt: this.networkStatsStartedAt,
       networkStatsElapsedSec: Number(networkStatsElapsedSec.toFixed(1)),
       networkInBytes: this.totalNetworkInBytes,

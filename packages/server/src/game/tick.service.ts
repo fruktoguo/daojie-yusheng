@@ -283,6 +283,10 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     this.performanceService.resetCpuStats();
   }
 
+  resetPathfindingPerf(): void {
+    this.performanceService.resetPathfindingStats();
+  }
+
   private getEffectiveInterval(mapId: string): number {
     const speed = this.mapTickSpeed.get(mapId) ?? 1;
     if (speed <= 0) return this.minTickInterval;

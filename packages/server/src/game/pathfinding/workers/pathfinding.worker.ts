@@ -18,6 +18,9 @@ parentPort.on('message', (task: PathfindingTask) => {
     task.startY,
     task.goals,
     task.limits,
+    {
+      cancelFlag: task.cancelFlag,
+    },
   );
   const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
   const payload: PathfindingTaskResult = {

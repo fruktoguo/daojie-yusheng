@@ -1,22 +1,20 @@
 /**
  * 服务端寻路调度常量。
  */
+import { PATHFINDING_PLAYER_MAX_PATH_LENGTH } from '@mud/shared';
 import * as os from 'os';
 
 /** 玩家显式点地移动优先级。数值越小越优先。 */
 export const PATH_REQUEST_PRIORITY_PLAYER_MOVE = 10;
 
+/** 玩家每息最多允许发起的寻路请求次数。 */
+export const PATH_REQUEST_MAX_PER_TICK_PER_PLAYER = 4;
+
 /** 玩家显式点地时允许在主线程内快速求解的最大展开节点数。 */
 export const PATH_REQUEST_IMMEDIATE_PLAYER_MAX_EXPANDED_NODES = 768;
 
-/** 玩家路径块长度。每次只规划这么多步，剩余部分滚动续算。 */
-export const PATH_REQUEST_PLAYER_CHUNK_LENGTH = 12;
-
 /** 玩家显式点地时允许在主线程内快速求解的最大步数。 */
-export const PATH_REQUEST_IMMEDIATE_PLAYER_MAX_PATH_LENGTH = PATH_REQUEST_PLAYER_CHUNK_LENGTH;
-
-/** 玩家路径块剩余到该阈值时，开始续算下一块。 */
-export const PATH_REQUEST_PLAYER_CHUNK_PREFETCH_THRESHOLD = 4;
+export const PATH_REQUEST_IMMEDIATE_PLAYER_MAX_PATH_LENGTH = PATHFINDING_PLAYER_MAX_PATH_LENGTH;
 
 /** 路径阻挡后的重算优先级。 */
 export const PATH_REQUEST_PRIORITY_PLAYER_REPATH = 5;

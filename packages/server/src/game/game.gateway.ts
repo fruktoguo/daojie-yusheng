@@ -63,6 +63,7 @@ import { WorldService } from './world.service';
 import { PerformanceService } from './performance.service';
 import { TickService } from './tick.service';
 import { SuggestionService } from './suggestion.service';
+import { NavigationService } from './navigation.service';
 
 @WebSocketGateway({ cors: true })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -83,6 +84,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly performanceService: PerformanceService,
     private readonly tickService: TickService,
     private readonly suggestionService: SuggestionService,
+    private readonly navigationService: NavigationService,
   ) {}
 
   /** 客户端连接时：认证 → 顶号/断线恢复/存档加载/新建角色 → 下发初始化数据 */
@@ -256,6 +258,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
+
+    this.navigationService.primeMoveTarget(player, data.x, data.y, {
+      allowNearestReachable: data.allowNearestReachable,
+    });
 
     this.playerService.enqueueCommand(player.mapId, {
       playerId,

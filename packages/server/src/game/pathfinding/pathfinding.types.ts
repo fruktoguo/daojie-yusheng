@@ -14,7 +14,8 @@ export type PathResultFailureReason =
   | 'step_limit'
   | 'path_too_long'
   | 'target_too_far'
-  | 'invalid_goal';
+  | 'invalid_goal'
+  | 'cancelled';
 
 export interface PathPoint {
   x: number;
@@ -50,6 +51,8 @@ export interface PathfindingTask {
   goals: PathPoint[];
   staticGrid: PathfindingStaticGrid;
   blocked: Uint8Array;
+  cancelFlag?: Int32Array;
+  enqueuedAtMs?: number;
   limits: PathfindingSearchLimits;
 }
 

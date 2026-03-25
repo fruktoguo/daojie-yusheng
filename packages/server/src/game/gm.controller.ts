@@ -76,6 +76,13 @@ export class GmController {
     return { ok: true };
   }
 
+  /** 重置寻路专项统计 */
+  @Post('perf/pathfinding/reset')
+  resetPathfindingPerf(): { ok: true } {
+    this.tickService.resetPathfindingPerf();
+    return { ok: true };
+  }
+
   @Post('suggestions/:id/complete')
   async completeSuggestion(@Param('id') id: string): Promise<{ ok: true }> {
     await this.suggestionService.markCompleted(id);

@@ -15,6 +15,7 @@ import {
   PathfindingTaskResult,
   PathRequestKind,
 } from './pathfinding.types';
+import { PerformanceService } from '../performance.service';
 
 interface PendingPathRequest {
   requestId: string;
@@ -26,6 +27,7 @@ interface PendingPathRequest {
   priority: number;
   moveSpeed: number;
   enqueueOrder: number;
+  enqueuedAtMs: number;
   startX: number;
   startY: number;
   goals: PathPoint[];
@@ -56,43 +58,61 @@ export class PathRequestSchedulerService {
   constructor(
     private readonly mapService: MapService,
     private readonly workerPool: PathWorkerPoolService,
+    private readonly performanceService: PerformanceService,
   ) {}
 
   enqueue(input: EnqueuePathRequestInput): string {
+    this.collectCompletedResults();
     const requestId = `${input.actorId}:${this.sequence++}`;
     const request: PendingPathRequest = {
       ...input,
       requestId,
       enqueueOrder: this.sequence,
+      enqueuedAtMs: Date.now(),
     };
-    this.latestRequestIdByActor.set(input.actorId, requestId);
+    this.workerPool.cancelActor(input.actorId);
     this.completedByActor.delete(input.actorId);
 
+    let removedPendingCount = 0;
     for (const [id, pending] of this.pendingById.entries()) {
       if (pending.actorId === input.actorId) {
         this.pendingById.delete(id);
+        removedPendingCount += 1;
       }
     }
 
+    this.latestRequestIdByActor.set(input.actorId, requestId);
     this.pendingById.set(requestId, request);
+    this.performanceService.recordPathfindingEnqueued();
+    this.performanceService.recordPathfindingPendingDropped(removedPendingCount);
+    this.syncQueueDepthMetrics();
+    this.dispatchPendingForMap(input.mapId, 1);
     return requestId;
   }
 
   cancelActor(actorId: string): void {
+    this.workerPool.cancelActor(actorId);
     this.latestRequestIdByActor.delete(actorId);
     this.completedByActor.delete(actorId);
+    let removedPendingCount = 0;
     for (const [id, pending] of this.pendingById.entries()) {
       if (pending.actorId === actorId) {
         this.pendingById.delete(id);
+        removedPendingCount += 1;
       }
     }
+    this.performanceService.recordPathfindingPendingDropped(removedPendingCount);
+    this.syncQueueDepthMetrics();
   }
 
   pumpMap(mapId: string): void {
     this.collectCompletedResults();
+    this.dispatchPendingForMap(mapId, PATH_REQUEST_DISPATCH_BATCH_SIZE);
+  }
 
+  private dispatchPendingForMap(mapId: string, maxDispatch: number): void {
     let dispatched = 0;
-    while (this.workerPool.hasIdleWorker() && dispatched < PATH_REQUEST_DISPATCH_BATCH_SIZE) {
+    while (this.workerPool.hasIdleWorker() && dispatched < maxDispatch) {
       const next = this.pickNextPending(mapId);
       if (!next) {
         break;
@@ -101,7 +121,7 @@ export class PathRequestSchedulerService {
       const staticGrid = this.mapService.getPathfindingStaticGrid(next.mapId);
       const blocked = this.mapService.buildPathfindingBlockedGrid(next.mapId, next.actorType, next.selfOccupancyId);
       if (!staticGrid || !blocked) {
-        this.completedByActor.set(next.actorId, {
+        const result: PathfindingTaskResult = {
           status: 'failed',
           reason: 'invalid_goal',
           expandedNodes: 0,
@@ -111,7 +131,9 @@ export class PathRequestSchedulerService {
           mapId: next.mapId,
           mapRevision: 0,
           elapsedMs: 0,
-        });
+        };
+        this.performanceService.recordPathfindingCompleted(result);
+        this.completedByActor.set(next.actorId, result);
         continue;
       }
 
@@ -128,13 +150,16 @@ export class PathRequestSchedulerService {
         goals: next.goals,
         staticGrid,
         blocked,
+        enqueuedAtMs: next.enqueuedAtMs,
         limits: next.limits,
       };
 
       if (!this.workerPool.dispatch(task)) {
         this.pendingById.set(next.requestId, next);
+        this.syncQueueDepthMetrics();
         break;
       }
+      this.performanceService.recordPathfindingDispatched(Date.now() - next.enqueuedAtMs);
       dispatched += 1;
     }
   }
@@ -156,6 +181,7 @@ export class PathRequestSchedulerService {
     for (const result of this.workerPool.drainCompleted()) {
       const latest = this.latestRequestIdByActor.get(result.actorId);
       if (latest !== result.requestId) {
+        this.performanceService.recordPathfindingStaleResultDropped();
         continue;
       }
       this.completedByActor.set(result.actorId, result);
@@ -178,7 +204,12 @@ export class PathRequestSchedulerService {
     const next = candidates[0] ?? null;
     if (next) {
       this.pendingById.delete(next.requestId);
+      this.syncQueueDepthMetrics();
     }
     return next;
+  }
+
+  private syncQueueDepthMetrics(): void {
+    this.performanceService.setPathfindingQueueDepth(this.pendingById.size);
   }
 }

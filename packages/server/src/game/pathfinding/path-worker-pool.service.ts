@@ -5,6 +5,7 @@ import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { Worker } from 'node:worker_threads';
 import * as path from 'node:path';
 import { PATHFINDING_WORKER_COUNT } from '../../constants/gameplay/pathfinding';
+import { PerformanceService } from '../performance.service';
 import { PathfindingTask, PathfindingTaskResult } from './pathfinding.types';
 
 interface WorkerSlot {
@@ -21,10 +22,13 @@ export class PathWorkerPoolService implements OnModuleDestroy {
   private readonly completedResults: PathfindingTaskResult[] = [];
   private shuttingDown = false;
 
-  constructor() {
+  constructor(
+    private readonly performanceService: PerformanceService = new PerformanceService(),
+  ) {
     for (let index = 0; index < PATHFINDING_WORKER_COUNT; index += 1) {
       this.slots.push(this.createWorkerSlot(index));
     }
+    this.syncWorkerState();
   }
 
   onModuleDestroy(): void {
@@ -44,9 +48,32 @@ export class PathWorkerPoolService implements OnModuleDestroy {
     if (!slot) {
       return false;
     }
-    slot.currentTask = task;
-    slot.worker.postMessage(task);
+    const cancelFlag = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT));
+    const runningTask: PathfindingTask = {
+      ...task,
+      cancelFlag,
+    };
+    slot.currentTask = runningTask;
+    this.syncWorkerState();
+    slot.worker.postMessage(runningTask);
     return true;
+  }
+
+  cancelRequest(requestId: string): void {
+    const slot = this.slots.find((candidate) => candidate.currentTask?.requestId === requestId);
+    if (!slot?.currentTask?.cancelFlag) {
+      return;
+    }
+    Atomics.store(slot.currentTask.cancelFlag, 0, 1);
+  }
+
+  cancelActor(actorId: string): void {
+    for (const slot of this.slots) {
+      if (slot.currentTask?.actorId !== actorId || !slot.currentTask.cancelFlag) {
+        continue;
+      }
+      Atomics.store(slot.currentTask.cancelFlag, 0, 1);
+    }
   }
 
   drainCompleted(): PathfindingTaskResult[] {
@@ -66,6 +93,8 @@ export class PathWorkerPoolService implements OnModuleDestroy {
 
     worker.on('message', (result: PathfindingTaskResult) => {
       slot.currentTask = null;
+      this.performanceService.recordPathfindingCompleted(result);
+      this.syncWorkerState();
       this.completedResults.push(result);
     });
 
@@ -99,9 +128,11 @@ export class PathWorkerPoolService implements OnModuleDestroy {
     }
     const task = slot.currentTask;
     slot.currentTask = null;
-    this.completedResults.push({
+    this.syncWorkerState();
+    const reason = task.cancelFlag && Atomics.load(task.cancelFlag, 0) === 1 ? 'cancelled' : 'no_path';
+    const result: PathfindingTaskResult = {
       status: 'failed',
-      reason: 'no_path',
+      reason,
       expandedNodes: 0,
       requestId: task.requestId,
       actorId: task.actorId,
@@ -109,6 +140,15 @@ export class PathWorkerPoolService implements OnModuleDestroy {
       mapId: task.staticGrid.mapId,
       mapRevision: task.staticGrid.mapRevision,
       elapsedMs: 0,
-    });
+    };
+    this.performanceService.recordPathfindingCompleted(result);
+    this.completedResults.push(result);
+  }
+
+  private syncWorkerState(): void {
+    this.performanceService.setPathfindingWorkerState(
+      this.slots.length,
+      this.slots.filter((slot) => slot.currentTask !== null).length,
+    );
   }
 }
