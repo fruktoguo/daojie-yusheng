@@ -9,7 +9,7 @@ import * as bcrypt from 'bcrypt';
 import { AuthTokenRes, DisplayNameAvailabilityRes, GmLoginRes } from '@mud/shared';
 import * as fs from 'fs';
 import { UserEntity } from '../database/entities/user.entity';
-import { resolveServerDataPath } from '../common/data-path';
+import { PersistentDocumentService } from '../database/persistent-document.service';
 import {
   normalizeDisplayName,
   normalizeUsername,
@@ -26,12 +26,16 @@ interface GmConfigFile {
   updatedAt: string;
 }
 
+const SERVER_CONFIG_SCOPE = 'server_config';
+const GM_CONFIG_DOCUMENT_KEY = 'gm_auth';
+
 @Injectable()
 export class AuthService {
   constructor(
     private readonly jwtService: JwtService,
     @InjectRepository(UserEntity)
     private readonly userRepo: Repository<UserEntity>,
+    private readonly persistentDocumentService: PersistentDocumentService,
   ) {}
 
   /** 用户注册：校验输入、查重、创建账号并签发令牌 */
@@ -161,7 +165,7 @@ export class AuthService {
     }
 
     const nextHash = await bcrypt.hash(newPassword, 10);
-    this.writeGmConfig({
+    await this.writeGmConfig({
       passwordHash: nextHash,
       updatedAt: new Date().toISOString(),
     });
@@ -202,26 +206,30 @@ export class AuthService {
 
   /** 获取或首次创建 GM 密码哈希（首次使用环境变量或默认密码） */
   private async getOrCreateGmPasswordHash(): Promise<string> {
-    const existing = this.readGmConfig();
+    const existing = await this.readGmConfig();
     if (existing?.passwordHash) {
       return existing.passwordHash;
     }
 
     const initialPassword = process.env.GM_PASSWORD?.trim() || 'admin123';
     const passwordHash = await bcrypt.hash(initialPassword, 10);
-    this.writeGmConfig({
+    await this.writeGmConfig({
       passwordHash,
       updatedAt: new Date().toISOString(),
     });
     return passwordHash;
   }
 
-  private readGmConfig(): GmConfigFile | null {
+  private async readGmConfig(): Promise<GmConfigFile | null> {
     try {
-      if (!fs.existsSync(GM_CONFIG_PATH)) {
+      let raw = await this.persistentDocumentService.get<Partial<GmConfigFile>>(SERVER_CONFIG_SCOPE, GM_CONFIG_DOCUMENT_KEY);
+      if (!raw) {
+        await this.importLegacyGmConfigIfNeeded();
+        raw = await this.persistentDocumentService.get<Partial<GmConfigFile>>(SERVER_CONFIG_SCOPE, GM_CONFIG_DOCUMENT_KEY);
+      }
+      if (!raw) {
         return null;
       }
-      const raw = JSON.parse(fs.readFileSync(GM_CONFIG_PATH, 'utf-8')) as Partial<GmConfigFile>;
       if (typeof raw.passwordHash !== 'string' || !raw.passwordHash.trim()) {
         return null;
       }
@@ -234,8 +242,25 @@ export class AuthService {
     }
   }
 
-  private writeGmConfig(config: GmConfigFile): void {
-    fs.mkdirSync(resolveServerDataPath(), { recursive: true });
-    fs.writeFileSync(GM_CONFIG_PATH, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+  private async writeGmConfig(config: GmConfigFile): Promise<void> {
+    await this.persistentDocumentService.save(SERVER_CONFIG_SCOPE, GM_CONFIG_DOCUMENT_KEY, config);
+  }
+
+  private async importLegacyGmConfigIfNeeded(): Promise<void> {
+    if (!fs.existsSync(GM_CONFIG_PATH)) {
+      return;
+    }
+    try {
+      const raw = JSON.parse(fs.readFileSync(GM_CONFIG_PATH, 'utf-8')) as Partial<GmConfigFile>;
+      if (typeof raw.passwordHash !== 'string' || !raw.passwordHash.trim()) {
+        return;
+      }
+      await this.persistentDocumentService.save(SERVER_CONFIG_SCOPE, GM_CONFIG_DOCUMENT_KEY, {
+        passwordHash: raw.passwordHash,
+        updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : new Date(0).toISOString(),
+      });
+    } catch {
+      // 旧文件损坏时保持与原逻辑一致，回退为重新初始化 GM 密码。
+    }
   }
 }

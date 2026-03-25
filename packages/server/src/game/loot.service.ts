@@ -15,8 +15,8 @@ import {
   isPointInRange,
 } from '@mud/shared';
 import * as fs from 'fs';
-import * as path from 'path';
 import { resolveServerDataPath } from '../common/data-path';
+import { PersistentDocumentService } from '../database/persistent-document.service';
 import { ContentService } from './content.service';
 import { InventoryService } from './inventory.service';
 import { ContainerConfig, DropConfig, MapService } from './map.service';
@@ -121,6 +121,9 @@ interface PersistedLootRuntimeSnapshot {
   maps: Record<string, PersistedLootMapState>;
 }
 
+const RUNTIME_STATE_SCOPE = 'runtime_state';
+const MAP_LOOT_RUNTIME_DOCUMENT_KEY = 'map_loot';
+
 @Injectable()
 export class LootService implements OnModuleInit, OnModuleDestroy {
   private readonly mapTicks = new Map<string, number>();
@@ -135,14 +138,15 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     private readonly mapService: MapService,
     private readonly contentService: ContentService,
     private readonly inventoryService: InventoryService,
+    private readonly persistentDocumentService: PersistentDocumentService,
   ) {}
 
-  onModuleInit(): void {
-    this.loadPersistedRuntimeState();
+  async onModuleInit(): Promise<void> {
+    await this.loadPersistedRuntimeState();
   }
 
-  onModuleDestroy(): void {
-    this.persistRuntimeState();
+  async onModuleDestroy(): Promise<void> {
+    await this.persistRuntimeState();
   }
 
   /** 每 tick 处理掉落物过期、容器刷新、搜索进度 */
@@ -883,7 +887,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     return result;
   }
 
-  persistRuntimeState(): void {
+  async persistRuntimeState(): Promise<void> {
     if (!this.runtimeStateDirty) {
       return;
     }
@@ -933,24 +937,33 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
         };
       }
 
-      fs.mkdirSync(path.dirname(this.runtimeStatePath), { recursive: true });
-      fs.writeFileSync(this.runtimeStatePath, `${JSON.stringify(snapshot, null, 2)}\n`, 'utf-8');
+      await this.persistentDocumentService.save(RUNTIME_STATE_SCOPE, MAP_LOOT_RUNTIME_DOCUMENT_KEY, snapshot);
       this.runtimeStateDirty = false;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`掉落运行时持久化失败: ${message}`);
+      this.logger.error(`掉落运行时持久化到 PostgreSQL 失败: ${message}`);
     }
   }
 
-  private loadPersistedRuntimeState(): void {
-    if (!fs.existsSync(this.runtimeStatePath)) {
+  private async loadPersistedRuntimeState(): Promise<void> {
+    let snapshot = await this.persistentDocumentService.get<Partial<PersistedLootRuntimeSnapshot>>(
+      RUNTIME_STATE_SCOPE,
+      MAP_LOOT_RUNTIME_DOCUMENT_KEY,
+    );
+    if (!snapshot) {
+      await this.importLegacyRuntimeStateIfNeeded();
+      snapshot = await this.persistentDocumentService.get<Partial<PersistedLootRuntimeSnapshot>>(
+        RUNTIME_STATE_SCOPE,
+        MAP_LOOT_RUNTIME_DOCUMENT_KEY,
+      );
+    }
+    if (!snapshot) {
       return;
     }
 
     try {
-      const snapshot = JSON.parse(fs.readFileSync(this.runtimeStatePath, 'utf-8')) as Partial<PersistedLootRuntimeSnapshot>;
       if (!snapshot?.maps || typeof snapshot.maps !== 'object') {
-        this.logger.warn('掉落运行时持久化文件格式非法，已忽略');
+        this.logger.warn('掉落运行时持久化数据格式非法，已忽略');
         return;
       }
 
@@ -994,7 +1007,22 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`读取掉落运行时持久化文件失败: ${message}`);
+      this.logger.error(`读取掉落运行时持久化数据失败: ${message}`);
+    }
+  }
+
+  private async importLegacyRuntimeStateIfNeeded(): Promise<void> {
+    if (!fs.existsSync(this.runtimeStatePath)) {
+      return;
+    }
+
+    try {
+      const snapshot = JSON.parse(fs.readFileSync(this.runtimeStatePath, 'utf-8')) as PersistedLootRuntimeSnapshot;
+      await this.persistentDocumentService.save(RUNTIME_STATE_SCOPE, MAP_LOOT_RUNTIME_DOCUMENT_KEY, snapshot);
+      this.logger.log('已从旧掉落运行时 JSON 导入 PostgreSQL');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`导入旧掉落运行时 JSON 失败: ${message}`);
     }
   }
 

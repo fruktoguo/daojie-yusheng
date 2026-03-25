@@ -63,6 +63,7 @@ import {
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolveServerDataPath } from '../common/data-path';
+import { PersistentDocumentService } from '../database/persistent-document.service';
 import { ContentService } from './content.service';
 import { PathfindingActorType, PathfindingStaticGrid } from './pathfinding/pathfinding.types';
 import { resolveRealmStageTargetLabel } from './quest-display';
@@ -253,6 +254,15 @@ interface PersistedTileRuntimeSnapshot {
   time?: Record<string, PersistedMapTimeState>;
 }
 
+interface SyncedMapDocument {
+  document: GmMapDocument;
+  previousDocument?: GmMapDocument;
+}
+
+const MAP_DOCUMENT_SCOPE = 'map_document';
+const RUNTIME_STATE_SCOPE = 'runtime_state';
+const MAP_TILE_RUNTIME_DOCUMENT_KEY = 'map_tile';
+
 type OccupantKind = 'player' | 'monster';
 
 interface OccupancyCheckOptions {
@@ -304,7 +314,6 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   private mapTimeStates: Map<string, PersistedMapTimeState> = new Map();
   private persistedMapTimeStates: Map<string, PersistedMapTimeState> = new Map();
   private mapTimeStatesDirty = false;
-  private watchers: fs.FSWatcher[] = [];
   private mapsDir = resolveServerDataPath('maps');
   private readonly tileRuntimeStatePath = resolveServerDataPath('runtime', 'map-tile-runtime-state.json');
   private readonly legacyDynamicTileStatePath = resolveServerDataPath('runtime', 'dynamic-map-state.json');
@@ -313,19 +322,18 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly contentService: ContentService,
+    private readonly persistentDocumentService: PersistentDocumentService,
   ) {}
 
-  onModuleInit() {
-    this.loadPersistedTileRuntimeStates();
+  async onModuleInit() {
+    await this.loadPersistedTileRuntimeStates();
     this.contentService.ensureLoaded();
-    this.loadAllMaps();
-    this.watchMaps();
+    const syncedMaps = await this.syncMapDocumentsFromFiles();
+    this.loadAllMaps(syncedMaps);
   }
 
-  onModuleDestroy() {
-    this.persistTileRuntimeStates();
-    for (const w of this.watchers) w.close();
-    this.watchers = [];
+  async onModuleDestroy() {
+    await this.persistTileRuntimeStates();
   }
 
   setAuraLevelBaseValue(value: number): void {
@@ -334,27 +342,38 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       return;
     }
     this.auraLevelBaseValue = normalizedValue;
-    this.loadAllMaps();
+    for (const document of [...this.maps.values()].map((map) => this.cloneMapDocument(map.source))) {
+      this.loadMap(document, document);
+    }
   }
 
   getAuraLevelBaseValue(): number {
     return this.auraLevelBaseValue;
   }
 
-  private loadPersistedTileRuntimeStates() {
+  private async loadPersistedTileRuntimeStates() {
     this.persistedDynamicTileStates.clear();
     this.persistedAuraStates.clear();
     this.persistedMapTimeStates.clear();
-    if (!fs.existsSync(this.tileRuntimeStatePath)) {
-      this.loadLegacyPersistedTileRuntimeStates();
+    let snapshot = await this.persistentDocumentService.get<Partial<PersistedTileRuntimeSnapshot>>(
+      RUNTIME_STATE_SCOPE,
+      MAP_TILE_RUNTIME_DOCUMENT_KEY,
+    );
+    if (!snapshot) {
+      await this.importLegacyTileRuntimeStateIfNeeded();
+      snapshot = await this.persistentDocumentService.get<Partial<PersistedTileRuntimeSnapshot>>(
+        RUNTIME_STATE_SCOPE,
+        MAP_TILE_RUNTIME_DOCUMENT_KEY,
+      );
+    }
+    if (!snapshot) {
       return;
     }
 
     try {
-      const snapshot = JSON.parse(fs.readFileSync(this.tileRuntimeStatePath, 'utf-8')) as Partial<PersistedTileRuntimeSnapshot>;
       const rawMaps = snapshot?.maps;
       if (!rawMaps || typeof rawMaps !== 'object') {
-        this.logger.warn('地块运行时持久化文件格式非法，已忽略');
+        this.logger.warn('地块运行时持久化数据格式非法，已忽略');
         return;
       }
 
@@ -434,8 +453,46 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`读取地块运行时持久化文件失败: ${message}`);
+      this.logger.error(`读取地块运行时持久化数据失败: ${message}`);
     }
+  }
+
+  private async importLegacyTileRuntimeStateIfNeeded(): Promise<void> {
+    if (!fs.existsSync(this.tileRuntimeStatePath) && !fs.existsSync(this.legacyDynamicTileStatePath) && !fs.existsSync(this.legacyAuraStatePath)) {
+      return;
+    }
+
+    this.persistedDynamicTileStates.clear();
+    this.persistedAuraStates.clear();
+    this.persistedMapTimeStates.clear();
+
+    if (fs.existsSync(this.tileRuntimeStatePath)) {
+      try {
+        const snapshot = JSON.parse(fs.readFileSync(this.tileRuntimeStatePath, 'utf-8')) as PersistedTileRuntimeSnapshot;
+        await this.persistentDocumentService.save(RUNTIME_STATE_SCOPE, MAP_TILE_RUNTIME_DOCUMENT_KEY, snapshot);
+        this.logger.log('已从旧地块运行时 JSON 导入 PostgreSQL');
+        return;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error(`导入旧地块运行时 JSON 失败: ${message}`);
+      }
+    }
+
+    this.loadLegacyPersistedTileRuntimeStates();
+    if (
+      this.persistedDynamicTileStates.size === 0
+      && this.persistedAuraStates.size === 0
+      && this.persistedMapTimeStates.size === 0
+    ) {
+      return;
+    }
+
+    await this.persistentDocumentService.save(
+      RUNTIME_STATE_SCOPE,
+      MAP_TILE_RUNTIME_DOCUMENT_KEY,
+      this.buildPersistedTileRuntimeSnapshotFromState(),
+    );
+    this.logger.log('已从旧版动态地块 JSON 导入 PostgreSQL');
   }
 
   private loadLegacyPersistedTileRuntimeStates() {
@@ -539,50 +596,152 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private loadAllMaps() {
-    this.contentService.ensureLoaded();
-    const files = fs.readdirSync(this.mapsDir).filter(f => f.endsWith('.json'));
+  private buildPersistedTileRuntimeSnapshotFromState(): PersistedTileRuntimeSnapshot {
+    const snapshot: PersistedTileRuntimeSnapshot = {
+      version: 2,
+      maps: {},
+    };
+
+    const allMapIds = [...new Set([
+      ...this.persistedDynamicTileStates.keys(),
+      ...this.persistedAuraStates.keys(),
+    ])].sort((left, right) => left.localeCompare(right, 'zh-CN'));
+
+    for (const mapId of allMapIds) {
+      const dynamicStateMap = this.persistedDynamicTileStates.get(mapId);
+      const auraStateMap = this.persistedAuraStates.get(mapId);
+      const allTileKeys = [...new Set([
+        ...(dynamicStateMap ? [...dynamicStateMap.keys()] : []),
+        ...(auraStateMap ? [...auraStateMap.keys()] : []),
+      ])].sort((left, right) => {
+        const [leftX, leftY] = left.split(',').map((value) => Number.parseInt(value, 10));
+        const [rightX, rightY] = right.split(',').map((value) => Number.parseInt(value, 10));
+        return leftY - rightY || leftX - rightX;
+      });
+
+      const records: PersistedTileRuntimeRecord[] = [];
+      for (const key of allTileKeys) {
+        const terrain = dynamicStateMap?.get(key);
+        const aura = auraStateMap?.get(key);
+        if (!terrain && !aura) {
+          continue;
+        }
+
+        const [x, y] = key.split(',').map((value) => Number.parseInt(value, 10));
+        const record: PersistedTileRuntimeRecord = { x, y };
+        if (terrain) {
+          record.terrain = {
+            hp: terrain.hp,
+            destroyed: terrain.destroyed,
+            restoreTicksLeft: terrain.destroyed ? this.normalizeRestoreTicksLeft(terrain.restoreTicksLeft) : undefined,
+          };
+        }
+        if (aura) {
+          record.resources = {
+            aura: {
+              value: aura.value,
+              sourceValue: aura.sourceValue,
+              decayRemainder: aura.decayRemainder,
+              sourceRemainder: aura.sourceRemainder,
+            },
+          };
+        }
+        records.push(record);
+      }
+
+      if (records.length > 0) {
+        snapshot.maps[mapId] = records;
+      }
+    }
+
+    const allTimeMapIds = [...this.persistedMapTimeStates.keys()]
+      .sort((left, right) => left.localeCompare(right, 'zh-CN'));
+    for (const mapId of allTimeMapIds) {
+      const state = this.persistedMapTimeStates.get(mapId);
+      if (!state) {
+        continue;
+      }
+      snapshot.time ??= {};
+      snapshot.time[mapId] = {
+        totalTicks: state.totalTicks,
+        config: state.config ? this.normalizeMapTimeConfig(state.config) : undefined,
+        tickSpeed: state.tickSpeed,
+      };
+    }
+
+    return snapshot;
+  }
+
+  private async syncMapDocumentsFromFiles(): Promise<SyncedMapDocument[]> {
+    const persistedDocuments = await this.persistentDocumentService.getScope<unknown>(MAP_DOCUMENT_SCOPE);
+    const persistedByMapId = new Map<string, GmMapDocument>(
+      persistedDocuments.map((entry) => [entry.key, this.normalizeEditableMapDocument(entry.payload)]),
+    );
+
+    const files = fs.readdirSync(this.mapsDir)
+      .filter((file) => file.endsWith('.json'))
+      .sort((left, right) => left.localeCompare(right, 'zh-CN'));
+
+    const synced: SyncedMapDocument[] = [];
+    const fileMapIds = new Set<string>();
+    let createdCount = 0;
+    let updatedCount = 0;
+
     for (const file of files) {
-      this.loadMapFile(path.join(this.mapsDir, file));
+      try {
+        const raw = JSON.parse(fs.readFileSync(path.join(this.mapsDir, file), 'utf-8'));
+        const normalized = this.normalizeEditableMapDocument(raw);
+        const nextPayload = this.dehydrateEditableMapDocument(normalized);
+        const previousDocument = persistedByMapId.get(normalized.id);
+        const previousPayload = previousDocument ? this.dehydrateEditableMapDocument(previousDocument) : null;
+        if (JSON.stringify(previousPayload) !== JSON.stringify(nextPayload)) {
+          await this.persistentDocumentService.save(MAP_DOCUMENT_SCOPE, normalized.id, nextPayload);
+          if (previousDocument) {
+            updatedCount += 1;
+          } else {
+            createdCount += 1;
+          }
+        }
+        fileMapIds.add(normalized.id);
+        synced.push({ document: normalized, previousDocument });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error(`地图同步失败 ${file}: ${message}`);
+      }
+    }
+
+    let deletedCount = 0;
+    for (const mapId of persistedByMapId.keys()) {
+      if (fileMapIds.has(mapId)) {
+        continue;
+      }
+      await this.persistentDocumentService.delete(MAP_DOCUMENT_SCOPE, mapId);
+      deletedCount += 1;
+    }
+
+    if (createdCount > 0 || updatedCount > 0 || deletedCount > 0) {
+      this.logger.log(`已同步地图静态镜像：新增 ${createdCount} 张，更新 ${updatedCount} 张，删除 ${deletedCount} 张`);
+    }
+
+    return synced;
+  }
+
+  private loadAllMaps(entries: SyncedMapDocument[]) {
+    this.contentService.ensureLoaded();
+    for (const entry of entries) {
+      this.loadMap(entry.document, entry.previousDocument);
     }
     this.rebuildAllMinimapSnapshots();
     this.logger.log(`已加载 ${this.maps.size} 张地图`);
   }
 
-  private loadMapFile(filePath: string) {
-    try {
-      const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-      this.loadMap(raw);
-      this.logger.log(`地图已加载/重载: ${raw.id}`);
-    } catch (e: any) {
-      this.logger.error(`地图加载失败 ${filePath}: ${e.message}`);
-    }
-  }
-
-  /** 监听地图目录，文件变化时自动重载 */
-  private watchMaps() {
-    const debounce = new Map<string, NodeJS.Timeout>();
-    const watcher = fs.watch(this.mapsDir, (event, filename) => {
-      if (!filename?.endsWith('.json')) return;
-      // 防抖：同一文件 300ms 内只触发一次
-      const existing = debounce.get(filename);
-      if (existing) clearTimeout(existing);
-      debounce.set(filename, setTimeout(() => {
-        debounce.delete(filename);
-        this.loadMapFile(path.join(this.mapsDir, filename));
-      }, 300));
-    });
-    this.watchers.push(watcher);
-    this.logger.log('地图热重载已启用');
-  }
-
-  private loadMap(raw: any) {
+  private loadMap(raw: unknown, previousDocument?: GmMapDocument) {
     const document = this.normalizeEditableMapDocument(raw);
     const tileRows = document.tiles;
     const tiles: Tile[][] = tileRows.map((row, y) =>
       [...row].map((char, x) => {
         const type = getTileTypeFromMapChar(char);
-        const durability = this.tileDurability(document.id, type);
+        const durability = this.tileDurabilityFromDocument(document, type);
         return {
           type,
           walkable: isTileTypeWalkable(type),
@@ -636,7 +795,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    this.rehydrateDynamicTileStates(document.id, document, tiles);
+    this.rehydrateDynamicTileStates(document.id, document, tiles, previousDocument);
     this.rehydrateAuraStates(document.id, tiles, baseAuraValues);
 
     const containers = this.normalizeContainers(document.landmarks, meta);
@@ -698,7 +857,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     return this.cloneMapDocument(map.source);
   }
 
-  saveEditableMap(mapId: string, document: GmMapDocument): string | null {
+  async saveEditableMap(mapId: string, document: GmMapDocument): Promise<string | null> {
     if (mapId !== document.id) {
       return '地图 ID 不允许在编辑器中直接修改';
     }
@@ -709,25 +868,70 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       return error;
     }
 
+    const filePath = path.join(this.mapsDir, `${mapId}.json`);
+    const previousDocument = this.maps.get(mapId)?.source;
+    const previousPersisted = previousDocument
+      ? this.dehydrateEditableMapDocument(previousDocument)
+      : null;
+    const previousFileContent = fs.existsSync(filePath)
+      ? fs.readFileSync(filePath, 'utf-8')
+      : null;
+
     try {
       const persisted = this.dehydrateEditableMapDocument(normalized);
-      fs.writeFileSync(this.resolveMapFilePath(mapId), `${JSON.stringify(persisted, null, 2)}\n`, 'utf-8');
-      this.loadMap(normalized);
+      fs.writeFileSync(filePath, `${JSON.stringify(persisted, null, 2)}\n`, 'utf-8');
+      await this.persistentDocumentService.save(MAP_DOCUMENT_SCOPE, mapId, persisted);
+      this.loadMap(normalized, previousDocument);
       return null;
     } catch (saveError) {
-      return saveError instanceof Error ? saveError.message : '地图保存失败';
+      const message = saveError instanceof Error ? saveError.message : '地图保存失败';
+
+      try {
+        if (previousFileContent === null) {
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        } else {
+          fs.writeFileSync(filePath, previousFileContent, 'utf-8');
+        }
+      } catch (rollbackError) {
+        const rollbackMessage = rollbackError instanceof Error ? rollbackError.message : String(rollbackError);
+        this.logger.error(`地图文件回滚失败 ${mapId}: ${rollbackMessage}`);
+      }
+
+      try {
+        if (previousPersisted) {
+          await this.persistentDocumentService.save(MAP_DOCUMENT_SCOPE, mapId, previousPersisted);
+        } else {
+          await this.persistentDocumentService.delete(MAP_DOCUMENT_SCOPE, mapId);
+        }
+      } catch (rollbackError) {
+        const rollbackMessage = rollbackError instanceof Error ? rollbackError.message : String(rollbackError);
+        this.logger.error(`地图静态镜像回滚失败 ${mapId}: ${rollbackMessage}`);
+      }
+
+      if (previousDocument) {
+        try {
+          this.loadMap(previousDocument, previousDocument);
+        } catch (rollbackError) {
+          const rollbackMessage = rollbackError instanceof Error ? rollbackError.message : String(rollbackError);
+          this.logger.error(`地图内存回滚失败 ${mapId}: ${rollbackMessage}`);
+        }
+      }
+
+      return message;
     }
   }
 
   persistDynamicTileStates() {
-    this.persistTileRuntimeStates();
+    return this.persistTileRuntimeStates();
   }
 
   persistAuraStates() {
-    this.persistTileRuntimeStates();
+    return this.persistTileRuntimeStates();
   }
 
-  persistTileRuntimeStates() {
+  async persistTileRuntimeStates() {
     if (!this.dynamicTileStatesDirty && !this.auraStatesDirty && !this.mapTimeStatesDirty) {
       return;
     }
@@ -820,14 +1024,13 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         snapshot.time[mapId] = record;
       }
 
-      fs.mkdirSync(path.dirname(this.tileRuntimeStatePath), { recursive: true });
-      fs.writeFileSync(this.tileRuntimeStatePath, `${JSON.stringify(snapshot, null, 2)}\n`, 'utf-8');
+      await this.persistentDocumentService.save(RUNTIME_STATE_SCOPE, MAP_TILE_RUNTIME_DOCUMENT_KEY, snapshot);
       this.dynamicTileStatesDirty = false;
       this.auraStatesDirty = false;
       this.mapTimeStatesDirty = false;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`地块运行时持久化失败: ${message}`);
+      this.logger.error(`地块运行时持久化到 PostgreSQL 失败: ${message}`);
     }
   }
 
@@ -960,7 +1163,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private rehydrateDynamicTileStates(mapId: string, document: GmMapDocument, tiles: Tile[][]) {
+  private rehydrateDynamicTileStates(mapId: string, document: GmMapDocument, tiles: Tile[][], previousDocument?: GmMapDocument) {
     const persistedSourceStates = this.persistedDynamicTileStates.get(mapId);
     const sourceStates = this.dynamicTileStates.get(mapId) ?? persistedSourceStates;
     if (!sourceStates || sourceStates.size === 0) {
@@ -974,8 +1177,11 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     const sourceCount = sourceStates.size;
     const nextStates = new Map<string, DynamicTileState>();
     for (const rawState of sourceStates.values()) {
+      if (this.hasStaticTerrainConflict(previousDocument, document, rawState.x, rawState.y)) {
+        continue;
+      }
       const originalType = getTileTypeFromMapChar(document.tiles[rawState.y]?.[rawState.x] ?? '#');
-      const maxHp = this.tileDurability(mapId, originalType);
+      const maxHp = this.tileDurabilityFromDocument(document, originalType);
       const tile = tiles[rawState.y]?.[rawState.x];
       if (!tile || maxHp <= 0) {
         continue;
@@ -1118,12 +1324,54 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     tile.modifiedAt = null;
   }
 
+  private hasStaticTerrainConflict(
+    previousDocument: GmMapDocument | undefined,
+    nextDocument: GmMapDocument,
+    x: number,
+    y: number,
+  ): boolean {
+    if (!previousDocument) {
+      return false;
+    }
+
+    const previousType = this.getTileTypeFromDocument(previousDocument, x, y);
+    const nextType = this.getTileTypeFromDocument(nextDocument, x, y);
+    if (previousType !== nextType) {
+      return true;
+    }
+    if (previousType === null || nextType === null) {
+      return previousType !== nextType;
+    }
+    return this.tileDurabilityFromDocument(previousDocument, previousType) !== this.tileDurabilityFromDocument(nextDocument, nextType);
+  }
+
   private getBaseTileType(mapId: string, x: number, y: number): TileType | null {
     const row = this.maps.get(mapId)?.source.tiles[y];
     if (!row) {
       return null;
     }
     return getTileTypeFromMapChar(row[x] ?? '#');
+  }
+
+  private getTileTypeFromDocument(document: GmMapDocument, x: number, y: number): TileType | null {
+    const row = document.tiles[y];
+    if (typeof row !== 'string' || x < 0 || x >= row.length) {
+      return null;
+    }
+    return getTileTypeFromMapChar(row[x] ?? '#');
+  }
+
+  private tileDurabilityFromDocument(document: GmMapDocument, type: TileType): number {
+    const profileId = document.terrainProfileId
+      ?? LEGACY_MAP_TERRAIN_PROFILE_IDS[document.id]
+      ?? document.id;
+    const profile = this.resolveTerrainDurabilityProfile(profileId, type);
+    if (!profile) {
+      return 0;
+    }
+    const baseDurability = calculateTerrainDurability(profile.grade, profile.material);
+    const multiplier = SPECIAL_TILE_DURABILITY_MULTIPLIERS[type] ?? 1;
+    return Math.max(1, Math.round(baseDurability * multiplier));
   }
 
   private hasBlockingEntityAt(mapId: string, x: number, y: number): boolean {
@@ -2551,10 +2799,6 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
   getAllMapIds(): string[] {
     return [...this.maps.keys()];
-  }
-
-  private resolveMapFilePath(mapId: string): string {
-    return path.join(this.mapsDir, `${mapId}.json`);
   }
 
   private cloneMapDocument(document: GmMapDocument): GmMapDocument {

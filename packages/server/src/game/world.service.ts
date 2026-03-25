@@ -46,8 +46,8 @@ import {
   VisibleBuffState,
 } from '@mud/shared';
 import * as fs from 'fs';
-import * as path from 'path';
 import { resolveServerDataPath } from '../common/data-path';
+import { PersistentDocumentService } from '../database/persistent-document.service';
 import { AttrService } from './attr.service';
 import { AoiService } from './aoi.service';
 import { syncDynamicBuffPresentation } from './buff-presentation';
@@ -142,6 +142,9 @@ interface PersistedMonsterRuntimeSnapshot {
   maps: Record<string, PersistedMonsterRuntimeRecord[]>;
 }
 
+const RUNTIME_STATE_SCOPE = 'runtime_state';
+const MAP_MONSTER_RUNTIME_DOCUMENT_KEY = 'map_monster';
+
 /** tick 中产生的消息，最终推送给对应玩家 */
 export interface WorldMessage {
   playerId: string;
@@ -224,14 +227,15 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     private readonly timeService: TimeService,
     private readonly performanceService: PerformanceService,
     private readonly threatService: ThreatService,
+    private readonly persistentDocumentService: PersistentDocumentService,
   ) {}
 
-  onModuleInit(): void {
-    this.loadPersistedMonsterRuntimeState();
+  async onModuleInit(): Promise<void> {
+    await this.loadPersistedMonsterRuntimeState();
   }
 
-  onModuleDestroy(): void {
-    this.persistMonsterRuntimeState();
+  async onModuleDestroy(): Promise<void> {
+    await this.persistMonsterRuntimeState();
   }
 
   /** 获取玩家视野内的可见实体（容器、NPC、怪物） */
@@ -3703,7 +3707,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     player.combatTargetLocked = false;
   }
 
-  persistMonsterRuntimeState(): void {
+  async persistMonsterRuntimeState(): Promise<void> {
     if (!this.monsterRuntimeDirty) {
       return;
     }
@@ -3742,24 +3746,33 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         snapshot.maps[mapId] = records;
       }
 
-      fs.mkdirSync(path.dirname(this.monsterRuntimeStatePath), { recursive: true });
-      fs.writeFileSync(this.monsterRuntimeStatePath, `${JSON.stringify(snapshot, null, 2)}\n`, 'utf-8');
+      await this.persistentDocumentService.save(RUNTIME_STATE_SCOPE, MAP_MONSTER_RUNTIME_DOCUMENT_KEY, snapshot);
       this.monsterRuntimeDirty = false;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`怪物运行时持久化失败: ${message}`);
+      this.logger.error(`怪物运行时持久化到 PostgreSQL 失败: ${message}`);
     }
   }
 
-  private loadPersistedMonsterRuntimeState(): void {
-    if (!fs.existsSync(this.monsterRuntimeStatePath)) {
+  private async loadPersistedMonsterRuntimeState(): Promise<void> {
+    let snapshot = await this.persistentDocumentService.get<Partial<PersistedMonsterRuntimeSnapshot>>(
+      RUNTIME_STATE_SCOPE,
+      MAP_MONSTER_RUNTIME_DOCUMENT_KEY,
+    );
+    if (!snapshot) {
+      await this.importLegacyMonsterRuntimeStateIfNeeded();
+      snapshot = await this.persistentDocumentService.get<Partial<PersistedMonsterRuntimeSnapshot>>(
+        RUNTIME_STATE_SCOPE,
+        MAP_MONSTER_RUNTIME_DOCUMENT_KEY,
+      );
+    }
+    if (!snapshot) {
       return;
     }
 
     try {
-      const snapshot = JSON.parse(fs.readFileSync(this.monsterRuntimeStatePath, 'utf-8')) as Partial<PersistedMonsterRuntimeSnapshot>;
       if (!snapshot?.maps || typeof snapshot.maps !== 'object') {
-        this.logger.warn('怪物运行时持久化文件格式非法，已忽略');
+        this.logger.warn('怪物运行时持久化数据格式非法，已忽略');
         return;
       }
 
@@ -3789,7 +3802,22 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`读取怪物运行时持久化文件失败: ${message}`);
+      this.logger.error(`读取怪物运行时持久化数据失败: ${message}`);
+    }
+  }
+
+  private async importLegacyMonsterRuntimeStateIfNeeded(): Promise<void> {
+    if (!fs.existsSync(this.monsterRuntimeStatePath)) {
+      return;
+    }
+
+    try {
+      const snapshot = JSON.parse(fs.readFileSync(this.monsterRuntimeStatePath, 'utf-8')) as PersistedMonsterRuntimeSnapshot;
+      await this.persistentDocumentService.save(RUNTIME_STATE_SCOPE, MAP_MONSTER_RUNTIME_DOCUMENT_KEY, snapshot);
+      this.logger.log('已从旧怪物运行时 JSON 导入 PostgreSQL');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`导入旧怪物运行时 JSON 失败: ${message}`);
     }
   }
 

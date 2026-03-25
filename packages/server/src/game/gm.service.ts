@@ -251,7 +251,7 @@ export class GmService {
 
     const runtimePlayers = this.playerService.getPlayersByMap(mapId).map((player) => this.clonePlayer(player));
 
-    const error = this.mapService.saveEditableMap(mapId, document);
+    const error = await this.mapService.saveEditableMap(mapId, document);
     if (error) {
       return error;
     }

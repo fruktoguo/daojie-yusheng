@@ -84,6 +84,13 @@ export class GmController {
     return { ok: true };
   }
 
+  /** 手动重新加载 Tick 运行配置 */
+  @Post('tick-config/reload')
+  async reloadTickConfig(): Promise<{ ok: true }> {
+    await this.tickService.reloadConfig();
+    return { ok: true };
+  }
+
   @Post('suggestions/:id/complete')
   async completeSuggestion(@Param('id') id: string): Promise<{ ok: true }> {
     await this.suggestionService.markCompleted(id);

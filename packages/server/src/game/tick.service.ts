@@ -1,9 +1,9 @@
 /**
  * Tick 引擎 —— 每张地图独立的定时循环驱动器。
  * 每 tick 收集玩家指令、执行游戏逻辑、广播状态增量，
- * 同时负责定时落盘和配置热重载。
+ * 同时负责定时落盘和运行配置加载。
  */
-import { Injectable, OnModuleDestroy, OnModuleInit, Logger } from '@nestjs/common';
+import { Injectable, OnApplicationBootstrap, OnModuleDestroy, Logger } from '@nestjs/common';
 import {
   AUTO_IDLE_CULTIVATION_DELAY_TICKS,
   ActionDef,
@@ -39,6 +39,7 @@ import {
   PERSIST_INTERVAL,
 } from '@mud/shared';
 import * as fs from 'fs';
+import { PersistentDocumentService } from '../database/persistent-document.service';
 import { GAME_CONFIG_PATH } from '../constants/storage/config';
 import { ActionService } from './action.service';
 import { AoiService } from './aoi.service';
@@ -77,8 +78,18 @@ interface SyncActionsOptions {
   skipQuestSync?: boolean;
 }
 
+interface TickConfigDocument {
+  version: 1;
+  minTickInterval?: number;
+  offlinePlayerTimeoutSec?: number;
+  auraLevelBaseValue?: number;
+}
+
+const SERVER_CONFIG_SCOPE = 'server_config';
+const TICK_CONFIG_DOCUMENT_KEY = 'tick_runtime';
+
 @Injectable()
-export class TickService implements OnModuleInit, OnModuleDestroy {
+export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   private timers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private lastTickTime: Map<string, number> = new Map();
   private mapTickSpeed: Map<string, number> = new Map();
@@ -94,7 +105,6 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
   private minTickInterval = 1000;
   private offlinePlayerTimeoutMs = DEFAULT_OFFLINE_PLAYER_TIMEOUT_SEC * 1000;
   private auraLevelBaseValue = DEFAULT_AURA_LEVEL_BASE_VALUE;
-  private watcher: fs.FSWatcher | null = null;
   private readonly logger = new Logger(TickService.name);
 
   constructor(
@@ -115,22 +125,20 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     private readonly lootService: LootService,
     private readonly worldService: WorldService,
     private readonly timeService: TimeService,
+    private readonly persistentDocumentService: PersistentDocumentService,
   ) {}
 
-  onModuleInit() {
-    this.loadConfig();
-    this.watchConfig();
-    setTimeout(() => {
-      void this.bootstrapRuntimeState();
-    }, 0);
+  async onApplicationBootstrap() {
+    await this.loadConfig();
+    await this.bootstrapRuntimeState();
 
     this.persistTimer = setInterval(() => {
       const startedAt = process.hrtime.bigint();
       Promise.all([
         this.playerService.persistAll(),
-        Promise.resolve().then(() => this.mapService.persistTileRuntimeStates()),
-        Promise.resolve().then(() => this.lootService.persistRuntimeState()),
-        Promise.resolve().then(() => this.worldService.persistMonsterRuntimeState()),
+        this.mapService.persistTileRuntimeStates(),
+        this.lootService.persistRuntimeState(),
+        this.worldService.persistMonsterRuntimeState(),
       ]).then(() => {
         const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
         this.performanceService.recordCpuSection(elapsedMs, 'io_persist', '落盘与外部 I/O');
@@ -161,43 +169,30 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       clearTimeout(timer);
     }
     this.timers.clear();
-    if (this.watcher) {
-      this.watcher.close();
-      this.watcher = null;
-    }
-    this.mapService.persistTileRuntimeStates();
-    this.lootService.persistRuntimeState();
-    this.worldService.persistMonsterRuntimeState();
+    await this.mapService.persistTileRuntimeStates();
+    await this.lootService.persistRuntimeState();
+    await this.worldService.persistMonsterRuntimeState();
     await this.playerService.persistAll().catch((err) => {
       this.logger.error(`关闭落盘失败: ${err.message}`);
     });
   }
 
-  private loadConfig() {
+  private async loadConfig(): Promise<void> {
     try {
-      const raw = fs.readFileSync(GAME_CONFIG_PATH, 'utf-8');
-      const cfg = JSON.parse(raw);
-      if (typeof cfg.minTickInterval === 'number' && cfg.minTickInterval > 0) {
-        this.minTickInterval = cfg.minTickInterval;
-        this.logger.log(`配置已加载: minTickInterval=${this.minTickInterval}ms`);
-      }
-      if (typeof cfg.offlinePlayerTimeoutSec === 'number' && cfg.offlinePlayerTimeoutSec > 0) {
-        this.offlinePlayerTimeoutMs = Math.floor(cfg.offlinePlayerTimeoutSec * 1000);
-        this.logger.log(`配置已加载: offlinePlayerTimeoutSec=${cfg.offlinePlayerTimeoutSec}s`);
-      }
-      const nextAuraLevelBaseValue = normalizeAuraLevelBaseValue(cfg.auraLevelBaseValue, this.auraLevelBaseValue);
-      if (nextAuraLevelBaseValue !== this.auraLevelBaseValue) {
-        this.auraLevelBaseValue = nextAuraLevelBaseValue;
-        this.logger.log(`配置已加载: auraLevelBaseValue=${this.auraLevelBaseValue}`);
-      }
-      this.mapService.setAuraLevelBaseValue(this.auraLevelBaseValue);
+      const config = await this.readPersistedConfig();
+      this.applyConfig(config);
     } catch (error) {
-      this.logger.warn(`读取配置失败，使用默认值: ${error}`);
+      this.applyConfig(null);
+      this.logger.warn(`读取数据库配置失败，使用默认值: ${error}`);
     }
   }
 
   getAuraLevelBaseValue(): number {
     return this.auraLevelBaseValue;
+  }
+
+  async reloadConfig(): Promise<void> {
+    await this.loadConfig();
   }
 
   private async bootstrapRuntimeState(): Promise<void> {
@@ -216,14 +211,83 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private watchConfig() {
-    try {
-      this.watcher = fs.watch(GAME_CONFIG_PATH, () => {
-        this.loadConfig();
-      });
-    } catch (error) {
-      this.logger.warn(`监听配置文件失败: ${error}`);
+  private applyConfig(config: Partial<TickConfigDocument> | null): void {
+    const minTickInterval = typeof config?.minTickInterval === 'number' && config.minTickInterval > 0
+      ? Math.floor(config.minTickInterval)
+      : 1000;
+    const offlinePlayerTimeoutSec = typeof config?.offlinePlayerTimeoutSec === 'number' && config.offlinePlayerTimeoutSec > 0
+      ? Math.floor(config.offlinePlayerTimeoutSec)
+      : DEFAULT_OFFLINE_PLAYER_TIMEOUT_SEC;
+    const auraLevelBaseValue = normalizeAuraLevelBaseValue(config?.auraLevelBaseValue, DEFAULT_AURA_LEVEL_BASE_VALUE);
+
+    this.minTickInterval = minTickInterval;
+    this.offlinePlayerTimeoutMs = offlinePlayerTimeoutSec * 1000;
+    this.auraLevelBaseValue = auraLevelBaseValue;
+
+    this.logger.log(`配置已加载: minTickInterval=${this.minTickInterval}ms`);
+    this.logger.log(`配置已加载: offlinePlayerTimeoutSec=${offlinePlayerTimeoutSec}s`);
+    this.logger.log(`配置已加载: auraLevelBaseValue=${this.auraLevelBaseValue}`);
+    this.mapService.setAuraLevelBaseValue(this.auraLevelBaseValue);
+  }
+
+  private async readPersistedConfig(): Promise<Partial<TickConfigDocument> | null> {
+    let config = await this.persistentDocumentService.get<Partial<TickConfigDocument>>(
+      SERVER_CONFIG_SCOPE,
+      TICK_CONFIG_DOCUMENT_KEY,
+    );
+    if (!config) {
+      await this.importLegacyConfigIfNeeded();
+      config = await this.persistentDocumentService.get<Partial<TickConfigDocument>>(
+        SERVER_CONFIG_SCOPE,
+        TICK_CONFIG_DOCUMENT_KEY,
+      );
     }
+    if (config) {
+      return config;
+    }
+
+    const defaultConfig = this.buildDefaultConfigDocument();
+    await this.persistentDocumentService.save(SERVER_CONFIG_SCOPE, TICK_CONFIG_DOCUMENT_KEY, defaultConfig);
+    return defaultConfig;
+  }
+
+  private async importLegacyConfigIfNeeded(): Promise<void> {
+    if (!fs.existsSync(GAME_CONFIG_PATH)) {
+      return;
+    }
+
+    try {
+      const raw = JSON.parse(fs.readFileSync(GAME_CONFIG_PATH, 'utf-8')) as Partial<TickConfigDocument>;
+      await this.persistentDocumentService.save(
+        SERVER_CONFIG_SCOPE,
+        TICK_CONFIG_DOCUMENT_KEY,
+        {
+          version: 1,
+          minTickInterval: typeof raw.minTickInterval === 'number' && raw.minTickInterval > 0
+            ? Math.floor(raw.minTickInterval)
+            : undefined,
+          offlinePlayerTimeoutSec: typeof raw.offlinePlayerTimeoutSec === 'number' && raw.offlinePlayerTimeoutSec > 0
+            ? Math.floor(raw.offlinePlayerTimeoutSec)
+            : undefined,
+          auraLevelBaseValue: typeof raw.auraLevelBaseValue === 'number' && Number.isFinite(raw.auraLevelBaseValue)
+            ? Math.round(raw.auraLevelBaseValue)
+            : undefined,
+        } satisfies TickConfigDocument,
+      );
+      this.logger.log('已从旧服务端配置 JSON 导入 PostgreSQL');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`导入旧服务端配置 JSON 失败: ${message}`);
+    }
+  }
+
+  private buildDefaultConfigDocument(): TickConfigDocument {
+    return {
+      version: 1,
+      minTickInterval: 1000,
+      offlinePlayerTimeoutSec: DEFAULT_OFFLINE_PLAYER_TIMEOUT_SEC,
+      auraLevelBaseValue: DEFAULT_AURA_LEVEL_BASE_VALUE,
+    };
   }
 
   /** 启动指定地图的 tick 循环（幂等，已启动则跳过） */
@@ -1048,6 +1112,14 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
     this.flushPlayerDirtyUpdates(player);
     // 即时推送操作者的系统消息
     this.flushImmediateMessages(player.id, messages);
+  }
+
+  flushPlayerState(player: PlayerState): void {
+    this.flushPlayerDirtyUpdates(player);
+  }
+
+  flushPlayerMessages(playerId: string, messages: WorldMessage[]): void {
+    this.flushImmediateMessages(playerId, messages);
   }
 
   /** 将所有脏标记对应的数据变更推送给各玩家客户端 */
