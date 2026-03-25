@@ -29,6 +29,7 @@ import {
   MapMinimapArchiveEntry,
   MapMinimapMarker,
   MapMinimapSnapshot,
+  MapRouteDomain,
   MapSpaceVisionMode,
   MapTimeConfig,
   MonsterAggroMode,
@@ -38,6 +39,7 @@ import {
   PartialNumericStats,
   Portal,
   PortalKind,
+  PortalRouteDomain,
   PortalTrigger,
   resolveMonsterNumericStatsFromValueStats,
   VIEW_RADIUS,
@@ -294,6 +296,7 @@ export interface NpcLocation {
 interface PortalQueryOptions {
   trigger?: PortalTrigger;
   kind?: PortalKind;
+  allowedRouteDomains?: readonly MapRouteDomain[];
 }
 
 interface ProjectedPoint {
@@ -773,6 +776,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       name: document.name,
       width: document.width,
       height: document.height,
+      routeDomain: this.normalizeMapRouteDomain(document.routeDomain),
       parentMapId: typeof document.parentMapId === 'string' && document.parentMapId.trim()
         ? document.parentMapId
         : undefined,
@@ -1582,6 +1586,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         targetY: portal.targetY!,
         kind: this.normalizePortalKind(portal.kind),
         trigger: this.normalizePortalTrigger(portal.trigger, portal.kind),
+        routeDomain: this.resolvePortalRouteDomain(portal.routeDomain, meta.routeDomain),
         allowPlayerOverlap: portal.allowPlayerOverlap === true,
         hidden: portal.hidden === true,
         observeTitle: typeof portal.observeTitle === 'string' ? portal.observeTitle.trim() || undefined : undefined,
@@ -1600,6 +1605,23 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       return trigger;
     }
     return kind === 'stairs' ? 'auto' : 'manual';
+  }
+
+  private normalizeMapRouteDomain(domain: unknown): MapRouteDomain {
+    return domain === 'sect' || domain === 'personal' || domain === 'dynamic' ? domain : 'system';
+  }
+
+  private normalizePortalRouteDomain(domain: unknown): PortalRouteDomain {
+    return domain === 'inherit' || domain === 'system' || domain === 'sect' || domain === 'personal' || domain === 'dynamic'
+      ? domain
+      : 'inherit';
+  }
+
+  private resolvePortalRouteDomain(domain: unknown, mapRouteDomain?: MapRouteDomain): MapRouteDomain {
+    const normalized = this.normalizePortalRouteDomain(domain);
+    return normalized === 'inherit'
+      ? this.normalizeMapRouteDomain(mapRouteDomain)
+      : normalized;
   }
 
   private normalizeMapSpaceVisionMode(mode: unknown, parentMapId?: unknown): MapSpaceVisionMode {
@@ -2477,7 +2499,21 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     if (!options) return true;
     if (options.trigger && portal.trigger !== options.trigger) return false;
     if (options.kind && portal.kind !== options.kind) return false;
+    if (options.allowedRouteDomains && options.allowedRouteDomains.length > 0 && !options.allowedRouteDomains.includes(portal.routeDomain)) {
+      return false;
+    }
     return true;
+  }
+
+  getMapRouteDomain(mapId: string): MapRouteDomain {
+    return this.normalizeMapRouteDomain(this.maps.get(mapId)?.meta.routeDomain);
+  }
+
+  isMapRouteDomainAllowed(mapId: string, allowedRouteDomains?: readonly MapRouteDomain[]): boolean {
+    if (!allowedRouteDomains || allowedRouteDomains.length <= 0) {
+      return true;
+    }
+    return allowedRouteDomains.includes(this.getMapRouteDomain(mapId));
   }
 
   private toPortalObservationHint(portal: Portal): PortalObservationHint {

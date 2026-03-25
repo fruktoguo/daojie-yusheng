@@ -14,7 +14,7 @@ message TickPayload {
   repeated TickRenderEntityPayload p = 1;
   repeated TilePatchPayload t = 2;
   repeated TickRenderEntityPayload e = 3;
-  repeated PointPayload threatArrows = 4;
+  repeated StringPairPayload threatArrows = 4;
   repeated GroundItemPilePatchPayload g = 5;
   repeated CombatEffectPayload fx = 6;
   repeated VisibleTileRowPayload v = 7;
@@ -30,6 +30,7 @@ message TickPayload {
   optional string minimapLibraryJson = 17;
   optional string visibleMinimapMarkersJson = 18;
   optional uint32 auraLevelBaseValue = 19;
+  repeated string r = 20;
 }
 
 message TickRenderEntityPayload {
@@ -124,6 +125,11 @@ message PointPayload {
   required sint32 y = 2;
 }
 
+message StringPairPayload {
+  required string left = 1;
+  required string right = 2;
+}
+
 message MapMetaPayload {
   optional string id = 1;
   optional string name = 2;
@@ -138,6 +144,7 @@ message MapMetaPayload {
   optional uint32 dangerLevel = 11;
   optional string recommendedRealm = 12;
   optional string description = 13;
+  optional string routeDomain = 14;
 }
 
 message GameTimeStatePayload {
@@ -671,8 +678,11 @@ function toWireTick(payload: S2C_Tick): Record<string, unknown> {
     p: payload.p.map(toWireTickEntity),
     e: payload.e.map(toWireTickEntity),
   };
+  if (payload.r) {
+    wire.r = [...payload.r];
+  }
   if (payload.threatArrows) {
-    wire.threatArrows = payload.threatArrows.map(([x, y]) => ({ x, y }));
+    wire.threatArrows = payload.threatArrows.map(([left, right]) => ({ left, right }));
   }
   if (payload.t) {
     wire.t = payload.t.map((patch) => ({
@@ -730,10 +740,13 @@ function fromWireTick(wire: Record<string, unknown>): S2C_Tick {
     p: Array.isArray(wire.p) ? wire.p.map((entry) => fromWireTickEntity(entry as Record<string, unknown>)) : [],
     e: Array.isArray(wire.e) ? wire.e.map((entry) => fromWireTickEntity(entry as Record<string, unknown>)) : [],
   };
+  if (Array.isArray(wire.r)) {
+    payload.r = wire.r.map((entry) => String(entry ?? '')).filter((entry) => entry.length > 0);
+  }
   if (Array.isArray(wire.threatArrows)) {
-    payload.threatArrows = wire.threatArrows.map((point) => {
-      const entry = point as Record<string, unknown>;
-      return [Number(entry.x ?? 0), Number(entry.y ?? 0)] as [number, number];
+    payload.threatArrows = wire.threatArrows.map((pair) => {
+      const entry = pair as Record<string, unknown>;
+      return [String(entry.left ?? ''), String(entry.right ?? '')] as [string, string];
     });
   }
   if (Array.isArray(wire.t)) {

@@ -229,13 +229,10 @@ export class MapStore {
       this.groundPiles = this.mergeGroundItemPatches(data.g);
     }
 
-    this.entities = this.mergeTickEntities(data.p, data.e);
+    this.entities = this.mergeTickEntities(data.p, data.e, data.r);
     this.threatArrows = Array.isArray(data.threatArrows)
       ? data.threatArrows
-        .map(([ownerIndex, targetIndex]) => ({
-          ownerId: this.entities[ownerIndex]?.id ?? '',
-          targetId: this.entities[targetIndex]?.id ?? '',
-        }))
+        .map(([ownerId, targetId]) => ({ ownerId, targetId }))
         .filter((entry) => entry.ownerId && entry.targetId)
       : [];
     const moved = !mapChanged && (this.player.x !== oldX || this.player.y !== oldY);
@@ -363,13 +360,28 @@ export class MapStore {
     };
   }
 
-  private mergeTickEntities(playerPatches: TickRenderEntity[], entityPatches: TickRenderEntity[]): ObservedMapEntity[] {
-    const merged: ObservedMapEntity[] = [];
-    const nextMap = new Map<string, ObservedMapEntity>();
+  private mergeTickEntities(
+    playerPatches: TickRenderEntity[],
+    entityPatches: TickRenderEntity[],
+    removedEntityIds: string[] = [],
+  ): ObservedMapEntity[] {
+    const removedIdSet = new Set(removedEntityIds);
+    const merged = this.entities
+      .filter((entity) => !removedIdSet.has(entity.id))
+      .map((entity) => cloneJson(entity));
+    const nextMap = new Map<string, ObservedMapEntity>(merged.map((entity) => [entity.id, entity]));
 
     for (const patch of [...playerPatches, ...entityPatches]) {
-      const next = mergeObservedEntityPatch(patch, this.entityMap.get(patch.id));
-      merged.push(next);
+      const previous = nextMap.get(patch.id);
+      const next = mergeObservedEntityPatch(patch, previous);
+      if (previous) {
+        const index = merged.findIndex((entity) => entity.id === patch.id);
+        if (index >= 0) {
+          merged[index] = next;
+        }
+      } else {
+        merged.push(next);
+      }
       nextMap.set(next.id, next);
     }
 

@@ -20,7 +20,7 @@ import {
   C2S_CancelMarketOrder,
   C2S_ClaimMarketStorage,
   S2C_Tick, S2C_Init, S2C_AttrUpdate, S2C_InventoryUpdate,
-  S2C_EquipmentUpdate, S2C_TechniqueUpdate, S2C_ActionsUpdate, S2C_LootWindowUpdate, S2C_QuestUpdate, S2C_SystemMsg, S2C_GmState,
+  S2C_EquipmentUpdate, S2C_TechniqueUpdate, S2C_ActionsUpdate, S2C_LootWindowUpdate, S2C_QuestUpdate, S2C_QuestNavigateResult, S2C_SystemMsg, S2C_GmState,
   S2C_SuggestionUpdate,
   S2C_MarketUpdate,
   S2C_MarketItemBook,
@@ -49,6 +49,7 @@ export class SocketManager {
   private onLootWindowUpdateCallbacks: Array<(data: S2C_LootWindowUpdate) => void> = [];
   private onTileRuntimeDetailCallbacks: Array<(data: S2C_TileRuntimeDetail) => void> = [];
   private onQuestUpdateCallbacks: Array<(data: S2C_QuestUpdate) => void> = [];
+  private onQuestNavigateResultCallbacks: Array<(data: S2C_QuestNavigateResult) => void> = [];
   private onSystemMsgCallbacks: Array<(data: S2C_SystemMsg) => void> = [];
   private onErrorCallbacks: Array<(data: S2C_Error) => void> = [];
   private onGmStateCallbacks: Array<(data: S2C_GmState) => void> = [];
@@ -91,6 +92,7 @@ export class SocketManager {
     this.bindServerEvent(S2C.LootWindowUpdate, this.onLootWindowUpdateCallbacks);
     this.bindServerEvent(S2C.TileRuntimeDetail, this.onTileRuntimeDetailCallbacks);
     this.bindServerEvent(S2C.QuestUpdate, this.onQuestUpdateCallbacks);
+    this.bindServerEvent(S2C.QuestNavigateResult, this.onQuestNavigateResultCallbacks);
     this.bindServerEvent(S2C.SystemMsg, this.onSystemMsgCallbacks);
     this.bindServerEvent(S2C.SuggestionUpdate, this.onSuggestionUpdateCallbacks);
     this.bindServerEvent(S2C.MarketUpdate, this.onMarketUpdateCallbacks);
@@ -316,6 +318,7 @@ export class SocketManager {
   onLootWindowUpdate(cb: (data: S2C_LootWindowUpdate) => void) { this.onLootWindowUpdateCallbacks.push(cb); }
   onTileRuntimeDetail(cb: (data: S2C_TileRuntimeDetail) => void) { this.onTileRuntimeDetailCallbacks.push(cb); }
   onQuestUpdate(cb: (data: S2C_QuestUpdate) => void) { this.onQuestUpdateCallbacks.push(cb); }
+  onQuestNavigateResult(cb: (data: S2C_QuestNavigateResult) => void) { this.onQuestNavigateResultCallbacks.push(cb); }
   onSystemMsg(cb: (data: S2C_SystemMsg) => void) { this.onSystemMsgCallbacks.push(cb); }
   onSuggestionUpdate(cb: (data: S2C_SuggestionUpdate) => void) { this.onSuggestionUpdateCallbacks.push(cb); }
   onMarketUpdate(cb: (data: S2C_MarketUpdate) => void) { this.onMarketUpdateCallbacks.push(cb); }

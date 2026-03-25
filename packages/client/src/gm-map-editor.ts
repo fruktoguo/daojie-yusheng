@@ -11,6 +11,11 @@ import {
   GmMapMonsterSpawnRecord,
   GmMapNpcRecord,
   GmMapPortalRecord,
+  GmMapQuestRecord,
+  MapRouteDomain,
+  PortalRouteDomain,
+  QUEST_LINE_LABELS,
+  QUEST_OBJECTIVE_TYPE_LABELS,
   GmUpdateMapReq,
   TECHNIQUE_GRADE_LABELS,
   Tile,
@@ -35,10 +40,27 @@ import {
   PAINT_TILE_TYPES,
   PAINT_LAYER_OPTIONS,
 } from './constants/editor/map-editor';
+import {
+  GM_QUEST_LINE_OPTIONS,
+  GM_QUEST_OBJECTIVE_TYPE_OPTIONS,
+} from './constants/world/gm';
 
 type RequestFn = <T>(path: string, init?: RequestInit) => Promise<T>;
 type StatusFn = (message: string, isError?: boolean) => void;
 const MONSTER_GRADE_OPTIONS = Object.entries(TECHNIQUE_GRADE_LABELS).map(([value, label]) => ({ value, label }));
+const MAP_ROUTE_DOMAIN_OPTIONS: Array<{ value: MapRouteDomain; label: string }> = [
+  { value: 'system', label: '系统地图' },
+  { value: 'sect', label: '宗门地图' },
+  { value: 'personal', label: '个人地图' },
+  { value: 'dynamic', label: '动态图' },
+];
+const PORTAL_ROUTE_DOMAIN_OPTIONS: Array<{ value: PortalRouteDomain; label: string }> = [
+  { value: 'inherit', label: '继承地图' },
+  { value: 'system', label: '系统传送点' },
+  { value: 'sect', label: '宗门传送点' },
+  { value: 'personal', label: '个人传送点' },
+  { value: 'dynamic', label: '动态图传送点' },
+];
 type GmMapEditorOptions = {
   mapApiBasePath?: string;
   syncedSummaryLabel?: string;
@@ -140,6 +162,15 @@ function numberField(label: string, path: string, value: number | undefined, ext
   `;
 }
 
+function nullableNumberField(label: string, path: string, value: number | undefined, extraClass = ''): string {
+  return `
+    <label class="map-field ${extraClass}">
+      <span>${escapeHtml(label)}</span>
+      <input type="number" data-map-bind="${escapeHtml(path)}" data-map-kind="nullable-number" value="${Number.isFinite(value) ? String(value) : ''}" />
+    </label>
+  `;
+}
+
 function selectField(
   label: string,
   path: string,
@@ -185,6 +216,37 @@ function readonlyField(label: string, value: string): string {
       <input value="${escapeHtml(value)}" readonly />
     </div>
   `;
+}
+
+function getQuestCardTitle(quest: GmMapQuestRecord, index: number): string {
+  return quest.title?.trim() || quest.id?.trim() || `任务 ${index + 1}`;
+}
+
+function getQuestCardMeta(quest: GmMapQuestRecord): string {
+  const lineLabel = QUEST_LINE_LABELS[quest.line ?? 'side'] ?? (quest.line ?? 'side');
+  const objectiveType = quest.objectiveType ?? 'kill';
+  const objectiveLabel = QUEST_OBJECTIVE_TYPE_LABELS[objectiveType] ?? objectiveType;
+  const targetLabel = quest.targetName?.trim()
+    || quest.targetNpcName?.trim()
+    || quest.targetNpcId?.trim()
+    || quest.targetMonsterId?.trim()
+    || quest.requiredItemId?.trim()
+    || '未填写目标';
+  return `${lineLabel} · ${objectiveLabel} · ${targetLabel}`;
+}
+
+function createDefaultQuestRecord(npc: GmMapNpcRecord, index: number): GmMapQuestRecord {
+  return {
+    id: `quest_${npc.id}_${index + 1}`,
+    title: '新任务',
+    desc: '请填写任务描述',
+    line: 'side',
+    objectiveType: 'kill',
+    targetName: '',
+    required: 1,
+    rewardText: '无',
+    reward: [],
+  };
 }
 
 /** GM 地图可视化编辑器，支持地块绘制、对象增删、撤销和 JSON 导入导出 */
@@ -667,6 +729,7 @@ export class GmMapEditor {
         </div>
         <div class="map-form-grid">
           ${textField('地图名称', 'name', this.draft.name)}
+          ${selectField('路网域', 'routeDomain', this.draft.routeDomain ?? 'system', MAP_ROUTE_DOMAIN_OPTIONS)}
           ${textField('推荐境界', 'recommendedRealm', this.draft.recommendedRealm)}
           ${numberField('危险度', 'dangerLevel', this.draft.dangerLevel)}
           ${readonlyField('地图 ID', this.draft.id)}
@@ -864,6 +927,7 @@ export class GmMapEditor {
               { value: 'manual', label: '手动' },
               { value: 'auto', label: '自动' },
             ])}
+            ${selectField('路网域', `portals.${this.selectedEntity.index}.routeDomain`, portal.routeDomain ?? 'inherit', PORTAL_ROUTE_DOMAIN_OPTIONS)}
             ${booleanField('允许玩家重叠', `portals.${this.selectedEntity.index}.allowPlayerOverlap`, portal.allowPlayerOverlap, 'wide')}
             ${booleanField('隐藏入口', `portals.${this.selectedEntity.index}.hidden`, portal.hidden, 'wide')}
             ${textField('目标地图', `portals.${this.selectedEntity.index}.targetMapId`, portal.targetMapId)}
@@ -877,28 +941,96 @@ export class GmMapEditor {
     }
 
     if (this.selectedEntity.kind === 'npc') {
-      const npc = this.draft.npcs[this.selectedEntity.index];
+      const npcIndex = this.selectedEntity.index;
+      const npc = this.draft.npcs[npcIndex];
       if (!npc) return '';
+      const questMarkup = (npc.quests ?? []).length > 0
+        ? (npc.quests ?? []).map((quest, index) => `
+          <div class="editor-card">
+            <div class="editor-card-head">
+              <div>
+                <div class="editor-card-title">${escapeHtml(getQuestCardTitle(quest, index))}</div>
+                <div class="editor-card-meta">${escapeHtml(getQuestCardMeta(quest))}</div>
+              </div>
+              <button
+                class="small-btn danger"
+                type="button"
+                data-map-action="remove-npc-quest"
+                data-quest-index="${index}"
+              >删除任务</button>
+            </div>
+            <div class="map-form-grid">
+              ${textField('任务 ID', `npcs.${npcIndex}.quests.${index}.id`, quest.id)}
+              ${textField('标题', `npcs.${npcIndex}.quests.${index}.title`, quest.title)}
+              ${selectField('任务线', `npcs.${npcIndex}.quests.${index}.line`, quest.line ?? 'side', GM_QUEST_LINE_OPTIONS)}
+              ${selectField('目标类型', `npcs.${npcIndex}.quests.${index}.objectiveType`, quest.objectiveType ?? 'kill', GM_QUEST_OBJECTIVE_TYPE_OPTIONS)}
+              ${numberField('需求进度', `npcs.${npcIndex}.quests.${index}.required`, quest.required ?? 1)}
+              ${textField('目标名称', `npcs.${npcIndex}.quests.${index}.targetName`, quest.targetName)}
+              ${textField('目标地图 ID', `npcs.${npcIndex}.quests.${index}.targetMapId`, quest.targetMapId)}
+              ${nullableNumberField('目标 X', `npcs.${npcIndex}.quests.${index}.targetX`, quest.targetX)}
+              ${nullableNumberField('目标 Y', `npcs.${npcIndex}.quests.${index}.targetY`, quest.targetY)}
+              ${textField('目标 NPC ID', `npcs.${npcIndex}.quests.${index}.targetNpcId`, quest.targetNpcId)}
+              ${textField('目标 NPC 名称', `npcs.${npcIndex}.quests.${index}.targetNpcName`, quest.targetNpcName)}
+              ${textField('目标怪物 ID', `npcs.${npcIndex}.quests.${index}.targetMonsterId`, quest.targetMonsterId)}
+              ${textField('目标功法 ID', `npcs.${npcIndex}.quests.${index}.targetTechniqueId`, quest.targetTechniqueId)}
+              ${textField(
+                '目标境界阶段',
+                `npcs.${npcIndex}.quests.${index}.targetRealmStage`,
+                typeof quest.targetRealmStage !== 'undefined' ? String(quest.targetRealmStage) : undefined,
+              )}
+              ${textField('章节', `npcs.${npcIndex}.quests.${index}.chapter`, quest.chapter)}
+              ${textField('剧情段落', `npcs.${npcIndex}.quests.${index}.story`, quest.story)}
+              ${textField('目标文本', `npcs.${npcIndex}.quests.${index}.objectiveText`, quest.objectiveText, 'wide')}
+              ${textField('传话内容', `npcs.${npcIndex}.quests.${index}.relayMessage`, quest.relayMessage, 'wide')}
+              ${textField('任务描述', `npcs.${npcIndex}.quests.${index}.desc`, quest.desc, 'wide')}
+              ${textField('提交 NPC ID', `npcs.${npcIndex}.quests.${index}.submitNpcId`, quest.submitNpcId)}
+              ${textField('提交 NPC 名称', `npcs.${npcIndex}.quests.${index}.submitNpcName`, quest.submitNpcName)}
+              ${textField('提交地图 ID', `npcs.${npcIndex}.quests.${index}.submitMapId`, quest.submitMapId)}
+              ${nullableNumberField('提交 X', `npcs.${npcIndex}.quests.${index}.submitX`, quest.submitX)}
+              ${nullableNumberField('提交 Y', `npcs.${npcIndex}.quests.${index}.submitY`, quest.submitY)}
+              ${textField('提交物品 ID', `npcs.${npcIndex}.quests.${index}.requiredItemId`, quest.requiredItemId)}
+              ${nullableNumberField('提交物品数量', `npcs.${npcIndex}.quests.${index}.requiredItemCount`, quest.requiredItemCount)}
+              ${textField('下一任务 ID', `npcs.${npcIndex}.quests.${index}.nextQuestId`, quest.nextQuestId)}
+              ${textField('奖励文本', `npcs.${npcIndex}.quests.${index}.rewardText`, quest.rewardText, 'wide')}
+              ${textField('奖励物品 ID（旧字段）', `npcs.${npcIndex}.quests.${index}.rewardItemId`, quest.rewardItemId)}
+              ${jsonField('奖励列表', `npcs.${npcIndex}.quests.${index}.reward`, quest.reward ?? [], 'wide')}
+              ${jsonField(
+                '突破要求 ID 列表',
+                `npcs.${npcIndex}.quests.${index}.unlockBreakthroughRequirementIds`,
+                quest.unlockBreakthroughRequirementIds ?? [],
+                'wide',
+              )}
+            </div>
+          </div>
+        `).join('')
+        : '<div class="editor-note">当前 NPC 还没有任务。</div>';
       return `
         <section class="editor-section">
           <div class="editor-section-head">
             <div>
               <div class="editor-section-title">NPC 属性</div>
-              <div class="editor-section-note">复杂任务链保留在 JSON 文本中编辑。</div>
+              <div class="editor-section-note">任务、送信和提交物品字段都可以直接在这里结构化编辑。</div>
             </div>
             <button class="small-btn danger" type="button" data-map-action="remove-selected">删除</button>
           </div>
           <div class="map-form-grid">
-            ${textField('ID', `npcs.${this.selectedEntity.index}.id`, npc.id)}
-            ${textField('名称', `npcs.${this.selectedEntity.index}.name`, npc.name)}
-            ${numberField('X', `npcs.${this.selectedEntity.index}.x`, npc.x)}
-            ${numberField('Y', `npcs.${this.selectedEntity.index}.y`, npc.y)}
-            ${textField('显示字', `npcs.${this.selectedEntity.index}.char`, npc.char)}
-            ${textField('颜色', `npcs.${this.selectedEntity.index}.color`, npc.color)}
-            ${textField('角色类型', `npcs.${this.selectedEntity.index}.role`, npc.role)}
-            ${textField('对白', `npcs.${this.selectedEntity.index}.dialogue`, npc.dialogue, 'wide')}
-            ${jsonField('任务列表', `npcs.${this.selectedEntity.index}.quests`, npc.quests ?? [], 'wide')}
+            ${textField('ID', `npcs.${npcIndex}.id`, npc.id)}
+            ${textField('名称', `npcs.${npcIndex}.name`, npc.name)}
+            ${numberField('X', `npcs.${npcIndex}.x`, npc.x)}
+            ${numberField('Y', `npcs.${npcIndex}.y`, npc.y)}
+            ${textField('显示字', `npcs.${npcIndex}.char`, npc.char)}
+            ${textField('颜色', `npcs.${npcIndex}.color`, npc.color)}
+            ${textField('角色类型', `npcs.${npcIndex}.role`, npc.role)}
+            ${textField('对白', `npcs.${npcIndex}.dialogue`, npc.dialogue, 'wide')}
           </div>
+          <div class="editor-section-head" style="margin-top: 12px;">
+            <div>
+              <div class="editor-section-title">任务列表</div>
+              <div class="editor-section-note">未填写目标坐标时，会按任务类型自动推导导航点。</div>
+            </div>
+            <button class="small-btn" type="button" data-map-action="add-npc-quest">新增任务</button>
+          </div>
+          <div class="editor-card-list">${questMarkup}</div>
         </section>
       `;
     }
@@ -1053,6 +1185,16 @@ export class GmMapEditor {
           return { ok: false, message: `${path} 不是合法数字` };
         }
         value = Math.floor(num);
+      } else if (kind === 'nullable-number') {
+        if (!field.value.trim()) {
+          value = undefined;
+        } else {
+          const num = Number(field.value);
+          if (!Number.isFinite(num)) {
+            return { ok: false, message: `${path} 不是合法数字` };
+          }
+          value = Math.floor(num);
+        }
       } else if (kind === 'boolean') {
         value = field.value === 'true';
       } else if (kind === 'json') {
@@ -1112,6 +1254,9 @@ export class GmMapEditor {
         this.currentInspectorTab = 'npc';
         this.addNpcAtCurrentCell();
         return;
+      case 'add-npc-quest':
+        this.addQuestToSelectedNpc();
+        return;
       case 'add-monster':
         this.currentInspectorTab = 'monster';
         this.addMonsterAtCurrentCell();
@@ -1126,6 +1271,9 @@ export class GmMapEditor {
         return;
       case 'remove-selected':
         this.removeSelectedEntity();
+        return;
+      case 'remove-npc-quest':
+        this.removeQuestFromSelectedNpc(Number(trigger.dataset.questIndex ?? '-1'));
         return;
       case 'resize':
         this.applyResize();
@@ -1151,6 +1299,7 @@ export class GmMapEditor {
       targetY: 0,
       kind: 'portal',
       trigger: 'manual',
+      routeDomain: 'inherit',
       allowPlayerOverlap: false,
       hidden: false,
       observeTitle: '',
@@ -1177,6 +1326,33 @@ export class GmMapEditor {
       quests: [],
     });
     this.selectedEntity = { kind: 'npc', index: this.draft!.npcs.length - 1 };
+    this.markDirty();
+  }
+
+  private addQuestToSelectedNpc(): void {
+    if (!this.draft || this.selectedEntity?.kind !== 'npc') {
+      return;
+    }
+    const npc = this.draft.npcs[this.selectedEntity.index];
+    if (!npc) {
+      return;
+    }
+    this.captureUndoState();
+    npc.quests = npc.quests ?? [];
+    npc.quests.push(createDefaultQuestRecord(npc, npc.quests.length));
+    this.markDirty();
+  }
+
+  private removeQuestFromSelectedNpc(index: number): void {
+    if (!this.draft || this.selectedEntity?.kind !== 'npc' || index < 0) {
+      return;
+    }
+    const npc = this.draft.npcs[this.selectedEntity.index];
+    if (!npc?.quests || index >= npc.quests.length) {
+      return;
+    }
+    this.captureUndoState();
+    npc.quests.splice(index, 1);
     this.markDirty();
   }
 

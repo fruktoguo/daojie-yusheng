@@ -60,12 +60,17 @@ export type VisibleTile = Tile | null;
 /** 地图元数据 */
 /** 地图空间视觉模式 */
 export type MapSpaceVisionMode = 'isolated' | 'parent_overlay';
+/** 地图所属路网域 */
+export type MapRouteDomain = 'system' | 'sect' | 'personal' | 'dynamic';
+/** 传送点所属路网域配置 */
+export type PortalRouteDomain = MapRouteDomain | 'inherit';
 
 export interface MapMeta {
   id: string;
   name: string;
   width: number;
   height: number;
+  routeDomain?: MapRouteDomain;
   parentMapId?: string;
   parentOriginX?: number;
   parentOriginY?: number;
@@ -91,6 +96,7 @@ export interface Portal {
   targetY: number;
   kind: PortalKind;
   trigger: PortalTrigger;
+  routeDomain: MapRouteDomain;
   allowPlayerOverlap?: boolean;
   hidden?: boolean;
   observeTitle?: string;
@@ -842,6 +848,7 @@ export interface QuestState {
 
 export interface QuestNavigationState {
   questId: string;
+  pendingConfirmation?: boolean;
   pausedForCrossMapCooldown?: boolean;
   lastBlockedRemainingTicks?: number;
 }

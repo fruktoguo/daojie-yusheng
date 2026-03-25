@@ -16,6 +16,7 @@ import {
   getAuraLevel,
   GroundItemPilePatch,
   GroundItemPileView,
+  MapRouteDomain,
   normalizeAuraLevelBaseValue,
   parseTileTargetRef,
   PLAYER_HEARTBEAT_TIMEOUT_MS,
@@ -28,6 +29,7 @@ import {
   S2C_EquipmentUpdate,
   S2C_InventoryUpdate,
   S2C_LootWindowUpdate,
+  S2C_QuestNavigateResult,
   S2C_QuestUpdate,
   S2C_SystemMsg,
   S2C_TechniqueUpdate,
@@ -88,6 +90,7 @@ interface TickConfigDocument {
 
 const SERVER_CONFIG_SCOPE = 'server_config';
 const TICK_CONFIG_DOCUMENT_KEY = 'tick_runtime';
+const DEFAULT_SYSTEM_ROUTE_DOMAINS: readonly MapRouteDomain[] = ['system'];
 
 @Injectable()
 export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
@@ -469,11 +472,13 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
             const { questId } = cmd.data as { questId: string };
             const quest = player.quests.find((entry) => entry.id === questId && entry.status !== 'completed');
             if (!quest) {
-              messages.push({ playerId: player.id, text: '目标任务不存在或已完成', kind: 'system' });
+              const error = '目标任务不存在或已完成';
+              messages.push({ playerId: player.id, text: error, kind: 'system' });
+              this.rejectQuestNavigation(player, questId, error);
               player.questNavigation = undefined;
               return;
             }
-            player.questNavigation = { questId };
+            player.questNavigation = { questId, pendingConfirmation: true };
             if (player.autoBattle) {
               player.autoBattle = false;
               player.combatTargetId = undefined;
@@ -887,6 +892,22 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
+  private emitQuestNavigateResult(playerId: string, payload: S2C_QuestNavigateResult): void {
+    this.playerService.getSocket(playerId)?.emit(S2C.QuestNavigateResult, payload);
+  }
+
+  private confirmQuestNavigation(player: PlayerState, navigation: NonNullable<PlayerState['questNavigation']>): void {
+    if (navigation.pendingConfirmation !== true) {
+      return;
+    }
+    navigation.pendingConfirmation = undefined;
+    this.emitQuestNavigateResult(player.id, { questId: navigation.questId, ok: true });
+  }
+
+  private rejectQuestNavigation(player: PlayerState, questId: string, error: string): void {
+    this.emitQuestNavigateResult(player.id, { questId, ok: false, error });
+  }
+
   /** 检测玩家踩到自动传送点时触发地图切换 */
   private applyAutoTravelIfNeeded(player: PlayerState, messages: WorldMessage[]): boolean {
     const update = this.worldService.tryAutoTravel(player);
@@ -908,6 +929,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
     const quest = player.quests.find((entry) => entry.id === navigation.questId && entry.status !== 'completed');
     if (!quest) {
+      if (navigation.pendingConfirmation === true) {
+        this.rejectQuestNavigation(player, navigation.questId, '目标任务不存在或已完成');
+      }
       player.questNavigation = undefined;
       this.navigationService.clearMoveTarget(player.id);
       return;
@@ -915,7 +939,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
     const goal = this.resolveQuestNavigationGoal(player, quest);
     if (!goal) {
-      messages.push({ playerId: player.id, text: '该任务暂时没有可导航的目标地点', kind: 'system' });
+      const error = '该任务暂时没有可导航的目标地点';
+      messages.push({ playerId: player.id, text: error, kind: 'system' });
+      this.rejectQuestNavigation(player, navigation.questId, error);
       player.questNavigation = undefined;
       this.navigationService.clearMoveTarget(player.id);
       return;
@@ -926,25 +952,41 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       navigation.lastBlockedRemainingTicks = undefined;
       if (goal.kind === 'map') {
         this.navigationService.clearMoveTarget(player.id);
+        this.confirmQuestNavigation(player, navigation);
         player.questNavigation = undefined;
         messages.push({ playerId: player.id, text: `已抵达 ${goal.mapLabel ?? goal.mapId}，请继续完成任务。`, kind: 'quest' });
         return;
       }
       if (player.x === goal.x && player.y === goal.y) {
         this.navigationService.clearMoveTarget(player.id);
+        this.confirmQuestNavigation(player, navigation);
         player.questNavigation = undefined;
         return;
       }
       const error = this.navigationService.setMoveTarget(player, goal.x, goal.y, { allowNearestReachable: true });
       if (error) {
         messages.push({ playerId: player.id, text: error, kind: 'system' });
+        this.rejectQuestNavigation(player, navigation.questId, error);
         player.questNavigation = undefined;
+      } else {
+        this.confirmQuestNavigation(player, navigation);
       }
+      return;
+    }
+
+    const nextPortal = this.findNextPortalTowardsMap(player.mapId, goal.mapId);
+    if (!nextPortal) {
+      const error = `无法从当前地图前往 ${goal.mapLabel ?? goal.mapId}`;
+      messages.push({ playerId: player.id, text: error, kind: 'system' });
+      this.rejectQuestNavigation(player, navigation.questId, error);
+      player.questNavigation = undefined;
+      this.navigationService.clearMoveTarget(player.id);
       return;
     }
 
     const remainingTicks = this.getQuestCrossMapCooldownRemaining(player);
     if (remainingTicks > 0) {
+      this.confirmQuestNavigation(player, navigation);
       if (navigation.pausedForCrossMapCooldown !== true) {
         messages.push({ playerId: player.id, text: `跨图导航冷却中，还需 ${remainingTicks} 息。`, kind: 'system' });
       }
@@ -956,24 +998,21 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     navigation.pausedForCrossMapCooldown = false;
     navigation.lastBlockedRemainingTicks = undefined;
 
-    const nextPortal = this.findNextPortalTowardsMap(player.mapId, goal.mapId);
-    if (!nextPortal) {
-      messages.push({ playerId: player.id, text: `无法从当前地图前往 ${goal.mapLabel ?? goal.mapId}`, kind: 'system' });
-      player.questNavigation = undefined;
-      this.navigationService.clearMoveTarget(player.id);
-      return;
-    }
-
     if (player.x === nextPortal.x && player.y === nextPortal.y) {
       if (nextPortal.trigger === 'manual') {
         const update = this.worldService.travelThroughManualPortalAtCurrentPosition(player, nextPortal.targetMapId);
         if (!update) {
-          messages.push({ playerId: player.id, text: '当前传送点无法使用', kind: 'system' });
+          const error = '当前传送点无法使用';
+          messages.push({ playerId: player.id, text: error, kind: 'system' });
+          this.rejectQuestNavigation(player, navigation.questId, error);
           player.questNavigation = undefined;
           return;
         }
+        this.confirmQuestNavigation(player, navigation);
         this.applyQuestCrossMapCooldown(player);
         this.applyWorldUpdate(player.id, update, messages);
+      } else {
+        this.confirmQuestNavigation(player, navigation);
       }
       return;
     }
@@ -981,7 +1020,10 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     const error = this.navigationService.setMoveTarget(player, nextPortal.x, nextPortal.y, { allowNearestReachable: true });
     if (error) {
       messages.push({ playerId: player.id, text: error, kind: 'system' });
+      this.rejectQuestNavigation(player, navigation.questId, error);
       player.questNavigation = undefined;
+    } else {
+      this.confirmQuestNavigation(player, navigation);
     }
   }
 
@@ -1051,8 +1093,15 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
-  private findNextPortalTowardsMap(startMapId: string, targetMapId: string) {
+  private findNextPortalTowardsMap(
+    startMapId: string,
+    targetMapId: string,
+    allowedRouteDomains: readonly MapRouteDomain[] = DEFAULT_SYSTEM_ROUTE_DOMAINS,
+  ) {
     if (startMapId === targetMapId) {
+      return undefined;
+    }
+    if (!this.mapService.isMapRouteDomainAllowed(targetMapId, allowedRouteDomains)) {
       return undefined;
     }
     const visited = new Set<string>([startMapId]);
@@ -1060,8 +1109,11 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     const firstPortalByMap = new Map<string, ReturnType<MapService['getPortals']>[number]>();
     while (queue.length > 0) {
       const mapId = queue.shift()!;
-      for (const portal of this.mapService.getPortals(mapId)) {
+      for (const portal of this.mapService.getPortals(mapId, { allowedRouteDomains })) {
         if (portal.hidden || visited.has(portal.targetMapId)) {
+          continue;
+        }
+        if (!this.mapService.isMapRouteDomainAllowed(portal.targetMapId, allowedRouteDomains)) {
           continue;
         }
         const initialPortal = mapId === startMapId ? portal : firstPortalByMap.get(mapId);
@@ -1582,23 +1634,12 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         : '';
       const minimapLibrarySignature = this.buildMinimapLibrarySignature(unlockedMinimapIds);
       const visibleEntityIds = new Set([...visiblePlayers, ...visibleEntities].map((entity) => entity.id));
-      const visibleThreatArrows = this.measureCpuSection('broadcast_entities', '广播: 仇恨箭头构建', () => {
-        const refs = this.worldService.getVisibleThreatArrowRefs(
+      const visibleThreatArrows = this.measureCpuSection('broadcast_entities', '广播: 仇恨箭头构建', () => (
+        this.worldService.getVisibleThreatArrowRefs(
           overlayParentMapId ? [viewer.mapId, overlayParentMapId] : [viewer.mapId],
           visibleEntityIds,
-        );
-        const indexById = new Map(
-          [...visiblePlayers, ...visibleEntities].map((entity, index) => [entity.id, index] as const),
-        );
-        return refs.flatMap(({ ownerId, targetId }) => {
-          const ownerIndex = indexById.get(ownerId);
-          const targetIndex = indexById.get(targetId);
-          if (ownerIndex === undefined || targetIndex === undefined) {
-            return [];
-          }
-          return [[ownerIndex, targetIndex] as [number, number]];
-        });
-      });
+        ).map(({ ownerId, targetId }) => [ownerId, targetId] as [string, string])
+      ));
       const tileOriginX = viewer.x - time.effectiveViewRange;
       const tileOriginY = viewer.y - time.effectiveViewRange;
       const groundPilePatches = this.measureCpuSection('broadcast_patch_ground', '广播: 掉落差量 Patch', () => (
@@ -1652,9 +1693,12 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (tilePatches.length > 0) {
         tickData.t = tilePatches;
       }
-      this.measureCpuSection('broadcast_cache', '广播: 缓存修剪', () => {
-        this.pruneRenderEntityCache(viewer.id, visibleEntityIds);
-      });
+      const removedEntityIds = this.measureCpuSection('broadcast_cache', '广播: 缓存修剪', () => (
+        this.pruneRenderEntityCache(viewer.id, visibleEntityIds)
+      ));
+      if (removedEntityIds.length > 0) {
+        tickData.r = removedEntityIds;
+      }
       if (shouldSendFullVisibility) {
         tickData.v = clientVisibleTiles;
       }
@@ -2075,30 +2119,59 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       for (const entity of entities) {
         visibleEntityIds.add(entity.id);
         const previous = cache.get(entity.id);
+        const charChanged = !previous || previous.char !== entity.char;
+        const colorChanged = !previous || previous.color !== entity.color;
+        const nameChanged = !previous || previous.name !== entity.name;
+        const kindChanged = !previous || previous.kind !== entity.kind;
+        const hpChanged = !previous || previous.hp !== entity.hp;
+        const maxHpChanged = !previous || previous.maxHp !== entity.maxHp;
+        const qiChanged = !previous || previous.qi !== entity.qi;
+        const maxQiChanged = !previous || previous.maxQi !== entity.maxQi;
+        const npcQuestMarkerChanged = !previous || !this.isStructuredEqual(previous.npcQuestMarker, entity.npcQuestMarker);
+        const observationChanged = !previous || !this.isStructuredEqual(previous.observation, entity.observation);
+        const syncBuffs = !previous || !this.isStructuredEqual(previous.buffs, entity.buffs);
+        const moved = !previous || previous.x !== entity.x || previous.y !== entity.y;
+        const changed = moved
+          || charChanged
+          || colorChanged
+          || nameChanged
+          || kindChanged
+          || hpChanged
+          || maxHpChanged
+          || qiChanged
+          || maxQiChanged
+          || npcQuestMarkerChanged
+          || observationChanged
+          || syncBuffs;
+
+        if (!changed) {
+          continue;
+        }
+
         const next: TickRenderEntity = {
           id: entity.id,
           x: entity.x,
           y: entity.y,
         };
 
-        if (!previous || previous.char !== entity.char) next.char = entity.char;
-        if (!previous || previous.color !== entity.color) next.color = entity.color;
-        if (!previous || previous.name !== entity.name) next.name = entity.name ?? null;
-        if (!previous || previous.kind !== entity.kind) next.kind = entity.kind ?? null;
-        if (!previous || previous.hp !== entity.hp) next.hp = entity.hp ?? null;
-        if (!previous || previous.maxHp !== entity.maxHp) next.maxHp = entity.maxHp ?? null;
-        if (!previous || previous.qi !== entity.qi) next.qi = entity.qi ?? null;
-        if (!previous || previous.maxQi !== entity.maxQi) next.maxQi = entity.maxQi ?? null;
-        if (!previous || !this.isStructuredEqual(previous.npcQuestMarker, entity.npcQuestMarker)) {
+        if (charChanged) next.char = entity.char;
+        if (colorChanged) next.color = entity.color;
+        if (nameChanged) next.name = entity.name ?? null;
+        if (kindChanged) next.kind = entity.kind ?? null;
+        if (hpChanged) next.hp = entity.hp ?? null;
+        if (maxHpChanged) next.maxHp = entity.maxHp ?? null;
+        if (qiChanged) next.qi = entity.qi ?? null;
+        if (maxQiChanged) next.maxQi = entity.maxQi ?? null;
+        if (npcQuestMarkerChanged) {
           next.npcQuestMarker = entity.npcQuestMarker ?? null;
         }
-        if (!previous || !this.isStructuredEqual(previous.observation, entity.observation)) {
+        if (observationChanged) {
           next.observation = entity.observation ?? null;
         }
         pending.push({
           entity,
           next,
-          syncBuffs: !previous || !this.isStructuredEqual(previous.buffs, entity.buffs),
+          syncBuffs,
         });
       }
     });
@@ -2115,17 +2188,20 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   /** 清理已离开视野的渲染实体缓存 */
-  private pruneRenderEntityCache(viewerId: string, visibleEntityIds: Set<string>): void {
+  private pruneRenderEntityCache(viewerId: string, visibleEntityIds: Set<string>): string[] {
     const cache = this.lastSentRenderEntities.get(viewerId);
     if (!cache) {
-      return;
+      return [];
     }
 
+    const removedEntityIds: string[] = [];
     for (const entityId of cache.keys()) {
       if (!visibleEntityIds.has(entityId)) {
+        removedEntityIds.push(entityId);
         cache.delete(entityId);
       }
     }
+    return removedEntityIds;
   }
 
   private isStructuredEqual(left: unknown, right: unknown): boolean {

@@ -2,7 +2,7 @@
  * 前后端通信协议：事件名定义与所有 Payload 类型。
  * C2S = 客户端→服务端，S2C = 服务端→客户端。
  */
-import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, QuestState, CombatEffect, AutoBattleSkillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, TechniqueGrade, GroundItemPileView, LootWindowState, VisibleBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView } from './types';
+import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, QuestState, CombatEffect, AutoBattleSkillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, TechniqueGrade, GroundItemPileView, LootWindowState, VisibleBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MapRouteDomain, PortalRouteDomain } from './types';
 import { NumericRatioDivisors, NumericStats } from './numeric';
 
 // ===== 事件名 =====
@@ -70,6 +70,7 @@ export const S2C = {
   LootWindowUpdate: 's:lootWindowUpdate',
   TileRuntimeDetail: 's:tileRuntimeDetail',
   QuestUpdate: 's:questUpdate',
+  QuestNavigateResult: 's:questNavigateResult',
   SystemMsg: 's:systemMsg',
   SuggestionUpdate: 's:suggestionUpdate',
   MarketUpdate: 's:marketUpdate',
@@ -238,7 +239,8 @@ export interface S2C_Tick {
   p: TickRenderEntity[];                          // 玩家可见实体（含自身）
   t?: VisibleTilePatch[];                         // 视野内地块动态 patch
   e: TickRenderEntity[];                          // 怪物 / NPC 可见实体
-  threatArrows?: [number, number][];             // 可见实体索引对：owner -> target
+  r?: string[];                                   // 当前 tick 离开视野的实体 ID
+  threatArrows?: [string, string][];             // 可见实体 ID 对：owner -> target
   g?: GroundItemPilePatch[];                      // 视野内地面物品 patch
   fx?: CombatEffect[];                            // 当前 tick 触发的战斗特效
   v?: VisibleTile[][];                            // 视野 tiles（null 表示当前不可见）
@@ -559,6 +561,13 @@ export interface S2C_QuestUpdate {
   quests: QuestState[];
 }
 
+/** 任务自动导航回执 */
+export interface S2C_QuestNavigateResult {
+  questId: string;
+  ok: boolean;
+  error?: string;
+}
+
 /** 系统消息 */
 export interface S2C_SystemMsg {
   text: string;
@@ -815,6 +824,7 @@ export interface GmMapPortalRecord {
   targetY: number;
   kind?: 'portal' | 'stairs';
   trigger?: 'manual' | 'auto';
+  routeDomain?: PortalRouteDomain;
   allowPlayerOverlap?: boolean;
   hidden?: boolean;
   observeTitle?: string;
@@ -935,6 +945,7 @@ export interface GmMapDocument {
   name: string;
   width: number;
   height: number;
+  routeDomain?: MapRouteDomain;
   terrainProfileId?: string;
   parentMapId?: string;
   parentOriginX?: number;

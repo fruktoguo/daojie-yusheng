@@ -14,4 +14,4 @@ export const QUEST_STATUS_KEYS: QuestStatus[] = ['available', 'active', 'ready',
 export const QUEST_OBJECTIVE_TYPE_KEYS: QuestObjectiveType[] = ['kill', 'talk', 'submit_item', 'learn_technique', 'realm_progress', 'realm_stage'];
 
 /** 任务自动导航每次跨图后的冷却时长（息）。 */
-export const QUEST_CROSS_MAP_NAV_COOLDOWN_TICKS = 60;
+export const QUEST_CROSS_MAP_NAV_COOLDOWN_TICKS = 1;

@@ -4,20 +4,26 @@ import {
   GmMapAuraRecord,
   GmMapContainerRecord,
   GmMapDocument,
+  GmMapDropRecord,
   GmMapLandmarkRecord,
   GmMapListRes,
   GmMapMonsterSpawnRecord,
   GmMapNpcRecord,
   GmMapPortalRecord,
+  GmMapQuestRecord,
   GmMapSummary,
 } from './protocol';
 import { getTileTypeFromMapChar, isTileTypeWalkable } from './terrain';
 import {
   MapSpaceVisionMode,
+  MapRouteDomain,
   MapTimeConfig,
   MonsterAggroMode,
   PortalKind,
+  PortalRouteDomain,
   PortalTrigger,
+  QuestLine,
+  QuestObjectiveType,
   TechniqueGrade,
   TileType,
 } from './types';
@@ -60,6 +66,47 @@ function normalizeContainerGrade(grade: unknown): TechniqueGrade {
     return grade;
   }
   return 'mortal';
+}
+
+function normalizeOptionalTrimmedString(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function normalizeOptionalInteger(value: unknown): number | undefined {
+  return Number.isFinite(value) ? Math.floor(Number(value)) : undefined;
+}
+
+function normalizeQuestLine(value: unknown): QuestLine | undefined {
+  return value === 'main' || value === 'side' || value === 'daily' || value === 'encounter'
+    ? value
+    : undefined;
+}
+
+function normalizeQuestObjectiveType(value: unknown): QuestObjectiveType | undefined {
+  return value === 'kill'
+    || value === 'talk'
+    || value === 'submit_item'
+    || value === 'learn_technique'
+    || value === 'realm_progress'
+    || value === 'realm_stage'
+    ? value
+    : undefined;
+}
+
+function normalizeMapRouteDomain(value: unknown): MapRouteDomain | undefined {
+  return value === 'system' || value === 'sect' || value === 'personal' || value === 'dynamic'
+    ? value
+    : undefined;
+}
+
+function normalizePortalRouteDomain(value: unknown): PortalRouteDomain | undefined {
+  return value === 'inherit' || value === 'system' || value === 'sect' || value === 'personal' || value === 'dynamic'
+    ? value
+    : undefined;
 }
 
 function normalizeMonsterAggroMode(value: unknown): MonsterAggroMode | undefined {
@@ -120,6 +167,74 @@ function normalizeEditableContainerRecord(input: unknown): GmMapContainerRecord 
         chance: Number.isFinite(drop.chance) ? Number(drop.chance) : undefined,
       }))
       : [],
+  };
+}
+
+function normalizeEditableDropRecord(input: unknown): GmMapDropRecord | undefined {
+  if (!input || typeof input !== 'object') {
+    return undefined;
+  }
+  const drop = input as GmMapDropRecord;
+  return {
+    itemId: String(drop.itemId ?? ''),
+    name: String(drop.name ?? ''),
+    type: drop.type,
+    count: Number.isFinite(drop.count) ? Number(drop.count) : 1,
+    chance: Number.isFinite(drop.chance) ? Number(drop.chance) : undefined,
+  };
+}
+
+function normalizeEditableQuestRecord(input: unknown): GmMapQuestRecord | undefined {
+  if (!input || typeof input !== 'object') {
+    return undefined;
+  }
+  const quest = input as GmMapQuestRecord;
+  const reward = Array.isArray(quest.reward)
+    ? quest.reward
+        .map((entry) => normalizeEditableDropRecord(entry))
+        .filter((entry): entry is GmMapDropRecord => Boolean(entry))
+    : [];
+  const unlockBreakthroughRequirementIds = Array.isArray(quest.unlockBreakthroughRequirementIds)
+    ? quest.unlockBreakthroughRequirementIds
+        .map((entry) => normalizeOptionalTrimmedString(entry))
+        .filter((entry): entry is string => Boolean(entry))
+    : undefined;
+
+  return {
+    id: String(quest.id ?? ''),
+    title: String(quest.title ?? ''),
+    desc: String(quest.desc ?? ''),
+    line: normalizeQuestLine(quest.line),
+    chapter: normalizeOptionalTrimmedString(quest.chapter),
+    story: normalizeOptionalTrimmedString(quest.story),
+    objectiveType: normalizeQuestObjectiveType(quest.objectiveType),
+    objectiveText: normalizeOptionalTrimmedString(quest.objectiveText),
+    targetName: normalizeOptionalTrimmedString(quest.targetName),
+    targetMapId: normalizeOptionalTrimmedString(quest.targetMapId),
+    targetX: normalizeOptionalInteger(quest.targetX),
+    targetY: normalizeOptionalInteger(quest.targetY),
+    targetNpcId: normalizeOptionalTrimmedString(quest.targetNpcId),
+    targetNpcName: normalizeOptionalTrimmedString(quest.targetNpcName),
+    targetMonsterId: normalizeOptionalTrimmedString(quest.targetMonsterId),
+    targetTechniqueId: normalizeOptionalTrimmedString(quest.targetTechniqueId),
+    targetRealmStage: typeof quest.targetRealmStage === 'string'
+      ? normalizeOptionalTrimmedString(quest.targetRealmStage)
+      : normalizeOptionalInteger(quest.targetRealmStage),
+    required: normalizeOptionalInteger(quest.required),
+    targetCount: normalizeOptionalInteger(quest.targetCount),
+    rewardItemId: normalizeOptionalTrimmedString(quest.rewardItemId),
+    rewardText: normalizeOptionalTrimmedString(quest.rewardText),
+    reward,
+    nextQuestId: normalizeOptionalTrimmedString(quest.nextQuestId),
+    requiredItemId: normalizeOptionalTrimmedString(quest.requiredItemId),
+    requiredItemCount: normalizeOptionalInteger(quest.requiredItemCount),
+    submitNpcId: normalizeOptionalTrimmedString(quest.submitNpcId),
+    submitNpcName: normalizeOptionalTrimmedString(quest.submitNpcName),
+    submitMapId: normalizeOptionalTrimmedString(quest.submitMapId),
+    submitX: normalizeOptionalInteger(quest.submitX),
+    submitY: normalizeOptionalInteger(quest.submitY),
+    relayMessage: normalizeOptionalTrimmedString(quest.relayMessage),
+    unlockBreakthroughRequirementIds,
   };
 }
 
@@ -201,6 +316,7 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
     name: typeof source.name === 'string' ? source.name : '',
     width: Number.isInteger(source.width) ? Number(source.width) : 0,
     height: Number.isInteger(source.height) ? Number(source.height) : 0,
+    routeDomain: normalizeMapRouteDomain((source as { routeDomain?: unknown }).routeDomain) ?? 'system',
     terrainProfileId: typeof (source as { terrainProfileId?: unknown }).terrainProfileId === 'string'
       ? (source as { terrainProfileId: string }).terrainProfileId
       : undefined,
@@ -222,6 +338,7 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
       targetY: Number((portal as GmMapPortalRecord).targetY ?? 0),
       kind: normalizePortalKind((portal as GmMapPortalRecord).kind),
       trigger: normalizePortalTrigger((portal as GmMapPortalRecord).trigger, (portal as GmMapPortalRecord).kind),
+      routeDomain: normalizePortalRouteDomain((portal as GmMapPortalRecord).routeDomain) ?? 'inherit',
       allowPlayerOverlap: (portal as GmMapPortalRecord).allowPlayerOverlap === true,
       hidden: (portal as GmMapPortalRecord).hidden === true,
       observeTitle: typeof (portal as GmMapPortalRecord).observeTitle === 'string'
@@ -261,7 +378,9 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
       dialogue: String((npc as GmMapNpcRecord).dialogue ?? ''),
       role: typeof (npc as GmMapNpcRecord).role === 'string' ? (npc as GmMapNpcRecord).role : undefined,
       quests: Array.isArray((npc as GmMapNpcRecord).quests)
-        ? clone((npc as GmMapNpcRecord).quests)
+        ? ((npc as GmMapNpcRecord).quests ?? [])
+            .map((quest) => normalizeEditableQuestRecord(quest))
+            .filter((quest): quest is GmMapQuestRecord => Boolean(quest))
         : [],
     })),
     monsterSpawns: monsterSpawns.map((spawn) => ({
@@ -318,6 +437,7 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
 export function validateEditableMapDocument(document: GmMapDocument): string | null {
   if (!document.id.trim()) return '地图 ID 不能为空';
   if (!document.name.trim()) return '地图名称不能为空';
+  if (!document.routeDomain) return '地图路网域不能为空';
   if (document.parentMapId?.trim() === document.id.trim()) return '子地图的父地图不能指向自己';
   if (document.spaceVisionMode === 'parent_overlay' && !document.parentMapId?.trim()) {
     return '启用父地图透视时必须填写父地图 ID';
@@ -361,6 +481,29 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
     return null;
   };
 
+  const ensureOptionalPoint = (
+    mapId: string | undefined,
+    x: number | undefined,
+    y: number | undefined,
+    label: string,
+  ): string | null => {
+    const hasX = Number.isInteger(x);
+    const hasY = Number.isInteger(y);
+    if (hasX !== hasY) {
+      return `${label} 的 X/Y 坐标必须同时填写`;
+    }
+    if (!hasX || !hasY) {
+      return null;
+    }
+    if (!mapId?.trim()) {
+      return `${label} 填了坐标时必须同时填写地图 ID`;
+    }
+    if (mapId.trim() !== document.id.trim()) {
+      return null;
+    }
+    return ensureWalkablePoint(x!, y!, label);
+  };
+
   const spawnError = ensureWalkablePoint(document.spawnPoint.x, document.spawnPoint.y, '出生点');
   if (spawnError) return spawnError;
 
@@ -371,6 +514,7 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
     const error = ensureWalkablePoint(portal.x, portal.y, label);
     if (error) return error;
     if (!portal.targetMapId.trim()) return `${label} 的目标地图不能为空`;
+    if (!portal.routeDomain) return `${label} 的路网域不能为空`;
     const key = `${portal.x},${portal.y}`;
     if (portalKeys.has(key)) return `${label} 与其他传送点坐标重复`;
     portalKeys.add(key);
@@ -405,6 +549,87 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
     if (!npc.char.trim()) return `${label} 的字符不能为空`;
     const error = ensureWalkablePoint(npc.x, npc.y, label);
     if (error) return error;
+
+    for (let questIndex = 0; questIndex < (npc.quests?.length ?? 0); questIndex += 1) {
+      const quest = npc.quests![questIndex]!;
+      const questLabel = `${label} 的任务 ${quest.id || quest.title || questIndex + 1}`;
+      if (!quest.id.trim()) return `${questLabel} 的 ID 不能为空`;
+      if (!quest.title.trim()) return `${questLabel} 的标题不能为空`;
+      if (!quest.desc.trim()) return `${questLabel} 的描述不能为空`;
+      if (!quest.rewardText?.trim() && !quest.rewardItemId?.trim() && (quest.reward?.length ?? 0) <= 0) {
+        return `${questLabel} 至少需要奖励文本、奖励物品 ID 或奖励列表中的一种`;
+      }
+
+      const targetPointError = ensureOptionalPoint(quest.targetMapId, quest.targetX, quest.targetY, `${questLabel} 的目标地点`);
+      if (targetPointError) return targetPointError;
+      const submitPointError = ensureOptionalPoint(quest.submitMapId, quest.submitX, quest.submitY, `${questLabel} 的提交地点`);
+      if (submitPointError) return submitPointError;
+
+      const objectiveType = quest.objectiveType ?? 'kill';
+      switch (objectiveType) {
+        case 'kill': {
+          const required = quest.required;
+          if (!quest.targetMonsterId?.trim()) {
+            return `${questLabel} 的击杀目标怪物 ID 不能为空`;
+          }
+          if (required === undefined || !Number.isInteger(required) || required <= 0) {
+            return `${questLabel} 的击杀数量必须为正整数`;
+          }
+          break;
+        }
+        case 'talk': {
+          if (!quest.targetNpcId?.trim()) {
+            return `${questLabel} 的目标 NPC ID 不能为空`;
+          }
+          if (quest.targetMapId?.trim() === document.id.trim()) {
+            const exists = document.npcs.some((entry) => entry.id.trim() === quest.targetNpcId);
+            if (!exists) {
+              return `${questLabel} 的目标 NPC 不存在于当前地图`;
+            }
+          }
+          break;
+        }
+        case 'submit_item': {
+          if (!quest.requiredItemId?.trim()) {
+            return `${questLabel} 的提交物品 ID 不能为空`;
+          }
+          if (quest.requiredItemCount !== undefined && (!Number.isInteger(quest.requiredItemCount) || quest.requiredItemCount <= 0)) {
+            return `${questLabel} 的提交物品数量必须为正整数`;
+          }
+          if (quest.submitMapId?.trim() === document.id.trim() && quest.submitNpcId?.trim()) {
+            const exists = document.npcs.some((entry) => entry.id.trim() === quest.submitNpcId);
+            if (!exists) {
+              return `${questLabel} 的提交 NPC 不存在于当前地图`;
+            }
+          }
+          break;
+        }
+        case 'learn_technique': {
+          if (!quest.targetTechniqueId?.trim()) {
+            return `${questLabel} 的目标功法 ID 不能为空`;
+          }
+          break;
+        }
+        case 'realm_progress': {
+          const required = quest.required;
+          if (required === undefined || !Number.isInteger(required) || required <= 0) {
+            return `${questLabel} 的境界推进需求必须为正整数`;
+          }
+          if (quest.targetRealmStage === undefined || `${quest.targetRealmStage}`.trim().length <= 0) {
+            return `${questLabel} 的目标境界阶段不能为空`;
+          }
+          break;
+        }
+        case 'realm_stage': {
+          if (quest.targetRealmStage === undefined || `${quest.targetRealmStage}`.trim().length <= 0) {
+            return `${questLabel} 的目标境界阶段不能为空`;
+          }
+          break;
+        }
+        default:
+          return `${questLabel} 的任务目标类型非法`;
+      }
+    }
   }
 
   for (let index = 0; index < document.monsterSpawns.length; index += 1) {

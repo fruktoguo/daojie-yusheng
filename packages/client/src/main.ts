@@ -113,6 +113,7 @@ const QQ_GROUP_MOBILE_DEEP_LINK = `mqqapi://card/show_pslcard?src_type=internal&
 const QQ_GROUP_DESKTOP_DEEP_LINK = `tencent://AddContact/?fromId=45&fromSubId=1&subcmd=all&uin=${QQ_GROUP_NUMBER}`;
 
 let auraLevelBaseValue = DEFAULT_AURA_LEVEL_BASE_VALUE;
+let pendingQuestNavigateId: string | null = null;
 let activeObservedTile:
   | {
       mapId: string;
@@ -955,13 +956,28 @@ function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedEn
   };
 }
 
-function mergeTickEntities(playerPatches: TickRenderEntity[], entityPatches: TickRenderEntity[]): ObservedEntity[] {
-  const merged: ObservedEntity[] = [];
-  const nextMap = new Map<string, ObservedEntity>();
+function mergeTickEntities(
+  playerPatches: TickRenderEntity[],
+  entityPatches: TickRenderEntity[],
+  removedEntityIds: string[] = [],
+): ObservedEntity[] {
+  const removedIdSet = new Set(removedEntityIds);
+  const merged = latestEntities
+    .filter((entity) => !removedIdSet.has(entity.id))
+    .map((entity) => cloneJson(entity));
+  const nextMap = new Map(merged.map((entity) => [entity.id, entity] as const));
 
   for (const patch of [...playerPatches, ...entityPatches]) {
-    const next = mergeObservedEntityPatch(patch, latestEntityMap.get(patch.id));
-    merged.push(next);
+    const previous = nextMap.get(patch.id);
+    const next = mergeObservedEntityPatch(patch, previous);
+    if (previous) {
+      const index = merged.findIndex((entity) => entity.id === patch.id);
+      if (index >= 0) {
+        merged[index] = next;
+      }
+    } else {
+      merged.push(next);
+    }
     nextMap.set(next.id, next);
   }
 
@@ -1275,6 +1291,7 @@ techniquePanel.setCallbacks(
 );
 questPanel.setCallbacks((questId) => {
   clearCurrentPath();
+  pendingQuestNavigateId = questId;
   socket.sendNavigateQuest(questId);
 });
 marketPanel.setCallbacks({
@@ -1487,6 +1504,16 @@ socket.onQuestUpdate((data) => {
   questPanel.setCurrentMapId(myPlayer?.mapId);
   questPanel.update(data.quests);
   refreshUiChrome();
+});
+socket.onQuestNavigateResult((data) => {
+  if (pendingQuestNavigateId !== data.questId) {
+    return;
+  }
+  pendingQuestNavigateId = null;
+  if (!data.ok) {
+    return;
+  }
+  questPanel.closeDetail();
 });
 socket.onSystemMsg((data) => {
   if (data.kind === 'chat') {
@@ -2220,7 +2247,7 @@ socket.onTick((data: S2C_Tick) => {
 
   const moved = !mapChanged && (myPlayer.x !== oldX || myPlayer.y !== oldY);
 
-  const entities = mergeTickEntities(data.p, data.e);
+  const entities = mergeTickEntities(data.p, data.e, data.r);
   latestEntities = entities;
   syncTargetingOverlay();
   refreshHudChrome();

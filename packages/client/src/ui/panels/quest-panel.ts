@@ -73,6 +73,11 @@ export class QuestPanel {
     detailModalHost.close(QuestPanel.MODAL_OWNER);
   }
 
+  closeDetail(): void {
+    this.selectedQuestId = undefined;
+    detailModalHost.close(QuestPanel.MODAL_OWNER);
+  }
+
   private renderList(): void {
     const quests = this.lastQuests;
     if (quests.length === 0) {
