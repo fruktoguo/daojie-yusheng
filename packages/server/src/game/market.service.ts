@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'crypto';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import {
   createItemStackSignature,
   DEFAULT_INVENTORY_CAPACITY,
@@ -15,6 +15,7 @@ import {
   MarketTradeHistoryEntryView,
   PlayerState,
   S2C_MarketUpdate,
+  isValidMarketPrice,
 } from '@mud/shared';
 import { PlayerEntity } from '../database/entities/player.entity';
 import { MarketOrderEntity } from '../database/entities/market-order.entity';
@@ -30,6 +31,23 @@ interface MarketMessage {
   kind?: 'system' | 'loot';
 }
 
+interface MarketPlayerSnapshot {
+  inventory: {
+    items: ItemStack[];
+    capacity: number;
+  };
+  marketStorage: MarketStorage;
+}
+
+interface MarketMutationContext {
+  orderRepo: Repository<MarketOrderEntity>;
+  tradeHistoryRepo: Repository<MarketTradeHistoryEntity>;
+  playerRepo: Repository<PlayerEntity>;
+  openOrdersSnapshot: MarketOrderEntity[];
+  onlinePlayerSnapshots: Map<string, MarketPlayerSnapshot>;
+  touchedOnlinePlayerIds: Set<string>;
+}
+
 export interface MarketActionResult {
   affectedPlayerIds: string[];
   messages: MarketMessage[];
@@ -41,6 +59,7 @@ export class MarketService implements OnModuleInit {
   private static readonly TRADE_HISTORY_VISIBLE_LIMIT = 100;
   private static readonly TRADE_HISTORY_PAGE_SIZE = 10;
   private openOrders: MarketOrderEntity[] = [];
+  private marketOperationQueue: Promise<void> = Promise.resolve();
 
   constructor(
     @InjectRepository(MarketOrderEntity)
@@ -133,6 +152,17 @@ export class MarketService implements OnModuleInit {
   }
 
   async createSellOrder(player: PlayerState, payload: { slotIndex: number; quantity: number; unitPrice: number }): Promise<MarketActionResult> {
+    return this.runExclusiveMarketMutation(player.id, async (context) => {
+      this.captureOnlinePlayerState(player.id, context);
+      return this.createSellOrderUnsafe(player, payload, context);
+    });
+  }
+
+  private async createSellOrderUnsafe(
+    player: PlayerState,
+    payload: { slotIndex: number; quantity: number; unitPrice: number },
+    context: MarketMutationContext,
+  ): Promise<MarketActionResult> {
     const item = this.inventoryService.getItem(player, payload.slotIndex);
     if (!item) {
       return this.singleMessage(player.id, '要挂售的物品不存在。');
@@ -145,18 +175,22 @@ export class MarketService implements OnModuleInit {
     if (item.count < quantity) {
       return this.singleMessage(player.id, '挂售数量超过了当前持有数量。');
     }
+    const orderItem = this.toOrderItem(item);
+    const itemKey = this.buildItemKey(orderItem);
+    if (this.hasConflictingOpenOrder(player.id, itemKey, 'sell')) {
+      return this.singleMessage(player.id, '同一种物品已在求购中，不能同时挂售。');
+    }
 
     const removed = this.inventoryService.removeItem(player, payload.slotIndex, quantity);
     if (!removed) {
       return this.singleMessage(player.id, '挂售失败，未能扣除物品。');
     }
     this.playerService.markDirty(player.id, 'inv');
-    this.playerService.syncPlayerRealtimeState(player.id);
+    context.touchedOnlinePlayerIds.add(player.id);
 
     const result = this.createEmptyResult(player.id);
-    const orderItem = this.toOrderItem(removed);
     let remaining = removed.count;
-    const buyOrders = this.getSortedOrders(this.buildItemKey(orderItem), 'buy')
+    const buyOrders = this.getSortedOrders(itemKey, 'buy')
       .filter((order) => order.ownerId !== player.id && order.unitPrice >= unitPrice);
 
     for (const buyOrder of buyOrders) {
@@ -168,22 +202,22 @@ export class MarketService implements OnModuleInit {
         continue;
       }
       const tradePrice = buyOrder.unitPrice;
-      await this.deliverItemToPlayer(buyOrder.ownerId, { ...orderItem, count: tradeQuantity });
-      await this.deliverItemToPlayer(player.id, this.createCurrencyItem(tradeQuantity * tradePrice));
+      await this.deliverItemToPlayer(buyOrder.ownerId, { ...orderItem, count: tradeQuantity }, context);
+      await this.deliverItemToPlayer(player.id, this.createCurrencyItem(tradeQuantity * tradePrice), context);
       await this.recordTrade({
         buyerId: buyOrder.ownerId,
         sellerId: player.id,
         itemId: orderItem.itemId,
         quantity: tradeQuantity,
         unitPrice: tradePrice,
-      });
+      }, context);
       remaining -= tradeQuantity;
       buyOrder.remainingQuantity -= tradeQuantity;
       buyOrder.updatedAt = Date.now();
       this.touchAffectedPlayer(result, buyOrder.ownerId);
       this.pushMessage(result, buyOrder.ownerId, `你的求购已成交：${orderItem.name} x${tradeQuantity}。`, 'loot');
       this.pushMessage(result, player.id, `你卖出了 ${orderItem.name} x${tradeQuantity}，入账 ${this.getCurrencyItemName()} x${tradeQuantity * tradePrice}。`, 'loot');
-      await this.persistOrderState(buyOrder, buyOrder.remainingQuantity <= 0 ? 'filled' : 'open');
+      await this.persistOrderState(buyOrder, buyOrder.remainingQuantity <= 0 ? 'filled' : 'open', context);
     }
 
     if (remaining > 0) {
@@ -193,7 +227,7 @@ export class MarketService implements OnModuleInit {
         ownerId: player.id,
         ownerName: player.displayName || player.name,
         side: 'sell',
-        itemKey: this.buildItemKey(orderItem),
+        itemKey,
         itemSnapshot: this.toPlainItem(orderItem),
         remainingQuantity: remaining,
         unitPrice,
@@ -201,7 +235,7 @@ export class MarketService implements OnModuleInit {
         createdAt: now,
         updatedAt: now,
       });
-      await this.marketOrderRepo.save(order);
+      await context.orderRepo.save(order);
       this.openOrders.push(order);
       this.pushMessage(result, player.id, `已挂售 ${orderItem.name} x${remaining}，单价 ${unitPrice} ${this.getCurrencyItemName()}。`);
     }
@@ -211,6 +245,17 @@ export class MarketService implements OnModuleInit {
   }
 
   async createBuyOrder(player: PlayerState, payload: { itemId: string; quantity: number; unitPrice: number }): Promise<MarketActionResult> {
+    return this.runExclusiveMarketMutation(player.id, async (context) => {
+      this.captureOnlinePlayerState(player.id, context);
+      return this.createBuyOrderUnsafe(player, payload, context);
+    });
+  }
+
+  private async createBuyOrderUnsafe(
+    player: PlayerState,
+    payload: { itemId: string; quantity: number; unitPrice: number },
+    context: MarketMutationContext,
+  ): Promise<MarketActionResult> {
     const item = this.contentService.createItem(payload.itemId, 1);
     if (!item) {
       return this.singleMessage(player.id, '求购的物品不存在。');
@@ -220,18 +265,22 @@ export class MarketService implements OnModuleInit {
     if (!quantity || !unitPrice) {
       return this.singleMessage(player.id, '求购数量或单价无效。');
     }
+    const orderItem = this.toOrderItem(item);
+    const itemKey = this.buildItemKey(orderItem);
+    if (this.hasConflictingOpenOrder(player.id, itemKey, 'buy')) {
+      return this.singleMessage(player.id, '同一种物品已在挂售中，不能同时求购。');
+    }
 
     const totalCost = quantity * unitPrice;
     if (!this.consumeCurrencyFromInventory(player, totalCost)) {
       return this.singleMessage(player.id, `${this.getCurrencyItemName()}不足，无法挂出求购。`);
     }
     this.playerService.markDirty(player.id, 'inv');
-    this.playerService.syncPlayerRealtimeState(player.id);
+    context.touchedOnlinePlayerIds.add(player.id);
 
     const result = this.createEmptyResult(player.id);
-    const orderItem = this.toOrderItem(item);
     let remaining = quantity;
-    const sellOrders = this.getSortedOrders(this.buildItemKey(orderItem), 'sell')
+    const sellOrders = this.getSortedOrders(itemKey, 'sell')
       .filter((order) => order.ownerId !== player.id && order.unitPrice <= unitPrice);
 
     for (const sellOrder of sellOrders) {
@@ -243,18 +292,18 @@ export class MarketService implements OnModuleInit {
         continue;
       }
       const tradePrice = sellOrder.unitPrice;
-      await this.deliverItemToPlayer(player.id, { ...orderItem, count: tradeQuantity });
-      await this.deliverItemToPlayer(sellOrder.ownerId, this.createCurrencyItem(tradeQuantity * tradePrice));
+      await this.deliverItemToPlayer(player.id, { ...orderItem, count: tradeQuantity }, context);
+      await this.deliverItemToPlayer(sellOrder.ownerId, this.createCurrencyItem(tradeQuantity * tradePrice), context);
       await this.recordTrade({
         buyerId: player.id,
         sellerId: sellOrder.ownerId,
         itemId: orderItem.itemId,
         quantity: tradeQuantity,
         unitPrice: tradePrice,
-      });
+      }, context);
       const refund = tradeQuantity * Math.max(0, unitPrice - tradePrice);
       if (refund > 0) {
-        await this.deliverItemToPlayer(player.id, this.createCurrencyItem(refund));
+        await this.deliverItemToPlayer(player.id, this.createCurrencyItem(refund), context);
       }
       remaining -= tradeQuantity;
       sellOrder.remainingQuantity -= tradeQuantity;
@@ -262,7 +311,7 @@ export class MarketService implements OnModuleInit {
       this.touchAffectedPlayer(result, sellOrder.ownerId);
       this.pushMessage(result, player.id, `你买入了 ${orderItem.name} x${tradeQuantity}，成交价 ${tradePrice}。`, 'loot');
       this.pushMessage(result, sellOrder.ownerId, `你的挂售已成交：${orderItem.name} x${tradeQuantity}，入账 ${this.getCurrencyItemName()} x${tradeQuantity * tradePrice}。`, 'loot');
-      await this.persistOrderState(sellOrder, sellOrder.remainingQuantity <= 0 ? 'filled' : 'open');
+      await this.persistOrderState(sellOrder, sellOrder.remainingQuantity <= 0 ? 'filled' : 'open', context);
     }
 
     if (remaining > 0) {
@@ -272,7 +321,7 @@ export class MarketService implements OnModuleInit {
         ownerId: player.id,
         ownerName: player.displayName || player.name,
         side: 'buy',
-        itemKey: this.buildItemKey(orderItem),
+        itemKey,
         itemSnapshot: this.toPlainItem(orderItem),
         remainingQuantity: remaining,
         unitPrice,
@@ -280,7 +329,7 @@ export class MarketService implements OnModuleInit {
         createdAt: now,
         updatedAt: now,
       });
-      await this.marketOrderRepo.save(order);
+      await context.orderRepo.save(order);
       this.openOrders.push(order);
       this.pushMessage(result, player.id, `已挂出求购 ${orderItem.name} x${remaining}，单价 ${unitPrice} ${this.getCurrencyItemName()}。`);
     }
@@ -290,6 +339,17 @@ export class MarketService implements OnModuleInit {
   }
 
   async buyNow(player: PlayerState, payload: { itemKey: string; quantity: number }): Promise<MarketActionResult> {
+    return this.runExclusiveMarketMutation(player.id, async (context) => {
+      this.captureOnlinePlayerState(player.id, context);
+      return this.buyNowUnsafe(player, payload, context);
+    });
+  }
+
+  private async buyNowUnsafe(
+    player: PlayerState,
+    payload: { itemKey: string; quantity: number },
+    context: MarketMutationContext,
+  ): Promise<MarketActionResult> {
     const quantity = this.normalizeQuantity(payload.quantity);
     if (!quantity) {
       return this.singleMessage(player.id, '买入数量无效。');
@@ -308,7 +368,7 @@ export class MarketService implements OnModuleInit {
       return this.singleMessage(player.id, `${this.getCurrencyItemName()}不足，无法完成买入。`);
     }
     this.playerService.markDirty(player.id, 'inv');
-    this.playerService.syncPlayerRealtimeState(player.id);
+    context.touchedOnlinePlayerIds.add(player.id);
 
     const result = this.createEmptyResult(player.id);
     let remaining = quantity;
@@ -323,21 +383,21 @@ export class MarketService implements OnModuleInit {
         continue;
       }
       const tradePrice = sellOrder.unitPrice;
-      await this.deliverItemToPlayer(player.id, { ...item, count: tradeQuantity });
-      await this.deliverItemToPlayer(sellOrder.ownerId, this.createCurrencyItem(tradeQuantity * tradePrice));
+      await this.deliverItemToPlayer(player.id, { ...item, count: tradeQuantity }, context);
+      await this.deliverItemToPlayer(sellOrder.ownerId, this.createCurrencyItem(tradeQuantity * tradePrice), context);
       await this.recordTrade({
         buyerId: player.id,
         sellerId: sellOrder.ownerId,
         itemId: item.itemId,
         quantity: tradeQuantity,
         unitPrice: tradePrice,
-      });
+      }, context);
       sellOrder.remainingQuantity -= tradeQuantity;
       sellOrder.updatedAt = Date.now();
       remaining -= tradeQuantity;
       this.touchAffectedPlayer(result, sellOrder.ownerId);
       this.pushMessage(result, sellOrder.ownerId, `你的挂售已成交：${item.name} x${tradeQuantity}。`, 'loot');
-      await this.persistOrderState(sellOrder, sellOrder.remainingQuantity <= 0 ? 'filled' : 'open');
+      await this.persistOrderState(sellOrder, sellOrder.remainingQuantity <= 0 ? 'filled' : 'open', context);
     }
 
     this.pushMessage(result, player.id, `你买入了 ${item.name} x${quantity}，共花费 ${this.getCurrencyItemName()} x${totalCost}。`, 'loot');
@@ -346,6 +406,17 @@ export class MarketService implements OnModuleInit {
   }
 
   async sellNow(player: PlayerState, payload: { slotIndex: number; quantity: number }): Promise<MarketActionResult> {
+    return this.runExclusiveMarketMutation(player.id, async (context) => {
+      this.captureOnlinePlayerState(player.id, context);
+      return this.sellNowUnsafe(player, payload, context);
+    });
+  }
+
+  private async sellNowUnsafe(
+    player: PlayerState,
+    payload: { slotIndex: number; quantity: number },
+    context: MarketMutationContext,
+  ): Promise<MarketActionResult> {
     const item = this.inventoryService.getItem(player, payload.slotIndex);
     if (!item) {
       return this.singleMessage(player.id, '要出售的物品不存在。');
@@ -373,7 +444,7 @@ export class MarketService implements OnModuleInit {
       return this.singleMessage(player.id, '出售失败，未能扣除物品。');
     }
     this.playerService.markDirty(player.id, 'inv');
-    this.playerService.syncPlayerRealtimeState(player.id);
+    context.touchedOnlinePlayerIds.add(player.id);
 
     const result = this.createEmptyResult(player.id);
     let remaining = quantity;
@@ -388,22 +459,22 @@ export class MarketService implements OnModuleInit {
         continue;
       }
       const tradePrice = buyOrder.unitPrice;
-      await this.deliverItemToPlayer(buyOrder.ownerId, { ...orderItem, count: tradeQuantity });
-      await this.deliverItemToPlayer(player.id, this.createCurrencyItem(tradeQuantity * tradePrice));
+      await this.deliverItemToPlayer(buyOrder.ownerId, { ...orderItem, count: tradeQuantity }, context);
+      await this.deliverItemToPlayer(player.id, this.createCurrencyItem(tradeQuantity * tradePrice), context);
       await this.recordTrade({
         buyerId: buyOrder.ownerId,
         sellerId: player.id,
         itemId: orderItem.itemId,
         quantity: tradeQuantity,
         unitPrice: tradePrice,
-      });
+      }, context);
       buyOrder.remainingQuantity -= tradeQuantity;
       buyOrder.updatedAt = Date.now();
       remaining -= tradeQuantity;
       totalIncome += tradeQuantity * tradePrice;
       this.touchAffectedPlayer(result, buyOrder.ownerId);
       this.pushMessage(result, buyOrder.ownerId, `你的求购已成交：${orderItem.name} x${tradeQuantity}。`, 'loot');
-      await this.persistOrderState(buyOrder, buyOrder.remainingQuantity <= 0 ? 'filled' : 'open');
+      await this.persistOrderState(buyOrder, buyOrder.remainingQuantity <= 0 ? 'filled' : 'open', context);
     }
 
     this.pushMessage(result, player.id, `你卖出了 ${orderItem.name} x${quantity}，共入账 ${this.getCurrencyItemName()} x${totalIncome}。`, 'loot');
@@ -412,24 +483,42 @@ export class MarketService implements OnModuleInit {
   }
 
   async cancelOrder(player: PlayerState, payload: { orderId: string }): Promise<MarketActionResult> {
+    return this.runExclusiveMarketMutation(player.id, async (context) => {
+      this.captureOnlinePlayerState(player.id, context);
+      return this.cancelOrderUnsafe(player, payload, context);
+    });
+  }
+
+  private async cancelOrderUnsafe(
+    player: PlayerState,
+    payload: { orderId: string },
+    context: MarketMutationContext,
+  ): Promise<MarketActionResult> {
     const order = this.openOrders.find((entry) => entry.id === payload.orderId && entry.ownerId === player.id);
     if (!order) {
       return this.singleMessage(player.id, '未找到可取消的订单。');
     }
 
     if (order.side === 'sell') {
-      await this.deliverItemToPlayer(player.id, { ...this.cloneOrderItem(order), count: order.remainingQuantity });
+      await this.deliverItemToPlayer(player.id, { ...this.cloneOrderItem(order), count: order.remainingQuantity }, context);
     } else {
-      await this.deliverItemToPlayer(player.id, this.createCurrencyItem(order.remainingQuantity * order.unitPrice));
+      await this.deliverItemToPlayer(player.id, this.createCurrencyItem(order.remainingQuantity * order.unitPrice), context);
     }
 
     order.updatedAt = Date.now();
-    await this.persistOrderState(order, 'cancelled');
+    await this.persistOrderState(order, 'cancelled', context);
     this.compactOpenOrders();
     return this.singleMessage(player.id, '订单已取消，剩余托管物已退回你的坊市托管仓。');
   }
 
   async claimStorage(player: PlayerState): Promise<MarketActionResult> {
+    return this.runExclusiveMarketMutation(player.id, async (context) => {
+      this.captureOnlinePlayerState(player.id, context);
+      return this.claimStorageUnsafe(player, context);
+    });
+  }
+
+  private async claimStorageUnsafe(player: PlayerState, context: MarketMutationContext): Promise<MarketActionResult> {
     const storage = player.marketStorage ?? { items: [] };
     if (storage.items.length === 0) {
       return this.singleMessage(player.id, '坊市托管仓里暂时没有可领取的物品。');
@@ -446,7 +535,7 @@ export class MarketService implements OnModuleInit {
     }
     player.marketStorage = { items: nextItems };
     this.playerService.markDirty(player.id, 'inv');
-    this.playerService.syncPlayerRealtimeState(player.id);
+    context.touchedOnlinePlayerIds.add(player.id);
 
     if (movedCount === 0) {
       return this.singleMessage(player.id, '背包空间不足，托管仓物品暂时无法领取。');
@@ -588,6 +677,16 @@ export class MarketService implements OnModuleInit {
       });
   }
 
+  private hasConflictingOpenOrder(ownerId: string, itemKey: string, nextSide: MarketOrderSide): boolean {
+    const oppositeSide: MarketOrderSide = nextSide === 'sell' ? 'buy' : 'sell';
+    return this.openOrders.some((order) =>
+      order.ownerId === ownerId
+      && order.itemKey === itemKey
+      && order.side === oppositeSide
+      && order.remainingQuantity > 0
+      && order.status === 'open');
+  }
+
   private calculateImmediateTotalCost(orders: MarketOrderEntity[], quantity: number): number {
     let remaining = quantity;
     let total = 0;
@@ -643,11 +742,14 @@ export class MarketService implements OnModuleInit {
   }
 
   private normalizeUnitPrice(value: number): number | null {
-    if (!Number.isFinite(value)) {
+    if (!Number.isFinite(value) || !Number.isInteger(value)) {
       return null;
     }
-    const unitPrice = Math.floor(value);
+    const unitPrice = value;
     if (unitPrice <= 0 || unitPrice > MARKET_MAX_UNIT_PRICE) {
+      return null;
+    }
+    if (!isValidMarketPrice(unitPrice)) {
       return null;
     }
     return unitPrice;
@@ -678,26 +780,27 @@ export class MarketService implements OnModuleInit {
     return remaining === 0;
   }
 
-  private async deliverItemToPlayer(playerId: string, item: ItemStack): Promise<void> {
+  private async deliverItemToPlayer(playerId: string, item: ItemStack, context: MarketMutationContext): Promise<void> {
     const player = this.playerService.getPlayer(playerId);
     if (player) {
+      this.captureOnlinePlayerState(player.id, context);
       if (this.inventoryService.addItem(player, { ...item })) {
         this.playerService.markDirty(player.id, 'inv');
       } else {
         player.marketStorage = this.mergeStorageItem(player.marketStorage, item);
       }
-      this.playerService.syncPlayerRealtimeState(player.id);
+      context.touchedOnlinePlayerIds.add(player.id);
       return;
     }
 
-    const entity = await this.playerRepo.findOne({ where: { id: playerId } });
+    const entity = await context.playerRepo.findOne({ where: { id: playerId } });
     if (!entity) {
       this.logger.warn(`坊市结算时未找到玩家存档: ${playerId}`);
       return;
     }
     const storage = this.normalizeStorage(entity.marketStorage);
     entity.marketStorage = this.toPersistedStorage(this.mergeStorageItem(storage, item)) as unknown as Record<string, unknown>;
-    await this.playerRepo.save(entity);
+    await context.playerRepo.save(entity);
   }
 
   private mergeStorageItem(storage: MarketStorage | undefined, item: ItemStack): MarketStorage {
@@ -765,9 +868,9 @@ export class MarketService implements OnModuleInit {
     itemId: string;
     quantity: number;
     unitPrice: number;
-  }): Promise<void> {
+  }, context: MarketMutationContext): Promise<void> {
     const now = Date.now();
-    await this.marketTradeHistoryRepo.save(this.marketTradeHistoryRepo.create({
+    await context.tradeHistoryRepo.save(context.tradeHistoryRepo.create({
       id: randomUUID(),
       buyerId: payload.buyerId,
       sellerId: payload.sellerId,
@@ -793,12 +896,16 @@ export class MarketService implements OnModuleInit {
     };
   }
 
-  private async persistOrderState(order: MarketOrderEntity, status: 'open' | 'filled' | 'cancelled'): Promise<void> {
+  private async persistOrderState(
+    order: MarketOrderEntity,
+    status: 'open' | 'filled' | 'cancelled',
+    context: MarketMutationContext,
+  ): Promise<void> {
     order.status = status;
     if (status !== 'open') {
       order.remainingQuantity = Math.max(0, order.remainingQuantity);
     }
-    await this.marketOrderRepo.save(order);
+    await context.orderRepo.save(order);
   }
 
   private compactOpenOrders(): void {
@@ -828,5 +935,115 @@ export class MarketService implements OnModuleInit {
   private pushMessage(result: MarketActionResult, playerId: string, text: string, kind: 'system' | 'loot' = 'system'): void {
     result.messages.push({ playerId, text, kind });
     this.touchAffectedPlayer(result, playerId);
+  }
+
+  private async runExclusiveMarketMutation(
+    playerId: string,
+    action: (context: MarketMutationContext) => Promise<MarketActionResult>,
+  ): Promise<MarketActionResult> {
+    return this.runExclusive(async () => {
+      const context = this.createMutationContext();
+      try {
+        const result = await this.marketOrderRepo.manager.transaction(async (manager) => {
+          this.bindTransactionRepos(context, manager);
+          const nextResult = await action(context);
+          await this.persistTouchedOnlinePlayers(context);
+          return nextResult;
+        });
+        return result;
+      } catch (error) {
+        this.restoreMutationContext(context);
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error(`坊市结算失败，已回滚: ${message}`);
+        return this.singleMessage(playerId, '坊市结算失败，已回滚本次操作。');
+      }
+    });
+  }
+
+  private async runExclusive<T>(action: () => Promise<T>): Promise<T> {
+    const previous = this.marketOperationQueue;
+    let release!: () => void;
+    this.marketOperationQueue = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      return await action();
+    } finally {
+      release();
+    }
+  }
+
+  private createMutationContext(): MarketMutationContext {
+    return {
+      orderRepo: this.marketOrderRepo,
+      tradeHistoryRepo: this.marketTradeHistoryRepo,
+      playerRepo: this.playerRepo,
+      openOrdersSnapshot: this.cloneOpenOrders(this.openOrders),
+      onlinePlayerSnapshots: new Map(),
+      touchedOnlinePlayerIds: new Set(),
+    };
+  }
+
+  private bindTransactionRepos(context: MarketMutationContext, manager: EntityManager): void {
+    context.orderRepo = manager.getRepository(MarketOrderEntity);
+    context.tradeHistoryRepo = manager.getRepository(MarketTradeHistoryEntity);
+    context.playerRepo = manager.getRepository(PlayerEntity);
+  }
+
+  private captureOnlinePlayerState(playerId: string, context: MarketMutationContext): void {
+    if (context.onlinePlayerSnapshots.has(playerId)) {
+      return;
+    }
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) {
+      return;
+    }
+    context.onlinePlayerSnapshots.set(playerId, {
+      inventory: {
+        capacity: player.inventory.capacity,
+        items: player.inventory.items.map((item) => ({ ...item })),
+      },
+      marketStorage: this.cloneStorage(player.marketStorage),
+    });
+  }
+
+  private async persistTouchedOnlinePlayers(context: MarketMutationContext): Promise<void> {
+    for (const playerId of context.touchedOnlinePlayerIds) {
+      const player = this.playerService.getPlayer(playerId);
+      if (!player) {
+        continue;
+      }
+      await context.playerRepo.save(context.playerRepo.create({
+        id: playerId,
+        inventory: {
+          capacity: player.inventory.capacity,
+          items: player.inventory.items.map((item) => ({ ...item })),
+        } as unknown as Record<string, unknown>,
+        marketStorage: this.toPersistedStorage(player.marketStorage ?? { items: [] }) as unknown as Record<string, unknown>,
+      }));
+    }
+  }
+
+  private restoreMutationContext(context: MarketMutationContext): void {
+    this.openOrders = this.cloneOpenOrders(context.openOrdersSnapshot);
+    for (const [playerId, snapshot] of context.onlinePlayerSnapshots.entries()) {
+      const player = this.playerService.getPlayer(playerId);
+      if (!player) {
+        continue;
+      }
+      player.inventory = {
+        capacity: snapshot.inventory.capacity,
+        items: snapshot.inventory.items.map((item) => ({ ...item })),
+      };
+      player.marketStorage = this.cloneStorage(snapshot.marketStorage);
+    }
+  }
+
+  private cloneOpenOrders(source: MarketOrderEntity[]): MarketOrderEntity[] {
+    return source.map((order) => this.marketOrderRepo.create({
+      ...order,
+      itemSnapshot: this.toPlainItem(order.itemSnapshot as unknown as ItemStack),
+    }));
   }
 }

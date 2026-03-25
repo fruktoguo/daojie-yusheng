@@ -504,33 +504,234 @@
       .market-book-columns {
         grid-template-columns: minmax(0, 1fr);
       }
-      .market-board,
-      .market-my-orders {
-        height: auto;
+  .market-board,
+  .market-my-orders {
+    min-height: 0;
+  }
+  .detail-modal-card.detail-modal--market {
+    width: calc(100vw - 8px);
+    height: min(84dvh, calc(100dvh - 8px));
+    padding: 12px 10px 10px;
+  }
+  .market-modal-shell--wide {
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 6px;
+  }
+  .market-side-tabs {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    gap: 4px;
+    align-items: stretch;
+    padding: 4px 3px;
+  }
+  .market-side-tabs-title {
+    display: none;
+  }
+  .market-side-tab {
+    justify-content: center;
+    flex: 0 0 auto;
+    min-height: 74px;
+    padding: 6px 0;
+    text-align: center;
+    line-height: 1.1;
+    font-size: var(--font-size-11);
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    letter-spacing: 0.5px;
+  }
+  .market-modal-content {
+    min-height: 0;
+  }
+  .market-market-tab,
+  .market-my-orders,
+  .market-trade-history {
+    gap: 8px;
+    min-height: 0;
+  }
+  .market-category-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 5px;
+    padding-bottom: 0;
+    scrollbar-width: thin;
+  }
+  .market-category-tab {
+    flex: 0 0 auto;
+    min-height: 28px;
+    padding: 0 9px;
+    font-size: var(--font-size-11);
+  }
+  .market-board-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(6, minmax(0, 1fr));
+    grid-auto-rows: 0;
+    gap: 6px;
+    height: 100%;
+    min-height: 0;
+    align-content: stretch;
+  }
+  .market-board {
+    grid-template-rows: minmax(0, 1.14fr) minmax(0, 0.86fr);
+    gap: 8px;
+    height: 100%;
+    overflow: hidden;
+  }
+  .market-board-list-wrap,
+  .market-book-panel,
+  .market-book-column,
+      .market-my-orders-column,
+      .market-storage-card,
+      .market-trade-history-list,
+      .market-trade-history-item,
+      .market-order-card {
+        padding: 8px;
+      }
+  .market-list-toolbar {
+    gap: 8px;
+    padding-bottom: 6px;
+  }
+  .market-list-toolbar-actions {
+    gap: 6px;
+  }
+      .market-item-cell {
+        align-items: flex-start;
+        justify-content: center;
+        min-height: 0;
+        height: 100%;
+        padding: 5px 8px;
+        gap: 0;
+      }
+      .market-item-cell-name,
+      .market-order-name {
+        font-size: var(--font-size-13);
+      }
+      .market-item-cell-name {
+        display: flex;
+        align-items: baseline;
+        gap: 4px;
+        width: 100%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.2;
         min-height: 0;
       }
-      .market-modal-shell--wide {
-        grid-template-columns: minmax(0, 1fr);
+      .market-item-cell-name-text {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        line-height: 1.2;
       }
-      .market-side-tabs {
-        flex-direction: row;
-        flex-wrap: wrap;
+      .market-item-cell-owned {
+        font-size: var(--font-size-10);
+        white-space: nowrap;
       }
-      .market-side-tab {
+      .market-item-cell-prices,
+      .market-book-subtitle,
+      .market-order-meta,
+      .market-trade-history-hint {
+        font-size: var(--font-size-11);
+      }
+      .market-item-cell-prices {
+        display: none;
+      }
+      .market-item-title {
+        font-size: var(--font-size-16);
+      }
+      .market-book-level {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 8px 9px;
+        gap: 6px;
+      }
+      .market-book-level-price {
+        font-size: var(--font-size-12);
+      }
+      .market-book-level-qty {
+        font-size: var(--font-size-11);
+      }
+      .market-book-column-head {
+        gap: 6px;
+      }
+      .market-book-column-title,
+      .market-action-title,
+      .market-my-orders .panel-section-title,
+      .market-storage-card .panel-section-title,
+      .market-trade-dialog .panel-section-title {
+        font-size: var(--font-size-13);
+      }
+      .market-price-control-row {
+        flex-wrap: nowrap;
         justify-content: center;
-        flex: 1 1 120px;
+        gap: 4px;
       }
-      .market-board-list {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        grid-template-rows: none;
-        height: auto;
+      .market-price-control-side {
+        justify-content: center;
+        gap: 4px;
+        width: auto;
+        flex: 0 0 auto;
       }
-      .market-board-list-wrap {
-        overflow: visible;
+      .market-price-control-row .market-price-display {
+        min-width: 0;
+        width: 116px;
+        padding: 0 8px;
       }
-      .market-trade-dialog {
-        width: calc(100% - 20px);
-        max-width: 420px;
+      .market-price-control-row .small-btn {
+        min-width: 38px;
+        padding: 2px 8px;
+      }
+      .market-price-display strong {
+        font-size: var(--font-size-16);
+      }
+      .market-quantity-row {
+        justify-content: center;
+        gap: 6px;
+      }
+  .market-quantity-row .gm-inline-input {
+    width: min(112px, 100%);
+  }
+  .market-board-list-wrap {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    overflow: hidden;
+  }
+  .market-trade-dialog {
+    width: min(360px, calc(100% - 12px));
+    max-width: 360px;
+    max-height: min(82dvh, calc(100dvh - 16px));
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 9px;
+    overflow: hidden;
+  }
+  .market-trade-modal-shell {
+    padding: 6px;
+  }
+  .market-trade-dialog-head {
+    gap: 8px;
+    align-items: center;
+  }
+  .market-trade-dialog-head .small-btn {
+    min-width: 56px;
+  }
+  .market-trade-dialog-body {
+    gap: 8px;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 2px;
+  }
+  .market-trade-dialog-intro,
+  .market-trade-dialog-section {
+    padding: 7px;
+  }
+  .market-trade-dialog-actions {
+    justify-content: space-between;
+  }
+      .market-trade-dialog-actions .small-btn {
+        flex: 1 1 0;
       }
       #debug-panel {
         right: 10px;

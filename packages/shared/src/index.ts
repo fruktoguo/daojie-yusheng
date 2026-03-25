@@ -23,3 +23,4 @@ export * from './network-protobuf';
 export * from './map-document';
 export * from './aura';
 export * from './age';
+export * from './market-price';

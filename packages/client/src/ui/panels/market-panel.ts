@@ -1,9 +1,13 @@
 import {
   createItemStackSignature,
+  EQUIP_SLOTS,
+  EquipSlot,
   Inventory,
   ITEM_TYPES,
   ItemStack,
   ItemType,
+  MARKET_MAX_UNIT_PRICE,
+  MARKET_PRICE_PRESET_VALUES,
   MarketListedItemView,
   MarketOrderBookView,
   MarketOwnOrderView,
@@ -12,12 +16,17 @@ import {
   S2C_MarketItemBook,
   S2C_MarketTradeHistory,
   S2C_MarketUpdate,
+  getMarketPriceStep,
+  normalizeMarketPriceDown,
+  normalizeMarketPriceUp,
 } from '@mud/shared';
+import { buildItemTooltipPayload } from '../equipment-tooltip';
+import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { detailModalHost } from '../detail-modal-host';
 import { preserveSelection } from '../selection-preserver';
 import { MARKET_MODAL_TABS, MARKET_PANE_HINT, MarketModalTab } from '../../constants/ui/market';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
-import { getItemTypeLabel } from '../../domain-labels';
+import { getEquipSlotLabel, getItemTypeLabel } from '../../domain-labels';
 
 function escapeHtml(value: string): string {
   return value
@@ -43,12 +52,25 @@ interface MarketPanelCallbacks {
 }
 
 type MarketCategoryFilter = 'all' | ItemType;
+type MarketEquipmentFilter = 'all' | EquipSlot;
 type MarketTradeDialogKind = 'buy' | 'sell';
+type MarketPriceAction = 'decrease' | 'increase' | 'double' | 'half' | 'preset';
 
-const MARKET_PAGE_SIZE = 32;
+interface MarketTradeDialogState {
+  kind: MarketTradeDialogKind;
+  quantity: number;
+  unitPrice: number;
+}
+
+const MARKET_DESKTOP_PAGE_SIZE = 32;
+const MARKET_MOBILE_PAGE_SIZE = 12;
+const MARKET_DIALOG_MIN_PRICE = MARKET_PRICE_PRESET_VALUES[0];
+const MARKET_DIALOG_MAX_PRICE = MARKET_MAX_UNIT_PRICE;
+const MARKET_DIALOG_MAX_QUANTITY = 9999;
 
 export class MarketPanel {
   private static readonly MODAL_OWNER = 'market-panel';
+  private static readonly TRADE_MODAL_ID = 'market-trade-modal-root';
   private readonly pane = document.getElementById('pane-market')!;
   private callbacks: MarketPanelCallbacks | null = null;
   private marketUpdate: S2C_MarketUpdate | null = null;
@@ -56,13 +78,16 @@ export class MarketPanel {
   private selectedItemKey: string | null = null;
   private modalTab: MarketModalTab = 'market';
   private activeCategory: MarketCategoryFilter = 'all';
+  private activeEquipmentCategory: MarketEquipmentFilter = 'all';
   private currentPage = 1;
   private tradeHistoryPage = 1;
   private itemBookLoading = false;
   private tradeHistoryLoading = false;
-  private tradeDialog: { kind: MarketTradeDialogKind } | null = null;
+  private tradeDialog: MarketTradeDialogState | null = null;
   private tradeHistory: S2C_MarketTradeHistory | null = null;
   private inventory: Inventory = { items: [], capacity: 0 };
+  private tooltip = new FloatingTooltip('floating-tooltip market-item-tooltip');
+  private tooltipNode: HTMLElement | null = null;
 
   constructor() {
     this.bindPaneEvents();
@@ -103,6 +128,8 @@ export class MarketPanel {
         this.requestItemBook(this.selectedItemKey);
       }
       this.renderModal();
+    } else {
+      this.syncTradeDialogOverlay();
     }
   }
 
@@ -114,6 +141,8 @@ export class MarketPanel {
     this.itemBook = data.book;
     if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
       this.renderModal();
+    } else {
+      this.syncTradeDialogOverlay();
     }
   }
 
@@ -132,6 +161,7 @@ export class MarketPanel {
     this.selectedItemKey = null;
     this.modalTab = 'market';
     this.activeCategory = 'all';
+    this.activeEquipmentCategory = 'all';
     this.currentPage = 1;
     this.tradeHistoryPage = 1;
     this.itemBookLoading = false;
@@ -139,6 +169,9 @@ export class MarketPanel {
     this.tradeDialog = null;
     this.tradeHistory = null;
     this.inventory = { items: [], capacity: 0 };
+    this.tooltipNode = null;
+    this.tooltip.hide(true);
+    this.syncTradeDialogOverlay();
     this.renderPane();
     detailModalHost.close(MarketPanel.MODAL_OWNER);
   }
@@ -202,6 +235,8 @@ export class MarketPanel {
         : '<div class="empty-hint">坊市盘面同步中……</div>',
       onClose: () => {
         this.itemBookLoading = false;
+        this.tooltipNode = null;
+        this.tooltip.hide(true);
       },
       onAfterRender: (body) => {
         body.querySelectorAll<HTMLElement>('[data-market-modal-tab]').forEach((button) => button.addEventListener('click', () => {
@@ -225,6 +260,21 @@ export class MarketPanel {
             return;
           }
           this.activeCategory = category;
+          if (category !== 'equipment') {
+            this.activeEquipmentCategory = 'all';
+          }
+          this.currentPage = 1;
+          this.tradeDialog = null;
+          this.syncPageSelection();
+          this.renderModal();
+        }));
+
+        body.querySelectorAll<HTMLElement>('[data-market-equipment-category]').forEach((button) => button.addEventListener('click', () => {
+          const category = button.dataset.marketEquipmentCategory as MarketEquipmentFilter | undefined;
+          if (!category || category === this.activeEquipmentCategory) {
+            return;
+          }
+          this.activeEquipmentCategory = category;
           this.currentPage = 1;
           this.tradeDialog = null;
           this.syncPageSelection();
@@ -265,39 +315,12 @@ export class MarketPanel {
 
         body.querySelectorAll<HTMLElement>('[data-market-open-dialog]').forEach((button) => button.addEventListener('click', () => {
           const kind = button.dataset.marketOpenDialog as MarketTradeDialogKind | undefined;
-          if (!kind) {
-            return;
-          }
-          this.tradeDialog = { kind };
-          this.renderModal();
-        }));
-
-        body.querySelectorAll<HTMLElement>('[data-market-close-dialog]').forEach((button) => button.addEventListener('click', () => {
-          this.tradeDialog = null;
-          this.renderModal();
-        }));
-
-        body.querySelectorAll<HTMLElement>('[data-market-submit-dialog]').forEach((button) => button.addEventListener('click', () => {
-          const kind = button.dataset.marketSubmitDialog as MarketTradeDialogKind | undefined;
           const selected = this.getSelectedListedItem(this.marketUpdate);
           if (!kind || !selected) {
             return;
           }
-          const quantity = this.readPositiveInt(body.querySelector<HTMLInputElement>('[data-market-dialog-input="quantity"]'));
-          const unitPrice = this.readPositiveInt(body.querySelector<HTMLInputElement>('[data-market-dialog-input="price"]'));
-          if (kind === 'buy') {
-            this.callbacks?.onCreateBuyOrder(selected.item.itemId, quantity, unitPrice);
-            this.tradeDialog = null;
-            this.renderModal();
-            return;
-          }
-          const slotIndex = this.findMatchingInventorySlot(selected.item);
-          if (slotIndex === null) {
-            return;
-          }
-          this.callbacks?.onCreateSellOrder(slotIndex, quantity, unitPrice);
-          this.tradeDialog = null;
-          this.renderModal();
+          const presetPrice = this.readDatasetInt(button.dataset.marketOpenDialogPrice);
+          this.openTradeDialog(selected, kind, presetPrice);
         }));
 
         body.querySelectorAll<HTMLElement>('[data-market-cancel-order]').forEach((button) => button.addEventListener('click', () => {
@@ -311,6 +334,9 @@ export class MarketPanel {
         body.querySelector<HTMLElement>('[data-market-claim-storage]')?.addEventListener('click', () => {
           this.callbacks?.onClaimStorage();
         });
+
+        this.bindItemTooltipEvents(body);
+        this.syncTradeDialogOverlay();
       },
     });
   }
@@ -346,9 +372,11 @@ export class MarketPanel {
     const cards = pagination.items.map((entry) => this.renderListedItem(entry, selectedItem.itemKey)).join('');
     const orderBook = this.itemBook && this.itemBook.itemKey === selectedItem.itemKey ? this.itemBook : null;
     const categoryTabs = this.renderCategoryTabs(update);
+    const equipmentTabs = this.activeCategory === 'equipment' ? this.renderEquipmentTabs(update) : '';
     return `
       <div class="market-market-tab">
         <div class="market-category-tabs">${categoryTabs}</div>
+        ${equipmentTabs ? `<div class="market-category-tabs market-category-tabs--sub">${equipmentTabs}</div>` : ''}
         <div class="market-board">
           <div class="market-board-list-wrap">
             ${this.renderListToolbar(pagination.page, pagination.totalPages, listedItems.length)}
@@ -358,17 +386,21 @@ export class MarketPanel {
             ${this.renderBookPanel(selectedItem, orderBook, update.currencyItemName)}
           </div>
         </div>
-        ${this.renderTradeDialog(selectedItem, update.currencyItemName)}
       </div>
     `;
   }
 
   private renderListedItem(entry: MarketListedItemView, activeItemKey: string): string {
     const ownedCount = this.findMatchingInventoryCount(entry.item);
-    const ownedText = ownedCount > 0 ? ` (${formatDisplayCountBadge(ownedCount)})` : '';
+    const ownedLabel = ownedCount > 0
+      ? `<span class="market-item-cell-owned">${formatDisplayCountBadge(ownedCount)}</span>`
+      : '';
     return `
       <button class="market-item-cell ${entry.itemKey === activeItemKey ? 'active' : ''}" data-market-select-item="${escapeHtmlAttr(entry.itemKey)}" type="button">
-        <div class="market-item-cell-name" title="${escapeHtmlAttr(entry.item.name)}${ownedText}">${escapeHtml(entry.item.name)}${ownedText}</div>
+        <div class="market-item-cell-name" title="${escapeHtmlAttr(entry.item.name)}">
+          <span class="market-item-cell-name-text">${escapeHtml(entry.item.name)}</span>
+          ${ownedLabel}
+        </div>
         <div class="market-item-cell-prices">
           <span>卖 ${entry.lowestSellPrice !== undefined ? formatDisplayInteger(entry.lowestSellPrice) : '--'}</span>
           <span>买 ${entry.highestBuyPrice !== undefined ? formatDisplayInteger(entry.highestBuyPrice) : '--'}</span>
@@ -379,42 +411,74 @@ export class MarketPanel {
 
   private renderBookPanel(entry: MarketListedItemView, book: MarketOrderBookView | null, currencyName: string): string {
     const matchedInventoryCount = this.findMatchingInventoryCount(entry.item);
+    const sellConflict = this.findConflictingOwnOrder(entry.itemKey, 'sell');
+    const buyConflict = this.findConflictingOwnOrder(entry.itemKey, 'buy');
     return `
       <div class="market-book-header">
         <div>
-          <div class="market-item-title">${escapeHtml(entry.item.name)}</div>
+          <div class="market-item-title market-item-title--interactive" data-market-item-tooltip="selected">${escapeHtml(entry.item.name)}</div>
           <div class="market-book-subtitle">${escapeHtml(getItemTypeLabel(entry.item.type))} · ${escapeHtml(entry.item.desc)}</div>
         </div>
       </div>
       <div class="market-book-columns">
         <div class="market-book-column">
           <div class="market-book-column-head">
-            <div class="market-book-column-title">出售</div>
-            <button class="small-btn ghost" data-market-open-dialog="sell" type="button" ${matchedInventoryCount > 0 ? '' : 'disabled'}>挂售</button>
+            <div class="market-book-column-title">挂售</div>
+            <button class="small-btn ghost" data-market-open-dialog="sell" type="button" ${(matchedInventoryCount > 0 && !sellConflict) ? '' : 'disabled'}>挂售</button>
           </div>
+          ${sellConflict ? '<div class="market-action-hint">你已在求购这件物品，不能再挂售。</div>' : ''}
           ${book
-            ? this.renderPriceLevels(book.sells, currencyName, '当前还没有卖盘。')
+            ? this.renderPriceLevels(book.sells, currencyName, '当前还没有卖盘。', {
+              kind: 'buy',
+              label: '购买',
+              disabled: Boolean(buyConflict),
+            })
             : this.renderBookLoading(this.itemBookLoading ? '卖盘同步中……' : '当前盘面已更新，请重新选择物品。')}
         </div>
         <div class="market-book-column">
           <div class="market-book-column-head">
             <div class="market-book-column-title">求购</div>
-            <button class="small-btn ghost" data-market-open-dialog="buy" type="button">求购</button>
+            <button class="small-btn ghost" data-market-open-dialog="buy" type="button" ${buyConflict ? 'disabled' : ''}>求购</button>
           </div>
-          ${book ? this.renderPriceLevels(book.buys, currencyName, '当前还没有求购。') : this.renderBookLoading(this.itemBookLoading ? '买盘同步中……' : '当前还没有求购。')}
+          ${buyConflict ? '<div class="market-action-hint">你已在挂售这件物品，不能再求购。</div>' : ''}
+          ${book ? this.renderPriceLevels(book.buys, currencyName, '当前还没有求购。', {
+            kind: 'sell',
+            label: '出售',
+            disabled: matchedInventoryCount <= 0 || Boolean(sellConflict),
+          }) : this.renderBookLoading(this.itemBookLoading ? '买盘同步中……' : '当前还没有求购。')}
         </div>
       </div>
     `;
   }
 
-  private renderPriceLevels(levels: MarketOrderBookView['sells'], currencyName: string, emptyText: string): string {
+  private renderPriceLevels(
+    levels: MarketOrderBookView['sells'],
+    currencyName: string,
+    emptyText: string,
+    quickAction?: {
+      kind: MarketTradeDialogKind;
+      label: string;
+      disabled?: boolean;
+    },
+  ): string {
     if (levels.length === 0) {
       return `<div class="empty-hint">${escapeHtml(emptyText)}</div>`;
     }
-    return levels.map((level) => `
+    return levels.map((level, index) => `
       <div class="market-book-level">
-        <span class="market-book-level-price">${formatDisplayInteger(level.unitPrice)} ${escapeHtml(currencyName)}</span>
-        <span class="market-book-level-qty">${formatDisplayCountBadge(level.quantity)}</span>
+        <div class="market-book-level-main">
+          <span class="market-book-level-price">${formatDisplayInteger(level.unitPrice)} ${escapeHtml(currencyName)}</span>
+          <span class="market-book-level-qty">总量 ${formatDisplayCountBadge(level.quantity)}</span>
+        </div>
+        ${quickAction && index === 0
+          ? `<button
+              class="small-btn ghost market-book-level-action"
+              data-market-open-dialog="${quickAction.kind}"
+              data-market-open-dialog-price="${level.unitPrice}"
+              type="button"
+              ${quickAction.disabled ? 'disabled' : ''}
+            >${quickAction.label}</button>`
+          : ''}
       </div>
     `).join('');
   }
@@ -528,46 +592,163 @@ export class MarketPanel {
     `;
   }
 
-  private renderTradeDialog(entry: MarketListedItemView, currencyName: string): string {
+  private renderTradeDialog(entry: MarketListedItemView, currencyItemId: string, currencyName: string): string {
     if (!this.tradeDialog) {
       return '';
     }
+    const dialog = this.tradeDialog;
     const matchedInventoryCount = this.findMatchingInventoryCount(entry.item);
     const matchedSlotIndex = this.findMatchingInventorySlot(entry.item);
-    const isBuy = this.tradeDialog.kind === 'buy';
+    const isBuy = dialog.kind === 'buy';
+    const conflictOrder = this.findConflictingOwnOrder(entry.itemKey, dialog.kind);
+    const ownedCurrency = this.findInventoryItemCountByItemId(currencyItemId);
+    const insufficientCurrency = isBuy && dialog.quantity * dialog.unitPrice > ownedCurrency;
     const title = isBuy ? '发起求购' : '发起挂售';
     const actionLabel = isBuy ? '确认求购' : '确认挂售';
-    const suggestedPrice = isBuy
-      ? (entry.lowestSellPrice ?? entry.highestBuyPrice ?? 1)
-      : (entry.highestBuyPrice ?? entry.lowestSellPrice ?? 1);
-    const hint = isBuy
-      ? `会先按你输入的最高单价吃掉现有低于等于该价格的卖盘，剩余数量自动转成求购。`
-      : `会先按你输入的最低单价撮合现有高于等于该价格的求购，剩余数量自动转成挂售。`;
-    const disabled = !isBuy && (matchedSlotIndex === null || matchedInventoryCount <= 0);
+    const disabled = Boolean(conflictOrder)
+      || ((!isBuy && (matchedSlotIndex === null || matchedInventoryCount <= 0)) || insufficientCurrency);
+    const quantityMax = this.getTradeDialogQuantityMax(entry, dialog.kind);
     return `
-      <div class="market-trade-dialog-backdrop" data-market-close-dialog></div>
-      <div class="market-trade-dialog" role="dialog" aria-modal="true">
+      <div class="market-trade-modal-shell">
+        <div class="market-trade-modal-backdrop" data-market-close-dialog></div>
+        <div class="market-trade-dialog market-trade-dialog--${dialog.kind}" role="dialog" aria-modal="true">
         <div class="market-trade-dialog-head">
-          <div>
+          <div class="market-trade-dialog-title">
             <div class="panel-section-title">${title}</div>
-            <div class="market-book-subtitle">${escapeHtml(entry.item.name)} · ${escapeHtml(currencyName)}</div>
+            <div class="market-trade-dialog-item market-trade-dialog-item--interactive" data-market-item-tooltip="selected">${escapeHtml(entry.item.name)}</div>
           </div>
           <button class="small-btn ghost" data-market-close-dialog type="button">关闭</button>
         </div>
         <div class="market-trade-dialog-body">
-          <div class="market-trade-dialog-hint">${hint}</div>
-          ${!isBuy ? `<div class="market-action-hint">${matchedInventoryCount > 0 ? `你当前持有 ${formatDisplayCountBadge(matchedInventoryCount)}。` : '你当前没有这件物品，无法挂售。'}</div>` : ''}
-          <div class="market-action-row">
-            <label>数量<input class="gm-inline-input" data-market-dialog-input="quantity" type="number" min="1" max="${Math.max(1, matchedInventoryCount)}" value="1" /></label>
-            <label>价格<input class="gm-inline-input" data-market-dialog-input="price" type="number" min="1" value="${suggestedPrice}" /></label>
+          <div class="market-trade-dialog-section">
+            <div class="market-trade-dialog-section-label">快捷定价</div>
+            <div class="market-price-preset-row">
+              ${MARKET_PRICE_PRESET_VALUES.map((preset) => `
+                <button
+                  class="small-btn ghost ${preset === dialog.unitPrice ? 'active' : ''}"
+                  data-market-price-action="preset"
+                  data-market-price-preset="${preset}"
+                  type="button"
+                >${escapeHtml(this.formatPricePresetLabel(preset))}</button>
+              `).join('')}
+            </div>
           </div>
+          <div class="market-trade-dialog-section">
+            <div class="market-trade-dialog-field">
+              <span>单价</span>
+              <div class="market-price-control-row">
+                <div class="market-price-control-side">
+                  <button class="small-btn ghost" data-market-price-action="half" type="button">÷2</button>
+                  <button class="small-btn ghost" data-market-price-action="decrease" type="button">-</button>
+                </div>
+                <div class="market-price-display">
+                  <strong>${formatDisplayInteger(dialog.unitPrice)}</strong>
+                  <span>${escapeHtml(currencyName)}</span>
+                </div>
+                <div class="market-price-control-side">
+                  <button class="small-btn ghost" data-market-price-action="increase" type="button">+</button>
+                  <button class="small-btn ghost" data-market-price-action="double" type="button">x2</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="market-trade-dialog-section">
+            <div class="market-trade-dialog-field">
+              <span>数量</span>
+              <div class="market-quantity-row">
+                <button class="small-btn ghost" data-market-quantity-action="one" type="button">1</button>
+                <input
+                  class="gm-inline-input"
+                  data-market-dialog-quantity
+                  type="number"
+                  inputmode="numeric"
+                  min="1"
+                  max="${quantityMax}"
+                  value="${dialog.quantity}"
+                />
+                <button
+                  class="small-btn ghost"
+                  data-market-quantity-action="max"
+                  type="button"
+                  ${this.getTradeDialogMaxButtonQuantity(entry, currencyItemId, dialog) <= 0 ? 'disabled' : ''}
+                >最大</button>
+              </div>
+            </div>
+            <div class="market-trade-dialog-total ${insufficientCurrency ? 'error' : ''}">
+              <span>${isBuy ? '总价' : '总额'}</span>
+              <strong>${formatDisplayInteger(dialog.quantity * dialog.unitPrice)} ${escapeHtml(currencyName)}</strong>
+            </div>
+          </div>
+          ${conflictOrder
+            ? `<div class="market-action-hint market-action-hint--error">${escapeHtml(dialog.kind === 'buy' ? '你已在挂售这件物品，不能再求购。' : '你已在求购这件物品，不能再挂售。')}</div>`
+            : ''}
+          ${insufficientCurrency ? `<div class="market-action-hint market-action-hint--error">${escapeHtml(currencyName)}不足，当前需要 ${formatDisplayInteger(dialog.quantity * dialog.unitPrice)}。</div>` : ''}
         </div>
         <div class="market-trade-dialog-actions">
           <button class="small-btn ghost" data-market-close-dialog type="button">取消</button>
-          <button class="small-btn" data-market-submit-dialog="${this.tradeDialog.kind}" type="button" ${disabled ? 'disabled' : ''}>${actionLabel}</button>
+          <button class="small-btn" data-market-submit-dialog="${dialog.kind}" type="button" ${disabled ? 'disabled' : ''}>${actionLabel}</button>
         </div>
       </div>
+      </div>
     `;
+  }
+
+  private bindItemTooltipEvents(body: HTMLElement): void {
+    const nodes = body.querySelectorAll<HTMLElement>('[data-market-item-tooltip]');
+    const selected = this.getSelectedListedItem(this.marketUpdate);
+    if (nodes.length === 0 || !selected) {
+      return;
+    }
+    const tapMode = prefersPinnedTooltipInteraction();
+    const tooltip = buildItemTooltipPayload(selected.item);
+    const showTooltip = (node: HTMLElement, event: PointerEvent): void => {
+      this.tooltip.show(tooltip.title, tooltip.lines, event.clientX, event.clientY, {
+        allowHtml: tooltip.allowHtml,
+        asideCards: tooltip.asideCards,
+      });
+      this.tooltipNode = node;
+    };
+
+    nodes.forEach((node) => {
+      node.addEventListener('click', (event) => {
+        if (!tapMode || !(event instanceof PointerEvent)) {
+          return;
+        }
+        if (this.tooltip.isPinnedTo(node)) {
+          this.tooltipNode = null;
+          this.tooltip.hide(true);
+          return;
+        }
+        this.tooltipNode = node;
+        this.tooltip.showPinned(node, tooltip.title, tooltip.lines, event.clientX, event.clientY, {
+          allowHtml: tooltip.allowHtml,
+          asideCards: tooltip.asideCards,
+        });
+        event.preventDefault();
+        event.stopPropagation();
+      });
+
+      node.addEventListener('pointermove', (event) => {
+        if (!(event instanceof PointerEvent) || (tapMode && this.tooltip.isPinned())) {
+          return;
+        }
+        if (this.tooltipNode !== node) {
+          showTooltip(node, event);
+          return;
+        }
+        this.tooltip.move(event.clientX, event.clientY);
+      });
+
+      node.addEventListener('pointerleave', () => {
+        if (this.tooltip.isPinnedTo(node)) {
+          return;
+        }
+        if (this.tooltipNode === node) {
+          this.tooltipNode = null;
+          this.tooltip.hide();
+        }
+      });
+    });
   }
 
   private getSelectedListedItem(update: S2C_MarketUpdate | null): MarketListedItemView | null {
@@ -599,14 +780,42 @@ export class MarketPanel {
       .join('');
   }
 
+  private renderEquipmentTabs(update: S2C_MarketUpdate): string {
+    const categories: Array<{ id: MarketEquipmentFilter; label: string; count: number }> = [
+      {
+        id: 'all',
+        label: '全部装备',
+        count: update.listedItems.filter((item) => item.item.type === 'equipment').length,
+      },
+      ...EQUIP_SLOTS.map((slot) => ({
+        id: slot,
+        label: getEquipSlotLabel(slot),
+        count: update.listedItems.filter((item) => item.item.type === 'equipment' && item.item.equipSlot === slot).length,
+      })),
+    ];
+    return categories
+      .map((category) => `
+        <button
+          class="market-category-tab ${this.activeEquipmentCategory === category.id ? 'active' : ''}"
+          data-market-equipment-category="${category.id}"
+          type="button"
+        >${escapeHtml(category.label)}<span>${formatDisplayInteger(category.count)}</span></button>
+      `)
+      .join('');
+  }
+
   private getVisibleListedItems(update: S2C_MarketUpdate | null): MarketListedItemView[] {
     if (!update) {
       return [];
     }
-    if (this.activeCategory === 'all') {
-      return update.listedItems;
+    let items = update.listedItems;
+    if (this.activeCategory !== 'all') {
+      items = items.filter((item) => item.item.type === this.activeCategory);
     }
-    return update.listedItems.filter((item) => item.item.type === this.activeCategory);
+    if (this.activeCategory === 'equipment' && this.activeEquipmentCategory !== 'all') {
+      items = items.filter((item) => item.item.equipSlot === this.activeEquipmentCategory);
+    }
+    return items;
   }
 
   private getPaginationState(items: MarketListedItemView[]): {
@@ -614,23 +823,34 @@ export class MarketPanel {
     totalPages: number;
     items: MarketListedItemView[];
   } {
-    const totalPages = Math.max(1, Math.ceil(items.length / MARKET_PAGE_SIZE));
+    const pageSize = this.getMarketPageSize();
+    const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
     const page = this.clampPage(this.currentPage, items.length);
     this.currentPage = page;
-    const start = (page - 1) * MARKET_PAGE_SIZE;
+    const start = (page - 1) * pageSize;
     return {
       page,
       totalPages,
-      items: items.slice(start, start + MARKET_PAGE_SIZE),
+      items: items.slice(start, start + pageSize),
     };
   }
 
   private clampPage(page: number, totalItems: number): number {
-    const totalPages = Math.max(1, Math.ceil(totalItems / MARKET_PAGE_SIZE));
+    const totalPages = Math.max(1, Math.ceil(totalItems / this.getMarketPageSize()));
     if (!Number.isFinite(page)) {
       return 1;
     }
     return Math.max(1, Math.min(totalPages, Math.floor(page)));
+  }
+
+  private getMarketPageSize(): number {
+    if (typeof window === 'undefined') {
+      return MARKET_DESKTOP_PAGE_SIZE;
+    }
+    const mobileLayout = window.matchMedia('(max-width: 920px)').matches
+      || (window.matchMedia('(max-width: 1180px)').matches
+        && (window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(hover: none)').matches));
+    return mobileLayout ? MARKET_MOBILE_PAGE_SIZE : MARKET_DESKTOP_PAGE_SIZE;
   }
 
   private syncPageSelection(): void {
@@ -659,6 +879,228 @@ export class MarketPanel {
     this.callbacks?.onRequestTradeHistory(this.tradeHistoryPage);
   }
 
+  private openTradeDialog(entry: MarketListedItemView, kind: MarketTradeDialogKind, preferredPrice?: number | null): void {
+    this.tradeDialog = {
+      kind,
+      quantity: 1,
+      unitPrice: this.getDefaultTradeDialogPrice(entry, kind, preferredPrice),
+    };
+    this.syncTradeDialogOverlay();
+  }
+
+  private syncTradeDialogOverlay(): void {
+    const root = this.getTradeDialogOverlayRoot();
+    const update = this.marketUpdate;
+    const selected = this.getSelectedListedItem(update);
+    if (!this.tradeDialog || this.modalTab !== 'market' || !detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER) || !update || !selected) {
+      root.innerHTML = '';
+      root.classList.add('hidden');
+      this.tooltipNode = null;
+      this.tooltip.hide(true);
+      return;
+    }
+
+    root.classList.remove('hidden');
+    root.innerHTML = this.renderTradeDialog(selected, update.currencyItemId, update.currencyItemName);
+    this.bindTradeDialogOverlayEvents(root, selected, update);
+    this.bindItemTooltipEvents(root);
+  }
+
+  private bindTradeDialogOverlayEvents(
+    root: HTMLElement,
+    selected: MarketListedItemView,
+    update: S2C_MarketUpdate,
+  ): void {
+    root.querySelectorAll<HTMLElement>('[data-market-close-dialog]').forEach((button) => button.addEventListener('click', () => {
+      this.tradeDialog = null;
+      this.syncTradeDialogOverlay();
+    }));
+
+    root.querySelectorAll<HTMLInputElement>('[data-market-dialog-quantity]').forEach((input) => {
+      input.addEventListener('input', () => {
+        if (!this.tradeDialog) {
+          return;
+        }
+        this.tradeDialog = {
+          ...this.tradeDialog,
+          quantity: this.normalizeTradeDialogQuantity(input.value, selected, this.tradeDialog.kind),
+        };
+      });
+
+      input.addEventListener('change', () => {
+        if (!this.tradeDialog) {
+          return;
+        }
+        this.tradeDialog = {
+          ...this.tradeDialog,
+          quantity: this.normalizeTradeDialogQuantity(input.value, selected, this.tradeDialog.kind),
+        };
+        this.syncTradeDialogOverlay();
+      });
+    });
+
+    root.querySelectorAll<HTMLElement>('[data-market-price-action]').forEach((button) => button.addEventListener('click', () => {
+      if (!this.tradeDialog) {
+        return;
+      }
+      const action = button.dataset.marketPriceAction as MarketPriceAction | undefined;
+      if (!action) {
+        return;
+      }
+      const preset = this.readDatasetInt(button.dataset.marketPricePreset);
+      this.tradeDialog = {
+        ...this.tradeDialog,
+        unitPrice: this.getNextTradeDialogPrice(this.tradeDialog.unitPrice, action, preset),
+      };
+      this.syncTradeDialogOverlay();
+    }));
+
+    root.querySelectorAll<HTMLElement>('[data-market-quantity-action]').forEach((button) => button.addEventListener('click', () => {
+      if (!this.tradeDialog) {
+        return;
+      }
+      const action = button.dataset.marketQuantityAction;
+      const quantity = action === 'max'
+        ? this.getTradeDialogMaxButtonQuantity(selected, update.currencyItemId, this.tradeDialog)
+        : 1;
+      this.tradeDialog = {
+        ...this.tradeDialog,
+        quantity: Math.max(1, quantity),
+      };
+      this.syncTradeDialogOverlay();
+    }));
+
+    root.querySelectorAll<HTMLElement>('[data-market-submit-dialog]').forEach((button) => button.addEventListener('click', () => {
+      const kind = button.dataset.marketSubmitDialog as MarketTradeDialogKind | undefined;
+      if (!kind || !this.tradeDialog || this.tradeDialog.kind !== kind) {
+        return;
+      }
+      const quantity = this.normalizeTradeDialogQuantity(this.tradeDialog.quantity, selected, kind);
+      const unitPrice = this.normalizeTradeDialogPrice(this.tradeDialog.unitPrice, kind === 'buy' ? 'up' : 'down');
+      if (kind === 'buy') {
+        this.callbacks?.onCreateBuyOrder(selected.item.itemId, quantity, unitPrice);
+        this.tradeDialog = null;
+        this.syncTradeDialogOverlay();
+        return;
+      }
+      const slotIndex = this.findMatchingInventorySlot(selected.item);
+      if (slotIndex === null) {
+        return;
+      }
+      this.callbacks?.onCreateSellOrder(slotIndex, quantity, unitPrice);
+      this.tradeDialog = null;
+      this.syncTradeDialogOverlay();
+    }));
+  }
+
+  private getTradeDialogOverlayRoot(): HTMLElement {
+    let root = document.getElementById(MarketPanel.TRADE_MODAL_ID);
+    if (root) {
+      return root;
+    }
+    root = document.createElement('div');
+    root.id = MarketPanel.TRADE_MODAL_ID;
+    root.className = 'market-trade-modal-layer hidden';
+    document.body.appendChild(root);
+    return root;
+  }
+
+  private findConflictingOwnOrder(itemKey: string, nextSide: MarketTradeDialogKind): MarketOwnOrderView | null {
+    const oppositeSide = nextSide === 'sell' ? 'buy' : 'sell';
+    return this.marketUpdate?.myOrders.find((order) =>
+      order.itemKey === itemKey
+      && order.side === oppositeSide
+      && order.remainingQuantity > 0
+      && order.status === 'open') ?? null;
+  }
+
+  private getDefaultTradeDialogPrice(entry: MarketListedItemView, kind: MarketTradeDialogKind, preferredPrice?: number | null): number {
+    const fallback = kind === 'buy'
+      ? (entry.lowestSellPrice ?? entry.highestBuyPrice ?? MARKET_DIALOG_MIN_PRICE)
+      : (entry.highestBuyPrice ?? entry.lowestSellPrice ?? MARKET_DIALOG_MIN_PRICE);
+    const source = preferredPrice && preferredPrice > 0 ? preferredPrice : fallback;
+    return this.normalizeTradeDialogPrice(source, kind === 'buy' ? 'up' : 'down');
+  }
+
+  private normalizeTradeDialogQuantity(
+    value: string | number,
+    entry: MarketListedItemView,
+    kind: MarketTradeDialogKind,
+  ): number {
+    const parsed = typeof value === 'number' ? value : Number.parseInt(value, 10);
+    const max = this.getTradeDialogQuantityMax(entry, kind);
+    if (!Number.isFinite(parsed)) {
+      return 1;
+    }
+    return Math.max(1, Math.min(max, Math.floor(parsed)));
+  }
+
+  private getTradeDialogQuantityMax(entry: MarketListedItemView, kind: MarketTradeDialogKind): number {
+    if (kind === 'sell') {
+      return Math.max(1, this.findMatchingInventoryCount(entry.item));
+    }
+    return MARKET_DIALOG_MAX_QUANTITY;
+  }
+
+  private getTradeDialogMaxButtonQuantity(
+    entry: MarketListedItemView,
+    currencyItemId: string,
+    dialog: MarketTradeDialogState,
+  ): number {
+    if (dialog.kind === 'sell') {
+      return this.findMatchingInventoryCount(entry.item);
+    }
+    return this.getAffordableBuyQuantity(dialog.unitPrice, currencyItemId);
+  }
+
+  private getAffordableBuyQuantity(unitPrice: number, currencyItemId: string): number {
+    if (unitPrice <= 0) {
+      return 0;
+    }
+    return Math.max(0, Math.min(MARKET_DIALOG_MAX_QUANTITY, Math.floor(this.findInventoryItemCountByItemId(currencyItemId) / unitPrice)));
+  }
+
+  private getNextTradeDialogPrice(currentPrice: number, action: MarketPriceAction, preset?: number | null): number {
+    if (action === 'preset') {
+      return this.normalizeTradeDialogPrice(preset ?? MARKET_DIALOG_MIN_PRICE, 'up');
+    }
+    if (action === 'double') {
+      return this.normalizeTradeDialogPrice(currentPrice * 2, 'up');
+    }
+    if (action === 'half') {
+      return this.normalizeTradeDialogPrice(currentPrice / 2, 'down');
+    }
+    if (action === 'increase') {
+      const probe = Math.min(MARKET_DIALOG_MAX_PRICE, currentPrice + 1);
+      return this.normalizeTradeDialogPrice(currentPrice + getMarketPriceStep(probe), 'up');
+    }
+    const probe = Math.max(MARKET_DIALOG_MIN_PRICE, currentPrice - 1);
+    return this.normalizeTradeDialogPrice(currentPrice - getMarketPriceStep(probe), 'down');
+  }
+
+  private normalizeTradeDialogPrice(value: number, direction: 'up' | 'down'): number {
+    const bounded = Math.max(MARKET_DIALOG_MIN_PRICE, Math.min(MARKET_DIALOG_MAX_PRICE, value));
+    if (direction === 'up') {
+      return Math.min(MARKET_DIALOG_MAX_PRICE, normalizeMarketPriceUp(bounded));
+    }
+    return Math.max(MARKET_DIALOG_MIN_PRICE, normalizeMarketPriceDown(bounded));
+  }
+
+  private formatPricePresetLabel(value: number): string {
+    if (value >= 1_000_000) {
+      return '一百万';
+    }
+    if (value >= 10_000) {
+      return '一万';
+    }
+    return formatDisplayInteger(value);
+  }
+
+  private readDatasetInt(value: string | undefined): number | null {
+    const parsed = Number.parseInt(value ?? '', 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
   private findMatchingInventorySlot(item: ItemStack): number | null {
     const targetKey = createItemStackSignature({ ...item, count: 1 });
     const slotIndex = this.inventory.items.findIndex((entry) => createItemStackSignature({ ...entry, count: 1 }) === targetKey);
@@ -672,8 +1114,9 @@ export class MarketPanel {
       .reduce((sum, entry) => sum + entry.count, 0);
   }
 
-  private readPositiveInt(input: HTMLInputElement | null): number {
-    const value = Number.parseInt(input?.value ?? '1', 10);
-    return Number.isFinite(value) && value > 0 ? value : 1;
+  private findInventoryItemCountByItemId(itemId: string): number {
+    return this.inventory.items
+      .filter((entry) => entry.itemId === itemId)
+      .reduce((sum, entry) => sum + entry.count, 0);
   }
 }
