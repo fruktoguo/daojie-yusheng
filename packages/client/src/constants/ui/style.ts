@@ -18,14 +18,30 @@ export type UiFontLevelDefinition = {
 
 export type UiStyleConfig = {
   colorMode: UiColorMode;
+  globalFontOffset: number;
   fontSizes: Record<UiFontLevelKey, number>;
 };
+
+function buildUiFontSizes(resolveSize: (definition: UiFontLevelDefinition) => number): Record<UiFontLevelKey, number> {
+  return UI_FONT_LEVEL_DEFINITIONS.reduce<Record<UiFontLevelKey, number>>((result, definition) => {
+    result[definition.key] = resolveSize(definition);
+    return result;
+  }, {} as Record<UiFontLevelKey, number>);
+}
 
 /** 颜色模式切换选项。 */
 export const UI_COLOR_MODE_OPTIONS: Array<{ value: UiColorMode; label: string; description: string }> = [
   { value: 'light', label: '浅色', description: '保持当前纸卷风格的亮面配色。' },
   { value: 'dark', label: '深色', description: '切换为更适合夜间游玩的暗面配色。' },
 ];
+
+/** 全局字号偏移配置。 */
+export const UI_GLOBAL_FONT_OFFSET_RANGE = {
+  min: -12,
+  max: 12,
+  defaultValue: 0,
+  step: 1,
+} as const;
 
 /** UI 字号层级定义。 */
 export const UI_FONT_LEVEL_DEFINITIONS: UiFontLevelDefinition[] = [
@@ -104,8 +120,6 @@ export const UI_FONT_LEVEL_DEFINITIONS: UiFontLevelDefinition[] = [
 /** 默认 UI 样式配置。 */
 export const DEFAULT_UI_STYLE_CONFIG: UiStyleConfig = {
   colorMode: 'light',
-  fontSizes: UI_FONT_LEVEL_DEFINITIONS.reduce<Record<UiFontLevelKey, number>>((result, definition) => {
-    result[definition.key] = definition.defaultSize;
-    return result;
-  }, {} as Record<UiFontLevelKey, number>),
+  globalFontOffset: UI_GLOBAL_FONT_OFFSET_RANGE.defaultValue,
+  fontSizes: buildUiFontSizes((definition) => definition.defaultSize),
 };

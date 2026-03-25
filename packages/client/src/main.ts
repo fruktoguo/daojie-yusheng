@@ -2,6 +2,14 @@
  * 游戏客户端主入口 —— 初始化所有子系统、绑定网络事件、驱动渲染循环
  */
 
+import './styles/tokens.css';
+import './styles/base.css';
+import './styles/layout.css';
+import './styles/hud.css';
+import './styles/overlays.css';
+import './styles/panels.css';
+import './styles/responsive.css';
+
 import { SocketManager } from './network/socket';
 import { KeyboardInput } from './input/keyboard';
 import { LoginUI } from './ui/login';

@@ -13,14 +13,18 @@ import {
   updateRoleName,
 } from '../auth-api';
 import {
+  getEffectiveUiFontSize,
   getUiStyleConfig,
   resetUiStyleConfig,
   UI_COLOR_MODE_OPTIONS,
   UI_FONT_LEVEL_DEFINITIONS,
+  UI_GLOBAL_FONT_OFFSET_RANGE,
   updateUiColorMode,
   updateUiFontSize,
+  updateUiGlobalFontOffset,
   UiColorMode,
   UiFontLevelKey,
+  UiStyleConfig,
 } from '../ui-style-config';
 
 type SettingsPanelOptions = {
@@ -152,8 +156,14 @@ export class SettingsPanel {
   }
 
   private bindUiSettings(body: HTMLElement): void {
+    const config = getUiStyleConfig();
     const styleStatus = body.querySelector<HTMLElement>('#settings-ui-style-status');
     const resetButton = body.querySelector<HTMLButtonElement>('#settings-ui-reset');
+    const globalRangeInput = body.querySelector<HTMLInputElement>('[data-ui-global-font-range]');
+    const globalNumberInput = body.querySelector<HTMLInputElement>('[data-ui-global-font-number]');
+
+    this.syncUiGlobalFontOffsetRow(body, config.globalFontOffset);
+    this.syncUiFontRows(body, config);
 
     body.querySelectorAll<HTMLButtonElement>('[data-ui-color-mode]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -161,11 +171,35 @@ export class SettingsPanel {
         if (colorMode !== 'light' && colorMode !== 'dark') {
           return;
         }
-        updateUiColorMode(colorMode as UiColorMode);
+        const nextConfig = updateUiColorMode(colorMode as UiColorMode);
         this.syncUiModeButtons(body, colorMode as UiColorMode);
+        this.syncUiFontRows(body, nextConfig);
         setStatus(styleStatus, `已切换为${colorMode === 'dark' ? '深色' : '浅色'}模式`, 'success');
       });
     });
+
+    if (globalRangeInput && globalNumberInput) {
+      const applyGlobalOffset = (rawValue: string) => {
+        const parsed = Number.parseInt(rawValue, 10);
+        const nextValue = Number.isFinite(parsed)
+          ? Math.max(UI_GLOBAL_FONT_OFFSET_RANGE.min, Math.min(UI_GLOBAL_FONT_OFFSET_RANGE.max, parsed))
+          : UI_GLOBAL_FONT_OFFSET_RANGE.defaultValue;
+        const nextConfig = updateUiGlobalFontOffset(nextValue);
+        this.syncUiGlobalFontOffsetRow(body, nextConfig.globalFontOffset);
+        this.syncUiFontRows(body, nextConfig);
+        setStatus(styleStatus, '已更新全部字号偏移', 'success');
+      };
+
+      globalRangeInput.addEventListener('input', () => {
+        applyGlobalOffset(globalRangeInput.value);
+      });
+      globalNumberInput.addEventListener('input', () => {
+        applyGlobalOffset(globalNumberInput.value);
+      });
+      globalNumberInput.addEventListener('blur', () => {
+        applyGlobalOffset(globalNumberInput.value);
+      });
+    }
 
     body.querySelectorAll<HTMLElement>('[data-ui-font-level]').forEach((row) => {
       const key = row.getAttribute('data-ui-font-level') as UiFontLevelKey | null;
@@ -187,8 +221,8 @@ export class SettingsPanel {
           : definition.defaultSize;
         rangeInput.value = String(nextValue);
         numberInput.value = String(nextValue);
-        valueEl.textContent = `${nextValue}px`;
-        updateUiFontSize(key, nextValue);
+        const nextConfig = updateUiFontSize(key, nextValue);
+        this.syncUiFontRows(body, nextConfig);
         setStatus(styleStatus, `已更新${definition.label}字号`, 'success');
       };
 
@@ -206,7 +240,8 @@ export class SettingsPanel {
     resetButton?.addEventListener('click', () => {
       const nextConfig = resetUiStyleConfig();
       this.syncUiModeButtons(body, nextConfig.colorMode);
-      this.syncUiFontRows(body, nextConfig.fontSizes);
+      this.syncUiGlobalFontOffsetRow(body, nextConfig.globalFontOffset);
+      this.syncUiFontRows(body, nextConfig);
       setStatus(styleStatus, 'UI 样式已恢复默认', 'success');
     });
   }
@@ -219,7 +254,22 @@ export class SettingsPanel {
     });
   }
 
-  private syncUiFontRows(body: HTMLElement, fontSizes: Record<UiFontLevelKey, number>): void {
+  private syncUiGlobalFontOffsetRow(body: HTMLElement, globalFontOffset: number): void {
+    const rangeInput = body.querySelector<HTMLInputElement>('[data-ui-global-font-range]');
+    const numberInput = body.querySelector<HTMLInputElement>('[data-ui-global-font-number]');
+    const valueEl = body.querySelector<HTMLElement>('[data-ui-global-font-value]');
+    if (rangeInput) {
+      rangeInput.value = String(globalFontOffset);
+    }
+    if (numberInput) {
+      numberInput.value = String(globalFontOffset);
+    }
+    if (valueEl) {
+      valueEl.textContent = formatGlobalFontOffset(globalFontOffset);
+    }
+  }
+
+  private syncUiFontRows(body: HTMLElement, config: UiStyleConfig): void {
     body.querySelectorAll<HTMLElement>('[data-ui-font-level]').forEach((row) => {
       const key = row.getAttribute('data-ui-font-level') as UiFontLevelKey | null;
       const rangeInput = row.querySelector<HTMLInputElement>('[data-ui-font-range]');
@@ -228,10 +278,11 @@ export class SettingsPanel {
       if (!key || !rangeInput || !numberInput || !valueEl) {
         return;
       }
-      const nextValue = fontSizes[key];
+      const nextValue = config.fontSizes[key];
+      const effectiveSize = getEffectiveUiFontSize(key, config);
       rangeInput.value = String(nextValue);
       numberInput.value = String(nextValue);
-      valueEl.textContent = `${nextValue}px`;
+      valueEl.textContent = `基础 ${nextValue}px · 当前 ${effectiveSize}px`;
     });
   }
 
@@ -300,10 +351,39 @@ export class SettingsPanel {
           <div class="panel-section-title">字体等级配置表</div>
           <button id="settings-ui-reset" class="small-btn ghost" type="button">恢复默认</button>
         </div>
-        <div class="settings-ui-copy">下面的等级会映射到全局字号变量，已覆盖标题、副标题、正文、说明、小字等常用文本层级。</div>
+        <div class="settings-ui-copy">默认滑块仍停在中间。手机模式会用更低的生效基线换算字号，所以基础值不变，但实际显示会比桌面更紧凑。</div>
         <div class="settings-ui-table">
+          <div class="settings-ui-table-row">
+            <div class="settings-ui-level-meta">
+              <div class="settings-ui-level-name">全部字体大小</div>
+              <div class="settings-ui-level-desc">统一增减所有字号，在当前模式基线之上整体偏移。</div>
+            </div>
+            <div class="settings-ui-level-slider">
+              <input
+                type="range"
+                min="${UI_GLOBAL_FONT_OFFSET_RANGE.min}"
+                max="${UI_GLOBAL_FONT_OFFSET_RANGE.max}"
+                step="${UI_GLOBAL_FONT_OFFSET_RANGE.step}"
+                value="${config.globalFontOffset}"
+                data-ui-global-font-range
+              />
+            </div>
+            <div class="settings-ui-level-input">
+              <input
+                type="number"
+                min="${UI_GLOBAL_FONT_OFFSET_RANGE.min}"
+                max="${UI_GLOBAL_FONT_OFFSET_RANGE.max}"
+                step="${UI_GLOBAL_FONT_OFFSET_RANGE.step}"
+                value="${config.globalFontOffset}"
+                data-ui-global-font-number
+              />
+              <span data-ui-global-font-value>${formatGlobalFontOffset(config.globalFontOffset)}</span>
+            </div>
+            <div class="settings-ui-level-preview settings-ui-level-preview--body">整体字号</div>
+          </div>
           ${UI_FONT_LEVEL_DEFINITIONS.map((definition) => {
             const size = config.fontSizes[definition.key];
+            const effectiveSize = getEffectiveUiFontSize(definition.key, config);
             return `
               <div class="settings-ui-table-row" data-ui-font-level="${definition.key}">
                 <div class="settings-ui-level-meta">
@@ -329,7 +409,7 @@ export class SettingsPanel {
                     value="${size}"
                     data-ui-font-number
                   />
-                  <span data-ui-font-value>${size}px</span>
+                  <span data-ui-font-value>基础 ${size}px · 当前 ${effectiveSize}px</span>
                 </div>
                 <div class="settings-ui-level-preview settings-ui-level-preview--${definition.previewClassName}">${definition.previewText}</div>
               </div>
@@ -515,6 +595,10 @@ export class SettingsPanel {
       button.disabled = false;
     }
   }
+}
+
+function formatGlobalFontOffset(value: number): string {
+  return `${value >= 0 ? '+' : ''}${value}px`;
 }
 
 function setStatus(target: HTMLElement | null, message: string, tone: '' | 'success' | 'error'): void {
