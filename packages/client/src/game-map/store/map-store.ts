@@ -230,11 +230,11 @@ export class MapStore {
     }
 
     this.entities = this.mergeTickEntities(data.p, data.e, data.r);
-    this.threatArrows = Array.isArray(data.threatArrows)
-      ? data.threatArrows
+    if (Array.isArray(data.threatArrows)) {
+      this.threatArrows = data.threatArrows
         .map(([ownerId, targetId]) => ({ ownerId, targetId }))
-        .filter((entry) => entry.ownerId && entry.targetId)
-      : [];
+        .filter((entry) => entry.ownerId && entry.targetId);
+    }
     const moved = !mapChanged && (this.player.x !== oldX || this.player.y !== oldY);
     this.entityTransition = mapChanged
       ? { snapCamera: true }

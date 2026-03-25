@@ -152,7 +152,7 @@ function resolveDisplayedLocalTicks(state: GameTimeState | null, now = performan
   const dayLength = Math.max(1, state.dayLength);
   const timeScale = Number.isFinite(state.timeScale) && state.timeScale >= 0 ? state.timeScale : 1;
   const tickIntervalMs = Math.max(1, currentTimeTickIntervalMs);
-  const elapsedMs = Math.max(0, Math.min(now - currentTimeStateSyncedAt, tickIntervalMs));
+  const elapsedMs = Math.max(0, now - currentTimeStateSyncedAt);
   const elapsedTicks = elapsedMs / tickIntervalMs * timeScale;
   return ((state.localTicks + elapsedTicks) % dayLength + dayLength) % dayLength;
 }

@@ -71,6 +71,8 @@ interface LastSentTickState {
   facing?: Direction;
   auraLevelBaseValue?: number;
   pathSignature: string;
+  timeSignature?: string;
+  threatArrowSignature?: string;
   visibilityKey?: string;
   tilePatchRevision?: number;
   mapMetaSignature?: string;
@@ -92,6 +94,8 @@ interface TickConfigDocument {
 const SERVER_CONFIG_SCOPE = 'server_config';
 const TICK_CONFIG_DOCUMENT_KEY = 'tick_runtime';
 const DEFAULT_SYSTEM_ROUTE_DOMAINS: readonly MapRouteDomain[] = ['system'];
+const PERIODIC_SYNC_INTERVAL_MS = 60_000;
+const PERIODIC_SYNC_DIRTY_FLAGS: readonly DirtyFlag[] = ['attr', 'inv', 'equip', 'tech', 'actions', 'loot', 'quest'];
 
 @Injectable()
 export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
@@ -108,6 +112,8 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   private lastSentGroundPiles: Map<string, Map<string, GroundItemPileView>> = new Map();
   private lastSentVisibleTiles: Map<string, Map<string, VisibleTile>> = new Map();
   private lastSentRenderEntities: Map<string, Map<string, RenderEntity>> = new Map();
+  private lastPeriodicSyncAt: Map<string, number> = new Map();
+  private forcedTickSyncPlayers: Set<string> = new Set();
   private persistTimer: ReturnType<typeof setInterval> | null = null;
   private minTickInterval = 1000;
   private offlinePlayerTimeoutMs = DEFAULT_OFFLINE_PLAYER_TIMEOUT_SEC * 1000;
@@ -751,6 +757,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     const finalMapPlayers = this.playerService.getPlayersByMap(mapId);
     for (const player of finalMapPlayers) {
       affectedPlayers.set(player.id, player);
+      this.ensurePeriodicSync(player, now);
     }
 
     this.flushDirtyUpdates([...affectedPlayers.values()]);
@@ -1205,6 +1212,22 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
+  private ensurePeriodicSync(player: PlayerState, now: number): void {
+    const lastSyncAt = this.lastPeriodicSyncAt.get(player.id);
+    if (lastSyncAt === undefined) {
+      this.lastPeriodicSyncAt.set(player.id, now);
+      return;
+    }
+    if (now - lastSyncAt < PERIODIC_SYNC_INTERVAL_MS) {
+      return;
+    }
+
+    this.lastPeriodicSyncAt.set(player.id, now);
+    this.forcedTickSyncPlayers.add(player.id);
+    this.resetPlayerSyncState(player.id);
+    this.markDirty(player.id, [...PERIODIC_SYNC_DIRTY_FLAGS]);
+  }
+
   /** 重新构建玩家的可用行动列表，返回是否发生变化 */
   private syncActions(player: PlayerState, options?: SyncActionsOptions): boolean {
     const before = this.measureCpuSection('state_actions_before', '动作重建: 重建前快照', () => (
@@ -1552,6 +1575,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     for (const viewer of players) {
       const socket = this.playerService.getSocket(viewer.id);
       if (!socket) continue;
+      const forceSync = this.forcedTickSyncPlayers.delete(viewer.id);
       const time = this.measureCpuSection('broadcast_time', '广播: 时间状态构建', () => (
         this.timeService.buildPlayerTimeState(viewer)
       ));
@@ -1645,6 +1669,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         ? this.mapService.getMinimapSignature(viewer.mapId)
         : '';
       const minimapLibrarySignature = this.buildMinimapLibrarySignature(unlockedMinimapIds);
+      const timeSignature = this.buildTimeSignature(time);
       const visibleEntityIds = new Set([...visiblePlayers, ...visibleEntities].map((entity) => entity.id));
       const visibleThreatArrows = this.measureCpuSection('broadcast_entities', '广播: 仇恨箭头构建', () => (
         this.worldService.getVisibleThreatArrowRefs(
@@ -1652,6 +1677,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           visibleEntityIds,
         ).map(({ ownerId, targetId }) => [ownerId, targetId] as [string, string])
       ));
+      const threatArrowSignature = this.buildThreatArrowSignature(visibleThreatArrows);
       const tileOriginX = viewer.x - time.effectiveViewRange;
       const tileOriginY = viewer.y - time.effectiveViewRange;
       const groundPilePatches = this.measureCpuSection('broadcast_patch_ground', '广播: 掉落差量 Patch', () => (
@@ -1687,16 +1713,19 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (shouldSendFullVisibility) {
         this.syncVisibleTileCache(viewer.id, clientVisibleTiles, tileOriginX, tileOriginY);
       }
+      const playerPatches = this.buildSparseRenderEntities(viewer.id, visiblePlayers, visibleEntityIds);
+      const entityPatches = this.buildSparseRenderEntities(viewer.id, visibleEntities, visibleEntityIds);
+      const effectPatches = this.measureCpuSection('broadcast_patch_effects', '广播: 特效过滤', () => (
+        this.filterEffectsForViewer(effects, visibility.visibleKeys)
+      ));
       const tickData: S2C_Tick = {
-        p: this.buildSparseRenderEntities(viewer.id, visiblePlayers, visibleEntityIds),
-        e: this.buildSparseRenderEntities(viewer.id, visibleEntities, visibleEntityIds),
-        fx: this.measureCpuSection('broadcast_patch_effects', '广播: 特效过滤', () => (
-          this.filterEffectsForViewer(effects, visibility.visibleKeys)
-        )),
-        dt,
-        time,
+        p: playerPatches,
+        e: entityPatches,
       };
-      if (visibleThreatArrows.length > 0) {
+      if (effectPatches.length > 0) {
+        tickData.fx = effectPatches;
+      }
+      if (forceSync || previous?.threatArrowSignature !== threatArrowSignature) {
         tickData.threatArrows = visibleThreatArrows;
       }
       if (groundPilePatches.length > 0) {
@@ -1746,6 +1775,13 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (!previous || previous.pathSignature !== pathSignature) {
         tickData.path = path;
       }
+      if (forceSync || mapChanged || previous?.timeSignature !== timeSignature) {
+        tickData.time = time;
+      }
+      if (!this.hasTickPayloadChanges(tickData)) {
+        continue;
+      }
+      tickData.dt = dt;
 
       this.measureCpuSection('broadcast_emit', '广播: Socket 发送', () => {
         socket.emit(S2C.Tick, tickData);
@@ -1757,6 +1793,8 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         facing: viewer.facing,
         auraLevelBaseValue: this.auraLevelBaseValue,
         pathSignature,
+        timeSignature,
+        threatArrowSignature,
         visibilityKey,
         tilePatchRevision,
         mapMetaSignature,
@@ -1771,6 +1809,50 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       return '';
     }
     return path.map(([x, y]) => `${x},${y}`).join('|');
+  }
+
+  private buildTimeSignature(time: ReturnType<TimeService['buildPlayerTimeState']>): string {
+    return JSON.stringify({
+      dayLength: time.dayLength,
+      timeScale: time.timeScale,
+      phase: time.phase,
+      phaseLabel: time.phaseLabel,
+      darknessStacks: time.darknessStacks,
+      visionMultiplier: time.visionMultiplier,
+      lightPercent: time.lightPercent,
+      effectiveViewRange: time.effectiveViewRange,
+      tint: time.tint,
+      overlayAlpha: time.overlayAlpha,
+    });
+  }
+
+  private buildThreatArrowSignature(arrows: Array<[string, string]>): string {
+    if (arrows.length === 0) {
+      return '';
+    }
+    return arrows.map(([ownerId, targetId]) => `${ownerId}>${targetId}`).join('|');
+  }
+
+  private hasTickPayloadChanges(data: S2C_Tick): boolean {
+    return data.p.length > 0
+      || data.e.length > 0
+      || (data.fx?.length ?? 0) > 0
+      || data.threatArrows !== undefined
+      || (data.g?.length ?? 0) > 0
+      || (data.t?.length ?? 0) > 0
+      || (data.r?.length ?? 0) > 0
+      || data.v !== undefined
+      || data.time !== undefined
+      || data.m !== undefined
+      || data.mapMeta !== undefined
+      || 'minimap' in data
+      || data.visibleMinimapMarkers !== undefined
+      || data.minimapLibrary !== undefined
+      || data.hp !== undefined
+      || data.qi !== undefined
+      || data.f !== undefined
+      || data.auraLevelBaseValue !== undefined
+      || data.path !== undefined;
   }
 
   private toClientVisibleTiles(tiles: VisibleTile[][]): VisibleTile[][] {
