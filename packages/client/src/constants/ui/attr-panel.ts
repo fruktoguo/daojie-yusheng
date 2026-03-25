@@ -2,10 +2,11 @@
  * 属性面板视觉与辅助常量。
  * 这里集中定义 tab 标签、颜色方案、提示 tooltip 细化文案等页面级常量，便于统一管理和未来扩展。
  */
-import { NumericStats } from '@mud/shared';
+import { NumericStats, PlayerSpecialStats } from '@mud/shared';
 
 export type AttrTab = 'base' | 'root' | 'combat' | 'qi' | 'special';
 export type NumericCardKey = Exclude<keyof NumericStats, 'elementDamageBonus' | 'elementDamageReduce'>;
+export type PlayerSpecialCardKey = keyof PlayerSpecialStats;
 
 export const ATTR_TAB_LABELS: Record<AttrTab, string> = {
   base: '六维',
@@ -87,4 +88,14 @@ export const NUMERIC_TOOLTIP_DESCRIPTIONS: Partial<Record<NumericCardKey, string
   rareLootRate: '提高稀有掉落收益。',
   moveSpeed: '决定每息获得的移动预算。大路、小路、草地、泥地与沼泽会按不同消耗结算，因此地形会直接影响赶路效率。',
   viewRange: '决定地图上的可见范围。',
+};
+
+export const PLAYER_SPECIAL_TOOLTIP_LABELS: Record<PlayerSpecialCardKey, string> = {
+  foundation: '底蕴',
+  combatExp: '战斗经验',
+};
+
+export const PLAYER_SPECIAL_TOOLTIP_DESCRIPTIONS: Record<PlayerSpecialCardKey, string> = {
+  foundation: '在能够获得境界经验时，优先把本次境界经验抬高到三倍上限；实际额外补上的部分会等量消耗底蕴。',
+  combatExp: '通过战斗获得的境界经验会一比一累计到战斗经验，并按双方差距影响攻击时的命中与受击时的闪避。',
 };

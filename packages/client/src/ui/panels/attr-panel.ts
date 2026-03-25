@@ -16,6 +16,7 @@ import {
   NumericRatioDivisors,
   NumericStats,
   PlayerState,
+  PlayerSpecialStats,
   ratioValue,
   S2C_AttrUpdate,
   TileType,
@@ -30,10 +31,13 @@ import {
   ELEMENT_COLORS,
   NUMERIC_TOOLTIP_DESCRIPTIONS,
   NUMERIC_TOOLTIP_LABELS,
+  PLAYER_SPECIAL_TOOLTIP_DESCRIPTIONS,
+  PLAYER_SPECIAL_TOOLTIP_LABELS,
   RATE_BP_KEYS,
   TOOLTIP_STYLE_ID,
   type AttrTab,
   type NumericCardKey,
+  type PlayerSpecialCardKey,
 } from '../../constants/ui/attr-panel';
 import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../../utils/number';
 
@@ -195,7 +199,7 @@ interface AttrRadarPaneSnapshot {
 }
 
 interface AttrNumericCardSnapshot {
-  key: NumericCardKey;
+  key: string;
   label: string;
   value: string;
   sub?: string;
@@ -248,7 +252,7 @@ export class AttrPanel {
       this.clear();
       return;
     }
-    const snapshot = this.buildSnapshot(data.baseAttrs, data.bonuses, data.finalAttrs, data.numericStats, data.ratioDivisors);
+    const snapshot = this.buildSnapshot(data.baseAttrs, data.bonuses, data.finalAttrs, data.numericStats, data.ratioDivisors, data.specialStats);
     const structureKey = this.buildStructureKey(snapshot);
     if (this.lastStructureKey !== structureKey || !this.patch(snapshot)) {
       this.render(snapshot);
@@ -259,7 +263,17 @@ export class AttrPanel {
 
   initFromPlayer(player: PlayerState): void {
     const finalAttrs = player.finalAttrs ?? this.mergeAttrs(player.baseAttrs, player.bonuses);
-    const snapshot = this.buildSnapshot(player.baseAttrs, player.bonuses, finalAttrs, player.numericStats, player.ratioDivisors);
+    const snapshot = this.buildSnapshot(
+      player.baseAttrs,
+      player.bonuses,
+      finalAttrs,
+      player.numericStats,
+      player.ratioDivisors,
+      {
+        foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
+        combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
+      },
+    );
     this.render(snapshot);
   }
 
@@ -281,6 +295,7 @@ export class AttrPanel {
     final: Attributes,
     stats?: NumericStats,
     ratioDivisors?: NumericRatioDivisors,
+    specialStats?: PlayerSpecialStats,
   ): AttrPanelSnapshot {
     const totalBonus: Partial<Attributes> = {};
     for (const bonus of bonuses) {
@@ -327,18 +342,7 @@ export class AttrPanel {
             auraPowerRate: '光环效果增强',
           },
         }),
-        special: this.buildNumericPaneSnapshot('特殊属性', stats, ratioDivisors, {
-          keys: ['viewRange', 'moveSpeed', 'playerExpRate', 'techniqueExpRate', 'lootRate', 'rareLootRate'],
-          ratioKeys: [],
-          legends: {
-            viewRange: '视野范围',
-            moveSpeed: '移动速度',
-            playerExpRate: '角色经验',
-            techniqueExpRate: '功法经验',
-            lootRate: '掉落增幅',
-            rareLootRate: '稀有掉落',
-          },
-        }),
+        special: this.buildSpecialPaneSnapshot(stats, ratioDivisors, specialStats),
       },
     };
   }
@@ -514,6 +518,54 @@ export class AttrPanel {
           tooltipDetail: buildNumericTooltip(label, key, numericValue, actualLine),
         };
       }),
+    };
+  }
+
+  private buildSpecialPaneSnapshot(
+    stats?: NumericStats,
+    ratios?: NumericRatioDivisors,
+    specialStats?: PlayerSpecialStats,
+  ): AttrPaneSnapshot {
+    if (!stats || !ratios) {
+      return { kind: 'placeholder', message: '特殊属性尚未同步' };
+    }
+
+    const specialCards: AttrNumericCardSnapshot[] = (['foundation', 'combatExp'] as PlayerSpecialCardKey[]).map((key) => {
+      const numericValue = Math.max(0, Math.floor(specialStats?.[key] ?? 0));
+      const label = PLAYER_SPECIAL_TOOLTIP_LABELS[key];
+      const detail = [
+        PLAYER_SPECIAL_TOOLTIP_DESCRIPTIONS[key],
+        `当前数值：${formatDisplayInteger(numericValue)}`,
+      ].join('\n');
+      return {
+        key,
+        label,
+        value: formatDisplayInteger(numericValue),
+        tooltipTitle: label,
+        tooltipDetail: detail,
+      };
+    });
+
+    const numericPane = this.buildNumericPaneSnapshot('特殊属性', stats, ratios, {
+      keys: ['viewRange', 'moveSpeed', 'playerExpRate', 'techniqueExpRate', 'lootRate', 'rareLootRate'],
+      ratioKeys: [],
+      legends: {
+        viewRange: '视野范围',
+        moveSpeed: '移动速度',
+        playerExpRate: '角色经验',
+        techniqueExpRate: '功法经验',
+        lootRate: '掉落增幅',
+        rareLootRate: '稀有掉落',
+      },
+    });
+    if (numericPane.kind !== 'numeric') {
+      return numericPane;
+    }
+
+    return {
+      kind: 'numeric',
+      title: numericPane.title,
+      cards: [...specialCards, ...numericPane.cards],
     };
   }
 

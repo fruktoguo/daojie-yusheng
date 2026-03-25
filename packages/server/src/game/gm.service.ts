@@ -533,6 +533,8 @@ export class GmService {
       maxHp: Math.max(1, this.normalizePositiveInt(entity.maxHp, 1)),
       qi: this.normalizeNonNegativeInt(entity.qi ?? 0),
       dead: Boolean(entity.dead),
+      foundation: this.normalizeNonNegativeInt(entity.foundation ?? 0),
+      combatExp: this.normalizeNonNegativeInt(entity.combatExp ?? 0),
       boneAgeBaseYears: normalizeBoneAgeBaseYears(entity.boneAgeBaseYears),
       lifeElapsedTicks: normalizeLifeElapsedTicks(entity.lifeElapsedTicks),
       lifespanYears: normalizeLifespanYears(entity.lifespanYears),
@@ -599,6 +601,8 @@ export class GmService {
     player.y = nextY;
     player.facing = this.normalizeDirection(snapshot.facing);
     player.viewRange = this.normalizePositiveInt(snapshot.viewRange, player.viewRange);
+    player.foundation = this.normalizeNonNegativeInt(snapshot.foundation ?? player.foundation ?? 0);
+    player.combatExp = this.normalizeNonNegativeInt(snapshot.combatExp ?? player.combatExp ?? 0);
     player.boneAgeBaseYears = normalizeBoneAgeBaseYears(snapshot.boneAgeBaseYears ?? player.boneAgeBaseYears);
     player.lifeElapsedTicks = normalizeLifeElapsedTicks(snapshot.lifeElapsedTicks ?? player.lifeElapsedTicks);
     player.lifespanYears = snapshot.lifespanYears === undefined
@@ -707,6 +711,8 @@ export class GmService {
       maxHp: player.maxHp,
       qi: player.qi,
       dead: player.dead,
+      foundation: player.foundation,
+      combatExp: player.combatExp,
       boneAgeBaseYears: player.boneAgeBaseYears,
       lifeElapsedTicks: player.lifeElapsedTicks,
       lifespanYears: player.lifespanYears,

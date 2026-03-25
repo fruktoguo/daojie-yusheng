@@ -994,6 +994,10 @@ function buildAttrStateFromPlayer(player: PlayerState): S2C_AttrUpdate {
     ratioDivisors: player.ratioDivisors ? cloneJson(player.ratioDivisors) : undefined,
     maxHp: player.maxHp,
     qi: player.qi,
+    specialStats: {
+      foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
+      combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
+    },
     boneAgeBaseYears: player.boneAgeBaseYears,
     lifeElapsedTicks: player.lifeElapsedTicks,
     lifespanYears: player.lifespanYears ?? null,
@@ -1024,6 +1028,12 @@ function mergeAttrUpdatePatch(previous: S2C_AttrUpdate | null, patch: S2C_AttrUp
     ratioDivisors: patch.ratioDivisors ? cloneJson(patch.ratioDivisors) : (previous?.ratioDivisors ? cloneJson(previous.ratioDivisors) : undefined),
     maxHp: patch.maxHp ?? previous?.maxHp ?? myPlayer?.maxHp ?? 0,
     qi: patch.qi ?? previous?.qi ?? myPlayer?.qi ?? 0,
+    specialStats: patch.specialStats
+      ? cloneJson(patch.specialStats)
+      : cloneJson(previous?.specialStats ?? {
+        foundation: Math.max(0, Math.floor(myPlayer?.foundation ?? 0)),
+        combatExp: Math.max(0, Math.floor(myPlayer?.combatExp ?? 0)),
+      }),
     boneAgeBaseYears: patch.boneAgeBaseYears ?? previous?.boneAgeBaseYears ?? myPlayer?.boneAgeBaseYears ?? undefined,
     lifeElapsedTicks: patch.lifeElapsedTicks ?? previous?.lifeElapsedTicks ?? myPlayer?.lifeElapsedTicks ?? undefined,
     lifespanYears: patch.lifespanYears === null
@@ -1395,6 +1405,8 @@ socket.onAttrUpdate((data) => {
     myPlayer.ratioDivisors = latestAttrUpdate.ratioDivisors ?? myPlayer.ratioDivisors;
     myPlayer.maxHp = latestAttrUpdate.maxHp ?? myPlayer.maxHp;
     myPlayer.qi = latestAttrUpdate.qi ?? myPlayer.qi;
+    myPlayer.foundation = latestAttrUpdate.specialStats?.foundation ?? myPlayer.foundation;
+    myPlayer.combatExp = latestAttrUpdate.specialStats?.combatExp ?? myPlayer.combatExp;
     myPlayer.boneAgeBaseYears = latestAttrUpdate.boneAgeBaseYears ?? myPlayer.boneAgeBaseYears;
     myPlayer.lifeElapsedTicks = latestAttrUpdate.lifeElapsedTicks ?? myPlayer.lifeElapsedTicks;
     myPlayer.lifespanYears = latestAttrUpdate.lifespanYears === undefined

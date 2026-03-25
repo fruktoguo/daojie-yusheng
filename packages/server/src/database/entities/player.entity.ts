@@ -57,6 +57,14 @@ export class PlayerEntity {
   @Column({ type: 'boolean', default: false })
   dead!: boolean;
 
+  /** 底蕴，可在获得境界经验时额外转化为经验增益 */
+  @Column({ type: 'int', default: 0 })
+  foundation!: number;
+
+  /** 战斗经验，影响战斗中的命中与闪避优势 */
+  @Column({ type: 'int', default: 0 })
+  combatExp!: number;
+
   /** 角色初始骨龄（岁） */
   @Column({ type: 'int', default: DEFAULT_BONE_AGE_YEARS })
   boneAgeBaseYears!: number;

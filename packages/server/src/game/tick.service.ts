@@ -43,6 +43,7 @@ import {
 } from '@mud/shared';
 import * as fs from 'fs';
 import { PersistentDocumentService } from '../database/persistent-document.service';
+import { PLAYER_SPECIAL_STATS_SYNC_INTERVAL_MS } from '../constants/gameplay/attr';
 import { GAME_CONFIG_PATH } from '../constants/storage/config';
 import { ActionService } from './action.service';
 import { AoiService } from './aoi.service';
@@ -100,6 +101,8 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   private pausedMaps: Set<string> = new Set();
   private lastSentTickState: Map<string, LastSentTickState> = new Map();
   private lastSentAttrUpdates: Map<string, S2C_AttrUpdate> = new Map();
+  private lastSentSpecialStatsAt: Map<string, number> = new Map();
+  private pendingSpecialStatsPlayers: Set<string> = new Set();
   private lastSentTechniqueStates: Map<string, Map<string, TechniqueState>> = new Map();
   private lastSentActionStates: Map<string, Map<string, ActionDef>> = new Map();
   private lastSentGroundPiles: Map<string, Map<string, GroundItemPileView>> = new Map();
@@ -157,6 +160,8 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   resetPlayerSyncState(playerId: string): void {
     this.lastSentTickState.delete(playerId);
     this.lastSentAttrUpdates.delete(playerId);
+    this.lastSentSpecialStatsAt.delete(playerId);
+    this.pendingSpecialStatsPlayers.delete(playerId);
     this.lastSentTechniqueStates.delete(playerId);
     this.lastSentActionStates.delete(playerId);
     this.lastSentGroundPiles.delete(playerId);
@@ -1404,6 +1409,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
   /** 推送单个玩家的脏标记数据并清除标记 */
   private flushPlayerDirtyUpdates(player: PlayerState) {
+    if (this.shouldFlushPendingSpecialStats(player.id)) {
+      this.playerService.markDirty(player.id, 'attr');
+    }
     const flags = this.playerService.getDirtyFlags(player.id);
     if (!flags || flags.size === 0) return;
     const needsProgressionSync =
@@ -1437,6 +1445,10 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           ratioDivisors,
           maxHp: player.maxHp,
           qi: player.qi,
+          specialStats: {
+            foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
+            combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
+          },
           boneAgeBaseYears: player.boneAgeBaseYears,
           lifeElapsedTicks: player.lifeElapsedTicks,
           lifespanYears: player.lifespanYears ?? null,
@@ -1793,6 +1805,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   private buildSparseAttrUpdate(playerId: string, nextState: S2C_AttrUpdate): S2C_AttrUpdate | null {
     const previous = this.lastSentAttrUpdates.get(playerId);
     const patch: S2C_AttrUpdate = {};
+    const cachedState = JSON.parse(JSON.stringify(nextState)) as S2C_AttrUpdate;
 
     if (!previous || !this.isStructuredEqual(previous.baseAttrs, nextState.baseAttrs)) {
       patch.baseAttrs = JSON.parse(JSON.stringify(nextState.baseAttrs)) as typeof nextState.baseAttrs;
@@ -1815,6 +1828,19 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     if (!previous || previous.qi !== nextState.qi) {
       patch.qi = nextState.qi;
     }
+    const specialStatsChanged = !previous || !this.isStructuredEqual(previous.specialStats, nextState.specialStats);
+    if (specialStatsChanged) {
+      if (!previous || this.canSyncSpecialStatsNow(playerId)) {
+        patch.specialStats = nextState.specialStats ? JSON.parse(JSON.stringify(nextState.specialStats)) as typeof nextState.specialStats : undefined;
+        this.lastSentSpecialStatsAt.set(playerId, Date.now());
+        this.pendingSpecialStatsPlayers.delete(playerId);
+      } else {
+        cachedState.specialStats = previous.specialStats ? JSON.parse(JSON.stringify(previous.specialStats)) as typeof previous.specialStats : undefined;
+        this.pendingSpecialStatsPlayers.add(playerId);
+      }
+    } else {
+      this.pendingSpecialStatsPlayers.delete(playerId);
+    }
     if (!previous || previous.boneAgeBaseYears !== nextState.boneAgeBaseYears) {
       patch.boneAgeBaseYears = nextState.boneAgeBaseYears;
     }
@@ -1828,8 +1854,17 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       patch.realm = nextState.realm ? JSON.parse(JSON.stringify(nextState.realm)) as typeof nextState.realm : null;
     }
 
-    this.lastSentAttrUpdates.set(playerId, JSON.parse(JSON.stringify(nextState)) as S2C_AttrUpdate);
+    this.lastSentAttrUpdates.set(playerId, cachedState);
     return Object.keys(patch).length > 0 ? patch : null;
+  }
+
+  private shouldFlushPendingSpecialStats(playerId: string): boolean {
+    return this.pendingSpecialStatsPlayers.has(playerId) && this.canSyncSpecialStatsNow(playerId);
+  }
+
+  private canSyncSpecialStatsNow(playerId: string): boolean {
+    const lastSentAt = this.lastSentSpecialStatsAt.get(playerId);
+    return lastSentAt === undefined || Date.now() - lastSentAt >= PLAYER_SPECIAL_STATS_SYNC_INTERVAL_MS;
   }
 
   /** 构建功法增量包，仅发送与上次不同的字段 */

@@ -67,6 +67,10 @@ function normalizeUnlockedMinimapIds(value: unknown): string[] {
   return [...new Set(value.filter((entry): entry is string => typeof entry === 'string' && entry.length > 0))].sort();
 }
 
+function normalizeNonNegativeCounter(value: unknown): number {
+  return Math.max(0, Number.isFinite(value) ? Math.floor(Number(value)) : 0);
+}
+
 @Injectable()
 export class PlayerService {
   private players: Map<string, PlayerState> = new Map();
@@ -247,6 +251,8 @@ export class PlayerService {
     if (!Number.isFinite(state.qi) || state.qi < 0) {
       state.qi = 0;
     }
+    state.foundation = normalizeNonNegativeCounter(state.foundation);
+    state.combatExp = normalizeNonNegativeCounter(state.combatExp);
     const persisted = this.buildPersistedCollections(state);
 
     const entity = this.playerRepo.create({
@@ -262,6 +268,8 @@ export class PlayerService {
       maxHp: state.maxHp,
       qi: state.qi,
       dead: state.dead,
+      foundation: state.foundation,
+      combatExp: state.combatExp,
       boneAgeBaseYears: state.boneAgeBaseYears,
       lifeElapsedTicks: state.lifeElapsedTicks,
       lifespanYears: state.lifespanYears,
@@ -321,6 +329,8 @@ export class PlayerService {
         maxHp: state.maxHp,
         qi: state.qi,
         dead: state.dead,
+        foundation: state.foundation,
+        combatExp: state.combatExp,
         boneAgeBaseYears: state.boneAgeBaseYears,
         lifeElapsedTicks: state.lifeElapsedTicks,
         lifespanYears: state.lifespanYears,
@@ -668,6 +678,8 @@ export class PlayerService {
       maxHp: entity.maxHp,
       qi: entity.qi ?? 0,
       dead: entity.dead,
+      foundation: normalizeNonNegativeCounter(entity.foundation),
+      combatExp: normalizeNonNegativeCounter(entity.combatExp),
       boneAgeBaseYears: normalizeBoneAgeBaseYears(entity.boneAgeBaseYears),
       lifeElapsedTicks: normalizeLifeElapsedTicks(entity.lifeElapsedTicks),
       lifespanYears: normalizeLifespanYears(entity.lifespanYears),
@@ -760,6 +772,8 @@ export class PlayerService {
       maxHp: state.maxHp,
       qi: state.qi,
       dead: state.dead,
+      foundation: state.foundation,
+      combatExp: state.combatExp,
       boneAgeBaseYears: state.boneAgeBaseYears,
       lifeElapsedTicks: state.lifeElapsedTicks,
       lifespanYears: state.lifespanYears,

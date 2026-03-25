@@ -56,6 +56,8 @@ export class BotService {
         maxHp: 1,
         qi: 0,
         dead: false,
+        foundation: 0,
+        combatExp: 0,
         boneAgeBaseYears: DEFAULT_BONE_AGE_YEARS,
         lifeElapsedTicks: 0,
         lifespanYears: null,

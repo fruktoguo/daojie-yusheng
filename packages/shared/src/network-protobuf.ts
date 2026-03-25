@@ -5,7 +5,7 @@
 import protobuf from 'protobufjs';
 import { C2S, S2C, type ActionUpdateEntry, type GroundItemPilePatch, type S2C_ActionsUpdate, type S2C_AttrUpdate, type S2C_TechniqueUpdate, type S2C_Tick, type TechniqueUpdateEntry, type TickRenderEntity, type VisibleTilePatch } from './protocol';
 import type { NumericRatioDivisors, NumericStats } from './numeric';
-import type { ActionDef, Attributes, AttrBonus, GameTimeState, ItemType, MapMeta, NpcQuestMarker, ObservationInsight, PlayerRealmState, QuestLine, TechniqueAttrCurves, TechniqueGrade, TechniqueLayerDef, TechniqueState, VisibleBuffState, VisibleTile } from './types';
+import type { ActionDef, Attributes, AttrBonus, GameTimeState, ItemType, MapMeta, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerSpecialStats, QuestLine, TechniqueAttrCurves, TechniqueGrade, TechniqueLayerDef, TechniqueState, VisibleBuffState, VisibleTile } from './types';
 
 const PROTO_SCHEMA = `
 syntax = "proto2";
@@ -230,6 +230,12 @@ message AttrUpdatePayload {
   optional double lifeElapsedTicks = 11;
   optional uint32 lifespanYears = 12;
   optional bool clearLifespanYears = 13;
+  optional PlayerSpecialStatsPayload specialStats = 14;
+}
+
+message PlayerSpecialStatsPayload {
+  optional uint32 foundation = 1;
+  optional uint32 combatExp = 2;
 }
 
 message AttributesPayload {
@@ -673,6 +679,20 @@ function fromWireActionEntry(wire: Record<string, unknown>): ActionUpdateEntry {
   return patch;
 }
 
+function toWirePlayerSpecialStats(payload: PlayerSpecialStats): Record<string, unknown> {
+  return {
+    foundation: payload.foundation,
+    combatExp: payload.combatExp,
+  };
+}
+
+function fromWirePlayerSpecialStats(wire: Record<string, unknown>): PlayerSpecialStats {
+  return {
+    foundation: Number(wire.foundation ?? 0),
+    combatExp: Number(wire.combatExp ?? 0),
+  };
+}
+
 function toWireTick(payload: S2C_Tick): Record<string, unknown> {
   const wire: Record<string, unknown> = {
     p: payload.p.map(toWireTickEntity),
@@ -878,6 +898,7 @@ function toWireAttrUpdate(payload: S2C_AttrUpdate): Record<string, unknown> {
   if (payload.ratioDivisors) wire.ratioDivisors = toWireRatioDivisors(payload.ratioDivisors);
   if (payload.maxHp !== undefined) wire.maxHp = payload.maxHp;
   if (payload.qi !== undefined) wire.qi = payload.qi;
+  if (payload.specialStats) wire.specialStats = toWirePlayerSpecialStats(payload.specialStats);
   if (payload.boneAgeBaseYears !== undefined) wire.boneAgeBaseYears = payload.boneAgeBaseYears;
   if (payload.lifeElapsedTicks !== undefined) wire.lifeElapsedTicks = payload.lifeElapsedTicks;
   if (payload.lifespanYears === null) {
@@ -902,6 +923,7 @@ function fromWireAttrUpdate(wire: Record<string, unknown>): S2C_AttrUpdate {
   if (hasOwn(wire, 'ratioDivisors')) payload.ratioDivisors = fromWireRatioDivisors(wire.ratioDivisors as Record<string, unknown>);
   if (hasOwn(wire, 'maxHp')) payload.maxHp = Number(wire.maxHp ?? 0);
   if (hasOwn(wire, 'qi')) payload.qi = Number(wire.qi ?? 0);
+  if (hasOwn(wire, 'specialStats')) payload.specialStats = fromWirePlayerSpecialStats(wire.specialStats as Record<string, unknown>);
   if (hasOwn(wire, 'boneAgeBaseYears')) payload.boneAgeBaseYears = Number(wire.boneAgeBaseYears ?? 0);
   if (hasOwn(wire, 'lifeElapsedTicks')) payload.lifeElapsedTicks = Number(wire.lifeElapsedTicks ?? 0);
   if (wire.clearLifespanYears === true) {

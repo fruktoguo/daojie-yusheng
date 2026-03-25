@@ -629,6 +629,12 @@ export interface PlayerRealmState {
   breakthrough?: BreakthroughPreviewState;
 }
 
+/** 玩家特殊养成数值 */
+export interface PlayerSpecialStats {
+  foundation: number;
+  combatExp: number;
+}
+
 /** 技能定义 */
 export type SkillDamageKind = 'physical' | 'spell';
 
@@ -885,6 +891,8 @@ export interface PlayerState {
   maxHp: number;
   qi: number;
   dead: boolean;
+  foundation?: number;
+  combatExp?: number;
   baseAttrs: Attributes;
   bonuses: AttrBonus[];
   temporaryBuffs?: TemporaryBuffState[];

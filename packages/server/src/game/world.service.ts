@@ -174,6 +174,7 @@ interface CombatSnapshot {
   stats: NumericStats;
   ratios: NumericRatioDivisors;
   realmLv: number;
+  combatExp: number;
 }
 
 interface ResolvedHit {
@@ -2158,8 +2159,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     const breakChance = ratioValue(breakOverflow, attacker.ratios.breakPower);
     const broken = breakOverflow > 0 && Math.random() < breakChance;
 
-    const hitStat = attacker.stats.hit * (broken ? 2 : 1);
-    const dodgeGap = Math.max(0, defender.stats.dodge - hitStat);
+    const combatAdvantage = this.getCombatExperienceAdvantage(attacker.combatExp, defender.combatExp);
+    const hitStat = attacker.stats.hit * (broken ? 2 : 1) * (1 + combatAdvantage.attackerBonus);
+    const defenderDodge = defender.stats.dodge * (1 + combatAdvantage.defenderBonus);
+    const dodgeGap = Math.max(0, defenderDodge - hitStat);
     const dodged = dodgeGap > 0 && Math.random() < ratioValue(dodgeGap, defender.ratios.dodge);
     if (dodged) {
       return {
@@ -2324,7 +2327,37 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       stats: this.attrService.getPlayerNumericStats(player),
       ratios: this.attrService.getPlayerRatioDivisors(player),
       realmLv: Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1)),
+      combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
     };
+  }
+
+  private getCombatExperienceAdvantage(attackerExp: number, defenderExp: number): { attackerBonus: number; defenderBonus: number } {
+    const attackerBonus = this.getCombatExperienceBonus(attackerExp, defenderExp);
+    const defenderBonus = this.getCombatExperienceBonus(defenderExp, attackerExp);
+    return { attackerBonus, defenderBonus };
+  }
+
+  private getCombatExperienceBonus(currentExp: number, oppositeExp: number): number {
+    const baseline = gameplayConstants.COMBAT_EXPERIENCE_ADVANTAGE_BASELINE;
+    const normalizedCurrent = Math.max(0, Math.floor(currentExp)) + baseline;
+    const normalizedOpposite = Math.max(0, Math.floor(oppositeExp)) + baseline;
+    if (normalizedCurrent <= normalizedOpposite) {
+      return 0;
+    }
+    const ratio = normalizedCurrent / normalizedOpposite;
+    const threshold = Math.max(2, gameplayConstants.COMBAT_EXPERIENCE_ADVANTAGE_THRESHOLD);
+    return Math.min(1, Math.max(0, (ratio - 1) / (threshold - 1)));
+  }
+
+  private getMonsterCombatExpEquivalent(monster: RuntimeMonster, level: number): number {
+    const normalizedLevel = Number.isFinite(monster.level) ? Math.max(1, Math.floor(monster.level ?? 1)) : level;
+    const realmEntry = this.contentService.getRealmLevelEntry(normalizedLevel);
+    if (!realmEntry) {
+      return 0;
+    }
+    const gradeIndex = Math.max(0, gameplayConstants.TECHNIQUE_GRADE_ORDER.indexOf(realmEntry.grade ?? 'mortal'));
+    const gradeFactor = (gradeIndex + 1) / 4;
+    return Math.max(0, Math.floor(Math.max(0, realmEntry.expToNext ?? 0) * gradeFactor));
   }
 
   private applyMonsterBuffStats(stats: NumericStats, buffs: TemporaryBuffState[] | undefined): void {
@@ -2399,6 +2432,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       stats,
       ratios: DEFAULT_MONSTER_RATIO_DIVISORS,
       realmLv: level,
+      combatExp: this.getMonsterCombatExpEquivalent(monster, level),
     };
   }
 

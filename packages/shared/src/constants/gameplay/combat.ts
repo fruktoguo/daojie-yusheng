@@ -13,3 +13,9 @@ export const REALM_DAMAGE_ADVANTAGE_RATE = 0.2;
 
 /** 低境界对高境界的伤害衰减率 */
 export const REALM_DAMAGE_DISADVANTAGE_RATE = 0.2;
+
+/** 战斗经验达到多少倍差距时，命中/闪避优势封顶翻倍 */
+export const COMBAT_EXPERIENCE_ADVANTAGE_THRESHOLD = 5;
+
+/** 战斗经验比较时附带的基础值，避免低值阶段被零值直接拉满优势 */
+export const COMBAT_EXPERIENCE_ADVANTAGE_BASELINE = 100;

@@ -88,6 +88,27 @@ interface MonsterKillExpInput {
   isKiller?: boolean;
 }
 
+interface RealmExpAdvanceOptions {
+  expBonus?: number;
+  minimumGain?: number;
+  useFoundation?: boolean;
+  overflowToFoundation?: boolean;
+  trackCombatExp?: boolean;
+}
+
+interface RealmExpAdvanceResult {
+  changed: boolean;
+  gained: number;
+  foundationSpent: number;
+  foundationGained: number;
+  combatExpGained: number;
+  dirty: TechniqueDirtyFlag[];
+  messages: TechniqueMessage[];
+}
+
+const FOUNDATION_EXP_MULTIPLIER = 3;
+const FOUNDATION_EXP_BONUS_MULTIPLIER = FOUNDATION_EXP_MULTIPLIER - 1;
+
 @Injectable()
 export class TechniqueService {
   private readonly progressionInitialized = new WeakSet<PlayerState>();
@@ -102,6 +123,7 @@ export class TechniqueService {
 
   /** 初始化玩家境界与功法进度（加载时、持久化前调用） */
   initializePlayerProgression(player: PlayerState): void {
+    this.initializePlayerSpecialStats(player);
     const previousHp = player.hp;
     const previousMaxHp = player.maxHp;
     const persisted = this.readPersistedRealmState(player);
@@ -207,15 +229,16 @@ export class TechniqueService {
     const messages: TechniqueMessage[] = [...cultivationTarget.messages];
 
     const realmResult = this.measureCpuSection('cultivation_realm', '修炼: 境界推进', () => (
-      this.advanceRealmProgress(
-        player,
-        Math.max(0, Math.round(numericStats.realmExpPerTick * auraMultiplier)),
-        realmExpBonus,
-      )
+      this.advanceRealmProgress(player, Math.max(0, Math.round(numericStats.realmExpPerTick * auraMultiplier)), {
+        expBonus: realmExpBonus,
+        useFoundation: true,
+        overflowToFoundation: true,
+      })
     ));
     if (realmResult.changed) {
-      dirty.add('attr');
-      dirty.add('actions');
+      for (const flag of realmResult.dirty) {
+        dirty.add(flag);
+      }
       messages.push(...realmResult.messages);
     }
 
@@ -332,14 +355,16 @@ export class TechniqueService {
     const messages: TechniqueMessage[] = [];
     const realmBaseExp = this.getRealmCombatExp(normalizedMonsterLevel, playerRealmLv, input.expMultiplier, participantCount);
 
-    const realmResult = this.advanceRealmProgress(
-      player,
-      realmBaseExp,
-      realmExpBonus,
-    );
+    const realmResult = this.advanceRealmProgress(player, realmBaseExp, {
+      expBonus: realmExpBonus,
+      useFoundation: true,
+      overflowToFoundation: true,
+      trackCombatExp: true,
+    });
     if (realmResult.changed) {
-      dirty.add('attr');
-      dirty.add('actions');
+      for (const flag of realmResult.dirty) {
+        dirty.add(flag);
+      }
       messages.push(...realmResult.messages);
     }
 
@@ -355,13 +380,22 @@ export class TechniqueService {
       messages.push(...techniqueResult.messages);
     }
 
-    if (realmResult.gained > 0 || techniqueResult.gained > 0) {
+    if (realmResult.gained > 0 || techniqueResult.gained > 0 || realmResult.combatExpGained > 0 || realmResult.foundationGained > 0) {
       const segments: string[] = [];
       if (realmResult.gained > 0) {
         segments.push(`获得 ${realmResult.gained} 点境界经验`);
       }
+      if (realmResult.foundationSpent > 0) {
+        segments.push(`底蕴额外转化 ${realmResult.foundationSpent} 点境界经验`);
+      }
       if (techniqueResult.gained > 0 && techniqueResult.techniqueName) {
         segments.push(`${techniqueResult.techniqueName} 获得 ${techniqueResult.gained} 点功法经验`);
+      }
+      if (realmResult.combatExpGained > 0) {
+        segments.push(`战斗经验增加 ${realmResult.combatExpGained}`);
+      }
+      if (realmResult.foundationGained > 0) {
+        segments.push(`底蕴增加 ${realmResult.foundationGained}`);
       }
       messages.unshift({
         text: `${input.monsterName ? `${input.isKiller === false ? '参与击杀' : '斩杀'} ${input.monsterName}` : '击败敌人'}，${segments.join('，')}。`,
@@ -462,24 +496,82 @@ export class TechniqueService {
     };
   }
 
-  private advanceRealmProgress(player: PlayerState, baseGain: number, expBonus = 0, minimumGain = 1): { changed: boolean; gained: number; messages: TechniqueMessage[] } {
+  private advanceRealmProgress(player: PlayerState, baseGain: number, options: RealmExpAdvanceOptions = {}): RealmExpAdvanceResult {
     const realm = player.realm;
-    if (!realm || realm.progressToNext <= 0 || realm.breakthroughReady || baseGain <= 0) {
-      return { changed: false, gained: 0, messages: [] };
+    if (!realm || baseGain <= 0) {
+      return {
+        changed: false,
+        gained: 0,
+        foundationSpent: 0,
+        foundationGained: 0,
+        combatExpGained: 0,
+        dirty: [],
+        messages: [],
+      };
     }
 
-    const gain = this.applyRateBonus(baseGain, expBonus, minimumGain);
+    const gain = this.applyRateBonus(baseGain, options.expBonus ?? 0, options.minimumGain ?? 1);
+    const dirty = new Set<TechniqueDirtyFlag>();
+    const messages: TechniqueMessage[] = [];
+    const combatExpGained = options.trackCombatExp ? this.addCombatExp(player, gain) : 0;
+    if (combatExpGained > 0) {
+      dirty.add('attr');
+    }
+
+    const room = realm.progressToNext > 0 && !realm.breakthroughReady
+      ? Math.max(0, realm.progressToNext - realm.progress)
+      : 0;
+    if (room <= 0) {
+      const foundationGained = options.overflowToFoundation ? this.addFoundation(player, gain) : 0;
+      if (foundationGained > 0) {
+        dirty.add('attr');
+      }
+      return {
+        changed: dirty.size > 0,
+        gained: 0,
+        foundationSpent: 0,
+        foundationGained,
+        combatExpGained,
+        dirty: [...dirty],
+        messages,
+      };
+    }
+
+    const acceptedBaseGain = Math.min(gain, room);
+    const foundationSpent = options.useFoundation
+      ? this.consumeFoundation(player, Math.min(
+        this.getPlayerFoundation(player),
+        gain * FOUNDATION_EXP_BONUS_MULTIPLIER,
+        Math.max(0, room - acceptedBaseGain),
+      ))
+      : 0;
+    if (foundationSpent > 0) {
+      dirty.add('attr');
+    }
+
     const previousProgress = realm.progress;
-    const nextState = this.normalizeRealmState(realm.realmLv, realm.progress + gain);
+    const nextState = this.normalizeRealmState(realm.realmLv, realm.progress + acceptedBaseGain + foundationSpent);
     const actualGain = Math.max(0, nextState.progress - previousProgress);
+    const foundationGained = options.overflowToFoundation ? this.addFoundation(player, Math.max(0, gain - acceptedBaseGain)) : 0;
+    if (foundationGained > 0) {
+      dirty.add('attr');
+    }
 
     if (actualGain <= 0 && nextState.breakthroughReady === realm.breakthroughReady) {
-      return { changed: false, gained: 0, messages: [] };
+      return {
+        changed: dirty.size > 0,
+        gained: 0,
+        foundationSpent,
+        foundationGained,
+        combatExpGained,
+        dirty: [...dirty],
+        messages,
+      };
     }
 
     this.syncRealmPresentation(player, nextState);
-
-    const messages: TechniqueMessage[] = [];
+    dirty.add('attr');
+    dirty.add('actions');
     if (nextState.breakthroughReady && !realm.breakthroughReady && nextState.breakthrough) {
       messages.push({
         text: `你的${nextState.displayName}已圆满，可尝试突破至 ${nextState.breakthrough.targetDisplayName}。`,
@@ -487,7 +579,15 @@ export class TechniqueService {
       });
     }
 
-    return { changed: true, gained: actualGain, messages };
+    return {
+      changed: true,
+      gained: actualGain,
+      foundationSpent,
+      foundationGained,
+      combatExpGained,
+      dirty: [...dirty],
+      messages,
+    };
   }
 
   private applyRateBonus(base: number, bonusRate: number, minimumGain = 1): number {
@@ -752,6 +852,48 @@ export class TechniqueService {
 
   private getPlayerRealmLv(player: PlayerState): number {
     return Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
+  }
+
+  private initializePlayerSpecialStats(player: PlayerState): void {
+    player.foundation = this.normalizeCounter(player.foundation);
+    player.combatExp = this.normalizeCounter(player.combatExp);
+  }
+
+  private normalizeCounter(value: unknown): number {
+    return Math.max(0, Number.isFinite(value) ? Math.floor(Number(value)) : 0);
+  }
+
+  private getPlayerFoundation(player: PlayerState): number {
+    return this.normalizeCounter(player.foundation);
+  }
+
+  private addFoundation(player: PlayerState, amount: number): number {
+    const normalized = this.normalizeCounter(amount);
+    if (normalized <= 0) {
+      return 0;
+    }
+    player.foundation = this.getPlayerFoundation(player) + normalized;
+    return normalized;
+  }
+
+  private consumeFoundation(player: PlayerState, amount: number): number {
+    const normalized = this.normalizeCounter(amount);
+    if (normalized <= 0) {
+      return 0;
+    }
+    const available = this.getPlayerFoundation(player);
+    const consumed = Math.min(available, normalized);
+    player.foundation = available - consumed;
+    return consumed;
+  }
+
+  private addCombatExp(player: PlayerState, amount: number): number {
+    const normalized = this.normalizeCounter(amount);
+    if (normalized <= 0) {
+      return 0;
+    }
+    player.combatExp = this.normalizeCounter(player.combatExp) + normalized;
+    return normalized;
   }
 
   private createRealmStateFromLevel(realmLv: number, progress = 0): PlayerRealmState {
