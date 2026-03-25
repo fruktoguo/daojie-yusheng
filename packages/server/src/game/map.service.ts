@@ -96,6 +96,19 @@ export interface QuestConfig {
   nextQuestId?: string;
   requiredItemId?: string;
   requiredItemCount?: number;
+  targetMapId?: string;
+  targetMapName?: string;
+  targetX?: number;
+  targetY?: number;
+  targetNpcId?: string;
+  targetNpcName?: string;
+  submitNpcId?: string;
+  submitNpcName?: string;
+  submitMapId?: string;
+  submitMapName?: string;
+  submitX?: number;
+  submitY?: number;
+  relayMessage?: string;
   unlockBreakthroughRequirementIds?: string[];
   giverId: string;
   giverName: string;
@@ -1638,6 +1651,11 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
           objectiveType?: QuestObjectiveType;
           objectiveText?: string;
           targetName?: string;
+          targetMapId?: string;
+          targetX?: number;
+          targetY?: number;
+          targetNpcId?: string;
+          targetNpcName?: string;
           targetMonsterId?: string;
           targetTechniqueId?: string;
           targetRealmStage?: keyof typeof PlayerRealmStage | PlayerRealmStage;
@@ -1649,6 +1667,12 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
           nextQuestId?: string;
           requiredItemId?: string;
           requiredItemCount?: number;
+          submitNpcId?: string;
+          submitNpcName?: string;
+          submitMapId?: string;
+          submitX?: number;
+          submitY?: number;
+          relayMessage?: string;
           unlockBreakthroughRequirementIds?: string[];
         };
         const objectiveType = rawQuest.objectiveType ?? 'kill';
@@ -1688,6 +1712,10 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         const validByObjective = (
           objectiveType === 'kill' && typeof rawQuest.targetMonsterId === 'string' && Number.isInteger(required)
         ) || (
+          objectiveType === 'talk' && typeof rawQuest.targetNpcId === 'string'
+        ) || (
+          objectiveType === 'submit_item' && typeof rawQuest.requiredItemId === 'string'
+        ) || (
           objectiveType === 'learn_technique' && typeof rawQuest.targetTechniqueId === 'string'
         ) || (
           objectiveType === 'realm_progress' && Number.isInteger(required) && parsedRealmStage !== undefined
@@ -1704,16 +1732,28 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
           this.logger.warn(`地图 ${meta.id} 的 NPC 任务配置非法: ${npc.id}`);
           continue;
         }
-        const normalizedRequired = Number.isInteger(required) ? required! : 1;
+        const normalizedRequired = objectiveType === 'submit_item'
+          ? (Number.isInteger(rawQuest.requiredItemCount) ? rawQuest.requiredItemCount! : (Number.isInteger(required) ? required! : 1))
+          : (Number.isInteger(required) ? required! : 1);
         const targetName = typeof rawQuest.targetName === 'string'
           ? rawQuest.targetName
           : objectiveType === 'kill'
             ? rawQuest.targetMonsterId!
+            : objectiveType === 'talk'
+              ? rawQuest.targetNpcName ?? rawQuest.targetNpcId ?? rawQuest.title!
+              : objectiveType === 'submit_item'
+                ? rawQuest.requiredItemId ?? rawQuest.title!
             : objectiveType === 'learn_technique'
               ? rawQuest.targetTechniqueId!
               : parsedRealmStage !== undefined
                 ? resolveRealmStageTargetLabel(parsedRealmStage) ?? PlayerRealmStage[parsedRealmStage]
                 : rawQuest.title!;
+        const targetMapId = typeof rawQuest.targetMapId === 'string' && rawQuest.targetMapId.trim().length > 0
+          ? rawQuest.targetMapId.trim()
+          : undefined;
+        const submitMapId = typeof rawQuest.submitMapId === 'string' && rawQuest.submitMapId.trim().length > 0
+          ? rawQuest.submitMapId.trim()
+          : undefined;
         quests.push({
           id: rawQuest.id!,
           title: rawQuest.title!,
@@ -1726,6 +1766,12 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
           objectiveType,
           objectiveText: typeof rawQuest.objectiveText === 'string' ? rawQuest.objectiveText : undefined,
           targetName,
+          targetMapId,
+          targetMapName: targetMapId ? this.getMapMeta(targetMapId)?.name : undefined,
+          targetX: Number.isInteger(rawQuest.targetX) ? rawQuest.targetX : undefined,
+          targetY: Number.isInteger(rawQuest.targetY) ? rawQuest.targetY : undefined,
+          targetNpcId: typeof rawQuest.targetNpcId === 'string' ? rawQuest.targetNpcId : undefined,
+          targetNpcName: typeof rawQuest.targetNpcName === 'string' ? rawQuest.targetNpcName : undefined,
           targetMonsterId: typeof rawQuest.targetMonsterId === 'string' ? rawQuest.targetMonsterId : undefined,
           targetTechniqueId: typeof rawQuest.targetTechniqueId === 'string' ? rawQuest.targetTechniqueId : undefined,
           targetRealmStage: parsedRealmStage,
@@ -1737,6 +1783,13 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
           nextQuestId: typeof rawQuest.nextQuestId === 'string' ? rawQuest.nextQuestId : undefined,
           requiredItemId: typeof rawQuest.requiredItemId === 'string' ? rawQuest.requiredItemId : undefined,
           requiredItemCount: Number.isInteger(rawQuest.requiredItemCount) ? rawQuest.requiredItemCount : undefined,
+          submitNpcId: typeof rawQuest.submitNpcId === 'string' ? rawQuest.submitNpcId : undefined,
+          submitNpcName: typeof rawQuest.submitNpcName === 'string' ? rawQuest.submitNpcName : undefined,
+          submitMapId,
+          submitMapName: submitMapId ? this.getMapMeta(submitMapId)?.name : undefined,
+          submitX: Number.isInteger(rawQuest.submitX) ? rawQuest.submitX : undefined,
+          submitY: Number.isInteger(rawQuest.submitY) ? rawQuest.submitY : undefined,
+          relayMessage: typeof rawQuest.relayMessage === 'string' ? rawQuest.relayMessage : undefined,
           unlockBreakthroughRequirementIds: Array.isArray(rawQuest.unlockBreakthroughRequirementIds)
             ? rawQuest.unlockBreakthroughRequirementIds.filter((entry): entry is string => typeof entry === 'string')
             : undefined,
@@ -2412,6 +2465,14 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       isPointInRange(portal, { x, y }, maxDistance) && this.matchesPortalQuery(portal, options));
   }
 
+  getPortals(mapId: string, options?: PortalQueryOptions): Portal[] {
+    const map = this.maps.get(mapId);
+    if (!map) {
+      return [];
+    }
+    return map.portals.filter((portal) => this.matchesPortalQuery(portal, options));
+  }
+
   private matchesPortalQuery(portal: Portal, options?: PortalQueryOptions): boolean {
     if (!options) return true;
     if (options.trigger && portal.trigger !== options.trigger) return false;
@@ -2432,6 +2493,10 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
   getNpcs(mapId: string): NpcConfig[] {
     return this.maps.get(mapId)?.npcs ?? [];
+  }
+
+  getNpcById(mapId: string, npcId: string): NpcConfig | undefined {
+    return this.maps.get(mapId)?.npcs.find((npc) => npc.id === npcId);
   }
 
   getContainers(mapId: string): ContainerConfig[] {
@@ -2472,6 +2537,10 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
   getMonsterSpawn(monsterId: string): MonsterSpawnConfig | undefined {
     return this.monsters.get(monsterId);
+  }
+
+  getMonsterSpawnInMap(mapId: string, monsterId: string): MonsterSpawnConfig | undefined {
+    return this.maps.get(mapId)?.monsterSpawns.find((spawn) => spawn.id === monsterId);
   }
 
   getTile(mapId: string, x: number, y: number): Tile | null {

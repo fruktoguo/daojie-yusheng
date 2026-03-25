@@ -16,6 +16,7 @@ import {
   S2C,
   C2S_Move,
   C2S_MoveTo,
+  C2S_NavigateQuest,
   C2S_Heartbeat,
   C2S_InspectTileRuntime,
   C2S_Ping,
@@ -278,6 +279,20 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.playerService.enqueueCommand(player.mapId, {
       playerId,
       type: 'moveTo',
+      data,
+      timestamp: Date.now(),
+    });
+  }
+
+  @SubscribeMessage(C2S.NavigateQuest)
+  handleNavigateQuest(client: Socket, data: C2S_NavigateQuest) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+
+    this.playerService.enqueueCommand(player.mapId, {
+      playerId,
+      type: 'navigateQuest',
       data,
       timestamp: Date.now(),
     });
@@ -605,6 +620,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (!player) {
         continue;
       }
+      this.playerService.syncPlayerRealtimeState(playerId);
       this.tickService.flushPlayerState(player);
     }
     for (const message of result.messages) {

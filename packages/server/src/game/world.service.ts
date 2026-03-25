@@ -97,6 +97,7 @@ interface RuntimeMonster extends MonsterSpawnConfig {
 interface NpcInteractionState {
   quest?: QuestConfig;
   questState?: QuestState;
+  relation?: 'giver' | 'target' | 'submit';
 }
 
 interface ObservationTargetSnapshot {
@@ -480,8 +481,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         desc = interaction.questState.rewardText;
         type = 'quest';
       } else if (interaction.questState?.status === 'active') {
-        name = `任务：${interaction.questState.title}`;
-        desc = this.describeQuestProgress(interaction.questState, interaction.quest);
+        name = interaction.relation === 'target' && interaction.questState.objectiveType === 'talk'
+          ? `传话：${interaction.questState.title}`
+          : `任务：${interaction.questState.title}`;
+        desc = interaction.relation === 'target' && interaction.questState.objectiveType === 'talk'
+          ? (interaction.questState.relayMessage?.trim() || interaction.quest?.relayMessage?.trim() || '把口信转达给对方。')
+          : this.describeQuestProgress(interaction.questState, interaction.quest);
         type = 'quest';
       }
 
@@ -647,24 +652,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       if (quest.status === 'completed') continue;
       const config = this.mapService.getQuest(quest.id);
       if (!config) continue;
-      if (
-        (
-          !quest.giverMapName
-          || quest.giverX === undefined
-          || quest.giverY === undefined
-          || (quest.giverMapId && quest.giverMapName === quest.giverMapId)
-        )
-        && quest.giverId
-      ) {
-        const npcLocation = this.mapService.getNpcLocation(quest.giverId);
-        if (npcLocation) {
-          quest.giverMapId = npcLocation.mapId;
-          quest.giverMapName = npcLocation.mapName;
-          quest.giverX = npcLocation.x;
-          quest.giverY = npcLocation.y;
-          changed = true;
-        }
-      }
+      changed = this.syncQuestNpcLocations(quest) || changed;
       const nextProgress = this.resolveQuestProgress(player, quest, config);
       if (nextProgress !== quest.progress) {
         quest.progress = nextProgress;
@@ -674,11 +662,15 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         objectiveType: config.objectiveType,
         title: quest.title,
         targetName: quest.targetName,
+        targetNpcId: quest.targetNpcId || config.targetNpcId,
         targetMonsterId: quest.targetMonsterId || config.targetMonsterId,
         targetTechniqueId: quest.targetTechniqueId || config.targetTechniqueId,
         targetRealmStage: quest.targetRealmStage ?? config.targetRealmStage,
+        requiredItemId: quest.requiredItemId ?? config.requiredItemId,
+        resolveNpcName: (npcId) => this.mapService.getNpcLocation(npcId)?.name,
         resolveMonsterName: (monsterId) => this.mapService.getMonsterSpawn(monsterId)?.name,
         resolveTechniqueName: (techniqueId) => this.contentService.getTechnique(techniqueId)?.name,
+        resolveItemName: (itemId) => this.contentService.getItem(itemId)?.name,
       });
       if (quest.targetName !== targetName) {
         quest.targetName = targetName;
@@ -1601,11 +1593,15 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           objectiveType: interaction.quest.objectiveType,
           title: interaction.quest.title,
           targetName: interaction.quest.targetName,
+          targetNpcId: interaction.quest.targetNpcId,
           targetMonsterId: interaction.quest.targetMonsterId,
           targetTechniqueId: interaction.quest.targetTechniqueId,
           targetRealmStage: interaction.quest.targetRealmStage,
+          requiredItemId: interaction.quest.requiredItemId,
+          resolveNpcName: (npcId) => this.mapService.getNpcLocation(npcId)?.name,
           resolveMonsterName: (monsterId) => this.mapService.getMonsterSpawn(monsterId)?.name,
           resolveTechniqueName: (techniqueId) => this.contentService.getTechnique(techniqueId)?.name,
+          resolveItemName: (itemId) => this.contentService.getItem(itemId)?.name,
         }),
         targetTechniqueId: interaction.quest.targetTechniqueId,
         targetRealmStage: interaction.quest.targetRealmStage,
@@ -1617,12 +1613,27 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           .map((reward) => this.createItemFromDrop(reward))
           .filter((item): item is ItemStack => Boolean(item)),
         nextQuestId: interaction.quest.nextQuestId,
+        requiredItemId: interaction.quest.requiredItemId,
+        requiredItemCount: interaction.quest.requiredItemCount,
         giverId: npc.id,
         giverName: npc.name,
         giverMapId: player.mapId,
         giverMapName: this.mapService.getMapMeta(player.mapId)?.name ?? '未知地界',
         giverX: npc.x,
         giverY: npc.y,
+        targetMapId: interaction.quest.targetMapId,
+        targetMapName: interaction.quest.targetMapName,
+        targetX: interaction.quest.targetX,
+        targetY: interaction.quest.targetY,
+        targetNpcId: interaction.quest.targetNpcId,
+        targetNpcName: interaction.quest.targetNpcName,
+        submitNpcId: interaction.quest.submitNpcId,
+        submitNpcName: interaction.quest.submitNpcName,
+        submitMapId: interaction.quest.submitMapId,
+        submitMapName: interaction.quest.submitMapName,
+        submitX: interaction.quest.submitX,
+        submitY: interaction.quest.submitY,
+        relayMessage: interaction.quest.relayMessage,
       };
       questState.progress = this.resolveQuestProgress(player, questState, interaction.quest);
       player.quests.push(questState);
@@ -1634,6 +1645,26 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           kind: 'quest',
         }],
         dirty: ['quest', 'actions'],
+      };
+    }
+
+    if (
+      interaction.questState.status === 'active'
+      && interaction.questState.objectiveType === 'talk'
+      && interaction.relation === 'target'
+    ) {
+      interaction.questState.progress = interaction.questState.required;
+      const dirty: WorldDirtyFlag[] = this.refreshQuestStatuses(player) ? ['quest', 'actions'] : ['quest'];
+      const relayText = interaction.questState.relayMessage?.trim() || interaction.quest.relayMessage?.trim();
+      return {
+        messages: [{
+          playerId: player.id,
+          text: relayText
+            ? `你向 ${npc.name} 传达了口信：“${relayText}”`
+            : `你向 ${npc.name} 传达了来意。`,
+          kind: 'quest',
+        }],
+        dirty,
       };
     }
 
@@ -1680,7 +1711,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       return {
         messages: [{
           playerId: player.id,
-          text: `${npc.name}：${this.describeQuestProgress(interaction.questState, interaction.quest)}`,
+          text: interaction.relation === 'target' && interaction.questState.objectiveType === 'talk'
+            ? `${npc.name}：若你有话要带来，直说便是。`
+            : `${npc.name}：${this.describeQuestProgress(interaction.questState, interaction.quest)}`,
           kind: 'quest',
         }],
         dirty: ['actions'],
@@ -1697,6 +1730,17 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     const portal = this.mapService.getPortalNear(player.mapId, player.x, player.y, 1, { trigger: 'manual' });
     if (!portal) {
       return { ...EMPTY_UPDATE, error: '你需要站在传送阵上才能传送' };
+    }
+    return this.travelThroughPortal(player, portal);
+  }
+
+  travelThroughManualPortalAtCurrentPosition(player: PlayerState, expectedTargetMapId?: string): WorldUpdate | null {
+    const portal = this.mapService.getPortalNear(player.mapId, player.x, player.y, 1, { trigger: 'manual' });
+    if (!portal) {
+      return null;
+    }
+    if (expectedTargetMapId && portal.targetMapId !== expectedTargetMapId) {
+      return null;
     }
     return this.travelThroughPortal(player, portal);
   }
@@ -2703,9 +2747,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     for (const quest of player.quests) {
       const config = this.mapService.getQuest(quest.id);
       if (!config) continue;
-      const hasKillProgress = quest.progress >= quest.required;
+      const hasObjectiveProgress = quest.progress >= quest.required;
       const hasItems = !config?.requiredItemId || this.getInventoryCount(player, config.requiredItemId) >= (config.requiredItemCount ?? 1);
-      if (quest.status === 'active' && hasKillProgress && hasItems) {
+      if (quest.status === 'active' && hasObjectiveProgress && hasItems) {
         quest.status = 'ready';
         changed = true;
       } else if (quest.status === 'ready' && !hasItems) {
@@ -2718,6 +2762,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
   private resolveQuestProgress(player: PlayerState, questState: QuestState, config: QuestConfig): number {
     switch (config.objectiveType) {
+      case 'talk':
+        return questState.progress;
+      case 'submit_item':
+        return config.requiredItemId
+          ? Math.min(questState.required, this.getInventoryCount(player, config.requiredItemId))
+          : questState.progress;
       case 'learn_technique':
         return player.techniques.some((entry) => entry.techId === config.targetTechniqueId)
           ? questState.required
@@ -2788,11 +2838,111 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     this.monstersByMap.set(mapId, monsters);
   }
 
+  private syncQuestNpcLocations(quest: QuestState): boolean {
+    let changed = false;
+    if (
+      (
+        !quest.giverMapName
+        || quest.giverX === undefined
+        || quest.giverY === undefined
+        || (quest.giverMapId && quest.giverMapName === quest.giverMapId)
+      )
+      && quest.giverId
+    ) {
+      const giverLocation = this.mapService.getNpcLocation(quest.giverId);
+      if (giverLocation) {
+        quest.giverMapId = giverLocation.mapId;
+        quest.giverMapName = giverLocation.mapName;
+        quest.giverX = giverLocation.x;
+        quest.giverY = giverLocation.y;
+        changed = true;
+      }
+    }
+
+    if (quest.targetNpcId) {
+      const targetLocation = this.mapService.getNpcLocation(quest.targetNpcId);
+      if (targetLocation && (
+        quest.targetMapId !== targetLocation.mapId
+        || quest.targetMapName !== targetLocation.mapName
+        || quest.targetX !== targetLocation.x
+        || quest.targetY !== targetLocation.y
+        || quest.targetNpcName !== targetLocation.name
+      )) {
+        quest.targetMapId = targetLocation.mapId;
+        quest.targetMapName = targetLocation.mapName;
+        quest.targetX = targetLocation.x;
+        quest.targetY = targetLocation.y;
+        quest.targetNpcName = targetLocation.name;
+        changed = true;
+      }
+    }
+
+    if (quest.submitNpcId) {
+      const submitLocation = this.mapService.getNpcLocation(quest.submitNpcId);
+      if (submitLocation && (
+        quest.submitMapId !== submitLocation.mapId
+        || quest.submitMapName !== submitLocation.mapName
+        || quest.submitX !== submitLocation.x
+        || quest.submitY !== submitLocation.y
+        || quest.submitNpcName !== submitLocation.name
+      )) {
+        quest.submitMapId = submitLocation.mapId;
+        quest.submitMapName = submitLocation.mapName;
+        quest.submitX = submitLocation.x;
+        quest.submitY = submitLocation.y;
+        quest.submitNpcName = submitLocation.name;
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
+  private isQuestTargetNpc(quest: QuestState, npc: NpcConfig): boolean {
+    return quest.targetNpcId === npc.id
+      && (!quest.targetMapId || quest.targetMapId === this.getNpcMapId(npc.id));
+  }
+
+  private isQuestSubmitNpc(quest: QuestState, npc: NpcConfig): boolean {
+    if (quest.submitNpcId) {
+      return quest.submitNpcId === npc.id;
+    }
+    return quest.giverId === npc.id;
+  }
+
+  private getNpcMapId(npcId: string): string | undefined {
+    return this.mapService.getNpcLocation(npcId)?.mapId;
+  }
+
   private getNpcInteractionState(player: PlayerState, npc: NpcConfig): NpcInteractionState {
+    const readySubmitQuest = player.quests.find((entry) => (
+      entry.status === 'ready'
+      && this.isQuestSubmitNpc(entry, npc)
+    ));
+    if (readySubmitQuest) {
+      return {
+        quest: this.mapService.getQuest(readySubmitQuest.id),
+        questState: readySubmitQuest,
+        relation: 'submit',
+      };
+    }
+
+    const activeTargetQuest = player.quests.find((entry) => (
+      entry.status === 'active'
+      && entry.objectiveType === 'talk'
+      && this.isQuestTargetNpc(entry, npc)
+    ));
+    if (activeTargetQuest) {
+      return {
+        quest: this.mapService.getQuest(activeTargetQuest.id),
+        questState: activeTargetQuest,
+        relation: 'target',
+      };
+    }
+
     for (const quest of npc.quests) {
       const questState = player.quests.find((entry) => entry.id === quest.id);
       if (questState && questState.status !== 'completed') {
-        return { quest, questState };
+        return { quest, questState, relation: 'giver' };
       }
       if (!questState) {
         const hasLaterProgress = npc.quests
@@ -2805,7 +2955,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           .slice(0, npc.quests.indexOf(quest))
           .some((candidate) => player.quests.find((entry) => entry.id === candidate.id)?.status !== 'completed');
         if (!previousIncomplete) {
-          return { quest };
+          return { quest, relation: 'giver' };
         }
         break;
       }
@@ -2821,7 +2971,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (interaction.questState?.status === 'ready') {
       return { line: interaction.questState.line, state: 'ready' };
     }
-    if (interaction.questState?.status === 'active') {
+    if (interaction.questState?.status === 'active' && interaction.relation !== 'submit') {
       return { line: interaction.questState.line, state: 'active' };
     }
     return undefined;
@@ -2911,6 +3061,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     const objective = questState.objectiveText ?? questConfig?.objectiveText ?? questState.desc;
     const parts = [objective];
     switch (questState.objectiveType) {
+      case 'talk':
+        parts.push(questState.progress >= questState.required ? '口信已传达' : '尚未把口信带到');
+        break;
+      case 'submit_item':
+        parts.push(`当前持有 ${questState.progress}/${questState.required}`);
+        break;
       case 'learn_technique':
         parts.push(questState.progress >= questState.required
           ? `已参悟 ${questState.targetName}`

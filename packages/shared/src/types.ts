@@ -793,7 +793,7 @@ export type QuestStatus = 'available' | 'active' | 'ready' | 'completed';
 export type QuestLine = 'main' | 'side' | 'daily' | 'encounter';
 
 /** 任务目标类型 */
-export type QuestObjectiveType = 'kill' | 'learn_technique' | 'realm_progress' | 'realm_stage';
+export type QuestObjectiveType = 'kill' | 'talk' | 'submit_item' | 'learn_technique' | 'realm_progress' | 'realm_stage';
 
 /** 任务进度 */
 export interface QuestState {
@@ -817,12 +817,33 @@ export interface QuestState {
   rewardItemIds: string[];
   rewards: ItemStack[];
   nextQuestId?: string;
+  requiredItemId?: string;
+  requiredItemCount?: number;
   giverId: string;
   giverName: string;
   giverMapId?: string;
   giverMapName?: string;
   giverX?: number;
   giverY?: number;
+  targetMapId?: string;
+  targetMapName?: string;
+  targetX?: number;
+  targetY?: number;
+  targetNpcId?: string;
+  targetNpcName?: string;
+  submitNpcId?: string;
+  submitNpcName?: string;
+  submitMapId?: string;
+  submitMapName?: string;
+  submitX?: number;
+  submitY?: number;
+  relayMessage?: string;
+}
+
+export interface QuestNavigationState {
+  questId: string;
+  pausedForCrossMapCooldown?: boolean;
+  lastBlockedRemainingTicks?: number;
 }
 
 /** 玩家状态 */
@@ -878,6 +899,8 @@ export interface PlayerState {
   revealedBreakthroughRequirementIds?: string[];
   unlockedMinimapIds?: string[];
   realm?: PlayerRealmState;
+  questNavigation?: QuestNavigationState;
+  questCrossMapNavCooldownUntilLifeTicks?: number;
 }
 
 /** 意见状态 */

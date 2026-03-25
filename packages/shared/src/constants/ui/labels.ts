@@ -176,6 +176,8 @@ export const QUEST_LINE_LABELS: Record<QuestLine, string> = {
 /** 任务目标类型中文标签 */
 export const QUEST_OBJECTIVE_TYPE_LABELS: Record<QuestObjectiveType, string> = {
   kill: '击杀目标',
+  talk: '对话送信',
+  submit_item: '提交物品',
   learn_technique: '习得功法',
   realm_progress: '境界推进',
   realm_stage: '境界阶段',

@@ -1273,8 +1273,9 @@ equipmentPanel.setCallbacks(
 techniquePanel.setCallbacks(
   (techId) => socket.sendCultivate(techId),
 );
-questPanel.setCallbacks((x, y) => {
-  planPathTo({ x, y }, { ignoreVisibilityLimit: true, allowNearestReachable: true });
+questPanel.setCallbacks((questId) => {
+  clearCurrentPath();
+  socket.sendNavigateQuest(questId);
 });
 marketPanel.setCallbacks({
   onRequestMarket: () => socket.sendRequestMarket(),

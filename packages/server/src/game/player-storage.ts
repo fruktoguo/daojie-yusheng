@@ -402,7 +402,9 @@ function hydrateQuest(snapshot: unknown, mapService: MapService, contentService:
   const progress = normalizeNonNegativeInt(snapshot.progress, 0);
 
   if (config) {
-    const npcLocation = mapService.getNpcLocation(config.giverId);
+    const giverLocation = mapService.getNpcLocation(config.giverId);
+    const targetNpcLocation = config.targetNpcId ? mapService.getNpcLocation(config.targetNpcId) : undefined;
+    const submitNpcLocation = config.submitNpcId ? mapService.getNpcLocation(config.submitNpcId) : undefined;
     return {
       id: config.id,
       title: config.title,
@@ -419,11 +421,15 @@ function hydrateQuest(snapshot: unknown, mapService: MapService, contentService:
         objectiveType: config.objectiveType,
         title: config.title,
         targetName: config.targetName,
+        targetNpcId: config.targetNpcId,
         targetMonsterId: config.targetMonsterId,
         targetTechniqueId: config.targetTechniqueId,
         targetRealmStage: config.targetRealmStage,
+        requiredItemId: config.requiredItemId,
+        resolveNpcName: (npcId) => mapService.getNpcLocation(npcId)?.name,
         resolveMonsterName: (monsterId) => mapService.getMonsterSpawn(monsterId)?.name,
         resolveTechniqueName: (techniqueId) => contentService.getTechnique(techniqueId)?.name,
+        resolveItemName: (itemId) => contentService.getItem(itemId)?.name,
       }),
       targetTechniqueId: config.targetTechniqueId,
       targetRealmStage: config.targetRealmStage,
@@ -433,12 +439,27 @@ function hydrateQuest(snapshot: unknown, mapService: MapService, contentService:
       rewardItemIds: [...config.rewardItemIds],
       rewards: buildQuestRewardItems(config.id, mapService, contentService),
       nextQuestId: config.nextQuestId,
+      requiredItemId: config.requiredItemId,
+      requiredItemCount: config.requiredItemCount,
       giverId: config.giverId,
       giverName: config.giverName,
-      giverMapId: npcLocation?.mapId ?? config.giverMapId,
-      giverMapName: npcLocation?.mapName ?? config.giverMapName,
-      giverX: npcLocation?.x ?? config.giverX,
-      giverY: npcLocation?.y ?? config.giverY,
+      giverMapId: giverLocation?.mapId ?? config.giverMapId,
+      giverMapName: giverLocation?.mapName ?? config.giverMapName,
+      giverX: giverLocation?.x ?? config.giverX,
+      giverY: giverLocation?.y ?? config.giverY,
+      targetMapId: targetNpcLocation?.mapId ?? config.targetMapId,
+      targetMapName: targetNpcLocation?.mapName ?? config.targetMapName,
+      targetX: targetNpcLocation?.x ?? config.targetX,
+      targetY: targetNpcLocation?.y ?? config.targetY,
+      targetNpcId: config.targetNpcId,
+      targetNpcName: targetNpcLocation?.name ?? config.targetNpcName,
+      submitNpcId: config.submitNpcId,
+      submitNpcName: submitNpcLocation?.name ?? config.submitNpcName,
+      submitMapId: submitNpcLocation?.mapId ?? config.submitMapId,
+      submitMapName: submitNpcLocation?.mapName ?? config.submitMapName,
+      submitX: submitNpcLocation?.x ?? config.submitX,
+      submitY: submitNpcLocation?.y ?? config.submitY,
+      relayMessage: config.relayMessage,
     };
   }
 
@@ -474,10 +495,25 @@ function hydrateQuest(snapshot: unknown, mapService: MapService, contentService:
     targetTechniqueId: typeof snapshot.targetTechniqueId === 'string' ? snapshot.targetTechniqueId : undefined,
     targetRealmStage: typeof snapshot.targetRealmStage === 'number' ? snapshot.targetRealmStage : undefined,
     nextQuestId: typeof snapshot.nextQuestId === 'string' ? snapshot.nextQuestId : undefined,
+    requiredItemId: typeof snapshot.requiredItemId === 'string' ? snapshot.requiredItemId : undefined,
+    requiredItemCount: Number.isFinite(snapshot.requiredItemCount) ? Number(snapshot.requiredItemCount) : undefined,
     giverMapId: typeof snapshot.giverMapId === 'string' ? snapshot.giverMapId : undefined,
     giverMapName: typeof snapshot.giverMapName === 'string' ? snapshot.giverMapName : undefined,
     giverX: Number.isFinite(snapshot.giverX) ? Number(snapshot.giverX) : undefined,
     giverY: Number.isFinite(snapshot.giverY) ? Number(snapshot.giverY) : undefined,
+    targetMapId: typeof snapshot.targetMapId === 'string' ? snapshot.targetMapId : undefined,
+    targetMapName: typeof snapshot.targetMapName === 'string' ? snapshot.targetMapName : undefined,
+    targetX: Number.isFinite(snapshot.targetX) ? Number(snapshot.targetX) : undefined,
+    targetY: Number.isFinite(snapshot.targetY) ? Number(snapshot.targetY) : undefined,
+    targetNpcId: typeof snapshot.targetNpcId === 'string' ? snapshot.targetNpcId : undefined,
+    targetNpcName: typeof snapshot.targetNpcName === 'string' ? snapshot.targetNpcName : undefined,
+    submitNpcId: typeof snapshot.submitNpcId === 'string' ? snapshot.submitNpcId : undefined,
+    submitNpcName: typeof snapshot.submitNpcName === 'string' ? snapshot.submitNpcName : undefined,
+    submitMapId: typeof snapshot.submitMapId === 'string' ? snapshot.submitMapId : undefined,
+    submitMapName: typeof snapshot.submitMapName === 'string' ? snapshot.submitMapName : undefined,
+    submitX: Number.isFinite(snapshot.submitX) ? Number(snapshot.submitX) : undefined,
+    submitY: Number.isFinite(snapshot.submitY) ? Number(snapshot.submitY) : undefined,
+    relayMessage: typeof snapshot.relayMessage === 'string' ? snapshot.relayMessage : undefined,
   };
 }
 

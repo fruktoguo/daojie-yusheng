@@ -1257,6 +1257,10 @@ function createDefaultQuest(): QuestState {
     rewards: [],
     giverId: '',
     giverName: '',
+    targetMapId: '',
+    targetNpcId: '',
+    submitMapId: '',
+    submitNpcId: '',
   };
 }
 
@@ -1631,7 +1635,13 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
           ${numberField('当前进度', `quests.${index}.progress`, quest.progress)}
           ${numberField('需求进度', `quests.${index}.required`, quest.required)}
           ${textField('目标名称', `quests.${index}.targetName`, quest.targetName)}
+          ${nullableTextField('目标地图 ID', `quests.${index}.targetMapId`, quest.targetMapId, 'undefined')}
+          ${numberField('目标 X', `quests.${index}.targetX`, typeof quest.targetX === 'number' ? quest.targetX : 0)}
+          ${numberField('目标 Y', `quests.${index}.targetY`, typeof quest.targetY === 'number' ? quest.targetY : 0)}
+          ${nullableTextField('目标 NPC ID', `quests.${index}.targetNpcId`, quest.targetNpcId, 'undefined')}
+          ${nullableTextField('目标 NPC 名称', `quests.${index}.targetNpcName`, quest.targetNpcName, 'undefined')}
           ${nullableTextField('目标文本', `quests.${index}.objectiveText`, quest.objectiveText, 'undefined', 'wide')}
+          ${nullableTextField('传话内容', `quests.${index}.relayMessage`, quest.relayMessage, 'undefined', 'wide')}
           ${textField('奖励文本', `quests.${index}.rewardText`, quest.rewardText, 'wide')}
           ${textField('目标怪物 ID', `quests.${index}.targetMonsterId`, quest.targetMonsterId)}
           ${nullableTextField('目标功法 ID', `quests.${index}.targetTechniqueId`, quest.targetTechniqueId, 'undefined')}
@@ -1642,6 +1652,14 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
           ${nullableTextField('发放地图名', `quests.${index}.giverMapName`, quest.giverMapName, 'undefined')}
           ${numberField('发放者 X', `quests.${index}.giverX`, typeof quest.giverX === 'number' ? quest.giverX : 0)}
           ${numberField('发放者 Y', `quests.${index}.giverY`, typeof quest.giverY === 'number' ? quest.giverY : 0)}
+          ${nullableTextField('提交 NPC ID', `quests.${index}.submitNpcId`, quest.submitNpcId, 'undefined')}
+          ${nullableTextField('提交 NPC 名称', `quests.${index}.submitNpcName`, quest.submitNpcName, 'undefined')}
+          ${nullableTextField('提交地图 ID', `quests.${index}.submitMapId`, quest.submitMapId, 'undefined')}
+          ${nullableTextField('提交地图名', `quests.${index}.submitMapName`, quest.submitMapName, 'undefined')}
+          ${numberField('提交 X', `quests.${index}.submitX`, typeof quest.submitX === 'number' ? quest.submitX : 0)}
+          ${numberField('提交 Y', `quests.${index}.submitY`, typeof quest.submitY === 'number' ? quest.submitY : 0)}
+          ${nullableTextField('提交物品 ID', `quests.${index}.requiredItemId`, quest.requiredItemId, 'undefined')}
+          ${numberField('提交物品数量', `quests.${index}.requiredItemCount`, typeof quest.requiredItemCount === 'number' ? quest.requiredItemCount : 1)}
           ${nullableTextField('下一任务 ID', `quests.${index}.nextQuestId`, quest.nextQuestId, 'undefined')}
           ${textField('奖励物品 ID（旧字段）', `quests.${index}.rewardItemId`, quest.rewardItemId)}
           ${stringArrayField('奖励物品 ID 列表', `quests.${index}.rewardItemIds`, quest.rewardItemIds, 'wide')}

@@ -101,6 +101,10 @@ export class PlayerEntity {
   @Column({ type: 'jsonb', default: () => `'[]'` })
   quests!: unknown[];
 
+  /** 任务自动跨图导航冷却截止的玩家时序 tick */
+  @Column({ type: 'double precision', default: 0 })
+  questCrossMapNavCooldownUntilLifeTicks!: number;
+
   /** 已揭示的突破需求 ID */
   @Column({ type: 'jsonb', default: () => `'[]'` })
   revealedBreakthroughRequirementIds!: unknown[];

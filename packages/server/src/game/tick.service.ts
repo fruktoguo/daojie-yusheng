@@ -20,6 +20,7 @@ import {
   parseTileTargetRef,
   PLAYER_HEARTBEAT_TIMEOUT_MS,
   PlayerState,
+  QUEST_CROSS_MAP_NAV_COOLDOWN_TICKS,
   RenderEntity,
   S2C,
   S2C_ActionsUpdate,
@@ -429,6 +430,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         case 'move': {
           this.measureCpuSection('pathfinding', '寻路与移动', () => {
             this.navigationService.clearMoveTarget(player.id);
+            player.questNavigation = undefined;
             if (player.autoBattle) {
               player.autoBattle = false;
               player.combatTargetId = undefined;
@@ -446,6 +448,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         }
         case 'moveTo': {
           this.measureCpuSection('pathfinding', '寻路与移动', () => {
+            player.questNavigation = undefined;
             if (player.autoBattle) {
               player.autoBattle = false;
               player.combatTargetId = undefined;
@@ -457,6 +460,25 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
             const error = this.navigationService.setMoveTarget(player, x, y, { allowNearestReachable });
             if (error) {
               messages.push({ playerId: player.id, text: error, kind: 'system' });
+            }
+          });
+          break;
+        }
+        case 'navigateQuest': {
+          this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+            const { questId } = cmd.data as { questId: string };
+            const quest = player.quests.find((entry) => entry.id === questId && entry.status !== 'completed');
+            if (!quest) {
+              messages.push({ playerId: player.id, text: '目标任务不存在或已完成', kind: 'system' });
+              player.questNavigation = undefined;
+              return;
+            }
+            player.questNavigation = { questId };
+            if (player.autoBattle) {
+              player.autoBattle = false;
+              player.combatTargetId = undefined;
+              player.combatTargetLocked = false;
+              this.playerService.markDirty(player.id, 'actions');
             }
           });
           break;
@@ -601,6 +623,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       }
 
       if (!player.autoBattle) {
+        this.measureCpuSection('pathfinding', '寻路与移动', () => {
+          this.processQuestNavigation(player, messages);
+        });
         const navigation = this.measureCpuSection('pathfinding', '寻路与移动', () => (
           this.navigationService.stepPlayerTowardTarget(player)
         ));
@@ -868,8 +893,204 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     if (!update) {
       return false;
     }
+    if (player.questNavigation?.questId) {
+      this.applyQuestCrossMapCooldown(player);
+    }
     this.applyWorldUpdate(player.id, update, messages);
     return true;
+  }
+
+  private processQuestNavigation(player: PlayerState, messages: WorldMessage[]): void {
+    const navigation = player.questNavigation;
+    if (!navigation?.questId) {
+      return;
+    }
+
+    const quest = player.quests.find((entry) => entry.id === navigation.questId && entry.status !== 'completed');
+    if (!quest) {
+      player.questNavigation = undefined;
+      this.navigationService.clearMoveTarget(player.id);
+      return;
+    }
+
+    const goal = this.resolveQuestNavigationGoal(player, quest);
+    if (!goal) {
+      messages.push({ playerId: player.id, text: '该任务暂时没有可导航的目标地点', kind: 'system' });
+      player.questNavigation = undefined;
+      this.navigationService.clearMoveTarget(player.id);
+      return;
+    }
+
+    if (player.mapId === goal.mapId) {
+      navigation.pausedForCrossMapCooldown = false;
+      navigation.lastBlockedRemainingTicks = undefined;
+      if (goal.kind === 'map') {
+        this.navigationService.clearMoveTarget(player.id);
+        player.questNavigation = undefined;
+        messages.push({ playerId: player.id, text: `已抵达 ${goal.mapLabel ?? goal.mapId}，请继续完成任务。`, kind: 'quest' });
+        return;
+      }
+      if (player.x === goal.x && player.y === goal.y) {
+        this.navigationService.clearMoveTarget(player.id);
+        player.questNavigation = undefined;
+        return;
+      }
+      const error = this.navigationService.setMoveTarget(player, goal.x, goal.y, { allowNearestReachable: true });
+      if (error) {
+        messages.push({ playerId: player.id, text: error, kind: 'system' });
+        player.questNavigation = undefined;
+      }
+      return;
+    }
+
+    const remainingTicks = this.getQuestCrossMapCooldownRemaining(player);
+    if (remainingTicks > 0) {
+      if (navigation.pausedForCrossMapCooldown !== true) {
+        messages.push({ playerId: player.id, text: `跨图导航冷却中，还需 ${remainingTicks} 息。`, kind: 'system' });
+      }
+      navigation.pausedForCrossMapCooldown = true;
+      navigation.lastBlockedRemainingTicks = remainingTicks;
+      this.navigationService.clearMoveTarget(player.id);
+      return;
+    }
+    navigation.pausedForCrossMapCooldown = false;
+    navigation.lastBlockedRemainingTicks = undefined;
+
+    const nextPortal = this.findNextPortalTowardsMap(player.mapId, goal.mapId);
+    if (!nextPortal) {
+      messages.push({ playerId: player.id, text: `无法从当前地图前往 ${goal.mapLabel ?? goal.mapId}`, kind: 'system' });
+      player.questNavigation = undefined;
+      this.navigationService.clearMoveTarget(player.id);
+      return;
+    }
+
+    if (player.x === nextPortal.x && player.y === nextPortal.y) {
+      if (nextPortal.trigger === 'manual') {
+        const update = this.worldService.travelThroughManualPortalAtCurrentPosition(player, nextPortal.targetMapId);
+        if (!update) {
+          messages.push({ playerId: player.id, text: '当前传送点无法使用', kind: 'system' });
+          player.questNavigation = undefined;
+          return;
+        }
+        this.applyQuestCrossMapCooldown(player);
+        this.applyWorldUpdate(player.id, update, messages);
+      }
+      return;
+    }
+
+    const error = this.navigationService.setMoveTarget(player, nextPortal.x, nextPortal.y, { allowNearestReachable: true });
+    if (error) {
+      messages.push({ playerId: player.id, text: error, kind: 'system' });
+      player.questNavigation = undefined;
+    }
+  }
+
+  private resolveQuestNavigationGoal(
+    player: PlayerState,
+    quest: PlayerState['quests'][number],
+  ): { kind: 'point'; mapId: string; x: number; y: number; mapLabel?: string } | { kind: 'map'; mapId: string; mapLabel?: string } | null {
+    if (quest.status === 'ready') {
+      const submitMapId = quest.submitMapId ?? quest.giverMapId;
+      if (!submitMapId) {
+        return null;
+      }
+      const submitX = quest.submitX ?? quest.giverX;
+      const submitY = quest.submitY ?? quest.giverY;
+      const submitMapName = quest.submitMapName ?? quest.giverMapName;
+      if (submitX !== undefined && submitY !== undefined) {
+        return { kind: 'point', mapId: submitMapId, x: submitX, y: submitY, mapLabel: submitMapName };
+      }
+      return { kind: 'map', mapId: submitMapId, mapLabel: submitMapName };
+    }
+
+    const explicitTargetMapId = quest.targetMapId;
+    const targetMapName = quest.targetMapName;
+    if (explicitTargetMapId && quest.targetX !== undefined && quest.targetY !== undefined) {
+      return { kind: 'point', mapId: explicitTargetMapId, x: quest.targetX, y: quest.targetY, mapLabel: targetMapName };
+    }
+
+    switch (quest.objectiveType) {
+      case 'talk':
+        if (explicitTargetMapId && quest.targetX !== undefined && quest.targetY !== undefined) {
+          return { kind: 'point', mapId: explicitTargetMapId, x: quest.targetX, y: quest.targetY, mapLabel: targetMapName };
+        }
+        if (explicitTargetMapId) {
+          return { kind: 'map', mapId: explicitTargetMapId, mapLabel: targetMapName };
+        }
+        return null;
+      case 'kill': {
+        const killMapId = quest.targetMapId ?? quest.giverMapId;
+        if (!killMapId || !quest.targetMonsterId) {
+          return null;
+        }
+        const spawn = this.mapService.getMonsterSpawnInMap(killMapId, quest.targetMonsterId);
+        if (!spawn) {
+          return null;
+        }
+        return {
+          kind: 'point',
+          mapId: killMapId,
+          x: spawn.x,
+          y: spawn.y,
+          mapLabel: targetMapName ?? this.mapService.getMapMeta(killMapId)?.name,
+        };
+      }
+      case 'submit_item':
+        if (explicitTargetMapId) {
+          return { kind: 'map', mapId: explicitTargetMapId, mapLabel: targetMapName };
+        }
+        return null;
+      case 'learn_technique':
+      case 'realm_progress':
+      case 'realm_stage':
+      default:
+        if (explicitTargetMapId) {
+          return { kind: 'map', mapId: explicitTargetMapId, mapLabel: targetMapName };
+        }
+        return null;
+    }
+  }
+
+  private findNextPortalTowardsMap(startMapId: string, targetMapId: string) {
+    if (startMapId === targetMapId) {
+      return undefined;
+    }
+    const visited = new Set<string>([startMapId]);
+    const queue: string[] = [startMapId];
+    const firstPortalByMap = new Map<string, ReturnType<MapService['getPortals']>[number]>();
+    while (queue.length > 0) {
+      const mapId = queue.shift()!;
+      for (const portal of this.mapService.getPortals(mapId)) {
+        if (portal.hidden || visited.has(portal.targetMapId)) {
+          continue;
+        }
+        const initialPortal = mapId === startMapId ? portal : firstPortalByMap.get(mapId);
+        if (!initialPortal) {
+          continue;
+        }
+        if (portal.targetMapId === targetMapId) {
+          return initialPortal;
+        }
+        visited.add(portal.targetMapId);
+        firstPortalByMap.set(portal.targetMapId, initialPortal);
+        queue.push(portal.targetMapId);
+      }
+    }
+    return undefined;
+  }
+
+  private getQuestCrossMapCooldownRemaining(player: PlayerState): number {
+    const now = player.lifeElapsedTicks ?? 0;
+    const until = player.questCrossMapNavCooldownUntilLifeTicks ?? 0;
+    return Math.max(0, Math.ceil(until - now));
+  }
+
+  private applyQuestCrossMapCooldown(player: PlayerState): void {
+    const now = player.lifeElapsedTicks ?? 0;
+    player.questCrossMapNavCooldownUntilLifeTicks = Math.max(
+      player.questCrossMapNavCooldownUntilLifeTicks ?? 0,
+      now + QUEST_CROSS_MAP_NAV_COOLDOWN_TICKS,
+    );
   }
 
   /** 将修炼中断的结果（脏标记、消息）合并到 tick 上下文 */
@@ -1383,25 +1604,34 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       const groundPilePatches = this.measureCpuSection('broadcast_patch_ground', '广播: 掉落差量 Patch', () => (
         this.buildSparseGroundPiles(viewer.id, visibleGroundPiles)
       ));
-      const tilePatches = visibilityChanged
+      // 首次同步或缓存缺失时才发送完整视野；移动/视野半径变化优先走 tile patch。
+      const shouldSendFullVisibility = !previous || !this.lastSentVisibleTiles.has(viewer.id);
+      const tilePatches = shouldSendFullVisibility
         ? []
-        : canUseDirtyTilePatches
-          ? previous?.tilePatchRevision === tilePatchRevision
-            ? []
-            : this.buildSparseDirtyVisibleTilePatches(
-              viewer.id,
-              clientVisibleTiles,
-              tileOriginX,
-              tileOriginY,
-              this.mapService.getDirtyTileKeys(viewer.mapId),
-            )
-          : this.buildSparseVisibleTilePatches(
+        : visibilityChanged
+          ? this.buildSparseVisibleTilePatches(
             viewer.id,
             clientVisibleTiles,
             tileOriginX,
             tileOriginY,
-          );
-      if (visibilityChanged) {
+          )
+          : canUseDirtyTilePatches
+            ? previous?.tilePatchRevision === tilePatchRevision
+              ? []
+              : this.buildSparseDirtyVisibleTilePatches(
+                viewer.id,
+                clientVisibleTiles,
+                tileOriginX,
+                tileOriginY,
+                this.mapService.getDirtyTileKeys(viewer.mapId),
+              )
+            : this.buildSparseVisibleTilePatches(
+              viewer.id,
+              clientVisibleTiles,
+              tileOriginX,
+              tileOriginY,
+            );
+      if (shouldSendFullVisibility) {
         this.syncVisibleTileCache(viewer.id, clientVisibleTiles, tileOriginX, tileOriginY);
       }
       const tickData: S2C_Tick = {
@@ -1425,8 +1655,10 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       this.measureCpuSection('broadcast_cache', '广播: 缓存修剪', () => {
         this.pruneRenderEntityCache(viewer.id, visibleEntityIds);
       });
-      if (visibilityChanged) {
+      if (shouldSendFullVisibility) {
         tickData.v = clientVisibleTiles;
+      }
+      if (visibilityChanged) {
         tickData.visibleMinimapMarkers = this.mapService.getVisibleMinimapMarkers(viewer.mapId, visibility.visibleKeys);
       }
       if (mapChanged) {

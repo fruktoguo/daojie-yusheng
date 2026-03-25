@@ -4,7 +4,7 @@
 
 import { io, Socket } from 'socket.io-client';
 import {
-  C2S, S2C, C2S_Move, C2S_MoveTo, C2S_GmGetState, C2S_GmSpawnBots, C2S_GmRemoveBots, C2S_GmUpdatePlayer, C2S_GmResetPlayer, C2S_Action, C2S_UpdateAutoBattleSkills, C2S_DebugResetSpawn, C2S_UseItem, C2S_DropItem, C2S_DestroyItem,
+  C2S, S2C, C2S_Move, C2S_MoveTo, C2S_NavigateQuest, C2S_GmGetState, C2S_GmSpawnBots, C2S_GmRemoveBots, C2S_GmUpdatePlayer, C2S_GmResetPlayer, C2S_Action, C2S_UpdateAutoBattleSkills, C2S_DebugResetSpawn, C2S_UseItem, C2S_DropItem, C2S_DestroyItem,
   C2S_TakeLoot, C2S_SortInventory, C2S_Equip, C2S_Unequip, C2S_Cultivate, C2S_Chat,
   C2S_Heartbeat,
   C2S_InspectTileRuntime,
@@ -184,6 +184,12 @@ export class SocketManager {
       ignoreVisibilityLimit: options?.ignoreVisibilityLimit,
       allowNearestReachable: options?.allowNearestReachable,
     } satisfies C2S_MoveTo);
+  }
+
+  sendNavigateQuest(questId: string) {
+    this.emitServer(C2S.NavigateQuest, {
+      questId,
+    } satisfies C2S_NavigateQuest);
   }
 
   sendGmGetState() {

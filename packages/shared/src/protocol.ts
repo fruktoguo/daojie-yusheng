@@ -11,6 +11,7 @@ import { NumericRatioDivisors, NumericStats } from './numeric';
 export const C2S = {
   Move: 'c:move',
   MoveTo: 'c:moveTo',
+  NavigateQuest: 'c:navigateQuest',
   Heartbeat: 'c:heartbeat',
   Ping: 'c:ping',
   GmGetState: 'c:gmGetState',
@@ -89,6 +90,11 @@ export interface C2S_MoveTo {
   y: number;
   ignoreVisibilityLimit?: boolean;
   allowNearestReachable?: boolean;
+}
+
+/** 以任务为目标启动自动导航 */
+export interface C2S_NavigateQuest {
+  questId: string;
 }
 
 /** 在线心跳 */
@@ -859,6 +865,11 @@ export interface GmMapQuestRecord {
   objectiveType?: QuestObjectiveType;
   objectiveText?: string;
   targetName?: string;
+  targetMapId?: string;
+  targetX?: number;
+  targetY?: number;
+  targetNpcId?: string;
+  targetNpcName?: string;
   targetMonsterId?: string;
   targetTechniqueId?: string;
   targetRealmStage?: string | number;
@@ -870,6 +881,12 @@ export interface GmMapQuestRecord {
   nextQuestId?: string;
   requiredItemId?: string;
   requiredItemCount?: number;
+  submitNpcId?: string;
+  submitNpcName?: string;
+  submitMapId?: string;
+  submitX?: number;
+  submitY?: number;
+  relayMessage?: string;
   unlockBreakthroughRequirementIds?: string[];
 }
 

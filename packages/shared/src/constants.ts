@@ -107,6 +107,7 @@ export {
   QUEST_LINE_KEYS,
   QUEST_STATUS_KEYS,
   QUEST_OBJECTIVE_TYPE_KEYS,
+  QUEST_CROSS_MAP_NAV_COOLDOWN_TICKS,
 } from './constants/gameplay/quest';
 export {
   DEFAULT_PLAYER_REALM_STAGE,
@@ -142,6 +143,14 @@ export {
 } from './constants/visuals/camera';
 export * from './constants/ui';
 export * from './constants/visuals';
+export {
+  MARKET_MAX_UNIT_PRICE,
+  MARKET_PRICE_PRESET_VALUES,
+  getMarketPriceStep,
+  isValidMarketPrice,
+  normalizeMarketPriceDown,
+  normalizeMarketPriceUp,
+} from './market-price';
 
 /** 根据经验倍率与品阶计算功法实际经验需求 */
 export function scaleTechniqueExp(expFactor: number, grade: TechniqueGrade = 'mortal'): number {

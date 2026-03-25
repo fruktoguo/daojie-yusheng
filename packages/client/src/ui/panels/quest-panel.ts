@@ -29,14 +29,14 @@ export class QuestPanel {
   private lastQuests: QuestState[] = [];
   private lastStructureKey: string | null = null;
   private currentMapId?: string;
-  private onNavigateToQuestGiver: ((x: number, y: number) => void) | null = null;
+  private onNavigateQuest: ((questId: string) => void) | null = null;
 
   constructor() {
     this.bindPaneEvents();
   }
 
-  setCallbacks(onNavigateToQuestGiver: (x: number, y: number) => void): void {
-    this.onNavigateToQuestGiver = onNavigateToQuestGiver;
+  setCallbacks(onNavigateQuest: (questId: string) => void): void {
+    this.onNavigateQuest = onNavigateQuest;
   }
 
   setCurrentMapId(mapId?: string): void {
@@ -230,16 +230,17 @@ export class QuestPanel {
       return;
     }
 
-    const canNavigateToGiver = Boolean(
-      quest.giverMapId
-      && this.currentMapId
-      && quest.giverMapId === this.currentMapId
-      && quest.giverX !== undefined
-      && quest.giverY !== undefined,
-    );
+    const canNavigateQuest = this.canNavigateQuest(quest);
     const giverLocation = quest.giverMapName && quest.giverX !== undefined && quest.giverY !== undefined
       ? `${quest.giverMapName} (${quest.giverX}, ${quest.giverY})`
       : quest.giverMapName ?? '未知';
+    const targetLocation = this.formatQuestLocation(
+      quest.targetMapName ?? (quest.objectiveType === 'kill' ? quest.giverMapName : undefined),
+      quest.targetX,
+      quest.targetY,
+    );
+    const submitLocation = this.formatQuestLocation(quest.submitMapName ?? quest.giverMapName, quest.submitX ?? quest.giverX, quest.submitY ?? quest.giverY);
+    const navigateLabel = quest.status === 'ready' ? '前往交付' : '前往目标';
 
     detailModalHost.open({
       ownerId: QuestPanel.MODAL_OWNER,
@@ -259,19 +260,21 @@ export class QuestPanel {
               <button
                 class="small-btn ghost quest-detail-nav-btn"
                 data-quest-navigate="true"
-                data-quest-giver-x="${quest.giverX ?? ''}"
-                data-quest-giver-y="${quest.giverY ?? ''}"
-                data-quest-can-navigate="${canNavigateToGiver ? '1' : '0'}"
+                data-quest-id="${escapeHtml(quest.id)}"
+                data-quest-can-navigate="${canNavigateQuest ? '1' : '0'}"
                 type="button"
-                ${canNavigateToGiver ? '' : 'disabled'}
-              >前往</button>
+                ${canNavigateQuest ? '' : 'disabled'}
+              >${navigateLabel}</button>
             </div>
           </div>
+          <div class="quest-detail-section"><strong>任务目标</strong><span data-quest-modal-target-location="true">${escapeHtml(targetLocation)}</span></div>
+          <div class="quest-detail-section"><strong>提交地点</strong><span data-quest-modal-submit-location="true">${escapeHtml(submitLocation)}</span></div>
           <div class="quest-detail-section"><strong>奖励</strong><span data-quest-modal-reward="true">${escapeHtml(quest.rewardText)}</span></div>
           <div class="quest-detail-section"><strong>当前进度</strong><span data-quest-modal-progress="true">${escapeHtml(this.resolveProgressText(quest))}</span></div>
           <div class="quest-detail-section"><strong>下一步</strong><span data-quest-modal-next-step="true">${escapeHtml(this.resolveNextStep(quest))}</span></div>
         </div>
         <div class="quest-detail-section ${quest.objectiveText ? '' : 'hidden'}" data-quest-modal-objective-section="true"><strong>任务说明</strong><span data-quest-modal-objective="true">${escapeHtml(quest.objectiveText ?? '')}</span></div>
+        <div class="quest-detail-section ${quest.relayMessage ? '' : 'hidden'}" data-quest-modal-relay-section="true"><strong>传话内容</strong><span data-quest-modal-relay="true">${escapeHtml(quest.relayMessage ?? '')}</span></div>
       `,
       onClose: () => {
         this.selectedQuestId = undefined;
@@ -281,10 +284,9 @@ export class QuestPanel {
           event.stopPropagation();
           const button = event.currentTarget;
           if (!(button instanceof HTMLElement) || button.dataset.questCanNavigate !== '1') return;
-          const x = Number(button.dataset.questGiverX);
-          const y = Number(button.dataset.questGiverY);
-          if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-          this.onNavigateToQuestGiver?.(x, y);
+          const questId = button.dataset.questId;
+          if (!questId) return;
+          this.onNavigateQuest?.(questId);
         });
       },
     });
@@ -319,8 +321,12 @@ export class QuestPanel {
     const rewardNode = document.querySelector<HTMLElement>('[data-quest-modal-reward="true"]');
     const progressNode = document.querySelector<HTMLElement>('[data-quest-modal-progress="true"]');
     const nextStepNode = document.querySelector<HTMLElement>('[data-quest-modal-next-step="true"]');
+    const targetLocationNode = document.querySelector<HTMLElement>('[data-quest-modal-target-location="true"]');
+    const submitLocationNode = document.querySelector<HTMLElement>('[data-quest-modal-submit-location="true"]');
     const objectiveSection = document.querySelector<HTMLElement>('[data-quest-modal-objective-section="true"]');
     const objectiveNode = document.querySelector<HTMLElement>('[data-quest-modal-objective="true"]');
+    const relaySection = document.querySelector<HTMLElement>('[data-quest-modal-relay-section="true"]');
+    const relayNode = document.querySelector<HTMLElement>('[data-quest-modal-relay="true"]');
     if (
       !titleNode
       || !subtitleNode
@@ -335,22 +341,26 @@ export class QuestPanel {
       || !rewardNode
       || !progressNode
       || !nextStepNode
+      || !targetLocationNode
+      || !submitLocationNode
       || !objectiveSection
       || !objectiveNode
+      || !relaySection
+      || !relayNode
     ) {
       return false;
     }
 
-    const canNavigateToGiver = Boolean(
-      quest.giverMapId
-      && this.currentMapId
-      && quest.giverMapId === this.currentMapId
-      && quest.giverX !== undefined
-      && quest.giverY !== undefined,
-    );
+    const canNavigateQuest = this.canNavigateQuest(quest);
     const giverLocation = quest.giverMapName && quest.giverX !== undefined && quest.giverY !== undefined
       ? `${quest.giverMapName} (${quest.giverX}, ${quest.giverY})`
       : quest.giverMapName ?? '未知';
+    const targetLocation = this.formatQuestLocation(
+      quest.targetMapName ?? (quest.objectiveType === 'kill' ? quest.giverMapName : undefined),
+      quest.targetX,
+      quest.targetY,
+    );
+    const submitLocation = this.formatQuestLocation(quest.submitMapName ?? quest.giverMapName, quest.submitX ?? quest.giverX, quest.submitY ?? quest.giverY);
 
     titleNode.textContent = quest.title;
     subtitleNode.textContent = `${getQuestLineLabel(quest.line)} · ${getQuestStatusLabel(quest.status)}`;
@@ -361,15 +371,19 @@ export class QuestPanel {
     storyNode.textContent = quest.story ?? '';
     giverNode.textContent = quest.giverName;
     locationNode.textContent = giverLocation;
-    navigateButton.disabled = !canNavigateToGiver;
-    navigateButton.dataset.questGiverX = `${quest.giverX ?? ''}`;
-    navigateButton.dataset.questGiverY = `${quest.giverY ?? ''}`;
-    navigateButton.dataset.questCanNavigate = canNavigateToGiver ? '1' : '0';
+    navigateButton.disabled = !canNavigateQuest;
+    navigateButton.dataset.questId = quest.id;
+    navigateButton.dataset.questCanNavigate = canNavigateQuest ? '1' : '0';
+    navigateButton.textContent = quest.status === 'ready' ? '前往交付' : '前往目标';
     rewardNode.textContent = quest.rewardText;
     progressNode.textContent = this.resolveProgressText(quest);
     nextStepNode.textContent = this.resolveNextStep(quest);
     objectiveSection.classList.toggle('hidden', !quest.objectiveText);
     objectiveNode.textContent = quest.objectiveText ?? '';
+    targetLocationNode.textContent = targetLocation;
+    submitLocationNode.textContent = submitLocation;
+    relaySection.classList.toggle('hidden', !quest.relayMessage);
+    relayNode.textContent = quest.relayMessage ?? '';
     return true;
   }
 
@@ -406,6 +420,9 @@ export class QuestPanel {
   }
 
   private resolveProgressText(quest: QuestState): string {
+    if (quest.objectiveType === 'talk') {
+      return quest.progress >= quest.required ? '口信已传达' : '尚未传达';
+    }
     if (quest.objectiveType === 'learn_technique') {
       return `${quest.targetName} ${quest.progress >= quest.required ? '已参悟' : '未参悟'}`;
     }
@@ -414,13 +431,19 @@ export class QuestPanel {
 
   private resolveNextStep(quest: QuestState): string {
     if (quest.status === 'ready') {
-      return '返回发布者交付任务';
+      return `前往 ${quest.submitNpcName ?? quest.giverName} 交付任务`;
     }
     if (quest.status === 'completed') {
       return '任务已结清';
     }
     if (quest.status === 'available') {
       return `前往 ${quest.giverName} 接取任务`;
+    }
+    if (quest.objectiveType === 'talk') {
+      return `前往 ${quest.targetNpcName ?? quest.targetName} 传达口信`;
+    }
+    if (quest.objectiveType === 'submit_item') {
+      return `准备 ${quest.targetName} 并前往交付`;
     }
     if (quest.objectiveType === 'learn_technique') {
       return `使用技能书并学会 ${quest.targetName}`;
@@ -432,5 +455,25 @@ export class QuestPanel {
       return `继续历练、积累境界经验并突破至 ${quest.targetName}`;
     }
     return `前往击杀 ${quest.targetName}`;
+  }
+
+  private formatQuestLocation(mapName?: string, x?: number, y?: number): string {
+    if (mapName && x !== undefined && y !== undefined) {
+      return `${mapName} (${x}, ${y})`;
+    }
+    return mapName ?? '未设置';
+  }
+
+  private canNavigateQuest(quest: QuestState): boolean {
+    if (quest.status === 'ready') {
+      return Boolean(quest.submitMapId ?? quest.giverMapId);
+    }
+    if (quest.targetMapId || (quest.objectiveType === 'kill' && quest.giverMapId)) {
+      return true;
+    }
+    if (quest.objectiveType === 'talk' && quest.targetNpcId) {
+      return true;
+    }
+    return false;
   }
 }

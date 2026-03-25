@@ -7,11 +7,15 @@ type ResolveQuestTargetNameOptions = {
   objectiveType: QuestObjectiveType;
   title: string;
   targetName?: string | null;
+  targetNpcId?: string | null;
   targetMonsterId?: string | null;
   targetTechniqueId?: string | null;
   targetRealmStage?: PlayerRealmStage;
+  requiredItemId?: string | null;
+  resolveNpcName?: (npcId: string) => string | undefined;
   resolveMonsterName?: (monsterId: string) => string | undefined;
   resolveTechniqueName?: (techniqueId: string) => string | undefined;
+  resolveItemName?: (itemId: string) => string | undefined;
 };
 
 /** 判断字符串是否像内部内容 ID（纯 ASCII、含分隔符、无空格） */
@@ -49,18 +53,30 @@ export function resolveQuestTargetName({
   objectiveType,
   title,
   targetName,
+  targetNpcId,
   targetMonsterId,
   targetTechniqueId,
   targetRealmStage,
+  requiredItemId,
+  resolveNpcName,
   resolveMonsterName,
   resolveTechniqueName,
+  resolveItemName,
 }: ResolveQuestTargetNameOptions): string {
   if (targetName && !isLikelyInternalContentId(targetName)) {
     return targetName;
   }
 
+  if (objectiveType === 'talk' && targetNpcId) {
+    return resolveNpcName?.(targetNpcId) ?? targetName ?? targetNpcId;
+  }
+
   if (objectiveType === 'kill' && targetMonsterId) {
     return resolveMonsterName?.(targetMonsterId) ?? targetName ?? targetMonsterId;
+  }
+
+  if (objectiveType === 'submit_item' && requiredItemId) {
+    return resolveItemName?.(requiredItemId) ?? targetName ?? requiredItemId;
   }
 
   if (objectiveType === 'learn_technique' && targetTechniqueId) {

@@ -54,6 +54,7 @@ export class RedisService implements OnModuleDestroy {
       equipment: JSON.stringify(persisted?.equipment ?? state.equipment),
       techniques: JSON.stringify(persisted?.techniques ?? state.techniques),
       quests: JSON.stringify(persisted?.quests ?? state.quests),
+      questCrossMapNavCooldownUntilLifeTicks: String(state.questCrossMapNavCooldownUntilLifeTicks ?? 0),
       actions: JSON.stringify(state.actions),
       unlockedMinimapIds: JSON.stringify(state.unlockedMinimapIds ?? []),
       autoBattle: state.autoBattle ? '1' : '0',

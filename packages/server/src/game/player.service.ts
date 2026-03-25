@@ -52,7 +52,7 @@ export type ImmediateCommandType = 'equip' | 'unequip' | 'sortInventory' | 'useI
 /** 玩家指令，由客户端消息转化后入队，在 tick 中统一执行 */
 export interface PlayerCommand {
   playerId: string;
-  type: 'move' | 'moveTo' | 'action' | 'takeLoot' | 'debugResetSpawn';
+  type: 'move' | 'moveTo' | 'navigateQuest' | 'action' | 'takeLoot' | 'debugResetSpawn';
   data: unknown;
   timestamp: number;
 }
@@ -235,6 +235,7 @@ export class PlayerService {
     state.boneAgeBaseYears = normalizeBoneAgeBaseYears(state.boneAgeBaseYears ?? DEFAULT_BONE_AGE_YEARS);
     state.lifeElapsedTicks = normalizeLifeElapsedTicks(state.lifeElapsedTicks);
     state.lifespanYears = normalizeLifespanYears(state.lifespanYears);
+    state.questCrossMapNavCooldownUntilLifeTicks = normalizeLifeElapsedTicks(state.questCrossMapNavCooldownUntilLifeTicks);
     state.idleTicks = 0;
     if (state.facing === undefined) state.facing = Direction.South;
     if (!state.viewRange) state.viewRange = VIEW_RADIUS;
@@ -272,6 +273,7 @@ export class PlayerService {
       equipment: persisted.equipment as any,
       techniques: persisted.techniques as any,
       quests: persisted.quests as any,
+      questCrossMapNavCooldownUntilLifeTicks: state.questCrossMapNavCooldownUntilLifeTicks ?? 0,
       revealedBreakthroughRequirementIds: state.revealedBreakthroughRequirementIds as any,
       unlockedMinimapIds: state.unlockedMinimapIds as any,
       autoBattle: state.autoBattle,
@@ -330,6 +332,7 @@ export class PlayerService {
         equipment: persisted.equipment as any,
         techniques: persisted.techniques as any,
         quests: persisted.quests as any,
+        questCrossMapNavCooldownUntilLifeTicks: state.questCrossMapNavCooldownUntilLifeTicks ?? 0,
         revealedBreakthroughRequirementIds: state.revealedBreakthroughRequirementIds as any,
         unlockedMinimapIds: state.unlockedMinimapIds as any,
         autoBattle: state.autoBattle,
@@ -557,37 +560,65 @@ export class PlayerService {
 
   /** 规范化任务数据：补全目标名称、NPC 位置、奖励信息等 */
   private normalizeQuests(quests: QuestState[]): QuestState[] {
-    return quests.map((quest) => ({
-      ...quest,
-      line: quest.line === 'main' || quest.line === 'daily' || quest.line === 'encounter'
-        ? quest.line
-        : 'side',
-      objectiveType: quest.objectiveType ?? 'kill',
+    return quests.map((quest) => {
+      const targetNpcLocation = quest.targetNpcId ? this.mapService.getNpcLocation(quest.targetNpcId) : undefined;
+      const submitNpcLocation = quest.submitNpcId ? this.mapService.getNpcLocation(quest.submitNpcId) : undefined;
+      return {
+        ...quest,
+        line: quest.line === 'main' || quest.line === 'daily' || quest.line === 'encounter'
+          ? quest.line
+          : 'side',
+        objectiveType: quest.objectiveType ?? 'kill',
       targetName: resolveQuestTargetName({
         objectiveType: quest.objectiveType ?? 'kill',
         title: quest.title,
         targetName: quest.targetName,
+        targetNpcId: quest.targetNpcId,
         targetMonsterId: quest.targetMonsterId,
         targetTechniqueId: quest.targetTechniqueId,
         targetRealmStage: quest.targetRealmStage,
+        requiredItemId: quest.requiredItemId,
+        resolveNpcName: (npcId) => this.mapService.getNpcLocation(npcId)?.name,
         resolveMonsterName: (monsterId) => this.mapService.getMonsterSpawn(monsterId)?.name,
         resolveTechniqueName: (techniqueId) => this.contentService.getTechnique(techniqueId)?.name,
+        resolveItemName: (itemId) => this.contentService.getItem(itemId)?.name,
       }),
-      targetMonsterId: quest.targetMonsterId ?? '',
-      rewardItemId: quest.rewardItemId ?? quest.rewardItemIds?.[0] ?? '',
-      rewardItemIds: Array.isArray(quest.rewardItemIds)
-        ? [...quest.rewardItemIds]
-        : quest.rewardItemId
-          ? [quest.rewardItemId]
-          : [],
-      rewards: Array.isArray(quest.rewards) ? quest.rewards.map((reward) => ({ ...reward })) : [],
-      giverMapId: quest.giverMapId,
-      giverMapName: quest.giverMapId && (!quest.giverMapName || quest.giverMapName === quest.giverMapId)
-        ? this.mapService.getMapMeta(quest.giverMapId)?.name ?? quest.giverMapName
-        : quest.giverMapName,
-      giverX: quest.giverX,
-      giverY: quest.giverY,
-    }));
+        targetMonsterId: quest.targetMonsterId ?? '',
+        rewardItemId: quest.rewardItemId ?? quest.rewardItemIds?.[0] ?? '',
+        rewardItemIds: Array.isArray(quest.rewardItemIds)
+          ? [...quest.rewardItemIds]
+          : quest.rewardItemId
+            ? [quest.rewardItemId]
+            : [],
+        rewards: Array.isArray(quest.rewards) ? quest.rewards.map((reward) => ({ ...reward })) : [],
+        requiredItemId: quest.requiredItemId,
+        requiredItemCount: quest.requiredItemCount,
+        giverMapId: quest.giverMapId,
+        giverMapName: quest.giverMapId && (!quest.giverMapName || quest.giverMapName === quest.giverMapId)
+          ? this.mapService.getMapMeta(quest.giverMapId)?.name ?? quest.giverMapName
+          : quest.giverMapName,
+        giverX: quest.giverX,
+        giverY: quest.giverY,
+        targetMapId: targetNpcLocation?.mapId ?? quest.targetMapId,
+        targetMapName: targetNpcLocation?.mapName ?? (
+          quest.targetMapId && (!quest.targetMapName || quest.targetMapName === quest.targetMapId)
+            ? this.mapService.getMapMeta(quest.targetMapId)?.name ?? quest.targetMapName
+            : quest.targetMapName
+        ),
+        targetX: targetNpcLocation?.x ?? quest.targetX,
+        targetY: targetNpcLocation?.y ?? quest.targetY,
+        targetNpcName: targetNpcLocation?.name ?? quest.targetNpcName,
+        submitMapId: submitNpcLocation?.mapId ?? quest.submitMapId,
+        submitMapName: submitNpcLocation?.mapName ?? (
+          quest.submitMapId && (!quest.submitMapName || quest.submitMapName === quest.submitMapId)
+            ? this.mapService.getMapMeta(quest.submitMapId)?.name ?? quest.submitMapName
+            : quest.submitMapName
+        ),
+        submitX: submitNpcLocation?.x ?? quest.submitX,
+        submitY: submitNpcLocation?.y ?? quest.submitY,
+        submitNpcName: submitNpcLocation?.name ?? quest.submitNpcName,
+      };
+    });
   }
 
   /** 校验并过滤临时 Buff 数组，剔除字段不完整或已失效的条目 */
@@ -648,6 +679,7 @@ export class PlayerService {
       equipment: hydrateEquipmentSnapshot(entity.equipment, this.contentService),
       techniques: hydrateTechniqueSnapshots(entity.techniques),
       quests: this.normalizeQuests(hydrateQuestSnapshots(entity.quests, this.mapService, this.contentService)),
+      questCrossMapNavCooldownUntilLifeTicks: normalizeLifeElapsedTicks(entity.questCrossMapNavCooldownUntilLifeTicks),
       revealedBreakthroughRequirementIds: Array.isArray(entity.revealedBreakthroughRequirementIds)
         ? entity.revealedBreakthroughRequirementIds.filter((entry): entry is string => typeof entry === 'string')
         : [],
@@ -739,6 +771,7 @@ export class PlayerService {
       equipment: persisted.equipment as any,
       techniques: persisted.techniques as any,
       quests: persisted.quests as any,
+      questCrossMapNavCooldownUntilLifeTicks: state.questCrossMapNavCooldownUntilLifeTicks ?? 0,
       revealedBreakthroughRequirementIds: state.revealedBreakthroughRequirementIds as any,
       unlockedMinimapIds: state.unlockedMinimapIds as any,
       autoBattle: state.autoBattle,
