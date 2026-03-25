@@ -1470,6 +1470,9 @@ socket.onSystemMsg((data) => {
     return;
   }
   chatUI.addMessage(data.text, data.from ?? '系统', data.kind ?? 'system');
+  if (data.text === '无法到达该位置' || data.text === '目标过远，无法规划路径') {
+    clearCurrentPath();
+  }
   showToast(data.text, data.kind ?? 'system');
 });
 socket.onError(async (data) => {

@@ -1674,13 +1674,10 @@ export class WorldService {
         error: portal.kind === 'stairs' ? '楼梯通往的目标地图不存在' : '传送失败：目标地图不存在',
       };
     }
-    if (!this.mapService.isWalkable(portal.targetMapId, portal.targetX, portal.targetY, {
-      occupancyId: player.id,
-      actorType: 'player',
-    })) {
+    if (!this.mapService.isTerrainWalkable(portal.targetMapId, portal.targetX, portal.targetY)) {
       return {
         ...EMPTY_UPDATE,
-        error: portal.kind === 'stairs' ? '楼梯落点被占用或不可到达' : '传送失败：目标传送阵被占用或不可到达',
+        error: portal.kind === 'stairs' ? '楼梯落点不可到达' : '传送失败：目标传送阵不可到达',
       };
     }
 

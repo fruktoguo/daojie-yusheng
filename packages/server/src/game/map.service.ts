@@ -1134,13 +1134,38 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   private rebuildPlayerOverlapPointIndex(): void {
     const next = new Map<string, Set<string>>();
     for (const [mapId, map] of this.maps.entries()) {
+      this.addOverlapArea(next, mapId, map.spawnPoint.x, map.spawnPoint.y, true);
       for (const portal of map.portals) {
-        if (!portal.allowPlayerOverlap) continue;
-        this.addOverlapPoint(next, mapId, portal.x, portal.y);
-        this.addOverlapPoint(next, portal.targetMapId, portal.targetX, portal.targetY);
+        this.addOverlapArea(next, mapId, portal.x, portal.y, true);
+        this.addOverlapArea(next, portal.targetMapId, portal.targetX, portal.targetY, true);
+      }
+      for (const npc of map.npcs) {
+        this.addOverlapArea(next, mapId, npc.x, npc.y, false);
       }
     }
     this.playerOverlapPointsByMap = next;
+  }
+
+  private addOverlapArea(
+    index: Map<string, Set<string>>,
+    mapId: string,
+    centerX: number,
+    centerY: number,
+    includeCenter: boolean,
+  ): void {
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        if (!includeCenter && dx === 0 && dy === 0) {
+          continue;
+        }
+        const x = centerX + dx;
+        const y = centerY + dy;
+        if (!this.getTile(mapId, x, y)?.walkable) {
+          continue;
+        }
+        this.addOverlapPoint(index, mapId, x, y);
+      }
+    }
   }
 
   private addOverlapPoint(index: Map<string, Set<string>>, mapId: string, x: number, y: number): void {
@@ -2006,13 +2031,10 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       if (blockers.length === 0) {
         continue;
       }
-      if (actorType !== 'player' || !this.supportsPlayerOverlap(mapId, x, y)) {
-        blocked[y * grid.width + x] = 1;
+      if (actorType === 'player' && this.supportsPlayerOverlap(mapId, x, y)) {
         continue;
       }
-      if (blockers.some(([, kind]) => kind !== 'player')) {
-        blocked[y * grid.width + x] = 1;
-      }
+      blocked[y * grid.width + x] = 1;
     }
 
     return blocked;
@@ -2374,11 +2396,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       return true;
     }
 
-    if (actorType !== 'player' || !this.supportsPlayerOverlap(mapId, x, y)) {
-      return false;
-    }
-
-    return blockingOccupants.every(([, kind]) => kind === 'player');
+    return actorType === 'player' && this.supportsPlayerOverlap(mapId, x, y);
   }
 
   blocksSight(mapId: string, x: number, y: number): boolean {
