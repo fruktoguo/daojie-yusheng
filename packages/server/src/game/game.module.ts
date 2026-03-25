@@ -35,11 +35,14 @@ import { PathWorkerPoolService } from './pathfinding/path-worker-pool.service';
 import { PlayerEntity } from '../database/entities/player.entity';
 import { SuggestionEntity } from '../database/entities/suggestion.entity';
 import { UserEntity } from '../database/entities/user.entity';
+import { MarketOrderEntity } from '../database/entities/market-order.entity';
+import { MarketTradeHistoryEntity } from '../database/entities/market-trade-history.entity';
+import { MarketService } from './market.service';
 
 @Module({
   imports: [
     AuthModule,
-    TypeOrmModule.forFeature([PlayerEntity, UserEntity, SuggestionEntity]),
+    TypeOrmModule.forFeature([PlayerEntity, UserEntity, SuggestionEntity, MarketOrderEntity, MarketTradeHistoryEntity]),
   ],
   controllers: [GmController, AccountController],
   providers: [
@@ -66,6 +69,7 @@ import { UserEntity } from '../database/entities/user.entity';
     ThreatService,
     WorldService,
     SuggestionService,
+    MarketService,
     PathRequestSchedulerService,
     PathWorkerPoolService,
   ],

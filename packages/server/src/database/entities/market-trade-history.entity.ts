@@ -1,0 +1,34 @@
+import {
+  Column,
+  Entity,
+  PrimaryColumn,
+} from 'typeorm';
+
+const BIGINT_NUMBER_TRANSFORMER = {
+  to: (value: number): number => value,
+  from: (value: string | number): number => Number(value),
+};
+
+@Entity('market_trade_history')
+export class MarketTradeHistoryEntity {
+  @PrimaryColumn({ type: 'uuid' })
+  id!: string;
+
+  @Column({ type: 'varchar', length: 100 })
+  buyerId!: string;
+
+  @Column({ type: 'varchar', length: 100 })
+  sellerId!: string;
+
+  @Column({ type: 'varchar', length: 100 })
+  itemId!: string;
+
+  @Column({ type: 'int' })
+  quantity!: number;
+
+  @Column({ type: 'int' })
+  unitPrice!: number;
+
+  @Column({ type: 'bigint', transformer: BIGINT_NUMBER_TRANSFORMER })
+  createdAt!: number;
+}

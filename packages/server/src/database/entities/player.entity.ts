@@ -85,6 +85,10 @@ export class PlayerEntity {
   @Column({ type: 'jsonb', default: () => `'{"items":[],"capacity":${DEFAULT_INVENTORY_CAPACITY}}'` })
   inventory!: Record<string, unknown>;
 
+  /** 坊市托管仓 */
+  @Column({ type: 'jsonb', default: () => '\'{"items":[]}\'' })
+  marketStorage!: Record<string, unknown>;
+
   /** 装备栏 */
   @Column({ type: 'jsonb', default: () => `'{"weapon":null,"head":null,"body":null,"legs":null,"accessory":null}'` })
   equipment!: Record<string, unknown>;

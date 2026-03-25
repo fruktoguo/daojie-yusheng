@@ -22,6 +22,7 @@ import { InventoryPanel } from './ui/panels/inventory-panel';
 import { EquipmentPanel } from './ui/panels/equipment-panel';
 import { TechniquePanel } from './ui/panels/technique-panel';
 import { QuestPanel } from './ui/panels/quest-panel';
+import { MarketPanel } from './ui/panels/market-panel';
 import { ActionPanel } from './ui/panels/action-panel';
 import { LootPanel } from './ui/panels/loot-panel';
 import { SettingsPanel } from './ui/panels/settings-panel';
@@ -357,6 +358,7 @@ const inventoryPanel = new InventoryPanel();
 const equipmentPanel = new EquipmentPanel();
 const techniquePanel = new TechniquePanel();
 const questPanel = new QuestPanel();
+const marketPanel = new MarketPanel();
 const actionPanel = new ActionPanel();
 const lootPanel = new LootPanel();
 const worldPanel = new WorldPanel();
@@ -1274,6 +1276,15 @@ techniquePanel.setCallbacks(
 questPanel.setCallbacks((x, y) => {
   planPathTo({ x, y }, { ignoreVisibilityLimit: true, allowNearestReachable: true });
 });
+marketPanel.setCallbacks({
+  onRequestMarket: () => socket.sendRequestMarket(),
+  onRequestItemBook: (itemKey) => socket.sendRequestMarketItemBook(itemKey),
+  onRequestTradeHistory: (page) => socket.sendRequestMarketTradeHistory(page),
+  onCreateSellOrder: (slotIndex, quantity, unitPrice) => socket.sendCreateMarketSellOrder(slotIndex, quantity, unitPrice),
+  onCreateBuyOrder: (itemId, quantity, unitPrice) => socket.sendCreateMarketBuyOrder(itemId, quantity, unitPrice),
+  onCancelOrder: (orderId) => socket.sendCancelMarketOrder(orderId),
+  onClaimStorage: () => socket.sendClaimMarketStorage(),
+});
 actionPanel.setCallbacks(
   (actionId, requiresTarget, targetMode, range, actionName) => {
     if (actionId === 'client:take') {
@@ -1386,6 +1397,7 @@ socket.onAttrUpdate((data) => {
 socket.onInventoryUpdate((data) => {
   if (myPlayer) myPlayer.inventory = data.inventory;
   inventoryPanel.update(data.inventory);
+  marketPanel.syncInventory(data.inventory);
 });
 socket.onEquipmentUpdate((data) => {
   if (myPlayer) myPlayer.equipment = data.equipment;
@@ -1860,6 +1872,7 @@ function resetGameState() {
   equipmentPanel.clear();
   techniquePanel.clear();
   questPanel.clear();
+  marketPanel.clear();
   actionPanel.clear();
   lootPanel.clear();
   worldPanel.clear();
@@ -2114,6 +2127,7 @@ socket.onInit((data: S2C_Init) => {
   });
   attrPanel.initFromPlayer(myPlayer);
   inventoryPanel.initFromPlayer(myPlayer);
+  marketPanel.initFromPlayer(myPlayer);
   equipmentPanel.initFromPlayer(myPlayer);
   techniquePanel.initFromPlayer(myPlayer);
   questPanel.initFromPlayer(myPlayer);
@@ -2125,6 +2139,20 @@ socket.onInit((data: S2C_Init) => {
 // 建议更新
 socket.onSuggestionUpdate((data) => {
   suggestionPanel.updateSuggestions(data.suggestions);
+});
+
+socket.onMarketUpdate((data) => {
+  if (myPlayer) {
+    myPlayer.marketStorage = data.storage;
+  }
+  marketPanel.updateMarket(data);
+});
+
+socket.onMarketItemBook((data) => {
+  marketPanel.updateItemBook(data);
+});
+socket.onMarketTradeHistory((data) => {
+  marketPanel.updateTradeHistory(data);
 });
 
 // Tick 更新

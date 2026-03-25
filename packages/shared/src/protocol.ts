@@ -2,7 +2,7 @@
  * 前后端通信协议：事件名定义与所有 Payload 类型。
  * C2S = 客户端→服务端，S2C = 服务端→客户端。
  */
-import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, QuestState, CombatEffect, AutoBattleSkillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, TechniqueGrade, GroundItemPileView, LootWindowState, VisibleBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage } from './types';
+import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, QuestState, CombatEffect, AutoBattleSkillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, TechniqueGrade, GroundItemPileView, LootWindowState, VisibleBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView } from './types';
 import { NumericRatioDivisors, NumericStats } from './numeric';
 
 // ===== 事件名 =====
@@ -38,6 +38,7 @@ export const C2S = {
   GmRemoveSuggestion: 'c:gmRemoveSuggestion',
   RequestMarket: 'c:requestMarket',
   RequestMarketItemBook: 'c:requestMarketItemBook',
+  RequestMarketTradeHistory: 'c:requestMarketTradeHistory',
   CreateMarketSellOrder: 'c:createMarketSellOrder',
   CreateMarketBuyOrder: 'c:createMarketBuyOrder',
   BuyMarketItem: 'c:buyMarketItem',
@@ -72,6 +73,7 @@ export const S2C = {
   SuggestionUpdate: 's:suggestionUpdate',
   MarketUpdate: 's:marketUpdate',
   MarketItemBook: 's:marketItemBook',
+  MarketTradeHistory: 's:marketTradeHistory',
 } as const;
 
 // ===== Payload 类型 =====
@@ -159,6 +161,10 @@ export interface C2S_RequestMarket {}
 
 export interface C2S_RequestMarketItemBook {
   itemKey: string;
+}
+
+export interface C2S_RequestMarketTradeHistory {
+  page: number;
 }
 
 export interface C2S_CreateMarketSellOrder {
@@ -516,6 +522,13 @@ export interface S2C_MarketItemBook {
   currencyItemName: string;
   itemKey: string;
   book: MarketOrderBookView | null;
+}
+
+export interface S2C_MarketTradeHistory {
+  page: number;
+  pageSize: number;
+  totalVisible: number;
+  records: MarketTradeHistoryEntryView[];
 }
 
 export interface S2C_TileRuntimeDetail {

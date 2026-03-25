@@ -6,6 +6,7 @@ export type PanelId =
   | 'equipment'
   | 'technique'
   | 'quest'
+  | 'market'
   | 'action'
   | 'world-map-intel'
   | 'world-nearby'

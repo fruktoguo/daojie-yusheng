@@ -80,6 +80,15 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
       preservesInteractionState: true,
     },
     {
+      id: 'market',
+      title: '坊市',
+      templateKind: 'embedded',
+      rootSelector: '#pane-market',
+      defaultPlacement: { desktop: 'right-top', mobile: 'external' },
+      supports: ['desktop', 'mobile'],
+      preservesInteractionState: true,
+    },
+    {
       id: 'action',
       title: '行动',
       templateKind: 'embedded',

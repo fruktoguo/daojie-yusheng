@@ -7,6 +7,10 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UserEntity } from './entities/user.entity';
 import { PlayerEntity } from './entities/player.entity';
 import { SuggestionEntity } from './entities/suggestion.entity';
+import { MarketOrderEntity } from './entities/market-order.entity';
+import { MarketTradeHistoryEntity } from './entities/market-trade-history.entity';
+import { PersistentDocumentEntity } from './entities/persistent-document.entity';
+import { PersistentDocumentService } from './persistent-document.service';
 import { RedisService } from './redis.service';
 
 /** 全局数据库模块，提供 TypeORM Repository 和 RedisService */
@@ -22,7 +26,14 @@ import { RedisService } from './redis.service';
           return {
             type: 'postgres' as const,
             url,
-            entities: [UserEntity, PlayerEntity, SuggestionEntity],
+            entities: [
+              UserEntity,
+              PlayerEntity,
+              SuggestionEntity,
+              MarketOrderEntity,
+              MarketTradeHistoryEntity,
+              PersistentDocumentEntity,
+            ],
             synchronize: true, // 开发阶段自动同步表结构
           };
         }
@@ -34,14 +45,28 @@ import { RedisService } from './redis.service';
           username: cfg.get<string>('DB_USERNAME', 'postgres'),
           password: cfg.get<string>('DB_PASSWORD', 'postgres'),
           database: cfg.get<string>('DB_DATABASE', 'daojie_yusheng'),
-          entities: [UserEntity, PlayerEntity, SuggestionEntity],
+          entities: [
+            UserEntity,
+            PlayerEntity,
+            SuggestionEntity,
+            MarketOrderEntity,
+            MarketTradeHistoryEntity,
+            PersistentDocumentEntity,
+          ],
           synchronize: true, // 开发阶段自动同步表结构
         };
       },
     }),
-    TypeOrmModule.forFeature([UserEntity, PlayerEntity, SuggestionEntity]),
+    TypeOrmModule.forFeature([
+      UserEntity,
+      PlayerEntity,
+      SuggestionEntity,
+      MarketOrderEntity,
+      MarketTradeHistoryEntity,
+      PersistentDocumentEntity,
+    ]),
   ],
-  providers: [RedisService],
-  exports: [TypeOrmModule, RedisService],
+  providers: [RedisService, PersistentDocumentService],
+  exports: [TypeOrmModule, RedisService, PersistentDocumentService],
 })
 export class DatabaseModule {}

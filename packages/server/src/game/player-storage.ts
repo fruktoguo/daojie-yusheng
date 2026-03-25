@@ -13,6 +13,7 @@ import {
   ITEM_TYPES,
   ItemStack,
   ItemType,
+  MarketStorage,
   QUEST_OBJECTIVE_TYPE_KEYS,
   QUEST_STATUS_KEYS,
   QuestObjectiveType,
@@ -87,6 +88,7 @@ export type PersistedEquipmentSnapshot = Record<EquipSlot, PersistedEquipmentEnt
 /** 持久化后的玩家集合数据（背包、装备、功法、Buff、任务） */
 export interface PersistedPlayerCollections {
   inventory: PersistedInventorySnapshot;
+  marketStorage: PersistedInventorySnapshot;
   equipment: PersistedEquipmentSnapshot;
   techniques: PersistedTechniqueEntry[];
   temporaryBuffs: PersistedTemporaryBuffEntry[];
@@ -95,6 +97,7 @@ export interface PersistedPlayerCollections {
 
 interface PlayerStorageState {
   inventory: Inventory;
+  marketStorage?: MarketStorage;
   equipment: EquipmentSlots;
   techniques: TechniqueState[];
   temporaryBuffs?: TemporaryBuffState[];
@@ -509,6 +512,14 @@ export function hydrateInventorySnapshot(snapshot: unknown, contentService: Cont
   });
 }
 
+/** 从持久化快照还原坊市托管仓 */
+export function hydrateMarketStorageSnapshot(snapshot: unknown, contentService: ContentService): MarketStorage {
+  const inventory = hydrateInventorySnapshot(snapshot, contentService);
+  return {
+    items: inventory.items,
+  };
+}
+
 /** 从持久化快照还原装备数据，补全物品定义 */
 export function hydrateEquipmentSnapshot(snapshot: unknown, contentService: ContentService): EquipmentSlots {
   const source = isPlainObject(snapshot) ? snapshot : {};
@@ -568,6 +579,10 @@ export function buildPersistedPlayerCollections(player: PlayerStorageState, cont
     inventory: {
       capacity: normalizePositiveInt(player.inventory.capacity, DEFAULT_INVENTORY_CAPACITY),
       items: player.inventory.items.map((item) => dehydrateInventoryItem(item, contentService)),
+    },
+    marketStorage: {
+      capacity: DEFAULT_INVENTORY_CAPACITY,
+      items: (player.marketStorage?.items ?? []).map((item) => dehydrateInventoryItem(item, contentService)),
     },
     equipment,
     temporaryBuffs: (player.temporaryBuffs ?? []).map((buff) => dehydrateTemporaryBuff(buff, contentService)),

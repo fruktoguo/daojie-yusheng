@@ -497,6 +497,41 @@
       .mobile-ui-pane .split-tabs-content {
         min-height: 0;
       }
+      .market-board,
+      .market-my-orders-grid,
+      .market-storage-list,
+      .market-pane-stats,
+      .market-book-columns {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .market-board,
+      .market-my-orders {
+        height: auto;
+        min-height: 0;
+      }
+      .market-modal-shell--wide {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .market-side-tabs {
+        flex-direction: row;
+        flex-wrap: wrap;
+      }
+      .market-side-tab {
+        justify-content: center;
+        flex: 1 1 120px;
+      }
+      .market-board-list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: none;
+        height: auto;
+      }
+      .market-board-list-wrap {
+        overflow: visible;
+      }
+      .market-trade-dialog {
+        width: calc(100% - 20px);
+        max-width: 420px;
+      }
       #debug-panel {
         right: 10px;
         bottom: 10px;

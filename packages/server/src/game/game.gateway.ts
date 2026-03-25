@@ -36,6 +36,15 @@ import {
   C2S_VoteSuggestion,
   C2S_GmMarkSuggestionCompleted,
   C2S_GmRemoveSuggestion,
+  C2S_RequestMarket,
+  C2S_RequestMarketItemBook,
+  C2S_RequestMarketTradeHistory,
+  C2S_CreateMarketSellOrder,
+  C2S_CreateMarketBuyOrder,
+  C2S_BuyMarketItem,
+  C2S_SellMarketItem,
+  C2S_CancelMarketOrder,
+  C2S_ClaimMarketStorage,
   PlayerState,
   S2C_Init,
   S2C_SystemMsg,
@@ -64,6 +73,7 @@ import { PerformanceService } from './performance.service';
 import { TickService } from './tick.service';
 import { SuggestionService } from './suggestion.service';
 import { NavigationService } from './navigation.service';
+import { MarketActionResult, MarketService } from './market.service';
 
 @WebSocketGateway({ cors: true })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -85,6 +95,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly tickService: TickService,
     private readonly suggestionService: SuggestionService,
     private readonly navigationService: NavigationService,
+    private readonly marketService: MarketService,
   ) {}
 
   /** 客户端连接时：认证 → 顶号/断线恢复/存档加载/新建角色 → 下发初始化数据 */
@@ -174,6 +185,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       bonuses: [],
       temporaryBuffs: [],
       inventory: this.contentService.getStarterInventory(),
+      marketStorage: { items: [] },
       equipment: { weapon: null, head: null, body: null, legs: null, accessory: null },
       techniques: [],
       actions: [],
@@ -459,6 +471,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     };
     client.emit(S2C.Init, initData);
     client.emit(S2C.SuggestionUpdate, { suggestions: this.suggestionService.getAll() });
+    client.emit(S2C.MarketUpdate, this.marketService.buildMarketUpdate(player));
   }
 
   @SubscribeMessage(C2S.RequestSuggestions)
@@ -502,10 +515,116 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.broadcastSuggestions();
   }
 
+  @SubscribeMessage(C2S.RequestMarket)
+  handleRequestMarket(client: Socket, _data: C2S_RequestMarket) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+    client.emit(S2C.MarketUpdate, this.marketService.buildMarketUpdate(player));
+  }
+
+  @SubscribeMessage(C2S.RequestMarketItemBook)
+  handleRequestMarketItemBook(client: Socket, data: C2S_RequestMarketItemBook) {
+    client.emit(S2C.MarketItemBook, {
+      currencyItemId: this.marketService.getCurrencyItemId(),
+      currencyItemName: this.marketService.getCurrencyItemName(),
+      itemKey: data.itemKey,
+      book: this.marketService.buildItemBook(data.itemKey),
+    });
+  }
+
+  @SubscribeMessage(C2S.RequestMarketTradeHistory)
+  async handleRequestMarketTradeHistory(client: Socket, data: C2S_RequestMarketTradeHistory) {
+    const playerId = client.data?.playerId as string;
+    client.emit(S2C.MarketTradeHistory, await this.marketService.buildTradeHistoryPage(playerId, data.page));
+  }
+
+  @SubscribeMessage(C2S.CreateMarketSellOrder)
+  async handleCreateMarketSellOrder(client: Socket, data: C2S_CreateMarketSellOrder) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+    const result = await this.marketService.createSellOrder(player, data);
+    this.flushMarketResult(result);
+  }
+
+  @SubscribeMessage(C2S.CreateMarketBuyOrder)
+  async handleCreateMarketBuyOrder(client: Socket, data: C2S_CreateMarketBuyOrder) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+    const result = await this.marketService.createBuyOrder(player, data);
+    this.flushMarketResult(result);
+  }
+
+  @SubscribeMessage(C2S.BuyMarketItem)
+  async handleBuyMarketItem(client: Socket, data: C2S_BuyMarketItem) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+    const result = await this.marketService.buyNow(player, data);
+    this.flushMarketResult(result);
+  }
+
+  @SubscribeMessage(C2S.SellMarketItem)
+  async handleSellMarketItem(client: Socket, data: C2S_SellMarketItem) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+    const result = await this.marketService.sellNow(player, data);
+    this.flushMarketResult(result);
+  }
+
+  @SubscribeMessage(C2S.CancelMarketOrder)
+  async handleCancelMarketOrder(client: Socket, data: C2S_CancelMarketOrder) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+    const result = await this.marketService.cancelOrder(player, data);
+    this.flushMarketResult(result);
+  }
+
+  @SubscribeMessage(C2S.ClaimMarketStorage)
+  async handleClaimMarketStorage(client: Socket, _data: C2S_ClaimMarketStorage) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+    const result = await this.marketService.claimStorage(player);
+    this.flushMarketResult(result);
+  }
+
   /** 向所有在线玩家广播最新建议列表 */
   private broadcastSuggestions() {
     const suggestions = this.suggestionService.getAll();
     this.server.emit(S2C.SuggestionUpdate, { suggestions });
+  }
+
+  private flushMarketResult(result: MarketActionResult): void {
+    for (const playerId of result.affectedPlayerIds) {
+      const player = this.playerService.getPlayer(playerId);
+      if (!player) {
+        continue;
+      }
+      this.tickService.flushPlayerState(player);
+    }
+    for (const message of result.messages) {
+      const socket = this.playerService.getSocket(message.playerId);
+      socket?.emit(S2C.SystemMsg, {
+        text: message.text,
+        kind: message.kind ?? 'system',
+      } satisfies S2C_SystemMsg);
+    }
+    this.broadcastMarketUpdates();
+  }
+
+  private broadcastMarketUpdates(): void {
+    for (const player of this.playerService.getAllPlayers()) {
+      const socket = this.playerService.getSocket(player.id);
+      if (!socket) {
+        continue;
+      }
+      socket.emit(S2C.MarketUpdate, this.marketService.buildMarketUpdate(player));
+    }
   }
 
   private toClientVisibleTiles(tiles: VisibleTile[][]): VisibleTile[][] {

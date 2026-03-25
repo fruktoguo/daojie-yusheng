@@ -50,6 +50,7 @@ export class RedisService implements OnModuleDestroy {
       bonuses: JSON.stringify(state.bonuses),
       temporaryBuffs: JSON.stringify(persisted?.temporaryBuffs ?? state.temporaryBuffs ?? []),
       inventory: JSON.stringify(persisted?.inventory ?? state.inventory),
+      marketStorage: JSON.stringify(persisted?.marketStorage ?? state.marketStorage ?? { items: [] }),
       equipment: JSON.stringify(persisted?.equipment ?? state.equipment),
       techniques: JSON.stringify(persisted?.techniques ?? state.techniques),
       quests: JSON.stringify(persisted?.quests ?? state.quests),
