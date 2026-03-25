@@ -163,7 +163,7 @@
       }
       .mobile-ui-pane [data-mobile-section="overview"] .hud-panel {
         grid-template-columns: 28px minmax(0, 1fr);
-        grid-template-rows: auto auto minmax(0, 1fr) auto;
+        grid-template-rows: auto auto minmax(0, 1fr) auto auto;
         row-gap: 6px;
         column-gap: 2px;
         padding: 16px 8px;
@@ -171,7 +171,7 @@
       }
       .mobile-ui-pane [data-mobile-section="overview"] .hud-identity {
         grid-column: 1;
-        grid-row: 1 / 5;
+        grid-row: 1 / 6;
         gap: 6px;
         padding: 4px 2px;
         border-right: 1px solid var(--wash-ink);
@@ -181,6 +181,7 @@
       .mobile-ui-pane [data-mobile-section="overview"] .hud-top-row,
       .mobile-ui-pane [data-mobile-section="overview"] .hud-resource-bars,
       .mobile-ui-pane [data-mobile-section="overview"] .hud-grid,
+      .mobile-ui-pane [data-mobile-section="overview"] .hud-link-actions,
       .mobile-ui-pane [data-mobile-section="overview"] .hud-corner-actions,
       .mobile-ui-pane [data-mobile-section="overview"] .hud-mobile-scroll {
         grid-column: 2;
@@ -260,8 +261,19 @@
         gap: 2px;
         padding: 7px 8px;
       }
-      .mobile-ui-pane [data-mobile-section="overview"] .hud-corner-actions {
+      .mobile-ui-pane [data-mobile-section="overview"] .hud-link-actions {
         grid-row: 4;
+        position: static;
+        right: auto;
+        bottom: auto;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 4px;
+        padding-top: 4px;
+        justify-items: end;
+      }
+      .mobile-ui-pane [data-mobile-section="overview"] .hud-corner-actions {
+        grid-row: 5;
         position: static;
         right: auto;
         bottom: auto;

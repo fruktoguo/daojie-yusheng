@@ -104,6 +104,11 @@ const pingUnitEl = document.getElementById('map-ping-unit');
 const pingHundredsEl = pingValueEl?.querySelector<HTMLElement>('[data-ping-part="hundreds"]');
 const pingTensEl = pingValueEl?.querySelector<HTMLElement>('[data-ping-part="tens"]');
 const pingOnesEl = pingValueEl?.querySelector<HTMLElement>('[data-ping-part="ones"]');
+const joinQqGroupBtn = document.getElementById('hud-join-qq-group') as HTMLAnchorElement | null;
+
+const QQ_GROUP_NUMBER = '940886387';
+const QQ_GROUP_MOBILE_DEEP_LINK = `mqqapi://card/show_pslcard?src_type=internal&version=1&uin=${QQ_GROUP_NUMBER}&card_type=group&source=qrcode`;
+const QQ_GROUP_DESKTOP_DEEP_LINK = `tencent://AddContact/?fromId=45&fromSubId=1&subcmd=all&uin=${QQ_GROUP_NUMBER}`;
 
 let auraLevelBaseValue = DEFAULT_AURA_LEVEL_BASE_VALUE;
 let activeObservedTile:
@@ -1337,6 +1342,10 @@ zoomResetBtn?.addEventListener('click', () => {
   const zoom = applyZoomChange(2);
   showToast(`缩放已重置为 ${formatZoom(zoom)}x`);
 });
+joinQqGroupBtn?.addEventListener('click', (event) => {
+  event.preventDefault();
+  void handleQqGroupLinkClick();
+});
 
 document.getElementById('hud-toggle-auto-battle')?.addEventListener('click', () => {
   socket.sendAction('toggle:auto_battle');
@@ -1548,6 +1557,56 @@ function showToast(message: string, kind: 'system' | 'chat' | 'quest' | 'combat'
     el.classList.remove('show');
     el.classList.add('hidden');
   }, 2500);
+}
+
+async function handleQqGroupLinkClick(): Promise<void> {
+  const copied = await copyTextToClipboard(QQ_GROUP_NUMBER);
+  const qqScheme = resolveQqGroupLink();
+  window.location.href = qqScheme;
+  window.setTimeout(() => {
+    if (document.visibilityState !== 'visible') {
+      return;
+    }
+    showToast(
+      copied
+        ? `已尝试唤起 QQ，加群失败时可直接粘贴群号 ${QQ_GROUP_NUMBER}`
+        : `已尝试唤起 QQ，如未打开请手动搜索群号 ${QQ_GROUP_NUMBER}`,
+    );
+  }, 600);
+}
+
+function resolveQqGroupLink(): string {
+  const ua = navigator.userAgent.toLowerCase();
+  const isMobile = /android|iphone|ipad|ipod|mobile/.test(ua);
+  return isMobile ? QQ_GROUP_MOBILE_DEEP_LINK : QQ_GROUP_DESKTOP_DEEP_LINK;
+}
+
+async function copyTextToClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // 某些浏览器或非安全上下文会拒绝 Clipboard API，此时回退到 execCommand。
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', 'true');
+  textarea.style.position = 'fixed';
+  textarea.style.top = '-9999px';
+  textarea.style.left = '-9999px';
+  document.body.appendChild(textarea);
+  textarea.select();
+
+  try {
+    return document.execCommand('copy');
+  } catch {
+    return false;
+  } finally {
+    document.body.removeChild(textarea);
+  }
 }
 
 function formatZoom(zoom: number): string {
