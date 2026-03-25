@@ -21,6 +21,7 @@ import {
   GmRemoveBotsReq,
   GmSpawnBotsReq,
   GmStateRes,
+  GmUpdateManagedPlayerPasswordReq,
   GmUpdateMapTickReq,
   GmUpdateMapTimeReq,
   GmUpdatePlayerReq,
@@ -103,6 +104,19 @@ export class GmController {
       throw new BadRequestException('目标玩家不存在');
     }
     return { player };
+  }
+
+  /** GM 直接重设玩家账号密码 */
+  @Post('players/:playerId/password')
+  async updatePlayerPassword(
+    @Param('playerId') playerId: string,
+    @Body() body: GmUpdateManagedPlayerPasswordReq,
+  ): Promise<{ ok: true }> {
+    const error = await this.gmService.updateManagedPlayerPassword(playerId, body?.newPassword ?? '');
+    if (error) {
+      throw new BadRequestException(error);
+    }
+    return { ok: true };
   }
 
   /** 获取运行时地图快照（世界管理用，必须在 maps/:mapId 之前） */

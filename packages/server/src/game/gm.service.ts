@@ -4,7 +4,7 @@
  */
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import {
   AttrBonus,
   Attributes,
@@ -15,6 +15,7 @@ import {
   Direction,
   EquipmentSlots,
   GmEditorCatalogRes,
+  GmManagedAccountRecord,
   GmMapDocument,
   GmMapListRes,
   GmMapRuntimeRes,
@@ -38,6 +39,8 @@ import {
   normalizeLifespanYears,
 } from '@mud/shared';
 import { PlayerEntity } from '../database/entities/player.entity';
+import { UserEntity } from '../database/entities/user.entity';
+import { AccountService } from './account.service';
 import { BotService } from './bot.service';
 import { ContentService } from './content.service';
 import { EquipmentService } from './equipment.service';
@@ -82,6 +85,11 @@ type GmCommand =
       all?: boolean;
     };
 
+interface GmPlayerUserIdentity {
+  userId?: string;
+  accountName?: string;
+}
+
 @Injectable()
 export class GmService {
   private readonly commandsByMap = new Map<string, GmCommand[]>();
@@ -89,12 +97,15 @@ export class GmService {
   constructor(
     @InjectRepository(PlayerEntity)
     private readonly playerRepo: Repository<PlayerEntity>,
+    @InjectRepository(UserEntity)
+    private readonly userRepo: Repository<UserEntity>,
     private readonly botService: BotService,
     private readonly playerService: PlayerService,
     private readonly mapService: MapService,
     private readonly navigationService: NavigationService,
     private readonly performanceService: PerformanceService,
     private readonly worldService: WorldService,
+    private readonly accountService: AccountService,
     private readonly contentService: ContentService,
     private readonly equipmentService: EquipmentService,
     private readonly techniqueService: TechniqueService,
@@ -108,25 +119,51 @@ export class GmService {
       Promise.resolve(this.playerService.getAllPlayers()),
     ]);
 
+    const runtimeUserIdByPlayerId = new Map(
+      runtimePlayers.map((player) => [player.id, this.playerService.getUserIdByPlayerId(player.id)]),
+    );
+    const userById = await this.loadUsersByIds([
+      ...entities.map((entity) => entity.userId),
+      ...runtimeUserIdByPlayerId.values(),
+    ]);
     const runtimeById = new Map(runtimePlayers.map((player) => [player.id, player]));
     const records: GmManagedPlayerSummary[] = [];
 
     for (const entity of entities) {
       const runtime = runtimeById.get(entity.id);
-      const snapshot = runtime ? this.clonePlayer(runtime) : this.hydrateStoredPlayer(entity);
-      records.push(this.buildSummary(snapshot, entity.userId, runtime ? snapshot.online === true : false, entity.updatedAt));
+      const user = userById.get(entity.userId);
+      const snapshot = runtime
+        ? this.clonePlayer(runtime)
+        : this.hydrateStoredPlayer(entity, this.resolveStoredDisplayName(user));
+      records.push(
+        this.buildSummary(
+          snapshot,
+          { userId: entity.userId, accountName: user?.username },
+          runtime ? snapshot.online === true : false,
+          entity.updatedAt,
+        ),
+      );
       runtimeById.delete(entity.id);
     }
 
     for (const runtime of runtimeById.values()) {
-      records.push(this.buildSummary(runtime, undefined, runtime.online === true, undefined));
+      const userId = runtimeUserIdByPlayerId.get(runtime.id);
+      const user = userId ? userById.get(userId) : undefined;
+      records.push(
+        this.buildSummary(
+          runtime,
+          { userId, accountName: user?.username },
+          runtime.online === true,
+          undefined,
+        ),
+      );
     }
 
     records.sort((left, right) => {
       if (left.meta.isBot !== right.meta.isBot) return left.meta.isBot ? 1 : -1;
       if (left.meta.online !== right.meta.online) return left.meta.online ? -1 : 1;
-      if (left.mapId !== right.mapId) return left.mapId.localeCompare(right.mapId);
-      return left.name.localeCompare(right.name, 'zh-CN');
+      if (left.mapName !== right.mapName) return left.mapName.localeCompare(right.mapName, 'zh-CN');
+      return left.roleName.localeCompare(right.roleName, 'zh-CN');
     });
 
     return {
@@ -141,7 +178,15 @@ export class GmService {
   async getPlayerDetail(playerId: string): Promise<GmManagedPlayerRecord | null> {
     const runtime = this.playerService.getPlayer(playerId);
     if (runtime) {
-      return this.buildRecord(runtime, this.playerService.getUserIdByPlayerId(playerId), runtime.online === true, undefined);
+      const userId = this.playerService.getUserIdByPlayerId(playerId);
+      const user = userId ? await this.userRepo.findOne({ where: { id: userId } }) : null;
+      return this.buildRecord(
+        runtime,
+        user,
+        { userId, accountName: user?.username },
+        runtime.online === true,
+        undefined,
+      );
     }
 
     const entity = await this.playerRepo.findOne({ where: { id: playerId } });
@@ -149,7 +194,31 @@ export class GmService {
       return null;
     }
 
-    return this.buildRecord(this.hydrateStoredPlayer(entity), entity.userId, false, entity.updatedAt);
+    const user = await this.userRepo.findOne({ where: { id: entity.userId } });
+    return this.buildRecord(
+      this.hydrateStoredPlayer(entity, this.resolveStoredDisplayName(user)),
+      user,
+      { userId: entity.userId, accountName: user?.username },
+      false,
+      entity.updatedAt,
+    );
+  }
+
+  /** GM 直接重设玩家账号密码 */
+  async updateManagedPlayerPassword(playerId: string, newPassword: string): Promise<string | null> {
+    const runtimeUserId = this.playerService.getUserIdByPlayerId(playerId);
+    const userId = runtimeUserId
+      ?? (await this.playerRepo.findOne({
+        where: { id: playerId },
+        select: { userId: true },
+      }))?.userId;
+
+    if (!userId) {
+      return '目标玩家没有可修改的账号';
+    }
+
+    await this.accountService.updatePasswordByGm(userId, newPassword);
+    return null;
   }
 
   getEditorCatalog(): GmEditorCatalogRes {
@@ -353,7 +422,7 @@ export class GmService {
 
   private buildSummary(
     player: PlayerState,
-    userId: string | undefined,
+    user: GmPlayerUserIdentity,
     online: boolean,
     updatedAt: Date | undefined,
   ): GmManagedPlayerSummary {
@@ -362,12 +431,19 @@ export class GmService {
       ?? player.realm?.name
       ?? player.realmName
       ?? `Lv.${realmLv}`;
+    const roleName = player.name;
+    const displayName = this.resolvePlayerDisplayName(player.displayName, user.accountName, roleName);
+    const mapName = this.mapService.getMapMeta(player.mapId)?.name ?? player.mapId;
     return {
       id: player.id,
-      name: player.name,
+      name: roleName,
+      roleName,
+      displayName,
+      accountName: user.accountName,
       realmLv,
       realmLabel,
       mapId: player.mapId,
+      mapName,
       x: player.x,
       y: player.y,
       hp: player.hp,
@@ -377,7 +453,7 @@ export class GmService {
       autoBattle: player.autoBattle,
       autoRetaliate: player.autoRetaliate !== false,
       meta: {
-        userId,
+        userId: user.userId,
         isBot: Boolean(player.isBot),
         online,
         inWorld: player.inWorld !== false,
@@ -391,15 +467,17 @@ export class GmService {
 
   private buildRecord(
     player: PlayerState,
-    userId: string | undefined,
+    userEntity: UserEntity | null | undefined,
+    user: GmPlayerUserIdentity,
     online: boolean,
     updatedAt: Date | undefined,
   ): GmManagedPlayerRecord {
-    const summary = this.buildSummary(player, userId, online, updatedAt);
+    const summary = this.buildSummary(player, user, online, updatedAt);
     const snapshot = this.clonePlayer(player);
     const persistedCollections = buildPersistedPlayerCollections(player, this.contentService, this.mapService);
     return {
       ...summary,
+      account: this.buildAccountRecord(userEntity, online),
       snapshot,
       persistedSnapshot: {
         id: player.id,
@@ -440,10 +518,11 @@ export class GmService {
   }
 
   /** 从数据库实体还原为运行时 PlayerState */
-  private hydrateStoredPlayer(entity: PlayerEntity): PlayerState {
+  private hydrateStoredPlayer(entity: PlayerEntity, displayName?: string): PlayerState {
     const player: PlayerState = {
       id: entity.id,
       name: entity.name,
+      displayName: this.resolvePlayerDisplayName(displayName, undefined, entity.name),
       mapId: entity.mapId,
       x: entity.x,
       y: entity.y,
@@ -865,6 +944,58 @@ export class GmService {
 
   private cloneObject<T>(value: T): T {
     return JSON.parse(JSON.stringify(value)) as T;
+  }
+
+  private async loadUsersByIds(userIds: Iterable<string | undefined>): Promise<Map<string, UserEntity>> {
+    const ids = [...new Set(
+      Array.from(userIds).filter((userId): userId is string => typeof userId === 'string' && userId.length > 0),
+    )];
+    if (ids.length === 0) {
+      return new Map();
+    }
+    const users = await this.userRepo.findBy({ id: In(ids) });
+    return new Map(users.map((user) => [user.id, user]));
+  }
+
+  private resolveStoredDisplayName(user?: UserEntity | null): string | undefined {
+    if (!user) {
+      return undefined;
+    }
+    return this.resolvePlayerDisplayName(user.displayName ?? undefined, user.username, user.username);
+  }
+
+  private resolvePlayerDisplayName(
+    displayName: string | undefined,
+    accountName: string | undefined,
+    fallbackName: string,
+  ): string {
+    const normalizedDisplayName = displayName?.trim();
+    if (normalizedDisplayName) {
+      return normalizedDisplayName;
+    }
+    const normalizedAccountName = accountName?.trim();
+    if (normalizedAccountName) {
+      return normalizedAccountName.slice(0, 1);
+    }
+    const normalizedFallback = fallbackName.trim();
+    return normalizedFallback.length > 0 ? normalizedFallback.slice(0, 1) : '';
+  }
+
+  private buildAccountRecord(user: UserEntity | null | undefined, online: boolean): GmManagedAccountRecord | undefined {
+    if (!user) {
+      return undefined;
+    }
+    const sessionStartedAt = this.playerService.getOnlineSessionStartedAt(user.id)
+      ?? user.currentOnlineStartedAt?.getTime();
+    const currentSessionSeconds = online && sessionStartedAt
+      ? Math.max(0, Math.floor((Date.now() - sessionStartedAt) / 1000))
+      : 0;
+    return {
+      userId: user.id,
+      username: user.username,
+      createdAt: user.createdAt.toISOString(),
+      totalOnlineSeconds: Math.max(0, Math.floor(user.totalOnlineSeconds ?? 0)) + currentSessionSeconds,
+    };
   }
 
   /** 获取指定区域的运行时地图快照（GM 世界管理用） */

@@ -1314,17 +1314,17 @@
     <section class="layout-section">
       <div class="section-head">
         <div class="section-title">角色册</div>
-        <div class="section-subtitle">支持按名字、ID、用户 ID、地图搜索，也可按境界、在线状态、地图等排序</div>
+        <div class="section-subtitle">列表显示账号、角色名、显示名；搜索支持账号、角色名、显示名和地图中文名</div>
       </div>
       <div class="section-body">
         <div class="filter-row">
-          <input id="player-search" class="search-input" type="text" placeholder="搜索玩家 / 用户 / 地图" />
+          <input id="player-search" class="search-input" type="text" placeholder="搜索账号 / 角色名 / 显示名 / 地图" />
           <select id="player-sort" class="search-input" style="flex:0 0 210px;">
             <option value="realm-desc">境界从高到低</option>
             <option value="realm-asc">境界从低到高</option>
             <option value="online">在线优先</option>
             <option value="map">按地图</option>
-            <option value="name">按名字</option>
+            <option value="name">按角色名</option>
           </select>
         </div>
         <div id="player-list" class="player-list"></div>
@@ -1334,7 +1334,7 @@
     <section class="layout-section">
       <div class="section-head">
         <div class="section-title">分区数据编辑</div>
-        <div class="section-subtitle">按位置、境界、功法、物品、任务等分开查看与保存，原始 JSON 保留在高级区</div>
+        <div class="section-subtitle">按基础、位置、属性、功法、物品、任务等分开查看与保存，原始 JSON 保留在高级区</div>
       </div>
       <div class="section-body">
         <div id="editor-empty" class="empty-hint">从左侧选择一个角色后，可查看并修改其完整数据。</div>
@@ -1356,7 +1356,7 @@
           <div class="workspace-tabs editor-tabs">
             <button id="editor-tab-basic" class="workspace-tab active" type="button">基础</button>
             <button id="editor-tab-position" class="workspace-tab" type="button">位置</button>
-            <button id="editor-tab-realm" class="workspace-tab" type="button">境界</button>
+            <button id="editor-tab-realm" class="workspace-tab" type="button">属性</button>
             <button id="editor-tab-techniques" class="workspace-tab" type="button">功法</button>
             <button id="editor-tab-items" class="workspace-tab" type="button">物品</button>
             <button id="editor-tab-quests" class="workspace-tab" type="button">任务</button>

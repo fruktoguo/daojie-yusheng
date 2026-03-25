@@ -2,7 +2,7 @@
  * 前后端通信协议：事件名定义与所有 Payload 类型。
  * C2S = 客户端→服务端，S2C = 服务端→客户端。
  */
-import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, QuestState, CombatEffect, AutoBattleSkillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, TechniqueGrade, GroundItemPileView, LootWindowState, VisibleBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef } from './types';
+import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, QuestState, CombatEffect, AutoBattleSkillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, TechniqueGrade, GroundItemPileView, LootWindowState, VisibleBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage } from './types';
 import { NumericRatioDivisors, NumericStats } from './numeric';
 
 // ===== 事件名 =====
@@ -36,6 +36,14 @@ export const C2S = {
   VoteSuggestion: 'c:voteSuggestion',
   GmMarkSuggestionCompleted: 'c:gmMarkSuggestionCompleted',
   GmRemoveSuggestion: 'c:gmRemoveSuggestion',
+  RequestMarket: 'c:requestMarket',
+  RequestMarketItemBook: 'c:requestMarketItemBook',
+  CreateMarketSellOrder: 'c:createMarketSellOrder',
+  CreateMarketBuyOrder: 'c:createMarketBuyOrder',
+  BuyMarketItem: 'c:buyMarketItem',
+  SellMarketItem: 'c:sellMarketItem',
+  CancelMarketOrder: 'c:cancelMarketOrder',
+  ClaimMarketStorage: 'c:claimMarketStorage',
 } as const;
 
 /** 服务端 → 客户端 */
@@ -62,6 +70,8 @@ export const S2C = {
   QuestUpdate: 's:questUpdate',
   SystemMsg: 's:systemMsg',
   SuggestionUpdate: 's:suggestionUpdate',
+  MarketUpdate: 's:marketUpdate',
+  MarketItemBook: 's:marketItemBook',
 } as const;
 
 // ===== Payload 类型 =====
@@ -145,6 +155,40 @@ export interface C2S_Chat {
   message: string;
 }
 
+export interface C2S_RequestMarket {}
+
+export interface C2S_RequestMarketItemBook {
+  itemKey: string;
+}
+
+export interface C2S_CreateMarketSellOrder {
+  slotIndex: number;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface C2S_CreateMarketBuyOrder {
+  itemId: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface C2S_BuyMarketItem {
+  itemKey: string;
+  quantity: number;
+}
+
+export interface C2S_SellMarketItem {
+  slotIndex: number;
+  quantity: number;
+}
+
+export interface C2S_CancelMarketOrder {
+  orderId: string;
+}
+
+export interface C2S_ClaimMarketStorage {}
+
 /** Tick 增量实体数据（支持 null 表示清除字段） */
 export interface TickRenderEntity {
   id: string;
@@ -227,7 +271,11 @@ export interface S2C_Init {
 export interface GmPlayerSummary {
   id: string;
   name: string;
+  roleName: string;
+  displayName: string;
+  accountName?: string;
   mapId: string;
+  mapName: string;
   x: number;
   y: number;
   hp: number;
@@ -455,6 +503,21 @@ export interface S2C_LootWindowUpdate {
   window: LootWindowState | null;
 }
 
+export interface S2C_MarketUpdate {
+  currencyItemId: string;
+  currencyItemName: string;
+  listedItems: MarketListedItemView[];
+  myOrders: MarketOwnOrderView[];
+  storage: MarketStorage;
+}
+
+export interface S2C_MarketItemBook {
+  currencyItemId: string;
+  currencyItemName: string;
+  itemKey: string;
+  book: MarketOrderBookView | null;
+}
+
 export interface S2C_TileRuntimeDetail {
   mapId: string;
   x: number;
@@ -598,6 +661,11 @@ export interface GmChangePasswordReq {
   newPassword: string;
 }
 
+/** GM 直接修改玩家账号密码请求 */
+export interface GmUpdateManagedPlayerPasswordReq {
+  newPassword: string;
+}
+
 /** GM 管理的玩家元信息 */
 export interface GmManagedPlayerMeta {
   userId?: string;
@@ -614,9 +682,13 @@ export interface GmManagedPlayerMeta {
 export interface GmManagedPlayerSummary {
   id: string;
   name: string;
+  roleName: string;
+  displayName: string;
+  accountName?: string;
   realmLv: number;
   realmLabel: string;
   mapId: string;
+  mapName: string;
   x: number;
   y: number;
   hp: number;
@@ -628,8 +700,17 @@ export interface GmManagedPlayerSummary {
   meta: GmManagedPlayerMeta;
 }
 
+/** GM 可查看的账号信息 */
+export interface GmManagedAccountRecord {
+  userId: string;
+  username: string;
+  createdAt: string;
+  totalOnlineSeconds: number;
+}
+
 /** GM 管理的玩家完整记录（含快照） */
 export interface GmManagedPlayerRecord extends GmManagedPlayerSummary {
+  account?: GmManagedAccountRecord;
   snapshot: PlayerState;
   persistedSnapshot: unknown;
 }

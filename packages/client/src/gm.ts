@@ -31,6 +31,7 @@ import {
   type GmRemoveBotsReq,
   type GmSpawnBotsReq,
   type GmStateRes,
+  type GmUpdateManagedPlayerPasswordReq,
   type GmUpdatePlayerReq,
   type ItemStack,
   ITEM_TYPES,
@@ -286,6 +287,17 @@ function formatDurationSeconds(seconds: number): string {
   return `${secs}秒`;
 }
 
+function formatDateTime(value?: string): string {
+  if (!value) {
+    return '无';
+  }
+  const time = new Date(value);
+  if (Number.isNaN(time.getTime())) {
+    return '无';
+  }
+  return time.toLocaleString('zh-CN');
+}
+
 function getPlayerPresenceMeta(player: Pick<GmManagedPlayerSummary, 'meta'>): {
   className: 'online' | 'offline';
   label: '在线' | '离线挂机' | '离线';
@@ -299,18 +311,23 @@ function getPlayerPresenceMeta(player: Pick<GmManagedPlayerSummary, 'meta'>): {
   return { className: 'offline', label: '离线' };
 }
 
+function getManagedAccountStatusLabel(player: Pick<GmManagedPlayerRecord, 'meta'>): string {
+  const presence = getPlayerPresenceMeta(player);
+  return presence.label;
+}
+
 function getFilteredPlayers(data: GmStateRes): GmManagedPlayerSummary[] {
   const keyword = playerSearchInput.value.trim().toLowerCase();
   const filtered = data.players.filter((player) => {
     if (!keyword) return true;
-    return [player.id, player.name, player.mapId, player.meta.userId ?? '']
+    return [player.accountName ?? '', player.roleName, player.displayName, player.mapName, player.mapId]
       .some((value) => value.toLowerCase().includes(keyword));
   });
   return sortPlayers(filtered);
 }
 
 function comparePlayerName(left: GmManagedPlayerSummary, right: GmManagedPlayerSummary): number {
-  return left.name.localeCompare(right.name, 'zh-CN');
+  return left.roleName.localeCompare(right.roleName, 'zh-CN');
 }
 
 function comparePlayerRealm(left: GmManagedPlayerSummary, right: GmManagedPlayerSummary): number {
@@ -334,8 +351,8 @@ function sortPlayers(players: GmManagedPlayerSummary[]): GmManagedPlayerSummary[
         }
         return comparePlayerName(left, right);
       case 'map':
-        if (left.mapId !== right.mapId) {
-          return left.mapId.localeCompare(right.mapId, 'zh-CN');
+        if (left.mapName !== right.mapName) {
+          return left.mapName.localeCompare(right.mapName, 'zh-CN');
         }
         if (left.realmLv !== right.realmLv) {
           return right.realmLv - left.realmLv;
@@ -351,11 +368,11 @@ function sortPlayers(players: GmManagedPlayerSummary[]): GmManagedPlayerSummary[
 }
 
 function getPlayerIdentityLine(player: GmManagedPlayerSummary): string {
-  return `ID: ${player.id}${player.meta.userId ? ` · 用户: ${player.meta.userId}` : ''}`;
+  return `地图: ${player.mapName}`;
 }
 
 function getPlayerStatsLine(player: GmManagedPlayerSummary): string {
-  return `${player.realmLabel} · HP ${player.hp}/${player.maxHp} · QI ${player.qi} · ${player.dead ? '已死亡' : '存活'} · ${player.autoBattle ? '自动战斗开' : '自动战斗关'}`;
+  return `${player.meta.isBot ? '机器人' : '玩家'} · ${player.realmLabel}`;
 }
 
 function getPlayerRowMarkup(player: GmManagedPlayerSummary): string {
@@ -375,21 +392,21 @@ function getPlayerRowMarkup(player: GmManagedPlayerSummary): string {
 function patchPlayerRow(button: HTMLButtonElement, player: GmManagedPlayerSummary, isActive: boolean): void {
   const presence = getPlayerPresenceMeta(player);
   button.classList.toggle('active', isActive);
-  button.querySelector<HTMLElement>('[data-role="name"]')!.textContent = player.name;
+  button.querySelector<HTMLElement>('[data-role="name"]')!.textContent = player.roleName;
   const presenceEl = button.querySelector<HTMLElement>('[data-role="presence"]')!;
   presenceEl.classList.toggle('online', presence.className === 'online');
   presenceEl.classList.toggle('offline', presence.className === 'offline');
   presenceEl.textContent = presence.label;
-  button.querySelector<HTMLElement>('[data-role="meta"]')!.textContent = `${player.meta.isBot ? '机器人' : '玩家'} · ${player.realmLabel} · ${player.mapId} · (${player.x}, ${player.y})`;
+  button.querySelector<HTMLElement>('[data-role="meta"]')!.textContent = `账号: ${player.accountName ?? '无'} · 显示名: ${player.displayName}`;
   button.querySelector<HTMLElement>('[data-role="identity"]')!.textContent = getPlayerIdentityLine(player);
   button.querySelector<HTMLElement>('[data-role="stats"]')!.textContent = getPlayerStatsLine(player);
 }
 
 function getEditorSubtitle(detail: GmManagedPlayerRecord): string {
   return [
-    `角色 ID: ${detail.id}`,
-    detail.meta.userId ? `用户 ID: ${detail.meta.userId}` : '用户 ID: 无',
-    `地图: ${detail.mapId} (${detail.x}, ${detail.y})`,
+    `账号: ${detail.accountName ?? '无'}`,
+    `显示名: ${detail.displayName}`,
+    `地图: ${detail.mapName} (${detail.x}, ${detail.y})`,
     detail.meta.updatedAt ? `最近落盘: ${new Date(detail.meta.updatedAt).toLocaleString('zh-CN')}` : '最近落盘: 运行时角色',
   ].join(' · ');
 }
@@ -1001,7 +1018,7 @@ function getEditorTabLabel(tab: GmPlayerUpdateSection | 'persisted'): string {
     case 'position':
       return '位置';
     case 'realm':
-      return '境界';
+      return '属性';
     case 'techniques':
       return '功法';
     case 'items':
@@ -1464,6 +1481,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
   const techniques = ensureArray(draft.techniques);
   const quests = ensureArray(draft.quests);
   const inventoryItems = ensureArray(draft.inventory.items);
+  const account = player.account;
 
   const equipmentMarkup = EQUIP_SLOTS.map((slot) => {
     const item = equipment[slot];
@@ -1639,6 +1657,53 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
     <section class="editor-section">
       <div class="editor-section-head">
         <div>
+          <div class="editor-section-title">账号信息</div>
+          <div class="editor-section-note">这里展示账号主键、注册时间、在线状态和累计在线时长，密码修改也统一在这里做。</div>
+        </div>
+      </div>
+      ${account ? `
+      <div class="editor-grid compact">
+        <div class="editor-field">
+          <span>账号</span>
+          <div class="editor-code">${escapeHtml(account.username)}</div>
+        </div>
+        <div class="editor-field">
+          <span>账号 ID</span>
+          <div class="editor-code">${escapeHtml(account.userId)}</div>
+        </div>
+        <div class="editor-field">
+          <span>注册时间</span>
+          <div class="editor-code">${escapeHtml(formatDateTime(account.createdAt))}</div>
+        </div>
+        <div class="editor-field">
+          <span>是否在线</span>
+          <div class="editor-code">${escapeHtml(getManagedAccountStatusLabel(player))}</div>
+        </div>
+        <div class="editor-field">
+          <span>上次在线时间</span>
+          <div class="editor-code">${escapeHtml(formatDateTime(player.meta.lastHeartbeatAt))}</div>
+        </div>
+        <div class="editor-field">
+          <span>累计在线时间</span>
+          <div class="editor-code">${escapeHtml(formatDurationSeconds(account.totalOnlineSeconds))}</div>
+        </div>
+      </div>
+      <div class="editor-grid compact" style="margin-top: 10px;">
+        <label class="editor-field">
+          <span>新密码</span>
+          <input id="player-password-next" type="text" autocomplete="off" spellcheck="false" placeholder="输入新的账号密码" />
+        </label>
+      </div>
+      <div class="button-row" style="margin-top: 10px;">
+        <button class="small-btn" type="button" data-action="save-player-password">修改账号密码</button>
+      </div>
+      <div class="editor-note">密码只会提交到服务端，并由服务端写入 bcrypt 哈希，不会以明文落库。</div>
+      ` : '<div class="editor-note">当前目标没有可编辑的账号信息，通常是机器人或异常存档。</div>'}
+    </section>
+
+    <section class="editor-section">
+      <div class="editor-section-head">
+        <div>
           <div class="editor-section-title">基础资料</div>
           <div class="editor-section-note">人物本体、资源数值与运行时开关。</div>
         </div>
@@ -1660,6 +1725,47 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
         ${checkboxField('自动战斗', 'autoBattle', draft.autoBattle)}
         ${checkboxField('自动反击', 'autoRetaliate', draft.autoRetaliate !== false)}
         ${checkboxField('锁定战斗目标', 'combatTargetLocked', draft.combatTargetLocked)}
+      </div>
+    </section>
+
+    `)}
+
+    ${renderEditorTabSection('position', `
+    <section class="editor-section">
+      <div class="editor-section-head">
+        <div>
+          <div class="editor-section-title">位置与朝向</div>
+          <div class="editor-section-note">地图传送、坐标修正与视野范围。</div>
+        </div>
+      </div>
+      <div class="editor-grid">
+        ${selectField('地图', 'mapId', draft.mapId, mapIds.map((mapId) => ({ value: mapId, label: mapId })))}
+        ${numberField('X', 'x', draft.x)}
+        ${numberField('Y', 'y', draft.y)}
+        ${selectField('朝向', 'facing', draft.facing, GM_FACING_OPTIONS)}
+        ${numberField('视野', 'viewRange', draft.viewRange)}
+      </div>
+    </section>
+    `)}
+
+    ${renderEditorTabSection('realm', `
+    <section class="editor-section">
+      <div class="editor-section-head">
+        <div>
+          <div class="editor-section-title">境界与属性</div>
+          <div class="editor-section-note">当前境界、基础属性、额外加成与临时效果。</div>
+        </div>
+      </div>
+      <div class="editor-grid">
+        ${selectField('当前境界', 'realmLv', typeof draft.realmLv === 'number' ? draft.realmLv : 1, getRealmCatalogOptions())}
+        ${numberField('当前境界经验', 'realm.progress', draft.realm?.progress)}
+      </div>
+      <div class="editor-stat-grid" style="margin-top: 10px;">
+        ${ATTR_KEYS.map((key) => numberField(ATTR_KEY_LABELS[key], `baseAttrs.${key}`, draft.baseAttrs[key])).join('')}
+      </div>
+      <div class="editor-grid compact" style="margin-top: 10px;">
+        ${stringArrayField('已揭示突破条件 ID', 'revealedBreakthroughRequirementIds', draft.revealedBreakthroughRequirementIds, 'wide')}
+        ${readonlyCodeBlock('境界状态', 'realm', draft.realm ?? {})}
       </div>
     </section>
 
@@ -1690,46 +1796,6 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
         ${readonlyCodeBlock('数值属性', 'numericStats', draft.numericStats ?? {})}
         ${readonlyCodeBlock('比率分母', 'ratioDivisors', draft.ratioDivisors ?? {})}
         ${readonlyCodeBlock('动作列表', 'actions', draft.actions ?? [])}
-      </div>
-    </section>
-    `)}
-
-    ${renderEditorTabSection('position', `
-    <section class="editor-section">
-      <div class="editor-section-head">
-        <div>
-          <div class="editor-section-title">位置与朝向</div>
-          <div class="editor-section-note">地图传送、坐标修正与视野范围。</div>
-        </div>
-      </div>
-      <div class="editor-grid">
-        ${selectField('地图', 'mapId', draft.mapId, mapIds.map((mapId) => ({ value: mapId, label: mapId })))}
-        ${numberField('X', 'x', draft.x)}
-        ${numberField('Y', 'y', draft.y)}
-        ${selectField('朝向', 'facing', draft.facing, GM_FACING_OPTIONS)}
-        ${numberField('视野', 'viewRange', draft.viewRange)}
-      </div>
-    </section>
-    `)}
-
-    ${renderEditorTabSection('realm', `
-    <section class="editor-section">
-      <div class="editor-section-head">
-        <div>
-          <div class="editor-section-title">境界进度</div>
-          <div class="editor-section-note">当前境界、进度与突破线索。</div>
-        </div>
-      </div>
-      <div class="editor-grid">
-        ${selectField('当前境界', 'realmLv', typeof draft.realmLv === 'number' ? draft.realmLv : 1, getRealmCatalogOptions())}
-        ${numberField('当前境界经验', 'realm.progress', draft.realm?.progress)}
-      </div>
-      <div class="editor-stat-grid" style="margin-top: 10px;">
-        ${ATTR_KEYS.map((key) => numberField(ATTR_KEY_LABELS[key], `baseAttrs.${key}`, draft.baseAttrs[key])).join('')}
-      </div>
-      <div class="editor-grid compact" style="margin-top: 10px;">
-        ${stringArrayField('已揭示突破条件 ID', 'revealedBreakthroughRequirementIds', draft.revealedBreakthroughRequirementIds, 'wide')}
-        ${readonlyCodeBlock('境界状态', 'realm', draft.realm ?? {})}
       </div>
     </section>
     `)}
@@ -1960,7 +2026,7 @@ function renderEditor(data: GmStateRes): void {
   editorEmptyEl.classList.add('hidden');
   editorPanelEl.classList.remove('hidden');
 
-  editorTitleEl.textContent = detail.name;
+  editorTitleEl.textContent = detail.roleName;
   editorSubtitleEl.textContent = getEditorSubtitle(detail);
   editorMetaEl.innerHTML = getEditorMetaMarkup(detail);
 
@@ -2370,6 +2436,43 @@ async function saveSelectedPlayer(): Promise<void> {
   }
 }
 
+async function saveSelectedPlayerPassword(): Promise<void> {
+  const detail = getSelectedPlayerDetail();
+  if (!detail?.account) {
+    setStatus('当前目标没有可修改的账号密码', true);
+    return;
+  }
+
+  const nextInput = editorContentEl.querySelector<HTMLInputElement>('#player-password-next');
+  const button = editorContentEl.querySelector<HTMLButtonElement>('[data-action="save-player-password"]');
+  const newPassword = nextInput?.value.trim() ?? '';
+
+  if (!newPassword) {
+    setStatus('请填写新密码', true);
+    return;
+  }
+
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    await request<{ ok: true }>(`/gm/players/${encodeURIComponent(detail.id)}/password`, {
+      method: 'POST',
+      body: JSON.stringify({ newPassword } satisfies GmUpdateManagedPlayerPasswordReq),
+    });
+    if (nextInput) {
+      nextInput.value = '';
+    }
+    setStatus(`已修改账号 ${detail.account.username} 的密码，服务端已按哈希保存`);
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '修改账号密码失败', true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
 async function resetSelectedPlayer(): Promise<void> {
   const selected = getSelectedPlayer();
   if (!selected) {
@@ -2627,6 +2730,10 @@ editorContentEl.addEventListener('click', (event) => {
   const trigger = (event.target as HTMLElement).closest<HTMLElement>('[data-action]');
   const action = trigger?.dataset.action;
   if (!action || !trigger) return;
+  if (action === 'save-player-password') {
+    saveSelectedPlayerPassword().catch(() => {});
+    return;
+  }
   handleEditorAction(action, trigger);
 });
 

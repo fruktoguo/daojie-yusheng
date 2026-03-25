@@ -17,6 +17,14 @@ interface GmCallbacks {
   onRemoveSuggestion: (id: string) => void;
 }
 
+function getPlayerAccountLabel(player: GmPlayerSummary): string {
+  return player.accountName ?? (player.isBot ? '机器人' : '无');
+}
+
+function getPlayerMapLabel(player: GmPlayerSummary): string {
+  return player.mapName || player.mapId;
+}
+
 function createEmptyGmState(): S2C_GmState {
   return {
     players: [],
@@ -355,10 +363,10 @@ export class GmPanel {
     this.playerListEl.innerHTML = this.state.players.map((player) => `
       <button class="gm-player-row ${player.id === this.selectedPlayerId ? 'active' : ''}" data-gm-player-id="${player.id}">
         <div>
-          <div class="gm-player-name">${player.name}</div>
-          <div class="gm-player-meta">${player.isBot ? '机器人' : '真人'} · ${player.mapId} · (${player.x}, ${player.y})</div>
+          <div class="gm-player-name">${player.roleName}</div>
+          <div class="gm-player-meta">账号: ${getPlayerAccountLabel(player)} · 显示名: ${player.displayName}</div>
+          <div class="gm-player-meta">${player.isBot ? '机器人' : '真人'} · ${getPlayerMapLabel(player)}</div>
         </div>
-        <div class="gm-player-stat">${player.hp}/${player.maxHp}</div>
       </button>
     `).join('');
   }

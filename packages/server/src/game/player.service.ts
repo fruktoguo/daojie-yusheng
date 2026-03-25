@@ -40,6 +40,7 @@ import {
   buildPersistedPlayerCollections,
   hydrateEquipmentSnapshot,
   hydrateInventorySnapshot,
+  hydrateMarketStorageSnapshot,
   hydrateQuestSnapshots,
   hydrateTemporaryBuffSnapshots,
   hydrateTechniqueSnapshots,
@@ -72,6 +73,7 @@ export class PlayerService {
   private commands: Map<string, PlayerCommand[]> = new Map();
   private socketMap: Map<string, Socket> = new Map();
   private userToPlayer: Map<string, string> = new Map();
+  private onlineSessionStartedAtByUserId: Map<string, number> = new Map();
   private dirtyFlags: Map<string, Set<DirtyFlag>> = new Map();
   private readonly logger = new Logger(PlayerService.name);
 
@@ -121,6 +123,9 @@ export class PlayerService {
       this.userRepo.findOne({ where: { id: userId } }),
     ]);
     if (!entity) return null;
+    if (user) {
+      await this.settleRecoveredOnlineSession(user);
+    }
     const state = this.hydratePlayerState(entity, user
       ? resolveDisplayName(user.displayName, user.username)
       : entity.name);
@@ -163,6 +168,9 @@ export class PlayerService {
 
     for (const entity of entities) {
       const user = userById.get(entity.userId);
+      if (user) {
+        await this.settleRecoveredOnlineSession(user, now);
+      }
       const displayName = user
         ? resolveDisplayName(user.displayName, user.username)
         : entity.name;
@@ -205,6 +213,7 @@ export class PlayerService {
     if (!state.bonuses) state.bonuses = [];
     if (!state.temporaryBuffs) state.temporaryBuffs = [];
     if (!state.inventory) state.inventory = { items: [], capacity: DEFAULT_INVENTORY_CAPACITY };
+    if (!state.marketStorage) state.marketStorage = { items: [] };
     if (!state.equipment) state.equipment = { weapon: null, head: null, body: null, legs: null, accessory: null };
     state.inventory = this.contentService.normalizeInventory(state.inventory);
     state.equipment = this.contentService.normalizeEquipment(state.equipment);
@@ -259,6 +268,7 @@ export class PlayerService {
       bonuses: state.bonuses as any,
       temporaryBuffs: persisted.temporaryBuffs as any,
       inventory: persisted.inventory as any,
+      marketStorage: persisted.marketStorage as any,
       equipment: persisted.equipment as any,
       techniques: persisted.techniques as any,
       quests: persisted.quests as any,
@@ -316,6 +326,7 @@ export class PlayerService {
         bonuses: state.bonuses as any,
         temporaryBuffs: persisted.temporaryBuffs as any,
         inventory: persisted.inventory as any,
+        marketStorage: persisted.marketStorage as any,
         equipment: persisted.equipment as any,
         techniques: persisted.techniques as any,
         quests: persisted.quests as any,
@@ -357,6 +368,7 @@ export class PlayerService {
     const userId = this.getUserIdByPlayerId(playerId);
     if (userId) {
       this.userToPlayer.delete(userId);
+      this.onlineSessionStartedAtByUserId.delete(userId);
     }
     this.redisService.removePlayer(playerId).catch(() => {});
   }
@@ -366,6 +378,10 @@ export class PlayerService {
     this.players.delete(playerId);
     this.socketMap.delete(playerId);
     this.dirtyFlags.delete(playerId);
+    const userId = this.getUserIdByPlayerId(playerId);
+    if (userId) {
+      this.onlineSessionStartedAtByUserId.delete(userId);
+    }
   }
 
   getPlayer(playerId: string): PlayerState | undefined {
@@ -417,6 +433,10 @@ export class PlayerService {
     this.userToPlayer.delete(userId);
   }
 
+  getOnlineSessionStartedAt(userId: string): number | undefined {
+    return this.onlineSessionStartedAtByUserId.get(userId);
+  }
+
   syncPlayerRealtimeState(playerId: string) {
     const player = this.players.get(playerId);
     if (!player) {
@@ -434,6 +454,18 @@ export class PlayerService {
     player.inWorld = true;
     player.lastHeartbeatAt = timestamp;
     player.offlineSinceAt = undefined;
+    const userId = this.getUserIdByPlayerId(playerId);
+    if (userId && !this.onlineSessionStartedAtByUserId.has(userId)) {
+      this.onlineSessionStartedAtByUserId.set(userId, timestamp);
+      this.userRepo.createQueryBuilder()
+        .update(UserEntity)
+        .set({
+          currentOnlineStartedAt: new Date(timestamp),
+        })
+        .where('id = :userId', { userId })
+        .execute()
+        .catch(() => {});
+    }
     this.syncPlayerRealtimeState(playerId);
   }
 
@@ -456,6 +488,25 @@ export class PlayerService {
     player.online = false;
     player.offlineSinceAt = player.offlineSinceAt ?? timestamp;
     this.socketMap.delete(playerId);
+    const userId = this.getUserIdByPlayerId(playerId);
+    if (userId) {
+      const startedAt = this.onlineSessionStartedAtByUserId.get(userId);
+      this.onlineSessionStartedAtByUserId.delete(userId);
+      if (typeof startedAt === 'number' && startedAt > 0) {
+        const sessionSeconds = this.computeOnlineSessionSeconds(startedAt, timestamp);
+        const startedAtIso = new Date(startedAt).toISOString();
+        this.userRepo.createQueryBuilder()
+          .update(UserEntity)
+          .set({
+            totalOnlineSeconds: () => `"totalOnlineSeconds" + ${sessionSeconds}`,
+            currentOnlineStartedAt: null,
+          })
+          .where('id = :userId', { userId })
+          .andWhere('currentOnlineStartedAt = :startedAt', { startedAt: startedAtIso })
+          .execute()
+          .catch(() => {});
+      }
+    }
     this.syncPlayerRealtimeState(playerId);
   }
 
@@ -593,6 +644,7 @@ export class PlayerService {
       bonuses: (entity.bonuses ?? []) as AttrBonus[],
       temporaryBuffs: this.normalizeTemporaryBuffs(hydrateTemporaryBuffSnapshots(entity.temporaryBuffs, this.contentService)),
       inventory: hydrateInventorySnapshot(entity.inventory, this.contentService),
+      marketStorage: hydrateMarketStorageSnapshot(entity.marketStorage, this.contentService),
       equipment: hydrateEquipmentSnapshot(entity.equipment, this.contentService),
       techniques: hydrateTechniqueSnapshots(entity.techniques),
       quests: this.normalizeQuests(hydrateQuestSnapshots(entity.quests, this.mapService, this.contentService)),
@@ -683,6 +735,7 @@ export class PlayerService {
       bonuses: state.bonuses as any,
       temporaryBuffs: persisted.temporaryBuffs as any,
       inventory: persisted.inventory as any,
+      marketStorage: persisted.marketStorage as any,
       equipment: persisted.equipment as any,
       techniques: persisted.techniques as any,
       quests: persisted.quests as any,
@@ -700,5 +753,23 @@ export class PlayerService {
       lastHeartbeatAt: state.lastHeartbeatAt ? new Date(state.lastHeartbeatAt) : null,
       offlineSinceAt: state.offlineSinceAt ? new Date(state.offlineSinceAt) : null,
     });
+  }
+
+  private computeOnlineSessionSeconds(startedAt: number | Date | null | undefined, endedAt = Date.now()): number {
+    const startTimestamp = startedAt instanceof Date ? startedAt.getTime() : startedAt ?? 0;
+    if (!Number.isFinite(startTimestamp) || startTimestamp <= 0) {
+      return 0;
+    }
+    return Math.max(0, Math.floor((endedAt - startTimestamp) / 1000));
+  }
+
+  private async settleRecoveredOnlineSession(user: UserEntity, now = Date.now()): Promise<void> {
+    if (!user.currentOnlineStartedAt) {
+      return;
+    }
+    const recoveredSeconds = this.computeOnlineSessionSeconds(user.currentOnlineStartedAt, now);
+    user.totalOnlineSeconds = Math.max(0, Math.floor(user.totalOnlineSeconds ?? 0)) + recoveredSeconds;
+    user.currentOnlineStartedAt = null;
+    await this.userRepo.save(user);
   }
 }

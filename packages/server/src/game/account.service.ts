@@ -49,6 +49,23 @@ export class AccountService {
     return { ok: true };
   }
 
+  /** GM 直接重设账号密码，服务端统一写入 bcrypt 哈希 */
+  async updatePasswordByGm(userId: string, newPassword: string): Promise<BasicOkRes> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('用户不存在');
+    }
+
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      throw new BadRequestException(passwordError);
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    await this.userRepo.save(user);
+    return { ok: true };
+  }
+
   /** 更新用户显示名称，同步到在线玩家状态 */
   async updateDisplayName(userId: string, displayName: string): Promise<{ displayName: string }> {
     const user = await this.userRepo.findOne({ where: { id: userId } });

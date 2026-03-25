@@ -26,6 +26,14 @@ export class UserEntity {
   @Column({ type: 'varchar', length: 255 })
   passwordHash!: string;
 
+  /** 累计在线时长，单位为秒 */
+  @Column({ type: 'int', default: 0 })
+  totalOnlineSeconds!: number;
+
+  /** 当前在线会话开始时间，用于累计在线时长结算 */
+  @Column({ type: 'timestamptz', nullable: true })
+  currentOnlineStartedAt!: Date | null;
+
   @CreateDateColumn()
   createdAt!: Date;
 }
