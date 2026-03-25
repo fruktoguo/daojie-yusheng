@@ -17,3 +17,5 @@ export const MAP_STATIC_CACHE_STORAGE_KEY = 'mud:map-static-cache:v2';
 /** UI 样式配置的本地存储键。 */
 export const UI_STYLE_STORAGE_KEY = 'mud-ui-style-config:v1';
 
+/** GM 管理台最近一次可用密码的本地存储键。 */
+export const GM_PASSWORD_STORAGE_KEY = 'mud:gm-password:v1';

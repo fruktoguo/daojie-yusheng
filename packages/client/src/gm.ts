@@ -9,6 +9,7 @@ import {
   GM_ACCESS_TOKEN_STORAGE_KEY,
   GM_APPLY_DELAY_MS,
   GM_PANEL_POLL_INTERVAL_MS,
+  GM_PASSWORD_STORAGE_KEY,
   type GmCpuSectionSnapshot,
   type GmEditorCatalogRes,
   type GmEditorItemOption,
@@ -99,6 +100,9 @@ const summaryCpuEl = document.getElementById('summary-cpu') as HTMLDivElement;
 const summaryMemoryEl = document.getElementById('summary-memory') as HTMLDivElement;
 const summaryNetInEl = document.getElementById('summary-net-in') as HTMLDivElement;
 const summaryNetOutEl = document.getElementById('summary-net-out') as HTMLDivElement;
+const summaryPathQueueEl = document.getElementById('summary-path-queue') as HTMLDivElement;
+const summaryPathWorkersEl = document.getElementById('summary-path-workers') as HTMLDivElement;
+const summaryPathCancelledEl = document.getElementById('summary-path-cancelled') as HTMLDivElement;
 const summaryNetInBreakdownEl = document.getElementById('summary-net-in-breakdown') as HTMLDivElement;
 const summaryNetOutBreakdownEl = document.getElementById('summary-net-out-breakdown') as HTMLDivElement;
 const serverSubtabOverviewBtn = document.getElementById('server-subtab-overview') as HTMLButtonElement;
@@ -114,6 +118,7 @@ const trafficTotalOutEl = document.getElementById('traffic-total-out') as HTMLDi
 const trafficTotalOutNoteEl = document.getElementById('traffic-total-out-note') as HTMLDivElement;
 const resetNetworkStatsBtn = document.getElementById('reset-network-stats') as HTMLButtonElement;
 const resetCpuStatsBtn = document.getElementById('reset-cpu-stats') as HTMLButtonElement;
+const resetPathfindingStatsBtn = document.getElementById('reset-pathfinding-stats') as HTMLButtonElement;
 const cpuCurrentPercentEl = document.getElementById('cpu-current-percent') as HTMLDivElement;
 const cpuProfileMetaEl = document.getElementById('cpu-profile-meta') as HTMLDivElement;
 const cpuCoreCountEl = document.getElementById('cpu-core-count') as HTMLDivElement;
@@ -128,6 +133,16 @@ const cpuRssMemoryEl = document.getElementById('cpu-rss-memory') as HTMLDivEleme
 const cpuHeapUsedEl = document.getElementById('cpu-heap-used') as HTMLDivElement;
 const cpuHeapTotalEl = document.getElementById('cpu-heap-total') as HTMLDivElement;
 const cpuExternalMemoryEl = document.getElementById('cpu-external-memory') as HTMLDivElement;
+const pathfindingResetMetaEl = document.getElementById('pathfinding-reset-meta') as HTMLDivElement;
+const pathfindingAvgQueueMsEl = document.getElementById('pathfinding-avg-queue-ms') as HTMLDivElement;
+const pathfindingQueueNoteEl = document.getElementById('pathfinding-queue-note') as HTMLDivElement;
+const pathfindingAvgRunMsEl = document.getElementById('pathfinding-avg-run-ms') as HTMLDivElement;
+const pathfindingRunNoteEl = document.getElementById('pathfinding-run-note') as HTMLDivElement;
+const pathfindingAvgExpandedNodesEl = document.getElementById('pathfinding-avg-expanded-nodes') as HTMLDivElement;
+const pathfindingExpandedNoteEl = document.getElementById('pathfinding-expanded-note') as HTMLDivElement;
+const pathfindingDropTotalEl = document.getElementById('pathfinding-drop-total') as HTMLDivElement;
+const pathfindingDropNoteEl = document.getElementById('pathfinding-drop-note') as HTMLDivElement;
+const pathfindingFailureListEl = document.getElementById('pathfinding-failure-list') as HTMLDivElement;
 const cpuBreakdownListEl = document.getElementById('cpu-breakdown-list') as HTMLDivElement;
 const cpuBreakdownSortTotalBtn = document.getElementById('cpu-breakdown-sort-total') as HTMLButtonElement;
 const cpuBreakdownSortCountBtn = document.getElementById('cpu-breakdown-sort-count') as HTMLButtonElement;
@@ -172,6 +187,46 @@ let lastSuggestionStructureKey: string | null = null;
 let lastNetworkInStructureKey: string | null = null;
 let lastNetworkOutStructureKey: string | null = null;
 let lastCpuBreakdownStructureKey: string | null = null;
+let lastPathfindingFailureStructureKey: string | null = null;
+
+function getBrowserLocalStorage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function readPersistedGmPassword(): string {
+  const storage = getBrowserLocalStorage();
+  if (!storage) return '';
+  try {
+    return storage.getItem(GM_PASSWORD_STORAGE_KEY)?.trim() ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function persistGmPassword(password: string): void {
+  const storage = getBrowserLocalStorage();
+  if (!storage) return;
+  const normalized = password.trim();
+  try {
+    if (normalized) {
+      storage.setItem(GM_PASSWORD_STORAGE_KEY, normalized);
+      return;
+    }
+    storage.removeItem(GM_PASSWORD_STORAGE_KEY);
+  } catch {
+    // 本地存储不可用时忽略，避免影响 GM 主流程。
+  }
+}
+
+function syncPersistedGmPasswordToInputs(): void {
+  const persistedPassword = readPersistedGmPassword();
+  passwordInput.value = persistedPassword;
+  gmPasswordCurrentInput.value = persistedPassword;
+}
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -830,6 +885,10 @@ function getCpuSectionMeta(section: GmCpuSectionSnapshot): string {
   return `${section.totalMs.toFixed(2)} ms · ${section.percent.toFixed(1)}% · ${section.count} 次 · 均次 ${section.avgMs.toFixed(3)} ms`;
 }
 
+function getPathfindingFailureMeta(totalFailures: number, count: number): string {
+  return `${count} 次 · 占失败 ${formatPercent(count, totalFailures)}`;
+}
+
 function renderPerfLists(data: GmStateRes): void {
   const elapsedSec = Math.max(0, data.perf.networkStatsElapsedSec);
   const networkInItems = data.perf.networkInBytes > 0
@@ -851,6 +910,12 @@ function renderPerfLists(data: GmStateRes): void {
     label: section.label,
     meta: getCpuSectionMeta(section),
   }));
+  const totalFailures = data.perf.pathfinding.failed + data.perf.pathfinding.cancelled;
+  const pathfindingFailureItems = data.perf.pathfinding.failureReasons.map((bucket) => ({
+    key: bucket.reason,
+    label: bucket.label,
+    meta: getPathfindingFailureMeta(totalFailures, bucket.count),
+  }));
 
   lastNetworkInStructureKey = renderStructuredStatList(
     summaryNetInBreakdownEl,
@@ -869,6 +934,12 @@ function renderPerfLists(data: GmStateRes): void {
     lastCpuBreakdownStructureKey,
     cpuItems,
     '当前还没有 CPU 分项数据。',
+  );
+  lastPathfindingFailureStructureKey = renderStructuredStatList(
+    pathfindingFailureListEl,
+    lastPathfindingFailureStructureKey,
+    pathfindingFailureItems,
+    '当前还没有寻路失败记录。',
   );
 }
 
@@ -1770,6 +1841,9 @@ function renderSummary(data: GmStateRes): void {
   summaryMemoryEl.textContent = `${Math.round(data.perf.memoryMb)} MB`;
   summaryNetInEl.textContent = formatBytes(data.perf.networkInBytes);
   summaryNetOutEl.textContent = formatBytes(data.perf.networkOutBytes);
+  summaryPathQueueEl.textContent = `${data.perf.pathfinding.queueDepth}`;
+  summaryPathWorkersEl.textContent = `${data.perf.pathfinding.runningWorkers} / ${data.perf.pathfinding.workerCount}`;
+  summaryPathCancelledEl.textContent = `${data.perf.pathfinding.cancelled}`;
   trafficResetMetaEl.textContent = startedAt
     ? `统计起点：${startedAt.toLocaleString()} · 已累计 ${formatDurationSeconds(elapsedSec)}`
     : '统计区间尚未开始。';
@@ -1799,6 +1873,17 @@ function renderSummary(data: GmStateRes): void {
   cpuHeapUsedEl.textContent = `${Math.round(data.perf.cpu.heapUsedMb)} MB`;
   cpuHeapTotalEl.textContent = `${Math.round(data.perf.cpu.heapTotalMb)} MB`;
   cpuExternalMemoryEl.textContent = `${Math.round(data.perf.cpu.externalMb)} MB`;
+  pathfindingResetMetaEl.textContent = data.perf.pathfinding.statsStartedAt > 0
+    ? `寻路统计起点：${new Date(data.perf.pathfinding.statsStartedAt).toLocaleString()} · 已累计 ${formatDurationSeconds(data.perf.pathfinding.statsElapsedSec)}`
+    : '寻路统计区间尚未开始。';
+  pathfindingAvgQueueMsEl.textContent = `${data.perf.pathfinding.avgQueueMs.toFixed(2)} ms`;
+  pathfindingQueueNoteEl.textContent = `峰值 ${data.perf.pathfinding.maxQueueMs.toFixed(2)} ms · 队列峰值 ${data.perf.pathfinding.peakQueueDepth}`;
+  pathfindingAvgRunMsEl.textContent = `${data.perf.pathfinding.avgRunMs.toFixed(2)} ms`;
+  pathfindingRunNoteEl.textContent = `峰值 ${data.perf.pathfinding.maxRunMs.toFixed(2)} ms · 已完成 ${data.perf.pathfinding.completed}`;
+  pathfindingAvgExpandedNodesEl.textContent = `${data.perf.pathfinding.avgExpandedNodes.toFixed(1)}`;
+  pathfindingExpandedNoteEl.textContent = `峰值 ${data.perf.pathfinding.maxExpandedNodes} · 成功 ${data.perf.pathfinding.succeeded}`;
+  pathfindingDropTotalEl.textContent = `${data.perf.pathfinding.droppedPending + data.perf.pathfinding.droppedStaleResults}`;
+  pathfindingDropNoteEl.textContent = `等待丢弃 ${data.perf.pathfinding.droppedPending} · 结果过期 ${data.perf.pathfinding.droppedStaleResults}`;
   renderPerfLists(data);
 }
 
@@ -2091,6 +2176,7 @@ function showShell(): void {
 function showLogin(): void {
   loginOverlay.classList.remove('hidden');
   gmShell.classList.add('hidden');
+  syncPersistedGmPasswordToInputs();
 }
 
 function logout(message?: string): void {
@@ -2152,11 +2238,13 @@ async function login(): Promise<void> {
     });
     token = result.accessToken;
     sessionStorage.setItem(GM_ACCESS_TOKEN_STORAGE_KEY, token);
+    persistGmPassword(password);
     showShell();
     await loadEditorCatalog();
     await loadState();
     startPolling();
     passwordInput.value = '';
+    gmPasswordCurrentInput.value = readPersistedGmPassword();
     setStatus(`GM 管理令牌已签发，有效期约 ${Math.round(result.expiresInSec / 3600)} 小时`);
   } catch (error) {
     loginErrorEl.textContent = error instanceof Error ? error.message : '登录失败';
@@ -2182,7 +2270,10 @@ async function changeGmPassword(): Promise<void> {
         newPassword,
       } satisfies GmChangePasswordReq),
     });
-    gmPasswordCurrentInput.value = '';
+    persistGmPassword(newPassword);
+    const persistedPassword = readPersistedGmPassword();
+    passwordInput.value = persistedPassword;
+    gmPasswordCurrentInput.value = persistedPassword;
     gmPasswordNextInput.value = '';
     setStatus('GM 密码已更新');
   } catch (error) {
@@ -2389,6 +2480,21 @@ async function resetCpuStats(): Promise<void> {
     setStatus(error instanceof Error ? error.message : '重置 CPU 统计失败', true);
   } finally {
     resetCpuStatsBtn.disabled = false;
+  }
+}
+
+async function resetPathfindingStats(): Promise<void> {
+  resetPathfindingStatsBtn.disabled = true;
+  try {
+    await request<{ ok: true }>('/gm/perf/pathfinding/reset', {
+      method: 'POST',
+    });
+    await loadState(true);
+    setStatus('寻路统计已重置');
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '重置寻路统计失败', true);
+  } finally {
+    resetPathfindingStatsBtn.disabled = false;
   }
 }
 
@@ -2639,6 +2745,9 @@ resetNetworkStatsBtn.addEventListener('click', () => {
 resetCpuStatsBtn.addEventListener('click', () => {
   resetCpuStats().catch(() => {});
 });
+resetPathfindingStatsBtn.addEventListener('click', () => {
+  resetPathfindingStats().catch(() => {});
+});
 gmPasswordForm.addEventListener('submit', (event) => {
   event.preventDefault();
   changeGmPassword().catch(() => {});
@@ -2655,6 +2764,8 @@ resetPlayerBtn.addEventListener('click', () => {
 removeBotBtn.addEventListener('click', () => {
   removeSelectedBot().catch(() => {});
 });
+
+syncPersistedGmPasswordToInputs();
 
 if (token) {
   showShell();

@@ -1182,6 +1182,9 @@
           <div class="summary-grid">
             <div class="summary-card"><div class="panel-title">累计上行</div><div id="summary-net-in" class="panel-value">0 B</div></div>
             <div class="summary-card"><div class="panel-title">累计下行</div><div id="summary-net-out" class="panel-value">0 B</div></div>
+            <div class="summary-card"><div class="panel-title">寻路队列</div><div id="summary-path-queue" class="panel-value">0</div></div>
+            <div class="summary-card"><div class="panel-title">寻路线程</div><div id="summary-path-workers" class="panel-value">0 / 0</div></div>
+            <div class="summary-card"><div class="panel-title">寻路取消</div><div id="summary-path-cancelled" class="panel-value">0</div></div>
           </div>
           <div class="button-row" style="margin-bottom: 12px;">
             <input id="spawn-count" class="number-input" type="number" min="1" max="50" value="5" />
@@ -1206,6 +1209,36 @@
               </div>
               <div class="button-row" style="margin-top: 10px;"><button id="gm-password-save" class="small-btn" type="submit">修改 GM 密码</button></div>
             </form>
+          </div>
+          <div class="network-breakdown" style="margin-top: 12px;">
+            <div class="network-breakdown-head">
+              <div class="panel-title">寻路调度摘要</div>
+              <button id="reset-pathfinding-stats" class="small-btn danger" type="button">重置寻路统计</button>
+            </div>
+            <div id="pathfinding-reset-meta" class="network-breakdown-subtitle">寻路统计区间尚未开始。</div>
+            <div class="stats-grid">
+              <div class="stats-card">
+                <div class="stats-card-label">平均排队</div>
+                <div id="pathfinding-avg-queue-ms" class="stats-card-value">0 ms</div>
+                <div id="pathfinding-queue-note" class="stats-card-note">峰值 0 ms · 队列峰值 0</div>
+              </div>
+              <div class="stats-card">
+                <div class="stats-card-label">平均计算</div>
+                <div id="pathfinding-avg-run-ms" class="stats-card-value">0 ms</div>
+                <div id="pathfinding-run-note" class="stats-card-note">峰值 0 ms · 已完成 0</div>
+              </div>
+              <div class="stats-card">
+                <div class="stats-card-label">平均展开</div>
+                <div id="pathfinding-avg-expanded-nodes" class="stats-card-value">0</div>
+                <div id="pathfinding-expanded-note" class="stats-card-note">峰值 0 · 成功 0</div>
+              </div>
+              <div class="stats-card">
+                <div class="stats-card-label">淘汰与过期</div>
+                <div id="pathfinding-drop-total" class="stats-card-value">0</div>
+                <div id="pathfinding-drop-note" class="stats-card-note">等待丢弃 0 · 结果过期 0</div>
+              </div>
+            </div>
+            <div id="pathfinding-failure-list" class="network-breakdown-list"><div class="empty-hint">当前还没有寻路失败记录。</div></div>
           </div>
         </div>
         <div id="server-panel-traffic" class="server-tab-panel hidden">
