@@ -3,7 +3,7 @@
  * 负责战斗结算、技能释放、NPC 交互、任务推进、怪物 AI、
  * 自动战斗、传送、观察系统等所有与"世界规则"相关的行为。
  */
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import {
   ActionDef,
   Attributes,
@@ -45,6 +45,9 @@ import {
   TileType,
   VisibleBuffState,
 } from '@mud/shared';
+import * as fs from 'fs';
+import * as path from 'path';
+import { resolveServerDataPath } from '../common/data-path';
 import { AttrService } from './attr.service';
 import { AoiService } from './aoi.service';
 import { syncDynamicBuffPresentation } from './buff-presentation';
@@ -121,6 +124,24 @@ interface NpcPresenceProfile {
   qi: number;
 }
 
+interface PersistedMonsterRuntimeRecord {
+  runtimeId: string;
+  x: number;
+  y: number;
+  hp: number;
+  alive: boolean;
+  respawnLeft: number;
+  temporaryBuffs?: TemporaryBuffState[];
+  damageContributors?: Record<string, number>;
+  facing?: Direction;
+  targetPlayerId?: string;
+}
+
+interface PersistedMonsterRuntimeSnapshot {
+  version: 1;
+  maps: Record<string, PersistedMonsterRuntimeRecord[]>;
+}
+
 /** tick 中产生的消息，最终推送给对应玩家 */
 export interface WorldMessage {
   playerId: string;
@@ -181,10 +202,13 @@ type BuffTargetEntity =
   | { kind: 'monster'; monster: RuntimeMonster };
 
 @Injectable()
-export class WorldService {
+export class WorldService implements OnModuleInit, OnModuleDestroy {
   private readonly monstersByMap = new Map<string, RuntimeMonster[]>();
+  private readonly persistedMonstersByMap = new Map<string, Map<string, PersistedMonsterRuntimeRecord>>();
   private readonly effectsByMap = new Map<string, CombatEffect[]>();
   private readonly logger = new Logger(WorldService.name);
+  private readonly monsterRuntimeStatePath = resolveServerDataPath('runtime', 'map-monster-runtime-state.json');
+  private monsterRuntimeDirty = false;
 
   constructor(
     private readonly mapService: MapService,
@@ -201,6 +225,14 @@ export class WorldService {
     private readonly performanceService: PerformanceService,
     private readonly threatService: ThreatService,
   ) {}
+
+  onModuleInit(): void {
+    this.loadPersistedMonsterRuntimeState();
+  }
+
+  onModuleDestroy(): void {
+    this.persistMonsterRuntimeState();
+  }
 
   /** 获取玩家视野内的可见实体（容器、NPC、怪物） */
   getVisibleEntities(player: PlayerState, visibleKeys: Set<string>): RenderEntity[] {
@@ -297,6 +329,10 @@ export class WorldService {
   /** 地图重载时重建运行时怪物实例 */
   reloadMapRuntime(mapId: string): void {
     const monsters = this.monstersByMap.get(mapId) ?? [];
+    if (monsters.length > 0) {
+      this.persistedMonstersByMap.set(mapId, this.captureMonsterRuntimeState(monsters));
+      this.monsterRuntimeDirty = true;
+    }
     for (const monster of monsters) {
       if (this.mapService.hasOccupant(mapId, monster.x, monster.y, monster.runtimeId)) {
         this.mapService.removeOccupant(mapId, monster.x, monster.y, monster.runtimeId);
@@ -1527,6 +1563,9 @@ export class WorldService {
       }
     }
 
+    if (monsters.length > 0) {
+      this.monsterRuntimeDirty = true;
+    }
     return { messages: allMessages, dirty: [], dirtyPlayers: [...dirtyPlayers] };
   }
 
@@ -2702,6 +2741,7 @@ export class WorldService {
   private ensureMapInitialized(mapId: string) {
     if (this.monstersByMap.has(mapId)) return;
 
+    const persistedStates = this.persistedMonstersByMap.get(mapId);
     const monsters: RuntimeMonster[] = [];
     for (const spawn of this.mapService.getMonsterSpawns(mapId)) {
       for (let index = 0; index < spawn.maxAlive; index++) {
@@ -2718,21 +2758,29 @@ export class WorldService {
           damageContributors: new Map(),
           targetPlayerId: undefined,
         };
-        const pos = this.findSpawnPosition(mapId, runtime);
-        if (pos && this.mapService.isWalkable(mapId, pos.x, pos.y, { actorType: 'monster' })) {
-          runtime.x = pos.x;
-          runtime.y = pos.y;
-          this.mapService.addOccupant(mapId, runtime.x, runtime.y, runtime.runtimeId, 'monster');
+        const persisted = persistedStates?.get(runtime.runtimeId);
+        if (persisted) {
+          this.applyPersistedMonsterState(mapId, runtime, persisted);
         } else {
-          runtime.x = spawn.x;
-          runtime.y = spawn.y;
-          runtime.alive = false;
-          runtime.respawnLeft = runtime.respawnTicks;
+          const pos = this.findSpawnPosition(mapId, runtime);
+          if (pos && this.mapService.isWalkable(mapId, pos.x, pos.y, { actorType: 'monster' })) {
+            runtime.x = pos.x;
+            runtime.y = pos.y;
+            this.mapService.addOccupant(mapId, runtime.x, runtime.y, runtime.runtimeId, 'monster');
+          } else {
+            runtime.x = spawn.x;
+            runtime.y = spawn.y;
+            runtime.alive = false;
+            runtime.respawnLeft = runtime.respawnTicks;
+          }
         }
         monsters.push(runtime);
       }
     }
 
+    if (persistedStates) {
+      this.monsterRuntimeDirty = true;
+    }
     this.monstersByMap.set(mapId, monsters);
   }
 
@@ -3653,6 +3701,249 @@ export class WorldService {
   private clearCombatTarget(player: PlayerState): void {
     player.combatTargetId = undefined;
     player.combatTargetLocked = false;
+  }
+
+  persistMonsterRuntimeState(): void {
+    if (!this.monsterRuntimeDirty) {
+      return;
+    }
+
+    try {
+      const snapshot: PersistedMonsterRuntimeSnapshot = {
+        version: 1,
+        maps: {},
+      };
+
+      const mapIds = new Set<string>([
+        ...this.persistedMonstersByMap.keys(),
+        ...this.monstersByMap.keys(),
+      ]);
+
+      for (const mapId of [...mapIds].sort((left, right) => left.localeCompare(right, 'zh-CN'))) {
+        const allowedRuntimeIds = this.buildAllowedMonsterRuntimeIds(mapId);
+        if (allowedRuntimeIds.size === 0) {
+          continue;
+        }
+
+        const current = this.monstersByMap.get(mapId);
+        const records = current
+          ? current
+              .filter((monster) => allowedRuntimeIds.has(monster.runtimeId))
+              .map((monster) => this.captureMonsterRuntimeRecord(monster))
+          : [...(this.persistedMonstersByMap.get(mapId)?.values() ?? [])]
+              .filter((record) => allowedRuntimeIds.has(record.runtimeId))
+              .map((record) => JSON.parse(JSON.stringify(record)) as PersistedMonsterRuntimeRecord);
+
+        if (records.length === 0) {
+          continue;
+        }
+
+        records.sort((left, right) => left.runtimeId.localeCompare(right.runtimeId, 'zh-CN'));
+        snapshot.maps[mapId] = records;
+      }
+
+      fs.mkdirSync(path.dirname(this.monsterRuntimeStatePath), { recursive: true });
+      fs.writeFileSync(this.monsterRuntimeStatePath, `${JSON.stringify(snapshot, null, 2)}\n`, 'utf-8');
+      this.monsterRuntimeDirty = false;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`怪物运行时持久化失败: ${message}`);
+    }
+  }
+
+  private loadPersistedMonsterRuntimeState(): void {
+    if (!fs.existsSync(this.monsterRuntimeStatePath)) {
+      return;
+    }
+
+    try {
+      const snapshot = JSON.parse(fs.readFileSync(this.monsterRuntimeStatePath, 'utf-8')) as Partial<PersistedMonsterRuntimeSnapshot>;
+      if (!snapshot?.maps || typeof snapshot.maps !== 'object') {
+        this.logger.warn('怪物运行时持久化文件格式非法，已忽略');
+        return;
+      }
+
+      let restoredCount = 0;
+      for (const [mapId, rawRecords] of Object.entries(snapshot.maps)) {
+        if (!Array.isArray(rawRecords)) {
+          continue;
+        }
+
+        const records = new Map<string, PersistedMonsterRuntimeRecord>();
+        for (const rawRecord of rawRecords) {
+          const record = this.normalizePersistedMonsterRuntimeRecord(rawRecord);
+          if (!record) {
+            continue;
+          }
+          records.set(record.runtimeId, record);
+        }
+        if (records.size === 0) {
+          continue;
+        }
+        this.persistedMonstersByMap.set(mapId, records);
+        restoredCount += records.size;
+      }
+
+      if (restoredCount > 0) {
+        this.logger.log(`已恢复怪物运行时状态：${restoredCount} 个实例`);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`读取怪物运行时持久化文件失败: ${message}`);
+    }
+  }
+
+  private buildAllowedMonsterRuntimeIds(mapId: string): Set<string> {
+    const result = new Set<string>();
+    for (const spawn of this.mapService.getMonsterSpawns(mapId)) {
+      for (let index = 0; index < spawn.maxAlive; index += 1) {
+        result.add(`monster:${mapId}:${spawn.id}:${index}`);
+      }
+    }
+    return result;
+  }
+
+  private captureMonsterRuntimeState(monsters: RuntimeMonster[]): Map<string, PersistedMonsterRuntimeRecord> {
+    const result = new Map<string, PersistedMonsterRuntimeRecord>();
+    for (const monster of monsters) {
+      result.set(monster.runtimeId, this.captureMonsterRuntimeRecord(monster));
+    }
+    return result;
+  }
+
+  private captureMonsterRuntimeRecord(monster: RuntimeMonster): PersistedMonsterRuntimeRecord {
+    return {
+      runtimeId: monster.runtimeId,
+      x: monster.x,
+      y: monster.y,
+      hp: monster.hp,
+      alive: monster.alive,
+      respawnLeft: monster.respawnLeft,
+      temporaryBuffs: monster.temporaryBuffs.length > 0
+        ? JSON.parse(JSON.stringify(monster.temporaryBuffs)) as TemporaryBuffState[]
+        : undefined,
+      damageContributors: monster.damageContributors.size > 0
+        ? Object.fromEntries([...monster.damageContributors.entries()].map(([playerId, damage]) => [playerId, damage]))
+        : undefined,
+      facing: monster.facing,
+      targetPlayerId: monster.targetPlayerId,
+    };
+  }
+
+  private applyPersistedMonsterState(
+    mapId: string,
+    runtime: RuntimeMonster,
+    persisted: PersistedMonsterRuntimeRecord,
+  ): void {
+    runtime.hp = Math.max(0, Math.min(runtime.maxHp, Math.round(persisted.hp)));
+    runtime.facing = persisted.facing;
+    runtime.targetPlayerId = typeof persisted.targetPlayerId === 'string' ? persisted.targetPlayerId : undefined;
+    runtime.temporaryBuffs = (persisted.temporaryBuffs ?? [])
+      .map((buff) => this.normalizePersistedTemporaryBuffState(buff))
+      .filter((buff): buff is TemporaryBuffState => buff !== null);
+    runtime.damageContributors = new Map<string, number>(
+      Object.entries(persisted.damageContributors ?? {})
+        .filter(([, damage]) => Number.isFinite(damage) && Number(damage) > 0)
+        .map(([playerId, damage]) => [playerId, Math.max(1, Math.round(Number(damage)))]),
+    );
+
+    const canRestoreAlive = persisted.alive === true && runtime.hp > 0;
+    const preferredX = Number.isInteger(persisted.x) ? Number(persisted.x) : runtime.spawnX;
+    const preferredY = Number.isInteger(persisted.y) ? Number(persisted.y) : runtime.spawnY;
+    if (canRestoreAlive && this.mapService.isWalkable(mapId, preferredX, preferredY, { actorType: 'monster' })) {
+      runtime.x = preferredX;
+      runtime.y = preferredY;
+      runtime.alive = true;
+      runtime.respawnLeft = 0;
+      this.mapService.addOccupant(mapId, runtime.x, runtime.y, runtime.runtimeId, 'monster');
+      return;
+    }
+
+    const fallbackPos = canRestoreAlive ? this.findSpawnPosition(mapId, runtime) : null;
+    if (canRestoreAlive && fallbackPos && this.mapService.isWalkable(mapId, fallbackPos.x, fallbackPos.y, { actorType: 'monster' })) {
+      runtime.x = fallbackPos.x;
+      runtime.y = fallbackPos.y;
+      runtime.alive = true;
+      runtime.respawnLeft = 0;
+      this.mapService.addOccupant(mapId, runtime.x, runtime.y, runtime.runtimeId, 'monster');
+      return;
+    }
+
+    runtime.x = preferredX;
+    runtime.y = preferredY;
+    runtime.alive = false;
+    runtime.respawnLeft = Math.max(1, Number.isFinite(persisted.respawnLeft) ? Math.round(persisted.respawnLeft) : runtime.respawnTicks);
+  }
+
+  private normalizePersistedMonsterRuntimeRecord(raw: unknown): PersistedMonsterRuntimeRecord | null {
+    if (!raw || typeof raw !== 'object') {
+      return null;
+    }
+
+    const candidate = raw as Partial<PersistedMonsterRuntimeRecord>;
+    if (
+      typeof candidate.runtimeId !== 'string'
+      || !Number.isInteger(candidate.x)
+      || !Number.isInteger(candidate.y)
+      || !Number.isFinite(candidate.hp)
+      || typeof candidate.alive !== 'boolean'
+      || !Number.isFinite(candidate.respawnLeft)
+    ) {
+      return null;
+    }
+
+    return {
+      runtimeId: candidate.runtimeId,
+      x: Number(candidate.x),
+      y: Number(candidate.y),
+      hp: Math.max(0, Math.round(Number(candidate.hp))),
+      alive: candidate.alive,
+      respawnLeft: Math.max(0, Math.round(Number(candidate.respawnLeft))),
+      temporaryBuffs: Array.isArray(candidate.temporaryBuffs)
+        ? candidate.temporaryBuffs
+            .map((buff) => this.normalizePersistedTemporaryBuffState(buff))
+            .filter((buff): buff is TemporaryBuffState => buff !== null)
+        : undefined,
+      damageContributors: candidate.damageContributors && typeof candidate.damageContributors === 'object'
+        ? Object.fromEntries(
+            Object.entries(candidate.damageContributors)
+              .filter(([, damage]) => Number.isFinite(damage) && Number(damage) > 0)
+              .map(([playerId, damage]) => [playerId, Math.max(1, Math.round(Number(damage)))]),
+          )
+        : undefined,
+      facing: candidate.facing,
+      targetPlayerId: typeof candidate.targetPlayerId === 'string' ? candidate.targetPlayerId : undefined,
+    };
+  }
+
+  private normalizePersistedTemporaryBuffState(raw: unknown): TemporaryBuffState | null {
+    if (!raw || typeof raw !== 'object') {
+      return null;
+    }
+
+    const candidate = raw as Partial<TemporaryBuffState>;
+    if (
+      typeof candidate.buffId !== 'string'
+      || typeof candidate.name !== 'string'
+      || typeof candidate.shortMark !== 'string'
+      || typeof candidate.category !== 'string'
+      || typeof candidate.visibility !== 'string'
+      || !Number.isFinite(candidate.remainingTicks)
+      || !Number.isFinite(candidate.duration)
+      || !Number.isFinite(candidate.stacks)
+      || !Number.isFinite(candidate.maxStacks)
+      || typeof candidate.sourceSkillId !== 'string'
+    ) {
+      return null;
+    }
+
+    return JSON.parse(JSON.stringify({
+      ...candidate,
+      remainingTicks: Math.max(0, Math.round(Number(candidate.remainingTicks))),
+      duration: Math.max(1, Math.round(Number(candidate.duration))),
+      stacks: Math.max(0, Math.round(Number(candidate.stacks))),
+      maxStacks: Math.max(1, Math.round(Number(candidate.maxStacks))),
+    })) as TemporaryBuffState;
   }
 
   /** 获取指定地图的所有运行时怪物（GM 世界管理用） */

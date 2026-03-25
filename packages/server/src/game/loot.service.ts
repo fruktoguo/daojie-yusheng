@@ -1,7 +1,7 @@
 /**
  * 掉落与拾取服务：地面物品堆、容器搜索、拾取窗口、物品过期
  */
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import {
   createItemStackSignature,
   GroundItemEntryView,
@@ -14,6 +14,9 @@ import {
   TechniqueGrade,
   isPointInRange,
 } from '@mud/shared';
+import * as fs from 'fs';
+import * as path from 'path';
+import { resolveServerDataPath } from '../common/data-path';
 import { ContentService } from './content.service';
 import { InventoryService } from './inventory.service';
 import { ContainerConfig, DropConfig, MapService } from './map.service';
@@ -80,12 +83,53 @@ interface LootActionResult {
   inventoryChanged?: boolean;
 }
 
+interface PersistedLootEntryRecord {
+  item: ItemStack;
+  createdTick: number;
+  expiresAtTick?: number;
+  visible: boolean;
+}
+
+interface PersistedGroundPileRecord {
+  x: number;
+  y: number;
+  entries: PersistedLootEntryRecord[];
+}
+
+interface PersistedContainerSearchRecord {
+  itemKey: string;
+  totalTicks: number;
+  remainingTicks: number;
+}
+
+interface PersistedContainerRecord {
+  containerId: string;
+  generatedAtTick?: number;
+  refreshAtTick?: number;
+  entries: PersistedLootEntryRecord[];
+  activeSearch?: PersistedContainerSearchRecord;
+}
+
+interface PersistedLootMapState {
+  tick?: number;
+  groundPiles?: PersistedGroundPileRecord[];
+  containers?: PersistedContainerRecord[];
+}
+
+interface PersistedLootRuntimeSnapshot {
+  version: 1;
+  maps: Record<string, PersistedLootMapState>;
+}
+
 @Injectable()
-export class LootService {
+export class LootService implements OnModuleInit, OnModuleDestroy {
   private readonly mapTicks = new Map<string, number>();
   private readonly groundPiles = new Map<string, GroundPileState>();
   private readonly containers = new Map<string, ContainerState>();
   private readonly sessions = new Map<string, LootSession>();
+  private readonly logger = new Logger(LootService.name);
+  private readonly runtimeStatePath = resolveServerDataPath('runtime', 'map-loot-runtime-state.json');
+  private runtimeStateDirty = false;
 
   constructor(
     private readonly mapService: MapService,
@@ -93,10 +137,21 @@ export class LootService {
     private readonly inventoryService: InventoryService,
   ) {}
 
+  onModuleInit(): void {
+    this.loadPersistedRuntimeState();
+  }
+
+  onModuleDestroy(): void {
+    this.persistRuntimeState();
+  }
+
   /** 每 tick 处理掉落物过期、容器刷新、搜索进度 */
   tick(mapId: string, players: PlayerState[]): LootTickResult {
     const currentTick = (this.mapTicks.get(mapId) ?? 0) + 1;
     this.mapTicks.set(mapId, currentTick);
+    if (this.hasPersistableRuntimeState(mapId)) {
+      this.markRuntimeStateDirty();
+    }
 
     const dirtyPlayers = new Set<string>();
     const playerById = new Map(players.map((player) => [player.id, player]));
@@ -114,6 +169,7 @@ export class LootService {
       } else {
         pile.entries = remaining;
       }
+      this.markRuntimeStateDirty();
       this.markTileViewersDirty(mapId, pile.x, pile.y, dirtyPlayers);
     }
 
@@ -125,6 +181,7 @@ export class LootService {
       state.generatedAtTick = undefined;
       state.refreshAtTick = undefined;
       state.activeSearch = undefined;
+      this.markRuntimeStateDirty();
       const container = this.resolveContainerBySourceId(sourceId);
       if (container) {
         this.markTileViewersDirty(mapId, container.x, container.y, dirtyPlayers);
@@ -174,6 +231,7 @@ export class LootService {
       }
 
       state.activeSearch.remainingTicks -= 1;
+      this.markRuntimeStateDirty();
       this.markTileViewersDirty(mapId, container.x, container.y, dirtyPlayers);
       if (state.activeSearch.remainingTicks > 0) {
         continue;
@@ -184,6 +242,7 @@ export class LootService {
         target.visible = true;
       }
       state.activeSearch = undefined;
+      this.markRuntimeStateDirty();
 
       if (this.hasHiddenContainerEntries(state.entries) && this.hasActiveViewerForTile(mapId, container.x, container.y)) {
         this.beginContainerSearch(mapId, container);
@@ -211,6 +270,7 @@ export class LootService {
       visible: true,
     });
     this.groundPiles.set(sourceId, pile);
+    this.markRuntimeStateDirty();
     return this.getTileViewerIds(mapId, x, y);
   }
 
@@ -226,6 +286,7 @@ export class LootService {
       createdTick: this.getCurrentTick(mapId),
       visible: true,
     });
+    this.markRuntimeStateDirty();
     return this.getTileViewerIds(mapId, container.x, container.y);
   }
 
@@ -430,6 +491,7 @@ export class LootService {
     if (pile.entries.length === 0) {
       this.groundPiles.delete(sourceId);
     }
+    this.markRuntimeStateDirty();
 
     return {
       messages: [{
@@ -464,6 +526,7 @@ export class LootService {
     if (pile.entries.length === 0) {
       this.groundPiles.delete(sourceId);
     }
+    this.markRuntimeStateDirty();
 
     const messages: LootMessage[] = [{
       playerId: player.id,
@@ -508,6 +571,7 @@ export class LootService {
     this.addItems(player, row.entries.map((entry) => entry.item));
     const keySet = new Set(row.entries);
     state.entries = state.entries.filter((entry) => !keySet.has(entry));
+    this.markRuntimeStateDirty();
 
     return {
       messages: [{
@@ -544,6 +608,7 @@ export class LootService {
 
     const keySet = new Set(result.takenRows.flatMap((row) => row.entries));
     state.entries = state.entries.filter((entry) => !keySet.has(entry));
+    this.markRuntimeStateDirty();
 
     const messages: LootMessage[] = [{
       playerId: player.id,
@@ -711,6 +776,7 @@ export class LootService {
     generated.refreshAtTick = container.refreshTicks ? currentTick + container.refreshTicks : undefined;
     generated.activeSearch = undefined;
     this.containers.set(sourceId, generated);
+    this.markRuntimeStateDirty();
     return generated;
   }
 
@@ -750,6 +816,7 @@ export class LootService {
       totalTicks,
       remainingTicks: totalTicks,
     };
+    this.markRuntimeStateDirty();
   }
 
   private hasHiddenContainerEntries(entries: LootEntry[]): boolean {
@@ -814,5 +881,281 @@ export class LootService {
       result.push(session.playerId);
     }
     return result;
+  }
+
+  persistRuntimeState(): void {
+    if (!this.runtimeStateDirty) {
+      return;
+    }
+
+    try {
+      const snapshot: PersistedLootRuntimeSnapshot = {
+        version: 1,
+        maps: {},
+      };
+
+      const mapIds = this.collectPersistedMapIds();
+      for (const mapId of mapIds) {
+        const groundPiles = [...this.groundPiles.values()]
+          .filter((pile) => pile.mapId === mapId && pile.entries.length > 0)
+          .sort((left, right) => left.y - right.y || left.x - right.x)
+          .map((pile) => ({
+            x: pile.x,
+            y: pile.y,
+            entries: pile.entries.map((entry) => this.toPersistedLootEntry(entry)),
+          }));
+
+        const containers = [...this.containers.values()]
+          .filter((state) => state.mapId === mapId && this.resolveContainerBySourceId(state.sourceId))
+          .sort((left, right) => left.containerId.localeCompare(right.containerId, 'zh-CN'))
+          .map((state) => ({
+            containerId: state.containerId,
+            generatedAtTick: state.generatedAtTick,
+            refreshAtTick: state.refreshAtTick,
+            entries: state.entries.map((entry) => this.toPersistedLootEntry(entry)),
+            activeSearch: state.activeSearch
+              ? {
+                  itemKey: state.activeSearch.itemKey,
+                  totalTicks: state.activeSearch.totalTicks,
+                  remainingTicks: state.activeSearch.remainingTicks,
+                }
+              : undefined,
+          }));
+
+        if (groundPiles.length === 0 && containers.length === 0) {
+          continue;
+        }
+
+        snapshot.maps[mapId] = {
+          tick: this.getCurrentTick(mapId),
+          groundPiles,
+          containers,
+        };
+      }
+
+      fs.mkdirSync(path.dirname(this.runtimeStatePath), { recursive: true });
+      fs.writeFileSync(this.runtimeStatePath, `${JSON.stringify(snapshot, null, 2)}\n`, 'utf-8');
+      this.runtimeStateDirty = false;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`掉落运行时持久化失败: ${message}`);
+    }
+  }
+
+  private loadPersistedRuntimeState(): void {
+    if (!fs.existsSync(this.runtimeStatePath)) {
+      return;
+    }
+
+    try {
+      const snapshot = JSON.parse(fs.readFileSync(this.runtimeStatePath, 'utf-8')) as Partial<PersistedLootRuntimeSnapshot>;
+      if (!snapshot?.maps || typeof snapshot.maps !== 'object') {
+        this.logger.warn('掉落运行时持久化文件格式非法，已忽略');
+        return;
+      }
+
+      let restoredPileCount = 0;
+      let restoredContainerCount = 0;
+      for (const [mapId, rawState] of Object.entries(snapshot.maps)) {
+        if (!rawState || typeof rawState !== 'object') {
+          continue;
+        }
+
+        const tick = typeof rawState.tick === 'number' && Number.isFinite(rawState.tick)
+          ? Math.max(0, Math.floor(rawState.tick))
+          : 0;
+        this.mapTicks.set(mapId, tick);
+
+        if (Array.isArray(rawState.groundPiles)) {
+          for (const rawPile of rawState.groundPiles) {
+            const pile = this.normalizePersistedGroundPile(mapId, rawPile);
+            if (!pile) {
+              continue;
+            }
+            this.groundPiles.set(pile.sourceId, pile);
+            restoredPileCount += 1;
+          }
+        }
+
+        if (Array.isArray(rawState.containers)) {
+          for (const rawContainer of rawState.containers) {
+            const container = this.normalizePersistedContainerState(mapId, rawContainer);
+            if (!container) {
+              continue;
+            }
+            this.containers.set(container.sourceId, container);
+            restoredContainerCount += 1;
+          }
+        }
+      }
+
+      if (restoredPileCount > 0 || restoredContainerCount > 0) {
+        this.logger.log(`已恢复掉落运行时状态：地面物品堆 ${restoredPileCount} 处，容器 ${restoredContainerCount} 个`);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`读取掉落运行时持久化文件失败: ${message}`);
+    }
+  }
+
+  private collectPersistedMapIds(): string[] {
+    const mapIds = new Set<string>();
+    for (const pile of this.groundPiles.values()) {
+      if (pile.entries.length > 0) {
+        mapIds.add(pile.mapId);
+      }
+    }
+    for (const state of this.containers.values()) {
+      if (this.resolveContainerBySourceId(state.sourceId)) {
+        mapIds.add(state.mapId);
+      }
+    }
+    return [...mapIds].sort((left, right) => left.localeCompare(right, 'zh-CN'));
+  }
+
+  private hasPersistableRuntimeState(mapId: string): boolean {
+    for (const pile of this.groundPiles.values()) {
+      if (pile.mapId === mapId && pile.entries.length > 0) {
+        return true;
+      }
+    }
+    for (const state of this.containers.values()) {
+      if (state.mapId === mapId && this.resolveContainerBySourceId(state.sourceId)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private toPersistedLootEntry(entry: LootEntry): PersistedLootEntryRecord {
+    return {
+      item: { ...entry.item },
+      createdTick: entry.createdTick,
+      expiresAtTick: entry.expiresAtTick,
+      visible: entry.visible,
+    };
+  }
+
+  private normalizePersistedGroundPile(mapId: string, raw: unknown): GroundPileState | null {
+    if (!raw || typeof raw !== 'object') {
+      return null;
+    }
+
+    const candidate = raw as Partial<PersistedGroundPileRecord>;
+    if (!Number.isInteger(candidate.x) || !Number.isInteger(candidate.y) || !Array.isArray(candidate.entries)) {
+      return null;
+    }
+
+    const entries = candidate.entries
+      .map((entry) => this.normalizePersistedLootEntry(entry))
+      .filter((entry): entry is LootEntry => entry !== null);
+    if (entries.length === 0) {
+      return null;
+    }
+
+    return {
+      sourceId: this.buildGroundSourceId(mapId, Number(candidate.x), Number(candidate.y)),
+      mapId,
+      x: Number(candidate.x),
+      y: Number(candidate.y),
+      entries,
+    };
+  }
+
+  private normalizePersistedContainerState(mapId: string, raw: unknown): ContainerState | null {
+    if (!raw || typeof raw !== 'object') {
+      return null;
+    }
+
+    const candidate = raw as Partial<PersistedContainerRecord>;
+    if (typeof candidate.containerId !== 'string' || !Array.isArray(candidate.entries)) {
+      return null;
+    }
+
+    const entries = candidate.entries
+      .map((entry) => this.normalizePersistedLootEntry(entry))
+      .filter((entry): entry is LootEntry => entry !== null);
+
+    return {
+      sourceId: this.buildContainerSourceId(mapId, candidate.containerId),
+      mapId,
+      containerId: candidate.containerId,
+      generatedAtTick: Number.isInteger(candidate.generatedAtTick) ? Number(candidate.generatedAtTick) : undefined,
+      refreshAtTick: Number.isInteger(candidate.refreshAtTick) ? Number(candidate.refreshAtTick) : undefined,
+      entries,
+      activeSearch: this.normalizePersistedContainerSearch(candidate.activeSearch),
+    };
+  }
+
+  private normalizePersistedContainerSearch(raw: unknown): ContainerState['activeSearch'] {
+    if (!raw || typeof raw !== 'object') {
+      return undefined;
+    }
+
+    const candidate = raw as Partial<PersistedContainerSearchRecord>;
+    if (
+      typeof candidate.itemKey !== 'string'
+      || !Number.isInteger(candidate.totalTicks)
+      || !Number.isInteger(candidate.remainingTicks)
+    ) {
+      return undefined;
+    }
+
+    const totalTicks = Math.max(1, Number(candidate.totalTicks));
+    const remainingTicks = Math.max(0, Math.min(totalTicks, Number(candidate.remainingTicks)));
+    if (remainingTicks <= 0) {
+      return undefined;
+    }
+
+    return {
+      itemKey: candidate.itemKey,
+      totalTicks,
+      remainingTicks,
+    };
+  }
+
+  private normalizePersistedLootEntry(raw: unknown): LootEntry | null {
+    if (!raw || typeof raw !== 'object') {
+      return null;
+    }
+
+    const candidate = raw as Partial<PersistedLootEntryRecord>;
+    const item = this.normalizePersistedItemStack(candidate.item);
+    if (!item || !Number.isInteger(candidate.createdTick) || typeof candidate.visible !== 'boolean') {
+      return null;
+    }
+
+    return {
+      item,
+      createdTick: Math.max(0, Number(candidate.createdTick)),
+      expiresAtTick: Number.isInteger(candidate.expiresAtTick) ? Math.max(0, Number(candidate.expiresAtTick)) : undefined,
+      visible: candidate.visible,
+    };
+  }
+
+  private normalizePersistedItemStack(raw: unknown): ItemStack | null {
+    if (!raw || typeof raw !== 'object') {
+      return null;
+    }
+
+    const candidate = raw as Partial<ItemStack>;
+    if (
+      typeof candidate.itemId !== 'string'
+      || typeof candidate.name !== 'string'
+      || typeof candidate.type !== 'string'
+      || !Number.isInteger(candidate.count)
+      || typeof candidate.desc !== 'string'
+    ) {
+      return null;
+    }
+
+    return JSON.parse(JSON.stringify({
+      ...candidate,
+      count: Math.max(1, Number(candidate.count)),
+    })) as ItemStack;
+  }
+
+  private markRuntimeStateDirty(): void {
+    this.runtimeStateDirty = true;
   }
 }

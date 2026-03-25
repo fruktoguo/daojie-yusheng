@@ -129,6 +129,8 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       Promise.all([
         this.playerService.persistAll(),
         Promise.resolve().then(() => this.mapService.persistTileRuntimeStates()),
+        Promise.resolve().then(() => this.lootService.persistRuntimeState()),
+        Promise.resolve().then(() => this.worldService.persistMonsterRuntimeState()),
       ]).then(() => {
         const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
         this.performanceService.recordCpuSection(elapsedMs, 'io_persist', '落盘与外部 I/O');
@@ -164,6 +166,8 @@ export class TickService implements OnModuleInit, OnModuleDestroy {
       this.watcher = null;
     }
     this.mapService.persistTileRuntimeStates();
+    this.lootService.persistRuntimeState();
+    this.worldService.persistMonsterRuntimeState();
     await this.playerService.persistAll().catch((err) => {
       this.logger.error(`关闭落盘失败: ${err.message}`);
     });
