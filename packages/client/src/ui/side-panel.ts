@@ -1,4 +1,7 @@
 /** 页面布局与多组标签页控制器 */
+import { DESKTOP_LAYOUT_DRAG_LIMITS } from '../constants/ui/responsive';
+import { scaleDesktopCssPixels, shouldUseMobileUi } from './responsive-viewport';
+
 type MobilePaneId =
   | 'mobile-overview'
   | 'mobile-attrs'
@@ -141,13 +144,25 @@ export class SidePanel {
 
         this.dragState.dragged = true;
         if (this.dragState.target === 'left') {
-          const next = this.clamp(event.clientX - this.dragState.shellRect.left, 220, Math.min(520, this.dragState.shellRect.width * 0.4));
+          const next = this.clamp(
+            event.clientX - this.dragState.shellRect.left,
+            scaleDesktopCssPixels(window, DESKTOP_LAYOUT_DRAG_LIMITS.leftMin),
+            Math.min(scaleDesktopCssPixels(window, DESKTOP_LAYOUT_DRAG_LIMITS.leftMax), this.dragState.shellRect.width * 0.4),
+          );
           this.panel.style.setProperty('--layout-left-size', `${next}px`);
         } else if (this.dragState.target === 'right') {
-          const next = this.clamp(this.dragState.shellRect.right - event.clientX, 240, Math.min(680, this.dragState.shellRect.width * 0.5));
+          const next = this.clamp(
+            this.dragState.shellRect.right - event.clientX,
+            scaleDesktopCssPixels(window, DESKTOP_LAYOUT_DRAG_LIMITS.rightMin),
+            Math.min(scaleDesktopCssPixels(window, DESKTOP_LAYOUT_DRAG_LIMITS.rightMax), this.dragState.shellRect.width * 0.5),
+          );
           this.panel.style.setProperty('--layout-right-size', `${next}px`);
         } else {
-          const next = this.clamp(this.dragState.shellRect.bottom - event.clientY, 140, Math.min(480, this.dragState.shellRect.height * 0.55));
+          const next = this.clamp(
+            this.dragState.shellRect.bottom - event.clientY,
+            scaleDesktopCssPixels(window, DESKTOP_LAYOUT_DRAG_LIMITS.bottomMin),
+            Math.min(scaleDesktopCssPixels(window, DESKTOP_LAYOUT_DRAG_LIMITS.bottomMax), this.dragState.shellRect.height * 0.55),
+          );
           this.panel.style.setProperty('--layout-bottom-size', `${next}px`);
         }
         this.onLayoutChange?.();
@@ -230,14 +245,7 @@ export class SidePanel {
   }
 
   private shouldUseMobileLayout(): boolean {
-    const viewportWidth = Math.max(0, window.innerWidth || 0);
-    const pointerCoarse = typeof window.matchMedia === 'function'
-      ? window.matchMedia('(pointer: coarse)').matches
-      : false;
-    const hoverNone = typeof window.matchMedia === 'function'
-      ? window.matchMedia('(hover: none)').matches
-      : false;
-    return viewportWidth <= 920 || ((pointerCoarse || hoverNone) && viewportWidth <= 1180);
+    return shouldUseMobileUi(window);
   }
 
   private syncResponsiveLayout(): void {

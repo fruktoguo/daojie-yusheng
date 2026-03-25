@@ -1,6 +1,8 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html,
     body {
+      --desktop-scale-factor: 1;
+      --desktop-scale-inverse: 1;
       width: 100%;
       min-height: 100%;
       overscroll-behavior: none;

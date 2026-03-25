@@ -14,6 +14,7 @@ import {
   type UiFontLevelKey,
   type UiStyleConfig,
 } from '../constants/ui/style';
+import { shouldUseMobileUi } from './responsive-viewport';
 
 export type { UiColorMode, UiFontLevelDefinition, UiFontLevelKey, UiStyleConfig };
 export { UI_COLOR_MODE_OPTIONS, UI_FONT_LEVEL_DEFINITIONS, UI_GLOBAL_FONT_OFFSET_RANGE };
@@ -170,14 +171,7 @@ function cloneConfig(config: UiStyleConfig): UiStyleConfig {
 }
 
 function shouldUseMobileUiPreset(win: Window): boolean {
-  const viewportWidth = Math.max(0, win.innerWidth || 0);
-  const pointerCoarse = typeof win.matchMedia === 'function'
-    ? win.matchMedia('(pointer: coarse)').matches
-    : false;
-  const hoverNone = typeof win.matchMedia === 'function'
-    ? win.matchMedia('(hover: none)').matches
-    : false;
-  return viewportWidth <= 920 || ((pointerCoarse || hoverNone) && viewportWidth <= 1180);
+  return shouldUseMobileUi(win);
 }
 
 function resolveAppliedFontSize(

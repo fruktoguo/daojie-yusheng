@@ -1,16 +1,22 @@
 import { PanelCapabilities } from './types';
+import { UI_RESPONSIVE_BREAKPOINTS } from '../../constants/ui/responsive';
+import { getEffectiveViewportHeight, getEffectiveViewportWidth } from '../responsive-viewport';
 
 function matchMediaSafe(win: Window, query: string): boolean {
   return typeof win.matchMedia === 'function' ? win.matchMedia(query).matches : false;
 }
 
 export function detectPanelCapabilities(win: Window): PanelCapabilities {
-  const viewportWidth = Math.max(0, win.innerWidth || 0);
-  const viewportHeight = Math.max(0, win.innerHeight || 0);
+  const viewportWidth = getEffectiveViewportWidth(win);
+  const viewportHeight = getEffectiveViewportHeight(win);
   const pointerCoarse = matchMediaSafe(win, '(pointer: coarse)');
   const hoverAvailable = matchMediaSafe(win, '(hover: hover)');
   const reducedMotion = matchMediaSafe(win, '(prefers-reduced-motion: reduce)');
-  const breakpoint = viewportWidth < 768 ? 'mobile' : viewportWidth < 1200 ? 'tablet' : 'desktop';
+  const breakpoint = viewportWidth < UI_RESPONSIVE_BREAKPOINTS.panelMobile
+    ? 'mobile'
+    : viewportWidth < UI_RESPONSIVE_BREAKPOINTS.layoutCompactDesktop
+      ? 'tablet'
+      : 'desktop';
 
   return {
     viewportWidth,
@@ -19,7 +25,7 @@ export function detectPanelCapabilities(win: Window): PanelCapabilities {
     hoverAvailable,
     reducedMotion,
     breakpoint,
-    viewport: pointerCoarse || viewportWidth < 960 ? 'mobile' : 'desktop',
+    viewport: pointerCoarse || viewportWidth < UI_RESPONSIVE_BREAKPOINTS.panelViewportMobile ? 'mobile' : 'desktop',
     safeAreaInsets: {
       top: 0,
       right: 0,

@@ -1,7 +1,7 @@
     #game-shell {
-      --layout-left-size: min(520px, 40vw);
-      --layout-right-size: min(680px, 50vw);
-      --layout-bottom-size: min(480px, 55vh);
+      --layout-left-size: min(calc(520px * var(--desktop-scale-inverse, 1)), 40vw);
+      --layout-right-size: min(calc(680px * var(--desktop-scale-inverse, 1)), 50vw);
+      --layout-bottom-size: min(calc(480px * var(--desktop-scale-inverse, 1)), 55vh);
       --layout-rail-size: 18px;
       --layout-collapsed-rail-size: var(--layout-rail-size);
       position: fixed;

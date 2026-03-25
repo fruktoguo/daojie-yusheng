@@ -30,6 +30,7 @@ import { SuggestionPanel } from './ui/suggestion-panel';
 import { ChangelogPanel } from './ui/changelog-panel';
 import { initializeUiStyleConfig } from './ui/ui-style-config';
 import { createClientPanelSystem } from './ui/panel-system/bootstrap';
+import { bindResponsiveViewportCss } from './ui/responsive-viewport';
 import { createMapRuntime } from './game-map/runtime/map-runtime';
 import { getEntityKindLabel, getTileTypeLabel } from './domain-labels';
 import { MAP_FALLBACK } from './constants/world/world-panel';
@@ -334,6 +335,7 @@ function restartPingLoop(immediate = true): void {
 renderTickRate(1);
 renderCurrentTime(null);
 renderPingLatency(null, '待测');
+bindResponsiveViewportCss(window);
 initializeUiStyleConfig();
 window.setInterval(() => {
   if (!currentTimeState) {
