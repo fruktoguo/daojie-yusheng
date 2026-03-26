@@ -6,6 +6,7 @@
 import {
   Attributes,
   calcTechniqueAttrValues,
+  calcTechniqueFinalAttrBonus,
   calcTechniqueNextLevelGains,
   deriveTechniqueRealm,
   getTechniqueMaxLevel,
@@ -48,6 +49,27 @@ function formatAttrMap(attrs: Partial<Attributes>, fallback = '无属性提升')
     return fallback;
   }
   return entries.map(([key, value]) => `${ATTR_KEY_LABELS[key]}+${formatDisplayNumber(value)}`).join(' / ');
+}
+
+function subtractAttrMap(left: Partial<Attributes>, right: Partial<Attributes>): Partial<Attributes> {
+  const result: Partial<Attributes> = {};
+  for (const key of TECHNIQUE_ATTR_KEYS) {
+    const delta = Math.max(0, (left[key] ?? 0) - (right[key] ?? 0));
+    if (delta > 0) {
+      result[key] = delta;
+    }
+  }
+  return result;
+}
+
+function calcTechniqueEffectiveContribution(techniques: TechniqueState[], techId: string): Partial<Attributes> {
+  const totalAttrs = calcTechniqueFinalAttrBonus(techniques);
+  const totalWithoutCurrent = calcTechniqueFinalAttrBonus(techniques.filter((tech) => tech.techId !== techId));
+  return subtractAttrMap(totalAttrs, totalWithoutCurrent);
+}
+
+function formatTechniqueContributionSummary(totalAttrs: Partial<Attributes>, rawAttrs: Partial<Attributes>): string {
+  return `${formatAttrMap(totalAttrs)}（原始：${formatAttrMap(rawAttrs)}）`;
 }
 
 function getTechniqueProgressRatio(tech: TechniqueState): number {
@@ -215,7 +237,9 @@ export class TechniquePanel {
     }
 
     const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
+    const previewTechniques = resolvePreviewTechniques(this.lastState.techniques);
     const currentAttrs = calcTechniqueAttrValues(tech.level, tech.layers, tech.attrCurves);
+    const effectiveAttrs = calcTechniqueEffectiveContribution(previewTechniques, tech.techId);
     const nextAttrs = calcTechniqueNextLevelGains(tech.level, tech.layers, tech.attrCurves);
     const skillsByLevel = new Map<number, TechniqueState['skills']>();
     const milestones = buildTechniqueMilestones(tech, maxLevel);
@@ -246,8 +270,8 @@ export class TechniquePanel {
           <span data-tech-modal-current-exp="true">${formatTechniqueProgressText(tech)}</span>
         </div>
         <div class="tech-modal-stat">
-          <span class="tech-modal-label">当前原始总加成</span>
-          <span data-tech-modal-current-attrs="true">${escapeHtml(formatAttrMap(currentAttrs))}</span>
+          <span class="tech-modal-label">当前总加成</span>
+          <span data-tech-modal-current-attrs="true">${escapeHtml(formatTechniqueContributionSummary(effectiveAttrs, currentAttrs))}</span>
         </div>
         <div class="tech-modal-stat">
           <span class="tech-modal-label">下一层原始收益</span>
@@ -609,7 +633,9 @@ export class TechniquePanel {
       return false;
     }
     const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
+    const previewTechniques = resolvePreviewTechniques(this.lastState.techniques);
     const currentAttrs = calcTechniqueAttrValues(tech.level, tech.layers, tech.attrCurves);
+    const effectiveAttrs = calcTechniqueEffectiveContribution(previewTechniques, tech.techId);
     const nextAttrs = calcTechniqueNextLevelGains(tech.level, tech.layers, tech.attrCurves);
     const skillsByLevel = new Map<number, TechniqueState['skills']>();
     for (const skill of tech.skills) {
@@ -627,7 +653,7 @@ export class TechniquePanel {
     titleNode.textContent = tech.name;
     subtitleNode.textContent = `${getTechniqueRealmLevelLabel(tech)} · ${getTechniqueGradeLabel(tech.grade)} · ${getTechniqueRealmLabel(getResolvedTechniqueRealm(tech))} · 第 ${formatDisplayInteger(tech.level)}/${formatDisplayInteger(maxLevel)} 层`;
     expNode.textContent = formatTechniqueProgressText(tech);
-    currentAttrsNode.textContent = formatAttrMap(currentAttrs);
+    currentAttrsNode.textContent = formatTechniqueContributionSummary(effectiveAttrs, currentAttrs);
     nextAttrsNode.textContent = formatAttrMap(nextAttrs, '已无下一层');
 
     const focusSignature = this.buildFocusStructureSignature(selectedLevel, skillsByLevel, milestones);
