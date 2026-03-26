@@ -9,6 +9,8 @@ import {
   GM_ACCESS_TOKEN_STORAGE_KEY,
   GM_APPLY_DELAY_MS,
   GM_PANEL_POLL_INTERVAL_MS,
+  type GmDatabaseBackupRecord,
+  type GmDatabaseStateRes,
   GM_PASSWORD_STORAGE_KEY,
   type GmCpuSectionSnapshot,
   type GmEditorCatalogRes,
@@ -29,8 +31,10 @@ import {
   type GmLoginRes,
   type GmManagedPlayerRecord,
   type GmRemoveBotsReq,
+  type GmRestoreDatabaseReq,
   type GmSpawnBotsReq,
   type GmStateRes,
+  type GmTriggerDatabaseBackupRes,
   type GmUpdateManagedPlayerPasswordReq,
   type GmUpdatePlayerReq,
   type ItemStack,
@@ -109,9 +113,11 @@ const summaryNetOutBreakdownEl = document.getElementById('summary-net-out-breakd
 const serverSubtabOverviewBtn = document.getElementById('server-subtab-overview') as HTMLButtonElement;
 const serverSubtabTrafficBtn = document.getElementById('server-subtab-traffic') as HTMLButtonElement;
 const serverSubtabCpuBtn = document.getElementById('server-subtab-cpu') as HTMLButtonElement;
+const serverSubtabDatabaseBtn = document.getElementById('server-subtab-database') as HTMLButtonElement;
 const serverPanelOverviewEl = document.getElementById('server-panel-overview') as HTMLElement;
 const serverPanelTrafficEl = document.getElementById('server-panel-traffic') as HTMLElement;
 const serverPanelCpuEl = document.getElementById('server-panel-cpu') as HTMLElement;
+const serverPanelDatabaseEl = document.getElementById('server-panel-database') as HTMLElement;
 const trafficResetMetaEl = document.getElementById('traffic-reset-meta') as HTMLDivElement;
 const trafficTotalInEl = document.getElementById('traffic-total-in') as HTMLDivElement;
 const trafficTotalInNoteEl = document.getElementById('traffic-total-in-note') as HTMLDivElement;
@@ -166,6 +172,7 @@ type PlayerSortMode = 'realm-desc' | 'realm-asc' | 'online' | 'map' | 'name';
 
 let token = sessionStorage.getItem(GM_ACCESS_TOKEN_STORAGE_KEY) ?? '';
 let state: GmStateRes | null = null;
+let databaseState: GmDatabaseStateRes | null = null;
 let suggestions: Suggestion[] = [];
 let editorCatalog: GmEditorCatalogRes | null = null;
 let selectedPlayerId: string | null = null;
@@ -177,7 +184,7 @@ let editorDirty = false;
 let draftSourcePlayerId: string | null = null;
 let pollTimer: number | null = null;
 let currentTab: 'server' | 'players' | 'suggestions' | 'world' = 'server';
-let currentServerTab: 'overview' | 'traffic' | 'cpu' = 'overview';
+let currentServerTab: 'overview' | 'traffic' | 'cpu' | 'database' = 'overview';
 let currentCpuBreakdownSort: 'total' | 'count' | 'avg' = 'total';
 let currentEditorTab: GmPlayerUpdateSection | 'persisted' = 'basic';
 let currentInventoryAddType: (typeof ITEM_TYPES)[number] = 'material';
@@ -189,6 +196,7 @@ let lastNetworkInStructureKey: string | null = null;
 let lastNetworkOutStructureKey: string | null = null;
 let lastCpuBreakdownStructureKey: string | null = null;
 let lastPathfindingFailureStructureKey: string | null = null;
+let databaseStateLoading = false;
 
 function getBrowserLocalStorage(): Storage | null {
   try {
@@ -1055,14 +1063,166 @@ function setStatus(message: string, isError = false): void {
 
 const worldViewer = new GmWorldViewer(request, setStatus);
 
-function switchServerTab(tab: 'overview' | 'traffic' | 'cpu'): void {
+function switchServerTab(tab: 'overview' | 'traffic' | 'cpu' | 'database'): void {
   currentServerTab = tab;
   serverSubtabOverviewBtn.classList.toggle('active', tab === 'overview');
   serverSubtabTrafficBtn.classList.toggle('active', tab === 'traffic');
   serverSubtabCpuBtn.classList.toggle('active', tab === 'cpu');
+  serverSubtabDatabaseBtn.classList.toggle('active', tab === 'database');
   serverPanelOverviewEl.classList.toggle('hidden', tab !== 'overview');
   serverPanelTrafficEl.classList.toggle('hidden', tab !== 'traffic');
   serverPanelCpuEl.classList.toggle('hidden', tab !== 'cpu');
+  serverPanelDatabaseEl.classList.toggle('hidden', tab !== 'database');
+  if (tab === 'database' && !databaseStateLoading) {
+    loadDatabaseState(true).catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '加载数据库状态失败', true);
+    });
+  }
+}
+
+function formatDatabaseBackupKind(kind: GmDatabaseBackupRecord['kind']): string {
+  switch (kind) {
+    case 'hourly':
+      return '整点备份';
+    case 'daily':
+      return '每日备份';
+    case 'manual':
+      return '手动导出';
+    case 'pre_import':
+      return '导入前备份';
+    default:
+      return kind;
+  }
+}
+
+function formatDatabaseJobLabel(data: GmDatabaseStateRes | null): string {
+  const job = data?.runningJob ?? data?.lastJob;
+  if (!job) {
+    return '当前没有数据库任务记录。';
+  }
+  const action = job.type === 'restore'
+    ? `导入 ${job.sourceBackupId ?? '未知备份'}`
+    : `导出 ${job.backupId ?? job.kind ?? '备份'}`;
+  const status = job.status === 'running'
+    ? '进行中'
+    : job.status === 'completed'
+      ? '已完成'
+      : '失败';
+  const finishedText = job.finishedAt ? ` · 结束于 ${formatDateTime(job.finishedAt)}` : '';
+  const errorText = job.error ? ` · ${job.error}` : '';
+  return `${action} · ${status} · 开始于 ${formatDateTime(job.startedAt)}${finishedText}${errorText}`;
+}
+
+function renderDatabasePanel(): void {
+  const busy = databaseState?.runningJob?.status === 'running';
+  const backups = databaseState?.backups ?? [];
+  const summary = databaseStateLoading && !databaseState
+    ? '正在读取数据库备份状态…'
+    : formatDatabaseJobLabel(databaseState);
+  const rows = backups.length > 0
+    ? backups.map((backup) => `
+        <div class="network-row">
+          <div class="network-row-label">${escapeHtml(backup.fileName)}</div>
+          <div class="network-row-meta">
+            ${escapeHtml(formatDatabaseBackupKind(backup.kind))} · ${escapeHtml(formatDateTime(backup.createdAt))} · ${escapeHtml(formatBytes(backup.sizeBytes))}
+          </div>
+          <div class="button-row" style="margin-top:8px;">
+            <button class="small-btn" data-db-download="${escapeHtml(backup.id)}" type="button">下载备份</button>
+            <button class="small-btn danger" data-db-restore="${escapeHtml(backup.id)}" type="button" ${busy ? 'disabled' : ''}>导入覆盖当前库</button>
+          </div>
+        </div>
+      `).join('')
+    : '<div class="empty-hint">当前还没有数据库备份。</div>';
+
+  serverPanelDatabaseEl.innerHTML = `
+    <div class="button-row">
+      <button id="database-refresh" class="small-btn" type="button">刷新数据库状态</button>
+      <button id="database-export-current" class="small-btn primary" type="button" ${busy ? 'disabled' : ''}>导出当前数据库</button>
+    </div>
+    <div class="note-card">${escapeHtml(summary)}</div>
+    <div class="note-card">
+      自动策略：${escapeHtml(databaseState?.schedules.hourly ?? '每小时整点低优先级备份')}；${escapeHtml(databaseState?.schedules.daily ?? '每天 04:05 低优先级备份')}。<br />
+      保留策略：整点备份最多 ${databaseState?.retention.hourly ?? 72} 份，每日备份最多 ${databaseState?.retention.daily ?? 14} 份。手动导出和导入前备份当前不自动删。<br />
+      导入历史备份前，服务端会先生成一份“导入前备份”，随后暂停 tick、断开玩家连接、覆盖数据库并重建运行时。
+    </div>
+    <div class="network-breakdown">
+      <div class="network-breakdown-head">
+        <div class="panel-title">历史数据库备份</div>
+        <div class="network-breakdown-subtitle">支持下载任意历史备份，也支持直接把某份备份重新导入为当前数据库</div>
+      </div>
+      <div class="network-breakdown-list">${rows}</div>
+    </div>
+  `;
+}
+
+async function loadDatabaseState(silent = false): Promise<void> {
+  if (!token) {
+    return;
+  }
+  databaseStateLoading = true;
+  renderDatabasePanel();
+  try {
+    const data = await request<GmDatabaseStateRes>('/gm/database/state');
+    databaseState = data;
+    if (!silent) {
+      setStatus(`已同步 ${data.backups.length} 份数据库备份`);
+    }
+  } finally {
+    databaseStateLoading = false;
+    renderDatabasePanel();
+  }
+}
+
+async function exportCurrentDatabase(): Promise<void> {
+  const result = await request<GmTriggerDatabaseBackupRes>('/gm/database/backup', {
+    method: 'POST',
+  });
+  setStatus(`已开始导出当前数据库：${result.job.backupId ?? result.job.id}`);
+  await loadDatabaseState(true);
+}
+
+function getDownloadFileName(response: Response, fallback: string): string {
+  const header = response.headers.get('content-disposition') ?? '';
+  const utf8Match = header.match(/filename\*=UTF-8''([^;]+)/iu);
+  if (utf8Match?.[1]) {
+    return decodeURIComponent(utf8Match[1]);
+  }
+  const basicMatch = header.match(/filename="?([^";]+)"?/iu);
+  return basicMatch?.[1] ?? fallback;
+}
+
+async function downloadDatabaseBackup(backupId: string): Promise<void> {
+  const response = await requestBlob(`/gm/database/backups/${encodeURIComponent(backupId)}/download`);
+  const blob = await response.blob();
+  const fileName = getDownloadFileName(response, `${backupId}.dump`);
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = objectUrl;
+  anchor.download = fileName;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
+  setStatus(`已下载数据库备份 ${fileName}`);
+}
+
+async function restoreDatabaseBackup(backupId: string): Promise<void> {
+  const backup = databaseState?.backups.find((entry) => entry.id === backupId);
+  if (!backup) {
+    setStatus('目标备份不存在', true);
+    return;
+  }
+  const confirmed = window.confirm(`将使用备份 ${backup.fileName} 覆盖当前数据库。\n服务端会先自动备份当前库，并断开在线玩家连接。是否继续？`);
+  if (!confirmed) {
+    return;
+  }
+  const body: GmRestoreDatabaseReq = { backupId };
+  const result = await request<GmTriggerDatabaseBackupRes>('/gm/database/restore', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+  setStatus(`已开始导入数据库备份：${result.job.sourceBackupId ?? backup.fileName}`);
+  await loadDatabaseState(true);
 }
 
 function setCpuBreakdownSort(sort: 'total' | 'count' | 'avg'): void {
@@ -1194,6 +1354,22 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new Error(message);
   }
   return data as T;
+}
+
+async function requestBlob(path: string, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers ?? {});
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  const response = await fetch(path, { ...init, headers });
+  if (response.status === 401) {
+    logout('GM 登录已失效，请重新输入密码');
+    throw new Error('GM 登录已失效');
+  }
+  if (!response.ok) {
+    throw new Error((await response.text()).trim() || '请求失败');
+  }
+  return response;
 }
 
 function getSelectedPlayer(): GmManagedPlayerSummary | null {
@@ -2073,6 +2249,7 @@ function render(): void {
   if (!state) return;
   switchServerTab(currentServerTab);
   renderSummary(state);
+  renderDatabasePanel();
   renderPlayerList(state);
   renderEditor(state);
 }
@@ -2213,6 +2390,9 @@ async function loadState(silent = false, refreshDetail = false): Promise<void> {
   if (!silent) {
     setStatus(`已同步 ${data.players.length} 条角色数据`);
   }
+  if (currentTab === 'server' && currentServerTab === 'database') {
+    await loadDatabaseState(true);
+  }
   // 同步地图列表到世界管理
   if (currentTab === 'world') {
     worldViewer.updateMapIds(data.mapIds);
@@ -2266,6 +2446,8 @@ function showLogin(): void {
 function logout(message?: string): void {
   token = '';
   state = null;
+  databaseState = null;
+  databaseStateLoading = false;
   selectedPlayerId = null;
   selectedPlayerDetail = null;
   loadingPlayerDetailId = null;
@@ -2833,6 +3015,7 @@ worldTabBtn.addEventListener('click', () => switchTab('world'));
 serverSubtabOverviewBtn.addEventListener('click', () => switchServerTab('overview'));
 serverSubtabTrafficBtn.addEventListener('click', () => switchServerTab('traffic'));
 serverSubtabCpuBtn.addEventListener('click', () => switchServerTab('cpu'));
+serverSubtabDatabaseBtn.addEventListener('click', () => switchServerTab('database'));
 cpuBreakdownSortTotalBtn.addEventListener('click', () => setCpuBreakdownSort('total'));
 cpuBreakdownSortCountBtn.addEventListener('click', () => setCpuBreakdownSort('count'));
 cpuBreakdownSortAvgBtn.addEventListener('click', () => setCpuBreakdownSort('avg'));
@@ -2872,6 +3055,39 @@ resetCpuStatsBtn.addEventListener('click', () => {
 });
 resetPathfindingStatsBtn.addEventListener('click', () => {
   resetPathfindingStats().catch(() => {});
+});
+serverPanelDatabaseEl.addEventListener('click', (event) => {
+  const target = event.target as HTMLElement | null;
+  const refreshButton = target?.closest<HTMLButtonElement>('#database-refresh');
+  if (refreshButton) {
+    loadDatabaseState(false).catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '刷新数据库状态失败', true);
+    });
+    return;
+  }
+
+  const exportButton = target?.closest<HTMLButtonElement>('#database-export-current');
+  if (exportButton) {
+    exportCurrentDatabase().catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '导出数据库失败', true);
+    });
+    return;
+  }
+
+  const downloadButton = target?.closest<HTMLButtonElement>('[data-db-download]');
+  if (downloadButton?.dataset.dbDownload) {
+    downloadDatabaseBackup(downloadButton.dataset.dbDownload).catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '下载数据库备份失败', true);
+    });
+    return;
+  }
+
+  const restoreButton = target?.closest<HTMLButtonElement>('[data-db-restore]');
+  if (restoreButton?.dataset.dbRestore) {
+    restoreDatabaseBackup(restoreButton.dataset.dbRestore).catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '导入数据库失败', true);
+    });
+  }
 });
 gmPasswordForm.addEventListener('submit', (event) => {
   event.preventDefault();

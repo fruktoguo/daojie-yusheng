@@ -249,6 +249,22 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     await this.persistMonsterRuntimeState();
   }
 
+  async reloadRuntimeStateFromPersistence(): Promise<void> {
+    for (const [mapId, monsters] of this.monstersByMap.entries()) {
+      for (const monster of monsters) {
+        if (this.mapService.hasOccupant(mapId, monster.x, monster.y, monster.runtimeId)) {
+          this.mapService.removeOccupant(mapId, monster.x, monster.y, monster.runtimeId);
+        }
+      }
+    }
+    this.monstersByMap.clear();
+    this.persistedMonstersByMap.clear();
+    this.effectsByMap.clear();
+    this.monsterRuntimeDirty = false;
+    this.threatService.clearAll();
+    await this.loadPersistedMonsterRuntimeState();
+  }
+
   /** 获取玩家视野内的可见实体（容器、NPC、怪物） */
   getVisibleEntities(player: PlayerState, visibleKeys: Set<string>): RenderEntity[] {
     return this.getVisibleEntitiesForMap(player, player.mapId, visibleKeys);

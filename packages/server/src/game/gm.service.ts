@@ -244,6 +244,10 @@ export class GmService {
     return this.mapService.getEditableMap(mapId) ?? null;
   }
 
+  clearRuntimeState(): void {
+    this.commandsByMap.clear();
+  }
+
   /** 保存地图编辑结果，自动重载运行时并迁移受影响玩家 */
   async saveEditableMap(mapId: string, document: GmMapDocument): Promise<string | null> {
     if (!this.mapService.getMapMeta(mapId)) {

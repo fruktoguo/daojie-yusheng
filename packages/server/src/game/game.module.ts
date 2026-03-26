@@ -39,6 +39,7 @@ import { MarketOrderEntity } from '../database/entities/market-order.entity';
 import { MarketTradeHistoryEntity } from '../database/entities/market-trade-history.entity';
 import { MarketService } from './market.service';
 import { QiProjectionService } from './qi-projection.service';
+import { DatabaseBackupService } from './database-backup.service';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { QiProjectionService } from './qi-projection.service';
     MarketService,
     PathRequestSchedulerService,
     PathWorkerPoolService,
+    DatabaseBackupService,
   ],
   exports: [MapService, PlayerService, SuggestionService],
 })

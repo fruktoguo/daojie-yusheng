@@ -803,6 +803,54 @@ export interface GmStateRes {
   perf: GmPerformanceSnapshot;
 }
 
+export type GmDatabaseBackupKind = 'hourly' | 'daily' | 'manual' | 'pre_import';
+
+export type GmDatabaseJobType = 'backup' | 'restore';
+
+export type GmDatabaseJobStatus = 'running' | 'completed' | 'failed';
+
+export interface GmDatabaseBackupRecord {
+  id: string;
+  kind: GmDatabaseBackupKind;
+  fileName: string;
+  createdAt: string;
+  sizeBytes: number;
+}
+
+export interface GmDatabaseJobSnapshot {
+  id: string;
+  type: GmDatabaseJobType;
+  status: GmDatabaseJobStatus;
+  startedAt: string;
+  finishedAt?: string;
+  kind?: GmDatabaseBackupKind;
+  backupId?: string;
+  sourceBackupId?: string;
+  error?: string;
+}
+
+export interface GmDatabaseStateRes {
+  backups: GmDatabaseBackupRecord[];
+  runningJob?: GmDatabaseJobSnapshot;
+  lastJob?: GmDatabaseJobSnapshot;
+  retention: {
+    hourly: number;
+    daily: number;
+  };
+  schedules: {
+    hourly: string;
+    daily: string;
+  };
+}
+
+export interface GmTriggerDatabaseBackupRes {
+  job: GmDatabaseJobSnapshot;
+}
+
+export interface GmRestoreDatabaseReq {
+  backupId: string;
+}
+
 export interface GmPlayerDetailRes {
   player: GmManagedPlayerRecord;
 }

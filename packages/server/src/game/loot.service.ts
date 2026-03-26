@@ -149,6 +149,15 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     await this.persistRuntimeState();
   }
 
+  async reloadRuntimeStateFromPersistence(): Promise<void> {
+    this.mapTicks.clear();
+    this.groundPiles.clear();
+    this.containers.clear();
+    this.sessions.clear();
+    this.runtimeStateDirty = false;
+    await this.loadPersistedRuntimeState();
+  }
+
   /** 每 tick 处理掉落物过期、容器刷新、搜索进度 */
   tick(mapId: string, players: PlayerState[]): LootTickResult {
     const currentTick = (this.mapTicks.get(mapId) ?? 0) + 1;

@@ -83,6 +83,18 @@ export class PathWorkerPoolService implements OnModuleDestroy {
     return this.completedResults.splice(0, this.completedResults.length);
   }
 
+  clearRuntimeState(): void {
+    for (const slot of this.slots) {
+      if (!slot.currentTask?.cancelFlag) {
+        continue;
+      }
+      Atomics.store(slot.currentTask.cancelFlag, 0, 1);
+      slot.currentTask = null;
+    }
+    this.completedResults.splice(0, this.completedResults.length);
+    this.syncWorkerState();
+  }
+
   private createWorkerSlot(id: number): WorkerSlot {
     const worker = new Worker(this.workerPath);
     const slot: WorkerSlot = {

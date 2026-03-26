@@ -181,6 +181,17 @@ export class PathRequestSchedulerService {
     return result;
   }
 
+  clearRuntimeState(): void {
+    for (const actorId of this.latestRequestIdByActor.keys()) {
+      this.workerPool.cancelActor(actorId);
+    }
+    this.pendingById.clear();
+    this.latestRequestIdByActor.clear();
+    this.completedByActor.clear();
+    this.workerPool.clearRuntimeState();
+    this.syncQueueDepthMetrics();
+  }
+
   private collectCompletedResults(): void {
     for (const result of this.workerPool.drainCompleted()) {
       const latest = this.latestRequestIdByActor.get(result.actorId);

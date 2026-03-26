@@ -140,6 +140,18 @@ export class NavigationService {
     return this.moveTargets.has(playerId);
   }
 
+  clearRuntimeState(): void {
+    for (const actorId of this.moveTargets.keys()) {
+      this.pathRequestScheduler.cancelActor(actorId);
+    }
+    this.moveTargets.clear();
+    this.moveCharges.clear();
+    this.mapPathTicks.clear();
+    this.moveRequestQuotaByPlayer.clear();
+    this.pathVersions.clear();
+    this.pathRequestScheduler.clearRuntimeState();
+  }
+
   /** 玩家点击移动时，立刻启动寻路；状态生效仍然只在 tick 中完成。 */
   primeMoveTarget(player: PlayerState, x: number, y: number, options?: SetMoveTargetOptions): string | null {
     if (!this.consumePlayerMoveRequestQuota(player)) {

@@ -76,4 +76,15 @@ export class RedisService implements OnModuleDestroy {
   async removePlayer(playerId: string): Promise<void> {
     await this.client.del(PLAYER_KEY(playerId));
   }
+
+  async clearPlayerCache(): Promise<void> {
+    let cursor = '0';
+    do {
+      const [nextCursor, keys] = await this.client.scan(cursor, 'MATCH', PLAYER_KEY('*'), 'COUNT', 200);
+      cursor = nextCursor;
+      if (keys.length > 0) {
+        await this.client.del(...keys);
+      }
+    } while (cursor !== '0');
+  }
 }

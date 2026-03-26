@@ -192,22 +192,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   async onApplicationBootstrap() {
     await this.loadConfig();
     await this.bootstrapRuntimeState();
-
-    this.persistTimer = setInterval(() => {
-      const startedAt = process.hrtime.bigint();
-      Promise.all([
-        this.playerService.persistAll(),
-        this.mapService.persistTileRuntimeStates(),
-        this.lootService.persistRuntimeState(),
-        this.worldService.persistMonsterRuntimeState(),
-      ]).then(() => {
-        const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
-        this.performanceService.recordCpuSection(elapsedMs, 'io_persist', '落盘与外部 I/O');
-      }).catch((err) => {
-        this.logger.error(`定时落盘失败: ${err.message}`);
-      });
-    }, PERSIST_INTERVAL * 1000);
-    this.logger.log(`定时落盘已启动，间隔: ${PERSIST_INTERVAL}s`);
+    this.startPersistTimer();
   }
 
   /** 清除玩家的所有增量同步缓存（切图或重连时调用） */
@@ -416,6 +401,29 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     this.performanceService.resetPathfindingStats();
   }
 
+  getOfflinePlayerTimeoutMs(): number {
+    return this.offlinePlayerTimeoutMs;
+  }
+
+  suspendRuntimeForMaintenance(): void {
+    if (this.persistTimer) {
+      clearInterval(this.persistTimer);
+      this.persistTimer = null;
+    }
+    for (const timer of this.timers.values()) {
+      clearTimeout(timer);
+    }
+    this.timers.clear();
+    this.lastTickTime.clear();
+    this.resetAllSyncState();
+  }
+
+  resumeRuntimeAfterMaintenance(): void {
+    this.restoreMapTickSpeeds();
+    this.ensureMapTicks();
+    this.startPersistTimer();
+  }
+
   private getEffectiveInterval(mapId: string): number {
     const speed = this.mapTickSpeed.get(mapId) ?? 1;
     if (speed <= 0) return this.minTickInterval;
@@ -437,6 +445,43 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       this.scheduleNextTick(mapId, nextDelay);
     }, delay);
     this.timers.set(mapId, timer);
+  }
+
+  private startPersistTimer(): void {
+    if (this.persistTimer) {
+      return;
+    }
+    this.persistTimer = setInterval(() => {
+      const startedAt = process.hrtime.bigint();
+      Promise.all([
+        this.playerService.persistAll(),
+        this.mapService.persistTileRuntimeStates(),
+        this.lootService.persistRuntimeState(),
+        this.worldService.persistMonsterRuntimeState(),
+      ]).then(() => {
+        const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+        this.performanceService.recordCpuSection(elapsedMs, 'io_persist', '落盘与外部 I/O');
+      }).catch((err) => {
+        this.logger.error(`定时落盘失败: ${err.message}`);
+      });
+    }, PERSIST_INTERVAL * 1000);
+    this.logger.log(`定时落盘已启动，间隔: ${PERSIST_INTERVAL}s`);
+  }
+
+  private resetAllSyncState(): void {
+    this.lastSentTickState.clear();
+    this.lastSentAttrUpdates.clear();
+    this.lastSentSpecialStatsAt.clear();
+    this.pendingSpecialStatsPlayers.clear();
+    this.lastSentTechniqueStates.clear();
+    this.lastSentCultivatingTechIds.clear();
+    this.lastSentActionStates.clear();
+    this.lastSentActionPanelStates.clear();
+    this.lastSentGroundPiles.clear();
+    this.lastSentVisibleTiles.clear();
+    this.lastSentRenderEntities.clear();
+    this.lastPeriodicSyncAt.clear();
+    this.forcedTickSyncPlayers.clear();
   }
 
   /**

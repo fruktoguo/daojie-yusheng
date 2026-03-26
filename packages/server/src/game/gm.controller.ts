@@ -11,10 +11,14 @@ import {
   Post,
   Put,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import {
   GmEditorCatalogRes,
+  GmDatabaseStateRes,
+  GmRestoreDatabaseReq,
+  GmTriggerDatabaseBackupRes,
   GmMapListRes,
   GmMapRuntimeRes,
   GmPlayerDetailRes,
@@ -28,6 +32,7 @@ import {
   Suggestion,
 } from '@mud/shared';
 import { GmAuthGuard } from './gm-auth.guard';
+import { DatabaseBackupService } from './database-backup.service';
 import { GmService } from './gm.service';
 import { SuggestionService } from './suggestion.service';
 import { TickService } from './tick.service';
@@ -37,6 +42,7 @@ import { TickService } from './tick.service';
 export class GmController {
   constructor(
     private readonly gmService: GmService,
+    private readonly databaseBackupService: DatabaseBackupService,
     private readonly suggestionService: SuggestionService,
     private readonly tickService: TickService,
   ) {}
@@ -101,6 +107,45 @@ export class GmController {
   async removeSuggestion(@Param('id') id: string): Promise<{ ok: true }> {
     await this.suggestionService.remove(id);
     return { ok: true };
+  }
+
+  @Get('database/state')
+  getDatabaseState(): Promise<GmDatabaseStateRes> {
+    return this.databaseBackupService.getState();
+  }
+
+  @Post('database/backup')
+  triggerDatabaseBackup(): GmTriggerDatabaseBackupRes {
+    try {
+      return this.databaseBackupService.triggerManualBackup();
+    } catch (error) {
+      throw new BadRequestException(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  @Get('database/backups/:backupId/download')
+  downloadDatabaseBackup(
+    @Param('backupId') backupId: string,
+    @Res() response: { download: (filePath: string, fileName?: string) => void },
+  ): void {
+    try {
+      const backup = this.databaseBackupService.getBackupDownloadRecord(backupId);
+      response.download(backup.filePath, backup.fileName);
+    } catch (error) {
+      throw new BadRequestException(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  @Post('database/restore')
+  restoreDatabase(@Body() body: GmRestoreDatabaseReq): GmTriggerDatabaseBackupRes {
+    if (!body?.backupId) {
+      throw new BadRequestException('缺少备份 ID');
+    }
+    try {
+      return this.databaseBackupService.triggerRestore(body.backupId);
+    } catch (error) {
+      throw new BadRequestException(error instanceof Error ? error.message : String(error));
+    }
   }
 
   /** 获取单个玩家详情 */

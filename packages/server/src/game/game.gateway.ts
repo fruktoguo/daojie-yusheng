@@ -80,6 +80,7 @@ import { TickService } from './tick.service';
 import { SuggestionService } from './suggestion.service';
 import { NavigationService } from './navigation.service';
 import { MarketActionResult, MarketService } from './market.service';
+import { DatabaseBackupService } from './database-backup.service';
 import { buildDefaultRoleName } from '../auth/account-validation';
 
 @WebSocketGateway({ cors: true })
@@ -104,11 +105,17 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly suggestionService: SuggestionService,
     private readonly navigationService: NavigationService,
     private readonly marketService: MarketService,
+    private readonly databaseBackupService: DatabaseBackupService,
   ) {}
 
   /** 客户端连接时：认证 → 顶号/断线恢复/存档加载/新建角色 → 下发初始化数据 */
   async handleConnection(client: Socket) {
     this.instrumentSocket(client);
+    if (this.databaseBackupService.isRuntimeMaintenanceActive()) {
+      client.emit(S2C.Error, { code: 'SERVER_BUSY', message: '数据库维护中，请稍后重连' });
+      client.disconnect();
+      return;
+    }
     const token = client.handshake?.auth?.token as string;
     if (!token) {
       client.disconnect();

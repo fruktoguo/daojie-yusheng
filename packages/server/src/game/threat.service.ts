@@ -123,6 +123,10 @@ export class ThreatService {
     }
   }
 
+  clearAll(): void {
+    this.tables.clear();
+  }
+
   private calculateThreatDelta(params: AddThreatParams): number {
     const baseThreat = Number.isFinite(params.baseThreat) ? params.baseThreat : 0;
     if (baseThreat <= 0) {

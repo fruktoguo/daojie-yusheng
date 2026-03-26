@@ -127,6 +127,10 @@ export class BotService {
     return this.botIds.size;
   }
 
+  clearRuntimeState(): void {
+    this.botIds.clear();
+  }
+
   /** 在中心点附近搜索可用出生位置 */
   private findSpawnPosition(mapId: string, centerX: number, centerY: number): { x: number; y: number } | null {
     for (let radius = 1; radius <= 8; radius++) {

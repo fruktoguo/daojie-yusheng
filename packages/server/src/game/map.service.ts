@@ -471,6 +471,33 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     await this.persistTileRuntimeStates();
   }
 
+  async reloadAllFromPersistence(): Promise<void> {
+    this.maps.clear();
+    this.quests.clear();
+    this.monsters.clear();
+    this.revisions.clear();
+    this.tilePatchRevisions.clear();
+    this.pathfindingStaticGrids.clear();
+    this.dirtyTileKeysByMap.clear();
+    this.occupantsByMap.clear();
+    this.playerOverlapPointsByMap.clear();
+    this.dynamicTileStates.clear();
+    this.persistedDynamicTileStates.clear();
+    this.dynamicTileStatesDirty = false;
+    this.resourceStates.clear();
+    this.persistedResourceStates.clear();
+    this.resourceStatesDirty = false;
+    this.mapTimeStates.clear();
+    this.persistedMapTimeStates.clear();
+    this.mapTimeStatesDirty = false;
+    this.runtimeSnapshotCache = { version: 2, maps: {} };
+    this.dirtyTileRuntimeMapIds.clear();
+    this.dirtyMapTimeStateMapIds.clear();
+    await this.loadPersistedTileRuntimeStates();
+    const syncedMaps = await this.syncMapDocumentsFromFiles();
+    this.loadAllMaps(syncedMaps);
+  }
+
   setAuraLevelBaseValue(value: number): void {
     const normalizedValue = normalizeAuraLevelBaseValue(value, this.auraLevelBaseValue);
     if (normalizedValue === this.auraLevelBaseValue) {

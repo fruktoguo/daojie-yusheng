@@ -25,6 +25,7 @@ import {
   normalizeLifespanYears,
   truncateRoleName,
   VIEW_RADIUS,
+  S2C,
   clonePlainValue,
 } from '@mud/shared';
 import { Socket } from 'socket.io';
@@ -442,6 +443,28 @@ export class PlayerService implements OnModuleInit {
 
   removeSocket(playerId: string) {
     this.socketMap.delete(playerId);
+  }
+
+  disconnectAllActiveSockets(timestamp = Date.now()): void {
+    const activeSockets = [...this.socketMap.entries()];
+    for (const [playerId, socket] of activeSockets) {
+      const player = this.players.get(playerId);
+      if (player) {
+        this.markPlayerOffline(playerId, timestamp);
+      }
+      this.socketMap.delete(playerId);
+      socket.emit(S2C.Kick);
+      socket.disconnect(true);
+    }
+  }
+
+  clearRuntimeState(): void {
+    this.players.clear();
+    this.commands.clear();
+    this.socketMap.clear();
+    this.userToPlayer.clear();
+    this.onlineSessionStartedAtByUserId.clear();
+    this.dirtyFlags.clear();
   }
 
   getPlayerByUserId(userId: string): string | undefined {
