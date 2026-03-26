@@ -451,10 +451,7 @@
     {
       "id": "m_night_bandit",
       "x": 35,
-      "y": 38,
-      "maxHp": 44,
-      "aggroRange": 6,
-      "expMultiplier": 1
+      "y": 38
     }
   ]
 }

@@ -235,6 +235,7 @@ export interface MonsterSpawnConfig {
   count: number;
   radius: number;
   maxAlive: number;
+  wanderRadius: number;
   aggroRange: number;
   viewRange: number;
   aggroMode: MonsterAggroMode;
@@ -2410,100 +2411,78 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       const rawSpawn = candidate as Partial<GmMapMonsterSpawnRecord> & Partial<MonsterSpawnConfig> & {
         templateId?: string;
         count?: number;
+        radius?: number;
+        maxAlive?: number;
+        wanderRadius?: number;
         respawnSec?: number;
         level?: number;
-        expMultiplier?: number;
-        lootItemId?: string;
-        lootChance?: number;
-        drops?: unknown[];
       };
       const templateId = this.resolveMonsterSpawnTemplateId(rawSpawn);
       const template = templateId ? this.contentService.getMonsterTemplate(templateId) : undefined;
-      const spawn = template ? { ...template, ...rawSpawn } : rawSpawn;
-      const level = Number.isInteger((spawn as { level?: number }).level) ? (spawn as { level: number }).level : undefined;
-      const valueStats = (spawn as { valueStats?: PartialNumericStats }).valueStats
+      if (!template) {
+        this.logger.warn(`地图 ${meta.id} 存在未匹配怪物模板的刷新点，已忽略: ${String(rawSpawn.id ?? '')}`);
+        continue;
+      }
+      const level = Number.isInteger(rawSpawn.level) ? Math.max(1, Number(rawSpawn.level)) : template.level;
+      const valueStats = template.valueStats
         ?? inferMonsterValueStatsFromLegacy({
-          maxHp: Number.isInteger(spawn.maxHp) ? Number(spawn.maxHp) : (Number.isInteger(spawn.hp) ? Number(spawn.hp) : 1),
-          attack: Number.isInteger(spawn.attack) ? Number(spawn.attack) : 1,
-          level,
-          viewRange: Number.isInteger((spawn as { viewRange?: number }).viewRange)
-            ? (spawn as { viewRange: number }).viewRange
-            : (Number.isInteger(spawn.aggroRange) ? spawn.aggroRange : 6),
+          maxHp: template.maxHp,
+          attack: template.attack,
+          level: template.level,
+          viewRange: template.viewRange,
         });
-      const numericStats = (spawn as { numericStats?: NumericStats }).numericStats
-        ?? resolveMonsterNumericStatsFromValueStats(valueStats, level);
-      const combatModel = (spawn as { combatModel?: MonsterCombatModel }).combatModel ?? 'legacy';
+      const numericStats = resolveMonsterNumericStatsFromValueStats(valueStats, level);
+      const combatModel: MonsterCombatModel = template.valueStats ? 'value_stats' : 'legacy';
       const spawnId = typeof rawSpawn.id === 'string' && rawSpawn.id.trim().length > 0
         ? rawSpawn.id.trim()
         : templateId;
+      const radius = Number.isInteger(rawSpawn.radius) ? Math.max(0, Number(rawSpawn.radius)) : template.radius;
+      const maxAlive = Number.isInteger(rawSpawn.maxAlive) ? Math.max(1, Number(rawSpawn.maxAlive)) : template.maxAlive;
+      const configuredCount = Number.isInteger(rawSpawn.count) ? Math.max(1, Number(rawSpawn.count)) : template.count;
+      const count = Math.min(configuredCount, maxAlive);
+      const respawnTicks = Number.isInteger(rawSpawn.respawnTicks)
+        ? Math.max(1, Number(rawSpawn.respawnTicks))
+        : Math.max(1, Number(rawSpawn.respawnSec ?? template.respawnTicks));
+      const wanderRadius = Number.isInteger(rawSpawn.wanderRadius)
+        ? Math.max(0, Number(rawSpawn.wanderRadius))
+        : radius;
       const valid =
         typeof spawnId === 'string' &&
-        typeof spawn.name === 'string' &&
-        Number.isInteger(spawn.x) &&
-        Number.isInteger(spawn.y) &&
-        typeof spawn.char === 'string' &&
-        typeof spawn.color === 'string' &&
-        Number.isInteger(spawn.hp) &&
-        Number.isInteger(spawn.attack) &&
-        (
-          Number.isInteger(spawn.respawnTicks) ||
-          Number.isInteger((spawn as { respawnSec?: number }).respawnSec)
-        );
+        Number.isInteger(rawSpawn.x) &&
+        Number.isInteger(rawSpawn.y);
       if (!valid) {
         this.logger.warn(`地图 ${meta.id} 存在非法怪物刷新点配置，已忽略`);
         continue;
       }
-      if (spawn.x! < 0 || spawn.x! >= meta.width || spawn.y! < 0 || spawn.y! >= meta.height) {
-        this.logger.warn(`地图 ${meta.id} 的怪物刷新点越界: ${spawn.id}`);
+      if (rawSpawn.x! < 0 || rawSpawn.x! >= meta.width || rawSpawn.y! < 0 || rawSpawn.y! >= meta.height) {
+        this.logger.warn(`地图 ${meta.id} 的怪物刷新点越界: ${spawnId}`);
         continue;
       }
-      const rawDrops = Array.isArray((candidate as { drops?: unknown[] }).drops)
-        ? (candidate as { drops: unknown[] }).drops
-        : (typeof (candidate as { lootItemId?: unknown }).lootItemId === 'string'
-            ? [{
-                itemId: String((candidate as { lootItemId: unknown }).lootItemId),
-                name: String((candidate as { lootItemId: unknown }).lootItemId),
-                type: 'material',
-                count: 1,
-                chance: typeof (candidate as { lootChance?: unknown }).lootChance === 'number'
-                  ? Number((candidate as { lootChance: unknown }).lootChance)
-                  : 1,
-              }]
-            : []);
-      const drops = this.normalizeDrops(rawDrops);
+      const drops = this.normalizeDrops(template.drops);
       result.push({
         id: spawnId!,
-        name: spawn.name!,
-        x: spawn.x!,
-        y: spawn.y!,
-        char: spawn.char!,
-        color: spawn.color!,
-        grade: this.normalizeContainerGrade((spawn as { grade?: TechniqueGrade }).grade),
+        name: template.name,
+        x: rawSpawn.x!,
+        y: rawSpawn.y!,
+        char: template.char,
+        color: template.color,
+        grade: this.normalizeContainerGrade(rawSpawn.grade ?? template.grade),
         valueStats,
         numericStats,
         combatModel,
-        hp: Math.max(1, Math.round(numericStats.maxHp || spawn.hp!)),
-        maxHp: Math.max(1, Math.round(numericStats.maxHp || (Number.isInteger(spawn.maxHp) ? spawn.maxHp! : spawn.hp!))),
-        attack: Math.max(1, Math.round(numericStats.physAtk || numericStats.spellAtk || spawn.attack! || 1)),
-        count: Number.isInteger((spawn as { count?: number }).count)
-          ? (spawn as { count: number }).count
-          : (Number.isInteger((spawn as { maxAlive?: number }).maxAlive) ? (spawn as { maxAlive: number }).maxAlive : 1),
-        radius: Number.isInteger((spawn as { radius?: number }).radius) ? (spawn as { radius: number }).radius : 3,
-        maxAlive: Number.isInteger((spawn as { maxAlive?: number }).maxAlive)
-          ? (spawn as { maxAlive: number }).maxAlive
-          : (Number.isInteger((spawn as { count?: number }).count) ? (spawn as { count: number }).count : 1),
-        aggroRange: Number.isInteger(spawn.aggroRange) ? spawn.aggroRange! : 6,
-        viewRange: Number.isInteger((spawn as { viewRange?: number }).viewRange)
-          ? (spawn as { viewRange: number }).viewRange
-          : (Number.isInteger(spawn.aggroRange) ? spawn.aggroRange! : 6),
-        aggroMode: spawn.aggroMode ?? 'always',
-        respawnTicks: Number.isInteger(spawn.respawnTicks)
-          ? spawn.respawnTicks!
-          : Math.max(1, (spawn as { respawnSec?: number }).respawnSec ?? 15),
+        hp: Math.max(1, Math.round(numericStats.maxHp || template.hp)),
+        maxHp: Math.max(1, Math.round(numericStats.maxHp || template.maxHp || template.hp)),
+        attack: Math.max(1, Math.round(numericStats.physAtk || numericStats.spellAtk || template.attack || 1)),
+        count,
+        radius,
+        maxAlive,
+        wanderRadius,
+        aggroRange: template.aggroRange,
+        viewRange: template.viewRange,
+        aggroMode: template.aggroMode,
+        respawnTicks,
         level,
-        expMultiplier: typeof (spawn as { expMultiplier?: number }).expMultiplier === 'number'
-          ? Math.max(0, (spawn as { expMultiplier: number }).expMultiplier)
-          : 1,
+        expMultiplier: template.expMultiplier,
         drops,
       });
     }
@@ -3686,10 +3665,38 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     if (!template) {
       return raw;
     }
+    const radius = Number.isInteger(spawn.radius) ? Math.max(0, Number(spawn.radius)) : template.radius;
+    const maxAlive = Number.isInteger(spawn.maxAlive) ? Math.max(1, Number(spawn.maxAlive)) : template.maxAlive;
+    const level = Number.isInteger(spawn.level) ? Math.max(1, Number(spawn.level)) : template.level;
+    const valueStats = template.valueStats
+      ?? inferMonsterValueStatsFromLegacy({
+        maxHp: template.maxHp,
+        attack: template.attack,
+        level: template.level,
+        viewRange: template.viewRange,
+      });
+    const numericStats = resolveMonsterNumericStatsFromValueStats(valueStats, level);
     return {
       ...template,
-      ...spawn,
+      id: typeof spawn.id === 'string' && spawn.id.trim().length > 0 ? spawn.id : template.id,
       templateId,
+      x: Number.isInteger(spawn.x) ? Number(spawn.x) : 0,
+      y: Number.isInteger(spawn.y) ? Number(spawn.y) : 0,
+      grade: spawn.grade ?? template.grade,
+      hp: Math.max(1, Math.round(numericStats.maxHp || template.hp)),
+      maxHp: Math.max(1, Math.round(numericStats.maxHp || template.maxHp || template.hp)),
+      attack: Math.max(1, Math.round(numericStats.physAtk || numericStats.spellAtk || template.attack || 1)),
+      count: Number.isInteger(spawn.count) ? Math.max(1, Number(spawn.count)) : template.count,
+      radius,
+      maxAlive,
+      wanderRadius: Number.isInteger(spawn.wanderRadius) ? Math.max(0, Number(spawn.wanderRadius)) : radius,
+      respawnTicks: Number.isInteger(spawn.respawnTicks)
+        ? Math.max(1, Number(spawn.respawnTicks))
+        : Math.max(1, Number(spawn.respawnSec ?? template.respawnTicks)),
+      respawnSec: Number.isInteger(spawn.respawnSec)
+        ? Math.max(1, Number(spawn.respawnSec))
+        : undefined,
+      level,
     };
   }
 
@@ -3716,19 +3723,12 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     if (templateId !== spawn.id) {
       persisted.templateId = templateId;
     }
-    if (spawn.name !== template.name) persisted.name = spawn.name;
-    if (spawn.char !== template.char) persisted.char = spawn.char;
-    if (spawn.color !== template.color) persisted.color = spawn.color;
     if (spawn.grade !== template.grade) persisted.grade = spawn.grade;
-    if (spawn.hp !== template.hp) persisted.hp = spawn.hp;
-    if ((spawn.maxHp ?? spawn.hp) !== template.maxHp) persisted.maxHp = spawn.maxHp;
-    if (spawn.attack !== template.attack) persisted.attack = spawn.attack;
     if ((spawn.count ?? spawn.maxAlive ?? 1) !== template.count) persisted.count = spawn.count;
     if ((spawn.radius ?? 3) !== template.radius) persisted.radius = spawn.radius;
     if ((spawn.maxAlive ?? 1) !== template.maxAlive) persisted.maxAlive = spawn.maxAlive;
-    if ((spawn.aggroRange ?? 6) !== template.aggroRange) persisted.aggroRange = spawn.aggroRange;
-    if ((spawn.viewRange ?? spawn.aggroRange ?? 6) !== template.viewRange) persisted.viewRange = spawn.viewRange;
-    if ((spawn.aggroMode ?? 'always') !== template.aggroMode) persisted.aggroMode = spawn.aggroMode;
+    const defaultWanderRadius = spawn.radius ?? template.radius;
+    if ((spawn.wanderRadius ?? defaultWanderRadius) !== defaultWanderRadius) persisted.wanderRadius = spawn.wanderRadius;
     if ((spawn.respawnTicks ?? spawn.respawnSec ?? 15) !== template.respawnTicks) {
       persisted.respawnTicks = spawn.respawnTicks;
       if (persisted.respawnTicks === undefined && spawn.respawnSec !== undefined) {
@@ -3736,10 +3736,6 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       }
     }
     if ((spawn.level ?? undefined) !== template.level) persisted.level = spawn.level;
-    if ((spawn.expMultiplier ?? 1) !== template.expMultiplier) persisted.expMultiplier = spawn.expMultiplier;
-    if (JSON.stringify(spawn.drops ?? []) !== JSON.stringify(template.drops)) {
-      persisted.drops = spawn.drops;
-    }
     return persisted;
   }
 

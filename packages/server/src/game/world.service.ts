@@ -1630,9 +1630,13 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         this.resolveMonsterTarget(monster, players, timeState)
       ));
       if (!target) {
-        if (monster.x !== monster.spawnX || monster.y !== monster.spawnY) {
+        if (!this.isMonsterWithinWanderRange(monster, monster.x, monster.y)) {
           this.measureCpuSection('monster_return', '怪物: 回巢移动', () => {
             this.stepToward(mapId, monster, monster.spawnX, monster.spawnY, monster.runtimeId);
+          });
+        } else if (monster.wanderRadius > 0 && Math.random() < 0.35) {
+          this.measureCpuSection('monster_roam', '怪物: 闲逛移动', () => {
+            this.stepMonsterIdleRoam(monster);
           });
         }
         continue;
@@ -3666,6 +3670,37 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
     if (candidates.length === 0) return null;
     return candidates[Math.floor(Math.random() * candidates.length)];
+  }
+
+  private isMonsterWithinWanderRange(monster: RuntimeMonster, x: number, y: number): boolean {
+    const radius = Math.max(0, monster.wanderRadius);
+    return isOffsetInRange(x - monster.spawnX, y - monster.spawnY, radius);
+  }
+
+  private stepMonsterIdleRoam(monster: RuntimeMonster): Direction | null {
+    const radius = Math.max(0, monster.wanderRadius);
+    if (radius <= 0) {
+      return null;
+    }
+    const directions = [
+      { dx: 1, dy: 0, facing: Direction.East },
+      { dx: -1, dy: 0, facing: Direction.West },
+      { dx: 0, dy: 1, facing: Direction.South },
+      { dx: 0, dy: -1, facing: Direction.North },
+    ];
+    const startIndex = Math.floor(Math.random() * directions.length);
+    for (let offset = 0; offset < directions.length; offset += 1) {
+      const direction = directions[(startIndex + offset) % directions.length]!;
+      const nextX = monster.x + direction.dx;
+      const nextY = monster.y + direction.dy;
+      if (!this.isMonsterWithinWanderRange(monster, nextX, nextY)) {
+        continue;
+      }
+      if (this.moveActorTo(monster.mapId, monster, nextX, nextY, monster.runtimeId, 'monster')) {
+        return direction.facing;
+      }
+    }
+    return null;
   }
 
   private findNearbyWalkable(mapId: string, x: number, y: number, maxRadius = 3): { x: number; y: number } | null {
