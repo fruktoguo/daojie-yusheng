@@ -4,6 +4,85 @@
       "id": "redflame_art",
       "name": "赤焰诀",
       "grade": "yellow",
+      "layers": [
+        {
+          "level": 1,
+          "expFactor": 18,
+          "attrs": {
+            "spirit": 3
+          }
+        },
+        {
+          "level": 2,
+          "expFactor": 19,
+          "attrs": {
+            "spirit": 3
+          }
+        },
+        {
+          "level": 3,
+          "expFactor": 21,
+          "attrs": {
+            "spirit": 3
+          }
+        },
+        {
+          "level": 4,
+          "expFactor": 23,
+          "attrs": {
+            "spirit": 3
+          }
+        },
+        {
+          "level": 5,
+          "expFactor": 25,
+          "attrs": {
+            "spirit": 4
+          }
+        },
+        {
+          "level": 6,
+          "expFactor": 28,
+          "attrs": {
+            "spirit": 4
+          }
+        },
+        {
+          "level": 7,
+          "expFactor": 31,
+          "attrs": {
+            "spirit": 4
+          }
+        },
+        {
+          "level": 8,
+          "expFactor": 34,
+          "attrs": {
+            "spirit": 4
+          }
+        },
+        {
+          "level": 9,
+          "expFactor": 38,
+          "attrs": {
+            "spirit": 4
+          }
+        },
+        {
+          "level": 10,
+          "expFactor": 43,
+          "attrs": {
+            "spirit": 4
+          }
+        },
+        {
+          "level": 11,
+          "expFactor": 0,
+          "attrs": {
+            "spirit": 5
+          }
+        }
+      ],
       "skills": [
         {
           "id": "skill.fire_talisman",
@@ -184,91 +263,127 @@
           "unlockLevel": 9
         }
       ],
-      "layers": [
-        {
-          "level": 1,
-          "expFactor": 18,
-          "attrs": {
-            "spirit": 3
-          }
-        },
-        {
-          "level": 2,
-          "expFactor": 19,
-          "attrs": {
-            "spirit": 3
-          }
-        },
-        {
-          "level": 3,
-          "expFactor": 21,
-          "attrs": {
-            "spirit": 3
-          }
-        },
-        {
-          "level": 4,
-          "expFactor": 23,
-          "attrs": {
-            "spirit": 3
-          }
-        },
-        {
-          "level": 5,
-          "expFactor": 25,
-          "attrs": {
-            "spirit": 4
-          }
-        },
-        {
-          "level": 6,
-          "expFactor": 28,
-          "attrs": {
-            "spirit": 4
-          }
-        },
-        {
-          "level": 7,
-          "expFactor": 31,
-          "attrs": {
-            "spirit": 4
-          }
-        },
-        {
-          "level": 8,
-          "expFactor": 34,
-          "attrs": {
-            "spirit": 4
-          }
-        },
-        {
-          "level": 9,
-          "expFactor": 38,
-          "attrs": {
-            "spirit": 4
-          }
-        },
-        {
-          "level": 10,
-          "expFactor": 43,
-          "attrs": {
-            "spirit": 4
-          }
-        },
-        {
-          "level": 11,
-          "expFactor": 0,
-          "attrs": {
-            "spirit": 5
-          }
-        }
-      ],
-      "realmLv": 10
+      "realmLv": 10,
+      "category": "arts"
     },
     {
       "id": "frost_sutra",
       "name": "寒魄经",
       "grade": "mystic",
+      "layers": [
+        {
+          "level": 1,
+          "expFactor": 37,
+          "attrs": {
+            "spirit": 4,
+            "talent": 2
+          }
+        },
+        {
+          "level": 2,
+          "expFactor": 40,
+          "attrs": {
+            "spirit": 4,
+            "talent": 2
+          }
+        },
+        {
+          "level": 3,
+          "expFactor": 43,
+          "attrs": {
+            "spirit": 4,
+            "talent": 2
+          }
+        },
+        {
+          "level": 4,
+          "expFactor": 48,
+          "attrs": {
+            "spirit": 4,
+            "talent": 2
+          }
+        },
+        {
+          "level": 5,
+          "expFactor": 53,
+          "attrs": {
+            "spirit": 4,
+            "talent": 2
+          }
+        },
+        {
+          "level": 6,
+          "expFactor": 60,
+          "attrs": {
+            "spirit": 4,
+            "talent": 3
+          }
+        },
+        {
+          "level": 7,
+          "expFactor": 69,
+          "attrs": {
+            "spirit": 5,
+            "talent": 3
+          }
+        },
+        {
+          "level": 8,
+          "expFactor": 78,
+          "attrs": {
+            "spirit": 5,
+            "talent": 3
+          }
+        },
+        {
+          "level": 9,
+          "expFactor": 89,
+          "attrs": {
+            "spirit": 5,
+            "talent": 3
+          }
+        },
+        {
+          "level": 10,
+          "expFactor": 101,
+          "attrs": {
+            "spirit": 5,
+            "talent": 3
+          }
+        },
+        {
+          "level": 11,
+          "expFactor": 115,
+          "attrs": {
+            "spirit": 5,
+            "talent": 3
+          }
+        },
+        {
+          "level": 12,
+          "expFactor": 131,
+          "attrs": {
+            "spirit": 5,
+            "talent": 4
+          }
+        },
+        {
+          "level": 13,
+          "expFactor": 150,
+          "attrs": {
+            "spirit": 6,
+            "talent": 4
+          }
+        },
+        {
+          "level": 14,
+          "expFactor": 0,
+          "attrs": {
+            "spirit": 6,
+            "talent": 4
+          }
+        }
+      ],
       "skills": [
         {
           "id": "skill.frost_mark",
@@ -468,248 +583,13 @@
           "unlockLevel": 9
         }
       ],
-      "layers": [
-        {
-          "level": 1,
-          "expFactor": 37,
-          "attrs": {
-            "spirit": 4,
-            "talent": 2
-          }
-        },
-        {
-          "level": 2,
-          "expFactor": 40,
-          "attrs": {
-            "spirit": 4,
-            "talent": 2
-          }
-        },
-        {
-          "level": 3,
-          "expFactor": 43,
-          "attrs": {
-            "spirit": 4,
-            "talent": 2
-          }
-        },
-        {
-          "level": 4,
-          "expFactor": 48,
-          "attrs": {
-            "spirit": 4,
-            "talent": 2
-          }
-        },
-        {
-          "level": 5,
-          "expFactor": 53,
-          "attrs": {
-            "spirit": 4,
-            "talent": 2
-          }
-        },
-        {
-          "level": 6,
-          "expFactor": 60,
-          "attrs": {
-            "spirit": 4,
-            "talent": 3
-          }
-        },
-        {
-          "level": 7,
-          "expFactor": 69,
-          "attrs": {
-            "spirit": 5,
-            "talent": 3
-          }
-        },
-        {
-          "level": 8,
-          "expFactor": 78,
-          "attrs": {
-            "spirit": 5,
-            "talent": 3
-          }
-        },
-        {
-          "level": 9,
-          "expFactor": 89,
-          "attrs": {
-            "spirit": 5,
-            "talent": 3
-          }
-        },
-        {
-          "level": 10,
-          "expFactor": 101,
-          "attrs": {
-            "spirit": 5,
-            "talent": 3
-          }
-        },
-        {
-          "level": 11,
-          "expFactor": 115,
-          "attrs": {
-            "spirit": 5,
-            "talent": 3
-          }
-        },
-        {
-          "level": 12,
-          "expFactor": 131,
-          "attrs": {
-            "spirit": 5,
-            "talent": 4
-          }
-        },
-        {
-          "level": 13,
-          "expFactor": 150,
-          "attrs": {
-            "spirit": 6,
-            "talent": 4
-          }
-        },
-        {
-          "level": 14,
-          "expFactor": 0,
-          "attrs": {
-            "spirit": 6,
-            "talent": 4
-          }
-        }
-      ],
-      "realmLv": 16
+      "realmLv": 16,
+      "category": "arts"
     },
     {
       "id": "thunder_palm",
       "name": "惊雷掌",
       "grade": "mystic",
-      "skills": [
-        {
-          "id": "skill.thunder_palm",
-          "name": "惊雷掌",
-          "desc": "雷势先蓄于掌，再借下一掌骤然炸开，越打越容易破招暴击。",
-          "cooldown": 34,
-          "costMultiplier": 2,
-          "range": 2,
-          "targeting": {
-            "shape": "line",
-            "maxTargets": 3
-          },
-          "effects": [
-            {
-              "type": "damage",
-              "damageKind": "spell",
-              "element": "metal",
-              "formula": {
-                "op": "mul",
-                "args": [
-                  {
-                    "op": "add",
-                    "args": [
-                      20,
-                      {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 1.2
-                      }
-                    ]
-                  },
-                  {
-                    "op": "add",
-                    "args": [
-                      1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.09
-                      },
-                      {
-                        "var": "caster.stat.breakPower",
-                        "scale": 0.008
-                      }
-                    ]
-                  }
-                ]
-              }
-            },
-            {
-              "type": "buff",
-              "target": "self",
-              "buffId": "buff.thunder_palm_force",
-              "name": "雷势",
-              "desc": "掌中余雷未散，提高命中、破招与暴击。",
-              "shortMark": "雷",
-              "category": "buff",
-              "visibility": "public",
-              "color": "#d6c34a",
-              "duration": 12,
-              "maxStacks": 6,
-              "valueStats": {
-                "hit": 3,
-                "crit": 5,
-                "breakPower": 4
-              }
-            }
-          ],
-          "unlockLevel": 1
-        },
-        {
-          "id": "skill.rushing_thunder",
-          "name": "奔雷贯心",
-          "desc": "先以雷势逼出破绽，再把后继掌力整段贯进敌阵中央。",
-          "cooldown": 42,
-          "costMultiplier": 3,
-          "range": 3,
-          "targeting": {
-            "shape": "line",
-            "maxTargets": 4
-          },
-          "effects": [
-            {
-              "type": "damage",
-              "damageKind": "spell",
-              "element": "metal",
-              "formula": {
-                "op": "mul",
-                "args": [
-                  {
-                    "op": "add",
-                    "args": [
-                      30,
-                      {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 2
-                      }
-                    ]
-                  },
-                  {
-                    "op": "add",
-                    "args": [
-                      1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
-                      {
-                        "var": "caster.buff.buff.thunder_palm_force.stacks",
-                        "scale": 0.06
-                      },
-                      {
-                        "var": "caster.stat.breakPower",
-                        "scale": 0.01
-                      }
-                    ]
-                  }
-                ]
-              }
-            }
-          ],
-          "unlockLevel": 7
-        }
-      ],
       "layers": [
         {
           "level": 1,
@@ -838,12 +718,225 @@
           }
         }
       ],
-      "realmLv": 14
+      "skills": [
+        {
+          "id": "skill.thunder_palm",
+          "name": "惊雷掌",
+          "desc": "雷势先蓄于掌，再借下一掌骤然炸开，越打越容易破招暴击。",
+          "cooldown": 34,
+          "costMultiplier": 2,
+          "range": 2,
+          "targeting": {
+            "shape": "line",
+            "maxTargets": 3
+          },
+          "effects": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "metal",
+              "formula": {
+                "op": "mul",
+                "args": [
+                  {
+                    "op": "add",
+                    "args": [
+                      20,
+                      {
+                        "var": "caster.stat.spellAtk",
+                        "scale": 1.2
+                      }
+                    ]
+                  },
+                  {
+                    "op": "add",
+                    "args": [
+                      1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.09
+                      },
+                      {
+                        "var": "caster.stat.breakPower",
+                        "scale": 0.008
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "buff",
+              "target": "self",
+              "buffId": "buff.thunder_palm_force",
+              "name": "雷势",
+              "desc": "掌中余雷未散，提高命中、破招与暴击。",
+              "shortMark": "雷",
+              "category": "buff",
+              "visibility": "public",
+              "color": "#d6c34a",
+              "duration": 12,
+              "maxStacks": 6,
+              "valueStats": {
+                "hit": 3,
+                "crit": 5,
+                "breakPower": 4
+              }
+            }
+          ],
+          "unlockLevel": 1
+        },
+        {
+          "id": "skill.rushing_thunder",
+          "name": "奔雷贯心",
+          "desc": "先以雷势逼出破绽，再把后继掌力整段贯进敌阵中央。",
+          "cooldown": 42,
+          "costMultiplier": 3,
+          "range": 3,
+          "targeting": {
+            "shape": "line",
+            "maxTargets": 4
+          },
+          "effects": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "metal",
+              "formula": {
+                "op": "mul",
+                "args": [
+                  {
+                    "op": "add",
+                    "args": [
+                      30,
+                      {
+                        "var": "caster.stat.spellAtk",
+                        "scale": 2
+                      }
+                    ]
+                  },
+                  {
+                    "op": "add",
+                    "args": [
+                      1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.1
+                      },
+                      {
+                        "var": "caster.buff.buff.thunder_palm_force.stacks",
+                        "scale": 0.06
+                      },
+                      {
+                        "var": "caster.stat.breakPower",
+                        "scale": 0.01
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "unlockLevel": 7
+        }
+      ],
+      "realmLv": 14,
+      "category": "arts"
     },
     {
       "id": "cloud_blade",
       "name": "流云刀谱",
       "grade": "yellow",
+      "layers": [
+        {
+          "level": 1,
+          "expFactor": 18,
+          "attrs": {
+            "perception": 3,
+            "constitution": 1
+          }
+        },
+        {
+          "level": 2,
+          "expFactor": 20,
+          "attrs": {
+            "perception": 3,
+            "constitution": 1
+          }
+        },
+        {
+          "level": 3,
+          "expFactor": 22,
+          "attrs": {
+            "perception": 3,
+            "constitution": 1
+          }
+        },
+        {
+          "level": 4,
+          "expFactor": 24,
+          "attrs": {
+            "perception": 3,
+            "constitution": 2
+          }
+        },
+        {
+          "level": 5,
+          "expFactor": 27,
+          "attrs": {
+            "perception": 4,
+            "constitution": 2
+          }
+        },
+        {
+          "level": 6,
+          "expFactor": 30,
+          "attrs": {
+            "perception": 4,
+            "constitution": 2
+          }
+        },
+        {
+          "level": 7,
+          "expFactor": 33,
+          "attrs": {
+            "perception": 4,
+            "constitution": 2
+          }
+        },
+        {
+          "level": 8,
+          "expFactor": 39,
+          "attrs": {
+            "perception": 4,
+            "constitution": 2
+          }
+        },
+        {
+          "level": 9,
+          "expFactor": 43,
+          "attrs": {
+            "perception": 4,
+            "constitution": 2
+          }
+        },
+        {
+          "level": 10,
+          "expFactor": 48,
+          "attrs": {
+            "perception": 4,
+            "constitution": 2
+          }
+        },
+        {
+          "level": 11,
+          "expFactor": 0,
+          "attrs": {
+            "perception": 5,
+            "constitution": 2
+          }
+        }
+      ],
       "skills": [
         {
           "id": "skill.cloud_cut",
@@ -1039,102 +1132,87 @@
           "unlockLevel": 8
         }
       ],
-      "layers": [
-        {
-          "level": 1,
-          "expFactor": 18,
-          "attrs": {
-            "perception": 3,
-            "constitution": 1
-          }
-        },
-        {
-          "level": 2,
-          "expFactor": 20,
-          "attrs": {
-            "perception": 3,
-            "constitution": 1
-          }
-        },
-        {
-          "level": 3,
-          "expFactor": 22,
-          "attrs": {
-            "perception": 3,
-            "constitution": 1
-          }
-        },
-        {
-          "level": 4,
-          "expFactor": 24,
-          "attrs": {
-            "perception": 3,
-            "constitution": 2
-          }
-        },
-        {
-          "level": 5,
-          "expFactor": 27,
-          "attrs": {
-            "perception": 4,
-            "constitution": 2
-          }
-        },
-        {
-          "level": 6,
-          "expFactor": 30,
-          "attrs": {
-            "perception": 4,
-            "constitution": 2
-          }
-        },
-        {
-          "level": 7,
-          "expFactor": 33,
-          "attrs": {
-            "perception": 4,
-            "constitution": 2
-          }
-        },
-        {
-          "level": 8,
-          "expFactor": 39,
-          "attrs": {
-            "perception": 4,
-            "constitution": 2
-          }
-        },
-        {
-          "level": 9,
-          "expFactor": 43,
-          "attrs": {
-            "perception": 4,
-            "constitution": 2
-          }
-        },
-        {
-          "level": 10,
-          "expFactor": 48,
-          "attrs": {
-            "perception": 4,
-            "constitution": 2
-          }
-        },
-        {
-          "level": 11,
-          "expFactor": 0,
-          "attrs": {
-            "perception": 5,
-            "constitution": 2
-          }
-        }
-      ],
-      "realmLv": 13
+      "realmLv": 13,
+      "category": "arts"
     },
     {
       "id": "qingmu_sword",
       "name": "青木剑诀",
       "grade": "mortal",
+      "layers": [
+        {
+          "level": 1,
+          "expFactor": 13,
+          "attrs": {
+            "perception": 3,
+            "spirit": 1
+          }
+        },
+        {
+          "level": 2,
+          "expFactor": 14,
+          "attrs": {
+            "perception": 3,
+            "spirit": 1
+          }
+        },
+        {
+          "level": 3,
+          "expFactor": 16,
+          "attrs": {
+            "perception": 3,
+            "spirit": 1
+          }
+        },
+        {
+          "level": 4,
+          "expFactor": 18,
+          "attrs": {
+            "perception": 3,
+            "spirit": 1
+          }
+        },
+        {
+          "level": 5,
+          "expFactor": 21,
+          "attrs": {
+            "perception": 3,
+            "spirit": 2
+          }
+        },
+        {
+          "level": 6,
+          "expFactor": 23,
+          "attrs": {
+            "perception": 3,
+            "spirit": 2
+          }
+        },
+        {
+          "level": 7,
+          "expFactor": 27,
+          "attrs": {
+            "perception": 3,
+            "spirit": 2
+          }
+        },
+        {
+          "level": 8,
+          "expFactor": 31,
+          "attrs": {
+            "perception": 3,
+            "spirit": 2
+          }
+        },
+        {
+          "level": 9,
+          "expFactor": 0,
+          "attrs": {
+            "perception": 4,
+            "spirit": 2
+          }
+        }
+      ],
       "skills": [
         {
           "id": "skill.qingmu_slash",
@@ -1241,86 +1319,85 @@
           "unlockLevel": 5
         }
       ],
-      "layers": [
-        {
-          "level": 1,
-          "expFactor": 13,
-          "attrs": {
-            "perception": 3,
-            "spirit": 1
-          }
-        },
-        {
-          "level": 2,
-          "expFactor": 14,
-          "attrs": {
-            "perception": 3,
-            "spirit": 1
-          }
-        },
-        {
-          "level": 3,
-          "expFactor": 16,
-          "attrs": {
-            "perception": 3,
-            "spirit": 1
-          }
-        },
-        {
-          "level": 4,
-          "expFactor": 18,
-          "attrs": {
-            "perception": 3,
-            "spirit": 1
-          }
-        },
-        {
-          "level": 5,
-          "expFactor": 21,
-          "attrs": {
-            "perception": 3,
-            "spirit": 2
-          }
-        },
-        {
-          "level": 6,
-          "expFactor": 23,
-          "attrs": {
-            "perception": 3,
-            "spirit": 2
-          }
-        },
-        {
-          "level": 7,
-          "expFactor": 27,
-          "attrs": {
-            "perception": 3,
-            "spirit": 2
-          }
-        },
-        {
-          "level": 8,
-          "expFactor": 31,
-          "attrs": {
-            "perception": 3,
-            "spirit": 2
-          }
-        },
-        {
-          "level": 9,
-          "expFactor": 0,
-          "attrs": {
-            "perception": 4,
-            "spirit": 2
-          }
-        }
-      ],
-      "realmLv": 1
+      "realmLv": 1,
+      "category": "arts"
     },
     {
       "id": "wind_step",
       "name": "踏风步",
       "grade": "yellow",
+      "layers": [
+        {
+          "level": 1,
+          "expFactor": 16,
+          "attrs": {
+            "perception": 4
+          }
+        },
+        {
+          "level": 2,
+          "expFactor": 18,
+          "attrs": {
+            "perception": 4
+          }
+        },
+        {
+          "level": 3,
+          "expFactor": 20,
+          "attrs": {
+            "perception": 4
+          }
+        },
+        {
+          "level": 4,
+          "expFactor": 22,
+          "attrs": {
+            "perception": 4
+          }
+        },
+        {
+          "level": 5,
+          "expFactor": 25,
+          "attrs": {
+            "perception": 4
+          }
+        },
+        {
+          "level": 6,
+          "expFactor": 29,
+          "attrs": {
+            "perception": 4
+          }
+        },
+        {
+          "level": 7,
+          "expFactor": 33,
+          "attrs": {
+            "perception": 4
+          }
+        },
+        {
+          "level": 8,
+          "expFactor": 38,
+          "attrs": {
+            "perception": 4
+          }
+        },
+        {
+          "level": 9,
+          "expFactor": 44,
+          "attrs": {
+            "perception": 5
+          }
+        },
+        {
+          "level": 10,
+          "expFactor": 0,
+          "attrs": {
+            "perception": 5
+          }
+        }
+      ],
       "skills": [
         {
           "id": "skill.wind_edge",
@@ -1439,84 +1516,79 @@
           "unlockLevel": 6
         }
       ],
-      "layers": [
-        {
-          "level": 1,
-          "expFactor": 16,
-          "attrs": {
-            "perception": 4
-          }
-        },
-        {
-          "level": 2,
-          "expFactor": 18,
-          "attrs": {
-            "perception": 4
-          }
-        },
-        {
-          "level": 3,
-          "expFactor": 20,
-          "attrs": {
-            "perception": 4
-          }
-        },
-        {
-          "level": 4,
-          "expFactor": 22,
-          "attrs": {
-            "perception": 4
-          }
-        },
-        {
-          "level": 5,
-          "expFactor": 25,
-          "attrs": {
-            "perception": 4
-          }
-        },
-        {
-          "level": 6,
-          "expFactor": 29,
-          "attrs": {
-            "perception": 4
-          }
-        },
-        {
-          "level": 7,
-          "expFactor": 33,
-          "attrs": {
-            "perception": 4
-          }
-        },
-        {
-          "level": 8,
-          "expFactor": 38,
-          "attrs": {
-            "perception": 4
-          }
-        },
-        {
-          "level": 9,
-          "expFactor": 44,
-          "attrs": {
-            "perception": 5
-          }
-        },
-        {
-          "level": 10,
-          "expFactor": 0,
-          "attrs": {
-            "perception": 5
-          }
-        }
-      ],
-      "realmLv": 11
+      "realmLv": 11,
+      "category": "arts"
     },
     {
       "id": "iron_bone_art",
       "name": "铁骨功",
       "grade": "yellow",
+      "layers": [
+        {
+          "level": 1,
+          "expFactor": 16,
+          "attrs": {
+            "constitution": 4,
+            "talent": 1
+          }
+        },
+        {
+          "level": 2,
+          "expFactor": 19,
+          "attrs": {
+            "constitution": 4,
+            "talent": 1
+          }
+        },
+        {
+          "level": 3,
+          "expFactor": 24,
+          "attrs": {
+            "constitution": 4,
+            "talent": 1
+          }
+        },
+        {
+          "level": 4,
+          "expFactor": 32,
+          "attrs": {
+            "constitution": 4,
+            "talent": 2
+          }
+        },
+        {
+          "level": 5,
+          "expFactor": 38,
+          "attrs": {
+            "constitution": 5,
+            "talent": 2
+          }
+        },
+        {
+          "level": 6,
+          "expFactor": 48,
+          "attrs": {
+            "constitution": 5,
+            "talent": 2
+          }
+        },
+        {
+          "level": 7,
+          "expFactor": 58,
+          "attrs": {
+            "constitution": 6,
+            "talent": 2
+          }
+        },
+        {
+          "level": 8,
+          "expFactor": 0,
+          "attrs": {
+            "constitution": 6,
+            "talent": 3
+          }
+        }
+      ],
       "skills": [
         {
           "id": "skill.iron_bone_strike",
@@ -1658,78 +1730,168 @@
           "unlockLevel": 4
         }
       ],
-      "layers": [
-        {
-          "level": 1,
-          "expFactor": 16,
-          "attrs": {
-            "constitution": 4,
-            "talent": 1
-          }
-        },
-        {
-          "level": 2,
-          "expFactor": 19,
-          "attrs": {
-            "constitution": 4,
-            "talent": 1
-          }
-        },
-        {
-          "level": 3,
-          "expFactor": 24,
-          "attrs": {
-            "constitution": 4,
-            "talent": 1
-          }
-        },
-        {
-          "level": 4,
-          "expFactor": 32,
-          "attrs": {
-            "constitution": 4,
-            "talent": 2
-          }
-        },
-        {
-          "level": 5,
-          "expFactor": 38,
-          "attrs": {
-            "constitution": 5,
-            "talent": 2
-          }
-        },
-        {
-          "level": 6,
-          "expFactor": 48,
-          "attrs": {
-            "constitution": 5,
-            "talent": 2
-          }
-        },
-        {
-          "level": 7,
-          "expFactor": 58,
-          "attrs": {
-            "constitution": 6,
-            "talent": 2
-          }
-        },
-        {
-          "level": 8,
-          "expFactor": 0,
-          "attrs": {
-            "constitution": 6,
-            "talent": 3
-          }
-        }
-      ],
-      "realmLv": 12
+      "realmLv": 12,
+      "category": "arts"
     },
     {
       "id": "starfall_spear",
       "name": "陨星枪诀",
       "grade": "mystic",
+      "layers": [
+        {
+          "level": 1,
+          "expFactor": 41,
+          "attrs": {
+            "perception": 4,
+            "constitution": 2,
+            "spirit": 1
+          }
+        },
+        {
+          "level": 2,
+          "expFactor": 44,
+          "attrs": {
+            "perception": 4,
+            "constitution": 2,
+            "spirit": 1
+          }
+        },
+        {
+          "level": 3,
+          "expFactor": 47,
+          "attrs": {
+            "perception": 4,
+            "constitution": 2,
+            "spirit": 1
+          }
+        },
+        {
+          "level": 4,
+          "expFactor": 50,
+          "attrs": {
+            "perception": 4,
+            "constitution": 2,
+            "spirit": 1
+          }
+        },
+        {
+          "level": 5,
+          "expFactor": 54,
+          "attrs": {
+            "perception": 4,
+            "constitution": 2,
+            "spirit": 1
+          }
+        },
+        {
+          "level": 6,
+          "expFactor": 59,
+          "attrs": {
+            "perception": 4,
+            "constitution": 2,
+            "spirit": 1
+          }
+        },
+        {
+          "level": 7,
+          "expFactor": 64,
+          "attrs": {
+            "perception": 5,
+            "constitution": 2,
+            "spirit": 1
+          }
+        },
+        {
+          "level": 8,
+          "expFactor": 70,
+          "attrs": {
+            "perception": 5,
+            "constitution": 2,
+            "spirit": 1
+          }
+        },
+        {
+          "level": 9,
+          "expFactor": 76,
+          "attrs": {
+            "perception": 5,
+            "constitution": 2,
+            "spirit": 1
+          }
+        },
+        {
+          "level": 10,
+          "expFactor": 84,
+          "attrs": {
+            "perception": 5,
+            "constitution": 2,
+            "spirit": 1
+          }
+        },
+        {
+          "level": 11,
+          "expFactor": 93,
+          "attrs": {
+            "perception": 5,
+            "constitution": 2,
+            "spirit": 1
+          }
+        },
+        {
+          "level": 12,
+          "expFactor": 102,
+          "attrs": {
+            "perception": 5,
+            "constitution": 2,
+            "spirit": 1
+          }
+        },
+        {
+          "level": 13,
+          "expFactor": 113,
+          "attrs": {
+            "perception": 5,
+            "constitution": 3,
+            "spirit": 1
+          }
+        },
+        {
+          "level": 14,
+          "expFactor": 126,
+          "attrs": {
+            "perception": 5,
+            "constitution": 3,
+            "spirit": 1
+          }
+        },
+        {
+          "level": 15,
+          "expFactor": 139,
+          "attrs": {
+            "perception": 5,
+            "constitution": 3,
+            "spirit": 1
+          }
+        },
+        {
+          "level": 16,
+          "expFactor": 155,
+          "attrs": {
+            "perception": 5,
+            "constitution": 3,
+            "spirit": 1
+          }
+        },
+        {
+          "level": 17,
+          "expFactor": 0,
+          "attrs": {
+            "perception": 6,
+            "constitution": 3,
+            "spirit": 1
+          }
+        }
+      ],
       "skills": [
         {
           "id": "skill.starfall_thrust",
@@ -1977,167 +2139,151 @@
           "unlockLevel": 12
         }
       ],
+      "realmLv": 18,
+      "category": "arts"
+    },
+    {
+      "id": "spirit_anchor",
+      "name": "镇灵篇",
+      "grade": "mystic",
       "layers": [
         {
           "level": 1,
           "expFactor": 41,
           "attrs": {
-            "perception": 4,
-            "constitution": 2,
-            "spirit": 1
+            "spirit": 4,
+            "talent": 1
           }
         },
         {
           "level": 2,
           "expFactor": 44,
           "attrs": {
-            "perception": 4,
-            "constitution": 2,
-            "spirit": 1
+            "spirit": 4,
+            "talent": 1
           }
         },
         {
           "level": 3,
           "expFactor": 47,
           "attrs": {
-            "perception": 4,
-            "constitution": 2,
-            "spirit": 1
+            "spirit": 4,
+            "talent": 1
           }
         },
         {
           "level": 4,
           "expFactor": 50,
           "attrs": {
-            "perception": 4,
-            "constitution": 2,
-            "spirit": 1
+            "spirit": 4,
+            "talent": 1
           }
         },
         {
           "level": 5,
           "expFactor": 54,
           "attrs": {
-            "perception": 4,
-            "constitution": 2,
-            "spirit": 1
+            "spirit": 4,
+            "talent": 1
           }
         },
         {
           "level": 6,
           "expFactor": 59,
           "attrs": {
-            "perception": 4,
-            "constitution": 2,
-            "spirit": 1
+            "spirit": 4,
+            "talent": 1
           }
         },
         {
           "level": 7,
           "expFactor": 64,
           "attrs": {
-            "perception": 5,
-            "constitution": 2,
-            "spirit": 1
+            "spirit": 5,
+            "talent": 1
           }
         },
         {
           "level": 8,
-          "expFactor": 70,
+          "expFactor": 69,
           "attrs": {
-            "perception": 5,
-            "constitution": 2,
-            "spirit": 1
+            "spirit": 5,
+            "talent": 1
           }
         },
         {
           "level": 9,
-          "expFactor": 76,
+          "expFactor": 75,
           "attrs": {
-            "perception": 5,
-            "constitution": 2,
-            "spirit": 1
+            "spirit": 5,
+            "talent": 1
           }
         },
         {
           "level": 10,
-          "expFactor": 84,
+          "expFactor": 85,
           "attrs": {
-            "perception": 5,
-            "constitution": 2,
-            "spirit": 1
+            "spirit": 5,
+            "talent": 1
           }
         },
         {
           "level": 11,
           "expFactor": 93,
           "attrs": {
-            "perception": 5,
-            "constitution": 2,
-            "spirit": 1
+            "spirit": 5,
+            "talent": 1
           }
         },
         {
           "level": 12,
-          "expFactor": 102,
+          "expFactor": 101,
           "attrs": {
-            "perception": 5,
-            "constitution": 2,
-            "spirit": 1
+            "spirit": 5,
+            "talent": 1
           }
         },
         {
           "level": 13,
-          "expFactor": 113,
+          "expFactor": 111,
           "attrs": {
-            "perception": 5,
-            "constitution": 3,
-            "spirit": 1
+            "spirit": 5,
+            "talent": 1
           }
         },
         {
           "level": 14,
-          "expFactor": 126,
+          "expFactor": 121,
           "attrs": {
-            "perception": 5,
-            "constitution": 3,
-            "spirit": 1
+            "spirit": 5,
+            "talent": 1
           }
         },
         {
           "level": 15,
-          "expFactor": 139,
+          "expFactor": 133,
           "attrs": {
-            "perception": 5,
-            "constitution": 3,
-            "spirit": 1
+            "spirit": 5,
+            "talent": 1
           }
         },
         {
           "level": 16,
-          "expFactor": 155,
+          "expFactor": 146,
           "attrs": {
-            "perception": 5,
-            "constitution": 3,
-            "spirit": 1
+            "spirit": 5,
+            "talent": 1
           }
         },
         {
           "level": 17,
           "expFactor": 0,
           "attrs": {
-            "perception": 6,
-            "constitution": 3,
-            "spirit": 1
+            "spirit": 6,
+            "talent": 2
           }
         }
       ],
-      "realmLv": 18
-    },
-    {
-      "id": "spirit_anchor",
-      "name": "镇灵篇",
-      "grade": "mystic",
       "skills": [
         {
           "id": "skill.anchor_pulse",
@@ -2337,150 +2483,127 @@
           "unlockLevel": 10
         }
       ],
+      "realmLv": 17,
+      "category": "arts"
+    },
+    {
+      "id": "stillheart",
+      "name": "止念诀",
+      "grade": "mystic",
       "layers": [
         {
           "level": 1,
-          "expFactor": 41,
+          "expFactor": 39,
           "attrs": {
-            "spirit": 4,
-            "talent": 1
+            "spirit": 4
           }
         },
         {
           "level": 2,
-          "expFactor": 44,
+          "expFactor": 42,
           "attrs": {
-            "spirit": 4,
-            "talent": 1
+            "spirit": 4
           }
         },
         {
           "level": 3,
-          "expFactor": 47,
+          "expFactor": 45,
           "attrs": {
-            "spirit": 4,
-            "talent": 1
+            "spirit": 4
           }
         },
         {
           "level": 4,
-          "expFactor": 50,
+          "expFactor": 48,
           "attrs": {
-            "spirit": 4,
-            "talent": 1
+            "spirit": 4
           }
         },
         {
           "level": 5,
-          "expFactor": 54,
+          "expFactor": 52,
           "attrs": {
-            "spirit": 4,
-            "talent": 1
+            "spirit": 4
           }
         },
         {
           "level": 6,
-          "expFactor": 59,
+          "expFactor": 56,
           "attrs": {
-            "spirit": 4,
-            "talent": 1
+            "spirit": 4
           }
         },
         {
           "level": 7,
-          "expFactor": 64,
+          "expFactor": 61,
           "attrs": {
-            "spirit": 5,
-            "talent": 1
+            "spirit": 4
           }
         },
         {
           "level": 8,
-          "expFactor": 69,
+          "expFactor": 66,
           "attrs": {
-            "spirit": 5,
-            "talent": 1
+            "spirit": 4
           }
         },
         {
           "level": 9,
-          "expFactor": 75,
+          "expFactor": 74,
           "attrs": {
-            "spirit": 5,
-            "talent": 1
+            "spirit": 5
           }
         },
         {
           "level": 10,
-          "expFactor": 85,
+          "expFactor": 82,
           "attrs": {
-            "spirit": 5,
-            "talent": 1
+            "spirit": 5
           }
         },
         {
           "level": 11,
-          "expFactor": 93,
+          "expFactor": 91,
           "attrs": {
-            "spirit": 5,
-            "talent": 1
+            "spirit": 5
           }
         },
         {
           "level": 12,
           "expFactor": 101,
           "attrs": {
-            "spirit": 5,
-            "talent": 1
+            "spirit": 5
           }
         },
         {
           "level": 13,
-          "expFactor": 111,
+          "expFactor": 113,
           "attrs": {
-            "spirit": 5,
-            "talent": 1
+            "spirit": 5
           }
         },
         {
           "level": 14,
-          "expFactor": 121,
+          "expFactor": 126,
           "attrs": {
-            "spirit": 5,
-            "talent": 1
+            "spirit": 5
           }
         },
         {
           "level": 15,
-          "expFactor": 133,
+          "expFactor": 140,
           "attrs": {
-            "spirit": 5,
-            "talent": 1
+            "spirit": 6
           }
         },
         {
           "level": 16,
-          "expFactor": 146,
-          "attrs": {
-            "spirit": 5,
-            "talent": 1
-          }
-        },
-        {
-          "level": 17,
           "expFactor": 0,
           "attrs": {
-            "spirit": 6,
-            "talent": 2
+            "spirit": 6
           }
         }
       ],
-      "realmLv": 17
-    },
-    {
-      "id": "stillheart",
-      "name": "止念诀",
-      "grade": "mystic",
       "skills": [
         {
           "id": "skill.stillheart_seal",
@@ -2603,127 +2726,13 @@
           "unlockLevel": 8
         }
       ],
-      "layers": [
-        {
-          "level": 1,
-          "expFactor": 39,
-          "attrs": {
-            "spirit": 4
-          }
-        },
-        {
-          "level": 2,
-          "expFactor": 42,
-          "attrs": {
-            "spirit": 4
-          }
-        },
-        {
-          "level": 3,
-          "expFactor": 45,
-          "attrs": {
-            "spirit": 4
-          }
-        },
-        {
-          "level": 4,
-          "expFactor": 48,
-          "attrs": {
-            "spirit": 4
-          }
-        },
-        {
-          "level": 5,
-          "expFactor": 52,
-          "attrs": {
-            "spirit": 4
-          }
-        },
-        {
-          "level": 6,
-          "expFactor": 56,
-          "attrs": {
-            "spirit": 4
-          }
-        },
-        {
-          "level": 7,
-          "expFactor": 61,
-          "attrs": {
-            "spirit": 4
-          }
-        },
-        {
-          "level": 8,
-          "expFactor": 66,
-          "attrs": {
-            "spirit": 4
-          }
-        },
-        {
-          "level": 9,
-          "expFactor": 74,
-          "attrs": {
-            "spirit": 5
-          }
-        },
-        {
-          "level": 10,
-          "expFactor": 82,
-          "attrs": {
-            "spirit": 5
-          }
-        },
-        {
-          "level": 11,
-          "expFactor": 91,
-          "attrs": {
-            "spirit": 5
-          }
-        },
-        {
-          "level": 12,
-          "expFactor": 101,
-          "attrs": {
-            "spirit": 5
-          }
-        },
-        {
-          "level": 13,
-          "expFactor": 113,
-          "attrs": {
-            "spirit": 5
-          }
-        },
-        {
-          "level": 14,
-          "expFactor": 126,
-          "attrs": {
-            "spirit": 5
-          }
-        },
-        {
-          "level": 15,
-          "expFactor": 140,
-          "attrs": {
-            "spirit": 6
-          }
-        },
-        {
-          "level": 16,
-          "expFactor": 0,
-          "attrs": {
-            "spirit": 6
-          }
-        }
-      ],
-      "realmLv": 15
+      "realmLv": 15,
+      "category": "arts"
     },
     {
       "id": "bear_cauldron_art",
       "name": "担石功",
       "grade": "mortal",
-      "skills": [],
       "layers": [
         {
           "level": 1,
@@ -2782,13 +2791,14 @@
           }
         }
       ],
-      "realmLv": 5
+      "skills": [],
+      "realmLv": 5,
+      "category": "internal"
     },
     {
       "id": "dragon_elephant_bone",
       "name": "镇骨功",
       "grade": "yellow",
-      "skills": [],
       "layers": [
         {
           "level": 1,
@@ -2854,13 +2864,14 @@
           }
         }
       ],
-      "realmLv": 7
+      "skills": [],
+      "realmLv": 7,
+      "category": "internal"
     },
     {
       "id": "golden_lock_body",
       "name": "固元功",
       "grade": "yellow",
-      "skills": [],
       "layers": [
         {
           "level": 1,
@@ -2933,13 +2944,14 @@
           }
         }
       ],
-      "realmLv": 9
+      "skills": [],
+      "realmLv": 9,
+      "category": "internal"
     },
     {
       "id": "mountain_insight_chart",
-      "name": "照身图",
+      "name": "玄照图",
       "grade": "yellow",
-      "skills": [],
       "layers": [
         {
           "level": 1,
@@ -2998,13 +3010,14 @@
           }
         }
       ],
-      "realmLv": 8
+      "skills": [],
+      "realmLv": 8,
+      "category": "secret"
     },
     {
       "id": "hundred_temper_body",
       "name": "壮身功",
       "grade": "yellow",
-      "skills": [],
       "layers": [
         {
           "level": 1,
@@ -3077,13 +3090,14 @@
           }
         }
       ],
-      "realmLv": 10
+      "skills": [],
+      "realmLv": 10,
+      "category": "internal"
     },
     {
       "id": "body_tempering_formula",
       "name": "锻体决",
       "grade": "mystic",
-      "skills": [],
       "layers": [
         {
           "level": 1,
@@ -3246,75 +3260,14 @@
           }
         }
       ],
-      "realmLv": 18
+      "skills": [],
+      "realmLv": 18,
+      "category": "internal"
     },
     {
       "id": "cloudchase_steps",
       "name": "分光步",
       "grade": "yellow",
-      "skills": [
-        {
-          "id": "skill.cloudchase_breath",
-          "name": "轻身换气",
-          "desc": "先稳住一口气机再把身形放轻，之后很长一段时间里步点都会更顺。",
-          "cooldown": 200,
-          "costMultiplier": 1,
-          "range": 0,
-          "requiresTarget": false,
-          "effects": [
-            {
-              "type": "buff",
-              "target": "self",
-              "buffId": "buff.cloudchase_breath",
-              "name": "追云",
-              "desc": "换过一口气后身形转轻，较长时间内持续提高移速、闪避与出手节奏。",
-              "shortMark": "云",
-              "category": "buff",
-              "visibility": "public",
-              "color": "#9dc6c6",
-              "duration": 120,
-              "maxStacks": 4,
-              "valueStats": {
-                "moveSpeed": 16,
-                "dodge": 8,
-                "cooldownSpeed": 4
-              }
-            }
-          ],
-          "unlockLevel": 4
-        },
-        {
-          "id": "skill.borrowing_wind_turn",
-          "name": "收步回身",
-          "desc": "借回身把风势整段裹住，之后较长一段时间里动作都会更轻更快。",
-          "cooldown": 320,
-          "costMultiplier": 2,
-          "range": 0,
-          "requiresTarget": false,
-          "effects": [
-            {
-              "type": "buff",
-              "target": "self",
-              "buffId": "buff.borrowing_wind_turn",
-              "name": "借风",
-              "desc": "借风回身后，较长时间内进一步强化移速、闪避、暴击与冷却速度。",
-              "shortMark": "风",
-              "category": "buff",
-              "visibility": "public",
-              "color": "#88b7a9",
-              "duration": 100,
-              "maxStacks": 3,
-              "valueStats": {
-                "moveSpeed": 24,
-                "dodge": 12,
-                "crit": 6,
-                "cooldownSpeed": 6
-              }
-            }
-          ],
-          "unlockLevel": 8
-        }
-      ],
       "layers": [
         {
           "level": 1,
@@ -3387,18 +3340,42 @@
           }
         }
       ],
-      "realmLv": 12
-    },
-    {
-      "id": "lightshadow_art",
-      "name": "折影提气诀",
-      "grade": "mystic",
       "skills": [
         {
-          "id": "skill.lightshadow_glide",
-          "name": "提气轻行",
-          "desc": "把灵力沉到脚下后整个人会轻得像贴地滑开，较长时间内都更难被抓准步点。",
-          "cooldown": 240,
+          "id": "skill.cloudchase_breath",
+          "name": "轻身换气",
+          "desc": "先稳住一口气机再把身形放轻，之后很长一段时间里步点都会更顺。",
+          "cooldown": 200,
+          "costMultiplier": 1,
+          "range": 0,
+          "requiresTarget": false,
+          "effects": [
+            {
+              "type": "buff",
+              "target": "self",
+              "buffId": "buff.cloudchase_breath",
+              "name": "追云",
+              "desc": "换过一口气后身形转轻，较长时间内持续提高移速、闪避与出手节奏。",
+              "shortMark": "云",
+              "category": "buff",
+              "visibility": "public",
+              "color": "#9dc6c6",
+              "duration": 120,
+              "maxStacks": 4,
+              "valueStats": {
+                "moveSpeed": 16,
+                "dodge": 8,
+                "cooldownSpeed": 4
+              }
+            }
+          ],
+          "unlockLevel": 4
+        },
+        {
+          "id": "skill.borrowing_wind_turn",
+          "name": "收步回身",
+          "desc": "借回身把风势整段裹住，之后较长一段时间里动作都会更轻更快。",
+          "cooldown": 320,
           "costMultiplier": 2,
           "range": 0,
           "requiresTarget": false,
@@ -3406,57 +3383,33 @@
             {
               "type": "buff",
               "target": "self",
-              "buffId": "buff.lightshadow_glide",
-              "name": "浮光",
-              "desc": "提气成势后，较长时间内显著提高移速、闪避、暴击与冷却速度。",
-              "shortMark": "光",
+              "buffId": "buff.borrowing_wind_turn",
+              "name": "借风",
+              "desc": "借风回身后，较长时间内进一步强化移速、闪避、暴击与冷却速度。",
+              "shortMark": "风",
               "category": "buff",
               "visibility": "public",
-              "color": "#c7d9f5",
+              "color": "#88b7a9",
               "duration": 100,
-              "maxStacks": 4,
+              "maxStacks": 3,
               "valueStats": {
                 "moveSpeed": 24,
                 "dodge": 12,
-                "crit": 8,
+                "crit": 6,
                 "cooldownSpeed": 6
               }
             }
           ],
-          "unlockLevel": 5
-        },
-        {
-          "id": "skill.shadowcross_flash",
-          "name": "急步闪身",
-          "desc": "把浮光整段拧成残影，之后一段时间里转折、闪避与追击都会明显提起来。",
-          "cooldown": 380,
-          "costMultiplier": 3,
-          "range": 0,
-          "requiresTarget": false,
-          "effects": [
-            {
-              "type": "buff",
-              "target": "self",
-              "buffId": "buff.shadowcross_flash",
-              "name": "掠影",
-              "desc": "化作残影后，一段时间内进一步拔高移速、闪避、暴击与冷却速度。",
-              "shortMark": "影",
-              "category": "buff",
-              "visibility": "public",
-              "color": "#b3c0ff",
-              "duration": 80,
-              "maxStacks": 3,
-              "valueStats": {
-                "moveSpeed": 32,
-                "dodge": 16,
-                "crit": 12,
-                "cooldownSpeed": 10
-              }
-            }
-          ],
-          "unlockLevel": 9
+          "unlockLevel": 8
         }
       ],
+      "realmLv": 12,
+      "category": "arts"
+    },
+    {
+      "id": "lightshadow_art",
+      "name": "折影提气诀",
+      "grade": "mystic",
       "layers": [
         {
           "level": 1,
@@ -3543,7 +3496,402 @@
           }
         }
       ],
-      "realmLv": 16
+      "skills": [
+        {
+          "id": "skill.lightshadow_glide",
+          "name": "提气轻行",
+          "desc": "把灵力沉到脚下后整个人会轻得像贴地滑开，较长时间内都更难被抓准步点。",
+          "cooldown": 240,
+          "costMultiplier": 2,
+          "range": 0,
+          "requiresTarget": false,
+          "effects": [
+            {
+              "type": "buff",
+              "target": "self",
+              "buffId": "buff.lightshadow_glide",
+              "name": "浮光",
+              "desc": "提气成势后，较长时间内显著提高移速、闪避、暴击与冷却速度。",
+              "shortMark": "光",
+              "category": "buff",
+              "visibility": "public",
+              "color": "#c7d9f5",
+              "duration": 100,
+              "maxStacks": 4,
+              "valueStats": {
+                "moveSpeed": 24,
+                "dodge": 12,
+                "crit": 8,
+                "cooldownSpeed": 6
+              }
+            }
+          ],
+          "unlockLevel": 5
+        },
+        {
+          "id": "skill.shadowcross_flash",
+          "name": "急步闪身",
+          "desc": "把浮光整段拧成残影，之后一段时间里转折、闪避与追击都会明显提起来。",
+          "cooldown": 380,
+          "costMultiplier": 3,
+          "range": 0,
+          "requiresTarget": false,
+          "effects": [
+            {
+              "type": "buff",
+              "target": "self",
+              "buffId": "buff.shadowcross_flash",
+              "name": "掠影",
+              "desc": "化作残影后，一段时间内进一步拔高移速、闪避、暴击与冷却速度。",
+              "shortMark": "影",
+              "category": "buff",
+              "visibility": "public",
+              "color": "#b3c0ff",
+              "duration": 80,
+              "maxStacks": 3,
+              "valueStats": {
+                "moveSpeed": 32,
+                "dodge": 16,
+                "crit": 12,
+                "cooldownSpeed": 10
+              }
+            }
+          ],
+          "unlockLevel": 9
+        }
+      ],
+      "realmLv": 16,
+      "category": "arts"
+    },
+    {
+      "id": "nourishing_qi_art",
+      "name": "养气诀",
+      "grade": "yellow",
+      "category": "internal",
+      "layers": [
+        {
+          "level": 1,
+          "expFactor": 108,
+          "attrs": {
+            "spirit": 4
+          }
+        },
+        {
+          "level": 2,
+          "expFactor": 116,
+          "attrs": {
+            "spirit": 4
+          }
+        },
+        {
+          "level": 3,
+          "expFactor": 125,
+          "attrs": {
+            "spirit": 4
+          }
+        },
+        {
+          "level": 4,
+          "expFactor": 135,
+          "attrs": {
+            "spirit": 4
+          }
+        },
+        {
+          "level": 5,
+          "expFactor": 146,
+          "attrs": {
+            "spirit": 4
+          }
+        },
+        {
+          "level": 6,
+          "expFactor": 158,
+          "attrs": {
+            "spirit": 4
+          }
+        },
+        {
+          "level": 7,
+          "expFactor": 171,
+          "attrs": {
+            "spirit": 4
+          }
+        },
+        {
+          "level": 8,
+          "expFactor": 185,
+          "attrs": {
+            "spirit": 4
+          }
+        },
+        {
+          "level": 9,
+          "expFactor": 200,
+          "attrs": {
+            "spirit": 4
+          }
+        },
+        {
+          "level": 10,
+          "expFactor": 0,
+          "attrs": {
+            "spirit": 4
+          }
+        }
+      ],
+      "skills": [],
+      "realmLv": 11
+    },
+    {
+      "id": "bright_eye_sutra",
+      "name": "明目经",
+      "grade": "yellow",
+      "category": "internal",
+      "layers": [
+        {
+          "level": 1,
+          "expFactor": 112,
+          "attrs": {
+            "perception": 4
+          }
+        },
+        {
+          "level": 2,
+          "expFactor": 120,
+          "attrs": {
+            "perception": 4
+          }
+        },
+        {
+          "level": 3,
+          "expFactor": 129,
+          "attrs": {
+            "perception": 4
+          }
+        },
+        {
+          "level": 4,
+          "expFactor": 139,
+          "attrs": {
+            "perception": 4
+          }
+        },
+        {
+          "level": 5,
+          "expFactor": 150,
+          "attrs": {
+            "perception": 4
+          }
+        },
+        {
+          "level": 6,
+          "expFactor": 162,
+          "attrs": {
+            "perception": 4
+          }
+        },
+        {
+          "level": 7,
+          "expFactor": 175,
+          "attrs": {
+            "perception": 4
+          }
+        },
+        {
+          "level": 8,
+          "expFactor": 189,
+          "attrs": {
+            "perception": 4
+          }
+        },
+        {
+          "level": 9,
+          "expFactor": 204,
+          "attrs": {
+            "perception": 4
+          }
+        },
+        {
+          "level": 10,
+          "expFactor": 0,
+          "attrs": {
+            "perception": 4
+          }
+        }
+      ],
+      "skills": [],
+      "realmLv": 12
+    },
+    {
+      "id": "hidden_fortune_record",
+      "name": "藏运录",
+      "grade": "yellow",
+      "category": "secret",
+      "layers": [
+        {
+          "level": 1,
+          "expFactor": 118,
+          "attrs": {
+            "luck": 2
+          }
+        },
+        {
+          "level": 2,
+          "expFactor": 127,
+          "attrs": {
+            "luck": 2
+          }
+        },
+        {
+          "level": 3,
+          "expFactor": 137,
+          "attrs": {
+            "luck": 2
+          }
+        },
+        {
+          "level": 4,
+          "expFactor": 148,
+          "attrs": {
+            "luck": 2
+          }
+        },
+        {
+          "level": 5,
+          "expFactor": 160,
+          "attrs": {
+            "luck": 2
+          }
+        },
+        {
+          "level": 6,
+          "expFactor": 173,
+          "attrs": {
+            "luck": 2
+          }
+        },
+        {
+          "level": 7,
+          "expFactor": 187,
+          "attrs": {
+            "luck": 2
+          }
+        },
+        {
+          "level": 8,
+          "expFactor": 202,
+          "attrs": {
+            "luck": 2
+          }
+        },
+        {
+          "level": 9,
+          "expFactor": 218,
+          "attrs": {
+            "luck": 2
+          }
+        },
+        {
+          "level": 10,
+          "expFactor": 0,
+          "attrs": {
+            "luck": 2
+          }
+        }
+      ],
+      "skills": [],
+      "realmLv": 13
+    },
+    {
+      "id": "standing_stake_art",
+      "name": "站桩功",
+      "grade": "mortal",
+      "category": "internal",
+      "layers": [
+        {
+          "level": 1,
+          "expFactor": 18,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 2,
+          "expFactor": 22,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 3,
+          "expFactor": 27,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 4,
+          "expFactor": 32,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 5,
+          "expFactor": 38,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 6,
+          "expFactor": 45,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 7,
+          "expFactor": 53,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 8,
+          "expFactor": 62,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 9,
+          "expFactor": 72,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 10,
+          "expFactor": 0,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        }
+      ],
+      "skills": [],
+      "realmLv": 1
     }
   ],
   "items": [
@@ -4767,9 +5115,9 @@
     },
     {
       "itemId": "book.mountain_insight_chart",
-      "name": "《照身图》",
+      "name": "《玄照图》",
       "type": "skill_book",
-      "desc": "边观呼吸边照着图谱调身的法子，偏重悟性。"
+      "desc": "借图谱内观气血、筋膜与心念流转的秘术，偏重悟性。"
     },
     {
       "itemId": "book.hundred_temper_body",
@@ -4794,6 +5142,30 @@
       "name": "《折影提气诀》",
       "type": "skill_book",
       "desc": "把一口气提到脚下的身法，讲究起落和折返都更快。"
+    },
+    {
+      "itemId": "book.standing_stake_art",
+      "name": "《站桩功》",
+      "type": "skill_book",
+      "desc": "最朴素的入门锻体法，讲究沉肩立胯，把筋骨先站稳。"
+    },
+    {
+      "itemId": "book.nourishing_qi_art",
+      "name": "《养气诀》",
+      "type": "skill_book",
+      "desc": "只管稳气养神的内功，不讲花巧，胜在灵力根底厚。"
+    },
+    {
+      "itemId": "book.bright_eye_sutra",
+      "name": "《明目经》",
+      "type": "skill_book",
+      "desc": "专修目力与感知的内功，久练后耳目心识会一起清亮。"
+    },
+    {
+      "itemId": "book.hidden_fortune_record",
+      "name": "《藏运录》",
+      "type": "skill_book",
+      "desc": "专记敛锋藏运的小术，修久了总会多撞上几分偏门福气。"
     }
   ],
   "realmLevels": [

@@ -14,12 +14,18 @@ export const PAINT_TILE_TYPES: TileType[] = [
   TileType.BrokenWindow,
   TileType.Grass,
   TileType.Hill,
+  TileType.Cliff,
   TileType.Mud,
   TileType.Swamp,
   TileType.Water,
+  TileType.Cloud,
+  TileType.CloudFloor,
+  TileType.Void,
   TileType.Tree,
+  TileType.Bamboo,
   TileType.Stone,
   TileType.SpiritOre,
+  TileType.BlackIronOre,
 ];
 
 /** 左侧工具栏按钮与提示。 */

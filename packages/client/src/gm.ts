@@ -495,7 +495,8 @@ function getTechniqueCardTitle(technique: TechniqueState | undefined, index: num
 
 function getTechniqueCardMeta(technique: TechniqueState | undefined): string {
   if (!technique) return '';
-  return `${technique.techId || '未填写功法 ID'} · 等级 ${technique.level} · ${TECHNIQUE_REALM_LABELS[technique.realm] ?? technique.realm}`;
+  const realmLevelLabel = editorCatalog?.realmLevels.find((entry) => entry.realmLv === technique.realmLv)?.displayName ?? `Lv.${technique.realmLv}`;
+  return `${technique.techId || '未填写功法 ID'} · ${realmLevelLabel} · 等级 ${technique.level} · ${TECHNIQUE_REALM_LABELS[technique.realm] ?? technique.realm}`;
 }
 
 function getQuestCardTitle(quest: QuestState | undefined, index: number): string {
@@ -508,7 +509,8 @@ function getQuestCardMeta(quest: QuestState | undefined): string {
 }
 
 function getTechniqueOptionLabel(option: GmEditorTechniqueOption): string {
-  return `${option.name}${option.grade ? ` · ${TECHNIQUE_GRADE_LABELS[option.grade] ?? option.grade}` : ''}`;
+  const realmLevelLabel = editorCatalog?.realmLevels.find((entry) => entry.realmLv === option.realmLv)?.displayName;
+  return `${option.name}${option.grade ? ` · ${TECHNIQUE_GRADE_LABELS[option.grade] ?? option.grade}` : ''}${realmLevelLabel ? ` · ${realmLevelLabel}` : ''}`;
 }
 
 function getItemOptionLabel(option: GmEditorItemOption): string {
@@ -585,9 +587,11 @@ function createTechniqueFromCatalog(techId: string): TechniqueState {
     level: 1,
     exp: 0,
     expToNext: initialExpToNext,
+    realmLv: option.realmLv ?? 1,
     realm: TechniqueRealm.Entry,
     skills: option.skills ? clone(option.skills) : [],
     grade: option.grade ?? 'mortal',
+    category: option.category,
     layers: option.layers ? clone(option.layers) : [],
     attrCurves: {},
   };
@@ -616,7 +620,7 @@ function createItemFromCatalog(itemId: string, count = 1): ItemStack {
 }
 
 function getTechniqueSummary(technique: TechniqueState): string {
-  return `${technique.name || technique.techId} · ${technique.grade ?? 'mortal'} · 等级 ${technique.level}`;
+  return `${technique.name || technique.techId} · ${technique.grade ?? 'mortal'} · 境界 Lv.${technique.realmLv} · 等级 ${technique.level}`;
 }
 
 function getInventoryRowMeta(item: ItemStack): string {
@@ -631,6 +635,7 @@ function getTechniqueEditorControls(index: number, technique: TechniqueState): s
   return `
     <div class="editor-grid compact">
       ${selectField('功法', `techniques.${index}.techId`, technique.techId, getTechniqueCatalogOptions())}
+      ${numberField('境界等级', `techniques.${index}.realmLv`, technique.realmLv)}
       ${selectField('功法境界', `techniques.${index}.realm`, technique.realm, GM_TECHNIQUE_REALM_OPTIONS)}
       ${numberField('等级', `techniques.${index}.level`, technique.level)}
       ${numberField('经验', `techniques.${index}.exp`, technique.exp)}
@@ -1408,9 +1413,11 @@ function createDefaultTechnique(): TechniqueState {
     level: 1,
     exp: 0,
     expToNext: 0,
+    realmLv: 1,
     realm: TechniqueRealm.Entry,
     skills: [],
     grade: 'mortal',
+    category: 'internal',
     layers: [],
     attrCurves: {},
   };
@@ -1463,7 +1470,7 @@ function createDefaultPlayerSnapshot(source?: PlayerState): PlayerState {
   return {
     id: '',
     name: '',
-    mapId: 'spawn',
+    mapId: 'yunlai_town',
     x: 0,
     y: 0,
     facing: Direction.South,
