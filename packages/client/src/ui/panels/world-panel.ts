@@ -55,6 +55,16 @@ interface WorldPanelSnapshot {
   quickActions: QuickActionView[];
 }
 
+interface NearbyMonsterRefs {
+  nameNode: HTMLElement;
+  metaNode: HTMLElement;
+  statusNode: HTMLElement;
+}
+
+interface SuggestionActionRefs {
+  titleNode: HTMLElement;
+  descNode: HTMLElement;
+}
 
 function escapeHtml(value: string): string {
   return value
@@ -94,12 +104,28 @@ function buildMonsterStatus(distance: number): string {
   return distance <= 2 ? '近身' : distance <= 5 ? '逼近' : '远处';
 }
 
+function isSameStringSequence(previous: string[] | null, next: string[]): boolean {
+  if (!previous || previous.length !== next.length) {
+    return false;
+  }
+  for (let index = 0; index < previous.length; index += 1) {
+    if (previous[index] !== next[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export class WorldPanel {
   private mapPane = document.getElementById('pane-map-intel')!;
   private nearbyPane = document.getElementById('pane-nearby')!;
   private suggestionPane = document.getElementById('pane-suggestions')!;
-  private lastNearbyStructureKey: string | null = null;
-  private lastSuggestionStructureKey: string | null = null;
+  private lastNearbyMonsterIds: string[] | null = null;
+  private lastNearbyNpcIds: string[] | null = null;
+  private lastSuggestionActionIds: string[] | null = null;
+  private nearbyMonsterRefs = new Map<string, NearbyMonsterRefs>();
+  private nearbyNpcNameRefs = new Map<string, HTMLElement>();
+  private suggestionActionRefs = new Map<string, SuggestionActionRefs>();
 
   /** 根据玩家、地图、实体、行动、任务数据刷新三个子面板 */
   update(input: {
@@ -119,8 +145,12 @@ export class WorldPanel {
     this.mapPane.innerHTML = '<div class="empty-hint">尚未进入世界</div>';
     this.nearbyPane.innerHTML = '<div class="empty-hint">尚未进入世界</div>';
     this.suggestionPane.innerHTML = '<div class="empty-hint">尚未进入世界</div>';
-    this.lastNearbyStructureKey = null;
-    this.lastSuggestionStructureKey = null;
+    this.lastNearbyMonsterIds = null;
+    this.lastNearbyNpcIds = null;
+    this.lastSuggestionActionIds = null;
+    this.nearbyMonsterRefs.clear();
+    this.nearbyNpcNameRefs.clear();
+    this.suggestionActionRefs.clear();
   }
 
   private buildSnapshot(input: {
@@ -202,24 +232,22 @@ export class WorldPanel {
   }
 
   private syncNearbyPane(snapshot: WorldPanelSnapshot): void {
-    const structureKey = JSON.stringify({
-      monsters: snapshot.nearbyMonsters.map((monster) => monster.id),
-      npcs: snapshot.nearbyNpcs.map((npc) => npc.id),
-    });
-    if (structureKey !== this.lastNearbyStructureKey || !this.patchNearbyPane(snapshot)) {
+    const monsterIds = snapshot.nearbyMonsters.map((monster) => monster.id);
+    const npcIds = snapshot.nearbyNpcs.map((npc) => npc.id);
+    if (
+      !isSameStringSequence(this.lastNearbyMonsterIds, monsterIds)
+      || !isSameStringSequence(this.lastNearbyNpcIds, npcIds)
+      || !this.patchNearbyPane(snapshot)
+    ) {
       this.renderNearbyPane(snapshot);
-      this.lastNearbyStructureKey = structureKey;
       this.patchNearbyPane(snapshot);
     }
   }
 
   private syncSuggestionPane(snapshot: WorldPanelSnapshot): void {
-    const structureKey = JSON.stringify({
-      quickActions: snapshot.quickActions.map((action) => action.id),
-    });
-    if (structureKey !== this.lastSuggestionStructureKey || !this.patchSuggestionPane(snapshot)) {
+    const actionIds = snapshot.quickActions.map((action) => action.id);
+    if (!isSameStringSequence(this.lastSuggestionActionIds, actionIds) || !this.patchSuggestionPane(snapshot)) {
       this.renderSuggestionPane(snapshot);
-      this.lastSuggestionStructureKey = structureKey;
       this.patchSuggestionPane(snapshot);
     }
   }
@@ -289,6 +317,7 @@ export class WorldPanel {
     preserveSelection(this.nearbyPane, () => {
       this.nearbyPane.innerHTML = html;
     });
+    this.captureNearbyRefs(snapshot);
   }
 
   private renderSuggestionPane(snapshot: WorldPanelSnapshot): void {
@@ -314,6 +343,7 @@ export class WorldPanel {
     preserveSelection(this.suggestionPane, () => {
       this.suggestionPane.innerHTML = html;
     });
+    this.captureSuggestionRefs(snapshot);
   }
 
   private patchMapPane(snapshot: WorldPanelSnapshot): boolean {
@@ -358,29 +388,33 @@ export class WorldPanel {
 
   private patchNearbyPane(snapshot: WorldPanelSnapshot): boolean {
     if (snapshot.nearbyMonsters.length === 0 && snapshot.nearbyNpcs.length === 0) {
+      this.lastNearbyMonsterIds = [];
+      this.lastNearbyNpcIds = [];
+      this.nearbyMonsterRefs.clear();
+      this.nearbyNpcNameRefs.clear();
       return this.nearbyPane.querySelector('.empty-hint') !== null;
     }
 
     for (const monster of snapshot.nearbyMonsters) {
-      const nameNode = this.nearbyPane.querySelector<HTMLElement>(`[data-world-monster-name="${CSS.escape(monster.id)}"]`);
-      const metaNode = this.nearbyPane.querySelector<HTMLElement>(`[data-world-monster-meta="${CSS.escape(monster.id)}"]`);
-      const statusNode = this.nearbyPane.querySelector<HTMLElement>(`[data-world-monster-status="${CSS.escape(monster.id)}"]`);
-      if (!nameNode || !metaNode || !statusNode) {
+      const refs = this.nearbyMonsterRefs.get(monster.id);
+      if (!refs) {
         return false;
       }
-      nameNode.textContent = monster.name;
-      metaNode.textContent = `距离 ${formatDisplayInteger(monster.distance)} 格 · HP ${formatDisplayCurrentMax(monster.hp, monster.maxHp)}`;
-      statusNode.textContent = buildMonsterStatus(monster.distance);
+      refs.nameNode.textContent = monster.name;
+      refs.metaNode.textContent = `距离 ${formatDisplayInteger(monster.distance)} 格 · HP ${formatDisplayCurrentMax(monster.hp, monster.maxHp)}`;
+      refs.statusNode.textContent = buildMonsterStatus(monster.distance);
     }
 
     for (const npc of snapshot.nearbyNpcs) {
-      const nameNode = this.nearbyPane.querySelector<HTMLElement>(`[data-world-npc-name="${CSS.escape(npc.id)}"]`);
+      const nameNode = this.nearbyNpcNameRefs.get(npc.id);
       if (!nameNode) {
         return false;
       }
       nameNode.textContent = npc.name;
     }
 
+    this.lastNearbyMonsterIds = snapshot.nearbyMonsters.map((monster) => monster.id);
+    this.lastNearbyNpcIds = snapshot.nearbyNpcs.map((npc) => npc.id);
     return true;
   }
 
@@ -395,19 +429,57 @@ export class WorldPanel {
     progressNode.textContent = snapshot.currentQuestProgress;
 
     if (snapshot.quickActions.length === 0) {
+      this.lastSuggestionActionIds = [];
+      this.suggestionActionRefs.clear();
       return this.suggestionPane.querySelector('.empty-hint') !== null;
     }
 
     for (const action of snapshot.quickActions) {
-      const titleNode = this.suggestionPane.querySelector<HTMLElement>(`[data-world-quick-action-title="${CSS.escape(action.id)}"]`);
-      const descNode = this.suggestionPane.querySelector<HTMLElement>(`[data-world-quick-action-desc="${CSS.escape(action.id)}"]`);
-      if (!titleNode || !descNode) {
+      const refs = this.suggestionActionRefs.get(action.id);
+      if (!refs) {
         return false;
       }
-      titleNode.textContent = action.name;
-      descNode.textContent = action.desc;
+      refs.titleNode.textContent = action.name;
+      refs.descNode.textContent = action.desc;
     }
 
+    this.lastSuggestionActionIds = snapshot.quickActions.map((action) => action.id);
     return true;
+  }
+
+  private captureNearbyRefs(snapshot: WorldPanelSnapshot): void {
+    this.nearbyMonsterRefs.clear();
+    this.nearbyNpcNameRefs.clear();
+    for (const monster of snapshot.nearbyMonsters) {
+      const card = this.nearbyPane.querySelector<HTMLElement>(`[data-world-monster-card="${CSS.escape(monster.id)}"]`);
+      const nameNode = card?.querySelector<HTMLElement>('[data-world-monster-name]');
+      const metaNode = card?.querySelector<HTMLElement>('[data-world-monster-meta]');
+      const statusNode = card?.querySelector<HTMLElement>('[data-world-monster-status]');
+      if (card && nameNode && metaNode && statusNode) {
+        this.nearbyMonsterRefs.set(monster.id, { nameNode, metaNode, statusNode });
+      }
+    }
+    for (const npc of snapshot.nearbyNpcs) {
+      const card = this.nearbyPane.querySelector<HTMLElement>(`[data-world-npc-card="${CSS.escape(npc.id)}"]`);
+      const nameNode = card?.querySelector<HTMLElement>('[data-world-npc-name]');
+      if (card && nameNode) {
+        this.nearbyNpcNameRefs.set(npc.id, nameNode);
+      }
+    }
+    this.lastNearbyMonsterIds = snapshot.nearbyMonsters.map((monster) => monster.id);
+    this.lastNearbyNpcIds = snapshot.nearbyNpcs.map((npc) => npc.id);
+  }
+
+  private captureSuggestionRefs(snapshot: WorldPanelSnapshot): void {
+    this.suggestionActionRefs.clear();
+    for (const action of snapshot.quickActions) {
+      const card = this.suggestionPane.querySelector<HTMLElement>(`[data-world-quick-action="${CSS.escape(action.id)}"]`);
+      const titleNode = card?.querySelector<HTMLElement>('[data-world-quick-action-title]');
+      const descNode = card?.querySelector<HTMLElement>('[data-world-quick-action-desc]');
+      if (card && titleNode && descNode) {
+        this.suggestionActionRefs.set(action.id, { titleNode, descNode });
+      }
+    }
+    this.lastSuggestionActionIds = snapshot.quickActions.map((action) => action.id);
   }
 }

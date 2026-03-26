@@ -30,6 +30,11 @@ interface InventoryActionDialogState {
   confirmDestroy: boolean;
 }
 
+interface InventoryStructureState {
+  filter: InventoryFilter;
+  items: Array<{ slotIndex: number; identity: string }>;
+}
+
 function formatEffectCondition(effect: EquipmentEffectDef): string {
   const conditions = effect?.conditions?.items ?? [];
   if (conditions.length === 0) {
@@ -115,7 +120,7 @@ export class InventoryPanel {
   private tooltip = new FloatingTooltip('floating-tooltip inventory-tooltip');
   private activeFilter: InventoryFilter = 'all';
   private lastInventory: Inventory | null = null;
-  private lastStructureKey: string | null = null;
+  private lastStructureState: InventoryStructureState | null = null;
   private selectedSlotIndex: number | null = null;
   private selectedItemKey: string | null = null;
   private actionDialog: InventoryActionDialogState | null = null;
@@ -130,7 +135,7 @@ export class InventoryPanel {
   clear(): void {
     this.activeFilter = 'all';
     this.lastInventory = null;
-    this.lastStructureKey = null;
+    this.lastStructureState = null;
     this.selectedSlotIndex = null;
     this.selectedItemKey = null;
     this.actionDialog = null;
@@ -157,8 +162,8 @@ export class InventoryPanel {
   /** 更新背包数据并刷新列表与弹层 */
   update(inventory: Inventory): void {
     this.lastInventory = inventory;
-    const structureKey = this.buildStructureKey(inventory);
-    if (this.lastStructureKey !== structureKey || !this.patchList(inventory)) {
+    const structureState = this.buildStructureState(inventory);
+    if (!this.isSameStructureState(this.lastStructureState, structureState) || !this.patchList(inventory)) {
       this.render(inventory);
     }
     if (!this.patchModal()) {
@@ -173,7 +178,7 @@ export class InventoryPanel {
   private render(inventory: Inventory): void {
     this.lastInventory = inventory;
     const visibleItems = this.getVisibleItems(inventory);
-    this.lastStructureKey = this.buildStructureKey(inventory);
+    this.lastStructureState = this.buildStructureStateFromVisibleItems(visibleItems);
 
     let html = `<div class="panel-section">
       <div class="inventory-panel-head">
@@ -688,7 +693,7 @@ export class InventoryPanel {
         return false;
       }
       emptyNode.textContent = inventory.items.length === 0 ? '背包空空如也' : '当前分类暂无物品';
-      this.lastStructureKey = this.buildStructureKey(inventory);
+      this.lastStructureState = this.buildStructureStateFromVisibleItems(visibleItems);
       return true;
     }
 
@@ -731,7 +736,7 @@ export class InventoryPanel {
       }
     }
 
-    this.lastStructureKey = this.buildStructureKey(inventory);
+    this.lastStructureState = this.buildStructureStateFromVisibleItems(visibleItems);
     return true;
   }
 
@@ -864,14 +869,37 @@ export class InventoryPanel {
       .filter(({ item }) => this.activeFilter === 'all' || item.type === this.activeFilter);
   }
 
-  private buildStructureKey(inventory: Inventory): string {
-    return JSON.stringify({
+  private buildStructureState(inventory: Inventory): InventoryStructureState {
+    return this.buildStructureStateFromVisibleItems(this.getVisibleItems(inventory));
+  }
+
+  private buildStructureStateFromVisibleItems(
+    visibleItems: Array<{ item: ItemStack; slotIndex: number }>,
+  ): InventoryStructureState {
+    return {
       filter: this.activeFilter,
-      items: this.getVisibleItems(inventory).map(({ item, slotIndex }) => ({
+      items: visibleItems.map(({ item, slotIndex }) => ({
         slotIndex,
         identity: this.getItemIdentity(item),
       })),
-    });
+    };
+  }
+
+  private isSameStructureState(
+    previous: InventoryStructureState | null,
+    next: InventoryStructureState,
+  ): boolean {
+    if (!previous || previous.filter !== next.filter || previous.items.length !== next.items.length) {
+      return false;
+    }
+    for (let index = 0; index < previous.items.length; index += 1) {
+      const previousItem = previous.items[index]!;
+      const nextItem = next.items[index]!;
+      if (previousItem.slotIndex !== nextItem.slotIndex || previousItem.identity !== nextItem.identity) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private buildTooltipPayload(item: ItemStack) {

@@ -25,6 +25,7 @@ import {
   normalizeLifeElapsedTicks,
   normalizeLifespanYears,
   VIEW_RADIUS,
+  clonePlainValue,
 } from '@mud/shared';
 import { Socket } from 'socket.io';
 import { PlayerEntity } from '../database/entities/player.entity';
@@ -660,7 +661,7 @@ export class PlayerService {
   }
 
   private cloneJson<T>(value: T): T {
-    return JSON.parse(JSON.stringify(value)) as T;
+    return clonePlainValue(value);
   }
 
   private hydratePlayerState(entity: PlayerEntity, displayName: string): PlayerState {

@@ -13,6 +13,7 @@ import {
   type Tile,
   type VisibleTile,
   type VisibleTilePatch,
+  clonePlainValue,
 } from '@mud/shared';
 import {
   getRememberedMarkers,
@@ -36,7 +37,7 @@ import type {
 } from '../types';
 
 function cloneJson<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
+  return clonePlainValue(value);
 }
 
 function applyNullablePatch<T>(value: T | null | undefined, fallback: T | undefined): T | undefined {

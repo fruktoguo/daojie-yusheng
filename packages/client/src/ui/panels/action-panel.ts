@@ -13,6 +13,15 @@ import { ACTION_SHORTCUTS_KEY } from '../../constants/ui/action';
 type ActionMainTab = 'dialogue' | 'skill' | 'toggle' | 'utility';
 type SkillSubTab = 'auto' | 'manual';
 
+interface ActionRowRefs {
+  row: HTMLElement;
+  cdNode: HTMLElement;
+  execNode: HTMLButtonElement;
+  stateNode?: HTMLElement;
+  orderNode?: HTMLElement;
+  toggleNode?: HTMLButtonElement;
+}
+
 function normalizeShortcutKey(key: string): string | null {
   if (key.length !== 1) return null;
   const lower = key.toLowerCase();
@@ -51,6 +60,7 @@ export class ActionPanel {
   private previewPlayer?: PlayerState;
   private skillLookup = new Map<string, { skill: SkillDef; techLevel: number; knownSkills: SkillDef[] }>();
   private tooltip = new FloatingTooltip();
+  private actionRowRefs = new Map<string, ActionRowRefs>();
 
   constructor() {
     this.shortcutBindings = this.loadShortcutBindings();
@@ -59,6 +69,7 @@ export class ActionPanel {
 
   clear(): void {
     this.tooltip.hide(true);
+    this.actionRowRefs.clear();
     this.pane.innerHTML = '<div class="empty-hint">暂无可用行动</div>';
   }
 
@@ -209,8 +220,32 @@ export class ActionPanel {
 
     preserveSelection(this.pane, () => {
       this.pane.innerHTML = html;
+      this.captureActionRowRefs();
       this.bindEvents(actions);
       this.bindTooltips();
+    });
+  }
+
+  private captureActionRowRefs(): void {
+    this.actionRowRefs.clear();
+    this.pane.querySelectorAll<HTMLElement>('[data-action-row]').forEach((row) => {
+      const actionId = row.dataset.actionRow;
+      const cdNode = row.querySelector<HTMLElement>('[data-action-cd]');
+      const execNode = row.querySelector<HTMLButtonElement>('[data-action-exec]');
+      if (!actionId || !cdNode || !execNode) {
+        return;
+      }
+      const stateNode = row.querySelector<HTMLElement>('[data-action-auto-state]');
+      const orderNode = row.querySelector<HTMLElement>('[data-action-auto-order]');
+      const toggleNode = row.querySelector<HTMLButtonElement>('[data-auto-battle-toggle]');
+      this.actionRowRefs.set(actionId, {
+        row,
+        cdNode,
+        execNode,
+        stateNode: stateNode ?? undefined,
+        orderNode: orderNode ?? undefined,
+        toggleNode: toggleNode ?? undefined,
+      });
     });
   }
 
@@ -710,7 +745,8 @@ export class ActionPanel {
       ) {
         continue;
       }
-      const row = this.pane.querySelector<HTMLElement>(`[data-action-row="${CSS.escape(action.id)}"]`);
+      const refs = this.actionRowRefs.get(action.id);
+      const row = refs?.row;
       if (!row) {
         if (action.type === 'skill') {
           continue;
@@ -720,8 +756,8 @@ export class ActionPanel {
       const onCd = action.cooldownLeft > 0;
       row.classList.toggle('cooldown', onCd);
 
-      const cdNode = this.pane.querySelector<HTMLElement>(`[data-action-cd="${CSS.escape(action.id)}"]`);
-      const execNode = this.pane.querySelector<HTMLButtonElement>(`[data-action-exec="${CSS.escape(action.id)}"]`);
+      const cdNode = refs.cdNode;
+      const execNode = refs.execNode;
       if (!cdNode || !execNode) {
         return false;
       }
@@ -731,9 +767,9 @@ export class ActionPanel {
       execNode.disabled = onCd;
 
       if (action.type === 'skill') {
-        const stateNode = this.pane.querySelector<HTMLElement>(`[data-action-auto-state="${CSS.escape(action.id)}"]`);
-        const orderNode = this.pane.querySelector<HTMLElement>(`[data-action-auto-order="${CSS.escape(action.id)}"]`);
-        const toggleNode = this.pane.querySelector<HTMLButtonElement>(`[data-auto-battle-toggle="${CSS.escape(action.id)}"]`);
+        const stateNode = refs.stateNode;
+        const orderNode = refs.orderNode;
+        const toggleNode = refs.toggleNode;
         if (!stateNode || !orderNode || !toggleNode) {
           return false;
         }

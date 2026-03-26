@@ -19,6 +19,18 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+function isSameQuestIdSequence(previous: string[] | null, next: string[]): boolean {
+  if (!previous || previous.length !== next.length) {
+    return false;
+  }
+  for (let index = 0; index < previous.length; index += 1) {
+    if (previous[index] !== next[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
 /** 任务面板：按任务线分类展示，并支持全局单实例详情弹层 */
 export class QuestPanel {
   private static readonly MODAL_OWNER = 'quest-panel';
@@ -27,7 +39,8 @@ export class QuestPanel {
   private selectedQuestId?: string;
   private hasUserSelectedLine = false;
   private lastQuests: QuestState[] = [];
-  private lastStructureKey: string | null = null;
+  private lastVisibleQuestIds: string[] | null = null;
+  private lastStructureLine: QuestState['line'] | null = null;
   private currentMapId?: string;
   private onNavigateQuest: ((questId: string) => void) | null = null;
 
@@ -50,8 +63,12 @@ export class QuestPanel {
   update(quests: QuestState[]): void {
     this.lastQuests = quests;
     this.normalizeState(quests);
-    const structureKey = this.buildStructureKey(quests);
-    if (this.lastStructureKey !== structureKey || !this.patchList()) {
+    const visibleQuestIds = this.buildVisibleQuestIds(quests);
+    if (
+      this.lastStructureLine !== this.activeLine
+      || !isSameQuestIdSequence(this.lastVisibleQuestIds, visibleQuestIds)
+      || !this.patchList()
+    ) {
       this.renderList();
     }
     if (!this.patchModal()) {
@@ -66,7 +83,8 @@ export class QuestPanel {
 
   clear(): void {
     this.lastQuests = [];
-    this.lastStructureKey = null;
+    this.lastVisibleQuestIds = null;
+    this.lastStructureLine = null;
     this.selectedQuestId = undefined;
     this.hasUserSelectedLine = false;
     this.pane.innerHTML = '<div class="empty-hint">暂无任务，和 NPC 交互可接取</div>';
@@ -82,14 +100,16 @@ export class QuestPanel {
     const quests = this.lastQuests;
     if (quests.length === 0) {
       this.selectedQuestId = undefined;
-      this.lastStructureKey = this.buildStructureKey(quests);
+      this.lastVisibleQuestIds = [];
+      this.lastStructureLine = this.activeLine;
       this.pane.innerHTML = '<div class="empty-hint">暂无任务，和 NPC 交互可接取</div>';
       return;
     }
 
     const counts = this.buildCounts(quests);
     const visibleQuests = this.getVisibleQuests(quests);
-    this.lastStructureKey = this.buildStructureKey(quests);
+    this.lastVisibleQuestIds = visibleQuests.map((quest) => quest.id);
+    this.lastStructureLine = this.activeLine;
 
     const tabs = LINE_ORDER.map((line) => {
       const active = this.activeLine === line ? 'active' : '';
@@ -186,7 +206,8 @@ export class QuestPanel {
         return false;
       }
       emptyNode.textContent = `当前没有${getQuestLineLabel(this.activeLine)}任务`;
-      this.lastStructureKey = this.buildStructureKey(quests);
+      this.lastVisibleQuestIds = [];
+      this.lastStructureLine = this.activeLine;
       return true;
     }
 
@@ -218,7 +239,8 @@ export class QuestPanel {
       nextStepNode.textContent = `下一步：${this.resolveNextStep(quest)}`;
     }
 
-    this.lastStructureKey = this.buildStructureKey(quests);
+    this.lastVisibleQuestIds = visibleQuests.map((quest) => quest.id);
+    this.lastStructureLine = this.activeLine;
     return true;
   }
 
@@ -408,11 +430,8 @@ export class QuestPanel {
       .sort((a, b) => STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status]);
   }
 
-  private buildStructureKey(quests: QuestState[]): string {
-    return JSON.stringify({
-      activeLine: this.activeLine,
-      quests: this.getVisibleQuests(quests).map((quest) => quest.id),
-    });
+  private buildVisibleQuestIds(quests: QuestState[]): string[] {
+    return this.getVisibleQuests(quests).map((quest) => quest.id);
   }
 
   private buildCounts(quests: QuestState[]): Record<QuestState['line'], number> {

@@ -6,6 +6,7 @@ import protobuf from 'protobufjs';
 import { C2S, S2C, type ActionUpdateEntry, type GroundItemPilePatch, type S2C_ActionsUpdate, type S2C_AttrUpdate, type S2C_TechniqueUpdate, type S2C_Tick, type TechniqueUpdateEntry, type TickRenderEntity, type VisibleTilePatch } from './protocol';
 import type { NumericRatioDivisors, NumericStats } from './numeric';
 import type { ActionDef, Attributes, AttrBonus, GameTimeState, ItemType, MapMeta, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerSpecialStats, QuestLine, TechniqueAttrCurves, TechniqueGrade, TechniqueLayerDef, TechniqueState, VisibleBuffState, VisibleTile } from './types';
+import { clonePlainValue } from './structured';
 
 const PROTO_SCHEMA = `
 syntax = "proto2";
@@ -322,7 +323,7 @@ function hasOwn<T extends object>(value: T, key: string): boolean {
 }
 
 function cloneJson<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
+  return clonePlainValue(value);
 }
 
 function parseJson<T>(value: string): T {
