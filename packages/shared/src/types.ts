@@ -882,6 +882,7 @@ export interface PlayerState {
   offlineSinceAt?: number;
   senseQiActive?: boolean;
   autoRetaliate?: boolean;
+  autoBattleStationary?: boolean;
   allowAoePlayerHit?: boolean;
   autoIdleCultivation?: boolean;
   autoSwitchCultivation?: boolean;

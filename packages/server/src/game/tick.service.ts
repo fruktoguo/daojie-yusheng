@@ -1567,6 +1567,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           actions: this.buildSparseActionStates(player.id, player.actions),
           autoBattle: player.autoBattle,
           autoRetaliate: player.autoRetaliate,
+          autoBattleStationary: player.autoBattleStationary === true,
           allowAoePlayerHit: player.allowAoePlayerHit,
           autoIdleCultivation: player.autoIdleCultivation,
           autoSwitchCultivation: player.autoSwitchCultivation,

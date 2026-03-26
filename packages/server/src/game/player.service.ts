@@ -245,6 +245,7 @@ export class PlayerService implements OnModuleInit {
     if (state.combatTargetLocked === undefined) state.combatTargetLocked = false;
     if (!state.autoBattleSkills) state.autoBattleSkills = [];
     if (state.autoRetaliate === undefined) state.autoRetaliate = true;
+    if (state.autoBattleStationary === undefined) state.autoBattleStationary = false;
     if (state.allowAoePlayerHit === undefined) state.allowAoePlayerHit = false;
     if (state.autoIdleCultivation === undefined) state.autoIdleCultivation = true;
     if (state.autoSwitchCultivation === undefined) state.autoSwitchCultivation = false;
@@ -303,6 +304,7 @@ export class PlayerService implements OnModuleInit {
       autoBattle: state.autoBattle,
       autoBattleSkills: state.autoBattleSkills as any,
       autoRetaliate: state.autoRetaliate,
+      autoBattleStationary: state.autoBattleStationary === true,
       allowAoePlayerHit: state.allowAoePlayerHit === true,
       autoIdleCultivation: state.autoIdleCultivation,
       autoSwitchCultivation: state.autoSwitchCultivation === true,
@@ -364,6 +366,7 @@ export class PlayerService implements OnModuleInit {
         autoBattle: state.autoBattle,
         autoBattleSkills: state.autoBattleSkills as any,
         autoRetaliate: state.autoRetaliate,
+        autoBattleStationary: state.autoBattleStationary === true,
         allowAoePlayerHit: state.allowAoePlayerHit === true,
         autoIdleCultivation: state.autoIdleCultivation,
         autoSwitchCultivation: state.autoSwitchCultivation === true,
@@ -738,6 +741,7 @@ export class PlayerService implements OnModuleInit {
       autoBattle: entity.autoBattle ?? false,
       autoBattleSkills: (entity.autoBattleSkills ?? []) as AutoBattleSkillConfig[],
       autoRetaliate: entity.autoRetaliate ?? true,
+      autoBattleStationary: entity.autoBattleStationary === true,
       allowAoePlayerHit: entity.allowAoePlayerHit === true,
       autoIdleCultivation: entity.autoIdleCultivation ?? true,
       autoSwitchCultivation: entity.autoSwitchCultivation === true,
@@ -808,6 +812,7 @@ export class PlayerService implements OnModuleInit {
       autoBattle: state.autoBattle,
       autoBattleSkills: state.autoBattleSkills as any,
       autoRetaliate: state.autoRetaliate,
+      autoBattleStationary: state.autoBattleStationary === true,
       allowAoePlayerHit: state.allowAoePlayerHit === true,
       autoIdleCultivation: state.autoIdleCultivation,
       autoSwitchCultivation: state.autoSwitchCultivation === true,

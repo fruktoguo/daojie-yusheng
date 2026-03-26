@@ -67,6 +67,7 @@ export class ActionPanel {
   private skillManagementFilterToggles = new Set<SkillManagementFilterToggle>();
   private autoBattle = false;
   private autoRetaliate = true;
+  private autoBattleStationary = false;
   private allowAoePlayerHit = false;
   private autoIdleCultivation = true;
   private autoSwitchCultivation = false;
@@ -107,6 +108,7 @@ export class ActionPanel {
     if (player) {
       this.previewPlayer = player;
       this.syncPlayerContext(player);
+      this.autoBattleStationary = player.autoBattleStationary === true;
       this.allowAoePlayerHit = player.allowAoePlayerHit === true;
       this.autoIdleCultivation = player.autoIdleCultivation !== false;
       this.autoSwitchCultivation = player.autoSwitchCultivation === true;
@@ -123,6 +125,7 @@ export class ActionPanel {
     if (player) {
       this.previewPlayer = player;
       this.syncPlayerContext(player);
+      this.autoBattleStationary = player.autoBattleStationary === true;
       this.allowAoePlayerHit = player.allowAoePlayerHit === true;
       this.autoIdleCultivation = player.autoIdleCultivation !== false;
       this.autoSwitchCultivation = player.autoSwitchCultivation === true;
@@ -143,6 +146,7 @@ export class ActionPanel {
     this.currentActions = this.withUtilityActions(player.actions);
     this.autoBattle = player.autoBattle ?? false;
     this.autoRetaliate = player.autoRetaliate !== false;
+    this.autoBattleStationary = player.autoBattleStationary === true;
     this.allowAoePlayerHit = player.allowAoePlayerHit === true;
     this.autoIdleCultivation = player.autoIdleCultivation !== false;
     this.autoSwitchCultivation = player.autoSwitchCultivation === true;
@@ -410,6 +414,7 @@ export class ActionPanel {
   private isSwitchActionId(actionId: string): boolean {
     return actionId === 'toggle:auto_battle'
       || actionId === 'toggle:auto_retaliate'
+      || actionId === 'toggle:auto_battle_stationary'
       || actionId === 'toggle:allow_aoe_player_hit'
       || actionId === 'toggle:auto_idle_cultivation'
       || actionId === 'toggle:auto_switch_cultivation'
@@ -423,6 +428,8 @@ export class ActionPanel {
         return '自动战斗';
       case 'toggle:auto_retaliate':
         return '自动反击';
+      case 'toggle:auto_battle_stationary':
+        return '原地战斗';
       case 'toggle:allow_aoe_player_hit':
         return '全体攻击';
       case 'toggle:auto_idle_cultivation':
@@ -444,6 +451,8 @@ export class ActionPanel {
         return { active: this.autoBattle, label: this.autoBattle ? '开' : '关' };
       case 'toggle:auto_retaliate':
         return { active: this.autoRetaliate, label: this.autoRetaliate ? '开' : '关' };
+      case 'toggle:auto_battle_stationary':
+        return { active: this.autoBattleStationary, label: this.autoBattleStationary ? '开' : '关' };
       case 'toggle:allow_aoe_player_hit':
         return { active: this.allowAoePlayerHit, label: this.allowAoePlayerHit ? '开' : '关' };
       case 'toggle:auto_idle_cultivation':

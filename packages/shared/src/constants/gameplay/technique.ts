@@ -9,7 +9,7 @@ import type { AttrKey, Attributes, TechniqueGrade } from '../../types';
 export const CULTIVATE_EXP_PER_TICK = 10;
 
 /** 闲置自动修炼延迟（息） */
-export const AUTO_IDLE_CULTIVATION_DELAY_TICKS = 60;
+export const AUTO_IDLE_CULTIVATION_DELAY_TICKS = 10;
 
 /** 功法层级经验基准值 */
 export const TECHNIQUE_EXP_BASE = 1000;

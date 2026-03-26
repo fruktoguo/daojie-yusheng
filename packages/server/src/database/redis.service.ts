@@ -60,6 +60,7 @@ export class RedisService implements OnModuleDestroy {
       autoBattle: state.autoBattle ? '1' : '0',
       autoBattleSkills: JSON.stringify(state.autoBattleSkills),
       autoRetaliate: state.autoRetaliate === false ? '0' : '1',
+      autoBattleStationary: state.autoBattleStationary === true ? '1' : '0',
       allowAoePlayerHit: state.allowAoePlayerHit === true ? '1' : '0',
       autoIdleCultivation: state.autoIdleCultivation === false ? '0' : '1',
       autoSwitchCultivation: state.autoSwitchCultivation === true ? '1' : '0',

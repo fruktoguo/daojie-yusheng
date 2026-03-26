@@ -203,6 +203,11 @@ interface SkillFormulaContext {
   targetStats?: NumericStats;
 }
 
+interface AutoBattleSkillCandidate {
+  action: ActionDef;
+  skill: SkillDef;
+}
+
 type BuffTargetEntity =
   | { kind: 'player'; player: PlayerState }
   | { kind: 'monster'; monster: RuntimeMonster };
@@ -398,6 +403,14 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       desc: player.autoRetaliate === false ? '被攻击时不会自动开启自动战斗。' : '被攻击时自动开启自动战斗。',
       cooldownLeft: 0,
     }, {
+      id: 'toggle:auto_battle_stationary',
+      name: player.autoBattleStationary === true ? '原地战斗已开' : '原地战斗已关',
+      type: 'toggle',
+      desc: player.autoBattleStationary === true
+        ? '开启后，自动战斗不会追击；能放技能时原地放技能，贴身时也可原地普攻。'
+        : '关闭后，自动战斗会按技能射程追击目标。',
+      cooldownLeft: 0,
+    }, {
       id: 'toggle:allow_aoe_player_hit',
       name: player.allowAoePlayerHit === true ? '全体攻击已开' : '全体攻击已关',
       type: 'toggle',
@@ -410,8 +423,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       name: player.autoIdleCultivation === false ? '闲置自动修炼已关' : '闲置自动修炼已开',
       type: 'toggle',
       desc: player.autoIdleCultivation === false
-        ? '关闭后，角色闲置 60 息也不会自动开始修炼。'
-        : '开启后，无行为和移动持续 60 息会自动开始修炼。',
+        ? '关闭后，角色闲置 10 息也不会自动开始修炼。'
+        : '开启后，无行为和移动持续 10 息会自动开始修炼。',
       cooldownLeft: 0,
     }, {
       id: 'toggle:auto_switch_cultivation',
@@ -535,6 +548,18 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         messages: [{
           playerId: player.id,
           text: player.autoRetaliate ? '已开启受击自动开战。' : '已关闭受击自动开战。',
+          kind: 'combat',
+        }],
+        dirty: ['actions'],
+      };
+    }
+
+    if (actionId === 'toggle:auto_battle_stationary') {
+      player.autoBattleStationary = player.autoBattleStationary === true ? false : true;
+      return {
+        messages: [{
+          playerId: player.id,
+          text: player.autoBattleStationary === true ? '已开启原地战斗。' : '已关闭原地战斗。',
           kind: 'combat',
         }],
         dirty: ['actions'],
@@ -694,17 +719,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
     const dirty = new Set<WorldDirtyFlag>();
     const effectiveViewRange = this.timeService.getEffectiveViewRangeFromBuff(player.viewRange, player.temporaryBuffs);
-    const skillActionMap = new Map(
-      player.actions
-        .filter((action) => action.type === 'skill')
-        .map((action) => [action.id, action] as const),
-    );
-    const availableSkill = player.autoBattleSkills
-      .filter((entry) => entry.enabled && entry.skillEnabled !== false)
-      .map((entry) => skillActionMap.get(entry.skillId))
-      .find((action): action is ActionDef => action !== undefined && action.skillEnabled !== false && action.cooldownLeft === 0);
-    const availableSkillDef = availableSkill ? this.contentService.getSkill(availableSkill.id) : null;
-    const preferredRange = availableSkillDef?.range ?? 1;
+    const stationaryMode = player.autoBattleStationary === true;
+    const availableSkills = this.collectAutoBattleSkillCandidates(player);
+    const preferredRange = this.resolveAutoBattlePreferredRange(availableSkills);
 
     let target: ResolvedTarget | undefined;
 
@@ -733,7 +750,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (!target) {
-      target = this.selectPlayerAutoBattleTarget(player, effectiveViewRange, preferredRange);
+      target = this.selectPlayerAutoBattleTarget(player, effectiveViewRange, preferredRange, availableSkills, stationaryMode);
       if (!target) {
         this.clearCombatTarget(player);
         return EMPTY_UPDATE;
@@ -744,13 +761,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
     const targetRef = this.getTargetRef(target);
 
-    if (availableSkillDef && targetRef && isPointInRange(player, target, availableSkillDef.range)) {
-      const update = this.performTargetedSkill(player, availableSkillDef.id, targetRef);
+    const selectedSkill = this.selectAutoBattleSkillForTarget(player, target, availableSkills);
+    if (selectedSkill) {
+      const update = this.performTargetedSkill(player, selectedSkill.skill.id, targetRef);
       if (update.consumedAction) {
-        return { ...update, usedActionId: availableSkillDef.id };
-      }
-      if (isPointInRange(player, target, 1)) {
-        return this.performBasicAttack(player, target);
+        return { ...update, usedActionId: selectedSkill.skill.id };
       }
     }
 
@@ -759,8 +774,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       return this.performBasicAttack(player, target);
     }
 
-    const chaseRange = availableSkillDef && targetRef ? availableSkillDef.range : 1;
-    const facing = this.stepPlayerTowardAttackPosition(player, target, chaseRange);
+    if (stationaryMode) {
+      this.faceToward(player, target.x, target.y);
+      return EMPTY_UPDATE;
+    }
+
+    const facing = this.stepPlayerTowardAttackPosition(player, target, preferredRange);
     if (facing !== null) {
       player.facing = facing;
       const cultivation = this.techniqueService.interruptCultivation(player, 'move');
@@ -2710,10 +2729,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   }
 
   private consumeQiForSkill(player: PlayerState, skill: SkillDef): number | string {
-    const numericStats = this.attrService.getPlayerNumericStats(player);
-    const plannedCost = Math.max(0, skill.cost);
-    const actualCost = Math.round(calcQiCostWithOutputLimit(plannedCost, Math.max(0, numericStats.maxQiOutputPerTick)));
-    if (!Number.isFinite(actualCost) || actualCost < 0) {
+    const actualCost = this.getSkillQiCost(player, skill);
+    if (actualCost === null) {
       return '当前灵力输出速率不足，无法稳定施展该技能';
     }
     if (player.qi < actualCost) {
@@ -2729,6 +2746,21 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         DISPERSED_AURA_RESOURCE_KEY,
         dispersedAuraGain,
       );
+    }
+    return actualCost;
+  }
+
+  private canPlayerCastSkill(player: PlayerState, skill: SkillDef): boolean {
+    const actualCost = this.getSkillQiCost(player, skill);
+    return actualCost !== null && player.qi >= actualCost;
+  }
+
+  private getSkillQiCost(player: PlayerState, skill: SkillDef): number | null {
+    const numericStats = this.attrService.getPlayerNumericStats(player);
+    const plannedCost = Math.max(0, skill.cost);
+    const actualCost = Math.round(calcQiCostWithOutputLimit(plannedCost, Math.max(0, numericStats.maxQiOutputPerTick)));
+    if (!Number.isFinite(actualCost) || actualCost < 0) {
+      return null;
     }
     return actualCost;
   }
@@ -3512,6 +3544,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     player: PlayerState,
     effectiveViewRange: number,
     preferredRange: number,
+    availableSkills: AutoBattleSkillCandidate[],
+    stationaryMode: boolean,
   ): ResolvedTarget | undefined {
     this.refreshPlayerThreats(player, effectiveViewRange);
     const ownerId = this.getPlayerThreatId(player);
@@ -3524,12 +3558,61 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       if (!target || target.kind === 'tile') {
         return false;
       }
-      return this.canPlayerAttackTarget(player, target, effectiveViewRange, preferredRange);
+      return stationaryMode
+        ? this.canPlayerCastAutoBattleSkillFromCurrentPosition(player, target, effectiveViewRange, availableSkills)
+        : this.canPlayerAttackTarget(player, target, effectiveViewRange, preferredRange);
     });
     if (!targetId) {
       return undefined;
     }
     return this.resolveThreatTargetForPlayer(player, targetId) ?? undefined;
+  }
+
+  private collectAutoBattleSkillCandidates(player: PlayerState): AutoBattleSkillCandidate[] {
+    const skillActionMap = new Map(
+      player.actions
+        .filter((action) => action.type === 'skill')
+        .map((action) => [action.id, action] as const),
+    );
+
+    return player.autoBattleSkills
+      .filter((entry) => entry.enabled && entry.skillEnabled !== false)
+      .map((entry) => skillActionMap.get(entry.skillId))
+      .filter((action): action is ActionDef => action !== undefined && action.skillEnabled !== false && action.cooldownLeft === 0)
+      .map((action) => {
+        const skill = this.contentService.getSkill(action.id);
+        return skill ? { action, skill } : null;
+      })
+      .filter((entry): entry is AutoBattleSkillCandidate => entry !== null)
+      .filter((entry) => this.canPlayerCastSkill(player, entry.skill));
+  }
+
+  private resolveAutoBattlePreferredRange(skills: AutoBattleSkillCandidate[]): number {
+    return skills.reduce((maxRange, entry) => Math.max(maxRange, Math.max(1, entry.skill.range)), 1);
+  }
+
+  private selectAutoBattleSkillForTarget(
+    player: PlayerState,
+    target: ResolvedTarget,
+    skills: AutoBattleSkillCandidate[],
+  ): AutoBattleSkillCandidate | undefined {
+    return skills.find((entry) => isPointInRange(player, target, entry.skill.range));
+  }
+
+  private canPlayerCastAutoBattleSkillFromCurrentPosition(
+    player: PlayerState,
+    target: ResolvedTarget,
+    effectiveViewRange: number,
+    skills: AutoBattleSkillCandidate[],
+  ): boolean {
+    if (target.kind === 'tile') {
+      return false;
+    }
+    if (!this.canPlayerSeeTarget(player, target, effectiveViewRange)) {
+      return false;
+    }
+    return isPointInRange(player, target, 1)
+      || skills.some((entry) => isPointInRange(player, target, entry.skill.range));
   }
 
   private refreshPlayerThreats(player: PlayerState, effectiveViewRange: number): void {

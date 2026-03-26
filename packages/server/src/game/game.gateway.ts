@@ -210,6 +210,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       autoBattle: false,
       autoBattleSkills: [],
       autoRetaliate: true,
+      autoBattleStationary: false,
       allowAoePlayerHit: false,
       autoIdleCultivation: true,
       autoSwitchCultivation: false,

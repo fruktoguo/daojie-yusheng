@@ -133,6 +133,10 @@ export class PlayerEntity {
   @Column({ type: 'boolean', default: true })
   autoRetaliate!: boolean;
 
+  /** 自动战斗是否保持原地施法 */
+  @Column({ type: 'boolean', default: false })
+  autoBattleStationary!: boolean;
+
   /** 是否允许群体攻击命中玩家 */
   @Column({ type: 'boolean', default: false })
   allowAoePlayerHit!: boolean;

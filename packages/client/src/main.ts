@@ -1490,11 +1490,13 @@ socket.onActionsUpdate((data) => {
   const previousActions = myPlayer?.actions ?? [];
   const previousAutoBattle = myPlayer?.autoBattle ?? false;
   const previousAutoRetaliate = myPlayer?.autoRetaliate ?? true;
+  const previousAutoBattleStationary = myPlayer?.autoBattleStationary ?? false;
   const previousAllowAoePlayerHit = myPlayer?.allowAoePlayerHit ?? false;
   const previousAutoIdleCultivation = myPlayer?.autoIdleCultivation ?? true;
   const previousAutoSwitchCultivation = myPlayer?.autoSwitchCultivation ?? false;
   const nextAutoBattle = data.autoBattle ?? myPlayer?.autoBattle ?? false;
   const nextAutoRetaliate = data.autoRetaliate ?? myPlayer?.autoRetaliate ?? true;
+  const nextAutoBattleStationary = data.autoBattleStationary ?? myPlayer?.autoBattleStationary ?? false;
   const nextAllowAoePlayerHit = data.allowAoePlayerHit ?? myPlayer?.allowAoePlayerHit ?? false;
   const nextAutoIdleCultivation = data.autoIdleCultivation ?? myPlayer?.autoIdleCultivation ?? true;
   const nextAutoSwitchCultivation = data.autoSwitchCultivation ?? myPlayer?.autoSwitchCultivation ?? false;
@@ -1502,6 +1504,7 @@ socket.onActionsUpdate((data) => {
   const shouldRefreshActionPanel = !myPlayer
     || previousAutoBattle !== nextAutoBattle
     || previousAutoRetaliate !== nextAutoRetaliate
+    || previousAutoBattleStationary !== nextAutoBattleStationary
     || previousAllowAoePlayerHit !== nextAllowAoePlayerHit
     || previousAutoIdleCultivation !== nextAutoIdleCultivation
     || previousAutoSwitchCultivation !== nextAutoSwitchCultivation
@@ -1517,6 +1520,7 @@ socket.onActionsUpdate((data) => {
       }));
     myPlayer.autoBattle = data.autoBattle ?? inferAutoBattle(myPlayer.autoBattle, mergedActions);
     myPlayer.autoRetaliate = data.autoRetaliate ?? inferAutoRetaliate(myPlayer.autoRetaliate !== false, mergedActions);
+    myPlayer.autoBattleStationary = nextAutoBattleStationary;
     myPlayer.allowAoePlayerHit = nextAllowAoePlayerHit;
     myPlayer.autoIdleCultivation = nextAutoIdleCultivation;
     myPlayer.autoSwitchCultivation = nextAutoSwitchCultivation;
@@ -2419,6 +2423,7 @@ socket.onInit((data: S2C_Init) => {
   syncCurrentTimeState(data.time ?? null);
   latestAttrUpdate = buildAttrStateFromPlayer(myPlayer);
   myPlayer.senseQiActive = myPlayer.senseQiActive === true;
+  myPlayer.autoBattleStationary = myPlayer.autoBattleStationary === true;
   myPlayer.allowAoePlayerHit = myPlayer.allowAoePlayerHit === true;
   myPlayer.autoIdleCultivation = myPlayer.autoIdleCultivation !== false;
   myPlayer.autoSwitchCultivation = myPlayer.autoSwitchCultivation === true;

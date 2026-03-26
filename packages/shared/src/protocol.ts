@@ -513,6 +513,7 @@ export interface S2C_ActionsUpdate {
   actions: ActionUpdateEntry[];
   autoBattle?: boolean;
   autoRetaliate?: boolean;
+  autoBattleStationary?: boolean;
   allowAoePlayerHit?: boolean;
   autoIdleCultivation?: boolean;
   autoSwitchCultivation?: boolean;
@@ -732,6 +733,7 @@ export interface GmManagedPlayerSummary {
   qi: number;
   dead: boolean;
   autoBattle: boolean;
+  autoBattleStationary?: boolean;
   autoRetaliate: boolean;
   meta: GmManagedPlayerMeta;
 }
