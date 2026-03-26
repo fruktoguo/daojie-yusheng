@@ -257,7 +257,9 @@ export interface S2C_Tick {
   t?: VisibleTilePatch[];                         // 视野内地块动态 patch
   e: TickRenderEntity[];                          // 怪物 / NPC 可见实体
   r?: string[];                                   // 当前 tick 离开视野的实体 ID
-  threatArrows?: [string, string][];             // 可见实体 ID 对：owner -> target
+  threatArrows?: [string, string][];              // 仇恨箭头完整快照（仅首包/重同步）
+  threatArrowAdds?: [string, string][];           // 仇恨箭头增量新增
+  threatArrowRemoves?: [string, string][];        // 仇恨箭头增量移除
   g?: GroundItemPilePatch[];                      // 视野内地面物品 patch
   fx?: CombatEffect[];                            // 当前 tick 触发的战斗特效
   v?: VisibleTile[][];                            // 视野 tiles（null 表示当前不可见）
@@ -265,7 +267,9 @@ export interface S2C_Tick {
   m?: string;                                     // 当前地图 ID（跨图时用于同步客户端状态）
   mapMeta?: MapMeta;                              // 当前地图元数据
   minimap?: MapMinimapSnapshot;                   // 当前地图已解锁时的完整 mini 地图静态标记
-  visibleMinimapMarkers?: MapMinimapMarker[];     // 当前视野内可见的静态地图标记
+  visibleMinimapMarkers?: MapMinimapMarker[];     // 当前视野内可见静态标记完整快照（仅首包/重同步）
+  visibleMinimapMarkerAdds?: MapMinimapMarker[];  // 当前视野内可见静态标记增量新增
+  visibleMinimapMarkerRemoves?: string[];         // 当前视野内移出的静态标记 ID
   minimapLibrary?: MapMinimapArchiveEntry[];      // 已解锁地图图鉴（全图）
   path?: [number, number][];                      // 当前剩余路径点
   hp?: number;                                    // 当前玩家 HP

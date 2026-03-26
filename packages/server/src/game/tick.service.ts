@@ -17,6 +17,7 @@ import {
   GroundItemPilePatch,
   GroundItemPileView,
   MapMeta,
+  MapMinimapMarker,
   MapRouteDomain,
   normalizeAuraLevelBaseValue,
   parseTileTargetRef,
@@ -78,6 +79,7 @@ interface LastSentTickState {
   pathVersion: number;
   timeState?: ReturnType<TimeService['buildPlayerTimeState']>;
   threatArrows?: Array<[string, string]>;
+  visibleMinimapMarkers?: MapMinimapMarker[];
   visibilityKey?: string;
   tilePatchRevision?: number;
   mapMeta?: MapMeta;
@@ -1733,6 +1735,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           visibleEntityIds,
         ).map(({ ownerId, targetId }) => [ownerId, targetId] as [string, string])
       ));
+      const visibleMinimapMarkers = visibilityChanged
+        ? this.mapService.getVisibleMinimapMarkers(viewer.mapId, visibility.visibleKeys)
+        : (previous?.visibleMinimapMarkers ?? []);
       const tileOriginX = viewer.x - time.effectiveViewRange;
       const tileOriginY = viewer.y - time.effectiveViewRange;
       const groundPilePatches = this.measureCpuSection('broadcast_patch_ground', '广播: 掉落差量 Patch', () => (
@@ -1780,8 +1785,16 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (effectPatches.length > 0) {
         tickData.fx = effectPatches;
       }
-      if (forceSync || !previous || !this.isStructuredEqual(previous.threatArrows, visibleThreatArrows)) {
+      if (forceSync || mapChanged || !previous) {
         tickData.threatArrows = visibleThreatArrows;
+      } else {
+        const threatArrowPatch = this.buildSparseThreatArrowPatch(previous.threatArrows, visibleThreatArrows);
+        if (threatArrowPatch.adds.length > 0) {
+          tickData.threatArrowAdds = threatArrowPatch.adds;
+        }
+        if (threatArrowPatch.removes.length > 0) {
+          tickData.threatArrowRemoves = threatArrowPatch.removes;
+        }
       }
       if (groundPilePatches.length > 0) {
         tickData.g = groundPilePatches;
@@ -1798,8 +1811,16 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (shouldSendFullVisibility) {
         tickData.v = clientVisibleTiles;
       }
-      if (visibilityChanged) {
-        tickData.visibleMinimapMarkers = this.mapService.getVisibleMinimapMarkers(viewer.mapId, visibility.visibleKeys);
+      if (forceSync || mapChanged || !previous) {
+        tickData.visibleMinimapMarkers = visibleMinimapMarkers;
+      } else if (visibilityChanged) {
+        const visibleMinimapMarkerPatch = this.buildSparseVisibleMinimapMarkerPatch(previous.visibleMinimapMarkers, visibleMinimapMarkers);
+        if (visibleMinimapMarkerPatch.adds.length > 0) {
+          tickData.visibleMinimapMarkerAdds = visibleMinimapMarkerPatch.adds;
+        }
+        if (visibleMinimapMarkerPatch.removes.length > 0) {
+          tickData.visibleMinimapMarkerRemoves = visibleMinimapMarkerPatch.removes;
+        }
       }
       if (mapChanged) {
         tickData.m = viewer.mapId;
@@ -1850,6 +1871,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         pathVersion,
         timeState: this.cloneStructured(time),
         threatArrows: visibleThreatArrows.length > 0 ? this.cloneStructured(visibleThreatArrows) : undefined,
+        visibleMinimapMarkers: visibleMinimapMarkers.length > 0 ? this.cloneStructured(visibleMinimapMarkers) : undefined,
         visibilityKey,
         tilePatchRevision,
         mapMeta: mapMeta ? this.cloneStructured(mapMeta) : undefined,
@@ -1864,6 +1886,8 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       || data.e.length > 0
       || (data.fx?.length ?? 0) > 0
       || data.threatArrows !== undefined
+      || (data.threatArrowAdds?.length ?? 0) > 0
+      || (data.threatArrowRemoves?.length ?? 0) > 0
       || (data.g?.length ?? 0) > 0
       || (data.t?.length ?? 0) > 0
       || (data.r?.length ?? 0) > 0
@@ -1873,6 +1897,8 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       || data.mapMeta !== undefined
       || 'minimap' in data
       || data.visibleMinimapMarkers !== undefined
+      || (data.visibleMinimapMarkerAdds?.length ?? 0) > 0
+      || (data.visibleMinimapMarkerRemoves?.length ?? 0) > 0
       || data.minimapLibrary !== undefined
       || data.hp !== undefined
       || data.qi !== undefined
@@ -2116,6 +2142,57 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
     this.lastSentGroundPiles.set(viewerId, nextCache);
     return patches;
+  }
+
+  private buildSparseThreatArrowPatch(
+    previous: Array<[string, string]> | undefined,
+    next: Array<[string, string]>,
+  ): { adds: Array<[string, string]>; removes: Array<[string, string]> } {
+    const previousMap = new Map((previous ?? []).map((entry) => [this.buildThreatArrowKey(entry), entry]));
+    const nextMap = new Map(next.map((entry) => [this.buildThreatArrowKey(entry), entry]));
+    const adds: Array<[string, string]> = [];
+    const removes: Array<[string, string]> = [];
+
+    for (const [key, entry] of nextMap.entries()) {
+      if (!previousMap.has(key)) {
+        adds.push(this.cloneStructured(entry));
+      }
+    }
+    for (const [key, entry] of previousMap.entries()) {
+      if (!nextMap.has(key)) {
+        removes.push(this.cloneStructured(entry));
+      }
+    }
+
+    return { adds, removes };
+  }
+
+  private buildSparseVisibleMinimapMarkerPatch(
+    previous: MapMinimapMarker[] | undefined,
+    next: MapMinimapMarker[],
+  ): { adds: MapMinimapMarker[]; removes: string[] } {
+    const previousMap = new Map((previous ?? []).map((marker) => [marker.id, marker]));
+    const nextMap = new Map(next.map((marker) => [marker.id, marker]));
+    const adds: MapMinimapMarker[] = [];
+    const removes: string[] = [];
+
+    for (const [id, marker] of nextMap.entries()) {
+      const previousMarker = previousMap.get(id);
+      if (!previousMarker || !this.isStructuredEqual(previousMarker, marker)) {
+        adds.push(this.cloneStructured(marker));
+      }
+    }
+    for (const id of previousMap.keys()) {
+      if (!nextMap.has(id)) {
+        removes.push(id);
+      }
+    }
+
+    return { adds, removes };
+  }
+
+  private buildThreatArrowKey([ownerId, targetId]: [string, string]): string {
+    return `${ownerId}->${targetId}`;
   }
 
   /** 构建可见地块增量包，仅发送与上次不同的地块 */

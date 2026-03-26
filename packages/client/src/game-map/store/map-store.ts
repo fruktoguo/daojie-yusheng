@@ -88,6 +88,10 @@ function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedMa
   };
 }
 
+function buildThreatArrowKey(ownerId: string, targetId: string): string {
+  return `${ownerId}->${targetId}`;
+}
+
 export class MapStore {
   private mapMeta: MapMeta | null = null;
   private player: PlayerState | null = null;
@@ -187,9 +191,17 @@ export class MapStore {
         this.minimapSnapshot = getCachedMapSnapshot(this.player.mapId);
       }
     }
-    if (data.visibleMinimapMarkers) {
+    if (data.visibleMinimapMarkers !== undefined) {
       this.visibleMinimapMarkers = cloneJson(data.visibleMinimapMarkers);
       rememberVisibleMarkers(this.player.mapId, this.visibleMinimapMarkers);
+    } else if ((data.visibleMinimapMarkerAdds?.length ?? 0) > 0 || (data.visibleMinimapMarkerRemoves?.length ?? 0) > 0) {
+      this.visibleMinimapMarkers = this.mergeVisibleMinimapMarkerPatches(
+        data.visibleMinimapMarkerAdds ?? [],
+        data.visibleMinimapMarkerRemoves ?? [],
+      );
+      if ((data.visibleMinimapMarkerAdds?.length ?? 0) > 0) {
+        rememberVisibleMarkers(this.player.mapId, data.visibleMinimapMarkerAdds ?? []);
+      }
     }
     if (data.minimap) {
       this.minimapSnapshot = data.minimap;
@@ -235,6 +247,11 @@ export class MapStore {
       this.threatArrows = data.threatArrows
         .map(([ownerId, targetId]) => ({ ownerId, targetId }))
         .filter((entry) => entry.ownerId && entry.targetId);
+    } else if ((data.threatArrowAdds?.length ?? 0) > 0 || (data.threatArrowRemoves?.length ?? 0) > 0) {
+      this.threatArrows = this.mergeThreatArrowPatches(
+        data.threatArrowAdds ?? [],
+        data.threatArrowRemoves ?? [],
+      );
     }
     const moved = !mapChanged && (this.player.x !== oldX || this.player.y !== oldY);
     this.entityTransition = mapChanged
@@ -409,6 +426,39 @@ export class MapStore {
       });
     }
     return nextMap;
+  }
+
+  private mergeVisibleMinimapMarkerPatches(
+    adds: MapMinimapMarker[],
+    removes: string[],
+  ): MapMinimapMarker[] {
+    const nextMap = new Map(this.visibleMinimapMarkers.map((marker) => [marker.id, cloneJson(marker)]));
+    for (const markerId of removes) {
+      nextMap.delete(markerId);
+    }
+    for (const marker of adds) {
+      nextMap.set(marker.id, cloneJson(marker));
+    }
+    return [...nextMap.values()];
+  }
+
+  private mergeThreatArrowPatches(
+    adds: Array<[string, string]>,
+    removes: Array<[string, string]>,
+  ): Array<{ ownerId: string; targetId: string }> {
+    const nextMap = new Map(
+      this.threatArrows.map((entry) => [buildThreatArrowKey(entry.ownerId, entry.targetId), { ...entry }]),
+    );
+    for (const [ownerId, targetId] of removes) {
+      nextMap.delete(buildThreatArrowKey(ownerId, targetId));
+    }
+    for (const [ownerId, targetId] of adds) {
+      if (!ownerId || !targetId) {
+        continue;
+      }
+      nextMap.set(buildThreatArrowKey(ownerId, targetId), { ownerId, targetId });
+    }
+    return [...nextMap.values()];
   }
 
   private applyVisibleTilePatches(mapId: string, patches: VisibleTilePatch[]): void {
