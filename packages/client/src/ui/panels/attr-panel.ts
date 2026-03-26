@@ -387,7 +387,7 @@ export class AttrPanel {
         tooltipDetail: [
           `当前：${formatDisplayInteger(roundedBonus)} 点`,
           `${ELEMENT_KEY_LABELS[key]}属性伤害增幅：${formatDisplayPercent(roundedBonus)}`,
-          `${ELEMENT_KEY_LABELS[key]}属性伤害削减：${formatRatioPercent(stats.elementDamageReduce[key], reductionDivisor)}`,
+          `${ELEMENT_KEY_LABELS[key]}属性实际减伤：${formatRatioPercent(stats.elementDamageReduce[key], reductionDivisor)}`,
         ].join('\n'),
         color: ELEMENT_COLORS[index % ELEMENT_COLORS.length],
       };

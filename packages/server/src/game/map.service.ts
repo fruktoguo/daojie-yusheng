@@ -82,6 +82,7 @@ import {
   DEFAULT_TERRAIN_DURABILITY_BY_TILE,
   LEGACY_MAP_TERRAIN_PROFILE_IDS,
   SPECIAL_TILE_DURABILITY_MULTIPLIERS,
+  SPECIAL_TILE_RESTORE_SPEED_MULTIPLIERS,
   TERRAIN_DURABILITY_PROFILES,
   TerrainDurabilityProfile,
 } from '../constants/world/terrain';
@@ -235,6 +236,7 @@ export interface MonsterSpawnConfig {
   count: number;
   radius: number;
   maxAlive: number;
+  wanderRadius: number;
   aggroRange: number;
   viewRange: number;
   aggroMode: MonsterAggroMode;
@@ -572,7 +574,10 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
               hp: Math.max(0, Math.round(Number(terrain.hp))),
               destroyed: terrain.destroyed,
               restoreTicksLeft: terrain.destroyed
-                ? this.normalizeRestoreTicksLeft(terrain.restoreTicksLeft)
+                ? this.normalizeRestoreTicksLeft(
+                  terrain.restoreTicksLeft,
+                  this.getBaseTileType(mapId, Number(record.x), Number(record.y)) ?? TileType.Floor,
+                )
                 : undefined,
             });
           }
@@ -707,7 +712,10 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
             hp: Math.max(0, Math.round(Number(record.hp))),
             destroyed: record.destroyed,
             restoreTicksLeft: record.destroyed
-              ? this.normalizeRestoreTicksLeft(record.restoreTicksLeft)
+              ? this.normalizeRestoreTicksLeft(
+                record.restoreTicksLeft,
+                this.getBaseTileType(mapId, Number(record.x), Number(record.y)) ?? TileType.Floor,
+              )
               : undefined,
           };
           records.set(this.tileStateKey(normalized.x, normalized.y), normalized);
@@ -1141,7 +1149,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
           if ((state.restoreTicksLeft ?? 0) <= 0) {
             if (this.hasBlockingEntityAt(mapId, state.x, state.y)) {
-              state.restoreTicksLeft = TERRAIN_RESTORE_RETRY_DELAY_TICKS;
+              state.restoreTicksLeft = this.calculateTileRestoreRetryTicks(state.originalType);
               terrainStateChanged = true;
               this.markTileDirty(mapId, state.x, state.y);
             } else {
@@ -1265,7 +1273,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         maxHp,
         destroyed,
         restoreTicksLeft: destroyed
-          ? this.normalizeRestoreTicksLeft(rawState.restoreTicksLeft)
+          ? this.normalizeRestoreTicksLeft(rawState.restoreTicksLeft, originalType)
           : undefined,
       };
 
@@ -1464,6 +1472,20 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       }
     }
     this.playerOverlapPointsByMap = next;
+    this.syncPlayerOverlapPointsToMapMeta();
+  }
+
+  private syncPlayerOverlapPointsToMapMeta(): void {
+    for (const [mapId, map] of this.maps.entries()) {
+      const points = [...(this.playerOverlapPointsByMap.get(mapId) ?? new Set<string>())]
+        .map((key) => {
+          const [rawX, rawY] = key.split(',');
+          return { x: Number(rawX), y: Number(rawY) };
+        })
+        .filter((point) => Number.isInteger(point.x) && Number.isInteger(point.y))
+        .sort((left, right) => (left.y - right.y) || (left.x - right.x));
+      map.meta.playerOverlapPoints = points.length > 0 ? points : undefined;
+    }
   }
 
   private addOverlapArea(
@@ -1535,10 +1557,23 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     return Math.max(1, Math.floor(maxHp * TERRAIN_REGEN_RATE_PER_TICK));
   }
 
-  private normalizeRestoreTicksLeft(value: unknown): number {
+  private getTileRestoreSpeedMultiplier(type: TileType): number {
+    const configured = SPECIAL_TILE_RESTORE_SPEED_MULTIPLIERS[type] ?? 1;
+    return Number.isFinite(configured) && configured > 0 ? configured : 1;
+  }
+
+  private calculateTileRestoreTicks(type: TileType): number {
+    return Math.max(1, Math.ceil(TERRAIN_DESTROYED_RESTORE_TICKS / this.getTileRestoreSpeedMultiplier(type)));
+  }
+
+  private calculateTileRestoreRetryTicks(type: TileType): number {
+    return Math.max(1, Math.ceil(TERRAIN_RESTORE_RETRY_DELAY_TICKS / this.getTileRestoreSpeedMultiplier(type)));
+  }
+
+  private normalizeRestoreTicksLeft(value: unknown, type: TileType): number {
     return Number.isInteger(value) && Number(value) > 0
       ? Number(value)
-      : TERRAIN_DESTROYED_RESTORE_TICKS;
+      : this.calculateTileRestoreTicks(type);
   }
 
   private getStoredMapTimeState(mapId: string): PersistedMapTimeState | undefined {
@@ -1679,10 +1714,15 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       const [x, y] = key.split(',').map((value) => Number.parseInt(value, 10));
       const record: PersistedTileRuntimeRecord = { x, y };
       if (terrain) {
+        const terrainType = 'originalType' in terrain && terrain.originalType
+          ? terrain.originalType
+          : TileType.Floor;
         record.terrain = {
           hp: terrain.hp,
           destroyed: terrain.destroyed,
-          restoreTicksLeft: terrain.destroyed ? this.normalizeRestoreTicksLeft(terrain.restoreTicksLeft) : undefined,
+          restoreTicksLeft: terrain.destroyed
+            ? this.normalizeRestoreTicksLeft(terrain.restoreTicksLeft, terrainType)
+            : undefined,
         };
       }
       if (resources) {
@@ -2410,100 +2450,78 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       const rawSpawn = candidate as Partial<GmMapMonsterSpawnRecord> & Partial<MonsterSpawnConfig> & {
         templateId?: string;
         count?: number;
+        radius?: number;
+        maxAlive?: number;
+        wanderRadius?: number;
         respawnSec?: number;
         level?: number;
-        expMultiplier?: number;
-        lootItemId?: string;
-        lootChance?: number;
-        drops?: unknown[];
       };
       const templateId = this.resolveMonsterSpawnTemplateId(rawSpawn);
       const template = templateId ? this.contentService.getMonsterTemplate(templateId) : undefined;
-      const spawn = template ? { ...template, ...rawSpawn } : rawSpawn;
-      const level = Number.isInteger((spawn as { level?: number }).level) ? (spawn as { level: number }).level : undefined;
-      const valueStats = (spawn as { valueStats?: PartialNumericStats }).valueStats
+      if (!template) {
+        this.logger.warn(`地图 ${meta.id} 存在未匹配怪物模板的刷新点，已忽略: ${String(rawSpawn.id ?? '')}`);
+        continue;
+      }
+      const level = Number.isInteger(rawSpawn.level) ? Math.max(1, Number(rawSpawn.level)) : template.level;
+      const valueStats = template.valueStats
         ?? inferMonsterValueStatsFromLegacy({
-          maxHp: Number.isInteger(spawn.maxHp) ? Number(spawn.maxHp) : (Number.isInteger(spawn.hp) ? Number(spawn.hp) : 1),
-          attack: Number.isInteger(spawn.attack) ? Number(spawn.attack) : 1,
-          level,
-          viewRange: Number.isInteger((spawn as { viewRange?: number }).viewRange)
-            ? (spawn as { viewRange: number }).viewRange
-            : (Number.isInteger(spawn.aggroRange) ? spawn.aggroRange : 6),
+          maxHp: template.maxHp,
+          attack: template.attack,
+          level: template.level,
+          viewRange: template.viewRange,
         });
-      const numericStats = (spawn as { numericStats?: NumericStats }).numericStats
-        ?? resolveMonsterNumericStatsFromValueStats(valueStats, level);
-      const combatModel = (spawn as { combatModel?: MonsterCombatModel }).combatModel ?? 'legacy';
+      const numericStats = resolveMonsterNumericStatsFromValueStats(valueStats, level);
+      const combatModel: MonsterCombatModel = template.valueStats ? 'value_stats' : 'legacy';
       const spawnId = typeof rawSpawn.id === 'string' && rawSpawn.id.trim().length > 0
         ? rawSpawn.id.trim()
         : templateId;
+      const radius = Number.isInteger(rawSpawn.radius) ? Math.max(0, Number(rawSpawn.radius)) : template.radius;
+      const maxAlive = Number.isInteger(rawSpawn.maxAlive) ? Math.max(1, Number(rawSpawn.maxAlive)) : template.maxAlive;
+      const configuredCount = Number.isInteger(rawSpawn.count) ? Math.max(1, Number(rawSpawn.count)) : template.count;
+      const count = Math.min(configuredCount, maxAlive);
+      const respawnTicks = Number.isInteger(rawSpawn.respawnTicks)
+        ? Math.max(1, Number(rawSpawn.respawnTicks))
+        : Math.max(1, Number(rawSpawn.respawnSec ?? template.respawnTicks));
+      const wanderRadius = Number.isInteger(rawSpawn.wanderRadius)
+        ? Math.max(0, Number(rawSpawn.wanderRadius))
+        : radius;
       const valid =
         typeof spawnId === 'string' &&
-        typeof spawn.name === 'string' &&
-        Number.isInteger(spawn.x) &&
-        Number.isInteger(spawn.y) &&
-        typeof spawn.char === 'string' &&
-        typeof spawn.color === 'string' &&
-        Number.isInteger(spawn.hp) &&
-        Number.isInteger(spawn.attack) &&
-        (
-          Number.isInteger(spawn.respawnTicks) ||
-          Number.isInteger((spawn as { respawnSec?: number }).respawnSec)
-        );
+        Number.isInteger(rawSpawn.x) &&
+        Number.isInteger(rawSpawn.y);
       if (!valid) {
         this.logger.warn(`地图 ${meta.id} 存在非法怪物刷新点配置，已忽略`);
         continue;
       }
-      if (spawn.x! < 0 || spawn.x! >= meta.width || spawn.y! < 0 || spawn.y! >= meta.height) {
-        this.logger.warn(`地图 ${meta.id} 的怪物刷新点越界: ${spawn.id}`);
+      if (rawSpawn.x! < 0 || rawSpawn.x! >= meta.width || rawSpawn.y! < 0 || rawSpawn.y! >= meta.height) {
+        this.logger.warn(`地图 ${meta.id} 的怪物刷新点越界: ${spawnId}`);
         continue;
       }
-      const rawDrops = Array.isArray((candidate as { drops?: unknown[] }).drops)
-        ? (candidate as { drops: unknown[] }).drops
-        : (typeof (candidate as { lootItemId?: unknown }).lootItemId === 'string'
-            ? [{
-                itemId: String((candidate as { lootItemId: unknown }).lootItemId),
-                name: String((candidate as { lootItemId: unknown }).lootItemId),
-                type: 'material',
-                count: 1,
-                chance: typeof (candidate as { lootChance?: unknown }).lootChance === 'number'
-                  ? Number((candidate as { lootChance: unknown }).lootChance)
-                  : 1,
-              }]
-            : []);
-      const drops = this.normalizeDrops(rawDrops);
+      const drops = this.normalizeDrops(template.drops);
       result.push({
         id: spawnId!,
-        name: spawn.name!,
-        x: spawn.x!,
-        y: spawn.y!,
-        char: spawn.char!,
-        color: spawn.color!,
-        grade: this.normalizeContainerGrade((spawn as { grade?: TechniqueGrade }).grade),
+        name: template.name,
+        x: rawSpawn.x!,
+        y: rawSpawn.y!,
+        char: template.char,
+        color: template.color,
+        grade: this.normalizeContainerGrade(rawSpawn.grade ?? template.grade),
         valueStats,
         numericStats,
         combatModel,
-        hp: Math.max(1, Math.round(numericStats.maxHp || spawn.hp!)),
-        maxHp: Math.max(1, Math.round(numericStats.maxHp || (Number.isInteger(spawn.maxHp) ? spawn.maxHp! : spawn.hp!))),
-        attack: Math.max(1, Math.round(numericStats.physAtk || numericStats.spellAtk || spawn.attack! || 1)),
-        count: Number.isInteger((spawn as { count?: number }).count)
-          ? (spawn as { count: number }).count
-          : (Number.isInteger((spawn as { maxAlive?: number }).maxAlive) ? (spawn as { maxAlive: number }).maxAlive : 1),
-        radius: Number.isInteger((spawn as { radius?: number }).radius) ? (spawn as { radius: number }).radius : 3,
-        maxAlive: Number.isInteger((spawn as { maxAlive?: number }).maxAlive)
-          ? (spawn as { maxAlive: number }).maxAlive
-          : (Number.isInteger((spawn as { count?: number }).count) ? (spawn as { count: number }).count : 1),
-        aggroRange: Number.isInteger(spawn.aggroRange) ? spawn.aggroRange! : 6,
-        viewRange: Number.isInteger((spawn as { viewRange?: number }).viewRange)
-          ? (spawn as { viewRange: number }).viewRange
-          : (Number.isInteger(spawn.aggroRange) ? spawn.aggroRange! : 6),
-        aggroMode: spawn.aggroMode ?? 'always',
-        respawnTicks: Number.isInteger(spawn.respawnTicks)
-          ? spawn.respawnTicks!
-          : Math.max(1, (spawn as { respawnSec?: number }).respawnSec ?? 15),
+        hp: Math.max(1, Math.round(numericStats.maxHp || template.hp)),
+        maxHp: Math.max(1, Math.round(numericStats.maxHp || template.maxHp || template.hp)),
+        attack: Math.max(1, Math.round(numericStats.physAtk || numericStats.spellAtk || template.attack || 1)),
+        count,
+        radius,
+        maxAlive,
+        wanderRadius,
+        aggroRange: template.aggroRange,
+        viewRange: template.viewRange,
+        aggroMode: template.aggroMode,
+        respawnTicks,
         level,
-        expMultiplier: typeof (spawn as { expMultiplier?: number }).expMultiplier === 'number'
-          ? Math.max(0, (spawn as { expMultiplier: number }).expMultiplier)
-          : 1,
+        expMultiplier: template.expMultiplier,
         drops,
       });
     }
@@ -3508,7 +3526,12 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     this.markTileDirty(mapId, x, y);
   }
 
-  damageTile(mapId: string, x: number, y: number, damage: number): { destroyed: boolean; hp: number; maxHp: number; appliedDamage: number } | null {
+  damageTile(
+    mapId: string,
+    x: number,
+    y: number,
+    damage: number,
+  ): { destroyed: boolean; hp: number; maxHp: number; appliedDamage: number; targetType: TileType } | null {
     const tile = this.getTile(mapId, x, y);
     const originalType = this.getBaseTileType(mapId, x, y);
     if (!tile || originalType === null) return null;
@@ -3528,7 +3551,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     const nextDamage = Math.max(0, Math.round(damage));
     if (nextDamage <= 0) {
       const hp = current?.hp ?? tile.hp ?? maxHp;
-      return { destroyed: false, hp, maxHp, appliedDamage: 0 };
+      return { destroyed: false, hp, maxHp, appliedDamage: 0, targetType: originalType };
     }
 
     const state: DynamicTileState = current ?? {
@@ -3546,7 +3569,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     const appliedDamage = Math.min(currentHp, nextDamage);
     state.hp = Math.max(0, currentHp - appliedDamage);
     state.destroyed = state.hp <= 0;
-    state.restoreTicksLeft = state.destroyed ? TERRAIN_DESTROYED_RESTORE_TICKS : undefined;
+    state.restoreTicksLeft = state.destroyed ? this.calculateTileRestoreTicks(originalType) : undefined;
     this.applyDynamicTileStateToTile(tile, state);
     this.markTileDirty(mapId, x, y);
 
@@ -3557,10 +3580,10 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
     if (state.destroyed) {
       this.bumpMapRevision(mapId);
-      return { destroyed: true, hp: 0, maxHp, appliedDamage };
+      return { destroyed: true, hp: 0, maxHp, appliedDamage, targetType: originalType };
     }
 
-    return { destroyed: false, hp: state.hp, maxHp: state.maxHp, appliedDamage };
+    return { destroyed: false, hp: state.hp, maxHp: state.maxHp, appliedDamage, targetType: originalType };
   }
 
   findNearbyWalkable(
@@ -3686,10 +3709,38 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     if (!template) {
       return raw;
     }
+    const radius = Number.isInteger(spawn.radius) ? Math.max(0, Number(spawn.radius)) : template.radius;
+    const maxAlive = Number.isInteger(spawn.maxAlive) ? Math.max(1, Number(spawn.maxAlive)) : template.maxAlive;
+    const level = Number.isInteger(spawn.level) ? Math.max(1, Number(spawn.level)) : template.level;
+    const valueStats = template.valueStats
+      ?? inferMonsterValueStatsFromLegacy({
+        maxHp: template.maxHp,
+        attack: template.attack,
+        level: template.level,
+        viewRange: template.viewRange,
+      });
+    const numericStats = resolveMonsterNumericStatsFromValueStats(valueStats, level);
     return {
       ...template,
-      ...spawn,
+      id: typeof spawn.id === 'string' && spawn.id.trim().length > 0 ? spawn.id : template.id,
       templateId,
+      x: Number.isInteger(spawn.x) ? Number(spawn.x) : 0,
+      y: Number.isInteger(spawn.y) ? Number(spawn.y) : 0,
+      grade: spawn.grade ?? template.grade,
+      hp: Math.max(1, Math.round(numericStats.maxHp || template.hp)),
+      maxHp: Math.max(1, Math.round(numericStats.maxHp || template.maxHp || template.hp)),
+      attack: Math.max(1, Math.round(numericStats.physAtk || numericStats.spellAtk || template.attack || 1)),
+      count: Number.isInteger(spawn.count) ? Math.max(1, Number(spawn.count)) : template.count,
+      radius,
+      maxAlive,
+      wanderRadius: Number.isInteger(spawn.wanderRadius) ? Math.max(0, Number(spawn.wanderRadius)) : radius,
+      respawnTicks: Number.isInteger(spawn.respawnTicks)
+        ? Math.max(1, Number(spawn.respawnTicks))
+        : Math.max(1, Number(spawn.respawnSec ?? template.respawnTicks)),
+      respawnSec: Number.isInteger(spawn.respawnSec)
+        ? Math.max(1, Number(spawn.respawnSec))
+        : undefined,
+      level,
     };
   }
 
@@ -3716,19 +3767,12 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     if (templateId !== spawn.id) {
       persisted.templateId = templateId;
     }
-    if (spawn.name !== template.name) persisted.name = spawn.name;
-    if (spawn.char !== template.char) persisted.char = spawn.char;
-    if (spawn.color !== template.color) persisted.color = spawn.color;
     if (spawn.grade !== template.grade) persisted.grade = spawn.grade;
-    if (spawn.hp !== template.hp) persisted.hp = spawn.hp;
-    if ((spawn.maxHp ?? spawn.hp) !== template.maxHp) persisted.maxHp = spawn.maxHp;
-    if (spawn.attack !== template.attack) persisted.attack = spawn.attack;
     if ((spawn.count ?? spawn.maxAlive ?? 1) !== template.count) persisted.count = spawn.count;
     if ((spawn.radius ?? 3) !== template.radius) persisted.radius = spawn.radius;
     if ((spawn.maxAlive ?? 1) !== template.maxAlive) persisted.maxAlive = spawn.maxAlive;
-    if ((spawn.aggroRange ?? 6) !== template.aggroRange) persisted.aggroRange = spawn.aggroRange;
-    if ((spawn.viewRange ?? spawn.aggroRange ?? 6) !== template.viewRange) persisted.viewRange = spawn.viewRange;
-    if ((spawn.aggroMode ?? 'always') !== template.aggroMode) persisted.aggroMode = spawn.aggroMode;
+    const defaultWanderRadius = spawn.radius ?? template.radius;
+    if ((spawn.wanderRadius ?? defaultWanderRadius) !== defaultWanderRadius) persisted.wanderRadius = spawn.wanderRadius;
     if ((spawn.respawnTicks ?? spawn.respawnSec ?? 15) !== template.respawnTicks) {
       persisted.respawnTicks = spawn.respawnTicks;
       if (persisted.respawnTicks === undefined && spawn.respawnSec !== undefined) {
@@ -3736,10 +3780,6 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       }
     }
     if ((spawn.level ?? undefined) !== template.level) persisted.level = spawn.level;
-    if ((spawn.expMultiplier ?? 1) !== template.expMultiplier) persisted.expMultiplier = spawn.expMultiplier;
-    if (JSON.stringify(spawn.drops ?? []) !== JSON.stringify(template.drops)) {
-      persisted.drops = spawn.drops;
-    }
     return persisted;
   }
 
@@ -3918,13 +3958,18 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
   private destroyedTileType(type: TileType): TileType {
     switch (type) {
+      case TileType.Cloud:
+        return TileType.CloudFloor;
       case TileType.Tree:
+      case TileType.Bamboo:
         return TileType.Grass;
       case TileType.Window:
         return TileType.BrokenWindow;
       case TileType.Wall:
+      case TileType.Cliff:
       case TileType.Stone:
       case TileType.SpiritOre:
+      case TileType.BlackIronOre:
       case TileType.Door:
         return TileType.Floor;
       default:

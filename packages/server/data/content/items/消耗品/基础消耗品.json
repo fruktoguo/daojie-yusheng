@@ -16,6 +16,22 @@
     "allowBatchUse": true
   },
   {
+    "itemId": "cloud_puff",
+    "name": "云朵",
+    "type": "consumable",
+    "desc": "揉散后像把一团轻云按进经脉，1800 息内身形飘然，移动速度提高 20。",
+    "consumeBuffs": [
+      {
+        "buffId": "item_buff.floating_cloud",
+        "name": "飘然",
+        "desc": "云气托体，脚下更轻，移动速度提高；即使身死，这股轻云余势也会继续残留到药尽为止。",
+        "shortMark": "飘",
+        "duration": 1800,
+        "valueStats": { "moveSpeed": 20 }
+      }
+    ]
+  },
+  {
     "itemId": "minor_qi_pill",
     "name": "小还灵丹",
     "type": "consumable",

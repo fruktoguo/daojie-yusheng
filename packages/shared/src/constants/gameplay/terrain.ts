@@ -35,12 +35,18 @@ export const TILE_TRAVERSAL_COST: Record<TileType, number> = {
   stairs: 100,
   grass: 80,
   hill: 120,
+  cliff: 400,
   mud: 200,
   swamp: 300,
   water: 400,
+  cloud: 400,
+  cloud_floor: 90,
+  void: 400,
   tree: 400,
+  bamboo: 400,
   stone: 400,
   spirit_ore: 400,
+  black_iron_ore: 400,
 };
 
 /** 地形类型到地图字符的映射 */
@@ -56,12 +62,18 @@ export const TILE_TYPE_TO_MAP_CHAR: Record<TileType, string> = {
   stairs: 'S',
   grass: ',',
   hill: '^',
+  cliff: '崖',
   mud: ';',
   swamp: '%',
   water: '~',
+  cloud: '云',
+  cloud_floor: '霞',
+  void: '空',
   tree: 'T',
+  bamboo: '竹',
   stone: 'o',
   spirit_ore: 'L',
+  black_iron_ore: '铁',
 };
 
 /** 地形耐久度的品阶基础血量 */

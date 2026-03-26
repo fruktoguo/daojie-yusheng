@@ -1845,7 +1845,6 @@ function refreshZoomChrome(zoom = getZoom()) {
 function refreshZoomViewport() {
   resizeCanvas();
   mapRuntime.setZoom(getZoom());
-  mapRuntime.replaceVisibleEntities(latestEntities);
 }
 
 function inferAutoBattle(current: boolean, actions: { id: string; name: string; desc: string }[]): boolean {
@@ -2070,11 +2069,12 @@ function isCellAvailableForAutoApproach(x: number, y: number): boolean {
   if (!myPlayer || !isCellInsideCurrentMap(x, y)) {
     return false;
   }
+  const mapMeta = mapRuntime.getMapMeta();
   const tile = getKnownTileAt(x, y);
   if (!tile?.walkable) {
     return false;
   }
-  return !tile.occupiedBy || tile.occupiedBy === myPlayer.id;
+  return !isVisibleBlockingEntityAt(x, y, { allowSelf: true, mapMeta });
 }
 
 function findObservedEntityAt(x: number, y: number, kind?: string): ObservedEntity | null {
@@ -2084,6 +2084,36 @@ function findObservedEntityAt(x: number, y: number, kind?: string): ObservedEnti
     && (kind ? entry.kind === kind : true)
   ));
   return entity ?? null;
+}
+
+function isPathPreviewBlockingEntity(entity: ObservedEntity): boolean {
+  return entity.kind === 'player' || entity.kind === 'monster' || entity.kind === 'npc';
+}
+
+function createPlayerOverlapPointKeySet(mapMeta: MapMeta | null): ReadonlySet<string> {
+  return new Set((mapMeta?.playerOverlapPoints ?? []).map((point) => `${point.x},${point.y}`));
+}
+
+function isVisibleBlockingEntityAt(
+  x: number,
+  y: number,
+  options?: { allowSelf?: boolean; mapMeta?: MapMeta | null; playerOverlapPointKeys?: ReadonlySet<string> },
+): boolean {
+  const overlapPointKeys = options?.playerOverlapPointKeys
+    ?? createPlayerOverlapPointKeySet(options?.mapMeta ?? mapRuntime.getMapMeta());
+  const supportsPlayerOverlap = overlapPointKeys.has(`${x},${y}`);
+  return latestEntities.some((entity) => {
+    if (entity.wx !== x || entity.wy !== y || !isPathPreviewBlockingEntity(entity)) {
+      return false;
+    }
+    if (options?.allowSelf && entity.kind === 'player' && entity.id === myPlayer?.id) {
+      return false;
+    }
+    if (entity.kind === 'player' && supportsPlayerOverlap) {
+      return false;
+    }
+    return true;
+  });
 }
 
 function resolveNpcApproachTarget(npc: ObservedEntity): { x: number; y: number } | null {
@@ -2243,10 +2273,12 @@ function buildClientPreviewPath(
   ) {
     return null;
   }
+  const playerOverlapPointKeys = createPlayerOverlapPointKeySet(mapMeta);
 
-  const visiblePlayerPositions = new Set(
+  const visibleBlockingPositions = new Set(
     latestEntities
-      .filter((entity) => entity.kind === 'player' && entity.id !== myPlayer?.id)
+      .filter((entity) => isPathPreviewBlockingEntity(entity) && !(entity.kind === 'player' && entity.id === myPlayer?.id))
+      .filter((entity) => entity.kind !== 'player' || !playerOverlapPointKeys.has(`${entity.wx},${entity.wy}`))
       .map((entity) => `${entity.wx},${entity.wy}`),
   );
 
@@ -2259,12 +2291,12 @@ function buildClientPreviewPath(
         type: TileType.Wall,
         walkable: false,
       } as Tile);
-      const occupiedByVisiblePlayer = visiblePlayerPositions.has(`${x},${y}`) && !(x === targetX && y === targetY);
-      row.push(occupiedByVisiblePlayer
+      const occupiedByVisibleEntity = visibleBlockingPositions.has(`${x},${y}`);
+      row.push(occupiedByVisibleEntity
         ? {
             ...baseTile,
             walkable: false,
-            occupiedBy: 'visible_player',
+            occupiedBy: 'visible_entity',
           }
         : baseTile);
     }
@@ -2559,7 +2591,6 @@ socket.onInit((data: S2C_Init) => {
   latestActionMap = new Map((myPlayer.actions ?? []).map((action) => [action.id, cloneJson(action)]));
   latestEntities = entities;
   latestEntityMap = new Map(entities.map((entity) => [entity.id, entity]));
-  mapRuntime.replaceVisibleEntities(entities, { snapCamera: true });
 
   clearCurrentPath();
   mapRuntime.setPathCells(pathCells);
@@ -2679,14 +2710,6 @@ socket.onTick((data: S2C_Tick) => {
   latestEntities = entities;
   syncTargetingOverlay();
   refreshHudChrome();
-
-  if (moved) {
-    const shiftX = myPlayer.x - oldX;
-    const shiftY = myPlayer.y - oldY;
-    mapRuntime.replaceVisibleEntities(entities, { movedId: myPlayer.id, shiftX, shiftY });
-  } else {
-    mapRuntime.replaceVisibleEntities(entities, mapChanged ? { snapCamera: true } : null);
-  }
 
   const autoInteractionTriggered = triggerAutoInteractionIfReady();
   if (!autoInteractionTriggered && pathTarget && myPlayer.x === pathTarget.x && myPlayer.y === pathTarget.y) {

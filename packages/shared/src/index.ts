@@ -12,6 +12,7 @@ export * from './numeric';
 export * from './technique';
 export * from './geometry';
 export * from './direction';
+export * from './pathfinding';
 export * from './path-codec';
 export * from './targeting';
 export * from './target-ref';

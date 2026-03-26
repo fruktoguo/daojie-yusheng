@@ -74,10 +74,10 @@ import {
   OBSERVATION_FULL_RATIO,
 } from '../constants/world/overview';
 import {
-  SPIRIT_ORE_REWARD_BASE_DAMAGE,
-  SPIRIT_ORE_REWARD_BASE_CHANCE_BPS,
-  SPIRIT_ORE_REWARD_DAMAGE_SCALE,
-  SPIRIT_ORE_REWARD_ITEM_ID,
+  ORE_REWARD_BASE_CHANCE_BPS_BY_TILE,
+  ORE_REWARD_BASE_DAMAGE,
+  ORE_REWARD_DAMAGE_SCALE,
+  ORE_REWARD_ITEM_ID_BY_TILE,
 } from '../constants/gameplay/terrain';
 import { MARKET_CURRENCY_ITEM_ID } from '../constants/gameplay/market';
 
@@ -1630,9 +1630,13 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         this.resolveMonsterTarget(monster, players, timeState)
       ));
       if (!target) {
-        if (monster.x !== monster.spawnX || monster.y !== monster.spawnY) {
+        if (!this.isMonsterWithinWanderRange(monster, monster.x, monster.y)) {
           this.measureCpuSection('monster_return', '怪物: 回巢移动', () => {
             this.stepToward(mapId, monster, monster.spawnX, monster.spawnY, monster.runtimeId);
+          });
+        } else if (monster.wanderRadius > 0 && Math.random() < 0.35) {
+          this.measureCpuSection('monster_roam', '怪物: 闲逛移动', () => {
+            this.stepMonsterIdleRoam(monster);
           });
         }
         continue;
@@ -3668,6 +3672,37 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return candidates[Math.floor(Math.random() * candidates.length)];
   }
 
+  private isMonsterWithinWanderRange(monster: RuntimeMonster, x: number, y: number): boolean {
+    const radius = Math.max(0, monster.wanderRadius);
+    return isOffsetInRange(x - monster.spawnX, y - monster.spawnY, radius);
+  }
+
+  private stepMonsterIdleRoam(monster: RuntimeMonster): Direction | null {
+    const radius = Math.max(0, monster.wanderRadius);
+    if (radius <= 0) {
+      return null;
+    }
+    const directions = [
+      { dx: 1, dy: 0, facing: Direction.East },
+      { dx: -1, dy: 0, facing: Direction.West },
+      { dx: 0, dy: 1, facing: Direction.South },
+      { dx: 0, dy: -1, facing: Direction.North },
+    ];
+    const startIndex = Math.floor(Math.random() * directions.length);
+    for (let offset = 0; offset < directions.length; offset += 1) {
+      const direction = directions[(startIndex + offset) % directions.length]!;
+      const nextX = monster.x + direction.dx;
+      const nextY = monster.y + direction.dy;
+      if (!this.isMonsterWithinWanderRange(monster, nextX, nextY)) {
+        continue;
+      }
+      if (this.moveActorTo(monster.mapId, monster, nextX, nextY, monster.runtimeId, 'monster')) {
+        return direction.facing;
+      }
+    }
+    return null;
+  }
+
   private findNearbyWalkable(mapId: string, x: number, y: number, maxRadius = 3): { x: number; y: number } | null {
     for (let radius = 0; radius <= maxRadius; radius++) {
       for (let dy = -radius; dy <= radius; dy++) {
@@ -4063,8 +4098,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         kind: 'combat',
       },
     ];
-    if (targetName === TileType.SpiritOre) {
-      const reward = this.tryGrantSpiritOreReward(player, x, y, appliedDamage);
+    if (ORE_REWARD_ITEM_ID_BY_TILE[result.targetType]) {
+      const reward = this.tryGrantOreReward(player, x, y, result.targetType, appliedDamage);
       messages.push(...reward.messages);
       for (const flag of reward.dirty) {
         dirty.add(flag);
@@ -4080,20 +4115,26 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return { messages, dirty: [...dirty] };
   }
 
-  private tryGrantSpiritOreReward(
+  private tryGrantOreReward(
     player: PlayerState,
     x: number,
     y: number,
+    tileType: TileType,
     appliedDamage: number,
   ): WorldUpdate {
-    const chanceBps = this.getSpiritOreRewardChanceBps(appliedDamage);
+    const chanceBps = this.getOreRewardChanceBps(tileType, appliedDamage);
     if (chanceBps <= 0 || Math.random() * 10000 >= chanceBps) {
       return EMPTY_UPDATE;
     }
 
-    const reward = this.contentService.createItem(SPIRIT_ORE_REWARD_ITEM_ID, 1);
+    const rewardItemId = ORE_REWARD_ITEM_ID_BY_TILE[tileType];
+    if (!rewardItemId) {
+      return EMPTY_UPDATE;
+    }
+
+    const reward = this.contentService.createItem(rewardItemId, 1);
     if (!reward) {
-      this.logger.warn(`灵石矿奖励物品缺失: ${SPIRIT_ORE_REWARD_ITEM_ID}`);
+      this.logger.warn(`${tileType} 奖励物品缺失: ${rewardItemId}`);
       return EMPTY_UPDATE;
     }
 
@@ -4101,7 +4142,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       return {
         messages: [{
           playerId: player.id,
-          text: `灵石矿震落出 ${reward.name} x${reward.count}。`,
+          text: `${reward.name} 从矿脉中震落而出 x${reward.count}。`,
           kind: 'loot',
         }],
         dirty: ['inv'],
@@ -4119,17 +4160,21 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  private getSpiritOreRewardChanceBps(appliedDamage: number): number {
+  private getOreRewardChanceBps(tileType: TileType, appliedDamage: number): number {
+    const baseChanceBps = ORE_REWARD_BASE_CHANCE_BPS_BY_TILE[tileType] ?? 0;
+    if (baseChanceBps <= 0) {
+      return 0;
+    }
     const normalizedDamage = Math.max(0, Math.floor(appliedDamage));
-    if (normalizedDamage < SPIRIT_ORE_REWARD_BASE_DAMAGE) {
+    if (normalizedDamage < ORE_REWARD_BASE_DAMAGE) {
       return 0;
     }
 
-    let chanceBps = SPIRIT_ORE_REWARD_BASE_CHANCE_BPS;
-    let nextThreshold = SPIRIT_ORE_REWARD_BASE_DAMAGE;
-    while (normalizedDamage >= nextThreshold * SPIRIT_ORE_REWARD_DAMAGE_SCALE) {
-      chanceBps += SPIRIT_ORE_REWARD_BASE_CHANCE_BPS;
-      nextThreshold *= SPIRIT_ORE_REWARD_DAMAGE_SCALE;
+    let chanceBps = baseChanceBps;
+    let nextThreshold = ORE_REWARD_BASE_DAMAGE;
+    while (normalizedDamage >= nextThreshold * ORE_REWARD_DAMAGE_SCALE) {
+      chanceBps += baseChanceBps;
+      nextThreshold *= ORE_REWARD_DAMAGE_SCALE;
     }
     return Math.min(10000, chanceBps);
   }

@@ -371,9 +371,5 @@ export class AttrService {
     for (const key of REALM_LINEAR_NUMERIC_KEYS) {
       target[key] = Math.max(0, Math.round(target[key] * linearMultiplier));
     }
-    for (const key of ELEMENT_KEYS) {
-      target.elementDamageBonus[key] = Math.max(0, Math.round(target.elementDamageBonus[key] * linearMultiplier));
-      target.elementDamageReduce[key] = Math.max(0, Math.round(target.elementDamageReduce[key] * linearMultiplier));
-    }
   }
 }

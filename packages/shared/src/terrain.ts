@@ -60,13 +60,21 @@ export function isTileTypeWalkable(type: TileType): boolean {
     type === TileType.Grass ||
     type === TileType.Hill ||
     type === TileType.Mud ||
-    type === TileType.Swamp
+    type === TileType.Swamp ||
+    type === TileType.CloudFloor
   );
 }
 
 /** 判断地形是否阻挡视线 */
 export function doesTileTypeBlockSight(type: TileType): boolean {
-  return type === TileType.Wall || type === TileType.Tree || type === TileType.Stone || type === TileType.SpiritOre;
+  return type === TileType.Wall
+    || type === TileType.Cloud
+    || type === TileType.Tree
+    || type === TileType.Bamboo
+    || type === TileType.Cliff
+    || type === TileType.Stone
+    || type === TileType.SpiritOre
+    || type === TileType.BlackIronOre;
 }
 
 /** 根据移速属性计算每 tick 实际移动点数 */

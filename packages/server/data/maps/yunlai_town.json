@@ -23,21 +23,21 @@
     "#,,,,,,,#,,oo,,::::,,,,,,,,,,,====,,,,,,,,,::::,,,,,,,,#,,,,,,,#",
     "#,,,,,,,#,,oo,,::::,,,,,,,,,,,====,,,,,,,,,::::,,,,,,,,#,,,,,,,#",
     "#,,,,,,,#,,,,###########,,#..#====,,#####oooo,,,,,,,,,,#,,,,,,,#",
-    "#,,,,,,,#,,,,#.........#oo#..#====,,#....oooo,,,,,,,,,,#,,,,,,,#",
-    "#,,,,,,,#,,,,#.oo...oo.#oo#.S#====,,#.S..oooo,,,,,,,,,,#,,,,,,,#",
-    "#,,,,,,,#,,,,#.oo.S.oo.#,,#..#====,,#...#oooo,,,,,,,,,,#,,,,,,,#",
-    "#,,,,,,,#,,,,#.........#,,####====,,#####,,,,,,,,,,,,,,#,,,,,,,#",
-    "#,,,,,,,#,,,,#.........#,,,,,,====,oo,,,,,,,,,,,,,,,,,,#,,,,,,,#",
-    "#,,,,,,,#,,,,####+++####==========,oo,,,,,,,,,,,,,,,,,,#,,,,,,,#",
-    "#,,,,,,,#,,,,,,,==================,,,,,,,,,,,,,,,,,,,,,ooo,,,,,#",
-    "#,,,,,,,#,,,,,,,==========================,,,,,,,,,,,,,:::,,,,,#",
-    "#,,,,,,,#,,,,,,,,,,,,,,,,,,..........=====,,,,,,,,,,,,,:::,,,,,#",
-    "#,,,,,,,#,,oo,,,,,,,,,,,,,,..#...#...=====,,,,,,,,,,,,,:::,,,,,#",
-    "#,,,,,,,#,,oo,,,,,,,,,,,,,,..........,,######...##,,,,,:::,,,,,#",
+    "#,,,,,,,#,,,,#.........#oo#..#====,,#....oooo,,,,,,,,,,#,,,,,,:#",
+    "#,,,,,,,#,,,,#.oo...oo.#oo#..#====,,#.S..oooo,,,,,,,,,,#,,,,,::#",
+    "#,,,,,,,#,,,,#.oo.S.oo.#,,#..#====,,#...#oooo,,,,,,,,,,#,,,,,::#",
+    "#,,,,,,,#,,,,#.........#,,####====,,#####,,,,,,,,,,,,,,#,,,,::P#",
+    "#,,,,,,,#,,,,#.........#,,,,,,====,oo,,,,,,,,,,,,,,,,,,#,,,,:::#",
+    "#,,,,,,,#,,,,####+++####==========,oo,,,,,,,,,,,,,,,,,,#,,,::::#",
+    "#,,,,,,,#,,,,,,,==================,,,,,,,,,,,,,,,,,,,,,ooo:::::#",
+    "#,,,,,,,#,,,,,,,==========================,,,,,,,,,,,,,:::::::,#",
+    "#,,,,,,,#,,,,,,,,,,,,,,,,,,..........=====,,,,,,,,,,,,,:::::::,#",
+    "#,,,,,,,#,,oo,,,,,,,,,,,,,,..#...#...=====,,,,,,,,,,,,,::::::,,#",
+    "#,,,,,,,#,,oo,,,,,,,,,,,,,,..........,,######...##,,,,,:::::,,,#",
     "#,,,,,ooo,,oo,,,,,,,,,,,,,,..........,,#.........#,,,,,ooo,,,,,#",
     "#,,,,,:::,,,,,,,,,,,,,,,,,,,,,====,,,,,#..........,,,,,#,,,,,,,#",
     "#,,,,,:::==============================#..........=====#,,,,,,,#",
-    "#,,,,,:::==============================#..........=====#TTTT,,,#",
+    "#,,,,,:::====P=========================#..........=====#TTTT,,,#",
     "#,,,,,:::==============================#.........#=====#TTTTT,,#",
     "#,,,,,ooo==============================###########=====#TTTTT,,#",
     "#,,,,,,,#,,,,,,,,,,,,,,,,,,,,,====,,,,,,,,,,,,,,,,,,,,,#TT,TT,,#",
@@ -45,10 +45,10 @@
     "#,,,,,,,#,,,#....#....#,#....#====,,,#....#...#,,,,,oo,#TTTTT,,#",
     "#,,,,,,,#,,,#....#....#,#....+====,,,#....#...#,,,,,oo,#TTTTT,,#",
     "#,,,,,,,#,,,#....#....#=#....+=======+........#,,,,,,,,#,TTTT,,#",
-    "#,,,,,,,#,,,#.........+=#....#=======+.S......#,,,,,,,,#,,,,,,,#",
+    "#,,,,,,,#,,,#.........+=#....#=======+........#,,,,,,,,#,,,,,,,#",
     "#,,,,,,,#,,,#...S.....+=######=======#....#...#,,,,,,,,#,,,,,,,#",
     "#,,,,,,,#,,,#....#....#,,,,,,,====,,,#....#ooo#,,,,,,,,#,,,,,,,#",
-    "#,,,,,,,#,,,#....#....#,#####,====,,,#....#oo;;;;;;;;;;;,,,,,,,#",
+    "#,,,,,,,#,,,#....#....#,#####,====,,,#...S#oo;;;;;;;;;;;,,,,,,,#",
     "#,,,,,,,#,,,#....#....#,#...#,====,,,########o;;;;;;;;;;,,,,,,,#",
     "#,,,,,,,#,,,###########,....#,====,,,,,,,,,,,;o~~~~~~~;;,,,,,,,#",
     "#,,,,,,,#,,,,,,,,,,,,,,,....#,====,,,,,,,,,,o;;~%%%%%~;;,,,,,,,#",
@@ -64,7 +64,7 @@
     "#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;====;;;;;;;;;;;;;;;;o#.....#,,,;;#",
     "#;;;;;,,,,,,,,,,;;,,,,,,;;;;;;====;;;;;;;;;;;;;;;;o#......,,,;;#",
     "#;;;;;,,,,,,,,,,;;,,,,,,;;;;;;====;;;;;;;;;;;;;;;;o.......,,,;;#",
-    "#;;;;;,,,,,,,,,,;;,,,,,,;;;;;;====;;;;;;;;;;;;;;;;o......#;;;;;#",
+    "#;;;;;,,,,,,,,,,;;,,,,,,;;;;;;=P==;;;;;;;;;;;;;;;;o......#;;;;;#",
     "#====================,,,;;;;;;====;;;;;;;;;========#######=====#",
     "#====================,,,;;;;;;====;;;;;;;;;====================#",
     "#====================,,,;;;;;;====;;;;;;;;;====================#",
@@ -89,8 +89,8 @@
       "hidden": false
     },
     {
-      "x": 39,
-      "y": 35,
+      "x": 41,
+      "y": 38,
       "targetMapId": "yunlai_town_apothecary_cellar",
       "targetX": 7,
       "targetY": 9,
@@ -120,6 +120,7 @@
       "targetY": 5,
       "kind": "stairs",
       "trigger": "auto",
+      "routeDomain": "inherit",
       "allowPlayerOverlap": false,
       "hidden": false
     },
@@ -153,8 +154,8 @@
       "x": 31,
       "y": 54,
       "targetMapId": "wildlands",
-      "targetX": 42,
-      "targetY": 47,
+      "targetX": 24,
+      "targetY": 43,
       "kind": "portal",
       "trigger": "manual",
       "routeDomain": "inherit",
@@ -165,8 +166,8 @@
       "x": 13,
       "y": 27,
       "targetMapId": "bamboo_forest",
-      "targetX": 3,
-      "targetY": 2,
+      "targetX": 2,
+      "targetY": 8,
       "kind": "portal",
       "trigger": "manual",
       "routeDomain": "inherit",
@@ -174,11 +175,11 @@
       "hidden": false
     },
     {
-      "x": 31,
-      "y": 10,
+      "x": 62,
+      "y": 16,
       "targetMapId": "spirit_ridge",
-      "targetX": 2,
-      "targetY": 2,
+      "targetX": 3,
+      "targetY": 36,
       "kind": "portal",
       "trigger": "manual",
       "routeDomain": "inherit",
@@ -188,7 +189,7 @@
   ],
   "spawnPoint": {
     "x": 31,
-    "y": 11
+    "y": 5
   },
   "time": {
     "offsetTicks": 120,
@@ -224,12 +225,12 @@
     {
       "x": 18,
       "y": 14,
-      "value": 1
+      "value": 3
     },
     {
       "x": 18,
       "y": 16,
-      "value": 1
+      "value": 2
     },
     {
       "x": 30,
@@ -311,6 +312,7 @@
         "refreshTicks": 2400,
         "char": "案",
         "color": "#7f6247",
+        "drops": [],
         "lootPools": [
           {
             "chance": 0.25,
@@ -324,7 +326,8 @@
               [
                 "丹药"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.25,
@@ -337,7 +340,8 @@
               [
                 "蛛丝"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.04,
@@ -350,7 +354,8 @@
               [
                 "步法"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           }
         ]
       }
@@ -366,6 +371,7 @@
         "refreshTicks": 2200,
         "char": "龛",
         "color": "#76614f",
+        "drops": [],
         "lootPools": [
           {
             "chance": 0.16,
@@ -378,7 +384,8 @@
               [
                 "匪物"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.5,
@@ -392,7 +399,8 @@
               [
                 "基础药品"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.12,
@@ -406,7 +414,8 @@
               [
                 "旧兵器"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           }
         ]
       }
@@ -429,6 +438,7 @@
         "refreshTicks": 2100,
         "char": "架",
         "color": "#7b664a",
+        "drops": [],
         "lootPools": [
           {
             "chance": 0.25,
@@ -442,7 +452,8 @@
               [
                 "丹药"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.25,
@@ -455,7 +466,8 @@
               [
                 "蛛丝"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.04,
@@ -468,7 +480,8 @@
               [
                 "步法"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           }
         ]
       }
@@ -484,6 +497,7 @@
         "refreshTicks": 2000,
         "char": "柜",
         "color": "#6d5b4b",
+        "drops": [],
         "lootPools": [
           {
             "chance": 0.55,
@@ -497,7 +511,8 @@
               [
                 "基础药品"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.1,
@@ -511,7 +526,8 @@
               [
                 "帽子"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.06,
@@ -525,7 +541,8 @@
               [
                 "腿部护甲"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           }
         ]
       }
@@ -541,6 +558,7 @@
         "refreshTicks": 1800,
         "char": "案",
         "color": "#8c6745",
+        "drops": [],
         "lootPools": [
           {
             "chance": 0.62,
@@ -554,7 +572,8 @@
               [
                 "基础药品"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.28,
@@ -568,7 +587,8 @@
               [
                 "丹药"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.05,
@@ -582,7 +602,8 @@
               [
                 "腿部护甲"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           }
         ]
       }
@@ -598,6 +619,7 @@
         "refreshTicks": 1700,
         "char": "包",
         "color": "#a08455",
+        "drops": [],
         "lootPools": [
           {
             "chance": 0.6,
@@ -611,7 +633,8 @@
               [
                 "基础药品"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.25,
@@ -625,7 +648,8 @@
               [
                 "丹药"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.06,
@@ -639,7 +663,8 @@
               [
                 "帽子"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           }
         ]
       }
@@ -655,6 +680,7 @@
         "refreshTicks": 1600,
         "char": "柜",
         "color": "#6d8e61",
+        "drops": [],
         "lootPools": [
           {
             "chance": 0.8,
@@ -668,7 +694,8 @@
               [
                 "基础药品"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.32,
@@ -682,7 +709,8 @@
               [
                 "药膏"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.24,
@@ -695,7 +723,8 @@
               [
                 "蛇胆"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           }
         ]
       }
@@ -711,6 +740,7 @@
         "refreshTicks": 1500,
         "char": "篓",
         "color": "#9a8959",
+        "drops": [],
         "lootPools": [
           {
             "chance": 0.42,
@@ -724,7 +754,8 @@
               [
                 "基础药品"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.22,
@@ -737,7 +768,8 @@
               [
                 "蛇胆"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.2,
@@ -750,7 +782,8 @@
               [
                 "蛛丝"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           }
         ]
       }
@@ -766,13 +799,12 @@
         "refreshTicks": 1800,
         "char": "筐",
         "color": "#8b6a49",
+        "drops": [],
         "lootPools": [
           {
             "chance": 0.52,
             "maxLevel": 2,
             "maxGrade": "yellow",
-            "countMin": 1,
-            "countMax": 2,
             "tagGroups": [
               [
                 "矿材"
@@ -780,7 +812,10 @@
               [
                 "玄铁"
               ]
-            ]
+            ],
+            "countMin": 1,
+            "countMax": 2,
+            "allowDuplicates": false
           },
           {
             "chance": 0.12,
@@ -794,7 +829,8 @@
               [
                 "旧兵器"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.03,
@@ -807,7 +843,8 @@
               [
                 "锻体"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           }
         ]
       }
@@ -823,6 +860,7 @@
         "refreshTicks": 1650,
         "char": "架",
         "color": "#7a614a",
+        "drops": [],
         "lootPools": [
           {
             "chance": 0.5,
@@ -836,7 +874,8 @@
               [
                 "基础药品"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.08,
@@ -850,7 +889,8 @@
               [
                 "帽子"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.1,
@@ -864,7 +904,8 @@
               [
                 "旧兵器"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           }
         ]
       }
@@ -880,6 +921,7 @@
         "refreshTicks": 2200,
         "char": "柜",
         "color": "#765b45",
+        "drops": [],
         "lootPools": [
           {
             "chance": 0.25,
@@ -893,7 +935,8 @@
               [
                 "丹药"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.25,
@@ -906,7 +949,8 @@
               [
                 "蛛丝"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.04,
@@ -919,7 +963,8 @@
               [
                 "步法"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           }
         ]
       }
@@ -935,6 +980,7 @@
         "refreshTicks": 2050,
         "char": "案",
         "color": "#7a644c",
+        "drops": [],
         "lootPools": [
           {
             "chance": 0.3,
@@ -948,7 +994,8 @@
               [
                 "丹药"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.18,
@@ -961,7 +1008,8 @@
               [
                 "蛛丝"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.04,
@@ -974,7 +1022,8 @@
               [
                 "步法"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           }
         ]
       }
@@ -990,6 +1039,7 @@
         "refreshTicks": 1900,
         "char": "铺",
         "color": "#8a7358",
+        "drops": [],
         "lootPools": [
           {
             "chance": 0.55,
@@ -1003,7 +1053,8 @@
               [
                 "基础药品"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.1,
@@ -1017,7 +1068,8 @@
               [
                 "帽子"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.06,
@@ -1031,7 +1083,8 @@
               [
                 "腿部护甲"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           }
         ]
       }
@@ -1047,6 +1100,7 @@
         "refreshTicks": 1750,
         "char": "几",
         "color": "#8d6947",
+        "drops": [],
         "lootPools": [
           {
             "chance": 0.62,
@@ -1060,7 +1114,8 @@
               [
                 "基础药品"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.28,
@@ -1074,7 +1129,8 @@
               [
                 "丹药"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.05,
@@ -1088,7 +1144,8 @@
               [
                 "腿部护甲"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           }
         ]
       }
@@ -1104,6 +1161,7 @@
         "refreshTicks": 1700,
         "char": "架",
         "color": "#8b7451",
+        "drops": [],
         "lootPools": [
           {
             "chance": 0.6,
@@ -1117,7 +1175,8 @@
               [
                 "基础药品"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.25,
@@ -1131,7 +1190,8 @@
               [
                 "丹药"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.06,
@@ -1145,7 +1205,8 @@
               [
                 "帽子"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           }
         ]
       }
@@ -1161,6 +1222,7 @@
         "refreshTicks": 1550,
         "char": "案",
         "color": "#6f8a66",
+        "drops": [],
         "lootPools": [
           {
             "chance": 0.8,
@@ -1174,7 +1236,8 @@
               [
                 "基础药品"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.32,
@@ -1188,7 +1251,8 @@
               [
                 "药膏"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.24,
@@ -1201,7 +1265,8 @@
               [
                 "蛇胆"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           }
         ]
       }
@@ -1217,6 +1282,7 @@
         "refreshTicks": 1450,
         "char": "罐",
         "color": "#80715d",
+        "drops": [],
         "lootPools": [
           {
             "chance": 0.42,
@@ -1230,7 +1296,8 @@
               [
                 "基础药品"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.22,
@@ -1243,7 +1310,8 @@
               [
                 "蛇胆"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.2,
@@ -1256,7 +1324,8 @@
               [
                 "蛛丝"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           }
         ]
       }
@@ -1272,13 +1341,12 @@
         "refreshTicks": 1750,
         "char": "箱",
         "color": "#7b6249",
+        "drops": [],
         "lootPools": [
           {
             "chance": 0.52,
             "maxLevel": 2,
             "maxGrade": "yellow",
-            "countMin": 1,
-            "countMax": 2,
             "tagGroups": [
               [
                 "矿材"
@@ -1286,7 +1354,10 @@
               [
                 "玄铁"
               ]
-            ]
+            ],
+            "countMin": 1,
+            "countMax": 2,
+            "allowDuplicates": false
           },
           {
             "chance": 0.12,
@@ -1300,7 +1371,8 @@
               [
                 "旧兵器"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.03,
@@ -1313,7 +1385,8 @@
               [
                 "锻体"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           }
         ]
       }
@@ -1329,6 +1402,7 @@
         "refreshTicks": 1600,
         "char": "架",
         "color": "#81684d",
+        "drops": [],
         "lootPools": [
           {
             "chance": 0.48,
@@ -1342,7 +1416,8 @@
               [
                 "基础药品"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.12,
@@ -1356,7 +1431,8 @@
               [
                 "帽子"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.16,
@@ -1369,7 +1445,8 @@
               [
                 "匪物"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           }
         ]
       }
@@ -1384,7 +1461,9 @@
       "char": "赵",
       "color": "#c9b38a",
       "dialogue": "人能进镇就算赚着了，至于明天怎么活，等明天再骂老天。",
-      "role": "guide"
+      "role": "guide",
+      "shopItems": [],
+      "quests": []
     },
     {
       "id": "npc_preview_ma_huitou",
@@ -1394,7 +1473,9 @@
       "char": "门",
       "color": "#d6a76a",
       "dialogue": "能走的门只剩南边这道，墙上那些洞可不算路。",
-      "role": "guard"
+      "role": "guard",
+      "shopItems": [],
+      "quests": []
     },
     {
       "id": "npc_preview_gate_guard_a",
@@ -1404,7 +1485,9 @@
       "char": "兵",
       "color": "#c7b08a",
       "dialogue": "外头乱得很，想出镇练手就走正道，别钻塌墙。",
-      "role": "guard"
+      "role": "guard",
+      "shopItems": [],
+      "quests": []
     },
     {
       "id": "npc_preview_shen_qiniang",
@@ -1414,7 +1497,9 @@
       "char": "掌",
       "color": "#d99f7e",
       "dialogue": "店是旧了点，炕还是热的。想住就进，别嫌漏风。",
-      "role": "inn"
+      "role": "inn",
+      "shopItems": [],
+      "quests": []
     },
     {
       "id": "npc_wounded_stranger",
@@ -1424,7 +1509,9 @@
       "char": "伤",
       "color": "#c98d8d",
       "dialogue": "别......别往井里看......井底有人在学你说话......",
-      "role": "story"
+      "role": "story",
+      "shopItems": [],
+      "quests": []
     },
     {
       "id": "npc_herbalist_lan",
@@ -1434,7 +1521,9 @@
       "char": "药",
       "color": "#8ccf9b",
       "dialogue": "墙塌了还能补，人伤了得趁早治。药铺没以前那么宽敞，东西还够用。",
-      "role": "support"
+      "role": "support",
+      "shopItems": [],
+      "quests": []
     },
     {
       "id": "npc_healer_su",
@@ -1444,17 +1533,21 @@
       "char": "医",
       "color": "#f3c1cc",
       "dialogue": "夜里别靠北井，也别在东南那片积水边久站。",
-      "role": "support"
+      "role": "support",
+      "shopItems": [],
+      "quests": []
     },
     {
       "id": "npc_qingxuan",
       "name": "清玄执事",
       "x": 31,
       "y": 24,
-      "char": "执",
+      "char": "���",
       "color": "#f6d365",
       "dialogue": "镇子缩了，路反倒更清楚了。先认清活路，再谈修行。",
-      "role": "quest_giver"
+      "role": "quest_giver",
+      "shopItems": [],
+      "quests": []
     },
     {
       "id": "npc_wenji",
@@ -1464,7 +1557,9 @@
       "char": "籍",
       "color": "#9eb6e8",
       "dialogue": "留下来的屋子不多，留下来的故事倒是一点没少。",
-      "role": "lore"
+      "role": "lore",
+      "shopItems": [],
+      "quests": []
     },
     {
       "id": "npc_blacksmith_han",
@@ -1474,7 +1569,9 @@
       "char": "匠",
       "color": "#e38f66",
       "dialogue": "棚子塌了就塌了，铁砧还在就能开工。",
-      "role": "craft"
+      "role": "craft",
+      "shopItems": [],
+      "quests": []
     },
     {
       "id": "npc_preview_watchman",
@@ -1484,7 +1581,9 @@
       "char": "夜",
       "color": "#9aa7c2",
       "dialogue": "墙上的缺口白天漏风，夜里可不一定只漏风。",
-      "role": "warning"
+      "role": "warning",
+      "shopItems": [],
+      "quests": []
     },
     {
       "id": "npc_preview_old_gate_guard",
@@ -1494,29 +1593,35 @@
       "char": "关",
       "color": "#a7b0b8",
       "dialogue": "北关早守不住了，剩下这段残墙，也就是提醒后人别忘了。",
-      "role": "guard"
+      "role": "guard",
+      "shopItems": [],
+      "quests": []
     }
   ],
   "monsterSpawns": [
     {
       "id": "m_preview_town_rat_south",
       "x": 12,
-      "y": 54
+      "y": 54,
+      "respawnTicks": 15
     },
     {
       "id": "m_preview_town_rat_refuse",
       "x": 46,
-      "y": 53
+      "y": 53,
+      "respawnTicks": 15
     },
     {
       "id": "m_preview_gate_thug",
       "x": 53,
-      "y": 53
+      "y": 53,
+      "respawnTicks": 15
     },
     {
       "id": "m_preview_night_blade",
       "x": 56,
-      "y": 51
+      "y": 51,
+      "respawnTicks": 15
     }
   ]
 }

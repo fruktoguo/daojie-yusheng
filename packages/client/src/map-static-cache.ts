@@ -6,7 +6,7 @@ import { MAP_STATIC_CACHE_STORAGE_KEY, MapMeta, MapMinimapArchiveEntry, MapMinim
 
 type CachedMapMeta = Pick<
   MapMeta,
-  'id' | 'name' | 'width' | 'height' | 'dangerLevel' | 'recommendedRealm' | 'floorLevel' | 'floorName' | 'description'
+  'id' | 'name' | 'width' | 'height' | 'dangerLevel' | 'recommendedRealm' | 'floorLevel' | 'floorName' | 'description' | 'playerOverlapPoints'
 >;
 
 interface CachedMapEntry {
@@ -78,7 +78,19 @@ function isCachedMapMeta(value: unknown): value is CachedMapMeta {
   return typeof candidate.id === 'string'
     && typeof candidate.name === 'string'
     && Number.isInteger(candidate.width)
-    && Number.isInteger(candidate.height);
+    && Number.isInteger(candidate.height)
+    && (
+      candidate.playerOverlapPoints === undefined
+      || (
+        Array.isArray(candidate.playerOverlapPoints)
+        && candidate.playerOverlapPoints.every((point) => (
+          point
+          && typeof point === 'object'
+          && Number.isInteger((point as { x?: unknown }).x)
+          && Number.isInteger((point as { y?: unknown }).y)
+        ))
+      )
+    );
 }
 
 function cloneSnapshot(snapshot: MapMinimapSnapshot): MapMinimapSnapshot {
@@ -95,6 +107,7 @@ function toCachedMeta(meta: MapMeta): CachedMapMeta {
     name: meta.name,
     width: meta.width,
     height: meta.height,
+    playerOverlapPoints: meta.playerOverlapPoints,
     dangerLevel: meta.dangerLevel,
     recommendedRealm: meta.recommendedRealm,
     floorLevel: meta.floorLevel,

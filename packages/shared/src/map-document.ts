@@ -30,7 +30,7 @@ import {
   TileType,
 } from './types';
 
-const SUPPORTED_MAP_TILE_CHARS = new Set(['#', '.', '=', ':', 'P', 'S', '+', 'W', 'B', ',', '^', ';', '%', '~', 'T', 'o', 'L']);
+const SUPPORTED_MAP_TILE_CHARS = new Set(['#', '.', '=', ':', 'P', 'S', '+', 'W', 'B', ',', '^', '崖', ';', '%', '~', '云', '霞', '空', 'T', '竹', 'o', 'L', '铁']);
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -461,6 +461,9 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
       maxAlive: Number.isFinite((spawn as GmMapMonsterSpawnRecord).maxAlive)
         ? Number((spawn as GmMapMonsterSpawnRecord).maxAlive)
         : undefined,
+      wanderRadius: Number.isFinite((spawn as GmMapMonsterSpawnRecord).wanderRadius)
+        ? Number((spawn as GmMapMonsterSpawnRecord).wanderRadius)
+        : undefined,
       aggroRange: Number.isFinite((spawn as GmMapMonsterSpawnRecord).aggroRange)
         ? Number((spawn as GmMapMonsterSpawnRecord).aggroRange)
         : undefined,
@@ -736,10 +739,38 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
     const spawn = document.monsterSpawns[index]!;
     const label = `怪物刷新点 ${spawn.id || index + 1}`;
     if (!spawn.id.trim()) return `${label} 的 ID 不能为空`;
-    if (!spawn.name.trim()) return `${label} 的名称不能为空`;
-    if (!spawn.char.trim()) return `${label} 的字符不能为空`;
+    if (!spawn.name?.trim()) return `${label} 的名称不能为空`;
+    if (!spawn.char?.trim()) return `${label} 的字符不能为空`;
     const error = ensurePointInBounds(spawn.x, spawn.y, label);
     if (error) return error;
+    if (spawn.level !== undefined && (!Number.isInteger(spawn.level) || spawn.level <= 0)) {
+      return `${label} 的等级必须为正整数`;
+    }
+    if (spawn.count !== undefined && (!Number.isInteger(spawn.count) || spawn.count <= 0)) {
+      return `${label} 的生成数量必须为正整数`;
+    }
+    if (spawn.radius !== undefined && (!Number.isInteger(spawn.radius) || spawn.radius < 0)) {
+      return `${label} 的生成半径必须为非负整数`;
+    }
+    if (spawn.maxAlive !== undefined && (!Number.isInteger(spawn.maxAlive) || spawn.maxAlive <= 0)) {
+      return `${label} 的最大维持数量必须为正整数`;
+    }
+    if (
+      spawn.count !== undefined
+      && spawn.maxAlive !== undefined
+      && spawn.count > spawn.maxAlive
+    ) {
+      return `${label} 的生成数量不能大于最大维持数量`;
+    }
+    if (spawn.wanderRadius !== undefined && (!Number.isInteger(spawn.wanderRadius) || spawn.wanderRadius < 0)) {
+      return `${label} 的分布范围必须为非负整数`;
+    }
+    if (spawn.respawnSec !== undefined && (!Number.isInteger(spawn.respawnSec) || spawn.respawnSec <= 0)) {
+      return `${label} 的重生秒数必须为正整数`;
+    }
+    if (spawn.respawnTicks !== undefined && (!Number.isInteger(spawn.respawnTicks) || spawn.respawnTicks <= 0)) {
+      return `${label} 的重生时间必须为正整数`;
+    }
   }
 
   return null;

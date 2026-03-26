@@ -18,12 +18,18 @@ export const TILE_MINIMAP_COLORS: Record<TileType, string> = {
   [TileType.Stairs]: '#9b7438',
   [TileType.Grass]: '#79915d',
   [TileType.Hill]: '#8c7358',
+  [TileType.Cliff]: '#514842',
   [TileType.Mud]: '#6e5740',
   [TileType.Swamp]: '#526243',
   [TileType.Water]: '#4f7696',
+  [TileType.Cloud]: '#c6d3e5',
+  [TileType.CloudFloor]: '#e3ebf7',
+  [TileType.Void]: '#1b213e',
   [TileType.Tree]: '#365133',
+  [TileType.Bamboo]: '#2f6b37',
   [TileType.Stone]: '#605c58',
   [TileType.SpiritOre]: '#5675a5',
+  [TileType.BlackIronOre]: '#6a7486',
 };
 
 /** 小地图标记颜色映射。 */
