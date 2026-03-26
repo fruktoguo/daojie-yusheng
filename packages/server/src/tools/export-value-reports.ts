@@ -62,15 +62,6 @@ function writeReportFiles(): void {
   ].join('\n');
   fs.writeFileSync(path.join(outputDir, 'README.md'), index, 'utf-8');
 
-  const legacyIndex = [
-    '# 价值报表索引',
-    '',
-    '量化报表已迁移到 `docs/量化分析/`：',
-    '',
-    ...reports.map((report) => `- [${report.title}](./量化分析/${report.fileName})`),
-    '',
-  ].join('\n');
-  fs.writeFileSync(path.join(getDocsDir(), 'value-report.md'), legacyIndex, 'utf-8');
 }
 
 writeReportFiles();

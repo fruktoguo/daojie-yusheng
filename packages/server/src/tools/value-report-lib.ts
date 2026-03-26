@@ -4,6 +4,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import {
+  calculateTechniqueSkillQiCost,
   EquipmentEffectDef,
   ItemStack,
   TECHNIQUE_GRADE_LABELS,
@@ -25,8 +26,9 @@ type RawTechnique = {
   id: string;
   name: string;
   grade: TechniqueGrade;
+  realmLv: number;
   layers: TechniqueLayerDef[];
-  skills: SkillDef[];
+  skills: Array<Omit<SkillDef, 'cost'> & { cost?: number; costMultiplier?: number }>;
 };
 
 type RawEquipment = {
@@ -188,7 +190,7 @@ function buildEquipmentMapDangerIndex(): Map<string, number> {
   const mapsDir = path.join(process.cwd(), 'data', 'maps');
   const index = new Map<string, number>();
   for (const file of fs.readdirSync(mapsDir).filter((entry) => entry.endsWith('.json')).sort()) {
-    if (file === 'spawn.json') {
+    if (file === 'spawn.json' || file === 'yunlai_town.json') {
       continue;
     }
     let map: RawMap & Record<string, unknown>;
@@ -295,7 +297,7 @@ function collectBuffStackLinks(formula: SkillFormula, found: Array<{ side: 'cast
   }
 }
 
-function buildTechniqueBuffNameMap(skills: SkillDef[]): Map<string, string> {
+function buildTechniqueBuffNameMap(skills: Array<Pick<SkillDef, 'effects'>>): Map<string, string> {
   const buffNames = new Map<string, string>();
   for (const skill of skills) {
     for (const effect of skill.effects) {
@@ -401,9 +403,18 @@ export function buildTechniqueRows(): ValueReportRow[] {
 /** 构建技能价值报表行 */
 export function buildSkillRows(): ValueReportRow[] {
   return readTechniques().flatMap((technique) => technique.skills.map((skill) => {
-    const summary = calculateSkillValue(skill);
-    const metaParts = buildSkillMetaParts(skill);
-    const comboParts = buildSkillComboParts(technique, skill);
+    const actualCost = calculateTechniqueSkillQiCost(
+      Number.isFinite(skill.costMultiplier) ? Number(skill.costMultiplier) : Math.max(0, skill.cost ?? 0),
+      technique.grade,
+      technique.realmLv,
+    );
+    const normalizedSkill: SkillDef = {
+      ...skill,
+      cost: actualCost,
+    };
+    const summary = calculateSkillValue(normalizedSkill);
+    const metaParts = buildSkillMetaParts(normalizedSkill);
+    const comboParts = buildSkillComboParts(technique, normalizedSkill);
     const rawDetailParts = summary.unquantified.length > 0 ? summary.unquantified : [skill.desc];
     const detailParts = rawDetailParts.filter((entry) => entry !== '基础值 1' && !/^(自身|目标)对应状态层数×/.test(entry));
     return {
@@ -411,9 +422,9 @@ export function buildSkillRows(): ValueReportRow[] {
       grade: formatTechniqueGrade(technique.grade),
       level: String(resolveSkillUnlockLevel(skill)),
       range: String(skill.range),
-      damageTargets: resolveSkillDamageTargets(skill),
+      damageTargets: resolveSkillDamageTargets(normalizedSkill),
       cooldown: String(skill.cooldown),
-      cost: String(skill.cost),
+      cost: String(actualCost),
       quantifiedValue: formatNumber(summary.quantifiedValue),
       unquantifiedValue: joinUnquantified([...metaParts, ...comboParts, ...detailParts]),
     };
