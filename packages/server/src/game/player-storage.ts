@@ -249,6 +249,7 @@ function buildSkillBuffState(skill: SkillDef, effect: Extract<SkillEffectDef, { 
     color: effect.color,
     attrs: effect.attrs,
     stats: effect.stats,
+    qiProjection: effect.qiProjection,
   });
 }
 

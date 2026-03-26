@@ -2,6 +2,7 @@
  * 全局类型定义：地形、方向、地图、实体、修仙系统（属性/物品/功法/境界/技能/任务）等核心数据结构。
  */
 import type { ElementKey, NumericRatioDivisors, NumericScalarStatKey, NumericStats, PartialNumericStats } from './numeric';
+import type { QiProjectionModifier } from './qi';
 import type { TargetingShape } from './targeting';
 
 /** 地形类型 */
@@ -203,6 +204,7 @@ export interface VisibleBuffState {
   color?: string;
   attrs?: Partial<Attributes>;
   stats?: PartialNumericStats;
+  qiProjection?: QiProjectionModifier[];
 }
 
 /** 时间段 ID */
@@ -277,6 +279,7 @@ export interface AttrBonus {
   source: string;
   attrs: Partial<Attributes>;
   stats?: PartialNumericStats;
+  qiProjection?: QiProjectionModifier[];
   label?: string;
   meta?: Record<string, unknown>;
 }
@@ -330,6 +333,7 @@ export interface EquipmentBuffDef {
   maxStacks?: number;
   attrs?: Partial<Attributes>;
   stats?: PartialNumericStats;
+  qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
 }
 
@@ -340,6 +344,7 @@ export interface EquipmentStatAuraEffectDef {
   conditions?: EquipmentConditionGroup;
   attrs?: Partial<Attributes>;
   stats?: PartialNumericStats;
+  qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
 }
 
@@ -350,6 +355,7 @@ export interface EquipmentProgressEffectDef {
   conditions?: EquipmentConditionGroup;
   attrs?: Partial<Attributes>;
   stats?: PartialNumericStats;
+  qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
 }
 
@@ -706,6 +712,7 @@ export interface SkillBuffEffectDef {
   maxStacks?: number;
   attrs?: Partial<Attributes>;
   stats?: PartialNumericStats;
+  qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
 }
 

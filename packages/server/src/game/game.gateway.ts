@@ -57,7 +57,6 @@ import {
   BASE_MAX_HP,
   HP_PER_CONSTITUTION,
   Direction,
-  getAuraLevel,
   VisibleTile,
   VIEW_RADIUS,
   encodeServerEventPayload,
@@ -71,6 +70,7 @@ import { AoiService } from './aoi.service';
 import { TimeService } from './time.service';
 import { WorldService } from './world.service';
 import { PerformanceService } from './performance.service';
+import { QiProjectionService } from './qi-projection.service';
 import { TickService } from './tick.service';
 import { SuggestionService } from './suggestion.service';
 import { NavigationService } from './navigation.service';
@@ -93,6 +93,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly worldService: WorldService,
     private readonly timeService: TimeService,
     private readonly performanceService: PerformanceService,
+    private readonly qiProjectionService: QiProjectionService,
     private readonly tickService: TickService,
     private readonly suggestionService: SuggestionService,
     private readonly navigationService: NavigationService,
@@ -274,10 +275,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
 
-    this.navigationService.primeMoveTarget(player, data.x, data.y, {
-      allowNearestReachable: data.allowNearestReachable,
-    });
-
     this.playerService.enqueueCommand(player.mapId, {
       playerId,
       type: 'moveTo',
@@ -401,7 +398,25 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!detail) {
       return;
     }
-    client.emit(S2C.TileRuntimeDetail, detail satisfies S2C_TileRuntimeDetail);
+    const response: S2C_TileRuntimeDetail = {
+      ...detail,
+      resources: detail.resources.map((resource) => {
+        if (resource.key !== 'aura') {
+          return resource;
+        }
+        const effectiveValue = this.qiProjectionService.getEffectiveAuraValue(player, resource.value);
+        return {
+          ...resource,
+          level: this.qiProjectionService.getAuraLevel(
+            player,
+            resource.value,
+            this.tickService.getAuraLevelBaseValue(),
+          ),
+          effectiveValue,
+        };
+      }),
+    };
+    client.emit(S2C.TileRuntimeDetail, response satisfies S2C_TileRuntimeDetail);
   }
 
   @SubscribeMessage(C2S.Equip)
@@ -474,6 +489,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         target,
         target.id === player.id ? '#ff0' : target.isBot ? '#6bb8ff' : '#0f0',
       ));
+    const visibleEntities = this.worldService.getVisibleEntities(player, visibility.visibleKeys);
 
     const initData: S2C_Init = {
       self: player,
@@ -481,8 +497,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       minimap,
       visibleMinimapMarkers,
       minimapLibrary,
-      tiles: this.toClientVisibleTiles(visibility.tiles),
-      players: nearbyPlayers,
+      tiles: this.toClientVisibleTiles(player, visibility.tiles),
+      players: [...nearbyPlayers, ...visibleEntities],
       time,
       auraLevelBaseValue: this.tickService.getAuraLevelBaseValue(),
     };
@@ -645,7 +661,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  private toClientVisibleTiles(tiles: VisibleTile[][]): VisibleTile[][] {
+  private toClientVisibleTiles(viewer: PlayerState, tiles: VisibleTile[][]): VisibleTile[][] {
     const auraLevelBaseValue = this.tickService.getAuraLevelBaseValue();
     return tiles.map((row) => row.map((tile) => {
       if (!tile) {
@@ -653,7 +669,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
       return {
         ...tile,
-        aura: getAuraLevel(tile.aura ?? 0, auraLevelBaseValue),
+        aura: viewer.senseQiActive
+          ? this.qiProjectionService.getAuraLevel(viewer, tile.aura ?? 0, auraLevelBaseValue)
+          : 0,
       } satisfies NonNullable<VisibleTile>;
     }));
   }

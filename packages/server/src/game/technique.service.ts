@@ -14,7 +14,6 @@ import {
   ELEMENT_KEYS,
   ELEMENT_KEY_LABELS,
   ElementKey,
-  getAuraLevel,
   getTechniqueExpToNext,
   getTechniqueMaxLevel,
   PLAYER_REALM_CONFIG,
@@ -37,6 +36,7 @@ import { BreakthroughConfigEntry, BreakthroughRequirementDef, ContentService } f
 import { InventoryService } from './inventory.service';
 import { MapService } from './map.service';
 import { PerformanceService } from './performance.service';
+import { QiProjectionService } from './qi-projection.service';
 import {
   CULTIVATION_ACTION_ID,
   CULTIVATION_BUFF_DURATION,
@@ -117,6 +117,7 @@ export class TechniqueService {
     private readonly contentService: ContentService,
     private readonly mapService: MapService,
     private readonly performanceService: PerformanceService,
+    private readonly qiProjectionService: QiProjectionService,
   ) {}
 
   /** 初始化玩家境界与功法进度（加载时、持久化前调用） */
@@ -745,7 +746,11 @@ export class TechniqueService {
 
   private getCultivationAuraMultiplier(player: PlayerState): number {
     const auraValue = this.mapService.getTileAura(player.mapId, player.x, player.y);
-    const auraLevel = getAuraLevel(auraValue, this.mapService.getAuraLevelBaseValue());
+    const auraLevel = this.qiProjectionService.getAuraLevel(
+      player,
+      auraValue,
+      this.mapService.getAuraLevelBaseValue(),
+    );
     return 1 + Math.max(0, auraLevel);
   }
 

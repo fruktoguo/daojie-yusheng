@@ -939,6 +939,23 @@ effectiveFamilyValue = sum(rawValue * playerEfficiency)
 - 先把底层和迁移路径打稳，比一次塞满全部玩法更重要
 - 只要底层模型定对，后续玩法接入是增量工作
 
+### 16.1 当前已落地状态
+
+截至当前代码版本，第一阶段已经落地到以下程度：
+
+- 共享层已经引入通用气机资源键模型，默认灵气映射为 `aura.refined.neutral`
+- 玩家侧已经接入服务端动态气机投影，装备、Buff、属性附加可改变“可见 / 可吸收 / 效率”
+- 地图运行时资源存储已从单独 `auraStates` 升级为 `resourceStates[mapId][resourceKey][tileKey]`
+- 旧 `resources.aura` 与旧灵气 JSON 持久化可自动兼容读取，并在后续落盘时写回通用资源键
+- 当前 tick 中真正参与半衰期推进的仍只有默认灵气资源 `aura.refined.neutral`
+- 对外兼容层暂时仍保留 `tile.aura`、`getTileAura()`、`setTileAura()` 与观察面板里的旧 `aura` 展示键
+
+这意味着：
+
+- 底层持久化与运行时容器已经完成泛化
+- 现有玩法链路仍可继续工作
+- 凝练 / 逸散多资源并行推进、五行资源源点、魔气 / 煞气收敛规则还需要继续补完
+
 ## 17. 一句话结论
 
 后续应把“地图灵气系统”升级为“世界气机生态系统”。

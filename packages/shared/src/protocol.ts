@@ -91,6 +91,10 @@ export interface C2S_MoveTo {
   y: number;
   ignoreVisibilityLimit?: boolean;
   allowNearestReachable?: boolean;
+  packedPath?: string;
+  packedPathSteps?: number;
+  pathStartX?: number;
+  pathStartY?: number;
 }
 
 /** 以任务为目标启动自动导航 */
@@ -552,6 +556,7 @@ export interface S2C_TileRuntimeDetail {
     key: string;
     label: string;
     value: number;
+    effectiveValue?: number;
     level?: number;
     sourceValue?: number;
   }>;

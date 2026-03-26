@@ -12,8 +12,12 @@
       transform: translateX(-50%);
       background: rgba(0, 0, 0, 0.8);
       color: #fff;
-      padding: 8px 24px;
-      font-size: var(--font-size-14);
+      padding: 10px 26px;
+      font-size: var(--font-size-15);
+      line-height: 1.55;
+      border-radius: 12px;
+      max-width: min(88vw, 720px);
+      text-align: center;
       z-index: 4000;
       pointer-events: none;
       transition: opacity 0.3s;
@@ -21,7 +25,13 @@
     }
     #toast.show { opacity: 1; }
     #toast.hidden { opacity: 0; }
-    #toast.toast-kind-quest { background: rgba(102, 74, 35, 0.9); }
+    #toast.toast-kind-quest {
+      background: rgba(102, 74, 35, 0.9);
+      padding: 14px 34px;
+      font-size: var(--font-size-18);
+      line-height: 1.65;
+      max-width: min(92vw, 840px);
+    }
     #toast.toast-kind-loot { background: rgba(41, 88, 54, 0.9); }
     #toast.toast-kind-combat { background: rgba(123, 38, 38, 0.92); }
     #chat-panel {

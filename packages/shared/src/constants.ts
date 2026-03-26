@@ -74,6 +74,14 @@ export {
   TILE_AURA_HALF_LIFE_RATE_SCALE,
   TILE_AURA_HALF_LIFE_RATE_SCALED,
 } from './constants/gameplay/aura';
+export {
+  QI_FAMILY_KEYS,
+  QI_FORM_KEYS,
+  QI_ELEMENT_KEYS,
+  QI_VISIBILITY_LEVELS,
+  QI_PROJECTION_BP_SCALE,
+  DEFAULT_QI_EFFICIENCY_BP,
+} from './constants/gameplay/qi';
 export { SENSE_QI_OVERLAY_STYLE } from './constants/visuals/aura';
 export {
   ATTR_KEYS,

@@ -59,6 +59,7 @@ import {
   GridPoint,
   isPointInRange,
   PlayerState,
+  packDirections,
   RenderEntity,
   S2C_AttrUpdate,
   TickRenderEntity,
@@ -80,6 +81,8 @@ import {
   TechniqueRealm,
   directionToDelta,
   getTileTraversalCost,
+  clonePlainValue,
+  isPlainEqual,
 } from '@mud/shared';
 
 const canvasHost = document.getElementById('game-stage') as HTMLElement;
@@ -417,6 +420,29 @@ type ObservedEntity = {
   observation?: RenderEntity['observation'];
   buffs?: VisibleBuffState[];
 };
+
+type PendingAutoInteraction =
+  | {
+      kind: 'npc';
+      mapId: string;
+      x: number;
+      y: number;
+      actionId: string;
+    }
+  | {
+      kind: 'portal';
+      mapId: string;
+      x: number;
+      y: number;
+      actionId: 'portal:travel';
+    };
+
+const AUTO_INTERACTION_APPROACH_STEPS: ReadonlyArray<{ dx: number; dy: number }> = [
+  { dx: 0, dy: -1 },
+  { dx: 0, dy: 1 },
+  { dx: -1, dy: 0 },
+  { dx: 1, dy: 0 },
+];
 
 function escapeHtml(input: string): string {
   return input
@@ -765,6 +791,13 @@ function formatObservedResourceOverview(resource: TileRuntimeResourceDetail, fal
 
 function buildObservedResourceAsideLines(resource: TileRuntimeResourceDetail): string[] {
   const lines = [`当前数值：${formatAuraValueText(resource.value)}`];
+  if (
+    typeof resource.effectiveValue === 'number'
+    && Number.isFinite(resource.effectiveValue)
+    && Math.round(resource.effectiveValue) !== Math.round(resource.value)
+  ) {
+    lines.push(`当前可用值：${formatAuraValueText(resource.effectiveValue)}`);
+  }
   if (typeof resource.level === 'number') {
     lines.unshift(`当前等级：${formatDisplayInteger(Math.max(0, Math.round(resource.level)))}`);
   }
@@ -934,7 +967,7 @@ function applyNullablePatch<T>(value: T | null | undefined, fallback: T | undefi
 }
 
 function cloneJson<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
+  return clonePlainValue(value);
 }
 
 function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedEntity): ObservedEntity {
@@ -1436,7 +1469,7 @@ socket.onEquipmentUpdate((data) => {
 socket.onTechniqueUpdate((data) => {
   const mergedTechniques = mergeTechniqueStates(data.techniques);
   const shouldRefreshTechniquePanel = !myPlayer
-    || buildTechniqueStructureSignature(myPlayer.techniques, myPlayer.cultivatingTechId) !== buildTechniqueStructureSignature(mergedTechniques, data.cultivatingTechId);
+    || haveTechniqueStructureChanges(myPlayer.techniques, myPlayer.cultivatingTechId, mergedTechniques, data.cultivatingTechId);
   if (myPlayer) {
     myPlayer.techniques = mergedTechniques;
     myPlayer.cultivatingTechId = data.cultivatingTechId;
@@ -1468,7 +1501,7 @@ socket.onActionsUpdate((data) => {
     || previousAllowAoePlayerHit !== nextAllowAoePlayerHit
     || previousAutoIdleCultivation !== nextAutoIdleCultivation
     || previousAutoSwitchCultivation !== nextAutoSwitchCultivation
-    || buildActionRenderSignature(previousActions) !== buildActionRenderSignature(mergedActions);
+    || haveActionRenderStructureChanges(previousActions, mergedActions);
   if (myPlayer) {
     myPlayer.actions = mergedActions;
     myPlayer.autoBattleSkills = mergedActions
@@ -1599,6 +1632,7 @@ let latestActionMap = new Map<string, ActionDef>();
 let latestEntities: ObservedEntity[] = [];
 let latestEntityMap = new Map<string, ObservedEntity>();
 let pendingLayoutViewportSync = false;
+let pendingAutoInteraction: PendingAutoInteraction | null = null;
 
 function showToast(message: string, kind: 'system' | 'chat' | 'quest' | 'combat' | 'loot' = 'system') {
   const el = document.getElementById('toast');
@@ -1607,10 +1641,11 @@ function showToast(message: string, kind: 'system' | 'chat' | 'quest' | 'combat'
   el.textContent = message;
   el.classList.remove('hidden');
   el.classList.add('show');
+  const durationMs = kind === 'quest' ? 4200 : 2500;
   window.setTimeout(() => {
     el.classList.remove('show');
     el.classList.add('hidden');
-  }, 2500);
+  }, durationMs);
 }
 
 async function handleQqGroupLinkClick(): Promise<void> {
@@ -1692,34 +1727,70 @@ function inferAutoBattle(current: boolean, actions: { id: string; name: string; 
   return current;
 }
 
-function buildActionRenderSignature(actions: ActionDef[]): string {
-  return JSON.stringify(actions.map((action) => ({
-    id: action.id,
-    name: action.name,
-    desc: action.desc,
-    type: action.type,
-    range: action.range,
-    requiresTarget: action.requiresTarget,
-    targetMode: action.targetMode,
-    autoBattleEnabled: action.autoBattleEnabled,
-    autoBattleOrder: action.autoBattleOrder,
-  })));
+function haveActionRenderStructureChanges(previousActions: ActionDef[], nextActions: ActionDef[]): boolean {
+  if (previousActions.length !== nextActions.length) {
+    return true;
+  }
+  for (let index = 0; index < previousActions.length; index += 1) {
+    const previous = previousActions[index]!;
+    const next = nextActions[index]!;
+    if (
+      previous.id !== next.id
+      || previous.name !== next.name
+      || previous.desc !== next.desc
+      || previous.type !== next.type
+      || previous.range !== next.range
+      || previous.requiresTarget !== next.requiresTarget
+      || previous.targetMode !== next.targetMode
+      || previous.autoBattleEnabled !== next.autoBattleEnabled
+      || previous.autoBattleOrder !== next.autoBattleOrder
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
-function buildTechniqueStructureSignature(techniques: TechniqueState[], cultivatingTechId?: string): string {
-  return JSON.stringify({
-    cultivatingTechId: cultivatingTechId ?? null,
-    techniques: techniques.map((technique) => ({
-      techId: technique.techId,
-      name: technique.name,
-      level: technique.level,
-      realm: technique.realm,
-      grade: technique.grade,
-      skills: technique.skills.map((skill) => skill.id),
-      layers: technique.layers ?? null,
-      attrCurves: technique.attrCurves ?? null,
-    })),
-  });
+function haveTechniqueStructureChanges(
+  previousTechniques: TechniqueState[],
+  previousCultivatingTechId: string | undefined,
+  nextTechniques: TechniqueState[],
+  nextCultivatingTechId: string | undefined,
+): boolean {
+  if ((previousCultivatingTechId ?? null) !== (nextCultivatingTechId ?? null)) {
+    return true;
+  }
+  if (previousTechniques.length !== nextTechniques.length) {
+    return true;
+  }
+  for (let index = 0; index < previousTechniques.length; index += 1) {
+    const previous = previousTechniques[index]!;
+    const next = nextTechniques[index]!;
+    if (
+      previous.techId !== next.techId
+      || previous.name !== next.name
+      || previous.level !== next.level
+      || previous.realm !== next.realm
+      || previous.grade !== next.grade
+    ) {
+      return true;
+    }
+    if (previous.skills.length !== next.skills.length) {
+      return true;
+    }
+    for (let skillIndex = 0; skillIndex < previous.skills.length; skillIndex += 1) {
+      if (previous.skills[skillIndex]!.id !== next.skills[skillIndex]!.id) {
+        return true;
+      }
+    }
+    if (!isPlainEqual(previous.layers ?? null, next.layers ?? null)) {
+      return true;
+    }
+    if (!isPlainEqual(previous.attrCurves ?? null, next.attrCurves ?? null)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function resolveMapDanger(): string {
@@ -1822,6 +1893,7 @@ function scheduleLayoutViewportSync(): void {
 function clearCurrentPath() {
   pathCells = [];
   pathTarget = null;
+  pendingAutoInteraction = null;
   mapRuntime.setPathCells(pathCells);
 }
 
@@ -1832,12 +1904,189 @@ function sendMoveCommand(dir: Direction) {
   socket.sendMove(dir);
 }
 
-function planPathTo(target: { x: number; y: number }, options?: { ignoreVisibilityLimit?: boolean; allowNearestReachable?: boolean }) {
+function planPathTo(
+  target: { x: number; y: number },
+  options?: { ignoreVisibilityLimit?: boolean; allowNearestReachable?: boolean; preserveAutoInteraction?: boolean },
+) {
   if (!myPlayer) return;
+  if (!options?.preserveAutoInteraction) {
+    pendingAutoInteraction = null;
+  }
   pathTarget = target;
-  pathCells = buildClientPreviewPath(myPlayer.x, myPlayer.y, target.x, target.y) ?? [{ x: target.x, y: target.y }];
+  const preview = buildClientPreviewPath(myPlayer.x, myPlayer.y, target.x, target.y);
+  pathCells = preview?.cells ?? [{ x: target.x, y: target.y }];
   mapRuntime.setPathCells(pathCells);
-  socket.sendMoveTo(target.x, target.y, options);
+  socket.sendMoveTo(target.x, target.y, {
+    ...options,
+    packedPath: preview ? packDirections(preview.directions) : undefined,
+    packedPathSteps: preview?.directions.length,
+    pathStartX: preview ? myPlayer.x : undefined,
+    pathStartY: preview ? myPlayer.y : undefined,
+  });
+}
+
+function isCellInsideCurrentMap(x: number, y: number): boolean {
+  const mapMeta = mapRuntime.getMapMeta();
+  return Boolean(mapMeta && x >= 0 && x < mapMeta.width && y >= 0 && y < mapMeta.height);
+}
+
+function isCellAvailableForAutoApproach(x: number, y: number): boolean {
+  if (!myPlayer || !isCellInsideCurrentMap(x, y)) {
+    return false;
+  }
+  const tile = getKnownTileAt(x, y);
+  if (!tile?.walkable) {
+    return false;
+  }
+  return !tile.occupiedBy || tile.occupiedBy === myPlayer.id;
+}
+
+function findObservedEntityAt(x: number, y: number, kind?: string): ObservedEntity | null {
+  const entity = latestEntities.find((entry) => (
+    entry.wx === x
+    && entry.wy === y
+    && (kind ? entry.kind === kind : true)
+  ));
+  return entity ?? null;
+}
+
+function resolveNpcApproachTarget(npc: ObservedEntity): { x: number; y: number } | null {
+  if (!myPlayer) {
+    return null;
+  }
+
+  let bestCandidate: { x: number; y: number; pathLength: number; distance: number } | null = null;
+
+  for (const step of AUTO_INTERACTION_APPROACH_STEPS) {
+    const candidateX = npc.wx + step.dx;
+    const candidateY = npc.wy + step.dy;
+    if (!isCellAvailableForAutoApproach(candidateX, candidateY)) {
+      continue;
+    }
+
+    const previewPath = buildClientPreviewPath(myPlayer.x, myPlayer.y, candidateX, candidateY);
+    if (!previewPath && (myPlayer.x !== candidateX || myPlayer.y !== candidateY)) {
+      continue;
+    }
+
+    const pathLength = previewPath?.cells.length ?? 0;
+    const distance = gridDistance({ x: myPlayer.x, y: myPlayer.y }, { x: candidateX, y: candidateY });
+    if (
+      !bestCandidate
+      || pathLength < bestCandidate.pathLength
+      || (pathLength === bestCandidate.pathLength && distance < bestCandidate.distance)
+    ) {
+      bestCandidate = {
+        x: candidateX,
+        y: candidateY,
+        pathLength,
+        distance,
+      };
+    }
+  }
+
+  return bestCandidate ? { x: bestCandidate.x, y: bestCandidate.y } : null;
+}
+
+function triggerAutoInteractionIfReady(): boolean {
+  if (!myPlayer || !pendingAutoInteraction || pendingAutoInteraction.mapId !== myPlayer.mapId) {
+    pendingAutoInteraction = null;
+    return false;
+  }
+
+  if (pendingAutoInteraction.kind === 'portal') {
+    if (myPlayer.x !== pendingAutoInteraction.x || myPlayer.y !== pendingAutoInteraction.y) {
+      return false;
+    }
+    const actionId = pendingAutoInteraction.actionId;
+    clearCurrentPath();
+    socket.sendAction(actionId);
+    return true;
+  }
+
+  const npc = latestEntityMap.get(pendingAutoInteraction.actionId)
+    ?? findObservedEntityAt(pendingAutoInteraction.x, pendingAutoInteraction.y, 'npc');
+  if (!npc || npc.kind !== 'npc') {
+    pendingAutoInteraction = null;
+    return false;
+  }
+  if (gridDistance({ x: myPlayer.x, y: myPlayer.y }, { x: npc.wx, y: npc.wy }) !== 1) {
+    return false;
+  }
+  clearCurrentPath();
+  socket.sendAction(pendingAutoInteraction.actionId);
+  return true;
+}
+
+function handleNpcClickTarget(npc: ObservedEntity): boolean {
+  if (!myPlayer) {
+    return false;
+  }
+  if (npc.kind !== 'npc') {
+    return false;
+  }
+
+  if (gridDistance({ x: myPlayer.x, y: myPlayer.y }, { x: npc.wx, y: npc.wy }) === 1) {
+    clearCurrentPath();
+    if ((myPlayer.actions ?? []).some((action) => action.id === npc.id)) {
+      socket.sendAction(npc.id);
+      return true;
+    }
+    pendingAutoInteraction = {
+      kind: 'npc',
+      mapId: myPlayer.mapId,
+      x: npc.wx,
+      y: npc.wy,
+      actionId: npc.id,
+    };
+    return true;
+  }
+
+  const approachTarget = resolveNpcApproachTarget(npc);
+  if (!approachTarget) {
+    showToast('找不到能靠近该 NPC 的位置');
+    return true;
+  }
+
+  pendingAutoInteraction = {
+    kind: 'npc',
+    mapId: myPlayer.mapId,
+    x: npc.wx,
+    y: npc.wy,
+    actionId: npc.id,
+  };
+  planPathTo(approachTarget, { allowNearestReachable: true, preserveAutoInteraction: true });
+  return true;
+}
+
+function handlePortalClickTarget(target: { x: number; y: number }, tile: Tile): boolean {
+  if (!myPlayer || (tile.type !== TileType.Portal && tile.type !== TileType.Stairs)) {
+    return false;
+  }
+
+  if (myPlayer.x === target.x && myPlayer.y === target.y) {
+    pathCells = [];
+    pathTarget = null;
+    pendingAutoInteraction = {
+      kind: 'portal',
+      mapId: myPlayer.mapId,
+      x: target.x,
+      y: target.y,
+      actionId: 'portal:travel',
+    };
+    mapRuntime.setPathCells(pathCells);
+    return true;
+  }
+
+  pendingAutoInteraction = {
+    kind: 'portal',
+    mapId: myPlayer.mapId,
+    x: target.x,
+    y: target.y,
+    actionId: 'portal:travel',
+  };
+  planPathTo({ x: target.x, y: target.y }, { preserveAutoInteraction: true });
+  return true;
 }
 
 function buildClientPreviewPath(
@@ -1845,7 +2094,7 @@ function buildClientPreviewPath(
   startY: number,
   targetX: number,
   targetY: number,
-): { x: number; y: number }[] | null {
+): { cells: { x: number; y: number }[]; directions: Direction[] } | null {
   const mapMeta = mapRuntime.getMapMeta();
   if (!mapMeta) {
     return null;
@@ -1886,7 +2135,10 @@ function buildClientPreviewPath(
     currentY += dy;
     previewCells.push({ x: currentX, y: currentY });
   }
-  return previewCells;
+  return {
+    cells: previewCells,
+    directions: previewDirections,
+  };
 }
 
 function resetGameState() {
@@ -2042,6 +2294,8 @@ observeModalShellEl?.addEventListener('click', (event) => {
 
 mapRuntime.setInteractionCallbacks({
   onTarget: (target) => {
+    const clickedMonster = findObservedEntityAt(target.x, target.y, 'monster');
+    const clickedNpc = findObservedEntityAt(target.x, target.y, 'npc');
     if (pendingTargetedAction) {
       if (pendingTargetedAction.actionId !== 'client:observe' && !isPointInsideCurrentMap(target.x, target.y)) {
         showToast('窗外投影当前仅支持观察');
@@ -2086,9 +2340,9 @@ mapRuntime.setInteractionCallbacks({
       showToast('窗外投影当前仅支持观察');
       return;
     }
-    if (target.entityKind === 'monster' && target.entityId) {
+    if (clickedMonster) {
       clearCurrentPath();
-      socket.sendAction('battle:engage', target.entityId);
+      socket.sendAction('battle:engage', clickedMonster.id);
       return;
     }
     if (!isWithinDisplayedMemoryBounds(target.x, target.y)) {
@@ -2098,6 +2352,12 @@ mapRuntime.setInteractionCallbacks({
     const knownTile = getKnownTileAt(target.x, target.y);
     if (!knownTile) {
       showToast('完全未知的黑色区域无法点击移动');
+      return;
+    }
+    if (clickedNpc && handleNpcClickTarget(clickedNpc)) {
+      return;
+    }
+    if (handlePortalClickTarget(target, knownTile)) {
       return;
     }
     if (!knownTile.walkable) {
@@ -2272,10 +2532,13 @@ socket.onTick((data: S2C_Tick) => {
     mapRuntime.replaceVisibleEntities(entities, mapChanged ? { snapCamera: true } : null);
   }
 
-  if (pathTarget && myPlayer.x === pathTarget.x && myPlayer.y === pathTarget.y) {
+  const autoInteractionTriggered = triggerAutoInteractionIfReady();
+  if (!autoInteractionTriggered && pathTarget && myPlayer.x === pathTarget.x && myPlayer.y === pathTarget.y) {
     clearCurrentPath();
   }
-  if (data.path) {
+  if (autoInteractionTriggered) {
+    pathCells = [];
+  } else if (data.path) {
     pathCells = data.path.map(([x, y]) => ({ x, y }));
     if (pathCells.length === 0 && pathTarget) {
       clearCurrentPath();

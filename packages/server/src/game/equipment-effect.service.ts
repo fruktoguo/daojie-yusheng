@@ -234,13 +234,14 @@ export class EquipmentEffectService {
       if (!this.matchesConditions(player, effect.conditions, undefined)) {
         continue;
       }
-      if (!effect.attrs && !effect.stats) {
+      if (!effect.attrs && !effect.stats && !effect.qiProjection) {
         continue;
       }
       nextBonuses.push({
         source: this.getDynamicBonusSource(entry),
         attrs: effect.attrs ?? {},
         stats: effect.stats,
+        qiProjection: effect.qiProjection,
         label: `${entry.item.name}:${effect.effectId ?? 'effect'}`,
       });
     }
@@ -272,6 +273,9 @@ export class EquipmentEffectService {
         return false;
       }
       if (JSON.stringify(leftEntry.stats ?? null) !== JSON.stringify(rightEntry.stats ?? null)) {
+        return false;
+      }
+      if (JSON.stringify(leftEntry.qiProjection ?? null) !== JSON.stringify(rightEntry.qiProjection ?? null)) {
         return false;
       }
     }
@@ -418,6 +422,7 @@ export class EquipmentEffectService {
       color: buff.color,
       attrs: buff.attrs,
       stats: buff.stats,
+      qiProjection: buff.qiProjection,
     });
   }
 
@@ -444,6 +449,7 @@ export class EquipmentEffectService {
       existing.color = nextBuff.color;
       existing.attrs = nextBuff.attrs;
       existing.stats = nextBuff.stats;
+      existing.qiProjection = nextBuff.qiProjection;
       syncDynamicBuffPresentation(existing);
       return;
     }

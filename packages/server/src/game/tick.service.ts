@@ -13,9 +13,9 @@ import {
   DEFAULT_AURA_LEVEL_BASE_VALUE,
   DEFAULT_OFFLINE_PLAYER_TIMEOUT_SEC,
   Direction,
-  getAuraLevel,
   GroundItemPilePatch,
   GroundItemPileView,
+  MapMeta,
   MapRouteDomain,
   normalizeAuraLevelBaseValue,
   parseTileTargetRef,
@@ -40,6 +40,8 @@ import {
   VisibleTile,
   VisibleTilePatch,
   PERSIST_INTERVAL,
+  clonePlainValue,
+  isPlainEqual,
 } from '@mud/shared';
 import * as fs from 'fs';
 import { PersistentDocumentService } from '../database/persistent-document.service';
@@ -59,6 +61,7 @@ import { GmService } from './gm.service';
 import { LootService } from './loot.service';
 import { PerformanceService } from './performance.service';
 import { DirtyFlag, ImmediateCommandType, PlayerService } from './player.service';
+import { QiProjectionService } from './qi-projection.service';
 import { TechniqueService } from './technique.service';
 import { TimeService } from './time.service';
 import { WorldMessage, WorldService, WorldUpdate } from './world.service';
@@ -70,14 +73,24 @@ interface LastSentTickState {
   qi?: number;
   facing?: Direction;
   auraLevelBaseValue?: number;
-  pathSignature: string;
-  timeSignature?: string;
-  threatArrowSignature?: string;
+  pathVersion: number;
+  timeState?: ReturnType<TimeService['buildPlayerTimeState']>;
+  threatArrows?: Array<[string, string]>;
   visibilityKey?: string;
   tilePatchRevision?: number;
-  mapMetaSignature?: string;
+  mapMeta?: MapMeta;
   minimapSignature?: string;
   minimapLibrarySignature?: string;
+}
+
+interface ActionSyncStateEntry {
+  id: string;
+  name: string;
+  desc: string;
+  cooldownLeft: number;
+  type: string;
+  autoBattleEnabled?: boolean;
+  autoBattleOrder?: number;
 }
 
 interface SyncActionsOptions {
@@ -138,6 +151,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     private readonly lootService: LootService,
     private readonly worldService: WorldService,
     private readonly timeService: TimeService,
+    private readonly qiProjectionService: QiProjectionService,
     private readonly persistentDocumentService: PersistentDocumentService,
   ) {}
 
@@ -470,8 +484,30 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
               this.playerService.markDirty(player.id, 'actions');
             }
             this.applyCultivationResult(player.id, this.techniqueService.interruptCultivation(player, 'move'), messages);
-            const { x, y, allowNearestReachable } = cmd.data as { x: number; y: number; allowNearestReachable?: boolean };
-            const error = this.navigationService.setMoveTarget(player, x, y, { allowNearestReachable });
+            const {
+              x,
+              y,
+              allowNearestReachable,
+              packedPath,
+              packedPathSteps,
+              pathStartX,
+              pathStartY,
+            } = cmd.data as {
+              x: number;
+              y: number;
+              allowNearestReachable?: boolean;
+              packedPath?: string;
+              packedPathSteps?: number;
+              pathStartX?: number;
+              pathStartY?: number;
+            };
+            const error = this.navigationService.primeMoveTarget(player, x, y, {
+              allowNearestReachable,
+              clientPackedPath: packedPath,
+              clientPackedPathSteps: packedPathSteps,
+              clientPathStartX: pathStartX,
+              clientPathStartY: pathStartY,
+            });
             if (error) {
               messages.push({ playerId: player.id, text: error, kind: 'system' });
             }
@@ -560,6 +596,13 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           if (actionId === 'battle:engage') {
             this.measureCpuSection('combat', '战斗与技能计算', () => {
               const result = this.worldService.engageTarget(player, target);
+              this.applyWorldUpdate(player.id, result, messages);
+            });
+            break;
+          }
+          if (actionId === 'portal:travel' || actionId.startsWith('npc:')) {
+            this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+              const result = this.worldService.handleInteraction(player, actionId);
               this.applyWorldUpdate(player.id, result, messages);
             });
             break;
@@ -1231,15 +1274,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   /** 重新构建玩家的可用行动列表，返回是否发生变化 */
   private syncActions(player: PlayerState, options?: SyncActionsOptions): boolean {
     const before = this.measureCpuSection('state_actions_before', '动作重建: 重建前快照', () => (
-      JSON.stringify(player.actions.map((action) => ({
-        id: action.id,
-        name: action.name,
-        desc: action.desc,
-        cooldownLeft: action.cooldownLeft,
-        type: action.type,
-        autoBattleEnabled: action.autoBattleEnabled,
-        autoBattleOrder: action.autoBattleOrder,
-      })))
+      this.captureActionSyncState(player.actions)
     ));
     const contextActions = this.measureCpuSection('state_actions_context', '动作重建: 场景动作收集', () => (
       this.worldService.getContextActions(player, { skipQuestSync: options?.skipQuestSync })
@@ -1248,17 +1283,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       this.actionService.rebuildActions(player, contextActions);
     });
     const after = this.measureCpuSection('state_actions_after', '动作重建: 重建后快照', () => (
-      JSON.stringify(player.actions.map((action) => ({
-        id: action.id,
-        name: action.name,
-        desc: action.desc,
-        cooldownLeft: action.cooldownLeft,
-        type: action.type,
-        autoBattleEnabled: action.autoBattleEnabled,
-        autoBattleOrder: action.autoBattleOrder,
-      })))
+      this.captureActionSyncState(player.actions)
     ));
-    return before !== after;
+    return !isPlainEqual(before, after);
   }
 
   /**
@@ -1583,7 +1610,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         this.aoiService.getVisibility(viewer, time.effectiveViewRange)
       ));
       const clientVisibleTiles = this.measureCpuSection('broadcast_patch_tiles_transform', '地块 Patch: 客户端视图转换', () => (
-        this.toClientVisibleTiles(visibility.tiles)
+        this.toClientVisibleTiles(viewer, visibility.tiles)
       ));
       const overlayParentMapId = this.mapService.getOverlayParentMapId(viewer.mapId);
 
@@ -1649,8 +1676,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       }
 
       let previous = this.lastSentTickState.get(viewer.id);
-      const path = this.navigationService.getPathPoints(viewer.id);
-      const pathSignature = this.buildPathSignature(path);
+      const pathVersion = this.navigationService.getPathVersion(viewer.id);
       const mapChanged = previous?.mapId !== viewer.mapId;
       if (mapChanged) {
         this.resetPlayerSyncState(viewer.id);
@@ -1663,13 +1689,11 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         ? this.mapService.getTilePatchRevision(viewer.mapId)
         : undefined;
       const mapMeta = this.mapService.getMapMeta(viewer.mapId);
-      const mapMetaSignature = this.buildMapMetaSignature(mapMeta);
       const unlockedMinimapIds = this.getUnlockedMinimapIds(viewer);
       const minimapSignature = unlockedMinimapIds.includes(viewer.mapId)
         ? this.mapService.getMinimapSignature(viewer.mapId)
         : '';
       const minimapLibrarySignature = this.buildMinimapLibrarySignature(unlockedMinimapIds);
-      const timeSignature = this.buildTimeSignature(time);
       const visibleEntityIds = new Set([...visiblePlayers, ...visibleEntities].map((entity) => entity.id));
       const visibleThreatArrows = this.measureCpuSection('broadcast_entities', '广播: 仇恨箭头构建', () => (
         this.worldService.getVisibleThreatArrowRefs(
@@ -1677,7 +1701,6 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           visibleEntityIds,
         ).map(({ ownerId, targetId }) => [ownerId, targetId] as [string, string])
       ));
-      const threatArrowSignature = this.buildThreatArrowSignature(visibleThreatArrows);
       const tileOriginX = viewer.x - time.effectiveViewRange;
       const tileOriginY = viewer.y - time.effectiveViewRange;
       const groundPilePatches = this.measureCpuSection('broadcast_patch_ground', '广播: 掉落差量 Patch', () => (
@@ -1725,7 +1748,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (effectPatches.length > 0) {
         tickData.fx = effectPatches;
       }
-      if (forceSync || previous?.threatArrowSignature !== threatArrowSignature) {
+      if (forceSync || !previous || !this.isStructuredEqual(previous.threatArrows, visibleThreatArrows)) {
         tickData.threatArrows = visibleThreatArrows;
       }
       if (groundPilePatches.length > 0) {
@@ -1749,7 +1772,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (mapChanged) {
         tickData.m = viewer.mapId;
       }
-      if (mapChanged || previous?.mapMetaSignature !== mapMetaSignature) {
+      if (mapChanged || !previous || !this.isStructuredEqual(previous.mapMeta, mapMeta)) {
         tickData.mapMeta = mapMeta;
       }
       if (mapChanged || previous?.minimapSignature !== minimapSignature) {
@@ -1772,10 +1795,10 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (!previous || previous.auraLevelBaseValue !== this.auraLevelBaseValue) {
         tickData.auraLevelBaseValue = this.auraLevelBaseValue;
       }
-      if (!previous || previous.pathSignature !== pathSignature) {
-        tickData.path = path;
+      if (!previous || previous.pathVersion !== pathVersion) {
+        tickData.path = this.navigationService.getPathPoints(viewer.id);
       }
-      if (forceSync || mapChanged || previous?.timeSignature !== timeSignature) {
+      if (forceSync || mapChanged || !previous || !this.isStructuredEqual(previous.timeState, time)) {
         tickData.time = time;
       }
       if (!this.hasTickPayloadChanges(tickData)) {
@@ -1792,45 +1815,16 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         qi: viewer.qi,
         facing: viewer.facing,
         auraLevelBaseValue: this.auraLevelBaseValue,
-        pathSignature,
-        timeSignature,
-        threatArrowSignature,
+        pathVersion,
+        timeState: this.cloneStructured(time),
+        threatArrows: visibleThreatArrows.length > 0 ? this.cloneStructured(visibleThreatArrows) : undefined,
         visibilityKey,
         tilePatchRevision,
-        mapMetaSignature,
+        mapMeta: mapMeta ? this.cloneStructured(mapMeta) : undefined,
         minimapSignature,
         minimapLibrarySignature,
       });
     }
-  }
-
-  private buildPathSignature(path: [number, number][] | undefined): string {
-    if (!path || path.length === 0) {
-      return '';
-    }
-    return path.map(([x, y]) => `${x},${y}`).join('|');
-  }
-
-  private buildTimeSignature(time: ReturnType<TimeService['buildPlayerTimeState']>): string {
-    return JSON.stringify({
-      dayLength: time.dayLength,
-      timeScale: time.timeScale,
-      phase: time.phase,
-      phaseLabel: time.phaseLabel,
-      darknessStacks: time.darknessStacks,
-      visionMultiplier: time.visionMultiplier,
-      lightPercent: time.lightPercent,
-      effectiveViewRange: time.effectiveViewRange,
-      tint: time.tint,
-      overlayAlpha: time.overlayAlpha,
-    });
-  }
-
-  private buildThreatArrowSignature(arrows: Array<[string, string]>): string {
-    if (arrows.length === 0) {
-      return '';
-    }
-    return arrows.map(([ownerId, targetId]) => `${ownerId}>${targetId}`).join('|');
   }
 
   private hasTickPayloadChanges(data: S2C_Tick): boolean {
@@ -1855,18 +1849,32 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       || data.path !== undefined;
   }
 
-  private toClientVisibleTiles(tiles: VisibleTile[][]): VisibleTile[][] {
-    return tiles.map((row) => row.map((tile) => this.toClientVisibleTile(tile)));
+  private toClientVisibleTiles(viewer: PlayerState, tiles: VisibleTile[][]): VisibleTile[][] {
+    return tiles.map((row) => row.map((tile) => this.toClientVisibleTile(viewer, tile)));
   }
 
-  private toClientVisibleTile(tile: VisibleTile): VisibleTile {
+  private toClientVisibleTile(viewer: PlayerState, tile: VisibleTile): VisibleTile {
     if (!tile) {
       return null;
     }
     return {
       ...this.cloneStructured(tile),
-      aura: getAuraLevel(tile.aura ?? 0, this.auraLevelBaseValue),
+      aura: viewer.senseQiActive
+        ? this.qiProjectionService.getAuraLevel(viewer, tile.aura ?? 0, this.auraLevelBaseValue)
+        : 0,
     };
+  }
+
+  private captureActionSyncState(actions: ActionDef[]): ActionSyncStateEntry[] {
+    return actions.map((action) => ({
+      id: action.id,
+      name: action.name,
+      desc: action.desc,
+      cooldownLeft: action.cooldownLeft,
+      type: action.type,
+      autoBattleEnabled: action.autoBattleEnabled,
+      autoBattleOrder: action.autoBattleOrder,
+    }));
   }
 
   private buildVisibilityKey(viewer: PlayerState, effectiveViewRange: number): string {
@@ -1876,33 +1884,32 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       viewer.x,
       viewer.y,
       effectiveViewRange,
+      viewer.senseQiActive === true ? 1 : 0,
+      viewer.senseQiActive === true ? this.qiProjectionService.getProjectionRevision(viewer) : 0,
+      this.auraLevelBaseValue,
     ].join(':');
-  }
-
-  private buildMapMetaSignature(mapMeta: ReturnType<MapService['getMapMeta']>): string {
-    return JSON.stringify(mapMeta ?? null);
   }
 
   /** 构建属性增量包，仅发送与上次不同的字段 */
   private buildSparseAttrUpdate(playerId: string, nextState: S2C_AttrUpdate): S2C_AttrUpdate | null {
     const previous = this.lastSentAttrUpdates.get(playerId);
     const patch: S2C_AttrUpdate = {};
-    const cachedState = JSON.parse(JSON.stringify(nextState)) as S2C_AttrUpdate;
+    const cachedState = this.cloneStructured(nextState);
 
     if (!previous || !this.isStructuredEqual(previous.baseAttrs, nextState.baseAttrs)) {
-      patch.baseAttrs = JSON.parse(JSON.stringify(nextState.baseAttrs)) as typeof nextState.baseAttrs;
+      patch.baseAttrs = this.cloneStructured(nextState.baseAttrs);
     }
     if (!previous || !this.isStructuredEqual(previous.bonuses, nextState.bonuses)) {
-      patch.bonuses = JSON.parse(JSON.stringify(nextState.bonuses)) as typeof nextState.bonuses;
+      patch.bonuses = this.cloneStructured(nextState.bonuses);
     }
     if (!previous || !this.isStructuredEqual(previous.finalAttrs, nextState.finalAttrs)) {
-      patch.finalAttrs = JSON.parse(JSON.stringify(nextState.finalAttrs)) as typeof nextState.finalAttrs;
+      patch.finalAttrs = this.cloneStructured(nextState.finalAttrs);
     }
     if (!previous || !this.isStructuredEqual(previous.numericStats, nextState.numericStats)) {
-      patch.numericStats = JSON.parse(JSON.stringify(nextState.numericStats)) as typeof nextState.numericStats;
+      patch.numericStats = this.cloneStructured(nextState.numericStats);
     }
     if (!previous || !this.isStructuredEqual(previous.ratioDivisors, nextState.ratioDivisors)) {
-      patch.ratioDivisors = JSON.parse(JSON.stringify(nextState.ratioDivisors)) as typeof nextState.ratioDivisors;
+      patch.ratioDivisors = this.cloneStructured(nextState.ratioDivisors);
     }
     if (!previous || previous.maxHp !== nextState.maxHp) {
       patch.maxHp = nextState.maxHp;
@@ -1913,11 +1920,11 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     const specialStatsChanged = !previous || !this.isStructuredEqual(previous.specialStats, nextState.specialStats);
     if (specialStatsChanged) {
       if (!previous || this.canSyncSpecialStatsNow(playerId)) {
-        patch.specialStats = nextState.specialStats ? JSON.parse(JSON.stringify(nextState.specialStats)) as typeof nextState.specialStats : undefined;
+        patch.specialStats = nextState.specialStats ? this.cloneStructured(nextState.specialStats) : undefined;
         this.lastSentSpecialStatsAt.set(playerId, Date.now());
         this.pendingSpecialStatsPlayers.delete(playerId);
       } else {
-        cachedState.specialStats = previous.specialStats ? JSON.parse(JSON.stringify(previous.specialStats)) as typeof previous.specialStats : undefined;
+        cachedState.specialStats = previous.specialStats ? this.cloneStructured(previous.specialStats) : undefined;
         this.pendingSpecialStatsPlayers.add(playerId);
       }
     } else {
@@ -1933,7 +1940,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       patch.lifespanYears = nextState.lifespanYears;
     }
     if (!previous || !this.isStructuredEqual(previous.realm, nextState.realm)) {
-      patch.realm = nextState.realm ? JSON.parse(JSON.stringify(nextState.realm)) as typeof nextState.realm : null;
+      patch.realm = nextState.realm ? this.cloneStructured(nextState.realm) : null;
     }
 
     this.lastSentAttrUpdates.set(playerId, cachedState);
@@ -1971,16 +1978,16 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (!previous || previous.name !== technique.name) patch.name = technique.name ?? null;
       if (!previous || previous.grade !== technique.grade) patch.grade = technique.grade ?? null;
       if (!previous || !this.isStructuredEqual(previous.skills, technique.skills)) {
-        patch.skills = technique.skills ? JSON.parse(JSON.stringify(technique.skills)) as typeof technique.skills : null;
+        patch.skills = technique.skills ? this.cloneStructured(technique.skills) : null;
       }
       if (!previous || !this.isStructuredEqual(previous.layers, technique.layers)) {
-        patch.layers = technique.layers ? JSON.parse(JSON.stringify(technique.layers)) as typeof technique.layers : null;
+        patch.layers = technique.layers ? this.cloneStructured(technique.layers) : null;
       }
       if (!previous || !this.isStructuredEqual(previous.attrCurves, technique.attrCurves)) {
-        patch.attrCurves = technique.attrCurves ? JSON.parse(JSON.stringify(technique.attrCurves)) as typeof technique.attrCurves : null;
+        patch.attrCurves = technique.attrCurves ? this.cloneStructured(technique.attrCurves) : null;
       }
 
-      nextCache.set(technique.techId, JSON.parse(JSON.stringify(technique)) as TechniqueState);
+      nextCache.set(technique.techId, this.cloneStructured(technique));
       return patch;
     });
 
@@ -2021,7 +2028,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         patch.targetMode = action.targetMode ?? null;
       }
 
-      nextCache.set(action.id, JSON.parse(JSON.stringify(action)) as ActionDef);
+      nextCache.set(action.id, this.cloneStructured(action));
       return patch;
     });
 
@@ -2052,10 +2059,10 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           sourceId: pile.sourceId,
           x: pile.x,
           y: pile.y,
-          items: JSON.parse(JSON.stringify(pile.items)) as typeof pile.items,
+          items: this.cloneStructured(pile.items),
         });
       }
-      nextCache.set(pile.sourceId, JSON.parse(JSON.stringify(pile)) as GroundItemPileView);
+      nextCache.set(pile.sourceId, this.cloneStructured(pile));
     }
 
     for (const [sourceId, previous] of cache.entries()) {
@@ -2322,11 +2329,11 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   private isStructuredEqual(left: unknown, right: unknown): boolean {
-    return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
+    return isPlainEqual(left, right);
   }
 
   private cloneStructured<T>(value: T): T {
-    return JSON.parse(JSON.stringify(value)) as T;
+    return clonePlainValue(value);
   }
 
   /** 过滤出观察者视野范围内的战斗特效 */

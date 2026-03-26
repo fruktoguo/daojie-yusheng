@@ -1123,6 +1123,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       color: effect.color,
       attrs: effect.attrs,
       stats: effect.stats,
+      qiProjection: effect.qiProjection,
     });
   }
 
@@ -1143,6 +1144,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       existing.color = nextBuff.color;
       existing.attrs = nextBuff.attrs;
       existing.stats = nextBuff.stats;
+      existing.qiProjection = nextBuff.qiProjection;
       syncDynamicBuffPresentation(existing);
       return existing;
     }

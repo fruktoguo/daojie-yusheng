@@ -28,6 +28,13 @@ import {
   NumericStats,
   PlayerRealmStage,
   PartialNumericStats,
+  QiElementKey,
+  QiFamilyKey,
+  QiFormKey,
+  QiProjectionModifier,
+  QI_ELEMENT_KEYS,
+  QI_FAMILY_KEYS,
+  QI_FORM_KEYS,
   scaleTechniqueExp,
   SkillDef,
   SkillEffectDef,
@@ -286,6 +293,14 @@ function normalizeStringArray(value: unknown): string[] | undefined {
   return normalized.length > 0 ? normalized : undefined;
 }
 
+function normalizeQiKeyArray<T extends string>(value: unknown, allowed: readonly T[]): T[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const normalized = [...new Set(value.filter((entry): entry is T => typeof entry === 'string' && allowed.includes(entry as T)))];
+  return normalized.length > 0 ? normalized : undefined;
+}
+
 @Injectable()
 export class ContentService implements OnModuleInit {
   private readonly logger = new Logger(ContentService.name);
@@ -428,6 +443,45 @@ export class ContentService implements OnModuleInit {
     return this.normalizeItemStats(actualStats);
   }
 
+  private normalizeQiProjectionModifiers(input: unknown): QiProjectionModifier[] | undefined {
+    if (!Array.isArray(input)) {
+      return undefined;
+    }
+    const modifiers = input.flatMap((entry) => {
+      if (!isPlainObject(entry)) {
+        return [];
+      }
+      const selector = isPlainObject(entry.selector) ? entry.selector : undefined;
+      const normalizedSelector = selector ? {
+        resourceKeys: normalizeStringArray(selector.resourceKeys),
+        families: normalizeQiKeyArray(selector.families, QI_FAMILY_KEYS) as QiFamilyKey[] | undefined,
+        forms: normalizeQiKeyArray(selector.forms, QI_FORM_KEYS) as QiFormKey[] | undefined,
+        elements: normalizeQiKeyArray(selector.elements, QI_ELEMENT_KEYS) as QiElementKey[] | undefined,
+      } : undefined;
+      const hasSelector = normalizedSelector && (
+        normalizedSelector.resourceKeys
+        || normalizedSelector.families
+        || normalizedSelector.forms
+        || normalizedSelector.elements
+      );
+      const visibility = entry.visibility === 'observable' || entry.visibility === 'absorbable'
+        ? entry.visibility
+        : undefined;
+      const efficiencyBpMultiplier = Number.isFinite(entry.efficiencyBpMultiplier)
+        ? Math.max(0, Math.round(Number(entry.efficiencyBpMultiplier)))
+        : undefined;
+      if (!visibility && efficiencyBpMultiplier === undefined) {
+        return [];
+      }
+      return [{
+        selector: hasSelector ? normalizedSelector : undefined,
+        visibility,
+        efficiencyBpMultiplier,
+      } satisfies QiProjectionModifier];
+    });
+    return modifiers.length > 0 ? modifiers : undefined;
+  }
+
   private normalizeEquipmentConditionGroup(input: unknown): EquipmentConditionGroup | undefined {
     if (!isPlainObject(input) || !Array.isArray(input.items)) {
       return undefined;
@@ -517,6 +571,7 @@ export class ContentService implements OnModuleInit {
           conditions,
           attrs: this.normalizeItemAttrs(input.attrs),
           stats: this.resolveConfiguredStats(input.stats, input.valueStats),
+          qiProjection: this.normalizeQiProjectionModifiers(input.qiProjection),
         }];
       case 'progress_boost':
         return [{
@@ -525,6 +580,7 @@ export class ContentService implements OnModuleInit {
           conditions,
           attrs: this.normalizeItemAttrs(input.attrs),
           stats: this.resolveConfiguredStats(input.stats, input.valueStats),
+          qiProjection: this.normalizeQiProjectionModifiers(input.qiProjection),
         }];
       case 'periodic_cost': {
         const trigger = input.trigger === 'on_cultivation_tick' ? 'on_cultivation_tick' : input.trigger === 'on_tick' ? 'on_tick' : null;
@@ -580,6 +636,7 @@ export class ContentService implements OnModuleInit {
             maxStacks: Number.isFinite(buff.maxStacks) ? Math.max(1, Math.floor(Number(buff.maxStacks))) : undefined,
             attrs: this.normalizeItemAttrs(buff.attrs),
             stats: this.resolveConfiguredStats(buff.stats, buff.valueStats),
+            qiProjection: this.normalizeQiProjectionModifiers(buff.qiProjection),
           },
         }];
       }
@@ -736,6 +793,7 @@ export class ContentService implements OnModuleInit {
           maxStacks: Number.isFinite(input.maxStacks) ? Math.max(1, Math.floor(Number(input.maxStacks))) : undefined,
           attrs: this.normalizeItemAttrs(input.attrs),
           stats: this.resolveConfiguredStats(input.stats, input.valueStats),
+          qiProjection: this.normalizeQiProjectionModifiers(input.qiProjection),
         }];
       default:
         return [];

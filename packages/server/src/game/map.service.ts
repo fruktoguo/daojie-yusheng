@@ -61,6 +61,9 @@ import {
   DEFAULT_AURA_LEVEL_BASE_VALUE,
   TILE_AURA_HALF_LIFE_RATE_SCALE,
   TILE_AURA_HALF_LIFE_RATE_SCALED,
+  buildQiResourceKey,
+  DEFAULT_QI_RESOURCE_DESCRIPTOR,
+  parseQiResourceKey,
 } from '@mud/shared';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -235,7 +238,13 @@ interface PersistedAuraSnapshot {
   maps: Record<string, PersistedAuraRecord[]>;
 }
 
-interface AuraRuntimeState extends PersistedAuraRecord {}
+interface TileResourceRuntimeState extends PersistedTileRuntimeResourceRecord {
+  x: number;
+  y: number;
+}
+
+type TileResourceStateMap = Map<string, TileResourceRuntimeState>;
+type TileResourceBucketMap = Map<string, TileResourceStateMap>;
 
 interface PersistedTileRuntimeTerrainRecord {
   hp: number;
@@ -277,6 +286,28 @@ interface SyncedMapDocument {
 const MAP_DOCUMENT_SCOPE = 'map_document';
 const RUNTIME_STATE_SCOPE = 'runtime_state';
 const MAP_TILE_RUNTIME_DOCUMENT_KEY = 'map_tile';
+const LEGACY_AURA_RESOURCE_KEY = 'aura';
+const AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR);
+
+const QI_FAMILY_LABELS = {
+  aura: '灵气',
+  demonic: '魔气',
+  sha: '煞气',
+} as const;
+
+const QI_FORM_LABELS = {
+  refined: '凝练',
+  dispersed: '逸散',
+} as const;
+
+const QI_ELEMENT_LABELS = {
+  neutral: '',
+  metal: '金',
+  wood: '木',
+  water: '水',
+  fire: '火',
+  earth: '土',
+} as const;
 
 type OccupantKind = 'player' | 'monster';
 
@@ -324,9 +355,9 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   private dynamicTileStates: Map<string, Map<string, DynamicTileState>> = new Map();
   private persistedDynamicTileStates: Map<string, Map<string, PersistedDynamicTileRecord>> = new Map();
   private dynamicTileStatesDirty = false;
-  private auraStates: Map<string, Map<string, AuraRuntimeState>> = new Map();
-  private persistedAuraStates: Map<string, Map<string, AuraRuntimeState>> = new Map();
-  private auraStatesDirty = false;
+  private resourceStates: Map<string, TileResourceBucketMap> = new Map();
+  private persistedResourceStates: Map<string, TileResourceBucketMap> = new Map();
+  private resourceStatesDirty = false;
   private mapTimeStates: Map<string, PersistedMapTimeState> = new Map();
   private persistedMapTimeStates: Map<string, PersistedMapTimeState> = new Map();
   private mapTimeStatesDirty = false;
@@ -335,6 +366,9 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   private readonly legacyDynamicTileStatePath = resolveServerDataPath('runtime', 'dynamic-map-state.json');
   private readonly legacyAuraStatePath = resolveServerDataPath('runtime', 'map-aura-state.json');
   private auraLevelBaseValue = DEFAULT_AURA_LEVEL_BASE_VALUE;
+  private runtimeSnapshotCache: PersistedTileRuntimeSnapshot = { version: 2, maps: {} };
+  private dirtyTileRuntimeMapIds = new Set<string>();
+  private dirtyMapTimeStateMapIds = new Set<string>();
 
   constructor(
     private readonly contentService: ContentService,
@@ -369,8 +403,11 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
   private async loadPersistedTileRuntimeStates() {
     this.persistedDynamicTileStates.clear();
-    this.persistedAuraStates.clear();
+    this.persistedResourceStates.clear();
     this.persistedMapTimeStates.clear();
+    this.runtimeSnapshotCache = { version: 2, maps: {} };
+    this.dirtyTileRuntimeMapIds.clear();
+    this.dirtyMapTimeStateMapIds.clear();
     let snapshot = await this.persistentDocumentService.get<Partial<PersistedTileRuntimeSnapshot>>(
       RUNTIME_STATE_SCOPE,
       MAP_TILE_RUNTIME_DOCUMENT_KEY,
@@ -402,7 +439,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         }
 
         const terrainRecords = new Map<string, PersistedDynamicTileRecord>();
-        const auraRecords = new Map<string, AuraRuntimeState>();
+        const resourceRecords = new Map<string, TileResourceStateMap>();
         for (const rawRecord of rawRecords) {
           const record = rawRecord as Partial<PersistedTileRuntimeRecord>;
           if (!Number.isInteger(record.x) || !Number.isInteger(record.y)) {
@@ -427,16 +464,22 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
             });
           }
 
-          const aura = record.resources?.aura as Partial<PersistedTileRuntimeResourceRecord> | undefined;
-          if (aura && Number.isFinite(aura.value)) {
-            auraRecords.set(key, {
-              x: Number(record.x),
-              y: Number(record.y),
-              value: Math.max(0, Math.round(Number(aura.value))),
-              sourceValue: Number.isFinite(aura.sourceValue) ? Math.max(0, Math.round(Number(aura.sourceValue))) : 0,
-              decayRemainder: Number.isFinite(aura.decayRemainder) ? Math.max(0, Math.round(Number(aura.decayRemainder))) : 0,
-              sourceRemainder: Number.isFinite(aura.sourceRemainder) ? Math.max(0, Math.round(Number(aura.sourceRemainder))) : 0,
-            });
+          if (!record.resources || typeof record.resources !== 'object') {
+            continue;
+          }
+
+          for (const [rawResourceKey, rawResourceState] of Object.entries(record.resources)) {
+            const resourceKey = this.normalizeTileResourceKey(rawResourceKey);
+            const normalized = resourceKey
+              ? this.normalizeTileResourceRuntimeState(record.x, record.y, rawResourceState)
+              : null;
+            if (!resourceKey || !normalized) {
+              continue;
+            }
+
+            const stateMap = resourceRecords.get(resourceKey) ?? new Map<string, TileResourceRuntimeState>();
+            stateMap.set(key, normalized);
+            resourceRecords.set(resourceKey, stateMap);
           }
         }
 
@@ -444,9 +487,9 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
           this.persistedDynamicTileStates.set(mapId, terrainRecords);
           terrainStateCount += terrainRecords.size;
         }
-        if (auraRecords.size > 0) {
-          this.persistedAuraStates.set(mapId, auraRecords);
-          resourceStateCount += auraRecords.size;
+        if (resourceRecords.size > 0) {
+          this.persistedResourceStates.set(mapId, resourceRecords);
+          resourceStateCount += [...resourceRecords.values()].reduce((total, stateMap) => total + stateMap.size, 0);
         }
       }
 
@@ -467,6 +510,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
           `已加载地块运行时状态：地形 ${terrainStateCount} 条，资源 ${resourceStateCount} 条，地图时间 ${timeStateCount} 条`,
         );
       }
+      this.runtimeSnapshotCache = this.buildPersistedTileRuntimeSnapshotFromState();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`读取地块运行时持久化数据失败: ${message}`);
@@ -479,7 +523,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     }
 
     this.persistedDynamicTileStates.clear();
-    this.persistedAuraStates.clear();
+    this.persistedResourceStates.clear();
     this.persistedMapTimeStates.clear();
 
     if (fs.existsSync(this.tileRuntimeStatePath)) {
@@ -497,7 +541,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     this.loadLegacyPersistedTileRuntimeStates();
     if (
       this.persistedDynamicTileStates.size === 0
-      && this.persistedAuraStates.size === 0
+      && this.persistedResourceStates.size === 0
       && this.persistedMapTimeStates.size === 0
     ) {
       return;
@@ -582,7 +626,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         if (!Array.isArray(rawRecords)) {
           continue;
         }
-        const records = new Map<string, AuraRuntimeState>();
+        const records = new Map<string, TileResourceRuntimeState>();
         for (const rawRecord of rawRecords) {
           const record = rawRecord as Partial<PersistedAuraRecord>;
           if (
@@ -592,18 +636,14 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
           ) {
             continue;
           }
-          const normalized: AuraRuntimeState = {
-            x: Number(record.x),
-            y: Number(record.y),
-            value: Math.max(0, Math.round(Number(record.value))),
-            sourceValue: Number.isFinite(record.sourceValue) ? Math.max(0, Math.round(Number(record.sourceValue))) : 0,
-            decayRemainder: Number.isFinite(record.decayRemainder) ? Math.max(0, Math.round(Number(record.decayRemainder))) : 0,
-            sourceRemainder: Number.isFinite(record.sourceRemainder) ? Math.max(0, Math.round(Number(record.sourceRemainder))) : 0,
-          };
+          const normalized = this.normalizeTileResourceRuntimeState(record.x, record.y, record);
+          if (!normalized) {
+            continue;
+          }
           records.set(this.tileStateKey(normalized.x, normalized.y), normalized);
         }
         if (records.size > 0) {
-          this.persistedAuraStates.set(mapId, records);
+          this.setTileResourceStateMap(this.persistedResourceStates, mapId, AURA_RESOURCE_KEY, records);
         }
       }
     } catch (error) {
@@ -620,51 +660,14 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
     const allMapIds = [...new Set([
       ...this.persistedDynamicTileStates.keys(),
-      ...this.persistedAuraStates.keys(),
+      ...this.persistedResourceStates.keys(),
     ])].sort((left, right) => left.localeCompare(right, 'zh-CN'));
 
     for (const mapId of allMapIds) {
-      const dynamicStateMap = this.persistedDynamicTileStates.get(mapId);
-      const auraStateMap = this.persistedAuraStates.get(mapId);
-      const allTileKeys = [...new Set([
-        ...(dynamicStateMap ? [...dynamicStateMap.keys()] : []),
-        ...(auraStateMap ? [...auraStateMap.keys()] : []),
-      ])].sort((left, right) => {
-        const [leftX, leftY] = left.split(',').map((value) => Number.parseInt(value, 10));
-        const [rightX, rightY] = right.split(',').map((value) => Number.parseInt(value, 10));
-        return leftY - rightY || leftX - rightX;
-      });
-
-      const records: PersistedTileRuntimeRecord[] = [];
-      for (const key of allTileKeys) {
-        const terrain = dynamicStateMap?.get(key);
-        const aura = auraStateMap?.get(key);
-        if (!terrain && !aura) {
-          continue;
-        }
-
-        const [x, y] = key.split(',').map((value) => Number.parseInt(value, 10));
-        const record: PersistedTileRuntimeRecord = { x, y };
-        if (terrain) {
-          record.terrain = {
-            hp: terrain.hp,
-            destroyed: terrain.destroyed,
-            restoreTicksLeft: terrain.destroyed ? this.normalizeRestoreTicksLeft(terrain.restoreTicksLeft) : undefined,
-          };
-        }
-        if (aura) {
-          record.resources = {
-            aura: {
-              value: aura.value,
-              sourceValue: aura.sourceValue,
-              decayRemainder: aura.decayRemainder,
-              sourceRemainder: aura.sourceRemainder,
-            },
-          };
-        }
-        records.push(record);
-      }
-
+      const records = this.buildPersistedTileRuntimeRecords(
+        this.persistedDynamicTileStates.get(mapId),
+        this.persistedResourceStates.get(mapId),
+      );
       if (records.length > 0) {
         snapshot.maps[mapId] = records;
       }
@@ -677,12 +680,12 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       if (!state) {
         continue;
       }
+      const record = this.buildPersistedMapTimeRecord(mapId, false);
+      if (!record) {
+        continue;
+      }
       snapshot.time ??= {};
-      snapshot.time[mapId] = {
-        totalTicks: state.totalTicks,
-        config: state.config ? this.normalizeMapTimeConfig(state.config) : undefined,
-        tickSpeed: state.tickSpeed,
-      };
+      snapshot.time[mapId] = record;
     }
 
     return snapshot;
@@ -949,102 +952,41 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   }
 
   async persistTileRuntimeStates() {
-    if (!this.dynamicTileStatesDirty && !this.auraStatesDirty && !this.mapTimeStatesDirty) {
+    if (!this.dynamicTileStatesDirty && !this.resourceStatesDirty && !this.mapTimeStatesDirty) {
       return;
     }
 
     try {
-      const snapshot: PersistedTileRuntimeSnapshot = {
-        version: 2,
-        maps: {},
-      };
-
-      const allMapIds = [...new Set([
-        ...this.dynamicTileStates.keys(),
-        ...this.auraStates.keys(),
-      ])].sort((left, right) => left.localeCompare(right, 'zh-CN'));
-
-      for (const mapId of allMapIds) {
-        const dynamicStateMap = this.dynamicTileStates.get(mapId);
-        const auraStateMap = this.auraStates.get(mapId);
-        const allTileKeys = [...new Set([
-          ...(dynamicStateMap ? [...dynamicStateMap.keys()] : []),
-          ...(auraStateMap ? [...auraStateMap.keys()] : []),
-        ])].sort((left, right) => {
-          const [leftX, leftY] = left.split(',').map((value) => Number.parseInt(value, 10));
-          const [rightX, rightY] = right.split(',').map((value) => Number.parseInt(value, 10));
-          return leftY - rightY || leftX - rightX;
-        });
-
-        const records: PersistedTileRuntimeRecord[] = [];
-        for (const key of allTileKeys) {
-          const terrain = dynamicStateMap?.get(key);
-          const aura = auraStateMap?.get(key);
-          if (!terrain && !aura) {
-            continue;
-          }
-
-          const [x, y] = key.split(',').map((value) => Number.parseInt(value, 10));
-          const record: PersistedTileRuntimeRecord = { x, y };
-          if (terrain) {
-            record.terrain = {
-              hp: terrain.hp,
-              destroyed: terrain.destroyed,
-              restoreTicksLeft: terrain.destroyed ? this.normalizeRestoreTicksLeft(terrain.restoreTicksLeft) : undefined,
-            };
-          }
-          if (aura) {
-            record.resources = {
-              aura: {
-                value: aura.value,
-                sourceValue: aura.sourceValue,
-                decayRemainder: aura.decayRemainder,
-                sourceRemainder: aura.sourceRemainder,
-              },
-            };
-          }
-          records.push(record);
-        }
-
+      for (const mapId of this.dirtyTileRuntimeMapIds) {
+        const records = this.buildPersistedTileRuntimeRecords(
+          this.dynamicTileStates.get(mapId),
+          this.resourceStates.get(mapId),
+        );
         if (records.length > 0) {
-          snapshot.maps[mapId] = records;
+          this.runtimeSnapshotCache.maps[mapId] = records;
+        } else {
+          delete this.runtimeSnapshotCache.maps[mapId];
+        }
+      }
+      for (const mapId of this.dirtyMapTimeStateMapIds) {
+        const record = this.buildPersistedMapTimeRecord(mapId);
+        if (record) {
+          this.runtimeSnapshotCache.time ??= {};
+          this.runtimeSnapshotCache.time[mapId] = record;
+        } else if (this.runtimeSnapshotCache.time) {
+          delete this.runtimeSnapshotCache.time[mapId];
+          if (Object.keys(this.runtimeSnapshotCache.time).length === 0) {
+            delete this.runtimeSnapshotCache.time;
+          }
         }
       }
 
-      const allTimeMapIds = [...new Set([
-        ...this.persistedMapTimeStates.keys(),
-        ...this.mapTimeStates.keys(),
-      ])]
-        .filter((mapId) => this.maps.has(mapId))
-        .sort((left, right) => left.localeCompare(right, 'zh-CN'));
-
-      for (const mapId of allTimeMapIds) {
-        const state = this.mapTimeStates.get(mapId) ?? this.persistedMapTimeStates.get(mapId);
-        if (!state) {
-          continue;
-        }
-
-        const record: PersistedMapTimeState = {};
-        if (typeof state.totalTicks === 'number' && Number.isFinite(state.totalTicks)) {
-          record.totalTicks = Math.max(0, Math.floor(state.totalTicks));
-        }
-        if (state.config) {
-          record.config = this.normalizeMapTimeConfig(state.config);
-        }
-        if (typeof state.tickSpeed === 'number' && Number.isFinite(state.tickSpeed) && state.tickSpeed !== 1) {
-          record.tickSpeed = Math.max(0, Math.min(100, state.tickSpeed));
-        }
-        if (record.totalTicks === undefined && !record.config && record.tickSpeed === undefined) {
-          continue;
-        }
-        snapshot.time ??= {};
-        snapshot.time[mapId] = record;
-      }
-
-      await this.persistentDocumentService.save(RUNTIME_STATE_SCOPE, MAP_TILE_RUNTIME_DOCUMENT_KEY, snapshot);
+      await this.persistentDocumentService.save(RUNTIME_STATE_SCOPE, MAP_TILE_RUNTIME_DOCUMENT_KEY, this.runtimeSnapshotCache);
       this.dynamicTileStatesDirty = false;
-      this.auraStatesDirty = false;
+      this.resourceStatesDirty = false;
       this.mapTimeStatesDirty = false;
+      this.dirtyTileRuntimeMapIds.clear();
+      this.dirtyMapTimeStateMapIds.clear();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`地块运行时持久化到 PostgreSQL 失败: ${message}`);
@@ -1053,22 +995,23 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
   tickDynamicTiles(mapId: string) {
     const stateMap = this.dynamicTileStates.get(mapId);
-    const auraStateMap = this.auraStates.get(mapId);
-    if ((!stateMap || stateMap.size === 0) && (!auraStateMap || auraStateMap.size === 0)) {
+    const resourceStateBucket = this.resourceStates.get(mapId);
+    const tickingResourceStateMap = resourceStateBucket?.get(AURA_RESOURCE_KEY);
+    if ((!stateMap || stateMap.size === 0) && (!tickingResourceStateMap || tickingResourceStateMap.size === 0)) {
       return;
     }
 
-    let changed = false;
-    let auraStateChanged = false;
+    let terrainStateChanged = false;
+    let resourceStateChanged = false;
     let visibilityChanged = false;
     if (stateMap) {
-      for (const [key, state] of [...stateMap.entries()]) {
+      for (const [key, state] of stateMap) {
         if (state.hp < state.maxHp) {
           const regen = this.calculateTileRegen(state.maxHp);
           const nextHp = Math.min(state.maxHp, state.hp + regen);
           if (nextHp !== state.hp) {
             state.hp = nextHp;
-            changed = true;
+            terrainStateChanged = true;
             this.markTileDirty(mapId, state.x, state.y);
           }
         }
@@ -1077,19 +1020,19 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
           const nextRestoreTicksLeft = Math.max(0, (state.restoreTicksLeft ?? 0) - 1);
           if (nextRestoreTicksLeft !== (state.restoreTicksLeft ?? 0)) {
             state.restoreTicksLeft = nextRestoreTicksLeft;
-            changed = true;
+            terrainStateChanged = true;
             this.markTileDirty(mapId, state.x, state.y);
           }
 
           if ((state.restoreTicksLeft ?? 0) <= 0) {
             if (this.hasBlockingEntityAt(mapId, state.x, state.y)) {
               state.restoreTicksLeft = TERRAIN_RESTORE_RETRY_DELAY_TICKS;
-              changed = true;
+              terrainStateChanged = true;
               this.markTileDirty(mapId, state.x, state.y);
             } else {
               state.destroyed = false;
               state.restoreTicksLeft = undefined;
-              changed = true;
+              terrainStateChanged = true;
               visibilityChanged = true;
               this.markTileDirty(mapId, state.x, state.y);
             }
@@ -1099,14 +1042,14 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         const tile = this.getTile(mapId, state.x, state.y);
         if (!tile) {
           stateMap.delete(key);
-          changed = true;
+          terrainStateChanged = true;
           continue;
         }
 
         if (!state.destroyed && state.hp >= state.maxHp) {
           stateMap.delete(key);
           this.resetTileToBaseState(mapId, state.x, state.y);
-          changed = true;
+          terrainStateChanged = true;
           this.markTileDirty(mapId, state.x, state.y);
           continue;
         }
@@ -1115,68 +1058,59 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    if (auraStateMap) {
-      for (const [key, state] of [...auraStateMap.entries()]) {
+    if (resourceStateBucket && tickingResourceStateMap) {
+      for (const [key, state] of tickingResourceStateMap) {
         const tile = this.getTile(mapId, state.x, state.y);
         if (!tile) {
-          auraStateMap.delete(key);
-          changed = true;
+          tickingResourceStateMap.delete(key);
+          resourceStateChanged = true;
           continue;
         }
 
         const previousValue = state.value;
         const previousLevel = getAuraLevel(previousValue, this.auraLevelBaseValue);
-        const previousDecayRemainder = state.decayRemainder ?? 0;
-        const previousSourceRemainder = state.sourceRemainder ?? 0;
-        state.decayRemainder = Math.max(0, Math.round(state.decayRemainder ?? 0))
-          + previousValue * TILE_AURA_HALF_LIFE_RATE_SCALED;
-        const decayAmount = Math.floor(state.decayRemainder / TILE_AURA_HALF_LIFE_RATE_SCALE);
-        state.decayRemainder %= TILE_AURA_HALF_LIFE_RATE_SCALE;
-
-        state.sourceRemainder = Math.max(0, Math.round(state.sourceRemainder ?? 0))
-          + Math.max(0, Math.round(state.sourceValue ?? 0)) * TILE_AURA_HALF_LIFE_RATE_SCALED;
-        const sourceAmount = Math.floor(state.sourceRemainder / TILE_AURA_HALF_LIFE_RATE_SCALE);
-        state.sourceRemainder %= TILE_AURA_HALF_LIFE_RATE_SCALE;
-        if (state.decayRemainder !== previousDecayRemainder || state.sourceRemainder !== previousSourceRemainder) {
-          auraStateChanged = true;
+        if (this.tickTileResourceState(AURA_RESOURCE_KEY, state)) {
+          resourceStateChanged = true;
         }
 
-        const nextValue = Math.max(0, previousValue - decayAmount + sourceAmount);
-        if (nextValue !== previousValue) {
-          state.value = nextValue;
-          tile.aura = nextValue;
-          changed = true;
-          auraStateChanged = true;
-          if (getAuraLevel(nextValue, this.auraLevelBaseValue) !== previousLevel) {
+        if (state.value !== previousValue) {
+          tile.aura = state.value;
+          if (getAuraLevel(state.value, this.auraLevelBaseValue) !== previousLevel) {
             this.markTileDirty(mapId, state.x, state.y);
           }
         }
 
-        if (!this.shouldKeepAuraRuntimeState(state)) {
-          auraStateMap.delete(key);
-          auraStateChanged = true;
+        if (!this.shouldKeepTileResourceRuntimeState(state)) {
+          tickingResourceStateMap.delete(key);
+          resourceStateChanged = true;
           if (tile.aura !== 0) {
             tile.aura = 0;
             this.markTileDirty(mapId, state.x, state.y);
           }
         }
       }
+
+      if (tickingResourceStateMap.size === 0) {
+        resourceStateBucket.delete(AURA_RESOURCE_KEY);
+      }
     }
 
     if (stateMap?.size === 0) {
       this.dynamicTileStates.delete(mapId);
     }
-    if (auraStateMap?.size === 0) {
-      this.auraStates.delete(mapId);
+    if (resourceStateBucket?.size === 0) {
+      this.resourceStates.delete(mapId);
     }
     if (visibilityChanged) {
       this.bumpMapRevision(mapId);
     }
-    if (stateMap && changed) {
+    if (stateMap && terrainStateChanged) {
       this.dynamicTileStatesDirty = true;
+      this.markTileRuntimeMapDirty(mapId);
     }
-    if (auraStateMap && auraStateChanged) {
-      this.auraStatesDirty = true;
+    if (resourceStateChanged) {
+      this.resourceStatesDirty = true;
+      this.markTileRuntimeMapDirty(mapId);
     }
   }
 
@@ -1230,6 +1164,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       this.dynamicTileStates.delete(mapId);
       if (sourceCount > 0) {
         this.dynamicTileStatesDirty = true;
+        this.markTileRuntimeMapDirty(mapId);
       }
       if (persistedSourceStates) {
         this.persistedDynamicTileStates.delete(mapId);
@@ -1239,6 +1174,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     this.dynamicTileStates.set(mapId, nextStates);
     if (nextStates.size !== sourceCount) {
       this.dynamicTileStatesDirty = true;
+      this.markTileRuntimeMapDirty(mapId);
     }
     if (persistedSourceStates) {
       this.persistedDynamicTileStates.delete(mapId);
@@ -1246,10 +1182,10 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   }
 
   private rehydrateAuraStates(mapId: string, tiles: Tile[][], baseAuraValues: Map<string, number>) {
-    const persistedSourceStates = this.persistedAuraStates.get(mapId);
-    const sourceStates = this.auraStates.get(mapId) ?? persistedSourceStates;
+    const persistedSourceStates = this.getTileResourceStateMap(this.persistedResourceStates, mapId, AURA_RESOURCE_KEY);
+    const sourceStates = this.getTileResourceStateMap(this.resourceStates, mapId, AURA_RESOURCE_KEY) ?? persistedSourceStates;
     const sourceCount = sourceStates?.size ?? 0;
-    const nextStates = new Map<string, AuraRuntimeState>();
+    const nextStates = new Map<string, TileResourceRuntimeState>();
 
     for (const [key, sourceValue] of baseAuraValues.entries()) {
       const persisted = sourceStates?.get(key);
@@ -1258,7 +1194,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       if (!tile) {
         continue;
       }
-      const state: AuraRuntimeState = {
+      const state: TileResourceRuntimeState = {
         x,
         y,
         value: Math.max(0, Math.round(persisted?.value ?? sourceValue)),
@@ -1279,7 +1215,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         if (!tile) {
           continue;
         }
-        const state: AuraRuntimeState = {
+        const state: TileResourceRuntimeState = {
           x: rawState.x,
           y: rawState.y,
           value: Math.max(0, Math.round(rawState.value)),
@@ -1288,28 +1224,30 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
           sourceRemainder: Math.max(0, Math.round(rawState.sourceRemainder ?? 0)),
         };
         tile.aura = state.value;
-        if (this.shouldKeepAuraRuntimeState(state)) {
+        if (this.shouldKeepTileResourceRuntimeState(state)) {
           nextStates.set(key, state);
         }
       }
     }
 
     if (nextStates.size === 0) {
-      this.auraStates.delete(mapId);
+      this.deleteTileResourceStateMap(this.resourceStates, mapId, AURA_RESOURCE_KEY);
       if (sourceCount > 0) {
-        this.auraStatesDirty = true;
+        this.resourceStatesDirty = true;
+        this.markTileRuntimeMapDirty(mapId);
       }
       if (persistedSourceStates) {
-        this.persistedAuraStates.delete(mapId);
+        this.deleteTileResourceStateMap(this.persistedResourceStates, mapId, AURA_RESOURCE_KEY);
       }
       return;
     }
-    this.auraStates.set(mapId, nextStates);
+    this.setTileResourceStateMap(this.resourceStates, mapId, AURA_RESOURCE_KEY, nextStates);
     if (nextStates.size !== sourceCount) {
-      this.auraStatesDirty = true;
+      this.resourceStatesDirty = true;
+      this.markTileRuntimeMapDirty(mapId);
     }
     if (persistedSourceStates) {
-      this.persistedAuraStates.delete(mapId);
+      this.deleteTileResourceStateMap(this.persistedResourceStates, mapId, AURA_RESOURCE_KEY);
     }
   }
 
@@ -1512,11 +1450,260 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     return { totalTicks, config, tickSpeed };
   }
 
-  private shouldKeepAuraRuntimeState(state: AuraRuntimeState): boolean {
+  private normalizeTileResourceKey(rawKey: unknown): string | null {
+    if (typeof rawKey !== 'string') {
+      return null;
+    }
+
+    const normalizedKey = rawKey.trim();
+    if (!normalizedKey) {
+      return null;
+    }
+    if (normalizedKey === LEGACY_AURA_RESOURCE_KEY) {
+      return AURA_RESOURCE_KEY;
+    }
+    return normalizedKey;
+  }
+
+  private normalizeTileResourceRuntimeState(x: unknown, y: unknown, raw: unknown): TileResourceRuntimeState | null {
+    if (!Number.isInteger(x) || !Number.isInteger(y) || !raw || typeof raw !== 'object') {
+      return null;
+    }
+
+    const candidate = raw as Partial<PersistedTileRuntimeResourceRecord>;
+    if (!Number.isFinite(candidate.value)) {
+      return null;
+    }
+
+    return {
+      x: Number(x),
+      y: Number(y),
+      value: Math.max(0, Math.round(Number(candidate.value))),
+      sourceValue: Number.isFinite(candidate.sourceValue) ? Math.max(0, Math.round(Number(candidate.sourceValue))) : 0,
+      decayRemainder: Number.isFinite(candidate.decayRemainder) ? Math.max(0, Math.round(Number(candidate.decayRemainder))) : 0,
+      sourceRemainder: Number.isFinite(candidate.sourceRemainder) ? Math.max(0, Math.round(Number(candidate.sourceRemainder))) : 0,
+    };
+  }
+
+  private getTileResourceStateMap(
+    source: Map<string, TileResourceBucketMap>,
+    mapId: string,
+    resourceKey: string,
+  ): TileResourceStateMap | undefined {
+    return source.get(mapId)?.get(resourceKey);
+  }
+
+  private setTileResourceStateMap(
+    source: Map<string, TileResourceBucketMap>,
+    mapId: string,
+    resourceKey: string,
+    stateMap: TileResourceStateMap,
+  ): void {
+    if (stateMap.size === 0) {
+      this.deleteTileResourceStateMap(source, mapId, resourceKey);
+      return;
+    }
+
+    const bucket = source.get(mapId) ?? new Map<string, TileResourceStateMap>();
+    bucket.set(resourceKey, stateMap);
+    source.set(mapId, bucket);
+  }
+
+  private deleteTileResourceStateMap(
+    source: Map<string, TileResourceBucketMap>,
+    mapId: string,
+    resourceKey: string,
+  ): void {
+    const bucket = source.get(mapId);
+    if (!bucket) {
+      return;
+    }
+    bucket.delete(resourceKey);
+    if (bucket.size === 0) {
+      source.delete(mapId);
+    }
+  }
+
+  private listTileKeysForResourceBucket(resourceBucket: TileResourceBucketMap | undefined): string[] {
+    if (!resourceBucket) {
+      return [];
+    }
+
+    const tileKeys = new Set<string>();
+    for (const stateMap of resourceBucket.values()) {
+      for (const key of stateMap.keys()) {
+        tileKeys.add(key);
+      }
+    }
+    return [...tileKeys];
+  }
+
+  private buildPersistedTileRuntimeRecords(
+    dynamicStateMap: Map<string, DynamicTileState | PersistedDynamicTileRecord> | undefined,
+    resourceBucket: TileResourceBucketMap | undefined,
+  ): PersistedTileRuntimeRecord[] {
+    const allTileKeys = [...new Set([
+      ...(dynamicStateMap ? [...dynamicStateMap.keys()] : []),
+      ...this.listTileKeysForResourceBucket(resourceBucket),
+    ])].sort((left, right) => {
+      const [leftX, leftY] = left.split(',').map((value) => Number.parseInt(value, 10));
+      const [rightX, rightY] = right.split(',').map((value) => Number.parseInt(value, 10));
+      return leftY - rightY || leftX - rightX;
+    });
+
+    const records: PersistedTileRuntimeRecord[] = [];
+    for (const key of allTileKeys) {
+      const terrain = dynamicStateMap?.get(key);
+      const resources = this.buildPersistedTileRuntimeResources(resourceBucket, key);
+      if (!terrain && !resources) {
+        continue;
+      }
+
+      const [x, y] = key.split(',').map((value) => Number.parseInt(value, 10));
+      const record: PersistedTileRuntimeRecord = { x, y };
+      if (terrain) {
+        record.terrain = {
+          hp: terrain.hp,
+          destroyed: terrain.destroyed,
+          restoreTicksLeft: terrain.destroyed ? this.normalizeRestoreTicksLeft(terrain.restoreTicksLeft) : undefined,
+        };
+      }
+      if (resources) {
+        record.resources = resources;
+      }
+      records.push(record);
+    }
+
+    return records;
+  }
+
+  private buildPersistedTileRuntimeResources(
+    resourceBucket: TileResourceBucketMap | undefined,
+    tileKey: string,
+  ): Record<string, PersistedTileRuntimeResourceRecord> | undefined {
+    if (!resourceBucket) {
+      return undefined;
+    }
+
+    const resources: Record<string, PersistedTileRuntimeResourceRecord> = {};
+    for (const [resourceKey, stateMap] of resourceBucket.entries()) {
+      const state = stateMap.get(tileKey);
+      if (!state) {
+        continue;
+      }
+      resources[resourceKey] = {
+        value: state.value,
+        sourceValue: state.sourceValue,
+        decayRemainder: state.decayRemainder,
+        sourceRemainder: state.sourceRemainder,
+      };
+    }
+
+    return Object.keys(resources).length > 0 ? resources : undefined;
+  }
+
+  private buildPersistedMapTimeRecord(mapId: string, requireLoadedMap = true): PersistedMapTimeState | null {
+    if (requireLoadedMap && !this.maps.has(mapId)) {
+      return null;
+    }
+
+    const state = this.mapTimeStates.get(mapId) ?? this.persistedMapTimeStates.get(mapId);
+    if (!state) {
+      return null;
+    }
+
+    const record: PersistedMapTimeState = {};
+    if (typeof state.totalTicks === 'number' && Number.isFinite(state.totalTicks)) {
+      record.totalTicks = Math.max(0, Math.floor(state.totalTicks));
+    }
+    if (state.config) {
+      record.config = this.normalizeMapTimeConfig(state.config);
+    }
+    if (typeof state.tickSpeed === 'number' && Number.isFinite(state.tickSpeed) && state.tickSpeed !== 1) {
+      record.tickSpeed = Math.max(0, Math.min(100, state.tickSpeed));
+    }
+    if (record.totalTicks === undefined && !record.config && record.tickSpeed === undefined) {
+      return null;
+    }
+
+    return record;
+  }
+
+  private markTileRuntimeMapDirty(mapId: string): void {
+    this.dirtyTileRuntimeMapIds.add(mapId);
+  }
+
+  private markMapTimeStateDirty(mapId: string): void {
+    this.dirtyMapTimeStateMapIds.add(mapId);
+  }
+
+  private shouldKeepTileResourceRuntimeState(state: TileResourceRuntimeState): boolean {
     return (state.sourceValue ?? 0) > 0
       || state.value > 0
       || (state.decayRemainder ?? 0) > 0
       || (state.sourceRemainder ?? 0) > 0;
+  }
+
+  private shouldExposeTileResourceDetail(state: TileResourceRuntimeState): boolean {
+    return (state.sourceValue ?? 0) > 0 || state.value > 0;
+  }
+
+  private tickTileResourceState(resourceKey: string, state: TileResourceRuntimeState): boolean {
+    if (resourceKey !== AURA_RESOURCE_KEY) {
+      return false;
+    }
+
+    const previousValue = state.value;
+    const previousDecayRemainder = state.decayRemainder ?? 0;
+    const previousSourceRemainder = state.sourceRemainder ?? 0;
+
+    state.decayRemainder = Math.max(0, Math.round(state.decayRemainder ?? 0))
+      + previousValue * TILE_AURA_HALF_LIFE_RATE_SCALED;
+    const decayAmount = Math.floor(state.decayRemainder / TILE_AURA_HALF_LIFE_RATE_SCALE);
+    state.decayRemainder %= TILE_AURA_HALF_LIFE_RATE_SCALE;
+
+    state.sourceRemainder = Math.max(0, Math.round(state.sourceRemainder ?? 0))
+      + Math.max(0, Math.round(state.sourceValue ?? 0)) * TILE_AURA_HALF_LIFE_RATE_SCALED;
+    const sourceAmount = Math.floor(state.sourceRemainder / TILE_AURA_HALF_LIFE_RATE_SCALE);
+    state.sourceRemainder %= TILE_AURA_HALF_LIFE_RATE_SCALE;
+
+    const nextValue = Math.max(0, previousValue - decayAmount + sourceAmount);
+    if (nextValue !== previousValue) {
+      state.value = nextValue;
+    }
+
+    return nextValue !== previousValue
+      || state.decayRemainder !== previousDecayRemainder
+      || state.sourceRemainder !== previousSourceRemainder;
+  }
+
+  private toPublicTileResourceKey(resourceKey: string): string {
+    return resourceKey === AURA_RESOURCE_KEY ? LEGACY_AURA_RESOURCE_KEY : resourceKey;
+  }
+
+  private getTileResourceLabel(resourceKey: string): string {
+    if (resourceKey === AURA_RESOURCE_KEY) {
+      return '灵气';
+    }
+
+    const descriptor = parseQiResourceKey(resourceKey);
+    if (!descriptor) {
+      return resourceKey;
+    }
+
+    const familyLabel = QI_FAMILY_LABELS[descriptor.family];
+    const formLabel = QI_FORM_LABELS[descriptor.form];
+    const elementLabel = QI_ELEMENT_LABELS[descriptor.element];
+    if (descriptor.form === 'refined' && descriptor.element === 'neutral') {
+      return familyLabel;
+    }
+    if (descriptor.element === 'neutral') {
+      return `${formLabel}${familyLabel}`;
+    }
+    if (descriptor.form === 'refined') {
+      return `${elementLabel}${familyLabel}`;
+    }
+    return `${formLabel}${elementLabel}${familyLabel}`;
   }
 
   private tileStateKey(x: number, y: number): string {
@@ -2214,6 +2401,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     });
     this.persistedMapTimeStates.delete(mapId);
     this.mapTimeStatesDirty = true;
+    this.markMapTimeStateDirty(mapId);
   }
 
   getPersistedMapTickSpeed(mapId: string): number | null {
@@ -2238,6 +2426,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     });
     this.persistedMapTimeStates.delete(mapId);
     this.mapTimeStatesDirty = true;
+    this.markMapTimeStateDirty(mapId);
   }
 
   /** GM 运行时修改地图时间配置（持久化到运行时状态，重启后保留） */
@@ -2271,6 +2460,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     });
     this.persistedMapTimeStates.delete(mapId);
     this.mapTimeStatesDirty = true;
+    this.markMapTimeStateDirty(mapId);
     return null;
   }
 
@@ -2646,9 +2836,41 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
     const key = this.tileStateKey(resolvedX, resolvedY);
     const dynamicState = this.dynamicTileStates.get(resolvedMapId)?.get(key);
-    const auraState = this.auraStates.get(resolvedMapId)?.get(key);
+    const resourceBucket = this.resourceStates.get(resolvedMapId);
+    const resources: Array<{ key: string; label: string; value: number; level?: number; sourceValue?: number }> = [];
+    const auraState = resourceBucket?.get(AURA_RESOURCE_KEY)?.get(key);
     const auraValue = Math.max(0, Math.round(auraState?.value ?? tile.aura ?? 0));
     const sourceValue = Math.max(0, Math.round(auraState?.sourceValue ?? this.maps.get(resolvedMapId)?.baseAuraValues.get(key) ?? 0));
+    if (auraValue > 0 || sourceValue > 0) {
+      resources.push({
+        key: LEGACY_AURA_RESOURCE_KEY,
+        label: '灵气',
+        value: auraValue,
+        level: getAuraLevel(auraValue, this.auraLevelBaseValue),
+        sourceValue: sourceValue > 0 ? sourceValue : undefined,
+      });
+    }
+
+    if (resourceBucket) {
+      for (const [resourceKey, stateMap] of resourceBucket.entries()) {
+        if (resourceKey === AURA_RESOURCE_KEY) {
+          continue;
+        }
+        const state = stateMap.get(key);
+        if (!state || !this.shouldExposeTileResourceDetail(state)) {
+          continue;
+        }
+        resources.push({
+          key: this.toPublicTileResourceKey(resourceKey),
+          label: this.getTileResourceLabel(resourceKey),
+          value: Math.max(0, Math.round(state.value)),
+          level: parseQiResourceKey(resourceKey)
+            ? getAuraLevel(Math.max(0, Math.round(state.value)), this.auraLevelBaseValue)
+            : undefined,
+          sourceValue: (state.sourceValue ?? 0) > 0 ? Math.max(0, Math.round(state.sourceValue ?? 0)) : undefined,
+        });
+      }
+    }
 
     return {
       mapId,
@@ -2658,15 +2880,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       maxHp: tile.maxHp,
       destroyed: dynamicState?.destroyed === true,
       restoreTicksLeft: dynamicState?.restoreTicksLeft,
-      resources: auraValue > 0 || sourceValue > 0
-        ? [{
-            key: 'aura',
-            label: '灵气',
-            value: auraValue,
-            level: getAuraLevel(auraValue, this.auraLevelBaseValue),
-            sourceValue: sourceValue > 0 ? sourceValue : undefined,
-          }]
-        : [],
+      resources,
     };
   }
 
@@ -2686,7 +2900,8 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
     tile.aura = nextValue;
     const previousLevel = getAuraLevel(previousValue, this.auraLevelBaseValue);
-    const stateMap = this.auraStates.get(mapId) ?? new Map<string, AuraRuntimeState>();
+    const stateMap = this.getTileResourceStateMap(this.resourceStates, mapId, AURA_RESOURCE_KEY)
+      ?? new Map<string, TileResourceRuntimeState>();
     const state = stateMap.get(key) ?? {
       x,
       y,
@@ -2696,18 +2911,15 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       sourceRemainder: 0,
     };
     state.value = nextValue;
-    if (this.shouldKeepAuraRuntimeState(state)) {
+    if (this.shouldKeepTileResourceRuntimeState(state)) {
       stateMap.set(key, state);
-      this.auraStates.set(mapId, stateMap);
+      this.setTileResourceStateMap(this.resourceStates, mapId, AURA_RESOURCE_KEY, stateMap);
     } else {
       stateMap.delete(key);
-      if (stateMap.size > 0) {
-        this.auraStates.set(mapId, stateMap);
-      } else {
-        this.auraStates.delete(mapId);
-      }
+      this.setTileResourceStateMap(this.resourceStates, mapId, AURA_RESOURCE_KEY, stateMap);
     }
-    this.auraStatesDirty = true;
+    this.resourceStatesDirty = true;
+    this.markTileRuntimeMapDirty(mapId);
     if (getAuraLevel(nextValue, this.auraLevelBaseValue) !== previousLevel) {
       this.markTileDirty(mapId, x, y);
     }
@@ -2761,6 +2973,14 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     const tile = this.getTile(mapId, x, y);
     if (!tile || !tile.walkable) return Number.POSITIVE_INFINITY;
     return getTileTraversalCost(tile.type);
+  }
+
+  canTraverseTerrain(mapId: string, x: number, y: number): boolean {
+    const tile = this.getTile(mapId, x, y);
+    if (!tile || !tile.walkable) {
+      return false;
+    }
+    return !this.hasNpcAt(mapId, x, y);
   }
 
   addOccupant(mapId: string, x: number, y: number, occupancyId: string, kind: OccupantKind = 'player'): void {
@@ -2841,6 +3061,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     mapStates.set(key, state);
     this.dynamicTileStates.set(mapId, mapStates);
     this.dynamicTileStatesDirty = true;
+    this.markTileRuntimeMapDirty(mapId);
 
     if (state.destroyed) {
       this.bumpMapRevision(mapId);

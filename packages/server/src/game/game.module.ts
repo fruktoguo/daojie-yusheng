@@ -38,6 +38,7 @@ import { UserEntity } from '../database/entities/user.entity';
 import { MarketOrderEntity } from '../database/entities/market-order.entity';
 import { MarketTradeHistoryEntity } from '../database/entities/market-trade-history.entity';
 import { MarketService } from './market.service';
+import { QiProjectionService } from './qi-projection.service';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { MarketService } from './market.service';
     PlayerService,
     AoiService,
     AttrService,
+    QiProjectionService,
     InventoryService,
     EquipmentService,
     EquipmentEffectService,

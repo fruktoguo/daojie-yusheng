@@ -30,6 +30,7 @@ import {
 import { REALM_EXPONENTIAL_NUMERIC_KEYS, REALM_LINEAR_NUMERIC_KEYS } from '../constants/gameplay/attr';
 import { SOUL_DEVOUR_EROSION_BUFF_ID } from '../constants/gameplay/equipment';
 import { getSoulDevourErosionRatio } from './buff-presentation';
+import { QiProjectionService } from './qi-projection.service';
 
 type PercentBonusAccumulator = Pick<NumericStats, 'maxHp' | 'maxQi' | 'physAtk' | 'spellAtk'>;
 
@@ -98,6 +99,10 @@ function sumBuffStacks(buffs: readonly TemporaryBuffState[], buffId: string): nu
 
 @Injectable()
 export class AttrService {
+  constructor(
+    private readonly qiProjectionService: QiProjectionService,
+  ) {}
+
   /** 合并基础属性与所有加成，得到最终属性 */
   computeFinal(
     base: Attributes,
@@ -206,6 +211,7 @@ export class AttrService {
       player.qi = Math.max(0, Math.min(newMaxQi, Math.round(player.qi)));
     }
     player.viewRange = Math.max(1, Math.round(stats.viewRange || VIEW_RADIUS));
+    this.qiProjectionService.recalcPlayer(player);
   }
 
   private getActiveTemporaryBuffs(player: PlayerState): TemporaryBuffState[] {
