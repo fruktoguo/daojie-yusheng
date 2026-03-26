@@ -1109,6 +1109,7 @@ function mergeTechniquePatch(patch: TechniqueUpdateEntry, previous?: TechniqueSt
     name: applyNullablePatch(patch.name, previous?.name) ?? patch.techId,
     skills: applyNullablePatch(patch.skills, previous?.skills) ? cloneJson(applyNullablePatch(patch.skills, previous?.skills) ?? []) : [],
     grade: applyNullablePatch(patch.grade, previous?.grade),
+    category: applyNullablePatch(patch.category, previous?.category),
     layers: applyNullablePatch(patch.layers, previous?.layers)
       ? cloneJson(applyNullablePatch(patch.layers, previous?.layers) ?? [])
       : undefined,

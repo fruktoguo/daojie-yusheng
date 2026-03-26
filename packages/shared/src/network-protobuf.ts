@@ -5,7 +5,7 @@
 import protobuf from 'protobufjs';
 import { C2S, S2C, type ActionUpdateEntry, type GroundItemPilePatch, type S2C_ActionsUpdate, type S2C_AttrUpdate, type S2C_TechniqueUpdate, type S2C_Tick, type TechniqueUpdateEntry, type TickRenderEntity, type VisibleTilePatch } from './protocol';
 import type { NumericRatioDivisors, NumericStats } from './numeric';
-import type { ActionDef, Attributes, AttrBonus, GameTimeState, ItemType, MapMeta, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerSpecialStats, QuestLine, TechniqueAttrCurves, TechniqueGrade, TechniqueLayerDef, TechniqueState, VisibleBuffState, VisibleTile } from './types';
+import type { ActionDef, Attributes, AttrBonus, GameTimeState, ItemType, MapMeta, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerSpecialStats, QuestLine, TechniqueAttrCurves, TechniqueCategory, TechniqueGrade, TechniqueLayerDef, TechniqueState, VisibleBuffState, VisibleTile } from './types';
 import { clonePlainValue } from './structured';
 
 const PROTO_SCHEMA = `
@@ -191,6 +191,8 @@ message TechniqueUpdateEntryPayload {
   optional bool clearLayers = 13;
   optional string attrCurvesJson = 14;
   optional bool clearAttrCurves = 15;
+  optional string category = 17;
+  optional bool clearCategory = 18;
 }
 
 message ActionsUpdatePayload {
@@ -607,6 +609,7 @@ function toWireTechniqueEntry(entry: TechniqueUpdateEntry): Record<string, unkno
   if (entry.realm !== undefined) wire.realm = entry.realm;
   setNullableWireValue(wire, 'name', 'clearName', entry.name);
   setNullableWireValue(wire, 'grade', 'clearGrade', entry.grade);
+  setNullableWireValue(wire, 'category', 'clearCategory', entry.category);
   if (entry.skills === null) {
     wire.clearSkills = true;
   } else if (entry.skills !== undefined) {
@@ -638,6 +641,8 @@ function fromWireTechniqueEntry(wire: Record<string, unknown>): TechniqueUpdateE
   if (name !== undefined) patch.name = name;
   const grade = readNullableWireValue<TechniqueGrade>(wire, 'grade', 'clearGrade');
   if (grade !== undefined) patch.grade = grade;
+  const category = readNullableWireValue<TechniqueCategory>(wire, 'category', 'clearCategory');
+  if (category !== undefined) patch.category = category;
   if (wire.clearSkills === true) {
     patch.skills = null;
   } else if (typeof wire.skillsJson === 'string') {

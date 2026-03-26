@@ -20,6 +20,7 @@ import {
   QuestStatus,
   SkillDef,
   SkillEffectDef,
+  TechniqueCategory,
   TechniqueAttrCurves,
   TechniqueGrade,
   TechniqueLayerDef,
@@ -140,6 +141,10 @@ function isTechniqueGrade(value: unknown): value is TechniqueGrade {
   return typeof value === 'string' && TECHNIQUE_GRADES.includes(value as TechniqueGrade);
 }
 
+function isTechniqueCategory(value: unknown): value is TechniqueCategory {
+  return value === 'arts' || value === 'internal' || value === 'divine' || value === 'secret';
+}
+
 function hydrateItemStack(snapshot: unknown, contentService: ContentService, countOverride?: number): ItemStack | null {
   if (!isPlainObject(snapshot) || typeof snapshot.itemId !== 'string' || snapshot.itemId.length === 0) {
     return null;
@@ -199,6 +204,7 @@ function hydrateTechnique(snapshot: unknown): TechniqueState | null {
     realm: isTechniqueRealm(snapshot.realm) ? snapshot.realm : TechniqueRealm.Entry,
     skills: Array.isArray(snapshot.skills) ? snapshot.skills as SkillDef[] : [],
     grade: isTechniqueGrade(snapshot.grade) ? snapshot.grade : undefined,
+    category: isTechniqueCategory(snapshot.category) ? snapshot.category : undefined,
     layers: Array.isArray(snapshot.layers) ? snapshot.layers as TechniqueLayerDef[] : undefined,
     attrCurves: isPlainObject(snapshot.attrCurves) ? snapshot.attrCurves as TechniqueAttrCurves : undefined,
   };

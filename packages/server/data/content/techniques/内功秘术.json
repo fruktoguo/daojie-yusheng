@@ -1,0 +1,242 @@
+[
+  {
+    "id": "nourishing_qi_art",
+    "name": "养气诀",
+    "grade": "yellow",
+    "category": "internal",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 108,
+        "attrs": {
+          "spirit": 4
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 116,
+        "attrs": {
+          "spirit": 4
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 125,
+        "attrs": {
+          "spirit": 4
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 135,
+        "attrs": {
+          "spirit": 4
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 146,
+        "attrs": {
+          "spirit": 4
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 158,
+        "attrs": {
+          "spirit": 4
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 171,
+        "attrs": {
+          "spirit": 4
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 185,
+        "attrs": {
+          "spirit": 4
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 200,
+        "attrs": {
+          "spirit": 4
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 0,
+        "attrs": {
+          "spirit": 4
+        }
+      }
+    ],
+    "skills": [],
+    "realmLv": 11
+  },
+  {
+    "id": "bright_eye_sutra",
+    "name": "明目经",
+    "grade": "yellow",
+    "category": "internal",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 112,
+        "attrs": {
+          "perception": 4
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 120,
+        "attrs": {
+          "perception": 4
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 129,
+        "attrs": {
+          "perception": 4
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 139,
+        "attrs": {
+          "perception": 4
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 150,
+        "attrs": {
+          "perception": 4
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 162,
+        "attrs": {
+          "perception": 4
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 175,
+        "attrs": {
+          "perception": 4
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 189,
+        "attrs": {
+          "perception": 4
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 204,
+        "attrs": {
+          "perception": 4
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 0,
+        "attrs": {
+          "perception": 4
+        }
+      }
+    ],
+    "skills": [],
+    "realmLv": 12
+  },
+  {
+    "id": "hidden_fortune_record",
+    "name": "藏运录",
+    "grade": "yellow",
+    "category": "secret",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 118,
+        "attrs": {
+          "luck": 2
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 127,
+        "attrs": {
+          "luck": 2
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 137,
+        "attrs": {
+          "luck": 2
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 148,
+        "attrs": {
+          "luck": 2
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 160,
+        "attrs": {
+          "luck": 2
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 173,
+        "attrs": {
+          "luck": 2
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 187,
+        "attrs": {
+          "luck": 2
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 202,
+        "attrs": {
+          "luck": 2
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 218,
+        "attrs": {
+          "luck": 2
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 0,
+        "attrs": {
+          "luck": 2
+        }
+      }
+    ],
+    "skills": [],
+    "realmLv": 13
+  }
+]

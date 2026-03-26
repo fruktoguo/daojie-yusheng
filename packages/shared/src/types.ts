@@ -3,7 +3,7 @@
  */
 import type { ElementKey, NumericRatioDivisors, NumericScalarStatKey, NumericStats, PartialNumericStats } from './numeric';
 import type { QiProjectionModifier } from './qi';
-import type { TargetingShape } from './targeting';
+import type { GridPoint, TargetingShape } from './targeting';
 
 /** 地形类型 */
 export enum TileType {
@@ -18,12 +18,18 @@ export enum TileType {
   Stairs = 'stairs',
   Grass = 'grass',
   Hill = 'hill',
+  Cliff = 'cliff',
   Mud = 'mud',
   Swamp = 'swamp',
   Water = 'water',
+  Cloud = 'cloud',
+  CloudFloor = 'cloud_floor',
+  Void = 'void',
   Tree = 'tree',
+  Bamboo = 'bamboo',
   Stone = 'stone',
   SpiritOre = 'spirit_ore',
+  BlackIronOre = 'black_iron_ore',
 }
 
 /** 方向 */
@@ -71,6 +77,7 @@ export interface MapMeta {
   name: string;
   width: number;
   height: number;
+  playerOverlapPoints?: GridPoint[];
   routeDomain?: MapRouteDomain;
   parentMapId?: string;
   parentOriginX?: number;
@@ -603,6 +610,9 @@ export enum TechniqueRealm {
 /** 功法品阶 */
 export type TechniqueGrade = 'mortal' | 'yellow' | 'mystic' | 'earth' | 'heaven' | 'spirit' | 'saint' | 'emperor';
 
+/** 功法分类 */
+export type TechniqueCategory = 'arts' | 'internal' | 'divine' | 'secret';
+
 /** 功法单属性成长分段 */
 export interface TechniqueAttrCurveSegment {
   startLevel: number;
@@ -631,6 +641,17 @@ export enum PlayerRealmStage {
   Foundation = 6,
 }
 
+/** 开天门五行数值 */
+export type HeavenGateRootValues = Record<ElementKey, number>;
+
+/** 开天门暂存状态 */
+export interface HeavenGateState {
+  unlocked: boolean;
+  severed: ElementKey[];
+  roots: HeavenGateRootValues | null;
+  entered: boolean;
+}
+
 /** 玩家大境界状态 */
 export interface PlayerRealmState {
   stage: PlayerRealmStage;
@@ -650,6 +671,7 @@ export interface PlayerRealmState {
   minTechniqueLevel: number;
   minTechniqueRealm?: TechniqueRealm;
   breakthrough?: BreakthroughPreviewState;
+  heavenGate?: HeavenGateState | null;
 }
 
 /** 玩家特殊养成数值 */
@@ -771,6 +793,7 @@ export interface TechniqueState {
   realm: TechniqueRealm;
   skills: SkillDef[];
   grade?: TechniqueGrade;
+  category?: TechniqueCategory;
   layers?: TechniqueLayerDef[];
   attrCurves?: TechniqueAttrCurves;
 }
@@ -908,6 +931,8 @@ export interface PlayerState {
   realmStage?: string;
   realmReview?: string;
   breakthroughReady?: boolean;
+  heavenGate?: HeavenGateState | null;
+  spiritualRoots?: HeavenGateRootValues | null;
   boneAgeBaseYears?: number;
   lifeElapsedTicks?: number;
   lifespanYears?: number | null;

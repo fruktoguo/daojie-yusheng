@@ -1,5 +1,95 @@
 [
   {
+    "id": "standing_stake_art",
+    "name": "站桩功",
+    "grade": "mortal",
+    "category": "internal",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 18,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 22,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 27,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 32,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 38,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 45,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 53,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 62,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 72,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 0,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      }
+    ],
+    "skills": [],
+    "realmLv": 1
+  },
+  {
     "id": "bear_cauldron_art",
     "name": "担石功",
     "grade": "mortal",
@@ -62,7 +152,8 @@
       }
     ],
     "skills": [],
-    "realmLv": 5
+    "realmLv": 5,
+    "category": "internal"
   },
   {
     "id": "dragon_elephant_bone",
@@ -134,7 +225,8 @@
       }
     ],
     "skills": [],
-    "realmLv": 7
+    "realmLv": 7,
+    "category": "internal"
   },
   {
     "id": "golden_lock_body",
@@ -213,11 +305,12 @@
       }
     ],
     "skills": [],
-    "realmLv": 9
+    "realmLv": 9,
+    "category": "internal"
   },
   {
     "id": "mountain_insight_chart",
-    "name": "照身图",
+    "name": "玄照图",
     "grade": "yellow",
     "layers": [
       {
@@ -278,7 +371,8 @@
       }
     ],
     "skills": [],
-    "realmLv": 8
+    "realmLv": 8,
+    "category": "secret"
   },
   {
     "id": "hundred_temper_body",
@@ -357,7 +451,8 @@
       }
     ],
     "skills": [],
-    "realmLv": 10
+    "realmLv": 10,
+    "category": "internal"
   },
   {
     "id": "body_tempering_formula",
@@ -526,6 +621,7 @@
       }
     ],
     "skills": [],
-    "realmLv": 18
+    "realmLv": 18,
+    "category": "internal"
   }
 ]

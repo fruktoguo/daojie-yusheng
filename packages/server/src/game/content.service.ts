@@ -41,6 +41,7 @@ import {
   SkillDef,
   SkillEffectDef,
   SkillFormula,
+  TechniqueCategory,
   TechniqueGrade,
   TechniqueLayerDef,
   TechniqueRealm,
@@ -62,6 +63,7 @@ interface TechniqueTemplate {
   name: string;
   skills: SkillDef[];
   grade: TechniqueGrade;
+  category: TechniqueCategory;
   realmLv: number;
   layers: TechniqueLayerDef[];
 }
@@ -93,6 +95,7 @@ export interface EditorTechniqueCatalogEntry {
   id: string;
   name: string;
   grade: TechniqueGrade;
+  category: TechniqueCategory;
   realmLv: number;
   skills: SkillDef[];
   layers: TechniqueLayerDef[];
@@ -199,6 +202,7 @@ interface RawTechniqueTemplate {
   id: string;
   name: string;
   grade: TechniqueGrade;
+  category?: TechniqueCategory;
   realmLv?: number;
   layers: RawTechniqueLayerDef[];
   skills: RawSkillDef[];
@@ -479,6 +483,7 @@ export class ContentService implements OnModuleInit {
         id: raw.id,
         name: raw.name,
         grade: raw.grade,
+        category: this.normalizeTechniqueCategory(raw.category, raw.skills),
         realmLv,
         layers,
         skills: raw.skills.map((skill) => {
@@ -524,6 +529,13 @@ export class ContentService implements OnModuleInit {
     }
     const fallbackGradeIndex = Math.max(0, TECHNIQUE_GRADE_ORDER.indexOf(grade));
     return fallbackGradeIndex * 12 + 1;
+  }
+
+  private normalizeTechniqueCategory(category: TechniqueCategory | undefined, skills: RawSkillDef[]): TechniqueCategory {
+    if (category === 'arts' || category === 'internal' || category === 'divine' || category === 'secret') {
+      return category;
+    }
+    return skills.length > 0 ? 'arts' : 'internal';
   }
 
   private normalizeTechniqueLayerAttrs(attrs: TechniqueLayerDef['attrs']): TechniqueLayerDef['attrs'] {
@@ -1408,6 +1420,7 @@ export class ContentService implements OnModuleInit {
         id: technique.id,
         name: technique.name,
         grade: technique.grade,
+        category: technique.category,
         realmLv: technique.realmLv,
         skills: JSON.parse(JSON.stringify(technique.skills)) as SkillDef[],
         layers: JSON.parse(JSON.stringify(technique.layers)) as TechniqueLayerDef[],

@@ -1,20 +1,156 @@
 [
-  { "itemId": "book.qingmu_sword", "name": "《青木剑诀》", "type": "skill_book", "desc": "记载基础御剑吐纳之法，使用后学会青木剑诀。", "learnTechniqueId": "qingmu_sword" },
-  { "itemId": "book.redflame_art", "name": "《赤焰诀》", "type": "skill_book", "desc": "残缺的火行法门，能御使离火符。", "learnTechniqueId": "redflame_art" },
-  { "itemId": "book_wind_step", "name": "《踏风步》", "type": "skill_book", "desc": "轻身挪步之法，可在战斗中快速切入。", "learnTechniqueId": "wind_step" },
-  { "itemId": "book_thunder_palm", "name": "《惊雷掌》残卷", "type": "skill_book", "desc": "残存雷纹的掌法札记，威力不俗。", "learnTechniqueId": "thunder_palm" },
-  { "itemId": "book_stillheart", "name": "《止念诀》", "type": "skill_book", "desc": "收束心神、以念压敌的法门。", "learnTechniqueId": "stillheart" },
-  { "itemId": "book.iron_bone_art", "name": "《铁骨功》", "type": "skill_book", "desc": "武者锻体法门，强调硬桥硬马之道。", "learnTechniqueId": "iron_bone_art" },
-  { "itemId": "book.cloud_blade", "name": "《流云刀谱》", "type": "skill_book", "desc": "从江湖刀法演化而来的灵动刀谱。", "learnTechniqueId": "cloud_blade" },
-  { "itemId": "book.frost_sutra", "name": "《寒魄经》", "type": "skill_book", "desc": "引寒入脉的残篇，兼具杀伐与凝神。", "learnTechniqueId": "frost_sutra" },
-  { "itemId": "book.spirit_anchor", "name": "《镇灵篇》", "type": "skill_book", "desc": "古修遗留的御神法门，可压制异兽灵识。", "learnTechniqueId": "spirit_anchor" },
-  { "itemId": "book.starfall_spear", "name": "《陨星枪诀》", "type": "skill_book", "desc": "残破星纹玉简中记载的高阶枪诀。", "learnTechniqueId": "starfall_spear" },
-  { "itemId": "book.bear_cauldron_art", "name": "《担石功》", "type": "skill_book", "desc": "拿石锁压肩练出来的苦功，修来极慢，但根骨扎得稳。", "learnTechniqueId": "bear_cauldron_art" },
-  { "itemId": "book.dragon_elephant_bone", "name": "《镇骨功》", "type": "skill_book", "desc": "专门打磨骨架与经脉的炼体法门，主修根骨，路子很硬。", "learnTechniqueId": "dragon_elephant_bone" },
-  { "itemId": "book.golden_lock_body", "name": "《固元功》", "type": "skill_book", "desc": "靠收束气血慢慢稳住筋骨经脉的苦功，偏重根骨。", "learnTechniqueId": "golden_lock_body" },
-  { "itemId": "book.mountain_insight_chart", "name": "《照身图》", "type": "skill_book", "desc": "边观呼吸边照着图谱调身的法子，偏重悟性。", "learnTechniqueId": "mountain_insight_chart" },
-  { "itemId": "book.hundred_temper_body", "name": "《壮身功》", "type": "skill_book", "desc": "把皮肉筋骨一遍遍熬出来的炼体功，胜在体魄长得实。", "learnTechniqueId": "hundred_temper_body" },
-  { "itemId": "book.body_tempering_formula", "name": "《锻体决》", "type": "skill_book", "desc": "一门一路横推体魄与根骨的玄阶炼体法，层层都在硬磨肉身。", "learnTechniqueId": "body_tempering_formula" },
-  { "itemId": "book.cloudchase_steps", "name": "《分光步》", "type": "skill_book", "desc": "一门讲究换气和步点的身法，擅长把移速滚成节奏。", "learnTechniqueId": "cloudchase_steps" },
-  { "itemId": "book.lightshadow_art", "name": "《折影提气诀》", "type": "skill_book", "desc": "把一口气提到脚下的身法，讲究起落和折返都更快。", "learnTechniqueId": "lightshadow_art" }
+  {
+    "itemId": "book.qingmu_sword",
+    "name": "《青木剑诀》",
+    "type": "skill_book",
+    "desc": "记载基础御剑吐纳之法，使用后学会青木剑诀。",
+    "learnTechniqueId": "qingmu_sword"
+  },
+  {
+    "itemId": "book.redflame_art",
+    "name": "《赤焰诀》",
+    "type": "skill_book",
+    "desc": "残缺的火行法门，能御使离火符。",
+    "learnTechniqueId": "redflame_art"
+  },
+  {
+    "itemId": "book_wind_step",
+    "name": "《踏风步》",
+    "type": "skill_book",
+    "desc": "轻身挪步之法，可在战斗中快速切入。",
+    "learnTechniqueId": "wind_step"
+  },
+  {
+    "itemId": "book_thunder_palm",
+    "name": "《惊雷掌》残卷",
+    "type": "skill_book",
+    "desc": "残存雷纹的掌法札记，威力不俗。",
+    "learnTechniqueId": "thunder_palm"
+  },
+  {
+    "itemId": "book_stillheart",
+    "name": "《止念诀》",
+    "type": "skill_book",
+    "desc": "收束心神、以念压敌的法门。",
+    "learnTechniqueId": "stillheart"
+  },
+  {
+    "itemId": "book.iron_bone_art",
+    "name": "《铁骨功》",
+    "type": "skill_book",
+    "desc": "武者锻体法门，强调硬桥硬马之道。",
+    "learnTechniqueId": "iron_bone_art"
+  },
+  {
+    "itemId": "book.standing_stake_art",
+    "name": "《站桩功》",
+    "type": "skill_book",
+    "desc": "最朴素的入门锻体法，讲究沉肩立胯，把筋骨先站稳。",
+    "learnTechniqueId": "standing_stake_art"
+  },
+  {
+    "itemId": "book.cloud_blade",
+    "name": "《流云刀谱》",
+    "type": "skill_book",
+    "desc": "从江湖刀法演化而来的灵动刀谱。",
+    "learnTechniqueId": "cloud_blade"
+  },
+  {
+    "itemId": "book.frost_sutra",
+    "name": "《寒魄经》",
+    "type": "skill_book",
+    "desc": "引寒入脉的残篇，兼具杀伐与凝神。",
+    "learnTechniqueId": "frost_sutra"
+  },
+  {
+    "itemId": "book.spirit_anchor",
+    "name": "《镇灵篇》",
+    "type": "skill_book",
+    "desc": "古修遗留的御神法门，可压制异兽灵识。",
+    "learnTechniqueId": "spirit_anchor"
+  },
+  {
+    "itemId": "book.starfall_spear",
+    "name": "《陨星枪诀》",
+    "type": "skill_book",
+    "desc": "残破星纹玉简中记载的高阶枪诀。",
+    "learnTechniqueId": "starfall_spear"
+  },
+  {
+    "itemId": "book.bear_cauldron_art",
+    "name": "《担石功》",
+    "type": "skill_book",
+    "desc": "拿石锁压肩练出来的苦功，修来极慢，但根骨扎得稳。",
+    "learnTechniqueId": "bear_cauldron_art"
+  },
+  {
+    "itemId": "book.dragon_elephant_bone",
+    "name": "《镇骨功》",
+    "type": "skill_book",
+    "desc": "专门打磨骨架与经脉的炼体法门，主修根骨，路子很硬。",
+    "learnTechniqueId": "dragon_elephant_bone"
+  },
+  {
+    "itemId": "book.golden_lock_body",
+    "name": "《固元功》",
+    "type": "skill_book",
+    "desc": "靠收束气血慢慢稳住筋骨经脉的苦功，偏重根骨。",
+    "learnTechniqueId": "golden_lock_body"
+  },
+  {
+    "itemId": "book.mountain_insight_chart",
+    "name": "《玄照图》",
+    "type": "skill_book",
+    "desc": "借图谱内观气血、筋膜与心念流转的秘术，偏重悟性。",
+    "learnTechniqueId": "mountain_insight_chart"
+  },
+  {
+    "itemId": "book.hundred_temper_body",
+    "name": "《壮身功》",
+    "type": "skill_book",
+    "desc": "把皮肉筋骨一遍遍熬出来的炼体功，胜在体魄长得实。",
+    "learnTechniqueId": "hundred_temper_body"
+  },
+  {
+    "itemId": "book.nourishing_qi_art",
+    "name": "《养气诀》",
+    "type": "skill_book",
+    "desc": "只管稳气养神的内功，不讲花巧，胜在灵力根底厚。",
+    "learnTechniqueId": "nourishing_qi_art"
+  },
+  {
+    "itemId": "book.bright_eye_sutra",
+    "name": "《明目经》",
+    "type": "skill_book",
+    "desc": "专修目力与感知的内功，久练后耳目心识会一起清亮。",
+    "learnTechniqueId": "bright_eye_sutra"
+  },
+  {
+    "itemId": "book.hidden_fortune_record",
+    "name": "《藏运录》",
+    "type": "skill_book",
+    "desc": "专记敛锋藏运的小术，修久了总会多撞上几分偏门福气。",
+    "learnTechniqueId": "hidden_fortune_record"
+  },
+  {
+    "itemId": "book.body_tempering_formula",
+    "name": "《锻体决》",
+    "type": "skill_book",
+    "desc": "一门一路横推体魄与根骨的玄阶炼体法，层层都在硬磨肉身。",
+    "learnTechniqueId": "body_tempering_formula"
+  },
+  {
+    "itemId": "book.cloudchase_steps",
+    "name": "《分光步》",
+    "type": "skill_book",
+    "desc": "一门讲究换气和步点的身法，擅长把移速滚成节奏。",
+    "learnTechniqueId": "cloudchase_steps"
+  },
+  {
+    "itemId": "book.lightshadow_art",
+    "name": "《折影提气诀》",
+    "type": "skill_book",
+    "desc": "把一口气提到脚下的身法，讲究起落和折返都更快。",
+    "learnTechniqueId": "lightshadow_art"
+  }
 ]

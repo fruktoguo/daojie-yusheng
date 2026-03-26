@@ -11,6 +11,7 @@ import type {
   QuestObjectiveType,
   QuestStatus,
   SkillFormulaVar,
+  TechniqueCategory,
   TechniqueGrade,
 } from '../../types';
 
@@ -31,12 +32,18 @@ export const TILE_TYPE_LABELS: Record<TileType, string> = {
   [TileType.Stairs]: '楼梯',
   [TileType.Grass]: '草地',
   [TileType.Hill]: '山地',
+  [TileType.Cliff]: '山崖',
   [TileType.Mud]: '泥地',
   [TileType.Swamp]: '沼泽',
   [TileType.Water]: '水域',
+  [TileType.Cloud]: '云墙',
+  [TileType.CloudFloor]: '云地',
+  [TileType.Void]: '虚空',
   [TileType.Tree]: '树木',
+  [TileType.Bamboo]: '竹林',
   [TileType.Stone]: '岩石',
   [TileType.SpiritOre]: '灵石矿',
+  [TileType.BlackIronOre]: '玄铁矿',
 };
 
 /** 六维属性中文标签 */
@@ -154,6 +161,14 @@ export const TECHNIQUE_GRADE_LABELS: Record<TechniqueGrade, string> = {
   spirit: '灵阶',
   saint: '圣阶',
   emperor: '帝阶',
+};
+
+/** 功法分类中文标签 */
+export const TECHNIQUE_CATEGORY_LABELS: Record<TechniqueCategory, string> = {
+  arts: '术法',
+  internal: '内功',
+  divine: '神通',
+  secret: '秘术',
 };
 
 /** 任务状态中文标签 */

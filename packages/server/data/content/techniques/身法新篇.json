@@ -138,7 +138,8 @@
         "unlockLevel": 8
       }
     ],
-    "realmLv": 12
+    "realmLv": 12,
+    "category": "arts"
   },
   {
     "id": "lightshadow_art",
@@ -294,6 +295,7 @@
         "unlockLevel": 9
       }
     ],
-    "realmLv": 16
+    "realmLv": 16,
+    "category": "arts"
   }
 ]

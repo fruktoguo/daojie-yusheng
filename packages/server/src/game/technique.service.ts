@@ -14,6 +14,8 @@ import {
   ELEMENT_KEYS,
   ELEMENT_KEY_LABELS,
   ElementKey,
+  HeavenGateRootValues,
+  HeavenGateState,
   getTechniqueExpToNext,
   getTechniqueMaxLevel,
   PLAYER_REALM_CONFIG,
@@ -71,6 +73,12 @@ interface BreakthroughResult {
   messages: TechniqueMessage[];
 }
 
+interface HeavenGateActionResult {
+  error?: string;
+  dirty: TechniqueDirtyFlag[];
+  messages: TechniqueMessage[];
+}
+
 interface ResolvedBreakthroughRequirement {
   def: BreakthroughRequirementDef;
   completed: boolean;
@@ -94,9 +102,69 @@ interface RealmExpAdvanceOptions {
   trackCombatExp?: boolean;
 }
 
+const HEAVEN_GATE_REALM_LEVEL = 18;
+const HEAVEN_GATE_MAX_SEVERED = 4;
+const HEAVEN_GATE_ROOTS_SOURCE = 'heaven_gate:roots';
+const HEAVEN_GATE_AVERAGE_QUALITY_SEGMENTS: Record<number, Array<{ min: number; max: number; weight: number }>> = {
+  5: [
+    { min: 1, max: 15, weight: 12 },
+    { min: 16, max: 30, weight: 32 },
+    { min: 31, max: 45, weight: 28 },
+    { min: 46, max: 60, weight: 15 },
+    { min: 61, max: 75, weight: 8 },
+    { min: 76, max: 99, weight: 4.99 },
+    { min: 100, max: 100, weight: 0.01 },
+  ],
+  4: [
+    { min: 1, max: 15, weight: 8 },
+    { min: 16, max: 32, weight: 22 },
+    { min: 33, max: 50, weight: 30 },
+    { min: 51, max: 66, weight: 20 },
+    { min: 67, max: 82, weight: 12 },
+    { min: 83, max: 99, weight: 7.99 },
+    { min: 100, max: 100, weight: 0.01 },
+  ],
+  3: [
+    { min: 1, max: 12, weight: 5 },
+    { min: 13, max: 30, weight: 14 },
+    { min: 31, max: 50, weight: 24 },
+    { min: 51, max: 68, weight: 26 },
+    { min: 69, max: 84, weight: 18 },
+    { min: 85, max: 99, weight: 12.99 },
+    { min: 100, max: 100, weight: 0.01 },
+  ],
+  2: [
+    { min: 1, max: 10, weight: 3 },
+    { min: 11, max: 25, weight: 8 },
+    { min: 26, max: 45, weight: 16 },
+    { min: 46, max: 65, weight: 24 },
+    { min: 66, max: 82, weight: 24 },
+    { min: 83, max: 99, weight: 24.99 },
+    { min: 100, max: 100, weight: 0.01 },
+  ],
+  1: [
+    { min: 1, max: 8, weight: 2 },
+    { min: 9, max: 20, weight: 4 },
+    { min: 21, max: 40, weight: 10 },
+    { min: 41, max: 60, weight: 18 },
+    { min: 61, max: 78, weight: 24 },
+    { min: 79, max: 92, weight: 24 },
+    { min: 93, max: 99, weight: 17.99 },
+    { min: 100, max: 100, weight: 0.01 },
+  ],
+};
+const HEAVEN_GATE_DISTRIBUTION_SPREAD: Record<number, number> = {
+  5: 0.18,
+  4: 0.28,
+  3: 0.4,
+  2: 0.58,
+  1: 0,
+};
+
 interface RealmExpAdvanceResult {
   changed: boolean;
   gained: number;
+  techniqueEligibleGain: number;
   foundationSpent: number;
   foundationGained: number;
   combatExpGained: number;
@@ -150,6 +218,161 @@ export class TechniqueService {
     this.initializePlayerProgression(player);
   }
 
+  normalizeHeavenGateState(value: unknown): HeavenGateState | null {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return null;
+    }
+    const raw = value as Record<string, unknown>;
+    const severed = Array.isArray(raw.severed)
+      ? [...new Set(raw.severed.filter((entry): entry is ElementKey => typeof entry === 'string' && ELEMENT_KEYS.includes(entry as ElementKey)))]
+        .slice(0, HEAVEN_GATE_MAX_SEVERED)
+      : [];
+    const roots = this.normalizeHeavenGateRoots(raw.roots);
+    const entered = raw.entered === true;
+    const unlocked = raw.unlocked === true || entered || roots !== null || severed.length > 0;
+    if (!unlocked && severed.length === 0 && roots === null) {
+      return null;
+    }
+    return {
+      unlocked,
+      severed,
+      roots,
+      entered,
+    };
+  }
+
+  handleHeavenGateAction(
+    player: PlayerState,
+    action: 'sever' | 'restore' | 'open' | 'reroll' | 'enter',
+    element?: ElementKey,
+  ): HeavenGateActionResult {
+    this.initializePlayerProgression(player);
+    const realm = player.realm;
+    if (!realm || realm.realmLv !== HEAVEN_GATE_REALM_LEVEL) {
+      return { error: '当前境界不可开天门', dirty: [], messages: [] };
+    }
+
+    const heavenGate = this.syncHeavenGateState(player, realm);
+    if (!heavenGate?.unlocked) {
+      return { error: '当前尚未叩开仙门，暂时不能开天门', dirty: [], messages: [] };
+    }
+
+    if (action === 'sever' || action === 'restore') {
+      if (heavenGate.entered) {
+        return { error: '当前已入天门，无法再改动灵根', dirty: [], messages: [] };
+      }
+      if (!element || !ELEMENT_KEYS.includes(element)) {
+        return { error: '灵根目标无效', dirty: [], messages: [] };
+      }
+      const cost = this.getHeavenGateSeverCost(realm);
+      if (realm.progress < cost) {
+        return { error: '当前境界经验不足', dirty: [], messages: [] };
+      }
+      const severed = new Set<ElementKey>(heavenGate.severed);
+      if (action === 'sever') {
+        if (severed.has(element)) {
+          return { error: `${ELEMENT_KEY_LABELS[element]}灵根已被斩断`, dirty: [], messages: [] };
+        }
+        if (severed.size >= HEAVEN_GATE_MAX_SEVERED) {
+          return { error: '最多只能斩断四条灵根', dirty: [], messages: [] };
+        }
+        severed.add(element);
+      } else if (!severed.has(element)) {
+        return { error: `${ELEMENT_KEY_LABELS[element]}灵根尚未斩断`, dirty: [], messages: [] };
+      } else {
+        severed.delete(element);
+      }
+      player.heavenGate = {
+        unlocked: true,
+        severed: [...severed],
+        roots: null,
+        entered: false,
+      };
+      this.applyResolvedRealmState(player, this.normalizeRealmState(realm.realmLv, Math.max(0, realm.progress - cost)));
+      return {
+        dirty: ['attr', 'actions'],
+        messages: [{
+          text: `${action === 'sever' ? '斩断' : '补回'}${ELEMENT_KEY_LABELS[element]}灵根，消耗 ${cost} 点境界经验。`,
+          kind: 'quest',
+        }],
+      };
+    }
+
+    if (action === 'open') {
+      if (heavenGate.entered) {
+        return { error: '当前已入天门，无法再重开天门', dirty: [], messages: [] };
+      }
+      const roots = this.rollHeavenGateRoots(heavenGate.severed);
+      player.heavenGate = {
+        unlocked: true,
+        severed: [...heavenGate.severed],
+        roots,
+        entered: false,
+      };
+      this.syncRealmPresentation(player, this.normalizeRealmState(realm.realmLv, realm.progress));
+      const total = ELEMENT_KEYS.reduce((sum, key) => sum + roots[key], 0);
+      return {
+        dirty: ['attr'],
+        messages: [{
+          text: `天门已开，本次灵根总值为 ${total}。`,
+          kind: 'quest',
+        }],
+      };
+    }
+
+    if (action === 'reroll') {
+      if (heavenGate.entered) {
+        return { error: '当前已入天门，无法再逆天改命', dirty: [], messages: [] };
+      }
+      if (!heavenGate.roots) {
+        return { error: '当前尚未开天门，无法逆天改命', dirty: [], messages: [] };
+      }
+      const cost = this.getHeavenGateRerollCost(realm);
+      if (realm.progress < cost) {
+        return { error: '当前境界经验不足，无法逆天改命', dirty: [], messages: [] };
+      }
+      player.heavenGate = {
+        unlocked: true,
+        severed: [...heavenGate.severed],
+        roots: null,
+        entered: false,
+      };
+      this.applyResolvedRealmState(player, this.normalizeRealmState(realm.realmLv, Math.max(0, realm.progress - cost)));
+      return {
+        dirty: ['attr', 'actions'],
+        messages: [{
+          text: `逆天改命消耗 ${cost} 点境界经验，请重新开天门。`,
+          kind: 'quest',
+        }],
+      };
+    }
+
+    if (!heavenGate.roots) {
+      return { error: '尚未开天门，无法入天门', dirty: [], messages: [] };
+    }
+    if (heavenGate.entered) {
+      return { error: '当前已入天门，无需重复确认', dirty: [], messages: [] };
+    }
+    const resolvedRoots = this.cloneHeavenGateRoots(heavenGate.roots);
+    player.spiritualRoots = resolvedRoots;
+    player.heavenGate = {
+      unlocked: true,
+      severed: [...heavenGate.severed],
+      roots: resolvedRoots,
+      entered: true,
+    };
+    this.applyTechniqueBonuses(player);
+    this.attrService.recalcPlayer(player);
+    this.syncRealmPresentation(player, this.normalizeRealmState(realm.realmLv, realm.progress));
+    return {
+      dirty: ['attr', 'actions', 'tech'],
+      messages: [{
+        text: '你已入天门，灵根结果已定。后续仍需按原本条件突破至练气。',
+        kind: 'quest',
+      }],
+    };
+  }
+
   setRealmLevel(player: PlayerState, realmLv: number): void {
     this.setRealmState(player, realmLv, 0);
   }
@@ -165,6 +388,25 @@ export class TechniqueService {
     this.applyResolvedRealmState(player, this.normalizeRealmState(realmLv, progress));
   }
 
+  resetHeavenGateForTesting(player: PlayerState): void {
+    this.initializePlayerProgression(player);
+    player.heavenGate = {
+      unlocked: true,
+      severed: [],
+      roots: null,
+      entered: false,
+    };
+    player.spiritualRoots = null;
+    const readyState = this.normalizeRealmState(
+      HEAVEN_GATE_REALM_LEVEL,
+      this.createRealmStateFromLevel(HEAVEN_GATE_REALM_LEVEL, Number.MAX_SAFE_INTEGER).progressToNext,
+    );
+    this.applyResolvedRealmState(player, readyState);
+    player.hp = Math.min(player.maxHp, Math.max(1, player.hp));
+    player.qi = Math.min(Math.round(player.numericStats?.maxQi ?? player.qi), Math.max(0, player.qi));
+    player.dead = false;
+  }
+
   /** 学习新功法 */
   learnTechnique(
     player: PlayerState,
@@ -172,6 +414,7 @@ export class TechniqueService {
     name: string,
     skills: SkillDef[],
     grade?: TechniqueGrade,
+    category?: TechniqueState['category'],
     realmLv = 1,
     layers?: TechniqueLayerDef[],
   ): string | null {
@@ -190,6 +433,7 @@ export class TechniqueService {
       realm: deriveTechniqueRealm(1, layers),
       skills,
       grade,
+      category,
       layers,
     };
     player.techniques.push(technique);
@@ -246,7 +490,7 @@ export class TechniqueService {
     const techniqueResult = this.measureCpuSection('cultivation_technique', '修炼: 功法推进', () => (
       this.advanceTechniqueProgress(
         player,
-        this.getTechniqueExpFromRealmGain(realmResult.gained),
+        this.getTechniqueExpFromRealmGain(realmResult.techniqueEligibleGain),
         techniqueExpBonus,
       )
     ));
@@ -371,7 +615,7 @@ export class TechniqueService {
 
     const techniqueResult = this.advanceTechniqueCombatExp(
       player,
-      this.getTechniqueExpFromRealmGain(realmResult.gained),
+      this.getTechniqueExpFromRealmGain(realmResult.techniqueEligibleGain),
       techniqueExpBonus,
     );
     if (techniqueResult.changed) {
@@ -444,6 +688,15 @@ export class TechniqueService {
     this.initializePlayerProgression(player);
     const realm = player.realm;
     if (!realm?.breakthroughReady || !realm.breakthrough) return null;
+    if (realm.realmLv === HEAVEN_GATE_REALM_LEVEL && !this.hasCompletedHeavenGate(player)) {
+      return {
+        id: 'realm:breakthrough',
+        name: '开天门',
+        type: 'breakthrough',
+        desc: '当前境界已圆满，可尝试开天门。',
+        cooldownLeft: 0,
+      };
+    }
     return {
       id: 'realm:breakthrough',
       name: `突破至 ${realm.breakthrough.targetDisplayName}`,
@@ -460,41 +713,23 @@ export class TechniqueService {
     if (!realm) {
       return { error: '当前境界状态异常', dirty: [], messages: [] };
     }
+    if (realm.realmLv === HEAVEN_GATE_REALM_LEVEL) {
+      if (this.hasCompletedHeavenGate(player)) {
+        if (!realm.breakthroughReady || !realm.breakthrough) {
+          return { error: '你的境界火候未到，尚不能突破', dirty: [], messages: [] };
+        }
+        return this.completeBreakthrough(player, realm);
+      }
+      return {
+        error: player.heavenGate?.roots ? '请在开天门界面确认入天门' : '叩仙门突破前需先完成开天门并入天门',
+        dirty: [],
+        messages: [],
+      };
+    }
     if (!realm.breakthroughReady || !realm.breakthrough) {
       return { error: '你的境界火候未到，尚不能突破', dirty: [], messages: [] };
     }
-
-    const breakthrough = this.resolveBreakthroughRequirements(player, realm.realmLv);
-    if (breakthrough.blockedReason) {
-      return { error: breakthrough.blockedReason, dirty: [], messages: [] };
-    }
-    const unmet = breakthrough.requirements.filter((entry) => entry.blocksBreakthrough && !entry.completed);
-    if (unmet.length > 0) {
-      return { error: '突破条件尚未满足', dirty: [], messages: [] };
-    }
-
-    for (const requirement of breakthrough.requirements) {
-      if (requirement.def.type !== 'item' || !requirement.completed) continue;
-      this.consumeItem(player, requirement.def.itemId, requirement.def.count);
-    }
-
-    const nextState = this.createRealmStateFromLevel(realm.breakthrough.targetRealmLv, 0);
-    const crossedStage = nextState.stage !== realm.stage;
-    this.syncRealmPresentation(player, nextState);
-    if (crossedStage) {
-      this.applyRealmBonus(player, nextState);
-    }
-    this.attrService.recalcPlayer(player);
-    player.hp = player.maxHp;
-    player.qi = Math.round(player.numericStats?.maxQi ?? player.qi);
-
-    return {
-      dirty: ['inv', 'attr', 'actions', 'tech'],
-      messages: [{
-        text: this.buildBreakthroughMessage(realm.stage, nextState.stage, nextState.displayName),
-        kind: 'quest',
-      }],
-    };
+    return this.completeBreakthrough(player, realm);
   }
 
   private advanceRealmProgress(player: PlayerState, baseGain: number, options: RealmExpAdvanceOptions = {}): RealmExpAdvanceResult {
@@ -503,6 +738,7 @@ export class TechniqueService {
       return {
         changed: false,
         gained: 0,
+        techniqueEligibleGain: 0,
         foundationSpent: 0,
         foundationGained: 0,
         combatExpGained: 0,
@@ -530,6 +766,7 @@ export class TechniqueService {
       return {
         changed: dirty.size > 0,
         gained: 0,
+        techniqueEligibleGain: gain,
         foundationSpent: 0,
         foundationGained,
         combatExpGained,
@@ -562,6 +799,7 @@ export class TechniqueService {
       return {
         changed: dirty.size > 0,
         gained: 0,
+        techniqueEligibleGain: gain,
         foundationSpent,
         foundationGained,
         combatExpGained,
@@ -583,6 +821,7 @@ export class TechniqueService {
     return {
       changed: true,
       gained: actualGain,
+      techniqueEligibleGain: gain,
       foundationSpent,
       foundationGained,
       combatExpGained,
@@ -969,6 +1208,184 @@ export class TechniqueService {
     return this.normalizeRealmState(legacyEntry.realmLv, mappedProgress);
   }
 
+  private cloneHeavenGateRoots(roots: HeavenGateRootValues): HeavenGateRootValues {
+    return ELEMENT_KEYS.reduce((result, key) => {
+      result[key] = Math.max(0, Math.min(100, Math.floor(roots[key] ?? 0)));
+      return result;
+    }, {} as HeavenGateRootValues);
+  }
+
+  normalizeHeavenGateRoots(value: unknown): HeavenGateRootValues | null {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return null;
+    }
+    const raw = value as Record<string, unknown>;
+    const roots = ELEMENT_KEYS.reduce((result, key) => {
+      const next = Number(raw[key] ?? 0);
+      result[key] = Number.isFinite(next) ? Math.max(0, Math.min(100, Math.floor(next))) : 0;
+      return result;
+    }, {} as HeavenGateRootValues);
+    return ELEMENT_KEYS.some((key) => roots[key] > 0) ? roots : null;
+  }
+
+  private syncHeavenGateState(player: PlayerState, realm: PlayerRealmState): HeavenGateState | null {
+    if (realm.realmLv !== HEAVEN_GATE_REALM_LEVEL) {
+      player.heavenGate = null;
+      return null;
+    }
+    const persisted = this.normalizeHeavenGateState(player.heavenGate);
+    const resolvedRoots = persisted?.roots
+      ? this.cloneHeavenGateRoots(persisted.roots)
+      : this.normalizeHeavenGateRoots(player.spiritualRoots);
+    const entered = persisted?.entered === true || resolvedRoots !== null && player.spiritualRoots !== null;
+    const unlocked = persisted?.unlocked === true || entered || realm.breakthroughReady;
+    if (!unlocked && !resolvedRoots && (persisted?.severed.length ?? 0) === 0) {
+      player.heavenGate = null;
+      return null;
+    }
+    const nextState: HeavenGateState = {
+      unlocked,
+      severed: persisted?.severed ?? [],
+      roots: resolvedRoots,
+      entered,
+    };
+    player.heavenGate = nextState;
+    return nextState;
+  }
+
+  private hasCompletedHeavenGate(player: PlayerState): boolean {
+    const state = this.normalizeHeavenGateState(player.heavenGate);
+    return state?.entered === true || this.normalizeHeavenGateRoots(player.spiritualRoots) !== null;
+  }
+
+  private getHeavenGateSeverCost(realm: PlayerRealmState): number {
+    return Math.max(1, Math.round(realm.progressToNext * 0.1));
+  }
+
+  private getHeavenGateRerollCost(realm: PlayerRealmState): number {
+    return Math.max(1, Math.round(realm.progressToNext * 0.25));
+  }
+
+  private weightedPickHeavenGateSegment(segments: Array<{ min: number; max: number; weight: number }>): { min: number; max: number; weight: number } {
+    const totalWeight = segments.reduce((sum, segment) => sum + segment.weight, 0);
+    let cursor = Math.random() * totalWeight;
+    for (const segment of segments) {
+      cursor -= segment.weight;
+      if (cursor <= 0) {
+        return segment;
+      }
+    }
+    return segments[segments.length - 1];
+  }
+
+  private randomHeavenGateInt(min: number, max: number): number {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  private distributeHeavenGateRoots(total: number, remaining: ElementKey[]): HeavenGateRootValues {
+    const result = ELEMENT_KEYS.reduce((state, key) => {
+      state[key] = 0;
+      return state;
+    }, {} as HeavenGateRootValues);
+    if (remaining.length === 0) {
+      return result;
+    }
+    if (remaining.length === 1) {
+      result[remaining[0]] = Math.max(1, Math.min(100, total));
+      return result;
+    }
+    if (total === remaining.length) {
+      for (const key of remaining) {
+        result[key] = 1;
+      }
+      return result;
+    }
+    if (total === remaining.length * 100) {
+      for (const key of remaining) {
+        result[key] = 100;
+      }
+      return result;
+    }
+
+    const spread = HEAVEN_GATE_DISTRIBUTION_SPREAD[remaining.length] ?? 0.18;
+    const scores = remaining.map(() => Math.max(0.08, 1 + (Math.random() * 2 - 1) * spread));
+    const scoreSum = scores.reduce((sum, score) => sum + score, 0);
+    const remainder = Math.max(0, total - remaining.length);
+    const allocations = remaining.map((element, index) => ({
+      element,
+      extra: Math.min(99, Math.floor((remainder * scores[index]) / scoreSum)),
+      fraction: (remainder * scores[index]) / scoreSum,
+    }));
+    let allocated = allocations.reduce((sum, entry) => sum + entry.extra, 0);
+    const sorted = [...allocations].sort((left, right) => right.fraction - left.fraction);
+    let cursor = 0;
+    while (allocated < remainder) {
+      const target = sorted[cursor % sorted.length];
+      if (target.extra < 99) {
+        target.extra += 1;
+        allocated += 1;
+      }
+      cursor += 1;
+    }
+    for (const entry of sorted) {
+      result[entry.element] = 1 + entry.extra;
+    }
+    return result;
+  }
+
+  private rollHeavenGateRoots(severed: readonly ElementKey[]): HeavenGateRootValues {
+    const remaining = ELEMENT_KEYS.filter((element) => !severed.includes(element));
+    const segments = HEAVEN_GATE_AVERAGE_QUALITY_SEGMENTS[remaining.length] ?? HEAVEN_GATE_AVERAGE_QUALITY_SEGMENTS[1];
+    const segment = this.weightedPickHeavenGateSegment(segments);
+    const average = this.randomHeavenGateInt(segment.min, segment.max);
+    return this.distributeHeavenGateRoots(average * remaining.length, remaining);
+  }
+
+  private completeBreakthrough(
+    player: PlayerState,
+    realm: PlayerRealmState,
+    spiritualRoots?: HeavenGateRootValues | null,
+  ): BreakthroughResult {
+    if (!realm.breakthroughReady || !realm.breakthrough) {
+      return { error: '你的境界火候未到，尚不能突破', dirty: [], messages: [] };
+    }
+
+    const breakthrough = this.resolveBreakthroughRequirements(player, realm.realmLv);
+    if (breakthrough.blockedReason) {
+      return { error: breakthrough.blockedReason, dirty: [], messages: [] };
+    }
+    const unmet = breakthrough.requirements.filter((entry) => entry.blocksBreakthrough && !entry.completed);
+    if (unmet.length > 0) {
+      return { error: '突破条件尚未满足', dirty: [], messages: [] };
+    }
+
+    for (const requirement of breakthrough.requirements) {
+      if (requirement.def.type !== 'item' || !requirement.completed) continue;
+      this.consumeItem(player, requirement.def.itemId, requirement.def.count);
+    }
+    if (spiritualRoots) {
+      player.spiritualRoots = this.cloneHeavenGateRoots(spiritualRoots);
+    }
+
+    const nextState = this.createRealmStateFromLevel(realm.breakthrough.targetRealmLv, 0);
+    const crossedStage = nextState.stage !== realm.stage;
+    this.syncRealmPresentation(player, nextState);
+    if (crossedStage) {
+      this.applyRealmBonus(player, nextState);
+    }
+    this.attrService.recalcPlayer(player);
+    player.hp = player.maxHp;
+    player.qi = Math.round(player.numericStats?.maxQi ?? player.qi);
+
+    return {
+      dirty: ['inv', 'attr', 'actions', 'tech'],
+      messages: [{
+        text: this.buildBreakthroughMessage(realm.stage, nextState.stage, nextState.displayName),
+        kind: 'quest',
+      }],
+    };
+  }
+
   private applyRealmBonus(player: PlayerState, realm: PlayerRealmState): void {
     const nextBonuses = player.bonuses.filter((bonus) => bonus.source !== REALM_STAGE_SOURCE);
     const config = PLAYER_REALM_CONFIG[realm.stage];
@@ -1014,6 +1431,7 @@ export class TechniqueService {
     const nextRealm: PlayerRealmState = {
       ...realm,
       breakthrough: this.buildBreakthroughPreview(player, realm),
+      heavenGate: this.syncHeavenGateState(player, realm),
     };
     player.realm = nextRealm;
     player.realmLv = nextRealm.realmLv;
@@ -1343,7 +1761,10 @@ export class TechniqueService {
   }
 
   private getCurrentRootRequirementValue(player: PlayerState, element?: ElementKey): number {
-    const rootStats = this.attrService.getPlayerNumericStats(player).elementDamageBonus;
+    const rootStats = this.normalizeHeavenGateRoots(player.spiritualRoots);
+    if (!rootStats) {
+      return 0;
+    }
     if (element) {
       return Math.max(0, Math.round(rootStats[element] ?? 0));
     }
@@ -1371,13 +1792,27 @@ export class TechniqueService {
   }
 
   private applyTechniqueBonuses(player: PlayerState): void {
-    const nextBonuses = player.bonuses.filter((bonus) => !bonus.source.startsWith(TECHNIQUE_SOURCE_PREFIX));
+    const nextBonuses = player.bonuses.filter((bonus) => (
+      !bonus.source.startsWith(TECHNIQUE_SOURCE_PREFIX) && bonus.source !== HEAVEN_GATE_ROOTS_SOURCE
+    ));
     const attrs = calcTechniqueFinalAttrBonus(player.techniques);
     if (Object.values(attrs).some((value) => value > 0)) {
       nextBonuses.push({
         source: `${TECHNIQUE_SOURCE_PREFIX}aggregate`,
         label: '功法总池',
         attrs,
+      });
+    }
+    const roots = this.normalizeHeavenGateRoots(player.spiritualRoots);
+    if (roots) {
+      nextBonuses.push({
+        source: HEAVEN_GATE_ROOTS_SOURCE,
+        label: '先天灵根',
+        attrs: {},
+        stats: {
+          elementDamageBonus: this.cloneHeavenGateRoots(roots),
+          elementDamageReduce: this.cloneHeavenGateRoots(roots),
+        },
       });
     }
     player.bonuses = nextBonuses;
@@ -1390,6 +1825,7 @@ export class TechniqueService {
       const previousExpToNext = Math.max(0, technique.expToNext);
       technique.name = template.name;
       technique.grade = template.grade;
+      technique.category = template.category;
       technique.realmLv = template.realmLv;
       technique.layers = template.layers;
       technique.skills = template.skills;

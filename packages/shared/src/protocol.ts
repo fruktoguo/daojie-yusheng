@@ -2,7 +2,8 @@
  * 前后端通信协议：事件名定义与所有 Payload 类型。
  * C2S = 客户端→服务端，S2C = 服务端→客户端。
  */
-import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerSpecialStats, QuestState, CombatEffect, AutoBattleSkillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, TechniqueGrade, GroundItemPileView, LootWindowState, VisibleBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MapRouteDomain, NpcShopView, PortalRouteDomain } from './types';
+import type { ElementKey } from './numeric';
+import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerSpecialStats, QuestState, CombatEffect, AutoBattleSkillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, TechniqueCategory, TechniqueGrade, GroundItemPileView, LootWindowState, VisibleBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MapRouteDomain, NpcShopView, PortalRouteDomain } from './types';
 import { NumericRatioDivisors, NumericStats } from './numeric';
 
 // ===== 事件名 =====
@@ -48,6 +49,7 @@ export const C2S = {
   ClaimMarketStorage: 'c:claimMarketStorage',
   RequestNpcShop: 'c:requestNpcShop',
   BuyNpcShopItem: 'c:buyNpcShopItem',
+  HeavenGateAction: 'c:heavenGateAction',
 } as const;
 
 /** 服务端 → 客户端 */
@@ -217,6 +219,11 @@ export interface C2S_BuyNpcShopItem {
   npcId: string;
   itemId: string;
   quantity: number;
+}
+
+export interface C2S_HeavenGateAction {
+  action: 'sever' | 'restore' | 'open' | 'reroll' | 'enter';
+  element?: ElementKey;
 }
 
 /** Tick 增量实体数据（支持 null 表示清除字段） */
@@ -515,6 +522,7 @@ export interface TechniqueUpdateEntry {
   realm?: TechniqueRealm;
   name?: string | null;
   grade?: TechniqueGrade | null;
+  category?: TechniqueCategory | null;
   skills?: SkillDef[] | null;
   layers?: TechniqueLayerDef[] | null;
   attrCurves?: TechniqueAttrCurves | null;
@@ -859,6 +867,7 @@ export interface GmEditorTechniqueOption {
   id: string;
   name: string;
   grade?: TechniqueGrade;
+  category?: TechniqueCategory;
   realmLv?: number;
   skills?: SkillDef[];
   layers?: TechniqueLayerDef[];
@@ -1042,18 +1051,19 @@ export interface GmMapNpcRecord {
 export interface GmMapMonsterSpawnRecord {
   id: string;
   templateId?: string;
-  name: string;
+  name?: string;
   x: number;
   y: number;
-  char: string;
-  color: string;
+  char?: string;
+  color?: string;
   grade?: TechniqueGrade;
-  hp: number;
+  hp?: number;
   maxHp?: number;
-  attack: number;
+  attack?: number;
   count?: number;
   radius?: number;
   maxAlive?: number;
+  wanderRadius?: number;
   aggroRange?: number;
   viewRange?: number;
   aggroMode?: MonsterAggroMode;

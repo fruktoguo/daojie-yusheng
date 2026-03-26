@@ -1071,6 +1071,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         technique.name,
         technique.skills,
         technique.grade,
+        technique.category,
         technique.realmLv,
         technique.layers,
       );
@@ -2310,6 +2311,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (!previous || previous.realm !== technique.realm) patch.realm = technique.realm;
       if (!previous || previous.name !== technique.name) patch.name = technique.name ?? null;
       if (!previous || previous.grade !== technique.grade) patch.grade = technique.grade ?? null;
+      if (!previous || previous.category !== technique.category) patch.category = technique.category ?? null;
       if (!previous || !this.isStructuredEqual(previous.skills, technique.skills)) {
         patch.skills = technique.skills ? this.cloneStructured(technique.skills) : null;
       }
