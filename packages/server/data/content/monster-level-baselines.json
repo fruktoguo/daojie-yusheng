@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "multiplierBase": 100,
+  "notes": {
+    "qiRule": "qi = hp / 2",
+    "rounding": "all values are rounded to neat integers with trailing zeros",
+    "moveSpeed": "level 1 = 100, level 18 = 300"
+  },
+  "levels": [
+    { "level": 1, "realm": "凡胎", "hp": 180, "qi": 90, "attack": 20, "defense": 20, "accuracy": 10, "moveSpeed": 100 },
+    { "level": 2, "realm": "炼皮", "hp": 260, "qi": 130, "attack": 20, "defense": 30, "accuracy": 20, "moveSpeed": 110 },
+    { "level": 3, "realm": "锻骨", "hp": 300, "qi": 150, "attack": 30, "defense": 30, "accuracy": 20, "moveSpeed": 120 },
+    { "level": 4, "realm": "易筋", "hp": 380, "qi": 190, "attack": 40, "defense": 50, "accuracy": 30, "moveSpeed": 140 },
+    { "level": 5, "realm": "洗髓", "hp": 440, "qi": 220, "attack": 40, "defense": 60, "accuracy": 40, "moveSpeed": 150 },
+    { "level": 6, "realm": "养气", "hp": 500, "qi": 250, "attack": 50, "defense": 70, "accuracy": 50, "moveSpeed": 160 },
+    { "level": 7, "realm": "通脉", "hp": 600, "qi": 300, "attack": 60, "defense": 90, "accuracy": 70, "moveSpeed": 170 },
+    { "level": 8, "realm": "瑶光", "hp": 740, "qi": 370, "attack": 70, "defense": 110, "accuracy": 100, "moveSpeed": 180 },
+    { "level": 9, "realm": "开阳", "hp": 1060, "qi": 530, "attack": 100, "defense": 140, "accuracy": 130, "moveSpeed": 190 },
+    { "level": 10, "realm": "玉衡", "hp": 1260, "qi": 630, "attack": 110, "defense": 170, "accuracy": 150, "moveSpeed": 210 },
+    { "level": 11, "realm": "天权", "hp": 1500, "qi": 750, "attack": 130, "defense": 210, "accuracy": 170, "moveSpeed": 220 },
+    { "level": 12, "realm": "天玑", "hp": 1800, "qi": 900, "attack": 150, "defense": 250, "accuracy": 210, "moveSpeed": 230 },
+    { "level": 13, "realm": "天璇", "hp": 2620, "qi": 1310, "attack": 200, "defense": 290, "accuracy": 240, "moveSpeed": 240 },
+    { "level": 14, "realm": "天枢", "hp": 3080, "qi": 1540, "attack": 230, "defense": 340, "accuracy": 270, "moveSpeed": 250 },
+    { "level": 15, "realm": "宗师", "hp": 3660, "qi": 1830, "attack": 280, "defense": 400, "accuracy": 310, "moveSpeed": 260 },
+    { "level": 16, "realm": "大宗师", "hp": 4920, "qi": 2460, "attack": 340, "defense": 430, "accuracy": 350, "moveSpeed": 280 },
+    { "level": 17, "realm": "临渊", "hp": 5880, "qi": 2940, "attack": 390, "defense": 460, "accuracy": 430, "moveSpeed": 290 },
+    { "level": 18, "realm": "叩仙门", "hp": 8100, "qi": 4050, "attack": 510, "defense": 620, "accuracy": 580, "moveSpeed": 300 }
+  ]
+}
