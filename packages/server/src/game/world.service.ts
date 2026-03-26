@@ -3077,7 +3077,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       for (let index = 0; index < spawn.maxAlive; index++) {
         const runtime: RuntimeMonster = {
           ...spawn,
-          runtimeId: `monster:${mapId}:${spawn.id}:${index}`,
+          runtimeId: this.buildMonsterRuntimeId(mapId, spawn.id, spawn.x, spawn.y, index),
           mapId,
           spawnX: spawn.x,
           spawnY: spawn.y,
@@ -4348,10 +4348,20 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     const result = new Set<string>();
     for (const spawn of this.mapService.getMonsterSpawns(mapId)) {
       for (let index = 0; index < spawn.maxAlive; index += 1) {
-        result.add(`monster:${mapId}:${spawn.id}:${index}`);
+        result.add(this.buildMonsterRuntimeId(mapId, spawn.id, spawn.x, spawn.y, index));
       }
     }
     return result;
+  }
+
+  private buildMonsterRuntimeId(
+    mapId: string,
+    spawnId: string,
+    spawnX: number,
+    spawnY: number,
+    index: number,
+  ): string {
+    return `monster:${mapId}:${spawnId}:${spawnX}:${spawnY}:${index}`;
   }
 
   private captureMonsterRuntimeState(monsters: RuntimeMonster[]): Map<string, PersistedMonsterRuntimeRecord> {
