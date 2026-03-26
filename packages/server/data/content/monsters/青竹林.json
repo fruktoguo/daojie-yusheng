@@ -6,9 +6,9 @@
     "color": "#b3b7c1",
     "radius": 7,
     "respawnSec": 18,
-    "level": 2,
-    "hp": 40,
-    "attack": 8,
+    "level": 4,
+    "hp": 68,
+    "attack": 11,
     "drops": [
       {
         "itemId": "wolf_fang",
@@ -32,7 +32,7 @@
         "chance": 0.01
       }
     ],
-    "grade": "yellow",
+    "grade": "mortal",
     "count": 8
   },
   {
@@ -42,9 +42,9 @@
     "color": "#67b56f",
     "radius": 5,
     "respawnSec": 20,
-    "level": 3,
-    "hp": 52,
-    "attack": 10,
+    "level": 4,
+    "hp": 74,
+    "attack": 12,
     "drops": [
       {
         "itemId": "serpent_gall",
@@ -61,7 +61,7 @@
         "chance": 0.01
       }
     ],
-    "grade": "yellow",
+    "grade": "mortal",
     "count": 6
   },
   {
@@ -71,9 +71,9 @@
     "color": "#91d88d",
     "radius": 5,
     "respawnSec": 20,
-    "level": 3,
-    "hp": 58,
-    "attack": 9,
+    "level": 5,
+    "hp": 88,
+    "attack": 14,
     "drops": [
       {
         "itemId": "bamboo_heart",
@@ -97,19 +97,19 @@
         "chance": 0.01
       }
     ],
-    "grade": "yellow",
+    "grade": "mortal",
     "count": 5
   },
   {
     "id": "m_bamboo_mantis",
-    "name": "刃竹螳",
+    "name": "刃竹螳精英",
     "char": "螳",
     "color": "#7fbf5f",
     "radius": 6,
     "respawnSec": 22,
-    "level": 4,
-    "hp": 68,
-    "attack": 12,
+    "level": 5,
+    "hp": 98,
+    "attack": 16,
     "drops": [
       {
         "itemId": "mantis_blade",
@@ -133,7 +133,57 @@
         "chance": 0.01
       }
     ],
-    "grade": "yellow",
+    "grade": "mortal",
     "count": 5
+  },
+  {
+    "id": "m_green_emperor_mantis",
+    "name": "青皇竹螂",
+    "char": "皇",
+    "color": "#5ea94d",
+    "radius": 2,
+    "respawnSec": 120,
+    "level": 6,
+    "hp": 132,
+    "attack": 21,
+    "drops": [
+      {
+        "itemId": "mantis_blade",
+        "name": "螳锋",
+        "type": "material",
+        "count": 2,
+        "chance": 0.82
+      },
+      {
+        "itemId": "bamboo_heart",
+        "name": "翠竹心",
+        "type": "material",
+        "count": 1,
+        "chance": 0.48
+      },
+      {
+        "itemId": "equip.rust_saber",
+        "name": "旧铁长刀",
+        "type": "equipment",
+        "count": 1,
+        "chance": 0.12
+      },
+      {
+        "itemId": "book.iron_bone_art",
+        "name": "《铁骨功》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.08
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "mortal",
+    "count": 1
   }
 ]

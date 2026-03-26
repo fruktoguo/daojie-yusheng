@@ -6,9 +6,9 @@
     "color": "#c08a5a",
     "radius": 8,
     "respawnSec": 22,
-    "level": 2,
-    "hp": 42,
-    "attack": 7,
+    "level": 1,
+    "hp": 30,
+    "attack": 5,
     "drops": [
       {
         "itemId": "boar_tusk",
@@ -25,7 +25,7 @@
         "chance": 0.01
       }
     ],
-    "grade": "yellow",
+    "grade": "mortal",
     "count": 6
   },
   {
@@ -35,9 +35,9 @@
     "color": "#7cbf7c",
     "radius": 6,
     "respawnSec": 20,
-    "level": 3,
-    "hp": 56,
-    "attack": 9,
+    "level": 2,
+    "hp": 42,
+    "attack": 7,
     "drops": [
       {
         "itemId": "lizard_scale",
@@ -61,7 +61,7 @@
         "chance": 0.01
       }
     ],
-    "grade": "yellow",
+    "grade": "mortal",
     "count": 5
   },
   {
@@ -71,9 +71,9 @@
     "color": "#a05252",
     "radius": 7,
     "respawnSec": 18,
-    "level": 3,
-    "hp": 52,
-    "attack": 10,
+    "level": 2,
+    "hp": 46,
+    "attack": 8,
     "drops": [
       {
         "itemId": "bandit_insignia",
@@ -97,19 +97,19 @@
         "chance": 0.01
       }
     ],
-    "grade": "yellow",
+    "grade": "mortal",
     "count": 6
   },
   {
     "id": "m_mire_spider",
-    "name": "阴沼毒蛛",
+    "name": "阴沼毒蛛精英",
     "char": "蛛",
     "color": "#54528a",
     "radius": 5,
     "respawnSec": 19,
-    "level": 4,
-    "hp": 64,
-    "attack": 11,
+    "level": 3,
+    "hp": 58,
+    "attack": 10,
     "drops": [
       {
         "itemId": "spider_silk",
@@ -133,8 +133,58 @@
         "chance": 0.01
       }
     ],
-    "grade": "yellow",
+    "grade": "mortal",
     "count": 5
+  },
+  {
+    "id": "m_gale_bone_king",
+    "name": "裂风荒王",
+    "char": "荒",
+    "color": "#b68f6a",
+    "radius": 2,
+    "respawnSec": 120,
+    "level": 4,
+    "hp": 96,
+    "attack": 15,
+    "drops": [
+      {
+        "itemId": "spider_silk",
+        "name": "阴沼丝",
+        "type": "material",
+        "count": 2,
+        "chance": 0.78
+      },
+      {
+        "itemId": "blood_feather",
+        "name": "血羽",
+        "type": "material",
+        "count": 1,
+        "chance": 0.52
+      },
+      {
+        "itemId": "equip.step_boots",
+        "name": "游侠靴",
+        "type": "equipment",
+        "count": 1,
+        "chance": 0.12
+      },
+      {
+        "itemId": "book.cloud_blade",
+        "name": "《流云刀谱》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.08
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "mortal",
+    "count": 1
   },
   {
     "id": "m_dust_vulture",
@@ -143,9 +193,9 @@
     "color": "#9d8f77",
     "radius": 6,
     "respawnSec": 24,
-    "level": 4,
-    "hp": 60,
-    "attack": 12,
+    "level": 3,
+    "hp": 54,
+    "attack": 10,
     "drops": [
       {
         "itemId": "blood_feather",
@@ -169,7 +219,7 @@
         "chance": 0.01
       }
     ],
-    "grade": "yellow",
+    "grade": "mortal",
     "count": 4
   }
 ]

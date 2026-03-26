@@ -1042,19 +1042,18 @@ export interface GmMapNpcRecord {
 export interface GmMapMonsterSpawnRecord {
   id: string;
   templateId?: string;
-  name?: string;
+  name: string;
   x: number;
   y: number;
-  char?: string;
-  color?: string;
+  char: string;
+  color: string;
   grade?: TechniqueGrade;
-  hp?: number;
+  hp: number;
   maxHp?: number;
-  attack?: number;
+  attack: number;
   count?: number;
   radius?: number;
   maxAlive?: number;
-  wanderRadius?: number;
   aggroRange?: number;
   viewRange?: number;
   aggroMode?: MonsterAggroMode;

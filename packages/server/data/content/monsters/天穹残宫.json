@@ -6,9 +6,9 @@
     "color": "#9d8cff",
     "radius": 8,
     "respawnSec": 18,
-    "level": 10,
-    "hp": 168,
-    "attack": 30,
+    "level": 15,
+    "hp": 470,
+    "attack": 63,
     "drops": [
       {
         "itemId": "star_metal",
@@ -32,7 +32,7 @@
         "chance": 0.01
       }
     ],
-    "grade": "heaven",
+    "grade": "yellow",
     "count": 8
   },
   {
@@ -42,9 +42,9 @@
     "color": "#96b6d9",
     "radius": 6,
     "respawnSec": 20,
-    "level": 10,
-    "hp": 174,
-    "attack": 32,
+    "level": 16,
+    "hp": 530,
+    "attack": 70,
     "drops": [
       {
         "itemId": "sky_pattern_page",
@@ -68,19 +68,19 @@
         "chance": 0.01
       }
     ],
-    "grade": "heaven",
+    "grade": "yellow",
     "count": 6
   },
   {
     "id": "m_star_devourer",
-    "name": "噬星兽",
+    "name": "噬星残兽精英",
     "char": "噬",
     "color": "#ff7e7e",
     "radius": 2,
     "respawnSec": 180,
-    "level": 12,
-    "hp": 360,
-    "attack": 48,
+    "level": 17,
+    "hp": 640,
+    "attack": 82,
     "drops": [
       {
         "itemId": "sky_seal_core",
@@ -111,7 +111,64 @@
         "chance": 0.01
       }
     ],
-    "grade": "heaven",
+    "grade": "yellow",
+    "count": 1
+  },
+  {
+    "id": "m_fallen_palace_lord",
+    "name": "坠星宫主",
+    "char": "宫",
+    "color": "#ffb86c",
+    "radius": 2,
+    "respawnSec": 300,
+    "level": 18,
+    "hp": 760,
+    "attack": 96,
+    "drops": [
+      {
+        "itemId": "star_metal",
+        "name": "星陨金",
+        "type": "material",
+        "count": 2,
+        "chance": 0.88
+      },
+      {
+        "itemId": "void_shard",
+        "name": "虚蚀碎片",
+        "type": "material",
+        "count": 2,
+        "chance": 0.76
+      },
+      {
+        "itemId": "equip.starfall_spear",
+        "name": "陨星枪",
+        "type": "equipment",
+        "count": 1,
+        "chance": 0.18
+      },
+      {
+        "itemId": "book.starfall_spear",
+        "name": "《陨星枪诀》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.14
+      },
+      {
+        "itemId": "equip.void_talisman",
+        "name": "空劫符坠",
+        "type": "equipment",
+        "count": 1,
+        "chance": 0.1
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "yellow",
     "count": 1
   }
 ]

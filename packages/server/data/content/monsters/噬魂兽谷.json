@@ -6,9 +6,9 @@
     "color": "#d2b48c",
     "radius": 9,
     "respawnSec": 16,
-    "level": 6,
-    "hp": 105,
-    "attack": 19,
+    "level": 10,
+    "hp": 228,
+    "attack": 33,
     "drops": [
       {
         "itemId": "demon_wolf_bone",
@@ -25,7 +25,7 @@
         "chance": 0.01
       }
     ],
-    "grade": "earth",
+    "grade": "mortal",
     "count": 9
   },
   {
@@ -35,9 +35,9 @@
     "color": "#8f1d21",
     "radius": 7,
     "respawnSec": 18,
-    "level": 7,
-    "hp": 112,
-    "attack": 21,
+    "level": 10,
+    "hp": 214,
+    "attack": 32,
     "drops": [
       {
         "itemId": "blood_feather",
@@ -54,7 +54,7 @@
         "chance": 0.01
       }
     ],
-    "grade": "earth",
+    "grade": "mortal",
     "count": 7
   },
   {
@@ -64,9 +64,9 @@
     "color": "#ff6b6b",
     "radius": 3,
     "respawnSec": 90,
-    "level": 9,
-    "hp": 220,
-    "attack": 34,
+    "level": 12,
+    "hp": 305,
+    "attack": 43,
     "drops": [
       {
         "itemId": "book_stillheart",
@@ -97,7 +97,7 @@
         "chance": 0.08
       }
     ],
-    "grade": "earth",
+    "grade": "mortal",
     "count": 1
   },
   {
@@ -107,9 +107,9 @@
     "color": "#b94747",
     "radius": 5,
     "respawnSec": 20,
-    "level": 7,
-    "hp": 118,
-    "attack": 20,
+    "level": 11,
+    "hp": 246,
+    "attack": 36,
     "drops": [
       {
         "itemId": "serpent_scale",
@@ -126,19 +126,19 @@
         "chance": 0.01
       }
     ],
-    "grade": "earth",
+    "grade": "mortal",
     "count": 5
   },
   {
     "id": "m_valley_emperor",
-    "name": "裂渊谷皇",
+    "name": "裂渊谷皇精英",
     "char": "皇",
     "color": "#de5050",
     "radius": 2,
     "respawnSec": 120,
-    "level": 10,
-    "hp": 285,
-    "attack": 40,
+    "level": 13,
+    "hp": 372,
+    "attack": 52,
     "drops": [
       {
         "itemId": "valley_emperor_fang",
@@ -176,7 +176,57 @@
         "chance": 0.12
       }
     ],
-    "grade": "earth",
+    "grade": "yellow",
+    "count": 1
+  },
+  {
+    "id": "m_soul_wolf_ancestor",
+    "name": "噬魂狼祖",
+    "char": "祖",
+    "color": "#c93f4a",
+    "radius": 2,
+    "respawnSec": 240,
+    "level": 14,
+    "hp": 450,
+    "attack": 62,
+    "drops": [
+      {
+        "itemId": "demon_wolf_bone",
+        "name": "妖狼骨",
+        "type": "material",
+        "count": 2,
+        "chance": 0.84
+      },
+      {
+        "itemId": "blood_feather",
+        "name": "血羽",
+        "type": "material",
+        "count": 2,
+        "chance": 0.62
+      },
+      {
+        "itemId": "book_stillheart",
+        "name": "《止念诀》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.12
+      },
+      {
+        "itemId": "equip.rift_guard_armor",
+        "name": "裂隙镇守甲",
+        "type": "equipment",
+        "count": 1,
+        "chance": 0.18
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "yellow",
     "count": 1
   }
 ]

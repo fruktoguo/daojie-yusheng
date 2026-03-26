@@ -1,0 +1,70 @@
+{
+  "id": "black_iron_mine_molten_heart",
+  "name": "玄铁矿洞·玄脉熔心",
+  "width": 18,
+  "height": 12,
+  "routeDomain": "system",
+  "terrainProfileId": "mystic_black_iron",
+  "spaceVisionMode": "isolated",
+  "description": "旧锻炉下方还压着一口没完全冷透的熔心矿锅，裸露的玄铁与灵矿碎光把整座矿腔都照得发暗。",
+  "dangerLevel": 4,
+  "recommendedRealm": "玉衡",
+  "tiles": [
+    "##################",
+    "#oooo....铁铁....oo#",
+    "#ooL...oo铁铁oo....#",
+    "#....::::====::::#",
+    "#..oo::::oo::::..#",
+    "#..铁铁ooLLoo铁铁....#",
+    "#..铁铁oo....oo铁铁..#",
+    "#....::::....::::#",
+    "#..oo..==..==..o.#",
+    "#P===::::oo::::..#",
+    "#....oooo....LLo.#",
+    "##################"
+  ],
+  "portals": [
+    {
+      "x": 1,
+      "y": 9,
+      "targetMapId": "black_iron_mine",
+      "targetX": 26,
+      "targetY": 23,
+      "kind": "portal",
+      "trigger": "manual",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false
+    }
+  ],
+  "spawnPoint": {
+    "x": 2,
+    "y": 9
+  },
+  "time": {
+    "offsetTicks": 0,
+    "scale": 0,
+    "light": {
+      "base": 10,
+      "timeInfluence": 0
+    }
+  },
+  "auras": [],
+  "landmarks": [
+    {
+      "id": "lm_molten_heart_crucible",
+      "name": "熔心矿锅",
+      "x": 13,
+      "y": 5,
+      "desc": "矿腔中央像炉又像井，黑红矿浆沿着裂缝缓缓鼓动，噬铁矿君就守着这里吞吃所有还能熔进自己体内的铁脉。"
+    }
+  ],
+  "npcs": [],
+  "monsterSpawns": [
+    {
+      "id": "m_iron_devour_lord",
+      "x": 13,
+      "y": 5
+    }
+  ]
+}

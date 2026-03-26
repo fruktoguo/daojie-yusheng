@@ -6,9 +6,9 @@
     "color": "#b9b3a8",
     "radius": 7,
     "respawnSec": 22,
-    "level": 4,
-    "hp": 84,
-    "attack": 13,
+    "level": 8,
+    "hp": 148,
+    "attack": 23,
     "drops": [
       {
         "itemId": "rune_shard",
@@ -25,7 +25,7 @@
         "chance": 0.01
       }
     ],
-    "grade": "mystic",
+    "grade": "mortal",
     "count": 7
   },
   {
@@ -35,9 +35,9 @@
     "color": "#c4c9d8",
     "radius": 5,
     "respawnSec": 19,
-    "level": 5,
-    "hp": 76,
-    "attack": 15,
+    "level": 9,
+    "hp": 172,
+    "attack": 26,
     "drops": [
       {
         "itemId": "book_thunder_palm",
@@ -68,19 +68,19 @@
         "chance": 0.03
       }
     ],
-    "grade": "mystic",
+    "grade": "mortal",
     "count": 5
   },
   {
     "id": "m_rune_watcher",
-    "name": "符阵看守",
+    "name": "残纹看守精英",
     "char": "阵",
     "color": "#89a9ff",
     "radius": 5,
     "respawnSec": 28,
-    "level": 6,
-    "hp": 108,
-    "attack": 18,
+    "level": 10,
+    "hp": 220,
+    "attack": 32,
     "drops": [
       {
         "itemId": "ruin_keystone",
@@ -104,8 +104,58 @@
         "chance": 0.01
       }
     ],
-    "grade": "mystic",
+    "grade": "mortal",
     "count": 4
+  },
+  {
+    "id": "m_stele_arbiter",
+    "name": "裂碑司命",
+    "char": "司",
+    "color": "#8ca0ff",
+    "radius": 2,
+    "respawnSec": 180,
+    "level": 11,
+    "hp": 300,
+    "attack": 41,
+    "drops": [
+      {
+        "itemId": "rune_shard",
+        "name": "断纹石片",
+        "type": "material",
+        "count": 2,
+        "chance": 0.82
+      },
+      {
+        "itemId": "soul_ink",
+        "name": "魂墨",
+        "type": "material",
+        "count": 2,
+        "chance": 0.68
+      },
+      {
+        "itemId": "book.spirit_anchor",
+        "name": "《镇灵篇》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.1
+      },
+      {
+        "itemId": "equip.soul_devour_token",
+        "name": "噬元骨牌",
+        "type": "equipment",
+        "count": 1,
+        "chance": 0.08
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "mortal",
+    "count": 1
   },
   {
     "id": "m_ghost_scribe",
@@ -114,9 +164,9 @@
     "color": "#756fa8",
     "radius": 4,
     "respawnSec": 24,
-    "level": 5,
-    "hp": 82,
-    "attack": 14,
+    "level": 9,
+    "hp": 164,
+    "attack": 25,
     "drops": [
       {
         "itemId": "soul_ink",
@@ -140,7 +190,7 @@
         "chance": 0.01
       }
     ],
-    "grade": "mystic",
+    "grade": "mortal",
     "count": 4
   }
 ]

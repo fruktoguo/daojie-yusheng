@@ -6,9 +6,9 @@
     "color": "#d3b06f",
     "radius": 8,
     "respawnSec": 18,
-    "level": 8,
-    "hp": 132,
-    "attack": 24,
+    "level": 12,
+    "hp": 318,
+    "attack": 45,
     "drops": [
       {
         "itemId": "ridge_beast_claw",
@@ -32,7 +32,7 @@
         "chance": 0.01
       }
     ],
-    "grade": "earth",
+    "grade": "mortal",
     "count": 7
   },
   {
@@ -42,9 +42,9 @@
     "color": "#b7d6ff",
     "radius": 7,
     "respawnSec": 20,
-    "level": 8,
-    "hp": 126,
-    "attack": 23,
+    "level": 13,
+    "hp": 350,
+    "attack": 49,
     "drops": [
       {
         "itemId": "frost_essence",
@@ -68,19 +68,19 @@
         "chance": 0.01
       }
     ],
-    "grade": "earth",
+    "grade": "yellow",
     "count": 6
   },
   {
     "id": "m_ridge_ghost",
-    "name": "守岭残魂",
+    "name": "守岭残魂精英",
     "char": "魂",
     "color": "#8f8fc9",
     "radius": 5,
     "respawnSec": 26,
-    "level": 9,
-    "hp": 148,
-    "attack": 28,
+    "level": 14,
+    "hp": 404,
+    "attack": 56,
     "drops": [
       {
         "itemId": "spirit_ridge_sigil",
@@ -111,7 +111,57 @@
         "chance": 0.05
       }
     ],
-    "grade": "earth",
+    "grade": "yellow",
     "count": 4
+  },
+  {
+    "id": "m_spine_gate_lord",
+    "name": "镇脊关主",
+    "char": "关",
+    "color": "#c7d4ef",
+    "radius": 2,
+    "respawnSec": 240,
+    "level": 16,
+    "hp": 560,
+    "attack": 74,
+    "drops": [
+      {
+        "itemId": "ridge_beast_claw",
+        "name": "岭兽爪",
+        "type": "material",
+        "count": 2,
+        "chance": 0.8
+      },
+      {
+        "itemId": "frost_essence",
+        "name": "霜华精粹",
+        "type": "material",
+        "count": 2,
+        "chance": 0.72
+      },
+      {
+        "itemId": "equip.spirit_ring",
+        "name": "凝灵戒",
+        "type": "equipment",
+        "count": 1,
+        "chance": 0.16
+      },
+      {
+        "itemId": "book.frost_sutra",
+        "name": "《寒魄经》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.1
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "yellow",
+    "count": 1
   }
 ]

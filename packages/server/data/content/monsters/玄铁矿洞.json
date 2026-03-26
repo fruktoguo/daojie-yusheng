@@ -4,11 +4,11 @@
     "name": "矿魈",
     "char": "魈",
     "color": "#8f7fa8",
-    "hp": 78,
-    "attack": 14,
+    "hp": 128,
+    "attack": 20,
     "radius": 8,
     "respawnSec": 24,
-    "level": 4,
+    "level": 7,
     "drops": [
       {
         "itemId": "mine_signal_core",
@@ -39,7 +39,7 @@
         "chance": 0.01
       }
     ],
-    "grade": "mystic",
+    "grade": "mortal",
     "count": 7
   },
   {
@@ -47,11 +47,11 @@
     "name": "晶背蝠",
     "char": "蝠",
     "color": "#9ac3ff",
-    "hp": 48,
-    "attack": 9,
+    "hp": 102,
+    "attack": 16,
     "radius": 5,
     "respawnSec": 20,
-    "level": 3,
+    "level": 6,
     "drops": [
       {
         "itemId": "crystal_dust",
@@ -68,7 +68,7 @@
         "chance": 0.01
       }
     ],
-    "grade": "mystic",
+    "grade": "mortal",
     "count": 5
   },
   {
@@ -76,11 +76,11 @@
     "name": "隧影潜猎者",
     "char": "潜",
     "color": "#6f84a8",
-    "hp": 90,
-    "attack": 16,
+    "hp": 156,
+    "attack": 24,
     "radius": 5,
     "respawnSec": 22,
-    "level": 5,
+    "level": 8,
     "drops": [
       {
         "itemId": "black_iron_chunk",
@@ -104,19 +104,19 @@
         "chance": 0.01
       }
     ],
-    "grade": "mystic",
+    "grade": "mortal",
     "count": 4
   },
   {
     "id": "m_ore_colossus",
-    "name": "矿脉巨像",
+    "name": "玄矿巨像精英",
     "char": "像",
     "color": "#8f8a7b",
-    "hp": 170,
-    "attack": 28,
+    "hp": 210,
+    "attack": 31,
     "radius": 3,
     "respawnSec": 60,
-    "level": 7,
+    "level": 9,
     "drops": [
       {
         "itemId": "colossus_heart",
@@ -140,7 +140,57 @@
         "chance": 0.01
       }
     ],
-    "grade": "mystic",
+    "grade": "mortal",
     "count": 2
+  },
+  {
+    "id": "m_iron_devour_lord",
+    "name": "噬铁矿君",
+    "char": "君",
+    "color": "#a78b73",
+    "hp": 286,
+    "attack": 39,
+    "radius": 2,
+    "respawnSec": 180,
+    "level": 10,
+    "drops": [
+      {
+        "itemId": "black_iron_chunk",
+        "name": "玄铁矿块",
+        "type": "material",
+        "count": 2,
+        "chance": 0.88
+      },
+      {
+        "itemId": "crystal_dust",
+        "name": "晶尘",
+        "type": "material",
+        "count": 2,
+        "chance": 0.6
+      },
+      {
+        "itemId": "colossus_heart",
+        "name": "巨像核心",
+        "type": "quest_item",
+        "count": 1,
+        "chance": 0.55
+      },
+      {
+        "itemId": "equip.rift_guard_armor",
+        "name": "裂隙镇守甲",
+        "type": "equipment",
+        "count": 1,
+        "chance": 0.14
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "mortal",
+    "count": 1
   }
 ]
