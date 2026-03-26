@@ -2108,15 +2108,29 @@ function buildClientPreviewPath(
     return null;
   }
 
+  const visiblePlayerPositions = new Set(
+    latestEntities
+      .filter((entity) => entity.kind === 'player' && entity.id !== myPlayer?.id)
+      .map((entity) => `${entity.wx},${entity.wy}`),
+  );
+
   const tiles: Tile[][] = [];
   for (let y = 0; y < mapMeta.height; y++) {
     const row: Tile[] = [];
     for (let x = 0; x < mapMeta.width; x++) {
       const tile = getKnownTileAt(x, y);
-      row.push(tile ?? ({
+      const baseTile = tile ?? ({
         type: TileType.Wall,
         walkable: false,
-      } as Tile));
+      } as Tile);
+      const occupiedByVisiblePlayer = visiblePlayerPositions.has(`${x},${y}`) && !(x === targetX && y === targetY);
+      row.push(occupiedByVisiblePlayer
+        ? {
+            ...baseTile,
+            walkable: false,
+            occupiedBy: 'visible_player',
+          }
+        : baseTile);
     }
     tiles.push(row);
   }

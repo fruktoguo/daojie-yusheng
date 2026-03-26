@@ -86,7 +86,6 @@ export class PathRequestSchedulerService {
     this.performanceService.recordPathfindingEnqueued();
     this.performanceService.recordPathfindingPendingDropped(removedPendingCount);
     this.syncQueueDepthMetrics();
-    this.dispatchPendingForMap(input.mapId, 1);
     return requestId;
   }
 
@@ -103,6 +102,11 @@ export class PathRequestSchedulerService {
     }
     this.performanceService.recordPathfindingPendingDropped(removedPendingCount);
     this.syncQueueDepthMetrics();
+  }
+
+  dispatchNow(mapId: string, maxDispatch = 1): void {
+    this.collectCompletedResults();
+    this.dispatchPendingForMap(mapId, Math.max(1, Math.floor(maxDispatch)));
   }
 
   pumpMap(mapId: string): void {
@@ -189,19 +193,31 @@ export class PathRequestSchedulerService {
   }
 
   private pickNextPending(mapId: string): PendingPathRequest | null {
-    const candidates = [...this.pendingById.values()]
-      .filter((request) => request.mapId === mapId && this.latestRequestIdByActor.get(request.actorId) === request.requestId)
-      .sort((left, right) => {
-        if (left.priority !== right.priority) {
-          return left.priority - right.priority;
+    let next: PendingPathRequest | null = null;
+    for (const request of this.pendingById.values()) {
+      if (request.mapId !== mapId || this.latestRequestIdByActor.get(request.actorId) !== request.requestId) {
+        continue;
+      }
+      if (!next) {
+        next = request;
+        continue;
+      }
+      if (request.priority !== next.priority) {
+        if (request.priority < next.priority) {
+          next = request;
         }
-        if (right.moveSpeed !== left.moveSpeed) {
-          return right.moveSpeed - left.moveSpeed;
+        continue;
+      }
+      if (request.moveSpeed !== next.moveSpeed) {
+        if (request.moveSpeed > next.moveSpeed) {
+          next = request;
         }
-        return left.enqueueOrder - right.enqueueOrder;
-      });
-
-    const next = candidates[0] ?? null;
+        continue;
+      }
+      if (request.enqueueOrder < next.enqueueOrder) {
+        next = request;
+      }
+    }
     if (next) {
       this.pendingById.delete(next.requestId);
       this.syncQueueDepthMetrics();

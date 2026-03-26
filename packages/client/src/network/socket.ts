@@ -179,12 +179,27 @@ export class SocketManager {
     this.emitServer(C2S.Move, { d: direction } satisfies C2S_Move);
   }
 
-  sendMoveTo(x: number, y: number, options?: { ignoreVisibilityLimit?: boolean; allowNearestReachable?: boolean }) {
+  sendMoveTo(
+    x: number,
+    y: number,
+    options?: {
+      ignoreVisibilityLimit?: boolean;
+      allowNearestReachable?: boolean;
+      packedPath?: string;
+      packedPathSteps?: number;
+      pathStartX?: number;
+      pathStartY?: number;
+    },
+  ) {
     this.emitServer(C2S.MoveTo, {
       x,
       y,
       ignoreVisibilityLimit: options?.ignoreVisibilityLimit,
       allowNearestReachable: options?.allowNearestReachable,
+      packedPath: options?.packedPath,
+      packedPathSteps: options?.packedPathSteps,
+      pathStartX: options?.pathStartX,
+      pathStartY: options?.pathStartY,
     } satisfies C2S_MoveTo);
   }
 

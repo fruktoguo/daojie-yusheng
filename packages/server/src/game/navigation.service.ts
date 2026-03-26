@@ -19,11 +19,12 @@ import {
   PATHFINDING_REPATH_MAX_EXPANDED_NODES,
   PATHFINDING_REPATH_MAX_PATH_LENGTH,
   PlayerState,
+  unpackDirections,
 } from '@mud/shared';
 import {
-  PATH_REQUEST_IMMEDIATE_PLAYER_MAX_EXPANDED_NODES,
-  PATH_REQUEST_IMMEDIATE_PLAYER_MAX_PATH_LENGTH,
   PATH_REQUEST_MAX_PER_TICK_PER_PLAYER,
+  PATH_DYNAMIC_ADJUST_LOOKAHEAD,
+  PATH_DYNAMIC_ADJUST_MAX_RADIUS,
   PATH_REPATH_COOLDOWN_TICKS,
   PATH_REQUEST_PRIORITY_BOT_ROAM,
   PATH_REQUEST_PRIORITY_PLAYER_MOVE,
@@ -58,6 +59,10 @@ interface MoveTargetState {
 
 interface SetMoveTargetOptions {
   allowNearestReachable?: boolean;
+  clientPackedPath?: string;
+  clientPackedPathSteps?: number;
+  clientPathStartX?: number;
+  clientPathStartY?: number;
   forceReplan?: boolean;
 }
 
@@ -92,12 +97,18 @@ interface PathMoveAttemptResult {
   points: number;
 }
 
+interface LocalAdjustmentResult {
+  path: PathStep[];
+  rejoinIndex: number;
+}
+
 @Injectable()
 export class NavigationService {
   private readonly moveTargets = new Map<string, MoveTargetState>();
   private readonly moveCharges = new Map<string, MoveChargeState>();
   private readonly mapPathTicks = new Map<string, number>();
   private readonly moveRequestQuotaByPlayer = new Map<string, MoveRequestQuotaState>();
+  private readonly pathVersions = new Map<string, number>();
 
   constructor(
     private readonly mapService: MapService,
@@ -114,6 +125,9 @@ export class NavigationService {
 
   /** 清除寻路目标和关联的移动点数 */
   clearMoveTarget(playerId: string): void {
+    if (this.moveTargets.has(playerId)) {
+      this.bumpPathVersion(playerId);
+    }
     this.moveTargets.delete(playerId);
     this.pathRequestScheduler.cancelActor(playerId);
     const charge = this.moveCharges.get(playerId);
@@ -131,10 +145,18 @@ export class NavigationService {
     if (!this.consumePlayerMoveRequestQuota(player)) {
       return '本息调整目标过于频繁';
     }
-    return this.setMoveTarget(player, x, y, {
+    const error = this.setMoveTarget(player, x, y, {
       ...options,
       forceReplan: true,
     });
+    if (error) {
+      return error;
+    }
+    const state = this.moveTargets.get(player.id);
+    if (state?.pendingRequestId) {
+      this.pathRequestScheduler.dispatchNow(player.mapId, 1);
+    }
+    return null;
   }
 
   /** 获取当前寻路路径的坐标序列 */
@@ -142,6 +164,10 @@ export class NavigationService {
     const state = this.moveTargets.get(playerId);
     if (!state) return [];
     return state.path.map((step) => [step.x, step.y]);
+  }
+
+  getPathVersion(playerId: string): number {
+    return this.pathVersions.get(playerId) ?? 0;
   }
 
   /** 设置玩家寻路目标，交由统一调度器异步计算路径 */
@@ -199,26 +225,23 @@ export class NavigationService {
     }
 
     const requestKind: PathRequestKind = player.isBot ? 'bot_roam' : 'player_move_to';
-    if (!player.isBot) {
-      const immediate = this.tryPlanPathImmediate(player, targetX, targetY);
-      if (immediate === 'unreachable') {
-        this.clearMoveTarget(player.id);
-        return '无法到达该位置';
-      }
-      if (immediate) {
-        this.moveTargets.set(player.id, {
-          targetX,
-          targetY,
-          path: immediate.path,
-          blockedTicks: 0,
-          pathComplete: immediate.complete,
-          failureCount: 0,
-          repathAvailableTick: this.getCurrentMapPathTick(player.mapId),
-          showFailureMessage: true,
-          requestKind,
-        });
-        return null;
-      }
+    const clientPath = !player.isBot
+      ? this.validateClientPath(player, targetX, targetY, options)
+      : null;
+    if (clientPath) {
+      this.moveTargets.set(player.id, {
+        targetX,
+        targetY,
+        path: clientPath,
+        blockedTicks: 0,
+        pathComplete: true,
+        failureCount: 0,
+        repathAvailableTick: this.getCurrentMapPathTick(player.mapId),
+        showFailureMessage: true,
+        requestKind,
+      });
+      this.bumpPathVersion(player.id);
+      return null;
     }
 
     const requestId = this.enqueuePathRequest(player, requestKind, targetX, targetY);
@@ -234,6 +257,7 @@ export class NavigationService {
       showFailureMessage: !player.isBot,
       requestKind,
     });
+    this.bumpPathVersion(player.id);
     return null;
   }
 
@@ -270,13 +294,8 @@ export class NavigationService {
         return { moved: false, reached: false, blocked: false };
       }
       if (!state.pathComplete) {
-        this.refillPathTowardTarget(player, state);
-        if (state.path.length > 0) {
-          return this.stepPlayerTowardTarget(player);
-        }
-        if (state.pendingError) {
-          return { moved: false, reached: false, blocked: false };
-        }
+        this.queuePathContinuation(player, state);
+        return { moved: false, reached: false, blocked: false };
       }
       this.queueRepath(player, state);
       return { moved: false, reached: false, blocked: false };
@@ -386,6 +405,7 @@ export class NavigationService {
     let points = initialPoints;
     let moved = false;
     let blocked = false;
+    const initialPathLength = state.path.length;
     while (true) {
       const next = state.path[0];
       if (!next) break;
@@ -411,12 +431,28 @@ export class NavigationService {
         break;
       }
     }
+    if (state.path.length !== initialPathLength) {
+      this.bumpPathVersion(player.id);
+    }
     return { moved, blocked, points };
   }
 
   private consumePathWithinTick(player: PlayerState, state: MoveTargetState, initialPoints: number): PathMoveAttemptResult {
     let attempt = this.tryMoveAlongPath(player, state, initialPoints);
-    while (
+    if (attempt.blocked) {
+      const adjustment = this.tryBuildLocalAdjustment(player, state);
+      if (adjustment) {
+        state.path = adjustment.path.concat(state.path.slice(adjustment.rejoinIndex + 1));
+        this.bumpPathVersion(player.id);
+        const continued = this.tryMoveAlongPath(player, state, attempt.points);
+        attempt = {
+          moved: attempt.moved || continued.moved,
+          blocked: continued.blocked,
+          points: continued.points,
+        };
+      }
+    }
+    if (
       attempt.moved
       && !attempt.blocked
       && attempt.points > 0
@@ -425,16 +461,7 @@ export class NavigationService {
       && state.path.length === 0
       && (player.x !== state.targetX || player.y !== state.targetY)
     ) {
-      this.refillPathTowardTarget(player, state);
-      if (state.pendingError || state.pendingRequestId || state.path.length === 0) {
-        break;
-      }
-      const continued = this.tryMoveAlongPath(player, state, attempt.points);
-      attempt = {
-        moved: attempt.moved || continued.moved,
-        blocked: continued.blocked,
-        points: continued.points,
-      };
+      this.queuePathContinuation(player, state);
     }
     return attempt;
   }
@@ -507,6 +534,20 @@ export class NavigationService {
     state.repathAvailableTick = currentTick + PATH_REPATH_COOLDOWN_TICKS;
   }
 
+  private queuePathContinuation(player: PlayerState, state: MoveTargetState): void {
+    if (state.pendingRequestId) {
+      return;
+    }
+
+    state.pendingRequestId = this.enqueuePathRequest(
+      player,
+      state.requestKind,
+      state.targetX,
+      state.targetY,
+    );
+    state.repathAvailableTick = this.getCurrentMapPathTick(player.mapId);
+  }
+
   private consumeResolvedPath(player: PlayerState, state: MoveTargetState): void {
     if (!state.pendingRequestId) {
       return;
@@ -525,6 +566,7 @@ export class NavigationService {
       state.failureCount = 0;
       state.pendingError = undefined;
       state.repathAvailableTick = this.getCurrentMapPathTick(player.mapId);
+      this.bumpPathVersion(player.id);
       return;
     }
 
@@ -533,6 +575,7 @@ export class NavigationService {
     state.blockedTicks = 0;
     state.failureCount += 1;
     state.repathAvailableTick = this.getCurrentMapPathTick(player.mapId) + (PATH_RETRY_BACKOFF_TICKS * state.failureCount);
+    this.bumpPathVersion(player.id);
     if (state.showFailureMessage) {
       state.pendingError = this.translateFailureReason(result.reason);
       return;
@@ -569,7 +612,7 @@ export class NavigationService {
           maxExpandedNodes: PATHFINDING_REPATH_MAX_EXPANDED_NODES,
           maxPathLength: PATHFINDING_REPATH_MAX_PATH_LENGTH,
           maxGoalDistance: PATHFINDING_PLAYER_MAX_TARGET_DISTANCE,
-          allowPartialPath: !player.isBot,
+          allowPartialPath: false,
         },
       };
     }
@@ -580,7 +623,7 @@ export class NavigationService {
         maxExpandedNodes: PATHFINDING_PLAYER_MAX_EXPANDED_NODES,
         maxPathLength: PATHFINDING_PLAYER_MAX_PATH_LENGTH,
         maxGoalDistance: PATHFINDING_PLAYER_MAX_TARGET_DISTANCE,
-        allowPartialPath: !player.isBot,
+        allowPartialPath: false,
       },
     };
   }
@@ -621,60 +664,163 @@ export class NavigationService {
     return true;
   }
 
-  private tryPlanPathImmediate(
+  private validateClientPath(
     player: PlayerState,
     targetX: number,
     targetY: number,
-  ): { path: PathStep[]; complete: boolean } | 'unreachable' | null {
-    const staticGrid = this.mapService.getPathfindingStaticGrid(player.mapId);
-    const blocked = this.mapService.buildPathfindingBlockedGrid(player.mapId, 'player', player.id);
-    if (!staticGrid || !blocked) {
-      return 'unreachable';
-    }
-
-    const result = findBoundedPath(
-      staticGrid,
-      blocked,
-      player.x,
-      player.y,
-      [{ x: targetX, y: targetY }],
-      {
-        maxExpandedNodes: PATH_REQUEST_IMMEDIATE_PLAYER_MAX_EXPANDED_NODES,
-        maxPathLength: PATH_REQUEST_IMMEDIATE_PLAYER_MAX_PATH_LENGTH,
-        maxGoalDistance: PATHFINDING_PLAYER_MAX_TARGET_DISTANCE,
-        allowPartialPath: true,
-      },
-    );
-
-    if (result.status === 'success') {
-      return {
-        path: result.path.map((step) => ({ x: step.x, y: step.y })),
-        complete: result.complete,
-      };
-    }
-
-    if (result.reason === 'step_limit' || result.reason === 'path_too_long') {
+    options?: SetMoveTargetOptions,
+  ): PathStep[] | null {
+    if (
+      typeof options?.clientPackedPath !== 'string'
+      || !Number.isInteger(options.clientPackedPathSteps)
+      || typeof options.clientPathStartX !== 'number'
+      || typeof options.clientPathStartY !== 'number'
+    ) {
       return null;
     }
 
-    return 'unreachable';
+    if (options.clientPathStartX !== player.x || options.clientPathStartY !== player.y) {
+      return null;
+    }
+
+    const packedPath = options.clientPackedPath;
+    const packedPathSteps = options.clientPackedPathSteps ?? 0;
+    const directions = unpackDirections(packedPath, packedPathSteps);
+    if (!directions) {
+      return null;
+    }
+
+    const path: PathStep[] = [];
+    let currentX = player.x;
+    let currentY = player.y;
+    for (const direction of directions) {
+      const [dx, dy] = directionToDelta(direction);
+      currentX += dx;
+      currentY += dy;
+      if (!this.mapService.canTraverseTerrain(player.mapId, currentX, currentY)) {
+        return null;
+      }
+      path.push({ x: currentX, y: currentY });
+    }
+
+    if (currentX !== targetX || currentY !== targetY) {
+      return null;
+    }
+
+    return path;
   }
 
-  private refillPathTowardTarget(player: PlayerState, state: MoveTargetState): void {
-    const immediate = this.tryPlanPathImmediate(player, state.targetX, state.targetY);
-    if (immediate && immediate !== 'unreachable') {
-      state.path = immediate.path;
-      state.pathComplete = immediate.complete;
-      state.blockedTicks = 0;
-      state.pendingError = undefined;
-      return;
+  private tryBuildLocalAdjustment(player: PlayerState, state: MoveTargetState): LocalAdjustmentResult | null {
+    if (state.path.length === 0) {
+      return null;
     }
 
-    if (immediate === 'unreachable') {
-      state.pendingError = '无法到达该位置';
-      return;
+    const goalIndicesByKey = new Map<string, number>();
+    const lookahead = Math.min(state.path.length, PATH_DYNAMIC_ADJUST_LOOKAHEAD);
+    for (let index = 0; index < lookahead; index += 1) {
+      const step = state.path[index];
+      if (manhattanDistance(player, step) > PATH_DYNAMIC_ADJUST_MAX_RADIUS) {
+        continue;
+      }
+      if (!this.mapService.canOccupy(player.mapId, step.x, step.y, {
+        occupancyId: player.id,
+        actorType: 'player',
+      })) {
+        continue;
+      }
+      goalIndicesByKey.set(`${step.x},${step.y}`, index);
     }
 
-    this.queueRepath(player, state);
+    if (goalIndicesByKey.size === 0) {
+      return null;
+    }
+
+    const radius = PATH_DYNAMIC_ADJUST_MAX_RADIUS;
+    const width = radius * 2 + 1;
+    const total = width * width;
+    const center = radius * width + radius;
+    const visited = new Uint8Array(total);
+    const parent = new Int16Array(total);
+    parent.fill(-1);
+    const queue = new Int16Array(total);
+    let head = 0;
+    let tail = 0;
+    queue[tail++] = center;
+    visited[center] = 1;
+
+    while (head < tail) {
+      const localIndex = queue[head++]!;
+      const localX = localIndex % width;
+      const localY = Math.floor(localIndex / width);
+      const worldX = player.x + (localX - radius);
+      const worldY = player.y + (localY - radius);
+      const goalIndex = goalIndicesByKey.get(`${worldX},${worldY}`);
+      if (goalIndex !== undefined && localIndex !== center) {
+        const path = this.reconstructLocalAdjustmentPath(player, parent, localIndex, width, radius);
+        return path.length > 0 ? { path, rejoinIndex: goalIndex } : null;
+      }
+
+      for (const { dx, dy } of [
+        { dx: 0, dy: -1 },
+        { dx: 0, dy: 1 },
+        { dx: 1, dy: 0 },
+        { dx: -1, dy: 0 },
+      ]) {
+        const nextLocalX = localX + dx;
+        const nextLocalY = localY + dy;
+        if (nextLocalX < 0 || nextLocalX >= width || nextLocalY < 0 || nextLocalY >= width) {
+          continue;
+        }
+        const nextIndex = nextLocalY * width + nextLocalX;
+        if (visited[nextIndex] === 1) {
+          continue;
+        }
+        const nextWorldX = player.x + (nextLocalX - radius);
+        const nextWorldY = player.y + (nextLocalY - radius);
+        if (manhattanDistance(player, { x: nextWorldX, y: nextWorldY }) > radius) {
+          continue;
+        }
+        if (!this.mapService.canOccupy(player.mapId, nextWorldX, nextWorldY, {
+          occupancyId: player.id,
+          actorType: 'player',
+        })) {
+          continue;
+        }
+        visited[nextIndex] = 1;
+        parent[nextIndex] = localIndex;
+        queue[tail++] = nextIndex;
+      }
+    }
+
+    return null;
+  }
+
+  private reconstructLocalAdjustmentPath(
+    player: PlayerState,
+    parent: Int16Array,
+    goalLocalIndex: number,
+    width: number,
+    radius: number,
+  ): PathStep[] {
+    const path: PathStep[] = [];
+    let current = goalLocalIndex;
+    const center = radius * width + radius;
+    while (current !== center && current !== -1) {
+      const localX = current % width;
+      const localY = Math.floor(current / width);
+      path.push({
+        x: player.x + (localX - radius),
+        y: player.y + (localY - radius),
+      });
+      current = parent[current];
+    }
+    path.reverse();
+    return path;
+  }
+
+  private bumpPathVersion(playerId: string): number {
+    const nextVersion = (this.pathVersions.get(playerId) ?? 0) + 1;
+    this.pathVersions.set(playerId, nextVersion);
+    return nextVersion;
   }
 }

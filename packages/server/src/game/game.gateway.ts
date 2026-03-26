@@ -275,6 +275,21 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
 
+    const error = this.navigationService.primeMoveTarget(player, data.x, data.y, {
+      allowNearestReachable: data.allowNearestReachable,
+      clientPackedPath: data.packedPath,
+      clientPackedPathSteps: data.packedPathSteps,
+      clientPathStartX: data.pathStartX,
+      clientPathStartY: data.pathStartY,
+    });
+    if (error) {
+      client.emit(S2C.SystemMsg, {
+        text: error,
+        kind: 'system',
+      } satisfies S2C_SystemMsg);
+      return;
+    }
+
     this.playerService.enqueueCommand(player.mapId, {
       playerId,
       type: 'moveTo',

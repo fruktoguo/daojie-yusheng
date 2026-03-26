@@ -9,16 +9,16 @@ export const PATHFINDING_MIN_STEP_COST = 1;
 export const PATHFINDING_PLAYER_MAX_TARGET_DISTANCE = 96;
 
 /** 玩家手动寻路允许展开的最大节点数。 */
-export const PATHFINDING_PLAYER_MAX_EXPANDED_NODES = 4_096;
+export const PATHFINDING_PLAYER_MAX_EXPANDED_NODES = 16_384;
 
 /** 玩家路径允许保留的最大步数。 */
-export const PATHFINDING_PLAYER_MAX_PATH_LENGTH = 160;
+export const PATHFINDING_PLAYER_MAX_PATH_LENGTH = 16_384;
 
-/** 路径被阻挡后的重算节点上限。 */
-export const PATHFINDING_REPATH_MAX_EXPANDED_NODES = 2_048;
+/** 路径被阻挡后的重算节点上限，沿用完整玩家寻路预算。 */
+export const PATHFINDING_REPATH_MAX_EXPANDED_NODES = PATHFINDING_PLAYER_MAX_EXPANDED_NODES;
 
-/** 路径被阻挡后的重算步数上限。 */
-export const PATHFINDING_REPATH_MAX_PATH_LENGTH = 96;
+/** 路径被阻挡后的重算步数上限，沿用完整玩家寻路预算。 */
+export const PATHFINDING_REPATH_MAX_PATH_LENGTH = PATHFINDING_PLAYER_MAX_PATH_LENGTH;
 
 /** Bot 漫游寻路允许展开的最大节点数。 */
 export const PATHFINDING_BOT_MAX_EXPANDED_NODES = 512;
