@@ -14,6 +14,7 @@ import {
   createItemStackSignature,
   createNumericStats,
   DEFAULT_RATIO_DIVISOR,
+  DISPERSED_AURA_RESOURCE_KEY,
   Direction,
   ElementKey,
   estimateMonsterSpiritFromStats,
@@ -2734,6 +2735,16 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       return `灵力不足，需要 ${actualCost} 点灵力`;
     }
     player.qi = Math.max(0, player.qi - actualCost);
+    const dispersedAuraGain = Math.floor(actualCost / 10);
+    if (dispersedAuraGain > 0) {
+      this.mapService.addTileResourceValue(
+        player.mapId,
+        player.x,
+        player.y,
+        DISPERSED_AURA_RESOURCE_KEY,
+        dispersedAuraGain,
+      );
+    }
     return actualCost;
   }
 

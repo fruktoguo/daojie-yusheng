@@ -81,6 +81,8 @@ export {
   QI_VISIBILITY_LEVELS,
   QI_PROJECTION_BP_SCALE,
   DEFAULT_QI_EFFICIENCY_BP,
+  DISPERSED_AURA_HALF_LIFE_RATE_SCALED,
+  DISPERSED_AURA_MIN_DECAY_PER_TICK,
 } from './constants/gameplay/qi';
 export { SENSE_QI_OVERLAY_STYLE } from './constants/visuals/aura';
 export {

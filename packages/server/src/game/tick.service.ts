@@ -41,6 +41,7 @@ import {
   VisibleTilePatch,
   PERSIST_INTERVAL,
   clonePlainValue,
+  DISPERSED_AURA_RESOURCE_KEY,
   isPlainEqual,
 } from '@mud/shared';
 import * as fs from 'fs';
@@ -488,25 +489,13 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
               x,
               y,
               allowNearestReachable,
-              packedPath,
-              packedPathSteps,
-              pathStartX,
-              pathStartY,
             } = cmd.data as {
               x: number;
               y: number;
               allowNearestReachable?: boolean;
-              packedPath?: string;
-              packedPathSteps?: number;
-              pathStartX?: number;
-              pathStartY?: number;
             };
-            const error = this.navigationService.primeMoveTarget(player, x, y, {
+            const error = this.navigationService.setMoveTarget(player, x, y, {
               allowNearestReachable,
-              clientPackedPath: packedPath,
-              clientPackedPathSteps: packedPathSteps,
-              clientPathStartX: pathStartX,
-              clientPathStartY: pathStartY,
             });
             if (error) {
               messages.push({ playerId: player.id, text: error, kind: 'system' });
@@ -859,16 +848,21 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
     if (item.tileAuraGainAmount) {
       const actualCount = Math.max(1, Math.floor(count));
-      const currentAura = this.mapService.getTileAura(player.mapId, player.x, player.y);
       const addedAura = item.tileAuraGainAmount * actualCount;
-      const nextAura = this.mapService.setTileAura(player.mapId, player.x, player.y, currentAura + addedAura);
+      const nextAura = this.mapService.addTileResourceValue(
+        player.mapId,
+        player.x,
+        player.y,
+        DISPERSED_AURA_RESOURCE_KEY,
+        addedAura,
+      );
       if (nextAura === null) {
         messages.push({ playerId: player.id, text: '此地灵脉紊乱，灵石未能生效。', kind: 'system' });
         return;
       }
       messages.push({
         playerId: player.id,
-        text: `你捏碎 ${item.name}${actualCount > 1 ? ` x${actualCount}` : ''}，脚下地块灵力增加 ${addedAura} 点。当前灵力 ${nextAura}。`,
+        text: `你捏碎 ${item.name}${actualCount > 1 ? ` x${actualCount}` : ''}，脚下逸散灵气增加 ${addedAura} 点。当前逸散灵气 ${nextAura}。`,
         kind: 'loot',
       });
       return;

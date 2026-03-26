@@ -1,8 +1,11 @@
 import {
   DEFAULT_QI_EFFICIENCY_BP,
+  DISPERSED_AURA_HALF_LIFE_RATE_SCALED,
+  DISPERSED_AURA_MIN_DECAY_PER_TICK,
   QI_ELEMENT_KEYS,
   QI_FAMILY_KEYS,
   QI_FORM_KEYS,
+  QI_HALF_LIFE_RATE_SCALE,
   QI_PROJECTION_BP_SCALE,
   QI_VISIBILITY_LEVELS,
 } from './constants/gameplay/qi';
@@ -45,9 +48,21 @@ export interface CompiledQiProjectionProfile {
   familyVisibility: Partial<Record<QiFamilyKey, QiVisibilityLevel>>;
 }
 
+export interface QiRuntimeFlowConfig {
+  halfLifeRateScale: number;
+  halfLifeRateScaled: number;
+  minimumDecayPerTick: number;
+}
+
 export const DEFAULT_QI_RESOURCE_DESCRIPTOR: QiResourceDescriptor = {
   family: 'aura',
   form: 'refined',
+  element: 'neutral',
+};
+
+export const DISPERSED_AURA_RESOURCE_DESCRIPTOR: QiResourceDescriptor = {
+  family: 'aura',
+  form: 'dispersed',
   element: 'neutral',
 };
 
@@ -64,8 +79,18 @@ export const ALL_QI_RESOURCE_DESCRIPTORS: QiResourceDescriptor[] = QI_FAMILY_KEY
 export const ALL_QI_RESOURCE_KEYS = ALL_QI_RESOURCE_DESCRIPTORS.map((descriptor) => buildQiResourceKey(descriptor));
 
 export const DEFAULT_PLAYER_QI_RESOURCE_KEYS = ALL_QI_RESOURCE_DESCRIPTORS
-  .filter((descriptor) => descriptor.family === 'aura' && descriptor.form === 'refined')
+  .filter((descriptor) => descriptor.family === 'aura')
   .map((descriptor) => buildQiResourceKey(descriptor));
+
+export const DISPERSED_AURA_RESOURCE_KEY = buildQiResourceKey(DISPERSED_AURA_RESOURCE_DESCRIPTOR);
+
+export const DEFAULT_QI_RUNTIME_FLOW_CONFIGS: Partial<Record<string, QiRuntimeFlowConfig>> = {
+  [DISPERSED_AURA_RESOURCE_KEY]: {
+    halfLifeRateScale: QI_HALF_LIFE_RATE_SCALE,
+    halfLifeRateScaled: DISPERSED_AURA_HALF_LIFE_RATE_SCALED,
+    minimumDecayPerTick: DISPERSED_AURA_MIN_DECAY_PER_TICK,
+  },
+};
 
 export function buildQiResourceKey(descriptor: QiResourceDescriptor): string {
   return `${descriptor.family}.${descriptor.form}.${descriptor.element}`;
@@ -87,6 +112,14 @@ export function parseQiResourceKey(resourceKey: string): QiResourceDescriptor | 
     form: form as QiFormKey,
     element: element as QiElementKey,
   };
+}
+
+export function isQiFamilyResource(resourceKey: string, family: QiFamilyKey): boolean {
+  return parseQiResourceKey(resourceKey)?.family === family;
+}
+
+export function isAuraQiResourceKey(resourceKey: string): boolean {
+  return isQiFamilyResource(resourceKey, 'aura');
 }
 
 export function normalizeQiEfficiencyBp(value: unknown, fallback = DEFAULT_QI_EFFICIENCY_BP): number {

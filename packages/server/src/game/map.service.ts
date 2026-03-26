@@ -62,7 +62,11 @@ import {
   TILE_AURA_HALF_LIFE_RATE_SCALE,
   TILE_AURA_HALF_LIFE_RATE_SCALED,
   buildQiResourceKey,
+  DISPERSED_AURA_HALF_LIFE_RATE_SCALED,
+  DISPERSED_AURA_MIN_DECAY_PER_TICK,
+  DISPERSED_AURA_RESOURCE_DESCRIPTOR,
   DEFAULT_QI_RESOURCE_DESCRIPTOR,
+  isAuraQiResourceKey,
   parseQiResourceKey,
 } from '@mud/shared';
 import * as fs from 'fs';
@@ -288,6 +292,26 @@ const RUNTIME_STATE_SCOPE = 'runtime_state';
 const MAP_TILE_RUNTIME_DOCUMENT_KEY = 'map_tile';
 const LEGACY_AURA_RESOURCE_KEY = 'aura';
 const AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR);
+const DISPERSED_AURA_RESOURCE_KEY = buildQiResourceKey(DISPERSED_AURA_RESOURCE_DESCRIPTOR);
+
+interface TileResourceFlowConfig {
+  halfLifeRateScale: number;
+  halfLifeRateScaled: number;
+  minimumDecayPerTick: number;
+}
+
+const TILE_RESOURCE_FLOW_CONFIGS: Partial<Record<string, TileResourceFlowConfig>> = {
+  [AURA_RESOURCE_KEY]: {
+    halfLifeRateScale: TILE_AURA_HALF_LIFE_RATE_SCALE,
+    halfLifeRateScaled: TILE_AURA_HALF_LIFE_RATE_SCALED,
+    minimumDecayPerTick: 0,
+  },
+  [DISPERSED_AURA_RESOURCE_KEY]: {
+    halfLifeRateScale: TILE_AURA_HALF_LIFE_RATE_SCALE,
+    halfLifeRateScaled: DISPERSED_AURA_HALF_LIFE_RATE_SCALED,
+    minimumDecayPerTick: DISPERSED_AURA_MIN_DECAY_PER_TICK,
+  },
+};
 
 const QI_FAMILY_LABELS = {
   aura: '灵气',
@@ -817,6 +841,8 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
     this.rehydrateDynamicTileStates(document.id, document, tiles, previousDocument);
     this.rehydrateAuraStates(document.id, tiles, baseAuraValues);
+    this.rehydrateAdditionalTileResourceStates(document.id, tiles);
+    this.syncAuraFamilyTileMirrors(document.id, tiles);
 
     const containers = this.normalizeContainers(document.landmarks, meta);
     const npcs = this.normalizeNpcs(document.npcs, meta);
@@ -996,8 +1022,10 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   tickDynamicTiles(mapId: string) {
     const stateMap = this.dynamicTileStates.get(mapId);
     const resourceStateBucket = this.resourceStates.get(mapId);
-    const tickingResourceStateMap = resourceStateBucket?.get(AURA_RESOURCE_KEY);
-    if ((!stateMap || stateMap.size === 0) && (!tickingResourceStateMap || tickingResourceStateMap.size === 0)) {
+    const tickingResourceKeys = resourceStateBucket
+      ? Object.keys(TILE_RESOURCE_FLOW_CONFIGS).filter((resourceKey) => (resourceStateBucket.get(resourceKey)?.size ?? 0) > 0)
+      : [];
+    if ((!stateMap || stateMap.size === 0) && tickingResourceKeys.length === 0) {
       return;
     }
 
@@ -1058,40 +1086,42 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    if (resourceStateBucket && tickingResourceStateMap) {
-      for (const [key, state] of tickingResourceStateMap) {
-        const tile = this.getTile(mapId, state.x, state.y);
-        if (!tile) {
-          tickingResourceStateMap.delete(key);
-          resourceStateChanged = true;
+    if (resourceStateBucket) {
+      for (const resourceKey of tickingResourceKeys) {
+        const tickingResourceStateMap = resourceStateBucket.get(resourceKey);
+        if (!tickingResourceStateMap) {
           continue;
         }
 
-        const previousValue = state.value;
-        const previousLevel = getAuraLevel(previousValue, this.auraLevelBaseValue);
-        if (this.tickTileResourceState(AURA_RESOURCE_KEY, state)) {
-          resourceStateChanged = true;
-        }
+        for (const [key, state] of tickingResourceStateMap) {
+          const tile = this.getTile(mapId, state.x, state.y);
+          if (!tile) {
+            tickingResourceStateMap.delete(key);
+            resourceStateChanged = true;
+            continue;
+          }
 
-        if (state.value !== previousValue) {
-          tile.aura = state.value;
-          if (getAuraLevel(state.value, this.auraLevelBaseValue) !== previousLevel) {
-            this.markTileDirty(mapId, state.x, state.y);
+          const previousAuraValue = tile.aura ?? 0;
+          if (this.tickTileResourceState(resourceKey, state)) {
+            resourceStateChanged = true;
+          }
+
+          if (!this.shouldKeepTileResourceRuntimeState(state)) {
+            tickingResourceStateMap.delete(key);
+            resourceStateChanged = true;
+          }
+
+          if (isAuraQiResourceKey(resourceKey)) {
+            const nextAuraValue = this.syncTileAuraValue(mapId, state.x, state.y, resourceStateBucket, tile);
+            if (getAuraLevel(nextAuraValue, this.auraLevelBaseValue) !== getAuraLevel(previousAuraValue, this.auraLevelBaseValue)) {
+              this.markTileDirty(mapId, state.x, state.y);
+            }
           }
         }
 
-        if (!this.shouldKeepTileResourceRuntimeState(state)) {
-          tickingResourceStateMap.delete(key);
-          resourceStateChanged = true;
-          if (tile.aura !== 0) {
-            tile.aura = 0;
-            this.markTileDirty(mapId, state.x, state.y);
-          }
+        if (tickingResourceStateMap.size === 0) {
+          resourceStateBucket.delete(resourceKey);
         }
-      }
-
-      if (tickingResourceStateMap.size === 0) {
-        resourceStateBucket.delete(AURA_RESOURCE_KEY);
       }
     }
 
@@ -1602,6 +1632,159 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     return Object.keys(resources).length > 0 ? resources : undefined;
   }
 
+  private getTileResourceFlowConfig(resourceKey: string): TileResourceFlowConfig | null {
+    return TILE_RESOURCE_FLOW_CONFIGS[resourceKey] ?? null;
+  }
+
+  private calculateAuraFamilyValueForTile(
+    resourceBucket: TileResourceBucketMap | undefined,
+    tileKey: string,
+    fallbackAuraValue = 0,
+  ): number {
+    if (!resourceBucket) {
+      return Math.max(0, Math.round(fallbackAuraValue));
+    }
+
+    let total = 0;
+    let matched = false;
+    for (const [resourceKey, stateMap] of resourceBucket.entries()) {
+      if (!isAuraQiResourceKey(resourceKey)) {
+        continue;
+      }
+      const state = stateMap.get(tileKey);
+      if (!state) {
+        continue;
+      }
+      total += Math.max(0, Math.round(state.value));
+      matched = true;
+    }
+    return matched ? total : Math.max(0, Math.round(fallbackAuraValue));
+  }
+
+  private calculateAuraFamilySourceValueForTile(
+    resourceBucket: TileResourceBucketMap | undefined,
+    tileKey: string,
+    fallbackSourceValue = 0,
+  ): number {
+    if (!resourceBucket) {
+      return Math.max(0, Math.round(fallbackSourceValue));
+    }
+
+    let total = 0;
+    let matched = false;
+    for (const [resourceKey, stateMap] of resourceBucket.entries()) {
+      if (!isAuraQiResourceKey(resourceKey)) {
+        continue;
+      }
+      const state = stateMap.get(tileKey);
+      if (!state) {
+        continue;
+      }
+      total += Math.max(0, Math.round(state.sourceValue ?? 0));
+      matched = true;
+    }
+    return matched ? total : Math.max(0, Math.round(fallbackSourceValue));
+  }
+
+  private syncTileAuraValue(
+    mapId: string,
+    x: number,
+    y: number,
+    resourceBucket = this.resourceStates.get(mapId),
+    tile = this.getTile(mapId, x, y),
+  ): number {
+    if (!tile) {
+      return 0;
+    }
+    const key = this.tileStateKey(x, y);
+    const nextAuraValue = this.calculateAuraFamilyValueForTile(resourceBucket, key, 0);
+    tile.aura = nextAuraValue;
+    return nextAuraValue;
+  }
+
+  private syncAuraFamilyTileMirrors(mapId: string, tiles: Tile[][]): void {
+    const resourceBucket = this.resourceStates.get(mapId);
+    if (!resourceBucket) {
+      return;
+    }
+
+    const tileKeys = new Set<string>();
+    for (const [resourceKey, stateMap] of resourceBucket.entries()) {
+      if (!isAuraQiResourceKey(resourceKey)) {
+        continue;
+      }
+      for (const key of stateMap.keys()) {
+        tileKeys.add(key);
+      }
+    }
+
+    for (const key of tileKeys) {
+      const [x, y] = key.split(',').map((value) => Number.parseInt(value, 10));
+      const tile = tiles[y]?.[x];
+      if (!tile) {
+        continue;
+      }
+      this.syncTileAuraValue(mapId, x, y, resourceBucket, tile);
+    }
+  }
+
+  private rehydrateAdditionalTileResourceStates(mapId: string, tiles: Tile[][]): void {
+    const persistedSourceBucket = this.persistedResourceStates.get(mapId);
+    const runtimeSourceBucket = this.resourceStates.get(mapId);
+    const allResourceKeys = new Set<string>([
+      ...(runtimeSourceBucket ? [...runtimeSourceBucket.keys()] : []),
+      ...(persistedSourceBucket ? [...persistedSourceBucket.keys()] : []),
+    ]);
+
+    for (const resourceKey of allResourceKeys) {
+      if (resourceKey === AURA_RESOURCE_KEY) {
+        continue;
+      }
+
+      const persistedSourceStates = persistedSourceBucket?.get(resourceKey);
+      const sourceStates = runtimeSourceBucket?.get(resourceKey) ?? persistedSourceStates;
+      const sourceCount = sourceStates?.size ?? 0;
+      const nextStates = new Map<string, TileResourceRuntimeState>();
+      if (sourceStates) {
+        for (const [key, rawState] of sourceStates.entries()) {
+          const tile = tiles[rawState.y]?.[rawState.x];
+          if (!tile) {
+            continue;
+          }
+          const state: TileResourceRuntimeState = {
+            x: rawState.x,
+            y: rawState.y,
+            value: Math.max(0, Math.round(rawState.value)),
+            sourceValue: Math.max(0, Math.round(rawState.sourceValue ?? 0)),
+            decayRemainder: Math.max(0, Math.round(rawState.decayRemainder ?? 0)),
+            sourceRemainder: Math.max(0, Math.round(rawState.sourceRemainder ?? 0)),
+          };
+          if (this.shouldKeepTileResourceRuntimeState(state)) {
+            nextStates.set(key, state);
+          }
+        }
+      }
+
+      if (nextStates.size === 0) {
+        this.deleteTileResourceStateMap(this.resourceStates, mapId, resourceKey);
+        if (sourceCount > 0) {
+          this.resourceStatesDirty = true;
+          this.markTileRuntimeMapDirty(mapId);
+        }
+      } else {
+        this.setTileResourceStateMap(this.resourceStates, mapId, resourceKey, nextStates);
+        if (nextStates.size !== sourceCount) {
+          this.resourceStatesDirty = true;
+          this.markTileRuntimeMapDirty(mapId);
+        }
+      }
+
+      if (persistedSourceStates) {
+        this.deleteTileResourceStateMap(this.persistedResourceStates, mapId, resourceKey);
+      }
+    }
+  }
+
   private buildPersistedMapTimeRecord(mapId: string, requireLoadedMap = true): PersistedMapTimeState | null {
     if (requireLoadedMap && !this.maps.has(mapId)) {
       return null;
@@ -1649,7 +1832,8 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   }
 
   private tickTileResourceState(resourceKey: string, state: TileResourceRuntimeState): boolean {
-    if (resourceKey !== AURA_RESOURCE_KEY) {
+    const flowConfig = this.getTileResourceFlowConfig(resourceKey);
+    if (!flowConfig) {
       return false;
     }
 
@@ -1658,15 +1842,18 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     const previousSourceRemainder = state.sourceRemainder ?? 0;
 
     state.decayRemainder = Math.max(0, Math.round(state.decayRemainder ?? 0))
-      + previousValue * TILE_AURA_HALF_LIFE_RATE_SCALED;
-    const decayAmount = Math.floor(state.decayRemainder / TILE_AURA_HALF_LIFE_RATE_SCALE);
-    state.decayRemainder %= TILE_AURA_HALF_LIFE_RATE_SCALE;
+      + previousValue * flowConfig.halfLifeRateScaled;
+    const halfLifeDecayAmount = Math.floor(state.decayRemainder / flowConfig.halfLifeRateScale);
+    state.decayRemainder %= flowConfig.halfLifeRateScale;
 
     state.sourceRemainder = Math.max(0, Math.round(state.sourceRemainder ?? 0))
-      + Math.max(0, Math.round(state.sourceValue ?? 0)) * TILE_AURA_HALF_LIFE_RATE_SCALED;
-    const sourceAmount = Math.floor(state.sourceRemainder / TILE_AURA_HALF_LIFE_RATE_SCALE);
-    state.sourceRemainder %= TILE_AURA_HALF_LIFE_RATE_SCALE;
+      + Math.max(0, Math.round(state.sourceValue ?? 0)) * flowConfig.halfLifeRateScaled;
+    const sourceAmount = Math.floor(state.sourceRemainder / flowConfig.halfLifeRateScale);
+    state.sourceRemainder %= flowConfig.halfLifeRateScale;
 
+    const decayAmount = previousValue > 0
+      ? Math.max(flowConfig.minimumDecayPerTick, halfLifeDecayAmount)
+      : 0;
     const nextValue = Math.max(0, previousValue - decayAmount + sourceAmount);
     if (nextValue !== previousValue) {
       state.value = nextValue;
@@ -1678,12 +1865,12 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   }
 
   private toPublicTileResourceKey(resourceKey: string): string {
-    return resourceKey === AURA_RESOURCE_KEY ? LEGACY_AURA_RESOURCE_KEY : resourceKey;
+    return resourceKey;
   }
 
   private getTileResourceLabel(resourceKey: string): string {
     if (resourceKey === AURA_RESOURCE_KEY) {
-      return '灵气';
+      return '凝练灵气';
     }
 
     const descriptor = parseQiResourceKey(resourceKey);
@@ -2802,6 +2989,28 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     return Math.max(0, this.getTile(mapId, x, y)?.aura ?? 0);
   }
 
+  getTileResourceValue(mapId: string, x: number, y: number, resourceKey: string): number {
+    const normalizedResourceKey = this.normalizeTileResourceKey(resourceKey);
+    if (!normalizedResourceKey) {
+      return 0;
+    }
+
+    const key = this.tileStateKey(x, y);
+    const map = this.maps.get(mapId);
+    const tile = this.getTile(mapId, x, y);
+    if (normalizedResourceKey === AURA_RESOURCE_KEY) {
+      return Math.max(0, Math.round(
+        this.getTileResourceStateMap(this.resourceStates, mapId, normalizedResourceKey)?.get(key)?.value
+          ?? map?.baseAuraValues.get(key)
+          ?? tile?.aura
+          ?? 0,
+      ));
+    }
+    return Math.max(0, Math.round(
+      this.getTileResourceStateMap(this.resourceStates, mapId, normalizedResourceKey)?.get(key)?.value ?? 0,
+    ));
+  }
+
   getTileRuntimeDetail(mapId: string, x: number, y: number): {
     mapId: string;
     x: number;
@@ -2838,13 +3047,16 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     const dynamicState = this.dynamicTileStates.get(resolvedMapId)?.get(key);
     const resourceBucket = this.resourceStates.get(resolvedMapId);
     const resources: Array<{ key: string; label: string; value: number; level?: number; sourceValue?: number }> = [];
-    const auraState = resourceBucket?.get(AURA_RESOURCE_KEY)?.get(key);
-    const auraValue = Math.max(0, Math.round(auraState?.value ?? tile.aura ?? 0));
-    const sourceValue = Math.max(0, Math.round(auraState?.sourceValue ?? this.maps.get(resolvedMapId)?.baseAuraValues.get(key) ?? 0));
+    const auraValue = this.calculateAuraFamilyValueForTile(resourceBucket, key, tile.aura ?? 0);
+    const sourceValue = this.calculateAuraFamilySourceValueForTile(
+      resourceBucket,
+      key,
+      this.maps.get(resolvedMapId)?.baseAuraValues.get(key) ?? 0,
+    );
     if (auraValue > 0 || sourceValue > 0) {
       resources.push({
         key: LEGACY_AURA_RESOURCE_KEY,
-        label: '灵气',
+        label: '总灵气',
         value: auraValue,
         level: getAuraLevel(auraValue, this.auraLevelBaseValue),
         sourceValue: sourceValue > 0 ? sourceValue : undefined,
@@ -2853,9 +3065,6 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
     if (resourceBucket) {
       for (const [resourceKey, stateMap] of resourceBucket.entries()) {
-        if (resourceKey === AURA_RESOURCE_KEY) {
-          continue;
-        }
         const state = stateMap.get(key);
         if (!state || !this.shouldExposeTileResourceDetail(state)) {
           continue;
@@ -2864,9 +3073,6 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
           key: this.toPublicTileResourceKey(resourceKey),
           label: this.getTileResourceLabel(resourceKey),
           value: Math.max(0, Math.round(state.value)),
-          level: parseQiResourceKey(resourceKey)
-            ? getAuraLevel(Math.max(0, Math.round(state.value)), this.auraLevelBaseValue)
-            : undefined,
           sourceValue: (state.sourceValue ?? 0) > 0 ? Math.max(0, Math.round(state.sourceValue ?? 0)) : undefined,
         });
       }
@@ -2885,45 +3091,62 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   }
 
   setTileAura(mapId: string, x: number, y: number, value: number): number | null {
+    return this.setTileResourceValue(mapId, x, y, AURA_RESOURCE_KEY, value);
+  }
+
+  setTileResourceValue(mapId: string, x: number, y: number, resourceKey: string, value: number): number | null {
     const map = this.maps.get(mapId);
     const tile = this.getTile(mapId, x, y);
-    if (!map || !tile) {
+    const normalizedResourceKey = this.normalizeTileResourceKey(resourceKey);
+    if (!map || !tile || !normalizedResourceKey) {
       return null;
     }
 
     const nextValue = Math.max(0, Math.round(value));
     const key = this.tileStateKey(x, y);
-    const previousValue = tile.aura;
+    const previousAuraValue = tile.aura ?? 0;
+    const previousValue = this.getTileResourceValue(mapId, x, y, normalizedResourceKey);
     if (previousValue === nextValue) {
-      return tile.aura;
+      return previousValue;
     }
 
-    tile.aura = nextValue;
-    const previousLevel = getAuraLevel(previousValue, this.auraLevelBaseValue);
-    const stateMap = this.getTileResourceStateMap(this.resourceStates, mapId, AURA_RESOURCE_KEY)
+    const previousLevel = getAuraLevel(previousAuraValue, this.auraLevelBaseValue);
+    const stateMap = this.getTileResourceStateMap(this.resourceStates, mapId, normalizedResourceKey)
       ?? new Map<string, TileResourceRuntimeState>();
     const state = stateMap.get(key) ?? {
       x,
       y,
       value: previousValue,
-      sourceValue: map.baseAuraValues.get(key) ?? 0,
+      sourceValue: normalizedResourceKey === AURA_RESOURCE_KEY ? (map.baseAuraValues.get(key) ?? 0) : 0,
       decayRemainder: 0,
       sourceRemainder: 0,
     };
     state.value = nextValue;
     if (this.shouldKeepTileResourceRuntimeState(state)) {
       stateMap.set(key, state);
-      this.setTileResourceStateMap(this.resourceStates, mapId, AURA_RESOURCE_KEY, stateMap);
+      this.setTileResourceStateMap(this.resourceStates, mapId, normalizedResourceKey, stateMap);
     } else {
       stateMap.delete(key);
-      this.setTileResourceStateMap(this.resourceStates, mapId, AURA_RESOURCE_KEY, stateMap);
+      this.setTileResourceStateMap(this.resourceStates, mapId, normalizedResourceKey, stateMap);
+    }
+    if (isAuraQiResourceKey(normalizedResourceKey)) {
+      this.syncTileAuraValue(mapId, x, y);
     }
     this.resourceStatesDirty = true;
     this.markTileRuntimeMapDirty(mapId);
-    if (getAuraLevel(nextValue, this.auraLevelBaseValue) !== previousLevel) {
+    if (getAuraLevel(tile.aura ?? 0, this.auraLevelBaseValue) !== previousLevel) {
       this.markTileDirty(mapId, x, y);
     }
     return nextValue;
+  }
+
+  addTileResourceValue(mapId: string, x: number, y: number, resourceKey: string, delta: number): number | null {
+    const normalizedDelta = Math.round(delta);
+    if (!Number.isFinite(normalizedDelta) || normalizedDelta === 0) {
+      return this.getTileResourceValue(mapId, x, y, resourceKey);
+    }
+    const currentValue = this.getTileResourceValue(mapId, x, y, resourceKey);
+    return this.setTileResourceValue(mapId, x, y, resourceKey, currentValue + normalizedDelta);
   }
 
   hasNpcAt(mapId: string, x: number, y: number): boolean {

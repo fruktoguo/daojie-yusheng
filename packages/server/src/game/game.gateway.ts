@@ -57,6 +57,8 @@ import {
   BASE_MAX_HP,
   HP_PER_CONSTITUTION,
   Direction,
+  isAuraQiResourceKey,
+  parseQiResourceKey,
   VisibleTile,
   VIEW_RADIUS,
   encodeServerEventPayload,
@@ -413,21 +415,45 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!detail) {
       return;
     }
+    const detailedAuraResources = detail.resources
+      .filter((resource) => {
+        const parsedResource = parseQiResourceKey(resource.key);
+        return Boolean(parsedResource && isAuraQiResourceKey(resource.key));
+      })
+      .map((resource) => ({
+        key: resource.key,
+        value: resource.value,
+      }));
     const response: S2C_TileRuntimeDetail = {
       ...detail,
       resources: detail.resources.map((resource) => {
-        if (resource.key !== 'aura') {
+        if (resource.key === 'aura') {
+          const effectiveValue = detailedAuraResources.length > 0
+            ? this.qiProjectionService.getEffectiveAuraValueFromResources(player, detailedAuraResources)
+            : this.qiProjectionService.getEffectiveAuraValue(player, resource.value);
+          return {
+            ...resource,
+            level: detailedAuraResources.length > 0
+              ? this.qiProjectionService.getAuraLevelFromResources(
+                  player,
+                  detailedAuraResources,
+                  this.tickService.getAuraLevelBaseValue(),
+                )
+              : this.qiProjectionService.getAuraLevel(
+                  player,
+                  resource.value,
+                  this.tickService.getAuraLevelBaseValue(),
+                ),
+            effectiveValue,
+          };
+        }
+        const parsedResource = parseQiResourceKey(resource.key);
+        if (!parsedResource || !isAuraQiResourceKey(resource.key)) {
           return resource;
         }
-        const effectiveValue = this.qiProjectionService.getEffectiveAuraValue(player, resource.value);
         return {
           ...resource,
-          level: this.qiProjectionService.getAuraLevel(
-            player,
-            resource.value,
-            this.tickService.getAuraLevelBaseValue(),
-          ),
-          effectiveValue,
+          effectiveValue: this.qiProjectionService.getEffectiveResourceValue(player, resource.key, resource.value),
         };
       }),
     };

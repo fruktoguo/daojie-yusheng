@@ -11,8 +11,10 @@ import {
   CompiledQiProjectionProfile,
   CompiledQiResourceProjection,
   DEFAULT_QI_EFFICIENCY_BP,
+  DEFAULT_PLAYER_QI_RESOURCE_KEYS,
   DEFAULT_QI_RESOURCE_DESCRIPTOR,
   getAuraLevel,
+  isAuraQiResourceKey,
   matchesQiProjectionSelector,
   maxQiVisibility,
   PlayerState,
@@ -41,7 +43,7 @@ export class QiProjectionService {
   }
 
   getAuraVisibility(player: PlayerState): QiVisibilityLevel {
-    return this.getResourceProjection(player, buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR)).visibility;
+    return this.getFamilyVisibility(player, 'aura');
   }
 
   getAuraEfficiencyBp(player: PlayerState): number {
@@ -54,6 +56,29 @@ export class QiProjectionService {
       return 0;
     }
     return projectQiValue(auraValue, projection.efficiencyBp);
+  }
+
+  getEffectiveResourceValue(player: PlayerState, resourceKey: string, rawValue: number): number {
+    const projection = this.getResourceProjection(player, resourceKey);
+    if (projection.visibility !== 'absorbable') {
+      return 0;
+    }
+    return projectQiValue(rawValue, projection.efficiencyBp);
+  }
+
+  getEffectiveAuraValueFromResources(player: PlayerState, resources: Iterable<{ key: string; value: number }>): number {
+    let total = 0;
+    for (const resource of resources) {
+      if (!isAuraQiResourceKey(resource.key)) {
+        continue;
+      }
+      total += this.getEffectiveResourceValue(player, resource.key, resource.value);
+    }
+    return total;
+  }
+
+  getAuraLevelFromResources(player: PlayerState, resources: Iterable<{ key: string; value: number }>, baseValue: number): number {
+    return getAuraLevel(this.getEffectiveAuraValueFromResources(player, resources), baseValue);
   }
 
   getAuraLevel(player: PlayerState, auraValue: number, baseValue: number): number {
@@ -88,7 +113,7 @@ export class QiProjectionService {
       const resourceKey = buildQiResourceKey(descriptor);
       resourceProfiles[resourceKey] = {
         descriptor,
-        visibility: descriptor.family === 'aura' && descriptor.form === 'refined' ? 'absorbable' : 'hidden',
+        visibility: DEFAULT_PLAYER_QI_RESOURCE_KEYS.includes(resourceKey) ? 'absorbable' : 'hidden',
         efficiencyBp: DEFAULT_QI_EFFICIENCY_BP,
       };
     }

@@ -798,11 +798,8 @@ function buildObservedResourceAsideLines(resource: TileRuntimeResourceDetail): s
   ) {
     lines.push(`当前可用值：${formatAuraValueText(resource.effectiveValue)}`);
   }
-  if (typeof resource.level === 'number') {
+  if (resource.key === 'aura' && typeof resource.level === 'number') {
     lines.unshift(`当前等级：${formatDisplayInteger(Math.max(0, Math.round(resource.level)))}`);
-  }
-  if (typeof resource.sourceValue === 'number' && resource.sourceValue > 0) {
-    lines.push(`源点基准：${formatAuraValueText(resource.sourceValue)}`);
   }
   return lines;
 }
@@ -831,7 +828,7 @@ function buildObservedResourceAsideCards(targetX: number, targetY: number, tile:
       mark: '气',
       title: '气机细察',
       lines: [
-        `灵气等级：${formatDisplayInteger(Math.max(0, Math.round(tile.aura ?? 0)))}`,
+        `总灵气等级：${formatDisplayInteger(Math.max(0, Math.round(tile.aura ?? 0)))}`,
         '感气决运转中，正在细察此地气机。',
       ],
       tone: 'buff',
