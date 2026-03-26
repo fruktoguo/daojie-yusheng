@@ -461,6 +461,7 @@ export class ActionPanel {
   private isSwitchActionId(actionId: string): boolean {
     return actionId === 'toggle:auto_battle'
       || actionId === 'toggle:auto_retaliate'
+      || actionId === 'toggle:allow_aoe_player_hit'
       || actionId === 'toggle:auto_idle_cultivation'
       || actionId === 'toggle:auto_switch_cultivation'
       || actionId === 'cultivation:toggle'
