@@ -251,6 +251,16 @@ export class GmController {
     return { ok: true };
   }
 
+  /** 重置玩家天门测试状态 */
+  @Post('players/:playerId/heaven-gate/reset')
+  async resetPlayerHeavenGate(@Param('playerId') playerId: string): Promise<{ ok: true }> {
+    const error = await this.gmService.enqueueResetHeavenGate(playerId);
+    if (error) {
+      throw new BadRequestException(error);
+    }
+    return { ok: true };
+  }
+
   /** 生成 Bot */
   @Post('bots/spawn')
   async spawnBots(@Body() body: GmSpawnBotsReq): Promise<{ ok: true }> {

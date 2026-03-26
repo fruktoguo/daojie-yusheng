@@ -73,6 +73,10 @@ type GmCommand =
       playerId: string;
     }
   | {
+      type: 'resetHeavenGate';
+      playerId: string;
+    }
+  | {
       type: 'spawnBots';
       anchorPlayerId: string;
       mapId: string;
@@ -318,6 +322,22 @@ export class GmService {
     return null;
   }
 
+  async enqueueResetHeavenGate(playerId: string): Promise<string | null> {
+    const runtime = this.playerService.getPlayer(playerId);
+    if (runtime) {
+      this.enqueue(runtime.mapId, { type: 'resetHeavenGate', playerId });
+      return null;
+    }
+
+    const entity = await this.playerRepo.findOne({ where: { id: playerId } });
+    if (!entity) return '目标玩家不存在';
+
+    const player = this.hydrateStoredPlayer(entity);
+    this.techniqueService.resetHeavenGateForTesting(player);
+    await this.persistOfflinePlayer(entity, player);
+    return null;
+  }
+
   /** 入队 Bot 生成命令 */
   async enqueueSpawnBots(anchorPlayerId: string, count: number): Promise<string | null> {
     const runtime = this.playerService.getPlayer(anchorPlayerId);
@@ -389,6 +409,8 @@ export class GmService {
         return this.applyQueuedPlayerUpdate(command.playerId, command.snapshot, command.section);
       case 'resetPlayer':
         return this.applyQueuedResetPlayer(command.playerId);
+      case 'resetHeavenGate':
+        return this.applyQueuedResetHeavenGate(command.playerId);
       case 'spawnBots':
         return this.applyQueuedSpawnBots(command.mapId, command.x, command.y, command.count);
       case 'removeBots':
@@ -410,6 +432,14 @@ export class GmService {
     if (!player) return '目标玩家不存在';
     const update = this.worldService.resetPlayerToSpawn(player);
     this.markDirty(player.id, update.dirty as DirtyFlag[]);
+    return null;
+  }
+
+  private applyQueuedResetHeavenGate(playerId: string): string | null {
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return '目标玩家不存在';
+    this.techniqueService.resetHeavenGateForTesting(player);
+    this.markDirty(player.id, ['attr', 'actions', 'tech']);
     return null;
   }
 

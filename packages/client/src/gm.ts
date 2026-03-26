@@ -93,6 +93,7 @@ const applyRawJsonBtn = document.getElementById('apply-raw-json') as HTMLButtonE
 const savePlayerBtn = document.getElementById('save-player') as HTMLButtonElement;
 const refreshPlayerBtn = document.getElementById('refresh-player') as HTMLButtonElement;
 const resetPlayerBtn = document.getElementById('reset-player') as HTMLButtonElement;
+const resetHeavenGateBtn = document.getElementById('reset-heaven-gate') as HTMLButtonElement;
 const removeBotBtn = document.getElementById('remove-bot') as HTMLButtonElement;
 
 const summaryTotalEl = document.getElementById('summary-total') as HTMLDivElement;
@@ -2694,6 +2695,27 @@ async function resetSelectedPlayer(): Promise<void> {
   }
 }
 
+async function resetSelectedPlayerHeavenGate(): Promise<void> {
+  const selected = getSelectedPlayer();
+  if (!selected) {
+    setStatus('请先选择角色', true);
+    return;
+  }
+
+  resetHeavenGateBtn.disabled = true;
+  try {
+    await request<{ ok: true }>(`/gm/players/${encodeURIComponent(selected.id)}/heaven-gate/reset`, {
+      method: 'POST',
+    });
+    editorDirty = false;
+    await delayRefresh(`已重置 ${selected.name} 的天门测试状态`);
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '重置天门失败', true);
+  } finally {
+    resetHeavenGateBtn.disabled = false;
+  }
+}
+
 async function removeSelectedBot(): Promise<void> {
   const selected = getSelectedPlayer();
   if (!selected || !selected.meta.isBot) {
@@ -3101,6 +3123,9 @@ refreshPlayerBtn.addEventListener('click', () => {
 });
 resetPlayerBtn.addEventListener('click', () => {
   resetSelectedPlayer().catch(() => {});
+});
+resetHeavenGateBtn.addEventListener('click', () => {
+  resetSelectedPlayerHeavenGate().catch(() => {});
 });
 removeBotBtn.addEventListener('click', () => {
   removeSelectedBot().catch(() => {});

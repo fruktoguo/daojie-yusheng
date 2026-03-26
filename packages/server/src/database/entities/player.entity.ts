@@ -117,6 +117,14 @@ export class PlayerEntity {
   @Column({ type: 'jsonb', default: () => `'[]'` })
   revealedBreakthroughRequirementIds!: unknown[];
 
+  /** 开天门过程中的暂存状态 */
+  @Column({ type: 'jsonb', default: () => '\'null\'' })
+  heavenGate!: unknown | null;
+
+  /** 已确认写入角色的灵根数值 */
+  @Column({ type: 'jsonb', default: () => '\'null\'' })
+  spiritualRoots!: unknown | null;
+
   /** 已解锁的小地图 ID */
   @Column({ type: 'jsonb', default: () => `'[]'` })
   unlockedMinimapIds!: unknown[];

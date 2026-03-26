@@ -13,6 +13,7 @@ interface GmCallbacks {
   onRemoveBots: (playerIds?: string[], all?: boolean) => void;
   onUpdatePlayer: (payload: C2S_GmUpdatePlayer) => void;
   onResetPlayer: (playerId: string) => void;
+  onResetHeavenGate: (playerId: string) => void;
   onMarkSuggestionCompleted: (id: string) => void;
   onRemoveSuggestion: (id: string) => void;
 }
@@ -112,6 +113,7 @@ export class GmPanel {
   private saveBtn: HTMLButtonElement | null = null;
   private healBtn: HTMLButtonElement | null = null;
   private resetBtn: HTMLButtonElement | null = null;
+  private resetHeavenGateBtn: HTMLButtonElement | null = null;
   private removeBtn: HTMLButtonElement | null = null;
   private botCountInput: HTMLInputElement | null = null;
 
@@ -270,6 +272,7 @@ export class GmPanel {
             <button class="small-btn" id="gm-save-player">保存</button>
             <button class="small-btn" id="gm-heal-player">满血</button>
             <button class="small-btn" id="gm-reset-player">回出生点</button>
+            <button class="small-btn" id="gm-reset-heaven-gate">重置天门</button>
             <button class="small-btn danger" id="gm-remove-player">移除机器人</button>
           </div>
         </div>
@@ -298,6 +301,7 @@ export class GmPanel {
     this.saveBtn = this.pane.querySelector<HTMLButtonElement>('#gm-save-player');
     this.healBtn = this.pane.querySelector<HTMLButtonElement>('#gm-heal-player');
     this.resetBtn = this.pane.querySelector<HTMLButtonElement>('#gm-reset-player');
+    this.resetHeavenGateBtn = this.pane.querySelector<HTMLButtonElement>('#gm-reset-heaven-gate');
     this.removeBtn = this.pane.querySelector<HTMLButtonElement>('#gm-remove-player');
     this.botCountInput = this.pane.querySelector<HTMLInputElement>('#gm-bot-count');
 
@@ -335,6 +339,7 @@ export class GmPanel {
     this.saveBtn?.addEventListener('click', () => this.handleSave());
     this.healBtn?.addEventListener('click', () => this.handleHeal());
     this.resetBtn?.addEventListener('click', () => this.handleReset());
+    this.resetHeavenGateBtn?.addEventListener('click', () => this.handleResetHeavenGate());
     this.removeBtn?.addEventListener('click', () => this.handleRemove());
   }
 
@@ -476,6 +481,12 @@ export class GmPanel {
     const player = this.getSelectedPlayer();
     if (!player) return;
     this.callbacks?.onResetPlayer(player.id);
+  }
+
+  private handleResetHeavenGate(): void {
+    const player = this.getSelectedPlayer();
+    if (!player) return;
+    this.callbacks?.onResetHeavenGate(player.id);
   }
 
   private handleRemove(): void {

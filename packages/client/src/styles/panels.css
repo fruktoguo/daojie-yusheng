@@ -846,17 +846,17 @@
       box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.16);
     }
     .detail-modal-card.detail-modal--heaven-gate {
-      width: min(1100px, calc(100vw - 24px));
+      width: min(760px, calc(100vw - 24px));
       max-height: min(90vh, calc(100vh - 24px));
       background:
-        radial-gradient(circle at top right, rgba(94, 234, 212, 0.12), transparent 28%),
-        radial-gradient(circle at bottom left, rgba(245, 158, 11, 0.1), transparent 34%),
-        linear-gradient(180deg, rgba(7, 12, 24, 0.97), rgba(6, 10, 18, 0.96));
-      color: rgba(233, 242, 255, 0.92);
-      border-color: rgba(120, 155, 212, 0.28);
-      box-shadow:
-        0 28px 64px rgba(4, 9, 20, 0.44),
-        inset 0 0 0 1px rgba(164, 193, 255, 0.06);
+        radial-gradient(circle at top right, rgba(214, 188, 142, 0.12), transparent 30%),
+        var(--surface-gradient-paper);
+      color: var(--ink-dark);
+      border: 1.5px solid var(--ink-black);
+      box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.16);
+    }
+    .detail-modal-card.detail-modal--heaven-gate .detail-modal-head {
+      display: none;
     }
     .detail-modal-card.detail-modal--market {
       width: min(1360px, calc(100vw - 20px));
@@ -1772,69 +1772,51 @@
       justify-content: flex-end;
     }
     .heaven-gate-shell {
+      position: relative;
       display: grid;
-      gap: 18px;
-    }
-    .heaven-gate-summary {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 12px;
-    }
-    .heaven-gate-summary-card {
-      display: grid;
-      gap: 4px;
-      padding: 12px 14px;
-      border-radius: 14px;
-      border: 1px solid rgba(117, 148, 210, 0.18);
-      background:
-        linear-gradient(180deg, rgba(14, 22, 39, 0.88), rgba(10, 16, 30, 0.74)),
-        radial-gradient(circle at top left, rgba(89, 189, 255, 0.11), transparent 44%);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
-    }
-    .heaven-gate-summary-label {
-      font-size: var(--font-size-12);
-      color: rgba(177, 197, 229, 0.76);
-      letter-spacing: 0.04em;
-    }
-    .heaven-gate-summary-card strong {
-      font-family: var(--font-heading-sub);
-      font-size: clamp(20px, 2.3vw, 28px);
-      color: rgba(242, 248, 255, 0.95);
+      gap: 10px;
     }
     .heaven-gate-board {
       position: relative;
-      min-height: clamp(420px, 58vh, 620px);
-      border-radius: 24px;
+      width: 100%;
+      aspect-ratio: 1000 / 560;
+      min-height: 0;
+      border: 1px solid var(--wash-ink);
       overflow: hidden;
-      border: 1px solid rgba(112, 152, 220, 0.18);
       background:
-        radial-gradient(circle at 50% 50%, rgba(42, 89, 162, 0.18), transparent 18%),
-        radial-gradient(circle at 15% 18%, rgba(45, 212, 191, 0.08), transparent 24%),
-        radial-gradient(circle at 86% 12%, rgba(245, 158, 11, 0.08), transparent 22%),
-        linear-gradient(180deg, rgba(4, 10, 21, 0.98), rgba(2, 7, 16, 0.99));
-      box-shadow:
-        inset 0 0 32px rgba(89, 189, 255, 0.08),
-        0 24px 48px rgba(3, 7, 16, 0.3);
+        radial-gradient(circle at top left, rgba(255,255,255,0.22), transparent 18%),
+        linear-gradient(180deg, rgba(250, 245, 235, 0.94), rgba(241, 233, 218, 0.94));
+      box-shadow: inset 0 0 0 1px rgba(17, 17, 17, 0.04);
     }
     .heaven-gate-lines {
       position: absolute;
       inset: 0;
       width: 100%;
       height: 100%;
+      pointer-events: none;
     }
     .heaven-gate-line {
-      stroke-width: 0.48;
+      stroke-width: 2px;
       stroke-linecap: round;
-      opacity: 0.92;
+      transition: stroke 160ms ease, opacity 160ms ease;
     }
-    .heaven-gate-line.is-active {
-      stroke: rgba(165, 219, 255, 0.9);
-      animation: heaven-gate-line-pulse 2.2s ease-in-out infinite;
+    .heaven-gate-line.hidden {
+      display: none;
     }
-    .heaven-gate-line.is-severed {
-      stroke: rgba(167, 114, 98, 0.52);
-      stroke-dasharray: 1.5 1.1;
-      opacity: 0.74;
+    .heaven-gate-line[data-element="metal"] {
+      stroke: #a67c33;
+    }
+    .heaven-gate-line[data-element="wood"] {
+      stroke: #4d7a43;
+    }
+    .heaven-gate-line[data-element="water"] {
+      stroke: #4a7398;
+    }
+    .heaven-gate-line[data-element="fire"] {
+      stroke: #b44b39;
+    }
+    .heaven-gate-line[data-element="earth"] {
+      stroke: #7a5a32;
     }
     .heaven-gate-path-layer {
       position: absolute;
@@ -1842,215 +1824,227 @@
     }
     .heaven-gate-path {
       position: absolute;
-      height: 24px;
+      height: 52px;
       border: 0;
-      border-radius: 999px;
       background: transparent;
+      appearance: none;
+      -webkit-appearance: none;
       cursor: none;
-    }
-    .heaven-gate-path::after {
-      content: '';
-      position: absolute;
-      inset: 7px 0;
-      border-radius: inherit;
-      background: linear-gradient(90deg, transparent, rgba(152, 218, 255, 0.28), transparent);
-      opacity: 0;
-      transition: opacity 120ms ease;
-    }
-    .heaven-gate-path:hover::after {
-      opacity: 1;
-    }
-    .heaven-gate-path.is-severed::after {
-      background: linear-gradient(90deg, transparent, rgba(240, 173, 120, 0.24), transparent);
+      outline: none;
+      box-shadow: none;
     }
     .heaven-gate-node {
       position: absolute;
-      display: grid;
-      justify-items: center;
-      gap: 4px;
-      width: 92px;
-      padding: 10px 8px 12px;
-      border-radius: 999px;
+      width: auto;
+      min-width: 0;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
       transform: translate(-50%, -50%);
-      border: 1px solid rgba(148, 192, 255, 0.24);
-      background:
-        radial-gradient(circle at 30% 24%, rgba(255,255,255,0.22), transparent 22%),
-        radial-gradient(circle at 50% 50%, rgba(89, 189, 255, 0.24), rgba(13, 24, 48, 0.94) 68%);
-      box-shadow:
-        0 0 28px rgba(98, 198, 255, 0.22),
-        inset 0 0 16px rgba(188, 222, 255, 0.12);
       text-align: center;
       pointer-events: none;
+      isolation: isolate;
     }
-    .heaven-gate-node.is-severed {
-      border-color: rgba(203, 141, 101, 0.24);
-      background:
-        radial-gradient(circle at 30% 24%, rgba(255,255,255,0.1), transparent 20%),
-        radial-gradient(circle at 50% 50%, rgba(201, 125, 84, 0.18), rgba(25, 15, 14, 0.94) 72%);
-      box-shadow:
-        0 0 22px rgba(187, 111, 82, 0.16),
-        inset 0 0 14px rgba(226, 152, 119, 0.08);
+    .heaven-gate-node::before,
+    .heaven-gate-node::after,
+    .heaven-gate-node-name::before,
+    .heaven-gate-node-name::after {
+      content: none !important;
     }
     .heaven-gate-node-name {
-      font-size: var(--font-size-12);
-      color: rgba(204, 220, 247, 0.82);
+      display: block;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      font-family: 'Zhi Mang Xing', 'Ma Shan Zheng', serif;
+      font-size: 46px;
+      line-height: 1;
+      text-shadow: 2px 2px 0 rgba(255, 248, 236, 0.78);
     }
-    .heaven-gate-node-value {
-      font-family: var(--font-heading-sub);
-      font-size: 24px;
-      color: rgba(245, 249, 255, 0.96);
+    .heaven-gate-node-name[data-element="metal"] {
+      color: #a67c33;
+    }
+    .heaven-gate-node-name[data-element="wood"] {
+      color: #4d7a43;
+    }
+    .heaven-gate-node-name[data-element="water"] {
+      color: #4a7398;
+    }
+    .heaven-gate-node-name[data-element="fire"] {
+      color: #b44b39;
+    }
+    .heaven-gate-node-name[data-element="earth"] {
+      color: #7a5a32;
+    }
+    .heaven-gate-node.is-severed {
+      border: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      filter: none !important;
+    }
+    .heaven-gate-node.is-severed .heaven-gate-node-name {
+      color: #8e8880 !important;
+      opacity: 1;
+      filter: none;
+      text-shadow: none;
     }
     .heaven-gate-core {
       position: absolute;
       left: 50%;
       top: 50%;
-      width: 164px;
-      height: 164px;
+      width: 156px;
+      height: 156px;
       transform: translate(-50%, -50%);
       display: grid;
       align-content: center;
       justify-items: center;
-      gap: 6px;
+      gap: 0;
       border-radius: 999px;
-      border: 1px solid rgba(163, 196, 255, 0.28);
+      border: 2px solid rgba(17, 17, 17, 0.16);
       background:
-        radial-gradient(circle at 35% 30%, rgba(255,255,255,0.28), transparent 18%),
-        radial-gradient(circle at 50% 50%, rgba(115, 181, 255, 0.28), rgba(12, 22, 45, 0.96) 70%);
-      box-shadow:
-        0 0 42px rgba(106, 191, 255, 0.26),
-        inset 0 0 24px rgba(214, 231, 255, 0.12);
-      color: rgba(244, 249, 255, 0.96);
+        radial-gradient(circle at 35% 30%, rgba(255,255,255,0.5), transparent 18%),
+        radial-gradient(circle at 50% 50%, rgba(214, 188, 142, 0.35), rgba(243, 236, 223, 0.98) 68%);
+      box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.08);
       text-align: center;
       cursor: pointer;
       transition: transform 140ms ease, box-shadow 140ms ease;
     }
     .heaven-gate-core:hover {
-      transform: translate(-50%, -50%) scale(1.03);
-      box-shadow:
-        0 0 56px rgba(112, 205, 255, 0.34),
-        inset 0 0 24px rgba(214, 231, 255, 0.14);
-    }
-    .heaven-gate-core.is-opened {
-      background:
-        radial-gradient(circle at 35% 30%, rgba(255,255,255,0.3), transparent 18%),
-        radial-gradient(circle at 50% 50%, rgba(245, 158, 11, 0.22), rgba(17, 27, 51, 0.97) 70%);
+      transform: translate(-50%, -50%) scale(1.02);
+      box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.1);
     }
     .heaven-gate-core-title {
       font-family: var(--font-heading-sub);
-      font-size: clamp(28px, 2.8vw, 38px);
-      letter-spacing: 0.06em;
+      font-size: 30px;
+      letter-spacing: 0.08em;
+      color: var(--ink-black);
     }
-    .heaven-gate-core-subtitle {
-      width: min(120px, 100%);
-      font-size: var(--font-size-11);
-      line-height: 1.45;
-      color: rgba(196, 215, 244, 0.8);
-    }
-    .heaven-gate-cursor {
+    .heaven-gate-reroll-anchor {
       position: absolute;
+      left: 50%;
+      top: calc(50% + 118px);
+      transform: translateX(-50%);
+      display: flex;
+      justify-content: center;
+      min-width: 0;
+    }
+    .heaven-gate-reroll-anchor.hidden {
+      display: none;
+    }
+    .heaven-gate-cursor-text {
+      position: fixed;
       left: 0;
       top: 0;
-      width: 34px;
-      height: 34px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      transform: translate(-50%, -50%);
-      border-radius: 999px;
-      border: 1px solid rgba(228, 239, 255, 0.42);
-      background: rgba(8, 15, 30, 0.86);
-      color: rgba(241, 248, 255, 0.95);
-      font-family: var(--font-heading-sub);
-      font-size: 16px;
+      transform: translate(-50%, -58%) rotate(8deg);
+      color: var(--ink-black);
+      font-family: 'Zhi Mang Xing', 'Ma Shan Zheng', serif;
+      font-size: 38px;
+      line-height: 1;
       pointer-events: none;
-      box-shadow: 0 0 18px rgba(102, 198, 255, 0.2);
-      z-index: 4;
+      transition: opacity 120ms ease, color 120ms ease;
+      z-index: 8;
+      text-shadow: 2px 2px 0 rgba(255, 248, 236, 0.8);
+      opacity: 0.96;
     }
-    .heaven-gate-result {
+    .heaven-gate-cursor-text.hidden {
+      opacity: 0;
+    }
+    body.heaven-gate-brush-cursor,
+    body.heaven-gate-brush-cursor * {
+      cursor: none !important;
+    }
+    .heaven-gate-line-value {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      font-family: var(--font-heading-sub);
+      font-size: 20px;
+      text-shadow: 1px 1px 0 rgba(255, 248, 236, 0.88);
+      white-space: nowrap;
+    }
+    .heaven-gate-line-value[data-element="metal"] {
+      color: #a67c33;
+    }
+    .heaven-gate-line-value[data-element="wood"] {
+      color: #4d7a43;
+    }
+    .heaven-gate-line-value[data-element="water"] {
+      color: #4a7398;
+    }
+    .heaven-gate-line-value[data-element="fire"] {
+      color: #b44b39;
+    }
+    .heaven-gate-line-value[data-element="earth"] {
+      color: #7a5a32;
+    }
+    .heaven-gate-line-value.hidden {
+      display: none;
+    }
+    .heaven-gate-line-value.is-severed {
+      color: #8e8880 !important;
+      opacity: 1;
+      filter: none;
+      text-shadow: none;
+    }
+    .heaven-gate-judgement {
       display: grid;
-      gap: 12px;
-      padding: 14px;
-      border-radius: 18px;
-      border: 1px solid rgba(117, 148, 210, 0.16);
-      background: rgba(10, 17, 31, 0.72);
+      gap: 8px;
+      padding: 12px 14px;
+      border: 1px solid rgba(17, 17, 17, 0.1);
+      background: rgba(255, 251, 245, 0.82);
     }
-    .heaven-gate-result-head {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px;
+    .heaven-gate-judgement.hidden {
+      display: none;
     }
-    .heaven-gate-total {
-      padding: 7px 12px;
-      border-radius: 999px;
-      border: 1px solid rgba(133, 176, 245, 0.18);
-      background: rgba(24, 39, 72, 0.58);
-      color: rgba(229, 240, 255, 0.92);
+    .heaven-gate-judgement-name {
+      font-family: var(--font-heading-sub);
+      font-size: 24px;
+      color: var(--ink-black);
+      letter-spacing: 0.04em;
     }
-    .heaven-gate-result-grid {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 10px;
-    }
-    .heaven-gate-stat {
-      display: grid;
-      gap: 3px;
-      padding: 10px 12px;
-      border-radius: 14px;
-      border: 1px solid rgba(117, 148, 210, 0.14);
-      background: rgba(15, 23, 39, 0.66);
-    }
-    .heaven-gate-stat-name {
-      color: rgba(179, 198, 228, 0.78);
+    .heaven-gate-judgement-meta {
       font-size: var(--font-size-12);
+      color: var(--ink-grey);
+      letter-spacing: 0.04em;
     }
-    .heaven-gate-stat-value {
-      font-family: var(--font-heading-sub);
-      font-size: 22px;
-      color: rgba(241, 247, 255, 0.95);
+    .heaven-gate-judgement-desc {
+      color: var(--ink-dark);
+      line-height: 1.8;
+      font-size: var(--font-size-13);
     }
-    .heaven-gate-stat-value.is-severed {
-      color: rgba(236, 174, 136, 0.88);
+    .heaven-gate-popup-overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background: rgba(22, 16, 12, 0.72);
+      z-index: 7;
     }
-    .heaven-gate-stat-meta {
-      font-size: var(--font-size-11);
-      color: rgba(150, 171, 205, 0.68);
-    }
-    .heaven-gate-confirm {
+    .heaven-gate-popup {
       display: grid;
       gap: 10px;
-      padding: 14px 16px;
-      border-radius: 16px;
-      border: 1px solid rgba(117, 148, 210, 0.18);
-      background:
-        linear-gradient(180deg, rgba(17, 28, 51, 0.76), rgba(11, 20, 37, 0.74)),
-        radial-gradient(circle at top left, rgba(94, 234, 212, 0.09), transparent 40%);
+      width: min(100%, 360px);
+      padding: 16px 18px;
+      border: 1px solid rgba(17, 17, 17, 0.3);
+      background: #f4ecde;
+      box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.2);
     }
-    .heaven-gate-confirm.is-idle {
-      background: rgba(11, 19, 34, 0.62);
-    }
-    .heaven-gate-confirm-title {
+    .heaven-gate-popup-title {
       font-family: var(--font-heading-sub);
-      color: rgba(239, 245, 255, 0.94);
+      color: var(--ink-black);
     }
-    .heaven-gate-confirm-desc {
-      color: rgba(179, 198, 228, 0.78);
+    .heaven-gate-popup-desc {
+      color: var(--ink-dark);
       font-size: var(--font-size-13);
       line-height: 1.65;
     }
-    .heaven-gate-confirm-actions,
-    .heaven-gate-footer {
+    .heaven-gate-popup-actions {
       display: flex;
       justify-content: flex-end;
       gap: 10px;
-    }
-    @keyframes heaven-gate-line-pulse {
-      0%, 100% {
-        opacity: 0.72;
-      }
-      50% {
-        opacity: 1;
-      }
     }
     .floating-tooltip {
       position: fixed;

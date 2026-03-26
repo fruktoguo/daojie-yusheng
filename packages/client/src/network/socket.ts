@@ -21,6 +21,7 @@ import {
   C2S_ClaimMarketStorage,
   C2S_RequestNpcShop,
   C2S_BuyNpcShopItem,
+  C2S_HeavenGateAction,
   S2C_Tick, S2C_Init, S2C_AttrUpdate, S2C_InventoryUpdate,
   S2C_EquipmentUpdate, S2C_TechniqueUpdate, S2C_ActionsUpdate, S2C_LootWindowUpdate, S2C_QuestUpdate, S2C_QuestNavigateResult, S2C_SystemMsg, S2C_GmState,
   S2C_SuggestionUpdate,
@@ -316,6 +317,10 @@ export class SocketManager {
 
   sendBuyNpcShopItem(npcId: string, itemId: string, quantity: number) {
     this.emitServer(C2S.BuyNpcShopItem, { npcId, itemId, quantity } satisfies C2S_BuyNpcShopItem);
+  }
+
+  sendHeavenGateAction(action: C2S_HeavenGateAction['action'], element?: C2S_HeavenGateAction['element']) {
+    this.emitServer(C2S.HeavenGateAction, { action, element } satisfies C2S_HeavenGateAction);
   }
 
   sendAction(actionId: string, target?: string) {

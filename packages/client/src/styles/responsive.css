@@ -312,29 +312,25 @@
         padding: 16px 14px;
       }
       .detail-modal-card.detail-modal--heaven-gate {
-        width: min(100vw - 16px, 1100px);
+        width: min(100vw - 16px, 760px);
         max-height: min(94vh, calc(100vh - 16px));
         padding: 16px 14px;
       }
       .tech-starfield-canvas-shell {
         min-height: clamp(300px, 48vh, 460px);
       }
-      .heaven-gate-summary,
-      .heaven-gate-result-grid {
-        grid-template-columns: 1fr 1fr;
-      }
       .heaven-gate-board {
-        min-height: clamp(360px, 52vh, 500px);
+        aspect-ratio: 1000 / 560;
       }
-      .heaven-gate-node {
-        width: 78px;
+      .heaven-gate-node-name {
+        font-size: 38px;
       }
       .heaven-gate-core {
-        width: 138px;
-        height: 138px;
+        width: 140px;
+        height: 140px;
       }
-      .heaven-gate-result-head {
-        flex-direction: column;
+      .heaven-gate-reroll-anchor {
+        top: calc(50% + 108px);
       }
       .tech-starfield-tooltip {
         display: none;

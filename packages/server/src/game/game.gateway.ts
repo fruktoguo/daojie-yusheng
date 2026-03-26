@@ -48,8 +48,13 @@ import {
   C2S_ClaimMarketStorage,
   C2S_RequestNpcShop,
   C2S_BuyNpcShopItem,
+  C2S_HeavenGateAction,
+  ActionUpdateEntry,
   PlayerState,
+  S2C_ActionsUpdate,
+  S2C_AttrUpdate,
   S2C_Init,
+  S2C_InventoryUpdate,
   S2C_NpcShop,
   S2C_SystemMsg,
   S2C_Pong,
@@ -80,8 +85,9 @@ import { TickService } from './tick.service';
 import { SuggestionService } from './suggestion.service';
 import { NavigationService } from './navigation.service';
 import { MarketActionResult, MarketService } from './market.service';
-import { DatabaseBackupService } from './database-backup.service';
+import { TechniqueService } from './technique.service';
 import { buildDefaultRoleName } from '../auth/account-validation';
+import { DatabaseBackupService } from './database-backup.service';
 
 @WebSocketGateway({ cors: true })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -105,6 +111,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly suggestionService: SuggestionService,
     private readonly navigationService: NavigationService,
     private readonly marketService: MarketService,
+    private readonly techniqueService: TechniqueService,
     private readonly databaseBackupService: DatabaseBackupService,
   ) {}
 
@@ -350,6 +357,38 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
+  @SubscribeMessage(C2S.HeavenGateAction)
+  async handleHeavenGateAction(client: Socket, data: C2S_HeavenGateAction) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+
+    const result = this.techniqueService.handleHeavenGateAction(player, data.action, data.element);
+    if (result.error) {
+      client.emit(S2C.SystemMsg, {
+        text: result.error,
+        kind: 'system',
+      } satisfies S2C_SystemMsg);
+      return;
+    }
+
+    this.actionService.rebuildActions(player, this.worldService.getContextActions(player));
+    await this.playerService.savePlayer(playerId);
+    client.emit(S2C.AttrUpdate, this.buildFullAttrUpdate(player) satisfies S2C_AttrUpdate);
+    client.emit(S2C.ActionsUpdate, this.buildFullActionsUpdate(player) satisfies S2C_ActionsUpdate);
+    if (result.dirty.includes('inv')) {
+      client.emit(S2C.InventoryUpdate, {
+        inventory: player.inventory,
+      } satisfies S2C_InventoryUpdate);
+    }
+    for (const message of result.messages) {
+      client.emit(S2C.SystemMsg, {
+        text: message.text,
+        kind: message.kind ?? 'quest',
+      } satisfies S2C_SystemMsg);
+    }
+  }
+
   @SubscribeMessage(C2S.RequestNpcShop)
   handleRequestNpcShop(client: Socket, data: C2S_RequestNpcShop) {
     const playerId = client.data?.playerId as string;
@@ -567,6 +606,53 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   /** 组装并下发玩家初始化数据包（自身状态、地图、视野、小地图等） */
+  private buildFullAttrUpdate(player: PlayerState): S2C_AttrUpdate {
+    return {
+      baseAttrs: player.baseAttrs,
+      bonuses: player.bonuses,
+      finalAttrs: player.finalAttrs ?? player.baseAttrs,
+      numericStats: player.numericStats,
+      ratioDivisors: player.ratioDivisors,
+      maxHp: player.maxHp,
+      qi: player.qi,
+      specialStats: {
+        foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
+        combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
+      },
+      boneAgeBaseYears: player.boneAgeBaseYears,
+      lifeElapsedTicks: player.lifeElapsedTicks,
+      lifespanYears: player.lifespanYears ?? null,
+      realm: player.realm ?? null,
+    };
+  }
+
+  private buildFullActionsUpdate(player: PlayerState): S2C_ActionsUpdate {
+    const actions: ActionUpdateEntry[] = player.actions.map((action) => ({
+      id: action.id,
+      cooldownLeft: action.cooldownLeft,
+      autoBattleEnabled: action.autoBattleEnabled ?? null,
+      autoBattleOrder: action.autoBattleOrder ?? null,
+      skillEnabled: action.skillEnabled ?? null,
+      name: action.name,
+      type: action.type,
+      desc: action.desc,
+      range: action.range ?? null,
+      requiresTarget: action.requiresTarget ?? null,
+      targetMode: action.targetMode ?? null,
+    }));
+    return {
+      actions,
+      actionOrder: player.actions.map((action) => action.id),
+      autoBattle: player.autoBattle,
+      autoRetaliate: player.autoRetaliate,
+      autoBattleStationary: player.autoBattleStationary,
+      allowAoePlayerHit: player.allowAoePlayerHit,
+      autoIdleCultivation: player.autoIdleCultivation,
+      autoSwitchCultivation: player.autoSwitchCultivation,
+      senseQiActive: player.senseQiActive,
+    };
+  }
+
   private sendInit(client: Socket, player: PlayerState) {
     const mapMeta = this.mapService.getMapMeta(player.mapId);
     if (!mapMeta) return;

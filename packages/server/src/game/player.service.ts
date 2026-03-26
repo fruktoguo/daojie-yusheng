@@ -25,8 +25,8 @@ import {
   normalizeLifespanYears,
   truncateRoleName,
   VIEW_RADIUS,
-  S2C,
   clonePlainValue,
+  S2C,
 } from '@mud/shared';
 import { Socket } from 'socket.io';
 import { PlayerEntity } from '../database/entities/player.entity';
@@ -119,6 +119,60 @@ export class PlayerService implements OnModuleInit {
 
   private buildPersistedCollections(state: PlayerState) {
     return buildPersistedPlayerCollections(state, this.contentService, this.mapService);
+  }
+
+  private normalizePersistedTechniqueState(state: PlayerState): void {
+    state.heavenGate = this.techniqueService.normalizeHeavenGateState(state.heavenGate);
+    state.spiritualRoots = this.techniqueService.normalizeHeavenGateRoots(state.spiritualRoots);
+  }
+
+  private toNullableJsonbValue(value: unknown): any {
+    return value === null ? (() => "'null'::jsonb") : value;
+  }
+
+  private buildPlayerPersistencePayload(state: PlayerState, persisted: ReturnType<PlayerService['buildPersistedCollections']>) {
+    this.normalizePersistedTechniqueState(state);
+    return {
+      mapId: state.mapId,
+      x: state.x,
+      y: state.y,
+      facing: state.facing,
+      viewRange: state.viewRange,
+      hp: state.hp,
+      maxHp: state.maxHp,
+      qi: state.qi,
+      dead: state.dead,
+      foundation: state.foundation,
+      combatExp: state.combatExp,
+      boneAgeBaseYears: state.boneAgeBaseYears,
+      lifeElapsedTicks: state.lifeElapsedTicks,
+      lifespanYears: state.lifespanYears,
+      baseAttrs: state.baseAttrs as any,
+      bonuses: state.bonuses as any,
+      temporaryBuffs: persisted.temporaryBuffs as any,
+      inventory: persisted.inventory as any,
+      marketStorage: persisted.marketStorage as any,
+      equipment: persisted.equipment as any,
+      techniques: persisted.techniques as any,
+      quests: persisted.quests as any,
+      questCrossMapNavCooldownUntilLifeTicks: state.questCrossMapNavCooldownUntilLifeTicks ?? 0,
+      revealedBreakthroughRequirementIds: state.revealedBreakthroughRequirementIds as any,
+      heavenGate: this.toNullableJsonbValue(state.heavenGate),
+      spiritualRoots: this.toNullableJsonbValue(state.spiritualRoots),
+      unlockedMinimapIds: state.unlockedMinimapIds as any,
+      autoBattle: state.autoBattle,
+      autoBattleSkills: state.autoBattleSkills as any,
+      autoRetaliate: state.autoRetaliate,
+      autoBattleStationary: state.autoBattleStationary === true,
+      allowAoePlayerHit: state.allowAoePlayerHit === true,
+      autoIdleCultivation: state.autoIdleCultivation,
+      autoSwitchCultivation: state.autoSwitchCultivation === true,
+      cultivatingTechId: state.cultivatingTechId ?? null,
+      online: state.online === true,
+      inWorld: state.inWorld !== false,
+      lastHeartbeatAt: state.lastHeartbeatAt ? new Date(state.lastHeartbeatAt) : null,
+      offlineSinceAt: state.offlineSinceAt ? new Date(state.offlineSinceAt) : null,
+    };
   }
 
   /** 将玩家状态同步到 Redis 缓存 */
@@ -241,6 +295,7 @@ export class PlayerService implements OnModuleInit {
     if (!state.techniques) state.techniques = [];
     if (!state.quests) state.quests = [];
     if (!state.revealedBreakthroughRequirementIds) state.revealedBreakthroughRequirementIds = [];
+    this.normalizePersistedTechniqueState(state);
     state.unlockedMinimapIds = normalizeUnlockedMinimapIds(state.unlockedMinimapIds);
     if (state.autoBattle === undefined) state.autoBattle = false;
     if (state.combatTargetLocked === undefined) state.combatTargetLocked = false;
@@ -272,50 +327,18 @@ export class PlayerService implements OnModuleInit {
     state.foundation = normalizeNonNegativeCounter(state.foundation);
     state.combatExp = normalizeNonNegativeCounter(state.combatExp);
     const persisted = this.buildPersistedCollections(state);
+    const payload = this.buildPlayerPersistencePayload(state, persisted);
 
-    const entity = this.playerRepo.create({
-      id: state.id,
-      userId,
-      name: state.name,
-      mapId: state.mapId,
-      x: state.x,
-      y: state.y,
-      facing: state.facing,
-      viewRange: state.viewRange,
-      hp: state.hp,
-      maxHp: state.maxHp,
-      qi: state.qi,
-      dead: state.dead,
-      foundation: state.foundation,
-      combatExp: state.combatExp,
-      boneAgeBaseYears: state.boneAgeBaseYears,
-      lifeElapsedTicks: state.lifeElapsedTicks,
-      lifespanYears: state.lifespanYears,
-      baseAttrs: state.baseAttrs as any,
-      bonuses: state.bonuses as any,
-      temporaryBuffs: persisted.temporaryBuffs as any,
-      inventory: persisted.inventory as any,
-      marketStorage: persisted.marketStorage as any,
-      equipment: persisted.equipment as any,
-      techniques: persisted.techniques as any,
-      quests: persisted.quests as any,
-      questCrossMapNavCooldownUntilLifeTicks: state.questCrossMapNavCooldownUntilLifeTicks ?? 0,
-      revealedBreakthroughRequirementIds: state.revealedBreakthroughRequirementIds as any,
-      unlockedMinimapIds: state.unlockedMinimapIds as any,
-      autoBattle: state.autoBattle,
-      autoBattleSkills: state.autoBattleSkills as any,
-      autoRetaliate: state.autoRetaliate,
-      autoBattleStationary: state.autoBattleStationary === true,
-      allowAoePlayerHit: state.allowAoePlayerHit === true,
-      autoIdleCultivation: state.autoIdleCultivation,
-      autoSwitchCultivation: state.autoSwitchCultivation === true,
-      cultivatingTechId: state.cultivatingTechId ?? null,
-      online: state.online === true,
-      inWorld: state.inWorld !== false,
-      lastHeartbeatAt: state.lastHeartbeatAt ? new Date(state.lastHeartbeatAt) : null,
-      offlineSinceAt: state.offlineSinceAt ? new Date(state.offlineSinceAt) : null,
-    });
-    await this.playerRepo.save(entity);
+    await this.playerRepo.createQueryBuilder()
+      .insert()
+      .into(PlayerEntity)
+      .values({
+        id: state.id,
+        userId,
+        name: state.name,
+        ...payload,
+      })
+      .execute();
     this.players.set(state.id, state);
     await this.redisService.setPlayer(state, persisted);
   }
@@ -332,54 +355,9 @@ export class PlayerService implements OnModuleInit {
     const states = [...this.players.values()].filter((player) => !player.isBot);
     if (states.length === 0) return;
     for (const state of states) {
-      this.techniqueService.preparePlayerForPersistence(state);
+      await this.persistPlayerState(state);
     }
-    const entities = states.map((state) => {
-      const persisted = this.buildPersistedCollections(state);
-      return this.playerRepo.create({
-        id: state.id,
-        name: state.name,
-        mapId: state.mapId,
-        x: state.x,
-        y: state.y,
-        facing: state.facing,
-        viewRange: state.viewRange,
-        hp: state.hp,
-        maxHp: state.maxHp,
-        qi: state.qi,
-        dead: state.dead,
-        foundation: state.foundation,
-        combatExp: state.combatExp,
-        boneAgeBaseYears: state.boneAgeBaseYears,
-        lifeElapsedTicks: state.lifeElapsedTicks,
-        lifespanYears: state.lifespanYears,
-        baseAttrs: state.baseAttrs as any,
-        bonuses: state.bonuses as any,
-        temporaryBuffs: persisted.temporaryBuffs as any,
-        inventory: persisted.inventory as any,
-        marketStorage: persisted.marketStorage as any,
-        equipment: persisted.equipment as any,
-        techniques: persisted.techniques as any,
-        quests: persisted.quests as any,
-        questCrossMapNavCooldownUntilLifeTicks: state.questCrossMapNavCooldownUntilLifeTicks ?? 0,
-        revealedBreakthroughRequirementIds: state.revealedBreakthroughRequirementIds as any,
-        unlockedMinimapIds: state.unlockedMinimapIds as any,
-        autoBattle: state.autoBattle,
-        autoBattleSkills: state.autoBattleSkills as any,
-        autoRetaliate: state.autoRetaliate,
-        autoBattleStationary: state.autoBattleStationary === true,
-        allowAoePlayerHit: state.allowAoePlayerHit === true,
-        autoIdleCultivation: state.autoIdleCultivation,
-        autoSwitchCultivation: state.autoSwitchCultivation === true,
-        cultivatingTechId: state.cultivatingTechId ?? null,
-        online: state.online === true,
-        inWorld: state.inWorld !== false,
-        lastHeartbeatAt: state.lastHeartbeatAt ? new Date(state.lastHeartbeatAt) : null,
-        offlineSinceAt: state.offlineSinceAt ? new Date(state.offlineSinceAt) : null,
-      });
-    });
-    await this.playerRepo.save(entities);
-    this.logger.log(`批量落盘 ${entities.length} 名玩家`);
+    this.logger.log(`批量落盘 ${states.length} 名玩家`);
   }
 
   /** 将玩家加入内存并同步 Redis（用于存档恢复后的注册） */
@@ -760,6 +738,8 @@ export class PlayerService implements OnModuleInit {
       revealedBreakthroughRequirementIds: Array.isArray(entity.revealedBreakthroughRequirementIds)
         ? entity.revealedBreakthroughRequirementIds.filter((entry): entry is string => typeof entry === 'string')
         : [],
+      heavenGate: this.techniqueService.normalizeHeavenGateState(entity.heavenGate),
+      spiritualRoots: this.techniqueService.normalizeHeavenGateRoots(entity.spiritualRoots),
       unlockedMinimapIds: normalizeUnlockedMinimapIds(entity.unlockedMinimapIds),
       autoBattle: entity.autoBattle ?? false,
       autoBattleSkills: (entity.autoBattleSkills ?? []) as AutoBattleSkillConfig[],
@@ -806,45 +786,12 @@ export class PlayerService implements OnModuleInit {
   private async persistPlayerState(state: PlayerState): Promise<void> {
     this.techniqueService.preparePlayerForPersistence(state);
     const persisted = this.buildPersistedCollections(state);
-    await this.playerRepo.update(state.id, {
-      mapId: state.mapId,
-      x: state.x,
-      y: state.y,
-      facing: state.facing,
-      viewRange: state.viewRange,
-      hp: state.hp,
-      maxHp: state.maxHp,
-      qi: state.qi,
-      dead: state.dead,
-      foundation: state.foundation,
-      combatExp: state.combatExp,
-      boneAgeBaseYears: state.boneAgeBaseYears,
-      lifeElapsedTicks: state.lifeElapsedTicks,
-      lifespanYears: state.lifespanYears,
-      baseAttrs: state.baseAttrs as any,
-      bonuses: state.bonuses as any,
-      temporaryBuffs: persisted.temporaryBuffs as any,
-      inventory: persisted.inventory as any,
-      marketStorage: persisted.marketStorage as any,
-      equipment: persisted.equipment as any,
-      techniques: persisted.techniques as any,
-      quests: persisted.quests as any,
-      questCrossMapNavCooldownUntilLifeTicks: state.questCrossMapNavCooldownUntilLifeTicks ?? 0,
-      revealedBreakthroughRequirementIds: state.revealedBreakthroughRequirementIds as any,
-      unlockedMinimapIds: state.unlockedMinimapIds as any,
-      autoBattle: state.autoBattle,
-      autoBattleSkills: state.autoBattleSkills as any,
-      autoRetaliate: state.autoRetaliate,
-      autoBattleStationary: state.autoBattleStationary === true,
-      allowAoePlayerHit: state.allowAoePlayerHit === true,
-      autoIdleCultivation: state.autoIdleCultivation,
-      autoSwitchCultivation: state.autoSwitchCultivation === true,
-      cultivatingTechId: state.cultivatingTechId ?? null,
-      online: state.online === true,
-      inWorld: state.inWorld !== false,
-      lastHeartbeatAt: state.lastHeartbeatAt ? new Date(state.lastHeartbeatAt) : null,
-      offlineSinceAt: state.offlineSinceAt ? new Date(state.offlineSinceAt) : null,
-    });
+    const payload = this.buildPlayerPersistencePayload(state, persisted);
+    await this.playerRepo.createQueryBuilder()
+      .update(PlayerEntity)
+      .set(payload)
+      .where('id = :id', { id: state.id })
+      .execute();
   }
 
   private computeOnlineSessionSeconds(startedAt: number | Date | null | undefined, endedAt = Date.now()): number {

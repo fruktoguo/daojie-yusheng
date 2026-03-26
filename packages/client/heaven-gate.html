@@ -1,0 +1,1540 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>开天门</title>
+  <link rel="icon" type="image/png" href="/logo.png" />
+  <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;700&family=Zhi+Mang+Xing&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/styles/tokens.css" />
+  <link rel="stylesheet" href="/src/styles/base.css" />
+  <link rel="stylesheet" href="/src/styles/layout.css" />
+  <link rel="stylesheet" href="/src/styles/hud.css" />
+  <link rel="stylesheet" href="/src/styles/overlays.css" />
+  <link rel="stylesheet" href="/src/styles/panels.css" />
+  <link rel="stylesheet" href="/src/styles/responsive.css" />
+  <style>
+    :root {
+      --hg-metal: #a67c33;
+      --hg-wood: #4d7a43;
+      --hg-water: #4a7398;
+      --hg-fire: #b44b39;
+      --hg-earth: #7a5a32;
+    }
+    body.heaven-gate-prototype-page {
+      overflow: auto;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,0.08), transparent 18%),
+        linear-gradient(180deg, rgba(236,236,232,0.06), rgba(17,17,17,0));
+    }
+    body.heaven-gate-brush-cursor,
+    body.heaven-gate-brush-cursor * {
+      cursor: none !important;
+    }
+    .heaven-gate-prototype-shell {
+      min-height: 100vh;
+      padding: 24px 20px;
+      display: grid;
+      align-items: center;
+    }
+    .heaven-gate-prototype-modal {
+      position: static;
+      inset: auto;
+      padding: 0;
+      background: transparent;
+      backdrop-filter: none;
+    }
+    .heaven-gate-prototype-modal .detail-modal-card.detail-modal--heaven-gate {
+      width: min(760px, calc(100vw - 32px));
+      max-height: none;
+      margin: 0 auto;
+      color: var(--ink-dark);
+      border: 1.5px solid var(--ink-black);
+      background:
+        radial-gradient(circle at top right, rgba(214, 188, 142, 0.12), transparent 30%),
+        var(--surface-gradient-paper);
+      box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.16);
+    }
+    .heaven-gate-prototype-modal .detail-modal-head {
+      display: none !important;
+    }
+    .heaven-gate-prototype-modal .detail-modal-title,
+    .heaven-gate-prototype-modal .detail-modal-subtitle,
+    .heaven-gate-prototype-modal .detail-modal-hint {
+      color: inherit;
+    }
+    .heaven-gate-shell {
+      display: grid;
+      gap: 10px;
+    }
+    .heaven-gate-summary,
+    .heaven-gate-result,
+    .heaven-gate-confirm-strip {
+      display: none !important;
+    }
+    .heaven-gate-summary {
+      display: none !important;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .heaven-gate-summary-card,
+    .heaven-gate-result,
+    .heaven-gate-confirm-strip {
+      background: var(--surface-muted-strong);
+      border: 1px solid var(--wash-ink);
+    }
+    .heaven-gate-summary-card {
+      display: grid;
+      gap: 4px;
+      padding: 12px 14px;
+    }
+    .heaven-gate-summary-label,
+    .heaven-gate-stat-name,
+    .heaven-gate-stat-meta,
+    .heaven-gate-confirm-note {
+      color: var(--ink-grey);
+    }
+    .heaven-gate-summary-card strong,
+    .heaven-gate-stat-value,
+    .heaven-gate-total,
+    .heaven-gate-core-title {
+      color: var(--ink-black);
+    }
+    .heaven-gate-summary-card strong {
+      font-family: var(--font-heading-sub);
+      font-size: clamp(18px, 2.1vw, 26px);
+    }
+    .heaven-gate-board {
+      position: relative;
+      min-height: clamp(400px, 54vh, 560px);
+      border: 1px solid var(--wash-ink);
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,0.22), transparent 18%),
+        linear-gradient(180deg, rgba(250, 245, 235, 0.94), rgba(241, 233, 218, 0.94));
+      box-shadow: inset 0 0 0 1px rgba(17, 17, 17, 0.04);
+      overflow: hidden;
+    }
+    .heaven-gate-lines {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .heaven-gate-line {
+      stroke-width: 2px;
+      stroke-linecap: round;
+      transition: stroke 160ms ease, opacity 160ms ease;
+    }
+    .heaven-gate-line[data-element="metal"] {
+      stroke: var(--hg-metal);
+    }
+    .heaven-gate-line[data-element="wood"] {
+      stroke: var(--hg-wood);
+    }
+    .heaven-gate-line[data-element="water"] {
+      stroke: var(--hg-water);
+    }
+    .heaven-gate-line[data-element="fire"] {
+      stroke: var(--hg-fire);
+    }
+    .heaven-gate-line[data-element="earth"] {
+      stroke: var(--hg-earth);
+    }
+    .heaven-gate-line.is-active {
+      opacity: 0.92;
+    }
+    .heaven-gate-line.is-severed {
+      opacity: 0.92;
+    }
+    .heaven-gate-path-layer {
+      position: absolute;
+      inset: 0;
+    }
+    .heaven-gate-path {
+      position: absolute;
+      height: 24px;
+      border: 0;
+      background: transparent;
+      appearance: none;
+      -webkit-appearance: none;
+      cursor: none;
+      outline: none;
+      box-shadow: none;
+    }
+    .heaven-gate-path:focus,
+    .heaven-gate-path:focus-visible,
+    .heaven-gate-path:active {
+      outline: none;
+      box-shadow: none;
+      background: transparent;
+    }
+    .heaven-gate-cursor-text {
+      position: fixed;
+      left: 0;
+      top: 0;
+      transform: translate(-50%, -58%);
+      color: var(--ink-black);
+      font-family: 'Zhi Mang Xing', 'Ma Shan Zheng', serif;
+      font-size: 38px;
+      line-height: 1;
+      pointer-events: none;
+      transition: transform 120ms ease, color 120ms ease, opacity 120ms ease;
+      animation: heaven-gate-brush-float 1.8s ease-in-out infinite;
+      z-index: 5;
+      text-shadow: 2px 2px 0 rgba(255, 248, 236, 0.8);
+    }
+    .heaven-gate-cursor-text.hidden {
+      opacity: 0;
+    }
+    .heaven-gate-cursor-text.is-severed {
+      color: var(--stamp-red);
+      animation-name: heaven-gate-brush-float-alt;
+    }
+    .heaven-gate-node {
+      position: absolute;
+      width: auto;
+      min-width: 0;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      pointer-events: none;
+      isolation: isolate;
+    }
+    .heaven-gate-node::before,
+    .heaven-gate-node::after,
+    .heaven-gate-node-name::before,
+    .heaven-gate-node-name::after {
+      content: none !important;
+    }
+    .heaven-gate-node-name {
+      display: block;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      font-family: 'Zhi Mang Xing', 'Ma Shan Zheng', serif;
+      font-size: 46px;
+      line-height: 1;
+      text-shadow: 2px 2px 0 rgba(255, 248, 236, 0.78);
+    }
+    .heaven-gate-node.is-severed {
+      border: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      filter: none !important;
+    }
+    .heaven-gate-node.is-severed .heaven-gate-node-name {
+      color: #8e8880 !important;
+      opacity: 1;
+      filter: none;
+      text-shadow: none;
+    }
+    .heaven-gate-line.hidden {
+      display: none;
+    }
+    .heaven-gate-line-value {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      font-family: var(--font-heading-sub);
+      font-size: 20px;
+      text-shadow: 1px 1px 0 rgba(255, 248, 236, 0.88);
+      white-space: nowrap;
+    }
+    .heaven-gate-line-value[data-element="metal"] {
+      color: var(--hg-metal);
+    }
+    .heaven-gate-line-value[data-element="wood"] {
+      color: var(--hg-wood);
+    }
+    .heaven-gate-line-value[data-element="water"] {
+      color: var(--hg-water);
+    }
+    .heaven-gate-line-value[data-element="fire"] {
+      color: var(--hg-fire);
+    }
+    .heaven-gate-line-value[data-element="earth"] {
+      color: var(--hg-earth);
+    }
+    .heaven-gate-line-value.hidden {
+      display: none;
+    }
+    .heaven-gate-line-value.is-severed {
+      color: #8e8880 !important;
+      opacity: 1;
+      filter: none;
+      text-shadow: none;
+    }
+    .heaven-gate-node-value {
+      display: block;
+      font-family: var(--font-heading-sub);
+      font-size: 20px;
+      color: var(--ink-black);
+    }
+    .heaven-gate-node-name[data-element="metal"] {
+      color: var(--hg-metal);
+    }
+    .heaven-gate-node-name[data-element="wood"] {
+      color: var(--hg-wood);
+    }
+    .heaven-gate-node-name[data-element="water"] {
+      color: var(--hg-water);
+    }
+    .heaven-gate-node-name[data-element="fire"] {
+      color: var(--hg-fire);
+    }
+    .heaven-gate-node-name[data-element="earth"] {
+      color: var(--hg-earth);
+    }
+    .heaven-gate-core {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 156px;
+      height: 156px;
+      transform: translate(-50%, -50%);
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      gap: 0;
+      border-radius: 999px;
+      border: 2px solid rgba(17, 17, 17, 0.16);
+      background:
+        radial-gradient(circle at 35% 30%, rgba(255,255,255,0.5), transparent 18%),
+        radial-gradient(circle at 50% 50%, rgba(214, 188, 142, 0.35), rgba(243, 236, 223, 0.98) 68%);
+      box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.08);
+      cursor: pointer;
+      transition: transform 140ms ease, box-shadow 140ms ease;
+    }
+    .heaven-gate-core:hover {
+      transform: translate(-50%, -50%) scale(1.02);
+      box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.1);
+    }
+    .heaven-gate-core-title {
+      font-family: var(--font-heading-sub);
+      font-size: 30px;
+      letter-spacing: 0.08em;
+    }
+    .heaven-gate-core-subtitle {
+      display: none;
+    }
+    .heaven-gate-reroll-anchor {
+      position: absolute;
+      left: 50%;
+      top: calc(50% + 118px);
+      transform: translateX(-50%);
+      display: flex;
+      justify-content: center;
+      min-width: 0;
+    }
+    .heaven-gate-reroll-anchor.hidden {
+      display: none;
+    }
+    .heaven-gate-result {
+      display: none !important;
+      gap: 12px;
+      padding: 14px;
+    }
+    .heaven-gate-judgement {
+      display: grid;
+      gap: 8px;
+      padding: 12px 14px;
+      border: 1px solid rgba(17, 17, 17, 0.1);
+      background: rgba(255, 251, 245, 0.82);
+    }
+    .heaven-gate-judgement.hidden {
+      display: none;
+    }
+    .heaven-gate-judgement-name {
+      font-family: var(--font-heading-sub);
+      font-size: 24px;
+      color: var(--ink-black);
+      letter-spacing: 0.04em;
+    }
+    .heaven-gate-judgement-meta {
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+      letter-spacing: 0.04em;
+    }
+    .heaven-gate-judgement-desc {
+      color: var(--ink-dark);
+      line-height: 1.8;
+      font-size: var(--font-size-13);
+    }
+    .heaven-gate-result-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .heaven-gate-total {
+      padding: 7px 12px;
+      border: 1px solid rgba(17, 17, 17, 0.12);
+      background: rgba(255, 251, 245, 0.84);
+      font-family: var(--font-heading-sub);
+      white-space: nowrap;
+    }
+    .heaven-gate-result-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .heaven-gate-stat {
+      display: grid;
+      gap: 3px;
+      padding: 10px 12px;
+      background: rgba(255, 251, 245, 0.76);
+      border: 1px solid rgba(17, 17, 17, 0.1);
+    }
+    .heaven-gate-stat-value {
+      font-family: var(--font-heading-sub);
+      font-size: 22px;
+    }
+    .heaven-gate-stat-value.is-severed {
+      color: var(--stamp-red);
+    }
+    .heaven-gate-confirm-strip {
+      display: none !important;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+    }
+    .heaven-gate-confirm-actions,
+    .heaven-gate-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .heaven-gate-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      background: rgba(17, 14, 10, 0.34);
+      z-index: 420;
+    }
+    .heaven-gate-overlay.hidden {
+      display: none;
+    }
+    .heaven-gate-popup {
+      width: min(520px, calc(100vw - 24px));
+      padding: 18px;
+      border: 1.5px solid var(--ink-black);
+      background:
+        radial-gradient(circle at top right, rgba(214, 188, 142, 0.1), transparent 30%),
+        var(--surface-gradient-paper);
+      box-shadow: 12px 12px 0 rgba(0, 0, 0, 0.14);
+    }
+    .heaven-gate-popup-title {
+      font-family: var(--font-heading-sub);
+      font-size: var(--font-size-22);
+      color: var(--ink-black);
+      letter-spacing: 1px;
+    }
+    .heaven-gate-popup-subtitle {
+      margin-top: 6px;
+      color: var(--ink-grey);
+      line-height: 1.7;
+      font-size: var(--font-size-13);
+    }
+    .heaven-gate-popup-section {
+      margin-top: 14px;
+      padding: 12px;
+      border: 1px solid var(--wash-ink);
+      background: var(--surface-muted-strong);
+    }
+    .heaven-gate-popup-actions {
+      margin-top: 14px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .heaven-gate-popup-result-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .heaven-gate-popup-result {
+      padding: 8px;
+      border: 1px solid rgba(17, 17, 17, 0.1);
+      background: rgba(255,255,255,0.46);
+      text-align: center;
+    }
+    .heaven-gate-popup-result-name {
+      display: block;
+      font-family: 'Ma Shan Zheng', 'Zhi Mang Xing', serif;
+      font-size: 24px;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .heaven-gate-popup-result-value {
+      display: block;
+      font-family: var(--font-heading-sub);
+      color: var(--ink-black);
+    }
+    .heaven-gate-toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      max-width: min(360px, calc(100vw - 32px));
+      padding: 10px 12px;
+      border: 1px solid rgba(17, 17, 17, 0.14);
+      background: rgba(255, 250, 242, 0.98);
+      box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.08);
+      color: var(--ink-black);
+      font-size: var(--font-size-13);
+      z-index: 430;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 140ms ease, transform 140ms ease;
+      pointer-events: none;
+    }
+    .heaven-gate-toast.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    @keyframes heaven-gate-brush-float {
+      0%, 100% {
+        transform: translate(-50%, -50%) rotate(-3deg);
+      }
+      50% {
+        transform: translate(-50%, -53%) rotate(3deg);
+      }
+    }
+    @keyframes heaven-gate-brush-float-alt {
+      0%, 100% {
+        transform: translate(-50%, -50%) rotate(2deg);
+      }
+      50% {
+        transform: translate(-50%, -53%) rotate(-3deg);
+      }
+    }
+    @media (max-width: 820px) {
+      .heaven-gate-summary,
+      .heaven-gate-result-grid,
+      .heaven-gate-popup-result-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .heaven-gate-board {
+        min-height: clamp(360px, 52vh, 480px);
+      }
+      .heaven-gate-node-name {
+        font-size: 38px;
+      }
+      .heaven-gate-core {
+        width: 140px;
+        height: 140px;
+      }
+      .heaven-gate-reroll-anchor {
+        top: calc(50% + 108px);
+      }
+      .heaven-gate-result-head,
+      .heaven-gate-confirm-strip {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
+  </style>
+</head>
+<body class="heaven-gate-prototype-page">
+  <main class="heaven-gate-prototype-shell">
+    <div class="detail-modal heaven-gate-prototype-modal" aria-hidden="false">
+      <section class="detail-modal-card detail-modal--heaven-gate">
+        <div class="detail-modal-head">
+          <div>
+            <h2 class="detail-modal-title">开天门</h2>
+            <div class="detail-modal-subtitle" id="hg-subtitle">叩仙门 · 已斩 0/4 · 保留 5 条灵根</div>
+          </div>
+          <div class="detail-modal-hint">点击连线可斩 / 补灵根，点击中间丹田可开天门或入天门。</div>
+        </div>
+
+        <div class="heaven-gate-shell">
+          <section class="heaven-gate-summary">
+            <div class="heaven-gate-summary-card">
+              <span class="heaven-gate-summary-label">当前可用经验</span>
+              <strong id="hg-exp">800</strong>
+            </div>
+            <div class="heaven-gate-summary-card">
+              <span class="heaven-gate-summary-label">斩 / 补消耗</span>
+              <strong id="hg-sever-cost">80</strong>
+            </div>
+            <div class="heaven-gate-summary-card">
+              <span class="heaven-gate-summary-label">逆天改命消耗</span>
+              <strong id="hg-reroll-cost">240</strong>
+            </div>
+            <div class="heaven-gate-summary-card">
+              <span class="heaven-gate-summary-label">当前总值</span>
+              <strong id="hg-total">未定</strong>
+            </div>
+          </section>
+
+          <section class="heaven-gate-judgement hidden" id="hg-judgement">
+            <div class="heaven-gate-judgement-name" id="hg-judgement-name">灵根未定</div>
+            <div class="heaven-gate-judgement-meta" id="hg-judgement-meta">未开天门前不生成判语。</div>
+            <div class="heaven-gate-judgement-desc" id="hg-judgement-desc">开天门后会根据当前保留灵根的数量、强弱、均衡程度，给出对应的资质称谓与描述。</div>
+          </section>
+
+          <section class="heaven-gate-board">
+            <svg class="heaven-gate-lines" viewBox="0 0 1000 560" preserveAspectRatio="none" aria-hidden="true">
+              <line class="heaven-gate-line" data-element="metal" id="line-metal-full" x1="500" y1="280" x2="500" y2="130"></line>
+              <line class="heaven-gate-line hidden" data-element="metal" id="line-metal-a" x1="500" y1="280" x2="494" y2="203"></line>
+              <line class="heaven-gate-line hidden" data-element="metal" id="line-metal-b" x1="506" y1="178" x2="506" y2="154"></line>
+
+              <line class="heaven-gate-line" data-element="wood" id="line-wood-full" x1="500" y1="280" x2="643" y2="234"></line>
+              <line class="heaven-gate-line hidden" data-element="wood" id="line-wood-a" x1="500" y1="280" x2="580" y2="260"></line>
+              <line class="heaven-gate-line hidden" data-element="wood" id="line-wood-b" x1="592" y1="245" x2="622" y2="240"></line>
+
+              <line class="heaven-gate-line" data-element="water" id="line-water-full" x1="500" y1="280" x2="588" y2="401"></line>
+              <line class="heaven-gate-line hidden" data-element="water" id="line-water-a" x1="500" y1="280" x2="544" y2="350"></line>
+              <line class="heaven-gate-line hidden" data-element="water" id="line-water-b" x1="558" y1="356" x2="575" y2="384"></line>
+
+              <line class="heaven-gate-line" data-element="fire" id="line-fire-full" x1="500" y1="280" x2="412" y2="401"></line>
+              <line class="heaven-gate-line hidden" data-element="fire" id="line-fire-a" x1="500" y1="280" x2="456" y2="350"></line>
+              <line class="heaven-gate-line hidden" data-element="fire" id="line-fire-b" x1="442" y1="356" x2="425" y2="384"></line>
+
+              <line class="heaven-gate-line" data-element="earth" id="line-earth-full" x1="500" y1="280" x2="357" y2="234"></line>
+              <line class="heaven-gate-line hidden" data-element="earth" id="line-earth-a" x1="500" y1="280" x2="420" y2="260"></line>
+              <line class="heaven-gate-line hidden" data-element="earth" id="line-earth-b" x1="408" y1="245" x2="378" y2="240"></line>
+            </svg>
+
+            <div class="heaven-gate-path-layer">
+              <button class="heaven-gate-path" data-element="metal" type="button" style="left:50%;top:36.6%;width:15%;transform:translate(-50%, -50%) rotate(-90deg);" aria-label="斩金灵根"></button>
+              <button class="heaven-gate-path" data-element="wood" type="button" style="left:57.15%;top:45.9%;width:15%;transform:translate(-50%, -50%) rotate(-17.8deg);" aria-label="斩木灵根"></button>
+              <button class="heaven-gate-path" data-element="water" type="button" style="left:54.4%;top:60.8%;width:15%;transform:translate(-50%, -50%) rotate(54deg);" aria-label="斩水灵根"></button>
+              <button class="heaven-gate-path" data-element="fire" type="button" style="left:45.6%;top:60.8%;width:15%;transform:translate(-50%, -50%) rotate(126deg);" aria-label="斩火灵根"></button>
+              <button class="heaven-gate-path" data-element="earth" type="button" style="left:42.85%;top:45.9%;width:15%;transform:translate(-50%, -50%) rotate(197.8deg);" aria-label="斩土灵根"></button>
+            </div>
+            <div class="heaven-gate-cursor-text hidden" id="hg-cursor-text">斩</div>
+
+            <div class="heaven-gate-node" style="left:50%;top:16.1%;" id="node-metal">
+              <span class="heaven-gate-node-name" data-element="metal">金</span>
+            </div>
+            <div class="heaven-gate-line-value hidden" id="value-metal" data-element="metal" style="left:50%;top:9.2%;">0</div>
+
+            <div class="heaven-gate-node" style="left:68.1%;top:39.5%;" id="node-wood">
+              <span class="heaven-gate-node-name" data-element="wood">木</span>
+            </div>
+            <div class="heaven-gate-line-value hidden" id="value-wood" data-element="wood" style="left:72.1%;top:35.2%;">0</div>
+
+            <div class="heaven-gate-node" style="left:61.2%;top:75.7%;" id="node-water">
+              <span class="heaven-gate-node-name" data-element="water">水</span>
+            </div>
+            <div class="heaven-gate-line-value hidden" id="value-water" data-element="water" style="left:64.2%;top:82.6%;">0</div>
+
+            <div class="heaven-gate-node" style="left:38.8%;top:75.7%;" id="node-fire">
+              <span class="heaven-gate-node-name" data-element="fire">火</span>
+            </div>
+            <div class="heaven-gate-line-value hidden" id="value-fire" data-element="fire" style="left:35.8%;top:82.6%;">0</div>
+
+            <div class="heaven-gate-node" style="left:31.9%;top:39.5%;" id="node-earth">
+              <span class="heaven-gate-node-name" data-element="earth">土</span>
+            </div>
+            <div class="heaven-gate-line-value hidden" id="value-earth" data-element="earth" style="left:27.9%;top:35.2%;">0</div>
+
+            <button class="heaven-gate-core" id="hg-core" type="button">
+              <span class="heaven-gate-core-title" id="hg-core-title">开天门</span>
+              <span class="heaven-gate-core-subtitle" id="hg-core-subtitle">五行未定，先启天门。若不满意，后续可消耗经验逆天改命。</span>
+            </button>
+            <div class="heaven-gate-reroll-anchor hidden" id="hg-reroll-anchor">
+              <button class="small-btn ghost" id="hg-reroll" type="button">逆天改命</button>
+            </div>
+          </section>
+
+          <section class="heaven-gate-result">
+            <div class="heaven-gate-result-head">
+              <div>
+                <div class="panel-section-title">五行结果</div>
+                <div class="empty-hint" id="hg-result-hint">当前还未开天门。保留灵根会以 1 作为占位，已斩灵根为 0。</div>
+              </div>
+              <div class="heaven-gate-total" id="hg-total-badge">总值 未定</div>
+            </div>
+
+            <div class="heaven-gate-result-grid">
+              <div class="heaven-gate-stat">
+                <span class="heaven-gate-stat-name">金灵根</span>
+                <span class="heaven-gate-stat-value" id="stat-metal">1</span>
+                <span class="heaven-gate-stat-meta" id="meta-metal">待定</span>
+              </div>
+              <div class="heaven-gate-stat">
+                <span class="heaven-gate-stat-name">木灵根</span>
+                <span class="heaven-gate-stat-value" id="stat-wood">1</span>
+                <span class="heaven-gate-stat-meta" id="meta-wood">待定</span>
+              </div>
+              <div class="heaven-gate-stat">
+                <span class="heaven-gate-stat-name">水灵根</span>
+                <span class="heaven-gate-stat-value" id="stat-water">1</span>
+                <span class="heaven-gate-stat-meta" id="meta-water">待定</span>
+              </div>
+              <div class="heaven-gate-stat">
+                <span class="heaven-gate-stat-value" id="stat-fire">1</span>
+                <span class="heaven-gate-stat-name">火灵根</span>
+                <span class="heaven-gate-stat-meta" id="meta-fire">待定</span>
+              </div>
+              <div class="heaven-gate-stat">
+                <span class="heaven-gate-stat-name">土灵根</span>
+                <span class="heaven-gate-stat-value" id="stat-earth">1</span>
+                <span class="heaven-gate-stat-meta" id="meta-earth">待定</span>
+              </div>
+            </div>
+          </section>
+
+          <div class="heaven-gate-confirm-strip">
+            <div>
+              <div class="panel-section-title">当前操作说明</div>
+              <div class="heaven-gate-confirm-note" id="hg-strip-note">点击任意连线可斩或补灵根。已出结果后若再斩 / 补，当前结果会失效并退回重新开门。</div>
+            </div>
+            <div class="heaven-gate-footer">
+              <button class="small-btn ghost" id="hg-reset-demo" type="button">重置</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div class="heaven-gate-overlay hidden" id="hg-overlay" aria-hidden="true">
+    <div class="heaven-gate-popup">
+      <div class="heaven-gate-popup-title" id="hg-popup-title">确认操作</div>
+      <div class="heaven-gate-popup-subtitle" id="hg-popup-subtitle">请确认当前操作。</div>
+      <div class="heaven-gate-popup-section" id="hg-popup-body"></div>
+      <div class="heaven-gate-popup-actions">
+        <button class="small-btn ghost" id="hg-popup-cancel" type="button">取消</button>
+        <button class="small-btn" id="hg-popup-confirm" type="button">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="heaven-gate-toast" id="hg-toast"></div>
+
+  <script>
+    const ELEMENTS = ['metal', 'wood', 'water', 'fire', 'earth'];
+    const LABELS = {
+      metal: '金',
+      wood: '木',
+      water: '水',
+      fire: '火',
+      earth: '土',
+    };
+    const AVERAGE_SEGMENTS = {
+      5: [
+        { min: 1, max: 15, weight: 12 },
+        { min: 16, max: 30, weight: 32 },
+        { min: 31, max: 45, weight: 28 },
+        { min: 46, max: 60, weight: 15 },
+        { min: 61, max: 75, weight: 8 },
+        { min: 76, max: 99, weight: 4.99 },
+        { min: 100, max: 100, weight: 0.01 },
+      ],
+      4: [
+        { min: 1, max: 15, weight: 8 },
+        { min: 16, max: 32, weight: 22 },
+        { min: 33, max: 50, weight: 30 },
+        { min: 51, max: 66, weight: 20 },
+        { min: 67, max: 82, weight: 12 },
+        { min: 83, max: 99, weight: 7.99 },
+        { min: 100, max: 100, weight: 0.01 },
+      ],
+      3: [
+        { min: 1, max: 12, weight: 5 },
+        { min: 13, max: 30, weight: 14 },
+        { min: 31, max: 50, weight: 24 },
+        { min: 51, max: 68, weight: 26 },
+        { min: 69, max: 84, weight: 18 },
+        { min: 85, max: 99, weight: 12.99 },
+        { min: 100, max: 100, weight: 0.01 },
+      ],
+      2: [
+        { min: 1, max: 10, weight: 3 },
+        { min: 11, max: 25, weight: 8 },
+        { min: 26, max: 45, weight: 16 },
+        { min: 46, max: 65, weight: 24 },
+        { min: 66, max: 82, weight: 24 },
+        { min: 83, max: 99, weight: 24.99 },
+        { min: 100, max: 100, weight: 0.01 },
+      ],
+      1: [
+        { min: 1, max: 8, weight: 2 },
+        { min: 9, max: 20, weight: 4 },
+        { min: 21, max: 40, weight: 10 },
+        { min: 41, max: 60, weight: 18 },
+        { min: 61, max: 78, weight: 24 },
+        { min: 79, max: 92, weight: 24 },
+        { min: 93, max: 99, weight: 17.99 },
+        { min: 100, max: 100, weight: 0.01 },
+      ],
+    };
+    const SPREAD = {
+      5: 0.18,
+      4: 0.28,
+      3: 0.4,
+      2: 0.58,
+      1: 0,
+    };
+
+    const state = {
+      maxExp: 800,
+      exp: 800,
+      severed: new Set(),
+      roots: null,
+      visualRoots: null,
+      visualTotal: null,
+      popup: null,
+      animationFrame: 0,
+      animationToken: 0,
+    };
+
+    const refs = {
+      exp: document.getElementById('hg-exp'),
+      severCost: document.getElementById('hg-sever-cost'),
+      rerollCost: document.getElementById('hg-reroll-cost'),
+      total: document.getElementById('hg-total'),
+      totalBadge: document.getElementById('hg-total-badge'),
+      subtitle: document.getElementById('hg-subtitle'),
+      resultHint: document.getElementById('hg-result-hint'),
+      stripNote: document.getElementById('hg-strip-note'),
+      rerollBtn: document.getElementById('hg-reroll'),
+      rerollAnchor: document.getElementById('hg-reroll-anchor'),
+      coreTitle: document.getElementById('hg-core-title'),
+      coreSubtitle: document.getElementById('hg-core-subtitle'),
+      core: document.getElementById('hg-core'),
+      cursorText: document.getElementById('hg-cursor-text'),
+      overlay: document.getElementById('hg-overlay'),
+      popupTitle: document.getElementById('hg-popup-title'),
+      popupSubtitle: document.getElementById('hg-popup-subtitle'),
+      popupBody: document.getElementById('hg-popup-body'),
+      popupCancel: document.getElementById('hg-popup-cancel'),
+      popupConfirm: document.getElementById('hg-popup-confirm'),
+      toast: document.getElementById('hg-toast'),
+      judgement: document.getElementById('hg-judgement'),
+      judgementName: document.getElementById('hg-judgement-name'),
+      judgementMeta: document.getElementById('hg-judgement-meta'),
+      judgementDesc: document.getElementById('hg-judgement-desc'),
+    };
+
+    function formatNumber(value) {
+      return Number(value).toLocaleString('zh-CN');
+    }
+
+    function severCost() {
+      return Math.max(1, Math.round(state.maxExp * 0.1));
+    }
+
+    function rerollCost() {
+      return Math.max(1, Math.round(state.maxExp * 0.3));
+    }
+
+    function activeElements() {
+      return ELEMENTS.filter((element) => !state.severed.has(element));
+    }
+
+    function createPlaceholderRoots() {
+      const result = {};
+      for (const element of ELEMENTS) {
+        result[element] = state.severed.has(element) ? 0 : 1;
+      }
+      return result;
+    }
+
+    function pickWeightedSegment(segments) {
+      const totalWeight = segments.reduce((sum, segment) => sum + segment.weight, 0);
+      let cursor = Math.random() * totalWeight;
+      for (const segment of segments) {
+        cursor -= segment.weight;
+        if (cursor <= 0) {
+          return segment;
+        }
+      }
+      return segments[segments.length - 1];
+    }
+
+    function randomInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function distribute(total, elements) {
+      const result = {};
+      for (const element of ELEMENTS) {
+        result[element] = 0;
+      }
+      if (elements.length === 1) {
+        result[elements[0]] = total;
+        return result;
+      }
+      const spread = SPREAD[elements.length] || 0.18;
+      const weights = elements.map(() => Math.max(0.08, 1 + (Math.random() * 2 - 1) * spread));
+      const weightSum = weights.reduce((sum, value) => sum + value, 0);
+      const remainder = total - elements.length;
+      const rows = elements.map((element, index) => ({
+        element,
+        base: 1,
+        extra: Math.min(99, Math.floor((remainder * weights[index]) / weightSum)),
+        raw: (remainder * weights[index]) / weightSum,
+      }));
+      let allocated = rows.reduce((sum, row) => sum + row.extra, 0);
+      rows.sort((left, right) => right.raw - left.raw);
+      let cursor = 0;
+      while (allocated < remainder) {
+        const target = rows[cursor % rows.length];
+        if (target.extra < 99) {
+          target.extra += 1;
+          allocated += 1;
+        }
+        cursor += 1;
+      }
+      for (const row of rows) {
+        result[row.element] = row.base + row.extra;
+      }
+      return result;
+    }
+
+    function rollRoots() {
+      const remaining = activeElements();
+      const segment = pickWeightedSegment(AVERAGE_SEGMENTS[remaining.length]);
+      const average = randomInt(segment.min, segment.max);
+      const total = average * remaining.length;
+      return distribute(total, remaining);
+    }
+
+    function currentRoots() {
+      if (!state.roots) {
+        return createPlaceholderRoots();
+      }
+      return state.visualRoots ?? state.roots;
+    }
+
+    function currentTotal(roots) {
+      return ELEMENTS.reduce((sum, element) => sum + (roots[element] || 0), 0);
+    }
+
+    function joinElements(elements) {
+      return elements.map((element) => LABELS[element]).join('');
+    }
+
+    function activeRootEntries(roots) {
+      return ELEMENTS
+        .map((element) => ({ element, value: roots[element] || 0 }))
+        .filter((entry) => entry.value > 0)
+        .sort((left, right) => right.value - left.value);
+    }
+
+    function describeSingle(entry) {
+      if (entry.value >= 100) {
+        return {
+          name: `${LABELS[entry.element]}先天道胎灵根`,
+          meta: '单灵根 · 极境资质',
+          desc: '仅存一系，且数值臻至圆满，已接近传闻中的先天道胎。此类灵根修行时几乎不会被旁驳之气拖累。',
+        };
+      }
+      if (entry.value >= 95) {
+        return {
+          name: `${LABELS[entry.element]}极品天灵根`,
+          meta: '单灵根 · 极品',
+          desc: '单一属性纯度极高，已经是最上层的天灵根范畴。修炼该系功法时，往往进境极快。',
+        };
+      }
+      if (entry.value >= 90) {
+        return {
+          name: `${LABELS[entry.element]}天灵根`,
+          meta: '单灵根 · 天品',
+          desc: '典型的单系天灵根，灵气归一，杂质极少。若功法与属性契合，往往是最稳的上乘开局。',
+        };
+      }
+      if (entry.value >= 80) {
+        return {
+          name: `${LABELS[entry.element]}真灵根`,
+          meta: '单灵根 · 上品',
+          desc: '虽然未入天灵根之列，但依旧属于很强的单系资质。只要路线正确，后续潜力依然可观。',
+        };
+      }
+      if (entry.value >= 60) {
+        return {
+          name: `${LABELS[entry.element]}上品单灵根`,
+          meta: '单灵根 · 可塑',
+          desc: '灵根已经明显偏向单一属性，修炼方向足够集中，只是离真正的天品还差一口气。',
+        };
+      }
+      if (entry.value >= 35) {
+        return {
+          name: `${LABELS[entry.element]}偏枯单灵根`,
+          meta: '单灵根 · 偏弱',
+          desc: '虽是单系，却显得根基偏枯。胜在路线纯粹，弱在底子不足，仍可作为专修一路使用。',
+        };
+      }
+      if (entry.value >= 15) {
+        return {
+          name: `${LABELS[entry.element]}残单灵根`,
+          meta: '单灵根 · 残缺',
+          desc: '只余一系，但灵性过弱，属于残缺单灵根。若无后续奇遇或补足手段，修行会十分吃力。',
+        };
+      }
+      return {
+        name: `${LABELS[entry.element]}废灵根`,
+        meta: '单灵根 · 近废',
+        desc: '虽然形式上是单灵根，但数值太低，几近枯竭。这样的根基只比彻底无根稍强一线。',
+      };
+    }
+
+    function describeDual(entries, total, spread) {
+      const names = joinElements(entries.map((entry) => entry.element));
+      const highCount = entries.filter((entry) => entry.value >= 90).length;
+      if (highCount === 2) {
+        return {
+          name: `${names}天灵根`,
+          meta: '双灵根 · 天品',
+          desc: '双系皆过九十，已是极其罕见的双系天灵根。既保留双属性变化，又不至于过于驳杂。',
+        };
+      }
+      if (entries[0].value >= 95 && entries[1].value >= 80) {
+        return {
+          name: `${names}异禀双灵根`,
+          meta: '双灵根 · 极上',
+          desc: '主根接近极品天灵根，副根也足够强势，属于双修路线里极为出众的一档。',
+        };
+      }
+      if (entries[0].value >= 80 && entries[1].value >= 80) {
+        return {
+          name: `${names}真双灵根`,
+          meta: '双灵根 · 上品',
+          desc: '双系都很扎实，虽然未到双天灵根，但资质已经非常漂亮，适合走双属性功法或互补流派。',
+        };
+      }
+      if (spread <= 8 && entries[1].value >= 50) {
+        return {
+          name: `${names}均衡双灵根`,
+          meta: '双灵根 · 均衡',
+          desc: '两系强弱接近，灵气分布很均衡。好处是转换灵活，缺点是难以像纯天灵根那样一路拔尖。',
+        };
+      }
+      if (entries[0].value >= 90 && entries[1].value <= 30) {
+        return {
+          name: `${LABELS[entries[0].element]}主${LABELS[entries[1].element]}辅双灵根`,
+          meta: '双灵根 · 偏科',
+          desc: '主根极强，副根明显偏弱，属于偏科型双灵根。更像是在单灵根基础上挂了一条辅根。',
+        };
+      }
+      if (total <= 40) {
+        return {
+          name: `${names}废双灵根`,
+          meta: '双灵根 · 近废',
+          desc: '虽然保留两系，但总值过低，属于典型的废双灵根。两边都沾一点，却都不成气候。',
+        };
+      }
+      if (total <= 80) {
+        return {
+          name: `${names}杂双灵根`,
+          meta: '双灵根 · 杂驳',
+          desc: '两系都不算太强，难称精品，只能算常见的杂双灵根。需要后续功法或资源慢慢扶正。',
+        };
+      }
+      return {
+        name: `${names}双灵根`,
+        meta: '双灵根 · 常规',
+        desc: '标准的双灵根格局，优缺点都很鲜明。既有双属性变化，也承担了纯度被分走的代价。',
+      };
+    }
+
+    function describeTriple(entries, total, spread) {
+      const names = joinElements(entries.map((entry) => entry.element));
+      const highCount = entries.filter((entry) => entry.value >= 90).length;
+      if (highCount === 3) {
+        return {
+          name: `${names}三系天灵根`,
+          meta: '三灵根 · 天品',
+          desc: '三系齐强且都过九十，属于极少见的三系天灵根。兼顾变化与上限，放在三灵根里已近传说。',
+        };
+      }
+      if (entries.every((entry) => entry.value >= 75)) {
+        return {
+          name: `${names}真三灵根`,
+          meta: '三灵根 · 上品',
+          desc: '三系根基都相当扎实，虽然不如天灵根那样锋利，但胜在路子广、兼容性强。',
+        };
+      }
+      if (spread <= 10 && entries[2].value >= 45) {
+        return {
+          name: `${names}均衡三灵根`,
+          meta: '三灵根 · 均衡',
+          desc: '三系分布比较平滑，没有明显短板。这样的灵根在多属性功法、阵修、辅修体系中往往更舒服。',
+        };
+      }
+      if (entries[0].value >= 90 && entries[1].value <= 40) {
+        return {
+          name: `${LABELS[entries[0].element]}主导三灵根`,
+          meta: '三灵根 · 偏盛',
+          desc: '三系并存，但只有一系真正拔尖，其余两系只是勉强跟上，属于典型的主根压制格局。',
+        };
+      }
+      if (total <= 60) {
+        return {
+          name: `${names}废三灵根`,
+          meta: '三灵根 · 近废',
+          desc: '三系都有，却都过于孱弱，属于常说的废三灵根。修炼时容易处处分散，处处不成。',
+        };
+      }
+      if (total <= 120) {
+        return {
+          name: `${names}杂三灵根`,
+          meta: '三灵根 · 杂驳',
+          desc: '三系驳杂而不够强势，是很常见的普通资质。广而不精，后续更看功法、丹药和资源。',
+        };
+      }
+      return {
+        name: `${names}三灵根`,
+        meta: '三灵根 · 常规',
+        desc: '标准的三灵根，属性选择丰富，但每一系分到的纯度也更少。属于中规中矩、胜在灵活的资质。',
+      };
+    }
+
+    function describeQuad(entries, total, spread) {
+      const names = joinElements(entries.map((entry) => entry.element));
+      const highCount = entries.filter((entry) => entry.value >= 90).length;
+      if (highCount === 4) {
+        return {
+          name: `${names}四象天灵根`,
+          meta: '四灵根 · 天品',
+          desc: '四系全部极高，已经超出常规四灵根应有的驳杂程度，可称四象天灵根，十分罕见。',
+        };
+      }
+      if (entries.every((entry) => entry.value >= 70)) {
+        return {
+          name: `${names}真四灵根`,
+          meta: '四灵根 · 上品',
+          desc: '四系都不低，说明这次开门相当顺。虽说属性多，但每一系都还保住了不错的强度。',
+        };
+      }
+      if (spread <= 12 && entries[3].value >= 40) {
+        return {
+          name: `${names}均衡四灵根`,
+          meta: '四灵根 · 均衡',
+          desc: '四系分布接近，整体相当平滑。这类灵根不够极端，却在多路线、多体系里有很高的适配度。',
+        };
+      }
+      if (entries[0].value >= 90 && entries[3].value <= 25) {
+        return {
+          name: `${LABELS[entries[0].element]}偏盛四灵根`,
+          meta: '四灵根 · 偏科',
+          desc: '四系俱全，但只有一系明显拔尖，其他几系拖了后腿，更像是多系壳子包着一条主根。',
+        };
+      }
+      if (total <= 90) {
+        return {
+          name: `${names}废四灵根`,
+          meta: '四灵根 · 近废',
+          desc: '四系过多又过弱，是相当典型的废四灵根。属性不少，但每一条都像风中残烛。',
+        };
+      }
+      if (total <= 160) {
+        return {
+          name: `${names}杂四灵根`,
+          meta: '四灵根 · 杂驳',
+          desc: '四系驳杂，纯度摊得很散，属于小说里很常见的普通杂四灵根。能走的路多，但起步偏慢。',
+        };
+      }
+      return {
+        name: `${names}四灵根`,
+        meta: '四灵根 · 常规',
+        desc: '四系并存，天然适合更复杂的修行路线。只是属性越多，单系优势就越难拉出来。',
+      };
+    }
+
+    function describeFive(entries, total, spread) {
+      if (entries.every((entry) => entry.value >= 90)) {
+        return {
+          name: '五行天灵根',
+          meta: '五灵根 · 天品',
+          desc: '五行俱全且全部过九十，这已经不是普通五灵根，而是极其稀有的五行天灵根。五行齐鸣，兼容万法。',
+        };
+      }
+      if (entries.every((entry) => entry.value >= 80)) {
+        return {
+          name: '五行真灵根',
+          meta: '五灵根 · 极上',
+          desc: '五行全部强势，虽然没有全部踏入九十以上，但整体已经非常夸张，足以称得上五行真灵根。',
+        };
+      }
+      if (spread <= 10 && entries[4].value >= 55) {
+        return {
+          name: '五行均衡灵根',
+          meta: '五灵根 · 均衡',
+          desc: '五行分布极其平均，没有明显偏科。这样的灵根不以单点爆发见长，却往往最适合全系同修、阵法与炼丹一类路线。',
+        };
+      }
+      if (total <= 45) {
+        return {
+          name: '废灵根',
+          meta: '五灵根 · 近废',
+          desc: '五行俱全却极度孱弱，这就是最典型的废灵根。看似什么都有，实则每一系都不足以支撑顺畅修行。',
+        };
+      }
+      if (total <= 120) {
+        return {
+          name: '杂灵根',
+          meta: '五灵根 · 杂驳',
+          desc: '小说里最常见的就是这种杂灵根。五行混杂、纯度偏低，优点是适配面广，缺点是修炼效率往往不高。',
+        };
+      }
+      if (entries[0].value >= 90 && entries[4].value <= 15) {
+        return {
+          name: `${LABELS[entries[0].element]}偏盛五灵根`,
+          meta: '五灵根 · 偏科',
+          desc: `五行虽全，但只有${LABELS[entries[0].element]}一系明显拔尖，其余几系只是挂名保留，属于偏盛型五灵根。`,
+        };
+      }
+      if (total <= 220) {
+        return {
+          name: '下品五灵根',
+          meta: '五灵根 · 普通',
+          desc: '属于五灵根里比较常见的一档，五行俱全，但单系强度都不算特别突出，胜在路子广。',
+        };
+      }
+      if (total <= 320) {
+        return {
+          name: '上品五灵根',
+          meta: '五灵根 · 上品',
+          desc: '五行总值不低，已经跳出普通杂灵根范畴。虽然单系未必拔尖，但整体底子相当扎实。',
+        };
+      }
+      return {
+        name: '极品五行灵根',
+        meta: '五灵根 · 极品',
+        desc: '五行俱全且整体总值极高，已经是非常少见的极品五行灵根。虽然不一定每条都达天品，但总底子极厚。',
+      };
+    }
+
+    function describeRoots(roots) {
+      const entries = activeRootEntries(roots);
+      if (entries.length === 0) {
+        return {
+          name: '无根之体',
+          meta: '灵根已绝',
+          desc: '当前没有可用灵根。请至少保留一条灵根后再尝试开天门。',
+        };
+      }
+      const total = entries.reduce((sum, entry) => sum + entry.value, 0);
+      const spread = entries[0].value - entries[entries.length - 1].value;
+      if (entries.length === 1) {
+        return describeSingle(entries[0]);
+      }
+      if (entries.length === 2) {
+        return describeDual(entries, total, spread);
+      }
+      if (entries.length === 3) {
+        return describeTriple(entries, total, spread);
+      }
+      if (entries.length === 4) {
+        return describeQuad(entries, total, spread);
+      }
+      return describeFive(entries, total, spread);
+    }
+
+    function stopRootAnimation() {
+      if (state.animationFrame) {
+        cancelAnimationFrame(state.animationFrame);
+        state.animationFrame = 0;
+      }
+      state.animationToken += 1;
+    }
+
+    function animateRoots(targetRoots) {
+      stopRootAnimation();
+      const token = state.animationToken;
+      const startRoots = createPlaceholderRoots();
+      const duration = 1080;
+      const startedAt = performance.now();
+      state.visualRoots = { ...startRoots };
+      state.visualTotal = currentTotal(startRoots);
+
+      const tick = (now) => {
+        if (token !== state.animationToken) {
+          return;
+        }
+        const progress = Math.min(1, (now - startedAt) / duration);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const nextRoots = {};
+        for (const element of ELEMENTS) {
+          const start = startRoots[element];
+          const target = targetRoots[element];
+          nextRoots[element] = progress >= 1
+            ? target
+            : Math.max(0, Math.floor(start + (target - start) * eased));
+        }
+        state.visualRoots = nextRoots;
+        state.visualTotal = currentTotal(nextRoots);
+        render();
+        if (progress < 1) {
+          state.animationFrame = requestAnimationFrame(tick);
+          return;
+        }
+        state.animationFrame = 0;
+        state.visualRoots = { ...targetRoots };
+        state.visualTotal = currentTotal(targetRoots);
+        render();
+      };
+
+      state.animationFrame = requestAnimationFrame(tick);
+    }
+
+    function showToast(message) {
+      refs.toast.textContent = message;
+      refs.toast.classList.add('visible');
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => {
+        refs.toast.classList.remove('visible');
+      }, 1800);
+    }
+
+    function openPopup(config) {
+      state.popup = config;
+      refs.popupTitle.textContent = config.title;
+      refs.popupSubtitle.textContent = config.subtitle;
+      refs.popupBody.innerHTML = config.bodyHtml || '';
+      refs.popupConfirm.textContent = config.confirmText || '确认';
+      refs.overlay.classList.remove('hidden');
+      refs.overlay.setAttribute('aria-hidden', 'false');
+    }
+
+    function closePopup() {
+      state.popup = null;
+      refs.overlay.classList.add('hidden');
+      refs.overlay.setAttribute('aria-hidden', 'true');
+    }
+
+    function setLineState(element, severed) {
+      const lineFull = document.getElementById(`line-${element}-full`);
+      const lineA = document.getElementById(`line-${element}-a`);
+      const lineB = document.getElementById(`line-${element}-b`);
+      const node = document.getElementById(`node-${element}`) || null;
+      const value = document.getElementById(`value-${element}`);
+      lineFull.classList.toggle('hidden', severed);
+      lineA.classList.toggle('hidden', !severed);
+      lineB.classList.toggle('hidden', !severed);
+      lineFull.classList.toggle('is-severed', false);
+      lineFull.classList.toggle('is-active', !severed);
+      lineA.classList.toggle('is-severed', severed);
+      lineA.classList.toggle('is-active', !severed);
+      lineB.classList.toggle('is-severed', severed);
+      lineB.classList.toggle('is-active', !severed);
+      if (node) {
+        node.classList.toggle('is-severed', severed);
+      }
+      if (value) {
+        value.classList.toggle('is-severed', severed);
+      }
+    }
+
+    function render() {
+      const roots = currentRoots();
+      const severedCount = state.severed.size;
+      const remainingCount = activeElements().length;
+      const total = state.roots ? (state.visualTotal ?? currentTotal(roots)) : null;
+      const judgement = state.roots ? describeRoots(state.roots) : null;
+
+      refs.exp.textContent = formatNumber(state.exp);
+      refs.severCost.textContent = formatNumber(severCost());
+      refs.rerollCost.textContent = formatNumber(rerollCost());
+      refs.total.textContent = total == null ? '未定' : formatNumber(total);
+      refs.totalBadge.textContent = total == null ? '总值 未定' : `总值 ${formatNumber(total)}`;
+      refs.subtitle.textContent = `叩仙门 · 已斩 ${severedCount}/4 · 保留 ${remainingCount} 条灵根`;
+      refs.coreTitle.textContent = state.roots ? '入天门' : '开天门';
+      refs.rerollAnchor.classList.toggle('hidden', !state.roots);
+      refs.judgement.classList.toggle('hidden', !state.roots);
+      refs.resultHint.textContent = state.roots
+        ? '当前展示的是这次开天门得到的结果。若再斩 / 补灵根，结果会立刻失效。'
+        : '当前还未开天门。数字会显示在五行字外侧的延长线上，未开门前不会出现。';
+      refs.stripNote.textContent = state.roots
+        ? '你已经开过一次天门。现在可以直接入天门，也可以点击中间下方的逆天改命，消耗 30% 经验后退回重新开门。'
+        : '点击任意连线可斩或补灵根。若先斩后开门，随机时只会在剩余灵根中分配数值。';
+      refs.judgementName.textContent = judgement ? judgement.name : '灵根未定';
+      refs.judgementMeta.textContent = judgement ? judgement.meta : '未开天门前不生成判语。';
+      refs.judgementDesc.textContent = judgement
+        ? judgement.desc
+        : '开天门后会根据当前保留灵根的数量、强弱、均衡程度，给出对应的资质称谓与描述。';
+
+      for (const element of ELEMENTS) {
+        const value = roots[element];
+        const severed = state.severed.has(element);
+        const boardValue = document.getElementById(`value-${element}`);
+        boardValue.textContent = formatNumber(value);
+        boardValue.classList.toggle('hidden', !state.roots);
+        document.getElementById(`stat-${element}`).textContent = formatNumber(value);
+        document.getElementById(`meta-${element}`).textContent = severed ? '已斩' : (state.roots ? '已定' : '待定');
+        document.getElementById(`stat-${element}`).classList.toggle('is-severed', severed);
+        setLineState(element, severed);
+      }
+    }
+
+    function bodyForRoots(roots) {
+      return `
+        <div class="empty-hint">本次结果如下。</div>
+        <div class="heaven-gate-popup-result-grid">
+          ${ELEMENTS.map((element) => `
+            <div class="heaven-gate-popup-result">
+              <span class="heaven-gate-popup-result-name" style="color:var(--hg-${element});">${LABELS[element]}</span>
+              <span class="heaven-gate-popup-result-value">${formatNumber(roots[element])}</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function invalidateRootsIfNeeded() {
+      if (!state.roots) {
+        return;
+      }
+      stopRootAnimation();
+      state.roots = null;
+      state.visualRoots = null;
+      state.visualTotal = null;
+      showToast('灵根配置已改动，当前开天门结果失效。');
+    }
+
+    document.querySelectorAll('.heaven-gate-path').forEach((button) => {
+      button.addEventListener('mouseenter', (event) => {
+        const element = button.dataset.element;
+        const isSevered = state.severed.has(element);
+        document.body.classList.add('heaven-gate-brush-cursor');
+        refs.cursorText.textContent = isSevered ? '补' : '斩';
+        refs.cursorText.classList.toggle('is-severed', isSevered);
+        refs.cursorText.classList.remove('hidden');
+        refs.cursorText.style.left = `${event.clientX}px`;
+        refs.cursorText.style.top = `${event.clientY}px`;
+      });
+      button.addEventListener('mousemove', (event) => {
+        refs.cursorText.style.left = `${event.clientX}px`;
+        refs.cursorText.style.top = `${event.clientY}px`;
+      });
+      button.addEventListener('mouseleave', () => {
+        document.body.classList.remove('heaven-gate-brush-cursor');
+        refs.cursorText.classList.add('hidden');
+      });
+      button.addEventListener('click', () => {
+        const element = button.dataset.element;
+        const isSevered = state.severed.has(element);
+        if (!isSevered && state.severed.size >= 4) {
+          showToast('最多只能斩断四条灵根。');
+          return;
+        }
+        const cost = severCost();
+        openPopup({
+          title: `${isSevered ? '补回' : '斩断'}${LABELS[element]}灵根`,
+          subtitle: `${isSevered ? '补灵根' : '斩灵根'}会消耗 ${formatNumber(cost)} 点经验。`,
+          bodyHtml: `<div class="empty-hint">${isSevered ? '补回后，该灵根会重新参与开天门随机。' : '斩断后，该灵根本次开天门数值固定为 0。'}若当前已有开天门结果，会立刻失效。</div>`,
+          confirmText: `确认${isSevered ? '补回' : '斩断'}`,
+          onConfirm: () => {
+            if (state.exp < cost) {
+              showToast('当前经验不足。');
+              return;
+            }
+            state.exp -= cost;
+            if (isSevered) {
+              state.severed.delete(element);
+            } else {
+              state.severed.add(element);
+            }
+            invalidateRootsIfNeeded();
+            render();
+            closePopup();
+          },
+        });
+      });
+    });
+
+    refs.core.addEventListener('click', () => {
+      if (!state.roots) {
+        openPopup({
+          title: '确认开天门',
+          subtitle: '将基于当前剩余灵根随机生成一套结果。',
+          bodyHtml: `<div class="empty-hint">当前保留 ${activeElements().length} 条灵根。五行越少，单条越容易高；五行越多，总值上限越高。</div>`,
+          confirmText: '确认开天门',
+          onConfirm: () => {
+            state.roots = rollRoots();
+            animateRoots(state.roots);
+            render();
+            closePopup();
+            showToast(`天门已开，总值 ${formatNumber(currentTotal(state.roots))}。`);
+          },
+        });
+        return;
+      }
+
+      openPopup({
+        title: '确认入天门',
+        subtitle: '确认后将踏入下一步修行。',
+        bodyHtml: `<div class="empty-hint">请确认当前灵根结果。</div>${bodyForRoots(state.roots)}`,
+        confirmText: '确认入天门',
+        onConfirm: () => {
+          closePopup();
+          showToast('已确认入天门。');
+        },
+      });
+    });
+
+    refs.rerollBtn.addEventListener('click', () => {
+      if (!state.roots) {
+        return;
+      }
+      const cost = rerollCost();
+      openPopup({
+        title: '确认逆天改命',
+        subtitle: `将消耗 ${formatNumber(cost)} 点经验，并清掉当前结果。`,
+        bodyHtml: `<div class="empty-hint">确认后不会直接给出新数值，而是退回“开天门”状态。你需要再次点击中间丹田重新开门。</div>${bodyForRoots(state.roots)}`,
+        confirmText: '确认逆天改命',
+        onConfirm: () => {
+          if (state.exp < cost) {
+            showToast('当前经验不足。');
+            return;
+          }
+          state.exp -= cost;
+          stopRootAnimation();
+          state.roots = null;
+          state.visualRoots = null;
+          state.visualTotal = null;
+          render();
+          closePopup();
+          showToast('命数已改，请重新开天门。');
+        },
+      });
+    });
+
+    document.getElementById('hg-reset-demo').addEventListener('click', () => {
+      stopRootAnimation();
+      state.exp = state.maxExp;
+      state.severed = new Set();
+      state.roots = null;
+      state.visualRoots = null;
+      state.visualTotal = null;
+      closePopup();
+      render();
+      showToast('当前状态已重置。');
+    });
+
+    refs.popupCancel.addEventListener('click', closePopup);
+    refs.popupConfirm.addEventListener('click', () => {
+      if (state.popup && typeof state.popup.onConfirm === 'function') {
+        state.popup.onConfirm();
+      }
+    });
+    refs.overlay.addEventListener('click', (event) => {
+      if (event.target === refs.overlay) {
+        closePopup();
+      }
+    });
+    window.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        closePopup();
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>

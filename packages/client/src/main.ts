@@ -30,7 +30,7 @@ import { WorldPanel } from './ui/panels/world-panel';
 import { SuggestionPanel } from './ui/suggestion-panel';
 import { ChangelogPanel } from './ui/changelog-panel';
 import { NpcShopModal } from './ui/npc-shop-modal';
-import { getHeavenGateHudAction, openHeavenGateModal } from './ui/heaven-gate-modal';
+import { getHeavenGateHudAction, openHeavenGateModal, refreshHeavenGateModal } from './ui/heaven-gate-modal';
 import { initializeUiStyleConfig } from './ui/ui-style-config';
 import { createClientPanelSystem } from './ui/panel-system/bootstrap';
 import { bindResponsiveViewportCss } from './ui/responsive-viewport';
@@ -60,6 +60,7 @@ import {
   GroundItemPileView,
   GridPoint,
   isPointInRange,
+  MapMeta,
   PlayerState,
   packDirections,
   RenderEntity,
@@ -462,7 +463,10 @@ function escapeHtml(input: string): string {
 }
 
 function openBreakthroughModal() {
-  if (openHeavenGateModal(myPlayer, { showToast })) {
+  if (openHeavenGateModal(myPlayer, {
+    showToast,
+    sendAction: (action, element) => socket.sendHeavenGateAction(action, element),
+  })) {
     return;
   }
 
@@ -1569,6 +1573,10 @@ socket.onAttrUpdate((data) => {
     myPlayer.breakthroughReady = latestAttrUpdate.realm?.breakthroughReady;
   }
   attrPanel.update(latestAttrUpdate);
+  refreshHeavenGateModal(myPlayer, {
+    showToast,
+    sendAction: (action, element) => socket.sendHeavenGateAction(action, element),
+  });
   refreshUiChrome();
 });
 socket.onInventoryUpdate((data) => {

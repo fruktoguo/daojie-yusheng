@@ -11,6 +11,8 @@ interface HUDMeta {
   mapDanger?: string;
   realmLabel?: string;
   realmReviewLabel?: string;
+  realmActionLabel?: string;
+  showRealmAction?: boolean;
   realmProgressLabel?: string;
   objectiveLabel?: string;
   threatLabel?: string;
@@ -63,9 +65,10 @@ export class HUD {
     const breakthroughPreview = player.realm?.breakthrough;
     if (this.breakthroughButton) {
       const canBreakthrough = player.realm?.breakthroughReady && breakthroughPreview;
-      this.breakthroughButton.hidden = !canBreakthrough;
-      this.breakthroughButton.textContent = canBreakthrough ? `突破 · ${breakthroughPreview.targetDisplayName}` : '突破';
-      this.breakthroughButton.disabled = !canBreakthrough;
+      const showRealmAction = meta?.showRealmAction ?? canBreakthrough;
+      this.breakthroughButton.hidden = !showRealmAction;
+      this.breakthroughButton.textContent = meta?.realmActionLabel ?? (canBreakthrough ? `突破 · ${breakthroughPreview.targetDisplayName}` : '突破');
+      this.breakthroughButton.disabled = !showRealmAction;
     }
 
     this.setResource(this.hpBar, this.hpText, player.hp, player.maxHp);
