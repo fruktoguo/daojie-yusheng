@@ -311,8 +311,30 @@
         max-height: min(94vh, calc(100vh - 16px));
         padding: 16px 14px;
       }
+      .detail-modal-card.detail-modal--heaven-gate {
+        width: min(100vw - 16px, 1100px);
+        max-height: min(94vh, calc(100vh - 16px));
+        padding: 16px 14px;
+      }
       .tech-starfield-canvas-shell {
         min-height: clamp(300px, 48vh, 460px);
+      }
+      .heaven-gate-summary,
+      .heaven-gate-result-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .heaven-gate-board {
+        min-height: clamp(360px, 52vh, 500px);
+      }
+      .heaven-gate-node {
+        width: 78px;
+      }
+      .heaven-gate-core {
+        width: 138px;
+        height: 138px;
+      }
+      .heaven-gate-result-head {
+        flex-direction: column;
       }
       .tech-starfield-tooltip {
         display: none;
@@ -331,6 +353,28 @@
         width: min(100%, calc(100vw - 24px));
         max-height: min(82vh, 760px);
         padding: 16px;
+      }
+      .detail-modal-card.detail-modal--skill-management {
+        width: min(100%, calc(100vw - 16px));
+        max-height: min(88vh, calc(100vh - 16px));
+      }
+      .panel-section-head,
+      .skill-manage-topbar,
+      .skill-manage-filter-head {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .skill-manage-filter-grid,
+      .skill-manage-field-group {
+        grid-template-columns: 1fr;
+      }
+      .skill-manage-toolbar,
+      .skill-manage-batch {
+        justify-content: stretch;
+      }
+      .skill-manage-toolbar > button,
+      .skill-manage-batch > button {
+        flex: 1 1 auto;
       }
       .split-tabs-rail {
         flex-direction: row;

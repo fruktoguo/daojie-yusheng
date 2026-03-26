@@ -237,6 +237,13 @@
 
     /* 面板通用样式 */
     .panel-section { margin-bottom: 16px; }
+    .panel-section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
     .panel-section-title {
       font-family: var(--font-heading-sub);
       font-size: var(--font-size-16);
@@ -244,6 +251,11 @@
       border-bottom: 1px solid var(--wash-ink);
       padding-bottom: 4px;
       margin-bottom: 8px;
+    }
+    .panel-section-head .panel-section-title {
+      flex: 1;
+      min-width: 0;
+      margin-bottom: 0;
     }
     .panel-row {
       display: flex;
@@ -619,7 +631,29 @@
       flex-wrap: wrap;
     }
     .tech-name { font-family: var(--font-heading-sub); font-size: var(--font-size-15); color: var(--ink-black); }
-    .tech-realm { font-size: var(--font-size-12); color: var(--stamp-red); margin-left: 6px; }
+    .tech-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 0 8px;
+      border: 1px solid rgba(34, 26, 19, 0.14);
+      border-radius: 999px;
+      font-size: var(--font-size-11);
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+    .tech-grade {
+      color: var(--stamp-red);
+      background: rgba(139, 48, 35, 0.08);
+    }
+    .tech-realm-level {
+      color: #4f3f1f;
+      background: rgba(196, 162, 99, 0.16);
+    }
+    .tech-realm {
+      color: #385a73;
+      background: rgba(74, 128, 168, 0.1);
+    }
     .tech-layer {
       font-size: var(--font-size-12);
       color: var(--ink-grey);
@@ -708,6 +742,19 @@
         var(--surface-gradient-paper);
       box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.16);
     }
+    .detail-modal-card.detail-modal--heaven-gate {
+      width: min(1100px, calc(100vw - 24px));
+      max-height: min(90vh, calc(100vh - 24px));
+      background:
+        radial-gradient(circle at top right, rgba(94, 234, 212, 0.12), transparent 28%),
+        radial-gradient(circle at bottom left, rgba(245, 158, 11, 0.1), transparent 34%),
+        linear-gradient(180deg, rgba(7, 12, 24, 0.97), rgba(6, 10, 18, 0.96));
+      color: rgba(233, 242, 255, 0.92);
+      border-color: rgba(120, 155, 212, 0.28);
+      box-shadow:
+        0 28px 64px rgba(4, 9, 20, 0.44),
+        inset 0 0 0 1px rgba(164, 193, 255, 0.06);
+    }
     .detail-modal-card.detail-modal--market {
       width: min(1360px, calc(100vw - 20px));
       height: min(59vh, calc(100vh - 24px));
@@ -724,6 +771,14 @@
       flex: 1;
       min-height: 0;
       overflow: hidden;
+    }
+    .detail-modal-card.detail-modal--skill-management {
+      width: min(1040px, calc(100vw - 24px));
+      max-height: min(88vh, calc(100vh - 24px));
+      background:
+        radial-gradient(circle at top right, rgba(167, 64, 41, 0.08), transparent 30%),
+        var(--surface-gradient-paper);
+      box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.16);
     }
     .detail-modal.detail-modal--suggestion {
       padding: 12px;
@@ -1613,6 +1668,287 @@
       display: flex;
       justify-content: flex-end;
     }
+    .heaven-gate-shell {
+      display: grid;
+      gap: 18px;
+    }
+    .heaven-gate-summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .heaven-gate-summary-card {
+      display: grid;
+      gap: 4px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(117, 148, 210, 0.18);
+      background:
+        linear-gradient(180deg, rgba(14, 22, 39, 0.88), rgba(10, 16, 30, 0.74)),
+        radial-gradient(circle at top left, rgba(89, 189, 255, 0.11), transparent 44%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+    .heaven-gate-summary-label {
+      font-size: var(--font-size-12);
+      color: rgba(177, 197, 229, 0.76);
+      letter-spacing: 0.04em;
+    }
+    .heaven-gate-summary-card strong {
+      font-family: var(--font-heading-sub);
+      font-size: clamp(20px, 2.3vw, 28px);
+      color: rgba(242, 248, 255, 0.95);
+    }
+    .heaven-gate-board {
+      position: relative;
+      min-height: clamp(420px, 58vh, 620px);
+      border-radius: 24px;
+      overflow: hidden;
+      border: 1px solid rgba(112, 152, 220, 0.18);
+      background:
+        radial-gradient(circle at 50% 50%, rgba(42, 89, 162, 0.18), transparent 18%),
+        radial-gradient(circle at 15% 18%, rgba(45, 212, 191, 0.08), transparent 24%),
+        radial-gradient(circle at 86% 12%, rgba(245, 158, 11, 0.08), transparent 22%),
+        linear-gradient(180deg, rgba(4, 10, 21, 0.98), rgba(2, 7, 16, 0.99));
+      box-shadow:
+        inset 0 0 32px rgba(89, 189, 255, 0.08),
+        0 24px 48px rgba(3, 7, 16, 0.3);
+    }
+    .heaven-gate-lines {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+    .heaven-gate-line {
+      stroke-width: 0.48;
+      stroke-linecap: round;
+      opacity: 0.92;
+    }
+    .heaven-gate-line.is-active {
+      stroke: rgba(165, 219, 255, 0.9);
+      animation: heaven-gate-line-pulse 2.2s ease-in-out infinite;
+    }
+    .heaven-gate-line.is-severed {
+      stroke: rgba(167, 114, 98, 0.52);
+      stroke-dasharray: 1.5 1.1;
+      opacity: 0.74;
+    }
+    .heaven-gate-path-layer {
+      position: absolute;
+      inset: 0;
+    }
+    .heaven-gate-path {
+      position: absolute;
+      height: 24px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      cursor: none;
+    }
+    .heaven-gate-path::after {
+      content: '';
+      position: absolute;
+      inset: 7px 0;
+      border-radius: inherit;
+      background: linear-gradient(90deg, transparent, rgba(152, 218, 255, 0.28), transparent);
+      opacity: 0;
+      transition: opacity 120ms ease;
+    }
+    .heaven-gate-path:hover::after {
+      opacity: 1;
+    }
+    .heaven-gate-path.is-severed::after {
+      background: linear-gradient(90deg, transparent, rgba(240, 173, 120, 0.24), transparent);
+    }
+    .heaven-gate-node {
+      position: absolute;
+      display: grid;
+      justify-items: center;
+      gap: 4px;
+      width: 92px;
+      padding: 10px 8px 12px;
+      border-radius: 999px;
+      transform: translate(-50%, -50%);
+      border: 1px solid rgba(148, 192, 255, 0.24);
+      background:
+        radial-gradient(circle at 30% 24%, rgba(255,255,255,0.22), transparent 22%),
+        radial-gradient(circle at 50% 50%, rgba(89, 189, 255, 0.24), rgba(13, 24, 48, 0.94) 68%);
+      box-shadow:
+        0 0 28px rgba(98, 198, 255, 0.22),
+        inset 0 0 16px rgba(188, 222, 255, 0.12);
+      text-align: center;
+      pointer-events: none;
+    }
+    .heaven-gate-node.is-severed {
+      border-color: rgba(203, 141, 101, 0.24);
+      background:
+        radial-gradient(circle at 30% 24%, rgba(255,255,255,0.1), transparent 20%),
+        radial-gradient(circle at 50% 50%, rgba(201, 125, 84, 0.18), rgba(25, 15, 14, 0.94) 72%);
+      box-shadow:
+        0 0 22px rgba(187, 111, 82, 0.16),
+        inset 0 0 14px rgba(226, 152, 119, 0.08);
+    }
+    .heaven-gate-node-name {
+      font-size: var(--font-size-12);
+      color: rgba(204, 220, 247, 0.82);
+    }
+    .heaven-gate-node-value {
+      font-family: var(--font-heading-sub);
+      font-size: 24px;
+      color: rgba(245, 249, 255, 0.96);
+    }
+    .heaven-gate-core {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 164px;
+      height: 164px;
+      transform: translate(-50%, -50%);
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(163, 196, 255, 0.28);
+      background:
+        radial-gradient(circle at 35% 30%, rgba(255,255,255,0.28), transparent 18%),
+        radial-gradient(circle at 50% 50%, rgba(115, 181, 255, 0.28), rgba(12, 22, 45, 0.96) 70%);
+      box-shadow:
+        0 0 42px rgba(106, 191, 255, 0.26),
+        inset 0 0 24px rgba(214, 231, 255, 0.12);
+      color: rgba(244, 249, 255, 0.96);
+      text-align: center;
+      cursor: pointer;
+      transition: transform 140ms ease, box-shadow 140ms ease;
+    }
+    .heaven-gate-core:hover {
+      transform: translate(-50%, -50%) scale(1.03);
+      box-shadow:
+        0 0 56px rgba(112, 205, 255, 0.34),
+        inset 0 0 24px rgba(214, 231, 255, 0.14);
+    }
+    .heaven-gate-core.is-opened {
+      background:
+        radial-gradient(circle at 35% 30%, rgba(255,255,255,0.3), transparent 18%),
+        radial-gradient(circle at 50% 50%, rgba(245, 158, 11, 0.22), rgba(17, 27, 51, 0.97) 70%);
+    }
+    .heaven-gate-core-title {
+      font-family: var(--font-heading-sub);
+      font-size: clamp(28px, 2.8vw, 38px);
+      letter-spacing: 0.06em;
+    }
+    .heaven-gate-core-subtitle {
+      width: min(120px, 100%);
+      font-size: var(--font-size-11);
+      line-height: 1.45;
+      color: rgba(196, 215, 244, 0.8);
+    }
+    .heaven-gate-cursor {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 34px;
+      height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transform: translate(-50%, -50%);
+      border-radius: 999px;
+      border: 1px solid rgba(228, 239, 255, 0.42);
+      background: rgba(8, 15, 30, 0.86);
+      color: rgba(241, 248, 255, 0.95);
+      font-family: var(--font-heading-sub);
+      font-size: 16px;
+      pointer-events: none;
+      box-shadow: 0 0 18px rgba(102, 198, 255, 0.2);
+      z-index: 4;
+    }
+    .heaven-gate-result {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(117, 148, 210, 0.16);
+      background: rgba(10, 17, 31, 0.72);
+    }
+    .heaven-gate-result-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .heaven-gate-total {
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(133, 176, 245, 0.18);
+      background: rgba(24, 39, 72, 0.58);
+      color: rgba(229, 240, 255, 0.92);
+    }
+    .heaven-gate-result-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .heaven-gate-stat {
+      display: grid;
+      gap: 3px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(117, 148, 210, 0.14);
+      background: rgba(15, 23, 39, 0.66);
+    }
+    .heaven-gate-stat-name {
+      color: rgba(179, 198, 228, 0.78);
+      font-size: var(--font-size-12);
+    }
+    .heaven-gate-stat-value {
+      font-family: var(--font-heading-sub);
+      font-size: 22px;
+      color: rgba(241, 247, 255, 0.95);
+    }
+    .heaven-gate-stat-value.is-severed {
+      color: rgba(236, 174, 136, 0.88);
+    }
+    .heaven-gate-stat-meta {
+      font-size: var(--font-size-11);
+      color: rgba(150, 171, 205, 0.68);
+    }
+    .heaven-gate-confirm {
+      display: grid;
+      gap: 10px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(117, 148, 210, 0.18);
+      background:
+        linear-gradient(180deg, rgba(17, 28, 51, 0.76), rgba(11, 20, 37, 0.74)),
+        radial-gradient(circle at top left, rgba(94, 234, 212, 0.09), transparent 40%);
+    }
+    .heaven-gate-confirm.is-idle {
+      background: rgba(11, 19, 34, 0.62);
+    }
+    .heaven-gate-confirm-title {
+      font-family: var(--font-heading-sub);
+      color: rgba(239, 245, 255, 0.94);
+    }
+    .heaven-gate-confirm-desc {
+      color: rgba(179, 198, 228, 0.78);
+      font-size: var(--font-size-13);
+      line-height: 1.65;
+    }
+    .heaven-gate-confirm-actions,
+    .heaven-gate-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    @keyframes heaven-gate-line-pulse {
+      0%, 100% {
+        opacity: 0.72;
+      }
+      50% {
+        opacity: 1;
+      }
+    }
     .floating-tooltip {
       position: fixed;
       pointer-events: none;
@@ -1715,6 +2051,17 @@
     .skill-tooltip-note {
       color: var(--ink-grey);
       font-size: var(--font-size-12);
+    }
+    .skill-tooltip-cost-actual-separator {
+      color: var(--tooltip-muted-ink);
+    }
+    .skill-tooltip-cost-actual {
+      color: var(--tooltip-muted-ink);
+      font-size: var(--font-size-12);
+    }
+    .skill-tooltip-cost-actual.is-overflow {
+      color: var(--stamp-red);
+      font-weight: 600;
     }
     .skill-tooltip-buff-entry {
       display: inline-flex;
@@ -2968,6 +3315,162 @@
       border: 1px solid currentColor;
       font-size: var(--font-size-11);
       line-height: 1.1;
+    }
+    .skill-manage-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .skill-manage-topbar {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .skill-manage-subtabs {
+      flex: 1 1 auto;
+      margin-bottom: 0;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .skill-manage-toolbar,
+    .skill-manage-batch {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+    .skill-manage-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: var(--font-size-12);
+      color: var(--ink-grey);
+    }
+    .skill-manage-summary span {
+      padding: 4px 8px;
+      border: 1px solid rgba(34, 26, 19, 0.1);
+      background: var(--surface-muted);
+    }
+    .skill-manage-filter-panel {
+      padding: 12px;
+      border: 1px solid var(--wash-ink);
+      background: var(--surface-muted);
+    }
+    .skill-manage-sort-panel {
+      padding: 12px;
+      border: 1px solid var(--wash-ink);
+      background: var(--paper-white);
+    }
+    .skill-manage-chip-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .skill-manage-chip-group + .skill-manage-chip-group {
+      margin-top: 10px;
+    }
+    .skill-manage-chip-group-title {
+      font-size: var(--font-size-12);
+      color: var(--ink-grey);
+    }
+    .skill-manage-chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .skill-manage-toggle-chip {
+      padding: 7px 12px;
+      border: 1px solid rgba(34, 26, 19, 0.16);
+      background: var(--paper-white);
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+    .skill-manage-toggle-chip:hover {
+      background: var(--highlight);
+      color: var(--ink-black);
+    }
+    .skill-manage-toggle-chip.active {
+      border-color: var(--stamp-red);
+      background: rgba(125, 27, 27, 0.08);
+      color: var(--stamp-red);
+      box-shadow: inset 0 -2px 0 var(--stamp-red);
+    }
+    .skill-manage-filter-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .skill-manage-field-group {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .skill-manage-filter-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .skill-manage-filter-title {
+      font-family: var(--font-heading-sub);
+      font-size: var(--font-size-14);
+      color: var(--ink-black);
+    }
+    .skill-manage-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+    .skill-manage-field > span {
+      font-size: var(--font-size-12);
+      color: var(--ink-grey);
+    }
+    .skill-manage-field select,
+    .skill-manage-field input {
+      width: 100%;
+      min-width: 0;
+      padding: 8px 10px;
+      border: 1px solid rgba(34, 26, 19, 0.14);
+      background: var(--paper-white);
+      color: var(--ink-black);
+      font-size: var(--font-size-12);
+    }
+    .skill-manage-filter-copy {
+      margin-bottom: 10px;
+      font-size: var(--font-size-12);
+      color: var(--ink-grey);
+      line-height: 1.5;
+    }
+    .skill-manage-filter-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .skill-manage-filter-chip {
+      padding: 6px 10px;
+      border: 1px solid rgba(34, 26, 19, 0.16);
+      background: var(--paper-white);
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+    .skill-manage-filter-chip:hover {
+      background: var(--highlight);
+      color: var(--ink-black);
+    }
+    .skill-manage-filter-chip.active {
+      border-color: var(--stamp-red);
+      background: rgba(125, 27, 27, 0.08);
+      color: var(--stamp-red);
+      box-shadow: inset 0 -2px 0 var(--stamp-red);
+    }
+    .skill-manage-list {
+      min-height: 120px;
     }
 
     .world-hero {

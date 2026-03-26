@@ -174,6 +174,7 @@ message TechniqueUpdateEntryPayload {
   required uint32 exp = 3;
   required uint32 expToNext = 4;
   required uint32 realm = 5;
+  required uint32 realmLv = 16;
   optional string name = 6;
   optional bool clearName = 7;
   optional string grade = 8;
@@ -203,18 +204,20 @@ message ActionUpdateEntryPayload {
   optional bool clearAutoBattleEnabled = 4;
   optional uint32 autoBattleOrder = 5;
   optional bool clearAutoBattleOrder = 6;
-  optional string name = 7;
-  optional bool clearName = 8;
-  optional string type = 9;
-  optional bool clearType = 10;
-  optional string desc = 11;
-  optional bool clearDesc = 12;
-  optional uint32 range = 13;
-  optional bool clearRange = 14;
-  optional bool requiresTarget = 15;
-  optional bool clearRequiresTarget = 16;
-  optional string targetMode = 17;
-  optional bool clearTargetMode = 18;
+  optional bool skillEnabled = 7;
+  optional bool clearSkillEnabled = 8;
+  optional string name = 9;
+  optional bool clearName = 10;
+  optional string type = 11;
+  optional bool clearType = 12;
+  optional string desc = 13;
+  optional bool clearDesc = 14;
+  optional uint32 range = 15;
+  optional bool clearRange = 16;
+  optional bool requiresTarget = 17;
+  optional bool clearRequiresTarget = 18;
+  optional string targetMode = 19;
+  optional bool clearTargetMode = 20;
 }
 
 message AttrUpdatePayload {
@@ -587,6 +590,7 @@ function toWireTechniqueEntry(entry: TechniqueUpdateEntry): Record<string, unkno
     level: entry.level,
     exp: entry.exp,
     expToNext: entry.expToNext,
+    realmLv: entry.realmLv,
     realm: entry.realm,
   };
   setNullableWireValue(wire, 'name', 'clearName', entry.name);
@@ -615,6 +619,7 @@ function fromWireTechniqueEntry(wire: Record<string, unknown>): TechniqueUpdateE
     level: Number(wire.level ?? 0),
     exp: Number(wire.exp ?? 0),
     expToNext: Number(wire.expToNext ?? 0),
+    realmLv: Number(wire.realmLv ?? 1),
     realm: Number(wire.realm ?? 0) as TechniqueState['realm'],
   };
   const name = readNullableWireValue<string>(wire, 'name', 'clearName');
@@ -646,6 +651,7 @@ function toWireActionEntry(entry: ActionUpdateEntry): Record<string, unknown> {
   };
   setNullableWireValue(wire, 'autoBattleEnabled', 'clearAutoBattleEnabled', entry.autoBattleEnabled);
   setNullableWireValue(wire, 'autoBattleOrder', 'clearAutoBattleOrder', entry.autoBattleOrder);
+  setNullableWireValue(wire, 'skillEnabled', 'clearSkillEnabled', entry.skillEnabled);
   setNullableWireValue(wire, 'name', 'clearName', entry.name);
   setNullableWireValue(wire, 'type', 'clearType', entry.type);
   setNullableWireValue(wire, 'desc', 'clearDesc', entry.desc);
@@ -664,6 +670,8 @@ function fromWireActionEntry(wire: Record<string, unknown>): ActionUpdateEntry {
   if (autoBattleEnabled !== undefined) patch.autoBattleEnabled = autoBattleEnabled;
   const autoBattleOrder = readNullableWireValue<number>(wire, 'autoBattleOrder', 'clearAutoBattleOrder');
   if (autoBattleOrder !== undefined) patch.autoBattleOrder = autoBattleOrder === null ? null : Number(autoBattleOrder);
+  const skillEnabled = readNullableWireValue<boolean>(wire, 'skillEnabled', 'clearSkillEnabled');
+  if (skillEnabled !== undefined) patch.skillEnabled = skillEnabled;
   const name = readNullableWireValue<string>(wire, 'name', 'clearName');
   if (name !== undefined) patch.name = name;
   const type = readNullableWireValue<ActionDef['type']>(wire, 'type', 'clearType');

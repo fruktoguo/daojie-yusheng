@@ -726,6 +726,7 @@ export interface SkillDef {
   desc: string;
   cooldown: number;
   cost: number;
+  costMultiplier?: number;
   range: number;
   targeting?: SkillTargetingDef;
   effects: SkillEffectDef[];
@@ -749,6 +750,7 @@ export interface TechniqueState {
   level: number;
   exp: number;
   expToNext: number;
+  realmLv: number;
   realm: TechniqueRealm;
   skills: SkillDef[];
   grade?: TechniqueGrade;
@@ -763,6 +765,7 @@ export type ActionType = 'skill' | 'gather' | 'interact' | 'quest' | 'toggle' | 
 export interface AutoBattleSkillConfig {
   skillId: string;
   enabled: boolean;
+  skillEnabled?: boolean;
 }
 
 /** 行动定义 */
@@ -777,6 +780,7 @@ export interface ActionDef {
   targetMode?: 'any' | 'entity' | 'tile';
   autoBattleEnabled?: boolean;
   autoBattleOrder?: number;
+  skillEnabled?: boolean;
 }
 
 /** 战斗攻击特效 */

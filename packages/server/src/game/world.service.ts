@@ -286,15 +286,16 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           id: `container:${sourceMapId}:${container.id}`,
           x: projected.x,
           y: projected.y,
-          char: '箱',
-          color: '#c18b46',
+          char: container.char?.trim() ? container.char.trim().slice(0, 1) : '箱',
+          color: container.color?.trim() ? container.color.trim() : '#c18b46',
           name: container.name,
           kind: 'container',
           observation: {
             clarity: 'clear',
-            verdict: '这是一口可搜索的箱具，翻找后或许会有收获。',
+            verdict: container.desc?.trim() || `这处${container.name}可以搜索，翻找后或许会有收获。`,
             lines: [
-              { label: '类别', value: '可搜索容器' },
+              { label: '类别', value: '可搜索陈设' },
+              { label: '名称', value: container.name },
               { label: '搜索阶次', value: `${container.grade}` },
             ],
           },
@@ -699,9 +700,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         .map((action) => [action.id, action] as const),
     );
     const availableSkill = player.autoBattleSkills
-      .filter((entry) => entry.enabled)
+      .filter((entry) => entry.enabled && entry.skillEnabled !== false)
       .map((entry) => skillActionMap.get(entry.skillId))
-      .find((action): action is ActionDef => action !== undefined && action.cooldownLeft === 0);
+      .find((action): action is ActionDef => action !== undefined && action.skillEnabled !== false && action.cooldownLeft === 0);
     const availableSkillDef = availableSkill ? this.contentService.getSkill(availableSkill.id) : null;
     const preferredRange = availableSkillDef?.range ?? 1;
 

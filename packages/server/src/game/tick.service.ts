@@ -93,6 +93,7 @@ interface ActionSyncStateEntry {
   type: string;
   autoBattleEnabled?: boolean;
   autoBattleOrder?: number;
+  skillEnabled?: boolean;
 }
 
 interface SyncActionsOptions {
@@ -1904,6 +1905,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       type: action.type,
       autoBattleEnabled: action.autoBattleEnabled,
       autoBattleOrder: action.autoBattleOrder,
+      skillEnabled: action.skillEnabled,
     }));
   }
 
@@ -2047,6 +2049,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       }
       if (!previous || previous.autoBattleOrder !== action.autoBattleOrder) {
         patch.autoBattleOrder = action.autoBattleOrder ?? null;
+      }
+      if (!previous || previous.skillEnabled !== action.skillEnabled) {
+        patch.skillEnabled = action.skillEnabled ?? null;
       }
       if (!previous || previous.name !== action.name) patch.name = action.name ?? null;
       if (!previous || previous.type !== action.type) patch.type = action.type ?? null;

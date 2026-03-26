@@ -29,6 +29,7 @@ import { SettingsPanel } from './ui/panels/settings-panel';
 import { WorldPanel } from './ui/panels/world-panel';
 import { SuggestionPanel } from './ui/suggestion-panel';
 import { ChangelogPanel } from './ui/changelog-panel';
+import { getHeavenGateHudAction, openHeavenGateModal } from './ui/heaven-gate-modal';
 import { initializeUiStyleConfig } from './ui/ui-style-config';
 import { createClientPanelSystem } from './ui/panel-system/bootstrap';
 import { bindResponsiveViewportCss } from './ui/responsive-viewport';
@@ -454,6 +455,10 @@ function escapeHtml(input: string): string {
 }
 
 function openBreakthroughModal() {
+  if (openHeavenGateModal(myPlayer, { showToast })) {
+    return;
+  }
+
   const preview = myPlayer?.realm?.breakthrough;
   const currentRealm = myPlayer?.realm;
   if (!preview || !currentRealm) {
@@ -1079,6 +1084,7 @@ function mergeTechniquePatch(patch: TechniqueUpdateEntry, previous?: TechniqueSt
     level: patch.level,
     exp: patch.exp,
     expToNext: patch.expToNext,
+    realmLv: patch.realmLv,
     realm: patch.realm,
     name: applyNullablePatch(patch.name, previous?.name) ?? patch.techId,
     skills: applyNullablePatch(patch.skills, previous?.skills) ? cloneJson(applyNullablePatch(patch.skills, previous?.skills) ?? []) : [],
@@ -1112,6 +1118,7 @@ function mergeActionPatch(patch: ActionUpdateEntry, previous?: ActionDef): Actio
     cooldownLeft: patch.cooldownLeft,
     autoBattleEnabled: applyNullablePatch(patch.autoBattleEnabled, previous?.autoBattleEnabled),
     autoBattleOrder: applyNullablePatch(patch.autoBattleOrder, previous?.autoBattleOrder),
+    skillEnabled: applyNullablePatch(patch.skillEnabled, previous?.skillEnabled),
     name: applyNullablePatch(patch.name, previous?.name) ?? patch.id,
     type: applyNullablePatch(patch.type, previous?.type) ?? 'interact',
     desc: applyNullablePatch(patch.desc, previous?.desc) ?? '',
@@ -1506,6 +1513,7 @@ socket.onActionsUpdate((data) => {
       .map((action) => ({
         skillId: action.id,
         enabled: action.autoBattleEnabled !== false,
+        skillEnabled: action.skillEnabled !== false,
       }));
     myPlayer.autoBattle = data.autoBattle ?? inferAutoBattle(myPlayer.autoBattle, mergedActions);
     myPlayer.autoRetaliate = data.autoRetaliate ?? inferAutoRetaliate(myPlayer.autoRetaliate !== false, mergedActions);
@@ -1741,6 +1749,7 @@ function haveActionRenderStructureChanges(previousActions: ActionDef[], nextActi
       || previous.targetMode !== next.targetMode
       || previous.autoBattleEnabled !== next.autoBattleEnabled
       || previous.autoBattleOrder !== next.autoBattleOrder
+      || previous.skillEnabled !== next.skillEnabled
     ) {
       return true;
     }
@@ -1767,6 +1776,7 @@ function haveTechniqueStructureChanges(
       previous.techId !== next.techId
       || previous.name !== next.name
       || previous.level !== next.level
+      || previous.realmLv !== next.realmLv
       || previous.realm !== next.realm
       || previous.grade !== next.grade
     ) {
@@ -1840,11 +1850,14 @@ function refreshUiChrome() {
 
 function refreshHudChrome() {
   if (!myPlayer) return;
+  const heavenGateAction = getHeavenGateHudAction(myPlayer);
   hud.update(myPlayer, {
     mapName: mapRuntime.getMapMeta()?.name ?? myPlayer.mapId,
     mapDanger: resolveMapDanger(),
     realmLabel: myPlayer.realm?.displayName ?? resolveRealmLabel(myPlayer),
     realmReviewLabel: myPlayer.realm?.review ?? myPlayer.realmReview,
+    realmActionLabel: heavenGateAction?.label,
+    showRealmAction: heavenGateAction?.visible,
     titleLabel: resolveTitleLabel(myPlayer),
   });
 }

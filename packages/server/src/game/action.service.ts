@@ -19,14 +19,16 @@ export class ActionService {
     const skillActions = this.techniqueService.getSkillActions(player);
     const autoBattleSkills = this.normalizeAutoBattleSkills(skillActions, player.autoBattleSkills);
     const skillOrder = new Map(autoBattleSkills.map((entry, index) => [entry.skillId, index]));
-    const skillEnabled = new Map(autoBattleSkills.map((entry) => [entry.skillId, entry.enabled]));
+    const autoBattleEnabledMap = new Map(autoBattleSkills.map((entry) => [entry.skillId, entry.enabled]));
+    const skillPanelEnabled = new Map(autoBattleSkills.map((entry) => [entry.skillId, entry.skillEnabled !== false]));
     const orderedSkillActions = [...skillActions]
       .sort((left, right) => (skillOrder.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (skillOrder.get(right.id) ?? Number.MAX_SAFE_INTEGER));
     const merged = [...contextActions, ...orderedSkillActions].map((action) => ({
       ...action,
       cooldownLeft: cooldowns.get(action.id) ?? action.cooldownLeft,
-      autoBattleEnabled: action.type === 'skill' ? (skillEnabled.get(action.id) ?? true) : action.autoBattleEnabled,
+      autoBattleEnabled: action.type === 'skill' ? (autoBattleEnabledMap.get(action.id) ?? true) : action.autoBattleEnabled,
       autoBattleOrder: action.type === 'skill' ? skillOrder.get(action.id) : action.autoBattleOrder,
+      skillEnabled: action.type === 'skill' ? (skillPanelEnabled.get(action.id) ?? true) : action.skillEnabled,
     }));
     player.autoBattleSkills = autoBattleSkills;
     player.actions = merged;
@@ -92,6 +94,7 @@ export class ActionService {
       normalized.push({
         skillId: entry.skillId,
         enabled: entry.enabled !== false,
+        skillEnabled: entry.skillEnabled !== false,
       });
       seen.add(entry.skillId);
     }
@@ -103,6 +106,7 @@ export class ActionService {
       normalized.push({
         skillId: action.id,
         enabled: true,
+        skillEnabled: true,
       });
       seen.add(action.id);
     }

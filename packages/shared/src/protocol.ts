@@ -478,6 +478,7 @@ export interface TechniqueUpdateEntry {
   level: number;
   exp: number;
   expToNext: number;
+  realmLv: number;
   realm: TechniqueRealm;
   name?: string | null;
   grade?: TechniqueGrade | null;
@@ -498,6 +499,7 @@ export interface ActionUpdateEntry {
   cooldownLeft: number;
   autoBattleEnabled?: boolean | null;
   autoBattleOrder?: number | null;
+  skillEnabled?: boolean | null;
   name?: string | null;
   type?: ActionType | null;
   desc?: string | null;
@@ -764,6 +766,7 @@ export interface GmEditorTechniqueOption {
   id: string;
   name: string;
   grade?: TechniqueGrade;
+  realmLv?: number;
   skills?: SkillDef[];
   layers?: TechniqueLayerDef[];
 }
@@ -863,11 +866,28 @@ export interface GmMapDropRecord {
   chance?: number;
 }
 
+/** GM 地图容器随机池记录 */
+export interface GmMapContainerLootPoolRecord {
+  rolls?: number;
+  chance?: number;
+  minLevel?: number;
+  maxLevel?: number;
+  minGrade?: TechniqueGrade;
+  maxGrade?: TechniqueGrade;
+  tagGroups?: string[][];
+  countMin?: number;
+  countMax?: number;
+  allowDuplicates?: boolean;
+}
+
 /** GM 地图容器记录 */
 export interface GmMapContainerRecord {
   grade?: TechniqueGrade;
   refreshTicks?: number;
+  char?: string;
+  color?: string;
   drops?: GmMapDropRecord[];
+  lootPools?: GmMapContainerLootPoolRecord[];
 }
 
 /** GM 地图任务记录 */
