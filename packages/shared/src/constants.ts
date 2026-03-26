@@ -22,8 +22,11 @@ export {
   SERVER_PORT,
 } from './constants/gameplay/core';
 export {
+  ACCOUNT_MAX_LENGTH,
   ACCOUNT_MIN_LENGTH,
   PASSWORD_MIN_LENGTH,
+  ROLE_NAME_MAX_ASCII_LENGTH,
+  ROLE_NAME_MAX_LENGTH,
 } from './constants/network/account';
 export {
   CONNECTION_RECOVERY_RETRY_MS,

@@ -59,6 +59,7 @@ import {
   TERRAIN_RESTORE_RETRY_DELAY_TICKS,
   TechniqueGrade,
   DEFAULT_AURA_LEVEL_BASE_VALUE,
+  DEFAULT_PLAYER_MAP_ID,
   TILE_AURA_HALF_LIFE_RATE_SCALE,
   TILE_AURA_HALF_LIFE_RATE_SCALED,
   buildQiResourceKey,
@@ -3282,6 +3283,41 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     return tile !== null && tile.walkable;
   }
 
+  isPlayerOverlapTile(mapId: string, x: number, y: number): boolean {
+    return this.supportsPlayerOverlap(mapId, x, y);
+  }
+
+  resolveDefaultPlayerSpawnPosition(occupancyId?: string | null): { mapId: string; x: number; y: number } {
+    const mapId = this.getMapMeta(DEFAULT_PLAYER_MAP_ID)
+      ? DEFAULT_PLAYER_MAP_ID
+      : (this.getAllMapIds()[0] ?? DEFAULT_PLAYER_MAP_ID);
+    const spawn = this.getSpawnPoint(mapId) ?? { x: 10, y: 10 };
+    const pos = this.resolveWalkablePlayerPositionInMap(mapId, spawn.x, spawn.y, occupancyId);
+    return { mapId, x: pos.x, y: pos.y };
+  }
+
+  resolvePlayerPlacement(
+    mapId: string,
+    x: number,
+    y: number,
+    occupancyId?: string | null,
+  ): { mapId: string; x: number; y: number; mapMissing: boolean } {
+    if (!this.getMapMeta(mapId)) {
+      return {
+        ...this.resolveDefaultPlayerSpawnPosition(occupancyId),
+        mapMissing: true,
+      };
+    }
+
+    const pos = this.resolveWalkablePlayerPositionInMap(mapId, x, y, occupancyId);
+    return {
+      mapId,
+      x: pos.x,
+      y: pos.y,
+      mapMissing: false,
+    };
+  }
+
   isWalkable(mapId: string, x: number, y: number, options: OccupancyCheckOptions = {}): boolean {
     const tile = this.getTile(mapId, x, y);
     if (tile === null || !tile.walkable || this.hasNpcAt(mapId, x, y)) {
@@ -3436,6 +3472,38 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       }
     }
     return null;
+  }
+
+  private resolveWalkablePlayerPositionInMap(
+    mapId: string,
+    x: number,
+    y: number,
+    occupancyId?: string | null,
+  ): { x: number; y: number } {
+    const options: OccupancyCheckOptions = { occupancyId, actorType: 'player' };
+    if (this.canOccupy(mapId, x, y, options)) {
+      return { x, y };
+    }
+
+    const nearby = this.findNearbyWalkable(mapId, x, y, 10, options);
+    if (nearby) {
+      return nearby;
+    }
+
+    const spawn = this.getSpawnPoint(mapId);
+    if (spawn && this.canOccupy(mapId, spawn.x, spawn.y, options)) {
+      return spawn;
+    }
+
+    if (spawn) {
+      const nearSpawn = this.findNearbyWalkable(mapId, spawn.x, spawn.y, 12, options);
+      if (nearSpawn) {
+        return nearSpawn;
+      }
+      return spawn;
+    }
+
+    return { x, y };
   }
 
   getViewTiles(mapId: string, cx: number, cy: number, radius = VIEW_RADIUS, visibleKeys?: Set<string>): VisibleTile[][] {

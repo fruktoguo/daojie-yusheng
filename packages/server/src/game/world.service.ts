@@ -1362,33 +1362,17 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
   resetPlayerToSpawn(player: PlayerState): WorldUpdate {
     this.logger.log(`重置玩家到出生点: ${player.id} (${player.mapId}:${player.x},${player.y})`);
-    const spawn = this.mapService.getSpawnPoint('spawn') ?? { x: player.x, y: player.y };
-    const pos = this.findNearbyWalkable('spawn', spawn.x, spawn.y, 4) ?? spawn;
-    this.navigationService.clearMoveTarget(player.id);
-    this.mapService.removeOccupant(player.mapId, player.x, player.y, player.id);
-    player.mapId = 'spawn';
-    player.x = pos.x;
-    player.y = pos.y;
-    player.facing = Direction.South;
-    player.temporaryBuffs = [];
-    this.attrService.recalcPlayer(player);
-    player.hp = player.maxHp;
-    player.qi = Math.round(player.numericStats?.maxQi ?? player.qi);
-    player.dead = false;
-    player.autoBattle = false;
-    this.threatService.clearThreat(this.getPlayerThreatId(player));
-    this.clearCombatTarget(player);
-    this.mapService.addOccupant(player.mapId, player.x, player.y, player.id, 'player');
-    const equipmentResult = this.equipmentEffectService.dispatch(player, { trigger: 'on_enter_map' });
+    return this.movePlayerToInitialSpawn(player, '调试指令已执行，你被送回云来镇出生点。', {
+      restoreVitals: true,
+      clearBuffs: true,
+    });
+  }
 
-    return {
-      messages: [{
-        playerId: player.id,
-        text: '调试指令已执行，你被送回云来镇出生点。',
-        kind: 'system',
-      }],
-      dirty: [...new Set<WorldDirtyFlag>(['actions', ...(equipmentResult.dirty as WorldDirtyFlag[])])],
-    };
+  relocatePlayerToInitialSpawn(player: PlayerState, reasonText: string): WorldUpdate {
+    return this.movePlayerToInitialSpawn(player, reasonText, {
+      restoreVitals: false,
+      clearBuffs: false,
+    });
   }
 
   removePlayerFromWorld(player: PlayerState, reason: 'death' | 'timeout'): void {
@@ -3899,6 +3883,43 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   private clearCombatTarget(player: PlayerState): void {
     player.combatTargetId = undefined;
     player.combatTargetLocked = false;
+  }
+
+  private movePlayerToInitialSpawn(
+    player: PlayerState,
+    messageText: string,
+    options: { restoreVitals: boolean; clearBuffs: boolean },
+  ): WorldUpdate {
+    const spawn = this.mapService.resolveDefaultPlayerSpawnPosition(player.id);
+    this.navigationService.clearMoveTarget(player.id);
+    this.mapService.removeOccupant(player.mapId, player.x, player.y, player.id);
+    player.mapId = spawn.mapId;
+    player.x = spawn.x;
+    player.y = spawn.y;
+    player.facing = Direction.South;
+    if (options.clearBuffs) {
+      player.temporaryBuffs = [];
+    }
+    this.attrService.recalcPlayer(player);
+    if (options.restoreVitals) {
+      player.hp = player.maxHp;
+      player.qi = Math.round(player.numericStats?.maxQi ?? player.qi);
+      player.dead = false;
+    }
+    player.autoBattle = false;
+    this.threatService.clearThreat(this.getPlayerThreatId(player));
+    this.clearCombatTarget(player);
+    this.mapService.addOccupant(player.mapId, player.x, player.y, player.id, 'player');
+    const equipmentResult = this.equipmentEffectService.dispatch(player, { trigger: 'on_enter_map' });
+
+    return {
+      messages: [{
+        playerId: player.id,
+        text: messageText,
+        kind: 'system',
+      }],
+      dirty: [...new Set<WorldDirtyFlag>(['actions', ...(equipmentResult.dirty as WorldDirtyFlag[])])],
+    };
   }
 
   async persistMonsterRuntimeState(): Promise<void> {

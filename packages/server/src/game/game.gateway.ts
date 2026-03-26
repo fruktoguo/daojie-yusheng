@@ -77,6 +77,7 @@ import { TickService } from './tick.service';
 import { SuggestionService } from './suggestion.service';
 import { NavigationService } from './navigation.service';
 import { MarketActionResult, MarketService } from './market.service';
+import { buildDefaultRoleName } from '../auth/account-validation';
 
 @WebSocketGateway({ cors: true })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -130,10 +131,18 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const existing = this.playerService.getPlayer(existingPlayerId);
       if (existing) {
         existing.displayName = displayName;
-        if (existing.inWorld === false) {
-          const pos = this.resolveLoginPosition(existing.mapId, existing.x, existing.y);
-          existing.x = pos.x;
-          existing.y = pos.y;
+        const placement = this.resolveLoginPlacement(existing);
+        const moved = placement.mapId !== existing.mapId || placement.x !== existing.x || placement.y !== existing.y;
+        if (moved) {
+          this.mapService.removeOccupant(existing.mapId, existing.x, existing.y, existing.id);
+        }
+        if (moved) {
+          existing.mapId = placement.mapId;
+          existing.x = placement.x;
+          existing.y = placement.y;
+          this.navigationService.clearMoveTarget(existing.id);
+        }
+        if (!this.mapService.hasOccupant(existing.mapId, existing.x, existing.y, existing.id)) {
           this.mapService.addOccupant(existing.mapId, existing.x, existing.y, existing.id, 'player');
         }
         this.playerService.setSocket(existingPlayerId, client);
@@ -151,9 +160,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const saved = await this.playerService.loadPlayer(userId);
     if (saved) {
       saved.displayName = displayName;
-      const pos = this.resolveLoginPosition(saved.mapId, saved.x, saved.y);
-      saved.x = pos.x;
-      saved.y = pos.y;
+      const placement = this.resolveLoginPlacement(saved);
+      saved.mapId = placement.mapId;
+      saved.x = placement.x;
+      saved.y = placement.y;
       this.playerService.setSocket(saved.id, client);
       this.playerService.setUserMapping(userId, saved.id);
       this.playerService.markPlayerOnline(saved.id);
@@ -170,7 +180,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const initMaxHp = BASE_MAX_HP + DEFAULT_BASE_ATTRS.constitution * HP_PER_CONSTITUTION;
     const playerState: PlayerState = {
       id: playerId,
-      name: username,
+      name: buildDefaultRoleName(username) || username,
       displayName,
       mapId: DEFAULT_PLAYER_MAP_ID,
       x: spawn.x,
@@ -208,9 +218,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       inWorld: true,
     };
 
-    const startPos = this.resolveLoginPosition(playerState.mapId, playerState.x, playerState.y);
-    playerState.x = startPos.x;
-    playerState.y = startPos.y;
+    const startPlacement = this.resolveLoginPlacement(playerState);
+    playerState.mapId = startPlacement.mapId;
+    playerState.x = startPlacement.x;
+    playerState.y = startPlacement.y;
 
     await this.playerService.createPlayer(playerState, userId);
     this.playerService.setSocket(playerId, client);
@@ -717,12 +728,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }));
   }
 
-  /** 解析登录位置：若原坐标不可通行则就近寻找可行走格 */
-  private resolveLoginPosition(mapId: string, x: number, y: number): { x: number; y: number } {
-    if (this.mapService.isWalkable(mapId, x, y, { actorType: 'player' })) {
-      return { x, y };
-    }
-    return this.mapService.findNearbyWalkable(mapId, x, y, 8, { actorType: 'player' }) ?? { x, y };
+  /** 解析登录落点：地图被移除时回到初始地图复活点，其余情况就近落到可站立位置 */
+  private resolveLoginPlacement(player: Pick<PlayerState, 'id' | 'mapId' | 'x' | 'y'>): { mapId: string; x: number; y: number } {
+    const placement = this.mapService.resolvePlayerPlacement(player.mapId, player.x, player.y, player.id);
+    return {
+      mapId: placement.mapId,
+      x: placement.x,
+      y: placement.y,
+    };
   }
 
   /** 拦截 socket.emit，注入出站流量统计 */

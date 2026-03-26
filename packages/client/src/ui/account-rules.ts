@@ -1,4 +1,10 @@
-import { ACCOUNT_MIN_LENGTH, PASSWORD_MIN_LENGTH } from '@mud/shared';
+import {
+  ACCOUNT_MAX_LENGTH,
+  ACCOUNT_MIN_LENGTH,
+  getRoleNameLimitText,
+  isRoleNameWithinLimit,
+  PASSWORD_MIN_LENGTH,
+} from '@mud/shared';
 
 /**
  * 账号与角色信息的前端校验规则
@@ -11,8 +17,12 @@ function hasWhitespace(value: string): boolean {
 
 /** 校验注册用户名，返回错误提示或 null */
 export function validateRegisterUsername(username: string): string | null {
-  if (username.length < ACCOUNT_MIN_LENGTH) {
+  const length = [...username].length;
+  if (length < ACCOUNT_MIN_LENGTH) {
     return `账号长度不能少于 ${ACCOUNT_MIN_LENGTH} 个字符`;
+  }
+  if (length > ACCOUNT_MAX_LENGTH) {
+    return `账号长度不能超过 ${ACCOUNT_MAX_LENGTH} 个字符`;
   }
   if (hasWhitespace(username)) {
     return '账号不支持空格';
@@ -51,8 +61,8 @@ export function validateRoleName(roleName: string): string | null {
   if (!normalized) {
     return '角色名称不能为空';
   }
-  if ([...normalized].length > 50) {
-    return '角色名称不能超过 50 个字符';
+  if (!isRoleNameWithinLimit(normalized)) {
+    return `角色名称${getRoleNameLimitText()}`;
   }
   return null;
 }

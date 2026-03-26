@@ -11,6 +11,7 @@ import {
   AutoBattleSkillConfig,
   CombatEffect,
   DEFAULT_AURA_LEVEL_BASE_VALUE,
+  DEFAULT_PLAYER_MAP_ID,
   DEFAULT_OFFLINE_PLAYER_TIMEOUT_SEC,
   Direction,
   GroundItemPilePatch,
@@ -444,6 +445,11 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     this.measureCpuSection('player_presence', '在线态与保活', () => {
       this.tickPlayerPresence(mapId, now);
     });
+    if (mapId === DEFAULT_PLAYER_MAP_ID) {
+      this.measureCpuSection('player_presence', '在线态与保活', () => {
+        this.reconcilePlayersInRemovedMaps(affectedPlayers, messages);
+      });
+    }
 
     for (const cmd of commands) {
       const player = this.playerService.getPlayer(cmd.playerId);
@@ -829,6 +835,20 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
+  private reconcilePlayersInRemovedMaps(
+    affectedPlayers: Map<string, PlayerState>,
+    messages: WorldMessage[],
+  ): void {
+    for (const player of this.playerService.getAllPlayers()) {
+      if (player.inWorld === false || player.isBot || this.mapService.getMapMeta(player.mapId)) {
+        continue;
+      }
+      affectedPlayers.set(player.id, player);
+      const update = this.worldService.relocatePlayerToInitialSpawn(player, '你所在的地图已被移除，已回到初始地图复活点。');
+      this.applyWorldUpdate(player.id, update, messages);
+    }
+  }
+
   /** 使用物品后应用其效果（回血、学功法、解锁地图等） */
   private applyItemEffect(player: PlayerState, itemId: string, messages: WorldMessage[], count = 1) {
     const item = this.contentService.getItem(itemId);
@@ -874,7 +894,15 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         messages.push({ playerId: player.id, text: '技能书内容残缺，无法参悟。', kind: 'system' });
         return;
       }
-      const err = this.techniqueService.learnTechnique(player, technique.id, technique.name, technique.skills, technique.grade, technique.layers);
+      const err = this.techniqueService.learnTechnique(
+        player,
+        technique.id,
+        technique.name,
+        technique.skills,
+        technique.grade,
+        technique.realmLv,
+        technique.layers,
+      );
       if (err) {
         messages.push({ playerId: player.id, text: err, kind: 'system' });
         return;
@@ -1318,6 +1346,14 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           messages.push({
             playerId: player.id,
             text: mapMeta ? `${mapMeta.name} 的地图你早已记下。` : '这份地图你早已记下。',
+            kind: 'system',
+          });
+          break;
+        }
+        if (itemDef?.tileAuraGainAmount && this.mapService.isPlayerOverlapTile(player.mapId, player.x, player.y)) {
+          messages.push({
+            playerId: player.id,
+            text: '当前位于可重叠地块，无法使用灵石。',
             kind: 'system',
           });
           break;
@@ -1966,6 +2002,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         level: technique.level,
         exp: technique.exp,
         expToNext: technique.expToNext,
+        realmLv: technique.realmLv,
         realm: technique.realm,
       };
 

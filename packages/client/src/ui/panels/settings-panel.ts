@@ -3,6 +3,7 @@
  * 提供显示名称、角色名称修改与密码修改功能
  */
 
+import { ROLE_NAME_MAX_ASCII_LENGTH, ROLE_NAME_MAX_LENGTH } from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
 import { validateDisplayName, validatePassword, validateRoleName } from '../account-rules';
 import {
@@ -290,7 +291,7 @@ export class SettingsPanel {
     return `
       <div class="panel-section account-settings-section">
         <div class="panel-section-title">名称设置</div>
-        <div class="account-settings-copy">显示名称是唯一的一字标识；角色名称完整显示在头顶，默认使用账号名称，可与其他人重名。</div>
+        <div class="account-settings-copy">显示名称是唯一的一字标识；角色名称完整显示在头顶，默认取账号前 ${ROLE_NAME_MAX_LENGTH} 个字，纯英文最多 ${ROLE_NAME_MAX_ASCII_LENGTH} 个字符，可与其他人重名。</div>
         <div class="account-settings-name-grid">
           <div class="account-settings-field account-settings-field--display">
             <label for="settings-display-name">显示名称</label>
@@ -302,7 +303,7 @@ export class SettingsPanel {
           </div>
           <div class="account-settings-field">
             <label for="settings-role-name">角色名称</label>
-            <input id="settings-role-name" type="text" maxlength="50" value="${escapeHtml(this.currentRoleName)}" placeholder="输入角色名称" />
+            <input id="settings-role-name" type="text" maxlength="${ROLE_NAME_MAX_ASCII_LENGTH}" value="${escapeHtml(this.currentRoleName)}" placeholder="输入角色名称" />
             <div id="settings-role-name-status" class="account-settings-status"></div>
             <div class="account-settings-actions">
               <button id="settings-role-name-submit" class="small-btn" type="button">保存角色名称</button>

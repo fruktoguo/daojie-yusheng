@@ -1,9 +1,20 @@
 /**
  * 账号与密码校验工具 —— 用户名 / 密码 / 显示名称 / 角色名的格式校验与归一化
  */
-import { ACCOUNT_MIN_LENGTH, PASSWORD_MIN_LENGTH } from '@mud/shared';
+import {
+  ACCOUNT_MAX_LENGTH,
+  ACCOUNT_MIN_LENGTH,
+  getRoleNameLimitText,
+  isRoleNameWithinLimit,
+  PASSWORD_MIN_LENGTH,
+  truncateRoleName,
+} from '@mud/shared';
 
-export { ACCOUNT_MIN_LENGTH, PASSWORD_MIN_LENGTH };
+export {
+  ACCOUNT_MAX_LENGTH,
+  ACCOUNT_MIN_LENGTH,
+  PASSWORD_MIN_LENGTH,
+};
 
 function containsWhitespace(value: string): boolean {
   return /\s/.test(value);
@@ -19,9 +30,19 @@ export function normalizeDisplayName(value: string): string {
   return value.normalize('NFC');
 }
 
+/** 对角色名称做 Unicode NFC 归一化并去除首尾空白 */
+export function normalizeRoleName(value: string): string {
+  return value.normalize('NFC').trim();
+}
+
 /** 取用户名首字符作为默认显示名称 */
 export function getDefaultDisplayName(username: string): string {
   return [...normalizeUsername(username)][0] ?? '';
+}
+
+/** 新角色默认名称取账号前若干字，避免账号与角色名长度约束互相冲突 */
+export function buildDefaultRoleName(username: string): string {
+  return truncateRoleName(normalizeUsername(username));
 }
 
 /** 优先使用自定义显示名称，为空时回退到用户名首字符 */
@@ -33,8 +54,12 @@ export function resolveDisplayName(displayName: string | null | undefined, usern
 /** 校验用户名格式，返回 null 表示通过，否则返回错误信息 */
 export function validateUsername(username: string): string | null {
   const normalized = normalizeUsername(username);
-  if (normalized.length < ACCOUNT_MIN_LENGTH) {
+  const length = [...normalized].length;
+  if (length < ACCOUNT_MIN_LENGTH) {
     return `账号长度不能少于 ${ACCOUNT_MIN_LENGTH} 个字符`;
+  }
+  if (length > ACCOUNT_MAX_LENGTH) {
+    return `账号长度不能超过 ${ACCOUNT_MAX_LENGTH} 个字符`;
   }
   if (containsWhitespace(normalized)) {
     return '账号不支持空格';
@@ -70,12 +95,12 @@ export function validateDisplayName(displayName: string): string | null {
 
 /** 校验角色名称格式 */
 export function validateRoleName(roleName: string): string | null {
-  const normalized = roleName.normalize('NFC').trim();
+  const normalized = normalizeRoleName(roleName);
   if (!normalized) {
     return '角色名称不能为空';
   }
-  if ([...normalized].length > 50) {
-    return '角色名称不能超过 50 个字符';
+  if (!isRoleNameWithinLimit(normalized)) {
+    return `角色名称${getRoleNameLimitText()}`;
   }
   return null;
 }

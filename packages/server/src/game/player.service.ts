@@ -2,7 +2,7 @@
  * 玩家服务 —— 管理所有已加载玩家的内存状态、Socket 映射、命令队列、
  * 脏标记系统，以及与 PG/Redis 的存档读写。
  */
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import {
@@ -19,11 +19,11 @@ import {
   DEFAULT_BASE_ATTRS,
   DEFAULT_BONE_AGE_YEARS,
   DEFAULT_INVENTORY_CAPACITY,
-  DEFAULT_PLAYER_MAP_ID,
   Direction,
   normalizeBoneAgeBaseYears,
   normalizeLifeElapsedTicks,
   normalizeLifespanYears,
+  truncateRoleName,
   VIEW_RADIUS,
   clonePlainValue,
 } from '@mud/shared';
@@ -73,7 +73,7 @@ function normalizeNonNegativeCounter(value: unknown): number {
 }
 
 @Injectable()
-export class PlayerService {
+export class PlayerService implements OnModuleInit {
   private players: Map<string, PlayerState> = new Map();
   private commands: Map<string, PlayerCommand[]> = new Map();
   private socketMap: Map<string, Socket> = new Map();
@@ -93,6 +93,10 @@ export class PlayerService {
     private readonly equipmentService: EquipmentService,
     private readonly techniqueService: TechniqueService,
   ) {}
+
+  async onModuleInit(): Promise<void> {
+    await this.normalizePersistedRoleNames();
+  }
 
   /** 标记玩家数据变更 */
   markDirty(playerId: string, flag: DirtyFlag) {
@@ -134,6 +138,17 @@ export class PlayerService {
     const state = this.hydratePlayerState(entity, user
       ? resolveDisplayName(user.displayName, user.username)
       : entity.name);
+    const resolvedPosition = this.resolveRetainedPlayerPosition(state);
+    if (resolvedPosition.mapId !== state.mapId || resolvedPosition.x !== state.x || resolvedPosition.y !== state.y) {
+      state.mapId = resolvedPosition.mapId;
+      state.x = resolvedPosition.x;
+      state.y = resolvedPosition.y;
+      await this.playerRepo.update(state.id, {
+        mapId: state.mapId,
+        x: state.x,
+        y: state.y,
+      });
+    }
     this.players.set(state.id, state);
     await this.syncPlayerCache(state);
     return state;
@@ -664,6 +679,29 @@ export class PlayerService {
     return clonePlainValue(value);
   }
 
+  private async normalizePersistedRoleNames(): Promise<void> {
+    const players = await this.playerRepo.find({
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+    let normalizedCount = 0;
+
+    for (const player of players) {
+      const normalizedName = truncateRoleName(player.name.normalize('NFC').trim());
+      if (!normalizedName || normalizedName === player.name) {
+        continue;
+      }
+      await this.playerRepo.update(player.id, { name: normalizedName });
+      normalizedCount += 1;
+    }
+
+    if (normalizedCount > 0) {
+      this.logger.log(`启动时已裁切 ${normalizedCount} 个超长角色名`);
+    }
+  }
+
   private hydratePlayerState(entity: PlayerEntity, displayName: string): PlayerState {
     const state: PlayerState = {
       id: entity.id,
@@ -718,30 +756,8 @@ export class PlayerService {
   }
 
   private resolveRetainedPlayerPosition(player: PlayerState): { mapId: string; x: number; y: number } {
-    const preferredMapId = this.mapService.getMapMeta(player.mapId) ? player.mapId : DEFAULT_PLAYER_MAP_ID;
-    const occupancyOptions = { occupancyId: player.id, actorType: 'player' as const };
-    if (this.mapService.canOccupy(preferredMapId, player.x, player.y, occupancyOptions)) {
-      return { mapId: preferredMapId, x: player.x, y: player.y };
-    }
-
-    const nearby = this.mapService.findNearbyWalkable(preferredMapId, player.x, player.y, 10, occupancyOptions);
-    if (nearby) {
-      return { mapId: preferredMapId, x: nearby.x, y: nearby.y };
-    }
-
-    const spawn = this.mapService.getSpawnPoint(preferredMapId);
-    if (spawn && this.mapService.canOccupy(preferredMapId, spawn.x, spawn.y, occupancyOptions)) {
-      return { mapId: preferredMapId, x: spawn.x, y: spawn.y };
-    }
-
-    if (spawn) {
-      const nearSpawn = this.mapService.findNearbyWalkable(preferredMapId, spawn.x, spawn.y, 12, occupancyOptions);
-      if (nearSpawn) {
-        return { mapId: preferredMapId, x: nearSpawn.x, y: nearSpawn.y };
-      }
-    }
-
-    return { mapId: preferredMapId, x: player.x, y: player.y };
+    const placement = this.mapService.resolvePlayerPlacement(player.mapId, player.x, player.y, player.id);
+    return { mapId: placement.mapId, x: placement.x, y: placement.y };
   }
 
   private async expireRetainedPlayer(state: PlayerState): Promise<void> {

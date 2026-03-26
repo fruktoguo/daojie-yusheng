@@ -11,6 +11,7 @@ import { PlayerEntity } from '../database/entities/player.entity';
 import { PlayerService } from './player.service';
 import {
   normalizeDisplayName,
+  normalizeRoleName,
   resolveDisplayName,
   validateDisplayName,
   validatePassword,
@@ -97,7 +98,7 @@ export class AccountService {
 
   /** 更新角色名，同步到在线玩家状态 */
   async updateRoleName(userId: string, roleName: string): Promise<{ roleName: string }> {
-    const normalizedRoleName = roleName.normalize('NFC').trim();
+    const normalizedRoleName = normalizeRoleName(roleName);
     const roleNameError = validateRoleName(normalizedRoleName);
     if (roleNameError) {
       throw new BadRequestException(roleNameError);
