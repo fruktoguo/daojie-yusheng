@@ -2941,26 +2941,20 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return changed;
   }
 
-  private isQuestTargetNpc(quest: QuestState, npc: NpcConfig): boolean {
+  private isQuestTargetNpc(quest: QuestState, npc: NpcConfig, currentMapId: string): boolean {
     return quest.targetNpcId === npc.id
-      && (!quest.targetMapId || quest.targetMapId === this.getNpcMapId(npc.id));
+      && (!quest.targetMapId || quest.targetMapId === currentMapId);
   }
 
-  private isQuestSubmitNpc(quest: QuestState, npc: NpcConfig): boolean {
-    if (quest.submitNpcId) {
-      return quest.submitNpcId === npc.id;
-    }
-    return quest.giverId === npc.id;
-  }
-
-  private getNpcMapId(npcId: string): string | undefined {
-    return this.mapService.getNpcLocation(npcId)?.mapId;
+  private isQuestSubmitNpc(quest: QuestState, npc: NpcConfig, currentMapId: string): boolean {
+    return quest.submitNpcId === npc.id
+      && quest.submitMapId === currentMapId;
   }
 
   private getNpcInteractionState(player: PlayerState, npc: NpcConfig): NpcInteractionState {
     const readySubmitQuest = player.quests.find((entry) => (
       entry.status === 'ready'
-      && this.isQuestSubmitNpc(entry, npc)
+      && this.isQuestSubmitNpc(entry, npc, player.mapId)
     ));
     if (readySubmitQuest) {
       return {
@@ -2973,7 +2967,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     const activeTargetQuest = player.quests.find((entry) => (
       entry.status === 'active'
       && entry.objectiveType === 'talk'
-      && this.isQuestTargetNpc(entry, npc)
+      && this.isQuestTargetNpc(entry, npc, player.mapId)
     ));
     if (activeTargetQuest) {
       return {

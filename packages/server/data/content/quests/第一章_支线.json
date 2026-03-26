@@ -1,0 +1,169 @@
+{
+  "quests": [
+    {
+      "id": "q_bamboo_heart",
+      "title": "竹海蕴心",
+      "desc": "清理竹海妖狼与竹灵，带回翠竹心作为淬体药引。",
+      "targetMonsterId": "m_bamboo_sprite",
+      "targetCount": 6,
+      "requiredItemId": "bamboo_heart",
+      "requiredItemCount": 4,
+      "reward": [
+        {
+          "itemId": "equip.leather_vest",
+          "name": "硬皮护衣",
+          "type": "equipment",
+          "count": 1
+        },
+        {
+          "itemId": "book.iron_bone_art",
+          "name": "《铁骨功》",
+          "type": "skill_book",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_bamboo_mantis",
+      "line": "side",
+      "giverMapId": "bamboo_forest",
+      "giverNpcId": "npc_bamboo_hermit",
+      "submitMapId": "bamboo_forest",
+      "submitNpcId": "npc_bamboo_hermit"
+    },
+    {
+      "id": "q_bamboo_mantis",
+      "title": "斩螳开路",
+      "desc": "击退刃竹螳并收回足量螳锋，为深入矿洞做准备。",
+      "targetMonsterId": "m_bamboo_mantis",
+      "targetCount": 8,
+      "requiredItemId": "mantis_blade",
+      "requiredItemCount": 5,
+      "reward": [
+        {
+          "itemId": "equip.rust_saber",
+          "name": "旧铁长刀",
+          "type": "equipment",
+          "count": 1
+        },
+        {
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
+          "count": 2
+        }
+      ],
+      "line": "side",
+      "giverMapId": "bamboo_forest",
+      "giverNpcId": "npc_bamboo_hermit",
+      "submitMapId": "bamboo_forest",
+      "submitNpcId": "npc_bamboo_hermit"
+    },
+    {
+      "id": "q_luo_boar_tusk",
+      "title": "荒原肉粮",
+      "desc": "击杀 10 只獠牙野彘并带回足量彘牙。",
+      "targetMonsterId": "m_wild_boar",
+      "targetCount": 10,
+      "requiredItemId": "boar_tusk",
+      "requiredItemCount": 6,
+      "reward": [
+        {
+          "itemId": "equip.hunter_cap",
+          "name": "猎风帽",
+          "type": "equipment",
+          "count": 1
+        },
+        {
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
+          "count": 2
+        }
+      ],
+      "nextQuestId": "q_luo_bandit_camp",
+      "line": "side",
+      "giverMapId": "wildlands",
+      "giverNpcId": "npc_hunter_luo",
+      "submitMapId": "wildlands",
+      "submitNpcId": "npc_hunter_luo"
+    },
+    {
+      "id": "q_luo_bandit_camp",
+      "title": "剿灭营地",
+      "desc": "清理荒野匪营，击杀 8 名荒野匪徒并上缴腰牌。",
+      "targetMonsterId": "m_wild_bandit",
+      "targetCount": 8,
+      "requiredItemId": "bandit_insignia",
+      "requiredItemCount": 5,
+      "reward": [
+        {
+          "itemId": "equip.step_boots",
+          "name": "游侠靴",
+          "type": "equipment",
+          "count": 1
+        },
+        {
+          "itemId": "book.cloud_blade",
+          "name": "《流云刀谱》",
+          "type": "skill_book",
+          "count": 1
+        }
+      ],
+      "line": "side",
+      "giverMapId": "wildlands",
+      "giverNpcId": "npc_hunter_luo",
+      "submitMapId": "wildlands",
+      "submitNpcId": "npc_hunter_luo"
+    },
+    {
+      "id": "q_recluse_spider_silk",
+      "title": "丝引心法",
+      "desc": "猎杀阴沼毒蛛 6 只并收集阴沼丝。",
+      "targetMonsterId": "m_mire_spider",
+      "targetCount": 6,
+      "requiredItemId": "spider_silk",
+      "requiredItemCount": 4,
+      "reward": [
+        {
+          "itemId": "book.redflame_art",
+          "name": "《赤焰诀》",
+          "type": "skill_book",
+          "count": 1
+        },
+        {
+          "itemId": "equip.cloud_boots",
+          "name": "踏云履",
+          "type": "equipment",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_recluse_ridge_token",
+      "line": "side",
+      "giverMapId": "wildlands",
+      "giverNpcId": "npc_wild_recluse",
+      "submitMapId": "wildlands",
+      "submitNpcId": "npc_wild_recluse"
+    },
+    {
+      "id": "q_recluse_ridge_token",
+      "title": "岭门访证",
+      "desc": "在灵脊岭击退守岭残魂并取得通行令。",
+      "targetMonsterId": "m_ridge_ghost",
+      "targetCount": 4,
+      "requiredItemId": "spirit_ridge_sigil",
+      "requiredItemCount": 1,
+      "reward": [
+        {
+          "itemId": "book.spirit_anchor",
+          "name": "《镇灵篇》",
+          "type": "skill_book",
+          "count": 1
+        }
+      ],
+      "line": "side",
+      "giverMapId": "wildlands",
+      "giverNpcId": "npc_wild_recluse",
+      "submitMapId": "wildlands",
+      "submitNpcId": "npc_wild_recluse"
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "quests": [
+    {
+      "id": "q_ridge_scout",
+      "title": "灵岭勘探",
+      "line": "main",
+      "chapter": "第四章·灵岭问门",
+      "story": "大宗师之势���成，清玄才肯让你去碰灵脊岭。那里残留着更接近仙门的守关印记，是踏出凡武的最后路标。",
+      "desc": "前往灵脊岭，击退 8 头灵脊虎并带回灵岭行令。",
+      "objectiveText": "踏勘灵脊岭，取回守关行令",
+      "targetMonsterId": "m_spirit_tiger",
+      "targetCount": 8,
+      "requiredItemId": "spirit_ridge_sigil",
+      "requiredItemCount": 1,
+      "reward": [
+        {
+          "itemId": "equip.spirit_ring",
+          "name": "凝灵戒",
+          "type": "equipment",
+          "count": 1
+        },
+        {
+          "itemId": "book.frost_sutra",
+          "name": "《寒魄经》",
+          "type": "skill_book",
+          "count": 1
+        }
+      ],
+      "unlockBreakthroughRequirementIds": [
+        "bw_18_19_blood_feather",
+        "bw_18_19_demon_wolf_bone",
+        "bw_18_19_spirit_iron_fragment"
+      ],
+      "nextQuestId": "q_realm_qi_refining",
+      "giverMapId": "spawn",
+      "giverNpcId": "npc_qingxuan",
+      "submitMapId": "spawn",
+      "submitNpcId": "npc_qingxuan"
+    },
+    {
+      "id": "q_realm_qi_refining",
+      "title": "破凡入真",
+      "line": "main",
+      "chapter": "第四章·灵岭问门",
+      "story": "灵岭行令到手，清玄终于承认你已站在仙门门槛前。去兽谷再收血羽与妖骨，借先前所得灵铁碎片，一举踏入练气。",
+      "desc": "备齐血羽、妖狼骨与灵铁碎片，完成从凡���到修真的第一次大跨越。",
+      "objectiveType": "realm_stage",
+      "objectiveText": "收束兽谷异物，历练至练气前期",
+      "targetRealmStage": "QiRefining",
+      "targetName": "练气前期",
+      "required": 1,
+      "reward": [
+        {
+          "itemId": "pure_yang_pill",
+          "name": "纯阳丹",
+          "type": "consumable",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_sky_pillar",
+      "giverMapId": "spawn",
+      "giverNpcId": "npc_qingxuan",
+      "submitMapId": "spawn",
+      "submitNpcId": "npc_qingxuan"
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+{
+  "quests": [
+    {
+      "id": "q_intro_manual",
+      "title": "引气入门",
+      "line": "main",
+      "chapter": "序章·云来镇",
+      "story": "清玄执事要你先把随身《青木剑诀》参悟透。没有能运转气机的法门，修为与境界都无从谈起。",
+      "desc": "使用起始技能书，学会第一门功法。",
+      "objectiveType": "learn_technique",
+      "objectiveText": "使用技能书，学会《青木剑诀》",
+      "targetTechniqueId": "qingmu_sword",
+      "targetName": "青木剑诀",
+      "required": 1,
+      "reward": [
+        {
+          "itemId": "pill.minor_heal",
+          "name": "回春散",
+          "type": "consumable",
+          "count": 2
+        }
+      ],
+      "nextQuestId": "q_intro_cultivate",
+      "giverMapId": "spawn",
+      "giverNpcId": "npc_qingxuan",
+      "submitMapId": "spawn",
+      "submitNpcId": "npc_qingxuan"
+    },
+    {
+      "id": "q_intro_cultivate",
+      "title": "吐纳积元",
+      "line": "main",
+      "chapter": "序章·云来镇",
+      "story": "法门既成，下一步便是带着功法去历练。清玄要你走出镇门，在实战中把气机真正打磨出来，亲身体会“修为”并非虚言。",
+      "desc": "设定一门主修功法，击败镇外敌人，将凡胎境界经验提升到 20 点。",
+      "objectiveType": "realm_progress",
+      "objectiveText": "击败镇外敌人，将凡胎境界经验提升到 20/1000",
+      "targetRealmStage": "Mortal",
+      "targetName": "凡胎修为",
+      "required": 20,
+      "reward": [
+        {
+          "itemId": "minor_qi_pill",
+          "name": "小还灵丹",
+          "type": "consumable",
+          "count": 2
+        }
+      ],
+      "unlockBreakthroughRequirementIds": [
+        "bw_5_6_rat_tail",
+        "bw_5_6_boar_tusk"
+      ],
+      "nextQuestId": "q_intro_body_temper",
+      "giverMapId": "spawn",
+      "giverNpcId": "npc_qingxuan",
+      "submitMapId": "spawn",
+      "submitNpcId": "npc_qingxuan"
+    },
+    {
+      "id": "q_intro_body_temper",
+      "title": "养气开门",
+      "line": "main",
+      "chapter": "序章·云来镇",
+      "story": "修为积起后，真正的第一道门槛便是养气。清玄点明你需要镇外鼠尾与荒野彘牙作引，借外物养成第一缕内息。",
+      "desc": "继续历练并备齐鼠尾与彘牙，踏入养气境。若材料不足，可先清理镇外灰尾鼠，再去荒野猎取獠牙野彘。",
+      "objectiveType": "realm_stage",
+      "objectiveText": "备齐鼠尾与彘牙，历练至养气",
+      "targetRealmStage": "BodyTempering",
+      "targetName": "养气",
+      "required": 1,
+      "reward": [
+        {
+          "itemId": "minor_qi_pill",
+          "name": "小还灵丹",
+          "type": "consumable",
+          "count": 3
+        }
+      ],
+      "nextQuestId": "q_forest_cleanup",
+      "giverMapId": "spawn",
+      "giverNpcId": "npc_qingxuan",
+      "submitMapId": "spawn",
+      "submitNpcId": "npc_qingxuan"
+    }
+  ]
+}

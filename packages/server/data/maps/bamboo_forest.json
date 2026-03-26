@@ -108,56 +108,7 @@
       "char": "隐",
       "color": "#8ac6a0",
       "role": "quest_giver",
-      "dialogue": "清玄让你来磨骨？那就别只顾杀狼，竹灵与刃螳留下的东西，才是真正能入身的药引。",
-      "quests": [
-        {
-          "id": "q_bamboo_heart",
-          "title": "竹海蕴心",
-          "desc": "清理竹海妖狼与竹灵，带回翠竹心作为淬体药引。",
-          "targetMonsterId": "m_bamboo_sprite",
-          "targetCount": 6,
-          "requiredItemId": "bamboo_heart",
-          "requiredItemCount": 4,
-          "reward": [
-            {
-              "itemId": "equip.leather_vest",
-              "name": "硬皮护衣",
-              "type": "equipment",
-              "count": 1
-            },
-            {
-              "itemId": "book.iron_bone_art",
-              "name": "《铁骨功》",
-              "type": "skill_book",
-              "count": 1
-            }
-          ],
-          "nextQuestId": "q_bamboo_mantis"
-        },
-        {
-          "id": "q_bamboo_mantis",
-          "title": "斩螳开路",
-          "desc": "击退刃竹螳并收回足量螳锋，为深入矿洞做准备。",
-          "targetMonsterId": "m_bamboo_mantis",
-          "targetCount": 8,
-          "requiredItemId": "mantis_blade",
-          "requiredItemCount": 5,
-          "reward": [
-            {
-              "itemId": "equip.rust_saber",
-              "name": "旧铁长刀",
-              "type": "equipment",
-              "count": 1
-            },
-            {
-              "itemId": "major_qi_pill",
-              "name": "大还灵丹",
-              "type": "consumable",
-              "count": 2
-            }
-          ]
-        }
-      ]
+      "dialogue": "清玄让你来磨骨？那就别只顾杀狼，竹灵与刃螳留下的东西，才是真正能入身的药引。"
     }
   ],
   "monsterSpawns": [

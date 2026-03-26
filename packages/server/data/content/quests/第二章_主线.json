@@ -1,0 +1,99 @@
+{
+  "quests": [
+    {
+      "id": "q_mine_beacon",
+      "title": "矿洞信标",
+      "line": "main",
+      "chapter": "第二章·矿洞遗火",
+      "story": "青竹林尽头的玄铁矿洞曾是镇阵补给点。如今信标失落、矿魈游荡，清玄命你重启矿路的第一枚旧核。",
+      "desc": "进入玄铁矿洞，击杀 5 只矿魈并取回失落信标。",
+      "objectiveText": "深入玄铁矿洞，夺回失落信标核心",
+      "targetMonsterId": "m_mine_ghoul",
+      "targetCount": 5,
+      "requiredItemId": "mine_signal_core",
+      "requiredItemCount": 1,
+      "reward": [
+        {
+          "itemId": "book_thunder_palm",
+          "name": "《惊雷掌》残卷",
+          "type": "skill_book",
+          "count": 1
+        },
+        {
+          "itemId": "equip.black_iron_sword",
+          "name": "玄铁长剑",
+          "type": "equipment",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_ruin_cipher",
+      "giverMapId": "spawn",
+      "giverNpcId": "npc_qingxuan",
+      "submitMapId": "spawn",
+      "submitNpcId": "npc_qingxuan"
+    },
+    {
+      "id": "q_ruin_cipher",
+      "title": "断碑密钥",
+      "line": "main",
+      "chapter": "第二章·矿洞遗火",
+      "story": "仅有矿洞信标还不够。断碑遗迹里沉睡的古修阵纹才是真正的钥匙，清玄让你把能驱动阵门的钥石带回来。",
+      "desc": "清剿断碑遗迹的符阵看守并带回遗迹钥石。",
+      "objectiveText": "回收遗迹钥石，补齐开脉阵纹",
+      "targetMonsterId": "m_rune_watcher",
+      "targetCount": 4,
+      "requiredItemId": "ruin_keystone",
+      "requiredItemCount": 1,
+      "reward": [
+        {
+          "itemId": "book.spirit_anchor",
+          "name": "《镇灵篇》",
+          "type": "skill_book",
+          "count": 1
+        },
+        {
+          "itemId": "equip.rune_robe",
+          "name": "断纹法袍",
+          "type": "equipment",
+          "count": 1
+        }
+      ],
+      "unlockBreakthroughRequirementIds": [
+        "bw_12_13_black_iron_chunk",
+        "bw_12_13_rune_shard",
+        "bw_12_13_mine_signal_core"
+      ],
+      "nextQuestId": "q_realm_meridian",
+      "giverMapId": "spawn",
+      "giverNpcId": "npc_qingxuan",
+      "submitMapId": "spawn",
+      "submitNpcId": "npc_qingxuan"
+    },
+    {
+      "id": "q_realm_meridian",
+      "title": "天璇试关",
+      "line": "main",
+      "chapter": "第二章·矿洞遗火",
+      "story": "信标核心与遗迹灵纹已到手，剩下便是让玄铁与断纹真正入体。清玄要你借矿洞、遗迹所得引北斗再转，叩开天璇之位。",
+      "desc": "以矿洞与遗迹所得的材料为引，继续历练至天璇。",
+      "objectiveType": "realm_stage",
+      "objectiveText": "备齐玄铁、断纹与信标核心，历练至天璇",
+      "targetRealmStage": "Meridian",
+      "targetName": "天璇",
+      "required": 1,
+      "reward": [
+        {
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
+          "count": 2
+        }
+      ],
+      "nextQuestId": "q_valley_probe",
+      "giverMapId": "spawn",
+      "giverNpcId": "npc_qingxuan",
+      "submitMapId": "spawn",
+      "submitNpcId": "npc_qingxuan"
+    }
+  ]
+}

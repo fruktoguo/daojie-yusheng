@@ -1,0 +1,67 @@
+{
+  "quests": [
+    {
+      "id": "q_sky_star_metal",
+      "title": "坠星采金",
+      "desc": "击败天宫猎者并收集星陨金。",
+      "targetMonsterId": "m_void_hunter",
+      "targetCount": 10,
+      "requiredItemId": "star_metal",
+      "requiredItemCount": 6,
+      "reward": [
+        {
+          "itemId": "equip.starfall_spear",
+          "name": "陨星枪",
+          "type": "equipment",
+          "count": 1
+        },
+        {
+          "itemId": "book.starfall_spear",
+          "name": "《陨星枪诀》",
+          "type": "skill_book",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_sky_breaker",
+      "line": "side",
+      "giverMapId": "sky_ruins",
+      "giverNpcId": "npc_sky_observer",
+      "submitMapId": "sky_ruins",
+      "submitNpcId": "npc_sky_observer"
+    },
+    {
+      "id": "q_sky_breaker",
+      "title": "噬星终局",
+      "desc": "击杀噬星兽并带回天封核心。",
+      "targetMonsterId": "m_star_devourer",
+      "targetCount": 1,
+      "requiredItemId": "sky_seal_core",
+      "requiredItemCount": 1,
+      "reward": [
+        {
+          "itemId": "equip.void_talisman",
+          "name": "空劫符坠",
+          "type": "equipment",
+          "count": 1
+        },
+        {
+          "itemId": "equip.celestial_crown",
+          "name": "观星冠",
+          "type": "equipment",
+          "count": 1
+        },
+        {
+          "itemId": "pure_yang_pill",
+          "name": "纯阳丹",
+          "type": "consumable",
+          "count": 3
+        }
+      ],
+      "line": "side",
+      "giverMapId": "sky_ruins",
+      "giverNpcId": "npc_sky_observer",
+      "submitMapId": "sky_ruins",
+      "submitNpcId": "npc_sky_observer"
+    }
+  ]
+}

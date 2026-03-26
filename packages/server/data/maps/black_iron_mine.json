@@ -68,8 +68,7 @@
       "char": "魂",
       "color": "#c0d6ff",
       "dialogue": "失落信标在深矿区，矿魈专守钟乳洞口。若你是替云来镇而来，就别让炉火彻底灭掉。",
-      "role": "quest_hint",
-      "quests": []
+      "role": "quest_hint"
     },
     {
       "id": "npc_mine_smith",
@@ -79,56 +78,7 @@
       "char": "炉",
       "color": "#e7a66a",
       "dialogue": "矿火未熄，脉火就还能接上。你若真想通脉，就别浪费这里每一块玄铁。",
-      "role": "quest_giver",
-      "quests": [
-        {
-          "id": "q_mine_crystal_route",
-          "title": "矿脉导流",
-          "desc": "击杀矿魈 10 只并上缴矿晶核。",
-          "targetMonsterId": "m_mine_ghoul",
-          "targetCount": 10,
-          "requiredItemId": "mine_crystal_core",
-          "requiredItemCount": 1,
-          "reward": [
-            {
-              "itemId": "equip.miner_helmet",
-              "name": "矿卫盔",
-              "type": "equipment",
-              "count": 1
-            },
-            {
-              "itemId": "equip.black_iron_sword",
-              "name": "玄铁长剑",
-              "type": "equipment",
-              "count": 1
-            }
-          ],
-          "nextQuestId": "q_mine_colossus_heart"
-        },
-        {
-          "id": "q_mine_colossus_heart",
-          "title": "巨像熄火",
-          "desc": "击败矿脉巨像并取回其核心。",
-          "targetMonsterId": "m_ore_colossus",
-          "targetCount": 2,
-          "requiredItemId": "colossus_heart",
-          "requiredItemCount": 1,
-          "reward": [
-            {
-              "itemId": "book.frost_sutra",
-              "name": "《寒魄经》",
-              "type": "skill_book",
-              "count": 1
-            },
-            {
-              "itemId": "equip.rune_robe",
-              "name": "断纹法袍",
-              "type": "equipment",
-              "count": 1
-            }
-          ]
-        }
-      ]
+      "role": "quest_giver"
     }
   ],
   "monsterSpawns": [

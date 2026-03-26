@@ -131,8 +131,7 @@
       "char": "碑",
       "color": "#d9d2ff",
       "dialogue": "矿火补肉身，碑纹补神识。少了这里的残纹，你的通脉只会停在皮相。",
-      "role": "lore",
-      "quests": []
+      "role": "lore"
     },
     {
       "id": "npc_rune_keeper",
@@ -142,56 +141,7 @@
       "char": "纹",
       "color": "#95b3ff",
       "dialogue": "替我收束遗迹灵纹，我便把通往上界残宫的路标交给你。",
-      "role": "quest_giver",
-      "quests": [
-        {
-          "id": "q_ruin_shard_survey",
-          "title": "散纹回收",
-          "desc": "击溃石卫傀并回收足量断纹石片。",
-          "targetMonsterId": "m_ruin_guardian",
-          "targetCount": 12,
-          "requiredItemId": "rune_shard",
-          "requiredItemCount": 10,
-          "reward": [
-            {
-              "itemId": "equip.rune_robe",
-              "name": "断纹法袍",
-              "type": "equipment",
-              "count": 1
-            },
-            {
-              "itemId": "major_qi_pill",
-              "name": "大还灵丹",
-              "type": "consumable",
-              "count": 2
-            }
-          ],
-          "nextQuestId": "q_ruin_watcher"
-        },
-        {
-          "id": "q_ruin_watcher",
-          "title": "符阵看守",
-          "desc": "击杀 4 只符阵看守并带回遗迹钥石。",
-          "targetMonsterId": "m_rune_watcher",
-          "targetCount": 4,
-          "requiredItemId": "ruin_keystone",
-          "requiredItemCount": 1,
-          "reward": [
-            {
-              "itemId": "book.spirit_anchor",
-              "name": "《镇灵篇》",
-              "type": "skill_book",
-              "count": 1
-            },
-            {
-              "itemId": "equip.soul_devour_token",
-              "name": "噬元骨牌",
-              "type": "equipment",
-              "count": 1
-            }
-          ]
-        }
-      ]
+      "role": "quest_giver"
     }
   ],
   "monsterSpawns": [

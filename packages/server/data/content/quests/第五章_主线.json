@@ -1,0 +1,47 @@
+{
+  "quests": [
+    {
+      "id": "q_sky_pillar",
+      "title": "天穹封柱",
+      "line": "main",
+      "chapter": "第五章·残宫封天",
+      "story": "踏入练气后，你终于有资格直面天穹残宫。清玄认定裂隙根须系在天宫坠阵上，要你斩杀噬星兽并夺回封印核心。",
+      "desc": "进入天穹残宫，斩杀噬星兽并回收天封核心。",
+      "objectiveText": "重续天穹封柱，夺回天封核心",
+      "targetMonsterId": "m_star_devourer",
+      "targetCount": 1,
+      "requiredItemId": "sky_seal_core",
+      "requiredItemCount": 1,
+      "reward": [
+        {
+          "itemId": "book.starfall_spear",
+          "name": "《陨星枪诀》",
+          "type": "skill_book",
+          "count": 1
+        },
+        {
+          "itemId": "equip.void_talisman",
+          "name": "空劫符坠",
+          "type": "equipment",
+          "count": 1
+        },
+        {
+          "itemId": "pure_yang_pill",
+          "name": "纯阳丹",
+          "type": "consumable",
+          "count": 2
+        }
+      ],
+      "unlockBreakthroughRequirementIds": [
+        "bw_24_25_yellow_tech",
+        "bw_24_25_spirit",
+        "bw_24_25_comprehension"
+      ],
+      "nextQuestId": "q_foundation_oath",
+      "giverMapId": "spawn",
+      "giverNpcId": "npc_qingxuan",
+      "submitMapId": "spawn",
+      "submitNpcId": "npc_qingxuan"
+    }
+  ]
+}

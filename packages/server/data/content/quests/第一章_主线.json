@@ -1,0 +1,64 @@
+{
+  "quests": [
+    {
+      "id": "q_forest_cleanup",
+      "title": "清林试炼",
+      "line": "main",
+      "chapter": "第一章·青竹林",
+      "story": "云来镇东侧的青竹林已经被噬灵狼侵扰。清玄让你以养气修为先稳住林道，正式踏出镇门。",
+      "desc": "前往青竹林清理 8 只噬灵狼，证明你已具备外出历练资格。",
+      "objectiveText": "肃清林道狼患，打开东路补给线",
+      "targetMonsterId": "m_spirit_wolf",
+      "targetCount": 8,
+      "reward": [
+        {
+          "itemId": "book_wind_step",
+          "name": "《踏风步》",
+          "type": "skill_book",
+          "count": 1
+        },
+        {
+          "itemId": "minor_qi_pill",
+          "name": "小还灵丹",
+          "type": "consumable",
+          "count": 3
+        }
+      ],
+      "unlockBreakthroughRequirementIds": [
+        "bw_8_9_wolf_fang",
+        "bw_8_9_serpent_gall"
+      ],
+      "nextQuestId": "q_realm_bone_forging",
+      "giverMapId": "spawn",
+      "giverNpcId": "npc_qingxuan",
+      "submitMapId": "spawn",
+      "submitNpcId": "npc_qingxuan"
+    },
+    {
+      "id": "q_realm_bone_forging",
+      "title": "开阳试锋",
+      "line": "main",
+      "chapter": "第一章·青竹林",
+      "story": "狼患压下后，清玄要你借青竹林中的狼牙与蛇胆继续推高内息，借北斗星意撞开开阳之位。",
+      "desc": "在青竹林继续历练并备齐所需材料，踏入开阳境。",
+      "objectiveType": "realm_stage",
+      "objectiveText": "收集狼牙、蛇胆，历练至开阳",
+      "targetRealmStage": "BoneForging",
+      "targetName": "开阳",
+      "required": 1,
+      "reward": [
+        {
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
+          "count": 2
+        }
+      ],
+      "nextQuestId": "q_mine_beacon",
+      "giverMapId": "spawn",
+      "giverNpcId": "npc_qingxuan",
+      "submitMapId": "spawn",
+      "submitNpcId": "npc_qingxuan"
+    }
+  ]
+}

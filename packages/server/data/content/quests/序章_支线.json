@@ -1,0 +1,116 @@
+{
+  "quests": [
+    {
+      "id": "q_han_rat_hunt",
+      "title": "磨刃鼠患",
+      "desc": "清理镇外鼠患，击杀 12 只灰尾鼠。",
+      "targetMonsterId": "m_town_rat",
+      "targetCount": 12,
+      "reward": [
+        {
+          "itemId": "equip.rust_saber",
+          "name": "旧铁长刀",
+          "type": "equipment",
+          "count": 1
+        },
+        {
+          "itemId": "equip.hunter_cap",
+          "name": "猎风帽",
+          "type": "equipment",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_han_bandit_seal",
+      "line": "side",
+      "giverMapId": "spawn",
+      "giverNpcId": "npc_blacksmith_han",
+      "submitMapId": "spawn",
+      "submitNpcId": "npc_blacksmith_han"
+    },
+    {
+      "id": "q_han_bandit_seal",
+      "title": "锻铁买路钱",
+      "desc": "清掉夜袭匪徒，击杀 10 名镇外暴徒并收集腰牌。",
+      "targetMonsterId": "m_town_thug",
+      "targetCount": 10,
+      "requiredItemId": "bandit_insignia",
+      "requiredItemCount": 4,
+      "reward": [
+        {
+          "itemId": "equip.leather_vest",
+          "name": "硬皮护衣",
+          "type": "equipment",
+          "count": 1
+        },
+        {
+          "itemId": "book.iron_bone_art",
+          "name": "《铁骨功》",
+          "type": "skill_book",
+          "count": 1
+        }
+      ],
+      "line": "side",
+      "giverMapId": "spawn",
+      "giverNpcId": "npc_blacksmith_han",
+      "submitMapId": "spawn",
+      "submitNpcId": "npc_blacksmith_han"
+    },
+    {
+      "id": "q_lan_serpent_gall",
+      "title": "青竹胆汁",
+      "desc": "前往青竹林击杀 6 条青鳞竹蛇并收集蛇胆。",
+      "targetMonsterId": "m_bamboo_serpent",
+      "targetCount": 6,
+      "requiredItemId": "serpent_gall",
+      "requiredItemCount": 2,
+      "reward": [
+        {
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
+          "count": 3
+        },
+        {
+          "itemId": "equip.step_boots",
+          "name": "游侠靴",
+          "type": "equipment",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_lan_swamp_silk",
+      "line": "side",
+      "giverMapId": "spawn",
+      "giverNpcId": "npc_herbalist_lan",
+      "submitMapId": "spawn",
+      "submitNpcId": "npc_herbalist_lan"
+    },
+    {
+      "id": "q_lan_swamp_silk",
+      "title": "阴沼医绢",
+      "desc": "在荒野沼地猎杀 8 只阴沼毒蛛，采集完整阴沼丝。",
+      "targetMonsterId": "m_mire_spider",
+      "targetCount": 8,
+      "requiredItemId": "spider_silk",
+      "requiredItemCount": 4,
+      "reward": [
+        {
+          "itemId": "frost_heart_paste",
+          "name": "寒心膏",
+          "type": "consumable",
+          "count": 2
+        },
+        {
+          "itemId": "equip.cloud_boots",
+          "name": "踏云履",
+          "type": "equipment",
+          "count": 1
+        }
+      ],
+      "line": "side",
+      "giverMapId": "spawn",
+      "giverNpcId": "npc_herbalist_lan",
+      "submitMapId": "spawn",
+      "submitNpcId": "npc_herbalist_lan"
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "quests": [
+    {
+      "id": "q_valley_probe",
+      "title": "兽谷侦行",
+      "line": "main",
+      "chapter": "第三章·裂谷妖声",
+      "story": "踏入天璇后，你终于能扛住兽谷裂息。清玄怀疑真正的裂隙源头藏在谷底，要你斩开狼主，取回异质核心。",
+      "desc": "深入噬魂兽谷，击败 1 只谷主级目标并带回兽谷核心。",
+      "objectiveText": "深入噬魂兽谷，取回裂谷核心",
+      "targetMonsterId": "m_valley_alpha",
+      "targetCount": 1,
+      "requiredItemId": "valley_core",
+      "requiredItemCount": 1,
+      "reward": [
+        {
+          "itemId": "book_stillheart",
+          "name": "《止念诀》",
+          "type": "skill_book",
+          "count": 1
+        },
+        {
+          "itemId": "spirit_iron_fragment",
+          "name": "灵铁碎片",
+          "type": "material",
+          "count": 6
+        }
+      ],
+      "unlockBreakthroughRequirementIds": [
+        "bw_15_16_rune_shard",
+        "bw_15_16_spirit_iron_fragment",
+        "bw_15_16_valley_core"
+      ],
+      "nextQuestId": "q_realm_innate",
+      "giverMapId": "spawn",
+      "giverNpcId": "npc_qingxuan",
+      "submitMapId": "spawn",
+      "submitNpcId": "npc_qingxuan"
+    },
+    {
+      "id": "q_realm_innate",
+      "title": "大宗师归炁",
+      "line": "main",
+      "chapter": "第三章·裂谷妖声",
+      "story": "谷底核心与灵铁碎片昭示着凡武极限已近。清玄要你趁气机未散，借裂谷异质与遗迹残纹再推一境，立上大宗师门槛。",
+      "desc": "继续积累修为并备齐所需材料，踏入大宗师。",
+      "objectiveType": "realm_stage",
+      "objectiveText": "借兽谷核心与灵铁碎片，历练至大宗师",
+      "targetRealmStage": "Innate",
+      "targetName": "大宗师",
+      "required": 1,
+      "reward": [
+        {
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
+          "count": 3
+        }
+      ],
+      "nextQuestId": "q_ridge_scout",
+      "giverMapId": "spawn",
+      "giverNpcId": "npc_qingxuan",
+      "submitMapId": "spawn",
+      "submitNpcId": "npc_qingxuan"
+    }
+  ]
+}

@@ -87,62 +87,7 @@
       "char": "伤",
       "color": "#ff9e9e",
       "role": "warning",
-      "dialogue": "谷底那头狼主吞了太多裂息。你若是来取谷核的，就做好拿命换路的准备。",
-      "quests": [
-        {
-          "id": "q_valley_bone_pile",
-          "title": "压制狼群",
-          "desc": "击杀 12 只裂齿妖狼并回收妖狼骨。",
-          "targetMonsterId": "m_valley_wolf",
-          "targetCount": 12,
-          "requiredItemId": "demon_wolf_bone",
-          "requiredItemCount": 8,
-          "reward": [
-            {
-              "itemId": "equip.valley_fang_blade",
-              "name": "裂齿妖刃",
-              "type": "equipment",
-              "count": 1
-            },
-            {
-              "itemId": "major_qi_pill",
-              "name": "大还灵丹",
-              "type": "consumable",
-              "count": 3
-            }
-          ],
-          "nextQuestId": "q_valley_emperor"
-        },
-        {
-          "id": "q_valley_emperor",
-          "title": "谷皇镇杀",
-          "desc": "击败裂渊谷皇并提交其本命獠牙。",
-          "targetMonsterId": "m_valley_emperor",
-          "targetCount": 1,
-          "requiredItemId": "valley_emperor_fang",
-          "requiredItemCount": 1,
-          "reward": [
-            {
-              "itemId": "equip.rift_guard_armor",
-              "name": "裂隙镇守甲",
-              "type": "equipment",
-              "count": 1
-            },
-            {
-              "itemId": "book.frost_sutra",
-              "name": "《寒魄经》",
-              "type": "skill_book",
-              "count": 1
-            },
-            {
-              "itemId": "equip.soul_devour_token",
-              "name": "噬元骨牌",
-              "type": "equipment",
-              "count": 1
-            }
-          ]
-        }
-      ]
+      "dialogue": "谷底那头狼主吞了太多裂息。你若是来取谷核的，就做好拿命换路的准备。"
     }
   ],
   "monsterSpawns": [

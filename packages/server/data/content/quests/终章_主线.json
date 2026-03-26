@@ -1,0 +1,29 @@
+{
+  "quests": [
+    {
+      "id": "q_foundation_oath",
+      "title": "道基初誓",
+      "line": "main",
+      "chapter": "终章·道劫未尽",
+      "story": "天封核心归位后，裂隙暂时止息，但真正的道劫只是被压下。清玄要你稳固道基，准备迎接更高层次的灾变。",
+      "desc": "继续历练，踏入筑基前期，完成当前版本主线。",
+      "objectiveType": "realm_stage",
+      "objectiveText": "稳固道基，历练至筑基前期",
+      "targetRealmStage": "Foundation",
+      "targetName": "筑基前期",
+      "required": 1,
+      "reward": [
+        {
+          "itemId": "pure_yang_pill",
+          "name": "纯阳丹",
+          "type": "consumable",
+          "count": 2
+        }
+      ],
+      "giverMapId": "spawn",
+      "giverNpcId": "npc_qingxuan",
+      "submitMapId": "spawn",
+      "submitNpcId": "npc_qingxuan"
+    }
+  ]
+}
