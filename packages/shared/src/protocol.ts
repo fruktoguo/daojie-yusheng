@@ -224,6 +224,19 @@ export interface TickRenderEntity {
   buffs?: VisibleBuffState[] | null;
 }
 
+export interface ObservedTileEntityDetail {
+  id: string;
+  name?: string;
+  kind?: EntityKind | 'player' | null;
+  hp?: number;
+  maxHp?: number;
+  qi?: number;
+  maxQi?: number;
+  npcQuestMarker?: NpcQuestMarker | null;
+  observation?: ObservationInsight | null;
+  buffs?: VisibleBuffState[] | null;
+}
+
 /** 地面物品堆增量补丁 */
 export interface GroundItemPilePatch {
   sourceId: string;
@@ -563,6 +576,7 @@ export interface S2C_TileRuntimeDetail {
     level?: number;
     sourceValue?: number;
   }>;
+  entities?: ObservedTileEntityDetail[];
 }
 
 /** 任务列表更新 */

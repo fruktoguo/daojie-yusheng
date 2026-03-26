@@ -422,6 +422,11 @@ type ObservedEntity = {
   buffs?: VisibleBuffState[];
 };
 
+type ObserveEntityCardData = Pick<
+  ObservedEntity,
+  'id' | 'name' | 'kind' | 'hp' | 'maxHp' | 'qi' | 'maxQi' | 'npcQuestMarker' | 'observation' | 'buffs'
+>;
+
 type PendingAutoInteraction =
   | {
       kind: 'npc';
@@ -1150,7 +1155,37 @@ function formatTraversalCost(tile: Tile): string {
   return `${cost} 点/格`;
 }
 
-function buildObservedEntityCardHtml(entity: ObservedEntity): string {
+function toObserveEntityCardData(entity: ObservedEntity): ObserveEntityCardData {
+  return {
+    id: entity.id,
+    name: entity.name,
+    kind: entity.kind,
+    hp: entity.hp,
+    maxHp: entity.maxHp,
+    qi: entity.qi,
+    maxQi: entity.maxQi,
+    npcQuestMarker: entity.npcQuestMarker,
+    observation: entity.observation,
+    buffs: entity.buffs,
+  };
+}
+
+function normalizeObserveEntityCardData(entity: NonNullable<S2C_TileRuntimeDetail['entities']>[number]): ObserveEntityCardData {
+  return {
+    id: entity.id,
+    name: entity.name,
+    kind: entity.kind ?? undefined,
+    hp: entity.hp,
+    maxHp: entity.maxHp,
+    qi: entity.qi,
+    maxQi: entity.maxQi,
+    npcQuestMarker: entity.npcQuestMarker ?? undefined,
+    observation: entity.observation ?? undefined,
+    buffs: entity.buffs ?? undefined,
+  };
+}
+
+function buildObservedEntityCardHtml(entity: ObserveEntityCardData): string {
   const shouldAlwaysShowVitals = entity.kind === 'monster' || entity.kind === 'npc';
   const vitalRows = shouldAlwaysShowVitals
     ? [
@@ -1182,7 +1217,23 @@ function buildObservedEntityCardHtml(entity: ObservedEntity): string {
   </div>`;
 }
 
-function buildObservedEntitySectionHtml(entities: ObservedEntity[]): string {
+function resolveObserveEntities(targetX: number, targetY: number): ObserveEntityCardData[] {
+  if (
+    activeObservedTile
+    && activeObservedTile.mapId === myPlayer?.mapId
+    && activeObservedTile.x === targetX
+    && activeObservedTile.y === targetY
+    && activeObservedTileDetail?.entities
+  ) {
+    return activeObservedTileDetail.entities.map((entity) => normalizeObserveEntityCardData(entity));
+  }
+
+  return latestEntities
+    .filter((entity) => entity.wx === targetX && entity.wy === targetY)
+    .map((entity) => toObserveEntityCardData(entity));
+}
+
+function buildObservedEntitySectionHtml(entities: ObserveEntityCardData[]): string {
   return `<section class="observe-modal-section">
     <div class="observe-modal-section-title">角色信息</div>
     ${entities.length > 0
@@ -1229,8 +1280,7 @@ function renderObserveModal(targetX: number, targetY: number): void {
   }
 
   const groundPile = getVisibleGroundPileAt(targetX, targetY);
-  const entities = latestEntities.filter((entity) => entity.wx === targetX && entity.wy === targetY);
-  const sortedEntities = [...entities].sort((left, right) => {
+  const sortedEntities = [...resolveObserveEntities(targetX, targetY)].sort((left, right) => {
     const order = (kind?: string): number => (kind === 'player' ? 0 : kind === 'container' ? 1 : kind === 'npc' ? 2 : kind === 'monster' ? 3 : 4);
     return order(left.kind) - order(right.kind);
   });
@@ -1246,8 +1296,8 @@ function renderObserveModal(targetX: number, targetY: number): void {
       value: formatCurrentMax(tile.hp, tile.maxHp),
     });
   }
-  if (entities.length > 0) {
-    terrainRows.push({ label: '驻足气息', value: entities.map((entity) => entity.name ?? getEntityKindLabel(entity.kind, entity.id)).join('、') });
+  if (sortedEntities.length > 0) {
+    terrainRows.push({ label: '驻足气息', value: sortedEntities.map((entity) => entity.name ?? getEntityKindLabel(entity.kind, entity.id)).join('、') });
   } else if (tile.occupiedBy) {
     terrainRows.push({ label: '驻足气息', value: '此地留有生灵立身之痕' });
   }

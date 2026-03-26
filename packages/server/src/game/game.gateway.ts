@@ -418,16 +418,19 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const time = this.timeService.buildPlayerTimeState(player);
     const visibility = this.aoiService.getVisibility(player, time.effectiveViewRange);
-    const key = `${Math.round(data.x)},${Math.round(data.y)}`;
+    const targetX = Math.round(data.x);
+    const targetY = Math.round(data.y);
+    const key = `${targetX},${targetY}`;
     if (!visibility.visibleKeys.has(key)) {
       return;
     }
 
-    const detail = this.mapService.getTileRuntimeDetail(player.mapId, Math.round(data.x), Math.round(data.y));
-    if (!detail) {
+    const detail = this.mapService.getTileRuntimeDetail(player.mapId, targetX, targetY);
+    const observedEntities = this.worldService.getObservedEntitiesAt(player, targetX, targetY);
+    if (!detail && observedEntities.length === 0) {
       return;
     }
-    const detailedAuraResources = detail.resources
+    const detailedAuraResources = (detail?.resources ?? [])
       .filter((resource) => {
         const parsedResource = parseQiResourceKey(resource.key);
         return Boolean(parsedResource && isAuraQiResourceKey(resource.key));
@@ -437,8 +440,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         value: resource.value,
       }));
     const response: S2C_TileRuntimeDetail = {
-      ...detail,
-      resources: detail.resources.map((resource) => {
+      mapId: player.mapId,
+      x: targetX,
+      y: targetY,
+      hp: detail?.hp,
+      maxHp: detail?.maxHp,
+      destroyed: detail?.destroyed,
+      restoreTicksLeft: detail?.restoreTicksLeft,
+      resources: (detail?.resources ?? []).map((resource) => {
         if (resource.key === 'aura') {
           const effectiveValue = detailedAuraResources.length > 0
             ? this.qiProjectionService.getEffectiveAuraValueFromResources(player, detailedAuraResources)
@@ -465,9 +474,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
         return {
           ...resource,
-          effectiveValue: this.qiProjectionService.getEffectiveResourceValue(player, resource.key, resource.value),
+            effectiveValue: this.qiProjectionService.getEffectiveResourceValue(player, resource.key, resource.value),
         };
       }),
+      entities: observedEntities.length > 0 ? observedEntities : undefined,
     };
     client.emit(S2C.TileRuntimeDetail, response satisfies S2C_TileRuntimeDetail);
   }

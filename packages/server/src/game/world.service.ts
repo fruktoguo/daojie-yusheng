@@ -36,6 +36,7 @@ import {
   Portal,
   QuestState,
   RenderEntity,
+  type ObservedTileEntityDetail,
   ratioValue,
   SkillDef,
   SkillDamageKind,
@@ -56,7 +57,7 @@ import { ContentService } from './content.service';
 import { EquipmentEffectService } from './equipment-effect.service';
 import { InventoryService } from './inventory.service';
 import { LootService } from './loot.service';
-import { DropConfig, MapService, MonsterSpawnConfig, NpcConfig, QuestConfig } from './map.service';
+import { ContainerConfig, DropConfig, MapService, MonsterSpawnConfig, NpcConfig, QuestConfig } from './map.service';
 import { NavigationService } from './navigation.service';
 import { PerformanceService } from './performance.service';
 import { PlayerService } from './player.service';
@@ -295,15 +296,6 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           color: container.color?.trim() ? container.color.trim() : '#c18b46',
           name: container.name,
           kind: 'container',
-          observation: {
-            clarity: 'clear',
-            verdict: container.desc?.trim() || `这处${container.name}可以搜索，翻找后或许会有收获。`,
-            lines: [
-              { label: '类别', value: '可搜索陈设' },
-              { label: '名称', value: container.name },
-              { label: '搜索阶次', value: `${container.grade}` },
-            ],
-          },
         }];
       });
 
@@ -359,7 +351,6 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
   /** 构建玩家的渲染实体数据（用于其他玩家视野中的显示） */
   buildPlayerRenderEntity(viewer: PlayerState, target: PlayerState, color: string): RenderEntity {
-    const snapshot = this.createPlayerObservationSnapshot(target);
     const displayName = target.displayName ?? [...target.name][0] ?? '@';
     return {
       id: target.id,
@@ -371,15 +362,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       kind: 'player',
       hp: target.hp,
       maxHp: target.maxHp,
-      qi: target.qi,
-      maxQi: snapshot.maxQi,
-      buffs: this.getRenderableBuffs(target.temporaryBuffs),
-      observation: this.buildObservationInsight(
-        viewer,
-        snapshot,
-        this.buildObservationLineSpecs(snapshot, true),
-        viewer.id === target.id,
-      ),
+      buffs: this.getMapRenderableBuffs(target.temporaryBuffs),
     };
   }
 
@@ -1197,6 +1180,64 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         stats: buff.stats,
       }));
     return visible.length > 0 ? visible : undefined;
+  }
+
+  private getMapRenderableBuffs(buffs: TemporaryBuffState[] | undefined): VisibleBuffState[] | undefined {
+    const visible = buffs
+      ?.filter((buff) => buff.remainingTicks > 0 && buff.visibility === 'public')
+      .map<VisibleBuffState>((buff) => ({
+        buffId: buff.buffId,
+        name: buff.name,
+        shortMark: buff.shortMark,
+        category: buff.category,
+        visibility: 'public',
+        remainingTicks: 0,
+        duration: 0,
+        stacks: 1,
+        maxStacks: 1,
+        sourceSkillId: buff.sourceSkillId,
+        sourceSkillName: buff.sourceSkillName,
+        color: buff.color,
+      }));
+    return visible && visible.length > 0 ? visible : undefined;
+  }
+
+  getObservedEntitiesAt(viewer: PlayerState, x: number, y: number): ObservedTileEntityDetail[] {
+    let sourceMapId = viewer.mapId;
+    let resolvedX = x;
+    let resolvedY = y;
+
+    if (!this.mapService.isPointInMapBounds(sourceMapId, resolvedX, resolvedY)) {
+      const parentMapId = this.mapService.getOverlayParentMapId(sourceMapId);
+      if (!parentMapId) {
+        return [];
+      }
+      const projected = this.mapService.projectPointToMap(parentMapId, sourceMapId, resolvedX, resolvedY);
+      if (!projected) {
+        return [];
+      }
+      sourceMapId = parentMapId;
+      resolvedX = projected.x;
+      resolvedY = projected.y;
+    }
+
+    const containers = this.mapService.getContainers(sourceMapId)
+      .filter((container) => container.x === resolvedX && container.y === resolvedY)
+      .map<ObservedTileEntityDetail>((container) => this.buildContainerObservationDetail(sourceMapId, container));
+
+    const npcs = this.mapService.getNpcs(sourceMapId)
+      .filter((npc) => npc.x === resolvedX && npc.y === resolvedY)
+      .map<ObservedTileEntityDetail>((npc) => this.buildNpcObservationDetail(viewer, npc, sourceMapId));
+
+    const monsters = (this.monstersByMap.get(sourceMapId) ?? [])
+      .filter((monster) => monster.alive && monster.x === resolvedX && monster.y === resolvedY)
+      .map<ObservedTileEntityDetail>((monster) => this.buildMonsterObservationDetail(viewer, monster));
+
+    const players = this.playerService.getPlayersByMap(sourceMapId)
+      .filter((player) => player.x === resolvedX && player.y === resolvedY)
+      .map<ObservedTileEntityDetail>((player) => this.buildPlayerObservationDetail(viewer, player));
+
+    return [...players, ...containers, ...npcs, ...monsters];
   }
 
   private applyBuffEffect(
@@ -2443,8 +2484,6 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   }
 
   private buildMonsterRenderEntity(viewer: PlayerState, monster: RuntimeMonster): RenderEntity {
-    this.timeService.syncMonsterTimeEffects(monster);
-    const snapshot = this.createMonsterObservationSnapshot(monster);
     return {
       id: monster.runtimeId,
       x: monster.x,
@@ -2455,24 +2494,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       kind: 'monster',
       hp: monster.hp,
       maxHp: monster.maxHp,
-      qi: snapshot.qi,
-      maxQi: snapshot.maxQi,
-      buffs: this.getRenderableBuffs(monster.temporaryBuffs),
-      observation: this.buildObservationInsight(
-        viewer,
-        snapshot,
-        this.buildObservationLineSpecs(snapshot, false),
-      ),
+      buffs: this.getMapRenderableBuffs(monster.temporaryBuffs),
     };
   }
 
   private buildNpcRenderEntity(viewer: PlayerState, npc: NpcConfig, mapId: string): RenderEntity {
     const profile = this.buildNpcPresenceProfile(npc, mapId);
-    const snapshot = this.createNpcObservationSnapshot(profile);
-    const lineSpecs = [
-      { threshold: 0.3, label: '身份', value: profile.title },
-      ...this.buildObservationLineSpecs(snapshot, false),
-    ];
     const npcQuestMarker = this.resolveNpcQuestMarker(viewer, npc);
     return {
       id: `npc:${npc.id}`,
@@ -2482,16 +2509,89 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       color: npc.color,
       name: npc.name,
       kind: 'npc',
+      hp: profile.hp,
+      maxHp: profile.hp,
+      npcQuestMarker,
+    };
+  }
+
+  private buildPlayerObservationDetail(viewer: PlayerState, target: PlayerState): ObservedTileEntityDetail {
+    const snapshot = this.createPlayerObservationSnapshot(target);
+    return {
+      id: target.id,
+      name: target.name,
+      kind: 'player',
+      hp: target.hp,
+      maxHp: target.maxHp,
+      qi: target.qi,
+      maxQi: snapshot.maxQi,
+      observation: this.buildObservationInsight(
+        viewer,
+        snapshot,
+        this.buildObservationLineSpecs(snapshot, true),
+        viewer.id === target.id,
+      ),
+      buffs: this.getRenderableBuffs(target.temporaryBuffs),
+    };
+  }
+
+  private buildMonsterObservationDetail(viewer: PlayerState, monster: RuntimeMonster): ObservedTileEntityDetail {
+    const snapshot = this.createMonsterObservationSnapshot(monster);
+    return {
+      id: monster.runtimeId,
+      name: monster.name,
+      kind: 'monster',
+      hp: monster.hp,
+      maxHp: monster.maxHp,
+      qi: snapshot.qi,
+      maxQi: snapshot.maxQi,
+      observation: this.buildObservationInsight(
+        viewer,
+        snapshot,
+        this.buildObservationLineSpecs(snapshot, false),
+      ),
+      buffs: this.getRenderableBuffs(monster.temporaryBuffs),
+    };
+  }
+
+  private buildNpcObservationDetail(viewer: PlayerState, npc: NpcConfig, mapId: string): ObservedTileEntityDetail {
+    const profile = this.buildNpcPresenceProfile(npc, mapId);
+    const snapshot = this.createNpcObservationSnapshot(profile);
+    const lineSpecs = [
+      { threshold: 0.3, label: '身份', value: profile.title },
+      ...this.buildObservationLineSpecs(snapshot, false),
+    ];
+    return {
+      id: `npc:${npc.id}`,
+      name: npc.name,
+      kind: 'npc',
       hp: snapshot.hp,
       maxHp: snapshot.maxHp,
       qi: snapshot.qi,
       maxQi: snapshot.maxQi,
-      npcQuestMarker,
+      npcQuestMarker: this.resolveNpcQuestMarker(viewer, npc),
       observation: this.buildObservationInsight(
         viewer,
         snapshot,
         lineSpecs,
       ),
+    };
+  }
+
+  private buildContainerObservationDetail(mapId: string, container: ContainerConfig): ObservedTileEntityDetail {
+    return {
+      id: `container:${mapId}:${container.id}`,
+      name: container.name,
+      kind: 'container',
+      observation: {
+        clarity: 'clear',
+        verdict: container.desc?.trim() || `这处${container.name}可以搜索，翻找后或许会有收获。`,
+        lines: [
+          { label: '类别', value: '可搜索陈设' },
+          { label: '名称', value: container.name },
+          { label: '搜索阶次', value: `${container.grade}` },
+        ],
+      },
     };
   }
 
