@@ -1,128 +1,121 @@
 {
   "quests": [
     {
-      "id": "q_bamboo_heart",
-      "title": "竹海蕴心",
-      "desc": "清理竹海妖狼与竹灵，带回翠竹心作为淬体药引。",
-      "targetMonsterId": "m_bamboo_sprite",
+      "id": "q_han_gate_scrap",
+      "title": "断墙捡铁",
+      "desc": "韩铁匠盯上了城边那批流匪手里的破兵器。把人清掉，腰牌交上来，能融的铁都能给你和门楼派上用场。",
+      "story": "这镇子剩下来的东西不多，铁器算其中最值钱的一种。韩铁匠不在乎来路，只在乎还能不能敲。",
+      "objectiveText": "清掉城边流匪，并交回匪徒腰牌",
+      "targetMonsterId": "m_preview_gate_thug",
       "targetCount": 6,
-      "requiredItemId": "bamboo_heart",
-      "requiredItemCount": 4,
+      "targetMapId": "yunlai_town",
+      "targetName": "城边流匪",
+      "requiredItemId": "bandit_insignia",
+      "requiredItemCount": 3,
       "reward": [
         {
-          "itemId": "equip.leather_vest",
-          "name": "硬皮护衣",
-          "type": "equipment",
-          "count": 1
-        },
-        {
-          "itemId": "book.iron_bone_art",
-          "name": "《铁骨功》",
+          "itemId": "book.dragon_elephant_bone",
+          "name": "《贯脉镇骨功》",
           "type": "skill_book",
           "count": 1
-        }
-      ],
-      "nextQuestId": "q_bamboo_mantis",
-      "line": "side",
-      "giverMapId": "bamboo_forest",
-      "giverNpcId": "npc_bamboo_hermit",
-      "submitMapId": "bamboo_forest",
-      "submitNpcId": "npc_bamboo_hermit"
-    },
-    {
-      "id": "q_bamboo_mantis",
-      "title": "斩螳开路",
-      "desc": "击退刃竹螳并收回足量螳锋，为深入矿洞做准备。",
-      "targetMonsterId": "m_bamboo_mantis",
-      "targetCount": 8,
-      "requiredItemId": "mantis_blade",
-      "requiredItemCount": 5,
-      "reward": [
+        },
         {
-          "itemId": "equip.rust_saber",
-          "name": "旧铁长刀",
+          "itemId": "equip.bone_dagger",
+          "name": "猎户骨匕",
           "type": "equipment",
           "count": 1
         },
         {
-          "itemId": "major_qi_pill",
-          "name": "大还灵丹",
+          "itemId": "pill.break_array_elixir",
+          "name": "破阵丹",
           "type": "consumable",
-          "count": 2
+          "count": 1
         }
       ],
       "line": "side",
-      "giverMapId": "bamboo_forest",
-      "giverNpcId": "npc_bamboo_hermit",
-      "submitMapId": "bamboo_forest",
-      "submitNpcId": "npc_bamboo_hermit"
+      "giverMapId": "yunlai_town",
+      "giverNpcId": "npc_blacksmith_han",
+      "submitMapId": "yunlai_town",
+      "submitNpcId": "npc_blacksmith_han"
     },
     {
-      "id": "q_luo_boar_tusk",
-      "title": "荒原肉粮",
-      "desc": "击杀 10 只獠牙野彘并带回足量彘牙。",
-      "targetMonsterId": "m_wild_boar",
+      "id": "q_lan_tail_medicine",
+      "title": "尾药驱秽",
+      "desc": "兰药师让你把后巷鼠患再清一轮，多收些鼠尾回来。她要给药铺和脚店都熬一锅驱秽药，省得夏天一到又是烂疮和瘟味。",
+      "story": "药铺能稳住几条命，不是靠仙丹，是靠有人把最脏最细碎的活做完。",
+      "objectiveText": "清掉后巷鼠患，并收回鼠尾",
+      "targetMonsterId": "m_preview_town_rat_refuse",
       "targetCount": 10,
-      "requiredItemId": "boar_tusk",
+      "targetMapId": "yunlai_town",
+      "targetName": "后巷灰尾鼠",
+      "requiredItemId": "rat_tail",
       "requiredItemCount": 6,
       "reward": [
         {
-          "itemId": "equip.hunter_cap",
-          "name": "猎风帽",
-          "type": "equipment",
-          "count": 1
-        },
-        {
-          "itemId": "major_qi_pill",
-          "name": "大还灵丹",
+          "itemId": "frost_heart_paste",
+          "name": "寒心膏",
           "type": "consumable",
           "count": 2
-        }
-      ],
-      "nextQuestId": "q_luo_bandit_camp",
-      "line": "side",
-      "giverMapId": "wildlands",
-      "giverNpcId": "npc_hunter_luo",
-      "submitMapId": "wildlands",
-      "submitNpcId": "npc_hunter_luo"
-    },
-    {
-      "id": "q_luo_bandit_camp",
-      "title": "剿灭营地",
-      "desc": "清理荒野匪营，击杀 8 名荒野匪徒并上缴腰牌。",
-      "targetMonsterId": "m_wild_bandit",
-      "targetCount": 8,
-      "requiredItemId": "bandit_insignia",
-      "requiredItemCount": 5,
-      "reward": [
-        {
-          "itemId": "equip.step_boots",
-          "name": "游侠靴",
-          "type": "equipment",
-          "count": 1
         },
         {
-          "itemId": "book.cloud_blade",
-          "name": "《流云刀谱》",
-          "type": "skill_book",
+          "itemId": "pill.crimson_bud_elixir",
+          "name": "赤芽丹",
+          "type": "consumable",
           "count": 1
         }
       ],
       "line": "side",
+      "giverMapId": "yunlai_town",
+      "giverNpcId": "npc_herbalist_lan",
+      "submitMapId": "yunlai_town",
+      "submitNpcId": "npc_herbalist_lan"
+    },
+    {
+      "id": "q_recluse_first_meet",
+      "title": "荒野怪人",
+      "desc": "洛猎户说荒野深处常有个不合群的野修客出没。先去见见他，看看这人是能说话，还是该提前防着。",
+      "story": "边镇靠规矩活，荒野靠眼色活。真想在外头多走几步，就得认识那些不写在门牌上的人。",
+      "objectiveType": "talk",
+      "objectiveText": "去荒野找野修客",
+      "targetNpcId": "npc_wild_recluse",
+      "targetNpcName": "野修客",
+      "targetMapId": "wildlands",
+      "targetName": "野修客",
+      "required": 1,
+      "reward": [
+        {
+          "itemId": "pill.clear_eye_elixir",
+          "name": "明目丹",
+          "type": "consumable",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_recluse_spider_silk_rewrite",
+      "line": "side",
       "giverMapId": "wildlands",
       "giverNpcId": "npc_hunter_luo",
       "submitMapId": "wildlands",
-      "submitNpcId": "npc_hunter_luo"
+      "submitNpcId": "npc_wild_recluse"
     },
     {
-      "id": "q_recluse_spider_silk",
-      "title": "丝引心法",
-      "desc": "猎杀阴沼毒蛛 6 只并收集阴沼丝。",
+      "id": "q_recluse_spider_silk_rewrite",
+      "title": "丝里藏火",
+      "desc": "野修客要你去阴沼收完整蛛丝。他说自己手里那卷《赤焰诀》残篇，只有给肯自己找活路的人才算没白留。",
+      "story": "这世上总有人不肯认命，可他们教人的方式，也从来不会比世道更温柔。",
+      "objectiveText": "猎杀阴沼毒蛛并收回阴沼丝",
       "targetMonsterId": "m_mire_spider",
-      "targetCount": 6,
+      "targetCount": 8,
+      "targetMapId": "wildlands",
+      "targetName": "阴沼毒蛛",
       "requiredItemId": "spider_silk",
       "requiredItemCount": 4,
       "reward": [
+        {
+          "itemId": "book.cloudchase_steps",
+          "name": "《分光步》",
+          "type": "skill_book",
+          "count": 1
+        },
         {
           "itemId": "book.redflame_art",
           "name": "《赤焰诀》",
@@ -130,32 +123,9 @@
           "count": 1
         },
         {
-          "itemId": "equip.cloud_boots",
-          "name": "踏云履",
-          "type": "equipment",
-          "count": 1
-        }
-      ],
-      "nextQuestId": "q_recluse_ridge_token",
-      "line": "side",
-      "giverMapId": "wildlands",
-      "giverNpcId": "npc_wild_recluse",
-      "submitMapId": "wildlands",
-      "submitNpcId": "npc_wild_recluse"
-    },
-    {
-      "id": "q_recluse_ridge_token",
-      "title": "岭门访证",
-      "desc": "在灵脊岭击退守岭残魂并取得通行令。",
-      "targetMonsterId": "m_ridge_ghost",
-      "targetCount": 4,
-      "requiredItemId": "spirit_ridge_sigil",
-      "requiredItemCount": 1,
-      "reward": [
-        {
-          "itemId": "book.spirit_anchor",
-          "name": "《镇灵篇》",
-          "type": "skill_book",
+          "itemId": "pill.bitter_cultivation_elixir",
+          "name": "苦修丹",
+          "type": "consumable",
           "count": 1
         }
       ],

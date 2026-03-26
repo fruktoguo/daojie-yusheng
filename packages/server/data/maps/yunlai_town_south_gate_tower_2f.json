@@ -1,0 +1,279 @@
+{
+  "id": "yunlai_town_south_gate_tower_2f",
+  "name": "云来镇·南门门楼二层",
+  "width": 22,
+  "height": 10,
+  "parentMapId": "yunlai_town",
+  "parentOriginX": 21,
+  "parentOriginY": 43,
+  "floorLevel": 2,
+  "floorName": "门楼二层",
+  "spaceVisionMode": "parent_overlay",
+  "description": "门楼二层平日堆着灯油、弩箭和夜巡锣，开窗后能直接看见南路来客。",
+  "tiles": [
+    "###WWW##########WWW###",
+    "##..................##",
+    "##..oo..........oo..##",
+    "##..................##",
+    "##.######....######.##",
+    "##.#....#....#....#.##",
+    "##.#....#....#....#.##",
+    "##.#....#..S.#....#.##",
+    "##..................##",
+    "###WWW##########WWW###"
+  ],
+  "portals": [
+    {
+      "x": 11,
+      "y": 7,
+      "targetMapId": "yunlai_town",
+      "targetX": 31,
+      "targetY": 46,
+      "kind": "stairs",
+      "trigger": "auto"
+    }
+  ],
+  "dangerLevel": 1,
+  "recommendedRealm": "Entry",
+  "spawnPoint": {
+    "x": 12,
+    "y": 7
+  },
+  "time": {
+    "offsetTicks": 120,
+    "scale": 1,
+    "light": {
+      "base": 72,
+      "timeInfluence": 26
+    }
+  },
+  "landmarks": [
+    {
+      "id": "lm_preview_south_gate_tower_supply",
+      "name": "夜巡兵械架",
+      "x": 15,
+      "y": 2,
+      "desc": "门楼值守人把灯油、短矛和备用兵具都堆在了同一架上。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1500,
+        "char": "架",
+        "color": "#7a6450",
+        "lootPools": [
+          {
+            "chance": 0.6,
+            "minLevel": 1,
+            "maxLevel": 1,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ]
+          },
+          {
+            "chance": 0.2,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "材料"
+              ],
+              [
+                "匪物"
+              ]
+            ]
+          },
+          {
+            "chance": 0.08,
+            "minLevel": 1,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "护甲"
+              ],
+              [
+                "帽子"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_preview_south_gate_tower_misc_cabinet",
+      "name": "巡更杂柜",
+      "x": 3,
+      "y": 2,
+      "desc": "柜子里塞着破灯罩、旧更签和几包门兵自留的外伤药。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1600,
+        "char": "柜",
+        "color": "#7c6653",
+        "lootPools": [
+          {
+            "chance": 0.6,
+            "minLevel": 1,
+            "maxLevel": 1,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ]
+          },
+          {
+            "chance": 0.2,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "材料"
+              ],
+              [
+                "匪物"
+              ]
+            ]
+          },
+          {
+            "chance": 0.08,
+            "minLevel": 1,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "护甲"
+              ],
+              [
+                "帽子"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_preview_south_gate_tower_arrow_barrel",
+      "name": "残箭木桶",
+      "x": 16,
+      "y": 8,
+      "desc": "木桶里混着断箭、麻绳和几包夜巡备用的外伤药。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1500,
+        "char": "桶",
+        "color": "#83674e",
+        "lootPools": [
+          {
+            "chance": 0.6,
+            "minLevel": 1,
+            "maxLevel": 1,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ]
+          },
+          {
+            "chance": 0.2,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "材料"
+              ],
+              [
+                "匪物"
+              ]
+            ]
+          },
+          {
+            "chance": 0.08,
+            "minLevel": 1,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "护甲"
+              ],
+              [
+                "帽子"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_preview_south_gate_tower_signal_table",
+      "name": "更签号案",
+      "x": 9,
+      "y": 3,
+      "desc": "案上堆着更签、点名簿和被油污浸黄的巡夜单子。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1550,
+        "char": "案",
+        "color": "#7d634a",
+        "lootPools": [
+          {
+            "chance": 0.6,
+            "minLevel": 1,
+            "maxLevel": 1,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ]
+          },
+          {
+            "chance": 0.2,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "材料"
+              ],
+              [
+                "匪物"
+              ]
+            ]
+          },
+          {
+            "chance": 0.08,
+            "minLevel": 1,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "护甲"
+              ],
+              [
+                "帽子"
+              ]
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "npcs": [],
+  "monsterSpawns": [],
+  "terrainProfileId": "mortal_settlement"
+}

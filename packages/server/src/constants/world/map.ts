@@ -89,6 +89,7 @@ export const SPECIAL_TILE_DURABILITY_MULTIPLIERS: Partial<Record<TileType, numbe
 /** 旧地图 ID 到地形耐久预设 ID 的兼容映射。 */
 export const LEGACY_MAP_TERRAIN_PROFILE_IDS: Partial<Record<string, TerrainDurabilityProfileId>> = {
   spawn: 'mortal_settlement',
+  yunlai_town: 'mortal_settlement',
   wildlands: 'yellow_frontier',
   bamboo_forest: 'yellow_bamboo',
   black_iron_mine: 'mystic_black_iron',

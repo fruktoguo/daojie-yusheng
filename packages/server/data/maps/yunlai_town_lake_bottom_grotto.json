@@ -1,9 +1,9 @@
 {
-  "id": "yunlai_town_preview_lake_bottom_grotto",
+  "id": "yunlai_town_lake_bottom_grotto",
   "name": "云来镇·湖底洞天",
   "width": 22,
   "height": 14,
-  "parentMapId": "yunlai_town_preview",
+  "parentMapId": "yunlai_town",
   "floorLevel": -2,
   "floorName": "湖底洞天",
   "description": "湖心暗眼之下藏着一处半天然半石室的湖底洞天，湿冷却有灵气回旋。",
@@ -29,9 +29,9 @@
     {
       "x": 10,
       "y": 11,
-      "targetMapId": "yunlai_town_preview",
-      "targetX": 93,
-      "targetY": 83,
+      "targetMapId": "yunlai_town",
+      "targetX": 49,
+      "targetY": 42,
       "kind": "stairs",
       "trigger": "auto"
     }

@@ -12,6 +12,7 @@ import {
   DEFAULT_BASE_ATTRS,
   DEFAULT_BONE_AGE_YEARS,
   DEFAULT_INVENTORY_CAPACITY,
+  DEFAULT_PLAYER_MAP_ID,
   Direction,
   EquipmentSlots,
   GmEditorCatalogRes,
@@ -452,6 +453,7 @@ export class GmService {
       dead: player.dead,
       autoBattle: player.autoBattle,
       autoRetaliate: player.autoRetaliate !== false,
+      autoBattleStationary: player.autoBattleStationary === true,
       meta: {
         userId: user.userId,
         isBot: Boolean(player.isBot),
@@ -506,6 +508,7 @@ export class GmService {
         autoBattle: player.autoBattle,
         autoBattleSkills: player.autoBattleSkills,
         autoRetaliate: player.autoRetaliate,
+        autoBattleStationary: player.autoBattleStationary,
         allowAoePlayerHit: player.allowAoePlayerHit,
         autoIdleCultivation: player.autoIdleCultivation,
         cultivatingTechId: player.cultivatingTechId ?? null,
@@ -548,6 +551,7 @@ export class GmService {
       autoBattle: entity.autoBattle ?? false,
       autoBattleSkills: this.cloneArray<AutoBattleSkillConfig>(entity.autoBattleSkills),
       autoRetaliate: entity.autoRetaliate ?? true,
+      autoBattleStationary: entity.autoBattleStationary === true,
       allowAoePlayerHit: entity.allowAoePlayerHit === true,
       autoIdleCultivation: entity.autoIdleCultivation ?? true,
       autoSwitchCultivation: entity.autoSwitchCultivation === true,
@@ -617,6 +621,7 @@ export class GmService {
     player.quests = this.cloneArray<QuestState>(snapshot.quests);
     player.autoBattleSkills = this.cloneArray<AutoBattleSkillConfig>(snapshot.autoBattleSkills);
     player.autoRetaliate = snapshot.autoRetaliate !== false;
+    player.autoBattleStationary = snapshot.autoBattleStationary === true;
     player.allowAoePlayerHit = snapshot.allowAoePlayerHit === true;
     player.autoIdleCultivation = snapshot.autoIdleCultivation !== undefined
       ? snapshot.autoIdleCultivation !== false
@@ -670,9 +675,9 @@ export class GmService {
   }
 
   private resetStoredPlayerToSpawn(player: PlayerState): void {
-    const spawn = this.mapService.getSpawnPoint('spawn') ?? { x: player.x, y: player.y };
-    const pos = this.mapService.findNearbyWalkable('spawn', spawn.x, spawn.y, 4, { actorType: 'player' }) ?? spawn;
-    player.mapId = 'spawn';
+    const spawn = this.mapService.getSpawnPoint(DEFAULT_PLAYER_MAP_ID) ?? { x: player.x, y: player.y };
+    const pos = this.mapService.findNearbyWalkable(DEFAULT_PLAYER_MAP_ID, spawn.x, spawn.y, 4, { actorType: 'player' }) ?? spawn;
+    player.mapId = DEFAULT_PLAYER_MAP_ID;
     player.x = pos.x;
     player.y = pos.y;
     player.facing = Direction.South;
@@ -728,6 +733,7 @@ export class GmService {
       autoBattle: player.autoBattle,
       autoBattleSkills: player.autoBattleSkills as any,
       autoRetaliate: player.autoRetaliate,
+      autoBattleStationary: player.autoBattleStationary === true,
       allowAoePlayerHit: player.allowAoePlayerHit === true,
       autoIdleCultivation: player.autoIdleCultivation,
       autoSwitchCultivation: player.autoSwitchCultivation === true,
@@ -820,6 +826,7 @@ export class GmService {
         merged.dead = snapshot.dead;
         merged.autoBattle = snapshot.autoBattle;
         merged.autoRetaliate = snapshot.autoRetaliate;
+        merged.autoBattleStationary = snapshot.autoBattleStationary;
         merged.allowAoePlayerHit = snapshot.allowAoePlayerHit;
         merged.autoIdleCultivation = snapshot.autoIdleCultivation;
         merged.autoSwitchCultivation = snapshot.autoSwitchCultivation;

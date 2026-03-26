@@ -1,0 +1,260 @@
+{
+  "id": "yunlai_town_ore_basement",
+  "name": "云来镇·旧屋矿窖",
+  "width": 20,
+  "height": 12,
+  "parentMapId": "yunlai_town",
+  "parentOriginX": 31,
+  "parentOriginY": 9,
+  "floorLevel": -1,
+  "floorName": "矿窖",
+  "spaceVisionMode": "parent_overlay",
+  "description": "旧屋下方被人偷偷掏出一间矿窖，岩壁里夹着几条细小灵脉，也裸露出一段发黑的玄铁矿层。",
+  "dangerLevel": 1,
+  "recommendedRealm": "Entry",
+  "tiles": [
+    "####################",
+    "#....oooo...LLL....#",
+    "#..######...L.L..o.#",
+    "#..#....#...LLL.oo.#",
+    "#..#....#######....#",
+    "#..#..S...........##",
+    "#..#....#######....#",
+    "#..#....#..ooo#....#",
+    "#..######..ooo#.LL.#",
+    "#..........ooo#.LL.#",
+    "#..............L...#",
+    "####################"
+  ],
+  "portals": [
+    {
+      "x": 6,
+      "y": 5,
+      "targetMapId": "yunlai_town",
+      "targetX": 38,
+      "targetY": 14,
+      "kind": "stairs",
+      "trigger": "auto"
+    }
+  ],
+  "spawnPoint": {
+    "x": 7,
+    "y": 5
+  },
+  "time": {
+    "offsetTicks": 120,
+    "scale": 1,
+    "light": {
+      "base": 18,
+      "timeInfluence": 2
+    }
+  },
+  "auras": [
+    {
+      "x": 13,
+      "y": 1,
+      "value": 2
+    },
+    {
+      "x": 14,
+      "y": 2,
+      "value": 3
+    },
+    {
+      "x": 15,
+      "y": 1,
+      "value": 2
+    },
+    {
+      "x": 16,
+      "y": 8,
+      "value": 2
+    },
+    {
+      "x": 17,
+      "y": 9,
+      "value": 3
+    }
+  ],
+  "landmarks": [
+    {
+      "id": "lm_preview_ore_basement_spirit_vein",
+      "name": "碎露灵石矿",
+      "x": 11,
+      "y": 2,
+      "desc": "矿壁里嵌着零散灵石，稍加开凿就会震落出可用灵石。"
+    },
+    {
+      "id": "lm_preview_ore_basement_black_iron_vein",
+      "name": "玄铁矿脉",
+      "x": 10,
+      "y": 9,
+      "desc": "一段埋得很浅的玄铁矿层，被人粗粗凿开过，留下不少可继续撬取的矿块。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 2400,
+        "char": "矿",
+        "color": "#6b7787",
+        "lootPools": [
+          {
+            "chance": 0.75,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "countMin": 1,
+            "countMax": 2,
+            "tagGroups": [
+              [
+                "矿材"
+              ],
+              [
+                "玄铁"
+              ]
+            ]
+          },
+          {
+            "chance": 0.18,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "矿材"
+              ],
+              [
+                "灵铁"
+              ]
+            ]
+          },
+          {
+            "chance": 0.4,
+            "maxLevel": 2,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "消耗品"
+              ],
+              [
+                "灵石"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_preview_ore_basement_tool_rack",
+      "name": "矿工工具架",
+      "x": 9,
+      "y": 9,
+      "desc": "架子上还搁着旧镐、麻绳和没搬走的矿灯零件。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 2000,
+        "char": "架",
+        "color": "#78644d",
+        "lootPools": [
+          {
+            "chance": 0.45,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "countMin": 1,
+            "countMax": 1,
+            "tagGroups": [
+              [
+                "矿材"
+              ],
+              [
+                "玄铁"
+              ]
+            ]
+          },
+          {
+            "chance": 0.3,
+            "maxLevel": 2,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "消耗品"
+              ],
+              [
+                "灵石"
+              ]
+            ]
+          },
+          {
+            "chance": 0.04,
+            "minLevel": 1,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "护甲"
+              ],
+              [
+                "帽子"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_preview_ore_basement_miner_chest",
+      "name": "矿工旧木箱",
+      "x": 14,
+      "y": 10,
+      "desc": "旧木箱里多是矿工留下的绳索、楔子和几块没带走的矿料。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 2100,
+        "char": "箱",
+        "color": "#72604a",
+        "lootPools": [
+          {
+            "chance": 0.52,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "countMin": 1,
+            "countMax": 1,
+            "tagGroups": [
+              [
+                "矿材"
+              ],
+              [
+                "玄铁"
+              ]
+            ]
+          },
+          {
+            "chance": 0.24,
+            "maxLevel": 2,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "消耗品"
+              ],
+              [
+                "灵石"
+              ]
+            ]
+          },
+          {
+            "chance": 0.1,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "矿材"
+              ],
+              [
+                "灵铁"
+              ]
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "npcs": [],
+  "monsterSpawns": [],
+  "terrainProfileId": "mystic_black_iron"
+}

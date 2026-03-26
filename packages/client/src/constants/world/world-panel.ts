@@ -32,6 +32,16 @@ export const TECH_REALM_NAME_BY_KEY: Record<string, string> = {
 
 /** 各地图的引导信息，用于世界面板的标签与建议路线。 */
 export const WORLD_GUIDE: Record<string, WorldGuide> = {
+  yunlai_town: {
+    title: '云来镇',
+    danger: 1,
+    recommendedRealm: '锻体到后天',
+    route: '镇中接主线，西北入青竹林，南门出荒野，北路可转灵脊岭。',
+    mood: '武道起点',
+    desc: '新的主城布局更紧凑，主线、补给、炼药与打铁都围着主路展开。',
+    resources: ['主线任务', '基础补给', '镇内试手怪', '可搜索家具'],
+    threats: ['零散鼠患', '夜间匪徒'],
+  },
   spawn: {
     title: '云来镇',
     danger: 1,
@@ -116,6 +126,7 @@ export const WORLD_GUIDE: Record<string, WorldGuide> = {
 
 /** 主界面兜底使用的地图危险度建议。 */
 export const MAP_FALLBACK: Record<string, { danger: number; recommendedRealm: string }> = {
+  yunlai_town: { danger: 1, recommendedRealm: '锻体到后天' },
   spawn: { danger: 1, recommendedRealm: '锻体到后天' },
   bamboo_forest: { danger: 2, recommendedRealm: '后天到先天' },
   wildlands: { danger: 2, recommendedRealm: '后天到先天' },

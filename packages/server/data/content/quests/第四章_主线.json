@@ -1,66 +1,191 @@
 {
   "quests": [
     {
-      "id": "q_ridge_scout",
-      "title": "灵岭勘探",
+      "id": "q_valley_patrol_talk",
+      "title": "裂谷里还有活人",
       "line": "main",
-      "chapter": "第四章·灵岭问门",
-      "story": "大宗师之势���成，清玄才肯让你去碰灵脊岭。那里残留着更接近仙门的守关印记，是踏出凡武的最后路标。",
-      "desc": "前往灵脊岭，击退 8 头灵脊虎并带回灵岭行令。",
-      "objectiveText": "踏勘灵脊岭，取回守关行令",
-      "targetMonsterId": "m_spirit_tiger",
-      "targetCount": 8,
-      "requiredItemId": "spirit_ridge_sigil",
+      "chapter": "第四章·兽谷问门",
+      "story": "矿洞和遗迹都指向了同一个地方: 噬魂兽谷。清玄说那是旧阵崩坏后最先往外漏的一道口子。先去见谷口那名重伤巡山弟子，看看如今还能从活人嘴里问出多少事。",
+      "desc": "进入噬魂兽谷，找到重伤巡山弟子。",
+      "objectiveType": "talk",
+      "objectiveText": "去兽谷找重伤巡山弟子",
+      "targetNpcId": "npc_wounded_patrol",
+      "targetNpcName": "重伤巡山弟子",
+      "targetMapId": "beast_valley",
+      "targetName": "重伤巡山弟子",
+      "required": 1,
+      "reward": [
+        {
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
+          "count": 2
+        }
+      ],
+      "nextQuestId": "q_valley_core_main",
+      "giverMapId": "yunlai_town",
+      "giverNpcId": "npc_qingxuan",
+      "submitMapId": "beast_valley",
+      "submitNpcId": "npc_wounded_patrol"
+    },
+    {
+      "id": "q_valley_core_main",
+      "title": "谷底那颗心",
+      "line": "main",
+      "chapter": "第四章·兽谷问门",
+      "story": "巡山弟子说谷底那团东西不是妖兽自己长成的，更像是被什么从更深处“喂”出来的。你要做的很简单: 杀进去，把那颗兽谷核心拿回来，让云来镇终于有一样真凭实据可看。",
+      "desc": "深入兽谷，击败谷主并带回兽谷核心。",
+      "objectiveText": "击败谷主并带回兽谷核心",
+      "targetMonsterId": "m_valley_alpha",
+      "targetCount": 1,
+      "targetMapId": "beast_valley",
+      "targetName": "谷主妖兽",
+      "required": 1,
+      "requiredItemId": "valley_core",
       "requiredItemCount": 1,
       "reward": [
         {
-          "itemId": "equip.spirit_ring",
-          "name": "凝灵戒",
+          "itemId": "equip.valley_fang_blade",
+          "name": "裂齿斩骨刀",
           "type": "equipment",
           "count": 1
         },
+        {
+          "itemId": "pill.crimson_bud_elixir",
+          "name": "赤芽丹",
+          "type": "consumable",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_valley_blood_feather_main",
+      "giverMapId": "beast_valley",
+      "giverNpcId": "npc_wounded_patrol",
+      "submitMapId": "yunlai_town",
+      "submitNpcId": "npc_qingxuan"
+    },
+    {
+      "id": "q_valley_blood_feather_main",
+      "title": "血羽落在门前",
+      "line": "main",
+      "chapter": "第四章·兽谷问门",
+      "story": "兽谷核心带回后，清玄终于承认云来镇眼下不是单纯的边镇倒霉，而是整条旧线都在往下塌。他让你再去兽谷收血羽，然后去灵脊岭见守岭老修。若凡武尽头真还有门，那就是最后一道门缝。",
+      "desc": "清掉兽谷中的血羽鸦，带回血羽去见守岭老修。",
+      "objectiveText": "清掉血羽鸦并收回血羽",
+      "targetMonsterId": "m_blood_crow",
+      "targetCount": 10,
+      "targetMapId": "beast_valley",
+      "targetName": "血羽鸦",
+      "required": 10,
+      "requiredItemId": "blood_feather",
+      "requiredItemCount": 4,
+      "reward": [
+        {
+          "itemId": "map.spirit_ridge",
+          "name": "灵脉山岭图",
+          "type": "consumable",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_ridge_sage_talk",
+      "giverMapId": "yunlai_town",
+      "giverNpcId": "npc_qingxuan",
+      "submitMapId": "spirit_ridge",
+      "submitNpcId": "npc_ridge_sage"
+    },
+    {
+      "id": "q_ridge_sage_talk",
+      "title": "守岭的人没睡",
+      "line": "main",
+      "chapter": "第四章·兽谷问门",
+      "story": "守岭老修看完血羽，认得那不是第一次从兽谷里飞出来的东西。他告诉你，灵脊岭守的不是山路，是凡人和修士之间那条还没彻底断掉的窄门。若想往前走，你得先拿到灵岭行令。",
+      "desc": "与守岭老修对话，听清灵脊岭守的到底是什么。",
+      "objectiveType": "talk",
+      "objectiveText": "向守岭老修问清灵脊岭的旧事",
+      "targetNpcId": "npc_ridge_sage",
+      "targetNpcName": "守岭老修",
+      "targetMapId": "spirit_ridge",
+      "targetName": "守岭老修",
+      "required": 1,
+      "reward": [
+        {
+          "itemId": "equip.spirit_ring",
+          "name": "养灵木戒",
+          "type": "equipment",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_ridge_sigil_main",
+      "giverMapId": "spirit_ridge",
+      "giverNpcId": "npc_ridge_sage",
+      "submitMapId": "spirit_ridge",
+      "submitNpcId": "npc_ridge_sage"
+    },
+    {
+      "id": "q_ridge_sigil_main",
+      "title": "拿到那块行令",
+      "line": "main",
+      "chapter": "第四章·兽谷问门",
+      "story": "守岭老修不认嘴上的决心，只认你敢不敢在灵脊岭把守关残魂打散。那枚灵岭行令不是通关奖励，而是一张门票，证明你已经够资格去碰凡人不该碰的第一层东西。",
+      "desc": "清掉守关残魂，带回灵岭行令。",
+      "objectiveText": "清掉守关残魂并带回灵岭行令",
+      "targetMonsterId": "m_ridge_ghost",
+      "targetCount": 5,
+      "targetMapId": "spirit_ridge",
+      "targetName": "守关残魂",
+      "required": 5,
+      "requiredItemId": "spirit_ridge_sigil",
+      "requiredItemCount": 1,
+      "reward": [
         {
           "itemId": "book.frost_sutra",
           "name": "《寒魄经》",
           "type": "skill_book",
           "count": 1
+        },
+        {
+          "itemId": "equip.celestial_crown",
+          "name": "观脉骨冠",
+          "type": "equipment",
+          "count": 1
         }
       ],
-      "unlockBreakthroughRequirementIds": [
-        "bw_18_19_blood_feather",
-        "bw_18_19_demon_wolf_bone",
-        "bw_18_19_spirit_iron_fragment"
-      ],
-      "nextQuestId": "q_realm_qi_refining",
-      "giverMapId": "spawn",
-      "giverNpcId": "npc_qingxuan",
-      "submitMapId": "spawn",
+      "nextQuestId": "q_ridge_qi_refining",
+      "giverMapId": "spirit_ridge",
+      "giverNpcId": "npc_ridge_sage",
+      "submitMapId": "yunlai_town",
       "submitNpcId": "npc_qingxuan"
     },
     {
-      "id": "q_realm_qi_refining",
-      "title": "破凡入真",
+      "id": "q_ridge_qi_refining",
+      "title": "叩门之前先成其身",
       "line": "main",
-      "chapter": "第四章·灵岭问门",
-      "story": "灵岭行令到手，清玄终于承认你已站在仙门门槛前。去兽谷再收血羽与妖骨，借先前所得灵铁碎片，一举踏入练气。",
-      "desc": "备齐血羽、妖狼骨与灵铁碎片，完成从凡���到修真的第一次大跨越。",
+      "chapter": "第四章·兽谷问门",
+      "story": "灵岭行令到手，清玄终于不再拿你当纯粹跑腿的人看。他把话说得很明白: 你眼下已经站在凡武尽头，若还想再往前，就得跨过真正意义上的第一道修行门槛。先把自己练到练气，再谈门后是什么。",
+      "desc": "继续历练，迈入练气境，准备直面天穹残宫。",
       "objectiveType": "realm_stage",
-      "objectiveText": "收束兽谷异物，历练至练气前期",
+      "objectiveText": "历练至练气境",
       "targetRealmStage": "QiRefining",
-      "targetName": "练气前期",
+      "targetMapId": "spirit_ridge",
+      "targetName": "练气境",
       "required": 1,
       "reward": [
+        {
+          "itemId": "map.sky_ruins",
+          "name": "天阙遗墟图",
+          "type": "consumable",
+          "count": 1
+        },
         {
           "itemId": "pure_yang_pill",
           "name": "纯阳丹",
           "type": "consumable",
-          "count": 1
+          "count": 2
         }
       ],
-      "nextQuestId": "q_sky_pillar",
-      "giverMapId": "spawn",
+      "nextQuestId": "q_sky_observer_talk",
+      "giverMapId": "yunlai_town",
       "giverNpcId": "npc_qingxuan",
-      "submitMapId": "spawn",
+      "submitMapId": "yunlai_town",
       "submitNpcId": "npc_qingxuan"
     }
   ]

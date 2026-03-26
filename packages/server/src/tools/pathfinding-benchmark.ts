@@ -2,7 +2,7 @@
  * CLI 工具：离线压测寻路核心或 worker 池，不接触 live 世界状态。
  *
  * 用法示例：
- * `pnpm --filter @mud/server bench:pathfinding -- --map=spawn --jobs=500 --mode=workers`
+ * `pnpm --filter @mud/server bench:pathfinding -- --map=yunlai_town --jobs=500 --mode=workers`
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -40,7 +40,7 @@ function parseArgs(argv: string[]): BenchmarkOptions {
   }
 
   return {
-    mapId: entries.get('map')?.trim() || 'spawn',
+    mapId: entries.get('map')?.trim() || 'yunlai_town',
     jobs: Math.max(1, Math.floor(Number(entries.get('jobs') ?? '200'))),
     mode: entries.get('mode') === 'workers' ? 'workers' : 'single',
     seed: Math.max(1, Math.floor(Number(entries.get('seed') ?? `${Date.now()}`))),

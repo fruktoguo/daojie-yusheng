@@ -1,17 +1,60 @@
 {
   "quests": [
     {
-      "id": "q_ruin_shard_survey",
-      "title": "散纹回收",
-      "desc": "击溃石卫傀并回收足量断纹石片。",
-      "targetMonsterId": "m_ruin_guardian",
-      "targetCount": 12,
-      "requiredItemId": "rune_shard",
-      "requiredItemCount": 10,
+      "id": "q_mine_embers",
+      "title": "矿火余烬",
+      "desc": "锻炉余火不愿承认自己已经死透，它要你去深矿区再取一批玄铁矿块回来，看看旧炉还能不能把最后一口火续上。",
+      "story": "矿洞里剩下的不只是矿，也有一群不肯散干净的旧念头。",
+      "objectiveText": "清掉矿洞活尸，并带回玄铁矿块",
+      "targetMonsterId": "m_mine_ghoul",
+      "targetCount": 8,
+      "targetMapId": "black_iron_mine",
+      "targetName": "矿洞活尸",
+      "requiredItemId": "black_iron_chunk",
+      "requiredItemCount": 4,
       "reward": [
         {
-          "itemId": "equip.rune_robe",
-          "name": "断纹法袍",
+          "itemId": "book.golden_lock_body",
+          "name": "《悬脉固元功》",
+          "type": "skill_book",
+          "count": 1
+        },
+        {
+          "itemId": "equip.black_iron_sword",
+          "name": "玄铁长剑",
+          "type": "equipment",
+          "count": 1
+        },
+        {
+          "itemId": "pill.break_array_elixir",
+          "name": "破阵丹",
+          "type": "consumable",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_mine_colossus_side",
+      "line": "side",
+      "giverMapId": "black_iron_mine",
+      "giverNpcId": "npc_mine_smith",
+      "submitMapId": "black_iron_mine",
+      "submitNpcId": "npc_mine_smith"
+    },
+    {
+      "id": "q_mine_colossus_side",
+      "title": "熄掉那颗炉心",
+      "desc": "既然旧炉还想再烧，先得把矿脉巨像的那颗心挖出来。锻炉余火说那东西要么毁掉你，要么把你送上更硬的一步。",
+      "story": "有些地方的门，不是靠钥匙开的，是靠你敢不敢把门里最大的东西先打烂。",
+      "objectiveText": "击败矿脉巨像并取回巨像核心",
+      "targetMonsterId": "m_ore_colossus",
+      "targetCount": 1,
+      "targetMapId": "black_iron_mine",
+      "targetName": "矿脉巨像",
+      "requiredItemId": "colossus_heart",
+      "requiredItemCount": 1,
+      "reward": [
+        {
+          "itemId": "equip.miner_helmet",
+          "name": "矿卫盔",
           "type": "equipment",
           "count": 1
         },
@@ -22,19 +65,55 @@
           "count": 2
         }
       ],
-      "nextQuestId": "q_ruin_watcher",
       "line": "side",
-      "giverMapId": "ancient_ruins",
-      "giverNpcId": "npc_rune_keeper",
-      "submitMapId": "ancient_ruins",
-      "submitNpcId": "npc_rune_keeper"
+      "giverMapId": "black_iron_mine",
+      "giverNpcId": "npc_mine_smith",
+      "submitMapId": "black_iron_mine",
+      "submitNpcId": "npc_mine_smith"
     },
     {
-      "id": "q_ruin_watcher",
-      "title": "符阵看守",
-      "desc": "击杀 4 只符阵看守并带回遗迹钥石。",
+      "id": "q_ruin_scholar_echo",
+      "title": "碑灵要你认字",
+      "desc": "碑灵学士不肯直接说遗迹里埋了什么，只让你先替他清一圈会动的石卫，再回来听下一句。",
+      "story": "活人怕鬼，鬼怕遗忘。碑灵学士更怕的是，连愿意听它说话的人都没了。",
+      "objectiveText": "清掉遗迹石卫并收回断纹石片",
+      "targetMonsterId": "m_ruin_guardian",
+      "targetCount": 10,
+      "targetMapId": "ancient_ruins",
+      "targetName": "石卫傀儡",
+      "requiredItemId": "rune_shard",
+      "requiredItemCount": 6,
+      "reward": [
+        {
+          "itemId": "equip.rune_robe",
+          "name": "断纹法袍",
+          "type": "equipment",
+          "count": 1
+        },
+        {
+          "itemId": "pill.clear_eye_elixir",
+          "name": "明目丹",
+          "type": "consumable",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_ruin_keeper_side",
+      "line": "side",
+      "giverMapId": "ancient_ruins",
+      "giverNpcId": "npc_ruin_scholar_spirit",
+      "submitMapId": "ancient_ruins",
+      "submitNpcId": "npc_ruin_scholar_spirit"
+    },
+    {
+      "id": "q_ruin_keeper_side",
+      "title": "守纹残念",
+      "desc": "碑灵学士把你推给守纹残念，说真正还能开门的人不是它。去把遗迹钥石拿回来，再看看这地方到底是被什么东西熬成现在这副样子。",
+      "story": "一处遗迹若还守着门，往往不是为了拦外人，而是为了把门里的东西再关久一点。",
+      "objectiveText": "击败符阵看守并取回遗迹钥石",
       "targetMonsterId": "m_rune_watcher",
       "targetCount": 4,
+      "targetMapId": "ancient_ruins",
+      "targetName": "符阵看守",
       "requiredItemId": "ruin_keystone",
       "requiredItemCount": 1,
       "reward": [
@@ -56,63 +135,6 @@
       "giverNpcId": "npc_rune_keeper",
       "submitMapId": "ancient_ruins",
       "submitNpcId": "npc_rune_keeper"
-    },
-    {
-      "id": "q_mine_crystal_route",
-      "title": "矿脉导流",
-      "desc": "击杀矿魈 10 只并上缴矿晶核。",
-      "targetMonsterId": "m_mine_ghoul",
-      "targetCount": 10,
-      "requiredItemId": "mine_crystal_core",
-      "requiredItemCount": 1,
-      "reward": [
-        {
-          "itemId": "equip.miner_helmet",
-          "name": "矿卫盔",
-          "type": "equipment",
-          "count": 1
-        },
-        {
-          "itemId": "equip.black_iron_sword",
-          "name": "玄铁长剑",
-          "type": "equipment",
-          "count": 1
-        }
-      ],
-      "nextQuestId": "q_mine_colossus_heart",
-      "line": "side",
-      "giverMapId": "black_iron_mine",
-      "giverNpcId": "npc_mine_smith",
-      "submitMapId": "black_iron_mine",
-      "submitNpcId": "npc_mine_smith"
-    },
-    {
-      "id": "q_mine_colossus_heart",
-      "title": "巨像熄火",
-      "desc": "击败矿脉巨像并取回其核心。",
-      "targetMonsterId": "m_ore_colossus",
-      "targetCount": 2,
-      "requiredItemId": "colossus_heart",
-      "requiredItemCount": 1,
-      "reward": [
-        {
-          "itemId": "book.frost_sutra",
-          "name": "《寒魄经》",
-          "type": "skill_book",
-          "count": 1
-        },
-        {
-          "itemId": "equip.rune_robe",
-          "name": "断纹法袍",
-          "type": "equipment",
-          "count": 1
-        }
-      ],
-      "line": "side",
-      "giverMapId": "black_iron_mine",
-      "giverNpcId": "npc_mine_smith",
-      "submitMapId": "black_iron_mine",
-      "submitNpcId": "npc_mine_smith"
     }
   ]
 }

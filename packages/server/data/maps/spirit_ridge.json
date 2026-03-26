@@ -46,9 +46,9 @@
     {
       "x": 2,
       "y": 2,
-      "targetMapId": "spawn",
-      "targetX": 34,
-      "targetY": 34
+      "targetMapId": "yunlai_town",
+      "targetX": 31,
+      "targetY": 10
     },
     {
       "x": 3,

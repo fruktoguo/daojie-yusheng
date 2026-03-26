@@ -1,98 +1,196 @@
 {
   "quests": [
     {
-      "id": "q_mine_beacon",
-      "title": "矿洞信标",
+      "id": "q_bamboo_scouting",
+      "title": "林口有人等你",
       "line": "main",
-      "chapter": "第二章·矿洞遗火",
-      "story": "青竹林尽头的玄铁矿洞曾是镇阵补给点。如今信标失落、矿魈游荡，清玄命你重启矿路的第一枚旧核。",
-      "desc": "进入玄铁矿洞，击杀 5 只矿魈并取回失落信标。",
-      "objectiveText": "深入玄铁矿洞，夺回失落信标核心",
-      "targetMonsterId": "m_mine_ghoul",
-      "targetCount": 5,
-      "requiredItemId": "mine_signal_core",
-      "requiredItemCount": 1,
-      "reward": [
-        {
-          "itemId": "book_thunder_palm",
-          "name": "《惊雷掌》残卷",
-          "type": "skill_book",
-          "count": 1
-        },
-        {
-          "itemId": "equip.black_iron_sword",
-          "name": "玄铁长剑",
-          "type": "equipment",
-          "count": 1
-        }
-      ],
-      "nextQuestId": "q_ruin_cipher",
-      "giverMapId": "spawn",
-      "giverNpcId": "npc_qingxuan",
-      "submitMapId": "spawn",
-      "submitNpcId": "npc_qingxuan"
-    },
-    {
-      "id": "q_ruin_cipher",
-      "title": "断碑密钥",
-      "line": "main",
-      "chapter": "第二章·矿洞遗火",
-      "story": "仅有矿洞信标还不够。断碑遗迹里沉睡的古修阵纹才是真正的钥匙，清玄让你把能驱动阵门的钥石带回来。",
-      "desc": "清剿断碑遗迹的符阵看守并带回遗迹钥石。",
-      "objectiveText": "回收遗迹钥石，补齐开脉阵纹",
-      "targetMonsterId": "m_rune_watcher",
-      "targetCount": 4,
-      "requiredItemId": "ruin_keystone",
-      "requiredItemCount": 1,
-      "reward": [
-        {
-          "itemId": "book.spirit_anchor",
-          "name": "《镇灵篇》",
-          "type": "skill_book",
-          "count": 1
-        },
-        {
-          "itemId": "equip.rune_robe",
-          "name": "断纹法袍",
-          "type": "equipment",
-          "count": 1
-        }
-      ],
-      "unlockBreakthroughRequirementIds": [
-        "bw_12_13_black_iron_chunk",
-        "bw_12_13_rune_shard",
-        "bw_12_13_mine_signal_core"
-      ],
-      "nextQuestId": "q_realm_meridian",
-      "giverMapId": "spawn",
-      "giverNpcId": "npc_qingxuan",
-      "submitMapId": "spawn",
-      "submitNpcId": "npc_qingxuan"
-    },
-    {
-      "id": "q_realm_meridian",
-      "title": "天璇试关",
-      "line": "main",
-      "chapter": "第二章·矿洞遗火",
-      "story": "信标核心与遗迹灵纹已到手，剩下便是让玄铁与断纹真正入体。清玄要你借矿洞、遗迹所得引北斗再转，叩开天璇之位。",
-      "desc": "以矿洞与遗迹所得的材料为引，继续历练至天璇。",
-      "objectiveType": "realm_stage",
-      "objectiveText": "备齐玄铁、断纹与信标核心，历练至天璇",
-      "targetRealmStage": "Meridian",
-      "targetName": "天璇",
+      "chapter": "第二章·青竹追线",
+      "story": "清玄终于把你往东门外放。青竹林不是单纯练功的地方，那里原本是云来镇最稳的运材路，如今林里人少怪多，只剩巡林弟子阿栖还在硬撑。先去见他，再谈后头的事。",
+      "desc": "前往青竹林，找到巡林弟子阿栖。",
+      "objectiveType": "talk",
+      "objectiveText": "去青竹林找巡林弟子阿栖",
+      "targetNpcId": "npc_bamboo_scout",
+      "targetNpcName": "巡林弟子·阿栖",
+      "targetMapId": "bamboo_forest",
+      "targetName": "巡林弟子·阿栖",
       "required": 1,
+      "reward": [
+        {
+          "itemId": "pill.minor_heal",
+          "name": "回春散",
+          "type": "consumable",
+          "count": 2
+        }
+      ],
+      "nextQuestId": "q_bamboo_wolf_fangs",
+      "giverMapId": "yunlai_town",
+      "giverNpcId": "npc_qingxuan",
+      "submitMapId": "bamboo_forest",
+      "submitNpcId": "npc_bamboo_scout"
+    },
+    {
+      "id": "q_bamboo_wolf_fangs",
+      "title": "先把林路咬开的口子堵上",
+      "line": "main",
+      "chapter": "第二章·青竹追线",
+      "story": "阿栖告诉你，青竹林这阵子最烦人的不是深处的怪东西，而是反复扑到路上的噬灵狼。只要它们还在咬人、拖尸、断路，运材车就进不了林，东门那条命脉就等于半死。",
+      "desc": "清掉林道上的噬灵狼，并收集足够的狼牙给阿栖回报。",
+      "objectiveText": "清掉林道噬灵狼并带回狼牙",
+      "targetMonsterId": "m_spirit_wolf",
+      "targetCount": 8,
+      "targetMapId": "bamboo_forest",
+      "targetName": "噬灵狼",
+      "required": 8,
+      "requiredItemId": "wolf_fang",
+      "requiredItemCount": 4,
+      "reward": [
+        {
+          "itemId": "equip.step_boots",
+          "name": "游侠靴",
+          "type": "equipment",
+          "count": 1
+        },
+        {
+          "itemId": "pill.windstride_elixir",
+          "name": "轻身丹",
+          "type": "consumable",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_bamboo_broken_cart",
+      "giverMapId": "bamboo_forest",
+      "giverNpcId": "npc_bamboo_scout",
+      "submitMapId": "bamboo_forest",
+      "submitNpcId": "npc_bamboo_scout"
+    },
+    {
+      "id": "q_bamboo_broken_cart",
+      "title": "翻车留下的东西",
+      "line": "main",
+      "chapter": "第二章·青竹追线",
+      "story": "林路稍稍稳住后，阿栖让你去看那辆翻倒的运材车。车上本该只有木料和绳具，却偏偏留下了几处不太像野兽啃咬的裂口。青竹林和北井的那点怪话，似乎开始往一处拢了。",
+      "desc": "去查看翻倒的运材车，再把看到的痕迹带回阿栖。",
+      "objectiveType": "talk",
+      "objectiveText": "调查翻倒的运材车",
+      "targetNpcId": "npc_broken_cart",
+      "targetNpcName": "翻倒的运材车",
+      "targetMapId": "bamboo_forest",
+      "targetName": "翻倒的运材车",
+      "required": 1,
+      "reward": [
+        {
+          "itemId": "equip.cloud_boots",
+          "name": "踏云履",
+          "type": "equipment",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_bamboo_serpent_gall",
+      "giverMapId": "bamboo_forest",
+      "giverNpcId": "npc_bamboo_scout",
+      "submitMapId": "bamboo_forest",
+      "submitNpcId": "npc_bamboo_scout"
+    },
+    {
+      "id": "q_bamboo_serpent_gall",
+      "title": "先救人，再追问",
+      "line": "main",
+      "chapter": "第二章·青竹追线",
+      "story": "你把车上的痕迹说给清玄和兰药师听后，兰药师还是先把注意力放回伤者身上。她要你去竹林深处取竹蛇胆，好把那人命先吊住。云来镇现在还没资格追真相，只能先把能活的人留下来。",
+      "desc": "猎杀青鳞竹蛇，带回竹蛇胆给兰药师。",
+      "objectiveText": "猎杀青鳞竹蛇并带回竹蛇胆",
+      "targetMonsterId": "m_bamboo_serpent",
+      "targetCount": 6,
+      "targetMapId": "bamboo_forest",
+      "targetName": "青鳞竹蛇",
+      "required": 6,
+      "requiredItemId": "serpent_gall",
+      "requiredItemCount": 2,
       "reward": [
         {
           "itemId": "major_qi_pill",
           "name": "大还灵丹",
           "type": "consumable",
           "count": 2
+        },
+        {
+          "itemId": "pill.clear_eye_elixir",
+          "name": "明目丹",
+          "type": "consumable",
+          "count": 1
         }
       ],
-      "nextQuestId": "q_valley_probe",
-      "giverMapId": "spawn",
+      "nextQuestId": "q_bamboo_hermit_path",
+      "giverMapId": "yunlai_town",
+      "giverNpcId": "npc_herbalist_lan",
+      "submitMapId": "yunlai_town",
+      "submitNpcId": "npc_herbalist_lan"
+    },
+    {
+      "id": "q_bamboo_hermit_path",
+      "title": "竹隐客的路",
+      "line": "main",
+      "chapter": "第二章·青竹追线",
+      "story": "清玄让你去见竹隐客。这个人不替镇子做事，却知道林路更深处都藏着什么。若矿路和遗迹真跟镇里的暗线牵在一起，那么进矿洞前，你必须先从他嘴里拿到一句实话。",
+      "desc": "去见竹隐客，问清林后矿路的入口。",
+      "objectiveType": "talk",
+      "objectiveText": "去找竹隐客问路",
+      "targetNpcId": "npc_bamboo_hermit",
+      "targetNpcName": "竹隐客",
+      "targetMapId": "bamboo_forest",
+      "targetName": "竹隐客",
+      "required": 1,
+      "reward": [
+        {
+          "itemId": "book.cloud_blade",
+          "name": "《流云刀谱》",
+          "type": "skill_book",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_bamboo_meridian",
+      "giverMapId": "yunlai_town",
       "giverNpcId": "npc_qingxuan",
-      "submitMapId": "spawn",
+      "submitMapId": "bamboo_forest",
+      "submitNpcId": "npc_bamboo_hermit"
+    },
+    {
+      "id": "q_bamboo_meridian",
+      "title": "从林路走到矿路",
+      "line": "main",
+      "chapter": "第二章·青竹追线",
+      "story": "竹隐客没把真相说满，但给了你足够往下走的方向: 玄铁矿洞和断碑遗迹里，埋着比匪患和兽祸更早的东西。现在你要做的不是回头，而是把经脉和胆气都练到能踏进去的程度。",
+      "desc": "继续历练，迈入通脉境，准备正式进入矿路和遗迹。",
+      "objectiveType": "realm_stage",
+      "objectiveText": "历练至通脉境",
+      "targetRealmStage": "Meridian",
+      "targetMapId": "bamboo_forest",
+      "targetName": "通脉境",
+      "required": 1,
+      "reward": [
+        {
+          "itemId": "map.black_iron_mine",
+          "name": "黑铁矿脉图",
+          "type": "consumable",
+          "count": 1
+        },
+        {
+          "itemId": "map.ancient_ruins",
+          "name": "古遗迹残图",
+          "type": "consumable",
+          "count": 1
+        },
+        {
+          "itemId": "pill.bitter_cultivation_elixir",
+          "name": "苦修丹",
+          "type": "consumable",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_mine_signal_talk",
+      "giverMapId": "yunlai_town",
+      "giverNpcId": "npc_qingxuan",
+      "submitMapId": "yunlai_town",
       "submitNpcId": "npc_qingxuan"
     }
   ]

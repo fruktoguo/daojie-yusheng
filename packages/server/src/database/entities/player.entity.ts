@@ -30,7 +30,7 @@ export class PlayerEntity {
   name!: string;
 
   /** 当前所在地图 ID */
-  @Column({ type: 'varchar', length: 50, default: 'spawn' })
+  @Column({ type: 'varchar', length: 50, default: 'yunlai_town' })
   mapId!: string;
 
   @Column({ type: 'int' })

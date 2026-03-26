@@ -1,0 +1,285 @@
+{
+  "id": "yunlai_town_inn_2f",
+  "name": "云来镇·沈记脚店二楼",
+  "width": 20,
+  "height": 12,
+  "parentMapId": "yunlai_town",
+  "parentOriginX": 8,
+  "parentOriginY": 30,
+  "floorLevel": 2,
+  "floorName": "二楼客房",
+  "spaceVisionMode": "parent_overlay",
+  "description": "脚店二楼隔成两间通铺和一条过道，南北开窗，白日里采光最好。",
+  "tiles": [
+    "###WWW########WWW###",
+    "##................##",
+    "##..oo......oo....##",
+    "##................##",
+    "##.######..######.##",
+    "##.#....#..#....#.##",
+    "##.#....#..#....#.##",
+    "##.#....#..#....#.##",
+    "##.######..######.##",
+    "##......S.........##",
+    "##..........oo....##",
+    "###WWW########WWW###"
+  ],
+  "portals": [
+    {
+      "x": 8,
+      "y": 9,
+      "targetMapId": "yunlai_town",
+      "targetX": 16,
+      "targetY": 36,
+      "kind": "stairs",
+      "trigger": "auto"
+    }
+  ],
+  "dangerLevel": 1,
+  "recommendedRealm": "Entry",
+  "spawnPoint": {
+    "x": 9,
+    "y": 9
+  },
+  "time": {
+    "offsetTicks": 120,
+    "scale": 1,
+    "light": {
+      "base": 68,
+      "timeInfluence": 24
+    }
+  },
+  "landmarks": [
+    {
+      "id": "lm_preview_inn_2f_guest_chest",
+      "name": "寄宿客床头柜",
+      "x": 15,
+      "y": 2,
+      "desc": "靠窗的床头柜还留着旧住客没带走的药散和零碎行李。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1800,
+        "char": "柜",
+        "color": "#8a6a4c",
+        "lootPools": [
+          {
+            "chance": 0.62,
+            "minLevel": 1,
+            "maxLevel": 1,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ]
+          },
+          {
+            "chance": 0.28,
+            "minLevel": 2,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药"
+              ]
+            ]
+          },
+          {
+            "chance": 0.05,
+            "minLevel": 1,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "护甲"
+              ],
+              [
+                "腿部护甲"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_preview_inn_2f_baggage",
+      "name": "散客旧包袱",
+      "x": 3,
+      "y": 2,
+      "desc": "靠墙堆着一只旧包袱，里头塞着换洗布和几包常备散剂。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1700,
+        "char": "包",
+        "color": "#9b8257",
+        "lootPools": [
+          {
+            "chance": 0.6,
+            "minLevel": 1,
+            "maxLevel": 1,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ]
+          },
+          {
+            "chance": 0.25,
+            "minLevel": 2,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药"
+              ]
+            ]
+          },
+          {
+            "chance": 0.06,
+            "minLevel": 1,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "护甲"
+              ],
+              [
+                "帽子"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_preview_inn_2f_washstand",
+      "name": "客房洗漱架",
+      "x": 9,
+      "y": 2,
+      "desc": "架上摆着木盆、布巾和剩下半瓶的跌打药。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1650,
+        "char": "架",
+        "color": "#8d7152",
+        "lootPools": [
+          {
+            "chance": 0.6,
+            "minLevel": 1,
+            "maxLevel": 1,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ]
+          },
+          {
+            "chance": 0.25,
+            "minLevel": 2,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药"
+              ]
+            ]
+          },
+          {
+            "chance": 0.06,
+            "minLevel": 1,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "护甲"
+              ],
+              [
+                "帽子"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_preview_inn_2f_window_table",
+      "name": "临窗小几",
+      "x": 9,
+      "y": 10,
+      "desc": "小几上还搁着茶盏和外地客留下的随身药包。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1600,
+        "char": "几",
+        "color": "#8b684a",
+        "lootPools": [
+          {
+            "chance": 0.62,
+            "minLevel": 1,
+            "maxLevel": 1,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ]
+          },
+          {
+            "chance": 0.28,
+            "minLevel": 2,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药"
+              ]
+            ]
+          },
+          {
+            "chance": 0.05,
+            "minLevel": 1,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "护甲"
+              ],
+              [
+                "腿部护甲"
+              ]
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "npcs": [],
+  "monsterSpawns": [],
+  "terrainProfileId": "mortal_settlement"
+}
