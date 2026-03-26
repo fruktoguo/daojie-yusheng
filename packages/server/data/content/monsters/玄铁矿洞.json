@@ -1,0 +1,146 @@
+[
+  {
+    "id": "m_mine_ghoul",
+    "name": "矿魈",
+    "char": "魈",
+    "color": "#8f7fa8",
+    "hp": 78,
+    "attack": 14,
+    "radius": 8,
+    "respawnSec": 24,
+    "level": 4,
+    "drops": [
+      {
+        "itemId": "mine_signal_core",
+        "name": "失落信标核心",
+        "type": "quest_item",
+        "count": 1,
+        "chance": 0.18
+      },
+      {
+        "itemId": "black_iron_chunk",
+        "name": "玄铁矿块",
+        "type": "material",
+        "count": 1,
+        "chance": 0.52
+      },
+      {
+        "itemId": "mine_crystal_core",
+        "name": "矿晶核",
+        "type": "quest_item",
+        "count": 1,
+        "chance": 0.14
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "mystic",
+    "count": 7
+  },
+  {
+    "id": "m_crystal_bat",
+    "name": "晶背蝠",
+    "char": "蝠",
+    "color": "#9ac3ff",
+    "hp": 48,
+    "attack": 9,
+    "radius": 5,
+    "respawnSec": 20,
+    "level": 3,
+    "drops": [
+      {
+        "itemId": "crystal_dust",
+        "name": "晶尘",
+        "type": "material",
+        "count": 1,
+        "chance": 0.6
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "mystic",
+    "count": 5
+  },
+  {
+    "id": "m_tunnel_stalker",
+    "name": "隧影潜猎者",
+    "char": "潜",
+    "color": "#6f84a8",
+    "hp": 90,
+    "attack": 16,
+    "radius": 5,
+    "respawnSec": 22,
+    "level": 5,
+    "drops": [
+      {
+        "itemId": "black_iron_chunk",
+        "name": "玄铁矿块",
+        "type": "material",
+        "count": 1,
+        "chance": 0.58
+      },
+      {
+        "itemId": "equip.miner_helmet",
+        "name": "矿卫盔",
+        "type": "equipment",
+        "count": 1,
+        "chance": 0.06
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "mystic",
+    "count": 4
+  },
+  {
+    "id": "m_ore_colossus",
+    "name": "矿脉巨像",
+    "char": "像",
+    "color": "#8f8a7b",
+    "hp": 170,
+    "attack": 28,
+    "radius": 3,
+    "respawnSec": 60,
+    "level": 7,
+    "drops": [
+      {
+        "itemId": "colossus_heart",
+        "name": "巨像核心",
+        "type": "quest_item",
+        "count": 1,
+        "chance": 0.55
+      },
+      {
+        "itemId": "equip.rift_guard_armor",
+        "name": "裂隙镇守甲",
+        "type": "equipment",
+        "count": 1,
+        "chance": 0.1
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "mystic",
+    "count": 2
+  }
+]

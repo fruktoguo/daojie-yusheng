@@ -448,9 +448,23 @@ function hydrateMonsterSpawnRecord(raw, monsterTemplates) {
   if (!template) {
     return raw;
   }
+  const radius = Number.isInteger(raw.radius) ? Math.max(0, Number(raw.radius)) : template.radius;
+  const maxAlive = Number.isInteger(raw.maxAlive) ? Math.max(1, Number(raw.maxAlive)) : template.maxAlive;
   return {
     ...template,
-    ...raw,
+    id: typeof raw.id === 'string' && raw.id.trim() ? raw.id : template.id,
+    x: Number.isInteger(raw.x) ? Number(raw.x) : 0,
+    y: Number.isInteger(raw.y) ? Number(raw.y) : 0,
+    grade: raw.grade ?? template.grade,
+    count: Number.isInteger(raw.count) ? Math.max(1, Number(raw.count)) : template.count,
+    radius,
+    maxAlive,
+    wanderRadius: Number.isInteger(raw.wanderRadius) ? Math.max(0, Number(raw.wanderRadius)) : radius,
+    respawnTicks: Number.isInteger(raw.respawnTicks)
+      ? Math.max(1, Number(raw.respawnTicks))
+      : Math.max(1, Number(raw.respawnSec ?? template.respawnTicks ?? 15)),
+    respawnSec: Number.isInteger(raw.respawnSec) ? Math.max(1, Number(raw.respawnSec)) : undefined,
+    level: Number.isInteger(raw.level) ? Math.max(1, Number(raw.level)) : template.level,
     templateId,
   };
 }
@@ -485,19 +499,12 @@ function dehydrateMonsterSpawnRecord(spawn, monsterTemplates) {
     y: spawn.y,
   };
   if (templateId !== spawn.id) persisted.templateId = templateId;
-  if (spawn.name !== template.name) persisted.name = spawn.name;
-  if (spawn.char !== template.char) persisted.char = spawn.char;
-  if (spawn.color !== template.color) persisted.color = spawn.color;
   if (spawn.grade !== template.grade) persisted.grade = spawn.grade;
-  if (spawn.hp !== template.hp) persisted.hp = spawn.hp;
-  if ((spawn.maxHp ?? spawn.hp) !== template.maxHp) persisted.maxHp = spawn.maxHp;
-  if (spawn.attack !== template.attack) persisted.attack = spawn.attack;
   if ((spawn.count ?? spawn.maxAlive ?? 1) !== template.count) persisted.count = spawn.count;
   if ((spawn.radius ?? 3) !== template.radius) persisted.radius = spawn.radius;
   if ((spawn.maxAlive ?? spawn.count ?? 1) !== (template.maxAlive ?? template.count ?? 1)) persisted.maxAlive = spawn.maxAlive;
-  if ((spawn.aggroRange ?? 6) !== template.aggroRange) persisted.aggroRange = spawn.aggroRange;
-  if ((spawn.viewRange ?? spawn.aggroRange ?? 6) !== template.viewRange) persisted.viewRange = spawn.viewRange;
-  if ((spawn.aggroMode ?? 'always') !== template.aggroMode) persisted.aggroMode = spawn.aggroMode;
+  const defaultWanderRadius = spawn.radius ?? template.radius;
+  if ((spawn.wanderRadius ?? defaultWanderRadius) !== defaultWanderRadius) persisted.wanderRadius = spawn.wanderRadius;
   const currentRespawn = spawn.respawnTicks ?? spawn.respawnSec ?? 15;
   const templateRespawn = template.respawnTicks ?? template.respawnSec ?? 15;
   if (currentRespawn !== templateRespawn) {
@@ -505,8 +512,6 @@ function dehydrateMonsterSpawnRecord(spawn, monsterTemplates) {
     else if (spawn.respawnSec !== undefined) persisted.respawnSec = spawn.respawnSec;
   }
   if ((spawn.level ?? undefined) !== template.level) persisted.level = spawn.level;
-  if ((spawn.expMultiplier ?? 1) !== template.expMultiplier) persisted.expMultiplier = spawn.expMultiplier;
-  if (JSON.stringify(spawn.drops ?? []) !== JSON.stringify(template.drops ?? [])) persisted.drops = spawn.drops;
   return persisted;
 }
 

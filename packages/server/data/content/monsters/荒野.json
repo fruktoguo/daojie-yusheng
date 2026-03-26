@@ -1,0 +1,175 @@
+[
+  {
+    "id": "m_wild_boar",
+    "name": "獠牙野彘",
+    "char": "彘",
+    "color": "#c08a5a",
+    "radius": 8,
+    "respawnSec": 22,
+    "level": 2,
+    "hp": 42,
+    "attack": 7,
+    "drops": [
+      {
+        "itemId": "boar_tusk",
+        "name": "彘牙",
+        "type": "material",
+        "count": 1,
+        "chance": 0.45
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "yellow",
+    "count": 6
+  },
+  {
+    "id": "m_swamp_lizard",
+    "name": "泽鳞蜥",
+    "char": "蜥",
+    "color": "#7cbf7c",
+    "radius": 6,
+    "respawnSec": 20,
+    "level": 3,
+    "hp": 56,
+    "attack": 9,
+    "drops": [
+      {
+        "itemId": "lizard_scale",
+        "name": "泽鳞",
+        "type": "material",
+        "count": 1,
+        "chance": 0.5
+      },
+      {
+        "itemId": "bamboo_heart",
+        "name": "翠竹心",
+        "type": "material",
+        "count": 1,
+        "chance": 0.18
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "yellow",
+    "count": 5
+  },
+  {
+    "id": "m_wild_bandit",
+    "name": "荒野匪徒",
+    "char": "匪",
+    "color": "#a05252",
+    "radius": 7,
+    "respawnSec": 18,
+    "level": 3,
+    "hp": 52,
+    "attack": 10,
+    "drops": [
+      {
+        "itemId": "bandit_insignia",
+        "name": "匪徒腰牌",
+        "type": "material",
+        "count": 1,
+        "chance": 0.6
+      },
+      {
+        "itemId": "equip.rust_saber",
+        "name": "旧铁长刀",
+        "type": "equipment",
+        "count": 1,
+        "chance": 0.07
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "yellow",
+    "count": 6
+  },
+  {
+    "id": "m_mire_spider",
+    "name": "阴沼毒蛛",
+    "char": "蛛",
+    "color": "#54528a",
+    "radius": 5,
+    "respawnSec": 19,
+    "level": 4,
+    "hp": 64,
+    "attack": 11,
+    "drops": [
+      {
+        "itemId": "spider_silk",
+        "name": "阴沼丝",
+        "type": "material",
+        "count": 1,
+        "chance": 0.58
+      },
+      {
+        "itemId": "frost_heart_paste",
+        "name": "寒心膏",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.1
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "yellow",
+    "count": 5
+  },
+  {
+    "id": "m_dust_vulture",
+    "name": "裂喙秃鹫",
+    "char": "鹫",
+    "color": "#9d8f77",
+    "radius": 6,
+    "respawnSec": 24,
+    "level": 4,
+    "hp": 60,
+    "attack": 12,
+    "drops": [
+      {
+        "itemId": "blood_feather",
+        "name": "血羽",
+        "type": "material",
+        "count": 1,
+        "chance": 0.42
+      },
+      {
+        "itemId": "book.cloud_blade",
+        "name": "《流云刀谱》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.04
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "yellow",
+    "count": 4
+  }
+]

@@ -1,0 +1,126 @@
+[
+  {
+    "id": "m_preview_town_rat_south",
+    "name": "南沟灰尾鼠",
+    "char": "鼠",
+    "color": "#9b9b9b",
+    "hp": 18,
+    "attack": 4,
+    "radius": 5,
+    "respawnSec": 16,
+    "level": 1,
+    "drops": [
+      {
+        "itemId": "rat_tail",
+        "name": "鼠尾",
+        "type": "material",
+        "count": 1,
+        "chance": 0.6
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "mortal",
+    "count": 5
+  },
+  {
+    "id": "m_preview_town_rat_refuse",
+    "name": "废棚灰尾鼠",
+    "char": "鼠",
+    "color": "#8f8f8f",
+    "hp": 20,
+    "attack": 4,
+    "radius": 3,
+    "respawnSec": 18,
+    "level": 1,
+    "drops": [
+      {
+        "itemId": "rat_tail",
+        "name": "鼠尾",
+        "type": "material",
+        "count": 1,
+        "chance": 0.62
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "mortal",
+    "count": 4
+  },
+  {
+    "id": "m_preview_gate_thug",
+    "name": "断路暴徒",
+    "char": "匪",
+    "color": "#ba6f5a",
+    "hp": 30,
+    "attack": 6,
+    "radius": 6,
+    "respawnSec": 24,
+    "level": 2,
+    "drops": [
+      {
+        "itemId": "bandit_insignia",
+        "name": "匪徒腰牌",
+        "type": "material",
+        "count": 1,
+        "chance": 0.55
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "mortal",
+    "count": 4
+  },
+  {
+    "id": "m_preview_night_blade",
+    "name": "夜行刀客",
+    "char": "刀",
+    "color": "#8b3d3d",
+    "hp": 44,
+    "attack": 9,
+    "radius": 4,
+    "aggroMode": "night_only",
+    "respawnSec": 32,
+    "level": 3,
+    "drops": [
+      {
+        "itemId": "bandit_insignia",
+        "name": "匪徒腰牌",
+        "type": "material",
+        "count": 1,
+        "chance": 0.72
+      },
+      {
+        "itemId": "book.iron_bone_art",
+        "name": "《铁骨功》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.05
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "mortal",
+    "count": 2
+  }
+]

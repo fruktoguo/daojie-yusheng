@@ -1,0 +1,117 @@
+[
+  {
+    "id": "m_void_hunter",
+    "name": "天宫猎者",
+    "char": "猎",
+    "color": "#9d8cff",
+    "radius": 8,
+    "respawnSec": 18,
+    "level": 10,
+    "hp": 168,
+    "attack": 30,
+    "drops": [
+      {
+        "itemId": "star_metal",
+        "name": "星陨金",
+        "type": "material",
+        "count": 1,
+        "chance": 0.52
+      },
+      {
+        "itemId": "void_shard",
+        "name": "虚蚀碎片",
+        "type": "material",
+        "count": 1,
+        "chance": 0.44
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "heaven",
+    "count": 8
+  },
+  {
+    "id": "m_sky_puppet",
+    "name": "残宫傀仪",
+    "char": "傀",
+    "color": "#96b6d9",
+    "radius": 6,
+    "respawnSec": 20,
+    "level": 10,
+    "hp": 174,
+    "attack": 32,
+    "drops": [
+      {
+        "itemId": "sky_pattern_page",
+        "name": "天纹残页",
+        "type": "material",
+        "count": 1,
+        "chance": 0.58
+      },
+      {
+        "itemId": "book.spirit_anchor",
+        "name": "《镇灵篇》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.07
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "heaven",
+    "count": 6
+  },
+  {
+    "id": "m_star_devourer",
+    "name": "噬星兽",
+    "char": "噬",
+    "color": "#ff7e7e",
+    "radius": 2,
+    "respawnSec": 180,
+    "level": 12,
+    "hp": 360,
+    "attack": 48,
+    "drops": [
+      {
+        "itemId": "sky_seal_core",
+        "name": "天封核心",
+        "type": "quest_item",
+        "count": 1,
+        "chance": 1
+      },
+      {
+        "itemId": "equip.starfall_spear",
+        "name": "陨星枪",
+        "type": "equipment",
+        "count": 1,
+        "chance": 0.35
+      },
+      {
+        "itemId": "book.starfall_spear",
+        "name": "《陨星枪诀》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.25
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "heaven",
+    "count": 1
+  }
+]

@@ -59,6 +59,10 @@ const PORTAL_ROUTE_DOMAIN_OPTIONS: Array<{ value: PortalRouteDomain; label: stri
   { value: 'personal', label: '个人传送点' },
   { value: 'dynamic', label: '动态图传送点' },
 ];
+const MONSTER_GRADE_OVERRIDE_OPTIONS = [
+  { value: '', label: '跟随模板' },
+  ...MONSTER_GRADE_OPTIONS,
+];
 type GmMapEditorOptions = {
   mapApiBasePath?: string;
   syncedSummaryLabel?: string;
@@ -1085,7 +1089,7 @@ export class GmMapEditor {
           <div class="editor-section-head">
             <div>
               <div class="editor-section-title">怪物刷新点属性</div>
-              <div class="editor-section-note">地图里只维护怪物 ID 与坐标。基础属性来自怪物模板配置。</div>
+              <div class="editor-section-note">地图里只维护模板引用、可选等级/品阶覆盖，以及生成与漫游参数。名称、显示字、基础属性都来自怪物模板。</div>
             </div>
             <button class="small-btn danger" type="button" data-map-action="remove-selected">删除</button>
           </div>
@@ -1096,19 +1100,15 @@ export class GmMapEditor {
             ${readonlyField('名称', spawn.name || '未匹配到怪物模板')}
             ${readonlyField('显示字', spawn.char || '-')}
             ${readonlyField('颜色', spawn.color || '-')}
-            ${readonlyField('品阶', TECHNIQUE_GRADE_LABELS[spawn.grade ?? 'mortal'] ?? (spawn.grade ?? 'mortal'))}
-            ${readonlyField('HP', `${spawn.hp ?? 0}`)}
-            ${readonlyField('最大 HP', `${spawn.maxHp ?? spawn.hp ?? 0}`)}
-            ${readonlyField('攻击', `${spawn.attack ?? 0}`)}
-            ${readonlyField('巡逻半径', `${spawn.radius ?? 3}`)}
-            ${readonlyField('数量', `${spawn.count ?? spawn.maxAlive ?? 1}`)}
-            ${readonlyField('最大存活', `${spawn.maxAlive ?? spawn.count ?? 1}`)}
-            ${readonlyField('仇恨范围', `${spawn.aggroRange ?? 6}`)}
-            ${readonlyField('重生秒数', `${spawn.respawnSec ?? spawn.respawnTicks ?? 15}`)}
-            ${readonlyField('等级', `${spawn.level ?? 1}`)}
-            ${readonlyField('经验倍率', `${spawn.expMultiplier ?? 1}`)}
+            ${nullableNumberField('等级覆盖', `monsterSpawns.${this.selectedEntity.index}.level`, spawn.level)}
+            ${nullableSelectField('品阶覆盖', `monsterSpawns.${this.selectedEntity.index}.grade`, spawn.grade, MONSTER_GRADE_OVERRIDE_OPTIONS)}
+            ${nullableNumberField('生成数量', `monsterSpawns.${this.selectedEntity.index}.count`, spawn.count)}
+            ${nullableNumberField('生成半径', `monsterSpawns.${this.selectedEntity.index}.radius`, spawn.radius)}
+            ${nullableNumberField('最大维持数量', `monsterSpawns.${this.selectedEntity.index}.maxAlive`, spawn.maxAlive)}
+            ${nullableNumberField('重生时间(秒)', `monsterSpawns.${this.selectedEntity.index}.respawnTicks`, spawn.respawnTicks ?? spawn.respawnSec)}
+            ${nullableNumberField('分布范围', `monsterSpawns.${this.selectedEntity.index}.wanderRadius`, spawn.wanderRadius ?? spawn.radius)}
           </div>
-          <div class="editor-note">要改怪物属性，请编辑 packages/server/data/content/monsters/*.json 中对应模板。</div>
+          <div class="editor-note">留空时跟随怪物模板；分布范围留空时默认等于生成半径。要改名字、显示字、基础属性、移动速度或索敌半径，请改怪物模板。</div>
         </section>
       `;
     }
@@ -1539,11 +1539,6 @@ export class GmMapEditor {
       id: fallbackId ?? '',
       x,
       y,
-      name: '',
-      char: '',
-      color: '',
-      hp: 0,
-      attack: 0,
     });
     this.selectedEntity = { kind: 'monster', index: this.draft!.monsterSpawns.length - 1 };
     if (!fallbackId) {
@@ -1992,6 +1987,12 @@ export class GmMapEditor {
   private drawEntities(ctx: CanvasRenderingContext2D, screenW: number, screenH: number, cellSize: number): void {
     if (!this.draft) return;
     const showEntityLabels = cellSize >= 18;
+    if (this.selectedEntity?.kind === 'monster') {
+      const selectedSpawn = this.draft.monsterSpawns[this.selectedEntity.index];
+      if (selectedSpawn) {
+        this.drawMonsterSpawnOverlay(ctx, screenW, screenH, cellSize, selectedSpawn);
+      }
+    }
     const drawEntity = (wx: number, wy: number, char: string, color: string, name: string, kind: 'npc' | 'monster' | 'spawn' | 'container'): void => {
       const sx = wx * cellSize - this.viewCenterX + screenW / 2;
       const sy = wy * cellSize - this.viewCenterY + screenH / 2;
@@ -2081,6 +2082,125 @@ export class GmMapEditor {
     (this.draft.landmarks ?? [])
       .filter((landmark) => !landmark.container)
       .forEach((landmark) => drawLandmark(landmark));
+  }
+
+  private drawMonsterSpawnOverlay(
+    ctx: CanvasRenderingContext2D,
+    screenW: number,
+    screenH: number,
+    cellSize: number,
+    spawn: GmMapMonsterSpawnRecord,
+  ): void {
+    if (!this.draft) {
+      return;
+    }
+    const spawnRadius = Math.max(0, Math.floor(spawn.radius ?? 0));
+    const wanderRadius = Math.max(0, Math.floor(spawn.wanderRadius ?? spawn.radius ?? 0));
+    const maxRadius = Math.max(spawnRadius, wanderRadius);
+    if (maxRadius <= 0) {
+      return;
+    }
+
+    const drawCellOverlay = (
+      x: number,
+      y: number,
+      fillStyle: string | null,
+      strokeStyle: string | null,
+      lineWidth: number,
+    ): void => {
+      if (x < 0 || y < 0 || x >= this.draft!.width || y >= this.draft!.height) {
+        return;
+      }
+      const sx = x * cellSize - this.viewCenterX + screenW / 2;
+      const sy = y * cellSize - this.viewCenterY + screenH / 2;
+      if (sx + cellSize < 0 || sx > screenW || sy + cellSize < 0 || sy > screenH) {
+        return;
+      }
+      if (fillStyle) {
+        ctx.fillStyle = fillStyle;
+        ctx.fillRect(sx, sy, cellSize, cellSize);
+      }
+      if (strokeStyle) {
+        ctx.strokeStyle = strokeStyle;
+        ctx.lineWidth = lineWidth;
+        ctx.strokeRect(sx + 0.5, sy + 0.5, cellSize - 1, cellSize - 1);
+      }
+    };
+
+    for (let dy = -maxRadius; dy <= maxRadius; dy += 1) {
+      for (let dx = -maxRadius; dx <= maxRadius; dx += 1) {
+        if (!isOffsetInRange(dx, dy, maxRadius)) {
+          continue;
+        }
+        const worldX = spawn.x + dx;
+        const worldY = spawn.y + dy;
+        const inSpawnRadius = spawnRadius > 0 && isOffsetInRange(dx, dy, spawnRadius);
+        const inWanderRadius = wanderRadius > 0 && isOffsetInRange(dx, dy, wanderRadius);
+        if (!inSpawnRadius && !inWanderRadius) {
+          continue;
+        }
+        drawCellOverlay(
+          worldX,
+          worldY,
+          inSpawnRadius
+            ? 'rgba(255, 182, 93, 0.22)'
+            : 'rgba(96, 176, 152, 0.14)',
+          null,
+          0,
+        );
+      }
+    }
+
+    const outlineRadius = (radius: number, strokeStyle: string): void => {
+      if (radius <= 0) {
+        return;
+      }
+      for (let dy = -radius; dy <= radius; dy += 1) {
+        for (let dx = -radius; dx <= radius; dx += 1) {
+          if (!isOffsetInRange(dx, dy, radius) || isOffsetInRange(dx, dy, radius - 1)) {
+            continue;
+          }
+          drawCellOverlay(
+            spawn.x + dx,
+            spawn.y + dy,
+            null,
+            strokeStyle,
+            Math.max(1, cellSize >= 24 ? 2 : 1),
+          );
+        }
+      }
+    };
+
+    outlineRadius(wanderRadius, 'rgba(110, 222, 184, 0.9)');
+    outlineRadius(spawnRadius, 'rgba(255, 203, 122, 0.95)');
+    drawCellOverlay(
+      spawn.x,
+      spawn.y,
+      'rgba(255, 244, 180, 0.18)',
+      'rgba(255, 244, 180, 0.95)',
+      Math.max(1, cellSize >= 24 ? 2 : 1),
+    );
+
+    if (cellSize < 18) {
+      return;
+    }
+    const sx = spawn.x * cellSize - this.viewCenterX + screenW / 2;
+    const sy = spawn.y * cellSize - this.viewCenterY + screenH / 2;
+    const summary = `生${spawnRadius} 漫${wanderRadius}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `bold ${Math.max(11, cellSize * 0.28)}px "Noto Serif SC", serif`;
+    const paddingX = Math.max(7, cellSize * 0.18);
+    const boxHeight = Math.max(18, cellSize * 0.46);
+    const boxWidth = ctx.measureText(summary).width + paddingX * 2;
+    const anchorY = sy + cellSize + Math.max(12, cellSize * 0.34);
+    ctx.fillStyle = 'rgba(12, 18, 16, 0.78)';
+    ctx.fillRect(sx + cellSize / 2 - boxWidth / 2, anchorY - boxHeight / 2, boxWidth, boxHeight);
+    ctx.strokeStyle = 'rgba(171, 243, 214, 0.85)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(sx + cellSize / 2 - boxWidth / 2, anchorY - boxHeight / 2, boxWidth, boxHeight);
+    ctx.fillStyle = '#e5fff5';
+    ctx.fillText(summary, sx + cellSize / 2, anchorY + 0.5);
   }
 
   private resizeCanvas(): void {

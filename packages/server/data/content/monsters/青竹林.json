@@ -1,0 +1,139 @@
+[
+  {
+    "id": "m_spirit_wolf",
+    "name": "噬灵狼",
+    "char": "狼",
+    "color": "#b3b7c1",
+    "radius": 7,
+    "respawnSec": 18,
+    "level": 2,
+    "hp": 40,
+    "attack": 8,
+    "drops": [
+      {
+        "itemId": "wolf_fang",
+        "name": "狼牙",
+        "type": "material",
+        "count": 1,
+        "chance": 0.58
+      },
+      {
+        "itemId": "book_wind_step",
+        "name": "《踏风步》残页",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.07
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "yellow",
+    "count": 8
+  },
+  {
+    "id": "m_bamboo_serpent",
+    "name": "青鳞竹蛇",
+    "char": "蛇",
+    "color": "#67b56f",
+    "radius": 5,
+    "respawnSec": 20,
+    "level": 3,
+    "hp": 52,
+    "attack": 10,
+    "drops": [
+      {
+        "itemId": "serpent_gall",
+        "name": "竹蛇胆",
+        "type": "material",
+        "count": 1,
+        "chance": 0.5
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "yellow",
+    "count": 6
+  },
+  {
+    "id": "m_bamboo_sprite",
+    "name": "竹心灵",
+    "char": "灵",
+    "color": "#91d88d",
+    "radius": 5,
+    "respawnSec": 20,
+    "level": 3,
+    "hp": 58,
+    "attack": 9,
+    "drops": [
+      {
+        "itemId": "bamboo_heart",
+        "name": "翠竹心",
+        "type": "material",
+        "count": 1,
+        "chance": 0.45
+      },
+      {
+        "itemId": "book.iron_bone_art",
+        "name": "《铁骨功》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.05
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "yellow",
+    "count": 5
+  },
+  {
+    "id": "m_bamboo_mantis",
+    "name": "刃竹螳",
+    "char": "螳",
+    "color": "#7fbf5f",
+    "radius": 6,
+    "respawnSec": 22,
+    "level": 4,
+    "hp": 68,
+    "attack": 12,
+    "drops": [
+      {
+        "itemId": "mantis_blade",
+        "name": "螳锋",
+        "type": "material",
+        "count": 1,
+        "chance": 0.5
+      },
+      {
+        "itemId": "equip.rust_saber",
+        "name": "旧铁长刀",
+        "type": "equipment",
+        "count": 1,
+        "chance": 0.05
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "yellow",
+    "count": 5
+  }
+]

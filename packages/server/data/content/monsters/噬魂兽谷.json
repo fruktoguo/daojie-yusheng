@@ -1,0 +1,182 @@
+[
+  {
+    "id": "m_valley_wolf",
+    "name": "裂齿妖狼",
+    "char": "妖",
+    "color": "#d2b48c",
+    "radius": 9,
+    "respawnSec": 16,
+    "level": 6,
+    "hp": 105,
+    "attack": 19,
+    "drops": [
+      {
+        "itemId": "demon_wolf_bone",
+        "name": "妖狼骨",
+        "type": "material",
+        "count": 1,
+        "chance": 0.62
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "earth",
+    "count": 9
+  },
+  {
+    "id": "m_blood_crow",
+    "name": "血羽鸦",
+    "char": "鸦",
+    "color": "#8f1d21",
+    "radius": 7,
+    "respawnSec": 18,
+    "level": 7,
+    "hp": 112,
+    "attack": 21,
+    "drops": [
+      {
+        "itemId": "blood_feather",
+        "name": "血羽",
+        "type": "material",
+        "count": 1,
+        "chance": 0.53
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "earth",
+    "count": 7
+  },
+  {
+    "id": "m_valley_alpha",
+    "name": "裂渊狼主",
+    "char": "王",
+    "color": "#ff6b6b",
+    "radius": 3,
+    "respawnSec": 90,
+    "level": 9,
+    "hp": 220,
+    "attack": 34,
+    "drops": [
+      {
+        "itemId": "book_stillheart",
+        "name": "《止念诀》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.25
+      },
+      {
+        "itemId": "valley_core",
+        "name": "兽谷核心",
+        "type": "quest_item",
+        "count": 1,
+        "chance": 1
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      },
+      {
+        "itemId": "equip.soul_devour_token",
+        "name": "噬元骨牌",
+        "type": "equipment",
+        "count": 1,
+        "chance": 0.08
+      }
+    ],
+    "grade": "earth",
+    "count": 1
+  },
+  {
+    "id": "m_valley_serpent",
+    "name": "赤脊谷蛇",
+    "char": "蛇",
+    "color": "#b94747",
+    "radius": 5,
+    "respawnSec": 20,
+    "level": 7,
+    "hp": 118,
+    "attack": 20,
+    "drops": [
+      {
+        "itemId": "serpent_scale",
+        "name": "谷蛇逆鳞",
+        "type": "material",
+        "count": 1,
+        "chance": 0.54
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "earth",
+    "count": 5
+  },
+  {
+    "id": "m_valley_emperor",
+    "name": "裂渊谷皇",
+    "char": "皇",
+    "color": "#de5050",
+    "radius": 2,
+    "respawnSec": 120,
+    "level": 10,
+    "hp": 285,
+    "attack": 40,
+    "drops": [
+      {
+        "itemId": "valley_emperor_fang",
+        "name": "谷皇獠牙",
+        "type": "quest_item",
+        "count": 1,
+        "chance": 1
+      },
+      {
+        "itemId": "equip.rift_guard_armor",
+        "name": "裂隙镇守甲",
+        "type": "equipment",
+        "count": 1,
+        "chance": 0.25
+      },
+      {
+        "itemId": "book.spirit_anchor",
+        "name": "《镇灵篇》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.12
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      },
+      {
+        "itemId": "equip.soul_devour_token",
+        "name": "噬元骨牌",
+        "type": "equipment",
+        "count": 1,
+        "chance": 0.12
+      }
+    ],
+    "grade": "earth",
+    "count": 1
+  }
+]

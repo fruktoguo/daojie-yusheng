@@ -1,0 +1,146 @@
+[
+  {
+    "id": "m_ruin_guardian",
+    "name": "石卫傀",
+    "char": "傀",
+    "color": "#b9b3a8",
+    "radius": 7,
+    "respawnSec": 22,
+    "level": 4,
+    "hp": 84,
+    "attack": 13,
+    "drops": [
+      {
+        "itemId": "rune_shard",
+        "name": "断纹石片",
+        "type": "material",
+        "count": 1,
+        "chance": 0.57
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "mystic",
+    "count": 7
+  },
+  {
+    "id": "m_bone_owl",
+    "name": "骨翎夜鸮",
+    "char": "鸮",
+    "color": "#c4c9d8",
+    "radius": 5,
+    "respawnSec": 19,
+    "level": 5,
+    "hp": 76,
+    "attack": 15,
+    "drops": [
+      {
+        "itemId": "book_thunder_palm",
+        "name": "《惊雷掌》残卷",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.08
+      },
+      {
+        "itemId": "soul_ink",
+        "name": "魂墨",
+        "type": "material",
+        "count": 1,
+        "chance": 0.4
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      },
+      {
+        "itemId": "equip.soul_devour_token",
+        "name": "噬元骨牌",
+        "type": "equipment",
+        "count": 1,
+        "chance": 0.03
+      }
+    ],
+    "grade": "mystic",
+    "count": 5
+  },
+  {
+    "id": "m_rune_watcher",
+    "name": "符阵看守",
+    "char": "阵",
+    "color": "#89a9ff",
+    "radius": 5,
+    "respawnSec": 28,
+    "level": 6,
+    "hp": 108,
+    "attack": 18,
+    "drops": [
+      {
+        "itemId": "ruin_keystone",
+        "name": "遗迹钥石",
+        "type": "quest_item",
+        "count": 1,
+        "chance": 0.2
+      },
+      {
+        "itemId": "book.spirit_anchor",
+        "name": "《镇灵篇》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.06
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "mystic",
+    "count": 4
+  },
+  {
+    "id": "m_ghost_scribe",
+    "name": "执墨残魂",
+    "char": "魂",
+    "color": "#756fa8",
+    "radius": 4,
+    "respawnSec": 24,
+    "level": 5,
+    "hp": 82,
+    "attack": 14,
+    "drops": [
+      {
+        "itemId": "soul_ink",
+        "name": "魂墨",
+        "type": "material",
+        "count": 1,
+        "chance": 0.58
+      },
+      {
+        "itemId": "rune_shard",
+        "name": "断纹石片",
+        "type": "material",
+        "count": 1,
+        "chance": 0.42
+      },
+      {
+        "itemId": "spirit_stone",
+        "name": "灵石",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "grade": "mystic",
+    "count": 4
+  }
+]
