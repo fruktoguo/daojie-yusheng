@@ -29,6 +29,7 @@ import { SettingsPanel } from './ui/panels/settings-panel';
 import { WorldPanel } from './ui/panels/world-panel';
 import { SuggestionPanel } from './ui/suggestion-panel';
 import { ChangelogPanel } from './ui/changelog-panel';
+import { NpcShopModal } from './ui/npc-shop-modal';
 import { getHeavenGateHudAction, openHeavenGateModal } from './ui/heaven-gate-modal';
 import { initializeUiStyleConfig } from './ui/ui-style-config';
 import { createClientPanelSystem } from './ui/panel-system/bootstrap';
@@ -365,6 +366,7 @@ const techniquePanel = new TechniquePanel();
 const questPanel = new QuestPanel();
 const marketPanel = new MarketPanel();
 const actionPanel = new ActionPanel();
+const npcShopModal = new NpcShopModal();
 const lootPanel = new LootPanel();
 const worldPanel = new WorldPanel();
 const settingsPanel = new SettingsPanel();
@@ -1400,6 +1402,10 @@ marketPanel.setCallbacks({
   onCancelOrder: (orderId) => socket.sendCancelMarketOrder(orderId),
   onClaimStorage: () => socket.sendClaimMarketStorage(),
 });
+npcShopModal.setCallbacks({
+  onRequestShop: (npcId) => socket.sendRequestNpcShop(npcId),
+  onBuyItem: (npcId, itemId, quantity) => socket.sendBuyNpcShopItem(npcId, itemId, quantity),
+});
 actionPanel.setCallbacks(
   (actionId, requiresTarget, targetMode, range, actionName) => {
     if (actionId === 'client:take') {
@@ -1410,6 +1416,12 @@ actionPanel.setCallbacks(
       cancelTargeting();
       hideObserveModal();
       openBreakthroughModal();
+      return;
+    }
+    if (actionId.startsWith('npc_shop:')) {
+      cancelTargeting();
+      hideObserveModal();
+      npcShopModal.open(actionId.slice('npc_shop:'.length));
       return;
     }
     if (requiresTarget) {
@@ -1515,6 +1527,7 @@ socket.onInventoryUpdate((data) => {
   if (myPlayer) myPlayer.inventory = data.inventory;
   inventoryPanel.update(data.inventory);
   marketPanel.syncInventory(data.inventory);
+  npcShopModal.syncInventory(data.inventory);
 });
 socket.onEquipmentUpdate((data) => {
   if (myPlayer) myPlayer.equipment = data.equipment;
@@ -2244,6 +2257,7 @@ function resetGameState() {
   questPanel.clear();
   marketPanel.clear();
   actionPanel.clear();
+  npcShopModal.clear();
   lootPanel.clear();
   worldPanel.clear();
   mapRuntime.reset();
@@ -2510,6 +2524,7 @@ socket.onInit((data: S2C_Init) => {
   equipmentPanel.initFromPlayer(myPlayer);
   techniquePanel.initFromPlayer(myPlayer);
   questPanel.initFromPlayer(myPlayer);
+  npcShopModal.initFromPlayer(myPlayer);
   actionPanel.initFromPlayer(myPlayer);
   refreshUiChrome();
   suggestionPanel.setPlayerId(myPlayer.id);
@@ -2532,6 +2547,9 @@ socket.onMarketItemBook((data) => {
 });
 socket.onMarketTradeHistory((data) => {
   marketPanel.updateTradeHistory(data);
+});
+socket.onNpcShop((data) => {
+  npcShopModal.updateShop(data);
 });
 
 // Tick 更新

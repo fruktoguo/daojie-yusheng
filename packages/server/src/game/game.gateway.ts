@@ -46,8 +46,11 @@ import {
   C2S_SellMarketItem,
   C2S_CancelMarketOrder,
   C2S_ClaimMarketStorage,
+  C2S_RequestNpcShop,
+  C2S_BuyNpcShopItem,
   PlayerState,
   S2C_Init,
+  S2C_NpcShop,
   S2C_SystemMsg,
   S2C_Pong,
   S2C_TileRuntimeDetail,
@@ -336,6 +339,33 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       playerId,
       type: 'action',
       data: { actionId: data.actionId ?? data.type, target: data.target },
+      timestamp: Date.now(),
+    });
+  }
+
+  @SubscribeMessage(C2S.RequestNpcShop)
+  handleRequestNpcShop(client: Socket, data: C2S_RequestNpcShop) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+    const result = this.worldService.buildNpcShopView(player, data.npcId);
+    client.emit(S2C.NpcShop, {
+      npcId: data.npcId,
+      shop: result.shop,
+      error: result.error,
+    } satisfies S2C_NpcShop);
+  }
+
+  @SubscribeMessage(C2S.BuyNpcShopItem)
+  handleBuyNpcShopItem(client: Socket, data: C2S_BuyNpcShopItem) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+
+    this.playerService.enqueueCommand(player.mapId, {
+      playerId,
+      type: 'buyNpcShopItem',
+      data,
       timestamp: Date.now(),
     });
   }

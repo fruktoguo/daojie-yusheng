@@ -19,12 +19,15 @@ import {
   C2S_SellMarketItem,
   C2S_CancelMarketOrder,
   C2S_ClaimMarketStorage,
+  C2S_RequestNpcShop,
+  C2S_BuyNpcShopItem,
   S2C_Tick, S2C_Init, S2C_AttrUpdate, S2C_InventoryUpdate,
   S2C_EquipmentUpdate, S2C_TechniqueUpdate, S2C_ActionsUpdate, S2C_LootWindowUpdate, S2C_QuestUpdate, S2C_QuestNavigateResult, S2C_SystemMsg, S2C_GmState,
   S2C_SuggestionUpdate,
   S2C_MarketUpdate,
   S2C_MarketItemBook,
   S2C_MarketTradeHistory,
+  S2C_NpcShop,
   S2C_Pong,
   S2C_TileRuntimeDetail,
   S2C_Error, decodeServerEventPayload, encodeClientEventPayload,
@@ -57,6 +60,7 @@ export class SocketManager {
   private onMarketUpdateCallbacks: Array<(data: S2C_MarketUpdate) => void> = [];
   private onMarketItemBookCallbacks: Array<(data: S2C_MarketItemBook) => void> = [];
   private onMarketTradeHistoryCallbacks: Array<(data: S2C_MarketTradeHistory) => void> = [];
+  private onNpcShopCallbacks: Array<(data: S2C_NpcShop) => void> = [];
   private onPongCallbacks: Array<(data: S2C_Pong) => void> = [];
   private onDisconnectCallbacks: Array<(reason: string) => void> = [];
   private onConnectErrorCallbacks: Array<(message: string) => void> = [];
@@ -98,6 +102,7 @@ export class SocketManager {
     this.bindServerEvent(S2C.MarketUpdate, this.onMarketUpdateCallbacks);
     this.bindServerEvent(S2C.MarketItemBook, this.onMarketItemBookCallbacks);
     this.bindServerEvent(S2C.MarketTradeHistory, this.onMarketTradeHistoryCallbacks);
+    this.bindServerEvent(S2C.NpcShop, this.onNpcShopCallbacks);
     this.bindServerEvent(S2C.Pong, this.onPongCallbacks);
     this.bindServerEvent(S2C.Error, this.onErrorCallbacks);
     this.bindServerEvent(S2C.GmState, this.onGmStateCallbacks);
@@ -305,6 +310,14 @@ export class SocketManager {
     this.emitServer(C2S.ClaimMarketStorage, {} satisfies C2S_ClaimMarketStorage);
   }
 
+  sendRequestNpcShop(npcId: string) {
+    this.emitServer(C2S.RequestNpcShop, { npcId } satisfies C2S_RequestNpcShop);
+  }
+
+  sendBuyNpcShopItem(npcId: string, itemId: string, quantity: number) {
+    this.emitServer(C2S.BuyNpcShopItem, { npcId, itemId, quantity } satisfies C2S_BuyNpcShopItem);
+  }
+
   sendAction(actionId: string, target?: string) {
     this.emitServer(C2S.Action, { actionId, type: actionId, target } satisfies C2S_Action);
   }
@@ -339,6 +352,7 @@ export class SocketManager {
   onMarketUpdate(cb: (data: S2C_MarketUpdate) => void) { this.onMarketUpdateCallbacks.push(cb); }
   onMarketItemBook(cb: (data: S2C_MarketItemBook) => void) { this.onMarketItemBookCallbacks.push(cb); }
   onMarketTradeHistory(cb: (data: S2C_MarketTradeHistory) => void) { this.onMarketTradeHistoryCallbacks.push(cb); }
+  onNpcShop(cb: (data: S2C_NpcShop) => void) { this.onNpcShopCallbacks.push(cb); }
   onPong(cb: (data: S2C_Pong) => void) { this.onPongCallbacks.push(cb); }
   onError(cb: (data: S2C_Error) => void) { this.onErrorCallbacks.push(cb); }
   onGmState(cb: (data: S2C_GmState) => void) { this.onGmStateCallbacks.push(cb); }

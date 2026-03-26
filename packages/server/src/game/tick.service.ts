@@ -563,6 +563,16 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           });
           break;
         }
+        case 'buyNpcShopItem': {
+          this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+            const result = this.worldService.buyNpcShopItem(
+              player,
+              cmd.data as { npcId: string; itemId: string; quantity: number },
+            );
+            this.applyWorldUpdate(player.id, result, messages);
+          });
+          break;
+        }
         case 'action': {
           const { actionId, target } = cmd.data as { actionId: string; target?: string };
           if (actionId === 'debug:reset_spawn') {

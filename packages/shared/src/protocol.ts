@@ -2,7 +2,7 @@
  * 前后端通信协议：事件名定义与所有 Payload 类型。
  * C2S = 客户端→服务端，S2C = 服务端→客户端。
  */
-import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerSpecialStats, QuestState, CombatEffect, AutoBattleSkillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, TechniqueGrade, GroundItemPileView, LootWindowState, VisibleBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MapRouteDomain, PortalRouteDomain } from './types';
+import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerSpecialStats, QuestState, CombatEffect, AutoBattleSkillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, TechniqueGrade, GroundItemPileView, LootWindowState, VisibleBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MapRouteDomain, NpcShopView, PortalRouteDomain } from './types';
 import { NumericRatioDivisors, NumericStats } from './numeric';
 
 // ===== 事件名 =====
@@ -46,6 +46,8 @@ export const C2S = {
   SellMarketItem: 'c:sellMarketItem',
   CancelMarketOrder: 'c:cancelMarketOrder',
   ClaimMarketStorage: 'c:claimMarketStorage',
+  RequestNpcShop: 'c:requestNpcShop',
+  BuyNpcShopItem: 'c:buyNpcShopItem',
 } as const;
 
 /** 服务端 → 客户端 */
@@ -76,6 +78,7 @@ export const S2C = {
   MarketUpdate: 's:marketUpdate',
   MarketItemBook: 's:marketItemBook',
   MarketTradeHistory: 's:marketTradeHistory',
+  NpcShop: 's:npcShop',
 } as const;
 
 // ===== Payload 类型 =====
@@ -205,6 +208,16 @@ export interface C2S_CancelMarketOrder {
 }
 
 export interface C2S_ClaimMarketStorage {}
+
+export interface C2S_RequestNpcShop {
+  npcId: string;
+}
+
+export interface C2S_BuyNpcShopItem {
+  npcId: string;
+  itemId: string;
+  quantity: number;
+}
 
 /** Tick 增量实体数据（支持 null 表示清除字段） */
 export interface TickRenderEntity {
@@ -562,6 +575,12 @@ export interface S2C_MarketTradeHistory {
   pageSize: number;
   totalVisible: number;
   records: MarketTradeHistoryEntryView[];
+}
+
+export interface S2C_NpcShop {
+  npcId: string;
+  shop: NpcShopView | null;
+  error?: string;
 }
 
 export interface S2C_TileRuntimeDetail {
@@ -946,6 +965,11 @@ export interface GmMapQuestRecord {
   unlockBreakthroughRequirementIds?: string[];
 }
 
+export interface GmMapNpcShopItemRecord {
+  itemId: string;
+  price: number;
+}
+
 /** GM 地图 NPC 记录 */
 export interface GmMapNpcRecord {
   id: string;
@@ -956,6 +980,7 @@ export interface GmMapNpcRecord {
   color: string;
   dialogue: string;
   role?: string;
+  shopItems?: GmMapNpcShopItemRecord[];
   quests?: GmMapQuestRecord[];
 }
 

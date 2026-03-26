@@ -395,7 +395,12 @@
       "char": "匠",
       "color": "#e38f66",
       "dialogue": "想打好兵器，先学会从妖物身上找料。",
-      "role": "craft"
+      "role": "craft",
+      "shopItems": [
+        { "itemId": "equip.rust_saber", "price": 48 },
+        { "itemId": "equip.leather_vest", "price": 42 },
+        { "itemId": "equip.step_boots", "price": 36 }
+      ]
     },
     {
       "id": "npc_herbalist_lan",
@@ -405,7 +410,11 @@
       "char": "药",
       "color": "#8ccf9b",
       "dialogue": "武者先养脉，修士先养神，药都不能断。",
-      "role": "support"
+      "role": "support",
+      "shopItems": [
+        { "itemId": "pill.minor_heal", "price": 8 },
+        { "itemId": "minor_qi_pill", "price": 18 }
+      ]
     },
     {
       "id": "npc_wenji",

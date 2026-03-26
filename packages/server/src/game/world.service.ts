@@ -29,6 +29,7 @@ import {
   NumericRatioDivisors,
   NumericStats,
   NpcQuestMarker,
+  NpcShopView,
   ObservationInsight,
   parseTileTargetRef,
   PlayerState,
@@ -78,6 +79,7 @@ import {
   SPIRIT_ORE_REWARD_DAMAGE_SCALE,
   SPIRIT_ORE_REWARD_ITEM_ID,
 } from '../constants/gameplay/terrain';
+import { MARKET_CURRENCY_ITEM_ID } from '../constants/gameplay/market';
 
 type MessageKind = 'system' | 'quest' | 'combat' | 'loot';
 type WorldDirtyFlag = 'inv' | 'quest' | 'actions' | 'tech' | 'attr' | 'loot';
@@ -496,9 +498,106 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         desc,
         cooldownLeft: 0,
       });
+
+      if (npc.shopItems.length > 0) {
+        actions.push({
+          id: `npc_shop:${npc.id}`,
+          name: `商店：${npc.name}`,
+          type: 'interact',
+          desc: `查看 ${npc.name} 当前出售的货物。`,
+          cooldownLeft: 0,
+        });
+      }
     }
 
     return actions;
+  }
+
+  buildNpcShopView(player: PlayerState, npcId: string): { shop: NpcShopView | null; error?: string } {
+    const npc = this.getAdjacentNpcs(player).find((entry) => entry.id === npcId);
+    if (!npc) {
+      return { shop: null, error: '你离这位商人太远了' };
+    }
+    if (npc.shopItems.length === 0) {
+      return { shop: null, error: '对方现在没有经营商店' };
+    }
+
+    const items = npc.shopItems
+      .map((entry) => {
+        const item = this.contentService.createItem(entry.itemId, 1);
+        if (!item) {
+          return null;
+        }
+        return {
+          itemId: entry.itemId,
+          item,
+          unitPrice: entry.price,
+        };
+      })
+      .filter((entry): entry is NpcShopView['items'][number] => Boolean(entry));
+
+    if (items.length === 0) {
+      return { shop: null, error: '商铺货架还没有可售物品' };
+    }
+
+    return {
+      shop: {
+        npcId: npc.id,
+        npcName: npc.name,
+        dialogue: npc.dialogue,
+        currencyItemId: MARKET_CURRENCY_ITEM_ID,
+        currencyItemName: this.getShopCurrencyItemName(),
+        items,
+      },
+    };
+  }
+
+  buyNpcShopItem(player: PlayerState, payload: { npcId: string; itemId: string; quantity: number }): WorldUpdate {
+    const npc = this.getAdjacentNpcs(player).find((entry) => entry.id === payload.npcId);
+    if (!npc) {
+      return { ...EMPTY_UPDATE, error: '你离这位商人太远了' };
+    }
+    const shopItem = npc.shopItems.find((entry) => entry.itemId === payload.itemId);
+    if (!shopItem) {
+      return { ...EMPTY_UPDATE, error: '这位商人没有出售该物品' };
+    }
+    if (!Number.isSafeInteger(payload.quantity) || payload.quantity <= 0) {
+      return { ...EMPTY_UPDATE, error: '购买数量无效' };
+    }
+
+    const totalCost = payload.quantity * shopItem.price;
+    if (!Number.isSafeInteger(totalCost) || totalCost <= 0) {
+      return { ...EMPTY_UPDATE, error: '购买总价过大，暂时无法结算' };
+    }
+
+    const purchasedItem = this.contentService.createItem(shopItem.itemId, payload.quantity);
+    if (!purchasedItem) {
+      return { ...EMPTY_UPDATE, error: '商品配置异常，暂时无法购买' };
+    }
+    if (!this.canReceiveItems(player, [purchasedItem])) {
+      return { ...EMPTY_UPDATE, error: '背包空间不足，无法购买' };
+    }
+
+    const currencyName = this.getShopCurrencyItemName();
+    if (this.getInventoryCount(player, MARKET_CURRENCY_ITEM_ID) < totalCost) {
+      return { ...EMPTY_UPDATE, error: `${currencyName}不足` };
+    }
+    const consumeError = this.consumeInventoryItem(player, MARKET_CURRENCY_ITEM_ID, totalCost, `${currencyName}不足`);
+    if (consumeError) {
+      return { ...EMPTY_UPDATE, error: consumeError };
+    }
+    if (!this.inventoryService.addItem(player, purchasedItem)) {
+      return { ...EMPTY_UPDATE, error: '背包空间不足，无法购买' };
+    }
+
+    return {
+      messages: [{
+        playerId: player.id,
+        text: `你从 ${npc.name} 处购得 ${purchasedItem.name} x${payload.quantity}，花费 ${currencyName} x${totalCost}。`,
+        kind: 'loot',
+      }],
+      dirty: ['inv'],
+    };
   }
 
   /** 处理无目标交互（开关自动战斗、传送、NPC 对话等） */
@@ -3186,24 +3285,33 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  private consumeInventoryItem(player: PlayerState, itemId: string, count: number): string | null {
+  private consumeInventoryItem(
+    player: PlayerState,
+    itemId: string,
+    count: number,
+    errorMessage = '任务物品不足，暂时无法交付',
+  ): string | null {
     let remaining = count;
     while (remaining > 0) {
       const slotIndex = this.inventoryService.findItem(player, itemId);
       if (slotIndex < 0) {
-        return '任务物品不足，暂时无法交付';
+        return errorMessage;
       }
       const stack = this.inventoryService.getItem(player, slotIndex);
       if (!stack) {
-        return '任务物品不足，暂时无法交付';
+        return errorMessage;
       }
       const removed = this.inventoryService.removeItem(player, slotIndex, remaining);
       if (!removed) {
-        return '任务物品不足，暂时无法交付';
+        return errorMessage;
       }
       remaining -= removed.count;
     }
     return null;
+  }
+
+  private getShopCurrencyItemName(): string {
+    return this.contentService.getItem(MARKET_CURRENCY_ITEM_ID)?.name ?? '灵石';
   }
 
   private getInventoryCount(player: PlayerState, itemId: string): number {

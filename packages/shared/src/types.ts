@@ -469,6 +469,23 @@ export interface MarketTradeHistoryEntryView {
   createdAt: number;
 }
 
+/** NPC 商店中的单件商品视图 */
+export interface NpcShopItemView {
+  itemId: string;
+  item: ItemStack;
+  unitPrice: number;
+}
+
+/** NPC 商店视图 */
+export interface NpcShopView {
+  npcId: string;
+  npcName: string;
+  dialogue: string;
+  currencyItemId: string;
+  currencyItemName: string;
+  items: NpcShopItemView[];
+}
+
 /** 玩家可见的坊市自有订单 */
 export interface MarketOwnOrderView {
   id: string;
