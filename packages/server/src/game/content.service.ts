@@ -18,6 +18,7 @@ import {
   EquipmentEffectDef,
   EquipmentTrigger,
   EquipmentSlots,
+  EquipSlot,
   EQUIP_SLOTS,
   Inventory,
   ItemType,
@@ -65,9 +66,27 @@ interface TechniqueTemplate {
   layers: TechniqueLayerDef[];
 }
 
+interface ConsumableBuffDef {
+  buffId: string;
+  name: string;
+  desc?: string;
+  shortMark?: string;
+  category?: 'buff' | 'debuff';
+  visibility?: 'public' | 'observe_only' | 'hidden';
+  color?: string;
+  duration: number;
+  maxStacks?: number;
+  attrs?: Partial<Attributes>;
+  stats?: PartialNumericStats;
+  qiProjection?: QiProjectionModifier[];
+}
+
 interface ItemTemplate extends Omit<ItemStack, 'count'> {
   learnTechniqueId?: string;
   healAmount?: number;
+  healPercent?: number;
+  qiPercent?: number;
+  consumeBuffs?: ConsumableBuffDef[];
 }
 
 export interface EditorTechniqueCatalogEntry {
@@ -132,6 +151,14 @@ export interface MonsterTemplate {
   drops: MonsterTemplateDrop[];
 }
 
+export interface ContainerLootPoolQuery {
+  minLevel?: number;
+  maxLevel?: number;
+  minGrade?: TechniqueGrade;
+  maxGrade?: TechniqueGrade;
+  tagGroups?: string[][];
+}
+
 interface RawSkillDef extends Omit<SkillDef, 'unlockRealm' | 'unlockPlayerRealm' | 'effects' | 'cost'> {
   effects: unknown;
   cost?: number;
@@ -140,10 +167,11 @@ interface RawSkillDef extends Omit<SkillDef, 'unlockRealm' | 'unlockPlayerRealm'
   unlockPlayerRealm?: keyof typeof PlayerRealmStage | PlayerRealmStage;
 }
 
-interface RawItemTemplate extends Omit<ItemTemplate, 'equipStats' | 'equipValueStats' | 'effects'> {
+interface RawItemTemplate extends Omit<ItemTemplate, 'equipStats' | 'equipValueStats' | 'effects' | 'consumeBuffs'> {
   equipStats?: unknown;
   equipValueStats?: unknown;
   effects?: unknown;
+  consumeBuffs?: unknown;
 }
 
 interface RawMonsterTemplate extends Omit<MonsterTemplate, 'grade' | 'valueStats' | 'numericStats' | 'combatModel' | 'count' | 'maxHp' | 'radius' | 'maxAlive' | 'aggroRange' | 'viewRange' | 'aggroMode' | 'respawnTicks' | 'expMultiplier' | 'drops'> {
@@ -307,6 +335,87 @@ function normalizeQiKeyArray<T extends string>(value: unknown, allowed: readonly
   const normalized = [...new Set(value.filter((entry): entry is T => typeof entry === 'string' && allowed.includes(entry as T)))];
   return normalized.length > 0 ? normalized : undefined;
 }
+
+const ITEM_TYPE_TAGS: Record<ItemType, string[]> = {
+  consumable: ['消耗品'],
+  equipment: ['装备'],
+  material: ['材料'],
+  quest_item: ['任务物品'],
+  skill_book: ['功法', '书籍'],
+};
+
+const EQUIP_SLOT_TAGS: Record<EquipSlot, string[]> = {
+  weapon: ['武器'],
+  head: ['护甲', '头部护甲'],
+  body: ['护甲', '身甲'],
+  legs: ['护甲', '腿部护甲'],
+  accessory: ['饰品'],
+};
+
+const ITEM_TAG_OVERRIDES: Partial<Record<string, string[]>> = {
+  'pill.minor_heal': ['基础药品', '外伤药'],
+  minor_qi_pill: ['疗伤丹'],
+  major_qi_pill: ['疗伤丹'],
+  pure_yang_pill: ['疗伤丹'],
+  frost_heart_paste: ['外伤药'],
+  spirit_stone: ['资源'],
+  serpent_gall: ['蛇胆'],
+  spider_silk: ['蛛丝'],
+  black_iron_chunk: ['玄铁'],
+  spirit_iron_fragment: ['灵铁'],
+  bandit_insignia: ['匪物'],
+  'equip.rust_saber': ['旧兵器'],
+  'book_wind_step': ['轻身'],
+  'book.iron_bone_art': ['炼体'],
+};
+
+const ITEM_NAME_TAG_RULES: Array<{ tag: string; test: (item: ItemTemplate) => boolean }> = [
+  {
+    tag: '药品',
+    test: (item) => item.type === 'consumable'
+      && (
+        typeof item.healAmount === 'number'
+        || typeof item.healPercent === 'number'
+        || typeof item.qiPercent === 'number'
+        || (item.consumeBuffs?.length ?? 0) > 0
+        || /丹|散|膏|药/.test(item.name)
+      ),
+  },
+  {
+    tag: '恢复',
+    test: (item) => (
+      typeof item.healAmount === 'number'
+      || typeof item.healPercent === 'number'
+      || typeof item.qiPercent === 'number'
+    ),
+  },
+  { tag: '增益', test: (item) => item.type === 'consumable' && (item.consumeBuffs?.length ?? 0) > 0 },
+  { tag: '丹药', test: (item) => /丹/.test(item.name) },
+  { tag: '药散', test: (item) => /散/.test(item.name) },
+  { tag: '药膏', test: (item) => /膏/.test(item.name) },
+  { tag: '地图', test: (item) => typeof item.mapUnlockId === 'string' || item.itemId.startsWith('map.') },
+  { tag: '功能物品', test: (item) => typeof item.mapUnlockId === 'string' },
+  { tag: '灵石', test: (item) => item.itemId === 'spirit_stone' || item.name.includes('灵石') },
+  { tag: '凭证', test: (item) => /牌|令|钥石/.test(item.name) },
+  { tag: '矿材', test: (item) => item.type === 'material' && /(矿|铁|晶|金)/.test(item.name) },
+  { tag: '药材', test: (item) => item.type === 'material' && /(胆|草|花|叶|果|根|芝|丝|药|墨)/.test(item.name) },
+  { tag: '兽材', test: (item) => item.type === 'material' && /(骨|牙|爪|鳞|羽|尾)/.test(item.name) },
+  { tag: '刀', test: (item) => item.type === 'equipment' && /刀/.test(item.name) },
+  { tag: '剑', test: (item) => item.type === 'equipment' && /剑/.test(item.name) },
+  { tag: '枪', test: (item) => item.type === 'equipment' && /枪/.test(item.name) },
+  { tag: '匕首', test: (item) => item.type === 'equipment' && /匕/.test(item.name) },
+  { tag: '靴子', test: (item) => item.type === 'equipment' && /靴|鞋/.test(item.name) },
+  { tag: '帽子', test: (item) => item.type === 'equipment' && /帽|巾/.test(item.name) },
+  { tag: '衣甲', test: (item) => item.type === 'equipment' && /衣|甲|袍|褂|胸/.test(item.name) },
+  { tag: '步法', test: (item) => item.type === 'skill_book' && /步/.test(item.name) },
+  { tag: '身法', test: (item) => item.type === 'skill_book' && /步/.test(item.name) },
+  { tag: '掌法', test: (item) => item.type === 'skill_book' && /掌/.test(item.name) },
+  { tag: '刀法', test: (item) => item.type === 'skill_book' && /刀/.test(item.name) },
+  { tag: '剑法', test: (item) => item.type === 'skill_book' && /剑/.test(item.name) },
+  { tag: '枪法', test: (item) => item.type === 'skill_book' && /枪/.test(item.name) },
+  { tag: '锻体', test: (item) => item.type === 'skill_book' && /功/.test(item.name) },
+  { tag: '心法', test: (item) => item.type === 'skill_book' && /诀|经|篇/.test(item.name) },
+];
 
 @Injectable()
 export class ContentService implements OnModuleInit {
@@ -683,6 +792,40 @@ export class ContentService implements OnModuleInit {
     }
   }
 
+  private normalizeConsumableBuffs(input: unknown): ConsumableBuffDef[] | undefined {
+    if (!Array.isArray(input)) {
+      return undefined;
+    }
+    const buffs = input.flatMap((entry) => {
+      if (!isPlainObject(entry) || typeof entry.buffId !== 'string' || typeof entry.name !== 'string' || !Number.isFinite(entry.duration)) {
+        return [];
+      }
+      const buffId = entry.buffId.trim();
+      const name = entry.name.trim();
+      if (buffId.length === 0 || name.length === 0) {
+        return [];
+      }
+      const buff: ConsumableBuffDef = {
+        buffId,
+        name,
+        desc: typeof entry.desc === 'string' ? entry.desc : undefined,
+        shortMark: typeof entry.shortMark === 'string' ? entry.shortMark : undefined,
+        category: entry.category === 'debuff' ? 'debuff' : entry.category === 'buff' ? 'buff' : undefined,
+        visibility: entry.visibility === 'hidden' || entry.visibility === 'observe_only' || entry.visibility === 'public'
+          ? entry.visibility
+          : undefined,
+        color: typeof entry.color === 'string' ? entry.color : undefined,
+        duration: Math.max(1, Math.floor(Number(entry.duration))),
+        maxStacks: Number.isFinite(entry.maxStacks) ? Math.max(1, Math.floor(Number(entry.maxStacks))) : undefined,
+        attrs: this.normalizeItemAttrs(entry.attrs),
+        stats: this.resolveConfiguredStats(entry.stats, entry.valueStats),
+        qiProjection: this.normalizeQiProjectionModifiers(entry.qiProjection),
+      };
+      return [buff];
+    });
+    return buffs.length > 0 ? buffs : undefined;
+  }
+
   private loadItems(): void {
     for (const raw of this.readJsonEntries<RawItemTemplate>(this.itemsDir)) {
       const item: ItemTemplate = {
@@ -696,14 +839,188 @@ export class ContentService implements OnModuleInit {
         equipStats: this.resolveConfiguredStats(raw.equipStats, raw.equipValueStats),
         equipValueStats: this.normalizeItemStats(raw.equipValueStats),
         effects: this.normalizeEquipmentEffects(raw.effects, raw.itemId),
-        tags: normalizeStringArray(raw.tags),
+        healPercent: Number.isFinite(raw.healPercent)
+          ? Math.max(0.01, Math.min(1, Number(raw.healPercent)))
+          : undefined,
+        qiPercent: Number.isFinite(raw.qiPercent)
+          ? Math.max(0.01, Math.min(1, Number(raw.qiPercent)))
+          : undefined,
+        consumeBuffs: this.normalizeConsumableBuffs(raw.consumeBuffs),
+        tags: undefined,
         tileAuraGainAmount: Number.isFinite(raw.tileAuraGainAmount)
           ? Math.max(1, Math.floor(Number(raw.tileAuraGainAmount)))
           : undefined,
         allowBatchUse: raw.allowBatchUse === true,
       };
+      item.tags = this.buildItemTags(item, normalizeStringArray(raw.tags));
       this.items.set(item.itemId, item);
     }
+  }
+
+  private buildItemTags(item: ItemTemplate, explicitTags?: string[]): string[] {
+    const tags = new Set<string>(explicitTags ?? []);
+    for (const tag of ITEM_TAG_OVERRIDES[item.itemId] ?? []) {
+      tags.add(tag);
+    }
+    for (const tag of ITEM_TYPE_TAGS[item.type] ?? []) {
+      tags.add(tag);
+    }
+    if (item.type === 'equipment' && item.equipSlot) {
+      for (const tag of EQUIP_SLOT_TAGS[item.equipSlot] ?? []) {
+        tags.add(tag);
+      }
+    }
+    if (item.effects && item.effects.length > 0) {
+      tags.add('特效装备');
+    }
+    for (const rule of ITEM_NAME_TAG_RULES) {
+      if (rule.test(item)) {
+        tags.add(rule.tag);
+      }
+    }
+    return [...tags];
+  }
+
+  private getEffectiveItemLevel(item: Pick<ItemTemplate, 'level' | 'healAmount' | 'grade'>): number {
+    if (item.level !== undefined) {
+      return item.level;
+    }
+    if (typeof item.healAmount === 'number') {
+      if (item.healAmount <= 24) {
+        return 1;
+      }
+      if (item.healAmount <= 40) {
+        return 2;
+      }
+      if (item.healAmount <= 65) {
+        return 3;
+      }
+      if (item.healAmount <= 80) {
+        return 4;
+      }
+      return 5;
+    }
+    const grade = this.getEffectiveItemGrade(item);
+    const gradeIndex = TECHNIQUE_GRADE_ORDER.indexOf(grade);
+    return gradeIndex >= 0 ? gradeIndex + 1 : 1;
+  }
+
+  private getEffectiveItemGrade(item: Pick<ItemTemplate, 'grade'>): TechniqueGrade {
+    return item.grade ?? 'mortal';
+  }
+
+  private isGradeWithinRange(itemGrade: TechniqueGrade, minGrade?: TechniqueGrade, maxGrade?: TechniqueGrade): boolean {
+    const currentIndex = TECHNIQUE_GRADE_ORDER.indexOf(itemGrade);
+    const minIndex = minGrade ? TECHNIQUE_GRADE_ORDER.indexOf(minGrade) : -1;
+    const maxIndex = maxGrade ? TECHNIQUE_GRADE_ORDER.indexOf(maxGrade) : Number.POSITIVE_INFINITY;
+    return currentIndex >= minIndex && currentIndex <= maxIndex;
+  }
+
+  private normalizeTagGroups(tagGroups: string[][] | undefined): string[][] {
+    if (!Array.isArray(tagGroups)) {
+      return [];
+    }
+    return tagGroups
+      .map((group) => [...new Set(group.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0).map((entry) => entry.trim()))])
+      .filter((group) => group.length > 0);
+  }
+
+  private matchesTagGroups(itemTags: readonly string[] | undefined, tagGroups: string[][]): boolean {
+    if (tagGroups.length === 0) {
+      return true;
+    }
+    const tagSet = new Set(itemTags ?? []);
+    return tagGroups.every((group) => group.some((tag) => tagSet.has(tag)));
+  }
+
+  private randomIntInclusive(min: number, max: number): number {
+    if (max <= min) {
+      return min;
+    }
+    return min + Math.floor(Math.random() * (max - min + 1));
+  }
+
+  getLootPoolCandidates(query: ContainerLootPoolQuery): EditorItemCatalogEntry[] {
+    this.ensureLoaded();
+    const tagGroups = this.normalizeTagGroups(query.tagGroups);
+    return [...this.items.values()]
+      .filter((item) => {
+        const level = this.getEffectiveItemLevel(item);
+        if (query.minLevel !== undefined && level < query.minLevel) {
+          return false;
+        }
+        if (query.maxLevel !== undefined && level > query.maxLevel) {
+          return false;
+        }
+        if (!this.isGradeWithinRange(this.getEffectiveItemGrade(item), query.minGrade, query.maxGrade)) {
+          return false;
+        }
+        return this.matchesTagGroups(item.tags, tagGroups);
+      })
+      .map((item) => ({
+        itemId: item.itemId,
+        name: item.name,
+        type: item.type,
+        groundLabel: item.groundLabel,
+        grade: item.grade,
+        level: item.level,
+        equipSlot: item.equipSlot,
+        desc: item.desc,
+        equipAttrs: item.equipAttrs ? JSON.parse(JSON.stringify(item.equipAttrs)) as NonNullable<ItemStack['equipAttrs']> : undefined,
+        equipStats: item.equipStats ? JSON.parse(JSON.stringify(item.equipStats)) as NonNullable<ItemStack['equipStats']> : undefined,
+        equipValueStats: item.equipValueStats
+          ? JSON.parse(JSON.stringify(item.equipValueStats)) as NonNullable<ItemStack['equipValueStats']>
+          : undefined,
+        tags: item.tags ? [...item.tags] : undefined,
+        effects: item.effects ? JSON.parse(JSON.stringify(item.effects)) as EquipmentEffectDef[] : undefined,
+      }))
+      .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'));
+  }
+
+  rollLootPoolItems(query: ContainerLootPoolQuery & {
+    rolls?: number;
+    chance?: number;
+    countMin?: number;
+    countMax?: number;
+    allowDuplicates?: boolean;
+  }): ItemStack[] {
+    this.ensureLoaded();
+    const chance = typeof query.chance === 'number' ? Math.max(0, Math.min(1, query.chance)) : 1;
+    if (Math.random() > chance) {
+      return [];
+    }
+    const candidates = this.getLootPoolCandidates(query);
+    if (candidates.length === 0) {
+      return [];
+    }
+
+    const rolls = Number.isInteger(query.rolls) && Number(query.rolls) > 0 ? Number(query.rolls) : 1;
+    const countMin = Number.isInteger(query.countMin) && Number(query.countMin) > 0 ? Number(query.countMin) : 1;
+    const countMax = Number.isInteger(query.countMax) && Number(query.countMax) >= countMin ? Number(query.countMax) : countMin;
+    const allowDuplicates = query.allowDuplicates === true;
+    const pool = [...candidates];
+    const result: ItemStack[] = [];
+
+    for (let index = 0; index < rolls; index += 1) {
+      if (pool.length === 0) {
+        break;
+      }
+      const source = allowDuplicates ? candidates : pool;
+      const pickedIndex = Math.floor(Math.random() * source.length);
+      const picked = source[pickedIndex];
+      if (!picked) {
+        continue;
+      }
+      const item = this.createItem(picked.itemId, this.randomIntInclusive(countMin, countMax));
+      if (item) {
+        result.push(item);
+      }
+      if (!allowDuplicates) {
+        pool.splice(pickedIndex, 1);
+      }
+    }
+
+    return result;
   }
 
   private loadMonsters(): void {

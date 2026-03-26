@@ -100,6 +100,7 @@ type LocalEditorItemOption = {
   grade?: TechniqueGrade;
   level?: number;
   desc?: string;
+  tags?: string[];
 };
 
 type LocalEditorCatalogRes = {
@@ -858,6 +859,7 @@ async function saveMonsterTemplate(): Promise<void> {
 async function loadEditorCatalog(): Promise<void> {
   const result = await request<LocalEditorCatalogRes>('/api/editor-catalog');
   editorItems = result.items;
+  mapEditor?.setItemCatalog(result.items);
   if (currentMonsterDraft) {
     renderMonsterDropsEditor(currentMonsterDraft.drops);
   }
@@ -1099,6 +1101,7 @@ async function bootstrap(): Promise<void> {
   const nextMapEditor = new GmMapEditor(request, setAppStatus, {
     mapApiBasePath: '/api/maps',
     syncedSummaryLabel: '已与本地文件同步',
+    itemCatalog: editorItems,
   });
   mapEditor = nextMapEditor;
   switchMapSideTab(currentMapSideTab);

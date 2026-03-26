@@ -786,6 +786,21 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
 
   private generateContainerEntries(container: ContainerConfig, currentTick: number): LootEntry[] {
     const entries: LootEntry[] = [];
+    for (const pool of container.lootPools) {
+      const items = this.contentService.rollLootPoolItems(pool);
+      for (const item of items) {
+        entries.push({
+          item,
+          createdTick: currentTick,
+          visible: false,
+        });
+      }
+    }
+
+    if (entries.length > 0 || container.lootPools.length > 0) {
+      return entries;
+    }
+
     for (const drop of container.drops) {
       if (Math.random() > drop.chance) {
         continue;

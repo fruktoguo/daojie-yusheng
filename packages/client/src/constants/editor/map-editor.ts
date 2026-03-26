@@ -39,7 +39,7 @@ export const PAINT_LAYER_OPTIONS: Array<{ value: 'tile' | 'aura'; label: string 
 export const AURA_BRUSH_LEVELS = [0, 1, 2, 3, 4, 5, 6] as const;
 
 /** 右侧检查器的标签页顺序与文字。 */
-export const INSPECTOR_TABS: Array<{ value: 'selection' | 'meta' | 'portal' | 'npc' | 'monster' | 'aura' | 'landmark'; label: string }> = [
+export const INSPECTOR_TABS: Array<{ value: 'selection' | 'meta' | 'portal' | 'npc' | 'monster' | 'aura' | 'landmark' | 'container'; label: string }> = [
   { value: 'selection', label: '选区' },
   { value: 'meta', label: '地图' },
   { value: 'portal', label: '传送点' },
@@ -47,6 +47,7 @@ export const INSPECTOR_TABS: Array<{ value: 'selection' | 'meta' | 'portal' | 'n
   { value: 'monster', label: '怪物' },
   { value: 'aura', label: '灵气' },
   { value: 'landmark', label: '地标' },
+  { value: 'container', label: '容器' },
 ];
 
 /** 编辑器画布的基础单元像素尺寸。 */

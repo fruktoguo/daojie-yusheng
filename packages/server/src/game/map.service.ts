@@ -12,6 +12,7 @@ import {
   getTileTypeFromMapChar,
   GmMapAuraRecord,
   GmMapContainerRecord,
+  GmMapContainerLootPoolRecord,
   GmMapDocument,
   GmMapLandmarkRecord,
   GmMapListRes,
@@ -175,6 +176,10 @@ export interface NpcConfig {
   color: string;
   dialogue: string;
   role?: string;
+  shopItems: Array<{
+    itemId: string;
+    price: number;
+  }>;
   quests: QuestConfig[];
 }
 
@@ -186,15 +191,31 @@ export interface DropConfig {
   chance: number;
 }
 
+export interface ContainerLootPoolConfig {
+  rolls: number;
+  chance: number;
+  minLevel?: number;
+  maxLevel?: number;
+  minGrade?: TechniqueGrade;
+  maxGrade?: TechniqueGrade;
+  tagGroups: string[][];
+  countMin?: number;
+  countMax?: number;
+  allowDuplicates: boolean;
+}
+
 export interface ContainerConfig {
   id: string;
   name: string;
   x: number;
   y: number;
   desc?: string;
+  char?: string;
+  color?: string;
   grade: TechniqueGrade;
   refreshTicks?: number;
   drops: DropConfig[];
+  lootPools: ContainerLootPoolConfig[];
 }
 
 export interface MonsterSpawnConfig {
@@ -2049,7 +2070,11 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
     const result: NpcConfig[] = [];
     for (const candidate of rawNpcs) {
-      const npc = candidate as Partial<NpcConfig> & { quest?: unknown; role?: unknown };
+      const npc = candidate as Partial<NpcConfig> & {
+        quest?: unknown;
+        role?: unknown;
+        shopItems?: Array<{ itemId?: unknown; price?: unknown }>;
+      };
       const valid =
         typeof npc.id === 'string' &&
         typeof npc.name === 'string' &&
@@ -2077,6 +2102,19 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         color: npc.color!,
         dialogue: npc.dialogue!,
         role: typeof (candidate as { role?: unknown }).role === 'string' ? String((candidate as { role?: unknown }).role) : undefined,
+        shopItems: Array.isArray(npc.shopItems)
+          ? npc.shopItems
+              .map((entry) => {
+                if (typeof entry?.itemId !== 'string' || !Number.isInteger(entry.price) || Number(entry.price) <= 0) {
+                  return null;
+                }
+                return {
+                  itemId: entry.itemId,
+                  price: Number(entry.price),
+                };
+              })
+              .filter((entry): entry is { itemId: string; price: number } => Boolean(entry))
+          : [],
         quests: [],
       });
     }
@@ -2480,11 +2518,18 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         x: landmark.x,
         y: landmark.y,
         desc: typeof landmark.desc === 'string' ? landmark.desc : undefined,
+        char: typeof landmark.container.char === 'string' && landmark.container.char.trim().length > 0
+          ? landmark.container.char.trim().slice(0, 1)
+          : undefined,
+        color: typeof landmark.container.color === 'string' && landmark.container.color.trim().length > 0
+          ? landmark.container.color.trim()
+          : undefined,
         grade: this.normalizeContainerGrade(landmark.container.grade),
         refreshTicks: Number.isInteger(landmark.container.refreshTicks) && landmark.container.refreshTicks! > 0
           ? Number(landmark.container.refreshTicks)
           : undefined,
         drops: this.normalizeDrops(landmark.container.drops),
+        lootPools: this.normalizeContainerLootPools(landmark.container.lootPools),
       });
     }
 
@@ -2637,6 +2682,45 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       });
     }
     return drops;
+  }
+
+  private normalizeContainerLootPools(rawPools: unknown): ContainerLootPoolConfig[] {
+    if (!Array.isArray(rawPools)) {
+      return [];
+    }
+
+    const pools: ContainerLootPoolConfig[] = [];
+    for (const rawPool of rawPools) {
+      const pool = rawPool as Partial<GmMapContainerLootPoolRecord>;
+      const normalizedTagGroups = Array.isArray(pool.tagGroups)
+        ? pool.tagGroups
+          .map((group) => Array.isArray(group)
+            ? group
+              .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+              .map((entry) => entry.trim())
+            : [])
+          .filter((group) => group.length > 0)
+        : [];
+      const rolls = Number.isInteger(pool.rolls) && Number(pool.rolls) > 0 ? Number(pool.rolls) : 1;
+      const chance = typeof pool.chance === 'number' ? Math.max(0, Math.min(1, Number(pool.chance))) : 1;
+      const minLevel = Number.isInteger(pool.minLevel) && Number(pool.minLevel) > 0 ? Number(pool.minLevel) : undefined;
+      const maxLevel = Number.isInteger(pool.maxLevel) && Number(pool.maxLevel) > 0 ? Number(pool.maxLevel) : undefined;
+      const countMin = Number.isInteger(pool.countMin) && Number(pool.countMin) > 0 ? Number(pool.countMin) : undefined;
+      const countMax = Number.isInteger(pool.countMax) && Number(pool.countMax) > 0 ? Number(pool.countMax) : undefined;
+      pools.push({
+        rolls,
+        chance,
+        minLevel,
+        maxLevel,
+        minGrade: pool.minGrade ? this.normalizeContainerGrade(pool.minGrade) : undefined,
+        maxGrade: pool.maxGrade ? this.normalizeContainerGrade(pool.maxGrade) : undefined,
+        tagGroups: normalizedTagGroups,
+        countMin,
+        countMax,
+        allowDuplicates: pool.allowDuplicates === true,
+      });
+    }
+    return pools;
   }
 
   getMapMeta(mapId: string): MapMeta | undefined {
@@ -3640,6 +3724,12 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     return {
       grade: this.normalizeContainerGrade(container.grade),
       refreshTicks: Number.isFinite(container.refreshTicks) ? Number(container.refreshTicks) : undefined,
+      char: typeof container.char === 'string' && container.char.trim().length > 0
+        ? container.char.trim().slice(0, 1)
+        : undefined,
+      color: typeof container.color === 'string' && container.color.trim().length > 0
+        ? container.color.trim()
+        : undefined,
       drops: Array.isArray(container.drops)
         ? container.drops.map((drop) => ({
           itemId: String(drop.itemId ?? ''),
@@ -3647,6 +3737,28 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
           type: drop.type,
           count: Number.isFinite(drop.count) ? Number(drop.count) : 1,
           chance: Number.isFinite(drop.chance) ? Number(drop.chance) : undefined,
+        }))
+        : [],
+      lootPools: Array.isArray(container.lootPools)
+        ? container.lootPools.map((pool) => ({
+          rolls: Number.isFinite(pool.rolls) ? Number(pool.rolls) : undefined,
+          chance: Number.isFinite(pool.chance) ? Number(pool.chance) : undefined,
+          minLevel: Number.isFinite(pool.minLevel) ? Number(pool.minLevel) : undefined,
+          maxLevel: Number.isFinite(pool.maxLevel) ? Number(pool.maxLevel) : undefined,
+          minGrade: pool.minGrade ? this.normalizeContainerGrade(pool.minGrade) : undefined,
+          maxGrade: pool.maxGrade ? this.normalizeContainerGrade(pool.maxGrade) : undefined,
+          tagGroups: Array.isArray(pool.tagGroups)
+            ? pool.tagGroups
+              .map((group) => Array.isArray(group)
+                ? group
+                  .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+                  .map((entry) => entry.trim())
+                : [])
+              .filter((group) => group.length > 0)
+            : [],
+          countMin: Number.isFinite(pool.countMin) ? Number(pool.countMin) : undefined,
+          countMax: Number.isFinite(pool.countMax) ? Number(pool.countMax) : undefined,
+          allowDuplicates: pool.allowDuplicates === true,
         }))
         : [],
     };

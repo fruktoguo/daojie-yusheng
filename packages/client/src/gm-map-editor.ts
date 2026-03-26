@@ -3,7 +3,9 @@
  */
 
 import {
+  GmEditorItemOption,
   GmMapDetailRes,
+  GmMapContainerLootPoolRecord,
   GmMapDocument,
   GmMapLandmarkRecord,
   GmMapListRes,
@@ -40,10 +42,6 @@ import {
   PAINT_TILE_TYPES,
   PAINT_LAYER_OPTIONS,
 } from './constants/editor/map-editor';
-import {
-  GM_QUEST_LINE_OPTIONS,
-  GM_QUEST_OBJECTIVE_TYPE_OPTIONS,
-} from './constants/world/gm';
 
 type RequestFn = <T>(path: string, init?: RequestInit) => Promise<T>;
 type StatusFn = (message: string, isError?: boolean) => void;
@@ -64,6 +62,7 @@ const PORTAL_ROUTE_DOMAIN_OPTIONS: Array<{ value: PortalRouteDomain; label: stri
 type GmMapEditorOptions = {
   mapApiBasePath?: string;
   syncedSummaryLabel?: string;
+  itemCatalog?: GmEditorItemOption[];
 };
 
 type MapEntitySelection =
@@ -72,13 +71,14 @@ type MapEntitySelection =
   | { kind: 'monster'; index: number }
   | { kind: 'aura'; index: number }
   | { kind: 'landmark'; index: number }
+  | { kind: 'container'; index: number }
   | null;
 
-type MapEntityKind = 'portal' | 'npc' | 'monster' | 'aura' | 'landmark';
+type MapEntityKind = 'portal' | 'npc' | 'monster' | 'aura' | 'landmark' | 'container';
 
 type MapTool = 'select' | 'paint' | 'pan';
 type PaintLayer = 'tile' | 'aura';
-type InspectorTabId = 'selection' | 'meta' | 'portal' | 'npc' | 'monster' | 'aura' | 'landmark';
+type InspectorTabId = 'selection' | 'meta' | 'portal' | 'npc' | 'monster' | 'aura' | 'landmark' | 'container';
 type GridPoint = { x: number; y: number };
 
 type EditorUndoEntry = {
@@ -162,11 +162,29 @@ function numberField(label: string, path: string, value: number | undefined, ext
   `;
 }
 
+function decimalField(label: string, path: string, value: number | undefined, extraClass = ''): string {
+  return `
+    <label class="map-field ${extraClass}">
+      <span>${escapeHtml(label)}</span>
+      <input type="number" step="0.01" data-map-bind="${escapeHtml(path)}" data-map-kind="float" value="${Number.isFinite(value) ? String(value) : '0'}" />
+    </label>
+  `;
+}
+
 function nullableNumberField(label: string, path: string, value: number | undefined, extraClass = ''): string {
   return `
     <label class="map-field ${extraClass}">
       <span>${escapeHtml(label)}</span>
       <input type="number" data-map-bind="${escapeHtml(path)}" data-map-kind="nullable-number" value="${Number.isFinite(value) ? String(value) : ''}" />
+    </label>
+  `;
+}
+
+function nullableDecimalField(label: string, path: string, value: number | undefined, extraClass = ''): string {
+  return `
+    <label class="map-field ${extraClass}">
+      <span>${escapeHtml(label)}</span>
+      <input type="number" step="0.01" data-map-bind="${escapeHtml(path)}" data-map-kind="nullable-float" value="${Number.isFinite(value) ? String(value) : ''}" />
     </label>
   `;
 }
@@ -184,6 +202,32 @@ function selectField(
       <select data-map-bind="${escapeHtml(path)}" data-map-kind="string">
         ${options.map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === (value ?? '') ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
       </select>
+    </label>
+  `;
+}
+
+function nullableSelectField(
+  label: string,
+  path: string,
+  value: string | undefined,
+  options: Array<{ value: string; label: string }>,
+  extraClass = '',
+): string {
+  return `
+    <label class="map-field ${extraClass}">
+      <span>${escapeHtml(label)}</span>
+      <select data-map-bind="${escapeHtml(path)}" data-map-kind="nullable-string">
+        ${options.map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === (value ?? '') ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
+      </select>
+    </label>
+  `;
+}
+
+function textareaField(label: string, path: string, value: string | undefined, extraClass = '', kind = 'string'): string {
+  return `
+    <label class="map-field ${extraClass}">
+      <span>${escapeHtml(label)}</span>
+      <textarea data-map-bind="${escapeHtml(path)}" data-map-kind="${escapeHtml(kind)}">${escapeHtml(value ?? '')}</textarea>
     </label>
   `;
 }
@@ -216,6 +260,32 @@ function readonlyField(label: string, value: string): string {
       <input value="${escapeHtml(value)}" readonly />
     </div>
   `;
+}
+
+function formatTagGroups(tagGroups: string[][] | undefined): string {
+  return (tagGroups ?? [])
+    .filter((group) => group.length > 0)
+    .map((group) => group.join(', '))
+    .join('\n');
+}
+
+function parseTagGroups(raw: string): string[][] {
+  return raw
+    .split('\n')
+    .map((line) => line.split(/[，,]/).map((entry) => entry.trim()).filter(Boolean))
+    .filter((group) => group.length > 0);
+}
+
+function createDefaultContainerLootPool(): GmMapContainerLootPoolRecord {
+  return {
+    rolls: 1,
+    chance: 1,
+    minLevel: 1,
+    maxLevel: 1,
+    maxGrade: 'mortal',
+    tagGroups: [['药品'], ['基础药品']],
+    allowDuplicates: false,
+  };
 }
 
 function getQuestCardTitle(quest: GmMapQuestRecord, index: number): string {
@@ -277,6 +347,7 @@ export class GmMapEditor {
   private readonly ctx = this.canvas.getContext('2d');
   private readonly mapApiBasePath: string;
   private readonly syncedSummaryLabel: string;
+  private itemCatalog: GmEditorItemOption[] = [];
 
   private mapList: GmMapSummary[] = [];
   private selectedMapId: string | null = null;
@@ -321,10 +392,18 @@ export class GmMapEditor {
   ) {
     this.mapApiBasePath = options.mapApiBasePath ?? '/gm/maps';
     this.syncedSummaryLabel = options.syncedSummaryLabel ?? '已与服务端同步';
+    this.itemCatalog = options.itemCatalog ? clone(options.itemCatalog) : [];
     this.bindEvents();
     this.renderToolControls();
     this.renderCanvas();
     this.updateUndoButtonState();
+  }
+
+  setItemCatalog(items: GmEditorItemOption[]): void {
+    this.itemCatalog = clone(items);
+    if (this.currentInspectorTab === 'container') {
+      this.renderInspector();
+    }
   }
 
   /** 确保地图列表已加载，首次切换到地图 tab 时调用 */
@@ -644,6 +723,7 @@ export class GmMapEditor {
       `怪物刷新点 ${this.draft.monsterSpawns.length}`,
       `灵气点 ${this.draft.auras?.length ?? 0}`,
       `地标 ${this.draft.landmarks?.length ?? 0}`,
+      `容器 ${this.getContainerLandmarks().length}`,
       this.dirty ? '有未保存修改' : this.syncedSummaryLabel,
     ];
     this.summaryEl.textContent = summaryBits.join(' · ');
@@ -685,6 +765,8 @@ export class GmMapEditor {
         return this.renderAuraTab(selectedEntityPoint);
       case 'landmark':
         return this.renderLandmarkTab(selectedEntityPoint);
+      case 'container':
+        return this.renderContainerTab(selectedEntityPoint);
       default:
         return '';
     }
@@ -864,17 +946,18 @@ export class GmMapEditor {
 
   private renderLandmarkTab(selectedPoint: { x: number; y: number } | null): string {
     if (!this.draft) return '';
+    const landmarks = (this.draft.landmarks ?? []).flatMap((landmark, index) => landmark.container ? [] : [{ landmark, index }]);
     return `
       <section class="editor-section">
         <div class="editor-section-head">
           <div>
             <div class="editor-section-title">地标</div>
-            <div class="editor-section-note">用于区域名和地图标识，也支持拖动位置。</div>
+            <div class="editor-section-note">用于区域名和地图标识，也支持拖动位置。可搜索家具类容器请到“容器”页配置。</div>
           </div>
           <button class="small-btn" type="button" data-map-action="add-landmark">新建地标</button>
         </div>
         <div class="map-entity-list">
-          ${(this.draft.landmarks ?? []).map((landmark, index) => `
+          ${landmarks.map(({ landmark, index }) => `
             <button class="map-entity-btn ${this.selectedEntity?.kind === 'landmark' && this.selectedEntity.index === index ? 'active' : ''}" data-entity-kind="landmark" data-entity-index="${index}" type="button">
               ${escapeHtml(`${landmark.name || landmark.id} @ (${landmark.x},${landmark.y})`)}
             </button>
@@ -884,6 +967,32 @@ export class GmMapEditor {
       ${this.selectedEntity?.kind === 'landmark'
         ? this.renderSelectedEntitySection(selectedPoint)
         : '<div class="editor-note">选中一个地标后可在下方编辑属性。</div>'}
+    `;
+  }
+
+  private renderContainerTab(selectedPoint: { x: number; y: number } | null): string {
+    if (!this.draft) return '';
+    const containers = this.getContainerLandmarks();
+    return `
+      <section class="editor-section">
+        <div class="editor-section-head">
+          <div>
+            <div class="editor-section-title">容器</div>
+            <div class="editor-section-note">容器实际挂在地标下，这里单独抽出，便于配置展示外观、搜索阶次与随机池。</div>
+          </div>
+          <button class="small-btn" type="button" data-map-action="add-container">新建容器</button>
+        </div>
+        <div class="map-entity-list">
+          ${containers.map(({ landmark, index }) => `
+            <button class="map-entity-btn ${this.selectedEntity?.kind === 'container' && this.selectedEntity.index === index ? 'active' : ''}" data-entity-kind="container" data-entity-index="${index}" type="button">
+              ${escapeHtml(`${landmark.name || landmark.id} @ (${landmark.x},${landmark.y}) · ${landmark.container?.char || '箱'} · ${TECHNIQUE_GRADE_LABELS[landmark.container?.grade ?? 'mortal'] ?? (landmark.container?.grade ?? 'mortal')}`)}
+            </button>
+          `).join('') || '<div class="editor-note">暂无容器。</div>'}
+        </div>
+      </section>
+      ${this.selectedEntity?.kind === 'container'
+        ? this.renderSelectedEntitySection(selectedPoint)
+        : '<div class="editor-note">选中一个容器后可在下方编辑随机池。</div>'}
     `;
   }
 
@@ -897,7 +1006,7 @@ export class GmMapEditor {
               <div class="editor-section-note">先从上面的对象列表里选中一个。</div>
             </div>
           </div>
-          <div class="editor-note">当前没有选中的传送点、NPC、怪物刷新点、灵气点或地标。</div>
+          <div class="editor-note">当前没有选中的传送点、NPC、怪物刷新点、灵气点、地标或容器。</div>
         </section>
       `;
     }
@@ -944,72 +1053,12 @@ export class GmMapEditor {
       const npcIndex = this.selectedEntity.index;
       const npc = this.draft.npcs[npcIndex];
       if (!npc) return '';
-      const questMarkup = (npc.quests ?? []).length > 0
-        ? (npc.quests ?? []).map((quest, index) => `
-          <div class="editor-card">
-            <div class="editor-card-head">
-              <div>
-                <div class="editor-card-title">${escapeHtml(getQuestCardTitle(quest, index))}</div>
-                <div class="editor-card-meta">${escapeHtml(getQuestCardMeta(quest))}</div>
-              </div>
-              <button
-                class="small-btn danger"
-                type="button"
-                data-map-action="remove-npc-quest"
-                data-quest-index="${index}"
-              >删除任务</button>
-            </div>
-            <div class="map-form-grid">
-              ${textField('任务 ID', `npcs.${npcIndex}.quests.${index}.id`, quest.id)}
-              ${textField('标题', `npcs.${npcIndex}.quests.${index}.title`, quest.title)}
-              ${selectField('任务线', `npcs.${npcIndex}.quests.${index}.line`, quest.line ?? 'side', GM_QUEST_LINE_OPTIONS)}
-              ${selectField('目标类型', `npcs.${npcIndex}.quests.${index}.objectiveType`, quest.objectiveType ?? 'kill', GM_QUEST_OBJECTIVE_TYPE_OPTIONS)}
-              ${numberField('需求进度', `npcs.${npcIndex}.quests.${index}.required`, quest.required ?? 1)}
-              ${textField('目标名称', `npcs.${npcIndex}.quests.${index}.targetName`, quest.targetName)}
-              ${textField('目标地图 ID', `npcs.${npcIndex}.quests.${index}.targetMapId`, quest.targetMapId)}
-              ${nullableNumberField('目标 X', `npcs.${npcIndex}.quests.${index}.targetX`, quest.targetX)}
-              ${nullableNumberField('目标 Y', `npcs.${npcIndex}.quests.${index}.targetY`, quest.targetY)}
-              ${textField('目标 NPC ID', `npcs.${npcIndex}.quests.${index}.targetNpcId`, quest.targetNpcId)}
-              ${textField('目标 NPC 名称', `npcs.${npcIndex}.quests.${index}.targetNpcName`, quest.targetNpcName)}
-              ${textField('目标怪物 ID', `npcs.${npcIndex}.quests.${index}.targetMonsterId`, quest.targetMonsterId)}
-              ${textField('目标功法 ID', `npcs.${npcIndex}.quests.${index}.targetTechniqueId`, quest.targetTechniqueId)}
-              ${textField(
-                '目标境界阶段',
-                `npcs.${npcIndex}.quests.${index}.targetRealmStage`,
-                typeof quest.targetRealmStage !== 'undefined' ? String(quest.targetRealmStage) : undefined,
-              )}
-              ${textField('章节', `npcs.${npcIndex}.quests.${index}.chapter`, quest.chapter)}
-              ${textField('剧情段落', `npcs.${npcIndex}.quests.${index}.story`, quest.story)}
-              ${textField('目标文本', `npcs.${npcIndex}.quests.${index}.objectiveText`, quest.objectiveText, 'wide')}
-              ${textField('传话内容', `npcs.${npcIndex}.quests.${index}.relayMessage`, quest.relayMessage, 'wide')}
-              ${textField('任务描述', `npcs.${npcIndex}.quests.${index}.desc`, quest.desc, 'wide')}
-              ${textField('提交 NPC ID', `npcs.${npcIndex}.quests.${index}.submitNpcId`, quest.submitNpcId)}
-              ${textField('提交 NPC 名称', `npcs.${npcIndex}.quests.${index}.submitNpcName`, quest.submitNpcName)}
-              ${textField('提交地图 ID', `npcs.${npcIndex}.quests.${index}.submitMapId`, quest.submitMapId)}
-              ${nullableNumberField('提交 X', `npcs.${npcIndex}.quests.${index}.submitX`, quest.submitX)}
-              ${nullableNumberField('提交 Y', `npcs.${npcIndex}.quests.${index}.submitY`, quest.submitY)}
-              ${textField('提交物品 ID', `npcs.${npcIndex}.quests.${index}.requiredItemId`, quest.requiredItemId)}
-              ${nullableNumberField('提交物品数量', `npcs.${npcIndex}.quests.${index}.requiredItemCount`, quest.requiredItemCount)}
-              ${textField('下一任务 ID', `npcs.${npcIndex}.quests.${index}.nextQuestId`, quest.nextQuestId)}
-              ${textField('奖励文本', `npcs.${npcIndex}.quests.${index}.rewardText`, quest.rewardText, 'wide')}
-              ${textField('奖励物品 ID（旧字段）', `npcs.${npcIndex}.quests.${index}.rewardItemId`, quest.rewardItemId)}
-              ${jsonField('奖励列表', `npcs.${npcIndex}.quests.${index}.reward`, quest.reward ?? [], 'wide')}
-              ${jsonField(
-                '突破要求 ID 列表',
-                `npcs.${npcIndex}.quests.${index}.unlockBreakthroughRequirementIds`,
-                quest.unlockBreakthroughRequirementIds ?? [],
-                'wide',
-              )}
-            </div>
-          </div>
-        `).join('')
-        : '<div class="editor-note">当前 NPC 还没有任务。</div>';
       return `
         <section class="editor-section">
           <div class="editor-section-head">
             <div>
               <div class="editor-section-title">NPC 属性</div>
-              <div class="editor-section-note">任务、送信和提交物品字段都可以直接在这里结构化编辑。</div>
+              <div class="editor-section-note">任务已迁移到独立章节文件，这里只维护 NPC 本身的地图属性。</div>
             </div>
             <button class="small-btn danger" type="button" data-map-action="remove-selected">删除</button>
           </div>
@@ -1023,14 +1072,7 @@ export class GmMapEditor {
             ${textField('角色类型', `npcs.${npcIndex}.role`, npc.role)}
             ${textField('对白', `npcs.${npcIndex}.dialogue`, npc.dialogue, 'wide')}
           </div>
-          <div class="editor-section-head" style="margin-top: 12px;">
-            <div>
-              <div class="editor-section-title">任务列表</div>
-              <div class="editor-section-note">未填写目标坐标时，会按任务类型自动推导导航点。</div>
-            </div>
-            <button class="small-btn" type="button" data-map-action="add-npc-quest">新增任务</button>
-          </div>
-          <div class="editor-card-list">${questMarkup}</div>
+          <div class="editor-note" style="margin-top: 12px;">任务请改到 <code>packages/server/data/content/quests/</code> 下对应章节文件，例如 <code>第一章_主线.json</code>、<code>第一章_支线.json</code>。</div>
         </section>
       `;
     }
@@ -1068,6 +1110,70 @@ export class GmMapEditor {
           </div>
           <div class="editor-note">要改怪物属性，请编辑 packages/server/data/content/monsters/*.json 中对应模板。</div>
         </section>
+      `;
+    }
+
+    if (this.selectedEntity.kind === 'container') {
+      const selectedIndex = this.selectedEntity.index;
+      const containerLandmark = this.getContainerLandmark(selectedIndex);
+      if (!containerLandmark || !containerLandmark.container) return '';
+      const container = containerLandmark.container;
+      const poolRows = (container.lootPools ?? []).map((pool, poolIndex) => `
+        <section class="editor-section" style="margin-top: 12px;">
+          <div class="editor-section-head">
+            <div>
+              <div class="editor-section-title">随机池 ${poolIndex + 1}</div>
+              <div class="editor-section-note">等级/品阶为筛选条件，tag 组按“每行至少命中一项”组合筛选。</div>
+            </div>
+            <button class="small-btn danger" type="button" data-map-action="remove-container-pool" data-pool-index="${poolIndex}">删除随机池</button>
+          </div>
+          <div class="map-form-grid">
+            ${nullableNumberField('抽取次数', `landmarks.${selectedIndex}.container.lootPools.${poolIndex}.rolls`, pool.rolls)}
+            ${nullableDecimalField('触发概率', `landmarks.${selectedIndex}.container.lootPools.${poolIndex}.chance`, pool.chance)}
+            ${nullableNumberField('最低等级', `landmarks.${selectedIndex}.container.lootPools.${poolIndex}.minLevel`, pool.minLevel)}
+            ${nullableNumberField('最高等级', `landmarks.${selectedIndex}.container.lootPools.${poolIndex}.maxLevel`, pool.maxLevel)}
+            ${nullableSelectField('最低品阶', `landmarks.${selectedIndex}.container.lootPools.${poolIndex}.minGrade`, pool.minGrade, [
+              { value: '', label: '不限' },
+              ...MONSTER_GRADE_OPTIONS,
+            ])}
+            ${nullableSelectField('最高品阶', `landmarks.${selectedIndex}.container.lootPools.${poolIndex}.maxGrade`, pool.maxGrade, [
+              { value: '', label: '不限' },
+              ...MONSTER_GRADE_OPTIONS,
+            ])}
+            ${nullableNumberField('最小数量', `landmarks.${selectedIndex}.container.lootPools.${poolIndex}.countMin`, pool.countMin)}
+            ${nullableNumberField('最大数量', `landmarks.${selectedIndex}.container.lootPools.${poolIndex}.countMax`, pool.countMax)}
+            ${booleanField('允许重复', `landmarks.${selectedIndex}.container.lootPools.${poolIndex}.allowDuplicates`, pool.allowDuplicates, 'wide')}
+            ${textareaField('Tag 组', `landmarks.${selectedIndex}.container.lootPools.${poolIndex}.tagGroups`, formatTagGroups(pool.tagGroups), 'wide', 'tag-groups')}
+          </div>
+        </section>
+      `).join('');
+
+      return `
+        <section class="editor-section">
+          <div class="editor-section-head">
+            <div>
+              <div class="editor-section-title">容器属性</div>
+              <div class="editor-section-note">格子 ${selectedPoint ? `(${selectedPoint.x}, ${selectedPoint.y})` : '-'} · 底层仍保存为地标 + container。</div>
+            </div>
+            <button class="small-btn danger" type="button" data-map-action="remove-selected">删除容器</button>
+          </div>
+          <div class="map-form-grid">
+            ${textField('ID', `landmarks.${selectedIndex}.id`, containerLandmark.id)}
+            ${textField('名称', `landmarks.${selectedIndex}.name`, containerLandmark.name)}
+            ${numberField('X', `landmarks.${selectedIndex}.x`, containerLandmark.x)}
+            ${numberField('Y', `landmarks.${selectedIndex}.y`, containerLandmark.y)}
+            ${textField('显示字', `landmarks.${selectedIndex}.container.char`, container.char)}
+            ${textField('颜色', `landmarks.${selectedIndex}.container.color`, container.color)}
+            ${selectField('搜索阶次', `landmarks.${selectedIndex}.container.grade`, container.grade ?? 'mortal', MONSTER_GRADE_OPTIONS)}
+            ${nullableNumberField('刷新 ticks', `landmarks.${selectedIndex}.container.refreshTicks`, container.refreshTicks)}
+            ${textareaField('说明', `landmarks.${selectedIndex}.desc`, containerLandmark.desc, 'wide')}
+          </div>
+          <div class="button-row" style="margin-top: 10px;">
+            <button class="small-btn" type="button" data-map-action="add-container-pool">新增随机池</button>
+          </div>
+          <div class="editor-note" style="margin-top: 12px;">${escapeHtml(this.buildContainerTagHint())}</div>
+        </section>
+        ${poolRows || '<div class="editor-note">当前没有随机池，点上方“新增随机池”添加。</div>'}
       `;
     }
 
@@ -1134,6 +1240,10 @@ export class GmMapEditor {
       const aura = this.draft.auras?.[this.selectedEntity.index];
       return aura ? `灵气 ${aura.value}` : '无';
     }
+    if (this.selectedEntity.kind === 'container') {
+      const landmark = this.getContainerLandmark(this.selectedEntity.index);
+      return landmark ? `容器 ${landmark.name || landmark.id}` : '无';
+    }
     const landmark = this.draft.landmarks?.[this.selectedEntity.index];
     return landmark ? `地标 ${landmark.name || landmark.id}` : '无';
   }
@@ -1151,6 +1261,37 @@ export class GmMapEditor {
     return target.name && target.name !== mapId
       ? `${target.name} (${mapId})`
       : target.name || mapId;
+  }
+
+  private getContainerLandmarks(): Array<{ landmark: GmMapLandmarkRecord; index: number }> {
+    if (!this.draft) {
+      return [];
+    }
+    return (this.draft.landmarks ?? [])
+      .flatMap((landmark, index) => landmark.container ? [{ landmark, index }] : []);
+  }
+
+  private getContainerLandmark(index: number): GmMapLandmarkRecord | null {
+    if (!this.draft) {
+      return null;
+    }
+    const landmark = this.draft.landmarks?.[index];
+    return landmark?.container ? landmark : null;
+  }
+
+  private getAvailableItemTags(): string[] {
+    return [...new Set(this.itemCatalog.flatMap((item) => item.tags ?? []))]
+      .sort((left, right) => left.localeCompare(right, 'zh-CN'));
+  }
+
+  private buildContainerTagHint(): string {
+    const tags = this.getAvailableItemTags();
+    if (tags.length === 0) {
+      return '标签来源于物品目录。每行一组，组内用逗号分隔；同一随机池会同时满足每一行至少一个 tag。';
+    }
+    const preview = tags.slice(0, 40).join('、');
+    const suffix = tags.length > 40 ? ` 等 ${tags.length} 个` : '';
+    return `每行一组，组内用逗号分隔；同一随机池会同时满足每一行至少一个 tag。当前可用 tag：${preview}${suffix}`;
   }
 
   private handleUiFieldChange(field: string, value: string): void {
@@ -1185,6 +1326,12 @@ export class GmMapEditor {
           return { ok: false, message: `${path} 不是合法数字` };
         }
         value = Math.floor(num);
+      } else if (kind === 'float') {
+        const num = Number(field.value || '0');
+        if (!Number.isFinite(num)) {
+          return { ok: false, message: `${path} 不是合法数字` };
+        }
+        value = num;
       } else if (kind === 'nullable-number') {
         if (!field.value.trim()) {
           value = undefined;
@@ -1195,8 +1342,22 @@ export class GmMapEditor {
           }
           value = Math.floor(num);
         }
+      } else if (kind === 'nullable-float') {
+        if (!field.value.trim()) {
+          value = undefined;
+        } else {
+          const num = Number(field.value);
+          if (!Number.isFinite(num)) {
+            return { ok: false, message: `${path} 不是合法数字` };
+          }
+          value = num;
+        }
       } else if (kind === 'boolean') {
         value = field.value === 'true';
+      } else if (kind === 'nullable-string') {
+        value = field.value === '' ? undefined : field.value;
+      } else if (kind === 'tag-groups') {
+        value = parseTagGroups(field.value);
       } else if (kind === 'json') {
         try {
           value = field.value.trim() ? JSON.parse(field.value) : [];
@@ -1268,6 +1429,16 @@ export class GmMapEditor {
       case 'add-landmark':
         this.currentInspectorTab = 'landmark';
         this.addLandmarkAtCurrentCell();
+        return;
+      case 'add-container':
+        this.currentInspectorTab = 'container';
+        this.addContainerAtCurrentCell();
+        return;
+      case 'add-container-pool':
+        this.addLootPoolToSelectedContainer();
+        return;
+      case 'remove-container-pool':
+        this.removeLootPoolFromSelectedContainer(Number(trigger.dataset.poolIndex ?? '-1'));
         return;
       case 'remove-selected':
         this.removeSelectedEntity();
@@ -1409,6 +1580,62 @@ export class GmMapEditor {
     this.markDirty();
   }
 
+  private addContainerAtCurrentCell(): void {
+    if (!this.ensureSelectedCell()) return;
+    const { x, y } = this.selectedCell!;
+    if (this.hasLandmarkAt(x, y)) {
+      this.setStatus('目标格已有地标或容器，请先移动或删除原对象', true);
+      return;
+    }
+    if (this.hasBlockingMapObjectAt(x, y)) {
+      this.setStatus('目标格已有出生点、传送点、NPC 或怪物点，不能放置容器', true);
+      return;
+    }
+    this.captureUndoState();
+    this.draft!.landmarks = this.draft!.landmarks ?? [];
+    this.draft!.landmarks.push({
+      id: `container_${this.draft!.id}_${this.draft!.landmarks.length + 1}`,
+      name: '新容器',
+      x,
+      y,
+      desc: '',
+      container: {
+        grade: 'mortal',
+        refreshTicks: 1800,
+        char: '柜',
+        color: '#8a6a4c',
+        lootPools: [createDefaultContainerLootPool()],
+      },
+    });
+    this.selectedEntity = { kind: 'container', index: this.draft!.landmarks.length - 1 };
+    this.markDirty();
+  }
+
+  private addLootPoolToSelectedContainer(): void {
+    const landmark = this.selectedEntity?.kind === 'container'
+      ? this.getContainerLandmark(this.selectedEntity.index)
+      : null;
+    if (!landmark?.container) {
+      return;
+    }
+    this.captureUndoState();
+    landmark.container.lootPools = landmark.container.lootPools ?? [];
+    landmark.container.lootPools.push(createDefaultContainerLootPool());
+    this.markDirty();
+  }
+
+  private removeLootPoolFromSelectedContainer(index: number): void {
+    const landmark = this.selectedEntity?.kind === 'container'
+      ? this.getContainerLandmark(this.selectedEntity.index)
+      : null;
+    if (!landmark?.container?.lootPools || index < 0 || index >= landmark.container.lootPools.length) {
+      return;
+    }
+    this.captureUndoState();
+    landmark.container.lootPools.splice(index, 1);
+    this.markDirty();
+  }
+
   private moveSelectedEntityToCurrentCell(): void {
     if (!this.draft || !this.selectedEntity || !this.selectedCell) {
       this.setStatus('请先选中对象和目标格', true);
@@ -1449,6 +1676,25 @@ export class GmMapEditor {
       if (!landmark) return false;
       if (this.hasLandmarkAt(x, y, selection.index)) {
         if (!silent) this.setStatus('目标格已有地标', true);
+        return false;
+      }
+      if (recordUndo) this.captureUndoState();
+      landmark.x = x;
+      landmark.y = y;
+      this.selectedCell = { x, y };
+      this.markDirty(false);
+      return true;
+    }
+
+    if (selection.kind === 'container') {
+      const landmark = this.draft.landmarks?.[selection.index];
+      if (!landmark?.container) return false;
+      if (this.hasLandmarkAt(x, y, selection.index)) {
+        if (!silent) this.setStatus('目标格已有地标', true);
+        return false;
+      }
+      if (this.hasBlockingMapObjectAt(x, y)) {
+        if (!silent) this.setStatus('目标格已有出生点或阻挡对象', true);
         return false;
       }
       if (recordUndo) this.captureUndoState();
@@ -1501,6 +1747,8 @@ export class GmMapEditor {
       removeArrayIndex(this.draft, 'monsterSpawns', this.selectedEntity.index);
     } else if (this.selectedEntity.kind === 'aura') {
       removeArrayIndex(this.draft, 'auras', this.selectedEntity.index);
+    } else if (this.selectedEntity.kind === 'container') {
+      removeArrayIndex(this.draft, 'landmarks', this.selectedEntity.index);
     } else if (this.selectedEntity.kind === 'landmark') {
       removeArrayIndex(this.draft, 'landmarks', this.selectedEntity.index);
     }
@@ -1744,7 +1992,7 @@ export class GmMapEditor {
   private drawEntities(ctx: CanvasRenderingContext2D, screenW: number, screenH: number, cellSize: number): void {
     if (!this.draft) return;
     const showEntityLabels = cellSize >= 18;
-    const drawEntity = (wx: number, wy: number, char: string, color: string, name: string, kind: 'npc' | 'monster' | 'spawn'): void => {
+    const drawEntity = (wx: number, wy: number, char: string, color: string, name: string, kind: 'npc' | 'monster' | 'spawn' | 'container'): void => {
       const sx = wx * cellSize - this.viewCenterX + screenW / 2;
       const sy = wy * cellSize - this.viewCenterY + screenH / 2;
       if (sx + cellSize < 0 || sx > screenW || sy + cellSize < 0 || sy > screenH) return;
@@ -1765,7 +2013,13 @@ export class GmMapEditor {
       }
       ctx.font = `${cellSize * 0.3}px "Noto Serif SC", serif`;
       ctx.strokeStyle = 'rgba(15,12,10,0.9)';
-      ctx.fillStyle = kind === 'monster' ? '#ffddcc' : kind === 'spawn' ? '#fff0b0' : '#cce7ff';
+      ctx.fillStyle = kind === 'monster'
+        ? '#ffddcc'
+        : kind === 'spawn'
+          ? '#fff0b0'
+          : kind === 'container'
+            ? '#f5ddb0'
+            : '#cce7ff';
       ctx.textBaseline = 'alphabetic';
       ctx.strokeText(name, sx + cellSize / 2, sy - Math.max(6, cellSize * 0.18));
       ctx.fillText(name, sx + cellSize / 2, sy - Math.max(6, cellSize * 0.18));
@@ -1814,7 +2068,19 @@ export class GmMapEditor {
     this.draft.npcs.forEach((npc) => drawEntity(npc.x, npc.y, npc.char || '人', npc.color || '#d6d0c4', npc.name || npc.id, 'npc'));
     this.draft.monsterSpawns.forEach((spawn) => drawEntity(spawn.x, spawn.y, spawn.char || '妖', spawn.color || '#d27a7a', spawn.name || spawn.id, 'monster'));
     (this.draft.auras ?? []).forEach((point) => drawEntity(point.x, point.y, '灵', '#77b8ff', `灵气:${point.value}`, 'npc'));
-    (this.draft.landmarks ?? []).forEach((landmark) => drawLandmark(landmark));
+    (this.draft.landmarks ?? [])
+      .filter((landmark) => landmark.container)
+      .forEach((landmark) => drawEntity(
+        landmark.x,
+        landmark.y,
+        landmark.container?.char?.trim() || '箱',
+        landmark.container?.color?.trim() || '#c18b46',
+        landmark.name || landmark.id,
+        'container',
+      ));
+    (this.draft.landmarks ?? [])
+      .filter((landmark) => !landmark.container)
+      .forEach((landmark) => drawLandmark(landmark));
   }
 
   private resizeCanvas(): void {
@@ -2164,6 +2430,8 @@ export class GmMapEditor {
     if (portalIndex >= 0) return { kind: 'portal', index: portalIndex };
     const auraIndex = (this.draft.auras ?? []).findIndex((point) => point.x === x && point.y === y);
     if (auraIndex >= 0) return { kind: 'aura', index: auraIndex };
+    const containerIndex = (this.draft.landmarks ?? []).findIndex((landmark) => landmark.container && landmark.x === x && landmark.y === y);
+    if (containerIndex >= 0) return { kind: 'container', index: containerIndex };
     const landmarkIndex = (this.draft.landmarks ?? []).findIndex((landmark) => landmark.x === x && landmark.y === y);
     if (landmarkIndex >= 0) return { kind: 'landmark', index: landmarkIndex };
     return null;
@@ -2186,6 +2454,10 @@ export class GmMapEditor {
     if (this.selectedEntity.kind === 'aura') {
       const aura = this.draft.auras?.[this.selectedEntity.index];
       return aura ? { x: aura.x, y: aura.y } : null;
+    }
+    if (this.selectedEntity.kind === 'container') {
+      const landmark = this.getContainerLandmark(this.selectedEntity.index);
+      return landmark ? { x: landmark.x, y: landmark.y } : null;
     }
     const landmark = this.draft.landmarks?.[this.selectedEntity.index];
     return landmark ? { x: landmark.x, y: landmark.y } : null;

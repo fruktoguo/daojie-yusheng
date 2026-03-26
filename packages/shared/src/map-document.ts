@@ -3,12 +3,14 @@ import { isOffsetInRange } from './geometry';
 import {
   GmMapAuraRecord,
   GmMapContainerRecord,
+  GmMapContainerLootPoolRecord,
   GmMapDocument,
   GmMapDropRecord,
   GmMapLandmarkRecord,
   GmMapListRes,
   GmMapMonsterSpawnRecord,
   GmMapNpcRecord,
+  GmMapNpcShopItemRecord,
   GmMapPortalRecord,
   GmMapQuestRecord,
   GmMapSummary,
@@ -66,6 +68,17 @@ function normalizeContainerGrade(grade: unknown): TechniqueGrade {
     return grade;
   }
   return 'mortal';
+}
+
+function normalizeEditableNpcShopItemRecord(raw: unknown): GmMapNpcShopItemRecord | null {
+  const item = raw as Partial<GmMapNpcShopItemRecord>;
+  if (typeof item.itemId !== 'string' || !Number.isFinite(item.price)) {
+    return null;
+  }
+  return {
+    itemId: item.itemId,
+    price: Number(item.price),
+  };
 }
 
 function normalizeOptionalTrimmedString(value: unknown): string | undefined {
@@ -158,6 +171,8 @@ function normalizeEditableContainerRecord(input: unknown): GmMapContainerRecord 
   return {
     grade: normalizeContainerGrade(container.grade),
     refreshTicks: Number.isFinite(container.refreshTicks) ? Number(container.refreshTicks) : undefined,
+    char: normalizeOptionalTrimmedString(container.char),
+    color: normalizeOptionalTrimmedString(container.color),
     drops: Array.isArray(container.drops)
       ? container.drops.map((drop) => ({
         itemId: String(drop.itemId ?? ''),
@@ -167,6 +182,39 @@ function normalizeEditableContainerRecord(input: unknown): GmMapContainerRecord 
         chance: Number.isFinite(drop.chance) ? Number(drop.chance) : undefined,
       }))
       : [],
+    lootPools: Array.isArray(container.lootPools)
+      ? container.lootPools
+        .map((pool) => normalizeEditableContainerLootPoolRecord(pool))
+        .filter((pool): pool is GmMapContainerLootPoolRecord => Boolean(pool))
+      : [],
+  };
+}
+
+function normalizeEditableContainerLootPoolRecord(input: unknown): GmMapContainerLootPoolRecord | undefined {
+  if (!input || typeof input !== 'object') {
+    return undefined;
+  }
+  const pool = input as GmMapContainerLootPoolRecord;
+  const normalizedTagGroups = Array.isArray(pool.tagGroups)
+    ? pool.tagGroups
+      .map((group) => Array.isArray(group)
+        ? group
+          .map((entry) => normalizeOptionalTrimmedString(entry))
+          .filter((entry): entry is string => Boolean(entry))
+        : [])
+      .filter((group) => group.length > 0)
+    : [];
+  return {
+    rolls: Number.isFinite(pool.rolls) ? Number(pool.rolls) : undefined,
+    chance: Number.isFinite(pool.chance) ? Number(pool.chance) : undefined,
+    minLevel: Number.isFinite(pool.minLevel) ? Number(pool.minLevel) : undefined,
+    maxLevel: Number.isFinite(pool.maxLevel) ? Number(pool.maxLevel) : undefined,
+    minGrade: pool.minGrade ? normalizeContainerGrade(pool.minGrade) : undefined,
+    maxGrade: pool.maxGrade ? normalizeContainerGrade(pool.maxGrade) : undefined,
+    tagGroups: normalizedTagGroups,
+    countMin: Number.isFinite(pool.countMin) ? Number(pool.countMin) : undefined,
+    countMax: Number.isFinite(pool.countMax) ? Number(pool.countMax) : undefined,
+    allowDuplicates: pool.allowDuplicates === true,
   };
 }
 
@@ -377,6 +425,11 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
       color: String((npc as GmMapNpcRecord).color ?? ''),
       dialogue: String((npc as GmMapNpcRecord).dialogue ?? ''),
       role: typeof (npc as GmMapNpcRecord).role === 'string' ? (npc as GmMapNpcRecord).role : undefined,
+      shopItems: Array.isArray((npc as GmMapNpcRecord).shopItems)
+        ? ((npc as GmMapNpcRecord).shopItems ?? [])
+            .map((item) => normalizeEditableNpcShopItemRecord(item))
+            .filter((item): item is GmMapNpcShopItemRecord => Boolean(item))
+        : [],
       quests: Array.isArray((npc as GmMapNpcRecord).quests)
         ? ((npc as GmMapNpcRecord).quests ?? [])
             .map((quest) => normalizeEditableQuestRecord(quest))
@@ -538,6 +591,39 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
       if (refreshTicks !== undefined && (!Number.isInteger(refreshTicks) || refreshTicks <= 0)) {
         return `${label} 的容器刷新时间必须为正整数`;
       }
+      for (let poolIndex = 0; poolIndex < (landmark.container.lootPools?.length ?? 0); poolIndex += 1) {
+        const pool = landmark.container.lootPools![poolIndex]!;
+        const poolLabel = `${label} 的随机池 ${poolIndex + 1}`;
+        if (pool.rolls !== undefined && (!Number.isInteger(pool.rolls) || pool.rolls <= 0)) {
+          return `${poolLabel} 的抽取次数必须为正整数`;
+        }
+        if (pool.minLevel !== undefined && (!Number.isInteger(pool.minLevel) || pool.minLevel <= 0)) {
+          return `${poolLabel} 的最低等级必须为正整数`;
+        }
+        if (pool.maxLevel !== undefined && (!Number.isInteger(pool.maxLevel) || pool.maxLevel <= 0)) {
+          return `${poolLabel} 的最高等级必须为正整数`;
+        }
+        if (
+          pool.minLevel !== undefined
+          && pool.maxLevel !== undefined
+          && pool.minLevel > pool.maxLevel
+        ) {
+          return `${poolLabel} 的等级范围无效`;
+        }
+        if (pool.countMin !== undefined && (!Number.isInteger(pool.countMin) || pool.countMin <= 0)) {
+          return `${poolLabel} 的最小数量必须为正整数`;
+        }
+        if (pool.countMax !== undefined && (!Number.isInteger(pool.countMax) || pool.countMax <= 0)) {
+          return `${poolLabel} 的最大数量必须为正整数`;
+        }
+        if (
+          pool.countMin !== undefined
+          && pool.countMax !== undefined
+          && pool.countMin > pool.countMax
+        ) {
+          return `${poolLabel} 的数量范围无效`;
+        }
+      }
     }
   }
 
@@ -549,6 +635,20 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
     if (!npc.char.trim()) return `${label} 的字符不能为空`;
     const error = ensureWalkablePoint(npc.x, npc.y, label);
     if (error) return error;
+
+    const seenShopItemIds = new Set<string>();
+    for (let shopIndex = 0; shopIndex < (npc.shopItems?.length ?? 0); shopIndex += 1) {
+      const shopItem = npc.shopItems![shopIndex]!;
+      const shopLabel = `${label} 的商品 ${shopItem.itemId || shopIndex + 1}`;
+      if (!shopItem.itemId.trim()) return `${shopLabel} 的物品 ID 不能为空`;
+      if (!Number.isInteger(shopItem.price) || shopItem.price <= 0) {
+        return `${shopLabel} 的价格必须为正整数`;
+      }
+      if (seenShopItemIds.has(shopItem.itemId)) {
+        return `${label} 的商店商品 ID 不能重复: ${shopItem.itemId}`;
+      }
+      seenShopItemIds.add(shopItem.itemId);
+    }
 
     for (let questIndex = 0; questIndex < (npc.quests?.length ?? 0); questIndex += 1) {
       const quest = npc.quests![questIndex]!;
