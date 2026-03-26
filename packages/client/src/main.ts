@@ -1048,6 +1048,19 @@ function buildAttrStateFromPlayer(player: PlayerState): S2C_AttrUpdate {
 }
 
 function mergeAttrUpdatePatch(previous: S2C_AttrUpdate | null, patch: S2C_AttrUpdate): S2C_AttrUpdate {
+  const previousRealm = previous?.realm ?? myPlayer?.realm ?? null;
+  const mergedRealm = patch.realm === null
+    ? null
+    : patch.realm
+      ? cloneJson(patch.realm)
+      : previousRealm
+        ? {
+            ...cloneJson(previousRealm),
+            progress: patch.realmProgress ?? previousRealm.progress,
+            progressToNext: patch.realmProgressToNext ?? previousRealm.progressToNext,
+            breakthroughReady: patch.realmBreakthroughReady ?? previousRealm.breakthroughReady,
+          }
+        : null;
   return {
     baseAttrs: patch.baseAttrs ? cloneJson(patch.baseAttrs) : cloneJson(previous?.baseAttrs ?? myPlayer?.baseAttrs ?? {
       constitution: 0,
@@ -1081,18 +1094,18 @@ function mergeAttrUpdatePatch(previous: S2C_AttrUpdate | null, patch: S2C_AttrUp
     lifespanYears: patch.lifespanYears === null
       ? null
       : patch.lifespanYears ?? previous?.lifespanYears ?? myPlayer?.lifespanYears ?? null,
-    realm: patch.realm === null ? null : patch.realm ? cloneJson(patch.realm) : (previous?.realm ? cloneJson(previous.realm) : null),
+    realm: mergedRealm,
   };
 }
 
 function mergeTechniquePatch(patch: TechniqueUpdateEntry, previous?: TechniqueState): TechniqueState {
   return {
     techId: patch.techId,
-    level: patch.level,
-    exp: patch.exp,
-    expToNext: patch.expToNext,
-    realmLv: patch.realmLv,
-    realm: patch.realm,
+    level: patch.level ?? previous?.level ?? 1,
+    exp: patch.exp ?? previous?.exp ?? 0,
+    expToNext: patch.expToNext ?? previous?.expToNext ?? 0,
+    realmLv: patch.realmLv ?? previous?.realmLv ?? 1,
+    realm: patch.realm ?? previous?.realm ?? TechniqueRealm.Entry,
     name: applyNullablePatch(patch.name, previous?.name) ?? patch.techId,
     skills: applyNullablePatch(patch.skills, previous?.skills) ? cloneJson(applyNullablePatch(patch.skills, previous?.skills) ?? []) : [],
     grade: applyNullablePatch(patch.grade, previous?.grade),
@@ -1105,13 +1118,24 @@ function mergeTechniquePatch(patch: TechniqueUpdateEntry, previous?: TechniqueSt
   };
 }
 
-function mergeTechniqueStates(patches: TechniqueUpdateEntry[]): TechniqueState[] {
-  const merged: TechniqueState[] = [];
-  const nextMap = new Map<string, TechniqueState>();
+function mergeTechniqueStates(patches: TechniqueUpdateEntry[], removeTechniqueIds: string[] = []): TechniqueState[] {
+  const removedIdSet = new Set(removeTechniqueIds);
+  const merged = [...latestTechniqueMap.values()]
+    .filter((technique) => !removedIdSet.has(technique.techId))
+    .map((technique) => cloneJson(technique));
+  const nextMap = new Map(merged.map((technique) => [technique.techId, technique] as const));
 
   for (const patch of patches) {
-    const next = mergeTechniquePatch(patch, latestTechniqueMap.get(patch.techId));
-    merged.push(next);
+    const previous = nextMap.get(patch.techId);
+    const next = mergeTechniquePatch(patch, previous);
+    if (previous) {
+      const index = merged.findIndex((technique) => technique.techId === patch.techId);
+      if (index >= 0) {
+        merged[index] = next;
+      }
+    } else {
+      merged.push(next);
+    }
     nextMap.set(next.techId, next);
   }
 
@@ -1122,7 +1146,7 @@ function mergeTechniqueStates(patches: TechniqueUpdateEntry[]): TechniqueState[]
 function mergeActionPatch(patch: ActionUpdateEntry, previous?: ActionDef): ActionDef {
   return {
     id: patch.id,
-    cooldownLeft: patch.cooldownLeft,
+    cooldownLeft: patch.cooldownLeft ?? previous?.cooldownLeft ?? 0,
     autoBattleEnabled: applyNullablePatch(patch.autoBattleEnabled, previous?.autoBattleEnabled),
     autoBattleOrder: applyNullablePatch(patch.autoBattleOrder, previous?.autoBattleOrder),
     skillEnabled: applyNullablePatch(patch.skillEnabled, previous?.skillEnabled),
@@ -1135,14 +1159,37 @@ function mergeActionPatch(patch: ActionUpdateEntry, previous?: ActionDef): Actio
   };
 }
 
-function mergeActionStates(patches: ActionUpdateEntry[]): ActionDef[] {
-  const merged: ActionDef[] = [];
-  const nextMap = new Map<string, ActionDef>();
+function mergeActionStates(
+  patches: ActionUpdateEntry[],
+  removeActionIds: string[] = [],
+  actionOrder?: string[],
+): ActionDef[] {
+  const removedIdSet = new Set(removeActionIds);
+  const merged = [...latestActionMap.values()]
+    .filter((action) => !removedIdSet.has(action.id))
+    .map((action) => cloneJson(action));
+  const nextMap = new Map(merged.map((action) => [action.id, action] as const));
 
   for (const patch of patches) {
-    const next = mergeActionPatch(patch, latestActionMap.get(patch.id));
-    merged.push(next);
+    const previous = nextMap.get(patch.id);
+    const next = mergeActionPatch(patch, previous);
+    if (previous) {
+      const index = merged.findIndex((action) => action.id === patch.id);
+      if (index >= 0) {
+        merged[index] = next;
+      }
+    } else {
+      merged.push(next);
+    }
     nextMap.set(next.id, next);
+  }
+
+  if (actionOrder && actionOrder.length > 0) {
+    const orderIndex = new Map(actionOrder.map((actionId, index) => [actionId, index] as const));
+    merged.sort((left, right) => (
+      (orderIndex.get(left.id) ?? Number.MAX_SAFE_INTEGER)
+      - (orderIndex.get(right.id) ?? Number.MAX_SAFE_INTEGER)
+    ));
   }
 
   latestActionMap = nextMap;
@@ -1534,22 +1581,25 @@ socket.onEquipmentUpdate((data) => {
   equipmentPanel.update(data.equipment);
 });
 socket.onTechniqueUpdate((data) => {
-  const mergedTechniques = mergeTechniqueStates(data.techniques);
+  const mergedTechniques = mergeTechniqueStates(data.techniques, data.removeTechniqueIds ?? []);
+  const nextCultivatingTechId = data.cultivatingTechId === undefined
+    ? myPlayer?.cultivatingTechId
+    : data.cultivatingTechId ?? undefined;
   const shouldRefreshTechniquePanel = !myPlayer
-    || haveTechniqueStructureChanges(myPlayer.techniques, myPlayer.cultivatingTechId, mergedTechniques, data.cultivatingTechId);
+    || haveTechniqueStructureChanges(myPlayer.techniques, myPlayer.cultivatingTechId, mergedTechniques, nextCultivatingTechId);
   if (myPlayer) {
     myPlayer.techniques = mergedTechniques;
-    myPlayer.cultivatingTechId = data.cultivatingTechId;
+    myPlayer.cultivatingTechId = nextCultivatingTechId;
   }
   if (shouldRefreshTechniquePanel) {
-    techniquePanel.update(mergedTechniques, data.cultivatingTechId, myPlayer ?? undefined);
+    techniquePanel.update(mergedTechniques, nextCultivatingTechId, myPlayer ?? undefined);
     refreshUiChrome();
   } else {
-    techniquePanel.syncDynamic(mergedTechniques, data.cultivatingTechId, myPlayer ?? undefined);
+    techniquePanel.syncDynamic(mergedTechniques, nextCultivatingTechId, myPlayer ?? undefined);
   }
 });
 socket.onActionsUpdate((data) => {
-  const mergedActions = mergeActionStates(data.actions);
+  const mergedActions = mergeActionStates(data.actions, data.removeActionIds ?? [], data.actionOrder);
   const previousActions = myPlayer?.actions ?? [];
   const previousAutoBattle = myPlayer?.autoBattle ?? false;
   const previousAutoRetaliate = myPlayer?.autoRetaliate ?? true;

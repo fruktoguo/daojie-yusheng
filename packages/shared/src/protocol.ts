@@ -490,6 +490,9 @@ export interface S2C_AttrUpdate {
   lifeElapsedTicks?: number;
   lifespanYears?: number | null;
   realm?: PlayerRealmState | null;
+  realmProgress?: number;
+  realmProgressToNext?: number;
+  realmBreakthroughReady?: boolean;
 }
 
 /** 背包更新 */
@@ -505,11 +508,11 @@ export interface S2C_EquipmentUpdate {
 /** 功法增量更新条目 */
 export interface TechniqueUpdateEntry {
   techId: string;
-  level: number;
-  exp: number;
-  expToNext: number;
-  realmLv: number;
-  realm: TechniqueRealm;
+  level?: number;
+  exp?: number;
+  expToNext?: number;
+  realmLv?: number;
+  realm?: TechniqueRealm;
   name?: string | null;
   grade?: TechniqueGrade | null;
   skills?: SkillDef[] | null;
@@ -520,13 +523,14 @@ export interface TechniqueUpdateEntry {
 /** 功法更新 */
 export interface S2C_TechniqueUpdate {
   techniques: TechniqueUpdateEntry[];
-  cultivatingTechId?: string;
+  removeTechniqueIds?: string[];
+  cultivatingTechId?: string | null;
 }
 
 /** 行动增量更新条目 */
 export interface ActionUpdateEntry {
   id: string;
-  cooldownLeft: number;
+  cooldownLeft?: number;
   autoBattleEnabled?: boolean | null;
   autoBattleOrder?: number | null;
   skillEnabled?: boolean | null;
@@ -541,6 +545,8 @@ export interface ActionUpdateEntry {
 /** 行动列表更新 */
 export interface S2C_ActionsUpdate {
   actions: ActionUpdateEntry[];
+  removeActionIds?: string[];
+  actionOrder?: string[];
   autoBattle?: boolean;
   autoRetaliate?: boolean;
   autoBattleStationary?: boolean;

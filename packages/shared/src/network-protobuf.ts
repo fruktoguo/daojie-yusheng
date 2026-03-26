@@ -16,6 +16,8 @@ message TickPayload {
   repeated TilePatchPayload t = 2;
   repeated TickRenderEntityPayload e = 3;
   repeated StringPairPayload threatArrows = 4;
+  repeated StringPairPayload threatArrowAdds = 21;
+  repeated StringPairPayload threatArrowRemoves = 22;
   repeated GroundItemPilePatchPayload g = 5;
   repeated CombatEffectPayload fx = 6;
   repeated VisibleTileRowPayload v = 7;
@@ -30,6 +32,8 @@ message TickPayload {
   optional string minimapJson = 16;
   optional string minimapLibraryJson = 17;
   optional string visibleMinimapMarkersJson = 18;
+  optional string visibleMinimapMarkerAddsJson = 23;
+  repeated string visibleMinimapMarkerRemoves = 24;
   optional uint32 auraLevelBaseValue = 19;
   repeated string r = 20;
 }
@@ -166,15 +170,17 @@ message GameTimeStatePayload {
 message TechniqueUpdatePayload {
   repeated TechniqueUpdateEntryPayload techniques = 1;
   optional string cultivatingTechId = 2;
+  optional bool clearCultivatingTechId = 3;
+  repeated string removeTechniqueIds = 4;
 }
 
 message TechniqueUpdateEntryPayload {
   required string techId = 1;
-  required uint32 level = 2;
-  required uint32 exp = 3;
-  required uint32 expToNext = 4;
-  required uint32 realm = 5;
-  required uint32 realmLv = 16;
+  optional uint32 level = 2;
+  optional uint32 exp = 3;
+  optional uint32 expToNext = 4;
+  optional uint32 realm = 5;
+  optional uint32 realmLv = 16;
   optional string name = 6;
   optional bool clearName = 7;
   optional string grade = 8;
@@ -196,11 +202,13 @@ message ActionsUpdatePayload {
   optional bool senseQiActive = 6;
   optional bool allowAoePlayerHit = 7;
   optional bool autoBattleStationary = 8;
+  repeated string removeActionIds = 9;
+  repeated string actionOrder = 10;
 }
 
 message ActionUpdateEntryPayload {
   required string id = 1;
-  required uint32 cooldownLeft = 2;
+  optional uint32 cooldownLeft = 2;
   optional bool autoBattleEnabled = 3;
   optional bool clearAutoBattleEnabled = 4;
   optional uint32 autoBattleOrder = 5;
@@ -236,6 +244,9 @@ message AttrUpdatePayload {
   optional uint32 lifespanYears = 12;
   optional bool clearLifespanYears = 13;
   optional PlayerSpecialStatsPayload specialStats = 14;
+  optional uint32 realmProgress = 15;
+  optional uint32 realmProgressToNext = 16;
+  optional bool realmBreakthroughReady = 17;
 }
 
 message PlayerSpecialStatsPayload {
@@ -588,12 +599,12 @@ function fromWireGameTimeState(wire: Record<string, unknown> | undefined): GameT
 function toWireTechniqueEntry(entry: TechniqueUpdateEntry): Record<string, unknown> {
   const wire: Record<string, unknown> = {
     techId: entry.techId,
-    level: entry.level,
-    exp: entry.exp,
-    expToNext: entry.expToNext,
-    realmLv: entry.realmLv,
-    realm: entry.realm,
   };
+  if (entry.level !== undefined) wire.level = entry.level;
+  if (entry.exp !== undefined) wire.exp = entry.exp;
+  if (entry.expToNext !== undefined) wire.expToNext = entry.expToNext;
+  if (entry.realmLv !== undefined) wire.realmLv = entry.realmLv;
+  if (entry.realm !== undefined) wire.realm = entry.realm;
   setNullableWireValue(wire, 'name', 'clearName', entry.name);
   setNullableWireValue(wire, 'grade', 'clearGrade', entry.grade);
   if (entry.skills === null) {
@@ -617,12 +628,12 @@ function toWireTechniqueEntry(entry: TechniqueUpdateEntry): Record<string, unkno
 function fromWireTechniqueEntry(wire: Record<string, unknown>): TechniqueUpdateEntry {
   const patch: TechniqueUpdateEntry = {
     techId: String(wire.techId ?? ''),
-    level: Number(wire.level ?? 0),
-    exp: Number(wire.exp ?? 0),
-    expToNext: Number(wire.expToNext ?? 0),
-    realmLv: Number(wire.realmLv ?? 1),
-    realm: Number(wire.realm ?? 0) as TechniqueState['realm'],
   };
+  if (hasOwn(wire, 'level')) patch.level = Number(wire.level ?? 0);
+  if (hasOwn(wire, 'exp')) patch.exp = Number(wire.exp ?? 0);
+  if (hasOwn(wire, 'expToNext')) patch.expToNext = Number(wire.expToNext ?? 0);
+  if (hasOwn(wire, 'realmLv')) patch.realmLv = Number(wire.realmLv ?? 1);
+  if (hasOwn(wire, 'realm')) patch.realm = Number(wire.realm ?? 0) as TechniqueState['realm'];
   const name = readNullableWireValue<string>(wire, 'name', 'clearName');
   if (name !== undefined) patch.name = name;
   const grade = readNullableWireValue<TechniqueGrade>(wire, 'grade', 'clearGrade');
@@ -648,8 +659,10 @@ function fromWireTechniqueEntry(wire: Record<string, unknown>): TechniqueUpdateE
 function toWireActionEntry(entry: ActionUpdateEntry): Record<string, unknown> {
   const wire: Record<string, unknown> = {
     id: entry.id,
-    cooldownLeft: entry.cooldownLeft,
   };
+  if (entry.cooldownLeft !== undefined) {
+    wire.cooldownLeft = entry.cooldownLeft;
+  }
   setNullableWireValue(wire, 'autoBattleEnabled', 'clearAutoBattleEnabled', entry.autoBattleEnabled);
   setNullableWireValue(wire, 'autoBattleOrder', 'clearAutoBattleOrder', entry.autoBattleOrder);
   setNullableWireValue(wire, 'skillEnabled', 'clearSkillEnabled', entry.skillEnabled);
@@ -665,8 +678,8 @@ function toWireActionEntry(entry: ActionUpdateEntry): Record<string, unknown> {
 function fromWireActionEntry(wire: Record<string, unknown>): ActionUpdateEntry {
   const patch: ActionUpdateEntry = {
     id: String(wire.id ?? ''),
-    cooldownLeft: Number(wire.cooldownLeft ?? 0),
   };
+  if (hasOwn(wire, 'cooldownLeft')) patch.cooldownLeft = Number(wire.cooldownLeft ?? 0);
   const autoBattleEnabled = readNullableWireValue<boolean>(wire, 'autoBattleEnabled', 'clearAutoBattleEnabled');
   if (autoBattleEnabled !== undefined) patch.autoBattleEnabled = autoBattleEnabled;
   const autoBattleOrder = readNullableWireValue<number>(wire, 'autoBattleOrder', 'clearAutoBattleOrder');
@@ -712,6 +725,12 @@ function toWireTick(payload: S2C_Tick): Record<string, unknown> {
   }
   if (payload.threatArrows) {
     wire.threatArrows = payload.threatArrows.map(([left, right]) => ({ left, right }));
+  }
+  if (payload.threatArrowAdds) {
+    wire.threatArrowAdds = payload.threatArrowAdds.map(([left, right]) => ({ left, right }));
+  }
+  if (payload.threatArrowRemoves) {
+    wire.threatArrowRemoves = payload.threatArrowRemoves.map(([left, right]) => ({ left, right }));
   }
   if (payload.t) {
     wire.t = payload.t.map((patch) => ({
@@ -760,6 +779,8 @@ function toWireTick(payload: S2C_Tick): Record<string, unknown> {
   if (payload.minimap) wire.minimapJson = JSON.stringify(payload.minimap);
   if (payload.minimapLibrary) wire.minimapLibraryJson = JSON.stringify(payload.minimapLibrary);
   if (payload.visibleMinimapMarkers) wire.visibleMinimapMarkersJson = JSON.stringify(payload.visibleMinimapMarkers);
+  if (payload.visibleMinimapMarkerAdds) wire.visibleMinimapMarkerAddsJson = JSON.stringify(payload.visibleMinimapMarkerAdds);
+  if (payload.visibleMinimapMarkerRemoves) wire.visibleMinimapMarkerRemoves = [...payload.visibleMinimapMarkerRemoves];
   if (payload.auraLevelBaseValue !== undefined) wire.auraLevelBaseValue = payload.auraLevelBaseValue;
   return wire;
 }
@@ -774,6 +795,18 @@ function fromWireTick(wire: Record<string, unknown>): S2C_Tick {
   }
   if (Array.isArray(wire.threatArrows)) {
     payload.threatArrows = wire.threatArrows.map((pair) => {
+      const entry = pair as Record<string, unknown>;
+      return [String(entry.left ?? ''), String(entry.right ?? '')] as [string, string];
+    });
+  }
+  if (Array.isArray(wire.threatArrowAdds)) {
+    payload.threatArrowAdds = wire.threatArrowAdds.map((pair) => {
+      const entry = pair as Record<string, unknown>;
+      return [String(entry.left ?? ''), String(entry.right ?? '')] as [string, string];
+    });
+  }
+  if (Array.isArray(wire.threatArrowRemoves)) {
+    payload.threatArrowRemoves = wire.threatArrowRemoves.map((pair) => {
       const entry = pair as Record<string, unknown>;
       return [String(entry.left ?? ''), String(entry.right ?? '')] as [string, string];
     });
@@ -845,6 +878,14 @@ function fromWireTick(wire: Record<string, unknown>): S2C_Tick {
   if (hasOwn(wire, 'visibleMinimapMarkersJson') && typeof wire.visibleMinimapMarkersJson === 'string') {
     payload.visibleMinimapMarkers = parseJson<NonNullable<S2C_Tick['visibleMinimapMarkers']>>(wire.visibleMinimapMarkersJson);
   }
+  if (hasOwn(wire, 'visibleMinimapMarkerAddsJson') && typeof wire.visibleMinimapMarkerAddsJson === 'string') {
+    payload.visibleMinimapMarkerAdds = parseJson<NonNullable<S2C_Tick['visibleMinimapMarkerAdds']>>(wire.visibleMinimapMarkerAddsJson);
+  }
+  if (Array.isArray(wire.visibleMinimapMarkerRemoves)) {
+    payload.visibleMinimapMarkerRemoves = wire.visibleMinimapMarkerRemoves
+      .map((entry) => String(entry ?? ''))
+      .filter((entry) => entry.length > 0);
+  }
   if (hasOwn(wire, 'auraLevelBaseValue')) {
     payload.auraLevelBaseValue = Number(wire.auraLevelBaseValue ?? 0);
   }
@@ -855,25 +896,42 @@ function toWireTechniqueUpdate(payload: S2C_TechniqueUpdate): Record<string, unk
   const wire: Record<string, unknown> = {
     techniques: payload.techniques.map(toWireTechniqueEntry),
   };
-  if (payload.cultivatingTechId !== undefined) {
+  if (payload.cultivatingTechId === null) {
+    wire.clearCultivatingTechId = true;
+  } else if (payload.cultivatingTechId !== undefined) {
     wire.cultivatingTechId = payload.cultivatingTechId;
+  }
+  if (payload.removeTechniqueIds) {
+    wire.removeTechniqueIds = [...payload.removeTechniqueIds];
   }
   return wire;
 }
 
 function fromWireTechniqueUpdate(wire: Record<string, unknown>): S2C_TechniqueUpdate {
-  return {
+  const payload: S2C_TechniqueUpdate = {
     techniques: Array.isArray(wire.techniques)
       ? wire.techniques.map((entry) => fromWireTechniqueEntry(entry as Record<string, unknown>))
       : [],
-    cultivatingTechId: hasOwn(wire, 'cultivatingTechId') ? String(wire.cultivatingTechId ?? '') : undefined,
   };
+  if (wire.clearCultivatingTechId === true) {
+    payload.cultivatingTechId = null;
+  } else if (hasOwn(wire, 'cultivatingTechId')) {
+    payload.cultivatingTechId = String(wire.cultivatingTechId ?? '');
+  }
+  if (Array.isArray(wire.removeTechniqueIds)) {
+    payload.removeTechniqueIds = wire.removeTechniqueIds
+      .map((entry) => String(entry ?? ''))
+      .filter((entry) => entry.length > 0);
+  }
+  return payload;
 }
 
 function toWireActionsUpdate(payload: S2C_ActionsUpdate): Record<string, unknown> {
   const wire: Record<string, unknown> = {
     actions: payload.actions.map(toWireActionEntry),
   };
+  if (payload.removeActionIds) wire.removeActionIds = [...payload.removeActionIds];
+  if (payload.actionOrder) wire.actionOrder = [...payload.actionOrder];
   if (payload.autoBattle !== undefined) wire.autoBattle = payload.autoBattle;
   if (payload.autoRetaliate !== undefined) wire.autoRetaliate = payload.autoRetaliate;
   if (payload.autoBattleStationary !== undefined) wire.autoBattleStationary = payload.autoBattleStationary;
@@ -890,6 +948,16 @@ function fromWireActionsUpdate(wire: Record<string, unknown>): S2C_ActionsUpdate
       ? wire.actions.map((entry) => fromWireActionEntry(entry as Record<string, unknown>))
       : [],
   };
+  if (Array.isArray(wire.removeActionIds)) {
+    payload.removeActionIds = wire.removeActionIds
+      .map((entry) => String(entry ?? ''))
+      .filter((entry) => entry.length > 0);
+  }
+  if (Array.isArray(wire.actionOrder)) {
+    payload.actionOrder = wire.actionOrder
+      .map((entry) => String(entry ?? ''))
+      .filter((entry) => entry.length > 0);
+  }
   if (hasOwn(wire, 'autoBattle')) payload.autoBattle = Boolean(wire.autoBattle);
   if (hasOwn(wire, 'autoRetaliate')) payload.autoRetaliate = Boolean(wire.autoRetaliate);
   if (hasOwn(wire, 'autoBattleStationary')) payload.autoBattleStationary = Boolean(wire.autoBattleStationary);
@@ -912,6 +980,9 @@ function toWireAttrUpdate(payload: S2C_AttrUpdate): Record<string, unknown> {
   if (payload.specialStats) wire.specialStats = toWirePlayerSpecialStats(payload.specialStats);
   if (payload.boneAgeBaseYears !== undefined) wire.boneAgeBaseYears = payload.boneAgeBaseYears;
   if (payload.lifeElapsedTicks !== undefined) wire.lifeElapsedTicks = payload.lifeElapsedTicks;
+  if (payload.realmProgress !== undefined) wire.realmProgress = payload.realmProgress;
+  if (payload.realmProgressToNext !== undefined) wire.realmProgressToNext = payload.realmProgressToNext;
+  if (payload.realmBreakthroughReady !== undefined) wire.realmBreakthroughReady = payload.realmBreakthroughReady;
   if (payload.lifespanYears === null) {
     wire.clearLifespanYears = true;
   } else if (payload.lifespanYears !== undefined) {
@@ -937,6 +1008,9 @@ function fromWireAttrUpdate(wire: Record<string, unknown>): S2C_AttrUpdate {
   if (hasOwn(wire, 'specialStats')) payload.specialStats = fromWirePlayerSpecialStats(wire.specialStats as Record<string, unknown>);
   if (hasOwn(wire, 'boneAgeBaseYears')) payload.boneAgeBaseYears = Number(wire.boneAgeBaseYears ?? 0);
   if (hasOwn(wire, 'lifeElapsedTicks')) payload.lifeElapsedTicks = Number(wire.lifeElapsedTicks ?? 0);
+  if (hasOwn(wire, 'realmProgress')) payload.realmProgress = Number(wire.realmProgress ?? 0);
+  if (hasOwn(wire, 'realmProgressToNext')) payload.realmProgressToNext = Number(wire.realmProgressToNext ?? 0);
+  if (hasOwn(wire, 'realmBreakthroughReady')) payload.realmBreakthroughReady = Boolean(wire.realmBreakthroughReady);
   if (wire.clearLifespanYears === true) {
     payload.lifespanYears = null;
   } else if (hasOwn(wire, 'lifespanYears')) {

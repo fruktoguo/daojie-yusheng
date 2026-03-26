@@ -8,6 +8,7 @@ import {
   AUTO_IDLE_CULTIVATION_DELAY_TICKS,
   ActionDef,
   ActionUpdateEntry,
+  AttrBonus,
   AutoBattleSkillConfig,
   CombatEffect,
   DEFAULT_AURA_LEVEL_BASE_VALUE,
@@ -38,17 +39,21 @@ import {
   S2C_Tick,
   TechniqueState,
   TechniqueUpdateEntry,
+  TemporaryBuffState,
   TickRenderEntity,
   VisibleTile,
   VisibleTilePatch,
   PERSIST_INTERVAL,
   clonePlainValue,
+  buildQiResourceKey,
+  DEFAULT_QI_RESOURCE_DESCRIPTOR,
   DISPERSED_AURA_RESOURCE_KEY,
   isPlainEqual,
 } from '@mud/shared';
 import * as fs from 'fs';
 import { PersistentDocumentService } from '../database/persistent-document.service';
 import { PLAYER_SPECIAL_STATS_SYNC_INTERVAL_MS } from '../constants/gameplay/attr';
+import { REALM_STATE_SOURCE } from '../constants/gameplay/technique';
 import { GAME_CONFIG_PATH } from '../constants/storage/config';
 import { ActionService } from './action.service';
 import { AoiService } from './aoi.service';
@@ -68,6 +73,7 @@ import { QiProjectionService } from './qi-projection.service';
 import { TechniqueService } from './technique.service';
 import { TimeService } from './time.service';
 import { WorldMessage, WorldService, WorldUpdate } from './world.service';
+import { syncDynamicBuffPresentation } from './buff-presentation';
 
 /** 上一次发送给各玩家的 tick 快照，用于增量比对 */
 interface LastSentTickState {
@@ -87,6 +93,8 @@ interface LastSentTickState {
   minimapLibrarySignature?: string;
 }
 
+const REFINED_AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR);
+
 interface ActionSyncStateEntry {
   id: string;
   name: string;
@@ -96,6 +104,16 @@ interface ActionSyncStateEntry {
   autoBattleEnabled?: boolean;
   autoBattleOrder?: number;
   skillEnabled?: boolean;
+}
+
+interface ActionPanelSyncState {
+  autoBattle: boolean;
+  autoRetaliate: boolean;
+  autoBattleStationary: boolean;
+  allowAoePlayerHit: boolean;
+  autoIdleCultivation: boolean;
+  autoSwitchCultivation: boolean;
+  senseQiActive: boolean;
 }
 
 interface SyncActionsOptions {
@@ -115,6 +133,15 @@ const DEFAULT_SYSTEM_ROUTE_DOMAINS: readonly MapRouteDomain[] = ['system'];
 const PERIODIC_SYNC_INTERVAL_MS = 60_000;
 const PERIODIC_SYNC_DIRTY_FLAGS: readonly DirtyFlag[] = ['attr', 'inv', 'equip', 'tech', 'actions', 'loot', 'quest'];
 
+function normalizeConsumableBuffShortMark(raw: string | undefined, fallbackName: string): string {
+  const trimmed = raw?.trim();
+  if (trimmed) {
+    return [...trimmed][0] ?? trimmed;
+  }
+  const fallback = [...fallbackName.trim()][0];
+  return fallback ?? '丹';
+}
+
 @Injectable()
 export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   private timers: Map<string, ReturnType<typeof setTimeout>> = new Map();
@@ -126,7 +153,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   private lastSentSpecialStatsAt: Map<string, number> = new Map();
   private pendingSpecialStatsPlayers: Set<string> = new Set();
   private lastSentTechniqueStates: Map<string, Map<string, TechniqueState>> = new Map();
+  private lastSentCultivatingTechIds: Map<string, string | null> = new Map();
   private lastSentActionStates: Map<string, Map<string, ActionDef>> = new Map();
+  private lastSentActionPanelStates: Map<string, ActionPanelSyncState> = new Map();
   private lastSentGroundPiles: Map<string, Map<string, GroundItemPileView>> = new Map();
   private lastSentVisibleTiles: Map<string, Map<string, VisibleTile>> = new Map();
   private lastSentRenderEntities: Map<string, Map<string, RenderEntity>> = new Map();
@@ -188,7 +217,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     this.lastSentSpecialStatsAt.delete(playerId);
     this.pendingSpecialStatsPlayers.delete(playerId);
     this.lastSentTechniqueStates.delete(playerId);
+    this.lastSentCultivatingTechIds.delete(playerId);
     this.lastSentActionStates.delete(playerId);
+    this.lastSentActionPanelStates.delete(playerId);
     this.lastSentGroundPiles.delete(playerId);
     this.lastSentVisibleTiles.delete(playerId);
     this.lastSentRenderEntities.delete(playerId);
@@ -563,16 +594,6 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           });
           break;
         }
-        case 'buyNpcShopItem': {
-          this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
-            const result = this.worldService.buyNpcShopItem(
-              player,
-              cmd.data as { npcId: string; itemId: string; quantity: number },
-            );
-            this.applyWorldUpdate(player.id, result, messages);
-          });
-          break;
-        }
         case 'action': {
           const { actionId, target } = cmd.data as { actionId: string; target?: string };
           if (actionId === 'debug:reset_spawn') {
@@ -651,6 +672,16 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           }
 
           this.applyWorldUpdate(player.id, result, messages);
+          break;
+        }
+        case 'buyNpcShopItem': {
+          this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+            const result = this.worldService.buyNpcShopItem(
+              player,
+              cmd.data as { npcId: string; itemId: string; quantity: number },
+            );
+            this.applyWorldUpdate(player.id, result, messages);
+          });
           break;
         }
       }
@@ -862,31 +893,114 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
-  /** 使用物品后应用其效果（回血、学功法、解锁地图等） */
+  private buildConsumableBuffState(
+    item: NonNullable<ReturnType<ContentService['getItem']>>,
+    buff: NonNullable<NonNullable<ReturnType<ContentService['getItem']>>['consumeBuffs']>[number],
+  ): TemporaryBuffState {
+    const duration = Math.max(1, buff.duration);
+    return syncDynamicBuffPresentation({
+      buffId: buff.buffId,
+      name: buff.name,
+      desc: buff.desc,
+      shortMark: normalizeConsumableBuffShortMark(buff.shortMark, buff.name),
+      category: buff.category ?? 'buff',
+      visibility: buff.visibility ?? 'public',
+      remainingTicks: duration + 1,
+      duration,
+      stacks: 1,
+      maxStacks: Math.max(1, buff.maxStacks ?? 1),
+      sourceSkillId: `item:${item.itemId}`,
+      sourceSkillName: item.name,
+      color: buff.color,
+      attrs: buff.attrs,
+      stats: buff.stats,
+      qiProjection: buff.qiProjection,
+    });
+  }
+
+  private applyConsumableBuffState(targetBuffs: TemporaryBuffState[], nextBuff: TemporaryBuffState): TemporaryBuffState {
+    const existing = targetBuffs.find((entry) => entry.buffId === nextBuff.buffId);
+    if (existing) {
+      existing.name = nextBuff.name;
+      existing.desc = nextBuff.desc;
+      existing.shortMark = nextBuff.shortMark;
+      existing.category = nextBuff.category;
+      existing.visibility = nextBuff.visibility;
+      existing.remainingTicks = nextBuff.remainingTicks;
+      existing.duration = nextBuff.duration;
+      existing.stacks = Math.min(nextBuff.maxStacks, existing.stacks + 1);
+      existing.maxStacks = nextBuff.maxStacks;
+      existing.sourceSkillId = nextBuff.sourceSkillId;
+      existing.sourceSkillName = nextBuff.sourceSkillName;
+      existing.color = nextBuff.color;
+      existing.attrs = nextBuff.attrs;
+      existing.stats = nextBuff.stats;
+      existing.qiProjection = nextBuff.qiProjection;
+      syncDynamicBuffPresentation(existing);
+      return existing;
+    }
+    targetBuffs.push(syncDynamicBuffPresentation(nextBuff));
+    return nextBuff;
+  }
+
+  /** 使用物品后应用其效果（恢复、增益、学功法、解锁地图等） */
   private applyItemEffect(player: PlayerState, itemId: string, messages: WorldMessage[], count = 1) {
     const item = this.contentService.getItem(itemId);
     if (!item) return;
 
-    if (item.healAmount) {
-      const actualCount = Math.max(1, Math.floor(count));
+    const actualCount = Math.max(1, Math.floor(count));
+
+    const restoredParts: string[] = [];
+    if (item.healAmount || item.healPercent || item.qiPercent) {
       const previousHp = player.hp;
-      player.hp = Math.min(player.maxHp, player.hp + item.healAmount * actualCount);
+      const maxQi = Math.max(0, Math.round(player.numericStats?.maxQi ?? player.qi));
+      const previousQi = player.qi;
+      const flatHeal = item.healAmount ? item.healAmount * actualCount : 0;
+      const percentHeal = item.healPercent ? Math.round(player.maxHp * item.healPercent * actualCount) : 0;
+      const percentQi = item.qiPercent ? Math.round(maxQi * item.qiPercent * actualCount) : 0;
+      player.hp = Math.min(player.maxHp, player.hp + flatHeal + percentHeal);
+      player.qi = Math.min(maxQi, player.qi + percentQi);
+      if (player.hp > previousHp) {
+        restoredParts.push(`${player.hp - previousHp} 点气血`);
+      }
+      if (player.qi > previousQi) {
+        restoredParts.push(`${player.qi - previousQi} 点真气`);
+      }
+    }
+
+    if (restoredParts.length > 0) {
       messages.push({
         playerId: player.id,
-        text: `你服下 ${item.name}${actualCount > 1 ? ` x${actualCount}` : ''}，恢复了 ${player.hp - previousHp} 点气血。`,
+        text: `你服下 ${item.name}${actualCount > 1 ? ` x${actualCount}` : ''}，恢复了 ${restoredParts.join('，')}。`,
         kind: 'loot',
       });
-      return;
+    }
+
+    if (item.consumeBuffs?.length) {
+      player.temporaryBuffs ??= [];
+      const appliedSummaries = new Map<string, string>();
+      for (let index = 0; index < actualCount; index += 1) {
+        for (const buff of item.consumeBuffs) {
+          const current = this.applyConsumableBuffState(player.temporaryBuffs, this.buildConsumableBuffState(item, buff));
+          const stackText = current.maxStacks > 1 ? `（${current.stacks}层）` : '';
+          appliedSummaries.set(current.buffId, `${current.name}${stackText}，持续 ${current.duration} 息`);
+        }
+      }
+      this.attrService.recalcPlayer(player);
+      messages.push({
+        playerId: player.id,
+        text: `你炼化 ${item.name}${actualCount > 1 ? ` x${actualCount}` : ''}，获得 ${[...appliedSummaries.values()].join('、')}。`,
+        kind: 'loot',
+      });
     }
 
     if (item.tileAuraGainAmount) {
-      const actualCount = Math.max(1, Math.floor(count));
       const addedAura = item.tileAuraGainAmount * actualCount;
       const nextAura = this.mapService.addTileResourceValue(
         player.mapId,
         player.x,
         player.y,
-        DISPERSED_AURA_RESOURCE_KEY,
+        REFINED_AURA_RESOURCE_KEY,
         addedAura,
       );
       if (nextAura === null) {
@@ -895,10 +1009,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       }
       messages.push({
         playerId: player.id,
-        text: `你捏碎 ${item.name}${actualCount > 1 ? ` x${actualCount}` : ''}，脚下逸散灵气增加 ${addedAura} 点。当前逸散灵气 ${nextAura}。`,
+        text: `你捏碎 ${item.name}${actualCount > 1 ? ` x${actualCount}` : ''}，脚下凝练灵气增加 ${addedAura} 点。当前凝练灵气 ${nextAura}。`,
         kind: 'loot',
       });
-      return;
     }
 
     if (item.learnTechniqueId) {
@@ -926,7 +1039,6 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         text: `你参悟了 ${technique.name}。`,
         kind: 'quest',
       });
-      return;
     }
 
     if (item.mapUnlockId) {
@@ -1532,7 +1644,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         const ratioDivisors = this.attrService.getPlayerRatioDivisors(player);
         const update = this.buildSparseAttrUpdate(player.id, {
           baseAttrs: player.baseAttrs,
-          bonuses: player.bonuses,
+          bonuses: this.getAttrSyncBonuses(player),
           finalAttrs,
           numericStats,
           ratioDivisors,
@@ -1566,26 +1678,18 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
     if (flags.has('tech')) {
       this.measureCpuSection('state_sync_tech', '状态同步: 功法面板', () => {
-        const update: S2C_TechniqueUpdate = {
-          techniques: this.buildSparseTechniqueStates(player.id, player.techniques),
-          cultivatingTechId: player.cultivatingTechId,
-        };
-        socket.emit(S2C.TechniqueUpdate, update);
+        const update = this.buildSparseTechniqueUpdate(player);
+        if (update) {
+          socket.emit(S2C.TechniqueUpdate, update);
+        }
       });
     }
     if (flags.has('actions')) {
       this.measureCpuSection('state_sync_actions', '状态同步: 动作面板', () => {
-        const update: S2C_ActionsUpdate = {
-          actions: this.buildSparseActionStates(player.id, player.actions),
-          autoBattle: player.autoBattle,
-          autoRetaliate: player.autoRetaliate,
-          autoBattleStationary: player.autoBattleStationary === true,
-          allowAoePlayerHit: player.allowAoePlayerHit,
-          autoIdleCultivation: player.autoIdleCultivation,
-          autoSwitchCultivation: player.autoSwitchCultivation,
-          senseQiActive: player.senseQiActive,
-        };
-        socket.emit(S2C.ActionsUpdate, update);
+        const update = this.buildSparseActionsUpdate(player);
+        if (update) {
+          socket.emit(S2C.ActionsUpdate, update);
+        }
       });
     }
     if (flags.has('loot')) {
@@ -1946,6 +2050,22 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }));
   }
 
+  private captureActionPanelSyncState(player: PlayerState): ActionPanelSyncState {
+    return {
+      autoBattle: player.autoBattle,
+      autoRetaliate: player.autoRetaliate !== false,
+      autoBattleStationary: player.autoBattleStationary === true,
+      allowAoePlayerHit: player.allowAoePlayerHit === true,
+      autoIdleCultivation: player.autoIdleCultivation !== false,
+      autoSwitchCultivation: player.autoSwitchCultivation === true,
+      senseQiActive: player.senseQiActive === true,
+    };
+  }
+
+  private getAttrSyncBonuses(player: PlayerState): AttrBonus[] {
+    return player.bonuses.filter((bonus) => bonus.source !== REALM_STATE_SOURCE);
+  }
+
   private buildVisibilityKey(viewer: PlayerState, effectiveViewRange: number): string {
     return [
       viewer.mapId,
@@ -1957,6 +2077,76 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       viewer.senseQiActive === true ? this.qiProjectionService.getProjectionRevision(viewer) : 0,
       this.auraLevelBaseValue,
     ].join(':');
+  }
+
+  private buildSparseTechniqueUpdate(player: PlayerState): S2C_TechniqueUpdate | null {
+    const previousCultivatingTechId = this.lastSentCultivatingTechIds.get(player.id);
+    const techniquePatch = this.buildSparseTechniqueStates(player.id, player.techniques);
+    const update: S2C_TechniqueUpdate = {
+      techniques: techniquePatch.patches,
+    };
+    if (techniquePatch.removeTechniqueIds.length > 0) {
+      update.removeTechniqueIds = techniquePatch.removeTechniqueIds;
+    }
+    const nextCultivatingTechId = player.cultivatingTechId ?? null;
+    if (previousCultivatingTechId === undefined || previousCultivatingTechId !== nextCultivatingTechId) {
+      update.cultivatingTechId = nextCultivatingTechId;
+    }
+    this.lastSentCultivatingTechIds.set(player.id, nextCultivatingTechId);
+    return update.techniques.length > 0
+      || (update.removeTechniqueIds?.length ?? 0) > 0
+      || update.cultivatingTechId !== undefined
+      ? update
+      : null;
+  }
+
+  private buildSparseActionsUpdate(player: PlayerState): S2C_ActionsUpdate | null {
+    const actionPatch = this.buildSparseActionStates(player.id, player.actions);
+    const previousPanelState = this.lastSentActionPanelStates.get(player.id);
+    const nextPanelState = this.captureActionPanelSyncState(player);
+    const update: S2C_ActionsUpdate = {
+      actions: actionPatch.patches,
+    };
+    if (actionPatch.removeActionIds.length > 0) {
+      update.removeActionIds = actionPatch.removeActionIds;
+    }
+    if (actionPatch.actionOrder) {
+      update.actionOrder = actionPatch.actionOrder;
+    }
+    if (!previousPanelState || previousPanelState.autoBattle !== nextPanelState.autoBattle) {
+      update.autoBattle = nextPanelState.autoBattle;
+    }
+    if (!previousPanelState || previousPanelState.autoRetaliate !== nextPanelState.autoRetaliate) {
+      update.autoRetaliate = nextPanelState.autoRetaliate;
+    }
+    if (!previousPanelState || previousPanelState.autoBattleStationary !== nextPanelState.autoBattleStationary) {
+      update.autoBattleStationary = nextPanelState.autoBattleStationary;
+    }
+    if (!previousPanelState || previousPanelState.allowAoePlayerHit !== nextPanelState.allowAoePlayerHit) {
+      update.allowAoePlayerHit = nextPanelState.allowAoePlayerHit;
+    }
+    if (!previousPanelState || previousPanelState.autoIdleCultivation !== nextPanelState.autoIdleCultivation) {
+      update.autoIdleCultivation = nextPanelState.autoIdleCultivation;
+    }
+    if (!previousPanelState || previousPanelState.autoSwitchCultivation !== nextPanelState.autoSwitchCultivation) {
+      update.autoSwitchCultivation = nextPanelState.autoSwitchCultivation;
+    }
+    if (!previousPanelState || previousPanelState.senseQiActive !== nextPanelState.senseQiActive) {
+      update.senseQiActive = nextPanelState.senseQiActive;
+    }
+    this.lastSentActionPanelStates.set(player.id, nextPanelState);
+    return update.actions.length > 0
+      || (update.removeActionIds?.length ?? 0) > 0
+      || (update.actionOrder?.length ?? 0) > 0
+      || update.autoBattle !== undefined
+      || update.autoRetaliate !== undefined
+      || update.autoBattleStationary !== undefined
+      || update.allowAoePlayerHit !== undefined
+      || update.autoIdleCultivation !== undefined
+      || update.autoSwitchCultivation !== undefined
+      || update.senseQiActive !== undefined
+      ? update
+      : null;
   }
 
   /** 构建属性增量包，仅发送与上次不同的字段 */
@@ -2008,12 +2198,38 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     if (!previous || previous.lifespanYears !== nextState.lifespanYears) {
       patch.lifespanYears = nextState.lifespanYears;
     }
-    if (!previous || !this.isStructuredEqual(previous.realm, nextState.realm)) {
+    if (!previous) {
       patch.realm = nextState.realm ? this.cloneStructured(nextState.realm) : null;
+    } else if (!previous.realm || !nextState.realm) {
+      if (!this.isStructuredEqual(previous.realm, nextState.realm)) {
+        patch.realm = nextState.realm ? this.cloneStructured(nextState.realm) : null;
+      }
+    } else if (!this.isStructuredEqual(this.captureRealmStaticSyncState(previous.realm), this.captureRealmStaticSyncState(nextState.realm))) {
+      patch.realm = nextState.realm ? this.cloneStructured(nextState.realm) : null;
+    } else {
+      if (previous.realm.progress !== nextState.realm.progress) {
+        patch.realmProgress = nextState.realm.progress;
+      }
+      if (previous.realm.progressToNext !== nextState.realm.progressToNext) {
+        patch.realmProgressToNext = nextState.realm.progressToNext;
+      }
+      if (previous.realm.breakthroughReady !== nextState.realm.breakthroughReady) {
+        patch.realmBreakthroughReady = nextState.realm.breakthroughReady;
+      }
     }
 
     this.lastSentAttrUpdates.set(playerId, cachedState);
     return Object.keys(patch).length > 0 ? patch : null;
+  }
+
+  private captureRealmStaticSyncState(realm: NonNullable<S2C_AttrUpdate['realm']>) {
+    const {
+      progress: _progress,
+      progressToNext: _progressToNext,
+      breakthroughReady: _breakthroughReady,
+      ...staticState
+    } = realm;
+    return staticState;
   }
 
   private shouldFlushPendingSpecialStats(playerId: string): boolean {
@@ -2026,7 +2242,10 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   /** 构建功法增量包，仅发送与上次不同的字段 */
-  private buildSparseTechniqueStates(playerId: string, techniques: TechniqueState[]): TechniqueUpdateEntry[] {
+  private buildSparseTechniqueStates(
+    playerId: string,
+    techniques: TechniqueState[],
+  ): { patches: TechniqueUpdateEntry[]; removeTechniqueIds: string[] } {
     let cache = this.lastSentTechniqueStates.get(playerId);
     if (!cache) {
       cache = new Map<string, TechniqueState>();
@@ -2034,17 +2253,16 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
 
     const nextCache = new Map<string, TechniqueState>();
-    const patches = techniques.map((technique) => {
+    const patches: TechniqueUpdateEntry[] = [];
+    for (const technique of techniques) {
       const previous = cache!.get(technique.techId);
-      const patch: TechniqueUpdateEntry = {
-        techId: technique.techId,
-        level: technique.level,
-        exp: technique.exp,
-        expToNext: technique.expToNext,
-        realmLv: technique.realmLv,
-        realm: technique.realm,
-      };
+      const patch: TechniqueUpdateEntry = { techId: technique.techId };
 
+      if (!previous || previous.level !== technique.level) patch.level = technique.level;
+      if (!previous || previous.exp !== technique.exp) patch.exp = technique.exp;
+      if (!previous || previous.expToNext !== technique.expToNext) patch.expToNext = technique.expToNext;
+      if (!previous || previous.realmLv !== technique.realmLv) patch.realmLv = technique.realmLv;
+      if (!previous || previous.realm !== technique.realm) patch.realm = technique.realm;
       if (!previous || previous.name !== technique.name) patch.name = technique.name ?? null;
       if (!previous || previous.grade !== technique.grade) patch.grade = technique.grade ?? null;
       if (!previous || !this.isStructuredEqual(previous.skills, technique.skills)) {
@@ -2058,15 +2276,27 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       }
 
       nextCache.set(technique.techId, this.cloneStructured(technique));
-      return patch;
-    });
+      if (Object.keys(patch).length > 1) {
+        patches.push(patch);
+      }
+    }
+
+    const removeTechniqueIds: string[] = [];
+    for (const techId of cache.keys()) {
+      if (!nextCache.has(techId)) {
+        removeTechniqueIds.push(techId);
+      }
+    }
 
     this.lastSentTechniqueStates.set(playerId, nextCache);
-    return patches;
+    return { patches, removeTechniqueIds };
   }
 
   /** 构建行动列表增量包，仅发送与上次不同的字段 */
-  private buildSparseActionStates(playerId: string, actions: ActionDef[]): ActionUpdateEntry[] {
+  private buildSparseActionStates(
+    playerId: string,
+    actions: ActionDef[],
+  ): { patches: ActionUpdateEntry[]; removeActionIds: string[]; actionOrder?: string[] } {
     let cache = this.lastSentActionStates.get(playerId);
     if (!cache) {
       cache = new Map<string, ActionDef>();
@@ -2074,12 +2304,14 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
 
     const nextCache = new Map<string, ActionDef>();
-    const patches = actions.map((action) => {
+    const patches: ActionUpdateEntry[] = [];
+    for (const action of actions) {
       const previous = cache!.get(action.id);
-      const patch: ActionUpdateEntry = {
-        id: action.id,
-        cooldownLeft: action.cooldownLeft,
-      };
+      const patch: ActionUpdateEntry = { id: action.id };
+
+      if (!previous || previous.cooldownLeft !== action.cooldownLeft) {
+        patch.cooldownLeft = action.cooldownLeft;
+      }
 
       if (!previous || previous.autoBattleEnabled !== action.autoBattleEnabled) {
         patch.autoBattleEnabled = action.autoBattleEnabled ?? null;
@@ -2102,11 +2334,26 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       }
 
       nextCache.set(action.id, this.cloneStructured(action));
-      return patch;
-    });
+      if (Object.keys(patch).length > 1) {
+        patches.push(patch);
+      }
+    }
+
+    const removeActionIds: string[] = [];
+    for (const actionId of cache.keys()) {
+      if (!nextCache.has(actionId)) {
+        removeActionIds.push(actionId);
+      }
+    }
+    const previousOrder = [...cache.keys()];
+    const nextOrder = [...nextCache.keys()];
 
     this.lastSentActionStates.set(playerId, nextCache);
-    return patches;
+    return {
+      patches,
+      removeActionIds,
+      actionOrder: this.isStructuredEqual(previousOrder, nextOrder) ? undefined : nextOrder,
+    };
   }
 
   /** 构建地面物品堆增量包，仅发送变化的堆 */
