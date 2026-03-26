@@ -2721,55 +2721,55 @@
     },
     {
       "id": "bear_cauldron_art",
-      "name": "沉骨担石功",
+      "name": "担石功",
       "grade": "mortal",
       "skills": [],
       "layers": [
         {
           "level": 1,
-          "expFactor": 120,
+          "expFactor": 60,
           "attrs": {
             "talent": 2
           }
         },
         {
           "level": 2,
-          "expFactor": 132,
+          "expFactor": 66,
           "attrs": {
             "talent": 2
           }
         },
         {
           "level": 3,
-          "expFactor": 145,
+          "expFactor": 72.5,
           "attrs": {
             "talent": 2
           }
         },
         {
           "level": 4,
-          "expFactor": 159,
+          "expFactor": 79.5,
           "attrs": {
             "talent": 2
           }
         },
         {
           "level": 5,
-          "expFactor": 174,
+          "expFactor": 87,
           "attrs": {
             "talent": 3
           }
         },
         {
           "level": 6,
-          "expFactor": 190,
+          "expFactor": 95,
           "attrs": {
             "talent": 3
           }
         },
         {
           "level": 7,
-          "expFactor": 207,
+          "expFactor": 103.5,
           "attrs": {
             "talent": 3
           }
@@ -2786,62 +2786,62 @@
     },
     {
       "id": "dragon_elephant_bone",
-      "name": "贯脉镇骨功",
+      "name": "镇骨功",
       "grade": "yellow",
       "skills": [],
       "layers": [
         {
           "level": 1,
-          "expFactor": 126,
+          "expFactor": 63,
           "attrs": {
             "talent": 2
           }
         },
         {
           "level": 2,
-          "expFactor": 139,
+          "expFactor": 69.5,
           "attrs": {
             "talent": 2
           }
         },
         {
           "level": 3,
-          "expFactor": 153,
+          "expFactor": 76.5,
           "attrs": {
             "talent": 2
           }
         },
         {
           "level": 4,
-          "expFactor": 168,
+          "expFactor": 84,
           "attrs": {
             "talent": 3
           }
         },
         {
           "level": 5,
-          "expFactor": 184,
+          "expFactor": 92,
           "attrs": {
             "talent": 3
           }
         },
         {
           "level": 6,
-          "expFactor": 201,
+          "expFactor": 100.5,
           "attrs": {
             "talent": 3
           }
         },
         {
           "level": 7,
-          "expFactor": 219,
+          "expFactor": 109.5,
           "attrs": {
             "talent": 3
           }
         },
         {
           "level": 8,
-          "expFactor": 238,
+          "expFactor": 119,
           "attrs": {
             "talent": 4
           }
@@ -2858,69 +2858,69 @@
     },
     {
       "id": "golden_lock_body",
-      "name": "悬脉固元功",
+      "name": "固元功",
       "grade": "yellow",
       "skills": [],
       "layers": [
         {
           "level": 1,
-          "expFactor": 132,
+          "expFactor": 66,
           "attrs": {
             "talent": 2
           }
         },
         {
           "level": 2,
-          "expFactor": 146,
+          "expFactor": 73,
           "attrs": {
             "talent": 2
           }
         },
         {
           "level": 3,
-          "expFactor": 161,
+          "expFactor": 80.5,
           "attrs": {
             "talent": 3
           }
         },
         {
           "level": 4,
-          "expFactor": 177,
+          "expFactor": 88.5,
           "attrs": {
             "talent": 3
           }
         },
         {
           "level": 5,
-          "expFactor": 194,
+          "expFactor": 97,
           "attrs": {
             "talent": 3
           }
         },
         {
           "level": 6,
-          "expFactor": 212,
+          "expFactor": 106,
           "attrs": {
             "talent": 3
           }
         },
         {
           "level": 7,
-          "expFactor": 231,
+          "expFactor": 115.5,
           "attrs": {
             "talent": 4
           }
         },
         {
           "level": 8,
-          "expFactor": 251,
+          "expFactor": 125.5,
           "attrs": {
             "talent": 4
           }
         },
         {
           "level": 9,
-          "expFactor": 272,
+          "expFactor": 136,
           "attrs": {
             "talent": 4
           }
@@ -3002,69 +3002,69 @@
     },
     {
       "id": "hundred_temper_body",
-      "name": "定势壮身功",
+      "name": "壮身功",
       "grade": "yellow",
       "skills": [],
       "layers": [
         {
           "level": 1,
-          "expFactor": 138,
+          "expFactor": 69,
           "attrs": {
             "constitution": 2
           }
         },
         {
           "level": 2,
-          "expFactor": 152,
+          "expFactor": 76,
           "attrs": {
             "constitution": 2
           }
         },
         {
           "level": 3,
-          "expFactor": 167,
+          "expFactor": 83.5,
           "attrs": {
             "constitution": 2
           }
         },
         {
           "level": 4,
-          "expFactor": 183,
+          "expFactor": 91.5,
           "attrs": {
             "constitution": 3
           }
         },
         {
           "level": 5,
-          "expFactor": 200,
+          "expFactor": 100,
           "attrs": {
             "constitution": 3
           }
         },
         {
           "level": 6,
-          "expFactor": 218,
+          "expFactor": 109,
           "attrs": {
             "constitution": 3
           }
         },
         {
           "level": 7,
-          "expFactor": 237,
+          "expFactor": 118.5,
           "attrs": {
             "constitution": 4
           }
         },
         {
           "level": 8,
-          "expFactor": 257,
+          "expFactor": 128.5,
           "attrs": {
             "constitution": 4
           }
         },
         {
           "level": 9,
-          "expFactor": 278,
+          "expFactor": 139,
           "attrs": {
             "constitution": 4
           }
@@ -3078,6 +3078,175 @@
         }
       ],
       "realmLv": 10
+    },
+    {
+      "id": "body_tempering_formula",
+      "name": "锻体决",
+      "grade": "mystic",
+      "skills": [],
+      "layers": [
+        {
+          "level": 1,
+          "expFactor": 66,
+          "attrs": {
+            "constitution": 5,
+            "talent": 5
+          }
+        },
+        {
+          "level": 2,
+          "expFactor": 72,
+          "attrs": {
+            "constitution": 5,
+            "talent": 5
+          }
+        },
+        {
+          "level": 3,
+          "expFactor": 79,
+          "attrs": {
+            "constitution": 5,
+            "talent": 5
+          }
+        },
+        {
+          "level": 4,
+          "expFactor": 86,
+          "attrs": {
+            "constitution": 5,
+            "talent": 5
+          }
+        },
+        {
+          "level": 5,
+          "expFactor": 94,
+          "attrs": {
+            "constitution": 5,
+            "talent": 5
+          }
+        },
+        {
+          "level": 6,
+          "expFactor": 103,
+          "attrs": {
+            "constitution": 5,
+            "talent": 5
+          }
+        },
+        {
+          "level": 7,
+          "expFactor": 112,
+          "attrs": {
+            "constitution": 5,
+            "talent": 5
+          }
+        },
+        {
+          "level": 8,
+          "expFactor": 122,
+          "attrs": {
+            "constitution": 5,
+            "talent": 5
+          }
+        },
+        {
+          "level": 9,
+          "expFactor": 133,
+          "attrs": {
+            "constitution": 5,
+            "talent": 5
+          }
+        },
+        {
+          "level": 10,
+          "expFactor": 145,
+          "attrs": {
+            "constitution": 5,
+            "talent": 5
+          }
+        },
+        {
+          "level": 11,
+          "expFactor": 158,
+          "attrs": {
+            "constitution": 5,
+            "talent": 5
+          }
+        },
+        {
+          "level": 12,
+          "expFactor": 172,
+          "attrs": {
+            "constitution": 5,
+            "talent": 5
+          }
+        },
+        {
+          "level": 13,
+          "expFactor": 187,
+          "attrs": {
+            "constitution": 5,
+            "talent": 5
+          }
+        },
+        {
+          "level": 14,
+          "expFactor": 203,
+          "attrs": {
+            "constitution": 5,
+            "talent": 5
+          }
+        },
+        {
+          "level": 15,
+          "expFactor": 220,
+          "attrs": {
+            "constitution": 5,
+            "talent": 5
+          }
+        },
+        {
+          "level": 16,
+          "expFactor": 238,
+          "attrs": {
+            "constitution": 5,
+            "talent": 5
+          }
+        },
+        {
+          "level": 17,
+          "expFactor": 257,
+          "attrs": {
+            "constitution": 5,
+            "talent": 5
+          }
+        },
+        {
+          "level": 18,
+          "expFactor": 277,
+          "attrs": {
+            "constitution": 5,
+            "talent": 5
+          }
+        },
+        {
+          "level": 19,
+          "expFactor": 298,
+          "attrs": {
+            "constitution": 5,
+            "talent": 5
+          }
+        },
+        {
+          "level": 20,
+          "expFactor": 0,
+          "attrs": {
+            "constitution": 5,
+            "talent": 5
+          }
+        }
+      ],
+      "realmLv": 18
     },
     {
       "id": "cloudchase_steps",
@@ -4580,19 +4749,19 @@
     },
     {
       "itemId": "book.bear_cauldron_art",
-      "name": "《沉骨担石功》",
+      "name": "《担石功》",
       "type": "skill_book",
       "desc": "拿石锁压肩练出来的苦功，修来极慢，但根骨扎得稳。"
     },
     {
       "itemId": "book.dragon_elephant_bone",
-      "name": "《贯脉镇骨功》",
+      "name": "《镇骨功》",
       "type": "skill_book",
       "desc": "专门打磨骨架与经脉的炼体法门，主修根骨，路子很硬。"
     },
     {
       "itemId": "book.golden_lock_body",
-      "name": "《悬脉固元功》",
+      "name": "《固元功》",
       "type": "skill_book",
       "desc": "靠收束气血慢慢稳住筋骨经脉的苦功，偏重根骨。"
     },
@@ -4604,9 +4773,15 @@
     },
     {
       "itemId": "book.hundred_temper_body",
-      "name": "《定势壮身功》",
+      "name": "《壮身功》",
       "type": "skill_book",
       "desc": "把皮肉筋骨一遍遍熬出来的炼体功，胜在体魄长得实。"
+    },
+    {
+      "itemId": "book.body_tempering_formula",
+      "name": "《锻体决》",
+      "type": "skill_book",
+      "desc": "一门一路横推体魄与根骨的玄阶炼体法，层层都在硬磨肉身。"
     },
     {
       "itemId": "book.cloudchase_steps",

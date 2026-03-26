@@ -9,11 +9,12 @@
   { "itemId": "book.frost_sutra", "name": "《寒魄经》", "type": "skill_book", "desc": "引寒入脉的残篇，兼具杀伐与凝神。", "learnTechniqueId": "frost_sutra" },
   { "itemId": "book.spirit_anchor", "name": "《镇灵篇》", "type": "skill_book", "desc": "古修遗留的御神法门，可压制异兽灵识。", "learnTechniqueId": "spirit_anchor" },
   { "itemId": "book.starfall_spear", "name": "《陨星枪诀》", "type": "skill_book", "desc": "残破星纹玉简中记载的高阶枪诀。", "learnTechniqueId": "starfall_spear" },
-  { "itemId": "book.bear_cauldron_art", "name": "《沉骨担石功》", "type": "skill_book", "desc": "拿石锁压肩练出来的苦功，修来极慢，但根骨扎得稳。", "learnTechniqueId": "bear_cauldron_art" },
-  { "itemId": "book.dragon_elephant_bone", "name": "《贯脉镇骨功》", "type": "skill_book", "desc": "专门打磨骨架与经脉的炼体法门，主修根骨，路子很硬。", "learnTechniqueId": "dragon_elephant_bone" },
-  { "itemId": "book.golden_lock_body", "name": "《悬脉固元功》", "type": "skill_book", "desc": "靠收束气血慢慢稳住筋骨经脉的苦功，偏重根骨。", "learnTechniqueId": "golden_lock_body" },
+  { "itemId": "book.bear_cauldron_art", "name": "《担石功》", "type": "skill_book", "desc": "拿石锁压肩练出来的苦功，修来极慢，但根骨扎得稳。", "learnTechniqueId": "bear_cauldron_art" },
+  { "itemId": "book.dragon_elephant_bone", "name": "《镇骨功》", "type": "skill_book", "desc": "专门打磨骨架与经脉的炼体法门，主修根骨，路子很硬。", "learnTechniqueId": "dragon_elephant_bone" },
+  { "itemId": "book.golden_lock_body", "name": "《固元功》", "type": "skill_book", "desc": "靠收束气血慢慢稳住筋骨经脉的苦功，偏重根骨。", "learnTechniqueId": "golden_lock_body" },
   { "itemId": "book.mountain_insight_chart", "name": "《照身图》", "type": "skill_book", "desc": "边观呼吸边照着图谱调身的法子，偏重悟性。", "learnTechniqueId": "mountain_insight_chart" },
-  { "itemId": "book.hundred_temper_body", "name": "《定势壮身功》", "type": "skill_book", "desc": "把皮肉筋骨一遍遍熬出来的炼体功，胜在体魄长得实。", "learnTechniqueId": "hundred_temper_body" },
+  { "itemId": "book.hundred_temper_body", "name": "《壮身功》", "type": "skill_book", "desc": "把皮肉筋骨一遍遍熬出来的炼体功，胜在体魄长得实。", "learnTechniqueId": "hundred_temper_body" },
+  { "itemId": "book.body_tempering_formula", "name": "《锻体决》", "type": "skill_book", "desc": "一门一路横推体魄与根骨的玄阶炼体法，层层都在硬磨肉身。", "learnTechniqueId": "body_tempering_formula" },
   { "itemId": "book.cloudchase_steps", "name": "《分光步》", "type": "skill_book", "desc": "一门讲究换气和步点的身法，擅长把移速滚成节奏。", "learnTechniqueId": "cloudchase_steps" },
   { "itemId": "book.lightshadow_art", "name": "《折影提气诀》", "type": "skill_book", "desc": "把一口气提到脚下的身法，讲究起落和折返都更快。", "learnTechniqueId": "lightshadow_art" }
 ]

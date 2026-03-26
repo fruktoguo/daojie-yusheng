@@ -12,7 +12,7 @@ export const CULTIVATE_EXP_PER_TICK = 10;
 export const AUTO_IDLE_CULTIVATION_DELAY_TICKS = 10;
 
 /** 功法层级经验基准值 */
-export const TECHNIQUE_EXP_BASE = 1000;
+export const TECHNIQUE_EXP_BASE = 100;
 
 /** 各品阶功法默认经验倍率基线 */
 export const TECHNIQUE_GRADE_EXP_BASE_FACTORS: Record<TechniqueGrade, number> = {

@@ -465,16 +465,16 @@ export class ContentService implements OnModuleInit {
 
   private loadTechniques(): void {
     for (const raw of this.readJsonEntries<RawTechniqueTemplate>(this.techniquesDir)) {
+      const realmLv = this.normalizeTechniqueRealmLevel(raw.realmLv, raw.grade);
       const layers = [...(raw.layers ?? [])]
         .map((layer) => ({
           ...layer,
           attrs: this.normalizeTechniqueLayerAttrs(layer.attrs),
           expToNext: layer.expFactor === undefined
             ? Math.max(0, layer.expToNext ?? 0)
-            : scaleTechniqueExp(layer.expFactor, raw.grade),
+            : scaleTechniqueExp(layer.expFactor, realmLv),
         }))
         .sort((left, right) => left.level - right.level);
-      const realmLv = this.normalizeTechniqueRealmLevel(raw.realmLv, raw.grade);
       const technique: TechniqueTemplate = {
         id: raw.id,
         name: raw.name,
@@ -529,7 +529,6 @@ export class ContentService implements OnModuleInit {
   private normalizeTechniqueLayerAttrs(attrs: TechniqueLayerDef['attrs']): TechniqueLayerDef['attrs'] {
     if (!attrs) return attrs;
     const normalized = { ...attrs };
-    delete normalized.comprehension;
     delete normalized.luck;
     return normalized;
   }

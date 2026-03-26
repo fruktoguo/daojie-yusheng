@@ -5,8 +5,7 @@
  * - 新增常量分组目录位于 `./constants/`。
  * - 当前文件仍保留旧导出路径，逐步承接迁移期兼容。
  */
-import { TECHNIQUE_EXP_BASE, TECHNIQUE_GRADE_ORDER } from './constants/gameplay/technique';
-import { TechniqueGrade } from './types';
+import { TECHNIQUE_EXP_BASE } from './constants/gameplay/technique';
 
 export {
   TICK_INTERVAL,
@@ -166,9 +165,9 @@ export {
   normalizeMarketPriceUp,
 } from './market-price';
 
-/** 根据经验倍率与品阶计算功法实际经验需求 */
-export function scaleTechniqueExp(expFactor: number, grade: TechniqueGrade = 'mortal'): number {
+/** 根据经验倍率与功法境界等级计算功法实际经验需求 */
+export function scaleTechniqueExp(expFactor: number, realmLv = 1): number {
   if (expFactor <= 0) return 0;
-  const gradeIndex = Math.max(0, TECHNIQUE_GRADE_ORDER.indexOf(grade));
-  return Math.max(0, Math.round(expFactor * TECHNIQUE_EXP_BASE * (2 ** gradeIndex)));
+  const normalizedRealmLv = Number.isFinite(realmLv) ? Math.max(1, Math.floor(realmLv)) : 1;
+  return Math.max(0, Math.round(expFactor * TECHNIQUE_EXP_BASE * normalizedRealmLv));
 }
