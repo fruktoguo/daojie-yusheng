@@ -15,6 +15,7 @@ import type {
   QuestLine,
   QuestObjectiveType,
   QuestStatus,
+  TechniqueCategory,
 } from '@mud/shared';
 import {
   ACTION_TYPE_LABELS,
@@ -30,6 +31,7 @@ import {
   QUEST_OBJECTIVE_TYPE_LABELS,
   QUEST_STATUS_LABELS,
   SKILL_FORMULA_BASE_VAR_LABELS,
+  TECHNIQUE_CATEGORY_LABELS,
   TECHNIQUE_GRADE_LABELS,
   TECHNIQUE_REALM_LABELS,
   TILE_TYPE_LABELS,
@@ -50,6 +52,7 @@ export {
   QUEST_LINE_LABELS,
   QUEST_STATUS_LABELS,
   QUEST_OBJECTIVE_TYPE_LABELS,
+  TECHNIQUE_CATEGORY_LABELS,
 };
 export {
   NUMERIC_SCALAR_STAT_LABELS as NUMERIC_SCALAR_STAT_KEY_LABELS,
@@ -131,6 +134,13 @@ export function getTechniqueGradeLabel(grade: TechniqueGrade | string | null | u
     return fallback;
   }
   return (TECHNIQUE_GRADE_LABELS as Record<string, string>)[grade] ?? fallback;
+}
+
+export function getTechniqueCategoryLabel(category: TechniqueCategory | string | null | undefined, fallback = '未分类'): string {
+  if (!category) {
+    return fallback;
+  }
+  return (TECHNIQUE_CATEGORY_LABELS as Record<string, string>)[category] ?? fallback;
 }
 
 export function getTechniqueRealmLabel(realm: TechniqueRealm | string | null | undefined, fallback = '未知'): string {

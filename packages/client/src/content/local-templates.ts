@@ -149,6 +149,7 @@ export function resolvePreviewTechnique(technique: TechniqueState): TechniqueSta
       realmLv: resolveTechniqueRealmLevel(technique.realmLv, technique.grade),
       realm: deriveTechniqueRealm(technique.level, technique.layers, technique.attrCurves),
       skills: resolvePreviewSkills(technique.skills),
+      category: technique.category ?? (technique.skills.length > 0 ? 'arts' : 'internal'),
     };
   }
   const resolvedLayers = technique.layers && technique.layers.length > 0
@@ -161,6 +162,7 @@ export function resolvePreviewTechnique(technique: TechniqueState): TechniqueSta
     ...technique,
     name: technique.name || template.name,
     grade: technique.grade ?? template.grade,
+    category: technique.category ?? template.category ?? (sourceSkills.length > 0 ? 'arts' : 'internal'),
     realmLv,
     realm: deriveTechniqueRealm(technique.level, resolvedLayers, technique.attrCurves),
     skills: sourceSkills.map((skill) => (

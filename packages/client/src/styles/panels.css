@@ -591,6 +591,105 @@
     .equip-slot-meta { font-size: var(--font-size-12); color: var(--ink-grey); }
 
     /* 功法卡片 */
+    .tech-panel-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .tech-filter-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .tech-filter-tab,
+    .tech-side-tab {
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-height: 36px;
+      padding: 0 12px;
+      border: 1px solid var(--wash-ink);
+      background: var(--paper-white);
+      color: var(--panel-tab-text);
+      font-size: var(--font-size-12);
+      cursor: pointer;
+      transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+    }
+    .tech-filter-tab:hover,
+    .tech-side-tab:hover {
+      border-color: rgba(139, 48, 35, 0.18);
+      background: var(--panel-tab-hover-bg);
+    }
+    .tech-filter-tab.active,
+    .tech-side-tab.active {
+      border-color: var(--stamp-red);
+      background:
+        linear-gradient(180deg, rgba(139, 48, 35, 0.18), rgba(139, 48, 35, 0.08)),
+        var(--panel-tab-active-bg);
+      color: var(--ink-black);
+      box-shadow: inset 0 0 0 1px rgba(139, 48, 35, 0.12);
+    }
+    .tech-filter-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 16px;
+      min-height: 16px;
+      padding: 0 4px;
+      border-radius: 999px;
+      background: rgba(34, 26, 19, 0.08);
+      color: var(--ink-grey);
+      font-size: 10px;
+      line-height: 1;
+    }
+    .tech-filter-tab.active .tech-filter-count,
+    .tech-side-tab.active .tech-filter-count {
+      background: rgba(139, 48, 35, 0.14);
+      color: var(--stamp-red);
+    }
+    .tech-panel-body {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .tech-side-tabs {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 0 0 36px;
+    }
+    .tech-side-tab {
+      width: 100%;
+      min-height: 74px;
+      padding: 6px 2px 5px;
+      text-align: center;
+      flex-direction: column;
+      justify-content: center;
+      gap: 4px;
+    }
+    .tech-side-tab.active {
+      box-shadow:
+        inset 3px 0 0 var(--stamp-red),
+        inset 0 0 0 1px rgba(139, 48, 35, 0.12);
+    }
+    .tech-side-tab > span:first-child {
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      letter-spacing: 0.02em;
+      line-height: 1;
+      font-weight: 600;
+    }
+    .tech-side-tab .tech-filter-count {
+      min-width: 14px;
+      min-height: 14px;
+      padding: 0 3px;
+      font-size: 9px;
+    }
+    .tech-panel-list {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
     .tech-card {
       width: 100%;
       padding: 11px 12px;
@@ -645,6 +744,10 @@
     .tech-grade {
       color: var(--stamp-red);
       background: rgba(139, 48, 35, 0.08);
+    }
+    .tech-category {
+      color: #5b4331;
+      background: rgba(154, 117, 79, 0.12);
     }
     .tech-realm-level {
       color: #4f3f1f;

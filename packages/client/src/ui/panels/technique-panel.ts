@@ -13,11 +13,12 @@ import {
   PlayerState,
   resolveSkillUnlockLevel,
   TECHNIQUE_ATTR_KEYS,
+  TechniqueCategory,
   TechniqueLayerDef,
   TechniqueRealm,
   TechniqueState,
 } from '@mud/shared';
-import { ATTR_KEY_LABELS, getTechniqueGradeLabel, getTechniqueRealmLabel } from '../../domain-labels';
+import { ATTR_KEY_LABELS, getTechniqueCategoryLabel, getTechniqueGradeLabel, getTechniqueRealmLabel } from '../../domain-labels';
 import { getLocalRealmLevelEntry, resolvePreviewTechnique, resolvePreviewTechniques } from '../../content/local-templates';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { detailModalHost } from '../detail-modal-host';
@@ -31,6 +32,23 @@ type TechniquePanelState = {
   previewPlayer?: PlayerState;
   techniques: TechniqueState[];
 };
+
+type TechniqueCategoryFilter = 'all' | TechniqueCategory;
+type TechniqueStatusFilter = 'cultivating' | 'completed' | 'all';
+
+const TECHNIQUE_CATEGORY_FILTERS: Array<{ value: TechniqueCategoryFilter; label: string }> = [
+  { value: 'all', label: '全部' },
+  { value: 'arts', label: '术法' },
+  { value: 'internal', label: '内功' },
+  { value: 'divine', label: '神通' },
+  { value: 'secret', label: '秘术' },
+];
+
+const TECHNIQUE_STATUS_FILTERS: Array<{ value: TechniqueStatusFilter; label: string }> = [
+  { value: 'cultivating', label: '修炼中' },
+  { value: 'completed', label: '已圆满' },
+  { value: 'all', label: '全部' },
+];
 
 function escapeHtml(value: string): string {
   return value
@@ -70,6 +88,10 @@ function calcTechniqueEffectiveContribution(techniques: TechniqueState[], techId
 
 function formatTechniqueContributionSummary(totalAttrs: Partial<Attributes>, rawAttrs: Partial<Attributes>): string {
   return `${formatAttrMap(totalAttrs)}（原始：${formatAttrMap(rawAttrs)}）`;
+}
+
+function resolveTechniqueCategory(tech: TechniqueState): TechniqueCategory {
+  return tech.category ?? (tech.skills.length > 0 ? 'arts' : 'internal');
 }
 
 function getTechniqueProgressRatio(tech: TechniqueState): number {
@@ -142,6 +164,8 @@ export class TechniquePanel {
   private constellationCanvas: TechniqueConstellationCanvas | null = null;
   private openTechId: string | null = null;
   private openLayerLevel: number | null = null;
+  private categoryFilter: TechniqueCategoryFilter = 'all';
+  private statusFilter: TechniqueStatusFilter = 'cultivating';
   private lastState: TechniquePanelState = { techniques: [] };
 
   constructor() {
@@ -168,9 +192,7 @@ export class TechniquePanel {
   /** 仅同步经验、进度条与主修状态，避免高频整块重绘 */
   syncDynamic(techniques: TechniqueState[], cultivatingTechId?: string, previewPlayer?: PlayerState): void {
     this.lastState = { techniques, cultivatingTechId, previewPlayer };
-    if (!this.patchList()) {
-      this.renderList();
-    }
+    this.renderList();
     if (!this.patchModal()) {
       this.renderModal();
     }
@@ -187,42 +209,104 @@ export class TechniquePanel {
       return;
     }
 
+    const filteredTechniques = techniques.filter((tech) => (
+      this.matchesCategoryFilter(tech) && this.matchesStatusFilter(tech)
+    ));
+    const topTabsHtml = TECHNIQUE_CATEGORY_FILTERS.map((filter) => {
+      const count = techniques.filter((tech) => (
+        this.matchesStatusFilter(tech) && (filter.value === 'all' || resolveTechniqueCategory(tech) === filter.value)
+      )).length;
+      return `<button
+        class="tech-filter-tab ${this.categoryFilter === filter.value ? 'active' : ''}"
+        data-tech-category-filter="${filter.value}"
+        type="button"
+      >${escapeHtml(filter.label)}<span class="tech-filter-count">${formatDisplayInteger(count)}</span></button>`;
+    }).join('');
+    const sideTabsHtml = TECHNIQUE_STATUS_FILTERS.map((filter) => {
+      const count = techniques.filter((tech) => (
+        this.matchesCategoryFilter(tech) && this.matchesStatusFilter(tech, filter.value)
+      )).length;
+      return `<button
+        class="tech-side-tab ${this.statusFilter === filter.value ? 'active' : ''}"
+        data-tech-status-filter="${filter.value}"
+        type="button"
+      ><span>${escapeHtml(filter.label)}</span><span class="tech-filter-count">${formatDisplayInteger(count)}</span></button>`;
+    }).join('');
+    const listHtml = filteredTechniques.length > 0
+      ? filteredTechniques.map((tech) => this.renderTechniqueCard(tech)).join('')
+      : `<div class="empty-hint">${escapeHtml(this.getFilteredEmptyHint())}</div>`;
+
     preserveSelection(this.pane, () => {
-      this.pane.innerHTML = techniques.map((tech) => {
-        const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
-        const isCultivating = this.lastState.cultivatingTechId === tech.techId;
-        const progressRatio = getTechniqueProgressRatio(tech);
-        const progressText = formatTechniqueProgressText(tech);
-        const remainText = formatTechniqueRemainText(tech);
-        const realmLevelLabel = getTechniqueRealmLevelLabel(tech);
-        const realmLabel = getTechniqueRealmLabel(getResolvedTechniqueRealm(tech));
-        return `<div class="tech-card ${isCultivating ? 'cultivating' : ''}" data-tech-card="${tech.techId}">
-          <button class="tech-card-main" data-tech-open="${tech.techId}" type="button">
-            <span class="tech-summary-main">
-              <span class="tech-name">${escapeHtml(tech.name)}</span>
-              <span class="tech-badge tech-grade">${escapeHtml(getTechniqueGradeLabel(tech.grade))}</span>
-              <span class="tech-badge tech-realm-level" data-tech-realm-level="${tech.techId}">${escapeHtml(realmLevelLabel)}</span>
-              <span class="tech-badge tech-realm" data-tech-realm="${tech.techId}">${escapeHtml(realmLabel)}</span>
-              <span class="tech-layer" data-tech-layer="${tech.techId}">第${tech.level}/${maxLevel}层</span>
-            </span>
-            <span class="tech-progress-meta">
-              <span class="tech-progress-text" data-tech-progress-text="${tech.techId}">${progressText}</span>
-            </span>
-            <span class="tech-progress-bar"><span class="tech-progress-fill" data-tech-progress-fill="${tech.techId}" style="width:${(progressRatio * 100).toFixed(2)}%"></span></span>
-            <span class="tech-progress-remain" data-tech-progress-remain="${tech.techId}">${remainText}</span>
-          </button>
-          <div class="tech-card-actions">
-            <button
-              class="small-btn ${isCultivating ? 'danger' : ''}"
-              data-tech-cultivate-button="${tech.techId}"
-              data-cultivate="${isCultivating ? '' : tech.techId}"
-              data-cultivate-stop="${isCultivating ? tech.techId : ''}"
-              type="button"
-            >${isCultivating ? '取消主修' : '设为主修'}</button>
-          </div>
-        </div>`;
-      }).join('');
+      this.pane.innerHTML = `<div class="tech-panel-shell">
+        <div class="tech-filter-tabs">${topTabsHtml}</div>
+        <div class="tech-panel-body">
+          <div class="tech-side-tabs">${sideTabsHtml}</div>
+          <div class="tech-panel-list" data-tech-list="true">${listHtml}</div>
+        </div>
+      </div>`;
     });
+  }
+
+  private renderTechniqueCard(tech: TechniqueState): string {
+    const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
+    const isCultivating = this.lastState.cultivatingTechId === tech.techId;
+    const progressRatio = getTechniqueProgressRatio(tech);
+    const progressText = formatTechniqueProgressText(tech);
+    const remainText = formatTechniqueRemainText(tech);
+    const realmLevelLabel = getTechniqueRealmLevelLabel(tech);
+    const realmLabel = getTechniqueRealmLabel(getResolvedTechniqueRealm(tech));
+    const categoryLabel = getTechniqueCategoryLabel(resolveTechniqueCategory(tech));
+    return `<div class="tech-card ${isCultivating ? 'cultivating' : ''}" data-tech-card="${tech.techId}">
+      <button class="tech-card-main" data-tech-open="${tech.techId}" type="button">
+        <span class="tech-summary-main">
+          <span class="tech-name">${escapeHtml(tech.name)}</span>
+          <span class="tech-badge tech-grade">${escapeHtml(getTechniqueGradeLabel(tech.grade))}</span>
+          <span class="tech-badge tech-category">${escapeHtml(categoryLabel)}</span>
+          <span class="tech-badge tech-realm-level" data-tech-realm-level="${tech.techId}">${escapeHtml(realmLevelLabel)}</span>
+          <span class="tech-badge tech-realm" data-tech-realm="${tech.techId}">${escapeHtml(realmLabel)}</span>
+          <span class="tech-layer" data-tech-layer="${tech.techId}">第${tech.level}/${maxLevel}层</span>
+        </span>
+        <span class="tech-progress-meta">
+          <span class="tech-progress-text" data-tech-progress-text="${tech.techId}">${progressText}</span>
+        </span>
+        <span class="tech-progress-bar"><span class="tech-progress-fill" data-tech-progress-fill="${tech.techId}" style="width:${(progressRatio * 100).toFixed(2)}%"></span></span>
+        <span class="tech-progress-remain" data-tech-progress-remain="${tech.techId}">${remainText}</span>
+      </button>
+      <div class="tech-card-actions">
+        <button
+          class="small-btn ${isCultivating ? 'danger' : ''}"
+          data-tech-cultivate-button="${tech.techId}"
+          data-cultivate="${isCultivating ? '' : tech.techId}"
+          data-cultivate-stop="${isCultivating ? tech.techId : ''}"
+          type="button"
+        >${isCultivating ? '取消主修' : '设为主修'}</button>
+      </div>
+    </div>`;
+  }
+
+  private matchesCategoryFilter(tech: TechniqueState, filter = this.categoryFilter): boolean {
+    return filter === 'all' || resolveTechniqueCategory(tech) === filter;
+  }
+
+  private matchesStatusFilter(tech: TechniqueState, filter = this.statusFilter): boolean {
+    if (filter === 'all') {
+      return true;
+    }
+    if (filter === 'cultivating') {
+      return this.lastState.cultivatingTechId === tech.techId;
+    }
+    const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
+    return tech.level >= maxLevel;
+  }
+
+  private getFilteredEmptyHint(): string {
+    if (this.statusFilter === 'cultivating') {
+      return '当前没有修炼中的功法';
+    }
+    if (this.statusFilter === 'completed') {
+      return '当前没有已圆满的功法';
+    }
+    return '当前筛选下没有符合条件的功法';
   }
 
   private renderModal(): void {
@@ -427,6 +511,26 @@ export class TechniquePanel {
         return;
       }
 
+      const categoryButton = target.closest<HTMLElement>('[data-tech-category-filter]');
+      if (categoryButton) {
+        const filter = categoryButton.dataset.techCategoryFilter as TechniqueCategoryFilter | undefined;
+        if (filter && this.categoryFilter !== filter) {
+          this.categoryFilter = filter;
+          this.renderList();
+        }
+        return;
+      }
+
+      const statusButton = target.closest<HTMLElement>('[data-tech-status-filter]');
+      if (statusButton) {
+        const filter = statusButton.dataset.techStatusFilter as TechniqueStatusFilter | undefined;
+        if (filter && this.statusFilter !== filter) {
+          this.statusFilter = filter;
+          this.renderList();
+        }
+        return;
+      }
+
       const cultivateButton = target.closest<HTMLElement>('[data-tech-cultivate-button]');
       if (cultivateButton) {
         event.stopPropagation();
@@ -441,7 +545,7 @@ export class TechniquePanel {
           this.lastState.cultivatingTechId = techId;
           this.onCultivate?.(techId);
         }
-        this.patchList();
+        this.renderList();
         this.patchModal();
         return;
       }
