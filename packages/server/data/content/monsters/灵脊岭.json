@@ -7,8 +7,8 @@
     "radius": 8,
     "respawnSec": 18,
     "level": 12,
-    "hp": 318,
-    "attack": 45,
+    "hp": 396,
+    "attack": 54,
     "drops": [
       {
         "itemId": "ridge_beast_claw",
@@ -33,7 +33,25 @@
       }
     ],
     "grade": "mortal",
-    "count": 7
+    "count": 7,
+    "maxHp": 396,
+    "valueStats": {
+      "maxHp": 11.57,
+      "maxQi": 12.86,
+      "physAtk": 18.93,
+      "spellAtk": 6.31,
+      "physDef": 38.1,
+      "spellDef": 28.57,
+      "hit": 105.24,
+      "dodge": 75.24,
+      "crit": 50,
+      "critDamage": 60,
+      "breakPower": 30,
+      "resolvePower": 26.19,
+      "maxQiOutputPerTick": 20.48,
+      "viewRange": 6,
+      "moveSpeed": 276
+    }
   },
   {
     "id": "m_frost_crane",
@@ -43,8 +61,8 @@
     "radius": 7,
     "respawnSec": 20,
     "level": 13,
-    "hp": 350,
-    "attack": 49,
+    "hp": 393,
+    "attack": 52,
     "drops": [
       {
         "itemId": "frost_essence",
@@ -69,7 +87,25 @@
       }
     ],
     "grade": "yellow",
-    "count": 6
+    "count": 6,
+    "maxHp": 393,
+    "valueStats": {
+      "maxHp": 10.44,
+      "maxQi": 17.84,
+      "physAtk": 16.57,
+      "spellAtk": 10.2,
+      "physDef": 23.64,
+      "spellDef": 23.64,
+      "hit": 120,
+      "dodge": 120,
+      "crit": 43.64,
+      "critDamage": 54.55,
+      "breakPower": 18.18,
+      "resolvePower": 20.91,
+      "maxQiOutputPerTick": 31.36,
+      "viewRange": 6,
+      "moveSpeed": 336
+    }
   },
   {
     "id": "m_ridge_ghost",
@@ -79,8 +115,8 @@
     "radius": 5,
     "respawnSec": 26,
     "level": 14,
-    "hp": 404,
-    "attack": 56,
+    "hp": 678,
+    "attack": 55,
     "drops": [
       {
         "itemId": "spirit_ridge_sigil",
@@ -112,7 +148,25 @@
       }
     ],
     "grade": "yellow",
-    "count": 4
+    "count": 4,
+    "maxHp": 678,
+    "valueStats": {
+      "maxHp": 16.37,
+      "maxQi": 26.79,
+      "physAtk": 15.93,
+      "spellAtk": 21.44,
+      "physDef": 32.61,
+      "spellDef": 44.35,
+      "hit": 117.39,
+      "dodge": 76.52,
+      "crit": 46.96,
+      "critDamage": 64.78,
+      "breakPower": 25.22,
+      "resolvePower": 36.96,
+      "maxQiOutputPerTick": 55.65,
+      "viewRange": 6,
+      "moveSpeed": 238
+    }
   },
   {
     "id": "m_spine_gate_lord",
@@ -122,8 +176,8 @@
     "radius": 2,
     "respawnSec": 240,
     "level": 16,
-    "hp": 560,
-    "attack": 74,
+    "hp": 1378,
+    "attack": 95,
     "drops": [
       {
         "itemId": "ridge_beast_claw",
@@ -162,6 +216,24 @@
       }
     ],
     "grade": "yellow",
-    "count": 1
+    "count": 1,
+    "maxHp": 1378,
+    "valueStats": {
+      "maxHp": 27.49,
+      "maxQi": 39.35,
+      "physAtk": 22.74,
+      "spellAtk": 26.09,
+      "physDef": 77.6,
+      "spellDef": 86,
+      "hit": 154,
+      "dodge": 63.2,
+      "crit": 49.2,
+      "critDamage": 77.2,
+      "breakPower": 34,
+      "resolvePower": 60.4,
+      "maxQiOutputPerTick": 78.8,
+      "viewRange": 6,
+      "moveSpeed": 224
+    }
   }
 ]

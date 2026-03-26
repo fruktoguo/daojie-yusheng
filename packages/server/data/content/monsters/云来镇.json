@@ -4,7 +4,7 @@
     "name": "南沟灰尾鼠",
     "char": "鼠",
     "color": "#9b9b9b",
-    "hp": 18,
+    "hp": 22,
     "attack": 4,
     "radius": 5,
     "respawnSec": 16,
@@ -26,14 +26,32 @@
       }
     ],
     "grade": "mortal",
-    "count": 5
+    "count": 5,
+    "maxHp": 22,
+    "valueStats": {
+      "maxHp": 1.83,
+      "maxQi": 1.75,
+      "physAtk": 4,
+      "spellAtk": 2,
+      "physDef": 4,
+      "spellDef": 3,
+      "hit": 12,
+      "dodge": 11,
+      "crit": 4,
+      "critDamage": 5,
+      "breakPower": 3,
+      "resolvePower": 3,
+      "maxQiOutputPerTick": 3,
+      "viewRange": 6,
+      "moveSpeed": 135
+    }
   },
   {
     "id": "m_preview_town_rat_refuse",
     "name": "废棚灰尾鼠",
     "char": "鼠",
     "color": "#8f8f8f",
-    "hp": 20,
+    "hp": 22,
     "attack": 4,
     "radius": 3,
     "respawnSec": 18,
@@ -55,14 +73,32 @@
       }
     ],
     "grade": "mortal",
-    "count": 4
+    "count": 4,
+    "maxHp": 22,
+    "valueStats": {
+      "maxHp": 1.83,
+      "maxQi": 1.75,
+      "physAtk": 4,
+      "spellAtk": 2,
+      "physDef": 4,
+      "spellDef": 3,
+      "hit": 12,
+      "dodge": 11,
+      "crit": 4,
+      "critDamage": 5,
+      "breakPower": 3,
+      "resolvePower": 3,
+      "maxQiOutputPerTick": 3,
+      "viewRange": 6,
+      "moveSpeed": 135
+    }
   },
   {
     "id": "m_preview_gate_thug",
     "name": "断路暴徒",
     "char": "匪",
     "color": "#ba6f5a",
-    "hp": 30,
+    "hp": 47,
     "attack": 6,
     "radius": 6,
     "respawnSec": 24,
@@ -84,15 +120,33 @@
       }
     ],
     "grade": "mortal",
-    "count": 4
+    "count": 4,
+    "maxHp": 47,
+    "valueStats": {
+      "maxHp": 3.56,
+      "maxQi": 2.95,
+      "physAtk": 5.45,
+      "spellAtk": 1.82,
+      "physDef": 6.36,
+      "spellDef": 5.45,
+      "hit": 16.36,
+      "dodge": 10.91,
+      "crit": 6.36,
+      "critDamage": 8.18,
+      "breakPower": 4.55,
+      "resolvePower": 5.45,
+      "maxQiOutputPerTick": 4.55,
+      "viewRange": 6,
+      "moveSpeed": 105
+    }
   },
   {
     "id": "m_preview_night_blade",
     "name": "夜行刀客",
     "char": "刀",
     "color": "#8b3d3d",
-    "hp": 44,
-    "attack": 9,
+    "hp": 60,
+    "attack": 10,
     "radius": 4,
     "aggroMode": "night_only",
     "respawnSec": 32,
@@ -121,6 +175,24 @@
       }
     ],
     "grade": "mortal",
-    "count": 2
+    "count": 2,
+    "maxHp": 60,
+    "valueStats": {
+      "maxHp": 4.13,
+      "maxQi": 3.96,
+      "physAtk": 8.26,
+      "spellAtk": 4.13,
+      "physDef": 5.83,
+      "spellDef": 4.17,
+      "hit": 16.67,
+      "dodge": 15,
+      "crit": 8.33,
+      "critDamage": 10,
+      "breakPower": 9.17,
+      "resolvePower": 5,
+      "maxQiOutputPerTick": 6.67,
+      "viewRange": 6,
+      "moveSpeed": 144
+    }
   }
 ]

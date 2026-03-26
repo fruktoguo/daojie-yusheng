@@ -7,8 +7,8 @@
     "radius": 8,
     "respawnSec": 18,
     "level": 15,
-    "hp": 470,
-    "attack": 63,
+    "hp": 732,
+    "attack": 95,
     "drops": [
       {
         "itemId": "star_metal",
@@ -33,7 +33,25 @@
       }
     ],
     "grade": "yellow",
-    "count": 8
+    "count": 8,
+    "maxHp": 732,
+    "valueStats": {
+      "maxHp": 16.06,
+      "maxQi": 23.85,
+      "physAtk": 25.02,
+      "spellAtk": 13.17,
+      "physDef": 36.67,
+      "spellDef": 30,
+      "hit": 129.17,
+      "dodge": 116.25,
+      "crit": 64.58,
+      "critDamage": 77.5,
+      "breakPower": 40.83,
+      "resolvePower": 33.33,
+      "maxQiOutputPerTick": 38.33,
+      "viewRange": 6,
+      "moveSpeed": 312
+    }
   },
   {
     "id": "m_sky_puppet",
@@ -43,8 +61,8 @@
     "radius": 6,
     "respawnSec": 20,
     "level": 16,
-    "hp": 530,
-    "attack": 70,
+    "hp": 1476,
+    "attack": 85,
     "drops": [
       {
         "itemId": "sky_pattern_page",
@@ -69,7 +87,25 @@
       }
     ],
     "grade": "yellow",
-    "count": 6
+    "count": 6,
+    "maxHp": 1476,
+    "valueStats": {
+      "maxHp": 29.45,
+      "maxQi": 14.75,
+      "physAtk": 20.35,
+      "spellAtk": 8.14,
+      "physDef": 94.8,
+      "spellDef": 77.6,
+      "hit": 105.2,
+      "dodge": 35.2,
+      "crit": 21.2,
+      "critDamage": 49.2,
+      "breakPower": 30,
+      "resolvePower": 60.4,
+      "maxQiOutputPerTick": 14,
+      "viewRange": 6,
+      "moveSpeed": 154
+    }
   },
   {
     "id": "m_star_devourer",
@@ -79,8 +115,8 @@
     "radius": 2,
     "respawnSec": 180,
     "level": 17,
-    "hp": 640,
-    "attack": 82,
+    "hp": 1470,
+    "attack": 140,
     "drops": [
       {
         "itemId": "sky_seal_core",
@@ -112,18 +148,58 @@
       }
     ],
     "grade": "yellow",
-    "count": 1
+    "count": 1,
+    "maxHp": 1470,
+    "valueStats": {
+      "maxHp": 26.66,
+      "maxQi": 35.34,
+      "physAtk": 30.47,
+      "spellAtk": 18.72,
+      "physDef": 61.92,
+      "spellDef": 53.08,
+      "hit": 173.85,
+      "dodge": 99.23,
+      "crit": 82.69,
+      "critDamage": 107.69,
+      "breakPower": 60,
+      "resolvePower": 44.23,
+      "maxQiOutputPerTick": 62.31,
+      "viewRange": 6,
+      "moveSpeed": 319
+    }
   },
   {
     "id": "m_fallen_palace_lord",
     "name": "坠星宫主",
     "char": "宫",
     "color": "#ffb86c",
+    "grade": "mystic",
     "radius": 2,
     "respawnSec": 300,
     "level": 18,
-    "hp": 760,
-    "attack": 96,
+    "count": 1,
+    "maxAlive": 1,
+    "aggroRange": 6,
+    "viewRange": 6,
+    "aggroMode": "always",
+    "expMultiplier": 1,
+    "valueStats": {
+      "maxHp": 37.39,
+      "maxQi": 60,
+      "physAtk": 28.29,
+      "spellAtk": 32.25,
+      "physDef": 103.33,
+      "spellDef": 114.81,
+      "hit": 236.3,
+      "dodge": 96.67,
+      "crit": 75.19,
+      "critDamage": 118.15,
+      "breakPower": 47.41,
+      "resolvePower": 80.37,
+      "maxQiOutputPerTick": 120,
+      "viewRange": 6,
+      "moveSpeed": 240
+    },
     "drops": [
       {
         "itemId": "star_metal",
@@ -141,7 +217,7 @@
       },
       {
         "itemId": "equip.starfall_spear",
-        "name": "陨星枪",
+        "name": "残星乌铁枪",
         "type": "equipment",
         "count": 1,
         "chance": 0.18
@@ -155,7 +231,7 @@
       },
       {
         "itemId": "equip.void_talisman",
-        "name": "空劫符坠",
+        "name": "镇脉玄纹佩",
         "type": "equipment",
         "count": 1,
         "chance": 0.1
@@ -168,7 +244,8 @@
         "chance": 0.01
       }
     ],
-    "grade": "yellow",
-    "count": 1
+    "hp": 2268,
+    "maxHp": 2268,
+    "attack": 143
   }
 ]

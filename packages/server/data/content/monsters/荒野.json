@@ -7,7 +7,7 @@
     "radius": 8,
     "respawnSec": 22,
     "level": 1,
-    "hp": 30,
+    "hp": 43,
     "attack": 5,
     "drops": [
       {
@@ -26,7 +26,25 @@
       }
     ],
     "grade": "mortal",
-    "count": 6
+    "count": 6,
+    "maxHp": 43,
+    "valueStats": {
+      "maxHp": 3.58,
+      "maxQi": 1.75,
+      "physAtk": 5,
+      "spellAtk": 2,
+      "physDef": 6,
+      "spellDef": 5,
+      "hit": 8,
+      "dodge": 4,
+      "crit": 3,
+      "critDamage": 4,
+      "breakPower": 6,
+      "resolvePower": 4,
+      "maxQiOutputPerTick": 2,
+      "viewRange": 6,
+      "moveSpeed": 70
+    }
   },
   {
     "id": "m_swamp_lizard",
@@ -36,8 +54,8 @@
     "radius": 6,
     "respawnSec": 20,
     "level": 2,
-    "hp": 42,
-    "attack": 7,
+    "hp": 47,
+    "attack": 6,
     "drops": [
       {
         "itemId": "lizard_scale",
@@ -62,7 +80,25 @@
       }
     ],
     "grade": "mortal",
-    "count": 5
+    "count": 5,
+    "maxHp": 47,
+    "valueStats": {
+      "maxHp": 3.56,
+      "maxQi": 2.95,
+      "physAtk": 5.45,
+      "spellAtk": 1.82,
+      "physDef": 6.36,
+      "spellDef": 6.36,
+      "hit": 16.36,
+      "dodge": 11.82,
+      "crit": 5.45,
+      "critDamage": 8.18,
+      "breakPower": 4.55,
+      "resolvePower": 5.45,
+      "maxQiOutputPerTick": 4.55,
+      "viewRange": 6,
+      "moveSpeed": 105
+    }
   },
   {
     "id": "m_wild_bandit",
@@ -72,8 +108,8 @@
     "radius": 7,
     "respawnSec": 18,
     "level": 2,
-    "hp": 46,
-    "attack": 8,
+    "hp": 47,
+    "attack": 6,
     "drops": [
       {
         "itemId": "bandit_insignia",
@@ -98,7 +134,25 @@
       }
     ],
     "grade": "mortal",
-    "count": 6
+    "count": 6,
+    "maxHp": 47,
+    "valueStats": {
+      "maxHp": 3.56,
+      "maxQi": 2.95,
+      "physAtk": 5.45,
+      "spellAtk": 1.82,
+      "physDef": 6.36,
+      "spellDef": 5.45,
+      "hit": 16.36,
+      "dodge": 10.91,
+      "crit": 6.36,
+      "critDamage": 8.18,
+      "breakPower": 4.55,
+      "resolvePower": 5.45,
+      "maxQiOutputPerTick": 4.55,
+      "viewRange": 6,
+      "moveSpeed": 105
+    }
   },
   {
     "id": "m_mire_spider",
@@ -108,8 +162,8 @@
     "radius": 5,
     "respawnSec": 19,
     "level": 3,
-    "hp": 58,
-    "attack": 10,
+    "hp": 48,
+    "attack": 11,
     "drops": [
       {
         "itemId": "spider_silk",
@@ -134,7 +188,25 @@
       }
     ],
     "grade": "mortal",
-    "count": 5
+    "count": 5,
+    "maxHp": 48,
+    "valueStats": {
+      "maxHp": 3.31,
+      "maxQi": 2.81,
+      "physAtk": 9.09,
+      "spellAtk": 2.48,
+      "physDef": 5,
+      "spellDef": 4.17,
+      "hit": 17.5,
+      "dodge": 14.17,
+      "crit": 9.17,
+      "critDamage": 10.83,
+      "breakPower": 10,
+      "resolvePower": 4.17,
+      "maxQiOutputPerTick": 4.17,
+      "viewRange": 6,
+      "moveSpeed": 150
+    }
   },
   {
     "id": "m_gale_bone_king",
@@ -144,8 +216,8 @@
     "radius": 2,
     "respawnSec": 120,
     "level": 4,
-    "hp": 96,
-    "attack": 15,
+    "hp": 95,
+    "attack": 14,
     "drops": [
       {
         "itemId": "spider_silk",
@@ -184,7 +256,25 @@
       }
     ],
     "grade": "mortal",
-    "count": 1
+    "count": 1,
+    "maxHp": 95,
+    "valueStats": {
+      "maxHp": 5.95,
+      "maxQi": 4.62,
+      "physAtk": 10.52,
+      "spellAtk": 6.76,
+      "physDef": 13.85,
+      "spellDef": 11.54,
+      "hit": 24.62,
+      "dodge": 13.85,
+      "crit": 11.54,
+      "critDamage": 15.38,
+      "breakPower": 12.31,
+      "resolvePower": 10,
+      "maxQiOutputPerTick": 8.46,
+      "viewRange": 6,
+      "moveSpeed": 154
+    }
   },
   {
     "id": "m_dust_vulture",
@@ -194,8 +284,8 @@
     "radius": 6,
     "respawnSec": 24,
     "level": 3,
-    "hp": 54,
-    "attack": 10,
+    "hp": 45,
+    "attack": 8,
     "drops": [
       {
         "itemId": "blood_feather",
@@ -220,6 +310,24 @@
       }
     ],
     "grade": "mortal",
-    "count": 4
+    "count": 4,
+    "maxHp": 45,
+    "valueStats": {
+      "maxHp": 3.1,
+      "maxQi": 3.75,
+      "physAtk": 6.61,
+      "spellAtk": 4.13,
+      "physDef": 4.17,
+      "spellDef": 4.17,
+      "hit": 18.33,
+      "dodge": 18.33,
+      "crit": 6.67,
+      "critDamage": 8.33,
+      "breakPower": 5,
+      "resolvePower": 4.17,
+      "maxQiOutputPerTick": 6.67,
+      "viewRange": 6,
+      "moveSpeed": 168
+    }
   }
 ]

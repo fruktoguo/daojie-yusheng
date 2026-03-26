@@ -8,7 +8,7 @@
     "respawnSec": 18,
     "level": 4,
     "hp": 68,
-    "attack": 11,
+    "attack": 14,
     "drops": [
       {
         "itemId": "wolf_fang",
@@ -33,7 +33,25 @@
       }
     ],
     "grade": "mortal",
-    "count": 8
+    "count": 8,
+    "maxHp": 68,
+    "valueStats": {
+      "maxHp": 4.26,
+      "maxQi": 3.65,
+      "physAtk": 10.52,
+      "spellAtk": 3.01,
+      "physDef": 11.54,
+      "spellDef": 9.23,
+      "hit": 23.08,
+      "dodge": 18.46,
+      "crit": 11.54,
+      "critDamage": 13.85,
+      "breakPower": 12.31,
+      "resolvePower": 7.69,
+      "maxQiOutputPerTick": 5.38,
+      "viewRange": 6,
+      "moveSpeed": 189
+    }
   },
   {
     "id": "m_bamboo_serpent",
@@ -43,8 +61,8 @@
     "radius": 5,
     "respawnSec": 20,
     "level": 4,
-    "hp": 74,
-    "attack": 12,
+    "hp": 68,
+    "attack": 13,
     "drops": [
       {
         "itemId": "serpent_gall",
@@ -62,7 +80,25 @@
       }
     ],
     "grade": "mortal",
-    "count": 6
+    "count": 6,
+    "maxHp": 68,
+    "valueStats": {
+      "maxHp": 4.26,
+      "maxQi": 5.1,
+      "physAtk": 9.77,
+      "spellAtk": 6.01,
+      "physDef": 7.69,
+      "spellDef": 8.46,
+      "hit": 26.92,
+      "dodge": 22.31,
+      "crit": 10.77,
+      "critDamage": 13.08,
+      "breakPower": 9.23,
+      "resolvePower": 6.92,
+      "maxQiOutputPerTick": 9.23,
+      "viewRange": 6,
+      "moveSpeed": 168
+    }
   },
   {
     "id": "m_bamboo_sprite",
@@ -73,7 +109,7 @@
     "respawnSec": 20,
     "level": 5,
     "hp": 88,
-    "attack": 14,
+    "attack": 8,
     "drops": [
       {
         "itemId": "bamboo_heart",
@@ -98,7 +134,25 @@
       }
     ],
     "grade": "mortal",
-    "count": 5
+    "count": 5,
+    "maxHp": 88,
+    "valueStats": {
+      "maxHp": 5.01,
+      "maxQi": 6.88,
+      "physAtk": 5.46,
+      "spellAtk": 9.56,
+      "physDef": 8.57,
+      "spellDef": 12.14,
+      "hit": 27.14,
+      "dodge": 21.43,
+      "crit": 11.43,
+      "critDamage": 15.71,
+      "breakPower": 6.43,
+      "resolvePower": 10.71,
+      "maxQiOutputPerTick": 15.71,
+      "viewRange": 6,
+      "moveSpeed": 158
+    }
   },
   {
     "id": "m_bamboo_mantis",
@@ -108,8 +162,8 @@
     "radius": 6,
     "respawnSec": 22,
     "level": 5,
-    "hp": 98,
-    "attack": 16,
+    "hp": 70,
+    "attack": 14,
     "drops": [
       {
         "itemId": "mantis_blade",
@@ -134,7 +188,25 @@
       }
     ],
     "grade": "mortal",
-    "count": 5
+    "count": 5,
+    "maxHp": 70,
+    "valueStats": {
+      "maxHp": 3.98,
+      "maxQi": 3.57,
+      "physAtk": 9.56,
+      "spellAtk": 2.73,
+      "physDef": 8.57,
+      "spellDef": 7.14,
+      "hit": 30,
+      "dodge": 24.29,
+      "crit": 15.71,
+      "critDamage": 18.57,
+      "breakPower": 11.43,
+      "resolvePower": 7.86,
+      "maxQiOutputPerTick": 5,
+      "viewRange": 6,
+      "moveSpeed": 188
+    }
   },
   {
     "id": "m_green_emperor_mantis",
@@ -144,8 +216,8 @@
     "radius": 2,
     "respawnSec": 120,
     "level": 6,
-    "hp": 132,
-    "attack": 21,
+    "hp": 80,
+    "attack": 18,
     "drops": [
       {
         "itemId": "mantis_blade",
@@ -184,6 +256,24 @@
       }
     ],
     "grade": "mortal",
-    "count": 1
+    "count": 1,
+    "maxHp": 80,
+    "valueStats": {
+      "maxHp": 4.14,
+      "maxQi": 3.75,
+      "physAtk": 11.18,
+      "spellAtk": 3.1,
+      "physDef": 9.33,
+      "spellDef": 7.33,
+      "hit": 35.33,
+      "dodge": 28.67,
+      "crit": 18.67,
+      "critDamage": 22,
+      "breakPower": 13.33,
+      "resolvePower": 8.67,
+      "maxQiOutputPerTick": 5.33,
+      "viewRange": 6,
+      "moveSpeed": 200
+    }
   }
 ]
