@@ -123,7 +123,7 @@
         "name": "霜痕",
         "desc": "先在目标体表凝出寒痕，再以后续寒诀层层压制。",
         "cooldown": 22,
-        "cost": 8,
+        "costMultiplier": 1,
         "range": 3,
         "effects": [
           {
@@ -182,7 +182,7 @@
         "name": "冰锁诀",
         "desc": "先把寒意钉进经络，再让那股冷劲顺着旧痕继续蔓延。",
         "cooldown": 28,
-        "cost": 9,
+        "costMultiplier": 2,
         "range": 3,
         "targeting": {
           "shape": "line",
@@ -249,7 +249,7 @@
         "name": "寒月印",
         "desc": "凝寒月印覆压一片敌手，让寒痕迅速蔓延。",
         "cooldown": 46,
-        "cost": 13,
+        "costMultiplier": 3,
         "range": 4,
         "targeting": {
           "shape": "area",
@@ -315,6 +315,7 @@
         ],
         "unlockLevel": 9
       }
-    ]
+    ],
+    "realmLv": 16
   }
 ]

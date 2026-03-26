@@ -41,6 +41,18 @@ export const TECHNIQUE_GRADE_ORDER: TechniqueGrade[] = [
   'emperor',
 ];
 
+/** 技能灵力消耗中各功法品阶对应的倍率 */
+export const TECHNIQUE_GRADE_QI_COST_MULTIPLIERS: Record<TechniqueGrade, number> = {
+  mortal: 1,
+  yellow: 2,
+  mystic: 3,
+  earth: 4,
+  heaven: 5,
+  spirit: 6,
+  saint: 7,
+  emperor: 8,
+};
+
 /** 旧版固定功法经验表，当前内容已按逐层配置为准 */
 export const TECHNIQUE_EXP_TABLE: Record<number, number> = {
   0: 100,

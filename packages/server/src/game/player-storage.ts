@@ -195,6 +195,7 @@ function hydrateTechnique(snapshot: unknown): TechniqueState | null {
     level: normalizePositiveInt(snapshot.level, 1),
     exp: normalizeNonNegativeInt(snapshot.exp, 0),
     expToNext: normalizeNonNegativeInt(snapshot.expToNext, 0),
+    realmLv: normalizePositiveInt(snapshot.realmLv, 1),
     realm: isTechniqueRealm(snapshot.realm) ? snapshot.realm : TechniqueRealm.Entry,
     skills: Array.isArray(snapshot.skills) ? snapshot.skills as SkillDef[] : [],
     grade: isTechniqueGrade(snapshot.grade) ? snapshot.grade : undefined,

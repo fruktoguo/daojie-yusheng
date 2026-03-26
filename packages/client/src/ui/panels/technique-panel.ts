@@ -17,7 +17,7 @@ import {
   TechniqueState,
 } from '@mud/shared';
 import { ATTR_KEY_LABELS, getTechniqueGradeLabel, getTechniqueRealmLabel } from '../../domain-labels';
-import { resolvePreviewTechnique, resolvePreviewTechniques } from '../../content/local-templates';
+import { getLocalRealmLevelEntry, resolvePreviewTechnique, resolvePreviewTechniques } from '../../content/local-templates';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { detailModalHost } from '../detail-modal-host';
 import { buildSkillTooltipContent } from '../skill-tooltip';
@@ -74,6 +74,17 @@ function formatTechniqueRemainText(tech: TechniqueState): string {
   return tech.expToNext > 0
     ? `距下一层还需 ${formatDisplayInteger(getTechniqueRemainingExp(tech))} 功法经验`
     : '当前已达圆满层';
+}
+
+function getResolvedTechniqueRealm(tech: TechniqueState): TechniqueRealm {
+  return deriveTechniqueRealm(tech.level, tech.layers, tech.attrCurves);
+}
+
+function getTechniqueRealmLevelLabel(tech: TechniqueState): string {
+  const entry = getLocalRealmLevelEntry(tech.realmLv);
+  return entry
+    ? entry.displayName
+    : `Lv.${formatDisplayInteger(tech.realmLv)}`;
 }
 
 function findTechniqueRealmStartLevel(
@@ -161,11 +172,15 @@ export class TechniquePanel {
         const progressRatio = getTechniqueProgressRatio(tech);
         const progressText = formatTechniqueProgressText(tech);
         const remainText = formatTechniqueRemainText(tech);
+        const realmLevelLabel = getTechniqueRealmLevelLabel(tech);
+        const realmLabel = getTechniqueRealmLabel(getResolvedTechniqueRealm(tech));
         return `<div class="tech-card ${isCultivating ? 'cultivating' : ''}" data-tech-card="${tech.techId}">
           <button class="tech-card-main" data-tech-open="${tech.techId}" type="button">
             <span class="tech-summary-main">
               <span class="tech-name">${escapeHtml(tech.name)}</span>
-              <span class="tech-realm">${getTechniqueGradeLabel(tech.grade)}</span>
+              <span class="tech-badge tech-grade">${escapeHtml(getTechniqueGradeLabel(tech.grade))}</span>
+              <span class="tech-badge tech-realm-level" data-tech-realm-level="${tech.techId}">${escapeHtml(realmLevelLabel)}</span>
+              <span class="tech-badge tech-realm" data-tech-realm="${tech.techId}">${escapeHtml(realmLabel)}</span>
               <span class="tech-layer" data-tech-layer="${tech.techId}">第${tech.level}/${maxLevel}层</span>
             </span>
             <span class="tech-progress-meta">
@@ -223,7 +238,7 @@ export class TechniquePanel {
       ownerId: TechniquePanel.MODAL_OWNER,
       variantClass: 'detail-modal--technique',
       title: tech.name,
-      subtitle: `${getTechniqueGradeLabel(tech.grade)} · ${getTechniqueRealmLabel(tech.realm)} · 第 ${formatDisplayInteger(tech.level)}/${formatDisplayInteger(maxLevel)} 层`,
+      subtitle: `${getTechniqueRealmLevelLabel(tech)} · ${getTechniqueGradeLabel(tech.grade)} · ${getTechniqueRealmLabel(getResolvedTechniqueRealm(tech))} · 第 ${formatDisplayInteger(tech.level)}/${formatDisplayInteger(maxLevel)} 层`,
       bodyHtml: `
       <div class="tech-modal-summary">
         <div class="tech-modal-stat">
@@ -536,12 +551,14 @@ export class TechniquePanel {
 
     for (const tech of techniques) {
       const card = this.pane.querySelector<HTMLElement>(`[data-tech-card="${CSS.escape(tech.techId)}"]`);
+      const realmLevelNode = this.pane.querySelector<HTMLElement>(`[data-tech-realm-level="${CSS.escape(tech.techId)}"]`);
+      const realmNode = this.pane.querySelector<HTMLElement>(`[data-tech-realm="${CSS.escape(tech.techId)}"]`);
       const layerNode = this.pane.querySelector<HTMLElement>(`[data-tech-layer="${CSS.escape(tech.techId)}"]`);
       const progressTextNode = this.pane.querySelector<HTMLElement>(`[data-tech-progress-text="${CSS.escape(tech.techId)}"]`);
       const progressFillNode = this.pane.querySelector<HTMLElement>(`[data-tech-progress-fill="${CSS.escape(tech.techId)}"]`);
       const remainNode = this.pane.querySelector<HTMLElement>(`[data-tech-progress-remain="${CSS.escape(tech.techId)}"]`);
       const cultivateButton = this.pane.querySelector<HTMLButtonElement>(`[data-tech-cultivate-button="${CSS.escape(tech.techId)}"]`);
-      if (!card || !layerNode || !progressTextNode || !progressFillNode || !remainNode || !cultivateButton) {
+      if (!card || !realmLevelNode || !realmNode || !layerNode || !progressTextNode || !progressFillNode || !remainNode || !cultivateButton) {
         return false;
       }
 
@@ -550,8 +567,12 @@ export class TechniquePanel {
       const progressRatio = getTechniqueProgressRatio(tech);
       const progressText = formatTechniqueProgressText(tech);
       const remainText = formatTechniqueRemainText(tech);
+      const realmLevelLabel = getTechniqueRealmLevelLabel(tech);
+      const realmLabel = getTechniqueRealmLabel(getResolvedTechniqueRealm(tech));
 
       card.classList.toggle('cultivating', isCultivating);
+      realmLevelNode.textContent = realmLevelLabel;
+      realmNode.textContent = realmLabel;
       layerNode.textContent = `第${tech.level}/${maxLevel}层`;
       progressTextNode.textContent = progressText;
       progressFillNode.style.width = `${(progressRatio * 100).toFixed(2)}%`;
@@ -604,7 +625,7 @@ export class TechniquePanel {
     const selectedLevel = this.resolveOpenLayerLevel(layers, tech.level);
 
     titleNode.textContent = tech.name;
-    subtitleNode.textContent = `${getTechniqueGradeLabel(tech.grade)} · ${getTechniqueRealmLabel(tech.realm)} · 第 ${formatDisplayInteger(tech.level)}/${formatDisplayInteger(maxLevel)} 层`;
+    subtitleNode.textContent = `${getTechniqueRealmLevelLabel(tech)} · ${getTechniqueGradeLabel(tech.grade)} · ${getTechniqueRealmLabel(getResolvedTechniqueRealm(tech))} · 第 ${formatDisplayInteger(tech.level)}/${formatDisplayInteger(maxLevel)} 层`;
     expNode.textContent = formatTechniqueProgressText(tech);
     currentAttrsNode.textContent = formatAttrMap(currentAttrs);
     nextAttrsNode.textContent = formatAttrMap(nextAttrs, '已无下一层');

@@ -88,7 +88,7 @@
         "name": "离火符",
         "desc": "符火先灼其表、再侵其脉，灼印叠得越多，后续火行越烈。",
         "cooldown": 22,
-        "cost": 8,
+        "costMultiplier": 1,
         "range": 3,
         "effects": [
           {
@@ -146,7 +146,7 @@
         "name": "赤线灼脉",
         "desc": "将离火牵成一线贯入敌阵，烧过之处更容易留下灼印。",
         "cooldown": 26,
-        "cost": 9,
+        "costMultiplier": 2,
         "range": 3,
         "targeting": {
           "shape": "line",
@@ -212,7 +212,7 @@
         "name": "焚心诀",
         "desc": "先前埋下的火意一并炸开，最适合拿来收尾压血线。",
         "cooldown": 44,
-        "cost": 13,
+        "costMultiplier": 3,
         "range": 4,
         "targeting": {
           "shape": "area",
@@ -261,6 +261,7 @@
         ],
         "unlockLevel": 9
       }
-    ]
+    ],
+    "realmLv": 10
   }
 ]

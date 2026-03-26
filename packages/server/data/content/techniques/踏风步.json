@@ -81,7 +81,7 @@
         "name": "风痕",
         "desc": "借步法切入身位，速度越快，这一击越像木叶掠风般轻灵狠准。",
         "cooldown": 14,
-        "cost": 5,
+        "costMultiplier": 1,
         "range": 2,
         "effects": [
           {
@@ -144,7 +144,7 @@
         "name": "逐影掠空",
         "desc": "借踏风余势连续切位，越快越能把一道劲风拖成长线。",
         "cooldown": 30,
-        "cost": 8,
+        "costMultiplier": 2,
         "range": 3,
         "targeting": {
           "shape": "line",
@@ -192,6 +192,7 @@
         ],
         "unlockLevel": 6
       }
-    ]
+    ],
+    "realmLv": 11
   }
 ]

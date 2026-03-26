@@ -83,7 +83,7 @@
         "name": "青木斩",
         "desc": "木脉剑气顺着伤口侵入经络，越斩越能削弱目标气机。",
         "cooldown": 16,
-        "cost": 5,
+        "costMultiplier": 1,
         "range": 1,
         "effects": [
           {
@@ -142,7 +142,7 @@
         "name": "穿林式",
         "desc": "沿先前斩开的气脉再递一剑，剑气更易顺着经络深扎。",
         "cooldown": 26,
-        "cost": 7,
+        "costMultiplier": 2,
         "range": 2,
         "targeting": {
           "shape": "line",
@@ -182,6 +182,7 @@
         ],
         "unlockLevel": 5
       }
-    ]
+    ],
+    "realmLv": 1
   }
 ]

@@ -1,0 +1,362 @@
+[
+  {
+    "id": "bear_cauldron_art",
+    "name": "沉骨担石功",
+    "grade": "mortal",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 120,
+        "attrs": {
+          "talent": 2
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 132,
+        "attrs": {
+          "talent": 2
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 145,
+        "attrs": {
+          "talent": 2
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 159,
+        "attrs": {
+          "talent": 2
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 174,
+        "attrs": {
+          "talent": 3
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 190,
+        "attrs": {
+          "talent": 3
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 207,
+        "attrs": {
+          "talent": 3
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 0,
+        "attrs": {
+          "talent": 4
+        }
+      }
+    ],
+    "skills": [],
+    "realmLv": 5
+  },
+  {
+    "id": "dragon_elephant_bone",
+    "name": "贯脉镇骨功",
+    "grade": "yellow",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 126,
+        "attrs": {
+          "talent": 2
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 139,
+        "attrs": {
+          "talent": 2
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 153,
+        "attrs": {
+          "talent": 2
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 168,
+        "attrs": {
+          "talent": 3
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 184,
+        "attrs": {
+          "talent": 3
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 201,
+        "attrs": {
+          "talent": 3
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 219,
+        "attrs": {
+          "talent": 3
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 238,
+        "attrs": {
+          "talent": 4
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 0,
+        "attrs": {
+          "talent": 4
+        }
+      }
+    ],
+    "skills": [],
+    "realmLv": 7
+  },
+  {
+    "id": "golden_lock_body",
+    "name": "悬脉固元功",
+    "grade": "yellow",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 132,
+        "attrs": {
+          "talent": 2
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 146,
+        "attrs": {
+          "talent": 2
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 161,
+        "attrs": {
+          "talent": 3
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 177,
+        "attrs": {
+          "talent": 3
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 194,
+        "attrs": {
+          "talent": 3
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 212,
+        "attrs": {
+          "talent": 3
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 231,
+        "attrs": {
+          "talent": 4
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 251,
+        "attrs": {
+          "talent": 4
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 272,
+        "attrs": {
+          "talent": 4
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 0,
+        "attrs": {
+          "talent": 5
+        }
+      }
+    ],
+    "skills": [],
+    "realmLv": 9
+  },
+  {
+    "id": "mountain_insight_chart",
+    "name": "照身图",
+    "grade": "yellow",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 124,
+        "attrs": {
+          "comprehension": 2
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 137,
+        "attrs": {
+          "comprehension": 2
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 151,
+        "attrs": {
+          "comprehension": 2
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 166,
+        "attrs": {
+          "comprehension": 2
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 182,
+        "attrs": {
+          "comprehension": 3
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 199,
+        "attrs": {
+          "comprehension": 3
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 217,
+        "attrs": {
+          "comprehension": 3
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 0,
+        "attrs": {
+          "comprehension": 4
+        }
+      }
+    ],
+    "skills": [],
+    "realmLv": 8
+  },
+  {
+    "id": "hundred_temper_body",
+    "name": "定势壮身功",
+    "grade": "yellow",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 138,
+        "attrs": {
+          "constitution": 2
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 152,
+        "attrs": {
+          "constitution": 2
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 167,
+        "attrs": {
+          "constitution": 2
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 183,
+        "attrs": {
+          "constitution": 3
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 200,
+        "attrs": {
+          "constitution": 3
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 218,
+        "attrs": {
+          "constitution": 3
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 237,
+        "attrs": {
+          "constitution": 4
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 257,
+        "attrs": {
+          "constitution": 4
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 278,
+        "attrs": {
+          "constitution": 4
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 0,
+        "attrs": {
+          "constitution": 5
+        }
+      }
+    ],
+    "skills": [],
+    "realmLv": 10
+  }
+]

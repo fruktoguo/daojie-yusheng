@@ -147,7 +147,7 @@
         "name": "镇灵冲",
         "desc": "以神识先钉住气机，再借凝神之势衔接后续杀招。",
         "cooldown": 28,
-        "cost": 9,
+        "costMultiplier": 1,
         "range": 2,
         "effects": [
           {
@@ -206,7 +206,7 @@
         "name": "定魂钉",
         "desc": "先以一点定住魂光，再顺着那一点牵出整段后继灵压。",
         "cooldown": 32,
-        "cost": 10,
+        "costMultiplier": 2,
         "range": 3,
         "effects": [
           {
@@ -273,7 +273,7 @@
         "name": "缚魄锁",
         "desc": "以灵链束住魂魄与气机，让被锁之敌更难招架后续神识压制。",
         "cooldown": 46,
-        "cost": 15,
+        "costMultiplier": 3,
         "range": 4,
         "targeting": {
           "shape": "line",
@@ -339,6 +339,7 @@
         ],
         "unlockLevel": 10
       }
-    ]
+    ],
+    "realmLv": 17
   }
 ]

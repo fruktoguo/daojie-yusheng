@@ -10,7 +10,7 @@
           "name": "离火符",
           "desc": "符火先灼其表、再侵其脉，灼印叠得越多，后续火行越烈。",
           "cooldown": 22,
-          "cost": 8,
+          "costMultiplier": 1,
           "range": 3,
           "effects": [
             {
@@ -68,7 +68,7 @@
           "name": "赤线灼脉",
           "desc": "将离火牵成一线贯入敌阵，烧过之处更容易留下灼印。",
           "cooldown": 26,
-          "cost": 9,
+          "costMultiplier": 2,
           "range": 3,
           "targeting": {
             "shape": "line",
@@ -134,7 +134,7 @@
           "name": "焚心诀",
           "desc": "先前埋下的火意一并炸开，最适合拿来收尾压血线。",
           "cooldown": 44,
-          "cost": 13,
+          "costMultiplier": 3,
           "range": 4,
           "targeting": {
             "shape": "area",
@@ -262,7 +262,8 @@
             "spirit": 5
           }
         }
-      ]
+      ],
+      "realmLv": 10
     },
     {
       "id": "frost_sutra",
@@ -274,7 +275,7 @@
           "name": "霜痕",
           "desc": "先在目标体表凝出寒痕，再以后续寒诀层层压制。",
           "cooldown": 22,
-          "cost": 8,
+          "costMultiplier": 1,
           "range": 3,
           "effects": [
             {
@@ -333,7 +334,7 @@
           "name": "冰锁诀",
           "desc": "先把寒意钉进经络，再让那股冷劲顺着旧痕继续蔓延。",
           "cooldown": 28,
-          "cost": 9,
+          "costMultiplier": 2,
           "range": 3,
           "targeting": {
             "shape": "line",
@@ -400,7 +401,7 @@
           "name": "寒月印",
           "desc": "凝寒月印覆压一片敌手，让寒痕迅速蔓延。",
           "cooldown": 46,
-          "cost": 13,
+          "costMultiplier": 3,
           "range": 4,
           "targeting": {
             "shape": "area",
@@ -580,7 +581,8 @@
             "talent": 4
           }
         }
-      ]
+      ],
+      "realmLv": 16
     },
     {
       "id": "thunder_palm",
@@ -592,7 +594,7 @@
           "name": "惊雷掌",
           "desc": "雷势先蓄于掌，再借下一掌骤然炸开，越打越容易破招暴击。",
           "cooldown": 34,
-          "cost": 10,
+          "costMultiplier": 2,
           "range": 2,
           "targeting": {
             "shape": "line",
@@ -659,7 +661,7 @@
           "name": "奔雷贯心",
           "desc": "先以雷势逼出破绽，再把后继掌力整段贯进敌阵中央。",
           "cooldown": 42,
-          "cost": 13,
+          "costMultiplier": 3,
           "range": 3,
           "targeting": {
             "shape": "line",
@@ -835,7 +837,8 @@
             "perception": 2
           }
         }
-      ]
+      ],
+      "realmLv": 14
     },
     {
       "id": "cloud_blade",
@@ -847,7 +850,7 @@
           "name": "流云断",
           "desc": "先以云势起刀，再以步伐藏锋，越灵动，下一式越难防。",
           "cooldown": 18,
-          "cost": 7,
+          "costMultiplier": 1,
           "range": 2,
           "targeting": {
             "shape": "line",
@@ -913,7 +916,7 @@
           "name": "踏隙斩",
           "desc": "借落脚一瞬切开空隙再斩，刀意未尽时身法会自然续成流云。",
           "cooldown": 24,
-          "cost": 8,
+          "costMultiplier": 2,
           "range": 2,
           "targeting": {
             "shape": "line",
@@ -983,7 +986,7 @@
           "name": "回龙转锋",
           "desc": "借流云余势转身再斩，步法越疾，回锋越狠。",
           "cooldown": 36,
-          "cost": 12,
+          "costMultiplier": 3,
           "range": 3,
           "targeting": {
             "shape": "area",
@@ -1125,7 +1128,8 @@
             "constitution": 2
           }
         }
-      ]
+      ],
+      "realmLv": 13
     },
     {
       "id": "qingmu_sword",
@@ -1137,7 +1141,7 @@
           "name": "青木斩",
           "desc": "木脉剑气顺着伤口侵入经络，越斩越能削弱目标气机。",
           "cooldown": 16,
-          "cost": 5,
+          "costMultiplier": 1,
           "range": 1,
           "effects": [
             {
@@ -1196,7 +1200,7 @@
           "name": "穿林式",
           "desc": "沿先前斩开的气脉再递一剑，剑气更易顺着经络深扎。",
           "cooldown": 26,
-          "cost": 7,
+          "costMultiplier": 2,
           "range": 2,
           "targeting": {
             "shape": "line",
@@ -1310,7 +1314,8 @@
             "spirit": 2
           }
         }
-      ]
+      ],
+      "realmLv": 1
     },
     {
       "id": "wind_step",
@@ -1322,7 +1327,7 @@
           "name": "风痕",
           "desc": "借步法切入身位，速度越快，这一击越像木叶掠风般轻灵狠准。",
           "cooldown": 14,
-          "cost": 5,
+          "costMultiplier": 1,
           "range": 2,
           "effects": [
             {
@@ -1385,7 +1390,7 @@
           "name": "逐影掠空",
           "desc": "借踏风余势连续切位，越快越能把一道劲风拖成长线。",
           "cooldown": 30,
-          "cost": 8,
+          "costMultiplier": 2,
           "range": 3,
           "targeting": {
             "shape": "line",
@@ -1505,7 +1510,8 @@
             "perception": 5
           }
         }
-      ]
+      ],
+      "realmLv": 11
     },
     {
       "id": "iron_bone_art",
@@ -1517,7 +1523,7 @@
           "name": "铁骨崩拳",
           "desc": "以内劲震骨，出拳同时叠起护体罡劲，越打越硬。",
           "cooldown": 16,
-          "cost": 6,
+          "costMultiplier": 2,
           "range": 1,
           "effects": [
             {
@@ -1582,7 +1588,7 @@
           "name": "震罡怒吼",
           "desc": "鼓荡护体罡气轰开身前敌群，吼声散后自身罡劲反而更沉一层。",
           "cooldown": 36,
-          "cost": 10,
+          "costMultiplier": 3,
           "range": 2,
           "targeting": {
             "shape": "area",
@@ -1717,7 +1723,8 @@
             "talent": 3
           }
         }
-      ]
+      ],
+      "realmLv": 12
     },
     {
       "id": "starfall_spear",
@@ -1729,7 +1736,7 @@
           "name": "坠星刺",
           "desc": "先校准枪势，再借坠势贯穿敌阵，越蓄越适合破强敌。",
           "cooldown": 28,
-          "cost": 10,
+          "costMultiplier": 3,
           "range": 3,
           "targeting": {
             "shape": "line",
@@ -1799,7 +1806,7 @@
           "name": "追星步",
           "desc": "踏前半步再补一枪，借冲势把前一式的坠意继续压实。",
           "cooldown": 24,
-          "cost": 8,
+          "costMultiplier": 3,
           "range": 3,
           "effects": [
             {
@@ -1865,7 +1872,7 @@
           "name": "裂穹枪",
           "desc": "将前段积下的枪势一次性贯成长线，最适合用来破开中段敌阵。",
           "cooldown": 40,
-          "cost": 13,
+          "costMultiplier": 4,
           "range": 4,
           "targeting": {
             "shape": "line",
@@ -1917,7 +1924,7 @@
           "name": "陨焰破",
           "desc": "借坠势与枪意同时爆开，对强敌与高血目标尤为致命。",
           "cooldown": 56,
-          "cost": 18,
+          "costMultiplier": 5,
           "range": 4,
           "targeting": {
             "shape": "area",
@@ -2124,7 +2131,8 @@
             "spirit": 1
           }
         }
-      ]
+      ],
+      "realmLv": 18
     },
     {
       "id": "spirit_anchor",
@@ -2136,7 +2144,7 @@
           "name": "镇灵冲",
           "desc": "以神识先钉住气机，再借凝神之势衔接后续杀招。",
           "cooldown": 28,
-          "cost": 9,
+          "costMultiplier": 1,
           "range": 2,
           "effects": [
             {
@@ -2195,7 +2203,7 @@
           "name": "定魂钉",
           "desc": "先以一点定住魂光，再顺着那一点牵出整段后继灵压。",
           "cooldown": 32,
-          "cost": 10,
+          "costMultiplier": 2,
           "range": 3,
           "effects": [
             {
@@ -2262,7 +2270,7 @@
           "name": "缚魄锁",
           "desc": "以灵链束住魂魄与气机，让被锁之敌更难招架后续神识压制。",
           "cooldown": 46,
-          "cost": 15,
+          "costMultiplier": 3,
           "range": 4,
           "targeting": {
             "shape": "line",
@@ -2466,7 +2474,8 @@
             "talent": 2
           }
         }
-      ]
+      ],
+      "realmLv": 17
     },
     {
       "id": "stillheart",
@@ -2478,7 +2487,7 @@
           "name": "止念印",
           "desc": "神识先压住对手心神，再让其术念与化解一并迟滞。",
           "cooldown": 44,
-          "cost": 12,
+          "costMultiplier": 2,
           "range": 4,
           "effects": [
             {
@@ -2545,7 +2554,7 @@
           "name": "断识锥",
           "desc": "趁对方念头受阻时以神识直凿其识海，越会化解反而越难完全避开。",
           "cooldown": 38,
-          "cost": 11,
+          "costMultiplier": 3,
           "range": 4,
           "targeting": {
             "shape": "line",
@@ -2707,7 +2716,665 @@
             "spirit": 6
           }
         }
-      ]
+      ],
+      "realmLv": 15
+    },
+    {
+      "id": "bear_cauldron_art",
+      "name": "沉骨担石功",
+      "grade": "mortal",
+      "skills": [],
+      "layers": [
+        {
+          "level": 1,
+          "expFactor": 120,
+          "attrs": {
+            "talent": 2
+          }
+        },
+        {
+          "level": 2,
+          "expFactor": 132,
+          "attrs": {
+            "talent": 2
+          }
+        },
+        {
+          "level": 3,
+          "expFactor": 145,
+          "attrs": {
+            "talent": 2
+          }
+        },
+        {
+          "level": 4,
+          "expFactor": 159,
+          "attrs": {
+            "talent": 2
+          }
+        },
+        {
+          "level": 5,
+          "expFactor": 174,
+          "attrs": {
+            "talent": 3
+          }
+        },
+        {
+          "level": 6,
+          "expFactor": 190,
+          "attrs": {
+            "talent": 3
+          }
+        },
+        {
+          "level": 7,
+          "expFactor": 207,
+          "attrs": {
+            "talent": 3
+          }
+        },
+        {
+          "level": 8,
+          "expFactor": 0,
+          "attrs": {
+            "talent": 4
+          }
+        }
+      ],
+      "realmLv": 5
+    },
+    {
+      "id": "dragon_elephant_bone",
+      "name": "贯脉镇骨功",
+      "grade": "yellow",
+      "skills": [],
+      "layers": [
+        {
+          "level": 1,
+          "expFactor": 126,
+          "attrs": {
+            "talent": 2
+          }
+        },
+        {
+          "level": 2,
+          "expFactor": 139,
+          "attrs": {
+            "talent": 2
+          }
+        },
+        {
+          "level": 3,
+          "expFactor": 153,
+          "attrs": {
+            "talent": 2
+          }
+        },
+        {
+          "level": 4,
+          "expFactor": 168,
+          "attrs": {
+            "talent": 3
+          }
+        },
+        {
+          "level": 5,
+          "expFactor": 184,
+          "attrs": {
+            "talent": 3
+          }
+        },
+        {
+          "level": 6,
+          "expFactor": 201,
+          "attrs": {
+            "talent": 3
+          }
+        },
+        {
+          "level": 7,
+          "expFactor": 219,
+          "attrs": {
+            "talent": 3
+          }
+        },
+        {
+          "level": 8,
+          "expFactor": 238,
+          "attrs": {
+            "talent": 4
+          }
+        },
+        {
+          "level": 9,
+          "expFactor": 0,
+          "attrs": {
+            "talent": 4
+          }
+        }
+      ],
+      "realmLv": 7
+    },
+    {
+      "id": "golden_lock_body",
+      "name": "悬脉固元功",
+      "grade": "yellow",
+      "skills": [],
+      "layers": [
+        {
+          "level": 1,
+          "expFactor": 132,
+          "attrs": {
+            "talent": 2
+          }
+        },
+        {
+          "level": 2,
+          "expFactor": 146,
+          "attrs": {
+            "talent": 2
+          }
+        },
+        {
+          "level": 3,
+          "expFactor": 161,
+          "attrs": {
+            "talent": 3
+          }
+        },
+        {
+          "level": 4,
+          "expFactor": 177,
+          "attrs": {
+            "talent": 3
+          }
+        },
+        {
+          "level": 5,
+          "expFactor": 194,
+          "attrs": {
+            "talent": 3
+          }
+        },
+        {
+          "level": 6,
+          "expFactor": 212,
+          "attrs": {
+            "talent": 3
+          }
+        },
+        {
+          "level": 7,
+          "expFactor": 231,
+          "attrs": {
+            "talent": 4
+          }
+        },
+        {
+          "level": 8,
+          "expFactor": 251,
+          "attrs": {
+            "talent": 4
+          }
+        },
+        {
+          "level": 9,
+          "expFactor": 272,
+          "attrs": {
+            "talent": 4
+          }
+        },
+        {
+          "level": 10,
+          "expFactor": 0,
+          "attrs": {
+            "talent": 5
+          }
+        }
+      ],
+      "realmLv": 9
+    },
+    {
+      "id": "mountain_insight_chart",
+      "name": "照身图",
+      "grade": "yellow",
+      "skills": [],
+      "layers": [
+        {
+          "level": 1,
+          "expFactor": 124,
+          "attrs": {
+            "comprehension": 2
+          }
+        },
+        {
+          "level": 2,
+          "expFactor": 137,
+          "attrs": {
+            "comprehension": 2
+          }
+        },
+        {
+          "level": 3,
+          "expFactor": 151,
+          "attrs": {
+            "comprehension": 2
+          }
+        },
+        {
+          "level": 4,
+          "expFactor": 166,
+          "attrs": {
+            "comprehension": 2
+          }
+        },
+        {
+          "level": 5,
+          "expFactor": 182,
+          "attrs": {
+            "comprehension": 3
+          }
+        },
+        {
+          "level": 6,
+          "expFactor": 199,
+          "attrs": {
+            "comprehension": 3
+          }
+        },
+        {
+          "level": 7,
+          "expFactor": 217,
+          "attrs": {
+            "comprehension": 3
+          }
+        },
+        {
+          "level": 8,
+          "expFactor": 0,
+          "attrs": {
+            "comprehension": 4
+          }
+        }
+      ],
+      "realmLv": 8
+    },
+    {
+      "id": "hundred_temper_body",
+      "name": "定势壮身功",
+      "grade": "yellow",
+      "skills": [],
+      "layers": [
+        {
+          "level": 1,
+          "expFactor": 138,
+          "attrs": {
+            "constitution": 2
+          }
+        },
+        {
+          "level": 2,
+          "expFactor": 152,
+          "attrs": {
+            "constitution": 2
+          }
+        },
+        {
+          "level": 3,
+          "expFactor": 167,
+          "attrs": {
+            "constitution": 2
+          }
+        },
+        {
+          "level": 4,
+          "expFactor": 183,
+          "attrs": {
+            "constitution": 3
+          }
+        },
+        {
+          "level": 5,
+          "expFactor": 200,
+          "attrs": {
+            "constitution": 3
+          }
+        },
+        {
+          "level": 6,
+          "expFactor": 218,
+          "attrs": {
+            "constitution": 3
+          }
+        },
+        {
+          "level": 7,
+          "expFactor": 237,
+          "attrs": {
+            "constitution": 4
+          }
+        },
+        {
+          "level": 8,
+          "expFactor": 257,
+          "attrs": {
+            "constitution": 4
+          }
+        },
+        {
+          "level": 9,
+          "expFactor": 278,
+          "attrs": {
+            "constitution": 4
+          }
+        },
+        {
+          "level": 10,
+          "expFactor": 0,
+          "attrs": {
+            "constitution": 5
+          }
+        }
+      ],
+      "realmLv": 10
+    },
+    {
+      "id": "cloudchase_steps",
+      "name": "分光步",
+      "grade": "yellow",
+      "skills": [
+        {
+          "id": "skill.cloudchase_breath",
+          "name": "轻身换气",
+          "desc": "先稳住一口气机再把身形放轻，之后很长一段时间里步点都会更顺。",
+          "cooldown": 200,
+          "costMultiplier": 1,
+          "range": 0,
+          "requiresTarget": false,
+          "effects": [
+            {
+              "type": "buff",
+              "target": "self",
+              "buffId": "buff.cloudchase_breath",
+              "name": "追云",
+              "desc": "换过一口气后身形转轻，较长时间内持续提高移速、闪避与出手节奏。",
+              "shortMark": "云",
+              "category": "buff",
+              "visibility": "public",
+              "color": "#9dc6c6",
+              "duration": 120,
+              "maxStacks": 4,
+              "valueStats": {
+                "moveSpeed": 16,
+                "dodge": 8,
+                "cooldownSpeed": 4
+              }
+            }
+          ],
+          "unlockLevel": 4
+        },
+        {
+          "id": "skill.borrowing_wind_turn",
+          "name": "收步回身",
+          "desc": "借回身把风势整段裹住，之后较长一段时间里动作都会更轻更快。",
+          "cooldown": 320,
+          "costMultiplier": 2,
+          "range": 0,
+          "requiresTarget": false,
+          "effects": [
+            {
+              "type": "buff",
+              "target": "self",
+              "buffId": "buff.borrowing_wind_turn",
+              "name": "借风",
+              "desc": "借风回身后，较长时间内进一步强化移速、闪避、暴击与冷却速度。",
+              "shortMark": "风",
+              "category": "buff",
+              "visibility": "public",
+              "color": "#88b7a9",
+              "duration": 100,
+              "maxStacks": 3,
+              "valueStats": {
+                "moveSpeed": 24,
+                "dodge": 12,
+                "crit": 6,
+                "cooldownSpeed": 6
+              }
+            }
+          ],
+          "unlockLevel": 8
+        }
+      ],
+      "layers": [
+        {
+          "level": 1,
+          "expFactor": 28,
+          "attrs": {
+            "perception": 3
+          }
+        },
+        {
+          "level": 2,
+          "expFactor": 31,
+          "attrs": {
+            "perception": 3
+          }
+        },
+        {
+          "level": 3,
+          "expFactor": 34,
+          "attrs": {
+            "perception": 3
+          }
+        },
+        {
+          "level": 4,
+          "expFactor": 38,
+          "attrs": {
+            "perception": 3
+          }
+        },
+        {
+          "level": 5,
+          "expFactor": 42,
+          "attrs": {
+            "perception": 4
+          }
+        },
+        {
+          "level": 6,
+          "expFactor": 46,
+          "attrs": {
+            "perception": 4
+          }
+        },
+        {
+          "level": 7,
+          "expFactor": 51,
+          "attrs": {
+            "perception": 4
+          }
+        },
+        {
+          "level": 8,
+          "expFactor": 57,
+          "attrs": {
+            "perception": 4
+          }
+        },
+        {
+          "level": 9,
+          "expFactor": 63,
+          "attrs": {
+            "perception": 5
+          }
+        },
+        {
+          "level": 10,
+          "expFactor": 0,
+          "attrs": {
+            "perception": 5
+          }
+        }
+      ],
+      "realmLv": 12
+    },
+    {
+      "id": "lightshadow_art",
+      "name": "折影提气诀",
+      "grade": "mystic",
+      "skills": [
+        {
+          "id": "skill.lightshadow_glide",
+          "name": "提气轻行",
+          "desc": "把灵力沉到脚下后整个人会轻得像贴地滑开，较长时间内都更难被抓准步点。",
+          "cooldown": 240,
+          "costMultiplier": 2,
+          "range": 0,
+          "requiresTarget": false,
+          "effects": [
+            {
+              "type": "buff",
+              "target": "self",
+              "buffId": "buff.lightshadow_glide",
+              "name": "浮光",
+              "desc": "提气成势后，较长时间内显著提高移速、闪避、暴击与冷却速度。",
+              "shortMark": "光",
+              "category": "buff",
+              "visibility": "public",
+              "color": "#c7d9f5",
+              "duration": 100,
+              "maxStacks": 4,
+              "valueStats": {
+                "moveSpeed": 24,
+                "dodge": 12,
+                "crit": 8,
+                "cooldownSpeed": 6
+              }
+            }
+          ],
+          "unlockLevel": 5
+        },
+        {
+          "id": "skill.shadowcross_flash",
+          "name": "急步闪身",
+          "desc": "把浮光整段拧成残影，之后一段时间里转折、闪避与追击都会明显提起来。",
+          "cooldown": 380,
+          "costMultiplier": 3,
+          "range": 0,
+          "requiresTarget": false,
+          "effects": [
+            {
+              "type": "buff",
+              "target": "self",
+              "buffId": "buff.shadowcross_flash",
+              "name": "掠影",
+              "desc": "化作残影后，一段时间内进一步拔高移速、闪避、暴击与冷却速度。",
+              "shortMark": "影",
+              "category": "buff",
+              "visibility": "public",
+              "color": "#b3c0ff",
+              "duration": 80,
+              "maxStacks": 3,
+              "valueStats": {
+                "moveSpeed": 32,
+                "dodge": 16,
+                "crit": 12,
+                "cooldownSpeed": 10
+              }
+            }
+          ],
+          "unlockLevel": 9
+        }
+      ],
+      "layers": [
+        {
+          "level": 1,
+          "expFactor": 52,
+          "attrs": {
+            "perception": 3
+          }
+        },
+        {
+          "level": 2,
+          "expFactor": 57,
+          "attrs": {
+            "perception": 3
+          }
+        },
+        {
+          "level": 3,
+          "expFactor": 63,
+          "attrs": {
+            "perception": 4
+          }
+        },
+        {
+          "level": 4,
+          "expFactor": 69,
+          "attrs": {
+            "perception": 4
+          }
+        },
+        {
+          "level": 5,
+          "expFactor": 76,
+          "attrs": {
+            "perception": 4
+          }
+        },
+        {
+          "level": 6,
+          "expFactor": 84,
+          "attrs": {
+            "perception": 5
+          }
+        },
+        {
+          "level": 7,
+          "expFactor": 93,
+          "attrs": {
+            "perception": 5
+          }
+        },
+        {
+          "level": 8,
+          "expFactor": 103,
+          "attrs": {
+            "perception": 5
+          }
+        },
+        {
+          "level": 9,
+          "expFactor": 114,
+          "attrs": {
+            "perception": 5
+          }
+        },
+        {
+          "level": 10,
+          "expFactor": 126,
+          "attrs": {
+            "perception": 6
+          }
+        },
+        {
+          "level": 11,
+          "expFactor": 139,
+          "attrs": {
+            "perception": 6
+          }
+        },
+        {
+          "level": 12,
+          "expFactor": 0,
+          "attrs": {
+            "perception": 6
+          }
+        }
+      ],
+      "realmLv": 16
     }
   ],
   "items": [
@@ -3809,7 +4476,7 @@
       ]
     },
     {
-      "itemId": "map.spawn",
+      "itemId": "map.yunlai_town",
       "name": "云来初境图",
       "type": "consumable",
       "desc": "描摹新手区域的基础地图。使用后可永久解锁云来初境的完整舆图。"
@@ -3910,6 +4577,48 @@
         "dodge": 3,
         "crit": 2
       }
+    },
+    {
+      "itemId": "book.bear_cauldron_art",
+      "name": "《沉骨担石功》",
+      "type": "skill_book",
+      "desc": "拿石锁压肩练出来的苦功，修来极慢，但根骨扎得稳。"
+    },
+    {
+      "itemId": "book.dragon_elephant_bone",
+      "name": "《贯脉镇骨功》",
+      "type": "skill_book",
+      "desc": "专门打磨骨架与经脉的炼体法门，主修根骨，路子很硬。"
+    },
+    {
+      "itemId": "book.golden_lock_body",
+      "name": "《悬脉固元功》",
+      "type": "skill_book",
+      "desc": "靠收束气血慢慢稳住筋骨经脉的苦功，偏重根骨。"
+    },
+    {
+      "itemId": "book.mountain_insight_chart",
+      "name": "《照身图》",
+      "type": "skill_book",
+      "desc": "边观呼吸边照着图谱调身的法子，偏重悟性。"
+    },
+    {
+      "itemId": "book.hundred_temper_body",
+      "name": "《定势壮身功》",
+      "type": "skill_book",
+      "desc": "把皮肉筋骨一遍遍熬出来的炼体功，胜在体魄长得实。"
+    },
+    {
+      "itemId": "book.cloudchase_steps",
+      "name": "《分光步》",
+      "type": "skill_book",
+      "desc": "一门讲究换气和步点的身法，擅长把移速滚成节奏。"
+    },
+    {
+      "itemId": "book.lightshadow_art",
+      "name": "《折影提气诀》",
+      "type": "skill_book",
+      "desc": "把一口气提到脚下的身法，讲究起落和折返都更快。"
     }
   ],
   "realmLevels": [

@@ -75,7 +75,7 @@
         "name": "铁骨崩拳",
         "desc": "以内劲震骨，出拳同时叠起护体罡劲，越打越硬。",
         "cooldown": 16,
-        "cost": 6,
+        "costMultiplier": 2,
         "range": 1,
         "effects": [
           {
@@ -140,7 +140,7 @@
         "name": "震罡怒吼",
         "desc": "鼓荡护体罡气轰开身前敌群，吼声散后自身罡劲反而更沉一层。",
         "cooldown": 36,
-        "cost": 10,
+        "costMultiplier": 3,
         "range": 2,
         "targeting": {
           "shape": "area",
@@ -209,6 +209,7 @@
         ],
         "unlockLevel": 4
       }
-    ]
+    ],
+    "realmLv": 12
   }
 ]

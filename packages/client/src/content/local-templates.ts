@@ -1,13 +1,34 @@
-import type { GmEditorItemOption, GmEditorTechniqueOption, ItemStack, SkillDef, TechniqueState } from '@mud/shared';
+import {
+  calculateTechniqueSkillQiCost,
+  deriveTechniqueRealm,
+  type GmEditorItemOption,
+  type GmEditorTechniqueOption,
+  type GmEditorRealmOption,
+  type ItemStack,
+  type SkillDef,
+  type TechniqueGrade,
+  type TechniqueState,
+} from '@mud/shared';
 import { LOCAL_EDITOR_CATALOG } from '../constants/world/editor-catalog';
 
 const itemTemplateMap = new Map(LOCAL_EDITOR_CATALOG.items.map((item) => [item.itemId, item] as const));
 const techniqueTemplateMap = new Map(LOCAL_EDITOR_CATALOG.techniques.map((technique) => [technique.id, technique] as const));
+const realmLevelMap = new Map(LOCAL_EDITOR_CATALOG.realmLevels.map((realm) => [realm.realmLv, realm] as const));
 const skillTemplateMap = new Map(
   LOCAL_EDITOR_CATALOG.techniques.flatMap((technique) =>
     (technique.skills ?? []).map((skill) => [skill.id, skill] as const),
   ),
 );
+const DEFAULT_TECHNIQUE_REALM_LEVEL_BY_GRADE: Record<TechniqueGrade, number> = {
+  mortal: 1,
+  yellow: 13,
+  mystic: 25,
+  earth: 37,
+  heaven: 49,
+  spirit: 61,
+  saint: 73,
+  emperor: 85,
+};
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -23,9 +44,27 @@ export function getLocalTechniqueTemplate(techId: string): GmEditorTechniqueOpti
   return template ? clone(template) : null;
 }
 
+export function getLocalRealmLevelEntry(realmLv: number | undefined): GmEditorRealmOption | null {
+  if (!Number.isFinite(realmLv)) {
+    return null;
+  }
+  const entry = realmLevelMap.get(Math.max(1, Math.floor(Number(realmLv))));
+  return entry ? clone(entry) : null;
+}
+
 export function getLocalSkillTemplate(skillId: string): SkillDef | null {
   const template = skillTemplateMap.get(skillId);
   return template ? clone(template) : null;
+}
+
+function resolveTechniqueRealmLevel(realmLv: number | undefined, grade: TechniqueGrade | undefined): number {
+  if (Number.isFinite(realmLv)) {
+    return Math.max(1, Math.floor(Number(realmLv)));
+  }
+  if (grade) {
+    return DEFAULT_TECHNIQUE_REALM_LEVEL_BY_GRADE[grade] ?? 1;
+  }
+  return 1;
 }
 
 export function resolvePreviewItem(item: ItemStack): ItemStack {
@@ -61,6 +100,7 @@ export function resolvePreviewSkill(skill: SkillDef): SkillDef {
     desc: skill.desc || template.desc,
     cooldown: skill.cooldown ?? template.cooldown,
     cost: skill.cost ?? template.cost,
+    costMultiplier: skill.costMultiplier ?? template.costMultiplier,
     range: skill.range ?? template.range,
     targeting: skill.targeting ?? template.targeting,
     effects: skill.effects?.length ? skill.effects : template.effects,
@@ -76,24 +116,62 @@ export function resolvePreviewSkills(skills: SkillDef[] | undefined): SkillDef[]
   return (skills ?? []).map((skill) => resolvePreviewSkill(skill));
 }
 
+function resolvePreviewTechniqueSkill(
+  skill: SkillDef,
+  techniqueGrade: TechniqueState['grade'],
+  techniqueRealmLv: number,
+  templateSkill?: SkillDef,
+): SkillDef {
+  const merged = resolvePreviewSkill({
+    ...(templateSkill ?? {}),
+    ...skill,
+  } as SkillDef);
+  const costMultiplier = merged.costMultiplier ?? templateSkill?.costMultiplier;
+  if (costMultiplier === undefined) {
+    return merged;
+  }
+  return {
+    ...merged,
+    costMultiplier,
+    cost: calculateTechniqueSkillQiCost(
+      costMultiplier,
+      techniqueGrade,
+      techniqueRealmLv,
+    ),
+  };
+}
+
 export function resolvePreviewTechnique(technique: TechniqueState): TechniqueState {
   const template = getLocalTechniqueTemplate(technique.techId);
   if (!template) {
     return {
       ...technique,
+      realmLv: resolveTechniqueRealmLevel(technique.realmLv, technique.grade),
+      realm: deriveTechniqueRealm(technique.level, technique.layers, technique.attrCurves),
       skills: resolvePreviewSkills(technique.skills),
     };
   }
+  const resolvedLayers = technique.layers && technique.layers.length > 0
+    ? technique.layers
+    : clone(template.layers ?? []);
+  const templateSkills = clone(template.skills ?? []);
+  const sourceSkills = technique.skills.length > 0 ? technique.skills : templateSkills;
+  const realmLv = resolveTechniqueRealmLevel(technique.realmLv, technique.grade ?? template.grade);
   return {
     ...technique,
     name: technique.name || template.name,
     grade: technique.grade ?? template.grade,
-    skills: technique.skills.length > 0
-      ? resolvePreviewSkills(technique.skills)
-      : clone(template.skills ?? []),
-    layers: technique.layers && technique.layers.length > 0
-      ? technique.layers
-      : clone(template.layers ?? []),
+    realmLv,
+    realm: deriveTechniqueRealm(technique.level, resolvedLayers, technique.attrCurves),
+    skills: sourceSkills.map((skill) => (
+      resolvePreviewTechniqueSkill(
+        skill,
+        technique.grade ?? template.grade,
+        realmLv,
+        templateSkills.find((entry) => entry.id === skill.id),
+      )
+    )),
+    layers: resolvedLayers,
   };
 }
 

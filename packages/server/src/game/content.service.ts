@@ -36,6 +36,7 @@ import {
   QI_FAMILY_KEYS,
   QI_FORM_KEYS,
   scaleTechniqueExp,
+  calculateTechniqueSkillQiCost,
   SkillDef,
   SkillEffectDef,
   SkillFormula,
@@ -43,6 +44,7 @@ import {
   TechniqueLayerDef,
   TechniqueRealm,
   TimePhaseId,
+  TECHNIQUE_GRADE_ORDER,
   inferMonsterValueStatsFromLegacy,
   resolveSkillUnlockLevel,
   resolveMonsterNumericStatsFromValueStats,
@@ -59,6 +61,7 @@ interface TechniqueTemplate {
   name: string;
   skills: SkillDef[];
   grade: TechniqueGrade;
+  realmLv: number;
   layers: TechniqueLayerDef[];
 }
 
@@ -71,6 +74,7 @@ export interface EditorTechniqueCatalogEntry {
   id: string;
   name: string;
   grade: TechniqueGrade;
+  realmLv: number;
   skills: SkillDef[];
   layers: TechniqueLayerDef[];
 }
@@ -128,8 +132,10 @@ export interface MonsterTemplate {
   drops: MonsterTemplateDrop[];
 }
 
-interface RawSkillDef extends Omit<SkillDef, 'unlockRealm' | 'unlockPlayerRealm' | 'effects'> {
+interface RawSkillDef extends Omit<SkillDef, 'unlockRealm' | 'unlockPlayerRealm' | 'effects' | 'cost'> {
   effects: unknown;
+  cost?: number;
+  costMultiplier?: number;
   unlockRealm?: keyof typeof TechniqueRealm | TechniqueRealm;
   unlockPlayerRealm?: keyof typeof PlayerRealmStage | PlayerRealmStage;
 }
@@ -165,6 +171,7 @@ interface RawTechniqueTemplate {
   id: string;
   name: string;
   grade: TechniqueGrade;
+  realmLv?: number;
   layers: RawTechniqueLayerDef[];
   skills: RawSkillDef[];
 }
@@ -338,45 +345,76 @@ export class ContentService implements OnModuleInit {
     this.monsters.clear();
     this.realmLevels.clear();
     this.breakthroughConfigs.clear();
+    this.loadRealmLevels();
     this.loadTechniques();
     this.loadItems();
     this.loadMonsters();
     this.loadStarterInventory();
-    this.loadRealmLevels();
     this.loadBreakthroughConfigs();
     this.logger.log(`内容已加载：功法 ${this.techniques.size} 条，物品 ${this.items.size} 条，怪物 ${this.monsters.size} 条，境界 ${this.realmLevels.size} 条，突破配置 ${this.breakthroughConfigs.size} 条`);
   }
 
   private loadTechniques(): void {
     for (const raw of this.readJsonEntries<RawTechniqueTemplate>(this.techniquesDir)) {
+      const layers = [...(raw.layers ?? [])]
+        .map((layer) => ({
+          ...layer,
+          attrs: this.normalizeTechniqueLayerAttrs(layer.attrs),
+          expToNext: layer.expFactor === undefined
+            ? Math.max(0, layer.expToNext ?? 0)
+            : scaleTechniqueExp(layer.expFactor, raw.grade),
+        }))
+        .sort((left, right) => left.level - right.level);
+      const realmLv = this.normalizeTechniqueRealmLevel(raw.realmLv, raw.grade);
       const technique: TechniqueTemplate = {
         id: raw.id,
         name: raw.name,
         grade: raw.grade,
-        layers: [...(raw.layers ?? [])]
-          .map((layer) => ({
-            ...layer,
-            attrs: this.normalizeTechniqueLayerAttrs(layer.attrs),
-            expToNext: layer.expFactor === undefined
-              ? Math.max(0, layer.expToNext ?? 0)
-              : scaleTechniqueExp(layer.expFactor, raw.grade),
-          }))
-          .sort((left, right) => left.level - right.level),
-        skills: raw.skills.map((skill) => ({
-          ...skill,
-          effects: this.normalizeSkillEffects(skill.effects),
-          unlockLevel: resolveSkillUnlockLevel({
+        realmLv,
+        layers,
+        skills: raw.skills.map((skill) => {
+          const unlockRealm = skill.unlockRealm === undefined ? undefined : this.parseTechniqueRealm(skill.unlockRealm);
+          const unlockLevel = resolveSkillUnlockLevel({
             unlockLevel: skill.unlockLevel,
-            unlockRealm: skill.unlockRealm === undefined ? undefined : this.parseTechniqueRealm(skill.unlockRealm),
-          }),
-          unlockRealm: skill.unlockRealm === undefined ? undefined : this.parseTechniqueRealm(skill.unlockRealm),
-          unlockPlayerRealm: skill.unlockPlayerRealm === undefined
-            ? undefined
-            : this.parsePlayerRealmStage(skill.unlockPlayerRealm),
-        })),
+            unlockRealm,
+          });
+          const costMultiplier = this.normalizeSkillCostMultiplier(skill);
+          return {
+            ...skill,
+            cost: calculateTechniqueSkillQiCost(
+              costMultiplier,
+              raw.grade,
+              realmLv,
+            ),
+            costMultiplier,
+            effects: this.normalizeSkillEffects(skill.effects),
+            unlockLevel,
+            unlockRealm,
+            unlockPlayerRealm: skill.unlockPlayerRealm === undefined
+              ? undefined
+              : this.parsePlayerRealmStage(skill.unlockPlayerRealm),
+          };
+        }),
       };
       this.techniques.set(technique.id, technique);
     }
+  }
+
+  private normalizeSkillCostMultiplier(skill: RawSkillDef): number {
+    const raw = skill.costMultiplier ?? skill.cost ?? 0;
+    return Number.isFinite(raw) ? Math.max(0, Number(raw)) : 0;
+  }
+
+  private normalizeTechniqueRealmLevel(realmLv: number | undefined, grade: TechniqueGrade): number {
+    if (Number.isFinite(realmLv)) {
+      return Math.max(1, Math.floor(Number(realmLv)));
+    }
+    const configured = this.realmLevelsConfig?.gradeBands.find((entry) => entry.grade === grade);
+    if (configured) {
+      return Math.max(1, configured.levelFrom);
+    }
+    const fallbackGradeIndex = Math.max(0, TECHNIQUE_GRADE_ORDER.indexOf(grade));
+    return fallbackGradeIndex * 12 + 1;
   }
 
   private normalizeTechniqueLayerAttrs(attrs: TechniqueLayerDef['attrs']): TechniqueLayerDef['attrs'] {
@@ -1054,6 +1092,7 @@ export class ContentService implements OnModuleInit {
         id: technique.id,
         name: technique.name,
         grade: technique.grade,
+        realmLv: technique.realmLv,
         skills: JSON.parse(JSON.stringify(technique.skills)) as SkillDef[],
         layers: JSON.parse(JSON.stringify(technique.layers)) as TechniqueLayerDef[],
       }))

@@ -3,7 +3,7 @@
  * 根据 SkillDef 和玩家上下文生成带公式预览的富文本提示内容
  */
 
-import { NumericScalarStatKey, SkillDef, SkillFormula, SkillFormulaVar, TemporaryBuffState, formatBuffMaxStacks } from '@mud/shared';
+import { NumericScalarStatKey, SkillDef, SkillFormula, SkillFormulaVar, TemporaryBuffState, calcQiCostWithOutputLimit, formatBuffMaxStacks } from '@mud/shared';
 import type { PlayerState } from '@mud/shared';
 import { FORMULA_VAR_LABELS, FORMULA_VAR_META, type SkillScalingMeta } from '../constants/ui/skill-tooltip';
 import { getElementKeyLabel } from '../domain-labels';
@@ -66,6 +66,20 @@ export interface SkillTooltipContent {
   asideCards: SkillTooltipAsideCard[];
 }
 
+export interface SkillPreviewMetrics {
+  actualDamage: number | null;
+  actualQiCost: number;
+  range: number;
+  targetCount: number;
+  cooldown: number;
+  hasPhysicalDamage: boolean;
+  hasSpellDamage: boolean;
+  isSingleTarget: boolean;
+  isAreaTarget: boolean;
+  isMelee: boolean;
+  isRanged: boolean;
+}
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -91,6 +105,23 @@ function renderLabelLine(label: string, value: string): string {
 
 function renderPlainLine(label: string, value: string): string {
   return renderLabelLine(label, escapeHtml(value));
+}
+
+function buildQiCostValue(cost: number, context: SkillTooltipPreviewContext): string {
+  const baseCost = escapeHtml(formatDisplayNumber(cost));
+  const maxQiOutputPerTick = context.player?.numericStats?.maxQiOutputPerTick;
+  if (maxQiOutputPerTick === undefined) {
+    return baseCost;
+  }
+
+  const actualCost = calcQiCostWithOutputLimit(cost, Math.max(0, maxQiOutputPerTick));
+  const actualText = Number.isFinite(actualCost)
+    ? formatDisplayNumber(Math.round(actualCost))
+    : '无法稳定施展';
+  const actualClassName = Number.isFinite(actualCost) && Math.round(actualCost) > Math.round(cost)
+    ? 'skill-tooltip-cost-actual is-overflow'
+    : 'skill-tooltip-cost-actual';
+  return `${baseCost}<span class="skill-tooltip-cost-actual-separator"> · </span><span class="${actualClassName}">实际 ${escapeHtml(actualText)}</span>`;
 }
 
 function describeBuffEffect(effect: Extract<SkillDef['effects'][number], { type: 'buff' }>): string[] {
@@ -507,6 +538,58 @@ function formatDamageFormula(formula: SkillFormula, context: SkillTooltipPreview
   return `<span class="skill-damage-total skill-damage-total-${damageKind}">${formatDisplayNumber(preview.resolved)}</span><span class="skill-formula-breakdown">（${preview.html}）</span>`;
 }
 
+export function summarizeSkillPreviewMetrics(skill: SkillDef, context: SkillTooltipPreviewContext = {}): SkillPreviewMetrics {
+  const previewSkill = resolvePreviewSkill(skill);
+  let totalDamage = 0;
+  let hasDamageEffect = false;
+  let hasUnknownDamage = false;
+  let hasPhysicalDamage = false;
+  let hasSpellDamage = false;
+
+  for (const effect of previewSkill.effects) {
+    if (effect.type !== 'damage') {
+      continue;
+    }
+    hasDamageEffect = true;
+    if (effect.damageKind === 'physical') {
+      hasPhysicalDamage = true;
+    } else {
+      hasSpellDamage = true;
+    }
+    const structured = extractStructuredDamagePreview(effect.formula, context);
+    const resolvedDamage = structured?.total ?? previewFormula(effect.formula, context).resolved;
+    if (resolvedDamage === null) {
+      hasUnknownDamage = true;
+      continue;
+    }
+    totalDamage += resolvedDamage;
+  }
+
+  const shape = previewSkill.targeting?.shape ?? 'single';
+  const targetCount = typeof previewSkill.targeting?.maxTargets === 'number' && previewSkill.targeting.maxTargets > 0
+    ? previewSkill.targeting.maxTargets
+    : shape === 'single'
+      ? 1
+      : 99;
+  const maxQiOutputPerTick = context.player?.numericStats?.maxQiOutputPerTick;
+
+  return {
+    actualDamage: hasDamageEffect && hasUnknownDamage ? null : totalDamage,
+    actualQiCost: maxQiOutputPerTick === undefined
+      ? previewSkill.cost
+      : calcQiCostWithOutputLimit(previewSkill.cost, Math.max(0, maxQiOutputPerTick)),
+    range: previewSkill.range,
+    targetCount,
+    cooldown: previewSkill.cooldown,
+    hasPhysicalDamage,
+    hasSpellDamage,
+    isSingleTarget: targetCount <= 1 && shape === 'single',
+    isAreaTarget: targetCount > 1 || shape !== 'single',
+    isMelee: previewSkill.range <= 1,
+    isRanged: previewSkill.range > 1,
+  };
+}
+
 function formatTargeting(skill: SkillDef): string {
   const shape = skill.targeting?.shape ?? 'single';
   if (shape === 'line') {
@@ -549,7 +632,7 @@ export function buildSkillTooltipContent(skill: SkillDef, context: SkillTooltipP
     }
     asideCards.push(buildBuffAsideCard(effect));
   }
-  lines.push(renderPlainLine('灵力消耗', formatDisplayNumber(previewSkill.cost)));
+  lines.push(renderLabelLine('灵力消耗', buildQiCostValue(previewSkill.cost, context)));
   lines.push(renderPlainLine('冷却', `${formatDisplayInteger(previewSkill.cooldown)} 息`));
   lines.push('<span class="skill-tooltip-note">实际结算仍会受命中、闪避、破招、化解、暴击与目标防御影响。</span>');
   return { lines, asideCards };

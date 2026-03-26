@@ -137,7 +137,7 @@
         "name": "惊雷掌",
         "desc": "雷势先蓄于掌，再借下一掌骤然炸开，越打越容易破招暴击。",
         "cooldown": 34,
-        "cost": 10,
+        "costMultiplier": 2,
         "range": 2,
         "targeting": {
           "shape": "line",
@@ -204,7 +204,7 @@
         "name": "奔雷贯心",
         "desc": "先以雷势逼出破绽，再把后继掌力整段贯进敌阵中央。",
         "cooldown": 42,
-        "cost": 13,
+        "costMultiplier": 3,
         "range": 3,
         "targeting": {
           "shape": "line",
@@ -252,6 +252,7 @@
         ],
         "unlockLevel": 7
       }
-    ]
+    ],
+    "realmLv": 14
   }
 ]

@@ -172,6 +172,7 @@ export class TechniqueService {
     name: string,
     skills: SkillDef[],
     grade?: TechniqueGrade,
+    realmLv = 1,
     layers?: TechniqueLayerDef[],
   ): string | null {
     this.initializePlayerProgression(player);
@@ -185,6 +186,7 @@ export class TechniqueService {
       level: 1,
       exp: 0,
       expToNext: getTechniqueExpToNext(1, layers),
+      realmLv,
       realm: deriveTechniqueRealm(1, layers),
       skills,
       grade,
@@ -1388,6 +1390,7 @@ export class TechniqueService {
       const previousExpToNext = Math.max(0, technique.expToNext);
       technique.name = template.name;
       technique.grade = template.grade;
+      technique.realmLv = template.realmLv;
       technique.layers = template.layers;
       technique.skills = template.skills;
       const maxLevel = getTechniqueMaxLevel(template.layers);

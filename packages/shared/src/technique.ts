@@ -6,6 +6,7 @@ import type {
   SkillDef,
   TechniqueAttrCurveSegment,
   TechniqueAttrCurves,
+  TechniqueGrade,
   TechniqueLayerDef,
   TechniqueRealm,
   TechniqueState,
@@ -16,6 +17,7 @@ import {
   TECHNIQUE_GRADE_ATTR_DECAY_K,
   TECHNIQUE_GRADE_ATTR_DECAY_SPANS,
   TECHNIQUE_GRADE_ATTR_FREE_LIMITS,
+  TECHNIQUE_GRADE_QI_COST_MULTIPLIERS,
   TECHNIQUE_GRADE_ORDER,
 } from './constants/gameplay/technique';
 
@@ -97,6 +99,11 @@ export function resolveSkillUnlockLevel(skill: Pick<SkillDef, 'unlockLevel' | 'u
   return 1;
 }
 
+/** 获取功法品阶对应的灵力消耗倍率 */
+export function getTechniqueGradeQiCostMultiplier(grade: TechniqueGrade | undefined): number {
+  return grade ? TECHNIQUE_GRADE_QI_COST_MULTIPLIERS[grade] ?? 1 : 1;
+}
+
 /** 根据当前层数推导功法境界（入门/小成/大成/圆满） */
 export function deriveTechniqueRealm(level: number, layers?: TechniqueLayerDef[], legacyCurves?: TechniqueAttrCurves): TechniqueRealm {
   const maxLevel = Math.max(1, getTechniqueMaxLevel(layers, level, legacyCurves));
@@ -105,6 +112,32 @@ export function deriveTechniqueRealm(level: number, layers?: TechniqueLayerDef[]
   if (progress >= 0.66) return TechniqueRealmEnum.Major;
   if (progress >= 0.33) return TechniqueRealmEnum.Minor;
   return TechniqueRealmEnum.Entry;
+}
+
+/** 解析技能所属的功法境界（优先技能显式 unlockRealm，其次按解锁层数推导） */
+export function resolveSkillTechniqueRealm(skill: Pick<SkillDef, 'unlockLevel' | 'unlockRealm'>, layers?: TechniqueLayerDef[]): TechniqueRealm {
+  if (typeof skill.unlockRealm === 'number') {
+    return skill.unlockRealm;
+  }
+  return deriveTechniqueRealm(resolveSkillUnlockLevel(skill), layers);
+}
+
+/** 按技能倍率、功法品阶与功法境界计算真实灵力消耗 */
+export function calculateTechniqueSkillQiCost(
+  costMultiplier: number,
+  grade: TechniqueGrade | undefined,
+  realmLv: number | undefined,
+): number {
+  const normalizedMultiplier = Number.isFinite(costMultiplier) ? Math.max(0, costMultiplier) : 0;
+  const normalizedRealmLv = Number.isFinite(realmLv) ? Math.max(1, Math.floor(realmLv ?? 1)) : 1;
+  return Math.max(
+    0,
+    Math.round(
+      normalizedMultiplier
+      * getTechniqueGradeQiCostMultiplier(grade)
+      * normalizedRealmLv,
+    ),
+  );
 }
 
 /** 计算功法在指定层数时累计提供的六维属性加成 */

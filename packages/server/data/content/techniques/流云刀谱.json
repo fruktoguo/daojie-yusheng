@@ -99,7 +99,7 @@
         "name": "流云断",
         "desc": "先以云势起刀，再以步伐藏锋，越灵动，下一式越难防。",
         "cooldown": 18,
-        "cost": 7,
+        "costMultiplier": 1,
         "range": 2,
         "targeting": {
           "shape": "line",
@@ -165,7 +165,7 @@
         "name": "踏隙斩",
         "desc": "借落脚一瞬切开空隙再斩，刀意未尽时身法会自然续成流云。",
         "cooldown": 24,
-        "cost": 8,
+        "costMultiplier": 2,
         "range": 2,
         "targeting": {
           "shape": "line",
@@ -235,7 +235,7 @@
         "name": "回龙转锋",
         "desc": "借流云余势转身再斩，步法越疾，回锋越狠。",
         "cooldown": 36,
-        "cost": 12,
+        "costMultiplier": 3,
         "range": 3,
         "targeting": {
           "shape": "area",
@@ -287,6 +287,7 @@
         ],
         "unlockLevel": 8
       }
-    ]
+    ],
+    "realmLv": 13
   }
 ]
