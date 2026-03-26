@@ -40,6 +40,8 @@ const ZERO_ELEMENT_STATS = {
   earth: 0,
 } as const;
 
+const FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR = 100;
+
 /** 默认玩家大境界。 */
 export const DEFAULT_PLAYER_REALM_STAGE = PlayerRealmStage.Mortal;
 
@@ -196,7 +198,13 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       resolvePower: 100,
       cooldownSpeed: 100,
       moveSpeed: 100,
-      elementDamageReduce: { ...ZERO_ELEMENT_STATS },
+      elementDamageReduce: {
+        metal: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        wood: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        water: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        fire: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        earth: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+      },
     },
   },
   [PlayerRealmStage.BodyTempering]: {
@@ -238,7 +246,13 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       resolvePower: 120,
       cooldownSpeed: 120,
       moveSpeed: 120,
-      elementDamageReduce: { metal: 120, wood: 120, water: 120, fire: 120, earth: 120 },
+      elementDamageReduce: {
+        metal: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        wood: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        water: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        fire: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        earth: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+      },
     },
   },
   [PlayerRealmStage.BoneForging]: {
@@ -280,7 +294,13 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       resolvePower: 150,
       cooldownSpeed: 150,
       moveSpeed: 150,
-      elementDamageReduce: { metal: 150, wood: 150, water: 150, fire: 150, earth: 150 },
+      elementDamageReduce: {
+        metal: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        wood: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        water: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        fire: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        earth: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+      },
     },
   },
   [PlayerRealmStage.Meridian]: {
@@ -322,7 +342,13 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       resolvePower: 190,
       cooldownSpeed: 190,
       moveSpeed: 190,
-      elementDamageReduce: { metal: 190, wood: 190, water: 190, fire: 190, earth: 190 },
+      elementDamageReduce: {
+        metal: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        wood: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        water: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        fire: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        earth: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+      },
     },
   },
   [PlayerRealmStage.Innate]: {
@@ -364,7 +390,13 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       resolvePower: 240,
       cooldownSpeed: 240,
       moveSpeed: 240,
-      elementDamageReduce: { metal: 240, wood: 240, water: 240, fire: 240, earth: 240 },
+      elementDamageReduce: {
+        metal: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        wood: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        water: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        fire: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        earth: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+      },
     },
   },
   [PlayerRealmStage.QiRefining]: {
@@ -406,7 +438,13 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       resolvePower: 300,
       cooldownSpeed: 300,
       moveSpeed: 300,
-      elementDamageReduce: { metal: 300, wood: 300, water: 300, fire: 300, earth: 300 },
+      elementDamageReduce: {
+        metal: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        wood: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        water: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        fire: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        earth: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+      },
     },
   },
   [PlayerRealmStage.Foundation]: {
@@ -448,7 +486,13 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       resolvePower: 380,
       cooldownSpeed: 380,
       moveSpeed: 380,
-      elementDamageReduce: { metal: 380, wood: 380, water: 380, fire: 380, earth: 380 },
+      elementDamageReduce: {
+        metal: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        wood: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        water: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        fire: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+        earth: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
+      },
     },
   },
 };
