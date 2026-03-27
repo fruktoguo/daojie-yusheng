@@ -87,6 +87,11 @@ export class MapRuntime implements MapRuntimeApi {
     this.syncViewportDerivedState(true);
   }
 
+  applyMapStaticSync(data: Parameters<MapRuntimeApi['applyMapStaticSync']>[0]): void {
+    this.store.applyMapStaticSync(data);
+    this.syncSceneFromStore();
+  }
+
   applyTick(data: Parameters<MapRuntimeApi['applyTick']>[0]): void {
     const previousMapId = this.store.getSnapshot().player?.mapId ?? null;
     for (const effect of data.fx ?? []) {

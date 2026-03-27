@@ -71,6 +71,7 @@ export class ActionPanel {
   private allowAoePlayerHit = false;
   private autoIdleCultivation = true;
   private autoSwitchCultivation = false;
+  private cultivationActive = false;
   private currentActions: ActionDef[] = [];
   private shortcutBindings = new Map<string, string>();
   private bindingActionId: string | null = null;
@@ -112,6 +113,7 @@ export class ActionPanel {
       this.allowAoePlayerHit = player.allowAoePlayerHit === true;
       this.autoIdleCultivation = player.autoIdleCultivation !== false;
       this.autoSwitchCultivation = player.autoSwitchCultivation === true;
+      this.cultivationActive = player.cultivationActive === true;
     }
     this.currentActions = this.withUtilityActions(actions);
     if (_autoBattle !== undefined) this.autoBattle = _autoBattle;
@@ -129,6 +131,7 @@ export class ActionPanel {
       this.allowAoePlayerHit = player.allowAoePlayerHit === true;
       this.autoIdleCultivation = player.autoIdleCultivation !== false;
       this.autoSwitchCultivation = player.autoSwitchCultivation === true;
+      this.cultivationActive = player.cultivationActive === true;
     }
     this.currentActions = this.withUtilityActions(actions);
     if (_autoBattle !== undefined) this.autoBattle = _autoBattle;
@@ -150,6 +153,7 @@ export class ActionPanel {
     this.allowAoePlayerHit = player.allowAoePlayerHit === true;
     this.autoIdleCultivation = player.autoIdleCultivation !== false;
     this.autoSwitchCultivation = player.autoSwitchCultivation === true;
+    this.cultivationActive = player.cultivationActive === true;
     this.render(this.currentActions);
     this.renderSkillManagementModalIfOpen();
   }
@@ -463,7 +467,7 @@ export class ActionPanel {
         if (!this.previewPlayer?.cultivatingTechId) {
           return { active: false, label: '未设' };
         }
-        return { active: action.name.includes('停止'), label: action.name.includes('停止') ? '开' : '关' };
+        return { active: this.cultivationActive, label: this.cultivationActive ? '开' : '关' };
       case 'sense_qi:toggle': {
         const active = this.previewPlayer?.senseQiActive === true;
         return { active, label: active ? '开' : '关' };

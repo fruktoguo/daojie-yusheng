@@ -52,12 +52,8 @@ import {
   C2S_RequestNpcShop,
   C2S_BuyNpcShopItem,
   C2S_HeavenGateAction,
-  ActionUpdateEntry,
   PlayerState,
-  S2C_ActionsUpdate,
-  S2C_AttrUpdate,
   S2C_Init,
-  S2C_InventoryUpdate,
   S2C_NpcShop,
   S2C_SystemMsg,
   S2C_Pong,
@@ -99,6 +95,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   server!: Server;
 
   private readonly logger = new Logger(GameGateway.name);
+  private readonly marketSubscriberPlayerIds = new Set<string>();
 
   constructor(
     private readonly authService: AuthService,
@@ -241,6 +238,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       allowAoePlayerHit: false,
       autoIdleCultivation: true,
       autoSwitchCultivation: false,
+      cultivationActive: false,
       idleTicks: 0,
       online: false,
       inWorld: true,
@@ -267,6 +265,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     const playerId = client.data?.playerId as string;
     if (!playerId) return;
     if (this.playerService.getSocket(playerId) !== client) return;
+    this.marketSubscriberPlayerIds.delete(playerId);
 
     const player = this.playerService.getPlayer(playerId);
     if (player) {
@@ -384,13 +383,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
     this.actionService.rebuildActions(player, this.worldService.getContextActions(player));
     await this.playerService.savePlayer(playerId);
-    client.emit(S2C.AttrUpdate, this.buildFullAttrUpdate(player) satisfies S2C_AttrUpdate);
-    client.emit(S2C.ActionsUpdate, this.buildFullActionsUpdate(player) satisfies S2C_ActionsUpdate);
-    if (result.dirty.includes('inv')) {
-      client.emit(S2C.InventoryUpdate, {
-        inventory: player.inventory,
-      } satisfies S2C_InventoryUpdate);
+    for (const flag of result.dirty) {
+      this.playerService.markDirty(player.id, flag);
     }
+    this.tickService.flushPlayerState(player);
     for (const message of result.messages) {
       client.emit(S2C.SystemMsg, {
         text: message.text,
@@ -615,54 +611,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     }
   }
 
-  /** 组装并下发玩家初始化数据包（自身状态、地图、视野、小地图等） */
-  private buildFullAttrUpdate(player: PlayerState): S2C_AttrUpdate {
-    return {
-      baseAttrs: player.baseAttrs,
-      bonuses: player.bonuses,
-      finalAttrs: player.finalAttrs ?? player.baseAttrs,
-      numericStats: player.numericStats,
-      ratioDivisors: player.ratioDivisors,
-      maxHp: player.maxHp,
-      qi: player.qi,
-      specialStats: {
-        foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
-        combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
-      },
-      boneAgeBaseYears: player.boneAgeBaseYears,
-      lifeElapsedTicks: player.lifeElapsedTicks,
-      lifespanYears: player.lifespanYears ?? null,
-      realm: player.realm ?? null,
-    };
-  }
-
-  private buildFullActionsUpdate(player: PlayerState): S2C_ActionsUpdate {
-    const actions: ActionUpdateEntry[] = player.actions.map((action) => ({
-      id: action.id,
-      cooldownLeft: action.cooldownLeft,
-      autoBattleEnabled: action.autoBattleEnabled ?? null,
-      autoBattleOrder: action.autoBattleOrder ?? null,
-      skillEnabled: action.skillEnabled ?? null,
-      name: action.name,
-      type: action.type,
-      desc: action.desc,
-      range: action.range ?? null,
-      requiresTarget: action.requiresTarget ?? null,
-      targetMode: action.targetMode ?? null,
-    }));
-    return {
-      actions,
-      actionOrder: player.actions.map((action) => action.id),
-      autoBattle: player.autoBattle,
-      autoRetaliate: player.autoRetaliate,
-      autoBattleStationary: player.autoBattleStationary,
-      allowAoePlayerHit: player.allowAoePlayerHit,
-      autoIdleCultivation: player.autoIdleCultivation,
-      autoSwitchCultivation: player.autoSwitchCultivation,
-      senseQiActive: player.senseQiActive,
-    };
-  }
-
   private sendInit(client: Socket, player: PlayerState) {
     const mapMeta = this.mapService.getMapMeta(player.mapId);
     if (!mapMeta) return;
@@ -689,7 +637,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     const visibleEntities = this.worldService.getVisibleEntities(player, visibility.visibleKeys);
 
     const initData: S2C_Init = {
-      self: player,
+      self: this.buildInitPlayerCore(player),
       mapMeta,
       minimap,
       visibleMinimapMarkers,
@@ -700,8 +648,42 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       auraLevelBaseValue: this.tickService.getAuraLevelBaseValue(),
     };
     client.emit(S2C.Init, initData);
+    for (const flag of ['attr', 'inv', 'equip', 'tech', 'actions', 'quest'] as const) {
+      this.playerService.markDirty(player.id, flag);
+    }
+    this.tickService.flushPlayerState(player);
     client.emit(S2C.SuggestionUpdate, { suggestions: this.suggestionService.getAll() });
-    client.emit(S2C.MarketUpdate, this.marketService.buildMarketUpdate(player));
+  }
+
+  private buildInitPlayerCore(player: PlayerState): PlayerState {
+    return {
+      ...player,
+      cultivationActive: this.techniqueService.hasCultivationBuff(player),
+      inventory: {
+        capacity: player.inventory.capacity,
+        items: [],
+      },
+      marketStorage: player.marketStorage
+        ? { items: [] }
+        : undefined,
+      equipment: {
+        weapon: null,
+        head: null,
+        body: null,
+        legs: null,
+        accessory: null,
+      },
+      techniques: [],
+      actions: [],
+      quests: [],
+      realm: undefined,
+      realmLv: undefined,
+      realmName: undefined,
+      realmStage: undefined,
+      realmReview: undefined,
+      breakthroughReady: undefined,
+      heavenGate: undefined,
+    };
   }
 
   @SubscribeMessage(C2S.RequestSuggestions)
@@ -779,6 +761,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
+    this.marketSubscriberPlayerIds.add(playerId);
     client.emit(S2C.MarketUpdate, this.marketService.buildMarketUpdate(player));
   }
 
@@ -877,7 +860,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   private broadcastMarketUpdates(): void {
-    for (const player of this.playerService.getAllPlayers()) {
+    for (const playerId of this.marketSubscriberPlayerIds) {
+      const player = this.playerService.getPlayer(playerId);
+      if (!player) {
+        this.marketSubscriberPlayerIds.delete(playerId);
+        continue;
+      }
       const socket = this.playerService.getSocket(player.id);
       if (!socket) {
         continue;

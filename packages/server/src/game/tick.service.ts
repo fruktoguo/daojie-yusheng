@@ -15,8 +15,13 @@ import {
   DEFAULT_PLAYER_MAP_ID,
   DEFAULT_OFFLINE_PLAYER_TIMEOUT_SEC,
   Direction,
+  EQUIP_SLOTS,
+  EquipmentSlots,
+  EquipmentSlotUpdateEntry,
   GroundItemPilePatch,
   GroundItemPileView,
+  Inventory,
+  ItemStack,
   MapMeta,
   MapMinimapMarker,
   MapRouteDomain,
@@ -31,12 +36,17 @@ import {
   S2C_AttrUpdate,
   S2C_EquipmentUpdate,
   S2C_InventoryUpdate,
+  InventorySlotUpdateEntry,
   S2C_LootWindowUpdate,
+  S2C_MapStaticSync,
   S2C_QuestNavigateResult,
   S2C_QuestUpdate,
+  S2C_RealmUpdate,
   S2C_SystemMsg,
   S2C_TechniqueUpdate,
   S2C_Tick,
+  SyncedInventorySnapshot,
+  SyncedItemStack,
   TechniqueState,
   TechniqueUpdateEntry,
   TemporaryBuffState,
@@ -101,6 +111,9 @@ interface ActionSyncStateEntry {
   desc: string;
   cooldownLeft: number;
   type: string;
+  range?: number;
+  requiresTarget?: boolean;
+  targetMode?: 'any' | 'entity' | 'tile';
   autoBattleEnabled?: boolean;
   autoBattleOrder?: number;
   skillEnabled?: boolean;
@@ -113,6 +126,7 @@ interface ActionPanelSyncState {
   allowAoePlayerHit: boolean;
   autoIdleCultivation: boolean;
   autoSwitchCultivation: boolean;
+  cultivationActive: boolean;
   senseQiActive: boolean;
 }
 
@@ -150,12 +164,16 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   private pausedMaps: Set<string> = new Set();
   private lastSentTickState: Map<string, LastSentTickState> = new Map();
   private lastSentAttrUpdates: Map<string, S2C_AttrUpdate> = new Map();
+  private lastSentRealmStates: Map<string, PlayerState['realm'] | null> = new Map();
   private lastSentSpecialStatsAt: Map<string, number> = new Map();
   private pendingSpecialStatsPlayers: Set<string> = new Set();
   private lastSentTechniqueStates: Map<string, Map<string, TechniqueState>> = new Map();
   private lastSentCultivatingTechIds: Map<string, string | null> = new Map();
-  private lastSentActionStates: Map<string, Map<string, ActionDef>> = new Map();
+  private lastSentActionStates: Map<string, Map<string, ActionSyncStateEntry>> = new Map();
   private lastSentActionPanelStates: Map<string, ActionPanelSyncState> = new Map();
+  private lastSentInventoryStates: Map<string, Inventory> = new Map();
+  private lastSentEquipmentStates: Map<string, EquipmentSlots> = new Map();
+  private cooldownOnlyActionDirtyPlayers: Set<string> = new Set();
   private lastSentGroundPiles: Map<string, Map<string, GroundItemPileView>> = new Map();
   private lastSentVisibleTiles: Map<string, Map<string, VisibleTile>> = new Map();
   private lastSentRenderEntities: Map<string, Map<string, RenderEntity>> = new Map();
@@ -197,17 +215,27 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
   /** 清除玩家的所有增量同步缓存（切图或重连时调用） */
   resetPlayerSyncState(playerId: string): void {
+    this.resetPlayerMapSyncState(playerId);
     this.lastSentTickState.delete(playerId);
     this.lastSentAttrUpdates.delete(playerId);
+    this.lastSentRealmStates.delete(playerId);
     this.lastSentSpecialStatsAt.delete(playerId);
     this.pendingSpecialStatsPlayers.delete(playerId);
     this.lastSentTechniqueStates.delete(playerId);
     this.lastSentCultivatingTechIds.delete(playerId);
     this.lastSentActionStates.delete(playerId);
     this.lastSentActionPanelStates.delete(playerId);
+    this.lastSentInventoryStates.delete(playerId);
+    this.lastSentEquipmentStates.delete(playerId);
+    this.cooldownOnlyActionDirtyPlayers.delete(playerId);
+  }
+
+  /** 切图时仅重置地图可见性与 AOI 相关缓存，避免面板差量缓存回退到整包 */
+  resetPlayerMapSyncState(playerId: string): void {
     this.lastSentGroundPiles.delete(playerId);
     this.lastSentVisibleTiles.delete(playerId);
     this.lastSentRenderEntities.delete(playerId);
+    this.lastSentTickState.delete(playerId);
   }
 
   async onModuleDestroy() {
@@ -239,6 +267,45 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
   getAuraLevelBaseValue(): number {
     return this.auraLevelBaseValue;
+  }
+
+  /** 在发送初始化快照后预热增量缓存，避免首个脏包再次回退到整包 */
+  primePlayerPanelSyncState(player: PlayerState): void {
+    const finalAttrs = this.attrService.getPlayerFinalAttrs(player);
+    const numericStats = this.attrService.getPlayerNumericStats(player);
+    const ratioDivisors = this.attrService.getPlayerRatioDivisors(player);
+    this.lastSentAttrUpdates.set(player.id, this.cloneStructured({
+      baseAttrs: player.baseAttrs,
+      bonuses: this.getAttrSyncBonuses(player),
+      finalAttrs,
+      numericStats,
+      ratioDivisors,
+      maxHp: player.maxHp,
+      qi: player.qi,
+      specialStats: {
+        foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
+        combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
+      },
+      boneAgeBaseYears: player.boneAgeBaseYears,
+      lifeElapsedTicks: player.lifeElapsedTicks,
+      lifespanYears: player.lifespanYears ?? null,
+      realmProgress: player.realm?.progress,
+      realmProgressToNext: player.realm?.progressToNext,
+      realmBreakthroughReady: player.realm?.breakthroughReady,
+    } satisfies S2C_AttrUpdate));
+    this.lastSentRealmStates.set(player.id, player.realm ? this.cloneStructured(player.realm) : null);
+    this.lastSentSpecialStatsAt.set(player.id, Date.now());
+    this.pendingSpecialStatsPlayers.delete(player.id);
+    this.lastSentInventoryStates.set(player.id, this.cloneStructured(player.inventory));
+    this.lastSentEquipmentStates.set(player.id, this.cloneStructured(player.equipment));
+    this.lastSentTechniqueStates.set(player.id, new Map(
+      player.techniques.map((technique) => [technique.techId, this.cloneStructured(technique)] as const),
+    ));
+    this.lastSentCultivatingTechIds.set(player.id, player.cultivatingTechId ?? null);
+    this.lastSentActionStates.set(player.id, new Map(
+      this.captureActionSyncState(player.actions).map((action) => [action.id, action] as const),
+    ));
+    this.lastSentActionPanelStates.set(player.id, this.captureActionPanelSyncState(player));
   }
 
   async reloadConfig(): Promise<void> {
@@ -471,12 +538,16 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   private resetAllSyncState(): void {
     this.lastSentTickState.clear();
     this.lastSentAttrUpdates.clear();
+    this.lastSentRealmStates.clear();
     this.lastSentSpecialStatsAt.clear();
     this.pendingSpecialStatsPlayers.clear();
     this.lastSentTechniqueStates.clear();
     this.lastSentCultivatingTechIds.clear();
     this.lastSentActionStates.clear();
     this.lastSentActionPanelStates.clear();
+    this.lastSentInventoryStates.clear();
+    this.lastSentEquipmentStates.clear();
+    this.cooldownOnlyActionDirtyPlayers.clear();
     this.lastSentGroundPiles.clear();
     this.lastSentVisibleTiles.clear();
     this.lastSentRenderEntities.clear();
@@ -549,7 +620,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
               player.autoBattle = false;
               player.combatTargetId = undefined;
               player.combatTargetLocked = false;
-              this.playerService.markDirty(player.id, 'actions');
+              this.markActionsDirty(player.id);
             }
             this.applyCultivationResult(player.id, this.techniqueService.interruptCultivation(player, 'move'), messages);
             const { d } = cmd.data as { d: Direction };
@@ -567,7 +638,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
               player.autoBattle = false;
               player.combatTargetId = undefined;
               player.combatTargetLocked = false;
-              this.playerService.markDirty(player.id, 'actions');
+              this.markActionsDirty(player.id);
             }
             this.applyCultivationResult(player.id, this.techniqueService.interruptCultivation(player, 'move'), messages);
             const {
@@ -604,7 +675,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
               player.autoBattle = false;
               player.combatTargetId = undefined;
               player.combatTargetLocked = false;
-              this.playerService.markDirty(player.id, 'actions');
+              this.markActionsDirty(player.id);
             }
           });
           break;
@@ -681,6 +752,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
             });
             break;
           }
+          this.syncActionsIfDirty(player, { skipQuestSync: true });
           const action = this.actionService.getAction(player, actionId);
           if (!action) {
             messages.push({ playerId: player.id, text: '行动不存在', kind: 'system' });
@@ -755,7 +827,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         this.timeService.syncPlayerTimeEffects(player, { advanceChronology: true })
       ));
       if (timeUpdate.changed) {
-        this.playerService.markDirty(player.id, 'actions');
+        this.markActionsDirty(player.id);
       }
       if (timeUpdate.chronologyDayChanged) {
         this.playerService.markDirty(player.id, 'attr');
@@ -838,7 +910,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       }
 
       if (this.measureCpuSection('state_cooldowns', '角色状态: 冷却推进', () => this.actionService.tickCooldowns(player))) {
-        this.playerService.markDirty(player.id, 'actions');
+        this.markActionCooldownDirty(player.id);
       }
 
       if (player.x !== startX || player.y !== startY) {
@@ -848,9 +920,6 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         }
       }
 
-      if (this.syncActions(player)) {
-        this.playerService.markDirty(player.id, 'actions');
-      }
     }
 
     const hpBeforeMonsterTick = new Map(mapPlayers.map((player) => [player.id, player.hp] as const));
@@ -862,7 +931,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (player?.isBot) {
         continue;
       }
-      this.playerService.markDirty(playerId, 'actions');
+      this.markActionsDirty(playerId);
       this.playerService.markDirty(playerId, 'attr');
     }
     for (const player of mapPlayers) {
@@ -875,9 +944,6 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       const player = this.playerService.getPlayer(playerId);
       if (!player || player.isBot) {
         continue;
-      }
-      if (this.syncActions(player, { skipQuestSync: true })) {
-        this.playerService.markDirty(player.id, 'actions');
       }
     }
 
@@ -1136,7 +1202,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     this.markDirty(playerId, update.dirty as DirtyFlag[]);
     for (const dirtyPlayerId of update.dirtyPlayers ?? []) {
       this.playerService.markDirty(dirtyPlayerId, 'attr');
-      this.playerService.markDirty(dirtyPlayerId, 'actions');
+      this.markActionsDirty(dirtyPlayerId);
     }
   }
 
@@ -1444,7 +1510,24 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
   private markDirty(playerId: string, flags: DirtyFlag[]) {
     for (const flag of flags) {
+      if (flag === 'actions') {
+        this.markActionsDirty(playerId);
+        continue;
+      }
       this.playerService.markDirty(playerId, flag);
+    }
+  }
+
+  private markActionsDirty(playerId: string): void {
+    this.cooldownOnlyActionDirtyPlayers.delete(playerId);
+    this.playerService.markDirty(playerId, 'actions');
+  }
+
+  private markActionCooldownDirty(playerId: string): void {
+    const flags = this.playerService.getDirtyFlags(playerId);
+    this.playerService.markDirty(playerId, 'actions');
+    if (!flags?.has('actions')) {
+      this.cooldownOnlyActionDirtyPlayers.add(playerId);
     }
   }
 
@@ -1479,6 +1562,17 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       this.captureActionSyncState(player.actions)
     ));
     return !isPlainEqual(before, after);
+  }
+
+  /**
+   * 只在 actions 已被标脏时才重建动作列表，避免每 tick 对所有玩家无条件重建。
+   */
+  private syncActionsIfDirty(player: PlayerState, options?: SyncActionsOptions): boolean {
+    const flags = this.playerService.getDirtyFlags(player.id);
+    if (!flags?.has('actions') || this.cooldownOnlyActionDirtyPlayers.has(player.id)) {
+      return false;
+    }
+    return this.syncActions(player, options);
   }
 
   /**
@@ -1612,7 +1706,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           this.applyCultivationResult(player.id, cultivation, messages);
           messages.push({ playerId: player.id, text: '你收束气机，取消了当前主修功法。', kind: 'quest' });
           this.playerService.markDirty(player.id, 'tech');
-          this.playerService.markDirty(player.id, 'actions');
+          this.markActionsDirty(player.id);
           break;
         }
 
@@ -1625,13 +1719,13 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         player.cultivatingTechId = techId;
         messages.push({ playerId: player.id, text: `你将 ${technique.name} 设为当前主修，修炼与战斗所得功法经验都会优先流入此法。`, kind: 'quest' });
         this.playerService.markDirty(player.id, 'tech');
-        this.playerService.markDirty(player.id, 'actions');
+        this.markActionsDirty(player.id);
         break;
       }
       case 'updateAutoBattleSkills': {
         const { skills } = data as { skills: AutoBattleSkillConfig[] };
         if (this.actionService.updateAutoBattleSkills(player, skills)) {
-          this.playerService.markDirty(player.id, 'actions');
+          this.markActionsDirty(player.id);
         }
         break;
       }
@@ -1683,6 +1777,13 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     const socket = this.playerService.getSocket(player.id);
     if (!socket) return;
 
+    if (flags.has('attr') || flags.has('inv') || flags.has('equip') || flags.has('tech')) {
+      const realmUpdate = this.buildRealmUpdate(player.id, player.realm ?? null);
+      if (realmUpdate) {
+        socket.emit(S2C.RealmUpdate, realmUpdate);
+      }
+    }
+
     if (flags.has('attr')) {
       this.measureCpuSection('state_sync_attr', '状态同步: 属性面板', () => {
         const finalAttrs = this.attrService.getPlayerFinalAttrs(player);
@@ -1703,7 +1804,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           boneAgeBaseYears: player.boneAgeBaseYears,
           lifeElapsedTicks: player.lifeElapsedTicks,
           lifespanYears: player.lifespanYears ?? null,
-          realm: player.realm,
+          realmProgress: player.realm?.progress,
+          realmProgressToNext: player.realm?.progressToNext,
+          realmBreakthroughReady: player.realm?.breakthroughReady,
         });
         if (update) {
           socket.emit(S2C.AttrUpdate, update);
@@ -1712,14 +1815,18 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
     if (flags.has('inv')) {
       this.measureCpuSection('state_sync_inventory', '状态同步: 背包与装备', () => {
-        const update: S2C_InventoryUpdate = { inventory: player.inventory };
-        socket.emit(S2C.InventoryUpdate, update);
+        const update = this.buildSparseInventoryUpdate(player.id, player.inventory);
+        if (update) {
+          socket.emit(S2C.InventoryUpdate, update);
+        }
       });
     }
     if (flags.has('equip')) {
       this.measureCpuSection('state_sync_inventory', '状态同步: 背包与装备', () => {
-        const update: S2C_EquipmentUpdate = { equipment: player.equipment };
-        socket.emit(S2C.EquipmentUpdate, update);
+        const update = this.buildSparseEquipmentUpdate(player.id, player.equipment);
+        if (update) {
+          socket.emit(S2C.EquipmentUpdate, update);
+        }
       });
     }
     if (flags.has('tech')) {
@@ -1731,6 +1838,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       });
     }
     if (flags.has('actions')) {
+      this.syncActionsIfDirty(player, { skipQuestSync: true });
       this.measureCpuSection('state_sync_actions', '状态同步: 动作面板', () => {
         const update = this.buildSparseActionsUpdate(player);
         if (update) {
@@ -1754,6 +1862,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
 
     this.playerService.clearDirtyFlags(player.id);
+    this.cooldownOnlyActionDirtyPlayers.delete(player.id);
   }
 
   /** 即时推送指定玩家的系统消息 */
@@ -1876,7 +1985,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       const pathVersion = this.navigationService.getPathVersion(viewer.id);
       const mapChanged = previous?.mapId !== viewer.mapId;
       if (mapChanged) {
-        this.resetPlayerSyncState(viewer.id);
+        this.resetPlayerMapSyncState(viewer.id);
         previous = undefined;
       }
       const visibilityKey = this.buildVisibilityKey(viewer, time.effectiveViewRange);
@@ -1945,6 +2054,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         p: playerPatches,
         e: entityPatches,
       };
+      const mapStaticData: S2C_MapStaticSync = {
+        mapId: viewer.mapId,
+      };
       if (effectPatches.length > 0) {
         tickData.fx = effectPatches;
       }
@@ -1975,29 +2087,29 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         tickData.v = clientVisibleTiles;
       }
       if (forceSync || mapChanged || !previous) {
-        tickData.visibleMinimapMarkers = visibleMinimapMarkers;
+        mapStaticData.visibleMinimapMarkers = visibleMinimapMarkers;
       } else if (visibilityChanged) {
         const visibleMinimapMarkerPatch = this.buildSparseVisibleMinimapMarkerPatch(previous.visibleMinimapMarkers, visibleMinimapMarkers);
         if (visibleMinimapMarkerPatch.adds.length > 0) {
-          tickData.visibleMinimapMarkerAdds = visibleMinimapMarkerPatch.adds;
+          mapStaticData.visibleMinimapMarkerAdds = visibleMinimapMarkerPatch.adds;
         }
         if (visibleMinimapMarkerPatch.removes.length > 0) {
-          tickData.visibleMinimapMarkerRemoves = visibleMinimapMarkerPatch.removes;
+          mapStaticData.visibleMinimapMarkerRemoves = visibleMinimapMarkerPatch.removes;
         }
       }
       if (mapChanged) {
         tickData.m = viewer.mapId;
       }
       if (mapChanged || !previous || !this.isStructuredEqual(previous.mapMeta, mapMeta)) {
-        tickData.mapMeta = mapMeta;
+        mapStaticData.mapMeta = mapMeta;
       }
       if (mapChanged || previous?.minimapSignature !== minimapSignature) {
-        tickData.minimap = unlockedMinimapIds.includes(viewer.mapId)
+        mapStaticData.minimap = unlockedMinimapIds.includes(viewer.mapId)
           ? this.mapService.getMinimapSnapshot(viewer.mapId)
           : undefined;
       }
       if (mapChanged || previous?.minimapLibrarySignature !== minimapLibrarySignature) {
-        tickData.minimapLibrary = this.mapService.getMinimapArchiveEntries(unlockedMinimapIds);
+        mapStaticData.minimapLibrary = this.mapService.getMinimapArchiveEntries(unlockedMinimapIds);
       }
       if (!previous || previous.hp !== viewer.hp) {
         tickData.hp = viewer.hp;
@@ -2017,13 +2129,20 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (forceSync || mapChanged || !previous || !this.isStructuredEqual(previous.timeState, time)) {
         tickData.time = time;
       }
-      if (!this.hasTickPayloadChanges(tickData)) {
+      const hasTickChanges = this.hasTickPayloadChanges(tickData);
+      const hasMapStaticChanges = this.hasMapStaticSyncChanges(mapStaticData);
+      if (!hasTickChanges && !hasMapStaticChanges) {
         continue;
       }
-      tickData.dt = dt;
 
       this.measureCpuSection('broadcast_emit', '广播: Socket 发送', () => {
-        socket.emit(S2C.Tick, tickData);
+        if (hasTickChanges) {
+          tickData.dt = dt;
+          socket.emit(S2C.Tick, tickData);
+        }
+        if (hasMapStaticChanges) {
+          socket.emit(S2C.MapStaticSync, mapStaticData);
+        }
       });
       this.lastSentTickState.set(viewer.id, {
         mapId: viewer.mapId,
@@ -2057,17 +2176,20 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       || data.v !== undefined
       || data.time !== undefined
       || data.m !== undefined
-      || data.mapMeta !== undefined
-      || 'minimap' in data
-      || data.visibleMinimapMarkers !== undefined
-      || (data.visibleMinimapMarkerAdds?.length ?? 0) > 0
-      || (data.visibleMinimapMarkerRemoves?.length ?? 0) > 0
-      || data.minimapLibrary !== undefined
       || data.hp !== undefined
       || data.qi !== undefined
       || data.f !== undefined
       || data.auraLevelBaseValue !== undefined
       || data.path !== undefined;
+  }
+
+  private hasMapStaticSyncChanges(data: S2C_MapStaticSync): boolean {
+    return data.mapMeta !== undefined
+      || 'minimap' in data
+      || data.minimapLibrary !== undefined
+      || data.visibleMinimapMarkers !== undefined
+      || (data.visibleMinimapMarkerAdds?.length ?? 0) > 0
+      || (data.visibleMinimapMarkerRemoves?.length ?? 0) > 0;
   }
 
   private toClientVisibleTiles(viewer: PlayerState, tiles: VisibleTile[][]): VisibleTile[][] {
@@ -2087,16 +2209,23 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   private captureActionSyncState(actions: ActionDef[]): ActionSyncStateEntry[] {
-    return actions.map((action) => ({
+    return actions.map((action) => this.captureSingleActionSyncState(action));
+  }
+
+  private captureSingleActionSyncState(action: ActionDef): ActionSyncStateEntry {
+    return {
       id: action.id,
       name: action.name,
       desc: action.desc,
       cooldownLeft: action.cooldownLeft,
       type: action.type,
+      range: action.range,
+      requiresTarget: action.requiresTarget,
+      targetMode: action.targetMode,
       autoBattleEnabled: action.autoBattleEnabled,
       autoBattleOrder: action.autoBattleOrder,
       skillEnabled: action.skillEnabled,
-    }));
+    };
   }
 
   private captureActionPanelSyncState(player: PlayerState): ActionPanelSyncState {
@@ -2107,6 +2236,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       allowAoePlayerHit: player.allowAoePlayerHit === true,
       autoIdleCultivation: player.autoIdleCultivation !== false,
       autoSwitchCultivation: player.autoSwitchCultivation === true,
+      cultivationActive: this.techniqueService.hasCultivationBuff(player),
       senseQiActive: player.senseQiActive === true,
     };
   }
@@ -2149,8 +2279,72 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       : null;
   }
 
+  /** 构建背包增量包，仅发送与上次不同的槽位 */
+  private buildSparseInventoryUpdate(playerId: string, nextInventory: Inventory): S2C_InventoryUpdate | null {
+    const previous = this.lastSentInventoryStates.get(playerId);
+    const cachedInventory = this.cloneStructured(nextInventory);
+    if (!previous) {
+      this.lastSentInventoryStates.set(playerId, cachedInventory);
+      return { inventory: this.toSyncedInventorySnapshot(nextInventory) };
+    }
+
+    const slots: InventorySlotUpdateEntry[] = [];
+    const sharedLength = Math.max(previous.items.length, nextInventory.items.length);
+    for (let slotIndex = 0; slotIndex < sharedLength; slotIndex += 1) {
+      const previousItem = previous.items[slotIndex];
+      const nextItem = nextInventory.items[slotIndex];
+      if (this.isStructuredEqual(previousItem, nextItem)) {
+        continue;
+      }
+      slots.push({
+        slotIndex,
+        item: nextItem ? this.toSyncedItemStack(nextItem) : null,
+      });
+    }
+
+    const update: S2C_InventoryUpdate = {};
+    if (previous.capacity !== nextInventory.capacity) {
+      update.capacity = nextInventory.capacity;
+    }
+    if (previous.items.length !== nextInventory.items.length) {
+      update.size = nextInventory.items.length;
+    }
+    if (slots.length > 0) {
+      update.slots = slots;
+    }
+
+    this.lastSentInventoryStates.set(playerId, cachedInventory);
+    return update.capacity !== undefined || update.size !== undefined || update.slots !== undefined
+      ? update
+      : null;
+  }
+
+  /** 构建装备增量包，仅发送变化的槽位 */
+  private buildSparseEquipmentUpdate(playerId: string, nextEquipment: EquipmentSlots): S2C_EquipmentUpdate | null {
+    const previous = this.lastSentEquipmentStates.get(playerId);
+    const cachedEquipment = this.cloneStructured(nextEquipment);
+    const slots: EquipmentSlotUpdateEntry[] = [];
+
+    for (const slot of EQUIP_SLOTS) {
+      const previousItem = previous?.[slot];
+      const nextItem = nextEquipment[slot];
+      if (previous && this.isStructuredEqual(previousItem, nextItem)) {
+        continue;
+      }
+      slots.push({
+        slot,
+        item: nextItem ? this.toSyncedItemStack(nextItem, 1) : null,
+      });
+    }
+
+    this.lastSentEquipmentStates.set(playerId, cachedEquipment);
+    return slots.length > 0 ? { slots } : null;
+  }
+
   private buildSparseActionsUpdate(player: PlayerState): S2C_ActionsUpdate | null {
-    const actionPatch = this.buildSparseActionStates(player.id, player.actions);
+    const actionPatch = this.cooldownOnlyActionDirtyPlayers.has(player.id)
+      ? (this.buildCooldownOnlyActionStates(player.id, player.actions) ?? this.buildSparseActionStates(player.id, player.actions))
+      : this.buildSparseActionStates(player.id, player.actions);
     const previousPanelState = this.lastSentActionPanelStates.get(player.id);
     const nextPanelState = this.captureActionPanelSyncState(player);
     const update: S2C_ActionsUpdate = {
@@ -2180,6 +2374,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     if (!previousPanelState || previousPanelState.autoSwitchCultivation !== nextPanelState.autoSwitchCultivation) {
       update.autoSwitchCultivation = nextPanelState.autoSwitchCultivation;
     }
+    if (!previousPanelState || previousPanelState.cultivationActive !== nextPanelState.cultivationActive) {
+      update.cultivationActive = nextPanelState.cultivationActive;
+    }
     if (!previousPanelState || previousPanelState.senseQiActive !== nextPanelState.senseQiActive) {
       update.senseQiActive = nextPanelState.senseQiActive;
     }
@@ -2193,6 +2390,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       || update.allowAoePlayerHit !== undefined
       || update.autoIdleCultivation !== undefined
       || update.autoSwitchCultivation !== undefined
+      || update.cultivationActive !== undefined
       || update.senseQiActive !== undefined
       ? update
       : null;
@@ -2247,38 +2445,30 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     if (!previous || previous.lifespanYears !== nextState.lifespanYears) {
       patch.lifespanYears = nextState.lifespanYears;
     }
-    if (!previous) {
-      patch.realm = nextState.realm ? this.cloneStructured(nextState.realm) : null;
-    } else if (!previous.realm || !nextState.realm) {
-      if (!this.isStructuredEqual(previous.realm, nextState.realm)) {
-        patch.realm = nextState.realm ? this.cloneStructured(nextState.realm) : null;
-      }
-    } else if (!this.isStructuredEqual(this.captureRealmStaticSyncState(previous.realm), this.captureRealmStaticSyncState(nextState.realm))) {
-      patch.realm = nextState.realm ? this.cloneStructured(nextState.realm) : null;
-    } else {
-      if (previous.realm.progress !== nextState.realm.progress) {
-        patch.realmProgress = nextState.realm.progress;
-      }
-      if (previous.realm.progressToNext !== nextState.realm.progressToNext) {
-        patch.realmProgressToNext = nextState.realm.progressToNext;
-      }
-      if (previous.realm.breakthroughReady !== nextState.realm.breakthroughReady) {
-        patch.realmBreakthroughReady = nextState.realm.breakthroughReady;
-      }
+    if (!previous || previous.realmProgress !== nextState.realmProgress) {
+      patch.realmProgress = nextState.realmProgress;
+    }
+    if (!previous || previous.realmProgressToNext !== nextState.realmProgressToNext) {
+      patch.realmProgressToNext = nextState.realmProgressToNext;
+    }
+    if (!previous || previous.realmBreakthroughReady !== nextState.realmBreakthroughReady) {
+      patch.realmBreakthroughReady = nextState.realmBreakthroughReady;
     }
 
     this.lastSentAttrUpdates.set(playerId, cachedState);
     return Object.keys(patch).length > 0 ? patch : null;
   }
 
-  private captureRealmStaticSyncState(realm: NonNullable<S2C_AttrUpdate['realm']>) {
-    const {
-      progress: _progress,
-      progressToNext: _progressToNext,
-      breakthroughReady: _breakthroughReady,
-      ...staticState
-    } = realm;
-    return staticState;
+  private buildRealmUpdate(playerId: string, nextRealm: PlayerState['realm'] | null): S2C_RealmUpdate | null {
+    const previousRealm = this.lastSentRealmStates.get(playerId);
+    if (this.isStructuredEqual(previousRealm, nextRealm ?? null)) {
+      return null;
+    }
+    const cachedRealm = nextRealm ? this.cloneStructured(nextRealm) : null;
+    this.lastSentRealmStates.set(playerId, cachedRealm);
+    return {
+      realm: cachedRealm,
+    };
   }
 
   private shouldFlushPendingSpecialStats(playerId: string): boolean {
@@ -2306,20 +2496,23 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     for (const technique of techniques) {
       const previous = cache!.get(technique.techId);
       const patch: TechniqueUpdateEntry = { techId: technique.techId };
+      const knownTechnique = this.contentService.getTechnique(technique.techId);
 
       if (!previous || previous.level !== technique.level) patch.level = technique.level;
       if (!previous || previous.exp !== technique.exp) patch.exp = technique.exp;
       if (!previous || previous.expToNext !== technique.expToNext) patch.expToNext = technique.expToNext;
       if (!previous || previous.realmLv !== technique.realmLv) patch.realmLv = technique.realmLv;
       if (!previous || previous.realm !== technique.realm) patch.realm = technique.realm;
-      if (!previous || previous.name !== technique.name) patch.name = technique.name ?? null;
-      if (!previous || previous.grade !== technique.grade) patch.grade = technique.grade ?? null;
-      if (!previous || previous.category !== technique.category) patch.category = technique.category ?? null;
-      if (!previous || !this.isStructuredEqual(previous.skills, technique.skills)) {
-        patch.skills = technique.skills ? this.cloneStructured(technique.skills) : null;
-      }
-      if (!previous || !this.isStructuredEqual(previous.layers, technique.layers)) {
-        patch.layers = technique.layers ? this.cloneStructured(technique.layers) : null;
+      if (!knownTechnique) {
+        if (!previous || previous.name !== technique.name) patch.name = technique.name ?? null;
+        if (!previous || previous.grade !== technique.grade) patch.grade = technique.grade ?? null;
+        if (!previous || previous.category !== technique.category) patch.category = technique.category ?? null;
+        if (!previous || !this.isStructuredEqual(previous.skills, technique.skills)) {
+          patch.skills = technique.skills ? this.cloneStructured(technique.skills) : null;
+        }
+        if (!previous || !this.isStructuredEqual(previous.layers, technique.layers)) {
+          patch.layers = technique.layers ? this.cloneStructured(technique.layers) : null;
+        }
       }
       if (!previous || !this.isStructuredEqual(previous.attrCurves, technique.attrCurves)) {
         patch.attrCurves = technique.attrCurves ? this.cloneStructured(technique.attrCurves) : null;
@@ -2353,11 +2546,12 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       this.lastSentActionStates.set(playerId, cache);
     }
 
-    const nextCache = new Map<string, ActionDef>();
+    const nextCache = new Map<string, ActionSyncStateEntry>();
     const patches: ActionUpdateEntry[] = [];
     for (const action of actions) {
       const previous = cache!.get(action.id);
       const patch: ActionUpdateEntry = { id: action.id };
+      const knownSkillAction = action.type === 'skill' && Boolean(this.contentService.getSkill(action.id));
 
       if (!previous || previous.cooldownLeft !== action.cooldownLeft) {
         patch.cooldownLeft = action.cooldownLeft;
@@ -2372,18 +2566,24 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (!previous || previous.skillEnabled !== action.skillEnabled) {
         patch.skillEnabled = action.skillEnabled ?? null;
       }
-      if (!previous || previous.name !== action.name) patch.name = action.name ?? null;
-      if (!previous || previous.type !== action.type) patch.type = action.type ?? null;
-      if (!previous || previous.desc !== action.desc) patch.desc = action.desc ?? null;
-      if (!previous || previous.range !== action.range) patch.range = action.range ?? null;
-      if (!previous || previous.requiresTarget !== action.requiresTarget) {
-        patch.requiresTarget = action.requiresTarget ?? null;
-      }
-      if (!previous || previous.targetMode !== action.targetMode) {
-        patch.targetMode = action.targetMode ?? null;
+      if (knownSkillAction) {
+        if (!previous || previous.type !== action.type) {
+          patch.type = action.type ?? null;
+        }
+      } else {
+        if (!previous || previous.name !== action.name) patch.name = action.name ?? null;
+        if (!previous || previous.type !== action.type) patch.type = action.type ?? null;
+        if (!previous || previous.desc !== action.desc) patch.desc = action.desc ?? null;
+        if (!previous || previous.range !== action.range) patch.range = action.range ?? null;
+        if (!previous || previous.requiresTarget !== action.requiresTarget) {
+          patch.requiresTarget = action.requiresTarget ?? null;
+        }
+        if (!previous || previous.targetMode !== action.targetMode) {
+          patch.targetMode = action.targetMode ?? null;
+        }
       }
 
-      nextCache.set(action.id, this.cloneStructured(action));
+      nextCache.set(action.id, this.captureSingleActionSyncState(action));
       if (Object.keys(patch).length > 1) {
         patches.push(patch);
       }
@@ -2403,6 +2603,85 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       patches,
       removeActionIds,
       actionOrder: this.isStructuredEqual(previousOrder, nextOrder) ? undefined : nextOrder,
+    };
+  }
+
+  /**
+   * 纯冷却推进时仅同步 cooldownLeft，避免扫描/比较动作静态字段。
+   * 若缓存缺失或动作集合发生变化，则回退到完整 diff。
+   */
+  private buildCooldownOnlyActionStates(
+    playerId: string,
+    actions: ActionDef[],
+  ): { patches: ActionUpdateEntry[]; removeActionIds: string[]; actionOrder?: string[] } | null {
+    const cache = this.lastSentActionStates.get(playerId);
+    if (!cache || cache.size !== actions.length) {
+      return null;
+    }
+
+    const nextCache = new Map<string, ActionSyncStateEntry>();
+    const patches: ActionUpdateEntry[] = [];
+    for (const action of actions) {
+      const previous = cache.get(action.id);
+      if (!previous) {
+        return null;
+      }
+      if (previous.cooldownLeft !== action.cooldownLeft) {
+        patches.push({
+          id: action.id,
+          cooldownLeft: action.cooldownLeft,
+        });
+      }
+      nextCache.set(action.id, {
+        ...previous,
+        cooldownLeft: action.cooldownLeft,
+      });
+    }
+
+    this.lastSentActionStates.set(playerId, nextCache);
+    return {
+      patches,
+      removeActionIds: [],
+    };
+  }
+
+  private toSyncedInventorySnapshot(inventory: Inventory): SyncedInventorySnapshot {
+    return {
+      capacity: inventory.capacity,
+      items: inventory.items.map((item) => this.toSyncedItemStack(item)),
+    };
+  }
+
+  private toSyncedItemStack(item: ItemStack, countOverride?: number): SyncedItemStack {
+    const rawCount = typeof countOverride === 'number' ? countOverride : item.count;
+    const count = Math.max(1, Math.floor(rawCount));
+    if (this.contentService.getItem(item.itemId)) {
+      return {
+        itemId: item.itemId,
+        count,
+        mapUnlockId: item.mapUnlockId,
+        tileAuraGainAmount: item.tileAuraGainAmount,
+        allowBatchUse: item.allowBatchUse,
+      };
+    }
+    return {
+      itemId: item.itemId,
+      count,
+      name: item.name,
+      type: item.type,
+      desc: item.desc,
+      groundLabel: item.groundLabel,
+      grade: item.grade,
+      level: item.level,
+      equipSlot: item.equipSlot,
+      equipAttrs: item.equipAttrs ? this.cloneStructured(item.equipAttrs) : undefined,
+      equipStats: item.equipStats ? this.cloneStructured(item.equipStats) : undefined,
+      equipValueStats: item.equipValueStats ? this.cloneStructured(item.equipValueStats) : undefined,
+      effects: item.effects ? this.cloneStructured(item.effects) : undefined,
+      tags: item.tags ? [...item.tags] : undefined,
+      mapUnlockId: item.mapUnlockId,
+      tileAuraGainAmount: item.tileAuraGainAmount,
+      allowBatchUse: item.allowBatchUse,
     };
   }
 

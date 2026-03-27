@@ -455,19 +455,33 @@ export class QuestPanel {
 
   private resolveNextStep(quest: QuestState): string {
     if (quest.status === 'ready') {
-      return `前往 ${quest.submitNpcName ?? quest.giverName} 交付任务`;
+      const submitLabel = quest.submitNpcName ?? quest.giverName;
+      const submitLocation = this.formatQuestLocation(quest.submitMapName ?? quest.giverMapName, quest.submitX ?? quest.giverX, quest.submitY ?? quest.giverY);
+      return submitLocation !== '未设置'
+        ? `前往 ${submitLocation} 找 ${submitLabel} 交付任务`
+        : `前往 ${submitLabel} 交付任务`;
     }
     if (quest.status === 'completed') {
       return '任务已结清';
     }
     if (quest.status === 'available') {
-      return `前往 ${quest.giverName} 接取任务`;
+      const giverLocation = this.formatQuestLocation(quest.giverMapName, quest.giverX, quest.giverY);
+      return giverLocation !== '未设置'
+        ? `前往 ${giverLocation} 找 ${quest.giverName} 接取任务`
+        : `前往 ${quest.giverName} 接取任务`;
     }
     if (quest.objectiveType === 'talk') {
-      return `前往 ${quest.targetNpcName ?? quest.targetName} 传达口信`;
+      const talkTarget = quest.targetNpcName ?? quest.targetName;
+      const talkLocation = this.formatQuestLocation(quest.targetMapName, quest.targetX, quest.targetY);
+      return talkLocation !== '未设置'
+        ? `前往 ${talkLocation} 找 ${talkTarget} 传达口信`
+        : `前往 ${talkTarget} 传达口信`;
     }
     if (quest.objectiveType === 'submit_item') {
-      return `准备 ${quest.targetName} 并前往交付`;
+      const submitLocation = this.formatQuestLocation(quest.submitMapName ?? quest.giverMapName, quest.submitX ?? quest.giverX, quest.submitY ?? quest.giverY);
+      return submitLocation !== '未设置'
+        ? `准备 ${quest.targetName}，再前往 ${submitLocation} 交付`
+        : `准备 ${quest.targetName} 并前往交付`;
     }
     if (quest.objectiveType === 'learn_technique') {
       return `使用技能书并学会 ${quest.targetName}`;
@@ -478,7 +492,10 @@ export class QuestPanel {
     if (quest.objectiveType === 'realm_stage') {
       return `继续历练、积累境界经验并突破至 ${quest.targetName}`;
     }
-    return `前往击杀 ${quest.targetName}`;
+    const targetLocation = this.formatQuestLocation(quest.targetMapName ?? quest.giverMapName, quest.targetX, quest.targetY);
+    return targetLocation !== '未设置'
+      ? `前往 ${targetLocation} 击杀 ${quest.targetName}`
+      : `前往击杀 ${quest.targetName}`;
   }
 
   private formatQuestLocation(mapName?: string, x?: number, y?: number): string {

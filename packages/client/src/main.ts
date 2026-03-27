@@ -38,6 +38,8 @@ import { bindResponsiveViewportCss } from './ui/responsive-viewport';
 import { createMapRuntime } from './game-map/runtime/map-runtime';
 import { getEntityKindLabel, getTileTypeLabel } from './domain-labels';
 import { MAP_FALLBACK } from './constants/world/world-panel';
+import { getLocalItemTemplate, getLocalSkillTemplate, getLocalTechniqueTemplate } from './content/local-templates';
+import { assessMapDanger } from './utils/map-danger';
 
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './ui/floating-tooltip';
 import { detailModalHost } from './ui/detail-modal-host';
@@ -53,6 +55,7 @@ import {
   CURRENT_TIME_REFRESH_MS,
   DEFAULT_AURA_LEVEL_BASE_VALUE,
   Direction,
+  EQUIP_SLOTS,
   formatBuffMaxStacks,
   encodeTileTargetRef,
   GAME_TIME_PHASES,
@@ -60,13 +63,19 @@ import {
   gridDistance,
   GroundItemPileView,
   GridPoint,
+  Inventory,
   isPointInRange,
+  LootWindowState,
   MapMeta,
   MonsterTier,
   PlayerState,
   packDirections,
   RenderEntity,
   S2C_AttrUpdate,
+  S2C_EquipmentUpdate,
+  S2C_InventoryUpdate,
+  S2C_LootWindowUpdate,
+  S2C_RealmUpdate,
   TickRenderEntity,
   TechniqueUpdateEntry,
   ActionUpdateEntry,
@@ -76,6 +85,8 @@ import {
   TileType,
   TechniqueState,
   S2C_Init,
+  S2C_MapStaticSync,
+  S2C_NpcShop,
   S2C_TileRuntimeDetail,
   S2C_Tick,
   SERVER_PING_INTERVAL_MS,
@@ -84,6 +95,7 @@ import {
   TargetingShape,
   VisibleBuffState,
   VIEW_RADIUS,
+  SyncedItemStack,
   TechniqueRealm,
   directionToDelta,
   getTileTraversalCost,
@@ -1085,24 +1097,13 @@ function buildAttrStateFromPlayer(player: PlayerState): S2C_AttrUpdate {
     boneAgeBaseYears: player.boneAgeBaseYears,
     lifeElapsedTicks: player.lifeElapsedTicks,
     lifespanYears: player.lifespanYears ?? null,
-    realm: player.realm ? cloneJson(player.realm) : null,
+    realmProgress: player.realm?.progress,
+    realmProgressToNext: player.realm?.progressToNext,
+    realmBreakthroughReady: player.realm?.breakthroughReady ?? player.breakthroughReady,
   };
 }
 
 function mergeAttrUpdatePatch(previous: S2C_AttrUpdate | null, patch: S2C_AttrUpdate): S2C_AttrUpdate {
-  const previousRealm = previous?.realm ?? myPlayer?.realm ?? null;
-  const mergedRealm = patch.realm === null
-    ? null
-    : patch.realm
-      ? cloneJson(patch.realm)
-      : previousRealm
-        ? {
-            ...cloneJson(previousRealm),
-            progress: patch.realmProgress ?? previousRealm.progress,
-            progressToNext: patch.realmProgressToNext ?? previousRealm.progressToNext,
-            breakthroughReady: patch.realmBreakthroughReady ?? previousRealm.breakthroughReady,
-          }
-        : null;
   return {
     baseAttrs: patch.baseAttrs ? cloneJson(patch.baseAttrs) : cloneJson(previous?.baseAttrs ?? myPlayer?.baseAttrs ?? {
       constitution: 0,
@@ -1136,28 +1137,196 @@ function mergeAttrUpdatePatch(previous: S2C_AttrUpdate | null, patch: S2C_AttrUp
     lifespanYears: patch.lifespanYears === null
       ? null
       : patch.lifespanYears ?? previous?.lifespanYears ?? myPlayer?.lifespanYears ?? null,
-    realm: mergedRealm,
+    realmProgress: patch.realmProgress ?? previous?.realmProgress ?? myPlayer?.realm?.progress ?? undefined,
+    realmProgressToNext: patch.realmProgressToNext ?? previous?.realmProgressToNext ?? myPlayer?.realm?.progressToNext ?? undefined,
+    realmBreakthroughReady: patch.realmBreakthroughReady
+      ?? previous?.realmBreakthroughReady
+      ?? myPlayer?.realm?.breakthroughReady
+      ?? myPlayer?.breakthroughReady
+      ?? undefined,
   };
 }
 
 function mergeTechniquePatch(patch: TechniqueUpdateEntry, previous?: TechniqueState): TechniqueState {
+  const previousSameTechnique = previous?.techId === patch.techId ? previous : undefined;
+  const template = getLocalTechniqueTemplate(patch.techId);
+  const mergedSkills = applyNullablePatch(patch.skills, previousSameTechnique?.skills);
+  const mergedLayers = applyNullablePatch(patch.layers, previousSameTechnique?.layers);
+  const mergedAttrCurves = applyNullablePatch(patch.attrCurves, previousSameTechnique?.attrCurves);
   return {
     techId: patch.techId,
-    level: patch.level ?? previous?.level ?? 1,
-    exp: patch.exp ?? previous?.exp ?? 0,
-    expToNext: patch.expToNext ?? previous?.expToNext ?? 0,
-    realmLv: patch.realmLv ?? previous?.realmLv ?? 1,
-    realm: patch.realm ?? previous?.realm ?? TechniqueRealm.Entry,
-    name: applyNullablePatch(patch.name, previous?.name) ?? patch.techId,
-    skills: applyNullablePatch(patch.skills, previous?.skills) ? cloneJson(applyNullablePatch(patch.skills, previous?.skills) ?? []) : [],
-    grade: applyNullablePatch(patch.grade, previous?.grade),
-    category: applyNullablePatch(patch.category, previous?.category),
-    layers: applyNullablePatch(patch.layers, previous?.layers)
-      ? cloneJson(applyNullablePatch(patch.layers, previous?.layers) ?? [])
+    level: patch.level ?? previousSameTechnique?.level ?? 1,
+    exp: patch.exp ?? previousSameTechnique?.exp ?? 0,
+    expToNext: patch.expToNext ?? previousSameTechnique?.expToNext ?? 0,
+    realmLv: patch.realmLv ?? previousSameTechnique?.realmLv ?? template?.realmLv ?? 1,
+    realm: patch.realm ?? previousSameTechnique?.realm ?? TechniqueRealm.Entry,
+    name: applyNullablePatch(patch.name, previousSameTechnique?.name) ?? template?.name ?? patch.techId,
+    skills: mergedSkills
+      ? cloneJson(mergedSkills)
+      : cloneJson(template?.skills ?? []),
+    grade: applyNullablePatch(patch.grade, previousSameTechnique?.grade) ?? template?.grade,
+    category: applyNullablePatch(patch.category, previousSameTechnique?.category) ?? template?.category,
+    layers: mergedLayers
+      ? cloneJson(mergedLayers)
+      : template?.layers
+        ? cloneJson(template.layers)
       : undefined,
-    attrCurves: applyNullablePatch(patch.attrCurves, previous?.attrCurves)
-      ? cloneJson(applyNullablePatch(patch.attrCurves, previous?.attrCurves) ?? {})
+    attrCurves: mergedAttrCurves
+      ? cloneJson(mergedAttrCurves)
       : undefined,
+  };
+}
+
+function hydrateSyncedItemStack(item: SyncedItemStack, previous?: Inventory['items'][number]): Inventory['items'][number] {
+  const previousSameItem = previous?.itemId === item.itemId ? previous : undefined;
+  const template = getLocalItemTemplate(item.itemId);
+  return {
+    itemId: item.itemId,
+    count: item.count,
+    name: item.name ?? previousSameItem?.name ?? template?.name ?? item.itemId,
+    type: item.type ?? previousSameItem?.type ?? template?.type ?? 'material',
+    desc: item.desc ?? previousSameItem?.desc ?? template?.desc ?? '',
+    groundLabel: item.groundLabel ?? previousSameItem?.groundLabel ?? template?.groundLabel,
+    grade: item.grade ?? previousSameItem?.grade ?? template?.grade,
+    level: item.level ?? previousSameItem?.level ?? template?.level,
+    equipSlot: item.equipSlot ?? previousSameItem?.equipSlot ?? template?.equipSlot,
+    equipAttrs: item.equipAttrs
+      ? cloneJson(item.equipAttrs)
+      : previousSameItem?.equipAttrs
+        ? cloneJson(previousSameItem.equipAttrs)
+        : template?.equipAttrs
+          ? cloneJson(template.equipAttrs)
+          : undefined,
+    equipStats: item.equipStats
+      ? cloneJson(item.equipStats)
+      : previousSameItem?.equipStats
+        ? cloneJson(previousSameItem.equipStats)
+        : template?.equipStats
+          ? cloneJson(template.equipStats)
+          : undefined,
+    equipValueStats: item.equipValueStats
+      ? cloneJson(item.equipValueStats)
+      : previousSameItem?.equipValueStats
+        ? cloneJson(previousSameItem.equipValueStats)
+        : template?.equipValueStats
+          ? cloneJson(template.equipValueStats)
+          : undefined,
+    effects: item.effects
+      ? cloneJson(item.effects)
+      : previousSameItem?.effects
+        ? cloneJson(previousSameItem.effects)
+        : template?.effects
+          ? cloneJson(template.effects)
+          : undefined,
+    tags: item.tags
+      ? [...item.tags]
+      : previousSameItem?.tags
+        ? [...previousSameItem.tags]
+        : template?.tags
+          ? [...template.tags]
+          : undefined,
+    mapUnlockId: item.mapUnlockId ?? previousSameItem?.mapUnlockId,
+    tileAuraGainAmount: item.tileAuraGainAmount ?? previousSameItem?.tileAuraGainAmount,
+    allowBatchUse: item.allowBatchUse ?? previousSameItem?.allowBatchUse,
+  };
+}
+
+function mergeInventoryUpdate(previous: Inventory | undefined, patch: S2C_InventoryUpdate): Inventory {
+  if (patch.inventory) {
+    return {
+      capacity: patch.inventory.capacity,
+      items: patch.inventory.items.map((item) => hydrateSyncedItemStack(item)),
+    };
+  }
+
+  const next: Inventory = previous
+    ? cloneJson(previous)
+    : { items: [], capacity: 0 };
+  if (patch.capacity !== undefined) {
+    next.capacity = patch.capacity;
+  }
+  if (patch.size !== undefined) {
+    next.items.length = Math.max(0, patch.size);
+  }
+  for (const slotPatch of patch.slots ?? []) {
+    if (slotPatch.item) {
+      next.items[slotPatch.slotIndex] = hydrateSyncedItemStack(slotPatch.item, next.items[slotPatch.slotIndex]);
+      continue;
+    }
+    next.items.splice(slotPatch.slotIndex, 1);
+  }
+  return next;
+}
+
+function mergeEquipmentUpdate(previous: PlayerState['equipment'] | undefined, patch: S2C_EquipmentUpdate): PlayerState['equipment'] {
+  const next = previous
+    ? cloneJson(previous)
+    : {
+        weapon: null,
+        head: null,
+        body: null,
+        legs: null,
+        accessory: null,
+      };
+
+  for (const slot of EQUIP_SLOTS) {
+    if (!(slot in next)) {
+      next[slot] = null;
+    }
+  }
+
+  for (const slotPatch of patch.slots) {
+    next[slotPatch.slot] = slotPatch.item
+      ? hydrateSyncedItemStack(slotPatch.item, next[slotPatch.slot] ?? undefined)
+      : null;
+  }
+
+  return next;
+}
+
+function hydrateLootWindowState(window: S2C_LootWindowUpdate['window']): LootWindowState | null {
+  if (!window) {
+    return null;
+  }
+  return {
+    tileX: window.tileX,
+    tileY: window.tileY,
+    title: window.title,
+    sources: window.sources.map((source) => ({
+      sourceId: source.sourceId,
+      kind: source.kind,
+      title: source.title,
+      desc: source.desc,
+      grade: source.grade,
+      searchable: source.searchable,
+      search: source.search ? cloneJson(source.search) : undefined,
+      emptyText: source.emptyText,
+      items: source.items.map((entry) => ({
+        itemKey: entry.itemKey,
+        item: hydrateSyncedItemStack(entry.item),
+      })),
+    })),
+  };
+}
+
+function hydrateNpcShopResponse(data: S2C_NpcShop) {
+  return {
+    npcId: data.npcId,
+    error: data.error,
+    shop: data.shop
+      ? {
+          npcId: data.shop.npcId,
+          npcName: data.shop.npcName,
+          dialogue: data.shop.dialogue,
+          currencyItemId: data.shop.currencyItemId,
+          currencyItemName: data.shop.currencyItemName,
+          items: data.shop.items.map((entry) => ({
+            itemId: entry.itemId,
+            unitPrice: entry.unitPrice,
+            item: hydrateSyncedItemStack(entry.item),
+          })),
+        }
+      : null,
   };
 }
 
@@ -1187,18 +1356,23 @@ function mergeTechniqueStates(patches: TechniqueUpdateEntry[], removeTechniqueId
 }
 
 function mergeActionPatch(patch: ActionUpdateEntry, previous?: ActionDef): ActionDef {
+  const previousSameAction = previous?.id === patch.id ? previous : undefined;
+  const skillTemplate = getLocalSkillTemplate(patch.id);
+  const nextType = applyNullablePatch(patch.type, previousSameAction?.type) ?? (skillTemplate ? 'skill' : 'interact');
   return {
     id: patch.id,
-    cooldownLeft: patch.cooldownLeft ?? previous?.cooldownLeft ?? 0,
-    autoBattleEnabled: applyNullablePatch(patch.autoBattleEnabled, previous?.autoBattleEnabled),
-    autoBattleOrder: applyNullablePatch(patch.autoBattleOrder, previous?.autoBattleOrder),
-    skillEnabled: applyNullablePatch(patch.skillEnabled, previous?.skillEnabled),
-    name: applyNullablePatch(patch.name, previous?.name) ?? patch.id,
-    type: applyNullablePatch(patch.type, previous?.type) ?? 'interact',
-    desc: applyNullablePatch(patch.desc, previous?.desc) ?? '',
-    range: applyNullablePatch(patch.range, previous?.range),
-    requiresTarget: applyNullablePatch(patch.requiresTarget, previous?.requiresTarget),
-    targetMode: applyNullablePatch(patch.targetMode, previous?.targetMode),
+    cooldownLeft: patch.cooldownLeft ?? previousSameAction?.cooldownLeft ?? 0,
+    autoBattleEnabled: applyNullablePatch(patch.autoBattleEnabled, previousSameAction?.autoBattleEnabled),
+    autoBattleOrder: applyNullablePatch(patch.autoBattleOrder, previousSameAction?.autoBattleOrder),
+    skillEnabled: applyNullablePatch(patch.skillEnabled, previousSameAction?.skillEnabled),
+    name: applyNullablePatch(patch.name, previousSameAction?.name) ?? skillTemplate?.name ?? patch.id,
+    type: nextType,
+    desc: applyNullablePatch(patch.desc, previousSameAction?.desc) ?? skillTemplate?.desc ?? '',
+    range: applyNullablePatch(patch.range, previousSameAction?.range) ?? skillTemplate?.range,
+    requiresTarget: applyNullablePatch(patch.requiresTarget, previousSameAction?.requiresTarget)
+      ?? skillTemplate?.requiresTarget,
+    targetMode: applyNullablePatch(patch.targetMode, previousSameAction?.targetMode)
+      ?? skillTemplate?.targetMode,
   };
 }
 
@@ -1621,6 +1795,32 @@ document.getElementById('hud-toggle-auto-retaliate')?.addEventListener('click', 
   socket.sendAction('toggle:auto_retaliate');
 });
 // S2C 更新回调
+socket.onRealmUpdate((data: S2C_RealmUpdate) => {
+  if (!myPlayer) {
+    return;
+  }
+  const nextRealm = data.realm ? cloneJson(data.realm) : undefined;
+  myPlayer.realm = nextRealm;
+  myPlayer.realmLv = nextRealm?.realmLv;
+  myPlayer.realmName = nextRealm?.name;
+  myPlayer.realmStage = nextRealm?.shortName;
+  myPlayer.realmReview = nextRealm?.review;
+  myPlayer.breakthroughReady = nextRealm?.breakthroughReady;
+  myPlayer.heavenGate = nextRealm?.heavenGate ?? undefined;
+
+  if (nextRealm && latestAttrUpdate) {
+    nextRealm.progress = latestAttrUpdate.realmProgress ?? nextRealm.progress;
+    nextRealm.progressToNext = latestAttrUpdate.realmProgressToNext ?? nextRealm.progressToNext;
+    nextRealm.breakthroughReady = latestAttrUpdate.realmBreakthroughReady ?? nextRealm.breakthroughReady;
+    myPlayer.breakthroughReady = nextRealm.breakthroughReady;
+  }
+
+  refreshHeavenGateModal(myPlayer, {
+    showToast,
+    sendAction: (action, element) => socket.sendHeavenGateAction(action, element),
+  });
+  refreshUiChrome();
+});
 socket.onAttrUpdate((data) => {
   latestAttrUpdate = mergeAttrUpdatePatch(latestAttrUpdate, data);
   if (myPlayer) {
@@ -1641,11 +1841,13 @@ socket.onAttrUpdate((data) => {
     if (latestAttrUpdate.numericStats?.viewRange !== undefined) {
       myPlayer.viewRange = Math.max(1, Math.round(latestAttrUpdate.numericStats.viewRange || myPlayer.viewRange));
     }
-    myPlayer.realm = latestAttrUpdate.realm ?? undefined;
-    myPlayer.realmName = latestAttrUpdate.realm?.name;
-    myPlayer.realmStage = latestAttrUpdate.realm?.shortName;
-    myPlayer.realmReview = latestAttrUpdate.realm?.review;
-    myPlayer.breakthroughReady = latestAttrUpdate.realm?.breakthroughReady;
+    myPlayer.breakthroughReady = latestAttrUpdate.realmBreakthroughReady ?? myPlayer.breakthroughReady;
+    if (myPlayer.realm) {
+      myPlayer.realm.progress = latestAttrUpdate.realmProgress ?? myPlayer.realm.progress;
+      myPlayer.realm.progressToNext = latestAttrUpdate.realmProgressToNext ?? myPlayer.realm.progressToNext;
+      myPlayer.realm.breakthroughReady = latestAttrUpdate.realmBreakthroughReady ?? myPlayer.realm.breakthroughReady;
+      myPlayer.breakthroughReady = myPlayer.realm.breakthroughReady;
+    }
   }
   attrPanel.update(latestAttrUpdate);
   refreshHeavenGateModal(myPlayer, {
@@ -1655,14 +1857,20 @@ socket.onAttrUpdate((data) => {
   refreshUiChrome();
 });
 socket.onInventoryUpdate((data) => {
-  if (myPlayer) myPlayer.inventory = data.inventory;
-  inventoryPanel.update(data.inventory);
-  marketPanel.syncInventory(data.inventory);
-  npcShopModal.syncInventory(data.inventory);
+  const mergedInventory = mergeInventoryUpdate(myPlayer?.inventory, data);
+  if (myPlayer) {
+    myPlayer.inventory = mergedInventory;
+  }
+  inventoryPanel.update(mergedInventory);
+  marketPanel.syncInventory(mergedInventory);
+  npcShopModal.syncInventory(mergedInventory);
 });
 socket.onEquipmentUpdate((data) => {
-  if (myPlayer) myPlayer.equipment = data.equipment;
-  equipmentPanel.update(data.equipment);
+  const mergedEquipment = mergeEquipmentUpdate(myPlayer?.equipment, data);
+  if (myPlayer) {
+    myPlayer.equipment = mergedEquipment;
+  }
+  equipmentPanel.update(mergedEquipment);
 });
 socket.onTechniqueUpdate((data) => {
   const mergedTechniques = mergeTechniqueStates(data.techniques, data.removeTechniqueIds ?? []);
@@ -1681,6 +1889,9 @@ socket.onTechniqueUpdate((data) => {
   } else {
     techniquePanel.syncDynamic(mergedTechniques, nextCultivatingTechId, myPlayer ?? undefined);
   }
+  if (myPlayer) {
+    actionPanel.syncDynamic(myPlayer.actions, myPlayer.autoBattle, myPlayer.autoRetaliate, myPlayer);
+  }
 });
 socket.onActionsUpdate((data) => {
   const mergedActions = mergeActionStates(data.actions, data.removeActionIds ?? [], data.actionOrder);
@@ -1691,12 +1902,14 @@ socket.onActionsUpdate((data) => {
   const previousAllowAoePlayerHit = myPlayer?.allowAoePlayerHit ?? false;
   const previousAutoIdleCultivation = myPlayer?.autoIdleCultivation ?? true;
   const previousAutoSwitchCultivation = myPlayer?.autoSwitchCultivation ?? false;
+  const previousCultivationActive = myPlayer?.cultivationActive ?? false;
   const nextAutoBattle = data.autoBattle ?? myPlayer?.autoBattle ?? false;
   const nextAutoRetaliate = data.autoRetaliate ?? myPlayer?.autoRetaliate ?? true;
   const nextAutoBattleStationary = data.autoBattleStationary ?? myPlayer?.autoBattleStationary ?? false;
   const nextAllowAoePlayerHit = data.allowAoePlayerHit ?? myPlayer?.allowAoePlayerHit ?? false;
   const nextAutoIdleCultivation = data.autoIdleCultivation ?? myPlayer?.autoIdleCultivation ?? true;
   const nextAutoSwitchCultivation = data.autoSwitchCultivation ?? myPlayer?.autoSwitchCultivation ?? false;
+  const nextCultivationActive = data.cultivationActive ?? myPlayer?.cultivationActive ?? false;
   const nextSenseQiActive = data.senseQiActive ?? myPlayer?.senseQiActive ?? false;
   const shouldRefreshActionPanel = !myPlayer
     || previousAutoBattle !== nextAutoBattle
@@ -1705,6 +1918,7 @@ socket.onActionsUpdate((data) => {
     || previousAllowAoePlayerHit !== nextAllowAoePlayerHit
     || previousAutoIdleCultivation !== nextAutoIdleCultivation
     || previousAutoSwitchCultivation !== nextAutoSwitchCultivation
+    || previousCultivationActive !== nextCultivationActive
     || haveActionRenderStructureChanges(previousActions, mergedActions);
   if (myPlayer) {
     myPlayer.actions = mergedActions;
@@ -1715,12 +1929,13 @@ socket.onActionsUpdate((data) => {
         enabled: action.autoBattleEnabled !== false,
         skillEnabled: action.skillEnabled !== false,
       }));
-    myPlayer.autoBattle = data.autoBattle ?? inferAutoBattle(myPlayer.autoBattle, mergedActions);
-    myPlayer.autoRetaliate = data.autoRetaliate ?? inferAutoRetaliate(myPlayer.autoRetaliate !== false, mergedActions);
+    myPlayer.autoBattle = data.autoBattle ?? myPlayer.autoBattle;
+    myPlayer.autoRetaliate = data.autoRetaliate ?? (myPlayer.autoRetaliate !== false);
     myPlayer.autoBattleStationary = nextAutoBattleStationary;
     myPlayer.allowAoePlayerHit = nextAllowAoePlayerHit;
     myPlayer.autoIdleCultivation = nextAutoIdleCultivation;
     myPlayer.autoSwitchCultivation = nextAutoSwitchCultivation;
+    myPlayer.cultivationActive = nextCultivationActive;
     myPlayer.senseQiActive = nextSenseQiActive;
   }
   if (!previousAutoBattle && nextAutoBattle && (pathTarget || pathCells.length > 0)) {
@@ -1735,7 +1950,7 @@ socket.onActionsUpdate((data) => {
   syncSenseQiOverlay();
 });
 socket.onLootWindowUpdate((data) => {
-  lootPanel.update(data.window);
+  lootPanel.update(hydrateLootWindowState(data.window));
 });
 socket.onTileRuntimeDetail((data) => {
   if (
@@ -1765,6 +1980,12 @@ socket.onQuestNavigateResult((data) => {
     return;
   }
   questPanel.closeDetail();
+});
+socket.onMapStaticSync((data: S2C_MapStaticSync) => {
+  mapRuntime.applyMapStaticSync(data);
+  if (myPlayer && data.mapId === myPlayer.mapId) {
+    refreshUiChrome();
+  }
 });
 socket.onSystemMsg((data) => {
   if (data.kind === 'chat') {
@@ -1922,16 +2143,6 @@ function refreshZoomViewport() {
   mapRuntime.setZoom(getZoom());
 }
 
-function inferAutoBattle(current: boolean, actions: { id: string; name: string; desc: string }[]): boolean {
-  const toggle = actions.find(a => a.id.includes('auto') && (a.id.includes('battle') || a.name.includes('自动战斗') || a.desc.includes('自动战斗')));
-  if (!toggle) return current;
-  if (toggle.name.includes('关闭')) return true;
-  if (toggle.name.includes('开启')) return false;
-  if (toggle.desc.includes('已开启')) return true;
-  if (toggle.desc.includes('已关闭')) return false;
-  return current;
-}
-
 function haveActionRenderStructureChanges(previousActions: ActionDef[], nextActions: ActionDef[]): boolean {
   if (previousActions.length !== nextActions.length) {
     return true;
@@ -2002,8 +2213,10 @@ function haveTechniqueStructureChanges(
 
 function resolveMapDanger(): string {
   const fallback = myPlayer ? MAP_FALLBACK[myPlayer.mapId] : undefined;
-  const danger = mapRuntime.getMapMeta()?.dangerLevel ?? fallback?.danger;
-  return danger ? `危 ${danger}/5` : '未知';
+  if (!myPlayer) {
+    return '未知';
+  }
+  return assessMapDanger(myPlayer, mapRuntime.getMapMeta()?.recommendedRealm, fallback?.recommendedRealm).dangerLabel;
 }
 
 function resolveRealmLabel(player: PlayerState): string {
@@ -2073,16 +2286,6 @@ function hasSelectionWithin(root: HTMLElement | null): boolean {
 
 function shouldPauseWorldPanelRefresh(): boolean {
   return hasSelectionWithin(document.getElementById('layout-center'));
-}
-
-function inferAutoRetaliate(current: boolean, actions: { id: string; name: string; desc: string }[]): boolean {
-  const toggle = actions.find(a => a.id.includes('auto_retaliate') || a.name.includes('受击'));
-  if (!toggle) return current;
-  if (toggle.name.includes('不开战')) return false;
-  if (toggle.name.includes('自动开战')) return true;
-  if (toggle.desc.includes('不会自动')) return false;
-  if (toggle.desc.includes('自动开启')) return true;
-  return current;
 }
 
 function getInfoRadius(): number {
@@ -2657,6 +2860,7 @@ socket.onInit((data: S2C_Init) => {
   myPlayer.allowAoePlayerHit = myPlayer.allowAoePlayerHit === true;
   myPlayer.autoIdleCultivation = myPlayer.autoIdleCultivation !== false;
   myPlayer.autoSwitchCultivation = myPlayer.autoSwitchCultivation === true;
+  myPlayer.cultivationActive = myPlayer.cultivationActive === true;
   syncTargetingOverlay();
   mapRuntime.applyInit(data);
   syncSenseQiOverlay();
@@ -2714,7 +2918,7 @@ socket.onMarketTradeHistory((data) => {
   marketPanel.updateTradeHistory(data);
 });
 socket.onNpcShop((data) => {
-  npcShopModal.updateShop(data);
+  npcShopModal.updateShop(hydrateNpcShopResponse(data));
 });
 
 // Tick 更新

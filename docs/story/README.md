@@ -17,6 +17,7 @@
 - [《寻仙录》第一卷·外乡人 第一章 断道入镇](./chapter-01-duandao-ruzhen.md)
 - [凡人篇地图重设计](./fanren-map-redesign.md)
 - [云来镇详细格局稿](./yunlai-town-layout.md)
+- [练气期地图剧情草案](./练气期地图剧情草案.md)
 
 说明：
 

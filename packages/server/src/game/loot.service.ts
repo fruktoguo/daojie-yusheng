@@ -8,9 +8,10 @@ import {
   GroundItemPileView,
   GROUND_ITEM_EXPIRE_TICKS,
   ItemStack,
-  LootWindowItemView,
-  LootWindowState,
   PlayerState,
+  SyncedItemStack,
+  SyncedLootWindowItemView,
+  SyncedLootWindowState,
   TechniqueGrade,
   isPointInRange,
 } from '@mud/shared';
@@ -370,7 +371,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
   }
 
   /** 构建当前拾取窗口的视图数据 */
-  buildLootWindow(player: PlayerState): LootWindowState | null {
+  buildLootWindow(player: PlayerState): SyncedLootWindowState | null {
     const session = this.sessions.get(player.id);
     if (!session || session.mapId !== player.mapId) {
       return null;
@@ -380,7 +381,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       return null;
     }
 
-    const sources: LootWindowState['sources'] = [];
+    const sources: SyncedLootWindowState['sources'] = [];
     const groundSourceId = this.buildGroundSourceId(session.mapId, session.tileX, session.tileY);
     const pile = this.groundPiles.get(groundSourceId);
     if (pile && pile.entries.length > 0) {
@@ -663,18 +664,49 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     }));
   }
 
-  private buildLootWindowItems(entries: LootEntry[]): LootWindowItemView[] {
+  private buildLootWindowItems(entries: LootEntry[]): SyncedLootWindowItemView[] {
     return this.groupLootEntries(entries).map((entry) => ({
       itemKey: entry.itemKey,
-      item: entry.item,
+      item: this.toSyncedItemStack(entry.item),
     }));
   }
 
-  private buildVisibleLootWindowItems(entries: LootEntry[]): LootWindowItemView[] {
+  private buildVisibleLootWindowItems(entries: LootEntry[]): SyncedLootWindowItemView[] {
     return this.groupLootEntries(entries.filter((entry) => entry.visible)).map((entry) => ({
       itemKey: entry.itemKey,
-      item: entry.item,
+      item: this.toSyncedItemStack(entry.item),
     }));
+  }
+
+  private toSyncedItemStack(item: ItemStack): SyncedItemStack {
+    if (this.contentService.getItem(item.itemId)) {
+      return {
+        itemId: item.itemId,
+        count: Math.max(1, Math.floor(item.count)),
+        mapUnlockId: item.mapUnlockId,
+        tileAuraGainAmount: item.tileAuraGainAmount,
+        allowBatchUse: item.allowBatchUse,
+      };
+    }
+    return {
+      itemId: item.itemId,
+      count: Math.max(1, Math.floor(item.count)),
+      name: item.name,
+      type: item.type,
+      desc: item.desc,
+      groundLabel: item.groundLabel,
+      grade: item.grade,
+      level: item.level,
+      equipSlot: item.equipSlot,
+      equipAttrs: item.equipAttrs ? structuredClone(item.equipAttrs) : undefined,
+      equipStats: item.equipStats ? structuredClone(item.equipStats) : undefined,
+      equipValueStats: item.equipValueStats ? structuredClone(item.equipValueStats) : undefined,
+      effects: item.effects ? structuredClone(item.effects) : undefined,
+      tags: item.tags ? [...item.tags] : undefined,
+      mapUnlockId: item.mapUnlockId,
+      tileAuraGainAmount: item.tileAuraGainAmount,
+      allowBatchUse: item.allowBatchUse,
+    };
   }
 
   private groupLootEntries(entries: LootEntry[]): GroupedLootRow[] {

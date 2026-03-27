@@ -214,6 +214,16 @@ export class TechniqueService {
     this.progressionInitialized.add(player);
   }
 
+  /**
+   * 只读链路只需要确保玩家至少完成过一次初始化。
+   * 高频读取不应反复触发元数据同步、加成重算和属性重算。
+   */
+  private ensurePlayerProgressionInitialized(player: PlayerState): void {
+    if (!this.progressionInitialized.has(player)) {
+      this.initializePlayerProgression(player);
+    }
+  }
+
   preparePlayerForPersistence(player: PlayerState): void {
     this.initializePlayerProgression(player);
   }
@@ -657,7 +667,7 @@ export class TechniqueService {
 
   /** 收集玩家已解锁的技能行动列表 */
   getSkillActions(player: PlayerState): ActionDef[] {
-    this.initializePlayerProgression(player);
+    this.ensurePlayerProgressionInitialized(player);
     const playerRealmStage = player.realm?.stage ?? DEFAULT_PLAYER_REALM_STAGE;
     const actions: ActionDef[] = [];
 
@@ -685,7 +695,7 @@ export class TechniqueService {
 
   /** 获取突破行动（境界圆满时可用） */
   getBreakthroughAction(player: PlayerState): ActionDef | null {
-    this.initializePlayerProgression(player);
+    this.ensurePlayerProgressionInitialized(player);
     const realm = player.realm;
     if (!realm?.breakthroughReady || !realm.breakthrough) return null;
     if (realm.realmLv === HEAVEN_GATE_REALM_LEVEL && !this.hasCompletedHeavenGate(player)) {

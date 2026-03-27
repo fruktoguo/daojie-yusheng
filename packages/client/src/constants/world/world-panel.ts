@@ -5,7 +5,6 @@ import { TechniqueRealm } from '@mud/shared';
 
 export interface WorldGuide {
   title: string;
-  danger: number;
   recommendedRealm: string;
   route: string;
   mood: string;
@@ -34,8 +33,7 @@ export const TECH_REALM_NAME_BY_KEY: Record<string, string> = {
 export const WORLD_GUIDE: Record<string, WorldGuide> = {
   yunlai_town: {
     title: '云来镇',
-    danger: 1,
-    recommendedRealm: '锻体到后天',
+    recommendedRealm: '凡胎-锻骨',
     route: '镇中接主线，西北入青竹林，南门出荒野，北路可转灵脊岭。',
     mood: '武道起点',
     desc: '新的主城布局更紧凑，主线、补给、炼药与打铁都围着主路展开。',
@@ -44,8 +42,7 @@ export const WORLD_GUIDE: Record<string, WorldGuide> = {
   },
   bamboo_forest: {
     title: '青竹林',
-    danger: 2,
-    recommendedRealm: '后天到先天',
+    recommendedRealm: '易筋-养气',
     route: '主径推矿洞与遗迹，侧路进荒野，南下兽谷。',
     mood: '武侠过渡带',
     desc: '狼群、蛇妖与竹灵共生，是从江湖搏杀过渡到修行世界的门槛。',
@@ -54,8 +51,7 @@ export const WORLD_GUIDE: Record<string, WorldGuide> = {
   },
   black_iron_mine: {
     title: '玄铁矿洞',
-    danger: 3,
-    recommendedRealm: '先天到练气前夜',
+    recommendedRealm: '养气-玉衡',
     route: '推进钟乳深区，搜集矿材与信标核心。',
     mood: '资源高压区',
     desc: '矿脉灵气紊乱，材料密集，但补给和走位压力明显上升。',
@@ -64,8 +60,7 @@ export const WORLD_GUIDE: Record<string, WorldGuide> = {
   },
   ancient_ruins: {
     title: '断碑遗迹',
-    danger: 3,
-    recommendedRealm: '先天圆熟到练气启蒙',
+    recommendedRealm: '瑶光-天权',
     route: '清理符阵看守，接通灵岭与天穹后段线。',
     mood: '仙道线索区',
     desc: '阵纹、碑灵与残篇并存，是正式触碰修仙叙事的区域。',
@@ -74,8 +69,7 @@ export const WORLD_GUIDE: Record<string, WorldGuide> = {
   },
   beast_valley: {
     title: '噬魂兽谷',
-    danger: 5,
-    recommendedRealm: '练气期',
+    recommendedRealm: '玉衡-天璇',
     route: '先清外围，再压谷底王级目标和灵岭入口。',
     mood: '修仙高危战区',
     desc: '兽谷裂隙已显露灵灾本相，建议高补给、高功法成熟度再推进。',
@@ -84,8 +78,7 @@ export const WORLD_GUIDE: Record<string, WorldGuide> = {
   },
   wildlands: {
     title: '荒野',
-    danger: 2,
-    recommendedRealm: '后天到先天',
+    recommendedRealm: '凡胎-锻骨',
     route: '刷侧线材料，补足装备后回主线。',
     mood: '侧线练级区',
     desc: '野兽、匪徒与沼泽妖物混杂，适合补材料与做支线。',
@@ -94,8 +87,7 @@ export const WORLD_GUIDE: Record<string, WorldGuide> = {
   },
   spirit_ridge: {
     title: '灵脊岭',
-    danger: 4,
-    recommendedRealm: '先天到练气',
+    recommendedRealm: '天玑-大宗师',
     route: '先做岭门试锋，再接天穹残宫。',
     mood: '升阶门槛区',
     desc: '这里已经不止是江湖争杀，更考验神识、心性与突破准备。',
@@ -104,8 +96,7 @@ export const WORLD_GUIDE: Record<string, WorldGuide> = {
   },
   sky_ruins: {
     title: '天穹残宫',
-    danger: 5,
-    recommendedRealm: '练气到筑基',
+    recommendedRealm: '宗师-叩仙门',
     route: '补齐天封核心，处理终局王级目标。',
     mood: '高段终局区',
     desc: '天宫已坠，但封印未绝，是当前版本最高危险层。',
@@ -114,14 +105,14 @@ export const WORLD_GUIDE: Record<string, WorldGuide> = {
   },
 };
 
-/** 主界面兜底使用的地图危险度建议。 */
-export const MAP_FALLBACK: Record<string, { danger: number; recommendedRealm: string }> = {
-  yunlai_town: { danger: 1, recommendedRealm: '锻体到后天' },
-  bamboo_forest: { danger: 2, recommendedRealm: '后天到先天' },
-  wildlands: { danger: 2, recommendedRealm: '后天到先天' },
-  black_iron_mine: { danger: 3, recommendedRealm: '先天到练气前夜' },
-  ancient_ruins: { danger: 3, recommendedRealm: '先天圆熟到练气启蒙' },
-  beast_valley: { danger: 5, recommendedRealm: '练气期' },
-  spirit_ridge: { danger: 4, recommendedRealm: '先天到练气' },
-  sky_ruins: { danger: 5, recommendedRealm: '练气到筑基' },
+/** 主界面兜底使用的地图推荐境界。 */
+export const MAP_FALLBACK: Record<string, { recommendedRealm: string }> = {
+  yunlai_town: { recommendedRealm: '凡胎-锻骨' },
+  bamboo_forest: { recommendedRealm: '易筋-养气' },
+  wildlands: { recommendedRealm: '凡胎-锻骨' },
+  black_iron_mine: { recommendedRealm: '养气-玉衡' },
+  ancient_ruins: { recommendedRealm: '瑶光-天权' },
+  beast_valley: { recommendedRealm: '玉衡-天璇' },
+  spirit_ridge: { recommendedRealm: '天玑-大宗师' },
+  sky_ruins: { recommendedRealm: '宗师-叩仙门' },
 };

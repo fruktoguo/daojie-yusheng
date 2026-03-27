@@ -1,4 +1,4 @@
-import { Inventory, ItemType, PlayerState, S2C_NpcShop } from '@mud/shared';
+import { Inventory, ItemStack, ItemType, PlayerState } from '@mud/shared';
 import { buildItemTooltipPayload } from './equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 import { getItemTypeLabel } from '../domain-labels';
@@ -23,13 +23,34 @@ interface NpcShopModalCallbacks {
   onBuyItem: (npcId: string, itemId: string, quantity: number) => void;
 }
 
+interface NpcShopItemState {
+  itemId: string;
+  item: ItemStack;
+  unitPrice: number;
+}
+
+interface NpcShopState {
+  npcId: string;
+  npcName: string;
+  dialogue: string;
+  currencyItemId: string;
+  currencyItemName: string;
+  items: NpcShopItemState[];
+}
+
+interface NpcShopResponseState {
+  npcId: string;
+  shop: NpcShopState | null;
+  error?: string;
+}
+
 export class NpcShopModal {
   private static readonly MODAL_OWNER = 'npc-shop-modal';
   private callbacks: NpcShopModalCallbacks | null = null;
   private inventory: Inventory = { items: [], capacity: 0 };
   private activeNpcId: string | null = null;
   private loading = false;
-  private shopState: S2C_NpcShop | null = null;
+  private shopState: NpcShopResponseState | null = null;
   private selectedItemId: string | null = null;
   private quantityDrafts = new Map<string, string>();
   private tooltip = new FloatingTooltip('floating-tooltip market-item-tooltip');
@@ -62,7 +83,7 @@ export class NpcShopModal {
     this.callbacks?.onRequestShop(npcId);
   }
 
-  updateShop(data: S2C_NpcShop): void {
+  updateShop(data: NpcShopResponseState): void {
     if (this.activeNpcId !== data.npcId) {
       return;
     }
@@ -235,8 +256,8 @@ export class NpcShopModal {
   }
 
   private renderDetailPanel(
-    shop: NonNullable<S2C_NpcShop['shop']>,
-    selectedItem: NonNullable<NonNullable<S2C_NpcShop['shop']>['items'][number]>,
+    shop: NpcShopState,
+    selectedItem: NpcShopItemState,
   ): string {
     const quantity = this.parseQuantity(selectedItem.itemId);
     const quantityText = this.quantityDrafts.get(selectedItem.itemId) ?? '1';

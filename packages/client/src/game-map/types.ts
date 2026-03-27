@@ -10,6 +10,7 @@ import type {
   TargetingShape,
   VisibleBuffState,
   S2C_Init,
+  S2C_MapStaticSync,
   S2C_Tick,
   TickRenderEntity,
 } from '@mud/shared';
@@ -150,6 +151,7 @@ export interface MapRuntimeApi {
   setZoom(level: number): void;
   setProjection(mode: 'topdown'): void;
   applyInit(data: S2C_Init): void;
+  applyMapStaticSync(data: S2C_MapStaticSync): void;
   applyTick(data: S2C_Tick): void;
   reset(): void;
   setInteractionCallbacks(callbacks: MapRuntimeInteractionCallbacks): void;

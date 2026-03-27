@@ -22,7 +22,7 @@ import {
   C2S_RequestNpcShop,
   C2S_BuyNpcShopItem,
   C2S_HeavenGateAction,
-  S2C_Tick, S2C_Init, S2C_AttrUpdate, S2C_InventoryUpdate,
+  S2C_Tick, S2C_Init, S2C_MapStaticSync, S2C_RealmUpdate, S2C_AttrUpdate, S2C_InventoryUpdate,
   S2C_EquipmentUpdate, S2C_TechniqueUpdate, S2C_ActionsUpdate, S2C_LootWindowUpdate, S2C_QuestUpdate, S2C_QuestNavigateResult, S2C_SystemMsg, S2C_GmState,
   S2C_SuggestionUpdate,
   S2C_MarketUpdate,
@@ -45,6 +45,8 @@ export class SocketManager {
   private onTickCallbacks: Array<(data: S2C_Tick) => void> = [];
   private onKickCallbacks: Array<() => void> = [];
   private onInitCallbacks: Array<(data: S2C_Init) => void> = [];
+  private onMapStaticSyncCallbacks: Array<(data: S2C_MapStaticSync) => void> = [];
+  private onRealmUpdateCallbacks: Array<(data: S2C_RealmUpdate) => void> = [];
   private onAttrUpdateCallbacks: Array<(data: S2C_AttrUpdate) => void> = [];
   private onInventoryUpdateCallbacks: Array<(data: S2C_InventoryUpdate) => void> = [];
   private onEquipmentUpdateCallbacks: Array<(data: S2C_EquipmentUpdate) => void> = [];
@@ -89,6 +91,8 @@ export class SocketManager {
 
     this.bindServerEvent(S2C.Init, this.onInitCallbacks);
     this.bindServerEvent(S2C.Tick, this.onTickCallbacks);
+    this.bindServerEvent(S2C.MapStaticSync, this.onMapStaticSyncCallbacks);
+    this.bindServerEvent(S2C.RealmUpdate, this.onRealmUpdateCallbacks);
     this.bindServerEvent(S2C.AttrUpdate, this.onAttrUpdateCallbacks);
     this.bindServerEvent(S2C.InventoryUpdate, this.onInventoryUpdateCallbacks);
     this.bindServerEvent(S2C.EquipmentUpdate, this.onEquipmentUpdateCallbacks);
@@ -342,6 +346,8 @@ export class SocketManager {
 
   onInit(cb: (data: S2C_Init) => void) { this.onInitCallbacks.push(cb); }
   onTick(cb: (data: S2C_Tick) => void) { this.onTickCallbacks.push(cb); }
+  onMapStaticSync(cb: (data: S2C_MapStaticSync) => void) { this.onMapStaticSyncCallbacks.push(cb); }
+  onRealmUpdate(cb: (data: S2C_RealmUpdate) => void) { this.onRealmUpdateCallbacks.push(cb); }
   onKick(cb: () => void) { this.onKickCallbacks.push(cb); }
   onAttrUpdate(cb: (data: S2C_AttrUpdate) => void) { this.onAttrUpdateCallbacks.push(cb); }
   onInventoryUpdate(cb: (data: S2C_InventoryUpdate) => void) { this.onInventoryUpdateCallbacks.push(cb); }

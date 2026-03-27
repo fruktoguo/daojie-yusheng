@@ -5,7 +5,7 @@
 import protobuf from 'protobufjs';
 import { C2S, S2C, type ActionUpdateEntry, type GroundItemPilePatch, type S2C_ActionsUpdate, type S2C_AttrUpdate, type S2C_TechniqueUpdate, type S2C_Tick, type TechniqueUpdateEntry, type TickRenderEntity, type VisibleTilePatch } from './protocol';
 import type { NumericRatioDivisors, NumericStats } from './numeric';
-import type { ActionDef, Attributes, AttrBonus, GameTimeState, ItemType, MapMeta, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerSpecialStats, QuestLine, TechniqueAttrCurves, TechniqueCategory, TechniqueGrade, TechniqueLayerDef, TechniqueState, VisibleBuffState, VisibleTile } from './types';
+import type { ActionDef, Attributes, AttrBonus, GameTimeState, ItemType, NpcQuestMarker, ObservationInsight, PlayerSpecialStats, QuestLine, TechniqueAttrCurves, TechniqueCategory, TechniqueGrade, TechniqueLayerDef, TechniqueState, VisibleBuffState, VisibleTile } from './types';
 import { clonePlainValue } from './structured';
 
 const PROTO_SCHEMA = `
@@ -23,17 +23,11 @@ message TickPayload {
   repeated VisibleTileRowPayload v = 7;
   optional uint32 dt = 8;
   optional string m = 9;
-  optional MapMetaPayload mapMeta = 10;
   repeated PointPayload path = 11;
   optional uint32 hp = 12;
   optional uint32 qi = 13;
   optional uint32 f = 14;
   optional GameTimeStatePayload time = 15;
-  optional string minimapJson = 16;
-  optional string minimapLibraryJson = 17;
-  optional string visibleMinimapMarkersJson = 18;
-  optional string visibleMinimapMarkerAddsJson = 23;
-  repeated string visibleMinimapMarkerRemoves = 24;
   optional uint32 auraLevelBaseValue = 19;
   repeated string r = 20;
 }
@@ -137,23 +131,6 @@ message StringPairPayload {
   required string right = 2;
 }
 
-message MapMetaPayload {
-  optional string id = 1;
-  optional string name = 2;
-  optional uint32 width = 3;
-  optional uint32 height = 4;
-  optional string parentMapId = 5;
-  optional sint32 parentOriginX = 6;
-  optional sint32 parentOriginY = 7;
-  optional sint32 floorLevel = 8;
-  optional string floorName = 9;
-  optional string spaceVisionMode = 10;
-  optional uint32 dangerLevel = 11;
-  optional string recommendedRealm = 12;
-  optional string description = 13;
-  optional string routeDomain = 14;
-}
-
 message GameTimeStatePayload {
   optional uint32 totalTicks = 1;
   optional uint32 localTicks = 2;
@@ -208,6 +185,7 @@ message ActionsUpdatePayload {
   optional bool autoBattleStationary = 8;
   repeated string removeActionIds = 9;
   repeated string actionOrder = 10;
+  optional bool cultivationActive = 11;
 }
 
 message ActionUpdateEntryPayload {
@@ -575,20 +553,6 @@ function fromWireVisibleTile(wire: Record<string, unknown>): VisibleTile {
   };
 }
 
-function toWireMapMeta(meta: MapMeta | undefined): Record<string, unknown> | undefined {
-  if (!meta) {
-    return undefined;
-  }
-  return cloneJson(meta) as unknown as Record<string, unknown>;
-}
-
-function fromWireMapMeta(wire: Record<string, unknown> | undefined): MapMeta | undefined {
-  if (!wire) {
-    return undefined;
-  }
-  return cloneJson(wire) as unknown as MapMeta;
-}
-
 function toWireGameTimeState(time: GameTimeState | undefined): Record<string, unknown> | undefined {
   if (!time) {
     return undefined;
@@ -780,17 +744,11 @@ function toWireTick(payload: S2C_Tick): Record<string, unknown> {
   }
   if (payload.dt !== undefined) wire.dt = payload.dt;
   if (payload.m !== undefined) wire.m = payload.m;
-  if (payload.mapMeta) wire.mapMeta = toWireMapMeta(payload.mapMeta);
   if (payload.path) wire.path = payload.path.map(([x, y]) => ({ x, y }));
   if (payload.hp !== undefined) wire.hp = payload.hp;
   if (payload.qi !== undefined) wire.qi = payload.qi;
   if (payload.f !== undefined) wire.f = payload.f;
   if (payload.time) wire.time = toWireGameTimeState(payload.time);
-  if (payload.minimap) wire.minimapJson = JSON.stringify(payload.minimap);
-  if (payload.minimapLibrary) wire.minimapLibraryJson = JSON.stringify(payload.minimapLibrary);
-  if (payload.visibleMinimapMarkers) wire.visibleMinimapMarkersJson = JSON.stringify(payload.visibleMinimapMarkers);
-  if (payload.visibleMinimapMarkerAdds) wire.visibleMinimapMarkerAddsJson = JSON.stringify(payload.visibleMinimapMarkerAdds);
-  if (payload.visibleMinimapMarkerRemoves) wire.visibleMinimapMarkerRemoves = [...payload.visibleMinimapMarkerRemoves];
   if (payload.auraLevelBaseValue !== undefined) wire.auraLevelBaseValue = payload.auraLevelBaseValue;
   return wire;
 }
@@ -868,7 +826,6 @@ function fromWireTick(wire: Record<string, unknown>): S2C_Tick {
   }
   if (hasOwn(wire, 'dt')) payload.dt = Number(wire.dt ?? 0);
   if (hasOwn(wire, 'm')) payload.m = String(wire.m ?? '');
-  if (hasOwn(wire, 'mapMeta')) payload.mapMeta = fromWireMapMeta(wire.mapMeta as Record<string, unknown>);
   if (Array.isArray(wire.path)) {
     payload.path = wire.path.map((point) => {
       const entry = point as Record<string, unknown>;
@@ -879,23 +836,6 @@ function fromWireTick(wire: Record<string, unknown>): S2C_Tick {
   if (hasOwn(wire, 'qi')) payload.qi = Number(wire.qi ?? 0);
   if (hasOwn(wire, 'f')) payload.f = Number(wire.f ?? 0) as S2C_Tick['f'];
   if (hasOwn(wire, 'time')) payload.time = fromWireGameTimeState(wire.time as Record<string, unknown>);
-  if (hasOwn(wire, 'minimapJson') && typeof wire.minimapJson === 'string') {
-    payload.minimap = parseJson<S2C_Tick['minimap']>(wire.minimapJson);
-  }
-  if (hasOwn(wire, 'minimapLibraryJson') && typeof wire.minimapLibraryJson === 'string') {
-    payload.minimapLibrary = parseJson<NonNullable<S2C_Tick['minimapLibrary']>>(wire.minimapLibraryJson);
-  }
-  if (hasOwn(wire, 'visibleMinimapMarkersJson') && typeof wire.visibleMinimapMarkersJson === 'string') {
-    payload.visibleMinimapMarkers = parseJson<NonNullable<S2C_Tick['visibleMinimapMarkers']>>(wire.visibleMinimapMarkersJson);
-  }
-  if (hasOwn(wire, 'visibleMinimapMarkerAddsJson') && typeof wire.visibleMinimapMarkerAddsJson === 'string') {
-    payload.visibleMinimapMarkerAdds = parseJson<NonNullable<S2C_Tick['visibleMinimapMarkerAdds']>>(wire.visibleMinimapMarkerAddsJson);
-  }
-  if (Array.isArray(wire.visibleMinimapMarkerRemoves)) {
-    payload.visibleMinimapMarkerRemoves = wire.visibleMinimapMarkerRemoves
-      .map((entry) => String(entry ?? ''))
-      .filter((entry) => entry.length > 0);
-  }
   if (hasOwn(wire, 'auraLevelBaseValue')) {
     payload.auraLevelBaseValue = Number(wire.auraLevelBaseValue ?? 0);
   }
@@ -948,6 +888,7 @@ function toWireActionsUpdate(payload: S2C_ActionsUpdate): Record<string, unknown
   if (payload.allowAoePlayerHit !== undefined) wire.allowAoePlayerHit = payload.allowAoePlayerHit;
   if (payload.autoIdleCultivation !== undefined) wire.autoIdleCultivation = payload.autoIdleCultivation;
   if (payload.autoSwitchCultivation !== undefined) wire.autoSwitchCultivation = payload.autoSwitchCultivation;
+  if (payload.cultivationActive !== undefined) wire.cultivationActive = payload.cultivationActive;
   if (payload.senseQiActive !== undefined) wire.senseQiActive = payload.senseQiActive;
   return wire;
 }
@@ -974,6 +915,7 @@ function fromWireActionsUpdate(wire: Record<string, unknown>): S2C_ActionsUpdate
   if (hasOwn(wire, 'allowAoePlayerHit')) payload.allowAoePlayerHit = Boolean(wire.allowAoePlayerHit);
   if (hasOwn(wire, 'autoIdleCultivation')) payload.autoIdleCultivation = Boolean(wire.autoIdleCultivation);
   if (hasOwn(wire, 'autoSwitchCultivation')) payload.autoSwitchCultivation = Boolean(wire.autoSwitchCultivation);
+  if (hasOwn(wire, 'cultivationActive')) payload.cultivationActive = Boolean(wire.cultivationActive);
   if (hasOwn(wire, 'senseQiActive')) payload.senseQiActive = Boolean(wire.senseQiActive);
   return payload;
 }
@@ -998,11 +940,6 @@ function toWireAttrUpdate(payload: S2C_AttrUpdate): Record<string, unknown> {
   } else if (payload.lifespanYears !== undefined) {
     wire.lifespanYears = payload.lifespanYears;
   }
-  if (payload.realm === null) {
-    wire.clearRealm = true;
-  } else if (payload.realm !== undefined) {
-    wire.realmJson = JSON.stringify(payload.realm);
-  }
   return wire;
 }
 
@@ -1025,11 +962,6 @@ function fromWireAttrUpdate(wire: Record<string, unknown>): S2C_AttrUpdate {
     payload.lifespanYears = null;
   } else if (hasOwn(wire, 'lifespanYears')) {
     payload.lifespanYears = Number(wire.lifespanYears ?? 0);
-  }
-  if (wire.clearRealm === true) {
-    payload.realm = null;
-  } else if (typeof wire.realmJson === 'string') {
-    payload.realm = parseJson<PlayerRealmState>(wire.realmJson);
   }
   return payload;
 }

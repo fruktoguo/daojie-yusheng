@@ -3,7 +3,7 @@
  * C2S = 客户端→服务端，S2C = 服务端→客户端。
  */
 import type { ElementKey } from './numeric';
-import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerSpecialStats, QuestState, CombatEffect, AutoBattleSkillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, MonsterTier, NumericStatPercentages, TechniqueCategory, TechniqueGrade, GroundItemPileView, LootWindowState, VisibleBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MapRouteDomain, NpcShopView, PortalRouteDomain } from './types';
+import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerSpecialStats, QuestState, CombatEffect, AutoBattleSkillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, MonsterTier, NumericStatPercentages, TechniqueCategory, TechniqueGrade, GroundItemPileView, LootSearchProgressView, VisibleBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, LootSourceKind, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MapRouteDomain, PortalRouteDomain } from './types';
 import { NumericRatioDivisors, NumericStats } from './numeric';
 
 // ===== 事件名 =====
@@ -58,6 +58,8 @@ export const C2S = {
 export const S2C = {
   Init: 's:init',
   Tick: 's:tick',
+  MapStaticSync: 's:mapStaticSync',
+  RealmUpdate: 's:realmUpdate',
   Pong: 's:pong',
   GmState: 's:gmState',
   // 预留事件：当前服务端尚未正式使用
@@ -289,18 +291,23 @@ export interface S2C_Tick {
   v?: VisibleTile[][];                            // 视野 tiles（null 表示当前不可见）
   dt?: number;                                    // 实际 tick 间隔（毫秒）
   m?: string;                                     // 当前地图 ID（跨图时用于同步客户端状态）
-  mapMeta?: MapMeta;                              // 当前地图元数据
-  minimap?: MapMinimapSnapshot;                   // 当前地图已解锁时的完整 mini 地图静态标记
-  visibleMinimapMarkers?: MapMinimapMarker[];     // 当前视野内可见静态标记完整快照（仅首包/重同步）
-  visibleMinimapMarkerAdds?: MapMinimapMarker[];  // 当前视野内可见静态标记增量新增
-  visibleMinimapMarkerRemoves?: string[];         // 当前视野内移出的静态标记 ID
-  minimapLibrary?: MapMinimapArchiveEntry[];      // 已解锁地图图鉴（全图）
   path?: [number, number][];                      // 当前剩余路径点
   hp?: number;                                    // 当前玩家 HP
   qi?: number;                                    // 当前玩家灵力
   f?: Direction;                                  // 当前玩家朝向
   time?: GameTimeState;                           // 当前地图时间状态
   auraLevelBaseValue?: number;                    // 灵气等级基准值
+}
+
+/** 地图静态同步：低频重同步当前地图元数据、小地图与静态标记 */
+export interface S2C_MapStaticSync {
+  mapId: string;
+  mapMeta?: MapMeta;
+  minimap?: MapMinimapSnapshot;
+  minimapLibrary?: MapMinimapArchiveEntry[];
+  visibleMinimapMarkers?: MapMinimapMarker[];
+  visibleMinimapMarkerAdds?: MapMinimapMarker[];
+  visibleMinimapMarkerRemoves?: string[];
 }
 
 /** 实体进入视野 */
@@ -500,20 +507,63 @@ export interface S2C_AttrUpdate {
   boneAgeBaseYears?: number;
   lifeElapsedTicks?: number;
   lifespanYears?: number | null;
-  realm?: PlayerRealmState | null;
   realmProgress?: number;
   realmProgressToNext?: number;
   realmBreakthroughReady?: boolean;
 }
 
+/** 境界低频同步：完整下发当前境界展示、突破与开天门详情 */
+export interface S2C_RealmUpdate {
+  realm: PlayerRealmState | null;
+}
+
+/** 网络轻量物品实例态：已知模板只发实例与兜底字段，静态定义优先由客户端本地目录补齐 */
+export interface SyncedItemStack {
+  itemId: string;
+  count: number;
+  name?: string;
+  type?: ItemType;
+  desc?: string;
+  groundLabel?: string;
+  grade?: TechniqueGrade;
+  level?: number;
+  equipSlot?: EquipSlot;
+  equipAttrs?: ItemStack['equipAttrs'];
+  equipStats?: ItemStack['equipStats'];
+  equipValueStats?: ItemStack['equipValueStats'];
+  effects?: EquipmentEffectDef[];
+  tags?: string[];
+  mapUnlockId?: string;
+  tileAuraGainAmount?: number;
+  allowBatchUse?: boolean;
+}
+
+export interface SyncedInventorySnapshot {
+  items: SyncedItemStack[];
+  capacity: number;
+}
+
 /** 背包更新 */
+export interface InventorySlotUpdateEntry {
+  slotIndex: number;
+  item: SyncedItemStack | null;
+}
+
 export interface S2C_InventoryUpdate {
-  inventory: Inventory;
+  inventory?: SyncedInventorySnapshot;
+  capacity?: number;
+  size?: number;
+  slots?: InventorySlotUpdateEntry[];
 }
 
 /** 装备更新 */
+export interface EquipmentSlotUpdateEntry {
+  slot: EquipSlot;
+  item: SyncedItemStack | null;
+}
+
 export interface S2C_EquipmentUpdate {
-  equipment: EquipmentSlots;
+  slots: EquipmentSlotUpdateEntry[];
 }
 
 /** 功法增量更新条目 */
@@ -565,12 +615,37 @@ export interface S2C_ActionsUpdate {
   allowAoePlayerHit?: boolean;
   autoIdleCultivation?: boolean;
   autoSwitchCultivation?: boolean;
+  cultivationActive?: boolean;
   senseQiActive?: boolean;
 }
 
 /** 战利品窗口更新 */
+export interface SyncedLootWindowItemView {
+  itemKey: string;
+  item: SyncedItemStack;
+}
+
+export interface SyncedLootWindowSourceView {
+  sourceId: string;
+  kind: LootSourceKind;
+  title: string;
+  desc?: string;
+  grade?: TechniqueGrade;
+  searchable: boolean;
+  search?: LootSearchProgressView;
+  items: SyncedLootWindowItemView[];
+  emptyText?: string;
+}
+
+export interface SyncedLootWindowState {
+  tileX: number;
+  tileY: number;
+  title: string;
+  sources: SyncedLootWindowSourceView[];
+}
+
 export interface S2C_LootWindowUpdate {
-  window: LootWindowState | null;
+  window: SyncedLootWindowState | null;
 }
 
 export interface S2C_MarketUpdate {
@@ -595,9 +670,24 @@ export interface S2C_MarketTradeHistory {
   records: MarketTradeHistoryEntryView[];
 }
 
+export interface SyncedNpcShopItemView {
+  itemId: string;
+  item: SyncedItemStack;
+  unitPrice: number;
+}
+
+export interface SyncedNpcShopView {
+  npcId: string;
+  npcName: string;
+  dialogue: string;
+  currencyItemId: string;
+  currencyItemName: string;
+  items: SyncedNpcShopItemView[];
+}
+
 export interface S2C_NpcShop {
   npcId: string;
-  shop: NpcShopView | null;
+  shop: SyncedNpcShopView | null;
   error?: string;
 }
 

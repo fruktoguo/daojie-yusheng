@@ -8,6 +8,7 @@ import {
   type PlayerState,
   type RenderEntity,
   type S2C_Init,
+  type S2C_MapStaticSync,
   type S2C_Tick,
   type TickRenderEntity,
   type Tile,
@@ -148,6 +149,44 @@ export class MapStore {
     this.tickTiming.startedAt = performance.now();
   }
 
+  applyMapStaticSync(data: S2C_MapStaticSync): void {
+    if (!this.player) {
+      return;
+    }
+
+    if (data.mapMeta && data.mapId === this.player.mapId) {
+      this.mapMeta = data.mapMeta;
+    }
+    if (data.mapMeta) {
+      cacheMapMeta(data.mapMeta);
+    }
+    if (data.minimapLibrary) {
+      cacheUnlockedMinimapLibrary(data.minimapLibrary);
+      this.player.unlockedMinimapIds = data.minimapLibrary.map((entry) => entry.mapId).sort();
+      if (data.mapId === this.player.mapId && !this.minimapSnapshot && this.player.unlockedMinimapIds.includes(this.player.mapId)) {
+        this.minimapSnapshot = getCachedMapSnapshot(this.player.mapId);
+      }
+    }
+    if (data.visibleMinimapMarkers !== undefined && data.mapId === this.player.mapId) {
+      this.visibleMinimapMarkers = cloneJson(data.visibleMinimapMarkers);
+      rememberVisibleMarkers(data.mapId, this.visibleMinimapMarkers);
+    } else if (data.mapId === this.player.mapId && ((data.visibleMinimapMarkerAdds?.length ?? 0) > 0 || (data.visibleMinimapMarkerRemoves?.length ?? 0) > 0)) {
+      this.visibleMinimapMarkers = this.mergeVisibleMinimapMarkerPatches(
+        data.visibleMinimapMarkerAdds ?? [],
+        data.visibleMinimapMarkerRemoves ?? [],
+      );
+      if ((data.visibleMinimapMarkerAdds?.length ?? 0) > 0) {
+        rememberVisibleMarkers(data.mapId, data.visibleMinimapMarkerAdds ?? []);
+      }
+    }
+    if ('minimap' in data && data.mapId === this.player.mapId) {
+      this.minimapSnapshot = data.minimap ?? null;
+    }
+    if (data.minimap) {
+      cacheMapSnapshot(data.mapId, data.minimap, { meta: data.mapMeta ?? (data.mapId === this.player.mapId ? this.mapMeta : null), unlocked: true });
+    }
+  }
+
   applyTick(data: S2C_Tick): void {
     if (!this.player) {
       return;
@@ -180,34 +219,6 @@ export class MapStore {
           : null;
         hydrateTileCacheFromMemory(this.player.mapId, this.tileCache);
       }
-    }
-
-    if (data.mapMeta) {
-      this.mapMeta = data.mapMeta;
-      cacheMapMeta(data.mapMeta);
-    }
-    if (data.minimapLibrary) {
-      cacheUnlockedMinimapLibrary(data.minimapLibrary);
-      this.player.unlockedMinimapIds = data.minimapLibrary.map((entry) => entry.mapId).sort();
-      if (!this.minimapSnapshot && this.player.unlockedMinimapIds.includes(this.player.mapId)) {
-        this.minimapSnapshot = getCachedMapSnapshot(this.player.mapId);
-      }
-    }
-    if (data.visibleMinimapMarkers !== undefined) {
-      this.visibleMinimapMarkers = cloneJson(data.visibleMinimapMarkers);
-      rememberVisibleMarkers(this.player.mapId, this.visibleMinimapMarkers);
-    } else if ((data.visibleMinimapMarkerAdds?.length ?? 0) > 0 || (data.visibleMinimapMarkerRemoves?.length ?? 0) > 0) {
-      this.visibleMinimapMarkers = this.mergeVisibleMinimapMarkerPatches(
-        data.visibleMinimapMarkerAdds ?? [],
-        data.visibleMinimapMarkerRemoves ?? [],
-      );
-      if ((data.visibleMinimapMarkerAdds?.length ?? 0) > 0) {
-        rememberVisibleMarkers(this.player.mapId, data.visibleMinimapMarkerAdds ?? []);
-      }
-    }
-    if (data.minimap) {
-      this.minimapSnapshot = data.minimap;
-      cacheMapSnapshot(this.player.mapId, data.minimap, { meta: this.mapMeta, unlocked: true });
     }
 
     if (typeof data.hp === 'number') {

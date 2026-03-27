@@ -30,7 +30,6 @@ import {
   NumericRatioDivisors,
   NumericStats,
   NpcQuestMarker,
-  NpcShopView,
   ObservationInsight,
   parseTileTargetRef,
   PlayerState,
@@ -45,6 +44,8 @@ import {
   SkillEffectDef,
   SkillFormula,
   SkillFormulaVar,
+  SyncedItemStack,
+  SyncedNpcShopView,
   TemporaryBuffState,
   TileType,
   VisibleBuffState,
@@ -86,6 +87,50 @@ import {
   ORE_REWARD_ITEM_ID_BY_TILE,
 } from '../constants/gameplay/terrain';
 import { MARKET_CURRENCY_ITEM_ID } from '../constants/gameplay/market';
+
+const STATIC_CONTEXT_TOGGLE_ACTIONS: readonly ActionDef[] = [{
+  id: 'toggle:auto_battle',
+  name: '自动战斗',
+  type: 'toggle',
+  desc: '自动追击附近妖兽并释放技能，可随时切换开关。',
+  cooldownLeft: 0,
+}, {
+  id: 'toggle:auto_retaliate',
+  name: '自动反击',
+  type: 'toggle',
+  desc: '控制被攻击时是否自动开战。',
+  cooldownLeft: 0,
+}, {
+  id: 'toggle:auto_battle_stationary',
+  name: '原地战斗',
+  type: 'toggle',
+  desc: '控制自动战斗时是否原地输出，还是按射程追击目标。',
+  cooldownLeft: 0,
+}, {
+  id: 'toggle:allow_aoe_player_hit',
+  name: '全体攻击',
+  type: 'toggle',
+  desc: '控制群体攻击是否会误伤其他玩家。',
+  cooldownLeft: 0,
+}, {
+  id: 'toggle:auto_idle_cultivation',
+  name: '闲置自动修炼',
+  type: 'toggle',
+  desc: '控制角色闲置一段时间后是否自动开始修炼。',
+  cooldownLeft: 0,
+}, {
+  id: 'toggle:auto_switch_cultivation',
+  name: '修满自动切换',
+  type: 'toggle',
+  desc: '控制主修功法圆满后是否自动切到下一门未圆满功法。',
+  cooldownLeft: 0,
+}, {
+  id: 'sense_qi:toggle',
+  name: '感气视角',
+  type: 'toggle',
+  desc: '切换感气视角，观察地块灵气层次与变化。',
+  cooldownLeft: 0,
+}];
 
 type MessageKind = 'system' | 'quest' | 'combat' | 'loot';
 type WorldDirtyFlag = 'inv' | 'quest' | 'actions' | 'tech' | 'attr' | 'loot';
@@ -471,67 +516,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
     const effectiveViewRange = this.timeService.getEffectiveViewRangeFromBuff(player.viewRange, player.temporaryBuffs);
 
-    const actions: ActionDef[] = [{
-      id: 'toggle:auto_battle',
-      name: player.autoBattle ? '停止自动战斗' : '开启自动战斗',
-      type: 'toggle',
-      desc: player.autoBattle ? '停止自动追击与释放技能。' : '自动追击附近妖兽并释放技能。',
-      cooldownLeft: 0,
-    }, {
-      id: 'toggle:auto_retaliate',
-      name: player.autoRetaliate === false ? '受击不开战' : '受击自动开战',
-      type: 'toggle',
-      desc: player.autoRetaliate === false ? '被攻击时不会自动开启自动战斗。' : '被攻击时自动开启自动战斗。',
-      cooldownLeft: 0,
-    }, {
-      id: 'toggle:auto_battle_stationary',
-      name: player.autoBattleStationary === true ? '原地战斗已开' : '原地战斗已关',
-      type: 'toggle',
-      desc: player.autoBattleStationary === true
-        ? '开启后，自动战斗不会追击；能放技能时原地放技能，贴身时也可原地普攻。'
-        : '关闭后，自动战斗会按技能射程追击目标。',
-      cooldownLeft: 0,
-    }, {
-      id: 'toggle:allow_aoe_player_hit',
-      name: player.allowAoePlayerHit === true ? '全体攻击已开' : '全体攻击已关',
-      type: 'toggle',
-      desc: player.allowAoePlayerHit === true
-        ? '开启后，群体攻击也会命中其他玩家，请留意误伤。'
-        : '关闭后，群体攻击不会命中玩家，单体攻击仍可正常攻击玩家。',
-      cooldownLeft: 0,
-    }, {
-      id: 'toggle:auto_idle_cultivation',
-      name: player.autoIdleCultivation === false ? '闲置自动修炼已关' : '闲置自动修炼已开',
-      type: 'toggle',
-      desc: player.autoIdleCultivation === false
-        ? '关闭后，角色闲置 10 息也不会自动开始修炼。'
-        : '开启后，无行为和移动持续 10 息会自动开始修炼。',
-      cooldownLeft: 0,
-    }, {
-      id: 'toggle:auto_switch_cultivation',
-      name: player.autoSwitchCultivation === true ? '修满自动切换已开' : '修满自动切换已关',
-      type: 'toggle',
-      desc: player.autoSwitchCultivation === true
-        ? '当前主修功法圆满后，会自动切到功法列表中的下一门未圆满功法。'
-        : '关闭后，主修功法圆满时不会自动切换下一门功法。',
-      cooldownLeft: 0,
-    }, {
+    const actions: ActionDef[] = [...STATIC_CONTEXT_TOGGLE_ACTIONS, {
       id: 'cultivation:toggle',
-      name: this.techniqueService.hasCultivationBuff(player) ? '停止修炼' : '开始修炼',
+      name: '当前修炼',
       type: 'toggle',
-      desc: player.cultivatingTechId
-        ? (this.techniqueService.hasCultivationBuff(player)
-          ? '收束当前运转的气机，停止修炼。'
-          : '运转当前主修功法，每息获得境界与功法经验。')
-        : '需先在功法面板选择主修功法，才能开始修炼。',
-      cooldownLeft: 0,
-    }, {
-      id: 'sense_qi:toggle',
-      name: player.senseQiActive ? '关闭感气视角' : '施展感气决',
-      type: 'toggle',
-      desc: player.senseQiActive
-        ? '收束神识回响，退出感气视角。'
-        : '展开感气视角，可直接感知地块灵气等阶；配合观察还能细察灵气值。',
+      desc: '切换当前主修功法的修炼状态；需先在功法面板选择主修功法。',
       cooldownLeft: 0,
     }, {
       id: 'battle:force_attack',
@@ -609,7 +598,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return actions;
   }
 
-  buildNpcShopView(player: PlayerState, npcId: string): { shop: NpcShopView | null; error?: string } {
+  buildNpcShopView(player: PlayerState, npcId: string): { shop: SyncedNpcShopView | null; error?: string } {
     const npc = this.getAdjacentNpcs(player).find((entry) => entry.id === npcId);
     if (!npc) {
       return { shop: null, error: '你离这位商人太远了' };
@@ -626,11 +615,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         }
         return {
           itemId: entry.itemId,
-          item,
+          item: this.toSyncedItemStack(item),
           unitPrice: entry.price,
         };
       })
-      .filter((entry): entry is NpcShopView['items'][number] => Boolean(entry));
+      .filter((entry): entry is SyncedNpcShopView['items'][number] => Boolean(entry));
 
     if (items.length === 0) {
       return { shop: null, error: '商铺货架还没有可售物品' };
@@ -645,6 +634,37 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         currencyItemName: this.getShopCurrencyItemName(),
         items,
       },
+    };
+  }
+
+  private toSyncedItemStack(item: ItemStack): SyncedItemStack {
+    if (this.contentService.getItem(item.itemId)) {
+      return {
+        itemId: item.itemId,
+        count: Math.max(1, Math.floor(item.count)),
+        mapUnlockId: item.mapUnlockId,
+        tileAuraGainAmount: item.tileAuraGainAmount,
+        allowBatchUse: item.allowBatchUse,
+      };
+    }
+    return {
+      itemId: item.itemId,
+      count: Math.max(1, Math.floor(item.count)),
+      name: item.name,
+      type: item.type,
+      desc: item.desc,
+      groundLabel: item.groundLabel,
+      grade: item.grade,
+      level: item.level,
+      equipSlot: item.equipSlot,
+      equipAttrs: item.equipAttrs ? structuredClone(item.equipAttrs) : undefined,
+      equipStats: item.equipStats ? structuredClone(item.equipStats) : undefined,
+      equipValueStats: item.equipValueStats ? structuredClone(item.equipValueStats) : undefined,
+      effects: item.effects ? structuredClone(item.effects) : undefined,
+      tags: item.tags ? [...item.tags] : undefined,
+      mapUnlockId: item.mapUnlockId,
+      tileAuraGainAmount: item.tileAuraGainAmount,
+      allowBatchUse: item.allowBatchUse,
     };
   }
 
@@ -2243,65 +2263,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (!interaction.questState) {
-      const questState: QuestState = {
-        id: interaction.quest.id,
-        title: interaction.quest.title,
-        desc: interaction.quest.desc,
-        line: interaction.quest.line,
-        chapter: interaction.quest.chapter,
-        story: interaction.quest.story,
-        status: 'active',
-        objectiveType: interaction.quest.objectiveType,
-        objectiveText: interaction.quest.objectiveText,
-        progress: 0,
-        required: interaction.quest.required,
-        targetName: resolveQuestTargetName({
-          objectiveType: interaction.quest.objectiveType,
-          title: interaction.quest.title,
-          targetName: interaction.quest.targetName,
-          targetNpcId: interaction.quest.targetNpcId,
-          targetMonsterId: interaction.quest.targetMonsterId,
-          targetTechniqueId: interaction.quest.targetTechniqueId,
-          targetRealmStage: interaction.quest.targetRealmStage,
-          requiredItemId: interaction.quest.requiredItemId,
-          resolveNpcName: (npcId) => this.mapService.getNpcLocation(npcId)?.name,
-          resolveMonsterName: (monsterId) => this.mapService.getMonsterSpawn(monsterId)?.name,
-          resolveTechniqueName: (techniqueId) => this.contentService.getTechnique(techniqueId)?.name,
-          resolveItemName: (itemId) => this.contentService.getItem(itemId)?.name,
-        }),
-        targetTechniqueId: interaction.quest.targetTechniqueId,
-        targetRealmStage: interaction.quest.targetRealmStage,
-        rewardText: interaction.quest.rewardText,
-        targetMonsterId: interaction.quest.targetMonsterId ?? '',
-        rewardItemId: interaction.quest.rewardItemId,
-        rewardItemIds: [...interaction.quest.rewardItemIds],
-        rewards: interaction.quest.rewards
-          .map((reward) => this.createItemFromDrop(reward))
-          .filter((item): item is ItemStack => Boolean(item)),
-        nextQuestId: interaction.quest.nextQuestId,
-        requiredItemId: interaction.quest.requiredItemId,
-        requiredItemCount: interaction.quest.requiredItemCount,
-        giverId: npc.id,
-        giverName: npc.name,
-        giverMapId: player.mapId,
-        giverMapName: this.mapService.getMapMeta(player.mapId)?.name ?? '未知地界',
-        giverX: npc.x,
-        giverY: npc.y,
-        targetMapId: interaction.quest.targetMapId,
-        targetMapName: interaction.quest.targetMapName,
-        targetX: interaction.quest.targetX,
-        targetY: interaction.quest.targetY,
-        targetNpcId: interaction.quest.targetNpcId,
-        targetNpcName: interaction.quest.targetNpcName,
-        submitNpcId: interaction.quest.submitNpcId,
-        submitNpcName: interaction.quest.submitNpcName,
-        submitMapId: interaction.quest.submitMapId,
-        submitMapName: interaction.quest.submitMapName,
-        submitX: interaction.quest.submitX,
-        submitY: interaction.quest.submitY,
-        relayMessage: interaction.quest.relayMessage,
-      };
-      questState.progress = this.resolveQuestProgress(player, questState, interaction.quest);
+      const questState = this.createQuestState(player, interaction.quest);
       player.quests.push(questState);
       this.syncQuestState(player);
       return {
@@ -2363,12 +2325,23 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         dirty.push('attr');
       }
       interaction.questState.status = 'completed';
+      const nextQuestState = this.tryAcceptNextQuest(player, interaction.questState.nextQuestId);
+      const nextQuestNotice = nextQuestState ? this.describeQuestAutoAccepted(nextQuestState) : undefined;
       return {
-        messages: [{
-          playerId: player.id,
-          text: `${npc.name}：做得不错，这是你的奖励 ${interaction.quest.rewardText}。`,
-          kind: 'quest',
-        }],
+        messages: [
+          {
+            playerId: player.id,
+            text: `${npc.name}：做得不错，这是你的奖励 ${interaction.quest.rewardText}。`,
+            kind: 'quest',
+          },
+          ...(nextQuestNotice
+            ? [{
+                playerId: player.id,
+                text: nextQuestNotice,
+                kind: 'quest' as const,
+              }]
+            : []),
+        ],
         dirty,
       };
     }
@@ -2390,6 +2363,99 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       messages: [{ playerId: player.id, text: `${npc.name}：${npc.dialogue}`, kind: 'quest' }],
       dirty: ['actions'],
     };
+  }
+
+  private createQuestState(player: PlayerState, quest: QuestConfig): QuestState {
+    const questState: QuestState = {
+      id: quest.id,
+      title: quest.title,
+      desc: quest.desc,
+      line: quest.line,
+      chapter: quest.chapter,
+      story: quest.story,
+      status: 'active',
+      objectiveType: quest.objectiveType,
+      objectiveText: quest.objectiveText,
+      progress: 0,
+      required: quest.required,
+      targetName: resolveQuestTargetName({
+        objectiveType: quest.objectiveType,
+        title: quest.title,
+        targetName: quest.targetName,
+        targetNpcId: quest.targetNpcId,
+        targetMonsterId: quest.targetMonsterId,
+        targetTechniqueId: quest.targetTechniqueId,
+        targetRealmStage: quest.targetRealmStage,
+        requiredItemId: quest.requiredItemId,
+        resolveNpcName: (npcId) => this.mapService.getNpcLocation(npcId)?.name,
+        resolveMonsterName: (monsterId) => this.mapService.getMonsterSpawn(monsterId)?.name,
+        resolveTechniqueName: (techniqueId) => this.contentService.getTechnique(techniqueId)?.name,
+        resolveItemName: (itemId) => this.contentService.getItem(itemId)?.name,
+      }),
+      targetTechniqueId: quest.targetTechniqueId,
+      targetRealmStage: quest.targetRealmStage,
+      rewardText: quest.rewardText,
+      targetMonsterId: quest.targetMonsterId ?? '',
+      rewardItemId: quest.rewardItemId,
+      rewardItemIds: [...quest.rewardItemIds],
+      rewards: quest.rewards
+        .map((reward) => this.createItemFromDrop(reward))
+        .filter((item): item is ItemStack => Boolean(item)),
+      nextQuestId: quest.nextQuestId,
+      requiredItemId: quest.requiredItemId,
+      requiredItemCount: quest.requiredItemCount,
+      giverId: quest.giverId,
+      giverName: quest.giverName,
+      giverMapId: quest.giverMapId,
+      giverMapName: quest.giverMapName,
+      giverX: quest.giverX,
+      giverY: quest.giverY,
+      targetMapId: quest.targetMapId,
+      targetMapName: quest.targetMapName,
+      targetX: quest.targetX,
+      targetY: quest.targetY,
+      targetNpcId: quest.targetNpcId,
+      targetNpcName: quest.targetNpcName,
+      submitNpcId: quest.submitNpcId,
+      submitNpcName: quest.submitNpcName,
+      submitMapId: quest.submitMapId,
+      submitMapName: quest.submitMapName,
+      submitX: quest.submitX,
+      submitY: quest.submitY,
+      relayMessage: quest.relayMessage,
+    };
+    questState.progress = this.resolveQuestProgress(player, questState, quest);
+    return questState;
+  }
+
+  private tryAcceptNextQuest(player: PlayerState, nextQuestId?: string): QuestState | null {
+    if (!nextQuestId) {
+      return null;
+    }
+    if (player.quests.some((entry) => entry.id === nextQuestId)) {
+      return null;
+    }
+    const nextQuest = this.mapService.getQuest(nextQuestId);
+    if (!nextQuest) {
+      return null;
+    }
+    const nextQuestState = this.createQuestState(player, nextQuest);
+    player.quests.push(nextQuestState);
+    this.syncQuestState(player);
+    return nextQuestState;
+  }
+
+  private describeQuestAutoAccepted(quest: QuestState): string {
+    const mapName = quest.giverMapName ?? quest.targetMapName ?? quest.submitMapName;
+    if (quest.objectiveType === 'talk' && quest.targetNpcName) {
+      const location = mapName ? `，前往 ${mapName} 寻找 ${quest.targetNpcName}` : `，前往寻找 ${quest.targetNpcName}`;
+      return `新的${quest.line === 'main' ? '主线' : '任务'}《${quest.title}》已自动接取${location}。`;
+    }
+    if (quest.giverName) {
+      const location = mapName ? `，可前往 ${mapName} 继续推进` : '';
+      return `新的${quest.line === 'main' ? '主线' : '任务'}《${quest.title}》已自动接取${location}。`;
+    }
+    return `新的${quest.line === 'main' ? '主线' : '任务'}《${quest.title}》已自动接取。`;
   }
 
   private handlePortalTravel(player: PlayerState): WorldUpdate {

@@ -934,6 +934,7 @@ export interface PlayerState {
   allowAoePlayerHit?: boolean;
   autoIdleCultivation?: boolean;
   autoSwitchCultivation?: boolean;
+  cultivationActive?: boolean;
   realmLv?: number;
   realmName?: string;
   realmStage?: string;

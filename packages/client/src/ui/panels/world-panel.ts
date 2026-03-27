@@ -5,9 +5,10 @@
 
 import { ActionDef, gridDistance, MapMeta, MonsterTier, PlayerState, QuestState } from '@mud/shared';
 import { preserveSelection } from '../selection-preserver';
-import { TECH_REALM_LABELS, TECH_REALM_NAME_BY_KEY, WORLD_GUIDE, type WorldGuide } from '../../constants/world/world-panel';
+import { TECH_REALM_LABELS, TECH_REALM_NAME_BY_KEY, WORLD_GUIDE } from '../../constants/world/world-panel';
 import { formatDisplayCurrentMax, formatDisplayInteger } from '../../utils/number';
 import { getMonsterPresentation } from '../../monster-presentation';
+import { assessMapDanger } from '../../utils/map-danger';
 
 interface VisibleEntity {
   id: string;
@@ -44,7 +45,8 @@ interface WorldPanelSnapshot {
   mapName: string;
   mapMood: string;
   mapDesc: string;
-  danger: number;
+  dangerLabel: string;
+  dangerTone: number;
   recommend: string;
   realmLabel: string;
   route: string;
@@ -76,10 +78,6 @@ function escapeHtml(value: string): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
-}
-
-function dangerLabel(level: number): string {
-  return `${'危'.repeat(Math.max(1, Math.min(level, 5)))} ${level}/5`;
 }
 
 function inferRealm(player: PlayerState): string {
@@ -165,7 +163,6 @@ export class WorldPanel {
   }): WorldPanelSnapshot {
     const guide = WORLD_GUIDE[input.player.mapId] ?? {
       title: input.mapMeta?.name ?? input.player.mapId,
-      danger: input.mapMeta?.dangerLevel ?? 1,
       recommendedRealm: input.mapMeta?.recommendedRealm ?? '未知',
       route: '继续探索当前区域',
       mood: '未知地域',
@@ -174,8 +171,10 @@ export class WorldPanel {
       threats: [],
     };
 
-    const danger = input.mapMeta?.dangerLevel ?? guide.danger;
-    const recommend = resolveRecommendedRealmLabel(input.mapMeta?.recommendedRealm, guide.recommendedRealm);
+    const danger = assessMapDanger(input.player, input.mapMeta?.recommendedRealm, guide.recommendedRealm);
+    const recommend = danger.recommendedRealmLabel === '未知'
+      ? resolveRecommendedRealmLabel(input.mapMeta?.recommendedRealm, guide.recommendedRealm)
+      : danger.recommendedRealmLabel;
     const cultivating = input.player.cultivatingTechId
       ? input.player.techniques.find((entry) => entry.techId === input.player.cultivatingTechId)
       : null;
@@ -213,7 +212,8 @@ export class WorldPanel {
       mapName: input.mapMeta?.name ?? guide.title,
       mapMood: guide.mood,
       mapDesc: guide.desc,
-      danger,
+      dangerLabel: danger.dangerLabel,
+      dangerTone: danger.dangerTone,
       recommend,
       realmLabel: inferRealm(input.player),
       route: guide.route,
@@ -266,7 +266,7 @@ export class WorldPanel {
         </div>
         <div class="world-danger">
           <div class="world-danger-label">区域危险</div>
-          <div class="world-danger-value danger-${Math.min(snapshot.danger, 5)}" data-world-map-danger="true">${dangerLabel(snapshot.danger)}</div>
+          <div class="world-danger-value danger-${snapshot.dangerTone}" data-world-map-danger="true">${escapeHtml(snapshot.dangerLabel)}</div>
           <div class="world-danger-sub" data-world-map-recommend="true">推荐境界：${escapeHtml(snapshot.recommend)}</div>
         </div>
       </div>
@@ -379,8 +379,8 @@ export class WorldPanel {
     moodNode.textContent = snapshot.mapMood;
     titleNode.textContent = snapshot.mapName;
     descNode.textContent = snapshot.mapDesc;
-    dangerNode.textContent = dangerLabel(snapshot.danger);
-    dangerNode.className = `world-danger-value danger-${Math.min(snapshot.danger, 5)}`;
+    dangerNode.textContent = snapshot.dangerLabel;
+    dangerNode.className = `world-danger-value danger-${snapshot.dangerTone}`;
     recommendNode.textContent = `推荐境界：${snapshot.recommend}`;
     realmNode.textContent = snapshot.realmLabel;
     routeNode.textContent = snapshot.route;

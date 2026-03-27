@@ -85,6 +85,7 @@ export class MarketService implements OnModuleInit {
         id: 'ASC',
       },
     });
+    await this.sanitizeOpenOrders();
     this.compactOpenOrders();
   }
 
@@ -107,7 +108,10 @@ export class MarketService implements OnModuleInit {
   }
 
   buildItemBook(itemKey: string): MarketOrderBookView | null {
-    const orders = this.openOrders.filter((order) => order.itemKey === itemKey && order.remainingQuantity > 0);
+    const orders = this.openOrders.filter((order) =>
+      order.remainingQuantity > 0
+      && this.canTradeItemOnMarket(this.cloneOrderItem(order))
+      && this.getOrderItemKey(order) === itemKey);
     if (orders.length === 0) {
       return null;
     }
@@ -174,6 +178,9 @@ export class MarketService implements OnModuleInit {
     }
     if (item.count < quantity) {
       return this.singleMessage(player.id, '挂售数量超过了当前持有数量。');
+    }
+    if (!this.canTradeItemOnMarket(item)) {
+      return this.singleMessage(player.id, `${this.getCurrencyItemName()}是坊市货币，不能挂售。`);
     }
     const orderItem = this.toOrderItem(item);
     const itemKey = this.buildItemKey(orderItem);
@@ -259,6 +266,9 @@ export class MarketService implements OnModuleInit {
     const item = this.contentService.createItem(payload.itemId, 1);
     if (!item) {
       return this.singleMessage(player.id, '求购的物品不存在。');
+    }
+    if (!this.canTradeItemOnMarket(item)) {
+      return this.singleMessage(player.id, `${this.getCurrencyItemName()}是坊市货币，不能求购。`);
     }
     const quantity = this.normalizeQuantity(payload.quantity);
     const unitPrice = this.normalizeUnitPrice(payload.unitPrice);
@@ -428,6 +438,9 @@ export class MarketService implements OnModuleInit {
     if (item.count < quantity) {
       return this.singleMessage(player.id, '出售数量超过了当前持有数量。');
     }
+    if (!this.canTradeItemOnMarket(item)) {
+      return this.singleMessage(player.id, `${this.getCurrencyItemName()}是坊市货币，不能出售给求购盘。`);
+    }
     const orderItem = this.toOrderItem(item);
     const buys = this.getSortedOrders(this.buildItemKey(orderItem), 'buy')
       .filter((order) => order.ownerId !== player.id);
@@ -559,7 +572,7 @@ export class MarketService implements OnModuleInit {
 
     for (const catalogItem of this.contentService.getEditorItemCatalog()) {
       const item = this.contentService.createItem(catalogItem.itemId, 1);
-      if (!item) {
+      if (!item || !this.canTradeItemOnMarket(item)) {
         continue;
       }
       grouped.set(this.buildItemKey(item), {
@@ -576,7 +589,11 @@ export class MarketService implements OnModuleInit {
         continue;
       }
       const item = this.cloneOrderItem(order);
-      const current = grouped.get(order.itemKey) ?? {
+      if (!this.canTradeItemOnMarket(item)) {
+        continue;
+      }
+      const itemKey = this.buildItemKey(item);
+      const current = grouped.get(itemKey) ?? {
         item,
         sellOrderCount: 0,
         sellQuantity: 0,
@@ -596,7 +613,7 @@ export class MarketService implements OnModuleInit {
           ? order.unitPrice
           : Math.max(current.highestBuyPrice, order.unitPrice);
       }
-      grouped.set(order.itemKey, current);
+      grouped.set(itemKey, current);
     }
 
     return [...grouped.entries()]
@@ -627,13 +644,13 @@ export class MarketService implements OnModuleInit {
 
   private buildOwnOrders(playerId: string): MarketOwnOrderView[] {
     return this.openOrders
-      .filter((order) => order.ownerId === playerId && order.remainingQuantity > 0)
+      .filter((order) => order.ownerId === playerId && order.remainingQuantity > 0 && this.canTradeItemOnMarket(this.cloneOrderItem(order)))
       .sort((left, right) => right.createdAt - left.createdAt || left.id.localeCompare(right.id))
       .map((order) => ({
         id: order.id,
         side: order.side,
         status: order.status,
-        itemKey: order.itemKey,
+        itemKey: this.getOrderItemKey(order),
         item: this.cloneOrderItem(order),
         remainingQuantity: order.remainingQuantity,
         unitPrice: order.unitPrice,
@@ -644,7 +661,13 @@ export class MarketService implements OnModuleInit {
   private buildPriceLevels(itemKey: string, side: MarketOrderSide): MarketPriceLevelView[] {
     const grouped = new Map<number, { quantity: number; orderCount: number }>();
     for (const order of this.openOrders) {
-      if (order.itemKey !== itemKey || order.side !== side || order.remainingQuantity <= 0) {
+      const orderItem = this.cloneOrderItem(order);
+      if (
+        this.buildItemKey(orderItem) !== itemKey
+        || order.side !== side
+        || order.remainingQuantity <= 0
+        || !this.canTradeItemOnMarket(orderItem)
+      ) {
         continue;
       }
       const current = grouped.get(order.unitPrice) ?? { quantity: 0, orderCount: 0 };
@@ -665,7 +688,13 @@ export class MarketService implements OnModuleInit {
 
   private getSortedOrders(itemKey: string, side: MarketOrderSide): MarketOrderEntity[] {
     return this.openOrders
-      .filter((order) => order.itemKey === itemKey && order.side === side && order.remainingQuantity > 0)
+      .filter((order) => {
+        if (order.side !== side || order.remainingQuantity <= 0) {
+          return false;
+        }
+        const orderItem = this.cloneOrderItem(order);
+        return this.canTradeItemOnMarket(orderItem) && this.getOrderItemKey(order) === itemKey;
+      })
       .sort((left, right) => {
         if (side === 'sell' && left.unitPrice !== right.unitPrice) {
           return left.unitPrice - right.unitPrice;
@@ -681,10 +710,11 @@ export class MarketService implements OnModuleInit {
     const oppositeSide: MarketOrderSide = nextSide === 'sell' ? 'buy' : 'sell';
     return this.openOrders.some((order) =>
       order.ownerId === ownerId
-      && order.itemKey === itemKey
+      && this.getOrderItemKey(order) === itemKey
       && order.side === oppositeSide
       && order.remainingQuantity > 0
-      && order.status === 'open');
+      && order.status === 'open'
+      && this.canTradeItemOnMarket(this.cloneOrderItem(order)));
   }
 
   private calculateImmediateTotalCost(orders: MarketOrderEntity[], quantity: number): number {
@@ -720,6 +750,10 @@ export class MarketService implements OnModuleInit {
     return this.toOrderItem(order.itemSnapshot as unknown as ItemStack);
   }
 
+  private getOrderItemKey(order: MarketOrderEntity): string {
+    return this.buildItemKey(this.cloneOrderItem(order));
+  }
+
   private createCurrencyItem(count: number): ItemStack {
     return this.contentService.createItem(MARKET_CURRENCY_ITEM_ID, count) ?? {
       itemId: MARKET_CURRENCY_ITEM_ID,
@@ -728,6 +762,10 @@ export class MarketService implements OnModuleInit {
       count,
       desc: '坊市通行货币。',
     };
+  }
+
+  private canTradeItemOnMarket(item: Pick<ItemStack, 'itemId'>): boolean {
+    return item.itemId !== MARKET_CURRENCY_ITEM_ID;
   }
 
   private normalizeQuantity(value: number): number | null {
@@ -906,6 +944,45 @@ export class MarketService implements OnModuleInit {
       order.remainingQuantity = Math.max(0, order.remainingQuantity);
     }
     await context.orderRepo.save(order);
+  }
+
+  private async sanitizeOpenOrders(): Promise<void> {
+    const context = this.createMutationContext();
+    try {
+      await this.marketOrderRepo.manager.transaction(async (manager) => {
+        this.bindTransactionRepos(context, manager);
+        for (const order of this.openOrders) {
+          const orderItem = this.cloneOrderItem(order);
+          const canonicalKey = this.getOrderItemKey(order);
+          if (!this.canTradeItemOnMarket(orderItem)) {
+            await this.refundInvalidOrder(order, context);
+            continue;
+          }
+          if (order.itemKey !== canonicalKey) {
+            order.itemKey = canonicalKey;
+            order.updatedAt = Date.now();
+            await context.orderRepo.save(order);
+          }
+        }
+        await this.persistTouchedOnlinePlayers(context);
+      });
+    } catch (error) {
+      this.restoreMutationContext(context);
+      throw error;
+    }
+  }
+
+  private async refundInvalidOrder(order: MarketOrderEntity, context: MarketMutationContext): Promise<void> {
+    if (order.side === 'sell') {
+      await this.deliverItemToPlayer(order.ownerId, this.createCurrencyItem(order.remainingQuantity), context);
+    } else {
+      await this.deliverItemToPlayer(order.ownerId, this.createCurrencyItem(order.remainingQuantity * order.unitPrice), context);
+    }
+    order.status = 'cancelled';
+    order.remainingQuantity = 0;
+    order.updatedAt = Date.now();
+    await context.orderRepo.save(order);
+    this.logger.warn(`已自动取消非法坊市订单 ${order.id}，原因：坊市货币不可交易`);
   }
 
   private compactOpenOrders(): void {

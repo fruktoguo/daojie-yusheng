@@ -748,6 +748,7 @@ export class PlayerService implements OnModuleInit {
       allowAoePlayerHit: entity.allowAoePlayerHit === true,
       autoIdleCultivation: entity.autoIdleCultivation ?? true,
       autoSwitchCultivation: entity.autoSwitchCultivation === true,
+      cultivationActive: false,
       actions: [],
       cultivatingTechId: entity.cultivatingTechId ?? undefined,
       idleTicks: 0,
