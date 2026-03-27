@@ -79,6 +79,12 @@
       "required": 1,
       "reward": [
         {
+          "itemId": "book.bright_eye_sutra",
+          "name": "《明目经》",
+          "type": "skill_book",
+          "count": 1
+        },
+        {
           "itemId": "equip.cloud_boots",
           "name": "踏云履",
           "type": "equipment",
@@ -144,6 +150,12 @@
         {
           "itemId": "book.cloud_blade",
           "name": "《流云刀谱》",
+          "type": "skill_book",
+          "count": 1
+        },
+        {
+          "itemId": "book.cloudchase_steps",
+          "name": "《分光步》",
           "type": "skill_book",
           "count": 1
         }

@@ -79,9 +79,15 @@
       "requiredItemCount": 4,
       "reward": [
         {
-          "itemId": "book.hundred_temper_body",
-          "name": "《壮身功》",
-          "type": "skill_book",
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
+          "count": 2
+        },
+        {
+          "itemId": "pill.break_array_elixir",
+          "name": "破阵丹",
+          "type": "consumable",
           "count": 1
         },
         {

@@ -25,7 +25,9 @@ import {
   ItemStack,
   MonsterAggroMode,
   MonsterCombatModel,
+  MonsterTier,
   NUMERIC_SCALAR_STAT_KEYS,
+  NumericStatPercentages,
   NumericStats,
   PlayerRealmStage,
   PartialNumericStats,
@@ -47,7 +49,13 @@ import {
   TechniqueRealm,
   TimePhaseId,
   TECHNIQUE_GRADE_ORDER,
+  createMonsterAutoStatPercents,
+  inferMonsterAttrsFromNumericStats,
   inferMonsterValueStatsFromLegacy,
+  normalizeMonsterAttrs,
+  normalizeMonsterStatPercents,
+  normalizeMonsterTier,
+  resolveMonsterNumericStatsFromAttributes,
   resolveSkillUnlockLevel,
   resolveMonsterNumericStatsFromValueStats,
 } from '@mud/shared';
@@ -136,6 +144,11 @@ export interface MonsterTemplate {
   char: string;
   color: string;
   grade: TechniqueGrade;
+  attrs: Attributes;
+  equipment: EquipmentSlots;
+  statPercents?: NumericStatPercentages;
+  skills: string[];
+  tier: MonsterTier;
   valueStats?: PartialNumericStats;
   numericStats: NumericStats;
   combatModel: MonsterCombatModel;
@@ -177,10 +190,17 @@ interface RawItemTemplate extends Omit<ItemTemplate, 'equipStats' | 'equipValueS
   consumeBuffs?: unknown;
 }
 
-interface RawMonsterTemplate extends Omit<MonsterTemplate, 'grade' | 'valueStats' | 'numericStats' | 'combatModel' | 'count' | 'maxHp' | 'radius' | 'maxAlive' | 'aggroRange' | 'viewRange' | 'aggroMode' | 'respawnTicks' | 'expMultiplier' | 'drops'> {
+interface RawMonsterTemplate extends Omit<MonsterTemplate, 'grade' | 'attrs' | 'equipment' | 'statPercents' | 'skills' | 'tier' | 'valueStats' | 'numericStats' | 'combatModel' | 'hp' | 'maxHp' | 'attack' | 'count' | 'radius' | 'maxAlive' | 'aggroRange' | 'viewRange' | 'aggroMode' | 'respawnTicks' | 'expMultiplier' | 'drops'> {
   grade?: TechniqueGrade;
+  attrs?: Partial<Attributes>;
+  equipment?: unknown;
+  statPercents?: NumericStatPercentages;
+  skills?: unknown;
+  tier?: MonsterTier;
   valueStats?: unknown;
+  hp?: number;
   maxHp?: number;
+  attack?: number;
   count?: number;
   radius?: number;
   maxAlive?: number;
@@ -591,6 +611,94 @@ export class ContentService implements OnModuleInit {
       }
     }
     return Object.keys(normalized).length > 0 ? normalized : undefined;
+  }
+
+  private createItemStackFromTemplate(item: ItemTemplate, count = 1): ItemStack {
+    return {
+      itemId: item.itemId,
+      name: item.name,
+      type: item.type,
+      count,
+      desc: item.desc,
+      groundLabel: item.groundLabel,
+      grade: item.grade,
+      level: item.level,
+      equipSlot: item.equipSlot,
+      equipAttrs: item.equipAttrs,
+      equipStats: item.equipStats,
+      effects: item.effects,
+      tags: item.tags,
+      mapUnlockId: item.mapUnlockId,
+      tileAuraGainAmount: item.tileAuraGainAmount,
+      allowBatchUse: item.allowBatchUse,
+    };
+  }
+
+  private normalizeMonsterEquipment(rawEquipment: unknown, monsterId: string): EquipmentSlots {
+    const normalized = { weapon: null, head: null, body: null, legs: null, accessory: null } as EquipmentSlots;
+    if (!isPlainObject(rawEquipment)) {
+      return normalized;
+    }
+
+    for (const slot of EQUIP_SLOTS) {
+      const entry = rawEquipment[slot];
+      const itemId = typeof entry === 'string'
+        ? entry.trim()
+        : (isPlainObject(entry) && typeof entry.itemId === 'string' ? entry.itemId.trim() : '');
+      if (!itemId) {
+        continue;
+      }
+      const item = this.items.get(itemId);
+      if (!item) {
+        this.logger.warn(`怪物 ${monsterId} 配置了不存在的装备 ${itemId}，已忽略`);
+        continue;
+      }
+      if (item.type !== 'equipment' || item.equipSlot !== slot) {
+        this.logger.warn(`怪物 ${monsterId} 的装备 ${itemId} 不属于 ${slot} 槽位，已忽略`);
+        continue;
+      }
+      normalized[slot] = this.createItemStackFromTemplate(item, 1);
+    }
+
+    return normalized;
+  }
+
+  private buildMonsterDrops(
+    configuredDrops: MonsterTemplateDrop[] | undefined,
+    equipment: EquipmentSlots,
+  ): MonsterTemplateDrop[] {
+    const drops = Array.isArray(configuredDrops)
+      ? configuredDrops.flatMap((drop) => (
+        typeof drop?.itemId === 'string'
+        && typeof drop?.name === 'string'
+        && typeof drop?.type === 'string'
+          ? [{
+              itemId: drop.itemId,
+              name: drop.name,
+              type: drop.type,
+              count: Number.isFinite(drop.count) ? Math.max(1, Math.floor(Number(drop.count))) : 1,
+              chance: Number.isFinite(drop.chance) ? Number(drop.chance) : undefined,
+            }]
+          : []
+      ))
+      : [];
+
+    const existingItemIds = new Set(drops.map((drop) => drop.itemId));
+    for (const item of Object.values(equipment)) {
+      if (!item || existingItemIds.has(item.itemId)) {
+        continue;
+      }
+      drops.push({
+        itemId: item.itemId,
+        name: item.name,
+        type: item.type,
+        count: 1,
+        chance: 0.01,
+      });
+      existingItemIds.add(item.itemId);
+    }
+
+    return drops;
   }
 
   private resolveConfiguredStats(actualStats: unknown, valueStats: unknown): ItemStack['equipStats'] {
@@ -1040,33 +1148,67 @@ export class ContentService implements OnModuleInit {
     }
     for (const raw of this.readJsonEntries<RawMonsterTemplate>(this.monstersDir)) {
       const configuredValueStats = this.normalizeItemStats(raw.valueStats);
+      const hasConfiguredAttrs = raw.attrs && typeof raw.attrs === 'object';
       if (
         typeof raw.id !== 'string'
         || typeof raw.name !== 'string'
         || typeof raw.char !== 'string'
         || typeof raw.color !== 'string'
-        || (!configuredValueStats && (!Number.isInteger(raw.hp) || !Number.isInteger(raw.attack)))
+        || (!configuredValueStats && !hasConfiguredAttrs && (!Number.isInteger(raw.hp) || !Number.isInteger(raw.attack)))
       ) {
         continue;
       }
       const level = Number.isInteger(raw.level) ? Math.max(1, Number(raw.level)) : undefined;
+      const equipment = this.normalizeMonsterEquipment(raw.equipment, raw.id);
+      const skills = this.normalizeMonsterSkills(raw.skills, raw.id);
+      const drops = this.buildMonsterDrops(raw.drops, equipment);
       const valueStats = configuredValueStats
-        ?? inferMonsterValueStatsFromLegacy({
-          maxHp: Number.isInteger(raw.maxHp) ? Math.max(1, Number(raw.maxHp)) : Math.max(1, Number(raw.hp)),
-          attack: Math.max(1, Number(raw.attack)),
-          level,
-          viewRange: Number.isInteger(raw.viewRange)
-            ? Math.max(0, Number(raw.viewRange))
-            : (Number.isInteger(raw.aggroRange) ? Math.max(0, Number(raw.aggroRange)) : 6),
-        });
-      const numericStats = resolveMonsterNumericStatsFromValueStats(valueStats, level);
-      const combatModel: MonsterCombatModel = configuredValueStats ? 'value_stats' : 'legacy';
+        ?? (hasConfiguredAttrs
+          ? undefined
+          : inferMonsterValueStatsFromLegacy({
+              maxHp: Number.isInteger(raw.maxHp) ? Math.max(1, Number(raw.maxHp)) : Math.max(1, Number(raw.hp ?? 1)),
+              attack: Math.max(1, Number(raw.attack ?? 1)),
+              level,
+              viewRange: Number.isInteger(raw.viewRange)
+                ? Math.max(0, Number(raw.viewRange))
+                : (Number.isInteger(raw.aggroRange) ? Math.max(0, Number(raw.aggroRange)) : 6),
+            }));
+      const legacyNumericStats = valueStats
+        ? resolveMonsterNumericStatsFromValueStats(valueStats, level)
+        : resolveMonsterNumericStatsFromAttributes({
+            attrs: raw.attrs,
+            equipment,
+            level,
+          });
+      const attrs = normalizeMonsterAttrs(
+        raw.attrs,
+        raw.attrs ? undefined : inferMonsterAttrsFromNumericStats(legacyNumericStats),
+      );
+      const statPercents = normalizeMonsterStatPercents(raw.statPercents)
+        ?? (raw.attrs
+          ? undefined
+          : createMonsterAutoStatPercents(legacyNumericStats, attrs, level, equipment));
+      const tier = normalizeMonsterTier(raw.tier ?? this.inferMonsterTierFromName(raw.name));
+      const numericStats = resolveMonsterNumericStatsFromAttributes({
+        attrs,
+        equipment,
+        level,
+        statPercents,
+        grade: raw.grade ?? 'mortal',
+        tier,
+      });
+      const combatModel: MonsterCombatModel = 'value_stats';
       const monster: MonsterTemplate = {
         id: raw.id,
         name: raw.name,
         char: raw.char,
         color: raw.color,
         grade: raw.grade ?? 'mortal',
+        attrs,
+        equipment,
+        statPercents,
+        skills,
+        tier,
         valueStats,
         numericStats,
         combatModel,
@@ -1090,24 +1232,20 @@ export class ContentService implements OnModuleInit {
           : Math.max(1, Number(raw.respawnSec ?? 15)),
         level,
         expMultiplier: typeof raw.expMultiplier === 'number' ? Math.max(0, raw.expMultiplier) : 1,
-        drops: Array.isArray(raw.drops)
-          ? raw.drops.flatMap((drop) => (
-            typeof drop?.itemId === 'string'
-            && typeof drop?.name === 'string'
-            && typeof drop?.type === 'string'
-              ? [{
-                  itemId: drop.itemId,
-                  name: drop.name,
-                  type: drop.type,
-                  count: Number.isFinite(drop.count) ? Math.max(1, Math.floor(Number(drop.count))) : 1,
-                  chance: Number.isFinite(drop.chance) ? Number(drop.chance) : undefined,
-                }]
-              : []
-          ))
-          : [],
+        drops,
       };
       this.monsters.set(monster.id, monster);
     }
+  }
+
+  private inferMonsterTierFromName(name: string): MonsterTier {
+    if (/妖王|荒王|兽王|王$/.test(name)) {
+      return 'demon_king';
+    }
+    if (/精英|异种/.test(name)) {
+      return 'variant';
+    }
+    return 'mortal_blood';
   }
 
   private normalizeSkillEffects(input: unknown): SkillEffectDef[] {
@@ -1324,24 +1462,7 @@ export class ContentService implements OnModuleInit {
     this.ensureLoaded();
     const item = this.items.get(itemId);
     if (!item) return null;
-    return {
-      itemId: item.itemId,
-      name: item.name,
-      type: item.type,
-      count,
-      desc: item.desc,
-      groundLabel: item.groundLabel,
-      grade: item.grade,
-      level: item.level,
-      equipSlot: item.equipSlot,
-      equipAttrs: item.equipAttrs,
-      equipStats: item.equipStats,
-      effects: item.effects,
-      tags: item.tags,
-      mapUnlockId: item.mapUnlockId,
-      tileAuraGainAmount: item.tileAuraGainAmount,
-      allowBatchUse: item.allowBatchUse,
-    };
+    return this.createItemStackFromTemplate(item, count);
   }
 
   /** 规范化物品栈：用模板数据补全字段 */
@@ -1388,6 +1509,30 @@ export class ContentService implements OnModuleInit {
     for (const slot of EQUIP_SLOTS) {
       const item = equipment[slot];
       normalized[slot] = item ? { ...this.normalizeItemStack(item), count: 1 } : null;
+    }
+    return normalized;
+  }
+
+  normalizeMonsterSkills(skills: unknown, monsterId?: string): string[] {
+    if (!Array.isArray(skills)) {
+      return [];
+    }
+    const normalized: string[] = [];
+    const seen = new Set<string>();
+    for (const entry of skills) {
+      if (typeof entry !== 'string') {
+        continue;
+      }
+      const skillId = entry.trim();
+      if (!skillId || seen.has(skillId)) {
+        continue;
+      }
+      if (!this.getSkill(skillId)) {
+        this.logger.warn(`怪物 ${monsterId ?? 'unknown'} 配置了不存在的技能 ${skillId}，已忽略`);
+        continue;
+      }
+      seen.add(skillId);
+      normalized.push(skillId);
     }
     return normalized;
   }

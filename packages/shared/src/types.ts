@@ -154,6 +154,7 @@ export interface RenderEntity {
   color: string;
   name?: string;
   kind?: EntityKind | 'player';
+  monsterTier?: MonsterTier;
   hp?: number;
   maxHp?: number;
   qi?: number;
@@ -249,6 +250,9 @@ export interface MapTimeConfig {
 /** 怪物仇恨模式 */
 export type MonsterAggroMode = 'always' | 'retaliate' | 'day_only' | 'night_only';
 
+/** 妖兽血脉层次 */
+export type MonsterTier = 'mortal_blood' | 'variant' | 'demon_king';
+
 /** 游戏时间状态 */
 export interface GameTimeState {
   totalTicks: number;
@@ -280,6 +284,9 @@ export type AttrKey = 'constitution' | 'spirit' | 'perception' | 'talent' | 'com
 
 /** 属性值对象 */
 export type Attributes = Record<AttrKey, number>;
+
+/** 数值百分比配置 */
+export type NumericStatPercentages = Partial<Record<NumericScalarStatKey, number>>;
 
 /** 属性加成来源 */
 export interface AttrBonus {

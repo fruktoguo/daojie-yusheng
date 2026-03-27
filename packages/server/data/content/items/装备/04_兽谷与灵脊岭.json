@@ -1,14 +1,223 @@
 [
-  { "itemId": "equip.spirit_ring", "name": "养灵木戒", "type": "equipment", "grade": "yellow", "level": 4, "desc": "谷外旧修士留下的木戒，导气时能帮人把散乱灵息拢得更稳。", "equipSlot": "accessory", "equipValueStats": { "maxQi": 2, "qiRegenRate": 0.6, "maxQiOutputPerTick": 3 } },
-  { "itemId": "equip.valley_fang_blade", "name": "裂齿斩骨刀", "type": "equipment", "grade": "mystic", "level": 4, "desc": "刀背厚重，刃口带着兽谷妖骨磨出的细裂纹，专走压血断势一路。", "equipSlot": "weapon", "equipValueStats": { "physAtk": 12, "crit": 3, "breakPower": 4 } },
-  { "itemId": "equip.rift_guard_armor", "name": "镇煞护心甲", "type": "equipment", "grade": "mystic", "level": 4, "desc": "甲心嵌着旧镇煞片，护得住胸口那一口气，也护得住人不乱。", "equipSlot": "body", "equipValueStats": { "maxHp": 3.5, "physDef": 7, "spellDef": 5, "resolvePower": 3 } },
-  { "itemId": "equip.moonshadow_boots", "name": "逐月疾靴", "type": "equipment", "grade": "mystic", "level": 4, "desc": "靴帮收得极窄，贴地疾行时像是顺着月影滑出去的一步。", "equipSlot": "legs", "equipValueStats": { "moveSpeed": 18, "dodge": 3, "crit": 2 } },
-  { "itemId": "equip.celestial_crown", "name": "观脉骨冠", "type": "equipment", "grade": "mystic", "level": 4, "desc": "以异兽头骨和旧纹骨钉束成的骨冠，戴上后对气脉流转会更敏锐。", "equipSlot": "head", "equipAttrs": { "spirit": 2 }, "equipValueStats": { "viewRange": 1, "spellDef": 5 } },
-  { "itemId": "equip.starfall_spear", "name": "残星乌铁枪", "type": "equipment", "grade": "mystic", "level": 5, "desc": "枪杆以乌铁重熔，枪锋残留一点旧星砂寒芒，是凡人篇末段少见的过渡重器。", "equipSlot": "weapon", "equipValueStats": { "physAtk": 13, "spellAtk": 8, "hit": 4, "breakPower": 4 } },
-  { "itemId": "equip.void_talisman", "name": "镇脉玄纹佩", "type": "equipment", "grade": "mystic", "level": 5, "desc": "佩面刻着细碎玄纹，佩久了能缓住气海波动，适合叩门前最后稳一口气。", "equipSlot": "accessory", "equipAttrs": { "spirit": 1, "comprehension": 1 }, "equipValueStats": { "techniqueExpRate": 7, "qiRegenRate": 0.6 } },
-  { "itemId": "equip.windhear_crown", "name": "听风兽皮冠", "type": "equipment", "grade": "yellow", "level": 4, "desc": "兽皮毛向顺风压平，林响一近便能先一步听出动静。", "equipSlot": "head", "equipValueStats": { "dodge": 3, "crit": 2, "viewRange": 1 } },
-  { "itemId": "equip.wellward_talisman", "name": "井语避邪符", "type": "equipment", "grade": "yellow", "level": 4, "desc": "旧井边求来的黄符，纸色已旧，仍能替人压下几分邪气与惊悸。", "equipSlot": "accessory", "equipValueStats": { "spellDef": 5, "resolvePower": 3, "hpRegenRate": 0.6 } },
-  { "itemId": "equip.ridge_calm_robe", "name": "灵脊镇息袍", "type": "equipment", "grade": "mystic", "level": 4, "desc": "灵脊冷风里晒出的袍子，穿在身上后，行功时那股浮躁会慢慢沉下去。", "equipSlot": "body", "equipValueStats": { "maxQi": 3, "spellDef": 6, "qiRegenRate": 0.7 } },
-  { "itemId": "equip.threshold_boots", "name": "叩门行靴", "type": "equipment", "grade": "mystic", "level": 4, "desc": "专给叩门前夜赶路的人做的轻靴，既要走得快，也要留得住回旋的余地。", "equipSlot": "legs", "equipValueStats": { "moveSpeed": 16, "cooldownSpeed": 5, "dodge": 2 } },
-  { "itemId": "equip.guiding_marrow_pendant", "name": "引灵髓坠", "type": "equipment", "grade": "mystic", "level": 4, "desc": "坠芯以兽髓和细纹骨粉压成，引气时不算多快，但能明显稳住导气节奏。", "equipSlot": "accessory", "equipAttrs": { "comprehension": 1 }, "equipValueStats": { "maxQiOutputPerTick": 5, "maxQi": 2.25 } }
+  {
+    "itemId": "equip.spirit_ring",
+    "name": "养灵木戒",
+    "type": "equipment",
+    "grade": "yellow",
+    "level": 4,
+    "desc": "谷外旧修士留下的木戒，导气时能帮人把散乱灵息拢得更稳。",
+    "equipSlot": "accessory",
+    "equipValueStats": {
+      "maxQi": 2,
+      "qiRegenRate": 0.6,
+      "maxQiOutputPerTick": 3
+    }
+  },
+  {
+    "itemId": "equip.valley_fang_blade",
+    "name": "裂齿斩骨刀",
+    "type": "equipment",
+    "grade": "mystic",
+    "level": 4,
+    "desc": "刀背厚重，刃口带着兽谷妖骨磨出的细裂纹，专走压血断势一路。",
+    "equipSlot": "weapon",
+    "equipValueStats": {
+      "physAtk": 12,
+      "crit": 3,
+      "breakPower": 4
+    }
+  },
+  {
+    "itemId": "equip.rift_guard_armor",
+    "name": "镇煞护心甲",
+    "type": "equipment",
+    "grade": "mystic",
+    "level": 4,
+    "desc": "甲心嵌着旧镇煞片，护得住胸口那一口气，也护得住人不乱。",
+    "equipSlot": "body",
+    "equipValueStats": {
+      "maxHp": 3.5,
+      "physDef": 7,
+      "spellDef": 5,
+      "resolvePower": 3
+    }
+  },
+  {
+    "itemId": "equip.moonshadow_boots",
+    "name": "逐月疾靴",
+    "type": "equipment",
+    "grade": "mystic",
+    "level": 4,
+    "desc": "靴帮收得极窄，贴地疾行时像是顺着月影滑出去的一步。",
+    "equipSlot": "legs",
+    "equipValueStats": {
+      "moveSpeed": 18,
+      "dodge": 3,
+      "crit": 2
+    }
+  },
+  {
+    "itemId": "equip.celestial_crown",
+    "name": "观脉骨冠",
+    "type": "equipment",
+    "grade": "mystic",
+    "level": 4,
+    "desc": "以异兽头骨和旧纹骨钉束成的骨冠，戴上后对气脉流转会更敏锐。",
+    "equipSlot": "head",
+    "equipAttrs": {
+      "spirit": 2
+    },
+    "equipValueStats": {
+      "viewRange": 1,
+      "spellDef": 5
+    }
+  },
+  {
+    "itemId": "equip.starfall_spear",
+    "name": "残星乌铁枪",
+    "type": "equipment",
+    "grade": "mystic",
+    "level": 5,
+    "desc": "枪杆以乌铁重熔，枪锋残留一点旧星砂寒芒，是凡人篇末段少见的过渡重器。",
+    "equipSlot": "weapon",
+    "equipValueStats": {
+      "physAtk": 13,
+      "spellAtk": 8,
+      "hit": 4,
+      "breakPower": 4
+    }
+  },
+  {
+    "itemId": "equip.void_talisman",
+    "name": "镇脉玄纹佩",
+    "type": "equipment",
+    "grade": "mystic",
+    "level": 5,
+    "desc": "佩面刻着细碎玄纹，佩久了能缓住气海波动，适合叩门前最后稳一口气。",
+    "equipSlot": "accessory",
+    "equipAttrs": {
+      "spirit": 1,
+      "comprehension": 1
+    },
+    "equipValueStats": {
+      "techniqueExpRate": 7,
+      "qiRegenRate": 0.6
+    }
+  },
+  {
+    "itemId": "equip.windhear_crown",
+    "name": "听风兽皮冠",
+    "type": "equipment",
+    "grade": "yellow",
+    "level": 4,
+    "desc": "兽皮毛向顺风压平，林响一近便能先一步听出动静。",
+    "equipSlot": "head",
+    "equipValueStats": {
+      "dodge": 3,
+      "crit": 2,
+      "viewRange": 1
+    }
+  },
+  {
+    "itemId": "equip.wellward_talisman",
+    "name": "井语避邪符",
+    "type": "equipment",
+    "grade": "yellow",
+    "level": 4,
+    "desc": "旧井边求来的黄符，纸色已旧，仍能替人压下几分邪气与惊悸。",
+    "equipSlot": "accessory",
+    "equipValueStats": {
+      "spellDef": 5,
+      "resolvePower": 3,
+      "hpRegenRate": 0.6
+    }
+  },
+  {
+    "itemId": "equip.ridge_calm_robe",
+    "name": "灵脊镇息袍",
+    "type": "equipment",
+    "grade": "mystic",
+    "level": 4,
+    "desc": "灵脊冷风里晒出的袍子，穿在身上后，行功时那股浮躁会慢慢沉下去。",
+    "equipSlot": "body",
+    "equipValueStats": {
+      "maxQi": 3,
+      "spellDef": 6,
+      "qiRegenRate": 0.7
+    }
+  },
+  {
+    "itemId": "equip.threshold_boots",
+    "name": "叩门行靴",
+    "type": "equipment",
+    "grade": "mystic",
+    "level": 4,
+    "desc": "专给叩门前夜赶路的人做的轻靴，既要走得快，也要留得住回旋的余地。",
+    "equipSlot": "legs",
+    "equipValueStats": {
+      "moveSpeed": 16,
+      "cooldownSpeed": 5,
+      "dodge": 2
+    }
+  },
+  {
+    "itemId": "equip.guiding_marrow_pendant",
+    "name": "引灵髓坠",
+    "type": "equipment",
+    "grade": "mystic",
+    "level": 4,
+    "desc": "坠芯以兽髓和细纹骨粉压成，引气时不算多快，但能明显稳住导气节奏。",
+    "equipSlot": "accessory",
+    "equipAttrs": {
+      "comprehension": 1
+    },
+    "equipValueStats": {
+      "maxQiOutputPerTick": 5,
+      "maxQi": 2.25
+    }
+  },
+  {
+    "itemId": "equip.beastbone_mail",
+    "name": "兽骨玄甲",
+    "type": "equipment",
+    "grade": "mystic",
+    "level": 4,
+    "desc": "以妖骨和硬皮层层缀成，杀气越重越显得沉稳。",
+    "equipSlot": "body",
+    "equipValueStats": {
+      "maxHp": 3,
+      "physDef": 6,
+      "spellDef": 4,
+      "crit": 2
+    }
+  },
+  {
+    "itemId": "equip.predator_tendon_boots",
+    "name": "猎脉疾靴",
+    "type": "equipment",
+    "grade": "mystic",
+    "level": 4,
+    "desc": "以兽筋抽紧靴帮，爆发扑杀时最能借力。",
+    "equipSlot": "legs",
+    "equipValueStats": {
+      "moveSpeed": 16,
+      "dodge": 2,
+      "crit": 2
+    }
+  },
+  {
+    "itemId": "equip.bloodcore_talisman",
+    "name": "血核妖符",
+    "type": "equipment",
+    "grade": "mystic",
+    "level": 4,
+    "desc": "封着半凝的妖血精核，能让攻势更狠也更躁。",
+    "equipSlot": "accessory",
+    "equipValueStats": {
+      "maxQi": 2,
+      "breakPower": 4,
+      "qiRegenRate": 0.4,
+      "crit": 2
+    }
+  }
 ]

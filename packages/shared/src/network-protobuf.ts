@@ -48,20 +48,22 @@ message TickRenderEntityPayload {
   optional bool clearName = 7;
   optional string kind = 8;
   optional bool clearKind = 9;
-  optional sint32 hp = 10;
-  optional bool clearHp = 11;
-  optional sint32 maxHp = 12;
-  optional bool clearMaxHp = 13;
-  optional sint32 qi = 14;
-  optional bool clearQi = 15;
-  optional sint32 maxQi = 16;
-  optional bool clearMaxQi = 17;
-  optional NpcQuestMarkerPayload npcQuestMarker = 18;
-  optional bool clearNpcQuestMarker = 19;
-  optional string observationJson = 20;
-  optional bool clearObservation = 21;
-  optional string buffsJson = 22;
-  optional bool clearBuffs = 23;
+  optional string monsterTier = 10;
+  optional bool clearMonsterTier = 11;
+  optional sint32 hp = 12;
+  optional bool clearHp = 13;
+  optional sint32 maxHp = 14;
+  optional bool clearMaxHp = 15;
+  optional sint32 qi = 16;
+  optional bool clearQi = 17;
+  optional sint32 maxQi = 18;
+  optional bool clearMaxQi = 19;
+  optional NpcQuestMarkerPayload npcQuestMarker = 20;
+  optional bool clearNpcQuestMarker = 21;
+  optional string observationJson = 22;
+  optional bool clearObservation = 23;
+  optional string buffsJson = 24;
+  optional bool clearBuffs = 25;
 }
 
 message NpcQuestMarkerPayload {
@@ -467,6 +469,7 @@ function toWireTickEntity(entity: TickRenderEntity): Record<string, unknown> {
   if (entity.color !== undefined) wire.color = entity.color;
   setNullableWireValue(wire, 'name', 'clearName', entity.name);
   setNullableWireValue(wire, 'kind', 'clearKind', entity.kind);
+  setNullableWireValue(wire, 'monsterTier', 'clearMonsterTier', entity.monsterTier);
   setNullableWireValue(wire, 'hp', 'clearHp', entity.hp);
   setNullableWireValue(wire, 'maxHp', 'clearMaxHp', entity.maxHp);
   setNullableWireValue(wire, 'qi', 'clearQi', entity.qi);
@@ -501,6 +504,8 @@ function fromWireTickEntity(wire: Record<string, unknown>): TickRenderEntity {
   if (name !== undefined) patch.name = name;
   const kind = readNullableWireValue<TickRenderEntity['kind']>(wire, 'kind', 'clearKind');
   if (kind !== undefined) patch.kind = kind;
+  const monsterTier = readNullableWireValue<TickRenderEntity['monsterTier']>(wire, 'monsterTier', 'clearMonsterTier');
+  if (monsterTier !== undefined) patch.monsterTier = monsterTier;
   const hp = readNullableWireValue<number>(wire, 'hp', 'clearHp');
   if (hp !== undefined) patch.hp = hp === null ? null : Number(hp);
   const maxHp = readNullableWireValue<number>(wire, 'maxHp', 'clearMaxHp');

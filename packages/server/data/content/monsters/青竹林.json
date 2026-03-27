@@ -7,8 +7,6 @@
     "radius": 7,
     "respawnSec": 18,
     "level": 4,
-    "hp": 68,
-    "attack": 14,
     "drops": [
       {
         "itemId": "wolf_fang",
@@ -33,25 +31,41 @@
       }
     ],
     "grade": "mortal",
+    "tier": "mortal_blood",
     "count": 8,
-    "maxHp": 68,
-    "valueStats": {
-      "maxHp": 4.26,
-      "maxQi": 3.65,
-      "physAtk": 10.52,
-      "spellAtk": 3.01,
-      "physDef": 11.54,
-      "spellDef": 9.23,
-      "hit": 23.08,
-      "dodge": 18.46,
-      "crit": 11.54,
-      "critDamage": 13.85,
-      "breakPower": 12.31,
-      "resolvePower": 7.69,
-      "maxQiOutputPerTick": 5.38,
-      "viewRange": 6,
-      "moveSpeed": 189
-    }
+    "equipment": {
+      "weapon": "equip.bamboo_fang_blade",
+      "head": "equip.leafshadow_crest",
+      "legs": "equip.windjoint_boots"
+    },
+    "attrs": {
+      "constitution": 38,
+      "spirit": 19,
+      "perception": 57,
+      "talent": 31,
+      "comprehension": 5,
+      "luck": 5
+    },
+    "statPercents": {
+      "maxHp": 98.4,
+      "maxQi": 60.4,
+      "physAtk": 144.4,
+      "spellAtk": 47.4,
+      "physDef": 120.4,
+      "spellDef": 98.4,
+      "hit": 134.4,
+      "dodge": 140.4,
+      "crit": 128.4,
+      "breakPower": 140.4,
+      "resolvePower": 94.4,
+      "maxQiOutputPerTick": 74.4,
+      "viewRange": 100,
+      "moveSpeed": 162.96
+    },
+    "skills": [
+      "skill.predator_pounce",
+      "skill.rending_claw"
+    ]
   },
   {
     "id": "m_bamboo_serpent",
@@ -61,8 +75,6 @@
     "radius": 5,
     "respawnSec": 20,
     "level": 4,
-    "hp": 68,
-    "attack": 13,
     "drops": [
       {
         "itemId": "serpent_gall",
@@ -80,25 +92,41 @@
       }
     ],
     "grade": "mortal",
+    "tier": "mortal_blood",
     "count": 6,
-    "maxHp": 68,
-    "valueStats": {
-      "maxHp": 4.26,
-      "maxQi": 5.1,
-      "physAtk": 9.77,
-      "spellAtk": 6.01,
-      "physDef": 7.69,
-      "spellDef": 8.46,
-      "hit": 26.92,
-      "dodge": 22.31,
-      "crit": 10.77,
-      "critDamage": 13.08,
-      "breakPower": 9.23,
-      "resolvePower": 6.92,
-      "maxQiOutputPerTick": 9.23,
-      "viewRange": 6,
-      "moveSpeed": 168
-    }
+    "equipment": {
+      "body": "equip.snakeshed_vest",
+      "legs": "equip.windjoint_boots",
+      "accessory": "equip.bamboo_heart_charm"
+    },
+    "attrs": {
+      "constitution": 31,
+      "spirit": 36,
+      "perception": 55,
+      "talent": 26,
+      "comprehension": 6,
+      "luck": 5
+    },
+    "statPercents": {
+      "maxHp": 88.4,
+      "maxQi": 100.4,
+      "physAtk": 114.4,
+      "spellAtk": 114.4,
+      "physDef": 88.4,
+      "spellDef": 98.4,
+      "hit": 134.4,
+      "dodge": 148.4,
+      "crit": 114.4,
+      "breakPower": 108.4,
+      "resolvePower": 88.4,
+      "maxQiOutputPerTick": 126.4,
+      "viewRange": 100,
+      "moveSpeed": 146.96
+    },
+    "skills": [
+      "skill.venom_fang",
+      "skill.miasma_spray"
+    ]
   },
   {
     "id": "m_bamboo_sprite",
@@ -108,8 +136,6 @@
     "radius": 5,
     "respawnSec": 20,
     "level": 5,
-    "hp": 88,
-    "attack": 8,
     "drops": [
       {
         "itemId": "bamboo_heart",
@@ -141,25 +167,41 @@
       }
     ],
     "grade": "mortal",
+    "tier": "mortal_blood",
     "count": 5,
-    "maxHp": 88,
-    "valueStats": {
-      "maxHp": 5.01,
-      "maxQi": 6.88,
-      "physAtk": 5.46,
-      "spellAtk": 9.56,
-      "physDef": 8.57,
-      "spellDef": 12.14,
-      "hit": 27.14,
-      "dodge": 21.43,
-      "crit": 11.43,
-      "critDamage": 15.71,
-      "breakPower": 6.43,
-      "resolvePower": 10.71,
-      "maxQiOutputPerTick": 15.71,
-      "viewRange": 6,
-      "moveSpeed": 158
-    }
+    "equipment": {
+      "head": "equip.bamboo_hat",
+      "body": "equip.herb_mist_robe",
+      "accessory": "equip.gather_qi_pendant"
+    },
+    "attrs": {
+      "constitution": 25,
+      "spirit": 67,
+      "perception": 55,
+      "talent": 38,
+      "comprehension": 9,
+      "luck": 6
+    },
+    "statPercents": {
+      "maxHp": 75.2,
+      "maxQi": 148.2,
+      "physAtk": 65.2,
+      "spellAtk": 151.2,
+      "physDef": 75.2,
+      "spellDef": 135.2,
+      "hit": 125.2,
+      "dodge": 129.2,
+      "crit": 111.2,
+      "breakPower": 81.2,
+      "resolvePower": 125.2,
+      "maxQiOutputPerTick": 161.2,
+      "viewRange": 100,
+      "moveSpeed": 137.28
+    },
+    "skills": [
+      "skill.bamboo_whip",
+      "skill.leaf_storm"
+    ]
   },
   {
     "id": "m_bamboo_mantis",
@@ -169,8 +211,6 @@
     "radius": 6,
     "respawnSec": 22,
     "level": 5,
-    "hp": 70,
-    "attack": 14,
     "drops": [
       {
         "itemId": "mantis_blade",
@@ -202,25 +242,41 @@
       }
     ],
     "grade": "mortal",
+    "tier": "variant",
     "count": 5,
-    "maxHp": 70,
-    "valueStats": {
-      "maxHp": 3.98,
-      "maxQi": 3.57,
-      "physAtk": 9.56,
-      "spellAtk": 2.73,
-      "physDef": 8.57,
-      "spellDef": 7.14,
-      "hit": 30,
-      "dodge": 24.29,
-      "crit": 15.71,
-      "critDamage": 18.57,
-      "breakPower": 11.43,
-      "resolvePower": 7.86,
-      "maxQiOutputPerTick": 5,
-      "viewRange": 6,
-      "moveSpeed": 188
-    }
+    "equipment": {
+      "weapon": "equip.bamboo_split_blade",
+      "head": "equip.leafshadow_crest",
+      "legs": "equip.dewstep_boots"
+    },
+    "attrs": {
+      "constitution": 52,
+      "spirit": 27,
+      "perception": 104,
+      "talent": 46,
+      "comprehension": 9,
+      "luck": 10
+    },
+    "statPercents": {
+      "maxHp": 91.2,
+      "maxQi": 64.2,
+      "physAtk": 161.2,
+      "spellAtk": 47.2,
+      "physDef": 95.2,
+      "spellDef": 85.2,
+      "hit": 151.2,
+      "dodge": 155.2,
+      "crit": 147.2,
+      "breakPower": 157.2,
+      "resolvePower": 91.2,
+      "maxQiOutputPerTick": 71.2,
+      "viewRange": 100,
+      "moveSpeed": 169.28
+    },
+    "skills": [
+      "skill.scythe_limb",
+      "skill.whirl_scythe"
+    ]
   },
   {
     "id": "m_green_emperor_mantis",
@@ -230,8 +286,6 @@
     "radius": 2,
     "respawnSec": 120,
     "level": 6,
-    "hp": 80,
-    "attack": 18,
     "drops": [
       {
         "itemId": "mantis_blade",
@@ -270,24 +324,42 @@
       }
     ],
     "grade": "mortal",
+    "tier": "demon_king",
     "count": 1,
-    "maxHp": 80,
-    "valueStats": {
-      "maxHp": 4.14,
-      "maxQi": 3.75,
-      "physAtk": 11.18,
-      "spellAtk": 3.1,
-      "physDef": 9.33,
-      "spellDef": 7.33,
-      "hit": 35.33,
-      "dodge": 28.67,
-      "crit": 18.67,
-      "critDamage": 22,
-      "breakPower": 13.33,
-      "resolvePower": 8.67,
-      "maxQiOutputPerTick": 5.33,
-      "viewRange": 6,
-      "moveSpeed": 200
-    }
+    "equipment": {
+      "weapon": "equip.bamboo_split_blade",
+      "head": "equip.bamboo_hat",
+      "body": "equip.snakeshed_vest",
+      "legs": "equip.dewstep_boots",
+      "accessory": "equip.bamboo_heart_charm"
+    },
+    "attrs": {
+      "constitution": 74,
+      "spirit": 38,
+      "perception": 146,
+      "talent": 65,
+      "comprehension": 13,
+      "luck": 14
+    },
+    "statPercents": {
+      "maxHp": 98,
+      "maxQi": 71,
+      "physAtk": 168,
+      "spellAtk": 54,
+      "physDef": 102,
+      "spellDef": 92,
+      "hit": 158,
+      "dodge": 162,
+      "crit": 154,
+      "breakPower": 164,
+      "resolvePower": 98,
+      "maxQiOutputPerTick": 78,
+      "viewRange": 100,
+      "moveSpeed": 169.6
+    },
+    "skills": [
+      "skill.scythe_limb",
+      "skill.whirl_scythe"
+    ]
   }
 ]

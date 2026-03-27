@@ -33,30 +33,41 @@
     "grade": "yellow",
     "tier": "mortal_blood",
     "count": 8,
+    "equipment": {
+      "weapon": "equip.starfall_spear",
+      "head": "equip.celestial_crown",
+      "body": "equip.ridge_calm_robe",
+      "legs": "equip.threshold_boots",
+      "accessory": "equip.void_talisman"
+    },
     "attrs": {
-      "constitution": 89,
-      "spirit": 72,
-      "perception": 278,
-      "talent": 79,
-      "comprehension": 20,
-      "luck": 56
+      "constitution": 125,
+      "spirit": 112,
+      "perception": 214,
+      "talent": 108,
+      "comprehension": 24,
+      "luck": 18
     },
     "statPercents": {
-      "maxHp": 72,
-      "maxQi": 151.99,
-      "physAtk": 131.94,
-      "spellAtk": 148.48,
-      "physDef": 41.59,
-      "spellDef": 41.62,
-      "hit": 23.24,
-      "dodge": 20.84,
-      "crit": 23.39,
-      "breakPower": 41.7,
-      "resolvePower": 41.58,
-      "maxQiOutputPerTick": 379.17,
-      "viewRange": 58.33,
-      "moveSpeed": 112.29
-    }
+      "maxHp": 111.2,
+      "maxQi": 133.2,
+      "physAtk": 137.2,
+      "spellAtk": 153.2,
+      "physDef": 101.2,
+      "spellDef": 111.2,
+      "hit": 177.2,
+      "dodge": 147.2,
+      "crit": 141.2,
+      "breakPower": 137.2,
+      "resolvePower": 111.2,
+      "maxQiOutputPerTick": 203.2,
+      "viewRange": 100,
+      "moveSpeed": 140.48
+    },
+    "skills": [
+      "skill.starfall_thrust",
+      "skill.chasing_star"
+    ]
   },
   {
     "id": "m_sky_puppet",
@@ -92,30 +103,40 @@
     "grade": "yellow",
     "tier": "mortal_blood",
     "count": 6,
+    "equipment": {
+      "head": "equip.celestial_crown",
+      "body": "equip.rift_guard_armor",
+      "legs": "equip.threshold_boots",
+      "accessory": "equip.guiding_marrow_pendant"
+    },
     "attrs": {
-      "constitution": 238,
-      "spirit": 195,
-      "perception": 88,
-      "talent": 150,
-      "comprehension": 15,
-      "luck": 18
+      "constitution": 213,
+      "spirit": 157,
+      "perception": 101,
+      "talent": 143,
+      "comprehension": 20,
+      "luck": 11
     },
     "statPercents": {
-      "maxHp": 72.37,
-      "maxQi": 53.07,
-      "physAtk": 59.57,
-      "spellAtk": 53.23,
-      "physDef": 40,
-      "spellDef": 39.96,
-      "hit": 59.77,
-      "dodge": 20,
-      "crit": 24.09,
-      "breakPower": 39.89,
-      "resolvePower": 40,
-      "maxQiOutputPerTick": 140,
-      "viewRange": 60,
-      "moveSpeed": 175
-    }
+      "maxHp": 168,
+      "maxQi": 108,
+      "physAtk": 104,
+      "spellAtk": 108,
+      "physDef": 184,
+      "spellDef": 174,
+      "hit": 124,
+      "dodge": 88,
+      "crit": 101,
+      "breakPower": 114,
+      "resolvePower": 168,
+      "maxQiOutputPerTick": 128,
+      "viewRange": 100,
+      "moveSpeed": 86.8
+    },
+    "skills": [
+      "skill.core_smash",
+      "skill.guardian_quake"
+    ]
   },
   {
     "id": "m_star_devourer",
@@ -166,70 +187,42 @@
       "accessory": "equip.void_talisman"
     },
     "attrs": {
-      "constitution": 161,
-      "spirit": 138,
-      "perception": 257,
-      "talent": 114,
-      "comprehension": 32,
-      "luck": 51
+      "constitution": 158,
+      "spirit": 141,
+      "perception": 269,
+      "talent": 136,
+      "comprehension": 30,
+      "luck": 23
     },
     "statPercents": {
-      "maxHp": 85.32,
-      "maxQi": 160.69,
-      "physAtk": 115,
-      "spellAtk": 158.18,
-      "physDef": 38.42,
-      "spellDef": 38.44,
-      "hit": 33.83,
-      "dodge": 19.24,
-      "crit": 32.34,
-      "breakPower": 37.23,
-      "resolvePower": 38.51,
-      "maxQiOutputPerTick": 619.23,
-      "viewRange": 61.54,
-      "moveSpeed": 124.1
-    }
+      "maxHp": 118.8,
+      "maxQi": 140.8,
+      "physAtk": 144.8,
+      "spellAtk": 160.8,
+      "physDef": 108.8,
+      "spellDef": 118.8,
+      "hit": 184.8,
+      "dodge": 154.8,
+      "crit": 148.8,
+      "breakPower": 144.8,
+      "resolvePower": 118.8,
+      "maxQiOutputPerTick": 210.8,
+      "viewRange": 100,
+      "moveSpeed": 141.12
+    },
+    "skills": [
+      "skill.star_maw",
+      "skill.void_burst"
+    ]
   },
   {
     "id": "m_fallen_palace_lord",
     "name": "坠星宫主",
     "char": "宫",
     "color": "#ffb86c",
-    "grade": "mystic",
     "radius": 2,
     "respawnSec": 300,
     "level": 18,
-    "count": 1,
-    "maxAlive": 1,
-    "aggroRange": 6,
-    "viewRange": 6,
-    "aggroMode": "always",
-    "expMultiplier": 1,
-    "tier": "demon_king",
-    "attrs": {
-      "constitution": 278,
-      "spirit": 311,
-      "perception": 262,
-      "talent": 216,
-      "comprehension": 65,
-      "luck": 52
-    },
-    "statPercents": {
-      "maxHp": 75.58,
-      "maxQi": 153.06,
-      "physAtk": 74.35,
-      "spellAtk": 155.77,
-      "physDef": 37.02,
-      "spellDef": 37.02,
-      "hit": 45.02,
-      "dodge": 18.52,
-      "crit": 28.71,
-      "breakPower": 14.51,
-      "resolvePower": 37.05,
-      "maxQiOutputPerTick": 1200,
-      "viewRange": 59.26,
-      "moveSpeed": 91.65
-    },
     "drops": [
       {
         "itemId": "star_metal",
@@ -280,6 +273,50 @@
         "count": 1,
         "chance": 0.01
       }
+    ],
+    "grade": "mystic",
+    "tier": "demon_king",
+    "count": 1,
+    "maxAlive": 1,
+    "aggroRange": 6,
+    "viewRange": 6,
+    "aggroMode": "always",
+    "expMultiplier": 1,
+    "equipment": {
+      "weapon": "equip.starfall_spear",
+      "head": "equip.celestial_crown",
+      "body": "equip.rift_guard_armor",
+      "legs": "equip.threshold_boots",
+      "accessory": "equip.void_talisman"
+    },
+    "attrs": {
+      "constitution": 281,
+      "spirit": 301,
+      "perception": 222,
+      "talent": 242,
+      "comprehension": 40,
+      "luck": 28
+    },
+    "statPercents": {
+      "maxHp": 175.6,
+      "maxQi": 195.6,
+      "physAtk": 145.6,
+      "spellAtk": 185.6,
+      "physDef": 185.6,
+      "spellDef": 191.6,
+      "hit": 181.6,
+      "dodge": 139.6,
+      "crit": 155.6,
+      "breakPower": 141.6,
+      "resolvePower": 181.6,
+      "maxQiOutputPerTick": 225.6,
+      "viewRange": 100,
+      "moveSpeed": 113.44
+    },
+    "skills": [
+      "skill.starfall_thrust",
+      "skill.skybreaker_lance",
+      "skill.meteor_break"
     ]
   }
 ]

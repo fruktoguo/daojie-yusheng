@@ -7,8 +7,6 @@
     "radius": 8,
     "respawnSec": 22,
     "level": 1,
-    "hp": 43,
-    "attack": 5,
     "drops": [
       {
         "itemId": "boar_tusk",
@@ -26,25 +24,40 @@
       }
     ],
     "grade": "mortal",
+    "tier": "mortal_blood",
     "count": 6,
-    "maxHp": 43,
-    "valueStats": {
-      "maxHp": 3.58,
-      "maxQi": 1.75,
-      "physAtk": 5,
-      "spellAtk": 2,
-      "physDef": 6,
-      "spellDef": 5,
-      "hit": 8,
-      "dodge": 4,
-      "crit": 3,
-      "critDamage": 4,
-      "breakPower": 6,
-      "resolvePower": 4,
-      "maxQiOutputPerTick": 2,
-      "viewRange": 6,
-      "moveSpeed": 70
-    }
+    "equipment": {
+      "weapon": "equip.scavenger_fang",
+      "body": "equip.scrap_hide"
+    },
+    "attrs": {
+      "constitution": 20,
+      "spirit": 4,
+      "perception": 8,
+      "talent": 13,
+      "comprehension": 1,
+      "luck": 1
+    },
+    "statPercents": {
+      "maxHp": 148,
+      "maxQi": 35,
+      "physAtk": 108,
+      "spellAtk": 20,
+      "physDef": 138,
+      "spellDef": 112,
+      "hit": 82,
+      "dodge": 62,
+      "crit": 68,
+      "breakPower": 128,
+      "resolvePower": 102,
+      "maxQiOutputPerTick": 38,
+      "viewRange": 100,
+      "moveSpeed": 78
+    },
+    "skills": [
+      "skill.brutal_ram",
+      "skill.predator_pounce"
+    ]
   },
   {
     "id": "m_swamp_lizard",
@@ -54,8 +67,6 @@
     "radius": 6,
     "respawnSec": 20,
     "level": 2,
-    "hp": 47,
-    "attack": 6,
     "drops": [
       {
         "itemId": "lizard_scale",
@@ -80,25 +91,41 @@
       }
     ],
     "grade": "mortal",
+    "tier": "mortal_blood",
     "count": 5,
-    "maxHp": 47,
-    "valueStats": {
-      "maxHp": 3.56,
-      "maxQi": 2.95,
-      "physAtk": 5.45,
-      "spellAtk": 1.82,
-      "physDef": 6.36,
-      "spellDef": 6.36,
-      "hit": 16.36,
-      "dodge": 11.82,
-      "crit": 5.45,
-      "critDamage": 8.18,
-      "breakPower": 4.55,
-      "resolvePower": 5.45,
-      "maxQiOutputPerTick": 4.55,
-      "viewRange": 6,
-      "moveSpeed": 105
-    }
+    "equipment": {
+      "body": "equip.scrap_hide",
+      "legs": "equip.gutter_paws",
+      "accessory": "equip.marsh_poison_gland"
+    },
+    "attrs": {
+      "constitution": 23,
+      "spirit": 12,
+      "perception": 23,
+      "talent": 18,
+      "comprehension": 3,
+      "luck": 3
+    },
+    "statPercents": {
+      "maxHp": 108.8,
+      "maxQi": 65.8,
+      "physAtk": 100.8,
+      "spellAtk": 70.8,
+      "physDef": 108.8,
+      "spellDef": 118.8,
+      "hit": 112.8,
+      "dodge": 108.8,
+      "crit": 95.8,
+      "breakPower": 92.8,
+      "resolvePower": 102.8,
+      "maxQiOutputPerTick": 78.8,
+      "viewRange": 100,
+      "moveSpeed": 108.32
+    },
+    "skills": [
+      "skill.venom_fang",
+      "skill.miasma_spray"
+    ]
   },
   {
     "id": "m_wild_bandit",
@@ -108,8 +135,6 @@
     "radius": 7,
     "respawnSec": 18,
     "level": 2,
-    "hp": 47,
-    "attack": 6,
     "drops": [
       {
         "itemId": "bandit_insignia",
@@ -134,25 +159,41 @@
       }
     ],
     "grade": "mortal",
+    "tier": "mortal_blood",
     "count": 6,
-    "maxHp": 47,
-    "valueStats": {
-      "maxHp": 3.56,
-      "maxQi": 2.95,
-      "physAtk": 5.45,
-      "spellAtk": 1.82,
-      "physDef": 6.36,
-      "spellDef": 5.45,
-      "hit": 16.36,
-      "dodge": 10.91,
-      "crit": 6.36,
-      "critDamage": 8.18,
-      "breakPower": 4.55,
-      "resolvePower": 5.45,
-      "maxQiOutputPerTick": 4.55,
-      "viewRange": 6,
-      "moveSpeed": 105
-    }
+    "equipment": {
+      "weapon": "equip.rust_saber",
+      "head": "equip.gate_headcloth",
+      "body": "equip.bound_chest",
+      "legs": "equip.step_boots"
+    },
+    "attrs": {
+      "constitution": 22,
+      "spirit": 9,
+      "perception": 19,
+      "talent": 18,
+      "comprehension": 3,
+      "luck": 3
+    },
+    "statPercents": {
+      "maxHp": 102.8,
+      "maxQi": 48.8,
+      "physAtk": 108.8,
+      "spellAtk": 35.8,
+      "physDef": 102.8,
+      "spellDef": 82.8,
+      "hit": 102.8,
+      "dodge": 88.8,
+      "crit": 90.8,
+      "breakPower": 102.8,
+      "resolvePower": 95.8,
+      "maxQiOutputPerTick": 60.8,
+      "viewRange": 100,
+      "moveSpeed": 102.32
+    },
+    "skills": [
+      "skill.cloud_cut"
+    ]
   },
   {
     "id": "m_mire_spider",
@@ -162,8 +203,6 @@
     "radius": 5,
     "respawnSec": 19,
     "level": 3,
-    "hp": 48,
-    "attack": 11,
     "drops": [
       {
         "itemId": "spider_silk",
@@ -195,25 +234,42 @@
       }
     ],
     "grade": "mortal",
+    "tier": "variant",
     "count": 5,
-    "maxHp": 48,
-    "valueStats": {
-      "maxHp": 3.31,
-      "maxQi": 2.81,
-      "physAtk": 9.09,
-      "spellAtk": 2.48,
-      "physDef": 5,
-      "spellDef": 4.17,
-      "hit": 17.5,
-      "dodge": 14.17,
-      "crit": 9.17,
-      "critDamage": 10.83,
-      "breakPower": 10,
-      "resolvePower": 4.17,
-      "maxQiOutputPerTick": 4.17,
-      "viewRange": 6,
-      "moveSpeed": 150
-    }
+    "equipment": {
+      "weapon": "equip.scavenger_fang",
+      "head": "equip.scavenger_crest",
+      "legs": "equip.gutter_paws",
+      "accessory": "equip.marsh_poison_gland"
+    },
+    "attrs": {
+      "constitution": 39,
+      "spirit": 30,
+      "perception": 68,
+      "talent": 31,
+      "comprehension": 8,
+      "luck": 8
+    },
+    "statPercents": {
+      "maxHp": 89.6,
+      "maxQi": 75.6,
+      "physAtk": 135.6,
+      "spellAtk": 82.6,
+      "physDef": 83.6,
+      "spellDef": 79.6,
+      "hit": 135.6,
+      "dodge": 149.6,
+      "crit": 129.6,
+      "breakPower": 149.6,
+      "resolvePower": 85.6,
+      "maxQiOutputPerTick": 89.6,
+      "viewRange": 100,
+      "moveSpeed": 152.64
+    },
+    "skills": [
+      "skill.venom_fang",
+      "skill.miasma_spray"
+    ]
   },
   {
     "id": "m_gale_bone_king",
@@ -223,8 +279,6 @@
     "radius": 2,
     "respawnSec": 120,
     "level": 4,
-    "hp": 95,
-    "attack": 14,
     "drops": [
       {
         "itemId": "spider_silk",
@@ -263,25 +317,44 @@
       }
     ],
     "grade": "mortal",
+    "tier": "demon_king",
     "count": 1,
-    "maxHp": 95,
-    "valueStats": {
-      "maxHp": 5.95,
-      "maxQi": 4.62,
-      "physAtk": 10.52,
-      "spellAtk": 6.76,
-      "physDef": 13.85,
-      "spellDef": 11.54,
-      "hit": 24.62,
-      "dodge": 13.85,
-      "crit": 11.54,
-      "critDamage": 15.38,
-      "breakPower": 12.31,
-      "resolvePower": 10,
-      "maxQiOutputPerTick": 8.46,
-      "viewRange": 6,
-      "moveSpeed": 154
-    }
+    "equipment": {
+      "weapon": "equip.scavenger_fang",
+      "head": "equip.scavenger_crest",
+      "body": "equip.scrap_hide",
+      "legs": "equip.gutter_paws",
+      "accessory": "equip.marsh_poison_gland"
+    },
+    "attrs": {
+      "constitution": 53,
+      "spirit": 53,
+      "perception": 110,
+      "talent": 46,
+      "comprehension": 11,
+      "luck": 9
+    },
+    "statPercents": {
+      "maxHp": 90.4,
+      "maxQi": 89.4,
+      "physAtk": 106.4,
+      "spellAtk": 96.4,
+      "physDef": 76.4,
+      "spellDef": 80.4,
+      "hit": 136.4,
+      "dodge": 162.4,
+      "crit": 122.4,
+      "breakPower": 106.4,
+      "resolvePower": 86.4,
+      "maxQiOutputPerTick": 102.4,
+      "viewRange": 100,
+      "moveSpeed": 158.96
+    },
+    "skills": [
+      "skill.predator_pounce",
+      "skill.rending_claw",
+      "skill.brutal_ram"
+    ]
   },
   {
     "id": "m_dust_vulture",
@@ -291,8 +364,6 @@
     "radius": 6,
     "respawnSec": 24,
     "level": 3,
-    "hp": 45,
-    "attack": 8,
     "drops": [
       {
         "itemId": "blood_feather",
@@ -317,24 +388,40 @@
       }
     ],
     "grade": "mortal",
+    "tier": "mortal_blood",
     "count": 4,
-    "maxHp": 45,
-    "valueStats": {
-      "maxHp": 3.1,
-      "maxQi": 3.75,
-      "physAtk": 6.61,
-      "spellAtk": 4.13,
-      "physDef": 4.17,
-      "spellDef": 4.17,
-      "hit": 18.33,
-      "dodge": 18.33,
-      "crit": 6.67,
-      "critDamage": 8.33,
-      "breakPower": 5,
-      "resolvePower": 4.17,
-      "maxQiOutputPerTick": 6.67,
-      "viewRange": 6,
-      "moveSpeed": 168
-    }
+    "equipment": {
+      "head": "equip.scavenger_crest",
+      "legs": "equip.gutter_paws",
+      "accessory": "equip.marsh_poison_gland"
+    },
+    "attrs": {
+      "constitution": 22,
+      "spirit": 22,
+      "perception": 44,
+      "talent": 19,
+      "comprehension": 5,
+      "luck": 4
+    },
+    "statPercents": {
+      "maxHp": 77.6,
+      "maxQi": 76.6,
+      "physAtk": 93.6,
+      "spellAtk": 83.6,
+      "physDef": 63.6,
+      "spellDef": 67.6,
+      "hit": 123.6,
+      "dodge": 149.6,
+      "crit": 109.6,
+      "breakPower": 93.6,
+      "resolvePower": 73.6,
+      "maxQiOutputPerTick": 89.6,
+      "viewRange": 100,
+      "moveSpeed": 158.64
+    },
+    "skills": [
+      "skill.plume_shot",
+      "skill.echo_screech"
+    ]
   }
 ]

@@ -1,7 +1,46 @@
 [
-  { "itemId": "equip.black_iron_sword", "name": "玄铁长剑", "type": "equipment", "grade": "mystic", "level": 3, "desc": "经矿洞灵铁锻造，兼具锋锐与韧性。", "equipSlot": "weapon", "equipValueStats": { "physAtk": 11, "spellAtk": 4, "hit": 4 } },
-  { "itemId": "equip.miner_helmet", "name": "矿卫盔", "type": "equipment", "grade": "mystic", "level": 3, "desc": "旧矿卫制式铁盔，防护结实。", "equipSlot": "head", "equipValueStats": { "maxHp": 2, "physDef": 7, "resolvePower": 3 } },
-  { "itemId": "equip.orebreak_hammer", "name": "矿卫破岩锤", "type": "equipment", "grade": "mystic", "level": 3, "desc": "锤头沉得惊人，砸石和砸骨头时都带着同一种闷响。", "equipSlot": "weapon", "equipValueStats": { "physAtk": 10, "breakPower": 4, "hit": 2 } },
+  {
+    "itemId": "equip.black_iron_sword",
+    "name": "玄铁长剑",
+    "type": "equipment",
+    "grade": "mystic",
+    "level": 3,
+    "desc": "经矿洞灵铁锻造，兼具锋锐与韧性。",
+    "equipSlot": "weapon",
+    "equipValueStats": {
+      "physAtk": 11,
+      "spellAtk": 4,
+      "hit": 4
+    }
+  },
+  {
+    "itemId": "equip.miner_helmet",
+    "name": "矿卫盔",
+    "type": "equipment",
+    "grade": "mystic",
+    "level": 3,
+    "desc": "旧矿卫制式铁盔，防护结实。",
+    "equipSlot": "head",
+    "equipValueStats": {
+      "maxHp": 2,
+      "physDef": 7,
+      "resolvePower": 3
+    }
+  },
+  {
+    "itemId": "equip.orebreak_hammer",
+    "name": "矿卫破岩锤",
+    "type": "equipment",
+    "grade": "mystic",
+    "level": 3,
+    "desc": "锤头沉得惊人，砸石和砸骨头时都带着同一种闷响。",
+    "equipSlot": "weapon",
+    "equipValueStats": {
+      "physAtk": 10,
+      "breakPower": 4,
+      "hit": 2
+    }
+  },
   {
     "itemId": "equip.soot_lamp_hood",
     "name": "熄火矿灯冠",
@@ -10,7 +49,11 @@
     "level": 3,
     "desc": "矿灯虽然熄了，旧灯罩仍能帮人摸清黑暗里的轮廓。",
     "equipSlot": "head",
-    "equipValueStats": { "viewRange": 1, "resolvePower": 2, "maxHp": 1.33 },
+    "equipValueStats": {
+      "viewRange": 1,
+      "resolvePower": 2,
+      "maxHp": 1.33
+    },
     "effects": [
       {
         "effectId": "mine-sight",
@@ -18,14 +61,131 @@
         "conditions": {
           "mode": "all",
           "items": [
-            { "type": "map", "mapIds": ["black_iron_mine"] }
+            {
+              "type": "map",
+              "mapIds": [
+                "black_iron_mine"
+              ]
+            }
           ]
         },
-        "valueStats": { "viewRange": 1, "hit": 2 }
+        "valueStats": {
+          "viewRange": 1,
+          "hit": 2
+        }
       }
     ]
   },
-  { "itemId": "equip.blackiron_brigandine", "name": "黑铁束身甲", "type": "equipment", "grade": "mystic", "level": 3, "desc": "以旧矿卫残片拼出来的束身甲，缝里还残留着铁腥味。", "equipSlot": "body", "equipValueStats": { "maxHp": 3.17, "physDef": 6, "resolvePower": 3 } },
-  { "itemId": "equip.ash_tread", "name": "炉灰踏靴", "type": "equipment", "grade": "yellow", "level": 3, "desc": "鞋底结了层灰壳，踩在碎石和熄火矿渣上比常鞋稳。", "equipSlot": "legs", "equipValueStats": { "moveSpeed": 10, "physDef": 2 } },
-  { "itemId": "equip.orevein_ring", "name": "矿脉扣环", "type": "equipment", "grade": "yellow", "level": 3, "desc": "矿工拿来记矿脉方位的铁环，久了也能养出一点破势。", "equipSlot": "accessory", "equipValueStats": { "breakPower": 3, "lootRate": 4 } }
+  {
+    "itemId": "equip.blackiron_brigandine",
+    "name": "黑铁束身甲",
+    "type": "equipment",
+    "grade": "mystic",
+    "level": 3,
+    "desc": "以旧矿卫残片拼出来的束身甲，缝里还残留着铁腥味。",
+    "equipSlot": "body",
+    "equipValueStats": {
+      "maxHp": 3.17,
+      "physDef": 6,
+      "resolvePower": 3
+    }
+  },
+  {
+    "itemId": "equip.ash_tread",
+    "name": "炉灰踏靴",
+    "type": "equipment",
+    "grade": "yellow",
+    "level": 3,
+    "desc": "鞋底结了层灰壳，踩在碎石和熄火矿渣上比常鞋稳。",
+    "equipSlot": "legs",
+    "equipValueStats": {
+      "moveSpeed": 10,
+      "physDef": 2
+    }
+  },
+  {
+    "itemId": "equip.orevein_ring",
+    "name": "矿脉扣环",
+    "type": "equipment",
+    "grade": "yellow",
+    "level": 3,
+    "desc": "矿工拿来记矿脉方位的铁环，久了也能养出一点破势。",
+    "equipSlot": "accessory",
+    "equipValueStats": {
+      "breakPower": 3,
+      "lootRate": 4
+    }
+  },
+  {
+    "itemId": "equip.crystal_maw_spike",
+    "name": "晶獠骨刺",
+    "type": "equipment",
+    "grade": "yellow",
+    "level": 3,
+    "desc": "矿洞妖物口器中最锋利的一根骨刺，硬得发脆。",
+    "equipSlot": "weapon",
+    "equipValueStats": {
+      "physAtk": 7,
+      "spellAtk": 2,
+      "hit": 2
+    }
+  },
+  {
+    "itemId": "equip.echo_crystal_crest",
+    "name": "回声晶冠",
+    "type": "equipment",
+    "grade": "yellow",
+    "level": 3,
+    "desc": "会顺着洞壁回声判断方位，黑暗中也不易失手。",
+    "equipSlot": "head",
+    "equipValueStats": {
+      "hit": 2,
+      "dodge": 2,
+      "viewRange": 1
+    }
+  },
+  {
+    "itemId": "equip.oreplate_carapace",
+    "name": "矿壳重甲",
+    "type": "equipment",
+    "grade": "mystic",
+    "level": 3,
+    "desc": "矿层般一层层压上去，沉，却很难被打穿。",
+    "equipSlot": "body",
+    "equipValueStats": {
+      "maxHp": 2.5,
+      "physDef": 5,
+      "spellDef": 4,
+      "resolvePower": 3
+    }
+  },
+  {
+    "itemId": "equip.cave_skitter_spurs",
+    "name": "穴行钩爪",
+    "type": "equipment",
+    "grade": "yellow",
+    "level": 3,
+    "desc": "钩爪能牢牢嵌进岩缝，适合洞壁疾窜和突然俯冲。",
+    "equipSlot": "legs",
+    "equipValueStats": {
+      "moveSpeed": 12,
+      "dodge": 3,
+      "hit": 1
+    }
+  },
+  {
+    "itemId": "equip.mineral_pulse_core",
+    "name": "矿脉搏核",
+    "type": "equipment",
+    "grade": "yellow",
+    "level": 3,
+    "desc": "被矿气反复冲刷的内核，吐纳时会带出一股闷沉的劲。",
+    "equipSlot": "accessory",
+    "equipValueStats": {
+      "maxQi": 1.5,
+      "breakPower": 3,
+      "resolvePower": 2,
+      "maxQiOutputPerTick": 3
+    }
+  }
 ]

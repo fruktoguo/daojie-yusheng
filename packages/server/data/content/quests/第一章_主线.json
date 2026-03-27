@@ -115,6 +115,12 @@
       "requiredItemCount": 3,
       "reward": [
         {
+          "itemId": "book.nourishing_qi_art",
+          "name": "《养气诀》",
+          "type": "skill_book",
+          "count": 1
+        },
+        {
           "itemId": "frost_heart_paste",
           "name": "寒心膏",
           "type": "consumable",
@@ -178,6 +184,12 @@
         {
           "itemId": "book_wind_step",
           "name": "《踏风步》",
+          "type": "skill_book",
+          "count": 1
+        },
+        {
+          "itemId": "book.hundred_temper_body",
+          "name": "《壮身功》",
           "type": "skill_book",
           "count": 1
         },

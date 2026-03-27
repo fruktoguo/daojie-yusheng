@@ -7,8 +7,10 @@ import {
   buildEditableMapList as buildEditableMapListResult,
   cloneMapDocument as cloneEditableMapDocument,
   calculateTerrainDurability,
+  createMonsterAutoStatPercents,
   DEFAULT_MAP_TIME_CONFIG,
   doesTileTypeBlockSight,
+  inferMonsterAttrsFromNumericStats,
   getTileTypeFromMapChar,
   GmMapAuraRecord,
   GmMapContainerRecord,
@@ -36,13 +38,19 @@ import {
   MapTimeConfig,
   MonsterAggroMode,
   MonsterCombatModel,
+  MonsterTier,
   NumericStats,
+  NumericStatPercentages,
   normalizeEditableMapDocument as normalizeEditableMapDocumentValue,
+  normalizeMonsterAttrs,
+  normalizeMonsterStatPercents,
+  normalizeMonsterTier,
   PartialNumericStats,
   Portal,
   PortalKind,
   PortalRouteDomain,
   PortalTrigger,
+  resolveMonsterNumericStatsFromAttributes,
   resolveMonsterNumericStatsFromValueStats,
   VIEW_RADIUS,
   validateEditableMapDocument as validateEditableMapDocumentValue,
@@ -69,6 +77,8 @@ import {
   DISPERSED_AURA_MIN_DECAY_PER_TICK,
   DISPERSED_AURA_RESOURCE_DESCRIPTOR,
   DEFAULT_QI_RESOURCE_DESCRIPTOR,
+  Attributes,
+  EquipmentSlots,
   isAuraQiResourceKey,
   parseQiResourceKey,
 } from '@mud/shared';
@@ -234,6 +244,11 @@ export interface MonsterSpawnConfig {
   char: string;
   color: string;
   grade: TechniqueGrade;
+  attrs: Attributes;
+  equipment: EquipmentSlots;
+  statPercents?: NumericStatPercentages;
+  skills: string[];
+  tier: MonsterTier;
   valueStats?: PartialNumericStats;
   numericStats: NumericStats;
   combatModel: MonsterCombatModel;
@@ -1479,6 +1494,9 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         this.addOverlapArea(next, mapId, portal.x, portal.y, true);
         this.addOverlapArea(next, portal.targetMapId, portal.targetX, portal.targetY, true);
       }
+      for (const zone of map.safeZones) {
+        this.addSafeZoneOverlapArea(next, mapId, zone.x, zone.y, zone.radius);
+      }
       for (const npc of map.npcs) {
         this.addOverlapArea(next, mapId, npc.x, npc.y, false);
       }
@@ -1527,6 +1545,29 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     const points = index.get(mapId) ?? new Set<string>();
     points.add(key);
     index.set(mapId, points);
+  }
+
+  private addSafeZoneOverlapArea(
+    index: Map<string, Set<string>>,
+    mapId: string,
+    centerX: number,
+    centerY: number,
+    radius: number,
+  ): void {
+    const normalizedRadius = Math.max(0, Math.floor(radius));
+    for (let dy = -normalizedRadius; dy <= normalizedRadius; dy += 1) {
+      for (let dx = -normalizedRadius; dx <= normalizedRadius; dx += 1) {
+        if (!isOffsetInRange(dx, dy, normalizedRadius)) {
+          continue;
+        }
+        const x = centerX + dx;
+        const y = centerY + dy;
+        if (!this.getTile(mapId, x, y)?.walkable) {
+          continue;
+        }
+        this.addOverlapPoint(index, mapId, x, y);
+      }
+    }
   }
 
   private supportsPlayerOverlap(mapId: string, x: number, y: number): boolean {
@@ -2504,6 +2545,8 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         continue;
       }
       const level = Number.isInteger(rawSpawn.level) ? Math.max(1, Number(rawSpawn.level)) : template.level;
+      const equipment = this.contentService.normalizeEquipment(template.equipment);
+      const skills = this.contentService.normalizeMonsterSkills(rawSpawn.skills ?? template.skills, String(rawSpawn.id ?? template.id));
       const valueStats = template.valueStats
         ?? inferMonsterValueStatsFromLegacy({
           maxHp: template.maxHp,
@@ -2511,8 +2554,25 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
           level: template.level,
           viewRange: template.viewRange,
         });
-      const numericStats = resolveMonsterNumericStatsFromValueStats(valueStats, level);
-      const combatModel: MonsterCombatModel = template.valueStats ? 'value_stats' : 'legacy';
+      const legacyNumericStats = resolveMonsterNumericStatsFromValueStats(valueStats, level);
+      const attrs = normalizeMonsterAttrs(
+        rawSpawn.attrs ?? template.attrs,
+        rawSpawn.attrs || template.attrs ? undefined : inferMonsterAttrsFromNumericStats(legacyNumericStats),
+      );
+      const statPercents = normalizeMonsterStatPercents(rawSpawn.statPercents ?? template.statPercents)
+        ?? (rawSpawn.attrs || template.attrs
+          ? undefined
+          : createMonsterAutoStatPercents(legacyNumericStats, attrs, level, equipment));
+      const tier = normalizeMonsterTier(rawSpawn.tier ?? template.tier);
+      const numericStats = resolveMonsterNumericStatsFromAttributes({
+        attrs,
+        equipment,
+        level,
+        statPercents,
+        grade: rawSpawn.grade ?? template.grade,
+        tier,
+      });
+      const combatModel: MonsterCombatModel = 'value_stats';
       const spawnId = typeof rawSpawn.id === 'string' && rawSpawn.id.trim().length > 0
         ? rawSpawn.id.trim()
         : templateId;
@@ -2547,6 +2607,11 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         char: template.char,
         color: template.color,
         grade: this.normalizeContainerGrade(rawSpawn.grade ?? template.grade),
+        attrs,
+        equipment,
+        statPercents,
+        skills,
+        tier,
         valueStats,
         numericStats,
         combatModel,
@@ -3761,6 +3826,8 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     const radius = Number.isInteger(spawn.radius) ? Math.max(0, Number(spawn.radius)) : template.radius;
     const maxAlive = Number.isInteger(spawn.maxAlive) ? Math.max(1, Number(spawn.maxAlive)) : template.maxAlive;
     const level = Number.isInteger(spawn.level) ? Math.max(1, Number(spawn.level)) : template.level;
+    const equipment = this.contentService.normalizeEquipment(template.equipment);
+    const skills = this.contentService.normalizeMonsterSkills(spawn.skills ?? template.skills, String(spawn.id ?? template.id));
     const valueStats = template.valueStats
       ?? inferMonsterValueStatsFromLegacy({
         maxHp: template.maxHp,
@@ -3768,7 +3835,24 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         level: template.level,
         viewRange: template.viewRange,
       });
-    const numericStats = resolveMonsterNumericStatsFromValueStats(valueStats, level);
+    const legacyNumericStats = resolveMonsterNumericStatsFromValueStats(valueStats, level);
+    const attrs = normalizeMonsterAttrs(
+      spawn.attrs ?? template.attrs,
+      spawn.attrs || template.attrs ? undefined : inferMonsterAttrsFromNumericStats(legacyNumericStats),
+    );
+    const statPercents = normalizeMonsterStatPercents(spawn.statPercents ?? template.statPercents)
+      ?? (spawn.attrs || template.attrs
+        ? undefined
+        : createMonsterAutoStatPercents(legacyNumericStats, attrs, level, equipment));
+    const tier = normalizeMonsterTier(spawn.tier ?? template.tier);
+    const numericStats = resolveMonsterNumericStatsFromAttributes({
+      attrs,
+      equipment,
+      level,
+      statPercents,
+      grade: spawn.grade ?? template.grade,
+      tier,
+    });
     return {
       ...template,
       id: typeof spawn.id === 'string' && spawn.id.trim().length > 0 ? spawn.id : template.id,
@@ -3776,6 +3860,11 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       x: Number.isInteger(spawn.x) ? Number(spawn.x) : 0,
       y: Number.isInteger(spawn.y) ? Number(spawn.y) : 0,
       grade: spawn.grade ?? template.grade,
+      attrs,
+      equipment,
+      statPercents,
+      skills,
+      tier,
       hp: Math.max(1, Math.round(numericStats.maxHp || template.hp)),
       maxHp: Math.max(1, Math.round(numericStats.maxHp || template.maxHp || template.hp)),
       attack: Math.max(1, Math.round(numericStats.physAtk || numericStats.spellAtk || template.attack || 1)),
@@ -3817,6 +3906,12 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       persisted.templateId = templateId;
     }
     if (spawn.grade !== template.grade) persisted.grade = spawn.grade;
+    if (spawn.tier !== template.tier) persisted.tier = spawn.tier;
+    if (JSON.stringify(spawn.attrs) !== JSON.stringify(template.attrs)) persisted.attrs = spawn.attrs;
+    if (JSON.stringify(spawn.statPercents ?? null) !== JSON.stringify(template.statPercents ?? null)) {
+      persisted.statPercents = spawn.statPercents;
+    }
+    if (JSON.stringify(spawn.skills) !== JSON.stringify(template.skills)) persisted.skills = spawn.skills;
     if ((spawn.count ?? spawn.maxAlive ?? 1) !== template.count) persisted.count = spawn.count;
     if ((spawn.radius ?? 3) !== template.radius) persisted.radius = spawn.radius;
     if ((spawn.maxAlive ?? 1) !== template.maxAlive) persisted.maxAlive = spawn.maxAlive;

@@ -14,6 +14,7 @@
  * - `technique`：修炼与功法成长规则。
  * - `realm`：境界阶段与境界模板。
  * - `equipment`：装备系统通用枚举常量。
+ * - `monster`：妖兽六维、血脉层次与品阶倍率。
  * - `navigation`：寻路与移动流程常量。
  * - `distance`：格距与范围判定规则。
  * - `threat`：仇恨积累、衰减与目标选择规则。
@@ -30,6 +31,7 @@ export * from './attributes';
 export * from './technique';
 export * from './realm';
 export * from './equipment';
+export * from './monster';
 export * from './navigation';
 export * from './distance';
 export * from './threat';

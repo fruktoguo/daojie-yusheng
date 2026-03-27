@@ -3,7 +3,7 @@
  * C2S = 客户端→服务端，S2C = 服务端→客户端。
  */
 import type { ElementKey } from './numeric';
-import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerSpecialStats, QuestState, CombatEffect, AutoBattleSkillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, TechniqueCategory, TechniqueGrade, GroundItemPileView, LootWindowState, VisibleBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MapRouteDomain, NpcShopView, PortalRouteDomain } from './types';
+import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerSpecialStats, QuestState, CombatEffect, AutoBattleSkillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, MonsterTier, NumericStatPercentages, TechniqueCategory, TechniqueGrade, GroundItemPileView, LootWindowState, VisibleBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MapRouteDomain, NpcShopView, PortalRouteDomain } from './types';
 import { NumericRatioDivisors, NumericStats } from './numeric';
 
 // ===== 事件名 =====
@@ -237,6 +237,7 @@ export interface TickRenderEntity {
   color?: string;
   name?: string | null;
   kind?: EntityKind | 'player' | null;
+  monsterTier?: MonsterTier | null;
   hp?: number | null;
   maxHp?: number | null;
   qi?: number | null;
@@ -250,6 +251,7 @@ export interface ObservedTileEntityDetail {
   id: string;
   name?: string;
   kind?: EntityKind | 'player' | null;
+  monsterTier?: MonsterTier | null;
   hp?: number;
   maxHp?: number;
   qi?: number;
@@ -1107,6 +1109,10 @@ export interface GmMapMonsterSpawnRecord {
   respawnSec?: number;
   respawnTicks?: number;
   level?: number;
+  attrs?: Partial<Attributes>;
+  statPercents?: NumericStatPercentages;
+  skills?: string[];
+  tier?: MonsterTier;
   expMultiplier?: number;
   drops?: GmMapDropRecord[];
 }

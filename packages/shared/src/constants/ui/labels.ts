@@ -7,6 +7,7 @@ import type {
   EquipSlot,
   ItemType,
   MapMinimapMarkerKind,
+  MonsterTier,
   QuestLine,
   QuestObjectiveType,
   QuestStatus,
@@ -102,6 +103,13 @@ export const ENTITY_KIND_LABELS: Record<EntityKind | 'player', string> = {
   npc: '人物',
   container: '容器',
   crowd: '人群',
+};
+
+/** 妖兽血脉层次中文标签 */
+export const MONSTER_TIER_LABELS: Record<MonsterTier, string> = {
+  mortal_blood: '凡血',
+  variant: '异种',
+  demon_king: '妖王',
 };
 
 /** 小地图标记类型中文标签 */

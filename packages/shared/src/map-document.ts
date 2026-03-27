@@ -1,4 +1,4 @@
-import { DEFAULT_MAP_TIME_CONFIG } from './constants';
+import { ATTR_KEYS, DEFAULT_MAP_TIME_CONFIG } from './constants';
 import { isOffsetInRange } from './geometry';
 import {
   GmMapAuraRecord,
@@ -489,6 +489,50 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
       level: Number.isFinite((spawn as GmMapMonsterSpawnRecord).level)
         ? Number((spawn as GmMapMonsterSpawnRecord).level)
         : undefined,
+      attrs: (() => {
+        const rawAttrs = (spawn as GmMapMonsterSpawnRecord).attrs;
+        if (!rawAttrs || typeof rawAttrs !== 'object') {
+          return undefined;
+        }
+        const normalized: Partial<Record<typeof ATTR_KEYS[number], number>> = {};
+        for (const key of ATTR_KEYS) {
+          const value = (rawAttrs as Record<string, unknown>)[key];
+          if (!Number.isFinite(value)) {
+            continue;
+          }
+          normalized[key] = Math.max(0, Number(value));
+        }
+        return Object.keys(normalized).length > 0 ? normalized : undefined;
+      })(),
+      statPercents: (() => {
+        const rawStatPercents = (spawn as GmMapMonsterSpawnRecord).statPercents;
+        if (!rawStatPercents || typeof rawStatPercents !== 'object') {
+          return undefined;
+        }
+        const normalized: NonNullable<GmMapMonsterSpawnRecord['statPercents']> = {};
+        for (const [key, value] of Object.entries(rawStatPercents)) {
+          if (!Number.isFinite(value)) {
+            continue;
+          }
+          normalized[key as keyof NonNullable<GmMapMonsterSpawnRecord['statPercents']>] = Math.max(0, Number(value));
+        }
+        return Object.keys(normalized).length > 0 ? normalized : undefined;
+      })(),
+      skills: (() => {
+        const rawSkills = (spawn as GmMapMonsterSpawnRecord).skills;
+        if (!Array.isArray(rawSkills)) {
+          return undefined;
+        }
+        const normalized = rawSkills
+          .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+          .map((entry) => entry.trim());
+        return normalized.length > 0 ? normalized : undefined;
+      })(),
+      tier: (spawn as GmMapMonsterSpawnRecord).tier === 'mortal_blood'
+        || (spawn as GmMapMonsterSpawnRecord).tier === 'variant'
+        || (spawn as GmMapMonsterSpawnRecord).tier === 'demon_king'
+        ? (spawn as GmMapMonsterSpawnRecord).tier
+        : undefined,
       expMultiplier: Number.isFinite((spawn as GmMapMonsterSpawnRecord).expMultiplier)
         ? Number((spawn as GmMapMonsterSpawnRecord).expMultiplier)
         : undefined,
@@ -764,6 +808,24 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
     if (error) return error;
     if (spawn.level !== undefined && (!Number.isInteger(spawn.level) || spawn.level <= 0)) {
       return `${label} 的等级必须为正整数`;
+    }
+    if (spawn.tier !== undefined && spawn.tier !== 'mortal_blood' && spawn.tier !== 'variant' && spawn.tier !== 'demon_king') {
+      return `${label} 的血脉层次非法`;
+    }
+    if (spawn.attrs) {
+      for (const key of ATTR_KEYS) {
+        const value = spawn.attrs[key];
+        if (value !== undefined && (!Number.isFinite(value) || value < 0)) {
+          return `${label} 的 ${key} 必须为非负数`;
+        }
+      }
+    }
+    if (spawn.statPercents) {
+      for (const [key, value] of Object.entries(spawn.statPercents)) {
+        if (!Number.isFinite(value) || value < 0) {
+          return `${label} 的 ${key} 百分比必须为非负数`;
+        }
+      }
     }
     if (spawn.count !== undefined && (!Number.isInteger(spawn.count) || spawn.count <= 0)) {
       return `${label} 的生成数量必须为正整数`;

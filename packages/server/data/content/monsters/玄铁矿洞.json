@@ -4,8 +4,6 @@
     "name": "矿魈",
     "char": "魈",
     "color": "#8f7fa8",
-    "hp": 144,
-    "attack": 17,
     "radius": 8,
     "respawnSec": 24,
     "level": 7,
@@ -40,33 +38,46 @@
       }
     ],
     "grade": "mortal",
+    "tier": "mortal_blood",
     "count": 7,
-    "maxHp": 144,
-    "valueStats": {
-      "maxHp": 6.77,
-      "maxQi": 4.69,
-      "physAtk": 9.6,
-      "spellAtk": 3.95,
-      "physDef": 13.75,
-      "spellDef": 11.25,
-      "hit": 37.5,
-      "dodge": 20,
-      "crit": 11.25,
-      "critDamage": 17.5,
-      "breakPower": 11.25,
-      "resolvePower": 11.25,
-      "maxQiOutputPerTick": 6.25,
-      "viewRange": 6,
-      "moveSpeed": 145
-    }
+    "equipment": {
+      "weapon": "equip.crystal_maw_spike",
+      "body": "equip.oreplate_carapace",
+      "accessory": "equip.mineral_pulse_core"
+    },
+    "attrs": {
+      "constitution": 69,
+      "spirit": 45,
+      "perception": 63,
+      "talent": 57,
+      "comprehension": 9,
+      "luck": 7
+    },
+    "statPercents": {
+      "maxHp": 116.8,
+      "maxQi": 86.8,
+      "physAtk": 122.8,
+      "spellAtk": 76.8,
+      "physDef": 126.8,
+      "spellDef": 112.8,
+      "hit": 120.8,
+      "dodge": 100.8,
+      "crit": 100.8,
+      "breakPower": 116.8,
+      "resolvePower": 116.8,
+      "maxQiOutputPerTick": 92.8,
+      "viewRange": 100,
+      "moveSpeed": 113.92
+    },
+    "skills": [
+      "skill.core_smash"
+    ]
   },
   {
     "id": "m_crystal_bat",
     "name": "晶背蝠",
     "char": "蝠",
     "color": "#9ac3ff",
-    "hp": 75,
-    "attack": 13,
     "radius": 5,
     "respawnSec": 20,
     "level": 6,
@@ -94,33 +105,47 @@
       }
     ],
     "grade": "mortal",
+    "tier": "mortal_blood",
     "count": 5,
-    "maxHp": 75,
-    "valueStats": {
-      "maxHp": 3.88,
-      "maxQi": 5,
-      "physAtk": 8.07,
-      "spellAtk": 4.97,
-      "physDef": 8.67,
-      "spellDef": 8.67,
-      "hit": 36.67,
-      "dodge": 36.67,
-      "crit": 13.33,
-      "critDamage": 16.67,
-      "breakPower": 6.67,
-      "resolvePower": 7.33,
-      "maxQiOutputPerTick": 8.67,
-      "viewRange": 6,
-      "moveSpeed": 224
-    }
+    "equipment": {
+      "head": "equip.echo_crystal_crest",
+      "legs": "equip.cave_skitter_spurs",
+      "accessory": "equip.mineral_pulse_core"
+    },
+    "attrs": {
+      "constitution": 33,
+      "spirit": 51,
+      "perception": 87,
+      "talent": 33,
+      "comprehension": 9,
+      "luck": 6
+    },
+    "statPercents": {
+      "maxHp": 76,
+      "maxQi": 102,
+      "physAtk": 96,
+      "spellAtk": 102,
+      "physDef": 80,
+      "spellDef": 86,
+      "hit": 142,
+      "dodge": 172,
+      "crit": 126,
+      "breakPower": 86,
+      "resolvePower": 86,
+      "maxQiOutputPerTick": 116,
+      "viewRange": 100,
+      "moveSpeed": 179.6
+    },
+    "skills": [
+      "skill.plume_shot",
+      "skill.echo_screech"
+    ]
   },
   {
     "id": "m_tunnel_stalker",
     "name": "隧影潜猎者",
     "char": "潜",
     "color": "#6f84a8",
-    "hp": 148,
-    "attack": 24,
     "radius": 5,
     "respawnSec": 22,
     "level": 8,
@@ -148,33 +173,48 @@
       }
     ],
     "grade": "mortal",
+    "tier": "mortal_blood",
     "count": 4,
-    "maxHp": 148,
-    "valueStats": {
-      "maxHp": 6.33,
-      "maxQi": 6.84,
-      "physAtk": 12.32,
-      "spellAtk": 6.67,
-      "physDef": 14.12,
-      "spellDef": 11.76,
-      "hit": 58.82,
-      "dodge": 52.94,
-      "crit": 29.41,
-      "critDamage": 35.29,
-      "breakPower": 14.71,
-      "resolvePower": 12.94,
-      "maxQiOutputPerTick": 11.18,
-      "viewRange": 6,
-      "moveSpeed": 216
-    }
+    "equipment": {
+      "weapon": "equip.black_iron_sword",
+      "head": "equip.soot_lamp_hood",
+      "legs": "equip.ash_tread",
+      "accessory": "equip.orevein_ring"
+    },
+    "attrs": {
+      "constitution": 60,
+      "spirit": 50,
+      "perception": 119,
+      "talent": 57,
+      "comprehension": 13,
+      "luck": 11
+    },
+    "statPercents": {
+      "maxHp": 93.6,
+      "maxQi": 107.6,
+      "physAtk": 143.6,
+      "spellAtk": 113.6,
+      "physDef": 101.6,
+      "spellDef": 93.6,
+      "hit": 163.6,
+      "dodge": 167.6,
+      "crit": 151.6,
+      "breakPower": 133.6,
+      "resolvePower": 97.6,
+      "maxQiOutputPerTick": 127.6,
+      "viewRange": 100,
+      "moveSpeed": 174.24
+    },
+    "skills": [
+      "skill.predator_pounce",
+      "skill.rending_claw"
+    ]
   },
   {
     "id": "m_ore_colossus",
     "name": "玄矿巨像精英",
     "char": "像",
     "color": "#8f8a7b",
-    "hp": 318,
-    "attack": 25,
     "radius": 3,
     "respawnSec": 60,
     "level": 9,
@@ -209,33 +249,48 @@
       }
     ],
     "grade": "mortal",
+    "tier": "variant",
     "count": 2,
-    "maxHp": 318,
-    "valueStats": {
-      "maxHp": 12.36,
-      "maxQi": 4.44,
-      "physAtk": 11.66,
-      "spellAtk": 4.67,
-      "physDef": 42.78,
-      "spellDef": 35,
-      "hit": 54.44,
-      "dodge": 18.33,
-      "crit": 11.11,
-      "critDamage": 25.56,
-      "breakPower": 12.22,
-      "resolvePower": 27.22,
-      "maxQiOutputPerTick": 4.44,
-      "viewRange": 6,
-      "moveSpeed": 105
-    }
+    "equipment": {
+      "weapon": "equip.orebreak_hammer",
+      "head": "equip.miner_helmet",
+      "body": "equip.oreplate_carapace",
+      "accessory": "equip.mineral_pulse_core"
+    },
+    "attrs": {
+      "constitution": 175,
+      "spirit": 50,
+      "perception": 40,
+      "talent": 120,
+      "comprehension": 8,
+      "luck": 8
+    },
+    "statPercents": {
+      "maxHp": 194.4,
+      "maxQi": 64.4,
+      "physAtk": 134.4,
+      "spellAtk": 57.4,
+      "physDef": 204.4,
+      "spellDef": 190.4,
+      "hit": 108.4,
+      "dodge": 67.4,
+      "crit": 80.4,
+      "breakPower": 124.4,
+      "resolvePower": 174.4,
+      "maxQiOutputPerTick": 70.4,
+      "viewRange": 100,
+      "moveSpeed": 60.56
+    },
+    "skills": [
+      "skill.core_smash",
+      "skill.guardian_quake"
+    ]
   },
   {
     "id": "m_iron_devour_lord",
     "name": "噬铁矿君",
     "char": "君",
     "color": "#a78b73",
-    "hp": 315,
-    "attack": 40,
     "radius": 2,
     "respawnSec": 180,
     "level": 10,
@@ -284,24 +339,43 @@
       }
     ],
     "grade": "mortal",
+    "tier": "demon_king",
     "count": 1,
-    "maxHp": 315,
-    "valueStats": {
-      "maxHp": 11.13,
-      "maxQi": 10.39,
-      "physAtk": 16.96,
-      "spellAtk": 10.18,
-      "physDef": 31.58,
-      "spellDef": 26.84,
-      "hit": 83.16,
-      "dodge": 47.37,
-      "crit": 39.47,
-      "critDamage": 51.58,
-      "breakPower": 23.16,
-      "resolvePower": 22.63,
-      "maxQiOutputPerTick": 18.42,
-      "viewRange": 6,
-      "moveSpeed": 231
-    }
+    "equipment": {
+      "weapon": "equip.black_iron_sword",
+      "head": "equip.miner_helmet",
+      "body": "equip.blackiron_brigandine",
+      "legs": "equip.ash_tread",
+      "accessory": "equip.mineral_pulse_core"
+    },
+    "attrs": {
+      "constitution": 222,
+      "spirit": 63,
+      "perception": 51,
+      "talent": 153,
+      "comprehension": 10,
+      "luck": 10
+    },
+    "statPercents": {
+      "maxHp": 201.2,
+      "maxQi": 71.2,
+      "physAtk": 141.2,
+      "spellAtk": 64.2,
+      "physDef": 211.2,
+      "spellDef": 197.2,
+      "hit": 115.2,
+      "dodge": 74.2,
+      "crit": 87.2,
+      "breakPower": 131.2,
+      "resolvePower": 181.2,
+      "maxQiOutputPerTick": 77.2,
+      "viewRange": 100,
+      "moveSpeed": 60.88
+    },
+    "skills": [
+      "skill.core_smash",
+      "skill.guardian_quake",
+      "skill.brutal_ram"
+    ]
   }
 ]

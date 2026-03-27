@@ -14,16 +14,16 @@
       "requiredItemCount": 3,
       "reward": [
         {
-          "itemId": "book.dragon_elephant_bone",
-          "name": "《镇骨功》",
-          "type": "skill_book",
-          "count": 1
-        },
-        {
           "itemId": "equip.bone_dagger",
           "name": "猎户骨匕",
           "type": "equipment",
           "count": 1
+        },
+        {
+          "itemId": "minor_qi_pill",
+          "name": "小还灵丹",
+          "type": "consumable",
+          "count": 2
         },
         {
           "itemId": "pill.break_array_elixir",
@@ -111,15 +111,15 @@
       "requiredItemCount": 4,
       "reward": [
         {
-          "itemId": "book.cloudchase_steps",
-          "name": "《分光步》",
-          "type": "skill_book",
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
           "count": 1
         },
         {
-          "itemId": "book.redflame_art",
-          "name": "《赤焰诀》",
-          "type": "skill_book",
+          "itemId": "pill.windstride_elixir",
+          "name": "轻身丹",
+          "type": "consumable",
           "count": 1
         },
         {

@@ -7,8 +7,6 @@
     "radius": 7,
     "respawnSec": 22,
     "level": 8,
-    "hp": 222,
-    "attack": 18,
     "drops": [
       {
         "itemId": "rune_shard",
@@ -33,25 +31,41 @@
       }
     ],
     "grade": "mortal",
+    "tier": "mortal_blood",
     "count": 7,
-    "maxHp": 222,
-    "valueStats": {
-      "maxHp": 9.49,
-      "maxQi": 3.24,
-      "physAtk": 9.24,
-      "spellAtk": 3.59,
-      "physDef": 35.88,
-      "spellDef": 29.41,
-      "hit": 44.12,
-      "dodge": 14.71,
-      "crit": 8.82,
-      "critDamage": 20.59,
-      "breakPower": 8.82,
-      "resolvePower": 22.94,
-      "maxQiOutputPerTick": 2.94,
-      "viewRange": 6,
-      "moveSpeed": 99
-    }
+    "equipment": {
+      "head": "equip.remnant_array_crown",
+      "body": "equip.stele_shell_armor",
+      "accessory": "equip.soul_ink_pendant"
+    },
+    "attrs": {
+      "constitution": 113,
+      "spirit": 50,
+      "perception": 36,
+      "talent": 78,
+      "comprehension": 8,
+      "luck": 6
+    },
+    "statPercents": {
+      "maxHp": 167.6,
+      "maxQi": 77.6,
+      "physAtk": 113.6,
+      "spellAtk": 77.6,
+      "physDef": 187.6,
+      "spellDef": 173.6,
+      "hit": 107.6,
+      "dodge": 67.6,
+      "crit": 80.6,
+      "breakPower": 101.6,
+      "resolvePower": 161.6,
+      "maxQiOutputPerTick": 87.6,
+      "viewRange": 100,
+      "moveSpeed": 64.24
+    },
+    "skills": [
+      "skill.core_smash",
+      "skill.guardian_quake"
+    ]
   },
   {
     "id": "m_bone_owl",
@@ -61,8 +75,6 @@
     "radius": 5,
     "respawnSec": 19,
     "level": 9,
-    "hp": 159,
-    "attack": 26,
     "drops": [
       {
         "itemId": "book.bright_eye_sutra",
@@ -94,25 +106,41 @@
       }
     ],
     "grade": "mortal",
+    "tier": "mortal_blood",
     "count": 5,
-    "maxHp": 159,
-    "valueStats": {
-      "maxHp": 6.18,
-      "maxQi": 8.82,
-      "physAtk": 12.13,
-      "spellAtk": 7.46,
-      "physDef": 13.89,
-      "spellDef": 13.89,
-      "hit": 79.44,
-      "dodge": 79.44,
-      "crit": 28.89,
-      "critDamage": 36.11,
-      "breakPower": 11.11,
-      "resolvePower": 12.22,
-      "maxQiOutputPerTick": 15.56,
-      "viewRange": 6,
-      "moveSpeed": 266
-    }
+    "equipment": {
+      "head": "equip.remnant_array_crown",
+      "legs": "equip.trace_pattern_boots",
+      "accessory": "equip.pattern_picker_ring"
+    },
+    "attrs": {
+      "constitution": 59,
+      "spirit": 80,
+      "perception": 126,
+      "talent": 56,
+      "comprehension": 14,
+      "luck": 11
+    },
+    "statPercents": {
+      "maxHp": 84.4,
+      "maxQi": 128.4,
+      "physAtk": 104.4,
+      "spellAtk": 118.4,
+      "physDef": 88.4,
+      "spellDef": 102.4,
+      "hit": 158.4,
+      "dodge": 164.4,
+      "crit": 132.4,
+      "breakPower": 92.4,
+      "resolvePower": 98.4,
+      "maxQiOutputPerTick": 144.4,
+      "viewRange": 100,
+      "moveSpeed": 178.56
+    },
+    "skills": [
+      "skill.echo_screech",
+      "skill.soul_wail"
+    ]
   },
   {
     "id": "m_rune_watcher",
@@ -122,8 +150,6 @@
     "radius": 5,
     "respawnSec": 28,
     "level": 10,
-    "hp": 353,
-    "attack": 31,
     "drops": [
       {
         "itemId": "ruin_keystone",
@@ -148,25 +174,43 @@
       }
     ],
     "grade": "mortal",
+    "tier": "variant",
     "count": 4,
-    "maxHp": 353,
-    "valueStats": {
-      "maxHp": 12.48,
-      "maxQi": 13.29,
-      "physAtk": 13.15,
-      "spellAtk": 14.84,
-      "physDef": 40.53,
-      "spellDef": 44.74,
-      "hit": 86.84,
-      "dodge": 35.79,
-      "crit": 27.89,
-      "critDamage": 43.68,
-      "breakPower": 14.74,
-      "resolvePower": 31.58,
-      "maxQiOutputPerTick": 26.84,
-      "viewRange": 6,
-      "moveSpeed": 168
-    }
+    "equipment": {
+      "weapon": "equip.broken_rune_blade",
+      "head": "equip.remnant_array_crown",
+      "body": "equip.rune_robe",
+      "legs": "equip.trace_pattern_boots",
+      "accessory": "equip.pattern_picker_ring"
+    },
+    "attrs": {
+      "constitution": 106,
+      "spirit": 151,
+      "perception": 106,
+      "talent": 106,
+      "comprehension": 19,
+      "luck": 15
+    },
+    "statPercents": {
+      "maxHp": 145.2,
+      "maxQi": 161.2,
+      "physAtk": 109.2,
+      "spellAtk": 151.2,
+      "physDef": 165.2,
+      "spellDef": 191.2,
+      "hit": 165.2,
+      "dodge": 109.2,
+      "crit": 129.2,
+      "breakPower": 109.2,
+      "resolvePower": 159.2,
+      "maxQiOutputPerTick": 185.2,
+      "viewRange": 100,
+      "moveSpeed": 110.88
+    },
+    "skills": [
+      "skill.core_smash",
+      "skill.guardian_quake"
+    ]
   },
   {
     "id": "m_stele_arbiter",
@@ -176,8 +220,6 @@
     "radius": 2,
     "respawnSec": 180,
     "level": 11,
-    "hp": 420,
-    "attack": 36,
     "drops": [
       {
         "itemId": "rune_shard",
@@ -216,25 +258,43 @@
       }
     ],
     "grade": "mortal",
+    "tier": "demon_king",
     "count": 1,
-    "maxHp": 420,
-    "valueStats": {
-      "maxHp": 13.49,
-      "maxQi": 15,
-      "physAtk": 13.88,
-      "spellAtk": 16.19,
-      "physDef": 47.5,
-      "spellDef": 52.5,
-      "hit": 93.5,
-      "dodge": 38.5,
-      "crit": 30,
-      "critDamage": 47,
-      "breakPower": 16.5,
-      "resolvePower": 37,
-      "maxQiOutputPerTick": 30,
-      "viewRange": 6,
-      "moveSpeed": 176
-    }
+    "equipment": {
+      "weapon": "equip.broken_rune_blade",
+      "head": "equip.remnant_array_crown",
+      "body": "equip.stele_shell_armor",
+      "legs": "equip.trace_pattern_boots",
+      "accessory": "equip.soul_ink_pendant"
+    },
+    "attrs": {
+      "constitution": 156,
+      "spirit": 195,
+      "perception": 120,
+      "talent": 146,
+      "comprehension": 23,
+      "luck": 18
+    },
+    "statPercents": {
+      "maxHp": 172,
+      "maxQi": 178,
+      "physAtk": 122,
+      "spellAtk": 168,
+      "physDef": 192,
+      "spellDef": 208,
+      "hit": 176,
+      "dodge": 122,
+      "crit": 142,
+      "breakPower": 122,
+      "resolvePower": 178,
+      "maxQiOutputPerTick": 208,
+      "viewRange": 100,
+      "moveSpeed": 115.2
+    },
+    "skills": [
+      "skill.core_smash",
+      "skill.guardian_quake"
+    ]
   },
   {
     "id": "m_ghost_scribe",
@@ -244,8 +304,6 @@
     "radius": 4,
     "respawnSec": 24,
     "level": 9,
-    "hp": 233,
-    "attack": 24,
     "drops": [
       {
         "itemId": "soul_ink",
@@ -277,24 +335,41 @@
       }
     ],
     "grade": "mortal",
+    "tier": "mortal_blood",
     "count": 4,
-    "maxHp": 233,
-    "valueStats": {
-      "maxHp": 9.06,
-      "maxQi": 11.81,
-      "physAtk": 11.2,
-      "spellAtk": 14.93,
-      "physDef": 17.22,
-      "spellDef": 23.33,
-      "hit": 72.22,
-      "dodge": 47.22,
-      "crit": 28.89,
-      "critDamage": 40,
-      "breakPower": 13.89,
-      "resolvePower": 19.44,
-      "maxQiOutputPerTick": 24.44,
-      "viewRange": 6,
-      "moveSpeed": 181
-    }
+    "equipment": {
+      "head": "equip.remnant_array_crown",
+      "body": "equip.rune_robe",
+      "legs": "equip.trace_pattern_boots",
+      "accessory": "equip.soul_ink_pendant"
+    },
+    "attrs": {
+      "constitution": 64,
+      "spirit": 113,
+      "perception": 95,
+      "talent": 64,
+      "comprehension": 14,
+      "luck": 11
+    },
+    "statPercents": {
+      "maxHp": 108.4,
+      "maxQi": 154.4,
+      "physAtk": 94.4,
+      "spellAtk": 148.4,
+      "physDef": 102.4,
+      "spellDef": 154.4,
+      "hit": 148.4,
+      "dodge": 128.4,
+      "crit": 128.4,
+      "breakPower": 102.4,
+      "resolvePower": 138.4,
+      "maxQiOutputPerTick": 178.4,
+      "viewRange": 100,
+      "moveSpeed": 124.56
+    },
+    "skills": [
+      "skill.soul_wail",
+      "skill.nether_chain"
+    ]
   }
 ]

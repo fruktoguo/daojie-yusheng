@@ -72,15 +72,15 @@
       "required": 12,
       "reward": [
         {
-          "itemId": "book.lightshadow_art",
-          "name": "《折影提气诀》",
-          "type": "skill_book",
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
           "count": 1
         },
         {
-          "itemId": "book.frost_sutra",
-          "name": "《寒魄经》",
-          "type": "skill_book",
+          "itemId": "pill.bitter_cultivation_elixir",
+          "name": "苦修丹",
+          "type": "consumable",
           "count": 1
         },
         {

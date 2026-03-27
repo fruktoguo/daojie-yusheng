@@ -14,9 +14,9 @@
       "requiredItemCount": 4,
       "reward": [
         {
-          "itemId": "book.golden_lock_body",
-          "name": "《固元功》",
-          "type": "skill_book",
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
           "count": 1
         },
         {
@@ -118,9 +118,9 @@
       "requiredItemCount": 1,
       "reward": [
         {
-          "itemId": "book.spirit_anchor",
-          "name": "《镇灵篇》",
-          "type": "skill_book",
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
           "count": 1
         },
         {

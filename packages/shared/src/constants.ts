@@ -129,6 +129,12 @@ export {
 } from './constants/gameplay/realm';
 export { EQUIP_SLOTS, EQUIP_SLOT_SORT_ORDER } from './constants/gameplay/equipment';
 export {
+  MONSTER_GLOBAL_STAT_PERCENTS,
+  MONSTER_TIER_ORDER,
+  MONSTER_GRADE_STAT_PERCENTS,
+  MONSTER_TIER_STAT_PERCENTS,
+} from './constants/gameplay/monster';
+export {
   PATHFINDING_MIN_STEP_COST,
   PATHFINDING_PLAYER_MAX_TARGET_DISTANCE,
   PATHFINDING_PLAYER_MAX_EXPANDED_NODES,

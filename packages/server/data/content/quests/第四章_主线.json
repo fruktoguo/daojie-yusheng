@@ -170,6 +170,12 @@
       "required": 1,
       "reward": [
         {
+          "itemId": "book.lightshadow_art",
+          "name": "《折影提气诀》",
+          "type": "skill_book",
+          "count": 1
+        },
+        {
           "itemId": "map.sky_ruins",
           "name": "天阙遗墟图",
           "type": "consumable",

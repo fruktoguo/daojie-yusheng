@@ -7,8 +7,6 @@
     "radius": 9,
     "respawnSec": 16,
     "level": 10,
-    "hp": 227,
-    "attack": 39,
     "drops": [
       {
         "itemId": "demon_wolf_bone",
@@ -33,25 +31,41 @@
       }
     ],
     "grade": "mortal",
+    "tier": "mortal_blood",
     "count": 9,
-    "maxHp": 227,
-    "valueStats": {
-      "maxHp": 8.02,
-      "maxQi": 8.29,
-      "physAtk": 16.54,
-      "spellAtk": 4.67,
-      "physDef": 26.84,
-      "spellDef": 21.58,
-      "hit": 78.95,
-      "dodge": 63.16,
-      "crit": 39.47,
-      "critDamage": 47.37,
-      "breakPower": 23.16,
-      "resolvePower": 17.89,
-      "maxQiOutputPerTick": 12.11,
-      "viewRange": 6,
-      "moveSpeed": 284
-    }
+    "equipment": {
+      "weapon": "equip.valley_fang_blade",
+      "head": "equip.windhear_crown",
+      "legs": "equip.predator_tendon_boots"
+    },
+    "attrs": {
+      "constitution": 86,
+      "spirit": 43,
+      "perception": 129,
+      "talent": 71,
+      "comprehension": 10,
+      "luck": 12
+    },
+    "statPercents": {
+      "maxHp": 103.2,
+      "maxQi": 65.2,
+      "physAtk": 149.2,
+      "spellAtk": 52.2,
+      "physDef": 125.2,
+      "spellDef": 103.2,
+      "hit": 139.2,
+      "dodge": 145.2,
+      "crit": 133.2,
+      "breakPower": 145.2,
+      "resolvePower": 99.2,
+      "maxQiOutputPerTick": 79.2,
+      "viewRange": 100,
+      "moveSpeed": 164.88
+    },
+    "skills": [
+      "skill.predator_pounce",
+      "skill.rending_claw"
+    ]
   },
   {
     "id": "m_blood_crow",
@@ -61,8 +75,6 @@
     "radius": 7,
     "respawnSec": 18,
     "level": 10,
-    "hp": 189,
-    "attack": 29,
     "drops": [
       {
         "itemId": "blood_feather",
@@ -87,25 +99,41 @@
       }
     ],
     "grade": "mortal",
+    "tier": "mortal_blood",
     "count": 7,
-    "maxHp": 189,
-    "valueStats": {
-      "maxHp": 6.68,
-      "maxQi": 9.93,
-      "physAtk": 12.3,
-      "spellAtk": 7.63,
-      "physDef": 16.32,
-      "spellDef": 16.32,
-      "hit": 86.84,
-      "dodge": 86.84,
-      "crit": 31.58,
-      "critDamage": 39.47,
-      "breakPower": 11.58,
-      "resolvePower": 14.21,
-      "maxQiOutputPerTick": 17.37,
-      "viewRange": 6,
-      "moveSpeed": 294
-    }
+    "equipment": {
+      "head": "equip.windhear_crown",
+      "legs": "equip.predator_tendon_boots",
+      "accessory": "equip.bloodcore_talisman"
+    },
+    "attrs": {
+      "constitution": 53,
+      "spirit": 88,
+      "perception": 139,
+      "talent": 53,
+      "comprehension": 12,
+      "luck": 10
+    },
+    "statPercents": {
+      "maxHp": 79.2,
+      "maxQi": 125.2,
+      "physAtk": 93.2,
+      "spellAtk": 129.2,
+      "physDef": 83.2,
+      "spellDef": 93.2,
+      "hit": 163.2,
+      "dodge": 179.2,
+      "crit": 139.2,
+      "breakPower": 89.2,
+      "resolvePower": 93.2,
+      "maxQiOutputPerTick": 149.2,
+      "viewRange": 100,
+      "moveSpeed": 184.88
+    },
+    "skills": [
+      "skill.plume_shot",
+      "skill.echo_screech"
+    ]
   },
   {
     "id": "m_valley_alpha",
@@ -115,8 +143,6 @@
     "radius": 3,
     "respawnSec": 90,
     "level": 12,
-    "hp": 324,
-    "attack": 53,
     "drops": [
       {
         "itemId": "book_stillheart",
@@ -148,25 +174,44 @@
       }
     ],
     "grade": "mortal",
+    "tier": "demon_king",
     "count": 1,
-    "maxHp": 324,
-    "valueStats": {
-      "maxHp": 9.46,
-      "maxQi": 10.71,
-      "physAtk": 18.58,
-      "spellAtk": 5.26,
-      "physDef": 35.71,
-      "spellDef": 28.57,
-      "hit": 100,
-      "dodge": 80,
-      "crit": 50,
-      "critDamage": 60,
-      "breakPower": 28.57,
-      "resolvePower": 23.81,
-      "maxQiOutputPerTick": 15.24,
-      "viewRange": 6,
-      "moveSpeed": 311
-    }
+    "equipment": {
+      "weapon": "equip.valley_fang_blade",
+      "head": "equip.windhear_crown",
+      "body": "equip.beastbone_mail",
+      "legs": "equip.predator_tendon_boots",
+      "accessory": "equip.bloodcore_talisman"
+    },
+    "attrs": {
+      "constitution": 138,
+      "spirit": 69,
+      "perception": 207,
+      "talent": 113,
+      "comprehension": 17,
+      "luck": 19
+    },
+    "statPercents": {
+      "maxHp": 116.8,
+      "maxQi": 78.8,
+      "physAtk": 162.8,
+      "spellAtk": 65.8,
+      "physDef": 138.8,
+      "spellDef": 116.8,
+      "hit": 152.8,
+      "dodge": 158.8,
+      "crit": 146.8,
+      "breakPower": 158.8,
+      "resolvePower": 112.8,
+      "maxQiOutputPerTick": 92.8,
+      "viewRange": 100,
+      "moveSpeed": 165.52
+    },
+    "skills": [
+      "skill.predator_pounce",
+      "skill.rending_claw",
+      "skill.brutal_ram"
+    ]
   },
   {
     "id": "m_valley_serpent",
@@ -176,8 +221,6 @@
     "radius": 5,
     "respawnSec": 20,
     "level": 11,
-    "hp": 270,
-    "attack": 42,
     "drops": [
       {
         "itemId": "serpent_scale",
@@ -195,25 +238,41 @@
       }
     ],
     "grade": "mortal",
+    "tier": "mortal_blood",
     "count": 5,
-    "maxHp": 270,
-    "valueStats": {
-      "maxHp": 8.67,
-      "maxQi": 13.13,
-      "physAtk": 16.19,
-      "spellAtk": 10.02,
-      "physDef": 21,
-      "spellDef": 23,
-      "hit": 98,
-      "dodge": 81,
-      "crit": 38.5,
-      "critDamage": 47,
-      "breakPower": 19.5,
-      "resolvePower": 19,
-      "maxQiOutputPerTick": 23,
-      "viewRange": 6,
-      "moveSpeed": 264
-    }
+    "equipment": {
+      "body": "equip.beastbone_mail",
+      "legs": "equip.predator_tendon_boots",
+      "accessory": "equip.bloodcore_talisman"
+    },
+    "attrs": {
+      "constitution": 77,
+      "spirit": 89,
+      "perception": 136,
+      "talent": 64,
+      "comprehension": 15,
+      "luck": 11
+    },
+    "statPercents": {
+      "maxHp": 94,
+      "maxQi": 106,
+      "physAtk": 120,
+      "spellAtk": 120,
+      "physDef": 94,
+      "spellDef": 104,
+      "hit": 140,
+      "dodge": 154,
+      "crit": 120,
+      "breakPower": 114,
+      "resolvePower": 94,
+      "maxQiOutputPerTick": 132,
+      "viewRange": 100,
+      "moveSpeed": 149.2
+    },
+    "skills": [
+      "skill.venom_fang",
+      "skill.miasma_spray"
+    ]
   },
   {
     "id": "m_valley_emperor",
@@ -223,8 +282,6 @@
     "radius": 2,
     "respawnSec": 120,
     "level": 13,
-    "hp": 655,
-    "attack": 72,
     "drops": [
       {
         "itemId": "valley_emperor_fang",
@@ -263,25 +320,44 @@
       }
     ],
     "grade": "yellow",
+    "tier": "variant",
     "count": 1,
-    "maxHp": 655,
-    "valueStats": {
-      "maxHp": 17.39,
-      "maxQi": 18.64,
-      "physAtk": 22.94,
-      "spellAtk": 14.02,
-      "physDef": 46.36,
-      "spellDef": 39.55,
-      "hit": 114.55,
-      "dodge": 65.45,
-      "crit": 54.55,
-      "critDamage": 70.91,
-      "breakPower": 36.36,
-      "resolvePower": 33.18,
-      "maxQiOutputPerTick": 32.73,
-      "viewRange": 6,
-      "moveSpeed": 264
-    }
+    "equipment": {
+      "weapon": "equip.valley_fang_blade",
+      "head": "equip.celestial_crown",
+      "body": "equip.beastbone_mail",
+      "legs": "equip.predator_tendon_boots",
+      "accessory": "equip.void_talisman"
+    },
+    "attrs": {
+      "constitution": 134,
+      "spirit": 67,
+      "perception": 201,
+      "talent": 110,
+      "comprehension": 16,
+      "luck": 19
+    },
+    "statPercents": {
+      "maxHp": 115.6,
+      "maxQi": 77.6,
+      "physAtk": 161.6,
+      "spellAtk": 64.6,
+      "physDef": 137.6,
+      "spellDef": 115.6,
+      "hit": 151.6,
+      "dodge": 157.6,
+      "crit": 145.6,
+      "breakPower": 157.6,
+      "resolvePower": 111.6,
+      "maxQiOutputPerTick": 91.6,
+      "viewRange": 100,
+      "moveSpeed": 165.84
+    },
+    "skills": [
+      "skill.predator_pounce",
+      "skill.rending_claw",
+      "skill.brutal_ram"
+    ]
   },
   {
     "id": "m_soul_wolf_ancestor",
@@ -291,8 +367,6 @@
     "radius": 2,
     "respawnSec": 240,
     "level": 14,
-    "hp": 554,
-    "attack": 81,
     "drops": [
       {
         "itemId": "demon_wolf_bone",
@@ -331,24 +405,43 @@
       }
     ],
     "grade": "yellow",
+    "tier": "demon_king",
     "count": 1,
-    "maxHp": 554,
-    "valueStats": {
-      "maxHp": 13.37,
-      "maxQi": 16.74,
-      "physAtk": 23.46,
-      "spellAtk": 6.66,
-      "physDef": 44.35,
-      "spellDef": 35.65,
-      "hit": 117.39,
-      "dodge": 93.91,
-      "crit": 58.7,
-      "critDamage": 70.43,
-      "breakPower": 40,
-      "resolvePower": 29.57,
-      "maxQiOutputPerTick": 23.91,
-      "viewRange": 6,
-      "moveSpeed": 338
-    }
+    "equipment": {
+      "weapon": "equip.valley_fang_blade",
+      "head": "equip.celestial_crown",
+      "body": "equip.beastbone_mail",
+      "legs": "equip.predator_tendon_boots",
+      "accessory": "equip.void_talisman"
+    },
+    "attrs": {
+      "constitution": 160,
+      "spirit": 80,
+      "perception": 240,
+      "talent": 131,
+      "comprehension": 19,
+      "luck": 22
+    },
+    "statPercents": {
+      "maxHp": 122.4,
+      "maxQi": 84.4,
+      "physAtk": 168.4,
+      "spellAtk": 71.4,
+      "physDef": 144.4,
+      "spellDef": 122.4,
+      "hit": 158.4,
+      "dodge": 164.4,
+      "crit": 152.4,
+      "breakPower": 164.4,
+      "resolvePower": 118.4,
+      "maxQiOutputPerTick": 98.4,
+      "viewRange": 100,
+      "moveSpeed": 166.16
+    },
+    "skills": [
+      "skill.predator_pounce",
+      "skill.rending_claw",
+      "skill.soul_wail"
+    ]
   }
 ]

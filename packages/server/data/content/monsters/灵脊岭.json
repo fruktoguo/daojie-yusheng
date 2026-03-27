@@ -7,8 +7,6 @@
     "radius": 8,
     "respawnSec": 18,
     "level": 12,
-    "hp": 396,
-    "attack": 54,
     "drops": [
       {
         "itemId": "ridge_beast_claw",
@@ -33,25 +31,43 @@
       }
     ],
     "grade": "mortal",
+    "tier": "mortal_blood",
     "count": 7,
-    "maxHp": 396,
-    "valueStats": {
-      "maxHp": 11.57,
-      "maxQi": 12.86,
-      "physAtk": 18.93,
-      "spellAtk": 6.31,
-      "physDef": 38.1,
-      "spellDef": 28.57,
-      "hit": 105.24,
-      "dodge": 75.24,
-      "crit": 50,
-      "critDamage": 60,
-      "breakPower": 30,
-      "resolvePower": 26.19,
-      "maxQiOutputPerTick": 20.48,
-      "viewRange": 6,
-      "moveSpeed": 276
-    }
+    "equipment": {
+      "weapon": "equip.valley_fang_blade",
+      "head": "equip.windhear_crown",
+      "body": "equip.beastbone_mail",
+      "legs": "equip.predator_tendon_boots"
+    },
+    "attrs": {
+      "constitution": 124,
+      "spirit": 53,
+      "perception": 145,
+      "talent": 104,
+      "comprehension": 12,
+      "luck": 14
+    },
+    "statPercents": {
+      "maxHp": 136.8,
+      "maxQi": 80.8,
+      "physAtk": 156.8,
+      "spellAtk": 63.8,
+      "physDef": 156.8,
+      "spellDef": 120.8,
+      "hit": 150.8,
+      "dodge": 136.8,
+      "crit": 140.8,
+      "breakPower": 150.8,
+      "resolvePower": 120.8,
+      "maxQiOutputPerTick": 100.8,
+      "viewRange": 100,
+      "moveSpeed": 161.52
+    },
+    "skills": [
+      "skill.predator_pounce",
+      "skill.rending_claw",
+      "skill.brutal_ram"
+    ]
   },
   {
     "id": "m_frost_crane",
@@ -61,8 +77,6 @@
     "radius": 7,
     "respawnSec": 20,
     "level": 13,
-    "hp": 393,
-    "attack": 52,
     "drops": [
       {
         "itemId": "frost_essence",
@@ -87,25 +101,42 @@
       }
     ],
     "grade": "yellow",
+    "tier": "mortal_blood",
     "count": 6,
-    "maxHp": 393,
-    "valueStats": {
-      "maxHp": 10.44,
-      "maxQi": 17.84,
-      "physAtk": 16.57,
-      "spellAtk": 10.2,
-      "physDef": 23.64,
-      "spellDef": 23.64,
-      "hit": 120,
-      "dodge": 120,
-      "crit": 43.64,
-      "critDamage": 54.55,
-      "breakPower": 18.18,
-      "resolvePower": 20.91,
-      "maxQiOutputPerTick": 31.36,
-      "viewRange": 6,
-      "moveSpeed": 336
-    }
+    "equipment": {
+      "head": "equip.celestial_crown",
+      "body": "equip.ridge_calm_robe",
+      "accessory": "equip.spirit_ring"
+    },
+    "attrs": {
+      "constitution": 84,
+      "spirit": 142,
+      "perception": 176,
+      "talent": 84,
+      "comprehension": 21,
+      "luck": 16
+    },
+    "statPercents": {
+      "maxHp": 99.6,
+      "maxQi": 151.6,
+      "physAtk": 115.6,
+      "spellAtk": 141.6,
+      "physDef": 109.6,
+      "spellDef": 125.6,
+      "hit": 169.6,
+      "dodge": 179.6,
+      "crit": 139.6,
+      "breakPower": 105.6,
+      "resolvePower": 115.6,
+      "maxQiOutputPerTick": 175.6,
+      "viewRange": 100,
+      "moveSpeed": 179.84
+    },
+    "skills": [
+      "skill.plume_shot",
+      "skill.echo_screech",
+      "skill.frost_plume"
+    ]
   },
   {
     "id": "m_ridge_ghost",
@@ -115,8 +146,6 @@
     "radius": 5,
     "respawnSec": 26,
     "level": 14,
-    "hp": 678,
-    "attack": 55,
     "drops": [
       {
         "itemId": "spirit_ridge_sigil",
@@ -155,25 +184,42 @@
       }
     ],
     "grade": "yellow",
+    "tier": "variant",
     "count": 4,
-    "maxHp": 678,
-    "valueStats": {
-      "maxHp": 16.37,
-      "maxQi": 26.79,
-      "physAtk": 15.93,
-      "spellAtk": 21.44,
-      "physDef": 32.61,
-      "spellDef": 44.35,
-      "hit": 117.39,
-      "dodge": 76.52,
-      "crit": 46.96,
-      "critDamage": 64.78,
-      "breakPower": 25.22,
-      "resolvePower": 36.96,
-      "maxQiOutputPerTick": 55.65,
-      "viewRange": 6,
-      "moveSpeed": 238
-    }
+    "equipment": {
+      "head": "equip.celestial_crown",
+      "body": "equip.ridge_calm_robe",
+      "legs": "equip.threshold_boots",
+      "accessory": "equip.guiding_marrow_pendant"
+    },
+    "attrs": {
+      "constitution": 116,
+      "spirit": 206,
+      "perception": 173,
+      "talent": 116,
+      "comprehension": 26,
+      "luck": 20
+    },
+    "statPercents": {
+      "maxHp": 122.4,
+      "maxQi": 168.4,
+      "physAtk": 108.4,
+      "spellAtk": 162.4,
+      "physDef": 116.4,
+      "spellDef": 168.4,
+      "hit": 162.4,
+      "dodge": 142.4,
+      "crit": 142.4,
+      "breakPower": 116.4,
+      "resolvePower": 152.4,
+      "maxQiOutputPerTick": 192.4,
+      "viewRange": 100,
+      "moveSpeed": 126.16
+    },
+    "skills": [
+      "skill.soul_wail",
+      "skill.nether_chain"
+    ]
   },
   {
     "id": "m_spine_gate_lord",
@@ -183,8 +229,6 @@
     "radius": 2,
     "respawnSec": 240,
     "level": 16,
-    "hp": 1378,
-    "attack": 95,
     "drops": [
       {
         "itemId": "ridge_beast_claw",
@@ -223,24 +267,43 @@
       }
     ],
     "grade": "yellow",
+    "tier": "demon_king",
     "count": 1,
-    "maxHp": 1378,
-    "valueStats": {
-      "maxHp": 27.49,
-      "maxQi": 39.35,
-      "physAtk": 22.74,
-      "spellAtk": 26.09,
-      "physDef": 77.6,
-      "spellDef": 86,
-      "hit": 154,
-      "dodge": 63.2,
-      "crit": 49.2,
-      "critDamage": 77.2,
-      "breakPower": 34,
-      "resolvePower": 60.4,
-      "maxQiOutputPerTick": 78.8,
-      "viewRange": 6,
-      "moveSpeed": 224
-    }
+    "equipment": {
+      "weapon": "equip.starfall_spear",
+      "head": "equip.celestial_crown",
+      "body": "equip.rift_guard_armor",
+      "legs": "equip.threshold_boots",
+      "accessory": "equip.void_talisman"
+    },
+    "attrs": {
+      "constitution": 250,
+      "spirit": 268,
+      "perception": 197,
+      "talent": 215,
+      "comprehension": 35,
+      "luck": 25
+    },
+    "statPercents": {
+      "maxHp": 170,
+      "maxQi": 190,
+      "physAtk": 140,
+      "spellAtk": 180,
+      "physDef": 180,
+      "spellDef": 186,
+      "hit": 176,
+      "dodge": 134,
+      "crit": 150,
+      "breakPower": 136,
+      "resolvePower": 176,
+      "maxQiOutputPerTick": 220,
+      "viewRange": 100,
+      "moveSpeed": 112.8
+    },
+    "skills": [
+      "skill.predator_pounce",
+      "skill.rending_claw",
+      "skill.brutal_ram"
+    ]
   }
 ]

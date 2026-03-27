@@ -4,8 +4,6 @@
     "name": "南沟灰尾鼠",
     "char": "鼠",
     "color": "#9b9b9b",
-    "hp": 22,
-    "attack": 4,
     "radius": 5,
     "respawnSec": 16,
     "level": 1,
@@ -26,33 +24,45 @@
       }
     ],
     "grade": "mortal",
+    "tier": "mortal_blood",
     "count": 5,
-    "maxHp": 22,
-    "valueStats": {
-      "maxHp": 1.83,
-      "maxQi": 1.75,
-      "physAtk": 4,
-      "spellAtk": 2,
-      "physDef": 4,
-      "spellDef": 3,
-      "hit": 12,
-      "dodge": 11,
-      "crit": 4,
-      "critDamage": 5,
-      "breakPower": 3,
-      "resolvePower": 3,
-      "maxQiOutputPerTick": 3,
-      "viewRange": 6,
-      "moveSpeed": 135
-    }
+    "equipment": {
+      "head": "equip.scavenger_crest",
+      "legs": "equip.gutter_paws"
+    },
+    "attrs": {
+      "constitution": 10,
+      "spirit": 5,
+      "perception": 20,
+      "talent": 8,
+      "comprehension": 2,
+      "luck": 2
+    },
+    "statPercents": {
+      "maxHp": 78,
+      "maxQi": 42,
+      "physAtk": 110,
+      "spellAtk": 25,
+      "physDef": 72,
+      "spellDef": 58,
+      "hit": 118,
+      "dodge": 138,
+      "crit": 112,
+      "breakPower": 92,
+      "resolvePower": 68,
+      "maxQiOutputPerTick": 45,
+      "viewRange": 100,
+      "moveSpeed": 155
+    },
+    "skills": [
+      "skill.predator_pounce"
+    ]
   },
   {
     "id": "m_preview_town_rat_refuse",
     "name": "废棚灰尾鼠",
     "char": "鼠",
     "color": "#8f8f8f",
-    "hp": 22,
-    "attack": 4,
     "radius": 3,
     "respawnSec": 18,
     "level": 1,
@@ -73,33 +83,45 @@
       }
     ],
     "grade": "mortal",
+    "tier": "mortal_blood",
     "count": 4,
-    "maxHp": 22,
-    "valueStats": {
-      "maxHp": 1.83,
-      "maxQi": 1.75,
-      "physAtk": 4,
-      "spellAtk": 2,
-      "physDef": 4,
-      "spellDef": 3,
-      "hit": 12,
-      "dodge": 11,
-      "crit": 4,
-      "critDamage": 5,
-      "breakPower": 3,
-      "resolvePower": 3,
-      "maxQiOutputPerTick": 3,
-      "viewRange": 6,
-      "moveSpeed": 135
-    }
+    "equipment": {
+      "head": "equip.scavenger_crest",
+      "legs": "equip.gutter_paws"
+    },
+    "attrs": {
+      "constitution": 10,
+      "spirit": 5,
+      "perception": 20,
+      "talent": 8,
+      "comprehension": 2,
+      "luck": 2
+    },
+    "statPercents": {
+      "maxHp": 78,
+      "maxQi": 42,
+      "physAtk": 110,
+      "spellAtk": 25,
+      "physDef": 72,
+      "spellDef": 58,
+      "hit": 118,
+      "dodge": 138,
+      "crit": 112,
+      "breakPower": 92,
+      "resolvePower": 68,
+      "maxQiOutputPerTick": 45,
+      "viewRange": 100,
+      "moveSpeed": 155
+    },
+    "skills": [
+      "skill.predator_pounce"
+    ]
   },
   {
     "id": "m_preview_gate_thug",
     "name": "断路暴徒",
     "char": "匪",
     "color": "#ba6f5a",
-    "hp": 47,
-    "attack": 6,
     "radius": 6,
     "respawnSec": 24,
     "level": 2,
@@ -120,35 +142,47 @@
       }
     ],
     "grade": "mortal",
+    "tier": "mortal_blood",
     "count": 4,
-    "maxHp": 47,
-    "valueStats": {
-      "maxHp": 3.56,
-      "maxQi": 2.95,
-      "physAtk": 5.45,
-      "spellAtk": 1.82,
-      "physDef": 6.36,
-      "spellDef": 5.45,
-      "hit": 16.36,
-      "dodge": 10.91,
-      "crit": 6.36,
-      "critDamage": 8.18,
-      "breakPower": 4.55,
-      "resolvePower": 5.45,
-      "maxQiOutputPerTick": 4.55,
-      "viewRange": 6,
-      "moveSpeed": 105
-    }
+    "equipment": {
+      "weapon": "equip.road_cleaver",
+      "body": "equip.porter_jacket",
+      "legs": "equip.grassbound_shoes"
+    },
+    "attrs": {
+      "constitution": 22,
+      "spirit": 9,
+      "perception": 19,
+      "talent": 18,
+      "comprehension": 3,
+      "luck": 3
+    },
+    "statPercents": {
+      "maxHp": 102.8,
+      "maxQi": 48.8,
+      "physAtk": 108.8,
+      "spellAtk": 35.8,
+      "physDef": 102.8,
+      "spellDef": 82.8,
+      "hit": 102.8,
+      "dodge": 88.8,
+      "crit": 90.8,
+      "breakPower": 102.8,
+      "resolvePower": 95.8,
+      "maxQiOutputPerTick": 60.8,
+      "viewRange": 100,
+      "moveSpeed": 102.32
+    },
+    "skills": [
+      "skill.iron_bone_strike"
+    ]
   },
   {
     "id": "m_preview_night_blade",
     "name": "夜行刀客",
     "char": "刀",
     "color": "#8b3d3d",
-    "hp": 60,
-    "attack": 10,
     "radius": 4,
-    "aggroMode": "night_only",
     "respawnSec": 32,
     "level": 3,
     "drops": [
@@ -175,24 +209,42 @@
       }
     ],
     "grade": "mortal",
+    "tier": "mortal_blood",
     "count": 2,
-    "maxHp": 60,
-    "valueStats": {
-      "maxHp": 4.13,
-      "maxQi": 3.96,
-      "physAtk": 8.26,
-      "spellAtk": 4.13,
-      "physDef": 5.83,
-      "spellDef": 4.17,
-      "hit": 16.67,
-      "dodge": 15,
-      "crit": 8.33,
-      "critDamage": 10,
-      "breakPower": 9.17,
-      "resolvePower": 5,
-      "maxQiOutputPerTick": 6.67,
-      "viewRange": 6,
-      "moveSpeed": 144
-    }
+    "aggroMode": "night_only",
+    "equipment": {
+      "weapon": "equip.bone_dagger",
+      "head": "equip.wasteland_cap",
+      "legs": "equip.trench_runner_boots",
+      "accessory": "equip.herb_basket_charm"
+    },
+    "attrs": {
+      "constitution": 28,
+      "spirit": 17,
+      "perception": 44,
+      "talent": 22,
+      "comprehension": 5,
+      "luck": 5
+    },
+    "statPercents": {
+      "maxHp": 93.6,
+      "maxQi": 73.6,
+      "physAtk": 139.6,
+      "spellAtk": 73.6,
+      "physDef": 83.6,
+      "spellDef": 73.6,
+      "hit": 133.6,
+      "dodge": 127.6,
+      "crit": 127.6,
+      "breakPower": 139.6,
+      "resolvePower": 83.6,
+      "maxQiOutputPerTick": 81.6,
+      "viewRange": 100,
+      "moveSpeed": 148.64
+    },
+    "skills": [
+      "skill.cloud_cut",
+      "skill.rift_step_slash"
+    ]
   }
 ]

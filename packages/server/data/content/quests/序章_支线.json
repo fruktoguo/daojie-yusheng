@@ -46,9 +46,9 @@
       "requiredItemCount": 5,
       "reward": [
         {
-          "itemId": "book.mountain_insight_chart",
-          "name": "《玄照图》",
-          "type": "skill_book",
+          "itemId": "minor_qi_pill",
+          "name": "小还灵丹",
+          "type": "consumable",
           "count": 1
         },
         {
@@ -84,9 +84,9 @@
       "required": 1,
       "reward": [
         {
-          "itemId": "book.bear_cauldron_art",
-          "name": "《担石功》",
-          "type": "skill_book",
+          "itemId": "minor_qi_pill",
+          "name": "小还灵丹",
+          "type": "consumable",
           "count": 1
         },
         {

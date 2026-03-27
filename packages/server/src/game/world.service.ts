@@ -26,6 +26,7 @@ import {
   getRealmGapDamageMultiplier,
   isPointInRange,
   ItemStack,
+  MONSTER_TIER_LABELS,
   NumericRatioDivisors,
   NumericStats,
   NpcQuestMarker,
@@ -95,9 +96,11 @@ interface RuntimeMonster extends MonsterSpawnConfig {
   spawnX: number;
   spawnY: number;
   hp: number;
+  qi: number;
   alive: boolean;
   respawnLeft: number;
   temporaryBuffs: TemporaryBuffState[];
+  skillCooldowns: Record<string, number>;
   damageContributors: Map<string, number>;
   facing?: Direction;
   targetPlayerId?: string;
@@ -139,21 +142,31 @@ interface PersistedMonsterRuntimeRecord {
   x: number;
   y: number;
   hp: number;
+  qi?: number;
   alive: boolean;
   respawnLeft: number;
   temporaryBuffs?: TemporaryBuffState[];
+  skillCooldowns?: Record<string, number>;
   damageContributors?: Record<string, number>;
   facing?: Direction;
   targetPlayerId?: string;
 }
 
 interface PersistedMonsterRuntimeSnapshot {
-  version: 1;
+  version: 1 | 2;
   maps: Record<string, PersistedMonsterRuntimeRecord[]>;
 }
 
 const RUNTIME_STATE_SCOPE = 'runtime_state';
 const MAP_MONSTER_RUNTIME_DOCUMENT_KEY = 'map_monster';
+
+function getMonsterDisplayName(name: string, tier: 'mortal_blood' | 'variant' | 'demon_king'): string {
+  if (tier !== 'variant') {
+    return name;
+  }
+  const sanitized = name.replaceAll('精英', '').trim();
+  return sanitized.length > 0 ? sanitized : name;
+}
 
 /** tick 中产生的消息，最终推送给对应玩家 */
 export interface WorldMessage {
@@ -202,7 +215,8 @@ type ResolvedTarget =
   | { kind: 'tile'; x: number; y: number; tileType?: string };
 
 interface SkillFormulaContext {
-  player: PlayerState;
+  player?: PlayerState;
+  monsterCaster?: RuntimeMonster;
   skill: SkillDef;
   techLevel: number;
   targetCount: number;
@@ -1566,11 +1580,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       case 'targetCount':
         return context.targetCount;
       case 'caster.hp':
-        return context.player.hp;
+        return context.player?.hp ?? context.monsterCaster?.hp ?? 0;
       case 'caster.maxHp':
-        return context.player.maxHp;
+        return context.player?.maxHp ?? context.monsterCaster?.maxHp ?? 0;
       case 'caster.qi':
-        return context.player.qi;
+        return context.player?.qi ?? context.monsterCaster?.qi ?? 0;
       case 'caster.maxQi':
         return Math.max(0, Math.round(context.casterStats.maxQi));
       case 'target.hp':
@@ -1623,7 +1637,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
   private resolveBuffStackVariable(side: 'caster' | 'target', buffId: string, context: SkillFormulaContext): number {
     if (side === 'caster') {
-      return context.player.temporaryBuffs?.find((buff) => buff.buffId === buffId && buff.remainingTicks > 0)?.stacks ?? 0;
+      return context.player?.temporaryBuffs?.find((buff) => buff.buffId === buffId && buff.remainingTicks > 0)?.stacks
+        ?? context.monsterCaster?.temporaryBuffs?.find((buff) => buff.buffId === buffId && buff.remainingTicks > 0)?.stacks
+        ?? 0;
     }
     if (context.target?.kind === 'player') {
       return context.target.player.temporaryBuffs?.find((buff) => buff.buffId === buffId && buff.remainingTicks > 0)?.stacks ?? 0;
@@ -1698,8 +1714,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
               monster.x = pos.x;
               monster.y = pos.y;
               monster.hp = monster.maxHp;
+              monster.qi = Math.max(0, Math.round(monster.numericStats.maxQi));
               monster.alive = true;
               monster.temporaryBuffs = [];
+              monster.skillCooldowns = {};
               monster.damageContributors.clear();
               this.threatService.clearThreat(this.getMonsterThreatId(monster));
               monster.targetPlayerId = undefined;
@@ -1720,10 +1738,14 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           monster.temporaryBuffs = monster.temporaryBuffs.filter((buff) => buff.remainingTicks > 0 && buff.stacks > 0);
         });
       }
+      this.tickMonsterSkillCooldowns(monster);
 
       const timeState = this.measureCpuSection('monster_time', '怪物: 时间效果', () => (
         this.timeService.syncMonsterTimeEffects(monster)
       ));
+      this.measureCpuSection('monster_recovery', '怪物: 自然恢复', () => {
+        this.applyMonsterNaturalRecovery(monster);
+      });
       const target = this.measureCpuSection('monster_target', '怪物: 目标选择', () => (
         this.resolveMonsterTarget(monster, players, timeState)
       ));
@@ -1737,6 +1759,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
             this.stepMonsterIdleRoam(monster);
           });
         }
+        continue;
+      }
+
+      const castedSkill = this.tryCastMonsterSkill(monster, target, mapId, allMessages, dirtyPlayers);
+      if (castedSkill) {
         continue;
       }
 
@@ -1829,6 +1856,379 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       this.monsterRuntimeDirty = true;
     }
     return { messages: allMessages, dirty: [], dirtyPlayers: [...dirtyPlayers] };
+  }
+
+  private tickMonsterSkillCooldowns(monster: RuntimeMonster): void {
+    if (!monster.skillCooldowns || Object.keys(monster.skillCooldowns).length === 0) {
+      return;
+    }
+    for (const skillId of Object.keys(monster.skillCooldowns)) {
+      const next = Math.max(0, Math.round(monster.skillCooldowns[skillId] ?? 0) - 1);
+      if (next > 0) {
+        monster.skillCooldowns[skillId] = next;
+      } else {
+        delete monster.skillCooldowns[skillId];
+      }
+    }
+  }
+
+  private tryCastMonsterSkill(
+    monster: RuntimeMonster,
+    target: PlayerState,
+    mapId: string,
+    allMessages: WorldMessage[],
+    dirtyPlayers: Set<string>,
+  ): boolean {
+    const skill = this.selectMonsterSkill(monster, target);
+    if (!skill) {
+      return false;
+    }
+    const update = this.castMonsterSkill(monster, skill, target, mapId);
+    if (update.error) {
+      return false;
+    }
+    allMessages.push(...update.messages);
+    for (const playerId of update.dirtyPlayers ?? []) {
+      dirtyPlayers.add(playerId);
+    }
+    return true;
+  }
+
+  private selectMonsterSkill(monster: RuntimeMonster, target: PlayerState): SkillDef | undefined {
+    for (const skillId of monster.skills) {
+      const skill = this.contentService.getSkill(skillId);
+      if (!skill) {
+        continue;
+      }
+      if (skill.requiresTarget !== false && !isPointInRange(monster, target, skill.range)) {
+        continue;
+      }
+      if (!this.canMonsterCastSkill(monster, skill)) {
+        continue;
+      }
+      return skill;
+    }
+    return undefined;
+  }
+
+  private canMonsterCastSkill(monster: RuntimeMonster, skill: SkillDef): boolean {
+    if ((monster.skillCooldowns[skill.id] ?? 0) > 0) {
+      return false;
+    }
+    const actualCost = this.getMonsterSkillQiCost(monster, skill);
+    return actualCost !== null && monster.qi >= actualCost;
+  }
+
+  private getMonsterSkillQiCost(monster: RuntimeMonster, skill: SkillDef): number | null {
+    const numericStats = this.getMonsterCombatSnapshot(monster).stats;
+    const plannedCost = Math.max(0, skill.cost);
+    const actualCost = Math.round(calcQiCostWithOutputLimit(plannedCost, Math.max(0, numericStats.maxQiOutputPerTick)));
+    if (!Number.isFinite(actualCost) || actualCost < 0) {
+      return null;
+    }
+    return actualCost;
+  }
+
+  private consumeMonsterQiForSkill(monster: RuntimeMonster, skill: SkillDef): number | string {
+    const actualCost = this.getMonsterSkillQiCost(monster, skill);
+    if (actualCost === null) {
+      return '怪物灵力输出速率不足';
+    }
+    if (monster.qi < actualCost) {
+      return '怪物灵力不足';
+    }
+    monster.qi = Math.max(0, monster.qi - actualCost);
+    const dispersedAuraGain = Math.floor(actualCost / 10);
+    if (dispersedAuraGain > 0) {
+      this.mapService.addTileResourceValue(
+        monster.mapId,
+        monster.x,
+        monster.y,
+        DISPERSED_AURA_RESOURCE_KEY,
+        dispersedAuraGain,
+      );
+    }
+    monster.skillCooldowns[skill.id] = Math.max(1, Math.round(skill.cooldown));
+    return actualCost;
+  }
+
+  private getMonsterSkillTechniqueLevel(monster: RuntimeMonster, skill: SkillDef): number {
+    const level = Math.max(1, monster.level ?? 1);
+    const tierBonus = monster.tier === 'demon_king' ? 2 : monster.tier === 'variant' ? 1 : 0;
+    return Math.max(skill.unlockLevel ?? 1, Math.ceil(level * 0.65) + tierBonus);
+  }
+
+  private selectMonsterSkillTargets(monster: RuntimeMonster, skill: SkillDef, primaryTarget?: ResolvedTarget): ResolvedTarget[] {
+    if (!primaryTarget) {
+      return [];
+    }
+    const targeting = skill.targeting;
+    const shape = targeting?.shape ?? 'single';
+    if (shape === 'single') {
+      return [primaryTarget];
+    }
+
+    const players = this.playerService.getPlayersByMap(monster.mapId)
+      .filter((entry) => !entry.dead);
+    const maxTargets = Math.max(1, targeting?.maxTargets ?? 99);
+    if (shape === 'line') {
+      const cells = computeAffectedCellsFromAnchor(monster, primaryTarget, {
+        range: skill.range,
+        shape: 'line',
+      });
+      return this.collectMonsterSkillTargetsFromCells(players, cells, maxTargets);
+    }
+
+    const cells = computeAffectedCellsFromAnchor(monster, primaryTarget, {
+      range: skill.range,
+      shape: 'area',
+      radius: targeting?.radius,
+    });
+    return this.collectMonsterSkillTargetsFromCells(players, cells, maxTargets);
+  }
+
+  private collectMonsterSkillTargetsFromCells(
+    players: PlayerState[],
+    cells: Array<{ x: number; y: number }>,
+    maxTargets: number,
+  ): ResolvedTarget[] {
+    const resolved: ResolvedTarget[] = [];
+    const seen = new Set<string>();
+    for (const cell of cells) {
+      const targetPlayer = players.find((entry) => entry.x === cell.x && entry.y === cell.y);
+      if (!targetPlayer) {
+        continue;
+      }
+      const key = `player:${targetPlayer.id}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      resolved.push({ kind: 'player', x: targetPlayer.x, y: targetPlayer.y, player: targetPlayer });
+      seen.add(key);
+      if (resolved.length >= maxTargets) {
+        break;
+      }
+    }
+    return resolved;
+  }
+
+  private castMonsterSkill(
+    monster: RuntimeMonster,
+    skill: SkillDef,
+    target: PlayerState,
+    mapId: string,
+  ): WorldUpdate {
+    const primaryTarget: ResolvedTarget = { kind: 'player', x: target.x, y: target.y, player: target };
+    const selectedTargets = this.selectMonsterSkillTargets(monster, skill, primaryTarget);
+    if (skill.requiresTarget !== false && selectedTargets.length === 0) {
+      return { ...EMPTY_UPDATE, error: '目标超出技能范围' };
+    }
+    const qiCost = this.consumeMonsterQiForSkill(monster, skill);
+    if (typeof qiCost === 'string') {
+      return { ...EMPTY_UPDATE, error: qiCost };
+    }
+
+    this.faceToward(monster, target.x, target.y);
+    this.pushActionLabelEffect(mapId, monster.x, monster.y, skill.name);
+    const casterStats = this.getMonsterCombatSnapshot(monster).stats;
+    const techLevel = this.getMonsterSkillTechniqueLevel(monster, skill);
+    const messages: WorldMessage[] = [];
+    const dirtyPlayers = new Set<string>();
+    let appliedEffect = false;
+
+    for (const effect of skill.effects) {
+      if (effect.type === 'damage') {
+        const damageTargets = this.pickDamageTargets(selectedTargets, primaryTarget)
+          .filter((entry): entry is Extract<ResolvedTarget, { kind: 'player' }> => entry.kind === 'player');
+        if (damageTargets.length === 0) {
+          continue;
+        }
+        for (const damageTarget of damageTargets) {
+          const context: SkillFormulaContext = {
+            monsterCaster: monster,
+            skill,
+            techLevel,
+            targetCount: damageTargets.length,
+            casterStats,
+            target: damageTarget,
+            targetStats: this.getPlayerCombatSnapshot(damageTarget.player).stats,
+          };
+          const baseDamage = Math.max(1, Math.round(this.evaluateSkillFormula(effect.formula, context)));
+          const update = this.attackPlayerFromMonsterSkill(
+            monster,
+            damageTarget.player,
+            skill,
+            baseDamage,
+            effect.damageKind ?? 'spell',
+            effect.element,
+            qiCost,
+          );
+          messages.push(...update.messages);
+          for (const playerId of update.dirtyPlayers ?? []) {
+            dirtyPlayers.add(playerId);
+          }
+          if (!update.error) {
+            appliedEffect = true;
+          }
+        }
+        continue;
+      }
+
+      const update = this.applyMonsterBuffEffect(monster, skill, effect, selectedTargets, primaryTarget);
+      messages.push(...update.messages);
+      for (const playerId of update.dirtyPlayers ?? []) {
+        dirtyPlayers.add(playerId);
+      }
+      if (!update.error) {
+        appliedEffect = true;
+      }
+    }
+
+    if (!appliedEffect) {
+      return { ...EMPTY_UPDATE, error: '怪物技能未命中有效目标' };
+    }
+    return { messages, dirty: [], dirtyPlayers: [...dirtyPlayers] };
+  }
+
+  private applyMonsterBuffEffect(
+    monster: RuntimeMonster,
+    skill: SkillDef,
+    effect: Extract<SkillEffectDef, { type: 'buff' }>,
+    selectedTargets: ResolvedTarget[],
+    primaryTarget?: ResolvedTarget,
+  ): WorldUpdate {
+    const messages: WorldMessage[] = [];
+    const dirtyPlayers = new Set<string>();
+
+    if (effect.target === 'self') {
+      monster.temporaryBuffs ??= [];
+      const current = this.applyBuffState(monster.temporaryBuffs, this.buildTemporaryBuffState(skill, effect));
+      if (primaryTarget?.kind === 'player') {
+        const stackText = current.maxStacks > 1 ? `（${current.stacks}层）` : '';
+        messages.push({
+          playerId: primaryTarget.player.id,
+          text: `${monster.name}施展${skill.name}，周身浮现 ${effect.name}${stackText}。`,
+          kind: 'combat',
+        });
+      }
+      return { messages, dirty: [], dirtyPlayers: [] };
+    }
+
+    const targets = this.pickDamageTargets(selectedTargets, primaryTarget)
+      .filter((entry): entry is Extract<ResolvedTarget, { kind: 'player' }> => entry.kind === 'player');
+    if (targets.length === 0) {
+      return { ...EMPTY_UPDATE, error: '当前技能没有可施加状态的有效目标' };
+    }
+
+    for (const target of targets) {
+      target.player.temporaryBuffs ??= [];
+      const current = this.applyBuffState(target.player.temporaryBuffs, this.buildTemporaryBuffState(skill, effect));
+      this.attrService.recalcPlayer(target.player);
+      dirtyPlayers.add(target.player.id);
+      const stackText = current.maxStacks > 1 ? `（${current.stacks}层）` : '';
+      messages.push({
+        playerId: target.player.id,
+        text: `${monster.name}施展${skill.name}，你受到了 ${effect.name}${stackText}，持续 ${Math.max(1, effect.duration)} 息。`,
+        kind: 'combat',
+      });
+    }
+
+    return { messages, dirty: [], dirtyPlayers: [...dirtyPlayers] };
+  }
+
+  private attackPlayerFromMonsterSkill(
+    monster: RuntimeMonster,
+    target: PlayerState,
+    skill: SkillDef,
+    baseDamage: number,
+    damageKind: SkillDamageKind,
+    element: ElementKey | undefined,
+    qiCost = 0,
+  ): WorldUpdate {
+    const cultivation = this.techniqueService.interruptCultivation(target, 'hit');
+    const resolved = this.resolveHit(
+      this.getMonsterCombatSnapshot(monster),
+      this.getPlayerCombatSnapshot(target),
+      baseDamage,
+      damageKind,
+      qiCost,
+      element,
+      (damage) => {
+        target.hp = Math.max(0, target.hp - damage);
+      },
+    );
+    const floatColor = getDamageTrailColor(damageKind, element);
+    const messages: WorldMessage[] = cultivation.messages.map((message) => ({
+      playerId: target.id,
+      text: message.text,
+      kind: message.kind,
+    }));
+    const dirtyPlayers = new Set<string>();
+    if (cultivation.changed) {
+      dirtyPlayers.add(target.id);
+    }
+    if (resolved.hit && resolved.damage > 0) {
+      this.threatService.addThreat({
+        ownerId: this.getPlayerThreatId(target),
+        targetId: this.getMonsterThreatId(monster),
+        baseThreat: resolved.damage,
+        targetExtraAggroRate: this.getExtraAggroRate(monster),
+        distance: gridDistance(target, monster),
+      });
+    }
+    if (resolved.hit) {
+      const hitEquipment = this.equipmentEffectService.dispatch(target, {
+        trigger: 'on_hit',
+        targetKind: 'monster',
+        target: { kind: 'monster', monster },
+      });
+      if (hitEquipment.dirty.length > 0) {
+        dirtyPlayers.add(target.id);
+      }
+      for (const playerId of hitEquipment.dirtyPlayers ?? []) {
+        dirtyPlayers.add(playerId);
+      }
+    }
+    if (target.hp > 0 && target.autoRetaliate !== false && !target.autoBattle) {
+      target.autoBattle = true;
+      this.navigationService.clearMoveTarget(target.id);
+      dirtyPlayers.add(target.id);
+    }
+
+    this.pushEffect(monster.mapId, {
+      type: 'attack',
+      fromX: monster.x,
+      fromY: monster.y,
+      toX: target.x,
+      toY: target.y,
+      color: floatColor,
+    });
+    this.pushEffect(monster.mapId, {
+      type: 'float',
+      x: target.x,
+      y: target.y,
+      text: resolved.hit ? `-${resolved.damage}` : '闪',
+      color: floatColor,
+    });
+    messages.push(this.buildMonsterSkillAttackMessage(monster, target, skill, resolved, floatColor));
+
+    if (target.hp <= 0) {
+      messages.push({
+        playerId: target.id,
+        text: target.online === false
+          ? '你在离线中被击倒，已退出当前世界。'
+          : '你被击倒，已被护山阵法送回复活点。',
+        kind: 'combat',
+      });
+      if (target.online === false) {
+        this.removePlayerFromWorld(target, 'death');
+      } else {
+        this.respawnPlayer(target);
+      }
+      dirtyPlayers.add(target.id);
+    }
+
+    return { messages, dirty: [], dirtyPlayers: [...dirtyPlayers] };
   }
 
   private handleNpcInteraction(player: PlayerState, npc: NpcConfig): WorldUpdate {
@@ -2127,21 +2527,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         if (Math.random() > this.getEffectiveDropChance(player, drop)) continue;
         const loot = this.createItemFromDrop(drop);
         if (!loot) continue;
-        if (this.inventoryService.addItem(player, loot)) {
-          messages.push({
-            playerId: player.id,
-            text: `你拾取了 ${loot.name} x${loot.count}。`,
-            kind: 'loot',
-          });
-          dirty.add('inv');
-        } else {
-          this.lootService.dropToGround(monster.mapId, monster.x, monster.y, loot);
-          messages.push({
-            playerId: player.id,
-            text: `${loot.name} 掉落在 (${monster.x}, ${monster.y}) 的地面上，但你的背包已满。`,
-            kind: 'loot',
-          });
-        }
+        this.deliverMonsterLoot(player, monster, loot, dirty, messages);
       }
 
       if (this.refreshQuestStatuses(player)) {
@@ -2526,6 +2912,30 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  private buildMonsterSkillAttackMessage(
+    monster: RuntimeMonster,
+    player: PlayerState,
+    skill: SkillDef,
+    resolved: ResolvedHit,
+    floatColor: string,
+  ): WorldMessage {
+    const tag = this.buildCombatDetailTag(resolved, `你剩余气血 ${this.formatCombatHp(player.hp, player.maxHp)}`);
+    const text = resolved.hit
+      ? `${monster.name}施展${skill.name}${tag}，造成 ${resolved.damage} 点伤害。`
+      : `${monster.name}施展${skill.name}，却被你险险避开${tag}。`;
+    return {
+      playerId: player.id,
+      text,
+      kind: 'combat',
+      floating: {
+        x: player.x,
+        y: player.y,
+        text: resolved.hit ? `-${resolved.damage}` : '闪',
+        color: floatColor,
+      },
+    };
+  }
+
   private buildPlayerVsPlayerAttackMessage(
     attacker: PlayerState,
     target: PlayerState,
@@ -2700,6 +3110,19 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  private applyMonsterNaturalRecovery(monster: RuntimeMonster): void {
+    const stats = this.getMonsterCombatSnapshot(monster).stats;
+    if (monster.hp < monster.maxHp && stats.hpRegenRate > 0) {
+      const heal = Math.max(1, Math.round(monster.maxHp * (stats.hpRegenRate / 10000)));
+      monster.hp = Math.min(monster.maxHp, monster.hp + heal);
+    }
+    const maxQi = Math.max(0, Math.round(stats.maxQi));
+    if (maxQi > 0 && monster.qi < maxQi && stats.qiRegenRate > 0) {
+      const recover = Math.max(1, Math.round(maxQi * (stats.qiRegenRate / 10000)));
+      monster.qi = Math.min(maxQi, monster.qi + recover);
+    }
+  }
+
   private buildMonsterRenderEntity(viewer: PlayerState, monster: RuntimeMonster): RenderEntity {
     return {
       id: monster.runtimeId,
@@ -2707,8 +3130,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       y: monster.y,
       char: monster.char,
       color: monster.color,
-      name: monster.name,
+      name: getMonsterDisplayName(monster.name, monster.tier),
       kind: 'monster',
+      monsterTier: monster.tier,
       hp: monster.hp,
       maxHp: monster.maxHp,
       buffs: this.getMapRenderableBuffs(monster.temporaryBuffs),
@@ -2754,10 +3178,15 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
   private buildMonsterObservationDetail(viewer: PlayerState, monster: RuntimeMonster): ObservedTileEntityDetail {
     const snapshot = this.createMonsterObservationSnapshot(monster);
+    const lineSpecs = [
+      ...this.buildObservationLineSpecs(snapshot, true),
+      { threshold: 0.28, label: '血脉层次', value: MONSTER_TIER_LABELS[monster.tier] ?? '凡血' },
+    ];
     return {
       id: monster.runtimeId,
-      name: monster.name,
+      name: getMonsterDisplayName(monster.name, monster.tier),
       kind: 'monster',
+      monsterTier: monster.tier,
       hp: monster.hp,
       maxHp: monster.maxHp,
       qi: snapshot.qi,
@@ -2765,7 +3194,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       observation: this.buildObservationInsight(
         viewer,
         snapshot,
-        this.buildObservationLineSpecs(snapshot, false),
+        lineSpecs,
       ),
       buffs: this.getRenderableBuffs(monster.temporaryBuffs),
     };
@@ -2832,18 +3261,17 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
   private createMonsterObservationSnapshot(monster: RuntimeMonster): ObservationTargetSnapshot {
     const combat = this.getMonsterCombatSnapshot(monster);
-    const spirit = this.estimateMonsterSpirit(monster, combat.stats);
+    const spirit = Math.max(1, Math.round(monster.attrs?.spirit ?? this.estimateMonsterSpirit(monster, combat.stats)));
     const maxQi = Math.max(24, Math.round(combat.stats.maxQi > 0 ? combat.stats.maxQi : (spirit * 2 + (monster.level ?? 1) * 8)));
-    const hpRatio = monster.maxHp > 0 ? monster.hp / monster.maxHp : 0;
     return {
       hp: monster.hp,
       maxHp: monster.maxHp,
-      qi: Math.max(0, Math.round(maxQi * hpRatio)),
+      qi: Math.max(0, Math.min(maxQi, Math.round(monster.qi))),
       maxQi,
       spirit,
       stats: combat.stats,
       ratios: combat.ratios,
-      attrs: this.deriveAttrsFromStats(combat.stats, spirit),
+      attrs: { ...monster.attrs },
       realmLabel: this.describeMonsterRealm(monster),
     };
   }
@@ -3017,10 +3445,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
   private describeMonsterRealm(monster: RuntimeMonster): string {
     const level = Math.max(1, monster.level ?? Math.round(monster.attack / 6));
-    if (level >= 8) return '凶阶妖躯';
-    if (level >= 5) return '悍阶妖躯';
-    if (level >= 3) return '成形妖躯';
-    return '初成妖躯';
+    return this.contentService.getRealmLevelEntry(level)?.displayName ?? `Lv.${level}`;
   }
 
   private formatCurrentMax(current: number, max: number): string {
@@ -3184,9 +3609,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           spawnX: spawn.x,
           spawnY: spawn.y,
           hp: spawn.maxHp,
+          qi: Math.max(0, Math.round(spawn.numericStats.maxQi)),
           alive: true,
           respawnLeft: 0,
           temporaryBuffs: [],
+          skillCooldowns: {},
           damageContributors: new Map(),
           targetPlayerId: undefined,
         };
@@ -3401,6 +3828,30 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       count: drop.count,
       desc: drop.name,
     };
+  }
+
+  private deliverMonsterLoot(
+    player: PlayerState,
+    monster: RuntimeMonster,
+    loot: ItemStack,
+    dirty: Set<WorldDirtyFlag>,
+    messages: WorldMessage[],
+  ): void {
+    if (this.inventoryService.addItem(player, loot)) {
+      messages.push({
+        playerId: player.id,
+        text: `你拾取了 ${loot.name} x${loot.count}。`,
+        kind: 'loot',
+      });
+      dirty.add('inv');
+      return;
+    }
+    this.lootService.dropToGround(monster.mapId, monster.x, monster.y, loot);
+    messages.push({
+      playerId: player.id,
+      text: `${loot.name} 掉落在 (${monster.x}, ${monster.y}) 的地面上，但你的背包已满。`,
+      kind: 'loot',
+    });
   }
 
   private consumeInventoryItem(
@@ -4294,15 +4745,15 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  private faceToward(player: PlayerState, targetX: number, targetY: number) {
-    const dx = targetX - player.x;
-    const dy = targetY - player.y;
+  private faceToward(entity: { x: number; y: number; facing?: Direction }, targetX: number, targetY: number) {
+    const dx = targetX - entity.x;
+    const dy = targetY - entity.y;
     if (Math.abs(dx) >= Math.abs(dy) && dx !== 0) {
-      player.facing = dx > 0 ? Direction.East : Direction.West;
+      entity.facing = dx > 0 ? Direction.East : Direction.West;
       return;
     }
     if (dy !== 0) {
-      player.facing = dy > 0 ? Direction.South : Direction.North;
+      entity.facing = dy > 0 ? Direction.South : Direction.North;
     }
   }
 
@@ -4401,7 +4852,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
     try {
       const snapshot: PersistedMonsterRuntimeSnapshot = {
-        version: 1,
+        version: 2,
         maps: {},
       };
 
@@ -4542,10 +4993,14 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       x: monster.x,
       y: monster.y,
       hp: monster.hp,
+      qi: monster.qi,
       alive: monster.alive,
       respawnLeft: monster.respawnLeft,
       temporaryBuffs: monster.temporaryBuffs.length > 0
         ? JSON.parse(JSON.stringify(monster.temporaryBuffs)) as TemporaryBuffState[]
+        : undefined,
+      skillCooldowns: Object.keys(monster.skillCooldowns).length > 0
+        ? { ...monster.skillCooldowns }
         : undefined,
       damageContributors: monster.damageContributors.size > 0
         ? Object.fromEntries([...monster.damageContributors.entries()].map(([playerId, damage]) => [playerId, damage]))
@@ -4561,11 +5016,17 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     persisted: PersistedMonsterRuntimeRecord,
   ): void {
     runtime.hp = Math.max(0, Math.min(runtime.maxHp, Math.round(persisted.hp)));
+    runtime.qi = Math.max(0, Math.min(Math.max(0, Math.round(runtime.numericStats.maxQi)), Math.round(persisted.qi ?? runtime.qi)));
     runtime.facing = persisted.facing;
     runtime.targetPlayerId = typeof persisted.targetPlayerId === 'string' ? persisted.targetPlayerId : undefined;
     runtime.temporaryBuffs = (persisted.temporaryBuffs ?? [])
       .map((buff) => this.normalizePersistedTemporaryBuffState(buff))
       .filter((buff): buff is TemporaryBuffState => buff !== null);
+    runtime.skillCooldowns = Object.fromEntries(
+      Object.entries(persisted.skillCooldowns ?? {})
+        .filter(([, ticks]) => Number.isFinite(ticks) && Number(ticks) > 0)
+        .map(([skillId, ticks]) => [skillId, Math.max(1, Math.round(Number(ticks)))])
+    );
     runtime.damageContributors = new Map<string, number>(
       Object.entries(persisted.damageContributors ?? {})
         .filter(([, damage]) => Number.isFinite(damage) && Number(damage) > 0)
@@ -4622,12 +5083,20 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       x: Number(candidate.x),
       y: Number(candidate.y),
       hp: Math.max(0, Math.round(Number(candidate.hp))),
+      qi: Number.isFinite(candidate.qi) ? Math.max(0, Math.round(Number(candidate.qi))) : undefined,
       alive: candidate.alive,
       respawnLeft: Math.max(0, Math.round(Number(candidate.respawnLeft))),
       temporaryBuffs: Array.isArray(candidate.temporaryBuffs)
         ? candidate.temporaryBuffs
             .map((buff) => this.normalizePersistedTemporaryBuffState(buff))
             .filter((buff): buff is TemporaryBuffState => buff !== null)
+        : undefined,
+      skillCooldowns: candidate.skillCooldowns && typeof candidate.skillCooldowns === 'object'
+        ? Object.fromEntries(
+            Object.entries(candidate.skillCooldowns)
+              .filter(([, ticks]) => Number.isFinite(ticks) && Number(ticks) > 0)
+              .map(([skillId, ticks]) => [skillId, Math.max(1, Math.round(Number(ticks)))])
+          )
         : undefined,
       damageContributors: candidate.damageContributors && typeof candidate.damageContributors === 'object'
         ? Object.fromEntries(

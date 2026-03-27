@@ -2,11 +2,11 @@
   "quests": [
     {
       "id": "q_intro_south_gate_rollcall",
-      "title": "南门记名",
+      "title": "先进镇里",
       "line": "main",
       "chapter": "序章·断道入镇",
-      "story": "你刚在南门外的流民队伍里站稳脚跟，马会头肯把你记进名册，不是因为发善心，而是因为赵老六替你说了句“还算能干活”。他先不给饭，只让你去脚店见沈七娘，看看你值不值一张热炕。",
-      "desc": "去南市脚店找沈七娘，拿到今晚的落脚资格。",
+      "story": "你从北关残墙边醒来时，老关卒正守着那段早已废掉的旧路。他见你还能站，没问来历，只让你别继续在北井旧坊磨蹭，先顺着镇路往里走，去南市脚店找沈七娘挂个名，不然天一黑，连个能缩身子的炕角都轮不到你。",
+      "desc": "顺着镇路往里走，去南市脚店找沈七娘，先拿到今晚的落脚资格。",
       "objectiveType": "talk",
       "objectiveText": "去沈记脚店见沈七娘",
       "targetNpcId": "npc_preview_shen_qiniang",
@@ -24,7 +24,7 @@
       ],
       "nextQuestId": "q_intro_old_road_witness",
       "giverMapId": "yunlai_town",
-      "giverNpcId": "npc_preview_ma_huitou",
+      "giverNpcId": "npc_preview_old_gate_guard",
       "submitMapId": "yunlai_town",
       "submitNpcId": "npc_preview_shen_qiniang"
     },
@@ -200,6 +200,12 @@
       "required": 1,
       "reward": [
         {
+          "itemId": "book.mountain_insight_chart",
+          "name": "《玄照图》",
+          "type": "skill_book",
+          "count": 1
+        },
+        {
           "itemId": "map.wildlands",
           "name": "荒原游猎图",
           "type": "consumable",
@@ -226,6 +232,12 @@
       "targetName": "炼体境",
       "required": 1,
       "reward": [
+        {
+          "itemId": "book.golden_lock_body",
+          "name": "《固元功》",
+          "type": "skill_book",
+          "count": 1
+        },
         {
           "itemId": "pill.windstride_elixir",
           "name": "轻身丹",
