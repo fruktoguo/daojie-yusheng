@@ -1,21 +1,24 @@
 /**
  * 认证服务 —— 用户注册 / 登录 / 令牌签发与刷新，以及 GM 认证管理
  */
-import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger, OnModuleInit, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, Repository } from 'typeorm';
+import { Brackets, In, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { AuthTokenRes, DisplayNameAvailabilityRes, GmLoginRes } from '@mud/shared';
+import { ACCOUNT_MAX_LENGTH, AuthTokenRes, DisplayNameAvailabilityRes, GmLoginRes } from '@mud/shared';
 import * as fs from 'fs';
 import { UserEntity } from '../database/entities/user.entity';
+import { PlayerEntity } from '../database/entities/player.entity';
 import { PersistentDocumentService } from '../database/persistent-document.service';
 import {
   normalizeDisplayName,
+  normalizeRoleName,
   normalizeUsername,
   resolveDisplayName,
   validateDisplayName,
   validatePassword,
+  validateRoleName,
   validateUsername,
 } from './account-validation';
 import { GM_CONFIG_PATH, GM_TOKEN_EXPIRES_IN } from '../constants/auth/gm';
@@ -30,18 +33,27 @@ const SERVER_CONFIG_SCOPE = 'server_config';
 const GM_CONFIG_DOCUMENT_KEY = 'gm_auth';
 
 @Injectable()
-export class AuthService {
+export class AuthService implements OnModuleInit {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly jwtService: JwtService,
     @InjectRepository(UserEntity)
     private readonly userRepo: Repository<UserEntity>,
+    @InjectRepository(PlayerEntity)
+    private readonly playerRepo: Repository<PlayerEntity>,
     private readonly persistentDocumentService: PersistentDocumentService,
   ) {}
 
+  async onModuleInit(): Promise<void> {
+    await this.migrateLegacyAccountsToRoleNames();
+  }
+
   /** 用户注册：校验输入、查重、创建账号并签发令牌 */
-  async register(username: string, password: string, displayName: string): Promise<AuthTokenRes> {
-    const normalizedUsername = normalizeUsername(username);
+  async register(accountName: string, password: string, displayName: string, roleName: string): Promise<AuthTokenRes> {
+    const normalizedUsername = normalizeUsername(accountName);
     const normalizedDisplayName = normalizeDisplayName(displayName);
+    const normalizedRoleName = normalizeRoleName(roleName);
     const usernameError = validateUsername(normalizedUsername);
     if (usernameError) {
       throw new BadRequestException(usernameError);
@@ -54,10 +66,14 @@ export class AuthService {
     if (displayNameError) {
       throw new BadRequestException(displayNameError);
     }
+    const roleNameError = validateRoleName(normalizedRoleName);
+    if (roleNameError) {
+      throw new BadRequestException(roleNameError);
+    }
 
     const existing = await this.userRepo.findOne({ where: { username: normalizedUsername } });
     if (existing) {
-      throw new BadRequestException('用户名已存在');
+      throw new BadRequestException('账号已存在');
     }
     const existingDisplayName = await this.findUserByEffectiveDisplayName(normalizedDisplayName);
     if (existingDisplayName) {
@@ -68,6 +84,7 @@ export class AuthService {
     const user = this.userRepo.create({
       username: normalizedUsername,
       displayName: normalizedDisplayName,
+      pendingRoleName: normalizedRoleName,
       passwordHash,
     });
     await this.userRepo.save(user);
@@ -75,12 +92,39 @@ export class AuthService {
   }
 
   /** 用户登录：验证密码并签发令牌 */
-  async login(username: string, password: string): Promise<AuthTokenRes> {
-    const user = await this.userRepo.findOne({ where: { username: normalizeUsername(username) } });
-    if (!user) throw new UnauthorizedException('用户不存在');
-    const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) throw new UnauthorizedException('密码错误');
-    return this.issueTokens(user);
+  async login(loginName: string, password: string): Promise<AuthTokenRes> {
+    const normalizedLoginName = normalizeUsername(loginName).trim();
+    const directUser = await this.userRepo.findOne({ where: { username: normalizedLoginName } });
+    const roleMatchedUsers = await this.findUsersByRoleName(normalizedLoginName);
+    const candidates = new Map<string, UserEntity>();
+    if (directUser) {
+      candidates.set(directUser.id, directUser);
+    }
+    roleMatchedUsers.forEach((user) => {
+      candidates.set(user.id, user);
+    });
+
+    if (candidates.size === 0) {
+      throw new UnauthorizedException('用户不存在');
+    }
+
+    const matchedUsers: UserEntity[] = [];
+    for (const user of candidates.values()) {
+      if (await bcrypt.compare(password, user.passwordHash)) {
+        matchedUsers.push(user);
+      }
+    }
+
+    if (matchedUsers.length === 0) {
+      throw new UnauthorizedException('密码错误');
+    }
+    if (directUser && matchedUsers.some((user) => user.id === directUser.id)) {
+      return this.issueTokens(directUser);
+    }
+    if (matchedUsers.length === 1) {
+      return this.issueTokens(matchedUsers[0]);
+    }
+    throw new BadRequestException('该角色名对应多个账号，请改用账号登录');
   }
 
   /** 使用 refreshToken 刷新访问令牌 */
@@ -204,6 +248,23 @@ export class AuthService {
       .getOne();
   }
 
+  /** 首次进入世界时取出注册阶段保留的角色名 */
+  async takePendingRoleName(userId: string): Promise<string | null> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      return null;
+    }
+    const pendingRoleName = typeof user.pendingRoleName === 'string'
+      ? normalizeRoleName(user.pendingRoleName)
+      : '';
+    if (!pendingRoleName) {
+      return null;
+    }
+    user.pendingRoleName = null;
+    await this.userRepo.save(user);
+    return pendingRoleName;
+  }
+
   /** 获取或首次创建 GM 密码哈希（首次使用环境变量或默认密码） */
   private async getOrCreateGmPasswordHash(): Promise<string> {
     const existing = await this.readGmConfig();
@@ -262,5 +323,96 @@ export class AuthService {
     } catch {
       // 旧文件损坏时保持与原逻辑一致，回退为重新初始化 GM 密码。
     }
+  }
+
+  private async findUsersByRoleName(roleName: string): Promise<UserEntity[]> {
+    const normalizedRoleName = normalizeRoleName(roleName);
+    if (!normalizedRoleName) {
+      return [];
+    }
+    const matchedPlayers = await this.playerRepo.find({
+      select: ['userId'],
+      where: { name: normalizedRoleName },
+    });
+    const matchedUserIds = [...new Set(matchedPlayers.map((player) => player.userId))];
+    const qb = this.userRepo.createQueryBuilder('user')
+      .where('user.pendingRoleName = :roleName', { roleName: normalizedRoleName });
+    if (matchedUserIds.length > 0) {
+      qb.orWhere('user.id IN (:...userIds)', { userIds: matchedUserIds });
+    }
+    return qb.getMany();
+  }
+
+  private async migrateLegacyAccountsToRoleNames(): Promise<void> {
+    const users = await this.userRepo.find({
+      select: ['id', 'username', 'createdAt'],
+      order: { createdAt: 'ASC', id: 'ASC' },
+    });
+    if (users.length === 0) {
+      return;
+    }
+
+    const players = await this.playerRepo.find({
+      select: ['userId', 'name'],
+      where: { userId: In(users.map((user) => user.id)) },
+    });
+    const roleNameByUserId = new Map<string, string>();
+    players.forEach((player) => {
+      const normalizedRoleName = normalizeRoleName(player.name);
+      if (normalizedRoleName && !roleNameByUserId.has(player.userId)) {
+        roleNameByUserId.set(player.userId, normalizedRoleName);
+      }
+    });
+
+    const migrationCandidates = users.filter((user) => roleNameByUserId.has(user.id));
+    if (migrationCandidates.length === 0) {
+      return;
+    }
+
+    const usedNames = new Set(
+      users
+        .filter((user) => !roleNameByUserId.has(user.id))
+        .map((user) => normalizeUsername(user.username)),
+    );
+    const updates: Array<{ id: string; nextUsername: string }> = [];
+
+    migrationCandidates.forEach((user) => {
+      const baseName = roleNameByUserId.get(user.id);
+      if (!baseName) {
+        return;
+      }
+      const nextUsername = this.allocateMigratedAccountName(baseName, usedNames);
+      if (nextUsername !== normalizeUsername(user.username)) {
+        updates.push({ id: user.id, nextUsername });
+      }
+    });
+
+    for (const update of updates) {
+      await this.userRepo.update({ id: update.id }, { username: update.nextUsername });
+    }
+
+    if (updates.length > 0) {
+      this.logger.log(`已同步 ${updates.length} 个旧账号的登录账号为角色名`);
+    }
+  }
+
+  private allocateMigratedAccountName(baseName: string, usedNames: Set<string>): string {
+    let suffixIndex = 0;
+    while (true) {
+      const suffix = suffixIndex === 0 ? '' : `_${suffixIndex + 1}`;
+      const candidate = `${this.truncateToLength(baseName, ACCOUNT_MAX_LENGTH - [...suffix].length)}${suffix}`;
+      if (!usedNames.has(candidate)) {
+        usedNames.add(candidate);
+        return candidate;
+      }
+      suffixIndex += 1;
+    }
+  }
+
+  private truncateToLength(value: string, maxLength: number): string {
+    if (maxLength <= 0) {
+      return '';
+    }
+    return [...value].slice(0, maxLength).join('');
   }
 }

@@ -14,7 +14,7 @@ import {
   restoreTokens,
   storeTokens,
 } from './auth-api';
-import { validateDisplayName, validatePassword, validateRegisterUsername } from './account-rules';
+import { validateAccountName, validateDisplayName, validatePassword, validateRoleName } from './account-rules';
 
 type AuthMode = 'login' | 'register';
 
@@ -22,9 +22,14 @@ export class LoginUI {
   private overlay = document.getElementById('login-overlay')!;
   private loginTab = document.getElementById('tab-login') as HTMLButtonElement;
   private registerTab = document.getElementById('tab-register') as HTMLButtonElement;
-  private usernameLabel = document.getElementById('username-label')!;
-  private usernameInput = document.getElementById('input-username') as HTMLInputElement;
+  private loginNameGroup = document.getElementById('login-name-group') as HTMLElement;
+  private loginNameLabel = document.getElementById('login-name-label')!;
+  private loginNameInput = document.getElementById('input-login-name') as HTMLInputElement;
   private passwordInput = document.getElementById('input-password') as HTMLInputElement;
+  private registerAccountGroup = document.getElementById('register-account-group') as HTMLElement;
+  private accountNameInput = document.getElementById('input-account-name') as HTMLInputElement;
+  private roleNameGroup = document.getElementById('register-role-name-group') as HTMLElement;
+  private roleNameInput = document.getElementById('input-role-name') as HTMLInputElement;
   private displayNameGroup = document.getElementById('register-display-name-group') as HTMLElement;
   private displayNameInput = document.getElementById('input-display-name') as HTMLInputElement;
   private displayNameStatus = document.getElementById('display-name-status')!;
@@ -116,7 +121,7 @@ export class LoginUI {
 
   private async handleLogin(): Promise<void> {
     const body: AuthLoginReq = {
-      username: this.usernameInput.value,
+      loginName: this.loginNameInput.value.normalize('NFC'),
       password: this.passwordInput.value,
     };
     try {
@@ -131,13 +136,14 @@ export class LoginUI {
   }
 
   private async handleRegister(): Promise<void> {
-    const username = this.usernameInput.value.normalize('NFC');
+    const accountName = this.accountNameInput.value.normalize('NFC');
     const password = this.passwordInput.value;
+    const roleName = this.roleNameInput.value.normalize('NFC').trim();
     const displayName = this.displayNameInput.value.normalize('NFC');
 
-    const usernameError = validateRegisterUsername(username);
-    if (usernameError) {
-      this.setError(usernameError);
+    const accountNameError = validateAccountName(accountName);
+    if (accountNameError) {
+      this.setError(accountNameError);
       return;
     }
     const passwordError = validatePassword(password);
@@ -150,6 +156,11 @@ export class LoginUI {
       this.setError(displayNameError);
       return;
     }
+    const roleNameError = validateRoleName(roleName);
+    if (roleNameError) {
+      this.setError(roleNameError);
+      return;
+    }
 
     await this.checkDisplayName(displayName, { immediate: true });
     if (!this.displayNameAvailable) {
@@ -158,9 +169,10 @@ export class LoginUI {
     }
 
     const body: AuthRegisterReq = {
-      username,
+      accountName,
       password,
       displayName,
+      roleName,
     };
 
     try {
@@ -262,9 +274,12 @@ export class LoginUI {
     this.loginTab.setAttribute('aria-selected', String(!isRegister));
     this.registerTab.classList.toggle('active', isRegister);
     this.registerTab.setAttribute('aria-selected', String(isRegister));
+    this.loginNameGroup.classList.toggle('hidden', isRegister);
+    this.registerAccountGroup.classList.toggle('hidden', !isRegister);
+    this.roleNameGroup.classList.toggle('hidden', !isRegister);
     this.displayNameGroup.classList.toggle('hidden', !isRegister);
-    this.usernameLabel.textContent = isRegister ? '用户名' : '账号';
-    this.usernameInput.placeholder = isRegister ? '输入用户名' : '输入账号';
+    this.loginNameLabel.textContent = '账号 / 角色名';
+    this.loginNameInput.placeholder = '输入账号或角色名';
     this.submitText.textContent = isRegister ? '注册' : '登录';
     this.setError('');
     if (!isRegister) {

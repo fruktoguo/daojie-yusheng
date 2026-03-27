@@ -203,10 +203,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     // 创建新角色
     const playerId = `p_${userId}_${Date.now()}`;
     const spawn = this.mapService.getSpawnPoint(DEFAULT_PLAYER_MAP_ID) ?? { x: 10, y: 10 };
+    const initRoleName = await this.authService.takePendingRoleName(userId);
     const initMaxHp = BASE_MAX_HP + DEFAULT_BASE_ATTRS.constitution * HP_PER_CONSTITUTION;
     const playerState: PlayerState = {
       id: playerId,
-      name: buildDefaultRoleName(username) || username,
+      name: initRoleName || buildDefaultRoleName(username) || username,
       displayName,
       mapId: DEFAULT_PLAYER_MAP_ID,
       x: spawn.x,

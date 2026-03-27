@@ -22,6 +22,10 @@ export class UserEntity {
   @Column({ type: 'varchar', length: 16, unique: true, nullable: true })
   displayName!: string | null;
 
+  /** 注册后待创建角色时使用的角色名称 */
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  pendingRoleName!: string | null;
+
   /** bcrypt 密码哈希 */
   @Column({ type: 'varchar', length: 255 })
   passwordHash!: string;

@@ -22,13 +22,13 @@ export class AuthController {
   /** 用户注册 */
   @Post('register')
   async register(@Body() body: AuthRegisterReq): Promise<AuthTokenRes> {
-    return this.authService.register(body.username, body.password, body.displayName);
+    return this.authService.register(body.accountName, body.password, body.displayName, body.roleName);
   }
 
   /** 用户登录 */
   @Post('login')
   async login(@Body() body: AuthLoginReq): Promise<AuthTokenRes> {
-    return this.authService.login(body.username, body.password);
+    return this.authService.login(body.loginName, body.password);
   }
 
   /** 刷新访问令牌 */

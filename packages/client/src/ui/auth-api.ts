@@ -40,6 +40,15 @@ export function getAccessToken(): string | null {
   return localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
 }
 
+/** 从当前 accessToken 读取账号名 */
+export function getCurrentAccountName(): string | null {
+  const accessToken = getAccessToken();
+  if (!accessToken) {
+    return null;
+  }
+  return parseJwtPayload(accessToken)?.username ?? null;
+}
+
 /** 从 localStorage 读取 refreshToken */
 export function getRefreshToken(): string | null {
   return localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
@@ -150,4 +159,21 @@ async function readError(res: Response): Promise<string> {
     // noop
   }
   return '请求失败';
+}
+
+function parseJwtPayload(token: string): { username?: string } | null {
+  const parts = token.split('.');
+  if (parts.length < 2) {
+    return null;
+  }
+  try {
+    const normalized = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+    const binary = window.atob(padded);
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    const json = new TextDecoder().decode(bytes);
+    return JSON.parse(json) as { username?: string };
+  } catch {
+    return null;
+  }
 }

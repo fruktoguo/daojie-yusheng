@@ -43,7 +43,7 @@ import { FloatingTooltip, prefersPinnedTooltipInteraction } from './ui/floating-
 import { detailModalHost } from './ui/detail-modal-host';
 import { describePreviewBonuses } from './ui/stat-preview';
 import { MAX_ZOOM, MIN_ZOOM, getDisplayRangeX, getDisplayRangeY, getZoom, setZoom } from './display';
-import { getAccessToken } from './ui/auth-api';
+import { getAccessToken, getCurrentAccountName } from './ui/auth-api';
 import { formatDisplayCountBadge, formatDisplayCurrentMax, formatDisplayInteger } from './utils/number';
 import { findPath } from './pathfinding';
 import {
@@ -1568,6 +1568,7 @@ debugPanel.setCallbacks(() => {
 });
 chatUI.setCallback((message) => socket.sendChat(message));
 settingsPanel.setOptions({
+  getCurrentAccountName: () => getCurrentAccountName() ?? '',
   getCurrentDisplayName: () => myPlayer?.displayName ?? '',
   getCurrentRoleName: () => myPlayer?.name ?? '',
   onDisplayNameUpdated: (displayName) => {

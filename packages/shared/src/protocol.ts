@@ -690,14 +690,15 @@ export interface S2C_SuggestionUpdate {
 
 /** 注册请求 */
 export interface AuthRegisterReq {
-  username: string;
+  accountName: string;
   password: string;
   displayName: string;
+  roleName: string;
 }
 
 /** 登录请求 */
 export interface AuthLoginReq {
-  username: string;
+  loginName: string;
   password: string;
 }
 

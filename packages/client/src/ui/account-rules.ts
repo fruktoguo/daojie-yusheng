@@ -15,16 +15,16 @@ function hasWhitespace(value: string): boolean {
   return /\s/.test(value);
 }
 
-/** 校验注册用户名，返回错误提示或 null */
-export function validateRegisterUsername(username: string): string | null {
-  const length = [...username].length;
+/** 校验账号名，返回错误提示或 null */
+export function validateAccountName(accountName: string): string | null {
+  const length = [...accountName].length;
   if (length < ACCOUNT_MIN_LENGTH) {
     return `账号长度不能少于 ${ACCOUNT_MIN_LENGTH} 个字符`;
   }
   if (length > ACCOUNT_MAX_LENGTH) {
     return `账号长度不能超过 ${ACCOUNT_MAX_LENGTH} 个字符`;
   }
-  if (hasWhitespace(username)) {
+  if (hasWhitespace(accountName)) {
     return '账号不支持空格';
   }
   return null;

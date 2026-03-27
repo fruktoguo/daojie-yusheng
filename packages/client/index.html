@@ -19,13 +19,23 @@
         <button class="login-mode-tab active" id="tab-login" type="button" role="tab" aria-selected="true">登录</button>
         <button class="login-mode-tab" id="tab-register" type="button" role="tab" aria-selected="false">注册</button>
       </div>
-      <div class="form-group">
-        <label id="username-label">账号</label>
-        <input id="input-username" type="text" placeholder="输入账号" />
+      <div class="form-group" id="login-name-group">
+        <label id="login-name-label">账号 / 角色名</label>
+        <input id="input-login-name" type="text" placeholder="输入账号或角色名" />
       </div>
       <div class="form-group">
         <label>口令</label>
         <input id="input-password" type="password" placeholder="输入密码" />
+      </div>
+      <div class="form-group hidden" id="register-account-group">
+        <label>账号</label>
+        <input id="input-account-name" type="text" placeholder="输入登录账号" />
+        <div class="form-help">账号用于登录，不能包含空格。</div>
+      </div>
+      <div class="form-group hidden" id="register-role-name-group">
+        <label>角色名</label>
+        <input id="input-role-name" type="text" placeholder="输入角色名称" />
+        <div class="form-help">角色名保留为游戏内完整名称，登录时也可直接输入当前角色名。</div>
       </div>
       <div class="form-group hidden" id="register-display-name-group">
         <label>显示名</label>

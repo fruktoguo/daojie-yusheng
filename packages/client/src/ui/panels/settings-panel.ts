@@ -29,6 +29,7 @@ import {
 } from '../ui-style-config';
 
 type SettingsPanelOptions = {
+  getCurrentAccountName: () => string;
   getCurrentDisplayName: () => string;
   getCurrentRoleName: () => string;
   onDisplayNameUpdated: (displayName: string) => void;
@@ -38,6 +39,7 @@ type SettingsPanelOptions = {
 
 export class SettingsPanel {
   private activeTab: 'account' | 'ui' = 'account';
+  private currentAccountName = '';
   private currentDisplayName = '';
   private currentRoleName = '';
   private displayNameCheckTimer: ReturnType<typeof setTimeout> | null = null;
@@ -61,6 +63,7 @@ export class SettingsPanel {
     if (!this.options) {
       return;
     }
+    this.currentAccountName = this.options.getCurrentAccountName().normalize('NFC');
     this.currentDisplayName = this.options.getCurrentDisplayName().normalize('NFC');
     this.currentRoleName = this.options.getCurrentRoleName().normalize('NFC');
     this.displayNameAvailable = true;
@@ -69,7 +72,7 @@ export class SettingsPanel {
       ownerId: 'settings-panel',
       variantClass: 'detail-modal--settings',
       title: '设置',
-      subtitle: `当前显示：${this.currentDisplayName || '未设置'} · 角色名：${this.currentRoleName || '未设置'}`,
+      subtitle: `账号：${this.currentAccountName || '未登录'} · 显示：${this.currentDisplayName || '未设置'} · 角色名：${this.currentRoleName || '未设置'}`,
       hint: '点击空白处关闭',
       bodyHtml: `
         <div class="settings-modal-shell">
@@ -290,8 +293,16 @@ export class SettingsPanel {
   private renderAccountTab(): string {
     return `
       <div class="panel-section account-settings-section">
+        <div class="panel-section-title">账号信息</div>
+        <div class="account-settings-copy">账号用于登录，登录页输入当前账号或当前角色名都可以进入。设置页这里展示的是当前登录账号。</div>
+        <div class="account-settings-field">
+          <label for="settings-account-name">当前账号</label>
+          <input id="settings-account-name" type="text" value="${escapeHtml(this.currentAccountName)}" readonly />
+        </div>
+      </div>
+      <div class="panel-section account-settings-section">
         <div class="panel-section-title">名称设置</div>
-        <div class="account-settings-copy">显示名称是唯一的一字标识；角色名称完整显示在头顶，默认取账号前 ${ROLE_NAME_MAX_LENGTH} 个字，纯英文最多 ${ROLE_NAME_MAX_ASCII_LENGTH} 个字符，可与其他人重名。</div>
+        <div class="account-settings-copy">显示名称是唯一的一字标识；角色名称完整显示在头顶，纯中文建议不超过 ${ROLE_NAME_MAX_LENGTH} 个字，纯英文最多 ${ROLE_NAME_MAX_ASCII_LENGTH} 个字符，可与其他人重名。</div>
         <div class="account-settings-name-grid">
           <div class="account-settings-field account-settings-field--display">
             <label for="settings-display-name">显示名称</label>

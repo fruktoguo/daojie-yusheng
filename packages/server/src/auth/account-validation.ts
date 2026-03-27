@@ -1,5 +1,5 @@
 /**
- * 账号与密码校验工具 —— 用户名 / 密码 / 显示名称 / 角色名的格式校验与归一化
+ * 账号与密码校验工具 —— 账号 / 密码 / 显示名称 / 角色名的格式校验与归一化
  */
 import {
   ACCOUNT_MAX_LENGTH,
@@ -20,7 +20,7 @@ function containsWhitespace(value: string): boolean {
   return /\s/.test(value);
 }
 
-/** 对用户名做 Unicode NFC 归一化 */
+/** 对账号名做 Unicode NFC 归一化 */
 export function normalizeUsername(value: string): string {
   return value.normalize('NFC');
 }
@@ -35,7 +35,7 @@ export function normalizeRoleName(value: string): string {
   return value.normalize('NFC').trim();
 }
 
-/** 取用户名首字符作为默认显示名称 */
+/** 取账号首字符作为默认显示名称 */
 export function getDefaultDisplayName(username: string): string {
   return [...normalizeUsername(username)][0] ?? '';
 }
@@ -45,13 +45,13 @@ export function buildDefaultRoleName(username: string): string {
   return truncateRoleName(normalizeUsername(username));
 }
 
-/** 优先使用自定义显示名称，为空时回退到用户名首字符 */
+/** 优先使用自定义显示名称，为空时回退到账号首字符 */
 export function resolveDisplayName(displayName: string | null | undefined, username: string): string {
   const normalized = typeof displayName === 'string' ? normalizeDisplayName(displayName) : '';
   return normalized || getDefaultDisplayName(username);
 }
 
-/** 校验用户名格式，返回 null 表示通过，否则返回错误信息 */
+/** 校验账号格式，返回 null 表示通过，否则返回错误信息 */
 export function validateUsername(username: string): string | null {
   const normalized = normalizeUsername(username);
   const length = [...normalized].length;
