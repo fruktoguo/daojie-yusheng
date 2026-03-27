@@ -1626,7 +1626,7 @@
       "count": 20,
       "radius": 8,
       "maxAlive": 40,
-      "respawnTicks": 15
+      "respawnTicks": 30
     },
     {
       "id": "m_preview_town_rat_refuse",
@@ -1635,7 +1635,7 @@
       "count": 20,
       "radius": 8,
       "maxAlive": 40,
-      "respawnTicks": 15
+      "respawnTicks": 30
     },
     {
       "id": "m_preview_gate_thug",
