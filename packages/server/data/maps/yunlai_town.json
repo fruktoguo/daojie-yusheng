@@ -1639,14 +1639,17 @@
     },
     {
       "id": "m_preview_gate_thug",
-      "x": 53,
-      "y": 53,
+      "x": 57,
+      "y": 61,
+      "maxAlive": 8,
       "respawnTicks": 15
     },
     {
       "id": "m_preview_night_blade",
-      "x": 56,
-      "y": 51,
+      "x": 55,
+      "y": 53,
+      "count": 4,
+      "maxAlive": 8,
       "respawnTicks": 15
     }
   ]
