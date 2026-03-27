@@ -582,6 +582,7 @@ export interface BreakthroughRequirementView {
   hidden: boolean;
   optional?: boolean;
   blocksBreakthrough?: boolean;
+  increasePct?: number;
   detail?: string;
 }
 
