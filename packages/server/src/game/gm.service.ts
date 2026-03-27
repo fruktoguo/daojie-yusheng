@@ -2,7 +2,7 @@
  * GM 业务逻辑：玩家状态查看/修改、Bot 生成/移除、地图编辑保存
  * 命令通过队列延迟到 tick 内执行，保证线程安全
  */
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import {
@@ -24,6 +24,7 @@ import {
   GmManagedPlayerSummary,
   GmPlayerUpdateSection,
   GmRuntimeEntity,
+  GmShortcutRunRes,
   GmStateRes,
   GmUpdateMapTimeReq,
   Inventory,
@@ -98,6 +99,7 @@ interface GmPlayerUserIdentity {
 @Injectable()
 export class GmService {
   private readonly commandsByMap = new Map<string, GmCommand[]>();
+  private readonly logger = new Logger(GmService.name);
 
   constructor(
     @InjectRepository(PlayerEntity)
@@ -322,6 +324,41 @@ export class GmService {
     return null;
   }
 
+  /** 批量将所有非机器人角色送回默认新手村出生点 */
+  async returnAllPlayersToDefaultSpawn(): Promise<GmShortcutRunRes> {
+    const runtimePlayers = this.playerService.getAllPlayers().filter((player) => !player.isBot && player.inWorld !== false);
+    const runtimeIds = new Set(runtimePlayers.map((player) => player.id));
+    let queuedRuntimePlayers = 0;
+    let updatedOfflinePlayers = 0;
+
+    for (const player of runtimePlayers) {
+      this.enqueue(player.mapId, { type: 'resetPlayer', playerId: player.id });
+      queuedRuntimePlayers += 1;
+    }
+
+    const entities = await this.playerRepo.find();
+    for (const entity of entities) {
+      if (runtimeIds.has(entity.id)) {
+        continue;
+      }
+      const player = this.hydrateStoredPlayer(entity);
+      this.resetStoredPlayerToSpawn(player);
+      await this.persistOfflinePlayer(entity, player);
+      updatedOfflinePlayers += 1;
+    }
+
+    const placement = this.mapService.resolveDefaultPlayerSpawnPosition();
+    return {
+      ok: true,
+      totalPlayers: queuedRuntimePlayers + updatedOfflinePlayers,
+      queuedRuntimePlayers,
+      updatedOfflinePlayers,
+      targetMapId: placement.mapId,
+      targetX: placement.x,
+      targetY: placement.y,
+    };
+  }
+
   async enqueueResetHeavenGate(playerId: string): Promise<string | null> {
     const runtime = this.playerService.getPlayer(playerId);
     if (runtime) {
@@ -432,6 +469,9 @@ export class GmService {
     if (!player) return '目标玩家不存在';
     const update = this.worldService.resetPlayerToSpawn(player);
     this.markDirty(player.id, update.dirty as DirtyFlag[]);
+    void this.playerService.savePlayer(player.id).catch((error: Error) => {
+      this.logger.error(`GM 重置玩家落盘失败: ${player.id} ${error.message}`);
+    });
     return null;
   }
 

@@ -26,6 +26,7 @@ import {
   GmMapRuntimeRes,
   GmPlayerDetailRes,
   GmRemoveBotsReq,
+  GmShortcutRunRes,
   GmSpawnBotsReq,
   GmStateRes,
   GmUpdateManagedPlayerPasswordReq,
@@ -282,6 +283,12 @@ export class GmController {
       throw new BadRequestException(error);
     }
     return { ok: true };
+  }
+
+  /** 所有角色返回新手村出生点 */
+  @Post('shortcuts/players/return-all-to-default-spawn')
+  async returnAllPlayersToDefaultSpawn(): Promise<GmShortcutRunRes> {
+    return this.gmService.returnAllPlayersToDefaultSpawn();
   }
 
   /** 生成 Bot */

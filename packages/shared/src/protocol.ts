@@ -958,6 +958,16 @@ export interface GmRemoveBotsReq {
   all?: boolean;
 }
 
+export interface GmShortcutRunRes {
+  ok: true;
+  totalPlayers: number;
+  queuedRuntimePlayers: number;
+  updatedOfflinePlayers: number;
+  targetMapId: string;
+  targetX: number;
+  targetY: number;
+}
+
 /** GM 地图传送点记录 */
 export interface GmMapPortalRecord {
   x: number;

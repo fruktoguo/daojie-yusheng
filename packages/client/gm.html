@@ -1317,6 +1317,7 @@
         <button class="shell-tab active" id="gm-tab-server" data-gm-tab="server" type="button">服务器信息</button>
         <button class="shell-tab" id="gm-tab-players" data-gm-tab="players" type="button">玩家管理</button>
         <button class="shell-tab" id="gm-tab-world" data-gm-tab="world" type="button">世界管理</button>
+        <button class="shell-tab" id="gm-tab-shortcuts" data-gm-tab="shortcuts" type="button">快捷指令</button>
         <span style="border-left:1px solid var(--ink-light); margin:0 4px;"></span>
         <button class="shell-tab shell-tab-minor" id="gm-tab-suggestions" data-gm-tab="suggestions" type="button">建议反馈</button>
       </div>
@@ -1595,6 +1596,30 @@
           <div id="world-info"><div class="empty-hint">从左侧选择一张地图</div></div>
         </div>
       </section>
+    </section>
+
+    <section id="shortcut-workspace" class="layout-section hidden" style="flex:1; min-height:0;">
+      <div class="panel-stamp">令</div>
+      <div class="section-head">
+        <div class="shell-title">快捷指令</div>
+        <div class="shell-subtitle">批量执行高频 GM 操作</div>
+      </div>
+      <div class="section-body">
+        <div class="note-card" style="margin-bottom: 16px;">
+          这里的快捷指令会直接影响全服角色状态。在线角色会在下一息统一执行，离线角色会直接更新存档。
+        </div>
+        <div class="editor-section">
+          <div class="editor-section-head">
+            <div>
+              <div class="editor-section-title">角色迁移</div>
+              <div class="editor-section-note">用于地图大改后，把全服角色统一送回新手村出生点。</div>
+            </div>
+          </div>
+          <div class="button-row">
+            <button id="shortcut-return-all-to-default-spawn" class="small-btn danger" type="button">所有角色回新手村出生点</button>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section id="suggestion-workspace" class="layout-section hidden" style="flex: 1; min-height: 0; display: flex; flex-direction: column;">

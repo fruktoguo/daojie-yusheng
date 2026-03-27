@@ -34,6 +34,7 @@ import {
   type GmManagedPlayerRecord,
   type GmRemoveBotsReq,
   type GmRestoreDatabaseReq,
+  type GmShortcutRunRes,
   type GmSpawnBotsReq,
   type GmStateRes,
   type GmTriggerDatabaseBackupRes,
@@ -165,10 +166,12 @@ const playerWorkspaceEl = document.getElementById('player-workspace') as HTMLEle
 const suggestionWorkspaceEl = document.getElementById('suggestion-workspace') as HTMLElement;
 const serverWorkspaceEl = document.getElementById('server-workspace') as HTMLElement;
 const worldWorkspaceEl = document.getElementById('world-workspace') as HTMLElement;
+const shortcutWorkspaceEl = document.getElementById('shortcut-workspace') as HTMLElement;
 const serverTabBtn = document.getElementById('gm-tab-server') as HTMLButtonElement;
 const playerTabBtn = document.getElementById('gm-tab-players') as HTMLButtonElement;
 const suggestionTabBtn = document.getElementById('gm-tab-suggestions') as HTMLButtonElement;
 const worldTabBtn = document.getElementById('gm-tab-world') as HTMLButtonElement;
+const shortcutTabBtn = document.getElementById('gm-tab-shortcuts') as HTMLButtonElement;
 const suggestionListEl = document.getElementById('gm-suggestion-list') as HTMLElement;
 const suggestionSearchInput = document.getElementById('gm-suggestion-search') as HTMLInputElement;
 const suggestionSearchClearBtn = document.getElementById('gm-suggestion-search-clear') as HTMLButtonElement;
@@ -191,7 +194,7 @@ let draftSnapshot: PlayerState | null = null;
 let editorDirty = false;
 let draftSourcePlayerId: string | null = null;
 let pollTimer: number | null = null;
-let currentTab: 'server' | 'players' | 'suggestions' | 'world' = 'server';
+let currentTab: 'server' | 'players' | 'suggestions' | 'world' | 'shortcuts' = 'server';
 let currentServerTab: 'overview' | 'traffic' | 'cpu' | 'database' = 'overview';
 let currentCpuBreakdownSort: 'total' | 'count' | 'avg' = 'total';
 let currentEditorTab: GmPlayerUpdateSection | 'persisted' = 'basic';
@@ -1270,7 +1273,7 @@ function setCpuBreakdownSort(sort: 'total' | 'count' | 'avg'): void {
   }
 }
 
-function switchTab(tab: 'server' | 'players' | 'suggestions' | 'world'): void {
+function switchTab(tab: 'server' | 'players' | 'suggestions' | 'world' | 'shortcuts'): void {
   // 离开世界管理时停止轮询
   if (currentTab === 'world' && tab !== 'world') {
     worldViewer.stopPolling();
@@ -1279,10 +1282,12 @@ function switchTab(tab: 'server' | 'players' | 'suggestions' | 'world'): void {
   serverTabBtn.classList.toggle('active', tab === 'server');
   playerTabBtn.classList.toggle('active', tab === 'players');
   worldTabBtn.classList.toggle('active', tab === 'world');
+  shortcutTabBtn.classList.toggle('active', tab === 'shortcuts');
   suggestionTabBtn.classList.toggle('active', tab === 'suggestions');
   serverWorkspaceEl.classList.toggle('hidden', tab !== 'server');
   playerWorkspaceEl.classList.toggle('hidden', tab !== 'players');
   worldWorkspaceEl.classList.toggle('hidden', tab !== 'world');
+  shortcutWorkspaceEl.classList.toggle('hidden', tab !== 'shortcuts');
   suggestionWorkspaceEl.classList.toggle('hidden', tab !== 'suggestions');
   if (tab === 'suggestions') {
     loadSuggestions().catch(() => {});
@@ -2857,6 +2862,32 @@ async function removeAllBots(): Promise<void> {
   }
 }
 
+async function returnAllPlayersToDefaultSpawn(): Promise<void> {
+  if (!window.confirm('这会把所有非机器人角色统一送回新手村出生点。在线角色下一息生效，离线角色会直接改存档。确认继续吗？')) {
+    return;
+  }
+
+  const button = document.getElementById('shortcut-return-all-to-default-spawn') as HTMLButtonElement | null;
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    const result = await request<GmShortcutRunRes>('/gm/shortcuts/players/return-all-to-default-spawn', {
+      method: 'POST',
+    });
+    editorDirty = false;
+    await delayRefresh(
+      `已提交全部角色回新手村出生点，共 ${result.totalPlayers} 个角色，在线 ${result.queuedRuntimePlayers} 个，离线 ${result.updatedOfflinePlayers} 个`,
+    );
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '执行快捷指令失败', true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
 async function resetNetworkStats(): Promise<void> {
   resetNetworkStatsBtn.disabled = true;
   try {
@@ -3161,6 +3192,7 @@ playerTabBtn.addEventListener('click', () => switchTab('players'));
 suggestionTabBtn.addEventListener('click', () => switchTab('suggestions'));
 serverTabBtn.addEventListener('click', () => switchTab('server'));
 worldTabBtn.addEventListener('click', () => switchTab('world'));
+shortcutTabBtn.addEventListener('click', () => switchTab('shortcuts'));
 serverSubtabOverviewBtn.addEventListener('click', () => switchServerTab('overview'));
 serverSubtabTrafficBtn.addEventListener('click', () => switchServerTab('traffic'));
 serverSubtabCpuBtn.addEventListener('click', () => switchServerTab('cpu'));
@@ -3195,6 +3227,9 @@ document.getElementById('spawn-bots')?.addEventListener('click', () => {
 });
 document.getElementById('remove-all-bots')?.addEventListener('click', () => {
   removeAllBots().catch(() => {});
+});
+document.getElementById('shortcut-return-all-to-default-spawn')?.addEventListener('click', () => {
+  returnAllPlayersToDefaultSpawn().catch(() => {});
 });
 resetNetworkStatsBtn.addEventListener('click', () => {
   resetNetworkStats().catch(() => {});
