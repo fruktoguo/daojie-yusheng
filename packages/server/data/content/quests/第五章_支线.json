@@ -7,10 +7,10 @@
       "story": "有些地方会把过去留下来，不是为了纪念，是因为连清理它们的人都死在了半路上。",
       "objectiveText": "清掉天宫傀壳",
       "targetMonsterId": "m_sky_puppet",
-      "targetCount": 12,
+      "targetCount": 6,
       "targetMapId": "sky_ruins",
       "targetName": "天宫傀壳",
-      "required": 12,
+      "required": 6,
       "reward": [
         {
           "itemId": "equip.celestial_crown",
@@ -39,7 +39,7 @@
       "story": "凡人篇走到这里，已经不是活着就算赢，而是终于能从天上抢一点东西回地上用。",
       "objectiveText": "击败天宫猎者并收回星陨金",
       "targetMonsterId": "m_void_hunter",
-      "targetCount": 10,
+      "targetCount": 6,
       "targetMapId": "sky_ruins",
       "targetName": "天宫猎者",
       "requiredItemId": "star_metal",

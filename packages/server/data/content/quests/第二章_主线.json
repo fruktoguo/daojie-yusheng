@@ -37,10 +37,10 @@
       "desc": "清掉林道上的噬灵狼，并收集足够的狼牙给阿栖回报。",
       "objectiveText": "清掉林道噬灵狼并带回狼牙",
       "targetMonsterId": "m_spirit_wolf",
-      "targetCount": 8,
+      "targetCount": 6,
       "targetMapId": "bamboo_forest",
       "targetName": "噬灵狼",
-      "required": 8,
+      "required": 6,
       "requiredItemId": "wolf_fang",
       "requiredItemCount": 4,
       "reward": [

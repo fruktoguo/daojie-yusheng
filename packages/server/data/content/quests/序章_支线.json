@@ -39,7 +39,7 @@
       "story": "兰药师嘴上说着“药不轻给”，可谁真替她把脏活做了，她也从不让人白跑。",
       "objectiveText": "清掉药铺后巷鼠患，并带回鼠尾",
       "targetMonsterId": "m_town_rat_refuse",
-      "targetCount": 8,
+      "targetCount": 6,
       "targetMapId": "yunlai_town",
       "targetName": "后巷灰尾鼠",
       "requiredItemId": "rat_tail",

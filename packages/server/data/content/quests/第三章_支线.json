@@ -34,7 +34,7 @@
       "story": "被记在账上的人未必活着，不在账上的人也未必真死了。",
       "objectiveText": "清掉矿洞活尸并带回矿晶核",
       "targetMonsterId": "m_mine_ghoul",
-      "targetCount": 10,
+      "targetCount": 6,
       "targetMapId": "black_iron_mine",
       "targetName": "矿洞活尸",
       "requiredItemId": "mine_crystal_core",
@@ -66,10 +66,10 @@
       "story": "有些死人比活人更爱讲话，可要让它们开口，也得先替它们把环境收拾干净。",
       "objectiveText": "清掉遗迹骨枭",
       "targetMonsterId": "m_bone_owl",
-      "targetCount": 12,
+      "targetCount": 6,
       "targetMapId": "ancient_ruins",
       "targetName": "遗迹骨枭",
-      "required": 12,
+      "required": 6,
       "reward": [
         {
           "itemId": "major_qi_pill",
