@@ -3510,6 +3510,35 @@
       line-height: 1.45;
       color: var(--ink-grey);
     }
+    .breakthrough-requirement-item {
+      background:
+        linear-gradient(180deg, rgba(255, 252, 247, 0.96), rgba(245, 237, 224, 0.92));
+    }
+    .breakthrough-requirement-head {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px 8px;
+    }
+    .breakthrough-requirement-status {
+      font-weight: 600;
+    }
+    .breakthrough-requirement-status.is-completed {
+      color: var(--success-ink);
+    }
+    .breakthrough-requirement-status.is-unmet {
+      color: var(--stamp-red);
+    }
+    .breakthrough-requirement-bonus {
+      display: inline-flex;
+      align-items: center;
+      padding: 1px 6px;
+      border: 1px solid rgba(125, 27, 27, 0.18);
+      background: rgba(125, 27, 27, 0.08);
+      font-size: var(--font-size-11);
+      font-weight: 600;
+      color: var(--stamp-red);
+    }
     .action-section-hint {
       margin-bottom: 8px;
       font-size: var(--font-size-11);

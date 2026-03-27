@@ -1650,6 +1650,7 @@ export class TechniqueService {
       hidden,
       optional: !blocksBreakthrough,
       blocksBreakthrough,
+      increasePct: this.isOptionalAttributeIncreaser(requirement) ? this.getRequirementIncreasePct(requirement) : undefined,
       detail: this.formatBreakthroughRequirementDetail(player, requirement, completed, increaseMultiplier, blocksBreakthrough),
     };
   }

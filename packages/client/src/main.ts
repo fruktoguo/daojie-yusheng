@@ -68,6 +68,7 @@ import {
   TickRenderEntity,
   TechniqueUpdateEntry,
   ActionUpdateEntry,
+  BreakthroughRequirementView,
   SkillDef,
   Tile,
   TileType,
@@ -470,6 +471,25 @@ function escapeHtml(input: string): string {
     .replaceAll("'", '&#39;');
 }
 
+function getBreakthroughRequirementStatusLabel(requirement: BreakthroughRequirementView): string {
+  return requirement.blocksBreakthrough === false
+    ? (requirement.completed ? '已生效' : '未生效')
+    : (requirement.completed ? '已达成' : '未达成');
+}
+
+function getBreakthroughRequirementStatusDetail(requirement: BreakthroughRequirementView): string {
+  if (requirement.hidden) {
+    return '该要求尚未解锁，只能通过主线或支线任务逐步获知。';
+  }
+  if ((requirement.increasePct ?? 0) > 0) {
+    if (requirement.type === 'item') {
+      return requirement.completed ? '突破成功后会消耗该材料。' : '未生效时会抬高全部属性要求。';
+    }
+    return requirement.completed ? '该条件当前已生效。' : '未生效时会抬高全部属性要求。';
+  }
+  return requirement.detail ?? (requirement.completed ? '当前已满足。' : '当前尚未满足。');
+}
+
 function openBreakthroughModal() {
   if (openHeavenGateModal(myPlayer, {
     showToast,
@@ -486,17 +506,21 @@ function openBreakthroughModal() {
   }
 
   const hasConsumableRequirements = preview.requirements.some((requirement) => requirement.type === 'item');
+  const hasIncreaseRequirements = preview.requirements.some((requirement) => (requirement.increasePct ?? 0) > 0);
   const requirementRows = preview.requirements.length > 0
     ? preview.requirements.map((requirement) => `
-      <div class="action-item">
+      <div class="action-item breakthrough-requirement-item">
         <div class="action-copy">
-          <div>
+          <div class="breakthrough-requirement-head">
             <span class="action-name">${escapeHtml(requirement.label)}</span>
-            <span class="action-type">[${requirement.blocksBreakthrough === false ? (requirement.completed ? '已生效' : '未生效') : (requirement.completed ? '已达成' : '未达成')}]</span>
+            <span class="action-type breakthrough-requirement-status ${requirement.completed ? 'is-completed' : 'is-unmet'}">
+              [${getBreakthroughRequirementStatusLabel(requirement)}]
+            </span>
+            ${!requirement.completed && (requirement.increasePct ?? 0) > 0
+              ? `<span class="breakthrough-requirement-bonus">+${requirement.increasePct}%</span>`
+              : ''}
           </div>
-          <div class="action-desc">${escapeHtml(requirement.hidden
-            ? '该要求尚未解锁，只能通过主线或支线任务逐步获知。'
-            : (requirement.detail ?? (requirement.completed ? '当前已满足。' : '当前尚未满足。')))}</div>
+          <div class="action-desc">${escapeHtml(getBreakthroughRequirementStatusDetail(requirement))}</div>
         </div>
       </div>
     `).join('')
@@ -504,21 +528,22 @@ function openBreakthroughModal() {
 
   detailModalHost.open({
     ownerId: 'realm:breakthrough',
+    variantClass: 'detail-modal--breakthrough',
     title: `突破至 ${preview.targetDisplayName}`,
     subtitle: `${currentRealm.displayName} · 核心要求 ${preview.completedBlockingRequirements}/${preview.blockingRequirements}`,
     hint: preview.blockedReason
       ? preview.blockedReason
       : preview.canBreakthrough
-      ? (hasConsumableRequirements ? '已生效的材料会在突破后消耗；未生效的材料或功法会抬高属性要求' : '点击空白处关闭')
-      : (hasConsumableRequirements ? '未生效的材料或功法会抬高属性要求' : '未达成的隐藏条件需通过任务逐步解锁'),
+      ? (hasConsumableRequirements ? '绿色表示已满足；已生效的材料会在突破后消耗。' : '点击空白处关闭')
+      : (hasIncreaseRequirements ? '红色表示当前未满足；带 +% 的条件会抬高全部属性要求。' : '红色表示当前未满足；隐藏条件需通过任务逐步解锁。'),
     bodyHtml: `
       <div class="panel-section">
         <div class="panel-section-title">突破要求</div>
         ${requirementRows}
       </div>
-      ${hasConsumableRequirements ? `
+      ${hasIncreaseRequirements ? `
         <div class="panel-section">
-          <div class="empty-hint">提示：材料和功法条件未生效时，会按配置上浮全部属性要求；已生效的材料会在突破成功后消耗。</div>
+          <div class="empty-hint">提示：红色且带 +% 的条件当前未生效，会按配置抬高全部属性要求；绿色表示当前已满足或已生效。</div>
         </div>
       ` : ''}
       <div class="tech-modal-actions">

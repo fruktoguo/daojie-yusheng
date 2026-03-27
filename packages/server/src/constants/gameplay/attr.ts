@@ -21,6 +21,8 @@ export const REALM_LINEAR_NUMERIC_KEYS = [
   'breakPower',
   'resolvePower',
   'maxQiOutputPerTick',
+  'qiRegenRate',
+  'hpRegenRate',
 ] as const;
 
 /** 玩家特殊养成数值的客户端同步间隔。 */
