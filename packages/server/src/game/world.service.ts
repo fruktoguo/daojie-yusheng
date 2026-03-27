@@ -3535,7 +3535,16 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     for (const quest of player.quests) {
       if (quest.status !== 'active' || quest.objectiveType !== 'kill' || quest.targetMonsterId !== monsterId) continue;
       quest.progress = Math.min(quest.required, quest.progress + 1);
-      quest.targetName = monsterName;
+      const targetName = resolveQuestTargetName({
+        objectiveType: quest.objectiveType,
+        title: quest.title,
+        targetName: quest.targetName,
+        targetMonsterId: quest.targetMonsterId,
+        resolveMonsterName: () => monsterName,
+      });
+      if (quest.targetName !== targetName) {
+        quest.targetName = targetName;
+      }
       changed = true;
     }
 

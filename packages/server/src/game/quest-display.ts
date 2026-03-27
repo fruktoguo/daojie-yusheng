@@ -18,6 +18,14 @@ type ResolveQuestTargetNameOptions = {
   resolveItemName?: (itemId: string) => string | undefined;
 };
 
+function normalizeKillQuestTargetName(name?: string | null): string | undefined {
+  if (!name) {
+    return undefined;
+  }
+  const sanitized = name.replaceAll('精英', '').trim();
+  return sanitized.length > 0 ? sanitized : name;
+}
+
 /** 判断字符串是否像内部内容 ID（纯 ASCII、含分隔符、无空格） */
 export function isLikelyInternalContentId(value?: string | null): boolean {
   if (!value) return false;
@@ -63,16 +71,20 @@ export function resolveQuestTargetName({
   resolveTechniqueName,
   resolveItemName,
 }: ResolveQuestTargetNameOptions): string {
-  if (targetName && !isLikelyInternalContentId(targetName)) {
-    return targetName;
-  }
-
   if (objectiveType === 'talk' && targetNpcId) {
     return resolveNpcName?.(targetNpcId) ?? targetName ?? targetNpcId;
   }
 
   if (objectiveType === 'kill' && targetMonsterId) {
-    return resolveMonsterName?.(targetMonsterId) ?? targetName ?? targetMonsterId;
+    const normalizedTargetName = normalizeKillQuestTargetName(targetName);
+    if (normalizedTargetName && !isLikelyInternalContentId(normalizedTargetName)) {
+      return normalizedTargetName;
+    }
+    return normalizeKillQuestTargetName(resolveMonsterName?.(targetMonsterId)) ?? normalizedTargetName ?? targetMonsterId;
+  }
+
+  if (targetName && !isLikelyInternalContentId(targetName)) {
+    return targetName;
   }
 
   if (objectiveType === 'submit_item' && requiredItemId) {
