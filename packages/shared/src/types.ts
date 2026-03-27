@@ -847,7 +847,7 @@ export interface CombatEffectFloat {
 export type CombatEffect = CombatEffectAttack | CombatEffectFloat;
 
 /** 场景实体类型 */
-export type EntityKind = 'npc' | 'monster' | 'container';
+export type EntityKind = 'npc' | 'monster' | 'container' | 'crowd';
 
 /** 任务状态 */
 export type QuestStatus = 'available' | 'active' | 'ready' | 'completed';

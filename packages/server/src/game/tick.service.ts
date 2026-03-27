@@ -1841,6 +1841,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         ));
         visiblePlayers.push(...projectedParentPlayers);
       }
+      const crowdedVisiblePlayers = this.measureCpuSection('broadcast_players', '广播: 玩家实体聚合', () => (
+        this.worldService.buildCrowdedPlayerRenderEntities(visiblePlayers, viewer.id)
+      ));
 
       const visibleEntities = this.measureCpuSection('broadcast_entities', '广播: 环境实体构建', () => (
         this.worldService.getVisibleEntities(viewer, visibility.visibleKeys)
@@ -1888,7 +1891,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         ? this.mapService.getMinimapSignature(viewer.mapId)
         : '';
       const minimapLibrarySignature = this.buildMinimapLibrarySignature(unlockedMinimapIds);
-      const visibleEntityIds = new Set([...visiblePlayers, ...visibleEntities].map((entity) => entity.id));
+      const visibleEntityIds = new Set([...crowdedVisiblePlayers, ...visibleEntities].map((entity) => entity.id));
       const visibleThreatArrows = this.measureCpuSection('broadcast_entities', '广播: 仇恨箭头构建', () => (
         this.worldService.getVisibleThreatArrowRefs(
           overlayParentMapId ? [viewer.mapId, overlayParentMapId] : [viewer.mapId],
@@ -1933,7 +1936,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (shouldSendFullVisibility) {
         this.syncVisibleTileCache(viewer.id, clientVisibleTiles, tileOriginX, tileOriginY);
       }
-      const playerPatches = this.buildSparseRenderEntities(viewer.id, visiblePlayers, visibleEntityIds);
+      const playerPatches = this.buildSparseRenderEntities(viewer.id, crowdedVisiblePlayers, visibleEntityIds);
       const entityPatches = this.buildSparseRenderEntities(viewer.id, visibleEntities, visibleEntityIds);
       const effectPatches = this.measureCpuSection('broadcast_patch_effects', '广播: 特效过滤', () => (
         this.filterEffectsForViewer(effects, visibility.visibleKeys)

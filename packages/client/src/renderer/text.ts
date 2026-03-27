@@ -675,10 +675,21 @@ export class TextRenderer implements IRenderer {
       });
     }
 
+    const crowdedTileKeys = new Set(
+      renderedEntities
+        .filter((entry) => entry.anim.kind === 'crowd')
+        .map((entry) => `${entry.anim.gridX},${entry.anim.gridY}`),
+    );
+
     this.renderThreatTargetArrows(renderedEntities, localPlayerId);
 
     for (const rendered of renderedEntities) {
       const { anim, sx, sy, cellSize: renderedCellSize } = rendered;
+      const isCrowd = anim.kind === 'crowd';
+
+      if (!isCrowd && anim.kind === 'player' && crowdedTileKeys.has(`${anim.gridX},${anim.gridY}`)) {
+        continue;
+      }
 
       ctx.fillStyle = 'rgba(0,0,0,0.3)';
       ctx.beginPath();
@@ -696,20 +707,22 @@ export class TextRenderer implements IRenderer {
         const isPlayer = anim.kind === 'player';
         const isNpc = anim.kind === 'npc';
         const isContainer = anim.kind === 'container';
-        const label = anim.name ?? (isMonster ? '妖兽' : isPlayer ? '修士' : isContainer ? '箱具' : '道人');
+        const label = anim.name ?? (isCrowd ? '人群' : isMonster ? '妖兽' : isPlayer ? '修士' : isContainer ? '箱具' : '道人');
         ctx.textBaseline = 'alphabetic';
-        ctx.font = `${renderedCellSize * 0.3}px "Noto Serif SC", serif`;
+        ctx.font = `${renderedCellSize * (isCrowd ? 0.24 : 0.3)}px "Noto Serif SC", serif`;
         this.drawOutlinedText(
           label,
           sx + renderedCellSize / 2,
           sy - Math.max(6, renderedCellSize * 0.18),
-          isMonster ? '#ffddcc' : isPlayer ? '#d8f3c3' : isContainer ? '#ffe3b8' : '#cce7ff',
+          isCrowd ? '#f4dfaf' : isMonster ? '#ffddcc' : isPlayer ? '#d8f3c3' : isContainer ? '#ffe3b8' : '#cce7ff',
           'rgba(15,12,10,0.9)',
         );
 
-        this.drawBuffRows(sx, sy, renderedCellSize, anim.buffs);
+        if (!isCrowd) {
+          this.drawBuffRows(sx, sy, renderedCellSize, anim.buffs);
+        }
 
-        if ((anim.maxHp ?? 0) > 0) {
+        if (!isCrowd && (anim.maxHp ?? 0) > 0) {
           const ratio = Math.max(0, Math.min(1, (anim.hp ?? 0) / (anim.maxHp ?? 1)));
           const barX = sx + 3;
           const barY = sy + renderedCellSize - 5;

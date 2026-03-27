@@ -425,6 +425,14 @@ type ObservedEntity = {
   buffs?: VisibleBuffState[];
 };
 
+function isCrowdEntityKind(kind: string | null | undefined): boolean {
+  return kind === 'crowd';
+}
+
+function isPlayerLikeEntityKind(kind: string | null | undefined): boolean {
+  return kind === 'player' || isCrowdEntityKind(kind);
+}
+
 type ObserveEntityCardData = Pick<
   ObservedEntity,
   'id' | 'name' | 'kind' | 'hp' | 'maxHp' | 'qi' | 'maxQi' | 'npcQuestMarker' | 'observation' | 'buffs'
@@ -666,7 +674,7 @@ function hasAffectableTargetInArea(
   }
   return affectedCells.some((cell) => {
     const hasMonster = latestEntities.some((entity) => entity.kind === 'monster' && entity.wx === cell.x && entity.wy === cell.y);
-    const hasPlayer = latestEntities.some((entity) => entity.kind === 'player' && entity.wx === cell.x && entity.wy === cell.y);
+    const hasPlayer = latestEntities.some((entity) => isPlayerLikeEntityKind(entity.kind) && entity.wx === cell.x && entity.wy === cell.y);
     if (hasMonster || hasPlayer) {
       return true;
     }
@@ -1210,6 +1218,13 @@ function formatTraversalCost(tile: Tile): string {
 }
 
 function toObserveEntityCardData(entity: ObservedEntity): ObserveEntityCardData {
+  if (isCrowdEntityKind(entity.kind)) {
+    return {
+      id: entity.id,
+      name: entity.name,
+      kind: entity.kind,
+    };
+  }
   return {
     id: entity.id,
     name: entity.name,
@@ -1225,6 +1240,13 @@ function toObserveEntityCardData(entity: ObservedEntity): ObserveEntityCardData 
 }
 
 function normalizeObserveEntityCardData(entity: NonNullable<S2C_TileRuntimeDetail['entities']>[number]): ObserveEntityCardData {
+  if (isCrowdEntityKind(entity.kind)) {
+    return {
+      id: entity.id,
+      name: entity.name,
+      kind: entity.kind ?? undefined,
+    };
+  }
   return {
     id: entity.id,
     name: entity.name,
@@ -1240,15 +1262,24 @@ function normalizeObserveEntityCardData(entity: NonNullable<S2C_TileRuntimeDetai
 }
 
 function buildObservedEntityCardHtml(entity: ObserveEntityCardData): string {
-  const shouldAlwaysShowVitals = entity.kind === 'monster' || entity.kind === 'npc';
-  const vitalRows = shouldAlwaysShowVitals
+  if (isCrowdEntityKind(entity.kind)) {
+    return `<div class="observe-entity-card">
+      <div class="observe-entity-head">
+        <span class="observe-entity-name">${escapeHtml(entity.name ?? '人群')}</span>
+        <span class="observe-entity-kind">${escapeHtml(getEntityKindLabel(entity.kind, '人群'))}</span>
+      </div>
+      <div class="observe-entity-verdict">此地人影交叠，气机纷杂，只能辨出这里聚着一团密集人群。</div>
+      <div class="observe-entity-empty">地图广播已将此格玩家聚合为人群显示，不再实时展开单人的血条、Buff 与细节变化。</div>
+    </div>`;
+  }
+  const detailRows = entity.observation?.lines ?? [];
+  const fallbackVitalRows = (entity.kind === 'monster' || entity.kind === 'npc') && detailRows.length === 0
     ? [
         { label: '生命', value: formatCurrentMax(entity.hp, entity.maxHp) },
         { label: '灵力', value: formatCurrentMax(entity.qi, entity.maxQi) },
       ]
     : [];
-  const detailRows = entity.observation?.lines ?? [];
-  const detailGrid = [...vitalRows, ...detailRows];
+  const detailGrid = detailRows.length > 0 ? detailRows : fallbackVitalRows;
   const visibleBuffs = entity.buffs ?? [];
   const publicBuffs = visibleBuffs.filter((buff) => buff.visibility === 'public' && buff.category === 'buff');
   const publicDebuffs = visibleBuffs.filter((buff) => buff.visibility === 'public' && buff.category === 'debuff');
@@ -1282,8 +1313,12 @@ function resolveObserveEntities(targetX: number, targetY: number): ObserveEntity
     return activeObservedTileDetail.entities.map((entity) => normalizeObserveEntityCardData(entity));
   }
 
-  return latestEntities
-    .filter((entity) => entity.wx === targetX && entity.wy === targetY)
+  const localEntities = latestEntities
+    .filter((entity) => entity.wx === targetX && entity.wy === targetY);
+  const hasCrowdEntity = localEntities.some((entity) => isCrowdEntityKind(entity.kind));
+
+  return localEntities
+    .filter((entity) => !hasCrowdEntity || entity.kind !== 'player')
     .map((entity) => toObserveEntityCardData(entity));
 }
 
@@ -1335,7 +1370,7 @@ function renderObserveModal(targetX: number, targetY: number): void {
 
   const groundPile = getVisibleGroundPileAt(targetX, targetY);
   const sortedEntities = [...resolveObserveEntities(targetX, targetY)].sort((left, right) => {
-    const order = (kind?: string): number => (kind === 'player' ? 0 : kind === 'container' ? 1 : kind === 'npc' ? 2 : kind === 'monster' ? 3 : 4);
+    const order = (kind?: string): number => (kind === 'crowd' ? 0 : kind === 'player' ? 1 : kind === 'container' ? 2 : kind === 'npc' ? 3 : kind === 'monster' ? 4 : 5);
     return order(left.kind) - order(right.kind);
   });
   const terrainRows = [

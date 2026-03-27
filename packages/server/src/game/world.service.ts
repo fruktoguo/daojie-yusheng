@@ -72,6 +72,11 @@ import {
   NPC_ROLE_PROFILES,
   OBSERVATION_BLIND_RATIO,
   OBSERVATION_FULL_RATIO,
+  PLAYER_CROWD_CHAR,
+  PLAYER_CROWD_COLOR,
+  PLAYER_CROWD_DENSE_COLOR,
+  PLAYER_CROWD_DENSE_NAME_THRESHOLD,
+  PLAYER_CROWD_RENDER_THRESHOLD,
 } from '../constants/world/overview';
 import {
   ORE_REWARD_BASE_CHANCE_BPS_BY_TILE,
@@ -381,6 +386,67 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       hp: target.hp,
       maxHp: target.maxHp,
       buffs: this.getMapRenderableBuffs(target.temporaryBuffs),
+    };
+  }
+
+  /** 在允许重叠的热点格上，将过多玩家压缩成单个人群实体，降低地图广播与渲染开销。 */
+  buildCrowdedPlayerRenderEntities(entities: RenderEntity[], preservePlayerId?: string): RenderEntity[] {
+    const grouped = new Map<string, RenderEntity[]>();
+
+    for (const entity of entities) {
+      const key = `${entity.x},${entity.y}`;
+      const bucket = grouped.get(key);
+      if (bucket) {
+        bucket.push(entity);
+        continue;
+      }
+      grouped.set(key, [entity]);
+    }
+
+    const aggregated: RenderEntity[] = [];
+    for (const group of grouped.values()) {
+      if (group.length < PLAYER_CROWD_RENDER_THRESHOLD) {
+        aggregated.push(...group);
+        continue;
+      }
+
+      aggregated.push(this.buildCrowdRenderEntity(group[0], group.length));
+
+      if (preservePlayerId) {
+        const preserved = group.find((entity) => entity.id === preservePlayerId);
+        if (preserved) {
+          aggregated.push(preserved);
+        }
+      }
+    }
+
+    return aggregated;
+  }
+
+  private buildCrowdRenderEntity(anchor: RenderEntity, count: number): RenderEntity {
+    const isDenseCrowd = count > PLAYER_CROWD_DENSE_NAME_THRESHOLD;
+    return {
+      id: `crowd:${anchor.x},${anchor.y}`,
+      x: anchor.x,
+      y: anchor.y,
+      char: PLAYER_CROWD_CHAR,
+      color: isDenseCrowd ? PLAYER_CROWD_DENSE_COLOR : PLAYER_CROWD_COLOR,
+      name: isDenseCrowd ? '人山人海' : `人群${count}`,
+      kind: 'crowd',
+    };
+  }
+
+  private buildCrowdObservationDetail(x: number, y: number, count: number): ObservedTileEntityDetail {
+    const isDenseCrowd = count > PLAYER_CROWD_DENSE_NAME_THRESHOLD;
+    return {
+      id: `crowd:${x},${y}`,
+      name: isDenseCrowd ? '人山人海' : `人群${count}`,
+      kind: 'crowd',
+      observation: {
+        clarity: 'blurred',
+        verdict: '此地人影交叠，气机纷杂，只能分辨出这是一处密集人群。',
+        lines: [],
+      },
     };
   }
 
@@ -1348,9 +1414,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       .filter((monster) => monster.alive && monster.x === resolvedX && monster.y === resolvedY)
       .map<ObservedTileEntityDetail>((monster) => this.buildMonsterObservationDetail(viewer, monster));
 
-    const players = this.playerService.getPlayersByMap(sourceMapId)
-      .filter((player) => player.x === resolvedX && player.y === resolvedY)
-      .map<ObservedTileEntityDetail>((player) => this.buildPlayerObservationDetail(viewer, player));
+    const playersAtTile = this.playerService.getPlayersByMap(sourceMapId)
+      .filter((player) => player.x === resolvedX && player.y === resolvedY);
+    const players = playersAtTile.length >= PLAYER_CROWD_RENDER_THRESHOLD
+      ? [this.buildCrowdObservationDetail(resolvedX, resolvedY, playersAtTile.length)]
+      : playersAtTile.map<ObservedTileEntityDetail>((player) => this.buildPlayerObservationDetail(viewer, player));
 
     return [...players, ...containers, ...npcs, ...monsters];
   }

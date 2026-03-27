@@ -675,6 +675,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         target,
         target.id === player.id ? '#ff0' : target.isBot ? '#6bb8ff' : '#0f0',
       ));
+    const visiblePlayers = this.worldService.buildCrowdedPlayerRenderEntities(nearbyPlayers, player.id);
     const visibleEntities = this.worldService.getVisibleEntities(player, visibility.visibleKeys);
 
     const initData: S2C_Init = {
@@ -684,7 +685,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       visibleMinimapMarkers,
       minimapLibrary,
       tiles: this.toClientVisibleTiles(player, visibility.tiles),
-      players: [...nearbyPlayers, ...visibleEntities],
+      players: [...visiblePlayers, ...visibleEntities],
       time,
       auraLevelBaseValue: this.tickService.getAuraLevelBaseValue(),
     };

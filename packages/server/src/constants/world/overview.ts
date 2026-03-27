@@ -43,6 +43,21 @@ export const OBSERVATION_FULL_RATIO = 1.2;
 /** 观察近似失明时的神识比值。 */
 export const OBSERVATION_BLIND_RATIO = 0.2;
 
+/** 同格玩家达到该人数后，地图广播改为单个人群实体。 */
+export const PLAYER_CROWD_RENDER_THRESHOLD = 5;
+
+/** 人群人数超过该值后，地图名称改为“人山人海”。 */
+export const PLAYER_CROWD_DENSE_NAME_THRESHOLD = 20;
+
+/** 人群实体在地图上的单字符标记。 */
+export const PLAYER_CROWD_CHAR = '众';
+
+/** 普通人群实体颜色。 */
+export const PLAYER_CROWD_COLOR = '#d8c27a';
+
+/** 高密度人群实体颜色。 */
+export const PLAYER_CROWD_DENSE_COLOR = '#e7a95f';
+
 /** 不同 NPC 角色的存在感预设。 */
 export const NPC_ROLE_PROFILES: Record<string, { title: string; spirit: number; hp: number; qi: number }> = {
   quest_giver: { title: '引路前辈', spirit: 30, hp: 96, qi: 132 },

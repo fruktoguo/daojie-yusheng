@@ -101,6 +101,7 @@ export const ENTITY_KIND_LABELS: Record<EntityKind | 'player', string> = {
   monster: '妖兽',
   npc: '人物',
   container: '容器',
+  crowd: '人群',
 };
 
 /** 小地图标记类型中文标签 */
