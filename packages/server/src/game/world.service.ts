@@ -3519,12 +3519,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   }
 
   private restorePlayerAfterDefeat(player: PlayerState, occupy: boolean) {
-    const spawn = this.mapService.getSpawnPoint(player.mapId) ?? { x: player.x, y: player.y };
-    const pos = this.findNearbyWalkable(player.mapId, spawn.x, spawn.y, 4) ?? spawn;
+    const respawnPlacement = this.mapService.resolveDefaultPlayerSpawnPosition(player.id);
     this.navigationService.clearMoveTarget(player.id);
     this.mapService.removeOccupant(player.mapId, player.x, player.y, player.id);
-    player.x = pos.x;
-    player.y = pos.y;
+    player.mapId = respawnPlacement.mapId;
+    player.x = respawnPlacement.x;
+    player.y = respawnPlacement.y;
     player.facing = Direction.South;
     player.hp = player.maxHp;
     player.qi = Math.round(player.numericStats?.maxQi ?? player.qi);
