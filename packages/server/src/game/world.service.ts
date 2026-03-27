@@ -880,6 +880,20 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   /** 自动战斗逻辑：寻敌 → 追击 → 释放技能/普攻 */
   performAutoBattle(player: PlayerState): WorldUpdate {
     if (!player.autoBattle || player.dead) return EMPTY_UPDATE;
+    const safeZoneAttackError = this.getSafeZoneAttackBlockError(player);
+    if (safeZoneAttackError) {
+      player.autoBattle = false;
+      this.navigationService.clearMoveTarget(player.id);
+      this.clearCombatTarget(player);
+      return {
+        messages: [{
+          playerId: player.id,
+          text: safeZoneAttackError,
+          kind: 'system',
+        }],
+        dirty: ['actions'],
+      };
+    }
 
     const dirty = new Set<WorldDirtyFlag>();
     const effectiveViewRange = this.timeService.getEffectiveViewRangeFromBuff(player.viewRange, player.temporaryBuffs);
@@ -970,6 +984,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (!skill) {
       return { ...EMPTY_UPDATE, error: '技能不存在' };
     }
+    const safeZoneAttackError = this.ensurePlayerCanStartSkillAttack(player, skill);
+    if (safeZoneAttackError) {
+      return { ...EMPTY_UPDATE, error: safeZoneAttackError };
+    }
     if (skill.requiresTarget !== false) {
       return { ...EMPTY_UPDATE, error: '缺少目标' };
     }
@@ -981,6 +999,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     const skill = this.contentService.getSkill(skillId);
     if (!skill) {
       return { ...EMPTY_UPDATE, error: '技能不存在' };
+    }
+    const safeZoneAttackError = this.ensurePlayerCanStartSkillAttack(player, skill);
+    if (safeZoneAttackError) {
+      return { ...EMPTY_UPDATE, error: safeZoneAttackError };
     }
     if (!targetRef) {
       return { ...EMPTY_UPDATE, error: '请选择目标' };
@@ -1125,6 +1147,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
   /** 锁定目标并开启自动战斗 */
   engageTarget(player: PlayerState, targetRef?: string): WorldUpdate {
+    const safeZoneAttackError = this.getSafeZoneAttackBlockError(player);
+    if (safeZoneAttackError) {
+      return { ...EMPTY_UPDATE, error: safeZoneAttackError };
+    }
     if (!targetRef) {
       return { ...EMPTY_UPDATE, error: '缺少目标' };
     }
@@ -1145,6 +1171,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   }
 
   forceAttackTarget(player: PlayerState, targetRef?: string): WorldUpdate {
+    const safeZoneAttackError = this.getSafeZoneAttackBlockError(player);
+    if (safeZoneAttackError) {
+      return { ...EMPTY_UPDATE, error: safeZoneAttackError };
+    }
     if (!targetRef) {
       return { ...EMPTY_UPDATE, error: '请选择目标' };
     }
@@ -4277,6 +4307,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   }
 
   private performBasicAttack(player: PlayerState, target: ResolvedTarget): WorldUpdate {
+    const safeZoneAttackError = this.getSafeZoneAttackBlockError(player);
+    if (safeZoneAttackError) {
+      return { ...EMPTY_UPDATE, error: safeZoneAttackError };
+    }
     const combat = this.getPlayerCombatSnapshot(player);
     const useSpellAttack = combat.stats.spellAtk > combat.stats.physAtk;
     const damageKind: SkillDamageKind = useSpellAttack ? 'spell' : 'physical';
@@ -4304,6 +4338,23 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   private clearCombatTarget(player: PlayerState): void {
     player.combatTargetId = undefined;
     player.combatTargetLocked = false;
+  }
+
+  private ensurePlayerCanStartSkillAttack(player: PlayerState, skill: SkillDef): string | undefined {
+    if (!this.isHostileSkill(skill)) {
+      return undefined;
+    }
+    return this.getSafeZoneAttackBlockError(player);
+  }
+
+  private isHostileSkill(skill: SkillDef): boolean {
+    return skill.effects.some((effect) => effect.type === 'damage' || (effect.type === 'buff' && effect.target === 'target'));
+  }
+
+  private getSafeZoneAttackBlockError(player: Pick<PlayerState, 'mapId' | 'x' | 'y'>): string | undefined {
+    return this.mapService.isPointInSafeZone(player.mapId, player.x, player.y)
+      ? '安全区内无法发起攻击。'
+      : undefined;
   }
 
   private movePlayerToInitialSpawn(

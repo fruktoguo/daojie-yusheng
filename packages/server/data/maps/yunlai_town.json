@@ -258,6 +258,13 @@
       "value": 3
     }
   ],
+  "safeZones": [
+    {
+      "x": 32,
+      "y": 5,
+      "radius": 4
+    }
+  ],
   "landmarks": [
     {
       "id": "lm_preview_south_gate",

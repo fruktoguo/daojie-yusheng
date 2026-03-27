@@ -979,6 +979,13 @@ export interface GmMapAuraRecord {
   value: number;
 }
 
+/** GM 地图安全区记录 */
+export interface GmMapSafeZoneRecord {
+  x: number;
+  y: number;
+  radius: number;
+}
+
 /** GM 地图地标记录 */
 export interface GmMapLandmarkRecord {
   id: string;
@@ -1129,6 +1136,7 @@ export interface GmMapDocument {
   };
   time?: MapTimeConfig;
   auras?: GmMapAuraRecord[];
+  safeZones?: GmMapSafeZoneRecord[];
   landmarks?: GmMapLandmarkRecord[];
   npcs: GmMapNpcRecord[];
   monsterSpawns: GmMapMonsterSpawnRecord[];

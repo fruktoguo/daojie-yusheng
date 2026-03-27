@@ -19,6 +19,7 @@ import {
   GmMapMonsterSpawnRecord,
   GmMapNpcRecord,
   GmMapPortalRecord,
+  GmMapSafeZoneRecord,
   GmMapSummary,
   inferMonsterValueStatsFromLegacy,
   isTileTypeWalkable,
@@ -219,6 +220,12 @@ export interface ContainerConfig {
   lootPools: ContainerLootPoolConfig[];
 }
 
+export interface SafeZoneConfig {
+  x: number;
+  y: number;
+  radius: number;
+}
+
 export interface MonsterSpawnConfig {
   id: string;
   name: string;
@@ -252,6 +259,7 @@ interface MapData {
   portals: Portal[];
   auraPoints: MapAuraPoint[];
   baseAuraValues: Map<string, number>;
+  safeZones: SafeZoneConfig[];
   containers: ContainerConfig[];
   npcs: NpcConfig[];
   monsterSpawns: MonsterSpawnConfig[];
@@ -918,6 +926,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     };
     const portals = this.normalizePortals(document.portals, meta);
     const auraPoints = this.normalizeAuraPoints(document.auras, meta);
+    const safeZones = this.normalizeSafeZones(document.safeZones, meta);
     const baseAuraValues = new Map<string, number>(auraPoints.map((point) => [this.tileStateKey(point.x, point.y), point.value]));
 
     // 显式入口需要落成楼梯/传送阵地块；隐藏入口则保留原始地貌，只通过 portal 配置参与触发与观察。
@@ -959,6 +968,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       portals,
       auraPoints,
       baseAuraValues,
+      safeZones,
       containers,
       npcs,
       monsterSpawns,
@@ -2053,6 +2063,35 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         value: normalizeConfiguredAuraValue(point.value!, this.auraLevelBaseValue),
       });
     }
+    return result;
+  }
+
+  private normalizeSafeZones(rawSafeZones: unknown, meta: MapMeta): SafeZoneConfig[] {
+    if (!Array.isArray(rawSafeZones)) {
+      return [];
+    }
+
+    const result: SafeZoneConfig[] = [];
+    for (const candidate of rawSafeZones) {
+      const zone = candidate as Partial<GmMapSafeZoneRecord>;
+      if (!Number.isInteger(zone.x) || !Number.isInteger(zone.y) || !Number.isInteger(zone.radius)) {
+        this.logger.warn(`地图 ${meta.id} 存在非法安全区配置，已忽略`);
+        continue;
+      }
+      const x = Number(zone.x);
+      const y = Number(zone.y);
+      const radius = Math.max(0, Number(zone.radius));
+      if (x < 0 || x >= meta.width || y < 0 || y >= meta.height) {
+        this.logger.warn(`地图 ${meta.id} 的安全区中心越界: (${x}, ${y})`);
+        continue;
+      }
+      result.push({
+        x,
+        y,
+        radius,
+      });
+    }
+
     return result;
   }
 
@@ -3160,6 +3199,14 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
   getNpcs(mapId: string): NpcConfig[] {
     return this.maps.get(mapId)?.npcs ?? [];
+  }
+
+  getSafeZones(mapId: string): SafeZoneConfig[] {
+    return this.maps.get(mapId)?.safeZones ?? [];
+  }
+
+  isPointInSafeZone(mapId: string, x: number, y: number): boolean {
+    return this.getSafeZones(mapId).some((zone) => isPointInRange({ x, y }, zone, zone.radius));
   }
 
   getNpcById(mapId: string, npcId: string): NpcConfig | undefined {

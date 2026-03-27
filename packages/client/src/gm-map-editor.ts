@@ -14,6 +14,7 @@ import {
   GmMapNpcRecord,
   GmMapPortalRecord,
   GmMapQuestRecord,
+  GmMapSafeZoneRecord,
   MapRouteDomain,
   PortalRouteDomain,
   QUEST_LINE_LABELS,
@@ -74,15 +75,16 @@ type MapEntitySelection =
   | { kind: 'npc'; index: number }
   | { kind: 'monster'; index: number }
   | { kind: 'aura'; index: number }
+  | { kind: 'safeZone'; index: number }
   | { kind: 'landmark'; index: number }
   | { kind: 'container'; index: number }
   | null;
 
-type MapEntityKind = 'portal' | 'npc' | 'monster' | 'aura' | 'landmark' | 'container';
+type MapEntityKind = 'portal' | 'npc' | 'monster' | 'aura' | 'safeZone' | 'landmark' | 'container';
 
 type MapTool = 'select' | 'paint' | 'pan';
 type PaintLayer = 'tile' | 'aura';
-type InspectorTabId = 'selection' | 'meta' | 'portal' | 'npc' | 'monster' | 'aura' | 'landmark' | 'container';
+type InspectorTabId = 'selection' | 'meta' | 'portal' | 'npc' | 'monster' | 'aura' | 'safeZone' | 'landmark' | 'container';
 type GridPoint = { x: number; y: number };
 
 type EditorUndoEntry = {
@@ -726,6 +728,7 @@ export class GmMapEditor {
       `NPC ${this.draft.npcs.length}`,
       `怪物刷新点 ${this.draft.monsterSpawns.length}`,
       `灵气点 ${this.draft.auras?.length ?? 0}`,
+      `安全区 ${(this.draft.safeZones ?? []).length}`,
       `地标 ${this.draft.landmarks?.length ?? 0}`,
       `容器 ${this.getContainerLandmarks().length}`,
       this.dirty ? '有未保存修改' : this.syncedSummaryLabel,
@@ -767,6 +770,8 @@ export class GmMapEditor {
         return this.renderMonsterTab(selectedEntityPoint);
       case 'aura':
         return this.renderAuraTab(selectedEntityPoint);
+      case 'safeZone':
+        return this.renderSafeZoneTab(selectedEntityPoint);
       case 'landmark':
         return this.renderLandmarkTab(selectedEntityPoint);
       case 'container':
@@ -948,6 +953,31 @@ export class GmMapEditor {
     `;
   }
 
+  private renderSafeZoneTab(selectedPoint: { x: number; y: number } | null): string {
+    if (!this.draft) return '';
+    return `
+      <section class="editor-section">
+        <div class="editor-section-head">
+          <div>
+            <div class="editor-section-title">安全区</div>
+            <div class="editor-section-note">玩家站在安全区内时无法主动发起攻击。范围显示与怪物点类似，可直接拖动中心点。</div>
+          </div>
+          <button class="small-btn" type="button" data-map-action="add-safe-zone">新建安全区</button>
+        </div>
+        <div class="map-entity-list">
+          ${(this.draft.safeZones ?? []).map((zone, index) => `
+            <button class="map-entity-btn ${this.selectedEntity?.kind === 'safeZone' && this.selectedEntity.index === index ? 'active' : ''}" data-entity-kind="safeZone" data-entity-index="${index}" type="button">
+              ${escapeHtml(`中心 (${zone.x},${zone.y}) · 半径 ${zone.radius}`)}
+            </button>
+          `).join('') || '<div class="editor-note">暂无安全区。</div>'}
+        </div>
+      </section>
+      ${this.selectedEntity?.kind === 'safeZone'
+        ? this.renderSelectedEntitySection(selectedPoint)
+        : '<div class="editor-note">选中一个安全区后可在下方编辑半径。</div>'}
+    `;
+  }
+
   private renderLandmarkTab(selectedPoint: { x: number; y: number } | null): string {
     if (!this.draft) return '';
     const landmarks = (this.draft.landmarks ?? []).flatMap((landmark, index) => landmark.container ? [] : [{ landmark, index }]);
@@ -1010,7 +1040,7 @@ export class GmMapEditor {
               <div class="editor-section-note">先从上面的对象列表里选中一个。</div>
             </div>
           </div>
-          <div class="editor-note">当前没有选中的传送点、NPC、怪物刷新点、灵气点、地标或容器。</div>
+          <div class="editor-note">当前没有选中的传送点、NPC、怪物刷新点、灵气点、安全区、地标或容器。</div>
         </section>
       `;
     }
@@ -1109,6 +1139,27 @@ export class GmMapEditor {
             ${nullableNumberField('分布范围', `monsterSpawns.${this.selectedEntity.index}.wanderRadius`, spawn.wanderRadius ?? spawn.radius)}
           </div>
           <div class="editor-note">留空时跟随怪物模板；分布范围留空时默认等于生成半径。要改名字、显示字、基础属性、移动速度或索敌半径，请改怪物模板。</div>
+        </section>
+      `;
+    }
+
+    if (this.selectedEntity.kind === 'safeZone') {
+      const zone = this.draft.safeZones?.[this.selectedEntity.index];
+      if (!zone) return '';
+      return `
+        <section class="editor-section">
+          <div class="editor-section-head">
+            <div>
+              <div class="editor-section-title">安全区属性</div>
+              <div class="editor-section-note">格子 ${selectedPoint ? `(${selectedPoint.x}, ${selectedPoint.y})` : '-'} · 只限制玩家从区内主动发起攻击。</div>
+            </div>
+            <button class="small-btn danger" type="button" data-map-action="remove-selected">删除</button>
+          </div>
+          <div class="map-form-grid">
+            ${numberField('中心 X', `safeZones.${this.selectedEntity.index}.x`, zone.x)}
+            ${numberField('中心 Y', `safeZones.${this.selectedEntity.index}.y`, zone.y)}
+            ${numberField('半径', `safeZones.${this.selectedEntity.index}.radius`, zone.radius)}
+          </div>
         </section>
       `;
     }
@@ -1239,6 +1290,10 @@ export class GmMapEditor {
     if (this.selectedEntity.kind === 'aura') {
       const aura = this.draft.auras?.[this.selectedEntity.index];
       return aura ? `灵气 ${aura.value}` : '无';
+    }
+    if (this.selectedEntity.kind === 'safeZone') {
+      const zone = this.draft.safeZones?.[this.selectedEntity.index];
+      return zone ? `安全区 半径 ${zone.radius}` : '无';
     }
     if (this.selectedEntity.kind === 'container') {
       const landmark = this.getContainerLandmark(this.selectedEntity.index);
@@ -1426,6 +1481,10 @@ export class GmMapEditor {
         this.currentInspectorTab = 'aura';
         this.addAuraAtCurrentCell();
         return;
+      case 'add-safe-zone':
+        this.currentInspectorTab = 'safeZone';
+        this.addSafeZoneAtCurrentCell();
+        return;
       case 'add-landmark':
         this.currentInspectorTab = 'landmark';
         this.addLandmarkAtCurrentCell();
@@ -1559,6 +1618,20 @@ export class GmMapEditor {
     this.markDirty();
   }
 
+  private addSafeZoneAtCurrentCell(): void {
+    if (!this.ensureSelectedCell()) return;
+    const { x, y } = this.selectedCell!;
+    this.captureUndoState();
+    this.draft!.safeZones = this.draft!.safeZones ?? [];
+    this.draft!.safeZones.push({
+      x,
+      y,
+      radius: 4,
+    });
+    this.selectedEntity = { kind: 'safeZone', index: this.draft!.safeZones.length - 1 };
+    this.markDirty();
+  }
+
   private addLandmarkAtCurrentCell(): void {
     if (!this.ensureSelectedCell()) return;
     const { x, y } = this.selectedCell!;
@@ -1666,6 +1739,17 @@ export class GmMapEditor {
       return true;
     }
 
+    if (selection.kind === 'safeZone') {
+      const zone = this.draft.safeZones?.[selection.index];
+      if (!zone) return false;
+      if (recordUndo) this.captureUndoState();
+      zone.x = x;
+      zone.y = y;
+      this.selectedCell = { x, y };
+      this.markDirty(false);
+      return true;
+    }
+
     if (selection.kind === 'landmark') {
       const landmark = this.draft.landmarks?.[selection.index];
       if (!landmark) return false;
@@ -1742,6 +1826,8 @@ export class GmMapEditor {
       removeArrayIndex(this.draft, 'monsterSpawns', this.selectedEntity.index);
     } else if (this.selectedEntity.kind === 'aura') {
       removeArrayIndex(this.draft, 'auras', this.selectedEntity.index);
+    } else if (this.selectedEntity.kind === 'safeZone') {
+      removeArrayIndex(this.draft, 'safeZones', this.selectedEntity.index);
     } else if (this.selectedEntity.kind === 'container') {
       removeArrayIndex(this.draft, 'landmarks', this.selectedEntity.index);
     } else if (this.selectedEntity.kind === 'landmark') {
@@ -1773,6 +1859,7 @@ export class GmMapEditor {
     this.draft.npcs = this.draft.npcs.filter((npc) => npc.x < width && npc.y < height && npc.x >= 0 && npc.y >= 0);
     this.draft.monsterSpawns = this.draft.monsterSpawns.filter((spawn) => spawn.x < width && spawn.y < height && spawn.x >= 0 && spawn.y >= 0);
     this.draft.auras = (this.draft.auras ?? []).filter((point) => point.x < width && point.y < height && point.x >= 0 && point.y >= 0);
+    this.draft.safeZones = (this.draft.safeZones ?? []).filter((zone) => zone.x < width && zone.y < height && zone.x >= 0 && zone.y >= 0);
     this.draft.landmarks = (this.draft.landmarks ?? []).filter((landmark) => landmark.x < width && landmark.y < height && landmark.x >= 0 && landmark.y >= 0);
     this.draft.spawnPoint = this.findNearestWalkable(this.clampPoint(this.draft.spawnPoint, width, height)) ?? this.clampPoint(this.draft.spawnPoint, width, height);
     this.selectedCell = this.clampPoint(this.selectedCell ?? this.draft.spawnPoint, width, height);
@@ -1993,7 +2080,13 @@ export class GmMapEditor {
         this.drawMonsterSpawnOverlay(ctx, screenW, screenH, cellSize, selectedSpawn);
       }
     }
-    const drawEntity = (wx: number, wy: number, char: string, color: string, name: string, kind: 'npc' | 'monster' | 'spawn' | 'container'): void => {
+    if (this.selectedEntity?.kind === 'safeZone') {
+      const selectedZone = this.draft.safeZones?.[this.selectedEntity.index];
+      if (selectedZone) {
+        this.drawSafeZoneOverlay(ctx, screenW, screenH, cellSize, selectedZone);
+      }
+    }
+    const drawEntity = (wx: number, wy: number, char: string, color: string, name: string, kind: 'npc' | 'monster' | 'spawn' | 'container' | 'safeZone'): void => {
       const sx = wx * cellSize - this.viewCenterX + screenW / 2;
       const sy = wy * cellSize - this.viewCenterY + screenH / 2;
       if (sx + cellSize < 0 || sx > screenW || sy + cellSize < 0 || sy > screenH) return;
@@ -2018,6 +2111,8 @@ export class GmMapEditor {
         ? '#ffddcc'
         : kind === 'spawn'
           ? '#fff0b0'
+          : kind === 'safeZone'
+            ? '#d7fff2'
           : kind === 'container'
             ? '#f5ddb0'
             : '#cce7ff';
@@ -2069,6 +2164,7 @@ export class GmMapEditor {
     this.draft.npcs.forEach((npc) => drawEntity(npc.x, npc.y, npc.char || '人', npc.color || '#d6d0c4', npc.name || npc.id, 'npc'));
     this.draft.monsterSpawns.forEach((spawn) => drawEntity(spawn.x, spawn.y, spawn.char || '妖', spawn.color || '#d27a7a', spawn.name || spawn.id, 'monster'));
     (this.draft.auras ?? []).forEach((point) => drawEntity(point.x, point.y, '灵', '#77b8ff', `灵气:${point.value}`, 'npc'));
+    (this.draft.safeZones ?? []).forEach((zone) => drawEntity(zone.x, zone.y, '安', '#7ce5c6', `安全区:${zone.radius}`, 'safeZone'));
     (this.draft.landmarks ?? [])
       .filter((landmark) => landmark.container)
       .forEach((landmark) => drawEntity(
@@ -2200,6 +2296,106 @@ export class GmMapEditor {
     ctx.lineWidth = 1;
     ctx.strokeRect(sx + cellSize / 2 - boxWidth / 2, anchorY - boxHeight / 2, boxWidth, boxHeight);
     ctx.fillStyle = '#e5fff5';
+    ctx.fillText(summary, sx + cellSize / 2, anchorY + 0.5);
+  }
+
+  private drawSafeZoneOverlay(
+    ctx: CanvasRenderingContext2D,
+    screenW: number,
+    screenH: number,
+    cellSize: number,
+    zone: GmMapSafeZoneRecord,
+  ): void {
+    if (!this.draft) {
+      return;
+    }
+    const radius = Math.max(0, Math.floor(zone.radius ?? 0));
+
+    const drawCellOverlay = (
+      x: number,
+      y: number,
+      fillStyle: string | null,
+      strokeStyle: string | null,
+      lineWidth: number,
+    ): void => {
+      if (x < 0 || y < 0 || x >= this.draft!.width || y >= this.draft!.height) {
+        return;
+      }
+      const sx = x * cellSize - this.viewCenterX + screenW / 2;
+      const sy = y * cellSize - this.viewCenterY + screenH / 2;
+      if (sx + cellSize < 0 || sx > screenW || sy + cellSize < 0 || sy > screenH) {
+        return;
+      }
+      if (fillStyle) {
+        ctx.fillStyle = fillStyle;
+        ctx.fillRect(sx, sy, cellSize, cellSize);
+      }
+      if (strokeStyle) {
+        ctx.strokeStyle = strokeStyle;
+        ctx.lineWidth = lineWidth;
+        ctx.strokeRect(sx + 0.5, sy + 0.5, cellSize - 1, cellSize - 1);
+      }
+    };
+
+    for (let dy = -radius; dy <= radius; dy += 1) {
+      for (let dx = -radius; dx <= radius; dx += 1) {
+        if (!isOffsetInRange(dx, dy, radius)) {
+          continue;
+        }
+        drawCellOverlay(
+          zone.x + dx,
+          zone.y + dy,
+          'rgba(74, 209, 164, 0.18)',
+          null,
+          0,
+        );
+      }
+    }
+
+    if (radius > 0) {
+      for (let dy = -radius; dy <= radius; dy += 1) {
+        for (let dx = -radius; dx <= radius; dx += 1) {
+          if (!isOffsetInRange(dx, dy, radius) || isOffsetInRange(dx, dy, radius - 1)) {
+            continue;
+          }
+          drawCellOverlay(
+            zone.x + dx,
+            zone.y + dy,
+            null,
+            'rgba(141, 255, 221, 0.92)',
+            Math.max(1, cellSize >= 24 ? 2 : 1),
+          );
+        }
+      }
+    }
+
+    drawCellOverlay(
+      zone.x,
+      zone.y,
+      'rgba(210, 255, 241, 0.22)',
+      'rgba(210, 255, 241, 0.95)',
+      Math.max(1, cellSize >= 24 ? 2 : 1),
+    );
+
+    if (cellSize < 18) {
+      return;
+    }
+    const sx = zone.x * cellSize - this.viewCenterX + screenW / 2;
+    const sy = zone.y * cellSize - this.viewCenterY + screenH / 2;
+    const summary = `安${radius}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `bold ${Math.max(11, cellSize * 0.28)}px "Noto Serif SC", serif`;
+    const paddingX = Math.max(7, cellSize * 0.18);
+    const boxHeight = Math.max(18, cellSize * 0.46);
+    const boxWidth = ctx.measureText(summary).width + paddingX * 2;
+    const anchorY = sy + cellSize + Math.max(12, cellSize * 0.34);
+    ctx.fillStyle = 'rgba(9, 22, 18, 0.8)';
+    ctx.fillRect(sx + cellSize / 2 - boxWidth / 2, anchorY - boxHeight / 2, boxWidth, boxHeight);
+    ctx.strokeStyle = 'rgba(141, 255, 221, 0.85)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(sx + cellSize / 2 - boxWidth / 2, anchorY - boxHeight / 2, boxWidth, boxHeight);
+    ctx.fillStyle = '#eafff8';
     ctx.fillText(summary, sx + cellSize / 2, anchorY + 0.5);
   }
 
@@ -2550,6 +2746,8 @@ export class GmMapEditor {
     if (portalIndex >= 0) return { kind: 'portal', index: portalIndex };
     const auraIndex = (this.draft.auras ?? []).findIndex((point) => point.x === x && point.y === y);
     if (auraIndex >= 0) return { kind: 'aura', index: auraIndex };
+    const safeZoneIndex = (this.draft.safeZones ?? []).findIndex((zone) => zone.x === x && zone.y === y);
+    if (safeZoneIndex >= 0) return { kind: 'safeZone', index: safeZoneIndex };
     const containerIndex = (this.draft.landmarks ?? []).findIndex((landmark) => landmark.container && landmark.x === x && landmark.y === y);
     if (containerIndex >= 0) return { kind: 'container', index: containerIndex };
     const landmarkIndex = (this.draft.landmarks ?? []).findIndex((landmark) => landmark.x === x && landmark.y === y);
@@ -2574,6 +2772,10 @@ export class GmMapEditor {
     if (this.selectedEntity.kind === 'aura') {
       const aura = this.draft.auras?.[this.selectedEntity.index];
       return aura ? { x: aura.x, y: aura.y } : null;
+    }
+    if (this.selectedEntity.kind === 'safeZone') {
+      const zone = this.draft.safeZones?.[this.selectedEntity.index];
+      return zone ? { x: zone.x, y: zone.y } : null;
     }
     if (this.selectedEntity.kind === 'container') {
       const landmark = this.getContainerLandmark(this.selectedEntity.index);

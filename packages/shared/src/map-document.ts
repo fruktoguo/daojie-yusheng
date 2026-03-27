@@ -13,6 +13,7 @@ import {
   GmMapNpcShopItemRecord,
   GmMapPortalRecord,
   GmMapQuestRecord,
+  GmMapSafeZoneRecord,
   GmMapSummary,
 } from './protocol';
 import { getTileTypeFromMapChar, isTileTypeWalkable } from './terrain';
@@ -352,6 +353,9 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
     ? source.tiles.map((row) => typeof row === 'string' ? row : '')
     : [];
   const auras = Array.isArray(source.auras) ? source.auras : [];
+  const safeZones = Array.isArray((source as { safeZones?: unknown[] }).safeZones)
+    ? (source as { safeZones: unknown[] }).safeZones
+    : [];
   const landmarks = Array.isArray((source as { landmarks?: unknown[] }).landmarks)
     ? (source as { landmarks: unknown[] }).landmarks
     : [];
@@ -405,6 +409,11 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
       x: Number((point as GmMapAuraRecord).x ?? 0),
       y: Number((point as GmMapAuraRecord).y ?? 0),
       value: Number((point as GmMapAuraRecord).value ?? 0),
+    })),
+    safeZones: safeZones.map((zone) => ({
+      x: Number((zone as GmMapSafeZoneRecord).x ?? 0),
+      y: Number((zone as GmMapSafeZoneRecord).y ?? 0),
+      radius: Number((zone as GmMapSafeZoneRecord).radius ?? 0),
     })),
     landmarks: landmarks.map((landmark) => ({
       id: String((landmark as GmMapLandmarkRecord).id ?? ''),
@@ -580,6 +589,16 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
     const point = document.auras![index]!;
     const error = ensurePointInBounds(point.x, point.y, `灵气点 ${index + 1}`);
     if (error) return error;
+  }
+
+  for (let index = 0; index < (document.safeZones?.length ?? 0); index += 1) {
+    const zone = document.safeZones![index]!;
+    const label = `安全区 ${index + 1}`;
+    const error = ensurePointInBounds(zone.x, zone.y, label);
+    if (error) return error;
+    if (!Number.isInteger(zone.radius) || zone.radius < 0) {
+      return `${label} 的半径必须为非负整数`;
+    }
   }
 
   for (let index = 0; index < (document.landmarks?.length ?? 0); index += 1) {
