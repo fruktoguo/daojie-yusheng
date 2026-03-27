@@ -79,6 +79,13 @@
         "chance": 0.6
       },
       {
+        "itemId": "book_thunder_palm",
+        "name": "《惊雷掌》残卷",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.01
+      },
+      {
         "itemId": "spirit_stone",
         "name": "灵石",
         "type": "consumable",
@@ -130,7 +137,7 @@
         "name": "矿卫盔",
         "type": "equipment",
         "count": 1,
-        "chance": 0.06
+        "chance": 0.01
       },
       {
         "itemId": "spirit_stone",
@@ -184,7 +191,14 @@
         "name": "裂隙镇守甲",
         "type": "equipment",
         "count": 1,
-        "chance": 0.1
+        "chance": 0.01
+      },
+      {
+        "itemId": "book.golden_lock_body",
+        "name": "《固元功》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.01
       },
       {
         "itemId": "spirit_stone",
@@ -252,7 +266,14 @@
         "name": "裂隙镇守甲",
         "type": "equipment",
         "count": 1,
-        "chance": 0.14
+        "chance": 0.01
+      },
+      {
+        "itemId": "book.redflame_art",
+        "name": "《赤焰诀》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.01
       },
       {
         "itemId": "spirit_stone",

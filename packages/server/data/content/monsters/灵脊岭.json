@@ -22,7 +22,7 @@
         "name": "凝灵戒",
         "type": "equipment",
         "count": 1,
-        "chance": 0.08
+        "chance": 0.01
       },
       {
         "itemId": "spirit_stone",
@@ -76,7 +76,7 @@
         "name": "《寒魄经》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.06
+        "chance": 0.01
       },
       {
         "itemId": "spirit_stone",
@@ -133,6 +133,13 @@
         "chance": 0.4
       },
       {
+        "itemId": "book.lightshadow_art",
+        "name": "《折影提气诀》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.01
+      },
+      {
         "itemId": "spirit_stone",
         "name": "灵石",
         "type": "consumable",
@@ -144,7 +151,7 @@
         "name": "噬元骨牌",
         "type": "equipment",
         "count": 1,
-        "chance": 0.05
+        "chance": 0.01
       }
     ],
     "grade": "yellow",
@@ -198,14 +205,14 @@
         "name": "凝灵戒",
         "type": "equipment",
         "count": 1,
-        "chance": 0.16
+        "chance": 0.01
       },
       {
         "itemId": "book.frost_sutra",
         "name": "《寒魄经》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.1
+        "chance": 0.01
       },
       {
         "itemId": "spirit_stone",

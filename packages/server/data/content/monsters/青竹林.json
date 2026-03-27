@@ -22,7 +22,7 @@
         "name": "《踏风步》残页",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.07
+        "chance": 0.01
       },
       {
         "itemId": "spirit_stone",
@@ -119,11 +119,18 @@
         "chance": 0.45
       },
       {
-        "itemId": "book.iron_bone_art",
-        "name": "《铁骨功》",
+        "itemId": "book.qingmu_sword",
+        "name": "《青木剑诀》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.05
+        "chance": 0.01
+      },
+      {
+        "itemId": "book.nourishing_qi_art",
+        "name": "《养气诀》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.01
       },
       {
         "itemId": "spirit_stone",
@@ -177,7 +184,14 @@
         "name": "旧铁长刀",
         "type": "equipment",
         "count": 1,
-        "chance": 0.05
+        "chance": 0.01
+      },
+      {
+        "itemId": "book.cloudchase_steps",
+        "name": "《分光步》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.01
       },
       {
         "itemId": "spirit_stone",
@@ -238,14 +252,14 @@
         "name": "旧铁长刀",
         "type": "equipment",
         "count": 1,
-        "chance": 0.12
+        "chance": 0.01
       },
       {
         "itemId": "book.iron_bone_art",
         "name": "《铁骨功》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.08
+        "chance": 0.01
       },
       {
         "itemId": "spirit_stone",

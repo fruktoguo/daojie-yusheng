@@ -18,6 +18,13 @@
         "chance": 0.57
       },
       {
+        "itemId": "book.mountain_insight_chart",
+        "name": "《玄照图》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.01
+      },
+      {
         "itemId": "spirit_stone",
         "name": "灵石",
         "type": "consumable",
@@ -58,11 +65,11 @@
     "attack": 26,
     "drops": [
       {
-        "itemId": "book_thunder_palm",
-        "name": "《惊雷掌》残卷",
+        "itemId": "book.bright_eye_sutra",
+        "name": "《明目经》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.08
+        "chance": 0.01
       },
       {
         "itemId": "soul_ink",
@@ -83,7 +90,7 @@
         "name": "噬元骨牌",
         "type": "equipment",
         "count": 1,
-        "chance": 0.03
+        "chance": 0.01
       }
     ],
     "grade": "mortal",
@@ -130,7 +137,7 @@
         "name": "《镇灵篇》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.06
+        "chance": 0.01
       },
       {
         "itemId": "spirit_stone",
@@ -191,14 +198,14 @@
         "name": "《镇灵篇》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.1
+        "chance": 0.01
       },
       {
         "itemId": "equip.soul_devour_token",
         "name": "噬元骨牌",
         "type": "equipment",
         "count": 1,
-        "chance": 0.08
+        "chance": 0.01
       },
       {
         "itemId": "spirit_stone",
@@ -253,6 +260,13 @@
         "type": "material",
         "count": 1,
         "chance": 0.42
+      },
+      {
+        "itemId": "book.hidden_fortune_record",
+        "name": "《藏运录》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.01
       },
       {
         "itemId": "spirit_stone",

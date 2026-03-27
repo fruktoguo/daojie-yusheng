@@ -7,8 +7,6 @@
     "radius": 8,
     "respawnSec": 18,
     "level": 15,
-    "hp": 732,
-    "attack": 95,
     "drops": [
       {
         "itemId": "star_metal",
@@ -33,24 +31,31 @@
       }
     ],
     "grade": "yellow",
+    "tier": "mortal_blood",
     "count": 8,
-    "maxHp": 732,
-    "valueStats": {
-      "maxHp": 16.06,
-      "maxQi": 23.85,
-      "physAtk": 25.02,
-      "spellAtk": 13.17,
-      "physDef": 36.67,
-      "spellDef": 30,
-      "hit": 129.17,
-      "dodge": 116.25,
-      "crit": 64.58,
-      "critDamage": 77.5,
-      "breakPower": 40.83,
-      "resolvePower": 33.33,
-      "maxQiOutputPerTick": 38.33,
-      "viewRange": 6,
-      "moveSpeed": 312
+    "attrs": {
+      "constitution": 89,
+      "spirit": 72,
+      "perception": 278,
+      "talent": 79,
+      "comprehension": 20,
+      "luck": 56
+    },
+    "statPercents": {
+      "maxHp": 72,
+      "maxQi": 151.99,
+      "physAtk": 131.94,
+      "spellAtk": 148.48,
+      "physDef": 41.59,
+      "spellDef": 41.62,
+      "hit": 23.24,
+      "dodge": 20.84,
+      "crit": 23.39,
+      "breakPower": 41.7,
+      "resolvePower": 41.58,
+      "maxQiOutputPerTick": 379.17,
+      "viewRange": 58.33,
+      "moveSpeed": 112.29
     }
   },
   {
@@ -61,8 +66,6 @@
     "radius": 6,
     "respawnSec": 20,
     "level": 16,
-    "hp": 1476,
-    "attack": 85,
     "drops": [
       {
         "itemId": "sky_pattern_page",
@@ -76,7 +79,7 @@
         "name": "《镇灵篇》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.07
+        "chance": 0.01
       },
       {
         "itemId": "spirit_stone",
@@ -87,24 +90,31 @@
       }
     ],
     "grade": "yellow",
+    "tier": "mortal_blood",
     "count": 6,
-    "maxHp": 1476,
-    "valueStats": {
-      "maxHp": 29.45,
-      "maxQi": 14.75,
-      "physAtk": 20.35,
-      "spellAtk": 8.14,
-      "physDef": 94.8,
-      "spellDef": 77.6,
-      "hit": 105.2,
-      "dodge": 35.2,
-      "crit": 21.2,
-      "critDamage": 49.2,
-      "breakPower": 30,
-      "resolvePower": 60.4,
-      "maxQiOutputPerTick": 14,
-      "viewRange": 6,
-      "moveSpeed": 154
+    "attrs": {
+      "constitution": 238,
+      "spirit": 195,
+      "perception": 88,
+      "talent": 150,
+      "comprehension": 15,
+      "luck": 18
+    },
+    "statPercents": {
+      "maxHp": 72.37,
+      "maxQi": 53.07,
+      "physAtk": 59.57,
+      "spellAtk": 53.23,
+      "physDef": 40,
+      "spellDef": 39.96,
+      "hit": 59.77,
+      "dodge": 20,
+      "crit": 24.09,
+      "breakPower": 39.89,
+      "resolvePower": 40,
+      "maxQiOutputPerTick": 140,
+      "viewRange": 60,
+      "moveSpeed": 175
     }
   },
   {
@@ -115,8 +125,6 @@
     "radius": 2,
     "respawnSec": 180,
     "level": 17,
-    "hp": 1470,
-    "attack": 140,
     "drops": [
       {
         "itemId": "sky_seal_core",
@@ -130,14 +138,14 @@
         "name": "陨星枪",
         "type": "equipment",
         "count": 1,
-        "chance": 0.35
+        "chance": 0.01
       },
       {
         "itemId": "book.starfall_spear",
         "name": "《陨星枪诀》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.25
+        "chance": 0.01
       },
       {
         "itemId": "spirit_stone",
@@ -148,24 +156,38 @@
       }
     ],
     "grade": "yellow",
+    "tier": "variant",
     "count": 1,
-    "maxHp": 1470,
-    "valueStats": {
-      "maxHp": 26.66,
-      "maxQi": 35.34,
-      "physAtk": 30.47,
-      "spellAtk": 18.72,
-      "physDef": 61.92,
-      "spellDef": 53.08,
-      "hit": 173.85,
-      "dodge": 99.23,
-      "crit": 82.69,
-      "critDamage": 107.69,
-      "breakPower": 60,
-      "resolvePower": 44.23,
-      "maxQiOutputPerTick": 62.31,
-      "viewRange": 6,
-      "moveSpeed": 319
+    "equipment": {
+      "weapon": "equip.starfall_spear",
+      "head": "equip.windhear_crown",
+      "body": "equip.rift_guard_armor",
+      "legs": "equip.threshold_boots",
+      "accessory": "equip.void_talisman"
+    },
+    "attrs": {
+      "constitution": 161,
+      "spirit": 138,
+      "perception": 257,
+      "talent": 114,
+      "comprehension": 32,
+      "luck": 51
+    },
+    "statPercents": {
+      "maxHp": 85.32,
+      "maxQi": 160.69,
+      "physAtk": 115,
+      "spellAtk": 158.18,
+      "physDef": 38.42,
+      "spellDef": 38.44,
+      "hit": 33.83,
+      "dodge": 19.24,
+      "crit": 32.34,
+      "breakPower": 37.23,
+      "resolvePower": 38.51,
+      "maxQiOutputPerTick": 619.23,
+      "viewRange": 61.54,
+      "moveSpeed": 124.1
     }
   },
   {
@@ -183,22 +205,30 @@
     "viewRange": 6,
     "aggroMode": "always",
     "expMultiplier": 1,
-    "valueStats": {
-      "maxHp": 37.39,
-      "maxQi": 60,
-      "physAtk": 28.29,
-      "spellAtk": 32.25,
-      "physDef": 103.33,
-      "spellDef": 114.81,
-      "hit": 236.3,
-      "dodge": 96.67,
-      "crit": 75.19,
-      "critDamage": 118.15,
-      "breakPower": 47.41,
-      "resolvePower": 80.37,
-      "maxQiOutputPerTick": 120,
-      "viewRange": 6,
-      "moveSpeed": 240
+    "tier": "demon_king",
+    "attrs": {
+      "constitution": 278,
+      "spirit": 311,
+      "perception": 262,
+      "talent": 216,
+      "comprehension": 65,
+      "luck": 52
+    },
+    "statPercents": {
+      "maxHp": 75.58,
+      "maxQi": 153.06,
+      "physAtk": 74.35,
+      "spellAtk": 155.77,
+      "physDef": 37.02,
+      "spellDef": 37.02,
+      "hit": 45.02,
+      "dodge": 18.52,
+      "crit": 28.71,
+      "breakPower": 14.51,
+      "resolvePower": 37.05,
+      "maxQiOutputPerTick": 1200,
+      "viewRange": 59.26,
+      "moveSpeed": 91.65
     },
     "drops": [
       {
@@ -220,21 +250,28 @@
         "name": "残星乌铁枪",
         "type": "equipment",
         "count": 1,
-        "chance": 0.18
+        "chance": 0.01
       },
       {
         "itemId": "book.starfall_spear",
         "name": "《陨星枪诀》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.14
+        "chance": 0.01
+      },
+      {
+        "itemId": "book.body_tempering_formula",
+        "name": "《锻体决》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.01
       },
       {
         "itemId": "equip.void_talisman",
         "name": "镇脉玄纹佩",
         "type": "equipment",
         "count": 1,
-        "chance": 0.1
+        "chance": 0.01
       },
       {
         "itemId": "spirit_stone",
@@ -243,9 +280,6 @@
         "count": 1,
         "chance": 0.01
       }
-    ],
-    "hp": 2268,
-    "maxHp": 2268,
-    "attack": 143
+    ]
   }
 ]

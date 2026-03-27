@@ -164,7 +164,7 @@
         "name": "《铁骨功》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.05
+        "chance": 0.01
       },
       {
         "itemId": "spirit_stone",

@@ -123,7 +123,7 @@
         "name": "旧铁长刀",
         "type": "equipment",
         "count": 1,
-        "chance": 0.07
+        "chance": 0.01
       },
       {
         "itemId": "spirit_stone",
@@ -178,6 +178,13 @@
         "type": "consumable",
         "count": 1,
         "chance": 0.1
+      },
+      {
+        "itemId": "book.cloudchase_steps",
+        "name": "《分光步》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.01
       },
       {
         "itemId": "spirit_stone",
@@ -238,14 +245,14 @@
         "name": "游侠靴",
         "type": "equipment",
         "count": 1,
-        "chance": 0.12
+        "chance": 0.01
       },
       {
         "itemId": "book.cloud_blade",
         "name": "《流云刀谱》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.08
+        "chance": 0.01
       },
       {
         "itemId": "spirit_stone",
@@ -299,7 +306,7 @@
         "name": "《流云刀谱》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.04
+        "chance": 0.01
       },
       {
         "itemId": "spirit_stone",
