@@ -29,6 +29,7 @@ import { PerformanceService } from './performance.service';
 import { LootService } from './loot.service';
 import { TimeService } from './time.service';
 import { SuggestionService } from './suggestion.service';
+import { SuggestionRealtimeService } from './suggestion-realtime.service';
 import { ThreatService } from './threat.service';
 import { PathRequestSchedulerService } from './pathfinding/path-request-scheduler.service';
 import { PathWorkerPoolService } from './pathfinding/path-worker-pool.service';
@@ -72,12 +73,13 @@ import { DatabaseBackupService } from './database-backup.service';
     ThreatService,
     WorldService,
     SuggestionService,
+    SuggestionRealtimeService,
     MarketService,
     PathRequestSchedulerService,
     PathWorkerPoolService,
     DatabaseBackupService,
   ],
-  exports: [MapService, PlayerService, SuggestionService],
+  exports: [MapService, PlayerService, SuggestionService, SuggestionRealtimeService],
 })
 
 export class GameModule {}

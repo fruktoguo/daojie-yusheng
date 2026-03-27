@@ -7,6 +7,7 @@ import {
   WebSocketServer,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   SubscribeMessage,
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
@@ -35,6 +36,8 @@ import {
   C2S_Chat,
   C2S_CreateSuggestion,
   C2S_VoteSuggestion,
+  C2S_ReplySuggestion,
+  C2S_MarkSuggestionRepliesRead,
   C2S_GmMarkSuggestionCompleted,
   C2S_GmRemoveSuggestion,
   C2S_RequestMarket,
@@ -83,6 +86,7 @@ import { PerformanceService } from './performance.service';
 import { QiProjectionService } from './qi-projection.service';
 import { TickService } from './tick.service';
 import { SuggestionService } from './suggestion.service';
+import { SuggestionRealtimeService } from './suggestion-realtime.service';
 import { NavigationService } from './navigation.service';
 import { MarketActionResult, MarketService } from './market.service';
 import { TechniqueService } from './technique.service';
@@ -90,7 +94,7 @@ import { buildDefaultRoleName } from '../auth/account-validation';
 import { DatabaseBackupService } from './database-backup.service';
 
 @WebSocketGateway({ cors: true })
-export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
   @WebSocketServer()
   server!: Server;
 
@@ -109,11 +113,16 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly qiProjectionService: QiProjectionService,
     private readonly tickService: TickService,
     private readonly suggestionService: SuggestionService,
+    private readonly suggestionRealtimeService: SuggestionRealtimeService,
     private readonly navigationService: NavigationService,
     private readonly marketService: MarketService,
     private readonly techniqueService: TechniqueService,
     private readonly databaseBackupService: DatabaseBackupService,
   ) {}
+
+  afterInit(server: Server): void {
+    this.suggestionRealtimeService.bindServer(server);
+  }
 
   /** 客户端连接时：认证 → 顶号/断线恢复/存档加载/新建角色 → 下发初始化数据 */
   async handleConnection(client: Socket) {
@@ -723,6 +732,35 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.broadcastSuggestions();
   }
 
+  @SubscribeMessage(C2S.ReplySuggestion)
+  async handleReplySuggestion(client: Socket, data: C2S_ReplySuggestion) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+
+    const updated = await this.suggestionService.addReply(
+      data.suggestionId,
+      'author',
+      playerId,
+      player.displayName || player.name,
+      data.content,
+    );
+    if (updated) {
+      this.broadcastSuggestions();
+    }
+  }
+
+  @SubscribeMessage(C2S.MarkSuggestionRepliesRead)
+  async handleMarkSuggestionRepliesRead(client: Socket, data: C2S_MarkSuggestionRepliesRead) {
+    const playerId = client.data?.playerId as string;
+    if (!playerId) return;
+
+    const updated = await this.suggestionService.markRepliesRead(data.suggestionId, playerId);
+    if (updated) {
+      this.broadcastSuggestions();
+    }
+  }
+
   @SubscribeMessage(C2S.GmMarkSuggestionCompleted)
   async handleGmMarkSuggestionCompleted(client: Socket, data: C2S_GmMarkSuggestionCompleted) {
     await this.suggestionService.markCompleted(data.suggestionId);
@@ -815,8 +853,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   /** 向所有在线玩家广播最新建议列表 */
   private broadcastSuggestions() {
-    const suggestions = this.suggestionService.getAll();
-    this.server.emit(S2C.SuggestionUpdate, { suggestions });
+    this.suggestionRealtimeService.broadcastSuggestions(this.suggestionService.getAll());
   }
 
   private flushMarketResult(result: MarketActionResult): void {

@@ -7,12 +7,20 @@ import * as fs from 'fs';
 import { promises as fsAsync } from 'fs';
 import { randomUUID } from 'crypto';
 import { Repository } from 'typeorm';
-import { Suggestion, SuggestionStatus } from '@mud/shared';
+import { Suggestion, SuggestionPage, SuggestionReply, SuggestionReplyAuthorType, SuggestionStatus } from '@mud/shared';
 import { SuggestionEntity } from '../database/entities/suggestion.entity';
 import { resolveServerDataPath } from '../common/data-path';
 
+interface SuggestionPageOptions {
+  keyword?: string;
+  page?: number;
+  pageSize?: number;
+}
+
 @Injectable()
 export class SuggestionService implements OnModuleInit {
+  private static readonly DEFAULT_PAGE_SIZE = 10;
+  private static readonly MAX_PAGE_SIZE = 50;
   private suggestions: Suggestion[] = [];
   private readonly logger = new Logger(SuggestionService.name);
   private readonly legacyFilePath = resolveServerDataPath('runtime', 'suggestions.json');
@@ -72,7 +80,34 @@ export class SuggestionService implements OnModuleInit {
       ...suggestion,
       upvotes: [...suggestion.upvotes],
       downvotes: [...suggestion.downvotes],
+      replies: suggestion.replies.map((reply) => ({ ...reply })),
     }));
+  }
+
+  getPage(options: SuggestionPageOptions = {}): SuggestionPage {
+    const keyword = options.keyword?.trim() ?? '';
+    const pageSize = this.normalizePageSize(options.pageSize);
+    const filtered = this.filterSuggestions(keyword);
+    const sorted = filtered.sort((left, right) => this.compareSuggestions(left, right));
+    const total = sorted.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const requestedPage = Number.isFinite(options.page) ? Math.floor(Number(options.page)) : 1;
+    const page = Math.min(totalPages, Math.max(1, requestedPage || 1));
+    const start = (page - 1) * pageSize;
+
+    return {
+      items: sorted.slice(start, start + pageSize).map((suggestion) => ({
+        ...suggestion,
+        upvotes: [...suggestion.upvotes],
+        downvotes: [...suggestion.downvotes],
+        replies: suggestion.replies.map((reply) => ({ ...reply })),
+      })),
+      total,
+      page,
+      pageSize,
+      totalPages,
+      keyword,
+    };
   }
 
   /** 创建新建议 */
@@ -86,6 +121,8 @@ export class SuggestionService implements OnModuleInit {
       status: 'pending',
       upvotes: [],
       downvotes: [],
+      replies: [],
+      authorLastReadGmReplyAt: 0,
       createdAt: Date.now(),
     });
     const saved = await this.suggestionRepo.save(suggestion);
@@ -146,6 +183,69 @@ export class SuggestionService implements OnModuleInit {
     return true;
   }
 
+  async addReply(
+    suggestionId: string,
+    authorType: SuggestionReplyAuthorType,
+    authorId: string,
+    authorName: string,
+    content: string,
+  ): Promise<Suggestion | null> {
+    const suggestion = await this.suggestionRepo.findOne({ where: { id: suggestionId } });
+    if (!suggestion) {
+      return null;
+    }
+
+    const normalizedContent = content.trim();
+    if (!normalizedContent) {
+      return null;
+    }
+
+    const currentReplies = Array.isArray(suggestion.replies) ? [...suggestion.replies] : [];
+    if (authorType === 'author') {
+      if (suggestion.authorId !== authorId) {
+        return null;
+      }
+      const lastReply = currentReplies[currentReplies.length - 1];
+      if (!lastReply || lastReply.authorType !== 'gm') {
+        return null;
+      }
+      suggestion.authorLastReadGmReplyAt = lastReply.createdAt;
+    }
+
+    const reply: SuggestionReply = {
+      id: randomUUID(),
+      authorType,
+      authorId,
+      authorName,
+      content: normalizedContent,
+      createdAt: Date.now(),
+    };
+
+    suggestion.replies = [...currentReplies, reply];
+    const saved = await this.suggestionRepo.save(suggestion);
+    const result = this.toSuggestion(saved);
+    this.replaceCachedSuggestion(result);
+    return result;
+  }
+
+  async markRepliesRead(suggestionId: string, authorId: string): Promise<Suggestion | null> {
+    const suggestion = await this.suggestionRepo.findOne({ where: { id: suggestionId } });
+    if (!suggestion || suggestion.authorId !== authorId) {
+      return null;
+    }
+
+    const lastGmReplyAt = this.getLastGmReplyAt(Array.isArray(suggestion.replies) ? suggestion.replies : []);
+    if (lastGmReplyAt <= Number(suggestion.authorLastReadGmReplyAt ?? 0)) {
+      return this.toSuggestion(suggestion);
+    }
+
+    suggestion.authorLastReadGmReplyAt = lastGmReplyAt;
+    const saved = await this.suggestionRepo.save(suggestion);
+    const result = this.toSuggestion(saved);
+    this.replaceCachedSuggestion(result);
+    return result;
+  }
+
   private replaceCachedSuggestion(updated: Suggestion): void {
     const index = this.suggestions.findIndex((suggestion) => suggestion.id === updated.id);
     if (index === -1) {
@@ -165,6 +265,8 @@ export class SuggestionService implements OnModuleInit {
       status: entity.status,
       upvotes: Array.isArray(entity.upvotes) ? [...entity.upvotes] : [],
       downvotes: Array.isArray(entity.downvotes) ? [...entity.downvotes] : [],
+      replies: this.normalizeReplies(entity.replies),
+      authorLastReadGmReplyAt: Number(entity.authorLastReadGmReplyAt ?? 0),
       createdAt: Number(entity.createdAt),
     };
   }
@@ -192,6 +294,8 @@ export class SuggestionService implements OnModuleInit {
       status,
       upvotes,
       downvotes,
+      replies,
+      authorLastReadGmReplyAt,
       createdAt,
     } = value;
     if (
@@ -205,6 +309,12 @@ export class SuggestionService implements OnModuleInit {
     ) {
       return null;
     }
+
+    const normalizedReplies = this.normalizeReplies(replies);
+    const normalizedAuthorLastReadGmReplyAt = Number.isFinite(authorLastReadGmReplyAt)
+      ? Math.max(0, Number(authorLastReadGmReplyAt))
+      : 0;
+
     return {
       id,
       authorId,
@@ -214,6 +324,8 @@ export class SuggestionService implements OnModuleInit {
       status,
       upvotes: this.normalizePlayerIds(upvotes),
       downvotes: this.normalizePlayerIds(downvotes),
+      replies: normalizedReplies,
+      authorLastReadGmReplyAt: normalizedAuthorLastReadGmReplyAt,
       createdAt: Number(createdAt),
     };
   }
@@ -227,6 +339,99 @@ export class SuggestionService implements OnModuleInit {
 
   private isSuggestionStatus(value: unknown): value is SuggestionStatus {
     return value === 'pending' || value === 'completed';
+  }
+
+  private normalizeReplies(value: unknown): SuggestionReply[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value.flatMap((entry) => {
+      if (!this.isPlainObject(entry)) {
+        return [];
+      }
+      const { id, authorType, authorId, authorName, content, createdAt } = entry;
+      if (
+        typeof id !== 'string'
+        || !this.isSuggestionReplyAuthorType(authorType)
+        || typeof authorId !== 'string'
+        || typeof authorName !== 'string'
+        || typeof content !== 'string'
+        || !Number.isFinite(createdAt)
+      ) {
+        return [];
+      }
+      return [{
+        id,
+        authorType,
+        authorId,
+        authorName,
+        content,
+        createdAt: Number(createdAt),
+      }];
+    });
+  }
+
+  private isSuggestionReplyAuthorType(value: unknown): value is SuggestionReplyAuthorType {
+    return value === 'author' || value === 'gm';
+  }
+
+  private getLastGmReplyAt(replies: SuggestionReply[]): number {
+    for (let index = replies.length - 1; index >= 0; index -= 1) {
+      const reply = replies[index];
+      if (reply?.authorType === 'gm') {
+        return reply.createdAt;
+      }
+    }
+    return 0;
+  }
+
+  private filterSuggestions(keyword: string): Suggestion[] {
+    if (!keyword) {
+      return this.getAll();
+    }
+
+    const normalizedKeyword = keyword.toLocaleLowerCase('zh-CN');
+    return this.getAll().filter((suggestion) => this.matchesSuggestionKeyword(suggestion, normalizedKeyword));
+  }
+
+  private matchesSuggestionKeyword(suggestion: Suggestion, keyword: string): boolean {
+    return [
+      suggestion.title,
+      suggestion.description,
+      suggestion.authorName,
+      ...suggestion.replies.flatMap((reply) => [reply.authorName, reply.content]),
+    ].some((text) => text.toLocaleLowerCase('zh-CN').includes(keyword));
+  }
+
+  private compareSuggestions(left: Suggestion, right: Suggestion): number {
+    if (left.status !== right.status) {
+      return left.status === 'pending' ? -1 : 1;
+    }
+
+    const leftLastActivityAt = Math.max(left.createdAt, left.replies[left.replies.length - 1]?.createdAt ?? 0);
+    const rightLastActivityAt = Math.max(right.createdAt, right.replies[right.replies.length - 1]?.createdAt ?? 0);
+    if (rightLastActivityAt !== leftLastActivityAt) {
+      return rightLastActivityAt - leftLastActivityAt;
+    }
+
+    const leftScore = left.upvotes.length - left.downvotes.length;
+    const rightScore = right.upvotes.length - right.downvotes.length;
+    if (rightScore !== leftScore) {
+      return rightScore - leftScore;
+    }
+
+    return right.createdAt - left.createdAt;
+  }
+
+  private normalizePageSize(pageSize: number | undefined): number {
+    if (!Number.isFinite(pageSize)) {
+      return SuggestionService.DEFAULT_PAGE_SIZE;
+    }
+    return Math.min(
+      SuggestionService.MAX_PAGE_SIZE,
+      Math.max(1, Math.floor(Number(pageSize))),
+    );
   }
 
   private isPlainObject(value: unknown): value is Record<string, unknown> {

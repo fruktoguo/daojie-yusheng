@@ -11,6 +11,8 @@ import {
   GM_PANEL_POLL_INTERVAL_MS,
   type GmDatabaseBackupRecord,
   type GmDatabaseStateRes,
+  type GmReplySuggestionReq,
+  type GmSuggestionListRes,
   GM_PASSWORD_STORAGE_KEY,
   type GmCpuSectionSnapshot,
   type GmEditorCatalogRes,
@@ -168,6 +170,11 @@ const playerTabBtn = document.getElementById('gm-tab-players') as HTMLButtonElem
 const suggestionTabBtn = document.getElementById('gm-tab-suggestions') as HTMLButtonElement;
 const worldTabBtn = document.getElementById('gm-tab-world') as HTMLButtonElement;
 const suggestionListEl = document.getElementById('gm-suggestion-list') as HTMLElement;
+const suggestionSearchInput = document.getElementById('gm-suggestion-search') as HTMLInputElement;
+const suggestionSearchClearBtn = document.getElementById('gm-suggestion-search-clear') as HTMLButtonElement;
+const suggestionPrevPageBtn = document.getElementById('gm-suggestion-page-prev') as HTMLButtonElement;
+const suggestionNextPageBtn = document.getElementById('gm-suggestion-page-next') as HTMLButtonElement;
+const suggestionPageMetaEl = document.getElementById('gm-suggestion-page-meta') as HTMLDivElement;
 
 type PlayerSortMode = 'realm-desc' | 'realm-asc' | 'online' | 'map' | 'name';
 
@@ -190,6 +197,11 @@ let currentCpuBreakdownSort: 'total' | 'count' | 'avg' = 'total';
 let currentEditorTab: GmPlayerUpdateSection | 'persisted' = 'basic';
 let currentInventoryAddType: (typeof ITEM_TYPES)[number] = 'material';
 let currentPlayerSort: PlayerSortMode = (playerSortSelect.value as PlayerSortMode) || 'realm-desc';
+let currentSuggestionPage = 1;
+let currentSuggestionTotalPages = 1;
+let currentSuggestionTotal = 0;
+let currentSuggestionKeyword = '';
+let suggestionSearchTimer: number | null = null;
 let lastPlayerListStructureKey: string | null = null;
 let lastEditorStructureKey: string | null = null;
 let lastSuggestionStructureKey: string | null = null;
@@ -974,55 +986,71 @@ function renderPerfLists(data: GmStateRes): void {
   );
 }
 
-function getSortedSuggestions(items: Suggestion[]): Suggestion[] {
-  return [...items].sort((a, b) => {
-    const scoreA = a.upvotes.length - a.downvotes.length;
-    const scoreB = b.upvotes.length - b.downvotes.length;
-    if (a.status !== b.status) return a.status === 'pending' ? -1 : 1;
-    return scoreB - scoreA;
-  });
+function renderSuggestionReply(reply: Suggestion['replies'][number]): string {
+  return `
+    <div class="gm-suggestion-reply ${reply.authorType === 'gm' ? 'gm' : ''}">
+      <div class="gm-suggestion-reply-head">
+        <div class="gm-suggestion-reply-author">${escapeHtml(reply.authorType === 'gm' ? '开发者' : '发起人')}</div>
+        <div>${new Date(reply.createdAt).toLocaleString()}</div>
+      </div>
+      <div class="gm-suggestion-reply-content">${escapeHtml(reply.content)}</div>
+    </div>
+  `;
 }
 
-function getSuggestionCardMarkup(id: string): string {
+function getSuggestionCardMarkup(suggestion: Suggestion): string {
+  const completed = suggestion.status === 'completed';
+  const score = suggestion.upvotes.length - suggestion.downvotes.length;
   return `
-    <div class="suggestion-card" data-suggestion-id="${escapeHtml(id)}" style="border: 1.5px solid var(--ink-black); margin-bottom: 20px; background: var(--paper-bg); box-shadow: 6px 6px 0 rgba(0,0,0,0.1);">
-      <div data-role="header" style="padding: 16px; border-bottom: 1.5px solid var(--ink-black); display: flex; justify-content: space-between; align-items: center;">
+    <div class="gm-suggestion-card ${completed ? 'completed' : ''}" data-suggestion-id="${escapeHtml(suggestion.id)}">
+      <div class="gm-suggestion-head">
         <div>
-          <span data-role="title" style="font-family: var(--font-heading-main); font-size: 20px;"></span>
-          <span class="pill" data-role="status-pill" style="margin-left: 10px;"></span>
+          <div class="gm-suggestion-title">${escapeHtml(suggestion.title)}</div>
+          <div class="gm-suggestion-meta">
+            发起人：${escapeHtml(suggestion.authorName)}<br />
+            创建时间：${new Date(suggestion.createdAt).toLocaleString()}<br />
+            状态：${completed ? '已完成' : '待处理'}
+          </div>
         </div>
-        <div style="text-align: right;">
-          <div data-role="author" style="font-weight: bold;"></div>
-          <div data-role="created-at" style="font-size: 12px; color: var(--ink-grey);"></div>
+        <div class="gm-suggestion-side">
+          <div class="pill" style="background:${completed ? '#2e7d32' : 'var(--ink-grey)'}; color:#fff;">${completed ? '已完成' : '待处理'}</div>
+          <div class="gm-suggestion-meta">赞同 ${suggestion.upvotes.length} · 反对 ${suggestion.downvotes.length} · 分值 ${score > 0 ? '+' : ''}${score}</div>
         </div>
       </div>
-      <div data-role="description" style="padding: 16px; font-size: 15px; line-height: 1.6; white-space: pre-wrap; border-bottom: 1.5px solid var(--ink-black);"></div>
-      <div style="padding: 12px 16px; display: flex; align-items: center; gap: 20px;">
-        <div data-role="score" style="font-weight: bold; color: var(--ink-black);"></div>
-        <div style="margin-left: auto; display: flex; gap: 10px;">
-          <button class="primary small-btn" type="button" data-action="complete-suggestion">标记完成</button>
+      <div class="gm-suggestion-body">
+        <div class="gm-suggestion-description-wrap">
+          <div class="gm-suggestion-section-title">原始意见</div>
+          <div class="gm-suggestion-description">${escapeHtml(suggestion.description)}</div>
+        </div>
+        <div class="gm-suggestion-replies">
+          <div class="gm-suggestion-section-title">回复记录</div>
+          ${suggestion.replies.length > 0
+            ? suggestion.replies.map((reply) => renderSuggestionReply(reply)).join('')
+            : '<div class="empty-hint">当前还没有回复记录</div>'}
+        </div>
+      </div>
+      <div class="gm-suggestion-reply-composer">
+        <div class="gm-suggestion-section-title">开发者回复</div>
+        <textarea
+          class="editor-textarea gm-suggestion-reply-input"
+          rows="3"
+          maxlength="500"
+          data-role="reply-input"
+          placeholder="输入给玩家的回复内容；回复后玩家端会出现未读红点。"
+        ></textarea>
+        <div class="button-row gm-suggestion-reply-actions">
+          <button class="small-btn primary" type="button" data-action="reply-suggestion">发送回复</button>
+        </div>
+      </div>
+      <div class="gm-suggestion-actions">
+        <div class="gm-suggestion-page-meta">该条会话共 ${suggestion.replies.length} 条回复</div>
+        <div class="button-row">
+          ${completed ? '' : '<button class="primary small-btn" type="button" data-action="complete-suggestion">标记完成</button>'}
           <button class="danger small-btn" type="button" data-action="remove-suggestion">永久移除</button>
         </div>
       </div>
     </div>
   `;
-}
-
-function patchSuggestionCard(card: HTMLElement, suggestion: Suggestion): void {
-  const completed = suggestion.status === 'completed';
-  const score = suggestion.upvotes.length - suggestion.downvotes.length;
-  const header = card.querySelector<HTMLElement>('[data-role="header"]')!;
-  header.style.background = completed ? '#e8f5e9' : 'transparent';
-  card.querySelector<HTMLElement>('[data-role="title"]')!.textContent = suggestion.title;
-  const statusPill = card.querySelector<HTMLElement>('[data-role="status-pill"]')!;
-  statusPill.textContent = completed ? '已完成' : '待处理';
-  statusPill.style.background = completed ? '#2e7d32' : 'var(--ink-grey)';
-  card.querySelector<HTMLElement>('[data-role="author"]')!.textContent = suggestion.authorName;
-  card.querySelector<HTMLElement>('[data-role="created-at"]')!.textContent = new Date(suggestion.createdAt).toLocaleString();
-  card.querySelector<HTMLElement>('[data-role="description"]')!.textContent = suggestion.description;
-  card.querySelector<HTMLElement>('[data-role="score"]')!.textContent = `赞同: ${suggestion.upvotes.length} | 反对: ${suggestion.downvotes.length} | 分值: ${score}`;
-  const completeBtn = card.querySelector<HTMLButtonElement>('[data-action="complete-suggestion"]')!;
-  completeBtn.style.display = completed ? 'none' : '';
 }
 
 function getEditorTabLabel(tab: GmPlayerUpdateSection | 'persisted'): string {
@@ -1271,7 +1299,18 @@ function switchTab(tab: 'server' | 'players' | 'suggestions' | 'world'): void {
 
 async function loadSuggestions(): Promise<void> {
   try {
-    suggestions = await request<Suggestion[]>('/gm/suggestions');
+    const params = new URLSearchParams({
+      page: String(currentSuggestionPage),
+      pageSize: '10',
+    });
+    if (currentSuggestionKeyword.trim()) {
+      params.set('keyword', currentSuggestionKeyword.trim());
+    }
+    const result = await request<GmSuggestionListRes>(`/gm/suggestions?${params.toString()}`);
+    suggestions = result.items;
+    currentSuggestionPage = result.page;
+    currentSuggestionTotalPages = result.totalPages;
+    currentSuggestionTotal = result.total;
     renderSuggestions();
   } catch (error) {
     setStatus(error instanceof Error ? error.message : '加载建议失败', true);
@@ -1288,22 +1327,27 @@ function renderSuggestions(): void {
       suggestionListEl.innerHTML = '<div class="empty-hint">暂无建议反馈数据</div>';
       lastSuggestionStructureKey = 'empty';
     }
+    suggestionPageMetaEl.textContent = `第 ${currentSuggestionPage} / ${currentSuggestionTotalPages} 页 · 共 ${currentSuggestionTotal} 条`;
+    suggestionPrevPageBtn.disabled = currentSuggestionPage <= 1;
+    suggestionNextPageBtn.disabled = currentSuggestionPage >= currentSuggestionTotalPages;
     return;
   }
 
-  const sorted = getSortedSuggestions(suggestions);
-  const structureKey = sorted.map((suggestion) => suggestion.id).join('|');
+  const structureKey = suggestions.map((suggestion) => [
+    suggestion.id,
+    suggestion.status,
+    suggestion.upvotes.length,
+    suggestion.downvotes.length,
+    suggestion.replies.length,
+    suggestion.replies[suggestion.replies.length - 1]?.id ?? '',
+  ].join(':')).join('|');
   if (lastSuggestionStructureKey !== structureKey) {
-    suggestionListEl.innerHTML = sorted.map((suggestion) => getSuggestionCardMarkup(suggestion.id)).join('');
+    suggestionListEl.innerHTML = suggestions.map((suggestion) => getSuggestionCardMarkup(suggestion)).join('');
     lastSuggestionStructureKey = structureKey;
   }
-  sorted.forEach((suggestion, index) => {
-    const card = suggestionListEl.children[index];
-    if (!(card instanceof HTMLElement)) {
-      return;
-    }
-    patchSuggestionCard(card, suggestion);
-  });
+  suggestionPageMetaEl.textContent = `第 ${currentSuggestionPage} / ${currentSuggestionTotalPages} 页 · 共 ${currentSuggestionTotal} 条`;
+  suggestionPrevPageBtn.disabled = currentSuggestionPage <= 1;
+  suggestionNextPageBtn.disabled = currentSuggestionPage >= currentSuggestionTotalPages;
 }
 
 async function completeSuggestion(id: string): Promise<void> {
@@ -1316,11 +1360,27 @@ async function completeSuggestion(id: string): Promise<void> {
   }
 }
 
+async function replySuggestion(id: string, content: string): Promise<void> {
+  try {
+    await request(`/gm/suggestions/${id}/replies`, {
+      method: 'POST',
+      body: JSON.stringify({ content } satisfies GmReplySuggestionReq),
+    });
+    setStatus('开发者回复已发送');
+    await loadSuggestions();
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '发送回复失败', true);
+  }
+}
+
 async function removeSuggestion(id: string): Promise<void> {
   if (!confirm('确定要移除这条建议吗？此操作不可撤销。')) return;
   try {
     await request(`/gm/suggestions/${id}`, { method: 'DELETE' });
     setStatus('建议已成功移除');
+    if (suggestions.length === 1 && currentSuggestionPage > 1) {
+      currentSuggestionPage -= 1;
+    }
     await loadSuggestions();
   } catch (error) {
     setStatus(error instanceof Error ? error.message : '移除失败', true);
@@ -2467,10 +2527,22 @@ function logout(message?: string): void {
     window.clearInterval(pollTimer);
     pollTimer = null;
   }
+  if (suggestionSearchTimer !== null) {
+    window.clearTimeout(suggestionSearchTimer);
+    suggestionSearchTimer = null;
+  }
   playerListEl.innerHTML = '';
   lastPlayerListStructureKey = null;
   clearEditorRenderCache();
   lastSuggestionStructureKey = null;
+  currentSuggestionPage = 1;
+  currentSuggestionTotalPages = 1;
+  currentSuggestionTotal = 0;
+  currentSuggestionKeyword = '';
+  suggestionSearchInput.value = '';
+  suggestionPageMetaEl.textContent = '第 1 / 1 页';
+  suggestionPrevPageBtn.disabled = true;
+  suggestionNextPageBtn.disabled = true;
   lastNetworkInStructureKey = null;
   lastNetworkOutStructureKey = null;
   lastCpuBreakdownStructureKey = null;
@@ -3007,9 +3079,57 @@ suggestionListEl.addEventListener('click', (event) => {
     completeSuggestion(suggestionId).catch(() => {});
     return;
   }
+  if (action === 'reply-suggestion') {
+    const replyInput = card?.querySelector<HTMLTextAreaElement>('[data-role="reply-input"]');
+    const content = replyInput?.value.trim() ?? '';
+    if (!content) {
+      setStatus('请输入开发者回复内容', true);
+      return;
+    }
+    replySuggestion(suggestionId, content).catch(() => {});
+    return;
+  }
   if (action === 'remove-suggestion') {
     removeSuggestion(suggestionId).catch(() => {});
   }
+});
+
+suggestionSearchInput.addEventListener('input', () => {
+  currentSuggestionKeyword = suggestionSearchInput.value;
+  currentSuggestionPage = 1;
+  if (suggestionSearchTimer !== null) {
+    window.clearTimeout(suggestionSearchTimer);
+  }
+  suggestionSearchTimer = window.setTimeout(() => {
+    loadSuggestions().catch(() => {});
+  }, 250);
+});
+
+suggestionSearchClearBtn.addEventListener('click', () => {
+  suggestionSearchInput.value = '';
+  currentSuggestionKeyword = '';
+  currentSuggestionPage = 1;
+  if (suggestionSearchTimer !== null) {
+    window.clearTimeout(suggestionSearchTimer);
+    suggestionSearchTimer = null;
+  }
+  loadSuggestions().catch(() => {});
+});
+
+suggestionPrevPageBtn.addEventListener('click', () => {
+  if (currentSuggestionPage <= 1) {
+    return;
+  }
+  currentSuggestionPage -= 1;
+  loadSuggestions().catch(() => {});
+});
+
+suggestionNextPageBtn.addEventListener('click', () => {
+  if (currentSuggestionPage >= currentSuggestionTotalPages) {
+    return;
+  }
+  currentSuggestionPage += 1;
+  loadSuggestions().catch(() => {});
 });
 
 playerSearchInput.addEventListener('input', () => {

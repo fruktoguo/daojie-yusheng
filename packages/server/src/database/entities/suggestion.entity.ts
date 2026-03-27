@@ -6,7 +6,7 @@ import {
   PrimaryColumn,
   Column,
 } from 'typeorm';
-import { SuggestionStatus } from '@mud/shared';
+import { SuggestionReply, SuggestionStatus } from '@mud/shared';
 
 const BIGINT_NUMBER_TRANSFORMER = {
   to: (value: number): number => value,
@@ -38,6 +38,12 @@ export class SuggestionEntity {
 
   @Column({ type: 'jsonb', default: () => '\'[]\'' })
   downvotes!: string[];
+
+  @Column({ type: 'jsonb', default: () => '\'[]\'' })
+  replies!: SuggestionReply[];
+
+  @Column({ type: 'bigint', transformer: BIGINT_NUMBER_TRANSFORMER, default: 0 })
+  authorLastReadGmReplyAt!: number;
 
   @Column({ type: 'bigint', transformer: BIGINT_NUMBER_TRANSFORMER })
   createdAt!: number;

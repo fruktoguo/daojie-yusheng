@@ -975,6 +975,19 @@ export interface PlayerState {
 /** 意见状态 */
 export type SuggestionStatus = 'pending' | 'completed';
 
+/** 意见回复作者类型 */
+export type SuggestionReplyAuthorType = 'author' | 'gm';
+
+/** 意见回复数据结构 */
+export interface SuggestionReply {
+  id: string;
+  authorType: SuggestionReplyAuthorType;
+  authorId: string;
+  authorName: string;
+  content: string;
+  createdAt: number;
+}
+
 /** 意见数据结构 */
 export interface Suggestion {
   id: string;
@@ -985,5 +998,17 @@ export interface Suggestion {
   status: SuggestionStatus;
   upvotes: string[]; // 存储玩家 ID
   downvotes: string[]; // 存储玩家 ID
+  replies: SuggestionReply[];
+  authorLastReadGmReplyAt: number;
   createdAt: number;
+}
+
+/** 意见分页结果 */
+export interface SuggestionPage {
+  items: Suggestion[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  keyword: string;
 }

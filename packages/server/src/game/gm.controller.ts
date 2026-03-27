@@ -17,6 +17,9 @@ import {
 import {
   GmEditorCatalogRes,
   GmDatabaseStateRes,
+  GmListSuggestionsQuery,
+  GmReplySuggestionReq,
+  GmSuggestionListRes,
   GmRestoreDatabaseReq,
   GmTriggerDatabaseBackupRes,
   GmMapListRes,
@@ -29,11 +32,11 @@ import {
   GmUpdateMapTickReq,
   GmUpdateMapTimeReq,
   GmUpdatePlayerReq,
-  Suggestion,
 } from '@mud/shared';
 import { GmAuthGuard } from './gm-auth.guard';
 import { DatabaseBackupService } from './database-backup.service';
 import { GmService } from './gm.service';
+import { SuggestionRealtimeService } from './suggestion-realtime.service';
 import { SuggestionService } from './suggestion.service';
 import { TickService } from './tick.service';
 
@@ -44,6 +47,7 @@ export class GmController {
     private readonly gmService: GmService,
     private readonly databaseBackupService: DatabaseBackupService,
     private readonly suggestionService: SuggestionService,
+    private readonly suggestionRealtimeService: SuggestionRealtimeService,
     private readonly tickService: TickService,
   ) {}
 
@@ -65,8 +69,12 @@ export class GmController {
 
   /** 获取所有玩家建议 */
   @Get('suggestions')
-  getSuggestions(): Suggestion[] {
-    return this.suggestionService.getAll();
+  getSuggestions(@Query() query: GmListSuggestionsQuery): GmSuggestionListRes {
+    return this.suggestionService.getPage({
+      page: Number(query?.page),
+      pageSize: Number(query?.pageSize),
+      keyword: query?.keyword,
+    });
   }
 
   /** 重置 GM 网络流量统计 */
@@ -100,12 +108,27 @@ export class GmController {
   @Post('suggestions/:id/complete')
   async completeSuggestion(@Param('id') id: string): Promise<{ ok: true }> {
     await this.suggestionService.markCompleted(id);
+    this.suggestionRealtimeService.broadcastSuggestions(this.suggestionService.getAll());
+    return { ok: true };
+  }
+
+  @Post('suggestions/:id/replies')
+  async replySuggestion(
+    @Param('id') id: string,
+    @Body() body: GmReplySuggestionReq,
+  ): Promise<{ ok: true }> {
+    const updated = await this.suggestionService.addReply(id, 'gm', 'gm', '开发者', body?.content ?? '');
+    if (!updated) {
+      throw new BadRequestException('回复失败');
+    }
+    this.suggestionRealtimeService.broadcastSuggestions(this.suggestionService.getAll());
     return { ok: true };
   }
 
   @Delete('suggestions/:id')
   async removeSuggestion(@Param('id') id: string): Promise<{ ok: true }> {
     await this.suggestionService.remove(id);
+    this.suggestionRealtimeService.broadcastSuggestions(this.suggestionService.getAll());
     return { ok: true };
   }
 

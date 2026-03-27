@@ -1146,14 +1146,78 @@
     }
     .suggestion-pane-head {
       display: flex;
-      align-items: baseline;
+      align-items: flex-start;
       justify-content: space-between;
       gap: 10px;
       padding-bottom: 6px;
       margin-bottom: 10px;
       border-bottom: 1px solid var(--wash-ink);
     }
+    .suggestion-tab-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .suggestion-tab-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 34px;
+      padding: 6px 12px;
+      border: 1px solid var(--ink-light);
+      background: var(--surface-base);
+      color: var(--ink-grey);
+      font-family: var(--font-heading-sub);
+      font-size: var(--font-size-13);
+      cursor: pointer;
+      transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+    }
+    .suggestion-tab-btn:hover {
+      border-color: var(--ink-dark);
+      color: var(--ink-black);
+    }
+    .suggestion-tab-btn.active {
+      border-color: var(--stamp-red);
+      background: rgba(197, 60, 60, 0.08);
+      color: var(--ink-black);
+    }
+    .suggestion-inline-dot {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      border-radius: 999px;
+      background: var(--stamp-red);
+      color: #fff;
+      font-size: 10px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
     .suggestion-pane-note {
+      font-size: var(--font-size-11);
+      color: var(--ink-grey);
+    }
+    .suggestion-toolbar {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .suggestion-search-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--input-border);
+      background: var(--surface-base);
+      color: var(--ink-black);
+      font-family: var(--font-body);
+      font-size: var(--font-size-13);
+      outline: none;
+    }
+    .suggestion-search-input:focus {
+      border-color: var(--input-border-strong);
+    }
+    .suggestion-toolbar-note {
       font-size: var(--font-size-11);
       color: var(--ink-grey);
     }
@@ -1221,10 +1285,19 @@
       padding: 12px;
       border: 1px solid var(--wash-ink);
       background: var(--surface-entry);
+      cursor: pointer;
+      transition: border-color 0.18s ease, background 0.18s ease;
     }
     .suggestion-entry.completed {
       background: var(--surface-entry-alt);
       border-color: rgba(44, 47, 51, 0.12);
+    }
+    .suggestion-entry.selected {
+      border-color: rgba(197, 60, 60, 0.42);
+      background: linear-gradient(180deg, rgba(197, 60, 60, 0.08), var(--surface-entry));
+    }
+    .suggestion-entry:hover {
+      border-color: rgba(44, 47, 51, 0.24);
     }
     .suggestion-entry-head {
       display: flex;
@@ -1232,6 +1305,15 @@
       justify-content: space-between;
       gap: 10px;
       margin-bottom: 8px;
+    }
+    .suggestion-entry-main {
+      min-width: 0;
+      flex: 1;
+    }
+    .suggestion-entry-title-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
     }
     .suggestion-entry-title {
       font-family: var(--font-heading-sub);
@@ -1259,6 +1341,13 @@
       flex-wrap: wrap;
       margin-top: 12px;
     }
+    .suggestion-entry-mini-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      font-size: var(--font-size-11);
+      color: var(--ink-grey);
+    }
     .suggestion-vote-btn {
       min-width: 72px;
       justify-content: center;
@@ -1284,6 +1373,117 @@
     }
     .suggestion-score.negative {
       color: var(--stamp-red);
+    }
+    .suggestion-pagination {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .suggestion-thread {
+      min-height: 0;
+      overflow-y: auto;
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      padding-right: 2px;
+    }
+    .suggestion-thread-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--wash-ink);
+    }
+    .suggestion-thread-title {
+      font-family: var(--font-heading-sub);
+      font-size: var(--font-size-18);
+      color: var(--ink-black);
+      line-height: 1.35;
+    }
+    .suggestion-thread-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 12px;
+      margin-top: 6px;
+      font-size: var(--font-size-11);
+      color: var(--ink-grey);
+    }
+    .suggestion-thread-desc {
+      padding: 12px;
+      border: 1px solid var(--wash-ink);
+      background: var(--surface-entry);
+      white-space: pre-wrap;
+      font-size: var(--font-size-13);
+      line-height: 1.7;
+      color: var(--ink-dark);
+    }
+    .suggestion-thread-votes {
+      margin-top: 0;
+    }
+    .suggestion-thread-replies,
+    .suggestion-thread-reply-box {
+      display: grid;
+      gap: 8px;
+    }
+    .suggestion-thread-section-title {
+      font-family: var(--font-heading-sub);
+      font-size: var(--font-size-14);
+      color: var(--ink-black);
+    }
+    .suggestion-reply-entry {
+      padding: 12px;
+      border: 1px solid var(--wash-ink);
+      background: var(--surface-entry);
+    }
+    .suggestion-reply-entry.gm {
+      border-color: rgba(197, 60, 60, 0.16);
+      background: linear-gradient(180deg, rgba(197, 60, 60, 0.05), var(--surface-entry));
+    }
+    .suggestion-reply-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+    .suggestion-reply-author {
+      font-family: var(--font-heading-sub);
+      font-size: var(--font-size-13);
+      color: var(--ink-black);
+    }
+    .suggestion-reply-time {
+      flex-shrink: 0;
+      font-size: var(--font-size-11);
+      color: var(--ink-grey);
+    }
+    .suggestion-reply-content {
+      white-space: pre-wrap;
+      font-size: var(--font-size-13);
+      line-height: 1.65;
+      color: var(--ink-dark);
+    }
+    .suggestion-reply-textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 10px 12px;
+      border: 1px solid var(--input-border);
+      background: var(--surface-base);
+      color: var(--ink-black);
+      font-family: var(--font-body);
+      font-size: var(--font-size-13);
+      line-height: 1.6;
+      outline: none;
+      resize: vertical;
+    }
+    .suggestion-reply-textarea:focus {
+      border-color: var(--input-border-strong);
+    }
+    .suggestion-reply-textarea:disabled {
+      background: var(--surface-muted);
+      color: var(--ink-grey);
+      cursor: not-allowed;
     }
     .settings-modal-shell {
       display: grid;

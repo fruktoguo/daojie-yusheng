@@ -367,6 +367,7 @@
       z-index: 2;
     }
     .hud-corner-btn {
+      position: relative;
       min-width: 72px;
       padding: 7px 12px;
       border: 1px solid rgba(17, 17, 17, 0.2);
@@ -380,6 +381,17 @@
       gap: 6px;
       cursor: pointer;
       transition: background 0.2s, border-color 0.2s, color 0.2s;
+    }
+    .hud-corner-btn[data-has-unread="true"]::after {
+      content: '';
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--stamp-red);
+      box-shadow: 0 0 0 2px rgba(248, 248, 245, 0.9);
     }
     .hud-link-btn {
       text-decoration: none;

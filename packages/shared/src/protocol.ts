@@ -36,6 +36,8 @@ export const C2S = {
   RequestSuggestions: 'c:requestSuggestions',
   CreateSuggestion: 'c:createSuggestion',
   VoteSuggestion: 'c:voteSuggestion',
+  ReplySuggestion: 'c:replySuggestion',
+  MarkSuggestionRepliesRead: 'c:markSuggestionRepliesRead',
   GmMarkSuggestionCompleted: 'c:gmMarkSuggestionCompleted',
   GmRemoveSuggestion: 'c:gmRemoveSuggestion',
   RequestMarket: 'c:requestMarket',
@@ -660,6 +662,15 @@ export interface C2S_VoteSuggestion {
   vote: 'up' | 'down';
 }
 
+export interface C2S_ReplySuggestion {
+  suggestionId: string;
+  content: string;
+}
+
+export interface C2S_MarkSuggestionRepliesRead {
+  suggestionId: string;
+}
+
 export interface C2S_GmMarkSuggestionCompleted {
   suggestionId: string;
 }
@@ -697,6 +708,25 @@ export interface AuthRefreshReq {
 export interface AuthTokenRes {
   accessToken: string;
   refreshToken: string;
+}
+
+export interface GmListSuggestionsQuery {
+  page?: number;
+  pageSize?: number;
+  keyword?: string;
+}
+
+export interface GmReplySuggestionReq {
+  content: string;
+}
+
+export interface GmSuggestionListRes {
+  items: Suggestion[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  keyword: string;
 }
 
 /** 显示名可用性检查响应 */
