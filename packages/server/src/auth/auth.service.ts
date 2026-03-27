@@ -387,9 +387,19 @@ export class AuthService implements OnModuleInit {
       }
     });
 
-    for (const update of updates) {
-      await this.userRepo.update({ id: update.id }, { username: update.nextUsername });
+    if (updates.length === 0) {
+      return;
     }
+
+    await this.userRepo.manager.transaction(async (manager) => {
+      for (const update of updates) {
+        await manager.update(UserEntity, { id: update.id }, { username: this.buildTemporaryMigratedUsername(update.id) });
+      }
+
+      for (const update of updates) {
+        await manager.update(UserEntity, { id: update.id }, { username: update.nextUsername });
+      }
+    });
 
     if (updates.length > 0) {
       this.logger.log(`已同步 ${updates.length} 个旧账号的登录账号为角色名`);
@@ -414,5 +424,9 @@ export class AuthService implements OnModuleInit {
       return '';
     }
     return [...value].slice(0, maxLength).join('');
+  }
+
+  private buildTemporaryMigratedUsername(userId: string): string {
+    return this.truncateToLength(`__migrating__${userId.replace(/-/g, '')}`, ACCOUNT_MAX_LENGTH);
   }
 }
