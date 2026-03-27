@@ -641,6 +641,10 @@
       margin-bottom: 6px;
     }
     .observe-entity-name {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
       font-family: var(--font-heading-sub);
       font-size: var(--font-size-15);
       color: var(--ink-black);

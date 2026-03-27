@@ -29,6 +29,7 @@ import { SettingsPanel } from './ui/panels/settings-panel';
 import { WorldPanel } from './ui/panels/world-panel';
 import { SuggestionPanel } from './ui/suggestion-panel';
 import { ChangelogPanel } from './ui/changelog-panel';
+import { getMonsterPresentation } from './monster-presentation';
 import { NpcShopModal } from './ui/npc-shop-modal';
 import { getHeavenGateHudAction, openHeavenGateModal, refreshHeavenGateModal } from './ui/heaven-gate-modal';
 import { initializeUiStyleConfig } from './ui/ui-style-config';
@@ -61,6 +62,7 @@ import {
   GridPoint,
   isPointInRange,
   MapMeta,
+  MonsterTier,
   PlayerState,
   packDirections,
   RenderEntity,
@@ -417,6 +419,7 @@ type ObservedEntity = {
   color: string;
   name?: string;
   kind?: string;
+  monsterTier?: MonsterTier;
   hp?: number;
   maxHp?: number;
   qi?: number;
@@ -436,7 +439,7 @@ function isPlayerLikeEntityKind(kind: string | null | undefined): boolean {
 
 type ObserveEntityCardData = Pick<
   ObservedEntity,
-  'id' | 'name' | 'kind' | 'hp' | 'maxHp' | 'qi' | 'maxQi' | 'npcQuestMarker' | 'observation' | 'buffs'
+  'id' | 'name' | 'kind' | 'monsterTier' | 'hp' | 'maxHp' | 'qi' | 'maxQi' | 'npcQuestMarker' | 'observation' | 'buffs'
 >;
 
 type PendingAutoInteraction =
@@ -992,6 +995,7 @@ function toObservedEntity(entity: RenderEntity): ObservedEntity {
     color: entity.color,
     name: entity.name,
     kind: entity.kind,
+    monsterTier: entity.monsterTier,
     hp: entity.hp,
     maxHp: entity.maxHp,
     qi: entity.qi,
@@ -1025,6 +1029,7 @@ function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedEn
     color: patch.color ?? previous?.color ?? '#fff',
     name: applyNullablePatch(patch.name, previous?.name),
     kind: applyNullablePatch(patch.kind, previous?.kind),
+    monsterTier: applyNullablePatch(patch.monsterTier, previous?.monsterTier),
     hp: applyNullablePatch(patch.hp, previous?.hp),
     maxHp: applyNullablePatch(patch.maxHp, previous?.maxHp),
     qi: applyNullablePatch(patch.qi, previous?.qi),
@@ -1248,12 +1253,14 @@ function toObserveEntityCardData(entity: ObservedEntity): ObserveEntityCardData 
       id: entity.id,
       name: entity.name,
       kind: entity.kind,
+      monsterTier: entity.monsterTier,
     };
   }
   return {
     id: entity.id,
     name: entity.name,
     kind: entity.kind,
+    monsterTier: entity.monsterTier,
     hp: entity.hp,
     maxHp: entity.maxHp,
     qi: entity.qi,
@@ -1270,12 +1277,14 @@ function normalizeObserveEntityCardData(entity: NonNullable<S2C_TileRuntimeDetai
       id: entity.id,
       name: entity.name,
       kind: entity.kind ?? undefined,
+      monsterTier: entity.monsterTier ?? undefined,
     };
   }
   return {
     id: entity.id,
     name: entity.name,
     kind: entity.kind ?? undefined,
+    monsterTier: entity.monsterTier ?? undefined,
     hp: entity.hp,
     maxHp: entity.maxHp,
     qi: entity.qi,
@@ -1298,6 +1307,13 @@ function buildObservedEntityCardHtml(entity: ObserveEntityCardData): string {
     </div>`;
   }
   const detailRows = entity.observation?.lines ?? [];
+  const monsterPresentation = entity.kind === 'monster'
+    ? getMonsterPresentation(entity.name, entity.monsterTier)
+    : null;
+  const title = monsterPresentation?.label ?? entity.name ?? entity.id;
+  const badge = monsterPresentation?.badgeText
+    ? `<span class="${monsterPresentation.badgeClassName}">${escapeHtml(monsterPresentation.badgeText)}</span>`
+    : '';
   const fallbackVitalRows = (entity.kind === 'monster' || entity.kind === 'npc') && detailRows.length === 0
     ? [
         { label: '生命', value: formatCurrentMax(entity.hp, entity.maxHp) },
@@ -1316,7 +1332,7 @@ function buildObservedEntityCardHtml(entity: ObserveEntityCardData): string {
   </div>`;
   return `<div class="observe-entity-card">
     <div class="observe-entity-head">
-      <span class="observe-entity-name">${escapeHtml(entity.name ?? entity.id)}</span>
+      <span class="observe-entity-name">${badge}${escapeHtml(title)}</span>
       <span class="observe-entity-kind">${escapeHtml(getEntityKindLabel(entity.kind, '未知'))}</span>
     </div>
     <div class="observe-entity-verdict">${escapeHtml(entity.observation?.verdict ?? '神识轻拂而过，未得更多回响。')}</div>
@@ -1473,9 +1489,7 @@ function showObserveModal(targetX: number, targetY: number): void {
   activeObservedTile = { mapId: myPlayer.mapId, x: targetX, y: targetY };
   activeObservedTileDetail = null;
   renderObserveModal(targetX, targetY);
-  if (myPlayer.senseQiActive) {
-    socket.sendInspectTileRuntime(targetX, targetY);
-  }
+  socket.sendInspectTileRuntime(targetX, targetY);
 }
 
 // 面板回调绑定

@@ -3901,6 +3901,32 @@
       font-size: var(--font-size-13);
       color: var(--ink-black);
     }
+    .entity-name {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .monster-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 1.45em;
+      padding: 0 0.42em;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 245, 231, 0.42);
+      font-size: 0.82em;
+      line-height: 1.45;
+      letter-spacing: 0.08em;
+      color: #fff7ed;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    }
+    .monster-badge--variant {
+      background: linear-gradient(180deg, rgba(45, 67, 120, 0.96), rgba(26, 40, 78, 0.96));
+    }
+    .monster-badge--boss {
+      background: linear-gradient(180deg, rgba(132, 47, 34, 0.96), rgba(88, 24, 20, 0.96));
+    }
     .entity-meta,
     .suggestion-desc {
       margin-top: 4px;

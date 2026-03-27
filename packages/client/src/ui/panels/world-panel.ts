@@ -3,10 +3,11 @@
  * 展示当前地图情报、附近实体、任务建议与可执行行动
  */
 
-import { ActionDef, gridDistance, MapMeta, PlayerState, QuestState } from '@mud/shared';
+import { ActionDef, gridDistance, MapMeta, MonsterTier, PlayerState, QuestState } from '@mud/shared';
 import { preserveSelection } from '../selection-preserver';
 import { TECH_REALM_LABELS, TECH_REALM_NAME_BY_KEY, WORLD_GUIDE, type WorldGuide } from '../../constants/world/world-panel';
 import { formatDisplayCurrentMax, formatDisplayInteger } from '../../utils/number';
+import { getMonsterPresentation } from '../../monster-presentation';
 
 interface VisibleEntity {
   id: string;
@@ -14,6 +15,7 @@ interface VisibleEntity {
   wy: number;
   name?: string;
   kind?: string;
+  monsterTier?: MonsterTier;
   hp?: number;
   maxHp?: number;
 }
@@ -21,6 +23,7 @@ interface VisibleEntity {
 interface NearbyMonsterView {
   id: string;
   name: string;
+  tier?: MonsterTier;
   distance: number;
   hp: number;
   maxHp: number;
@@ -183,6 +186,7 @@ export class WorldPanel {
       .map((entity) => ({
         id: entity.id ?? entity.name ?? '',
         name: entity.name ?? entity.id ?? '未知妖兽',
+        tier: entity.monsterTier,
         distance: gridDistance({ x: entity.wx, y: entity.wy }, input.player),
         hp: entity.hp ?? 0,
         maxHp: entity.maxHp ?? 0,
@@ -289,7 +293,7 @@ export class WorldPanel {
             ${snapshot.nearbyMonsters.map((monster) => `
               <div class="entity-card threat" data-world-monster-card="${escapeHtml(monster.id)}">
                 <div>
-                  <div class="entity-name" data-world-monster-name="${escapeHtml(monster.id)}">${escapeHtml(monster.name)}</div>
+                  <div class="entity-name" data-world-monster-name="${escapeHtml(monster.id)}">${this.renderMonsterName(monster)}</div>
                   <div class="entity-meta" data-world-monster-meta="${escapeHtml(monster.id)}">距离 ${formatDisplayInteger(monster.distance)} 格 · HP ${formatDisplayCurrentMax(monster.hp, monster.maxHp)}</div>
                 </div>
                 <div class="entity-hp" data-world-monster-status="${escapeHtml(monster.id)}">${buildMonsterStatus(monster.distance)}</div>
@@ -400,7 +404,7 @@ export class WorldPanel {
       if (!refs) {
         return false;
       }
-      refs.nameNode.textContent = monster.name;
+      refs.nameNode.innerHTML = this.renderMonsterName(monster);
       refs.metaNode.textContent = `距离 ${formatDisplayInteger(monster.distance)} 格 · HP ${formatDisplayCurrentMax(monster.hp, monster.maxHp)}`;
       refs.statusNode.textContent = buildMonsterStatus(monster.distance);
     }
@@ -481,5 +485,13 @@ export class WorldPanel {
       }
     }
     this.lastSuggestionActionIds = snapshot.quickActions.map((action) => action.id);
+  }
+
+  private renderMonsterName(monster: NearbyMonsterView): string {
+    const presentation = getMonsterPresentation(monster.name, monster.tier);
+    const badge = presentation.badgeText
+      ? `<span class="${presentation.badgeClassName}">${escapeHtml(presentation.badgeText)}</span>`
+      : '';
+    return `${badge}${escapeHtml(presentation.label)}`;
   }
 }

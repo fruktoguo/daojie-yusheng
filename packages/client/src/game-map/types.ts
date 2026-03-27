@@ -5,6 +5,7 @@ import type {
   MapMeta,
   MapMinimapMarker,
   MapMinimapSnapshot,
+  MonsterTier,
   Tile,
   TargetingShape,
   VisibleBuffState,
@@ -28,6 +29,7 @@ export interface ObservedMapEntity {
   color: string;
   name?: string;
   kind?: string;
+  monsterTier?: MonsterTier;
   hp?: number;
   maxHp?: number;
   qi?: number;

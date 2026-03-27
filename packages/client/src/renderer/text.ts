@@ -17,6 +17,7 @@ import {
   normalizeAuraLevelBaseValue,
   SENSE_QI_OVERLAY_STYLE,
   Tile,
+  type MonsterTier,
   TechniqueGrade,
   TimePhaseId,
   VisibleBuffState,
@@ -44,6 +45,7 @@ import {
   TIME_ATMOSPHERE_PROFILES,
   type TimeAtmosphereProfile,
 } from '../constants/visuals/time-atmosphere';
+import { getMonsterPresentation } from '../monster-presentation';
 
 interface TimeAtmosphereState {
   initialized: boolean;
@@ -219,6 +221,7 @@ interface AnimEntity {
   color: string;
   name?: string;
   kind?: string;
+  monsterTier?: MonsterTier;
   hp?: number;
   maxHp?: number;
   npcQuestMarker?: NpcQuestMarker;
@@ -232,6 +235,9 @@ interface RenderedAnimEntity {
   centerX: number;
   centerY: number;
   cellSize: number;
+  visualSx: number;
+  visualSy: number;
+  visualCellSize: number;
 }
 
 interface FloatingText {
@@ -558,7 +564,7 @@ export class TextRenderer implements IRenderer {
 
   /** 更新实体列表，记录旧位置用于插值动画 */
   updateEntities(
-    list: { id: string; wx: number; wy: number; char: string; color: string; name?: string; kind?: string; hp?: number; maxHp?: number; npcQuestMarker?: NpcQuestMarker; buffs?: VisibleBuffState[] }[],
+    list: { id: string; wx: number; wy: number; char: string; color: string; name?: string; kind?: string; monsterTier?: MonsterTier; hp?: number; maxHp?: number; npcQuestMarker?: NpcQuestMarker; buffs?: VisibleBuffState[] }[],
     movedId?: string,
     shiftX = 0,
     shiftY = 0,
@@ -616,6 +622,7 @@ export class TextRenderer implements IRenderer {
         anim.color = e.color;
         anim.name = e.name;
         anim.kind = e.kind;
+        anim.monsterTier = e.monsterTier;
         anim.hp = e.hp;
         anim.maxHp = e.maxHp;
         anim.npcQuestMarker = e.npcQuestMarker;
@@ -633,6 +640,7 @@ export class TextRenderer implements IRenderer {
           color: e.color,
           name: e.name,
           kind: e.kind,
+          monsterTier: e.monsterTier,
           hp: e.hp,
           maxHp: e.maxHp,
           npcQuestMarker: e.npcQuestMarker,
@@ -665,13 +673,23 @@ export class TextRenderer implements IRenderer {
 
       const { sx, sy } = camera.worldToScreen(wx, wy, sw, sh);
       if (sx + cellSize < 0 || sx > sw || sy + cellSize < 0 || sy > sh) continue;
+      const presentation = anim.kind === 'monster'
+        ? getMonsterPresentation(anim.name, anim.monsterTier)
+        : null;
+      const visualScale = presentation?.scale ?? 1;
+      const visualCellSize = cellSize * visualScale;
+      const visualSx = sx - (visualCellSize - cellSize) / 2;
+      const visualSy = sy - (visualCellSize - cellSize);
       renderedEntities.push({
         anim,
         sx,
         sy,
-        centerX: sx + cellSize / 2,
-        centerY: sy + cellSize / 2,
+        centerX: visualSx + visualCellSize / 2,
+        centerY: visualSy + visualCellSize / 2,
         cellSize,
+        visualSx,
+        visualSy,
+        visualCellSize,
       });
     }
 
@@ -684,8 +702,11 @@ export class TextRenderer implements IRenderer {
     this.renderThreatTargetArrows(renderedEntities, localPlayerId);
 
     for (const rendered of renderedEntities) {
-      const { anim, sx, sy, cellSize: renderedCellSize } = rendered;
+      const { anim, sx, sy, cellSize: renderedCellSize, visualSx, visualSy, visualCellSize } = rendered;
       const isCrowd = anim.kind === 'crowd';
+      const monsterPresentation = anim.kind === 'monster'
+        ? getMonsterPresentation(anim.name, anim.monsterTier)
+        : null;
 
       if (!isCrowd && anim.kind === 'player' && crowdedTileKeys.has(`${anim.gridX},${anim.gridY}`)) {
         continue;
@@ -693,40 +714,54 @@ export class TextRenderer implements IRenderer {
 
       ctx.fillStyle = 'rgba(0,0,0,0.3)';
       ctx.beginPath();
-      ctx.ellipse(sx + renderedCellSize / 2, sy + renderedCellSize - 3, renderedCellSize * 0.32, renderedCellSize * 0.1, 0, 0, Math.PI * 2);
+      ctx.ellipse(sx + renderedCellSize / 2, sy + renderedCellSize - 3, visualCellSize * 0.32, Math.max(2, visualCellSize * 0.1), 0, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.fillStyle = anim.color;
-      ctx.font = `bold ${renderedCellSize * 0.75}px "Ma Shan Zheng", cursive`;
+      ctx.font = `bold ${visualCellSize * 0.75}px "Ma Shan Zheng", cursive`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      this.drawOutlinedText(anim.char, sx + renderedCellSize / 2, sy + renderedCellSize / 2, anim.color, 'rgba(15,12,10,0.9)');
+      this.drawOutlinedText(anim.char, visualSx + visualCellSize / 2, visualSy + visualCellSize / 2, anim.color, 'rgba(15,12,10,0.9)');
 
       if (anim.kind) {
         const isMonster = anim.kind === 'monster';
         const isPlayer = anim.kind === 'player';
         const isNpc = anim.kind === 'npc';
         const isContainer = anim.kind === 'container';
-        const label = anim.name ?? (isCrowd ? '人群' : isMonster ? '妖兽' : isPlayer ? '修士' : isContainer ? '箱具' : '道人');
+        const label = monsterPresentation?.label ?? anim.name ?? (isCrowd ? '人群' : isMonster ? '妖兽' : isPlayer ? '修士' : isContainer ? '箱具' : '道人');
         ctx.textBaseline = 'alphabetic';
         ctx.font = `${renderedCellSize * (isCrowd ? 0.24 : 0.3)}px "Noto Serif SC", serif`;
-        this.drawOutlinedText(
-          label,
-          sx + renderedCellSize / 2,
-          sy - Math.max(6, renderedCellSize * 0.18),
-          isCrowd ? '#f4dfaf' : isMonster ? '#ffddcc' : isPlayer ? '#d8f3c3' : isContainer ? '#ffe3b8' : '#cce7ff',
-          'rgba(15,12,10,0.9)',
-        );
+        const labelY = visualSy - Math.max(6, renderedCellSize * 0.18);
+        const labelColor = isCrowd ? '#f4dfaf' : isMonster ? '#ffddcc' : isPlayer ? '#d8f3c3' : isContainer ? '#ffe3b8' : '#cce7ff';
+        if (isMonster && monsterPresentation?.badgeText) {
+          this.drawMonsterBadgeLabel(
+            label,
+            monsterPresentation.badgeText,
+            monsterPresentation.badgeClassName ?? 'monster-badge',
+            sx + renderedCellSize / 2,
+            labelY,
+            renderedCellSize,
+            labelColor,
+          );
+        } else {
+          this.drawOutlinedText(
+            label,
+            sx + renderedCellSize / 2,
+            labelY,
+            labelColor,
+            'rgba(15,12,10,0.9)',
+          );
+        }
 
         if (!isCrowd) {
-          this.drawBuffRows(sx, sy, renderedCellSize, anim.buffs);
+          this.drawBuffRows(visualSx, visualSy, visualCellSize, anim.buffs);
         }
 
         if (!isCrowd && (anim.maxHp ?? 0) > 0) {
           const ratio = Math.max(0, Math.min(1, (anim.hp ?? 0) / (anim.maxHp ?? 1)));
-          const barX = sx + 3;
-          const barY = sy + renderedCellSize - 5;
-          const barW = renderedCellSize - 6;
+          const barX = visualSx + 3;
+          const barY = visualSy + visualCellSize - 5;
+          const barW = visualCellSize - 6;
           ctx.fillStyle = 'rgba(0,0,0,0.45)';
           ctx.fillRect(barX, barY, barW, 3);
           ctx.fillStyle = isMonster ? '#d15252' : isNpc ? '#58a8ff' : isContainer ? '#c18b46' : '#63c46b';
@@ -734,7 +769,7 @@ export class TextRenderer implements IRenderer {
         }
 
         if (isNpc && anim.npcQuestMarker) {
-          this.drawNpcQuestMarker(sx, sy, renderedCellSize, anim.npcQuestMarker);
+          this.drawNpcQuestMarker(visualSx, visualSy, visualCellSize, anim.npcQuestMarker);
         }
       }
     }
@@ -829,6 +864,60 @@ export class TextRenderer implements IRenderer {
   private getQuadraticPoint(start: number, control: number, end: number, t: number): number {
     const invT = 1 - t;
     return invT * invT * start + 2 * invT * t * control + t * t * end;
+  }
+
+  private drawMonsterBadgeLabel(
+    label: string,
+    badgeText: string,
+    badgeClassName: string,
+    centerX: number,
+    baselineY: number,
+    cellSize: number,
+    labelColor: string,
+  ): void {
+    if (!this.ctx) {
+      return;
+    }
+    const ctx = this.ctx;
+    const badgePaddingX = Math.max(4, cellSize * 0.1);
+    const badgeHeight = Math.max(12, cellSize * 0.28);
+    const badgeRadius = Math.max(4, badgeHeight * 0.38);
+    const badgeTextSize = Math.max(9, cellSize * 0.2);
+    const badgeWidth = Math.max(16, badgeText.length * badgeTextSize + badgePaddingX * 2);
+    const gap = Math.max(4, cellSize * 0.08);
+    const fill = badgeClassName.includes('--boss') ? 'rgba(120, 32, 24, 0.92)' : 'rgba(42, 54, 91, 0.92)';
+    const stroke = badgeClassName.includes('--boss') ? 'rgba(255, 188, 156, 0.86)' : 'rgba(185, 211, 255, 0.82)';
+    const textColor = '#fff6eb';
+
+    ctx.save();
+    ctx.font = `${Math.max(10, cellSize * 0.3)}px "Noto Serif SC", serif`;
+    const labelWidth = ctx.measureText(label).width;
+    const totalWidth = badgeWidth + gap + labelWidth;
+    const left = centerX - totalWidth / 2;
+    const badgeY = baselineY - badgeHeight + Math.max(1, cellSize * 0.02);
+
+    ctx.beginPath();
+    ctx.fillStyle = fill;
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 1;
+    ctx.roundRect(left, badgeY, badgeWidth, badgeHeight, badgeRadius);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.font = `bold ${badgeTextSize}px "Noto Serif SC", serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = textColor;
+    ctx.fillText(badgeText, left + badgeWidth / 2, badgeY + badgeHeight / 2 + 0.5);
+    ctx.restore();
+
+    this.drawOutlinedText(
+      label,
+      left + badgeWidth + gap + labelWidth / 2,
+      baselineY,
+      labelColor,
+      'rgba(15,12,10,0.9)',
+    );
   }
 
   private drawBuffRows(sx: number, sy: number, cellSize: number, buffs?: VisibleBuffState[]) {
