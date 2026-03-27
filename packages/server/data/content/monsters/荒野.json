@@ -209,7 +209,14 @@
         "name": "阴沼丝",
         "type": "material",
         "count": 1,
-        "chance": 0.58
+        "chance": 1
+      },
+      {
+        "itemId": "equip.step_boots",
+        "name": "游侠靴",
+        "type": "equipment",
+        "count": 1,
+        "chance": 0.2
       },
       {
         "itemId": "frost_heart_paste",
@@ -223,7 +230,7 @@
         "name": "《分光步》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.2
       },
       {
         "itemId": "spirit_stone",
@@ -235,7 +242,8 @@
     ],
     "grade": "mortal",
     "tier": "variant",
-    "count": 5,
+    "expMultiplier": 10,
+    "count": 3,
     "equipment": {
       "weapon": "equip.scavenger_fang",
       "head": "equip.scavenger_crest",
@@ -285,28 +293,28 @@
         "name": "阴沼丝",
         "type": "material",
         "count": 2,
-        "chance": 0.78
+        "chance": 1
       },
       {
         "itemId": "blood_feather",
         "name": "血羽",
         "type": "material",
         "count": 1,
-        "chance": 0.52
+        "chance": 1
       },
       {
         "itemId": "equip.step_boots",
         "name": "游侠靴",
         "type": "equipment",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.5
       },
       {
         "itemId": "book.cloud_blade",
         "name": "《流云刀谱》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.5
       },
       {
         "itemId": "spirit_stone",
@@ -318,6 +326,7 @@
     ],
     "grade": "mortal",
     "tier": "demon_king",
+    "expMultiplier": 100,
     "count": 1,
     "equipment": {
       "weapon": "equip.scavenger_fang",

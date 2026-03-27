@@ -159,11 +159,25 @@
         "chance": 0.2
       },
       {
+        "itemId": "rune_shard",
+        "name": "断纹石片",
+        "type": "material",
+        "count": 1,
+        "chance": 1
+      },
+      {
         "itemId": "book.spirit_anchor",
         "name": "《镇灵篇》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.2
+      },
+      {
+        "itemId": "equip.soul_devour_token",
+        "name": "噬元骨牌",
+        "type": "equipment",
+        "count": 1,
+        "chance": 0.2
       },
       {
         "itemId": "spirit_stone",
@@ -175,7 +189,8 @@
     ],
     "grade": "mortal",
     "tier": "variant",
-    "count": 4,
+    "expMultiplier": 10,
+    "count": 3,
     "equipment": {
       "weapon": "equip.broken_rune_blade",
       "head": "equip.remnant_array_crown",
@@ -226,28 +241,28 @@
         "name": "断纹石片",
         "type": "material",
         "count": 2,
-        "chance": 0.82
+        "chance": 1
       },
       {
         "itemId": "soul_ink",
         "name": "魂墨",
         "type": "material",
         "count": 2,
-        "chance": 0.68
+        "chance": 1
       },
       {
         "itemId": "book.spirit_anchor",
         "name": "《镇灵篇》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.5
       },
       {
         "itemId": "equip.soul_devour_token",
         "name": "噬元骨牌",
         "type": "equipment",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.5
       },
       {
         "itemId": "spirit_stone",
@@ -259,6 +274,7 @@
     ],
     "grade": "mortal",
     "tier": "demon_king",
+    "expMultiplier": 100,
     "count": 1,
     "equipment": {
       "weapon": "equip.broken_rune_blade",

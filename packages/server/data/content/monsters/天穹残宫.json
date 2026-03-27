@@ -155,18 +155,25 @@
         "chance": 1
       },
       {
+        "itemId": "star_metal",
+        "name": "星陨金",
+        "type": "material",
+        "count": 1,
+        "chance": 1
+      },
+      {
         "itemId": "equip.starfall_spear",
         "name": "陨星枪",
         "type": "equipment",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.2
       },
       {
         "itemId": "book.starfall_spear",
         "name": "《陨星枪诀》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.2
       },
       {
         "itemId": "spirit_stone",
@@ -178,7 +185,8 @@
     ],
     "grade": "yellow",
     "tier": "variant",
-    "count": 1,
+    "expMultiplier": 10,
+    "count": 2,
     "equipment": {
       "weapon": "equip.starfall_spear",
       "head": "equip.windhear_crown",
@@ -229,42 +237,42 @@
         "name": "星陨金",
         "type": "material",
         "count": 2,
-        "chance": 0.88
+        "chance": 1
       },
       {
         "itemId": "void_shard",
         "name": "虚蚀碎片",
         "type": "material",
         "count": 2,
-        "chance": 0.76
+        "chance": 1
       },
       {
         "itemId": "equip.starfall_spear",
         "name": "残星乌铁枪",
         "type": "equipment",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.25
       },
       {
         "itemId": "book.starfall_spear",
         "name": "《陨星枪诀》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.25
       },
       {
         "itemId": "book.body_tempering_formula",
         "name": "《锻体决》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.25
       },
       {
         "itemId": "equip.void_talisman",
         "name": "镇脉玄纹佩",
         "type": "equipment",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.25
       },
       {
         "itemId": "spirit_stone",
@@ -281,7 +289,7 @@
     "aggroRange": 6,
     "viewRange": 6,
     "aggroMode": "always",
-    "expMultiplier": 1,
+    "expMultiplier": 100,
     "equipment": {
       "weapon": "equip.starfall_spear",
       "head": "equip.celestial_crown",

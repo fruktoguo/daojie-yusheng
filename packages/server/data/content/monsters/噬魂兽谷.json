@@ -149,7 +149,14 @@
         "name": "《止念诀》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.5
+      },
+      {
+        "itemId": "demon_wolf_bone",
+        "name": "妖狼骨",
+        "type": "material",
+        "count": 2,
+        "chance": 1
       },
       {
         "itemId": "valley_core",
@@ -170,11 +177,12 @@
         "name": "噬元骨牌",
         "type": "equipment",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.5
       }
     ],
     "grade": "mortal",
     "tier": "demon_king",
+    "expMultiplier": 100,
     "count": 1,
     "equipment": {
       "weapon": "equip.valley_fang_blade",
@@ -291,18 +299,25 @@
         "chance": 1
       },
       {
+        "itemId": "demon_wolf_bone",
+        "name": "妖狼骨",
+        "type": "material",
+        "count": 1,
+        "chance": 1
+      },
+      {
         "itemId": "equip.rift_guard_armor",
         "name": "裂隙镇守甲",
         "type": "equipment",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.1
       },
       {
         "itemId": "book.hundred_temper_body",
         "name": "《壮身功》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.2
       },
       {
         "itemId": "spirit_stone",
@@ -316,12 +331,13 @@
         "name": "噬元骨牌",
         "type": "equipment",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.1
       }
     ],
     "grade": "yellow",
     "tier": "variant",
-    "count": 1,
+    "expMultiplier": 10,
+    "count": 2,
     "equipment": {
       "weapon": "equip.valley_fang_blade",
       "head": "equip.celestial_crown",
@@ -373,28 +389,28 @@
         "name": "妖狼骨",
         "type": "material",
         "count": 2,
-        "chance": 0.84
+        "chance": 1
       },
       {
         "itemId": "blood_feather",
         "name": "血羽",
         "type": "material",
         "count": 2,
-        "chance": 0.62
+        "chance": 1
       },
       {
         "itemId": "book_stillheart",
         "name": "《止念诀》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.5
       },
       {
         "itemId": "equip.rift_guard_armor",
         "name": "裂隙镇守甲",
         "type": "equipment",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.5
       },
       {
         "itemId": "spirit_stone",
@@ -406,6 +422,7 @@
     ],
     "grade": "yellow",
     "tier": "demon_king",
+    "expMultiplier": 100,
     "count": 1,
     "equipment": {
       "weapon": "equip.valley_fang_blade",

@@ -1621,14 +1621,20 @@
   "monsterSpawns": [
     {
       "id": "m_preview_town_rat_south",
-      "x": 12,
-      "y": 54,
+      "x": 10,
+      "y": 58,
+      "count": 20,
+      "radius": 8,
+      "maxAlive": 40,
       "respawnTicks": 15
     },
     {
       "id": "m_preview_town_rat_refuse",
-      "x": 46,
-      "y": 53,
+      "x": 42,
+      "y": 58,
+      "count": 20,
+      "radius": 8,
+      "maxAlive": 40,
       "respawnTicks": 15
     },
     {

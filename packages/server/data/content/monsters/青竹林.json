@@ -217,21 +217,21 @@
         "name": "螳锋",
         "type": "material",
         "count": 1,
-        "chance": 0.5
+        "chance": 1
       },
       {
         "itemId": "equip.rust_saber",
         "name": "旧铁长刀",
         "type": "equipment",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.2
       },
       {
         "itemId": "book.cloudchase_steps",
         "name": "《分光步》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.2
       },
       {
         "itemId": "spirit_stone",
@@ -243,7 +243,8 @@
     ],
     "grade": "mortal",
     "tier": "variant",
-    "count": 5,
+    "expMultiplier": 10,
+    "count": 3,
     "equipment": {
       "weapon": "equip.bamboo_split_blade",
       "head": "equip.leafshadow_crest",
@@ -292,28 +293,28 @@
         "name": "螳锋",
         "type": "material",
         "count": 2,
-        "chance": 0.82
+        "chance": 1
       },
       {
         "itemId": "bamboo_heart",
         "name": "翠竹心",
         "type": "material",
         "count": 1,
-        "chance": 0.48
+        "chance": 1
       },
       {
         "itemId": "equip.rust_saber",
         "name": "旧铁长刀",
         "type": "equipment",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.5
       },
       {
         "itemId": "book.iron_bone_art",
         "name": "《铁骨功》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.5
       },
       {
         "itemId": "spirit_stone",
@@ -325,6 +326,7 @@
     ],
     "grade": "mortal",
     "tier": "demon_king",
+    "expMultiplier": 100,
     "count": 1,
     "equipment": {
       "weapon": "equip.bamboo_split_blade",

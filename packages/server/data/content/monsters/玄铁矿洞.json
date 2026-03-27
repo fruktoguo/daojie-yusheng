@@ -227,18 +227,25 @@
         "chance": 0.55
       },
       {
+        "itemId": "black_iron_chunk",
+        "name": "玄铁矿块",
+        "type": "material",
+        "count": 1,
+        "chance": 1
+      },
+      {
         "itemId": "equip.rift_guard_armor",
         "name": "裂隙镇守甲",
         "type": "equipment",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.2
       },
       {
         "itemId": "book.golden_lock_body",
         "name": "《固元功》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.2
       },
       {
         "itemId": "spirit_stone",
@@ -250,6 +257,7 @@
     ],
     "grade": "mortal",
     "tier": "variant",
+    "expMultiplier": 10,
     "count": 2,
     "equipment": {
       "weapon": "equip.orebreak_hammer",
@@ -300,14 +308,14 @@
         "name": "玄铁矿块",
         "type": "material",
         "count": 2,
-        "chance": 0.88
+        "chance": 1
       },
       {
         "itemId": "crystal_dust",
         "name": "晶尘",
         "type": "material",
         "count": 2,
-        "chance": 0.6
+        "chance": 1
       },
       {
         "itemId": "colossus_heart",
@@ -321,14 +329,14 @@
         "name": "裂隙镇守甲",
         "type": "equipment",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.5
       },
       {
         "itemId": "book.redflame_art",
         "name": "《赤焰诀》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.5
       },
       {
         "itemId": "spirit_stone",
@@ -340,6 +348,7 @@
     ],
     "grade": "mortal",
     "tier": "demon_king",
+    "expMultiplier": 100,
     "count": 1,
     "equipment": {
       "weapon": "equip.black_iron_sword",

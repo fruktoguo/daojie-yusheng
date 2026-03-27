@@ -159,14 +159,14 @@
         "name": "虚蚀碎片",
         "type": "material",
         "count": 1,
-        "chance": 0.4
+        "chance": 1
       },
       {
         "itemId": "book.lightshadow_art",
         "name": "《折影提气诀》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.2
       },
       {
         "itemId": "spirit_stone",
@@ -180,12 +180,13 @@
         "name": "噬元骨牌",
         "type": "equipment",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.2
       }
     ],
     "grade": "yellow",
     "tier": "variant",
-    "count": 4,
+    "expMultiplier": 10,
+    "count": 2,
     "equipment": {
       "head": "equip.celestial_crown",
       "body": "equip.ridge_calm_robe",
@@ -235,28 +236,28 @@
         "name": "岭兽爪",
         "type": "material",
         "count": 2,
-        "chance": 0.8
+        "chance": 1
       },
       {
         "itemId": "frost_essence",
         "name": "霜华精粹",
         "type": "material",
         "count": 2,
-        "chance": 0.72
+        "chance": 1
       },
       {
         "itemId": "equip.spirit_ring",
         "name": "凝灵戒",
         "type": "equipment",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.5
       },
       {
         "itemId": "book.frost_sutra",
         "name": "《寒魄经》",
         "type": "skill_book",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.5
       },
       {
         "itemId": "spirit_stone",
@@ -268,6 +269,7 @@
     ],
     "grade": "yellow",
     "tier": "demon_king",
+    "expMultiplier": 100,
     "count": 1,
     "equipment": {
       "weapon": "equip.starfall_spear",
