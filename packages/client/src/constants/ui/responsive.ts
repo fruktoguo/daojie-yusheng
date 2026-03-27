@@ -15,8 +15,11 @@ export const UI_RESPONSIVE_BREAKPOINTS = {
 export const DESKTOP_LAYOUT_DRAG_LIMITS = {
   leftMin: 220,
   leftMax: 520,
+  leftMaxViewportRatio: 0.4,
   rightMin: 240,
   rightMax: 680,
+  rightMaxViewportRatio: 0.5,
   bottomMin: 140,
   bottomMax: 480,
+  bottomMaxViewportRatio: 0.55,
 } as const;

@@ -17,6 +17,7 @@ type MobileSectionMount = {
 };
 
 export class SidePanel {
+  private static readonly DRAG_START_THRESHOLD_PX = 6;
   private panel: HTMLElement;
   private mobileShell: HTMLElement | null;
   private mobileSections: MobileSectionMount[];
@@ -29,6 +30,7 @@ export class SidePanel {
     pointerId: number;
     startX: number;
     startY: number;
+    startSize: number;
     shellRect: DOMRect;
     dragged: boolean;
   } | null = null;
@@ -44,6 +46,7 @@ export class SidePanel {
     this.mobileSections = this.collectMobileSections();
     this.bindTabGroups();
     this.bindLayoutToggles();
+    this.bindLayoutTransitionSync();
     this.bindResponsiveLayout();
     this.syncLayoutState();
     this.syncResponsiveLayout();
@@ -120,6 +123,7 @@ export class SidePanel {
           pointerId: event.pointerId,
           startX: event.clientX,
           startY: event.clientY,
+          startSize: this.getLayoutSize(target),
           shellRect: this.panel.getBoundingClientRect(),
           dragged: false,
         };
@@ -138,30 +142,40 @@ export class SidePanel {
 
         const deltaX = event.clientX - this.dragState.startX;
         const deltaY = event.clientY - this.dragState.startY;
-        if (!this.dragState.dragged && Math.abs(deltaX) < 4 && Math.abs(deltaY) < 4) {
+        const primaryDelta = this.dragState.target === 'bottom' ? Math.abs(deltaY) : Math.abs(deltaX);
+        if (!this.dragState.dragged && primaryDelta < SidePanel.DRAG_START_THRESHOLD_PX) {
           return;
         }
 
         this.dragState.dragged = true;
         if (this.dragState.target === 'left') {
           const next = this.clamp(
-            event.clientX - this.dragState.shellRect.left,
+            this.dragState.startSize + deltaX,
             scaleDesktopCssPixels(window, DESKTOP_LAYOUT_DRAG_LIMITS.leftMin),
-            Math.min(scaleDesktopCssPixels(window, DESKTOP_LAYOUT_DRAG_LIMITS.leftMax), this.dragState.shellRect.width * 0.4),
+            Math.min(
+              scaleDesktopCssPixels(window, DESKTOP_LAYOUT_DRAG_LIMITS.leftMax),
+              this.dragState.shellRect.width * DESKTOP_LAYOUT_DRAG_LIMITS.leftMaxViewportRatio,
+            ),
           );
           this.panel.style.setProperty('--layout-left-size', `${next}px`);
         } else if (this.dragState.target === 'right') {
           const next = this.clamp(
-            this.dragState.shellRect.right - event.clientX,
+            this.dragState.startSize - deltaX,
             scaleDesktopCssPixels(window, DESKTOP_LAYOUT_DRAG_LIMITS.rightMin),
-            Math.min(scaleDesktopCssPixels(window, DESKTOP_LAYOUT_DRAG_LIMITS.rightMax), this.dragState.shellRect.width * 0.5),
+            Math.min(
+              scaleDesktopCssPixels(window, DESKTOP_LAYOUT_DRAG_LIMITS.rightMax),
+              this.dragState.shellRect.width * DESKTOP_LAYOUT_DRAG_LIMITS.rightMaxViewportRatio,
+            ),
           );
           this.panel.style.setProperty('--layout-right-size', `${next}px`);
         } else {
           const next = this.clamp(
-            this.dragState.shellRect.bottom - event.clientY,
+            this.dragState.startSize - deltaY,
             scaleDesktopCssPixels(window, DESKTOP_LAYOUT_DRAG_LIMITS.bottomMin),
-            Math.min(scaleDesktopCssPixels(window, DESKTOP_LAYOUT_DRAG_LIMITS.bottomMax), this.dragState.shellRect.height * 0.55),
+            Math.min(
+              scaleDesktopCssPixels(window, DESKTOP_LAYOUT_DRAG_LIMITS.bottomMax),
+              this.dragState.shellRect.height * DESKTOP_LAYOUT_DRAG_LIMITS.bottomMaxViewportRatio,
+            ),
           );
           this.panel.style.setProperty('--layout-bottom-size', `${next}px`);
         }
@@ -207,6 +221,20 @@ export class SidePanel {
     window.addEventListener('resize', refresh);
     window.addEventListener('orientationchange', refresh);
     window.visualViewport?.addEventListener('resize', refresh);
+  }
+
+  private bindLayoutTransitionSync(): void {
+    this.panel.addEventListener('transitionend', (event) => {
+      if (!(event.target instanceof HTMLElement)) {
+        return;
+      }
+      const isShellColumnTransition = event.target === this.panel && event.propertyName === 'grid-template-columns';
+      const isCenterRowTransition = event.target.id === 'layout-center' && event.propertyName === 'grid-template-rows';
+      if (!isShellColumnTransition && !isCenterRowTransition) {
+        return;
+      }
+      this.onLayoutChange?.();
+    });
   }
 
   private collectMobileSections(): MobileSectionMount[] {
@@ -343,6 +371,20 @@ export class SidePanel {
 
   private clamp(value: number, min: number, max: number): number {
     return Math.max(min, Math.min(max, value));
+  }
+
+  private getLayoutSize(target: 'left' | 'right' | 'bottom'): number {
+    const selector = target === 'left'
+      ? '#layout-left'
+      : target === 'right'
+        ? '#layout-right'
+        : '#layout-center-bottom';
+    const element = this.panel.querySelector<HTMLElement>(selector);
+    if (!element) {
+      return 0;
+    }
+    const rect = element.getBoundingClientRect();
+    return target === 'bottom' ? rect.height : rect.width;
   }
 
   private switchGroupTab(group: HTMLElement, tabName: string): void {

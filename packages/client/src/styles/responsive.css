@@ -833,6 +833,21 @@
       overflow: hidden;
     }
 
+    html[data-effective-layout-breakpoint="wide"] #game-shell[data-left-collapsed="true"],
+    html[data-effective-layout-breakpoint="compact"] #game-shell[data-left-collapsed="true"] {
+      grid-template-columns: var(--layout-collapsed-rail-size) minmax(0, 1fr) var(--layout-right-size);
+    }
+
+    html[data-effective-layout-breakpoint="wide"] #game-shell[data-right-collapsed="true"],
+    html[data-effective-layout-breakpoint="compact"] #game-shell[data-right-collapsed="true"] {
+      grid-template-columns: var(--layout-left-size) minmax(0, 1fr) var(--layout-collapsed-rail-size);
+    }
+
+    html[data-effective-layout-breakpoint="wide"] #game-shell[data-left-collapsed="true"][data-right-collapsed="true"],
+    html[data-effective-layout-breakpoint="compact"] #game-shell[data-left-collapsed="true"][data-right-collapsed="true"] {
+      grid-template-columns: var(--layout-collapsed-rail-size) minmax(0, 1fr) var(--layout-collapsed-rail-size);
+    }
+
     html[data-effective-layout-breakpoint="wide"] #layout-left,
     html[data-effective-layout-breakpoint="wide"] #layout-right,
     html[data-effective-layout-breakpoint="compact"] #layout-left,
