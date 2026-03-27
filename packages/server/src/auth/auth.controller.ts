@@ -14,6 +14,19 @@ import {
   GmLoginReq,
   GmLoginRes,
 } from '@mud/shared';
+import { buildDefaultRoleName } from './account-validation';
+
+type LegacyAuthLoginReq = {
+  username?: string;
+};
+
+type LegacyAuthRegisterReq = {
+  username?: string;
+};
+
+function pickString(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
 
 @Controller('auth')
 export class AuthController {
@@ -21,14 +34,25 @@ export class AuthController {
 
   /** 用户注册 */
   @Post('register')
-  async register(@Body() body: AuthRegisterReq): Promise<AuthTokenRes> {
-    return this.authService.register(body.accountName, body.password, body.displayName, body.roleName);
+  async register(@Body() body: AuthRegisterReq & LegacyAuthRegisterReq): Promise<AuthTokenRes> {
+    const legacyUsername = pickString(body.username);
+    const accountName = pickString(body.accountName) || legacyUsername;
+    const roleName = pickString(body.roleName) || buildDefaultRoleName(legacyUsername);
+    return this.authService.register(
+      accountName,
+      pickString(body.password),
+      pickString(body.displayName),
+      roleName,
+    );
   }
 
   /** 用户登录 */
   @Post('login')
-  async login(@Body() body: AuthLoginReq): Promise<AuthTokenRes> {
-    return this.authService.login(body.loginName, body.password);
+  async login(@Body() body: AuthLoginReq & LegacyAuthLoginReq): Promise<AuthTokenRes> {
+    return this.authService.login(
+      pickString(body.loginName) || pickString(body.username),
+      pickString(body.password),
+    );
   }
 
   /** 刷新访问令牌 */
