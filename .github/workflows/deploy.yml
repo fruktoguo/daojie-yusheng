@@ -109,4 +109,3 @@ jobs:
           JWT_SECRET: ${{ secrets.PROD_JWT_SECRET }}
         run: |
           docker --context production stack deploy --with-registry-auth -c docker-stack.yml daojie-yusheng
-

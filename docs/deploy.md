@@ -1,8 +1,11 @@
 # 自动部署说明
 
-本项目使用与 `jiuzhou` 同路线的发布机制：
+本页说明测试服自动部署与正式版镜像发布的分流方式：
 
 - GitHub Actions 自动构建并推送镜像到 GHCR
+- `push main` 会自动更新测试服务器
+- 手动运行 `Publish Prod Image` 才会额外生成正式服使用的 `prod` 标签镜像
+- 正式服务器应改为拉取 `prod`，而不是 `latest`
 - Docker Swarm 负责滚动更新
 - `start-first + healthcheck + rollback` 提供近零停机更新
 - 服务端通过 Nest shutdown hooks 做优雅停机
@@ -16,24 +19,43 @@
 
 这两个端口适合交给现有 Caddy 做反向代理，避免直接占用服务器的 `80/443`。
 
-## 发布链路
+## 测试服发布链路
 
 1. 推送代码到 `main`
 2. GitHub Actions 构建：
    - `ghcr.io/fruktoguo/daojie-yusheng-server`
    - `ghcr.io/fruktoguo/daojie-yusheng-client`
-3. Actions 通过 SSH 连接生产服务器上的 Docker Swarm manager
-4. Actions 执行 `docker stack deploy`
-5. Swarm 先启动新任务，健康检查通过后再摘除旧任务
-6. 若新任务启动失败，Swarm 自动回滚
+3. 镜像会被打上 `latest` 与 `sha-提交号`
+4. Actions 通过 SSH 连接测试服务器上的 Docker Swarm manager
+5. Actions 执行 `docker stack deploy`
+6. Swarm 先启动新任务，健康检查通过后再摘除旧任务
+7. 若新任务启动失败，Swarm 自动回滚
 
 触发规则：
 
-- 只有 `push main` 会触发生产自动部署
+- `push main` 会自动构建并部署测试服务器
+- 在 GitHub 网页上手动运行 `Build And Deploy` 时，也会重新部署测试服务器
 - 本地提交不会触发部署
-- 推送到其他分支不会触发生产部署
-- 一次 push 即使包含多个本地提交，也只会触发一次部署流水线
-- 如果短时间内连续 push 多次，就会连续触发多次部署
+- 推送到其他分支不会触发这条工作流
+- 一次 push 即使包含多个本地提交，也只会触发一次测试镜像构建与部署
+- 如果短时间内连续 push 多次，就会连续触发多次测试镜像构建与部署
+
+## 正式版镜像发布链路
+
+1. 先把准备发布的代码推到 `main`
+2. 在测试服务器确认这版没问题
+3. 打开 GitHub 仓库的 `Actions`
+4. 选择 `Publish Prod Image`
+5. 点击右上的 `Run workflow`
+6. 分支保持为 `main`
+7. 再点一次 `Run workflow`
+8. GitHub Actions 重新构建前后端镜像，并打上 `prod` 与 `prod-sha-提交号`
+
+触发规则：
+
+- 只有手动运行 `Publish Prod Image` 时，才会生成 `prod`
+- 日常 `push main` 不会覆盖 `prod`
+- 正式服务器如果拉的是 `prod`，就只会在你手动发布后才更新
 
 ## 一次性服务器准备
 
@@ -109,6 +131,24 @@ daojie.yuohira.com {
 - `stop_grace_period: 30s`
 
 这样在新版本容器健康前，旧版本不会先退出；而旧版本收到停止信号后，会先走 Nest 的优雅停机流程。
+
+## 日常使用
+
+日常开发：
+
+1. 正常提交并 `push main`
+2. 等待 GitHub Actions 自动完成测试镜像构建与测试服部署
+3. 如需重跑测试服部署，可在 GitHub Actions 页面手动运行 `Build And Deploy`
+
+正式发布：
+
+1. 先确认测试服已经验证通过
+2. 打开 GitHub 仓库的 `Actions`
+3. 进入 `Publish Prod Image`
+4. 点击 `Run workflow`
+5. 保持分支为 `main` 并执行
+6. 等待镜像推送完成
+7. 通知 Faith 继续使用或拉取 `ghcr.io/fruktoguo/daojie-yusheng-server:prod`
 
 ## 回滚
 

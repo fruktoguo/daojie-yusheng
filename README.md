@@ -134,19 +134,21 @@ pnpm dev:server
 
 ## 自动部署
 
-项目已接入自动构建与自动部署链路：
+项目当前的镜像与部署链路如下：
 
-- 推送到 `main` 后，GitHub Actions 会自动构建前后端镜像并推送到 GHCR
-- 构建完成后，Actions 会通过 SSH 连接生产服务器并执行 Docker Swarm 发布
+- 推送到 `main` 后，GitHub Actions 会自动构建前后端镜像并推送到 GHCR，测试服务器继续跟随 `latest` / `sha-提交号` 自动更新
+- 需要给正式服务器发布稳定版时，在 GitHub Actions 页面手动运行 `Publish Prod Image`，额外生成 `prod` 标签镜像
+- 正式服务器只需要把拉取镜像的标签从 `latest` 改成 `prod`，以后就不会再被你的日常测试推送影响
 - 生产环境使用 `start-first + healthcheck + rollback` 做近零停机滚动更新
 - 服务端启用健康检查与优雅停机，更新时会先拉起新实例，再摘除旧实例
 - 默认发布端口为前端 `11921`、后端 `11922`，适合由现有 Caddy 统一反向代理到域名
-- 本地提交不会触发线上更新；只有 push 到 `main` 才会自动部署，且一次 push 只触发一次部署
+- 本地提交仍会自动更新测试服，但不会自动生成正式服使用的 `prod` 镜像
 
 关键文件：
 
 - [docker-stack.yml](./docker-stack.yml)
 - [.github/workflows/deploy.yml](./.github/workflows/deploy.yml)
+- [.github/workflows/publish-prod-image.yml](./.github/workflows/publish-prod-image.yml)
 - [.github/workflows/sync.yml](./.github/workflows/sync.yml)
 - [docs/deploy.md](./docs/deploy.md)
 - [docs/gitee-sync.md](./docs/gitee-sync.md)
