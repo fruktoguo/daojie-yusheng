@@ -24,7 +24,7 @@
       ],
       "nextQuestId": "q_wildlands_boar_meat",
       "giverMapId": "yunlai_town",
-      "giverNpcId": "npc_preview_shen_qiniang",
+      "giverNpcId": "npc_shen_qiniang",
       "submitMapId": "wildlands",
       "submitNpcId": "npc_hunter_luo"
     },
@@ -61,7 +61,7 @@
       "giverMapId": "wildlands",
       "giverNpcId": "npc_hunter_luo",
       "submitMapId": "yunlai_town",
-      "submitNpcId": "npc_preview_shen_qiniang"
+      "submitNpcId": "npc_shen_qiniang"
     },
     {
       "id": "q_wildlands_bandit_toll",
@@ -94,7 +94,7 @@
       ],
       "nextQuestId": "q_wildlands_swamp_medicine",
       "giverMapId": "yunlai_town",
-      "giverNpcId": "npc_preview_ma_huitou",
+      "giverNpcId": "npc_ma_huitou",
       "submitMapId": "yunlai_town",
       "submitNpcId": "npc_blacksmith_han"
     },
@@ -148,7 +148,7 @@
       "desc": "去北井旧坊找老关卒问旧事，再回清玄处复命。",
       "objectiveType": "talk",
       "objectiveText": "向老关卒打听旧北关的旧事",
-      "targetNpcId": "npc_preview_old_gate_guard",
+      "targetNpcId": "npc_old_gate_guard",
       "targetNpcName": "老关卒",
       "targetMapId": "yunlai_town",
       "targetName": "老关卒",

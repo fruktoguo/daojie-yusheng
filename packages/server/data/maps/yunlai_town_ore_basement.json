@@ -78,14 +78,14 @@
   ],
   "landmarks": [
     {
-      "id": "lm_preview_ore_basement_spirit_vein",
+      "id": "lm_ore_basement_spirit_vein",
       "name": "碎露灵石矿",
       "x": 11,
       "y": 2,
       "desc": "矿壁里嵌着零散灵石，稍加开凿就会震落出可用灵石。"
     },
     {
-      "id": "lm_preview_ore_basement_black_iron_vein",
+      "id": "lm_ore_basement_black_iron_vein",
       "name": "玄铁矿脉",
       "x": 10,
       "y": 9,
@@ -141,7 +141,7 @@
       }
     },
     {
-      "id": "lm_preview_ore_basement_tool_rack",
+      "id": "lm_ore_basement_tool_rack",
       "name": "矿工工具架",
       "x": 9,
       "y": 9,
@@ -198,7 +198,7 @@
       }
     },
     {
-      "id": "lm_preview_ore_basement_miner_chest",
+      "id": "lm_ore_basement_miner_chest",
       "name": "矿工旧木箱",
       "x": 14,
       "y": 10,

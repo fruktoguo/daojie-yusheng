@@ -6,7 +6,7 @@
       "desc": "韩铁匠让你去收拾城边流匪，把还像样的铁件和腰牌一并带回来，他好给门楼和你各打一件能用的家伙。",
       "story": "云来镇不缺会抱怨的人，缺的是能把死人和匪徒身上那点东西重新敲成活路的人。",
       "objectiveText": "清掉城边流匪，并交回匪徒腰牌",
-      "targetMonsterId": "m_preview_gate_thug",
+      "targetMonsterId": "m_gate_thug",
       "targetCount": 6,
       "targetMapId": "yunlai_town",
       "targetName": "城边流匪",
@@ -38,7 +38,7 @@
       "desc": "药铺后的废料堆总招灰尾鼠，兰药师让你先把那一片清干净，再收些鼠尾回来给她配驱虫药。",
       "story": "兰药师嘴上说着“药不轻给”，可谁真替她把脏活做了，她也从不让人白跑。",
       "objectiveText": "清掉药铺后巷鼠患，并带回鼠尾",
-      "targetMonsterId": "m_preview_town_rat_refuse",
+      "targetMonsterId": "m_town_rat_refuse",
       "targetCount": 8,
       "targetMapId": "yunlai_town",
       "targetName": "后巷灰尾鼠",
@@ -104,9 +104,9 @@
       ],
       "line": "side",
       "giverMapId": "yunlai_town",
-      "giverNpcId": "npc_preview_shen_qiniang",
+      "giverNpcId": "npc_shen_qiniang",
       "submitMapId": "yunlai_town",
-      "submitNpcId": "npc_preview_shen_qiniang"
+      "submitNpcId": "npc_shen_qiniang"
     }
   ]
 }

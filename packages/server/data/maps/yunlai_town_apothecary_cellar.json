@@ -51,7 +51,7 @@
   },
   "landmarks": [
     {
-      "id": "lm_preview_apothecary_cellar_crate",
+      "id": "lm_apothecary_cellar_crate",
       "name": "封蜡药材柜",
       "x": 13,
       "y": 2,
@@ -107,7 +107,7 @@
       }
     },
     {
-      "id": "lm_preview_apothecary_cellar_jar",
+      "id": "lm_apothecary_cellar_jar",
       "name": "药酒陶缸",
       "x": 3,
       "y": 1,
@@ -163,7 +163,7 @@
       }
     },
     {
-      "id": "lm_preview_apothecary_cellar_shelf",
+      "id": "lm_apothecary_cellar_shelf",
       "name": "低矮药架",
       "x": 5,
       "y": 8,
@@ -218,7 +218,7 @@
       }
     },
     {
-      "id": "lm_preview_apothecary_cellar_drying_basket",
+      "id": "lm_apothecary_cellar_drying_basket",
       "name": "阴干药篓",
       "x": 6,
       "y": 2,
@@ -273,7 +273,7 @@
       }
     },
     {
-      "id": "lm_preview_apothecary_cellar_spare_cabinet",
+      "id": "lm_apothecary_cellar_spare_cabinet",
       "name": "封存偏柜",
       "x": 15,
       "y": 9,

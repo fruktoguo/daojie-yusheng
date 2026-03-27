@@ -1,6 +1,6 @@
 [
   {
-    "id": "m_preview_town_rat_south",
+    "id": "m_town_rat_south",
     "name": "南沟灰尾鼠",
     "char": "鼠",
     "color": "#9b9b9b",
@@ -59,7 +59,7 @@
     ]
   },
   {
-    "id": "m_preview_town_rat_refuse",
+    "id": "m_town_rat_refuse",
     "name": "废棚灰尾鼠",
     "char": "鼠",
     "color": "#8f8f8f",
@@ -118,7 +118,7 @@
     ]
   },
   {
-    "id": "m_preview_gate_thug",
+    "id": "m_gate_thug",
     "name": "断路暴徒",
     "char": "匪",
     "color": "#ba6f5a",
@@ -178,7 +178,7 @@
     ]
   },
   {
-    "id": "m_preview_night_blade",
+    "id": "m_night_blade",
     "name": "夜行刀客",
     "char": "刀",
     "color": "#8b3d3d",

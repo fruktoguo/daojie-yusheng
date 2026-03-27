@@ -66,7 +66,7 @@
   ],
   "landmarks": [
     {
-      "id": "lm_preview_old_shrine_crypt_casket",
+      "id": "lm_old_shrine_crypt_casket",
       "name": "灰石供匣",
       "x": 6,
       "y": 1,
@@ -121,7 +121,7 @@
       }
     },
     {
-      "id": "lm_preview_old_shrine_crypt_offering_table",
+      "id": "lm_old_shrine_crypt_offering_table",
       "name": "旧供案暗格",
       "x": 8,
       "y": 6,
@@ -176,7 +176,7 @@
       }
     },
     {
-      "id": "lm_preview_old_shrine_crypt_incense_box",
+      "id": "lm_old_shrine_crypt_incense_box",
       "name": "潮旧香盒",
       "x": 11,
       "y": 6,

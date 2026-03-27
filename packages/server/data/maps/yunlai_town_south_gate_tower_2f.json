@@ -49,7 +49,7 @@
   },
   "landmarks": [
     {
-      "id": "lm_preview_south_gate_tower_supply",
+      "id": "lm_south_gate_tower_supply",
       "name": "夜巡兵械架",
       "x": 15,
       "y": 2,
@@ -105,7 +105,7 @@
       }
     },
     {
-      "id": "lm_preview_south_gate_tower_misc_cabinet",
+      "id": "lm_south_gate_tower_misc_cabinet",
       "name": "巡更杂柜",
       "x": 3,
       "y": 2,
@@ -161,7 +161,7 @@
       }
     },
     {
-      "id": "lm_preview_south_gate_tower_arrow_barrel",
+      "id": "lm_south_gate_tower_arrow_barrel",
       "name": "残箭木桶",
       "x": 16,
       "y": 8,
@@ -217,7 +217,7 @@
       }
     },
     {
-      "id": "lm_preview_south_gate_tower_signal_table",
+      "id": "lm_south_gate_tower_signal_table",
       "name": "更签号案",
       "x": 9,
       "y": 3,

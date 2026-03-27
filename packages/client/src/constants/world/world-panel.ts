@@ -42,16 +42,6 @@ export const WORLD_GUIDE: Record<string, WorldGuide> = {
     resources: ['主线任务', '基础补给', '镇内试手怪', '可搜索家具'],
     threats: ['零散鼠患', '夜间匪徒'],
   },
-  spawn: {
-    title: '云来镇',
-    danger: 1,
-    recommendedRealm: '锻体到后天',
-    route: '镇中接主线，东门入青竹林，西路可走荒野。',
-    mood: '武道起点',
-    desc: '安全区，适合接主线、整理装备与切换修炼。',
-    resources: ['主线任务', '基础补给', '镇内试手怪'],
-    threats: ['零散鼠患'],
-  },
   bamboo_forest: {
     title: '青竹林',
     danger: 2,
@@ -127,7 +117,6 @@ export const WORLD_GUIDE: Record<string, WorldGuide> = {
 /** 主界面兜底使用的地图危险度建议。 */
 export const MAP_FALLBACK: Record<string, { danger: number; recommendedRealm: string }> = {
   yunlai_town: { danger: 1, recommendedRealm: '锻体到后天' },
-  spawn: { danger: 1, recommendedRealm: '锻体到后天' },
   bamboo_forest: { danger: 2, recommendedRealm: '后天到先天' },
   wildlands: { danger: 2, recommendedRealm: '后天到先天' },
   black_iron_mine: { danger: 3, recommendedRealm: '先天到练气前夜' },

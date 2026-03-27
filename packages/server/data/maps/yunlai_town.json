@@ -267,49 +267,49 @@
   ],
   "landmarks": [
     {
-      "id": "lm_preview_south_gate",
+      "id": "lm_south_gate",
       "name": "南门门楼",
       "x": 31,
       "y": 49,
       "desc": "云来镇如今只剩这一条像样的出入口，门楼和外墙都已补得东一块西一块。"
     },
     {
-      "id": "lm_preview_foot_inn",
+      "id": "lm_foot_inn",
       "name": "沈记脚店",
       "x": 15,
       "y": 35,
       "desc": "脚店缩到了西南角，楼板吱呀作响，仍是外来短工最常落脚的地方。"
     },
     {
-      "id": "lm_preview_apothecary",
+      "id": "lm_apothecary",
       "name": "兰氏药铺",
       "x": 40,
       "y": 35,
       "desc": "药铺还亮着灯，柜台却比从前少了一半，剩下的都是常用伤药和猎获材料。"
     },
     {
-      "id": "lm_preview_store_notice",
+      "id": "lm_store_notice",
       "name": "残木告示台",
       "x": 27,
       "y": 33,
       "desc": "镇里还在这里贴路况和征人通告，只是木架已经被风雨泡得发黑。"
     },
     {
-      "id": "lm_preview_blacksmith_anvil",
+      "id": "lm_blacksmith_anvil",
       "name": "镇防铁砧",
       "x": 47,
       "y": 26,
       "desc": "韩铁匠把炉棚压缩成半间破屋，铁砧旁常年堆着未清走的旧料。"
     },
     {
-      "id": "lm_preview_old_well",
+      "id": "lm_old_well",
       "name": "北井围栏",
       "x": 31,
       "y": 22,
       "desc": "旧井还在，只是井栏缺口越来越大，夜里总有湿冷气从里面往外冒。"
     },
     {
-      "id": "lm_preview_old_shrine",
+      "id": "lm_old_shrine",
       "name": "旧祠供桌",
       "x": 18,
       "y": 13,
@@ -368,7 +368,7 @@
       }
     },
     {
-      "id": "lm_preview_ruined_shrine",
+      "id": "lm_ruined_shrine",
       "name": "城外破庙",
       "x": 53,
       "y": 52,
@@ -428,14 +428,14 @@
       }
     },
     {
-      "id": "lm_preview_south_hidden_lake",
+      "id": "lm_south_hidden_lake",
       "name": "木坊静湖",
       "x": 49,
       "y": 42,
       "desc": "镇墙东南角积成的小湖还在，水面不大，却总像在往更深的地方漏。"
     },
     {
-      "id": "lm_preview_old_records_rack",
+      "id": "lm_old_records_rack",
       "name": "破木书架",
       "x": 27,
       "y": 13,
@@ -494,7 +494,7 @@
       }
     },
     {
-      "id": "lm_preview_collapsed_wardrobe",
+      "id": "lm_collapsed_wardrobe",
       "name": "坍墙衣柜",
       "x": 39,
       "y": 13,
@@ -555,7 +555,7 @@
       }
     },
     {
-      "id": "lm_preview_inn_counter",
+      "id": "lm_inn_counter",
       "name": "旧账台",
       "x": 13,
       "y": 33,
@@ -616,7 +616,7 @@
       }
     },
     {
-      "id": "lm_preview_inn_baggage",
+      "id": "lm_inn_baggage",
       "name": "通铺包袱堆",
       "x": 20,
       "y": 38,
@@ -677,7 +677,7 @@
       }
     },
     {
-      "id": "lm_preview_apothecary_herb_cabinet",
+      "id": "lm_apothecary_herb_cabinet",
       "name": "百味药柜",
       "x": 41,
       "y": 32,
@@ -737,7 +737,7 @@
       }
     },
     {
-      "id": "lm_preview_apothecary_basket",
+      "id": "lm_apothecary_basket",
       "name": "晒药竹篓",
       "x": 38,
       "y": 37,
@@ -796,7 +796,7 @@
       }
     },
     {
-      "id": "lm_preview_forge_scrap_basket",
+      "id": "lm_forge_scrap_basket",
       "name": "废料铁筐",
       "x": 40,
       "y": 24,
@@ -857,7 +857,7 @@
       }
     },
     {
-      "id": "lm_preview_gate_weapon_rack",
+      "id": "lm_gate_weapon_rack",
       "name": "值夜兵器架",
       "x": 34,
       "y": 45,
@@ -918,7 +918,7 @@
       }
     },
     {
-      "id": "lm_preview_shrine_incense_cabinet",
+      "id": "lm_shrine_incense_cabinet",
       "name": "残香供柜",
       "x": 21,
       "y": 16,
@@ -977,7 +977,7 @@
       }
     },
     {
-      "id": "lm_preview_old_records_desk",
+      "id": "lm_old_records_desk",
       "name": "烂边书案",
       "x": 28,
       "y": 15,
@@ -1036,7 +1036,7 @@
       }
     },
     {
-      "id": "lm_preview_old_resident_bedroll",
+      "id": "lm_old_resident_bedroll",
       "name": "旧铺盖卷",
       "x": 37,
       "y": 15,
@@ -1097,7 +1097,7 @@
       }
     },
     {
-      "id": "lm_preview_inn_side_table",
+      "id": "lm_inn_side_table",
       "name": "客房矮几",
       "x": 15,
       "y": 38,
@@ -1158,7 +1158,7 @@
       }
     },
     {
-      "id": "lm_preview_inn_wall_shelf",
+      "id": "lm_inn_wall_shelf",
       "name": "墙边食架",
       "x": 20,
       "y": 33,
@@ -1219,7 +1219,7 @@
       }
     },
     {
-      "id": "lm_preview_apothecary_treatment_table",
+      "id": "lm_apothecary_treatment_table",
       "name": "敷药诊案",
       "x": 45,
       "y": 32,
@@ -1279,7 +1279,7 @@
       }
     },
     {
-      "id": "lm_preview_apothecary_clay_jar",
+      "id": "lm_apothecary_clay_jar",
       "name": "药渣陶罐",
       "x": 45,
       "y": 36,
@@ -1338,7 +1338,7 @@
       }
     },
     {
-      "id": "lm_preview_forge_coal_box",
+      "id": "lm_forge_coal_box",
       "name": "炉边炭箱",
       "x": 48,
       "y": 24,
@@ -1399,7 +1399,7 @@
       }
     },
     {
-      "id": "lm_preview_gate_ration_shelf",
+      "id": "lm_gate_ration_shelf",
       "name": "门楼干粮架",
       "x": 28,
       "y": 48,
@@ -1473,7 +1473,7 @@
       "quests": []
     },
     {
-      "id": "npc_preview_ma_huitou",
+      "id": "npc_ma_huitou",
       "name": "马会头",
       "x": 32,
       "y": 47,
@@ -1485,7 +1485,7 @@
       "quests": []
     },
     {
-      "id": "npc_preview_gate_guard_a",
+      "id": "npc_gate_guard_a",
       "name": "值门兵丁",
       "x": 29,
       "y": 47,
@@ -1497,7 +1497,7 @@
       "quests": []
     },
     {
-      "id": "npc_preview_shen_qiniang",
+      "id": "npc_shen_qiniang",
       "name": "沈七娘",
       "x": 16,
       "y": 34,
@@ -1594,7 +1594,7 @@
       "quests": []
     },
     {
-      "id": "npc_preview_watchman",
+      "id": "npc_watchman",
       "name": "守夜人",
       "x": 18,
       "y": 20,
@@ -1606,7 +1606,7 @@
       "quests": []
     },
     {
-      "id": "npc_preview_old_gate_guard",
+      "id": "npc_old_gate_guard",
       "name": "老关卒",
       "x": 31,
       "y": 9,
@@ -1620,7 +1620,7 @@
   ],
   "monsterSpawns": [
     {
-      "id": "m_preview_town_rat_south",
+      "id": "m_town_rat_south",
       "x": 10,
       "y": 58,
       "count": 20,
@@ -1629,7 +1629,7 @@
       "respawnTicks": 30
     },
     {
-      "id": "m_preview_town_rat_refuse",
+      "id": "m_town_rat_refuse",
       "x": 42,
       "y": 58,
       "count": 20,
@@ -1638,14 +1638,14 @@
       "respawnTicks": 30
     },
     {
-      "id": "m_preview_gate_thug",
+      "id": "m_gate_thug",
       "x": 57,
       "y": 61,
       "maxAlive": 8,
       "respawnTicks": 15
     },
     {
-      "id": "m_preview_night_blade",
+      "id": "m_night_blade",
       "x": 55,
       "y": 53,
       "count": 4,

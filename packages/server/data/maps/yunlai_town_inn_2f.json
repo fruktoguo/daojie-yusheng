@@ -51,7 +51,7 @@
   },
   "landmarks": [
     {
-      "id": "lm_preview_inn_2f_guest_chest",
+      "id": "lm_inn_2f_guest_chest",
       "name": "寄宿客床头柜",
       "x": 15,
       "y": 2,
@@ -108,7 +108,7 @@
       }
     },
     {
-      "id": "lm_preview_inn_2f_baggage",
+      "id": "lm_inn_2f_baggage",
       "name": "散客旧包袱",
       "x": 3,
       "y": 2,
@@ -165,7 +165,7 @@
       }
     },
     {
-      "id": "lm_preview_inn_2f_washstand",
+      "id": "lm_inn_2f_washstand",
       "name": "客房洗漱架",
       "x": 9,
       "y": 2,
@@ -222,7 +222,7 @@
       }
     },
     {
-      "id": "lm_preview_inn_2f_window_table",
+      "id": "lm_inn_2f_window_table",
       "name": "临窗小几",
       "x": 9,
       "y": 10,

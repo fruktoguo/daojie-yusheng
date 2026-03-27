@@ -9,7 +9,7 @@
       "desc": "顺着镇路往里走，去南市脚店找沈七娘，先拿到今晚的落脚资格。",
       "objectiveType": "talk",
       "objectiveText": "去沈记脚店见沈七娘",
-      "targetNpcId": "npc_preview_shen_qiniang",
+      "targetNpcId": "npc_shen_qiniang",
       "targetNpcName": "沈七娘",
       "targetMapId": "yunlai_town",
       "targetName": "沈七娘",
@@ -24,9 +24,9 @@
       ],
       "nextQuestId": "q_intro_old_road_witness",
       "giverMapId": "yunlai_town",
-      "giverNpcId": "npc_preview_old_gate_guard",
+      "giverNpcId": "npc_old_gate_guard",
       "submitMapId": "yunlai_town",
-      "submitNpcId": "npc_preview_shen_qiniang"
+      "submitNpcId": "npc_shen_qiniang"
     },
     {
       "id": "q_intro_old_road_witness",
@@ -52,9 +52,9 @@
       ],
       "nextQuestId": "q_intro_manual",
       "giverMapId": "yunlai_town",
-      "giverNpcId": "npc_preview_shen_qiniang",
+      "giverNpcId": "npc_shen_qiniang",
       "submitMapId": "yunlai_town",
-      "submitNpcId": "npc_preview_shen_qiniang"
+      "submitNpcId": "npc_shen_qiniang"
     },
     {
       "id": "q_intro_manual",
@@ -96,7 +96,7 @@
       "story": "马会头不愿多给你一句好话，但他也确实不想让南门外继续烂下去。粮袋边、垃圾堆旁都是灰尾鼠，再拖下去，流民和守兵今晚都别想睡安稳。",
       "desc": "清掉南门外与废料堆附近的灰尾鼠，证明你不是白吃脚店饭的人。",
       "objectiveText": "击退南门外的灰尾鼠",
-      "targetMonsterId": "m_preview_town_rat_south",
+      "targetMonsterId": "m_town_rat_south",
       "targetCount": 6,
       "targetMapId": "yunlai_town",
       "targetName": "灰尾鼠",
@@ -117,9 +117,9 @@
       ],
       "nextQuestId": "q_intro_medicine_fee",
       "giverMapId": "yunlai_town",
-      "giverNpcId": "npc_preview_ma_huitou",
+      "giverNpcId": "npc_ma_huitou",
       "submitMapId": "yunlai_town",
-      "submitNpcId": "npc_preview_ma_huitou"
+      "submitNpcId": "npc_ma_huitou"
     },
     {
       "id": "q_intro_medicine_fee",
@@ -129,7 +129,7 @@
       "story": "脚店里那名无名伤者快撑不住了，沈七娘却不打算倒贴药。她让你去收拾几名趁夜摸到城边的流匪，把他们身上的腰牌带回来，算作今晚那锅药汤的钱。",
       "desc": "击退南门外流匪，并带回足够的匪徒腰牌交给沈七娘。",
       "objectiveText": "清掉城边流匪并带回腰牌",
-      "targetMonsterId": "m_preview_gate_thug",
+      "targetMonsterId": "m_gate_thug",
       "targetCount": 4,
       "targetMapId": "yunlai_town",
       "targetName": "趁火打劫的流匪",
@@ -152,9 +152,9 @@
       ],
       "nextQuestId": "q_intro_wounded_words",
       "giverMapId": "yunlai_town",
-      "giverNpcId": "npc_preview_shen_qiniang",
+      "giverNpcId": "npc_shen_qiniang",
       "submitMapId": "yunlai_town",
-      "submitNpcId": "npc_preview_shen_qiniang"
+      "submitNpcId": "npc_shen_qiniang"
     },
     {
       "id": "q_intro_wounded_words",
@@ -180,7 +180,7 @@
       ],
       "nextQuestId": "q_intro_old_well_watch",
       "giverMapId": "yunlai_town",
-      "giverNpcId": "npc_preview_shen_qiniang",
+      "giverNpcId": "npc_shen_qiniang",
       "submitMapId": "yunlai_town",
       "submitNpcId": "npc_qingxuan"
     },
@@ -193,7 +193,7 @@
       "desc": "去问守夜人北井夜里的异动，再回清玄处复命。",
       "objectiveType": "talk",
       "objectiveText": "向守夜人打听北井夜里的异动",
-      "targetNpcId": "npc_preview_watchman",
+      "targetNpcId": "npc_watchman",
       "targetNpcName": "守夜人",
       "targetMapId": "yunlai_town",
       "targetName": "守夜人",
