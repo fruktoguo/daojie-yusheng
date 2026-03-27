@@ -34,7 +34,7 @@ type TechniquePanelState = {
 };
 
 type TechniqueCategoryFilter = 'all' | TechniqueCategory;
-type TechniqueStatusFilter = 'cultivating' | 'completed' | 'all';
+type TechniqueStatusFilter = 'in_progress' | 'completed' | 'all';
 
 const TECHNIQUE_CATEGORY_FILTERS: Array<{ value: TechniqueCategoryFilter; label: string }> = [
   { value: 'all', label: '全部' },
@@ -45,7 +45,7 @@ const TECHNIQUE_CATEGORY_FILTERS: Array<{ value: TechniqueCategoryFilter; label:
 ];
 
 const TECHNIQUE_STATUS_FILTERS: Array<{ value: TechniqueStatusFilter; label: string }> = [
-  { value: 'cultivating', label: '修炼中' },
+  { value: 'in_progress', label: '未圆满' },
   { value: 'completed', label: '已圆满' },
   { value: 'all', label: '全部' },
 ];
@@ -165,7 +165,7 @@ export class TechniquePanel {
   private openTechId: string | null = null;
   private openLayerLevel: number | null = null;
   private categoryFilter: TechniqueCategoryFilter = 'all';
-  private statusFilter: TechniqueStatusFilter = 'cultivating';
+  private statusFilter: TechniqueStatusFilter = 'in_progress';
   private lastState: TechniquePanelState = { techniques: [] };
 
   constructor() {
@@ -292,16 +292,16 @@ export class TechniquePanel {
     if (filter === 'all') {
       return true;
     }
-    if (filter === 'cultivating') {
-      return this.lastState.cultivatingTechId === tech.techId;
-    }
     const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
+    if (filter === 'in_progress') {
+      return tech.level < maxLevel;
+    }
     return tech.level >= maxLevel;
   }
 
   private getFilteredEmptyHint(): string {
-    if (this.statusFilter === 'cultivating') {
-      return '当前没有修炼中的功法';
+    if (this.statusFilter === 'in_progress') {
+      return '当前没有未圆满的功法';
     }
     if (this.statusFilter === 'completed') {
       return '当前没有已圆满的功法';
