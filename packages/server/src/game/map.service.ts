@@ -920,13 +920,15 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     const auraPoints = this.normalizeAuraPoints(document.auras, meta);
     const baseAuraValues = new Map<string, number>(auraPoints.map((point) => [this.tileStateKey(point.x, point.y), point.value]));
 
-    // 确保配置的 portal 坐标在地图上是传送门类型，避免仅靠字符图导致漏配。
+    // 显式入口需要落成楼梯/传送阵地块；隐藏入口则保留原始地貌，只通过 portal 配置参与触发与观察。
     for (const portal of portals) {
       const tile = tiles[portal.y]?.[portal.x];
       if (tile) {
-        tile.type = portal.kind === 'stairs' ? TileType.Stairs : TileType.Portal;
-        tile.walkable = true;
-        tile.blocksSight = false;
+        if (!portal.hidden) {
+          tile.type = portal.kind === 'stairs' ? TileType.Stairs : TileType.Portal;
+          tile.walkable = true;
+          tile.blocksSight = false;
+        }
       }
     }
 
