@@ -29,6 +29,7 @@ import { SettingsPanel } from './ui/panels/settings-panel';
 import { WorldPanel } from './ui/panels/world-panel';
 import { SuggestionPanel } from './ui/suggestion-panel';
 import { ChangelogPanel } from './ui/changelog-panel';
+import { TutorialPanel } from './ui/tutorial-panel';
 import { getMonsterPresentation } from './monster-presentation';
 import { NpcShopModal } from './ui/npc-shop-modal';
 import { getHeavenGateHudAction, openHeavenGateModal, refreshHeavenGateModal } from './ui/heaven-gate-modal';
@@ -394,6 +395,7 @@ const worldPanel = new WorldPanel();
 const settingsPanel = new SettingsPanel();
 const suggestionPanel = new SuggestionPanel(socket);
 new ChangelogPanel();
+new TutorialPanel();
 const panelSystem = createClientPanelSystem(window);
 mapRuntime.attach(canvasHost);
 mapRuntime.setMoveHandler((x, y) => {

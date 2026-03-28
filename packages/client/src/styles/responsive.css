@@ -267,10 +267,16 @@
         right: auto;
         bottom: auto;
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: 36px 36px minmax(0, 1fr);
         gap: 4px;
         padding-top: 4px;
-        justify-items: end;
+        justify-items: stretch;
+      }
+      .mobile-ui-pane [data-mobile-section="overview"] .hud-link-actions .hud-link-btn {
+        justify-self: stretch;
+      }
+      .mobile-ui-pane [data-mobile-section="overview"] .hud-link-actions .hud-link-btn--tutorial {
+        min-width: 0;
       }
       .mobile-ui-pane [data-mobile-section="overview"] .hud-corner-actions {
         grid-row: 5;

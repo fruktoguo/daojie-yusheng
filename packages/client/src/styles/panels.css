@@ -883,6 +883,29 @@
         var(--surface-gradient-paper);
       box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.16);
     }
+    .detail-modal-card.detail-modal--skill-management #detail-modal-body {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .detail-modal-card.detail-modal--tutorial {
+      width: min(1180px, calc(100vw - 24px));
+      height: min(68dvh, calc(100dvh - (var(--detail-modal-padding, 12px) * 2)));
+      max-height: none;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at top right, rgba(197, 60, 60, 0.08), transparent 28%),
+        radial-gradient(circle at left bottom, rgba(214, 188, 142, 0.14), transparent 32%),
+        var(--surface-gradient-paper);
+      box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.16);
+    }
+    .detail-modal-card.detail-modal--tutorial #detail-modal-body {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
     .detail-modal.detail-modal--suggestion {
       padding: 12px;
     }
@@ -952,8 +975,8 @@
       border-bottom: 1px solid var(--wash-ink);
     }
     .detail-modal-title {
-      font-family: var(--font-heading-sub);
-      font-size: var(--font-size-22);
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-22);
       color: var(--ink-black);
     }
     .detail-modal-subtitle {
