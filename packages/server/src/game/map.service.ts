@@ -98,6 +98,10 @@ import {
   TERRAIN_DURABILITY_PROFILES,
   TerrainDurabilityProfile,
 } from '../constants/world/terrain';
+import {
+  ORDINARY_MONSTER_SPAWN_COUNT,
+  ORDINARY_MONSTER_SPAWN_MAX_ALIVE,
+} from '../constants/gameplay/monster';
 
 export interface QuestConfig {
   id: string;
@@ -305,6 +309,23 @@ interface DynamicTileState {
   maxHp: number;
   destroyed: boolean;
   restoreTicksLeft?: number;
+}
+
+function resolveMonsterSpawnPopulation(
+  tier: MonsterTier,
+  configuredCount: number,
+  configuredMaxAlive: number,
+): { count: number; maxAlive: number } {
+  if (tier === 'mortal_blood') {
+    return {
+      count: ORDINARY_MONSTER_SPAWN_COUNT,
+      maxAlive: ORDINARY_MONSTER_SPAWN_MAX_ALIVE,
+    };
+  }
+
+  const maxAlive = Math.max(1, Math.round(configuredMaxAlive));
+  const count = Math.min(Math.max(1, Math.round(configuredCount)), maxAlive);
+  return { count, maxAlive };
 }
 
 interface PersistedDynamicTileRecord {
@@ -2651,9 +2672,9 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         ? rawSpawn.id.trim()
         : templateId;
       const radius = Number.isInteger(rawSpawn.radius) ? Math.max(0, Number(rawSpawn.radius)) : template.radius;
-      const maxAlive = Number.isInteger(rawSpawn.maxAlive) ? Math.max(1, Number(rawSpawn.maxAlive)) : template.maxAlive;
+      const configuredMaxAlive = Number.isInteger(rawSpawn.maxAlive) ? Math.max(1, Number(rawSpawn.maxAlive)) : template.maxAlive;
       const configuredCount = Number.isInteger(rawSpawn.count) ? Math.max(1, Number(rawSpawn.count)) : template.count;
-      const count = Math.min(configuredCount, maxAlive);
+      const { count, maxAlive } = resolveMonsterSpawnPopulation(tier, configuredCount, configuredMaxAlive);
       const respawnTicks = Number.isInteger(rawSpawn.respawnTicks)
         ? Math.max(1, Number(rawSpawn.respawnTicks))
         : Math.max(1, Number(rawSpawn.respawnSec ?? template.respawnTicks));
@@ -3911,7 +3932,6 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       return raw;
     }
     const radius = Number.isInteger(spawn.radius) ? Math.max(0, Number(spawn.radius)) : template.radius;
-    const maxAlive = Number.isInteger(spawn.maxAlive) ? Math.max(1, Number(spawn.maxAlive)) : template.maxAlive;
     const level = Number.isInteger(spawn.level) ? Math.max(1, Number(spawn.level)) : template.level;
     const equipment = this.contentService.normalizeEquipment(template.equipment);
     const skills = this.contentService.normalizeMonsterSkills(spawn.skills ?? template.skills, String(spawn.id ?? template.id));
@@ -3932,6 +3952,9 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         ? undefined
         : createMonsterAutoStatPercents(legacyNumericStats, attrs, level, equipment));
     const tier = normalizeMonsterTier(spawn.tier ?? template.tier);
+    const configuredMaxAlive = Number.isInteger(spawn.maxAlive) ? Math.max(1, Number(spawn.maxAlive)) : template.maxAlive;
+    const configuredCount = Number.isInteger(spawn.count) ? Math.max(1, Number(spawn.count)) : template.count;
+    const { count, maxAlive } = resolveMonsterSpawnPopulation(tier, configuredCount, configuredMaxAlive);
     const expMultiplier = Number.isFinite(spawn.expMultiplier)
       ? resolveMonsterExpMultiplier(spawn.expMultiplier, tier)
       : (spawn.tier !== undefined && tier !== template.tier
@@ -3960,7 +3983,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       hp: Math.max(1, Math.round(numericStats.maxHp || template.hp)),
       maxHp: Math.max(1, Math.round(numericStats.maxHp || template.maxHp || template.hp)),
       attack: Math.max(1, Math.round(numericStats.physAtk || numericStats.spellAtk || template.attack || 1)),
-      count: Number.isInteger(spawn.count) ? Math.max(1, Number(spawn.count)) : template.count,
+      count,
       radius,
       maxAlive,
       wanderRadius: Number.isInteger(spawn.wanderRadius) ? Math.max(0, Number(spawn.wanderRadius)) : radius,
@@ -4005,9 +4028,11 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       persisted.statPercents = spawn.statPercents;
     }
     if (JSON.stringify(spawn.skills) !== JSON.stringify(template.skills)) persisted.skills = spawn.skills;
-    if ((spawn.count ?? spawn.maxAlive ?? 1) !== template.count) persisted.count = spawn.count;
+    const effectiveTier = normalizeMonsterTier(spawn.tier ?? template.tier);
+    const baselinePopulation = resolveMonsterSpawnPopulation(effectiveTier, template.count, template.maxAlive);
+    if ((spawn.count ?? baselinePopulation.count) !== baselinePopulation.count) persisted.count = spawn.count;
     if ((spawn.radius ?? 3) !== template.radius) persisted.radius = spawn.radius;
-    if ((spawn.maxAlive ?? 1) !== template.maxAlive) persisted.maxAlive = spawn.maxAlive;
+    if ((spawn.maxAlive ?? baselinePopulation.maxAlive) !== baselinePopulation.maxAlive) persisted.maxAlive = spawn.maxAlive;
     const defaultWanderRadius = spawn.radius ?? template.radius;
     if ((spawn.wanderRadius ?? defaultWanderRadius) !== defaultWanderRadius) persisted.wanderRadius = spawn.wanderRadius;
     if ((spawn.respawnTicks ?? spawn.respawnSec ?? 15) !== template.respawnTicks) {
