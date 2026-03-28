@@ -113,6 +113,8 @@ export interface QuestConfig {
   targetTechniqueId?: string;
   targetRealmStage?: PlayerRealmStage;
   targetRealmLv?: number;
+  acceptRealmStage?: PlayerRealmStage;
+  acceptRealmLv?: number;
   required: number;
   rewards: DropConfig[];
   rewardItemIds: string[];
@@ -162,6 +164,8 @@ interface QuestFileRecord {
   targetTechniqueId?: string;
   targetRealmStage?: keyof typeof PlayerRealmStage | PlayerRealmStage;
   targetRealmLv?: number;
+  acceptRealmStage?: keyof typeof PlayerRealmStage | PlayerRealmStage;
+  acceptRealmLv?: number;
   required?: number;
   targetCount?: number;
   rewardItemId?: string;
@@ -2434,6 +2438,14 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     const parsedRealmLv = Number.isInteger(rawQuest.targetRealmLv)
       ? Math.max(1, Number(rawQuest.targetRealmLv))
       : undefined;
+    const parsedAcceptRealmStage = typeof rawQuest.acceptRealmStage === 'number'
+      ? rawQuest.acceptRealmStage
+      : typeof rawQuest.acceptRealmStage === 'string'
+        ? PlayerRealmStage[rawQuest.acceptRealmStage]
+        : undefined;
+    const parsedAcceptRealmLv = Number.isInteger(rawQuest.acceptRealmLv)
+      ? Math.max(1, Number(rawQuest.acceptRealmLv))
+      : undefined;
     const validByObjective = (
       objectiveType === 'kill' && typeof rawQuest.targetMonsterId === 'string' && Number.isInteger(required)
     ) || (
@@ -2535,6 +2547,8 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       targetTechniqueId: typeof rawQuest.targetTechniqueId === 'string' ? rawQuest.targetTechniqueId : undefined,
       targetRealmStage: parsedRealmStage,
       targetRealmLv: parsedRealmLv,
+      acceptRealmStage: parsedAcceptRealmStage,
+      acceptRealmLv: parsedAcceptRealmLv,
       required: normalizedRequired,
       rewards,
       rewardItemIds,

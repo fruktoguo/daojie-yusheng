@@ -16,6 +16,12 @@
       "required": 1,
       "reward": [
         {
+          "itemId": "book.frost_sutra",
+          "name": "《寒魄经》",
+          "type": "skill_book",
+          "count": 1
+        },
+        {
           "itemId": "major_qi_pill",
           "name": "大还灵丹",
           "type": "consumable",
@@ -43,6 +49,7 @@
       "required": 1,
       "requiredItemId": "valley_core",
       "requiredItemCount": 1,
+      "acceptRealmLv": 14,
       "reward": [
         {
           "itemId": "equip.valley_fang_blade",
@@ -78,6 +85,7 @@
       "required": 6,
       "requiredItemId": "blood_feather",
       "requiredItemCount": 4,
+      "acceptRealmLv": 16,
       "reward": [
         {
           "itemId": "map.spirit_ridge",
@@ -135,13 +143,8 @@
       "required": 2,
       "requiredItemId": "spirit_ridge_sigil",
       "requiredItemCount": 1,
+      "acceptRealmLv": 17,
       "reward": [
-        {
-          "itemId": "book.frost_sutra",
-          "name": "《寒魄经》",
-          "type": "skill_book",
-          "count": 1
-        },
         {
           "itemId": "equip.celestial_crown",
           "name": "观脉骨冠",

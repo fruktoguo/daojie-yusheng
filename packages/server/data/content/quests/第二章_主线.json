@@ -112,6 +112,7 @@
       "required": 6,
       "requiredItemId": "serpent_gall",
       "requiredItemCount": 2,
+      "acceptRealmLv": 5,
       "reward": [
         {
           "itemId": "major_qi_pill",

@@ -171,12 +171,19 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         this.playerService.setSocket(existingPlayerId, client);
         this.playerService.setUserMapping(userId, existingPlayerId);
         this.playerService.markPlayerOnline(existingPlayerId);
+        const introBackfillChanged = this.worldService.backfillIntroBodyTechnique(existing);
         const questDirty = this.worldService.syncQuestState(existing);
-        if (questDirty.length > 0) {
+        if (introBackfillChanged || questDirty.length > 0) {
           await this.playerService.savePlayer(existing.id);
         }
         client.data = { userId, playerId: existingPlayerId };
         this.sendInit(client, existing);
+        if (introBackfillChanged) {
+          client.emit(S2C.SystemMsg, {
+            text: '序章前期已为你补发《站桩功》。先学会它，再按突破面板备齐鼠尾与体魄要求即可继续推进。',
+            kind: 'quest',
+          } satisfies S2C_SystemMsg);
+        }
         this.logger.log(`顶号: ${username} 接管 ${existingPlayerId}`);
         return;
       }
@@ -194,13 +201,20 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       this.playerService.setSocket(saved.id, client);
       this.playerService.setUserMapping(userId, saved.id);
       this.playerService.markPlayerOnline(saved.id);
+      const introBackfillChanged = this.worldService.backfillIntroBodyTechnique(saved);
       const questDirty = this.worldService.syncQuestState(saved);
-      if (questDirty.length > 0) {
+      if (introBackfillChanged || questDirty.length > 0) {
         await this.playerService.savePlayer(saved.id);
       }
       this.mapService.addOccupant(saved.mapId, saved.x, saved.y, saved.id, 'player');
       client.data = { userId, playerId: saved.id };
       this.sendInit(client, saved);
+      if (introBackfillChanged) {
+        client.emit(S2C.SystemMsg, {
+          text: '序章前期已为你补发《站桩功》。先学会它，再按突破面板备齐鼠尾与体魄要求即可继续推进。',
+          kind: 'quest',
+        } satisfies S2C_SystemMsg);
+      }
       this.logger.log(`玩家上线(存档恢复): ${username} (${saved.id})`);
       return;
     }

@@ -1151,7 +1151,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       this.markDirty(player.id, ['tech', 'actions', 'attr']);
       messages.push({
         playerId: player.id,
-        text: `你参悟了 ${technique.name}。`,
+        text: player.cultivatingTechId === technique.id
+          ? `你参悟了 ${technique.name}，并将其设为当前主修。`
+          : `你参悟了 ${technique.name}。`,
         kind: 'quest',
       });
     }

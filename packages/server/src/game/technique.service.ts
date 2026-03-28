@@ -107,6 +107,7 @@ const HEAVEN_GATE_REALM_LEVEL = 18;
 const HEAVEN_GATE_MAX_SEVERED = 4;
 const HEAVEN_GATE_ROOTS_SOURCE = 'heaven_gate:roots';
 const HEAVEN_GATE_REROLL_AVERAGE_BONUS = 2;
+const HEAVEN_GATE_EXTRA_PERFECT_ROOT_SOFT_CAP = 174;
 const HEAVEN_GATE_AVERAGE_QUALITY_SEGMENTS: Record<number, Array<{ min: number; max: number; weight: number }>> = {
   5: [
     { min: 1, max: 15, weight: 35 },
@@ -456,6 +457,9 @@ export class TechniqueService {
       layers,
     };
     player.techniques.push(technique);
+    if (!player.cultivatingTechId && player.techniques.length === 1) {
+      player.cultivatingTechId = techId;
+    }
     this.applyTechniqueBonuses(player);
     this.attrService.recalcPlayer(player);
     return null;
@@ -1310,6 +1314,16 @@ export class TechniqueService {
     return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
+  private getHeavenGateExtraPerfectRootKeepChance(averageBonus: number): number {
+    const bonus = Math.max(0, averageBonus);
+    if (bonus <= 0) {
+      return 1;
+    }
+    const squaredBonus = bonus * bonus;
+    const squaredSoftCap = HEAVEN_GATE_EXTRA_PERFECT_ROOT_SOFT_CAP * HEAVEN_GATE_EXTRA_PERFECT_ROOT_SOFT_CAP;
+    return squaredBonus / (squaredBonus + squaredSoftCap);
+  }
+
   private distributeHeavenGateRoots(total: number, remaining: ElementKey[]): HeavenGateRootValues {
     const result = ELEMENT_KEYS.reduce((state, key) => {
       state[key] = 0;
@@ -1361,14 +1375,33 @@ export class TechniqueService {
     return result;
   }
 
+  private softenHeavenGatePerfectRoots(roots: HeavenGateRootValues, averageBonus: number): HeavenGateRootValues {
+    const keepChance = this.getHeavenGateExtraPerfectRootKeepChance(averageBonus);
+    let preservedPerfectCount = 0;
+    for (const key of ELEMENT_KEYS) {
+      if (roots[key] !== 100) {
+        continue;
+      }
+      if (preservedPerfectCount === 0) {
+        preservedPerfectCount = 1;
+        continue;
+      }
+      if (Math.random() > keepChance) {
+        roots[key] = 99;
+        continue;
+      }
+      preservedPerfectCount += 1;
+    }
+    return roots;
+  }
+
   private rollHeavenGateRoots(severed: readonly ElementKey[], averageBonus: number): HeavenGateRootValues {
     const remaining = ELEMENT_KEYS.filter((element) => !severed.includes(element));
     const segments = HEAVEN_GATE_AVERAGE_QUALITY_SEGMENTS[remaining.length] ?? HEAVEN_GATE_AVERAGE_QUALITY_SEGMENTS[1];
     const segment = this.weightedPickHeavenGateSegment(segments);
-    const average = segment.min === 100 && segment.max === 100
-      ? 100
-      : Math.min(99, this.randomHeavenGateInt(segment.min, segment.max) + Math.max(0, averageBonus));
-    return this.distributeHeavenGateRoots(average * remaining.length, remaining);
+    const average = Math.min(100, this.randomHeavenGateInt(segment.min, segment.max) + Math.max(0, averageBonus));
+    const roots = this.distributeHeavenGateRoots(average * remaining.length, remaining);
+    return this.softenHeavenGatePerfectRoots(roots, averageBonus);
   }
 
   private completeBreakthrough(

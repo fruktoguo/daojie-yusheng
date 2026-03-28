@@ -132,6 +132,10 @@ const STATIC_CONTEXT_TOGGLE_ACTIONS: readonly ActionDef[] = [{
   cooldownLeft: 0,
 }];
 
+const INTRO_BODY_TECHNIQUE_ID = 'standing_stake_art';
+const INTRO_BODY_TECHNIQUE_BOOK_ID = 'book.standing_stake_art';
+const INTRO_BODY_TEMPERING_QUEST_ID = 'q_intro_body_tempering';
+
 type MessageKind = 'system' | 'quest' | 'combat' | 'loot';
 type WorldDirtyFlag = 'inv' | 'quest' | 'actions' | 'tech' | 'attr' | 'loot';
 
@@ -918,6 +922,47 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       return (mainQuestRepairChanged || statusChanged) ? ['quest', 'actions'] : ['quest'];
     }
     return [];
+  }
+
+  /** 给仍处于序章前期主线的旧角色补发炼体入门功法，避免早期突破断档。 */
+  backfillIntroBodyTechnique(player: PlayerState): boolean {
+    if (player.techniques.some((entry) => entry.techId === INTRO_BODY_TECHNIQUE_ID)) {
+      return false;
+    }
+    if (this.getInventoryCount(player, INTRO_BODY_TECHNIQUE_BOOK_ID) > 0) {
+      return false;
+    }
+
+    const currentMainQuestId = this.getCurrentMainQuestId(player);
+    const currentMainQuestIndex = currentMainQuestId ? this.mapService.getMainQuestIndex(currentMainQuestId) : undefined;
+    const cutoffQuestIndex = this.mapService.getMainQuestIndex(INTRO_BODY_TEMPERING_QUEST_ID);
+    if (
+      currentMainQuestIndex === undefined
+      || cutoffQuestIndex === undefined
+      || currentMainQuestIndex > cutoffQuestIndex
+    ) {
+      return false;
+    }
+
+    const techniqueBook = this.contentService.createItem(INTRO_BODY_TECHNIQUE_BOOK_ID, 1);
+    if (techniqueBook && this.inventoryService.addItem(player, techniqueBook)) {
+      return true;
+    }
+
+    const technique = this.contentService.getTechnique(INTRO_BODY_TECHNIQUE_ID);
+    if (!technique) {
+      return false;
+    }
+    return this.techniqueService.learnTechnique(
+      player,
+      technique.id,
+      technique.name,
+      technique.skills,
+      technique.grade,
+      technique.category,
+      technique.realmLv,
+      technique.layers,
+    ) === null;
   }
 
   /** 自动战斗逻辑：寻敌 → 追击 → 释放技能/普攻 */
@@ -2282,6 +2327,17 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (!interaction.questState) {
+      const acceptRequirementText = this.getQuestAcceptRequirementText(player, interaction.quest);
+      if (acceptRequirementText) {
+        return {
+          messages: [{
+            playerId: player.id,
+            text: `${npc.name}：${interaction.quest.title} 还不是你现在能接的活，先把境界练到 ${acceptRequirementText} 再来。`,
+            kind: 'quest',
+          }],
+          dirty: [],
+        };
+      }
       const questState = this.createQuestState(player, interaction.quest);
       player.quests.push(questState);
       this.syncQuestState(player);
@@ -3995,7 +4051,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
   private resolveNpcQuestMarker(player: PlayerState, npc: NpcConfig): NpcQuestMarker | undefined {
     const interaction = this.getNpcInteractionState(player, npc);
-    if (interaction.quest && !interaction.questState) {
+    if (interaction.quest && !interaction.questState && !this.getQuestAcceptRequirementText(player, interaction.quest)) {
       return { line: interaction.quest.line, state: 'available' };
     }
     if (interaction.questState?.status === 'ready') {
@@ -4005,6 +4061,18 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       return { line: interaction.questState.line, state: 'active' };
     }
     return undefined;
+  }
+
+  private getQuestAcceptRequirementText(player: PlayerState, quest: QuestConfig): string | null {
+    const currentRealmLv = Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
+    const currentStage = player.realm?.stage;
+    if (quest.acceptRealmLv !== undefined && currentRealmLv < quest.acceptRealmLv) {
+      return this.contentService.getRealmLevelEntry(quest.acceptRealmLv)?.displayName ?? `Lv.${quest.acceptRealmLv}`;
+    }
+    if (quest.acceptRealmStage !== undefined && (currentStage === undefined || currentStage < quest.acceptRealmStage)) {
+      return this.contentService.getRealmStageStartEntry(quest.acceptRealmStage)?.displayName ?? '指定境界';
+    }
+    return null;
   }
 
   private buildRewardItems(quest: QuestConfig): ItemStack[] {

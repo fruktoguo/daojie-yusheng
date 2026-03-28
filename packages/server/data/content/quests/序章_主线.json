@@ -62,9 +62,9 @@
       "line": "main",
       "chapter": "序章·断道入镇",
       "story": "赵老六提了一句你身上还带着书卷，沈七娘便把你推给了清玄执事。清玄不关心你从哪来，只说在这个镇子里，没点护身的本事，迟早会死在替别人跑腿的路上。",
-      "desc": "使用随身功法书，先把第一门护身法门学会。",
+      "desc": "打开背包，先学会《青木剑诀》护身。",
       "objectiveType": "learn_technique",
-      "objectiveText": "学会《青木剑诀》",
+      "objectiveText": "打开背包并学会《青木剑诀》",
       "targetTechniqueId": "qingmu_sword",
       "targetName": "青木剑诀",
       "required": 1,
@@ -206,6 +206,12 @@
           "count": 1
         },
         {
+          "itemId": "book.standing_stake_art",
+          "name": "《站桩功》",
+          "type": "skill_book",
+          "count": 1
+        },
+        {
           "itemId": "map.wildlands",
           "name": "荒原游猎图",
           "type": "consumable",
@@ -224,9 +230,9 @@
       "line": "main",
       "chapter": "序章·断道入镇",
       "story": "清玄不打算现在就替你掀开北井那层盖子。他给你的要求更现实: 先把境界练到能在云来镇外活着回来。等你真正撑住第一口内息，这镇子里的话你才有资格继续往下听。",
-      "desc": "继续在镇外历练，把自己练到炼体境，先在云来镇真正站住脚。",
+      "desc": "继续在镇外历练，先学好《站桩功》，备齐突破要的鼠尾并把体魄练够，再突破到炼皮境。",
       "objectiveType": "realm_stage",
-      "objectiveText": "历练至炼体境",
+      "objectiveText": "查看突破要求，备齐鼠尾并达到体魄门槛后突破至炼皮境",
       "targetRealmStage": "BodyTempering",
       "targetRealmLv": 2,
       "targetMapId": "wildlands",

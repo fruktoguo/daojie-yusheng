@@ -508,13 +508,13 @@ export class QuestPanel {
         : `准备 ${quest.targetName} 并前往交付`;
     }
     if (quest.objectiveType === 'learn_technique') {
-      return `使用技能书并学会 ${quest.targetName}`;
+      return `打开背包，使用功法书学会 ${quest.targetName}`;
     }
     if (quest.objectiveType === 'realm_progress') {
       return `前往历练并击败敌人，继续积累 ${quest.targetName}`;
     }
     if (quest.objectiveType === 'realm_stage') {
-      return `继续历练并完成突破，达到 ${quest.targetName}`;
+      return `继续历练；境界圆满后点击顶部境界/突破查看要求并突破，达到 ${quest.targetName}`;
     }
     const requiredItemProgress = this.resolveRequiredItemProgress(quest);
     if (quest.objectiveType === 'kill' && requiredItemProgress) {

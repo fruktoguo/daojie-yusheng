@@ -49,6 +49,7 @@
       "required": 6,
       "requiredItemId": "mine_signal_core",
       "requiredItemCount": 1,
+      "acceptRealmLv": 8,
       "reward": [
         {
           "itemId": "book_thunder_palm",
@@ -91,6 +92,12 @@
           "count": 1
         },
         {
+          "itemId": "book.spirit_anchor",
+          "name": "《镇灵篇》",
+          "type": "skill_book",
+          "count": 1
+        },
+        {
           "itemId": "pill.clear_eye_elixir",
           "name": "明目丹",
           "type": "consumable",
@@ -118,17 +125,12 @@
       "required": 2,
       "requiredItemId": "ruin_keystone",
       "requiredItemCount": 1,
+      "acceptRealmLv": 10,
       "reward": [
         {
           "itemId": "equip.rune_robe",
           "name": "断纹法袍",
           "type": "equipment",
-          "count": 1
-        },
-        {
-          "itemId": "book.spirit_anchor",
-          "name": "《镇灵篇》",
-          "type": "skill_book",
           "count": 1
         }
       ],
