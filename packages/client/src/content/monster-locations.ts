@@ -1,5 +1,3 @@
-import monsterLocationCatalog from '../constants/world/monster-locations.generated.json';
-
 export interface MonsterLocationEntry {
   monsterId: string;
   monsterName: string;
@@ -10,9 +8,40 @@ export interface MonsterLocationEntry {
 }
 
 type MonsterLocationCatalog = Record<string, MonsterLocationEntry>;
+let monsterLocationCatalog: MonsterLocationCatalog | null = null;
+let monsterLocationCatalogPromise: Promise<MonsterLocationCatalog> | null = null;
 
-const MONSTER_LOCATION_CATALOG = monsterLocationCatalog as MonsterLocationCatalog;
+function loadMonsterLocationCatalog(): Promise<MonsterLocationCatalog> {
+  if (monsterLocationCatalog) {
+    return Promise.resolve(monsterLocationCatalog);
+  }
+  if (!monsterLocationCatalogPromise) {
+    monsterLocationCatalogPromise = import('../constants/world/monster-locations.generated.json')
+      .then((module) => {
+        monsterLocationCatalog = module.default as MonsterLocationCatalog;
+        return monsterLocationCatalog;
+      });
+  }
+  return monsterLocationCatalogPromise;
+}
+
+export function hasLoadedMonsterLocationCatalog(): boolean {
+  return monsterLocationCatalog !== null;
+}
+
+export async function preloadMonsterLocationCatalog(): Promise<void> {
+  await loadMonsterLocationCatalog();
+}
 
 export function getMonsterLocationEntry(monsterId: string): MonsterLocationEntry | null {
-  return MONSTER_LOCATION_CATALOG[monsterId] ?? null;
+  if (!monsterLocationCatalog) {
+    void loadMonsterLocationCatalog();
+    return null;
+  }
+  return monsterLocationCatalog[monsterId] ?? null;
+}
+
+export async function loadMonsterLocationEntry(monsterId: string): Promise<MonsterLocationEntry | null> {
+  const catalog = await loadMonsterLocationCatalog();
+  return catalog[monsterId] ?? null;
 }

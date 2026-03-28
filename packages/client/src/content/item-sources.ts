@@ -1,5 +1,3 @@
-import sourceCatalog from '../constants/world/item-sources.generated.json';
-
 export type ItemSourceKind = 'monster_drop' | 'mining' | 'search' | 'shop' | 'quest';
 const SPIRIT_STONE_ITEM_ID = 'spirit_stone';
 
@@ -63,8 +61,34 @@ export type ItemSourceEntry =
   | QuestItemSourceEntry;
 
 type ItemSourceCatalog = Record<string, ItemSourceEntry[]>;
+let itemSourceCatalog: ItemSourceCatalog | null = null;
+let itemSourceCatalogPromise: Promise<ItemSourceCatalog> | null = null;
 
-const ITEM_SOURCE_CATALOG = sourceCatalog as ItemSourceCatalog;
+function loadItemSourceCatalog(): Promise<ItemSourceCatalog> {
+  if (itemSourceCatalog) {
+    return Promise.resolve(itemSourceCatalog);
+  }
+  if (!itemSourceCatalogPromise) {
+    itemSourceCatalogPromise = import('../constants/world/item-sources.generated.json')
+      .then((module) => {
+        itemSourceCatalog = module.default as ItemSourceCatalog;
+        return itemSourceCatalog;
+      });
+  }
+  return itemSourceCatalogPromise;
+}
+
+function getLoadedItemSourceCatalog(): ItemSourceCatalog | null {
+  return itemSourceCatalog;
+}
+
+export function hasLoadedItemSourceCatalog(): boolean {
+  return getLoadedItemSourceCatalog() !== null;
+}
+
+export async function preloadItemSourceCatalog(): Promise<void> {
+  await loadItemSourceCatalog();
+}
 
 function escapeHtml(value: string): string {
   return value
@@ -119,7 +143,12 @@ function formatSourceDetails(entry: ItemSourceEntry): Array<{ tone: string; text
 }
 
 export function getItemSourceEntries(itemId: string): ItemSourceEntry[] {
-  return ITEM_SOURCE_CATALOG[itemId] ?? [];
+  const catalog = getLoadedItemSourceCatalog();
+  if (!catalog) {
+    void loadItemSourceCatalog();
+    return [];
+  }
+  return catalog[itemId] ?? [];
 }
 
 export function getItemSourceEntryCount(itemId: string): number {
@@ -147,6 +176,10 @@ export function renderItemSourceListHtml(
   const specialSummaryHtml = renderSpecialSourceSummaryHtml(itemId);
   if (specialSummaryHtml) {
     return specialSummaryHtml;
+  }
+  if (!hasLoadedItemSourceCatalog()) {
+    void loadItemSourceCatalog();
+    return '<span class="inventory-source-note">静态来源加载中</span>';
   }
   const entries = getItemSourceEntries(itemId);
   if (entries.length === 0) {

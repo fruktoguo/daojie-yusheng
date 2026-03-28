@@ -1,6 +1,6 @@
 import type { ItemStack } from '@mud/shared';
 import { getLocalItemTemplate } from '../content/local-templates';
-import { getMonsterLocationEntry } from '../content/monster-locations';
+import { getMonsterLocationEntry, loadMonsterLocationEntry } from '../content/monster-locations';
 import { LOCAL_EDITOR_CATALOG } from '../constants/world/editor-catalog';
 import { buildItemTooltipPayload } from './equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
@@ -22,6 +22,7 @@ const INLINE_REFERENCE_SELECTOR = '[data-inline-item-id], [data-inline-monster-i
 const inlineItemTooltip = new FloatingTooltip('floating-tooltip inline-item-tooltip');
 const boundRoots = new WeakSet<HTMLElement>();
 let activeTooltipNode: HTMLElement | null = null;
+let tooltipRequestToken = 0;
 
 const inlineItemMentions = LOCAL_EDITOR_CATALOG.items
   .map((item) => ({ itemId: item.itemId, name: item.name.trim() }))
@@ -82,7 +83,7 @@ function buildLocalItemStack(itemId: string, count = 1): ItemStack | null {
   };
 }
 
-function resolveTooltipPayload(node: HTMLElement) {
+async function resolveTooltipPayload(node: HTMLElement) {
   const itemId = node.dataset.inlineItemId;
   if (itemId) {
     const itemCount = normalizeCount(Number.parseInt(node.dataset.inlineItemCount ?? '1', 10));
@@ -103,7 +104,7 @@ function resolveTooltipPayload(node: HTMLElement) {
     return null;
   }
   const fallbackName = node.dataset.inlineMonsterName?.trim() || monsterId;
-  const location = getMonsterLocationEntry(monsterId);
+  const location = await loadMonsterLocationEntry(monsterId);
   if (!location) {
     return {
       title: fallbackName,
@@ -124,13 +125,17 @@ function resolveTooltipPayload(node: HTMLElement) {
   };
 }
 
-function showTooltip(node: HTMLElement, event: PointerEvent): void {
-  const tooltip = resolveTooltipPayload(node);
+async function showTooltip(node: HTMLElement, clientX: number, clientY: number): Promise<void> {
+  const requestToken = ++tooltipRequestToken;
+  activeTooltipNode = node;
+  const tooltip = await resolveTooltipPayload(node);
   if (!tooltip) {
     return;
   }
-  activeTooltipNode = node;
-  inlineItemTooltip.show(tooltip.title, tooltip.lines, event.clientX, event.clientY, {
+  if (activeTooltipNode !== node || requestToken !== tooltipRequestToken) {
+    return;
+  }
+  inlineItemTooltip.show(tooltip.title, tooltip.lines, clientX, clientY, {
     allowHtml: tooltip.allowHtml,
     asideCards: tooltip.asideCards,
   });
@@ -198,14 +203,18 @@ export function bindInlineItemTooltips(root: HTMLElement): void {
       inlineItemTooltip.hide(true);
       return;
     }
-    const tooltip = resolveTooltipPayload(node);
-    if (!tooltip) {
-      return;
-    }
+    const clientX = event.clientX;
+    const clientY = event.clientY;
+    const requestToken = ++tooltipRequestToken;
     activeTooltipNode = node;
-    inlineItemTooltip.showPinned(node, tooltip.title, tooltip.lines, event.clientX, event.clientY, {
-      allowHtml: tooltip.allowHtml,
-      asideCards: tooltip.asideCards,
+    void resolveTooltipPayload(node).then((tooltip) => {
+      if (!tooltip || activeTooltipNode !== node || requestToken !== tooltipRequestToken) {
+        return;
+      }
+      inlineItemTooltip.showPinned(node, tooltip.title, tooltip.lines, clientX, clientY, {
+        allowHtml: tooltip.allowHtml,
+        asideCards: tooltip.asideCards,
+      });
     });
     event.preventDefault();
     event.stopPropagation();
@@ -232,7 +241,7 @@ export function bindInlineItemTooltips(root: HTMLElement): void {
       return;
     }
     if (activeTooltipNode !== node) {
-      showTooltip(node, event);
+      void showTooltip(node, event.clientX, event.clientY);
       return;
     }
     inlineItemTooltip.move(event.clientX, event.clientY);
@@ -241,6 +250,7 @@ export function bindInlineItemTooltips(root: HTMLElement): void {
   root.addEventListener('pointerleave', () => {
     if (activeTooltipNode && root.contains(activeTooltipNode) && !inlineItemTooltip.isPinnedTo(activeTooltipNode)) {
       activeTooltipNode = null;
+      tooltipRequestToken += 1;
       inlineItemTooltip.hide();
     }
   });
@@ -252,6 +262,7 @@ export function bindInlineItemTooltips(root: HTMLElement): void {
     }
     if (activeTooltipNode && root.contains(activeTooltipNode) && !inlineItemTooltip.isPinnedTo(activeTooltipNode)) {
       activeTooltipNode = null;
+      tooltipRequestToken += 1;
       inlineItemTooltip.hide();
     }
   });

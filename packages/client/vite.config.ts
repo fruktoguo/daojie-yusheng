@@ -45,6 +45,29 @@ export default defineConfig(({ mode }) => {
           main: path.resolve(__dirname, 'index.html'),
           gm: path.resolve(__dirname, 'gm.html'),
         },
+        output: {
+          manualChunks(id) {
+            if (id.includes('/node_modules/')) {
+              return 'vendor';
+            }
+            if (id.includes('/packages/shared/src/')) {
+              return 'shared';
+            }
+            if (id.includes('/packages/client/src/ui/panels/')) {
+              return 'main-panels';
+            }
+            if (id.includes('/src/constants/world/editor-catalog.generated.json')) {
+              return 'world-editor-catalog';
+            }
+            if (id.includes('/src/constants/world/item-sources.generated.json')) {
+              return 'world-item-sources';
+            }
+            if (id.includes('/src/constants/world/monster-locations.generated.json')) {
+              return 'world-monster-locations';
+            }
+            return undefined;
+          },
+        },
       },
     },
     server: proxyTarget

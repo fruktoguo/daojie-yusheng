@@ -48,6 +48,7 @@ import {
   resolvePreviewTechnique,
   resolvePreviewTechniques,
 } from './content/local-templates';
+import { scheduleDeferredLocalContentPreload } from './content/deferred-local-content';
 import { assessMapDanger } from './utils/map-danger';
 
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './ui/floating-tooltip';
@@ -118,6 +119,8 @@ const zoomSlider = document.getElementById('zoom-slider') as HTMLInputElement | 
 const zoomLevelEl = document.getElementById('zoom-level');
 const zoomResetBtn = document.getElementById('zoom-reset') as HTMLButtonElement | null;
 const tickRateEl = document.getElementById('map-tick-rate');
+
+scheduleDeferredLocalContentPreload();
 const currentTimeEl = document.getElementById('map-current-time');
 const currentTimeValueEl = document.getElementById('map-current-time-value');
 const currentTimePhaseEl = document.getElementById('map-current-time-phase');

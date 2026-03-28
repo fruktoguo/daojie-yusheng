@@ -15,8 +15,10 @@ import {
   getItemTypeLabel,
 } from '../../domain-labels';
 import {
+  hasLoadedItemSourceCatalog,
   getItemSourceEntryCount,
   isSpecialSourceSummaryItem,
+  preloadItemSourceCatalog,
   renderItemSourceListHtml,
 } from '../../content/item-sources';
 import { resolvePreviewItem, resolveTechniqueIdFromBookItemId } from '../../content/local-templates';
@@ -451,6 +453,15 @@ export class InventoryPanel {
     }
 
     const previewItem = resolvePreviewItem(item);
+    if (!hasLoadedItemSourceCatalog()) {
+      const pendingItemKey = this.selectedItemKey;
+      void preloadItemSourceCatalog().then(() => {
+        if (!this.lastInventory || !pendingItemKey || this.selectedItemKey !== pendingItemKey || this.actionDialog) {
+          return;
+        }
+        this.renderModal();
+      });
+    }
     if (this.sourceExpandedItemKey !== this.selectedItemKey) {
       this.sourceExpanded = false;
       this.sourceExpandedItemKey = this.selectedItemKey;
