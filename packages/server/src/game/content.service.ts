@@ -560,9 +560,7 @@ export class ContentService implements OnModuleInit {
 
   private normalizeTechniqueLayerAttrs(attrs: TechniqueLayerDef['attrs']): TechniqueLayerDef['attrs'] {
     if (!attrs) return attrs;
-    const normalized = { ...attrs };
-    delete normalized.luck;
-    return normalized;
+    return { ...attrs };
   }
 
   private normalizeItemAttrs(attrs: unknown): Partial<Attributes> | undefined {
