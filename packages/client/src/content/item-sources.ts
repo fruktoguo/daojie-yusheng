@@ -1,6 +1,6 @@
 import sourceCatalog from '../constants/world/item-sources.generated.json';
 
-export type ItemSourceKind = 'monster_drop' | 'mining' | 'search' | 'quest';
+export type ItemSourceKind = 'monster_drop' | 'mining' | 'search' | 'shop' | 'quest';
 const SPIRIT_STONE_ITEM_ID = 'spirit_stone';
 
 interface ItemSourceBaseEntry {
@@ -49,10 +49,17 @@ export interface QuestItemSourceEntry extends ItemSourceBaseEntry {
   chapter?: string;
 }
 
+export interface ShopItemSourceEntry extends ItemSourceBaseEntry {
+  kind: 'shop';
+  npcId: string;
+  npcName: string;
+}
+
 export type ItemSourceEntry =
   | MonsterItemSourceEntry
   | DirectItemNodeSourceEntry
   | PoolItemNodeSourceEntry
+  | ShopItemSourceEntry
   | QuestItemSourceEntry;
 
 type ItemSourceCatalog = Record<string, ItemSourceEntry[]>;
@@ -76,6 +83,8 @@ function getSourceLinkLabel(kind: ItemSourceKind): string {
       return '挖矿';
     case 'search':
       return '搜索';
+    case 'shop':
+      return '购买';
     case 'quest':
       return '任务';
   }
@@ -93,6 +102,13 @@ function formatSourceDetails(entry: ItemSourceEntry): Array<{ tone: string; text
     return [
       { tone: 'map', text: entry.mapName },
       { tone: 'quest', text: entry.questTitle },
+    ];
+  }
+
+  if (entry.kind === 'shop') {
+    return [
+      { tone: 'map', text: entry.mapName },
+      { tone: 'shop', text: entry.npcName },
     ];
   }
 

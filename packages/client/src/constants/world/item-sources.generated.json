@@ -233,7 +233,15 @@
       "chapter": "第一章·粮路讨生"
     }
   ],
-  "book.bear_cauldron_art": [],
+  "book.bear_cauldron_art": [
+    {
+      "kind": "shop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "npcId": "npc_wenji",
+      "npcName": "文籍师叔"
+    }
+  ],
   "book.body_tempering_formula": [
     {
       "kind": "monster_drop",
@@ -323,7 +331,15 @@
       "chapter": "第二章·青竹追线"
     }
   ],
-  "book.dragon_elephant_bone": [],
+  "book.dragon_elephant_bone": [
+    {
+      "kind": "shop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "npcId": "npc_wenji",
+      "npcName": "文籍师叔"
+    }
+  ],
   "book.frost_sutra": [
     {
       "kind": "monster_drop",
@@ -590,6 +606,13 @@
     }
   ],
   "book.standing_stake_art": [
+    {
+      "kind": "shop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "npcId": "npc_wenji",
+      "npcName": "文籍师叔"
+    },
     {
       "kind": "quest",
       "mapId": "yunlai_town",
@@ -1318,6 +1341,13 @@
       "count": 1
     },
     {
+      "kind": "shop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "npcId": "npc_herbalist_lan",
+      "npcName": "兰药师"
+    },
+    {
       "kind": "quest",
       "mapId": "spirit_ridge",
       "mapName": "灵脊岭",
@@ -1363,6 +1393,13 @@
     }
   ],
   "major_qi_pill": [
+    {
+      "kind": "shop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "npcId": "npc_herbalist_lan",
+      "npcName": "兰药师"
+    },
     {
       "kind": "quest",
       "mapId": "ancient_ruins",
@@ -1590,6 +1627,13 @@
   ],
   "minor_qi_pill": [
     {
+      "kind": "shop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "npcId": "npc_herbalist_lan",
+      "npcName": "兰药师"
+    },
+    {
       "kind": "quest",
       "mapId": "yunlai_town",
       "mapName": "云来镇",
@@ -1633,6 +1677,13 @@
     }
   ],
   "pill.bitter_cultivation_elixir": [
+    {
+      "kind": "shop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "npcId": "npc_herbalist_lan",
+      "npcName": "兰药师"
+    },
     {
       "kind": "quest",
       "mapId": "ancient_ruins",
@@ -1678,6 +1729,13 @@
     }
   ],
   "pill.break_array_elixir": [
+    {
+      "kind": "shop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "npcId": "npc_herbalist_lan",
+      "npcName": "兰药师"
+    },
     {
       "kind": "quest",
       "mapId": "black_iron_mine",
@@ -1738,6 +1796,13 @@
     }
   ],
   "pill.clear_eye_elixir": [
+    {
+      "kind": "shop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "npcId": "npc_herbalist_lan",
+      "npcName": "兰药师"
+    },
     {
       "kind": "quest",
       "mapId": "ancient_ruins",
@@ -1817,6 +1882,13 @@
   ],
   "pill.crimson_bud_elixir": [
     {
+      "kind": "shop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "npcId": "npc_herbalist_lan",
+      "npcName": "兰药师"
+    },
+    {
       "kind": "quest",
       "mapId": "beast_valley",
       "mapName": "噬魂兽谷",
@@ -1860,6 +1932,13 @@
     }
   ],
   "pill.minor_heal": [
+    {
+      "kind": "shop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "npcId": "npc_herbalist_lan",
+      "npcName": "兰药师"
+    },
     {
       "kind": "quest",
       "mapId": "black_iron_mine",
@@ -1924,6 +2003,13 @@
   ],
   "pill.windstride_elixir": [
     {
+      "kind": "shop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "npcId": "npc_herbalist_lan",
+      "npcName": "兰药师"
+    },
+    {
       "kind": "quest",
       "mapId": "bamboo_forest",
       "mapName": "青竹林",
@@ -1976,6 +2062,13 @@
     }
   ],
   "pure_yang_pill": [
+    {
+      "kind": "shop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "npcId": "npc_herbalist_lan",
+      "npcName": "兰药师"
+    },
     {
       "kind": "quest",
       "mapId": "sky_ruins",

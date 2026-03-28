@@ -206,7 +206,8 @@ function sortSources(entries) {
     monster_drop: 0,
     mining: 1,
     search: 1,
-    quest: 2,
+    shop: 2,
+    quest: 3,
   };
   const seen = new Set();
   return entries
@@ -240,6 +241,9 @@ function sortSources(entries) {
       }
       if (left.kind === 'quest' && right.kind === 'quest') {
         return left.questId.localeCompare(right.questId, 'zh-CN');
+      }
+      if (left.kind === 'shop' && right.kind === 'shop') {
+        return left.npcId.localeCompare(right.npcId, 'zh-CN');
       }
       const landmarkDelta = left.landmarkId.localeCompare(right.landmarkId, 'zh-CN');
       if (landmarkDelta !== 0) {
@@ -288,6 +292,24 @@ function main() {
   }
 
   for (const map of maps) {
+    for (const npc of map.npcs ?? []) {
+      if (typeof npc?.id !== 'string' || typeof npc?.name !== 'string') {
+        continue;
+      }
+      for (const shopItem of npc.shopItems ?? []) {
+        if (typeof shopItem?.itemId !== 'string') {
+          continue;
+        }
+        pushSource(sourceByItemId, shopItem.itemId, {
+          kind: 'shop',
+          mapId: map.id,
+          mapName: map.name,
+          npcId: npc.id,
+          npcName: npc.name,
+        });
+      }
+    }
+
     for (const landmark of map.landmarks ?? []) {
       const container = landmark.container;
       if (!container || typeof landmark.id !== 'string' || typeof landmark.name !== 'string') {

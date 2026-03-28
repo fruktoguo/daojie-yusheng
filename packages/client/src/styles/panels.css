@@ -3123,6 +3123,10 @@
       background: rgba(151, 112, 214, 0.2);
       border-color: rgba(151, 112, 214, 0.42);
     }
+    .inventory-source-chip--shop {
+      background: rgba(214, 156, 82, 0.2);
+      border-color: rgba(214, 156, 82, 0.42);
+    }
     .inventory-source-chip--location {
       background: rgba(112, 182, 128, 0.2);
       border-color: rgba(112, 182, 128, 0.42);
