@@ -13,7 +13,7 @@ import {
   getItemTypeLabel,
 } from '../domain-labels';
 import { renderItemSourceListHtml } from '../content/item-sources';
-import { resolvePreviewItem } from '../content/local-templates';
+import { resolvePreviewItem, resolveTechniqueIdFromBookItemId } from '../content/local-templates';
 import { SkillTooltipAsideCard, SkillTooltipContent } from './skill-tooltip';
 import { describePreviewBonuses } from './stat-preview';
 import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../utils/number';
@@ -182,13 +182,96 @@ export interface ItemTooltipPayload {
   allowHtml: boolean;
 }
 
-export function buildItemTooltipPayload(item: ItemStack): ItemTooltipPayload {
+export interface ItemTooltipContext {
+  learnedTechniqueIds?: ReadonlySet<string>;
+  unlockedMinimapIds?: ReadonlySet<string>;
+  equippedItem?: ItemStack | null;
+}
+
+function resolveItemStatusLabel(item: ItemStack, context?: ItemTooltipContext): string | null {
+  if (item.type === 'skill_book') {
+    const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
+    if (techniqueId && context?.learnedTechniqueIds?.has(techniqueId)) {
+      return '已学';
+    }
+  }
+  if (item.mapUnlockId && context?.unlockedMinimapIds?.has(item.mapUnlockId)) {
+    return '已阅';
+  }
+  return null;
+}
+
+function buildPlainEffectSummary(effect: EquipmentEffectDef): string[] {
+  const conditionLines = formatConditionText(effect);
+  switch (effect.type) {
+    case 'stat_aura': {
+      const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats);
+      return [
+        `常驻特效：${effectLines.length > 0 ? effectLines.join('，') : '无数值变化'}`,
+        ...(conditionLines.length > 0 ? [`生效条件：${conditionLines.join('，')}`] : []),
+      ];
+    }
+    case 'progress_boost': {
+      const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats);
+      return [
+        `推进特效：${effectLines.length > 0 ? effectLines.join('，') : '无数值变化'}`,
+        ...(conditionLines.length > 0 ? [`生效条件：${conditionLines.join('，')}`] : []),
+      ];
+    }
+    case 'periodic_cost': {
+      const modeLabel = effect.mode === 'flat'
+        ? `${formatDisplayNumber(effect.value)}`
+        : effect.mode === 'max_ratio_bp'
+          ? `${formatDisplayPercent(effect.value / 100)} 最大${effect.resource === 'hp' ? '生命' : '灵力'}`
+          : `${formatDisplayPercent(effect.value / 100)} 当前${effect.resource === 'hp' ? '生命' : '灵力'}`;
+      return [
+        `持续代价：${effect.trigger === 'on_cultivation_tick' ? '修炼时每息' : '每息'}损失 ${modeLabel}`,
+        ...(conditionLines.length > 0 ? [`生效条件：${conditionLines.join('，')}`] : []),
+      ];
+    }
+    case 'timed_buff': {
+      const stackLimit = formatBuffMaxStacks(effect.buff.maxStacks);
+      const meta = [
+        formatTriggerLabel(effect.trigger),
+        effect.target === 'target' ? '目标' : '自身',
+        `${formatDisplayInteger(effect.buff.duration)} 息${stackLimit ? `，最多 ${stackLimit} 层` : ''}`,
+        ...(effect.cooldown !== undefined ? [`冷却 ${formatDisplayInteger(effect.cooldown)} 息`] : []),
+        ...(effect.chance !== undefined ? [formatDisplayPercent(effect.chance * 100)] : []),
+      ];
+      return [
+        `触发增益：${effect.buff.name} ${meta.join(' · ')}`,
+        ...(conditionLines.length > 0 ? [`触发条件：${conditionLines.join('，')}`] : []),
+      ];
+    }
+  }
+}
+
+function buildEquipmentComparisonAsideCard(item: ItemStack): SkillTooltipAsideCard {
+  const previewItem = resolvePreviewItem(item);
+  const staticLines = describeBuffStats(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats);
+  const effectLines = (previewItem.effects ?? []).flatMap((effect) => buildPlainEffectSummary(effect));
+  return {
+    mark: '装',
+    title: '已装备',
+    lines: [
+      previewItem.name,
+      ...(previewItem.equipSlot ? [`部位：${getEquipSlotLabel(previewItem.equipSlot)}`] : []),
+      ...(staticLines.length > 0 ? [`静态词条：${staticLines.join('，')}`] : []),
+      ...effectLines,
+    ],
+    tone: 'buff',
+  };
+}
+
+export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipContext): ItemTooltipPayload {
   const previewItem = resolvePreviewItem(item);
   const sourceListHtml = renderItemSourceListHtml(previewItem.itemId, { maxEntries: 3, compact: true });
+  const statusLabel = resolveItemStatusLabel(previewItem, context);
   if (previewItem.type !== 'equipment') {
     const lines = [
       `<span class="skill-tooltip-desc">${escapeHtml(previewItem.desc ?? '')}</span>`,
       renderPlainLine('类型', getItemTypeLabel(previewItem.type)),
+      ...(statusLabel ? [renderPlainLine('状态', statusLabel)] : []),
       `<div class="inventory-source-block"><span class="skill-tooltip-label">来源：</span>${sourceListHtml}</div>`,
     ].filter((line) => line.length > 0);
     return {
@@ -207,6 +290,7 @@ export function buildItemTooltipPayload(item: ItemStack): ItemTooltipPayload {
     `<span class="skill-tooltip-desc">${escapeHtml(previewItem.desc ?? '')}</span>`,
     renderPlainLine('类型', getItemTypeLabel(previewItem.type)),
     ...(previewItem.equipSlot ? [renderPlainLine('部位', getEquipSlotLabel(previewItem.equipSlot))] : []),
+    ...(statusLabel ? [renderPlainLine('状态', statusLabel)] : []),
     ...(staticLines.length > 0 ? [renderPlainLine('静态词条', staticLines.join('，'))] : []),
     ...effectSummaries.flatMap((entry) => entry.lines),
     `<div class="inventory-source-block"><span class="skill-tooltip-label">来源：</span>${sourceListHtml}</div>`,
@@ -214,6 +298,9 @@ export function buildItemTooltipPayload(item: ItemStack): ItemTooltipPayload {
   const asideCards = effectSummaries
     .map((entry) => entry.asideCard)
     .filter((entry): entry is SkillTooltipAsideCard => Boolean(entry));
+  if (context?.equippedItem && context.equippedItem.equipSlot === previewItem.equipSlot) {
+    asideCards.unshift(buildEquipmentComparisonAsideCard(context.equippedItem));
+  }
 
   return {
     title: previewItem.name,
@@ -223,8 +310,8 @@ export function buildItemTooltipPayload(item: ItemStack): ItemTooltipPayload {
   };
 }
 
-export function buildEquipmentTooltipContent(item: ItemStack): SkillTooltipContent {
-  const payload = buildItemTooltipPayload(item);
+export function buildEquipmentTooltipContent(item: ItemStack, context?: ItemTooltipContext): SkillTooltipContent {
+  const payload = buildItemTooltipPayload(item, context);
   return {
     lines: payload.lines,
     asideCards: payload.asideCards,

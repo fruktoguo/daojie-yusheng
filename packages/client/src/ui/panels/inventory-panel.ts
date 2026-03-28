@@ -3,7 +3,14 @@
  * 展示物品网格列表，支持分类筛选、使用/装备/丢弃操作与物品详情弹层
  */
 
-import { EquipmentEffectDef, Inventory, ItemStack, PlayerState, createItemStackSignature } from '@mud/shared';
+import {
+  EquipmentEffectDef,
+  EquipSlot,
+  Inventory,
+  ItemStack,
+  PlayerState,
+  createItemStackSignature,
+} from '@mud/shared';
 import {
   getEquipSlotLabel,
   getItemTypeLabel,
@@ -13,7 +20,7 @@ import {
   isSpecialSourceSummaryItem,
   renderItemSourceListHtml,
 } from '../../content/item-sources';
-import { resolvePreviewItem } from '../../content/local-templates';
+import { resolvePreviewItem, resolveTechniqueIdFromBookItemId } from '../../content/local-templates';
 import { detailModalHost } from '../detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { buildItemTooltipPayload } from '../equipment-tooltip';
@@ -38,6 +45,12 @@ interface InventoryActionDialogState {
 interface InventoryStructureState {
   filter: InventoryFilter;
   items: Array<{ slotIndex: number; identity: string }>;
+}
+
+interface InventoryPrimaryAction {
+  label: string;
+  kind: 'use' | 'equip' | 'status';
+  disabled?: boolean;
 }
 
 const INVENTORY_SOURCE_COLLAPSED_COUNT = 3;
@@ -134,6 +147,9 @@ export class InventoryPanel {
   private tooltipCell: HTMLElement | null = null;
   private sourceExpanded = false;
   private sourceExpandedItemKey: string | null = null;
+  private learnedTechniqueIds = new Set<string>();
+  private unlockedMinimapIds = new Set<string>();
+  private equippedItemsBySlot: Partial<Record<EquipSlot, ItemStack>> = {};
 
   constructor() {
     this.ensureTooltipStyle();
@@ -151,6 +167,9 @@ export class InventoryPanel {
     this.tooltipCell = null;
     this.sourceExpanded = false;
     this.sourceExpandedItemKey = null;
+    this.learnedTechniqueIds.clear();
+    this.unlockedMinimapIds.clear();
+    this.equippedItemsBySlot = {};
     this.tooltip.hide(true);
     this.pane.innerHTML = '<div class="empty-hint">背包空空如也</div>';
     detailModalHost.close(InventoryPanel.MODAL_OWNER);
@@ -183,7 +202,36 @@ export class InventoryPanel {
   }
 
   initFromPlayer(player: PlayerState): void {
+    this.syncPlayerContext(player);
     this.update(player.inventory);
+  }
+
+  syncPlayerContext(player?: Pick<PlayerState, 'techniques' | 'equipment' | 'unlockedMinimapIds'>): void {
+    if (!player) {
+      this.learnedTechniqueIds.clear();
+      this.unlockedMinimapIds.clear();
+      this.equippedItemsBySlot = {};
+    } else {
+      this.learnedTechniqueIds = new Set(
+        (player.techniques ?? [])
+          .map((technique) => technique.techId)
+          .filter((techId): techId is string => typeof techId === 'string' && techId.length > 0),
+      );
+      this.unlockedMinimapIds = new Set(
+        (player.unlockedMinimapIds ?? [])
+          .filter((mapId): mapId is string => typeof mapId === 'string' && mapId.length > 0),
+      );
+      this.equippedItemsBySlot = {};
+      for (const slot of ['weapon', 'head', 'body', 'legs', 'accessory'] as const) {
+        const equippedItem = player.equipment?.[slot];
+        if (equippedItem) {
+          this.equippedItemsBySlot[slot] = equippedItem;
+        }
+      }
+    }
+    if (this.lastInventory) {
+      this.update(this.lastInventory);
+    }
   }
 
   private render(inventory: Inventory): void {
@@ -225,7 +273,7 @@ export class InventoryPanel {
         </div>
         <div class="inventory-cell-name ${nameClass}" data-item-name="true" title="${this.escapeHtml(item.name)}">${this.escapeHtml(item.name)}</div>
         <div class="inventory-cell-actions">
-          ${primaryAction ? `<button class="small-btn" data-inline-primary="${slotIndex}" data-item-primary="true" type="button">${primaryAction.label}</button>` : ''}
+          ${primaryAction ? `<button class="small-btn" data-inline-primary="${slotIndex}" data-item-primary="true" type="button" ${primaryAction.disabled ? 'disabled' : ''}>${primaryAction.label}</button>` : ''}
           <button class="small-btn danger" data-inline-drop="${slotIndex}" type="button">丢下</button>
         </div>
       </div>`;
@@ -272,7 +320,7 @@ export class InventoryPanel {
         const slotIndex = parseInt(rawIndex, 10);
         const item = this.lastInventory?.items[slotIndex];
         const action = item ? this.getPrimaryAction(item) : null;
-        if (!action) {
+        if (!action || action.kind === 'status') {
           return;
         }
         if (action.kind === 'equip') {
@@ -480,6 +528,7 @@ export class InventoryPanel {
     const bonusLines = describePreviewBonuses(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats);
     const effectLines = formatItemEffects(item);
     const primaryAction = this.getPrimaryAction(item);
+    const statusLabel = this.getItemStatusLabel(item);
     const canBatchUse = primaryAction?.kind === 'use' && this.canBatchUseItem(item);
     const canBatchDropOrDestroy = this.canBatchDropOrDestroy(item);
     const sourceEntryCount = getItemSourceEntryCount(previewItem.itemId);
@@ -512,6 +561,10 @@ export class InventoryPanel {
           <strong>物品说明</strong>
           <span data-inventory-modal-desc="true">${this.escapeHtml(previewItem.desc)}</span>
         </div>
+        ${statusLabel ? `<div class="quest-detail-section">
+          <strong>当前状态</strong>
+          <span data-inventory-modal-status="true">${this.escapeHtml(statusLabel)}</span>
+        </div>` : ''}
         ${bonusLines.length > 0 ? `<div class="quest-detail-section">
           <strong>附加词条</strong>
           <span data-inventory-modal-bonuses="true">${this.escapeHtml(bonusLines.join(' / '))}</span>
@@ -529,7 +582,7 @@ export class InventoryPanel {
         </div>
         <div class="inventory-detail-actions">
           <div class="inventory-detail-actions-group inventory-detail-actions-group--left">
-            ${primaryAction ? `<button class="small-btn" data-inventory-primary="true" type="button">${primaryAction.label}</button>` : ''}
+            ${primaryAction ? `<button class="small-btn" data-inventory-primary="true" type="button" ${primaryAction.disabled ? 'disabled' : ''}>${primaryAction.label}</button>` : ''}
             ${canBatchUse ? `<button class="small-btn ghost" data-inventory-open-action="use" data-default-count="1" type="button">批量使用</button>` : ''}
           </div>
           <div class="inventory-detail-actions-group inventory-detail-actions-group--right">
@@ -548,6 +601,9 @@ export class InventoryPanel {
       onAfterRender: (body) => {
         body.querySelector<HTMLElement>('[data-inventory-primary]')?.addEventListener('click', (event) => {
           event.stopPropagation();
+          if (!primaryAction || primaryAction.kind === 'status') {
+            return;
+          }
           if (primaryAction?.kind === 'equip') {
             this.onEquipItem?.(slotIndex);
             this.closeModal();
@@ -766,6 +822,7 @@ export class InventoryPanel {
         }
         primaryButton.textContent = primaryAction.label;
         primaryButton.dataset.inlinePrimary = String(slotIndex);
+        primaryButton.disabled = primaryAction.disabled === true;
       } else if (primaryButton) {
         return false;
       }
@@ -870,7 +927,11 @@ export class InventoryPanel {
     }
   }
 
-  private getPrimaryAction(item: ItemStack): { label: string; kind: 'use' | 'equip' } | null {
+  private getPrimaryAction(item: ItemStack): InventoryPrimaryAction | null {
+    const statusLabel = this.getItemStatusLabel(item);
+    if (statusLabel) {
+      return { label: statusLabel, kind: 'status', disabled: true };
+    }
     if (item.type === 'equipment') {
       return { label: '装备', kind: 'equip' };
     }
@@ -881,6 +942,26 @@ export class InventoryPanel {
       return { label: '使用', kind: 'use' };
     }
     return null;
+  }
+
+  private getItemStatusLabel(item: ItemStack): string | null {
+    if (item.type === 'skill_book') {
+      const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
+      if (techniqueId && this.learnedTechniqueIds.has(techniqueId)) {
+        return '已学';
+      }
+    }
+    if (item.mapUnlockId && this.unlockedMinimapIds.has(item.mapUnlockId)) {
+      return '已阅';
+    }
+    return null;
+  }
+
+  private getEquippedItemForCompare(item: ItemStack): ItemStack | null {
+    if (item.type !== 'equipment' || !item.equipSlot) {
+      return null;
+    }
+    return this.equippedItemsBySlot[item.equipSlot] ?? null;
   }
 
   private getNameClass(name: string): string {
@@ -941,6 +1022,10 @@ export class InventoryPanel {
     return buildItemTooltipPayload({
       ...item,
       type: item.type === 'skill_book' ? 'skill_book' : item.type,
+    }, {
+      learnedTechniqueIds: this.learnedTechniqueIds,
+      unlockedMinimapIds: this.unlockedMinimapIds,
+      equippedItem: this.getEquippedItemForCompare(item),
     });
   }
 

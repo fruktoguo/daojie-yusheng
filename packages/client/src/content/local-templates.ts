@@ -43,7 +43,7 @@ function resolveTechniqueCategoryFromTemplate(template: GmEditorTechniqueOption 
   return template.category ?? ((template.skills?.length ?? 0) > 0 ? 'arts' : 'internal');
 }
 
-function getTechniqueIdFromBookItemId(itemId: string): string | null {
+export function resolveTechniqueIdFromBookItemId(itemId: string): string | null {
   if (itemId.startsWith('book.')) {
     return itemId.slice(5);
   }
@@ -57,7 +57,7 @@ for (const item of LOCAL_EDITOR_CATALOG.items) {
   if (item.type !== 'skill_book') {
     continue;
   }
-  const techniqueId = getTechniqueIdFromBookItemId(item.itemId);
+  const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
   const category = resolveTechniqueCategoryFromTemplate(
     techniqueId ? techniqueTemplateMap.get(techniqueId) : undefined,
   );

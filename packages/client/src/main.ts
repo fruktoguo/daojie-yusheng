@@ -1913,6 +1913,7 @@ socket.onEquipmentUpdate((data) => {
   const mergedEquipment = mergeEquipmentUpdate(myPlayer?.equipment, data);
   if (myPlayer) {
     myPlayer.equipment = mergedEquipment;
+    inventoryPanel.syncPlayerContext(myPlayer);
   }
   equipmentPanel.update(mergedEquipment);
 });
@@ -1926,6 +1927,7 @@ socket.onTechniqueUpdate((data) => {
   if (myPlayer) {
     myPlayer.techniques = mergedTechniques;
     myPlayer.cultivatingTechId = nextCultivatingTechId;
+    inventoryPanel.syncPlayerContext(myPlayer);
   }
   if (shouldRefreshTechniquePanel) {
     techniquePanel.update(mergedTechniques, nextCultivatingTechId, myPlayer ?? undefined);
@@ -2027,6 +2029,10 @@ socket.onQuestNavigateResult((data) => {
 });
 socket.onMapStaticSync((data: S2C_MapStaticSync) => {
   mapRuntime.applyMapStaticSync(data);
+  if (myPlayer && data.minimapLibrary) {
+    myPlayer.unlockedMinimapIds = data.minimapLibrary.map((entry) => entry.mapId).sort();
+    inventoryPanel.syncPlayerContext(myPlayer);
+  }
   if (myPlayer && data.mapId === myPlayer.mapId) {
     refreshUiChrome();
   }
