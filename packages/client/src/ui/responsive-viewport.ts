@@ -84,11 +84,10 @@ export function getResponsiveViewportMetrics(win: Window = window): ResponsiveVi
     };
   }
 
-  const scaleX = rawWidth / DESIGN_VIEWPORT.width;
-  const scaleY = rawHeight / DESIGN_VIEWPORT.height;
-  const scale = Math.max(MIN_VIEWPORT_SCALE, Math.min(scaleX, scaleY));
-  const viewportWidth = Math.max(DESIGN_VIEWPORT.width, rawWidth / scale);
-  const viewportHeight = Math.max(DESIGN_VIEWPORT.height, rawHeight / scale);
+  // 桌面端采用类似 Unity Canvas 的高度基准：设计高度固定，宽度随窗口比例变化。
+  const scale = Math.max(MIN_VIEWPORT_SCALE, rawHeight / DESIGN_VIEWPORT.height);
+  const viewportWidth = Math.max(1, rawWidth / scale);
+  const viewportHeight = DESIGN_VIEWPORT.height;
   const scaledWidth = viewportWidth * scale;
   const scaledHeight = viewportHeight * scale;
 
