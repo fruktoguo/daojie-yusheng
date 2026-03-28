@@ -4,7 +4,6 @@
  */
 
 import {
-  EquipmentEffectDef,
   EquipSlot,
   Inventory,
   ItemStack,
@@ -23,11 +22,11 @@ import {
 import { resolvePreviewItem, resolveTechniqueIdFromBookItemId } from '../../content/local-templates';
 import { detailModalHost } from '../detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
-import { buildItemTooltipPayload } from '../equipment-tooltip';
+import { buildItemTooltipPayload, describeItemEffectDetails } from '../equipment-tooltip';
 import { preserveSelection } from '../selection-preserver';
 import { describePreviewBonuses } from '../stat-preview';
 import { INVENTORY_FILTER_TABS, InventoryFilter } from '../../constants/ui/inventory';
-import { formatDisplayCountBadge, formatDisplayInteger, formatDisplayPercent } from '../../utils/number';
+import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
 import {
   INVENTORY_PANEL_TOOLTIP_STYLE_ID,
   INVENTORY_PANEL_USABLE_ITEM_TYPES,
@@ -55,77 +54,8 @@ interface InventoryPrimaryAction {
 
 const INVENTORY_SOURCE_COLLAPSED_COUNT = 3;
 
-function formatEffectCondition(effect: EquipmentEffectDef): string {
-  const conditions = effect?.conditions?.items ?? [];
-  if (conditions.length === 0) {
-    return '';
-  }
-  const parts = conditions.map((condition) => {
-    switch (condition.type) {
-      case 'time_segment':
-        return `时段:${condition.in.join('/')}`;
-      case 'map':
-        return `地图:${condition.mapIds.join('/')}`;
-      case 'hp_ratio':
-        return `生命${condition.op}${formatDisplayPercent(condition.value * 100)}`;
-      case 'qi_ratio':
-        return `灵力${condition.op}${formatDisplayPercent(condition.value * 100)}`;
-      case 'is_cultivating':
-        return condition.value ? '修炼中' : '未修炼';
-      case 'has_buff':
-        return `需带有 ${condition.buffId}`;
-      case 'target_kind':
-        return `目标:${condition.in.join('/')}`;
-      default:
-        return '';
-    }
-  }).filter((part) => part.length > 0);
-  return parts.length > 0 ? ` [${parts.join('，')}]` : '';
-}
-
 function formatItemEffects(item: ItemStack): string[] {
-  const previewItem = resolvePreviewItem(item);
-  if (!previewItem.effects || previewItem.effects.length === 0) {
-    return [];
-  }
-  return previewItem.effects.map((effect) => {
-    const conditionText = formatEffectCondition(effect);
-    switch (effect.type) {
-      case 'stat_aura':
-      case 'progress_boost': {
-        const effectParts = describePreviewBonuses(effect.attrs, effect.stats, effect.valueStats);
-        return `特效:${effectParts.join(' / ') || '无数值变化'}${conditionText}`;
-      }
-      case 'periodic_cost': {
-        const modeLabel = effect.mode === 'flat'
-          ? `${formatDisplayInteger(effect.value)}`
-          : effect.mode === 'max_ratio_bp'
-            ? `${formatDisplayPercent(effect.value / 100)} 最大${effect.resource === 'hp' ? '生命' : '灵力'}`
-            : `${formatDisplayPercent(effect.value / 100)} 当前${effect.resource === 'hp' ? '生命' : '灵力'}`;
-        const triggerLabel = effect.trigger === 'on_cultivation_tick' ? '修炼时每息' : '每息';
-        return `代价:${triggerLabel}损失 ${modeLabel}${conditionText}`;
-      }
-      case 'timed_buff': {
-        const triggerMap: Record<string, string> = {
-          on_equip: '装备时',
-          on_unequip: '卸下时',
-          on_tick: '每息',
-          on_move: '移动后',
-          on_attack: '攻击后',
-          on_hit: '受击后',
-          on_kill: '击杀后',
-          on_skill_cast: '施法后',
-          on_cultivation_tick: '修炼时',
-          on_time_segment_changed: '时段切换时',
-          on_enter_map: '入图时',
-        };
-        const buffParts = describePreviewBonuses(effect.buff.attrs, effect.buff.stats, effect.buff.valueStats);
-        return `触发:${triggerMap[effect.trigger] ?? effect.trigger}获得 ${effect.buff.name} ${effect.buff.duration}息${conditionText}${buffParts.length > 0 ? `，效果:${buffParts.join(' / ')}` : ''}`;
-      }
-      default:
-        return '';
-    }
-  }).filter((line) => line.length > 0);
+  return describeItemEffectDetails(item);
 }
 
 /** 背包面板：显示物品列表，支持使用和丢弃 */

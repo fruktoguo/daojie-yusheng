@@ -50,6 +50,7 @@ import {
   TimePhaseId,
   TECHNIQUE_GRADE_ORDER,
   createMonsterAutoStatPercents,
+  ConsumableBuffDef,
   inferMonsterAttrsFromNumericStats,
   inferMonsterValueStatsFromLegacy,
   normalizeMonsterAttrs,
@@ -76,21 +77,6 @@ interface TechniqueTemplate {
   category: TechniqueCategory;
   realmLv: number;
   layers: TechniqueLayerDef[];
-}
-
-interface ConsumableBuffDef {
-  buffId: string;
-  name: string;
-  desc?: string;
-  shortMark?: string;
-  category?: 'buff' | 'debuff';
-  visibility?: 'public' | 'observe_only' | 'hidden';
-  color?: string;
-  duration: number;
-  maxStacks?: number;
-  attrs?: Partial<Attributes>;
-  stats?: PartialNumericStats;
-  qiProjection?: QiProjectionModifier[];
 }
 
 interface ItemTemplate extends Omit<ItemStack, 'count'> {
@@ -125,6 +111,13 @@ export interface EditorItemCatalogEntry {
   equipValueStats?: ItemStack['equipValueStats'];
   tags?: string[];
   effects?: EquipmentEffectDef[];
+  healAmount?: number;
+  healPercent?: number;
+  qiPercent?: number;
+  consumeBuffs?: ConsumableBuffDef[];
+  mapUnlockId?: string;
+  tileAuraGainAmount?: number;
+  allowBatchUse?: boolean;
 }
 
 interface StarterInventoryEntry {
@@ -1092,6 +1085,13 @@ export class ContentService implements OnModuleInit {
           : undefined,
         tags: item.tags ? [...item.tags] : undefined,
         effects: item.effects ? JSON.parse(JSON.stringify(item.effects)) as EquipmentEffectDef[] : undefined,
+        healAmount: item.healAmount,
+        healPercent: item.healPercent,
+        qiPercent: item.qiPercent,
+        consumeBuffs: item.consumeBuffs ? JSON.parse(JSON.stringify(item.consumeBuffs)) as ConsumableBuffDef[] : undefined,
+        mapUnlockId: item.mapUnlockId,
+        tileAuraGainAmount: item.tileAuraGainAmount,
+        allowBatchUse: item.allowBatchUse,
       }))
       .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'));
   }

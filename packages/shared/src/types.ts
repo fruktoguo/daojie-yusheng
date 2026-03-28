@@ -351,6 +351,23 @@ export interface EquipmentBuffDef {
   valueStats?: PartialNumericStats;
 }
 
+/** 消耗品施加的 Buff 定义 */
+export interface ConsumableBuffDef {
+  buffId: string;
+  name: string;
+  desc?: string;
+  shortMark?: string;
+  category?: BuffCategory;
+  visibility?: BuffVisibility;
+  color?: string;
+  duration: number;
+  maxStacks?: number;
+  attrs?: Partial<Attributes>;
+  stats?: PartialNumericStats;
+  qiProjection?: QiProjectionModifier[];
+  valueStats?: PartialNumericStats;
+}
+
 /** 装备常驻数值效果 */
 export interface EquipmentStatAuraEffectDef {
   effectId?: string;

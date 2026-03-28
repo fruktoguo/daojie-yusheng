@@ -1,5 +1,5 @@
 import { Inventory, ItemStack, ItemType, PlayerState } from '@mud/shared';
-import { buildItemTooltipPayload } from './equipment-tooltip';
+import { buildItemTooltipPayload, describeItemEffectDetails } from './equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 import { getItemTypeLabel } from '../domain-labels';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../utils/number';
@@ -263,6 +263,7 @@ export class NpcShopModal {
     const quantityText = this.quantityDrafts.get(selectedItem.itemId) ?? '1';
     const ownedCount = this.findInventoryItemCount(selectedItem.itemId);
     const ownedCurrency = this.findInventoryItemCount(shop.currencyItemId);
+    const effectLines = describeItemEffectDetails(selectedItem.item);
     const affordableCount = selectedItem.unitPrice > 0 ? Math.floor(ownedCurrency / selectedItem.unitPrice) : 0;
     const totalCost = quantity === null ? null : quantity * selectedItem.unitPrice;
     const invalidTotal = totalCost === null || !Number.isSafeInteger(totalCost) || totalCost <= 0;
@@ -276,6 +277,14 @@ export class NpcShopModal {
           <div class="market-book-subtitle">${escapeHtml(getItemTypeLabel(selectedItem.item.type))} · ${escapeHtml(selectedItem.item.desc)}</div>
         </div>
       </div>
+      ${effectLines.length > 0 ? `
+        <div class="market-book-effects">
+          <div class="market-book-effects-title">完整效果</div>
+          <div class="market-book-effects-list">
+            ${effectLines.map((line) => `<div class="market-book-effect-line">${escapeHtml(line)}</div>`).join('')}
+          </div>
+        </div>
+      ` : ''}
       <div class="market-book-column">
         <div class="market-book-column-head">
           <div class="market-book-column-title">直接购买</div>

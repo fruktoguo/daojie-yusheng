@@ -13,7 +13,7 @@ import {
   getItemTypeLabel,
 } from '../domain-labels';
 import { renderItemSourceListHtml } from '../content/item-sources';
-import { resolvePreviewItem, resolveTechniqueIdFromBookItemId } from '../content/local-templates';
+import { getLocalItemTemplate, resolvePreviewItem, resolveTechniqueIdFromBookItemId } from '../content/local-templates';
 import { SkillTooltipAsideCard, SkillTooltipContent } from './skill-tooltip';
 import { describePreviewBonuses } from './stat-preview';
 import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../utils/number';
@@ -246,6 +246,63 @@ function buildPlainEffectSummary(effect: EquipmentEffectDef): string[] {
   }
 }
 
+function buildConsumableEffectDetails(item: ItemStack): string[] {
+  if (item.type !== 'consumable') {
+    return [];
+  }
+  const template = getLocalItemTemplate(item.itemId);
+  if (!template) {
+    return [];
+  }
+
+  const lines: string[] = [];
+  const instantParts: string[] = [];
+  if (typeof template.healAmount === 'number' && template.healAmount > 0) {
+    instantParts.push(`恢复 ${formatDisplayInteger(template.healAmount)} 点气血`);
+  }
+  if (typeof template.healPercent === 'number' && template.healPercent > 0) {
+    instantParts.push(`恢复 ${formatDisplayPercent(template.healPercent * 100)} 气血`);
+  }
+  if (typeof template.qiPercent === 'number' && template.qiPercent > 0) {
+    instantParts.push(`恢复 ${formatDisplayPercent(template.qiPercent * 100)} 真气`);
+  }
+  if (instantParts.length > 0) {
+    lines.push(`立即效果：${instantParts.join('，')}`);
+  }
+
+  for (const buff of template.consumeBuffs ?? []) {
+    const metaParts = [`持续 ${formatDisplayInteger(buff.duration)} 息`];
+    if (typeof buff.maxStacks === 'number' && buff.maxStacks > 1) {
+      metaParts.push(`最多 ${formatDisplayInteger(buff.maxStacks)} 层`);
+    }
+    lines.push(`药效：${buff.name}${metaParts.length > 0 ? `，${metaParts.join('，')}` : ''}`);
+    const bonusLines = describeBuffStats(buff.attrs, buff.stats, buff.valueStats);
+    if (bonusLines.length > 0) {
+      lines.push(`具体加成：${bonusLines.join('，')}`);
+    }
+    if (buff.desc?.trim()) {
+      lines.push(`说明：${buff.desc.trim()}`);
+    }
+  }
+
+  if (typeof template.tileAuraGainAmount === 'number' && template.tileAuraGainAmount > 0) {
+    lines.push(`立即效果：当前地块灵力 +${formatDisplayInteger(template.tileAuraGainAmount)}`);
+  }
+  if (template.mapUnlockId) {
+    lines.push('使用效果：永久解锁对应地图');
+  }
+
+  return lines;
+}
+
+export function describeItemEffectDetails(item: ItemStack): string[] {
+  const previewItem = resolvePreviewItem(item);
+  if (previewItem.effects?.length) {
+    return previewItem.effects.flatMap((effect) => buildPlainEffectSummary(effect));
+  }
+  return buildConsumableEffectDetails(previewItem);
+}
+
 function buildEquipmentComparisonAsideCard(item: ItemStack): SkillTooltipAsideCard {
   const previewItem = resolvePreviewItem(item);
   const staticLines = describeBuffStats(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats);
@@ -268,10 +325,12 @@ export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipCo
   const sourceListHtml = renderItemSourceListHtml(previewItem.itemId, { maxEntries: 3, compact: true });
   const statusLabel = resolveItemStatusLabel(previewItem, context);
   if (previewItem.type !== 'equipment') {
+    const effectLines = describeItemEffectDetails(previewItem);
     const lines = [
       `<span class="skill-tooltip-desc">${escapeHtml(previewItem.desc ?? '')}</span>`,
       renderPlainLine('类型', getItemTypeLabel(previewItem.type)),
       ...(statusLabel ? [renderPlainLine('状态', statusLabel)] : []),
+      ...effectLines.map((line) => `<span class="skill-tooltip-detail">${escapeHtml(line)}</span>`),
       `<div class="inventory-source-block"><span class="skill-tooltip-label">来源：</span>${sourceListHtml}</div>`,
     ].filter((line) => line.length > 0);
     return {

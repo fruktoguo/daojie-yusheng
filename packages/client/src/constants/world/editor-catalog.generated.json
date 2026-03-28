@@ -6546,6 +6546,18 @@
       "type": "consumable",
       "level": 2,
       "desc": "服后数千息内血勇更盛，即使身死药势也不会散，暴击明显提高。",
+      "consumeBuffs": [
+        {
+          "buffId": "item_buff.crimson_bud",
+          "name": "赤芽生锋",
+          "desc": "药力催得血气躁动，暴击提高；即使身死，药势仍会残留到药尽为止。",
+          "shortMark": "赤",
+          "duration": 3600,
+          "stats": {
+            "crit": 6
+          }
+        }
+      ],
       "tags": [
         "消耗品",
         "药品",
@@ -6559,6 +6571,8 @@
       "type": "consumable",
       "level": 4,
       "desc": "烈阳药引直入气海，立刻恢复 30% 气血与 75% 真气。",
+      "healPercent": 0.3,
+      "qiPercent": 0.75,
       "tags": [
         "疗伤丹",
         "消耗品",
@@ -6582,6 +6596,8 @@
       "type": "consumable",
       "level": 3,
       "desc": "药力浑厚，立刻恢复 55% 气血与 45% 真气。",
+      "healPercent": 0.55,
+      "qiPercent": 0.45,
       "tags": [
         "疗伤丹",
         "消耗品",
@@ -6883,6 +6899,8 @@
       "type": "consumable",
       "level": 3,
       "desc": "寒性药膏可稳住伤处，立刻恢复 42% 气血与 30% 真气。",
+      "healPercent": 0.42,
+      "qiPercent": 0.3,
       "tags": [
         "外伤药",
         "消耗品",
@@ -6967,6 +6985,7 @@
       "type": "consumable",
       "level": 1,
       "desc": "草木药气温和，服下后立刻恢复 22% 气血。",
+      "healPercent": 0.22,
       "tags": [
         "基础药品",
         "外伤药",
@@ -7200,6 +7219,22 @@
       "type": "consumable",
       "level": 4,
       "desc": "强行催运行功，2400 息内修炼速度明显提高，但气血与真气回复都会变慢，脚程也会变沉。",
+      "consumeBuffs": [
+        {
+          "buffId": "item_buff.bitter_cultivation",
+          "name": "苦修",
+          "desc": "境界修为与功法修炼速度提高，但经脉始终带着涩滞感。",
+          "shortMark": "苦",
+          "duration": 2400,
+          "stats": {
+            "qiRegenRate": -600,
+            "hpRegenRate": -600,
+            "playerExpRate": 2500,
+            "techniqueExpRate": 2500,
+            "moveSpeed": -6
+          }
+        }
+      ],
       "tags": [
         "消耗品",
         "药品",
@@ -7607,6 +7642,19 @@
       "type": "consumable",
       "level": 3,
       "desc": "服后心神澄明，数千息内命中与视野提高，死亡不消失。",
+      "consumeBuffs": [
+        {
+          "buffId": "item_buff.clear_eye",
+          "name": "澄目",
+          "desc": "目力与判断更清楚，命中提高，视野更远；身死也不会立刻散去。",
+          "shortMark": "明",
+          "duration": 3600,
+          "stats": {
+            "hit": 8,
+            "viewRange": 1
+          }
+        }
+      ],
       "tags": [
         "消耗品",
         "药品",
@@ -7642,6 +7690,19 @@
       "type": "consumable",
       "level": 3,
       "desc": "药力凝在手眼与发力节点，数千息内破招与命中提高，身死不散。",
+      "consumeBuffs": [
+        {
+          "buffId": "item_buff.break_array",
+          "name": "破阵劲",
+          "desc": "下手更刁钻，破招与命中提高；此药势即使身死也不会立刻散去。",
+          "shortMark": "破",
+          "duration": 3600,
+          "stats": {
+            "breakPower": 8,
+            "hit": 4
+          }
+        }
+      ],
       "tags": [
         "消耗品",
         "药品",
@@ -7689,6 +7750,19 @@
       "type": "consumable",
       "level": 3,
       "desc": "药劲顺着经脉卸到脚下，数千息内移动速度与闪避提高，死亡不消失。",
+      "consumeBuffs": [
+        {
+          "buffId": "item_buff.windstride",
+          "name": "踏风",
+          "desc": "脚下更轻，移动与腾挪都更快；这股药劲即使身死也不会立刻散去。",
+          "shortMark": "疾",
+          "duration": 3600,
+          "stats": {
+            "dodge": 3,
+            "moveSpeed": 18
+          }
+        }
+      ],
       "tags": [
         "消耗品",
         "药品",
@@ -8112,6 +8186,8 @@
       "type": "consumable",
       "level": 2,
       "desc": "药力柔和，立刻恢复 35% 气血与 25% 真气。",
+      "healPercent": 0.35,
+      "qiPercent": 0.25,
       "tags": [
         "疗伤丹",
         "消耗品",
