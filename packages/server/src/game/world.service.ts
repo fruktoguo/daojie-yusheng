@@ -4806,7 +4806,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
     const normalizedDamage = Math.max(0, Math.floor(appliedDamage));
     if (normalizedDamage < ORE_REWARD_BASE_DAMAGE) {
-      return 0;
+      return Math.min(10000, Math.max(1, Math.round(baseChanceBps / 2)));
     }
 
     let chanceBps = baseChanceBps;
