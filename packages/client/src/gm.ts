@@ -64,6 +64,7 @@ import {
 } from './constants/world/gm';
 import { getLocalEditorCatalog } from './content/editor-catalog';
 import { GmWorldViewer } from './gm-world-viewer';
+import { startClientVersionReload } from './version-reload';
 
 const loginOverlay = document.getElementById('login-overlay') as HTMLDivElement;
 const gmShell = document.getElementById('gm-shell') as HTMLDivElement;
@@ -181,6 +182,12 @@ const suggestionNextPageBtn = document.getElementById('gm-suggestion-page-next')
 const suggestionPageMetaEl = document.getElementById('gm-suggestion-page-meta') as HTMLDivElement;
 
 type PlayerSortMode = 'realm-desc' | 'realm-asc' | 'online' | 'map' | 'name';
+
+startClientVersionReload({
+  onBeforeReload: () => {
+    setStatus('检测到前端新版本，正在刷新页面');
+  },
+});
 
 let token = sessionStorage.getItem(GM_ACCESS_TOKEN_STORAGE_KEY) ?? '';
 let state: GmStateRes | null = null;

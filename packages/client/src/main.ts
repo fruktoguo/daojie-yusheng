@@ -10,6 +10,7 @@ import './styles/overlays.css';
 import './styles/panels.css';
 import './styles/responsive.css';
 
+import { startClientVersionReload } from './version-reload';
 import { SocketManager } from './network/socket';
 import { KeyboardInput } from './input/keyboard';
 import { LoginUI } from './ui/login';
@@ -368,6 +369,11 @@ renderCurrentTime(null);
 renderPingLatency(null, '待测');
 bindResponsiveViewportCss(window);
 initializeUiStyleConfig();
+startClientVersionReload({
+  onBeforeReload: () => {
+    showToast('检测到新版本，正在刷新页面');
+  },
+});
 window.setInterval(() => {
   if (!currentTimeState) {
     return;
