@@ -1103,14 +1103,22 @@ export class MarketPanel {
 
   private findMatchingInventorySlot(item: ItemStack): number | null {
     const targetKey = createItemStackSignature({ ...item, count: 1 });
-    const slotIndex = this.inventory.items.findIndex((entry) => createItemStackSignature({ ...entry, count: 1 }) === targetKey);
-    return slotIndex >= 0 ? slotIndex : null;
+    const exactSlotIndex = this.inventory.items.findIndex((entry) => createItemStackSignature({ ...entry, count: 1 }) === targetKey);
+    if (exactSlotIndex >= 0) {
+      return exactSlotIndex;
+    }
+    const fallbackSlotIndex = this.inventory.items.findIndex((entry) => entry.itemId === item.itemId);
+    return fallbackSlotIndex >= 0 ? fallbackSlotIndex : null;
   }
 
   private findMatchingInventoryCount(item: ItemStack): number {
     const targetKey = createItemStackSignature({ ...item, count: 1 });
+    const exactMatches = this.inventory.items.filter((entry) => createItemStackSignature({ ...entry, count: 1 }) === targetKey);
+    if (exactMatches.length > 0) {
+      return exactMatches.reduce((sum, entry) => sum + entry.count, 0);
+    }
     return this.inventory.items
-      .filter((entry) => createItemStackSignature({ ...entry, count: 1 }) === targetKey)
+      .filter((entry) => entry.itemId === item.itemId)
       .reduce((sum, entry) => sum + entry.count, 0);
   }
 
