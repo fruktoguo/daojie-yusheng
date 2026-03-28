@@ -22,6 +22,7 @@ import {
 } from '@mud/shared';
 import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
+import { getViewportRoot } from '../responsive-viewport';
 import { detailModalHost } from '../detail-modal-host';
 import { preserveSelection } from '../selection-preserver';
 import { MARKET_MODAL_TABS, MARKET_PANE_HINT, MarketModalTab } from '../../constants/ui/market';
@@ -1001,7 +1002,7 @@ export class MarketPanel {
     root = document.createElement('div');
     root.id = MarketPanel.TRADE_MODAL_ID;
     root.className = 'market-trade-modal-layer hidden';
-    document.body.appendChild(root);
+    (getViewportRoot(document) ?? document.body).appendChild(root);
     return root;
   }
 

@@ -61,8 +61,8 @@ export class MapRuntime implements MapRuntimeApi {
     this.interaction.destroy();
   }
 
-  setViewportSize(width: number, height: number, dpr: number): void {
-    this.viewport.setViewportSize(width, height, dpr);
+  setViewportSize(width: number, height: number, dpr: number, viewportScale = 1): void {
+    this.viewport.setViewportSize(width, height, dpr, viewportScale);
     this.resizeRenderer();
     this.minimap.resize();
     this.syncViewportDerivedState(true);
@@ -169,7 +169,7 @@ export class MapRuntime implements MapRuntimeApi {
 
   private resizeRenderer(): void {
     const viewport = this.viewport.getSnapshot();
-    this.renderer.resize(viewport.cssWidth, viewport.cssHeight, viewport.dpr);
+    this.renderer.resize(viewport.cssWidth, viewport.cssHeight, viewport.backbufferWidth, viewport.backbufferHeight);
   }
 
   private syncViewportDerivedState(resnapCamera: boolean): void {

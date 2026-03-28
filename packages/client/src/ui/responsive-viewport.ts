@@ -1,6 +1,22 @@
 import { UI_RESPONSIVE_BREAKPOINTS } from '../constants/ui/responsive';
+import { DESIGN_VIEWPORT } from '../constants/ui/viewport';
 
 export type EffectiveLayoutBreakpoint = 'mobile' | 'compact' | 'wide';
+
+export interface ResponsiveViewportMetrics {
+  locked: boolean;
+  rawWidth: number;
+  rawHeight: number;
+  viewportWidth: number;
+  viewportHeight: number;
+  scale: number;
+  offsetX: number;
+  offsetY: number;
+  dpr: number;
+}
+
+export const RESPONSIVE_VIEWPORT_CHANGE_EVENT = 'mud:responsive-viewport-change';
+const MIN_VIEWPORT_SCALE = 0.01;
 
 function matchMediaSafe(win: Window, query: string): boolean {
   return typeof win.matchMedia === 'function' ? win.matchMedia(query).matches : false;
@@ -22,6 +38,99 @@ function shouldCompensateDesktopScaling(win: Window): boolean {
   return !pointerCoarse && !hoverNone;
 }
 
+function getRawViewportWidth(win: Window): number {
+  return Math.max(0, win.innerWidth || 0);
+}
+
+function getRawViewportHeight(win: Window): number {
+  return Math.max(0, win.innerHeight || 0);
+}
+
+function getDesktopAdjustedViewportWidth(win: Window): number {
+  return Math.round(getRawViewportWidth(win) * getDesktopScaleFactor(win));
+}
+
+function getDesktopAdjustedViewportHeight(win: Window): number {
+  return Math.round(getRawViewportHeight(win) * getDesktopScaleFactor(win));
+}
+
+function shouldLockDesktopViewport(win: Window): boolean {
+  const adjustedWidth = getDesktopAdjustedViewportWidth(win);
+  if (adjustedWidth <= UI_RESPONSIVE_BREAKPOINTS.layoutForceMobile) {
+    return false;
+  }
+  const pointerCoarse = matchMediaSafe(win, '(pointer: coarse)');
+  const hoverNone = matchMediaSafe(win, '(hover: none)');
+  return !pointerCoarse && !hoverNone;
+}
+
+export function getResponsiveViewportMetrics(win: Window = window): ResponsiveViewportMetrics {
+  const rawWidth = getRawViewportWidth(win);
+  const rawHeight = getRawViewportHeight(win);
+  const dpr = Number.isFinite(win.devicePixelRatio) ? win.devicePixelRatio : 1;
+  const locked = shouldLockDesktopViewport(win);
+
+  if (!locked) {
+    return {
+      locked: false,
+      rawWidth,
+      rawHeight,
+      viewportWidth: rawWidth,
+      viewportHeight: rawHeight,
+      scale: 1,
+      offsetX: 0,
+      offsetY: 0,
+      dpr: Math.max(1, dpr),
+    };
+  }
+
+  const scaleX = rawWidth / DESIGN_VIEWPORT.width;
+  const scaleY = rawHeight / DESIGN_VIEWPORT.height;
+  const scale = Math.max(MIN_VIEWPORT_SCALE, Math.min(scaleX, scaleY));
+  const viewportWidth = Math.max(DESIGN_VIEWPORT.width, rawWidth / scale);
+  const viewportHeight = Math.max(DESIGN_VIEWPORT.height, rawHeight / scale);
+  const scaledWidth = viewportWidth * scale;
+  const scaledHeight = viewportHeight * scale;
+
+  return {
+    locked: true,
+    rawWidth,
+    rawHeight,
+    viewportWidth,
+    viewportHeight,
+    scale,
+    offsetX: (rawWidth - scaledWidth) / 2,
+    offsetY: (rawHeight - scaledHeight) / 2,
+    dpr: Math.max(1, dpr),
+  };
+}
+
+export function getViewportScale(win: Window = window): number {
+  return getResponsiveViewportMetrics(win).scale;
+}
+
+export function getViewportRoot(doc: Document = document): HTMLElement | null {
+  return doc.getElementById('app-viewport-root');
+}
+
+export function clientToViewportPoint(
+  win: Window,
+  clientX: number,
+  clientY: number,
+): { x: number; y: number } {
+  const metrics = getResponsiveViewportMetrics(win);
+  if (!metrics.locked || metrics.scale === 1) {
+    return {
+      x: clientX,
+      y: clientY,
+    };
+  }
+  return {
+    x: (clientX - metrics.offsetX) / metrics.scale,
+    y: (clientY - metrics.offsetY) / metrics.scale,
+  };
+}
+
 export function getDesktopScaleFactor(win: Window): number {
   if (!shouldCompensateDesktopScaling(win)) {
     return 1;
@@ -30,18 +139,18 @@ export function getDesktopScaleFactor(win: Window): number {
   return Math.max(1, dpr);
 }
 
-export function scaleDesktopCssPixels(win: Window, pixels: number): number {
-  return pixels / getDesktopScaleFactor(win);
+export function scaleDesktopCssPixels(_win: Window, pixels: number): number {
+  return pixels;
 }
 
 export function getEffectiveViewportWidth(win: Window): number {
-  const viewportWidth = Math.max(0, win.innerWidth || 0);
-  return Math.round(viewportWidth * getDesktopScaleFactor(win));
+  const metrics = getResponsiveViewportMetrics(win);
+  return metrics.locked ? Math.round(metrics.viewportWidth) : getDesktopAdjustedViewportWidth(win);
 }
 
 export function getEffectiveViewportHeight(win: Window): number {
-  const viewportHeight = Math.max(0, win.innerHeight || 0);
-  return Math.round(viewportHeight * getDesktopScaleFactor(win));
+  const metrics = getResponsiveViewportMetrics(win);
+  return metrics.locked ? Math.round(metrics.viewportHeight) : getDesktopAdjustedViewportHeight(win);
 }
 
 export function getEffectiveLayoutBreakpoint(win: Window): EffectiveLayoutBreakpoint {
@@ -56,7 +165,7 @@ export function getEffectiveLayoutBreakpoint(win: Window): EffectiveLayoutBreakp
 }
 
 export function shouldUseMobileUi(win: Window): boolean {
-  const viewportWidth = getEffectiveViewportWidth(win);
+  const viewportWidth = getDesktopAdjustedViewportWidth(win);
   const pointerCoarse = matchMediaSafe(win, '(pointer: coarse)');
   const hoverNone = matchMediaSafe(win, '(hover: none)');
 
@@ -64,22 +173,72 @@ export function shouldUseMobileUi(win: Window): boolean {
     || ((pointerCoarse || hoverNone) && viewportWidth <= UI_RESPONSIVE_BREAKPOINTS.layoutTouchMobile);
 }
 
+function syncViewportRootStyles(win: Window, metrics: ResponsiveViewportMetrics): void {
+  const root = getViewportRoot(win.document);
+  if (!root) {
+    return;
+  }
+
+  root.dataset.designLocked = metrics.locked ? 'true' : 'false';
+
+  if (!metrics.locked) {
+    root.style.right = '0';
+    root.style.bottom = '0';
+    root.style.left = '0';
+    root.style.top = '0';
+    root.style.width = '100vw';
+    root.style.height = '100dvh';
+    root.style.transform = 'none';
+    return;
+  }
+
+  root.style.right = 'auto';
+  root.style.bottom = 'auto';
+  root.style.left = '50%';
+  root.style.top = '50%';
+  root.style.width = `${metrics.viewportWidth}px`;
+  root.style.height = `${metrics.viewportHeight}px`;
+  root.style.transform = `translate(-50%, -50%) scale(${metrics.scale.toFixed(6)})`;
+}
+
 export function syncResponsiveViewportCss(win: Window): void {
   const root = win.document.documentElement;
-  const scale = getDesktopScaleFactor(win);
-  const inverseScale = scale > 0 ? 1 / scale : 1;
+  const metrics = getResponsiveViewportMetrics(win);
 
   root.dataset.effectiveLayoutBreakpoint = getEffectiveLayoutBreakpoint(win);
-  root.dataset.desktopScaleLock = scale > 1 ? 'true' : 'false';
-  root.style.setProperty('--desktop-scale-factor', scale.toFixed(4));
-  root.style.setProperty('--desktop-scale-inverse', inverseScale.toFixed(6));
+  root.dataset.desktopScaleLock = metrics.locked ? 'true' : 'false';
+  root.style.setProperty('--desktop-scale-factor', '1');
+  root.style.setProperty('--desktop-scale-inverse', '1');
   root.style.setProperty('--effective-viewport-width', `${getEffectiveViewportWidth(win)}px`);
   root.style.setProperty('--effective-viewport-height', `${getEffectiveViewportHeight(win)}px`);
+  root.style.setProperty('--app-viewport-scale', metrics.scale.toFixed(6));
+  root.style.setProperty('--app-viewport-offset-x', `${metrics.offsetX.toFixed(2)}px`);
+  root.style.setProperty('--app-viewport-offset-y', `${metrics.offsetY.toFixed(2)}px`);
+  syncViewportRootStyles(win, metrics);
 }
 
 export function bindResponsiveViewportCss(win: Window = window): () => void {
+  let previousSignature = '';
+
   const refresh = () => {
     syncResponsiveViewportCss(win);
+    const metrics = getResponsiveViewportMetrics(win);
+    const signature = [
+      metrics.locked ? '1' : '0',
+      metrics.rawWidth,
+      metrics.rawHeight,
+      metrics.viewportWidth,
+      metrics.viewportHeight,
+      metrics.scale.toFixed(6),
+      metrics.dpr.toFixed(4),
+    ].join(':');
+    if (signature === previousSignature) {
+      return;
+    }
+    previousSignature = signature;
+    win.dispatchEvent(new CustomEvent<ResponsiveViewportMetrics>(RESPONSIVE_VIEWPORT_CHANGE_EVENT, {
+      detail: metrics,
+    }));
   };
 
   win.addEventListener('resize', refresh);

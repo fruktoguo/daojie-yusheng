@@ -8,6 +8,7 @@ import { deleteRememberedMap, getRememberedMarkers, getRememberedTiles, listReme
 import { getCachedMapMeta, getCachedMapSnapshot, listCachedUnlockedMapSummaries } from '../map-static-cache';
 import { getMinimapMarkerKindLabel, getTileTypeLabel } from '../domain-labels';
 import { detailModalHost } from './detail-modal-host';
+import { getViewportRoot } from './responsive-viewport';
 import {
   EMPTY_GROUND_PILES,
   EMPTY_VISIBLE_TILES,
@@ -482,10 +483,14 @@ export class Minimap {
   }
 
   private mountModalToBody(): void {
-    if (!this.modal || this.modal.parentElement === document.body) {
+    if (!this.modal) {
       return;
     }
-    document.body.appendChild(this.modal);
+    const root = getViewportRoot(document) ?? document.body;
+    if (this.modal.parentElement === root) {
+      return;
+    }
+    root.appendChild(this.modal);
   }
 
   private isCompactViewport(): boolean {

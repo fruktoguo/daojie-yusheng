@@ -13,6 +13,14 @@
       font-family: var(--font-body);
       color: var(--ink-dark);
     }
+    #app-viewport-root {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100dvh;
+      overflow: hidden;
+      transform-origin: center center;
+    }
     body.layout-resizing,
     body.layout-resizing * {
       user-select: none !important;

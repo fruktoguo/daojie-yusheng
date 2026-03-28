@@ -2,6 +2,7 @@ import type { ElementKey, HeavenGateRootValues, HeavenGateState, PlayerState } f
 import { detailModalHost } from './detail-modal-host';
 import { getElementKeyLabel } from '../domain-labels';
 import { formatDisplayInteger } from '../utils/number';
+import { clientToViewportPoint } from './responsive-viewport';
 
 const HEAVEN_GATE_OWNER = 'realm:heaven_gate';
 const HEAVEN_GATE_REALM_NAME = '叩仙门';
@@ -436,10 +437,11 @@ function bindCursor(body: HTMLElement): void {
     return;
   }
   const syncCursor = (event: MouseEvent, label: string) => {
+    const point = clientToViewportPoint(window, event.clientX, event.clientY);
     cursor.classList.remove('hidden');
     cursor.textContent = label;
-    cursor.style.left = `${event.clientX}px`;
-    cursor.style.top = `${event.clientY}px`;
+    cursor.style.left = `${point.x}px`;
+    cursor.style.top = `${point.y}px`;
     document.body.classList.add('heaven-gate-brush-cursor');
   };
   const hideCursor = () => {

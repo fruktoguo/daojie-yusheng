@@ -146,7 +146,7 @@ export interface MapRuntimeApi {
   attach(host: HTMLElement): void;
   detach(): void;
   destroy(): void;
-  setViewportSize(width: number, height: number, dpr: number): void;
+  setViewportSize(width: number, height: number, dpr: number, viewportScale?: number): void;
   setSafeArea(insets: MapSafeAreaInsets): void;
   setZoom(level: number): void;
   setProjection(mode: 'topdown'): void;

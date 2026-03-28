@@ -3,6 +3,8 @@
  * 跟随鼠标显示标题、多行文本及可选的侧栏卡片
  */
 
+import { clientToViewportPoint, getResponsiveViewportMetrics, getViewportRoot } from './responsive-viewport';
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -38,7 +40,7 @@ export class FloatingTooltip {
   constructor(className = 'floating-tooltip') {
     this.el = document.createElement('div');
     this.el.className = className;
-    document.body.appendChild(this.el);
+    (getViewportRoot(document) ?? document.body).appendChild(this.el);
     document.addEventListener('pointerdown', (event) => {
       if (!this.pinned) {
         return;
@@ -106,12 +108,17 @@ export class FloatingTooltip {
     const padding = 12;
     const offsetX = 16;
     const offsetY = 12;
-    const { innerWidth, innerHeight } = window;
+    const metrics = getResponsiveViewportMetrics(window);
+    const point = clientToViewportPoint(window, clientX, clientY);
+    const viewportWidth = metrics.viewportWidth;
+    const viewportHeight = metrics.viewportHeight;
     this.el.style.left = '0px';
     this.el.style.top = '0px';
     const rect = this.el.getBoundingClientRect();
-    const left = Math.max(padding, Math.min(clientX + offsetX, innerWidth - rect.width - padding));
-    const top = Math.max(padding, Math.min(clientY + offsetY, innerHeight - rect.height - padding));
+    const renderedWidth = metrics.locked ? rect.width / metrics.scale : rect.width;
+    const renderedHeight = metrics.locked ? rect.height / metrics.scale : rect.height;
+    const left = Math.max(padding, Math.min(point.x + offsetX, viewportWidth - renderedWidth - padding));
+    const top = Math.max(padding, Math.min(point.y + offsetY, viewportHeight - renderedHeight - padding));
     this.el.style.left = `${left}px`;
     this.el.style.top = `${top}px`;
   }

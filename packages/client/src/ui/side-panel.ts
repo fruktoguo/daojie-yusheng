@@ -1,6 +1,6 @@
 /** 页面布局与多组标签页控制器 */
 import { DESKTOP_LAYOUT_DRAG_LIMITS } from '../constants/ui/responsive';
-import { scaleDesktopCssPixels, shouldUseMobileUi } from './responsive-viewport';
+import { getViewportScale, shouldUseMobileUi } from './responsive-viewport';
 
 type MobilePaneId =
   | 'mobile-overview'
@@ -31,7 +31,8 @@ export class SidePanel {
     startX: number;
     startY: number;
     startSize: number;
-    shellRect: DOMRect;
+    shellWidth: number;
+    shellHeight: number;
     dragged: boolean;
   } | null = null;
   private layoutState = {
@@ -124,7 +125,8 @@ export class SidePanel {
           startX: event.clientX,
           startY: event.clientY,
           startSize: this.getLayoutSize(target),
-          shellRect: this.panel.getBoundingClientRect(),
+          shellWidth: this.panel.clientWidth,
+          shellHeight: this.panel.clientHeight,
           dragged: false,
         };
         document.body.classList.add('layout-resizing');
@@ -140,8 +142,9 @@ export class SidePanel {
           return;
         }
 
-        const deltaX = event.clientX - this.dragState.startX;
-        const deltaY = event.clientY - this.dragState.startY;
+        const viewportScale = getViewportScale(window);
+        const deltaX = (event.clientX - this.dragState.startX) / viewportScale;
+        const deltaY = (event.clientY - this.dragState.startY) / viewportScale;
         const primaryDelta = this.dragState.target === 'bottom' ? Math.abs(deltaY) : Math.abs(deltaX);
         if (!this.dragState.dragged && primaryDelta < SidePanel.DRAG_START_THRESHOLD_PX) {
           return;
@@ -151,30 +154,30 @@ export class SidePanel {
         if (this.dragState.target === 'left') {
           const next = this.clamp(
             this.dragState.startSize + deltaX,
-            scaleDesktopCssPixels(window, DESKTOP_LAYOUT_DRAG_LIMITS.leftMin),
+            DESKTOP_LAYOUT_DRAG_LIMITS.leftMin,
             Math.min(
-              scaleDesktopCssPixels(window, DESKTOP_LAYOUT_DRAG_LIMITS.leftMax),
-              this.dragState.shellRect.width * DESKTOP_LAYOUT_DRAG_LIMITS.leftMaxViewportRatio,
+              DESKTOP_LAYOUT_DRAG_LIMITS.leftMax,
+              this.dragState.shellWidth * DESKTOP_LAYOUT_DRAG_LIMITS.leftMaxViewportRatio,
             ),
           );
           this.panel.style.setProperty('--layout-left-size', `${next}px`);
         } else if (this.dragState.target === 'right') {
           const next = this.clamp(
             this.dragState.startSize - deltaX,
-            scaleDesktopCssPixels(window, DESKTOP_LAYOUT_DRAG_LIMITS.rightMin),
+            DESKTOP_LAYOUT_DRAG_LIMITS.rightMin,
             Math.min(
-              scaleDesktopCssPixels(window, DESKTOP_LAYOUT_DRAG_LIMITS.rightMax),
-              this.dragState.shellRect.width * DESKTOP_LAYOUT_DRAG_LIMITS.rightMaxViewportRatio,
+              DESKTOP_LAYOUT_DRAG_LIMITS.rightMax,
+              this.dragState.shellWidth * DESKTOP_LAYOUT_DRAG_LIMITS.rightMaxViewportRatio,
             ),
           );
           this.panel.style.setProperty('--layout-right-size', `${next}px`);
         } else {
           const next = this.clamp(
             this.dragState.startSize - deltaY,
-            scaleDesktopCssPixels(window, DESKTOP_LAYOUT_DRAG_LIMITS.bottomMin),
+            DESKTOP_LAYOUT_DRAG_LIMITS.bottomMin,
             Math.min(
-              scaleDesktopCssPixels(window, DESKTOP_LAYOUT_DRAG_LIMITS.bottomMax),
-              this.dragState.shellRect.height * DESKTOP_LAYOUT_DRAG_LIMITS.bottomMaxViewportRatio,
+              DESKTOP_LAYOUT_DRAG_LIMITS.bottomMax,
+              this.dragState.shellHeight * DESKTOP_LAYOUT_DRAG_LIMITS.bottomMaxViewportRatio,
             ),
           );
           this.panel.style.setProperty('--layout-bottom-size', `${next}px`);
@@ -383,8 +386,7 @@ export class SidePanel {
     if (!element) {
       return 0;
     }
-    const rect = element.getBoundingClientRect();
-    return target === 'bottom' ? rect.height : rect.width;
+    return target === 'bottom' ? element.offsetHeight : element.offsetWidth;
   }
 
   private switchGroupTab(group: HTMLElement, tabName: string): void {

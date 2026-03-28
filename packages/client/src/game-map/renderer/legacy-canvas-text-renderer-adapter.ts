@@ -29,14 +29,14 @@ export class LegacyCanvasTextRendererAdapter {
     this.canvas = null;
   }
 
-  resize(width: number, height: number, dpr: number): void {
+  resize(width: number, height: number, backbufferWidth: number, backbufferHeight: number): void {
     if (!this.canvas) {
       return;
     }
     this.canvas.style.width = `${Math.max(1, width)}px`;
     this.canvas.style.height = `${Math.max(1, height)}px`;
-    this.canvas.width = Math.max(1, Math.floor(width * dpr));
-    this.canvas.height = Math.max(1, Math.floor(height * dpr));
+    this.canvas.width = Math.max(1, Math.floor(backbufferWidth));
+    this.canvas.height = Math.max(1, Math.floor(backbufferHeight));
   }
 
   syncScene(

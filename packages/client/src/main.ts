@@ -34,7 +34,7 @@ import { NpcShopModal } from './ui/npc-shop-modal';
 import { getHeavenGateHudAction, openHeavenGateModal, refreshHeavenGateModal } from './ui/heaven-gate-modal';
 import { initializeUiStyleConfig } from './ui/ui-style-config';
 import { createClientPanelSystem } from './ui/panel-system/bootstrap';
-import { bindResponsiveViewportCss } from './ui/responsive-viewport';
+import { RESPONSIVE_VIEWPORT_CHANGE_EVENT, bindResponsiveViewportCss } from './ui/responsive-viewport';
 import { createMapRuntime } from './game-map/runtime/map-runtime';
 import { getEntityKindLabel, getTileTypeLabel } from './domain-labels';
 import { MAP_FALLBACK } from './constants/world/world-panel';
@@ -2698,12 +2698,18 @@ sidePanel.setLayoutChangeCallback(() => {
 });
 
 function resizeCanvas() {
+  const cssWidth = Math.max(1, canvasHost.clientWidth);
+  const cssHeight = Math.max(1, canvasHost.clientHeight);
   const rect = canvasHost.getBoundingClientRect();
-  mapRuntime.setViewportSize(rect.width, rect.height, window.devicePixelRatio || 1);
+  const viewportScale = cssWidth > 0 && rect.width > 0
+    ? rect.width / cssWidth
+    : 1;
+  mapRuntime.setViewportSize(cssWidth, cssHeight, window.devicePixelRatio || 1, viewportScale);
 }
 resizeCanvas();
 refreshZoomChrome();
 window.addEventListener('resize', resizeCanvas);
+window.addEventListener(RESPONSIVE_VIEWPORT_CHANGE_EVENT, resizeCanvas as EventListener);
 window.addEventListener('focus', () => {
   scheduleConnectionRecovery(150);
   restartPingLoop();
