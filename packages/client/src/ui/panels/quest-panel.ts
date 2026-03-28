@@ -1,6 +1,7 @@
 /** 任务面板：按任务线分类展示，并支持全局单实例详情弹层 */
 
-import { PlayerState, QuestState } from '@mud/shared';
+import { Inventory, PlayerState, QuestState } from '@mud/shared';
+import { getLocalItemTemplate } from '../../content/local-templates';
 import { detailModalHost } from '../detail-modal-host';
 import { preserveSelection } from '../selection-preserver';
 import { getQuestLineLabel, getQuestStatusLabel } from '../../domain-labels';
@@ -42,6 +43,7 @@ export class QuestPanel {
   private lastVisibleQuestIds: string[] | null = null;
   private lastStructureLine: QuestState['line'] | null = null;
   private currentMapId?: string;
+  private inventory: Inventory | null = null;
   private onNavigateQuest: ((questId: string) => void) | null = null;
 
   constructor() {
@@ -54,6 +56,19 @@ export class QuestPanel {
 
   setCurrentMapId(mapId?: string): void {
     this.currentMapId = mapId;
+    if (!this.patchModal()) {
+      this.renderModal();
+    }
+  }
+
+  syncInventory(inventory: Inventory): void {
+    this.inventory = inventory;
+    if (this.lastQuests.length === 0) {
+      return;
+    }
+    if (!this.patchList()) {
+      this.renderList();
+    }
     if (!this.patchModal()) {
       this.renderModal();
     }
@@ -78,6 +93,7 @@ export class QuestPanel {
 
   initFromPlayer(player: PlayerState): void {
     this.currentMapId = player.mapId;
+    this.inventory = player.inventory;
     this.update(player.quests ?? []);
   }
 
@@ -87,6 +103,7 @@ export class QuestPanel {
     this.lastStructureLine = null;
     this.selectedQuestId = undefined;
     this.hasUserSelectedLine = false;
+    this.inventory = null;
     this.pane.innerHTML = '<div class="empty-hint">暂无任务，和 NPC 交互可接取</div>';
     detailModalHost.close(QuestPanel.MODAL_OWNER);
   }
@@ -450,6 +467,13 @@ export class QuestPanel {
     if (quest.objectiveType === 'learn_technique') {
       return `${quest.targetName} ${quest.progress >= quest.required ? '已参悟' : '未参悟'}`;
     }
+    if (quest.objectiveType === 'realm_stage') {
+      return `${quest.targetName} ${quest.progress >= quest.required ? '已达成' : '未达成'}`;
+    }
+    const requiredItemProgress = this.resolveRequiredItemProgress(quest);
+    if (quest.objectiveType === 'kill' && requiredItemProgress) {
+      return `${quest.targetName} ${quest.progress}/${quest.required}，${requiredItemProgress.itemName} ${requiredItemProgress.current}/${requiredItemProgress.required}`;
+    }
     return `${quest.targetName} ${quest.progress}/${quest.required}`;
   }
 
@@ -490,12 +514,44 @@ export class QuestPanel {
       return `前往历练并击败敌人，继续积累 ${quest.targetName}`;
     }
     if (quest.objectiveType === 'realm_stage') {
-      return `继续历练、积累境界经验并突破至 ${quest.targetName}`;
+      return `继续历练并完成突破，达到 ${quest.targetName}`;
+    }
+    const requiredItemProgress = this.resolveRequiredItemProgress(quest);
+    if (quest.objectiveType === 'kill' && requiredItemProgress) {
+      if (quest.progress >= quest.required && requiredItemProgress.current < requiredItemProgress.required) {
+        return `继续收集 ${requiredItemProgress.itemName} (${requiredItemProgress.current}/${requiredItemProgress.required})`;
+      }
+      const targetLocation = this.formatQuestLocation(quest.targetMapName ?? quest.giverMapName, quest.targetX, quest.targetY);
+      return targetLocation !== '未设置'
+        ? `前往 ${targetLocation} 击杀 ${quest.targetName}，并收集 ${requiredItemProgress.itemName}`
+        : `前往击杀 ${quest.targetName}，并收集 ${requiredItemProgress.itemName}`;
     }
     const targetLocation = this.formatQuestLocation(quest.targetMapName ?? quest.giverMapName, quest.targetX, quest.targetY);
     return targetLocation !== '未设置'
       ? `前往 ${targetLocation} 击杀 ${quest.targetName}`
       : `前往击杀 ${quest.targetName}`;
+  }
+
+  private resolveRequiredItemProgress(quest: QuestState): { itemName: string; current: number; required: number } | null {
+    if (!quest.requiredItemId) {
+      return null;
+    }
+    const required = Math.max(1, quest.requiredItemCount ?? 1);
+    const current = Math.min(required, this.getInventoryItemCount(quest.requiredItemId));
+    return {
+      itemName: getLocalItemTemplate(quest.requiredItemId)?.name ?? quest.requiredItemId,
+      current,
+      required,
+    };
+  }
+
+  private getInventoryItemCount(itemId: string): number {
+    if (!this.inventory) {
+      return 0;
+    }
+    return this.inventory.items.reduce((total, item) => (
+      item.itemId === itemId ? total + item.count : total
+    ), 0);
   }
 
   private formatQuestLocation(mapName?: string, x?: number, y?: number): string {

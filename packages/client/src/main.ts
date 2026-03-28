@@ -1887,6 +1887,7 @@ socket.onInventoryUpdate((data) => {
     myPlayer.inventory = mergedInventory;
   }
   inventoryPanel.update(mergedInventory);
+  questPanel.syncInventory(mergedInventory);
   marketPanel.syncInventory(mergedInventory);
   npcShopModal.syncInventory(mergedInventory);
 });

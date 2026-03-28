@@ -1,7 +1,7 @@
 /**
  * 任务显示辅助：解析任务目标的显示名称（怪物、功法、境界等）
  */
-import { PlayerRealmStage, QuestObjectiveType } from '@mud/shared';
+import { PLAYER_REALM_CONFIG, PlayerRealmStage, QuestObjectiveType } from '@mud/shared';
 
 type ResolveQuestTargetNameOptions = {
   objectiveType: QuestObjectiveType;
@@ -36,24 +36,10 @@ export function isLikelyInternalContentId(value?: string | null): boolean {
 
 /** 将境界阶段枚举转为中文标签 */
 export function resolveRealmStageTargetLabel(stage?: PlayerRealmStage): string | undefined {
-  switch (stage) {
-    case PlayerRealmStage.Mortal:
-      return '凡胎';
-    case PlayerRealmStage.BodyTempering:
-      return '养气';
-    case PlayerRealmStage.BoneForging:
-      return '开阳';
-    case PlayerRealmStage.Meridian:
-      return '天璇';
-    case PlayerRealmStage.Innate:
-      return '大宗师';
-    case PlayerRealmStage.QiRefining:
-      return '练气前期';
-    case PlayerRealmStage.Foundation:
-      return '筑基前期';
-    default:
-      return undefined;
+  if (stage === undefined) {
+    return undefined;
   }
+  return PLAYER_REALM_CONFIG[stage]?.name;
 }
 
 /** 解析任务目标的显示名称，优先使用人类可读名称 */
