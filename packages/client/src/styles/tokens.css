@@ -97,6 +97,7 @@
       --tech-progress-track: rgba(34, 26, 19, 0.08);
       --tech-progress-fill-start: rgba(167, 64, 41, 0.88);
       --tech-progress-fill-end: rgba(214, 138, 74, 0.92);
+      --ui-scale: 1;
       --ui-font-size-hero: 52px;
       --ui-font-size-display: 38px;
       --ui-font-size-title: 22px;
@@ -119,9 +120,9 @@
       --font-size-12: var(--ui-font-size-caption);
       --font-size-11: var(--ui-font-size-micro);
       --font-size-10: calc(var(--ui-font-size-micro) - 1px);
-      --title-rail-size: 34px;
-      --split-rail-size: 38px;
-      --map-rail-size: 42px;
+      --title-rail-size: calc(34px * var(--ui-scale));
+      --split-rail-size: calc(38px * var(--ui-scale));
+      --map-rail-size: calc(42px * var(--ui-scale));
     }
 
     :root[data-color-mode="dark"] {

@@ -9,6 +9,7 @@ import {
   UI_GLOBAL_FONT_OFFSET_RANGE,
   UI_COLOR_MODE_OPTIONS,
   UI_FONT_LEVEL_DEFINITIONS,
+  UI_SCALE_RANGE,
   type UiColorMode,
   type UiFontLevelDefinition,
   type UiFontLevelKey,
@@ -17,7 +18,7 @@ import {
 import { shouldUseMobileUi } from './responsive-viewport';
 
 export type { UiColorMode, UiFontLevelDefinition, UiFontLevelKey, UiStyleConfig };
-export { UI_COLOR_MODE_OPTIONS, UI_FONT_LEVEL_DEFINITIONS, UI_GLOBAL_FONT_OFFSET_RANGE };
+export { UI_COLOR_MODE_OPTIONS, UI_FONT_LEVEL_DEFINITIONS, UI_GLOBAL_FONT_OFFSET_RANGE, UI_SCALE_RANGE };
 
 let currentConfig = cloneConfig(DEFAULT_UI_STYLE_CONFIG);
 let initialized = false;
@@ -52,22 +53,19 @@ export function updateUiColorMode(colorMode: UiColorMode): UiStyleConfig {
   return cloneConfig(currentConfig);
 }
 
-export function updateUiFontSize(key: UiFontLevelKey, size: number): UiStyleConfig {
+export function updateUiGlobalFontOffset(offset: number): UiStyleConfig {
   currentConfig = normalizeConfig({
     ...currentConfig,
-    fontSizes: {
-      ...currentConfig.fontSizes,
-      [key]: size,
-    },
+    globalFontOffset: offset,
   });
   commitConfig();
   return cloneConfig(currentConfig);
 }
 
-export function updateUiGlobalFontOffset(offset: number): UiStyleConfig {
+export function updateUiScale(scale: number): UiStyleConfig {
   currentConfig = normalizeConfig({
     ...currentConfig,
-    globalFontOffset: offset,
+    uiScale: scale,
   });
   commitConfig();
   return cloneConfig(currentConfig);
@@ -100,6 +98,7 @@ function applyUiStyleConfig(config: UiStyleConfig): void {
   root.dataset.colorMode = config.colorMode;
   root.style.colorScheme = config.colorMode;
   const mobilePresetActive = shouldUseMobileUiPreset(window);
+  root.style.setProperty('--ui-scale', config.uiScale.toFixed(3));
 
   for (const definition of UI_FONT_LEVEL_DEFINITIONS) {
     root.style.setProperty(`--ui-font-size-${definition.key}`, `${resolveAppliedFontSize(config, definition, mobilePresetActive)}px`);
@@ -110,24 +109,23 @@ function normalizeConfig(
   raw: Partial<UiStyleConfig> | null | undefined,
   fallbackConfig: UiStyleConfig = DEFAULT_UI_STYLE_CONFIG,
 ): UiStyleConfig {
-  const fontSizes = UI_FONT_LEVEL_DEFINITIONS.reduce<Record<UiFontLevelKey, number>>((result, definition) => {
-    const candidate = raw?.fontSizes?.[definition.key];
-    result[definition.key] = clampFontSize(candidate, definition, fallbackConfig.fontSizes[definition.key]);
-    return result;
-  }, {} as Record<UiFontLevelKey, number>);
+  const legacyFontSizes = (() => {
+    const bodyDefinition = UI_FONT_LEVEL_DEFINITIONS.find((entry) => entry.key === 'body');
+    if (!bodyDefinition) {
+      return undefined;
+    }
+    const bodyCandidate = (raw as { fontSizes?: Partial<Record<UiFontLevelKey, number>> } | null | undefined)?.fontSizes?.body;
+    if (typeof bodyCandidate !== 'number' || !Number.isFinite(bodyCandidate)) {
+      return undefined;
+    }
+    return bodyCandidate - bodyDefinition.defaultSize;
+  })();
 
   return {
     colorMode: raw?.colorMode === 'dark' ? 'dark' : fallbackConfig.colorMode,
-    globalFontOffset: clampGlobalFontOffset(raw?.globalFontOffset, fallbackConfig.globalFontOffset),
-    fontSizes,
+    globalFontOffset: clampGlobalFontOffset(raw?.globalFontOffset, legacyFontSizes ?? fallbackConfig.globalFontOffset),
+    uiScale: clampUiScale(raw?.uiScale, fallbackConfig.uiScale),
   };
-}
-
-function clampFontSize(value: unknown, definition: UiFontLevelDefinition, fallbackSize: number): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    return fallbackSize;
-  }
-  return Math.max(definition.min, Math.min(definition.max, Math.round(value)));
 }
 
 function clampGlobalFontOffset(value: unknown, fallbackValue: number): number {
@@ -136,6 +134,13 @@ function clampGlobalFontOffset(value: unknown, fallbackValue: number): number {
   }
   const rounded = Math.round(value);
   return Math.max(UI_GLOBAL_FONT_OFFSET_RANGE.min, Math.min(UI_GLOBAL_FONT_OFFSET_RANGE.max, rounded));
+}
+
+function clampUiScale(value: unknown, fallbackValue: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return fallbackValue;
+  }
+  return Math.max(UI_SCALE_RANGE.min, Math.min(UI_SCALE_RANGE.max, Number(value.toFixed(2))));
 }
 
 function persistConfig(config: UiStyleConfig): void {
@@ -166,7 +171,7 @@ function cloneConfig(config: UiStyleConfig): UiStyleConfig {
   return {
     colorMode: config.colorMode,
     globalFontOffset: config.globalFontOffset,
-    fontSizes: { ...config.fontSizes },
+    uiScale: config.uiScale,
   };
 }
 
@@ -180,7 +185,7 @@ function resolveAppliedFontSize(
   mobilePresetActive: boolean,
 ): number {
   const baselineOffset = mobilePresetActive ? definition.min - definition.defaultSize : 0;
-  const resolved = config.fontSizes[definition.key] + baselineOffset + config.globalFontOffset;
+  const resolved = (definition.defaultSize + baselineOffset + config.globalFontOffset) * config.uiScale;
   return Math.max(1, Math.round(resolved));
 }
 

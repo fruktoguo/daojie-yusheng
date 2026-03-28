@@ -19,15 +19,8 @@ export type UiFontLevelDefinition = {
 export type UiStyleConfig = {
   colorMode: UiColorMode;
   globalFontOffset: number;
-  fontSizes: Record<UiFontLevelKey, number>;
+  uiScale: number;
 };
-
-function buildUiFontSizes(resolveSize: (definition: UiFontLevelDefinition) => number): Record<UiFontLevelKey, number> {
-  return UI_FONT_LEVEL_DEFINITIONS.reduce<Record<UiFontLevelKey, number>>((result, definition) => {
-    result[definition.key] = resolveSize(definition);
-    return result;
-  }, {} as Record<UiFontLevelKey, number>);
-}
 
 /** 颜色模式切换选项。 */
 export const UI_COLOR_MODE_OPTIONS: Array<{ value: UiColorMode; label: string; description: string }> = [
@@ -41,6 +34,14 @@ export const UI_GLOBAL_FONT_OFFSET_RANGE = {
   max: 12,
   defaultValue: 0,
   step: 1,
+} as const;
+
+/** 整体 UI 缩放配置。 */
+export const UI_SCALE_RANGE = {
+  min: 0.85,
+  max: 2.5,
+  defaultValue: 1,
+  step: 0.01,
 } as const;
 
 /** UI 字号层级定义。 */
@@ -121,5 +122,5 @@ export const UI_FONT_LEVEL_DEFINITIONS: UiFontLevelDefinition[] = [
 export const DEFAULT_UI_STYLE_CONFIG: UiStyleConfig = {
   colorMode: 'light',
   globalFontOffset: UI_GLOBAL_FONT_OFFSET_RANGE.defaultValue,
-  fontSizes: buildUiFontSizes((definition) => definition.defaultSize),
+  uiScale: UI_SCALE_RANGE.defaultValue,
 };

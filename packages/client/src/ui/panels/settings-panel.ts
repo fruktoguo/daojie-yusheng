@@ -14,18 +14,15 @@ import {
   updateRoleName,
 } from '../auth-api';
 import {
-  getEffectiveUiFontSize,
   getUiStyleConfig,
   resetUiStyleConfig,
   UI_COLOR_MODE_OPTIONS,
-  UI_FONT_LEVEL_DEFINITIONS,
   UI_GLOBAL_FONT_OFFSET_RANGE,
+  UI_SCALE_RANGE,
   updateUiColorMode,
-  updateUiFontSize,
   updateUiGlobalFontOffset,
+  updateUiScale,
   UiColorMode,
-  UiFontLevelKey,
-  UiStyleConfig,
 } from '../ui-style-config';
 
 type SettingsPanelOptions = {
@@ -165,9 +162,11 @@ export class SettingsPanel {
     const resetButton = body.querySelector<HTMLButtonElement>('#settings-ui-reset');
     const globalRangeInput = body.querySelector<HTMLInputElement>('[data-ui-global-font-range]');
     const globalNumberInput = body.querySelector<HTMLInputElement>('[data-ui-global-font-number]');
+    const scaleRangeInput = body.querySelector<HTMLInputElement>('[data-ui-scale-range]');
+    const scaleNumberInput = body.querySelector<HTMLInputElement>('[data-ui-scale-number]');
 
     this.syncUiGlobalFontOffsetRow(body, config.globalFontOffset);
-    this.syncUiFontRows(body, config);
+    this.syncUiScaleRow(body, config.uiScale);
 
     body.querySelectorAll<HTMLButtonElement>('[data-ui-color-mode]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -177,7 +176,8 @@ export class SettingsPanel {
         }
         const nextConfig = updateUiColorMode(colorMode as UiColorMode);
         this.syncUiModeButtons(body, colorMode as UiColorMode);
-        this.syncUiFontRows(body, nextConfig);
+        this.syncUiGlobalFontOffsetRow(body, nextConfig.globalFontOffset);
+        this.syncUiScaleRow(body, nextConfig.uiScale);
         setStatus(styleStatus, `已切换为${colorMode === 'dark' ? '深色' : '浅色'}模式`, 'success');
       });
     });
@@ -190,8 +190,7 @@ export class SettingsPanel {
           : UI_GLOBAL_FONT_OFFSET_RANGE.defaultValue;
         const nextConfig = updateUiGlobalFontOffset(nextValue);
         this.syncUiGlobalFontOffsetRow(body, nextConfig.globalFontOffset);
-        this.syncUiFontRows(body, nextConfig);
-        setStatus(styleStatus, '已更新全部字号偏移', 'success');
+        setStatus(styleStatus, '已更新全局字号', 'success');
       };
 
       globalRangeInput.addEventListener('input', () => {
@@ -205,47 +204,33 @@ export class SettingsPanel {
       });
     }
 
-    body.querySelectorAll<HTMLElement>('[data-ui-font-level]').forEach((row) => {
-      const key = row.getAttribute('data-ui-font-level') as UiFontLevelKey | null;
-      const rangeInput = row.querySelector<HTMLInputElement>('[data-ui-font-range]');
-      const numberInput = row.querySelector<HTMLInputElement>('[data-ui-font-number]');
-      const valueEl = row.querySelector<HTMLElement>('[data-ui-font-value]');
-      if (!key || !rangeInput || !numberInput || !valueEl) {
-        return;
-      }
-
-      const applyValue = (rawValue: string) => {
-        const definition = UI_FONT_LEVEL_DEFINITIONS.find((entry) => entry.key === key);
-        if (!definition) {
-          return;
-        }
-        const parsed = Number.parseInt(rawValue, 10);
+    if (scaleRangeInput && scaleNumberInput) {
+      const applyScale = (rawValue: string) => {
+        const parsed = Number.parseFloat(rawValue);
         const nextValue = Number.isFinite(parsed)
-          ? Math.max(definition.min, Math.min(definition.max, parsed))
-          : definition.defaultSize;
-        rangeInput.value = String(nextValue);
-        numberInput.value = String(nextValue);
-        const nextConfig = updateUiFontSize(key, nextValue);
-        this.syncUiFontRows(body, nextConfig);
-        setStatus(styleStatus, `已更新${definition.label}字号`, 'success');
+          ? Math.max(UI_SCALE_RANGE.min, Math.min(UI_SCALE_RANGE.max, parsed))
+          : UI_SCALE_RANGE.defaultValue;
+        const nextConfig = updateUiScale(nextValue);
+        this.syncUiScaleRow(body, nextConfig.uiScale);
+        setStatus(styleStatus, '已更新界面缩放', 'success');
       };
 
-      rangeInput.addEventListener('input', () => {
-        applyValue(rangeInput.value);
+      scaleRangeInput.addEventListener('input', () => {
+        applyScale(scaleRangeInput.value);
       });
-      numberInput.addEventListener('input', () => {
-        applyValue(numberInput.value);
+      scaleNumberInput.addEventListener('input', () => {
+        applyScale(scaleNumberInput.value);
       });
-      numberInput.addEventListener('blur', () => {
-        applyValue(numberInput.value);
+      scaleNumberInput.addEventListener('blur', () => {
+        applyScale(scaleNumberInput.value);
       });
-    });
+    }
 
     resetButton?.addEventListener('click', () => {
       const nextConfig = resetUiStyleConfig();
       this.syncUiModeButtons(body, nextConfig.colorMode);
       this.syncUiGlobalFontOffsetRow(body, nextConfig.globalFontOffset);
-      this.syncUiFontRows(body, nextConfig);
+      this.syncUiScaleRow(body, nextConfig.uiScale);
       setStatus(styleStatus, 'UI 样式已恢复默认', 'success');
     });
   }
@@ -273,21 +258,19 @@ export class SettingsPanel {
     }
   }
 
-  private syncUiFontRows(body: HTMLElement, config: UiStyleConfig): void {
-    body.querySelectorAll<HTMLElement>('[data-ui-font-level]').forEach((row) => {
-      const key = row.getAttribute('data-ui-font-level') as UiFontLevelKey | null;
-      const rangeInput = row.querySelector<HTMLInputElement>('[data-ui-font-range]');
-      const numberInput = row.querySelector<HTMLInputElement>('[data-ui-font-number]');
-      const valueEl = row.querySelector<HTMLElement>('[data-ui-font-value]');
-      if (!key || !rangeInput || !numberInput || !valueEl) {
-        return;
-      }
-      const nextValue = config.fontSizes[key];
-      const effectiveSize = getEffectiveUiFontSize(key, config);
-      rangeInput.value = String(nextValue);
-      numberInput.value = String(nextValue);
-      valueEl.textContent = `基础 ${nextValue}px · 当前 ${effectiveSize}px`;
-    });
+  private syncUiScaleRow(body: HTMLElement, uiScale: number): void {
+    const rangeInput = body.querySelector<HTMLInputElement>('[data-ui-scale-range]');
+    const numberInput = body.querySelector<HTMLInputElement>('[data-ui-scale-number]');
+    const valueEl = body.querySelector<HTMLElement>('[data-ui-scale-value]');
+    if (rangeInput) {
+      rangeInput.value = uiScale.toFixed(2);
+    }
+    if (numberInput) {
+      numberInput.value = uiScale.toFixed(2);
+    }
+    if (valueEl) {
+      valueEl.textContent = `${Math.round(uiScale * 100)}%`;
+    }
   }
 
   private renderAccountTab(): string {
@@ -360,15 +343,15 @@ export class SettingsPanel {
       </div>
       <div class="panel-section account-settings-section">
         <div class="settings-ui-table-head">
-          <div class="panel-section-title">字体等级配置表</div>
+          <div class="panel-section-title">界面显示</div>
           <button id="settings-ui-reset" class="small-btn ghost" type="button">恢复默认</button>
         </div>
-        <div class="settings-ui-copy">默认滑块仍停在中间。手机模式会用更低的生效基线换算字号，所以基础值不变，但实际显示会比桌面更紧凑。</div>
+        <div class="settings-ui-copy">只保留一个全局字号和一个整体界面缩放。两项都会立即生效，并自动保存在当前设备。</div>
         <div class="settings-ui-table">
           <div class="settings-ui-table-row">
             <div class="settings-ui-level-meta">
-              <div class="settings-ui-level-name">全部字体大小</div>
-              <div class="settings-ui-level-desc">统一增减所有字号，在当前模式基线之上整体偏移。</div>
+              <div class="settings-ui-level-name">全局字号</div>
+              <div class="settings-ui-level-desc">统一增减全部文字大小，适合“现在字太小”这类情况。</div>
             </div>
             <div class="settings-ui-level-slider">
               <input
@@ -391,42 +374,36 @@ export class SettingsPanel {
               />
               <span data-ui-global-font-value>${formatGlobalFontOffset(config.globalFontOffset)}</span>
             </div>
-            <div class="settings-ui-level-preview settings-ui-level-preview--body">整体字号</div>
+            <div class="settings-ui-level-preview settings-ui-level-preview--body">山门告示</div>
           </div>
-          ${UI_FONT_LEVEL_DEFINITIONS.map((definition) => {
-            const size = config.fontSizes[definition.key];
-            const effectiveSize = getEffectiveUiFontSize(definition.key, config);
-            return `
-              <div class="settings-ui-table-row" data-ui-font-level="${definition.key}">
-                <div class="settings-ui-level-meta">
-                  <div class="settings-ui-level-name">${definition.label}</div>
-                  <div class="settings-ui-level-desc">${definition.description}</div>
-                </div>
-                <div class="settings-ui-level-slider">
-                  <input
-                    type="range"
-                    min="${definition.min}"
-                    max="${definition.max}"
-                    step="1"
-                    value="${size}"
-                    data-ui-font-range
-                  />
-                </div>
-                <div class="settings-ui-level-input">
-                  <input
-                    type="number"
-                    min="${definition.min}"
-                    max="${definition.max}"
-                    step="1"
-                    value="${size}"
-                    data-ui-font-number
-                  />
-                  <span data-ui-font-value>基础 ${size}px · 当前 ${effectiveSize}px</span>
-                </div>
-                <div class="settings-ui-level-preview settings-ui-level-preview--${definition.previewClassName}">${definition.previewText}</div>
-              </div>
-            `;
-          }).join('')}
+          <div class="settings-ui-table-row">
+            <div class="settings-ui-level-meta">
+              <div class="settings-ui-level-name">界面缩放</div>
+              <div class="settings-ui-level-desc">统一放大常用 UI 尺寸和字号，适合高分屏或 2K / 4K 屏幕。</div>
+            </div>
+            <div class="settings-ui-level-slider">
+              <input
+                type="range"
+                min="${UI_SCALE_RANGE.min}"
+                max="${UI_SCALE_RANGE.max}"
+                step="${UI_SCALE_RANGE.step}"
+                value="${config.uiScale.toFixed(2)}"
+                data-ui-scale-range
+              />
+            </div>
+            <div class="settings-ui-level-input">
+              <input
+                type="number"
+                min="${UI_SCALE_RANGE.min}"
+                max="${UI_SCALE_RANGE.max}"
+                step="${UI_SCALE_RANGE.step}"
+                value="${config.uiScale.toFixed(2)}"
+                data-ui-scale-number
+              />
+              <span data-ui-scale-value>${Math.round(config.uiScale * 100)}%</span>
+            </div>
+            <div class="settings-ui-level-preview settings-ui-level-preview--title">缩放预览</div>
+          </div>
         </div>
         <div id="settings-ui-style-status" class="account-settings-status">当前配置已自动保存到本机</div>
       </div>
