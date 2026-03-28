@@ -1536,7 +1536,48 @@
       "color": "#8ccf9b",
       "dialogue": "墙塌了还能补，人伤了得趁早治。药铺没以前那么宽敞，东西还够用。",
       "role": "support",
-      "shopItems": [],
+      "shopItems": [
+        {
+          "itemId": "pill.minor_heal",
+          "price": 2
+        },
+        {
+          "itemId": "minor_qi_pill",
+          "price": 6
+        },
+        {
+          "itemId": "frost_heart_paste",
+          "price": 10
+        },
+        {
+          "itemId": "major_qi_pill",
+          "price": 18
+        },
+        {
+          "itemId": "pure_yang_pill",
+          "price": 24
+        },
+        {
+          "itemId": "pill.crimson_bud_elixir",
+          "price": 12
+        },
+        {
+          "itemId": "pill.clear_eye_elixir",
+          "price": 14
+        },
+        {
+          "itemId": "pill.windstride_elixir",
+          "price": 14
+        },
+        {
+          "itemId": "pill.break_array_elixir",
+          "price": 16
+        },
+        {
+          "itemId": "pill.bitter_cultivation_elixir",
+          "price": 50
+        }
+      ],
       "quests": []
     },
     {
