@@ -3,7 +3,8 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "prebuild": "pnpm --filter @mud/shared build",
+    "generate:item-sources": "node ./scripts/generate-item-sources.mjs",
+    "prebuild": "pnpm --filter @mud/shared build && pnpm run generate:item-sources",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview"

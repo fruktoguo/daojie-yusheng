@@ -267,7 +267,7 @@
     }
     .panel-row:last-child { border-bottom: none; }
 .panel-label { color: var(--color-role-label); font-weight: var(--font-weight-role-label); }
-.panel-value { color: var(--color-role-body-strong); font-weight: bold; }
+.panel-value { color: var(--color-role-body-strong); font-weight: var(--font-weight-strong); }
 .panel-subtext {
   margin-top: 8px;
   font-size: var(--font-size-12);
@@ -295,7 +295,7 @@
     .intel-value {
       font-size: var(--font-size-14);
       color: var(--ink-black);
-      font-weight: bold;
+      font-weight: var(--font-weight-strong);
     }
     .attr-card {
       padding: 8px 10px;
@@ -400,7 +400,7 @@
     }
     .attr-mini-value {
       font-size: var(--font-size-15);
-      font-weight: bold;
+      font-weight: var(--font-weight-strong);
       color: var(--ink-black);
     }
     .attr-mini-sub {
@@ -482,7 +482,7 @@
     }
     .inventory-cell-count {
       font-size: var(--font-size-11);
-      font-weight: bold;
+      font-weight: var(--font-weight-strong);
       color: var(--ink-black);
     }
     .inventory-cell-name {
@@ -679,7 +679,7 @@
       text-orientation: mixed;
       letter-spacing: 0.02em;
       line-height: 1;
-      font-weight: 600;
+      font-weight: var(--font-weight-semibold);
     }
     .tech-side-tab .tech-filter-count {
       min-width: 14px;
@@ -1044,7 +1044,7 @@
       box-shadow: inset 3px 0 0 rgba(197, 60, 60, 0.72);
     }
     .tutorial-modal-tab-label {
-      font-weight: 600;
+      font-weight: var(--font-weight-semibold);
       line-height: 1.35;
     }
     .tutorial-modal-content {
@@ -1128,7 +1128,7 @@
       border-radius: 999px;
       background: rgba(214, 188, 142, 0.14);
       color: var(--stamp-red);
-      font-weight: 600;
+      font-weight: var(--font-weight-semibold);
       cursor: help;
       white-space: nowrap;
       transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
@@ -2090,14 +2090,14 @@
       margin-bottom: 8px;
       border-bottom: 1px solid rgba(71, 85, 105, 0.9);
       font-size: var(--font-size-13);
-      font-weight: 700;
+      font-weight: var(--font-weight-strong);
       color: #38bdf8;
     }
     .tech-starfield-tooltip-badge {
       margin-left: 6px;
       color: #fbbf24;
       font-size: var(--font-size-11);
-      font-weight: 700;
+      font-weight: var(--font-weight-strong);
     }
     .tech-starfield-tooltip-status {
       margin-bottom: 8px;
@@ -2111,7 +2111,7 @@
     }
     .tech-starfield-tooltip-status.progress {
       color: #c084fc;
-      font-weight: 700;
+      font-weight: var(--font-weight-strong);
       letter-spacing: 0.04em;
     }
     .tech-starfield-tooltip-status.locked {
@@ -2119,7 +2119,7 @@
     }
     .tech-starfield-tooltip-status.milestone {
       color: #fbbf24;
-      font-weight: 700;
+      font-weight: var(--font-weight-strong);
     }
     .tech-starfield-tooltip-attrs {
       display: grid;
@@ -2625,7 +2625,7 @@
     }
     .skill-tooltip-label {
       color: var(--ink-grey);
-      font-weight: 600;
+      font-weight: var(--font-weight-semibold);
     }
     .skill-tooltip-note {
       color: var(--ink-grey);
@@ -2640,7 +2640,7 @@
     }
     .skill-tooltip-cost-actual.is-overflow {
       color: var(--stamp-red);
-      font-weight: 600;
+      font-weight: var(--font-weight-semibold);
     }
     .skill-tooltip-buff-entry {
       display: inline-flex;
@@ -2650,7 +2650,7 @@
       border-radius: 999px;
       background: var(--tooltip-buff-entry-bg);
       color: var(--tooltip-buff-entry-ink);
-      font-weight: 600;
+      font-weight: var(--font-weight-semibold);
     }
     .skill-tooltip-buff-entry.debuff {
       background: var(--tooltip-buff-entry-debuff-bg);
@@ -2674,7 +2674,7 @@
     .skill-tooltip-buff-meta {
       color: var(--ink-grey);
       font-size: var(--font-size-12);
-      font-weight: 500;
+      font-weight: var(--font-weight-medium);
     }
     .skill-formula-breakdown {
       color: var(--tooltip-muted-ink);
@@ -2683,7 +2683,7 @@
       color: var(--ink-grey);
     }
     .skill-formula-term {
-      font-weight: 700;
+      font-weight: var(--font-weight-strong);
     }
     .skill-formula-term-base {
       color: var(--ink-dark);
@@ -2734,20 +2734,20 @@
     .skill-formula-buff-stacks {
       color: var(--ink-grey);
       font-size: var(--font-size-12);
-      font-weight: 600;
+      font-weight: var(--font-weight-semibold);
     }
     .skill-formula-section-label {
       display: inline-block;
       margin-right: 6px;
       color: var(--ink-grey);
-      font-weight: 700;
+      font-weight: var(--font-weight-strong);
     }
     .skill-formula-group {
       display: inline;
     }
     .skill-formula-equals {
       color: var(--ink-grey);
-      font-weight: 700;
+      font-weight: var(--font-weight-strong);
       margin: 0 2px;
     }
     .skill-formula-empty {
@@ -2756,7 +2756,7 @@
     }
     .skill-damage-total {
       font-size: var(--font-size-14);
-      font-weight: 800;
+      font-weight: var(--font-weight-heavy);
       margin-right: 2px;
     }
     .skill-damage-total-physical {
@@ -2773,7 +2773,7 @@
       margin-left: 2px;
       border-radius: 999px;
       font-size: var(--font-size-11);
-      font-weight: 700;
+      font-weight: var(--font-weight-strong);
       vertical-align: 1px;
       white-space: nowrap;
     }
@@ -2955,8 +2955,206 @@
       gap: 10px;
       flex-wrap: wrap;
     }
+    .inline-item-flow {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .inline-rich-text {
+      line-height: 1.65;
+    }
+    .inline-item-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      min-height: 24px;
+      padding: 1px 8px;
+      border: 1px solid rgba(129, 93, 39, 0.18);
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(255, 250, 240, 0.98), rgba(244, 234, 213, 0.96));
+      color: var(--ink-black);
+      font-size: var(--font-size-12);
+      font-weight: var(--font-weight-semibold);
+      line-height: 1.4;
+      vertical-align: middle;
+      box-shadow: 0 4px 12px rgba(30, 19, 10, 0.08);
+      cursor: help;
+      white-space: nowrap;
+    }
+    .inline-item-chip + .inline-item-chip {
+      margin-left: 0;
+    }
+    .inline-item-chip-count {
+      color: var(--ink-grey);
+      font-size: var(--font-size-11);
+      font-weight: var(--font-weight-medium);
+    }
+    .inline-item-chip--reward {
+      border-color: rgba(40, 131, 78, 0.2);
+      background: linear-gradient(180deg, rgba(240, 253, 244, 0.98), rgba(221, 243, 228, 0.96));
+    }
+    .inline-item-chip--required {
+      border-color: rgba(163, 94, 36, 0.24);
+      background: linear-gradient(180deg, rgba(255, 246, 236, 0.98), rgba(247, 226, 205, 0.96));
+    }
+    .inline-item-chip--material {
+      border-color: rgba(77, 102, 154, 0.22);
+      background: linear-gradient(180deg, rgba(243, 247, 255, 0.98), rgba(227, 236, 252, 0.96));
+    }
+    .inline-item-chip--monster {
+      border-color: rgba(145, 67, 52, 0.24);
+      background: linear-gradient(180deg, rgba(255, 244, 240, 0.98), rgba(246, 225, 217, 0.96));
+    }
+    .inline-item-chip:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(30, 19, 10, 0.14);
+    }
+    .inline-item-tooltip {
+      pointer-events: none;
+      z-index: 2000;
+    }
+    :root[data-color-mode="dark"] .inline-item-chip {
+      border-color: rgba(218, 197, 165, 0.18);
+      background: linear-gradient(180deg, rgba(63, 51, 41, 0.96), rgba(39, 32, 26, 0.94));
+      color: var(--ink-black);
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+    }
+    :root[data-color-mode="dark"] .inline-item-chip-count {
+      color: var(--ink-grey);
+    }
+    :root[data-color-mode="dark"] .inline-item-chip--reward {
+      border-color: rgba(110, 212, 141, 0.22);
+      background: linear-gradient(180deg, rgba(35, 61, 44, 0.98), rgba(24, 40, 30, 0.96));
+    }
+    :root[data-color-mode="dark"] .inline-item-chip--required {
+      border-color: rgba(255, 165, 106, 0.22);
+      background: linear-gradient(180deg, rgba(78, 52, 31, 0.98), rgba(50, 35, 22, 0.96));
+    }
+    :root[data-color-mode="dark"] .inline-item-chip--material {
+      border-color: rgba(144, 177, 255, 0.2);
+      background: linear-gradient(180deg, rgba(39, 50, 74, 0.98), rgba(27, 36, 53, 0.96));
+    }
+    :root[data-color-mode="dark"] .inline-item-chip--monster {
+      border-color: rgba(255, 154, 126, 0.2);
+      background: linear-gradient(180deg, rgba(77, 42, 35, 0.98), rgba(50, 28, 24, 0.96));
+    }
     .inventory-detail-grid {
       margin-bottom: 4px;
+    }
+    .inventory-source-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .inventory-source-list--compact {
+      display: flex;
+      width: 100%;
+      margin-top: 4px;
+      gap: 4px;
+    }
+    .inventory-source-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .inventory-source-list--compact .inventory-source-row {
+      gap: 4px;
+    }
+    .inventory-source-detail,
+    .inventory-source-empty,
+    .inventory-source-note {
+      line-height: 1.7;
+      word-break: break-word;
+    }
+    .inventory-source-note {
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+    }
+    .inventory-source-detail {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .inventory-source-link-wrap {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      flex: 0 0 auto;
+    }
+    .inventory-source-link-label {
+      font-size: 10px;
+      line-height: 1;
+      color: var(--ink-grey);
+      white-space: nowrap;
+    }
+    .inventory-source-link {
+      display: inline-block;
+      width: 16px;
+      height: 1px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--ink-grey) 72%, transparent);
+      flex: 0 0 auto;
+    }
+    .inventory-source-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: var(--font-size-12);
+      line-height: 1.45;
+      border: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
+      background: color-mix(in srgb, var(--paper) 86%, transparent);
+      color: var(--ink-black);
+    }
+    .inventory-source-chip--map {
+      background: rgba(98, 145, 224, 0.2);
+      border-color: rgba(98, 145, 224, 0.42);
+    }
+    .inventory-source-chip--monster {
+      background: rgba(206, 92, 92, 0.2);
+      border-color: rgba(206, 92, 92, 0.42);
+    }
+    .inventory-source-chip--quest {
+      background: rgba(151, 112, 214, 0.2);
+      border-color: rgba(151, 112, 214, 0.42);
+    }
+    .inventory-source-chip--location {
+      background: rgba(112, 182, 128, 0.2);
+      border-color: rgba(112, 182, 128, 0.42);
+    }
+    .inventory-source-chip--mining {
+      background: rgba(82, 168, 168, 0.2);
+      border-color: rgba(82, 168, 168, 0.42);
+    }
+    .inventory-source-list--compact .inventory-source-chip {
+      min-height: 24px;
+      padding: 3px 8px;
+      font-size: var(--font-size-11);
+    }
+    .inventory-source-list--compact .inventory-source-link {
+      width: 12px;
+    }
+    .inventory-source-list--compact .inventory-source-link-label {
+      font-size: 9px;
+    }
+    .inventory-source-block {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .inventory-source-section {
+      margin-top: 2px;
+      padding-top: 8px;
+      border-top: 1px solid color-mix(in srgb, var(--panel-border) 60%, transparent);
+    }
+    .inventory-source-toggle {
+      margin-top: 8px;
+      align-self: flex-start;
     }
     .inventory-batch-use-row {
       display: flex;
@@ -3220,7 +3418,7 @@
       white-space: nowrap;
       font-family: var(--font-role-body);
       font-size: var(--font-size-role-body-14);
-      font-weight: 600;
+      font-weight: var(--font-weight-semibold);
       color: var(--ink-black);
     }
     .market-item-cell-name-text {
@@ -3233,12 +3431,12 @@
       flex: 0 0 auto;
       font-size: var(--font-size-11);
       color: var(--ink-grey);
-      font-weight: 500;
+      font-weight: var(--font-weight-medium);
     }
     .market-item-title {
       font-family: var(--font-role-body);
       font-size: var(--font-size-role-body-18);
-      font-weight: 700;
+      font-weight: var(--font-weight-strong);
       color: var(--ink-black);
     }
     .market-item-cell-prices {
@@ -3261,7 +3459,7 @@
     .market-order-name {
       font-family: var(--font-role-body);
       font-size: var(--font-size-role-body-14);
-      font-weight: 600;
+      font-weight: var(--font-weight-semibold);
       color: var(--ink-black);
     }
     .market-book-subtitle,
@@ -3322,7 +3520,7 @@
     .market-book-level-price {
       color: var(--ink-black);
       font-size: var(--font-size-13);
-      font-weight: 700;
+      font-weight: var(--font-weight-strong);
     }
     .market-book-level-qty {
       color: var(--ink-grey);
@@ -3583,7 +3781,7 @@
     .market-price-display strong {
       color: var(--market-trade-accent);
       font-size: var(--font-size-18);
-      font-weight: 700;
+      font-weight: var(--font-weight-strong);
       line-height: 1.1;
       display: flex;
       align-items: center;
@@ -3666,7 +3864,7 @@
     .market-trade-dialog-total strong {
       color: var(--ink-black);
       font-size: var(--font-size-14);
-      font-weight: 700;
+      font-weight: var(--font-weight-strong);
     }
     .market-trade-dialog-total.error strong {
       color: #a53d2f;
@@ -3681,7 +3879,7 @@
       border-radius: 9px;
       background: rgba(165, 61, 47, 0.08);
       color: #a53d2f;
-      font-weight: 700;
+      font-weight: var(--font-weight-strong);
       font-size: var(--font-size-11);
     }
     .market-trade-dialog-actions {
@@ -3806,7 +4004,7 @@
       gap: 6px 8px;
     }
     .breakthrough-requirement-status {
-      font-weight: 600;
+      font-weight: var(--font-weight-semibold);
     }
     .breakthrough-requirement-status.is-completed {
       color: var(--success-ink);
@@ -3821,7 +4019,7 @@
       border: 1px solid rgba(125, 27, 27, 0.18);
       background: rgba(125, 27, 27, 0.08);
       font-size: var(--font-size-11);
-      font-weight: 600;
+      font-weight: var(--font-weight-semibold);
       color: var(--stamp-red);
     }
     :root[data-color-mode="dark"] .detail-modal-card.detail-modal--breakthrough .breakthrough-requirement-item {
@@ -4190,7 +4388,7 @@
 }
 .info-line strong {
   color: var(--color-role-body-strong);
-  font-weight: bold;
+  font-weight: var(--font-weight-strong);
 }
     .subsection-label {
       margin: 8px 0 6px;

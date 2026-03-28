@@ -12,6 +12,7 @@ import {
   getEquipSlotLabel,
   getItemTypeLabel,
 } from '../domain-labels';
+import { renderItemSourceListHtml } from '../content/item-sources';
 import { resolvePreviewItem } from '../content/local-templates';
 import { SkillTooltipAsideCard, SkillTooltipContent } from './skill-tooltip';
 import { describePreviewBonuses } from './stat-preview';
@@ -183,16 +184,18 @@ export interface ItemTooltipPayload {
 
 export function buildItemTooltipPayload(item: ItemStack): ItemTooltipPayload {
   const previewItem = resolvePreviewItem(item);
+  const sourceListHtml = renderItemSourceListHtml(previewItem.itemId, { maxEntries: 3, compact: true });
   if (previewItem.type !== 'equipment') {
     const lines = [
-      previewItem.desc,
-      `类型：${getItemTypeLabel(previewItem.type)}`,
+      `<span class="skill-tooltip-desc">${escapeHtml(previewItem.desc ?? '')}</span>`,
+      renderPlainLine('类型', getItemTypeLabel(previewItem.type)),
+      `<div class="inventory-source-block"><span class="skill-tooltip-label">来源：</span>${sourceListHtml}</div>`,
     ].filter((line) => line.length > 0);
     return {
       title: previewItem.name,
       lines,
       asideCards: [],
-      allowHtml: false,
+      allowHtml: true,
     };
   }
 
@@ -206,6 +209,7 @@ export function buildItemTooltipPayload(item: ItemStack): ItemTooltipPayload {
     ...(previewItem.equipSlot ? [renderPlainLine('部位', getEquipSlotLabel(previewItem.equipSlot))] : []),
     ...(staticLines.length > 0 ? [renderPlainLine('静态词条', staticLines.join('，'))] : []),
     ...effectSummaries.flatMap((entry) => entry.lines),
+    `<div class="inventory-source-block"><span class="skill-tooltip-label">来源：</span>${sourceListHtml}</div>`,
   ];
   const asideCards = effectSummaries
     .map((entry) => entry.asideCard)

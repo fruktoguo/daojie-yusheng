@@ -8,6 +8,11 @@ import {
   getEquipSlotLabel,
   getItemTypeLabel,
 } from '../../domain-labels';
+import {
+  getItemSourceEntryCount,
+  isSpecialSourceSummaryItem,
+  renderItemSourceListHtml,
+} from '../../content/item-sources';
 import { resolvePreviewItem } from '../../content/local-templates';
 import { detailModalHost } from '../detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
@@ -34,6 +39,8 @@ interface InventoryStructureState {
   filter: InventoryFilter;
   items: Array<{ slotIndex: number; identity: string }>;
 }
+
+const INVENTORY_SOURCE_COLLAPSED_COUNT = 3;
 
 function formatEffectCondition(effect: EquipmentEffectDef): string {
   const conditions = effect?.conditions?.items ?? [];
@@ -125,6 +132,8 @@ export class InventoryPanel {
   private selectedItemKey: string | null = null;
   private actionDialog: InventoryActionDialogState | null = null;
   private tooltipCell: HTMLElement | null = null;
+  private sourceExpanded = false;
+  private sourceExpandedItemKey: string | null = null;
 
   constructor() {
     this.ensureTooltipStyle();
@@ -140,6 +149,8 @@ export class InventoryPanel {
     this.selectedItemKey = null;
     this.actionDialog = null;
     this.tooltipCell = null;
+    this.sourceExpanded = false;
+    this.sourceExpandedItemKey = null;
     this.tooltip.hide(true);
     this.pane.innerHTML = '<div class="empty-hint">背包空空如也</div>';
     detailModalHost.close(InventoryPanel.MODAL_OWNER);
@@ -462,11 +473,21 @@ export class InventoryPanel {
     }
 
     const previewItem = resolvePreviewItem(item);
+    if (this.sourceExpandedItemKey !== this.selectedItemKey) {
+      this.sourceExpanded = false;
+      this.sourceExpandedItemKey = this.selectedItemKey;
+    }
     const bonusLines = describePreviewBonuses(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats);
     const effectLines = formatItemEffects(item);
     const primaryAction = this.getPrimaryAction(item);
     const canBatchUse = primaryAction?.kind === 'use' && this.canBatchUseItem(item);
     const canBatchDropOrDestroy = this.canBatchDropOrDestroy(item);
+    const sourceEntryCount = getItemSourceEntryCount(previewItem.itemId);
+    const useSpecialSourceSummary = isSpecialSourceSummaryItem(previewItem.itemId);
+    const canToggleSourceList = !useSpecialSourceSummary && sourceEntryCount > INVENTORY_SOURCE_COLLAPSED_COUNT;
+    const sourceListHtml = renderItemSourceListHtml(previewItem.itemId, {
+      maxEntries: this.sourceExpanded || !canToggleSourceList ? undefined : INVENTORY_SOURCE_COLLAPSED_COUNT,
+    });
 
     detailModalHost.open({
       ownerId: InventoryPanel.MODAL_OWNER,
@@ -489,7 +510,7 @@ export class InventoryPanel {
         </div>
         <div class="quest-detail-section">
           <strong>物品说明</strong>
-          <span data-inventory-modal-desc="true">${this.escapeHtml(item.desc)}</span>
+          <span data-inventory-modal-desc="true">${this.escapeHtml(previewItem.desc)}</span>
         </div>
         ${bonusLines.length > 0 ? `<div class="quest-detail-section">
           <strong>附加词条</strong>
@@ -499,6 +520,13 @@ export class InventoryPanel {
           <strong>特殊效果</strong>
           <span data-inventory-modal-effects="true">${this.escapeHtml(effectLines.join(' / '))}</span>
         </div>` : ''}
+        <div class="quest-detail-section inventory-source-section">
+          <strong>来源</strong>
+          ${sourceListHtml}
+          ${canToggleSourceList
+            ? `<button class="small-btn ghost inventory-source-toggle" data-inventory-source-toggle="true" type="button">${this.sourceExpanded ? '收起来源' : `展开全部来源（${sourceEntryCount}）`}</button>`
+            : ''}
+        </div>
         <div class="inventory-detail-actions">
           <div class="inventory-detail-actions-group inventory-detail-actions-group--left">
             ${primaryAction ? `<button class="small-btn" data-inventory-primary="true" type="button">${primaryAction.label}</button>` : ''}
@@ -537,6 +565,11 @@ export class InventoryPanel {
           }
           this.openActionDialog(kind, slotIndex, Number.isFinite(defaultCount) ? defaultCount : 1);
         }));
+        body.querySelector<HTMLElement>('[data-inventory-source-toggle="true"]')?.addEventListener('click', (event) => {
+          event.stopPropagation();
+          this.sourceExpanded = !this.sourceExpanded;
+          this.renderModal();
+        });
       },
     });
   }
@@ -623,6 +656,8 @@ export class InventoryPanel {
         this.selectedSlotIndex = null;
         this.selectedItemKey = null;
         this.actionDialog = null;
+        this.sourceExpanded = false;
+        this.sourceExpandedItemKey = null;
       },
       onAfterRender: (body) => {
         const countInput = body.querySelector<HTMLInputElement>('[data-inventory-action-count="true"]');
