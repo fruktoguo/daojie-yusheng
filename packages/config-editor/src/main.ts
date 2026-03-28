@@ -112,6 +112,8 @@ type LocalEditorCatalogRes = {
   items: LocalEditorItemOption[];
 };
 
+type MonsterDropIdentity = Pick<MonsterTemplateDrop, 'itemId' | 'name' | 'type'>;
+
 type MapSideTabId = 'overview' | 'inspector' | 'json';
 
 const appStatusBarEl = document.getElementById('app-status-bar') as HTMLDivElement;
@@ -402,7 +404,41 @@ function findEditorItem(itemId: string): LocalEditorItemOption | undefined {
   return editorItems.find((item) => item.itemId === itemId);
 }
 
-function buildEditorItemOptions(selectedItemId = ''): string {
+function isValidItemType(value: string | undefined): value is ItemType {
+  return value !== undefined && Object.prototype.hasOwnProperty.call(ITEM_TYPE_LABELS, value);
+}
+
+function resolveMonsterDropIdentity(source: Partial<MonsterTemplateDrop> | undefined): MonsterDropIdentity | null {
+  const itemId = typeof source?.itemId === 'string' ? source.itemId.trim() : '';
+  const name = typeof source?.name === 'string' ? source.name.trim() : '';
+  const type = typeof source?.type === 'string' && isValidItemType(source.type) ? source.type : undefined;
+  if (!itemId || !name || !type) {
+    return null;
+  }
+  return { itemId, name, type };
+}
+
+function getMonsterDropRowIdentity(row: HTMLElement): MonsterDropIdentity | null {
+  return resolveMonsterDropIdentity({
+    itemId: row.dataset.dropItemId,
+    name: row.dataset.dropItemName,
+    type: row.dataset.dropItemType as ItemType | undefined,
+  });
+}
+
+function setMonsterDropRowIdentity(row: HTMLElement, identity: MonsterDropIdentity | null): void {
+  if (!identity) {
+    delete row.dataset.dropItemId;
+    delete row.dataset.dropItemName;
+    delete row.dataset.dropItemType;
+    return;
+  }
+  row.dataset.dropItemId = identity.itemId;
+  row.dataset.dropItemName = identity.name;
+  row.dataset.dropItemType = identity.type;
+}
+
+function buildEditorItemOptions(selectedItemId = '', fallbackDrop?: Partial<MonsterTemplateDrop>): string {
   const options = ['<option value="">请选择物品</option>'];
   for (const item of editorItems) {
     options.push(
@@ -410,7 +446,14 @@ function buildEditorItemOptions(selectedItemId = ''): string {
     );
   }
   if (selectedItemId && !findEditorItem(selectedItemId)) {
-    options.push(`<option value="${escapeHtml(selectedItemId)}" selected>[缺失物品] ${escapeHtml(selectedItemId)}</option>`);
+    const fallback = resolveMonsterDropIdentity(fallbackDrop);
+    if (fallback && fallback.itemId === selectedItemId) {
+      options.push(
+        `<option value="${escapeHtml(selectedItemId)}" selected>${escapeHtml(fallback.name)} · ${escapeHtml(selectedItemId)} · ${escapeHtml(getItemTypeLabel(fallback.type))} · 模板内记录</option>`,
+      );
+    } else {
+      options.push(`<option value="${escapeHtml(selectedItemId)}" selected>[缺失物品] ${escapeHtml(selectedItemId)}</option>`);
+    }
   }
   return options.join('');
 }
@@ -429,6 +472,10 @@ function buildMonsterDropMeta(drop: Partial<MonsterTemplateDrop>): string {
       parts.push(`等级 ${item.level}`);
     }
     return parts.join(' · ');
+  }
+  const fallback = resolveMonsterDropIdentity(drop);
+  if (fallback) {
+    return `${fallback.name} · ${fallback.itemId} · ${getItemTypeLabel(fallback.type)} · 使用模板内记录`;
   }
   return `未在物品目录中找到 ${drop.itemId}`;
 }
@@ -531,8 +578,15 @@ function renderMonsterComputedStatsPreview(stats: NumericStats): void {
 }
 
 function buildMonsterDropRow(drop: Partial<MonsterTemplateDrop>, index: number): string {
+  const fallback = resolveMonsterDropIdentity(drop);
   return `
-    <div class="monster-drop-row" data-drop-row>
+    <div
+      class="monster-drop-row"
+      data-drop-row
+      data-drop-item-id="${escapeHtml(fallback?.itemId ?? '')}"
+      data-drop-item-name="${escapeHtml(fallback?.name ?? '')}"
+      data-drop-item-type="${escapeHtml(fallback?.type ?? '')}"
+    >
       <div class="monster-drop-row-head">
         <div class="monster-drop-row-title" data-drop-row-title>掉落项 ${index + 1}</div>
         <button class="small-btn danger" type="button" data-drop-remove>删除</button>
@@ -540,7 +594,7 @@ function buildMonsterDropRow(drop: Partial<MonsterTemplateDrop>, index: number):
       <div class="monster-drop-grid">
         <label class="map-field wide">
           <span>掉落物品</span>
-          <select data-drop-field="itemId">${buildEditorItemOptions(String(drop.itemId ?? ''))}</select>
+          <select data-drop-field="itemId">${buildEditorItemOptions(String(drop.itemId ?? ''), drop)}</select>
         </label>
         <label class="map-field">
           <span>数量</span>
@@ -592,7 +646,8 @@ function refreshMonsterDropRowMeta(row: HTMLElement): void {
   if (!metaEl) {
     return;
   }
-  metaEl.textContent = buildMonsterDropMeta({ itemId });
+  const identity = getMonsterDropRowIdentity(row);
+  metaEl.textContent = buildMonsterDropMeta(identity && identity.itemId === itemId ? identity : { itemId });
 }
 
 function fillMonsterForm(monster: MonsterTemplateRecord): void {
@@ -726,21 +781,23 @@ function readMonsterDropsFromEditor(): MonsterTemplateDrop[] {
       continue;
     }
     const item = findEditorItem(itemId);
-    if (!item) {
+    const fallback = getMonsterDropRowIdentity(row);
+    const resolved = item ?? (fallback && fallback.itemId === itemId ? fallback : null);
+    if (!resolved) {
       throw new Error(itemId ? `掉落物品不存在: ${itemId}` : '掉落项必须选择物品');
     }
     const count = countRaw ? Number(countRaw) : 1;
     const chancePercent = chanceRaw ? Number(chanceRaw) : undefined;
     if (!Number.isFinite(count) || count <= 0) {
-      throw new Error(`掉落配置 ${item.name} 的数量必须大于 0`);
+      throw new Error(`掉落配置 ${resolved.name} 的数量必须大于 0`);
     }
     if (chancePercent !== undefined && (!Number.isFinite(chancePercent) || chancePercent < 0 || chancePercent > 100)) {
-      throw new Error(`掉落配置 ${item.name} 的概率必须在 0 到 100 之间`);
+      throw new Error(`掉落配置 ${resolved.name} 的概率必须在 0 到 100 之间`);
     }
     drops.push({
-      itemId: item.itemId,
-      name: item.name,
-      type: item.type,
+      itemId: resolved.itemId,
+      name: resolved.name,
+      type: resolved.type,
       count: Math.max(1, Math.floor(count)),
       chance: chancePercent === undefined ? undefined : chancePercent / 100,
     });
@@ -1091,6 +1148,16 @@ function bindEvents(): void {
     const row = select.closest<HTMLElement>('[data-drop-row]');
     if (!row) {
       return;
+    }
+    const item = findEditorItem(select.value);
+    if (item) {
+      setMonsterDropRowIdentity(row, {
+        itemId: item.itemId,
+        name: item.name,
+        type: item.type,
+      });
+    } else if (getMonsterDropRowIdentity(row)?.itemId !== select.value) {
+      setMonsterDropRowIdentity(row, null);
     }
     refreshMonsterDropRowMeta(row);
   });
