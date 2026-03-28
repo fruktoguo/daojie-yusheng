@@ -195,12 +195,12 @@
       top: 12px;
       z-index: 3;
       padding: 6px 10px;
-      border: 1px solid rgba(34, 26, 19, 0.18);
-      background: rgba(248, 248, 245, 0.92);
-      color: var(--ink-black);
+      border: 1px solid var(--map-target-indicator-border);
+      background: var(--map-target-indicator-bg);
+      color: var(--map-target-indicator-ink);
       font-size: var(--font-size-12);
       font-family: var(--font-heading-sub);
-      box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+      box-shadow: var(--map-target-indicator-shadow);
       pointer-events: none;
     }
     .map-targeting-indicator.hidden {

@@ -735,27 +735,27 @@
       align-items: center;
       min-height: 22px;
       padding: 0 8px;
-      border: 1px solid rgba(34, 26, 19, 0.14);
+      border: 1px solid var(--tech-badge-border);
       border-radius: 999px;
       font-size: var(--font-size-11);
       letter-spacing: 0.02em;
       white-space: nowrap;
     }
     .tech-grade {
-      color: var(--stamp-red);
-      background: rgba(139, 48, 35, 0.08);
+      color: var(--tech-grade-ink);
+      background: var(--tech-grade-bg);
     }
     .tech-category {
-      color: #5b4331;
-      background: rgba(154, 117, 79, 0.12);
+      color: var(--tech-category-ink);
+      background: var(--tech-category-bg);
     }
     .tech-realm-level {
-      color: #4f3f1f;
-      background: rgba(196, 162, 99, 0.16);
+      color: var(--tech-realm-level-ink);
+      background: var(--tech-realm-level-bg);
     }
     .tech-realm {
-      color: #385a73;
-      background: rgba(74, 128, 168, 0.1);
+      color: var(--tech-realm-ink);
+      background: var(--tech-realm-bg);
     }
     .tech-layer {
       font-size: var(--font-size-12);
@@ -785,13 +785,13 @@
       height: 8px;
       overflow: hidden;
       border-radius: 999px;
-      background: rgba(34, 26, 19, 0.08);
+      background: var(--tech-progress-track);
     }
     .tech-progress-fill {
       display: block;
       height: 100%;
       border-radius: inherit;
-      background: linear-gradient(90deg, rgba(167, 64, 41, 0.88), rgba(214, 138, 74, 0.92));
+      background: linear-gradient(90deg, var(--tech-progress-fill-start), var(--tech-progress-fill-end));
     }
     .tech-progress-remain {
       display: block;

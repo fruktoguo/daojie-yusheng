@@ -465,7 +465,7 @@ export class TextRenderer implements IRenderer {
             }
           }
 
-          if (this.targetingOverlay) {
+          if (this.targetingOverlay && (!this.targetingOverlay.visibleOnly || isVisible)) {
             const dx = gx - this.targetingOverlay.originX;
             const dy = gy - this.targetingOverlay.originY;
             const hovered = gx === this.targetingOverlay.hoverX && gy === this.targetingOverlay.hoverY;

@@ -38,7 +38,13 @@ import { RESPONSIVE_VIEWPORT_CHANGE_EVENT, bindResponsiveViewportCss } from './u
 import { createMapRuntime } from './game-map/runtime/map-runtime';
 import { getEntityKindLabel, getTileTypeLabel } from './domain-labels';
 import { MAP_FALLBACK } from './constants/world/world-panel';
-import { getLocalItemTemplate, getLocalSkillTemplate, getLocalTechniqueTemplate } from './content/local-templates';
+import {
+  getLocalItemTemplate,
+  getLocalSkillTemplate,
+  getLocalTechniqueTemplate,
+  resolvePreviewTechnique,
+  resolvePreviewTechniques,
+} from './content/local-templates';
 import { assessMapDanger } from './utils/map-danger';
 
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './ui/floating-tooltip';
@@ -587,11 +593,13 @@ function syncTargetingOverlay() {
     syncSenseQiOverlay();
     return;
   }
+  pendingTargetedAction.range = resolveCurrentTargetingRange(pendingTargetedAction);
   const affectedCells = computeAffectedCells(pendingTargetedAction);
   mapRuntime.setTargetingOverlay({
     originX: myPlayer.x,
     originY: myPlayer.y,
     range: pendingTargetedAction.range,
+    visibleOnly: doesTargetingRequireVision(pendingTargetedAction.actionId),
     shape: pendingTargetedAction.shape,
     radius: pendingTargetedAction.radius,
     affectedCells,
@@ -631,6 +639,19 @@ function getSkillDefByActionId(actionId: string): SkillDef | null {
   return null;
 }
 
+function resolveCurrentTargetingRange(
+  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'range'>,
+): number {
+  if (action.actionId === 'client:observe' || action.actionId === 'battle:force_attack') {
+    return Math.max(1, getInfoRadius());
+  }
+  return Math.max(1, action.range);
+}
+
+function doesTargetingRequireVision(actionId: string): boolean {
+  return actionId === 'client:observe' || actionId === 'battle:force_attack';
+}
+
 function beginTargeting(actionId: string, actionName: string, targetMode?: string, range = 1) {
   if (pendingTargetedAction?.actionId === actionId) {
     cancelTargeting(true);
@@ -646,12 +667,13 @@ function beginTargeting(actionId: string, actionName: string, targetMode?: strin
     radius: skill?.targeting?.radius,
     maxTargets: skill?.targeting?.maxTargets,
   };
+  pendingTargetedAction.range = resolveCurrentTargetingRange(pendingTargetedAction);
   syncTargetingOverlay();
   if (actionId === 'client:observe') {
     showToast('请选择当前视野内的目标格，Esc 或右键取消');
     return;
   }
-  showToast(`请选择 ${Math.max(1, range)} 格内目标，Esc 或右键取消`);
+  showToast(`请选择 ${pendingTargetedAction.range} 格内目标，Esc 或右键取消`);
 }
 
 function computeAffectedCells(action: NonNullable<typeof pendingTargetedAction>): Array<{ x: number; y: number }> {
@@ -1153,7 +1175,7 @@ function mergeTechniquePatch(patch: TechniqueUpdateEntry, previous?: TechniqueSt
   const mergedSkills = applyNullablePatch(patch.skills, previousSameTechnique?.skills);
   const mergedLayers = applyNullablePatch(patch.layers, previousSameTechnique?.layers);
   const mergedAttrCurves = applyNullablePatch(patch.attrCurves, previousSameTechnique?.attrCurves);
-  return {
+  return resolvePreviewTechnique({
     techId: patch.techId,
     level: patch.level ?? previousSameTechnique?.level ?? 1,
     exp: patch.exp ?? previousSameTechnique?.exp ?? 0,
@@ -1174,7 +1196,7 @@ function mergeTechniquePatch(patch: TechniqueUpdateEntry, previous?: TechniqueSt
     attrCurves: mergedAttrCurves
       ? cloneJson(mergedAttrCurves)
       : undefined,
-  };
+  });
 }
 
 function hydrateSyncedItemStack(item: SyncedItemStack, previous?: Inventory['items'][number]): Inventory['items'][number] {
@@ -1359,6 +1381,7 @@ function mergeActionPatch(patch: ActionUpdateEntry, previous?: ActionDef): Actio
   const previousSameAction = previous?.id === patch.id ? previous : undefined;
   const skillTemplate = getLocalSkillTemplate(patch.id);
   const nextType = applyNullablePatch(patch.type, previousSameAction?.type) ?? (skillTemplate ? 'skill' : 'interact');
+  const isSkillAction = nextType === 'skill';
   return {
     id: patch.id,
     cooldownLeft: patch.cooldownLeft ?? previousSameAction?.cooldownLeft ?? 0,
@@ -1370,9 +1393,11 @@ function mergeActionPatch(patch: ActionUpdateEntry, previous?: ActionDef): Actio
     desc: applyNullablePatch(patch.desc, previousSameAction?.desc) ?? skillTemplate?.desc ?? '',
     range: applyNullablePatch(patch.range, previousSameAction?.range) ?? skillTemplate?.range,
     requiresTarget: applyNullablePatch(patch.requiresTarget, previousSameAction?.requiresTarget)
-      ?? skillTemplate?.requiresTarget,
+      ?? skillTemplate?.requiresTarget
+      ?? (isSkillAction ? true : undefined),
     targetMode: applyNullablePatch(patch.targetMode, previousSameAction?.targetMode)
-      ?? skillTemplate?.targetMode,
+      ?? skillTemplate?.targetMode
+      ?? (isSkillAction ? 'any' : undefined),
   };
 }
 
@@ -2289,7 +2314,11 @@ function shouldPauseWorldPanelRefresh(): boolean {
 }
 
 function getInfoRadius(): number {
-  return currentTimeState?.effectiveViewRange ?? myPlayer?.viewRange ?? VIEW_RADIUS;
+  const baseViewRange = Math.max(1, Math.round(myPlayer?.viewRange ?? VIEW_RADIUS));
+  if (currentTimeState) {
+    return Math.max(1, Math.ceil(baseViewRange * currentTimeState.visionMultiplier));
+  }
+  return baseViewRange;
 }
 
 function scheduleLayoutViewportSync(): void {
@@ -2764,6 +2793,7 @@ mapRuntime.setInteractionCallbacks({
     const clickedMonster = findObservedEntityAt(target.x, target.y, 'monster');
     const clickedNpc = findObservedEntityAt(target.x, target.y, 'npc');
     if (pendingTargetedAction) {
+      pendingTargetedAction.range = resolveCurrentTargetingRange(pendingTargetedAction);
       if (pendingTargetedAction.actionId !== 'client:observe' && !isPointInsideCurrentMap(target.x, target.y)) {
         showToast('窗外投影当前仅支持观察');
         return;
@@ -2859,6 +2889,7 @@ socket.onInit((data: S2C_Init) => {
   hideObserveModal();
   syncAuraLevelBaseValue(data.auraLevelBaseValue);
   myPlayer = data.self;
+  myPlayer.techniques = resolvePreviewTechniques(myPlayer.techniques);
   syncCurrentTimeState(data.time ?? null);
   latestAttrUpdate = buildAttrStateFromPlayer(myPlayer);
   myPlayer.senseQiActive = myPlayer.senseQiActive === true;

@@ -45,6 +45,10 @@
       --chat-log-bg: rgba(245, 245, 241, 0.88);
       --map-rail-bg: linear-gradient(180deg, var(--surface-muted), transparent);
       --map-rail-border: 1px solid var(--wash-ink);
+      --map-target-indicator-border: rgba(34, 26, 19, 0.18);
+      --map-target-indicator-bg: rgba(248, 248, 245, 0.92);
+      --map-target-indicator-ink: var(--ink-black);
+      --map-target-indicator-shadow: 0 6px 16px rgba(0,0,0,0.08);
       --collapse-rail-bg: rgba(248, 248, 245, 0.98);
       --collapse-rail-hover-bg: var(--surface-hover);
       --collapse-rail-text: var(--ink-dark);
@@ -81,6 +85,18 @@
       --tooltip-head-ink: #1f1710;
       --radar-grid-stroke: rgba(34, 26, 19, 0.22);
       --radar-grid-stroke-strong: rgba(34, 26, 19, 0.3);
+      --tech-badge-border: rgba(34, 26, 19, 0.14);
+      --tech-grade-ink: var(--stamp-red);
+      --tech-grade-bg: rgba(139, 48, 35, 0.08);
+      --tech-category-ink: #5b4331;
+      --tech-category-bg: rgba(154, 117, 79, 0.12);
+      --tech-realm-level-ink: #4f3f1f;
+      --tech-realm-level-bg: rgba(196, 162, 99, 0.16);
+      --tech-realm-ink: #385a73;
+      --tech-realm-bg: rgba(74, 128, 168, 0.1);
+      --tech-progress-track: rgba(34, 26, 19, 0.08);
+      --tech-progress-fill-start: rgba(167, 64, 41, 0.88);
+      --tech-progress-fill-end: rgba(214, 138, 74, 0.92);
       --ui-font-size-hero: 52px;
       --ui-font-size-display: 38px;
       --ui-font-size-title: 22px;
@@ -152,6 +168,10 @@
       --chat-log-bg: rgba(19, 16, 14, 0.985);
       --map-rail-bg: linear-gradient(180deg, rgba(20, 17, 15, 0.99), rgba(14, 12, 10, 0.97));
       --map-rail-border: 1px solid rgba(246, 238, 224, 0.16);
+      --map-target-indicator-border: rgba(246, 238, 224, 0.22);
+      --map-target-indicator-bg: rgba(23, 20, 18, 0.9);
+      --map-target-indicator-ink: #fff0dc;
+      --map-target-indicator-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
       --collapse-rail-bg: rgba(24, 20, 18, 0.99);
       --collapse-rail-hover-bg: rgba(82, 69, 61, 0.99);
       --collapse-rail-text: #f6eee0;
@@ -188,4 +208,16 @@
       --tooltip-head-ink: var(--ink-black);
       --radar-grid-stroke: rgba(246, 238, 224, 0.28);
       --radar-grid-stroke-strong: rgba(246, 238, 224, 0.38);
+      --tech-badge-border: rgba(246, 238, 224, 0.18);
+      --tech-grade-ink: #ffb3a2;
+      --tech-grade-bg: rgba(211, 111, 92, 0.18);
+      --tech-category-ink: #efd1aa;
+      --tech-category-bg: rgba(154, 117, 79, 0.24);
+      --tech-realm-level-ink: #ffe0a4;
+      --tech-realm-level-bg: rgba(196, 162, 99, 0.24);
+      --tech-realm-ink: #b9ddff;
+      --tech-realm-bg: rgba(74, 128, 168, 0.22);
+      --tech-progress-track: rgba(246, 238, 224, 0.16);
+      --tech-progress-fill-start: rgba(214, 126, 92, 0.9);
+      --tech-progress-fill-end: rgba(255, 190, 122, 0.94);
     }

@@ -943,29 +943,23 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     const preferredRange = this.resolveAutoBattlePreferredRange(availableSkills);
 
     let target: ResolvedTarget | undefined;
+    let targetVisible = true;
 
     if (player.combatTargetLocked) {
       target = this.resolveCombatTarget(player);
-      if (target && !this.canPlayerSeeTarget(player, target, effectiveViewRange)) {
-        target = undefined;
+      if (!target) {
+        player.autoBattle = false;
         this.clearCombatTarget(player);
+        return {
+          messages: [{
+            playerId: player.id,
+            text: '强制攻击目标已经失去踪迹，自动战斗已停止。',
+            kind: 'combat',
+          }],
+          dirty: ['actions'],
+        };
       }
-      if (player.combatTargetLocked) {
-        if (!target) {
-          player.autoBattle = false;
-          this.clearCombatTarget(player);
-          return {
-            messages: [{
-              playerId: player.id,
-              text: '强制攻击目标已经失去踪迹，自动战斗已停止。',
-              kind: 'combat',
-            }],
-            dirty: ['actions'],
-          };
-        }
-      } else {
-        target = undefined;
-      }
+      targetVisible = this.canPlayerSeeTarget(player, target, effectiveViewRange);
     }
 
     if (!target) {
@@ -976,21 +970,24 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       }
       player.combatTargetId = this.getTargetRef(target);
       player.combatTargetLocked = false;
+      targetVisible = true;
     }
 
     const targetRef = this.getTargetRef(target);
 
-    const selectedSkill = this.selectAutoBattleSkillForTarget(player, target, availableSkills);
-    if (selectedSkill) {
-      const update = this.performTargetedSkill(player, selectedSkill.skill.id, targetRef);
-      if (update.consumedAction) {
-        return { ...update, usedActionId: selectedSkill.skill.id };
+    if (targetVisible) {
+      const selectedSkill = this.selectAutoBattleSkillForTarget(player, target, availableSkills);
+      if (selectedSkill) {
+        const update = this.performTargetedSkill(player, selectedSkill.skill.id, targetRef);
+        if (update.consumedAction) {
+          return { ...update, usedActionId: selectedSkill.skill.id };
+        }
       }
-    }
 
-    if (isPointInRange(player, target, 1)) {
-      this.faceToward(player, target.x, target.y);
-      return this.performBasicAttack(player, target);
+      if (isPointInRange(player, target, 1)) {
+        this.faceToward(player, target.x, target.y);
+        return this.performBasicAttack(player, target);
+      }
     }
 
     if (stationaryMode) {
@@ -2649,6 +2646,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
     if (monster.hp <= 0) {
       const expRecipients = this.resolveMonsterExpRecipients(monster, player);
+      const expReferenceRealmLv = this.resolveMonsterExpReferenceRealmLv(monster, player);
       monster.alive = false;
       monster.respawnLeft = Math.max(1, monster.respawnTicks);
       monster.temporaryBuffs = [];
@@ -2665,7 +2663,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         dirty.add(flag);
       }
 
-      this.distributeMonsterKillExp(monster, player, expRecipients, dirty, messages);
+      this.distributeMonsterKillExp(monster, player, expRecipients, expReferenceRealmLv, dirty, messages);
 
       for (const drop of monster.drops) {
         if (Math.random() > this.getEffectiveDropChance(player, drop)) continue;
@@ -2727,10 +2725,28 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return [killer];
   }
 
+  private resolveMonsterExpReferenceRealmLv(monster: RuntimeMonster, killer: PlayerState): number {
+    let maxDamage = 0;
+    let referencePlayer: PlayerState | undefined;
+    for (const [playerId, damage] of monster.damageContributors.entries()) {
+      if (damage <= maxDamage) {
+        continue;
+      }
+      const participant = this.playerService.getPlayer(playerId);
+      if (!participant) {
+        continue;
+      }
+      maxDamage = damage;
+      referencePlayer = participant;
+    }
+    return Math.max(1, Math.floor(referencePlayer?.realm?.realmLv ?? referencePlayer?.realmLv ?? killer.realm?.realmLv ?? killer.realmLv ?? 1));
+  }
+
   private distributeMonsterKillExp(
     monster: RuntimeMonster,
     killer: PlayerState,
     recipients: PlayerState[],
+    expReferenceRealmLv: number,
     killerDirty: Set<WorldDirtyFlag>,
     messages: WorldMessage[],
   ): void {
@@ -2741,6 +2757,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         monsterName: monster.name,
         expMultiplier: monster.expMultiplier,
         participantCount,
+        expReferenceRealmLv,
         isKiller: participant.id === killer.id,
       });
       if (combatExp.changed) {

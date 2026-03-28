@@ -44,6 +44,7 @@ export interface MapTargetingOverlayState {
   originX: number;
   originY: number;
   range: number;
+  visibleOnly?: boolean;
   shape?: TargetingShape;
   radius?: number;
   affectedCells?: GridPoint[];
