@@ -228,6 +228,23 @@ export class GmService {
     return null;
   }
 
+  /** GM 直接修改玩家账号名 */
+  async updateManagedPlayerAccount(playerId: string, username: string): Promise<string | null> {
+    const runtimeUserId = this.playerService.getUserIdByPlayerId(playerId);
+    const userId = runtimeUserId
+      ?? (await this.playerRepo.findOne({
+        where: { id: playerId },
+        select: { userId: true },
+      }))?.userId;
+
+    if (!userId) {
+      return '目标玩家没有可修改的账号';
+    }
+
+    await this.accountService.updateUsernameByGm(userId, username);
+    return null;
+  }
+
   getEditorCatalog(): GmEditorCatalogRes {
     return {
       techniques: this.contentService.getEditorTechniqueCatalog(),
@@ -461,6 +478,9 @@ export class GmService {
     const error = this.applyPlayerSnapshot(player, this.mergePlayerSnapshot(player, snapshot, section), true);
     if (error) return error;
     this.markDirty(player.id, this.getDirtyFlagsForSection(section));
+    void this.playerService.savePlayer(player.id).catch((saveError: Error) => {
+      this.logger.error(`GM 修改玩家落盘失败: ${player.id} ${saveError.message}`);
+    });
     return null;
   }
 
@@ -920,6 +940,7 @@ export class GmService {
         merged.baseAttrs = this.normalizeAttributes(snapshot.baseAttrs);
         merged.realmLv = snapshot.realmLv;
         merged.realm = snapshot.realm ? this.cloneObject(snapshot.realm) : undefined;
+        merged.foundation = snapshot.foundation;
         merged.revealedBreakthroughRequirementIds = Array.isArray(snapshot.revealedBreakthroughRequirementIds)
           ? [...snapshot.revealedBreakthroughRequirementIds]
           : [];

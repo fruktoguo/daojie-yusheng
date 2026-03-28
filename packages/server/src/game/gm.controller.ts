@@ -29,6 +29,7 @@ import {
   GmShortcutRunRes,
   GmSpawnBotsReq,
   GmStateRes,
+  GmUpdateManagedPlayerAccountReq,
   GmUpdateManagedPlayerPasswordReq,
   GmUpdateMapTickReq,
   GmUpdateMapTimeReq,
@@ -189,6 +190,19 @@ export class GmController {
     @Body() body: GmUpdateManagedPlayerPasswordReq,
   ): Promise<{ ok: true }> {
     const error = await this.gmService.updateManagedPlayerPassword(playerId, body?.newPassword ?? '');
+    if (error) {
+      throw new BadRequestException(error);
+    }
+    return { ok: true };
+  }
+
+  /** GM 直接修改玩家账号 */
+  @Put('players/:playerId/account')
+  async updatePlayerAccount(
+    @Param('playerId') playerId: string,
+    @Body() body: GmUpdateManagedPlayerAccountReq,
+  ): Promise<{ ok: true }> {
+    const error = await this.gmService.updateManagedPlayerAccount(playerId, body?.username ?? '');
     if (error) {
       throw new BadRequestException(error);
     }

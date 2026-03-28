@@ -12,10 +12,12 @@ import { PlayerService } from './player.service';
 import {
   normalizeDisplayName,
   normalizeRoleName,
+  normalizeUsername,
   resolveDisplayName,
   validateDisplayName,
   validatePassword,
   validateRoleName,
+  validateUsername,
 } from '../auth/account-validation';
 
 @Injectable()
@@ -65,6 +67,40 @@ export class AccountService {
     user.passwordHash = await bcrypt.hash(newPassword, 10);
     await this.userRepo.save(user);
     return { ok: true };
+  }
+
+  /** GM 直接修改账号名，必要时同步在线玩家的生效显示名 */
+  async updateUsernameByGm(userId: string, username: string): Promise<{ username: string }> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('用户不存在');
+    }
+
+    const normalizedUsername = normalizeUsername(username);
+    const usernameError = validateUsername(normalizedUsername);
+    if (usernameError) {
+      throw new BadRequestException(usernameError);
+    }
+
+    if (normalizedUsername === user.username) {
+      return { username: normalizedUsername };
+    }
+
+    const existing = await this.userRepo.findOne({ where: { username: normalizedUsername } });
+    if (existing && existing.id !== userId) {
+      throw new BadRequestException('账号已存在');
+    }
+
+    const previousDisplayName = resolveDisplayName(user.displayName, user.username);
+    user.username = normalizedUsername;
+    await this.userRepo.save(user);
+
+    const nextDisplayName = resolveDisplayName(user.displayName, user.username);
+    if (nextDisplayName !== previousDisplayName) {
+      await this.playerService.updatePlayerDisplayName(userId, nextDisplayName);
+    }
+
+    return { username: normalizedUsername };
   }
 
   /** 更新用户显示名称，同步到在线玩家状态 */

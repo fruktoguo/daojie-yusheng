@@ -12,7 +12,7 @@
           "name": "崩界天陨",
           "desc": "以裂岳真意锁住落点，轰然震塌一片地脉；命中、破招、暴击与体魄越高，塌势越重。",
           "cooldown": 1800,
-          "costMultiplier": 5,
+          "costMultiplier": 4,
           "range": 8,
           "targeting": {
             "shape": "box",
@@ -68,7 +68,7 @@
             }
           ],
           "unlockLevel": 10,
-          "cost": 360
+          "cost": 288
         }
       ],
       "layers": [
@@ -3272,9 +3272,9 @@
           "range": 9,
           "targeting": {
             "shape": "box",
-            "width": 6,
-            "height": 6,
-            "maxTargets": 36
+            "width": 7,
+            "height": 7,
+            "maxTargets": 49
           },
           "effects": [
             {

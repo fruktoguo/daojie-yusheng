@@ -877,6 +877,11 @@ export interface GmUpdateManagedPlayerPasswordReq {
   newPassword: string;
 }
 
+/** GM 直接修改玩家账号请求 */
+export interface GmUpdateManagedPlayerAccountReq {
+  username: string;
+}
+
 /** GM 管理的玩家元信息 */
 export interface GmManagedPlayerMeta {
   userId?: string;

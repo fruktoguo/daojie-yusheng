@@ -38,6 +38,7 @@ import {
   type GmSpawnBotsReq,
   type GmStateRes,
   type GmTriggerDatabaseBackupRes,
+  type GmUpdateManagedPlayerAccountReq,
   type GmUpdateManagedPlayerPasswordReq,
   type GmUpdatePlayerReq,
   type ItemStack,
@@ -1544,6 +1545,7 @@ function createDefaultPlayerSnapshot(source?: PlayerState): PlayerState {
     maxHp: 1,
     qi: 0,
     dead: false,
+    foundation: 0,
     baseAttrs: {
       constitution: 1,
       spirit: 1,
@@ -1930,10 +1932,17 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
       </div>
       ${account ? `
       <div class="editor-grid compact">
-        <div class="editor-field">
+        <label class="editor-field">
           <span>账号</span>
-          <div class="editor-code">${escapeHtml(account.username)}</div>
-        </div>
+          <input
+            id="player-account-username"
+            type="text"
+            autocomplete="off"
+            spellcheck="false"
+            value="${escapeHtml(account.username)}"
+            placeholder="输入登录账号"
+          />
+        </label>
         <div class="editor-field">
           <span>账号 ID</span>
           <div class="editor-code">${escapeHtml(account.userId)}</div>
@@ -1962,6 +1971,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
         </label>
       </div>
       <div class="button-row" style="margin-top: 10px;">
+        <button class="small-btn" type="button" data-action="save-player-account">修改账号</button>
         <button class="small-btn" type="button" data-action="save-player-password">修改账号密码</button>
       </div>
       <div class="editor-note">密码只会提交到服务端，并由服务端写入 bcrypt 哈希，不会以明文落库。</div>
@@ -2026,6 +2036,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
       <div class="editor-grid">
         ${selectField('当前境界', 'realmLv', typeof draft.realmLv === 'number' ? draft.realmLv : 1, getRealmCatalogOptions())}
         ${numberField('当前境界经验', 'realm.progress', draft.realm?.progress)}
+        ${numberField('底蕴', 'foundation', draft.foundation)}
       </div>
       <div class="editor-stat-grid" style="margin-top: 10px;">
         ${ATTR_KEYS.map((key) => numberField(ATTR_KEY_LABELS[key], `baseAttrs.${key}`, draft.baseAttrs[key])).join('')}
@@ -2327,13 +2338,17 @@ function render(): void {
   renderEditor(state);
 }
 
-function syncVisualEditorToDraft(): { ok: true } | { ok: false; message: string } {
+function getEditorTabSection(tab: GmPlayerUpdateSection | 'persisted'): HTMLElement | null {
+  return editorContentEl.querySelector<HTMLElement>(`[data-editor-tab="${tab}"]`);
+}
+
+function syncVisualEditorToDraft(scope?: ParentNode): { ok: true } | { ok: false; message: string } {
   if (!draftSnapshot) {
     return { ok: false, message: '当前没有可编辑角色' };
   }
 
   const next = clone(draftSnapshot);
-  const fields = editorContentEl.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('[data-bind]');
+  const fields = (scope ?? editorContentEl).querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('[data-bind]');
 
   for (const field of fields) {
     const path = field.dataset.bind;
@@ -2383,7 +2398,7 @@ function syncVisualEditorToDraft(): { ok: true } | { ok: false; message: string 
 }
 
 function mutateDraft(mutator: (draft: PlayerState) => void): boolean {
-  const synced = syncVisualEditorToDraft();
+  const synced = syncVisualEditorToDraft(getEditorTabSection(currentEditorTab) ?? undefined);
   if (!synced.ok) {
     setStatus(synced.message, true);
     return false;
@@ -2700,7 +2715,7 @@ async function saveSelectedPlayer(): Promise<void> {
     return;
   }
 
-  const synced = syncVisualEditorToDraft();
+  const synced = syncVisualEditorToDraft(getEditorTabSection(section) ?? undefined);
   if (!synced.ok || !draftSnapshot) {
     setStatus(synced.ok ? '当前没有可保存内容' : synced.message, true);
     return;
@@ -2751,6 +2766,44 @@ async function saveSelectedPlayerPassword(): Promise<void> {
     setStatus(`已修改账号 ${detail.account.username} 的密码，服务端已按哈希保存`);
   } catch (error) {
     setStatus(error instanceof Error ? error.message : '修改账号密码失败', true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
+async function saveSelectedPlayerAccount(): Promise<void> {
+  const detail = getSelectedPlayerDetail();
+  if (!detail?.account) {
+    setStatus('当前目标没有可修改的账号', true);
+    return;
+  }
+
+  const accountInput = editorContentEl.querySelector<HTMLInputElement>('#player-account-username');
+  const button = editorContentEl.querySelector<HTMLButtonElement>('[data-action="save-player-account"]');
+  const username = accountInput?.value.trim() ?? '';
+
+  if (!username) {
+    setStatus('请填写账号', true);
+    return;
+  }
+  if (username === detail.account.username) {
+    setStatus('账号未变化');
+    return;
+  }
+
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    await request<{ ok: true }>(`/gm/players/${encodeURIComponent(detail.id)}/account`, {
+      method: 'PUT',
+      body: JSON.stringify({ username } satisfies GmUpdateManagedPlayerAccountReq),
+    });
+    await delayRefresh(`已将账号从 ${detail.account.username} 修改为 ${username}`);
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '修改账号失败', true);
   } finally {
     if (button) {
       button.disabled = false;
@@ -3062,6 +3115,10 @@ editorContentEl.addEventListener('click', (event) => {
   const trigger = (event.target as HTMLElement).closest<HTMLElement>('[data-action]');
   const action = trigger?.dataset.action;
   if (!action || !trigger) return;
+  if (action === 'save-player-account') {
+    saveSelectedPlayerAccount().catch(() => {});
+    return;
+  }
   if (action === 'save-player-password') {
     saveSelectedPlayerPassword().catch(() => {});
     return;
@@ -3076,7 +3133,11 @@ editorContentEl.addEventListener('change', (event) => {
     updateInventoryAddControls(true);
     return;
   }
-  const synced = syncVisualEditorToDraft();
+  const synced = syncVisualEditorToDraft(
+    target instanceof Element
+      ? target.closest<HTMLElement>('[data-editor-tab]') ?? undefined
+      : undefined,
+  );
   if (!synced.ok) {
     setStatus(synced.message, true);
     return;
