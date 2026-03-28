@@ -48,6 +48,7 @@ import {
 } from './content/local-templates';
 import { assessMapDanger } from './utils/map-danger';
 
+import { bindInlineItemTooltips, renderTextWithInlineItemHighlights } from './ui/item-inline-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './ui/floating-tooltip';
 import { detailModalHost } from './ui/detail-modal-host';
 import { describePreviewBonuses } from './ui/stat-preview';
@@ -537,7 +538,7 @@ function openBreakthroughModal() {
       <div class="action-item breakthrough-requirement-item">
         <div class="action-copy">
           <div class="breakthrough-requirement-head">
-            <span class="action-name">${escapeHtml(requirement.label)}</span>
+            <span class="action-name">${renderTextWithInlineItemHighlights(requirement.label)}</span>
             <span class="action-type breakthrough-requirement-status ${requirement.completed ? 'is-completed' : 'is-unmet'}">
               [${getBreakthroughRequirementStatusLabel(requirement)}]
             </span>
@@ -545,7 +546,7 @@ function openBreakthroughModal() {
               ? `<span class="breakthrough-requirement-bonus">+${requirement.increasePct}%</span>`
               : ''}
           </div>
-          <div class="action-desc">${escapeHtml(getBreakthroughRequirementStatusDetail(requirement))}</div>
+          <div class="action-desc">${renderTextWithInlineItemHighlights(getBreakthroughRequirementStatusDetail(requirement))}</div>
         </div>
       </div>
     `).join('')
@@ -576,6 +577,7 @@ function openBreakthroughModal() {
       </div>
     `,
     onAfterRender: (body) => {
+      bindInlineItemTooltips(body);
       body.querySelector<HTMLElement>('[data-breakthrough-confirm]')?.addEventListener('click', () => {
         detailModalHost.close('realm:breakthrough');
         socket.sendAction('realm:breakthrough');

@@ -1,0 +1,258 @@
+import type { ItemStack } from '@mud/shared';
+import { getLocalItemTemplate } from '../content/local-templates';
+import { getMonsterLocationEntry } from '../content/monster-locations';
+import { LOCAL_EDITOR_CATALOG } from '../constants/world/editor-catalog';
+import { buildItemTooltipPayload } from './equipment-tooltip';
+import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
+
+type InlineItemChipTone = 'reward' | 'required' | 'material' | 'monster' | 'default';
+
+interface InlineItemMention {
+  itemId: string;
+  name: string;
+}
+
+interface RenderInlineItemChipOptions {
+  count?: number;
+  label?: string;
+  tone?: InlineItemChipTone;
+}
+
+const INLINE_REFERENCE_SELECTOR = '[data-inline-item-id], [data-inline-monster-id]';
+const inlineItemTooltip = new FloatingTooltip('floating-tooltip inline-item-tooltip');
+const boundRoots = new WeakSet<HTMLElement>();
+let activeTooltipNode: HTMLElement | null = null;
+
+const inlineItemMentions = LOCAL_EDITOR_CATALOG.items
+  .map((item) => ({ itemId: item.itemId, name: item.name.trim() }))
+  .filter((item): item is InlineItemMention => item.name.length > 0)
+  .sort((left, right) => right.name.length - left.name.length);
+
+const mentionCandidatesByFirstChar = inlineItemMentions.reduce((result, mention) => {
+  const firstChar = [...mention.name][0];
+  if (!firstChar) {
+    return result;
+  }
+  const bucket = result.get(firstChar) ?? [];
+  bucket.push(mention);
+  result.set(firstChar, bucket);
+  return result;
+}, new Map<string, InlineItemMention[]>());
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function escapeHtmlAttr(value: string): string {
+  return escapeHtml(value);
+}
+
+function normalizeCount(count: number | undefined): number {
+  if (!Number.isFinite(count)) {
+    return 1;
+  }
+  return Math.max(1, Math.floor(Number(count)));
+}
+
+function buildLocalItemStack(itemId: string, count = 1): ItemStack | null {
+  const template = getLocalItemTemplate(itemId);
+  if (!template) {
+    return null;
+  }
+  return {
+    itemId: template.itemId,
+    name: template.name,
+    type: template.type,
+    count: normalizeCount(count),
+    desc: template.desc ?? '',
+    groundLabel: template.groundLabel,
+    grade: template.grade,
+    level: template.level,
+    equipSlot: template.equipSlot,
+    equipAttrs: template.equipAttrs,
+    equipStats: template.equipStats,
+    equipValueStats: template.equipValueStats,
+    effects: template.effects,
+    tags: template.tags,
+  };
+}
+
+function resolveTooltipPayload(node: HTMLElement) {
+  const itemId = node.dataset.inlineItemId;
+  if (itemId) {
+    const itemCount = normalizeCount(Number.parseInt(node.dataset.inlineItemCount ?? '1', 10));
+    const fallbackName = node.dataset.inlineItemName?.trim() || itemId;
+    const stack = buildLocalItemStack(itemId, itemCount);
+    if (!stack) {
+      return {
+        title: fallbackName,
+        lines: [],
+        asideCards: [],
+        allowHtml: false,
+      };
+    }
+    return buildItemTooltipPayload(stack);
+  }
+  const monsterId = node.dataset.inlineMonsterId;
+  if (!monsterId) {
+    return null;
+  }
+  const fallbackName = node.dataset.inlineMonsterName?.trim() || monsterId;
+  const location = getMonsterLocationEntry(monsterId);
+  if (!location) {
+    return {
+      title: fallbackName,
+      lines: [],
+      asideCards: [],
+      allowHtml: false,
+    };
+  }
+  return {
+    title: location.monsterName || fallbackName,
+    lines: [
+      `出没地图：${location.mapName}`,
+      ...(typeof location.dangerLevel === 'number' ? [`地图等级：${location.dangerLevel}`] : []),
+      ...(location.totalMaps > 1 ? ['已优先显示地图等级更低的区域'] : []),
+    ],
+    asideCards: [],
+    allowHtml: false,
+  };
+}
+
+function showTooltip(node: HTMLElement, event: PointerEvent): void {
+  const tooltip = resolveTooltipPayload(node);
+  if (!tooltip) {
+    return;
+  }
+  activeTooltipNode = node;
+  inlineItemTooltip.show(tooltip.title, tooltip.lines, event.clientX, event.clientY, {
+    allowHtml: tooltip.allowHtml,
+    asideCards: tooltip.asideCards,
+  });
+}
+
+export function renderInlineItemChip(itemId: string, options?: RenderInlineItemChipOptions): string {
+  const template = getLocalItemTemplate(itemId);
+  const label = options?.label?.trim() || template?.name || itemId;
+  const count = options?.count;
+  const countText = Number.isFinite(count) ? ` x${normalizeCount(count)}` : '';
+  const tone = options?.tone ?? 'default';
+  return `<span class="inline-item-chip inline-item-chip--${tone}" data-inline-item-id="${escapeHtmlAttr(itemId)}" data-inline-item-name="${escapeHtmlAttr(label)}"${Number.isFinite(count) ? ` data-inline-item-count="${normalizeCount(count)}"` : ''}>${escapeHtml(label)}${countText ? `<span class="inline-item-chip-count">${escapeHtml(countText)}</span>` : ''}</span>`;
+}
+
+export function renderInlineMonsterChip(monsterId: string, options?: { label?: string }): string {
+  const location = getMonsterLocationEntry(monsterId);
+  const label = options?.label?.trim() || location?.monsterName || monsterId;
+  return `<span class="inline-item-chip inline-item-chip--monster" data-inline-monster-id="${escapeHtmlAttr(monsterId)}" data-inline-monster-name="${escapeHtmlAttr(label)}">${escapeHtml(label)}</span>`;
+}
+
+export function renderTextWithInlineItemHighlights(text: string): string {
+  if (!text.trim()) {
+    return '';
+  }
+
+  let html = '';
+  let index = 0;
+  while (index < text.length) {
+    const firstChar = text[index];
+    const candidates = mentionCandidatesByFirstChar.get(firstChar) ?? [];
+    const matched = candidates.find((candidate) => text.startsWith(candidate.name, index));
+    if (matched) {
+      html += renderInlineItemChip(matched.itemId, { label: matched.name, tone: 'material' });
+      index += matched.name.length;
+      continue;
+    }
+    html += escapeHtml(text[index] ?? '');
+    index += 1;
+  }
+  return html;
+}
+
+export function bindInlineItemTooltips(root: HTMLElement): void {
+  if (boundRoots.has(root)) {
+    return;
+  }
+  boundRoots.add(root);
+
+  const tapMode = prefersPinnedTooltipInteraction();
+
+  root.addEventListener('click', (event) => {
+    if (!tapMode || !(event instanceof PointerEvent)) {
+      return;
+    }
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+    const node = target.closest<HTMLElement>(INLINE_REFERENCE_SELECTOR);
+    if (!node) {
+      return;
+    }
+    if (inlineItemTooltip.isPinnedTo(node)) {
+      activeTooltipNode = null;
+      inlineItemTooltip.hide(true);
+      return;
+    }
+    const tooltip = resolveTooltipPayload(node);
+    if (!tooltip) {
+      return;
+    }
+    activeTooltipNode = node;
+    inlineItemTooltip.showPinned(node, tooltip.title, tooltip.lines, event.clientX, event.clientY, {
+      allowHtml: tooltip.allowHtml,
+      asideCards: tooltip.asideCards,
+    });
+    event.preventDefault();
+    event.stopPropagation();
+  }, true);
+
+  root.addEventListener('pointermove', (event) => {
+    if (!(event instanceof PointerEvent) || (tapMode && inlineItemTooltip.isPinned())) {
+      return;
+    }
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      if (activeTooltipNode && root.contains(activeTooltipNode)) {
+        activeTooltipNode = null;
+        inlineItemTooltip.hide();
+      }
+      return;
+    }
+    const node = target.closest<HTMLElement>(INLINE_REFERENCE_SELECTOR);
+    if (!node) {
+      if (activeTooltipNode && root.contains(activeTooltipNode) && !inlineItemTooltip.isPinnedTo(activeTooltipNode)) {
+        activeTooltipNode = null;
+        inlineItemTooltip.hide();
+      }
+      return;
+    }
+    if (activeTooltipNode !== node) {
+      showTooltip(node, event);
+      return;
+    }
+    inlineItemTooltip.move(event.clientX, event.clientY);
+  });
+
+  root.addEventListener('pointerleave', () => {
+    if (activeTooltipNode && root.contains(activeTooltipNode) && !inlineItemTooltip.isPinnedTo(activeTooltipNode)) {
+      activeTooltipNode = null;
+      inlineItemTooltip.hide();
+    }
+  });
+
+  root.addEventListener('pointerdown', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement) || target.closest(INLINE_REFERENCE_SELECTOR)) {
+      return;
+    }
+    if (activeTooltipNode && root.contains(activeTooltipNode) && !inlineItemTooltip.isPinnedTo(activeTooltipNode)) {
+      activeTooltipNode = null;
+      inlineItemTooltip.hide();
+    }
+  });
+}
