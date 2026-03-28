@@ -39,7 +39,7 @@
       "luck": 2
     },
     "statPercents": {
-      "maxHp": 78,
+      "maxHp": 30,
       "maxQi": 42,
       "physAtk": 110,
       "spellAtk": 25,
@@ -98,7 +98,7 @@
       "luck": 2
     },
     "statPercents": {
-      "maxHp": 78,
+      "maxHp": 30,
       "maxQi": 42,
       "physAtk": 110,
       "spellAtk": 25,

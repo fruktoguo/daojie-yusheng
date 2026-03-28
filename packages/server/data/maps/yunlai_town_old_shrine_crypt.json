@@ -3,6 +3,8 @@
   "name": "云来镇·旧祠暗室",
   "width": 16,
   "height": 10,
+  "routeDomain": "system",
+  "terrainProfileId": "mortal_settlement",
   "parentMapId": "yunlai_town",
   "parentOriginX": 11,
   "parentOriginY": 11,
@@ -10,6 +12,8 @@
   "floorName": "暗室",
   "spaceVisionMode": "parent_overlay",
   "description": "旧祠供桌下还压着一间暗室，潮气重，香灰和纸钱味一直散不干净。",
+  "dangerLevel": 1,
+  "recommendedRealm": "Entry",
   "tiles": [
     "################",
     "#......oo......#",
@@ -30,11 +34,12 @@
       "targetX": 18,
       "targetY": 15,
       "kind": "stairs",
-      "trigger": "auto"
+      "trigger": "auto",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false
     }
   ],
-  "dangerLevel": 1,
-  "recommendedRealm": "Entry",
   "spawnPoint": {
     "x": 8,
     "y": 7
@@ -45,17 +50,18 @@
     "light": {
       "base": 18,
       "timeInfluence": 4
-    }
+    },
+    "palette": {}
   },
   "auras": [
     {
-      "x": 7,
-      "y": 6,
+      "x": 10,
+      "y": 5,
       "value": 1
     },
     {
-      "x": 6,
-      "y": 6,
+      "x": 5,
+      "y": 5,
       "value": 2
     },
     {
@@ -64,6 +70,7 @@
       "value": 1
     }
   ],
+  "safeZones": [],
   "landmarks": [
     {
       "id": "lm_old_shrine_crypt_casket",
@@ -76,6 +83,7 @@
         "refreshTicks": 2400,
         "char": "匣",
         "color": "#7b685a",
+        "drops": [],
         "lootPools": [
           {
             "chance": 0.25,
@@ -89,7 +97,8 @@
               [
                 "丹药"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.25,
@@ -102,7 +111,8 @@
               [
                 "蛛丝"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.04,
@@ -115,7 +125,8 @@
               [
                 "步法"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           }
         ]
       }
@@ -131,6 +142,7 @@
         "refreshTicks": 2200,
         "char": "案",
         "color": "#745e4a",
+        "drops": [],
         "lootPools": [
           {
             "chance": 0.3,
@@ -144,7 +156,8 @@
               [
                 "丹药"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.18,
@@ -157,7 +170,8 @@
               [
                 "蛛丝"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.04,
@@ -170,7 +184,8 @@
               [
                 "步法"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           }
         ]
       }
@@ -186,6 +201,7 @@
         "refreshTicks": 2100,
         "char": "盒",
         "color": "#736252",
+        "drops": [],
         "lootPools": [
           {
             "chance": 0.25,
@@ -199,7 +215,8 @@
               [
                 "丹药"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.25,
@@ -212,7 +229,8 @@
               [
                 "蛛丝"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           },
           {
             "chance": 0.04,
@@ -225,13 +243,13 @@
               [
                 "步法"
               ]
-            ]
+            ],
+            "allowDuplicates": false
           }
         ]
       }
     }
   ],
   "npcs": [],
-  "monsterSpawns": [],
-  "terrainProfileId": "mortal_settlement"
+  "monsterSpawns": []
 }

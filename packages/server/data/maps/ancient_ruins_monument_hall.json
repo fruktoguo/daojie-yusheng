@@ -47,9 +47,17 @@
     "light": {
       "base": 12,
       "timeInfluence": 22
-    }
+    },
+    "palette": {}
   },
-  "auras": [],
+  "auras": [
+    {
+      "x": 14,
+      "y": 5,
+      "value": 3
+    }
+  ],
+  "safeZones": [],
   "landmarks": [
     {
       "id": "lm_monument_hall_arbiter_seat",
@@ -64,7 +72,8 @@
     {
       "id": "m_stele_arbiter",
       "x": 13,
-      "y": 5
+      "y": 5,
+      "respawnTicks": 15
     }
   ]
 }

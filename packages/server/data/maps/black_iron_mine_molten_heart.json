@@ -47,9 +47,17 @@
     "light": {
       "base": 10,
       "timeInfluence": 0
-    }
+    },
+    "palette": {}
   },
-  "auras": [],
+  "auras": [
+    {
+      "x": 14,
+      "y": 5,
+      "value": 3
+    }
+  ],
+  "safeZones": [],
   "landmarks": [
     {
       "id": "lm_molten_heart_crucible",
@@ -64,7 +72,8 @@
     {
       "id": "m_iron_devour_lord",
       "x": 13,
-      "y": 5
+      "y": 5,
+      "respawnTicks": 15
     }
   ]
 }

@@ -47,9 +47,17 @@
     "light": {
       "base": 24,
       "timeInfluence": 18
-    }
+    },
+    "palette": {}
   },
-  "auras": [],
+  "auras": [
+    {
+      "x": 14,
+      "y": 4,
+      "value": 4
+    }
+  ],
+  "safeZones": [],
   "landmarks": [
     {
       "id": "lm_old_gate_platform",
@@ -64,7 +72,8 @@
     {
       "id": "m_spine_gate_lord",
       "x": 13,
-      "y": 4
+      "y": 4,
+      "respawnTicks": 15
     }
   ]
 }
