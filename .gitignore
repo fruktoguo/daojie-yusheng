@@ -6,3 +6,4 @@ dist/
 参考/
 packages/server/data/gm-config.json
 packages/server/data/runtime/
+packages/server/data/backups/
