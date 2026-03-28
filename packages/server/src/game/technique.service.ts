@@ -106,52 +106,53 @@ interface RealmExpAdvanceOptions {
 const HEAVEN_GATE_REALM_LEVEL = 18;
 const HEAVEN_GATE_MAX_SEVERED = 4;
 const HEAVEN_GATE_ROOTS_SOURCE = 'heaven_gate:roots';
+const HEAVEN_GATE_REROLL_AVERAGE_BONUS = 2;
 const HEAVEN_GATE_AVERAGE_QUALITY_SEGMENTS: Record<number, Array<{ min: number; max: number; weight: number }>> = {
   5: [
-    { min: 1, max: 15, weight: 12 },
-    { min: 16, max: 30, weight: 32 },
-    { min: 31, max: 45, weight: 28 },
-    { min: 46, max: 60, weight: 15 },
-    { min: 61, max: 75, weight: 8 },
-    { min: 76, max: 99, weight: 4.99 },
-    { min: 100, max: 100, weight: 0.01 },
+    { min: 1, max: 15, weight: 35 },
+    { min: 16, max: 30, weight: 35 },
+    { min: 31, max: 45, weight: 18 },
+    { min: 46, max: 60, weight: 8 },
+    { min: 61, max: 75, weight: 2.95 },
+    { min: 76, max: 99, weight: 1 },
+    { min: 100, max: 100, weight: 0.05 },
   ],
   4: [
-    { min: 1, max: 15, weight: 8 },
-    { min: 16, max: 32, weight: 22 },
-    { min: 33, max: 50, weight: 30 },
-    { min: 51, max: 66, weight: 20 },
-    { min: 67, max: 82, weight: 12 },
-    { min: 83, max: 99, weight: 7.99 },
-    { min: 100, max: 100, weight: 0.01 },
+    { min: 1, max: 15, weight: 32 },
+    { min: 16, max: 32, weight: 33 },
+    { min: 33, max: 50, weight: 18 },
+    { min: 51, max: 66, weight: 8 },
+    { min: 67, max: 82, weight: 4.8 },
+    { min: 83, max: 99, weight: 4 },
+    { min: 100, max: 100, weight: 0.2 },
   ],
   3: [
-    { min: 1, max: 12, weight: 5 },
-    { min: 13, max: 30, weight: 14 },
-    { min: 31, max: 50, weight: 24 },
-    { min: 51, max: 68, weight: 26 },
-    { min: 69, max: 84, weight: 18 },
-    { min: 85, max: 99, weight: 12.99 },
-    { min: 100, max: 100, weight: 0.01 },
+    { min: 1, max: 12, weight: 17 },
+    { min: 13, max: 30, weight: 23 },
+    { min: 31, max: 50, weight: 27 },
+    { min: 51, max: 68, weight: 18 },
+    { min: 69, max: 84, weight: 9.2 },
+    { min: 85, max: 99, weight: 5.3 },
+    { min: 100, max: 100, weight: 0.5 },
   ],
   2: [
-    { min: 1, max: 10, weight: 3 },
-    { min: 11, max: 25, weight: 8 },
-    { min: 26, max: 45, weight: 16 },
-    { min: 46, max: 65, weight: 24 },
-    { min: 66, max: 82, weight: 24 },
-    { min: 83, max: 99, weight: 24.99 },
-    { min: 100, max: 100, weight: 0.01 },
+    { min: 1, max: 10, weight: 10 },
+    { min: 11, max: 25, weight: 13 },
+    { min: 26, max: 45, weight: 21 },
+    { min: 46, max: 65, weight: 23 },
+    { min: 66, max: 82, weight: 16.5 },
+    { min: 83, max: 99, weight: 15.5 },
+    { min: 100, max: 100, weight: 1 },
   ],
   1: [
-    { min: 1, max: 8, weight: 2 },
-    { min: 9, max: 20, weight: 4 },
+    { min: 1, max: 8, weight: 1 },
+    { min: 9, max: 20, weight: 3 },
     { min: 21, max: 40, weight: 10 },
-    { min: 41, max: 60, weight: 18 },
+    { min: 41, max: 60, weight: 16 },
     { min: 61, max: 78, weight: 24 },
-    { min: 79, max: 92, weight: 24 },
-    { min: 93, max: 99, weight: 17.99 },
-    { min: 100, max: 100, weight: 0.01 },
+    { min: 79, max: 92, weight: 23 },
+    { min: 93, max: 99, weight: 20 },
+    { min: 100, max: 100, weight: 3 },
   ],
 };
 const HEAVEN_GATE_DISTRIBUTION_SPREAD: Record<number, number> = {
@@ -240,6 +241,7 @@ export class TechniqueService {
       : [];
     const roots = this.normalizeHeavenGateRoots(raw.roots);
     const entered = raw.entered === true;
+    const averageBonus = Math.max(0, Math.floor(Number(raw.averageBonus ?? 0) || 0));
     const unlocked = raw.unlocked === true || entered || roots !== null || severed.length > 0;
     if (!unlocked && severed.length === 0 && roots === null) {
       return null;
@@ -249,6 +251,7 @@ export class TechniqueService {
       severed,
       roots,
       entered,
+      averageBonus,
     };
   }
 
@@ -298,6 +301,7 @@ export class TechniqueService {
         severed: [...severed],
         roots: null,
         entered: false,
+        averageBonus: heavenGate.averageBonus,
       };
       this.applyResolvedRealmState(player, this.normalizeRealmState(realm.realmLv, Math.max(0, realm.progress - cost)));
       return {
@@ -313,12 +317,13 @@ export class TechniqueService {
       if (heavenGate.entered) {
         return { error: '当前已入天门，无法再重开天门', dirty: [], messages: [] };
       }
-      const roots = this.rollHeavenGateRoots(heavenGate.severed);
+      const roots = this.rollHeavenGateRoots(heavenGate.severed, heavenGate.averageBonus);
       player.heavenGate = {
         unlocked: true,
         severed: [...heavenGate.severed],
         roots,
         entered: false,
+        averageBonus: heavenGate.averageBonus,
       };
       this.syncRealmPresentation(player, this.normalizeRealmState(realm.realmLv, realm.progress));
       const total = ELEMENT_KEYS.reduce((sum, key) => sum + roots[key], 0);
@@ -347,12 +352,13 @@ export class TechniqueService {
         severed: [...heavenGate.severed],
         roots: null,
         entered: false,
+        averageBonus: heavenGate.averageBonus + HEAVEN_GATE_REROLL_AVERAGE_BONUS,
       };
       this.applyResolvedRealmState(player, this.normalizeRealmState(realm.realmLv, Math.max(0, realm.progress - cost)));
       return {
         dirty: ['attr', 'actions'],
         messages: [{
-          text: `逆天改命消耗 ${cost} 点境界经验，请重新开天门。`,
+          text: `逆天改命消耗 ${cost} 点境界经验，后续开天门平均品质加成提升至 +${heavenGate.averageBonus + HEAVEN_GATE_REROLL_AVERAGE_BONUS}。`,
           kind: 'quest',
         }],
       };
@@ -371,6 +377,7 @@ export class TechniqueService {
       severed: [...heavenGate.severed],
       roots: resolvedRoots,
       entered: true,
+      averageBonus: heavenGate.averageBonus,
     };
     this.applyTechniqueBonuses(player);
     this.attrService.recalcPlayer(player);
@@ -406,6 +413,7 @@ export class TechniqueService {
       severed: [],
       roots: null,
       entered: false,
+      averageBonus: 0,
     };
     player.spiritualRoots = null;
     const readyState = this.normalizeRealmState(
@@ -1267,6 +1275,7 @@ export class TechniqueService {
       severed: persisted?.severed ?? [],
       roots: resolvedRoots,
       entered,
+      averageBonus: persisted?.averageBonus ?? 0,
     };
     player.heavenGate = nextState;
     return nextState;
@@ -1352,11 +1361,13 @@ export class TechniqueService {
     return result;
   }
 
-  private rollHeavenGateRoots(severed: readonly ElementKey[]): HeavenGateRootValues {
+  private rollHeavenGateRoots(severed: readonly ElementKey[], averageBonus: number): HeavenGateRootValues {
     const remaining = ELEMENT_KEYS.filter((element) => !severed.includes(element));
     const segments = HEAVEN_GATE_AVERAGE_QUALITY_SEGMENTS[remaining.length] ?? HEAVEN_GATE_AVERAGE_QUALITY_SEGMENTS[1];
     const segment = this.weightedPickHeavenGateSegment(segments);
-    const average = this.randomHeavenGateInt(segment.min, segment.max);
+    const average = segment.min === 100 && segment.max === 100
+      ? 100
+      : Math.min(99, this.randomHeavenGateInt(segment.min, segment.max) + Math.max(0, averageBonus));
     return this.distributeHeavenGateRoots(average * remaining.length, remaining);
   }
 

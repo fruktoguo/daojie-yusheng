@@ -658,6 +658,7 @@ export interface HeavenGateState {
   severed: ElementKey[];
   roots: HeavenGateRootValues | null;
   entered: boolean;
+  averageBonus: number;
 }
 
 /** 玩家大境界状态 */
