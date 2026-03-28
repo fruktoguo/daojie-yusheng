@@ -5,7 +5,7 @@ import { formatDisplayInteger } from '../utils/number';
 import { clientToViewportPoint } from './responsive-viewport';
 
 const HEAVEN_GATE_OWNER = 'realm:heaven_gate';
-const HEAVEN_GATE_REALM_NAME = '叩仙门';
+const HEAVEN_GATE_MIN_REALM_LEVEL = 18;
 const ELEMENTS: readonly ElementKey[] = ['metal', 'wood', 'water', 'fire', 'earth'];
 
 type PendingAction =
@@ -55,7 +55,7 @@ function cloneRoots(roots: HeavenGateRootValues | null | undefined): HeavenGateR
 
 function getHeavenGateState(player: PlayerState | null | undefined): HeavenGateState | null {
   const realm = player?.realm;
-  if (!realm || realm.displayName !== HEAVEN_GATE_REALM_NAME) {
+  if (!realm || realm.realmLv < HEAVEN_GATE_MIN_REALM_LEVEL) {
     return null;
   }
   return realm.heavenGate ?? player?.heavenGate ?? null;
@@ -64,7 +64,7 @@ function getHeavenGateState(player: PlayerState | null | undefined): HeavenGateS
 function buildSession(player: PlayerState): HeavenGateSession | null {
   const realm = player.realm;
   const heavenGate = getHeavenGateState(player);
-  if (!realm || realm.displayName !== HEAVEN_GATE_REALM_NAME || !heavenGate?.unlocked) {
+  if (!realm || realm.realmLv < HEAVEN_GATE_MIN_REALM_LEVEL || !heavenGate?.unlocked) {
     return null;
   }
   if (heavenGate.entered === true) {
@@ -474,7 +474,7 @@ function renderHeavenGateModal(player: PlayerState, session: HeavenGateSession, 
     ownerId: HEAVEN_GATE_OWNER,
     variantClass: 'detail-modal--heaven-gate',
     title: '开天门',
-    subtitle: `${player.realm?.displayName ?? HEAVEN_GATE_REALM_NAME}`,
+    subtitle: `${player.realm?.displayName ?? '开天门'}`,
     hint: '点击空白处关闭',
     bodyHtml: `
       <div class="heaven-gate-shell">

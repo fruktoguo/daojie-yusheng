@@ -263,7 +263,7 @@ export class TechniqueService {
   ): HeavenGateActionResult {
     this.initializePlayerProgression(player);
     const realm = player.realm;
-    if (!realm || realm.realmLv !== HEAVEN_GATE_REALM_LEVEL) {
+    if (!realm || !this.hasReachedHeavenGateRealm(realm.realmLv)) {
       return { error: '当前境界不可开天门', dirty: [], messages: [] };
     }
 
@@ -718,16 +718,17 @@ export class TechniqueService {
   getBreakthroughAction(player: PlayerState): ActionDef | null {
     this.ensurePlayerProgressionInitialized(player);
     const realm = player.realm;
-    if (!realm?.breakthroughReady || !realm.breakthrough) return null;
-    if (realm.realmLv === HEAVEN_GATE_REALM_LEVEL && !this.hasCompletedHeavenGate(player)) {
+    if (!realm) return null;
+    if (this.requiresHeavenGateCompletion(player, realm)) {
       return {
         id: 'realm:breakthrough',
         name: '开天门',
         type: 'breakthrough',
-        desc: '当前境界已圆满，可尝试开天门。',
+        desc: '当前仍有未完成的开天门前置，需先入天门后才能继续后续突破。',
         cooldownLeft: 0,
       };
     }
+    if (!realm.breakthroughReady || !realm.breakthrough) return null;
     return {
       id: 'realm:breakthrough',
       name: `突破至 ${realm.breakthrough.targetDisplayName}`,
@@ -744,15 +745,9 @@ export class TechniqueService {
     if (!realm) {
       return { error: '当前境界状态异常', dirty: [], messages: [] };
     }
-    if (realm.realmLv === HEAVEN_GATE_REALM_LEVEL) {
-      if (this.hasCompletedHeavenGate(player)) {
-        if (!realm.breakthroughReady || !realm.breakthrough) {
-          return { error: '你的境界火候未到，尚不能突破', dirty: [], messages: [] };
-        }
-        return this.completeBreakthrough(player, realm);
-      }
+    if (this.requiresHeavenGateCompletion(player, realm)) {
       return {
-        error: player.heavenGate?.roots ? '请在开天门界面确认入天门' : '叩仙门突破前需先完成开天门并入天门',
+        error: player.heavenGate?.roots ? '请在开天门界面确认入天门' : '当前仍需先完成开天门并入天门',
         dirty: [],
         messages: [],
       };
@@ -1260,7 +1255,7 @@ export class TechniqueService {
   }
 
   private syncHeavenGateState(player: PlayerState, realm: PlayerRealmState): HeavenGateState | null {
-    if (realm.realmLv !== HEAVEN_GATE_REALM_LEVEL) {
+    if (!this.hasReachedHeavenGateRealm(realm.realmLv)) {
       player.heavenGate = null;
       return null;
     }
@@ -1269,7 +1264,7 @@ export class TechniqueService {
       ? this.cloneHeavenGateRoots(persisted.roots)
       : this.normalizeHeavenGateRoots(player.spiritualRoots);
     const entered = persisted?.entered === true || resolvedRoots !== null && player.spiritualRoots !== null;
-    const unlocked = persisted?.unlocked === true || entered || realm.breakthroughReady;
+    const unlocked = persisted?.unlocked === true || entered || this.hasReachedHeavenGateRealm(realm.realmLv);
     if (!unlocked && !resolvedRoots && (persisted?.severed.length ?? 0) === 0) {
       player.heavenGate = null;
       return null;
