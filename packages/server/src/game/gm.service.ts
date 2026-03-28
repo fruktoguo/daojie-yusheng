@@ -675,11 +675,12 @@ export class GmService {
     const nextMapId = typeof snapshot.mapId === 'string' ? snapshot.mapId : player.mapId;
     const nextX = this.normalizeInt(snapshot.x, player.x);
     const nextY = this.normalizeInt(snapshot.y, player.y);
+    const positionChanged = nextMapId !== player.mapId || nextX !== player.x || nextY !== player.y;
 
     if (!this.mapService.getMapMeta(nextMapId)) {
       return '目标地图不存在';
     }
-    if (!this.canSetPosition(nextMapId, nextX, nextY, player.id, runtime)) {
+    if (positionChanged && !this.canSetPosition(nextMapId, nextX, nextY, player.id, runtime)) {
       return '目标坐标不可站立或已被占用';
     }
 

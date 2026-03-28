@@ -500,13 +500,13 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   private scheduleNextTick(mapId: string, delay: number) {
-    if (this.pausedMaps.has(mapId)) {
-      this.timers.delete(mapId);
-      return;
-    }
     const timer = setTimeout(() => {
       const start = Date.now();
-      this.tick(mapId, start);
+      if (this.pausedMaps.has(mapId)) {
+        this.tickPausedMap(mapId);
+      } else {
+        this.tick(mapId, start);
+      }
       const elapsed = Date.now() - start;
       this.performanceService.recordTick(elapsed);
       const effectiveInterval = this.getEffectiveInterval(mapId);
@@ -579,14 +579,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     const activePlayerIds = new Set<string>();
 
     this.measureCpuSection('gm_commands', 'GM 指令处理', () => {
-      for (const command of gmCommands) {
-        const error = this.gmService.applyCommand(command);
-        if (!error) continue;
-
-        if ('playerId' in command && typeof command.playerId === 'string') {
-          messages.push({ playerId: command.playerId, text: error, kind: 'system' });
-        }
-      }
+      this.processGmCommands(gmCommands, affectedPlayers, activePlayerIds, messages);
     });
 
     const lootTick = this.measureCpuSection('loot', '掉落与容器', () => this.lootService.tick(mapId, this.playerService.getPlayersByMap(mapId)));
@@ -999,6 +992,30 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     this.ensureMapTicks();
   }
 
+  private tickPausedMap(mapId: string): void {
+    this.ensureMapTicks();
+    const messages: WorldMessage[] = [];
+    const affectedPlayers = new Map<string, PlayerState>();
+    const activePlayerIds = new Set<string>();
+    const gmCommands = this.measureCpuSection('gm_commands', 'GM 指令处理', () => this.gmService.drainCommands(mapId));
+    if (gmCommands.length === 0) {
+      return;
+    }
+
+    this.measureCpuSection('gm_commands', 'GM 指令处理', () => {
+      this.processGmCommands(gmCommands, affectedPlayers, activePlayerIds, messages);
+    });
+
+    if (affectedPlayers.size > 0) {
+      this.flushDirtyUpdates([...affectedPlayers.values()]);
+      this.broadcastTicks(mapId, this.playerService.getPlayersByMap(mapId), 0);
+    }
+    if (messages.length > 0) {
+      this.measureCpuSection('broadcast_messages', '广播: 系统消息分发', () => {
+        this.flushMessages(messages);
+      });
+    }
+  }
 
   /** 确保所有已加载地图都有对应的 tick 循环 */
   private ensureMapTicks() {
@@ -1560,6 +1577,32 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
+  private processGmCommands(
+    commands: ReturnType<GmService['drainCommands']>,
+    affectedPlayers: Map<string, PlayerState>,
+    activePlayerIds: Set<string>,
+    messages: WorldMessage[],
+  ): void {
+    for (const command of commands) {
+      const error = this.gmService.applyCommand(command);
+      if (!error) {
+        if ('playerId' in command && typeof command.playerId === 'string') {
+          const player = this.playerService.getPlayer(command.playerId);
+          if (player) {
+            affectedPlayers.set(player.id, player);
+            this.markPlayerActive(player, activePlayerIds);
+            this.forcedTickSyncPlayers.add(player.id);
+            this.resetPlayerSyncState(player.id);
+          }
+        }
+        continue;
+      }
+
+      if ('playerId' in command && typeof command.playerId === 'string') {
+        messages.push({ playerId: command.playerId, text: error, kind: 'system' });
+      }
+    }
+  }
 
   private markActionsDirty(playerId: string): void {
     this.cooldownOnlyActionDirtyPlayers.delete(playerId);
