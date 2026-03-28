@@ -858,7 +858,7 @@ export class AttrPanel {
         opacity: 0.9;
       }
       .attr-radar-label {
-        font-family: var(--font-heading-sub);
+        font-family: var(--font-body);
         font-size: var(--font-size-12);
         fill: var(--ink-black);
       }

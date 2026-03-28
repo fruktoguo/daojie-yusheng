@@ -97,7 +97,7 @@
       background: transparent;
       border: none;
       border-bottom: 1px solid var(--wash-ink);
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-14);
       color: var(--panel-tab-text);
       cursor: pointer;
@@ -366,7 +366,7 @@
       stroke-width: 1.5;
     }
     .attr-radar-label {
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-12);
       fill: var(--ink-black);
     }
@@ -429,7 +429,7 @@
       border: 1px solid rgba(34, 26, 19, 0.16);
       background: var(--surface-muted-strong);
       color: var(--ink-grey);
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-12);
       cursor: pointer;
       transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
@@ -489,7 +489,7 @@
       align-items: center;
       justify-content: center;
       text-align: center;
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-15);
       line-height: 1.28;
       color: var(--ink-black);
@@ -531,7 +531,7 @@
       padding: 2px 8px;
       background: transparent;
       border: 1px solid var(--ink-black);
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-12);
       cursor: pointer;
       color: var(--ink-black);
@@ -585,7 +585,7 @@
       gap: 3px;
       min-width: 0;
     }
-    .equip-slot-name { font-family: var(--font-heading-sub); font-size: var(--font-size-14); color: var(--ink-grey); min-width: 40px; }
+    .equip-slot-name { font-family: var(--font-body); font-size: var(--font-size-14); color: var(--ink-grey); min-width: 40px; }
     .equip-slot-item { font-size: var(--font-size-13); color: var(--ink-black); }
     .equip-slot-empty { font-size: var(--font-size-13); color: var(--ink-light); font-style: italic; }
     .equip-slot-meta { font-size: var(--font-size-12); color: var(--ink-grey); }
@@ -729,7 +729,7 @@
       min-width: 0;
       flex-wrap: wrap;
     }
-    .tech-name { font-family: var(--font-heading-sub); font-size: var(--font-size-15); color: var(--ink-black); }
+    .tech-name { font-family: var(--font-body); font-size: var(--font-size-15); color: var(--ink-black); }
     .tech-badge {
       display: inline-flex;
       align-items: center;
@@ -775,7 +775,7 @@
       color: var(--ink-grey);
     }
     .tech-progress-text {
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       color: var(--ink-black);
     }
     .tech-progress-bar {
@@ -934,7 +934,7 @@
       margin-bottom: 8px;
     }
     .chronicle-entry-time {
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       color: var(--stamp-red);
       letter-spacing: 1px;
     }
@@ -1047,7 +1047,7 @@
       margin-bottom: 12px;
     }
     .account-settings-field label {
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-14);
       color: var(--ink-dark);
     }
@@ -1120,7 +1120,7 @@
       letter-spacing: 0.08em;
     }
     .suggestion-stat-value {
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-24);
       color: var(--ink-black);
       line-height: 1;
@@ -1167,7 +1167,7 @@
       border: 1px solid var(--ink-light);
       background: var(--surface-base);
       color: var(--ink-grey);
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-13);
       cursor: pointer;
       transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
@@ -1237,7 +1237,7 @@
       gap: 6px;
     }
     .suggestion-field label {
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-14);
       color: var(--ink-dark);
     }
@@ -1316,7 +1316,7 @@
       gap: 6px;
     }
     .suggestion-entry-title {
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-15);
       color: var(--ink-black);
       line-height: 1.4;
@@ -1364,7 +1364,7 @@
     }
     .suggestion-score {
       margin-left: auto;
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-13);
       color: var(--ink-grey);
     }
@@ -1449,7 +1449,7 @@
       margin-bottom: 6px;
     }
     .suggestion-reply-author {
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-13);
       color: var(--ink-black);
     }
@@ -1501,7 +1501,7 @@
       border: 1px solid var(--ink-light);
       background: var(--surface-elevated);
       color: var(--ink-grey);
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-14);
       cursor: pointer;
       transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
@@ -1561,7 +1561,7 @@
       min-width: 0;
     }
     .settings-ui-level-name {
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-14);
       color: var(--ink-black);
     }
@@ -1611,7 +1611,7 @@
       line-height: 1;
     }
     .settings-ui-level-preview--display {
-      font-family: var(--font-heading-main);
+      font-family: var(--font-heading-sub);
       font-size: var(--ui-font-size-display);
       line-height: 1;
     }
@@ -1697,7 +1697,7 @@
       color: var(--ink-grey);
     }
     .tech-modal-label {
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-12);
       color: var(--ink-black);
     }
@@ -2093,7 +2093,7 @@
       border-radius: 0;
       background: transparent;
       box-shadow: none;
-      font-family: 'Zhi Mang Xing', 'Ma Shan Zheng', serif;
+      font-family: var(--font-heading-sub);
       font-size: 46px;
       line-height: 1;
       text-shadow: 2px 2px 0 rgba(255, 248, 236, 0.78);
@@ -2174,7 +2174,7 @@
       top: 0;
       transform: translate(-50%, -58%) rotate(8deg);
       color: var(--ink-black);
-      font-family: 'Zhi Mang Xing', 'Ma Shan Zheng', serif;
+      font-family: var(--font-heading-sub);
       font-size: 38px;
       line-height: 1;
       pointer-events: none;
@@ -2193,7 +2193,7 @@
     .heaven-gate-line-value {
       position: absolute;
       transform: translate(-50%, -50%);
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: 20px;
       text-shadow: 1px 1px 0 rgba(255, 248, 236, 0.88);
       white-space: nowrap;
@@ -2360,7 +2360,7 @@
       color: #f7efda;
       font-size: var(--font-size-11);
       line-height: 1;
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
     }
     .floating-tooltip-aside-detail {
       display: grid;
@@ -2421,7 +2421,7 @@
       color: var(--tooltip-buff-mark-ink);
       font-size: var(--font-size-11);
       line-height: 1;
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
     }
     .skill-tooltip-buff-meta {
       color: var(--ink-grey);
@@ -2585,7 +2585,7 @@
       border: 1px solid var(--wash-ink);
       background: var(--surface-muted);
       color: var(--ink-grey);
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-12);
       cursor: pointer;
       transition: all 0.18s ease;
@@ -2630,7 +2630,7 @@
       margin-bottom: 4px;
     }
     .quest-title {
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-15);
       color: var(--ink-black);
     }
@@ -2675,7 +2675,7 @@
       color: var(--ink-grey);
     }
     .quest-detail-line {
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-12);
       color: var(--stamp-red);
       letter-spacing: 0.08em;
@@ -2696,7 +2696,7 @@
       color: var(--ink-grey);
     }
     .quest-detail-section strong {
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-12);
       color: var(--ink-black);
     }
@@ -2825,7 +2825,7 @@
       border: 1px solid var(--wash-ink);
       background: var(--surface-muted);
       color: var(--ink-grey);
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       cursor: pointer;
       transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
     }
@@ -2892,7 +2892,7 @@
     }
     .market-category-tab span {
       color: var(--stamp-red);
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
     }
     .market-board {
       display: grid;
@@ -3301,7 +3301,7 @@
     }
     .market-trade-dialog-section-label {
       color: var(--ink-grey);
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-11);
       letter-spacing: 0.06em;
     }
@@ -3315,7 +3315,7 @@
     }
     .market-trade-dialog-field > span {
       color: var(--ink-dark);
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-11);
       letter-spacing: 0.04em;
     }
@@ -3639,7 +3639,7 @@
       border-right: 1px solid var(--wash-ink);
       background: transparent;
       color: var(--ink-grey);
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-14);
       cursor: pointer;
       transition: all 0.2s;
@@ -3676,7 +3676,7 @@
       border: 1px solid var(--wash-ink);
       background: var(--surface-muted);
       color: var(--ink-grey);
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-12);
       cursor: pointer;
       transition: all 0.18s ease;
@@ -3896,7 +3896,7 @@
       margin-bottom: 6px;
     }
     .world-danger-value {
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-20);
       color: var(--ink-black);
     }
@@ -4045,7 +4045,7 @@
       background: rgba(197, 60, 60, 0.06);
     }
     .gm-player-name {
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-14);
       color: var(--ink-black);
     }

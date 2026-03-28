@@ -74,7 +74,7 @@
     }
 
     .login-title {
-      font-family: var(--font-heading-main);
+      font-family: var(--font-heading-sub);
       font-size: var(--font-size-52);
       text-align: center;
       color: var(--ink-black);
@@ -109,7 +109,7 @@
       padding: 10px 0;
       border: 1.5px solid var(--ink-light);
       background: var(--surface-elevated);
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-18);
       color: var(--ink-grey);
       letter-spacing: 4px;
@@ -157,7 +157,7 @@
       display: none;
     }
     .form-group label {
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-16);
       color: var(--ink-dark);
     }
@@ -209,7 +209,7 @@
       padding: 12px 0;
       background: transparent;
       border: none;
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-20);
       cursor: pointer;
       color: var(--ink-black);

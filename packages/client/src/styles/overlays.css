@@ -45,7 +45,7 @@
       align-items: center;
       justify-content: center;
       gap: 0;
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-14);
       color: var(--ink-grey);
       line-height: 1.1;
@@ -115,7 +115,7 @@
       border: 1px solid var(--wash-ink);
       background: var(--surface-base);
       color: var(--ink-grey);
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-11);
       line-height: 1;
       cursor: pointer;
@@ -149,7 +149,7 @@
       text-align: center;
     }
     .map-tick-rate-char {
-      font-family: var(--font-heading-main);
+      font-family: var(--font-body);
       font-size: var(--font-size-14);
       color: var(--ink-grey);
     }
@@ -160,12 +160,13 @@
       gap: 2px;
     }
     .map-tick-rate-number {
-      font-family: var(--font-heading-main);
+      font-family: var(--font-body);
       font-size: var(--font-size-22);
+      font-weight: 700;
       color: var(--ink-black);
     }
     .map-side-phase {
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-12);
       color: var(--ink-grey);
       letter-spacing: 2px;
@@ -199,7 +200,7 @@
       background: var(--map-target-indicator-bg);
       color: var(--map-target-indicator-ink);
       font-size: var(--font-size-12);
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       box-shadow: var(--map-target-indicator-shadow);
       pointer-events: none;
     }
@@ -231,7 +232,7 @@
       border: 1px solid rgba(235, 220, 184, 0.24);
       background: rgba(10, 11, 13, 0.78);
       color: rgba(245, 235, 216, 0.92);
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-14);
       letter-spacing: 2px;
       cursor: pointer;
@@ -347,7 +348,7 @@
       border: 1px solid rgba(235, 220, 184, 0.24);
       background: rgba(255, 255, 255, 0.04);
       color: rgba(245, 235, 216, 0.9);
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-14);
       cursor: pointer;
     }
@@ -453,7 +454,7 @@
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-14);
       letter-spacing: 1px;
     }
@@ -645,7 +646,7 @@
       align-items: center;
       gap: 6px;
       flex-wrap: wrap;
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-15);
       color: var(--ink-black);
     }
@@ -721,7 +722,7 @@
       border-radius: 999px;
       background: var(--observe-buff-mark-bg);
       color: var(--observe-buff-mark-ink);
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-14);
       line-height: 1;
     }

@@ -234,7 +234,7 @@
       background: transparent;
       border: none;
       border-right: 1px solid var(--wash-ink);
-      font-family: var(--font-heading-sub);
+      font-family: var(--font-body);
       font-size: var(--font-size-14);
       color: var(--panel-tab-text);
       cursor: pointer;
