@@ -62,8 +62,8 @@
       border: 1px solid rgba(17, 17, 17, 0.2);
       background: rgba(197, 60, 60, 0.1);
       color: var(--stamp-red);
-      font-family: var(--font-body);
-      font-size: var(--font-size-13);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-13);
       line-height: 1.2;
       cursor: pointer;
       transition: background 0.2s, border-color 0.2s, color 0.2s;
@@ -85,16 +85,16 @@
       text-align: center;
     }
     .hud-realm-value {
-      font-size: var(--font-size-40);
-      font-family: var(--font-heading-main);
+      font-size: var(--font-size-role-realm-level-40);
+      font-family: var(--font-role-realm-level);
       color: var(--ink-black);
       line-height: 1;
       width: 100%;
       text-align: center;
     }
     .hud-realm-sub {
-      font-size: var(--font-size-18);
-      font-family: var(--font-heading-main);
+      font-size: var(--font-size-role-realm-level-18);
+      font-family: var(--font-role-realm-level);
       color: var(--stamp-red);
       line-height: 1.1;
       font-style: italic;
@@ -178,8 +178,8 @@
       left: 50%;
       transform: translate(-50%, -50%);
       padding: 0;
-      font-family: var(--font-body);
-      font-size: var(--font-size-11);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-11);
       color: var(--ink-black);
       text-align: center;
       line-height: 1;
@@ -187,22 +187,23 @@
       z-index: 1;
     }
     .hud-name {
-      font-family: var(--font-heading-main);
-      font-size: var(--font-size-28);
+      font-family: var(--font-role-player-name);
+      font-size: var(--font-size-role-player-name-28);
       color: var(--ink-black);
       letter-spacing: 3px;
       line-height: 1;
       writing-mode: vertical-rl;
       text-orientation: mixed;
     }
-    .hud-title {
-      font-family: var(--font-body);
-      font-size: var(--font-size-13);
-      color: var(--ink-grey);
-      letter-spacing: 2px;
-      writing-mode: vertical-rl;
-      text-orientation: mixed;
-    }
+.hud-title {
+  font-family: var(--font-role-body);
+  font-size: var(--font-size-role-body-13);
+  color: var(--color-role-subtitle);
+  font-weight: var(--font-weight-role-subtitle);
+  letter-spacing: 2px;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
     .hud-highlight {
       grid-column: 2;
       padding: 12px;
@@ -215,16 +216,17 @@
       grid-template-columns: minmax(0, 1fr) 180px;
       gap: 10px;
     }
-    .hud-highlight-label {
-      font-size: var(--font-size-11);
-      color: var(--ink-grey);
-      margin-bottom: 4px;
-    }
-    .hud-highlight-value {
-      font-family: var(--font-body);
-      font-size: var(--font-size-22);
-      color: var(--ink-black);
-    }
+.hud-highlight-label {
+  font-size: var(--font-size-11);
+  color: var(--color-role-label);
+  font-weight: var(--font-weight-role-label);
+  margin-bottom: 4px;
+}
+.hud-highlight-value {
+  font-family: var(--font-role-body);
+  font-size: var(--font-size-role-body-22);
+  color: var(--color-role-body-strong);
+}
     .hud-resources {
       grid-column: 2;
       display: grid;
@@ -236,16 +238,17 @@
       border: 1px solid var(--wash-ink);
       background: var(--surface-muted-strong);
     }
-    .hud-resource-label {
-      font-size: var(--font-size-11);
-      color: var(--ink-grey);
-      margin-bottom: 4px;
-    }
-    .hud-resource-value {
-      font-size: var(--font-size-16);
-      color: var(--ink-black);
-      font-weight: bold;
-    }
+.hud-resource-label {
+  font-size: var(--font-size-11);
+  color: var(--color-role-label);
+  font-weight: var(--font-weight-role-label);
+  margin-bottom: 4px;
+}
+.hud-resource-value {
+  font-size: var(--font-size-16);
+  color: var(--color-role-body-strong);
+  font-weight: bold;
+}
     .hud-meter {
       height: 8px;
       margin-top: 8px;
@@ -268,14 +271,15 @@
       border: 1px solid var(--wash-ink);
       background: var(--surface-muted-strong);
     }
-    .hud-bar-head {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 6px;
-      font-size: var(--font-size-11);
-      color: var(--ink-grey);
-    }
+.hud-bar-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+  font-size: var(--font-size-11);
+  color: var(--color-role-label);
+  font-weight: var(--font-weight-role-label);
+}
     .hud-bar-track {
       position: relative;
       height: 18px;
@@ -331,16 +335,17 @@
     .hud-toggle-card:active {
       transform: translateY(1px);
     }
-    .hud-toggle-title {
-      font-size: var(--font-size-11);
-      color: var(--ink-grey);
-      margin-bottom: 4px;
-    }
-    .hud-toggle-value {
-      font-family: var(--font-body);
-      font-size: var(--font-size-16);
-      color: var(--ink-black);
-    }
+.hud-toggle-title {
+  font-size: var(--font-size-11);
+  color: var(--color-role-label);
+  font-weight: var(--font-weight-role-label);
+  margin-bottom: 4px;
+}
+.hud-toggle-value {
+  font-family: var(--font-role-body);
+  font-size: var(--font-size-role-body-16);
+  color: var(--color-role-body-strong);
+}
     .hud-grid {
       grid-column: 2;
       display: grid;
@@ -373,8 +378,8 @@
       border: 1px solid rgba(17, 17, 17, 0.2);
       background: var(--surface-muted-strong);
       color: var(--ink-black);
-      font-family: var(--font-body);
-      font-size: var(--font-size-13);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-13);
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -465,11 +470,12 @@
       background: var(--surface-muted);
       min-width: 0;
     }
-    .hud-label {
-      font-family: var(--font-body);
-      font-size: var(--font-size-13);
-      color: var(--ink-grey);
-    }
+.hud-label {
+  font-family: var(--font-role-body);
+  font-size: var(--font-size-role-body-13);
+  color: var(--color-role-label);
+  font-weight: var(--font-weight-role-label);
+}
     .hud-value {
       color: var(--ink-black);
       font-weight: bold;

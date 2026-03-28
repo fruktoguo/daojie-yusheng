@@ -309,17 +309,22 @@
       .tech-modal-summary {
         grid-template-columns: 1fr;
       }
+      .tech-modal-stack {
+        grid-template-rows: auto minmax(0, 1.08fr) minmax(0, 0.92fr);
+      }
       .tech-focus-grid {
         grid-template-columns: 1fr;
       }
       .detail-modal-card.detail-modal--technique {
+        --detail-modal-compact-scale: 0.72;
         width: min(100vw - 16px, 1120px);
-        max-height: min(94vh, calc(100vh - 16px));
+        height: min(90dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2) - 16px));
+        max-height: none;
         padding: 16px 14px;
       }
       .detail-modal-card.detail-modal--heaven-gate {
         width: min(100vw - 16px, 760px);
-        max-height: min(94vh, calc(100vh - 16px));
+        max-height: min(94dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2)));
         padding: 16px 14px;
       }
       .tech-starfield-canvas-shell {
@@ -359,12 +364,14 @@
       }
       .detail-modal-card {
         width: min(100%, calc(100vw - 24px));
-        max-height: min(82vh, 760px);
+        max-height: min(82dvh, min(760px, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2))));
         padding: 16px;
       }
       .detail-modal-card.detail-modal--skill-management {
+        --detail-modal-compact-scale: 0.7;
         width: min(100%, calc(100vw - 16px));
-        max-height: min(88vh, calc(100vh - 16px));
+        height: min(84dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2) - 16px));
+        max-height: none;
       }
       .panel-section-head,
       .skill-manage-topbar,

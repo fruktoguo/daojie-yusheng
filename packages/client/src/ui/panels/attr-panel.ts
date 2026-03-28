@@ -776,7 +776,7 @@ export class AttrPanel {
         transition: opacity 120ms ease, transform 120ms ease;
         opacity: 0;
         transform: translateY(-8px);
-        font-family: var(--font-body);
+        font-family: var(--font-role-body);
         min-width: 0;
       }
       .attr-tooltip.visible {
@@ -828,8 +828,8 @@ export class AttrPanel {
         gap: 8px;
       }
       .attr-radar-title {
-        font-family: var(--font-heading-sub);
-        font-size: var(--font-size-16);
+        font-family: var(--font-role-title);
+        font-size: var(--font-size-role-title-16);
         color: var(--ink-black);
       }
       .attr-radar-scale {
@@ -858,8 +858,8 @@ export class AttrPanel {
         opacity: 0.9;
       }
       .attr-radar-label {
-        font-family: var(--font-body);
-        font-size: var(--font-size-12);
+        font-family: var(--font-role-body);
+        font-size: var(--font-size-role-body-12);
         fill: var(--ink-black);
       }
       .attr-radar-value {

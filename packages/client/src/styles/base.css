@@ -10,7 +10,7 @@
     body {
       background: var(--body-backdrop);
       overflow: hidden;
-      font-family: var(--font-body);
+      font-family: var(--font-role-body);
       color: var(--ink-dark);
     }
     #app-viewport-root {
@@ -74,8 +74,8 @@
     }
 
     .login-title {
-      font-family: var(--font-heading-sub);
-      font-size: var(--font-size-52);
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-52);
       text-align: center;
       color: var(--ink-black);
       margin-bottom: 6px;
@@ -90,8 +90,8 @@
     }
 
     .login-subtitle {
-      font-family: var(--font-heading-sub);
-      font-size: var(--font-size-16);
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-16);
       text-align: center;
       color: var(--ink-grey);
       margin-bottom: 30px;
@@ -109,8 +109,8 @@
       padding: 10px 0;
       border: 1.5px solid var(--ink-light);
       background: var(--surface-elevated);
-      font-family: var(--font-body);
-      font-size: var(--font-size-18);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-18);
       color: var(--ink-grey);
       letter-spacing: 4px;
       cursor: pointer;
@@ -132,8 +132,8 @@
       position: absolute;
       top: 16px;
       right: 20px;
-      font-family: var(--font-heading-sub);
-      font-size: var(--font-size-14);
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-14);
       color: var(--paper-bg);
       background: var(--stamp-red);
       width: 36px;
@@ -157,13 +157,13 @@
       display: none;
     }
     .form-group label {
-      font-family: var(--font-body);
-      font-size: var(--font-size-16);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-16);
       color: var(--ink-dark);
     }
     .form-group input {
-      font-family: var(--font-body);
-      font-size: var(--font-size-16);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-16);
       padding: 12px;
       border: 1.5px solid var(--ink-light);
       background: var(--surface-base);
@@ -209,8 +209,8 @@
       padding: 12px 0;
       background: transparent;
       border: none;
-      font-family: var(--font-body);
-      font-size: var(--font-size-20);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-20);
       cursor: pointer;
       color: var(--ink-black);
       outline: none;

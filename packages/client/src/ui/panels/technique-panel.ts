@@ -120,6 +120,20 @@ function formatTechniqueRemainText(tech: TechniqueState): string {
     : '当前已达圆满层';
 }
 
+function calcTechniqueTotalExp(tech: TechniqueState): number {
+  if (!tech.layers || tech.layers.length === 0) {
+    return tech.exp;
+  }
+  let totalExp = tech.exp;
+  for (const layer of tech.layers) {
+    if (layer.level >= tech.level) {
+      break;
+    }
+    totalExp += Math.max(0, layer.expToNext);
+  }
+  return totalExp;
+}
+
 function getResolvedTechniqueRealm(tech: TechniqueState): TechniqueRealm {
   return deriveTechniqueRealm(tech.level, tech.layers, tech.attrCurves);
 }
@@ -324,7 +338,6 @@ export class TechniquePanel {
     const previewTechniques = resolvePreviewTechniques(this.lastState.techniques);
     const currentAttrs = calcTechniqueAttrValues(tech.level, tech.layers, tech.attrCurves);
     const effectiveAttrs = calcTechniqueEffectiveContribution(previewTechniques, tech.techId);
-    const nextAttrs = calcTechniqueNextLevelGains(tech.level, tech.layers, tech.attrCurves);
     const skillsByLevel = new Map<number, TechniqueState['skills']>();
     const milestones = buildTechniqueMilestones(tech, maxLevel);
     for (const skill of tech.skills) {
@@ -338,37 +351,41 @@ export class TechniquePanel {
       ? [...tech.layers].sort((left, right) => left.level - right.level)
       : this.buildLegacyLayers(tech, maxLevel);
     const selectedLevel = this.resolveOpenLayerLevel(layers, tech.level);
-    const skillOverviewHtml = this.renderSkillOverview(tech);
     const constellationHtml = this.renderConstellation(tech, layers, tech.level, selectedLevel, skillsByLevel, milestones);
     const focusHtml = this.renderLayerFocus(tech, layers, selectedLevel, skillsByLevel, milestones);
     const constellationSignature = this.buildConstellationStructureSignature(layers, skillsByLevel);
     const focusSignature = this.buildFocusStructureSignature(selectedLevel, skillsByLevel, milestones);
+    const totalExp = calcTechniqueTotalExp(tech);
     detailModalHost.open({
       ownerId: TechniquePanel.MODAL_OWNER,
       variantClass: 'detail-modal--technique',
       title: tech.name,
       subtitle: `${getTechniqueRealmLevelLabel(tech)} · ${getTechniqueGradeLabel(tech.grade)} · ${getTechniqueRealmLabel(getResolvedTechniqueRealm(tech))} · 第 ${formatDisplayInteger(tech.level)}/${formatDisplayInteger(maxLevel)} 层`,
       bodyHtml: `
-      <div class="tech-modal-summary">
-        <div class="tech-modal-stat">
-          <span class="tech-modal-label">当前经验</span>
-          <span data-tech-modal-current-exp="true">${formatTechniqueProgressText(tech)}</span>
-        </div>
-        <div class="tech-modal-stat">
-          <span class="tech-modal-label">当前总加成</span>
-          <span data-tech-modal-current-attrs="true">${escapeHtml(formatTechniqueContributionSummary(effectiveAttrs, currentAttrs))}</span>
-        </div>
-        <div class="tech-modal-stat">
-          <span class="tech-modal-label">下一层原始收益</span>
-          <span data-tech-modal-next-attrs="true">${escapeHtml(formatAttrMap(nextAttrs, '已无下一层'))}</span>
-        </div>
+      <div class="tech-modal-stack">
+        <section class="tech-modal-summary">
+          <div class="tech-modal-stat">
+            <span class="tech-modal-label">当前经验</span>
+            <span data-tech-modal-current-exp="true">${formatTechniqueProgressText(tech)}</span>
+          </div>
+          <div class="tech-modal-stat">
+            <span class="tech-modal-label">总经验</span>
+            <span data-tech-modal-total-exp="true">${formatDisplayInteger(totalExp)}</span>
+          </div>
+          <div class="tech-modal-stat">
+            <span class="tech-modal-label">当前总加成</span>
+            <span data-tech-modal-current-attrs="true">${escapeHtml(formatTechniqueContributionSummary(effectiveAttrs, currentAttrs))}</span>
+          </div>
+        </section>
+        <section class="tech-modal-pane tech-modal-pane--constellation">
+          <div class="tech-modal-section-title">周天星图</div>
+          <div class="tech-modal-pane-body" data-tech-modal-constellation-shell="true" data-tech-modal-constellation-signature="${escapeHtml(constellationSignature)}">${constellationHtml}</div>
+        </section>
+        <section class="tech-modal-pane tech-modal-pane--focus">
+          <div class="tech-modal-section-title">星位注解</div>
+          <div class="tech-modal-pane-body" data-tech-modal-focus-shell="true" data-tech-modal-focus-signature="${escapeHtml(focusSignature)}">${focusHtml}</div>
+        </section>
       </div>
-      <div class="tech-modal-section-title">周天星图</div>
-      <div data-tech-modal-constellation-shell="true" data-tech-modal-constellation-signature="${escapeHtml(constellationSignature)}">${constellationHtml}</div>
-      <div class="tech-modal-section-title">招式总览</div>
-      <div data-tech-modal-skill-overview="true">${skillOverviewHtml}</div>
-      <div class="tech-modal-section-title">星位注解</div>
-      <div data-tech-modal-focus-shell="true" data-tech-modal-focus-signature="${escapeHtml(focusSignature)}">${focusHtml}</div>
     `,
       onClose: () => {
         this.openTechId = null;
@@ -760,21 +777,19 @@ export class TechniquePanel {
     }
 
     const expNode = document.querySelector<HTMLElement>('[data-tech-modal-current-exp="true"]');
+    const totalExpNode = document.querySelector<HTMLElement>('[data-tech-modal-total-exp="true"]');
     const currentAttrsNode = document.querySelector<HTMLElement>('[data-tech-modal-current-attrs="true"]');
-    const nextAttrsNode = document.querySelector<HTMLElement>('[data-tech-modal-next-attrs="true"]');
-    const skillOverviewShell = document.querySelector<HTMLElement>('[data-tech-modal-skill-overview="true"]');
     const focusShell = document.querySelector<HTMLElement>('[data-tech-modal-focus-shell="true"]');
     const constellationShell = document.querySelector<HTMLElement>('[data-tech-modal-constellation-shell="true"]');
     const titleNode = document.getElementById('detail-modal-title');
     const subtitleNode = document.getElementById('detail-modal-subtitle');
-    if (!expNode || !currentAttrsNode || !nextAttrsNode || !skillOverviewShell || !focusShell || !constellationShell || !titleNode || !subtitleNode) {
+    if (!expNode || !totalExpNode || !currentAttrsNode || !focusShell || !constellationShell || !titleNode || !subtitleNode) {
       return false;
     }
     const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
     const previewTechniques = resolvePreviewTechniques(this.lastState.techniques);
     const currentAttrs = calcTechniqueAttrValues(tech.level, tech.layers, tech.attrCurves);
     const effectiveAttrs = calcTechniqueEffectiveContribution(previewTechniques, tech.techId);
-    const nextAttrs = calcTechniqueNextLevelGains(tech.level, tech.layers, tech.attrCurves);
     const skillsByLevel = new Map<number, TechniqueState['skills']>();
     for (const skill of tech.skills) {
       const unlockLevel = resolveSkillUnlockLevel(skill);
@@ -791,10 +806,8 @@ export class TechniquePanel {
     titleNode.textContent = tech.name;
     subtitleNode.textContent = `${getTechniqueRealmLevelLabel(tech)} · ${getTechniqueGradeLabel(tech.grade)} · ${getTechniqueRealmLabel(getResolvedTechniqueRealm(tech))} · 第 ${formatDisplayInteger(tech.level)}/${formatDisplayInteger(maxLevel)} 层`;
     expNode.textContent = formatTechniqueProgressText(tech);
+    totalExpNode.textContent = formatDisplayInteger(calcTechniqueTotalExp(tech));
     currentAttrsNode.textContent = formatTechniqueContributionSummary(effectiveAttrs, currentAttrs);
-    nextAttrsNode.textContent = formatAttrMap(nextAttrs, '已无下一层');
-    skillOverviewShell.innerHTML = this.renderSkillOverview(tech);
-    this.bindSkillTooltips(skillOverviewShell);
 
     const focusSignature = this.buildFocusStructureSignature(selectedLevel, skillsByLevel, milestones);
     if (focusShell.dataset.techModalFocusSignature !== focusSignature) {

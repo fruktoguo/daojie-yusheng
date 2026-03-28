@@ -103,8 +103,8 @@
       border: var(--panel-frame-border);
       background: var(--collapse-rail-bg);
       color: var(--collapse-rail-text);
-      font-family: var(--font-body);
-      font-size: var(--font-size-11);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-11);
       font-weight: 700;
       line-height: 1;
       letter-spacing: 0;
@@ -199,22 +199,23 @@
       gap: 10px;
       height: 100%;
     }
-    .section-title {
-      font-family: var(--font-heading-sub);
-      font-size: var(--font-size-18);
-      color: var(--ink-black);
-      letter-spacing: 2px;
-      writing-mode: vertical-rl;
-      text-orientation: mixed;
-    }
-    .section-subtitle {
-      font-size: var(--font-size-11);
-      color: var(--ink-grey);
-      letter-spacing: 1px;
-      opacity: 0.9;
-      writing-mode: vertical-rl;
-      text-orientation: mixed;
-    }
+.section-title {
+  font-family: var(--font-role-title);
+  font-size: var(--font-size-role-title-18);
+  color: var(--color-role-title);
+  letter-spacing: 2px;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+.section-subtitle {
+  font-size: var(--font-size-11);
+  color: var(--color-role-subtitle);
+  font-weight: var(--font-weight-role-subtitle);
+  letter-spacing: 1px;
+  opacity: 0.9;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
 
     .section-tabs,
     .tab-bar {
@@ -227,27 +228,28 @@
       flex-shrink: 0;
     }
 
-    .tab-btn {
-      flex: 1 1 0;
-      min-width: 0;
-      padding: 10px 12px;
-      background: transparent;
-      border: none;
-      border-right: 1px solid var(--wash-ink);
-      font-family: var(--font-body);
-      font-size: var(--font-size-14);
-      color: var(--panel-tab-text);
-      cursor: pointer;
-      transition: all 0.2s;
-      white-space: nowrap;
-    }
+.tab-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--wash-ink);
+  font-family: var(--font-role-body);
+  font-size: var(--font-size-role-body-14);
+  color: var(--color-role-tab-idle);
+  font-weight: var(--font-weight-role-tab);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
     .tab-btn:last-child { border-right: none; }
     .tab-btn:hover { background: var(--panel-tab-hover-bg); }
-    .tab-btn.active {
-      color: var(--panel-tab-active-text);
-      background: var(--panel-tab-active-bg);
-      box-shadow: inset 0 -2px 0 var(--stamp-red);
-    }
+.tab-btn.active {
+  color: var(--color-role-tab-active);
+  background: var(--panel-tab-active-bg);
+  box-shadow: inset 0 -2px 0 var(--stamp-red);
+}
 
     .section-body,
     .tab-content {

@@ -45,8 +45,8 @@
       align-items: center;
       justify-content: center;
       gap: 0;
-      font-family: var(--font-body);
-      font-size: var(--font-size-14);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-14);
       color: var(--ink-grey);
       line-height: 1.1;
     }
@@ -115,8 +115,8 @@
       border: 1px solid var(--wash-ink);
       background: var(--surface-base);
       color: var(--ink-grey);
-      font-family: var(--font-body);
-      font-size: var(--font-size-11);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-11);
       line-height: 1;
       cursor: pointer;
       transition: background 0.2s, color 0.2s, border-color 0.2s;
@@ -149,8 +149,8 @@
       text-align: center;
     }
     .map-tick-rate-char {
-      font-family: var(--font-body);
-      font-size: var(--font-size-14);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-14);
       color: var(--ink-grey);
     }
     .map-tick-rate-value {
@@ -160,14 +160,14 @@
       gap: 2px;
     }
     .map-tick-rate-number {
-      font-family: var(--font-body);
-      font-size: var(--font-size-22);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-22);
       font-weight: 700;
       color: var(--ink-black);
     }
     .map-side-phase {
-      font-family: var(--font-body);
-      font-size: var(--font-size-12);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-12);
       color: var(--ink-grey);
       letter-spacing: 2px;
       writing-mode: vertical-rl;
@@ -199,8 +199,8 @@
       border: 1px solid var(--map-target-indicator-border);
       background: var(--map-target-indicator-bg);
       color: var(--map-target-indicator-ink);
-      font-size: var(--font-size-12);
-      font-family: var(--font-body);
+      font-size: var(--font-size-role-body-12);
+      font-family: var(--font-role-body);
       box-shadow: var(--map-target-indicator-shadow);
       pointer-events: none;
     }
@@ -232,8 +232,8 @@
       border: 1px solid rgba(235, 220, 184, 0.24);
       background: rgba(10, 11, 13, 0.78);
       color: rgba(245, 235, 216, 0.92);
-      font-family: var(--font-body);
-      font-size: var(--font-size-14);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-14);
       letter-spacing: 2px;
       cursor: pointer;
       box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
@@ -276,8 +276,8 @@
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
-      font-family: var(--font-heading-sub);
-      font-size: var(--font-size-12);
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-12);
       letter-spacing: 2px;
       color: rgba(245, 235, 216, 0.92);
     }
@@ -332,8 +332,8 @@
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
-      font-family: var(--font-heading-sub);
-      font-size: var(--font-size-14);
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-14);
       letter-spacing: 3px;
       color: rgba(245, 235, 216, 0.94);
     }
@@ -348,8 +348,8 @@
       border: 1px solid rgba(235, 220, 184, 0.24);
       background: rgba(255, 255, 255, 0.04);
       color: rgba(245, 235, 216, 0.9);
-      font-family: var(--font-body);
-      font-size: var(--font-size-14);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-14);
       cursor: pointer;
     }
     .map-minimap-modal-catalog-toggle {
@@ -397,8 +397,8 @@
       border: 1px solid rgba(235, 220, 184, 0.2);
       background: rgba(255, 255, 255, 0.04);
       color: rgba(245, 235, 216, 0.76);
-      font-family: var(--font-body);
-      font-size: var(--font-size-12);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-12);
       cursor: pointer;
     }
     .map-minimap-modal-filter.active {
@@ -454,8 +454,8 @@
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
-      font-family: var(--font-body);
-      font-size: var(--font-size-14);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-14);
       letter-spacing: 1px;
     }
     .map-minimap-modal-item-badges {
@@ -563,8 +563,8 @@
       border-bottom: 1px solid var(--wash-ink);
     }
     .observe-modal-title {
-      font-family: var(--font-heading-sub);
-      font-size: var(--font-size-22);
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-22);
       color: var(--ink-black);
       letter-spacing: 2px;
     }
@@ -589,8 +589,8 @@
       margin-top: 14px;
     }
     .observe-modal-section-title {
-      font-family: var(--font-heading-sub);
-      font-size: var(--font-size-15);
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-15);
       color: var(--ink-black);
       padding-bottom: 4px;
       margin-bottom: 8px;
@@ -646,8 +646,8 @@
       align-items: center;
       gap: 6px;
       flex-wrap: wrap;
-      font-family: var(--font-body);
-      font-size: var(--font-size-15);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-15);
       color: var(--ink-black);
     }
     .observe-entity-kind {
@@ -685,8 +685,8 @@
       background: var(--observe-buff-section-bg);
     }
     .observe-buff-title {
-      font-family: var(--font-heading-sub);
-      font-size: var(--font-size-13);
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-13);
       color: var(--ink-black);
       letter-spacing: 1px;
     }
@@ -722,8 +722,8 @@
       border-radius: 999px;
       background: var(--observe-buff-mark-bg);
       color: var(--observe-buff-mark-ink);
-      font-family: var(--font-body);
-      font-size: var(--font-size-14);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-14);
       line-height: 1;
     }
     .observe-buff-name {
