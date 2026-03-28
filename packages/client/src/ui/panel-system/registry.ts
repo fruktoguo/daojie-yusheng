@@ -138,6 +138,14 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
       preservesInteractionState: true,
     },
     {
+      id: 'mail',
+      title: '飞书',
+      templateKind: 'modal',
+      defaultPlacement: { desktop: 'overlay', mobile: 'overlay' },
+      supports: ['desktop', 'mobile'],
+      preservesInteractionState: true,
+    },
+    {
       id: 'suggestion',
       title: '反馈',
       templateKind: 'modal',

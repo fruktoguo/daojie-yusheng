@@ -13,6 +13,7 @@ export type PanelId =
   | 'world-suggestions'
   | 'loot'
   | 'settings'
+  | 'mail'
   | 'suggestion'
   | 'changelog'
   | 'minimap'
