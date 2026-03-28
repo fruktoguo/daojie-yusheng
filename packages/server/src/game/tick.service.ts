@@ -81,6 +81,7 @@ import { PerformanceService } from './performance.service';
 import { DirtyFlag, ImmediateCommandType, PlayerService } from './player.service';
 import { QiProjectionService } from './qi-projection.service';
 import { TechniqueService } from './technique.service';
+import { MailService, PreparedClaimOperation, PreparedDeleteOperation, PreparedMarkReadOperation } from './mail.service';
 import { TimeService } from './time.service';
 import { WorldMessage, WorldService, WorldUpdate } from './world.service';
 import { syncDynamicBuffPresentation } from './buff-presentation';
@@ -204,6 +205,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     private readonly worldService: WorldService,
     private readonly timeService: TimeService,
     private readonly qiProjectionService: QiProjectionService,
+    private readonly mailService: MailService,
     private readonly persistentDocumentService: PersistentDocumentService,
   ) {}
 
@@ -802,6 +804,38 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           });
           break;
         }
+        case 'mailRead': {
+          this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+            this.mailService.applyPreparedMarkRead(
+              player.id,
+              cmd.data as PreparedMarkReadOperation,
+            );
+          });
+          break;
+        }
+        case 'mailDelete': {
+          this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+            this.mailService.applyPreparedDelete(
+              player.id,
+              cmd.data as PreparedDeleteOperation,
+            );
+          });
+          break;
+        }
+        case 'mailClaim': {
+          this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+            const result = this.mailService.applyPreparedClaim(
+              player,
+              cmd.data as PreparedClaimOperation,
+            );
+            if (result.ok) {
+              this.playerService.markDirty(player.id, 'inv');
+            } else if (result.message) {
+              messages.push({ playerId: player.id, text: result.message, kind: 'system' });
+            }
+          });
+          break;
+        }
       }
     }
 
@@ -964,6 +998,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     this.mapService.clearDirtyTileKeys(mapId);
     this.ensureMapTicks();
   }
+
 
   /** 确保所有已加载地图都有对应的 tick 循环 */
   private ensureMapTicks() {
@@ -1524,6 +1559,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       this.playerService.markDirty(playerId, flag);
     }
   }
+
 
   private markActionsDirty(playerId: string): void {
     this.cooldownOnlyActionDirtyPlayers.delete(playerId);

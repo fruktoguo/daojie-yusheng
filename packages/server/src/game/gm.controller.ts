@@ -25,6 +25,7 @@ import {
   GmMapListRes,
   GmMapRuntimeRes,
   GmPlayerDetailRes,
+  GmCreateMailReq,
   GmRemoveBotsReq,
   GmShortcutRunRes,
   GmSpawnBotsReq,
@@ -41,6 +42,7 @@ import { GmService } from './gm.service';
 import { SuggestionRealtimeService } from './suggestion-realtime.service';
 import { SuggestionService } from './suggestion.service';
 import { TickService } from './tick.service';
+import { MailService } from './mail.service';
 
 @Controller('gm')
 @UseGuards(GmAuthGuard)
@@ -50,6 +52,7 @@ export class GmController {
     private readonly databaseBackupService: DatabaseBackupService,
     private readonly suggestionService: SuggestionService,
     private readonly suggestionRealtimeService: SuggestionRealtimeService,
+    private readonly mailService: MailService,
     private readonly tickService: TickService,
   ) {}
 
@@ -207,6 +210,21 @@ export class GmController {
       throw new BadRequestException(error);
     }
     return { ok: true };
+  }
+
+  @Post('players/:playerId/mail')
+  async sendDirectMail(
+    @Param('playerId') playerId: string,
+    @Body() body: GmCreateMailReq,
+  ): Promise<{ ok: true; mailId: string }> {
+    const mailId = await this.mailService.createDirectMail(playerId, body ?? {});
+    return { ok: true, mailId };
+  }
+
+  @Post('mail/broadcast')
+  async sendBroadcastMail(@Body() body: GmCreateMailReq): Promise<{ ok: true; mailId: string }> {
+    const mailId = await this.mailService.createGlobalMail(body ?? {});
+    return { ok: true, mailId };
   }
 
   /** 获取运行时地图快照（世界管理用，必须在 maps/:mapId 之前） */

@@ -30,6 +30,12 @@ import {
   C2S_Unequip,
   C2S_Cultivate,
   C2S_RequestSuggestions,
+  C2S_RequestMailSummary,
+  C2S_RequestMailPage,
+  C2S_RequestMailDetail,
+  C2S_MarkMailRead,
+  C2S_ClaimMailAttachments,
+  C2S_DeleteMail,
   C2S_DebugResetSpawn,
   C2S_Action,
   C2S_UpdateAutoBattleSkills,
@@ -54,6 +60,9 @@ import {
   C2S_HeavenGateAction,
   PlayerState,
   S2C_Init,
+  S2C_MailDetail,
+  S2C_MailOpResult,
+  S2C_MailPage,
   S2C_NpcShop,
   S2C_SystemMsg,
   S2C_Pong,
@@ -86,6 +95,7 @@ import { SuggestionRealtimeService } from './suggestion-realtime.service';
 import { NavigationService } from './navigation.service';
 import { MarketActionResult, MarketService } from './market.service';
 import { TechniqueService } from './technique.service';
+import { MailService } from './mail.service';
 import { buildDefaultRoleName } from '../auth/account-validation';
 import { DatabaseBackupService } from './database-backup.service';
 
@@ -114,6 +124,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     private readonly navigationService: NavigationService,
     private readonly marketService: MarketService,
     private readonly techniqueService: TechniqueService,
+    private readonly mailService: MailService,
     private readonly databaseBackupService: DatabaseBackupService,
   ) {}
 
@@ -173,6 +184,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         this.playerService.markPlayerOnline(existingPlayerId);
         const introBackfillChanged = this.worldService.backfillIntroBodyTechnique(existing);
         const questDirty = this.worldService.syncQuestState(existing);
+        await this.mailService.ensureWelcomeMail(existing.id);
         if (introBackfillChanged || questDirty.length > 0) {
           await this.playerService.savePlayer(existing.id);
         }
@@ -203,6 +215,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       this.playerService.markPlayerOnline(saved.id);
       const introBackfillChanged = this.worldService.backfillIntroBodyTechnique(saved);
       const questDirty = this.worldService.syncQuestState(saved);
+      await this.mailService.ensureWelcomeMail(saved.id);
       if (introBackfillChanged || questDirty.length > 0) {
         await this.playerService.savePlayer(saved.id);
       }
@@ -273,6 +286,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     this.worldService.syncQuestState(playerState);
 
     await this.playerService.createPlayer(playerState, userId);
+    await this.mailService.ensureWelcomeMail(playerState.id);
     this.playerService.setSocket(playerId, client);
     this.playerService.setUserMapping(userId, playerId);
     this.playerService.markPlayerOnline(playerId);
@@ -675,6 +689,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       this.playerService.markDirty(player.id, flag);
     }
     this.tickService.flushPlayerState(player);
+    this.mailService.emitSummary(player.id).catch(() => {});
     client.emit(S2C.SuggestionUpdate, { suggestions: this.suggestionService.getAll() });
   }
 
@@ -712,6 +727,114 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   @SubscribeMessage(C2S.RequestSuggestions)
   async handleRequestSuggestions(client: Socket, _data: C2S_RequestSuggestions) {
     client.emit(S2C.SuggestionUpdate, { suggestions: this.suggestionService.getAll() });
+  }
+
+  @SubscribeMessage(C2S.RequestMailSummary)
+  async handleRequestMailSummary(client: Socket, _data: C2S_RequestMailSummary) {
+    const playerId = client.data?.playerId as string;
+    if (!playerId) {
+      return;
+    }
+    await this.mailService.emitSummary(playerId);
+  }
+
+  @SubscribeMessage(C2S.RequestMailPage)
+  async handleRequestMailPage(client: Socket, data: C2S_RequestMailPage) {
+    const playerId = client.data?.playerId as string;
+    if (!playerId) {
+      return;
+    }
+    client.emit(S2C.MailPage, {
+      page: await this.mailService.getPage(playerId, data.page, data.pageSize, data.filter),
+    } satisfies S2C_MailPage);
+  }
+
+  @SubscribeMessage(C2S.RequestMailDetail)
+  async handleRequestMailDetail(client: Socket, data: C2S_RequestMailDetail) {
+    const playerId = client.data?.playerId as string;
+    if (!playerId) {
+      return;
+    }
+    const detail = await this.mailService.getDetail(playerId, data.mailId);
+    client.emit(S2C.MailDetail, {
+      detail,
+      error: detail ? undefined : '邮件不存在、已过期，或已被删除。',
+    } satisfies S2C_MailDetail);
+  }
+
+  @SubscribeMessage(C2S.MarkMailRead)
+  async handleMarkMailRead(client: Socket, data: C2S_MarkMailRead) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+
+    const prepared = await this.mailService.prepareMarkRead(playerId, data.mailIds);
+    if (!prepared) {
+      client.emit(S2C.MailOpResult, {
+        operation: 'markRead',
+        ok: false,
+        mailIds: [],
+        message: '没有可标记已读的邮件。',
+      } satisfies S2C_MailOpResult);
+      return;
+    }
+
+    this.playerService.enqueueCommand(player.mapId, {
+      playerId,
+      type: 'mailRead',
+      data: prepared,
+      timestamp: Date.now(),
+    });
+  }
+
+  @SubscribeMessage(C2S.ClaimMailAttachments)
+  async handleClaimMailAttachments(client: Socket, data: C2S_ClaimMailAttachments) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+
+    const prepared = await this.mailService.prepareClaim(playerId, data.mailIds);
+    if (!prepared.operation) {
+      client.emit(S2C.MailOpResult, {
+        operation: 'claim',
+        ok: false,
+        mailIds: [],
+        message: prepared.error ?? '没有可领取附件的邮件。',
+      } satisfies S2C_MailOpResult);
+      return;
+    }
+
+    this.playerService.enqueueCommand(player.mapId, {
+      playerId,
+      type: 'mailClaim',
+      data: prepared.operation,
+      timestamp: Date.now(),
+    });
+  }
+
+  @SubscribeMessage(C2S.DeleteMail)
+  async handleDeleteMail(client: Socket, data: C2S_DeleteMail) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+
+    const prepared = await this.mailService.prepareDelete(playerId, data.mailIds);
+    if (!prepared.operation) {
+      client.emit(S2C.MailOpResult, {
+        operation: 'delete',
+        ok: false,
+        mailIds: [],
+        message: prepared.error ?? '没有可删除的邮件。',
+      } satisfies S2C_MailOpResult);
+      return;
+    }
+
+    this.playerService.enqueueCommand(player.mapId, {
+      playerId,
+      type: 'mailDelete',
+      data: prepared.operation,
+      timestamp: Date.now(),
+    });
   }
 
   @SubscribeMessage(C2S.CreateSuggestion)

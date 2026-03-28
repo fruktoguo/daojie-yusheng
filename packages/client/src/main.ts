@@ -28,6 +28,7 @@ import { ActionPanel } from './ui/panels/action-panel';
 import { LootPanel } from './ui/panels/loot-panel';
 import { SettingsPanel } from './ui/panels/settings-panel';
 import { WorldPanel } from './ui/panels/world-panel';
+import { MailPanel } from './ui/mail-panel';
 import { SuggestionPanel } from './ui/suggestion-panel';
 import { ChangelogPanel } from './ui/changelog-panel';
 import { TutorialPanel } from './ui/tutorial-panel';
@@ -49,9 +50,9 @@ import {
 } from './content/local-templates';
 import { assessMapDanger } from './utils/map-danger';
 
-import { bindInlineItemTooltips, renderTextWithInlineItemHighlights } from './ui/item-inline-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './ui/floating-tooltip';
 import { detailModalHost } from './ui/detail-modal-host';
+import { bindInlineItemTooltips, renderTextWithInlineItemHighlights } from './ui/item-inline-tooltip';
 import { describePreviewBonuses } from './ui/stat-preview';
 import { MAX_ZOOM, MIN_ZOOM, getDisplayRangeX, getDisplayRangeY, getZoom, setZoom } from './display';
 import { getAccessToken, getCurrentAccountName } from './ui/auth-api';
@@ -400,6 +401,7 @@ const npcShopModal = new NpcShopModal();
 const lootPanel = new LootPanel();
 const worldPanel = new WorldPanel();
 const settingsPanel = new SettingsPanel();
+const mailPanel = new MailPanel(socket);
 const suggestionPanel = new SuggestionPanel(socket);
 new ChangelogPanel();
 new TutorialPanel();
@@ -2683,6 +2685,7 @@ function resetGameState() {
   npcShopModal.clear();
   lootPanel.clear();
   worldPanel.clear();
+  mailPanel.clear();
   mapRuntime.reset();
   panelSystem.store.setRuntime({
     connected: false,
@@ -2958,12 +2961,29 @@ socket.onInit((data: S2C_Init) => {
   npcShopModal.initFromPlayer(myPlayer);
   actionPanel.initFromPlayer(myPlayer);
   refreshUiChrome();
+  mailPanel.setPlayerId(myPlayer.id);
   suggestionPanel.setPlayerId(myPlayer.id);
 });
 
 // 建议更新
 socket.onSuggestionUpdate((data) => {
   suggestionPanel.updateSuggestions(data.suggestions);
+});
+
+socket.onMailSummary((data) => {
+  mailPanel.updateSummary(data.summary);
+});
+
+socket.onMailPage((data) => {
+  mailPanel.updatePage(data.page);
+});
+
+socket.onMailDetail((data) => {
+  mailPanel.updateDetail(data.detail, data.error);
+});
+
+socket.onMailOpResult((data) => {
+  mailPanel.handleOpResult(data);
 });
 
 socket.onMarketUpdate((data) => {

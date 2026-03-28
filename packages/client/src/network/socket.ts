@@ -10,6 +10,12 @@ import {
   C2S_InspectTileRuntime,
   C2S_Ping,
   C2S_RequestSuggestions,
+  C2S_RequestMailSummary,
+  C2S_RequestMailPage,
+  C2S_RequestMailDetail,
+  C2S_MarkMailRead,
+  C2S_ClaimMailAttachments,
+  C2S_DeleteMail,
   C2S_RequestMarket,
   C2S_RequestMarketItemBook,
   C2S_RequestMarketTradeHistory,
@@ -25,6 +31,10 @@ import {
   S2C_Tick, S2C_Init, S2C_MapStaticSync, S2C_RealmUpdate, S2C_AttrUpdate, S2C_InventoryUpdate,
   S2C_EquipmentUpdate, S2C_TechniqueUpdate, S2C_ActionsUpdate, S2C_LootWindowUpdate, S2C_QuestUpdate, S2C_QuestNavigateResult, S2C_SystemMsg, S2C_GmState,
   S2C_SuggestionUpdate,
+  S2C_MailSummary,
+  S2C_MailPage,
+  S2C_MailDetail,
+  S2C_MailOpResult,
   S2C_MarketUpdate,
   S2C_MarketItemBook,
   S2C_MarketTradeHistory,
@@ -60,6 +70,10 @@ export class SocketManager {
   private onErrorCallbacks: Array<(data: S2C_Error) => void> = [];
   private onGmStateCallbacks: Array<(data: S2C_GmState) => void> = [];
   private onSuggestionUpdateCallbacks: Array<(data: S2C_SuggestionUpdate) => void> = [];
+  private onMailSummaryCallbacks: Array<(data: S2C_MailSummary) => void> = [];
+  private onMailPageCallbacks: Array<(data: S2C_MailPage) => void> = [];
+  private onMailDetailCallbacks: Array<(data: S2C_MailDetail) => void> = [];
+  private onMailOpResultCallbacks: Array<(data: S2C_MailOpResult) => void> = [];
   private onMarketUpdateCallbacks: Array<(data: S2C_MarketUpdate) => void> = [];
   private onMarketItemBookCallbacks: Array<(data: S2C_MarketItemBook) => void> = [];
   private onMarketTradeHistoryCallbacks: Array<(data: S2C_MarketTradeHistory) => void> = [];
@@ -104,6 +118,10 @@ export class SocketManager {
     this.bindServerEvent(S2C.QuestNavigateResult, this.onQuestNavigateResultCallbacks);
     this.bindServerEvent(S2C.SystemMsg, this.onSystemMsgCallbacks);
     this.bindServerEvent(S2C.SuggestionUpdate, this.onSuggestionUpdateCallbacks);
+    this.bindServerEvent(S2C.MailSummary, this.onMailSummaryCallbacks);
+    this.bindServerEvent(S2C.MailPage, this.onMailPageCallbacks);
+    this.bindServerEvent(S2C.MailDetail, this.onMailDetailCallbacks);
+    this.bindServerEvent(S2C.MailOpResult, this.onMailOpResultCallbacks);
     this.bindServerEvent(S2C.MarketUpdate, this.onMarketUpdateCallbacks);
     this.bindServerEvent(S2C.MarketItemBook, this.onMarketItemBookCallbacks);
     this.bindServerEvent(S2C.MarketTradeHistory, this.onMarketTradeHistoryCallbacks);
@@ -279,6 +297,30 @@ export class SocketManager {
     this.emitServer(C2S.RequestSuggestions, {} satisfies C2S_RequestSuggestions);
   }
 
+  sendRequestMailSummary() {
+    this.emitServer(C2S.RequestMailSummary, {} satisfies C2S_RequestMailSummary);
+  }
+
+  sendRequestMailPage(page: number, pageSize?: number, filter?: C2S_RequestMailPage['filter']) {
+    this.emitServer(C2S.RequestMailPage, { page, pageSize, filter } satisfies C2S_RequestMailPage);
+  }
+
+  sendRequestMailDetail(mailId: string) {
+    this.emitServer(C2S.RequestMailDetail, { mailId } satisfies C2S_RequestMailDetail);
+  }
+
+  sendMarkMailRead(mailIds: string[]) {
+    this.emitServer(C2S.MarkMailRead, { mailIds } satisfies C2S_MarkMailRead);
+  }
+
+  sendClaimMailAttachments(mailIds: string[]) {
+    this.emitServer(C2S.ClaimMailAttachments, { mailIds } satisfies C2S_ClaimMailAttachments);
+  }
+
+  sendDeleteMail(mailIds: string[]) {
+    this.emitServer(C2S.DeleteMail, { mailIds } satisfies C2S_DeleteMail);
+  }
+
   sendRequestMarket() {
     this.emitServer(C2S.RequestMarket, {} satisfies C2S_RequestMarket);
   }
@@ -360,6 +402,10 @@ export class SocketManager {
   onQuestNavigateResult(cb: (data: S2C_QuestNavigateResult) => void) { this.onQuestNavigateResultCallbacks.push(cb); }
   onSystemMsg(cb: (data: S2C_SystemMsg) => void) { this.onSystemMsgCallbacks.push(cb); }
   onSuggestionUpdate(cb: (data: S2C_SuggestionUpdate) => void) { this.onSuggestionUpdateCallbacks.push(cb); }
+  onMailSummary(cb: (data: S2C_MailSummary) => void) { this.onMailSummaryCallbacks.push(cb); }
+  onMailPage(cb: (data: S2C_MailPage) => void) { this.onMailPageCallbacks.push(cb); }
+  onMailDetail(cb: (data: S2C_MailDetail) => void) { this.onMailDetailCallbacks.push(cb); }
+  onMailOpResult(cb: (data: S2C_MailOpResult) => void) { this.onMailOpResultCallbacks.push(cb); }
   onMarketUpdate(cb: (data: S2C_MarketUpdate) => void) { this.onMarketUpdateCallbacks.push(cb); }
   onMarketItemBook(cb: (data: S2C_MarketItemBook) => void) { this.onMarketItemBookCallbacks.push(cb); }
   onMarketTradeHistory(cb: (data: S2C_MarketTradeHistory) => void) { this.onMarketTradeHistoryCallbacks.push(cb); }

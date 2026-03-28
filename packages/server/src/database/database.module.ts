@@ -9,7 +9,10 @@ import { PlayerEntity } from './entities/player.entity';
 import { SuggestionEntity } from './entities/suggestion.entity';
 import { MarketOrderEntity } from './entities/market-order.entity';
 import { MarketTradeHistoryEntity } from './entities/market-trade-history.entity';
+import { MailAudienceMemberEntity } from './entities/mail-audience-member.entity';
+import { MailCampaignEntity } from './entities/mail-campaign.entity';
 import { PersistentDocumentEntity } from './entities/persistent-document.entity';
+import { PlayerMailReceiptEntity } from './entities/player-mail-receipt.entity';
 import { PersistentDocumentService } from './persistent-document.service';
 import { RedisService } from './redis.service';
 
@@ -32,6 +35,9 @@ import { RedisService } from './redis.service';
               SuggestionEntity,
               MarketOrderEntity,
               MarketTradeHistoryEntity,
+              MailCampaignEntity,
+              MailAudienceMemberEntity,
+              PlayerMailReceiptEntity,
               PersistentDocumentEntity,
             ],
             synchronize: true, // 开发阶段自动同步表结构
@@ -51,6 +57,9 @@ import { RedisService } from './redis.service';
             SuggestionEntity,
             MarketOrderEntity,
             MarketTradeHistoryEntity,
+            MailCampaignEntity,
+            MailAudienceMemberEntity,
+            PlayerMailReceiptEntity,
             PersistentDocumentEntity,
           ],
           synchronize: true, // 开发阶段自动同步表结构
@@ -63,6 +72,9 @@ import { RedisService } from './redis.service';
       SuggestionEntity,
       MarketOrderEntity,
       MarketTradeHistoryEntity,
+      MailCampaignEntity,
+      MailAudienceMemberEntity,
+      PlayerMailReceiptEntity,
       PersistentDocumentEntity,
     ]),
   ],

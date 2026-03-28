@@ -42,6 +42,11 @@ export {
   PLAYER_HEARTBEAT_TIMEOUT_MS,
 } from './constants/network/session';
 export {
+  MAIL_BATCH_OPERATION_MAX,
+  MAIL_PAGE_SIZE_DEFAULT,
+  MAIL_PAGE_SIZE_MAX,
+} from './constants/ui/mail';
+export {
   ACCESS_TOKEN_STORAGE_KEY,
   CURRENT_TIME_REFRESH_MS,
   GM_ACCESS_TOKEN_STORAGE_KEY,

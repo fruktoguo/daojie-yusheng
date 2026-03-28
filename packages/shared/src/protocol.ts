@@ -3,7 +3,7 @@
  * C2S = 客户端→服务端，S2C = 服务端→客户端。
  */
 import type { ElementKey } from './numeric';
-import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerSpecialStats, QuestState, CombatEffect, AutoBattleSkillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, MonsterTier, NumericStatPercentages, TechniqueCategory, TechniqueGrade, GroundItemPileView, LootSearchProgressView, VisibleBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, LootSourceKind, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, ConsumableBuffDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MapRouteDomain, PortalRouteDomain } from './types';
+import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerSpecialStats, QuestState, CombatEffect, AutoBattleSkillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, MonsterTier, NumericStatPercentages, TechniqueCategory, TechniqueGrade, GroundItemPileView, LootSearchProgressView, VisibleBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, LootSourceKind, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, ConsumableBuffDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MapRouteDomain, PortalRouteDomain, MailSummaryView, MailPageView, MailDetailView, MailFilter, MailTemplateArg, MailAttachment } from './types';
 import { NumericRatioDivisors, NumericStats } from './numeric';
 
 // ===== 事件名 =====
@@ -34,6 +34,12 @@ export const C2S = {
   Unequip: 'c:unequip',
   Cultivate: 'c:cultivate',
   RequestSuggestions: 'c:requestSuggestions',
+  RequestMailSummary: 'c:requestMailSummary',
+  RequestMailPage: 'c:requestMailPage',
+  RequestMailDetail: 'c:requestMailDetail',
+  MarkMailRead: 'c:markMailRead',
+  ClaimMailAttachments: 'c:claimMailAttachments',
+  DeleteMail: 'c:deleteMail',
   CreateSuggestion: 'c:createSuggestion',
   VoteSuggestion: 'c:voteSuggestion',
   ReplySuggestion: 'c:replySuggestion',
@@ -80,6 +86,10 @@ export const S2C = {
   QuestUpdate: 's:questUpdate',
   QuestNavigateResult: 's:questNavigateResult',
   SystemMsg: 's:systemMsg',
+  MailSummary: 's:mailSummary',
+  MailPage: 's:mailPage',
+  MailDetail: 's:mailDetail',
+  MailOpResult: 's:mailOpResult',
   SuggestionUpdate: 's:suggestionUpdate',
   MarketUpdate: 's:marketUpdate',
   MarketItemBook: 's:marketItemBook',
@@ -178,6 +188,30 @@ export interface C2S_Chat {
 }
 
 export interface C2S_RequestMarket {}
+
+export interface C2S_RequestMailSummary {}
+
+export interface C2S_RequestMailPage {
+  page: number;
+  pageSize?: number;
+  filter?: MailFilter;
+}
+
+export interface C2S_RequestMailDetail {
+  mailId: string;
+}
+
+export interface C2S_MarkMailRead {
+  mailIds: string[];
+}
+
+export interface C2S_ClaimMailAttachments {
+  mailIds: string[];
+}
+
+export interface C2S_DeleteMail {
+  mailIds: string[];
+}
 
 export interface C2S_RequestMarketItemBook {
   itemKey: string;
@@ -735,6 +769,26 @@ export interface S2C_SystemMsg {
   };
 }
 
+export interface S2C_MailSummary {
+  summary: MailSummaryView;
+}
+
+export interface S2C_MailPage {
+  page: MailPageView;
+}
+
+export interface S2C_MailDetail {
+  detail: MailDetailView | null;
+  error?: string;
+}
+
+export interface S2C_MailOpResult {
+  operation: 'markRead' | 'claim' | 'delete';
+  ok: boolean;
+  mailIds: string[];
+  message?: string;
+}
+
 // ===== 建议系统 Payload =====
 
 /** 建议系统 Payload */
@@ -774,6 +828,16 @@ export interface C2S_GmRemoveSuggestion {
 /** 建议列表更新 */
 export interface S2C_SuggestionUpdate {
   suggestions: Suggestion[];
+}
+
+export interface GmCreateMailReq {
+  templateId?: string;
+  args?: MailTemplateArg[];
+  fallbackTitle?: string;
+  fallbackBody?: string;
+  attachments?: MailAttachment[];
+  senderLabel?: string;
+  expireAt?: number | null;
 }
 
 // ===== HTTP 接口 =====
@@ -1037,6 +1101,7 @@ export interface GmEditorCatalogRes {
   items: GmEditorItemOption[];
   realmLevels: GmEditorRealmOption[];
 }
+
 
 export type GmPlayerUpdateSection =
   | 'basic'

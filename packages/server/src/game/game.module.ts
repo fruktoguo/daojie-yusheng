@@ -39,13 +39,26 @@ import { UserEntity } from '../database/entities/user.entity';
 import { MarketOrderEntity } from '../database/entities/market-order.entity';
 import { MarketTradeHistoryEntity } from '../database/entities/market-trade-history.entity';
 import { MarketService } from './market.service';
+import { MailAudienceMemberEntity } from '../database/entities/mail-audience-member.entity';
+import { MailCampaignEntity } from '../database/entities/mail-campaign.entity';
+import { PlayerMailReceiptEntity } from '../database/entities/player-mail-receipt.entity';
+import { MailService } from './mail.service';
 import { QiProjectionService } from './qi-projection.service';
 import { DatabaseBackupService } from './database-backup.service';
 
 @Module({
   imports: [
     AuthModule,
-    TypeOrmModule.forFeature([PlayerEntity, UserEntity, SuggestionEntity, MarketOrderEntity, MarketTradeHistoryEntity]),
+    TypeOrmModule.forFeature([
+      PlayerEntity,
+      UserEntity,
+      SuggestionEntity,
+      MarketOrderEntity,
+      MarketTradeHistoryEntity,
+      MailCampaignEntity,
+      MailAudienceMemberEntity,
+      PlayerMailReceiptEntity,
+    ]),
   ],
   controllers: [GmController, AccountController],
   providers: [
@@ -75,11 +88,12 @@ import { DatabaseBackupService } from './database-backup.service';
     SuggestionService,
     SuggestionRealtimeService,
     MarketService,
+    MailService,
     PathRequestSchedulerService,
     PathWorkerPoolService,
     DatabaseBackupService,
   ],
-  exports: [MapService, PlayerService, SuggestionService, SuggestionRealtimeService],
+  exports: [MapService, PlayerService, SuggestionService, SuggestionRealtimeService, MailService],
 })
 
 export class GameModule {}

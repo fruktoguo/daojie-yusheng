@@ -26,6 +26,7 @@ export * from './map-document';
 export * from './aura';
 export * from './qi';
 export * from './age';
+export * from './mail';
 export * from './market-price';
 export * from './structured';
 export * from './role-name';
