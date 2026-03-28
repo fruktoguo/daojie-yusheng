@@ -52,9 +52,13 @@ export function isOffsetInRange(
   range: number,
   metric: GridDistanceMetric = GAME_RANGE_DISTANCE_METRIC,
 ): boolean {
+  // 1 格射程统一允许斜向相邻，避免欧氏口径下对角线需要额外特判。
+  const effectiveMetric = metric === 'euclidean' && range === 1 ? 'chebyshev' : metric;
   switch (metric) {
     case 'euclidean':
-      return dx * dx + dy * dy <= range * range;
+      return effectiveMetric === 'chebyshev'
+        ? Math.max(Math.abs(dx), Math.abs(dy)) <= range
+        : dx * dx + dy * dy <= range * range;
     case 'chebyshev':
       return Math.max(Math.abs(dx), Math.abs(dy)) <= range;
     case 'manhattan':

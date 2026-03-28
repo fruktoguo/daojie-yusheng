@@ -2454,7 +2454,7 @@ function triggerAutoInteractionIfReady(): boolean {
     pendingAutoInteraction = null;
     return false;
   }
-  if (gridDistance({ x: myPlayer.x, y: myPlayer.y }, { x: npc.wx, y: npc.wy }) !== 1) {
+  if (!isPointInRange({ x: myPlayer.x, y: myPlayer.y }, { x: npc.wx, y: npc.wy }, 1)) {
     return false;
   }
   clearCurrentPath();
@@ -2470,7 +2470,7 @@ function handleNpcClickTarget(npc: ObservedEntity): boolean {
     return false;
   }
 
-  if (gridDistance({ x: myPlayer.x, y: myPlayer.y }, { x: npc.wx, y: npc.wy }) === 1) {
+  if (isPointInRange({ x: myPlayer.x, y: myPlayer.y }, { x: npc.wx, y: npc.wy }, 1)) {
     clearCurrentPath();
     if ((myPlayer.actions ?? []).some((action) => action.id === npc.id)) {
       socket.sendAction(npc.id);
