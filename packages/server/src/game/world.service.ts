@@ -87,6 +87,11 @@ import {
   ORE_REWARD_ITEM_ID_BY_TILE,
 } from '../constants/gameplay/terrain';
 import { MARKET_CURRENCY_ITEM_ID } from '../constants/gameplay/market';
+import {
+  MONSTER_RESPAWN_ACCELERATION_BASE_PERCENT,
+  MONSTER_RESPAWN_ACCELERATION_MAX_PERCENT,
+  MONSTER_RESPAWN_ACCELERATION_STEP_PERCENT,
+} from '../constants/gameplay/monster';
 
 const STATIC_CONTEXT_TOGGLE_ACTIONS: readonly ActionDef[] = [{
   id: 'toggle:auto_battle',
@@ -142,6 +147,7 @@ type WorldDirtyFlag = 'inv' | 'quest' | 'actions' | 'tech' | 'attr' | 'loot';
 interface RuntimeMonster extends MonsterSpawnConfig {
   runtimeId: string;
   mapId: string;
+  spawnKey: string;
   spawnX: number;
   spawnY: number;
   hp: number;
@@ -202,8 +208,21 @@ interface PersistedMonsterRuntimeRecord {
 }
 
 interface PersistedMonsterRuntimeSnapshot {
-  version: 1 | 2;
+  version: 1 | 2 | 3;
   maps: Record<string, PersistedMonsterRuntimeRecord[]>;
+  spawnAccelerationStates?: Record<string, PersistedMonsterSpawnAccelerationRecord[]>;
+}
+
+interface MonsterSpawnAccelerationState {
+  spawnKey: string;
+  respawnSpeedBonusPercent: number;
+  clearDeadlineTick: number;
+}
+
+interface PersistedMonsterSpawnAccelerationRecord {
+  spawnKey: string;
+  respawnSpeedBonusPercent: number;
+  clearDeadlineTick: number;
 }
 
 const RUNTIME_STATE_SCOPE = 'runtime_state';
@@ -288,7 +307,11 @@ type BuffTargetEntity =
 @Injectable()
 export class WorldService implements OnModuleInit, OnModuleDestroy {
   private readonly monstersByMap = new Map<string, RuntimeMonster[]>();
+  private readonly monsterSpawnGroupsByMap = new Map<string, Map<string, RuntimeMonster[]>>();
+  private readonly monsterSpawnAccelerationStatesByMap = new Map<string, Map<string, MonsterSpawnAccelerationState>>();
   private readonly persistedMonstersByMap = new Map<string, Map<string, PersistedMonsterRuntimeRecord>>();
+  private readonly persistedMonsterSpawnAccelerationStatesByMap =
+    new Map<string, Map<string, PersistedMonsterSpawnAccelerationRecord>>();
   private readonly effectsByMap = new Map<string, CombatEffect[]>();
   private readonly logger = new Logger(WorldService.name);
   private readonly monsterRuntimeStatePath = resolveServerDataPath('runtime', 'map-monster-runtime-state.json');
@@ -328,7 +351,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       }
     }
     this.monstersByMap.clear();
+    this.monsterSpawnGroupsByMap.clear();
+    this.monsterSpawnAccelerationStatesByMap.clear();
     this.persistedMonstersByMap.clear();
+    this.persistedMonsterSpawnAccelerationStatesByMap.clear();
     this.effectsByMap.clear();
     this.monsterRuntimeDirty = false;
     this.threatService.clearAll();
@@ -424,6 +450,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     const monsters = this.monstersByMap.get(mapId) ?? [];
     if (monsters.length > 0) {
       this.persistedMonstersByMap.set(mapId, this.captureMonsterRuntimeState(monsters));
+      const spawnStates = this.captureMonsterSpawnAccelerationState(mapId);
+      if (spawnStates.size > 0) {
+        this.persistedMonsterSpawnAccelerationStatesByMap.set(mapId, spawnStates);
+      } else {
+        this.persistedMonsterSpawnAccelerationStatesByMap.delete(mapId);
+      }
       this.monsterRuntimeDirty = true;
     }
     for (const monster of monsters) {
@@ -433,6 +465,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       this.threatService.clearThreat(monster.runtimeId);
     }
     this.monstersByMap.delete(mapId);
+    this.monsterSpawnGroupsByMap.delete(mapId);
+    this.monsterSpawnAccelerationStatesByMap.delete(mapId);
     this.effectsByMap.delete(mapId);
     this.ensureMapInitialized(mapId);
   }
@@ -1810,6 +1844,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
               this.threatService.clearThreat(this.getMonsterThreatId(monster));
               monster.targetPlayerId = undefined;
               this.mapService.addOccupant(mapId, monster.x, monster.y, monster.runtimeId, 'monster');
+              this.handleMonsterRespawn(monster);
             } else {
               monster.respawnLeft = 1;
             }
@@ -2718,12 +2753,14 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (monster.hp <= 0) {
       const expRecipients = this.resolveMonsterExpRecipients(monster, player);
       const expReferenceRealmLv = this.resolveMonsterExpReferenceRealmLv(monster, player);
+      const respawnTicks = this.resolveMonsterRespawnTicks(monster);
       monster.alive = false;
-      monster.respawnLeft = Math.max(1, monster.respawnTicks);
+      monster.respawnLeft = respawnTicks;
       monster.temporaryBuffs = [];
       monster.damageContributors.clear();
       monster.targetPlayerId = undefined;
       this.mapService.removeOccupant(monster.mapId, monster.x, monster.y, monster.runtimeId);
+      this.handleMonsterDefeat(monster);
       messages.push({
         playerId: player.id,
         text: `${monster.name} 被你斩杀。`,
@@ -3869,13 +3906,17 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (this.monstersByMap.has(mapId)) return;
 
     const persistedStates = this.persistedMonstersByMap.get(mapId);
+    const persistedSpawnStates = this.persistedMonsterSpawnAccelerationStatesByMap.get(mapId);
     const monsters: RuntimeMonster[] = [];
+    const monsterGroups = new Map<string, RuntimeMonster[]>();
     for (const spawn of this.mapService.getMonsterSpawns(mapId)) {
+      const spawnKey = this.buildMonsterSpawnKey(mapId, spawn.id, spawn.x, spawn.y);
       for (let index = 0; index < spawn.maxAlive; index++) {
         const runtime: RuntimeMonster = {
           ...spawn,
           runtimeId: this.buildMonsterRuntimeId(mapId, spawn.id, spawn.x, spawn.y, index),
           mapId,
+          spawnKey,
           spawnX: spawn.x,
           spawnY: spawn.y,
           hp: spawn.maxHp,
@@ -3903,14 +3944,42 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
             runtime.respawnLeft = runtime.respawnTicks;
           }
         }
+        const group = monsterGroups.get(spawnKey);
+        if (group) {
+          group.push(runtime);
+        } else {
+          monsterGroups.set(spawnKey, [runtime]);
+        }
         monsters.push(runtime);
       }
     }
 
-    if (persistedStates) {
+    const accelerationStates = new Map<string, MonsterSpawnAccelerationState>();
+    const currentTick = this.timeService.getTotalTicks(mapId);
+    for (const [spawnKey, group] of monsterGroups.entries()) {
+      const sample = group[0];
+      if (!sample || !this.isOrdinaryMonster(sample)) {
+        continue;
+      }
+      const persistedState = persistedSpawnStates?.get(spawnKey);
+      accelerationStates.set(
+        spawnKey,
+        persistedState
+          ? this.applyPersistedMonsterSpawnAccelerationState(persistedState)
+          : this.createDefaultMonsterSpawnAccelerationState(spawnKey, group, currentTick),
+      );
+    }
+
+    if (persistedStates || persistedSpawnStates) {
       this.monsterRuntimeDirty = true;
     }
     this.monstersByMap.set(mapId, monsters);
+    this.monsterSpawnGroupsByMap.set(mapId, monsterGroups);
+    if (accelerationStates.size > 0) {
+      this.monsterSpawnAccelerationStatesByMap.set(mapId, accelerationStates);
+    } else {
+      this.monsterSpawnAccelerationStatesByMap.delete(mapId);
+    }
   }
 
   private syncQuestNpcLocations(quest: QuestState): boolean {
@@ -5152,17 +5221,21 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
     try {
       const snapshot: PersistedMonsterRuntimeSnapshot = {
-        version: 2,
+        version: 3,
         maps: {},
+        spawnAccelerationStates: {},
       };
 
       const mapIds = new Set<string>([
         ...this.persistedMonstersByMap.keys(),
+        ...this.persistedMonsterSpawnAccelerationStatesByMap.keys(),
         ...this.monstersByMap.keys(),
+        ...this.monsterSpawnAccelerationStatesByMap.keys(),
       ]);
 
       for (const mapId of [...mapIds].sort((left, right) => left.localeCompare(right, 'zh-CN'))) {
         const allowedRuntimeIds = this.buildAllowedMonsterRuntimeIds(mapId);
+        const allowedSpawnKeys = this.buildAllowedMonsterSpawnKeys(mapId);
         if (allowedRuntimeIds.size === 0) {
           continue;
         }
@@ -5182,8 +5255,25 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
         records.sort((left, right) => left.runtimeId.localeCompare(right.runtimeId, 'zh-CN'));
         snapshot.maps[mapId] = records;
+
+        if (allowedSpawnKeys.size > 0) {
+          const spawnStateRecords = this.monsterSpawnAccelerationStatesByMap.has(mapId)
+            ? [...(this.monsterSpawnAccelerationStatesByMap.get(mapId)?.values() ?? [])]
+                .filter((state) => allowedSpawnKeys.has(state.spawnKey))
+                .map((state) => this.captureMonsterSpawnAccelerationRecord(state))
+            : [...(this.persistedMonsterSpawnAccelerationStatesByMap.get(mapId)?.values() ?? [])]
+                .filter((state) => allowedSpawnKeys.has(state.spawnKey))
+                .map((state) => ({ ...state }));
+          if (spawnStateRecords.length > 0) {
+            spawnStateRecords.sort((left, right) => left.spawnKey.localeCompare(right.spawnKey, 'zh-CN'));
+            snapshot.spawnAccelerationStates![mapId] = spawnStateRecords;
+          }
+        }
       }
 
+      if (Object.keys(snapshot.spawnAccelerationStates ?? {}).length === 0) {
+        delete snapshot.spawnAccelerationStates;
+      }
       await this.persistentDocumentService.save(RUNTIME_STATE_SCOPE, MAP_MONSTER_RUNTIME_DOCUMENT_KEY, snapshot);
       this.monsterRuntimeDirty = false;
     } catch (error) {
@@ -5235,6 +5325,27 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         restoredCount += records.size;
       }
 
+      if (snapshot.spawnAccelerationStates && typeof snapshot.spawnAccelerationStates === 'object') {
+        for (const [mapId, rawRecords] of Object.entries(snapshot.spawnAccelerationStates)) {
+          if (!Array.isArray(rawRecords)) {
+            continue;
+          }
+
+          const records = new Map<string, PersistedMonsterSpawnAccelerationRecord>();
+          for (const rawRecord of rawRecords) {
+            const record = this.normalizePersistedMonsterSpawnAccelerationRecord(rawRecord);
+            if (!record) {
+              continue;
+            }
+            records.set(record.spawnKey, record);
+          }
+
+          if (records.size > 0) {
+            this.persistedMonsterSpawnAccelerationStatesByMap.set(mapId, records);
+          }
+        }
+      }
+
       if (restoredCount > 0) {
         this.logger.log(`已恢复怪物运行时状态：${restoredCount} 个实例`);
       }
@@ -5269,6 +5380,26 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return result;
   }
 
+  private buildAllowedMonsterSpawnKeys(mapId: string): Set<string> {
+    const result = new Set<string>();
+    for (const spawn of this.mapService.getMonsterSpawns(mapId)) {
+      if (spawn.tier !== 'mortal_blood') {
+        continue;
+      }
+      result.add(this.buildMonsterSpawnKey(mapId, spawn.id, spawn.x, spawn.y));
+    }
+    return result;
+  }
+
+  private buildMonsterSpawnKey(
+    mapId: string,
+    spawnId: string,
+    spawnX: number,
+    spawnY: number,
+  ): string {
+    return `monster_spawn:${mapId}:${spawnId}:${spawnX}:${spawnY}`;
+  }
+
   private buildMonsterRuntimeId(
     mapId: string,
     spawnId: string,
@@ -5283,6 +5414,14 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     const result = new Map<string, PersistedMonsterRuntimeRecord>();
     for (const monster of monsters) {
       result.set(monster.runtimeId, this.captureMonsterRuntimeRecord(monster));
+    }
+    return result;
+  }
+
+  private captureMonsterSpawnAccelerationState(mapId: string): Map<string, PersistedMonsterSpawnAccelerationRecord> {
+    const result = new Map<string, PersistedMonsterSpawnAccelerationRecord>();
+    for (const state of this.monsterSpawnAccelerationStatesByMap.get(mapId)?.values() ?? []) {
+      result.set(state.spawnKey, this.captureMonsterSpawnAccelerationRecord(state));
     }
     return result;
   }
@@ -5307,6 +5446,16 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         : undefined,
       facing: monster.facing,
       targetPlayerId: monster.targetPlayerId,
+    };
+  }
+
+  private captureMonsterSpawnAccelerationRecord(
+    state: MonsterSpawnAccelerationState,
+  ): PersistedMonsterSpawnAccelerationRecord {
+    return {
+      spawnKey: state.spawnKey,
+      respawnSpeedBonusPercent: this.normalizeMonsterRespawnSpeedBonusPercent(state.respawnSpeedBonusPercent),
+      clearDeadlineTick: Math.max(0, Math.round(state.clearDeadlineTick)),
     };
   }
 
@@ -5361,6 +5510,32 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     runtime.respawnLeft = Math.max(1, Number.isFinite(persisted.respawnLeft) ? Math.round(persisted.respawnLeft) : runtime.respawnTicks);
   }
 
+  private createDefaultMonsterSpawnAccelerationState(
+    spawnKey: string,
+    monsters: RuntimeMonster[],
+    currentTick: number,
+  ): MonsterSpawnAccelerationState {
+    const sample = monsters[0];
+    const respawnSpeedBonusPercent = 0;
+    return {
+      spawnKey,
+      respawnSpeedBonusPercent,
+      clearDeadlineTick: sample && this.areAllMonstersAlive(monsters)
+        ? currentTick + this.resolveMonsterRespawnTicksWithBonus(sample.respawnTicks, respawnSpeedBonusPercent)
+        : 0,
+    };
+  }
+
+  private applyPersistedMonsterSpawnAccelerationState(
+    persisted: PersistedMonsterSpawnAccelerationRecord,
+  ): MonsterSpawnAccelerationState {
+    return {
+      spawnKey: persisted.spawnKey,
+      respawnSpeedBonusPercent: this.normalizeMonsterRespawnSpeedBonusPercent(persisted.respawnSpeedBonusPercent),
+      clearDeadlineTick: Math.max(0, Math.round(persisted.clearDeadlineTick)),
+    };
+  }
+
   private normalizePersistedMonsterRuntimeRecord(raw: unknown): PersistedMonsterRuntimeRecord | null {
     if (!raw || typeof raw !== 'object') {
       return null;
@@ -5408,6 +5583,150 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       facing: candidate.facing,
       targetPlayerId: typeof candidate.targetPlayerId === 'string' ? candidate.targetPlayerId : undefined,
     };
+  }
+
+  private normalizePersistedMonsterSpawnAccelerationRecord(
+    raw: unknown,
+  ): PersistedMonsterSpawnAccelerationRecord | null {
+    if (!raw || typeof raw !== 'object') {
+      return null;
+    }
+
+    const candidate = raw as Partial<PersistedMonsterSpawnAccelerationRecord>;
+    if (
+      typeof candidate.spawnKey !== 'string'
+      || !Number.isFinite(candidate.respawnSpeedBonusPercent)
+      || !Number.isFinite(candidate.clearDeadlineTick)
+    ) {
+      return null;
+    }
+
+    return {
+      spawnKey: candidate.spawnKey,
+      respawnSpeedBonusPercent: this.normalizeMonsterRespawnSpeedBonusPercent(Number(candidate.respawnSpeedBonusPercent)),
+      clearDeadlineTick: Math.max(0, Math.round(Number(candidate.clearDeadlineTick))),
+    };
+  }
+
+  private isOrdinaryMonster(monster: Pick<RuntimeMonster, 'tier'>): boolean {
+    return monster.tier === 'mortal_blood';
+  }
+
+  private areAllMonstersAlive(monsters: RuntimeMonster[]): boolean {
+    for (const monster of monsters) {
+      if (!monster.alive) {
+        return false;
+      }
+    }
+    return monsters.length > 0;
+  }
+
+  private areAllMonstersDefeated(monsters: RuntimeMonster[]): boolean {
+    for (const monster of monsters) {
+      if (monster.alive) {
+        return false;
+      }
+    }
+    return monsters.length > 0;
+  }
+
+  private getMonsterSpawnGroup(monster: RuntimeMonster): RuntimeMonster[] {
+    return this.monsterSpawnGroupsByMap.get(monster.mapId)?.get(monster.spawnKey) ?? [monster];
+  }
+
+  private getMonsterSpawnAccelerationState(monster: RuntimeMonster): MonsterSpawnAccelerationState | undefined {
+    if (!this.isOrdinaryMonster(monster)) {
+      return undefined;
+    }
+
+    let mapStates = this.monsterSpawnAccelerationStatesByMap.get(monster.mapId);
+    if (!mapStates) {
+      mapStates = new Map<string, MonsterSpawnAccelerationState>();
+      this.monsterSpawnAccelerationStatesByMap.set(monster.mapId, mapStates);
+    }
+
+    let state = mapStates.get(monster.spawnKey);
+    if (!state) {
+      state = this.createDefaultMonsterSpawnAccelerationState(
+        monster.spawnKey,
+        this.getMonsterSpawnGroup(monster),
+        this.timeService.getTotalTicks(monster.mapId),
+      );
+      mapStates.set(monster.spawnKey, state);
+    }
+
+    return state;
+  }
+
+  private normalizeMonsterRespawnSpeedBonusPercent(value: number): number {
+    if (!Number.isFinite(value)) {
+      return 0;
+    }
+    const normalized = Math.round(Number(value) / MONSTER_RESPAWN_ACCELERATION_STEP_PERCENT)
+      * MONSTER_RESPAWN_ACCELERATION_STEP_PERCENT;
+    return Math.max(0, Math.min(MONSTER_RESPAWN_ACCELERATION_MAX_PERCENT, normalized));
+  }
+
+  private resolveMonsterRespawnTicks(monster: RuntimeMonster): number {
+    const bonus = this.getMonsterSpawnAccelerationState(monster)?.respawnSpeedBonusPercent ?? 0;
+    return this.resolveMonsterRespawnTicksWithBonus(monster.respawnTicks, bonus);
+  }
+
+  private resolveMonsterRespawnTicksWithBonus(respawnTicks: number, bonusPercent: number): number {
+    const safeTicks = Math.max(1, Math.round(respawnTicks));
+    const safeBonusPercent = this.normalizeMonsterRespawnSpeedBonusPercent(bonusPercent);
+    return Math.max(
+      1,
+      Math.round(
+        safeTicks * MONSTER_RESPAWN_ACCELERATION_BASE_PERCENT
+          / (MONSTER_RESPAWN_ACCELERATION_BASE_PERCENT + safeBonusPercent),
+      ),
+    );
+  }
+
+  private handleMonsterRespawn(monster: RuntimeMonster): void {
+    const state = this.getMonsterSpawnAccelerationState(monster);
+    if (!state) {
+      return;
+    }
+
+    const group = this.getMonsterSpawnGroup(monster);
+    if (!this.areAllMonstersAlive(group)) {
+      return;
+    }
+
+    state.clearDeadlineTick = this.timeService.getTotalTicks(monster.mapId)
+      + this.resolveMonsterRespawnTicksWithBonus(monster.respawnTicks, state.respawnSpeedBonusPercent);
+  }
+
+  private handleMonsterDefeat(monster: RuntimeMonster): void {
+    const state = this.getMonsterSpawnAccelerationState(monster);
+    if (!state) {
+      return;
+    }
+
+    const group = this.getMonsterSpawnGroup(monster);
+    if (!this.areAllMonstersDefeated(group)) {
+      return;
+    }
+
+    const currentTick = this.timeService.getTotalTicks(monster.mapId);
+    const clearedInTime = state.clearDeadlineTick > 0 && currentTick <= state.clearDeadlineTick;
+    const nextBonusPercent = clearedInTime
+      ? Math.min(
+          MONSTER_RESPAWN_ACCELERATION_MAX_PERCENT,
+          state.respawnSpeedBonusPercent + MONSTER_RESPAWN_ACCELERATION_STEP_PERCENT,
+        )
+      : 0;
+    state.respawnSpeedBonusPercent = nextBonusPercent;
+    state.clearDeadlineTick = 0;
+
+    const respawnTicks = this.resolveMonsterRespawnTicksWithBonus(monster.respawnTicks, nextBonusPercent);
+    for (const entry of group) {
+      if (!entry.alive) {
+        entry.respawnLeft = respawnTicks;
+      }
+    }
   }
 
   private normalizePersistedTemporaryBuffState(raw: unknown): TemporaryBuffState | null {
