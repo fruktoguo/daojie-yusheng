@@ -175,12 +175,16 @@ export class TechniqueConstellationCanvas {
   }
 
   private resizeAndRebuild(): void {
+    const cssWidth = Math.max(1, Math.floor(this.root.clientWidth));
+    const cssHeight = Math.max(1, Math.floor(this.root.clientHeight));
     const bounds = this.root.getBoundingClientRect();
-    const cssWidth = Math.max(1, Math.floor(bounds.width));
-    const cssHeight = Math.max(1, Math.floor(bounds.height));
+    const viewportScaleX = cssWidth > 0 && bounds.width > 0 ? bounds.width / cssWidth : 1;
+    const viewportScaleY = cssHeight > 0 && bounds.height > 0 ? bounds.height / cssHeight : 1;
     const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
-    const nextWidth = Math.max(1, Math.floor(cssWidth * dpr));
-    const nextHeight = Math.max(1, Math.floor(cssHeight * dpr));
+    const pixelRatioX = dpr * viewportScaleX;
+    const pixelRatioY = dpr * viewportScaleY;
+    const nextWidth = Math.max(1, Math.floor(cssWidth * pixelRatioX));
+    const nextHeight = Math.max(1, Math.floor(cssHeight * pixelRatioY));
     if (this.pixelWidth === nextWidth && this.pixelHeight === nextHeight) {
       return;
     }
@@ -189,8 +193,20 @@ export class TechniqueConstellationCanvas {
     this.canvas.width = nextWidth;
     this.canvas.height = nextHeight;
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-    this.ctx.scale(dpr, dpr);
+    this.ctx.scale(pixelRatioX, pixelRatioY);
     this.rebuildScene();
+  }
+
+  private resolvePointer(event: MouseEvent): { x: number; y: number } {
+    const rect = this.canvas.getBoundingClientRect();
+    const logicalWidth = Math.max(1, this.root.clientWidth);
+    const logicalHeight = Math.max(1, this.root.clientHeight);
+    const scaleX = rect.width > 0 ? logicalWidth / rect.width : 1;
+    const scaleY = rect.height > 0 ? logicalHeight / rect.height : 1;
+    return {
+      x: (event.clientX - rect.left) * scaleX,
+      y: (event.clientY - rect.top) * scaleY,
+    };
   }
 
   private rebuildScene(): void {
@@ -625,9 +641,9 @@ export class TechniqueConstellationCanvas {
   }
 
   private handleMouseMove = (event: MouseEvent): void => {
-    const rect = this.canvas.getBoundingClientRect();
-    const mouseX = event.clientX - rect.left;
-    const mouseY = event.clientY - rect.top;
+    const pointer = this.resolvePointer(event);
+    const mouseX = pointer.x;
+    const mouseY = pointer.y;
     const hoveredNode = this.findNodeAt(mouseX, mouseY);
     const previousLevel = this.hoveredLevel;
     this.hoveredLevel = hoveredNode?.level ?? null;
@@ -659,9 +675,9 @@ export class TechniqueConstellationCanvas {
   };
 
   private handleClick = (event: MouseEvent): void => {
-    const rect = this.canvas.getBoundingClientRect();
-    const mouseX = event.clientX - rect.left;
-    const mouseY = event.clientY - rect.top;
+    const pointer = this.resolvePointer(event);
+    const mouseX = pointer.x;
+    const mouseY = pointer.y;
     const hitNode = this.findNodeAt(mouseX, mouseY);
     if (!hitNode) {
       return;
