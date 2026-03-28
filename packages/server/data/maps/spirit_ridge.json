@@ -223,39 +223,36 @@
     {
       "id": "m_spirit_tiger",
       "x": 9,
-      "y": 24,
+      "y": 25,
+      "maxAlive": 12,
       "respawnTicks": 15
     },
     {
       "id": "m_spirit_tiger",
       "x": 39,
-      "y": 24,
-      "respawnTicks": 15
-    },
-    {
-      "id": "m_frost_crane",
-      "x": 19,
-      "y": 18,
-      "respawnTicks": 15
-    },
-    {
-      "id": "m_frost_crane",
-      "x": 28,
       "y": 25,
+      "maxAlive": 12,
+      "respawnTicks": 15
+    },
+    {
+      "id": "m_frost_crane",
+      "x": 26,
+      "y": 21,
+      "maxAlive": 12,
+      "respawnTicks": 15
+    },
+    {
+      "id": "m_frost_crane",
+      "x": 23,
+      "y": 36,
+      "maxAlive": 12,
       "respawnTicks": 15
     },
     {
       "id": "m_ridge_ghost",
       "x": 24,
       "y": 10,
-      "count": 1,
-      "respawnTicks": 15
-    },
-    {
-      "id": "m_ridge_ghost",
-      "x": 24,
-      "y": 14,
-      "count": 1,
+      "maxAlive": 4,
       "respawnTicks": 15
     }
   ]

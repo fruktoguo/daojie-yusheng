@@ -266,8 +266,10 @@ interface SkillFormulaContext {
   techLevel: number;
   targetCount: number;
   casterStats: NumericStats;
+  casterAttrs?: Attributes;
   target?: ResolvedTarget;
   targetStats?: NumericStats;
+  targetAttrs?: Attributes;
 }
 
 interface AutoBattleSkillCandidate {
@@ -572,7 +574,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           : `任务：${interaction.questState.title}`;
         desc = interaction.relation === 'target' && interaction.questState.objectiveType === 'talk'
           ? (interaction.questState.relayMessage?.trim() || interaction.quest?.relayMessage?.trim() || '把口信转达给对方。')
-          : this.describeQuestProgress(interaction.questState, interaction.quest);
+          : this.describeQuestProgress(player, interaction.questState, interaction.quest);
         type = 'quest';
       }
 
@@ -1085,6 +1087,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     this.pushActionLabelEffect(player.mapId, player.x, player.y, skill.name);
 
     const casterStats = this.attrService.getPlayerNumericStats(player);
+    const casterAttrs = this.attrService.getPlayerFinalAttrs(player);
     const techLevel = this.getSkillTechniqueLevel(player, skill.id);
     let appliedEffect = false;
     let firstError: string | undefined;
@@ -1102,11 +1105,17 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
             techLevel,
             targetCount: damageTargets.length,
             casterStats,
+            casterAttrs,
             target,
             targetStats: target.kind === 'monster'
               ? this.getMonsterCombatSnapshot(target.monster).stats
               : target.kind === 'player'
                 ? this.getPlayerCombatSnapshot(target.player).stats
+                : undefined,
+            targetAttrs: target.kind === 'monster'
+              ? target.monster.attrs
+              : target.kind === 'player'
+                ? this.attrService.getPlayerFinalAttrs(target.player)
                 : undefined,
           };
           const baseDamage = Math.max(1, Math.round(this.evaluateSkillFormula(effect.formula, context)));
@@ -1265,8 +1274,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
     const cells = computeAffectedCellsFromAnchor(player, primaryTarget, {
       range: skill.range,
-      shape: 'area',
+      shape,
       radius: targeting?.radius,
+      width: targeting?.width,
+      height: targeting?.height,
     });
     return this.collectTargetsFromCells(player, monsters, players, cells, maxTargets);
   }
@@ -1630,6 +1641,14 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           ? Math.max(0, Math.round(this.attrService.getPlayerNumericStats(context.target.player).maxQi))
           : 0;
       default:
+        if (variable.startsWith('caster.attr.')) {
+          const key = variable.slice('caster.attr.'.length) as keyof Attributes;
+          return typeof context.casterAttrs?.[key] === 'number' ? context.casterAttrs[key] as number : 0;
+        }
+        if (variable.startsWith('target.attr.')) {
+          const key = variable.slice('target.attr.'.length) as keyof Attributes;
+          return typeof context.targetAttrs?.[key] === 'number' ? context.targetAttrs[key] as number : 0;
+        }
         if (variable.startsWith('caster.stat.')) {
           const key = variable.slice('caster.stat.'.length) as keyof NumericStats;
           return typeof context.casterStats[key] === 'number' ? context.casterStats[key] as number : 0;
@@ -1996,8 +2015,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
     const cells = computeAffectedCellsFromAnchor(monster, primaryTarget, {
       range: skill.range,
-      shape: 'area',
+      shape,
       radius: targeting?.radius,
+      width: targeting?.width,
+      height: targeting?.height,
     });
     return this.collectMonsterSkillTargetsFromCells(players, cells, maxTargets);
   }
@@ -2046,6 +2067,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     this.faceToward(monster, target.x, target.y);
     this.pushActionLabelEffect(mapId, monster.x, monster.y, skill.name);
     const casterStats = this.getMonsterCombatSnapshot(monster).stats;
+    const casterAttrs = monster.attrs;
     const techLevel = this.getMonsterSkillTechniqueLevel(monster, skill);
     const messages: WorldMessage[] = [];
     const dirtyPlayers = new Set<string>();
@@ -2065,8 +2087,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
             techLevel,
             targetCount: damageTargets.length,
             casterStats,
+            casterAttrs,
             target: damageTarget,
             targetStats: this.getPlayerCombatSnapshot(damageTarget.player).stats,
+            targetAttrs: this.attrService.getPlayerFinalAttrs(damageTarget.player),
           };
           const baseDamage = Math.max(1, Math.round(this.evaluateSkillFormula(effect.formula, context)));
           const update = this.attackPlayerFromMonsterSkill(
@@ -2347,7 +2371,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           playerId: player.id,
           text: interaction.relation === 'target' && interaction.questState.objectiveType === 'talk'
             ? `${npc.name}：若你有话要带来，直说便是。`
-            : `${npc.name}：${this.describeQuestProgress(interaction.questState, interaction.quest)}`,
+            : `${npc.name}：${this.describeQuestProgress(player, interaction.questState, interaction.quest)}`,
           kind: 'quest',
         }],
         dirty: ['actions'],
@@ -4082,7 +4106,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       .reduce((total, item) => total + item.count, 0);
   }
 
-  private describeQuestProgress(questState: QuestState, questConfig?: QuestConfig): string {
+  private describeQuestProgress(player: PlayerState, questState: QuestState, questConfig?: QuestConfig): string {
     const objective = questState.objectiveText ?? questConfig?.objectiveText ?? questState.desc;
     const parts = [objective];
     switch (questState.objectiveType) {
@@ -4098,10 +4122,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           : `尚未参悟 ${questState.targetName}`);
         break;
       case 'realm_stage':
-        parts.push(`境界进度 ${questState.progress}/${questState.required}`);
-        if (questConfig?.targetRealmStage !== undefined) {
-          parts.push(`目标境界 ${this.getRealmStageName(questConfig.targetRealmStage)}`);
-        }
+        parts.push(questState.progress >= questState.required
+          ? `已达到 ${questState.targetName}`
+          : `尚未达到 ${questState.targetName}`);
         break;
       case 'realm_progress':
       case 'kill':
@@ -4112,7 +4135,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (questConfig?.requiredItemId) {
       const itemName = this.contentService.getItem(questConfig.requiredItemId)?.name
         ?? (isLikelyInternalContentId(questConfig.requiredItemId) ? '任务物品' : questConfig.requiredItemId);
-      parts.push(`提交物品 ${itemName} x${questConfig.requiredItemCount ?? 1}`);
+      const requiredItemCount = Math.max(1, questConfig.requiredItemCount ?? 1);
+      const currentItemCount = Math.min(requiredItemCount, this.getInventoryCount(player, questConfig.requiredItemId));
+      parts.push(`当前持有 ${itemName} ${currentItemCount}/${requiredItemCount}`);
     }
     return parts.join('，');
   }

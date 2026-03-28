@@ -234,6 +234,13 @@
         "chance": 1
       },
       {
+        "itemId": "spirit_iron_fragment",
+        "name": "灵铁碎片",
+        "type": "material",
+        "count": 1,
+        "chance": 0.35
+      },
+      {
         "itemId": "equip.rift_guard_armor",
         "name": "裂隙镇守甲",
         "type": "equipment",
@@ -312,6 +319,13 @@
       {
         "itemId": "crystal_dust",
         "name": "晶尘",
+        "type": "material",
+        "count": 2,
+        "chance": 1
+      },
+      {
+        "itemId": "spirit_iron_fragment",
+        "name": "灵铁碎片",
         "type": "material",
         "count": 2,
         "chance": 1

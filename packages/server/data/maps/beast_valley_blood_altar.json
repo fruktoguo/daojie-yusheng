@@ -47,9 +47,17 @@
     "light": {
       "base": 18,
       "timeInfluence": 12
-    }
+    },
+    "palette": {}
   },
-  "auras": [],
+  "auras": [
+    {
+      "x": 10,
+      "y": 5,
+      "value": 4
+    }
+  ],
+  "safeZones": [],
   "landmarks": [
     {
       "id": "lm_blood_altar_heart",
@@ -64,7 +72,8 @@
     {
       "id": "m_soul_wolf_ancestor",
       "x": 9,
-      "y": 5
+      "y": 5,
+      "respawnTicks": 15
     }
   ]
 }

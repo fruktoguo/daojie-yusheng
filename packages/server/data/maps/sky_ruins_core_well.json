@@ -47,9 +47,17 @@
     "light": {
       "base": 16,
       "timeInfluence": 20
-    }
+    },
+    "palette": {}
   },
-  "auras": [],
+  "auras": [
+    {
+      "x": 14,
+      "y": 5,
+      "value": 5
+    }
+  ],
+  "safeZones": [],
   "landmarks": [
     {
       "id": "lm_core_well_throne",
@@ -64,7 +72,8 @@
     {
       "id": "m_fallen_palace_lord",
       "x": 13,
-      "y": 5
+      "y": 5,
+      "respawnTicks": 15
     }
   ]
 }
