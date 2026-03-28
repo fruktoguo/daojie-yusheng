@@ -626,6 +626,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
             const { d } = cmd.data as { d: Direction };
             const moved = this.navigationService.stepPlayerByDirection(player, d);
             if (moved) {
+              this.markActionsDirty(player.id);
               this.applyAutoTravelIfNeeded(player, messages);
             }
           });
@@ -821,6 +822,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         });
         continue;
       }
+      const startMapId = player.mapId;
       const startX = player.x;
       const startY = player.y;
       const timeUpdate = this.measureCpuSection('time_effects', '时间与环境效果', () => (
@@ -913,7 +915,8 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         this.markActionCooldownDirty(player.id);
       }
 
-      if (player.x !== startX || player.y !== startY) {
+      if (player.mapId !== startMapId || player.x !== startX || player.y !== startY) {
+        this.markActionsDirty(player.id);
         const moveEffects = this.equipmentEffectService.dispatch(player, { trigger: 'on_move' });
         if (moveEffects.dirty.length > 0) {
           this.markDirty(player.id, moveEffects.dirty as DirtyFlag[]);
