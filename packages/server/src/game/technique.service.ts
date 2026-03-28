@@ -92,6 +92,7 @@ interface MonsterKillExpInput {
   expMultiplier?: number;
   participantCount?: number;
   isKiller?: boolean;
+  expReferenceRealmLv?: number;
 }
 
 interface RealmExpAdvanceOptions {
@@ -605,10 +606,18 @@ export class TechniqueService {
     const realmExpBonus = Math.max(0, numericStats.playerExpRate) / 10000;
     const normalizedMonsterLevel = Math.max(1, Math.floor(input.monsterLevel ?? 1));
     const participantCount = Math.max(1, Math.floor(input.participantCount ?? 1));
-    const playerRealmLv = this.getPlayerRealmLv(player);
+    const expReferenceRealmLv = Math.max(
+      1,
+      Math.floor(input.expReferenceRealmLv ?? this.getPlayerRealmLv(player)),
+    );
     const dirty = new Set<TechniqueDirtyFlag>();
     const messages: TechniqueMessage[] = [];
-    const realmBaseExp = this.getRealmCombatExp(normalizedMonsterLevel, playerRealmLv, input.expMultiplier, participantCount);
+    const realmBaseExp = this.getRealmCombatExp(
+      normalizedMonsterLevel,
+      expReferenceRealmLv,
+      input.expMultiplier,
+      participantCount,
+    );
 
     const realmResult = this.advanceRealmProgress(player, realmBaseExp, {
       expBonus: realmExpBonus,
