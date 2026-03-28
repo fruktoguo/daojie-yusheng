@@ -878,7 +878,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
   /** 同步玩家任务进度，检测完成条件并刷新状态 */
   syncQuestState(player: PlayerState): WorldDirtyFlag[] {
-    let changed = false;
+    const mainQuestRepairChanged = this.ensureLinearMainQuest(player).changed;
+    let changed = mainQuestRepairChanged;
 
     for (const quest of player.quests) {
       if (quest.status === 'completed') continue;
@@ -912,7 +913,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
     const statusChanged = this.refreshQuestStatuses(player);
     if (changed || statusChanged) {
-      return statusChanged ? ['quest', 'actions'] : ['quest'];
+      return (mainQuestRepairChanged || statusChanged) ? ['quest', 'actions'] : ['quest'];
     }
     return [];
   }
@@ -2437,21 +2438,89 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return questState;
   }
 
+  private ensureLinearMainQuest(player: PlayerState): { changed: boolean; autoAcceptedQuest?: QuestState } {
+    const mainQuestChain = this.mapService.getMainQuestChain();
+    if (mainQuestChain.length <= 0) {
+      return { changed: false };
+    }
+
+    let changed = false;
+    const expectedMainQuestId = this.getCurrentMainQuestId(player);
+    const seenMainQuestIds = new Set<string>();
+    const filteredQuests: QuestState[] = [];
+
+    for (const quest of player.quests) {
+      const mainQuestIndex = this.mapService.getMainQuestIndex(quest.id);
+      if (mainQuestIndex === undefined) {
+        filteredQuests.push(quest);
+        continue;
+      }
+
+      if (seenMainQuestIds.has(quest.id)) {
+        changed = true;
+        continue;
+      }
+      seenMainQuestIds.add(quest.id);
+
+      if (quest.status === 'completed' || (expectedMainQuestId && quest.id === expectedMainQuestId)) {
+        filteredQuests.push(quest);
+        continue;
+      }
+
+      changed = true;
+    }
+
+    let autoAcceptedQuest: QuestState | undefined;
+    if (expectedMainQuestId && !filteredQuests.some((quest) => quest.id === expectedMainQuestId)) {
+      const expectedQuest = this.mapService.getQuest(expectedMainQuestId);
+      if (expectedQuest) {
+        autoAcceptedQuest = this.createQuestState(player, expectedQuest);
+        filteredQuests.push(autoAcceptedQuest);
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      player.quests = filteredQuests;
+    }
+
+    return { changed, autoAcceptedQuest };
+  }
+
+  private getCurrentMainQuestId(player: PlayerState): string | undefined {
+    for (const quest of this.mapService.getMainQuestChain()) {
+      const questState = player.quests.find((entry) => entry.id === quest.id);
+      if (!questState || questState.status !== 'completed') {
+        return quest.id;
+      }
+    }
+    return undefined;
+  }
+
   private tryAcceptNextQuest(player: PlayerState, nextQuestId?: string): QuestState | null {
-    if (!nextQuestId) {
-      return null;
+    let candidateQuestId = nextQuestId;
+    const visitedQuestIds = new Set<string>();
+
+    while (candidateQuestId && !visitedQuestIds.has(candidateQuestId)) {
+      visitedQuestIds.add(candidateQuestId);
+      const existingQuestState = player.quests.find((entry) => entry.id === candidateQuestId);
+      if (!existingQuestState) {
+        const nextQuest = this.mapService.getQuest(candidateQuestId);
+        if (!nextQuest) {
+          return null;
+        }
+        const nextQuestState = this.createQuestState(player, nextQuest);
+        player.quests.push(nextQuestState);
+        this.syncQuestState(player);
+        return nextQuestState;
+      }
+      if (existingQuestState.status !== 'completed') {
+        return null;
+      }
+      candidateQuestId = this.mapService.getQuest(candidateQuestId)?.nextQuestId;
     }
-    if (player.quests.some((entry) => entry.id === nextQuestId)) {
-      return null;
-    }
-    const nextQuest = this.mapService.getQuest(nextQuestId);
-    if (!nextQuest) {
-      return null;
-    }
-    const nextQuestState = this.createQuestState(player, nextQuest);
-    player.quests.push(nextQuestState);
-    this.syncQuestState(player);
-    return nextQuestState;
+
+    return null;
   }
 
   private describeQuestAutoAccepted(quest: QuestState): string {
@@ -3828,7 +3897,24 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       };
     }
 
+    const currentMainQuestId = this.getCurrentMainQuestId(player);
+    if (currentMainQuestId) {
+      const currentMainQuest = npc.quests.find((quest) => quest.id === currentMainQuestId);
+      if (currentMainQuest) {
+        const questState = player.quests.find((entry) => entry.id === currentMainQuest.id);
+        if (questState && questState.status !== 'completed') {
+          return { quest: currentMainQuest, questState, relation: 'giver' };
+        }
+        if (!questState) {
+          return { quest: currentMainQuest, relation: 'giver' };
+        }
+      }
+    }
+
     for (const quest of npc.quests) {
+      if (quest.line === 'main' && currentMainQuestId && quest.id !== currentMainQuestId) {
+        continue;
+      }
       const questState = player.quests.find((entry) => entry.id === quest.id);
       if (questState && questState.status !== 'completed') {
         return { quest, questState, relation: 'giver' };

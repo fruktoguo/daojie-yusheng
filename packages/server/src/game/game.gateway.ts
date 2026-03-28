@@ -171,6 +171,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         this.playerService.setSocket(existingPlayerId, client);
         this.playerService.setUserMapping(userId, existingPlayerId);
         this.playerService.markPlayerOnline(existingPlayerId);
+        const questDirty = this.worldService.syncQuestState(existing);
+        if (questDirty.length > 0) {
+          await this.playerService.savePlayer(existing.id);
+        }
         client.data = { userId, playerId: existingPlayerId };
         this.sendInit(client, existing);
         this.logger.log(`顶号: ${username} 接管 ${existingPlayerId}`);
@@ -190,6 +194,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       this.playerService.setSocket(saved.id, client);
       this.playerService.setUserMapping(userId, saved.id);
       this.playerService.markPlayerOnline(saved.id);
+      const questDirty = this.worldService.syncQuestState(saved);
+      if (questDirty.length > 0) {
+        await this.playerService.savePlayer(saved.id);
+      }
       this.mapService.addOccupant(saved.mapId, saved.x, saved.y, saved.id, 'player');
       client.data = { userId, playerId: saved.id };
       this.sendInit(client, saved);
@@ -248,6 +256,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     playerState.mapId = startPlacement.mapId;
     playerState.x = startPlacement.x;
     playerState.y = startPlacement.y;
+    this.worldService.syncQuestState(playerState);
 
     await this.playerService.createPlayer(playerState, userId);
     this.playerService.setSocket(playerId, client);

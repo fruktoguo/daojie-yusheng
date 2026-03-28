@@ -454,6 +454,8 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(MapService.name);
   private maps: Map<string, MapData> = new Map();
   private quests: Map<string, QuestConfig> = new Map();
+  private mainQuestChain: QuestConfig[] = [];
+  private mainQuestIndexById: Map<string, number> = new Map();
   private monsters: Map<string, MonsterSpawnConfig> = new Map();
   private revisions: Map<string, number> = new Map();
   private tilePatchRevisions: Map<string, number> = new Map();
@@ -2298,6 +2300,8 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
   private reloadQuestBindingsFromFiles(): void {
     this.quests.clear();
+    this.mainQuestChain = [];
+    this.mainQuestIndexById.clear();
     for (const map of this.maps.values()) {
       for (const npc of map.npcs) {
         npc.quests = [];
@@ -2326,7 +2330,54 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    this.rebuildMainQuestChain();
+
     this.logger.log(`已加载 ${loadedCount} 条任务配置`);
+  }
+
+  private rebuildMainQuestChain(): void {
+    this.mainQuestChain = [];
+    this.mainQuestIndexById.clear();
+
+    const mainQuests = [...this.quests.values()].filter((quest) => quest.line === 'main');
+    if (mainQuests.length <= 0) {
+      return;
+    }
+
+    const mainQuestIds = new Set(mainQuests.map((quest) => quest.id));
+    const previousQuestIdById = new Map<string, string>();
+    for (const quest of mainQuests) {
+      if (!quest.nextQuestId || !mainQuestIds.has(quest.nextQuestId)) {
+        continue;
+      }
+      const existingPreviousQuestId = previousQuestIdById.get(quest.nextQuestId);
+      if (existingPreviousQuestId) {
+        this.logger.warn(`主线任务 ${quest.nextQuestId} 存在多个前置: ${existingPreviousQuestId}, ${quest.id}`);
+        continue;
+      }
+      previousQuestIdById.set(quest.nextQuestId, quest.id);
+    }
+
+    const startCandidates = mainQuests.filter((quest) => !previousQuestIdById.has(quest.id));
+    if (startCandidates.length !== 1) {
+      this.logger.warn(`主线链起点数量异常，期望 1 条，实际 ${startCandidates.length} 条`);
+    }
+
+    let current: QuestConfig | undefined = startCandidates[0] ?? mainQuests[0];
+    const visitedQuestIds = new Set<string>();
+    while (current && !visitedQuestIds.has(current.id)) {
+      visitedQuestIds.add(current.id);
+      this.mainQuestIndexById.set(current.id, this.mainQuestChain.length);
+      this.mainQuestChain.push(current);
+      current = current.nextQuestId ? this.quests.get(current.nextQuestId) : undefined;
+    }
+
+    if (visitedQuestIds.size !== mainQuests.length) {
+      const danglingQuestIds = mainQuests
+        .map((quest) => quest.id)
+        .filter((questId) => !visitedQuestIds.has(questId));
+      this.logger.warn(`主线链未完全连通，缺失任务: ${danglingQuestIds.join(', ')}`);
+    }
   }
 
   private normalizeQuestFileRecord(rawQuest: QuestFileRecord, sourceFile: string): QuestConfig | null {
@@ -3312,6 +3363,14 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
   getQuest(questId: string): QuestConfig | undefined {
     return this.quests.get(questId);
+  }
+
+  getMainQuestChain(): readonly QuestConfig[] {
+    return this.mainQuestChain;
+  }
+
+  getMainQuestIndex(questId: string): number | undefined {
+    return this.mainQuestIndexById.get(questId);
   }
 
   getMonsterSpawn(monsterId: string): MonsterSpawnConfig | undefined {
