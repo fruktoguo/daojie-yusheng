@@ -3776,7 +3776,15 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           ? questState.required
           : 0;
       case 'realm_progress': {
-        if (config.targetRealmStage === undefined || !player.realm) return 0;
+        if (!player.realm) return 0;
+        if (config.targetRealmLv !== undefined) {
+          return player.realm.realmLv > config.targetRealmLv
+            ? questState.required
+            : player.realm.realmLv < config.targetRealmLv
+              ? 0
+              : Math.min(questState.required, player.realm.progress);
+        }
+        if (config.targetRealmStage === undefined) return 0;
         if (player.realm.stage > config.targetRealmStage) {
           return questState.required;
         }
@@ -3786,7 +3794,13 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         return Math.min(questState.required, player.realm.progress);
       }
       case 'realm_stage':
-        return config.targetRealmStage !== undefined && player.realm && player.realm.stage >= config.targetRealmStage
+        if (!player.realm) {
+          return 0;
+        }
+        if (config.targetRealmLv !== undefined) {
+          return player.realm.realmLv >= config.targetRealmLv ? questState.required : 0;
+        }
+        return config.targetRealmStage !== undefined && player.realm.stage >= config.targetRealmStage
           ? questState.required
           : 0;
       case 'kill':

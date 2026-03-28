@@ -228,6 +228,7 @@
       "objectiveType": "realm_stage",
       "objectiveText": "历练至炼体境",
       "targetRealmStage": "BodyTempering",
+      "targetRealmLv": 2,
       "targetMapId": "wildlands",
       "targetName": "炼体境",
       "required": 1,

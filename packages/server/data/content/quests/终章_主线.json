@@ -10,6 +10,7 @@
       "objectiveType": "realm_stage",
       "objectiveText": "历练至筑基境",
       "targetRealmStage": "Foundation",
+      "targetRealmLv": 25,
       "targetMapId": "sky_ruins",
       "targetName": "筑基境",
       "required": 1,

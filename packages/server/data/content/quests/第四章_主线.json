@@ -165,6 +165,7 @@
       "objectiveType": "realm_stage",
       "objectiveText": "历练至练气境",
       "targetRealmStage": "QiRefining",
+      "targetRealmLv": 19,
       "targetMapId": "spirit_ridge",
       "targetName": "练气境",
       "required": 1,

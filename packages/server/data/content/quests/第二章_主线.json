@@ -176,6 +176,7 @@
       "objectiveType": "realm_stage",
       "objectiveText": "历练至通脉境",
       "targetRealmStage": "Meridian",
+      "targetRealmLv": 7,
       "targetMapId": "bamboo_forest",
       "targetName": "通脉境",
       "required": 1,

@@ -177,6 +177,7 @@
       "objectiveType": "realm_stage",
       "objectiveText": "历练至锻骨境",
       "targetRealmStage": "BoneForging",
+      "targetRealmLv": 3,
       "targetMapId": "wildlands",
       "targetName": "锻骨境",
       "required": 1,

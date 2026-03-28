@@ -112,6 +112,7 @@ export interface QuestConfig {
   targetMonsterId?: string;
   targetTechniqueId?: string;
   targetRealmStage?: PlayerRealmStage;
+  targetRealmLv?: number;
   required: number;
   rewards: DropConfig[];
   rewardItemIds: string[];
@@ -160,6 +161,7 @@ interface QuestFileRecord {
   targetMonsterId?: string;
   targetTechniqueId?: string;
   targetRealmStage?: keyof typeof PlayerRealmStage | PlayerRealmStage;
+  targetRealmLv?: number;
   required?: number;
   targetCount?: number;
   rewardItemId?: string;
@@ -2429,6 +2431,9 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       : typeof rawQuest.targetRealmStage === 'string'
         ? PlayerRealmStage[rawQuest.targetRealmStage]
         : undefined;
+    const parsedRealmLv = Number.isInteger(rawQuest.targetRealmLv)
+      ? Math.max(1, Number(rawQuest.targetRealmLv))
+      : undefined;
     const validByObjective = (
       objectiveType === 'kill' && typeof rawQuest.targetMonsterId === 'string' && Number.isInteger(required)
     ) || (
@@ -2438,9 +2443,9 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     ) || (
       objectiveType === 'learn_technique' && typeof rawQuest.targetTechniqueId === 'string'
     ) || (
-      objectiveType === 'realm_progress' && Number.isInteger(required) && parsedRealmStage !== undefined
+      objectiveType === 'realm_progress' && Number.isInteger(required) && (parsedRealmStage !== undefined || parsedRealmLv !== undefined)
     ) || (
-      objectiveType === 'realm_stage' && parsedRealmStage !== undefined
+      objectiveType === 'realm_stage' && (parsedRealmStage !== undefined || parsedRealmLv !== undefined)
     );
     const validQuest =
       typeof rawQuest.id === 'string'
@@ -2504,6 +2509,8 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
               ? rawQuest.targetTechniqueId!
               : parsedRealmStage !== undefined
                 ? resolveRealmStageTargetLabel(parsedRealmStage) ?? PlayerRealmStage[parsedRealmStage]
+                : parsedRealmLv !== undefined
+                  ? this.contentService.getRealmLevelEntry(parsedRealmLv)?.displayName ?? `realmLv ${parsedRealmLv}`
                 : rawQuest.title!;
 
     return {
@@ -2527,6 +2534,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       targetMonsterId: typeof rawQuest.targetMonsterId === 'string' ? rawQuest.targetMonsterId : undefined,
       targetTechniqueId: typeof rawQuest.targetTechniqueId === 'string' ? rawQuest.targetTechniqueId : undefined,
       targetRealmStage: parsedRealmStage,
+      targetRealmLv: parsedRealmLv,
       required: normalizedRequired,
       rewards,
       rewardItemIds,

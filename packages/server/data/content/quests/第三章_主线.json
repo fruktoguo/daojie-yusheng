@@ -183,6 +183,7 @@
       "objectiveType": "realm_stage",
       "objectiveText": "历练至先天境",
       "targetRealmStage": "Innate",
+      "targetRealmLv": 13,
       "targetMapId": "ancient_ruins",
       "targetName": "先天境",
       "required": 1,
