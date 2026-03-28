@@ -145,7 +145,7 @@
       {
         "buffId": "item_buff.bitter_cultivation",
         "name": "苦修",
-        "desc": "角色经验与功法修炼速度提高，但经脉始终带着涩滞感。",
+        "desc": "境界修为与功法修炼速度提高，但经脉始终带着涩滞感。",
         "shortMark": "苦",
         "duration": 2400,
         "valueStats": {

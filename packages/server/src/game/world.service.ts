@@ -3337,6 +3337,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       if (buff.stats.playerExpRate !== undefined) stats.playerExpRate += buff.stats.playerExpRate * stacks;
       if (buff.stats.techniqueExpRate !== undefined) stats.techniqueExpRate += buff.stats.techniqueExpRate * stacks;
       if (buff.stats.realmExpPerTick !== undefined) stats.realmExpPerTick += buff.stats.realmExpPerTick * stacks;
+      if (buff.stats.techniqueExpPerTick !== undefined) stats.techniqueExpPerTick += buff.stats.techniqueExpPerTick * stacks;
       if (buff.stats.lootRate !== undefined) stats.lootRate += buff.stats.lootRate * stacks;
       if (buff.stats.rareLootRate !== undefined) stats.rareLootRate += buff.stats.rareLootRate * stacks;
       if (buff.stats.viewRange !== undefined) stats.viewRange += buff.stats.viewRange * stacks;

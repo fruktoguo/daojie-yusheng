@@ -319,8 +319,8 @@ function renderPendingPopup(session: HeavenGateSession): string {
     const actionLabel = pendingAction.kind === 'sever' ? '斩断' : '补回';
     const cost = formatDisplayInteger(getSeverCost(session));
     const desc = pendingAction.kind === 'sever'
-      ? `斩断后，这一系灵根本次将完全不参与随机分配；保留的灵根越少，单条数值通常越容易更高，但你也等于主动放弃了这一系出现在最终结果里的可能。若不斩，则这一系仍会和其他灵根一起分摊总值，更容易形成多灵根结果。此次会消耗 ${cost} 点境界经验（当前境界经验上限的 10%）；若想补回，补灵根同样需要 ${cost} 点境界经验。若当前已有开天门结果，结果会立刻失效并退回重新开门。`
-      : `补回后，这一系灵根会重新进入本次开天门随机池。补回意味着最终更可能出现多灵根、总值分配更分散；不补则会继续提高剩余灵根吃到高数值的机会。补灵根会消耗 ${cost} 点境界经验（当前境界经验上限的 10%）；若当前已有开天门结果，结果同样会立刻失效并退回重新开门。`;
+      ? `斩断后，这一系灵根本次将完全不参与随机分配；保留的灵根越少，单条数值通常越容易更高，但你也等于主动放弃了这一系出现在最终结果里的可能。若不斩，则这一系仍会和其他灵根一起分摊总值，更容易形成多灵根结果。此次会消耗 ${cost} 点境界修为（当前境界修为上限的 10%）；若想补回，补灵根同样需要 ${cost} 点境界修为。若当前已有开天门结果，结果会立刻失效并退回重新开门。`
+      : `补回后，这一系灵根会重新进入本次开天门随机池。补回意味着最终更可能出现多灵根、总值分配更分散；不补则会继续提高剩余灵根吃到高数值的机会。补灵根会消耗 ${cost} 点境界修为（当前境界修为上限的 10%）；若当前已有开天门结果，结果同样会立刻失效并退回重新开门。`;
     return `
       <div class="heaven-gate-popup-overlay" data-heaven-gate-popup-overlay>
         <section class="heaven-gate-popup" data-heaven-gate-popup>
@@ -339,7 +339,7 @@ function renderPendingPopup(session: HeavenGateSession): string {
       <div class="heaven-gate-popup-overlay" data-heaven-gate-popup-overlay>
         <section class="heaven-gate-popup" data-heaven-gate-popup>
           <div class="heaven-gate-popup-title">确认开天门</div>
-          <div class="heaven-gate-popup-desc">开天门本身不消耗境界经验。若你不斩灵根，五行都会参与本次随机，更容易形成多灵根，整体总值上限更高，但平均到单条上的数值通常更低；若先斩去部分灵根，剩余越少，单条越容易抽到高值，但被斩掉的属性本次就不可能再出现。若对结果不满，入天门前仍可消耗境界经验逆天改命，再重新开天门。</div>
+          <div class="heaven-gate-popup-desc">开天门本身不消耗境界修为。若你不斩灵根，五行都会参与本次随机，更容易形成多灵根，整体总值上限更高，但平均到单条上的数值通常更低；若先斩去部分灵根，剩余越少，单条越容易抽到高值，但被斩掉的属性本次就不可能再出现。若对结果不满，入天门前仍可消耗境界修为逆天改命，再重新开天门。</div>
           <div class="heaven-gate-popup-actions">
             <button class="small-btn ghost" type="button" data-heaven-gate-cancel>取消</button>
             <button class="small-btn" type="button" data-heaven-gate-confirm>确认开天门</button>
@@ -353,7 +353,7 @@ function renderPendingPopup(session: HeavenGateSession): string {
       <div class="heaven-gate-popup-overlay" data-heaven-gate-popup-overlay>
         <section class="heaven-gate-popup" data-heaven-gate-popup>
           <div class="heaven-gate-popup-title">确认逆天改命</div>
-          <div class="heaven-gate-popup-desc">逆天改命会消耗 ${formatDisplayInteger(getRerollCost(session))} 点境界经验，并清掉当前结果，退回重新开天门状态。</div>
+          <div class="heaven-gate-popup-desc">逆天改命会消耗 ${formatDisplayInteger(getRerollCost(session))} 点境界修为，并清掉当前结果，退回重新开天门状态。</div>
           <div class="heaven-gate-popup-actions">
             <button class="small-btn ghost" type="button" data-heaven-gate-cancel>取消</button>
             <button class="small-btn" type="button" data-heaven-gate-confirm>确认逆天改命</button>

@@ -51,9 +51,10 @@ export const NUMERIC_TOOLTIP_LABELS: Partial<Record<NumericCardKey, string>> = {
   cooldownSpeed: '冷却速度',
   auraCostReduce: '光环消耗缩减',
   auraPowerRate: '光环效果增强',
-  playerExpRate: '角色经验',
+  playerExpRate: '境界修为',
   techniqueExpRate: '功法经验',
-  realmExpPerTick: '每息境界经验',
+  realmExpPerTick: '每息境界修为',
+  techniqueExpPerTick: '每息功法经验',
   lootRate: '掉落增幅',
   rareLootRate: '稀有掉落',
   moveSpeed: '移动速度',
@@ -79,9 +80,10 @@ export const NUMERIC_TOOLTIP_DESCRIPTIONS: Partial<Record<NumericCardKey, string
   cooldownSpeed: '提高技能与效果的冷却流转速度。',
   auraCostReduce: '降低光环或阵法持续消耗。',
   auraPowerRate: '提高光环或阵法提供的效果。',
-  playerExpRate: '提高角色经验获取效率。',
+  playerExpRate: '提高境界修为获取效率。',
   techniqueExpRate: '提高功法经验获取效率。',
-  realmExpPerTick: '决定修炼状态下每息获得的境界经验。',
+  realmExpPerTick: '决定修炼状态下每息获得的境界修为。',
+  techniqueExpPerTick: '决定修炼状态下每息获得的功法经验基础值。',
   lootRate: '提高常规掉落收益。',
   rareLootRate: '提高稀有掉落收益。',
   moveSpeed: '决定每息获得的移动预算。大路、小路、草地、泥地与沼泽会按不同消耗结算，因此地形会直接影响赶路效率。',
@@ -94,6 +96,6 @@ export const PLAYER_SPECIAL_TOOLTIP_LABELS: Record<PlayerSpecialCardKey, string>
 };
 
 export const PLAYER_SPECIAL_TOOLTIP_DESCRIPTIONS: Record<PlayerSpecialCardKey, string> = {
-  foundation: '在能够获得境界经验时，优先把本次境界经验抬高到三倍上限；实际额外补上的部分会等量消耗底蕴。',
-  combatExp: '通过战斗获得的境界经验会一比一累计到战斗经验，并按双方差距影响攻击时的命中与受击时的闪避。',
+  foundation: '在能够获得境界修为时，优先把本次境界修为抬高到三倍上限；实际额外补上的部分会等量消耗底蕴。',
+  combatExp: '通过战斗获得的境界修为会一比一累计到战斗经验，并按双方差距影响攻击时的命中与受击时的闪避。',
 };

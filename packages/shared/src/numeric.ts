@@ -61,6 +61,7 @@ export interface NumericStats {
   playerExpRate: number;
   techniqueExpRate: number;
   realmExpPerTick: number;
+  techniqueExpPerTick: number;
   lootRate: number;
   rareLootRate: number;
   viewRange: number;
@@ -170,6 +171,7 @@ export function createNumericStats(): NumericStats {
     playerExpRate: 0,
     techniqueExpRate: 0,
     realmExpPerTick: 0,
+    techniqueExpPerTick: 0,
     lootRate: 0,
     rareLootRate: 0,
     viewRange: 0,
@@ -204,6 +206,7 @@ export function cloneNumericStats(source: NumericStats): NumericStats {
     playerExpRate: source.playerExpRate,
     techniqueExpRate: source.techniqueExpRate,
     realmExpPerTick: source.realmExpPerTick,
+    techniqueExpPerTick: source.techniqueExpPerTick,
     lootRate: source.lootRate,
     rareLootRate: source.rareLootRate,
     viewRange: source.viewRange,
@@ -237,6 +240,7 @@ export function resetNumericStats(target: NumericStats): NumericStats {
   target.playerExpRate = 0;
   target.techniqueExpRate = 0;
   target.realmExpPerTick = 0;
+  target.techniqueExpPerTick = 0;
   target.lootRate = 0;
   target.rareLootRate = 0;
   target.viewRange = 0;
@@ -271,6 +275,7 @@ export function addPartialNumericStats(target: NumericStats, patch?: PartialNume
   if (patch.playerExpRate !== undefined) target.playerExpRate += patch.playerExpRate;
   if (patch.techniqueExpRate !== undefined) target.techniqueExpRate += patch.techniqueExpRate;
   if (patch.realmExpPerTick !== undefined) target.realmExpPerTick += patch.realmExpPerTick;
+  if (patch.techniqueExpPerTick !== undefined) target.techniqueExpPerTick += patch.techniqueExpPerTick;
   if (patch.lootRate !== undefined) target.lootRate += patch.lootRate;
   if (patch.rareLootRate !== undefined) target.rareLootRate += patch.rareLootRate;
   if (patch.viewRange !== undefined) target.viewRange += patch.viewRange;

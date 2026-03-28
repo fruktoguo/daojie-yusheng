@@ -2042,7 +2042,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
       </div>
       <div class="editor-grid">
         ${selectField('当前境界', 'realmLv', typeof draft.realmLv === 'number' ? draft.realmLv : 1, getRealmCatalogOptions())}
-        ${numberField('当前境界经验', 'realm.progress', draft.realm?.progress)}
+        ${numberField('当前境界修为', 'realm.progress', draft.realm?.progress)}
         ${numberField('底蕴', 'foundation', draft.foundation)}
       </div>
       <div class="editor-stat-grid" style="margin-top: 10px;">

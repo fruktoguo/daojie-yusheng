@@ -283,7 +283,7 @@ function buildSystemBuffState(snapshot: PersistedTemporaryBuffItem): TemporaryBu
     return {
       buffId: CULTIVATION_BUFF_ID,
       name: '修炼中',
-      desc: '正在运转主修功法，每息获得境界与功法经验，移动、主动攻击或受击都会打断修炼。',
+      desc: '正在运转主修功法，每息获得境界修为与功法经验，移动、主动攻击或受击都会打断修炼。',
       shortMark: '修',
       category: 'buff',
       visibility: 'public',
@@ -295,6 +295,7 @@ function buildSystemBuffState(snapshot: PersistedTemporaryBuffItem): TemporaryBu
       sourceSkillName: '修炼',
       stats: {
         realmExpPerTick: 2,
+        techniqueExpPerTick: 10,
       },
     };
   }

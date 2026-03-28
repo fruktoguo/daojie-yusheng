@@ -281,7 +281,7 @@ export class TechniqueService {
       }
       const cost = this.getHeavenGateSeverCost(realm);
       if (realm.progress < cost) {
-        return { error: '当前境界经验不足', dirty: [], messages: [] };
+        return { error: '当前境界修为不足', dirty: [], messages: [] };
       }
       const severed = new Set<ElementKey>(heavenGate.severed);
       if (action === 'sever') {
@@ -308,7 +308,7 @@ export class TechniqueService {
       return {
         dirty: ['attr', 'actions'],
         messages: [{
-          text: `${action === 'sever' ? '斩断' : '补回'}${ELEMENT_KEY_LABELS[element]}灵根，消耗 ${cost} 点境界经验。`,
+          text: `${action === 'sever' ? '斩断' : '补回'}${ELEMENT_KEY_LABELS[element]}灵根，消耗 ${cost} 点境界修为。`,
           kind: 'quest',
         }],
       };
@@ -346,7 +346,7 @@ export class TechniqueService {
       }
       const cost = this.getHeavenGateRerollCost(realm);
       if (realm.progress < cost) {
-        return { error: '当前境界经验不足，无法逆天改命', dirty: [], messages: [] };
+        return { error: '当前境界修为不足，无法逆天改命', dirty: [], messages: [] };
       }
       player.heavenGate = {
         unlocked: true,
@@ -359,7 +359,7 @@ export class TechniqueService {
       return {
         dirty: ['attr', 'actions'],
         messages: [{
-          text: `逆天改命消耗 ${cost} 点境界经验，后续开天门平均品质加成提升至 +${heavenGate.averageBonus + HEAVEN_GATE_REROLL_AVERAGE_BONUS}。`,
+          text: `逆天改命消耗 ${cost} 点境界修为，后续开天门平均品质加成提升至 +${heavenGate.averageBonus + HEAVEN_GATE_REROLL_AVERAGE_BONUS}。`,
           kind: 'quest',
         }],
       };
@@ -513,7 +513,7 @@ export class TechniqueService {
     const techniqueResult = this.measureCpuSection('cultivation_technique', '修炼: 功法推进', () => (
       this.advanceTechniqueProgress(
         player,
-        this.getTechniqueExpFromRealmGain(realmResult.techniqueEligibleGain),
+        this.getCultivationTechniqueExp(numericStats.techniqueExpPerTick, auraMultiplier),
         techniqueExpBonus,
       )
     ));
@@ -646,7 +646,12 @@ export class TechniqueService {
 
     const techniqueResult = this.advanceTechniqueCombatExp(
       player,
-      this.getTechniqueExpFromRealmGain(realmResult.techniqueEligibleGain),
+      this.getTechniqueCombatExp(
+        normalizedMonsterLevel,
+        expReferenceRealmLv,
+        input.expMultiplier,
+        participantCount,
+      ),
       techniqueExpBonus,
     );
     if (techniqueResult.changed) {
@@ -659,10 +664,10 @@ export class TechniqueService {
     if (realmResult.gained > 0 || techniqueResult.gained > 0 || realmResult.combatExpGained > 0 || realmResult.foundationGained > 0) {
       const segments: string[] = [];
       if (realmResult.gained > 0) {
-        segments.push(`获得 ${realmResult.gained} 点境界经验`);
+        segments.push(`获得 ${realmResult.gained} 点境界修为`);
       }
       if (realmResult.foundationSpent > 0) {
-        segments.push(`底蕴额外转化 ${realmResult.foundationSpent} 点境界经验`);
+        segments.push(`底蕴额外转化 ${realmResult.foundationSpent} 点境界修为`);
       }
       if (techniqueResult.gained > 0 && techniqueResult.techniqueName) {
         segments.push(`${techniqueResult.techniqueName} 获得 ${techniqueResult.gained} 点功法经验`);
@@ -1025,7 +1030,7 @@ export class TechniqueService {
     return {
       buffId: CULTIVATION_BUFF_ID,
       name: '修炼中',
-      desc: `${techniqueName} 正在运转，每息获得境界与功法经验，移动、主动攻击或受击都会打断修炼。`,
+      desc: `${techniqueName} 正在运转，每息获得境界修为与功法经验，移动、主动攻击或受击都会打断修炼。`,
       shortMark: '修',
       category: 'buff',
       visibility: 'public',
@@ -1037,13 +1042,14 @@ export class TechniqueService {
       sourceSkillName: '修炼',
       stats: {
         realmExpPerTick: CULTIVATION_REALM_EXP_PER_TICK,
+        techniqueExpPerTick: CULTIVATE_EXP_PER_TICK,
       },
     };
   }
 
   private refreshCultivationBuff(buff: TemporaryBuffState, techniqueName: string): void {
     buff.name = '修炼中';
-    buff.desc = `${techniqueName} 正在运转，每息获得境界与功法经验，移动、主动攻击或受击都会打断修炼。`;
+    buff.desc = `${techniqueName} 正在运转，每息获得境界修为与功法经验，移动、主动攻击或受击都会打断修炼。`;
     buff.shortMark = '修';
     buff.category = 'buff';
     buff.visibility = 'public';
@@ -1055,6 +1061,7 @@ export class TechniqueService {
     buff.sourceSkillName = '修炼';
     buff.stats = {
       realmExpPerTick: CULTIVATION_REALM_EXP_PER_TICK,
+      techniqueExpPerTick: CULTIVATE_EXP_PER_TICK,
     };
   }
 
@@ -1102,8 +1109,26 @@ export class TechniqueService {
     return (expToNext * normalizedMultiplier * levelAdjustment) / (1000 * normalizedParticipantCount);
   }
 
-  private getTechniqueExpFromRealmGain(realmGain: number): number {
-    return Math.max(0, Math.floor(realmGain)) * 5;
+  private getCultivationTechniqueExp(techniqueExpPerTick: number, auraMultiplier: number): number {
+    return Math.max(0, Math.round(Math.max(0, techniqueExpPerTick) * Math.max(0, auraMultiplier)));
+  }
+
+  private getTechniqueCombatExp(
+    monsterLevel: number,
+    playerRealmLv: number,
+    expMultiplier = 1,
+    participantCount = 1,
+  ): number {
+    const level = Math.max(1, Math.floor(monsterLevel));
+    const expToNext = Math.max(0, this.contentService.getRealmLevelEntry(level)?.expToNext ?? 0);
+    if (expToNext <= 0) {
+      return 0;
+    }
+
+    const normalizedMultiplier = Number.isFinite(expMultiplier) ? Math.max(0, expMultiplier) : 1;
+    const normalizedParticipantCount = Math.max(1, Math.floor(participantCount));
+    const levelAdjustment = this.getMonsterKillRealmExpAdjustment(playerRealmLv, level);
+    return (expToNext * normalizedMultiplier * levelAdjustment) / (200 * normalizedParticipantCount);
   }
 
   private getMonsterKillRealmExpAdjustment(playerRealmLv: number, monsterLevel: number): number {

@@ -328,6 +328,7 @@ export class AttrService {
     if (weight.hpRegenRate !== undefined) target.hpRegenRate += weight.hpRegenRate * value;
     if (weight.cooldownSpeed !== undefined) target.cooldownSpeed += weight.cooldownSpeed * value;
     if (weight.auraPowerRate !== undefined) target.auraPowerRate += weight.auraPowerRate * value;
+    if (weight.playerExpRate !== undefined) target.playerExpRate += weight.playerExpRate * value;
     if (weight.techniqueExpRate !== undefined) target.techniqueExpRate += weight.techniqueExpRate * value;
     if (weight.lootRate !== undefined) target.lootRate += weight.lootRate * value;
     if (weight.rareLootRate !== undefined) target.rareLootRate += weight.rareLootRate * value;

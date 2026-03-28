@@ -75,8 +75,8 @@
             { "type": "is_cultivating", "value": true }
           ]
         },
-        "valueStats": {
-          "realmExpPerTick": 4
+        "stats": {
+          "techniqueExpPerTick": 20
         }
       },
       {

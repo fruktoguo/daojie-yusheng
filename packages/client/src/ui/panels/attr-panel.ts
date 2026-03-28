@@ -546,13 +546,15 @@ export class AttrPanel {
     });
 
     const numericPane = this.buildNumericPaneSnapshot('特殊属性', stats, ratios, {
-      keys: ['viewRange', 'moveSpeed', 'playerExpRate', 'techniqueExpRate', 'lootRate', 'rareLootRate'],
+      keys: ['viewRange', 'moveSpeed', 'playerExpRate', 'techniqueExpRate', 'realmExpPerTick', 'techniqueExpPerTick', 'lootRate', 'rareLootRate'],
       ratioKeys: [],
       legends: {
         viewRange: '视野范围',
         moveSpeed: '移动速度',
-        playerExpRate: '角色经验',
+        playerExpRate: '境界修为',
         techniqueExpRate: '功法经验',
+        realmExpPerTick: '每息境界修为',
+        techniqueExpPerTick: '每息功法经验',
         lootRate: '掉落增幅',
         rareLootRate: '稀有掉落',
       },
