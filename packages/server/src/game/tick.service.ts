@@ -1481,6 +1481,8 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     if (
       player.dead
       || player.autoIdleCultivation === false
+      || this.navigationService.hasMoveTarget(player.id)
+      || Boolean(player.questNavigation?.questId)
       || this.techniqueService.hasCultivationBuff(player)
     ) {
       player.idleTicks = 0;

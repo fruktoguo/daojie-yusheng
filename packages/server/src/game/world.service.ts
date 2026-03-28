@@ -838,6 +838,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
     if (actionId === 'realm:breakthrough') {
       const result = this.techniqueService.attemptBreakthrough(player);
+      const dirty = new Set<WorldDirtyFlag>(result.dirty as WorldDirtyFlag[]);
+      if (!result.error) {
+        for (const flag of this.syncQuestState(player)) {
+          dirty.add(flag);
+        }
+      }
       return {
         error: result.error,
         messages: result.messages.map((message) => ({
@@ -845,7 +851,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           text: message.text,
           kind: message.kind,
         })),
-        dirty: result.dirty,
+        dirty: [...dirty],
       };
     }
 
@@ -2425,6 +2431,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       relayMessage: quest.relayMessage,
     };
     questState.progress = this.resolveQuestProgress(player, questState, quest);
+    if (this.canQuestBecomeReady(player, questState, quest)) {
+      questState.status = 'ready';
+    }
     return questState;
   }
 
@@ -3625,17 +3634,23 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     for (const quest of player.quests) {
       const config = this.mapService.getQuest(quest.id);
       if (!config) continue;
-      const hasObjectiveProgress = quest.progress >= quest.required;
-      const hasItems = !config?.requiredItemId || this.getInventoryCount(player, config.requiredItemId) >= (config.requiredItemCount ?? 1);
-      if (quest.status === 'active' && hasObjectiveProgress && hasItems) {
+      const canBecomeReady = this.canQuestBecomeReady(player, quest, config);
+      if (quest.status === 'active' && canBecomeReady) {
         quest.status = 'ready';
         changed = true;
-      } else if (quest.status === 'ready' && !hasItems) {
+      } else if (quest.status === 'ready' && !canBecomeReady) {
         quest.status = 'active';
         changed = true;
       }
     }
     return changed;
+  }
+
+  private canQuestBecomeReady(player: PlayerState, quest: QuestState, config: QuestConfig): boolean {
+    if (quest.progress < quest.required) {
+      return false;
+    }
+    return !config.requiredItemId || this.getInventoryCount(player, config.requiredItemId) >= (config.requiredItemCount ?? 1);
   }
 
   private resolveQuestProgress(player: PlayerState, questState: QuestState, config: QuestConfig): number {
