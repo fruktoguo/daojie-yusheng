@@ -1310,6 +1310,14 @@ export class TechniqueService {
     return state?.entered === true || this.normalizeHeavenGateRoots(player.spiritualRoots) !== null;
   }
 
+  private hasReachedHeavenGateRealm(realmLv: number): boolean {
+    return Number.isFinite(realmLv) && realmLv >= HEAVEN_GATE_REALM_LEVEL;
+  }
+
+  private requiresHeavenGateCompletion(player: PlayerState, realm: PlayerRealmState): boolean {
+    return this.hasReachedHeavenGateRealm(realm.realmLv) && !this.hasCompletedHeavenGate(player);
+  }
+
   private getHeavenGateSeverCost(realm: PlayerRealmState): number {
     return Math.max(1, Math.round(realm.progressToNext * 0.1));
   }
