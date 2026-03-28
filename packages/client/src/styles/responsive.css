@@ -53,7 +53,7 @@
         inset: 0;
         height: 100%;
         min-height: 0;
-        padding: 6px;
+        padding: 0;
         grid-template-columns: 1fr;
         grid-template-rows: minmax(0, 1.18fr) minmax(0, 0.82fr);
         gap: 6px;
@@ -842,7 +842,7 @@
       inset: 0;
       height: auto;
       min-height: 0;
-      padding: 14px 0 0;
+      padding: 0;
       grid-template-columns: var(--layout-left-size) minmax(0, 1fr) var(--layout-right-size);
       grid-template-rows: none;
       gap: 0;

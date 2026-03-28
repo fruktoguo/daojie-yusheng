@@ -9,7 +9,7 @@
       display: grid;
       grid-template-columns: var(--layout-left-size) minmax(0, 1fr) var(--layout-right-size);
       gap: 0;
-      padding: 14px 0 0;
+      padding: 0;
       background:
         radial-gradient(circle at top left, rgba(255,255,255,0.08), transparent 28%),
         linear-gradient(180deg, rgba(236,236,232,0.05), rgba(17,17,17,0));
