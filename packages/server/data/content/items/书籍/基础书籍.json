@@ -77,6 +77,20 @@
     "learnTechniqueId": "starfall_spear"
   },
   {
+    "itemId": "book.wildsunder_chart",
+    "name": "《八荒裂岳图》",
+    "type": "skill_book",
+    "desc": "残卷中尽是崩山裂岳的霸道意境，修成后可一击震塌大片地脉。",
+    "learnTechniqueId": "wildsunder_chart"
+  },
+  {
+    "itemId": "book.voidflame_chapter",
+    "name": "《太虚劫光篇》",
+    "type": "skill_book",
+    "desc": "以太虚劫光熔穿一域的神通残篇，越是神识深厚，越能压出寂灭之威。",
+    "learnTechniqueId": "voidflame_chapter"
+  },
+  {
     "itemId": "book.bear_cauldron_art",
     "name": "《担石功》",
     "type": "skill_book",

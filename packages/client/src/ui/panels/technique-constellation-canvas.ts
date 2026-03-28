@@ -892,9 +892,12 @@ export class TechniqueConstellationCanvas {
   private updateSkillReveal(time: number): void {
     const totalLevels = Math.max(1, this.state.maxLevels);
     const progress = Math.max(0, Math.min(1, (time - this.openedAt) / 1100));
+    const revealWindow = 0.16;
+    const revealSpan = Math.max(0, 1 - revealWindow);
     for (const anchor of this.skillAnchors) {
-      const threshold = totalLevels <= 1 ? 0 : (anchor.level - 1) / (totalLevels - 1);
-      const local = Math.max(0, Math.min(1, (progress - threshold) / 0.16));
+      const levelRatio = totalLevels <= 1 ? 0 : (anchor.level - 1) / (totalLevels - 1);
+      const threshold = levelRatio * revealSpan;
+      const local = Math.max(0, Math.min(1, (progress - threshold) / revealWindow));
       const eased = local * local * (3 - 2 * local);
       anchor.labelEl.style.opacity = eased.toFixed(3);
       if (anchor.lineEl) {

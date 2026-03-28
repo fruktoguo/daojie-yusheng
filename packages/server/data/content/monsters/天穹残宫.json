@@ -267,6 +267,13 @@
         "chance": 0.25
       },
       {
+        "itemId": "book.voidflame_chapter",
+        "name": "《太虚劫光篇》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.2
+      },
+      {
         "itemId": "equip.void_talisman",
         "name": "镇脉玄纹佩",
         "type": "equipment",

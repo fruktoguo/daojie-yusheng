@@ -338,6 +338,7 @@ export class TechniquePanel {
       ? [...tech.layers].sort((left, right) => left.level - right.level)
       : this.buildLegacyLayers(tech, maxLevel);
     const selectedLevel = this.resolveOpenLayerLevel(layers, tech.level);
+    const skillOverviewHtml = this.renderSkillOverview(tech);
     const constellationHtml = this.renderConstellation(tech, layers, tech.level, selectedLevel, skillsByLevel, milestones);
     const focusHtml = this.renderLayerFocus(tech, layers, selectedLevel, skillsByLevel, milestones);
     const constellationSignature = this.buildConstellationStructureSignature(layers, skillsByLevel);
@@ -364,6 +365,8 @@ export class TechniquePanel {
       </div>
       <div class="tech-modal-section-title">周天星图</div>
       <div data-tech-modal-constellation-shell="true" data-tech-modal-constellation-signature="${escapeHtml(constellationSignature)}">${constellationHtml}</div>
+      <div class="tech-modal-section-title">招式总览</div>
+      <div data-tech-modal-skill-overview="true">${skillOverviewHtml}</div>
       <div class="tech-modal-section-title">星位注解</div>
       <div data-tech-modal-focus-shell="true" data-tech-modal-focus-signature="${escapeHtml(focusSignature)}">${focusHtml}</div>
     `,
@@ -390,6 +393,36 @@ export class TechniquePanel {
       });
     }
     return rows;
+  }
+
+  private renderSkillOverview(tech: TechniqueState): string {
+    if (tech.skills.length === 0) {
+      return '<div class="tech-skill-overview-empty">此功法暂无技能。</div>';
+    }
+    const sortedSkills = [...tech.skills].sort((left, right) => {
+      const levelDelta = resolveSkillUnlockLevel(left) - resolveSkillUnlockLevel(right);
+      if (levelDelta !== 0) {
+        return levelDelta;
+      }
+      return left.name.localeCompare(right.name, 'zh-CN');
+    });
+    return `<div class="tech-skill-overview-list">
+      ${sortedSkills.map((skill) => {
+        const unlockLevel = resolveSkillUnlockLevel(skill);
+        const unlocked = tech.level >= unlockLevel;
+        return `<div class="tech-skill-overview-item ${unlocked ? 'unlocked' : 'locked'}">
+          <div class="tech-skill-overview-head">
+            <span class="tech-skill-tag"
+              data-skill-tooltip-title="${escapeHtml(skill.name)}"
+              data-skill-tooltip-skill-id="${escapeHtml(skill.id)}"
+              data-skill-tooltip-unlock-level="${unlockLevel}"
+              data-skill-tooltip-rich="1">${escapeHtml(skill.name)}</span>
+            <span class="tech-skill-overview-meta">第 ${formatDisplayInteger(unlockLevel)} 层解锁 · ${unlocked ? '已解锁' : '未解锁'}</span>
+          </div>
+          <div class="tech-skill-overview-desc">${escapeHtml(skill.desc)}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
   }
 
   private renderLayerFocus(
@@ -729,11 +762,12 @@ export class TechniquePanel {
     const expNode = document.querySelector<HTMLElement>('[data-tech-modal-current-exp="true"]');
     const currentAttrsNode = document.querySelector<HTMLElement>('[data-tech-modal-current-attrs="true"]');
     const nextAttrsNode = document.querySelector<HTMLElement>('[data-tech-modal-next-attrs="true"]');
+    const skillOverviewShell = document.querySelector<HTMLElement>('[data-tech-modal-skill-overview="true"]');
     const focusShell = document.querySelector<HTMLElement>('[data-tech-modal-focus-shell="true"]');
     const constellationShell = document.querySelector<HTMLElement>('[data-tech-modal-constellation-shell="true"]');
     const titleNode = document.getElementById('detail-modal-title');
     const subtitleNode = document.getElementById('detail-modal-subtitle');
-    if (!expNode || !currentAttrsNode || !nextAttrsNode || !focusShell || !constellationShell || !titleNode || !subtitleNode) {
+    if (!expNode || !currentAttrsNode || !nextAttrsNode || !skillOverviewShell || !focusShell || !constellationShell || !titleNode || !subtitleNode) {
       return false;
     }
     const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
@@ -759,6 +793,8 @@ export class TechniquePanel {
     expNode.textContent = formatTechniqueProgressText(tech);
     currentAttrsNode.textContent = formatTechniqueContributionSummary(effectiveAttrs, currentAttrs);
     nextAttrsNode.textContent = formatAttrMap(nextAttrs, '已无下一层');
+    skillOverviewShell.innerHTML = this.renderSkillOverview(tech);
+    this.bindSkillTooltips(skillOverviewShell);
 
     const focusSignature = this.buildFocusStructureSignature(selectedLevel, skillsByLevel, milestones);
     if (focusShell.dataset.techModalFocusSignature !== focusSignature) {

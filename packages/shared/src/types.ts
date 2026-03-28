@@ -705,6 +705,8 @@ export type SkillFormulaVar =
   | 'target.maxQi'
   | `caster.buff.${string}.stacks`
   | `target.buff.${string}.stacks`
+  | `caster.attr.${AttrKey}`
+  | `target.attr.${AttrKey}`
   | `caster.stat.${NumericScalarStatKey}`
   | `target.stat.${NumericScalarStatKey}`;
 
@@ -731,6 +733,8 @@ export interface SkillTargetingDef {
   shape?: TargetingShape;
   range?: number;
   radius?: number;
+  width?: number;
+  height?: number;
   maxTargets?: number;
   requiresTarget?: boolean;
   targetMode?: 'any' | 'entity' | 'tile';

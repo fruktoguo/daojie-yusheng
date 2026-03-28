@@ -259,6 +259,13 @@
         "chance": 0.5
       },
       {
+        "itemId": "book.wildsunder_chart",
+        "name": "《八荒裂岳图》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.2
+      },
+      {
         "itemId": "spirit_stone",
         "name": "灵石",
         "type": "consumable",

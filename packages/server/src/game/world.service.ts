@@ -1962,16 +1962,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       return '怪物灵力不足';
     }
     monster.qi = Math.max(0, monster.qi - actualCost);
-    const dispersedAuraGain = Math.floor(actualCost / 10);
-    if (dispersedAuraGain > 0) {
-      this.mapService.addTileResourceValue(
-        monster.mapId,
-        monster.x,
-        monster.y,
-        DISPERSED_AURA_RESOURCE_KEY,
-        dispersedAuraGain,
-      );
-    }
+    this.addDispersedAuraAround(monster.mapId, monster.x, monster.y, actualCost);
     monster.skillCooldowns[skill.id] = Math.max(1, Math.round(skill.cooldown));
     return actualCost;
   }
@@ -3640,17 +3631,26 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       return `灵力不足，需要 ${actualCost} 点灵力`;
     }
     player.qi = Math.max(0, player.qi - actualCost);
-    const dispersedAuraGain = Math.floor(actualCost / 10);
-    if (dispersedAuraGain > 0) {
-      this.mapService.addTileResourceValue(
-        player.mapId,
-        player.x,
-        player.y,
-        DISPERSED_AURA_RESOURCE_KEY,
-        dispersedAuraGain,
-      );
-    }
+    this.addDispersedAuraAround(player.mapId, player.x, player.y, actualCost);
     return actualCost;
+  }
+
+  private addDispersedAuraAround(mapId: string, centerX: number, centerY: number, qiCost: number): void {
+    const dispersedAuraGainPerTile = Math.floor(qiCost * 0.1);
+    if (dispersedAuraGainPerTile <= 0) {
+      return;
+    }
+    for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
+      for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
+        this.mapService.addTileResourceValue(
+          mapId,
+          centerX + offsetX,
+          centerY + offsetY,
+          DISPERSED_AURA_RESOURCE_KEY,
+          dispersedAuraGainPerTile,
+        );
+      }
+    }
   }
 
   private canPlayerCastSkill(player: PlayerState, skill: SkillDef): boolean {

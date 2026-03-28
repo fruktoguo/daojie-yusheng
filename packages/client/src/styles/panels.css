@@ -1948,6 +1948,40 @@
       font-size: var(--font-size-12);
       color: var(--ink-grey);
     }
+    .tech-skill-overview-list {
+      display: grid;
+      gap: 10px;
+    }
+    .tech-skill-overview-item {
+      display: grid;
+      gap: 6px;
+      padding: 10px 12px;
+      border: 1px solid rgba(34, 26, 19, 0.1);
+      background: var(--surface-muted-strong);
+    }
+    .tech-skill-overview-item.locked {
+      opacity: 0.82;
+    }
+    .tech-skill-overview-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+    .tech-skill-overview-meta {
+      font-size: var(--font-size-12);
+      color: var(--ink-grey);
+    }
+    .tech-skill-overview-desc {
+      font-size: var(--font-size-12);
+      color: var(--ink-black);
+      line-height: 1.6;
+    }
+    .tech-skill-overview-empty {
+      font-size: var(--font-size-12);
+      color: var(--ink-light);
+      font-style: italic;
+    }
     .tech-layer-skill-list {
       display: flex;
       flex-wrap: wrap;

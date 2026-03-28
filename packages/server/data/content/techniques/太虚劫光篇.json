@@ -1,0 +1,68 @@
+[
+  {
+    "id": "voidflame_chapter",
+    "name": "太虚劫光篇",
+    "grade": "mystic",
+    "category": "divine",
+    "realmLv": 24,
+    "layers": [
+      { "level": 1, "expFactor": 42, "attrs": { "comprehension": 1 } },
+      { "level": 2, "expFactor": 46, "attrs": { "comprehension": 1 } },
+      { "level": 3, "expFactor": 50, "attrs": { "comprehension": 1 } },
+      { "level": 4, "expFactor": 55, "attrs": { "comprehension": 1 } },
+      { "level": 5, "expFactor": 60, "attrs": { "comprehension": 1 } },
+      { "level": 6, "expFactor": 66, "attrs": { "comprehension": 1 } },
+      { "level": 7, "expFactor": 73, "attrs": { "comprehension": 1 } },
+      { "level": 8, "expFactor": 81, "attrs": { "comprehension": 1 } },
+      { "level": 9, "expFactor": 90, "attrs": { "comprehension": 1 } },
+      { "level": 10, "expFactor": 0, "attrs": { "comprehension": 1 } }
+    ],
+    "skills": [
+      {
+        "id": "skill.voidflame_cataclysm",
+        "name": "劫光灭域",
+        "desc": "引太虚劫光覆落成域，命中、破招、暴击与神识越高，寂灭波就越深。",
+        "cooldown": 1800,
+        "costMultiplier": 5,
+        "range": 9,
+        "targeting": {
+          "shape": "box",
+          "width": 7,
+          "height": 7,
+          "maxTargets": 49
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "fire",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "op": "add",
+                  "args": [
+                    104,
+                    { "var": "caster.stat.spellAtk", "scale": 3.2 },
+                    { "var": "caster.attr.spirit", "scale": 5.8 }
+                  ]
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    { "var": "techLevel", "scale": 0.18 },
+                    { "var": "caster.stat.hit", "scale": 0.008 },
+                    { "var": "caster.stat.breakPower", "scale": 0.009 },
+                    { "var": "caster.stat.crit", "scale": 0.007 }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 10
+      }
+    ]
+  }
+]

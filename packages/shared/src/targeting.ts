@@ -10,13 +10,15 @@ export interface GridPoint {
 }
 
 /** 目标选取形状 */
-export type TargetingShape = 'single' | 'line' | 'area';
+export type TargetingShape = 'single' | 'line' | 'area' | 'box';
 
 /** 目标选取几何参数 */
 export interface TargetingGeometrySpec {
   range: number;
   shape?: TargetingShape;
   radius?: number;
+  width?: number;
+  height?: number;
 }
 
 /** 用 Bresenham 算法计算两点间直线经过的格子 */
@@ -64,6 +66,23 @@ export function getAreaCells(center: GridPoint, radius: number): GridPoint[] {
   return cells;
 }
 
+/** 计算以中心点附近展开、指定宽高的矩形格子 */
+export function getBoxCells(center: GridPoint, width: number, height: number): GridPoint[] {
+  const cells: GridPoint[] = [];
+  const normalizedWidth = Math.max(1, Math.floor(width));
+  const normalizedHeight = Math.max(1, Math.floor(height));
+  const left = Math.floor((normalizedWidth - 1) / 2);
+  const right = normalizedWidth - 1 - left;
+  const top = Math.floor((normalizedHeight - 1) / 2);
+  const bottom = normalizedHeight - 1 - top;
+  for (let dy = -top; dy <= bottom; dy += 1) {
+    for (let dx = -left; dx <= right; dx += 1) {
+      cells.push({ x: center.x + dx, y: center.y + dy });
+    }
+  }
+  return cells;
+}
+
 /** 根据施法者位置、锚点和几何参数，计算受影响的格子列表 */
 export function computeAffectedCellsFromAnchor(
   origin: GridPoint,
@@ -78,6 +97,9 @@ export function computeAffectedCellsFromAnchor(
   }
   if (spec.shape === 'area') {
     return getAreaCells(anchor, spec.radius ?? 1);
+  }
+  if (spec.shape === 'box') {
+    return getBoxCells(anchor, spec.width ?? 1, spec.height ?? spec.width ?? 1);
   }
   return [{ x: anchor.x, y: anchor.y }];
 }

@@ -414,6 +414,8 @@ let pendingTargetedAction: {
   range: number;
   shape?: TargetingShape;
   radius?: number;
+  width?: number;
+  height?: number;
   maxTargets?: number;
   hoverX?: number;
   hoverY?: number;
@@ -610,6 +612,8 @@ function syncTargetingOverlay() {
     const rangeLabel = pendingTargetedAction.actionId === 'client:observe' ? `视野 ${pendingTargetedAction.range}` : `射程 ${pendingTargetedAction.range}`;
     const shapeLabel = pendingTargetedAction.shape === 'line'
       ? ` · 直线${pendingTargetedAction.maxTargets ? ` ${pendingTargetedAction.maxTargets}目标` : ''}`
+      : pendingTargetedAction.shape === 'box'
+        ? ` · 矩形 ${Math.max(1, pendingTargetedAction.width ?? 1)}x${Math.max(1, pendingTargetedAction.height ?? pendingTargetedAction.width ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
       : pendingTargetedAction.shape === 'area'
         ? ` · 范围半径 ${Math.max(0, pendingTargetedAction.radius ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
         : '';
@@ -665,6 +669,8 @@ function beginTargeting(actionId: string, actionName: string, targetMode?: strin
     range: Math.max(1, range),
     shape: skill?.targeting?.shape ?? 'single',
     radius: skill?.targeting?.radius,
+    width: skill?.targeting?.width,
+    height: skill?.targeting?.height,
     maxTargets: skill?.targeting?.maxTargets,
   };
   pendingTargetedAction.range = resolveCurrentTargetingRange(pendingTargetedAction);
@@ -684,7 +690,7 @@ function computeAffectedCells(action: NonNullable<typeof pendingTargetedAction>)
 }
 
 function computeAffectedCellsForAction(
-  action: Pick<NonNullable<typeof pendingTargetedAction>, 'range' | 'shape' | 'radius'>,
+  action: Pick<NonNullable<typeof pendingTargetedAction>, 'range' | 'shape' | 'radius' | 'width' | 'height'>,
   anchor: GridPoint,
 ): GridPoint[] {
   if (!myPlayer) {
@@ -694,6 +700,8 @@ function computeAffectedCellsForAction(
     range: action.range,
     shape: action.shape,
     radius: action.radius,
+    width: action.width,
+    height: action.height,
   };
   return computeAffectedCellsFromAnchor({ x: myPlayer.x, y: myPlayer.y }, anchor, spec);
 }

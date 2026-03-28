@@ -3,7 +3,7 @@
  * 根据 SkillDef 和玩家上下文生成带公式预览的富文本提示内容
  */
 
-import { NumericScalarStatKey, SkillDef, SkillFormula, SkillFormulaVar, TemporaryBuffState, calcQiCostWithOutputLimit, formatBuffMaxStacks } from '@mud/shared';
+import { AttrKey, NumericScalarStatKey, SkillDef, SkillFormula, SkillFormulaVar, TemporaryBuffState, calcQiCostWithOutputLimit, formatBuffMaxStacks } from '@mud/shared';
 import type { PlayerState } from '@mud/shared';
 import { FORMULA_VAR_LABELS, FORMULA_VAR_META, type SkillScalingMeta } from '../constants/ui/skill-tooltip';
 import { getElementKeyLabel } from '../domain-labels';
@@ -11,7 +11,7 @@ import { resolvePreviewSkill, resolvePreviewSkills } from '../content/local-temp
 import { describePreviewBonuses } from './stat-preview';
 import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../utils/number';
 
-type SkillTooltipPreviewPlayer = Pick<PlayerState, 'hp' | 'maxHp' | 'qi' | 'numericStats' | 'temporaryBuffs'>;
+type SkillTooltipPreviewPlayer = Pick<PlayerState, 'hp' | 'maxHp' | 'qi' | 'numericStats' | 'finalAttrs' | 'temporaryBuffs'>;
 
 export interface SkillTooltipPreviewContext {
   techLevel?: number;
@@ -256,6 +256,12 @@ function resolvePreviewValue(varName: SkillFormulaVar, context: SkillTooltipPrev
     case 'target.maxQi':
       return target?.numericStats ? { value: target.numericStats.maxQi ?? 0, known: true } : { value: 0, known: false };
     default:
+      if (varName.startsWith('caster.attr.')) {
+        return resolveAttrValue(player, varName.slice('caster.attr.'.length) as AttrKey);
+      }
+      if (varName.startsWith('target.attr.')) {
+        return resolveAttrValue(target, varName.slice('target.attr.'.length) as AttrKey);
+      }
       if (varName.startsWith('caster.stat.')) {
         return resolveStatValue(player, varName.slice('caster.stat.'.length) as NumericScalarStatKey);
       }
@@ -264,6 +270,15 @@ function resolvePreviewValue(varName: SkillFormulaVar, context: SkillTooltipPrev
       }
       return { value: 0, known: false };
   }
+}
+
+function resolveAttrValue(
+  player: SkillTooltipPreviewPlayer | null | undefined,
+  key: AttrKey,
+): ResolvedPreviewValue {
+  return player?.finalAttrs
+    ? { value: player.finalAttrs[key] ?? 0, known: true }
+    : { value: 0, known: false };
 }
 
 function resolvePreviewVar(varName: SkillFormulaVar, context: SkillTooltipPreviewContext): number | null {
@@ -597,6 +612,11 @@ function formatTargeting(skill: SkillDef): string {
   }
   if (shape === 'area') {
     return `范围，半径 ${formatDisplayNumber(skill.targeting?.radius ?? 1)}，最多命中 ${formatDisplayInteger(skill.targeting?.maxTargets ?? 99)} 个目标`;
+  }
+  if (shape === 'box') {
+    const width = skill.targeting?.width ?? 1;
+    const height = skill.targeting?.height ?? width;
+    return `矩形，范围 ${formatDisplayInteger(width)}x${formatDisplayInteger(height)}，最多命中 ${formatDisplayInteger(skill.targeting?.maxTargets ?? 99)} 个目标`;
   }
   return skill.targetMode === 'tile' ? '单体地块' : '单体';
 }

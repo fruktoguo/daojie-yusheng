@@ -619,8 +619,14 @@ function getFormulaVarLabel(variable: SkillFormulaVar): string {
   if (variable.startsWith('caster.stat.')) {
     return `自身${getNumericStatLabel(variable.slice('caster.stat.'.length))}`;
   }
+  if (variable.startsWith('caster.attr.')) {
+    return `自身${getAttrLabel(variable.slice('caster.attr.'.length))}`;
+  }
   if (variable.startsWith('target.stat.')) {
     return `目标${getNumericStatLabel(variable.slice('target.stat.'.length))}`;
+  }
+  if (variable.startsWith('target.attr.')) {
+    return `目标${getAttrLabel(variable.slice('target.attr.'.length))}`;
   }
   return variable;
 }
@@ -643,7 +649,12 @@ function quantifyFormulaVar(variable: SkillFormulaVar, scale: number): FormulaQu
       unquantified: [describeFormulaVar(variable, scale)],
     };
   }
-  if (variable === 'target.maxHp' || variable === 'target.hp' || variable.startsWith('target.stat.')) {
+  if (
+    variable === 'target.maxHp'
+    || variable === 'target.hp'
+    || variable.startsWith('target.stat.')
+    || variable.startsWith('target.attr.')
+  ) {
     return {
       quantifiedValue: 0,
       unquantified: [describeFormulaVar(variable, scale)],

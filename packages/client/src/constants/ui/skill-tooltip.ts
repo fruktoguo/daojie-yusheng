@@ -2,8 +2,8 @@
  * 技能提示框公式与缩放标签常量。
  */
 
-import { NUMERIC_SCALAR_STAT_KEYS, SkillFormulaVar, SKILL_FORMULA_BASE_VAR_LABELS } from '@mud/shared';
-import { getNumericScalarStatKeyLabel } from '../../domain-labels';
+import { ATTR_KEYS, NUMERIC_SCALAR_STAT_KEYS, SkillFormulaVar, SKILL_FORMULA_BASE_VAR_LABELS } from '@mud/shared';
+import { getAttrKeyLabel, getNumericScalarStatKeyLabel } from '../../domain-labels';
 
 /** 技能缩放徽章的展示元数据。 */
 export type SkillScalingMeta = {
@@ -19,6 +19,10 @@ export const FORMULA_VAR_LABELS: Record<string, string> = {
   ...Object.fromEntries(NUMERIC_SCALAR_STAT_KEYS.flatMap((key) => [
     [`caster.stat.${key}`, `自身${getNumericScalarStatKeyLabel(key)}`],
     [`target.stat.${key}`, `目标${getNumericScalarStatKeyLabel(key)}`],
+  ])),
+  ...Object.fromEntries(ATTR_KEYS.flatMap((key) => [
+    [`caster.attr.${key}`, `自身${getAttrKeyLabel(key)}`],
+    [`target.attr.${key}`, `目标${getAttrKeyLabel(key)}`],
   ])),
   targetCount: '命中目标数',
   'caster.hp': '自身当前气血',
