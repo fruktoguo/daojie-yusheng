@@ -2905,6 +2905,9 @@
       height: 100%;
       min-height: 0;
     }
+    .market-board-list.market-board-list--compact {
+      grid-template-rows: repeat(7, minmax(0, 1fr));
+    }
     .market-item-cell {
       display: flex;
       flex-direction: column;

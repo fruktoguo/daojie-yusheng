@@ -6,6 +6,7 @@ import {
   type GmEditorRealmOption,
   type ItemStack,
   type SkillDef,
+  type TechniqueCategory,
   type TechniqueGrade,
   type TechniqueState,
 } from '@mud/shared';
@@ -19,6 +20,7 @@ const skillTemplateMap = new Map(
     (technique.skills ?? []).map((skill) => [skill.id, skill] as const),
   ),
 );
+const techniqueCategoryByBookItemId = new Map<string, TechniqueCategory>();
 const DEFAULT_TECHNIQUE_REALM_LEVEL_BY_GRADE: Record<TechniqueGrade, number> = {
   mortal: 1,
   yellow: 13,
@@ -34,6 +36,36 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+function resolveTechniqueCategoryFromTemplate(template: GmEditorTechniqueOption | undefined): TechniqueCategory | null {
+  if (!template) {
+    return null;
+  }
+  return template.category ?? ((template.skills?.length ?? 0) > 0 ? 'arts' : 'internal');
+}
+
+function getTechniqueIdFromBookItemId(itemId: string): string | null {
+  if (itemId.startsWith('book.')) {
+    return itemId.slice(5);
+  }
+  if (itemId.startsWith('book_')) {
+    return itemId.slice(5);
+  }
+  return null;
+}
+
+for (const item of LOCAL_EDITOR_CATALOG.items) {
+  if (item.type !== 'skill_book') {
+    continue;
+  }
+  const techniqueId = getTechniqueIdFromBookItemId(item.itemId);
+  const category = resolveTechniqueCategoryFromTemplate(
+    techniqueId ? techniqueTemplateMap.get(techniqueId) : undefined,
+  );
+  if (category) {
+    techniqueCategoryByBookItemId.set(item.itemId, category);
+  }
+}
+
 export function getLocalItemTemplate(itemId: string): GmEditorItemOption | null {
   const template = itemTemplateMap.get(itemId);
   return template ? clone(template) : null;
@@ -42,6 +74,10 @@ export function getLocalItemTemplate(itemId: string): GmEditorItemOption | null 
 export function getLocalTechniqueTemplate(techId: string): GmEditorTechniqueOption | null {
   const template = techniqueTemplateMap.get(techId);
   return template ? clone(template) : null;
+}
+
+export function getLocalTechniqueCategoryForBookItem(itemId: string): TechniqueCategory | null {
+  return techniqueCategoryByBookItemId.get(itemId) ?? null;
 }
 
 export function getLocalRealmLevelEntry(realmLv: number | undefined): GmEditorRealmOption | null {

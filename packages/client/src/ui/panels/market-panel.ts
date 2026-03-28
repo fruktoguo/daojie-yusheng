@@ -16,10 +16,12 @@ import {
   S2C_MarketItemBook,
   S2C_MarketTradeHistory,
   S2C_MarketUpdate,
+  TechniqueCategory,
   getMarketPriceStep,
   normalizeMarketPriceDown,
   normalizeMarketPriceUp,
 } from '@mud/shared';
+import { getLocalTechniqueCategoryForBookItem } from '../../content/local-templates';
 import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { getViewportRoot } from '../responsive-viewport';
@@ -27,7 +29,7 @@ import { detailModalHost } from '../detail-modal-host';
 import { preserveSelection } from '../selection-preserver';
 import { MARKET_MODAL_TABS, MARKET_PANE_HINT, MarketModalTab } from '../../constants/ui/market';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
-import { getEquipSlotLabel, getItemTypeLabel } from '../../domain-labels';
+import { getEquipSlotLabel, getItemTypeLabel, getTechniqueCategoryLabel } from '../../domain-labels';
 
 function escapeHtml(value: string): string {
   return value
@@ -54,6 +56,7 @@ interface MarketPanelCallbacks {
 
 type MarketCategoryFilter = 'all' | ItemType;
 type MarketEquipmentFilter = 'all' | EquipSlot;
+type MarketTechniqueFilter = 'all' | TechniqueCategory;
 type MarketTradeDialogKind = 'buy' | 'sell';
 type MarketPriceAction = 'decrease' | 'increase' | 'double' | 'half' | 'preset';
 
@@ -65,9 +68,18 @@ interface MarketTradeDialogState {
 
 const MARKET_DESKTOP_PAGE_SIZE = 32;
 const MARKET_MOBILE_PAGE_SIZE = 12;
+const MARKET_DESKTOP_COMPACT_PAGE_SIZE = 28;
+const MARKET_MOBILE_COMPACT_PAGE_SIZE = 10;
 const MARKET_DIALOG_MIN_PRICE = MARKET_PRICE_PRESET_VALUES[0];
 const MARKET_DIALOG_MAX_PRICE = MARKET_MAX_UNIT_PRICE;
 const MARKET_DIALOG_MAX_QUANTITY = 9999;
+const MARKET_TECHNIQUE_FILTERS: Array<{ id: MarketTechniqueFilter; label: string }> = [
+  { id: 'all', label: '全部功法' },
+  { id: 'arts', label: getTechniqueCategoryLabel('arts') },
+  { id: 'internal', label: getTechniqueCategoryLabel('internal') },
+  { id: 'divine', label: getTechniqueCategoryLabel('divine') },
+  { id: 'secret', label: getTechniqueCategoryLabel('secret') },
+];
 
 export class MarketPanel {
   private static readonly MODAL_OWNER = 'market-panel';
@@ -80,6 +92,7 @@ export class MarketPanel {
   private modalTab: MarketModalTab = 'market';
   private activeCategory: MarketCategoryFilter = 'all';
   private activeEquipmentCategory: MarketEquipmentFilter = 'all';
+  private activeTechniqueCategory: MarketTechniqueFilter = 'all';
   private currentPage = 1;
   private tradeHistoryPage = 1;
   private itemBookLoading = false;
@@ -163,6 +176,7 @@ export class MarketPanel {
     this.modalTab = 'market';
     this.activeCategory = 'all';
     this.activeEquipmentCategory = 'all';
+    this.activeTechniqueCategory = 'all';
     this.currentPage = 1;
     this.tradeHistoryPage = 1;
     this.itemBookLoading = false;
@@ -264,6 +278,9 @@ export class MarketPanel {
           if (category !== 'equipment') {
             this.activeEquipmentCategory = 'all';
           }
+          if (category !== 'skill_book') {
+            this.activeTechniqueCategory = 'all';
+          }
           this.currentPage = 1;
           this.tradeDialog = null;
           this.syncPageSelection();
@@ -276,6 +293,18 @@ export class MarketPanel {
             return;
           }
           this.activeEquipmentCategory = category;
+          this.currentPage = 1;
+          this.tradeDialog = null;
+          this.syncPageSelection();
+          this.renderModal();
+        }));
+
+        body.querySelectorAll<HTMLElement>('[data-market-technique-category]').forEach((button) => button.addEventListener('click', () => {
+          const category = button.dataset.marketTechniqueCategory as MarketTechniqueFilter | undefined;
+          if (!category || category === this.activeTechniqueCategory) {
+            return;
+          }
+          this.activeTechniqueCategory = category;
           this.currentPage = 1;
           this.tradeDialog = null;
           this.syncPageSelection();
@@ -373,15 +402,20 @@ export class MarketPanel {
     const cards = pagination.items.map((entry) => this.renderListedItem(entry, selectedItem.itemKey)).join('');
     const orderBook = this.itemBook && this.itemBook.itemKey === selectedItem.itemKey ? this.itemBook : null;
     const categoryTabs = this.renderCategoryTabs(update);
-    const equipmentTabs = this.activeCategory === 'equipment' ? this.renderEquipmentTabs(update) : '';
+    const subcategoryTabs = this.activeCategory === 'equipment'
+      ? this.renderEquipmentTabs(update)
+      : this.activeCategory === 'skill_book'
+        ? this.renderTechniqueTabs(update)
+        : '';
+    const compactList = this.hasCompactCategoryLayout();
     return `
       <div class="market-market-tab">
         <div class="market-category-tabs">${categoryTabs}</div>
-        ${equipmentTabs ? `<div class="market-category-tabs market-category-tabs--sub">${equipmentTabs}</div>` : ''}
+        ${subcategoryTabs ? `<div class="market-category-tabs market-category-tabs--sub">${subcategoryTabs}</div>` : ''}
         <div class="market-board">
           <div class="market-board-list-wrap">
             ${this.renderListToolbar(pagination.page, pagination.totalPages, listedItems.length)}
-            <div class="market-board-list">${cards}</div>
+            <div class="market-board-list ${compactList ? 'market-board-list--compact' : ''}">${cards}</div>
           </div>
           <div class="market-book-panel">
             ${this.renderBookPanel(selectedItem, orderBook, update.currencyItemName)}
@@ -805,6 +839,25 @@ export class MarketPanel {
       .join('');
   }
 
+  private renderTechniqueTabs(update: S2C_MarketUpdate): string {
+    const categories = MARKET_TECHNIQUE_FILTERS.map((category) => ({
+      ...category,
+      count: update.listedItems.filter((item) => (
+        item.item.type === 'skill_book'
+        && (category.id === 'all' || this.resolveTechniqueCategoryForItem(item.item) === category.id)
+      )).length,
+    }));
+    return categories
+      .map((category) => `
+        <button
+          class="market-category-tab ${this.activeTechniqueCategory === category.id ? 'active' : ''}"
+          data-market-technique-category="${category.id}"
+          type="button"
+        >${escapeHtml(category.label)}<span>${formatDisplayInteger(category.count)}</span></button>
+      `)
+      .join('');
+  }
+
   private getVisibleListedItems(update: S2C_MarketUpdate | null): MarketListedItemView[] {
     if (!update) {
       return [];
@@ -815,6 +868,9 @@ export class MarketPanel {
     }
     if (this.activeCategory === 'equipment' && this.activeEquipmentCategory !== 'all') {
       items = items.filter((item) => item.item.equipSlot === this.activeEquipmentCategory);
+    }
+    if (this.activeCategory === 'skill_book' && this.activeTechniqueCategory !== 'all') {
+      items = items.filter((item) => this.resolveTechniqueCategoryForItem(item.item) === this.activeTechniqueCategory);
     }
     return items;
   }
@@ -846,12 +902,26 @@ export class MarketPanel {
 
   private getMarketPageSize(): number {
     if (typeof window === 'undefined') {
-      return MARKET_DESKTOP_PAGE_SIZE;
+      return this.hasCompactCategoryLayout() ? MARKET_DESKTOP_COMPACT_PAGE_SIZE : MARKET_DESKTOP_PAGE_SIZE;
     }
     const mobileLayout = window.matchMedia('(max-width: 920px)').matches
       || (window.matchMedia('(max-width: 1180px)').matches
         && (window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(hover: none)').matches));
+    if (this.hasCompactCategoryLayout()) {
+      return mobileLayout ? MARKET_MOBILE_COMPACT_PAGE_SIZE : MARKET_DESKTOP_COMPACT_PAGE_SIZE;
+    }
     return mobileLayout ? MARKET_MOBILE_PAGE_SIZE : MARKET_DESKTOP_PAGE_SIZE;
+  }
+
+  private hasCompactCategoryLayout(): boolean {
+    return this.activeCategory === 'equipment' || this.activeCategory === 'skill_book';
+  }
+
+  private resolveTechniqueCategoryForItem(item: ItemStack): TechniqueCategory | null {
+    if (item.type !== 'skill_book') {
+      return null;
+    }
+    return getLocalTechniqueCategoryForBookItem(item.itemId);
   }
 
   private syncPageSelection(): void {

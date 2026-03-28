@@ -617,6 +617,9 @@
     min-height: 0;
     align-content: stretch;
   }
+  .market-board-list.market-board-list--compact {
+    grid-template-rows: repeat(5, minmax(0, 1fr));
+  }
   .market-board {
     grid-template-rows: minmax(0, 1.14fr) minmax(0, 0.86fr);
     gap: 8px;
