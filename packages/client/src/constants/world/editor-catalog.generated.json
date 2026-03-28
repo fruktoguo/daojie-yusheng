@@ -3896,10 +3896,40 @@
   ],
   "items": [
     {
+      "itemId": "book.hidden_fortune_record",
+      "name": "《藏运录》",
+      "type": "skill_book",
+      "desc": "专记敛锋藏运的小术，修久了总会多撞上几分偏门福气。"
+    },
+    {
       "itemId": "book.redflame_art",
       "name": "《赤焰诀》",
       "type": "skill_book",
       "desc": "残缺的火行法门，能御使离火符。"
+    },
+    {
+      "itemId": "book.bear_cauldron_art",
+      "name": "《担石功》",
+      "type": "skill_book",
+      "desc": "拿石锁压肩练出来的苦功，修来极慢，但根骨扎得稳。"
+    },
+    {
+      "itemId": "book.body_tempering_formula",
+      "name": "《锻体决》",
+      "type": "skill_book",
+      "desc": "一门一路横推体魄与根骨的玄阶炼体法，层层都在硬磨肉身。"
+    },
+    {
+      "itemId": "book.cloudchase_steps",
+      "name": "《分光步》",
+      "type": "skill_book",
+      "desc": "一门讲究换气和步点的身法，擅长把移速滚成节奏。"
+    },
+    {
+      "itemId": "book.golden_lock_body",
+      "name": "《固元功》",
+      "type": "skill_book",
+      "desc": "靠收束气血慢慢稳住筋骨经脉的苦功，偏重根骨。"
     },
     {
       "itemId": "book.frost_sutra",
@@ -3920,6 +3950,12 @@
       "desc": "从江湖刀法演化而来的灵动刀谱。"
     },
     {
+      "itemId": "book.bright_eye_sutra",
+      "name": "《明目经》",
+      "type": "skill_book",
+      "desc": "专修目力与感知的内功，久练后耳目心识会一起清亮。"
+    },
+    {
       "itemId": "book.qingmu_sword",
       "name": "《青木剑诀》",
       "type": "skill_book",
@@ -3938,10 +3974,40 @@
       "desc": "武者锻体法门，强调硬桥硬马之道。"
     },
     {
+      "itemId": "book.mountain_insight_chart",
+      "name": "《玄照图》",
+      "type": "skill_book",
+      "desc": "借图谱内观气血、筋膜与心念流转的秘术，偏重悟性。"
+    },
+    {
+      "itemId": "book.nourishing_qi_art",
+      "name": "《养气诀》",
+      "type": "skill_book",
+      "desc": "只管稳气养神的内功，不讲花巧，胜在灵力根底厚。"
+    },
+    {
       "itemId": "book.starfall_spear",
       "name": "《陨星枪诀》",
       "type": "skill_book",
       "desc": "残破星纹玉简中记载的高阶枪诀。"
+    },
+    {
+      "itemId": "book.standing_stake_art",
+      "name": "《站桩功》",
+      "type": "skill_book",
+      "desc": "最朴素的入门锻体法，讲究沉肩立胯，把筋骨先站稳。"
+    },
+    {
+      "itemId": "book.lightshadow_art",
+      "name": "《折影提气诀》",
+      "type": "skill_book",
+      "desc": "把一口气提到脚下的身法，讲究起落和折返都更快。"
+    },
+    {
+      "itemId": "book.dragon_elephant_bone",
+      "name": "《镇骨功》",
+      "type": "skill_book",
+      "desc": "专门打磨骨架与经脉的炼体法门，主修根骨，路子很硬。"
     },
     {
       "itemId": "book.spirit_anchor",
@@ -3954,6 +4020,12 @@
       "name": "《止念诀》",
       "type": "skill_book",
       "desc": "收束心神、以念压敌的法门。"
+    },
+    {
+      "itemId": "book.hundred_temper_body",
+      "name": "《壮身功》",
+      "type": "skill_book",
+      "desc": "把皮肉筋骨一遍遍熬出来的炼体功，胜在体魄长得实。"
     },
     {
       "itemId": "equip.gather_qi_pendant",
@@ -4000,10 +4072,18 @@
       }
     },
     {
+      "itemId": "pill.crimson_bud_elixir",
+      "name": "赤芽丹",
+      "type": "consumable",
+      "level": 2,
+      "desc": "服后数千息内血勇更盛，即使身死药势也不会散，暴击明显提高。"
+    },
+    {
       "itemId": "pure_yang_pill",
       "name": "纯阳丹",
       "type": "consumable",
-      "desc": "以烈阳药引炼制，可在恶战后快速回气。"
+      "level": 4,
+      "desc": "烈阳药引直入气海，立刻恢复 30% 气血与 75% 真气。"
     },
     {
       "itemId": "bamboo_heart",
@@ -4015,7 +4095,23 @@
       "itemId": "major_qi_pill",
       "name": "大还灵丹",
       "type": "consumable",
-      "desc": "药力浑厚，适合中阶修士快速恢复。"
+      "level": 3,
+      "desc": "药力浑厚，立刻恢复 55% 气血与 45% 真气。"
+    },
+    {
+      "itemId": "equip.stele_shell_armor",
+      "name": "断碑甲壳",
+      "type": "equipment",
+      "grade": "mystic",
+      "level": 4,
+      "equipSlot": "body",
+      "desc": "从残碑外层剥下的厚甲片，沉重但极稳。",
+      "equipValueStats": {
+        "maxHp": 3,
+        "physDef": 6,
+        "spellDef": 5,
+        "resolvePower": 4
+      }
     },
     {
       "itemId": "equip.broken_rune_blade",
@@ -4112,6 +4208,20 @@
       ]
     },
     {
+      "itemId": "equip.windjoint_boots",
+      "name": "风节行靴",
+      "type": "equipment",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "legs",
+      "desc": "踩过竹节时几乎不留响动，转步尤其利索。",
+      "equipValueStats": {
+        "moveSpeed": 14,
+        "dodge": 2,
+        "hit": 1
+      }
+    },
+    {
       "itemId": "equip.grassbound_shoes",
       "name": "赶路草鞋",
       "type": "equipment",
@@ -4121,6 +4231,19 @@
       "desc": "麻绳紧扎，踩泥不易滑，穷人赶夜路时常见。",
       "equipValueStats": {
         "moveSpeed": 8,
+        "dodge": 1
+      }
+    },
+    {
+      "itemId": "equip.gutter_paws",
+      "name": "沟行爪套",
+      "type": "equipment",
+      "grade": "mortal",
+      "level": 1,
+      "equipSlot": "legs",
+      "desc": "爪尖磨得极薄，专为烂泥沟和碎土坡上疾窜而生。",
+      "equipValueStats": {
+        "moveSpeed": 10,
         "dodge": 1
       }
     },
@@ -4162,7 +4285,8 @@
       "itemId": "frost_heart_paste",
       "name": "寒心膏",
       "type": "consumable",
-      "desc": "寒性药膏，稳固经脉并恢复气血。"
+      "level": 3,
+      "desc": "寒性药膏可稳住伤处，立刻恢复 42% 气血与 30% 真气。"
     },
     {
       "itemId": "map.black_iron_mine",
@@ -4207,7 +4331,22 @@
       "itemId": "pill.minor_heal",
       "name": "回春散",
       "type": "consumable",
-      "desc": "疗养筋骨，恢复少量气血。"
+      "level": 1,
+      "desc": "草木药气温和，服下后立刻恢复 22% 气血。"
+    },
+    {
+      "itemId": "equip.echo_crystal_crest",
+      "name": "回声晶冠",
+      "type": "equipment",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "head",
+      "desc": "会顺着洞壁回声判断方位，黑暗中也不易失手。",
+      "equipValueStats": {
+        "hit": 2,
+        "dodge": 2,
+        "viewRange": 1
+      }
     },
     {
       "itemId": "soul_ink",
@@ -4216,10 +4355,39 @@
       "desc": "古碑残魂凝结出的墨色灵液。"
     },
     {
+      "itemId": "equip.soul_ink_pendant",
+      "name": "魂墨坠",
+      "type": "equipment",
+      "grade": "mystic",
+      "level": 4,
+      "equipSlot": "accessory",
+      "desc": "墨痕未干时似有残魂低语，最能催动阴冷灵机。",
+      "equipValueStats": {
+        "maxQi": 2,
+        "spellAtk": 4,
+        "maxQiOutputPerTick": 4,
+        "resolvePower": 3
+      }
+    },
+    {
       "itemId": "crystal_dust",
       "name": "晶尘",
       "type": "material",
       "desc": "晶背蝠掉落的微光粉末。"
+    },
+    {
+      "itemId": "equip.crystal_maw_spike",
+      "name": "晶獠骨刺",
+      "type": "equipment",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "weapon",
+      "desc": "矿洞妖物口器中最锋利的一根骨刺，硬得发脆。",
+      "equipValueStats": {
+        "physAtk": 7,
+        "spellAtk": 2,
+        "hit": 2
+      }
     },
     {
       "itemId": "equip.wellward_talisman",
@@ -4295,6 +4463,13 @@
       }
     },
     {
+      "itemId": "pill.bitter_cultivation_elixir",
+      "name": "苦修丹",
+      "type": "consumable",
+      "level": 4,
+      "desc": "强行催运行功，2400 息内修炼速度明显提高，但气血与真气回复都会变慢，脚程也会变沉。"
+    },
+    {
       "itemId": "quest.miner_token",
       "name": "矿洞令牌",
       "type": "quest_item",
@@ -4305,6 +4480,36 @@
       "name": "矿晶核",
       "type": "quest_item",
       "desc": "矿洞深层晶簇凝结出的核心。"
+    },
+    {
+      "itemId": "equip.oreplate_carapace",
+      "name": "矿壳重甲",
+      "type": "equipment",
+      "grade": "mystic",
+      "level": 3,
+      "equipSlot": "body",
+      "desc": "矿层般一层层压上去，沉，却很难被打穿。",
+      "equipValueStats": {
+        "maxHp": 2.5,
+        "physDef": 5,
+        "spellDef": 4,
+        "resolvePower": 3
+      }
+    },
+    {
+      "itemId": "equip.mineral_pulse_core",
+      "name": "矿脉搏核",
+      "type": "equipment",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "accessory",
+      "desc": "被矿气反复冲刷的内核，吐纳时会带出一股闷沉的劲。",
+      "equipValueStats": {
+        "maxQi": 1.5,
+        "breakPower": 3,
+        "resolvePower": 2,
+        "maxQiOutputPerTick": 3
+      }
     },
     {
       "itemId": "equip.orevein_ring",
@@ -4377,6 +4582,20 @@
       "equipValueStats": {
         "physAtk": 5,
         "crit": 3
+      }
+    },
+    {
+      "itemId": "equip.predator_tendon_boots",
+      "name": "猎脉疾靴",
+      "type": "equipment",
+      "grade": "mystic",
+      "level": 4,
+      "equipSlot": "legs",
+      "desc": "以兽筋抽紧靴帮，爆发扑杀时最能借力。",
+      "equipValueStats": {
+        "moveSpeed": 16,
+        "dodge": 2,
+        "crit": 2
       }
     },
     {
@@ -4490,6 +4709,13 @@
       ]
     },
     {
+      "itemId": "pill.clear_eye_elixir",
+      "name": "明目丹",
+      "type": "consumable",
+      "level": 3,
+      "desc": "服后心神澄明，数千息内命中与视野提高，死亡不消失。"
+    },
+    {
       "itemId": "equip.nanshi_token",
       "name": "南市木牌",
       "type": "equipment",
@@ -4501,6 +4727,13 @@
         "maxHp": 1,
         "playerExpRate": 4
       }
+    },
+    {
+      "itemId": "pill.break_array_elixir",
+      "name": "破阵丹",
+      "type": "consumable",
+      "level": 3,
+      "desc": "药力凝在手眼与发力节点，数千息内破招与命中提高，身死不散。"
     },
     {
       "itemId": "equip.bamboo_split_blade",
@@ -4523,16 +4756,66 @@
       "desc": "记载青竹林野地势与出入口。使用后可永久解锁竹林地图。"
     },
     {
+      "itemId": "pill.windstride_elixir",
+      "name": "轻身丹",
+      "type": "consumable",
+      "level": 3,
+      "desc": "药劲顺着经脉卸到脚下，数千息内移动速度与闪避提高，死亡不消失。"
+    },
+    {
       "itemId": "map.beast_valley",
       "name": "群兽谷行图",
       "type": "consumable",
       "desc": "专为猎妖者整理的谷地行图。使用后可永久解锁群兽谷地图。"
     },
     {
+      "itemId": "equip.snakeshed_vest",
+      "name": "蛇蜕灵甲",
+      "type": "equipment",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "body",
+      "desc": "以竹蛇蜕皮层层包缠，柔中带韧。",
+      "equipValueStats": {
+        "maxHp": 1.8,
+        "maxQi": 1,
+        "physDef": 2,
+        "spellDef": 3
+      }
+    },
+    {
       "itemId": "mine_signal_core",
       "name": "失落信标核心",
       "type": "quest_item",
       "desc": "矿洞旧阵的核心部件。"
+    },
+    {
+      "itemId": "equip.scavenger_fang",
+      "name": "拾荒尖牙",
+      "type": "equipment",
+      "grade": "mortal",
+      "level": 1,
+      "equipSlot": "weapon",
+      "desc": "荒沟野兽磨得发亮的一截尖牙，胜在来得突然。",
+      "equipValueStats": {
+        "physAtk": 2,
+        "hit": 1,
+        "breakPower": 1
+      }
+    },
+    {
+      "itemId": "equip.scavenger_crest",
+      "name": "拾荒翎冠",
+      "type": "equipment",
+      "grade": "mortal",
+      "level": 1,
+      "equipSlot": "head",
+      "desc": "由乱羽与碎骨缠成，戴上后会本能地先一步察觉动静。",
+      "equipValueStats": {
+        "dodge": 1,
+        "hit": 1,
+        "viewRange": 1
+      }
     },
     {
       "itemId": "equip.pattern_picker_ring",
@@ -4557,7 +4840,7 @@
       "grade": "mystic",
       "level": 4,
       "equipSlot": "accessory",
-      "desc": "骨牌内封着一缕不肯散去的残意，静修时吸血夺元，杀敌时反能回涌一口浊气。",
+      "desc": "骨牌内封着一缕不肯散去的残意，静修时残意会层层侵体，杀敌时反能回涌一口浊气。",
       "tags": [
         "fanren",
         "evil_path",
@@ -4565,13 +4848,30 @@
       ],
       "effects": [
         {
-          "effectId": "soul-devour-drain",
-          "type": "periodic_cost",
+          "effectId": "soul-devour-erosion",
+          "type": "timed_buff",
           "trigger": "on_cultivation_tick",
-          "resource": "hp",
-          "mode": "current_ratio_bp",
-          "value": 120,
-          "minRemain": 1
+          "target": "self",
+          "conditions": {
+            "mode": "all",
+            "items": [
+              {
+                "type": "is_cultivating",
+                "value": true
+              }
+            ]
+          },
+          "buff": {
+            "buffId": "equip.soul_devour_erosion",
+            "name": "噬元侵骨",
+            "desc": "每息叠一层，六维压制会随着层数不断加深；当前实际降幅会直接显示在状态说明里。",
+            "duration": 3600,
+            "shortMark": "蚀",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#6e4a3f",
+            "maxStacks": 2147483647
+          }
         },
         {
           "effectId": "soul-devour-growth",
@@ -4617,6 +4917,21 @@
       "name": "兽谷核心",
       "type": "quest_item",
       "desc": "谷底裂隙孕出的异质核心。"
+    },
+    {
+      "itemId": "equip.beastbone_mail",
+      "name": "兽骨玄甲",
+      "type": "equipment",
+      "grade": "mystic",
+      "level": 4,
+      "equipSlot": "body",
+      "desc": "以妖骨和硬皮层层缀成，杀气越重越显得沉稳。",
+      "equipValueStats": {
+        "maxHp": 3,
+        "physDef": 6,
+        "spellDef": 4,
+        "crit": 2
+      }
     },
     {
       "itemId": "rat_tail",
@@ -4734,7 +5049,8 @@
       "itemId": "minor_qi_pill",
       "name": "小还灵丹",
       "type": "consumable",
-      "desc": "温养经脉，恢复较多气血。"
+      "level": 2,
+      "desc": "药力柔和，立刻恢复 35% 气血与 25% 真气。"
     },
     {
       "itemId": "star_metal",
@@ -4766,6 +5082,35 @@
         "physAtk": 11,
         "spellAtk": 4,
         "hit": 4
+      }
+    },
+    {
+      "itemId": "equip.cave_skitter_spurs",
+      "name": "穴行钩爪",
+      "type": "equipment",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "legs",
+      "desc": "钩爪能牢牢嵌进岩缝，适合洞壁疾窜和突然俯冲。",
+      "equipValueStats": {
+        "moveSpeed": 12,
+        "dodge": 3,
+        "hit": 1
+      }
+    },
+    {
+      "itemId": "equip.bloodcore_talisman",
+      "name": "血核妖符",
+      "type": "equipment",
+      "grade": "mystic",
+      "level": 4,
+      "equipSlot": "accessory",
+      "desc": "封着半凝的妖血精核，能让攻势更狠也更躁。",
+      "equipValueStats": {
+        "maxQi": 2,
+        "breakPower": 4,
+        "qiRegenRate": 0.4,
+        "crit": 2
       }
     },
     {
@@ -4825,6 +5170,20 @@
         "maxQi": 2.25,
         "spellDef": 4,
         "qiRegenRate": 0.4
+      }
+    },
+    {
+      "itemId": "equip.leafshadow_crest",
+      "name": "叶隐翎冠",
+      "type": "equipment",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "head",
+      "desc": "林风一过，叶影先动，最适合伏在竹影里先手扑杀。",
+      "equipValueStats": {
+        "dodge": 2,
+        "hit": 2,
+        "viewRange": 1
       }
     },
     {
@@ -4993,16 +5352,50 @@
       ]
     },
     {
+      "itemId": "cloud_puff",
+      "name": "云朵",
+      "type": "consumable",
+      "desc": "揉散后像把一团轻云按进经脉，1800 息内身形飘然，移动速度提高 20。"
+    },
+    {
       "itemId": "map.yunlai_town",
       "name": "云来初境图",
       "type": "consumable",
       "desc": "描摹新手区域的基础地图。使用后可永久解锁云来初境的完整舆图。"
     },
     {
+      "itemId": "equip.scrap_hide",
+      "name": "杂皮护层",
+      "type": "equipment",
+      "grade": "mortal",
+      "level": 1,
+      "equipSlot": "body",
+      "desc": "泥水和旧皮裹成的粗陋护层，挡不住利刃，但能扛住几下乱打。",
+      "equipValueStats": {
+        "maxHp": 1.5,
+        "physDef": 2,
+        "spellDef": 1
+      }
+    },
+    {
       "itemId": "lizard_scale",
       "name": "泽鳞",
       "type": "material",
       "desc": "泽鳞蜥脱落的鳞片。"
+    },
+    {
+      "itemId": "equip.marsh_poison_gland",
+      "name": "沼毒囊结",
+      "type": "equipment",
+      "grade": "yellow",
+      "level": 2,
+      "equipSlot": "accessory",
+      "desc": "毒液未必致命，但足够扰乱气血和步点。",
+      "equipValueStats": {
+        "spellAtk": 2,
+        "breakPower": 1,
+        "qiRegenRate": 0.2
+      }
     },
     {
       "itemId": "equip.void_talisman",
@@ -5082,6 +5475,34 @@
       "desc": "青鳞竹蛇的胆囊。"
     },
     {
+      "itemId": "equip.bamboo_heart_charm",
+      "name": "竹心灵坠",
+      "type": "equipment",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "accessory",
+      "desc": "内里封着一枚翠竹心，能稳住细碎灵机。",
+      "equipValueStats": {
+        "maxQi": 1.5,
+        "spellAtk": 3,
+        "maxQiOutputPerTick": 3
+      }
+    },
+    {
+      "itemId": "equip.bamboo_fang_blade",
+      "name": "竹牙短刃",
+      "type": "equipment",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "weapon",
+      "desc": "以灵竹根节和兽牙削成，轻狠兼备。",
+      "equipValueStats": {
+        "physAtk": 6,
+        "hit": 2,
+        "crit": 1
+      }
+    },
+    {
       "itemId": "equip.moonshadow_boots",
       "name": "逐月疾靴",
       "type": "equipment",
@@ -5094,78 +5515,6 @@
         "dodge": 3,
         "crit": 2
       }
-    },
-    {
-      "itemId": "book.bear_cauldron_art",
-      "name": "《担石功》",
-      "type": "skill_book",
-      "desc": "拿石锁压肩练出来的苦功，修来极慢，但根骨扎得稳。"
-    },
-    {
-      "itemId": "book.dragon_elephant_bone",
-      "name": "《镇骨功》",
-      "type": "skill_book",
-      "desc": "专门打磨骨架与经脉的炼体法门，主修根骨，路子很硬。"
-    },
-    {
-      "itemId": "book.golden_lock_body",
-      "name": "《固元功》",
-      "type": "skill_book",
-      "desc": "靠收束气血慢慢稳住筋骨经脉的苦功，偏重根骨。"
-    },
-    {
-      "itemId": "book.mountain_insight_chart",
-      "name": "《玄照图》",
-      "type": "skill_book",
-      "desc": "借图谱内观气血、筋膜与心念流转的秘术，偏重悟性。"
-    },
-    {
-      "itemId": "book.hundred_temper_body",
-      "name": "《壮身功》",
-      "type": "skill_book",
-      "desc": "把皮肉筋骨一遍遍熬出来的炼体功，胜在体魄长得实。"
-    },
-    {
-      "itemId": "book.body_tempering_formula",
-      "name": "《锻体决》",
-      "type": "skill_book",
-      "desc": "一门一路横推体魄与根骨的玄阶炼体法，层层都在硬磨肉身。"
-    },
-    {
-      "itemId": "book.cloudchase_steps",
-      "name": "《分光步》",
-      "type": "skill_book",
-      "desc": "一门讲究换气和步点的身法，擅长把移速滚成节奏。"
-    },
-    {
-      "itemId": "book.lightshadow_art",
-      "name": "《折影提气诀》",
-      "type": "skill_book",
-      "desc": "把一口气提到脚下的身法，讲究起落和折返都更快。"
-    },
-    {
-      "itemId": "book.standing_stake_art",
-      "name": "《站桩功》",
-      "type": "skill_book",
-      "desc": "最朴素的入门锻体法，讲究沉肩立胯，把筋骨先站稳。"
-    },
-    {
-      "itemId": "book.nourishing_qi_art",
-      "name": "《养气诀》",
-      "type": "skill_book",
-      "desc": "只管稳气养神的内功，不讲花巧，胜在灵力根底厚。"
-    },
-    {
-      "itemId": "book.bright_eye_sutra",
-      "name": "《明目经》",
-      "type": "skill_book",
-      "desc": "专修目力与感知的内功，久练后耳目心识会一起清亮。"
-    },
-    {
-      "itemId": "book.hidden_fortune_record",
-      "name": "《藏运录》",
-      "type": "skill_book",
-      "desc": "专记敛锋藏运的小术，修久了总会多撞上几分偏门福气。"
     }
   ],
   "realmLevels": [

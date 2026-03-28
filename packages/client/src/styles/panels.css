@@ -3539,6 +3539,19 @@
       font-weight: 600;
       color: var(--stamp-red);
     }
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--breakthrough .breakthrough-requirement-item {
+      border-color: rgba(214, 192, 161, 0.18);
+      background:
+        linear-gradient(180deg, rgba(40, 32, 26, 0.96), rgba(26, 22, 18, 0.92));
+    }
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--breakthrough .breakthrough-requirement-bonus {
+      border-color: rgba(196, 92, 92, 0.26);
+      background: rgba(125, 27, 27, 0.22);
+      color: #ffb2a3;
+    }
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--breakthrough .breakthrough-requirement-status.is-unmet {
+      color: #ff9d8a;
+    }
     .action-section-hint {
       margin-bottom: 8px;
       font-size: var(--font-size-11);
