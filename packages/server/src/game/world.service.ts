@@ -1271,6 +1271,21 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return result;
   }
 
+  private tryActivateAutoRetaliate(target: PlayerState, dirtyPlayers: Set<string>): void {
+    if (
+      target.hp <= 0
+      || target.autoRetaliate === false
+      || target.autoBattle
+      // 手动寻路期间保持路径意图优先，避免受击反击把角色切进自动战斗。
+      || this.navigationService.hasMoveTarget(target.id)
+    ) {
+      return;
+    }
+
+    target.autoBattle = true;
+    dirtyPlayers.add(target.id);
+  }
+
   /** 锁定目标并开启自动战斗 */
   engageTarget(player: PlayerState, targetRef?: string): WorldUpdate {
     const safeZoneAttackError = this.getSafeZoneAttackBlockError(player);
@@ -1928,11 +1943,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
               dirtyPlayers.add(playerId);
             }
           }
-          if (target.hp > 0 && target.autoRetaliate !== false && !target.autoBattle) {
-            target.autoBattle = true;
-            this.navigationService.clearMoveTarget(target.id);
-            dirtyPlayers.add(target.id);
-          }
+          this.tryActivateAutoRetaliate(target, dirtyPlayers);
           this.pushEffect(mapId, {
             type: 'attack',
             fromX: monster.x,
@@ -2308,11 +2319,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         dirtyPlayers.add(playerId);
       }
     }
-    if (target.hp > 0 && target.autoRetaliate !== false && !target.autoBattle) {
-      target.autoBattle = true;
-      this.navigationService.clearMoveTarget(target.id);
-      dirtyPlayers.add(target.id);
-    }
+    this.tryActivateAutoRetaliate(target, dirtyPlayers);
 
     this.pushEffect(monster.mapId, {
       type: 'attack',
@@ -2974,11 +2981,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       });
     }
 
-    if (target.hp > 0 && target.autoRetaliate !== false && !target.autoBattle) {
-      target.autoBattle = true;
-      this.navigationService.clearMoveTarget(target.id);
-      dirtyPlayers.add(target.id);
-    }
+    this.tryActivateAutoRetaliate(target, dirtyPlayers);
 
     if (target.hp <= 0) {
       messages.push({
