@@ -257,7 +257,6 @@
     ],
     "grade": "mortal",
     "tier": "variant",
-    "expMultiplier": 10,
     "count": 2,
     "equipment": {
       "weapon": "equip.orebreak_hammer",
@@ -348,7 +347,6 @@
     ],
     "grade": "mortal",
     "tier": "demon_king",
-    "expMultiplier": 100,
     "count": 1,
     "equipment": {
       "weapon": "equip.black_iron_sword",

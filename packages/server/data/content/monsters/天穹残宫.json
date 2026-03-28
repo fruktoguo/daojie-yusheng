@@ -185,7 +185,6 @@
     ],
     "grade": "yellow",
     "tier": "variant",
-    "expMultiplier": 10,
     "count": 2,
     "equipment": {
       "weapon": "equip.starfall_spear",
@@ -289,7 +288,6 @@
     "aggroRange": 6,
     "viewRange": 6,
     "aggroMode": "always",
-    "expMultiplier": 100,
     "equipment": {
       "weapon": "equip.starfall_spear",
       "head": "equip.celestial_crown",

@@ -78,3 +78,10 @@ export const MONSTER_TIER_STAT_PERCENTS: Record<MonsterTier, NumericStatPercenta
   variant: createTierPercentProfile(120, 360),
   demon_king: createTierPercentProfile(140, 1400),
 };
+
+/** 妖兽血脉层次对应的默认经验倍率。 */
+export const MONSTER_TIER_EXP_MULTIPLIERS: Record<MonsterTier, number> = {
+  mortal_blood: 1,
+  variant: 5,
+  demon_king: 100,
+};

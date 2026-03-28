@@ -55,6 +55,8 @@ import {
   normalizeMonsterAttrs,
   normalizeMonsterStatPercents,
   normalizeMonsterTier,
+  inferMonsterTierFromName,
+  resolveMonsterExpMultiplier,
   resolveMonsterNumericStatsFromAttributes,
   resolveSkillUnlockLevel,
   resolveMonsterNumericStatsFromValueStats,
@@ -1186,7 +1188,7 @@ export class ContentService implements OnModuleInit {
         ?? (raw.attrs
           ? undefined
           : createMonsterAutoStatPercents(legacyNumericStats, attrs, level, equipment));
-      const tier = normalizeMonsterTier(raw.tier ?? this.inferMonsterTierFromName(raw.name));
+      const tier = normalizeMonsterTier(raw.tier ?? inferMonsterTierFromName(raw.name));
       const numericStats = resolveMonsterNumericStatsFromAttributes({
         attrs,
         equipment,
@@ -1229,21 +1231,11 @@ export class ContentService implements OnModuleInit {
           ? Math.max(1, Number(raw.respawnTicks))
           : Math.max(1, Number(raw.respawnSec ?? 15)),
         level,
-        expMultiplier: typeof raw.expMultiplier === 'number' ? Math.max(0, raw.expMultiplier) : 1,
+        expMultiplier: resolveMonsterExpMultiplier(raw.expMultiplier, tier),
         drops,
       };
       this.monsters.set(monster.id, monster);
     }
-  }
-
-  private inferMonsterTierFromName(name: string): MonsterTier {
-    if (/妖王|荒王|兽王|王$/.test(name)) {
-      return 'demon_king';
-    }
-    if (/精英|异种/.test(name)) {
-      return 'variant';
-    }
-    return 'mortal_blood';
   }
 
   private normalizeSkillEffects(input: unknown): SkillEffectDef[] {

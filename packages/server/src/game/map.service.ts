@@ -42,6 +42,7 @@ import {
   NumericStats,
   NumericStatPercentages,
   normalizeEditableMapDocument as normalizeEditableMapDocumentValue,
+  resolveMonsterExpMultiplier,
   normalizeMonsterAttrs,
   normalizeMonsterStatPercents,
   normalizeMonsterTier,
@@ -2637,6 +2638,11 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       const wanderRadius = Number.isInteger(rawSpawn.wanderRadius)
         ? Math.max(0, Number(rawSpawn.wanderRadius))
         : radius;
+      const expMultiplier = Number.isFinite(rawSpawn.expMultiplier)
+        ? resolveMonsterExpMultiplier(rawSpawn.expMultiplier, tier)
+        : (rawSpawn.tier !== undefined && tier !== template.tier
+          ? resolveMonsterExpMultiplier(undefined, tier)
+          : template.expMultiplier);
       const valid =
         typeof spawnId === 'string' &&
         Number.isInteger(rawSpawn.x) &&
@@ -2678,7 +2684,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         aggroMode: template.aggroMode,
         respawnTicks,
         level,
-        expMultiplier: template.expMultiplier,
+        expMultiplier,
         drops,
       });
     }
@@ -3904,6 +3910,11 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         ? undefined
         : createMonsterAutoStatPercents(legacyNumericStats, attrs, level, equipment));
     const tier = normalizeMonsterTier(spawn.tier ?? template.tier);
+    const expMultiplier = Number.isFinite(spawn.expMultiplier)
+      ? resolveMonsterExpMultiplier(spawn.expMultiplier, tier)
+      : (spawn.tier !== undefined && tier !== template.tier
+        ? resolveMonsterExpMultiplier(undefined, tier)
+        : template.expMultiplier);
     const numericStats = resolveMonsterNumericStatsFromAttributes({
       attrs,
       equipment,
@@ -3938,6 +3949,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         ? Math.max(1, Number(spawn.respawnSec))
         : undefined,
       level,
+      expMultiplier,
     };
   }
 
@@ -3983,6 +3995,10 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       }
     }
     if ((spawn.level ?? undefined) !== template.level) persisted.level = spawn.level;
+    const baselineExpMultiplier = spawn.tier === template.tier
+      ? template.expMultiplier
+      : resolveMonsterExpMultiplier(undefined, spawn.tier);
+    if (spawn.expMultiplier !== baselineExpMultiplier) persisted.expMultiplier = spawn.expMultiplier;
     return persisted;
   }
 

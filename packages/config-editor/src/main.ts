@@ -3,6 +3,9 @@ import {
   ELEMENT_KEY_LABELS,
   type BasicOkRes,
   ITEM_TYPE_LABELS,
+  MONSTER_TIER_EXP_MULTIPLIERS,
+  MONSTER_TIER_LABELS,
+  MONSTER_TIER_ORDER,
   NUMERIC_SCALAR_STAT_KEYS,
   NUMERIC_SCALAR_STAT_LABELS,
   resolveMonsterNumericStatsFromValueStats,
@@ -11,6 +14,7 @@ import {
   type ItemType,
   type MonsterCombatModel,
   type MonsterAggroMode,
+  type MonsterTier,
   type NumericScalarStatKey,
   type NumericStats,
   type PartialNumericStats,
@@ -57,6 +61,7 @@ type MonsterTemplateRecord = {
   char: string;
   color: string;
   grade: TechniqueGrade;
+  tier: MonsterTier;
   valueStats?: PartialNumericStats;
   computedStats: NumericStats;
   combatModel: MonsterCombatModel;
@@ -165,6 +170,7 @@ const monsterNameEl = document.getElementById('monster-name') as HTMLInputElemen
 const monsterCharEl = document.getElementById('monster-char') as HTMLInputElement;
 const monsterColorEl = document.getElementById('monster-color') as HTMLInputElement;
 const monsterGradeEl = document.getElementById('monster-grade') as HTMLSelectElement;
+const monsterTierEl = document.getElementById('monster-tier') as HTMLSelectElement;
 const monsterAggroModeEl = document.getElementById('monster-aggro-mode') as HTMLSelectElement;
 const monsterHpEl = document.getElementById('monster-hp') as HTMLInputElement;
 const monsterMaxHpEl = document.getElementById('monster-max-hp') as HTMLInputElement;
@@ -206,6 +212,7 @@ let mapEditor: GmMapEditor | null = null;
 let editorItems: LocalEditorItemOption[] = [];
 
 const GRADE_OPTIONS = Object.entries(TECHNIQUE_GRADE_LABELS) as Array<[TechniqueGrade, string]>;
+const MONSTER_TIER_OPTIONS = MONSTER_TIER_ORDER.map((value) => ({ value, label: MONSTER_TIER_LABELS[value] }));
 const AGGRO_MODE_OPTIONS: Array<{ value: MonsterAggroMode; label: string }> = [
   { value: 'always', label: '主动攻击' },
   { value: 'retaliate', label: '受击反击' },
@@ -335,6 +342,9 @@ function renderConfigFileList(): void {
 function populateMonsterStaticOptions(): void {
   monsterGradeEl.innerHTML = GRADE_OPTIONS
     .map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`)
+    .join('');
+  monsterTierEl.innerHTML = MONSTER_TIER_OPTIONS
+    .map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`)
     .join('');
   monsterAggroModeEl.innerHTML = AGGRO_MODE_OPTIONS
     .map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`)
@@ -591,6 +601,7 @@ function fillMonsterForm(monster: MonsterTemplateRecord): void {
   monsterCharEl.value = monster.char;
   monsterColorEl.value = monster.color;
   monsterGradeEl.value = monster.grade;
+  monsterTierEl.value = monster.tier;
   monsterAggroModeEl.value = monster.aggroMode;
   monsterHpEl.value = String(monster.hp);
   monsterMaxHpEl.value = String(monster.maxHp);
@@ -607,6 +618,19 @@ function fillMonsterForm(monster: MonsterTemplateRecord): void {
   renderMonsterValueStatsEditor(monster.valueStats);
   renderMonsterComputedStatsPreview(monster.computedStats);
   renderMonsterDropsEditor(monster.drops);
+}
+
+function syncMonsterExpMultiplierToTierDefaultIfNeeded(): void {
+  if (!currentMonsterDraft) {
+    return;
+  }
+  const previousDefault = MONSTER_TIER_EXP_MULTIPLIERS[currentMonsterDraft.tier];
+  const currentValue = Number(monsterExpMultiplierEl.value.trim());
+  if (!Number.isFinite(currentValue) || currentValue !== previousDefault) {
+    return;
+  }
+  const nextTier = monsterTierEl.value as MonsterTier;
+  monsterExpMultiplierEl.value = String(MONSTER_TIER_EXP_MULTIPLIERS[nextTier]);
 }
 
 function readOptionalInteger(input: HTMLInputElement): number | undefined {
@@ -733,6 +757,7 @@ function syncMonsterDraftFromForm(): MonsterTemplateRecord {
     char: monsterCharEl.value.trim(),
     color: monsterColorEl.value.trim(),
     grade: monsterGradeEl.value as TechniqueGrade,
+    tier: monsterTierEl.value as MonsterTier,
     valueStats,
     computedStats: resolveMonsterNumericStatsFromValueStats(valueStats, readOptionalInteger(monsterLevelEl)),
     combatModel: valueStats ? 'value_stats' : (currentMonsterDraft?.combatModel ?? 'value_stats'),
@@ -1032,12 +1057,14 @@ function bindEvents(): void {
       setMonsterStatus(error instanceof Error ? error.message : '读取怪物模板失败', true);
     });
   });
+  monsterTierEl.addEventListener('change', syncMonsterExpMultiplierToTierDefaultIfNeeded);
   [
     monsterIdEl,
     monsterNameEl,
     monsterCharEl,
     monsterColorEl,
     monsterGradeEl,
+    monsterTierEl,
     monsterAggroModeEl,
     monsterLevelEl,
     monsterCountEl,

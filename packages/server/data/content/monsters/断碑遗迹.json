@@ -189,7 +189,6 @@
     ],
     "grade": "mortal",
     "tier": "variant",
-    "expMultiplier": 10,
     "count": 3,
     "equipment": {
       "weapon": "equip.broken_rune_blade",
@@ -274,7 +273,6 @@
     ],
     "grade": "mortal",
     "tier": "demon_king",
-    "expMultiplier": 100,
     "count": 1,
     "equipment": {
       "weapon": "equip.broken_rune_blade",

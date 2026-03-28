@@ -7,9 +7,14 @@ const ROOT_DIR = path.resolve(__dirname, '../..');
 const {
   buildEditableMapList,
   cloneMapDocument,
+  inferMonsterTierFromName,
   inferMonsterValueStatsFromLegacy,
+  normalizeMonsterTier,
   normalizeEditableMapDocument,
   resolveMonsterNumericStatsFromValueStats,
+  resolveMonsterExpMultiplier,
+  shouldPersistMonsterExpMultiplier,
+  shouldPersistMonsterTier,
   validateEditableMapDocument,
 } = require(path.join(ROOT_DIR, 'packages/shared/dist/index.js'));
 
@@ -221,6 +226,7 @@ function normalizeMonsterValueStats(rawValueStats) {
 
 function normalizeMonsterTemplate(rawMonster) {
   const level = Number.isFinite(rawMonster?.level) ? toPositiveInteger(rawMonster.level, 1) : undefined;
+  const tier = normalizeMonsterTier(rawMonster?.tier, inferMonsterTierFromName(rawMonster?.name));
   const legacyMaxHp = toPositiveInteger(rawMonster?.maxHp, toPositiveInteger(rawMonster?.hp, 1));
   const legacyAttack = toPositiveInteger(rawMonster?.attack, 1);
   const valueStats = normalizeMonsterValueStats(rawMonster?.valueStats)
@@ -239,6 +245,7 @@ function normalizeMonsterTemplate(rawMonster) {
     char: typeof rawMonster?.char === 'string' ? rawMonster.char.trim() : '',
     color: typeof rawMonster?.color === 'string' ? rawMonster.color.trim() : '',
     grade: TECHNIQUE_GRADES.includes(rawMonster?.grade) ? rawMonster.grade : 'mortal',
+    tier,
     hp: toPositiveInteger(computedStats.maxHp, legacyMaxHp),
     maxHp: toPositiveInteger(computedStats.maxHp, legacyMaxHp),
     attack: toPositiveInteger(computedStats.physAtk || computedStats.spellAtk, legacyAttack),
@@ -251,7 +258,7 @@ function normalizeMonsterTemplate(rawMonster) {
     respawnSec: toPositiveInteger(rawMonster?.respawnSec, 15),
     respawnTicks: Number.isFinite(rawMonster?.respawnTicks) ? toPositiveInteger(rawMonster.respawnTicks, 1) : undefined,
     level,
-    expMultiplier: Number.isFinite(rawMonster?.expMultiplier) ? Math.max(0, Number(rawMonster.expMultiplier)) : 1,
+    expMultiplier: resolveMonsterExpMultiplier(rawMonster?.expMultiplier, tier),
     valueStats,
     computedStats,
     combatModel: normalizeMonsterValueStats(rawMonster?.valueStats) ? 'value_stats' : 'legacy',
@@ -306,6 +313,7 @@ function serializeMonsterTemplate(monster) {
     char: monster.char,
     color: monster.color,
     grade: monster.grade,
+    ...(shouldPersistMonsterTier(monster.tier, monster.name) ? { tier: monster.tier } : {}),
     radius: monster.radius,
     respawnSec: monster.respawnSec,
     level: monster.level,
@@ -315,7 +323,7 @@ function serializeMonsterTemplate(monster) {
     viewRange: monster.viewRange,
     aggroMode: monster.aggroMode,
     respawnTicks: monster.respawnTicks,
-    expMultiplier: monster.expMultiplier,
+    ...(shouldPersistMonsterExpMultiplier(monster.expMultiplier, monster.tier) ? { expMultiplier: monster.expMultiplier } : {}),
     valueStats: monster.valueStats,
     drops: monster.drops,
   };

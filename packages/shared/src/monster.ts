@@ -13,6 +13,7 @@ import {
   EQUIP_SLOTS,
   MONSTER_GLOBAL_STAT_PERCENTS,
   MONSTER_GRADE_STAT_PERCENTS,
+  MONSTER_TIER_EXP_MULTIPLIERS,
   MONSTER_TIER_STAT_PERCENTS,
   NUMERIC_SCALAR_STAT_KEYS,
   PLAYER_REALM_NUMERIC_TEMPLATES,
@@ -87,6 +88,36 @@ export function createMonsterAttributes(initial = 0): Attributes {
 
 export function normalizeMonsterTier(tier: unknown, fallback: MonsterTier = 'mortal_blood'): MonsterTier {
   return tier === 'mortal_blood' || tier === 'variant' || tier === 'demon_king' ? tier : fallback;
+}
+
+export function inferMonsterTierFromName(name: string | undefined): MonsterTier {
+  const normalizedName = typeof name === 'string' ? name.trim() : '';
+  if (/妖王|荒王|兽王|王$/.test(normalizedName)) {
+    return 'demon_king';
+  }
+  if (/精英|异种/.test(normalizedName)) {
+    return 'variant';
+  }
+  return 'mortal_blood';
+}
+
+export function getDefaultMonsterExpMultiplier(tier: MonsterTier | undefined): number {
+  return MONSTER_TIER_EXP_MULTIPLIERS[normalizeMonsterTier(tier)] ?? 1;
+}
+
+export function resolveMonsterExpMultiplier(expMultiplier: unknown, tier: MonsterTier | undefined): number {
+  if (Number.isFinite(expMultiplier)) {
+    return Math.max(0, Number(expMultiplier));
+  }
+  return getDefaultMonsterExpMultiplier(tier);
+}
+
+export function shouldPersistMonsterTier(tier: MonsterTier | undefined, name: string | undefined): boolean {
+  return normalizeMonsterTier(tier) !== inferMonsterTierFromName(name);
+}
+
+export function shouldPersistMonsterExpMultiplier(expMultiplier: unknown, tier: MonsterTier | undefined): boolean {
+  return resolveMonsterExpMultiplier(expMultiplier, tier) !== getDefaultMonsterExpMultiplier(tier);
 }
 
 export function normalizeMonsterAttrs(

@@ -185,7 +185,6 @@
     ],
     "grade": "yellow",
     "tier": "variant",
-    "expMultiplier": 10,
     "count": 2,
     "equipment": {
       "head": "equip.celestial_crown",
@@ -269,7 +268,6 @@
     ],
     "grade": "yellow",
     "tier": "demon_king",
-    "expMultiplier": 100,
     "count": 1,
     "equipment": {
       "weapon": "equip.starfall_spear",
