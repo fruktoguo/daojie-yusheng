@@ -270,11 +270,17 @@ interface CombatSnapshot {
 interface ResolvedHit {
   hit: boolean;
   damage: number;
+  effectiveDamage: number;
   crit: boolean;
   dodged: boolean;
   resolved: boolean;
   broken: boolean;
   qiCost: number;
+}
+
+interface MonsterExpParticipant {
+  player: PlayerState;
+  contribution: number;
 }
 
 type ResolvedTarget =
@@ -2276,6 +2282,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     qiCost = 0,
   ): WorldUpdate {
     const cultivation = this.techniqueService.interruptCultivation(target, 'hit');
+    const previousHp = target.hp;
     const resolved = this.resolveHit(
       this.getMonsterCombatSnapshot(monster),
       this.getPlayerCombatSnapshot(target),
@@ -2285,6 +2292,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       element,
       (damage) => {
         target.hp = Math.max(0, target.hp - damage);
+        return Math.max(0, previousHp - target.hp);
       },
     );
     const floatColor = getDamageTrailColor(damageKind, element);
@@ -2297,11 +2305,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (cultivation.changed) {
       dirtyPlayers.add(target.id);
     }
-    if (resolved.hit && resolved.damage > 0) {
+    if (resolved.hit && resolved.effectiveDamage > 0) {
       this.threatService.addThreat({
         ownerId: this.getPlayerThreatId(target),
         targetId: this.getMonsterThreatId(monster),
-        baseThreat: resolved.damage,
+        baseThreat: resolved.effectiveDamage,
         targetExtraAggroRate: this.getExtraAggroRate(monster),
         distance: gridDistance(target, monster),
       });
@@ -2755,11 +2763,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     for (const flag of attackEquipment.dirty) {
       dirty.add(flag as WorldDirtyFlag);
     }
-    this.recordMonsterDamage(monster, player.id, resolved.damage);
+    this.recordMonsterDamage(monster, player.id, resolved.effectiveDamage);
 
     if (monster.hp <= 0) {
-      const expRecipients = this.resolveMonsterExpRecipients(monster, player);
-      const expReferenceRealmLv = this.resolveMonsterExpReferenceRealmLv(monster, player);
+      const expParticipants = this.resolveMonsterExpParticipants(monster, player);
+      const topContributionRealmLv = this.resolveMonsterTopContributionRealmLv(expParticipants, player);
       const respawnTicks = this.resolveMonsterRespawnTicks(monster);
       monster.alive = false;
       monster.respawnLeft = respawnTicks;
@@ -2778,7 +2786,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         dirty.add(flag);
       }
 
-      this.distributeMonsterKillExp(monster, player, expRecipients, expReferenceRealmLv, dirty, messages);
+      this.distributeMonsterKillExp(monster, player, expParticipants, topContributionRealmLv, dirty, messages);
 
       for (const drop of monster.drops) {
         if (Math.random() > this.getEffectiveDropChance(player, drop)) continue;
@@ -2823,56 +2831,68 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  private resolveMonsterExpRecipients(monster: RuntimeMonster, killer: PlayerState): PlayerState[] {
-    const recipients: PlayerState[] = [];
-    for (const [playerId, damage] of monster.damageContributors.entries()) {
-      if (damage <= 0) {
+  private resolveMonsterExpParticipants(monster: RuntimeMonster, killer: PlayerState): MonsterExpParticipant[] {
+    const participants: MonsterExpParticipant[] = [];
+    for (const [playerId, contribution] of monster.damageContributors.entries()) {
+      if (contribution <= 0) {
         continue;
       }
-      const participant = this.playerService.getPlayer(playerId);
-      if (participant) {
-        recipients.push(participant);
+      const player = this.playerService.getPlayer(playerId);
+      if (player) {
+        participants.push({
+          player,
+          contribution,
+        });
       }
     }
-    if (recipients.length > 0) {
-      return recipients;
+    if (participants.length > 0) {
+      return participants;
     }
-    return [killer];
+    return [{
+      player: killer,
+      contribution: 1,
+    }];
   }
 
-  private resolveMonsterExpReferenceRealmLv(monster: RuntimeMonster, killer: PlayerState): number {
-    let maxDamage = 0;
-    let referencePlayer: PlayerState | undefined;
-    for (const [playerId, damage] of monster.damageContributors.entries()) {
-      if (damage <= maxDamage) {
+  private resolveMonsterTopContributionRealmLv(participants: MonsterExpParticipant[], killer: PlayerState): number {
+    let topParticipant = killer;
+    let topContribution = 0;
+    for (const participant of participants) {
+      if (participant.contribution <= topContribution) {
         continue;
       }
-      const participant = this.playerService.getPlayer(playerId);
-      if (!participant) {
-        continue;
-      }
-      maxDamage = damage;
-      referencePlayer = participant;
+      topContribution = participant.contribution;
+      topParticipant = participant.player;
     }
-    return Math.max(1, Math.floor(referencePlayer?.realm?.realmLv ?? referencePlayer?.realmLv ?? killer.realm?.realmLv ?? killer.realmLv ?? 1));
+    return this.getNormalizedPlayerRealmLv(topParticipant);
+  }
+
+  private getNormalizedPlayerRealmLv(player: PlayerState): number {
+    return Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
   }
 
   private distributeMonsterKillExp(
     monster: RuntimeMonster,
     killer: PlayerState,
-    recipients: PlayerState[],
-    expReferenceRealmLv: number,
+    participants: MonsterExpParticipant[],
+    topContributionRealmLv: number,
     killerDirty: Set<WorldDirtyFlag>,
     messages: WorldMessage[],
   ): void {
-    const participantCount = Math.max(1, recipients.length);
-    for (const participant of recipients) {
+    const totalContribution = participants.reduce((sum, participant) => sum + participant.contribution, 0);
+    for (const participantEntry of participants) {
+      const participant = participantEntry.player;
+      const contributionRatio = totalContribution > 0 ? participantEntry.contribution / totalContribution : 1;
+      const expAdjustmentRealmLv = Math.max(
+        topContributionRealmLv,
+        this.getNormalizedPlayerRealmLv(participant),
+      );
       const combatExp = this.techniqueService.grantCombatExpFromMonsterKill(participant, {
         monsterLevel: monster.level,
         monsterName: monster.name,
         expMultiplier: monster.expMultiplier,
-        participantCount,
-        expReferenceRealmLv,
+        contributionRatio,
+        expAdjustmentRealmLv,
         isKiller: participant.id === killer.id,
       });
       if (combatExp.changed) {
@@ -3029,8 +3049,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     const attacker = this.getPlayerCombatSnapshot(player);
     const defender = this.getMonsterCombatSnapshot(monster);
     const rawDamage = baseDamage;
+    const previousHp = monster.hp;
     return this.resolveHit(attacker, defender, rawDamage, damageKind, qiCost, element, (damage) => {
       monster.hp = Math.max(0, monster.hp - damage);
+      return Math.max(0, previousHp - monster.hp);
     });
   }
 
@@ -3042,6 +3064,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     element: ElementKey | undefined,
     qiCost = 0,
   ): ResolvedHit {
+    const previousHp = defender.hp;
     return this.resolveHit(
       this.getPlayerCombatSnapshot(attacker),
       this.getPlayerCombatSnapshot(defender),
@@ -3051,6 +3074,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       element,
       (damage) => {
         defender.hp = Math.max(0, defender.hp - damage);
+        return Math.max(0, previousHp - defender.hp);
       },
     );
   }
@@ -3064,8 +3088,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     const rawDamage = monster.combatModel === 'value_stats'
       ? Math.max(1, Math.round(attackStat))
       : monster.attack + attackStat;
+    const previousHp = player.hp;
     return this.resolveHit(attacker, defender, rawDamage, damageKind, 0, element, (damage) => {
       player.hp = Math.max(0, player.hp - damage);
+      return Math.max(0, previousHp - player.hp);
     });
   }
 
@@ -3076,7 +3102,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     damageKind: SkillDamageKind,
     qiCost: number,
     element: ElementKey | undefined,
-    applyDamage: (damage: number) => void,
+    applyDamage: (damage: number) => number,
   ): ResolvedHit {
     const breakOverflow = Math.max(0, attacker.stats.breakPower - defender.stats.resolvePower);
     const breakChance = ratioValue(breakOverflow, attacker.ratios.breakPower);
@@ -3091,6 +3117,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       return {
         hit: false,
         damage: 0,
+        effectiveDamage: 0,
         crit: false,
         dodged: true,
         resolved: false,
@@ -3125,10 +3152,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
     damage = Math.max(1, Math.round(damage * getRealmGapDamageMultiplier(attacker.realmLv, defender.realmLv)));
 
-    applyDamage(damage);
+    const effectiveDamage = Math.max(0, applyDamage(damage));
     return {
       hit: true,
       damage,
+      effectiveDamage,
       crit,
       dodged: false,
       resolved,

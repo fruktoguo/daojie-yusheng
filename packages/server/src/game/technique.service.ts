@@ -90,9 +90,9 @@ interface MonsterKillExpInput {
   monsterLevel?: number;
   monsterName?: string;
   expMultiplier?: number;
-  participantCount?: number;
+  contributionRatio?: number;
   isKiller?: boolean;
-  expReferenceRealmLv?: number;
+  expAdjustmentRealmLv?: number;
 }
 
 interface RealmExpAdvanceOptions {
@@ -617,22 +617,23 @@ export class TechniqueService {
     const techniqueExpBonus = Math.max(0, numericStats.techniqueExpRate) / 10000;
     const realmExpBonus = Math.max(0, numericStats.playerExpRate) / 10000;
     const normalizedMonsterLevel = Math.max(1, Math.floor(input.monsterLevel ?? 1));
-    const participantCount = Math.max(1, Math.floor(input.participantCount ?? 1));
-    const expReferenceRealmLv = Math.max(
+    const contributionRatio = Math.min(1, Math.max(0, Number.isFinite(input.contributionRatio) ? Number(input.contributionRatio) : 1));
+    const expAdjustmentRealmLv = Math.max(
       1,
-      Math.floor(input.expReferenceRealmLv ?? this.getPlayerRealmLv(player)),
+      Math.floor(input.expAdjustmentRealmLv ?? this.getPlayerRealmLv(player)),
     );
     const dirty = new Set<TechniqueDirtyFlag>();
     const messages: TechniqueMessage[] = [];
     const realmBaseExp = this.getRealmCombatExp(
       normalizedMonsterLevel,
-      expReferenceRealmLv,
+      expAdjustmentRealmLv,
       input.expMultiplier,
-      participantCount,
+      contributionRatio,
     );
 
     const realmResult = this.advanceRealmProgress(player, realmBaseExp, {
       expBonus: realmExpBonus,
+      minimumGain: 0,
       useFoundation: true,
       overflowToFoundation: true,
       trackCombatExp: true,
@@ -648,11 +649,12 @@ export class TechniqueService {
       player,
       this.getTechniqueCombatExp(
         normalizedMonsterLevel,
-        expReferenceRealmLv,
+        expAdjustmentRealmLv,
         input.expMultiplier,
-        participantCount,
+        contributionRatio,
       ),
       techniqueExpBonus,
+      0,
     );
     if (techniqueResult.changed) {
       for (const flag of techniqueResult.dirty) {
@@ -871,8 +873,8 @@ export class TechniqueService {
     return guaranteed + (Math.random() < remainder ? 1 : 0);
   }
 
-  private advanceTechniqueCombatExp(player: PlayerState, baseGain: number, expBonus = 0): { changed: boolean; gained: number; techniqueName?: string; dirty: TechniqueDirtyFlag[]; messages: TechniqueMessage[] } {
-    return this.advanceTechniqueProgress(player, baseGain, expBonus);
+  private advanceTechniqueCombatExp(player: PlayerState, baseGain: number, expBonus = 0, minimumGain = 1): { changed: boolean; gained: number; techniqueName?: string; dirty: TechniqueDirtyFlag[]; messages: TechniqueMessage[] } {
+    return this.advanceTechniqueProgress(player, baseGain, expBonus, minimumGain);
   }
 
   private advanceTechniqueProgress(player: PlayerState, baseGain: number, expBonus = 0, minimumGain = 1): { changed: boolean; gained: number; techniqueName?: string; dirty: TechniqueDirtyFlag[]; messages: TechniqueMessage[] } {
@@ -1095,7 +1097,7 @@ export class TechniqueService {
     monsterLevel: number,
     playerRealmLv: number,
     expMultiplier = 1,
-    participantCount = 1,
+    contributionRatio = 1,
   ): number {
     const level = Math.max(1, Math.floor(monsterLevel));
     const expToNext = Math.max(0, this.contentService.getRealmLevelEntry(level)?.expToNext ?? 0);
@@ -1104,9 +1106,9 @@ export class TechniqueService {
     }
 
     const normalizedMultiplier = Number.isFinite(expMultiplier) ? Math.max(0, expMultiplier) : 1;
-    const normalizedParticipantCount = Math.max(1, Math.floor(participantCount));
+    const normalizedContributionRatio = Math.min(1, Math.max(0, Number.isFinite(contributionRatio) ? Number(contributionRatio) : 1));
     const levelAdjustment = this.getMonsterKillRealmExpAdjustment(playerRealmLv, level);
-    return (expToNext * normalizedMultiplier * levelAdjustment) / (1000 * normalizedParticipantCount);
+    return (expToNext * normalizedMultiplier * levelAdjustment * normalizedContributionRatio) / 1000;
   }
 
   private getCultivationTechniqueExp(techniqueExpPerTick: number, auraMultiplier: number): number {
@@ -1117,7 +1119,7 @@ export class TechniqueService {
     monsterLevel: number,
     playerRealmLv: number,
     expMultiplier = 1,
-    participantCount = 1,
+    contributionRatio = 1,
   ): number {
     const level = Math.max(1, Math.floor(monsterLevel));
     const expToNext = Math.max(0, this.contentService.getRealmLevelEntry(level)?.expToNext ?? 0);
@@ -1126,9 +1128,9 @@ export class TechniqueService {
     }
 
     const normalizedMultiplier = Number.isFinite(expMultiplier) ? Math.max(0, expMultiplier) : 1;
-    const normalizedParticipantCount = Math.max(1, Math.floor(participantCount));
+    const normalizedContributionRatio = Math.min(1, Math.max(0, Number.isFinite(contributionRatio) ? Number(contributionRatio) : 1));
     const levelAdjustment = this.getMonsterKillRealmExpAdjustment(playerRealmLv, level);
-    return (expToNext * normalizedMultiplier * levelAdjustment) / (200 * normalizedParticipantCount);
+    return (expToNext * normalizedMultiplier * levelAdjustment * normalizedContributionRatio) / 200;
   }
 
   private getMonsterKillRealmExpAdjustment(playerRealmLv: number, monsterLevel: number): number {
