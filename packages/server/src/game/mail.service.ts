@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import { In, Repository, SelectQueryBuilder } from 'typeorm';
 import {
   MAIL_PAGE_SIZE_DEFAULT,
+  MAIL_TEMPLATE_BEGINNER_JOURNEY_ID,
   MailAttachment,
   MailDetailView,
   MailFilter,
@@ -114,7 +115,9 @@ interface MailDetailRawRow extends MailListRawRow {
 @Injectable()
 export class MailService {
   private static readonly WELCOME_TEMPLATE_ID = 'mail.welcome.v1';
+  private static readonly BEGINNER_JOURNEY_TEMPLATE_ID = MAIL_TEMPLATE_BEGINNER_JOURNEY_ID;
   private static readonly DEFAULT_SENDER_LABEL = '司命台';
+  private static readonly BITTER_CULTIVATION_ELIXIR_ITEM_ID = 'pill.bitter_cultivation_elixir';
 
   constructor(
     @InjectRepository(MailCampaignEntity)
@@ -445,7 +448,7 @@ export class MailService {
 
   private buildCampaignEntity(scope: 'global' | 'direct', input: CreateMailInput): MailCampaignEntity {
     const now = Date.now();
-    const attachments = this.normalizeAttachments(input.attachments);
+    const attachments = this.normalizeAttachments(this.buildTemplateAttachments(input.templateId, input.attachments));
     return this.mailCampaignRepo.create({
       id: randomUUID(),
       scope,
@@ -462,6 +465,66 @@ export class MailService {
       startAt: input.startAt ?? null,
       expireAt: input.expireAt ?? null,
     });
+  }
+
+  private buildTemplateAttachments(
+    templateId: string | null | undefined,
+    attachments: MailAttachment[] | undefined,
+  ): MailAttachment[] | undefined {
+    const normalizedTemplateId = templateId?.trim();
+    const presetAttachments = normalizedTemplateId === MailService.BEGINNER_JOURNEY_TEMPLATE_ID
+      ? this.buildBeginnerJourneyAttachments()
+      : [];
+    if (presetAttachments.length === 0) {
+      return attachments;
+    }
+    return Array.isArray(attachments) && attachments.length > 0
+      ? [...presetAttachments, ...attachments]
+      : presetAttachments;
+  }
+
+  private buildBeginnerJourneyAttachments(): MailAttachment[] {
+    const catalog = this.contentService.getEditorItemCatalog();
+    const attachments: MailAttachment[] = [];
+    const seen = new Set<string>();
+    for (const item of catalog) {
+      if (item.type !== 'equipment') {
+        continue;
+      }
+      attachments.push({ itemId: item.itemId, count: 1 });
+      seen.add(item.itemId);
+    }
+    for (const item of catalog) {
+      if (item.type !== 'skill_book' || seen.has(item.itemId) || this.isDivineTechniqueBook(item.itemId)) {
+        continue;
+      }
+      attachments.push({ itemId: item.itemId, count: 1 });
+      seen.add(item.itemId);
+    }
+    attachments.push({
+      itemId: MailService.BITTER_CULTIVATION_ELIXIR_ITEM_ID,
+      count: 5,
+    });
+    return attachments;
+  }
+
+  private isDivineTechniqueBook(itemId: string): boolean {
+    const techniqueId = this.contentService.getItem(itemId)?.learnTechniqueId
+      ?? this.resolveTechniqueIdFromBookItemId(itemId);
+    if (!techniqueId) {
+      return false;
+    }
+    return this.contentService.getTechnique(techniqueId)?.category === 'divine';
+  }
+
+  private resolveTechniqueIdFromBookItemId(itemId: string): string | null {
+    if (itemId.startsWith('book.')) {
+      return itemId.slice(5);
+    }
+    if (itemId.startsWith('book_')) {
+      return itemId.slice(5);
+    }
+    return null;
   }
 
   private normalizeArgs(args: MailTemplateArg[] | undefined): MailTemplateArg[] {

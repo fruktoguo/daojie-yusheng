@@ -18,7 +18,15 @@ export interface MailTemplateDef {
   body: MailTemplateToken[];
 }
 
+export interface GmMailTemplateOption {
+  templateId: string;
+  label: string;
+  description: string;
+}
+
 export const MAIL_FILTERS: MailFilter[] = ['all', 'unread', 'claimable'];
+
+export const MAIL_TEMPLATE_BEGINNER_JOURNEY_ID = 'mail.starter.beginner_journey.v1';
 
 export const MAIL_TEMPLATE_DEFS: Record<string, MailTemplateDef> = {
   'mail.welcome.v1': {
@@ -49,7 +57,31 @@ export const MAIL_TEMPLATE_DEFS: Record<string, MailTemplateDef> = {
     title: [{ kind: 'text', value: '奖励到账' }],
     body: [{ kind: 'arg', index: 0 }],
   },
+  [MAIL_TEMPLATE_BEGINNER_JOURNEY_ID]: {
+    id: MAIL_TEMPLATE_BEGINNER_JOURNEY_ID,
+    title: [{ kind: 'text', value: '初入道途' }],
+    body: [
+      { kind: 'text', value: '道途初启，先收好这份行装。' },
+      { kind: 'text', value: '\n\n' },
+      { kind: 'text', value: '附件包含当前全部装备各一件、除神通外的功法书各一本到，以及五枚苦修丹。' },
+      { kind: 'text', value: '\n\n' },
+      { kind: 'text', value: '若背包已满，请先整理后再领取。' },
+    ],
+  },
 } as const;
+
+export const GM_MAIL_TEMPLATE_OPTIONS: GmMailTemplateOption[] = [
+  {
+    templateId: '',
+    label: '自定义邮件',
+    description: '自填标题、正文和附件。',
+  },
+  {
+    templateId: MAIL_TEMPLATE_BEGINNER_JOURNEY_ID,
+    label: '初入道途',
+    description: '发送全部装备各一件、全部非神通功法书各一本到，并附带五枚苦修丹。',
+  },
+];
 
 export function getMailTemplateDef(templateId: string | null | undefined): MailTemplateDef | null {
   if (!templateId) {

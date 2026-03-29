@@ -5,6 +5,7 @@
 import {
   type BasicOkRes,
   Direction,
+  GM_MAIL_TEMPLATE_OPTIONS,
   type GmChangePasswordReq,
   GM_ACCESS_TOKEN_STORAGE_KEY,
   GM_APPLY_DELAY_MS,
@@ -44,6 +45,7 @@ import {
   type GmUpdatePlayerReq,
   type ItemStack,
   type MailAttachment,
+  MAIL_TEMPLATE_BEGINNER_JOURNEY_ID,
   ITEM_TYPES,
   ITEM_TYPE_LABELS,
   type PlayerState,
@@ -192,6 +194,8 @@ interface GmMailAttachmentDraft {
 }
 
 interface GmMailComposerDraft {
+  templateId: string;
+  targetPlayerId: string;
   senderLabel: string;
   title: string;
   body: string;
@@ -289,6 +293,8 @@ function createDefaultMailAttachmentDraft(): GmMailAttachmentDraft {
 
 function createDefaultMailComposerDraft(): GmMailComposerDraft {
   return {
+    templateId: '',
+    targetPlayerId: '',
     senderLabel: '司命台',
     title: '',
     body: '',
@@ -638,25 +644,49 @@ function getMailAttachmentRowMeta(itemId: string): string {
   return getItemOptionLabel(entry);
 }
 
+function getMailTemplateOptionMeta(templateId: string): { label: string; description: string } | null {
+  return GM_MAIL_TEMPLATE_OPTIONS.find((entry) => entry.templateId === templateId) ?? null;
+}
+
+function isServerManagedMailTemplate(templateId: string): boolean {
+  return templateId === MAIL_TEMPLATE_BEGINNER_JOURNEY_ID;
+}
+
+function getShortcutMailTargetOptions(): Array<{ value: string; label: string }> {
+  const players = state?.players.filter((player) => !player.meta.isBot) ?? [];
+  return [
+    { value: '', label: '发送给全服玩家' },
+    ...players.map((player) => ({
+      value: player.id,
+      label: `${player.roleName} · ${player.accountName || '无账号'} · ${player.meta.online ? '在线' : '离线'}`,
+    })),
+  ];
+}
+
 function getMailComposerPayload(draft: GmMailComposerDraft): GmCreateMailReq {
+  const templateId = draft.templateId.trim();
+  const usesServerManagedTemplate = isServerManagedMailTemplate(templateId);
   const title = draft.title.trim();
   const body = draft.body.trim();
   const senderLabel = draft.senderLabel.trim() || '司命台';
   const expireHours = Math.floor(Number(draft.expireHours || '0'));
-  const attachments: MailAttachment[] = draft.attachments
-    .filter((entry) => entry.itemId.trim().length > 0 && Number.isFinite(entry.count) && entry.count > 0)
-    .map((entry) => ({
-      itemId: entry.itemId.trim(),
-      count: Math.max(1, Math.floor(entry.count)),
-    }));
+  const attachments: MailAttachment[] = usesServerManagedTemplate
+    ? []
+    : draft.attachments
+      .filter((entry) => entry.itemId.trim().length > 0 && Number.isFinite(entry.count) && entry.count > 0)
+      .map((entry) => ({
+        itemId: entry.itemId.trim(),
+        count: Math.max(1, Math.floor(entry.count)),
+      }));
 
-  if (!title && !body && attachments.length === 0) {
+  if (!templateId && !title && !body && attachments.length === 0) {
     throw new Error('标题、正文和附件至少填写一项');
   }
 
   return {
-    fallbackTitle: title || undefined,
-    fallbackBody: body || undefined,
+    templateId: templateId || undefined,
+    fallbackTitle: !templateId && title ? title : undefined,
+    fallbackBody: !templateId && body ? body : undefined,
     attachments: attachments.length > 0 ? attachments : undefined,
     senderLabel,
     expireAt: expireHours > 0 ? Date.now() + expireHours * 3600 * 1000 : null,
@@ -666,48 +696,70 @@ function getMailComposerPayload(draft: GmMailComposerDraft): GmCreateMailReq {
 function getMailComposerMarkup(
   draft: GmMailComposerDraft,
   options: {
-    scope: 'direct' | 'broadcast';
+    scope: 'direct' | 'shortcut';
     submitLabel: string;
     note: string;
+    showTargetPlayer?: boolean;
   },
 ): string {
-  const attachmentRows = draft.attachments.length > 0
-    ? draft.attachments.map((entry, index) => `
-      <div class="editor-card">
-        <div class="editor-card-head">
-          <div>
-            <div class="editor-card-title">${escapeHtml(entry.itemId || `附件 ${index + 1}`)}</div>
-            <div class="editor-card-meta">${escapeHtml(getMailAttachmentRowMeta(entry.itemId))}</div>
+  const usesServerManagedTemplate = isServerManagedMailTemplate(draft.templateId);
+  const templateMeta = getMailTemplateOptionMeta(draft.templateId);
+  const attachmentRows = usesServerManagedTemplate
+    ? `<div class="editor-note">${escapeHtml(templateMeta?.description || '该模板的附件由服务端固定生成。')}</div>`
+    : draft.attachments.length > 0
+      ? draft.attachments.map((entry, index) => `
+        <div class="editor-card">
+          <div class="editor-card-head">
+            <div>
+              <div class="editor-card-title">${escapeHtml(entry.itemId || `附件 ${index + 1}`)}</div>
+              <div class="editor-card-meta">${escapeHtml(getMailAttachmentRowMeta(entry.itemId))}</div>
+            </div>
+            <button class="small-btn danger" type="button" data-action="${options.scope === 'direct' ? 'remove-direct-mail-attachment' : 'remove-shortcut-mail-attachment'}" data-mail-attachment-index="${index}">删除附件</button>
           </div>
-          <button class="small-btn danger" type="button" data-action="${options.scope === 'direct' ? 'remove-direct-mail-attachment' : 'remove-broadcast-mail-attachment'}" data-mail-attachment-index="${index}">删除附件</button>
+          <div class="editor-grid compact">
+            <label class="editor-field wide">
+              <span>物品模板</span>
+              <select data-mail-bind="${options.scope}.attachments.${index}.itemId">
+                <option value="">选择物品模板</option>
+                ${optionsMarkup(getMailAttachmentItemOptions(), entry.itemId)}
+              </select>
+            </label>
+            <label class="editor-field">
+              <span>数量</span>
+              <input type="number" min="1" data-mail-bind="${options.scope}.attachments.${index}.count" value="${Math.max(1, Math.floor(entry.count || 1))}" />
+            </label>
+          </div>
         </div>
-        <div class="editor-grid compact">
-          <label class="editor-field wide">
-            <span>物品模板</span>
-            <select data-mail-bind="${options.scope}.attachments.${index}.itemId">
-              <option value="">选择物品模板</option>
-              ${optionsMarkup(getMailAttachmentItemOptions(), entry.itemId)}
-            </select>
-          </label>
-          <label class="editor-field">
-            <span>数量</span>
-            <input type="number" min="1" data-mail-bind="${options.scope}.attachments.${index}.count" value="${Math.max(1, Math.floor(entry.count || 1))}" />
-          </label>
-        </div>
+      `).join('')
+      : '<div class="editor-note">当前没有附件。</div>';
+  const targetPlayerField = options.showTargetPlayer
+    ? `
+      <label class="editor-field wide">
+        <span>发送目标</span>
+        <select data-mail-bind="${options.scope}.targetPlayerId">
+          ${optionsMarkup(getShortcutMailTargetOptions(), draft.targetPlayerId)}
+        </select>
+      </label>
+    `
+    : '';
+  const templateField = `
+    <label class="editor-field wide">
+      <span>邮件模板</span>
+      <select data-mail-bind="${options.scope}.templateId">
+        ${optionsMarkup(
+          GM_MAIL_TEMPLATE_OPTIONS.map((entry) => ({ value: entry.templateId, label: `${entry.label} · ${entry.description}` })),
+          draft.templateId,
+        )}
+      </select>
+    </label>
+  `;
+  const customContentFields = usesServerManagedTemplate
+    ? `
+      <div class="editor-note" style="margin-top: 10px;">
+        当前使用模板“${escapeHtml(templateMeta?.label || '未知模板')}”，标题、正文和附件由服务端统一生成。
       </div>
-    `).join('')
-    : '<div class="editor-note">当前没有附件。</div>';
-
-  return `
-    <div class="editor-grid compact">
-      <label class="editor-field">
-        <span>发件人</span>
-        <input type="text" autocomplete="off" spellcheck="false" data-mail-bind="${options.scope}.senderLabel" value="${escapeHtml(draft.senderLabel)}" placeholder="司命台" />
-      </label>
-      <label class="editor-field">
-        <span>过期小时</span>
-        <input type="number" min="0" data-mail-bind="${options.scope}.expireHours" value="${escapeHtml(draft.expireHours)}" placeholder="72" />
-      </label>
+    `
+    : `
       <label class="editor-field wide">
         <span>标题</span>
         <input type="text" autocomplete="off" spellcheck="false" data-mail-bind="${options.scope}.title" value="${escapeHtml(draft.title)}" placeholder="不填则由服务端显示为未命名邮件" />
@@ -716,19 +768,49 @@ function getMailComposerMarkup(
         <span>正文</span>
         <textarea class="editor-textarea" style="min-height: 120px;" spellcheck="false" data-mail-bind="${options.scope}.body" placeholder="可留空，仅发送附件">${escapeHtml(draft.body)}</textarea>
       </label>
-    </div>
-    <div class="editor-section" style="margin-top: 10px;">
-      <div class="editor-section-head">
-        <div>
-          <div class="editor-section-title">邮件附件</div>
-          <div class="editor-section-note">附件由服务端在领取时校验并发放到背包。</div>
+    `;
+  const attachmentSection = usesServerManagedTemplate
+    ? `
+      <div class="editor-section" style="margin-top: 10px;">
+        <div class="editor-section-head">
+          <div>
+            <div class="editor-section-title">模板附件</div>
+            <div class="editor-section-note">当前模板会附带全部装备各一件、全部非神通功法书各一本到，以及五枚苦修丹。</div>
+          </div>
         </div>
-        <button class="small-btn" type="button" data-action="${options.scope === 'direct' ? 'add-direct-mail-attachment' : 'add-broadcast-mail-attachment'}">新增附件</button>
+        <div class="editor-card-list">${attachmentRows}</div>
       </div>
-      <div class="editor-card-list">${attachmentRows}</div>
+    `
+    : `
+      <div class="editor-section" style="margin-top: 10px;">
+        <div class="editor-section-head">
+          <div>
+            <div class="editor-section-title">邮件附件</div>
+            <div class="editor-section-note">附件由服务端在领取时校验并发放到背包。</div>
+          </div>
+          <button class="small-btn" type="button" data-action="${options.scope === 'direct' ? 'add-direct-mail-attachment' : 'add-shortcut-mail-attachment'}">新增附件</button>
+        </div>
+        <div class="editor-card-list">${attachmentRows}</div>
+      </div>
+    `;
+
+  return `
+    <div class="editor-grid compact">
+      ${targetPlayerField}
+      ${templateField}
+      <label class="editor-field">
+        <span>发件人</span>
+        <input type="text" autocomplete="off" spellcheck="false" data-mail-bind="${options.scope}.senderLabel" value="${escapeHtml(draft.senderLabel)}" placeholder="司命台" />
+      </label>
+      <label class="editor-field">
+        <span>过期小时</span>
+        <input type="number" min="0" data-mail-bind="${options.scope}.expireHours" value="${escapeHtml(draft.expireHours)}" placeholder="72" />
+      </label>
+      ${customContentFields}
     </div>
+    ${attachmentSection}
     <div class="button-row" style="margin-top: 10px;">
-      <button class="small-btn primary" type="button" data-action="${options.scope === 'direct' ? 'send-direct-mail' : 'send-broadcast-mail'}">${escapeHtml(options.submitLabel)}</button>
+      <button class="small-btn primary" type="button" data-action="${options.scope === 'direct' ? 'send-direct-mail' : 'send-shortcut-mail'}">${escapeHtml(options.submitLabel)}</button>
     </div>
     <div class="editor-note" style="margin-top: 8px;">${escapeHtml(options.note)}</div>
   `;
@@ -1496,10 +1578,22 @@ function renderShortcutMailComposer(): void {
   if (!shortcutMailComposerEl) {
     return;
   }
+  if (broadcastMailDraft.targetPlayerId) {
+    const targetExists = (state?.players ?? []).some((player) => player.id === broadcastMailDraft.targetPlayerId);
+    if (!targetExists) {
+      broadcastMailDraft.targetPlayerId = '';
+    }
+  }
+  const targetPlayer = broadcastMailDraft.targetPlayerId
+    ? (state?.players.find((player) => player.id === broadcastMailDraft.targetPlayerId) ?? null)
+    : null;
   shortcutMailComposerEl.innerHTML = getMailComposerMarkup(broadcastMailDraft, {
-    scope: 'broadcast',
-    submitLabel: '发送全服邮件',
-    note: '广播邮件不会混入高频地图同步，只在玩家打开收件箱时按需拉取。',
+    scope: 'shortcut',
+    submitLabel: targetPlayer ? `发送给 ${targetPlayer.roleName}` : '发送全服邮件',
+    note: targetPlayer
+      ? '指定玩家邮件会直接写入该角色的持久化邮箱，在线时只推送摘要更新。'
+      : '全服邮件不会混入高频地图同步，只在玩家打开收件箱时按需拉取。',
+    showTargetPlayer: true,
   });
 }
 
@@ -1621,11 +1715,19 @@ async function requestBlob(path: string, init: RequestInit = {}): Promise<Respon
 }
 
 function updateMailDraftValue(
-  scope: 'direct' | 'broadcast',
+  scope: 'direct' | 'shortcut',
   path: string,
   rawValue: string,
 ): void {
   const draft = scope === 'direct' ? directMailDraft : broadcastMailDraft;
+  if (path === 'templateId') {
+    draft.templateId = rawValue;
+    return;
+  }
+  if (path === 'targetPlayerId') {
+    draft.targetPlayerId = rawValue;
+    return;
+  }
   if (path === 'senderLabel') {
     draft.senderLabel = rawValue;
     return;
@@ -1667,7 +1769,7 @@ function rerenderDirectMailComposer(): void {
   renderEditor(state);
 }
 
-function addMailAttachment(scope: 'direct' | 'broadcast'): void {
+function addMailAttachment(scope: 'direct' | 'shortcut'): void {
   const draft = scope === 'direct' ? directMailDraft : broadcastMailDraft;
   draft.attachments.push(createDefaultMailAttachmentDraft());
   if (scope === 'direct') {
@@ -1677,7 +1779,7 @@ function addMailAttachment(scope: 'direct' | 'broadcast'): void {
   renderShortcutMailComposer();
 }
 
-function removeMailAttachment(scope: 'direct' | 'broadcast', index: number): void {
+function removeMailAttachment(scope: 'direct' | 'shortcut', index: number): void {
   const draft = scope === 'direct' ? directMailDraft : broadcastMailDraft;
   if (index < 0 || index >= draft.attachments.length) {
     return;
@@ -1706,15 +1808,24 @@ async function sendDirectMail(): Promise<void> {
   setStatus(`已向 ${detail.roleName} 发送邮件：${result.mailId}`);
 }
 
-async function sendBroadcastMail(): Promise<void> {
+async function sendShortcutMail(): Promise<void> {
   const payload = getMailComposerPayload(broadcastMailDraft);
-  const result = await request<{ ok: true; mailId: string }>('/gm/mail/broadcast', {
+  const targetPlayerId = broadcastMailDraft.targetPlayerId.trim();
+  const path = targetPlayerId
+    ? `/gm/players/${encodeURIComponent(targetPlayerId)}/mail`
+    : '/gm/mail/broadcast';
+  const result = await request<{ ok: true; mailId: string }>(path, {
     method: 'POST',
     body: JSON.stringify(payload),
   });
+  const targetPlayer = targetPlayerId
+    ? (state?.players.find((player) => player.id === targetPlayerId) ?? null)
+    : null;
   broadcastMailDraft = createDefaultMailComposerDraft();
   renderShortcutMailComposer();
-  setStatus(`已发送全服邮件：${result.mailId}`);
+  setStatus(targetPlayer
+    ? `已向 ${targetPlayer.roleName} 发送邮件：${result.mailId}`
+    : `已发送全服邮件：${result.mailId}`);
 }
 
 function getSelectedPlayer(): GmManagedPlayerSummary | null {
@@ -2624,6 +2735,7 @@ function render(): void {
   renderDatabasePanel();
   renderPlayerList(state);
   renderEditor(state);
+  renderShortcutMailComposer();
 }
 
 function getEditorTabSection(tab: GmPlayerUpdateSection | 'persisted'): HTMLElement | null {
@@ -3443,7 +3555,7 @@ editorContentEl.addEventListener('input', (event) => {
       return;
     }
     const [scope, ...rest] = binding.split('.');
-    if ((scope === 'direct' || scope === 'broadcast') && rest.length > 0) {
+    if ((scope === 'direct' || scope === 'shortcut') && rest.length > 0) {
       updateMailDraftValue(scope, rest.join('.'), target.value);
     }
   }
@@ -3459,9 +3571,9 @@ editorContentEl.addEventListener('change', (event) => {
     const binding = target.dataset.mailBind;
     if (binding) {
       const [scope, ...rest] = binding.split('.');
-      if ((scope === 'direct' || scope === 'broadcast') && rest.length > 0) {
+      if ((scope === 'direct' || scope === 'shortcut') && rest.length > 0) {
         updateMailDraftValue(scope, rest.join('.'), target.value);
-        if (scope === 'direct' && rest[0] === 'attachments') {
+        if (scope === 'direct' && (rest[0] === 'attachments' || rest[0] === 'templateId')) {
           rerenderDirectMailComposer();
         }
         return;
@@ -3638,17 +3750,17 @@ shortcutWorkspaceEl.addEventListener('click', (event) => {
   if (!action || !trigger) {
     return;
   }
-  if (action === 'add-broadcast-mail-attachment') {
-    addMailAttachment('broadcast');
+  if (action === 'add-shortcut-mail-attachment') {
+    addMailAttachment('shortcut');
     return;
   }
-  if (action === 'remove-broadcast-mail-attachment') {
-    removeMailAttachment('broadcast', Number(trigger.dataset.mailAttachmentIndex));
+  if (action === 'remove-shortcut-mail-attachment') {
+    removeMailAttachment('shortcut', Number(trigger.dataset.mailAttachmentIndex));
     return;
   }
-  if (action === 'send-broadcast-mail') {
-    sendBroadcastMail().catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '发送全服邮件失败', true);
+  if (action === 'send-shortcut-mail') {
+    sendShortcutMail().catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '发送快捷邮件失败', true);
     });
   }
 });
@@ -3664,8 +3776,8 @@ shortcutWorkspaceEl.addEventListener('input', (event) => {
       return;
     }
     const [scope, ...rest] = binding.split('.');
-    if (scope === 'broadcast' && rest.length > 0) {
-      updateMailDraftValue('broadcast', rest.join('.'), target.value);
+    if (scope === 'shortcut' && rest.length > 0) {
+      updateMailDraftValue('shortcut', rest.join('.'), target.value);
     }
   }
 });
@@ -3681,9 +3793,9 @@ shortcutWorkspaceEl.addEventListener('change', (event) => {
       return;
     }
     const [scope, ...rest] = binding.split('.');
-    if (scope === 'broadcast' && rest.length > 0) {
-      updateMailDraftValue('broadcast', rest.join('.'), target.value);
-      if (rest[0] === 'attachments') {
+    if (scope === 'shortcut' && rest.length > 0) {
+      updateMailDraftValue('shortcut', rest.join('.'), target.value);
+      if (rest[0] === 'attachments' || rest[0] === 'templateId' || rest[0] === 'targetPlayerId') {
         renderShortcutMailComposer();
       }
     }
