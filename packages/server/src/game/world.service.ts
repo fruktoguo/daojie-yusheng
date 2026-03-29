@@ -4132,12 +4132,6 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         return { quest, questState, relation: 'giver' };
       }
       if (!questState) {
-        const hasLaterProgress = npc.quests
-          .slice(npc.quests.indexOf(quest) + 1)
-          .some((candidate) => player.quests.some((entry) => entry.id === candidate.id));
-        if (hasLaterProgress) {
-          continue;
-        }
         const previousIncomplete = npc.quests
           .slice(0, npc.quests.indexOf(quest))
           .some((candidate) => player.quests.find((entry) => entry.id === candidate.id)?.status !== 'completed');
