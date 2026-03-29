@@ -33,6 +33,7 @@ import { getSoulDevourErosionRatio } from './buff-presentation';
 import { QiProjectionService } from './qi-projection.service';
 
 type PercentBonusAccumulator = Pick<NumericStats, 'maxHp' | 'maxQi' | 'physAtk' | 'spellAtk'>;
+const SOUL_DEVOUR_EROSION_ATTR_KEYS: readonly AttrKey[] = ['constitution', 'spirit', 'perception', 'talent'];
 
 function createAttributeSnapshot(initial = 0): Attributes {
   return {
@@ -248,7 +249,7 @@ export class AttrService {
       return;
     }
     const multiplier = 1 - getSoulDevourErosionRatio(soulDevourStacks);
-    for (const key of ATTR_KEYS) {
+    for (const key of SOUL_DEVOUR_EROSION_ATTR_KEYS) {
       target[key] *= multiplier;
     }
   }

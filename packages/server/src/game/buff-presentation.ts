@@ -22,7 +22,7 @@ function formatDynamicPercent(value: number): string {
 
 export function buildDynamicBuffDescription(buffId: string, stacks: number, fallback?: string): string | undefined {
   if (buffId === SOUL_DEVOUR_EROSION_BUFF_ID) {
-    return `当前总层数 ${Math.max(0, Math.round(stacks))}，六维已降低 ${formatDynamicPercent(getSoulDevourErosionRatio(stacks))}；此残意即使身死也不会散去。`;
+    return `当前总层数 ${Math.max(0, Math.round(stacks))}，四维已降低 ${formatDynamicPercent(getSoulDevourErosionRatio(stacks))}；此残意即使身死也不会散去。`;
   }
   return fallback;
 }

@@ -57,7 +57,7 @@
         "buff": {
           "buffId": "equip.soul_devour_erosion",
           "name": "噬元侵骨",
-          "desc": "每息叠一层，六维压制会随着层数不断加深；当前实际降幅会直接显示在状态说明里。",
+          "desc": "每息叠一层，四维压制会随着层数不断加深；当前实际降幅会直接显示在状态说明里。",
           "duration": 3600,
           "shortMark": "蚀",
           "category": "debuff",
