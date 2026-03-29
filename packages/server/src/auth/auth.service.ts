@@ -31,6 +31,15 @@ interface GmConfigFile {
 
 const SERVER_CONFIG_SCOPE = 'server_config';
 const GM_CONFIG_DOCUMENT_KEY = 'gm_auth';
+const AUTH_MIGRATION_SCOPE = 'auth_migrations';
+const LEGACY_ACCOUNT_TO_ROLE_NAME_MIGRATION_KEY = 'legacy_account_to_role_name_v1';
+/** 仅迁移账号/角色名拆分上线前创建的旧用户，避免后续新账号在重启时被误改。 */
+const ACCOUNT_ROLE_LOGIN_SPLIT_RELEASED_AT = Date.parse('2026-03-27T17:14:47+08:00');
+
+interface MigrationMarkerDocument {
+  completedAt: string;
+  updatedUsers: number;
+}
 
 @Injectable()
 export class AuthService implements OnModuleInit {
@@ -344,17 +353,32 @@ export class AuthService implements OnModuleInit {
   }
 
   private async migrateLegacyAccountsToRoleNames(): Promise<void> {
+    const existingMarker = await this.persistentDocumentService.get<MigrationMarkerDocument>(
+      AUTH_MIGRATION_SCOPE,
+      LEGACY_ACCOUNT_TO_ROLE_NAME_MIGRATION_KEY,
+    );
+    if (existingMarker) {
+      return;
+    }
+
     const users = await this.userRepo.find({
       select: ['id', 'username', 'createdAt'],
       order: { createdAt: 'ASC', id: 'ASC' },
     });
     if (users.length === 0) {
+      await this.markLegacyAccountMigrationCompleted(0);
+      return;
+    }
+
+    const legacyUsers = users.filter((user) => user.createdAt.getTime() < ACCOUNT_ROLE_LOGIN_SPLIT_RELEASED_AT);
+    if (legacyUsers.length === 0) {
+      await this.markLegacyAccountMigrationCompleted(0);
       return;
     }
 
     const players = await this.playerRepo.find({
       select: ['userId', 'name'],
-      where: { userId: In(users.map((user) => user.id)) },
+      where: { userId: In(legacyUsers.map((user) => user.id)) },
     });
     const roleNameByUserId = new Map<string, string>();
     players.forEach((player) => {
@@ -364,14 +388,16 @@ export class AuthService implements OnModuleInit {
       }
     });
 
-    const migrationCandidates = users.filter((user) => roleNameByUserId.has(user.id));
+    const migrationCandidates = legacyUsers.filter((user) => roleNameByUserId.has(user.id));
     if (migrationCandidates.length === 0) {
+      await this.markLegacyAccountMigrationCompleted(0);
       return;
     }
+    const migrationCandidateIds = new Set(migrationCandidates.map((user) => user.id));
 
     const usedNames = new Set(
       users
-        .filter((user) => !roleNameByUserId.has(user.id))
+        .filter((user) => !migrationCandidateIds.has(user.id))
         .map((user) => normalizeUsername(user.username)),
     );
     const updates: Array<{ id: string; nextUsername: string }> = [];
@@ -388,6 +414,7 @@ export class AuthService implements OnModuleInit {
     });
 
     if (updates.length === 0) {
+      await this.markLegacyAccountMigrationCompleted(0);
       return;
     }
 
@@ -404,6 +431,7 @@ export class AuthService implements OnModuleInit {
     if (updates.length > 0) {
       this.logger.log(`已同步 ${updates.length} 个旧账号的登录账号为角色名`);
     }
+    await this.markLegacyAccountMigrationCompleted(updates.length);
   }
 
   private allocateMigratedAccountName(baseName: string, usedNames: Set<string>): string {
@@ -428,5 +456,16 @@ export class AuthService implements OnModuleInit {
 
   private buildTemporaryMigratedUsername(userId: string): string {
     return this.truncateToLength(`__migrating__${userId.replace(/-/g, '')}`, ACCOUNT_MAX_LENGTH);
+  }
+
+  private async markLegacyAccountMigrationCompleted(updatedUsers: number): Promise<void> {
+    await this.persistentDocumentService.save<MigrationMarkerDocument>(
+      AUTH_MIGRATION_SCOPE,
+      LEGACY_ACCOUNT_TO_ROLE_NAME_MIGRATION_KEY,
+      {
+        completedAt: new Date().toISOString(),
+        updatedUsers,
+      },
+    );
   }
 }
