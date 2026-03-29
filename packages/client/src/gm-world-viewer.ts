@@ -234,6 +234,7 @@ export class GmWorldViewer {
       }
     }
     this.currentTileCache = tileCache;
+    this.currentTileRevision += 1;
 
     // 构建实体列表（wx/wy 是格子坐标，TextRenderer 内部会乘 cellSize）
     const entityList = d.entities.map((e) => ({
@@ -251,6 +252,7 @@ export class GmWorldViewer {
   }
 
   private currentTileCache: Map<string, Tile> = new Map();
+  private currentTileRevision = 0;
 
   private getViewport(): { startX: number; startY: number; w: number; h: number } {
     const cellSize = getCellSize();
@@ -306,6 +308,7 @@ export class GmWorldViewer {
       this.camera,
       this.currentTileCache,
       visibleTiles,
+      this.currentTileRevision,
       this.viewX,
       this.viewY,
       GM_WORLD_VIEW_MAX,
