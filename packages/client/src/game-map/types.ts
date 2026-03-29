@@ -110,6 +110,7 @@ export interface MapStoreSnapshot {
   overlays: MapOverlayState;
   minimap: MinimapSourceSnapshot;
   tickTiming: MapTickTiming;
+  visibleTileRevision: number;
   entityTransition: MapEntityTransition | null;
 }
 
@@ -136,6 +137,7 @@ export interface MapSceneSnapshot {
   terrain: {
     tileCache: ReadonlyMap<string, Tile>;
     visibleTiles: ReadonlySet<string>;
+    visibleTileRevision: number;
     time: GameTimeState | null;
   };
   entities: readonly ObservedMapEntity[];

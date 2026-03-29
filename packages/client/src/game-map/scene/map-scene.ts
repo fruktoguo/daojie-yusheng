@@ -8,6 +8,7 @@ export class MapScene {
       terrain: {
         tileCache: snapshot.tileCache,
         visibleTiles: snapshot.visibleTiles,
+        visibleTileRevision: snapshot.visibleTileRevision,
         time: snapshot.time,
       },
       entities: snapshot.entities,

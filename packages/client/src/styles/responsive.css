@@ -538,6 +538,20 @@
         transform: scale(clamp(0.72, 0.84 + 0.12vw, 0.96));
         transform-origin: center center;
       }
+      .map-fps-indicator {
+        top: 8px;
+        gap: 6px;
+        padding: 5px 10px;
+      }
+      .map-fps-metric {
+        min-width: 42px;
+      }
+      .map-fps-metric-label {
+        font-size: var(--font-size-10);
+      }
+      .map-fps-metric-value {
+        font-size: var(--font-size-role-body-16);
+      }
       .split-tab-btn {
         border-bottom: none;
         border-right: 1px solid var(--wash-ink);

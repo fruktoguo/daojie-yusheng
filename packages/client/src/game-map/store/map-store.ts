@@ -37,6 +37,16 @@ import type {
   ObservedMapEntity,
 } from '../types';
 
+let latestObservedEntitiesSnapshot: readonly ObservedMapEntity[] = [];
+
+export function getLatestObservedEntitiesSnapshot(): readonly ObservedMapEntity[] {
+  return latestObservedEntitiesSnapshot;
+}
+
+function publishLatestObservedEntitiesSnapshot(entities: readonly ObservedMapEntity[]): void {
+  latestObservedEntitiesSnapshot = entities;
+}
+
 function cloneJson<T>(value: T): T {
   return clonePlainValue(value);
 }
@@ -103,6 +113,7 @@ export class MapStore {
   private time = null as MapStoreSnapshot['time'];
   private tileCache = new Map<string, Tile>();
   private visibleTiles = new Set<string>();
+  private visibleTileRevision = 0;
   private entities: ObservedMapEntity[] = [];
   private entityMap = new Map<string, ObservedMapEntity>();
   private groundPiles = new Map<string, GroundItemPileView>();
@@ -142,6 +153,7 @@ export class MapStore {
 
     this.entities = data.players.map(toObservedEntity);
     this.entityMap = new Map(this.entities.map((entry) => [entry.id, entry]));
+    publishLatestObservedEntitiesSnapshot(this.entities);
     this.groundPiles.clear();
     this.pathCells = [];
     this.threatArrows = [];
@@ -203,6 +215,7 @@ export class MapStore {
         this.mapMeta = null;
         this.tileCache.clear();
         this.visibleTiles.clear();
+        this.visibleTileRevision += 1;
         this.minimapMemoryVersion = 0;
         this.minimapSnapshot = null;
         this.visibleMinimapMarkers = [];
@@ -256,6 +269,7 @@ export class MapStore {
     }
 
     this.entities = this.mergeTickEntities(data.p, data.e, data.r);
+    publishLatestObservedEntitiesSnapshot(this.entities);
     if (Array.isArray(data.threatArrows)) {
       this.threatArrows = data.threatArrows
         .map(([ownerId, targetId]) => ({ ownerId, targetId }))
@@ -289,6 +303,7 @@ export class MapStore {
   replaceVisibleEntities(entities: ObservedMapEntity[], transition: MapEntityTransition | null = null): void {
     this.entities = entities.map((entry) => cloneJson(entry));
     this.entityMap = new Map(this.entities.map((entry) => [entry.id, entry]));
+    publishLatestObservedEntitiesSnapshot(this.entities);
     this.entityTransition = transition;
   }
 
@@ -321,8 +336,10 @@ export class MapStore {
     this.threatArrows = [];
     this.minimapMemoryVersion = 0;
     this.entityTransition = null;
+    publishLatestObservedEntitiesSnapshot([]);
     this.tickTiming.startedAt = performance.now();
     this.tickTiming.durationMs = 1000;
+    this.visibleTileRevision += 1;
   }
 
   getViewRadius(): number {
@@ -365,6 +382,7 @@ export class MapStore {
       time: this.time,
       tileCache: this.tileCache,
       visibleTiles: this.visibleTiles,
+      visibleTileRevision: this.visibleTileRevision,
       entities: this.entities,
       groundPiles: this.groundPiles,
       overlays: {
@@ -389,6 +407,10 @@ export class MapStore {
       tickTiming: this.tickTiming,
       entityTransition: this.entityTransition,
     };
+  }
+
+  getTickTiming(): MapStoreSnapshot['tickTiming'] {
+    return this.tickTiming;
   }
 
   private mergeTickEntities(
@@ -486,6 +508,7 @@ export class MapStore {
       this.visibleTiles.delete(key);
     }
     this.minimapMemoryVersion += 1;
+    this.visibleTileRevision += 1;
   }
 
   private cacheVisibleTiles(mapId: string, tiles: VisibleTile[][], originX: number, originY: number): void {
@@ -503,5 +526,6 @@ export class MapStore {
       }
     }
     this.minimapMemoryVersion += 1;
+    this.visibleTileRevision += 1;
   }
 }

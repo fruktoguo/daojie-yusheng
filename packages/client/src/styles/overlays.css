@@ -207,6 +207,48 @@
     .map-targeting-indicator.hidden {
       display: none;
     }
+    .map-fps-indicator {
+      position: absolute;
+      left: 50%;
+      top: 12px;
+      z-index: 3;
+      display: inline-grid;
+      grid-auto-flow: column;
+      gap: 10px;
+      padding: 6px 12px;
+      border: 1px solid var(--map-target-indicator-border);
+      border-radius: 999px;
+      background: var(--map-target-indicator-bg);
+      color: var(--map-target-indicator-ink);
+      font-family: var(--font-role-body);
+      box-shadow: var(--map-target-indicator-shadow);
+      transform: translateX(-50%);
+      pointer-events: none;
+      white-space: nowrap;
+      backdrop-filter: blur(6px);
+    }
+    .map-fps-indicator[hidden] {
+      display: none;
+    }
+    .map-fps-metric {
+      display: grid;
+      gap: 2px;
+      justify-items: center;
+      min-width: 52px;
+    }
+    .map-fps-metric-label {
+      font-size: var(--font-size-role-body-11);
+      letter-spacing: 1px;
+      color: var(--map-target-indicator-ink);
+      opacity: 0.74;
+    }
+    .map-fps-metric-value {
+      font-size: var(--font-size-role-body-18);
+      font-weight: var(--font-weight-strong);
+      color: var(--map-target-indicator-ink);
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
     .map-minimap-shell {
       position: absolute;
       right: 12px;

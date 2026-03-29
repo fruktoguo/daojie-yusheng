@@ -206,7 +206,7 @@ export class MapRuntime implements MapRuntimeApi {
       const dt = (now - this.lastFrameAt) / 1000;
       this.lastFrameAt = now;
       this.camera.update(dt);
-      const timing = this.store.getSnapshot().tickTiming;
+      const timing = this.store.getTickTiming();
       const progress = timing.durationMs > 0
         ? Math.min((now - timing.startedAt) / timing.durationMs, 1)
         : 1;

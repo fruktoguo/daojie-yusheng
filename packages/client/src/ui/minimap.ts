@@ -25,16 +25,16 @@ interface MinimapScene {
   snapshot: MapMinimapSnapshot | null;
   rememberedMarkers: MapMinimapMarker[];
   visibleMarkers: MapMinimapMarker[];
-  tileCache: Map<string, Tile>;
-  visibleTiles: Set<string>;
-  visibleEntities: Array<{
+  tileCache: ReadonlyMap<string, Tile>;
+  visibleTiles: ReadonlySet<string>;
+  visibleEntities: ReadonlyArray<{
     id: string;
     wx: number;
     wy: number;
     name?: string;
     kind?: string;
   }>;
-  groundPiles: Map<string, GroundItemPileView>;
+  groundPiles: ReadonlyMap<string, GroundItemPileView>;
   player: { x: number; y: number } | null;
   viewRadius: number;
   memoryVersion: number;
@@ -53,16 +53,16 @@ interface DisplayMapScene {
   snapshot: MapMinimapSnapshot | null;
   rememberedMarkers: MapMinimapMarker[];
   visibleMarkers: MapMinimapMarker[];
-  tileCache: Map<string, Tile>;
-  visibleTiles: Set<string>;
-  visibleEntities: Array<{
+  tileCache: ReadonlyMap<string, Tile>;
+  visibleTiles: ReadonlySet<string>;
+  visibleEntities: ReadonlyArray<{
     id: string;
     wx: number;
     wy: number;
     name?: string;
     kind?: string;
   }>;
-  groundPiles: Map<string, GroundItemPileView>;
+  groundPiles: ReadonlyMap<string, GroundItemPileView>;
   player: { x: number; y: number } | null;
   viewRadius: number;
   isCurrent: boolean;
@@ -825,7 +825,7 @@ export class Minimap {
     };
   }
 
-  private buildTileCacheHash(tileCache: Map<string, Tile>): string {
+  private buildTileCacheHash(tileCache: ReadonlyMap<string, Tile>): string {
     let hash = 0;
     for (const [key, tile] of tileCache.entries()) {
       for (let index = 0; index < key.length; index += 1) {
@@ -1022,15 +1022,22 @@ export class Minimap {
     this.baseKey = null;
     this.closeMoveConfirm();
     if (this.scene?.mapMeta?.id === mapId) {
-      this.scene.rememberedMarkers = [];
-      this.scene.memoryVersion += 1;
+      const nextScene: MinimapScene = {
+        ...this.scene,
+        rememberedMarkers: [],
+        memoryVersion: this.scene.memoryVersion + 1,
+      };
       if (!this.scene.snapshot) {
-        for (const key of [...this.scene.tileCache.keys()]) {
-          if (!this.scene.visibleTiles.has(key)) {
-            this.scene.tileCache.delete(key);
+        const visibleOnlyTileCache = new Map<string, Tile>();
+        for (const key of this.scene.visibleTiles) {
+          const tile = this.scene.tileCache.get(key);
+          if (tile) {
+            visibleOnlyTileCache.set(key, tile);
           }
         }
+        nextScene.tileCache = visibleOnlyTileCache;
       }
+      this.scene = nextScene;
     }
     this.renderCatalog();
     this.scheduleRender();
@@ -1150,15 +1157,18 @@ export class Minimap {
   private getDisplayMarkers(display: DisplayMapScene): MapMinimapMarker[] {
     const markers: MapMinimapMarker[] = [];
     const markerIndexByKey = new Map<string, number>();
+    const occupiedPointKeys = new Set<string>();
     const pushMarker = (marker: MapMinimapMarker): void => {
       const key = `${marker.kind}:${marker.x},${marker.y}`;
       const existingIndex = markerIndexByKey.get(key);
       if (existingIndex !== undefined) {
         markers[existingIndex] = marker;
+        occupiedPointKeys.add(`${marker.x},${marker.y}`);
         return;
       }
       markerIndexByKey.set(key, markers.length);
       markers.push(marker);
+      occupiedPointKeys.add(`${marker.x},${marker.y}`);
     };
 
     for (const marker of display.snapshot?.markers ?? []) {
@@ -1224,7 +1234,7 @@ export class Minimap {
         continue;
       }
       const type = this.getTileTypeAt(display, point.x, point.y);
-      const hasStaticMarkerAtPoint = markers.some((marker) => marker.x === point.x && marker.y === point.y);
+      const hasStaticMarkerAtPoint = occupiedPointKeys.has(`${point.x},${point.y}`);
       if (type === TileType.Portal) {
         if (hasStaticMarkerAtPoint) {
           continue;
@@ -1304,8 +1314,8 @@ export class Minimap {
       }
     }
 
-    const markerSize = clamp(metrics.scale * (isModal ? 0.82 : 0.72), isModal ? 5 : 4, isModal ? 14 : 10);
     const markers = this.getDisplayMarkers(display);
+    const markerSize = clamp(metrics.scale * (isModal ? 0.82 : 0.72), isModal ? 5 : 4, isModal ? 14 : 10);
     for (const marker of markers) {
       this.drawMarker(ctx, marker, metrics, markerSize);
     }
@@ -1353,7 +1363,7 @@ export class Minimap {
     }
 
     if (isModal) {
-      this.drawModalHud(ctx, display, metrics);
+      this.drawModalHud(ctx, display, metrics, markers);
     }
 
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
@@ -1537,6 +1547,7 @@ export class Minimap {
     ctx: CanvasRenderingContext2D,
     display: DisplayMapScene,
     metrics: ViewportMetrics,
+    markers: MapMinimapMarker[],
   ): void {
     const guide = display.isCurrent
       ? '滚轮缩放 · 右键拖拽 · 左键前往'
@@ -1559,7 +1570,7 @@ export class Minimap {
       return;
     }
 
-    const lines = this.buildHoverLines(display, this.hoveredModalPoint.x, this.hoveredModalPoint.y);
+    const lines = this.buildHoverLines(display, markers, this.hoveredModalPoint.x, this.hoveredModalPoint.y);
     if (lines.length === 0) {
       ctx.restore();
       return;
@@ -1583,7 +1594,7 @@ export class Minimap {
     ctx.restore();
   }
 
-  private buildHoverLines(display: DisplayMapScene, x: number, y: number): string[] {
+  private buildHoverLines(display: DisplayMapScene, markers: MapMinimapMarker[], x: number, y: number): string[] {
     const lines: string[] = [];
     lines.push(`坐标 (${x}, ${y})`);
 
@@ -1594,7 +1605,7 @@ export class Minimap {
       lines.push('地表：此处尚未记下');
     }
 
-    const tileMarkers = this.getDisplayMarkers(display).filter((marker) => marker.x === x && marker.y === y);
+    const tileMarkers = markers.filter((marker) => marker.x === x && marker.y === y);
     for (const marker of tileMarkers.slice(0, 3)) {
       lines.push(`${getMinimapMarkerKindLabel(marker.kind)}：${marker.label}${marker.detail ? ` · ${marker.detail}` : ''}`);
     }

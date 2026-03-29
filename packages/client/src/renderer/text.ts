@@ -47,6 +47,8 @@ import {
 } from '../constants/visuals/time-atmosphere';
 import { buildCanvasFont } from '../constants/ui/text';
 import { getMonsterPresentation } from '../monster-presentation';
+import { TextMeasureCache } from './text-measure-cache';
+import { TileSpriteCache } from './tile-sprite-cache';
 
 interface TimeAtmosphereState {
   initialized: boolean;
@@ -231,6 +233,7 @@ interface AnimEntity {
 
 interface RenderedAnimEntity {
   anim: AnimEntity;
+  presentation: ReturnType<typeof getMonsterPresentation> | null;
   sx: number;
   sy: number;
   centerX: number;
@@ -301,8 +304,11 @@ export class TextRenderer implements IRenderer {
   private nextAttackTrailId = 1;
   private lastMotionSyncToken?: number;
   private previousVisibleTileKeys = new Set<string>();
+  private previousVisibleTileRevision = -1;
   private hiddenTileFadeStartedAt = new Map<string, number>();
   private visibleTileFadeStartedAt = new Map<string, number>();
+  private readonly textMeasureCache = new TextMeasureCache();
+  private readonly tileSpriteCache = new TileSpriteCache();
   private timeAtmosphere: TimeAtmosphereState = {
     initialized: false,
     overlay: [0, 0, 0, 0],
@@ -331,8 +337,10 @@ export class TextRenderer implements IRenderer {
     this.attackTrails = [];
     this.lastMotionSyncToken = undefined;
     this.previousVisibleTileKeys.clear();
+    this.previousVisibleTileRevision = -1;
     this.hiddenTileFadeStartedAt.clear();
     this.visibleTileFadeStartedAt.clear();
+    this.textMeasureCache.clear();
     this.timeAtmosphere.initialized = false;
     this.fadingPath = null;
   }
@@ -368,15 +376,24 @@ export class TextRenderer implements IRenderer {
     this.senseQiOverlay = state;
   }
 
-  setGroundPiles(piles: Iterable<GroundItemPileView>) {
-    this.groundPiles = new Map([...piles].map((pile) => [`${pile.x},${pile.y}`, pile]));
+  setGroundPiles(piles: ReadonlyMap<string, GroundItemPileView> | Iterable<GroundItemPileView>) {
+    if (piles instanceof Map) {
+      this.groundPiles = piles;
+      return;
+    }
+    const nextPiles = new Map<string, GroundItemPileView>();
+    for (const pile of piles as Iterable<GroundItemPileView>) {
+      nextPiles.set(`${pile.x},${pile.y}`, pile);
+    }
+    this.groundPiles = nextPiles;
   }
 
   /** 绘制地图地块、路径高亮、瞄准叠加层和感气视角 */
   renderWorld(
     camera: Camera,
-    tileCache: Map<string, Tile>,
-    visibleTiles: Set<string>,
+    tileCache: ReadonlyMap<string, Tile>,
+    visibleTiles: ReadonlySet<string>,
+    visibleTileRevision: number,
     playerX: number,
     playerY: number,
     displayRangeX: number,
@@ -392,7 +409,10 @@ export class TextRenderer implements IRenderer {
     const senseQiLevelBaseValue = normalizeAuraLevelBaseValue(this.senseQiOverlay?.levelBaseValue);
     const fadingPathAlpha = this.getFadingPathAlpha(now);
 
-    this.syncTileVisibilityTransitions(visibleTiles, tileCache, now);
+    if (visibleTileRevision !== this.previousVisibleTileRevision) {
+      this.syncTileVisibilityTransitions(visibleTiles, tileCache, now);
+      this.previousVisibleTileRevision = visibleTileRevision;
+    }
 
     // 屏幕可见格子范围
     const camWorldX = camera.x - sw / 2;
@@ -418,8 +438,7 @@ export class TextRenderer implements IRenderer {
         if (!tile && !isVisible) continue;
 
         if (tile) {
-          ctx.fillStyle = TILE_VISUAL_BG_COLORS[tile.type] ?? '#333';
-          ctx.fillRect(sx, sy, cellSize, cellSize);
+          this.tileSpriteCache.drawSprite(ctx, tile.type, cellSize, sx, sy);
 
           if (
             this.fadingPath
@@ -433,19 +452,6 @@ export class TextRenderer implements IRenderer {
           // 路径高亮
           if (this.pathKeys.has(key)) {
             this.drawPathCellHighlight(ctx, sx, sy, cellSize, key === this.pathTargetKey, 1);
-          }
-
-          ctx.strokeStyle = 'rgba(0,0,0,0.1)';
-          ctx.lineWidth = 0.5;
-          ctx.strokeRect(sx, sy, cellSize, cellSize);
-
-          const ch = TILE_VISUAL_GLYPHS[tile.type];
-          if (ch) {
-            ctx.fillStyle = TILE_VISUAL_GLYPH_COLORS[tile.type] ?? 'rgba(0,0,0,0.2)';
-            ctx.font = buildCanvasFont('tileGlyph', cellSize * 0.6);
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(ch, sx + cellSize / 2, sy + cellSize / 2 + 1);
           }
 
           if ((tile.maxHp ?? 0) > 0 && tile.hpVisible) {
@@ -515,7 +521,7 @@ export class TextRenderer implements IRenderer {
     this.renderTimeOverlay(time);
   }
 
-  private syncTileVisibilityTransitions(visibleTiles: Set<string>, tileCache: Map<string, Tile>, now: number): void {
+  private syncTileVisibilityTransitions(visibleTiles: ReadonlySet<string>, tileCache: ReadonlyMap<string, Tile>, now: number): void {
     const shouldAnimateVisibleEnter = this.previousVisibleTileKeys.size > 0;
     for (const key of this.previousVisibleTileKeys) {
       if (!visibleTiles.has(key) && tileCache.has(key) && !this.hiddenTileFadeStartedAt.has(key)) {
@@ -565,7 +571,7 @@ export class TextRenderer implements IRenderer {
 
   /** 更新实体列表，记录旧位置用于插值动画 */
   updateEntities(
-    list: { id: string; wx: number; wy: number; char: string; color: string; name?: string; kind?: string; monsterTier?: MonsterTier; hp?: number; maxHp?: number; npcQuestMarker?: NpcQuestMarker; buffs?: VisibleBuffState[] }[],
+    list: readonly { id: string; wx: number; wy: number; char: string; color: string; name?: string; kind?: string; monsterTier?: MonsterTier; hp?: number; maxHp?: number; npcQuestMarker?: NpcQuestMarker | null; buffs?: VisibleBuffState[] }[],
     movedId?: string,
     shiftX = 0,
     shiftY = 0,
@@ -626,7 +632,7 @@ export class TextRenderer implements IRenderer {
         anim.monsterTier = e.monsterTier;
         anim.hp = e.hp;
         anim.maxHp = e.maxHp;
-        anim.npcQuestMarker = e.npcQuestMarker;
+        anim.npcQuestMarker = e.npcQuestMarker ?? undefined;
         anim.buffs = e.buffs;
       } else {
         this.entities.set(e.id, {
@@ -644,7 +650,7 @@ export class TextRenderer implements IRenderer {
           monsterTier: e.monsterTier,
           hp: e.hp,
           maxHp: e.maxHp,
-          npcQuestMarker: e.npcQuestMarker,
+          npcQuestMarker: e.npcQuestMarker ?? undefined,
           buffs: e.buffs,
         });
       }
@@ -665,10 +671,10 @@ export class TextRenderer implements IRenderer {
     const sh = ctx.canvas.height;
     const cellSize = getCellSize();
     const renderedEntities: RenderedAnimEntity[] = [];
+    const motionProgress = Math.max(0, Math.min(1, progress));
+    const t = easeInOutCubic(motionProgress);
 
     for (const anim of this.entities.values()) {
-      const motionProgress = Math.max(0, Math.min(1, progress));
-      const t = easeInOutCubic(motionProgress);
       const wx = anim.oldWX + (anim.targetWX - anim.oldWX) * t;
       const wy = anim.oldWY + (anim.targetWY - anim.oldWY) * t;
 
@@ -683,6 +689,7 @@ export class TextRenderer implements IRenderer {
       const visualSy = sy - (visualCellSize - cellSize);
       renderedEntities.push({
         anim,
+        presentation,
         sx,
         sy,
         centerX: visualSx + visualCellSize / 2,
@@ -703,11 +710,8 @@ export class TextRenderer implements IRenderer {
     this.renderThreatTargetArrows(renderedEntities, localPlayerId);
 
     for (const rendered of renderedEntities) {
-      const { anim, sx, sy, cellSize: renderedCellSize, visualSx, visualSy, visualCellSize } = rendered;
+      const { anim, presentation: monsterPresentation, sx, sy, cellSize: renderedCellSize, visualSx, visualSy, visualCellSize } = rendered;
       const isCrowd = anim.kind === 'crowd';
-      const monsterPresentation = anim.kind === 'monster'
-        ? getMonsterPresentation(anim.name, anim.monsterTier)
-        : null;
 
       if (!isCrowd && anim.kind === 'player' && crowdedTileKeys.has(`${anim.gridX},${anim.gridY}`)) {
         continue;
@@ -824,8 +828,8 @@ export class TextRenderer implements IRenderer {
     const controlY = Math.min(startY, endY) - curvature;
     const color = isSelfArrow ? SELF_THREAT_ARROW_COLOR : OTHER_THREAT_ARROW_COLOR;
     const glow = isSelfArrow ? SELF_THREAT_ARROW_GLOW : OTHER_THREAT_ARROW_GLOW;
-    const baseWidth = Math.max(0.35, from.cellSize * 0.014);
-    const glowWidth = baseWidth + Math.max(0.4, from.cellSize * 0.016);
+    const baseWidth = Math.max(0.55, from.cellSize * 0.02);
+    const glowWidth = baseWidth + Math.max(1.9, from.cellSize * 0.048);
     const tangentX = endX - this.getQuadraticPoint(startX, controlX, endX, 0.86);
     const tangentY = endY - this.getQuadraticPoint(startY, controlY, endY, 0.86);
     const tangentLength = Math.hypot(tangentX, tangentY);
@@ -835,7 +839,7 @@ export class TextRenderer implements IRenderer {
     const arrowUx = tangentX / tangentLength;
     const arrowUy = tangentY / tangentLength;
     const headLength = Math.max(7, from.cellSize * 0.22);
-    const headWidth = Math.max(1.8, from.cellSize * 0.058);
+    const headWidth = Math.max(2.4, from.cellSize * 0.076);
     const baseX = endX - arrowUx * headLength;
     const baseY = endY - arrowUy * headLength;
 
@@ -891,8 +895,9 @@ export class TextRenderer implements IRenderer {
     const textColor = '#fff6eb';
 
     ctx.save();
-    ctx.font = buildCanvasFont('label', Math.max(10, cellSize * 0.3));
-    const labelWidth = ctx.measureText(label).width;
+    const labelFont = buildCanvasFont('label', Math.max(10, cellSize * 0.3));
+    ctx.font = labelFont;
+    const labelWidth = this.textMeasureCache.measureWidth(ctx, labelFont, label);
     const totalWidth = badgeWidth + gap + labelWidth;
     const left = centerX - totalWidth / 2;
     const badgeY = baselineY - badgeHeight + Math.max(1, cellSize * 0.02);
@@ -1242,6 +1247,9 @@ export class TextRenderer implements IRenderer {
     this.floatingTexts = [];
     this.attackTrails = [];
     this.lastMotionSyncToken = undefined;
+    this.previousVisibleTileRevision = -1;
+    this.textMeasureCache.clear();
+    this.tileSpriteCache.clear();
   }
 
   private getFloatingTextBurstOffset(index: number, count: number, cellSize: number): FloatingTextBurstOffset {
@@ -1259,7 +1267,7 @@ export class TextRenderer implements IRenderer {
 
   private renderPathArrows(
     camera: Camera,
-    visibleTiles: Set<string>,
+    visibleTiles: ReadonlySet<string>,
     playerX: number,
     playerY: number,
     displayRangeX: number,
@@ -1313,7 +1321,7 @@ export class TextRenderer implements IRenderer {
     camera: Camera,
     sw: number,
     sh: number,
-    visibleTiles: Set<string>,
+    visibleTiles: ReadonlySet<string>,
     playerX: number,
     playerY: number,
     displayRangeX: number,
@@ -1453,7 +1461,7 @@ export class TextRenderer implements IRenderer {
   private isPathCellRenderable(
     x: number,
     y: number,
-    visibleTiles: Set<string>,
+    visibleTiles: ReadonlySet<string>,
     playerX: number,
     playerY: number,
     displayRangeX: number,
@@ -1718,10 +1726,14 @@ export class TextRenderer implements IRenderer {
     const countText = formatDisplayInteger(Math.max(0, count));
     const badgeFont = Math.max(5, slotSize * 0.26);
     ctx.save();
-    ctx.font = buildCanvasFont('badge', badgeFont);
+    const badgeCanvasFont = buildCanvasFont('badge', badgeFont);
+    ctx.font = badgeCanvasFont;
     const paddingX = Math.max(2, slotSize * 0.1);
     const badgeHeight = Math.max(7, slotSize * 0.36);
-    const badgeWidth = Math.max(badgeHeight, ctx.measureText(countText).width + paddingX * 2);
+    const badgeWidth = Math.max(
+      badgeHeight,
+      this.textMeasureCache.measureWidth(ctx, badgeCanvasFont, countText) + paddingX * 2,
+    );
     const badgeX = x + slotSize - badgeWidth + Math.max(0, slotSize * 0.04);
     const badgeY = y - Math.max(0, slotSize * 0.02);
     ctx.fillStyle = palette.badgeFill;

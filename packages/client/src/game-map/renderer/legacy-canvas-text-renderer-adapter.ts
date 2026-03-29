@@ -49,13 +49,10 @@ export class LegacyCanvasTextRendererAdapter {
     this.renderer.setThreatArrows(scene.overlays.threatArrows);
     this.renderer.setTargetingOverlay(scene.overlays.targeting);
     this.renderer.setSenseQiOverlay(scene.overlays.senseQi);
-    this.renderer.setGroundPiles(scene.groundPiles.values());
+    this.renderer.setGroundPiles(scene.groundPiles);
     const settleEntityId = transition?.settleMotion === true ? scene.player?.id : undefined;
     this.renderer.updateEntities(
-      scene.entities.map((entity) => ({
-        ...entity,
-        npcQuestMarker: entity.npcQuestMarker ?? undefined,
-      })),
+      scene.entities,
       transition?.movedId,
       transition?.shiftX,
       transition?.shiftY,
@@ -106,8 +103,9 @@ export class LegacyCanvasTextRendererAdapter {
     }
     this.renderer.renderWorld(
       this.cameraBridge,
-      new Map(scene.terrain.tileCache),
-      new Set(scene.terrain.visibleTiles),
+      scene.terrain.tileCache,
+      scene.terrain.visibleTiles,
+      scene.terrain.visibleTileRevision,
       scene.player.x,
       scene.player.y,
       getDisplayRangeX(),

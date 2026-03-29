@@ -36,8 +36,9 @@ export interface IRenderer {
   setSenseQiOverlay(state: SenseQiOverlayState | null): void;
   renderWorld(
     camera: Camera,
-    tileCache: Map<string, Tile>,
-    visibleTiles: Set<string>,
+    tileCache: ReadonlyMap<string, Tile>,
+    visibleTiles: ReadonlySet<string>,
+    visibleTileRevision: number,
     playerX: number,
     playerY: number,
     displayRangeX: number,
@@ -45,7 +46,7 @@ export interface IRenderer {
     time: GameTimeState | null,
   ): void;
   updateEntities(
-    list: {
+    list: readonly {
       id: string;
       wx: number;
       wy: number;

@@ -1981,6 +1981,39 @@
     .settings-ui-level-preview--micro {
       font-size: var(--font-size-role-body-11);
     }
+    .settings-performance-card {
+      display: grid;
+      gap: 10px;
+    }
+    .settings-performance-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid var(--wash-ink);
+      background: linear-gradient(180deg, var(--surface-elevated), var(--surface-muted));
+    }
+    .settings-performance-meta {
+      min-width: 0;
+    }
+    .settings-performance-name {
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-14);
+      color: var(--ink-black);
+    }
+    .settings-performance-desc {
+      margin-top: 4px;
+      font-size: var(--font-size-12);
+      color: var(--ink-grey);
+      line-height: 1.5;
+    }
+    .settings-performance-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
     @media (max-width: 720px) {
       .account-settings-name-grid {
         grid-template-columns: minmax(0, 1fr);
@@ -2079,6 +2112,16 @@
       .settings-ui-table-head {
         align-items: stretch;
         flex-direction: column;
+      }
+      .settings-performance-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .settings-performance-actions {
+        justify-content: stretch;
+      }
+      .settings-performance-actions > button {
+        flex: 1 1 auto;
       }
       .suggestion-summary-grid {
         grid-template-columns: minmax(0, 1fr);

@@ -39,8 +39,10 @@ import { initializeUiStyleConfig } from './ui/ui-style-config';
 import { createClientPanelSystem } from './ui/panel-system/bootstrap';
 import { RESPONSIVE_VIEWPORT_CHANGE_EVENT, bindResponsiveViewportCss } from './ui/responsive-viewport';
 import { createMapRuntime } from './game-map/runtime/map-runtime';
+import { getLatestObservedEntitiesSnapshot } from './game-map/store/map-store';
 import { getEntityKindLabel, getTileTypeLabel } from './domain-labels';
 import { MAP_FALLBACK } from './constants/world/world-panel';
+import { MAP_FPS_SAMPLE_INTERVAL_MS, MAP_FPS_SAMPLE_WINDOW_SIZE } from './constants/ui/performance';
 import {
   getLocalItemTemplate,
   getLocalSkillTemplate,
@@ -55,6 +57,11 @@ import { FloatingTooltip, prefersPinnedTooltipInteraction } from './ui/floating-
 import { detailModalHost } from './ui/detail-modal-host';
 import { bindInlineItemTooltips, renderTextWithInlineItemHighlights } from './ui/item-inline-tooltip';
 import { describePreviewBonuses } from './ui/stat-preview';
+import {
+  initializeMapPerformanceConfig,
+  MAP_PERFORMANCE_CONFIG_CHANGE_EVENT,
+  type MapPerformanceConfig,
+} from './ui/performance-config';
 import { MAX_ZOOM, MIN_ZOOM, getDisplayRangeX, getDisplayRangeY, getZoom, setZoom } from './display';
 import { getAccessToken, getCurrentAccountName } from './ui/auth-api';
 import { formatDisplayCountBadge, formatDisplayCurrentMax, formatDisplayInteger } from './utils/number';
@@ -87,7 +94,6 @@ import {
   S2C_InventoryUpdate,
   S2C_LootWindowUpdate,
   S2C_RealmUpdate,
-  TickRenderEntity,
   TechniqueUpdateEntry,
   ActionUpdateEntry,
   BreakthroughRequirementView,
@@ -134,6 +140,10 @@ const tickRateIntEl = tickRateValueEl?.querySelector<HTMLElement>('[data-part="i
 const tickRateDotEl = tickRateValueEl?.querySelector<HTMLElement>('[data-part="dot"]');
 const tickRateFracAEl = tickRateValueEl?.querySelector<HTMLElement>('[data-part="frac-a"]');
 const tickRateFracBEl = tickRateValueEl?.querySelector<HTMLElement>('[data-part="frac-b"]');
+const fpsRateEl = document.getElementById('map-fps-rate');
+const fpsValueEl = document.getElementById('map-fps-value');
+const fpsLowValueEl = document.getElementById('map-fps-low-value');
+const fpsOnePercentValueEl = document.getElementById('map-fps-one-percent-value');
 const pingLatencyEl = document.getElementById('map-ping-rate');
 const pingValueEl = document.getElementById('map-ping-value');
 const pingUnitEl = document.getElementById('map-ping-unit');
@@ -170,6 +180,158 @@ let pendingSocketPing:
   | null = null;
 let currentTimeStateSyncedAt = performance.now();
 let currentTimeTickIntervalMs = 1000;
+let fpsMonitorFrameRequestId: number | null = null;
+let fpsMonitorEnabled = false;
+let fpsSampleFrameCount = 0;
+let fpsSampleStartedAt = performance.now();
+let fpsLastFrameAt = 0;
+let fpsFrameDurations: number[] = [];
+let fpsFrameDurationWriteIndex = 0;
+
+type FpsSampleStats = {
+  fps: number | null;
+  low: number | null;
+  onePercentLow: number | null;
+};
+
+function formatFpsMetric(value: number | null): string {
+  if (value === null) {
+    return '---';
+  }
+  return String(Math.min(999, Math.max(0, Math.round(value)))).padStart(3, '0');
+}
+
+function renderFpsStats(stats: FpsSampleStats): void {
+  if (fpsValueEl) {
+    fpsValueEl.textContent = formatFpsMetric(stats.fps);
+  }
+  if (fpsLowValueEl) {
+    fpsLowValueEl.textContent = formatFpsMetric(stats.low);
+  }
+  if (fpsOnePercentValueEl) {
+    fpsOnePercentValueEl.textContent = formatFpsMetric(stats.onePercentLow);
+  }
+  if (fpsRateEl) {
+    fpsRateEl.setAttribute(
+      'title',
+      stats.fps === null
+        ? '客户端当前渲染帧率未采样'
+        : `客户端当前渲染帧率约 ${Math.round(stats.fps)} FPS，LOW ${Math.round(stats.low ?? stats.fps)}，1% LOW ${Math.round(stats.onePercentLow ?? stats.fps)}`,
+    );
+  }
+}
+
+function resetFpsMonitorSamples(now = performance.now()): void {
+  fpsSampleFrameCount = 0;
+  fpsSampleStartedAt = now;
+  fpsLastFrameAt = 0;
+  fpsFrameDurations = [];
+  fpsFrameDurationWriteIndex = 0;
+}
+
+function appendFpsFrameDuration(frameDurationMs: number): void {
+  const safeDuration = Math.max(1, frameDurationMs);
+  if (fpsFrameDurations.length < MAP_FPS_SAMPLE_WINDOW_SIZE) {
+    fpsFrameDurations.push(safeDuration);
+    fpsFrameDurationWriteIndex = fpsFrameDurations.length % MAP_FPS_SAMPLE_WINDOW_SIZE;
+    return;
+  }
+  fpsFrameDurations[fpsFrameDurationWriteIndex] = safeDuration;
+  fpsFrameDurationWriteIndex = (fpsFrameDurationWriteIndex + 1) % MAP_FPS_SAMPLE_WINDOW_SIZE;
+}
+
+function resolveFpsLowStats(): Pick<FpsSampleStats, 'low' | 'onePercentLow'> {
+  if (fpsFrameDurations.length === 0) {
+    return {
+      low: null,
+      onePercentLow: null,
+    };
+  }
+  const sortedDurations = [...fpsFrameDurations].sort((left, right) => right - left);
+  const slowestDuration = sortedDurations[0] ?? null;
+  const onePercentCount = Math.max(1, Math.ceil(sortedDurations.length * 0.01));
+  let onePercentTotalDuration = 0;
+  for (let index = 0; index < onePercentCount; index += 1) {
+    onePercentTotalDuration += sortedDurations[index] ?? 0;
+  }
+  return {
+    low: slowestDuration === null ? null : 1000 / slowestDuration,
+    onePercentLow: onePercentTotalDuration > 0 ? 1000 / (onePercentTotalDuration / onePercentCount) : null,
+  };
+}
+
+function tickFpsMonitor(now: number): void {
+  if (!fpsMonitorEnabled) {
+    fpsMonitorFrameRequestId = null;
+    return;
+  }
+
+  if (fpsLastFrameAt > 0) {
+    const frameDuration = now - fpsLastFrameAt;
+    if (frameDuration <= 1000) {
+      appendFpsFrameDuration(frameDuration);
+    } else {
+      resetFpsMonitorSamples(now);
+    }
+  }
+  fpsLastFrameAt = now;
+  fpsSampleFrameCount += 1;
+
+  const elapsed = now - fpsSampleStartedAt;
+  if (elapsed >= MAP_FPS_SAMPLE_INTERVAL_MS) {
+    const averageFps = fpsSampleFrameCount * 1000 / elapsed;
+    const lowStats = resolveFpsLowStats();
+    renderFpsStats({
+      fps: averageFps,
+      low: lowStats.low,
+      onePercentLow: lowStats.onePercentLow,
+    });
+    fpsSampleFrameCount = 0;
+    fpsSampleStartedAt = now;
+  }
+
+  fpsMonitorFrameRequestId = requestAnimationFrame(tickFpsMonitor);
+}
+
+function startFpsMonitor(): void {
+  if (fpsMonitorEnabled || !fpsRateEl || !fpsValueEl || !fpsLowValueEl || !fpsOnePercentValueEl) {
+    return;
+  }
+  fpsMonitorEnabled = true;
+  fpsRateEl.hidden = false;
+  resetFpsMonitorSamples();
+  renderFpsStats({
+    fps: null,
+    low: null,
+    onePercentLow: null,
+  });
+  fpsMonitorFrameRequestId = requestAnimationFrame(tickFpsMonitor);
+}
+
+function stopFpsMonitor(): void {
+  fpsMonitorEnabled = false;
+  if (fpsMonitorFrameRequestId !== null) {
+    cancelAnimationFrame(fpsMonitorFrameRequestId);
+    fpsMonitorFrameRequestId = null;
+  }
+  resetFpsMonitorSamples();
+  renderFpsStats({
+    fps: null,
+    low: null,
+    onePercentLow: null,
+  });
+  if (fpsRateEl) {
+    fpsRateEl.hidden = true;
+  }
+}
+
+function syncFpsMonitorVisibility(showFpsMonitor: boolean): void {
+  if (showFpsMonitor) {
+    startFpsMonitor();
+    return;
+  }
+  stopFpsMonitor();
+}
 
 function renderTickRate(seconds: number) {
   const [integer, fraction] = seconds.toFixed(2).split('.');
@@ -369,10 +531,16 @@ function restartPingLoop(immediate = true): void {
 }
 
 renderTickRate(1);
+const initialMapPerformanceConfig = initializeMapPerformanceConfig();
+syncFpsMonitorVisibility(initialMapPerformanceConfig.showFpsMonitor);
 renderCurrentTime(null);
 renderPingLatency(null, '待测');
 bindResponsiveViewportCss(window);
 initializeUiStyleConfig();
+window.addEventListener(MAP_PERFORMANCE_CONFIG_CHANGE_EVENT, (event) => {
+  const config = (event as CustomEvent<MapPerformanceConfig>).detail;
+  syncFpsMonitorVisibility(config.showFpsMonitor);
+});
 startClientVersionReload({
   onBeforeReload: () => {
     showToast('检测到新版本，正在刷新页面');
@@ -1043,26 +1211,6 @@ function buildBuffSectionHtml(title: string, buffs: VisibleBuffState[], emptyTex
   </section>`;
 }
 
-function toObservedEntity(entity: RenderEntity): ObservedEntity {
-  return {
-    id: entity.id,
-    wx: entity.x,
-    wy: entity.y,
-    char: entity.char,
-    color: entity.color,
-    name: entity.name,
-    kind: entity.kind,
-    monsterTier: entity.monsterTier,
-    hp: entity.hp,
-    maxHp: entity.maxHp,
-    qi: entity.qi,
-    maxQi: entity.maxQi,
-    npcQuestMarker: entity.npcQuestMarker,
-    observation: entity.observation,
-    buffs: entity.buffs,
-  };
-}
-
 function applyNullablePatch<T>(value: T | null | undefined, fallback: T | undefined): T | undefined {
   if (value === null) {
     return undefined;
@@ -1075,55 +1223,6 @@ function applyNullablePatch<T>(value: T | null | undefined, fallback: T | undefi
 
 function cloneJson<T>(value: T): T {
   return clonePlainValue(value);
-}
-
-function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedEntity): ObservedEntity {
-  return {
-    id: patch.id,
-    wx: patch.x,
-    wy: patch.y,
-    char: patch.char ?? previous?.char ?? '?',
-    color: patch.color ?? previous?.color ?? '#fff',
-    name: applyNullablePatch(patch.name, previous?.name),
-    kind: applyNullablePatch(patch.kind, previous?.kind),
-    monsterTier: applyNullablePatch(patch.monsterTier, previous?.monsterTier),
-    hp: applyNullablePatch(patch.hp, previous?.hp),
-    maxHp: applyNullablePatch(patch.maxHp, previous?.maxHp),
-    qi: applyNullablePatch(patch.qi, previous?.qi),
-    maxQi: applyNullablePatch(patch.maxQi, previous?.maxQi),
-    npcQuestMarker: applyNullablePatch(patch.npcQuestMarker, previous?.npcQuestMarker),
-    observation: applyNullablePatch(patch.observation, previous?.observation),
-    buffs: applyNullablePatch(patch.buffs, previous?.buffs),
-  };
-}
-
-function mergeTickEntities(
-  playerPatches: TickRenderEntity[],
-  entityPatches: TickRenderEntity[],
-  removedEntityIds: string[] = [],
-): ObservedEntity[] {
-  const removedIdSet = new Set(removedEntityIds);
-  const merged = latestEntities
-    .filter((entity) => !removedIdSet.has(entity.id))
-    .map((entity) => cloneJson(entity));
-  const nextMap = new Map(merged.map((entity) => [entity.id, entity] as const));
-
-  for (const patch of [...playerPatches, ...entityPatches]) {
-    const previous = nextMap.get(patch.id);
-    const next = mergeObservedEntityPatch(patch, previous);
-    if (previous) {
-      const index = merged.findIndex((entity) => entity.id === patch.id);
-      if (index >= 0) {
-        merged[index] = next;
-      }
-    } else {
-      merged.push(next);
-    }
-    nextMap.set(next.id, next);
-  }
-
-  latestEntityMap = nextMap;
-  return merged;
 }
 
 function buildAttrStateFromPlayer(player: PlayerState): S2C_AttrUpdate {
@@ -2944,7 +3043,7 @@ socket.onInit((data: S2C_Init) => {
   mapRuntime.applyInit(data);
   syncSenseQiOverlay();
 
-  const entities = data.players.map(toObservedEntity);
+  const entities = getLatestObservedEntitiesSnapshot() as ObservedEntity[];
   latestTechniqueMap = new Map((myPlayer.techniques ?? []).map((technique) => [technique.techId, cloneJson(technique)]));
   latestActionMap = new Map((myPlayer.actions ?? []).map((action) => [action.id, cloneJson(action)]));
   latestEntities = entities;
@@ -3081,8 +3180,9 @@ socket.onTick((data: S2C_Tick) => {
 
   const moved = !mapChanged && (myPlayer.x !== oldX || myPlayer.y !== oldY);
 
-  const entities = mergeTickEntities(data.p, data.e, data.r);
+  const entities = getLatestObservedEntitiesSnapshot() as ObservedEntity[];
   latestEntities = entities;
+  latestEntityMap = new Map(entities.map((entity) => [entity.id, entity]));
   syncTargetingOverlay();
   refreshHudChrome();
 

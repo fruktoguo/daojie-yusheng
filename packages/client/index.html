@@ -237,6 +237,20 @@
           </div>
         <div id="game-stage">
             <div id="map-targeting-indicator" class="map-targeting-indicator hidden"></div>
+            <div id="map-fps-rate" class="map-fps-indicator" title="客户端当前渲染帧率" hidden>
+              <div class="map-fps-metric">
+                <span class="map-fps-metric-label">FPS</span>
+                <span class="map-fps-metric-value" id="map-fps-value">---</span>
+              </div>
+              <div class="map-fps-metric">
+                <span class="map-fps-metric-label">LOW</span>
+                <span class="map-fps-metric-value" id="map-fps-low-value">---</span>
+              </div>
+              <div class="map-fps-metric">
+                <span class="map-fps-metric-label">1% LOW</span>
+                <span class="map-fps-metric-value" id="map-fps-one-percent-value">---</span>
+              </div>
+            </div>
             <div id="map-minimap-shell" class="map-minimap-shell hidden">
               <div class="map-minimap-controls">
                 <button id="map-minimap-toggle" class="map-minimap-btn" type="button" title="隐藏小地图">隐</button>

@@ -24,6 +24,11 @@ import {
   updateUiScale,
   UiColorMode,
 } from '../ui-style-config';
+import {
+  getMapPerformanceConfig,
+  resetMapPerformanceConfig,
+  updateMapPerformanceConfig,
+} from '../performance-config';
 
 type SettingsPanelOptions = {
   getCurrentAccountName: () => string;
@@ -35,7 +40,7 @@ type SettingsPanelOptions = {
 };
 
 export class SettingsPanel {
-  private activeTab: 'account' | 'ui' = 'account';
+  private activeTab: 'account' | 'ui' | 'performance' = 'account';
   private currentAccountName = '';
   private currentDisplayName = '';
   private currentRoleName = '';
@@ -86,12 +91,21 @@ export class SettingsPanel {
               data-settings-tab="ui"
               aria-selected="${this.activeTab === 'ui' ? 'true' : 'false'}"
             >UI</button>
+            <button
+              class="settings-modal-tab${this.activeTab === 'performance' ? ' active' : ''}"
+              type="button"
+              data-settings-tab="performance"
+              aria-selected="${this.activeTab === 'performance' ? 'true' : 'false'}"
+            >性能</button>
           </div>
           <div class="settings-modal-pane${this.activeTab === 'account' ? ' active' : ''}" data-settings-pane="account">
             ${this.renderAccountTab()}
           </div>
           <div class="settings-modal-pane${this.activeTab === 'ui' ? ' active' : ''}" data-settings-pane="ui">
             ${this.renderUiTab()}
+          </div>
+          <div class="settings-modal-pane${this.activeTab === 'performance' ? ' active' : ''}" data-settings-pane="performance">
+            ${this.renderPerformanceTab()}
           </div>
         </div>
       `,
@@ -105,13 +119,14 @@ export class SettingsPanel {
     this.bindTabs(body);
     this.bindAccountSettings(body);
     this.bindUiSettings(body);
+    this.bindPerformanceSettings(body);
   }
 
   private bindTabs(body: HTMLElement): void {
     body.querySelectorAll<HTMLButtonElement>('[data-settings-tab]').forEach((button) => {
       button.addEventListener('click', () => {
         const nextTab = button.dataset.settingsTab;
-        if (nextTab !== 'account' && nextTab !== 'ui') {
+        if (nextTab !== 'account' && nextTab !== 'ui' && nextTab !== 'performance') {
           return;
         }
         this.activeTab = nextTab;
@@ -235,6 +250,31 @@ export class SettingsPanel {
     });
   }
 
+  private bindPerformanceSettings(body: HTMLElement): void {
+    const config = getMapPerformanceConfig();
+    const statusEl = body.querySelector<HTMLElement>('#settings-performance-status');
+    const resetButton = body.querySelector<HTMLButtonElement>('#settings-performance-reset');
+
+    this.syncPerformanceFpsButtons(body, config.showFpsMonitor);
+
+    body.querySelectorAll<HTMLButtonElement>('[data-performance-fps-toggle]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const nextValue = button.dataset.performanceFpsToggle === 'on';
+        const nextConfig = updateMapPerformanceConfig({
+          showFpsMonitor: nextValue,
+        });
+        this.syncPerformanceFpsButtons(body, nextConfig.showFpsMonitor);
+        setStatus(statusEl, nextConfig.showFpsMonitor ? '已开启地图帧率浮层，并自动保存到本机' : '已关闭地图帧率浮层，并自动保存到本机', 'success');
+      });
+    });
+
+    resetButton?.addEventListener('click', () => {
+      const nextConfig = resetMapPerformanceConfig();
+      this.syncPerformanceFpsButtons(body, nextConfig.showFpsMonitor);
+      setStatus(statusEl, '性能设置已恢复默认，并自动保存到本机', 'success');
+    });
+  }
+
   private syncUiModeButtons(body: HTMLElement, currentMode: UiColorMode): void {
     body.querySelectorAll<HTMLButtonElement>('[data-ui-color-mode]').forEach((button) => {
       const active = button.dataset.uiColorMode === currentMode;
@@ -271,6 +311,14 @@ export class SettingsPanel {
     if (valueEl) {
       valueEl.textContent = `${Math.round(uiScale * 100)}%`;
     }
+  }
+
+  private syncPerformanceFpsButtons(body: HTMLElement, showFpsMonitor: boolean): void {
+    body.querySelectorAll<HTMLButtonElement>('[data-performance-fps-toggle]').forEach((button) => {
+      const active = (button.dataset.performanceFpsToggle === 'on') === showFpsMonitor;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
   }
 
   private renderAccountTab(): string {
@@ -406,6 +454,42 @@ export class SettingsPanel {
           </div>
         </div>
         <div id="settings-ui-style-status" class="account-settings-status">当前配置已自动保存到本机</div>
+      </div>
+    `;
+  }
+
+  private renderPerformanceTab(): string {
+    const config = getMapPerformanceConfig();
+    return `
+      <div class="panel-section account-settings-section">
+        <div class="settings-ui-table-head">
+          <div class="panel-section-title">地图性能浮层</div>
+          <button id="settings-performance-reset" class="small-btn ghost" type="button">恢复默认</button>
+        </div>
+        <div class="settings-ui-copy">这里的配置只保存在当前设备。默认关闭；开启后会在地图顶部显示 FPS、LOW 与 1% LOW，方便排查全屏、缩放和特效变化带来的帧率波动。</div>
+        <div class="settings-performance-card">
+          <div class="settings-performance-row">
+            <div class="settings-performance-meta">
+              <div class="settings-performance-name">显示地图帧率浮层</div>
+              <div class="settings-performance-desc">关闭时不显示浮层，也不会启动额外的帧率采样循环。</div>
+            </div>
+            <div class="settings-performance-actions">
+              <button
+                class="small-btn ghost${config.showFpsMonitor ? '' : ' active'}"
+                type="button"
+                data-performance-fps-toggle="off"
+                aria-pressed="${config.showFpsMonitor ? 'false' : 'true'}"
+              >关闭</button>
+              <button
+                class="small-btn ghost${config.showFpsMonitor ? ' active' : ''}"
+                type="button"
+                data-performance-fps-toggle="on"
+                aria-pressed="${config.showFpsMonitor ? 'true' : 'false'}"
+              >显示</button>
+            </div>
+          </div>
+        </div>
+        <div id="settings-performance-status" class="account-settings-status">当前配置已自动保存到本机</div>
       </div>
     `;
   }
