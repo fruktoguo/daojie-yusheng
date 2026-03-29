@@ -44,6 +44,7 @@ export default defineConfig(({ mode }) => {
         input: {
           main: path.resolve(__dirname, 'index.html'),
           gm: path.resolve(__dirname, 'gm.html'),
+          'gm-v2': path.resolve(__dirname, 'gm-v2.html'),
         },
         output: {
           manualChunks(id) {
@@ -76,6 +77,7 @@ export default defineConfig(({ mode }) => {
             '/auth': proxyTarget,
             '/account': proxyTarget,
             '/gm/': proxyTarget,
+            '/integrations/': proxyTarget,
             '/socket.io': {
               target: proxyTarget,
               ws: true,

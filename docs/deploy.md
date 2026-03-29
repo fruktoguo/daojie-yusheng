@@ -107,6 +107,9 @@ docker swarm init
 ```caddyfile
 daojie.yuohira.com {
   reverse_proxy /auth* 127.0.0.1:11922
+  reverse_proxy /account* 127.0.0.1:11922
+  reverse_proxy /gm* 127.0.0.1:11922
+  reverse_proxy /integrations* 127.0.0.1:11922
   reverse_proxy /socket.io* 127.0.0.1:11922
   reverse_proxy 127.0.0.1:11921
 }
