@@ -1005,6 +1005,61 @@
       font-size: var(--font-size-16);
       color: var(--ink-black);
     }
+    .tutorial-modal-body {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      height: 100%;
+      min-height: 0;
+    }
+    .tutorial-modal-main-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .tutorial-modal-main-tab {
+      min-height: 40px;
+      padding: 9px 16px;
+      border: 1px solid rgba(133, 68, 45, 0.22);
+      background: linear-gradient(180deg, var(--surface-elevated), var(--surface-muted));
+      color: var(--ink-grey);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-14);
+      cursor: pointer;
+      transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+    }
+    .tutorial-modal-main-tab:hover {
+      color: var(--ink-black);
+      border-color: rgba(133, 68, 45, 0.34);
+      transform: translateY(-1px);
+    }
+    .tutorial-modal-main-tab.active {
+      color: var(--ink-black);
+      border-color: rgba(133, 68, 45, 0.42);
+      background:
+        linear-gradient(180deg, rgba(214, 188, 142, 0.24), rgba(197, 60, 60, 0.08)),
+        var(--surface-elevated);
+      box-shadow: inset 0 -2px 0 rgba(197, 60, 60, 0.72);
+    }
+    .tutorial-modal-main-panes {
+      flex: 1;
+      min-height: 0;
+    }
+    .tutorial-modal-main-pane {
+      display: none;
+      height: 100%;
+      min-height: 0;
+    }
+    .tutorial-modal-main-pane.active {
+      display: block;
+    }
+    .tutorial-modal-main-pane--flow.active {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
     .tutorial-modal-shell {
       display: grid;
       grid-template-columns: 188px minmax(0, 1fr);
@@ -1074,6 +1129,9 @@
         var(--surface-elevated);
       box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.05);
     }
+    .tutorial-pane-hero--flow {
+      margin-right: 2px;
+    }
     .tutorial-pane-kicker {
       margin-bottom: 6px;
       color: var(--stamp-red);
@@ -1091,6 +1149,94 @@
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px;
+    }
+    .tutorial-flow-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .tutorial-flow-shell {
+      display: grid;
+      grid-template-columns: 178px minmax(0, 1fr);
+      gap: 14px;
+      min-height: 0;
+      flex: 1;
+    }
+    .tutorial-flow-tabs {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 0;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .tutorial-flow-tab {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 44px;
+      padding: 10px 12px;
+      border: 1px solid var(--wash-ink);
+      background: linear-gradient(180deg, var(--surface-elevated), var(--surface-muted));
+      color: var(--ink-grey);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-14);
+      text-align: left;
+      cursor: pointer;
+      transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+    }
+    .tutorial-flow-tab:hover {
+      color: var(--ink-black);
+      border-color: rgba(133, 68, 45, 0.34);
+      transform: translateX(2px);
+    }
+    .tutorial-flow-tab.active {
+      color: var(--ink-black);
+      border-color: rgba(133, 68, 45, 0.42);
+      background:
+        linear-gradient(180deg, rgba(214, 188, 142, 0.24), rgba(197, 60, 60, 0.08)),
+        var(--surface-elevated);
+      box-shadow: inset 3px 0 0 rgba(197, 60, 60, 0.72);
+    }
+    .tutorial-flow-tab-label {
+      font-weight: var(--font-weight-semibold);
+      line-height: 1.4;
+    }
+    .tutorial-flow-content {
+      min-height: 0;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .tutorial-flow-pane {
+      display: none;
+      min-height: 100%;
+    }
+    .tutorial-flow-pane.active {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .tutorial-flow-pane-head {
+      padding: 14px 16px;
+      border: 1px solid rgba(133, 68, 45, 0.22);
+      background:
+        linear-gradient(135deg, rgba(214, 188, 142, 0.16), rgba(214, 188, 142, 0.04)),
+        var(--surface-elevated);
+      box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.05);
+    }
+    .tutorial-flow-pane-head .tutorial-section-title {
+      margin-bottom: 6px;
+    }
+    .tutorial-flow-card {
+      padding: 14px 16px;
+      border: 1px solid var(--wash-ink);
+      background: linear-gradient(180deg, var(--surface-elevated), var(--surface-muted));
+      box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.05);
+    }
+    .tutorial-flow-step-summary {
+      color: var(--ink-grey);
+      font-size: var(--font-size-role-body-14);
+      line-height: 1.75;
     }
     .tutorial-section-card,
     .tutorial-tip-card {
@@ -1865,6 +2011,18 @@
         height: min(80dvh, calc(100dvh - (var(--detail-modal-padding, 8px) * 2)));
         padding: 16px 14px 14px;
       }
+      .tutorial-modal-body {
+        gap: 10px;
+      }
+      .tutorial-modal-main-tabs {
+        gap: 6px;
+      }
+      .tutorial-modal-main-tab {
+        flex: 1 1 0;
+        min-height: 38px;
+        padding: 8px 10px;
+        font-size: var(--font-size-role-body-12);
+      }
       .tutorial-modal-shell {
         grid-template-columns: 104px minmax(0, 1fr);
         gap: 10px;
@@ -1877,6 +2035,31 @@
         min-height: 42px;
         padding: 8px 10px;
         font-size: var(--font-size-role-body-12);
+      }
+      .tutorial-flow-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .tutorial-flow-shell {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 10px;
+      }
+      .tutorial-flow-tabs {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 6px;
+        overflow: visible;
+        padding-right: 0;
+      }
+      .tutorial-flow-tab {
+        flex: 1 1 calc(50% - 3px);
+        min-height: 40px;
+        padding: 8px 10px;
+        font-size: var(--font-size-role-body-12);
+        justify-content: center;
+        text-align: center;
+      }
+      .tutorial-flow-step-summary {
+        font-size: var(--font-size-role-body-13);
       }
       .tutorial-pane-sections {
         grid-template-columns: minmax(0, 1fr);

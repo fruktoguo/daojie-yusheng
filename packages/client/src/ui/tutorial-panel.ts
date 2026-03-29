@@ -1,4 +1,9 @@
-import { TUTORIAL_TOPICS, type TutorialTopic } from '../constants/ui/tutorial';
+import {
+  TUTORIAL_FLOW_TOPICS,
+  TUTORIAL_TOPICS,
+  type TutorialFlowTopic,
+  type TutorialTopic,
+} from '../constants/ui/tutorial';
 import { detailModalHost } from './detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 
@@ -48,6 +53,14 @@ const TUTORIAL_OPERATION_HINTS: TutorialOperationHint[] = [
 ];
 
 const SORTED_TUTORIAL_OPERATION_HINTS = [...TUTORIAL_OPERATION_HINTS].sort((left, right) => right.label.length - left.label.length);
+
+type TutorialMainTabId = 'operations' | 'flow';
+type TutorialFlowTopicId = string;
+
+const TUTORIAL_MAIN_TABS: Array<{ id: TutorialMainTabId; label: string }> = [
+  { id: 'operations', label: '基础操作' },
+  { id: 'flow', label: '流程指导' },
+];
 
 function escapeHtml(value: string): string {
   return value
@@ -111,7 +124,9 @@ function renderTutorialRichText(value: string): string {
 
 export class TutorialPanel {
   private static readonly MODAL_OWNER = 'tutorial-panel';
+  private activeMainTabId: TutorialMainTabId = 'operations';
   private activeTopicId = TUTORIAL_TOPICS[0]?.id ?? 'basics';
+  private activeFlowTopicId: TutorialFlowTopicId = TUTORIAL_FLOW_TOPICS[0]?.id ?? 'how-to-play';
   private readonly tooltip = new FloatingTooltip();
 
   constructor() {
@@ -137,14 +152,51 @@ export class TutorialPanel {
 
   private renderBody(): string {
     return `
-      <div class="tutorial-modal-shell">
-        <div class="tutorial-modal-tabs" role="tablist" aria-orientation="vertical" aria-label="简易教程目录">
-          ${TUTORIAL_TOPICS.map((topic) => this.renderTab(topic)).join('')}
+      <div class="tutorial-modal-body">
+        <div class="tutorial-modal-main-tabs" role="tablist" aria-label="简易教程分类">
+          ${TUTORIAL_MAIN_TABS.map((tab) => this.renderMainTab(tab.id, tab.label)).join('')}
         </div>
-        <div class="tutorial-modal-content">
-          ${TUTORIAL_TOPICS.map((topic) => this.renderPane(topic)).join('')}
+        <div class="tutorial-modal-main-panes">
+          <section
+            class="tutorial-modal-main-pane tutorial-modal-main-pane--operations${this.activeMainTabId === 'operations' ? ' active' : ''}"
+            data-tutorial-main-pane="operations"
+            role="tabpanel"
+            aria-hidden="${this.activeMainTabId === 'operations' ? 'false' : 'true'}"
+          >
+            <div class="tutorial-modal-shell">
+              <div class="tutorial-modal-tabs" role="tablist" aria-orientation="vertical" aria-label="基础操作目录">
+                ${TUTORIAL_TOPICS.map((topic) => this.renderTab(topic)).join('')}
+              </div>
+              <div class="tutorial-modal-content">
+                ${TUTORIAL_TOPICS.map((topic) => this.renderPane(topic)).join('')}
+              </div>
+            </div>
+          </section>
+          <section
+            class="tutorial-modal-main-pane tutorial-modal-main-pane--flow${this.activeMainTabId === 'flow' ? ' active' : ''}"
+            data-tutorial-main-pane="flow"
+            role="tabpanel"
+            aria-hidden="${this.activeMainTabId === 'flow' ? 'false' : 'true'}"
+          >
+            ${this.renderFlowGuide()}
+          </section>
         </div>
       </div>
+    `;
+  }
+
+  private renderMainTab(id: TutorialMainTabId, label: string): string {
+    const active = id === this.activeMainTabId;
+    return `
+      <button
+        class="tutorial-modal-main-tab${active ? ' active' : ''}"
+        type="button"
+        role="tab"
+        data-tutorial-main-tab="${id}"
+        aria-selected="${active ? 'true' : 'false'}"
+      >
+        ${escapeHtml(label)}
+      </button>
     `;
   }
 
@@ -198,7 +250,87 @@ export class TutorialPanel {
     `;
   }
 
+  private renderFlowGuide(): string {
+    return `
+      <div class="tutorial-pane-hero tutorial-pane-hero--flow">
+        <div class="tutorial-pane-kicker">流程指导</div>
+        <div class="tutorial-pane-summary">
+          把常见问题按场景拆开了。你现在卡在哪一步，就直接切到对应 tab 看结论，不用从头翻完整攻略。
+        </div>
+      </div>
+      <div class="tutorial-flow-shell">
+        <div class="tutorial-flow-tabs" role="tablist" aria-label="流程指导目录">
+          ${TUTORIAL_FLOW_TOPICS.map((topic) => this.renderFlowTab(topic)).join('')}
+        </div>
+        <div class="tutorial-flow-content">
+          ${TUTORIAL_FLOW_TOPICS.map((topic) => this.renderFlowPane(topic)).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderFlowTab(topic: TutorialFlowTopic): string {
+    const active = topic.id === this.activeFlowTopicId;
+    return `
+      <button
+        class="tutorial-flow-tab${active ? ' active' : ''}"
+        type="button"
+        role="tab"
+        data-tutorial-flow-tab="${escapeHtml(topic.id)}"
+        aria-selected="${active ? 'true' : 'false'}"
+      >
+        <span class="tutorial-flow-tab-label">${escapeHtml(topic.label)}</span>
+      </button>
+    `;
+  }
+
+  private renderFlowPane(topic: TutorialFlowTopic): string {
+    const active = topic.id === this.activeFlowTopicId;
+    return `
+      <section
+        class="tutorial-flow-pane${active ? ' active' : ''}"
+        data-tutorial-flow-pane="${escapeHtml(topic.id)}"
+        role="tabpanel"
+        aria-hidden="${active ? 'false' : 'true'}"
+      >
+        <div class="tutorial-flow-pane-head">
+          <div class="tutorial-section-title">${escapeHtml(topic.label)}</div>
+          <div class="tutorial-flow-step-summary">${renderTutorialRichText(topic.summary)}</div>
+        </div>
+        <div class="tutorial-flow-grid">
+          ${topic.sections.map((section) => `
+            <section class="tutorial-flow-card">
+              <div class="tutorial-section-title">${escapeHtml(section.title)}</div>
+              <ul class="tutorial-section-list">
+                ${section.items.map((item) => `<li>${renderTutorialRichText(item)}</li>`).join('')}
+              </ul>
+            </section>
+          `).join('')}
+        </div>
+        ${topic.tips && topic.tips.length > 0 ? `
+          <section class="tutorial-tip-card">
+            <div class="tutorial-section-title">小提醒</div>
+            <ul class="tutorial-section-list tutorial-section-list--tips">
+              ${topic.tips.map((tip) => `<li>${renderTutorialRichText(tip)}</li>`).join('')}
+            </ul>
+          </section>
+        ` : ''}
+      </section>
+    `;
+  }
+
   private bind(body: HTMLElement): void {
+    body.querySelectorAll<HTMLButtonElement>('[data-tutorial-main-tab]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const nextId = button.dataset.tutorialMainTab as TutorialMainTabId | undefined;
+        if (!nextId || nextId === this.activeMainTabId) {
+          return;
+        }
+        this.activeMainTabId = nextId;
+        this.tooltip.hide(true);
+        this.sync(body);
+      });
+    });
     body.querySelectorAll<HTMLButtonElement>('[data-tutorial-tab]').forEach((button) => {
       button.addEventListener('click', () => {
         const nextId = button.dataset.tutorialTab;
@@ -209,10 +341,31 @@ export class TutorialPanel {
         this.sync(body);
       });
     });
+    body.querySelectorAll<HTMLButtonElement>('[data-tutorial-flow-tab]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const nextId = button.dataset.tutorialFlowTab;
+        if (!nextId || nextId === this.activeFlowTopicId) {
+          return;
+        }
+        this.activeFlowTopicId = nextId;
+        this.tooltip.hide(true);
+        this.sync(body);
+      });
+    });
     this.bindTooltips(body);
   }
 
   private sync(body: HTMLElement): void {
+    body.querySelectorAll<HTMLElement>('[data-tutorial-main-tab]').forEach((entry) => {
+      const active = entry.dataset.tutorialMainTab === this.activeMainTabId;
+      entry.classList.toggle('active', active);
+      entry.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    body.querySelectorAll<HTMLElement>('[data-tutorial-main-pane]').forEach((entry) => {
+      const active = entry.dataset.tutorialMainPane === this.activeMainTabId;
+      entry.classList.toggle('active', active);
+      entry.setAttribute('aria-hidden', active ? 'false' : 'true');
+    });
     body.querySelectorAll<HTMLElement>('[data-tutorial-tab]').forEach((entry) => {
       const active = entry.dataset.tutorialTab === this.activeTopicId;
       entry.classList.toggle('active', active);
@@ -220,6 +373,16 @@ export class TutorialPanel {
     });
     body.querySelectorAll<HTMLElement>('[data-tutorial-pane]').forEach((entry) => {
       const active = entry.dataset.tutorialPane === this.activeTopicId;
+      entry.classList.toggle('active', active);
+      entry.setAttribute('aria-hidden', active ? 'false' : 'true');
+    });
+    body.querySelectorAll<HTMLElement>('[data-tutorial-flow-tab]').forEach((entry) => {
+      const active = entry.dataset.tutorialFlowTab === this.activeFlowTopicId;
+      entry.classList.toggle('active', active);
+      entry.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    body.querySelectorAll<HTMLElement>('[data-tutorial-flow-pane]').forEach((entry) => {
+      const active = entry.dataset.tutorialFlowPane === this.activeFlowTopicId;
       entry.classList.toggle('active', active);
       entry.setAttribute('aria-hidden', active ? 'false' : 'true');
     });
