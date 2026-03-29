@@ -27,7 +27,14 @@ import type {
 
 const DEFAULT_AFDIAN_API_BASE_URL = 'https://afdian.net';
 const DEFAULT_AFDIAN_WEBHOOK_PATH = '/integrations/afdian/webhook';
+const AFDIAN_PING_PATH = '/api/open/ping';
 const AFDIAN_QUERY_ORDER_PATH = '/api/open/query-order';
+const AFDIAN_KNOWN_HOSTS = new Set([
+  'afdian.net',
+  'www.afdian.net',
+  'ifdian.net',
+  'www.ifdian.net',
+]);
 const AFDIAN_ENV_KEYS = [
   'AFDIAN_USER_ID',
   'AFDIAN_TOKEN',
@@ -50,8 +57,8 @@ export class AfdianService {
     return {
       userId: process.env.AFDIAN_USER_ID?.trim() ?? '',
       token: process.env.AFDIAN_TOKEN ?? '',
-      apiBaseUrl: process.env.AFDIAN_API_BASE_URL?.trim() || DEFAULT_AFDIAN_API_BASE_URL,
-      publicBaseUrl: process.env.AFDIAN_PUBLIC_BASE_URL?.trim() ?? '',
+      apiBaseUrl: readNormalizedApiBaseUrl(process.env.AFDIAN_API_BASE_URL),
+      publicBaseUrl: readNormalizedPublicBaseUrl(process.env.AFDIAN_PUBLIC_BASE_URL) ?? '',
     };
   }
 
@@ -94,7 +101,7 @@ export class AfdianService {
   }
 
   getWebhookUrl(webhookPath = this.getWebhookPath()): string | null {
-    const publicBaseUrl = readEnvString('AFDIAN_PUBLIC_BASE_URL');
+    const publicBaseUrl = readNormalizedPublicBaseUrl(process.env.AFDIAN_PUBLIC_BASE_URL);
     if (publicBaseUrl === null) {
       return null;
     }
@@ -211,7 +218,7 @@ export class AfdianService {
 
   async pingApi(): Promise<AfdianConfigStatus & { reachable: boolean }> {
     const config = this.getRequiredApiConfig();
-    await this.queryOrdersFromApi(config.userId, config.token, { page: 1 });
+    await this.requestAfdianApi(config.userId, config.token, AFDIAN_PING_PATH, {});
     return {
       ...this.getConfigStatus(),
       reachable: true,
@@ -228,7 +235,7 @@ export class AfdianService {
   }
 
   private getApiBaseUrl(): string {
-    return readEnvString('AFDIAN_API_BASE_URL') ?? DEFAULT_AFDIAN_API_BASE_URL;
+    return readNormalizedApiBaseUrl(process.env.AFDIAN_API_BASE_URL);
   }
 
   private parseOrderPayload(value: unknown): AfdianOrderPayload {
@@ -303,6 +310,16 @@ export class AfdianService {
     token: string,
     params: Record<string, string | number>,
   ): Promise<AfdianQueryOrderResponse> {
+    const response = await this.requestAfdianApi(userId, token, AFDIAN_QUERY_ORDER_PATH, params);
+    return response as AfdianQueryOrderResponse;
+  }
+
+  private async requestAfdianApi(
+    userId: string,
+    token: string,
+    apiPath: string,
+    params: Record<string, string | number>,
+  ): Promise<Record<string, unknown>> {
     const ts = Math.floor(Date.now() / 1000);
     const paramsJson = JSON.stringify(params);
     const signSource = `${token}params${paramsJson}ts${ts}user_id${userId}`;
@@ -315,7 +332,7 @@ export class AfdianService {
       sign,
     });
 
-    const url = new URL(`${this.getApiBaseUrl().replace(/\/+$/u, '')}${AFDIAN_QUERY_ORDER_PATH}`);
+    const url = new URL(`${this.getApiBaseUrl().replace(/\/+$/u, '')}${apiPath}`);
     const responseText = await sendJsonRequest(url, body);
     let parsed: unknown;
     try {
@@ -327,7 +344,7 @@ export class AfdianService {
     if (response === null || typeof response.ec !== 'number' || typeof response.em !== 'string') {
       throw new InternalServerErrorException('爱发电 API 返回结构不合法');
     }
-    return response as unknown as AfdianQueryOrderResponse;
+    return response;
   }
 }
 
@@ -416,7 +433,10 @@ async function sendJsonRequest(url: URL, body: string): Promise<string> {
       res.on('end', () => {
         const text = Buffer.concat(chunks).toString('utf8');
         if ((res.statusCode ?? 500) >= 400) {
-          reject(new InternalServerErrorException(`爱发电 API 请求失败: HTTP ${res.statusCode ?? 500}`));
+          const responseSummary = summarizeUpstreamResponse(text);
+          reject(new InternalServerErrorException(
+            `爱发电 API 请求失败: ${url.toString()} 返回 HTTP ${res.statusCode ?? 500}${responseSummary ? `，响应: ${responseSummary}` : ''}`,
+          ));
           return;
         }
         resolve(text);
@@ -432,6 +452,14 @@ async function sendJsonRequest(url: URL, body: string): Promise<string> {
   });
 }
 
+function summarizeUpstreamResponse(value: string): string {
+  const normalized = value.replace(/\s+/gu, ' ').trim();
+  if (normalized.length === 0) {
+    return '';
+  }
+  return normalized.length > 160 ? `${normalized.slice(0, 160)}...` : normalized;
+}
+
 function normalizeEnvValue(value: unknown): string | null {
   if (typeof value !== 'string') {
     return null;
@@ -444,9 +472,92 @@ function normalizeConfigForm(input: AfdianConfigForm): AfdianConfigForm {
   return {
     userId: input.userId.trim(),
     token: input.token.trim(),
-    apiBaseUrl: input.apiBaseUrl.trim() || DEFAULT_AFDIAN_API_BASE_URL,
-    publicBaseUrl: input.publicBaseUrl.trim(),
+    apiBaseUrl: normalizeApiBaseUrl(input.apiBaseUrl),
+    publicBaseUrl: normalizePublicBaseUrl(input.publicBaseUrl),
   };
+}
+
+function readNormalizedApiBaseUrl(value: unknown): string {
+  const normalized = normalizeBaseUrlValue(value, {
+    fieldLabel: '爱发电 API 地址',
+    defaultValue: DEFAULT_AFDIAN_API_BASE_URL,
+    preservePath: false,
+    canonicalizeAfdianHost: true,
+    throwOnInvalid: false,
+  });
+  return normalized ?? DEFAULT_AFDIAN_API_BASE_URL;
+}
+
+function readNormalizedPublicBaseUrl(value: unknown): string | null {
+  return normalizeBaseUrlValue(value, {
+    fieldLabel: '公网地址',
+    defaultValue: '',
+    preservePath: true,
+    canonicalizeAfdianHost: false,
+    throwOnInvalid: false,
+  });
+}
+
+function normalizeApiBaseUrl(value: string): string {
+  return normalizeBaseUrlValue(value, {
+    fieldLabel: '爱发电 API 地址',
+    defaultValue: DEFAULT_AFDIAN_API_BASE_URL,
+    preservePath: false,
+    canonicalizeAfdianHost: true,
+    throwOnInvalid: true,
+  }) ?? DEFAULT_AFDIAN_API_BASE_URL;
+}
+
+function normalizePublicBaseUrl(value: string): string {
+  return normalizeBaseUrlValue(value, {
+    fieldLabel: '公网地址',
+    defaultValue: '',
+    preservePath: true,
+    canonicalizeAfdianHost: false,
+    throwOnInvalid: true,
+  }) ?? '';
+}
+
+function normalizeBaseUrlValue(
+  value: unknown,
+  options: {
+    fieldLabel: string;
+    defaultValue: string;
+    preservePath: boolean;
+    canonicalizeAfdianHost: boolean;
+    throwOnInvalid: boolean;
+  },
+): string | null {
+  const trimmed = typeof value === 'string' ? value.trim() : '';
+  if (trimmed.length === 0) {
+    return options.defaultValue.length > 0 ? options.defaultValue : null;
+  }
+
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(trimmed);
+  } catch {
+    if (options.throwOnInvalid) {
+      throw new BadRequestException(`${options.fieldLabel} 格式不正确，必须以 http:// 或 https:// 开头`);
+    }
+    return options.defaultValue.length > 0 ? options.defaultValue : null;
+  }
+
+  if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+    if (options.throwOnInvalid) {
+      throw new BadRequestException(`${options.fieldLabel} 仅支持 http:// 或 https://`);
+    }
+    return options.defaultValue.length > 0 ? options.defaultValue : null;
+  }
+
+  if (options.canonicalizeAfdianHost && AFDIAN_KNOWN_HOSTS.has(parsedUrl.hostname.toLowerCase())) {
+    return DEFAULT_AFDIAN_API_BASE_URL;
+  }
+
+  const normalizedPath = options.preservePath
+    ? parsedUrl.pathname.replace(/\/+$/u, '')
+    : '';
+  return `${parsedUrl.protocol}//${parsedUrl.host}${normalizedPath}`;
 }
 
 async function writeServerEnvFile(values: Record<(typeof AFDIAN_ENV_KEYS)[number], string>): Promise<void> {
