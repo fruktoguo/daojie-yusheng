@@ -11,6 +11,7 @@ COPY packages/server packages/server
 RUN pnpm --filter @mud/shared build && pnpm --filter @mud/server build
 
 FROM node:20-alpine
+RUN apk add --no-cache postgresql-client
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 COPY --from=builder /app/pnpm-workspace.yaml /app/package.json ./

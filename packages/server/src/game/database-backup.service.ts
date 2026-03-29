@@ -524,7 +524,7 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
 
     const containerName = this.resolveDockerPostgresContainer();
     if (!containerName) {
-      throw new Error('当前环境未找到可用的 pg_dump 或 PostgreSQL Docker 容器');
+      throw new Error('当前环境未找到可用的 pg_dump。若服务运行在容器内，请确认服务端镜像已安装 postgresql-client，或提供可访问的 PostgreSQL Docker 容器');
     }
     const dockerArgs = [
       'exec',
@@ -563,7 +563,7 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
 
     const containerName = this.resolveDockerPostgresContainer();
     if (!containerName) {
-      throw new Error('当前环境未找到可用的 pg_restore 或 PostgreSQL Docker 容器');
+      throw new Error('当前环境未找到可用的 pg_restore。若服务运行在容器内，请确认服务端镜像已安装 postgresql-client，或提供可访问的 PostgreSQL Docker 容器');
     }
     const dockerArgs = [
       'exec',
