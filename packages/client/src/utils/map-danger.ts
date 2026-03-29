@@ -74,7 +74,7 @@ function buildRealmAliasIndex(): void {
   registerRealmAlias('后天', { minLevel: 4, maxLevel: 7, displayLabel: '易筋-通脉' });
   registerRealmAlias('先天', { minLevel: 8, maxLevel: 18, displayLabel: '瑶光-叩仙门' });
   registerRealmAlias('练气前夜', { minLevel: 18, maxLevel: 18, displayLabel: '叩仙门' });
-  registerRealmAlias('练气启蒙', { minLevel: 19, maxLevel: 19, displayLabel: '练气前期' });
+  registerRealmAlias('练气启蒙', { minLevel: 19, maxLevel: 19, displayLabel: '练气一层' });
 }
 
 buildRealmAliasIndex();

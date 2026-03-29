@@ -11,8 +11,8 @@ export const PLAYER_REALM_STAGE_LEVEL_RANGES: Record<PlayerRealmStage, { levelFr
   [PlayerRealmStage.BoneForging]: { levelFrom: 9, levelTo: 12 },
   [PlayerRealmStage.Meridian]: { levelFrom: 13, levelTo: 15 },
   [PlayerRealmStage.Innate]: { levelFrom: 16, levelTo: 18 },
-  [PlayerRealmStage.QiRefining]: { levelFrom: 19, levelTo: 24 },
-  [PlayerRealmStage.Foundation]: { levelFrom: 25, levelTo: 30 },
+  [PlayerRealmStage.QiRefining]: { levelFrom: 19, levelTo: 30 },
+  [PlayerRealmStage.Foundation]: { levelFrom: 31, levelTo: 42 },
 };
 
 /** 合法的装备触发器列表。 */

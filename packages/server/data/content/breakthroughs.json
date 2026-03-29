@@ -204,10 +204,55 @@
     {
       "fromRealmLv": 24,
       "toRealmLv": 25,
-      "title": "道基初誓",
+      "title": "七层续炁",
       "requirements": [
         { "id": "bw_24_25_yellow_tech", "type": "technique", "minGrade": "yellow", "count": 1, "label": "至少掌握 1 门黄阶功法", "increaseAttrRequirementPct": 80 },
         { "id": "bw_24_25_spirit", "type": "attribute", "attr": "spirit", "minValue": 13, "label": "神识达到 13" }
+      ]
+    },
+    {
+      "fromRealmLv": 25,
+      "toRealmLv": 26,
+      "title": "八层聚海",
+      "requirements": [
+        { "id": "bw_25_26_yellow_tech", "type": "technique", "minGrade": "yellow", "count": 1, "label": "至少掌握 1 门黄阶功法", "increaseAttrRequirementPct": 90 },
+        { "id": "bw_25_26_spirit", "type": "attribute", "attr": "spirit", "minValue": 16, "label": "神识达到 16" }
+      ]
+    },
+    {
+      "fromRealmLv": 26,
+      "toRealmLv": 27,
+      "title": "九层凝真",
+      "requirements": [
+        { "id": "bw_26_27_yellow_tech", "type": "technique", "minGrade": "yellow", "count": 1, "label": "至少掌握 1 门黄阶功法", "increaseAttrRequirementPct": 100 },
+        { "id": "bw_26_27_spirit", "type": "attribute", "attr": "spirit", "minValue": 20, "label": "神识达到 20" }
+      ]
+    },
+    {
+      "fromRealmLv": 27,
+      "toRealmLv": 28,
+      "title": "巅峰临门",
+      "requirements": [
+        { "id": "bw_27_28_yellow_major", "type": "technique", "minGrade": "yellow", "minRealm": "Major", "count": 1, "label": "至少有 1 门黄阶功法达到大成", "increaseAttrRequirementPct": 100 },
+        { "id": "bw_27_28_spirit", "type": "attribute", "attr": "spirit", "minValue": 25, "label": "神识达到 25" }
+      ]
+    },
+    {
+      "fromRealmLv": 28,
+      "toRealmLv": 29,
+      "title": "圆满归一",
+      "requirements": [
+        { "id": "bw_28_29_yellow_major", "type": "technique", "minGrade": "yellow", "minRealm": "Major", "count": 1, "label": "至少有 1 门黄阶功法达到大成", "increaseAttrRequirementPct": 110 },
+        { "id": "bw_28_29_spirit", "type": "attribute", "attr": "spirit", "minValue": 31, "label": "神识达到 31" }
+      ]
+    },
+    {
+      "fromRealmLv": 29,
+      "toRealmLv": 30,
+      "title": "半步筑基",
+      "requirements": [
+        { "id": "bw_29_30_yellow_perfect", "type": "technique", "minGrade": "yellow", "minLevel": 10, "count": 1, "label": "至少有 1 门黄阶功法修至圆满", "increaseAttrRequirementPct": 120 },
+        { "id": "bw_29_30_spirit", "type": "attribute", "attr": "spirit", "minValue": 38, "label": "神识达到 38" }
       ]
     }
   ]
