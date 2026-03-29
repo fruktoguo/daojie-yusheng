@@ -29,6 +29,12 @@ interface ChatChannelState {
   loadedCount: number;
 }
 
+interface ChatAddMessageOptions {
+  id?: string;
+  at?: number;
+  scope?: ChatMessageScope;
+}
+
 function isChatChannel(value: unknown): value is ChatChannel {
   return typeof value === 'string' && CHAT_CHANNELS.includes(value as ChatChannel);
 }
@@ -113,15 +119,17 @@ function loadStoredEnvelope(): ChatStorageEnvelope {
   }
 }
 
-function persistStoredEnvelope(envelope: ChatStorageEnvelope): void {
+function persistStoredEnvelope(envelope: ChatStorageEnvelope): boolean {
   const storage = getStorage();
   if (!storage) {
-    return;
+    return false;
   }
   try {
     storage.setItem(CHAT_LOG_STORAGE_KEY, JSON.stringify(envelope));
+    return true;
   } catch (error) {
     console.warn('[chat] 本地消息缓存写入失败。', error);
+    return false;
   }
 }
 
@@ -148,6 +156,7 @@ export class ChatUI {
   private currentScopeId: string | null = null;
   private messages: ChatStoredMessage[] = [];
   private messageSequence = 0;
+  private persistedMessageIds = new Set<string>();
 
   constructor() {
     this.sendBtn.addEventListener('click', () => this.submit());
@@ -197,6 +206,7 @@ export class ChatUI {
     this.input.value = '';
     if (!normalizedScope) {
       this.messages = [];
+      this.persistedMessageIds.clear();
       this.resetLoadedCounts();
       this.renderAllChannels();
       return;
@@ -206,6 +216,7 @@ export class ChatUI {
     this.messages = scoped
       .slice(-CHAT_LOG_MAX_PERSISTED_MESSAGES)
       .map((entry) => ({ ...entry }));
+    this.persistedMessageIds = new Set(this.messages.map((entry) => entry.id));
     this.resetLoadedCounts();
     this.renderAllChannels({ stickToBottom: true });
   }
@@ -226,18 +237,35 @@ export class ChatUI {
     text: string,
     from?: string,
     kind: ChatMessageKind = 'system',
-    scope?: ChatMessageScope,
-  ): void {
+    options?: ChatMessageScope | ChatAddMessageOptions,
+  ): boolean {
     const trimmed = text.trim();
     if (!trimmed || !this.currentScopeId) {
-      return;
+      return false;
+    }
+
+    const resolvedOptions = typeof options === 'string'
+      ? { scope: options }
+      : options;
+    const resolvedId = resolvedOptions?.id ?? `${Date.now()}:${this.messageSequence++}`;
+    const existing = this.messages.find((entry) => entry.id === resolvedId);
+    if (existing) {
+      if (this.persistedMessageIds.has(resolvedId)) {
+        return true;
+      }
+      this.storageEnvelope.logsByScope[this.currentScopeId] = this.messages.map((message) => ({ ...message }));
+      if (persistStoredEnvelope(this.storageEnvelope)) {
+        this.persistedMessageIds.add(resolvedId);
+        return true;
+      }
+      return false;
     }
 
     const now = Date.now();
-    const resolvedScope = scope ?? (kind === 'chat' ? 'nearby' : undefined);
+    const resolvedScope = resolvedOptions?.scope ?? (kind === 'chat' ? 'nearby' : undefined);
     const entry: ChatStoredMessage = {
-      id: `${now}:${this.messageSequence++}`,
-      at: now,
+      id: resolvedId,
+      at: resolvedOptions?.at ?? now,
       text: trimmed,
       from,
       kind,
@@ -246,9 +274,15 @@ export class ChatUI {
     this.messages.push(entry);
     if (this.messages.length > CHAT_LOG_MAX_PERSISTED_MESSAGES) {
       this.messages = this.messages.slice(-CHAT_LOG_MAX_PERSISTED_MESSAGES);
+      this.persistedMessageIds = new Set(
+        [...this.persistedMessageIds].filter((messageId) => this.messages.some((message) => message.id === messageId)),
+      );
     }
     this.storageEnvelope.logsByScope[this.currentScopeId] = this.messages.map((message) => ({ ...message }));
-    persistStoredEnvelope(this.storageEnvelope);
+    const persisted = persistStoredEnvelope(this.storageEnvelope);
+    if (persisted) {
+      this.persistedMessageIds.add(entry.id);
+    }
 
     for (const channel of this.resolveChannels(entry)) {
       const state = this.channelStates.get(channel);
@@ -265,6 +299,7 @@ export class ChatUI {
         this.renderChannel(channel, { stickToBottom });
       }
     }
+    return persisted;
   }
 
   private resetLoadedCounts(): void {
@@ -281,6 +316,9 @@ export class ChatUI {
     if (entry.kind === 'combat') {
       return ['combat'];
     }
+    if (entry.kind === 'grudge') {
+      return ['grudge'];
+    }
     if (entry.kind === 'chat') {
       if (entry.scope === 'sect') {
         return ['sect', 'world'];
@@ -296,10 +334,13 @@ export class ChatUI {
   private getChannelMessages(channel: ChatChannel): ChatStoredMessage[] {
     return this.messages.filter((entry) => {
       if (channel === 'system') {
-        return entry.kind !== 'chat' && entry.kind !== 'combat';
+        return entry.kind !== 'chat' && entry.kind !== 'combat' && entry.kind !== 'grudge';
       }
       if (channel === 'combat') {
         return entry.kind === 'combat';
+      }
+      if (channel === 'grudge') {
+        return entry.kind === 'grudge';
       }
       if (channel === 'nearby') {
         return entry.kind === 'chat' && (entry.scope ?? 'nearby') === 'nearby';

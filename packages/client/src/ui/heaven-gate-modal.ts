@@ -23,7 +23,7 @@ interface HeavenGateSession {
 }
 
 interface HeavenGateModalOptions {
-  showToast: (message: string, kind?: 'system' | 'chat' | 'quest' | 'combat' | 'loot') => void;
+  showToast: (message: string, kind?: 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge') => void;
   sendAction: (action: 'sever' | 'restore' | 'open' | 'reroll' | 'enter', element?: ElementKey) => void;
 }
 

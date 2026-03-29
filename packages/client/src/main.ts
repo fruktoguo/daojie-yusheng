@@ -2047,6 +2047,17 @@ socket.onSystemMsg((data) => {
     chatUI.addMessage(data.text, data.from, data.kind);
     return;
   }
+  if (data.kind === 'grudge') {
+    const stored = chatUI.addMessage(data.text, data.from ?? '情仇', data.kind, {
+      id: data.id,
+      at: data.occurredAt,
+    });
+    if (stored && data.persistUntilAck === true && data.id) {
+      socket.ackSystemMessages([data.id]);
+    }
+    showToast(data.text, data.kind);
+    return;
+  }
   if (data.kind === 'quest' || data.kind === 'combat' || data.kind === 'loot') {
     const label = data.from ?? (data.kind === 'quest' ? '任务' : data.kind === 'combat' ? '战斗' : '掉落');
     chatUI.addMessage(data.text, label, data.kind);
@@ -2116,14 +2127,14 @@ let latestEntityMap = new Map<string, ObservedEntity>();
 let pendingLayoutViewportSync = false;
 let pendingAutoInteraction: PendingAutoInteraction | null = null;
 
-function showToast(message: string, kind: 'system' | 'chat' | 'quest' | 'combat' | 'loot' = 'system') {
+function showToast(message: string, kind: 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge' = 'system') {
   const el = document.getElementById('toast');
   if (!el) return;
   el.className = `toast-kind-${kind}`;
   el.textContent = message;
   el.classList.remove('hidden');
   el.classList.add('show');
-  const durationMs = kind === 'quest' ? 4200 : 2500;
+  const durationMs = kind === 'quest' || kind === 'grudge' ? 4200 : 2500;
   window.setTimeout(() => {
     el.classList.remove('show');
     el.classList.add('hidden');

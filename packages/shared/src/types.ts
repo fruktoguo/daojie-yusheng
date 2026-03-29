@@ -940,6 +940,14 @@ export interface QuestNavigationState {
   lastBlockedRemainingTicks?: number;
 }
 
+export interface PendingLogbookMessage {
+  id: string;
+  kind: 'grudge';
+  text: string;
+  from?: string;
+  at: number;
+}
+
 /** 玩家状态 */
 export interface PlayerState {
   id: string;
@@ -995,6 +1003,7 @@ export interface PlayerState {
   combatTargetId?: string;
   combatTargetLocked?: boolean;
   cultivatingTechId?: string;
+  pendingLogbookMessages?: PendingLogbookMessage[];
   idleTicks?: number;
   revealedBreakthroughRequirementIds?: string[];
   unlockedMinimapIds?: string[];

@@ -9,10 +9,10 @@ export const CHAT_LOG_LOAD_BATCH_SIZE = 100;
 export const CHAT_LOG_MAX_PERSISTED_MESSAGES = 10_000;
 export const CHAT_LOG_SCROLL_TOP_LOAD_THRESHOLD_PX = 24;
 
-export const CHAT_CHANNELS = ['system', 'combat', 'nearby', 'world', 'sect'] as const;
+export const CHAT_CHANNELS = ['system', 'combat', 'grudge', 'nearby', 'world', 'sect'] as const;
 export type ChatChannel = typeof CHAT_CHANNELS[number];
 
-export const CHAT_MESSAGE_KINDS = ['system', 'chat', 'quest', 'combat', 'loot'] as const;
+export const CHAT_MESSAGE_KINDS = ['system', 'chat', 'quest', 'combat', 'loot', 'grudge'] as const;
 export type ChatMessageKind = typeof CHAT_MESSAGE_KINDS[number];
 
 export const CHAT_MESSAGE_SCOPES = ['nearby', 'world', 'sect'] as const;

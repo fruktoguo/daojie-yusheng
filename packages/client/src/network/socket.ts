@@ -5,7 +5,7 @@
 import { io, Socket } from 'socket.io-client';
 import {
   C2S, S2C, C2S_Move, C2S_MoveTo, C2S_NavigateQuest, C2S_GmGetState, C2S_GmSpawnBots, C2S_GmRemoveBots, C2S_GmUpdatePlayer, C2S_GmResetPlayer, C2S_Action, C2S_UpdateAutoBattleSkills, C2S_DebugResetSpawn, C2S_UseItem, C2S_DropItem, C2S_DestroyItem,
-  C2S_TakeLoot, C2S_SortInventory, C2S_Equip, C2S_Unequip, C2S_Cultivate, C2S_Chat,
+  C2S_TakeLoot, C2S_SortInventory, C2S_Equip, C2S_Unequip, C2S_Cultivate, C2S_Chat, C2S_AckSystemMessages,
   C2S_Heartbeat,
   C2S_InspectTileRuntime,
   C2S_Ping,
@@ -384,6 +384,13 @@ export class SocketManager {
 
   sendChat(message: string) {
     this.emitServer(C2S.Chat, { message } satisfies C2S_Chat);
+  }
+
+  ackSystemMessages(ids: string[]) {
+    if (ids.length === 0) {
+      return;
+    }
+    this.emitServer(C2S.AckSystemMessages, { ids } satisfies C2S_AckSystemMessages);
   }
 
   onInit(cb: (data: S2C_Init) => void) { this.onInitCallbacks.push(cb); }

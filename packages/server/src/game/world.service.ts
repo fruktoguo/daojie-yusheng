@@ -4,6 +4,7 @@
  * 自动战斗、传送、观察系统等所有与"世界规则"相关的行为。
  */
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import {
   ActionDef,
   Attributes,
@@ -3004,6 +3005,18 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     this.tryActivateAutoRetaliate(target, dirtyPlayers);
 
     if (target.hp <= 0) {
+      if (!attacker.isBot && !target.isBot) {
+        const mapName = this.mapService.getMapMeta(target.mapId)?.name ?? target.mapId;
+        this.playerService.queuePendingLogbookMessage(target.id, {
+          id: randomUUID(),
+          kind: 'grudge',
+          from: attacker.name,
+          at: Date.now(),
+          text: target.online === false
+            ? `你在离线期间被${attacker.name}在${mapName}击倒。`
+            : `你被${attacker.name}在${mapName}击倒。`,
+        });
+      }
       messages.push({
         playerId: attacker.id,
         text: `${target.name} 被你击倒。`,

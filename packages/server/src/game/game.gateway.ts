@@ -40,6 +40,7 @@ import {
   C2S_Action,
   C2S_UpdateAutoBattleSkills,
   C2S_Chat,
+  C2S_AckSystemMessages,
   C2S_CreateSuggestion,
   C2S_VoteSuggestion,
   C2S_ReplySuggestion,
@@ -648,6 +649,21 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     }
   }
 
+  @SubscribeMessage(C2S.AckSystemMessages)
+  handleAckSystemMessages(client: Socket, data: C2S_AckSystemMessages) {
+    const playerId = client.data?.playerId as string;
+    if (!playerId) {
+      return;
+    }
+    const ids = Array.isArray(data?.ids)
+      ? data.ids.filter((entry): entry is string => typeof entry === 'string' && entry.length > 0)
+      : [];
+    if (ids.length === 0) {
+      return;
+    }
+    this.playerService.ackPendingLogbookMessages(playerId, ids);
+  }
+
   private sendInit(client: Socket, player: PlayerState) {
     const mapMeta = this.mapService.getMapMeta(player.mapId);
     if (!mapMeta) return;
@@ -691,11 +707,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     this.tickService.flushPlayerState(player);
     this.mailService.emitSummary(player.id).catch(() => {});
     client.emit(S2C.SuggestionUpdate, { suggestions: this.suggestionService.getAll() });
+    this.playerService.emitPendingLogbookMessages(player.id);
   }
 
   private buildInitPlayerCore(player: PlayerState): PlayerState {
+    const { pendingLogbookMessages: _pendingLogbookMessages, ...publicPlayer } = player;
     return {
-      ...player,
+      ...publicPlayer,
       cultivationActive: this.techniqueService.hasCultivationBuff(player),
       inventory: {
         capacity: player.inventory.capacity,

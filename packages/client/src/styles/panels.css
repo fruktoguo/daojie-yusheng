@@ -34,6 +34,7 @@
     }
     #toast.toast-kind-loot { background: rgba(41, 88, 54, 0.9); }
     #toast.toast-kind-combat { background: rgba(123, 38, 38, 0.92); }
+    #toast.toast-kind-grudge { background: rgba(104, 28, 52, 0.92); }
     #chat-panel {
       display: flex;
       flex-direction: column;
@@ -72,6 +73,7 @@
     .chat-kind-quest { color: #7b4f00; }
     .chat-kind-loot { color: #1d6e42; }
     .chat-kind-combat { color: #9c2c2c; }
+    .chat-kind-grudge { color: #8d2141; }
     .chat-compose {
       display: flex;
       gap: 8px;

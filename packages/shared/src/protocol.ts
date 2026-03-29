@@ -24,6 +24,7 @@ export const C2S = {
   UpdateAutoBattleSkills: 'c:updateAutoBattleSkills',
   DebugResetSpawn: 'c:debugResetSpawn',
   Chat: 'c:chat',
+  AckSystemMessages: 'c:ackSystemMessages',
   UseItem: 'c:useItem',
   DropItem: 'c:dropItem',
   DestroyItem: 'c:destroyItem',
@@ -185,6 +186,10 @@ export interface C2S_DebugResetSpawn {
 /** 聊天消息 */
 export interface C2S_Chat {
   message: string;
+}
+
+export interface C2S_AckSystemMessages {
+  ids: string[];
 }
 
 export interface C2S_RequestMarket {}
@@ -758,9 +763,12 @@ export interface S2C_QuestNavigateResult {
 
 /** 系统消息 */
 export interface S2C_SystemMsg {
+  id?: string;
   text: string;
-  kind?: 'system' | 'chat' | 'quest' | 'combat' | 'loot';
+  kind?: 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge';
   from?: string;
+  occurredAt?: number;
+  persistUntilAck?: boolean;
   floating?: {
     x: number;
     y: number;

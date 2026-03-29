@@ -174,6 +174,10 @@ export class PlayerEntity {
   @Column({ type: 'boolean', default: false })
   online!: boolean;
 
+  /** 待客户端确认接收的见闻录消息 */
+  @Column({ type: 'jsonb', default: () => '\'[]\'' })
+  pendingLogbookMessages!: unknown[];
+
   /** 当前是否仍在世界中 */
   @Column({ type: 'boolean', default: false })
   inWorld!: boolean;

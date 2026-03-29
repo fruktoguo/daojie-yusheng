@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import {
   PlayerState,
+  PendingLogbookMessage,
   Attributes,
   AttrBonus,
   Inventory,
@@ -28,6 +29,7 @@ import {
   VIEW_RADIUS,
   clonePlainValue,
   S2C,
+  S2C_SystemMsg,
 } from '@mud/shared';
 import { Socket } from 'socket.io';
 import { PlayerEntity } from '../database/entities/player.entity';
@@ -39,6 +41,7 @@ import { resolveQuestTargetName } from './quest-display';
 import { EquipmentService } from './equipment.service';
 import { TechniqueService } from './technique.service';
 import { resolveDisplayName } from '../auth/account-validation';
+import { MAX_PENDING_LOGBOOK_MESSAGES } from '../constants/gameplay/logbook';
 import {
   buildPersistedPlayerCollections,
   hydrateEquipmentSnapshot,
@@ -74,6 +77,18 @@ function normalizeNonNegativeCounter(value: unknown): number {
   return Math.max(0, Number.isFinite(value) ? Math.floor(Number(value)) : 0);
 }
 
+function isPendingLogbookMessage(value: unknown): value is PendingLogbookMessage {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const candidate = value as Partial<PendingLogbookMessage>;
+  return typeof candidate.id === 'string'
+    && candidate.kind === 'grudge'
+    && typeof candidate.text === 'string'
+    && (candidate.from === undefined || typeof candidate.from === 'string')
+    && Number.isFinite(candidate.at);
+}
+
 @Injectable()
 export class PlayerService implements OnModuleInit {
   private players: Map<string, PlayerState> = new Map();
@@ -82,6 +97,7 @@ export class PlayerService implements OnModuleInit {
   private userToPlayer: Map<string, string> = new Map();
   private onlineSessionStartedAtByUserId: Map<string, number> = new Map();
   private dirtyFlags: Map<string, Set<DirtyFlag>> = new Map();
+  private pendingLogbookPersistions: Map<string, Promise<void>> = new Map();
   private readonly logger = new Logger(PlayerService.name);
 
   constructor(
@@ -131,6 +147,49 @@ export class PlayerService implements OnModuleInit {
     return value === null ? (() => "'null'::jsonb") : value;
   }
 
+  private normalizePendingLogbookMessages(value: unknown): PendingLogbookMessage[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+    return value
+      .filter(isPendingLogbookMessage)
+      .slice(-MAX_PENDING_LOGBOOK_MESSAGES)
+      .map((entry) => ({ ...entry }));
+  }
+
+  private toSystemMessage(entry: PendingLogbookMessage): S2C_SystemMsg {
+    return {
+      id: entry.id,
+      text: entry.text,
+      from: entry.from,
+      kind: entry.kind,
+      occurredAt: entry.at,
+      persistUntilAck: true,
+    };
+  }
+
+  private schedulePendingLogbookPersistence(playerId: string): void {
+    const player = this.players.get(playerId);
+    if (!player || player.isBot) {
+      return;
+    }
+    const snapshot = (player.pendingLogbookMessages ?? []).map((entry) => ({ ...entry }));
+    const previous = this.pendingLogbookPersistions.get(playerId) ?? Promise.resolve();
+    const task: Promise<void> = previous
+      .catch(() => {})
+      .then(async () => {
+        await this.playerRepo.update(playerId, {
+          pendingLogbookMessages: snapshot as any,
+        });
+      });
+    const trackedTask = task.finally(() => {
+      if (this.pendingLogbookPersistions.get(playerId) === trackedTask) {
+        this.pendingLogbookPersistions.delete(playerId);
+      }
+    });
+    this.pendingLogbookPersistions.set(playerId, trackedTask);
+  }
+
   private buildPlayerPersistencePayload(state: PlayerState, persisted: ReturnType<PlayerService['buildPersistedCollections']>) {
     this.normalizePersistedTechniqueState(state);
     return {
@@ -171,6 +230,7 @@ export class PlayerService implements OnModuleInit {
       autoIdleCultivation: state.autoIdleCultivation,
       autoSwitchCultivation: state.autoSwitchCultivation === true,
       cultivatingTechId: state.cultivatingTechId ?? null,
+      pendingLogbookMessages: (state.pendingLogbookMessages ?? []) as any,
       online: state.online === true,
       inWorld: state.inWorld !== false,
       lastHeartbeatAt: state.lastHeartbeatAt ? new Date(state.lastHeartbeatAt) : null,
@@ -310,6 +370,7 @@ export class PlayerService implements OnModuleInit {
     if (state.autoSwitchCultivation === undefined) state.autoSwitchCultivation = false;
     if (state.online === undefined) state.online = false;
     if (state.inWorld === undefined) state.inWorld = true;
+    if (!state.pendingLogbookMessages) state.pendingLogbookMessages = [];
     if (!state.actions) state.actions = [];
     if (state.senseQiActive === undefined) state.senseQiActive = false;
     state.boneAgeBaseYears = normalizeBoneAgeBaseYears(state.boneAgeBaseYears ?? DEFAULT_BONE_AGE_YEARS);
@@ -379,6 +440,7 @@ export class PlayerService implements OnModuleInit {
     this.players.delete(playerId);
     this.socketMap.delete(playerId);
     this.dirtyFlags.delete(playerId);
+    this.pendingLogbookPersistions.delete(playerId);
     const userId = this.getUserIdByPlayerId(playerId);
     if (userId) {
       this.userToPlayer.delete(userId);
@@ -392,6 +454,7 @@ export class PlayerService implements OnModuleInit {
     this.players.delete(playerId);
     this.socketMap.delete(playerId);
     this.dirtyFlags.delete(playerId);
+    this.pendingLogbookPersistions.delete(playerId);
     const userId = this.getUserIdByPlayerId(playerId);
     if (userId) {
       this.onlineSessionStartedAtByUserId.delete(userId);
@@ -446,6 +509,7 @@ export class PlayerService implements OnModuleInit {
     this.userToPlayer.clear();
     this.onlineSessionStartedAtByUserId.clear();
     this.dirtyFlags.clear();
+    this.pendingLogbookPersistions.clear();
   }
 
   getPlayerByUserId(userId: string): string | undefined {
@@ -479,6 +543,66 @@ export class PlayerService implements OnModuleInit {
       return;
     }
     this.syncPlayerCache(player).catch(() => {});
+  }
+
+  getPendingLogbookMessages(playerId: string): PendingLogbookMessage[] {
+    const player = this.players.get(playerId);
+    if (!player) {
+      return [];
+    }
+    return (player.pendingLogbookMessages ?? []).map((entry) => ({ ...entry }));
+  }
+
+  queuePendingLogbookMessage(playerId: string, message: PendingLogbookMessage): void {
+    const player = this.players.get(playerId);
+    if (!player || player.isBot) {
+      return;
+    }
+    const next = [...(player.pendingLogbookMessages ?? [])];
+    const existingIndex = next.findIndex((entry) => entry.id === message.id);
+    if (existingIndex >= 0) {
+      next[existingIndex] = { ...message };
+    } else {
+      next.push({ ...message });
+    }
+    player.pendingLogbookMessages = next.slice(-MAX_PENDING_LOGBOOK_MESSAGES);
+    this.schedulePendingLogbookPersistence(playerId);
+
+    const socket = this.getSocket(playerId);
+    if (!socket) {
+      return;
+    }
+    socket.emit(S2C.SystemMsg, this.toSystemMessage(message));
+  }
+
+  ackPendingLogbookMessages(playerId: string, ids: string[]): void {
+    if (ids.length === 0) {
+      return;
+    }
+    const player = this.players.get(playerId);
+    if (!player || !player.pendingLogbookMessages || player.pendingLogbookMessages.length === 0) {
+      return;
+    }
+    const idSet = new Set(ids.filter((entry) => typeof entry === 'string' && entry.length > 0));
+    if (idSet.size === 0) {
+      return;
+    }
+    const next = player.pendingLogbookMessages.filter((entry) => !idSet.has(entry.id));
+    if (next.length === player.pendingLogbookMessages.length) {
+      return;
+    }
+    player.pendingLogbookMessages = next;
+    this.schedulePendingLogbookPersistence(playerId);
+  }
+
+  emitPendingLogbookMessages(playerId: string): void {
+    const socket = this.getSocket(playerId);
+    if (!socket) {
+      return;
+    }
+    for (const entry of this.getPendingLogbookMessages(playerId)) {
+      socket.emit(S2C.SystemMsg, this.toSystemMessage(entry));
+    }
   }
 
   markPlayerOnline(playerId: string, timestamp = Date.now()) {
@@ -911,6 +1035,7 @@ export class PlayerService implements OnModuleInit {
       cultivationActive: false,
       actions: [],
       cultivatingTechId: entity.cultivatingTechId ?? undefined,
+      pendingLogbookMessages: this.normalizePendingLogbookMessages(entity.pendingLogbookMessages),
       idleTicks: 0,
       online: entity.online ?? false,
       inWorld: entity.inWorld ?? false,
