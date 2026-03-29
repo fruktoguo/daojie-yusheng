@@ -240,6 +240,7 @@ let lastNetworkInStructureKey: string | null = null;
 let lastNetworkOutStructureKey: string | null = null;
 let lastCpuBreakdownStructureKey: string | null = null;
 let lastPathfindingFailureStructureKey: string | null = null;
+let lastShortcutMailComposerStructureKey: string | null = null;
 let databaseStateLoading = false;
 let directMailDraftPlayerId: string | null = null;
 let directMailDraft = createDefaultMailComposerDraft();
@@ -1587,6 +1588,21 @@ function renderShortcutMailComposer(): void {
   const targetPlayer = broadcastMailDraft.targetPlayerId
     ? (state?.players.find((player) => player.id === broadcastMailDraft.targetPlayerId) ?? null)
     : null;
+  const structureKey = JSON.stringify({
+    targetPlayerId: broadcastMailDraft.targetPlayerId,
+    templateId: broadcastMailDraft.templateId,
+    senderLabel: broadcastMailDraft.senderLabel,
+    title: broadcastMailDraft.title,
+    body: broadcastMailDraft.body,
+    expireHours: broadcastMailDraft.expireHours,
+    attachments: broadcastMailDraft.attachments.map((entry) => `${entry.itemId}:${entry.count}`),
+    players: (state?.players ?? [])
+      .filter((player) => !player.meta.isBot)
+      .map((player) => `${player.id}:${player.roleName}:${player.accountName || ''}:${player.meta.online ? 1 : 0}`),
+  });
+  if (lastShortcutMailComposerStructureKey === structureKey) {
+    return;
+  }
   shortcutMailComposerEl.innerHTML = getMailComposerMarkup(broadcastMailDraft, {
     scope: 'shortcut',
     submitLabel: targetPlayer ? `发送给 ${targetPlayer.roleName}` : '发送全服邮件',
@@ -1595,6 +1611,7 @@ function renderShortcutMailComposer(): void {
       : '全服邮件不会混入高频地图同步，只在玩家打开收件箱时按需拉取。',
     showTargetPlayer: true,
   });
+  lastShortcutMailComposerStructureKey = structureKey;
 }
 
 function renderSuggestions(): void {
@@ -2735,7 +2752,9 @@ function render(): void {
   renderDatabasePanel();
   renderPlayerList(state);
   renderEditor(state);
-  renderShortcutMailComposer();
+  if (currentTab === 'shortcuts') {
+    renderShortcutMailComposer();
+  }
 }
 
 function getEditorTabSection(tab: GmPlayerUpdateSection | 'persisted'): HTMLElement | null {
