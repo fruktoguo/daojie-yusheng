@@ -819,51 +819,69 @@
       "layers": [
         {
           "level": 1,
-          "expFactor": 66,
+          "expFactor": 58,
           "attrs": {
             "constitution": 5,
             "talent": 5
           },
-          "expToNext": 118800
+          "expToNext": 104400
         },
         {
           "level": 2,
-          "expFactor": 72,
+          "expFactor": 60,
           "attrs": {
             "constitution": 5,
             "talent": 5
           },
-          "expToNext": 129600
+          "expToNext": 108000
         },
         {
           "level": 3,
-          "expFactor": 79,
+          "expFactor": 62,
           "attrs": {
             "constitution": 5,
             "talent": 5
           },
-          "expToNext": 142200
+          "expToNext": 111600
         },
         {
           "level": 4,
-          "expFactor": 86,
+          "expFactor": 67,
           "attrs": {
             "constitution": 5,
             "talent": 5
           },
-          "expToNext": 154800
+          "expToNext": 120600
         },
         {
           "level": 5,
-          "expFactor": 94,
+          "expFactor": 73,
           "attrs": {
             "constitution": 5,
             "talent": 5
           },
-          "expToNext": 169200
+          "expToNext": 131400
         },
         {
           "level": 6,
+          "expFactor": 81,
+          "attrs": {
+            "constitution": 5,
+            "talent": 5
+          },
+          "expToNext": 145800
+        },
+        {
+          "level": 7,
+          "expFactor": 91,
+          "attrs": {
+            "constitution": 5,
+            "talent": 5
+          },
+          "expToNext": 163800
+        },
+        {
+          "level": 8,
           "expFactor": 103,
           "attrs": {
             "constitution": 5,
@@ -872,128 +890,371 @@
           "expToNext": 185400
         },
         {
-          "level": 7,
-          "expFactor": 112,
-          "attrs": {
-            "constitution": 5,
-            "talent": 5
-          },
-          "expToNext": 201600
-        },
-        {
-          "level": 8,
-          "expFactor": 122,
-          "attrs": {
-            "constitution": 5,
-            "talent": 5
-          },
-          "expToNext": 219600
-        },
-        {
           "level": 9,
-          "expFactor": 133,
+          "expFactor": 117,
           "attrs": {
             "constitution": 5,
             "talent": 5
           },
-          "expToNext": 239400
+          "expToNext": 210600
         },
         {
           "level": 10,
-          "expFactor": 145,
+          "expFactor": 132,
           "attrs": {
             "constitution": 5,
             "talent": 5
           },
-          "expToNext": 261000
+          "expToNext": 237600
         },
         {
           "level": 11,
-          "expFactor": 158,
+          "expFactor": 149,
           "attrs": {
             "constitution": 5,
             "talent": 5
           },
-          "expToNext": 284400
+          "expToNext": 268200
         },
         {
           "level": 12,
-          "expFactor": 172,
+          "expFactor": 168,
           "attrs": {
             "constitution": 5,
             "talent": 5
           },
-          "expToNext": 309600
+          "expToNext": 302400
         },
         {
           "level": 13,
-          "expFactor": 187,
+          "expFactor": 189,
           "attrs": {
             "constitution": 5,
             "talent": 5
           },
-          "expToNext": 336600
+          "expToNext": 340200
         },
         {
           "level": 14,
-          "expFactor": 203,
+          "expFactor": 212,
           "attrs": {
             "constitution": 5,
             "talent": 5
           },
-          "expToNext": 365400
+          "expToNext": 381600
         },
         {
           "level": 15,
-          "expFactor": 220,
+          "expFactor": 236,
           "attrs": {
             "constitution": 5,
             "talent": 5
           },
-          "expToNext": 396000
+          "expToNext": 424800
         },
         {
           "level": 16,
-          "expFactor": 238,
+          "expFactor": 262,
           "attrs": {
             "constitution": 5,
             "talent": 5
           },
-          "expToNext": 428400
+          "expToNext": 471600
         },
         {
           "level": 17,
-          "expFactor": 257,
+          "expFactor": 290,
           "attrs": {
             "constitution": 5,
             "talent": 5
           },
-          "expToNext": 462600
+          "expToNext": 522000
         },
         {
           "level": 18,
-          "expFactor": 277,
+          "expFactor": 320,
           "attrs": {
             "constitution": 5,
             "talent": 5
           },
-          "expToNext": 498600
+          "expToNext": 576000
         },
         {
           "level": 19,
-          "expFactor": 298,
+          "expFactor": 352,
           "attrs": {
             "constitution": 5,
             "talent": 5
           },
-          "expToNext": 536400
+          "expToNext": 633600
         },
         {
           "level": 20,
-          "expFactor": 0,
+          "expFactor": 373,
           "attrs": {
             "constitution": 5,
             "talent": 5
+          },
+          "expToNext": 671400
+        },
+        {
+          "level": 21,
+          "expFactor": 395,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 711000
+        },
+        {
+          "level": 22,
+          "expFactor": 419,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 754200
+        },
+        {
+          "level": 23,
+          "expFactor": 444,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 799200
+        },
+        {
+          "level": 24,
+          "expFactor": 471,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 847800
+        },
+        {
+          "level": 25,
+          "expFactor": 499,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 898200
+        },
+        {
+          "level": 26,
+          "expFactor": 529,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 952200
+        },
+        {
+          "level": 27,
+          "expFactor": 561,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 1009800
+        },
+        {
+          "level": 28,
+          "expFactor": 595,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 1071000
+        },
+        {
+          "level": 29,
+          "expFactor": 631,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 1135800
+        },
+        {
+          "level": 30,
+          "expFactor": 669,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 1204200
+        },
+        {
+          "level": 31,
+          "expFactor": 709,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 1276200
+        },
+        {
+          "level": 32,
+          "expFactor": 752,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 1353600
+        },
+        {
+          "level": 33,
+          "expFactor": 797,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 1434600
+        },
+        {
+          "level": 34,
+          "expFactor": 845,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 1521000
+        },
+        {
+          "level": 35,
+          "expFactor": 896,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 1612800
+        },
+        {
+          "level": 36,
+          "expFactor": 950,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 1710000
+        },
+        {
+          "level": 37,
+          "expFactor": 1007,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 1812600
+        },
+        {
+          "level": 38,
+          "expFactor": 1067,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 1920600
+        },
+        {
+          "level": 39,
+          "expFactor": 1131,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 2035800
+        },
+        {
+          "level": 40,
+          "expFactor": 1199,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 2158200
+        },
+        {
+          "level": 41,
+          "expFactor": 1271,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 2287800
+        },
+        {
+          "level": 42,
+          "expFactor": 1347,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 2424600
+        },
+        {
+          "level": 43,
+          "expFactor": 1428,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 2570400
+        },
+        {
+          "level": 44,
+          "expFactor": 1514,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 2725200
+        },
+        {
+          "level": 45,
+          "expFactor": 1605,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 2889000
+        },
+        {
+          "level": 46,
+          "expFactor": 1701,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 3061800
+        },
+        {
+          "level": 47,
+          "expFactor": 1803,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 3245400
+        },
+        {
+          "level": 48,
+          "expFactor": 1911,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
+          },
+          "expToNext": 3439800
+        },
+        {
+          "level": 49,
+          "expFactor": 0,
+          "attrs": {
+            "constitution": 1,
+            "talent": 1
           },
           "expToNext": 0
         }
