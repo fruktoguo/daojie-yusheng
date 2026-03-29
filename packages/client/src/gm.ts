@@ -3,10 +3,15 @@
  */
 
 import {
+  type AfdianConfigStatus,
+  type AfdianOrderListResponse,
+  type AfdianStoredOrderItem,
+  type AfdianSyncOrdersResponse,
   type BasicOkRes,
   Direction,
   GM_MAIL_TEMPLATE_OPTIONS,
   type GmChangePasswordReq,
+  type GmAfdianConfigRes,
   GM_ACCESS_TOKEN_STORAGE_KEY,
   GM_APPLY_DELAY_MS,
   GM_PANEL_POLL_INTERVAL_MS,
@@ -40,6 +45,7 @@ import {
   type GmSpawnBotsReq,
   type GmStateRes,
   type GmTriggerDatabaseBackupRes,
+  type GmUpdateAfdianConfigReq,
   type GmUpdateManagedPlayerAccountReq,
   type GmUpdateManagedPlayerPasswordReq,
   type GmUpdatePlayerReq,
@@ -171,12 +177,14 @@ const gmPasswordCurrentInput = document.getElementById('gm-password-current') as
 const gmPasswordNextInput = document.getElementById('gm-password-next') as HTMLInputElement;
 const gmPasswordSaveBtn = document.getElementById('gm-password-save') as HTMLButtonElement;
 const playerWorkspaceEl = document.getElementById('player-workspace') as HTMLElement;
+const afdianWorkspaceEl = document.getElementById('afdian-workspace') as HTMLElement;
 const suggestionWorkspaceEl = document.getElementById('suggestion-workspace') as HTMLElement;
 const serverWorkspaceEl = document.getElementById('server-workspace') as HTMLElement;
 const worldWorkspaceEl = document.getElementById('world-workspace') as HTMLElement;
 const shortcutWorkspaceEl = document.getElementById('shortcut-workspace') as HTMLElement;
 const shortcutMailComposerEl = document.getElementById('shortcut-mail-composer') as HTMLDivElement | null;
 const serverTabBtn = document.getElementById('gm-tab-server') as HTMLButtonElement;
+const afdianTabBtn = document.getElementById('gm-tab-afdian') as HTMLButtonElement;
 const playerTabBtn = document.getElementById('gm-tab-players') as HTMLButtonElement;
 const suggestionTabBtn = document.getElementById('gm-tab-suggestions') as HTMLButtonElement;
 const worldTabBtn = document.getElementById('gm-tab-world') as HTMLButtonElement;
@@ -187,6 +195,25 @@ const suggestionSearchClearBtn = document.getElementById('gm-suggestion-search-c
 const suggestionPrevPageBtn = document.getElementById('gm-suggestion-page-prev') as HTMLButtonElement;
 const suggestionNextPageBtn = document.getElementById('gm-suggestion-page-next') as HTMLButtonElement;
 const suggestionPageMetaEl = document.getElementById('gm-suggestion-page-meta') as HTMLDivElement;
+const afdianRefreshBtn = document.getElementById('afdian-refresh') as HTMLButtonElement;
+const afdianSaveConfigBtn = document.getElementById('afdian-save-config') as HTMLButtonElement;
+const afdianPingBtn = document.getElementById('afdian-ping') as HTMLButtonElement;
+const afdianSyncBtn = document.getElementById('afdian-sync') as HTMLButtonElement;
+const afdianConfigUserIdInput = document.getElementById('afdian-config-user-id') as HTMLInputElement;
+const afdianConfigTokenInput = document.getElementById('afdian-config-token') as HTMLInputElement;
+const afdianConfigApiBaseUrlInput = document.getElementById('afdian-config-api-base-url') as HTMLInputElement;
+const afdianConfigPublicBaseUrlInput = document.getElementById('afdian-config-public-base-url') as HTMLInputElement;
+const afdianStatusEnabledEl = document.getElementById('afdian-status-enabled') as HTMLDivElement;
+const afdianStatusApiEnabledEl = document.getElementById('afdian-status-api-enabled') as HTMLDivElement;
+const afdianStatusHasTokenEl = document.getElementById('afdian-status-has-token') as HTMLDivElement;
+const afdianStatusWebhookPathEl = document.getElementById('afdian-status-webhook-path') as HTMLDivElement;
+const afdianStatusWebhookUrlEl = document.getElementById('afdian-status-webhook-url') as HTMLSpanElement;
+const afdianStatusNoteEl = document.getElementById('afdian-status-note') as HTMLDivElement;
+const afdianSyncPageInput = document.getElementById('afdian-sync-page') as HTMLInputElement;
+const afdianSyncMaxPagesInput = document.getElementById('afdian-sync-max-pages') as HTMLInputElement;
+const afdianSyncOrderNoInput = document.getElementById('afdian-sync-order-no') as HTMLInputElement;
+const afdianOrdersMetaEl = document.getElementById('afdian-orders-meta') as HTMLDivElement;
+const afdianOrdersEl = document.getElementById('afdian-orders') as HTMLDivElement;
 
 type PlayerSortMode = 'realm-desc' | 'realm-asc' | 'online' | 'map' | 'name';
 type GmEditorTab = GmPlayerUpdateSection | 'mail' | 'persisted';
@@ -227,7 +254,7 @@ let draftSnapshot: PlayerState | null = null;
 let editorDirty = false;
 let draftSourcePlayerId: string | null = null;
 let pollTimer: number | null = null;
-let currentTab: 'server' | 'players' | 'suggestions' | 'world' | 'shortcuts' = 'server';
+let currentTab: 'server' | 'afdian' | 'players' | 'suggestions' | 'world' | 'shortcuts' = 'server';
 let currentServerTab: 'overview' | 'traffic' | 'cpu' | 'database' = 'overview';
 let currentCpuBreakdownSort: 'total' | 'count' | 'avg' = 'total';
 let currentEditorTab: GmEditorTab = 'basic';
@@ -247,6 +274,9 @@ let lastCpuBreakdownStructureKey: string | null = null;
 let lastPathfindingFailureStructureKey: string | null = null;
 let lastShortcutMailComposerStructureKey: string | null = null;
 let databaseStateLoading = false;
+let afdianConfigState: GmAfdianConfigRes | null = null;
+let afdianOrdersState: AfdianOrderListResponse | null = null;
+let afdianLoading = false;
 let directMailDraftPlayerId: string | null = null;
 let directMailDraft = createDefaultMailComposerDraft();
 let broadcastMailDraft = createDefaultMailComposerDraft();
@@ -1531,6 +1561,159 @@ function renderDatabasePanel(): void {
   `;
 }
 
+function formatAfdianOrderStatus(status: number): string {
+  switch (status) {
+    case 1:
+      return '待支付';
+    case 2:
+      return '已支付';
+    case 3:
+      return '已关闭';
+    default:
+      return `状态 ${status}`;
+  }
+}
+
+function getAfdianOrderMarkup(order: AfdianStoredOrderItem): string {
+  const title = order.title || order.planId || order.outTradeNo;
+  const amount = order.showAmount || order.totalAmount || '0.00';
+  const meta = [
+    `用户 ${order.userId}`,
+    `金额 ${amount}`,
+    formatAfdianOrderStatus(order.status),
+    `来源 ${order.lastSource === 'api' ? 'API' : 'Webhook'}`,
+    `更新 ${formatDateTime(order.updatedAt)}`,
+  ].join(' · ');
+  return `
+    <div class="network-row">
+      <div class="network-row-label">${escapeHtml(title)}</div>
+      <div class="network-row-meta">${escapeHtml(meta)}</div>
+      <div class="network-row-meta" style="margin-top: 6px;">订单号：${escapeHtml(order.outTradeNo)}</div>
+    </div>
+  `;
+}
+
+function renderAfdianPanel(): void {
+  const config = afdianConfigState?.config;
+  const status = afdianConfigState?.status;
+  if (config) {
+    setTextLikeValue(afdianConfigUserIdInput, config.userId);
+    setTextLikeValue(afdianConfigTokenInput, config.token);
+    setTextLikeValue(afdianConfigApiBaseUrlInput, config.apiBaseUrl);
+    setTextLikeValue(afdianConfigPublicBaseUrlInput, config.publicBaseUrl);
+  }
+
+  afdianStatusEnabledEl.textContent = status ? (status.enabled ? '已配置' : '未配置') : '读取中';
+  afdianStatusApiEnabledEl.textContent = status ? (status.apiEnabled ? '可调用' : '待补 token') : '读取中';
+  afdianStatusHasTokenEl.textContent = status ? (status.hasToken ? '已设置' : '未设置') : '读取中';
+  afdianStatusWebhookPathEl.textContent = status?.webhookPath ?? '-';
+  afdianStatusWebhookUrlEl.textContent = status?.webhookUrl ?? '未配置公网域名';
+  afdianStatusNoteEl.innerHTML = status
+    ? `当前 webhook 路径：<strong>${escapeHtml(status.webhookPath)}</strong><br />`
+      + `完整 webhook 地址：<strong>${escapeHtml(status.webhookUrl ?? '未配置公网域名')}</strong>`
+    : '正在读取爱发电配置…';
+
+  const orders = afdianOrdersState?.items ?? [];
+  afdianOrdersMetaEl.textContent = afdianLoading && !afdianOrdersState
+    ? '正在读取订单…'
+    : `共 ${afdianOrdersState?.total ?? 0} 条，当前展示最近 ${orders.length} 条`;
+  afdianOrdersEl.innerHTML = orders.length > 0
+    ? orders.map((order) => getAfdianOrderMarkup(order)).join('')
+    : '<div class="empty-hint">当前还没有爱发电订单。</div>';
+}
+
+async function loadAfdianConfig(silent = false): Promise<void> {
+  const data = await request<GmAfdianConfigRes>('/gm/afdian/config');
+  afdianConfigState = data;
+  renderAfdianPanel();
+  if (!silent) {
+    setStatus('爱发电配置已同步');
+  }
+}
+
+async function loadAfdianOrders(silent = false): Promise<void> {
+  afdianLoading = true;
+  renderAfdianPanel();
+  try {
+    const data = await request<AfdianOrderListResponse>('/gm/afdian/orders?limit=20&offset=0');
+    afdianOrdersState = data;
+    if (!silent) {
+      setStatus(`爱发电订单已同步，当前展示 ${data.items.length} 条`);
+    }
+  } finally {
+    afdianLoading = false;
+    renderAfdianPanel();
+  }
+}
+
+async function loadAfdianPanel(silent = false): Promise<void> {
+  await Promise.all([
+    loadAfdianConfig(true),
+    loadAfdianOrders(true),
+  ]);
+  if (!silent) {
+    setStatus('爱发电面板已同步');
+  }
+}
+
+async function saveAfdianConfig(): Promise<void> {
+  afdianSaveConfigBtn.disabled = true;
+  try {
+    const payload: GmUpdateAfdianConfigReq = {
+      userId: afdianConfigUserIdInput.value.trim(),
+      token: afdianConfigTokenInput.value.trim(),
+      apiBaseUrl: afdianConfigApiBaseUrlInput.value.trim(),
+      publicBaseUrl: afdianConfigPublicBaseUrlInput.value.trim(),
+    };
+    afdianConfigState = await request<GmAfdianConfigRes>('/gm/afdian/config', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    renderAfdianPanel();
+    setStatus('爱发电配置已写入 env，并已同步到当前服务进程');
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '保存爱发电配置失败', true);
+  } finally {
+    afdianSaveConfigBtn.disabled = false;
+  }
+}
+
+async function pingAfdianApi(): Promise<void> {
+  afdianPingBtn.disabled = true;
+  try {
+    const result = await request<AfdianConfigStatus & { reachable: boolean }>('/gm/afdian/ping', {
+      method: 'POST',
+    });
+    await loadAfdianConfig(true);
+    setStatus(result.reachable ? '爱发电 API 测试成功' : '爱发电 API 不可达', !result.reachable);
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '测试爱发电 API 失败', true);
+  } finally {
+    afdianPingBtn.disabled = false;
+  }
+}
+
+async function syncAfdianOrders(): Promise<void> {
+  afdianSyncBtn.disabled = true;
+  try {
+    const payload = {
+      page: Math.max(1, Math.floor(Number(afdianSyncPageInput.value) || 1)),
+      maxPages: Math.max(1, Math.min(20, Math.floor(Number(afdianSyncMaxPagesInput.value) || 1))),
+      outTradeNo: afdianSyncOrderNoInput.value.trim() || undefined,
+    };
+    const result = await request<AfdianSyncOrdersResponse>('/gm/afdian/orders/sync', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    await loadAfdianOrders(true);
+    setStatus(`爱发电补单完成：同步 ${result.syncedPages} 页，拉取 ${result.receivedOrders} 条，写入 ${result.upsertedOrders} 条`);
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '爱发电补单失败', true);
+  } finally {
+    afdianSyncBtn.disabled = false;
+  }
+}
+
 async function loadDatabaseState(silent = false): Promise<void> {
   if (!token) {
     return;
@@ -1612,24 +1795,30 @@ function setCpuBreakdownSort(sort: 'total' | 'count' | 'avg'): void {
   }
 }
 
-function switchTab(tab: 'server' | 'players' | 'suggestions' | 'world' | 'shortcuts'): void {
+function switchTab(tab: 'server' | 'afdian' | 'players' | 'suggestions' | 'world' | 'shortcuts'): void {
   // 离开世界管理时停止轮询
   if (currentTab === 'world' && tab !== 'world') {
     worldViewer.stopPolling();
   }
   currentTab = tab;
   serverTabBtn.classList.toggle('active', tab === 'server');
+  afdianTabBtn.classList.toggle('active', tab === 'afdian');
   playerTabBtn.classList.toggle('active', tab === 'players');
   worldTabBtn.classList.toggle('active', tab === 'world');
   shortcutTabBtn.classList.toggle('active', tab === 'shortcuts');
   suggestionTabBtn.classList.toggle('active', tab === 'suggestions');
   serverWorkspaceEl.classList.toggle('hidden', tab !== 'server');
+  afdianWorkspaceEl.classList.toggle('hidden', tab !== 'afdian');
   playerWorkspaceEl.classList.toggle('hidden', tab !== 'players');
   worldWorkspaceEl.classList.toggle('hidden', tab !== 'world');
   shortcutWorkspaceEl.classList.toggle('hidden', tab !== 'shortcuts');
   suggestionWorkspaceEl.classList.toggle('hidden', tab !== 'suggestions');
   if (tab === 'suggestions') {
     loadSuggestions().catch(() => {});
+  } else if (tab === 'afdian') {
+    loadAfdianPanel(true).catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '加载爱发电面板失败', true);
+    });
   } else if (tab === 'world') {
     worldViewer.mount();
     if (state) {
@@ -3084,6 +3273,9 @@ function logout(message?: string): void {
   state = null;
   databaseState = null;
   databaseStateLoading = false;
+  afdianConfigState = null;
+  afdianOrdersState = null;
+  afdianLoading = false;
   selectedPlayerId = null;
   selectedPlayerDetail = null;
   loadingPlayerDetailId = null;
@@ -3878,6 +4070,7 @@ playerSortSelect.addEventListener('change', () => {
   if (!state) return;
   renderPlayerList(state);
 });
+afdianTabBtn.addEventListener('click', () => switchTab('afdian'));
 playerTabBtn.addEventListener('click', () => switchTab('players'));
 suggestionTabBtn.addEventListener('click', () => switchTab('suggestions'));
 serverTabBtn.addEventListener('click', () => switchTab('server'));
@@ -4002,6 +4195,20 @@ resetCpuStatsBtn.addEventListener('click', () => {
 });
 resetPathfindingStatsBtn.addEventListener('click', () => {
   resetPathfindingStats().catch(() => {});
+});
+afdianRefreshBtn.addEventListener('click', () => {
+  loadAfdianPanel(false).catch((error: unknown) => {
+    setStatus(error instanceof Error ? error.message : '刷新爱发电面板失败', true);
+  });
+});
+afdianSaveConfigBtn.addEventListener('click', () => {
+  saveAfdianConfig().catch(() => {});
+});
+afdianPingBtn.addEventListener('click', () => {
+  pingAfdianApi().catch(() => {});
+});
+afdianSyncBtn.addEventListener('click', () => {
+  syncAfdianOrders().catch(() => {});
 });
 serverPanelDatabaseEl.addEventListener('click', (event) => {
   const target = event.target as HTMLElement | null;

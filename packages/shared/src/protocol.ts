@@ -1011,6 +1011,75 @@ export interface GmStateRes {
   perf: GmPerformanceSnapshot;
 }
 
+export interface AfdianConfigForm {
+  userId: string;
+  token: string;
+  apiBaseUrl: string;
+  publicBaseUrl: string;
+}
+
+export interface AfdianConfigStatus {
+  enabled: boolean;
+  apiEnabled: boolean;
+  webhookPath: string;
+  webhookUrl: string | null;
+  apiBaseUrl: string;
+  userId: string | null;
+  hasToken: boolean;
+}
+
+export interface GmAfdianConfigRes {
+  config: AfdianConfigForm;
+  status: AfdianConfigStatus;
+}
+
+export interface GmUpdateAfdianConfigReq extends AfdianConfigForm {}
+
+export interface AfdianStoredOrderItem {
+  outTradeNo: string;
+  userId: string;
+  userPrivateId: string | null;
+  planId: string | null;
+  title: string | null;
+  month: number;
+  totalAmount: string;
+  showAmount: string;
+  status: number;
+  remark: string | null;
+  redeemId: string | null;
+  productType: number;
+  discount: string;
+  skuDetail: unknown[];
+  addressPerson: string | null;
+  addressPhone: string | null;
+  addressAddress: string | null;
+  lastSource: 'webhook' | 'api';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AfdianOrderListResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  items: AfdianStoredOrderItem[];
+}
+
+export interface AfdianSyncOrdersRequest {
+  page?: number;
+  maxPages?: number;
+  outTradeNo?: string;
+}
+
+export interface AfdianSyncOrdersResponse {
+  requestedPages: number;
+  syncedPages: number;
+  receivedOrders: number;
+  upsertedOrders: number;
+  totalCount: number | null;
+  totalPage: number | null;
+}
+
 export type GmDatabaseBackupKind = 'hourly' | 'daily' | 'manual' | 'pre_import';
 
 export type GmDatabaseJobType = 'backup' | 'restore';

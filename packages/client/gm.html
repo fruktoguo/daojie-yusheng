@@ -1315,6 +1315,7 @@
       <div class="shell-brand">道劫余生 · 监察司</div>
       <div class="shell-tabs">
         <button class="shell-tab active" id="gm-tab-server" data-gm-tab="server" type="button">服务器信息</button>
+        <button class="shell-tab" id="gm-tab-afdian" data-gm-tab="afdian" type="button">爱发电</button>
         <button class="shell-tab" id="gm-tab-players" data-gm-tab="players" type="button">玩家管理</button>
         <button class="shell-tab" id="gm-tab-world" data-gm-tab="world" type="button">世界管理</button>
         <button class="shell-tab" id="gm-tab-shortcuts" data-gm-tab="shortcuts" type="button">快捷指令</button>
@@ -1479,6 +1480,96 @@
         </div>
         <div id="server-panel-database" class="server-tab-panel hidden">
           <div class="note-card">正在准备数据库管理面板…</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="afdian-workspace" class="layout-section hidden" style="flex:1; min-height:0;">
+      <div class="panel-stamp">赞</div>
+      <div class="section-head">
+        <div class="shell-title">爱发电接入</div>
+        <div class="shell-subtitle">配置 webhook / token，并查看最近订单</div>
+      </div>
+      <div class="section-body">
+        <div class="button-row" style="margin-bottom: 12px;">
+          <button id="afdian-refresh" class="small-btn" type="button">刷新</button>
+          <button id="afdian-save-config" class="small-btn primary" type="button">保存到 env</button>
+          <button id="afdian-ping" class="small-btn" type="button">测试 API</button>
+        </div>
+        <div class="summary-grid">
+          <div class="summary-card"><div class="panel-title">接入状态</div><div id="afdian-status-enabled" class="panel-value">未配置</div></div>
+          <div class="summary-card"><div class="panel-title">API 状态</div><div id="afdian-status-api-enabled" class="panel-value">未配置</div></div>
+          <div class="summary-card"><div class="panel-title">Token</div><div id="afdian-status-has-token" class="panel-value">未设置</div></div>
+          <div class="summary-card"><div class="panel-title">Webhook 路径</div><div id="afdian-status-webhook-path" class="panel-value" style="font-size:16px;">-</div></div>
+        </div>
+        <div class="note-card" id="afdian-status-note">
+          这里保存的配置会直接写入服务端 `packages/server/.env`，并同步更新当前服务进程的环境变量。
+        </div>
+
+        <div class="editor-section" style="margin-top: 12px;">
+          <div class="editor-section-head">
+            <div>
+              <div class="editor-section-title">配置</div>
+              <div class="editor-section-note">`user_id`、`token`、公开域名都可以在这里直接改并落盘。</div>
+            </div>
+          </div>
+          <div class="editor-grid compact">
+            <label class="editor-field">
+              <span>开发者 user_id</span>
+              <input id="afdian-config-user-id" type="text" autocomplete="off" spellcheck="false" />
+            </label>
+            <label class="editor-field">
+              <span>Token</span>
+              <input id="afdian-config-token" type="password" autocomplete="off" spellcheck="false" />
+            </label>
+            <label class="editor-field">
+              <span>API Base URL</span>
+              <input id="afdian-config-api-base-url" type="text" autocomplete="off" spellcheck="false" />
+            </label>
+            <label class="editor-field">
+              <span>公网 Base URL</span>
+              <input id="afdian-config-public-base-url" type="text" autocomplete="off" spellcheck="false" placeholder="https://你的域名" />
+            </label>
+          </div>
+          <div class="note-card" style="margin-top: 10px;">
+            <div><strong>Webhook 地址：</strong><span id="afdian-status-webhook-url">未配置公网域名</span></div>
+          </div>
+        </div>
+
+        <div class="editor-section" style="margin-top: 12px;">
+          <div class="editor-section-head">
+            <div>
+              <div class="editor-section-title">手动补单</div>
+              <div class="editor-section-note">可按页拉历史订单，也可以按订单号精确补拉。</div>
+            </div>
+          </div>
+          <div class="editor-grid compact">
+            <label class="editor-field">
+              <span>起始页</span>
+              <input id="afdian-sync-page" type="number" min="1" value="1" />
+            </label>
+            <label class="editor-field">
+              <span>最多页数</span>
+              <input id="afdian-sync-max-pages" type="number" min="1" max="20" value="1" />
+            </label>
+            <label class="editor-field wide">
+              <span>订单号</span>
+              <input id="afdian-sync-order-no" type="text" autocomplete="off" spellcheck="false" placeholder="留空则按页拉取" />
+            </label>
+          </div>
+          <div class="button-row" style="margin-top: 10px;">
+            <button id="afdian-sync" class="small-btn primary" type="button">立即补单</button>
+          </div>
+        </div>
+
+        <div class="network-breakdown" style="margin-top: 12px;">
+          <div class="network-breakdown-head">
+            <div>
+              <div class="panel-title">最近订单</div>
+              <div id="afdian-orders-meta" class="network-breakdown-subtitle">正在读取订单…</div>
+            </div>
+          </div>
+          <div id="afdian-orders" class="network-breakdown-list"><div class="empty-hint">正在读取订单…</div></div>
         </div>
       </div>
     </section>
