@@ -95,12 +95,14 @@ const editorTabRealmBtn = document.getElementById('editor-tab-realm') as HTMLBut
 const editorTabTechniquesBtn = document.getElementById('editor-tab-techniques') as HTMLButtonElement;
 const editorTabItemsBtn = document.getElementById('editor-tab-items') as HTMLButtonElement;
 const editorTabQuestsBtn = document.getElementById('editor-tab-quests') as HTMLButtonElement;
+const editorTabMailBtn = document.getElementById('editor-tab-mail') as HTMLButtonElement;
 const editorTabPersistedBtn = document.getElementById('editor-tab-persisted') as HTMLButtonElement;
 const playerJsonEl = document.getElementById('player-json') as HTMLTextAreaElement;
 const playerPersistedJsonEl = document.getElementById('player-persisted-json') as HTMLTextAreaElement;
 const applyRawJsonBtn = document.getElementById('apply-raw-json') as HTMLButtonElement;
 const savePlayerBtn = document.getElementById('save-player') as HTMLButtonElement;
 const refreshPlayerBtn = document.getElementById('refresh-player') as HTMLButtonElement;
+const openPlayerMailBtn = document.getElementById('open-player-mail') as HTMLButtonElement;
 const resetPlayerBtn = document.getElementById('reset-player') as HTMLButtonElement;
 const resetHeavenGateBtn = document.getElementById('reset-heaven-gate') as HTMLButtonElement;
 const removeBotBtn = document.getElementById('remove-bot') as HTMLButtonElement;
@@ -187,6 +189,7 @@ const suggestionNextPageBtn = document.getElementById('gm-suggestion-page-next')
 const suggestionPageMetaEl = document.getElementById('gm-suggestion-page-meta') as HTMLDivElement;
 
 type PlayerSortMode = 'realm-desc' | 'realm-asc' | 'online' | 'map' | 'name';
+type GmEditorTab = GmPlayerUpdateSection | 'mail' | 'persisted';
 
 interface GmMailAttachmentDraft {
   itemId: string;
@@ -202,6 +205,8 @@ interface GmMailComposerDraft {
   expireHours: string;
   attachments: GmMailAttachmentDraft[];
 }
+
+const MAIL_ATTACHMENT_ITEM_PAGE_SIZE = 10;
 
 startClientVersionReload({
   onBeforeReload: () => {
@@ -225,7 +230,7 @@ let pollTimer: number | null = null;
 let currentTab: 'server' | 'players' | 'suggestions' | 'world' | 'shortcuts' = 'server';
 let currentServerTab: 'overview' | 'traffic' | 'cpu' | 'database' = 'overview';
 let currentCpuBreakdownSort: 'total' | 'count' | 'avg' = 'total';
-let currentEditorTab: GmPlayerUpdateSection | 'persisted' = 'basic';
+let currentEditorTab: GmEditorTab = 'basic';
 let currentInventoryAddType: (typeof ITEM_TYPES)[number] = 'material';
 let currentPlayerSort: PlayerSortMode = (playerSortSelect.value as PlayerSortMode) || 'realm-desc';
 let currentSuggestionPage = 1;
@@ -245,6 +250,9 @@ let databaseStateLoading = false;
 let directMailDraftPlayerId: string | null = null;
 let directMailDraft = createDefaultMailComposerDraft();
 let broadcastMailDraft = createDefaultMailComposerDraft();
+let shortcutMailComposerRefreshBlocked = false;
+let directMailAttachmentPageByIndex = new Map<number, number>();
+let shortcutMailAttachmentPageByIndex = new Map<number, number>();
 
 function getBrowserLocalStorage(): Storage | null {
   try {
@@ -308,6 +316,7 @@ function ensureDirectMailDraft(playerId: string | null): void {
   if (!playerId) {
     directMailDraftPlayerId = null;
     directMailDraft = createDefaultMailComposerDraft();
+    directMailAttachmentPageByIndex = new Map();
     return;
   }
   if (directMailDraftPlayerId === playerId) {
@@ -315,6 +324,7 @@ function ensureDirectMailDraft(playerId: string | null): void {
   }
   directMailDraftPlayerId = playerId;
   directMailDraft = createDefaultMailComposerDraft();
+  directMailAttachmentPageByIndex = new Map();
 }
 
 function clone<T>(value: T): T {
@@ -637,6 +647,61 @@ function getMailAttachmentItemOptions(): Array<{ value: string; label: string }>
   return getItemCatalogOptions();
 }
 
+function getMailAttachmentPageStore(scope: 'direct' | 'shortcut'): Map<number, number> {
+  return scope === 'direct' ? directMailAttachmentPageByIndex : shortcutMailAttachmentPageByIndex;
+}
+
+function resetMailAttachmentPageStore(scope: 'direct' | 'shortcut'): void {
+  if (scope === 'direct') {
+    directMailAttachmentPageByIndex = new Map();
+    return;
+  }
+  shortcutMailAttachmentPageByIndex = new Map();
+}
+
+function getMailAttachmentItemPageState(
+  scope: 'direct' | 'shortcut',
+  attachmentIndex: number,
+  selectedItemId: string,
+): {
+  page: number;
+  totalPages: number;
+  options: Array<{ value: string; label: string }>;
+} {
+  const allOptions = getMailAttachmentItemOptions();
+  const totalPages = Math.max(1, Math.ceil(allOptions.length / MAIL_ATTACHMENT_ITEM_PAGE_SIZE));
+  const selectedIndex = selectedItemId
+    ? allOptions.findIndex((option) => option.value === selectedItemId)
+    : -1;
+  const fallbackPage = selectedIndex >= 0
+    ? Math.floor(selectedIndex / MAIL_ATTACHMENT_ITEM_PAGE_SIZE) + 1
+    : 1;
+  const pageStore = getMailAttachmentPageStore(scope);
+  const storedPage = pageStore.get(attachmentIndex) ?? fallbackPage;
+  const page = Math.min(totalPages, Math.max(1, storedPage));
+  if (pageStore.get(attachmentIndex) !== page) {
+    pageStore.set(attachmentIndex, page);
+  }
+  const start = (page - 1) * MAIL_ATTACHMENT_ITEM_PAGE_SIZE;
+  const pagedOptions = allOptions.slice(start, start + MAIL_ATTACHMENT_ITEM_PAGE_SIZE);
+  const selectedOption = selectedItemId
+    ? allOptions.find((option) => option.value === selectedItemId) ?? null
+    : null;
+  const options = selectedOption && !pagedOptions.some((option) => option.value === selectedOption.value)
+    ? [selectedOption, ...pagedOptions]
+    : pagedOptions;
+  return {
+    page,
+    totalPages,
+    options,
+  };
+}
+
+function updateMailAttachmentItemPage(scope: 'direct' | 'shortcut', attachmentIndex: number, rawValue: string): void {
+  const page = Math.max(1, Math.floor(Number(rawValue || '1')) || 1);
+  getMailAttachmentPageStore(scope).set(attachmentIndex, page);
+}
+
 function getMailAttachmentRowMeta(itemId: string): string {
   const entry = findItemCatalogEntry(itemId);
   if (!entry) {
@@ -708,7 +773,9 @@ function getMailComposerMarkup(
   const attachmentRows = usesServerManagedTemplate
     ? `<div class="editor-note">${escapeHtml(templateMeta?.description || '该模板的附件由服务端固定生成。')}</div>`
     : draft.attachments.length > 0
-      ? draft.attachments.map((entry, index) => `
+      ? draft.attachments.map((entry, index) => {
+        const pageState = getMailAttachmentItemPageState(options.scope, index, entry.itemId);
+        return `
         <div class="editor-card">
           <div class="editor-card-head">
             <div>
@@ -718,11 +785,25 @@ function getMailComposerMarkup(
             <button class="small-btn danger" type="button" data-action="${options.scope === 'direct' ? 'remove-direct-mail-attachment' : 'remove-shortcut-mail-attachment'}" data-mail-attachment-index="${index}">删除附件</button>
           </div>
           <div class="editor-grid compact">
+            ${pageState.totalPages > 1 ? `
+            <label class="editor-field">
+              <span>物品页码</span>
+              <select data-mail-item-page="${options.scope}.${index}">
+                ${optionsMarkup(
+                  Array.from({ length: pageState.totalPages }, (_, pageIndex) => ({
+                    value: pageIndex + 1,
+                    label: `第 ${pageIndex + 1} / ${pageState.totalPages} 页`,
+                  })),
+                  pageState.page,
+                )}
+              </select>
+            </label>
+            ` : ''}
             <label class="editor-field wide">
               <span>物品模板</span>
               <select data-mail-bind="${options.scope}.attachments.${index}.itemId">
                 <option value="">选择物品模板</option>
-                ${optionsMarkup(getMailAttachmentItemOptions(), entry.itemId)}
+                ${optionsMarkup(pageState.options, entry.itemId)}
               </select>
             </label>
             <label class="editor-field">
@@ -731,7 +812,8 @@ function getMailComposerMarkup(
             </label>
           </div>
         </div>
-      `).join('')
+      `;
+      }).join('')
       : '<div class="editor-note">当前没有附件。</div>';
   const targetPlayerField = options.showTargetPlayer
     ? `
@@ -776,7 +858,7 @@ function getMailComposerMarkup(
         <div class="editor-section-head">
           <div>
             <div class="editor-section-title">模板附件</div>
-            <div class="editor-section-note">当前模板会附带全部装备各一件、全部非神通功法书各一本到，以及五枚苦修丹。</div>
+            <div class="editor-section-note">当前模板会附带指定常用装备一套、全部非神通功法书各一本到，以及五枚苦修丹。</div>
           </div>
         </div>
         <div class="editor-card-list">${attachmentRows}</div>
@@ -1304,7 +1386,7 @@ function getSuggestionCardMarkup(suggestion: Suggestion): string {
   `;
 }
 
-function getEditorTabLabel(tab: GmPlayerUpdateSection | 'persisted'): string {
+function getEditorTabLabel(tab: GmEditorTab): string {
   switch (tab) {
     case 'basic':
       return '基础';
@@ -1318,12 +1400,14 @@ function getEditorTabLabel(tab: GmPlayerUpdateSection | 'persisted'): string {
       return '物品';
     case 'quests':
       return '任务';
+    case 'mail':
+      return '邮件';
     case 'persisted':
       return '持久化 JSON';
   }
 }
 
-function switchEditorTab(tab: GmPlayerUpdateSection | 'persisted'): void {
+function switchEditorTab(tab: GmEditorTab): void {
   currentEditorTab = tab;
   editorTabBasicBtn.classList.toggle('active', tab === 'basic');
   editorTabPositionBtn.classList.toggle('active', tab === 'position');
@@ -1331,14 +1415,21 @@ function switchEditorTab(tab: GmPlayerUpdateSection | 'persisted'): void {
   editorTabTechniquesBtn.classList.toggle('active', tab === 'techniques');
   editorTabItemsBtn.classList.toggle('active', tab === 'items');
   editorTabQuestsBtn.classList.toggle('active', tab === 'quests');
+  editorTabMailBtn.classList.toggle('active', tab === 'mail');
   editorTabPersistedBtn.classList.toggle('active', tab === 'persisted');
   editorVisualPanelEl.classList.toggle('hidden', tab === 'persisted');
   editorPersistedPanelEl.classList.toggle('hidden', tab !== 'persisted');
   editorContentEl.querySelectorAll<HTMLElement>('[data-editor-tab]').forEach((section) => {
     section.classList.toggle('hidden', section.dataset.editorTab !== tab);
   });
-  savePlayerBtn.textContent = tab === 'persisted' ? '高级区不直接保存' : `保存${getEditorTabLabel(tab)}`;
-  savePlayerBtn.disabled = tab === 'persisted' || !selectedPlayerId;
+  if (tab === 'persisted') {
+    savePlayerBtn.textContent = '高级区不直接保存';
+  } else if (tab === 'mail') {
+    savePlayerBtn.textContent = '邮件标签不直接保存';
+  } else {
+    savePlayerBtn.textContent = `保存${getEditorTabLabel(tab)}`;
+  }
+  savePlayerBtn.disabled = tab === 'persisted' || tab === 'mail' || !selectedPlayerId;
 }
 
 function setStatus(message: string, isError = false): void {
@@ -1575,7 +1666,7 @@ async function loadEditorCatalog(): Promise<void> {
   renderShortcutMailComposer();
 }
 
-function renderShortcutMailComposer(): void {
+function renderShortcutMailComposer(preserveActiveInteraction = false): void {
   if (!shortcutMailComposerEl) {
     return;
   }
@@ -1600,6 +1691,17 @@ function renderShortcutMailComposer(): void {
       .filter((player) => !player.meta.isBot)
       .map((player) => `${player.id}:${player.roleName}:${player.accountName || ''}:${player.meta.online ? 1 : 0}`),
   });
+  const activeElement = document.activeElement;
+  const activeField = activeElement instanceof HTMLInputElement
+    || activeElement instanceof HTMLSelectElement
+    || activeElement instanceof HTMLTextAreaElement
+    ? activeElement
+    : null;
+  if (preserveActiveInteraction && activeField && shortcutMailComposerEl.contains(activeField)) {
+    shortcutMailComposerRefreshBlocked = true;
+    return;
+  }
+  shortcutMailComposerRefreshBlocked = false;
   if (lastShortcutMailComposerStructureKey === structureKey) {
     return;
   }
@@ -1612,6 +1714,24 @@ function renderShortcutMailComposer(): void {
     showTargetPlayer: true,
   });
   lastShortcutMailComposerStructureKey = structureKey;
+}
+
+function flushShortcutMailComposerRefresh(): void {
+  if (!shortcutMailComposerEl || !shortcutMailComposerRefreshBlocked) {
+    return;
+  }
+  const activeElement = document.activeElement;
+  const activeField = activeElement instanceof HTMLInputElement
+    || activeElement instanceof HTMLSelectElement
+    || activeElement instanceof HTMLTextAreaElement
+    ? activeElement
+    : null;
+  if (activeField && shortcutMailComposerEl.contains(activeField)) {
+    return;
+  }
+  lastShortcutMailComposerStructureKey = null;
+  shortcutMailComposerRefreshBlocked = false;
+  renderShortcutMailComposer(true);
 }
 
 function renderSuggestions(): void {
@@ -1789,6 +1909,7 @@ function rerenderDirectMailComposer(): void {
 function addMailAttachment(scope: 'direct' | 'shortcut'): void {
   const draft = scope === 'direct' ? directMailDraft : broadcastMailDraft;
   draft.attachments.push(createDefaultMailAttachmentDraft());
+  resetMailAttachmentPageStore(scope);
   if (scope === 'direct') {
     rerenderDirectMailComposer();
     return;
@@ -1802,6 +1923,7 @@ function removeMailAttachment(scope: 'direct' | 'shortcut', index: number): void
     return;
   }
   draft.attachments.splice(index, 1);
+  resetMailAttachmentPageStore(scope);
   if (scope === 'direct') {
     rerenderDirectMailComposer();
     return;
@@ -1821,6 +1943,7 @@ async function sendDirectMail(): Promise<void> {
   });
   directMailDraft = createDefaultMailComposerDraft();
   directMailDraftPlayerId = detail.id;
+  resetMailAttachmentPageStore('direct');
   rerenderDirectMailComposer();
   setStatus(`已向 ${detail.roleName} 发送邮件：${result.mailId}`);
 }
@@ -1839,6 +1962,7 @@ async function sendShortcutMail(): Promise<void> {
     ? (state?.players.find((player) => player.id === targetPlayerId) ?? null)
     : null;
   broadcastMailDraft = createDefaultMailComposerDraft();
+  resetMailAttachmentPageStore('shortcut');
   renderShortcutMailComposer();
   setStatus(targetPlayer
     ? `已向 ${targetPlayer.roleName} 发送邮件：${result.mailId}`
@@ -2124,7 +2248,7 @@ function readonlyCodeBlock(title: string, path: string, value: unknown): string 
   `;
 }
 
-function renderEditorTabSection(tab: GmPlayerUpdateSection, content: string): string {
+function renderEditorTabSection(tab: GmEditorTab, content: string): string {
   return `<div data-editor-tab="${tab}">${content}</div>`;
 }
 
@@ -2382,20 +2506,6 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
     <section class="editor-section">
       <div class="editor-section-head">
         <div>
-          <div class="editor-section-title">角色邮件</div>
-          <div class="editor-section-note">给当前选中的角色发送邮件。在线角色会收到收件箱摘要更新，正文仍按需打开。</div>
-        </div>
-      </div>
-      ${getMailComposerMarkup(directMailDraft, {
-        scope: 'direct',
-        submitLabel: `发送给 ${player.name || '当前角色'}`,
-        note: '这里直接走 GM HTTP 接口写入邮件持久化表，不依赖客户端本地缓存。',
-      })}
-    </section>
-
-    <section class="editor-section">
-      <div class="editor-section-head">
-        <div>
           <div class="editor-section-title">基础资料</div>
           <div class="editor-section-note">人物本体、资源数值与运行时开关。</div>
         </div>
@@ -2580,6 +2690,22 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
       <div class="editor-card-list">${questMarkup}</div>
     </section>
     `)}
+
+    ${renderEditorTabSection('mail', `
+    <section class="editor-section">
+      <div class="editor-section-head">
+        <div>
+          <div class="editor-section-title">角色邮件</div>
+          <div class="editor-section-note">给当前选中的角色发送邮件。在线角色会收到收件箱摘要更新，正文仍按需打开。</div>
+        </div>
+      </div>
+      ${getMailComposerMarkup(directMailDraft, {
+        scope: 'direct',
+        submitLabel: `发送给 ${player.name || '当前角色'}`,
+        note: '这里直接走 GM HTTP 接口写入邮件持久化表，不依赖客户端本地缓存。',
+      })}
+    </section>
+    `)}
   `;
 }
 
@@ -2689,6 +2815,7 @@ function renderEditor(data: GmStateRes): void {
     playerPersistedJsonEl.value = '';
     savePlayerBtn.disabled = true;
     refreshPlayerBtn.disabled = true;
+    openPlayerMailBtn.disabled = true;
     removeBotBtn.style.display = 'none';
     removeBotBtn.disabled = true;
     clearEditorRenderCache();
@@ -2704,6 +2831,7 @@ function renderEditor(data: GmStateRes): void {
     playerPersistedJsonEl.value = '';
     savePlayerBtn.disabled = true;
     refreshPlayerBtn.disabled = true;
+    openPlayerMailBtn.disabled = true;
     removeBotBtn.style.display = 'none';
     removeBotBtn.disabled = true;
     clearEditorRenderCache();
@@ -2740,6 +2868,7 @@ function renderEditor(data: GmStateRes): void {
   setTextLikeValue(playerPersistedJsonEl, formatJson(detail.persistedSnapshot));
   switchEditorTab(currentEditorTab);
   refreshPlayerBtn.disabled = false;
+  openPlayerMailBtn.disabled = false;
 
   removeBotBtn.style.display = detail.meta.isBot ? '' : 'none';
   removeBotBtn.disabled = !detail.meta.isBot;
@@ -2753,11 +2882,11 @@ function render(): void {
   renderPlayerList(state);
   renderEditor(state);
   if (currentTab === 'shortcuts') {
-    renderShortcutMailComposer();
+    renderShortcutMailComposer(true);
   }
 }
 
-function getEditorTabSection(tab: GmPlayerUpdateSection | 'persisted'): HTMLElement | null {
+function getEditorTabSection(tab: GmEditorTab): HTMLElement | null {
   return editorContentEl.querySelector<HTMLElement>(`[data-editor-tab="${tab}"]`);
 }
 
@@ -2963,6 +3092,7 @@ function logout(message?: string): void {
   draftSourcePlayerId = null;
   ensureDirectMailDraft(null);
   broadcastMailDraft = createDefaultMailComposerDraft();
+  resetMailAttachmentPageStore('shortcut');
   sessionStorage.removeItem(GM_ACCESS_TOKEN_STORAGE_KEY);
   if (pollTimer !== null) {
     window.clearInterval(pollTimer);
@@ -3092,7 +3222,18 @@ async function applyRawJson(): Promise<void> {
 }
 
 function getCurrentEditorSaveSection(): GmPlayerUpdateSection | null {
-  return currentEditorTab === 'persisted' ? null : currentEditorTab;
+  return currentEditorTab === 'persisted' || currentEditorTab === 'mail' ? null : currentEditorTab;
+}
+
+function openSelectedPlayerMailTab(): void {
+  if (!selectedPlayerId) {
+    setStatus('请先选择角色', true);
+    return;
+  }
+  if (currentTab !== 'players') {
+    switchTab('players');
+  }
+  switchEditorTab('mail');
 }
 
 async function refreshSelectedPlayer(): Promise<void> {
@@ -3133,7 +3274,12 @@ async function saveSelectedPlayer(): Promise<void> {
   }
   const section = getCurrentEditorSaveSection();
   if (!section) {
-    setStatus('持久化 JSON 标签不直接保存，请先应用到可视化标签', true);
+    setStatus(
+      currentEditorTab === 'mail'
+        ? '邮件标签不参与角色保存，请直接使用邮件表单发送'
+        : '持久化 JSON 标签不直接保存，请先应用到可视化标签',
+      true,
+    );
     return;
   }
 
@@ -3587,6 +3733,18 @@ editorContentEl.addEventListener('change', (event) => {
     || target instanceof HTMLTextAreaElement
     || target instanceof HTMLSelectElement
   ) {
+    const pageBinding = target.dataset.mailItemPage;
+    if (pageBinding) {
+      const [scope, indexText] = pageBinding.split('.');
+      const attachmentIndex = Number(indexText);
+      if ((scope === 'direct' || scope === 'shortcut') && Number.isInteger(attachmentIndex)) {
+        updateMailAttachmentItemPage(scope, attachmentIndex, target.value);
+        if (scope === 'direct') {
+          rerenderDirectMailComposer();
+        }
+        return;
+      }
+    }
     const binding = target.dataset.mailBind;
     if (binding) {
       const [scope, ...rest] = binding.split('.');
@@ -3746,6 +3904,7 @@ editorTabRealmBtn.addEventListener('click', () => switchEditorTab('realm'));
 editorTabTechniquesBtn.addEventListener('click', () => switchEditorTab('techniques'));
 editorTabItemsBtn.addEventListener('click', () => switchEditorTab('items'));
 editorTabQuestsBtn.addEventListener('click', () => switchEditorTab('quests'));
+editorTabMailBtn.addEventListener('click', () => switchEditorTab('mail'));
 editorTabPersistedBtn.addEventListener('click', () => switchEditorTab('persisted'));
 
 document.getElementById('refresh-state')?.addEventListener('click', () => {
@@ -3807,6 +3966,16 @@ shortcutWorkspaceEl.addEventListener('change', (event) => {
     || target instanceof HTMLTextAreaElement
     || target instanceof HTMLSelectElement
   ) {
+    const pageBinding = target.dataset.mailItemPage;
+    if (pageBinding) {
+      const [scope, indexText] = pageBinding.split('.');
+      const attachmentIndex = Number(indexText);
+      if (scope === 'shortcut' && Number.isInteger(attachmentIndex)) {
+        updateMailAttachmentItemPage('shortcut', attachmentIndex, target.value);
+        renderShortcutMailComposer();
+        return;
+      }
+    }
     const binding = target.dataset.mailBind;
     if (!binding) {
       return;
@@ -3819,6 +3988,11 @@ shortcutWorkspaceEl.addEventListener('change', (event) => {
       }
     }
   }
+});
+shortcutWorkspaceEl.addEventListener('focusout', () => {
+  window.setTimeout(() => {
+    flushShortcutMailComposerRefresh();
+  }, 0);
 });
 resetNetworkStatsBtn.addEventListener('click', () => {
   resetNetworkStats().catch(() => {});
@@ -3871,6 +4045,9 @@ savePlayerBtn.addEventListener('click', () => {
 });
 refreshPlayerBtn.addEventListener('click', () => {
   refreshSelectedPlayer().catch(() => {});
+});
+openPlayerMailBtn.addEventListener('click', () => {
+  openSelectedPlayerMailTab();
 });
 resetPlayerBtn.addEventListener('click', () => {
   resetSelectedPlayer().catch(() => {});

@@ -118,6 +118,17 @@ export class MailService {
   private static readonly BEGINNER_JOURNEY_TEMPLATE_ID = MAIL_TEMPLATE_BEGINNER_JOURNEY_ID;
   private static readonly DEFAULT_SENDER_LABEL = '司命台';
   private static readonly BITTER_CULTIVATION_ELIXIR_ITEM_ID = 'pill.bitter_cultivation_elixir';
+  private static readonly BEGINNER_JOURNEY_EQUIPMENT_ITEM_IDS = [
+    'equip.starfall_spear',
+    'equip.spirit_ring',
+    'equip.echo_crystal_crest',
+    'equip.rift_guard_armor',
+    'equip.rune_robe',
+    'equip.dewstep_boots',
+    'equip.void_talisman',
+    'equip.soul_devour_token',
+    'equip.guiding_marrow_pendant',
+  ] as const;
 
   constructor(
     @InjectRepository(MailCampaignEntity)
@@ -487,8 +498,9 @@ export class MailService {
     const catalog = this.contentService.getEditorItemCatalog();
     const attachments: MailAttachment[] = [];
     const seen = new Set<string>();
-    for (const item of catalog) {
-      if (item.type !== 'equipment') {
+    for (const itemId of MailService.BEGINNER_JOURNEY_EQUIPMENT_ITEM_IDS) {
+      const item = catalog.find((entry) => entry.itemId === itemId);
+      if (!item || seen.has(item.itemId)) {
         continue;
       }
       attachments.push({ itemId: item.itemId, count: 1 });
