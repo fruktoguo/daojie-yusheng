@@ -1488,12 +1488,12 @@
       <div class="panel-stamp">赞</div>
       <div class="section-head">
         <div class="shell-title">爱发电接入</div>
-        <div class="shell-subtitle">配置 webhook / token，并查看最近订单</div>
+        <div class="shell-subtitle">配置 webhook / 运行时 token，并查看最近订单</div>
       </div>
       <div class="section-body">
         <div class="button-row" style="margin-bottom: 12px;">
           <button id="afdian-refresh" class="small-btn" type="button">刷新</button>
-          <button id="afdian-save-config" class="small-btn primary" type="button">保存到 env</button>
+          <button id="afdian-save-config" class="small-btn primary" type="button">保存配置</button>
           <button id="afdian-ping" class="small-btn" type="button">测试 API</button>
         </div>
         <div class="summary-grid">
@@ -1503,14 +1503,14 @@
           <div class="summary-card"><div class="panel-title">Webhook 路径</div><div id="afdian-status-webhook-path" class="panel-value" style="font-size:16px;">-</div></div>
         </div>
         <div class="note-card" id="afdian-status-note">
-          这里保存的配置会直接写入服务端 `packages/server/.env`，并同步更新当前服务进程的环境变量。
+          这里会把 `user_id`、API 地址和公网地址持久化到数据库；`token` 只写入当前服务进程的运行时内存，重启后需要重新输入。
         </div>
 
         <div class="editor-section" style="margin-top: 12px;">
           <div class="editor-section-head">
             <div>
               <div class="editor-section-title">配置</div>
-              <div class="editor-section-note">`user_id`、`token`、公开域名都可以在这里直接改并落盘。</div>
+              <div class="editor-section-note">`user_id`、API 地址、公开域名会持久化到数据库；`token` 只在当前运行期生效。</div>
             </div>
           </div>
           <div class="editor-grid compact">

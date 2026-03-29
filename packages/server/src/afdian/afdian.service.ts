@@ -3,16 +3,16 @@ import {
   Injectable,
   InternalServerErrorException,
   Logger,
+  OnModuleInit,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'node:crypto';
-import { promises as fs } from 'node:fs';
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
-import { dirname, resolve } from 'node:path';
 import { URL } from 'node:url';
 import { Repository } from 'typeorm';
+import { PersistentDocumentService } from '../database/persistent-document.service';
 import { AfdianOrderEntity } from '../database/entities/afdian-order.entity';
 import type {
   AfdianConfigForm,
@@ -29,43 +29,47 @@ const DEFAULT_AFDIAN_API_BASE_URL = 'https://afdian.net';
 const DEFAULT_AFDIAN_WEBHOOK_PATH = '/integrations/afdian/webhook';
 const AFDIAN_PING_PATH = '/api/open/ping';
 const AFDIAN_QUERY_ORDER_PATH = '/api/open/query-order';
+const AFDIAN_CONFIG_SCOPE = 'integration_config';
+const AFDIAN_CONFIG_KEY = 'afdian';
 const AFDIAN_KNOWN_HOSTS = new Set([
   'afdian.net',
   'www.afdian.net',
   'ifdian.net',
   'www.ifdian.net',
 ]);
-const AFDIAN_ENV_KEYS = [
-  'AFDIAN_USER_ID',
-  'AFDIAN_TOKEN',
-  'AFDIAN_API_BASE_URL',
-  'AFDIAN_PUBLIC_BASE_URL',
-] as const;
 
 type AfdianUpsertSource = 'webhook' | 'api';
+type AfdianPersistentConfig = Omit<AfdianConfigForm, 'token'>;
 
 @Injectable()
-export class AfdianService {
+export class AfdianService implements OnModuleInit {
   private readonly logger = new Logger(AfdianService.name);
+  private persistentConfig: AfdianPersistentConfig = readPersistentConfigFromEnv();
+  private runtimeToken = readRuntimeTokenFromEnv();
 
   constructor(
     @InjectRepository(AfdianOrderEntity)
     private readonly afdianOrderRepo: Repository<AfdianOrderEntity>,
+    private readonly persistentDocumentService: PersistentDocumentService,
   ) {}
+
+  async onModuleInit(): Promise<void> {
+    await this.loadPersistentConfig();
+  }
 
   getConfigForm(): AfdianConfigForm {
     return {
-      userId: process.env.AFDIAN_USER_ID?.trim() ?? '',
-      token: process.env.AFDIAN_TOKEN ?? '',
-      apiBaseUrl: readNormalizedApiBaseUrl(process.env.AFDIAN_API_BASE_URL),
-      publicBaseUrl: readNormalizedPublicBaseUrl(process.env.AFDIAN_PUBLIC_BASE_URL) ?? '',
+      userId: this.persistentConfig.userId,
+      token: '',
+      apiBaseUrl: this.persistentConfig.apiBaseUrl,
+      publicBaseUrl: this.persistentConfig.publicBaseUrl,
     };
   }
 
   getConfigStatus(): AfdianConfigStatus {
     const config = this.getConfigForm();
     const userId = normalizeEnvValue(config.userId);
-    const token = normalizeEnvValue(config.token);
+    const token = normalizeEnvValue(this.runtimeToken);
     const webhookPath = this.getWebhookPath();
     return {
       enabled: userId !== null,
@@ -79,15 +83,21 @@ export class AfdianService {
   }
 
   async saveConfig(input: AfdianConfigForm): Promise<{ config: AfdianConfigForm; status: AfdianConfigStatus }> {
-    const nextConfig = normalizeConfigForm(input);
-    await writeServerEnvFile({
-      AFDIAN_USER_ID: nextConfig.userId,
-      AFDIAN_TOKEN: nextConfig.token,
-      AFDIAN_API_BASE_URL: nextConfig.apiBaseUrl,
-      AFDIAN_PUBLIC_BASE_URL: nextConfig.publicBaseUrl,
-    });
+    const nextConfig = normalizePersistentConfig(input);
+    const nextRuntimeToken = normalizeEnvValue(input.token);
+
+    await this.persistentDocumentService.save<AfdianPersistentConfig>(
+      AFDIAN_CONFIG_SCOPE,
+      AFDIAN_CONFIG_KEY,
+      nextConfig,
+    );
+
+    this.persistentConfig = nextConfig;
+    if (nextRuntimeToken !== null) {
+      this.runtimeToken = nextRuntimeToken;
+      process.env.AFDIAN_TOKEN = nextRuntimeToken;
+    }
     process.env.AFDIAN_USER_ID = nextConfig.userId;
-    process.env.AFDIAN_TOKEN = nextConfig.token;
     process.env.AFDIAN_API_BASE_URL = nextConfig.apiBaseUrl;
     process.env.AFDIAN_PUBLIC_BASE_URL = nextConfig.publicBaseUrl;
     return {
@@ -101,7 +111,7 @@ export class AfdianService {
   }
 
   getWebhookUrl(webhookPath = this.getWebhookPath()): string | null {
-    const publicBaseUrl = readNormalizedPublicBaseUrl(process.env.AFDIAN_PUBLIC_BASE_URL);
+    const publicBaseUrl = normalizeEnvValue(this.persistentConfig.publicBaseUrl);
     if (publicBaseUrl === null) {
       return null;
     }
@@ -226,8 +236,8 @@ export class AfdianService {
   }
 
   private getRequiredApiConfig(): { userId: string; token: string } {
-    const userId = readEnvString('AFDIAN_USER_ID');
-    const token = readEnvString('AFDIAN_TOKEN');
+    const userId = normalizeEnvValue(this.persistentConfig.userId);
+    const token = normalizeEnvValue(this.runtimeToken);
     if (userId === null || token === null) {
       throw new ServiceUnavailableException('AFDIAN_USER_ID 或 AFDIAN_TOKEN 未配置');
     }
@@ -235,7 +245,31 @@ export class AfdianService {
   }
 
   private getApiBaseUrl(): string {
-    return readNormalizedApiBaseUrl(process.env.AFDIAN_API_BASE_URL);
+    return this.persistentConfig.apiBaseUrl;
+  }
+
+  private async loadPersistentConfig(): Promise<void> {
+    const persisted = await this.persistentDocumentService.get<Partial<AfdianPersistentConfig>>(
+      AFDIAN_CONFIG_SCOPE,
+      AFDIAN_CONFIG_KEY,
+    );
+    if (!persisted) {
+      process.env.AFDIAN_USER_ID = this.persistentConfig.userId;
+      process.env.AFDIAN_API_BASE_URL = this.persistentConfig.apiBaseUrl;
+      process.env.AFDIAN_PUBLIC_BASE_URL = this.persistentConfig.publicBaseUrl;
+      if (this.runtimeToken.length > 0) {
+        process.env.AFDIAN_TOKEN = this.runtimeToken;
+      }
+      return;
+    }
+
+    this.persistentConfig = normalizeStoredPersistentConfig(persisted);
+    process.env.AFDIAN_USER_ID = this.persistentConfig.userId;
+    process.env.AFDIAN_API_BASE_URL = this.persistentConfig.apiBaseUrl;
+    process.env.AFDIAN_PUBLIC_BASE_URL = this.persistentConfig.publicBaseUrl;
+    if (this.runtimeToken.length > 0) {
+      process.env.AFDIAN_TOKEN = this.runtimeToken;
+    }
   }
 
   private parseOrderPayload(value: unknown): AfdianOrderPayload {
@@ -346,10 +380,6 @@ export class AfdianService {
     }
     return response;
   }
-}
-
-function readEnvString(key: string): string | null {
-  return normalizeEnvValue(process.env[key]);
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -477,6 +507,35 @@ function normalizeConfigForm(input: AfdianConfigForm): AfdianConfigForm {
   };
 }
 
+function normalizePersistentConfig(input: AfdianConfigForm): AfdianPersistentConfig {
+  const normalized = normalizeConfigForm(input);
+  return {
+    userId: normalized.userId,
+    apiBaseUrl: normalized.apiBaseUrl,
+    publicBaseUrl: normalized.publicBaseUrl,
+  };
+}
+
+function normalizeStoredPersistentConfig(input: Partial<AfdianPersistentConfig>): AfdianPersistentConfig {
+  return {
+    userId: typeof input.userId === 'string' ? input.userId.trim() : '',
+    apiBaseUrl: readNormalizedApiBaseUrl(input.apiBaseUrl),
+    publicBaseUrl: readNormalizedPublicBaseUrl(input.publicBaseUrl) ?? '',
+  };
+}
+
+function readPersistentConfigFromEnv(): AfdianPersistentConfig {
+  return {
+    userId: normalizeEnvValue(process.env.AFDIAN_USER_ID) ?? '',
+    apiBaseUrl: readNormalizedApiBaseUrl(process.env.AFDIAN_API_BASE_URL),
+    publicBaseUrl: readNormalizedPublicBaseUrl(process.env.AFDIAN_PUBLIC_BASE_URL) ?? '',
+  };
+}
+
+function readRuntimeTokenFromEnv(): string {
+  return normalizeEnvValue(process.env.AFDIAN_TOKEN) ?? '';
+}
+
 function readNormalizedApiBaseUrl(value: unknown): string {
   const normalized = normalizeBaseUrlValue(value, {
     fieldLabel: '爱发电 API 地址',
@@ -558,82 +617,4 @@ function normalizeBaseUrlValue(
     ? parsedUrl.pathname.replace(/\/+$/u, '')
     : '';
   return `${parsedUrl.protocol}//${parsedUrl.host}${normalizedPath}`;
-}
-
-async function writeServerEnvFile(values: Record<(typeof AFDIAN_ENV_KEYS)[number], string>): Promise<void> {
-  const envPath = await resolveServerEnvPath();
-  await fs.mkdir(dirname(envPath), { recursive: true });
-
-  let current = '';
-  try {
-    current = await fs.readFile(envPath, 'utf8');
-  } catch (error) {
-    if (!isMissingFileError(error)) {
-      throw error;
-    }
-  }
-
-  const lines = current.length > 0 ? current.split(/\r?\n/u) : [];
-  const remainingKeys = new Set<string>(AFDIAN_ENV_KEYS);
-  const nextLines: string[] = [];
-
-  for (const line of lines) {
-    const match = line.match(/^\s*([A-Z0-9_]+)\s*=/u);
-    const key = match?.[1];
-    if (!key || !remainingKeys.has(key)) {
-      nextLines.push(line);
-      continue;
-    }
-    nextLines.push(`${key}=${serializeEnvValue(values[key as keyof typeof values])}`);
-    remainingKeys.delete(key);
-  }
-
-  for (const key of AFDIAN_ENV_KEYS) {
-    if (remainingKeys.has(key)) {
-      nextLines.push(`${key}=${serializeEnvValue(values[key])}`);
-    }
-  }
-
-  const text = `${trimTrailingEmptyLines(nextLines).join('\n')}\n`;
-  await fs.writeFile(envPath, text, 'utf8');
-}
-
-async function resolveServerEnvPath(): Promise<string> {
-  const candidates = [
-    resolve(process.cwd(), '.env'),
-    resolve(process.cwd(), 'packages', 'server', '.env'),
-  ];
-
-  for (const candidate of candidates) {
-    try {
-      await fs.access(candidate);
-      return candidate;
-    } catch {
-      continue;
-    }
-  }
-
-  return candidates[0]!;
-}
-
-function serializeEnvValue(value: string): string {
-  if (value.length === 0) {
-    return '';
-  }
-  return /[\s#"'\\]/u.test(value) ? JSON.stringify(value) : value;
-}
-
-function trimTrailingEmptyLines(lines: string[]): string[] {
-  const nextLines = [...lines];
-  while (nextLines.length > 0 && nextLines[nextLines.length - 1] === '') {
-    nextLines.pop();
-  }
-  return nextLines;
-}
-
-function isMissingFileError(error: unknown): error is NodeJS.ErrnoException {
-  return typeof error === 'object'
-    && error !== null
-    && 'code' in error
-    && (error as { code?: unknown }).code === 'ENOENT';
 }

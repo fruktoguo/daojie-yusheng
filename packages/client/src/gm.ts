@@ -1598,7 +1598,6 @@ function renderAfdianPanel(): void {
   const status = afdianConfigState?.status;
   if (config) {
     setTextLikeValue(afdianConfigUserIdInput, config.userId);
-    setTextLikeValue(afdianConfigTokenInput, config.token);
     setTextLikeValue(afdianConfigApiBaseUrlInput, config.apiBaseUrl);
     setTextLikeValue(afdianConfigPublicBaseUrlInput, config.publicBaseUrl);
   }
@@ -1610,7 +1609,8 @@ function renderAfdianPanel(): void {
   afdianStatusWebhookUrlEl.textContent = status?.webhookUrl ?? '未配置公网域名';
   afdianStatusNoteEl.innerHTML = status
     ? `当前 webhook 路径：<strong>${escapeHtml(status.webhookPath)}</strong><br />`
-      + `完整 webhook 地址：<strong>${escapeHtml(status.webhookUrl ?? '未配置公网域名')}</strong>`
+      + `完整 webhook 地址：<strong>${escapeHtml(status.webhookUrl ?? '未配置公网域名')}</strong><br />`
+      + '开发者信息与地址会持久化到数据库；Token 只保存在当前服务进程，重启后需要重新输入。'
     : '正在读取爱发电配置…';
 
   const orders = afdianOrdersState?.items ?? [];
@@ -1670,7 +1670,7 @@ async function saveAfdianConfig(): Promise<void> {
       body: JSON.stringify(payload),
     });
     renderAfdianPanel();
-    setStatus('爱发电配置已写入 env，并已同步到当前服务进程');
+    setStatus('爱发电配置已保存：基础配置已持久化，token 已同步到当前服务进程');
   } catch (error) {
     setStatus(error instanceof Error ? error.message : '保存爱发电配置失败', true);
   } finally {
