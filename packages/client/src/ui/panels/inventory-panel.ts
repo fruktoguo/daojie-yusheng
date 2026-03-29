@@ -76,6 +76,7 @@ export class InventoryPanel {
   private selectedSlotIndex: number | null = null;
   private selectedItemKey: string | null = null;
   private actionDialog: InventoryActionDialogState | null = null;
+  private lastModalRenderKey: string | null = null;
   private tooltipCell: HTMLElement | null = null;
   private sourceExpanded = false;
   private sourceExpandedItemKey: string | null = null;
@@ -96,6 +97,7 @@ export class InventoryPanel {
     this.selectedSlotIndex = null;
     this.selectedItemKey = null;
     this.actionDialog = null;
+    this.lastModalRenderKey = null;
     this.tooltipCell = null;
     this.sourceExpanded = false;
     this.sourceExpandedItemKey = null;
@@ -535,9 +537,7 @@ export class InventoryPanel {
         </div>
       `,
       onClose: () => {
-        this.selectedSlotIndex = null;
-        this.selectedItemKey = null;
-        this.actionDialog = null;
+        this.resetModalState();
       },
       onAfterRender: (body) => {
         body.querySelector<HTMLElement>('[data-inventory-primary]')?.addEventListener('click', (event) => {
@@ -569,6 +569,7 @@ export class InventoryPanel {
         });
       },
     });
+    this.lastModalRenderKey = this.buildModalRenderKey(item);
   }
 
   private renderActionDialog(item: ItemStack, slotIndex: number, dialog: InventoryActionDialogState): void {
@@ -595,9 +596,7 @@ export class InventoryPanel {
           </div>
         `,
         onClose: () => {
-          this.selectedSlotIndex = null;
-          this.selectedItemKey = null;
-          this.actionDialog = null;
+          this.resetModalState();
         },
         onAfterRender: (body) => {
           body.querySelector<HTMLElement>('[data-inventory-destroy-back]')?.addEventListener('click', (event) => {
@@ -615,6 +614,7 @@ export class InventoryPanel {
           });
         },
       });
+      this.lastModalRenderKey = this.buildModalRenderKey(item);
       return;
     }
 
@@ -650,11 +650,7 @@ export class InventoryPanel {
         </div>
       `,
       onClose: () => {
-        this.selectedSlotIndex = null;
-        this.selectedItemKey = null;
-        this.actionDialog = null;
-        this.sourceExpanded = false;
-        this.sourceExpandedItemKey = null;
+        this.resetModalState();
       },
       onAfterRender: (body) => {
         const countInput = body.querySelector<HTMLInputElement>('[data-inventory-action-count="true"]');
@@ -701,6 +697,7 @@ export class InventoryPanel {
         });
       },
     });
+    this.lastModalRenderKey = this.buildModalRenderKey(item);
   }
 
   private patchList(inventory: Inventory): boolean {
@@ -775,10 +772,12 @@ export class InventoryPanel {
 
   private patchModal(): boolean {
     if (!this.lastInventory || !this.selectedItemKey) {
+      this.lastModalRenderKey = null;
       detailModalHost.close(InventoryPanel.MODAL_OWNER);
       return true;
     }
     if (!detailModalHost.isOpenFor(InventoryPanel.MODAL_OWNER)) {
+      this.lastModalRenderKey = null;
       return false;
     }
 
@@ -787,7 +786,7 @@ export class InventoryPanel {
       this.closeModal();
       return true;
     }
-    return false;
+    return this.lastModalRenderKey === this.buildModalRenderKey(resolved.item);
   }
 
   private resolveSelectedItem(inventory: Inventory): { item: ItemStack; slotIndex: number } | null {
@@ -971,11 +970,43 @@ export class InventoryPanel {
   }
 
   private closeModal(): void {
+    this.resetModalState();
+    this.tooltipCell = null;
+    detailModalHost.close(InventoryPanel.MODAL_OWNER);
+  }
+
+  private resetModalState(): void {
     this.selectedSlotIndex = null;
     this.selectedItemKey = null;
     this.actionDialog = null;
-    this.tooltipCell = null;
-    detailModalHost.close(InventoryPanel.MODAL_OWNER);
+    this.lastModalRenderKey = null;
+    this.sourceExpanded = false;
+    this.sourceExpandedItemKey = null;
+  }
+
+  private buildModalRenderKey(item: ItemStack): string {
+    if (this.actionDialog) {
+      return [
+        'action',
+        this.getItemIdentity(item),
+        String(item.count),
+        this.actionDialog.kind,
+        this.actionDialog.confirmDestroy ? '1' : '0',
+        String(this.actionDialog.defaultCount),
+      ].join('|');
+    }
+
+    const equippedComparisonItem = this.getEquippedItemForCompare(item);
+    const statusLabel = this.getItemStatusLabel(item) ?? '';
+    return [
+      'detail',
+      this.getItemIdentity(item),
+      String(item.count),
+      statusLabel,
+      this.sourceExpanded ? '1' : '0',
+      hasLoadedItemSourceCatalog() ? '1' : '0',
+      equippedComparisonItem ? this.getItemIdentity(equippedComparisonItem) : '',
+    ].join('|');
   }
 
   private escapeHtml(value: string): string {
