@@ -7945,6 +7945,7 @@
             ]
           },
           "stats": {
+            "realmExpPerTick": 4,
             "techniqueExpPerTick": 20
           }
         },
