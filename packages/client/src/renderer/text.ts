@@ -2,7 +2,7 @@
  * 文字渲染器 —— 基于 Canvas 2D 的地图、实体、特效绘制，实现 IRenderer 接口
  */
 
-import { IRenderer, SenseQiOverlayState, TargetingOverlayState } from './types';
+import { IRenderer, SenseQiOverlayState, TargetingOverlayState, type FloatingActionTextStyle } from './types';
 import {
   DEFAULT_AURA_LEVEL_BASE_VALUE,
   GameTimeState,
@@ -251,6 +251,7 @@ interface FloatingText {
   text: string;
   color: string;
   variant: 'damage' | 'action';
+  actionStyle?: FloatingActionTextStyle;
   createdAt: number;
   duration: number;
 }
@@ -1092,7 +1093,14 @@ export class TextRenderer implements IRenderer {
   }
 
   /** 添加浮动文字特效（伤害数字或动作提示） */
-  addFloatingText(x: number, y: number, text: string, color = '#ffd27a', variant: 'damage' | 'action' = 'damage') {
+  addFloatingText(
+    x: number,
+    y: number,
+    text: string,
+    color = '#ffd27a',
+    variant: 'damage' | 'action' = 'damage',
+    actionStyle?: FloatingActionTextStyle,
+  ) {
     this.floatingTexts.push({
       id: this.nextFloatingTextId++,
       x,
@@ -1100,8 +1108,9 @@ export class TextRenderer implements IRenderer {
       text,
       color,
       variant,
+      actionStyle,
       createdAt: performance.now(),
-      duration: variant === 'action' ? 1000 : 850,
+      duration: variant === 'action' && actionStyle === 'divine' ? 1000 : variant === 'action' ? 1000 : 850,
     });
   }
 
@@ -1145,11 +1154,16 @@ export class TextRenderer implements IRenderer {
 
     for (const entry of this.floatingTexts) {
       const progress = Math.min(1, (now - entry.createdAt) / entry.duration);
-      const motionProgress = entry.variant === 'action' ? progress * progress : progress;
+      const actionStyle = entry.variant === 'action' ? (entry.actionStyle ?? 'default') : undefined;
+      const motionProgress = entry.variant === 'action' && actionStyle === 'default' ? progress * progress : progress;
       const rise = entry.variant === 'action'
-        ? cellSize * (0.08 + motionProgress * 0.46)
+        ? actionStyle === 'divine'
+          ? 0
+          : cellSize * (0.08 + motionProgress * 0.46)
         : cellSize * (0.2 + progress * 0.8);
-      const alpha = 1 - progress;
+      const alpha = entry.variant === 'action' && actionStyle === 'divine'
+        ? 1 - Math.max(0, (progress - 0.86) / 0.14)
+        : 1 - progress;
       const worldX = entry.x * cellSize;
       const worldY = entry.y * cellSize;
       const { sx, sy } = camera.worldToScreen(worldX, worldY, sw, sh);
@@ -1161,24 +1175,48 @@ export class TextRenderer implements IRenderer {
       ctx.save();
       ctx.globalAlpha = alpha;
       if (entry.variant === 'action') {
-        const fontSize = Math.max(10, cellSize * 0.28);
-        const scale = 0.98 + motionProgress * 0.08;
-        ctx.translate(
-          sx - cellSize * 0.06 + burst.offsetX,
-          sy - cellSize * 0.08 - rise - burst.offsetY,
-        );
-        ctx.scale(scale, scale);
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
-        ctx.font = buildCanvasFont('floatingAction', fontSize);
-        this.drawOutlinedVerticalText(
-          entry.text,
-          0,
-          0,
-          entry.color,
-          'rgba(15,12,10,0.9)',
-          fontSize * 1.12,
-        );
+        if (actionStyle === 'divine') {
+          const fontSize = Math.max(30, cellSize * 0.84);
+          const lineHeight = fontSize * 1.12;
+          const chars = [...entry.text.trim()].filter((char) => char.trim().length > 0);
+          const stackHeight = chars.length > 0 ? lineHeight * Math.max(0, chars.length - 1) + fontSize : fontSize;
+          const scale = 0.98 + motionProgress * 0.08;
+          ctx.translate(
+            sx - cellSize * 0.06 + burst.offsetX,
+            sy + cellSize - stackHeight - burst.offsetY,
+          );
+          ctx.scale(scale, scale);
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+          ctx.font = buildCanvasFont('floatingAction', fontSize);
+          this.drawOutlinedVerticalText(
+            entry.text,
+            0,
+            0,
+            entry.color,
+            'rgba(15,12,10,0.9)',
+            lineHeight,
+          );
+        } else {
+          const fontSize = Math.max(10, cellSize * 0.28);
+          const scale = 0.98 + motionProgress * 0.08;
+          ctx.translate(
+            sx - cellSize * 0.06 + burst.offsetX,
+            sy - cellSize * 0.08 - rise - burst.offsetY,
+          );
+          ctx.scale(scale, scale);
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+          ctx.font = buildCanvasFont('floatingAction', fontSize);
+          this.drawOutlinedVerticalText(
+            entry.text,
+            0,
+            0,
+            entry.color,
+            'rgba(15,12,10,0.9)',
+            fontSize * 1.12,
+          );
+        }
       } else {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'alphabetic';
@@ -1785,4 +1823,5 @@ export class TextRenderer implements IRenderer {
       ctx.fillText(char, x, drawY);
     });
   }
+
 }

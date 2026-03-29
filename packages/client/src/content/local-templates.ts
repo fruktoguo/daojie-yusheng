@@ -20,6 +20,15 @@ const skillTemplateMap = new Map(
     (technique.skills ?? []).map((skill) => [skill.id, skill] as const),
   ),
 );
+const divineSkillNameSet = new Set(
+  LOCAL_EDITOR_CATALOG.techniques.flatMap((technique) => {
+    const category = resolveTechniqueCategoryFromTemplate(technique);
+    if (category !== 'divine') {
+      return [];
+    }
+    return (technique.skills ?? []).map((skill) => skill.name.trim()).filter((name) => name.length > 0);
+  }),
+);
 const techniqueCategoryByBookItemId = new Map<string, TechniqueCategory>();
 const DEFAULT_TECHNIQUE_REALM_LEVEL_BY_GRADE: Record<TechniqueGrade, number> = {
   mortal: 1,
@@ -91,6 +100,11 @@ export function getLocalRealmLevelEntry(realmLv: number | undefined): GmEditorRe
 export function getLocalSkillTemplate(skillId: string): SkillDef | null {
   const template = skillTemplateMap.get(skillId);
   return template ? clone(template) : null;
+}
+
+export function isLocalDivineSkillName(skillName: string): boolean {
+  const normalizedName = skillName.trim();
+  return normalizedName.length > 0 && divineSkillNameSet.has(normalizedName);
 }
 
 function resolveTechniqueRealmLevel(realmLv: number | undefined, grade: TechniqueGrade | undefined): number {

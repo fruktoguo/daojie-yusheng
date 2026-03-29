@@ -1,10 +1,12 @@
 import { getDisplayRangeX, getDisplayRangeY } from '../../display';
 import { Camera } from '../../renderer/camera';
 import { TextRenderer } from '../../renderer/text';
+import { isLocalDivineSkillName } from '../../content/local-templates';
 import type { CombatEffect } from '@mud/shared';
 import type { CameraState } from '../camera/camera-controller';
 import type { TopdownProjection } from '../projection/topdown-projection';
 import type { MapEntityTransition, MapSceneSnapshot } from '../types';
+import type { FloatingActionTextStyle } from '../../renderer/types';
 
 export class LegacyCanvasTextRendererAdapter {
   private readonly renderer = new TextRenderer();
@@ -67,7 +69,14 @@ export class LegacyCanvasTextRendererAdapter {
       this.renderer.addAttackTrail(effect.fromX, effect.fromY, effect.toX, effect.toY, effect.color);
       return;
     }
-    this.renderer.addFloatingText(effect.x, effect.y, effect.text, effect.color, effect.variant);
+    this.renderer.addFloatingText(
+      effect.x,
+      effect.y,
+      effect.text,
+      effect.color,
+      effect.variant,
+      this.resolveActionTextStyle(effect),
+    );
   }
 
   resetScene(): void {
@@ -119,5 +128,12 @@ export class LegacyCanvasTextRendererAdapter {
 
   getCanvas(): HTMLCanvasElement | null {
     return this.canvas;
+  }
+
+  private resolveActionTextStyle(effect: Extract<CombatEffect, { type: 'float' }>): FloatingActionTextStyle | undefined {
+    if (effect.variant !== 'action') {
+      return undefined;
+    }
+    return isLocalDivineSkillName(effect.text) ? 'divine' : 'default';
   }
 }
