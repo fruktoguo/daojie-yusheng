@@ -107,5 +107,9 @@ jobs:
           DB_PASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
           DB_DATABASE: ${{ secrets.PROD_DB_DATABASE }}
           JWT_SECRET: ${{ secrets.PROD_JWT_SECRET }}
+          AFDIAN_USER_ID: ${{ secrets.PROD_AFDIAN_USER_ID }}
+          AFDIAN_TOKEN: ${{ secrets.PROD_AFDIAN_TOKEN }}
+          AFDIAN_API_BASE_URL: ${{ secrets.PROD_AFDIAN_API_BASE_URL }}
+          AFDIAN_PUBLIC_BASE_URL: ${{ secrets.PROD_AFDIAN_PUBLIC_BASE_URL }}
         run: |
           docker --context production stack deploy --with-registry-auth -c docker-stack.yml daojie-yusheng
