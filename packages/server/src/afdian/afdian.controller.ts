@@ -12,12 +12,12 @@ import {
 import type {
   AfdianConfigStatus,
   AfdianOrderListResponse,
-  AfdianSyncOrdersRequest,
   AfdianSyncOrdersResponse,
   GmAfdianConfigRes,
   GmUpdateAfdianConfigReq,
 } from '@mud/shared';
 import { GmAuthGuard } from '../game/gm-auth.guard';
+import type { AfdianApiSyncOrdersRequest, AfdianPingRequest } from './afdian.types';
 import { AfdianService } from './afdian.service';
 
 interface AfdianWebhookAck {
@@ -81,13 +81,13 @@ export class AfdianLegacyGmController {
   }
 
   @Post('orders/sync')
-  syncOrders(@Body() body: AfdianSyncOrdersRequest | undefined): Promise<AfdianSyncOrdersResponse> {
+  syncOrders(@Body() body: AfdianApiSyncOrdersRequest | undefined): Promise<AfdianSyncOrdersResponse> {
     return this.afdianService.syncOrders(body ?? {});
   }
 
   @Post('ping')
-  pingApi(): Promise<AfdianConfigStatus & { reachable: boolean }> {
-    return this.afdianService.pingApi();
+  pingApi(@Body() body: AfdianPingRequest | undefined): Promise<AfdianConfigStatus & { reachable: boolean }> {
+    return this.afdianService.pingApi(body);
   }
 }
 
@@ -119,12 +119,12 @@ export class AfdianGmController {
   }
 
   @Post('orders/sync')
-  syncOrders(@Body() body: AfdianSyncOrdersRequest | undefined): Promise<AfdianSyncOrdersResponse> {
+  syncOrders(@Body() body: AfdianApiSyncOrdersRequest | undefined): Promise<AfdianSyncOrdersResponse> {
     return this.afdianService.syncOrders(body ?? {});
   }
 
   @Post('ping')
-  pingApi(): Promise<AfdianConfigStatus & { reachable: boolean }> {
-    return this.afdianService.pingApi();
+  pingApi(@Body() body: AfdianPingRequest | undefined): Promise<AfdianConfigStatus & { reachable: boolean }> {
+    return this.afdianService.pingApi(body);
   }
 }

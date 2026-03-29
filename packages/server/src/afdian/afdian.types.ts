@@ -60,6 +60,14 @@ export interface AfdianQueryOrderResponse {
   [key: string]: unknown;
 }
 
+export interface AfdianPingRequest {
+  token?: string;
+}
+
+export interface AfdianApiSyncOrdersRequest extends AfdianSyncOrdersRequest {
+  token?: string;
+}
+
 export type {
   AfdianConfigForm,
   AfdianConfigStatus,

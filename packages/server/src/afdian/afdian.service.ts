@@ -15,13 +15,14 @@ import { Repository } from 'typeorm';
 import { PersistentDocumentService } from '../database/persistent-document.service';
 import { AfdianOrderEntity } from '../database/entities/afdian-order.entity';
 import type {
+  AfdianApiSyncOrdersRequest,
   AfdianConfigForm,
   AfdianConfigStatus,
   AfdianOrderPayload,
   AfdianOrderListResponse,
+  AfdianPingRequest,
   AfdianQueryOrderResponse,
   AfdianStoredOrderItem,
-  AfdianSyncOrdersRequest,
   AfdianSyncOrdersResponse,
 } from './afdian.types';
 
@@ -170,8 +171,8 @@ export class AfdianService implements OnModuleInit {
     };
   }
 
-  async syncOrders(request: AfdianSyncOrdersRequest): Promise<AfdianSyncOrdersResponse> {
-    const config = this.getRequiredApiConfig();
+  async syncOrders(request: AfdianApiSyncOrdersRequest): Promise<AfdianSyncOrdersResponse> {
+    const config = this.getRequiredApiConfig(request.token);
     const queryByOrderNo = request.outTradeNo?.trim() ?? '';
     const startPage = clampInteger(request.page, 1, 1, 999999);
     const maxPages = clampInteger(request.maxPages, 1, 1, 20);
@@ -226,8 +227,8 @@ export class AfdianService implements OnModuleInit {
     };
   }
 
-  async pingApi(): Promise<AfdianConfigStatus & { reachable: boolean }> {
-    const config = this.getRequiredApiConfig();
+  async pingApi(request?: AfdianPingRequest): Promise<AfdianConfigStatus & { reachable: boolean }> {
+    const config = this.getRequiredApiConfig(request?.token);
     await this.requestAfdianApi(config.userId, config.token, AFDIAN_PING_PATH, {});
     return {
       ...this.getConfigStatus(),
@@ -235,9 +236,9 @@ export class AfdianService implements OnModuleInit {
     };
   }
 
-  private getRequiredApiConfig(): { userId: string; token: string } {
+  private getRequiredApiConfig(requestToken?: string): { userId: string; token: string } {
     const userId = normalizeEnvValue(this.persistentConfig.userId);
-    const token = normalizeEnvValue(this.runtimeToken);
+    const token = normalizeEnvValue(requestToken) ?? normalizeEnvValue(this.runtimeToken);
     if (userId === null || token === null) {
       throw new ServiceUnavailableException('AFDIAN_USER_ID 或 AFDIAN_TOKEN 未配置');
     }

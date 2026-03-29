@@ -77,6 +77,10 @@ import { GmWorldViewer } from './gm-world-viewer';
 import { startClientVersionReload } from './version-reload';
 
 const loginOverlay = document.getElementById('login-overlay') as HTMLDivElement;
+
+interface GmAfdianPingRequest {
+  token?: string;
+}
 const gmShell = document.getElementById('gm-shell') as HTMLDivElement;
 const loginForm = document.getElementById('gm-login-form') as HTMLFormElement;
 const passwordInput = document.getElementById('gm-password') as HTMLInputElement;
@@ -1681,8 +1685,12 @@ async function saveAfdianConfig(): Promise<void> {
 async function pingAfdianApi(): Promise<void> {
   afdianPingBtn.disabled = true;
   try {
+    const payload: GmAfdianPingRequest = {
+      token: afdianConfigTokenInput.value.trim() || undefined,
+    };
     const result = await request<AfdianConfigStatus & { reachable: boolean }>('/gm/afdian/ping', {
       method: 'POST',
+      body: JSON.stringify(payload),
     });
     await loadAfdianConfig(true);
     setStatus(result.reachable ? '爱发电 API 测试成功' : '爱发电 API 不可达', !result.reachable);
@@ -1700,6 +1708,7 @@ async function syncAfdianOrders(): Promise<void> {
       page: Math.max(1, Math.floor(Number(afdianSyncPageInput.value) || 1)),
       maxPages: Math.max(1, Math.min(20, Math.floor(Number(afdianSyncMaxPagesInput.value) || 1))),
       outTradeNo: afdianSyncOrderNoInput.value.trim() || undefined,
+      token: afdianConfigTokenInput.value.trim() || undefined,
     };
     const result = await request<AfdianSyncOrdersResponse>('/gm/afdian/orders/sync', {
       method: 'POST',
