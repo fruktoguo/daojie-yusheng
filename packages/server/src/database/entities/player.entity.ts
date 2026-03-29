@@ -137,6 +137,14 @@ export class PlayerEntity {
   @Column({ type: 'jsonb', default: () => `'[]'` })
   autoBattleSkills!: unknown[];
 
+  /** 当前自动战斗锁定的目标引用 */
+  @Column({ type: 'varchar', nullable: true })
+  combatTargetId!: string | null;
+
+  /** 当前目标是否为强制锁定目标 */
+  @Column({ type: 'boolean', default: false })
+  combatTargetLocked!: boolean;
+
   /** 是否自动反击 */
   @Column({ type: 'boolean', default: true })
   autoRetaliate!: boolean;

@@ -707,6 +707,8 @@ export class GmService {
         unlockedMinimapIds: player.unlockedMinimapIds ?? [],
         autoBattle: player.autoBattle,
         autoBattleSkills: player.autoBattleSkills,
+        combatTargetId: player.combatTargetId,
+        combatTargetLocked: player.combatTargetLocked,
         autoRetaliate: player.autoRetaliate,
         autoBattleStationary: player.autoBattleStationary,
         allowAoePlayerHit: player.allowAoePlayerHit,
@@ -768,6 +770,8 @@ export class GmService {
       unlockedMinimapIds: Array.isArray(entity.unlockedMinimapIds)
         ? entity.unlockedMinimapIds.filter((entry): entry is string => typeof entry === 'string')
         : [],
+      combatTargetId: entity.combatTargetId ?? undefined,
+      combatTargetLocked: entity.combatTargetLocked === true,
     };
 
     this.techniqueService.initializePlayerProgression(player);
@@ -933,6 +937,8 @@ export class GmService {
       unlockedMinimapIds: player.unlockedMinimapIds as any,
       autoBattle: player.autoBattle,
       autoBattleSkills: player.autoBattleSkills as any,
+      combatTargetId: player.combatTargetId ?? null,
+      combatTargetLocked: player.combatTargetLocked === true,
       autoRetaliate: player.autoRetaliate,
       autoBattleStationary: player.autoBattleStationary === true,
       allowAoePlayerHit: player.allowAoePlayerHit === true,
