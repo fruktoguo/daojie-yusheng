@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import path from 'path';
 
@@ -28,6 +29,15 @@ export default defineConfig(({ mode }) => {
   const proxyTarget = env.VITE_DEV_PROXY_TARGET?.trim();
   const builtAt = new Date().toISOString();
   const buildId = createHash('sha1').update(`${mode}:${builtAt}`).digest('hex').slice(0, 12);
+  const clientInputs: Record<string, string> = {
+    main: path.resolve(__dirname, 'index.html'),
+    gm: path.resolve(__dirname, 'gm.html'),
+  };
+  const gmV2Entry = path.resolve(__dirname, 'gm-v2.html');
+
+  if (existsSync(gmV2Entry)) {
+    clientInputs['gm-v2'] = gmV2Entry;
+  }
 
   return {
     define: {
@@ -41,11 +51,7 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       rollupOptions: {
-        input: {
-          main: path.resolve(__dirname, 'index.html'),
-          gm: path.resolve(__dirname, 'gm.html'),
-          'gm-v2': path.resolve(__dirname, 'gm-v2.html'),
-        },
+        input: clientInputs,
         output: {
           manualChunks(id) {
             if (id.includes('/node_modules/')) {
