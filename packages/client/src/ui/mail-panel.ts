@@ -45,6 +45,8 @@ const EMPTY_PAGE: MailPageView = {
   filter: 'all',
 };
 
+const MAIL_ATTACHMENT_PAGE_SIZE = 10;
+
 export class MailPanel {
   private static readonly MODAL_OWNER = 'mail-panel';
   private playerId = '';
@@ -54,6 +56,7 @@ export class MailPanel {
   private selectedMailId: string | null = null;
   private selectedMailIds = new Set<string>();
   private detail: MailDetailView | null = null;
+  private attachmentPage = 1;
   private statusMessage = '';
 
   constructor(private readonly socket: SocketManager) {
@@ -72,6 +75,7 @@ export class MailPanel {
     this.selectedMailId = null;
     this.selectedMailIds.clear();
     this.detail = null;
+    this.attachmentPage = 1;
     this.statusMessage = '';
     this.updateHudUnreadState();
     detailModalHost.close(MailPanel.MODAL_OWNER);
@@ -91,9 +95,11 @@ export class MailPanel {
     if (this.selectedMailId && !visibleIds.has(this.selectedMailId)) {
       this.selectedMailId = page.items[0]?.mailId ?? null;
       this.detail = null;
+      this.attachmentPage = 1;
     }
     if (!this.selectedMailId && page.items.length > 0) {
       this.selectedMailId = page.items[0].mailId;
+      this.attachmentPage = 1;
     }
     if (this.selectedMailId) {
       this.requestDetail(this.selectedMailId);
@@ -113,6 +119,9 @@ export class MailPanel {
     }
     if (this.selectedMailId && detail.mailId !== this.selectedMailId) {
       return;
+    }
+    if (!this.detail || this.detail.mailId !== detail.mailId) {
+      this.attachmentPage = 1;
     }
     this.detail = detail;
     this.render();
@@ -204,7 +213,7 @@ export class MailPanel {
         </div>
 
         <div class="mail-layout">
-          <section class="panel-section mail-pane">
+          <section class="panel-section mail-pane mail-pane--list">
             <div class="mail-pane-head">
               <div class="panel-section-title">邮件列表</div>
               <div class="mail-pane-note">按需拉取，不在登录首包塞整箱正文</div>
@@ -233,7 +242,7 @@ export class MailPanel {
             </div>
           </section>
 
-          <section class="panel-section mail-pane">
+          <section class="panel-section mail-pane mail-pane--detail">
             <div class="mail-pane-head">
               <div class="panel-section-title">邮件详情</div>
               <div class="mail-pane-note">单实例详情弹层</div>
@@ -281,6 +290,11 @@ export class MailPanel {
   private renderDetail(detail: MailDetailView): string {
     const title = renderMailTitlePlain(detail.templateId, detail.args, detail.fallbackTitle);
     const body = renderMailBodyPlain(detail.templateId, detail.args, detail.fallbackBody);
+    const totalAttachmentPages = Math.max(1, Math.ceil(detail.attachments.length / MAIL_ATTACHMENT_PAGE_SIZE));
+    const attachmentPage = Math.min(totalAttachmentPages, Math.max(1, this.attachmentPage));
+    this.attachmentPage = attachmentPage;
+    const attachmentStart = (attachmentPage - 1) * MAIL_ATTACHMENT_PAGE_SIZE;
+    const visibleAttachments = detail.attachments.slice(attachmentStart, attachmentStart + MAIL_ATTACHMENT_PAGE_SIZE);
     return `
       <div class="mail-detail-head">
         <div>
@@ -299,9 +313,18 @@ export class MailPanel {
       </div>
       <div class="mail-detail-body">${escapeHtml(body || '这封邮件没有正文内容。').replaceAll('\n', '<br />')}</div>
       <div class="mail-attachment-block">
-        <div class="mail-attachment-title">附件</div>
+        <div class="mail-attachment-head">
+          <div class="mail-attachment-title">附件</div>
+          ${detail.attachments.length > MAIL_ATTACHMENT_PAGE_SIZE ? `
+            <div class="mail-attachment-pagination">
+              <button class="small-btn ghost" data-mail-attachment-page="prev" type="button" ${attachmentPage <= 1 ? 'disabled' : ''}>上一页</button>
+              <span class="mail-attachment-page-meta">第 ${attachmentPage} / ${totalAttachmentPages} 页</span>
+              <button class="small-btn ghost" data-mail-attachment-page="next" type="button" ${attachmentPage >= totalAttachmentPages ? 'disabled' : ''}>下一页</button>
+            </div>
+          ` : ''}
+        </div>
         ${detail.attachments.length > 0
-          ? `<div class="mail-attachment-list">${detail.attachments.map((attachment) => `
+          ? `<div class="mail-attachment-list">${visibleAttachments.map((attachment) => `
               <div class="mail-attachment-item">
                 <span class="mail-attachment-item-name">${escapeHtml(getLocalItemTemplate(attachment.itemId)?.name ?? attachment.itemId)}</span>
                 <strong>x${attachment.count}</strong>
@@ -336,6 +359,21 @@ export class MailPanel {
       }
     }));
 
+    root.querySelectorAll<HTMLButtonElement>('[data-mail-attachment-page]').forEach((button) => button.addEventListener('click', () => {
+      if (!this.detail) {
+        return;
+      }
+      const totalAttachmentPages = Math.max(1, Math.ceil(this.detail.attachments.length / MAIL_ATTACHMENT_PAGE_SIZE));
+      const action = button.dataset.mailAttachmentPage;
+      if (action === 'prev' && this.attachmentPage > 1) {
+        this.attachmentPage -= 1;
+        this.render();
+      } else if (action === 'next' && this.attachmentPage < totalAttachmentPages) {
+        this.attachmentPage += 1;
+        this.render();
+      }
+    }));
+
     root.querySelectorAll<HTMLElement>('[data-mail-select]').forEach((node) => {
       node.addEventListener('click', (event) => {
         const target = event.target;
@@ -348,6 +386,7 @@ export class MailPanel {
         }
         this.selectedMailId = mailId;
         this.detail = null;
+        this.attachmentPage = 1;
         this.requestDetail(mailId);
         this.markReadIfNeeded(mailId);
       });
