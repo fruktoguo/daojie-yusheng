@@ -31,17 +31,17 @@
       <div class="form-group hidden" id="register-account-group">
         <label>账号</label>
         <input id="input-account-name" type="text" placeholder="输入登录账号" />
-        <div class="form-help">账号用于登录，不能包含空格。</div>
+        <div class="form-help">账号用于登录，不能包含空格，且不能与任意角色名或显示名重名。</div>
       </div>
       <div class="form-group hidden" id="register-role-name-group">
         <label>角色名</label>
         <input id="input-role-name" type="text" placeholder="输入角色名称" />
-        <div class="form-help">角色名保留为游戏内完整名称，登录时也可直接输入当前角色名。</div>
+        <div class="form-help">角色名保留为游戏内完整名称，登录时也可直接输入当前角色名，且不能与任意账号或显示名重名。</div>
       </div>
       <div class="form-group hidden" id="register-display-name-group">
         <label>显示名</label>
         <input id="input-display-name" type="text" maxlength="1" placeholder="注册时必填，仅 1 个字" />
-        <div class="form-help">注册时必须选择 1 个唯一显示字。未设置的旧账号默认取账号首字。</div>
+        <div class="form-help">注册时必须选择 1 个唯一显示字，也不能与任意账号或角色名重名。未设置的旧账号默认取账号首字。</div>
         <div class="field-status" id="display-name-status">注册时必填</div>
       </div>
       <div class="login-actions">

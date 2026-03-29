@@ -161,6 +161,18 @@ export class LoginUI {
       this.setError(roleNameError);
       return;
     }
+    if (accountName === roleName) {
+      this.setError('角色名称与账号重名');
+      return;
+    }
+    if (accountName === displayName) {
+      this.setError('显示名称与账号重名');
+      return;
+    }
+    if (roleName === displayName) {
+      this.setError('显示名称与角色名称冲突');
+      return;
+    }
 
     await this.checkDisplayName(displayName, { immediate: true });
     if (!this.displayNameAvailable) {

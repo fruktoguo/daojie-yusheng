@@ -5,6 +5,7 @@ import {
   Entity,
   PrimaryColumn,
   Column,
+  CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import {
@@ -15,7 +16,7 @@ import {
   VIEW_RADIUS,
 } from '@mud/shared';
 
-/** 玩家表，主键为 "userId:角色名" 格式的复合 ID */
+/** 玩家角色存档表，主键为角色存档 ID */
 @Entity('players')
 export class PlayerEntity {
   @PrimaryColumn({ type: 'varchar', length: 100 })
@@ -184,6 +185,10 @@ export class PlayerEntity {
   /** 最近一次进入离线状态的时间 */
   @Column({ type: 'timestamptz', nullable: true })
   offlineSinceAt!: Date | null;
+
+  /** 角色创建时间；旧数据会在启动时按已有信息回填 */
+  @CreateDateColumn({ type: 'timestamptz', nullable: true })
+  createdAt!: Date | null;
 
   @UpdateDateColumn()
   updatedAt!: Date;

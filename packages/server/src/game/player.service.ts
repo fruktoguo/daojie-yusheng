@@ -23,6 +23,7 @@ import {
   normalizeBoneAgeBaseYears,
   normalizeLifeElapsedTicks,
   normalizeLifespanYears,
+  isRoleNameWithinLimit,
   truncateRoleName,
   VIEW_RADIUS,
   clonePlainValue,
@@ -686,26 +687,181 @@ export class PlayerService implements OnModuleInit {
   }
 
   private async normalizePersistedRoleNames(): Promise<void> {
-    const players = await this.playerRepo.find({
-      select: {
-        id: true,
-        name: true,
-      },
-    });
-    let normalizedCount = 0;
+    const [players, users] = await Promise.all([
+      this.playerRepo.find({
+        select: {
+          id: true,
+          userId: true,
+          name: true,
+          createdAt: true,
+        },
+      }),
+      this.userRepo.find({
+        select: {
+          id: true,
+          username: true,
+          displayName: true,
+          createdAt: true,
+        },
+      }),
+    ]);
+    if (players.length === 0) {
+      return;
+    }
 
-    for (const player of players) {
+    const userById = new Map(users.map((user) => [user.id, user]));
+    const occupiedNames = new Set<string>();
+    for (const user of users) {
+      occupiedNames.add(user.username);
+      occupiedNames.add(resolveDisplayName(user.displayName, user.username));
+    }
+
+    type StartupPlayerEntry = {
+      id: string;
+      userId: string;
+      originalName: string;
+      normalizedName: string;
+      createdAt: Date | null;
+      createdAtSource: number;
+    };
+
+    const entries: StartupPlayerEntry[] = players.map((player) => {
       const normalizedName = truncateRoleName(player.name.normalize('NFC').trim());
-      if (!normalizedName || normalizedName === player.name) {
-        continue;
+      const user = userById.get(player.userId);
+      const createdAt = this.resolvePlayerCreatedAt(player.id, player.createdAt, user?.createdAt ?? null);
+      return {
+        id: player.id,
+        userId: player.userId,
+        originalName: player.name,
+        normalizedName: normalizedName || player.name,
+        createdAt,
+        createdAtSource: createdAt?.getTime() ?? 0,
+      };
+    });
+
+    const groupedByName = new Map<string, StartupPlayerEntry[]>();
+    for (const entry of entries) {
+      const bucket = groupedByName.get(entry.normalizedName) ?? [];
+      bucket.push(entry);
+      groupedByName.set(entry.normalizedName, bucket);
+    }
+    const playerById = new Map(players.map((player) => [player.id, player]));
+
+    for (const [name, bucket] of groupedByName.entries()) {
+      if (bucket.length === 1) {
+        occupiedNames.add(name);
       }
-      await this.playerRepo.update(player.id, { name: normalizedName });
-      normalizedCount += 1;
+    }
+
+    let normalizedCount = 0;
+    let duplicateRenamedCount = 0;
+    let createdAtBackfilledCount = 0;
+    const updates: Array<{ id: string; changes: Pick<Partial<PlayerEntity>, 'name' | 'createdAt'> }> = [];
+
+    const duplicateGroups = [...groupedByName.entries()]
+      .filter(([, bucket]) => bucket.length > 1)
+      .sort(([left], [right]) => left.localeCompare(right, 'zh-Hans-CN'));
+
+    for (const [, bucket] of duplicateGroups) {
+      bucket.sort((left, right) => (
+        left.createdAtSource - right.createdAtSource
+        || left.id.localeCompare(right.id)
+      ));
+      occupiedNames.add(bucket[0]!.normalizedName);
+
+      let suffix = 2;
+      for (let index = 1; index < bucket.length; index += 1) {
+        const entry = bucket[index]!;
+        const renamed = this.allocateDuplicateRoleName(entry.normalizedName, suffix, occupiedNames);
+        suffix = renamed.nextSuffix;
+        entry.normalizedName = renamed.name;
+        occupiedNames.add(renamed.name);
+      }
+    }
+
+    for (const entry of entries) {
+      const changes: Partial<PlayerEntity> = {};
+      if (entry.normalizedName !== entry.originalName) {
+        changes.name = entry.normalizedName;
+        if (truncateRoleName(entry.originalName.normalize('NFC').trim()) === entry.normalizedName) {
+          normalizedCount += 1;
+        } else {
+          duplicateRenamedCount += 1;
+        }
+      }
+      const player = playerById.get(entry.id);
+      if (player && !player.createdAt && entry.createdAt) {
+        changes.createdAt = entry.createdAt;
+        createdAtBackfilledCount += 1;
+      }
+      if (Object.keys(changes).length > 0) {
+        updates.push({ id: entry.id, changes });
+      }
+    }
+
+    for (const update of updates) {
+      await this.playerRepo.update(update.id, update.changes);
     }
 
     if (normalizedCount > 0) {
       this.logger.log(`启动时已裁切 ${normalizedCount} 个超长角色名`);
     }
+    if (duplicateRenamedCount > 0) {
+      this.logger.warn(`启动时已为 ${duplicateRenamedCount} 个重名角色自动追加序号`);
+    }
+    if (createdAtBackfilledCount > 0) {
+      this.logger.log(`启动时已回填 ${createdAtBackfilledCount} 个旧角色的创建时间`);
+    }
+  }
+
+  private resolvePlayerCreatedAt(playerId: string, createdAt: Date | null | undefined, userCreatedAt: Date | null): Date | null {
+    if (createdAt instanceof Date && Number.isFinite(createdAt.getTime()) && createdAt.getTime() > 0) {
+      return createdAt;
+    }
+    const timestampFromId = this.parsePlayerCreatedAtFromId(playerId);
+    if (timestampFromId > 0) {
+      return new Date(timestampFromId);
+    }
+    if (userCreatedAt instanceof Date && Number.isFinite(userCreatedAt.getTime()) && userCreatedAt.getTime() > 0) {
+      return userCreatedAt;
+    }
+    return null;
+  }
+
+  private parsePlayerCreatedAtFromId(playerId: string): number {
+    const lastUnderscoreIndex = playerId.lastIndexOf('_');
+    if (lastUnderscoreIndex <= 0 || lastUnderscoreIndex >= playerId.length - 1) {
+      return 0;
+    }
+    const suffix = playerId.slice(lastUnderscoreIndex + 1);
+    if (!/^\d{10,}$/.test(suffix)) {
+      return 0;
+    }
+    const parsed = Number.parseInt(suffix, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  }
+
+  private allocateDuplicateRoleName(baseName: string, startSuffix: number, occupiedNames: Set<string>): { name: string; nextSuffix: number } {
+    let suffix = Math.max(2, Math.floor(startSuffix));
+    while (true) {
+      const suffixText = `#${suffix}`;
+      const candidate = this.appendRoleNameSuffix(baseName, suffixText);
+      if (!occupiedNames.has(candidate)) {
+        return {
+          name: candidate,
+          nextSuffix: suffix + 1,
+        };
+      }
+      suffix += 1;
+    }
+  }
+
+  private appendRoleNameSuffix(baseName: string, suffix: string): string {
+    let trimmedBase = baseName;
+    while (trimmedBase.length > 0 && !isRoleNameWithinLimit(`${trimmedBase}${suffix}`)) {
+      trimmedBase = [...trimmedBase].slice(0, -1).join('');
+    }
+    return `${trimmedBase}${suffix}`;
   }
 
   private hydratePlayerState(entity: PlayerEntity, displayName: string): PlayerState {

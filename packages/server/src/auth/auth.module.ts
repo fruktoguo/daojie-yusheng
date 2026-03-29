@@ -6,6 +6,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { NameUniquenessService } from './name-uniqueness.service';
 import { UserEntity } from '../database/entities/user.entity';
 import { PlayerEntity } from '../database/entities/player.entity';
 
@@ -19,7 +20,7 @@ import { PlayerEntity } from '../database/entities/player.entity';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService],
-  exports: [AuthService],
+  providers: [AuthService, NameUniquenessService],
+  exports: [AuthService, NameUniquenessService],
 })
 export class AuthModule {}

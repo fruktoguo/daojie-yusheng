@@ -285,7 +285,7 @@ export class SettingsPanel {
       </div>
       <div class="panel-section account-settings-section">
         <div class="panel-section-title">名称设置</div>
-        <div class="account-settings-copy">显示名称是唯一的一字标识；角色名称完整显示在头顶，纯中文建议不超过 ${ROLE_NAME_MAX_LENGTH} 个字，纯英文最多 ${ROLE_NAME_MAX_ASCII_LENGTH} 个字符，可与其他人重名。</div>
+        <div class="account-settings-copy">显示名称是唯一的一字标识；角色名称完整显示在头顶。账号、显示名称、角色名称三者全服都不能重名；纯中文建议不超过 ${ROLE_NAME_MAX_LENGTH} 个字，纯英文最多 ${ROLE_NAME_MAX_ASCII_LENGTH} 个字符。</div>
         <div class="account-settings-name-grid">
           <div class="account-settings-field account-settings-field--display">
             <label for="settings-display-name">显示名称</label>

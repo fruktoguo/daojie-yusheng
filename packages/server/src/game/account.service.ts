@@ -3,7 +3,7 @@
  */
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { BasicOkRes } from '@mud/shared';
 import { UserEntity } from '../database/entities/user.entity';
@@ -19,6 +19,7 @@ import {
   validateRoleName,
   validateUsername,
 } from '../auth/account-validation';
+import { NameUniquenessService } from '../auth/name-uniqueness.service';
 
 @Injectable()
 export class AccountService {
@@ -28,6 +29,7 @@ export class AccountService {
     @InjectRepository(PlayerEntity)
     private readonly playerRepo: Repository<PlayerEntity>,
     private readonly playerService: PlayerService,
+    private readonly nameUniquenessService: NameUniquenessService,
   ) {}
 
   /** 验证旧密码后更新为新密码 */
@@ -86,16 +88,27 @@ export class AccountService {
       return { username: normalizedUsername };
     }
 
-    const existing = await this.userRepo.findOne({ where: { username: normalizedUsername } });
-    if (existing && existing.id !== userId) {
-      throw new BadRequestException('账号已存在');
+    const usernameConflict = await this.nameUniquenessService.ensureAvailable(normalizedUsername, 'account', {
+      exclude: [{ userId, kind: 'account' }],
+    });
+    if (usernameConflict) {
+      throw new BadRequestException(usernameConflict);
     }
 
     const previousDisplayName = resolveDisplayName(user.displayName, user.username);
+    const nextDisplayName = resolveDisplayName(user.displayName, normalizedUsername);
+    if (nextDisplayName !== previousDisplayName) {
+      const displayNameConflict = await this.nameUniquenessService.ensureAvailable(nextDisplayName, 'display', {
+        exclude: [{ userId, kind: 'display' }],
+      });
+      if (displayNameConflict) {
+        throw new BadRequestException(displayNameConflict);
+      }
+    }
+
     user.username = normalizedUsername;
     await this.userRepo.save(user);
 
-    const nextDisplayName = resolveDisplayName(user.displayName, user.username);
     if (nextDisplayName !== previousDisplayName) {
       await this.playerService.updatePlayerDisplayName(userId, nextDisplayName);
     }
@@ -121,9 +134,11 @@ export class AccountService {
       return { displayName: normalizedDisplayName };
     }
 
-    const existing = await this.findUserByEffectiveDisplayName(normalizedDisplayName, userId);
-    if (existing && existing.id !== userId) {
-      throw new BadRequestException('显示名称已存在');
+    const displayNameConflict = await this.nameUniquenessService.ensureAvailable(normalizedDisplayName, 'display', {
+      exclude: [{ userId, kind: 'display' }],
+    });
+    if (displayNameConflict) {
+      throw new BadRequestException(displayNameConflict);
     }
 
     user.displayName = normalizedDisplayName;
@@ -134,25 +149,33 @@ export class AccountService {
 
   /** 更新角色名，同步到在线玩家状态 */
   async updateRoleName(userId: string, roleName: string): Promise<{ roleName: string }> {
+    const player = await this.playerRepo.findOne({
+      select: ['userId', 'name'],
+      where: { userId },
+    });
+    if (!player) {
+      throw new UnauthorizedException('角色不存在');
+    }
+
     const normalizedRoleName = normalizeRoleName(roleName);
     const roleNameError = validateRoleName(normalizedRoleName);
     if (roleNameError) {
       throw new BadRequestException(roleNameError);
     }
 
+    if (normalizedRoleName === normalizeRoleName(player.name)) {
+      return { roleName: normalizedRoleName };
+    }
+
+    const roleNameConflict = await this.nameUniquenessService.ensureAvailable(normalizedRoleName, 'role', {
+      exclude: [{ userId, kind: 'role' }],
+    });
+    if (roleNameConflict) {
+      throw new BadRequestException(roleNameConflict);
+    }
+
     await this.playerRepo.update({ userId }, { name: normalizedRoleName });
     await this.playerService.updatePlayerRoleName(userId, normalizedRoleName);
     return { roleName: normalizedRoleName };
-  }
-
-  /** 按生效显示名称查找用户（含 displayName 为空时回退到 username 首字的情况） */
-  private findUserByEffectiveDisplayName(displayName: string, excludeUserId: string): Promise<UserEntity | null> {
-    return this.userRepo.createQueryBuilder('user')
-      .where(new Brackets((qb) => {
-        qb.where('user.displayName = :displayName', { displayName })
-          .orWhere('(user.displayName IS NULL AND LEFT(user.username, 1) = :displayName)', { displayName });
-      }))
-      .andWhere('user.id != :excludeUserId', { excludeUserId })
-      .getOne();
   }
 }

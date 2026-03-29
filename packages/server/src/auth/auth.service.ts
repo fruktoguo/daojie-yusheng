@@ -4,7 +4,7 @@
 import { Injectable, BadRequestException, Logger, OnModuleInit, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, In, Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { ACCOUNT_MAX_LENGTH, AuthTokenRes, DisplayNameAvailabilityRes, GmLoginRes } from '@mud/shared';
 import * as fs from 'fs';
@@ -22,6 +22,7 @@ import {
   validateUsername,
 } from './account-validation';
 import { GM_CONFIG_PATH, GM_TOKEN_EXPIRES_IN } from '../constants/auth/gm';
+import { NameUniquenessService } from './name-uniqueness.service';
 
 /** GM 密码配置文件结构 */
 interface GmConfigFile {
@@ -52,6 +53,7 @@ export class AuthService implements OnModuleInit {
     @InjectRepository(PlayerEntity)
     private readonly playerRepo: Repository<PlayerEntity>,
     private readonly persistentDocumentService: PersistentDocumentService,
+    private readonly nameUniquenessService: NameUniquenessService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -79,14 +81,27 @@ export class AuthService implements OnModuleInit {
     if (roleNameError) {
       throw new BadRequestException(roleNameError);
     }
-
-    const existing = await this.userRepo.findOne({ where: { username: normalizedUsername } });
-    if (existing) {
-      throw new BadRequestException('账号已存在');
+    if (normalizedUsername === normalizedRoleName) {
+      throw new BadRequestException('角色名称与账号重名');
     }
-    const existingDisplayName = await this.findUserByEffectiveDisplayName(normalizedDisplayName);
-    if (existingDisplayName) {
-      throw new BadRequestException('显示名称已存在');
+    if (normalizedUsername === normalizedDisplayName) {
+      throw new BadRequestException('显示名称与账号重名');
+    }
+    if (normalizedRoleName === normalizedDisplayName) {
+      throw new BadRequestException('显示名称与角色名称冲突');
+    }
+
+    const usernameConflict = await this.nameUniquenessService.ensureAvailable(normalizedUsername, 'account');
+    if (usernameConflict) {
+      throw new BadRequestException(usernameConflict);
+    }
+    const roleNameConflict = await this.nameUniquenessService.ensureAvailable(normalizedRoleName, 'role');
+    if (roleNameConflict) {
+      throw new BadRequestException(roleNameConflict);
+    }
+    const displayNameConflict = await this.nameUniquenessService.ensureAvailable(normalizedDisplayName, 'display');
+    if (displayNameConflict) {
+      throw new BadRequestException(displayNameConflict);
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -160,9 +175,9 @@ export class AuthService implements OnModuleInit {
     if (error) {
       return { available: false, message: error };
     }
-    const existing = await this.findUserByEffectiveDisplayName(normalizedDisplayName);
-    if (existing) {
-      return { available: false, message: '显示名称已存在' };
+    const conflict = await this.nameUniquenessService.ensureAvailable(normalizedDisplayName, 'display');
+    if (conflict) {
+      return { available: false, message: conflict };
     }
     return { available: true };
   }
@@ -245,16 +260,6 @@ export class AuthService implements OnModuleInit {
       accessToken: this.jwtService.sign(payload),
       refreshToken: this.jwtService.sign(payload, { expiresIn: '30d' }),
     };
-  }
-
-  /** 按有效显示名称查找用户（含未设置 displayName 时回退到用户名首字符的情况） */
-  private findUserByEffectiveDisplayName(displayName: string): Promise<UserEntity | null> {
-    return this.userRepo.createQueryBuilder('user')
-      .where(new Brackets((qb) => {
-        qb.where('user.displayName = :displayName', { displayName })
-          .orWhere('(user.displayName IS NULL AND LEFT(user.username, 1) = :displayName)', { displayName });
-      }))
-      .getOne();
   }
 
   /** 首次进入世界时取出注册阶段保留的角色名 */
