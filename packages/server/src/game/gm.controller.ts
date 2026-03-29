@@ -235,6 +235,7 @@ export class GmController {
     @Query('y') qy: string,
     @Query('w') qw: string,
     @Query('h') qh: string,
+    @Query('viewerId') viewerId?: string,
   ): GmMapRuntimeRes {
     const x = parseInt(qx, 10) || 0;
     const y = parseInt(qy, 10) || 0;
@@ -244,11 +245,18 @@ export class GmController {
       mapId, x, y, w, h,
       this.tickService.getMapTickSpeed(mapId),
       this.tickService.isMapPaused(mapId),
+      viewerId,
     );
     if (!result) {
       throw new BadRequestException('目标地图不存在');
     }
     return result;
+  }
+
+  @Delete('world-observers/:viewerId')
+  clearWorldObservation(@Param('viewerId') viewerId: string): { ok: true } {
+    this.gmService.clearWorldObservation(viewerId);
+    return { ok: true };
   }
 
   /** 修改地图 tick 速率（必须在 maps/:mapId 之前） */

@@ -43,12 +43,25 @@ import {
 import { PlayerEntity } from '../database/entities/player.entity';
 import { UserEntity } from '../database/entities/user.entity';
 import { AccountService } from './account.service';
+import { AttrService } from './attr.service';
 import { BotService } from './bot.service';
 import { ContentService } from './content.service';
 import { EquipmentService } from './equipment.service';
 import { MapService } from './map.service';
 import { NavigationService } from './navigation.service';
 import { PerformanceService } from './performance.service';
+import {
+  GM_WORLD_OBSERVE_BUFF_COLOR,
+  GM_WORLD_OBSERVE_BUFF_DESC,
+  GM_WORLD_OBSERVE_BUFF_DURATION_TICKS,
+  GM_WORLD_OBSERVE_BUFF_ID,
+  GM_WORLD_OBSERVE_BUFF_LUCK_BONUS,
+  GM_WORLD_OBSERVE_BUFF_NAME,
+  GM_WORLD_OBSERVE_BUFF_SHORT_MARK,
+  GM_WORLD_OBSERVE_SESSION_TTL_MS,
+  GM_WORLD_OBSERVE_SOURCE_ID,
+  GM_WORLD_OBSERVE_SOURCE_NAME,
+} from '../constants/gameplay/gm-observe';
 import {
   buildPersistedPlayerCollections,
   hydrateEquipmentSnapshot,
@@ -96,9 +109,20 @@ interface GmPlayerUserIdentity {
   accountName?: string;
 }
 
+interface GmWorldObservationSession {
+  viewerId: string;
+  mapId: string;
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+  lastSeenAt: number;
+}
+
 @Injectable()
 export class GmService {
   private readonly commandsByMap = new Map<string, GmCommand[]>();
+  private readonly worldObservationSessions = new Map<string, GmWorldObservationSession>();
   private readonly logger = new Logger(GmService.name);
 
   constructor(
@@ -109,6 +133,7 @@ export class GmService {
     private readonly botService: BotService,
     private readonly playerService: PlayerService,
     private readonly mapService: MapService,
+    private readonly attrService: AttrService,
     private readonly navigationService: NavigationService,
     private readonly performanceService: PerformanceService,
     private readonly worldService: WorldService,
@@ -269,6 +294,87 @@ export class GmService {
 
   clearRuntimeState(): void {
     this.commandsByMap.clear();
+    this.worldObservationSessions.clear();
+  }
+
+  updateWorldObservation(
+    viewerId: string | undefined,
+    mapId: string,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    now = Date.now(),
+  ): void {
+    const normalizedViewerId = viewerId?.trim().slice(0, 128);
+    if (!normalizedViewerId) {
+      return;
+    }
+    const meta = this.mapService.getMapMeta(mapId);
+    if (!meta) {
+      return;
+    }
+    const clampedW = Math.min(20, Math.max(1, Math.floor(w)));
+    const clampedH = Math.min(20, Math.max(1, Math.floor(h)));
+    const startX = Math.max(0, Math.min(Math.floor(x), meta.width - 1));
+    const startY = Math.max(0, Math.min(Math.floor(y), meta.height - 1));
+    const endX = Math.min(meta.width, startX + clampedW);
+    const endY = Math.min(meta.height, startY + clampedH);
+    this.worldObservationSessions.set(normalizedViewerId, {
+      viewerId: normalizedViewerId,
+      mapId,
+      startX,
+      startY,
+      endX,
+      endY,
+      lastSeenAt: now,
+    });
+  }
+
+  clearWorldObservation(viewerId: string | undefined): void {
+    const normalizedViewerId = viewerId?.trim().slice(0, 128);
+    if (!normalizedViewerId) {
+      return;
+    }
+    this.worldObservationSessions.delete(normalizedViewerId);
+  }
+
+  syncObservedPlayerBuffs(mapId: string, now = Date.now()): string[] {
+    this.pruneExpiredWorldObservations(now);
+    const players = this.playerService.getPlayersByMap(mapId);
+    if (players.length === 0) {
+      return [];
+    }
+
+    const sessions: GmWorldObservationSession[] = [];
+    for (const session of this.worldObservationSessions.values()) {
+      if (session.mapId === mapId) {
+        sessions.push(session);
+      }
+    }
+
+    const changedPlayerIds: string[] = [];
+    for (const player of players) {
+      if (player.isBot) {
+        if (this.removeWorldObserveBuff(player)) {
+          changedPlayerIds.push(player.id);
+        }
+        continue;
+      }
+      const observed = sessions.some((session) => (
+        player.x >= session.startX
+        && player.x < session.endX
+        && player.y >= session.startY
+        && player.y < session.endY
+      ));
+      const changed = observed
+        ? this.ensureWorldObserveBuff(player)
+        : this.removeWorldObserveBuff(player);
+      if (changed) {
+        changedPlayerIds.push(player.id);
+      }
+    }
+    return changedPlayerIds;
   }
 
   /** 保存地图编辑结果，自动重载运行时并迁移受影响玩家 */
@@ -1116,6 +1222,7 @@ export class GmService {
     h: number,
     tickSpeed: number,
     tickPaused: boolean,
+    viewerId?: string,
   ): GmMapRuntimeRes | null {
     const meta = this.mapService.getMapMeta(mapId);
     if (!meta) return null;
@@ -1126,6 +1233,7 @@ export class GmService {
     const startY = Math.max(0, Math.min(y, meta.height - 1));
     const endX = Math.min(meta.width, startX + clampedW);
     const endY = Math.min(meta.height, startY + clampedH);
+    this.updateWorldObservation(viewerId, mapId, startX, startY, endX - startX, endY - startY);
 
     // 收集地块
     const tiles: (VisibleTile | null)[][] = [];
@@ -1220,5 +1328,120 @@ export class GmService {
   /** GM 修改地图时间配置 */
   updateMapTime(mapId: string, req: GmUpdateMapTimeReq): string | null {
     return this.mapService.updateMapTimeConfig(mapId, req);
+  }
+
+  private pruneExpiredWorldObservations(now: number): void {
+    for (const [viewerId, session] of this.worldObservationSessions.entries()) {
+      if (now - session.lastSeenAt > GM_WORLD_OBSERVE_SESSION_TTL_MS) {
+        this.worldObservationSessions.delete(viewerId);
+      }
+    }
+  }
+
+  private ensureWorldObserveBuff(player: PlayerState): boolean {
+    const targetBuffs = player.temporaryBuffs ??= [];
+    const existing = targetBuffs.find((buff) => buff.buffId === GM_WORLD_OBSERVE_BUFF_ID);
+    if (!existing) {
+      targetBuffs.push(this.buildWorldObserveBuffState());
+      this.attrService.recalcPlayer(player);
+      return true;
+    }
+
+    let changed = false;
+    if (existing.name !== GM_WORLD_OBSERVE_BUFF_NAME) {
+      existing.name = GM_WORLD_OBSERVE_BUFF_NAME;
+      changed = true;
+    }
+    if (existing.desc !== GM_WORLD_OBSERVE_BUFF_DESC) {
+      existing.desc = GM_WORLD_OBSERVE_BUFF_DESC;
+      changed = true;
+    }
+    if (existing.shortMark !== GM_WORLD_OBSERVE_BUFF_SHORT_MARK) {
+      existing.shortMark = GM_WORLD_OBSERVE_BUFF_SHORT_MARK;
+      changed = true;
+    }
+    if (existing.category !== 'buff') {
+      existing.category = 'buff';
+      changed = true;
+    }
+    if (existing.visibility !== 'public') {
+      existing.visibility = 'public';
+      changed = true;
+    }
+    if (existing.duration !== GM_WORLD_OBSERVE_BUFF_DURATION_TICKS) {
+      existing.duration = GM_WORLD_OBSERVE_BUFF_DURATION_TICKS;
+    }
+    if (existing.stacks !== 1) {
+      existing.stacks = 1;
+      changed = true;
+    }
+    if (existing.maxStacks !== 1) {
+      existing.maxStacks = 1;
+      changed = true;
+    }
+    if (existing.sourceSkillId !== GM_WORLD_OBSERVE_SOURCE_ID) {
+      existing.sourceSkillId = GM_WORLD_OBSERVE_SOURCE_ID;
+      changed = true;
+    }
+    if (existing.sourceSkillName !== GM_WORLD_OBSERVE_SOURCE_NAME) {
+      existing.sourceSkillName = GM_WORLD_OBSERVE_SOURCE_NAME;
+      changed = true;
+    }
+    if (existing.color !== GM_WORLD_OBSERVE_BUFF_COLOR) {
+      existing.color = GM_WORLD_OBSERVE_BUFF_COLOR;
+      changed = true;
+    }
+    if (existing.attrs?.luck !== GM_WORLD_OBSERVE_BUFF_LUCK_BONUS || Object.keys(existing.attrs ?? {}).length !== 1) {
+      existing.attrs = { luck: GM_WORLD_OBSERVE_BUFF_LUCK_BONUS };
+      changed = true;
+    }
+    if (existing.stats !== undefined) {
+      existing.stats = undefined;
+      changed = true;
+    }
+    if (existing.qiProjection !== undefined) {
+      existing.qiProjection = undefined;
+      changed = true;
+    }
+    existing.remainingTicks = GM_WORLD_OBSERVE_BUFF_DURATION_TICKS;
+    if (changed) {
+      this.attrService.recalcPlayer(player);
+    }
+    return changed;
+  }
+
+  private removeWorldObserveBuff(player: PlayerState): boolean {
+    const targetBuffs = player.temporaryBuffs;
+    if (!targetBuffs || targetBuffs.length === 0) {
+      return false;
+    }
+    const index = targetBuffs.findIndex((buff) => buff.buffId === GM_WORLD_OBSERVE_BUFF_ID);
+    if (index < 0) {
+      return false;
+    }
+    targetBuffs.splice(index, 1);
+    this.attrService.recalcPlayer(player);
+    return true;
+  }
+
+  private buildWorldObserveBuffState(): TemporaryBuffState {
+    return {
+      buffId: GM_WORLD_OBSERVE_BUFF_ID,
+      name: GM_WORLD_OBSERVE_BUFF_NAME,
+      desc: GM_WORLD_OBSERVE_BUFF_DESC,
+      shortMark: GM_WORLD_OBSERVE_BUFF_SHORT_MARK,
+      category: 'buff',
+      visibility: 'public',
+      remainingTicks: GM_WORLD_OBSERVE_BUFF_DURATION_TICKS,
+      duration: GM_WORLD_OBSERVE_BUFF_DURATION_TICKS,
+      stacks: 1,
+      maxStacks: 1,
+      sourceSkillId: GM_WORLD_OBSERVE_SOURCE_ID,
+      sourceSkillName: GM_WORLD_OBSERVE_SOURCE_NAME,
+      color: GM_WORLD_OBSERVE_BUFF_COLOR,
+      attrs: {
+        luck: GM_WORLD_OBSERVE_BUFF_LUCK_BONUS,
+      },
+    };
   }
 }

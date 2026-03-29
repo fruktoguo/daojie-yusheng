@@ -42,6 +42,13 @@ function formatDebugNumber(value: number, digits = 2): string {
   return Number.isFinite(value) ? value.toFixed(digits) : '-';
 }
 
+function createViewerId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `gm-viewer-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export class GmWorldViewer {
   private canvas: HTMLCanvasElement;
   private mapListEl: HTMLElement;
@@ -75,6 +82,8 @@ export class GmWorldViewer {
   private mounted = false;
   private speedDraft: string | null = null;
   private offsetDraft: string | null = null;
+  private readonly viewerId = createViewerId();
+  private observationRegistered = false;
 
   constructor(
     private readonly request: RequestFn,
@@ -148,6 +157,7 @@ export class GmWorldViewer {
       this.pollTimer = null;
     }
     this.stopRaf();
+    this.clearObservation();
   }
 
   // ===== RAF 循环（平滑摄像机） =====
@@ -178,9 +188,17 @@ export class GmWorldViewer {
     if (!this.currentMapId) return;
     const { startX, startY, w, h } = this.getViewport();
     try {
+      const params = new URLSearchParams({
+        x: String(startX),
+        y: String(startY),
+        w: String(w),
+        h: String(h),
+        viewerId: this.viewerId,
+      });
       this.runtimeData = await this.request<GmMapRuntimeRes>(
-        `/gm/maps/${this.currentMapId}/runtime?x=${startX}&y=${startY}&w=${w}&h=${h}`,
+        `/gm/maps/${this.currentMapId}/runtime?${params.toString()}`,
       );
+      this.observationRegistered = true;
       this.syncToRenderer();
       this.renderTimeControl();
       this.renderInfo();
@@ -636,6 +654,16 @@ export class GmWorldViewer {
     } catch (err) {
       this.setStatus(err instanceof Error ? err.message : '重新加载服务端配置失败', true);
     }
+  }
+
+  private clearObservation(): void {
+    if (!this.observationRegistered) {
+      return;
+    }
+    this.observationRegistered = false;
+    void this.request<{ ok: true }>(`/gm/world-observers/${encodeURIComponent(this.viewerId)}`, {
+      method: 'DELETE',
+    }).catch(() => {});
   }
 
   // ===== 信息面板 =====

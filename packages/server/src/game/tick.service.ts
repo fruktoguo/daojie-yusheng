@@ -581,6 +581,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     this.measureCpuSection('gm_commands', 'GM 指令处理', () => {
       this.processGmCommands(gmCommands, affectedPlayers, activePlayerIds, messages);
     });
+    this.measureCpuSection('gm_observe_buffs', 'GM 观察 Buff 同步', () => {
+      this.syncGmObservedPlayerBuffs(mapId, affectedPlayers);
+    });
 
     const lootTick = this.measureCpuSection('loot', '掉落与容器', () => this.lootService.tick(mapId, this.playerService.getPlayersByMap(mapId)));
     for (const playerId of lootTick.dirtyPlayers) {
@@ -1004,6 +1007,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
     this.measureCpuSection('gm_commands', 'GM 指令处理', () => {
       this.processGmCommands(gmCommands, affectedPlayers, activePlayerIds, messages);
+    });
+    this.measureCpuSection('gm_observe_buffs', 'GM 观察 Buff 同步', () => {
+      this.syncGmObservedPlayerBuffs(mapId, affectedPlayers);
     });
 
     if (affectedPlayers.size > 0) {
@@ -1601,6 +1607,21 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if ('playerId' in command && typeof command.playerId === 'string') {
         messages.push({ playerId: command.playerId, text: error, kind: 'system' });
       }
+    }
+  }
+
+  private syncGmObservedPlayerBuffs(
+    mapId: string,
+    affectedPlayers: Map<string, PlayerState>,
+  ): void {
+    const changedPlayerIds = this.gmService.syncObservedPlayerBuffs(mapId);
+    for (const playerId of changedPlayerIds) {
+      const player = this.playerService.getPlayer(playerId);
+      if (!player) {
+        continue;
+      }
+      affectedPlayers.set(player.id, player);
+      this.playerService.markDirty(player.id, 'attr');
     }
   }
 

@@ -36,6 +36,10 @@ import {
   CULTIVATION_BUFF_ID,
   TECHNIQUE_GRADES,
 } from '../constants/gameplay/player-storage';
+import {
+  GM_WORLD_OBSERVE_BUFF_ID,
+  GM_WORLD_OBSERVE_SOURCE_ID,
+} from '../constants/gameplay/gm-observe';
 import { syncDynamicBuffPresentation } from './buff-presentation';
 import { ContentService } from './content.service';
 import { MapService } from './map.service';
@@ -122,6 +126,10 @@ function normalizePositiveInt(value: unknown, fallback = 1): number {
 
 function normalizeNonNegativeInt(value: unknown, fallback = 0): number {
   return Math.max(0, Number.isFinite(value) ? Math.floor(Number(value)) : fallback);
+}
+
+function isTransientGmObserveBuff(buffId: string, sourceSkillId: string): boolean {
+  return buffId === GM_WORLD_OBSERVE_BUFF_ID && sourceSkillId === GM_WORLD_OBSERVE_SOURCE_ID;
 }
 
 function isItemType(value: unknown): value is ItemType {
@@ -316,6 +324,10 @@ function hydrateTemporaryBuff(snapshot: unknown, contentService: ContentService)
     stacks: normalizePositiveInt(snapshot.stacks, 1),
     maxStacks: normalizePositiveInt(snapshot.maxStacks, 1),
   };
+
+  if (isTransientGmObserveBuff(minimal.buffId, minimal.sourceSkillId)) {
+    return null;
+  }
 
   const systemBuff = buildSystemBuffState(minimal);
   if (systemBuff) {
@@ -612,6 +624,7 @@ export function hydrateQuestSnapshots(snapshot: unknown, mapService: MapService,
 /** 将玩家内存状态转换为持久化快照（已知内容走精简格式，未知保留完整字段） */
 export function buildPersistedPlayerCollections(player: PlayerStorageState, contentService: ContentService, mapService: MapService): PersistedPlayerCollections {
   const equipment = { weapon: null, head: null, body: null, legs: null, accessory: null } as PersistedEquipmentSnapshot;
+  const persistentTemporaryBuffs = (player.temporaryBuffs ?? []).filter((buff) => !isTransientGmObserveBuff(buff.buffId, buff.sourceSkillId));
 
   for (const slot of EQUIP_SLOTS) {
     const item = player.equipment[slot];
@@ -628,7 +641,7 @@ export function buildPersistedPlayerCollections(player: PlayerStorageState, cont
       items: (player.marketStorage?.items ?? []).map((item) => dehydrateInventoryItem(item, contentService)),
     },
     equipment,
-    temporaryBuffs: (player.temporaryBuffs ?? []).map((buff) => dehydrateTemporaryBuff(buff, contentService)),
+    temporaryBuffs: persistentTemporaryBuffs.map((buff) => dehydrateTemporaryBuff(buff, contentService)),
     techniques: player.techniques
       .filter((technique) => typeof technique.techId === 'string' && technique.techId.length > 0)
       .map((technique) => dehydrateTechnique(technique, contentService)),
