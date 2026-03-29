@@ -153,7 +153,7 @@ export class GmPanel {
       .map(s => `
         <div style="border-bottom:1px solid #333; padding:5px; margin-bottom:5px;">
           <div style="display:flex; justify-content:space-between;">
-            <span style="font-weight:bold; color:${s.status === 'completed' ? '#0f0' : '#ffcc00'}">${s.title}</span>
+            <span style="font-weight: var(--font-weight-strong); color:${s.status === 'completed' ? '#0f0' : '#ffcc00'}">${s.title}</span>
             <span style="color:#888; font-size:10px;">${s.authorName}</span>
           </div>
           <div style="color:#aaa; margin:3px 0; word-break:break-all;">${s.description}</div>

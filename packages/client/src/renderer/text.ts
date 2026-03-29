@@ -45,6 +45,7 @@ import {
   TIME_ATMOSPHERE_PROFILES,
   type TimeAtmosphereProfile,
 } from '../constants/visuals/time-atmosphere';
+import { buildCanvasFont } from '../constants/ui/text';
 import { getMonsterPresentation } from '../monster-presentation';
 
 interface TimeAtmosphereState {
@@ -441,7 +442,7 @@ export class TextRenderer implements IRenderer {
           const ch = TILE_VISUAL_GLYPHS[tile.type];
           if (ch) {
             ctx.fillStyle = TILE_VISUAL_GLYPH_COLORS[tile.type] ?? 'rgba(0,0,0,0.2)';
-            ctx.font = `${cellSize * 0.6}px "Ma Shan Zheng", cursive`;
+            ctx.font = buildCanvasFont('tileGlyph', cellSize * 0.6);
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(ch, sx + cellSize / 2, sy + cellSize / 2 + 1);
@@ -718,7 +719,7 @@ export class TextRenderer implements IRenderer {
       ctx.fill();
 
       ctx.fillStyle = anim.color;
-      ctx.font = `bold ${visualCellSize * 0.75}px "Ma Shan Zheng", cursive`;
+      ctx.font = buildCanvasFont('entityGlyph', visualCellSize * 0.75);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       this.drawOutlinedText(anim.char, visualSx + visualCellSize / 2, visualSy + visualCellSize / 2, anim.color, 'rgba(15,12,10,0.9)');
@@ -730,7 +731,7 @@ export class TextRenderer implements IRenderer {
         const isContainer = anim.kind === 'container';
         const label = monsterPresentation?.label ?? anim.name ?? (isCrowd ? '人群' : isMonster ? '妖兽' : isPlayer ? '修士' : isContainer ? '箱具' : '道人');
         ctx.textBaseline = 'alphabetic';
-        ctx.font = `${renderedCellSize * (isCrowd ? 0.24 : 0.3)}px "Noto Serif SC", serif`;
+        ctx.font = buildCanvasFont('label', renderedCellSize * (isCrowd ? 0.24 : 0.3));
         const labelY = visualSy - Math.max(6, renderedCellSize * 0.18);
         const labelColor = isCrowd ? '#f4dfaf' : isMonster ? '#ffddcc' : isPlayer ? '#d8f3c3' : isContainer ? '#ffe3b8' : '#cce7ff';
         if (isMonster && monsterPresentation?.badgeText) {
@@ -890,7 +891,7 @@ export class TextRenderer implements IRenderer {
     const textColor = '#fff6eb';
 
     ctx.save();
-    ctx.font = `${Math.max(10, cellSize * 0.3)}px "Noto Serif SC", serif`;
+    ctx.font = buildCanvasFont('label', Math.max(10, cellSize * 0.3));
     const labelWidth = ctx.measureText(label).width;
     const totalWidth = badgeWidth + gap + labelWidth;
     const left = centerX - totalWidth / 2;
@@ -904,7 +905,7 @@ export class TextRenderer implements IRenderer {
     ctx.fill();
     ctx.stroke();
 
-    ctx.font = `bold ${badgeTextSize}px "Noto Serif SC", serif`;
+    ctx.font = buildCanvasFont('badge', badgeTextSize);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = textColor;
@@ -991,14 +992,14 @@ export class TextRenderer implements IRenderer {
       }
 
       ctx.fillStyle = '#f7f0dd';
-      ctx.font = `bold ${Math.max(6, badgeSize * 0.62)}px "Noto Serif SC", serif`;
+      ctx.font = buildCanvasFont('badge', Math.max(6, badgeSize * 0.62));
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(buff.shortMark, centerX, centerY + 0.5);
 
       if (buff.stacks > 1) {
         ctx.fillStyle = '#ffd76f';
-        ctx.font = `bold ${Math.max(5, badgeSize * 0.42)}px "Noto Serif SC", serif`;
+        ctx.font = buildCanvasFont('badge', Math.max(5, badgeSize * 0.42));
         ctx.textAlign = 'right';
         ctx.textBaseline = 'top';
         ctx.fillText(`${buff.stacks}`, x + badgeSize - 1, y);
@@ -1059,7 +1060,7 @@ export class TextRenderer implements IRenderer {
     }
 
     ctx.fillStyle = palette.text;
-    ctx.font = `bold ${Math.max(11, cellSize * 0.26)}px "Noto Serif SC", serif`;
+    ctx.font = buildCanvasFont('badge', Math.max(11, cellSize * 0.26));
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(symbol, centerX, centerY + 0.5);
@@ -1164,7 +1165,7 @@ export class TextRenderer implements IRenderer {
         ctx.scale(scale, scale);
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
-        ctx.font = `${fontSize}px "Ma Shan Zheng", cursive`;
+        ctx.font = buildCanvasFont('floatingAction', fontSize);
         this.drawOutlinedVerticalText(
           entry.text,
           0,
@@ -1176,7 +1177,7 @@ export class TextRenderer implements IRenderer {
       } else {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'alphabetic';
-        ctx.font = `bold ${Math.max(14, cellSize * 0.45)}px "Noto Serif SC", serif`;
+        ctx.font = buildCanvasFont('floatingDamage', Math.max(14, cellSize * 0.45));
         this.drawOutlinedText(
           entry.text,
           sx + cellSize / 2 + burst.offsetX,
@@ -1636,7 +1637,7 @@ export class TextRenderer implements IRenderer {
     ctx.lineJoin = 'round';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = `bold ${fontSize}px "Noto Serif SC", serif`;
+    ctx.font = buildCanvasFont('badge', fontSize);
     ctx.strokeText(label, x + slotSize / 2, y + slotSize / 2 + slotSize * 0.02);
     ctx.fillText(label, x + slotSize / 2, y + slotSize / 2 + slotSize * 0.02);
     ctx.restore();
@@ -1717,7 +1718,7 @@ export class TextRenderer implements IRenderer {
     const countText = formatDisplayInteger(Math.max(0, count));
     const badgeFont = Math.max(5, slotSize * 0.26);
     ctx.save();
-    ctx.font = `bold ${badgeFont}px "Noto Serif SC", serif`;
+    ctx.font = buildCanvasFont('badge', badgeFont);
     const paddingX = Math.max(2, slotSize * 0.1);
     const badgeHeight = Math.max(7, slotSize * 0.36);
     const badgeWidth = Math.max(badgeHeight, ctx.measureText(countText).width + paddingX * 2);

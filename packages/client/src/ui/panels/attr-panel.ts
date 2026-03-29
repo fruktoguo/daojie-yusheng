@@ -802,7 +802,7 @@ export class AttrPanel {
         box-shadow: 0 8px 24px rgba(0,0,0,0.18);
       }
       .attr-tooltip .floating-tooltip-body strong {
-        font-weight: 600;
+        font-weight: var(--font-weight-semibold);
         display: block;
         margin-bottom: 4px;
       }

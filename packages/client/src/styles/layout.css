@@ -105,7 +105,7 @@
       color: var(--collapse-rail-text);
       font-family: var(--font-role-body);
       font-size: var(--font-size-role-body-11);
-      font-weight: 700;
+      font-weight: var(--font-weight-strong);
       line-height: 1;
       letter-spacing: 0;
       display: inline-flex;

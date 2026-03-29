@@ -43,6 +43,7 @@ import {
   PAINT_TILE_TYPES,
   PAINT_LAYER_OPTIONS,
 } from './constants/editor/map-editor';
+import { buildCanvasFont } from './constants/ui/text';
 
 type RequestFn = <T>(path: string, init?: RequestInit) => Promise<T>;
 type StatusFn = (message: string, isError?: boolean) => void;
@@ -2013,7 +2014,7 @@ export class GmMapEditor {
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = `${cellSize * 0.6}px "Ma Shan Zheng", cursive`;
+    ctx.font = buildCanvasFont('tileGlyph', cellSize * 0.6);
 
     for (let gy = startGY; gy <= endGY; gy += 1) {
       for (let gx = startGX; gx <= endGX; gx += 1) {
@@ -2099,13 +2100,13 @@ export class GmMapEditor {
       ctx.lineWidth = Math.max(2, cellSize * 0.08);
       ctx.strokeStyle = 'rgba(15,12,10,0.9)';
       ctx.fillStyle = color;
-      ctx.font = `bold ${cellSize * 0.75}px "Ma Shan Zheng", cursive`;
+      ctx.font = buildCanvasFont('entityGlyph', cellSize * 0.75);
       ctx.strokeText(char, sx + cellSize / 2, sy + cellSize / 2);
       ctx.fillText(char, sx + cellSize / 2, sy + cellSize / 2);
       if (!showEntityLabels) {
         return;
       }
-      ctx.font = `${cellSize * 0.3}px "Noto Serif SC", serif`;
+      ctx.font = buildCanvasFont('label', cellSize * 0.3);
       ctx.strokeStyle = 'rgba(15,12,10,0.9)';
       ctx.fillStyle = kind === 'monster'
         ? '#ffddcc'
@@ -2134,7 +2135,7 @@ export class GmMapEditor {
 
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.font = `bold ${Math.max(12, cellSize * 0.34)}px "Noto Serif SC", serif`;
+      ctx.font = buildCanvasFont('labelStrong', Math.max(12, cellSize * 0.34));
       const textWidth = ctx.measureText(label).width;
       const paddingX = Math.max(8, cellSize * 0.22);
       const boxHeight = Math.max(20, cellSize * 0.52);
@@ -2285,7 +2286,7 @@ export class GmMapEditor {
     const summary = `生${spawnRadius} 漫${wanderRadius}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = `bold ${Math.max(11, cellSize * 0.28)}px "Noto Serif SC", serif`;
+    ctx.font = buildCanvasFont('badge', Math.max(11, cellSize * 0.28));
     const paddingX = Math.max(7, cellSize * 0.18);
     const boxHeight = Math.max(18, cellSize * 0.46);
     const boxWidth = ctx.measureText(summary).width + paddingX * 2;
@@ -2385,7 +2386,7 @@ export class GmMapEditor {
     const summary = `安${radius}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = `bold ${Math.max(11, cellSize * 0.28)}px "Noto Serif SC", serif`;
+    ctx.font = buildCanvasFont('badge', Math.max(11, cellSize * 0.28));
     const paddingX = Math.max(7, cellSize * 0.18);
     const boxHeight = Math.max(18, cellSize * 0.46);
     const boxWidth = ctx.measureText(summary).width + paddingX * 2;

@@ -15,6 +15,7 @@ import {
   MAX_MODAL_ZOOM,
   MIN_MODAL_ZOOM,
 } from '../constants/visuals/minimap';
+import { buildCanvasFont } from '../constants/ui/text';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../utils/number';
 
 type CatalogFilter = 'all' | 'memory' | 'unlock';
@@ -1460,7 +1461,7 @@ export class Minimap {
 
     if (marker.kind === 'landmark') {
       const fontSize = clamp(metrics.scale * 0.7, 12, 18);
-      ctx.font = `bold ${fontSize}px "Noto Serif SC", serif`;
+      ctx.font = buildCanvasFont('labelStrong', fontSize);
       ctx.textBaseline = 'middle';
       const textWidth = ctx.measureText(label).width;
       const paddingX = Math.max(8, metrics.scale * 0.24);
@@ -1493,7 +1494,7 @@ export class Minimap {
       metrics.padding + fontSize + 2,
       metrics.height - metrics.padding - 2,
     );
-    ctx.font = `${fontSize}px "Noto Serif SC", serif`;
+    ctx.font = buildCanvasFont('label', fontSize);
     ctx.textBaseline = 'alphabetic';
     ctx.lineWidth = Math.max(2, fontSize * 0.18);
     ctx.fillStyle = marker.kind === 'monster_spawn'
@@ -1541,7 +1542,7 @@ export class Minimap {
       ? '滚轮缩放 · 右键拖拽 · 左键前往'
       : '滚轮缩放 · 右键拖拽';
     ctx.save();
-    ctx.font = '12px "Noto Serif SC", serif';
+    ctx.font = buildCanvasFont('label', 12);
     ctx.textBaseline = 'middle';
     const guideWidth = ctx.measureText(guide).width + 18;
     const guideX = metrics.width - metrics.padding - guideWidth;
@@ -1564,7 +1565,7 @@ export class Minimap {
       return;
     }
 
-    ctx.font = '13px "Noto Serif SC", serif';
+    ctx.font = buildCanvasFont('label', 13);
     const lineHeight = 20;
     const contentWidth = lines.reduce((max, line) => Math.max(max, ctx.measureText(line).width), 0);
     const panelWidth = Math.min(metrics.width - metrics.padding * 2, contentWidth + 20);

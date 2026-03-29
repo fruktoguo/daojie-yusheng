@@ -148,7 +148,7 @@
     }
     .hud-resource-text {
       font-size: var(--font-size-12);
-      font-weight: bold;
+      font-weight: var(--font-weight-strong);
       color: var(--ink-black);
     }
     .hud-progress-shell {
@@ -247,7 +247,7 @@
 .hud-resource-value {
   font-size: var(--font-size-16);
   color: var(--color-role-body-strong);
-  font-weight: bold;
+  font-weight: var(--font-weight-strong);
 }
     .hud-meter {
       height: 8px;
@@ -308,7 +308,7 @@
       align-items: center;
       justify-content: center;
       font-size: var(--font-size-12);
-      font-weight: bold;
+      font-weight: var(--font-weight-strong);
       color: var(--ink-black);
       text-shadow: 0 1px 0 rgba(255,255,255,0.7);
     }
@@ -418,7 +418,7 @@
       border-color: rgba(133, 68, 45, 0.28);
       color: var(--ink-black);
       font-size: var(--font-size-role-body-14);
-      font-weight: 600;
+      font-weight: var(--font-weight-semibold);
       letter-spacing: 0.04em;
     }
     .hud-link-btn--tutorial:hover {
@@ -478,7 +478,7 @@
 }
     .hud-value {
       color: var(--ink-black);
-      font-weight: bold;
+      font-weight: var(--font-weight-strong);
       font-size: var(--font-size-14);
       word-break: break-word;
     }

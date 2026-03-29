@@ -15,6 +15,7 @@ import {
   type UiFontLevelKey,
   type UiStyleConfig,
 } from '../constants/ui/style';
+import { applyUiTextCssVariables } from '../constants/ui/text';
 import { shouldUseMobileUi } from './responsive-viewport';
 
 export type { UiColorMode, UiFontLevelDefinition, UiFontLevelKey, UiStyleConfig };
@@ -97,6 +98,7 @@ function applyUiStyleConfig(config: UiStyleConfig): void {
   const root = document.documentElement;
   root.dataset.colorMode = config.colorMode;
   root.style.colorScheme = config.colorMode;
+  applyUiTextCssVariables(root.style);
   const mobilePresetActive = shouldUseMobileUiPreset(window);
   root.style.setProperty('--ui-scale', config.uiScale.toFixed(3));
 

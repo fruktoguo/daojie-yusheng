@@ -162,7 +162,7 @@
     .map-tick-rate-number {
       font-family: var(--font-role-body);
       font-size: var(--font-size-role-body-22);
-      font-weight: 700;
+      font-weight: var(--font-weight-strong);
       color: var(--ink-black);
     }
     .map-side-phase {
@@ -615,7 +615,7 @@
     .observe-modal-value {
       display: block;
       font-size: var(--font-size-14);
-      font-weight: bold;
+      font-weight: var(--font-weight-strong);
       color: var(--ink-black);
       word-break: break-word;
       line-height: 1.5;
@@ -728,7 +728,7 @@
     }
     .observe-buff-name {
       font-size: var(--font-size-12);
-      font-weight: bold;
+      font-weight: var(--font-weight-strong);
       color: var(--ink-black);
       line-height: 1.2;
       white-space: nowrap;
@@ -744,7 +744,7 @@
       background: var(--observe-buff-stack-bg);
       color: var(--observe-buff-stack-ink);
       font-size: var(--font-size-11);
-      font-weight: bold;
+      font-weight: var(--font-weight-strong);
       text-align: center;
     }
     @media (max-width: 820px) {
