@@ -245,7 +245,7 @@ function renderBoard(session: HeavenGateSession): string {
   const displayRoots = session.roots ?? createPlaceholderRoots(session);
   return `
     <section class="heaven-gate-board" data-heaven-gate-board>
-      <svg class="heaven-gate-lines" viewBox="0 0 1000 560" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <svg class="heaven-gate-lines" viewBox="0 0 1000 560" preserveAspectRatio="none" aria-hidden="true">
         <line class="heaven-gate-line ${session.severed.has('metal') ? 'hidden' : ''}" data-element="metal" x1="500" y1="280" x2="500" y2="112"></line>
         <line class="heaven-gate-line ${session.severed.has('metal') ? '' : 'hidden'}" data-element="metal" x1="500" y1="280" x2="494" y2="194"></line>
         <line class="heaven-gate-line ${session.severed.has('metal') ? '' : 'hidden'}" data-element="metal" x1="506" y1="166" x2="506" y2="138"></line>
@@ -268,11 +268,11 @@ function renderBoard(session: HeavenGateSession): string {
       </svg>
 
       <div class="heaven-gate-path-layer">
-        <button class="heaven-gate-path" data-heaven-gate-path="metal" data-heaven-gate-cursor-label="${session.severed.has('metal') ? '补' : '斩'}" type="button" style="left:50%;top:35%;width:22%;transform:translate(-50%, -50%) rotate(-90deg);" aria-label="${session.severed.has('metal') ? '补' : '斩'}金灵根"></button>
-        <button class="heaven-gate-path" data-heaven-gate-path="wood" data-heaven-gate-cursor-label="${session.severed.has('wood') ? '补' : '斩'}" type="button" style="left:58%;top:45.4%;width:22%;transform:translate(-50%, -50%) rotate(-18deg);" aria-label="${session.severed.has('wood') ? '补' : '斩'}木灵根"></button>
-        <button class="heaven-gate-path" data-heaven-gate-path="water" data-heaven-gate-cursor-label="${session.severed.has('water') ? '补' : '斩'}" type="button" style="left:54.95%;top:62.15%;width:22%;transform:translate(-50%, -50%) rotate(54deg);" aria-label="${session.severed.has('water') ? '补' : '斩'}水灵根"></button>
-        <button class="heaven-gate-path" data-heaven-gate-path="fire" data-heaven-gate-cursor-label="${session.severed.has('fire') ? '补' : '斩'}" type="button" style="left:45.05%;top:62.15%;width:22%;transform:translate(-50%, -50%) rotate(126deg);" aria-label="${session.severed.has('fire') ? '补' : '斩'}火灵根"></button>
-        <button class="heaven-gate-path" data-heaven-gate-path="earth" data-heaven-gate-cursor-label="${session.severed.has('earth') ? '补' : '斩'}" type="button" style="left:42%;top:45.4%;width:22%;transform:translate(-50%, -50%) rotate(198deg);" aria-label="${session.severed.has('earth') ? '补' : '斩'}土灵根"></button>
+        <button class="heaven-gate-path" data-heaven-gate-path="metal" data-heaven-gate-cursor-label="${session.severed.has('metal') ? '补' : '斩'}" type="button" style="left:50%;top:35%;width:18%;transform:translate(-50%, -50%) rotate(-90deg);" aria-label="${session.severed.has('metal') ? '补' : '斩'}金灵根"></button>
+        <button class="heaven-gate-path" data-heaven-gate-path="wood" data-heaven-gate-cursor-label="${session.severed.has('wood') ? '补' : '斩'}" type="button" style="left:58%;top:45.4%;width:18%;transform:translate(-50%, -50%) rotate(-18deg);" aria-label="${session.severed.has('wood') ? '补' : '斩'}木灵根"></button>
+        <button class="heaven-gate-path" data-heaven-gate-path="water" data-heaven-gate-cursor-label="${session.severed.has('water') ? '补' : '斩'}" type="button" style="left:54.95%;top:62.15%;width:18%;transform:translate(-50%, -50%) rotate(54deg);" aria-label="${session.severed.has('water') ? '补' : '斩'}水灵根"></button>
+        <button class="heaven-gate-path" data-heaven-gate-path="fire" data-heaven-gate-cursor-label="${session.severed.has('fire') ? '补' : '斩'}" type="button" style="left:45.05%;top:62.15%;width:18%;transform:translate(-50%, -50%) rotate(126deg);" aria-label="${session.severed.has('fire') ? '补' : '斩'}火灵根"></button>
+        <button class="heaven-gate-path" data-heaven-gate-path="earth" data-heaven-gate-cursor-label="${session.severed.has('earth') ? '补' : '斩'}" type="button" style="left:42%;top:45.4%;width:18%;transform:translate(-50%, -50%) rotate(198deg);" aria-label="${session.severed.has('earth') ? '补' : '斩'}土灵根"></button>
       </div>
       <div class="heaven-gate-cursor-text hidden" data-heaven-gate-cursor>斩</div>
 
@@ -304,10 +304,15 @@ function renderBoard(session: HeavenGateSession): string {
       <button class="heaven-gate-core" type="button" data-heaven-gate-core>
         <span class="heaven-gate-core-title">${session.roots ? '入天门' : '开天门'}</span>
       </button>
-      <div class="heaven-gate-reroll-anchor ${session.roots ? '' : 'hidden'}">
-        <button class="small-btn ghost" type="button" data-heaven-gate-reroll>逆天改命</button>
-      </div>
     </section>
+  `;
+}
+
+function renderBoardActions(session: HeavenGateSession): string {
+  return `
+    <div class="heaven-gate-board-actions ${session.roots ? '' : 'hidden'}">
+      <button class="small-btn ghost" type="button" data-heaven-gate-reroll>逆天改命</button>
+    </div>
   `;
 }
 
@@ -484,6 +489,7 @@ function renderHeavenGateModal(player: PlayerState, session: HeavenGateSession, 
           <div class="heaven-gate-judgement-desc">${escapeHtml(judgement?.desc ?? '')}</div>
         </section>
         ${renderBoard(session)}
+        ${renderBoardActions(session)}
         ${renderPendingPopup(session)}
       </div>
     `,

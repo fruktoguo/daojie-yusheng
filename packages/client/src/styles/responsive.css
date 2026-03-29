@@ -322,26 +322,34 @@
         max-height: none;
         padding: 16px 14px;
       }
+      .detail-modal.detail-modal--heaven-gate {
+        --detail-modal-padding: 8px;
+        --detail-modal-safe-gap: 6px;
+        padding: var(--detail-modal-padding-top) var(--detail-modal-padding) var(--detail-modal-padding-bottom);
+      }
       .detail-modal-card.detail-modal--heaven-gate {
-        width: min(100vw - 16px, 760px);
-        max-height: min(94dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2)));
-        padding: 16px 14px;
+        width: calc(100vw - 16px);
+        height: min(80dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 6px) * 2) - 8px));
+        max-height: min(80dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 6px) * 2) - 8px));
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        padding: 16px 12px 14px;
+      }
+      .detail-modal-card.detail-modal--heaven-gate #detail-modal-body {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
       }
       .tech-starfield-canvas-shell {
         min-height: clamp(300px, 48vh, 460px);
       }
       .heaven-gate-board {
-        aspect-ratio: 1000 / 560;
+        --heaven-gate-core-size: clamp(88px, 26vw, 118px);
+        aspect-ratio: 1000 / 620;
       }
       .heaven-gate-node-name {
-        font-size: 38px;
-      }
-      .heaven-gate-core {
-        width: 140px;
-        height: 140px;
-      }
-      .heaven-gate-reroll-anchor {
-        top: calc(50% + 108px);
+        font-size: clamp(30px, 9vw, 38px);
       }
       .tech-starfield-tooltip {
         display: none;
