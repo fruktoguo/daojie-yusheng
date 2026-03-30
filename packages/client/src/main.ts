@@ -2143,29 +2143,30 @@ socket.onMapStaticSync((data: S2C_MapStaticSync) => {
 });
 socket.onSystemMsg((data) => {
   if (data.kind === 'chat') {
-    chatUI.addMessage(data.text, data.from, data.kind);
+    void chatUI.addMessage(data.text, data.from, data.kind);
     return;
   }
   if (data.kind === 'grudge') {
-    const stored = chatUI.addMessage(data.text, data.from ?? '情仇', data.kind, {
+    void chatUI.addMessage(data.text, data.from ?? '情仇', data.kind, {
       id: data.id,
       at: data.occurredAt,
+    }).then((stored) => {
+      if (stored && data.persistUntilAck === true && data.id) {
+        socket.ackSystemMessages([data.id]);
+      }
     });
-    if (stored && data.persistUntilAck === true && data.id) {
-      socket.ackSystemMessages([data.id]);
-    }
     showToast(data.text, data.kind);
     return;
   }
   if (data.kind === 'quest' || data.kind === 'combat' || data.kind === 'loot') {
     const label = data.from ?? (data.kind === 'quest' ? '任务' : data.kind === 'combat' ? '战斗' : '掉落');
-    chatUI.addMessage(data.text, label, data.kind);
+    void chatUI.addMessage(data.text, label, data.kind);
     if (data.kind === 'quest' || data.kind === 'loot') {
       showToast(data.text, data.kind);
     }
     return;
   }
-  chatUI.addMessage(data.text, data.from ?? '系统', data.kind ?? 'system');
+  void chatUI.addMessage(data.text, data.from ?? '系统', data.kind ?? 'system');
   if (data.text === '无法到达该位置' || data.text === '目标过远，无法规划路径') {
     clearCurrentPath();
   }

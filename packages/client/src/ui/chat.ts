@@ -6,11 +6,9 @@
 import {
   CHAT_CHANNELS,
   CHAT_LOG_LOAD_BATCH_SIZE,
-  CHAT_LOG_MAX_PERSISTED_MESSAGES,
+  CHAT_LOG_MAX_PERSISTED_MESSAGES_PER_CHANNEL,
   CHAT_LOG_MAX_VISIBLE_MESSAGES,
   CHAT_LOG_SCROLL_TOP_LOAD_THRESHOLD_PX,
-  CHAT_LOG_STORAGE_KEY,
-  CHAT_LOG_STORAGE_VERSION,
   CHAT_MESSAGE_KINDS,
   CHAT_MESSAGE_SCOPES,
   DEFAULT_CHAT_CHANNEL,
@@ -19,14 +17,19 @@ import {
   type ChatMessageScope,
   type ChatStoredMessage,
 } from '../constants/ui/chat';
-
-interface ChatStorageEnvelope {
-  version: typeof CHAT_LOG_STORAGE_VERSION;
-  logsByScope: Record<string, ChatStoredMessage[]>;
-}
+import {
+  appendChannelMessages,
+  clearLegacyChatStorage,
+  loadOlderChannelMessages,
+  loadRecentChannelMessages,
+} from './chat-storage';
 
 interface ChatChannelState {
+  messages: ChatStoredMessage[];
+  messageIds: Set<string>;
   loadedCount: number;
+  hasLoadedAll: boolean;
+  loadingOlder: boolean;
 }
 
 interface ChatAddMessageOptions {
@@ -60,77 +63,44 @@ function isChatStoredMessage(value: unknown): value is ChatStoredMessage {
     && (candidate.scope === undefined || isChatMessageScope(candidate.scope));
 }
 
-function getStorage(): Storage | null {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
+function createChannelState(): ChatChannelState {
+  return {
+    messages: [],
+    messageIds: new Set<string>(),
+    loadedCount: 0,
+    hasLoadedAll: false,
+    loadingOlder: false,
+  };
 }
 
-function loadStoredEnvelope(): ChatStorageEnvelope {
-  const storage = getStorage();
-  if (!storage) {
-    return {
-      version: CHAT_LOG_STORAGE_VERSION,
-      logsByScope: {},
-    };
-  }
-  try {
-    const raw = storage.getItem(CHAT_LOG_STORAGE_KEY);
-    if (!raw) {
-      return {
-        version: CHAT_LOG_STORAGE_VERSION,
-        logsByScope: {},
-      };
+function sortMessagesByTime(messages: ChatStoredMessage[]): ChatStoredMessage[] {
+  return messages.slice().sort((left, right) => {
+    if (left.at !== right.at) {
+      return left.at - right.at;
     }
-    const parsed = JSON.parse(raw) as Partial<ChatStorageEnvelope>;
-    if (parsed.version !== CHAT_LOG_STORAGE_VERSION || !parsed.logsByScope || typeof parsed.logsByScope !== 'object') {
-      return {
-        version: CHAT_LOG_STORAGE_VERSION,
-        logsByScope: {},
-      };
-    }
-    const logsByScope: Record<string, ChatStoredMessage[]> = {};
-    for (const [scopeId, entries] of Object.entries(parsed.logsByScope)) {
-      if (!Array.isArray(entries)) {
-        continue;
-      }
-      const normalized = entries
-        .filter(isChatStoredMessage)
-        .slice(-CHAT_LOG_MAX_PERSISTED_MESSAGES)
-        .map((entry) => ({ ...entry }));
-      if (normalized.length > 0) {
-        logsByScope[scopeId] = normalized;
-      }
-    }
-    return {
-      version: CHAT_LOG_STORAGE_VERSION,
-      logsByScope,
-    };
-  } catch {
-    return {
-      version: CHAT_LOG_STORAGE_VERSION,
-      logsByScope: {},
-    };
-  }
+    return left.id.localeCompare(right.id);
+  });
 }
 
-function persistStoredEnvelope(envelope: ChatStorageEnvelope): boolean {
-  const storage = getStorage();
-  if (!storage) {
-    return false;
+function mergeMessages(
+  current: ChatStoredMessage[],
+  incoming: ChatStoredMessage[],
+): { messages: ChatStoredMessage[]; ids: Set<string> } {
+  const merged = new Map<string, ChatStoredMessage>();
+  for (const entry of current) {
+    merged.set(entry.id, entry);
   }
-  try {
-    storage.setItem(CHAT_LOG_STORAGE_KEY, JSON.stringify(envelope));
-    return true;
-  } catch (error) {
-    console.warn('[chat] 本地消息缓存写入失败。', error);
-    return false;
+  for (const entry of incoming) {
+    if (!isChatStoredMessage(entry)) {
+      continue;
+    }
+    merged.set(entry.id, entry);
   }
+  const messages = sortMessagesByTime([...merged.values()]).slice(-CHAT_LOG_MAX_PERSISTED_MESSAGES_PER_CHANNEL);
+  return {
+    messages,
+    ids: new Set(messages.map((entry) => entry.id)),
+  };
 }
 
 function formatStamp(at: number): string {
@@ -150,15 +120,16 @@ export class ChatUI {
   private panes = [...this.panel.querySelectorAll<HTMLElement>('[data-chat-pane]')];
   private logs = new Map<ChatChannel, HTMLElement>();
   private channelStates = new Map<ChatChannel, ChatChannelState>();
-  private storageEnvelope = loadStoredEnvelope();
   private onSend: ((message: string) => void) | null = null;
   private activeChannel: ChatChannel = DEFAULT_CHAT_CHANNEL;
   private currentScopeId: string | null = null;
-  private messages: ChatStoredMessage[] = [];
   private messageSequence = 0;
-  private persistedMessageIds = new Set<string>();
+  private persistedMessageKeys = new Set<string>();
+  private pendingPersistence = new Map<string, Promise<boolean>>();
+  private scopeLoadToken = 0;
 
   constructor() {
+    clearLegacyChatStorage();
     this.sendBtn.addEventListener('click', () => this.submit());
     this.input.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
@@ -186,7 +157,7 @@ export class ChatUI {
         return;
       }
       this.logs.set(channel, log);
-      this.channelStates.set(channel, { loadedCount: 0 });
+      this.channelStates.set(channel, createChannelState());
       log.addEventListener('scroll', () => this.handleLogScroll(channel));
     });
 
@@ -199,26 +170,23 @@ export class ChatUI {
   }
 
   setPersistenceScope(scopeId: string | null): void {
+    this.scopeLoadToken += 1;
     const normalizedScope = typeof scopeId === 'string' && scopeId.trim().length > 0
       ? scopeId.trim()
       : null;
     this.currentScopeId = normalizedScope;
     this.input.value = '';
+    this.persistedMessageKeys.clear();
+    this.pendingPersistence.clear();
+    for (const channel of CHAT_CHANNELS) {
+      this.channelStates.set(channel, createChannelState());
+    }
     if (!normalizedScope) {
-      this.messages = [];
-      this.persistedMessageIds.clear();
-      this.resetLoadedCounts();
       this.renderAllChannels();
       return;
     }
-
-    const scoped = this.storageEnvelope.logsByScope[normalizedScope] ?? [];
-    this.messages = scoped
-      .slice(-CHAT_LOG_MAX_PERSISTED_MESSAGES)
-      .map((entry) => ({ ...entry }));
-    this.persistedMessageIds = new Set(this.messages.map((entry) => entry.id));
-    this.resetLoadedCounts();
     this.renderAllChannels({ stickToBottom: true });
+    void this.hydrateRecentMessages(normalizedScope, this.scopeLoadToken);
   }
 
   show(): void {
@@ -233,12 +201,12 @@ export class ChatUI {
     this.setPersistenceScope(null);
   }
 
-  addMessage(
+  async addMessage(
     text: string,
     from?: string,
     kind: ChatMessageKind = 'system',
     options?: ChatMessageScope | ChatAddMessageOptions,
-  ): boolean {
+  ): Promise<boolean> {
     const trimmed = text.trim();
     if (!trimmed || !this.currentScopeId) {
       return false;
@@ -247,20 +215,9 @@ export class ChatUI {
     const resolvedOptions = typeof options === 'string'
       ? { scope: options }
       : options;
+    const scopeId = this.currentScopeId;
     const resolvedId = resolvedOptions?.id ?? `${Date.now()}:${this.messageSequence++}`;
-    const existing = this.messages.find((entry) => entry.id === resolvedId);
-    if (existing) {
-      if (this.persistedMessageIds.has(resolvedId)) {
-        return true;
-      }
-      this.storageEnvelope.logsByScope[this.currentScopeId] = this.messages.map((message) => ({ ...message }));
-      if (persistStoredEnvelope(this.storageEnvelope)) {
-        this.persistedMessageIds.add(resolvedId);
-        return true;
-      }
-      return false;
-    }
-
+    const messageKey = this.buildMessageKey(scopeId, resolvedId);
     const now = Date.now();
     const resolvedScope = resolvedOptions?.scope ?? (kind === 'chat' ? 'nearby' : undefined);
     const entry: ChatStoredMessage = {
@@ -271,25 +228,31 @@ export class ChatUI {
       kind,
       scope: resolvedScope,
     };
-    this.messages.push(entry);
-    if (this.messages.length > CHAT_LOG_MAX_PERSISTED_MESSAGES) {
-      this.messages = this.messages.slice(-CHAT_LOG_MAX_PERSISTED_MESSAGES);
-      this.persistedMessageIds = new Set(
-        [...this.persistedMessageIds].filter((messageId) => this.messages.some((message) => message.id === messageId)),
-      );
-    }
-    this.storageEnvelope.logsByScope[this.currentScopeId] = this.messages.map((message) => ({ ...message }));
-    const persisted = persistStoredEnvelope(this.storageEnvelope);
-    if (persisted) {
-      this.persistedMessageIds.add(entry.id);
+    const channels = this.resolveChannels(entry);
+    const duplicateInAllChannels = channels.every((channel) => this.channelStates.get(channel)?.messageIds.has(resolvedId));
+    if (duplicateInAllChannels) {
+      if (this.persistedMessageKeys.has(messageKey)) {
+        return true;
+      }
+      const pendingPersistence = this.pendingPersistence.get(messageKey);
+      if (pendingPersistence) {
+        return pendingPersistence;
+      }
+      return false;
     }
 
-    for (const channel of this.resolveChannels(entry)) {
+    for (const channel of channels) {
       const state = this.channelStates.get(channel);
       if (!state) {
         continue;
       }
-      const total = this.getChannelMessages(channel).length;
+      if (!state.messageIds.has(entry.id)) {
+        state.messages.push(entry);
+        const merged = mergeMessages([], state.messages);
+        state.messages = merged.messages;
+        state.messageIds = merged.ids;
+      }
+      const total = state.messages.length;
       const log = this.logs.get(channel);
       const stickToBottom = channel !== this.activeChannel || this.isLogNearBottom(log);
       if (stickToBottom || state.loadedCount <= CHAT_LOG_MAX_VISIBLE_MESSAGES) {
@@ -299,17 +262,19 @@ export class ChatUI {
         this.renderChannel(channel, { stickToBottom });
       }
     }
-    return persisted;
-  }
 
-  private resetLoadedCounts(): void {
-    for (const channel of CHAT_CHANNELS) {
-      const state = this.channelStates.get(channel);
-      if (!state) {
-        continue;
-      }
-      state.loadedCount = Math.min(this.getChannelMessages(channel).length, CHAT_LOG_MAX_VISIBLE_MESSAGES);
-    }
+    const persistencePromise = appendChannelMessages(scopeId, entry, channels)
+      .then((persisted) => {
+        if (persisted) {
+          this.persistedMessageKeys.add(messageKey);
+        }
+        return persisted;
+      })
+      .finally(() => {
+        this.pendingPersistence.delete(messageKey);
+      });
+    this.pendingPersistence.set(messageKey, persistencePromise);
+    return persistencePromise;
   }
 
   private resolveChannels(entry: ChatStoredMessage): ChatChannel[] {
@@ -329,27 +294,6 @@ export class ChatUI {
       return ['nearby', 'world'];
     }
     return ['system'];
-  }
-
-  private getChannelMessages(channel: ChatChannel): ChatStoredMessage[] {
-    return this.messages.filter((entry) => {
-      if (channel === 'system') {
-        return entry.kind !== 'chat' && entry.kind !== 'combat' && entry.kind !== 'grudge';
-      }
-      if (channel === 'combat') {
-        return entry.kind === 'combat';
-      }
-      if (channel === 'grudge') {
-        return entry.kind === 'grudge';
-      }
-      if (channel === 'nearby') {
-        return entry.kind === 'chat' && (entry.scope ?? 'nearby') === 'nearby';
-      }
-      if (channel === 'world') {
-        return entry.kind === 'chat';
-      }
-      return entry.kind === 'chat' && entry.scope === 'sect';
-    });
   }
 
   private renderAllChannels(options?: { stickToBottom?: boolean }): void {
@@ -372,7 +316,7 @@ export class ChatUI {
     if (!log || !state) {
       return;
     }
-    const entries = this.getChannelMessages(channel);
+    const entries = state.messages;
     state.loadedCount = Math.min(entries.length, Math.max(0, state.loadedCount));
     const visible = entries.slice(Math.max(0, entries.length - state.loadedCount));
     const fragment = document.createDocumentFragment();
@@ -395,22 +339,52 @@ export class ChatUI {
     }
   }
 
-  private handleLogScroll(channel: ChatChannel): void {
+  private async handleLogScroll(channel: ChatChannel): Promise<void> {
     if (channel !== this.activeChannel) {
       return;
     }
     const log = this.logs.get(channel);
     const state = this.channelStates.get(channel);
-    if (!log || !state || log.scrollTop > CHAT_LOG_SCROLL_TOP_LOAD_THRESHOLD_PX) {
+    if (!log || !state || log.scrollTop > CHAT_LOG_SCROLL_TOP_LOAD_THRESHOLD_PX || state.loadingOlder || state.hasLoadedAll) {
       return;
     }
-    const total = this.getChannelMessages(channel).length;
-    if (state.loadedCount >= total) {
+    const oldestEntry = state.messages[0];
+    if (!oldestEntry) {
+      state.hasLoadedAll = true;
       return;
     }
+    const scopeId = this.currentScopeId;
+    if (!scopeId) {
+      return;
+    }
+    state.loadingOlder = true;
     const previousScrollHeight = log.scrollHeight;
     const previousScrollTop = log.scrollTop;
-    state.loadedCount = Math.min(total, state.loadedCount + CHAT_LOG_LOAD_BATCH_SIZE);
+    const loadToken = this.scopeLoadToken;
+    const olderEntries = await loadOlderChannelMessages(
+      scopeId,
+      channel,
+      oldestEntry,
+      CHAT_LOG_LOAD_BATCH_SIZE,
+    );
+    state.loadingOlder = false;
+    if (loadToken !== this.scopeLoadToken || scopeId !== this.currentScopeId) {
+      return;
+    }
+    if (olderEntries.length === 0) {
+      state.hasLoadedAll = true;
+      return;
+    }
+    const merged = mergeMessages(olderEntries, state.messages);
+    state.messages = merged.messages;
+    state.messageIds = merged.ids;
+    for (const entry of olderEntries) {
+      this.persistedMessageKeys.add(this.buildMessageKey(scopeId, entry.id));
+    }
+    state.loadedCount = Math.min(state.messages.length, state.loadedCount + olderEntries.length);
+    if (olderEntries.length < CHAT_LOG_LOAD_BATCH_SIZE) {
+      state.hasLoadedAll = true;
+    }
     this.renderChannel(channel, {
       preserveScrollFromLoadMore: true,
       previousScrollHeight,
@@ -443,5 +417,38 @@ export class ChatUI {
     }
     this.onSend?.(message);
     this.input.value = '';
+  }
+
+  private buildMessageKey(scopeId: string, messageId: string): string {
+    return `${scopeId}\n${messageId}`;
+  }
+
+  private async hydrateRecentMessages(scopeId: string, loadToken: number): Promise<void> {
+    const loadedByChannel = await Promise.all(
+      CHAT_CHANNELS.map(async (channel) => ({
+        channel,
+        entries: await loadRecentChannelMessages(scopeId, channel, CHAT_LOG_MAX_VISIBLE_MESSAGES),
+      })),
+    );
+    if (loadToken !== this.scopeLoadToken || scopeId !== this.currentScopeId) {
+      return;
+    }
+
+    for (const { channel, entries } of loadedByChannel) {
+      const state = this.channelStates.get(channel);
+      if (!state) {
+        continue;
+      }
+      const merged = mergeMessages(state.messages, entries);
+      state.messages = merged.messages;
+      state.messageIds = merged.ids;
+      state.loadedCount = Math.min(state.messages.length, Math.max(state.loadedCount, entries.length));
+      state.hasLoadedAll = entries.length < CHAT_LOG_LOAD_BATCH_SIZE;
+      for (const entry of entries) {
+        this.persistedMessageKeys.add(this.buildMessageKey(scopeId, entry.id));
+      }
+    }
+
+    this.renderAllChannels({ stickToBottom: true });
   }
 }
