@@ -1179,10 +1179,13 @@ export interface GmEditorRealmOption {
   review?: string;
 }
 
+export interface GmEditorBuffOption extends import('./types').TemporaryBuffState {}
+
 export interface GmEditorCatalogRes {
   techniques: GmEditorTechniqueOption[];
   items: GmEditorItemOption[];
   realmLevels: GmEditorRealmOption[];
+  buffs: GmEditorBuffOption[];
 }
 
 
@@ -1190,6 +1193,7 @@ export type GmPlayerUpdateSection =
   | 'basic'
   | 'position'
   | 'realm'
+  | 'buffs'
   | 'techniques'
   | 'items'
   | 'quests';

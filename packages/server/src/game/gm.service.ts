@@ -9,12 +9,15 @@ import {
   AttrBonus,
   Attributes,
   AutoBattleSkillConfig,
+  CULTIVATE_EXP_PER_TICK,
+  CULTIVATION_REALM_EXP_PER_TICK,
   DEFAULT_BASE_ATTRS,
   DEFAULT_BONE_AGE_YEARS,
   DEFAULT_INVENTORY_CAPACITY,
   DEFAULT_PLAYER_MAP_ID,
   Direction,
   EquipmentSlots,
+  GmEditorBuffOption,
   GmEditorCatalogRes,
   GmManagedAccountRecord,
   GmMapDocument,
@@ -34,6 +37,9 @@ import {
   TemporaryBuffState,
   VIEW_RADIUS,
   VisibleTile,
+  WORLD_DARKNESS_BUFF_DURATION,
+  WORLD_DARKNESS_BUFF_ID,
+  WORLD_TIME_SOURCE_ID,
   getTileTypeFromMapChar,
   isTileTypeWalkable,
   normalizeBoneAgeBaseYears,
@@ -76,6 +82,12 @@ import { DirtyFlag, PlayerService } from './player.service';
 import { TechniqueService } from './technique.service';
 import { TimeService } from './time.service';
 import { WorldService } from './world.service';
+import { syncDynamicBuffPresentation } from './buff-presentation';
+import {
+  CULTIVATION_ACTION_ID,
+  CULTIVATION_BUFF_DURATION,
+  CULTIVATION_BUFF_ID,
+} from '../constants/gameplay/technique';
 
 type GmCommand =
   | {
@@ -284,6 +296,7 @@ export class GmService {
         phaseName: entry.phaseName ?? undefined,
         review: entry.review || undefined,
       })),
+      buffs: this.buildEditorBuffCatalog(),
     };
   }
 
@@ -1094,8 +1107,6 @@ export class GmService {
         merged.autoSwitchCultivation = snapshot.autoSwitchCultivation;
         merged.combatTargetId = snapshot.combatTargetId;
         merged.combatTargetLocked = snapshot.combatTargetLocked;
-        merged.bonuses = this.cloneArray<AttrBonus>(snapshot.bonuses);
-        merged.temporaryBuffs = this.normalizeTemporaryBuffs(snapshot.temporaryBuffs);
         break;
       case 'position':
         merged.mapId = snapshot.mapId ?? merged.mapId;
@@ -1112,6 +1123,10 @@ export class GmService {
         merged.revealedBreakthroughRequirementIds = Array.isArray(snapshot.revealedBreakthroughRequirementIds)
           ? [...snapshot.revealedBreakthroughRequirementIds]
           : [];
+        merged.bonuses = this.cloneArray<AttrBonus>(snapshot.bonuses);
+        break;
+      case 'buffs':
+        merged.temporaryBuffs = this.normalizeTemporaryBuffs(snapshot.temporaryBuffs);
         break;
       case 'techniques':
         merged.techniques = this.cloneArray<TechniqueState>(snapshot.techniques);
@@ -1137,6 +1152,8 @@ export class GmService {
         return ['attr', 'actions'];
       case 'realm':
         return ['attr', 'actions', 'tech'];
+      case 'buffs':
+        return ['attr', 'actions'];
       case 'techniques':
         return ['tech', 'actions', 'attr'];
       case 'items':
@@ -1185,6 +1202,162 @@ export class GmService {
 
   private normalizeTemporaryBuffs(value: unknown): TemporaryBuffState[] {
     return Array.isArray(value) ? this.cloneArray<TemporaryBuffState>(value) : [];
+  }
+
+  private buildEditorBuffCatalog(): GmEditorBuffOption[] {
+    const catalog = new Map<string, GmEditorBuffOption>();
+    const register = (buff: TemporaryBuffState): void => {
+      const buffId = buff.buffId.trim();
+      if (!buffId || catalog.has(buffId)) {
+        return;
+      }
+      catalog.set(buffId, this.cloneObject(syncDynamicBuffPresentation(buff)) as GmEditorBuffOption);
+    };
+
+    for (const technique of this.contentService.getEditorTechniqueCatalog()) {
+      for (const skill of technique.skills ?? []) {
+        for (const effect of skill.effects ?? []) {
+          if (effect.type !== 'buff') {
+            continue;
+          }
+          const buffId = effect.buffId.trim();
+          if (!buffId) {
+            continue;
+          }
+          const duration = Math.max(1, effect.duration);
+          const maxStacks = Math.max(1, effect.maxStacks ?? 1);
+          register({
+            buffId,
+            name: effect.name,
+            desc: effect.desc,
+            shortMark: this.normalizeEditorBuffShortMark(effect.shortMark, effect.name),
+            category: effect.category ?? (effect.target === 'self' ? 'buff' : 'debuff'),
+            visibility: effect.visibility ?? 'public',
+            remainingTicks: duration,
+            duration,
+            stacks: 1,
+            maxStacks,
+            sourceSkillId: skill.id,
+            sourceSkillName: skill.name,
+            color: effect.color,
+            attrs: effect.attrs,
+            stats: effect.stats,
+            qiProjection: effect.qiProjection,
+          });
+        }
+      }
+    }
+
+    for (const item of this.contentService.getEditorItemCatalog()) {
+      for (const buff of item.consumeBuffs ?? []) {
+        const buffId = buff.buffId.trim();
+        if (!buffId) {
+          continue;
+        }
+        const duration = Math.max(1, buff.duration);
+        const maxStacks = Math.max(1, buff.maxStacks ?? 1);
+        register({
+          buffId,
+          name: buff.name,
+          desc: buff.desc,
+          shortMark: this.normalizeEditorBuffShortMark(buff.shortMark, buff.name),
+          category: buff.category ?? 'buff',
+          visibility: buff.visibility ?? 'public',
+          remainingTicks: duration,
+          duration,
+          stacks: 1,
+          maxStacks,
+          sourceSkillId: `item:${item.itemId}`,
+          sourceSkillName: item.name,
+          color: buff.color,
+          attrs: buff.attrs,
+          stats: buff.stats,
+          qiProjection: buff.qiProjection,
+        });
+      }
+
+      for (const effect of item.effects ?? []) {
+        if (effect.type !== 'timed_buff') {
+          continue;
+        }
+        const buffId = effect.buff.buffId.trim();
+        if (!buffId) {
+          continue;
+        }
+        const duration = Math.max(1, effect.buff.duration);
+        const maxStacks = Math.max(1, effect.buff.maxStacks ?? 1);
+        register({
+          buffId,
+          name: effect.buff.name,
+          desc: effect.buff.desc,
+          shortMark: this.normalizeEditorBuffShortMark(effect.buff.shortMark, effect.buff.name),
+          category: effect.buff.category ?? 'buff',
+          visibility: effect.buff.visibility ?? 'public',
+          remainingTicks: duration,
+          duration,
+          stacks: 1,
+          maxStacks,
+          sourceSkillId: `equip:${item.itemId}:${effect.effectId ?? 'effect'}`,
+          sourceSkillName: item.name,
+          color: effect.buff.color,
+          attrs: effect.buff.attrs,
+          stats: effect.buff.stats,
+          qiProjection: effect.buff.qiProjection,
+        });
+      }
+    }
+
+    register({
+      buffId: WORLD_DARKNESS_BUFF_ID,
+      name: '夜色压境',
+      desc: '夜色会按层数压缩视野；若身处恒明或得以免疫，此压制可被抵消。',
+      shortMark: '夜',
+      category: 'debuff',
+      visibility: 'observe_only',
+      remainingTicks: WORLD_DARKNESS_BUFF_DURATION,
+      duration: WORLD_DARKNESS_BUFF_DURATION,
+      stacks: 1,
+      maxStacks: 5,
+      sourceSkillId: WORLD_TIME_SOURCE_ID,
+      sourceSkillName: '天时',
+      color: '#89a8c7',
+    });
+    register({
+      buffId: CULTIVATION_BUFF_ID,
+      name: '修炼中',
+      desc: '正在运转功法，每息获得境界修为与功法经验，移动、主动攻击或受击都会打断修炼。',
+      shortMark: '修',
+      category: 'buff',
+      visibility: 'public',
+      remainingTicks: CULTIVATION_BUFF_DURATION,
+      duration: CULTIVATION_BUFF_DURATION,
+      stacks: 1,
+      maxStacks: 1,
+      sourceSkillId: CULTIVATION_ACTION_ID,
+      sourceSkillName: '修炼',
+      stats: {
+        realmExpPerTick: CULTIVATION_REALM_EXP_PER_TICK,
+        techniqueExpPerTick: CULTIVATE_EXP_PER_TICK,
+      },
+    });
+    register(this.buildWorldObserveBuffState());
+
+    return [...catalog.values()].sort((left, right) => {
+      const nameOrder = left.name.localeCompare(right.name, 'zh-CN');
+      if (nameOrder !== 0) {
+        return nameOrder;
+      }
+      return left.buffId.localeCompare(right.buffId, 'zh-CN');
+    });
+  }
+
+  private normalizeEditorBuffShortMark(raw: string | undefined, fallbackName: string): string {
+    const value = raw?.trim();
+    if (value) {
+      return [...value][0] ?? value;
+    }
+    const fallback = fallbackName.trim();
+    return [...fallback][0] ?? '气';
   }
 
   private normalizeQuests(quests: QuestState[]): QuestState[] {

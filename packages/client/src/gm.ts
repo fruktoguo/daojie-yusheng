@@ -22,6 +22,7 @@ import {
   type GmSuggestionListRes,
   GM_PASSWORD_STORAGE_KEY,
   type GmCpuSectionSnapshot,
+  type GmEditorBuffOption,
   type GmEditorCatalogRes,
   type GmEditorItemOption,
   type GmEditorTechniqueOption,
@@ -104,6 +105,7 @@ const editorPersistedPanelEl = document.getElementById('editor-persisted-panel')
 const editorTabBasicBtn = document.getElementById('editor-tab-basic') as HTMLButtonElement;
 const editorTabPositionBtn = document.getElementById('editor-tab-position') as HTMLButtonElement;
 const editorTabRealmBtn = document.getElementById('editor-tab-realm') as HTMLButtonElement;
+const editorTabBuffsBtn = document.getElementById('editor-tab-buffs') as HTMLButtonElement;
 const editorTabTechniquesBtn = document.getElementById('editor-tab-techniques') as HTMLButtonElement;
 const editorTabItemsBtn = document.getElementById('editor-tab-items') as HTMLButtonElement;
 const editorTabQuestsBtn = document.getElementById('editor-tab-quests') as HTMLButtonElement;
@@ -679,6 +681,25 @@ function getItemCatalogOptions(filter?: (option: GmEditorItemOption) => boolean)
   }));
 }
 
+function getBuffOptionLabel(option: GmEditorBuffOption): string {
+  const source = option.sourceSkillName || option.sourceSkillId;
+  return source ? `${option.name} · ${source}` : option.name;
+}
+
+function getBuffCatalogOptions(selectedBuffId?: string): Array<{ value: string; label: string }> {
+  const options = editorCatalog?.buffs.map((option) => ({
+    value: option.buffId,
+    label: getBuffOptionLabel(option),
+  })) ?? [];
+  if (selectedBuffId && !options.some((option) => option.value === selectedBuffId)) {
+    options.unshift({
+      value: selectedBuffId,
+      label: selectedBuffId,
+    });
+  }
+  return [{ value: '', label: '请选择 Buff' }, ...options];
+}
+
 function getMailAttachmentItemOptions(): Array<{ value: string; label: string }> {
   return getItemCatalogOptions();
 }
@@ -958,6 +979,11 @@ function findItemCatalogEntry(itemId: string | undefined): GmEditorItemOption | 
   return editorCatalog?.items.find((entry) => entry.itemId === itemId) ?? null;
 }
 
+function findBuffCatalogEntry(buffId: string | undefined): GmEditorBuffOption | null {
+  if (!buffId) return null;
+  return editorCatalog?.buffs.find((entry) => entry.buffId === buffId) ?? null;
+}
+
 function createTechniqueFromCatalog(techId: string): TechniqueState {
   const option = findTechniqueCatalogEntry(techId);
   if (!option) {
@@ -1000,6 +1026,28 @@ function createItemFromCatalog(itemId: string, count = 1): ItemStack {
     tags: option.tags ? [...option.tags] : undefined,
     effects: option.effects ? clone(option.effects) : undefined,
   };
+}
+
+function createBuffFromCatalog(
+  buffId: string,
+  current?: Pick<TemporaryBuffState, 'stacks' | 'remainingTicks'>,
+): TemporaryBuffState {
+  const option = findBuffCatalogEntry(buffId);
+  if (!option) {
+    return {
+      ...createDefaultBuff(),
+      buffId,
+      remainingTicks: Math.max(0, current?.remainingTicks ?? 1),
+      stacks: Math.max(1, current?.stacks ?? 1),
+    };
+  }
+
+  const next = clone(option);
+  next.duration = Math.max(1, next.duration);
+  next.maxStacks = Math.max(1, next.maxStacks);
+  next.stacks = Math.max(1, Math.min(next.maxStacks, Math.floor(current?.stacks ?? next.stacks ?? 1)));
+  next.remainingTicks = Math.max(0, Math.floor(current?.remainingTicks ?? next.duration));
+  return next;
 }
 
 function getTechniqueSummary(technique: TechniqueState): string {
@@ -1215,8 +1263,14 @@ function patchEditorPreview(detail: GmManagedPlayerRecord, draft: PlayerState): 
     editorContentEl.querySelector<HTMLElement>(`[data-preview="bonus-meta"][data-index="${index}"]`)!.textContent = getBonusCardMeta(bonus);
   });
   ensureArray(draft.temporaryBuffs).forEach((buff, index) => {
-    editorContentEl.querySelector<HTMLElement>(`[data-preview="buff-title"][data-index="${index}"]`)!.textContent = getBuffCardTitle(buff, index);
-    editorContentEl.querySelector<HTMLElement>(`[data-preview="buff-meta"][data-index="${index}"]`)!.textContent = getBuffCardMeta(buff);
+    const titleEl = editorContentEl.querySelector<HTMLElement>(`[data-preview="buff-title"][data-index="${index}"]`);
+    if (titleEl) {
+      titleEl.textContent = getBuffCardTitle(buff, index);
+    }
+    const metaEl = editorContentEl.querySelector<HTMLElement>(`[data-preview="buff-meta"][data-index="${index}"]`);
+    if (metaEl) {
+      metaEl.textContent = getBuffCardMeta(buff);
+    }
   });
   ensureArray(draft.inventory.items).forEach((item, index) => {
     editorContentEl.querySelector<HTMLElement>(`[data-preview="inventory-title"][data-index="${index}"]`)!.textContent = getInventoryCardTitle(item, index);
@@ -1487,6 +1541,8 @@ function getEditorTabLabel(tab: GmEditorTab): string {
       return '位置';
     case 'realm':
       return '属性';
+    case 'buffs':
+      return 'Buff';
     case 'techniques':
       return '功法';
     case 'items':
@@ -1505,6 +1561,7 @@ function switchEditorTab(tab: GmEditorTab): void {
   editorTabBasicBtn.classList.toggle('active', tab === 'basic');
   editorTabPositionBtn.classList.toggle('active', tab === 'position');
   editorTabRealmBtn.classList.toggle('active', tab === 'realm');
+  editorTabBuffsBtn.classList.toggle('active', tab === 'buffs');
   editorTabTechniquesBtn.classList.toggle('active', tab === 'techniques');
   editorTabItemsBtn.classList.toggle('active', tab === 'items');
   editorTabQuestsBtn.classList.toggle('active', tab === 'quests');
@@ -1919,7 +1976,15 @@ async function loadSuggestions(): Promise<void> {
 }
 
 async function loadEditorCatalog(): Promise<void> {
-  editorCatalog = getLocalEditorCatalog();
+  try {
+    editorCatalog = await request<GmEditorCatalogRes>('/gm/editor-catalog');
+  } catch {
+    const localCatalog = getLocalEditorCatalog();
+    editorCatalog = {
+      ...localCatalog,
+      buffs: localCatalog.buffs ?? [],
+    };
+  }
   renderShortcutMailComposer();
 }
 
@@ -2577,28 +2642,13 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
     ? buffs.map((buff, index) => `
       <div class="editor-card">
         <div class="editor-card-head">
-          <div>
-            <div class="editor-card-title" data-preview="buff-title" data-index="${index}">${escapeHtml(getBuffCardTitle(buff, index))}</div>
-            <div class="editor-card-meta" data-preview="buff-meta" data-index="${index}">${escapeHtml(getBuffCardMeta(buff))}</div>
-          </div>
+          <div class="editor-card-title">Buff ${index + 1}</div>
           <button class="small-btn danger" type="button" data-action="remove-buff" data-index="${index}">删除</button>
         </div>
         <div class="editor-grid compact">
-          ${textField('Buff ID', `temporaryBuffs.${index}.buffId`, buff.buffId)}
-          ${textField('名称', `temporaryBuffs.${index}.name`, buff.name)}
-          ${nullableTextField('短标记', `temporaryBuffs.${index}.shortMark`, buff.shortMark, 'undefined')}
-          ${selectField('类别', `temporaryBuffs.${index}.category`, buff.category, [{ value: 'buff', label: 'buff' }, { value: 'debuff', label: 'debuff' }])}
-          ${selectField('可见性', `temporaryBuffs.${index}.visibility`, buff.visibility, [{ value: 'public', label: 'public' }, { value: 'observe_only', label: 'observe_only' }, { value: 'hidden', label: 'hidden' }])}
-          ${numberField('剩余 tick', `temporaryBuffs.${index}.remainingTicks`, buff.remainingTicks)}
-          ${numberField('总时长', `temporaryBuffs.${index}.duration`, buff.duration)}
+          ${selectField('Buff', `temporaryBuffs.${index}.buffId`, buff.buffId, getBuffCatalogOptions(buff.buffId), 'wide')}
           ${numberField('层数', `temporaryBuffs.${index}.stacks`, buff.stacks)}
-          ${numberField('最大层数', `temporaryBuffs.${index}.maxStacks`, buff.maxStacks)}
-          ${textField('来源技能 ID', `temporaryBuffs.${index}.sourceSkillId`, buff.sourceSkillId)}
-          ${nullableTextField('来源技能名', `temporaryBuffs.${index}.sourceSkillName`, buff.sourceSkillName, 'undefined')}
-          ${nullableTextField('颜色', `temporaryBuffs.${index}.color`, buff.color, 'undefined')}
-          ${nullableTextField('描述', `temporaryBuffs.${index}.desc`, buff.desc, 'undefined', 'wide')}
-          ${jsonField('属性修正', `temporaryBuffs.${index}.attrs`, buff.attrs ?? {}, 'object')}
-          ${jsonField('数值修正', `temporaryBuffs.${index}.stats`, buff.stats ?? {}, 'object')}
+          ${numberField('剩余时间', `temporaryBuffs.${index}.remainingTicks`, buff.remainingTicks)}
         </div>
       </div>
     `).join('')
@@ -2812,7 +2862,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
       <div class="editor-section-head">
         <div>
           <div class="editor-section-title">境界与属性</div>
-          <div class="editor-section-note">当前境界、基础属性、额外加成与临时效果。</div>
+          <div class="editor-section-note">当前境界、基础属性与额外加成。</div>
         </div>
       </div>
       <div class="editor-grid">
@@ -2832,16 +2882,14 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
     <section class="editor-section">
       <div class="editor-section-head">
         <div>
-          <div class="editor-section-title">属性加成与临时效果</div>
-          <div class="editor-section-note">适合直接调试被动、装备外加成与 Buff。</div>
+          <div class="editor-section-title">属性加成</div>
+          <div class="editor-section-note">适合直接调试被动、装备外加成等常驻附加效果。</div>
         </div>
         <div class="button-row">
           <button class="small-btn" type="button" data-action="add-bonus">新增加成</button>
-          <button class="small-btn" type="button" data-action="add-buff">新增临时效果</button>
         </div>
       </div>
       <div class="editor-card-list">${bonusMarkup}</div>
-      <div class="editor-card-list" style="margin-top: 10px;">${buffMarkup}</div>
     </section>
 
     <section class="editor-section">
@@ -2857,6 +2905,21 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
         ${readonlyCodeBlock('比率分母', 'ratioDivisors', draft.ratioDivisors ?? {})}
         ${readonlyCodeBlock('动作列表', 'actions', draft.actions ?? [])}
       </div>
+    </section>
+    `)}
+
+    ${renderEditorTabSection('buffs', `
+    <section class="editor-section">
+      <div class="editor-section-head">
+        <div>
+          <div class="editor-section-title">Buff 编辑</div>
+          <div class="editor-section-note">这里只保留 Buff 选择、层数和剩余时间，其他静态字段按模板自动带出。</div>
+        </div>
+        <div class="button-row">
+          <button class="small-btn" type="button" data-action="add-buff">新增 Buff</button>
+        </div>
+      </div>
+      <div class="editor-card-list">${buffMarkup}</div>
     </section>
     `)}
 
@@ -3241,6 +3304,18 @@ function applyCatalogBindingChange(path: string, value: string): boolean {
     changed = true;
   }
 
+  const buffMatch = path.match(/^temporaryBuffs\.(\d+)\.buffId$/);
+  if (buffMatch) {
+    const index = Number(buffMatch[1]);
+    const previous = draftSnapshot.temporaryBuffs?.[index];
+    draftSnapshot.temporaryBuffs ??= [];
+    draftSnapshot.temporaryBuffs[index] = createBuffFromCatalog(value, {
+      stacks: previous?.stacks ?? 1,
+      remainingTicks: previous?.remainingTicks ?? 1,
+    });
+    changed = true;
+  }
+
   if (path === 'cultivatingTechId' && !value) {
     draftSnapshot.cultivatingTechId = undefined;
     changed = true;
@@ -3552,8 +3627,6 @@ function buildSectionSnapshot(section: GmPlayerUpdateSection, draft: PlayerState
         autoSwitchCultivation: draft.autoSwitchCultivation,
         combatTargetId: draft.combatTargetId,
         combatTargetLocked: draft.combatTargetLocked,
-        bonuses: clone(ensureArray(draft.bonuses)),
-        temporaryBuffs: clone(ensureArray(draft.temporaryBuffs)),
       };
     case 'position':
       return {
@@ -3572,6 +3645,11 @@ function buildSectionSnapshot(section: GmPlayerUpdateSection, draft: PlayerState
           : undefined,
         foundation: draft.foundation,
         revealedBreakthroughRequirementIds: [...(draft.revealedBreakthroughRequirementIds ?? [])],
+        bonuses: clone(ensureArray(draft.bonuses)),
+      };
+    case 'buffs':
+      return {
+        temporaryBuffs: clone(ensureArray(draft.temporaryBuffs)),
       };
     case 'techniques':
       return {
@@ -4280,6 +4358,7 @@ applyRawJsonBtn.addEventListener('click', () => {
 editorTabBasicBtn.addEventListener('click', () => switchEditorTab('basic'));
 editorTabPositionBtn.addEventListener('click', () => switchEditorTab('position'));
 editorTabRealmBtn.addEventListener('click', () => switchEditorTab('realm'));
+editorTabBuffsBtn.addEventListener('click', () => switchEditorTab('buffs'));
 editorTabTechniquesBtn.addEventListener('click', () => switchEditorTab('techniques'));
 editorTabItemsBtn.addEventListener('click', () => switchEditorTab('items'));
 editorTabQuestsBtn.addEventListener('click', () => switchEditorTab('quests'));
