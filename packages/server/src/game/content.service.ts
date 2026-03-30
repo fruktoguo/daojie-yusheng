@@ -85,6 +85,7 @@ interface ItemTemplate extends Omit<ItemStack, 'count'> {
   healPercent?: number;
   qiPercent?: number;
   consumeBuffs?: ConsumableBuffDef[];
+  spiritualRootSeedTier?: 'heaven' | 'divine';
 }
 
 export interface EditorTechniqueCatalogEntry {
@@ -958,6 +959,9 @@ export class ContentService implements OnModuleInit {
           ? Math.max(0.01, Math.min(1, Number(raw.qiPercent)))
           : undefined,
         consumeBuffs: this.normalizeConsumableBuffs(raw.consumeBuffs),
+        spiritualRootSeedTier: raw.spiritualRootSeedTier === 'heaven' || raw.spiritualRootSeedTier === 'divine'
+          ? raw.spiritualRootSeedTier
+          : undefined,
         tags: undefined,
         tileAuraGainAmount: Number.isFinite(raw.tileAuraGainAmount)
           ? Math.max(1, Math.floor(Number(raw.tileAuraGainAmount)))

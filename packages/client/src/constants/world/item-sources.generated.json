@@ -2001,6 +2001,7 @@
       "chapter": "第一章·粮路讨生"
     }
   ],
+  "pill.shatter_spirit": [],
   "pill.windstride_elixir": [
     {
       "kind": "shop",
@@ -2157,6 +2158,8 @@
       "count": 2
     }
   ],
+  "root_seed.divine": [],
+  "root_seed.heaven": [],
   "ruin_keystone": [
     {
       "kind": "monster_drop",

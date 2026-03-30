@@ -40,6 +40,11 @@ import {
   type PlayerSpecialCardKey,
 } from '../../constants/ui/attr-panel';
 import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../../utils/number';
+import {
+  describeSpiritualRoots,
+  getSpiritualRootAbsorptionRate,
+  resolveSpiritualRootsFromBonuses,
+} from '../../utils/spiritual-roots';
 
 
 function formatRateBp(value: number): string {
@@ -310,7 +315,7 @@ export class AttrPanel {
       panes: {
         base: this.buildBaseRadarSnapshot(base, final, totalBonus),
         root: stats && ratioDivisors
-          ? this.buildRootRadarSnapshot(stats, ratioDivisors)
+          ? this.buildRootRadarSnapshot(stats, ratioDivisors, bonuses)
           : { kind: 'placeholder', message: '灵根信息尚未同步' },
         combat: this.buildNumericPaneSnapshot('斗法数值', stats, ratioDivisors, {
           keys: ['maxHp', 'physAtk', 'spellAtk', 'physDef', 'spellDef', 'hit', 'dodge', 'crit', 'critDamage', 'breakPower', 'resolvePower'],
@@ -374,7 +379,11 @@ export class AttrPanel {
     return this.buildRadarPaneSnapshot('六维轮图', radarMax, entries, 'base');
   }
 
-  private buildRootRadarSnapshot(stats: NumericStats, ratioDivisors: NumericRatioDivisors): AttrRadarPaneSnapshot {
+  private buildRootRadarSnapshot(
+    stats: NumericStats,
+    ratioDivisors: NumericRatioDivisors,
+    bonuses: AttrBonus[],
+  ): AttrRadarPaneSnapshot {
     const entries: RadarEntry[] = ELEMENT_KEYS.map((key, index) => {
       const damageBonus = stats.elementDamageBonus[key];
       const reductionDivisor = ratioDivisors.elementDamageReduce[key] || 100;
@@ -388,12 +397,14 @@ export class AttrPanel {
           `当前：${formatDisplayInteger(roundedBonus)} 点`,
           `${ELEMENT_KEY_LABELS[key]}属性伤害增幅：${formatDisplayPercent(roundedBonus)}`,
           `${ELEMENT_KEY_LABELS[key]}属性实际减伤：${formatRatioPercent(stats.elementDamageReduce[key], reductionDivisor)}`,
+          `${ELEMENT_KEY_LABELS[key]}属性灵气吸收效率：${formatDisplayPercent(getSpiritualRootAbsorptionRate(roundedBonus), { maximumFractionDigits: 2 })}`,
         ].join('\n'),
         color: ELEMENT_COLORS[index % ELEMENT_COLORS.length],
       };
     });
     const radarMax = Math.max(100, ...entries.map((entry) => entry.value)) || 100;
-    return this.buildRadarPaneSnapshot('五行灵根', radarMax, entries, 'root');
+    const rootTitle = describeSpiritualRoots(resolveSpiritualRootsFromBonuses(bonuses)).name;
+    return this.buildRadarPaneSnapshot(rootTitle, radarMax, entries, 'root');
   }
 
   private buildRadarPaneSnapshot(title: string, scale: number, entries: RadarEntry[], paneId: string): AttrRadarPaneSnapshot {
@@ -689,10 +700,12 @@ export class AttrPanel {
     }
 
     const scaleNode = pane.querySelector<HTMLElement>('[data-radar-scale="true"]');
+    const titleNode = pane.querySelector<HTMLElement>('.attr-radar-title');
     const areaNode = pane.querySelector<SVGPolygonElement>('[data-radar-area="true"]');
-    if (!scaleNode || !areaNode) {
+    if (!scaleNode || !titleNode || !areaNode) {
       return false;
     }
+    titleNode.textContent = snapshot.title;
     scaleNode.textContent = `刻度 ${snapshot.scale}`;
     areaNode.setAttribute('points', snapshot.areaPoints);
     areaNode.setAttribute('stroke', snapshot.nodes[0]?.color ?? '#ff8a65');

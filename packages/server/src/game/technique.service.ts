@@ -103,6 +103,8 @@ interface RealmExpAdvanceOptions {
   trackCombatExp?: boolean;
 }
 
+type SpiritualRootSeedTier = 'heaven' | 'divine';
+
 const HEAVEN_GATE_REALM_LEVEL = 18;
 const HEAVEN_GATE_MAX_SEVERED = 4;
 const HEAVEN_GATE_ROOTS_SOURCE = 'heaven_gate:roots';
@@ -177,6 +179,10 @@ interface RealmExpAdvanceResult {
 
 const FOUNDATION_EXP_MULTIPLIER = 3;
 const FOUNDATION_EXP_BONUS_MULTIPLIER = FOUNDATION_EXP_MULTIPLIER - 1;
+const SPIRITUAL_ROOT_SEED_REROLL_EQUIVALENTS: Record<SpiritualRootSeedTier, number> = {
+  heaven: 20,
+  divine: 100,
+};
 
 @Injectable()
 export class TechniqueService {
@@ -409,22 +415,113 @@ export class TechniqueService {
 
   resetHeavenGateForTesting(player: PlayerState): void {
     this.initializePlayerProgression(player);
+    const currentRealmLv = Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
+    const currentProgress = Math.max(0, Math.floor(player.realm?.progress ?? 0));
+    const currentRealm = this.normalizeRealmState(currentRealmLv, currentProgress);
+    const heavenGate = this.normalizeHeavenGateState(player.heavenGate);
+    this.applyHeavenGateResetState(player, currentRealm, heavenGate?.averageBonus ?? 0, heavenGate?.unlocked === true);
+  }
+
+  canUseShatterSpiritPill(player: PlayerState): string | null {
+    this.initializePlayerProgression(player);
+    const realm = player.realm;
+    if (!realm || !this.hasReachedHeavenGateRealm(realm.realmLv)) {
+      return '当前至少需要叩仙门境界，才能使用碎灵丹';
+    }
+    const heavenGate = this.syncHeavenGateState(player, realm);
+    if (!heavenGate?.unlocked) {
+      return '当前尚未叩开仙门，暂时不能使用碎灵丹';
+    }
+    return null;
+  }
+
+  useShatterSpiritPill(player: PlayerState): HeavenGateActionResult {
+    const error = this.canUseShatterSpiritPill(player);
+    if (error) {
+      return { error, dirty: [], messages: [] };
+    }
+    const realm = player.realm;
+    if (!realm) {
+      return { error: '当前境界异常，无法使用碎灵丹', dirty: [], messages: [] };
+    }
+    const heavenGate = this.syncHeavenGateState(player, realm);
+    if (!heavenGate) {
+      return { error: '当前尚未叩开仙门，暂时不能使用碎灵丹', dirty: [], messages: [] };
+    }
+    const cost = this.getShatterSpiritPillCost(realm);
+    const previousRerollCount = this.getHeavenGateRerollCount(heavenGate.averageBonus);
+    const nextRerollCount = previousRerollCount + 1;
+    const nextRealm = this.normalizeRealmState(realm.realmLv, Math.max(0, realm.progress - cost));
+    this.applyHeavenGateResetState(
+      player,
+      nextRealm,
+      this.getHeavenGateAverageBonusFromRerollCount(nextRerollCount),
+    );
+    return {
+      dirty: ['attr', 'actions', 'tech'],
+      messages: [{
+        text: `碎灵丹化开命宫旧痕，消耗 ${cost} 点境界修为，天门已重置，逆天改命累计额外增加 1 次（现为 ${nextRerollCount} 次）。`,
+        kind: 'quest',
+      }],
+    };
+  }
+
+  canUseSpiritualRootSeed(player: PlayerState, tier: SpiritualRootSeedTier): string | null {
+    this.initializePlayerProgression(player);
+    const realm = player.realm;
+    if (!realm || !this.hasReachedHeavenGateRealm(realm.realmLv)) {
+      return '当前至少需要叩仙门境界，才能使用灵根幼苗';
+    }
+    const heavenGate = this.syncHeavenGateState(player, realm);
+    if (!heavenGate?.unlocked) {
+      return '当前尚未叩开仙门，暂时不能使用灵根幼苗';
+    }
+    if (heavenGate.entered) {
+      return '当前已入天门，无法再使用灵根幼苗';
+    }
+    const cost = this.getSpiritualRootSeedFoundationCost(realm, heavenGate.averageBonus, tier);
+    if (this.getPlayerFoundation(player) < cost) {
+      return '当前底蕴不足，无法催化这株灵根幼苗';
+    }
+    return null;
+  }
+
+  useSpiritualRootSeed(player: PlayerState, tier: SpiritualRootSeedTier): HeavenGateActionResult {
+    const error = this.canUseSpiritualRootSeed(player, tier);
+    if (error) {
+      return { error, dirty: [], messages: [] };
+    }
+    const realm = player.realm;
+    if (!realm) {
+      return { error: '当前境界异常，无法使用灵根幼苗', dirty: [], messages: [] };
+    }
+    const heavenGate = this.syncHeavenGateState(player, realm);
+    if (!heavenGate) {
+      return { error: '当前尚未叩开仙门，暂时不能使用灵根幼苗', dirty: [], messages: [] };
+    }
+    const gainedRerollCount = this.getSpiritualRootSeedRerollEquivalent(tier);
+    const previousRerollCount = this.getHeavenGateRerollCount(heavenGate.averageBonus);
+    const nextRerollCount = previousRerollCount + gainedRerollCount;
+    const cost = this.getSpiritualRootSeedFoundationCost(realm, heavenGate.averageBonus, tier);
+    this.consumeFoundation(player, cost);
+    const roots = tier === 'divine'
+      ? this.createDivineSpiritualRootSeedRoots()
+      : this.createHeavenSpiritualRootSeedRoots();
     player.heavenGate = {
       unlocked: true,
       severed: [],
-      roots: null,
+      roots,
       entered: false,
-      averageBonus: 0,
+      averageBonus: this.getHeavenGateAverageBonusFromRerollCount(nextRerollCount),
     };
-    player.spiritualRoots = null;
-    const readyState = this.normalizeRealmState(
-      HEAVEN_GATE_REALM_LEVEL,
-      this.createRealmStateFromLevel(HEAVEN_GATE_REALM_LEVEL, Number.MAX_SAFE_INTEGER).progressToNext,
-    );
-    this.applyResolvedRealmState(player, readyState);
-    player.hp = Math.min(player.maxHp, Math.max(1, player.hp));
-    player.qi = Math.min(Math.round(player.numericStats?.maxQi ?? player.qi), Math.max(0, player.qi));
-    player.dead = false;
+    this.syncRealmPresentation(player, this.normalizeRealmState(realm.realmLv, realm.progress));
+    return {
+      dirty: ['attr'],
+      messages: [{
+        text: `${tier === 'divine' ? '神品' : '天品'}灵根幼苗扎入命宫，消耗 ${cost} 点底蕴，当前灵根已被重塑，逆天改命累计提升 ${gainedRerollCount} 次（现为 ${nextRerollCount} 次）。`,
+        kind: 'quest',
+      }],
+    };
   }
 
   /** 学习新功法 */
@@ -1328,6 +1425,33 @@ export class TechniqueService {
     return Math.max(1, Math.round(realm.progressToNext * 0.25));
   }
 
+  private getShatterSpiritPillCost(realm: PlayerRealmState): number {
+    return Math.max(0, Math.round(Math.max(0, realm.progress) * 0.25));
+  }
+
+  private getHeavenGateRerollCount(averageBonus: number): number {
+    return Math.max(0, Math.floor(Math.max(0, averageBonus) / HEAVEN_GATE_REROLL_AVERAGE_BONUS));
+  }
+
+  private getHeavenGateAverageBonusFromRerollCount(rerollCount: number): number {
+    return Math.max(0, Math.floor(rerollCount)) * HEAVEN_GATE_REROLL_AVERAGE_BONUS;
+  }
+
+  private getSpiritualRootSeedRerollEquivalent(tier: SpiritualRootSeedTier): number {
+    return SPIRITUAL_ROOT_SEED_REROLL_EQUIVALENTS[tier];
+  }
+
+  private getSpiritualRootSeedFoundationCost(
+    realm: PlayerRealmState,
+    averageBonus: number,
+    tier: SpiritualRootSeedTier,
+  ): number {
+    const rerollCost = this.getHeavenGateRerollCost(realm);
+    const rerollCount = this.getHeavenGateRerollCount(averageBonus);
+    const remainingEquivalent = Math.max(0, SPIRITUAL_ROOT_SEED_REROLL_EQUIVALENTS[tier] - rerollCount);
+    return rerollCost * remainingEquivalent;
+  }
+
   private weightedPickHeavenGateSegment(segments: Array<{ min: number; max: number; weight: number }>): { min: number; max: number; weight: number } {
     const totalWeight = segments.reduce((sum, segment) => sum + segment.weight, 0);
     let cursor = Math.random() * totalWeight;
@@ -1423,6 +1547,26 @@ export class TechniqueService {
       preservedPerfectCount += 1;
     }
     return roots;
+  }
+
+  private createHeavenSpiritualRootSeedRoots(): HeavenGateRootValues {
+    const roots = ELEMENT_KEYS.reduce((result, key) => {
+      result[key] = Math.random() < 0.5 ? 100 : 99;
+      return result;
+    }, {} as HeavenGateRootValues);
+    if (ELEMENT_KEYS.some((key) => roots[key] === 100)) {
+      return roots;
+    }
+    const guaranteedKey = ELEMENT_KEYS[this.randomHeavenGateInt(0, ELEMENT_KEYS.length - 1)];
+    roots[guaranteedKey] = 100;
+    return roots;
+  }
+
+  private createDivineSpiritualRootSeedRoots(): HeavenGateRootValues {
+    return ELEMENT_KEYS.reduce((result, key) => {
+      result[key] = 100;
+      return result;
+    }, {} as HeavenGateRootValues);
   }
 
   private rollHeavenGateRoots(severed: readonly ElementKey[], averageBonus: number): HeavenGateRootValues {
@@ -1534,6 +1678,27 @@ export class TechniqueService {
     player.lifespanYears = nextRealm.lifespanYears;
     player.breakthroughReady = nextRealm.breakthroughReady;
     this.applyRealmStateMirror(player, nextRealm);
+  }
+
+  private applyHeavenGateResetState(
+    player: PlayerState,
+    realm: PlayerRealmState,
+    averageBonus: number,
+    preserveUnlocked = false,
+  ): void {
+    const heavenGate = this.normalizeHeavenGateState(player.heavenGate);
+    player.heavenGate = {
+      unlocked: (preserveUnlocked && heavenGate?.unlocked === true) || this.hasReachedHeavenGateRealm(realm.realmLv),
+      severed: [],
+      roots: null,
+      entered: false,
+      averageBonus: Math.max(0, Math.floor(averageBonus)),
+    };
+    player.spiritualRoots = null;
+    this.applyResolvedRealmState(player, realm);
+    player.hp = Math.min(player.maxHp, Math.max(1, player.hp));
+    player.qi = Math.min(Math.round(player.numericStats?.maxQi ?? player.qi), Math.max(0, player.qi));
+    player.dead = false;
   }
 
   /** 揭示隐藏的突破条件 */

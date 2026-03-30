@@ -213,5 +213,25 @@
     "type": "consumable",
     "desc": "记载高阶遗墟的主要路径与坍塌区域。使用后可永久解锁天阙遗墟地图。",
     "mapUnlockId": "sky_ruins"
+  },
+  {
+    "itemId": "root_seed.heaven",
+    "name": "天品灵根幼苗",
+    "type": "consumable",
+    "desc": "封着五行先天气机的幼苗。使用后会将五行灵根先定为 99，再逐系以 50% 概率催至 100，且至少保底一系为 100；同时逆天改命累计额外增加 20 次。至少需在叩仙门境界使用，基础消耗相当于 20 次逆天改命的底蕴，已有逆天改命积累会等额抵扣。",
+    "spiritualRootSeedTier": "heaven"
+  },
+  {
+    "itemId": "root_seed.divine",
+    "name": "神品灵根幼苗",
+    "type": "consumable",
+    "desc": "被道蕴彻底养成的灵根幼苗。使用后会将五行灵根全部固定为 100，同时逆天改命累计额外增加 100 次。至少需在叩仙门境界使用，基础消耗相当于 100 次逆天改命的底蕴，已有逆天改命积累会等额抵扣。",
+    "spiritualRootSeedTier": "divine"
+  },
+  {
+    "itemId": "pill.shatter_spirit",
+    "name": "碎灵丹",
+    "type": "consumable",
+    "desc": "药力专碎命宫旧痕。使用后会立刻重置天门，清掉当前已开出的灵根结果，并额外增加 1 次逆天改命累计；同时消耗当前境界修为的 25%。至少需在叩仙门境界使用。"
   }
 ]

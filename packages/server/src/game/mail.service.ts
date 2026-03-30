@@ -5,6 +5,8 @@ import { In, Repository, SelectQueryBuilder } from 'typeorm';
 import {
   MAIL_PAGE_SIZE_DEFAULT,
   MAIL_TEMPLATE_BEGINNER_JOURNEY_ID,
+  MAIL_TEMPLATE_DIVINE_ROOT_SEED_ID,
+  MAIL_TEMPLATE_HEAVEN_ROOT_SEED_ID,
   MailAttachment,
   MailDetailView,
   MailFilter,
@@ -30,6 +32,10 @@ import { PlayerMailReceiptEntity } from '../database/entities/player-mail-receip
 import { ContentService } from './content.service';
 import { InventoryService } from './inventory.service';
 import { PlayerService } from './player.service';
+import {
+  DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID,
+  HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID,
+} from '../constants/gameplay/technique';
 
 interface CreateMailInput {
   templateId?: string | null;
@@ -116,6 +122,8 @@ interface MailDetailRawRow extends MailListRawRow {
 export class MailService {
   private static readonly WELCOME_TEMPLATE_ID = 'mail.welcome.v1';
   private static readonly BEGINNER_JOURNEY_TEMPLATE_ID = MAIL_TEMPLATE_BEGINNER_JOURNEY_ID;
+  private static readonly HEAVEN_ROOT_SEED_TEMPLATE_ID = MAIL_TEMPLATE_HEAVEN_ROOT_SEED_ID;
+  private static readonly DIVINE_ROOT_SEED_TEMPLATE_ID = MAIL_TEMPLATE_DIVINE_ROOT_SEED_ID;
   private static readonly DEFAULT_SENDER_LABEL = '司命台';
   private static readonly BITTER_CULTIVATION_ELIXIR_ITEM_ID = 'pill.bitter_cultivation_elixir';
   private static readonly BEGINNER_JOURNEY_EQUIPMENT_ITEM_IDS = [
@@ -485,7 +493,11 @@ export class MailService {
     const normalizedTemplateId = templateId?.trim();
     const presetAttachments = normalizedTemplateId === MailService.BEGINNER_JOURNEY_TEMPLATE_ID
       ? this.buildBeginnerJourneyAttachments()
-      : [];
+      : normalizedTemplateId === MailService.HEAVEN_ROOT_SEED_TEMPLATE_ID
+        ? [{ itemId: HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID, count: 1 }]
+        : normalizedTemplateId === MailService.DIVINE_ROOT_SEED_TEMPLATE_ID
+          ? [{ itemId: DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID, count: 1 }]
+          : [];
     if (presetAttachments.length === 0) {
       return attachments;
     }

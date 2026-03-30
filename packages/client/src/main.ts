@@ -1966,6 +1966,7 @@ socket.onRealmUpdate((data: S2C_RealmUpdate) => {
     showToast,
     sendAction: (action, element) => socket.sendHeavenGateAction(action, element),
   });
+  inventoryPanel.syncPlayerContext(myPlayer ?? undefined);
   refreshUiChrome();
 });
 socket.onAttrUpdate((data) => {
@@ -2001,6 +2002,7 @@ socket.onAttrUpdate((data) => {
     showToast,
     sendAction: (action, element) => socket.sendHeavenGateAction(action, element),
   });
+  inventoryPanel.syncPlayerContext(myPlayer ?? undefined);
   refreshUiChrome();
 });
 socket.onInventoryUpdate((data) => {

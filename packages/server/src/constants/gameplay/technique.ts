@@ -28,3 +28,9 @@ export const PATH_SEVERED_BREAKTHROUGH_LABEL = '仙路断绝';
 /** 断路条件提示文字：具体说明 */
 export const PATH_SEVERED_BREAKTHROUGH_REASON =
   '仙路断绝，你的前路已被无形天堑阻断，暂时无法继续突破。';
+/** 天品灵根幼苗物品 ID */
+export const HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID = 'root_seed.heaven';
+/** 神品灵根幼苗物品 ID */
+export const DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID = 'root_seed.divine';
+/** 碎灵丹物品 ID */
+export const SHATTER_SPIRIT_PILL_ITEM_ID = 'pill.shatter_spirit';

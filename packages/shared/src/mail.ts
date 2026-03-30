@@ -27,6 +27,8 @@ export interface GmMailTemplateOption {
 export const MAIL_FILTERS: MailFilter[] = ['all', 'unread', 'claimable'];
 
 export const MAIL_TEMPLATE_BEGINNER_JOURNEY_ID = 'mail.starter.beginner_journey.v1';
+export const MAIL_TEMPLATE_HEAVEN_ROOT_SEED_ID = 'mail.item.heaven_root_seed.v1';
+export const MAIL_TEMPLATE_DIVINE_ROOT_SEED_ID = 'mail.item.divine_root_seed.v1';
 
 export const MAIL_TEMPLATE_DEFS: Record<string, MailTemplateDef> = {
   'mail.welcome.v1': {
@@ -68,6 +70,24 @@ export const MAIL_TEMPLATE_DEFS: Record<string, MailTemplateDef> = {
       { kind: 'text', value: '若背包已满，请先整理后再领取。' },
     ],
   },
+  [MAIL_TEMPLATE_HEAVEN_ROOT_SEED_ID]: {
+    id: MAIL_TEMPLATE_HEAVEN_ROOT_SEED_ID,
+    title: [{ kind: 'text', value: '天品灵根幼苗' }],
+    body: [
+      { kind: 'text', value: '司命台封存了一株天品灵根幼苗，请查收附件。' },
+      { kind: 'text', value: '\n\n' },
+      { kind: 'text', value: '此物会将五行灵根先定为 99，再逐系以五成概率催至 100，且至少保底一系圆满；同时逆天改命累计额外增加 20 次。使用时会按你当前逆天改命积累折减所需底蕴。' },
+    ],
+  },
+  [MAIL_TEMPLATE_DIVINE_ROOT_SEED_ID]: {
+    id: MAIL_TEMPLATE_DIVINE_ROOT_SEED_ID,
+    title: [{ kind: 'text', value: '神品灵根幼苗' }],
+    body: [
+      { kind: 'text', value: '司命台封存了一株神品灵根幼苗，请查收附件。' },
+      { kind: 'text', value: '\n\n' },
+      { kind: 'text', value: '此物会将五行灵根全部定为 100，同时逆天改命累计额外增加 100 次。使用时同样会按你当前逆天改命积累折减所需底蕴。' },
+    ],
+  },
 } as const;
 
 export const GM_MAIL_TEMPLATE_OPTIONS: GmMailTemplateOption[] = [
@@ -80,6 +100,16 @@ export const GM_MAIL_TEMPLATE_OPTIONS: GmMailTemplateOption[] = [
     templateId: MAIL_TEMPLATE_BEGINNER_JOURNEY_ID,
     label: '初入道途',
     description: '发送常用装备一套、全部非神通功法书各一本到，并附带五枚苦修丹。',
+  },
+  {
+    templateId: MAIL_TEMPLATE_HEAVEN_ROOT_SEED_ID,
+    label: '天品灵根幼苗',
+    description: '固定附带一株天品灵根幼苗。',
+  },
+  {
+    templateId: MAIL_TEMPLATE_DIVINE_ROOT_SEED_ID,
+    label: '神品灵根幼苗',
+    description: '固定附带一株神品灵根幼苗。',
   },
 ];
 

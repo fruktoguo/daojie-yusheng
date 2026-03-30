@@ -5,9 +5,11 @@
 
 import {
   EquipSlot,
+  HeavenGateState,
   Inventory,
   ItemStack,
   PlayerState,
+  PlayerRealmState,
   createItemStackSignature,
 } from '@mud/shared';
 import {
@@ -55,6 +57,10 @@ interface InventoryPrimaryAction {
 }
 
 const INVENTORY_SOURCE_COLLAPSED_COUNT = 3;
+const HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID = 'root_seed.heaven';
+const DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID = 'root_seed.divine';
+const SHATTER_SPIRIT_PILL_ITEM_ID = 'pill.shatter_spirit';
+const HEAVEN_GATE_REROLL_AVERAGE_BONUS = 2;
 
 function formatItemEffects(item: ItemStack): string[] {
   return describeItemEffectDetails(item);
@@ -83,6 +89,9 @@ export class InventoryPanel {
   private learnedTechniqueIds = new Set<string>();
   private unlockedMinimapIds = new Set<string>();
   private equippedItemsBySlot: Partial<Record<EquipSlot, ItemStack>> = {};
+  private playerRealm: PlayerRealmState | null = null;
+  private playerHeavenGate: HeavenGateState | null = null;
+  private playerFoundation = 0;
 
   constructor() {
     this.ensureTooltipStyle();
@@ -104,6 +113,9 @@ export class InventoryPanel {
     this.learnedTechniqueIds.clear();
     this.unlockedMinimapIds.clear();
     this.equippedItemsBySlot = {};
+    this.playerRealm = null;
+    this.playerHeavenGate = null;
+    this.playerFoundation = 0;
     this.tooltip.hide(true);
     this.pane.innerHTML = '<div class="empty-hint">背包空空如也</div>';
     detailModalHost.close(InventoryPanel.MODAL_OWNER);
@@ -140,11 +152,16 @@ export class InventoryPanel {
     this.update(player.inventory);
   }
 
-  syncPlayerContext(player?: Pick<PlayerState, 'techniques' | 'equipment' | 'unlockedMinimapIds'>): void {
+  syncPlayerContext(
+    player?: Pick<PlayerState, 'techniques' | 'equipment' | 'unlockedMinimapIds' | 'realm' | 'heavenGate' | 'foundation'>,
+  ): void {
     if (!player) {
       this.learnedTechniqueIds.clear();
       this.unlockedMinimapIds.clear();
       this.equippedItemsBySlot = {};
+      this.playerRealm = null;
+      this.playerHeavenGate = null;
+      this.playerFoundation = 0;
     } else {
       this.learnedTechniqueIds = new Set(
         (player.techniques ?? [])
@@ -162,6 +179,9 @@ export class InventoryPanel {
           this.equippedItemsBySlot[slot] = equippedItem;
         }
       }
+      this.playerRealm = player.realm ?? null;
+      this.playerHeavenGate = player.realm?.heavenGate ?? player.heavenGate ?? null;
+      this.playerFoundation = Math.max(0, Math.floor(player.foundation ?? 0));
     }
     if (this.lastInventory) {
       this.update(this.lastInventory);
@@ -259,6 +279,12 @@ export class InventoryPanel {
         }
         if (action.kind === 'equip') {
           this.onEquipItem?.(slotIndex);
+          return;
+        }
+        if (item && this.requiresUseConfirmation(item)) {
+          this.selectedSlotIndex = slotIndex;
+          this.selectedItemKey = this.getItemIdentity(item);
+          this.openActionDialog('use', slotIndex, 1);
           return;
         }
         this.onUseItem?.(slotIndex);
@@ -545,9 +571,13 @@ export class InventoryPanel {
           if (!primaryAction || primaryAction.kind === 'status') {
             return;
           }
-          if (primaryAction?.kind === 'equip') {
+          if (primaryAction.kind === 'equip') {
             this.onEquipItem?.(slotIndex);
             this.closeModal();
+            return;
+          }
+          if (this.requiresUseConfirmation(item)) {
+            this.openActionDialog('use', slotIndex, 1);
             return;
           }
           this.onUseItem?.(slotIndex, 1);
@@ -577,6 +607,7 @@ export class InventoryPanel {
     const maxCount = item.count;
     const halfCount = Math.max(1, Math.ceil(maxCount / 2));
     const selectedCount = Math.max(1, Math.min(maxCount, dialog.defaultCount));
+    const specialUseSummary = dialog.kind === 'use' ? this.getSpecialUseConfirmSummary(item) : null;
 
     if (dialog.confirmDestroy) {
       detailModalHost.open({
@@ -610,6 +641,44 @@ export class InventoryPanel {
           body.querySelector<HTMLElement>('[data-inventory-destroy-confirm]')?.addEventListener('click', (event) => {
             event.stopPropagation();
             this.onDestroyItem?.(slotIndex, selectedCount);
+            this.closeModal();
+          });
+        },
+      });
+      this.lastModalRenderKey = this.buildModalRenderKey(item);
+      return;
+    }
+
+    if (specialUseSummary) {
+      detailModalHost.open({
+        ownerId: InventoryPanel.MODAL_OWNER,
+        title: specialUseSummary.title,
+        subtitle: `${item.name} · 数量 ${formatDisplayCountBadge(1)}`,
+        hint: '点击空白处取消',
+        bodyHtml: `
+          <div class="quest-detail-section">
+            <strong>使用说明</strong>
+            ${specialUseSummary.lines.map((line) => `<div>${this.escapeHtml(line)}</div>`).join('')}
+          </div>
+          <div class="inventory-detail-actions">
+            <div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch">
+              <button class="small-btn ghost" type="button" data-inventory-action-cancel>返回详情</button>
+              <button class="small-btn" type="button" data-inventory-action-confirm>确认使用</button>
+            </div>
+          </div>
+        `,
+        onClose: () => {
+          this.resetModalState();
+        },
+        onAfterRender: (body) => {
+          body.querySelector<HTMLElement>('[data-inventory-action-cancel]')?.addEventListener('click', (event) => {
+            event.stopPropagation();
+            this.actionDialog = null;
+            this.renderModal();
+          });
+          body.querySelector<HTMLElement>('[data-inventory-action-confirm]')?.addEventListener('click', (event) => {
+            event.stopPropagation();
+            this.onUseItem?.(slotIndex, 1);
             this.closeModal();
           });
         },
@@ -838,6 +907,78 @@ export class InventoryPanel {
 
   private canBatchDropOrDestroy(item: ItemStack): boolean {
     return item.count > 1;
+  }
+
+  private getSpiritualRootSeedTier(item: ItemStack): 'heaven' | 'divine' | null {
+    if (item.itemId === HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID) {
+      return 'heaven';
+    }
+    if (item.itemId === DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID) {
+      return 'divine';
+    }
+    return null;
+  }
+
+  private requiresUseConfirmation(item: ItemStack): boolean {
+    return this.getSpiritualRootSeedTier(item) !== null || item.itemId === SHATTER_SPIRIT_PILL_ITEM_ID;
+  }
+
+  private getHeavenGateRerollCount(averageBonus: number): number {
+    return Math.max(0, Math.floor(Math.max(0, averageBonus) / HEAVEN_GATE_REROLL_AVERAGE_BONUS));
+  }
+
+  private getHeavenGateRerollCost(realm: PlayerRealmState | null): number {
+    return Math.max(1, Math.round(Math.max(1, Math.floor(realm?.progressToNext ?? 1)) * 0.25));
+  }
+
+  private getSpiritualRootSeedEquivalentRerollCount(tier: 'heaven' | 'divine'): number {
+    return tier === 'divine' ? 100 : 20;
+  }
+
+  private getSpecialUseConfirmSummary(item: ItemStack): {
+    title: string;
+    lines: string[];
+  } | null {
+    const tier = this.getSpiritualRootSeedTier(item);
+    if (tier) {
+      const currentRerollCount = this.getHeavenGateRerollCount(this.playerHeavenGate?.averageBonus ?? 0);
+      const gainedRerollCount = this.getSpiritualRootSeedEquivalentRerollCount(tier);
+      const reducedCount = Math.max(0, gainedRerollCount - currentRerollCount);
+      const foundationCost = this.getHeavenGateRerollCost(this.playerRealm) * reducedCount;
+      const remainingFoundation = Math.max(0, this.playerFoundation - foundationCost);
+      const nextRerollCount = currentRerollCount + gainedRerollCount;
+      const lines = tier === 'divine'
+        ? [
+            '使用后，五行灵根会直接全部固定为 100。',
+            `当前底蕴 ${formatDisplayInteger(this.playerFoundation)}，本次会消耗 ${formatDisplayInteger(foundationCost)}，使用后剩余 ${formatDisplayInteger(remainingFoundation)}。`,
+            `当前逆天改命累计 ${formatDisplayInteger(currentRerollCount)} 次，使用后会额外增加 ${formatDisplayInteger(gainedRerollCount)} 次，变为 ${formatDisplayInteger(nextRerollCount)} 次。`,
+          ]
+        : [
+            '使用后，五行灵根会先全部定为 99，再逐项以 50% 概率升到 100，且至少保底一项为 100。',
+            `当前底蕴 ${formatDisplayInteger(this.playerFoundation)}，本次会消耗 ${formatDisplayInteger(foundationCost)}，使用后剩余 ${formatDisplayInteger(remainingFoundation)}。`,
+            `当前逆天改命累计 ${formatDisplayInteger(currentRerollCount)} 次，使用后会额外增加 ${formatDisplayInteger(gainedRerollCount)} 次，变为 ${formatDisplayInteger(nextRerollCount)} 次。`,
+          ];
+      return {
+        title: tier === 'divine' ? '确认使用神品灵根幼苗' : '确认使用天品灵根幼苗',
+        lines,
+      };
+    }
+    const currentRerollCount = this.getHeavenGateRerollCount(this.playerHeavenGate?.averageBonus ?? 0);
+    if (item.itemId !== SHATTER_SPIRIT_PILL_ITEM_ID) {
+      return null;
+    }
+    const currentExp = Math.max(0, Math.floor(this.playerRealm?.progress ?? 0));
+    const expCost = Math.max(0, Math.round(currentExp * 0.25));
+    const remainingExp = Math.max(0, currentExp - expCost);
+    const nextRerollCount = currentRerollCount + 1;
+    return {
+      title: '确认使用碎灵丹',
+      lines: [
+        '使用后会立刻重置天门，清掉当前已开出的灵根结果，并回到可重新开天门的状态。',
+        `当前境界修为 ${formatDisplayInteger(currentExp)}，本次会消耗 ${formatDisplayInteger(expCost)}，使用后剩余 ${formatDisplayInteger(remainingExp)}。`,
+        `当前逆天改命累计 ${formatDisplayInteger(currentRerollCount)} 次，使用后会额外增加 1 次，变为 ${formatDisplayInteger(nextRerollCount)} 次。`,
+      ],
+    };
   }
 
   private openActionDialog(kind: InventoryActionKind, slotIndex: number, defaultCount: number): void {

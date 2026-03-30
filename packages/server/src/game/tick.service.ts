@@ -63,7 +63,12 @@ import {
 import * as fs from 'fs';
 import { PersistentDocumentService } from '../database/persistent-document.service';
 import { PLAYER_SPECIAL_STATS_SYNC_INTERVAL_MS } from '../constants/gameplay/attr';
-import { REALM_STATE_SOURCE } from '../constants/gameplay/technique';
+import {
+  DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID,
+  HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID,
+  REALM_STATE_SOURCE,
+  SHATTER_SPIRIT_PILL_ITEM_ID,
+} from '../constants/gameplay/technique';
 import { GAME_CONFIG_PATH } from '../constants/storage/config';
 import { ActionService } from './action.service';
 import { AoiService } from './aoi.service';
@@ -1231,6 +1236,51 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         kind: 'quest',
       });
     }
+
+    const spiritualRootSeedTier = item.itemId === HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID
+      ? 'heaven'
+      : item.itemId === DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID
+        ? 'divine'
+        : null;
+    if (spiritualRootSeedTier) {
+      const result = this.techniqueService.useSpiritualRootSeed(player, spiritualRootSeedTier);
+      if (result.error) {
+        messages.push({
+          playerId: player.id,
+          text: result.error,
+          kind: 'system',
+        });
+        return;
+      }
+      this.markDirty(player.id, result.dirty as DirtyFlag[]);
+      for (const message of result.messages) {
+        messages.push({
+          playerId: player.id,
+          text: message.text,
+          kind: message.kind ?? 'system',
+        });
+      }
+    }
+
+    if (item.itemId === SHATTER_SPIRIT_PILL_ITEM_ID) {
+      const result = this.techniqueService.useShatterSpiritPill(player);
+      if (result.error) {
+        messages.push({
+          playerId: player.id,
+          text: result.error,
+          kind: 'system',
+        });
+        return;
+      }
+      this.markDirty(player.id, result.dirty as DirtyFlag[]);
+      for (const message of result.messages) {
+        messages.push({
+          playerId: player.id,
+          text: message.text,
+          kind: message.kind ?? 'system',
+        });
+      }
+    }
   }
 
   private getUnlockedMinimapIds(player: PlayerState): string[] {
@@ -1729,6 +1779,23 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
             kind: 'system',
           });
           break;
+        }
+        if (itemDef?.spiritualRootSeedTier) {
+          const seedUseError = this.techniqueService.canUseSpiritualRootSeed(
+            player,
+            itemDef.spiritualRootSeedTier,
+          );
+          if (seedUseError) {
+            messages.push({ playerId: player.id, text: seedUseError, kind: 'system' });
+            break;
+          }
+        }
+        if (itemDef?.itemId === SHATTER_SPIRIT_PILL_ITEM_ID) {
+          const shatterSpiritPillError = this.techniqueService.canUseShatterSpiritPill(player);
+          if (shatterSpiritPillError) {
+            messages.push({ playerId: player.id, text: shatterSpiritPillError, kind: 'system' });
+            break;
+          }
         }
         const useErr = this.inventoryService.useItem(player, slotIndex, requestedCount);
         if (useErr) {
