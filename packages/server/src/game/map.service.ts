@@ -3989,7 +3989,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       wanderRadius: Number.isInteger(spawn.wanderRadius) ? Math.max(0, Number(spawn.wanderRadius)) : radius,
       respawnTicks: Number.isInteger(spawn.respawnTicks)
         ? Math.max(1, Number(spawn.respawnTicks))
-        : Math.max(1, Number(spawn.respawnSec ?? template.respawnTicks)),
+        : undefined,
       respawnSec: Number.isInteger(spawn.respawnSec)
         ? Math.max(1, Number(spawn.respawnSec))
         : undefined,

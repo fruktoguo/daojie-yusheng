@@ -470,7 +470,7 @@ function hydrateMonsterSpawnRecord(raw, monsterTemplates) {
     wanderRadius: Number.isInteger(raw.wanderRadius) ? Math.max(0, Number(raw.wanderRadius)) : radius,
     respawnTicks: Number.isInteger(raw.respawnTicks)
       ? Math.max(1, Number(raw.respawnTicks))
-      : Math.max(1, Number(raw.respawnSec ?? template.respawnTicks ?? 15)),
+      : undefined,
     respawnSec: Number.isInteger(raw.respawnSec) ? Math.max(1, Number(raw.respawnSec)) : undefined,
     level: Number.isInteger(raw.level) ? Math.max(1, Number(raw.level)) : template.level,
     templateId,
@@ -513,9 +513,13 @@ function dehydrateMonsterSpawnRecord(spawn, monsterTemplates) {
   if ((spawn.maxAlive ?? spawn.count ?? 1) !== (template.maxAlive ?? template.count ?? 1)) persisted.maxAlive = spawn.maxAlive;
   const defaultWanderRadius = spawn.radius ?? template.radius;
   if ((spawn.wanderRadius ?? defaultWanderRadius) !== defaultWanderRadius) persisted.wanderRadius = spawn.wanderRadius;
-  const currentRespawn = spawn.respawnTicks ?? spawn.respawnSec ?? 15;
+  const effectiveRespawnTicks = Number.isInteger(spawn.respawnTicks)
+    ? Math.max(1, Number(spawn.respawnTicks))
+    : Number.isInteger(spawn.respawnSec)
+      ? Math.max(1, Number(spawn.respawnSec))
+      : (template.respawnTicks ?? template.respawnSec ?? 15);
   const templateRespawn = template.respawnTicks ?? template.respawnSec ?? 15;
-  if (currentRespawn !== templateRespawn) {
+  if (effectiveRespawnTicks !== templateRespawn) {
     if (spawn.respawnTicks !== undefined) persisted.respawnTicks = spawn.respawnTicks;
     else if (spawn.respawnSec !== undefined) persisted.respawnSec = spawn.respawnSec;
   }
