@@ -321,9 +321,9 @@
       "path": "immortal",
       "grade": "yellow",
       "gradeLabel": "黄阶",
-      "review": "练气初成",
+      "review": "气感初凝，丹田始暖",
       "lifespanYears": 300,
-      "expToNext": 1000
+      "expToNext": 1263
     },
     {
       "realmLv": 20,
@@ -334,9 +334,9 @@
       "path": "immortal",
       "grade": "yellow",
       "gradeLabel": "黄阶",
-      "review": "练气渐稳",
+      "review": "吐纳成丝，内息入脉",
       "lifespanYears": 312,
-      "expToNext": 1200
+      "expToNext": 1516
     },
     {
       "realmLv": 21,
@@ -347,9 +347,9 @@
       "path": "immortal",
       "grade": "yellow",
       "gradeLabel": "黄阶",
-      "review": "练气渐进",
+      "review": "真气循经，周身渐轻",
       "lifespanYears": 326,
-      "expToNext": 1500
+      "expToNext": 1895
     },
     {
       "realmLv": 22,
@@ -360,9 +360,9 @@
       "path": "immortal",
       "grade": "yellow",
       "gradeLabel": "黄阶",
-      "review": "练气气盛",
+      "review": "丹田有炁，自生暖流",
       "lifespanYears": 344,
-      "expToNext": 1800
+      "expToNext": 2274
     },
     {
       "realmLv": 23,
@@ -373,9 +373,9 @@
       "path": "immortal",
       "grade": "yellow",
       "gradeLabel": "黄阶",
-      "review": "练气势成",
+      "review": "气机鼓荡，筋骨同鸣",
       "lifespanYears": 368,
-      "expToNext": 2200
+      "expToNext": 2779
     },
     {
       "realmLv": 24,
@@ -386,9 +386,9 @@
       "path": "immortal",
       "grade": "yellow",
       "gradeLabel": "黄阶",
-      "review": "练气六转周天",
+      "review": "小周天转，吐纳不绝",
       "lifespanYears": 400,
-      "expToNext": 3000
+      "expToNext": 3789
     },
     {
       "realmLv": 25,
@@ -399,9 +399,9 @@
       "path": "immortal",
       "grade": "mystic",
       "gradeLabel": "玄阶",
-      "review": "练气渐盈",
+      "review": "炁海渐盈，神清目明",
       "lifespanYears": 600,
-      "expToNext": 3600
+      "expToNext": 4547
     },
     {
       "realmLv": 26,
@@ -412,9 +412,9 @@
       "path": "immortal",
       "grade": "mystic",
       "gradeLabel": "玄阶",
-      "review": "练气八脉贯通",
+      "review": "八脉齐振，行气无滞",
       "lifespanYears": 630,
-      "expToNext": 4300
+      "expToNext": 5432
     },
     {
       "realmLv": 27,
@@ -425,9 +425,9 @@
       "path": "immortal",
       "grade": "mystic",
       "gradeLabel": "玄阶",
-      "review": "练气九转将成",
+      "review": "九转真息，将凝未凝",
       "lifespanYears": 670,
-      "expToNext": 5200
+      "expToNext": 6568
     },
     {
       "realmLv": 28,
@@ -438,9 +438,9 @@
       "path": "immortal",
       "grade": "mystic",
       "gradeLabel": "玄阶",
-      "review": "练气巅峰已至",
+      "review": "练气巅峰，百窍俱鸣",
       "lifespanYears": 730,
-      "expToNext": 6200
+      "expToNext": 7832
     },
     {
       "realmLv": 29,
@@ -451,9 +451,9 @@
       "path": "immortal",
       "grade": "mystic",
       "gradeLabel": "玄阶",
-      "review": "练气大圆满",
+      "review": "气满周天，只待归一",
       "lifespanYears": 810,
-      "expToNext": 7500
+      "expToNext": 9474
     },
     {
       "realmLv": 30,
@@ -464,9 +464,9 @@
       "path": "immortal",
       "grade": "mystic",
       "gradeLabel": "玄阶",
-      "review": "筑基只差半步",
+      "review": "道基在望，半步筑基",
       "lifespanYears": 900,
-      "expToNext": 10000
+      "expToNext": 12631
     },
     {
       "realmLv": 31,
@@ -477,9 +477,9 @@
       "path": "immortal",
       "grade": "mystic",
       "gradeLabel": "玄阶",
-      "review": "筑基初成",
+      "review": "道基初铸，真元有根",
       "lifespanYears": 1400,
-      "expToNext": 12000
+      "expToNext": 15158
     },
     {
       "realmLv": 32,
@@ -490,9 +490,9 @@
       "path": "immortal",
       "grade": "mystic",
       "gradeLabel": "玄阶",
-      "review": "筑基渐稳",
+      "review": "灵台渐稳，根骨相契",
       "lifespanYears": 1460,
-      "expToNext": 14500
+      "expToNext": 18316
     },
     {
       "realmLv": 33,
@@ -503,9 +503,9 @@
       "path": "immortal",
       "grade": "mystic",
       "gradeLabel": "玄阶",
-      "review": "筑基渐进",
+      "review": "真元沉骨，百骸受润",
       "lifespanYears": 1560,
-      "expToNext": 17400
+      "expToNext": 21979
     },
     {
       "realmLv": 34,
@@ -516,9 +516,9 @@
       "path": "immortal",
       "grade": "mystic",
       "gradeLabel": "玄阶",
-      "review": "筑基气盛",
+      "review": "道基稳固，如岩如岳",
       "lifespanYears": 1710,
-      "expToNext": 21000
+      "expToNext": 26526
     },
     {
       "realmLv": 35,
@@ -529,9 +529,9 @@
       "path": "immortal",
       "grade": "mystic",
       "gradeLabel": "玄阶",
-      "review": "筑基势成",
+      "review": "丹田化海，元气自养",
       "lifespanYears": 1920,
-      "expToNext": 25000
+      "expToNext": 31579
     },
     {
       "realmLv": 36,
@@ -542,9 +542,9 @@
       "path": "immortal",
       "grade": "mystic",
       "gradeLabel": "玄阶",
-      "review": "筑基六转周天",
+      "review": "六转归元，道基自鸣",
       "lifespanYears": 2200,
-      "expToNext": 35000
+      "expToNext": 44211
     },
     {
       "realmLv": 37,
@@ -555,9 +555,9 @@
       "path": "immortal",
       "grade": "earth",
       "gradeLabel": "地阶",
-      "review": "筑基渐盈",
+      "review": "气血神识，渐融一炉",
       "lifespanYears": 3400,
-      "expToNext": 42000
+      "expToNext": 53053
     },
     {
       "realmLv": 38,
@@ -568,9 +568,9 @@
       "path": "immortal",
       "grade": "earth",
       "gradeLabel": "地阶",
-      "review": "筑基八脉贯通",
+      "review": "八方灵机，尽归己身",
       "lifespanYears": 3520,
-      "expToNext": 50000
+      "expToNext": 63158
     },
     {
       "realmLv": 39,
@@ -581,9 +581,9 @@
       "path": "immortal",
       "grade": "earth",
       "gradeLabel": "地阶",
-      "review": "筑基九转将成",
+      "review": "九炼道基，将成未成",
       "lifespanYears": 3720,
-      "expToNext": 60000
+      "expToNext": 75789
     },
     {
       "realmLv": 40,
@@ -594,9 +594,9 @@
       "path": "immortal",
       "grade": "earth",
       "gradeLabel": "地阶",
-      "review": "筑基巅峰已至",
+      "review": "筑基巅峰，真元圆转",
       "lifespanYears": 4080,
-      "expToNext": 72000
+      "expToNext": 90947
     },
     {
       "realmLv": 41,
@@ -607,9 +607,9 @@
       "path": "immortal",
       "grade": "earth",
       "gradeLabel": "地阶",
-      "review": "筑基大圆满",
+      "review": "基成无漏，只差点睛",
       "lifespanYears": 4560,
-      "expToNext": 86000
+      "expToNext": 108632
     },
     {
       "realmLv": 42,
@@ -620,9 +620,9 @@
       "path": "immortal",
       "grade": "earth",
       "gradeLabel": "地阶",
-      "review": "金丹只差半步",
+      "review": "丹意暗生，半步金丹",
       "lifespanYears": 5200,
-      "expToNext": 120000
+      "expToNext": 151578
     },
     {
       "realmLv": 43,
@@ -633,9 +633,9 @@
       "path": "immortal",
       "grade": "earth",
       "gradeLabel": "地阶",
-      "review": "金丹初成",
+      "review": "金丹初结，灵光内照",
       "lifespanYears": 8000,
-      "expToNext": 140000
+      "expToNext": 176842
     },
     {
       "realmLv": 44,
@@ -646,9 +646,9 @@
       "path": "immortal",
       "grade": "earth",
       "gradeLabel": "地阶",
-      "review": "金丹渐稳",
+      "review": "丹火温养，内景渐明",
       "lifespanYears": 8280,
-      "expToNext": 170000
+      "expToNext": 214737
     },
     {
       "realmLv": 45,
@@ -659,9 +659,9 @@
       "path": "immortal",
       "grade": "earth",
       "gradeLabel": "地阶",
-      "review": "金丹渐进",
+      "review": "一丹镇府，百窍生辉",
       "lifespanYears": 8760,
-      "expToNext": 200000
+      "expToNext": 252632
     },
     {
       "realmLv": 46,
@@ -672,9 +672,9 @@
       "path": "immortal",
       "grade": "earth",
       "gradeLabel": "地阶",
-      "review": "金丹气盛",
+      "review": "金光流转，外邪难侵",
       "lifespanYears": 9600,
-      "expToNext": 240000
+      "expToNext": 303158
     },
     {
       "realmLv": 47,
@@ -685,9 +685,9 @@
       "path": "immortal",
       "grade": "earth",
       "gradeLabel": "地阶",
-      "review": "金丹势成",
+      "review": "丹势既成，真元如潮",
       "lifespanYears": 10700,
-      "expToNext": 290000
+      "expToNext": 366316
     },
     {
       "realmLv": 48,
@@ -698,9 +698,9 @@
       "path": "immortal",
       "grade": "earth",
       "gradeLabel": "地阶",
-      "review": "金丹六转周天",
+      "review": "六转抱一，丹心自稳",
       "lifespanYears": 12200,
-      "expToNext": 400000
+      "expToNext": 505263
     },
     {
       "realmLv": 49,
@@ -711,9 +711,9 @@
       "path": "immortal",
       "grade": "heaven",
       "gradeLabel": "天阶",
-      "review": "金丹渐盈",
+      "review": "一念可御，万缕灵机",
       "lifespanYears": 18000,
-      "expToNext": 480000
+      "expToNext": 606316
     },
     {
       "realmLv": 50,
@@ -724,9 +724,9 @@
       "path": "immortal",
       "grade": "heaven",
       "gradeLabel": "天阶",
-      "review": "金丹八脉贯通",
+      "review": "八方灵炁，归炉不散",
       "lifespanYears": 18600,
-      "expToNext": 580000
+      "expToNext": 732632
     },
     {
       "realmLv": 51,
@@ -737,9 +737,9 @@
       "path": "immortal",
       "grade": "heaven",
       "gradeLabel": "天阶",
-      "review": "金丹九转将成",
+      "review": "九炼金丹，将熟未熟",
       "lifespanYears": 19600,
-      "expToNext": 700000
+      "expToNext": 884211
     },
     {
       "realmLv": 52,
@@ -750,9 +750,9 @@
       "path": "immortal",
       "grade": "heaven",
       "gradeLabel": "天阶",
-      "review": "金丹巅峰已至",
+      "review": "金丹巅峰，丹芒内敛",
       "lifespanYears": 21400,
-      "expToNext": 840000
+      "expToNext": 1061053
     },
     {
       "realmLv": 53,
@@ -763,9 +763,9 @@
       "path": "immortal",
       "grade": "heaven",
       "gradeLabel": "天阶",
-      "review": "金丹大圆满",
+      "review": "一丸圆照，只待化婴",
       "lifespanYears": 23800,
-      "expToNext": 1000000
+      "expToNext": 1263158
     },
     {
       "realmLv": 54,
@@ -776,9 +776,9 @@
       "path": "immortal",
       "grade": "heaven",
       "gradeLabel": "天阶",
-      "review": "元婴只差半步",
+      "review": "婴象已现，半步元婴",
       "lifespanYears": 27000,
-      "expToNext": 1400000
+      "expToNext": 1768419
     },
     {
       "realmLv": 55,
@@ -789,9 +789,9 @@
       "path": "immortal",
       "grade": "heaven",
       "gradeLabel": "天阶",
-      "review": "元婴初成",
+      "review": "元婴初成，神魂有形",
       "lifespanYears": 40000,
-      "expToNext": 1700000
+      "expToNext": 2147368
     },
     {
       "realmLv": 56,
@@ -802,9 +802,9 @@
       "path": "immortal",
       "grade": "heaven",
       "gradeLabel": "天阶",
-      "review": "元婴渐稳",
+      "review": "婴气温养，心神自明",
       "lifespanYears": 41200,
-      "expToNext": 2000000
+      "expToNext": 2526316
     },
     {
       "realmLv": 57,
@@ -815,9 +815,9 @@
       "path": "immortal",
       "grade": "heaven",
       "gradeLabel": "天阶",
-      "review": "元婴渐进",
+      "review": "婴元反哺，百骸轻灵",
       "lifespanYears": 43400,
-      "expToNext": 2400000
+      "expToNext": 3031579
     },
     {
       "realmLv": 58,
@@ -828,9 +828,9 @@
       "path": "immortal",
       "grade": "heaven",
       "gradeLabel": "天阶",
-      "review": "元婴气盛",
+      "review": "元神坐照，内外俱清",
       "lifespanYears": 47200,
-      "expToNext": 2900000
+      "expToNext": 3663158
     },
     {
       "realmLv": 59,
@@ -841,9 +841,9 @@
       "path": "immortal",
       "grade": "heaven",
       "gradeLabel": "天阶",
-      "review": "元婴势成",
+      "review": "婴火既旺，道念愈坚",
       "lifespanYears": 52600,
-      "expToNext": 3500000
+      "expToNext": 4421053
     },
     {
       "realmLv": 60,
@@ -854,9 +854,9 @@
       "path": "immortal",
       "grade": "heaven",
       "gradeLabel": "天阶",
-      "review": "元婴六转周天",
+      "review": "六转养婴，真我渐定",
       "lifespanYears": 60000,
-      "expToNext": 5000000
+      "expToNext": 6315789
     },
     {
       "realmLv": 61,
@@ -867,9 +867,9 @@
       "path": "immortal",
       "grade": "spirit",
       "gradeLabel": "灵阶",
-      "review": "元婴渐盈",
+      "review": "一念外映，山河可感",
       "lifespanYears": 90000,
-      "expToNext": 6000000
+      "expToNext": 7578947
     },
     {
       "realmLv": 62,
@@ -880,9 +880,9 @@
       "path": "immortal",
       "grade": "spirit",
       "gradeLabel": "灵阶",
-      "review": "元婴八脉贯通",
+      "review": "八识通明，外魔难侵",
       "lifespanYears": 92600,
-      "expToNext": 7200000
+      "expToNext": 9094737
     },
     {
       "realmLv": 63,
@@ -893,9 +893,9 @@
       "path": "immortal",
       "grade": "spirit",
       "gradeLabel": "灵阶",
-      "review": "元婴九转将成",
+      "review": "九炼婴胎，将实未实",
       "lifespanYears": 97200,
-      "expToNext": 8600000
+      "expToNext": 10863158
     },
     {
       "realmLv": 64,
@@ -906,9 +906,9 @@
       "path": "immortal",
       "grade": "spirit",
       "gradeLabel": "灵阶",
-      "review": "元婴巅峰已至",
+      "review": "元婴巅峰，神威暗涨",
       "lifespanYears": 106000,
-      "expToNext": 10300000
+      "expToNext": 13010526
     },
     {
       "realmLv": 65,
@@ -919,9 +919,9 @@
       "path": "immortal",
       "grade": "spirit",
       "gradeLabel": "灵阶",
-      "review": "元婴大圆满",
+      "review": "真我圆融，只差化神",
       "lifespanYears": 118000,
-      "expToNext": 12400000
+      "expToNext": 15663158
     },
     {
       "realmLv": 66,
@@ -932,9 +932,9 @@
       "path": "immortal",
       "grade": "spirit",
       "gradeLabel": "灵阶",
-      "review": "化神只差半步",
+      "review": "神意欲蜕，半步化神",
       "lifespanYears": 135000,
-      "expToNext": 18000000
+      "expToNext": 22736843
     },
     {
       "realmLv": 67,
@@ -945,9 +945,9 @@
       "path": "immortal",
       "grade": "spirit",
       "gradeLabel": "灵阶",
-      "review": "化神初成",
+      "review": "神意初凝，可照内景",
       "lifespanYears": 200000,
-      "expToNext": 22000000
+      "expToNext": 27789474
     },
     {
       "realmLv": 68,
@@ -958,9 +958,9 @@
       "path": "immortal",
       "grade": "spirit",
       "gradeLabel": "灵阶",
-      "review": "化神渐稳",
+      "review": "神魂渐稳，念动如丝",
       "lifespanYears": 206000,
-      "expToNext": 26000000
+      "expToNext": 32842105
     },
     {
       "realmLv": 69,
@@ -971,9 +971,9 @@
       "path": "immortal",
       "grade": "spirit",
       "gradeLabel": "灵阶",
-      "review": "化神渐进",
+      "review": "一念分光，心域渐开",
       "lifespanYears": 216000,
-      "expToNext": 31000000
+      "expToNext": 39157895
     },
     {
       "realmLv": 70,
@@ -984,9 +984,9 @@
       "path": "immortal",
       "grade": "spirit",
       "gradeLabel": "灵阶",
-      "review": "化神气盛",
+      "review": "神威外映，群邪难近",
       "lifespanYears": 236000,
-      "expToNext": 37000000
+      "expToNext": 46736842
     },
     {
       "realmLv": 71,
@@ -997,9 +997,9 @@
       "path": "immortal",
       "grade": "spirit",
       "gradeLabel": "灵阶",
-      "review": "化神势成",
+      "review": "神识如潮，照彻经络",
       "lifespanYears": 262000,
-      "expToNext": 45000000
+      "expToNext": 56842105
     },
     {
       "realmLv": 72,
@@ -1010,9 +1010,9 @@
       "path": "immortal",
       "grade": "spirit",
       "gradeLabel": "灵阶",
-      "review": "化神六转周天",
+      "review": "六返还神，道念更纯",
       "lifespanYears": 300000,
-      "expToNext": 65000000
+      "expToNext": 82105263
     },
     {
       "realmLv": 73,
@@ -1023,9 +1023,9 @@
       "path": "immortal",
       "grade": "saint",
       "gradeLabel": "圣阶",
-      "review": "化神渐盈",
+      "review": "一念所及，万象皆明",
       "lifespanYears": 450000,
-      "expToNext": 80000000
+      "expToNext": 101052632
     },
     {
       "realmLv": 74,
@@ -1036,9 +1036,9 @@
       "path": "immortal",
       "grade": "saint",
       "gradeLabel": "圣阶",
-      "review": "化神八脉贯通",
+      "review": "八荒气机，尽入神识",
       "lifespanYears": 468000,
-      "expToNext": 86400000
+      "expToNext": 109136842
     },
     {
       "realmLv": 75,
@@ -1049,9 +1049,9 @@
       "path": "immortal",
       "grade": "saint",
       "gradeLabel": "圣阶",
-      "review": "化神九转将成",
+      "review": "九炼神胎，将蜕未蜕",
       "lifespanYears": 486720,
-      "expToNext": 93300000
+      "expToNext": 117852632
     },
     {
       "realmLv": 76,
@@ -1062,9 +1062,9 @@
       "path": "immortal",
       "grade": "saint",
       "gradeLabel": "圣阶",
-      "review": "化神巅峰已至",
+      "review": "化神巅峰，神光内敛",
       "lifespanYears": 506189,
-      "expToNext": 100800000
+      "expToNext": 127326316
     },
     {
       "realmLv": 77,
@@ -1075,9 +1075,9 @@
       "path": "immortal",
       "grade": "saint",
       "gradeLabel": "圣阶",
-      "review": "化神大圆满",
+      "review": "神与道合，只差破虚",
       "lifespanYears": 526437,
-      "expToNext": 108900000
+      "expToNext": 137557895
     },
     {
       "realmLv": 78,
@@ -1088,9 +1088,9 @@
       "path": "immortal",
       "grade": "saint",
       "gradeLabel": "圣阶",
-      "review": "炼虚只差半步",
+      "review": "虚门已动，半步炼虚",
       "lifespanYears": 547494,
-      "expToNext": 117600000
+      "expToNext": 148547367
     },
     {
       "realmLv": 79,
@@ -1101,9 +1101,9 @@
       "path": "immortal",
       "grade": "saint",
       "gradeLabel": "圣阶",
-      "review": "炼虚初成",
+      "review": "虚意初开，真形渐淡",
       "lifespanYears": 569394,
-      "expToNext": 127000000
+      "expToNext": 160421053
     },
     {
       "realmLv": 80,
@@ -1114,9 +1114,9 @@
       "path": "immortal",
       "grade": "saint",
       "gradeLabel": "圣阶",
-      "review": "炼虚渐稳",
+      "review": "出入有无，气机莫测",
       "lifespanYears": 592170,
-      "expToNext": 137200000
+      "expToNext": 173305263
     },
     {
       "realmLv": 81,
@@ -1127,9 +1127,9 @@
       "path": "immortal",
       "grade": "saint",
       "gradeLabel": "圣阶",
-      "review": "炼虚渐进",
+      "review": "身在尘寰，神游太虚",
       "lifespanYears": 615857,
-      "expToNext": 148200000
+      "expToNext": 187200000
     },
     {
       "realmLv": 82,
@@ -1140,9 +1140,9 @@
       "path": "immortal",
       "grade": "saint",
       "gradeLabel": "圣阶",
-      "review": "炼虚气盛",
+      "review": "虚实互换，攻守随心",
       "lifespanYears": 640491,
-      "expToNext": 160100000
+      "expToNext": 202231579
     },
     {
       "realmLv": 83,
@@ -1153,9 +1153,9 @@
       "path": "immortal",
       "grade": "saint",
       "gradeLabel": "圣阶",
-      "review": "炼虚势成",
+      "review": "一念藏形，万法难拘",
       "lifespanYears": 666111,
-      "expToNext": 172900000
+      "expToNext": 218400000
     },
     {
       "realmLv": 84,
@@ -1166,9 +1166,9 @@
       "path": "immortal",
       "grade": "saint",
       "gradeLabel": "圣阶",
-      "review": "炼虚六转周天",
+      "review": "六返归虚，尘念渐空",
       "lifespanYears": 692755,
-      "expToNext": 186700000
+      "expToNext": 235831579
     },
     {
       "realmLv": 85,
@@ -1179,9 +1179,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "炼虚渐盈",
+      "review": "虚空借力，举手生势",
       "lifespanYears": 720465,
-      "expToNext": 201600000
+      "expToNext": 254652632
     },
     {
       "realmLv": 86,
@@ -1192,9 +1192,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "炼虚八脉贯通",
+      "review": "八风不动，真意长存",
       "lifespanYears": 749284,
-      "expToNext": 217700000
+      "expToNext": 274989474
     },
     {
       "realmLv": 87,
@@ -1205,9 +1205,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "炼虚九转将成",
+      "review": "九炼虚身，将定未定",
       "lifespanYears": 779255,
-      "expToNext": 235100000
+      "expToNext": 296968421
     },
     {
       "realmLv": 88,
@@ -1218,9 +1218,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "炼虚巅峰已至",
+      "review": "炼虚巅峰，万象归寂",
       "lifespanYears": 810425,
-      "expToNext": 253900000
+      "expToNext": 320715789
     },
     {
       "realmLv": 89,
@@ -1231,9 +1231,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "炼虚大圆满",
+      "review": "真我悬空，只差合一",
       "lifespanYears": 842842,
-      "expToNext": 274200000
+      "expToNext": 346357895
     },
     {
       "realmLv": 90,
@@ -1244,9 +1244,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "合体只差半步",
+      "review": "身神将合，半步合体",
       "lifespanYears": 876556,
-      "expToNext": 296100000
+      "expToNext": 374021052
     },
     {
       "realmLv": 91,
@@ -1257,9 +1257,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "合体初成",
+      "review": "神形初合，血肉生辉",
       "lifespanYears": 911618,
-      "expToNext": 319800000
+      "expToNext": 403957895
     },
     {
       "realmLv": 92,
@@ -1270,9 +1270,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "合体渐稳",
+      "review": "魂身同频，内外齐鸣",
       "lifespanYears": 948083,
-      "expToNext": 345400000
+      "expToNext": 436294737
     },
     {
       "realmLv": 93,
@@ -1283,9 +1283,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "合体渐进",
+      "review": "举手投足，皆含道力",
       "lifespanYears": 986006,
-      "expToNext": 373000000
+      "expToNext": 471157895
     },
     {
       "realmLv": 94,
@@ -1296,9 +1296,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "合体气盛",
+      "review": "内外如一，罡气自成",
       "lifespanYears": 1025446,
-      "expToNext": 402800000
+      "expToNext": 508800000
     },
     {
       "realmLv": 95,
@@ -1309,9 +1309,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "合体势成",
+      "review": "神躯稳固，万邪难侵",
       "lifespanYears": 1066464,
-      "expToNext": 435000000
+      "expToNext": 549473684
     },
     {
       "realmLv": 96,
@@ -1322,9 +1322,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "合体六转周天",
+      "review": "六转合真，身魂无隙",
       "lifespanYears": 1109123,
-      "expToNext": 469800000
+      "expToNext": 593431579
     },
     {
       "realmLv": 97,
@@ -1335,9 +1335,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "合体渐盈",
+      "review": "一念动时，天地相应",
       "lifespanYears": 1153488,
-      "expToNext": 507400000
+      "expToNext": 640926316
     },
     {
       "realmLv": 98,
@@ -1348,9 +1348,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "合体八脉贯通",
+      "review": "八方灵机，尽归己用",
       "lifespanYears": 1199628,
-      "expToNext": 548000000
+      "expToNext": 692210526
     },
     {
       "realmLv": 99,
@@ -1361,9 +1361,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "合体九转将成",
+      "review": "九炼真躯，将成未成",
       "lifespanYears": 1247613,
-      "expToNext": 591800000
+      "expToNext": 747536842
     },
     {
       "realmLv": 100,
@@ -1374,9 +1374,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "合体巅峰已至",
+      "review": "合体巅峰，神形圆融",
       "lifespanYears": 1297518,
-      "expToNext": 639100000
+      "expToNext": 807284211
     },
     {
       "realmLv": 101,
@@ -1387,9 +1387,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "合体大圆满",
+      "review": "合一无漏，只差大乘",
       "lifespanYears": 1349419,
-      "expToNext": 690200000
+      "expToNext": 871831579
     },
     {
       "realmLv": 102,
@@ -1400,9 +1400,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "大乘只差半步",
+      "review": "道身已备，半步大乘",
       "lifespanYears": 1403396,
-      "expToNext": 745400000
+      "expToNext": 941557894
     },
     {
       "realmLv": 103,
@@ -1413,9 +1413,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "大乘初成",
+      "review": "大乘初登，道身自显",
       "lifespanYears": 1459532,
-      "expToNext": 805000000
+      "expToNext": 1016842105
     },
     {
       "realmLv": 104,
@@ -1426,9 +1426,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "大乘渐稳",
+      "review": "神通与道，并进不悖",
       "lifespanYears": 1517913,
-      "expToNext": 869400000
+      "expToNext": 1098189474
     },
     {
       "realmLv": 105,
@@ -1439,9 +1439,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "大乘渐进",
+      "review": "一举一动，皆合大势",
       "lifespanYears": 1578630,
-      "expToNext": 939000000
+      "expToNext": 1186105263
     },
     {
       "realmLv": 106,
@@ -1452,9 +1452,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "大乘气盛",
+      "review": "道力外放，可镇山河",
       "lifespanYears": 1641775,
-      "expToNext": 1014100000
+      "expToNext": 1280968421
     },
     {
       "realmLv": 107,
@@ -1465,9 +1465,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "大乘势成",
+      "review": "万法归一，道心如镜",
       "lifespanYears": 1707446,
-      "expToNext": 1095200000
+      "expToNext": 1383410526
     },
     {
       "realmLv": 108,
@@ -1478,9 +1478,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "大乘六转周天",
+      "review": "六返大成，真我无缺",
       "lifespanYears": 1775744,
-      "expToNext": 1182800000
+      "expToNext": 1494063158
     },
     {
       "realmLv": 109,
@@ -1491,9 +1491,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "大乘渐盈",
+      "review": "一念可动，乾坤气数",
       "lifespanYears": 1846774,
-      "expToNext": 1277400000
+      "expToNext": 1613557895
     },
     {
       "realmLv": 110,
@@ -1504,9 +1504,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "大乘八脉贯通",
+      "review": "八极皆闻，其道之音",
       "lifespanYears": 1920645,
-      "expToNext": 1379600000
+      "expToNext": 1742652632
     },
     {
       "realmLv": 111,
@@ -1517,9 +1517,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "大乘九转将成",
+      "review": "九炼道身，将满未满",
       "lifespanYears": 1997471,
-      "expToNext": 1490000000
+      "expToNext": 1882105263
     },
     {
       "realmLv": 112,
@@ -1530,9 +1530,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "大乘巅峰已至",
+      "review": "大乘巅峰，返璞归真",
       "lifespanYears": 2077370,
-      "expToNext": 1609200000
+      "expToNext": 2032673684
     },
     {
       "realmLv": 113,
@@ -1543,9 +1543,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "大乘大圆满",
+      "review": "道果无瑕，只待渡劫",
       "lifespanYears": 2160465,
-      "expToNext": 1737900000
+      "expToNext": 2195242105
     },
     {
       "realmLv": 114,
@@ -1556,9 +1556,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "渡劫只差半步",
+      "review": "天劫将临，半步渡劫",
       "lifespanYears": 2246884,
-      "expToNext": 1876900000
+      "expToNext": 2370821053
     },
     {
       "realmLv": 115,
@@ -1569,9 +1569,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "渡劫初成",
+      "review": "劫意初感，心火先明",
       "lifespanYears": 2336759,
-      "expToNext": 2027100000
+      "expToNext": 2560547368
     },
     {
       "realmLv": 116,
@@ -1582,9 +1582,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "渡劫渐稳",
+      "review": "雷息入骨，意志更坚",
       "lifespanYears": 2430229,
-      "expToNext": 2189300000
+      "expToNext": 2765431579
     },
     {
       "realmLv": 117,
@@ -1595,9 +1595,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "渡劫渐进",
+      "review": "三灾余波，难撼道心",
       "lifespanYears": 2527438,
-      "expToNext": 2364400000
+      "expToNext": 2986610526
     },
     {
       "realmLv": 118,
@@ -1608,9 +1608,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "渡劫气盛",
+      "review": "劫云未至，威压先生",
       "lifespanYears": 2628536,
-      "expToNext": 2553600000
+      "expToNext": 3225600000
     },
     {
       "realmLv": 119,
@@ -1621,9 +1621,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "渡劫势成",
+      "review": "真我如铁，可抗天威",
       "lifespanYears": 2733677,
-      "expToNext": 2757900000
+      "expToNext": 3483663158
     },
     {
       "realmLv": 120,
@@ -1634,9 +1634,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "渡劫六转周天",
+      "review": "六返应劫，神魂不动",
       "lifespanYears": 2843024,
-      "expToNext": 2978500000
+      "expToNext": 3762315789
     },
     {
       "realmLv": 121,
@@ -1647,9 +1647,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "渡劫渐盈",
+      "review": "一念通天，因果自明",
       "lifespanYears": 2956745,
-      "expToNext": 3216800000
+      "expToNext": 4063326316
     },
     {
       "realmLv": 122,
@@ -1660,9 +1660,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "渡劫八脉贯通",
+      "review": "八荒雷意，皆可借势",
       "lifespanYears": 3075015,
-      "expToNext": 3474100000
+      "expToNext": 4388336842
     },
     {
       "realmLv": 123,
@@ -1673,9 +1673,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "渡劫九转将成",
+      "review": "九炼劫身，将成未成",
       "lifespanYears": 3198016,
-      "expToNext": 3752000000
+      "expToNext": 4739368421
     },
     {
       "realmLv": 124,
@@ -1686,9 +1686,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "渡劫巅峰已至",
+      "review": "渡劫巅峰，天威临顶",
       "lifespanYears": 3325937,
-      "expToNext": 4052200000
+      "expToNext": 5118568421
     },
     {
       "realmLv": 125,
@@ -1699,9 +1699,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "渡劫大圆满",
+      "review": "劫火圆融，只差飞升",
       "lifespanYears": 3458974,
-      "expToNext": 4376400000
+      "expToNext": 5528084211
     },
     {
       "realmLv": 126,
@@ -1712,9 +1712,9 @@
       "path": "immortal",
       "grade": "emperor",
       "gradeLabel": "帝阶",
-      "review": "飞升只差半步",
+      "review": "尘缘将断，半步飞升",
       "lifespanYears": 3597333,
-      "expToNext": 4726500000
+      "expToNext": 5970315790
     },
     {
       "realmLv": 127,

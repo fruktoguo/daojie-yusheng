@@ -9320,756 +9320,756 @@
       "displayName": "练气一层",
       "name": "练气",
       "phaseName": "一层",
-      "review": "练气初成"
+      "review": "气感初凝，丹田始暖"
     },
     {
       "realmLv": 20,
       "displayName": "练气二层",
       "name": "练气",
       "phaseName": "二层",
-      "review": "练气渐稳"
+      "review": "吐纳成丝，内息入脉"
     },
     {
       "realmLv": 21,
       "displayName": "练气三层",
       "name": "练气",
       "phaseName": "三层",
-      "review": "练气渐进"
+      "review": "真气循经，周身渐轻"
     },
     {
       "realmLv": 22,
       "displayName": "练气四层",
       "name": "练气",
       "phaseName": "四层",
-      "review": "练气气盛"
+      "review": "丹田有炁，自生暖流"
     },
     {
       "realmLv": 23,
       "displayName": "练气五层",
       "name": "练气",
       "phaseName": "五层",
-      "review": "练气势成"
+      "review": "气机鼓荡，筋骨同鸣"
     },
     {
       "realmLv": 24,
       "displayName": "练气六层",
       "name": "练气",
       "phaseName": "六层",
-      "review": "练气六转周天"
+      "review": "小周天转，吐纳不绝"
     },
     {
       "realmLv": 25,
       "displayName": "练气七层",
       "name": "练气",
       "phaseName": "七层",
-      "review": "练气渐盈"
+      "review": "炁海渐盈，神清目明"
     },
     {
       "realmLv": 26,
       "displayName": "练气八层",
       "name": "练气",
       "phaseName": "八层",
-      "review": "练气八脉贯通"
+      "review": "八脉齐振，行气无滞"
     },
     {
       "realmLv": 27,
       "displayName": "练气九层",
       "name": "练气",
       "phaseName": "九层",
-      "review": "练气九转将成"
+      "review": "九转真息，将凝未凝"
     },
     {
       "realmLv": 28,
       "displayName": "练气巅峰",
       "name": "练气",
       "phaseName": "巅峰",
-      "review": "练气巅峰已至"
+      "review": "练气巅峰，百窍俱鸣"
     },
     {
       "realmLv": 29,
       "displayName": "练气大圆满",
       "name": "练气",
       "phaseName": "大圆满",
-      "review": "练气大圆满"
+      "review": "气满周天，只待归一"
     },
     {
       "realmLv": 30,
       "displayName": "半步筑基",
       "name": "练气",
       "phaseName": "半步筑基",
-      "review": "筑基只差半步"
+      "review": "道基在望，半步筑基"
     },
     {
       "realmLv": 31,
       "displayName": "筑基一层",
       "name": "筑基",
       "phaseName": "一层",
-      "review": "筑基初成"
+      "review": "道基初铸，真元有根"
     },
     {
       "realmLv": 32,
       "displayName": "筑基二层",
       "name": "筑基",
       "phaseName": "二层",
-      "review": "筑基渐稳"
+      "review": "灵台渐稳，根骨相契"
     },
     {
       "realmLv": 33,
       "displayName": "筑基三层",
       "name": "筑基",
       "phaseName": "三层",
-      "review": "筑基渐进"
+      "review": "真元沉骨，百骸受润"
     },
     {
       "realmLv": 34,
       "displayName": "筑基四层",
       "name": "筑基",
       "phaseName": "四层",
-      "review": "筑基气盛"
+      "review": "道基稳固，如岩如岳"
     },
     {
       "realmLv": 35,
       "displayName": "筑基五层",
       "name": "筑基",
       "phaseName": "五层",
-      "review": "筑基势成"
+      "review": "丹田化海，元气自养"
     },
     {
       "realmLv": 36,
       "displayName": "筑基六层",
       "name": "筑基",
       "phaseName": "六层",
-      "review": "筑基六转周天"
+      "review": "六转归元，道基自鸣"
     },
     {
       "realmLv": 37,
       "displayName": "筑基七层",
       "name": "筑基",
       "phaseName": "七层",
-      "review": "筑基渐盈"
+      "review": "气血神识，渐融一炉"
     },
     {
       "realmLv": 38,
       "displayName": "筑基八层",
       "name": "筑基",
       "phaseName": "八层",
-      "review": "筑基八脉贯通"
+      "review": "八方灵机，尽归己身"
     },
     {
       "realmLv": 39,
       "displayName": "筑基九层",
       "name": "筑基",
       "phaseName": "九层",
-      "review": "筑基九转将成"
+      "review": "九炼道基，将成未成"
     },
     {
       "realmLv": 40,
       "displayName": "筑基巅峰",
       "name": "筑基",
       "phaseName": "巅峰",
-      "review": "筑基巅峰已至"
+      "review": "筑基巅峰，真元圆转"
     },
     {
       "realmLv": 41,
       "displayName": "筑基大圆满",
       "name": "筑基",
       "phaseName": "大圆满",
-      "review": "筑基大圆满"
+      "review": "基成无漏，只差点睛"
     },
     {
       "realmLv": 42,
       "displayName": "半步金丹",
       "name": "筑基",
       "phaseName": "半步金丹",
-      "review": "金丹只差半步"
+      "review": "丹意暗生，半步金丹"
     },
     {
       "realmLv": 43,
       "displayName": "金丹一层",
       "name": "金丹",
       "phaseName": "一层",
-      "review": "金丹初成"
+      "review": "金丹初结，灵光内照"
     },
     {
       "realmLv": 44,
       "displayName": "金丹二层",
       "name": "金丹",
       "phaseName": "二层",
-      "review": "金丹渐稳"
+      "review": "丹火温养，内景渐明"
     },
     {
       "realmLv": 45,
       "displayName": "金丹三层",
       "name": "金丹",
       "phaseName": "三层",
-      "review": "金丹渐进"
+      "review": "一丹镇府，百窍生辉"
     },
     {
       "realmLv": 46,
       "displayName": "金丹四层",
       "name": "金丹",
       "phaseName": "四层",
-      "review": "金丹气盛"
+      "review": "金光流转，外邪难侵"
     },
     {
       "realmLv": 47,
       "displayName": "金丹五层",
       "name": "金丹",
       "phaseName": "五层",
-      "review": "金丹势成"
+      "review": "丹势既成，真元如潮"
     },
     {
       "realmLv": 48,
       "displayName": "金丹六层",
       "name": "金丹",
       "phaseName": "六层",
-      "review": "金丹六转周天"
+      "review": "六转抱一，丹心自稳"
     },
     {
       "realmLv": 49,
       "displayName": "金丹七层",
       "name": "金丹",
       "phaseName": "七层",
-      "review": "金丹渐盈"
+      "review": "一念可御，万缕灵机"
     },
     {
       "realmLv": 50,
       "displayName": "金丹八层",
       "name": "金丹",
       "phaseName": "八层",
-      "review": "金丹八脉贯通"
+      "review": "八方灵炁，归炉不散"
     },
     {
       "realmLv": 51,
       "displayName": "金丹九层",
       "name": "金丹",
       "phaseName": "九层",
-      "review": "金丹九转将成"
+      "review": "九炼金丹，将熟未熟"
     },
     {
       "realmLv": 52,
       "displayName": "金丹巅峰",
       "name": "金丹",
       "phaseName": "巅峰",
-      "review": "金丹巅峰已至"
+      "review": "金丹巅峰，丹芒内敛"
     },
     {
       "realmLv": 53,
       "displayName": "金丹大圆满",
       "name": "金丹",
       "phaseName": "大圆满",
-      "review": "金丹大圆满"
+      "review": "一丸圆照，只待化婴"
     },
     {
       "realmLv": 54,
       "displayName": "半步元婴",
       "name": "金丹",
       "phaseName": "半步元婴",
-      "review": "元婴只差半步"
+      "review": "婴象已现，半步元婴"
     },
     {
       "realmLv": 55,
       "displayName": "元婴一层",
       "name": "元婴",
       "phaseName": "一层",
-      "review": "元婴初成"
+      "review": "元婴初成，神魂有形"
     },
     {
       "realmLv": 56,
       "displayName": "元婴二层",
       "name": "元婴",
       "phaseName": "二层",
-      "review": "元婴渐稳"
+      "review": "婴气温养，心神自明"
     },
     {
       "realmLv": 57,
       "displayName": "元婴三层",
       "name": "元婴",
       "phaseName": "三层",
-      "review": "元婴渐进"
+      "review": "婴元反哺，百骸轻灵"
     },
     {
       "realmLv": 58,
       "displayName": "元婴四层",
       "name": "元婴",
       "phaseName": "四层",
-      "review": "元婴气盛"
+      "review": "元神坐照，内外俱清"
     },
     {
       "realmLv": 59,
       "displayName": "元婴五层",
       "name": "元婴",
       "phaseName": "五层",
-      "review": "元婴势成"
+      "review": "婴火既旺，道念愈坚"
     },
     {
       "realmLv": 60,
       "displayName": "元婴六层",
       "name": "元婴",
       "phaseName": "六层",
-      "review": "元婴六转周天"
+      "review": "六转养婴，真我渐定"
     },
     {
       "realmLv": 61,
       "displayName": "元婴七层",
       "name": "元婴",
       "phaseName": "七层",
-      "review": "元婴渐盈"
+      "review": "一念外映，山河可感"
     },
     {
       "realmLv": 62,
       "displayName": "元婴八层",
       "name": "元婴",
       "phaseName": "八层",
-      "review": "元婴八脉贯通"
+      "review": "八识通明，外魔难侵"
     },
     {
       "realmLv": 63,
       "displayName": "元婴九层",
       "name": "元婴",
       "phaseName": "九层",
-      "review": "元婴九转将成"
+      "review": "九炼婴胎，将实未实"
     },
     {
       "realmLv": 64,
       "displayName": "元婴巅峰",
       "name": "元婴",
       "phaseName": "巅峰",
-      "review": "元婴巅峰已至"
+      "review": "元婴巅峰，神威暗涨"
     },
     {
       "realmLv": 65,
       "displayName": "元婴大圆满",
       "name": "元婴",
       "phaseName": "大圆满",
-      "review": "元婴大圆满"
+      "review": "真我圆融，只差化神"
     },
     {
       "realmLv": 66,
       "displayName": "半步化神",
       "name": "元婴",
       "phaseName": "半步化神",
-      "review": "化神只差半步"
+      "review": "神意欲蜕，半步化神"
     },
     {
       "realmLv": 67,
       "displayName": "化神一层",
       "name": "化神",
       "phaseName": "一层",
-      "review": "化神初成"
+      "review": "神意初凝，可照内景"
     },
     {
       "realmLv": 68,
       "displayName": "化神二层",
       "name": "化神",
       "phaseName": "二层",
-      "review": "化神渐稳"
+      "review": "神魂渐稳，念动如丝"
     },
     {
       "realmLv": 69,
       "displayName": "化神三层",
       "name": "化神",
       "phaseName": "三层",
-      "review": "化神渐进"
+      "review": "一念分光，心域渐开"
     },
     {
       "realmLv": 70,
       "displayName": "化神四层",
       "name": "化神",
       "phaseName": "四层",
-      "review": "化神气盛"
+      "review": "神威外映，群邪难近"
     },
     {
       "realmLv": 71,
       "displayName": "化神五层",
       "name": "化神",
       "phaseName": "五层",
-      "review": "化神势成"
+      "review": "神识如潮，照彻经络"
     },
     {
       "realmLv": 72,
       "displayName": "化神六层",
       "name": "化神",
       "phaseName": "六层",
-      "review": "化神六转周天"
+      "review": "六返还神，道念更纯"
     },
     {
       "realmLv": 73,
       "displayName": "化神七层",
       "name": "化神",
       "phaseName": "七层",
-      "review": "化神渐盈"
+      "review": "一念所及，万象皆明"
     },
     {
       "realmLv": 74,
       "displayName": "化神八层",
       "name": "化神",
       "phaseName": "八层",
-      "review": "化神八脉贯通"
+      "review": "八荒气机，尽入神识"
     },
     {
       "realmLv": 75,
       "displayName": "化神九层",
       "name": "化神",
       "phaseName": "九层",
-      "review": "化神九转将成"
+      "review": "九炼神胎，将蜕未蜕"
     },
     {
       "realmLv": 76,
       "displayName": "化神巅峰",
       "name": "化神",
       "phaseName": "巅峰",
-      "review": "化神巅峰已至"
+      "review": "化神巅峰，神光内敛"
     },
     {
       "realmLv": 77,
       "displayName": "化神大圆满",
       "name": "化神",
       "phaseName": "大圆满",
-      "review": "化神大圆满"
+      "review": "神与道合，只差破虚"
     },
     {
       "realmLv": 78,
       "displayName": "半步炼虚",
       "name": "化神",
       "phaseName": "半步炼虚",
-      "review": "炼虚只差半步"
+      "review": "虚门已动，半步炼虚"
     },
     {
       "realmLv": 79,
       "displayName": "炼虚一层",
       "name": "炼虚",
       "phaseName": "一层",
-      "review": "炼虚初成"
+      "review": "虚意初开，真形渐淡"
     },
     {
       "realmLv": 80,
       "displayName": "炼虚二层",
       "name": "炼虚",
       "phaseName": "二层",
-      "review": "炼虚渐稳"
+      "review": "出入有无，气机莫测"
     },
     {
       "realmLv": 81,
       "displayName": "炼虚三层",
       "name": "炼虚",
       "phaseName": "三层",
-      "review": "炼虚渐进"
+      "review": "身在尘寰，神游太虚"
     },
     {
       "realmLv": 82,
       "displayName": "炼虚四层",
       "name": "炼虚",
       "phaseName": "四层",
-      "review": "炼虚气盛"
+      "review": "虚实互换，攻守随心"
     },
     {
       "realmLv": 83,
       "displayName": "炼虚五层",
       "name": "炼虚",
       "phaseName": "五层",
-      "review": "炼虚势成"
+      "review": "一念藏形，万法难拘"
     },
     {
       "realmLv": 84,
       "displayName": "炼虚六层",
       "name": "炼虚",
       "phaseName": "六层",
-      "review": "炼虚六转周天"
+      "review": "六返归虚，尘念渐空"
     },
     {
       "realmLv": 85,
       "displayName": "炼虚七层",
       "name": "炼虚",
       "phaseName": "七层",
-      "review": "炼虚渐盈"
+      "review": "虚空借力，举手生势"
     },
     {
       "realmLv": 86,
       "displayName": "炼虚八层",
       "name": "炼虚",
       "phaseName": "八层",
-      "review": "炼虚八脉贯通"
+      "review": "八风不动，真意长存"
     },
     {
       "realmLv": 87,
       "displayName": "炼虚九层",
       "name": "炼虚",
       "phaseName": "九层",
-      "review": "炼虚九转将成"
+      "review": "九炼虚身，将定未定"
     },
     {
       "realmLv": 88,
       "displayName": "炼虚巅峰",
       "name": "炼虚",
       "phaseName": "巅峰",
-      "review": "炼虚巅峰已至"
+      "review": "炼虚巅峰，万象归寂"
     },
     {
       "realmLv": 89,
       "displayName": "炼虚大圆满",
       "name": "炼虚",
       "phaseName": "大圆满",
-      "review": "炼虚大圆满"
+      "review": "真我悬空，只差合一"
     },
     {
       "realmLv": 90,
       "displayName": "半步合体",
       "name": "炼虚",
       "phaseName": "半步合体",
-      "review": "合体只差半步"
+      "review": "身神将合，半步合体"
     },
     {
       "realmLv": 91,
       "displayName": "合体一层",
       "name": "合体",
       "phaseName": "一层",
-      "review": "合体初成"
+      "review": "神形初合，血肉生辉"
     },
     {
       "realmLv": 92,
       "displayName": "合体二层",
       "name": "合体",
       "phaseName": "二层",
-      "review": "合体渐稳"
+      "review": "魂身同频，内外齐鸣"
     },
     {
       "realmLv": 93,
       "displayName": "合体三层",
       "name": "合体",
       "phaseName": "三层",
-      "review": "合体渐进"
+      "review": "举手投足，皆含道力"
     },
     {
       "realmLv": 94,
       "displayName": "合体四层",
       "name": "合体",
       "phaseName": "四层",
-      "review": "合体气盛"
+      "review": "内外如一，罡气自成"
     },
     {
       "realmLv": 95,
       "displayName": "合体五层",
       "name": "合体",
       "phaseName": "五层",
-      "review": "合体势成"
+      "review": "神躯稳固，万邪难侵"
     },
     {
       "realmLv": 96,
       "displayName": "合体六层",
       "name": "合体",
       "phaseName": "六层",
-      "review": "合体六转周天"
+      "review": "六转合真，身魂无隙"
     },
     {
       "realmLv": 97,
       "displayName": "合体七层",
       "name": "合体",
       "phaseName": "七层",
-      "review": "合体渐盈"
+      "review": "一念动时，天地相应"
     },
     {
       "realmLv": 98,
       "displayName": "合体八层",
       "name": "合体",
       "phaseName": "八层",
-      "review": "合体八脉贯通"
+      "review": "八方灵机，尽归己用"
     },
     {
       "realmLv": 99,
       "displayName": "合体九层",
       "name": "合体",
       "phaseName": "九层",
-      "review": "合体九转将成"
+      "review": "九炼真躯，将成未成"
     },
     {
       "realmLv": 100,
       "displayName": "合体巅峰",
       "name": "合体",
       "phaseName": "巅峰",
-      "review": "合体巅峰已至"
+      "review": "合体巅峰，神形圆融"
     },
     {
       "realmLv": 101,
       "displayName": "合体大圆满",
       "name": "合体",
       "phaseName": "大圆满",
-      "review": "合体大圆满"
+      "review": "合一无漏，只差大乘"
     },
     {
       "realmLv": 102,
       "displayName": "半步大乘",
       "name": "合体",
       "phaseName": "半步大乘",
-      "review": "大乘只差半步"
+      "review": "道身已备，半步大乘"
     },
     {
       "realmLv": 103,
       "displayName": "大乘一层",
       "name": "大乘",
       "phaseName": "一层",
-      "review": "大乘初成"
+      "review": "大乘初登，道身自显"
     },
     {
       "realmLv": 104,
       "displayName": "大乘二层",
       "name": "大乘",
       "phaseName": "二层",
-      "review": "大乘渐稳"
+      "review": "神通与道，并进不悖"
     },
     {
       "realmLv": 105,
       "displayName": "大乘三层",
       "name": "大乘",
       "phaseName": "三层",
-      "review": "大乘渐进"
+      "review": "一举一动，皆合大势"
     },
     {
       "realmLv": 106,
       "displayName": "大乘四层",
       "name": "大乘",
       "phaseName": "四层",
-      "review": "大乘气盛"
+      "review": "道力外放，可镇山河"
     },
     {
       "realmLv": 107,
       "displayName": "大乘五层",
       "name": "大乘",
       "phaseName": "五层",
-      "review": "大乘势成"
+      "review": "万法归一，道心如镜"
     },
     {
       "realmLv": 108,
       "displayName": "大乘六层",
       "name": "大乘",
       "phaseName": "六层",
-      "review": "大乘六转周天"
+      "review": "六返大成，真我无缺"
     },
     {
       "realmLv": 109,
       "displayName": "大乘七层",
       "name": "大乘",
       "phaseName": "七层",
-      "review": "大乘渐盈"
+      "review": "一念可动，乾坤气数"
     },
     {
       "realmLv": 110,
       "displayName": "大乘八层",
       "name": "大乘",
       "phaseName": "八层",
-      "review": "大乘八脉贯通"
+      "review": "八极皆闻，其道之音"
     },
     {
       "realmLv": 111,
       "displayName": "大乘九层",
       "name": "大乘",
       "phaseName": "九层",
-      "review": "大乘九转将成"
+      "review": "九炼道身，将满未满"
     },
     {
       "realmLv": 112,
       "displayName": "大乘巅峰",
       "name": "大乘",
       "phaseName": "巅峰",
-      "review": "大乘巅峰已至"
+      "review": "大乘巅峰，返璞归真"
     },
     {
       "realmLv": 113,
       "displayName": "大乘大圆满",
       "name": "大乘",
       "phaseName": "大圆满",
-      "review": "大乘大圆满"
+      "review": "道果无瑕，只待渡劫"
     },
     {
       "realmLv": 114,
       "displayName": "半步渡劫",
       "name": "大乘",
       "phaseName": "半步渡劫",
-      "review": "渡劫只差半步"
+      "review": "天劫将临，半步渡劫"
     },
     {
       "realmLv": 115,
       "displayName": "渡劫一层",
       "name": "渡劫",
       "phaseName": "一层",
-      "review": "渡劫初成"
+      "review": "劫意初感，心火先明"
     },
     {
       "realmLv": 116,
       "displayName": "渡劫二层",
       "name": "渡劫",
       "phaseName": "二层",
-      "review": "渡劫渐稳"
+      "review": "雷息入骨，意志更坚"
     },
     {
       "realmLv": 117,
       "displayName": "渡劫三层",
       "name": "渡劫",
       "phaseName": "三层",
-      "review": "渡劫渐进"
+      "review": "三灾余波，难撼道心"
     },
     {
       "realmLv": 118,
       "displayName": "渡劫四层",
       "name": "渡劫",
       "phaseName": "四层",
-      "review": "渡劫气盛"
+      "review": "劫云未至，威压先生"
     },
     {
       "realmLv": 119,
       "displayName": "渡劫五层",
       "name": "渡劫",
       "phaseName": "五层",
-      "review": "渡劫势成"
+      "review": "真我如铁，可抗天威"
     },
     {
       "realmLv": 120,
       "displayName": "渡劫六层",
       "name": "渡劫",
       "phaseName": "六层",
-      "review": "渡劫六转周天"
+      "review": "六返应劫，神魂不动"
     },
     {
       "realmLv": 121,
       "displayName": "渡劫七层",
       "name": "渡劫",
       "phaseName": "七层",
-      "review": "渡劫渐盈"
+      "review": "一念通天，因果自明"
     },
     {
       "realmLv": 122,
       "displayName": "渡劫八层",
       "name": "渡劫",
       "phaseName": "八层",
-      "review": "渡劫八脉贯通"
+      "review": "八荒雷意，皆可借势"
     },
     {
       "realmLv": 123,
       "displayName": "渡劫九层",
       "name": "渡劫",
       "phaseName": "九层",
-      "review": "渡劫九转将成"
+      "review": "九炼劫身，将成未成"
     },
     {
       "realmLv": 124,
       "displayName": "渡劫巅峰",
       "name": "渡劫",
       "phaseName": "巅峰",
-      "review": "渡劫巅峰已至"
+      "review": "渡劫巅峰，天威临顶"
     },
     {
       "realmLv": 125,
       "displayName": "渡劫大圆满",
       "name": "渡劫",
       "phaseName": "大圆满",
-      "review": "渡劫大圆满"
+      "review": "劫火圆融，只差飞升"
     },
     {
       "realmLv": 126,
       "displayName": "半步飞升",
       "name": "渡劫",
       "phaseName": "半步飞升",
-      "review": "飞升只差半步"
+      "review": "尘缘将断，半步飞升"
     },
     {
       "realmLv": 127,
