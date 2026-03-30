@@ -1189,7 +1189,7 @@ export type GmPlayerUpdateSection =
   | 'quests';
 
 export interface GmUpdatePlayerReq {
-  snapshot: PlayerState;
+  snapshot: Partial<PlayerState>;
   section?: GmPlayerUpdateSection;
 }
 

@@ -1011,6 +1011,36 @@ function getInventoryRowMeta(item: ItemStack): string {
 }
 
 function getTechniqueEditorControls(index: number, technique: TechniqueState): string {
+  const catalogEntry = findTechniqueCatalogEntry(technique.techId);
+  if (catalogEntry) {
+    return `
+      <div class="editor-grid compact">
+        ${selectField('功法', `techniques.${index}.techId`, technique.techId, getTechniqueCatalogOptions())}
+        ${numberField('等级', `techniques.${index}.level`, technique.level)}
+        ${numberField('经验', `techniques.${index}.exp`, technique.exp)}
+        <div class="editor-field">
+          <span>功法境界</span>
+          <div class="editor-code">${escapeHtml(TECHNIQUE_REALM_LABELS[technique.realm] ?? String(technique.realm))}</div>
+        </div>
+        <div class="editor-field">
+          <span>境界等级</span>
+          <div class="editor-code">${escapeHtml(String(technique.realmLv))}</div>
+        </div>
+        <div class="editor-field">
+          <span>升级所需经验</span>
+          <div class="editor-code">${escapeHtml(String(technique.expToNext))}</div>
+        </div>
+        <div class="editor-field wide">
+          <span>当前模板</span>
+          <div class="editor-code">${escapeHtml(getTechniqueSummary(technique))}</div>
+        </div>
+      </div>
+      <div class="editor-note">
+        该功法来自策划模板，名称、品阶、功法境界、层级和升级所需经验都会由服务端按模板重算；GM 这里仅建议改等级与当前经验。
+      </div>
+    `;
+  }
+
   return `
     <div class="editor-grid compact">
       ${selectField('功法', `techniques.${index}.techId`, technique.techId, getTechniqueCatalogOptions())}
@@ -1031,6 +1061,31 @@ function getItemEditorControls(basePath: string, item: ItemStack, mode: 'invento
   const itemOptions = mode === 'equipment'
     ? getItemCatalogOptions((option) => option.type === 'equipment' && option.equipSlot === item.equipSlot)
     : getItemCatalogOptions();
+  const catalogEntry = findItemCatalogEntry(item.itemId);
+  if (catalogEntry) {
+    return `
+      <div class="editor-grid compact">
+        ${selectField(mode === 'equipment' ? '装备模板' : '物品', `${basePath}.itemId`, item.itemId, itemOptions, 'wide')}
+        ${mode === 'inventory' ? numberField('数量', `${basePath}.count`, item.count) : ''}
+        <div class="editor-field">
+          <span>模板等级</span>
+          <div class="editor-code">${escapeHtml(String(item.level ?? '-'))}</div>
+        </div>
+        <div class="editor-field">
+          <span>模板品阶</span>
+          <div class="editor-code">${escapeHtml(item.grade ?? '-')}</div>
+        </div>
+        <div class="editor-field wide">
+          <span>当前模板</span>
+          <div class="editor-code">${escapeHtml(getInventoryRowMeta(item))}</div>
+        </div>
+      </div>
+      <div class="editor-note">
+        该物品来自策划模板，等级、品阶、装备属性、数值和特效会在服务端按模板补全；GM 这里仅建议改模板 ID 和数量。
+      </div>
+    `;
+  }
+
   return `
     <div class="editor-grid compact">
       ${selectField(mode === 'equipment' ? '装备模板' : '物品', `${basePath}.itemId`, item.itemId, itemOptions, 'wide')}
@@ -3426,6 +3481,123 @@ function getCurrentEditorSaveSection(): GmPlayerUpdateSection | null {
   return currentEditorTab === 'persisted' || currentEditorTab === 'mail' ? null : currentEditorTab;
 }
 
+function buildTechniqueSaveSnapshot(technique: TechniqueState): TechniqueState {
+  if (!findTechniqueCatalogEntry(technique.techId)) {
+    return clone(technique);
+  }
+  return {
+    techId: technique.techId,
+    name: technique.name,
+    level: technique.level,
+    exp: technique.exp,
+    expToNext: technique.expToNext,
+    realmLv: technique.realmLv,
+    realm: technique.realm,
+    skills: [],
+    grade: technique.grade,
+    category: technique.category,
+    layers: undefined,
+    attrCurves: undefined,
+  };
+}
+
+function buildInventoryItemSaveSnapshot(item: ItemStack): ItemStack {
+  if (!findItemCatalogEntry(item.itemId)) {
+    return clone(item);
+  }
+  return {
+    itemId: item.itemId,
+    name: item.name,
+    type: item.type,
+    count: item.count,
+    desc: item.desc,
+  };
+}
+
+function buildEquipmentItemSaveSnapshot(item: ItemStack | null): ItemStack | null {
+  if (!item) {
+    return null;
+  }
+  if (!findItemCatalogEntry(item.itemId)) {
+    return clone(item);
+  }
+  return {
+    itemId: item.itemId,
+    name: item.name,
+    type: item.type,
+    count: 1,
+    desc: item.desc,
+    equipSlot: item.equipSlot,
+  };
+}
+
+function buildSectionSnapshot(section: GmPlayerUpdateSection, draft: PlayerState): Partial<PlayerState> {
+  switch (section) {
+    case 'basic':
+      return {
+        name: draft.name,
+        hp: draft.hp,
+        maxHp: draft.maxHp,
+        qi: draft.qi,
+        dead: draft.dead,
+        autoBattle: draft.autoBattle,
+        autoRetaliate: draft.autoRetaliate,
+        autoBattleStationary: draft.autoBattleStationary,
+        allowAoePlayerHit: draft.allowAoePlayerHit,
+        autoIdleCultivation: draft.autoIdleCultivation,
+        autoSwitchCultivation: draft.autoSwitchCultivation,
+        combatTargetId: draft.combatTargetId,
+        combatTargetLocked: draft.combatTargetLocked,
+        bonuses: clone(ensureArray(draft.bonuses)),
+        temporaryBuffs: clone(ensureArray(draft.temporaryBuffs)),
+      };
+    case 'position':
+      return {
+        mapId: draft.mapId,
+        x: draft.x,
+        y: draft.y,
+        facing: draft.facing,
+        viewRange: draft.viewRange,
+      };
+    case 'realm':
+      return {
+        baseAttrs: clone(draft.baseAttrs),
+        realmLv: draft.realmLv,
+        realm: typeof draft.realm?.progress === 'number'
+          ? { progress: draft.realm.progress } as PlayerState['realm']
+          : undefined,
+        foundation: draft.foundation,
+        revealedBreakthroughRequirementIds: [...(draft.revealedBreakthroughRequirementIds ?? [])],
+      };
+    case 'techniques':
+      return {
+        techniques: ensureArray(draft.techniques).map((technique) => buildTechniqueSaveSnapshot(technique)),
+        autoBattleSkills: clone(ensureArray(draft.autoBattleSkills)),
+        cultivatingTechId: draft.cultivatingTechId,
+      };
+    case 'items':
+      return {
+        inventory: {
+          capacity: draft.inventory.capacity,
+          items: ensureArray(draft.inventory.items).map((item) => buildInventoryItemSaveSnapshot(item)),
+        },
+        equipment: {
+          weapon: buildEquipmentItemSaveSnapshot(draft.equipment.weapon),
+          head: buildEquipmentItemSaveSnapshot(draft.equipment.head),
+          body: buildEquipmentItemSaveSnapshot(draft.equipment.body),
+          legs: buildEquipmentItemSaveSnapshot(draft.equipment.legs),
+          accessory: buildEquipmentItemSaveSnapshot(draft.equipment.accessory),
+        },
+      };
+    case 'quests':
+      return {
+        quests: clone(ensureArray(draft.quests)),
+      };
+    default:
+      return clone(draft);
+  }
+}
+
 function openSelectedPlayerMailTab(): void {
   if (!selectedPlayerId) {
     setStatus('请先选择角色', true);
@@ -3492,9 +3664,10 @@ async function saveSelectedPlayer(): Promise<void> {
 
   savePlayerBtn.disabled = true;
   try {
+    const snapshot = buildSectionSnapshot(section, draftSnapshot);
     await request<{ ok: true }>(`/gm/players/${encodeURIComponent(selected.id)}`, {
       method: 'PUT',
-      body: JSON.stringify({ snapshot: draftSnapshot, section } satisfies GmUpdatePlayerReq),
+      body: JSON.stringify({ snapshot, section } satisfies GmUpdatePlayerReq),
     });
     editorDirty = false;
     await delayRefresh(`已提交 ${selected.name} 的${getEditorTabLabel(section)}修改`);

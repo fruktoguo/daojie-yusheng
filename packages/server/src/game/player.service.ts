@@ -1074,7 +1074,10 @@ export class PlayerService implements OnModuleInit {
     const payload = this.buildPlayerPersistencePayload(state, persisted);
     await this.playerRepo.createQueryBuilder()
       .update(PlayerEntity)
-      .set(payload)
+      .set({
+        name: state.name,
+        ...payload,
+      })
       .where('id = :id', { id: state.id })
       .execute();
   }

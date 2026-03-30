@@ -42,6 +42,8 @@ import {
 } from '@mud/shared';
 import { PlayerEntity } from '../database/entities/player.entity';
 import { UserEntity } from '../database/entities/user.entity';
+import { NameUniquenessService } from '../auth/name-uniqueness.service';
+import { normalizeRoleName, validateRoleName } from '../auth/account-validation';
 import { AccountService } from './account.service';
 import { AttrService } from './attr.service';
 import { BotService } from './bot.service';
@@ -79,7 +81,7 @@ type GmCommand =
   | {
       type: 'updatePlayer';
       playerId: string;
-      snapshot: PlayerState;
+      snapshot: Partial<PlayerState>;
       section?: GmPlayerUpdateSection;
     }
   | {
@@ -138,6 +140,7 @@ export class GmService {
     private readonly performanceService: PerformanceService,
     private readonly worldService: WorldService,
     private readonly accountService: AccountService,
+    private readonly nameUniquenessService: NameUniquenessService,
     private readonly contentService: ContentService,
     private readonly equipmentService: EquipmentService,
     private readonly techniqueService: TechniqueService,
@@ -407,7 +410,12 @@ export class GmService {
   }
 
   /** 入队玩家状态更新命令（在线走 tick 队列，离线直接写库） */
-  async enqueuePlayerUpdate(playerId: string, snapshot: PlayerState, section?: GmPlayerUpdateSection): Promise<string | null> {
+  async enqueuePlayerUpdate(playerId: string, snapshot: Partial<PlayerState>, section?: GmPlayerUpdateSection): Promise<string | null> {
+    const roleNameError = await this.validateManagedPlayerRoleNameUpdate(playerId, snapshot, section);
+    if (roleNameError) {
+      return roleNameError;
+    }
+
     const runtime = this.playerService.getPlayer(playerId);
     if (runtime) {
       this.enqueue(runtime.mapId, {
@@ -578,7 +586,7 @@ export class GmService {
     }
   }
 
-  private applyQueuedPlayerUpdate(playerId: string, snapshot: PlayerState, section?: GmPlayerUpdateSection): string | null {
+  private applyQueuedPlayerUpdate(playerId: string, snapshot: Partial<PlayerState>, section?: GmPlayerUpdateSection): string | null {
     const player = this.playerService.getPlayer(playerId);
     if (!player) return '目标玩家不存在';
     const error = this.applyPlayerSnapshot(player, this.mergePlayerSnapshot(player, snapshot, section), true);
@@ -1014,24 +1022,71 @@ export class GmService {
     }
   }
 
+  private async validateManagedPlayerRoleNameUpdate(
+    playerId: string,
+    snapshot: Partial<PlayerState>,
+    section?: GmPlayerUpdateSection,
+  ): Promise<string | null> {
+    if (section && section !== 'basic') {
+      return null;
+    }
+    if (typeof snapshot.name !== 'string') {
+      return null;
+    }
+
+    const runtime = this.playerService.getPlayer(playerId);
+    const currentName = normalizeRoleName(runtime?.name ?? (
+      await this.playerRepo.findOne({
+        where: { id: playerId },
+        select: { name: true },
+      })
+    )?.name ?? '');
+    const nextName = normalizeRoleName(snapshot.name);
+
+    if (!nextName || nextName === currentName) {
+      return null;
+    }
+
+    const roleNameError = validateRoleName(nextName);
+    if (roleNameError) {
+      return roleNameError;
+    }
+
+    const userId = this.playerService.getUserIdByPlayerId(playerId) ?? (
+      await this.playerRepo.findOne({
+        where: { id: playerId },
+        select: { userId: true },
+      })
+    )?.userId;
+    const roleNameConflict = await this.nameUniquenessService.ensureAvailable(nextName, 'role', {
+      exclude: userId ? [{ userId, kind: 'role' }] : [],
+    });
+    if (roleNameConflict) {
+      return roleNameConflict;
+    }
+
+    snapshot.name = nextName;
+    return null;
+  }
+
   private mergePlayerSnapshot(
     player: PlayerState,
-    snapshot: PlayerState,
+    snapshot: Partial<PlayerState>,
     section?: GmPlayerUpdateSection,
   ): PlayerState {
     if (!section) {
-      return this.clonePlayer(snapshot);
+      return this.clonePlayer(snapshot) as PlayerState;
     }
 
     const merged = this.clonePlayer(player);
     switch (section) {
       case 'basic':
-        merged.name = snapshot.name;
-        merged.hp = snapshot.hp;
-        merged.maxHp = snapshot.maxHp;
-        merged.qi = snapshot.qi;
-        merged.dead = snapshot.dead;
-        merged.autoBattle = snapshot.autoBattle;
+        merged.name = snapshot.name ?? merged.name;
+        merged.hp = snapshot.hp ?? merged.hp;
+        merged.maxHp = snapshot.maxHp ?? merged.maxHp;
+        merged.qi = snapshot.qi ?? merged.qi;
+        merged.dead = snapshot.dead ?? merged.dead;
+        merged.autoBattle = snapshot.autoBattle ?? merged.autoBattle;
         merged.autoRetaliate = snapshot.autoRetaliate;
         merged.autoBattleStationary = snapshot.autoBattleStationary;
         merged.allowAoePlayerHit = snapshot.allowAoePlayerHit;
@@ -1043,11 +1098,11 @@ export class GmService {
         merged.temporaryBuffs = this.normalizeTemporaryBuffs(snapshot.temporaryBuffs);
         break;
       case 'position':
-        merged.mapId = snapshot.mapId;
-        merged.x = snapshot.x;
-        merged.y = snapshot.y;
-        merged.facing = snapshot.facing;
-        merged.viewRange = snapshot.viewRange;
+        merged.mapId = snapshot.mapId ?? merged.mapId;
+        merged.x = snapshot.x ?? merged.x;
+        merged.y = snapshot.y ?? merged.y;
+        merged.facing = snapshot.facing ?? merged.facing;
+        merged.viewRange = snapshot.viewRange ?? merged.viewRange;
         break;
       case 'realm':
         merged.baseAttrs = this.normalizeAttributes(snapshot.baseAttrs);
@@ -1155,7 +1210,7 @@ export class GmService {
     return Math.max(1, this.normalizeInt(value, fallback));
   }
 
-  private clonePlayer<T extends PlayerState>(player: T): T {
+  private clonePlayer<T>(player: T): T {
     return JSON.parse(JSON.stringify(player)) as T;
   }
 
