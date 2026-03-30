@@ -5,7 +5,7 @@
     "char": "魈",
     "color": "#8f7fa8",
     "radius": 8,
-    "respawnSec": 24,
+    "respawnSec": 11,
     "level": 7,
     "drops": [
       {
@@ -79,7 +79,7 @@
     "char": "蝠",
     "color": "#9ac3ff",
     "radius": 5,
-    "respawnSec": 20,
+    "respawnSec": 11,
     "level": 6,
     "drops": [
       {
@@ -147,7 +147,7 @@
     "char": "潜",
     "color": "#6f84a8",
     "radius": 5,
-    "respawnSec": 22,
+    "respawnSec": 11,
     "level": 8,
     "drops": [
       {
@@ -216,7 +216,7 @@
     "char": "像",
     "color": "#8f8a7b",
     "radius": 3,
-    "respawnSec": 60,
+    "respawnSec": 17,
     "level": 9,
     "drops": [
       {
@@ -306,7 +306,7 @@
     "char": "君",
     "color": "#a78b73",
     "radius": 2,
-    "respawnSec": 180,
+    "respawnSec": 39,
     "level": 10,
     "drops": [
       {

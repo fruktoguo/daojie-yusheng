@@ -5,7 +5,7 @@
     "char": "狼",
     "color": "#b3b7c1",
     "radius": 7,
-    "respawnSec": 18,
+    "respawnSec": 10,
     "level": 4,
     "drops": [
       {
@@ -73,7 +73,7 @@
     "char": "蛇",
     "color": "#67b56f",
     "radius": 5,
-    "respawnSec": 20,
+    "respawnSec": 10,
     "level": 4,
     "drops": [
       {
@@ -134,7 +134,7 @@
     "char": "灵",
     "color": "#91d88d",
     "radius": 5,
-    "respawnSec": 20,
+    "respawnSec": 10,
     "level": 5,
     "drops": [
       {
@@ -209,7 +209,7 @@
     "char": "螳",
     "color": "#7fbf5f",
     "radius": 6,
-    "respawnSec": 22,
+    "respawnSec": 16,
     "level": 5,
     "drops": [
       {
@@ -284,7 +284,7 @@
     "char": "皇",
     "color": "#5ea94d",
     "radius": 2,
-    "respawnSec": 120,
+    "respawnSec": 35,
     "level": 6,
     "drops": [
       {

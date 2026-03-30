@@ -5,7 +5,7 @@
     "char": "傀",
     "color": "#b9b3a8",
     "radius": 7,
-    "respawnSec": 22,
+    "respawnSec": 11,
     "level": 8,
     "drops": [
       {
@@ -73,7 +73,7 @@
     "char": "鸮",
     "color": "#c4c9d8",
     "radius": 5,
-    "respawnSec": 19,
+    "respawnSec": 11,
     "level": 9,
     "drops": [
       {
@@ -148,7 +148,7 @@
     "char": "阵",
     "color": "#89a9ff",
     "radius": 5,
-    "respawnSec": 28,
+    "respawnSec": 17,
     "level": 10,
     "drops": [
       {
@@ -232,7 +232,7 @@
     "char": "司",
     "color": "#8ca0ff",
     "radius": 2,
-    "respawnSec": 180,
+    "respawnSec": 40,
     "level": 11,
     "drops": [
       {
@@ -316,7 +316,7 @@
     "char": "魂",
     "color": "#756fa8",
     "radius": 4,
-    "respawnSec": 24,
+    "respawnSec": 11,
     "level": 9,
     "drops": [
       {

@@ -5,7 +5,7 @@
     "char": "彘",
     "color": "#c08a5a",
     "radius": 8,
-    "respawnSec": 22,
+    "respawnSec": 10,
     "level": 1,
     "drops": [
       {
@@ -65,7 +65,7 @@
     "char": "蜥",
     "color": "#7cbf7c",
     "radius": 6,
-    "respawnSec": 20,
+    "respawnSec": 10,
     "level": 2,
     "drops": [
       {
@@ -133,7 +133,7 @@
     "char": "匪",
     "color": "#a05252",
     "radius": 7,
-    "respawnSec": 18,
+    "respawnSec": 10,
     "level": 2,
     "drops": [
       {
@@ -201,7 +201,7 @@
     "char": "蛛",
     "color": "#54528a",
     "radius": 5,
-    "respawnSec": 19,
+    "respawnSec": 15,
     "level": 3,
     "drops": [
       {
@@ -284,7 +284,7 @@
     "char": "荒",
     "color": "#b68f6a",
     "radius": 2,
-    "respawnSec": 120,
+    "respawnSec": 33,
     "level": 4,
     "drops": [
       {
@@ -369,7 +369,7 @@
     "char": "鹫",
     "color": "#9d8f77",
     "radius": 6,
-    "respawnSec": 24,
+    "respawnSec": 10,
     "level": 3,
     "drops": [
       {

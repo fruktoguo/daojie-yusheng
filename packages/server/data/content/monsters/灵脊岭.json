@@ -5,7 +5,7 @@
     "char": "虎",
     "color": "#d3b06f",
     "radius": 8,
-    "respawnSec": 18,
+    "respawnSec": 11,
     "level": 12,
     "drops": [
       {
@@ -75,7 +75,7 @@
     "char": "鹤",
     "color": "#b7d6ff",
     "radius": 7,
-    "respawnSec": 20,
+    "respawnSec": 11,
     "level": 13,
     "drops": [
       {
@@ -144,7 +144,7 @@
     "char": "魂",
     "color": "#8f8fc9",
     "radius": 5,
-    "respawnSec": 26,
+    "respawnSec": 18,
     "level": 14,
     "drops": [
       {
@@ -227,7 +227,7 @@
     "char": "关",
     "color": "#c7d4ef",
     "radius": 2,
-    "respawnSec": 240,
+    "respawnSec": 45,
     "level": 16,
     "drops": [
       {

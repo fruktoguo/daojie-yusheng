@@ -5,7 +5,7 @@
     "char": "猎",
     "color": "#9d8cff",
     "radius": 8,
-    "respawnSec": 18,
+    "respawnSec": 11,
     "level": 15,
     "drops": [
       {
@@ -75,7 +75,7 @@
     "char": "傀",
     "color": "#96b6d9",
     "radius": 6,
-    "respawnSec": 20,
+    "respawnSec": 12,
     "level": 16,
     "drops": [
       {
@@ -144,7 +144,7 @@
     "char": "噬",
     "color": "#ff7e7e",
     "radius": 2,
-    "respawnSec": 180,
+    "respawnSec": 18,
     "level": 17,
     "drops": [
       {
@@ -228,7 +228,7 @@
     "char": "宫",
     "color": "#ffb86c",
     "radius": 2,
-    "respawnSec": 300,
+    "respawnSec": 47,
     "level": 18,
     "drops": [
       {

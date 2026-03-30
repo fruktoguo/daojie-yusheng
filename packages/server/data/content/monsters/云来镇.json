@@ -5,7 +5,7 @@
     "char": "鼠",
     "color": "#9b9b9b",
     "radius": 5,
-    "respawnSec": 16,
+    "respawnSec": 10,
     "level": 1,
     "drops": [
       {
@@ -64,7 +64,7 @@
     "char": "鼠",
     "color": "#8f8f8f",
     "radius": 3,
-    "respawnSec": 18,
+    "respawnSec": 10,
     "level": 1,
     "drops": [
       {
@@ -123,7 +123,7 @@
     "char": "匪",
     "color": "#ba6f5a",
     "radius": 6,
-    "respawnSec": 24,
+    "respawnSec": 10,
     "level": 2,
     "drops": [
       {
@@ -183,7 +183,7 @@
     "char": "刀",
     "color": "#8b3d3d",
     "radius": 4,
-    "respawnSec": 32,
+    "respawnSec": 10,
     "level": 3,
     "drops": [
       {
