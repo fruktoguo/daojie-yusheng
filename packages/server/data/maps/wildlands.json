@@ -218,44 +218,37 @@
     {
       "id": "m_wild_boar",
       "x": 11,
-      "y": 27,
-      "respawnTicks": 15
+      "y": 27
     },
     {
       "id": "m_wild_boar",
       "x": 15,
-      "y": 30,
-      "respawnTicks": 15
+      "y": 30
     },
     {
       "id": "m_swamp_lizard",
       "x": 15,
-      "y": 36,
-      "respawnTicks": 15
+      "y": 36
     },
     {
       "id": "m_mire_spider",
       "x": 10,
-      "y": 37,
-      "respawnTicks": 15
+      "y": 37
     },
     {
       "id": "m_wild_bandit",
       "x": 32,
-      "y": 23,
-      "respawnTicks": 15
+      "y": 23
     },
     {
       "id": "m_wild_bandit",
       "x": 35,
-      "y": 25,
-      "respawnTicks": 15
+      "y": 25
     },
     {
       "id": "m_dust_vulture",
       "x": 29,
-      "y": 14,
-      "respawnTicks": 15
+      "y": 14
     }
   ]
 }

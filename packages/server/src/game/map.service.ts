@@ -4035,7 +4035,12 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     if ((spawn.maxAlive ?? baselinePopulation.maxAlive) !== baselinePopulation.maxAlive) persisted.maxAlive = spawn.maxAlive;
     const defaultWanderRadius = spawn.radius ?? template.radius;
     if ((spawn.wanderRadius ?? defaultWanderRadius) !== defaultWanderRadius) persisted.wanderRadius = spawn.wanderRadius;
-    if ((spawn.respawnTicks ?? spawn.respawnSec ?? 15) !== template.respawnTicks) {
+    const effectiveRespawnTicks = Number.isInteger(spawn.respawnTicks)
+      ? Math.max(1, Number(spawn.respawnTicks))
+      : Number.isInteger(spawn.respawnSec)
+        ? Math.max(1, Number(spawn.respawnSec))
+        : template.respawnTicks;
+    if (effectiveRespawnTicks !== template.respawnTicks) {
       persisted.respawnTicks = spawn.respawnTicks;
       if (persisted.respawnTicks === undefined && spawn.respawnSec !== undefined) {
         persisted.respawnSec = spawn.respawnSec;

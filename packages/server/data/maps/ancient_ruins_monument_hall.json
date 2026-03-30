@@ -72,8 +72,7 @@
     {
       "id": "m_stele_arbiter",
       "x": 13,
-      "y": 5,
-      "respawnTicks": 15
+      "y": 5
     }
   ]
 }

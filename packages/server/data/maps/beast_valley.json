@@ -195,44 +195,37 @@
     {
       "id": "m_valley_wolf",
       "x": 15,
-      "y": 18,
-      "respawnTicks": 15
+      "y": 18
     },
     {
       "id": "m_valley_wolf",
       "x": 17,
-      "y": 23,
-      "respawnTicks": 15
+      "y": 23
     },
     {
       "id": "m_blood_crow",
       "x": 35,
-      "y": 14,
-      "respawnTicks": 15
+      "y": 14
     },
     {
       "id": "m_blood_crow",
       "x": 38,
-      "y": 18,
-      "respawnTicks": 15
+      "y": 18
     },
     {
       "id": "m_valley_alpha",
       "x": 24,
-      "y": 30,
-      "respawnTicks": 15
+      "y": 30
     },
     {
       "id": "m_valley_serpent",
       "x": 35,
-      "y": 24,
-      "respawnTicks": 15
+      "y": 24
     },
     {
       "id": "m_valley_emperor",
       "x": 24,
-      "y": 38,
-      "respawnTicks": 15
+      "y": 38
     }
   ]
 }

@@ -72,8 +72,7 @@
     {
       "id": "m_spine_gate_lord",
       "x": 13,
-      "y": 4,
-      "respawnTicks": 15
+      "y": 4
     }
   ]
 }

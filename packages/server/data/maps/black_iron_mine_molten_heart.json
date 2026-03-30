@@ -72,8 +72,7 @@
     {
       "id": "m_iron_devour_lord",
       "x": 13,
-      "y": 5,
-      "respawnTicks": 15
+      "y": 5
     }
   ]
 }

@@ -190,52 +190,45 @@
       "y": 10,
       "count": 4,
       "radius": 4,
-      "maxAlive": 4,
-      "respawnTicks": 15
+      "maxAlive": 4
     },
     {
       "id": "m_void_hunter",
       "x": 35,
       "y": 10,
       "count": 4,
-      "maxAlive": 4,
-      "respawnTicks": 15
+      "maxAlive": 4
     },
     {
       "id": "m_void_hunter",
       "x": 8,
       "y": 35,
       "count": 4,
-      "maxAlive": 4,
-      "respawnTicks": 15
+      "maxAlive": 4
     },
     {
       "id": "m_void_hunter",
       "x": 39,
-      "y": 34,
-      "respawnTicks": 15
+      "y": 34
     },
     {
       "id": "m_sky_puppet",
       "x": 18,
       "y": 16,
       "count": 2,
-      "maxAlive": 2,
-      "respawnTicks": 15
+      "maxAlive": 2
     },
     {
       "id": "m_sky_puppet",
       "x": 30,
       "y": 16,
       "count": 2,
-      "maxAlive": 2,
-      "respawnTicks": 15
+      "maxAlive": 2
     },
     {
       "id": "m_star_devourer",
       "x": 24,
-      "y": 7,
-      "respawnTicks": 15
+      "y": 7
     }
   ]
 }
