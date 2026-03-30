@@ -52,6 +52,8 @@ import {
   type ItemStack,
   type MailAttachment,
   MAIL_TEMPLATE_BEGINNER_JOURNEY_ID,
+  MAIL_TEMPLATE_DIVINE_ROOT_SEED_ID,
+  MAIL_TEMPLATE_HEAVEN_ROOT_SEED_ID,
   ITEM_TYPES,
   ITEM_TYPE_LABELS,
   type PlayerState,
@@ -749,7 +751,9 @@ function getMailTemplateOptionMeta(templateId: string): { label: string; descrip
 }
 
 function isServerManagedMailTemplate(templateId: string): boolean {
-  return templateId === MAIL_TEMPLATE_BEGINNER_JOURNEY_ID;
+  return templateId === MAIL_TEMPLATE_BEGINNER_JOURNEY_ID
+    || templateId === MAIL_TEMPLATE_HEAVEN_ROOT_SEED_ID
+    || templateId === MAIL_TEMPLATE_DIVINE_ROOT_SEED_ID;
 }
 
 function getShortcutMailTargetOptions(): Array<{ value: string; label: string }> {

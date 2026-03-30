@@ -571,6 +571,10 @@ export interface SyncedItemStack {
   equipStats?: ItemStack['equipStats'];
   equipValueStats?: ItemStack['equipValueStats'];
   effects?: EquipmentEffectDef[];
+  healAmount?: number;
+  healPercent?: number;
+  qiPercent?: number;
+  consumeBuffs?: ConsumableBuffDef[];
   tags?: string[];
   mapUnlockId?: string;
   tileAuraGainAmount?: number;
@@ -649,6 +653,8 @@ export interface S2C_ActionsUpdate {
   removeActionIds?: string[];
   actionOrder?: string[];
   autoBattle?: boolean;
+  combatTargetId?: string | null;
+  combatTargetLocked?: boolean;
   autoRetaliate?: boolean;
   autoBattleStationary?: boolean;
   allowAoePlayerHit?: boolean;

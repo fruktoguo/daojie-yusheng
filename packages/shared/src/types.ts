@@ -436,6 +436,10 @@ export interface ItemStack {
   equipStats?: PartialNumericStats;
   equipValueStats?: PartialNumericStats;
   effects?: EquipmentEffectDef[];
+  healAmount?: number;
+  healPercent?: number;
+  qiPercent?: number;
+  consumeBuffs?: ConsumableBuffDef[];
   tags?: string[];
   mapUnlockId?: string;
   tileAuraGainAmount?: number;
