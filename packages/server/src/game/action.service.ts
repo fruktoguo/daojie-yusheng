@@ -50,13 +50,13 @@ export class ActionService {
 
   /** 触发技能冷却，返回 null 表示成功 */
   beginCooldown(player: PlayerState, actionId: string): string | null {
-    const action = player.actions.find(a => a.id === actionId);
+    const action = player.actions.find((entry) => entry.id === actionId);
     if (!action) return '行动不存在';
-    if (action.cooldownLeft > 0) return '技能冷却中';
+    if (action.cooldownLeft > 0) return '招式尚在调息中';
 
     // 查找对应技能定义获取冷却时间
     for (const tech of player.techniques) {
-      const skill = tech.skills.find(s => s.id === actionId);
+      const skill = tech.skills.find((entry) => entry.id === actionId);
       if (skill) {
         const ratioDivisors = this.attrService.getPlayerRatioDivisors(player);
         const numericStats = this.attrService.getPlayerNumericStats(player);
@@ -66,6 +66,15 @@ export class ActionService {
       }
     }
 
+    return null;
+  }
+
+  /** 触发固定时长行动冷却，返回 null 表示成功 */
+  beginFixedCooldown(player: PlayerState, actionId: string, cooldownTicks: number): string | null {
+    const action = player.actions.find((entry) => entry.id === actionId);
+    if (!action) return '行动不存在';
+    if (action.cooldownLeft > 0) return '行动尚在调息中';
+    action.cooldownLeft = Math.max(1, Math.floor(cooldownTicks));
     return null;
   }
 

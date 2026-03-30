@@ -9,7 +9,7 @@ import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-to
 import { buildSkillTooltipContent, type SkillPreviewMetrics, summarizeSkillPreviewMetrics } from '../skill-tooltip';
 import { preserveSelection } from '../selection-preserver';
 import { getActionTypeLabel } from '../../domain-labels';
-import { ACTION_SHORTCUTS_KEY } from '../../constants/ui/action';
+import { ACTION_SHORTCUTS_KEY, RETURN_TO_SPAWN_ACTION_ID } from '../../constants/ui/action';
 
 type ActionMainTab = 'dialogue' | 'skill' | 'toggle' | 'utility';
 type SkillSubTab = 'auto' | 'manual';
@@ -216,7 +216,10 @@ export class ActionPanel {
         continue;
       }
       if (tab.id === 'utility') {
-        const utilityEntries = actions.filter((action) => action.type === 'toggle' && !this.isSwitchAction(action));
+        const utilityEntries = actions.filter((action) => (
+          (action.type === 'toggle' && !this.isSwitchAction(action))
+          || this.isUtilityAction(action)
+        ));
         if (utilityEntries.length === 0) {
           html += '<div class="empty-hint">当前分组暂无内容</div></div>';
           continue;
@@ -234,7 +237,10 @@ export class ActionPanel {
         html += '<div class="empty-hint">当前分组暂无内容</div>';
       } else {
         for (const type of relevantTypes) {
-          const entries = groups.get(type) ?? [];
+          const entries = (groups.get(type) ?? []).filter((action) => !this.isUtilityAction(action));
+          if (entries.length === 0) {
+            continue;
+          }
           if (type === 'skill') {
             html += this.renderSkillSection(entries, autoBattleDisplayOrders);
             continue;
@@ -413,6 +419,14 @@ export class ActionPanel {
 
   private isSwitchAction(action: ActionDef): boolean {
     return action.type === 'toggle' && this.isSwitchActionId(action.id);
+  }
+
+  private isUtilityAction(action: ActionDef): boolean {
+    return this.isUtilityActionId(action.id);
+  }
+
+  private isUtilityActionId(actionId: string): boolean {
+    return actionId === RETURN_TO_SPAWN_ACTION_ID;
   }
 
   private isSwitchActionId(actionId: string): boolean {

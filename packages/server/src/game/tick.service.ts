@@ -62,6 +62,7 @@ import {
 } from '@mud/shared';
 import * as fs from 'fs';
 import { PersistentDocumentService } from '../database/persistent-document.service';
+import { RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS } from '../constants/gameplay/action';
 import { PLAYER_SPECIAL_STATS_SYNC_INTERVAL_MS } from '../constants/gameplay/attr';
 import {
   DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID,
@@ -749,13 +750,6 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
             });
             break;
           }
-          if (actionId === 'portal:travel' || actionId.startsWith('npc:')) {
-            this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
-              const result = this.worldService.handleInteraction(player, actionId);
-              this.applyWorldUpdate(player.id, result, messages);
-            });
-            break;
-          }
           this.syncActionsIfDirty(player, { skipQuestSync: true });
           const action = this.actionService.getAction(player, actionId);
           if (!action) {
@@ -763,7 +757,28 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
             break;
           }
           if (action.cooldownLeft > 0) {
-            messages.push({ playerId: player.id, text: `技能仍在冷却中，还需 ${action.cooldownLeft} 息`, kind: 'system' });
+            const actionLabel = action.type === 'skill' || action.type === 'battle' ? '招式' : '行动';
+            messages.push({ playerId: player.id, text: `${actionLabel}尚在调息中，还需 ${action.cooldownLeft} 息`, kind: 'system' });
+            break;
+          }
+          if (actionId === RETURN_TO_SPAWN_ACTION_ID) {
+            this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+              const result = this.worldService.resetPlayerToSpawn(player);
+              const cooldownError = this.actionService.beginFixedCooldown(player, actionId, RETURN_TO_SPAWN_COOLDOWN_TICKS);
+              if (cooldownError) {
+                messages.push({ playerId: player.id, text: cooldownError, kind: 'system' });
+                return;
+              }
+              result.dirty.push('actions');
+              this.applyWorldUpdate(player.id, result, messages);
+            });
+            break;
+          }
+          if (actionId === 'portal:travel' || actionId.startsWith('npc:')) {
+            this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+              const result = this.worldService.handleInteraction(player, actionId);
+              this.applyWorldUpdate(player.id, result, messages);
+            });
             break;
           }
 

@@ -53,6 +53,12 @@ import {
 } from '@mud/shared';
 import * as fs from 'fs';
 import { resolveServerDataPath } from '../common/data-path';
+import {
+  RETURN_TO_SPAWN_ACTION_DESC,
+  RETURN_TO_SPAWN_ACTION_ID,
+  RETURN_TO_SPAWN_ACTION_NAME,
+  RETURN_TO_SPAWN_SUCCESS_TEXT,
+} from '../constants/gameplay/action';
 import { PersistentDocumentService } from '../database/persistent-document.service';
 import { AttrService } from './attr.service';
 import { AoiService } from './aoi.service';
@@ -578,6 +584,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       requiresTarget: true,
       targetMode: 'any',
       range: effectiveViewRange,
+    }, {
+      id: RETURN_TO_SPAWN_ACTION_ID,
+      name: RETURN_TO_SPAWN_ACTION_NAME,
+      type: 'travel',
+      desc: RETURN_TO_SPAWN_ACTION_DESC,
+      cooldownLeft: 0,
     }];
 
     const breakthroughAction = this.techniqueService.getBreakthroughAction(player);
@@ -1796,7 +1808,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
   resetPlayerToSpawn(player: PlayerState): WorldUpdate {
     this.logger.log(`重置玩家到出生点: ${player.id} (${player.mapId}:${player.x},${player.y})`);
-    return this.movePlayerToInitialSpawn(player, '调试指令已执行，你被送回云来镇出生点。', {
+    return this.movePlayerToInitialSpawn(player, RETURN_TO_SPAWN_SUCCESS_TEXT, {
       restoreVitals: true,
       clearBuffs: true,
     });
