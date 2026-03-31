@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   GmDatabaseBackupKind,
@@ -11,9 +11,27 @@ import { spawn, spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Readable, Writable } from 'node:stream';
-import { resolveServerDataPath } from '../common/data-path';
 import { RedisService } from '../database/redis.service';
 import { BotService } from './bot.service';
+import {
+  BACKUP_DIRECTORIES,
+  BACKUP_EXCLUDED_TABLES,
+  BACKUP_WORKER_HEARTBEAT_TTL_MS,
+  DAILY_BACKUP_HOUR,
+  DAILY_BACKUP_MINUTE,
+  DAILY_BACKUP_RETENTION,
+  ensureBackupWorkspace,
+  createBackupRecord,
+  createTimestampId,
+  HOURLY_BACKUP_RETENTION,
+  listBackups,
+  listBackupsForKind,
+  planBackup,
+  readBackupWorkerHeartbeat,
+  readBackupWorkerState,
+  type ResolvedBackupRecord,
+  writeBackupManualRequest,
+} from './database-backup-shared';
 import { GmService } from './gm.service';
 import { LootService } from './loot.service';
 import { MapService } from './map.service';
@@ -23,22 +41,12 @@ import { PlayerService } from './player.service';
 import { TickService } from './tick.service';
 import { WorldService } from './world.service';
 
-const HOURLY_BACKUP_RETENTION = 72;
-const DAILY_BACKUP_RETENTION = 14;
-const DAILY_BACKUP_HOUR = 4;
-const DAILY_BACKUP_MINUTE = 5;
-const BACKUP_EXCLUDED_TABLES = ['redeem_codes', 'redeem_code_groups'] as const;
-
 interface DatabaseConnectionConfig {
   host?: string;
   port?: number;
   username: string;
   password?: string;
   database: string;
-}
-
-interface ResolvedBackupRecord extends GmDatabaseBackupRecord {
-  filePath: string;
 }
 
 interface InternalJobState {
@@ -60,17 +68,8 @@ interface ProcessSpec {
 }
 
 @Injectable()
-export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
+export class DatabaseBackupService implements OnModuleInit {
   private readonly logger = new Logger(DatabaseBackupService.name);
-  private readonly backupRootDir = resolveServerDataPath('backups', 'database');
-  private readonly directories: Record<GmDatabaseBackupKind, string> = {
-    hourly: path.join(this.backupRootDir, 'hourly'),
-    daily: path.join(this.backupRootDir, 'daily'),
-    manual: path.join(this.backupRootDir, 'manual'),
-    pre_import: path.join(this.backupRootDir, 'pre_import'),
-  };
-  private hourlyTimer: ReturnType<typeof setTimeout> | null = null;
-  private dailyTimer: ReturnType<typeof setTimeout> | null = null;
   private currentJob: InternalJobState | null = null;
   private lastJob: InternalJobState | null = null;
   private runtimeMaintenance = false;
@@ -90,20 +89,7 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit(): void {
-    this.ensureBackupDirectories();
-    this.scheduleHourlyBackup();
-    this.scheduleDailyBackup();
-  }
-
-  onModuleDestroy(): void {
-    if (this.hourlyTimer) {
-      clearTimeout(this.hourlyTimer);
-      this.hourlyTimer = null;
-    }
-    if (this.dailyTimer) {
-      clearTimeout(this.dailyTimer);
-      this.dailyTimer = null;
-    }
+    ensureBackupWorkspace();
   }
 
   isRuntimeMaintenanceActive(): boolean {
@@ -111,32 +97,47 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
   }
 
   async getState(): Promise<GmDatabaseStateRes> {
+    const workerState = readBackupWorkerState();
     return {
       backups: await this.listBackups(),
-      runningJob: this.toJobSnapshot(this.currentJob) ?? undefined,
-      lastJob: this.toJobSnapshot(this.lastJob) ?? undefined,
+      runningJob: this.toJobSnapshot(this.currentJob) ?? workerState.runningJob,
+      lastJob: this.resolveLatestJobSnapshot(this.toJobSnapshot(this.lastJob), workerState.lastJob),
+      note: '正式数据库备份由独立 backup worker 执行，游戏服只负责发起请求、展示状态与下载产物。',
       retention: {
         hourly: HOURLY_BACKUP_RETENTION,
         daily: DAILY_BACKUP_RETENTION,
       },
       schedules: {
-        hourly: '每小时整点低优先级备份',
-        daily: `每天 ${String(DAILY_BACKUP_HOUR).padStart(2, '0')}:${String(DAILY_BACKUP_MINUTE).padStart(2, '0')} 低优先级备份`,
+        hourly: '每小时整点由独立 backup worker 执行',
+        daily: `每天 ${String(DAILY_BACKUP_HOUR).padStart(2, '0')}:${String(DAILY_BACKUP_MINUTE).padStart(2, '0')} 由独立 backup worker 执行`,
       },
     };
   }
 
   triggerManualBackup(): GmTriggerDatabaseBackupRes {
-    const planned = this.planBackup('manual');
-    const job = this.startJob({
+    if (this.currentJob?.status === 'running') {
+      throw new Error(`当前已有数据库任务执行中：${this.describeJob(this.currentJob)}`);
+    }
+    const workerState = readBackupWorkerState();
+    if (workerState.runningJob?.status === 'running') {
+      throw new Error('当前已有数据库备份任务执行中，请稍后再试');
+    }
+    this.assertBackupWorkerAvailable();
+    const now = Date.now();
+    const backupId = createTimestampId(now, 'manual');
+    const job: GmDatabaseJobSnapshot = {
+      id: createTimestampId(now, 'backup'),
       type: 'backup',
+      status: 'running',
+      startedAt: new Date(now).toISOString(),
       kind: 'manual',
-      backupId: planned.id,
+      backupId,
+    };
+    writeBackupManualRequest({
+      job,
+      requestedAt: job.startedAt,
     });
-    void this.runJob(job, async () => {
-      await this.createBackupFile(planned.kind, planned.filePath);
-    });
-    return { job: this.toJobSnapshot(job)! };
+    return { job };
   }
 
   triggerRestore(backupId: string): GmTriggerDatabaseBackupRes {
@@ -151,11 +152,7 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
   }
 
   async listBackups(): Promise<GmDatabaseBackupRecord[]> {
-    this.ensureBackupDirectories();
-    const backups = (Object.keys(this.directories) as GmDatabaseBackupKind[])
-      .flatMap((kind) => this.listBackupsForKind(kind))
-      .sort((left, right) => right.id.localeCompare(left.id, 'zh-CN'));
-    return backups.map(({ filePath: _filePath, ...record }) => record);
+    return listBackups();
   }
 
   getBackupDownloadRecord(backupId: string): GmDatabaseBackupRecord & { filePath: string } {
@@ -165,7 +162,7 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
   private async runRestoreJob(job: InternalJobState, source: ResolvedBackupRecord): Promise<void> {
     try {
       await this.prepareRuntimeForRestore();
-      const preImportBackup = this.planBackup('pre_import');
+      const preImportBackup = planBackup('pre_import');
       await this.createBackupFile(preImportBackup.kind, preImportBackup.filePath);
       await this.restoreBackupFile(source.filePath);
       job.status = 'completed';
@@ -215,7 +212,7 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
       throw new Error(`当前已有数据库任务执行中：${this.describeJob(this.currentJob)}`);
     }
     const job: InternalJobState = {
-      id: this.createTimestampId(Date.now(), input.type),
+      id: createTimestampId(Date.now(), input.type),
       type: input.type,
       status: 'running',
       startedAt: Date.now(),
@@ -256,7 +253,7 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async createBackupFile(kind: GmDatabaseBackupKind, filePath: string): Promise<void> {
-    this.ensureBackupDirectories();
+    ensureBackupWorkspace();
     await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
     await this.flushRuntimePersistence();
     await this.runDumpProcess(filePath);
@@ -283,23 +280,9 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
     await this.runRestoreProcess(filePath);
   }
 
-  private planBackup(kind: GmDatabaseBackupKind): ResolvedBackupRecord {
-    const now = Date.now();
-    const id = this.createTimestampId(now, kind);
-    const fileName = `${id}.dump`;
-    return {
-      id,
-      kind,
-      fileName,
-      createdAt: new Date(now).toISOString(),
-      sizeBytes: 0,
-      filePath: path.join(this.directories[kind], fileName),
-    };
-  }
-
   private getBackupByIdOrThrow(backupId: string): ResolvedBackupRecord {
-    const backup = (Object.keys(this.directories) as GmDatabaseBackupKind[])
-      .flatMap((kind) => this.listBackupsForKind(kind))
+    const backup = (Object.keys(BACKUP_DIRECTORIES) as GmDatabaseBackupKind[])
+      .flatMap((kind) => listBackupsForKind(kind))
       .find((entry) => entry.id === backupId);
     if (!backup) {
       throw new Error('目标备份不存在');
@@ -307,96 +290,12 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
     return backup;
   }
 
-  private listBackupsForKind(kind: GmDatabaseBackupKind): ResolvedBackupRecord[] {
-    const directory = this.directories[kind];
-    if (!fs.existsSync(directory)) {
-      return [];
-    }
-    return fs.readdirSync(directory)
-      .filter((fileName) => fileName.endsWith('.dump'))
-      .map((fileName) => {
-        const filePath = path.join(directory, fileName);
-        const stats = fs.statSync(filePath);
-        const id = fileName.replace(/\.dump$/u, '');
-        const parsedCreatedAt = parseBackupIdTimestamp(id);
-        return {
-          id,
-          kind,
-          fileName,
-          createdAt: parsedCreatedAt
-            ?? (stats.birthtimeMs > 0 ? new Date(stats.birthtimeMs).toISOString() : new Date(stats.mtimeMs).toISOString()),
-          sizeBytes: stats.size,
-          filePath,
-        } satisfies ResolvedBackupRecord;
-      })
-      .sort((left, right) => right.id.localeCompare(left.id, 'zh-CN'));
-  }
-
   private async pruneBackups(kind: 'hourly' | 'daily', keep: number): Promise<void> {
-    const backups = this.listBackupsForKind(kind);
+    const backups = listBackupsForKind(kind);
     const stale = backups.slice(keep);
     await Promise.all(stale.map(async (backup) => {
       await fs.promises.rm(backup.filePath, { force: true });
     }));
-  }
-
-  private scheduleHourlyBackup(): void {
-    if (this.hourlyTimer) {
-      clearTimeout(this.hourlyTimer);
-    }
-    this.hourlyTimer = setTimeout(() => {
-      void this.runScheduledBackup('hourly');
-      this.scheduleHourlyBackup();
-    }, this.getDelayUntilNextHour());
-  }
-
-  private scheduleDailyBackup(): void {
-    if (this.dailyTimer) {
-      clearTimeout(this.dailyTimer);
-    }
-    this.dailyTimer = setTimeout(() => {
-      void this.runScheduledBackup('daily');
-      this.scheduleDailyBackup();
-    }, this.getDelayUntilNextDailyBackup());
-  }
-
-  private async runScheduledBackup(kind: 'hourly' | 'daily'): Promise<void> {
-    if (this.currentJob?.status === 'running') {
-      this.logger.warn(`跳过 ${kind} 自动备份：当前已有数据库任务执行中`);
-      return;
-    }
-    const planned = this.planBackup(kind);
-    const job = this.startJob({
-      type: 'backup',
-      kind,
-      backupId: planned.id,
-    });
-    await this.runJob(job, async () => {
-      await this.createBackupFile(kind, planned.filePath);
-    });
-  }
-
-  private getDelayUntilNextHour(now = new Date()): number {
-    const next = new Date(now.getTime());
-    next.setMinutes(0, 0, 0);
-    next.setHours(next.getHours() + 1);
-    return Math.max(1_000, next.getTime() - now.getTime());
-  }
-
-  private getDelayUntilNextDailyBackup(now = new Date()): number {
-    const next = new Date(now.getTime());
-    next.setHours(DAILY_BACKUP_HOUR, DAILY_BACKUP_MINUTE, 0, 0);
-    if (next.getTime() <= now.getTime()) {
-      next.setDate(next.getDate() + 1);
-    }
-    return Math.max(1_000, next.getTime() - now.getTime());
-  }
-
-  private ensureBackupDirectories(): void {
-    fs.mkdirSync(this.backupRootDir, { recursive: true });
-    for (const directory of Object.values(this.directories)) {
-      fs.mkdirSync(directory, { recursive: true });
-    }
   }
 
   private async runDumpProcess(filePath: string): Promise<void> {
@@ -652,22 +551,10 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
   }
 
   private commandExists(command: string): boolean {
-    const result = spawnSync('bash', ['-lc', `command -v ${command}`], {
+    const result = spawnSync('sh', ['-lc', `command -v ${command}`], {
       stdio: 'ignore',
     });
     return result.status === 0;
-  }
-
-  private createTimestampId(timestamp: number, suffix: string): string {
-    const date = new Date(timestamp);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hour = String(date.getHours()).padStart(2, '0');
-    const minute = String(date.getMinutes()).padStart(2, '0');
-    const second = String(date.getSeconds()).padStart(2, '0');
-    const millisecond = String(date.getMilliseconds()).padStart(3, '0');
-    return `${year}${month}${day}-${hour}${minute}${second}-${millisecond}__${suffix}`;
   }
 
   private toJobSnapshot(job: InternalJobState | null): GmDatabaseJobSnapshot | null {
@@ -686,25 +573,33 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
       error: job.error,
     };
   }
-}
 
-function parseBackupIdTimestamp(backupId: string): string | null {
-  const match = /^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})-(\d{3})__/.exec(backupId);
-  if (!match) {
-    return null;
+  private assertBackupWorkerAvailable(): void {
+    const heartbeat = readBackupWorkerHeartbeat();
+    if (!heartbeat) {
+      throw new Error('当前未检测到数据库备份 worker，请先启动独立备份服务后再执行导出');
+    }
+    const heartbeatTime = new Date(heartbeat.updatedAt).getTime();
+    if (!Number.isFinite(heartbeatTime) || Date.now() - heartbeatTime > BACKUP_WORKER_HEARTBEAT_TTL_MS) {
+      throw new Error('数据库备份 worker 心跳已过期，请先检查独立备份服务是否仍在运行');
+    }
   }
-  const [, year, month, day, hour, minute, second, millisecond] = match;
-  const timestamp = new Date(
-    Number(year),
-    Number(month) - 1,
-    Number(day),
-    Number(hour),
-    Number(minute),
-    Number(second),
-    Number(millisecond),
-  );
-  if (!Number.isFinite(timestamp.getTime())) {
-    return null;
+
+  private resolveLatestJobSnapshot(
+    left?: GmDatabaseJobSnapshot | null,
+    right?: GmDatabaseJobSnapshot | null,
+  ): GmDatabaseJobSnapshot | undefined {
+    if (!left && !right) {
+      return undefined;
+    }
+    if (!left) {
+      return right ?? undefined;
+    }
+    if (!right) {
+      return left;
+    }
+    const leftTime = new Date(left.startedAt).getTime();
+    const rightTime = new Date(right.startedAt).getTime();
+    return rightTime > leftTime ? right : left;
   }
-  return timestamp.toISOString();
 }

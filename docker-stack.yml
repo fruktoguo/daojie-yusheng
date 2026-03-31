@@ -80,6 +80,37 @@ services:
         max_attempts: 5
         window: 120s
 
+  backup-worker:
+    image: ghcr.io/fruktoguo/daojie-yusheng-server:${SERVER_IMAGE_TAG:-latest}
+    command: ["node", "dist/tools/database-backup-worker.js"]
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: ${DB_USERNAME:-mud}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_DATABASE: ${DB_DATABASE:-daojie_yusheng}
+      DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
+    volumes:
+      - server_backup_data:/app/packages/server/data/backups/database
+    networks:
+      - daojie_net
+    stop_grace_period: 30s
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 120s
+
   postgres:
     image: postgres:16-alpine
     environment:
