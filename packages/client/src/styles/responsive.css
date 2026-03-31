@@ -45,6 +45,87 @@
         height: 100dvh;
         overflow: hidden;
       }
+      #login-overlay {
+        align-items: flex-start;
+        padding:
+          calc(env(safe-area-inset-top, 0px) + 12px)
+          12px
+          calc(env(safe-area-inset-bottom, 0px) + 12px);
+      }
+      .login-box {
+        width: min(100%, 460px);
+        max-height: none;
+        padding: 20px 16px 16px;
+        margin: 0 auto;
+        box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.12);
+        overflow: visible;
+      }
+      .login-box::before,
+      .login-box::after {
+        width: 24px;
+        height: 24px;
+      }
+      .login-stamp {
+        top: 12px;
+        right: 14px;
+        width: 32px;
+        height: 32px;
+      }
+      .login-logo {
+        width: min(120px, 34vw);
+        margin-bottom: 10px;
+      }
+      .login-title {
+        font-size: clamp(34px, 10vw, 44px);
+        letter-spacing: 4px;
+        margin-bottom: 4px;
+      }
+      .login-subtitle {
+        margin-bottom: 16px;
+        letter-spacing: 2px;
+      }
+      .login-mode-tabs {
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      .login-mode-tab {
+        min-height: 42px;
+        padding: 8px 0;
+        font-size: var(--font-size-role-body-16);
+        letter-spacing: 2px;
+      }
+      .form-group {
+        gap: 5px;
+        margin-bottom: 12px;
+      }
+      .form-group label {
+        font-size: var(--font-size-role-body-14);
+      }
+      .form-group input {
+        min-height: 44px;
+        padding: 10px 12px;
+        font-size: 16px;
+      }
+      .form-help,
+      .field-status {
+        margin-top: 4px;
+        line-height: 1.4;
+      }
+      .login-actions {
+        position: sticky;
+        bottom: 0;
+        margin-top: 16px;
+        padding-top: 12px;
+        padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 2px);
+        background: linear-gradient(180deg, rgba(246, 240, 226, 0), var(--paper-light) 22%);
+      }
+      .action-btn {
+        min-height: 48px;
+      }
+      .login-error {
+        margin-top: 10px;
+        min-height: 18px;
+      }
       .layout-collapse-toggle {
         display: none;
       }

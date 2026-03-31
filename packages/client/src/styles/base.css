@@ -38,6 +38,10 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      padding: 16px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
       background: rgba(0, 0, 0, 0.85);
       backdrop-filter: blur(4px);
       z-index: 100;
@@ -48,8 +52,9 @@
       background: var(--paper-light);
       border: 2px solid var(--ink-black);
       padding: 40px;
-      min-width: 380px;
-      max-width: 440px;
+      width: min(440px, 100%);
+      max-height: calc(100dvh - 32px);
+      overflow-y: auto;
       box-shadow: 16px 16px 0px rgba(0, 0, 0, 0.1);
       position: relative;
     }
