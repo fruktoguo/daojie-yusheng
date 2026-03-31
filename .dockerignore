@@ -11,3 +11,4 @@ coverage
 .env.*
 参考
 packages/server/data/runtime
+packages/server/data/backups/database

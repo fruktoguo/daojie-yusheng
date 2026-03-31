@@ -10,6 +10,7 @@ import {
 import { spawn, spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import type { Readable, Writable } from 'node:stream';
 import { resolveServerDataPath } from '../common/data-path';
 import { RedisService } from '../database/redis.service';
 import { BotService } from './bot.service';
@@ -317,11 +318,13 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
         const filePath = path.join(directory, fileName);
         const stats = fs.statSync(filePath);
         const id = fileName.replace(/\.dump$/u, '');
+        const parsedCreatedAt = parseBackupIdTimestamp(id);
         return {
           id,
           kind,
           fileName,
-          createdAt: stats.birthtimeMs > 0 ? new Date(stats.birthtimeMs).toISOString() : new Date(stats.mtimeMs).toISOString(),
+          createdAt: parsedCreatedAt
+            ?? (stats.birthtimeMs > 0 ? new Date(stats.birthtimeMs).toISOString() : new Date(stats.mtimeMs).toISOString()),
           sizeBytes: stats.size,
           filePath,
         } satisfies ResolvedBackupRecord;
@@ -403,6 +406,9 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
         env: spec.env,
         stdio: ['ignore', 'pipe', 'pipe'],
       });
+      const stdout = child.stdout as Readable;
+      const stderrStream = child.stderr as Readable;
+      const childEvents = child as unknown as NodeJS.EventEmitter;
       const output = fs.createWriteStream(filePath);
       let stderr = '';
       let settled = false;
@@ -417,22 +423,22 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
         reject(error);
       };
 
-      child.stdout.on('data', (chunk) => {
+      stdout.on('data', (chunk) => {
         output.write(chunk);
       });
-      child.stdout.on('end', () => {
+      stdout.on('end', () => {
         output.end();
       });
-      child.stderr.on('data', (chunk) => {
+      stderrStream.on('data', (chunk) => {
         stderr += String(chunk);
       });
-      child.on('error', (error) => {
+      childEvents.on('error', (error: Error) => {
         fail(error);
       });
       output.on('error', (error) => {
         fail(error);
       });
-      child.on('close', (code) => {
+      childEvents.on('close', (code: number | null) => {
         output.end();
         if (settled) {
           return;
@@ -454,6 +460,9 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
         env: spec.env,
         stdio: ['pipe', 'ignore', 'pipe'],
       });
+      const stdin = child.stdin as Writable;
+      const stderrStream = child.stderr as Readable;
+      const childEvents = child as unknown as NodeJS.EventEmitter;
       const input = fs.createReadStream(filePath);
       let stderr = '';
       let settled = false;
@@ -464,29 +473,29 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
         }
         settled = true;
         input.destroy();
-        child.stdin.destroy();
+        stdin.destroy();
         reject(error);
       };
 
-      child.stderr.on('data', (chunk) => {
+      stderrStream.on('data', (chunk) => {
         stderr += String(chunk);
       });
-      child.on('error', (error) => {
+      childEvents.on('error', (error: Error) => {
         fail(error);
       });
       input.on('error', (error) => {
         fail(error);
       });
-      child.stdin.on('error', (error) => {
+      stdin.on('error', (error) => {
         fail(error);
       });
       input.on('data', (chunk) => {
-        child.stdin.write(chunk);
+        stdin.write(chunk);
       });
       input.on('end', () => {
-        child.stdin.end();
+        stdin.end();
       });
-      child.on('close', (code) => {
+      childEvents.on('close', (code: number | null) => {
         if (settled) {
           return;
         }
@@ -677,4 +686,25 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
       error: job.error,
     };
   }
+}
+
+function parseBackupIdTimestamp(backupId: string): string | null {
+  const match = /^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})-(\d{3})__/.exec(backupId);
+  if (!match) {
+    return null;
+  }
+  const [, year, month, day, hour, minute, second, millisecond] = match;
+  const timestamp = new Date(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second),
+    Number(millisecond),
+  );
+  if (!Number.isFinite(timestamp.getTime())) {
+    return null;
+  }
+  return timestamp.toISOString();
 }

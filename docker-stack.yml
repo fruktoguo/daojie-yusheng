@@ -53,6 +53,8 @@ services:
         published: 11922
         protocol: tcp
         mode: ingress
+    volumes:
+      - server_backup_data:/app/packages/server/data/backups/database
     networks:
       - daojie_net
     stop_grace_period: 30s
@@ -117,6 +119,7 @@ services:
 volumes:
   pgdata:
   redisdata:
+  server_backup_data:
 
 networks:
   daojie_net:
