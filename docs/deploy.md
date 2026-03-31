@@ -87,10 +87,6 @@ docker swarm init
 - `PROD_DB_PASSWORD`: 生产数据库密码
 - `PROD_DB_DATABASE`: 生产数据库名
 - `PROD_JWT_SECRET`: 生产 JWT 密钥
-- `PROD_AFDIAN_USER_ID`: 爱发电开发者 user_id
-- `PROD_AFDIAN_TOKEN`: 爱发电开发者 token
-- `PROD_AFDIAN_API_BASE_URL`: 爱发电 API 地址，默认可填 `https://afdian.net`
-- `PROD_AFDIAN_PUBLIC_BASE_URL`: 对外站点地址，例如 `https://daojie.yuohira.com`
 
 说明：
 

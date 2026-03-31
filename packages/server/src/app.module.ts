@@ -4,7 +4,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
-import { AfdianModule } from './afdian/afdian.module';
 import { GameModule } from './game/game.module';
 import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health.controller';
@@ -15,7 +14,6 @@ import { HealthController } from './health.controller';
     ConfigModule.forRoot({ isGlobal: true }),
     DatabaseModule,
     AuthModule,
-    AfdianModule,
     GameModule,
   ],
   controllers: [HealthController],

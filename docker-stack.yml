@@ -48,10 +48,6 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_URL: redis://redis:6379
-      AFDIAN_USER_ID: ${AFDIAN_USER_ID:-}
-      AFDIAN_TOKEN: ${AFDIAN_TOKEN:-}
-      AFDIAN_API_BASE_URL: ${AFDIAN_API_BASE_URL:-https://afdian.net}
-      AFDIAN_PUBLIC_BASE_URL: ${AFDIAN_PUBLIC_BASE_URL:-}
     ports:
       - target: 3000
         published: 11922
