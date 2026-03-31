@@ -174,12 +174,12 @@ export class GmController {
   }
 
   @Post('database/restore')
-  restoreDatabase(@Body() body: GmRestoreDatabaseReq): GmTriggerDatabaseBackupRes {
+  async restoreDatabase(@Body() body: GmRestoreDatabaseReq): Promise<GmTriggerDatabaseBackupRes> {
     if (!body?.backupId) {
       throw new BadRequestException('缺少备份 ID');
     }
     try {
-      return this.databaseBackupService.triggerRestore(body.backupId);
+      return await this.databaseBackupService.triggerRestore(body.backupId);
     } catch (error) {
       throw new BadRequestException(error instanceof Error ? error.message : String(error));
     }

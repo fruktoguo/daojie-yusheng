@@ -35,6 +35,12 @@ export interface BackupManualRequestFile {
   requestedAt: string;
 }
 
+export interface BackupRestoreRequestFile {
+  job: GmDatabaseJobSnapshot;
+  sourceBackupId: string;
+  requestedAt: string;
+}
+
 export const BACKUP_ROOT_DIR = resolveServerDataPath('backups', 'database');
 export const BACKUP_DIRECTORIES: Record<GmDatabaseBackupKind, string> = {
   hourly: path.join(BACKUP_ROOT_DIR, 'hourly'),
@@ -45,6 +51,7 @@ export const BACKUP_DIRECTORIES: Record<GmDatabaseBackupKind, string> = {
 export const BACKUP_META_DIR = path.join(BACKUP_ROOT_DIR, '_meta');
 export const BACKUP_REQUESTS_DIR = path.join(BACKUP_ROOT_DIR, '_requests');
 export const BACKUP_MANUAL_REQUESTS_DIR = path.join(BACKUP_REQUESTS_DIR, 'manual');
+export const BACKUP_RESTORE_REQUESTS_DIR = path.join(BACKUP_REQUESTS_DIR, 'restore');
 export const BACKUP_WORKER_STATE_PATH = path.join(BACKUP_META_DIR, 'worker-state.json');
 export const BACKUP_WORKER_HEARTBEAT_PATH = path.join(BACKUP_META_DIR, 'worker-heartbeat.json');
 
@@ -55,6 +62,7 @@ export function ensureBackupWorkspace(): void {
   }
   fs.mkdirSync(BACKUP_META_DIR, { recursive: true });
   fs.mkdirSync(BACKUP_MANUAL_REQUESTS_DIR, { recursive: true });
+  fs.mkdirSync(BACKUP_RESTORE_REQUESTS_DIR, { recursive: true });
 }
 
 export function planBackup(kind: GmDatabaseBackupKind, now = Date.now()): ResolvedBackupRecord {
@@ -80,6 +88,12 @@ export function listBackups(): GmDatabaseBackupRecord[] {
     .flatMap((kind) => listBackupsForKind(kind))
     .sort((left, right) => right.id.localeCompare(left.id, 'zh-CN'))
     .map(({ filePath: _filePath, ...record }) => record);
+}
+
+export function findBackupById(backupId: string): ResolvedBackupRecord | null {
+  return (Object.keys(BACKUP_DIRECTORIES) as GmDatabaseBackupKind[])
+    .flatMap((kind) => listBackupsForKind(kind))
+    .find((entry) => entry.id === backupId) ?? null;
 }
 
 export function listBackupsForKind(kind: GmDatabaseBackupKind): ResolvedBackupRecord[] {
@@ -136,17 +150,19 @@ export function writeBackupManualRequest(request: BackupManualRequestFile): stri
 
 export function listBackupManualRequests(): Array<{ filePath: string; request: BackupManualRequestFile }> {
   ensureBackupWorkspace();
-  return fs.readdirSync(BACKUP_MANUAL_REQUESTS_DIR)
-    .filter((fileName) => fileName.endsWith('.json'))
-    .sort((left, right) => left.localeCompare(right, 'zh-CN'))
-    .map((fileName) => {
-      const filePath = path.join(BACKUP_MANUAL_REQUESTS_DIR, fileName);
-      return {
-        filePath,
-        request: readJsonFile<BackupManualRequestFile>(filePath),
-      };
-    })
-    .filter((entry): entry is { filePath: string; request: BackupManualRequestFile } => entry.request !== null);
+  return listJsonRequests<BackupManualRequestFile>(BACKUP_MANUAL_REQUESTS_DIR);
+}
+
+export function writeBackupRestoreRequest(request: BackupRestoreRequestFile): string {
+  ensureBackupWorkspace();
+  const requestPath = path.join(BACKUP_RESTORE_REQUESTS_DIR, `${request.job.id}.json`);
+  writeJsonFileAtomic(requestPath, request);
+  return requestPath;
+}
+
+export function listBackupRestoreRequests(): Array<{ filePath: string; request: BackupRestoreRequestFile }> {
+  ensureBackupWorkspace();
+  return listJsonRequests<BackupRestoreRequestFile>(BACKUP_RESTORE_REQUESTS_DIR);
 }
 
 export function parseBackupIdTimestamp(backupId: string): string | null {
@@ -212,4 +228,21 @@ function readJsonFile<T>(filePath: string): T | null {
   } catch {
     return null;
   }
+}
+
+function listJsonRequests<T>(directory: string): Array<{ filePath: string; request: T }> {
+  if (!fs.existsSync(directory)) {
+    return [];
+  }
+  return fs.readdirSync(directory)
+    .filter((fileName) => fileName.endsWith('.json'))
+    .sort((left, right) => left.localeCompare(right, 'zh-CN'))
+    .map((fileName) => {
+      const filePath = path.join(directory, fileName);
+      return {
+        filePath,
+        request: readJsonFile<T>(filePath),
+      };
+    })
+    .filter((entry): entry is { filePath: string; request: T } => entry.request !== null);
 }

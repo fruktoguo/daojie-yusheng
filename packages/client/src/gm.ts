@@ -1681,7 +1681,7 @@ function renderDatabasePanel(): void {
       自动策略：${escapeHtml(databaseState?.schedules.hourly ?? '每小时整点低优先级备份')}；${escapeHtml(databaseState?.schedules.daily ?? '每天 04:05 低优先级备份')}。<br />
       保留策略：整点备份最多 ${databaseState?.retention.hourly ?? 72} 份，每日备份最多 ${databaseState?.retention.daily ?? 14} 份。手动导出和导入前备份当前不自动删。<br />
       导入历史备份前，服务端会先生成一份“导入前备份”，随后暂停 tick、断开玩家连接、覆盖数据库并重建运行时。<br />
-      ${escapeHtml(databaseState?.note ?? '正式数据库备份由独立 backup worker 执行，游戏服只负责发起请求与展示状态。')}
+      ${escapeHtml(databaseState?.note ?? '正式数据库备份与恢复由独立 backup worker 执行，游戏服只负责发起请求、维护窗口与展示状态。')}
     </div>
     <div class="network-breakdown">
       <div class="network-breakdown-head">

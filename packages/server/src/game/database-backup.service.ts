@@ -1,5 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import {
   GmDatabaseBackupKind,
   GmDatabaseBackupRecord,
@@ -7,30 +6,24 @@ import {
   GmDatabaseStateRes,
   GmTriggerDatabaseBackupRes,
 } from '@mud/shared';
-import { spawn, spawnSync } from 'node:child_process';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import type { Readable, Writable } from 'node:stream';
 import { RedisService } from '../database/redis.service';
 import { BotService } from './bot.service';
 import {
-  BACKUP_DIRECTORIES,
-  BACKUP_EXCLUDED_TABLES,
   BACKUP_WORKER_HEARTBEAT_TTL_MS,
   DAILY_BACKUP_HOUR,
   DAILY_BACKUP_MINUTE,
   DAILY_BACKUP_RETENTION,
   ensureBackupWorkspace,
-  createBackupRecord,
   createTimestampId,
+  findBackupById,
   HOURLY_BACKUP_RETENTION,
+  listBackupRestoreRequests,
   listBackups,
-  listBackupsForKind,
-  planBackup,
   readBackupWorkerHeartbeat,
   readBackupWorkerState,
   type ResolvedBackupRecord,
   writeBackupManualRequest,
+  writeBackupRestoreRequest,
 } from './database-backup-shared';
 import { GmService } from './gm.service';
 import { LootService } from './loot.service';
@@ -40,14 +33,6 @@ import { NavigationService } from './navigation.service';
 import { PlayerService } from './player.service';
 import { TickService } from './tick.service';
 import { WorldService } from './world.service';
-
-interface DatabaseConnectionConfig {
-  host?: string;
-  port?: number;
-  username: string;
-  password?: string;
-  database: string;
-}
 
 interface InternalJobState {
   id: string;
@@ -61,21 +46,18 @@ interface InternalJobState {
   error?: string;
 }
 
-interface ProcessSpec {
-  command: string;
-  args: string[];
-  env: NodeJS.ProcessEnv;
-}
-
 @Injectable()
-export class DatabaseBackupService implements OnModuleInit {
+export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DatabaseBackupService.name);
+  private readonly restoreMonitorIntervalMs = 1_000;
   private currentJob: InternalJobState | null = null;
   private lastJob: InternalJobState | null = null;
   private runtimeMaintenance = false;
+  private restoreMonitorTimer: ReturnType<typeof setInterval> | null = null;
+  private restoreMonitorPolling = false;
+  private pendingRestoreJobId: string | null = null;
 
   constructor(
-    private readonly configService: ConfigService,
     private readonly tickService: TickService,
     private readonly playerService: PlayerService,
     private readonly mapService: MapService,
@@ -90,6 +72,11 @@ export class DatabaseBackupService implements OnModuleInit {
 
   onModuleInit(): void {
     ensureBackupWorkspace();
+    this.resumeRestoreMonitorIfNeeded();
+  }
+
+  onModuleDestroy(): void {
+    this.stopRestoreMonitor();
   }
 
   isRuntimeMaintenanceActive(): boolean {
@@ -102,7 +89,7 @@ export class DatabaseBackupService implements OnModuleInit {
       backups: await this.listBackups(),
       runningJob: this.toJobSnapshot(this.currentJob) ?? workerState.runningJob,
       lastJob: this.resolveLatestJobSnapshot(this.toJobSnapshot(this.lastJob), workerState.lastJob),
-      note: '正式数据库备份由独立 backup worker 执行，游戏服只负责发起请求、展示状态与下载产物。',
+      note: '正式数据库备份与恢复由独立 backup worker 执行，游戏服只负责发起请求、维护窗口、展示状态与下载产物。',
       retention: {
         hourly: HOURLY_BACKUP_RETENTION,
         daily: DAILY_BACKUP_RETENTION,
@@ -120,7 +107,7 @@ export class DatabaseBackupService implements OnModuleInit {
     }
     const workerState = readBackupWorkerState();
     if (workerState.runningJob?.status === 'running') {
-      throw new Error('当前已有数据库备份任务执行中，请稍后再试');
+      throw new Error('当前已有数据库任务执行中，请稍后再试');
     }
     this.assertBackupWorkerAvailable();
     const now = Date.now();
@@ -140,15 +127,34 @@ export class DatabaseBackupService implements OnModuleInit {
     return { job };
   }
 
-  triggerRestore(backupId: string): GmTriggerDatabaseBackupRes {
+  async triggerRestore(backupId: string): Promise<GmTriggerDatabaseBackupRes> {
     const source = this.getBackupByIdOrThrow(backupId);
+    const workerState = readBackupWorkerState();
+    if (workerState.runningJob?.status === 'running') {
+      throw new Error('当前已有数据库任务执行中，请稍后再试');
+    }
+    this.assertBackupWorkerAvailable();
     const job = this.startJob({
       type: 'restore',
       sourceBackupId: source.id,
     });
     this.runtimeMaintenance = true;
-    void this.runRestoreJob(job, source);
-    return { job: this.toJobSnapshot(job)! };
+    try {
+      await this.prepareRuntimeForRestore();
+      writeBackupRestoreRequest({
+        job: this.toJobSnapshot(job)!,
+        sourceBackupId: source.id,
+        requestedAt: new Date().toISOString(),
+      });
+      this.startRestoreMonitor(job.id);
+      return { job: this.toJobSnapshot(job)! };
+    } catch (error) {
+      this.logger.error(`数据库导入准备失败: ${error instanceof Error ? error.message : String(error)}`);
+      this.runtimeMaintenance = false;
+      this.tickService.resumeRuntimeAfterMaintenance();
+      this.failJob(job, error);
+      throw error;
+    }
   }
 
   async listBackups(): Promise<GmDatabaseBackupRecord[]> {
@@ -159,52 +165,18 @@ export class DatabaseBackupService implements OnModuleInit {
     return this.getBackupByIdOrThrow(backupId);
   }
 
-  private async runRestoreJob(job: InternalJobState, source: ResolvedBackupRecord): Promise<void> {
-    try {
-      await this.prepareRuntimeForRestore();
-      const preImportBackup = planBackup('pre_import');
-      await this.createBackupFile(preImportBackup.kind, preImportBackup.filePath);
-      await this.restoreBackupFile(source.filePath);
-      job.status = 'completed';
-    } catch (error) {
-      job.status = 'failed';
-      job.error = error instanceof Error ? error.message : String(error);
-      this.logger.error(`数据库导入失败: ${job.error}`);
-    } finally {
-      try {
-        await this.reloadRuntimeFromDatabase();
-      } catch (reloadError) {
-        const message = reloadError instanceof Error ? reloadError.message : String(reloadError);
-        job.status = 'failed';
-        job.error = job.error ? `${job.error}；运行时重建失败: ${message}` : `运行时重建失败: ${message}`;
-        this.logger.error(job.error);
-      } finally {
-        this.tickService.resumeRuntimeAfterMaintenance();
-        this.runtimeMaintenance = false;
-        this.finishJob(job);
-      }
-    }
-  }
-
-  private async runJob(job: InternalJobState, work: () => Promise<void>): Promise<void> {
-    try {
-      await work();
-      job.status = 'completed';
-    } catch (error) {
-      job.status = 'failed';
-      job.error = error instanceof Error ? error.message : String(error);
-      this.logger.error(`数据库任务失败: ${job.error}`);
-    } finally {
-      this.finishJob(job);
-    }
-  }
-
   private finishJob(job: InternalJobState): void {
     job.finishedAt = Date.now();
     this.lastJob = { ...job };
     if (this.currentJob?.id === job.id) {
       this.currentJob = null;
     }
+  }
+
+  private failJob(job: InternalJobState, error: unknown): void {
+    job.status = 'failed';
+    job.error = error instanceof Error ? error.message : String(error);
+    this.finishJob(job);
   }
 
   private startJob(input: Pick<InternalJobState, 'type' | 'kind' | 'backupId' | 'sourceBackupId'>): InternalJobState {
@@ -252,18 +224,6 @@ export class DatabaseBackupService implements OnModuleInit {
     );
   }
 
-  private async createBackupFile(kind: GmDatabaseBackupKind, filePath: string): Promise<void> {
-    ensureBackupWorkspace();
-    await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
-    await this.flushRuntimePersistence();
-    await this.runDumpProcess(filePath);
-    if (kind === 'hourly') {
-      await this.pruneBackups(kind, HOURLY_BACKUP_RETENTION);
-    } else if (kind === 'daily') {
-      await this.pruneBackups(kind, DAILY_BACKUP_RETENTION);
-    }
-  }
-
   private async flushRuntimePersistence(): Promise<void> {
     await Promise.all([
       this.playerService.persistAll(),
@@ -273,288 +233,12 @@ export class DatabaseBackupService implements OnModuleInit {
     ]);
   }
 
-  private async restoreBackupFile(filePath: string): Promise<void> {
-    if (!fs.existsSync(filePath)) {
-      throw new Error('目标备份文件不存在');
-    }
-    await this.runRestoreProcess(filePath);
-  }
-
   private getBackupByIdOrThrow(backupId: string): ResolvedBackupRecord {
-    const backup = (Object.keys(BACKUP_DIRECTORIES) as GmDatabaseBackupKind[])
-      .flatMap((kind) => listBackupsForKind(kind))
-      .find((entry) => entry.id === backupId);
+    const backup = findBackupById(backupId);
     if (!backup) {
       throw new Error('目标备份不存在');
     }
     return backup;
-  }
-
-  private async pruneBackups(kind: 'hourly' | 'daily', keep: number): Promise<void> {
-    const backups = listBackupsForKind(kind);
-    const stale = backups.slice(keep);
-    await Promise.all(stale.map(async (backup) => {
-      await fs.promises.rm(backup.filePath, { force: true });
-    }));
-  }
-
-  private async runDumpProcess(filePath: string): Promise<void> {
-    const spec = this.resolveDumpProcessSpec();
-    await new Promise<void>((resolve, reject) => {
-      const child = spawn(spec.command, spec.args, {
-        env: spec.env,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
-      const stdout = child.stdout as Readable;
-      const stderrStream = child.stderr as Readable;
-      const childEvents = child as unknown as NodeJS.EventEmitter;
-      const output = fs.createWriteStream(filePath);
-      let stderr = '';
-      let settled = false;
-
-      const fail = (error: Error): void => {
-        if (settled) {
-          return;
-        }
-        settled = true;
-        output.destroy();
-        void fs.promises.rm(filePath, { force: true }).catch(() => {});
-        reject(error);
-      };
-
-      stdout.on('data', (chunk) => {
-        output.write(chunk);
-      });
-      stdout.on('end', () => {
-        output.end();
-      });
-      stderrStream.on('data', (chunk) => {
-        stderr += String(chunk);
-      });
-      childEvents.on('error', (error: Error) => {
-        fail(error);
-      });
-      output.on('error', (error) => {
-        fail(error);
-      });
-      childEvents.on('close', (code: number | null) => {
-        output.end();
-        if (settled) {
-          return;
-        }
-        if (code === 0) {
-          settled = true;
-          resolve();
-          return;
-        }
-        fail(new Error(stderr.trim() || `pg_dump 退出码 ${code ?? 'unknown'}`));
-      });
-    });
-  }
-
-  private async runRestoreProcess(filePath: string): Promise<void> {
-    const spec = this.resolveRestoreProcessSpec();
-    await new Promise<void>((resolve, reject) => {
-      const child = spawn(spec.command, spec.args, {
-        env: spec.env,
-        stdio: ['pipe', 'ignore', 'pipe'],
-      });
-      const stdin = child.stdin as Writable;
-      const stderrStream = child.stderr as Readable;
-      const childEvents = child as unknown as NodeJS.EventEmitter;
-      const input = fs.createReadStream(filePath);
-      let stderr = '';
-      let settled = false;
-
-      const fail = (error: Error): void => {
-        if (settled) {
-          return;
-        }
-        settled = true;
-        input.destroy();
-        stdin.destroy();
-        reject(error);
-      };
-
-      stderrStream.on('data', (chunk) => {
-        stderr += String(chunk);
-      });
-      childEvents.on('error', (error: Error) => {
-        fail(error);
-      });
-      input.on('error', (error) => {
-        fail(error);
-      });
-      stdin.on('error', (error) => {
-        fail(error);
-      });
-      input.on('data', (chunk) => {
-        stdin.write(chunk);
-      });
-      input.on('end', () => {
-        stdin.end();
-      });
-      childEvents.on('close', (code: number | null) => {
-        if (settled) {
-          return;
-        }
-        if (code === 0) {
-          settled = true;
-          resolve();
-          return;
-        }
-        fail(new Error(stderr.trim() || `pg_restore 退出码 ${code ?? 'unknown'}`));
-      });
-    });
-  }
-
-  private resolveDumpProcessSpec(): ProcessSpec {
-    const connection = this.getDatabaseConnectionConfig();
-    const dumpArgs = [
-      'pg_dump',
-      '--format=custom',
-      '--compress=0',
-      '--no-owner',
-      '--no-privileges',
-      ...BACKUP_EXCLUDED_TABLES.flatMap((tableName) => ['--exclude-table', tableName]),
-      '--username',
-      connection.username,
-      '--dbname',
-      connection.database,
-    ];
-    if (this.commandExists('pg_dump')) {
-      if (connection.host) {
-        dumpArgs.push('--host', connection.host);
-      }
-      if (connection.port) {
-        dumpArgs.push('--port', String(connection.port));
-      }
-      return this.wrapWithNice(dumpArgs[0]!, dumpArgs.slice(1), connection.password);
-    }
-
-    const containerName = this.resolveDockerPostgresContainer();
-    if (!containerName) {
-      throw new Error('当前环境未找到可用的 pg_dump。若服务运行在容器内，请确认服务端镜像已安装 postgresql-client，或提供可访问的 PostgreSQL Docker 容器');
-    }
-    const dockerArgs = [
-      'exec',
-      '-i',
-      ...(connection.password ? ['-e', `PGPASSWORD=${connection.password}`] : []),
-      containerName,
-      ...dumpArgs,
-    ];
-    return this.wrapWithNice('docker', dockerArgs, undefined);
-  }
-
-  private resolveRestoreProcessSpec(): ProcessSpec {
-    const connection = this.getDatabaseConnectionConfig();
-    const restoreArgs = [
-      'pg_restore',
-      '--clean',
-      '--if-exists',
-      '--no-owner',
-      '--no-privileges',
-      '--single-transaction',
-      '--exit-on-error',
-      '--username',
-      connection.username,
-      '--dbname',
-      connection.database,
-    ];
-    if (this.commandExists('pg_restore')) {
-      if (connection.host) {
-        restoreArgs.push('--host', connection.host);
-      }
-      if (connection.port) {
-        restoreArgs.push('--port', String(connection.port));
-      }
-      return this.wrapWithNice(restoreArgs[0]!, restoreArgs.slice(1), connection.password);
-    }
-
-    const containerName = this.resolveDockerPostgresContainer();
-    if (!containerName) {
-      throw new Error('当前环境未找到可用的 pg_restore。若服务运行在容器内，请确认服务端镜像已安装 postgresql-client，或提供可访问的 PostgreSQL Docker 容器');
-    }
-    const dockerArgs = [
-      'exec',
-      '-i',
-      ...(connection.password ? ['-e', `PGPASSWORD=${connection.password}`] : []),
-      containerName,
-      ...restoreArgs,
-    ];
-    return this.wrapWithNice('docker', dockerArgs, undefined);
-  }
-
-  private wrapWithNice(command: string, args: string[], password?: string): ProcessSpec {
-    const env = {
-      ...process.env,
-      ...(password ? { PGPASSWORD: password } : {}),
-    };
-    if (!this.commandExists('nice')) {
-      return { command, args, env };
-    }
-    return {
-      command: 'nice',
-      args: ['-n', '19', command, ...args],
-      env,
-    };
-  }
-
-  private resolveDockerPostgresContainer(): string | null {
-    if (!this.commandExists('docker')) {
-      return null;
-    }
-    const result = spawnSync('docker', ['ps', '--format', '{{.Names}}\t{{.Image}}'], {
-      stdio: ['ignore', 'pipe', 'ignore'],
-      encoding: 'utf-8',
-    });
-    if (result.status !== 0) {
-      return null;
-    }
-    const preferred = ['mud-local-postgres', 'postgres'];
-    const lines = result.stdout
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0)
-      .map((line) => {
-        const [name, image] = line.split('\t');
-        return { name: name ?? '', image: image ?? '' };
-      })
-      .filter((entry) => entry.image.startsWith('postgres'));
-    for (const name of preferred) {
-      if (lines.some((entry) => entry.name === name)) {
-        return name;
-      }
-    }
-    return lines[0]?.name ?? null;
-  }
-
-  private getDatabaseConnectionConfig(): DatabaseConnectionConfig {
-    const url = this.configService.get<string>('DATABASE_URL');
-    if (url) {
-      const parsed = new URL(url);
-      return {
-        host: parsed.hostname || undefined,
-        port: parsed.port ? Number(parsed.port) : 5432,
-        username: decodeURIComponent(parsed.username || 'postgres'),
-        password: parsed.password ? decodeURIComponent(parsed.password) : undefined,
-        database: decodeURIComponent(parsed.pathname.replace(/^\/+/u, '') || 'postgres'),
-      };
-    }
-    return {
-      host: this.configService.get<string>('DB_HOST', 'localhost'),
-      port: Number(this.configService.get<number>('DB_PORT', 5432)),
-      username: this.configService.get<string>('DB_USERNAME', 'postgres'),
-      password: this.configService.get<string>('DB_PASSWORD', 'postgres'),
-      database: this.configService.get<string>('DB_DATABASE', 'daojie_yusheng'),
-    };
-  }
-
-  private commandExists(command: string): boolean {
-    const result = spawnSync('sh', ['-lc', `command -v ${command}`], {
-      stdio: 'ignore',
-    });
-    return result.status === 0;
   }
 
   private toJobSnapshot(job: InternalJobState | null): GmDatabaseJobSnapshot | null {
@@ -577,12 +261,114 @@ export class DatabaseBackupService implements OnModuleInit {
   private assertBackupWorkerAvailable(): void {
     const heartbeat = readBackupWorkerHeartbeat();
     if (!heartbeat) {
-      throw new Error('当前未检测到数据库备份 worker，请先启动独立备份服务后再执行导出');
+      throw new Error('当前未检测到独立数据库 worker，请先启动 backup worker 后再执行数据库任务');
     }
     const heartbeatTime = new Date(heartbeat.updatedAt).getTime();
     if (!Number.isFinite(heartbeatTime) || Date.now() - heartbeatTime > BACKUP_WORKER_HEARTBEAT_TTL_MS) {
-      throw new Error('数据库备份 worker 心跳已过期，请先检查独立备份服务是否仍在运行');
+      throw new Error('独立数据库 worker 心跳已过期，请先检查 backup worker 是否仍在运行');
     }
+  }
+
+  private resumeRestoreMonitorIfNeeded(): void {
+    const pendingRestoreRequest = listBackupRestoreRequests()
+      .map((entry) => entry.request.job)
+      .find((job) => job.type === 'restore');
+    const workerState = readBackupWorkerState();
+    const runningRestoreJob = workerState.runningJob?.type === 'restore' && workerState.runningJob.status === 'running'
+      ? workerState.runningJob
+      : null;
+    const activeRestoreJob = pendingRestoreRequest ?? runningRestoreJob;
+    if (!activeRestoreJob) {
+      return;
+    }
+    this.runtimeMaintenance = true;
+    this.tickService.suspendRuntimeForMaintenance();
+    this.currentJob = this.fromJobSnapshot(activeRestoreJob);
+    this.startRestoreMonitor(activeRestoreJob.id);
+    this.logger.warn(`检测到未完成数据库导入 ${activeRestoreJob.sourceBackupId ?? activeRestoreJob.id}，继续等待独立 worker 完成`);
+  }
+
+  private startRestoreMonitor(jobId: string): void {
+    this.pendingRestoreJobId = jobId;
+    if (this.restoreMonitorTimer) {
+      clearInterval(this.restoreMonitorTimer);
+    }
+    this.restoreMonitorTimer = setInterval(() => {
+      void this.pollRestoreProgress();
+    }, this.restoreMonitorIntervalMs);
+    void this.pollRestoreProgress();
+  }
+
+  private stopRestoreMonitor(): void {
+    if (this.restoreMonitorTimer) {
+      clearInterval(this.restoreMonitorTimer);
+      this.restoreMonitorTimer = null;
+    }
+    this.pendingRestoreJobId = null;
+  }
+
+  private async pollRestoreProgress(): Promise<void> {
+    if (this.restoreMonitorPolling || !this.pendingRestoreJobId) {
+      return;
+    }
+    this.restoreMonitorPolling = true;
+    try {
+      const expectedJobId = this.pendingRestoreJobId;
+      const workerState = readBackupWorkerState();
+      const runningJob = workerState.runningJob;
+      if (runningJob?.type === 'restore' && runningJob.id === expectedJobId) {
+        this.syncCurrentJob(runningJob);
+        return;
+      }
+      const lastJob = workerState.lastJob;
+      if (lastJob?.type === 'restore' && lastJob.id === expectedJobId && lastJob.status !== 'running') {
+        await this.finalizeRestoreJob(lastJob);
+      }
+    } finally {
+      this.restoreMonitorPolling = false;
+    }
+  }
+
+  private async finalizeRestoreJob(snapshot: GmDatabaseJobSnapshot): Promise<void> {
+    const job = this.currentJob?.id === snapshot.id ? this.currentJob : this.fromJobSnapshot(snapshot);
+    this.syncCurrentJob(snapshot, job);
+    this.stopRestoreMonitor();
+    try {
+      await this.reloadRuntimeFromDatabase();
+    } catch (reloadError) {
+      const message = reloadError instanceof Error ? reloadError.message : String(reloadError);
+      job.status = 'failed';
+      job.error = job.error ? `${job.error}；运行时重建失败: ${message}` : `运行时重建失败: ${message}`;
+      this.logger.error(job.error);
+    } finally {
+      this.tickService.resumeRuntimeAfterMaintenance();
+      this.runtimeMaintenance = false;
+      this.finishJob(job);
+    }
+  }
+
+  private fromJobSnapshot(snapshot: GmDatabaseJobSnapshot): InternalJobState {
+    return {
+      id: snapshot.id,
+      type: snapshot.type,
+      status: snapshot.status,
+      startedAt: new Date(snapshot.startedAt).getTime(),
+      finishedAt: snapshot.finishedAt ? new Date(snapshot.finishedAt).getTime() : undefined,
+      kind: snapshot.kind,
+      backupId: snapshot.backupId,
+      sourceBackupId: snapshot.sourceBackupId,
+      error: snapshot.error,
+    };
+  }
+
+  private syncCurrentJob(snapshot: GmDatabaseJobSnapshot, target = this.currentJob ?? this.fromJobSnapshot(snapshot)): void {
+    target.status = snapshot.status;
+    target.kind = snapshot.kind;
+    target.backupId = snapshot.backupId;
+    target.sourceBackupId = snapshot.sourceBackupId;
+    target.error = snapshot.error;
+    target.finishedAt = snapshot.finishedAt ? new Date(snapshot.finishedAt).getTime() : undefined;
+    this.currentJob = target;
   }
 
   private resolveLatestJobSnapshot(

@@ -3,11 +3,11 @@ import { spawn, spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { Readable } from 'node:stream';
+import type { Readable, Writable } from 'node:stream';
 import {
-  BACKUP_DIRECTORIES,
   BACKUP_EXCLUDED_TABLES,
   type BackupManualRequestFile,
+  type BackupRestoreRequestFile,
   type BackupWorkerStateFile,
   createBackupRecord,
   createTimestampId,
@@ -15,9 +15,11 @@ import {
   DAILY_BACKUP_MINUTE,
   DAILY_BACKUP_RETENTION,
   ensureBackupWorkspace,
+  findBackupById,
   getBackupScheduleSlotId,
   HOURLY_BACKUP_RETENTION,
   listBackupManualRequests,
+  listBackupRestoreRequests,
   listBackupsForKind,
   planBackup,
   readBackupWorkerState,
@@ -49,8 +51,11 @@ async function main(): Promise<void> {
     try {
       writeHeartbeat();
       const state = readBackupWorkerState();
+      const restoreRequest = listBackupRestoreRequests()[0];
       const manualRequest = listBackupManualRequests()[0];
-      if (manualRequest) {
+      if (restoreRequest) {
+        await processRestoreRequest(restoreRequest.filePath, restoreRequest.request);
+      } else if (manualRequest) {
         await processManualRequest(manualRequest.filePath, manualRequest.request);
       } else if (shouldRunDailyBackup(state, Date.now())) {
         await runScheduledBackup('daily', state, Date.now());
@@ -73,7 +78,7 @@ function recoverInterruptedJob(): void {
     ...state.runningJob,
     status: 'failed',
     finishedAt: new Date().toISOString(),
-    error: '独立备份 worker 重启，上一任务已中断',
+    error: '独立数据库 worker 重启，上一任务已中断',
   };
   delete state.runningJob;
   writeBackupWorkerState(state);
@@ -129,6 +134,29 @@ async function processManualRequest(filePath: string, request: BackupManualReque
   }
 }
 
+async function processRestoreRequest(filePath: string, request: BackupRestoreRequestFile): Promise<void> {
+  const source = findBackupById(request.sourceBackupId);
+  if (!source) {
+    await markRestoreRequestFailed(request.job, `目标恢复备份不存在：${request.sourceBackupId}`);
+    await fs.promises.rm(filePath, { force: true });
+    return;
+  }
+
+  const requestedAt = new Date(request.requestedAt).getTime() || Date.now();
+  const preImportBackup = planBackup('pre_import', requestedAt);
+  const job = {
+    ...request.job,
+    backupId: preImportBackup.id,
+    sourceBackupId: request.sourceBackupId,
+  } satisfies GmDatabaseJobSnapshot;
+
+  try {
+    await runRestoreJob(job, source.filePath, preImportBackup);
+  } finally {
+    await fs.promises.rm(filePath, { force: true });
+  }
+}
+
 async function runBackupJob(
   job: GmDatabaseJobSnapshot,
   planned: ReturnType<typeof planBackup>,
@@ -139,6 +167,36 @@ async function runBackupJob(
 
   try {
     await createBackupFile(planned.kind, planned.filePath);
+    state.lastJob = {
+      ...job,
+      status: 'completed',
+      finishedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    state.lastJob = {
+      ...job,
+      status: 'failed',
+      finishedAt: new Date().toISOString(),
+      error: error instanceof Error ? error.message : String(error),
+    };
+  } finally {
+    delete state.runningJob;
+    writeBackupWorkerState(state);
+  }
+}
+
+async function runRestoreJob(
+  job: GmDatabaseJobSnapshot,
+  sourceFilePath: string,
+  preImportBackup: ReturnType<typeof planBackup>,
+): Promise<void> {
+  const state = readBackupWorkerState();
+  state.runningJob = job;
+  writeBackupWorkerState(state);
+
+  try {
+    await createBackupFile(preImportBackup.kind, preImportBackup.filePath);
+    await restoreBackupFile(sourceFilePath);
     state.lastJob = {
       ...job,
       status: 'completed',
@@ -185,6 +243,13 @@ async function pruneBackups(kind: 'hourly' | 'daily', keep: number): Promise<voi
   await Promise.all(stale.map(async (backup) => {
     await fs.promises.rm(backup.filePath, { force: true });
   }));
+}
+
+async function restoreBackupFile(filePath: string): Promise<void> {
+  if (!fs.existsSync(filePath)) {
+    throw new Error('目标备份文件不存在');
+  }
+  await runRestoreProcess(filePath);
 }
 
 async function runDumpProcess(filePath: string): Promise<void> {
@@ -240,6 +305,61 @@ async function runDumpProcess(filePath: string): Promise<void> {
   });
 }
 
+async function runRestoreProcess(filePath: string): Promise<void> {
+  const spec = resolveRestoreProcessSpec();
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(spec.command, spec.args, {
+      env: spec.env,
+      stdio: ['pipe', 'ignore', 'pipe'],
+    });
+    const stdin = child.stdin as Writable;
+    const stderrStream = child.stderr as Readable;
+    const input = fs.createReadStream(filePath);
+    let stderr = '';
+    let settled = false;
+
+    const fail = (error: Error): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      input.destroy();
+      stdin.destroy();
+      reject(error);
+    };
+
+    stderrStream.on('data', (chunk) => {
+      stderr += String(chunk);
+    });
+    child.on('error', (error) => {
+      fail(error);
+    });
+    input.on('error', (error) => {
+      fail(error);
+    });
+    stdin.on('error', (error) => {
+      fail(error);
+    });
+    input.on('data', (chunk) => {
+      stdin.write(chunk);
+    });
+    input.on('end', () => {
+      stdin.end();
+    });
+    child.on('close', (code) => {
+      if (settled) {
+        return;
+      }
+      if (code === 0) {
+        settled = true;
+        resolve();
+        return;
+      }
+      fail(new Error(stderr.trim() || `pg_restore 退出码 ${code ?? 'unknown'}`));
+    });
+  });
+}
+
 function resolveDumpProcessSpec(): ProcessSpec {
   const connection = getDatabaseConnectionConfig();
   const dumpArgs = [
@@ -264,6 +384,33 @@ function resolveDumpProcessSpec(): ProcessSpec {
     dumpArgs.push('--port', String(connection.port));
   }
   return wrapWithNice(dumpArgs[0]!, dumpArgs.slice(1), connection.password);
+}
+
+function resolveRestoreProcessSpec(): ProcessSpec {
+  const connection = getDatabaseConnectionConfig();
+  const restoreArgs = [
+    'pg_restore',
+    '--clean',
+    '--if-exists',
+    '--no-owner',
+    '--no-privileges',
+    '--single-transaction',
+    '--exit-on-error',
+    '--username',
+    connection.username,
+    '--dbname',
+    connection.database,
+  ];
+  if (!commandExists('pg_restore')) {
+    throw new Error('当前环境未找到可用的 pg_restore，请检查独立备份 worker 镜像是否已安装 postgresql-client');
+  }
+  if (connection.host) {
+    restoreArgs.push('--host', connection.host);
+  }
+  if (connection.port) {
+    restoreArgs.push('--port', String(connection.port));
+  }
+  return wrapWithNice(restoreArgs[0]!, restoreArgs.slice(1), connection.password);
 }
 
 function getDatabaseConnectionConfig(): DatabaseConnectionConfig {
@@ -313,6 +460,18 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+}
+
+async function markRestoreRequestFailed(job: GmDatabaseJobSnapshot, error: string): Promise<void> {
+  const state = readBackupWorkerState();
+  state.lastJob = {
+    ...job,
+    status: 'failed',
+    finishedAt: new Date().toISOString(),
+    error,
+  };
+  delete state.runningJob;
+  writeBackupWorkerState(state);
 }
 
 void main().catch((error) => {
