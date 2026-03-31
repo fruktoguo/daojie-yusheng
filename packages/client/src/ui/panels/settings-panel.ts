@@ -1,9 +1,13 @@
 /**
  * 设置面板
- * 提供显示名称、角色名称修改与密码修改功能
+ * 提供显示名称、角色名称修改、密码修改与兑换码功能
  */
 
-import { ROLE_NAME_MAX_ASCII_LENGTH, ROLE_NAME_MAX_LENGTH } from '@mud/shared';
+import {
+  AccountRedeemCodesRes,
+  ROLE_NAME_MAX_ASCII_LENGTH,
+  ROLE_NAME_MAX_LENGTH,
+} from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
 import { validateDisplayName, validatePassword, validateRoleName } from '../account-rules';
 import {
@@ -36,11 +40,12 @@ type SettingsPanelOptions = {
   getCurrentRoleName: () => string;
   onDisplayNameUpdated: (displayName: string) => void;
   onRoleNameUpdated: (roleName: string) => void;
+  redeemCodes: (codes: string[]) => Promise<AccountRedeemCodesRes>;
   onLogout: () => void;
 };
 
 export class SettingsPanel {
-  private activeTab: 'account' | 'ui' | 'performance' = 'account';
+  private activeTab: 'account' | 'redeem' | 'ui' | 'performance' = 'account';
   private currentAccountName = '';
   private currentDisplayName = '';
   private currentRoleName = '';
@@ -86,6 +91,12 @@ export class SettingsPanel {
               aria-selected="${this.activeTab === 'account' ? 'true' : 'false'}"
             >账号管理</button>
             <button
+              class="settings-modal-tab${this.activeTab === 'redeem' ? ' active' : ''}"
+              type="button"
+              data-settings-tab="redeem"
+              aria-selected="${this.activeTab === 'redeem' ? 'true' : 'false'}"
+            >兑换码</button>
+            <button
               class="settings-modal-tab${this.activeTab === 'ui' ? ' active' : ''}"
               type="button"
               data-settings-tab="ui"
@@ -100,6 +111,9 @@ export class SettingsPanel {
           </div>
           <div class="settings-modal-pane${this.activeTab === 'account' ? ' active' : ''}" data-settings-pane="account">
             ${this.renderAccountTab()}
+          </div>
+          <div class="settings-modal-pane${this.activeTab === 'redeem' ? ' active' : ''}" data-settings-pane="redeem">
+            ${this.renderRedeemTab()}
           </div>
           <div class="settings-modal-pane${this.activeTab === 'ui' ? ' active' : ''}" data-settings-pane="ui">
             ${this.renderUiTab()}
@@ -118,6 +132,7 @@ export class SettingsPanel {
   private bindModal(body: HTMLElement): void {
     this.bindTabs(body);
     this.bindAccountSettings(body);
+    this.bindRedeemSettings(body);
     this.bindUiSettings(body);
     this.bindPerformanceSettings(body);
   }
@@ -126,7 +141,7 @@ export class SettingsPanel {
     body.querySelectorAll<HTMLButtonElement>('[data-settings-tab]').forEach((button) => {
       button.addEventListener('click', () => {
         const nextTab = button.dataset.settingsTab;
-        if (nextTab !== 'account' && nextTab !== 'ui' && nextTab !== 'performance') {
+        if (nextTab !== 'account' && nextTab !== 'redeem' && nextTab !== 'ui' && nextTab !== 'performance') {
           return;
         }
         this.activeTab = nextTab;
@@ -247,6 +262,20 @@ export class SettingsPanel {
       this.syncUiGlobalFontOffsetRow(body, nextConfig.globalFontOffset);
       this.syncUiScaleRow(body, nextConfig.uiScale);
       setStatus(styleStatus, 'UI 样式已恢复默认', 'success');
+    });
+  }
+
+  private bindRedeemSettings(body: HTMLElement): void {
+    const textarea = body.querySelector<HTMLTextAreaElement>('#settings-redeem-codes');
+    const statusEl = body.querySelector<HTMLElement>('#settings-redeem-status');
+    const button = body.querySelector<HTMLButtonElement>('#settings-redeem-submit');
+    const resultEl = body.querySelector<HTMLElement>('#settings-redeem-results');
+    if (!textarea || !statusEl || !button || !resultEl) {
+      return;
+    }
+
+    button.addEventListener('click', () => {
+      void this.handleRedeemSubmit(textarea, statusEl, resultEl, button);
     });
   }
 
@@ -458,6 +487,29 @@ export class SettingsPanel {
     `;
   }
 
+  private renderRedeemTab(): string {
+    return `
+      <div class="panel-section account-settings-section">
+        <div class="panel-section-title">批量兑换</div>
+        <div class="settings-ui-copy">支持一次输入多个兑换码。可用换行、空格、中文逗号、英文逗号或分号分隔。兑换在服务端下一息统一执行。</div>
+        <div class="account-settings-field">
+          <label for="settings-redeem-codes">兑换码列表</label>
+          <textarea
+            id="settings-redeem-codes"
+            class="settings-redeem-textarea"
+            spellcheck="false"
+            placeholder="每行一个，或用空格 / 逗号分隔多个兑换码"
+          ></textarea>
+        </div>
+        <div class="account-settings-actions">
+          <button id="settings-redeem-submit" class="small-btn" type="button">立即兑换</button>
+        </div>
+        <div id="settings-redeem-status" class="account-settings-status"></div>
+        <div id="settings-redeem-results" class="settings-redeem-results"></div>
+      </div>
+    `;
+  }
+
   private renderPerformanceTab(): string {
     const config = getMapPerformanceConfig();
     return `
@@ -492,6 +544,53 @@ export class SettingsPanel {
         <div id="settings-performance-status" class="account-settings-status">当前配置已自动保存到本机</div>
       </div>
     `;
+  }
+
+  private async handleRedeemSubmit(
+    textarea: HTMLTextAreaElement,
+    statusEl: HTMLElement,
+    resultEl: HTMLElement,
+    button: HTMLButtonElement,
+  ): Promise<void> {
+    if (!this.options) {
+      return;
+    }
+    const codes = parseRedeemCodes(textarea.value);
+    if (codes.length === 0) {
+      setStatus(statusEl, '请至少填写一个兑换码', 'error');
+      resultEl.innerHTML = '';
+      return;
+    }
+
+    button.disabled = true;
+    setStatus(statusEl, '兑换请求已发送，等待本息结算...', '');
+    resultEl.innerHTML = '';
+    try {
+      const result = await this.options.redeemCodes(codes);
+      const successCount = result.results.filter((entry) => entry.ok).length;
+      const failedCount = result.results.length - successCount;
+      setStatus(
+        statusEl,
+        failedCount > 0 ? `兑换完成：成功 ${successCount}，失败 ${failedCount}` : `兑换完成：成功 ${successCount}`,
+        failedCount > 0 ? 'error' : 'success',
+      );
+      resultEl.innerHTML = result.results.map((entry) => `
+        <div class="settings-redeem-result${entry.ok ? ' success' : ' error'}">
+          <div class="settings-redeem-result-head">
+            <span>${escapeHtml(entry.code)}</span>
+            <span>${entry.ok ? '成功' : '失败'}</span>
+          </div>
+          <div class="settings-redeem-result-body">
+            ${escapeHtml(entry.groupName ? `${entry.groupName} · ${entry.message}` : entry.message)}
+          </div>
+        </div>
+      `).join('');
+    } catch (error) {
+      setStatus(statusEl, error instanceof Error ? error.message : '兑换失败', 'error');
+      resultEl.innerHTML = '';
+    } finally {
+      button.disabled = false;
+    }
   }
 
   private async scheduleDisplayNameCheck(
@@ -692,4 +791,12 @@ function escapeHtml(input: string): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function parseRedeemCodes(raw: string): string[] {
+  const entries = raw
+    .split(/[\s,，;；]+/u)
+    .map((entry) => entry.trim().toUpperCase())
+    .filter((entry) => entry.length > 0);
+  return [...new Set(entries)].slice(0, 50);
 }

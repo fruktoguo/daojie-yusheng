@@ -45,6 +45,9 @@ import { PlayerMailReceiptEntity } from '../database/entities/player-mail-receip
 import { MailService } from './mail.service';
 import { QiProjectionService } from './qi-projection.service';
 import { DatabaseBackupService } from './database-backup.service';
+import { RedeemCodeGroupEntity } from '../database/entities/redeem-code-group.entity';
+import { RedeemCodeEntity } from '../database/entities/redeem-code.entity';
+import { RedeemCodeService } from './redeem-code.service';
 
 @Module({
   imports: [
@@ -58,6 +61,8 @@ import { DatabaseBackupService } from './database-backup.service';
       MailCampaignEntity,
       MailAudienceMemberEntity,
       PlayerMailReceiptEntity,
+      RedeemCodeGroupEntity,
+      RedeemCodeEntity,
     ]),
   ],
   controllers: [GmController, AccountController],
@@ -89,11 +94,12 @@ import { DatabaseBackupService } from './database-backup.service';
     SuggestionRealtimeService,
     MarketService,
     MailService,
+    RedeemCodeService,
     PathRequestSchedulerService,
     PathWorkerPoolService,
     DatabaseBackupService,
   ],
-  exports: [MapService, PlayerService, SuggestionService, SuggestionRealtimeService, MailService],
+  exports: [MapService, PlayerService, SuggestionService, SuggestionRealtimeService, MailService, RedeemCodeService],
 })
 
 export class GameModule {}

@@ -2014,6 +2014,56 @@
       justify-content: flex-end;
       gap: 8px;
     }
+    .settings-redeem-textarea {
+      min-height: 140px;
+      resize: vertical;
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--input-border);
+      background: var(--surface-base);
+      color: var(--ink-black);
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: var(--font-size-role-body-13);
+      line-height: 1.55;
+      outline: none;
+    }
+    .settings-redeem-textarea:focus {
+      border-color: var(--input-border-strong);
+    }
+    .settings-redeem-results {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .settings-redeem-result {
+      padding: 10px 12px;
+      border: 1px solid var(--wash-ink);
+      background: linear-gradient(180deg, var(--surface-elevated), var(--surface-muted));
+    }
+    .settings-redeem-result.success {
+      border-color: rgba(54, 120, 52, 0.28);
+      background: linear-gradient(180deg, rgba(54, 120, 52, 0.08), var(--surface-muted));
+    }
+    .settings-redeem-result.error {
+      border-color: rgba(197, 60, 60, 0.28);
+      background: linear-gradient(180deg, rgba(197, 60, 60, 0.08), var(--surface-muted));
+    }
+    .settings-redeem-result-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-13);
+      color: var(--ink-black);
+    }
+    .settings-redeem-result-body {
+      margin-top: 4px;
+      font-size: var(--font-size-12);
+      color: var(--ink-grey);
+      line-height: 1.55;
+      word-break: break-word;
+    }
     @media (max-width: 720px) {
       .account-settings-name-grid {
         grid-template-columns: minmax(0, 1fr);

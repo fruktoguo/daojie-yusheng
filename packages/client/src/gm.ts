@@ -3,21 +3,22 @@
  */
 
 import {
-  type AfdianConfigStatus,
-  type AfdianOrderListResponse,
-  type AfdianStoredOrderItem,
-  type AfdianSyncOrdersResponse,
   type BasicOkRes,
   Direction,
   GM_MAIL_TEMPLATE_OPTIONS,
   type GmChangePasswordReq,
-  type GmAfdianConfigRes,
   GM_ACCESS_TOKEN_STORAGE_KEY,
   GM_APPLY_DELAY_MS,
   GM_PANEL_POLL_INTERVAL_MS,
+  type GmAppendRedeemCodesReq,
+  type GmAppendRedeemCodesRes,
+  type GmCreateRedeemCodeGroupReq,
+  type GmCreateRedeemCodeGroupRes,
   type GmDatabaseBackupRecord,
   type GmDatabaseStateRes,
   type GmCreateMailReq,
+  type GmRedeemCodeGroupDetailRes,
+  type GmRedeemCodeGroupListRes,
   type GmReplySuggestionReq,
   type GmSuggestionListRes,
   GM_PASSWORD_STORAGE_KEY,
@@ -46,9 +47,9 @@ import {
   type GmSpawnBotsReq,
   type GmStateRes,
   type GmTriggerDatabaseBackupRes,
-  type GmUpdateAfdianConfigReq,
   type GmUpdateManagedPlayerAccountReq,
   type GmUpdateManagedPlayerPasswordReq,
+  type GmUpdateRedeemCodeGroupReq,
   type GmUpdatePlayerReq,
   type ItemStack,
   type MailAttachment,
@@ -67,6 +68,9 @@ import {
   TECHNIQUE_REALM_LABELS,
   TechniqueRealm,
   type TemporaryBuffState,
+  type RedeemCodeCodeView,
+  type RedeemCodeGroupRewardItem,
+  type RedeemCodeGroupView,
 } from '@mud/shared';
 import {
   GM_FACING_OPTIONS,
@@ -80,10 +84,6 @@ import { GmWorldViewer } from './gm-world-viewer';
 import { startClientVersionReload } from './version-reload';
 
 const loginOverlay = document.getElementById('login-overlay') as HTMLDivElement;
-
-interface GmAfdianPingRequest {
-  token?: string;
-}
 const gmShell = document.getElementById('gm-shell') as HTMLDivElement;
 const loginForm = document.getElementById('gm-login-form') as HTMLFormElement;
 const passwordInput = document.getElementById('gm-password') as HTMLInputElement;
@@ -185,14 +185,14 @@ const gmPasswordCurrentInput = document.getElementById('gm-password-current') as
 const gmPasswordNextInput = document.getElementById('gm-password-next') as HTMLInputElement;
 const gmPasswordSaveBtn = document.getElementById('gm-password-save') as HTMLButtonElement;
 const playerWorkspaceEl = document.getElementById('player-workspace') as HTMLElement;
-const afdianWorkspaceEl = document.getElementById('afdian-workspace') as HTMLElement;
+const redeemWorkspaceEl = document.getElementById('redeem-workspace') as HTMLElement;
 const suggestionWorkspaceEl = document.getElementById('suggestion-workspace') as HTMLElement;
 const serverWorkspaceEl = document.getElementById('server-workspace') as HTMLElement;
 const worldWorkspaceEl = document.getElementById('world-workspace') as HTMLElement;
 const shortcutWorkspaceEl = document.getElementById('shortcut-workspace') as HTMLElement;
 const shortcutMailComposerEl = document.getElementById('shortcut-mail-composer') as HTMLDivElement | null;
 const serverTabBtn = document.getElementById('gm-tab-server') as HTMLButtonElement;
-const afdianTabBtn = document.getElementById('gm-tab-afdian') as HTMLButtonElement;
+const redeemTabBtn = document.getElementById('gm-tab-redeem') as HTMLButtonElement;
 const playerTabBtn = document.getElementById('gm-tab-players') as HTMLButtonElement;
 const suggestionTabBtn = document.getElementById('gm-tab-suggestions') as HTMLButtonElement;
 const worldTabBtn = document.getElementById('gm-tab-world') as HTMLButtonElement;
@@ -203,25 +203,10 @@ const suggestionSearchClearBtn = document.getElementById('gm-suggestion-search-c
 const suggestionPrevPageBtn = document.getElementById('gm-suggestion-page-prev') as HTMLButtonElement;
 const suggestionNextPageBtn = document.getElementById('gm-suggestion-page-next') as HTMLButtonElement;
 const suggestionPageMetaEl = document.getElementById('gm-suggestion-page-meta') as HTMLDivElement;
-const afdianRefreshBtn = document.getElementById('afdian-refresh') as HTMLButtonElement;
-const afdianSaveConfigBtn = document.getElementById('afdian-save-config') as HTMLButtonElement;
-const afdianPingBtn = document.getElementById('afdian-ping') as HTMLButtonElement;
-const afdianSyncBtn = document.getElementById('afdian-sync') as HTMLButtonElement;
-const afdianConfigUserIdInput = document.getElementById('afdian-config-user-id') as HTMLInputElement;
-const afdianConfigTokenInput = document.getElementById('afdian-config-token') as HTMLInputElement;
-const afdianConfigApiBaseUrlInput = document.getElementById('afdian-config-api-base-url') as HTMLInputElement;
-const afdianConfigPublicBaseUrlInput = document.getElementById('afdian-config-public-base-url') as HTMLInputElement;
-const afdianStatusEnabledEl = document.getElementById('afdian-status-enabled') as HTMLDivElement;
-const afdianStatusApiEnabledEl = document.getElementById('afdian-status-api-enabled') as HTMLDivElement;
-const afdianStatusHasTokenEl = document.getElementById('afdian-status-has-token') as HTMLDivElement;
-const afdianStatusWebhookPathEl = document.getElementById('afdian-status-webhook-path') as HTMLDivElement;
-const afdianStatusWebhookUrlEl = document.getElementById('afdian-status-webhook-url') as HTMLSpanElement;
-const afdianStatusNoteEl = document.getElementById('afdian-status-note') as HTMLDivElement;
-const afdianSyncPageInput = document.getElementById('afdian-sync-page') as HTMLInputElement;
-const afdianSyncMaxPagesInput = document.getElementById('afdian-sync-max-pages') as HTMLInputElement;
-const afdianSyncOrderNoInput = document.getElementById('afdian-sync-order-no') as HTMLInputElement;
-const afdianOrdersMetaEl = document.getElementById('afdian-orders-meta') as HTMLDivElement;
-const afdianOrdersEl = document.getElementById('afdian-orders') as HTMLDivElement;
+const redeemStatusEl = document.getElementById('redeem-status') as HTMLDivElement | null;
+const redeemGroupListEl = document.getElementById('redeem-group-list') as HTMLDivElement | null;
+const redeemGroupEditorEl = document.getElementById('redeem-group-editor') as HTMLDivElement | null;
+const redeemCodeListEl = document.getElementById('redeem-code-list') as HTMLDivElement | null;
 
 type PlayerSortMode = 'realm-desc' | 'realm-asc' | 'online' | 'map' | 'name';
 type GmEditorTab = GmPlayerUpdateSection | 'mail' | 'persisted';
@@ -239,6 +224,13 @@ interface GmMailComposerDraft {
   body: string;
   expireHours: string;
   attachments: GmMailAttachmentDraft[];
+}
+
+interface RedeemGroupDraft {
+  name: string;
+  rewards: RedeemCodeGroupRewardItem[];
+  createCount: string;
+  appendCount: string;
 }
 
 const MAIL_ATTACHMENT_ITEM_PAGE_SIZE = 10;
@@ -262,7 +254,7 @@ let draftSnapshot: PlayerState | null = null;
 let editorDirty = false;
 let draftSourcePlayerId: string | null = null;
 let pollTimer: number | null = null;
-let currentTab: 'server' | 'afdian' | 'players' | 'suggestions' | 'world' | 'shortcuts' = 'server';
+let currentTab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts' = 'server';
 let currentServerTab: 'overview' | 'traffic' | 'cpu' | 'database' = 'overview';
 let currentCpuBreakdownSort: 'total' | 'count' | 'avg' = 'total';
 let currentEditorTab: GmEditorTab = 'basic';
@@ -282,9 +274,12 @@ let lastCpuBreakdownStructureKey: string | null = null;
 let lastPathfindingFailureStructureKey: string | null = null;
 let lastShortcutMailComposerStructureKey: string | null = null;
 let databaseStateLoading = false;
-let afdianConfigState: GmAfdianConfigRes | null = null;
-let afdianOrdersState: AfdianOrderListResponse | null = null;
-let afdianLoading = false;
+let redeemGroupsState: RedeemCodeGroupView[] = [];
+let selectedRedeemGroupId: string | null = null;
+let redeemGroupDetailState: GmRedeemCodeGroupDetailRes | null = null;
+let redeemDraft: RedeemGroupDraft = createDefaultRedeemGroupDraft();
+let redeemLoading = false;
+let redeemLatestGeneratedCodes: string[] = [];
 let directMailDraftPlayerId: string | null = null;
 let directMailDraft = createDefaultMailComposerDraft();
 let broadcastMailDraft = createDefaultMailComposerDraft();
@@ -332,6 +327,22 @@ function syncPersistedGmPasswordToInputs(): void {
 }
 
 function createDefaultMailAttachmentDraft(): GmMailAttachmentDraft {
+  return {
+    itemId: '',
+    count: 1,
+  };
+}
+
+function createDefaultRedeemGroupDraft(): RedeemGroupDraft {
+  return {
+    name: '',
+    rewards: [createDefaultRedeemReward()],
+    createCount: '10',
+    appendCount: '10',
+  };
+}
+
+function createDefaultRedeemReward(): RedeemCodeGroupRewardItem {
   return {
     itemId: '',
     count: 1,
@@ -1681,162 +1692,275 @@ function renderDatabasePanel(): void {
   `;
 }
 
-function formatAfdianOrderStatus(status: number): string {
-  switch (status) {
-    case 1:
-      return '待支付';
-    case 2:
-      return '已支付';
-    case 3:
-      return '已关闭';
-    default:
-      return `状态 ${status}`;
+function renderRedeemPanel(): void {
+  if (!redeemGroupListEl || !redeemGroupEditorEl || !redeemCodeListEl) {
+    return;
   }
+
+  const selectedGroupId = selectedRedeemGroupId;
+  redeemStatusEl && (redeemStatusEl.textContent = redeemLoading ? '正在同步兑换码数据…' : (redeemLatestGeneratedCodes.length > 0 ? `最近生成 ${redeemLatestGeneratedCodes.length} 个兑换码` : '兑换码变更会直接写数据库，但数据库备份不会包含兑换码表。'));
+
+  redeemGroupListEl.innerHTML = redeemGroupsState.length > 0
+    ? redeemGroupsState.map((group) => `
+      <button
+        class="player-row${selectedGroupId === group.id ? ' active' : ''}"
+        type="button"
+        data-redeem-group-id="${group.id}"
+      >
+        <div class="player-top">
+          <span class="player-name">${escapeHtml(group.name)}</span>
+          <span class="pill">${group.usedCodeCount} / ${group.totalCodeCount}</span>
+        </div>
+        <div class="player-meta">可用 ${group.activeCodeCount} 个 · 已用 ${group.usedCodeCount} 个 · 奖励 ${group.rewards.length} 项</div>
+      </button>
+    `).join('')
+    : '<div class="empty-hint">当前还没有兑换码分组。</div>';
+
+  const editingExisting = !!redeemGroupDetailState && redeemGroupDetailState.group.id === selectedGroupId;
+  const groupMeta = redeemGroupDetailState?.group ?? null;
+  const rewardRows = redeemDraft.rewards.length > 0
+    ? redeemDraft.rewards.map((reward, index) => `
+      <div class="editor-card">
+        <div class="editor-card-head">
+          <div>
+            <div class="editor-card-title">${escapeHtml(reward.itemId || `奖励 ${index + 1}`)}</div>
+            <div class="editor-card-meta">${escapeHtml(getMailAttachmentRowMeta(reward.itemId))}</div>
+          </div>
+          <button class="small-btn danger" type="button" data-action="remove-redeem-reward" data-reward-index="${index}">删除</button>
+        </div>
+        <div class="editor-grid compact">
+          <label class="editor-field wide">
+            <span>物品模板</span>
+            <select data-redeem-bind="rewards.${index}.itemId">
+              <option value="">选择物品模板</option>
+              ${optionsMarkup(getMailAttachmentItemOptions(), reward.itemId)}
+            </select>
+          </label>
+          <label class="editor-field">
+            <span>数量</span>
+            <input type="number" min="1" value="${Math.max(1, Math.floor(reward.count || 1))}" data-redeem-bind="rewards.${index}.count" />
+          </label>
+        </div>
+      </div>
+    `).join('')
+    : '<div class="empty-hint">请至少添加一个奖励物品。</div>';
+
+  redeemGroupEditorEl.innerHTML = `
+    <div class="editor-section">
+      <div class="editor-section-head">
+        <div>
+          <div class="editor-section-title">${editingExisting ? '编辑分组' : '新建分组'}</div>
+          <div class="editor-section-note">分组奖励可随时编辑；新增兑换码会继承当前分组奖励。</div>
+        </div>
+        <button class="small-btn" type="button" data-action="new-redeem-group">新建空白分组</button>
+      </div>
+      ${groupMeta ? `<div class="note-card" style="margin-bottom: 12px;">总码数 ${groupMeta.totalCodeCount} · 已使用 ${groupMeta.usedCodeCount} · 可用 ${groupMeta.activeCodeCount} · 创建于 ${escapeHtml(formatDateTime(groupMeta.createdAt))}</div>` : ''}
+      <div class="editor-grid compact">
+        <label class="editor-field wide">
+          <span>分组名称</span>
+          <input type="text" value="${escapeHtml(redeemDraft.name)}" data-redeem-bind="name" />
+        </label>
+        ${editingExisting ? `
+        <label class="editor-field">
+          <span>追加数量</span>
+          <input type="number" min="1" max="500" value="${escapeHtml(redeemDraft.appendCount)}" data-redeem-bind="appendCount" />
+        </label>
+        ` : `
+        <label class="editor-field">
+          <span>初始生成数量</span>
+          <input type="number" min="1" max="500" value="${escapeHtml(redeemDraft.createCount)}" data-redeem-bind="createCount" />
+        </label>
+        `}
+      </div>
+      <div class="editor-section" style="margin-top: 12px;">
+        <div class="editor-section-head">
+          <div>
+            <div class="editor-section-title">奖励列表</div>
+            <div class="editor-section-note">每个兑换码都会按这里的奖励逐项发放到背包。</div>
+          </div>
+          <button class="small-btn" type="button" data-action="add-redeem-reward">新增奖励</button>
+        </div>
+        <div class="editor-card-list">${rewardRows}</div>
+      </div>
+      <div class="button-row" style="margin-top: 12px;">
+        <button class="small-btn primary" type="button" data-action="${editingExisting ? 'save-redeem-group' : 'create-redeem-group'}">${editingExisting ? '保存分组' : '创建分组并生成兑换码'}</button>
+        ${editingExisting ? '<button class="small-btn" type="button" data-action="append-redeem-codes">追加兑换码</button>' : ''}
+        <button class="small-btn" type="button" data-action="refresh-redeem-groups">刷新</button>
+      </div>
+      ${redeemLatestGeneratedCodes.length > 0 ? `
+      <div class="editor-section" style="margin-top: 12px;">
+        <div class="editor-section-head">
+          <div>
+            <div class="editor-section-title">最近生成的兑换码</div>
+            <div class="editor-section-note">创建或追加后会在这里展示本次生成结果。</div>
+          </div>
+        </div>
+        <textarea class="editor-textarea" spellcheck="false" readonly>${escapeHtml(redeemLatestGeneratedCodes.join('\n'))}</textarea>
+      </div>
+      ` : ''}
+    </div>
+  `;
+
+  const codeItems = redeemGroupDetailState?.codes ?? [];
+  redeemCodeListEl.innerHTML = codeItems.length > 0
+    ? codeItems.map((code) => getRedeemCodeMarkup(code)).join('')
+    : '<div class="empty-hint">请选择一个分组查看兑换码。</div>';
 }
 
-function getAfdianOrderMarkup(order: AfdianStoredOrderItem): string {
-  const title = order.title || order.planId || order.outTradeNo;
-  const amount = order.showAmount || order.totalAmount || '0.00';
+function getRedeemCodeMarkup(code: RedeemCodeCodeView): string {
   const meta = [
-    `用户 ${order.userId}`,
-    `金额 ${amount}`,
-    formatAfdianOrderStatus(order.status),
-    `来源 ${order.lastSource === 'api' ? 'API' : 'Webhook'}`,
-    `更新 ${formatDateTime(order.updatedAt)}`,
-  ].join(' · ');
+    `状态 ${getRedeemCodeStatusLabel(code.status)}`,
+    code.usedByRoleName ? `使用者 ${code.usedByRoleName}` : null,
+    code.usedAt ? `使用时间 ${formatDateTime(code.usedAt)}` : null,
+    code.destroyedAt ? `销毁时间 ${formatDateTime(code.destroyedAt)}` : null,
+  ].filter((entry): entry is string => typeof entry === 'string').join(' · ');
   return `
     <div class="network-row">
-      <div class="network-row-label">${escapeHtml(title)}</div>
-      <div class="network-row-meta">${escapeHtml(meta)}</div>
-      <div class="network-row-meta" style="margin-top: 6px;">订单号：${escapeHtml(order.outTradeNo)}</div>
+      <div class="network-row-label">${escapeHtml(code.code)}</div>
+      <div class="network-row-meta">${escapeHtml(meta || `创建于 ${formatDateTime(code.createdAt)}`)}</div>
+      <div class="button-row" style="margin-top: 8px;">
+        ${code.status === 'active'
+          ? `<button class="small-btn danger" type="button" data-action="destroy-redeem-code" data-code-id="${code.id}">销毁</button>`
+          : ''}
+      </div>
     </div>
   `;
 }
 
-function renderAfdianPanel(): void {
-  const config = afdianConfigState?.config;
-  const status = afdianConfigState?.status;
-  if (config) {
-    setTextLikeValue(afdianConfigUserIdInput, config.userId);
-    setTextLikeValue(afdianConfigApiBaseUrlInput, config.apiBaseUrl);
-    setTextLikeValue(afdianConfigPublicBaseUrlInput, config.publicBaseUrl);
-  }
-
-  afdianStatusEnabledEl.textContent = status ? (status.enabled ? '已配置' : '未配置') : '读取中';
-  afdianStatusApiEnabledEl.textContent = status ? (status.apiEnabled ? '可调用' : '待补 token') : '读取中';
-  afdianStatusHasTokenEl.textContent = status ? (status.hasToken ? '已设置' : '未设置') : '读取中';
-  afdianStatusWebhookPathEl.textContent = status?.webhookPath ?? '-';
-  afdianStatusWebhookUrlEl.textContent = status?.webhookUrl ?? '未配置公网域名';
-  afdianStatusNoteEl.innerHTML = status
-    ? `当前 webhook 路径：<strong>${escapeHtml(status.webhookPath)}</strong><br />`
-      + `完整 webhook 地址：<strong>${escapeHtml(status.webhookUrl ?? '未配置公网域名')}</strong><br />`
-      + '开发者信息与地址会持久化到数据库；Token 只保存在当前服务进程，重启后需要重新输入。'
-    : '正在读取爱发电配置…';
-
-  const orders = afdianOrdersState?.items ?? [];
-  afdianOrdersMetaEl.textContent = afdianLoading && !afdianOrdersState
-    ? '正在读取订单…'
-    : `共 ${afdianOrdersState?.total ?? 0} 条，当前展示最近 ${orders.length} 条`;
-  afdianOrdersEl.innerHTML = orders.length > 0
-    ? orders.map((order) => getAfdianOrderMarkup(order)).join('')
-    : '<div class="empty-hint">当前还没有爱发电订单。</div>';
-}
-
-async function loadAfdianConfig(silent = false): Promise<void> {
-  const data = await request<GmAfdianConfigRes>('/gm/afdian/config');
-  afdianConfigState = data;
-  renderAfdianPanel();
-  if (!silent) {
-    setStatus('爱发电配置已同步');
+function getRedeemCodeStatusLabel(status: RedeemCodeCodeView['status']): string {
+  switch (status) {
+    case 'active':
+      return '可用';
+    case 'used':
+      return '已使用';
+    case 'destroyed':
+      return '已销毁';
+    default:
+      return status;
   }
 }
 
-async function loadAfdianOrders(silent = false): Promise<void> {
-  afdianLoading = true;
-  renderAfdianPanel();
+function buildRedeemGroupPayload(): { name: string; rewards: RedeemCodeGroupRewardItem[] } {
+  const name = redeemDraft.name.trim();
+  const rewards = redeemDraft.rewards
+    .filter((entry) => entry.itemId.trim().length > 0 && Number.isFinite(entry.count) && entry.count > 0)
+    .map((entry) => ({
+      itemId: entry.itemId.trim(),
+      count: Math.max(1, Math.floor(entry.count)),
+    }));
+  if (!name) {
+    throw new Error('分组名称不能为空');
+  }
+  if (rewards.length === 0) {
+    throw new Error('请至少配置一个奖励物品');
+  }
+  return { name, rewards };
+}
+
+async function loadRedeemGroups(silent = false): Promise<void> {
+  redeemLoading = true;
+  renderRedeemPanel();
   try {
-    const data = await request<AfdianOrderListResponse>('/gm/afdian/orders?limit=20&offset=0');
-    afdianOrdersState = data;
+    const data = await request<GmRedeemCodeGroupListRes>('/gm/redeem-code-groups');
+    redeemGroupsState = data.groups;
+    if (selectedRedeemGroupId && !redeemGroupsState.some((group) => group.id === selectedRedeemGroupId)) {
+      selectedRedeemGroupId = null;
+      redeemGroupDetailState = null;
+      redeemDraft = createDefaultRedeemGroupDraft();
+    }
+    if (!selectedRedeemGroupId && redeemGroupsState[0]) {
+      selectedRedeemGroupId = redeemGroupsState[0].id;
+    }
+    if (selectedRedeemGroupId) {
+      await loadRedeemGroupDetail(selectedRedeemGroupId, true);
+    } else {
+      renderRedeemPanel();
+    }
     if (!silent) {
-      setStatus(`爱发电订单已同步，当前展示 ${data.items.length} 条`);
+      setStatus(`已同步 ${redeemGroupsState.length} 个兑换码分组`);
     }
   } finally {
-    afdianLoading = false;
-    renderAfdianPanel();
+    redeemLoading = false;
+    renderRedeemPanel();
   }
 }
 
-async function loadAfdianPanel(silent = false): Promise<void> {
-  await Promise.all([
-    loadAfdianConfig(true),
-    loadAfdianOrders(true),
-  ]);
-  if (!silent) {
-    setStatus('爱发电面板已同步');
-  }
-}
-
-async function saveAfdianConfig(): Promise<void> {
-  afdianSaveConfigBtn.disabled = true;
+async function loadRedeemGroupDetail(groupId: string, silent = false): Promise<void> {
+  redeemLoading = true;
+  renderRedeemPanel();
   try {
-    const payload: GmUpdateAfdianConfigReq = {
-      userId: afdianConfigUserIdInput.value.trim(),
-      token: afdianConfigTokenInput.value.trim(),
-      apiBaseUrl: afdianConfigApiBaseUrlInput.value.trim(),
-      publicBaseUrl: afdianConfigPublicBaseUrlInput.value.trim(),
+    const detail = await request<GmRedeemCodeGroupDetailRes>(`/gm/redeem-code-groups/${encodeURIComponent(groupId)}`);
+    if (selectedRedeemGroupId !== groupId) {
+      return;
+    }
+    redeemGroupDetailState = detail;
+    redeemDraft = {
+      name: detail.group.name,
+      rewards: detail.group.rewards.map((entry) => ({ ...entry })),
+      createCount: '10',
+      appendCount: '10',
     };
-    afdianConfigState = await request<GmAfdianConfigRes>('/gm/afdian/config', {
-      method: 'PUT',
-      body: JSON.stringify(payload),
-    });
-    renderAfdianPanel();
-    setStatus('爱发电配置已保存：基础配置已持久化，token 已同步到当前服务进程');
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : '保存爱发电配置失败', true);
+    if (!silent) {
+      setStatus(`已加载分组 ${detail.group.name}`);
+    }
   } finally {
-    afdianSaveConfigBtn.disabled = false;
+    redeemLoading = false;
+    renderRedeemPanel();
   }
 }
 
-async function pingAfdianApi(): Promise<void> {
-  afdianPingBtn.disabled = true;
-  try {
-    const payload: GmAfdianPingRequest = {
-      token: afdianConfigTokenInput.value.trim() || undefined,
-    };
-    const result = await request<AfdianConfigStatus & { reachable: boolean }>('/gm/afdian/ping', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-    await loadAfdianConfig(true);
-    setStatus(result.reachable ? '爱发电 API 测试成功' : '爱发电 API 不可达', !result.reachable);
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : '测试爱发电 API 失败', true);
-  } finally {
-    afdianPingBtn.disabled = false;
-  }
+async function createRedeemGroup(): Promise<void> {
+  const payloadBase = buildRedeemGroupPayload();
+  const payload: GmCreateRedeemCodeGroupReq = {
+    ...payloadBase,
+    count: Math.max(1, Math.min(500, Math.floor(Number(redeemDraft.createCount || '0')) || 0)),
+  };
+  const result = await request<GmCreateRedeemCodeGroupRes>('/gm/redeem-code-groups', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  selectedRedeemGroupId = result.group.id;
+  redeemLatestGeneratedCodes = [...result.codes];
+  await loadRedeemGroups(true);
+  setStatus(`已创建分组 ${result.group.name}，并生成 ${result.codes.length} 个兑换码`);
 }
 
-async function syncAfdianOrders(): Promise<void> {
-  afdianSyncBtn.disabled = true;
-  try {
-    const payload = {
-      page: Math.max(1, Math.floor(Number(afdianSyncPageInput.value) || 1)),
-      maxPages: Math.max(1, Math.min(20, Math.floor(Number(afdianSyncMaxPagesInput.value) || 1))),
-      outTradeNo: afdianSyncOrderNoInput.value.trim() || undefined,
-      token: afdianConfigTokenInput.value.trim() || undefined,
-    };
-    const result = await request<AfdianSyncOrdersResponse>('/gm/afdian/orders/sync', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-    await loadAfdianOrders(true);
-    setStatus(`爱发电补单完成：同步 ${result.syncedPages} 页，拉取 ${result.receivedOrders} 条，写入 ${result.upsertedOrders} 条`);
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : '爱发电补单失败', true);
-  } finally {
-    afdianSyncBtn.disabled = false;
+async function saveRedeemGroup(): Promise<void> {
+  if (!selectedRedeemGroupId) {
+    throw new Error('请先选择一个分组');
   }
+  const payload: GmUpdateRedeemCodeGroupReq = buildRedeemGroupPayload();
+  await request<GmRedeemCodeGroupDetailRes>(`/gm/redeem-code-groups/${encodeURIComponent(selectedRedeemGroupId)}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+  redeemLatestGeneratedCodes = [];
+  await loadRedeemGroups(true);
+  setStatus('兑换码分组已保存');
+}
+
+async function appendRedeemCodes(): Promise<void> {
+  if (!selectedRedeemGroupId) {
+    throw new Error('请先选择一个分组');
+  }
+  const payload: GmAppendRedeemCodesReq = {
+    count: Math.max(1, Math.min(500, Math.floor(Number(redeemDraft.appendCount || '0')) || 0)),
+  };
+  const result = await request<GmAppendRedeemCodesRes>(`/gm/redeem-code-groups/${encodeURIComponent(selectedRedeemGroupId)}/codes`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  redeemLatestGeneratedCodes = [...result.codes];
+  await loadRedeemGroups(true);
+  setStatus(`已追加 ${result.codes.length} 个兑换码`);
+}
+
+async function destroyRedeemCode(codeId: string): Promise<void> {
+  await request<{ ok: true }>(`/gm/redeem-codes/${encodeURIComponent(codeId)}`, {
+    method: 'DELETE',
+  });
+  await loadRedeemGroups(true);
+  setStatus('兑换码已销毁');
 }
 
 async function loadDatabaseState(silent = false): Promise<void> {
@@ -1920,29 +2044,29 @@ function setCpuBreakdownSort(sort: 'total' | 'count' | 'avg'): void {
   }
 }
 
-function switchTab(tab: 'server' | 'afdian' | 'players' | 'suggestions' | 'world' | 'shortcuts'): void {
+function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts'): void {
   // 离开世界管理时停止轮询
   if (currentTab === 'world' && tab !== 'world') {
     worldViewer.stopPolling();
   }
   currentTab = tab;
   serverTabBtn.classList.toggle('active', tab === 'server');
-  afdianTabBtn.classList.toggle('active', tab === 'afdian');
+  redeemTabBtn.classList.toggle('active', tab === 'redeem');
   playerTabBtn.classList.toggle('active', tab === 'players');
   worldTabBtn.classList.toggle('active', tab === 'world');
   shortcutTabBtn.classList.toggle('active', tab === 'shortcuts');
   suggestionTabBtn.classList.toggle('active', tab === 'suggestions');
   serverWorkspaceEl.classList.toggle('hidden', tab !== 'server');
-  afdianWorkspaceEl.classList.toggle('hidden', tab !== 'afdian');
+  redeemWorkspaceEl.classList.toggle('hidden', tab !== 'redeem');
   playerWorkspaceEl.classList.toggle('hidden', tab !== 'players');
   worldWorkspaceEl.classList.toggle('hidden', tab !== 'world');
   shortcutWorkspaceEl.classList.toggle('hidden', tab !== 'shortcuts');
   suggestionWorkspaceEl.classList.toggle('hidden', tab !== 'suggestions');
   if (tab === 'suggestions') {
     loadSuggestions().catch(() => {});
-  } else if (tab === 'afdian') {
-    loadAfdianPanel(true).catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '加载爱发电面板失败', true);
+  } else if (tab === 'redeem') {
+    loadRedeemGroups(true).catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '加载兑换码面板失败', true);
     });
   } else if (tab === 'world') {
     worldViewer.mount();
@@ -2142,7 +2266,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     }
   }
 
-  if (response.status === 401) {
+  if (response.status === 401 && path !== '/auth/gm/login') {
     logout('GM 登录已失效，请重新输入密码');
     throw new Error('GM 登录已失效');
   }
@@ -2218,6 +2342,36 @@ function updateMailDraftValue(
     return;
   }
   attachment.count = Math.max(1, Math.floor(Number(rawValue || '1')) || 1);
+}
+
+function updateRedeemDraftValue(path: string, rawValue: string): void {
+  if (path === 'name') {
+    redeemDraft.name = rawValue;
+    return;
+  }
+  if (path === 'createCount') {
+    redeemDraft.createCount = rawValue;
+    return;
+  }
+  if (path === 'appendCount') {
+    redeemDraft.appendCount = rawValue;
+    return;
+  }
+  const rewardMatch = path.match(/^rewards\.(\d+)\.(itemId|count)$/);
+  if (!rewardMatch) {
+    return;
+  }
+  const index = Number(rewardMatch[1]);
+  const field = rewardMatch[2];
+  const reward = redeemDraft.rewards[index];
+  if (!reward) {
+    return;
+  }
+  if (field === 'itemId') {
+    reward.itemId = rawValue;
+    return;
+  }
+  reward.count = Math.max(1, Math.floor(Number(rawValue || '1')) || 1);
 }
 
 function rerenderDirectMailComposer(): void {
@@ -3416,9 +3570,12 @@ function logout(message?: string): void {
   state = null;
   databaseState = null;
   databaseStateLoading = false;
-  afdianConfigState = null;
-  afdianOrdersState = null;
-  afdianLoading = false;
+  redeemGroupsState = [];
+  selectedRedeemGroupId = null;
+  redeemGroupDetailState = null;
+  redeemDraft = createDefaultRedeemGroupDraft();
+  redeemLatestGeneratedCodes = [];
+  redeemLoading = false;
   selectedPlayerId = null;
   selectedPlayerDetail = null;
   loadingPlayerDetailId = null;
@@ -4334,7 +4491,7 @@ playerSortSelect.addEventListener('change', () => {
   if (!state) return;
   renderPlayerList(state);
 });
-afdianTabBtn.addEventListener('click', () => switchTab('afdian'));
+redeemTabBtn.addEventListener('click', () => switchTab('redeem'));
 playerTabBtn.addEventListener('click', () => switchTab('players'));
 suggestionTabBtn.addEventListener('click', () => switchTab('suggestions'));
 serverTabBtn.addEventListener('click', () => switchTab('server'));
@@ -4452,6 +4609,108 @@ shortcutWorkspaceEl.addEventListener('focusout', () => {
     flushShortcutMailComposerRefresh();
   }, 0);
 });
+redeemWorkspaceEl?.addEventListener('click', (event) => {
+  const trigger = (event.target as HTMLElement).closest<HTMLElement>('[data-action],[data-redeem-group-id],[data-code-id]');
+  if (!trigger) {
+    return;
+  }
+  const groupId = trigger.dataset.redeemGroupId;
+  if (groupId) {
+    selectedRedeemGroupId = groupId;
+    redeemLatestGeneratedCodes = [];
+    loadRedeemGroupDetail(groupId, true).catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '加载兑换码分组失败', true);
+    });
+    return;
+  }
+  const action = trigger.dataset.action;
+  if (!action) {
+    return;
+  }
+  if (action === 'new-redeem-group') {
+    selectedRedeemGroupId = null;
+    redeemGroupDetailState = null;
+    redeemDraft = createDefaultRedeemGroupDraft();
+    redeemLatestGeneratedCodes = [];
+    renderRedeemPanel();
+    return;
+  }
+  if (action === 'add-redeem-reward') {
+    redeemDraft.rewards.push(createDefaultRedeemReward());
+    renderRedeemPanel();
+    return;
+  }
+  if (action === 'remove-redeem-reward') {
+    const rewardIndex = Number(trigger.dataset.rewardIndex);
+    if (Number.isInteger(rewardIndex) && rewardIndex >= 0 && rewardIndex < redeemDraft.rewards.length) {
+      redeemDraft.rewards.splice(rewardIndex, 1);
+      renderRedeemPanel();
+    }
+    return;
+  }
+  if (action === 'refresh-redeem-groups') {
+    loadRedeemGroups(false).catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '刷新兑换码分组失败', true);
+    });
+    return;
+  }
+  if (action === 'create-redeem-group') {
+    createRedeemGroup().catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '创建兑换码分组失败', true);
+    });
+    return;
+  }
+  if (action === 'save-redeem-group') {
+    saveRedeemGroup().catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '保存兑换码分组失败', true);
+    });
+    return;
+  }
+  if (action === 'append-redeem-codes') {
+    appendRedeemCodes().catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '追加兑换码失败', true);
+    });
+    return;
+  }
+  if (action === 'destroy-redeem-code') {
+    const codeId = trigger.dataset.codeId;
+    if (!codeId) {
+      return;
+    }
+    destroyRedeemCode(codeId).catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '销毁兑换码失败', true);
+    });
+  }
+});
+redeemWorkspaceEl?.addEventListener('input', (event) => {
+  const target = event.target;
+  if (
+    target instanceof HTMLInputElement
+    || target instanceof HTMLTextAreaElement
+    || target instanceof HTMLSelectElement
+  ) {
+    const binding = target.dataset.redeemBind;
+    if (!binding) {
+      return;
+    }
+    updateRedeemDraftValue(binding, target.value);
+  }
+});
+redeemWorkspaceEl?.addEventListener('change', (event) => {
+  const target = event.target;
+  if (
+    target instanceof HTMLInputElement
+    || target instanceof HTMLTextAreaElement
+    || target instanceof HTMLSelectElement
+  ) {
+    const binding = target.dataset.redeemBind;
+    if (!binding) {
+      return;
+    }
+    updateRedeemDraftValue(binding, target.value);
+    renderRedeemPanel();
+  }
+});
 resetNetworkStatsBtn.addEventListener('click', () => {
   resetNetworkStats().catch(() => {});
 });
@@ -4460,20 +4719,6 @@ resetCpuStatsBtn.addEventListener('click', () => {
 });
 resetPathfindingStatsBtn.addEventListener('click', () => {
   resetPathfindingStats().catch(() => {});
-});
-afdianRefreshBtn.addEventListener('click', () => {
-  loadAfdianPanel(false).catch((error: unknown) => {
-    setStatus(error instanceof Error ? error.message : '刷新爱发电面板失败', true);
-  });
-});
-afdianSaveConfigBtn.addEventListener('click', () => {
-  saveAfdianConfig().catch(() => {});
-});
-afdianPingBtn.addEventListener('click', () => {
-  pingAfdianApi().catch(() => {});
-});
-afdianSyncBtn.addEventListener('click', () => {
-  syncAfdianOrders().catch(() => {});
 });
 serverPanelDatabaseEl.addEventListener('click', (event) => {
   const target = event.target as HTMLElement | null;

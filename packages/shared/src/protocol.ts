@@ -38,6 +38,7 @@ export const C2S = {
   RequestMailSummary: 'c:requestMailSummary',
   RequestMailPage: 'c:requestMailPage',
   RequestMailDetail: 'c:requestMailDetail',
+  RedeemCodes: 'c:redeemCodes',
   MarkMailRead: 'c:markMailRead',
   ClaimMailAttachments: 'c:claimMailAttachments',
   DeleteMail: 'c:deleteMail',
@@ -90,12 +91,85 @@ export const S2C = {
   MailSummary: 's:mailSummary',
   MailPage: 's:mailPage',
   MailDetail: 's:mailDetail',
+  RedeemCodesResult: 's:redeemCodesResult',
   MailOpResult: 's:mailOpResult',
   SuggestionUpdate: 's:suggestionUpdate',
   MarketUpdate: 's:marketUpdate',
   MarketItemBook: 's:marketItemBook',
   MarketTradeHistory: 's:marketTradeHistory',
   NpcShop: 's:npcShop',
+} as const;
+
+/** server-next 客户端 → 服务端 */
+export const NEXT_C2S = {
+  Hello: 'n:c:hello',
+  Move: 'n:c:move',
+  UseAction: 'n:c:useAction',
+  RequestDetail: 'n:c:requestDetail',
+  RequestTileDetail: 'n:c:requestTileDetail',
+  RequestSuggestions: 'n:c:requestSuggestions',
+  CreateSuggestion: 'n:c:createSuggestion',
+  VoteSuggestion: 'n:c:voteSuggestion',
+  ReplySuggestion: 'n:c:replySuggestion',
+  MarkSuggestionRepliesRead: 'n:c:markSuggestionRepliesRead',
+  GmMarkSuggestionCompleted: 'n:c:gmMarkSuggestionCompleted',
+  GmRemoveSuggestion: 'n:c:gmRemoveSuggestion',
+  RequestMailSummary: 'n:c:requestMailSummary',
+  RequestMailPage: 'n:c:requestMailPage',
+  RequestMailDetail: 'n:c:requestMailDetail',
+  MarkMailRead: 'n:c:markMailRead',
+  ClaimMailAttachments: 'n:c:claimMailAttachments',
+  DeleteMail: 'n:c:deleteMail',
+  RequestQuests: 'n:c:requestQuests',
+  RequestNpcQuests: 'n:c:requestNpcQuests',
+  AcceptNpcQuest: 'n:c:acceptNpcQuest',
+  SubmitNpcQuest: 'n:c:submitNpcQuest',
+  RequestMarket: 'n:c:requestMarket',
+  RequestMarketItemBook: 'n:c:requestMarketItemBook',
+  RequestMarketTradeHistory: 'n:c:requestMarketTradeHistory',
+  CreateMarketSellOrder: 'n:c:createMarketSellOrder',
+  CreateMarketBuyOrder: 'n:c:createMarketBuyOrder',
+  BuyMarketItem: 'n:c:buyMarketItem',
+  SellMarketItem: 'n:c:sellMarketItem',
+  CancelMarketOrder: 'n:c:cancelMarketOrder',
+  ClaimMarketStorage: 'n:c:claimMarketStorage',
+  UsePortal: 'n:c:usePortal',
+  UseItem: 'n:c:useItem',
+  DropItem: 'n:c:dropItem',
+  TakeGround: 'n:c:takeGround',
+  Equip: 'n:c:equip',
+  Unequip: 'n:c:unequip',
+  Cultivate: 'n:c:cultivate',
+  CastSkill: 'n:c:castSkill',
+  RequestNpcShop: 'n:c:requestNpcShop',
+  BuyNpcShopItem: 'n:c:buyNpcShopItem',
+  Ping: 'n:c:ping',
+} as const;
+
+/** server-next 服务端 → 客户端 */
+export const NEXT_S2C = {
+  InitSession: 'n:s:initSession',
+  MapEnter: 'n:s:mapEnter',
+  WorldDelta: 'n:s:worldDelta',
+  SelfDelta: 'n:s:selfDelta',
+  PanelDelta: 'n:s:panelDelta',
+  Notice: 'n:s:notice',
+  SuggestionUpdate: 'n:s:suggestionUpdate',
+  MailSummary: 'n:s:mailSummary',
+  MailPage: 'n:s:mailPage',
+  MailDetail: 'n:s:mailDetail',
+  MailOpResult: 'n:s:mailOpResult',
+  Quests: 'n:s:quests',
+  NpcQuests: 'n:s:npcQuests',
+  MarketUpdate: 'n:s:marketUpdate',
+  MarketItemBook: 'n:s:marketItemBook',
+  MarketTradeHistory: 'n:s:marketTradeHistory',
+  Detail: 'n:s:detail',
+  TileDetail: 'n:s:tileDetail',
+  NpcShop: 'n:s:npcShop',
+  Error: 'n:s:error',
+  Kick: 'n:s:kick',
+  Pong: 'n:s:pong',
 } as const;
 
 // ===== Payload 类型 =====
@@ -533,6 +607,10 @@ export interface C2S_Cultivate {
   techId: string | null; // null 表示停止修炼
 }
 
+export interface C2S_RedeemCodes {
+  codes: string[];
+}
+
 /** 属性更新 */
 export interface S2C_AttrUpdate {
   baseAttrs?: Attributes;
@@ -607,6 +685,10 @@ export interface EquipmentSlotUpdateEntry {
 
 export interface S2C_EquipmentUpdate {
   slots: EquipmentSlotUpdateEntry[];
+}
+
+export interface S2C_RedeemCodesResult {
+  result: AccountRedeemCodesRes;
 }
 
 /** 功法增量更新条目 */
@@ -1017,73 +1099,83 @@ export interface GmStateRes {
   perf: GmPerformanceSnapshot;
 }
 
-export interface AfdianConfigForm {
-  userId: string;
-  token: string;
-  apiBaseUrl: string;
-  publicBaseUrl: string;
+export interface RedeemCodeGroupRewardItem {
+  itemId: string;
+  count: number;
 }
 
-export interface AfdianConfigStatus {
-  enabled: boolean;
-  apiEnabled: boolean;
-  webhookPath: string;
-  webhookUrl: string | null;
-  apiBaseUrl: string;
-  userId: string | null;
-  hasToken: boolean;
-}
-
-export interface GmAfdianConfigRes {
-  config: AfdianConfigForm;
-  status: AfdianConfigStatus;
-}
-
-export interface GmUpdateAfdianConfigReq extends AfdianConfigForm {}
-
-export interface AfdianStoredOrderItem {
-  outTradeNo: string;
-  userId: string;
-  userPrivateId: string | null;
-  planId: string | null;
-  title: string | null;
-  month: number;
-  totalAmount: string;
-  showAmount: string;
-  status: number;
-  remark: string | null;
-  redeemId: string | null;
-  productType: number;
-  discount: string;
-  skuDetail: unknown[];
-  addressPerson: string | null;
-  addressPhone: string | null;
-  addressAddress: string | null;
-  lastSource: 'webhook' | 'api';
+export interface RedeemCodeGroupView {
+  id: string;
+  name: string;
+  rewards: RedeemCodeGroupRewardItem[];
+  totalCodeCount: number;
+  usedCodeCount: number;
+  activeCodeCount: number;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface AfdianOrderListResponse {
-  total: number;
-  limit: number;
-  offset: number;
-  items: AfdianStoredOrderItem[];
+export interface RedeemCodeCodeView {
+  id: string;
+  groupId: string;
+  code: string;
+  status: 'active' | 'used' | 'destroyed';
+  usedByPlayerId: string | null;
+  usedByRoleName: string | null;
+  usedAt: string | null;
+  destroyedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface AfdianSyncOrdersRequest {
-  page?: number;
-  maxPages?: number;
-  outTradeNo?: string;
+export interface GmRedeemCodeGroupListRes {
+  groups: RedeemCodeGroupView[];
 }
 
-export interface AfdianSyncOrdersResponse {
-  requestedPages: number;
-  syncedPages: number;
-  receivedOrders: number;
-  upsertedOrders: number;
-  totalCount: number | null;
-  totalPage: number | null;
+export interface GmRedeemCodeGroupDetailRes {
+  group: RedeemCodeGroupView;
+  codes: RedeemCodeCodeView[];
+}
+
+export interface GmCreateRedeemCodeGroupReq {
+  name: string;
+  rewards: RedeemCodeGroupRewardItem[];
+  count: number;
+}
+
+export interface GmUpdateRedeemCodeGroupReq {
+  name: string;
+  rewards: RedeemCodeGroupRewardItem[];
+}
+
+export interface GmCreateRedeemCodeGroupRes {
+  group: RedeemCodeGroupView;
+  codes: string[];
+}
+
+export interface GmAppendRedeemCodesReq {
+  count: number;
+}
+
+export interface GmAppendRedeemCodesRes {
+  group: RedeemCodeGroupView;
+  codes: string[];
+}
+
+export interface AccountRedeemCodesReq {
+  codes: string[];
+}
+
+export interface AccountRedeemCodeResult {
+  code: string;
+  ok: boolean;
+  message: string;
+  groupName?: string;
+  rewards?: RedeemCodeGroupRewardItem[];
+}
+
+export interface AccountRedeemCodesRes {
+  results: AccountRedeemCodeResult[];
 }
 
 export type GmDatabaseBackupKind = 'hourly' | 'daily' | 'manual' | 'pre_import';
@@ -1116,6 +1208,10 @@ export interface GmDatabaseStateRes {
   backups: GmDatabaseBackupRecord[];
   runningJob?: GmDatabaseJobSnapshot;
   lastJob?: GmDatabaseJobSnapshot;
+  persistenceEnabled?: boolean;
+  compatScope?: 'persistent_documents_only';
+  restoreMode?: 'replace_persistent_documents';
+  note?: string;
   retention: {
     hourly: number;
     daily: number;
@@ -1128,6 +1224,8 @@ export interface GmDatabaseStateRes {
 
 export interface GmTriggerDatabaseBackupRes {
   job: GmDatabaseJobSnapshot;
+  compatScope?: 'persistent_documents_only';
+  documentsCount?: number;
 }
 
 export interface GmRestoreDatabaseReq {
@@ -1243,6 +1341,14 @@ export interface GmMapPortalRecord {
 export interface GmMapAuraRecord {
   x: number;
   y: number;
+  value: number;
+}
+
+/** GM 地图气机记录 */
+export interface GmMapResourceRecord {
+  x: number;
+  y: number;
+  resourceKey: string;
   value: number;
 }
 
@@ -1407,6 +1513,7 @@ export interface GmMapDocument {
   };
   time?: MapTimeConfig;
   auras?: GmMapAuraRecord[];
+  resources?: GmMapResourceRecord[];
   safeZones?: GmMapSafeZoneRecord[];
   landmarks?: GmMapLandmarkRecord[];
   npcs: GmMapNpcRecord[];

@@ -26,6 +26,12 @@ import {
   GmMapRuntimeRes,
   GmPlayerDetailRes,
   GmCreateMailReq,
+  GmCreateRedeemCodeGroupReq,
+  GmCreateRedeemCodeGroupRes,
+  GmAppendRedeemCodesReq,
+  GmAppendRedeemCodesRes,
+  GmRedeemCodeGroupDetailRes,
+  GmRedeemCodeGroupListRes,
   GmRemoveBotsReq,
   GmShortcutRunRes,
   GmSpawnBotsReq,
@@ -34,6 +40,7 @@ import {
   GmUpdateManagedPlayerPasswordReq,
   GmUpdateMapTickReq,
   GmUpdateMapTimeReq,
+  GmUpdateRedeemCodeGroupReq,
   GmUpdatePlayerReq,
 } from '@mud/shared';
 import { GmAuthGuard } from './gm-auth.guard';
@@ -43,6 +50,7 @@ import { SuggestionRealtimeService } from './suggestion-realtime.service';
 import { SuggestionService } from './suggestion.service';
 import { TickService } from './tick.service';
 import { MailService } from './mail.service';
+import { RedeemCodeService } from './redeem-code.service';
 
 @Controller('gm')
 @UseGuards(GmAuthGuard)
@@ -53,6 +61,7 @@ export class GmController {
     private readonly suggestionService: SuggestionService,
     private readonly suggestionRealtimeService: SuggestionRealtimeService,
     private readonly mailService: MailService,
+    private readonly redeemCodeService: RedeemCodeService,
     private readonly tickService: TickService,
   ) {}
 
@@ -225,6 +234,42 @@ export class GmController {
   async sendBroadcastMail(@Body() body: GmCreateMailReq): Promise<{ ok: true; mailId: string }> {
     const mailId = await this.mailService.createGlobalMail(body ?? {});
     return { ok: true, mailId };
+  }
+
+  @Get('redeem-code-groups')
+  getRedeemCodeGroups(): Promise<GmRedeemCodeGroupListRes> {
+    return this.redeemCodeService.listGroups();
+  }
+
+  @Post('redeem-code-groups')
+  createRedeemCodeGroup(@Body() body: GmCreateRedeemCodeGroupReq): Promise<GmCreateRedeemCodeGroupRes> {
+    return this.redeemCodeService.createGroup(body?.name ?? '', body?.rewards ?? [], Number(body?.count));
+  }
+
+  @Get('redeem-code-groups/:groupId')
+  getRedeemCodeGroupDetail(@Param('groupId') groupId: string): Promise<GmRedeemCodeGroupDetailRes> {
+    return this.redeemCodeService.getGroupDetail(groupId);
+  }
+
+  @Put('redeem-code-groups/:groupId')
+  updateRedeemCodeGroup(
+    @Param('groupId') groupId: string,
+    @Body() body: GmUpdateRedeemCodeGroupReq,
+  ): Promise<GmRedeemCodeGroupDetailRes> {
+    return this.redeemCodeService.updateGroup(groupId, body?.name ?? '', body?.rewards ?? []);
+  }
+
+  @Post('redeem-code-groups/:groupId/codes')
+  appendRedeemCodes(
+    @Param('groupId') groupId: string,
+    @Body() body: GmAppendRedeemCodesReq,
+  ): Promise<GmAppendRedeemCodesRes> {
+    return this.redeemCodeService.appendCodes(groupId, Number(body?.count));
+  }
+
+  @Delete('redeem-codes/:codeId')
+  destroyRedeemCode(@Param('codeId') codeId: string): Promise<{ ok: true }> {
+    return this.redeemCodeService.destroyCode(codeId);
   }
 
   /** 获取运行时地图快照（世界管理用，必须在 maps/:mapId 之前） */

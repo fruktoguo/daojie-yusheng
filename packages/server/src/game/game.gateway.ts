@@ -33,6 +33,7 @@ import {
   C2S_RequestMailSummary,
   C2S_RequestMailPage,
   C2S_RequestMailDetail,
+  C2S_RedeemCodes,
   C2S_MarkMailRead,
   C2S_ClaimMailAttachments,
   C2S_DeleteMail,
@@ -99,6 +100,7 @@ import { TechniqueService } from './technique.service';
 import { MailService } from './mail.service';
 import { buildDefaultRoleName } from '../auth/account-validation';
 import { DatabaseBackupService } from './database-backup.service';
+import { RedeemCodeService } from './redeem-code.service';
 
 @WebSocketGateway({ cors: true })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
@@ -126,6 +128,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     private readonly marketService: MarketService,
     private readonly techniqueService: TechniqueService,
     private readonly mailService: MailService,
+    private readonly redeemCodeService: RedeemCodeService,
     private readonly databaseBackupService: DatabaseBackupService,
   ) {}
 
@@ -778,6 +781,23 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       detail,
       error: detail ? undefined : '邮件不存在、已过期，或已被删除。',
     } satisfies S2C_MailDetail);
+  }
+
+  @SubscribeMessage(C2S.RedeemCodes)
+  async handleRedeemCodes(client: Socket, data: C2S_RedeemCodes) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) {
+      return;
+    }
+
+    const prepared = await this.redeemCodeService.prepareRedeemCodes(data.codes);
+    this.playerService.enqueueCommand(player.mapId, {
+      playerId,
+      type: 'redeemCodes',
+      data: prepared,
+      timestamp: Date.now(),
+    });
   }
 
   @SubscribeMessage(C2S.MarkMailRead)

@@ -68,6 +68,7 @@ import { formatDisplayCountBadge, formatDisplayCurrentMax, formatDisplayInteger 
 import { findPath } from './pathfinding';
 import {
   ActionDef,
+  AccountRedeemCodesRes,
   computeAffectedCellsFromAnchor,
   CONNECTION_RECOVERY_RETRY_MS,
   CURRENT_TIME_REFRESH_MS,
@@ -94,6 +95,7 @@ import {
   S2C_InventoryUpdate,
   S2C_LootWindowUpdate,
   S2C_RealmUpdate,
+  S2C_RedeemCodesResult,
   TechniqueUpdateEntry,
   ActionUpdateEntry,
   BreakthroughRequirementView,
@@ -158,6 +160,13 @@ const QQ_GROUP_DESKTOP_DEEP_LINK = `tencent://AddContact/?fromId=45&fromSubId=1&
 
 let auraLevelBaseValue = DEFAULT_AURA_LEVEL_BASE_VALUE;
 let pendingQuestNavigateId: string | null = null;
+let pendingRedeemCodesRequest:
+  | {
+      resolve: (value: AccountRedeemCodesRes) => void;
+      reject: (reason?: unknown) => void;
+      timeoutId: ReturnType<typeof setTimeout>;
+    }
+  | null = null;
 let activeObservedTile:
   | {
       mapId: string;
@@ -1635,13 +1644,14 @@ function buildObservedEntityCardHtml(entity: ObserveEntityCardData): string {
   const badge = monsterPresentation?.badgeText
     ? `<span class="${monsterPresentation.badgeClassName}">${escapeHtml(monsterPresentation.badgeText)}</span>`
     : '';
-  const fallbackVitalRows = (entity.kind === 'monster' || entity.kind === 'npc') && detailRows.length === 0
-    ? [
-        { label: '生命', value: formatCurrentMax(entity.hp, entity.maxHp) },
-        { label: '灵力', value: formatCurrentMax(entity.qi, entity.maxQi) },
-      ]
+  const vitalRows = [
+    { label: '生命', value: formatCurrentMax(entity.hp, entity.maxHp) },
+    { label: '灵力', value: formatCurrentMax(entity.qi, entity.maxQi) },
+  ].filter((entry) => entry.value !== '—');
+  const fallbackVitalRows = (entity.kind === 'monster' || entity.kind === 'npc' || entity.kind === 'player') && detailRows.length === 0
+    ? vitalRows
     : [];
-  const detailGrid = detailRows.length > 0 ? detailRows : fallbackVitalRows;
+  const detailGrid = detailRows.length > 0 ? [...vitalRows, ...detailRows] : fallbackVitalRows;
   const visibleBuffs = entity.buffs ?? [];
   const publicBuffs = visibleBuffs.filter((buff) => buff.visibility === 'public' && buff.category === 'buff');
   const publicDebuffs = visibleBuffs.filter((buff) => buff.visibility === 'public' && buff.category === 'debuff');
@@ -1900,6 +1910,7 @@ settingsPanel.setOptions({
     applyLocalRoleName(roleName);
     showToast(`角色名称已改为 ${roleName}`);
   },
+  redeemCodes: (codes) => requestRedeemCodes(codes),
   onLogout: () => {
     detailModalHost.close('settings-panel');
     socket.disconnect();
@@ -1907,6 +1918,27 @@ settingsPanel.setOptions({
     loginUI.logout('已退出登录');
   },
 });
+
+function requestRedeemCodes(codes: string[]): Promise<AccountRedeemCodesRes> {
+  if (!socket.connected) {
+    return Promise.reject(new Error('当前连接不可用，请稍后重试'));
+  }
+  if (pendingRedeemCodesRequest) {
+    return Promise.reject(new Error('已有兑换请求正在处理中'));
+  }
+  return new Promise<AccountRedeemCodesRes>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      if (pendingRedeemCodesRequest?.timeoutId !== timeoutId) {
+        return;
+      }
+      pendingRedeemCodesRequest = null;
+      reject(new Error('兑换结果返回超时，请稍后查看背包或重试'));
+    }, 12000);
+    pendingRedeemCodesRequest = { resolve, reject, timeoutId };
+    socket.sendRedeemCodes(codes);
+  });
+}
+
 function applyZoomChange(nextZoom: number): number {
   const previous = getZoom();
   const zoom = setZoom(nextZoom);
@@ -2199,6 +2231,12 @@ socket.onConnectError((message) => {
 });
 socket.onDisconnect((reason) => {
   if (reason === 'io client disconnect') return;
+  if (pendingRedeemCodesRequest) {
+    const pending = pendingRedeemCodesRequest;
+    pendingRedeemCodesRequest = null;
+    window.clearTimeout(pending.timeoutId);
+    pending.reject(new Error('连接已断开，兑换结果未返回'));
+  }
   clearPendingSocketPing();
   renderPingLatency(null, navigator.onLine ? '重连' : '断网');
   panelSystem.store.setRuntime({ connected: false });
@@ -3096,6 +3134,16 @@ socket.onMailPage((data) => {
 
 socket.onMailDetail((data) => {
   mailPanel.updateDetail(data.detail, data.error);
+});
+
+socket.onRedeemCodesResult((data: S2C_RedeemCodesResult) => {
+  if (!pendingRedeemCodesRequest) {
+    return;
+  }
+  const pending = pendingRedeemCodesRequest;
+  pendingRedeemCodesRequest = null;
+  clearTimeout(pending.timeoutId);
+  pending.resolve(data.result);
 });
 
 socket.onMailOpResult((data) => {

@@ -58,7 +58,7 @@ export type ImmediateCommandType = 'equip' | 'unequip' | 'sortInventory' | 'useI
 /** 玩家指令，由客户端消息转化后入队，在 tick 中统一执行 */
 export interface PlayerCommand {
   playerId: string;
-  type: 'move' | 'moveTo' | 'navigateQuest' | 'action' | 'takeLoot' | 'debugResetSpawn' | 'buyNpcShopItem' | 'mailRead' | 'mailClaim' | 'mailDelete';
+  type: 'move' | 'moveTo' | 'navigateQuest' | 'action' | 'takeLoot' | 'debugResetSpawn' | 'buyNpcShopItem' | 'mailRead' | 'mailClaim' | 'mailDelete' | 'redeemCodes';
   data: unknown;
   timestamp: number;
 }

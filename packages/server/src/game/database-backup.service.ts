@@ -26,6 +26,7 @@ const HOURLY_BACKUP_RETENTION = 72;
 const DAILY_BACKUP_RETENTION = 14;
 const DAILY_BACKUP_HOUR = 4;
 const DAILY_BACKUP_MINUTE = 5;
+const BACKUP_EXCLUDED_TABLES = ['redeem_codes', 'redeem_code_groups'] as const;
 
 interface DatabaseConnectionConfig {
   host?: string;
@@ -507,6 +508,7 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
       '--compress=0',
       '--no-owner',
       '--no-privileges',
+      ...BACKUP_EXCLUDED_TABLES.flatMap((tableName) => ['--exclude-table', tableName]),
       '--username',
       connection.username,
       '--dbname',

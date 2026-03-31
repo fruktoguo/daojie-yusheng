@@ -88,6 +88,7 @@ import { DirtyFlag, ImmediateCommandType, PlayerService } from './player.service
 import { QiProjectionService } from './qi-projection.service';
 import { TechniqueService } from './technique.service';
 import { MailService, PreparedClaimOperation, PreparedDeleteOperation, PreparedMarkReadOperation } from './mail.service';
+import { PreparedRedeemCodeOperation, RedeemCodeService } from './redeem-code.service';
 import { TimeService } from './time.service';
 import { WorldMessage, WorldService, WorldUpdate } from './world.service';
 import { syncDynamicBuffPresentation } from './buff-presentation';
@@ -212,6 +213,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     private readonly timeService: TimeService,
     private readonly qiProjectionService: QiProjectionService,
     private readonly mailService: MailService,
+    private readonly redeemCodeService: RedeemCodeService,
     private readonly persistentDocumentService: PersistentDocumentService,
   ) {}
 
@@ -848,6 +850,18 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
               this.playerService.markDirty(player.id, 'inv');
             } else if (result.message) {
               messages.push({ playerId: player.id, text: result.message, kind: 'system' });
+            }
+          });
+          break;
+        }
+        case 'redeemCodes': {
+          this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+            const result = this.redeemCodeService.applyPreparedRedeem(
+              player,
+              cmd.data as PreparedRedeemCodeOperation,
+            );
+            if (result.results.some((entry) => entry.ok)) {
+              this.playerService.markDirty(player.id, 'inv');
             }
           });
           break;

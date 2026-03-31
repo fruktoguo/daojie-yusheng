@@ -13,6 +13,7 @@ import {
   C2S_RequestMailSummary,
   C2S_RequestMailPage,
   C2S_RequestMailDetail,
+  C2S_RedeemCodes,
   C2S_MarkMailRead,
   C2S_ClaimMailAttachments,
   C2S_DeleteMail,
@@ -34,6 +35,7 @@ import {
   S2C_MailSummary,
   S2C_MailPage,
   S2C_MailDetail,
+  S2C_RedeemCodesResult,
   S2C_MailOpResult,
   S2C_MarketUpdate,
   S2C_MarketItemBook,
@@ -73,6 +75,7 @@ export class SocketManager {
   private onMailSummaryCallbacks: Array<(data: S2C_MailSummary) => void> = [];
   private onMailPageCallbacks: Array<(data: S2C_MailPage) => void> = [];
   private onMailDetailCallbacks: Array<(data: S2C_MailDetail) => void> = [];
+  private onRedeemCodesResultCallbacks: Array<(data: S2C_RedeemCodesResult) => void> = [];
   private onMailOpResultCallbacks: Array<(data: S2C_MailOpResult) => void> = [];
   private onMarketUpdateCallbacks: Array<(data: S2C_MarketUpdate) => void> = [];
   private onMarketItemBookCallbacks: Array<(data: S2C_MarketItemBook) => void> = [];
@@ -121,6 +124,7 @@ export class SocketManager {
     this.bindServerEvent(S2C.MailSummary, this.onMailSummaryCallbacks);
     this.bindServerEvent(S2C.MailPage, this.onMailPageCallbacks);
     this.bindServerEvent(S2C.MailDetail, this.onMailDetailCallbacks);
+    this.bindServerEvent(S2C.RedeemCodesResult, this.onRedeemCodesResultCallbacks);
     this.bindServerEvent(S2C.MailOpResult, this.onMailOpResultCallbacks);
     this.bindServerEvent(S2C.MarketUpdate, this.onMarketUpdateCallbacks);
     this.bindServerEvent(S2C.MarketItemBook, this.onMarketItemBookCallbacks);
@@ -309,6 +313,10 @@ export class SocketManager {
     this.emitServer(C2S.RequestMailDetail, { mailId } satisfies C2S_RequestMailDetail);
   }
 
+  sendRedeemCodes(codes: string[]) {
+    this.emitServer(C2S.RedeemCodes, { codes } satisfies C2S_RedeemCodes);
+  }
+
   sendMarkMailRead(mailIds: string[]) {
     this.emitServer(C2S.MarkMailRead, { mailIds } satisfies C2S_MarkMailRead);
   }
@@ -412,6 +420,7 @@ export class SocketManager {
   onMailSummary(cb: (data: S2C_MailSummary) => void) { this.onMailSummaryCallbacks.push(cb); }
   onMailPage(cb: (data: S2C_MailPage) => void) { this.onMailPageCallbacks.push(cb); }
   onMailDetail(cb: (data: S2C_MailDetail) => void) { this.onMailDetailCallbacks.push(cb); }
+  onRedeemCodesResult(cb: (data: S2C_RedeemCodesResult) => void) { this.onRedeemCodesResultCallbacks.push(cb); }
   onMailOpResult(cb: (data: S2C_MailOpResult) => void) { this.onMailOpResultCallbacks.push(cb); }
   onMarketUpdate(cb: (data: S2C_MarketUpdate) => void) { this.onMarketUpdateCallbacks.push(cb); }
   onMarketItemBook(cb: (data: S2C_MarketItemBook) => void) { this.onMarketItemBookCallbacks.push(cb); }

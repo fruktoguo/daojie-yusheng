@@ -13,7 +13,8 @@ import { MailAudienceMemberEntity } from './entities/mail-audience-member.entity
 import { MailCampaignEntity } from './entities/mail-campaign.entity';
 import { PersistentDocumentEntity } from './entities/persistent-document.entity';
 import { PlayerMailReceiptEntity } from './entities/player-mail-receipt.entity';
-import { AfdianOrderEntity } from './entities/afdian-order.entity';
+import { RedeemCodeGroupEntity } from './entities/redeem-code-group.entity';
+import { RedeemCodeEntity } from './entities/redeem-code.entity';
 import { PersistentDocumentService } from './persistent-document.service';
 import { RedisService } from './redis.service';
 
@@ -40,7 +41,8 @@ import { RedisService } from './redis.service';
               MailAudienceMemberEntity,
               PlayerMailReceiptEntity,
               PersistentDocumentEntity,
-              AfdianOrderEntity,
+              RedeemCodeGroupEntity,
+              RedeemCodeEntity,
             ],
             synchronize: true, // 开发阶段自动同步表结构
           };
@@ -63,7 +65,8 @@ import { RedisService } from './redis.service';
             MailAudienceMemberEntity,
             PlayerMailReceiptEntity,
             PersistentDocumentEntity,
-            AfdianOrderEntity,
+            RedeemCodeGroupEntity,
+            RedeemCodeEntity,
           ],
           synchronize: true, // 开发阶段自动同步表结构
         };
@@ -79,7 +82,8 @@ import { RedisService } from './redis.service';
       MailAudienceMemberEntity,
       PlayerMailReceiptEntity,
       PersistentDocumentEntity,
-      AfdianOrderEntity,
+      RedeemCodeGroupEntity,
+      RedeemCodeEntity,
     ]),
   ],
   providers: [RedisService, PersistentDocumentService],
