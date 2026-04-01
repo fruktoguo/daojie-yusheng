@@ -25,53 +25,16 @@ export class NameUniquenessService {
     private readonly playerRepo: Repository<PlayerEntity>,
   ) {}
 
-  async findConflict(value: string, options: NameConflictCheckOptions = {}): Promise<NameConflictEntry | null> {
+  async findConflict(
+    value: string,
+    requestedKind: UniqueNameKind,
+    options: NameConflictCheckOptions = {},
+  ): Promise<NameConflictEntry | null> {
     if (!value) {
       return null;
     }
 
-    const [users, players] = await Promise.all([
-      this.userRepo.createQueryBuilder('user')
-        .select(['user.id', 'user.username', 'user.displayName', 'user.pendingRoleName'])
-        .where('user.username = :value', { value })
-        .orWhere('user.pendingRoleName = :value', { value })
-        .orWhere(new Brackets((qb) => {
-          qb.where('user.displayName = :value', { value })
-            .orWhere('(user.displayName IS NULL AND LEFT(user.username, 1) = :value)', { value });
-        }))
-        .getMany(),
-      this.playerRepo.find({
-        select: ['userId', 'name'],
-        where: { name: value },
-      }),
-    ]);
-
-    const conflicts: NameConflictEntry[] = [];
-    for (const user of users) {
-      const username = normalizeUsername(user.username);
-      if (username === value) {
-        conflicts.push({ kind: 'account', userId: user.id });
-      }
-
-      const effectiveDisplayName = resolveDisplayName(user.displayName, user.username);
-      if (effectiveDisplayName === value) {
-        conflicts.push({ kind: 'display', userId: user.id });
-      }
-
-      const pendingRoleName = typeof user.pendingRoleName === 'string'
-        ? normalizeRoleName(user.pendingRoleName)
-        : '';
-      if (pendingRoleName === value) {
-        conflicts.push({ kind: 'role', userId: user.id });
-      }
-    }
-
-    for (const player of players) {
-      const roleName = normalizeRoleName(player.name);
-      if (roleName === value) {
-        conflicts.push({ kind: 'role', userId: player.userId });
-      }
-    }
+    const conflicts = await this.findConflictsByKind(value, requestedKind);
 
     const exclude = options.exclude ?? [];
     return conflicts.find((entry) => !exclude.some((candidate) => (
@@ -84,40 +47,65 @@ export class NameUniquenessService {
     requestedKind: UniqueNameKind,
     options: NameConflictCheckOptions = {},
   ): Promise<string | null> {
-    const conflict = await this.findConflict(value, options);
+    const conflict = await this.findConflict(value, requestedKind, options);
     if (!conflict) {
       return null;
     }
     return this.buildConflictMessage(requestedKind, conflict.kind);
   }
 
-  private buildConflictMessage(requestedKind: UniqueNameKind, conflictKind: UniqueNameKind): string {
+  private async findConflictsByKind(value: string, requestedKind: UniqueNameKind): Promise<NameConflictEntry[]> {
     if (requestedKind === 'account') {
-      if (conflictKind === 'account') {
-        return '账号已存在';
-      }
-      if (conflictKind === 'role') {
-        return '账号名已被角色名占用';
-      }
-      return '账号名已被显示名称占用';
+      const users = await this.userRepo.find({
+        select: ['id', 'username'],
+        where: { username: value },
+      });
+      return users
+        .filter((user) => normalizeUsername(user.username) === value)
+        .map((user) => ({ kind: 'account' as const, userId: user.id }));
     }
 
     if (requestedKind === 'role') {
-      if (conflictKind === 'role') {
-        return '角色名称已存在';
-      }
-      if (conflictKind === 'account') {
-        return '角色名称与账号重名';
-      }
-      return '角色名称与显示名称冲突';
+      const [users, players] = await Promise.all([
+        this.userRepo.find({
+          select: ['id', 'pendingRoleName'],
+          where: { pendingRoleName: value },
+        }),
+        this.playerRepo.find({
+          select: ['userId', 'name'],
+          where: { name: value },
+        }),
+      ]);
+
+      return [
+        ...users
+          .filter((user) => normalizeRoleName(user.pendingRoleName ?? '') === value)
+          .map((user) => ({ kind: 'role' as const, userId: user.id })),
+        ...players
+          .filter((player) => normalizeRoleName(player.name) === value)
+          .map((player) => ({ kind: 'role' as const, userId: player.userId })),
+      ];
     }
 
-    if (conflictKind === 'display') {
-      return '显示名称已存在';
+    const users = await this.userRepo.createQueryBuilder('user')
+      .select(['user.id', 'user.username', 'user.displayName'])
+      .where(new Brackets((qb) => {
+        qb.where('user.displayName = :value', { value })
+          .orWhere('(user.displayName IS NULL AND LEFT(user.username, 1) = :value)', { value });
+      }))
+      .getMany();
+    return users
+      .filter((user) => resolveDisplayName(user.displayName, user.username) === value)
+      .map((user) => ({ kind: 'display' as const, userId: user.id }));
+  }
+
+  private buildConflictMessage(requestedKind: UniqueNameKind, conflictKind: UniqueNameKind): string {
+    if (requestedKind === 'account' || conflictKind === 'account') {
+      return '账号已存在';
     }
-    if (conflictKind === 'account') {
-      return '显示名称与账号重名';
+    if (requestedKind === 'role' || conflictKind === 'role') {
+      return '角色名称已存在';
     }
-    return '显示名称与角色名称冲突';
+    return '显示名称已存在';
   }
 }

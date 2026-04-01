@@ -81,15 +81,6 @@ export class AuthService implements OnModuleInit {
     if (roleNameError) {
       throw new BadRequestException(roleNameError);
     }
-    if (normalizedUsername === normalizedRoleName) {
-      throw new BadRequestException('角色名称与账号重名');
-    }
-    if (normalizedUsername === normalizedDisplayName) {
-      throw new BadRequestException('显示名称与账号重名');
-    }
-    if (normalizedRoleName === normalizedDisplayName) {
-      throw new BadRequestException('显示名称与角色名称冲突');
-    }
 
     const usernameConflict = await this.nameUniquenessService.ensureAvailable(normalizedUsername, 'account');
     if (usernameConflict) {
