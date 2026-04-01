@@ -2,7 +2,14 @@
  * 行动管理：技能行动列表构建、冷却计算、自动战斗配置
  */
 import { Injectable } from '@nestjs/common';
-import { ActionDef, AutoBattleSkillConfig, PlayerState, ratioValue } from '@mud/shared';
+import {
+  ActionDef,
+  AutoBattleSkillConfig,
+  PlayerState,
+  enforceSkillEnabledLimit,
+  ratioValue,
+  resolvePlayerSkillSlotLimit,
+} from '@mud/shared';
 import { AttrService } from './attr.service';
 import { TechniqueService } from './technique.service';
 
@@ -17,7 +24,11 @@ export class ActionService {
   rebuildActions(player: PlayerState, contextActions: ActionDef[] = []): void {
     const cooldowns = new Map(player.actions.map((action) => [action.id, action.cooldownLeft]));
     const skillActions = this.techniqueService.getSkillActions(player);
-    const autoBattleSkills = this.normalizeAutoBattleSkills(skillActions, player.autoBattleSkills);
+    const autoBattleSkills = this.normalizeAutoBattleSkills(
+      skillActions,
+      player.autoBattleSkills,
+      resolvePlayerSkillSlotLimit(player),
+    );
     const skillOrder = new Map(autoBattleSkills.map((entry, index) => [entry.skillId, index]));
     const autoBattleEnabledMap = new Map(autoBattleSkills.map((entry) => [entry.skillId, entry.enabled]));
     const skillPanelEnabled = new Map(autoBattleSkills.map((entry) => [entry.skillId, entry.skillEnabled !== false]));
@@ -37,8 +48,8 @@ export class ActionService {
   /** 更新自动战斗技能配置，返回是否有变化 */
   updateAutoBattleSkills(player: PlayerState, input: AutoBattleSkillConfig[]): boolean {
     const skillActions = this.techniqueService.getSkillActions(player);
-    const next = this.normalizeAutoBattleSkills(skillActions, input);
-    const changed = JSON.stringify(player.autoBattleSkills) !== JSON.stringify(next);
+    const next = this.normalizeAutoBattleSkills(skillActions, input, resolvePlayerSkillSlotLimit(player));
+    const changed = !this.isSameAutoBattleSkillConfigList(player.autoBattleSkills, next);
     player.autoBattleSkills = next;
     return changed;
   }
@@ -91,7 +102,11 @@ export class ActionService {
   }
 
   /** 规范化自动战斗技能列表，补全缺失的技能条目 */
-  private normalizeAutoBattleSkills(skillActions: ActionDef[], input: AutoBattleSkillConfig[] | undefined): AutoBattleSkillConfig[] {
+  private normalizeAutoBattleSkills(
+    skillActions: ActionDef[],
+    input: AutoBattleSkillConfig[] | undefined,
+    skillSlotLimit: number,
+  ): AutoBattleSkillConfig[] {
     const availableIds = new Set(skillActions.map((action) => action.id));
     const normalized: AutoBattleSkillConfig[] = [];
     const seen = new Set<string>();
@@ -120,6 +135,27 @@ export class ActionService {
       seen.add(action.id);
     }
 
-    return normalized;
+    return enforceSkillEnabledLimit(normalized, skillSlotLimit);
+  }
+
+  private isSameAutoBattleSkillConfigList(
+    left: AutoBattleSkillConfig[] | undefined,
+    right: AutoBattleSkillConfig[],
+  ): boolean {
+    if ((left?.length ?? 0) !== right.length) {
+      return false;
+    }
+    for (let index = 0; index < right.length; index += 1) {
+      const previous = left?.[index];
+      const next = right[index]!;
+      if (
+        previous?.skillId !== next.skillId
+        || previous.enabled !== next.enabled
+        || (previous.skillEnabled !== false) !== (next.skillEnabled !== false)
+      ) {
+        return false;
+      }
+    }
+    return true;
   }
 }

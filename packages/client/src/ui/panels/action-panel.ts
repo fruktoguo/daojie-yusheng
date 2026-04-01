@@ -3,7 +3,15 @@
  * 管理技能、对话、行动三大分类的操作列表，支持快捷键绑定、自动战斗技能排序与拖拽
  */
 
-import { ActionDef, AutoBattleSkillConfig, PlayerState, SkillDef } from '@mud/shared';
+import {
+  ActionDef,
+  AutoBattleSkillConfig,
+  PlayerState,
+  SkillDef,
+  countEnabledSkillEntries,
+  enforceSkillEnabledLimit,
+  resolvePlayerSkillSlotLimit,
+} from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { buildSkillTooltipContent, type SkillPreviewMetrics, summarizeSkillPreviewMetrics } from '../skill-tooltip';
@@ -65,6 +73,7 @@ export class ActionPanel {
   private skillManagementSortDirection: SkillManagementSortDirection = 'desc';
   private skillManagementFilterOpen = false;
   private skillManagementFilterToggles = new Set<SkillManagementFilterToggle>();
+  private skillManagementExternalRevision: string | null = null;
   private autoBattle = false;
   private autoRetaliate = true;
   private autoBattleStationary = false;
@@ -92,6 +101,7 @@ export class ActionPanel {
     this.tooltip.hide(true);
     this.actionRowRefs.clear();
     this.skillManagementDraft = null;
+    this.skillManagementExternalRevision = null;
     detailModalHost.close(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER);
     this.pane.innerHTML = '<div class="empty-hint">暂无可用行动</div>';
   }
@@ -124,6 +134,7 @@ export class ActionPanel {
 
   /** 增量同步行动状态，优先 DOM patch 避免全量重绘 */
   syncDynamic(actions: ActionDef[], _autoBattle?: boolean, _autoRetaliate?: boolean, player?: PlayerState): void {
+    const previousSkillSlotLimit = this.getSkillSlotLimit();
     if (player) {
       this.previewPlayer = player;
       this.syncPlayerContext(player);
@@ -136,8 +147,9 @@ export class ActionPanel {
     this.currentActions = this.withUtilityActions(actions);
     if (_autoBattle !== undefined) this.autoBattle = _autoBattle;
     if (_autoRetaliate !== undefined) this.autoRetaliate = _autoRetaliate;
+    const skillSlotLimitChanged = previousSkillSlotLimit !== this.getSkillSlotLimit();
 
-    if (!this.patchToggleCards() || !this.patchActionRows()) {
+    if (skillSlotLimitChanged || !this.patchToggleCards() || !this.patchActionRows()) {
       this.render(this.currentActions);
     }
     this.renderSkillManagementModalIfOpen();
@@ -174,6 +186,8 @@ export class ActionPanel {
       return;
     }
 
+    const enabledSkillCount = this.getEnabledSkillCount(actions);
+    const skillSlotLimit = this.getSkillSlotLimit();
     const tabGroups: Array<{
       id: ActionMainTab;
       label: string;
@@ -194,7 +208,9 @@ export class ActionPanel {
 
     let html = `<div class="action-tab-bar">
       ${tabGroups.map((tab) => `
-        <button class="action-tab-btn ${this.activeTab === tab.id ? 'active' : ''}" data-action-tab="${tab.id}" type="button">${tab.label}</button>
+        <button class="action-tab-btn ${this.activeTab === tab.id ? 'active' : ''}" data-action-tab="${tab.id}" type="button">${tab.id === 'skill'
+          ? `${tab.label} <span class="action-skill-subtab-count">${enabledSkillCount}/${skillSlotLimit}</span>`
+          : tab.label}</button>
       `).join('')}
     </div>`;
 
@@ -426,7 +442,7 @@ export class ActionPanel {
   }
 
   private isUtilityActionId(actionId: string): boolean {
-    return actionId === RETURN_TO_SPAWN_ACTION_ID;
+    return actionId === RETURN_TO_SPAWN_ACTION_ID || actionId === 'battle:force_attack';
   }
 
   private isSwitchActionId(actionId: string): boolean {
@@ -538,6 +554,12 @@ export class ActionPanel {
 
   private withUtilityActions(actions: ActionDef[]): ActionDef[] {
     const result = [...actions];
+    const knownSkillActions = this.previewPlayer ? this.buildTechniqueFallbackActions(this.previewPlayer, result) : [];
+    for (const action of knownSkillActions) {
+      if (!result.some((entry) => entry.id === action.id)) {
+        result.push(action);
+      }
+    }
     if (!result.some((action) => action.id === 'client:take')) {
       result.push({
         id: 'client:take',
@@ -562,6 +584,48 @@ export class ActionPanel {
       });
     }
     return result;
+  }
+
+  private buildTechniqueFallbackActions(player: PlayerState, currentActions: ActionDef[]): ActionDef[] {
+    const currentSkillActions = currentActions.filter((action) => action.type === 'skill');
+    const existingSkillIds = new Set(currentSkillActions.map((action) => action.id));
+    const autoBattleSkillMap = new Map((player.autoBattleSkills ?? []).map((entry, index) => [entry.skillId, { entry, index }] as const));
+    const fallback: ActionDef[] = [];
+    for (const technique of player.techniques) {
+      for (const skill of technique.skills ?? []) {
+        if (existingSkillIds.has(skill.id)) {
+          continue;
+        }
+        const config = autoBattleSkillMap.get(skill.id);
+        fallback.push({
+          id: skill.id,
+          name: skill.name,
+          type: 'skill',
+          desc: skill.desc,
+          cooldownLeft: 0,
+          range: skill.targeting?.range ?? skill.range,
+          requiresTarget: skill.requiresTarget ?? true,
+          targetMode: skill.targetMode ?? 'entity',
+          autoBattleEnabled: config?.entry.enabled ?? true,
+          autoBattleOrder: config?.index,
+          skillEnabled: config?.entry.skillEnabled ?? true,
+        });
+      }
+    }
+    fallback.sort((left, right) => {
+      const leftOrder = left.autoBattleOrder ?? Number.MAX_SAFE_INTEGER;
+      const rightOrder = right.autoBattleOrder ?? Number.MAX_SAFE_INTEGER;
+      return (leftOrder - rightOrder) || left.id.localeCompare(right.id, 'zh-Hans-CN');
+    });
+    const combined = [...currentSkillActions, ...fallback]
+      .sort((left, right) => {
+        const leftOrder = left.autoBattleOrder ?? Number.MAX_SAFE_INTEGER;
+        const rightOrder = right.autoBattleOrder ?? Number.MAX_SAFE_INTEGER;
+        return (leftOrder - rightOrder) || left.id.localeCompare(right.id, 'zh-Hans-CN');
+      });
+    const normalized = this.normalizeSkillActions(combined);
+    const fallbackMap = new Map(normalized.map((action) => [action.id, action] as const));
+    return fallback.map((action) => fallbackMap.get(action.id) ?? action);
   }
 
   private renderActionItem(
@@ -682,6 +746,20 @@ export class ActionPanel {
     });
   }
 
+  private moveSkillManagementSkillByStep(actionId: string, direction: -1 | 1): void {
+    const visibleActionIds = this.getVisibleSkillManagementActionIds();
+    const currentIndex = visibleActionIds.indexOf(actionId);
+    const targetIndex = currentIndex + direction;
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= visibleActionIds.length) {
+      return;
+    }
+    const targetId = visibleActionIds[targetIndex];
+    if (!targetId) {
+      return;
+    }
+    this.moveSkillManagementSkill(actionId, targetId, direction < 0 ? 'before' : 'after');
+  }
+
   private applyAutoBattleSkillMutation(mutator: (skills: ActionDef[]) => ActionDef[]): void {
     const skillActions = this.currentActions
       .filter((action) => action.type === 'skill')
@@ -689,7 +767,7 @@ export class ActionPanel {
         ...action,
         autoBattleEnabled: action.autoBattleEnabled !== false,
       }));
-    const mutated = this.withSequentialAutoBattleOrder(mutator(skillActions));
+    const mutated = this.normalizeSkillActions(mutator(skillActions));
     this.currentActions = this.replaceSkillActions(mutated);
     if (this.previewPlayer) {
       this.previewPlayer.actions = this.currentActions.filter((action) => action.id !== 'client:observe');
@@ -700,16 +778,21 @@ export class ActionPanel {
     this.onUpdateAutoBattleSkills?.(this.getAutoBattleSkillConfigs(this.currentActions));
   }
 
-  private applySkillManagementDraftMutation(mutator: (skills: ActionDef[]) => ActionDef[]): void {
+  private applySkillManagementDraftMutation(
+    mutator: (skills: ActionDef[]) => ActionDef[],
+    rerender = true,
+  ): void {
     const skillActions = this.getSkillActions(this.getSkillManagementPreviewActions())
       .map((action) => ({
         ...action,
         autoBattleEnabled: action.autoBattleEnabled !== false,
         skillEnabled: action.skillEnabled !== false,
       }));
-    const mutated = this.withSequentialAutoBattleOrder(mutator(skillActions));
+    const mutated = this.normalizeSkillActions(mutator(skillActions));
     this.skillManagementDraft = this.getAutoBattleSkillConfigs(mutated);
-    this.renderSkillManagementModal();
+    if (rerender) {
+      this.renderSkillManagementModal();
+    }
   }
 
   private withSequentialAutoBattleOrder(actions: ActionDef[]): ActionDef[] {
@@ -732,13 +815,13 @@ export class ActionPanel {
   }
 
   private getAutoBattleSkillConfigs(actions: ActionDef[]): AutoBattleSkillConfig[] {
-    return actions
+    return this.normalizeSkillConfigs(actions
       .filter((action) => action.type === 'skill')
       .map((action) => ({
         skillId: action.id,
         enabled: action.autoBattleEnabled !== false,
         skillEnabled: action.skillEnabled !== false,
-      }));
+      })));
   }
 
   private updateDragIndicators(): void {
@@ -823,13 +906,14 @@ export class ActionPanel {
     const autoSkills = enabledSkills.filter((action) => action.autoBattleEnabled !== false);
     const manualSkills = enabledSkills.filter((action) => action.autoBattleEnabled === false);
     const visibleSkills = this.activeSkillTab === 'auto' ? autoSkills : manualSkills;
+    const slotSummary = this.getSkillSlotSummary(actions);
     const hint = this.activeSkillTab === 'auto'
-      ? '自动战斗会按列表从上到下尝试已启用技能，可直接拖拽调整优先级。'
-      : '这里的技能不会参与自动战斗，但仍可手动点击或使用绑定键触发。';
+      ? `自动战斗会按列表从上到下尝试已启用技能，可直接拖拽调整优先级。当前已启用 ${slotSummary}。`
+      : `这里的技能不会参与自动战斗，但仍可手动点击或使用绑定键触发。当前已启用 ${slotSummary}。`;
 
     let html = `<div class="panel-section">
       <div class="panel-section-head">
-        <div class="panel-section-title">技能</div>
+        <div class="panel-section-title">技能 · ${slotSummary}</div>
         <button class="small-btn ghost" data-action-skill-manage-open type="button">技能管理</button>
       </div>
       <div class="action-skill-subtabs">
@@ -1015,6 +1099,31 @@ export class ActionPanel {
     });
   }
 
+  private bindSkillManagementMoveEvents(root: HTMLElement): void {
+    root.querySelectorAll<HTMLElement>('[data-skill-manage-move-up]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const actionId = button.dataset.skillManageMoveUp;
+        if (!actionId || button.hasAttribute('disabled')) {
+          return;
+        }
+        this.moveSkillManagementSkillByStep(actionId, -1);
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-manage-move-down]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const actionId = button.dataset.skillManageMoveDown;
+        if (!actionId || button.hasAttribute('disabled')) {
+          return;
+        }
+        this.moveSkillManagementSkillByStep(actionId, 1);
+      });
+    });
+  }
+
   private bindSkillManagementDragEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>('[data-skill-manage-drag]').forEach((handle) => {
       handle.addEventListener('dragstart', (event) => {
@@ -1070,6 +1179,143 @@ export class ActionPanel {
     return actions.filter((action) => action.type === 'skill');
   }
 
+  private getSkillSlotLimit(): number {
+    return resolvePlayerSkillSlotLimit(this.previewPlayer);
+  }
+
+  private getEnabledSkillCount(actions: ActionDef[] = this.currentActions): number {
+    return countEnabledSkillEntries(this.getSkillActions(actions));
+  }
+
+  private getSkillSlotSummary(actions: ActionDef[] = this.currentActions): string {
+    return `${this.getEnabledSkillCount(actions)}/${this.getSkillSlotLimit()}`;
+  }
+
+  private normalizeSkillConfigs(configs: AutoBattleSkillConfig[]): AutoBattleSkillConfig[] {
+    return enforceSkillEnabledLimit(configs.map((entry) => ({
+      skillId: entry.skillId,
+      enabled: entry.enabled !== false,
+      skillEnabled: entry.skillEnabled !== false,
+    })), this.getSkillSlotLimit());
+  }
+
+  private normalizeSkillActions(actions: ActionDef[]): ActionDef[] {
+    return enforceSkillEnabledLimit(this.withSequentialAutoBattleOrder(actions), this.getSkillSlotLimit());
+  }
+
+  private buildSkillManagementExternalRevision(): string {
+    const parts = [String(this.getSkillSlotLimit())];
+    for (const action of this.getSkillActions(this.currentActions)) {
+      parts.push(action.id);
+      parts.push(action.name);
+      parts.push(action.desc);
+      parts.push(typeof action.range === 'number' ? String(action.range) : '');
+      parts.push(action.autoBattleEnabled !== false ? '1' : '0');
+      parts.push(String(action.autoBattleOrder ?? ''));
+      parts.push(action.skillEnabled !== false ? '1' : '0');
+    }
+    return parts.join('\u0001');
+  }
+
+  private areAutoBattleSkillConfigsEqual(
+    left: AutoBattleSkillConfig[] | null | undefined,
+    right: AutoBattleSkillConfig[] | null | undefined,
+  ): boolean {
+    if ((left?.length ?? 0) !== (right?.length ?? 0)) {
+      return false;
+    }
+    for (let index = 0; index < (right?.length ?? 0); index += 1) {
+      const previous = left?.[index];
+      const next = right?.[index];
+      if (
+        previous?.skillId !== next?.skillId
+        || previous?.enabled !== next?.enabled
+        || (previous?.skillEnabled !== false) !== (next?.skillEnabled !== false)
+      ) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private hasPendingSkillManagementChanges(): boolean {
+    if (!this.skillManagementDraft) {
+      return false;
+    }
+    return !this.areAutoBattleSkillConfigsEqual(
+      this.skillManagementDraft,
+      this.getAutoBattleSkillConfigs(this.currentActions),
+    );
+  }
+
+  private confirmDiscardSkillManagementChanges(): boolean {
+    if (!this.hasPendingSkillManagementChanges()) {
+      return true;
+    }
+    return window.confirm('技能管理有未应用的改动，关闭后会丢失这些改动。确定关闭吗？');
+  }
+
+  private requestSkillManagementClose(): void {
+    if (!this.confirmDiscardSkillManagementChanges()) {
+      return;
+    }
+    this.discardSkillManagementDraft();
+    detailModalHost.close(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER);
+  }
+
+  private getVisibleSkillManagementActionIds(): string[] {
+    if (this.skillManagementSortField !== 'custom') {
+      return [];
+    }
+    const previewActions = this.getSkillManagementPreviewActions();
+    const skillEntries = this.getFilteredSkillManagementEntries(this.getSkillManagementEntries(previewActions));
+    const visibleEntries = this.skillManagementTab === 'auto'
+      ? skillEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled !== false)
+      : this.skillManagementTab === 'manual'
+        ? skillEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled === false)
+        : skillEntries.filter((entry) => entry.action.skillEnabled === false);
+    return visibleEntries.map((entry) => entry.action.id);
+  }
+
+  private getSortedSkillManagementActionIds(): string[] {
+    const previewActions = this.getSkillManagementPreviewActions();
+    const skillEntries = this.getFilteredSkillManagementEntries(this.getSkillManagementEntries(previewActions));
+    const visibleEntries = this.skillManagementTab === 'auto'
+      ? skillEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled !== false)
+      : this.skillManagementTab === 'manual'
+        ? skillEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled === false)
+        : skillEntries.filter((entry) => entry.action.skillEnabled === false);
+    return this.sortSkillManagementEntries(visibleEntries).map((entry) => entry.action.id);
+  }
+
+  private reorderSkillManagementSubset(skills: ActionDef[], orderedIds: string[]): ActionDef[] {
+    const subset = new Set(orderedIds);
+    const orderedActions = orderedIds
+      .map((id) => skills.find((action) => action.id === id))
+      .filter((action): action is ActionDef => Boolean(action));
+    let nextIndex = 0;
+    return skills.map((action) => (
+      subset.has(action.id)
+        ? (orderedActions[nextIndex++] ?? action)
+        : action
+    ));
+  }
+
+  private applySkillManagementSortOrder(rerender = true): boolean {
+    if (this.skillManagementTab === 'disabled' || this.skillManagementSortField === 'custom') {
+      return false;
+    }
+    const orderedIds = this.getSortedSkillManagementActionIds();
+    if (orderedIds.length <= 1) {
+      return false;
+    }
+    this.applySkillManagementDraftMutation(
+      (skills) => this.reorderSkillManagementSubset(skills, orderedIds),
+      rerender,
+    );
+    return true;
+  }
+
   private openSkillManagement(): void {
     this.skillManagementTab = this.activeSkillTab;
     this.syncSkillManagementDraft();
@@ -1107,36 +1353,46 @@ export class ActionPanel {
       seen.add(action.id);
     }
 
-    this.skillManagementDraft = normalized;
-    return normalized;
+    const nextDraft = this.normalizeSkillConfigs(normalized);
+    this.skillManagementDraft = nextDraft;
+    return nextDraft;
   }
 
   private getSkillManagementPreviewActions(): ActionDef[] {
     const draft = this.syncSkillManagementDraft();
     const draftMap = new Map(draft.map((entry, index) => [entry.skillId, { entry, index }]));
-    const skillActions = this.getSkillActions(this.currentActions)
-      .map((action) => {
-        const draftEntry = draftMap.get(action.id);
-        if (!draftEntry) {
+    const skillActions = this.normalizeSkillActions(
+      this.getSkillActions(this.currentActions)
+        .map((action) => {
+          const draftEntry = draftMap.get(action.id);
+          if (!draftEntry) {
+            return {
+              ...action,
+              autoBattleEnabled: action.autoBattleEnabled !== false,
+              skillEnabled: action.skillEnabled !== false,
+            };
+          }
           return {
             ...action,
-            autoBattleEnabled: action.autoBattleEnabled !== false,
-            skillEnabled: action.skillEnabled !== false,
+            autoBattleEnabled: draftEntry.entry.enabled !== false,
+            skillEnabled: draftEntry.entry.skillEnabled !== false,
+            autoBattleOrder: draftEntry.index,
           };
-        }
-        return {
-          ...action,
-          autoBattleEnabled: draftEntry.entry.enabled !== false,
-          skillEnabled: draftEntry.entry.skillEnabled !== false,
-          autoBattleOrder: draftEntry.index,
-        };
-      })
-      .sort((left, right) => (left.autoBattleOrder ?? Number.MAX_SAFE_INTEGER) - (right.autoBattleOrder ?? Number.MAX_SAFE_INTEGER));
+        })
+        .sort((left, right) => (left.autoBattleOrder ?? Number.MAX_SAFE_INTEGER) - (right.autoBattleOrder ?? Number.MAX_SAFE_INTEGER)),
+    );
     return this.replaceSkillActions(skillActions);
   }
 
   private renderSkillManagementModalIfOpen(): void {
     if (!detailModalHost.isOpenFor(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER)) {
+      return;
+    }
+    if (this.hasPendingSkillManagementChanges()) {
+      return;
+    }
+    const nextRevision = this.buildSkillManagementExternalRevision();
+    if (this.skillManagementExternalRevision === nextRevision) {
       return;
     }
     this.renderSkillManagementModal();
@@ -1147,6 +1403,7 @@ export class ActionPanel {
     const skillEntries = this.getSkillManagementEntries(previewActions);
     const filteredEntries = this.getFilteredSkillManagementEntries(skillEntries);
     const autoBattleDisplayOrders = this.buildAutoBattleDisplayOrderMap(previewActions);
+    const slotSummary = this.getSkillSlotSummary(previewActions);
     const autoEntries = filteredEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled !== false);
     const manualEntries = filteredEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled === false);
     const disabledEntries = filteredEntries.filter((entry) => entry.action.skillEnabled === false);
@@ -1160,13 +1417,13 @@ export class ActionPanel {
     const dragSortEnabled = this.skillManagementTab === 'auto'
       && this.skillManagementSortField === 'custom'
       && visibleEntries.length > 1;
-    const hint = this.buildSkillManagementHint(dragSortEnabled);
+    const hint = this.buildSkillManagementHint(dragSortEnabled, slotSummary);
 
     detailModalHost.open({
       ownerId: ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER,
       variantClass: 'detail-modal--skill-management',
       title: '技能管理',
-      subtitle: `已学技能 ${skillEntries.length} 项 · 当前过滤 ${filteredEntries.length} 项`,
+      subtitle: `已学技能 ${skillEntries.length} 项 · 已启用 ${slotSummary} · 当前过滤 ${filteredEntries.length} 项`,
       bodyHtml: `
         <div class="skill-manage-shell">
           <div class="skill-manage-topbar">
@@ -1196,12 +1453,13 @@ export class ActionPanel {
             </div>
           </div>
           <div class="skill-manage-summary">
+            <span>已启用 ${slotSummary}</span>
             <span>当前过滤 ${filteredEntries.length} 项</span>
             <span>自动 ${autoEntries.length} 项</span>
             <span>手动 ${manualEntries.length} 项</span>
             <span>禁用 ${disabledEntries.length} 项</span>
           </div>
-          ${this.skillManagementSortOpen ? this.renderSkillManagementSortPanel(visibleEntries.length) : ''}
+          ${this.skillManagementSortOpen ? this.renderSkillManagementSortPanel() : ''}
           ${this.skillManagementFilterOpen ? `
             <div class="skill-manage-filter-panel">
               <div class="skill-manage-filter-head">
@@ -1232,15 +1490,18 @@ export class ActionPanel {
           ${visibleEntries.length === 0
             ? `<div class="empty-hint">${this.skillManagementTab === 'auto' ? '当前过滤下没有自动技能' : this.skillManagementTab === 'manual' ? '当前过滤下没有手动技能' : '当前过滤下没有禁用技能'}</div>`
             : `<div class="action-skill-list skill-manage-list">
-              ${visibleEntries.map((entry) => this.renderSkillManagementItem(entry.action, {
+              ${visibleEntries.map((entry, index) => this.renderSkillManagementItem(entry.action, {
                 showDragHandle: dragSortEnabled,
                 autoBattleDisplayOrder: this.skillManagementTab === 'auto'
                   ? (autoBattleDisplayOrders.get(entry.action.id) ?? null)
                   : null,
+                canMoveUp: this.skillManagementSortField === 'custom' && index > 0,
+                canMoveDown: this.skillManagementSortField === 'custom' && index < visibleEntries.length - 1,
               })).join('')}
             </div>`}
         </div>
       `,
+      onRequestClose: () => this.confirmDiscardSkillManagementChanges(),
       onClose: () => {
         this.discardSkillManagementDraft();
       },
@@ -1249,6 +1510,7 @@ export class ActionPanel {
         this.bindTooltips(body);
       },
     });
+    this.skillManagementExternalRevision = this.buildSkillManagementExternalRevision();
   }
 
   private bindSkillManagementEvents(root: HTMLElement): void {
@@ -1259,7 +1521,7 @@ export class ActionPanel {
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-cancel]').forEach((button) => {
       button.addEventListener('click', () => {
-        this.cancelSkillManagementChanges();
+        this.requestSkillManagementClose();
       });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-tab]').forEach((button) => {
@@ -1280,6 +1542,12 @@ export class ActionPanel {
       button.addEventListener('click', () => {
         const value = button.dataset.skillManageSortFieldToggle as SkillManagementSortField | undefined;
         if (!value) return;
+        if (value === this.skillManagementSortField) {
+          return;
+        }
+        if (value === 'custom' && this.skillManagementSortField !== 'custom') {
+          this.applySkillManagementSortOrder(false);
+        }
         this.skillManagementSortField = value;
         this.renderSkillManagementModal();
       });
@@ -1290,11 +1558,6 @@ export class ActionPanel {
         if (!value) return;
         this.skillManagementSortDirection = value;
         this.renderSkillManagementModal();
-      });
-    });
-    root.querySelectorAll<HTMLElement>('[data-skill-manage-apply-sort]').forEach((button) => {
-      button.addEventListener('click', () => {
-        this.applySkillManagementSortOrder();
       });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-filter-toggle]').forEach((button) => {
@@ -1332,6 +1595,7 @@ export class ActionPanel {
     });
     this.bindSkillManagementAutoToggleEvents(root);
     this.bindSkillManagementEnabledToggleEvents(root);
+    this.bindSkillManagementMoveEvents(root);
     this.bindSkillManagementDragEvents(root);
   }
 
@@ -1484,15 +1748,11 @@ export class ActionPanel {
     }
   }
 
-  private renderSkillManagementSortPanel(visibleCount: number): string {
-    const canApplySort = this.skillManagementTab !== 'disabled'
-      && this.skillManagementSortField !== 'custom'
-      && visibleCount > 1;
+  private renderSkillManagementSortPanel(): string {
     return `
       <div class="skill-manage-sort-panel">
         <div class="skill-manage-filter-head">
           <div class="skill-manage-filter-title">排序规则</div>
-          <button class="small-btn ghost" data-skill-manage-apply-sort type="button"${canApplySort ? '' : ' disabled'}>应用到当前顺位</button>
         </div>
         <div class="skill-manage-chip-group">
           <span class="skill-manage-chip-group-title">排序字段</span>
@@ -1515,25 +1775,25 @@ export class ActionPanel {
         <div class="skill-manage-filter-copy">${this.skillManagementTab === 'disabled'
           ? '禁用页签只提供查看与筛选；重新启用后，技能会按原自动状态回到自动或手动列表。'
           : this.skillManagementSortField === 'custom'
-            ? '当前顺位模式下，自动页签可直接拖拽调整优先级。'
-            : '当前列表会按选定规则显示；点“应用到当前顺位”后，会把这一排序写回技能顺位。'}</div>
+            ? '当前顺位模式下，可直接拖拽或用上移、下移调整技能顺序。'
+            : '当前列表会按选定规则显示；切回“当前顺位”或点顶部“应用”时，会把当前结果写回真实顺位。'}</div>
       </div>
     `;
   }
 
-  private buildSkillManagementHint(dragSortEnabled: boolean): string {
+  private buildSkillManagementHint(dragSortEnabled: boolean, slotSummary: string): string {
     if (this.skillManagementTab === 'disabled') {
-      return '这里是未启用的技能，重新打开“启用”后，技能会按当前自动状态回到自动或手动列表。';
+      return `这里是未启用的技能，重新打开“启用”后，技能会按当前自动状态回到自动或手动列表。当前已启用 ${slotSummary}。`;
     }
     if (this.skillManagementSortField !== 'custom') {
-      return '当前列表已按选定规则排序显示，可切换升序或降序，也可把这一排序应用到当前顺位。';
+      return `当前列表已按选定规则显示；切回“当前顺位”或点顶部“应用”时，会把当前结果写回真实顺位。当前已启用 ${slotSummary}。`;
     }
     if (dragSortEnabled) {
-      return '自动战斗会按列表从上到下尝试技能，当前可直接拖拽调整优先级。';
+      return `自动战斗会按列表从上到下尝试技能，当前可直接拖拽，或用上移、下移调整优先级。当前已启用 ${slotSummary}，超过上限会自动禁用末位技能。`;
     }
     return this.skillManagementTab === 'auto'
-      ? '这里显示会参与自动战斗的技能，可继续用过滤条件缩小范围后批量调整。'
-      : '这里显示仅手动触发的技能，可通过过滤快速圈定一组技能再批量切换。';
+      ? `这里显示会参与自动战斗的技能，可继续用过滤条件缩小范围后批量调整。当前已启用 ${slotSummary}。`
+      : `这里显示仅手动触发的技能，可通过过滤快速圈定一组技能再批量切换。当前已启用 ${slotSummary}。`;
   }
 
   private renderSkillManagementSortChip(value: SkillManagementSortField, label: string): string {
@@ -1553,6 +1813,9 @@ export class ActionPanel {
   }
 
   private applySkillManagementChanges(): void {
+    if (this.skillManagementSortField !== 'custom') {
+      this.applySkillManagementSortOrder(false);
+    }
     const nextActions = this.getSkillManagementPreviewActions();
     const nextAutoBattleSkills = this.getAutoBattleSkillConfigs(nextActions);
     this.currentActions = nextActions;
@@ -1568,45 +1831,11 @@ export class ActionPanel {
     this.onUpdateAutoBattleSkills?.(nextAutoBattleSkills);
   }
 
-  private cancelSkillManagementChanges(): void {
-    this.discardSkillManagementDraft();
-    detailModalHost.close(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER);
-  }
-
   private discardSkillManagementDraft(): void {
     this.skillManagementDraft = null;
+    this.skillManagementExternalRevision = null;
     this.bindingActionId = null;
     this.clearDragState();
-  }
-
-  private applySkillManagementSortOrder(): void {
-    if (this.skillManagementTab === 'disabled' || this.skillManagementSortField === 'custom') {
-      return;
-    }
-    const visibleEntries = this.sortSkillManagementEntries(
-      this.getFilteredSkillManagementEntries(this.getSkillManagementEntries(this.getSkillManagementPreviewActions()))
-        .filter((entry) => (
-          this.skillManagementTab === 'auto'
-            ? entry.action.skillEnabled !== false && entry.action.autoBattleEnabled !== false
-            : entry.action.skillEnabled !== false && entry.action.autoBattleEnabled === false
-        )),
-    );
-    const orderedIds = visibleEntries.map((entry) => entry.action.id);
-    if (orderedIds.length <= 1) {
-      return;
-    }
-    this.applySkillManagementDraftMutation((skills) => {
-      const subset = new Set(orderedIds);
-      const orderedActions = orderedIds
-        .map((id) => skills.find((action) => action.id === id))
-        .filter((action): action is ActionDef => Boolean(action));
-      let nextIndex = 0;
-      return skills.map((action) => (
-        subset.has(action.id)
-          ? (orderedActions[nextIndex++] ?? action)
-          : action
-      ));
-    });
   }
 
   private renderSkillManagementItem(
@@ -1614,6 +1843,8 @@ export class ActionPanel {
     options?: {
       showDragHandle?: boolean;
       autoBattleDisplayOrder?: number | null;
+      canMoveUp?: boolean;
+      canMoveDown?: boolean;
     },
   ): string {
     const skillContext = this.skillLookup.get(action.id);
@@ -1626,6 +1857,8 @@ export class ActionPanel {
       ? options.autoBattleDisplayOrder + 1
       : undefined;
     const rowAttrs = options?.showDragHandle ? ` data-skill-manage-skill-row="${action.id}"` : '';
+    const canMoveUp = options?.canMoveUp === true;
+    const canMoveDown = options?.canMoveDown === true;
 
     return `<div class="action-item action-item-draggable" data-action-row="${action.id}"${rowAttrs}>
       <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''}"${tooltipAttrs}>
@@ -1642,6 +1875,8 @@ export class ActionPanel {
       <div class="action-cta">
         <button class="small-btn ghost ${autoBattleEnabled ? 'active' : ''}" data-skill-manage-auto-toggle="${action.id}" type="button">${autoBattleEnabled ? '自动 开' : '自动 关'}</button>
         <button class="small-btn ghost ${skillEnabled ? 'active' : ''}" data-skill-manage-enabled-toggle="${action.id}" type="button">${skillEnabled ? '启用 开' : '启用 关'}</button>
+        <button class="small-btn ghost" data-skill-manage-move-up="${action.id}" type="button"${canMoveUp ? '' : ' disabled'}>上移</button>
+        <button class="small-btn ghost" data-skill-manage-move-down="${action.id}" type="button"${canMoveDown ? '' : ' disabled'}>下移</button>
         ${options?.showDragHandle ? `<button class="small-btn ghost action-drag-handle" data-skill-manage-drag="${action.id}" draggable="true" type="button">拖拽</button>` : ''}
       </div>
     </div>`;

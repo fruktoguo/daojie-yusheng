@@ -13,6 +13,7 @@ type DetailModalOptions = {
   subtitle?: string;
   hint?: string;
   bodyHtml: string;
+  onRequestClose?: () => boolean;
   onClose?: () => void;
   onAfterRender?: (body: HTMLElement) => void;
 };
@@ -25,6 +26,7 @@ class DetailModalHost {
   private hint = document.getElementById('detail-modal-hint')!;
   private body = document.getElementById('detail-modal-body')!;
   private ownerId: string | null = null;
+  private onRequestClose: (() => boolean) | null = null;
   private onClose: (() => void) | null = null;
   private variantClass = '';
   private initialized = false;
@@ -33,10 +35,13 @@ class DetailModalHost {
   open(options: DetailModalOptions): void {
     this.ensureInitialized();
     if (this.ownerId && this.ownerId !== options.ownerId) {
-      this.dismiss(true);
+      if (!this.dismiss(true)) {
+        return;
+      }
     }
 
     this.ownerId = options.ownerId;
+    this.onRequestClose = options.onRequestClose ?? null;
     this.onClose = options.onClose ?? null;
     this.setVariantClass(options.variantClass ?? '');
     this.title.textContent = options.title;
@@ -78,10 +83,14 @@ class DetailModalHost {
     });
   }
 
-  private dismiss(notify: boolean): void {
-    if (!this.ownerId && this.modal.classList.contains('hidden')) return;
+  private dismiss(notify: boolean): boolean {
+    if (!this.ownerId && this.modal.classList.contains('hidden')) return true;
+    if (notify && this.onRequestClose && this.onRequestClose() === false) {
+      return false;
+    }
     const onClose = this.onClose;
     this.ownerId = null;
+    this.onRequestClose = null;
     this.onClose = null;
     this.setVariantClass('');
     this.body.innerHTML = '';
@@ -90,6 +99,7 @@ class DetailModalHost {
     if (notify) {
       onClose?.();
     }
+    return true;
   }
 
   private setVariantClass(nextClass: string): void {

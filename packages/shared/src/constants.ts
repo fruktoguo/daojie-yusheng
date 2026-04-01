@@ -63,6 +63,14 @@ export {
   UI_STYLE_STORAGE_KEY,
 } from './constants/ui';
 export {
+  PLAYER_BASE_ENABLED_SKILL_SLOTS,
+  PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP,
+  countEnabledSkillEntries,
+  enforceSkillEnabledLimit,
+  getPlayerEnabledSkillSlotLimitByLevel,
+  resolvePlayerSkillSlotLimit,
+} from './constants/gameplay/action';
+export {
   VIEW_RADIUS,
   VIEW_SIZE,
   DEFAULT_PLAYER_MAP_ID,
