@@ -114,7 +114,7 @@
         "desc": "目力与判断更清楚，命中提高，视野更远；身死也不会立刻散去。",
         "shortMark": "明",
         "duration": 3600,
-        "valueStats": { "hit": 8, "viewRange": 1 }
+        "valueStats": { "hit": 8, "viewRange": 10 }
       }
     ]
   },
@@ -149,8 +149,8 @@
         "shortMark": "苦",
         "duration": 2400,
         "valueStats": {
-          "playerExpRate": 25,
-          "techniqueExpRate": 25,
+          "realmExpPerTick": 25,
+          "techniqueExpPerTick": 25,
           "hpRegenRate": -6,
           "qiRegenRate": -6,
           "moveSpeed": -6

@@ -6,6 +6,7 @@ import { PlayerRealmStage } from './types';
 import {
   DEFAULT_RATIO_DIVISOR,
   ELEMENT_KEYS,
+  NUMERIC_STAT_MULTIPLIER_FLOORS,
   NUMERIC_SCALAR_STAT_KEYS,
   NUMERIC_SCALAR_STAT_VALUE_TYPES,
 } from './constants/gameplay/attributes';
@@ -13,6 +14,7 @@ import {
 export {
   DEFAULT_RATIO_DIVISOR,
   ELEMENT_KEYS,
+  NUMERIC_STAT_MULTIPLIER_FLOORS,
   NUMERIC_SCALAR_STAT_KEYS,
   NUMERIC_SCALAR_STAT_VALUE_TYPES,
 } from './constants/gameplay/attributes';
@@ -76,6 +78,23 @@ export interface PartialNumericStats extends Partial<Omit<NumericStats, 'element
   elementDamageBonus?: PartialElementStatGroup;
   elementDamageReduce?: PartialElementStatGroup;
 }
+
+/** 具体属性乘区拆解 */
+export interface NumericStatBreakdownEntry {
+  realmBaseValue: number;
+  bonusBaseValue: number;
+  baseValue: number;
+  flatBuffValue: number;
+  preMultiplierValue: number;
+  attrMultiplierPct: number;
+  realmMultiplier: number;
+  buffMultiplierPct: number;
+  pillMultiplierPct: number;
+  finalValue: number;
+}
+
+/** 具体属性乘区拆解映射 */
+export type NumericStatBreakdownMap = Partial<Record<NumericScalarStatKey, NumericStatBreakdownEntry>>;
 
 /** 数值修改器（来源标识 + 属性/数值增量） */
 export interface NumericModifier {
@@ -293,6 +312,69 @@ export function mergeNumericStats(base: NumericStats, patches: readonly PartialN
     addPartialNumericStats(result, patch);
   }
   return result;
+}
+
+/** 获取单个标量属性用于百分比乘区的参考底座 */
+export function getNumericStatMultiplierFloor(key: NumericScalarStatKey): number {
+  return NUMERIC_STAT_MULTIPLIER_FLOORS[key];
+}
+
+/** 获取元素属性用于百分比乘区的参考底座 */
+export function getElementStatMultiplierFloor(group: 'elementDamageBonus' | 'elementDamageReduce', key: ElementKey): number {
+  return NUMERIC_STAT_MULTIPLIER_FLOORS[group][key];
+}
+
+/** 对一组数值属性应用百分比乘区，允许以参考底座撬动零基值属性 */
+export function applyNumericStatsPercentMultiplier(target: NumericStats, patch?: PartialNumericStats): NumericStats {
+  if (!patch) {
+    return target;
+  }
+  for (const key of NUMERIC_SCALAR_STAT_KEYS) {
+    const percent = patch[key];
+    if (!percent) {
+      continue;
+    }
+    const floor = getNumericStatMultiplierFloor(key);
+    const current = key === 'moveSpeed'
+      ? target[key] + floor
+      : target[key];
+    const multiplier = Math.max(0.01, 1 + percent / 100);
+    const nextValue = current > 0
+      ? Math.max(0, current * multiplier)
+      : Math.max(0, floor * multiplier);
+    target[key] = key === 'moveSpeed'
+      ? Math.max(0, nextValue - floor)
+      : nextValue;
+  }
+  if (patch.elementDamageBonus) {
+    for (const key of ELEMENT_KEYS) {
+      const percent = patch.elementDamageBonus[key];
+      if (!percent) {
+        continue;
+      }
+      const floor = getElementStatMultiplierFloor('elementDamageBonus', key);
+      const current = target.elementDamageBonus[key];
+      const multiplier = Math.max(0.01, 1 + percent / 100);
+      target.elementDamageBonus[key] = current > 0
+        ? Math.max(0, current * multiplier)
+        : Math.max(0, floor * multiplier - floor);
+    }
+  }
+  if (patch.elementDamageReduce) {
+    for (const key of ELEMENT_KEYS) {
+      const percent = patch.elementDamageReduce[key];
+      if (!percent) {
+        continue;
+      }
+      const floor = getElementStatMultiplierFloor('elementDamageReduce', key);
+      const current = target.elementDamageReduce[key];
+      const multiplier = Math.max(0.01, 1 + percent / 100);
+      target.elementDamageReduce[key] = current > 0
+        ? Math.max(0, current * multiplier)
+        : Math.max(0, floor * multiplier - floor);
+    }
+  }
+  return target;
 }
 
 /** 创建 RatioValue 除数配置 */

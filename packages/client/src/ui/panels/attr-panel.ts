@@ -14,6 +14,7 @@ import {
   DEFAULT_RATIO_DIVISOR,
   ELEMENT_KEYS,
   NumericRatioDivisors,
+  NumericStatBreakdownMap,
   NumericStats,
   PlayerState,
   PlayerSpecialStats,
@@ -39,7 +40,7 @@ import {
   type NumericCardKey,
   type PlayerSpecialCardKey,
 } from '../../constants/ui/attr-panel';
-import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../../utils/number';
+import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent, formatDisplaySignedNumber } from '../../utils/number';
 import {
   describeSpiritualRoots,
   getSpiritualRootAbsorptionRate,
@@ -145,11 +146,126 @@ function formatMoveSpeedDisplay(value: number): string {
   return formatDisplayInteger(BASE_MOVE_POINTS_PER_TICK + Math.max(0, value));
 }
 
-function buildNumericTooltip(label: string, key: NumericCardKey, numericValue: number, ratioValueText?: string): string {
+function formatSignedPercent(value: number): string {
+  return `${formatDisplaySignedNumber(value)}%`;
+}
+
+function formatMultiplierDisplay(multiplier: number): string {
+  return `X${formatDisplayNumber(multiplier * 100)}%`;
+}
+
+function formatBreakdownValue(key: NumericCardKey, value: number): string {
+  if (key === 'critDamage') {
+    return formatDisplayPercent(value / 10);
+  }
+  if (RATE_BP_KEYS.has(key)) {
+    return formatDisplayPercent(value / 100);
+  }
+  if (key === 'moveSpeed') {
+    return formatDisplayInteger(value);
+  }
+  return formatDisplayNumber(value);
+}
+
+function formatSignedBreakdownValue(key: NumericCardKey, value: number): string {
+  const sign = value >= 0 ? '+' : '-';
+  const absValue = Math.abs(value);
+  if (key === 'critDamage') {
+    return `${sign}${formatDisplayPercent(absValue / 10)}`;
+  }
+  if (RATE_BP_KEYS.has(key)) {
+    return `${sign}${formatDisplayPercent(absValue / 100)}`;
+  }
+  return `${sign}${formatDisplayNumber(absValue)}`;
+}
+
+function renderTooltipPrimaryLine(label: string, value: string): string {
+  return `<span class="attr-tooltip-primary"><span class="attr-tooltip-primary-label">${escapeHtml(label)}</span><span class="attr-tooltip-primary-value">${escapeHtml(value)}</span></span>`;
+}
+
+function renderTooltipSectionLine(label: string, tone: 'fixed' | 'percent'): string {
+  return `<span class="attr-tooltip-section ${tone}">${escapeHtml(label)}</span>`;
+}
+
+function renderTooltipChildLine(label: string, value: string, tone: 'fixed' | 'percent'): string {
+  return `<span class="attr-tooltip-child ${tone}"><span class="attr-tooltip-child-label">${escapeHtml(label)}</span><span class="attr-tooltip-child-value">${escapeHtml(value)}</span></span>`;
+}
+
+const SYSTEM_FIXED_BASE_BY_NUMERIC_KEY: Partial<Record<NumericCardKey, number>> = {
+  realmExpPerTick: 1,
+  techniqueExpPerTick: 5,
+};
+
+function getAttrFlatContribution(key: NumericCardKey, attrs: Attributes): number {
+  let total = 0;
+  for (const attrKey of ATTR_KEYS) {
+    const weight = ATTR_TO_NUMERIC_WEIGHTS[attrKey][key];
+    if (typeof weight !== 'number' || weight === 0) {
+      continue;
+    }
+    total += attrs[attrKey] * weight;
+  }
+  return total;
+}
+
+function buildNumericBreakdownLines(
+  breakdowns: NumericStatBreakdownMap | undefined,
+  key: NumericCardKey,
+  attrs: Attributes,
+): string[] {
+  const breakdown = breakdowns?.[key];
+  if (!breakdown) {
+    return [];
+  }
+  const attrMultiplier = 1 + breakdown.attrMultiplierPct / 100;
+  const buffMultiplier = 1 + breakdown.buffMultiplierPct / 100;
+  const pillMultiplier = 1 + breakdown.pillMultiplierPct / 100;
+  const totalMultiplier = attrMultiplier * breakdown.realmMultiplier * buffMultiplier * pillMultiplier;
+  const attrFlatContribution = getAttrFlatContribution(key, attrs);
+  const systemFixedBase = Math.max(0, SYSTEM_FIXED_BASE_BY_NUMERIC_KEY[key] ?? 0);
+  const foldedSystemBase = Math.min(systemFixedBase, Math.max(0, breakdown.flatBuffValue));
+  const displayFixedBaseValue = key === 'moveSpeed'
+    ? BASE_MOVE_POINTS_PER_TICK + breakdown.realmBaseValue + attrFlatContribution
+    : breakdown.realmBaseValue + attrFlatContribution + foldedSystemBase;
+  const displayExtraValue = breakdown.baseValue - breakdown.realmBaseValue - attrFlatContribution + breakdown.flatBuffValue - foldedSystemBase;
+  const displayFixedTotalValue = key === 'moveSpeed'
+    ? BASE_MOVE_POINTS_PER_TICK + breakdown.baseValue + breakdown.flatBuffValue
+    : breakdown.baseValue + breakdown.flatBuffValue;
+  const displayFinalValue = key === 'moveSpeed'
+    ? BASE_MOVE_POINTS_PER_TICK + breakdown.finalValue
+    : breakdown.finalValue;
   const lines = [
-    NUMERIC_TOOLTIP_DESCRIPTIONS[key] ?? '该属性影响角色的实际战斗表现。',
-    `当前数值：${key === 'critDamage' ? formatCritDamageDisplay(numericValue) : key === 'moveSpeed' ? formatMoveSpeedDisplay(numericValue) : RATE_BP_KEYS.has(key) ? formatRateBp(numericValue) : formatDisplayInteger(numericValue)}`,
+    renderTooltipPrimaryLine('实际：', formatBreakdownValue(key, displayFinalValue)),
+    renderTooltipSectionLine(`总固定值：${formatBreakdownValue(key, displayFixedTotalValue)}`, 'fixed'),
+    renderTooltipChildLine('基础值：', formatBreakdownValue(key, displayFixedBaseValue), 'fixed'),
+    renderTooltipChildLine('额外值：', formatSignedBreakdownValue(key, displayExtraValue), 'fixed'),
+    renderTooltipSectionLine(`总百分比：${formatMultiplierDisplay(totalMultiplier)}`, 'percent'),
+    renderTooltipChildLine('六维：', formatMultiplierDisplay(attrMultiplier), 'percent'),
+    renderTooltipChildLine('境界：', formatMultiplierDisplay(breakdown.realmMultiplier), 'percent'),
+    renderTooltipChildLine('状态：', formatMultiplierDisplay(buffMultiplier), 'percent'),
+    renderTooltipChildLine('丹药：', formatMultiplierDisplay(pillMultiplier), 'percent'),
   ];
+  if (breakdown.preMultiplierValue <= 1e-6 && breakdown.finalValue > 0) {
+    lines.push('<span class="attr-tooltip-note">基础值为 0 时，实际结果还会受到乘区参考底座撬动</span>');
+  }
+  return lines;
+}
+
+function buildNumericTooltip(
+  label: string,
+  key: NumericCardKey,
+  numericValue: number,
+  ratioValueText?: string,
+  breakdowns?: NumericStatBreakdownMap,
+  attrs?: Attributes,
+): string {
+  const breakdownLines = attrs ? buildNumericBreakdownLines(breakdowns, key, attrs) : [];
+  const lines = [NUMERIC_TOOLTIP_DESCRIPTIONS[key] ?? '该属性影响角色的实际战斗表现。'];
+  if (breakdownLines.length > 0) {
+    lines.push(...breakdownLines);
+  } else {
+    lines.push(`当前数值：${key === 'critDamage' ? formatCritDamageDisplay(numericValue) : key === 'moveSpeed' ? formatMoveSpeedDisplay(numericValue) : RATE_BP_KEYS.has(key) ? formatRateBp(numericValue) : formatDisplayInteger(numericValue)}`);
+  }
   if (key === 'physDef' || key === 'spellDef') {
     lines.push(`实际减伤：${formatDefenseReduction(numericValue)}`);
   } else if (key === 'moveSpeed') {
@@ -253,11 +369,20 @@ export class AttrPanel {
 
   /** 接收属性更新事件并重新渲染 */
   update(data: S2C_AttrUpdate): void {
-    if (!data.baseAttrs || !data.bonuses || !data.finalAttrs) {
+    if (!data.baseAttrs || !data.bonuses) {
       this.clear();
       return;
     }
-    const snapshot = this.buildSnapshot(data.baseAttrs, data.bonuses, data.finalAttrs, data.numericStats, data.ratioDivisors, data.specialStats);
+    const finalAttrs = data.finalAttrs ?? this.mergeAttrs(data.baseAttrs, data.bonuses);
+    const snapshot = this.buildSnapshot(
+      data.baseAttrs,
+      data.bonuses,
+      finalAttrs,
+      data.numericStats,
+      data.ratioDivisors,
+      data.numericStatBreakdowns,
+      data.specialStats,
+    );
     const structureKey = this.buildStructureKey(snapshot);
     if (this.lastStructureKey !== structureKey || !this.patch(snapshot)) {
       this.render(snapshot);
@@ -274,6 +399,7 @@ export class AttrPanel {
       finalAttrs,
       player.numericStats,
       player.ratioDivisors,
+      player.numericStatBreakdowns,
       {
         foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
         combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
@@ -300,6 +426,7 @@ export class AttrPanel {
     final: Attributes,
     stats?: NumericStats,
     ratioDivisors?: NumericRatioDivisors,
+    numericStatBreakdowns?: NumericStatBreakdownMap,
     specialStats?: PlayerSpecialStats,
   ): AttrPanelSnapshot {
     const totalBonus: Partial<Attributes> = {};
@@ -317,7 +444,7 @@ export class AttrPanel {
         root: stats && ratioDivisors
           ? this.buildRootRadarSnapshot(stats, ratioDivisors, bonuses)
           : { kind: 'placeholder', message: '灵根信息尚未同步' },
-        combat: this.buildNumericPaneSnapshot('斗法数值', stats, ratioDivisors, {
+        combat: this.buildNumericPaneSnapshot('斗法数值', stats, ratioDivisors, numericStatBreakdowns, {
           keys: ['maxHp', 'physAtk', 'spellAtk', 'physDef', 'spellDef', 'hit', 'dodge', 'crit', 'critDamage', 'breakPower', 'resolvePower'],
           ratioKeys: ['dodge', 'crit', 'breakPower', 'resolvePower'],
           legends: {
@@ -333,8 +460,8 @@ export class AttrPanel {
             breakPower: '破招',
             resolvePower: '化解',
           },
-        }),
-        qi: this.buildNumericPaneSnapshot('灵力运转', stats, ratioDivisors, {
+        }, final),
+        qi: this.buildNumericPaneSnapshot('灵力运转', stats, ratioDivisors, numericStatBreakdowns, {
           keys: ['maxQi', 'maxQiOutputPerTick', 'qiRegenRate', 'hpRegenRate', 'cooldownSpeed', 'auraCostReduce', 'auraPowerRate'],
           ratioKeys: ['cooldownSpeed'],
           legends: {
@@ -346,8 +473,8 @@ export class AttrPanel {
             auraCostReduce: '光环消耗缩减',
             auraPowerRate: '光环效果增强',
           },
-        }),
-        special: this.buildSpecialPaneSnapshot(stats, ratioDivisors, specialStats),
+        }, final),
+        special: this.buildSpecialPaneSnapshot(stats, ratioDivisors, numericStatBreakdowns, specialStats, final),
       },
     };
   }
@@ -484,9 +611,11 @@ export class AttrPanel {
     title: string,
     stats?: NumericStats,
     ratios?: NumericRatioDivisors,
+    breakdowns?: NumericStatBreakdownMap,
     meta?: { keys: NumericCardKey[]; ratioKeys: (keyof NumericRatioDivisors)[]; legends?: Record<string, string> },
+    attrs?: Attributes,
   ): AttrPaneSnapshot {
-    if (!stats || !ratios || !meta) {
+    if (!stats || !ratios || !meta || !attrs) {
       return { kind: 'placeholder', message: `${title}尚未同步` };
     }
 
@@ -525,7 +654,7 @@ export class AttrPanel {
           value,
           sub,
           tooltipTitle: label,
-          tooltipDetail: buildNumericTooltip(label, key, numericValue, actualLine),
+          tooltipDetail: buildNumericTooltip(label, key, numericValue, actualLine, breakdowns, attrs),
         };
       }),
     };
@@ -534,9 +663,11 @@ export class AttrPanel {
   private buildSpecialPaneSnapshot(
     stats?: NumericStats,
     ratios?: NumericRatioDivisors,
+    breakdowns?: NumericStatBreakdownMap,
     specialStats?: PlayerSpecialStats,
+    attrs?: Attributes,
   ): AttrPaneSnapshot {
-    if (!stats || !ratios) {
+    if (!stats || !ratios || !attrs) {
       return { kind: 'placeholder', message: '特殊属性尚未同步' };
     }
 
@@ -556,7 +687,7 @@ export class AttrPanel {
       };
     });
 
-    const numericPane = this.buildNumericPaneSnapshot('特殊属性', stats, ratios, {
+    const numericPane = this.buildNumericPaneSnapshot('特殊属性', stats, ratios, breakdowns, {
       keys: ['viewRange', 'moveSpeed', 'playerExpRate', 'techniqueExpRate', 'realmExpPerTick', 'techniqueExpPerTick', 'lootRate', 'rareLootRate'],
       ratioKeys: [],
       legends: {
@@ -569,7 +700,7 @@ export class AttrPanel {
         lootRate: '掉落增幅',
         rareLootRate: '稀有掉落',
       },
-    });
+    }, attrs);
     if (numericPane.kind !== 'numeric') {
       return numericPane;
     }
@@ -827,6 +958,55 @@ export class AttrPanel {
         line-height: 1.4;
         color: var(--ink-grey);
       }
+      .attr-tooltip .attr-tooltip-primary {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        color: var(--ink-black);
+        font-weight: var(--font-weight-semibold);
+      }
+      .attr-tooltip .attr-tooltip-primary-value {
+        color: #b85c38;
+      }
+      .attr-tooltip .attr-tooltip-section {
+        display: inline-flex;
+        align-items: center;
+        margin-top: 4px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: var(--font-size-11);
+        font-weight: var(--font-weight-semibold);
+      }
+      .attr-tooltip .attr-tooltip-section.fixed {
+        color: #7a4b22;
+        background: rgba(197, 128, 53, 0.14);
+      }
+      .attr-tooltip .attr-tooltip-section.percent {
+        color: #1d5d4f;
+        background: rgba(45, 140, 115, 0.14);
+      }
+      .attr-tooltip .attr-tooltip-child {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        padding-left: 12px;
+      }
+      .attr-tooltip .attr-tooltip-child.fixed .attr-tooltip-child-label {
+        color: #8c6742;
+      }
+      .attr-tooltip .attr-tooltip-child.percent .attr-tooltip-child-label {
+        color: #2f7e6d;
+      }
+      .attr-tooltip .attr-tooltip-child-value {
+        color: var(--ink-black);
+      }
+      .attr-tooltip .attr-tooltip-note {
+        display: block;
+        margin-top: 4px;
+        color: var(--ink-grey);
+      }
       .attr-radar-shell {
         display: grid;
         gap: 10px;
@@ -907,7 +1087,7 @@ export class AttrPanel {
       this.tooltipTarget = tooltipNode;
       const title = tooltipNode.getAttribute('data-tooltip-title') ?? '';
       const detail = tooltipNode.getAttribute('data-tooltip-detail') ?? '';
-      this.tooltip.showPinned(tooltipNode, title, splitTooltipLines(detail), event.clientX, event.clientY);
+      this.tooltip.showPinned(tooltipNode, title, splitTooltipLines(detail), event.clientX, event.clientY, { allowHtml: true });
       event.preventDefault();
       event.stopPropagation();
     }, true);
@@ -938,7 +1118,7 @@ export class AttrPanel {
         this.tooltipTarget = tooltipNode;
         const title = tooltipNode.getAttribute('data-tooltip-title') ?? '';
         const detail = tooltipNode.getAttribute('data-tooltip-detail') ?? '';
-        this.tooltip.show(title, splitTooltipLines(detail), event.clientX, event.clientY);
+        this.tooltip.show(title, splitTooltipLines(detail), event.clientX, event.clientY, { allowHtml: true });
         return;
       }
 

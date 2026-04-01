@@ -217,6 +217,7 @@ message AttrUpdatePayload {
   optional AttributesPayload finalAttrs = 3;
   optional NumericStatsPayload numericStats = 4;
   optional NumericRatioDivisorsPayload ratioDivisors = 5;
+  optional string numericStatBreakdownsJson = 18;
   optional uint32 maxHp = 6;
   optional uint32 qi = 7;
   optional string realmJson = 8;
@@ -928,6 +929,7 @@ function toWireAttrUpdate(payload: S2C_AttrUpdate): Record<string, unknown> {
   if (payload.finalAttrs) wire.finalAttrs = toWireAttributes(payload.finalAttrs);
   if (payload.numericStats) wire.numericStats = toWireNumericStats(payload.numericStats);
   if (payload.ratioDivisors) wire.ratioDivisors = toWireRatioDivisors(payload.ratioDivisors);
+  if (payload.numericStatBreakdowns !== undefined) wire.numericStatBreakdownsJson = JSON.stringify(payload.numericStatBreakdowns);
   if (payload.maxHp !== undefined) wire.maxHp = payload.maxHp;
   if (payload.qi !== undefined) wire.qi = payload.qi;
   if (payload.specialStats) wire.specialStats = toWirePlayerSpecialStats(payload.specialStats);
@@ -951,6 +953,7 @@ function fromWireAttrUpdate(wire: Record<string, unknown>): S2C_AttrUpdate {
   if (hasOwn(wire, 'finalAttrs')) payload.finalAttrs = fromWireAttributes(wire.finalAttrs as Record<string, unknown>);
   if (hasOwn(wire, 'numericStats')) payload.numericStats = fromWireNumericStats(wire.numericStats as Record<string, unknown>);
   if (hasOwn(wire, 'ratioDivisors')) payload.ratioDivisors = fromWireRatioDivisors(wire.ratioDivisors as Record<string, unknown>);
+  if (typeof wire.numericStatBreakdownsJson === 'string') payload.numericStatBreakdowns = parseJson(wire.numericStatBreakdownsJson);
   if (hasOwn(wire, 'maxHp')) payload.maxHp = Number(wire.maxHp ?? 0);
   if (hasOwn(wire, 'qi')) payload.qi = Number(wire.qi ?? 0);
   if (hasOwn(wire, 'specialStats')) payload.specialStats = fromWirePlayerSpecialStats(wire.specialStats as Record<string, unknown>);

@@ -8,12 +8,16 @@ import {
   ATTR_KEYS,
   Attributes,
   AttrBonus,
+  BuffModifierMode,
   AttrKey,
   DEFAULT_PLAYER_REALM_STAGE,
   ELEMENT_KEYS,
+  getBuffRealmEffectivenessMultiplier,
   getRealmAttributeMultiplier,
   getRealmLinearGrowthMultiplier,
   NUMERIC_SCALAR_STAT_KEYS,
+  NumericScalarStatKey,
+  NumericStatBreakdownMap,
   PlayerState,
   PLAYER_REALM_NUMERIC_TEMPLATES,
   PlayerRealmStage,
@@ -21,6 +25,7 @@ import {
   TemporaryBuffState,
   VIEW_RADIUS,
   addPartialNumericStats,
+  applyNumericStatsPercentMultiplier,
   cloneNumericRatioDivisors,
   createNumericStats,
   NumericRatioDivisors,
@@ -32,8 +37,9 @@ import { SOUL_DEVOUR_EROSION_BUFF_ID } from '../constants/gameplay/equipment';
 import { getSoulDevourErosionRatio } from './buff-presentation';
 import { QiProjectionService } from './qi-projection.service';
 
-type PercentBonusAccumulator = Pick<NumericStats, 'maxHp' | 'maxQi' | 'physAtk' | 'spellAtk'>;
 const SOUL_DEVOUR_EROSION_ATTR_KEYS: readonly AttrKey[] = ['constitution', 'spirit', 'perception', 'talent'];
+const REALM_EXPONENTIAL_NUMERIC_KEY_SET = new Set<NumericScalarStatKey>(REALM_EXPONENTIAL_NUMERIC_KEYS);
+const REALM_LINEAR_NUMERIC_KEY_SET = new Set<NumericScalarStatKey>(REALM_LINEAR_NUMERIC_KEYS);
 
 function createAttributeSnapshot(initial = 0): Attributes {
   return {
@@ -46,31 +52,29 @@ function createAttributeSnapshot(initial = 0): Attributes {
   };
 }
 
-function scaleBuffAttributes(attrs: Partial<Attributes> | undefined, stacks: number): Partial<Attributes> | undefined {
-  if (!attrs || stacks <= 0) return undefined;
-  const result: Partial<Attributes> = {};
+function accumulateScaledAttributes(target: Partial<Attributes>, attrs: Partial<Attributes> | undefined, factor: number): void {
+  if (!attrs || factor === 0) return;
   for (const key of ATTR_KEYS) {
     const value = attrs[key];
-    if (value === undefined) continue;
-    result[key] = value * stacks;
+    if (value === undefined || value === 0) continue;
+    target[key] = (target[key] ?? 0) + value * factor;
   }
-  return Object.keys(result).length > 0 ? result : undefined;
 }
 
-function scaleBuffStats(stats: PartialNumericStats | undefined, stacks: number): PartialNumericStats | undefined {
-  if (!stats || stacks <= 0) return undefined;
+function scaleNumericStats(stats: PartialNumericStats | undefined, factor: number): PartialNumericStats | undefined {
+  if (!stats || factor === 0) return undefined;
   const result: PartialNumericStats = {};
   for (const key of NUMERIC_SCALAR_STAT_KEYS) {
     const value = stats[key];
     if (value === undefined) continue;
-    result[key] = value * stacks;
+    result[key] = value * factor;
   }
   if (stats.elementDamageBonus) {
     const group: PartialNumericStats['elementDamageBonus'] = {};
     for (const key of ELEMENT_KEYS) {
       const value = stats.elementDamageBonus[key];
       if (value === undefined) continue;
-      group[key] = value * stacks;
+      group[key] = value * factor;
     }
     if (Object.keys(group).length > 0) {
       result.elementDamageBonus = group;
@@ -81,13 +85,34 @@ function scaleBuffStats(stats: PartialNumericStats | undefined, stacks: number):
     for (const key of ELEMENT_KEYS) {
       const value = stats.elementDamageReduce[key];
       if (value === undefined) continue;
-      group[key] = value * stacks;
+      group[key] = value * factor;
     }
     if (Object.keys(group).length > 0) {
       result.elementDamageReduce = group;
     }
   }
   return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function applyAttributeAdditions(target: Attributes, patch: Partial<Attributes>): void {
+  for (const key of ATTR_KEYS) {
+    const value = patch[key];
+    if (value === undefined || value === 0) continue;
+    target[key] += value;
+  }
+}
+
+function applyAttributePercentMultipliers(target: Attributes, multipliers: Partial<Attributes>): void {
+  for (const key of ATTR_KEYS) {
+    const percent = multipliers[key];
+    if (!percent) continue;
+    target[key] = Math.max(0, target[key] * Math.max(0.01, 1 + percent / 100));
+  }
+}
+
+function getNumericStatValue(stats: PartialNumericStats | NumericStats | undefined, key: NumericScalarStatKey): number {
+  const value = stats?.[key];
+  return typeof value === 'number' ? value : 0;
 }
 
 function sumBuffStacks(buffs: readonly TemporaryBuffState[], buffId: string): number {
@@ -110,6 +135,7 @@ export class AttrService {
     bonuses: AttrBonus[],
     target?: Attributes,
     activeBuffs: readonly TemporaryBuffState[] = [],
+    realmLv = 1,
   ): Attributes {
     const result = target ?? createAttributeSnapshot();
     result.constitution = base.constitution;
@@ -120,14 +146,28 @@ export class AttrService {
     result.luck = base.luck;
 
     for (const bonus of bonuses) {
-      const attrs = bonus.attrs;
-      if (attrs.constitution !== undefined) result.constitution += attrs.constitution;
-      if (attrs.spirit !== undefined) result.spirit += attrs.spirit;
-      if (attrs.perception !== undefined) result.perception += attrs.perception;
-      if (attrs.talent !== undefined) result.talent += attrs.talent;
-      if (attrs.comprehension !== undefined) result.comprehension += attrs.comprehension;
-      if (attrs.luck !== undefined) result.luck += attrs.luck;
+      applyAttributeAdditions(result, bonus.attrs);
     }
+
+    const buffAttrMultipliers: Partial<Attributes> = {};
+    const pillAttrMultipliers: Partial<Attributes> = {};
+    const flatBuffAttrs: Partial<Attributes> = {};
+    for (const buff of activeBuffs) {
+      const effectFactor = this.getBuffEffectFactor(buff, realmLv);
+      if (effectFactor === 0 || !buff.attrs) {
+        continue;
+      }
+      if (this.resolveBuffModifierMode(buff.attrMode) === 'flat') {
+        accumulateScaledAttributes(flatBuffAttrs, buff.attrs, effectFactor);
+        continue;
+      }
+      const bucket = this.isPillBuff(buff) ? pillAttrMultipliers : buffAttrMultipliers;
+      accumulateScaledAttributes(bucket, buff.attrs, effectFactor);
+    }
+
+    applyAttributeAdditions(result, flatBuffAttrs);
+    applyAttributePercentMultipliers(result, buffAttrMultipliers);
+    applyAttributePercentMultipliers(result, pillAttrMultipliers);
 
     this.applyDynamicTemporaryBuffAttrModifiers(result, activeBuffs);
 
@@ -165,26 +205,38 @@ export class AttrService {
     return player.ratioDivisors!;
   }
 
+  /** 获取玩家具体属性乘区拆解（带缓存） */
+  getPlayerNumericStatBreakdowns(player: PlayerState): NumericStatBreakdownMap {
+    if (!player.numericStatBreakdowns) {
+      this.recalcPlayer(player);
+    }
+    return player.numericStatBreakdowns!;
+  }
+
   /** 重算玩家六维缓存、具体属性缓存，并同步 HP/QI 上限等运行时字段 */
   recalcPlayer(player: PlayerState): void {
     const previousMaxQi = Math.max(0, Math.round(player.numericStats?.maxQi ?? player.qi ?? 0));
     const activeTemporaryBuffs = this.getActiveTemporaryBuffs(player);
-    const effectiveBonuses = this.getEffectiveBonuses(player, activeTemporaryBuffs);
+    const effectiveBonuses = this.getEffectiveBonuses(player);
     const realmLv = this.resolvePlayerRealmLv(player);
     const finalAttrs = this.computeFinal(
       player.baseAttrs,
       effectiveBonuses,
       player.finalAttrs ?? createAttributeSnapshot(),
       activeTemporaryBuffs,
+      realmLv,
     );
     const stage = player.realm?.stage ?? DEFAULT_PLAYER_REALM_STAGE;
+    const numericStatBreakdowns = player.numericStatBreakdowns ?? {};
     const stats = this.computeNumericStats(
       finalAttrs,
       effectiveBonuses,
       stage,
       player.numericStats ?? createNumericStats(),
+      realmLv,
+      activeTemporaryBuffs,
+      numericStatBreakdowns,
     );
-    this.applyRealmNumericScaling(stats, realmLv);
     const ratioDivisors = this.getRatioDivisorsForStage(
       stage,
       player.ratioDivisors,
@@ -193,6 +245,7 @@ export class AttrService {
     player.finalAttrs = finalAttrs;
     player.numericStats = stats;
     player.ratioDivisors = ratioDivisors;
+    player.numericStatBreakdowns = numericStatBreakdowns;
 
     const newMaxHp = Math.max(1, Math.round(stats.maxHp));
     if (player.maxHp > 0 && newMaxHp !== player.maxHp) {
@@ -219,28 +272,9 @@ export class AttrService {
     return (player.temporaryBuffs ?? []).filter((buff) => buff.remainingTicks > 0 && buff.stacks > 0);
   }
 
-  /** 收集生效的加成列表（含临时 Buff） */
-  private getEffectiveBonuses(player: PlayerState, activeTemporaryBuffs: readonly TemporaryBuffState[]): AttrBonus[] {
-    const temporaryBonuses = activeTemporaryBuffs.map((buff) => this.buildTemporaryBuffBonus(buff));
-    if (temporaryBonuses.length === 0) {
-      return player.bonuses;
-    }
-    return [...player.bonuses, ...temporaryBonuses];
-  }
-
-  /** 将临时 Buff 转换为 AttrBonus（按层数缩放） */
-  private buildTemporaryBuffBonus(buff: TemporaryBuffState): AttrBonus {
-    return {
-      source: `temp-buff:${buff.buffId}`,
-      label: buff.name,
-      attrs: scaleBuffAttributes(buff.attrs, buff.stacks) ?? {},
-      stats: scaleBuffStats(buff.stats, buff.stacks),
-      meta: {
-        sourceSkillId: buff.sourceSkillId,
-        remainingTicks: buff.remainingTicks,
-        stacks: buff.stacks,
-      },
-    };
+  /** 收集生效的静态加成列表；临时 Buff 走专门的乘区与衰减结算 */
+  private getEffectiveBonuses(player: PlayerState): AttrBonus[] {
+    return player.bonuses;
   }
 
   private applyDynamicTemporaryBuffAttrModifiers(target: Attributes, activeBuffs: readonly TemporaryBuffState[]): void {
@@ -281,29 +315,66 @@ export class AttrService {
     bonuses: AttrBonus[],
     stage: PlayerRealmStage,
     target: NumericStats,
+    realmLv: number,
+    activeBuffs: readonly TemporaryBuffState[],
+    breakdownsTarget?: NumericStatBreakdownMap,
   ): NumericStats {
     const template = PLAYER_REALM_NUMERIC_TEMPLATES[stage] ?? PLAYER_REALM_NUMERIC_TEMPLATES[DEFAULT_PLAYER_REALM_STAGE];
-    const percentBonuses: PercentBonusAccumulator = {
-      maxHp: 0,
-      maxQi: 0,
-      physAtk: 0,
-      spellAtk: 0,
-    };
+    const attrMultipliers = createNumericStats();
+    const buffMultipliers = createNumericStats();
+    const pillMultipliers = createNumericStats();
+    const staticBaseStats = createNumericStats();
+    const flatBuffStats = createNumericStats();
     resetNumericStats(target);
     addPartialNumericStats(target, template.stats);
+    addPartialNumericStats(staticBaseStats, template.stats);
+
+    for (const bonus of bonuses) {
+      addPartialNumericStats(target, bonus.stats);
+      addPartialNumericStats(staticBaseStats, bonus.stats);
+    }
 
     for (const key of ATTR_KEYS) {
       const value = finalAttrs[key];
       if (value === 0) continue;
       this.applyAttrWeight(target, key, value);
-      this.accumulateAttrPercentBonus(percentBonuses, key, value);
+      this.applyAttrWeight(staticBaseStats, key, value);
+      this.accumulateAttrPercentBonus(attrMultipliers, key, value);
     }
 
-    for (const bonus of bonuses) {
-      addPartialNumericStats(target, bonus.stats);
+    for (const buff of activeBuffs) {
+      const effectFactor = this.getBuffEffectFactor(buff, realmLv);
+      if (effectFactor === 0 || !buff.stats) {
+        continue;
+      }
+      const scaled = scaleNumericStats(buff.stats, effectFactor);
+      if (!scaled) {
+        continue;
+      }
+      if (this.resolveBuffModifierMode(buff.statMode) === 'flat') {
+        addPartialNumericStats(target, scaled);
+        addPartialNumericStats(flatBuffStats, scaled);
+        continue;
+      }
+      addPartialNumericStats(this.isPillBuff(buff) ? pillMultipliers : buffMultipliers, scaled);
     }
 
-    this.applyPercentBonuses(target, percentBonuses);
+    applyNumericStatsPercentMultiplier(target, attrMultipliers);
+    this.applyRealmNumericScaling(target, realmLv);
+    applyNumericStatsPercentMultiplier(target, buffMultipliers);
+    applyNumericStatsPercentMultiplier(target, pillMultipliers);
+    this.roundNumericStats(target);
+    this.fillNumericStatBreakdowns(
+      breakdownsTarget,
+      template.stats,
+      staticBaseStats,
+      flatBuffStats,
+      attrMultipliers,
+      realmLv,
+      buffMultipliers,
+      pillMultipliers,
+      target,
+    );
 
     return target;
   }
@@ -336,21 +407,10 @@ export class AttrService {
     if (weight.moveSpeed !== undefined) target.moveSpeed += weight.moveSpeed * value;
   }
 
-  private accumulateAttrPercentBonus(target: PercentBonusAccumulator, key: AttrKey, value: number): void {
+  private accumulateAttrPercentBonus(target: NumericStats, key: AttrKey, value: number): void {
     const weight = ATTR_TO_PERCENT_NUMERIC_WEIGHTS[key];
     if (!weight) return;
-
-    if (weight.maxHp !== undefined) target.maxHp += weight.maxHp * value;
-    if (weight.maxQi !== undefined) target.maxQi += weight.maxQi * value;
-    if (weight.physAtk !== undefined) target.physAtk += weight.physAtk * value;
-    if (weight.spellAtk !== undefined) target.spellAtk += weight.spellAtk * value;
-  }
-
-  private applyPercentBonuses(target: NumericStats, bonuses: PercentBonusAccumulator): void {
-    if (bonuses.maxHp !== 0) target.maxHp *= 1 + bonuses.maxHp / 100;
-    if (bonuses.maxQi !== 0) target.maxQi *= 1 + bonuses.maxQi / 100;
-    if (bonuses.physAtk !== 0) target.physAtk *= 1 + bonuses.physAtk / 100;
-    if (bonuses.spellAtk !== 0) target.spellAtk *= 1 + bonuses.spellAtk / 100;
+    addPartialNumericStats(target, scaleNumericStats(weight, value));
   }
 
   private resolvePlayerRealmLv(player: PlayerState): number {
@@ -373,5 +433,79 @@ export class AttrService {
     for (const key of REALM_LINEAR_NUMERIC_KEYS) {
       target[key] = Math.max(0, Math.round(target[key] * linearMultiplier));
     }
+  }
+
+  private fillNumericStatBreakdowns(
+    target: NumericStatBreakdownMap | undefined,
+    realmBaseStats: NumericStats,
+    staticBaseStats: NumericStats,
+    flatBuffStats: NumericStats,
+    attrMultipliers: NumericStats,
+    realmLv: number,
+    buffMultipliers: NumericStats,
+    pillMultipliers: NumericStats,
+    finalStats: NumericStats,
+  ): void {
+    if (!target) {
+      return;
+    }
+    for (const key of Object.keys(target) as NumericScalarStatKey[]) {
+      delete target[key];
+    }
+    for (const key of NUMERIC_SCALAR_STAT_KEYS) {
+      const realmBaseValue = getNumericStatValue(realmBaseStats, key);
+      const baseValue = getNumericStatValue(staticBaseStats, key);
+      const flatBuffValue = getNumericStatValue(flatBuffStats, key);
+      const preMultiplierValue = baseValue + flatBuffValue;
+      target[key] = {
+        realmBaseValue,
+        bonusBaseValue: baseValue - realmBaseValue,
+        baseValue,
+        flatBuffValue,
+        preMultiplierValue,
+        attrMultiplierPct: getNumericStatValue(attrMultipliers, key),
+        realmMultiplier: this.getRealmNumericMultiplier(key, realmLv),
+        buffMultiplierPct: getNumericStatValue(buffMultipliers, key),
+        pillMultiplierPct: getNumericStatValue(pillMultipliers, key),
+        finalValue: getNumericStatValue(finalStats, key),
+      };
+    }
+  }
+
+  private getRealmNumericMultiplier(key: NumericScalarStatKey, realmLv: number): number {
+    if (REALM_EXPONENTIAL_NUMERIC_KEY_SET.has(key)) {
+      return getRealmAttributeMultiplier(realmLv);
+    }
+    if (REALM_LINEAR_NUMERIC_KEY_SET.has(key)) {
+      return getRealmLinearGrowthMultiplier(realmLv);
+    }
+    return 1;
+  }
+
+  private roundNumericStats(target: NumericStats): void {
+    for (const key of NUMERIC_SCALAR_STAT_KEYS) {
+      target[key] = Math.max(0, Math.round(target[key]));
+    }
+    for (const key of ELEMENT_KEYS) {
+      target.elementDamageBonus[key] = Math.max(0, Math.round(target.elementDamageBonus[key]));
+      target.elementDamageReduce[key] = Math.max(0, Math.round(target.elementDamageReduce[key]));
+    }
+  }
+
+  private resolveBuffModifierMode(mode: BuffModifierMode | undefined): BuffModifierMode {
+    return mode === 'flat' ? 'flat' : 'percent';
+  }
+
+  private isPillBuff(buff: TemporaryBuffState): boolean {
+    return buff.sourceSkillId.startsWith('item:');
+  }
+
+  private getBuffEffectFactor(buff: TemporaryBuffState, targetRealmLv: number): number {
+    if (buff.remainingTicks <= 0 || buff.stacks <= 0) {
+      return 0;
+    }
+    const stackFactor = Math.max(1, buff.stacks);
+    const realmFactor = getBuffRealmEffectivenessMultiplier(buff.realmLv, targetRealmLv);
+    return stackFactor * realmFactor;
   }
 }

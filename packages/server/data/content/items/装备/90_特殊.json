@@ -28,7 +28,7 @@
           ]
         },
         "valueStats": {
-          "realmExpPerTick": 2
+          "realmExpPerTick": 1
         }
       }
     ]
@@ -76,8 +76,8 @@
           ]
         },
         "stats": {
-          "realmExpPerTick": 4,
-          "techniqueExpPerTick": 20
+          "realmExpPerTick": 2,
+          "techniqueExpPerTick": 5
         }
       },
       {

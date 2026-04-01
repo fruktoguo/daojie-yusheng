@@ -1,4 +1,4 @@
-import type { PartialNumericStats, NumericValueType } from '../../numeric';
+import type { ElementStatGroup, NumericStats, PartialNumericStats, NumericValueType } from '../../numeric';
 import type { AttrKey } from '../../types';
 
 /**
@@ -92,55 +92,97 @@ export const NUMERIC_SCALAR_STAT_KEYS = [
   'extraAggroRate',
 ] as const;
 
-type AttrPercentStatKey = 'maxHp' | 'maxQi' | 'physAtk' | 'spellAtk';
-
 /** 六维提供的原始点数加成 */
 export const ATTR_TO_NUMERIC_WEIGHTS: Record<AttrKey, PartialNumericStats> = {
+  constitution: {},
+  spirit: {},
+  perception: {},
+  talent: {},
+  comprehension: {
+    auraPowerRate: 100,
+    playerExpRate: 100,
+    techniqueExpRate: 100,
+  },
+  luck: {
+    lootRate: 100,
+    rareLootRate: 100,
+  },
+};
+
+/** 六维提供的百分比加成，按最终汇总值乘算 */
+export const ATTR_TO_PERCENT_NUMERIC_WEIGHTS: Record<AttrKey, PartialNumericStats> = {
   constitution: {
+    maxHp: 1,
+    physAtk: 1,
     physDef: 1,
   },
   spirit: {
+    maxQi: 1,
+    spellAtk: 1,
     spellDef: 1,
   },
   perception: {
     hit: 1,
     dodge: 1,
-    moveSpeed: 1,
+    moveSpeed: 0.5,
   },
   talent: {
+    maxHp: 1,
+    maxQi: 1,
     resolvePower: 1,
   },
   comprehension: {
-    playerExpRate: 100,
-    techniqueExpRate: 100,
-    auraPowerRate: 100,
     breakPower: 1,
   },
   luck: {
     crit: 1,
+    critDamage: 1,
     hit: 1,
     dodge: 1,
-    lootRate: 100,
   },
 };
 
-/** 六维提供的百分比加成，按最终汇总值乘算 */
-export const ATTR_TO_PERCENT_NUMERIC_WEIGHTS: Record<AttrKey, Partial<Record<AttrPercentStatKey, number>>> = {
-  constitution: {
-    maxHp: 1,
-    physAtk: 1,
-  },
-  spirit: {
-    maxQi: 1,
-    spellAtk: 1,
-  },
-  perception: {},
-  talent: {
-    maxHp: 1,
-    maxQi: 1,
-  },
-  comprehension: {},
-  luck: {},
+function createScalarMultiplierFloorStats(): Omit<NumericStats, 'elementDamageBonus' | 'elementDamageReduce'> {
+  return {
+    maxHp: BASE_MAX_HP,
+    maxQi: BASE_MAX_QI,
+    physAtk: BASE_PHYS_ATK,
+    spellAtk: BASE_SPELL_ATK,
+    physDef: 100,
+    spellDef: 100,
+    hit: 100,
+    dodge: DEFAULT_RATIO_DIVISOR,
+    crit: DEFAULT_RATIO_DIVISOR,
+    critDamage: 100,
+    breakPower: DEFAULT_RATIO_DIVISOR,
+    resolvePower: DEFAULT_RATIO_DIVISOR,
+    maxQiOutputPerTick: BASE_MAX_QI_OUTPUT_PER_TICK,
+    qiRegenRate: 10000,
+    hpRegenRate: 10000,
+    cooldownSpeed: DEFAULT_RATIO_DIVISOR,
+    auraCostReduce: 10000,
+    auraPowerRate: 10000,
+    playerExpRate: 10000,
+    techniqueExpRate: 10000,
+    realmExpPerTick: 1,
+    techniqueExpPerTick: TECHNIQUE_EXP_REFERENCE_PER_TICK,
+    lootRate: 10000,
+    rareLootRate: 10000,
+    viewRange: VIEW_RANGE_REFERENCE,
+    moveSpeed: DEFAULT_RATIO_DIVISOR,
+    extraAggroRate: 10000,
+  };
+}
+
+const TECHNIQUE_EXP_REFERENCE_PER_TICK = 5;
+const VIEW_RANGE_REFERENCE = 8;
+
+const ELEMENT_MULTIPLIER_FLOOR: ElementStatGroup = {
+  metal: 100,
+  wood: 100,
+  water: 100,
+  fire: 100,
+  earth: 100,
 };
 
 /** 各标量属性的值类型分类映射 */
@@ -176,3 +218,10 @@ export const NUMERIC_SCALAR_STAT_VALUE_TYPES = {
 
 /** 默认 RatioValue 除数 */
 export const DEFAULT_RATIO_DIVISOR = 100;
+
+/** 百分比乘区在零基值附近使用的参考底座，避免 0 值属性完全吃不到乘区。 */
+export const NUMERIC_STAT_MULTIPLIER_FLOORS: NumericStats = {
+  ...createScalarMultiplierFloorStats(),
+  elementDamageBonus: { ...ELEMENT_MULTIPLIER_FLOOR },
+  elementDamageReduce: { ...ELEMENT_MULTIPLIER_FLOOR },
+};

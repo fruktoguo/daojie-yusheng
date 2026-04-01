@@ -64,6 +64,7 @@ interface PersistedTechniqueItem {
 interface PersistedTemporaryBuffItem {
   buffId: string;
   sourceSkillId: string;
+  realmLv: number;
   remainingTicks: number;
   duration: number;
   stacks: number;
@@ -261,9 +262,12 @@ function buildSkillBuffState(skill: SkillDef, effect: Extract<SkillEffectDef, { 
     maxStacks: normalizePositiveInt(snapshot.maxStacks, Math.max(1, effect.maxStacks ?? 1)),
     sourceSkillId: skill.id,
     sourceSkillName: skill.name,
+    realmLv: normalizePositiveInt(snapshot.realmLv, 1),
     color: effect.color,
     attrs: effect.attrs,
+    attrMode: effect.attrMode,
     stats: effect.stats,
+    statMode: effect.statMode,
     qiProjection: effect.qiProjection,
   });
 }
@@ -283,6 +287,7 @@ function buildSystemBuffState(snapshot: PersistedTemporaryBuffItem): TemporaryBu
       maxStacks: normalizePositiveInt(snapshot.maxStacks, 5),
       sourceSkillId: WORLD_TIME_SOURCE_ID,
       sourceSkillName: '天时',
+      realmLv: normalizePositiveInt(snapshot.realmLv, 1),
       color: '#89a8c7',
     };
   }
@@ -301,10 +306,12 @@ function buildSystemBuffState(snapshot: PersistedTemporaryBuffItem): TemporaryBu
       maxStacks: normalizePositiveInt(snapshot.maxStacks, 1),
       sourceSkillId: CULTIVATION_ACTION_ID,
       sourceSkillName: '修炼',
+      realmLv: normalizePositiveInt(snapshot.realmLv, 1),
       stats: {
-        realmExpPerTick: 2,
-        techniqueExpPerTick: 10,
+        realmExpPerTick: 1,
+        techniqueExpPerTick: 5,
       },
+      statMode: 'flat',
     };
   }
 
@@ -319,6 +326,7 @@ function hydrateTemporaryBuff(snapshot: unknown, contentService: ContentService)
   const minimal: PersistedTemporaryBuffItem = {
     buffId: snapshot.buffId,
     sourceSkillId: snapshot.sourceSkillId,
+    realmLv: normalizePositiveInt(snapshot.realmLv, 1),
     remainingTicks: normalizePositiveInt(snapshot.remainingTicks, 1),
     duration: normalizePositiveInt(snapshot.duration, 1),
     stacks: normalizePositiveInt(snapshot.stacks, 1),
@@ -350,6 +358,7 @@ function hydrateTemporaryBuff(snapshot: unknown, contentService: ContentService)
     ...snapshot,
     buffId: minimal.buffId,
     sourceSkillId: minimal.sourceSkillId,
+    realmLv: minimal.realmLv,
     remainingTicks: minimal.remainingTicks,
     duration: minimal.duration,
     stacks: minimal.stacks,
@@ -362,7 +371,9 @@ function hydrateTemporaryBuff(snapshot: unknown, contentService: ContentService)
     sourceSkillName: typeof snapshot.sourceSkillName === 'string' ? snapshot.sourceSkillName : undefined,
     color: typeof snapshot.color === 'string' ? snapshot.color : undefined,
     attrs: isPlainObject(snapshot.attrs) ? snapshot.attrs as TemporaryBuffState['attrs'] : undefined,
+    attrMode: snapshot.attrMode === 'flat' ? 'flat' : snapshot.attrMode === 'percent' ? 'percent' : undefined,
     stats: isPlainObject(snapshot.stats) ? snapshot.stats as TemporaryBuffState['stats'] : undefined,
+    statMode: snapshot.statMode === 'flat' ? 'flat' : snapshot.statMode === 'percent' ? 'percent' : undefined,
   };
   return syncDynamicBuffPresentation(hydrated);
 }
@@ -377,6 +388,7 @@ function dehydrateTemporaryBuff(buff: TemporaryBuffState, contentService: Conten
     return {
       buffId: buff.buffId,
       sourceSkillId: buff.sourceSkillId,
+      realmLv: normalizePositiveInt(buff.realmLv, 1),
       remainingTicks: normalizePositiveInt(buff.remainingTicks, 1),
       duration: normalizePositiveInt(buff.duration, 1),
       stacks: normalizePositiveInt(buff.stacks, 1),
@@ -386,6 +398,7 @@ function dehydrateTemporaryBuff(buff: TemporaryBuffState, contentService: Conten
 
   return {
     ...buff,
+    realmLv: normalizePositiveInt(buff.realmLv, 1),
     remainingTicks: normalizePositiveInt(buff.remainingTicks, 1),
     duration: normalizePositiveInt(buff.duration, 1),
     stacks: normalizePositiveInt(buff.stacks, 1),

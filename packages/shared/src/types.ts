@@ -1,7 +1,7 @@
 /**
  * 全局类型定义：地形、方向、地图、实体、修仙系统（属性/物品/功法/境界/技能/任务）等核心数据结构。
  */
-import type { ElementKey, NumericRatioDivisors, NumericScalarStatKey, NumericStats, PartialNumericStats } from './numeric';
+import type { ElementKey, NumericRatioDivisors, NumericScalarStatKey, NumericStatBreakdownMap, NumericStats, PartialNumericStats } from './numeric';
 import type { QiProjectionModifier } from './qi';
 import type { GridPoint, TargetingShape } from './targeting';
 
@@ -195,6 +195,9 @@ export type BuffCategory = 'buff' | 'debuff';
 /** Buff 可见性 */
 export type BuffVisibility = 'public' | 'observe_only' | 'hidden';
 
+/** Buff 数值修改模式 */
+export type BuffModifierMode = 'flat' | 'percent';
+
 /** 可见 Buff 状态 */
 export interface VisibleBuffState {
   buffId: string;
@@ -209,9 +212,12 @@ export interface VisibleBuffState {
   maxStacks: number;
   sourceSkillId: string;
   sourceSkillName?: string;
+  realmLv: number;
   color?: string;
   attrs?: Partial<Attributes>;
+  attrMode?: BuffModifierMode;
   stats?: PartialNumericStats;
+  statMode?: BuffModifierMode;
   qiProjection?: QiProjectionModifier[];
 }
 
@@ -346,7 +352,9 @@ export interface EquipmentBuffDef {
   duration: number;
   maxStacks?: number;
   attrs?: Partial<Attributes>;
+  attrMode?: BuffModifierMode;
   stats?: PartialNumericStats;
+  statMode?: BuffModifierMode;
   qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
 }
@@ -363,7 +371,9 @@ export interface ConsumableBuffDef {
   duration: number;
   maxStacks?: number;
   attrs?: Partial<Attributes>;
+  attrMode?: BuffModifierMode;
   stats?: PartialNumericStats;
+  statMode?: BuffModifierMode;
   qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
 }
@@ -784,7 +794,9 @@ export interface SkillBuffEffectDef {
   duration: number;
   maxStacks?: number;
   attrs?: Partial<Attributes>;
+  attrMode?: BuffModifierMode;
   stats?: PartialNumericStats;
+  statMode?: BuffModifierMode;
   qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
 }
@@ -996,6 +1008,7 @@ export interface PlayerState {
   finalAttrs?: Attributes;
   numericStats?: NumericStats;
   ratioDivisors?: NumericRatioDivisors;
+  numericStatBreakdowns?: NumericStatBreakdownMap;
   inventory: Inventory;
   marketStorage?: MarketStorage;
   equipment: EquipmentSlots;

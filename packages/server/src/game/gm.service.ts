@@ -1239,9 +1239,12 @@ export class GmService {
             maxStacks,
             sourceSkillId: skill.id,
             sourceSkillName: skill.name,
+            realmLv: 1,
             color: effect.color,
             attrs: effect.attrs,
+            attrMode: effect.attrMode,
             stats: effect.stats,
+            statMode: effect.statMode,
             qiProjection: effect.qiProjection,
           });
         }
@@ -1269,9 +1272,12 @@ export class GmService {
           maxStacks,
           sourceSkillId: `item:${item.itemId}`,
           sourceSkillName: item.name,
+          realmLv: 1,
           color: buff.color,
           attrs: buff.attrs,
+          attrMode: buff.attrMode,
           stats: buff.stats,
+          statMode: buff.statMode,
           qiProjection: buff.qiProjection,
         });
       }
@@ -1299,9 +1305,12 @@ export class GmService {
           maxStacks,
           sourceSkillId: `equip:${item.itemId}:${effect.effectId ?? 'effect'}`,
           sourceSkillName: item.name,
+          realmLv: 1,
           color: effect.buff.color,
           attrs: effect.buff.attrs,
+          attrMode: effect.buff.attrMode,
           stats: effect.buff.stats,
+          statMode: effect.buff.statMode,
           qiProjection: effect.buff.qiProjection,
         });
       }
@@ -1320,6 +1329,7 @@ export class GmService {
       maxStacks: 5,
       sourceSkillId: WORLD_TIME_SOURCE_ID,
       sourceSkillName: '天时',
+      realmLv: 1,
       color: '#89a8c7',
     });
     register({
@@ -1335,10 +1345,12 @@ export class GmService {
       maxStacks: 1,
       sourceSkillId: CULTIVATION_ACTION_ID,
       sourceSkillName: '修炼',
+      realmLv: 1,
       stats: {
         realmExpPerTick: CULTIVATION_REALM_EXP_PER_TICK,
         techniqueExpPerTick: CULTIVATE_EXP_PER_TICK,
       },
+      statMode: 'flat',
     });
     register(this.buildWorldObserveBuffState());
 
@@ -1672,10 +1684,12 @@ export class GmService {
       maxStacks: 1,
       sourceSkillId: GM_WORLD_OBSERVE_SOURCE_ID,
       sourceSkillName: GM_WORLD_OBSERVE_SOURCE_NAME,
+      realmLv: 1,
       color: GM_WORLD_OBSERVE_BUFF_COLOR,
       attrs: {
         luck: GM_WORLD_OBSERVE_BUFF_LUCK_BONUS,
       },
+      attrMode: 'flat',
     };
   }
 }

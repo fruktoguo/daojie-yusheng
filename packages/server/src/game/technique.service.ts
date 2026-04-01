@@ -580,7 +580,7 @@ export class TechniqueService {
       return this.clearInvalidCultivation(player);
     }
     const technique = cultivationTarget.technique;
-    this.refreshCultivationBuff(cultivationBuff, technique.name);
+    this.refreshCultivationBuff(cultivationBuff, technique.name, player.realm?.realmLv ?? player.realmLv ?? 1);
 
     const numericStats = this.measureCpuSection('cultivation_stats', '修炼: 数值采集', () => (
       this.attrService.getPlayerNumericStats(player)
@@ -664,9 +664,9 @@ export class TechniqueService {
     player.temporaryBuffs ??= [];
     const current = this.getCultivationBuff(player);
     if (current) {
-      this.refreshCultivationBuff(current, technique.name);
+      this.refreshCultivationBuff(current, technique.name, player.realm?.realmLv ?? player.realmLv ?? 1);
     } else {
-      player.temporaryBuffs.push(this.buildCultivationBuffState(technique.name));
+      player.temporaryBuffs.push(this.buildCultivationBuffState(technique.name, player.realm?.realmLv ?? player.realmLv ?? 1));
       this.attrService.recalcPlayer(player);
     }
 
@@ -1080,7 +1080,7 @@ export class TechniqueService {
     player.cultivatingTechId = nextTechnique.techId;
     const cultivationBuff = this.getCultivationBuff(player);
     if (cultivationBuff) {
-      this.refreshCultivationBuff(cultivationBuff, nextTechnique.name);
+      this.refreshCultivationBuff(cultivationBuff, nextTechnique.name, player.realm?.realmLv ?? player.realmLv ?? 1);
     }
 
     return {
@@ -1125,7 +1125,7 @@ export class TechniqueService {
     return 1 + Math.max(0, auraLevel);
   }
 
-  private buildCultivationBuffState(techniqueName: string): TemporaryBuffState {
+  private buildCultivationBuffState(techniqueName: string, sourceRealmLv: number): TemporaryBuffState {
     return {
       buffId: CULTIVATION_BUFF_ID,
       name: '修炼中',
@@ -1139,14 +1139,16 @@ export class TechniqueService {
       maxStacks: 1,
       sourceSkillId: CULTIVATION_ACTION_ID,
       sourceSkillName: '修炼',
+      realmLv: Math.max(1, Math.floor(sourceRealmLv)),
       stats: {
         realmExpPerTick: CULTIVATION_REALM_EXP_PER_TICK,
         techniqueExpPerTick: CULTIVATE_EXP_PER_TICK,
       },
+      statMode: 'flat',
     };
   }
 
-  private refreshCultivationBuff(buff: TemporaryBuffState, techniqueName: string): void {
+  private refreshCultivationBuff(buff: TemporaryBuffState, techniqueName: string, sourceRealmLv: number): void {
     buff.name = '修炼中';
     buff.desc = `${techniqueName} 正在运转，每息获得境界修为与功法经验，移动、主动攻击或受击都会打断修炼。`;
     buff.shortMark = '修';
@@ -1158,10 +1160,12 @@ export class TechniqueService {
     buff.maxStacks = 1;
     buff.sourceSkillId = CULTIVATION_ACTION_ID;
     buff.sourceSkillName = '修炼';
+    buff.realmLv = Math.max(1, Math.floor(sourceRealmLv));
     buff.stats = {
       realmExpPerTick: CULTIVATION_REALM_EXP_PER_TICK,
       techniqueExpPerTick: CULTIVATE_EXP_PER_TICK,
     };
+    buff.statMode = 'flat';
   }
 
   private removeCultivationBuff(player: PlayerState): boolean {
