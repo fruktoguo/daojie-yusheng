@@ -1128,13 +1128,15 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   private applyConsumableBuffState(targetBuffs: TemporaryBuffState[], nextBuff: TemporaryBuffState): TemporaryBuffState {
     const existing = targetBuffs.find((entry) => entry.buffId === nextBuff.buffId);
     if (existing) {
+      const currentRemainingDuration = Math.max(0, existing.remainingTicks - 1);
+      const addedDuration = Math.max(1, nextBuff.duration);
       existing.name = nextBuff.name;
       existing.desc = nextBuff.desc;
       existing.shortMark = nextBuff.shortMark;
       existing.category = nextBuff.category;
       existing.visibility = nextBuff.visibility;
-      existing.remainingTicks = nextBuff.remainingTicks;
-      existing.duration = nextBuff.duration;
+      existing.duration = currentRemainingDuration + addedDuration;
+      existing.remainingTicks = existing.duration + 1;
       existing.stacks = Math.min(nextBuff.maxStacks, existing.stacks + 1);
       existing.maxStacks = nextBuff.maxStacks;
       existing.sourceSkillId = nextBuff.sourceSkillId;
@@ -1159,6 +1161,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     if (!item) return;
 
     const actualCount = Math.max(1, Math.floor(count));
+    let attrChanged = false;
 
     const restoredParts: string[] = [];
     if (item.healAmount || item.healPercent || item.qiPercent) {
@@ -1176,6 +1179,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (player.qi > previousQi) {
         restoredParts.push(`${player.qi - previousQi} 点真气`);
       }
+      attrChanged = attrChanged || player.hp !== previousHp || player.qi !== previousQi;
     }
 
     if (restoredParts.length > 0) {
@@ -1198,6 +1202,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         }
       }
       this.attrService.recalcPlayer(player);
+      attrChanged = true;
       messages.push({
         playerId: player.id,
         text: `你炼化 ${item.name}${actualCount > 1 ? ` x${actualCount}` : ''}，获得 ${[...appliedSummaries.values()].join('、')}。`,
@@ -1328,6 +1333,10 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           kind: message.kind ?? 'system',
         });
       }
+    }
+
+    if (attrChanged) {
+      this.playerService.markDirty(player.id, 'attr');
     }
   }
 
