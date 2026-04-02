@@ -7,12 +7,10 @@ const ROOT_DIR = path.resolve(__dirname, '../..');
 const {
   buildEditableMapList,
   cloneMapDocument,
-  inferMonsterTierFromName,
-  inferMonsterValueStatsFromLegacy,
-  normalizeMonsterTier,
+  compileValueStatsToActualStats,
   normalizeEditableMapDocument,
-  resolveMonsterNumericStatsFromValueStats,
   resolveMonsterExpMultiplier,
+  resolveMonsterTemplateRecord,
   shouldPersistMonsterExpMultiplier,
   shouldPersistMonsterTier,
   validateEditableMapDocument,
@@ -127,6 +125,19 @@ function normalizeMonsterDrop(rawDrop) {
   };
 }
 
+function normalizeItemAttrs(attrs) {
+  if (!attrs || typeof attrs !== 'object' || Array.isArray(attrs)) {
+    return undefined;
+  }
+  const normalized = {};
+  for (const key of ['constitution', 'spirit', 'perception', 'talent', 'comprehension', 'luck']) {
+    if (Number.isFinite(attrs[key])) {
+      normalized[key] = Number(attrs[key]);
+    }
+  }
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
 function listEditorItems() {
   const itemsDir = path.join(CONTENT_DIR, 'items');
   const result = [];
@@ -151,7 +162,16 @@ function listEditorItems() {
         groundLabel: typeof entry.groundLabel === 'string' ? entry.groundLabel.trim() : undefined,
         grade: TECHNIQUE_GRADES.includes(entry.grade) ? entry.grade : undefined,
         level: Number.isFinite(entry.level) ? toPositiveInteger(entry.level, 1) : undefined,
-        desc: typeof entry.desc === 'string' ? entry.desc.trim() : undefined,
+        desc: typeof entry.desc === 'string' ? entry.desc.trim() : '',
+        equipSlot: typeof entry.equipSlot === 'string' ? entry.equipSlot : undefined,
+        equipAttrs: normalizeItemAttrs(entry.equipAttrs),
+        equipStats: compileValueStatsToActualStats(normalizeMonsterValueStats(entry.equipValueStats)) ?? normalizeMonsterValueStats(entry.equipStats),
+        equipValueStats: normalizeMonsterValueStats(entry.equipValueStats),
+        effects: Array.isArray(entry.effects) ? entry.effects : undefined,
+        tags: Array.isArray(entry.tags) ? entry.tags.filter((tag) => typeof tag === 'string').map((tag) => tag.trim()).filter(Boolean) : undefined,
+        mapUnlockId: typeof entry.mapUnlockId === 'string' ? entry.mapUnlockId.trim() : undefined,
+        tileAuraGainAmount: Number.isFinite(entry.tileAuraGainAmount) ? Number(entry.tileAuraGainAmount) : undefined,
+        allowBatchUse: entry.allowBatchUse === true ? true : undefined,
       });
     }
   }
@@ -224,48 +244,8 @@ function normalizeMonsterValueStats(rawValueStats) {
   return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
-function normalizeMonsterTemplate(rawMonster) {
-  const level = Number.isFinite(rawMonster?.level) ? toPositiveInteger(rawMonster.level, 1) : undefined;
-  const tier = normalizeMonsterTier(rawMonster?.tier, inferMonsterTierFromName(rawMonster?.name));
-  const legacyMaxHp = toPositiveInteger(rawMonster?.maxHp, toPositiveInteger(rawMonster?.hp, 1));
-  const legacyAttack = toPositiveInteger(rawMonster?.attack, 1);
-  const valueStats = normalizeMonsterValueStats(rawMonster?.valueStats)
-    ?? inferMonsterValueStatsFromLegacy({
-      maxHp: legacyMaxHp,
-      attack: legacyAttack,
-      level,
-      viewRange: Number.isFinite(rawMonster?.viewRange) ? toNonNegativeInteger(rawMonster.viewRange, 6) : 6,
-    });
-  const computedStats = resolveMonsterNumericStatsFromValueStats(valueStats, level);
-  const count = toPositiveInteger(rawMonster?.count, 1);
-  const aggroRange = toNonNegativeInteger(rawMonster?.aggroRange, 6);
-  return {
-    id: typeof rawMonster?.id === 'string' ? rawMonster.id.trim() : '',
-    name: typeof rawMonster?.name === 'string' ? rawMonster.name.trim() : '',
-    char: typeof rawMonster?.char === 'string' ? rawMonster.char.trim() : '',
-    color: typeof rawMonster?.color === 'string' ? rawMonster.color.trim() : '',
-    grade: TECHNIQUE_GRADES.includes(rawMonster?.grade) ? rawMonster.grade : 'mortal',
-    tier,
-    hp: toPositiveInteger(computedStats.maxHp, legacyMaxHp),
-    maxHp: toPositiveInteger(computedStats.maxHp, legacyMaxHp),
-    attack: toPositiveInteger(computedStats.physAtk || computedStats.spellAtk, legacyAttack),
-    count,
-    radius: toNonNegativeInteger(rawMonster?.radius, 3),
-    maxAlive: toPositiveInteger(rawMonster?.maxAlive, count),
-    aggroRange,
-    viewRange: toNonNegativeInteger(rawMonster?.viewRange, aggroRange),
-    aggroMode: MONSTER_AGGRO_MODES.includes(rawMonster?.aggroMode) ? rawMonster.aggroMode : 'always',
-    respawnSec: toPositiveInteger(rawMonster?.respawnSec, 15),
-    respawnTicks: Number.isFinite(rawMonster?.respawnTicks) ? toPositiveInteger(rawMonster.respawnTicks, 1) : undefined,
-    level,
-    expMultiplier: resolveMonsterExpMultiplier(rawMonster?.expMultiplier, tier),
-    valueStats,
-    computedStats,
-    combatModel: normalizeMonsterValueStats(rawMonster?.valueStats) ? 'value_stats' : 'legacy',
-    drops: Array.isArray(rawMonster?.drops)
-      ? rawMonster.drops.map((drop) => normalizeMonsterDrop(drop)).filter((drop) => drop.itemId && drop.name)
-      : [],
-  };
+function buildEditorItemLookup() {
+  return new Map(listEditorItems().map((item) => [item.itemId, item]));
 }
 
 function validateMonsterTemplate(monster, currentKey) {
@@ -287,8 +267,14 @@ function validateMonsterTemplate(monster, currentKey) {
   if (!MONSTER_AGGRO_MODES.includes(monster.aggroMode)) {
     throw new Error(`怪物 ${monster.id} 的仇恨模式非法`);
   }
-  if (!monster.valueStats || typeof monster.valueStats !== 'object' || Array.isArray(monster.valueStats) || Object.keys(monster.valueStats).length === 0) {
-    throw new Error(`怪物 ${monster.id} 的基准数值不能为空`);
+  const hasValueStats = monster.valueStats && typeof monster.valueStats === 'object' && !Array.isArray(monster.valueStats) && Object.keys(monster.valueStats).length > 0;
+  const hasAttrs = monster.attrs && typeof monster.attrs === 'object' && !Array.isArray(monster.attrs) && Object.keys(monster.attrs).length > 0;
+  const hasLegacy = Number.isFinite(monster.hp) || Number.isFinite(monster.maxHp) || Number.isFinite(monster.attack);
+  if (!hasValueStats && !hasAttrs && !hasLegacy) {
+    throw new Error(`怪物 ${monster.id} 至少需要配置 attrs、valueStats 或旧 hp/attack`);
+  }
+  if (monster.equipment && (typeof monster.equipment !== 'object' || Array.isArray(monster.equipment))) {
+    throw new Error(`怪物 ${monster.id} 的装备配置非法`);
   }
   for (const drop of monster.drops) {
     if (!drop.itemId || !drop.name) {
@@ -306,27 +292,52 @@ function validateMonsterTemplate(monster, currentKey) {
   }
 }
 
-function serializeMonsterTemplate(monster) {
-  return {
-    id: monster.id,
-    name: monster.name,
-    char: monster.char,
-    color: monster.color,
-    grade: monster.grade,
-    ...(shouldPersistMonsterTier(monster.tier, monster.name) ? { tier: monster.tier } : {}),
-    radius: monster.radius,
-    respawnSec: monster.respawnSec,
-    level: monster.level,
-    count: monster.count,
-    maxAlive: monster.maxAlive,
-    aggroRange: monster.aggroRange,
-    viewRange: monster.viewRange,
-    aggroMode: monster.aggroMode,
-    respawnTicks: monster.respawnTicks,
-    ...(shouldPersistMonsterExpMultiplier(monster.expMultiplier, monster.tier) ? { expMultiplier: monster.expMultiplier } : {}),
-    valueStats: monster.valueStats,
-    drops: monster.drops,
-  };
+function assignOptional(target, key, value) {
+  if (value === undefined) {
+    delete target[key];
+    return;
+  }
+  target[key] = value;
+}
+
+function serializeMonsterTemplate(existing, monster) {
+  const next = existing && typeof existing === 'object' && !Array.isArray(existing) ? { ...existing } : {};
+  next.id = monster.id;
+  next.name = monster.name;
+  next.char = monster.char;
+  next.color = monster.color;
+  next.grade = monster.grade;
+  assignOptional(next, 'tier', shouldPersistMonsterTier(monster.tier, monster.name) ? monster.tier : undefined);
+  next.radius = monster.radius;
+  next.respawnSec = monster.respawnSec;
+  assignOptional(next, 'level', monster.level);
+  next.count = monster.count;
+  next.maxAlive = monster.maxAlive;
+  next.aggroRange = monster.aggroRange;
+  next.viewRange = monster.viewRange;
+  next.aggroMode = monster.aggroMode;
+  assignOptional(next, 'respawnTicks', monster.respawnTicks);
+  assignOptional(next, 'expMultiplier', shouldPersistMonsterExpMultiplier(monster.expMultiplier, monster.tier) ? monster.expMultiplier : undefined);
+  assignOptional(next, 'valueStats', monster.valueStats && Object.keys(monster.valueStats).length > 0 ? monster.valueStats : undefined);
+  assignOptional(next, 'attrs', monster.attrs && Object.keys(monster.attrs).length > 0 ? monster.attrs : undefined);
+  assignOptional(next, 'statPercents', monster.statPercents && Object.keys(monster.statPercents).length > 0 ? monster.statPercents : undefined);
+  assignOptional(next, 'equipment', monster.equipment && Object.keys(monster.equipment).length > 0 ? monster.equipment : undefined);
+  assignOptional(next, 'skills', Array.isArray(monster.skills) && monster.skills.length > 0 ? monster.skills : undefined);
+  next.drops = Array.isArray(monster.drops) ? monster.drops.map((drop) => normalizeMonsterDrop(drop)) : [];
+
+  delete next.computedStats;
+  delete next.combatModel;
+  delete next.sourceMode;
+  delete next.resolvedAttrs;
+  delete next.resolvedStatPercents;
+
+  if ((monster.attrs && Object.keys(monster.attrs).length > 0) || (monster.valueStats && Object.keys(monster.valueStats).length > 0)) {
+    delete next.hp;
+    delete next.maxHp;
+    delete next.attack;
+  }
+
+  return next;
 }
 
 function createMonsterEntryKey(filePath, index) {
@@ -348,6 +359,7 @@ function parseMonsterEntryKey(key) {
 
 function listMonsterTemplates() {
   const monstersDir = path.join(CONTENT_DIR, 'monsters');
+  const itemLookup = buildEditorItemLookup();
   const result = [];
   for (const filePath of collectJsonFiles(monstersDir)) {
     const relativePath = path.relative(CONTENT_DIR, filePath).replaceAll(path.sep, '/');
@@ -363,7 +375,7 @@ function listMonsterTemplates() {
         key: createMonsterEntryKey(relativePath, index),
         filePath: relativePath,
         index,
-        monster: normalizeMonsterTemplate(entry),
+        monster: resolveMonsterTemplateRecord(entry, itemLookup),
       });
     });
   }
@@ -419,10 +431,11 @@ function saveMonsterTemplateEntry(key, rawMonster) {
   if (!Array.isArray(entries) || !entries[index] || typeof entries[index] !== 'object') {
     throw new Error('目标怪物模板不存在');
   }
-  const previousMonster = normalizeMonsterTemplate(entries[index]);
-  const monster = normalizeMonsterTemplate(rawMonster);
+  const itemLookup = buildEditorItemLookup();
+  const previousMonster = resolveMonsterTemplateRecord(entries[index], itemLookup);
+  const monster = resolveMonsterTemplateRecord(rawMonster, itemLookup);
   validateMonsterTemplate(monster, key);
-  entries[index] = serializeMonsterTemplate(monster);
+  entries[index] = serializeMonsterTemplate(entries[index], monster);
   fs.writeFileSync(absolutePath, `${JSON.stringify(entries, null, 2)}\n`, 'utf-8');
   const updatedMapCount = updateMapMonsterReferences(previousMonster.id, monster.id);
   return {
@@ -433,13 +446,14 @@ function saveMonsterTemplateEntry(key, rawMonster) {
 
 function loadMonsterTemplates() {
   const monstersDir = path.join(CONTENT_DIR, 'monsters');
+  const itemLookup = buildEditorItemLookup();
   const templates = new Map();
   for (const filePath of collectJsonFiles(monstersDir)) {
     const entries = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     if (!Array.isArray(entries)) continue;
     for (const entry of entries) {
       if (!entry || typeof entry !== 'object' || typeof entry.id !== 'string') continue;
-      templates.set(entry.id, normalizeMonsterTemplate(entry));
+      templates.set(entry.id, resolveMonsterTemplateRecord(entry, itemLookup));
     }
   }
   return templates;

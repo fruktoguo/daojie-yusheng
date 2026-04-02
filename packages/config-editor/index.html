@@ -809,6 +809,9 @@
       flex-direction: column;
       gap: 8px;
       min-width: 0;
+      max-height: 100%;
+      overflow-y: auto;
+      padding-right: 4px;
     }
 
     .inspector-tab-btn {
@@ -1000,7 +1003,7 @@
                 <div class="monster-editor-column editable">
                   <div class="monster-column-head">
                     <div class="monster-column-title">可编辑配置</div>
-                    <div class="monster-column-subtitle">左侧只放会保存回模板的数据。基准值、掉落和基础参数都在这里改，不再和预览字段混排。</div>
+                    <div class="monster-column-subtitle">左侧只放会保存回模板的数据。`attrs / statPercents / equipment / skills / valueStats` 都在这里维护，右侧只读预览真实生效结果。</div>
                   </div>
 
                   <div class="monster-form-grid">
@@ -1076,8 +1079,48 @@
                   <div class="editor-section">
                     <div class="editor-section-head">
                       <div>
+                        <div class="editor-section-title">六维属性</div>
+                        <div class="editor-note">优先级最高的怪物真源字段。当前大部分怪物都用这一组属性，保存时会原样写回模板。</div>
+                      </div>
+                    </div>
+                    <div id="monster-attrs-editor" class="monster-stat-section"></div>
+                  </div>
+
+                  <div class="editor-section">
+                    <div class="editor-section-head">
+                      <div>
+                        <div class="editor-section-title">数值倍率</div>
+                        <div class="editor-note">这是 `statPercents`，会在六维和装备换算出的基础面板上继续乘区修正。</div>
+                      </div>
+                    </div>
+                    <div id="monster-stat-percents-editor" class="monster-stat-section"></div>
+                  </div>
+
+                  <div class="editor-section">
+                    <div class="editor-section-head">
+                      <div>
+                        <div class="editor-section-title">装备槽位</div>
+                        <div class="editor-note">这里的装备会参与真实数值计算，也会影响默认掉落补全逻辑。</div>
+                      </div>
+                    </div>
+                    <div id="monster-equipment-editor" class="monster-stat-section"></div>
+                  </div>
+
+                  <div class="editor-section">
+                    <div class="editor-section-head">
+                      <div>
+                        <div class="editor-section-title">技能列表</div>
+                        <div class="editor-note">每行一个技能 ID，也支持逗号分隔。保存时会写回 `skills` 字段。</div>
+                      </div>
+                    </div>
+                    <textarea id="monster-skills" class="editor-textarea" spellcheck="false" placeholder="skill.predator_pounce"></textarea>
+                  </div>
+
+                  <div class="editor-section">
+                    <div class="editor-section-head">
+                      <div>
                         <div class="editor-section-title">基准数值</div>
-                        <div class="editor-note">这里直接调每项基准值。例如 `maxHp` 填 1，会按共享常量换算为 12 点生命，再按等级自动套用成长。</div>
+                        <div class="editor-note">这是 `valueStats` 模式的真源；只有模板未直接配置 `attrs` 时，它才会参与推导真实怪物属性。</div>
                       </div>
                     </div>
                     <div id="monster-value-stats-editor" class="monster-stat-section"></div>
@@ -1098,7 +1141,7 @@
                 <div class="monster-editor-column preview">
                   <div class="monster-column-head">
                     <div class="monster-column-title">实际数值预览</div>
-                    <div class="monster-column-subtitle">右侧只读显示当前等级下的换算结果。这里不参与保存，用来校对怪物和玩家的成长模型是否对齐。</div>
+                    <div class="monster-column-subtitle">右侧只读显示当前模板在服务端同公式下的实际结果。这里不参与保存，用来校对编辑器与真实怪物是否一致。</div>
                   </div>
 
                   <div class="monster-preview-grid">
@@ -1124,8 +1167,18 @@
 
                   <div class="note-card">
                     <div class="editor-section-title">预览说明</div>
-                    <div class="editor-note">右侧数值会随着左侧等级和 `valueStats` 实时重算。</div>
-                    <div class="editor-note">完整面板展示的是换算后的 `numericStats`，只读，不会写回模板。</div>
+                    <div class="editor-note">右侧数值会随着左侧等级、六维、倍率、装备、技能和 `valueStats` 实时重算。</div>
+                    <div class="editor-note">这里展示的是和服务端同链路推导出的结果，包括自动补全的推导六维与完整 `numericStats`。</div>
+                  </div>
+
+                  <div class="editor-section">
+                    <div class="editor-section-head">
+                      <div>
+                        <div class="editor-section-title">实际六维</div>
+                        <div class="editor-note">如果模板没有直接写 `attrs`，这里会展示服务端按当前模板推导出的六维结果。</div>
+                      </div>
+                    </div>
+                    <div id="monster-resolved-attrs-preview" class="monster-computed-section"></div>
                   </div>
 
                   <div class="editor-section">

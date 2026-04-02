@@ -1,21 +1,29 @@
 import {
+  ATTR_KEYS,
+  ATTR_KEY_LABELS,
   ELEMENT_KEYS,
   ELEMENT_KEY_LABELS,
   type BasicOkRes,
+  EQUIP_SLOTS,
   ITEM_TYPE_LABELS,
   MONSTER_TIER_EXP_MULTIPLIERS,
   MONSTER_TIER_LABELS,
   MONSTER_TIER_ORDER,
   NUMERIC_SCALAR_STAT_KEYS,
   NUMERIC_SCALAR_STAT_LABELS,
-  resolveMonsterNumericStatsFromValueStats,
   TECHNIQUE_GRADE_LABELS,
+  resolveMonsterTemplateRecord,
+  type Attributes,
   type ElementKey,
+  type EquipSlot,
   type ItemType,
-  type MonsterCombatModel,
   type MonsterAggroMode,
+  type MonsterTemplateDropRecord,
+  type MonsterTemplateEditorItem,
+  type MonsterTemplateResolvedRecord,
   type MonsterTier,
   type NumericScalarStatKey,
+  type NumericStatPercentages,
   type NumericStats,
   type PartialNumericStats,
   type TechniqueGrade,
@@ -47,39 +55,8 @@ type LocalServerStatusRes = {
   mode: string;
 };
 
-type MonsterTemplateDrop = {
-  itemId: string;
-  name: string;
-  type: ItemType;
-  count: number;
-  chance?: number;
-};
-
-type MonsterTemplateRecord = {
-  id: string;
-  name: string;
-  char: string;
-  color: string;
-  grade: TechniqueGrade;
-  tier: MonsterTier;
-  valueStats?: PartialNumericStats;
-  computedStats: NumericStats;
-  combatModel: MonsterCombatModel;
-  hp: number;
-  maxHp: number;
-  attack: number;
-  count: number;
-  radius: number;
-  maxAlive: number;
-  aggroRange: number;
-  viewRange: number;
-  aggroMode: MonsterAggroMode;
-  respawnSec: number;
-  respawnTicks?: number;
-  level?: number;
-  expMultiplier: number;
-  drops: MonsterTemplateDrop[];
-};
+type MonsterTemplateDrop = MonsterTemplateDropRecord;
+type MonsterTemplateRecord = MonsterTemplateResolvedRecord;
 
 type LocalMonsterTemplateEntry = {
   key: string;
@@ -97,16 +74,7 @@ type LocalMonsterSaveRes = BasicOkRes & {
   monster: MonsterTemplateRecord;
 };
 
-type LocalEditorItemOption = {
-  itemId: string;
-  name: string;
-  type: ItemType;
-  groundLabel?: string;
-  grade?: TechniqueGrade;
-  level?: number;
-  desc?: string;
-  tags?: string[];
-};
+type LocalEditorItemOption = MonsterTemplateEditorItem;
 
 type LocalEditorCatalogRes = {
   items: LocalEditorItemOption[];
@@ -186,7 +154,12 @@ const monsterAggroRangeEl = document.getElementById('monster-aggro-range') as HT
 const monsterViewRangeEl = document.getElementById('monster-view-range') as HTMLInputElement;
 const monsterRespawnSecEl = document.getElementById('monster-respawn-sec') as HTMLInputElement;
 const monsterRespawnTicksEl = document.getElementById('monster-respawn-ticks') as HTMLInputElement;
+const monsterAttrsEditorEl = document.getElementById('monster-attrs-editor') as HTMLDivElement;
+const monsterStatPercentsEditorEl = document.getElementById('monster-stat-percents-editor') as HTMLDivElement;
+const monsterEquipmentEditorEl = document.getElementById('monster-equipment-editor') as HTMLDivElement;
+const monsterSkillsEl = document.getElementById('monster-skills') as HTMLTextAreaElement;
 const monsterValueStatsEditorEl = document.getElementById('monster-value-stats-editor') as HTMLDivElement;
+const monsterResolvedAttrsPreviewEl = document.getElementById('monster-resolved-attrs-preview') as HTMLDivElement;
 const monsterComputedStatsPreviewEl = document.getElementById('monster-computed-stats-preview') as HTMLDivElement;
 const monsterDropsEditorEl = document.getElementById('monster-drops-editor') as HTMLDivElement;
 const monsterDropAddBtn = document.getElementById('monster-drop-add') as HTMLButtonElement;
@@ -212,6 +185,7 @@ let monsterDirty = false;
 let servicePollTimer: number | null = null;
 let mapEditor: GmMapEditor | null = null;
 let editorItems: LocalEditorItemOption[] = [];
+let editorItemById = new Map<string, LocalEditorItemOption>();
 
 const GRADE_OPTIONS = Object.entries(TECHNIQUE_GRADE_LABELS) as Array<[TechniqueGrade, string]>;
 const MONSTER_TIER_OPTIONS = MONSTER_TIER_ORDER.map((value) => ({ value, label: MONSTER_TIER_LABELS[value] }));
@@ -221,6 +195,20 @@ const AGGRO_MODE_OPTIONS: Array<{ value: MonsterAggroMode; label: string }> = [
   { value: 'day_only', label: '仅白天主动' },
   { value: 'night_only', label: '仅夜晚主动' },
 ];
+
+const MONSTER_SOURCE_MODE_LABELS: Record<MonsterTemplateRecord['sourceMode'], string> = {
+  legacy: '旧 hp/attack 模式',
+  value_stats: 'valueStats 推导模式',
+  attributes: 'attrs / statPercents 模式',
+};
+
+const EQUIP_SLOT_LABELS: Record<EquipSlot, string> = {
+  weapon: '武器',
+  head: '头部',
+  body: '身体',
+  legs: '腿部',
+  accessory: '饰品',
+};
 
 const MONSTER_VALUE_STAT_GROUPS: Array<{ title: string; note: string; keys: NumericScalarStatKey[] }> = [
   {
@@ -401,7 +389,7 @@ function formatDropChancePercent(chance: number | undefined): string {
 }
 
 function findEditorItem(itemId: string): LocalEditorItemOption | undefined {
-  return editorItems.find((item) => item.itemId === itemId);
+  return editorItemById.get(itemId);
 }
 
 function isValidItemType(value: string | undefined): value is ItemType {
@@ -458,6 +446,22 @@ function buildEditorItemOptions(selectedItemId = '', fallbackDrop?: Partial<Mons
   return options.join('');
 }
 
+function buildEquipmentItemOptions(slot: EquipSlot, selectedItemId = ''): string {
+  const options = ['<option value="">未装备</option>'];
+  for (const item of editorItems) {
+    if (item.type !== 'equipment' || item.equipSlot !== slot) {
+      continue;
+    }
+    options.push(
+      `<option value="${escapeHtml(item.itemId)}" ${item.itemId === selectedItemId ? 'selected' : ''}>${escapeHtml(item.name)} · ${escapeHtml(item.itemId)}</option>`,
+    );
+  }
+  if (selectedItemId && !findEditorItem(selectedItemId)) {
+    options.push(`<option value="${escapeHtml(selectedItemId)}" selected>[缺失装备] ${escapeHtml(selectedItemId)}</option>`);
+  }
+  return options.join('');
+}
+
 function buildMonsterDropMeta(drop: Partial<MonsterTemplateDrop>): string {
   if (!drop.itemId) {
     return '从下拉列表中选择掉落物品。';
@@ -490,6 +494,83 @@ function buildMonsterScalarStatInput(key: NumericScalarStatKey, value: number | 
         </span>
         <input data-value-stat-key="${escapeHtml(key)}" type="number" step="any" value="${escapeHtml(stringifyOptionalNumber(value))}" />
       </label>
+    </div>
+  `;
+}
+
+function buildMonsterAttrInput(key: (typeof ATTR_KEYS)[number], value: number | undefined): string {
+  return `
+    <div class="monster-stat-card">
+      <label class="map-field">
+        <span>
+          <span>${escapeHtml(ATTR_KEY_LABELS[key])}</span>
+          <span class="monster-stat-suffix">${escapeHtml(key)}</span>
+        </span>
+        <input data-attr-key="${escapeHtml(key)}" type="number" min="0" step="1" value="${escapeHtml(stringifyOptionalNumber(value))}" />
+      </label>
+    </div>
+  `;
+}
+
+function buildMonsterStatPercentInput(key: NumericScalarStatKey, value: number | undefined): string {
+  return `
+    <div class="monster-stat-card">
+      <label class="map-field">
+        <span>
+          <span>${escapeHtml(NUMERIC_SCALAR_STAT_LABELS[key])}</span>
+          <span class="monster-stat-suffix">${escapeHtml(key)} %</span>
+        </span>
+        <input data-stat-percent-key="${escapeHtml(key)}" type="number" min="0" step="any" value="${escapeHtml(stringifyOptionalNumber(value))}" />
+      </label>
+    </div>
+  `;
+}
+
+function renderMonsterAttrsEditor(attrs?: Partial<Attributes>): void {
+  monsterAttrsEditorEl.innerHTML = `
+    <div class="monster-stat-section">
+      <div class="monster-group-head">
+        <div class="monster-group-title">六维属性</div>
+        <div class="monster-group-note">这里是怪物模板直接配置的六维；为空时，服务端会按旧模板或 valueStats 推导。</div>
+      </div>
+      <div class="monster-stat-grid">
+        ${ATTR_KEYS.map((key) => buildMonsterAttrInput(key, attrs?.[key])).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderMonsterStatPercentsEditor(statPercents?: NumericStatPercentages): void {
+  monsterStatPercentsEditorEl.innerHTML = `
+    <div class="monster-stat-section">
+      <div class="monster-group-head">
+        <div class="monster-group-title">数值倍率</div>
+        <div class="monster-group-note">按百分比作用在六维换算后的基础面板上；留空时，valueStats 模式会自动推导。</div>
+      </div>
+      <div class="monster-stat-grid">
+        ${NUMERIC_SCALAR_STAT_KEYS.map((key) => buildMonsterStatPercentInput(key, statPercents?.[key])).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderMonsterEquipmentEditor(equipment?: Partial<Record<EquipSlot, string>>): void {
+  monsterEquipmentEditorEl.innerHTML = `
+    <div class="monster-stat-section">
+      <div class="monster-group-head">
+        <div class="monster-group-title">装备槽位</div>
+        <div class="monster-group-note">这里配置的装备会参与怪物真实属性计算，同时也会影响默认掉落。</div>
+      </div>
+      <div class="monster-stat-grid">
+        ${EQUIP_SLOTS.map((slot) => `
+          <div class="monster-stat-card">
+            <label class="map-field">
+              <span>${escapeHtml(EQUIP_SLOT_LABELS[slot])}</span>
+              <select data-equip-slot="${escapeHtml(slot)}">${buildEquipmentItemOptions(slot, equipment?.[slot] ?? '')}</select>
+            </label>
+          </div>
+        `).join('')}
+      </div>
     </div>
   `;
 }
@@ -534,6 +615,19 @@ function renderMonsterValueStatsEditor(stats?: PartialNumericStats): void {
       </div>
     </div>
   `).join('') + buildMonsterElementStatInputs('elementDamageBonus', stats) + buildMonsterElementStatInputs('elementDamageReduce', stats);
+}
+
+function renderMonsterResolvedAttrsPreview(attrs: Attributes): void {
+  monsterResolvedAttrsPreviewEl.innerHTML = `
+    <div class="monster-computed-grid">
+      ${ATTR_KEYS.map((key) => `
+        <div class="monster-computed-card">
+          <div class="monster-computed-label">${escapeHtml(ATTR_KEY_LABELS[key])}</div>
+          <div class="monster-computed-value">${escapeHtml(formatDisplayNumber(attrs[key]))}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
 }
 
 function renderMonsterComputedStatsPreview(stats: NumericStats): void {
@@ -670,7 +764,12 @@ function fillMonsterForm(monster: MonsterTemplateRecord): void {
   monsterViewRangeEl.value = String(monster.viewRange);
   monsterRespawnSecEl.value = String(monster.respawnSec);
   monsterRespawnTicksEl.value = monster.respawnTicks === undefined ? '' : String(monster.respawnTicks);
+  renderMonsterAttrsEditor(monster.attrs);
+  renderMonsterStatPercentsEditor(monster.statPercents);
+  renderMonsterEquipmentEditor(monster.equipment);
+  monsterSkillsEl.value = monster.skills.join('\n');
   renderMonsterValueStatsEditor(monster.valueStats);
+  renderMonsterResolvedAttrsPreview(monster.resolvedAttrs);
   renderMonsterComputedStatsPreview(monster.computedStats);
   renderMonsterDropsEditor(monster.drops);
 }
@@ -730,6 +829,62 @@ function readOptionalDecimalInput(raw: string, label: string): number | undefine
     throw new Error(`${label} 不是合法数字`);
   }
   return parsed;
+}
+
+function readMonsterAttrsFromEditor(): Partial<Attributes> | undefined {
+  let attrs: Partial<Attributes> | undefined;
+  for (const input of Array.from(monsterAttrsEditorEl.querySelectorAll<HTMLInputElement>('[data-attr-key]'))) {
+    const key = input.dataset.attrKey as (typeof ATTR_KEYS)[number] | undefined;
+    if (!key) {
+      continue;
+    }
+    const value = readOptionalDecimalInput(input.value, `六维属性 ${ATTR_KEY_LABELS[key]}`);
+    if (value === undefined) {
+      continue;
+    }
+    attrs ??= {};
+    attrs[key] = Math.max(0, Math.floor(value));
+  }
+  return attrs;
+}
+
+function readMonsterStatPercentsFromEditor(): NumericStatPercentages | undefined {
+  let statPercents: NumericStatPercentages | undefined;
+  for (const input of Array.from(monsterStatPercentsEditorEl.querySelectorAll<HTMLInputElement>('[data-stat-percent-key]'))) {
+    const key = input.dataset.statPercentKey as NumericScalarStatKey | undefined;
+    if (!key) {
+      continue;
+    }
+    const value = readOptionalDecimalInput(input.value, `数值倍率 ${NUMERIC_SCALAR_STAT_LABELS[key]}`);
+    if (value === undefined) {
+      continue;
+    }
+    statPercents ??= {};
+    statPercents[key] = Math.max(0, value);
+  }
+  return statPercents;
+}
+
+function readMonsterEquipmentFromEditor(): Partial<Record<EquipSlot, string>> | undefined {
+  let equipment: Partial<Record<EquipSlot, string>> | undefined;
+  for (const select of Array.from(monsterEquipmentEditorEl.querySelectorAll<HTMLSelectElement>('[data-equip-slot]'))) {
+    const slot = select.dataset.equipSlot as EquipSlot | undefined;
+    const itemId = select.value.trim();
+    if (!slot || !itemId) {
+      continue;
+    }
+    equipment ??= {};
+    equipment[slot] = itemId;
+  }
+  return equipment;
+}
+
+function readMonsterSkillsFromEditor(): string[] {
+  const entries = monsterSkillsEl.value
+    .split(/\r?\n|,/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  return Array.from(new Set(entries));
 }
 
 function readMonsterValueStatsFromEditor(): PartialNumericStats | undefined {
@@ -806,21 +961,24 @@ function readMonsterDropsFromEditor(): MonsterTemplateDrop[] {
 }
 
 function syncMonsterDraftFromForm(): MonsterTemplateRecord {
+  const attrs = readMonsterAttrsFromEditor();
+  const statPercents = readMonsterStatPercentsFromEditor();
+  const equipment = readMonsterEquipmentFromEditor();
+  const skills = readMonsterSkillsFromEditor();
   const valueStats = readMonsterValueStatsFromEditor();
   const drops = readMonsterDropsFromEditor();
-  const nextDraft: MonsterTemplateRecord = {
+  const nextDraft = resolveMonsterTemplateRecord({
     id: monsterIdEl.value.trim(),
     name: monsterNameEl.value.trim(),
     char: monsterCharEl.value.trim(),
     color: monsterColorEl.value.trim(),
     grade: monsterGradeEl.value as TechniqueGrade,
     tier: monsterTierEl.value as MonsterTier,
+    attrs,
+    statPercents,
+    equipment,
+    skills,
     valueStats,
-    computedStats: resolveMonsterNumericStatsFromValueStats(valueStats, readOptionalInteger(monsterLevelEl)),
-    combatModel: valueStats ? 'value_stats' : (currentMonsterDraft?.combatModel ?? 'value_stats'),
-    hp: 0,
-    maxHp: 0,
-    attack: 0,
     level: readOptionalInteger(monsterLevelEl),
     count: readRequiredInteger(monsterCountEl),
     maxAlive: readRequiredInteger(monsterMaxAliveEl),
@@ -832,13 +990,14 @@ function syncMonsterDraftFromForm(): MonsterTemplateRecord {
     respawnSec: readRequiredInteger(monsterRespawnSecEl),
     respawnTicks: readOptionalInteger(monsterRespawnTicksEl),
     drops,
-  };
-  nextDraft.hp = Math.max(1, Math.round(nextDraft.computedStats.maxHp));
-  nextDraft.maxHp = nextDraft.hp;
-  nextDraft.attack = Math.max(1, Math.round(nextDraft.computedStats.physAtk));
+    hp: currentMonsterDraft?.hp,
+    maxHp: currentMonsterDraft?.maxHp,
+    attack: currentMonsterDraft?.attack,
+  }, editorItemById);
   monsterHpEl.value = String(nextDraft.hp);
   monsterMaxHpEl.value = String(nextDraft.maxHp);
   monsterAttackEl.value = String(nextDraft.attack);
+  renderMonsterResolvedAttrsPreview(nextDraft.resolvedAttrs);
   renderMonsterComputedStatsPreview(nextDraft.computedStats);
   currentMonsterDraft = nextDraft;
   return nextDraft;
@@ -895,7 +1054,7 @@ async function selectMonsterTemplate(key: string, announce = true): Promise<void
   monsterEmptyEl.classList.add('hidden');
   monsterPanelEl.classList.remove('hidden');
   monsterCurrentNameEl.textContent = `${entry.monster.name} · ${entry.monster.id}`;
-  monsterCurrentMetaEl.textContent = `${entry.filePath} · 第 ${entry.index + 1} 项 · ${entry.monster.combatModel === 'value_stats' ? '基准值模式' : '旧属性模式'}`;
+  monsterCurrentMetaEl.textContent = `${entry.filePath} · 第 ${entry.index + 1} 项 · ${MONSTER_SOURCE_MODE_LABELS[entry.monster.sourceMode]}`;
   fillMonsterForm(currentMonsterDraft);
   setMonsterStatus(announce ? `已载入怪物模板 ${entry.monster.name}` : '');
   renderMonsterList();
@@ -941,9 +1100,14 @@ async function saveMonsterTemplate(): Promise<void> {
 async function loadEditorCatalog(): Promise<void> {
   const result = await request<LocalEditorCatalogRes>('/api/editor-catalog');
   editorItems = result.items;
+  editorItemById = new Map(result.items.map((item) => [item.itemId, item] as const));
   mapEditor?.setItemCatalog(result.items);
   if (currentMonsterDraft) {
+    renderMonsterEquipmentEditor(currentMonsterDraft.equipment);
     renderMonsterDropsEditor(currentMonsterDraft.drops);
+    if (!monsterDirty) {
+      syncMonsterDraftFromForm();
+    }
   }
 }
 
@@ -1132,10 +1296,17 @@ function bindEvents(): void {
     monsterViewRangeEl,
     monsterRespawnSecEl,
     monsterRespawnTicksEl,
+    monsterSkillsEl,
   ].forEach((element) => {
     element.addEventListener('input', onMonsterFormInput);
     element.addEventListener('change', onMonsterFormInput);
   });
+  monsterAttrsEditorEl.addEventListener('input', onMonsterFormInput);
+  monsterAttrsEditorEl.addEventListener('change', onMonsterFormInput);
+  monsterStatPercentsEditorEl.addEventListener('input', onMonsterFormInput);
+  monsterStatPercentsEditorEl.addEventListener('change', onMonsterFormInput);
+  monsterEquipmentEditorEl.addEventListener('input', onMonsterFormInput);
+  monsterEquipmentEditorEl.addEventListener('change', onMonsterFormInput);
   monsterValueStatsEditorEl.addEventListener('input', onMonsterFormInput);
   monsterValueStatsEditorEl.addEventListener('change', onMonsterFormInput);
   monsterDropsEditorEl.addEventListener('input', onMonsterFormInput);
