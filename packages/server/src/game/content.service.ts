@@ -849,7 +849,7 @@ export class ContentService implements OnModuleInit {
   private computeSpiritStoneDropCount(context: MonsterDropContext): number {
     const gradeIndex = Math.max(0, TECHNIQUE_GRADE_ORDER.indexOf(context.grade));
     const level = Number.isFinite(context.level) ? Math.max(1, Math.trunc(Number(context.level))) : 1;
-    return Math.max(1, 1 + gradeIndex + Math.floor(level / 10));
+    return Math.max(1, Math.floor(1 + (gradeIndex * 0.5) + (Math.floor(level / 12) * 0.5)));
   }
 
   private resolveConfiguredStats(actualStats: unknown, valueStats: unknown): ItemStack['equipStats'] {
