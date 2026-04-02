@@ -87,6 +87,7 @@ import {
   LootWindowState,
   MapMeta,
   MonsterTier,
+  PartialNumericStats,
   PlayerState,
   packDirections,
   RenderEntity,
@@ -1169,8 +1170,62 @@ function formatBuffDuration(buff: VisibleBuffState): string {
   return `${formatDisplayInteger(Math.max(0, Math.round(buff.remainingTicks)))} / ${formatDisplayInteger(Math.max(1, Math.round(buff.duration)))} 息`;
 }
 
+function scaleBuffAttrs(
+  attrs: VisibleBuffState['attrs'],
+  stacks: number,
+): VisibleBuffState['attrs'] | undefined {
+  if (!attrs || stacks === 1) {
+    return attrs;
+  }
+  const scaled: NonNullable<VisibleBuffState['attrs']> = {};
+  for (const [key, value] of Object.entries(attrs)) {
+    if (typeof value !== 'number') {
+      continue;
+    }
+    scaled[key as keyof NonNullable<VisibleBuffState['attrs']>] = value * stacks;
+  }
+  return Object.keys(scaled).length > 0 ? scaled : undefined;
+}
+
+function scaleBuffStats(
+  stats: VisibleBuffState['stats'],
+  stacks: number,
+): VisibleBuffState['stats'] | undefined {
+  if (!stats || stacks === 1) {
+    return stats;
+  }
+  const scaled: PartialNumericStats = {};
+  for (const [key, value] of Object.entries(stats)) {
+    if (typeof value === 'number') {
+      (scaled as Record<string, unknown>)[key] = value * stacks;
+      continue;
+    }
+    if (!value || typeof value !== 'object') {
+      continue;
+    }
+    const nested: Record<string, number> = {};
+    for (const [nestedKey, nestedValue] of Object.entries(value)) {
+      if (typeof nestedValue !== 'number') {
+        continue;
+      }
+      nested[nestedKey] = nestedValue * stacks;
+    }
+    if (Object.keys(nested).length > 0) {
+      (scaled as Record<string, unknown>)[key] = nested;
+    }
+  }
+  return Object.keys(scaled).length > 0 ? scaled : undefined;
+}
+
 function buildBuffEffectLines(buff: VisibleBuffState): string[] {
-  return describePreviewBonuses(buff.attrs, buff.stats);
+  const stackFactor = Math.max(1, Math.floor(buff.stacks || 1));
+  return describePreviewBonuses(
+    scaleBuffAttrs(buff.attrs, stackFactor),
+    scaleBuffStats(buff.stats, stackFactor),
+    undefined,
+    buff.attrMode ?? 'percent',
+    buff.statMode ?? 'percent',
+  );
 }
 
 function buildBuffTooltipLines(buff: VisibleBuffState): string[] {
@@ -1241,6 +1296,7 @@ function buildAttrStateFromPlayer(player: PlayerState): S2C_AttrUpdate {
     finalAttrs: cloneJson(player.finalAttrs ?? player.baseAttrs),
     numericStats: player.numericStats ? cloneJson(player.numericStats) : undefined,
     ratioDivisors: player.ratioDivisors ? cloneJson(player.ratioDivisors) : undefined,
+    numericStatBreakdowns: player.numericStatBreakdowns ? cloneJson(player.numericStatBreakdowns) : undefined,
     maxHp: player.maxHp,
     qi: player.qi,
     specialStats: {
@@ -1277,6 +1333,9 @@ function mergeAttrUpdatePatch(previous: S2C_AttrUpdate | null, patch: S2C_AttrUp
     }),
     numericStats: patch.numericStats ? cloneJson(patch.numericStats) : (previous?.numericStats ? cloneJson(previous.numericStats) : undefined),
     ratioDivisors: patch.ratioDivisors ? cloneJson(patch.ratioDivisors) : (previous?.ratioDivisors ? cloneJson(previous.ratioDivisors) : undefined),
+    numericStatBreakdowns: patch.numericStatBreakdowns
+      ? cloneJson(patch.numericStatBreakdowns)
+      : (previous?.numericStatBreakdowns ? cloneJson(previous.numericStatBreakdowns) : undefined),
     maxHp: patch.maxHp ?? previous?.maxHp ?? myPlayer?.maxHp ?? 0,
     qi: patch.qi ?? previous?.qi ?? myPlayer?.qi ?? 0,
     specialStats: patch.specialStats
@@ -2009,6 +2068,7 @@ socket.onAttrUpdate((data) => {
     myPlayer.finalAttrs = latestAttrUpdate.finalAttrs ?? myPlayer.finalAttrs;
     myPlayer.numericStats = latestAttrUpdate.numericStats ?? myPlayer.numericStats;
     myPlayer.ratioDivisors = latestAttrUpdate.ratioDivisors ?? myPlayer.ratioDivisors;
+    myPlayer.numericStatBreakdowns = latestAttrUpdate.numericStatBreakdowns ?? myPlayer.numericStatBreakdowns;
     myPlayer.maxHp = latestAttrUpdate.maxHp ?? myPlayer.maxHp;
     myPlayer.qi = latestAttrUpdate.qi ?? myPlayer.qi;
     myPlayer.foundation = latestAttrUpdate.specialStats?.foundation ?? myPlayer.foundation;
@@ -2028,6 +2088,8 @@ socket.onAttrUpdate((data) => {
       myPlayer.realm.breakthroughReady = latestAttrUpdate.realmBreakthroughReady ?? myPlayer.realm.breakthroughReady;
       myPlayer.breakthroughReady = myPlayer.realm.breakthroughReady;
     }
+    techniquePanel.syncDynamic(myPlayer.techniques, myPlayer.cultivatingTechId, myPlayer);
+    actionPanel.syncDynamic(myPlayer.actions, myPlayer.autoBattle, myPlayer.autoRetaliate, myPlayer);
   }
   attrPanel.update(latestAttrUpdate);
   refreshHeavenGateModal(myPlayer, {

@@ -18,6 +18,7 @@ import { buildSkillTooltipContent, type SkillPreviewMetrics, summarizeSkillPrevi
 import { preserveSelection } from '../selection-preserver';
 import { getActionTypeLabel } from '../../domain-labels';
 import { ACTION_SHORTCUTS_KEY, RETURN_TO_SPAWN_ACTION_ID } from '../../constants/ui/action';
+import { formatDisplayNumber } from '../../utils/number';
 
 type ActionMainTab = 'dialogue' | 'skill' | 'toggle' | 'utility';
 type SkillSubTab = 'auto' | 'manual';
@@ -1206,6 +1207,7 @@ export class ActionPanel {
   private buildSkillManagementExternalRevision(): string {
     const parts = [String(this.getSkillSlotLimit())];
     for (const action of this.getSkillActions(this.currentActions)) {
+      const metrics = this.buildSkillManagementMetrics(action);
       parts.push(action.id);
       parts.push(action.name);
       parts.push(action.desc);
@@ -1213,6 +1215,11 @@ export class ActionPanel {
       parts.push(action.autoBattleEnabled !== false ? '1' : '0');
       parts.push(String(action.autoBattleOrder ?? ''));
       parts.push(action.skillEnabled !== false ? '1' : '0');
+      parts.push(String(metrics.actualDamage ?? ''));
+      parts.push(String(metrics.actualQiCost));
+      parts.push(String(metrics.range));
+      parts.push(String(metrics.targetCount));
+      parts.push(String(metrics.cooldown));
     }
     return parts.join('\u0001');
   }
@@ -1388,9 +1395,6 @@ export class ActionPanel {
     if (!detailModalHost.isOpenFor(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER)) {
       return;
     }
-    if (this.hasPendingSkillManagementChanges()) {
-      return;
-    }
     const nextRevision = this.buildSkillManagementExternalRevision();
     if (this.skillManagementExternalRevision === nextRevision) {
       return;
@@ -1497,7 +1501,7 @@ export class ActionPanel {
                   : null,
                 canMoveUp: this.skillManagementSortField === 'custom' && index > 0,
                 canMoveDown: this.skillManagementSortField === 'custom' && index < visibleEntries.length - 1,
-              })).join('')}
+              }, entry.metrics)).join('')}
             </div>`}
         </div>
       `,
@@ -1838,6 +1842,18 @@ export class ActionPanel {
     this.clearDragState();
   }
 
+  private getSkillManagementMetricReadout(metrics: SkillPreviewMetrics): string {
+    if (this.skillManagementSortField === 'actualDamage') {
+      return metrics.actualDamage === null
+        ? '伤害 未知'
+        : `伤害 ${formatDisplayNumber(metrics.actualDamage)}`;
+    }
+    if (this.skillManagementSortField === 'qiCost') {
+      return `蓝耗 ${formatDisplayNumber(metrics.actualQiCost)}`;
+    }
+    return '';
+  }
+
   private renderSkillManagementItem(
     action: ActionDef,
     options?: {
@@ -1846,6 +1862,7 @@ export class ActionPanel {
       canMoveUp?: boolean;
       canMoveDown?: boolean;
     },
+    metrics?: SkillPreviewMetrics,
   ): string {
     const skillContext = this.skillLookup.get(action.id);
     const tooltipAttrs = skillContext
@@ -1859,6 +1876,7 @@ export class ActionPanel {
     const rowAttrs = options?.showDragHandle ? ` data-skill-manage-skill-row="${action.id}"` : '';
     const canMoveUp = options?.canMoveUp === true;
     const canMoveDown = options?.canMoveDown === true;
+    const metricReadout = metrics ? this.getSkillManagementMetricReadout(metrics) : '';
 
     return `<div class="action-item action-item-draggable" data-action-row="${action.id}"${rowAttrs}>
       <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''}"${tooltipAttrs}>
@@ -1873,6 +1891,7 @@ export class ActionPanel {
         <div class="action-desc">${escapeHtml(action.desc)}</div>
       </div>
       <div class="action-cta">
+        ${metricReadout ? `<span class="skill-manage-metric-readout">${escapeHtml(metricReadout)}</span>` : ''}
         <button class="small-btn ghost ${autoBattleEnabled ? 'active' : ''}" data-skill-manage-auto-toggle="${action.id}" type="button">${autoBattleEnabled ? '自动 开' : '自动 关'}</button>
         <button class="small-btn ghost ${skillEnabled ? 'active' : ''}" data-skill-manage-enabled-toggle="${action.id}" type="button">${skillEnabled ? '启用 开' : '启用 关'}</button>
         <button class="small-btn ghost" data-skill-manage-move-up="${action.id}" type="button"${canMoveUp ? '' : ' disabled'}>上移</button>

@@ -7,7 +7,7 @@ import { AttrKey, NumericScalarStatKey, SkillDef, SkillFormula, SkillFormulaVar,
 import type { PlayerState } from '@mud/shared';
 import { FORMULA_VAR_LABELS, FORMULA_VAR_META, type SkillScalingMeta } from '../constants/ui/skill-tooltip';
 import { getElementKeyLabel } from '../domain-labels';
-import { resolvePreviewSkill, resolvePreviewSkills } from '../content/local-templates';
+import { getLocalBuffTemplate, resolvePreviewSkill, resolvePreviewSkills } from '../content/local-templates';
 import { describePreviewBonuses } from './stat-preview';
 import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../utils/number';
 
@@ -31,11 +31,16 @@ type FormulaPreview = {
 };
 
 type StructuredDamagePreview = {
-  total: number;
-  fixedTotal: number;
-  percentTotal: number;
+  total: number | null;
+  fixedTotal: number | null;
+  percentTotal: number | null;
   fixedHtml: string;
   percentHtml: string;
+};
+
+type PercentFactorPreview = {
+  multiplier: number | null;
+  html: string;
 };
 
 type ResolvedPreviewValue = {
@@ -52,6 +57,11 @@ type ResolvedBuffMeta = {
   name: string;
   mark: string;
   tone: 'buff' | 'debuff';
+};
+
+type AggregatedBuffEffect = {
+  effect: Extract<SkillDef['effects'][number], { type: 'buff' }>;
+  applications: number;
 };
 
 export interface SkillTooltipAsideCard {
@@ -78,6 +88,44 @@ export interface SkillPreviewMetrics {
   isAreaTarget: boolean;
   isMelee: boolean;
   isRanged: boolean;
+}
+
+function buildBuffEffectAggregationKey(effect: Extract<SkillDef['effects'][number], { type: 'buff' }>): string {
+  return [
+    effect.target,
+    effect.buffId,
+    effect.name,
+    effect.desc ?? '',
+    effect.shortMark ?? '',
+    effect.category ?? '',
+    effect.visibility ?? '',
+    effect.color ?? '',
+    String(effect.duration),
+    String(effect.maxStacks ?? ''),
+    effect.attrMode ?? '',
+    effect.statMode ?? '',
+    JSON.stringify(effect.attrs ?? null),
+    JSON.stringify(effect.stats ?? null),
+    JSON.stringify(effect.valueStats ?? null),
+    JSON.stringify(effect.qiProjection ?? null),
+  ].join('\u0001');
+}
+
+function aggregateBuffEffects(effects: SkillDef['effects']): AggregatedBuffEffect[] {
+  const aggregated: AggregatedBuffEffect[] = [];
+  for (const effect of effects) {
+    if (effect.type !== 'buff') {
+      continue;
+    }
+    const key = buildBuffEffectAggregationKey(effect);
+    const existing = aggregated.find((entry) => buildBuffEffectAggregationKey(entry.effect) === key);
+    if (existing) {
+      existing.applications += 1;
+      continue;
+    }
+    aggregated.push({ effect, applications: 1 });
+  }
+  return aggregated;
 }
 
 function escapeHtml(value: string): string {
@@ -125,7 +173,7 @@ function buildQiCostValue(cost: number, context: SkillTooltipPreviewContext): st
 }
 
 function describeBuffEffect(effect: Extract<SkillDef['effects'][number], { type: 'buff' }>): string[] {
-  return describePreviewBonuses(effect.attrs, effect.stats, effect.valueStats);
+  return describePreviewBonuses(effect.attrs, effect.stats, effect.valueStats, effect.attrMode ?? 'percent', effect.statMode ?? 'percent');
 }
 
 function buildBuffInlineBadge(effect: Extract<SkillDef['effects'][number], { type: 'buff' }>): string {
@@ -186,7 +234,7 @@ function resolveBuffFormulaMeta(varName: SkillFormulaVar, context: SkillTooltipP
     ?.flatMap((skill) => skill.effects)
     .find((entry): entry is Extract<SkillDef['effects'][number], { type: 'buff' }> => (
       entry.type === 'buff' && entry.buffId === parsed.buffId
-    ));
+    )) ?? getLocalBuffTemplate(parsed.buffId);
   if (!effect) {
     return null;
   }
@@ -286,6 +334,10 @@ function resolvePreviewVar(varName: SkillFormulaVar, context: SkillTooltipPrevie
   return resolved.known ? resolved.value : null;
 }
 
+function resolvePreviewVarForMetrics(varName: SkillFormulaVar, context: SkillTooltipPreviewContext): number {
+  return resolvePreviewValue(varName, context).value;
+}
+
 function renderVariableFormula(varName: SkillFormulaVar, scale: number, context: SkillTooltipPreviewContext): FormulaPreview {
   if (varName === 'techLevel') {
     const techLevel = context.techLevel;
@@ -354,37 +406,88 @@ function isMulFormula(formula: SkillFormula): formula is { op: 'mul'; args: Skil
   return typeof formula !== 'number' && !('var' in formula) && formula.op === 'mul';
 }
 
+function isPercentFactorFormula(formula: SkillFormula): formula is { op: 'add'; args: SkillFormula[] } {
+  return isAddFormula(formula)
+    && formula.args.length > 0
+    && typeof formula.args[0] === 'number'
+    && Math.abs((formula.args[0] as number) - 1) <= 1e-6;
+}
+
+function roundPreviewDamage(value: number | null): number | null {
+  if (value === null || !Number.isFinite(value)) {
+    return null;
+  }
+  return Math.max(1, Math.round(value));
+}
+
+function previewPercentFactor(formula: SkillFormula, context: SkillTooltipPreviewContext): PercentFactorPreview | null {
+  if (!isPercentFactorFormula(formula)) {
+    return null;
+  }
+  const percentParts = formula.args.slice(1).map((entry) => previewPercentPart(entry, context));
+  const allKnown = percentParts.every((entry) => entry.resolved !== null);
+  const percentBonus = allKnown
+    ? percentParts.reduce((sum, entry) => sum + (entry.resolved ?? 0), 0)
+    : null;
+  const detailHtml = percentParts.map((entry) => entry.html).join('<span class="skill-formula-operator"> + </span>');
+  const html = percentParts.length > 0
+    ? (
+      percentBonus === null
+        ? `1<span class="skill-formula-breakdown">（${detailHtml}）</span>`
+        : `${formatPercent(1 + percentBonus)}<span class="skill-formula-breakdown">（${detailHtml}）</span>`
+    )
+    : formatPercent(1);
+  return {
+    multiplier: percentBonus === null ? null : 1 + percentBonus,
+    html,
+  };
+}
+
 function extractStructuredDamagePreview(formula: SkillFormula, context: SkillTooltipPreviewContext): StructuredDamagePreview | null {
-  if (!isMulFormula(formula) || formula.args.length !== 2) {
+  if (!isMulFormula(formula) || formula.args.length < 2) {
     return null;
   }
-  const [fixedFormula, percentFormula] = formula.args;
-  if (!isAddFormula(fixedFormula) || !isAddFormula(percentFormula)) {
-    return null;
+  const fixedFormulas: SkillFormula[] = [];
+  const percentFormulas: SkillFormula[] = [];
+  const percentFactors: PercentFactorPreview[] = [];
+  for (const entry of formula.args) {
+    const percentFactor = previewPercentFactor(entry, context);
+    if (percentFactor) {
+      percentFormulas.push(entry);
+      percentFactors.push(percentFactor);
+      continue;
+    }
+    fixedFormulas.push(entry);
   }
-  if (typeof percentFormula.args[0] !== 'number' || Math.abs((percentFormula.args[0] as number) - 1) > 1e-6) {
+
+  if (fixedFormulas.length === 0 || percentFactors.length === 0) {
     return null;
   }
 
-  const fixedParts = fixedFormula.args.map((entry) => previewFormula(entry, context));
-  const fixedTotal = fixedParts.reduce((sum, entry) => sum + (entry.resolved ?? 0), 0);
-  const percentParts = percentFormula.args.slice(1).map((entry) => previewPercentPart(entry, context));
-  const percentBonus = percentParts.reduce((sum, entry) => sum + (entry.resolved ?? 0), 0);
-  const total = fixedTotal * (1 + percentBonus);
+  const fixedParts = fixedFormulas.map((entry) => previewFormula(entry, context));
+  const fixedTotal = fixedFormulas.reduce<number>(
+    (product, entry) => product * evaluateFormulaForMetrics(entry, context),
+    1,
+  );
+  const percentTotal = percentFormulas.reduce<number>(
+    (product, entry) => product * evaluateFormulaForMetrics(entry, context),
+    1,
+  );
+  const total = roundPreviewDamage(fixedTotal * percentTotal);
 
   const fixedHtml = fixedParts
-    .map((entry) => entry.html)
-    .join('<span class="skill-formula-operator"> + </span>');
-  const percentHtml = percentParts.length > 0
-    ? percentParts
+    .map((entry) => fixedParts.length > 1 ? `(${entry.html})` : entry.html)
+    .join('<span class="skill-formula-operator"> × </span>');
+  const percentHtml = percentFactors.length > 0
+    ? percentFactors
       .map((entry) => entry.html)
-      .join('<span class="skill-formula-operator"> + </span>')
+      .join('<span class="skill-formula-operator"> × </span>')
     : '<span class="skill-formula-empty">0%</span>';
 
   return {
-    total: Math.max(0, total),
+    total,
     fixedTotal,
-    percentTotal: 1 + percentBonus,
+    percentTotal,
     fixedHtml,
     percentHtml,
   };
@@ -399,12 +502,12 @@ function previewPercentPart(formula: SkillFormula, context: SkillTooltipPreviewC
   }
   if ('var' in formula) {
     const resolved = resolvePreviewValue(formula.var, context);
-    const resolvedPercent = resolved.value * (formula.scale ?? 1);
+    const resolvedPercent = resolved.known ? resolved.value * (formula.scale ?? 1) : null;
     const buffReference = buildBuffStackReference(formula.var, context, resolved.known ? resolved.value : null);
     if (buffReference) {
       return {
         html: renderFormulaTerm(
-          resolved.known ? `${formatPercent(resolvedPercent)}（${buffReference}×${formatPercent(formula.scale ?? 1)}）` : `${buffReference}×${formatPercent(formula.scale ?? 1)}`,
+          resolvedPercent !== null ? `${formatPercent(resolvedPercent)}（${buffReference}×${formatPercent(formula.scale ?? 1)}）` : `${buffReference}×${formatPercent(formula.scale ?? 1)}`,
           'skill-formula-term-percent',
         ),
         resolved: resolvedPercent,
@@ -414,7 +517,7 @@ function previewPercentPart(formula: SkillFormula, context: SkillTooltipPreviewC
       const badge = `<span class="skill-scaling skill-scaling-tech"><span class="skill-scaling-icon">◎</span><span>${escapeHtml(`${formatDisplayNumber(resolved.value)}层`)}</span></span>`;
       return {
         html: renderFormulaTerm(
-          resolved.known ? `${formatPercent(resolvedPercent)}（${badge}×${formatPercent(formula.scale ?? 1)}）` : `${escapeHtml(FORMULA_VAR_LABELS[formula.var] ?? formula.var)}×${formatPercent(formula.scale ?? 1)}`,
+          resolvedPercent !== null ? `${formatPercent(resolvedPercent)}（${badge}×${formatPercent(formula.scale ?? 1)}）` : `${escapeHtml(FORMULA_VAR_LABELS[formula.var] ?? formula.var)}×${formatPercent(formula.scale ?? 1)}`,
           'skill-formula-term-percent',
         ),
         resolved: resolvedPercent,
@@ -424,7 +527,7 @@ function previewPercentPart(formula: SkillFormula, context: SkillTooltipPreviewC
     if (meta) {
       return {
         html: renderFormulaTerm(
-          resolved.known ? `${formatPercent(resolvedPercent)}（${renderScalingBadge(meta)}×${formatPercent(formula.scale ?? 1)}）` : `${renderScalingBadge(meta)}×${formatPercent(formula.scale ?? 1)}`,
+          resolvedPercent !== null ? `${formatPercent(resolvedPercent)}（${renderScalingBadge(meta)}×${formatPercent(formula.scale ?? 1)}）` : `${renderScalingBadge(meta)}×${formatPercent(formula.scale ?? 1)}`,
           'skill-formula-term-percent',
         ),
         resolved: resolvedPercent,
@@ -433,7 +536,7 @@ function previewPercentPart(formula: SkillFormula, context: SkillTooltipPreviewC
     const label = FORMULA_VAR_LABELS[formula.var] ?? formula.var;
     return {
       html: renderFormulaTerm(
-        resolved.known ? `${formatPercent(resolvedPercent)}（${escapeHtml(label)}×${formatPercent(formula.scale ?? 1)}）` : `${escapeHtml(label)}×${formatPercent(formula.scale ?? 1)}`,
+        resolvedPercent !== null ? `${formatPercent(resolvedPercent)}（${escapeHtml(label)}×${formatPercent(formula.scale ?? 1)}）` : `${escapeHtml(label)}×${formatPercent(formula.scale ?? 1)}`,
         'skill-formula-term-percent',
       ),
       resolved: resolvedPercent,
@@ -534,30 +637,73 @@ function previewFormula(formula: SkillFormula, context: SkillTooltipPreviewConte
   }
 }
 
+function evaluateFormulaForMetrics(formula: SkillFormula, context: SkillTooltipPreviewContext): number {
+  if (typeof formula === 'number') {
+    return formula;
+  }
+  if ('var' in formula) {
+    return resolvePreviewVarForMetrics(formula.var, context) * (formula.scale ?? 1);
+  }
+  if (formula.op === 'clamp') {
+    let value = evaluateFormulaForMetrics(formula.value, context);
+    if (formula.min !== undefined) {
+      value = Math.max(value, evaluateFormulaForMetrics(formula.min, context));
+    }
+    if (formula.max !== undefined) {
+      value = Math.min(value, evaluateFormulaForMetrics(formula.max, context));
+    }
+    return value;
+  }
+
+  const args = formula.args.map((entry) => evaluateFormulaForMetrics(entry, context));
+  switch (formula.op) {
+    case 'add':
+      return args.reduce((sum, entry) => sum + entry, 0);
+    case 'sub':
+      return args.slice(1).reduce((sum, entry) => sum - entry, args[0] ?? 0);
+    case 'mul':
+      return args.reduce((product, entry) => product * entry, 1);
+    case 'div':
+      return args.slice(1).reduce((quotient, entry) => (
+        quotient === 0 || entry === 0 ? 0 : quotient / entry
+      ), args[0] ?? 0);
+    case 'min':
+      return args.length > 0 ? Math.min(...args) : 0;
+    case 'max':
+      return args.length > 0 ? Math.max(...args) : 0;
+    default:
+      return 0;
+  }
+}
+
 function formatDamageFormula(formula: SkillFormula, context: SkillTooltipPreviewContext, damageKind: 'physical' | 'spell'): string {
   const structured = extractStructuredDamagePreview(formula, context);
   if (structured) {
-    const fixedPart = `<span class="skill-formula-group">${formatDisplayNumber(structured.fixedTotal)}<span class="skill-formula-breakdown">（${structured.fixedHtml}）</span></span>`;
-    const percentPart = structured.percentHtml.startsWith('<span class="skill-formula-empty">')
-      ? `<span class="skill-formula-group">${formatPercent(structured.percentTotal)}</span>`
-      : `<span class="skill-formula-group">${formatPercent(structured.percentTotal)}<span class="skill-formula-breakdown">（${structured.percentHtml}）</span></span>`;
-    return `<span class="skill-damage-total skill-damage-total-${damageKind}">${formatDisplayNumber(structured.total)}</span><span class="skill-formula-equals"> = </span>${fixedPart}<span class="skill-formula-operator"> × </span>${percentPart}`;
+    const fixedPart = structured.fixedTotal === null
+      ? `<span class="skill-formula-group">${structured.fixedHtml}</span>`
+      : `<span class="skill-formula-group">${formatDisplayNumber(structured.fixedTotal)}<span class="skill-formula-breakdown">（${structured.fixedHtml}）</span></span>`;
+    const percentPart = structured.percentTotal === null
+      ? `<span class="skill-formula-group">${structured.percentHtml}</span>`
+      : structured.percentHtml.startsWith('<span class="skill-formula-empty">')
+        ? `<span class="skill-formula-group">${formatPercent(structured.percentTotal)}</span>`
+        : `<span class="skill-formula-group">${formatPercent(structured.percentTotal)}<span class="skill-formula-breakdown">（${structured.percentHtml}）</span></span>`;
+    return `<span class="skill-damage-total skill-damage-total-${damageKind}">${formatDisplayNumber(structured.total ?? 0)}</span><span class="skill-formula-equals"> = </span>${fixedPart}<span class="skill-formula-operator"> × </span>${percentPart}`;
   }
   const preview = previewFormula(formula, context);
   if (typeof formula === 'number' || 'var' in formula) {
     return preview.html;
   }
-  if (preview.resolved === null) {
+  const displayDamage = roundPreviewDamage(preview.resolved ?? evaluateFormulaForMetrics(formula, context));
+  if (displayDamage === null) {
     return preview.html;
   }
-  return `<span class="skill-damage-total skill-damage-total-${damageKind}">${formatDisplayNumber(preview.resolved)}</span><span class="skill-formula-breakdown">（${preview.html}）</span>`;
+  return `<span class="skill-damage-total skill-damage-total-${damageKind}">${formatDisplayNumber(displayDamage)}</span><span class="skill-formula-breakdown">（${preview.html}）</span>`;
 }
 
 export function summarizeSkillPreviewMetrics(skill: SkillDef, context: SkillTooltipPreviewContext = {}): SkillPreviewMetrics {
   const previewSkill = resolvePreviewSkill(skill);
   let totalDamage = 0;
   let hasDamageEffect = false;
-  let hasUnknownDamage = false;
   let hasPhysicalDamage = false;
   let hasSpellDamage = false;
 
@@ -571,10 +717,8 @@ export function summarizeSkillPreviewMetrics(skill: SkillDef, context: SkillTool
     } else {
       hasSpellDamage = true;
     }
-    const structured = extractStructuredDamagePreview(effect.formula, context);
-    const resolvedDamage = structured?.total ?? previewFormula(effect.formula, context).resolved;
+    const resolvedDamage = roundPreviewDamage(evaluateFormulaForMetrics(effect.formula, context));
     if (resolvedDamage === null) {
-      hasUnknownDamage = true;
       continue;
     }
     totalDamage += resolvedDamage;
@@ -589,7 +733,7 @@ export function summarizeSkillPreviewMetrics(skill: SkillDef, context: SkillTool
   const maxQiOutputPerTick = context.player?.numericStats?.maxQiOutputPerTick;
 
   return {
-    actualDamage: hasDamageEffect && hasUnknownDamage ? null : totalDamage,
+    actualDamage: hasDamageEffect ? totalDamage : 0,
     actualQiCost: maxQiOutputPerTick === undefined
       ? previewSkill.cost
       : calcQiCostWithOutputLimit(previewSkill.cost, Math.max(0, maxQiOutputPerTick)),
@@ -638,14 +782,17 @@ export function buildSkillTooltipContent(skill: SkillDef, context: SkillTooltipP
         ? (effect.element ? `${getElementKeyLabel(effect.element)}行物理伤害` : '物理伤害')
         : `${effect.element ? `${getElementKeyLabel(effect.element)}行` : ''}法术伤害`;
       lines.push(renderLabelLine(damageLabel, formatDamageFormula(effect.formula, context, damageKind)));
-      continue;
     }
+  }
+  for (const aggregated of aggregateBuffEffects(previewSkill.effects)) {
+    const effect = aggregated.effect;
     const stackLimit = formatBuffMaxStacks(effect.maxStacks);
     const stackText = stackLimit ? `，最多 ${stackLimit} 层` : '';
+    const applyText = aggregated.applications > 1 ? `，施加 ${formatDisplayInteger(aggregated.applications)} 层` : '';
     const categoryLabel = effect.category === 'debuff' ? '减益' : '增益';
     const targetLabel = effect.target === 'target' ? '目标' : '自身';
     const badge = buildBuffInlineBadge(effect);
-    lines.push(renderLabelLine(categoryLabel, `${badge}<span class="skill-tooltip-buff-meta">${escapeHtml(` ${targetLabel} · ${formatDisplayInteger(effect.duration)} 息${stackText}`)}</span>`));
+    lines.push(renderLabelLine(categoryLabel, `${badge}<span class="skill-tooltip-buff-meta">${escapeHtml(` ${targetLabel} · ${formatDisplayInteger(effect.duration)} 息${stackText}${applyText}`)}</span>`));
     const effectLines = describeBuffEffect(effect);
     if (effectLines.length > 0) {
       lines.push(renderPlainLine('效果', effectLines.join('，')));

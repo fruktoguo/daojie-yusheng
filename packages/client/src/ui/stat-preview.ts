@@ -1,4 +1,5 @@
 import {
+  type BuffModifierMode,
   compileValueStatsToActualStats,
   type Attributes,
   NUMERIC_SCALAR_STAT_KEYS,
@@ -10,6 +11,11 @@ import { formatDisplayNumber, formatDisplaySignedNumber, formatDisplayPercent } 
 
 function formatSignedNumber(value: number): string {
   return formatDisplaySignedNumber(value);
+}
+
+function formatSignedPercentValue(value: number): string {
+  const sign = value >= 0 ? '+' : '-';
+  return `${sign}${formatDisplayPercent(Math.abs(value))}`;
 }
 
 function formatSignedStatValue(key: string, value: number): string {
@@ -27,14 +33,23 @@ function formatSignedStatValue(key: string, value: number): string {
 export function resolvePreviewStats(
   stats?: PartialNumericStats,
   valueStats?: PartialNumericStats,
+  statMode?: BuffModifierMode,
 ): PartialNumericStats | undefined {
-  return valueStats ? compileValueStatsToActualStats(valueStats) : stats;
+  if (stats) {
+    return stats;
+  }
+  if (statMode === 'percent') {
+    return valueStats;
+  }
+  return valueStats ? compileValueStatsToActualStats(valueStats) : undefined;
 }
 
 export function describePreviewBonuses(
   attrs?: Partial<Attributes>,
   stats?: PartialNumericStats,
   valueStats?: PartialNumericStats,
+  attrMode?: BuffModifierMode,
+  statMode?: BuffModifierMode,
 ): string[] {
   const lines: string[] = [];
   if (attrs) {
@@ -42,11 +57,11 @@ export function describePreviewBonuses(
       if (typeof value !== 'number' || value === 0) {
         continue;
       }
-      lines.push(`${getAttrKeyLabel(key)} ${formatSignedNumber(value)}`);
+      lines.push(`${getAttrKeyLabel(key)} ${attrMode === 'percent' ? formatSignedPercentValue(value) : formatSignedNumber(value)}`);
     }
   }
 
-  const resolvedStats = resolvePreviewStats(stats, valueStats);
+  const resolvedStats = resolvePreviewStats(stats, valueStats, statMode);
   if (!resolvedStats) {
     return lines;
   }
@@ -56,7 +71,7 @@ export function describePreviewBonuses(
     if (typeof value !== 'number' || value === 0) {
       continue;
     }
-    lines.push(`${getNumericScalarStatKeyLabel(key)} ${formatSignedStatValue(key, value)}`);
+    lines.push(`${getNumericScalarStatKeyLabel(key)} ${statMode === 'percent' ? formatSignedPercentValue(value) : formatSignedStatValue(key, value)}`);
   }
 
   if (resolvedStats.elementDamageBonus) {
@@ -64,7 +79,7 @@ export function describePreviewBonuses(
       if (typeof value !== 'number' || value === 0) {
         continue;
       }
-      lines.push(`${getElementKeyLabel(key)}行增伤 ${formatSignedNumber(value)}`);
+      lines.push(`${getElementKeyLabel(key)}行增伤 ${statMode === 'percent' ? formatSignedPercentValue(value) : formatSignedNumber(value)}`);
     }
   }
 
@@ -73,7 +88,7 @@ export function describePreviewBonuses(
       if (typeof value !== 'number' || value === 0) {
         continue;
       }
-      lines.push(`${getElementKeyLabel(key)}行减伤 ${formatSignedNumber(value)}`);
+      lines.push(`${getElementKeyLabel(key)}行减伤 ${statMode === 'percent' ? formatSignedPercentValue(value) : formatSignedNumber(value)}`);
     }
   }
 

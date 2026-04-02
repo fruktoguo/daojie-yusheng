@@ -4668,6 +4668,22 @@
       overscroll-behavior: contain;
       padding-right: 2px;
     }
+    .skill-manage-metric-readout {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border: 1px solid rgba(125, 27, 27, 0.14);
+      background: rgba(125, 27, 27, 0.06);
+      font-size: var(--font-size-11);
+      font-weight: var(--font-weight-semibold);
+      color: var(--stamp-red);
+      white-space: nowrap;
+    }
+    :root[data-color-mode="dark"] .skill-manage-metric-readout {
+      border-color: rgba(196, 92, 92, 0.22);
+      background: rgba(125, 27, 27, 0.18);
+      color: #ffb2a3;
+    }
 
     .world-hero {
       display: grid;
