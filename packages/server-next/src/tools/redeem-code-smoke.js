@@ -1,0 +1,217 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const socket_io_client_1 = require("socket.io-client");
+const shared_1 = require("@mud/shared-next");
+const SERVER_NEXT_URL = process.env.SERVER_NEXT_URL ?? 'http://127.0.0.1:3111';
+const GM_PASSWORD = String(process.env.SERVER_NEXT_GM_PASSWORD ?? '').trim() || 'admin123';
+const databaseUrl = process.env.SERVER_NEXT_DATABASE_URL ?? '';
+const playerId = process.env.SERVER_NEXT_SMOKE_PLAYER_ID ?? `redeem_${Date.now().toString(36)}`;
+const REWARD_ITEM_ID = 'spirit_stone';
+const REWARD_COUNT = 4;
+async function main() {
+    if (!databaseUrl.trim()) {
+        console.log(JSON.stringify({ ok: true, skipped: true, reason: 'database persistence disabled' }, null, 2));
+        return;
+    }
+    const gmToken = await loginGm();
+    const created = await requestJson('/gm/redeem-code-groups', {
+        method: 'POST',
+        token: gmToken,
+        body: {
+            name: `烟测兑换码_${Date.now().toString(36)}`,
+            rewards: [{ itemId: REWARD_ITEM_ID, count: REWARD_COUNT }],
+            count: 1,
+        },
+    });
+    const groupId = created?.group?.id;
+    const code = Array.isArray(created?.codes) ? created.codes[0] : '';
+    if (!groupId || !code) {
+        throw new Error(`unexpected create group payload: ${JSON.stringify(created)}`);
+    }
+    const socket = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
+        path: '/socket.io',
+        transports: ['websocket'],
+    });
+    const panelEvents = [];
+    const redeemResults = [];
+    socket.on(shared_1.NEXT_S2C.Error, (payload) => {
+        throw new Error(`socket error: ${JSON.stringify(payload)}`);
+    });
+    socket.on(shared_1.NEXT_S2C.PanelDelta, (payload) => {
+        panelEvents.push(payload);
+    });
+    socket.on(shared_1.NEXT_S2C.RedeemCodesResult, (payload) => {
+        redeemResults.push(payload);
+    });
+    try {
+        await onceConnected(socket);
+        socket.emit(shared_1.NEXT_C2S.Hello, {
+            playerId,
+            mapId: 'yunlai_town',
+            preferredX: 32,
+            preferredY: 5,
+        });
+        await waitFor(async () => {
+            const state = await fetchState();
+            return Boolean(state.player?.playerId) && panelEvents.length > 0;
+        }, 5000);
+        const before = await fetchState();
+        const beforeCount = inventoryCount(before, REWARD_ITEM_ID);
+        socket.emit(shared_1.NEXT_C2S.RedeemCodes, { codes: [code] });
+        await waitFor(async () => {
+            const latest = redeemResults[redeemResults.length - 1];
+            const state = await fetchState();
+            return latest?.result?.results?.some((entry) => entry.code === code && entry.ok === true)
+                && inventoryCount(state, REWARD_ITEM_ID) === beforeCount + REWARD_COUNT
+                && panelEvents.some((payload) => inventoryCountFromPanel(payload, REWARD_ITEM_ID) >= beforeCount + REWARD_COUNT);
+        }, 5000);
+        const afterFirstState = await fetchState();
+        const afterFirstCount = inventoryCount(afterFirstState, REWARD_ITEM_ID);
+        const detail = await requestJson(`/gm/redeem-code-groups/${groupId}`, {
+            method: 'GET',
+            token: gmToken,
+        });
+        const redeemed = detail?.codes?.find((entry) => entry.code === code) ?? null;
+        if (!redeemed || redeemed.status !== 'used' || redeemed.usedByPlayerId !== playerId) {
+            throw new Error(`redeemed code state mismatch: ${JSON.stringify(redeemed)}`);
+        }
+        const appended = await requestJson(`/gm/redeem-code-groups/${groupId}/codes`, {
+            method: 'POST',
+            token: gmToken,
+            body: { count: 1 },
+        });
+        const appendedCode = Array.isArray(appended?.codes) ? appended.codes[0] : '';
+        if (!appendedCode) {
+            throw new Error(`unexpected append codes payload: ${JSON.stringify(appended)}`);
+        }
+        const appendedDetail = await requestJson(`/gm/redeem-code-groups/${groupId}`, {
+            method: 'GET',
+            token: gmToken,
+        });
+        const appendedEntry = appendedDetail?.codes?.find((entry) => entry.code === appendedCode) ?? null;
+        if (!appendedEntry?.id) {
+            throw new Error(`appended code not found in detail: ${JSON.stringify(appendedDetail)}`);
+        }
+        await requestJson(`/gm/redeem-codes/${appendedEntry.id}`, {
+            method: 'DELETE',
+            token: gmToken,
+        });
+        const afterDestroy = await requestJson(`/gm/redeem-code-groups/${groupId}`, {
+            method: 'GET',
+            token: gmToken,
+        });
+        const destroyedEntry = afterDestroy?.codes?.find((entry) => entry.id === appendedEntry.id) ?? null;
+        if (destroyedEntry?.status !== 'destroyed') {
+            throw new Error(`destroyed code state mismatch: ${JSON.stringify(destroyedEntry)}`);
+        }
+        socket.emit(shared_1.NEXT_C2S.RedeemCodes, { codes: [code] });
+        await waitFor(async () => {
+            const latest = redeemResults[redeemResults.length - 1];
+            const state = await fetchState();
+            return latest?.result?.results?.some((entry) => entry.code === code && entry.ok === false && entry.message === '兑换码已被使用')
+                && inventoryCount(state, REWARD_ITEM_ID) === afterFirstCount;
+        }, 5000);
+        console.log(JSON.stringify({
+            ok: true,
+            url: SERVER_NEXT_URL,
+            playerId,
+            groupId,
+            redeemedCode: code,
+            appendedCode,
+            rewardItemId: REWARD_ITEM_ID,
+            rewardCount: REWARD_COUNT,
+            redeemResultCount: redeemResults.length,
+        }, null, 2));
+    }
+    finally {
+        socket.close();
+        await deletePlayer(playerId).catch(() => undefined);
+    }
+}
+async function onceConnected(socket) {
+    if (socket.connected) {
+        return;
+    }
+    await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('socket connect timeout')), 4000);
+        socket.once('connect', () => {
+            clearTimeout(timer);
+            resolve();
+        });
+        socket.once('connect_error', (error) => {
+            clearTimeout(timer);
+            reject(error);
+        });
+    });
+}
+async function waitFor(predicate, timeoutMs) {
+    const startedAt = Date.now();
+    for (;;) {
+        if (await predicate()) {
+            return;
+        }
+        if (Date.now() - startedAt > timeoutMs) {
+            throw new Error('waitFor timeout');
+        }
+        await delay(100);
+    }
+}
+async function loginGm() {
+    const payload = await requestJson('/auth/gm/login', {
+        method: 'POST',
+        body: { password: GM_PASSWORD },
+    });
+    if (!payload?.accessToken) {
+        throw new Error(`unexpected GM login payload: ${JSON.stringify(payload)}`);
+    }
+    return payload.accessToken;
+}
+async function fetchState() {
+    const response = await fetch(`${SERVER_NEXT_URL}/runtime/players/${playerId}/state`);
+    if (!response.ok) {
+        throw new Error(`request failed: ${response.status} ${await response.text()}`);
+    }
+    return response.json();
+}
+function inventoryCount(state, itemId) {
+    return Array.isArray(state?.player?.inventory?.items)
+        ? state.player.inventory.items.reduce((total, entry) => entry.itemId === itemId ? total + Number(entry.count ?? 0) : total, 0)
+        : 0;
+}
+function inventoryCountFromPanel(payload, itemId) {
+    return Array.isArray(payload?.inv?.slots)
+        ? payload.inv.slots.reduce((total, entry) => entry?.item?.itemId === itemId ? total + Number(entry.item.count ?? 0) : total, 0)
+        : 0;
+}
+async function requestJson(path, init = {}) {
+    const body = init.body && typeof init.body !== 'string'
+        ? JSON.stringify(init.body)
+        : init.body;
+    const response = await fetch(`${SERVER_NEXT_URL}${path}`, {
+        method: init.method ?? 'GET',
+        headers: {
+            'content-type': 'application/json',
+            ...(init.token ? { authorization: `Bearer ${init.token}` } : {}),
+        },
+        body,
+    });
+    if (!response.ok) {
+        throw new Error(`request failed: ${response.status} ${await response.text()}`);
+    }
+    return response.json();
+}
+async function deletePlayer(playerIdToDelete) {
+    const response = await fetch(`${SERVER_NEXT_URL}/runtime/players/${playerIdToDelete}`, {
+        method: 'DELETE',
+    });
+    if (!response.ok && response.status !== 404) {
+        throw new Error(`request failed: ${response.status} ${await response.text()}`);
+    }
+}
+function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+void main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});

@@ -1,0 +1,249 @@
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var LegacyGmCompatService_1;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.LegacyGmCompatService = void 0;
+const common_1 = require("@nestjs/common");
+const shared_1 = require("@mud/shared-next");
+const os = require("os");
+const world_session_service_1 = require("../../network/world-session.service");
+const map_template_repository_1 = require("../../runtime/map/map-template.repository");
+const player_runtime_service_1 = require("../../runtime/player/player-runtime.service");
+const world_runtime_service_1 = require("../../runtime/world/world-runtime.service");
+const legacy_gm_compat_constants_1 = require("./legacy-gm-compat.constants");
+const EMPTY_CPU_BREAKDOWN = [];
+const EMPTY_NETWORK_BUCKETS = [];
+const EMPTY_PATHFINDING_FAILURES = [];
+let LegacyGmCompatService = LegacyGmCompatService_1 = class LegacyGmCompatService {
+    mapTemplateRepository;
+    playerRuntimeService;
+    worldRuntimeService;
+    worldSessionService;
+    pendingStatePushPlayerIds = new Set();
+    constructor(mapTemplateRepository, playerRuntimeService, worldRuntimeService, worldSessionService) {
+        this.mapTemplateRepository = mapTemplateRepository;
+        this.playerRuntimeService = playerRuntimeService;
+        this.worldRuntimeService = worldRuntimeService;
+        this.worldSessionService = worldSessionService;
+    }
+    emitState(client) {
+        const payload = this.buildState();
+        client.emit(this.getGmStateEvent(client), payload);
+    }
+    queueStatePush(playerId) {
+        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+        if (!normalizedPlayerId) {
+            return;
+        }
+        this.pendingStatePushPlayerIds.add(normalizedPlayerId);
+    }
+    flushQueuedStatePushes() {
+        if (this.pendingStatePushPlayerIds.size === 0) {
+            return;
+        }
+        const targets = Array.from(this.pendingStatePushPlayerIds);
+        this.pendingStatePushPlayerIds.clear();
+        const payload = this.buildState();
+        for (const playerId of targets) {
+            const socket = this.worldSessionService.getSocketByPlayerId(playerId);
+            if (!socket) {
+                continue;
+            }
+            socket.emit(this.getGmStateEvent(socket), payload);
+        }
+    }
+    getGmStateEvent(client) {
+        return this.prefersNext(client) ? shared_1.NEXT_S2C.GmState : shared_1.S2C.GmState;
+    }
+    prefersNext(client) {
+        const protocol = client?.data?.protocol;
+        if (protocol === 'next') {
+            return true;
+        }
+        if (protocol === 'legacy') {
+            return false;
+        }
+        return client?.data?.prefersNext === true;
+    }
+    enqueueUpdatePlayer(payload) {
+        this.worldRuntimeService.enqueueLegacyGmUpdatePlayer(payload);
+    }
+    enqueueResetPlayer(playerId) {
+        this.worldRuntimeService.enqueueLegacyGmResetPlayer(playerId);
+    }
+    enqueueSpawnBots(anchorPlayerId, count) {
+        this.worldRuntimeService.enqueueLegacyGmSpawnBots(anchorPlayerId, count);
+    }
+    enqueueRemoveBots(playerIds, all) {
+        this.worldRuntimeService.enqueueLegacyGmRemoveBots(playerIds, all);
+    }
+    projectLegacyRuntimeTile(input) {
+        const aura = Number.isFinite(input?.aura) ? Math.trunc(input.aura) : 0;
+        const projection = {
+            aura,
+            resources: [buildLegacyAuraResource(aura)],
+        };
+        if (typeof input?.mapChar === 'string') {
+            const tileType = (0, shared_1.getTileTypeFromMapChar)(input.mapChar[0] ?? '#');
+            projection.type = tileType;
+            projection.walkable = (0, shared_1.isTileTypeWalkable)(tileType);
+        }
+        return projection;
+    }
+    buildLegacyTileRuntimeDetail(mapId, payload) {
+        const tile = this.projectLegacyRuntimeTile({
+            aura: payload?.aura,
+        });
+        return {
+            mapId,
+            x: payload.x,
+            y: payload.y,
+            hp: typeof payload?.hp === 'number' ? payload.hp : undefined,
+            maxHp: typeof payload?.maxHp === 'number' ? payload.maxHp : undefined,
+            resources: tile.resources,
+            entities: payload.entities?.map((entity) => entity.kind === 'npc'
+                ? {
+                    ...entity,
+                    id: entity.id.startsWith('npc:') ? entity.id : `npc:${entity.id}`,
+                }
+                : entity),
+        };
+    }
+    buildState() {
+        const mapNamesById = new Map(this.mapTemplateRepository.listSummaries().map((entry) => [entry.id, entry.name]));
+        const players = this.playerRuntimeService
+            .listPlayerSnapshots()
+            .map((player) => {
+            const mapId = typeof player.templateId === 'string' ? player.templateId : '';
+            return {
+                id: player.playerId,
+                name: player.name,
+                roleName: player.name,
+                displayName: player.displayName,
+                accountName: undefined,
+                mapId,
+                mapName: mapNamesById.get(mapId) ?? mapId,
+                x: Math.trunc(player.x),
+                y: Math.trunc(player.y),
+                hp: Math.trunc(player.hp),
+                maxHp: Math.trunc(player.maxHp),
+                dead: player.hp <= 0,
+                autoBattle: player.combat.autoBattle === true,
+                isBot: (0, legacy_gm_compat_constants_1.isLegacyGmCompatBotPlayerId)(player.playerId),
+            };
+        })
+            .sort((left, right) => {
+            if (left.isBot !== right.isBot) {
+                return left.isBot ? 1 : -1;
+            }
+            if (left.mapName !== right.mapName) {
+                return left.mapName.localeCompare(right.mapName, 'zh-Hans-CN');
+            }
+            return left.roleName.localeCompare(right.roleName, 'zh-Hans-CN');
+        });
+        return {
+            players,
+            mapIds: this.mapTemplateRepository.listSummaries().map((entry) => entry.id).sort((left, right) => left.localeCompare(right, 'zh-Hans-CN')),
+            botCount: players.reduce((count, player) => count + (player.isBot ? 1 : 0), 0),
+            perf: this.buildPerformanceSnapshot(),
+        };
+    }
+    buildPerformanceSnapshot() {
+        const summary = this.worldRuntimeService.getRuntimeSummary();
+        const loadAvg = os.loadavg();
+        const memoryUsage = process.memoryUsage();
+        const resourceUsage = process.resourceUsage();
+        const processUptimeSec = process.uptime();
+        const now = Date.now();
+        const sharedGmStatePerf = this.buildSharedGmStatePerf();
+        return {
+            cpuPercent: 0,
+            memoryMb: bytesToMb(memoryUsage.rss),
+            tickMs: summary.lastTickDurationMs,
+            cpu: {
+                cores: os.cpus().length,
+                loadAvg1m: roundMetric(loadAvg[0] ?? 0),
+                loadAvg5m: roundMetric(loadAvg[1] ?? 0),
+                loadAvg15m: roundMetric(loadAvg[2] ?? 0),
+                processUptimeSec: roundMetric(processUptimeSec),
+                systemUptimeSec: roundMetric(os.uptime()),
+                userCpuMs: roundMetric(resourceUsage.userCPUTime / 1000),
+                systemCpuMs: roundMetric(resourceUsage.systemCPUTime / 1000),
+                rssMb: bytesToMb(memoryUsage.rss),
+                heapUsedMb: bytesToMb(memoryUsage.heapUsed),
+                heapTotalMb: bytesToMb(memoryUsage.heapTotal),
+                externalMb: bytesToMb(memoryUsage.external),
+                profileStartedAt: Math.max(0, now - Math.round(processUptimeSec * 1000)),
+                profileElapsedSec: roundMetric(processUptimeSec),
+                breakdown: EMPTY_CPU_BREAKDOWN,
+            },
+            pathfinding: {
+                statsStartedAt: now,
+                statsElapsedSec: 0,
+                ...sharedGmStatePerf,
+                enqueued: 0,
+                dispatched: 0,
+                completed: 0,
+                succeeded: 0,
+                failed: 0,
+                cancelled: 0,
+                droppedPending: 0,
+                droppedStaleResults: 0,
+                avgQueueMs: 0,
+                maxQueueMs: 0,
+                avgRunMs: 0,
+                maxRunMs: 0,
+                avgExpandedNodes: 0,
+                maxExpandedNodes: 0,
+                failureReasons: EMPTY_PATHFINDING_FAILURES,
+            },
+            networkStatsStartedAt: now,
+            networkStatsElapsedSec: 0,
+            networkInBytes: 0,
+            networkOutBytes: 0,
+            networkInBuckets: EMPTY_NETWORK_BUCKETS,
+            networkOutBuckets: EMPTY_NETWORK_BUCKETS,
+        };
+    }
+    buildSharedGmStatePerf() {
+        return {
+            workerCount: 0,
+            runningWorkers: 0,
+            idleWorkers: 0,
+            peakRunningWorkers: 0,
+            queueDepth: 0,
+            peakQueueDepth: 0,
+        };
+    }
+};
+exports.LegacyGmCompatService = LegacyGmCompatService;
+exports.LegacyGmCompatService = LegacyGmCompatService = LegacyGmCompatService_1 = __decorate([
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [map_template_repository_1.MapTemplateRepository,
+        player_runtime_service_1.PlayerRuntimeService,
+        world_runtime_service_1.WorldRuntimeService,
+        world_session_service_1.WorldSessionService])
+], LegacyGmCompatService);
+function roundMetric(value) {
+    return Math.round(value * 100) / 100;
+}
+function bytesToMb(value) {
+    return roundMetric(value / (1024 * 1024));
+}
+function buildLegacyAuraResource(aura) {
+    return {
+        key: 'aura',
+        label: '灵气',
+        value: aura,
+        effectiveValue: aura,
+        level: (0, shared_1.getAuraLevel)(aura, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE),
+    };
+}

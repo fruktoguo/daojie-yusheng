@@ -1,0 +1,1710 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>道劫余生 · 监察司</title>
+  <link rel="icon" type="image/png" href="/logo.png" />
+  <style>
+    :root {
+      --paper-bg: #ecece8;
+      --paper-light: #f5f5f1;
+      --paper-white: #f8f8f5;
+      --wash-ink: rgba(17, 17, 17, 0.08);
+      --light-ink: #8a8a8a;
+      --ink-black: #111111;
+      --ink-dark: #2c2f33;
+      --ink-grey: #6e6e6e;
+      --ink-light: #cccccc;
+      --stamp-red: #c53c3c;
+      --stamp-red-hover: #a12b2b;
+      --highlight: rgba(30, 30, 30, 0.08);
+      --font-heading-main: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      --font-heading-sub: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      --font-body: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      height: 100vh;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,0.08), transparent 28%),
+        linear-gradient(180deg, rgba(236,236,232,0.08), rgba(17,17,17,0));
+      background-color: #111;
+      color: var(--ink-dark);
+      font-family: var(--font-body);
+    }
+
+    .hidden { display: none !important; }
+
+    .login-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.82);
+      backdrop-filter: blur(4px);
+      padding: 24px;
+      z-index: 10;
+    }
+
+    .login-box,
+    .layout-section {
+      position: relative;
+      background: rgba(236, 236, 232, 0.96);
+      border: 1.5px solid var(--ink-black);
+      box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.12);
+      overflow: hidden;
+    }
+
+    .login-box {
+      width: min(440px, 100%);
+      padding: 38px 34px;
+      background: var(--paper-light);
+    }
+
+    .login-box::before,
+    .login-box::after,
+    .layout-section::before,
+    .layout-section::after {
+      content: '';
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--ink-black);
+      pointer-events: none;
+      opacity: 0.72;
+    }
+
+    .login-box::before,
+    .layout-section::before {
+      top: 8px;
+      left: 8px;
+      border-right: none;
+      border-bottom: none;
+    }
+
+    .login-box::after,
+    .layout-section::after {
+      right: 8px;
+      bottom: 8px;
+      border-left: none;
+      border-top: none;
+    }
+
+    .login-stamp,
+    .panel-stamp {
+      position: absolute;
+      top: 16px;
+      right: 18px;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-heading-sub);
+      font-size: 15px;
+      color: var(--paper-bg);
+      background: var(--stamp-red);
+      box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.8);
+      opacity: 0.88;
+      transform: rotate(6deg);
+    }
+
+    .login-logo {
+      width: min(168px, 44vw);
+      display: block;
+      margin: 0 auto 16px;
+      filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.12));
+    }
+
+    .login-title,
+    .shell-title {
+      font-family: var(--font-heading-main);
+      color: var(--ink-black);
+      letter-spacing: 1px;
+      font-weight: 700;
+    }
+
+    .login-title {
+      font-size: 50px;
+      text-align: center;
+      margin-bottom: 4px;
+    }
+
+    .login-subtitle,
+    .shell-subtitle {
+      font-family: var(--font-heading-sub);
+      color: var(--ink-grey);
+      letter-spacing: 0.5px;
+    }
+
+    .login-subtitle {
+      font-size: 15px;
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 18px;
+    }
+
+    .form-group label,
+    .section-title,
+    .section-subtitle,
+    .panel-title,
+    .action-btn,
+    .small-btn,
+    .pill,
+    .player-name {
+      font-family: var(--font-heading-sub);
+    }
+
+    .form-group label {
+      font-size: 16px;
+    }
+
+    .form-group input,
+    .search-input,
+    .number-input,
+    .editor-textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--ink-light);
+      background: #fff;
+      color: var(--ink-dark);
+      font-family: var(--font-body);
+      font-size: 14px;
+      outline: none;
+    }
+
+    .form-group input:focus,
+    .search-input:focus,
+    .number-input:focus,
+    .editor-textarea:focus {
+      border-color: var(--ink-black);
+    }
+
+    .login-actions,
+    .button-row,
+    .filter-row,
+    .summary-grid,
+    .meta-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .action-btn,
+    .small-btn {
+      position: relative;
+      background: transparent;
+      border: 1px solid var(--ink-black);
+      color: var(--ink-black);
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+
+    .action-btn {
+      flex: 1;
+      padding: 12px 0;
+      font-size: 20px;
+    }
+
+    .small-btn {
+      padding: 8px 12px;
+      font-size: 13px;
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    .small-btn.primary,
+    .action-btn.primary {
+      border-width: 2px;
+      border-color: var(--stamp-red);
+    }
+
+    .small-btn.danger {
+      border-color: var(--stamp-red);
+      color: var(--stamp-red);
+    }
+
+    .small-btn:hover,
+    .action-btn:hover {
+      background: var(--ink-black);
+      color: var(--paper-light);
+    }
+
+    .small-btn.primary:hover,
+    .action-btn.primary:hover {
+      background: var(--stamp-red);
+      border-color: var(--stamp-red-hover);
+    }
+
+    .small-btn:disabled,
+    .action-btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+      background: rgba(255,255,255,0.3);
+      color: var(--ink-grey);
+    }
+
+    .login-error,
+    .status-bar {
+      min-height: 22px;
+      font-size: 13px;
+      color: var(--stamp-red);
+    }
+
+    #gm-shell {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 14px;
+      overflow: hidden;
+    }
+
+    .shell-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 14px 18px;
+      border: 1.5px solid var(--ink-black);
+      background: rgba(236, 236, 232, 0.96);
+      box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.12);
+    }
+
+    .shell-brand {
+      font-family: var(--font-heading-sub);
+      font-size: 18px;
+      color: var(--ink-black);
+      letter-spacing: 2px;
+    }
+
+    .shell-tabs {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .shell-tab {
+      padding: 8px 14px;
+      border: 1px solid var(--ink-black);
+      background: rgba(255,255,255,0.5);
+      color: var(--ink-black);
+      cursor: pointer;
+      font-family: var(--font-heading-sub);
+      font-size: 14px;
+    }
+
+    .shell-tab.active {
+      border-width: 2px;
+      border-color: var(--stamp-red);
+      background: rgba(197, 60, 60, 0.08);
+      color: var(--stamp-red);
+    }
+
+    .workspace-grid {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(280px, 0.85fr) minmax(320px, 1fr) minmax(420px, 1.45fr);
+      gap: 14px;
+      overflow: hidden;
+    }
+
+    .map-workspace {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(280px, 0.82fr) minmax(520px, 1.35fr) minmax(360px, 1fr);
+      gap: 14px;
+      overflow: hidden;
+    }
+
+    .layout-section {
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .section-head {
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid var(--wash-ink);
+      background: rgba(255,255,255,0.32);
+    }
+
+    .section-title {
+      font-size: 20px;
+      color: var(--ink-black);
+    }
+
+    .section-subtitle {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--ink-grey);
+    }
+
+    .section-body {
+      flex: 1;
+      min-height: 0;
+      padding: 16px;
+      overflow: auto;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .summary-card,
+    .note-card {
+      padding: 12px;
+      border: 1px solid var(--wash-ink);
+      background: rgba(255,255,255,0.56);
+    }
+
+    .panel-title {
+      font-size: 14px;
+      color: var(--ink-grey);
+    }
+
+    .panel-value {
+      margin-top: 6px;
+      font-size: 24px;
+      color: var(--ink-black);
+    }
+
+    .note-card {
+      line-height: 1.65;
+      font-size: 13px;
+      color: var(--ink-grey);
+    }
+
+    .network-breakdown {
+      margin-bottom: 14px;
+      padding: 12px;
+      border: 1px solid var(--wash-ink);
+      background: rgba(255,255,255,0.5);
+    }
+
+    .network-breakdown-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .network-breakdown-subtitle {
+      font-size: 12px;
+      color: var(--ink-grey);
+    }
+
+    .network-breakdown-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .network-row {
+      padding: 8px 10px;
+      border: 1px solid rgba(17, 17, 17, 0.08);
+      background: rgba(255,255,255,0.68);
+    }
+
+    .network-row-label {
+      font-family: var(--font-heading-sub);
+      font-size: 15px;
+      color: var(--ink-black);
+      word-break: break-all;
+    }
+
+    .network-row-meta {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--ink-grey);
+    }
+
+    .workspace-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .workspace-tab {
+      padding: 8px 14px;
+      border: 1px solid var(--ink-black);
+      background: rgba(255,255,255,0.5);
+      color: var(--ink-black);
+      cursor: pointer;
+      font-family: var(--font-heading-sub);
+      font-size: 14px;
+    }
+
+    .workspace-tab.active {
+      border-color: var(--stamp-red);
+      border-width: 2px;
+    }
+
+    .server-tab-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .stats-card {
+      padding: 12px;
+      border: 1px solid var(--wash-ink);
+      background: rgba(255,255,255,0.56);
+    }
+
+    .stats-card-label {
+      font-size: 13px;
+      color: var(--ink-grey);
+    }
+
+    .stats-card-value {
+      margin-top: 6px;
+      font-size: 22px;
+      color: var(--ink-black);
+    }
+
+    .stats-card-note {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--ink-grey);
+    }
+
+    .filter-row {
+      margin-bottom: 12px;
+      align-items: center;
+    }
+
+    .search-input {
+      flex: 1;
+      min-width: 0;
+      padding: 10px 12px;
+    }
+
+    .number-input {
+      width: 88px;
+      padding: 10px 12px;
+    }
+
+    .player-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .gm-suggestion-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 24px;
+      border-bottom: 1.5px solid var(--ink-black);
+      background: rgba(255, 255, 255, 0.56);
+    }
+
+    .gm-suggestion-toolbar .search-input {
+      flex: 1;
+      min-width: min(420px, 100%);
+    }
+
+    .gm-suggestion-page-meta {
+      font-size: 12px;
+      color: var(--ink-grey);
+    }
+
+    .gm-suggestion-card {
+      border: 1.5px solid var(--ink-black);
+      margin-bottom: 16px;
+      background: var(--paper-bg);
+      box-shadow: 6px 6px 0 rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+
+    .gm-suggestion-card.completed .gm-suggestion-head {
+      background: #e8f5e9;
+    }
+
+    .gm-suggestion-head {
+      padding: 14px 16px;
+      border-bottom: 1.5px solid var(--ink-black);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+    }
+
+    .gm-suggestion-title {
+      font-family: var(--font-heading-main);
+      font-size: 20px;
+      color: var(--ink-black);
+      line-height: 1.35;
+    }
+
+    .gm-suggestion-meta {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--ink-grey);
+      line-height: 1.6;
+    }
+
+    .gm-suggestion-side {
+      text-align: right;
+    }
+
+    .gm-suggestion-description {
+      padding: 12px;
+      font-size: 14px;
+      line-height: 1.65;
+      white-space: pre-wrap;
+      background: rgba(255,255,255,0.6);
+      border: 1px solid var(--wash-ink);
+      max-height: 180px;
+      overflow-y: auto;
+    }
+
+    .gm-suggestion-body {
+      display: grid;
+      grid-template-columns: minmax(260px, 0.95fr) minmax(320px, 1.05fr);
+      gap: 14px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--wash-ink);
+      align-items: start;
+    }
+
+    .gm-suggestion-description-wrap,
+    .gm-suggestion-replies,
+    .gm-suggestion-reply-composer {
+      min-width: 0;
+    }
+
+    .gm-suggestion-replies {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+      max-height: 260px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .gm-suggestion-section-title {
+      font-family: var(--font-heading-sub);
+      font-size: 14px;
+      color: var(--ink-black);
+    }
+
+    .gm-suggestion-reply {
+      padding: 10px 12px;
+      border: 1px solid var(--wash-ink);
+      background: rgba(255,255,255,0.7);
+    }
+
+    .gm-suggestion-reply.gm {
+      border-color: rgba(197, 60, 60, 0.22);
+      background: rgba(197, 60, 60, 0.06);
+    }
+
+    .gm-suggestion-reply-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 6px;
+      font-size: 12px;
+      color: var(--ink-grey);
+    }
+
+    .gm-suggestion-reply-author {
+      font-family: var(--font-heading-sub);
+      color: var(--ink-black);
+    }
+
+    .gm-suggestion-reply-content {
+      white-space: pre-wrap;
+      line-height: 1.65;
+      color: var(--ink-dark);
+    }
+
+    .gm-suggestion-reply-composer {
+      display: grid;
+      gap: 10px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--wash-ink);
+      background: rgba(255,255,255,0.42);
+    }
+
+    .gm-suggestion-reply-input {
+      min-height: 88px;
+      max-height: 140px;
+      resize: vertical;
+    }
+
+    .gm-suggestion-reply-actions {
+      justify-content: flex-end;
+    }
+
+    .gm-suggestion-actions {
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 980px) {
+      .gm-suggestion-body {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .gm-suggestion-replies {
+        max-height: none;
+      }
+    }
+
+    .player-row {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--wash-ink);
+      background: var(--paper-white);
+      color: var(--ink-dark);
+      text-align: left;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .player-row.active {
+      border-color: var(--stamp-red);
+      background: rgba(197, 60, 60, 0.06);
+    }
+
+    .player-row:hover {
+      border-color: rgba(17, 17, 17, 0.28);
+    }
+
+    .player-top,
+    .editor-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .player-name {
+      font-size: 16px;
+      color: var(--ink-black);
+    }
+
+    .player-meta,
+    .player-subline,
+    .editor-note,
+    .empty-hint {
+      margin-top: 5px;
+      font-size: 12px;
+      color: var(--ink-grey);
+      line-height: 1.55;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3px 9px;
+      border: 1px solid var(--wash-ink);
+      font-size: 12px;
+      color: var(--ink-dark);
+      background: rgba(255,255,255,0.72);
+    }
+
+    .pill.online {
+      border-color: rgba(57, 109, 46, 0.22);
+      color: #396d2e;
+      background: rgba(57, 109, 46, 0.08);
+    }
+
+    .pill.bot {
+      border-color: rgba(63, 121, 154, 0.22);
+      color: #3f799a;
+      background: rgba(63, 121, 154, 0.08);
+    }
+
+    .pill.offline {
+      border-color: rgba(110, 110, 110, 0.18);
+    }
+
+    .editor-head {
+      margin-bottom: 10px;
+      align-items: flex-start;
+    }
+
+    .editor-main-title {
+      font-size: 22px;
+      color: var(--ink-black);
+      font-family: var(--font-heading-sub);
+    }
+
+    .editor-main-subtitle {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--ink-grey);
+      line-height: 1.55;
+    }
+
+    .meta-row {
+      margin-bottom: 12px;
+    }
+
+    .editor-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .editor-tabs {
+      margin-bottom: 12px;
+    }
+
+    .editor-tab-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 0;
+    }
+
+    .editor-section {
+      border: 1px solid var(--wash-ink);
+      background: rgba(255,255,255,0.48);
+      padding: 12px;
+    }
+
+    .editor-section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .editor-section-title {
+      font-family: var(--font-heading-sub);
+      font-size: 15px;
+      color: var(--ink-black);
+    }
+
+    .editor-section-note {
+      font-size: 11px;
+      color: var(--ink-grey);
+      line-height: 1.5;
+    }
+
+    .editor-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .editor-grid.compact {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .editor-field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-width: 0;
+    }
+
+    .editor-field.wide {
+      grid-column: 1 / -1;
+    }
+
+    .editor-field span {
+      font-size: 12px;
+      color: var(--ink-grey);
+    }
+
+    .editor-field input,
+    .editor-field select,
+    .editor-field textarea {
+      width: 100%;
+      min-width: 0;
+      padding: 9px 10px;
+      border: 1px solid var(--ink-light);
+      background: rgba(255,255,255,0.88);
+      color: var(--ink-dark);
+      font-family: var(--font-body);
+      font-size: 13px;
+      outline: none;
+    }
+
+    .editor-field textarea {
+      min-height: 92px;
+      resize: vertical;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      line-height: 1.45;
+    }
+
+    .editor-field input:focus,
+    .editor-field select:focus,
+    .editor-field textarea:focus {
+      border-color: var(--ink-black);
+    }
+
+    .editor-toggle-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+    }
+
+    .editor-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--ink-dark);
+    }
+
+    .editor-toggle input {
+      width: 16px;
+      height: 16px;
+    }
+
+    .editor-card-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .editor-card {
+      padding: 10px;
+      border: 1px solid var(--wash-ink);
+      background: rgba(248,248,245,0.94);
+    }
+
+    .inventory-compact-list {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      align-items: start;
+    }
+
+    .inventory-compact-row {
+      padding: 8px 10px;
+      min-width: 0;
+    }
+
+    .inventory-compact-row .editor-card-head {
+      margin-bottom: 6px;
+    }
+
+    .inventory-compact-row .editor-grid.compact {
+      grid-template-columns: minmax(120px, 180px);
+      justify-content: start;
+    }
+
+    .editor-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .editor-card-title {
+      font-family: var(--font-heading-sub);
+      font-size: 14px;
+      color: var(--ink-black);
+    }
+
+    .editor-card-meta {
+      font-size: 11px;
+      color: var(--ink-grey);
+    }
+
+    .editor-stat-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .editor-chip-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .editor-code {
+      margin-top: 8px;
+      padding: 10px;
+      border: 1px dashed var(--ink-light);
+      background: rgba(255,255,255,0.72);
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--ink-grey);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .editor-advanced {
+      border-top: 1px solid var(--wash-ink);
+      padding-top: 8px;
+    }
+
+    .editor-textarea {
+      min-height: 260px;
+      resize: vertical;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      line-height: 1.5;
+      font-size: 13px;
+      background: rgba(255,255,255,0.86);
+    }
+
+    .empty-hint {
+      padding: 32px 12px;
+      text-align: center;
+    }
+
+    .map-canvas-host {
+      position: relative;
+      flex: 1;
+      min-height: 520px;
+      border: 1px solid var(--wash-ink);
+      background:
+        radial-gradient(circle at top, rgba(255,255,255,0.08), transparent 30%),
+        linear-gradient(180deg, rgba(17,17,17,0.05), rgba(255,255,255,0.08));
+      overflow: hidden;
+    }
+
+    #map-editor-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: #1a1816;
+      cursor: crosshair;
+    }
+
+    .map-summary-card {
+      padding: 12px;
+      border: 1px solid var(--wash-ink);
+      background: rgba(255,255,255,0.56);
+      font-size: 13px;
+      color: var(--ink-grey);
+      line-height: 1.65;
+    }
+
+    .map-tool-grid,
+    .map-tile-palette,
+    .map-entity-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .map-tool-btn,
+    .map-tile-btn,
+    .map-entity-btn {
+      padding: 8px 10px;
+      border: 1px solid var(--ink-black);
+      background: rgba(255,255,255,0.72);
+      color: var(--ink-black);
+      cursor: pointer;
+      font-family: var(--font-heading-sub);
+      font-size: 13px;
+    }
+
+    .map-tool-btn.active,
+    .map-tile-btn.active,
+    .map-entity-btn.active {
+      border-color: var(--stamp-red);
+      background: rgba(197, 60, 60, 0.08);
+      color: var(--stamp-red);
+    }
+
+    .map-tile-btn {
+      min-width: 62px;
+      text-align: center;
+    }
+
+    .map-form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .map-form-grid.compact {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .map-field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .map-field.wide {
+      grid-column: 1 / -1;
+    }
+
+    .map-field span {
+      font-size: 12px;
+      color: var(--ink-grey);
+    }
+
+    .map-field input,
+    .map-field select,
+    .map-field textarea {
+      width: 100%;
+      padding: 9px 10px;
+      border: 1px solid var(--ink-light);
+      background: rgba(255,255,255,0.88);
+      color: var(--ink-dark);
+      font-family: var(--font-body);
+      font-size: 13px;
+      outline: none;
+    }
+
+    .map-field textarea {
+      min-height: 120px;
+      resize: vertical;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      line-height: 1.45;
+    }
+
+    .map-field input:focus,
+    .map-field select:focus,
+    .map-field textarea:focus {
+      border-color: var(--ink-black);
+    }
+
+    .map-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .map-row {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--wash-ink);
+      background: var(--paper-white);
+      color: var(--ink-dark);
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .map-row.active {
+      border-color: var(--stamp-red);
+      background: rgba(197, 60, 60, 0.06);
+    }
+
+    .map-row:hover {
+      border-color: rgba(17, 17, 17, 0.28);
+    }
+
+    .map-row-title {
+      font-family: var(--font-heading-sub);
+      font-size: 16px;
+      color: var(--ink-black);
+    }
+
+    .map-row-meta {
+      margin-top: 5px;
+      font-size: 12px;
+      color: var(--ink-grey);
+      line-height: 1.55;
+    }
+
+    .map-overlay-note {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--ink-grey);
+      line-height: 1.55;
+    }
+
+    @media (max-width: 1200px) {
+      .workspace-grid,
+      .workspace-grid-2col,
+      .map-workspace,
+      .world-workspace {
+        grid-template-columns: 1fr;
+      }
+      .inventory-compact-list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .editor-grid,
+      .editor-grid.compact,
+      .editor-stat-grid,
+      .map-form-grid,
+      .map-form-grid.compact {
+        grid-template-columns: 1fr;
+      }
+      .editor-textarea {
+        min-height: 360px;
+      }
+    }
+
+    @media (max-width: 980px) {
+      .inventory-compact-list {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .shell-tab-minor {
+      opacity: 0.6;
+      font-size: 13px;
+    }
+    .shell-tab-minor.active {
+      opacity: 1;
+    }
+
+    .workspace-grid-2col {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(280px, 0.85fr) minmax(420px, 1.45fr);
+      gap: 14px;
+      overflow: hidden;
+    }
+
+    .world-workspace {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(220px, 0.7fr) minmax(480px, 1.4fr) minmax(280px, 0.9fr);
+      gap: 14px;
+      overflow: hidden;
+    }
+
+    .world-map-btn {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--wash-ink);
+      background: var(--paper-white);
+      color: var(--ink-dark);
+      text-align: left;
+      cursor: pointer;
+      font-family: var(--font-heading-sub);
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+    .world-map-btn.active {
+      border-color: var(--stamp-red);
+      background: rgba(197, 60, 60, 0.06);
+      color: var(--stamp-red);
+    }
+    .world-map-btn:hover {
+      border-color: rgba(17, 17, 17, 0.28);
+    }
+
+    .world-time-info {
+      margin-bottom: 10px;
+    }
+    .world-time-info .panel-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      font-size: 13px;
+    }
+    .world-time-info .panel-label {
+      color: var(--ink-grey);
+    }
+    .world-time-info .panel-value {
+      color: var(--ink-black);
+      font-size: 13px;
+      margin-top: 0;
+    }
+
+    .world-tick-control {
+      margin-bottom: 10px;
+    }
+    .world-tick-control .panel-section-title,
+    .world-time-adjust .panel-section-title {
+      font-family: var(--font-heading-sub);
+      font-size: 14px;
+      color: var(--ink-black);
+      margin-bottom: 6px;
+    }
+    .world-speed-btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .world-speed-btn.active {
+      border-color: var(--stamp-red);
+      background: rgba(197, 60, 60, 0.08);
+      color: var(--stamp-red);
+    }
+
+    .world-time-adjust {
+      margin-bottom: 10px;
+    }
+    .world-time-adjust .gm-btn-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .world-time-adjust .gm-inline-input {
+      padding: 6px 8px;
+      border: 1px solid var(--ink-light);
+      background: rgba(255,255,255,0.88);
+      color: var(--ink-dark);
+      font-size: 13px;
+      outline: none;
+    }
+
+    #world-info .panel-section {
+      margin-bottom: 12px;
+    }
+    #world-info .panel-section-title {
+      font-family: var(--font-heading-sub);
+      font-size: 15px;
+      color: var(--ink-black);
+      margin-bottom: 6px;
+      border-bottom: 1px solid var(--wash-ink);
+      padding-bottom: 4px;
+    }
+    #world-info .panel-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 3px 0;
+      font-size: 13px;
+    }
+    #world-info .panel-label {
+      color: var(--ink-grey);
+    }
+    #world-info .panel-value {
+      color: var(--ink-black);
+      font-size: 13px;
+      margin-top: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="login-overlay" class="login-overlay">
+    <div class="login-box">
+      <div class="login-stamp">禁</div>
+      <img class="login-logo" src="/logo.png" alt="道劫余生" />
+      <div class="login-title">监察司</div>
+      <div class="login-subtitle">独立 GM 管理台 · 仅限持密进入</div>
+      <form id="gm-login-form">
+        <div class="form-group">
+          <label for="gm-password">GM 密码</label>
+          <input id="gm-password" type="password" placeholder="输入 GM 管理密码" autocomplete="current-password" />
+        </div>
+        <div class="login-actions">
+          <button id="login-submit" class="action-btn primary" type="submit">入司</button>
+        </div>
+      </form>
+      <div id="login-error" class="login-error"></div>
+    </div>
+  </div>
+
+  <main id="gm-shell" class="hidden">
+    <div class="shell-bar">
+      <div class="shell-brand">道劫余生 · 监察司</div>
+      <div class="shell-tabs">
+        <button class="shell-tab active" id="gm-tab-server" data-gm-tab="server" type="button">服务器信息</button>
+        <button class="shell-tab" id="gm-tab-redeem" data-gm-tab="redeem" type="button">兑换码</button>
+        <button class="shell-tab" id="gm-tab-players" data-gm-tab="players" type="button">玩家管理</button>
+        <button class="shell-tab" id="gm-tab-world" data-gm-tab="world" type="button">世界管理</button>
+        <button class="shell-tab" id="gm-tab-shortcuts" data-gm-tab="shortcuts" type="button">快捷指令</button>
+        <span style="border-left:1px solid var(--ink-light); margin:0 4px;"></span>
+        <button class="shell-tab shell-tab-minor" id="gm-tab-suggestions" data-gm-tab="suggestions" type="button">建议反馈</button>
+      </div>
+    </div>
+
+    <!-- ===== 服务器信息 ===== -->
+    <section id="server-workspace" class="layout-section" style="flex:1; min-height:0;">
+      <div class="panel-stamp">司</div>
+      <div class="section-head">
+        <div class="shell-title">道劫余生</div>
+        <div class="shell-subtitle">全服监察总览</div>
+      </div>
+      <div class="section-body">
+        <div class="workspace-tabs">
+          <button class="workspace-tab active" id="server-subtab-overview" type="button">总览</button>
+          <button class="workspace-tab" id="server-subtab-traffic" type="button">流量统计</button>
+          <button class="workspace-tab" id="server-subtab-cpu" type="button">CPU 信息</button>
+          <button class="workspace-tab" id="server-subtab-database" type="button">数据库</button>
+        </div>
+        <div id="server-panel-overview" class="server-tab-panel">
+          <div class="summary-grid">
+            <div class="summary-card"><div class="panel-title">角色总数</div><div id="summary-total" class="panel-value">0</div></div>
+            <div class="summary-card"><div class="panel-title">在线人数</div><div id="summary-online" class="panel-value">0</div></div>
+            <div class="summary-card"><div class="panel-title">离线挂机</div><div id="summary-offline-hanging" class="panel-value">0</div></div>
+            <div class="summary-card"><div class="panel-title">离线人数</div><div id="summary-offline" class="panel-value">0</div></div>
+          </div>
+          <div class="summary-grid">
+            <div class="summary-card"><div class="panel-title">机器人</div><div id="summary-bots" class="panel-value">0</div></div>
+            <div class="summary-card"><div class="panel-title">单息耗时</div><div id="summary-tick" class="panel-value">0 ms</div></div>
+            <div class="summary-card"><div class="panel-title">CPU 压力</div><div id="summary-cpu" class="panel-value">0%</div></div>
+            <div class="summary-card"><div class="panel-title">内存占用</div><div id="summary-memory" class="panel-value">0 MB</div></div>
+          </div>
+          <div class="summary-grid">
+            <div class="summary-card"><div class="panel-title">累计上行</div><div id="summary-net-in" class="panel-value">0 B</div></div>
+            <div class="summary-card"><div class="panel-title">累计下行</div><div id="summary-net-out" class="panel-value">0 B</div></div>
+            <div class="summary-card"><div class="panel-title">寻路队列</div><div id="summary-path-queue" class="panel-value">0</div></div>
+            <div class="summary-card"><div class="panel-title">寻路线程</div><div id="summary-path-workers" class="panel-value">0 / 0</div></div>
+            <div class="summary-card"><div class="panel-title">寻路取消</div><div id="summary-path-cancelled" class="panel-value">0</div></div>
+          </div>
+          <div class="button-row" style="margin-bottom: 12px;">
+            <input id="spawn-count" class="number-input" type="number" min="1" max="50" value="5" />
+            <button id="spawn-bots" class="small-btn" type="button">在选中角色附近生傀儡</button>
+            <button id="remove-all-bots" class="small-btn danger" type="button">移除全部机器人</button>
+          </div>
+          <div class="button-row" style="margin-bottom: 12px;">
+            <button id="refresh-state" class="small-btn" type="button">立即刷新</button>
+            <button id="logout" class="small-btn" type="button">退出管理台</button>
+          </div>
+          <div id="status-bar" class="status-bar"></div>
+          <div class="note-card">
+            在线玩家的修改会由服务端在下一息统一执行。离线玩家会直接更新存档。<br />
+            默认编辑器展示的是完整运行态快照；高级区可切换查看真实存档态 JSON。像 `actions`、`finalAttrs`、`numericStats`、`realm` 这类派生字段，保存后仍以服务端重算结果为准。
+          </div>
+          <div class="editor-section" style="margin-top: 12px;">
+            <div class="editor-section-head"><div><div class="editor-section-title">GM 密码</div><div class="editor-section-note">修改后立即生效，当前登录态不受影响。</div></div></div>
+            <form id="gm-password-form">
+              <div class="editor-grid compact">
+                <label class="editor-field"><span>当前密码</span><input id="gm-password-current" type="password" autocomplete="current-password" /></label>
+                <label class="editor-field"><span>新密码</span><input id="gm-password-next" type="password" autocomplete="new-password" /></label>
+              </div>
+              <div class="button-row" style="margin-top: 10px;"><button id="gm-password-save" class="small-btn" type="submit">修改 GM 密码</button></div>
+            </form>
+          </div>
+          <div class="network-breakdown" style="margin-top: 12px;">
+            <div class="network-breakdown-head">
+              <div class="panel-title">寻路调度摘要</div>
+              <button id="reset-pathfinding-stats" class="small-btn danger" type="button">重置寻路统计</button>
+            </div>
+            <div id="pathfinding-reset-meta" class="network-breakdown-subtitle">寻路统计区间尚未开始。</div>
+            <div class="stats-grid">
+              <div class="stats-card">
+                <div class="stats-card-label">平均排队</div>
+                <div id="pathfinding-avg-queue-ms" class="stats-card-value">0 ms</div>
+                <div id="pathfinding-queue-note" class="stats-card-note">峰值 0 ms · 队列峰值 0</div>
+              </div>
+              <div class="stats-card">
+                <div class="stats-card-label">平均计算</div>
+                <div id="pathfinding-avg-run-ms" class="stats-card-value">0 ms</div>
+                <div id="pathfinding-run-note" class="stats-card-note">峰值 0 ms · 已完成 0</div>
+              </div>
+              <div class="stats-card">
+                <div class="stats-card-label">平均展开</div>
+                <div id="pathfinding-avg-expanded-nodes" class="stats-card-value">0</div>
+                <div id="pathfinding-expanded-note" class="stats-card-note">峰值 0 · 成功 0</div>
+              </div>
+              <div class="stats-card">
+                <div class="stats-card-label">淘汰与过期</div>
+                <div id="pathfinding-drop-total" class="stats-card-value">0</div>
+                <div id="pathfinding-drop-note" class="stats-card-note">等待丢弃 0 · 结果过期 0</div>
+              </div>
+            </div>
+            <div id="pathfinding-failure-list" class="network-breakdown-list"><div class="empty-hint">当前还没有寻路失败记录。</div></div>
+          </div>
+        </div>
+        <div id="server-panel-traffic" class="server-tab-panel hidden">
+          <div class="button-row">
+            <button id="reset-network-stats" class="small-btn danger" type="button">重置流量统计</button>
+          </div>
+          <div id="traffic-reset-meta" class="note-card">统计区间尚未开始。</div>
+          <div class="stats-grid">
+            <div class="stats-card">
+              <div class="stats-card-label">上行总量</div>
+              <div id="traffic-total-in" class="stats-card-value">0 B</div>
+              <div id="traffic-total-in-note" class="stats-card-note">均次 0 B · 均秒 0 B/s</div>
+            </div>
+            <div class="stats-card">
+              <div class="stats-card-label">下行总量</div>
+              <div id="traffic-total-out" class="stats-card-value">0 B</div>
+              <div id="traffic-total-out-note" class="stats-card-note">均次 0 B · 均秒 0 B/s</div>
+            </div>
+          </div>
+          <div class="network-breakdown">
+            <div class="network-breakdown-head"><div class="panel-title">网络事件上行榜</div><div class="network-breakdown-subtitle">客户端 -> 服务端累计字节</div></div>
+            <div id="summary-net-in-breakdown" class="network-breakdown-list"><div class="empty-hint">当前还没有累计上行事件。</div></div>
+          </div>
+          <div class="network-breakdown">
+            <div class="network-breakdown-head"><div class="panel-title">网络事件下行榜</div><div class="network-breakdown-subtitle">服务端 -> 客户端累计字节</div></div>
+            <div id="summary-net-out-breakdown" class="network-breakdown-list"><div class="empty-hint">当前还没有累计下行事件。</div></div>
+          </div>
+        </div>
+        <div id="server-panel-cpu" class="server-tab-panel hidden">
+          <div class="button-row">
+            <button id="reset-cpu-stats" class="small-btn danger" type="button">重置 CPU 统计</button>
+          </div>
+          <div id="cpu-profile-meta" class="note-card">CPU 画像尚未开始。</div>
+          <div class="stats-grid">
+            <div class="stats-card"><div class="stats-card-label">当前 CPU 压力</div><div id="cpu-current-percent" class="stats-card-value">0%</div><div class="stats-card-note">基于最近一次采样窗口</div></div>
+            <div class="stats-card"><div class="stats-card-label">逻辑核心数</div><div id="cpu-core-count" class="stats-card-value">0</div><div class="stats-card-note">Node 进程可见 CPU 核心</div></div>
+            <div class="stats-card"><div class="stats-card-label">用户态 CPU 时间</div><div id="cpu-user-ms" class="stats-card-value">0 ms</div><div class="stats-card-note">进程累计 user CPU</div></div>
+            <div class="stats-card"><div class="stats-card-label">内核态 CPU 时间</div><div id="cpu-system-ms" class="stats-card-value">0 ms</div><div class="stats-card-note">进程累计 system CPU</div></div>
+          </div>
+          <div class="stats-grid">
+            <div class="stats-card"><div class="stats-card-label">1 分钟负载</div><div id="cpu-load-1m" class="stats-card-value">0</div><div class="stats-card-note">系统 load average</div></div>
+            <div class="stats-card"><div class="stats-card-label">5 分钟负载</div><div id="cpu-load-5m" class="stats-card-value">0</div><div class="stats-card-note">系统 load average</div></div>
+            <div class="stats-card"><div class="stats-card-label">15 分钟负载</div><div id="cpu-load-15m" class="stats-card-value">0</div><div class="stats-card-note">系统 load average</div></div>
+            <div class="stats-card"><div class="stats-card-label">进程运行时长</div><div id="cpu-process-uptime" class="stats-card-value">0s</div><div class="stats-card-note">Node 进程 uptime</div></div>
+          </div>
+          <div class="stats-grid">
+            <div class="stats-card"><div class="stats-card-label">系统运行时长</div><div id="cpu-system-uptime" class="stats-card-value">0s</div><div class="stats-card-note">宿主机 uptime</div></div>
+            <div class="stats-card"><div class="stats-card-label">RSS 内存</div><div id="cpu-rss-memory" class="stats-card-value">0 MB</div><div class="stats-card-note">进程常驻内存</div></div>
+            <div class="stats-card"><div class="stats-card-label">Heap 已用</div><div id="cpu-heap-used" class="stats-card-value">0 MB</div><div class="stats-card-note">V8 已使用堆</div></div>
+            <div class="stats-card"><div class="stats-card-label">Heap 总量</div><div id="cpu-heap-total" class="stats-card-value">0 MB</div><div class="stats-card-note">V8 堆总量</div></div>
+          </div>
+          <div class="stats-grid">
+            <div class="stats-card"><div class="stats-card-label">外部内存</div><div id="cpu-external-memory" class="stats-card-value">0 MB</div><div class="stats-card-note">Buffer / C++ 对象等</div></div>
+          </div>
+          <div class="network-breakdown">
+            <div class="network-breakdown-head">
+              <div class="panel-title">CPU 热点分项</div>
+              <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                <button id="cpu-breakdown-sort-total" class="small-btn primary" type="button">总耗时</button>
+                <button id="cpu-breakdown-sort-count" class="small-btn" type="button">次数</button>
+                <button id="cpu-breakdown-sort-avg" class="small-btn" type="button">单次</button>
+              </div>
+            </div>
+            <div class="network-breakdown-subtitle">点击切换排序，快速判断是累计占比高、调用次数多，还是单次耗时高</div>
+            <div id="cpu-breakdown-list" class="network-breakdown-list"><div class="empty-hint">当前还没有 CPU 分项数据。</div></div>
+          </div>
+        </div>
+        <div id="server-panel-database" class="server-tab-panel hidden">
+          <div class="note-card">正在准备数据库管理面板…</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="redeem-workspace" class="layout-section hidden" style="flex:1; min-height:0;">
+      <div class="panel-stamp">兑</div>
+      <div class="section-head">
+        <div class="shell-title">兑换码管理</div>
+        <div class="shell-subtitle">管理分组奖励、生成兑换码、查看使用情况与销毁指定兑换码</div>
+      </div>
+      <div class="section-body">
+        <div id="redeem-status" class="note-card" style="margin-bottom: 12px;">兑换码数据读取中…</div>
+        <div class="workspace-grid" style="grid-template-columns:minmax(260px,0.8fr) minmax(360px,1fr) minmax(420px,1.15fr);">
+          <section class="layout-section">
+            <div class="section-head">
+              <div class="section-title">分组列表</div>
+              <div class="section-subtitle">查看每个分组的兑换码总数、已使用数和可用数</div>
+            </div>
+            <div class="section-body">
+              <div id="redeem-group-list" class="player-list"></div>
+            </div>
+          </section>
+          <section class="layout-section">
+            <div class="section-head">
+              <div class="section-title">分组编辑</div>
+              <div class="section-subtitle">新建时选择奖励物品和数量，后续也可继续修改</div>
+            </div>
+            <div class="section-body">
+              <div id="redeem-group-editor"><div class="empty-hint">正在准备分组编辑器…</div></div>
+            </div>
+          </section>
+          <section class="layout-section">
+            <div class="section-head">
+              <div class="section-title">兑换码列表</div>
+              <div class="section-subtitle">可查看使用状态，并销毁指定可用兑换码</div>
+            </div>
+            <div class="section-body">
+              <div id="redeem-code-list" class="network-breakdown-list"><div class="empty-hint">请选择一个分组查看兑换码。</div></div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 玩家管理 ===== -->
+    <section id="player-workspace" class="workspace-grid-2col hidden">
+    <section class="layout-section">
+      <div class="section-head">
+        <div class="section-title">角色册</div>
+        <div class="section-subtitle">列表显示账号、角色名、显示名；搜索支持账号、角色名、显示名和地图中文名</div>
+      </div>
+      <div class="section-body">
+        <div class="filter-row">
+          <input id="player-search" class="search-input" type="text" placeholder="搜索账号 / 角色名 / 显示名 / 地图" />
+          <select id="player-sort" class="search-input" style="flex:0 0 210px;">
+            <option value="realm-desc">境界从高到低</option>
+            <option value="realm-asc">境界从低到高</option>
+            <option value="online">在线优先</option>
+            <option value="map">按地图</option>
+            <option value="name">按角色名</option>
+          </select>
+        </div>
+        <div id="player-list" class="player-list"></div>
+      </div>
+    </section>
+
+    <section class="layout-section">
+      <div class="section-head">
+        <div class="section-title">分区数据编辑</div>
+        <div class="section-subtitle">按基础、位置、属性、功法、物品、任务等分开查看与保存，原始 JSON 保留在高级区</div>
+      </div>
+      <div class="section-body">
+        <div id="editor-empty" class="empty-hint">从左侧选择一个角色后，可查看并修改其完整数据。</div>
+        <div id="editor-panel" class="hidden">
+          <div class="editor-head">
+            <div>
+              <div id="editor-title" class="editor-main-title">未选择角色</div>
+              <div id="editor-subtitle" class="editor-main-subtitle"></div>
+            </div>
+          </div>
+          <div id="editor-meta" class="meta-row"></div>
+          <div class="button-row" style="margin-bottom: 10px;">
+            <button id="save-player" class="small-btn primary" type="button">保存当前标签</button>
+            <button id="refresh-player" class="small-btn" type="button">刷新当前玩家</button>
+            <button id="open-player-mail" class="small-btn" type="button">发邮件</button>
+            <button id="reset-player" class="small-btn" type="button">回出生点</button>
+            <button id="reset-heaven-gate" class="small-btn" type="button">重置天门</button>
+            <button id="remove-bot" class="small-btn danger" type="button">移除该机器人</button>
+          </div>
+          <div class="editor-note">当前保存只会提交所在标签的数据。刷新当前玩家会丢弃未保存草稿，并重新拉取服务端详情。</div>
+          <div class="workspace-tabs editor-tabs">
+            <button id="editor-tab-basic" class="workspace-tab active" type="button">基础</button>
+            <button id="editor-tab-position" class="workspace-tab" type="button">位置</button>
+            <button id="editor-tab-realm" class="workspace-tab" type="button">属性</button>
+            <button id="editor-tab-buffs" class="workspace-tab" type="button">Buff</button>
+            <button id="editor-tab-techniques" class="workspace-tab" type="button">功法</button>
+            <button id="editor-tab-items" class="workspace-tab" type="button">物品</button>
+            <button id="editor-tab-quests" class="workspace-tab" type="button">任务</button>
+            <button id="editor-tab-mail" class="workspace-tab" type="button">邮件</button>
+            <button id="editor-tab-persisted" class="workspace-tab" type="button">持久化 JSON</button>
+          </div>
+          <div id="editor-visual-panel" class="editor-tab-panel">
+            <div id="editor-content" class="editor-stack"></div>
+          </div>
+          <div id="editor-persisted-panel" class="editor-tab-panel hidden">
+            <div class="editor-section">
+              <div class="editor-section-head">
+                <div>
+                  <div class="editor-section-title">完整持久化 JSON</div>
+                  <div class="editor-section-note">用于核对真实落盘结构，不直接参与可视化编辑。</div>
+                </div>
+              </div>
+              <textarea id="player-persisted-json" class="editor-textarea" spellcheck="false" readonly></textarea>
+            </div>
+            <details class="editor-section editor-advanced">
+              <summary class="editor-section-title">高级模式 · 运行态 JSON 导入</summary>
+              <div class="editor-note" style="margin-top:8px;">运行态 JSON 用于导入、兜底修改或核对完整快照。应用后会同步到上方可视化标签。</div>
+              <div class="button-row" style="margin: 10px 0;">
+                <button id="apply-raw-json" class="small-btn" type="button">应用运行态 JSON 到可视化</button>
+              </div>
+              <textarea id="player-json" class="editor-textarea" spellcheck="false"></textarea>
+            </details>
+          </div>
+        </div>
+      </div>
+    </section>
+    </section>
+
+    <!-- ===== 世界管理 ===== -->
+    <section id="world-workspace" class="world-workspace hidden">
+      <section class="layout-section">
+        <div class="section-head">
+          <div class="section-title">地图选择</div>
+          <div class="section-subtitle">选择地图查看运行时状态</div>
+        </div>
+        <div class="section-body">
+          <div id="world-map-list" class="map-list"></div>
+          <div id="world-time-control" style="margin-top:14px;"></div>
+        </div>
+      </section>
+      <section class="layout-section">
+        <div class="section-head">
+          <div class="section-title">上帝视角</div>
+          <div class="section-subtitle">右键拖动 · 滚轮缩放 · 左键选中查看</div>
+        </div>
+        <div class="section-body" style="display:flex; flex-direction:column; padding:0;">
+          <div id="world-canvas-host" class="map-canvas-host" style="min-height:400px;">
+            <canvas id="world-canvas" style="width:100%;height:100%;display:block;background:#1a1816;cursor:crosshair;"></canvas>
+          </div>
+        </div>
+      </section>
+      <section class="layout-section">
+        <div class="section-head">
+          <div class="section-title">信息面板</div>
+          <div class="section-subtitle">地图概况与选中目标详情</div>
+        </div>
+        <div class="section-body">
+          <div id="world-info"><div class="empty-hint">从左侧选择一张地图</div></div>
+        </div>
+      </section>
+    </section>
+
+    <section id="shortcut-workspace" class="layout-section hidden" style="flex:1; min-height:0;">
+      <div class="panel-stamp">令</div>
+      <div class="section-head">
+        <div class="shell-title">快捷指令</div>
+        <div class="shell-subtitle">批量执行高频 GM 操作</div>
+      </div>
+      <div class="section-body">
+        <div class="note-card" style="margin-bottom: 16px;">
+          这里的快捷指令会直接影响全服角色状态。在线角色会在下一息统一执行，离线角色会直接更新存档。
+        </div>
+        <div class="editor-section" style="margin-bottom: 16px;">
+          <div class="editor-section-head">
+            <div>
+              <div class="editor-section-title">全服邮件</div>
+              <div class="editor-section-note">给当前全服玩家发送广播邮件。正文走低频 GM HTTP 接口，玩家收件箱再按需拉取详情。</div>
+            </div>
+          </div>
+          <div id="shortcut-mail-composer"></div>
+        </div>
+        <div class="editor-section">
+          <div class="editor-section-head">
+            <div>
+              <div class="editor-section-title">角色迁移</div>
+              <div class="editor-section-note">用于地图大改后，把全服角色统一送回新手村出生点。</div>
+            </div>
+          </div>
+          <div class="button-row">
+            <button id="shortcut-return-all-to-default-spawn" class="small-btn danger" type="button">所有角色回新手村出生点</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="suggestion-workspace" class="layout-section hidden" style="flex: 1; min-height: 0; display: flex; flex-direction: column;">
+      <div class="panel-stamp">议</div>
+      <div style="padding: 24px; border-bottom: 1.5px solid var(--ink-black); background: var(--paper-bg);">
+        <div class="shell-title" style="font-size: 32px; margin-bottom: 4px;">建言献策</div>
+        <div class="shell-subtitle" style="font-size: 14px;">监察司接纳之四海修士所提功能建议与反馈，依民意而定。</div>
+      </div>
+      <div class="gm-suggestion-toolbar">
+        <input id="gm-suggestion-search" class="search-input" type="search" maxlength="50" placeholder="搜索标题、描述或回复内容" />
+        <button id="gm-suggestion-search-clear" class="small-btn" type="button">清空</button>
+        <button id="gm-suggestion-page-prev" class="small-btn" type="button">上一页</button>
+        <button id="gm-suggestion-page-next" class="small-btn" type="button">下一页</button>
+        <div id="gm-suggestion-page-meta" class="gm-suggestion-page-meta">第 1 / 1 页</div>
+      </div>
+      <div id="gm-suggestion-list" style="flex: 1; overflow-y: auto; padding: 24px; background: var(--paper-light);">
+        <div class="empty-hint">正在加载建议列表…</div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="/src/gm.ts"></script>
+</body>
+</html>

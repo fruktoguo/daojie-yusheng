@@ -1,0 +1,98 @@
+services:
+  server-next:
+    image: ${SERVER_NEXT_IMAGE_REPOSITORY:-ghcr.io/${GHCR_OWNER:-fruktoguo}/daojie-yusheng-server-next}:${SERVER_NEXT_IMAGE_TAG:-latest}
+    environment:
+      SERVER_NEXT_HOST: 0.0.0.0
+      SERVER_NEXT_PORT: 3000
+      SERVER_NEXT_DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD}@postgres:5432/${DB_DATABASE:-mud_mmo_next}
+      DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD}@postgres:5432/${DB_DATABASE:-mud_mmo_next}
+      JWT_SECRET: ${JWT_SECRET}
+      SERVER_NEXT_GM_PASSWORD: ${GM_PASSWORD:-admin123}
+      GM_PASSWORD: ${GM_PASSWORD:-admin123}
+      SERVER_NEXT_RUNTIME_TOKEN: ${SERVER_NEXT_RUNTIME_TOKEN}
+      SERVER_NEXT_GM_DATABASE_BACKUP_DIR: /var/lib/server-next/gm-database-backups
+    ports:
+      - target: 3000
+        published: 11923
+        protocol: tcp
+        mode: ingress
+    volumes:
+      - server_next_backup_data:/var/lib/server-next
+    networks:
+      - daojie_net
+    stop_grace_period: 30s
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - |
+          fetch('http://127.0.0.1:3000/health').then(async (response) => {
+            const body = await response.json().catch(() => null);
+            const ready = response.ok && body?.ok === true && body?.readiness?.ok === true;
+            process.exit(ready ? 0 : 1);
+          }).catch(() => process.exit(1));
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 120s
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-mud}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_DATABASE:-mud_mmo_next}
+    volumes:
+      - pgdata_server_next:/var/lib/postgresql/data
+    networks:
+      - daojie_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-mud} -d ${DB_DATABASE:-mud_mmo_next}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    deploy:
+      replicas: 1
+      update_config:
+        order: stop-first
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redisdata_server_next:/data
+    networks:
+      - daojie_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    deploy:
+      replicas: 1
+      update_config:
+        order: stop-first
+
+volumes:
+  pgdata_server_next:
+  redisdata_server_next:
+  server_next_backup_data:
+
+networks:
+  daojie_net:
+    driver: overlay

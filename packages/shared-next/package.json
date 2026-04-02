@@ -1,0 +1,17 @@
+{
+  "name": "@mud/shared-next",
+  "version": "0.0.1",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch"
+  },
+  "dependencies": {
+    "protobufjs": "^7.5.4"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  }
+}
