@@ -56,6 +56,17 @@ export const PLAYER_REALM_ORDER: PlayerRealmStage[] = [
   PlayerRealmStage.Foundation,
 ];
 
+/** 玩家大境界对应的等级区间。 */
+export const PLAYER_REALM_STAGE_LEVEL_RANGES: Record<PlayerRealmStage, { levelFrom: number; levelTo: number }> = {
+  [PlayerRealmStage.Mortal]: { levelFrom: 1, levelTo: 5 },
+  [PlayerRealmStage.BodyTempering]: { levelFrom: 6, levelTo: 8 },
+  [PlayerRealmStage.BoneForging]: { levelFrom: 9, levelTo: 12 },
+  [PlayerRealmStage.Meridian]: { levelFrom: 13, levelTo: 15 },
+  [PlayerRealmStage.Innate]: { levelFrom: 16, levelTo: 18 },
+  [PlayerRealmStage.QiRefining]: { levelFrom: 19, levelTo: 30 },
+  [PlayerRealmStage.Foundation]: { levelFrom: 31, levelTo: 42 },
+};
+
 /** 武道到修仙的大境界配置。 */
 export const PLAYER_REALM_CONFIG: Record<PlayerRealmStage, RealmConfig> = {
   [PlayerRealmStage.Mortal]: {

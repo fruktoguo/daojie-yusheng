@@ -2,6 +2,7 @@ import {
   addPartialNumericStats,
   cloneNumericStats,
   createNumericStats,
+  percentModifierToMultiplier,
   type NumericStats,
   type PartialNumericStats,
 } from './numeric';
@@ -18,14 +19,16 @@ import {
   MONSTER_TIER_OVERLEVEL_EXP_REDUCTION_RATES,
   MONSTER_TIER_STAT_PERCENTS,
   NUMERIC_SCALAR_STAT_KEYS,
+  PLAYER_REALM_ORDER,
   PLAYER_REALM_NUMERIC_TEMPLATES,
+  PLAYER_REALM_STAGE_LEVEL_RANGES,
 } from './constants';
 import { getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier } from './combat';
 import {
   compileValueStatsToActualStats,
   NUMERIC_STAT_ACTUAL_POINTS_PER_CONFIG_VALUE,
 } from './value';
-import type { Attributes, EquipmentSlots, MonsterTier, NumericStatPercentages, TechniqueGrade } from './types';
+import type { Attributes, EquipmentSlots, MonsterTier, NumericStatPercentages, PlayerRealmStage, TechniqueGrade } from './types';
 import type { NumericScalarStatKey } from './numeric';
 
 export type MonsterCombatModel = 'legacy' | 'value_stats';
@@ -75,6 +78,17 @@ function normalizeMonsterLevel(level?: number): number {
 
 function roundConfigValue(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function resolveMonsterBaseRealmStage(level?: number): PlayerRealmStage {
+  const normalizedLevel = normalizeMonsterLevel(level);
+  for (const stage of [...PLAYER_REALM_ORDER].reverse()) {
+    const range = PLAYER_REALM_STAGE_LEVEL_RANGES[stage];
+    if (normalizedLevel >= range.levelFrom) {
+      return stage;
+    }
+  }
+  return DEFAULT_PLAYER_REALM_STAGE;
 }
 
 export function createMonsterAttributes(initial = 0): Attributes {
@@ -279,9 +293,10 @@ function applyMonsterLevelFlatGrowth(target: NumericStats, level: number): Numer
 export function computeMonsterBaseNumericStatsFromAttrs(
   attrs?: Partial<Attributes>,
   equipment?: Partial<EquipmentSlots>,
+  level?: number,
 ): NumericStats {
   const normalizedAttrs = mergeMonsterEquipmentAttrs(normalizeMonsterAttrs(attrs), equipment);
-  const template = PLAYER_REALM_NUMERIC_TEMPLATES[DEFAULT_PLAYER_REALM_STAGE];
+  const template = PLAYER_REALM_NUMERIC_TEMPLATES[resolveMonsterBaseRealmStage(level)];
   const percentBonuses: PercentBonusAccumulator = {
     maxHp: 0,
     maxQi: 0,
@@ -326,13 +341,14 @@ export function applyNumericStatPercentages(stats: NumericStats, percents?: Nume
     if (!Number.isFinite(percent)) {
       continue;
     }
-    stats[key] = Math.max(0, Math.round(stats[key] * Number(percent) / 100));
+    const deltaPercent = Number(percent) - 100;
+    stats[key] = Math.max(0, Math.round(stats[key] * percentModifierToMultiplier(deltaPercent)));
   }
   return stats;
 }
 
 export function resolveMonsterNumericStatsFromAttributes(input: MonsterFormulaInput): NumericStats {
-  const base = computeMonsterBaseNumericStatsFromAttrs(input.attrs, input.equipment);
+  const base = computeMonsterBaseNumericStatsFromAttrs(input.attrs, input.equipment, input.level);
   const scaled = applyMonsterLevelScaling(base, input.level);
   applyNumericStatPercentages(scaled, normalizeMonsterStatPercents(input.statPercents));
   applyNumericStatPercentages(scaled, MONSTER_GRADE_STAT_PERCENTS[input.grade ?? 'mortal']);
@@ -347,7 +363,7 @@ export function createMonsterAutoStatPercents(
   level?: number,
   equipment?: Partial<EquipmentSlots>,
 ): NumericStatPercentages {
-  const base = applyMonsterLevelScaling(computeMonsterBaseNumericStatsFromAttrs(attrs, equipment), level);
+  const base = applyMonsterLevelScaling(computeMonsterBaseNumericStatsFromAttrs(attrs, equipment, level), level);
   const percents: NumericStatPercentages = {};
   for (const key of NUMERIC_SCALAR_STAT_KEYS) {
     const target = targetStats[key];
