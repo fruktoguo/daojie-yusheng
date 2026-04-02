@@ -1,0 +1,2019 @@
+[
+  {
+    "id": "monster_soul_arts",
+    "name": "残魂灵压",
+    "grade": "mystic",
+    "category": "arts",
+    "realmLv": 1,
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 18,
+        "attrs": {
+          "spirit": 3,
+          "talent": 1
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 20,
+        "attrs": {
+          "spirit": 3,
+          "talent": 1
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 23,
+        "attrs": {
+          "spirit": 3,
+          "talent": 1
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 26,
+        "attrs": {
+          "spirit": 4,
+          "talent": 1
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 30,
+        "attrs": {
+          "spirit": 4,
+          "talent": 2
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 35,
+        "attrs": {
+          "spirit": 4,
+          "talent": 2
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 41,
+        "attrs": {
+          "spirit": 5,
+          "talent": 2
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 0,
+        "attrs": {
+          "spirit": 5,
+          "talent": 3
+        }
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.soul_wail",
+        "name": "噬魂哀鸣",
+        "desc": "哀鸣先钉住心神，魂缚随后顺势缠上，让后手更容易压进识海。",
+        "cooldown": 44,
+        "costMultiplier": 4,
+        "range": 3,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "earth",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 2.1
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.1
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.003
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.monster_soulbind",
+            "name": "魂缚",
+            "desc": "神识被阴压缠住，命中、闪避与最大灵力输出都被拖慢。",
+            "shortMark": "缚",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#8170c2",
+            "duration": 14,
+            "maxStacks": 8,
+            "valueStats": {
+              "hit": -3,
+              "dodge": -3,
+              "maxQiOutputPerTick": -5
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.nether_chain",
+        "name": "阴锁缠身",
+        "desc": "顺着魂缚破口把阴锁压成一线，越被缠住的人越难从这道锁里挣开。",
+        "cooldown": 56,
+        "costMultiplier": 5,
+        "range": 3,
+        "targeting": {
+          "shape": "line",
+          "maxTargets": 3
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "earth",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 2.15
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "target.buff.buff.monster_soulbind.stacks",
+                      "scale": 0.025
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.002
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.monster_soulbind",
+            "name": "魂缚",
+            "desc": "神识被阴压缠住，命中、闪避与最大灵力输出都被拖慢。",
+            "shortMark": "缚",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#8170c2",
+            "duration": 14,
+            "maxStacks": 8,
+            "valueStats": {
+              "hit": -3,
+              "dodge": -3,
+              "maxQiOutputPerTick": -5
+            }
+          }
+        ],
+        "unlockLevel": 4
+      }
+    ]
+  },
+  {
+    "id": "monster_construct_arts",
+    "name": "矿核镇压",
+    "grade": "mystic",
+    "category": "arts",
+    "realmLv": 1,
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 20,
+        "attrs": {
+          "constitution": 3,
+          "talent": 2
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 23,
+        "attrs": {
+          "constitution": 3,
+          "talent": 2
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 26,
+        "attrs": {
+          "constitution": 3,
+          "talent": 2
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 30,
+        "attrs": {
+          "constitution": 4,
+          "talent": 2
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 35,
+        "attrs": {
+          "constitution": 4,
+          "talent": 3
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 40,
+        "attrs": {
+          "constitution": 4,
+          "talent": 3
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 46,
+        "attrs": {
+          "constitution": 5,
+          "talent": 3
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 0,
+        "attrs": {
+          "constitution": 5,
+          "talent": 4
+        }
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.core_smash",
+        "name": "矿核重击",
+        "desc": "先以矿核重击压住正面，自身岩壳也会在这一击后继续增厚。",
+        "cooldown": 30,
+        "costMultiplier": 3,
+        "range": 1,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "op": "add",
+                  "args": [
+                    {
+                      "var": "caster.stat.physAtk",
+                      "scale": 1.4
+                    },
+                    {
+                      "var": "caster.maxHp",
+                      "scale": 0.07
+                    }
+                  ]
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "caster.stat.physDef",
+                      "scale": 0.003
+                    },
+                    {
+                      "var": "caster.stat.resolvePower",
+                      "scale": 0.002
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.monster_stonehide",
+            "name": "岩壳",
+            "desc": "外壳收紧，防御和化解继续上提。",
+            "shortMark": "岩",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#8b8472",
+            "duration": 14,
+            "maxStacks": 6,
+            "valueStats": {
+              "physDef": 4,
+              "spellDef": 4,
+              "resolvePower": 3
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.guardian_quake",
+        "name": "镇域震荡",
+        "desc": "把矿核和岩壳一并轰进地面，近身敌群都会吃到这道镇域余震。",
+        "cooldown": 56,
+        "costMultiplier": 5,
+        "range": 2,
+        "targeting": {
+          "shape": "area",
+          "radius": 1,
+          "maxTargets": 5
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "op": "add",
+                  "args": [
+                    {
+                      "var": "caster.stat.physAtk",
+                      "scale": 1.55
+                    },
+                    {
+                      "var": "caster.maxHp",
+                      "scale": 0.08
+                    }
+                  ]
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "caster.buff.buff.monster_stonehide.stacks",
+                      "scale": 0.015
+                    },
+                    {
+                      "var": "caster.stat.physDef",
+                      "scale": 0.003
+                    },
+                    {
+                      "var": "caster.stat.resolvePower",
+                      "scale": 0.002
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.monster_stonehide",
+            "name": "岩壳",
+            "desc": "外壳收紧，防御和化解继续上提。",
+            "shortMark": "岩",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#8b8472",
+            "duration": 14,
+            "maxStacks": 6,
+            "valueStats": {
+              "physDef": 4,
+              "spellDef": 4,
+              "resolvePower": 3
+            }
+          }
+        ],
+        "unlockLevel": 4
+      }
+    ]
+  },
+  {
+    "id": "monster_star_beast_arts",
+    "name": "噬星残意",
+    "grade": "mystic",
+    "category": "arts",
+    "realmLv": 1,
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 24,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 2
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 27,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 2
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 31,
+        "attrs": {
+          "constitution": 3,
+          "spirit": 2,
+          "perception": 2
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 36,
+        "attrs": {
+          "constitution": 3,
+          "spirit": 3,
+          "perception": 2
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 42,
+        "attrs": {
+          "constitution": 3,
+          "spirit": 3,
+          "perception": 3
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 49,
+        "attrs": {
+          "constitution": 4,
+          "spirit": 3,
+          "perception": 3
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 57,
+        "attrs": {
+          "constitution": 4,
+          "spirit": 4,
+          "perception": 3
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 0,
+        "attrs": {
+          "constitution": 4,
+          "spirit": 4,
+          "perception": 4
+        }
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.star_maw",
+        "name": "噬星咬",
+        "desc": "獠口先把残星煞意咬进目标体内，自身也会因此积起更凶的噬意。",
+        "cooldown": 38,
+        "costMultiplier": 3,
+        "range": 2,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "op": "add",
+                  "args": [
+                    {
+                      "var": "caster.stat.physAtk",
+                      "scale": 1.6
+                    },
+                    {
+                      "var": "caster.maxQi",
+                      "scale": 0.075
+                    }
+                  ]
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.002
+                    },
+                    {
+                      "var": "caster.stat.crit",
+                      "scale": 0.002
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.monster_star_hunger",
+            "name": "噬意",
+            "desc": "残意躁动，命中、暴击和灵力输出进一步上扬。",
+            "shortMark": "噬",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#d87e7e",
+            "duration": 14,
+            "maxStacks": 6,
+            "valueStats": {
+              "hit": 4,
+              "crit": 5,
+              "maxQiOutputPerTick": 6
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.void_burst",
+        "name": "裂空残啸",
+        "desc": "把噬入口中的残意轰成一团裂空乱流，周围都会像被星砂刮过。",
+        "cooldown": 60,
+        "costMultiplier": 5,
+        "range": 3,
+        "targeting": {
+          "shape": "area",
+          "radius": 1,
+          "maxTargets": 4
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "metal",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 2.2
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "caster.buff.buff.monster_star_hunger.stacks",
+                      "scale": 0.015
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.002
+                    },
+                    {
+                      "var": "caster.stat.crit",
+                      "scale": 0.002
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 5
+      }
+    ]
+  },
+  {
+    "id": "thunder_palm",
+    "name": "惊雷掌",
+    "grade": "mystic",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 39,
+        "attrs": {
+          "constitution": 4,
+          "spirit": 3,
+          "perception": 1
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 42,
+        "attrs": {
+          "constitution": 4,
+          "spirit": 3,
+          "perception": 1
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 45,
+        "attrs": {
+          "constitution": 4,
+          "spirit": 3,
+          "perception": 1
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 50,
+        "attrs": {
+          "constitution": 4,
+          "spirit": 3,
+          "perception": 1
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 55,
+        "attrs": {
+          "constitution": 4,
+          "spirit": 3,
+          "perception": 1
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 61,
+        "attrs": {
+          "constitution": 4,
+          "spirit": 3,
+          "perception": 1
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 68,
+        "attrs": {
+          "constitution": 5,
+          "spirit": 3,
+          "perception": 2
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 75,
+        "attrs": {
+          "constitution": 5,
+          "spirit": 3,
+          "perception": 2
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 83,
+        "attrs": {
+          "constitution": 5,
+          "spirit": 3,
+          "perception": 2
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 92,
+        "attrs": {
+          "constitution": 5,
+          "spirit": 3,
+          "perception": 1
+        }
+      },
+      {
+        "level": 11,
+        "expFactor": 103,
+        "attrs": {
+          "constitution": 5,
+          "spirit": 4,
+          "perception": 1
+        }
+      },
+      {
+        "level": 12,
+        "expFactor": 114,
+        "attrs": {
+          "constitution": 5,
+          "spirit": 4,
+          "perception": 1
+        }
+      },
+      {
+        "level": 13,
+        "expFactor": 127,
+        "attrs": {
+          "constitution": 6,
+          "spirit": 4,
+          "perception": 2
+        }
+      },
+      {
+        "level": 14,
+        "expFactor": 0,
+        "attrs": {
+          "constitution": 6,
+          "spirit": 4,
+          "perception": 2
+        }
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.thunder_palm",
+        "name": "惊雷掌",
+        "desc": "掌劲先炸开雷势，再让后续每一掌都更容易破开前排防线。",
+        "cooldown": 46,
+        "costMultiplier": 4,
+        "range": 2,
+        "targeting": {
+          "shape": "line",
+          "maxTargets": 3
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "metal",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 2.2
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.003
+                    },
+                    {
+                      "var": "caster.stat.breakPower",
+                      "scale": 0.003
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.thunder_palm_force",
+            "name": "雷势",
+            "desc": "掌中余雷未散，提高命中、破招与暴击。",
+            "shortMark": "雷",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#d6c34a",
+            "duration": 12,
+            "maxStacks": 6,
+            "valueStats": {
+              "hit": 3,
+              "crit": 5,
+              "breakPower": 5
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.rushing_thunder",
+        "name": "奔雷贯心",
+        "desc": "顺着雷势把掌力贯成一线，前排被炸开的瞬间，后排也会被一并贯穿。",
+        "cooldown": 58,
+        "costMultiplier": 5,
+        "range": 3,
+        "targeting": {
+          "shape": "line",
+          "maxTargets": 3
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "metal",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 2.2
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "caster.buff.buff.thunder_palm_force.stacks",
+                      "scale": 0.015
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.002
+                    },
+                    {
+                      "var": "caster.stat.crit",
+                      "scale": 0.002
+                    },
+                    {
+                      "var": "caster.stat.breakPower",
+                      "scale": 0.002
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.thunder_palm_force",
+            "name": "雷势",
+            "desc": "掌中余雷未散，提高命中、破招与暴击。",
+            "shortMark": "雷",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#d6c34a",
+            "duration": 12,
+            "maxStacks": 6,
+            "valueStats": {
+              "hit": 3,
+              "crit": 5,
+              "breakPower": 5
+            }
+          }
+        ],
+        "unlockLevel": 7
+      }
+    ],
+    "realmLv": 14,
+    "category": "arts"
+  },
+  {
+    "id": "stillheart",
+    "name": "止念诀",
+    "grade": "mystic",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 39,
+        "attrs": {
+          "spirit": 4
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 42,
+        "attrs": {
+          "spirit": 4
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 45,
+        "attrs": {
+          "spirit": 4
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 48,
+        "attrs": {
+          "spirit": 4
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 52,
+        "attrs": {
+          "spirit": 4
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 56,
+        "attrs": {
+          "spirit": 4
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 61,
+        "attrs": {
+          "spirit": 4
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 66,
+        "attrs": {
+          "spirit": 4
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 74,
+        "attrs": {
+          "spirit": 5
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 82,
+        "attrs": {
+          "spirit": 5
+        }
+      },
+      {
+        "level": 11,
+        "expFactor": 91,
+        "attrs": {
+          "spirit": 5
+        }
+      },
+      {
+        "level": 12,
+        "expFactor": 101,
+        "attrs": {
+          "spirit": 5
+        }
+      },
+      {
+        "level": 13,
+        "expFactor": 113,
+        "attrs": {
+          "spirit": 5
+        }
+      },
+      {
+        "level": 14,
+        "expFactor": 126,
+        "attrs": {
+          "spirit": 5
+        }
+      },
+      {
+        "level": 15,
+        "expFactor": 140,
+        "attrs": {
+          "spirit": 6
+        }
+      },
+      {
+        "level": 16,
+        "expFactor": 0,
+        "attrs": {
+          "spirit": 6
+        }
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.stillheart_seal",
+        "name": "止念印",
+        "desc": "先把止念印压进神识表层，再让其术念与化解一并变慢。",
+        "cooldown": 52,
+        "costMultiplier": 5,
+        "range": 4,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "earth",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 2.1
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "caster.stat.resolvePower",
+                      "scale": 0.003
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.003
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.stillheart_suppress",
+            "name": "止念",
+            "desc": "神识遭镇，法攻、破招与化解皆被压住。",
+            "shortMark": "念",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#8f8a70",
+            "duration": 14,
+            "maxStacks": 6,
+            "valueStats": {
+              "spellAtk": -3,
+              "breakPower": -3,
+              "resolvePower": -5
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.mind_break_spike",
+        "name": "断识锥",
+        "desc": "趁止念未散把神识压成一枚断识锥，沿直线一路凿进识海。",
+        "cooldown": 56,
+        "costMultiplier": 5,
+        "range": 3,
+        "targeting": {
+          "shape": "line",
+          "maxTargets": 3
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "earth",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 2.15
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "target.buff.buff.stillheart_suppress.stacks",
+                      "scale": 0.02
+                    },
+                    {
+                      "var": "caster.stat.resolvePower",
+                      "scale": 0.002
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.002
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.stillheart_suppress",
+            "name": "止念",
+            "desc": "神识遭镇，法攻、破招与化解皆被压住。",
+            "shortMark": "念",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#8f8a70",
+            "duration": 14,
+            "maxStacks": 6,
+            "valueStats": {
+              "spellAtk": -3,
+              "breakPower": -3,
+              "resolvePower": -5
+            }
+          }
+        ],
+        "unlockLevel": 8
+      }
+    ],
+    "realmLv": 15,
+    "category": "arts"
+  },
+  {
+    "id": "frost_sutra",
+    "name": "寒魄经",
+    "grade": "mystic",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 37,
+        "attrs": {
+          "spirit": 4,
+          "talent": 2
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 40,
+        "attrs": {
+          "spirit": 4,
+          "talent": 2
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 43,
+        "attrs": {
+          "spirit": 4,
+          "talent": 2
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 48,
+        "attrs": {
+          "spirit": 4,
+          "talent": 2
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 53,
+        "attrs": {
+          "spirit": 4,
+          "talent": 2
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 60,
+        "attrs": {
+          "spirit": 4,
+          "talent": 3
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 69,
+        "attrs": {
+          "spirit": 5,
+          "talent": 3
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 78,
+        "attrs": {
+          "spirit": 5,
+          "talent": 3
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 89,
+        "attrs": {
+          "spirit": 5,
+          "talent": 3
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 101,
+        "attrs": {
+          "spirit": 5,
+          "talent": 3
+        }
+      },
+      {
+        "level": 11,
+        "expFactor": 115,
+        "attrs": {
+          "spirit": 5,
+          "talent": 3
+        }
+      },
+      {
+        "level": 12,
+        "expFactor": 131,
+        "attrs": {
+          "spirit": 5,
+          "talent": 4
+        }
+      },
+      {
+        "level": 13,
+        "expFactor": 150,
+        "attrs": {
+          "spirit": 6,
+          "talent": 4
+        }
+      },
+      {
+        "level": 14,
+        "expFactor": 0,
+        "attrs": {
+          "spirit": 6,
+          "talent": 4
+        }
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.frost_mark",
+        "name": "霜痕",
+        "desc": "先凝出一道寒痕钉在体表，后续每次寒诀都会顺着旧痕再压一层。",
+        "cooldown": 46,
+        "costMultiplier": 4,
+        "range": 3,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "water",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 2.1
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.1
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.003
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.frost_mark_chill",
+            "name": "寒痕",
+            "desc": "寒意黏身，法抗、闪避与命中同步走低。",
+            "shortMark": "寒",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#63b9d7",
+            "duration": 14,
+            "maxStacks": 8,
+            "valueStats": {
+              "spellDef": -3,
+              "dodge": -4,
+              "hit": -3
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.ice_lock_art",
+        "name": "冰锁诀",
+        "desc": "把寒意顺着寒痕钉进经络，再把前方一路锁成发白的冷线。",
+        "cooldown": 56,
+        "costMultiplier": 5,
+        "range": 3,
+        "targeting": {
+          "shape": "line",
+          "maxTargets": 3
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "water",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 2.15
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "target.buff.buff.frost_mark_chill.stacks",
+                      "scale": 0.025
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.002
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.frost_mark_chill",
+            "name": "寒痕",
+            "desc": "寒意黏身，法抗、闪避与命中同步走低。",
+            "shortMark": "寒",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#63b9d7",
+            "duration": 14,
+            "maxStacks": 8,
+            "valueStats": {
+              "spellDef": -3,
+              "dodge": -4,
+              "hit": -3
+            }
+          }
+        ],
+        "unlockLevel": 5
+      }
+    ],
+    "realmLv": 16,
+    "category": "arts"
+  },
+  {
+    "id": "spirit_anchor",
+    "name": "镇灵篇",
+    "grade": "mystic",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 41,
+        "attrs": {
+          "spirit": 4,
+          "talent": 1
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 44,
+        "attrs": {
+          "spirit": 4,
+          "talent": 1
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 47,
+        "attrs": {
+          "spirit": 4,
+          "talent": 1
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 50,
+        "attrs": {
+          "spirit": 4,
+          "talent": 1
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 54,
+        "attrs": {
+          "spirit": 4,
+          "talent": 1
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 59,
+        "attrs": {
+          "spirit": 4,
+          "talent": 1
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 64,
+        "attrs": {
+          "spirit": 5,
+          "talent": 1
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 69,
+        "attrs": {
+          "spirit": 5,
+          "talent": 1
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 75,
+        "attrs": {
+          "spirit": 5,
+          "talent": 1
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 85,
+        "attrs": {
+          "spirit": 5,
+          "talent": 1
+        }
+      },
+      {
+        "level": 11,
+        "expFactor": 93,
+        "attrs": {
+          "spirit": 5,
+          "talent": 1
+        }
+      },
+      {
+        "level": 12,
+        "expFactor": 101,
+        "attrs": {
+          "spirit": 5,
+          "talent": 1
+        }
+      },
+      {
+        "level": 13,
+        "expFactor": 111,
+        "attrs": {
+          "spirit": 5,
+          "talent": 1
+        }
+      },
+      {
+        "level": 14,
+        "expFactor": 121,
+        "attrs": {
+          "spirit": 5,
+          "talent": 1
+        }
+      },
+      {
+        "level": 15,
+        "expFactor": 133,
+        "attrs": {
+          "spirit": 5,
+          "talent": 1
+        }
+      },
+      {
+        "level": 16,
+        "expFactor": 146,
+        "attrs": {
+          "spirit": 5,
+          "talent": 1
+        }
+      },
+      {
+        "level": 17,
+        "expFactor": 0,
+        "attrs": {
+          "spirit": 6,
+          "talent": 2
+        }
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.anchor_pulse",
+        "name": "镇灵冲",
+        "desc": "以镇灵冲先钉住气机，自身也会因此进入更稳的镇灵凝神。",
+        "cooldown": 38,
+        "costMultiplier": 3,
+        "range": 2,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "earth",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 2.1
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "caster.stat.resolvePower",
+                      "scale": 0.004
+                    },
+                    {
+                      "var": "caster.stat.crit",
+                      "scale": 0.002
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.anchor_focus",
+            "name": "镇灵凝神",
+            "desc": "凝聚心神，暂时提高法术攻击、暴击与化解。",
+            "shortMark": "凝",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#7f9cff",
+            "duration": 12,
+            "maxStacks": 6,
+            "valueStats": {
+              "spellAtk": 3,
+              "crit": 5,
+              "resolvePower": 5
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.soul_nail",
+        "name": "定魂钉",
+        "desc": "顺着镇灵凝神把魂光定成一点，再把这一点直接钉进目标神识。",
+        "cooldown": 56,
+        "costMultiplier": 5,
+        "range": 3,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "earth",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 2.35
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "caster.buff.buff.anchor_focus.stacks",
+                      "scale": 0.015
+                    },
+                    {
+                      "var": "caster.stat.resolvePower",
+                      "scale": 0.004
+                    },
+                    {
+                      "var": "caster.stat.crit",
+                      "scale": 0.002
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.anchor_focus",
+            "name": "镇灵凝神",
+            "desc": "凝聚心神，暂时提高法术攻击、暴击与化解。",
+            "shortMark": "凝",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#7f9cff",
+            "duration": 12,
+            "maxStacks": 6,
+            "valueStats": {
+              "spellAtk": 3,
+              "crit": 5,
+              "resolvePower": 5
+            }
+          }
+        ],
+        "unlockLevel": 6
+      }
+    ],
+    "realmLv": 17,
+    "category": "arts"
+  },
+  {
+    "id": "starfall_spear",
+    "name": "陨星枪诀",
+    "grade": "mystic",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 41,
+        "attrs": {
+          "perception": 4,
+          "constitution": 2,
+          "spirit": 1
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 44,
+        "attrs": {
+          "perception": 4,
+          "constitution": 2,
+          "spirit": 1
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 47,
+        "attrs": {
+          "perception": 4,
+          "constitution": 2,
+          "spirit": 1
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 50,
+        "attrs": {
+          "perception": 4,
+          "constitution": 2,
+          "spirit": 1
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 54,
+        "attrs": {
+          "perception": 4,
+          "constitution": 2,
+          "spirit": 1
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 59,
+        "attrs": {
+          "perception": 4,
+          "constitution": 2,
+          "spirit": 1
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 64,
+        "attrs": {
+          "perception": 5,
+          "constitution": 2,
+          "spirit": 1
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 70,
+        "attrs": {
+          "perception": 5,
+          "constitution": 2,
+          "spirit": 1
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 76,
+        "attrs": {
+          "perception": 5,
+          "constitution": 2,
+          "spirit": 1
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 84,
+        "attrs": {
+          "perception": 5,
+          "constitution": 2,
+          "spirit": 1
+        }
+      },
+      {
+        "level": 11,
+        "expFactor": 93,
+        "attrs": {
+          "perception": 5,
+          "constitution": 2,
+          "spirit": 1
+        }
+      },
+      {
+        "level": 12,
+        "expFactor": 102,
+        "attrs": {
+          "perception": 5,
+          "constitution": 2,
+          "spirit": 1
+        }
+      },
+      {
+        "level": 13,
+        "expFactor": 113,
+        "attrs": {
+          "perception": 5,
+          "constitution": 3,
+          "spirit": 1
+        }
+      },
+      {
+        "level": 14,
+        "expFactor": 126,
+        "attrs": {
+          "perception": 5,
+          "constitution": 3,
+          "spirit": 1
+        }
+      },
+      {
+        "level": 15,
+        "expFactor": 139,
+        "attrs": {
+          "perception": 5,
+          "constitution": 3,
+          "spirit": 1
+        }
+      },
+      {
+        "level": 16,
+        "expFactor": 155,
+        "attrs": {
+          "perception": 5,
+          "constitution": 3,
+          "spirit": 1
+        }
+      },
+      {
+        "level": 17,
+        "expFactor": 0,
+        "attrs": {
+          "perception": 6,
+          "constitution": 3,
+          "spirit": 1
+        }
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.starfall_thrust",
+        "name": "坠星刺",
+        "desc": "先把枪势校成坠星的一线，自身也会顺着这一刺积起更沉的坠势。",
+        "cooldown": 54,
+        "costMultiplier": 5,
+        "range": 3,
+        "targeting": {
+          "shape": "line",
+          "maxTargets": 3
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.physAtk",
+                  "scale": 2.2
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.003
+                    },
+                    {
+                      "var": "caster.stat.breakPower",
+                      "scale": 0.003
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.starfall_momentum",
+            "name": "坠势",
+            "desc": "枪势下压，提高命中、破招与暴击。",
+            "shortMark": "坠",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#d6a86a",
+            "duration": 14,
+            "maxStacks": 6,
+            "valueStats": {
+              "hit": 3,
+              "breakPower": 4,
+              "crit": 4
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.chasing_star",
+        "name": "追星步",
+        "desc": "借坠势踏前半步再补一枪，前一式压出的空档会被这一追直接追实。",
+        "cooldown": 58,
+        "costMultiplier": 5,
+        "range": 3,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.physAtk",
+                  "scale": 2.45
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "caster.buff.buff.starfall_momentum.stacks",
+                      "scale": 0.015
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.002
+                    },
+                    {
+                      "var": "caster.stat.crit",
+                      "scale": 0.002
+                    },
+                    {
+                      "var": "caster.stat.moveSpeed",
+                      "scale": 0.005
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.starfall_momentum",
+            "name": "坠势",
+            "desc": "枪势下压，提高命中、破招与暴击。",
+            "shortMark": "坠",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#d6a86a",
+            "duration": 14,
+            "maxStacks": 6,
+            "valueStats": {
+              "hit": 3,
+              "breakPower": 4,
+              "crit": 4
+            }
+          }
+        ],
+        "unlockLevel": 5
+      },
+      {
+        "id": "skill.skybreaker_lance",
+        "name": "裂穹枪",
+        "desc": "将前段积下的枪势一次性贯成长线，最适合用来破开中段敌阵。",
+        "cooldown": 40,
+        "costMultiplier": 6,
+        "range": 4,
+        "targeting": {
+          "shape": "line",
+          "maxTargets": 4
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "op": "add",
+                  "args": [
+                    28,
+                    {
+                      "var": "caster.stat.physAtk",
+                      "scale": 2.4
+                    }
+                  ]
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.11
+                    },
+                    {
+                      "var": "caster.buff.buff.starfall_momentum.stacks",
+                      "scale": 0.03
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.01
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 9
+      }
+    ],
+    "realmLv": 18,
+    "category": "arts"
+  }
+]

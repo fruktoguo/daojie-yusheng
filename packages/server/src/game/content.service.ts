@@ -10,6 +10,7 @@ import {
   ATTR_KEYS,
   AttrKey,
   Attributes,
+  BuffModifierMode,
   DEFAULT_INVENTORY_CAPACITY,
   ELEMENT_KEYS,
   ElementKey,
@@ -494,10 +495,11 @@ export class ContentService implements OnModuleInit {
   private loadTechniques(): void {
     for (const raw of this.readJsonEntries<RawTechniqueTemplate>(this.techniquesDir)) {
       const realmLv = this.normalizeTechniqueRealmLevel(raw.realmLv, raw.grade);
+      const category = this.normalizeTechniqueCategory(raw.category, raw.skills);
       const layers = [...(raw.layers ?? [])]
         .map((layer) => ({
           ...layer,
-          attrs: this.normalizeTechniqueLayerAttrs(layer.attrs),
+          attrs: this.normalizeTechniqueLayerAttrs(layer.attrs, category, raw.id),
           expToNext: layer.expFactor === undefined
             ? Math.max(0, layer.expToNext ?? 0)
             : scaleTechniqueExp(layer.expFactor, realmLv),
@@ -507,7 +509,7 @@ export class ContentService implements OnModuleInit {
         id: raw.id,
         name: raw.name,
         grade: raw.grade,
-        category: this.normalizeTechniqueCategory(raw.category, raw.skills),
+        category,
         realmLv,
         layers,
         skills: raw.skills.map((skill) => {
@@ -562,8 +564,15 @@ export class ContentService implements OnModuleInit {
     return skills.length > 0 ? 'arts' : 'internal';
   }
 
-  private normalizeTechniqueLayerAttrs(attrs: TechniqueLayerDef['attrs']): TechniqueLayerDef['attrs'] {
+  private normalizeTechniqueLayerAttrs(
+    attrs: TechniqueLayerDef['attrs'],
+    category: TechniqueCategory,
+    techniqueId: string,
+  ): TechniqueLayerDef['attrs'] {
     if (!attrs) return attrs;
+    if (category !== 'secret' && ((attrs.comprehension ?? 0) > 0 || (attrs.luck ?? 0) > 0)) {
+      throw new Error(`功法 ${techniqueId} 不是秘术，不能提供悟性或气运加成`);
+    }
     return { ...attrs };
   }
 
@@ -866,6 +875,10 @@ export class ContentService implements OnModuleInit {
     return this.normalizeItemStats(valueStats);
   }
 
+  private normalizeBuffModifierMode(mode: unknown): BuffModifierMode {
+    return mode === 'flat' ? 'flat' : 'percent';
+  }
+
   private normalizeQiProjectionModifiers(input: unknown): QiProjectionModifier[] | undefined {
     if (!Array.isArray(input)) {
       return undefined;
@@ -1050,7 +1063,7 @@ export class ContentService implements OnModuleInit {
           chance: Number.isFinite(input.chance) ? Math.max(0, Math.min(1, Number(input.chance))) : undefined,
           conditions,
           buff: {
-            // Buff 默认走百分比乘区；percent 模式下 valueStats 应直接视为百分比，不再套固定值换算。
+            // Buff 默认走百分比乘区；只有显式声明 flat 时才按固定值解析 valueStats。
             buffId: buff.buffId.trim(),
             name: buff.name,
             desc: typeof buff.desc === 'string' ? buff.desc : undefined,
@@ -1063,9 +1076,13 @@ export class ContentService implements OnModuleInit {
             duration: Math.max(1, Math.floor(Number(buff.duration))),
             maxStacks: Number.isFinite(buff.maxStacks) ? Math.max(1, Math.floor(Number(buff.maxStacks))) : undefined,
             attrs: this.normalizeItemAttrs(buff.attrs),
-            attrMode: 'percent',
-            stats: this.resolveConfiguredBuffStats(buff.stats, buff.valueStats, 'percent'),
-            statMode: 'percent',
+            attrMode: this.normalizeBuffModifierMode(buff.attrMode),
+            stats: this.resolveConfiguredBuffStats(
+              buff.stats,
+              buff.valueStats,
+              this.normalizeBuffModifierMode(buff.statMode),
+            ),
+            statMode: this.normalizeBuffModifierMode(buff.statMode),
             qiProjection: this.normalizeQiProjectionModifiers(buff.qiProjection),
           },
         }];
@@ -1101,9 +1118,13 @@ export class ContentService implements OnModuleInit {
         duration: Math.max(1, Math.floor(Number(entry.duration))),
         maxStacks: Number.isFinite(entry.maxStacks) ? Math.max(1, Math.floor(Number(entry.maxStacks))) : undefined,
         attrs: this.normalizeItemAttrs(entry.attrs),
-        attrMode: 'percent',
-        stats: this.resolveConfiguredBuffStats(entry.stats, entry.valueStats, 'percent'),
-        statMode: 'percent',
+        attrMode: this.normalizeBuffModifierMode(entry.attrMode),
+        stats: this.resolveConfiguredBuffStats(
+          entry.stats,
+          entry.valueStats,
+          this.normalizeBuffModifierMode(entry.statMode),
+        ),
+        statMode: this.normalizeBuffModifierMode(entry.statMode),
         qiProjection: this.normalizeQiProjectionModifiers(entry.qiProjection),
       };
       return [buff];
@@ -1470,9 +1491,13 @@ export class ContentService implements OnModuleInit {
           duration: Math.max(1, Math.floor(Number(input.duration))),
           maxStacks: Number.isFinite(input.maxStacks) ? Math.max(1, Math.floor(Number(input.maxStacks))) : undefined,
           attrs: this.normalizeItemAttrs(input.attrs),
-          attrMode: 'percent',
-          stats: this.resolveConfiguredBuffStats(input.stats, input.valueStats, 'percent'),
-          statMode: 'percent',
+          attrMode: this.normalizeBuffModifierMode(input.attrMode),
+          stats: this.resolveConfiguredBuffStats(
+            input.stats,
+            input.valueStats,
+            this.normalizeBuffModifierMode(input.statMode),
+          ),
+          statMode: this.normalizeBuffModifierMode(input.statMode),
           qiProjection: this.normalizeQiProjectionModifiers(input.qiProjection),
         }];
       default:

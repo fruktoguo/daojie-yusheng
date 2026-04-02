@@ -1,0 +1,245 @@
+[
+  {
+    "id": "zhoutian_xihai",
+    "name": "周天息海篇",
+    "grade": "mystic",
+    "category": "internal",
+    "realmLv": 23,
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 34,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 38,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 42,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 47,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 52,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 58,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 65,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 73,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 82,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 92,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 11,
+        "expFactor": 103,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 12,
+        "expFactor": 115,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 13,
+        "expFactor": 129,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 14,
+        "expFactor": 0,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3
+        }
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.zhouliu_dinghai",
+        "name": "周流定海",
+        "desc": "周流一气，迅速抬高定息层数。",
+        "cooldown": 18,
+        "costMultiplier": 1,
+        "range": 0,
+        "requiresTarget": false,
+        "effects": [
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.qi_breath_calm",
+            "name": "定息",
+            "desc": "气息归平，持续提高灵力回复、法防与化解。",
+            "shortMark": "息",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#7da8c7",
+            "duration": 12,
+            "maxStacks": 7,
+            "statMode": "percent",
+            "valueStats": {
+              "qiRegenRate": 16,
+              "spellDef": 10,
+              "resolvePower": 8
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.qi_breath_calm",
+            "name": "定息",
+            "desc": "气息归平，持续提高灵力回复、法防与化解。",
+            "shortMark": "息",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#7da8c7",
+            "duration": 12,
+            "maxStacks": 7,
+            "statMode": "percent",
+            "valueStats": {
+              "qiRegenRate": 16,
+              "spellDef": 10,
+              "resolvePower": 8
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.qi_breath_calm",
+            "name": "定息",
+            "desc": "气息归平，持续提高灵力回复、法防与化解。",
+            "shortMark": "息",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#7da8c7",
+            "duration": 12,
+            "maxStacks": 7,
+            "statMode": "percent",
+            "valueStats": {
+              "qiRegenRate": 16,
+              "spellDef": 10,
+              "resolvePower": 8
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.huyuan_zhoushen",
+        "name": "护元周身",
+        "desc": "周天气海外扩，令护元覆盖周身。",
+        "cooldown": 34,
+        "costMultiplier": 2,
+        "range": 0,
+        "requiresTarget": false,
+        "effects": [
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.qi_breath_calm",
+            "name": "定息",
+            "desc": "气息归平，持续提高灵力回复、法防与化解。",
+            "shortMark": "息",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#7da8c7",
+            "duration": 12,
+            "maxStacks": 7,
+            "statMode": "percent",
+            "valueStats": {
+              "qiRegenRate": 16,
+              "spellDef": 10,
+              "resolvePower": 8
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.cycle_guard",
+            "name": "周护",
+            "desc": "周天护体，提高双防与冷却速度。",
+            "shortMark": "周",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#90aac6",
+            "duration": 8,
+            "maxStacks": 1,
+            "statMode": "percent",
+            "valueStats": {
+              "physDef": 14,
+              "spellDef": 14,
+              "resolvePower": 12,
+              "cooldownSpeed": 8
+            }
+          }
+        ],
+        "unlockLevel": 6
+      }
+    ]
+  }
+]

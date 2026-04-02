@@ -81,8 +81,8 @@
       {
         "id": "skill.qingmu_slash",
         "name": "青木斩",
-        "desc": "木脉剑气顺着伤口侵入经络，越斩越能削弱目标气机。",
-        "cooldown": 16,
+        "desc": "木脉剑气先划开气口，再把青痕压进经络，方便后招顺着破口继续深扎。",
+        "cooldown": 12,
         "costMultiplier": 1,
         "range": 1,
         "effects": [
@@ -94,14 +94,8 @@
               "op": "mul",
               "args": [
                 {
-                  "op": "add",
-                  "args": [
-                    18,
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 0.8
-                    }
-                  ]
+                  "var": "caster.stat.spellAtk",
+                  "scale": 1.25
                 },
                 {
                   "op": "add",
@@ -109,7 +103,7 @@
                     1,
                     {
                       "var": "techLevel",
-                      "scale": 0.08
+                      "scale": 0.05
                     }
                   ]
                 }
@@ -126,12 +120,12 @@
             "category": "debuff",
             "visibility": "public",
             "color": "#68b96c",
-            "duration": 12,
+            "duration": 14,
             "maxStacks": 6,
             "valueStats": {
-              "spellDef": -2,
-              "dodge": -3,
-              "resolvePower": -3
+              "spellDef": -3,
+              "dodge": -2,
+              "resolvePower": -2
             }
           }
         ],
@@ -140,8 +134,8 @@
       {
         "id": "skill.qingmu_pierce",
         "name": "穿林式",
-        "desc": "沿先前斩开的气脉再递一剑，剑气更易顺着经络深扎。",
-        "cooldown": 26,
+        "desc": "沿青痕切开的气脉追刺而入，前排被破开后，后方也会被连成一线。",
+        "cooldown": 20,
         "costMultiplier": 2,
         "range": 2,
         "targeting": {
@@ -157,14 +151,8 @@
               "op": "mul",
               "args": [
                 {
-                  "op": "add",
-                  "args": [
-                    22,
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 1
-                    }
-                  ]
+                  "var": "caster.stat.spellAtk",
+                  "scale": 1.45
                 },
                 {
                   "op": "add",
@@ -172,11 +160,33 @@
                     1,
                     {
                       "var": "techLevel",
-                      "scale": 0.09
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "target.buff.buff.qingmu_mark.stacks",
+                      "scale": 0.015
                     }
                   ]
                 }
               ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.qingmu_mark",
+            "name": "青痕",
+            "desc": "木灵缠入经络，削弱法抗、闪避与化解。",
+            "shortMark": "青",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#68b96c",
+            "duration": 14,
+            "maxStacks": 6,
+            "valueStats": {
+              "spellDef": -3,
+              "dodge": -2,
+              "resolvePower": -2
             }
           }
         ],

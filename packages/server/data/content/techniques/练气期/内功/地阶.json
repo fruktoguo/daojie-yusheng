@@ -1,0 +1,258 @@
+[
+  {
+    "id": "taichu_baoyuan",
+    "name": "太初抱元章",
+    "grade": "earth",
+    "category": "internal",
+    "realmLv": 27,
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 56,
+        "attrs": {
+          "talent": 2,
+          "spirit": 2,
+          "constitution": 2
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 62,
+        "attrs": {
+          "talent": 4,
+          "spirit": 4
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 69,
+        "attrs": {
+          "talent": 2,
+          "spirit": 2,
+          "constitution": 2
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 77,
+        "attrs": {
+          "talent": 2,
+          "spirit": 2,
+          "constitution": 2
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 86,
+        "attrs": {
+          "talent": 2,
+          "spirit": 2,
+          "constitution": 2
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 96,
+        "attrs": {
+          "talent": 4,
+          "spirit": 4
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 107,
+        "attrs": {
+          "talent": 2,
+          "spirit": 2,
+          "constitution": 2
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 119,
+        "attrs": {
+          "talent": 2,
+          "spirit": 2,
+          "constitution": 2
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 133,
+        "attrs": {
+          "talent": 4,
+          "spirit": 4
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 148,
+        "attrs": {
+          "talent": 2,
+          "spirit": 2,
+          "constitution": 2
+        }
+      },
+      {
+        "level": 11,
+        "expFactor": 164,
+        "attrs": {
+          "talent": 2,
+          "spirit": 2,
+          "constitution": 2
+        }
+      },
+      {
+        "level": 12,
+        "expFactor": 182,
+        "attrs": {
+          "talent": 2,
+          "spirit": 2,
+          "constitution": 2
+        }
+      },
+      {
+        "level": 13,
+        "expFactor": 202,
+        "attrs": {
+          "talent": 4,
+          "spirit": 4
+        }
+      },
+      {
+        "level": 14,
+        "expFactor": 0,
+        "attrs": {
+          "talent": 2,
+          "spirit": 2,
+          "constitution": 2
+        }
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.taichu_guilun",
+        "name": "太初归轮",
+        "desc": "抱元归轮，令气血与灵息一并回稳。",
+        "cooldown": 22,
+        "costMultiplier": 2,
+        "range": 0,
+        "requiresTarget": false,
+        "effects": [
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.qi_breath_calm",
+            "name": "定息",
+            "desc": "气息归平，持续提高灵力回复、法防与化解。",
+            "shortMark": "息",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#7da8c7",
+            "duration": 12,
+            "maxStacks": 7,
+            "statMode": "percent",
+            "valueStats": {
+              "qiRegenRate": 20,
+              "spellDef": 12,
+              "resolvePower": 10
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.qi_breath_calm",
+            "name": "定息",
+            "desc": "气息归平，持续提高灵力回复、法防与化解。",
+            "shortMark": "息",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#7da8c7",
+            "duration": 12,
+            "maxStacks": 7,
+            "statMode": "percent",
+            "valueStats": {
+              "qiRegenRate": 20,
+              "spellDef": 12,
+              "resolvePower": 10
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.origin_center",
+            "name": "守中",
+            "desc": "抱元守中，提高回复和承压。",
+            "shortMark": "元",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#9cb0c8",
+            "duration": 10,
+            "maxStacks": 1,
+            "statMode": "percent",
+            "valueStats": {
+              "physDef": 20,
+              "spellDef": 20,
+              "resolvePower": 18,
+              "hpRegenRate": 24,
+              "qiRegenRate": 28
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.wulou_shouzhong",
+        "name": "无漏守中",
+        "desc": "无漏守中，借高层定息稳定全身。",
+        "cooldown": 42,
+        "costMultiplier": 3,
+        "range": 0,
+        "requiresTarget": false,
+        "effects": [
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.qi_breath_calm",
+            "name": "定息",
+            "desc": "气息归平，持续提高灵力回复、法防与化解。",
+            "shortMark": "息",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#7da8c7",
+            "duration": 12,
+            "maxStacks": 7,
+            "statMode": "percent",
+            "valueStats": {
+              "qiRegenRate": 20,
+              "spellDef": 12,
+              "resolvePower": 10
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.origin_center",
+            "name": "守中",
+            "desc": "抱元守中，提高回复和承压。",
+            "shortMark": "元",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#9cb0c8",
+            "duration": 10,
+            "maxStacks": 1,
+            "statMode": "percent",
+            "valueStats": {
+              "physDef": 20,
+              "spellDef": 20,
+              "resolvePower": 18,
+              "hpRegenRate": 24,
+              "qiRegenRate": 28
+            }
+          }
+        ],
+        "unlockLevel": 8
+      }
+    ]
+  }
+]

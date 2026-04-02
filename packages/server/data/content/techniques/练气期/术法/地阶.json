@@ -1,0 +1,1893 @@
+[
+  {
+    "id": "huangting_zaishan",
+    "name": "黄庭载山经",
+    "grade": "earth",
+    "category": "arts",
+    "realmLv": 27,
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 56,
+        "attrs": {
+          "constitution": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 62,
+        "attrs": {
+          "constitution": 4,
+          "talent": 4,
+          "spirit": 1
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 69,
+        "attrs": {
+          "constitution": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 77,
+        "attrs": {
+          "constitution": 4,
+          "talent": 3
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 86,
+        "attrs": {
+          "constitution": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 96,
+        "attrs": {
+          "constitution": 4,
+          "talent": 4,
+          "spirit": 1
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 107,
+        "attrs": {
+          "constitution": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 119,
+        "attrs": {
+          "constitution": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 133,
+        "attrs": {
+          "constitution": 4,
+          "talent": 4,
+          "spirit": 1
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 148,
+        "attrs": {
+          "constitution": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 11,
+        "expFactor": 164,
+        "attrs": {
+          "constitution": 4,
+          "talent": 3
+        }
+      },
+      {
+        "level": 12,
+        "expFactor": 182,
+        "attrs": {
+          "constitution": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 13,
+        "expFactor": 202,
+        "attrs": {
+          "constitution": 4,
+          "talent": 4,
+          "spirit": 1
+        }
+      },
+      {
+        "level": 14,
+        "expFactor": 0,
+        "attrs": {
+          "constitution": 3,
+          "talent": 3
+        }
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.huangting_dingyue",
+        "name": "黄庭定岳",
+        "desc": "黄庭一镇，直接把镇脉抬到高层。",
+        "cooldown": 32,
+        "costMultiplier": 2,
+        "range": 1,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "element": "earth",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.physAtk",
+                  "scale": 16.8
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.002
+                    },
+                    {
+                      "var": "caster.stat.breakPower",
+                      "scale": 0.002
+                    },
+                    {
+                      "var": "caster.stat.physDef",
+                      "scale": 0.002
+                    },
+                    {
+                      "var": "caster.stat.resolvePower",
+                      "scale": 0.001
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.earth_court",
+            "name": "定岳",
+            "desc": "黄庭载山，稳固自身。",
+            "shortMark": "庭",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#99845f",
+            "duration": 8,
+            "maxStacks": 1,
+            "statMode": "percent",
+            "valueStats": {
+              "physDef": 20,
+              "spellDef": 16,
+              "resolvePower": 18
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.earth_seal_mark",
+            "name": "镇脉",
+            "desc": "重压沉脉，持续削弱移速、破招与物防。",
+            "shortMark": "镇",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#a48a68",
+            "duration": 14,
+            "maxStacks": 8,
+            "statMode": "percent",
+            "valueStats": {
+              "moveSpeed": -18,
+              "breakPower": -12,
+              "physDef": -10
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.earth_seal_mark",
+            "name": "镇脉",
+            "desc": "重压沉脉，持续削弱移速、破招与物防。",
+            "shortMark": "镇",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#a48a68",
+            "duration": 14,
+            "maxStacks": 8,
+            "statMode": "percent",
+            "valueStats": {
+              "moveSpeed": -18,
+              "breakPower": -12,
+              "physDef": -10
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.earth_seal_mark",
+            "name": "镇脉",
+            "desc": "重压沉脉，持续削弱移速、破招与物防。",
+            "shortMark": "镇",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#a48a68",
+            "duration": 14,
+            "maxStacks": 8,
+            "statMode": "percent",
+            "valueStats": {
+              "moveSpeed": -18,
+              "breakPower": -12,
+              "physDef": -10
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.kunyuan_fumai",
+        "name": "坤元覆脉",
+        "desc": "读取高层镇脉做稳定重压收束。",
+        "cooldown": 50,
+        "costMultiplier": 4,
+        "range": 2,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "element": "earth",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.physAtk",
+                  "scale": 11.3
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.1
+                    },
+                    {
+                      "var": "target.buff.buff.earth_seal_mark.stacks",
+                      "scale": 0.065
+                    },
+                    {
+                      "var": "caster.stat.physDef",
+                      "scale": 0.012
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.002
+                    },
+                    {
+                      "var": "caster.stat.breakPower",
+                      "scale": 0.002
+                    },
+                    {
+                      "var": "caster.stat.resolvePower",
+                      "scale": 0.001
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 8
+      }
+    ]
+  },
+  {
+    "id": "hunyuan_zaimai",
+    "name": "混元载脉图",
+    "grade": "earth",
+    "category": "arts",
+    "realmLv": 27,
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 56,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 62,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "talent": 2,
+          "perception": 2
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 69,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 77,
+        "attrs": {
+          "constitution": 3,
+          "spirit": 3,
+          "talent": 3,
+          "perception": 2
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 86,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 96,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "talent": 2,
+          "perception": 2
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 107,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 119,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 133,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "talent": 2,
+          "perception": 2
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 148,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 11,
+        "expFactor": 164,
+        "attrs": {
+          "constitution": 3,
+          "spirit": 3,
+          "talent": 3,
+          "perception": 2
+        }
+      },
+      {
+        "level": 12,
+        "expFactor": 182,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 13,
+        "expFactor": 202,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "talent": 2,
+          "perception": 2
+        }
+      },
+      {
+        "level": 14,
+        "expFactor": 0,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "talent": 2
+        }
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.hunyuan_dianxiang",
+        "name": "混元点相",
+        "desc": "读取多路线痕迹，直接把杂相抬高。",
+        "cooldown": 50,
+        "costMultiplier": 4,
+        "range": 3,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "op": "add",
+                  "args": [
+                    {
+                      "var": "caster.stat.spellAtk",
+                      "scale": 7.3
+                    },
+                    {
+                      "var": "caster.stat.physAtk",
+                      "scale": 5
+                    }
+                  ]
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "target.buff.buff.metal_edge_mark.stacks",
+                      "scale": 0.04
+                    },
+                    {
+                      "var": "target.buff.buff.wood_vine_mark.stacks",
+                      "scale": 0.04
+                    },
+                    {
+                      "var": "target.buff.buff.water_frost_mark.stacks",
+                      "scale": 0.04
+                    },
+                    {
+                      "var": "target.buff.buff.fire_burn_mark.stacks",
+                      "scale": 0.04
+                    },
+                    {
+                      "var": "target.buff.buff.earth_seal_mark.stacks",
+                      "scale": 0.04
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.001
+                    },
+                    {
+                      "var": "caster.stat.crit",
+                      "scale": 0.001
+                    },
+                    {
+                      "var": "caster.stat.breakPower",
+                      "scale": 0.001
+                    },
+                    {
+                      "var": "caster.stat.physDef",
+                      "scale": 0.001
+                    },
+                    {
+                      "var": "caster.stat.spellDef",
+                      "scale": 0.001
+                    },
+                    {
+                      "var": "caster.stat.resolvePower",
+                      "scale": 0.001
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.hybrid_mixed_mark",
+            "name": "杂相",
+            "desc": "杂相缠体，持续削弱物防、法防与化解。",
+            "shortMark": "杂",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#8aa39f",
+            "duration": 14,
+            "maxStacks": 7,
+            "statMode": "percent",
+            "valueStats": {
+              "physDef": -10,
+              "spellDef": -10,
+              "resolvePower": -8
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.hybrid_mixed_mark",
+            "name": "杂相",
+            "desc": "杂相缠体，持续削弱物防、法防与化解。",
+            "shortMark": "杂",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#8aa39f",
+            "duration": 14,
+            "maxStacks": 7,
+            "statMode": "percent",
+            "valueStats": {
+              "physDef": -10,
+              "spellDef": -10,
+              "resolvePower": -8
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.hybrid_mixed_mark",
+            "name": "杂相",
+            "desc": "杂相缠体，持续削弱物防、法防与化解。",
+            "shortMark": "杂",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#8aa39f",
+            "duration": 14,
+            "maxStacks": 7,
+            "statMode": "percent",
+            "valueStats": {
+              "physDef": -10,
+              "spellDef": -10,
+              "resolvePower": -8
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.zaimai_guiyi",
+        "name": "载脉归一",
+        "desc": "按杂相层数强化全系混行压制。",
+        "cooldown": 50,
+        "costMultiplier": 4,
+        "range": 3,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "op": "add",
+                  "args": [
+                    {
+                      "var": "caster.stat.physAtk",
+                      "scale": 7
+                    },
+                    {
+                      "var": "caster.stat.spellAtk",
+                      "scale": 7
+                    }
+                  ]
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.1
+                    },
+                    {
+                      "var": "target.buff.buff.hybrid_mixed_mark.stacks",
+                      "scale": 0.06
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.001
+                    },
+                    {
+                      "var": "caster.stat.crit",
+                      "scale": 0.001
+                    },
+                    {
+                      "var": "caster.stat.breakPower",
+                      "scale": 0.001
+                    },
+                    {
+                      "var": "caster.stat.physDef",
+                      "scale": 0.001
+                    },
+                    {
+                      "var": "caster.stat.spellDef",
+                      "scale": 0.001
+                    },
+                    {
+                      "var": "caster.stat.resolvePower",
+                      "scale": 0.001
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 6
+      }
+    ]
+  },
+  {
+    "id": "taibai_zhuxing",
+    "name": "太白诛形录",
+    "grade": "earth",
+    "category": "arts",
+    "realmLv": 27,
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 56,
+        "attrs": {
+          "constitution": 3,
+          "perception": 3,
+          "talent": 2
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 62,
+        "attrs": {
+          "constitution": 4,
+          "perception": 4,
+          "spirit": 1
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 69,
+        "attrs": {
+          "constitution": 3,
+          "perception": 3,
+          "talent": 2
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 77,
+        "attrs": {
+          "constitution": 4,
+          "perception": 3,
+          "talent": 2
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 86,
+        "attrs": {
+          "constitution": 3,
+          "perception": 3,
+          "talent": 2
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 96,
+        "attrs": {
+          "constitution": 4,
+          "perception": 4,
+          "spirit": 1
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 107,
+        "attrs": {
+          "constitution": 3,
+          "perception": 3,
+          "talent": 2
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 119,
+        "attrs": {
+          "constitution": 3,
+          "perception": 3,
+          "talent": 2
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 133,
+        "attrs": {
+          "constitution": 4,
+          "perception": 4,
+          "spirit": 1
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 148,
+        "attrs": {
+          "constitution": 3,
+          "perception": 3,
+          "talent": 2
+        }
+      },
+      {
+        "level": 11,
+        "expFactor": 164,
+        "attrs": {
+          "constitution": 4,
+          "perception": 3,
+          "talent": 2
+        }
+      },
+      {
+        "level": 12,
+        "expFactor": 182,
+        "attrs": {
+          "constitution": 3,
+          "perception": 3,
+          "talent": 2
+        }
+      },
+      {
+        "level": 13,
+        "expFactor": 202,
+        "attrs": {
+          "constitution": 4,
+          "perception": 4,
+          "spirit": 1
+        }
+      },
+      {
+        "level": 14,
+        "expFactor": 0,
+        "attrs": {
+          "constitution": 3,
+          "perception": 3,
+          "talent": 2
+        }
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.taibai_liuhen",
+        "name": "太白留痕",
+        "desc": "太白一划，迅速把锋痕推到高层。",
+        "cooldown": 32,
+        "costMultiplier": 2,
+        "range": 1,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "element": "metal",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.physAtk",
+                  "scale": 17
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.002
+                    },
+                    {
+                      "var": "caster.stat.crit",
+                      "scale": 0.002
+                    },
+                    {
+                      "var": "caster.stat.breakPower",
+                      "scale": 0.002
+                    },
+                    {
+                      "var": "target.stat.physDef",
+                      "scale": 0.001
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.metal_edge_mark",
+            "name": "锋痕",
+            "desc": "金痕入脉，削弱物防、化解与命中。",
+            "shortMark": "锋",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#d2bd6e",
+            "duration": 14,
+            "maxStacks": 8,
+            "statMode": "percent",
+            "valueStats": {
+              "physDef": -12,
+              "resolvePower": -10,
+              "hit": -8
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.metal_edge_mark",
+            "name": "锋痕",
+            "desc": "金痕入脉，削弱物防、化解与命中。",
+            "shortMark": "锋",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#d2bd6e",
+            "duration": 14,
+            "maxStacks": 8,
+            "statMode": "percent",
+            "valueStats": {
+              "physDef": -12,
+              "resolvePower": -10,
+              "hit": -8
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.metal_edge_mark",
+            "name": "锋痕",
+            "desc": "金痕入脉，削弱物防、化解与命中。",
+            "shortMark": "锋",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#d2bd6e",
+            "duration": 14,
+            "maxStacks": 8,
+            "statMode": "percent",
+            "valueStats": {
+              "physDef": -12,
+              "resolvePower": -10,
+              "hit": -8
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.zhuxing_duanpo",
+        "name": "诛形断魄",
+        "desc": "按锋痕层数大幅放大金行处决伤害。",
+        "cooldown": 38,
+        "costMultiplier": 3,
+        "range": 1,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "element": "metal",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.physAtk",
+                  "scale": 14
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.1
+                    },
+                    {
+                      "var": "target.buff.buff.metal_edge_mark.stacks",
+                      "scale": 0.1
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.002
+                    },
+                    {
+                      "var": "caster.stat.crit",
+                      "scale": 0.002
+                    },
+                    {
+                      "var": "caster.stat.breakPower",
+                      "scale": 0.002
+                    },
+                    {
+                      "var": "target.stat.physDef",
+                      "scale": 0.001
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 6
+      }
+    ]
+  },
+  {
+    "id": "taiyin_guichao",
+    "name": "太阴归潮经",
+    "grade": "earth",
+    "category": "arts",
+    "realmLv": 27,
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 56,
+        "attrs": {
+          "spirit": 3,
+          "perception": 3
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 62,
+        "attrs": {
+          "spirit": 4,
+          "perception": 4,
+          "talent": 2
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 69,
+        "attrs": {
+          "spirit": 3,
+          "perception": 3
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 77,
+        "attrs": {
+          "spirit": 2,
+          "perception": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 86,
+        "attrs": {
+          "spirit": 3,
+          "perception": 3
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 96,
+        "attrs": {
+          "spirit": 4,
+          "perception": 4,
+          "talent": 2
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 107,
+        "attrs": {
+          "spirit": 3,
+          "perception": 3
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 119,
+        "attrs": {
+          "spirit": 3,
+          "perception": 3
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 133,
+        "attrs": {
+          "spirit": 4,
+          "perception": 4,
+          "talent": 2
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 148,
+        "attrs": {
+          "spirit": 3,
+          "perception": 3
+        }
+      },
+      {
+        "level": 11,
+        "expFactor": 164,
+        "attrs": {
+          "spirit": 2,
+          "perception": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 12,
+        "expFactor": 182,
+        "attrs": {
+          "spirit": 3,
+          "perception": 3
+        }
+      },
+      {
+        "level": 13,
+        "expFactor": 202,
+        "attrs": {
+          "spirit": 4,
+          "perception": 4,
+          "talent": 2
+        }
+      },
+      {
+        "level": 14,
+        "expFactor": 0,
+        "attrs": {
+          "spirit": 3,
+          "perception": 3
+        }
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.taiyin_chuiyin",
+        "name": "太阴垂印",
+        "desc": "太阴一落，寒印瞬间抬到高层。",
+        "cooldown": 48,
+        "costMultiplier": 3,
+        "range": 3,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "water",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 15.8
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.1
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.001
+                    },
+                    {
+                      "var": "caster.stat.crit",
+                      "scale": 0.001
+                    },
+                    {
+                      "var": "caster.stat.dodge",
+                      "scale": 0.001
+                    },
+                    {
+                      "var": "target.stat.dodge",
+                      "scale": 0.001
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.water_frost_mark",
+            "name": "寒印",
+            "desc": "寒意覆体，持续压低命中、闪避、移速与法防。",
+            "shortMark": "寒",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#74bdd7",
+            "duration": 16,
+            "maxStacks": 9,
+            "statMode": "percent",
+            "valueStats": {
+              "hit": -12,
+              "dodge": -12,
+              "moveSpeed": -18,
+              "spellDef": -10
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.water_frost_mark",
+            "name": "寒印",
+            "desc": "寒意覆体，持续压低命中、闪避、移速与法防。",
+            "shortMark": "寒",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#74bdd7",
+            "duration": 16,
+            "maxStacks": 9,
+            "statMode": "percent",
+            "valueStats": {
+              "hit": -12,
+              "dodge": -12,
+              "moveSpeed": -18,
+              "spellDef": -10
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.water_frost_mark",
+            "name": "寒印",
+            "desc": "寒意覆体，持续压低命中、闪避、移速与法防。",
+            "shortMark": "寒",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#74bdd7",
+            "duration": 16,
+            "maxStacks": 9,
+            "statMode": "percent",
+            "valueStats": {
+              "hit": -12,
+              "dodge": -12,
+              "moveSpeed": -18,
+              "spellDef": -10
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.guichao_suojie",
+        "name": "归潮锁界",
+        "desc": "对一片区域延长寒意压制。",
+        "cooldown": 50,
+        "costMultiplier": 4,
+        "range": 4,
+        "targeting": {
+          "shape": "area",
+          "radius": 1,
+          "maxTargets": 4
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "water",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 14
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.1
+                    },
+                    {
+                      "var": "target.buff.buff.water_frost_mark.stacks",
+                      "scale": 0.06
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.001
+                    },
+                    {
+                      "var": "caster.stat.crit",
+                      "scale": 0.001
+                    },
+                    {
+                      "var": "caster.stat.dodge",
+                      "scale": 0.001
+                    },
+                    {
+                      "var": "target.stat.dodge",
+                      "scale": 0.001
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.water_domain_lock",
+            "name": "潮锁",
+            "desc": "归潮锁界，进一步压制命中与闪避。",
+            "shortMark": "潮",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#699fbc",
+            "duration": 10,
+            "maxStacks": 1,
+            "statMode": "percent",
+            "valueStats": {
+              "hit": -18,
+              "dodge": -18,
+              "moveSpeed": -24
+            }
+          }
+        ],
+        "unlockLevel": 6
+      }
+    ]
+  },
+  {
+    "id": "changsheng_chanyuan",
+    "name": "长生缠元经",
+    "grade": "earth",
+    "category": "arts",
+    "realmLv": 27,
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 56,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 62,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3,
+          "constitution": 2
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 69,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 77,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3,
+          "constitution": 2
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 86,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 96,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3,
+          "constitution": 2
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 107,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 119,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 133,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3,
+          "constitution": 2
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 148,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 11,
+        "expFactor": 164,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3,
+          "constitution": 2
+        }
+      },
+      {
+        "level": 12,
+        "expFactor": 182,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 13,
+        "expFactor": 202,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3,
+          "constitution": 2
+        }
+      },
+      {
+        "level": 14,
+        "expFactor": 0,
+        "attrs": {
+          "spirit": 3,
+          "talent": 3
+        }
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.changsheng_yinmai",
+        "name": "长生引脉",
+        "desc": "长生木意顺脉而入，快速抬高缠脉。",
+        "cooldown": 46,
+        "costMultiplier": 3,
+        "range": 3,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "wood",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 16.3
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.001
+                    },
+                    {
+                      "var": "caster.stat.resolvePower",
+                      "scale": 0.002
+                    },
+                    {
+                      "var": "caster.stat.dodge",
+                      "scale": 0.001
+                    },
+                    {
+                      "var": "caster.stat.spellDef",
+                      "scale": 0.001
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.wood_vine_mark",
+            "name": "缠脉",
+            "desc": "木意缠脉，削弱闪避、化解与法防。",
+            "shortMark": "缠",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#69ba74",
+            "duration": 16,
+            "maxStacks": 8,
+            "statMode": "percent",
+            "valueStats": {
+              "dodge": -12,
+              "resolvePower": -10,
+              "spellDef": -8
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.wood_vine_mark",
+            "name": "缠脉",
+            "desc": "木意缠脉，削弱闪避、化解与法防。",
+            "shortMark": "缠",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#69ba74",
+            "duration": 16,
+            "maxStacks": 8,
+            "statMode": "percent",
+            "valueStats": {
+              "dodge": -12,
+              "resolvePower": -10,
+              "spellDef": -8
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.wood_vine_mark",
+            "name": "缠脉",
+            "desc": "木意缠脉，削弱闪避、化解与法防。",
+            "shortMark": "缠",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#69ba74",
+            "duration": 16,
+            "maxStacks": 8,
+            "statMode": "percent",
+            "valueStats": {
+              "dodge": -12,
+              "resolvePower": -10,
+              "spellDef": -8
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.duomai_guiyuan",
+        "name": "夺脉归元",
+        "desc": "对高层缠脉目标做大额抽取。",
+        "cooldown": 50,
+        "costMultiplier": 4,
+        "range": 3,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "wood",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 14.3
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.1
+                    },
+                    {
+                      "var": "target.buff.buff.wood_vine_mark.stacks",
+                      "scale": 0.06
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.001
+                    },
+                    {
+                      "var": "caster.stat.resolvePower",
+                      "scale": 0.002
+                    },
+                    {
+                      "var": "caster.stat.dodge",
+                      "scale": 0.001
+                    },
+                    {
+                      "var": "caster.stat.spellDef",
+                      "scale": 0.001
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.wood_longevity",
+            "name": "长生",
+            "desc": "长生之息回返己身。",
+            "shortMark": "长",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#66ae62",
+            "duration": 10,
+            "maxStacks": 1,
+            "statMode": "percent",
+            "valueStats": {
+              "hpRegenRate": 26,
+              "qiRegenRate": 18,
+              "spellDef": 12,
+              "resolvePower": 10
+            }
+          }
+        ],
+        "unlockLevel": 8
+      }
+    ]
+  },
+  {
+    "id": "zhuming_jintian",
+    "name": "朱明烬天录",
+    "grade": "earth",
+    "category": "arts",
+    "realmLv": 27,
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 56,
+        "attrs": {
+          "constitution": 3,
+          "spirit": 3,
+          "perception": 2
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 62,
+        "attrs": {
+          "constitution": 4,
+          "spirit": 4
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 69,
+        "attrs": {
+          "constitution": 3,
+          "spirit": 3,
+          "perception": 2
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 77,
+        "attrs": {
+          "constitution": 3,
+          "spirit": 3,
+          "perception": 2
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 86,
+        "attrs": {
+          "constitution": 3,
+          "spirit": 3,
+          "perception": 2
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 96,
+        "attrs": {
+          "constitution": 4,
+          "spirit": 4
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 107,
+        "attrs": {
+          "constitution": 3,
+          "spirit": 3,
+          "perception": 2
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 119,
+        "attrs": {
+          "constitution": 3,
+          "spirit": 3,
+          "perception": 2
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 133,
+        "attrs": {
+          "constitution": 4,
+          "spirit": 4
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 148,
+        "attrs": {
+          "constitution": 3,
+          "spirit": 3,
+          "perception": 2
+        }
+      },
+      {
+        "level": 11,
+        "expFactor": 164,
+        "attrs": {
+          "constitution": 3,
+          "spirit": 3,
+          "perception": 2
+        }
+      },
+      {
+        "level": 12,
+        "expFactor": 182,
+        "attrs": {
+          "constitution": 3,
+          "spirit": 3,
+          "perception": 2
+        }
+      },
+      {
+        "level": 13,
+        "expFactor": 202,
+        "attrs": {
+          "constitution": 4,
+          "spirit": 4
+        }
+      },
+      {
+        "level": 14,
+        "expFactor": 0,
+        "attrs": {
+          "constitution": 3,
+          "spirit": 3,
+          "perception": 2
+        }
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.zhuming_dianmai",
+        "name": "朱明点脉",
+        "desc": "朱明点落，瞬间把灼脉抬高。",
+        "cooldown": 44,
+        "costMultiplier": 3,
+        "range": 3,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "fire",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 16.5
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "caster.stat.crit",
+                      "scale": 0.002
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.001
+                    },
+                    {
+                      "var": "caster.stat.breakPower",
+                      "scale": 0.001
+                    },
+                    {
+                      "var": "target.stat.spellDef",
+                      "scale": 0.001
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.fire_burn_mark",
+            "name": "灼脉",
+            "desc": "火脉灼入经络，持续降低法防与化解。",
+            "shortMark": "灼",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#ef6b3b",
+            "duration": 12,
+            "maxStacks": 9,
+            "statMode": "percent",
+            "valueStats": {
+              "spellDef": -12,
+              "resolvePower": -10
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.fire_burn_mark",
+            "name": "灼脉",
+            "desc": "火脉灼入经络，持续降低法防与化解。",
+            "shortMark": "灼",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#ef6b3b",
+            "duration": 12,
+            "maxStacks": 9,
+            "statMode": "percent",
+            "valueStats": {
+              "spellDef": -12,
+              "resolvePower": -10
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.fire_burn_mark",
+            "name": "灼脉",
+            "desc": "火脉灼入经络，持续降低法防与化解。",
+            "shortMark": "灼",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#ef6b3b",
+            "duration": 12,
+            "maxStacks": 9,
+            "statMode": "percent",
+            "valueStats": {
+              "spellDef": -12,
+              "resolvePower": -10
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.jintian_liexi",
+        "name": "烬天裂息",
+        "desc": "按灼脉层数把单体爆发拉满。",
+        "cooldown": 50,
+        "costMultiplier": 4,
+        "range": 3,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "fire",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 14.3
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.1
+                    },
+                    {
+                      "var": "target.buff.buff.fire_burn_mark.stacks",
+                      "scale": 0.075
+                    },
+                    {
+                      "var": "caster.stat.crit",
+                      "scale": 0.002
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.001
+                    },
+                    {
+                      "var": "caster.stat.breakPower",
+                      "scale": 0.001
+                    },
+                    {
+                      "var": "target.stat.spellDef",
+                      "scale": 0.001
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 6
+      }
+    ]
+  }
+]

@@ -79,7 +79,6 @@
           "level": 1,
           "expToNext": 100800,
           "attrs": {
-            "comprehension": 4,
             "constitution": 2
           }
         },
@@ -87,7 +86,6 @@
           "level": 2,
           "expToNext": 110400,
           "attrs": {
-            "comprehension": 4,
             "constitution": 2,
             "perception": 1
           }
@@ -96,7 +94,6 @@
           "level": 3,
           "expToNext": 120000,
           "attrs": {
-            "comprehension": 4,
             "constitution": 2
           }
         },
@@ -104,7 +101,6 @@
           "level": 4,
           "expToNext": 132000,
           "attrs": {
-            "comprehension": 4,
             "constitution": 2,
             "perception": 1
           }
@@ -113,7 +109,6 @@
           "level": 5,
           "expToNext": 144000,
           "attrs": {
-            "comprehension": 4,
             "constitution": 2
           }
         },
@@ -121,7 +116,6 @@
           "level": 6,
           "expToNext": 158400,
           "attrs": {
-            "comprehension": 4,
             "constitution": 2,
             "perception": 1
           }
@@ -130,7 +124,6 @@
           "level": 7,
           "expToNext": 175200,
           "attrs": {
-            "comprehension": 4,
             "constitution": 2
           }
         },
@@ -138,7 +131,6 @@
           "level": 8,
           "expToNext": 194400,
           "attrs": {
-            "comprehension": 4,
             "constitution": 2,
             "perception": 1
           }
@@ -147,7 +139,6 @@
           "level": 9,
           "expToNext": 216000,
           "attrs": {
-            "comprehension": 4,
             "constitution": 2
           }
         },
@@ -155,7 +146,6 @@
           "level": 10,
           "expToNext": 0,
           "attrs": {
-            "comprehension": 4,
             "constitution": 2,
             "perception": 1
           }
@@ -319,8 +309,7 @@
           "expToNext": 87400,
           "attrs": {
             "constitution": 3,
-            "perception": 3,
-            "comprehension": 1
+            "perception": 3
           }
         },
         {
@@ -354,8 +343,7 @@
           "expToNext": 133400,
           "attrs": {
             "constitution": 3,
-            "perception": 3,
-            "comprehension": 1
+            "perception": 3
           }
         },
         {
@@ -381,8 +369,7 @@
           "expToNext": 188600,
           "attrs": {
             "constitution": 3,
-            "perception": 3,
-            "comprehension": 1
+            "perception": 3
           }
         },
         {
@@ -416,8 +403,7 @@
           "expToNext": 296700,
           "attrs": {
             "constitution": 3,
-            "perception": 3,
-            "comprehension": 1
+            "perception": 3
           }
         },
         {
@@ -1112,8 +1098,7 @@
           "expToNext": 87400,
           "attrs": {
             "constitution": 3,
-            "spirit": 3,
-            "comprehension": 1
+            "spirit": 3
           }
         },
         {
@@ -1147,8 +1132,7 @@
           "expToNext": 133400,
           "attrs": {
             "constitution": 3,
-            "spirit": 3,
-            "comprehension": 1
+            "spirit": 3
           }
         },
         {
@@ -1174,8 +1158,7 @@
           "expToNext": 188600,
           "attrs": {
             "constitution": 3,
-            "spirit": 3,
-            "comprehension": 1
+            "spirit": 3
           }
         },
         {
@@ -1209,8 +1192,7 @@
           "expToNext": 296700,
           "attrs": {
             "constitution": 3,
-            "spirit": 3,
-            "comprehension": 1
+            "spirit": 3
           }
         },
         {
@@ -1957,7 +1939,7 @@
               "color": "#d2bd6e",
               "duration": 14,
               "maxStacks": 8,
-              "statMode": "flat",
+              "statMode": "percent",
               "valueStats": {
                 "physDef": -4,
                 "resolvePower": -3,
@@ -1976,7 +1958,7 @@
               "color": "#d2bd6e",
               "duration": 14,
               "maxStacks": 8,
-              "statMode": "flat",
+              "statMode": "percent",
               "valueStats": {
                 "physDef": -4,
                 "resolvePower": -3,
@@ -2281,7 +2263,7 @@
               "color": "#8aa39f",
               "duration": 14,
               "maxStacks": 7,
-              "statMode": "flat",
+              "statMode": "percent",
               "valueStats": {
                 "physDef": -3,
                 "spellDef": -3,
@@ -2300,7 +2282,7 @@
               "color": "#8aa39f",
               "duration": 14,
               "maxStacks": 7,
-              "statMode": "flat",
+              "statMode": "percent",
               "valueStats": {
                 "physDef": -3,
                 "spellDef": -3,
@@ -2324,10 +2306,7 @@
         },
         {
           "level": 2,
-          "expToNext": 38000,
-          "attrs": {
-            "comprehension": 3
-          }
+          "expToNext": 38000
         },
         {
           "level": 3,
@@ -2349,10 +2328,7 @@
         },
         {
           "level": 5,
-          "expToNext": 51300,
-          "attrs": {
-            "comprehension": 3
-          }
+          "expToNext": 51300
         },
         {
           "level": 6,
@@ -2374,10 +2350,7 @@
         },
         {
           "level": 8,
-          "expToNext": 70300,
-          "attrs": {
-            "comprehension": 3
-          }
+          "expToNext": 70300
         },
         {
           "level": 9,
@@ -2399,10 +2372,7 @@
         },
         {
           "level": 11,
-          "expToNext": 98800,
-          "attrs": {
-            "comprehension": 3
-          }
+          "expToNext": 98800
         },
         {
           "level": 12,
@@ -2713,7 +2683,7 @@
               "color": "#74bdd7",
               "duration": 16,
               "maxStacks": 9,
-              "statMode": "flat",
+              "statMode": "percent",
               "valueStats": {
                 "hit": -3,
                 "dodge": -3,
@@ -2733,7 +2703,7 @@
               "color": "#74bdd7",
               "duration": 16,
               "maxStacks": 9,
-              "statMode": "flat",
+              "statMode": "percent",
               "valueStats": {
                 "hit": -3,
                 "dodge": -3,
@@ -2798,7 +2768,7 @@
               "color": "#6db0cc",
               "duration": 10,
               "maxStacks": 1,
-              "statMode": "flat",
+              "statMode": "percent",
               "valueStats": {
                 "moveSpeed": -10,
                 "cooldownSpeed": -4
@@ -2823,8 +2793,7 @@
           "expToNext": 38000,
           "attrs": {
             "spirit": 3,
-            "perception": 3,
-            "comprehension": 1
+            "perception": 3
           }
         },
         {
@@ -2848,8 +2817,7 @@
           "expToNext": 51300,
           "attrs": {
             "spirit": 3,
-            "perception": 3,
-            "comprehension": 1
+            "perception": 3
           }
         },
         {
@@ -2873,8 +2841,7 @@
           "expToNext": 70300,
           "attrs": {
             "spirit": 3,
-            "perception": 3,
-            "comprehension": 1
+            "perception": 3
           }
         },
         {
@@ -2898,8 +2865,7 @@
           "expToNext": 98800,
           "attrs": {
             "spirit": 3,
-            "perception": 3,
-            "comprehension": 1
+            "perception": 3
           }
         },
         {
@@ -2963,7 +2929,7 @@
               "color": "#aa9271",
               "duration": 10,
               "maxStacks": 1,
-              "statMode": "flat",
+              "statMode": "percent",
               "valueStats": {
                 "physDef": 10,
                 "spellDef": 8,
@@ -2982,7 +2948,7 @@
               "color": "#a48a68",
               "duration": 14,
               "maxStacks": 8,
-              "statMode": "flat",
+              "statMode": "percent",
               "valueStats": {
                 "moveSpeed": -6,
                 "breakPower": -3,
@@ -3048,8 +3014,7 @@
           "expToNext": 38000,
           "attrs": {
             "constitution": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -3073,8 +3038,7 @@
           "expToNext": 51300,
           "attrs": {
             "constitution": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -3098,8 +3062,7 @@
           "expToNext": 70300,
           "attrs": {
             "constitution": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -3123,8 +3086,7 @@
           "expToNext": 98800,
           "attrs": {
             "constitution": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -3335,8 +3297,7 @@
           "expToNext": 151200,
           "attrs": {
             "constitution": 3,
-            "talent": 3,
-            "comprehension": 2
+            "talent": 3
           }
         },
         {
@@ -3353,8 +3314,7 @@
           "expToNext": 186300,
           "attrs": {
             "constitution": 3,
-            "talent": 3,
-            "comprehension": 2
+            "talent": 3
           }
         },
         {
@@ -3362,8 +3322,7 @@
           "expToNext": 207900,
           "attrs": {
             "constitution": 4,
-            "talent": 3,
-            "comprehension": 2
+            "talent": 3
           }
         },
         {
@@ -3371,8 +3330,7 @@
           "expToNext": 232200,
           "attrs": {
             "constitution": 3,
-            "talent": 3,
-            "comprehension": 2
+            "talent": 3
           }
         },
         {
@@ -3389,8 +3347,7 @@
           "expToNext": 288900,
           "attrs": {
             "constitution": 3,
-            "talent": 3,
-            "comprehension": 2
+            "talent": 3
           }
         },
         {
@@ -3398,8 +3355,7 @@
           "expToNext": 321300,
           "attrs": {
             "constitution": 3,
-            "talent": 3,
-            "comprehension": 2
+            "talent": 3
           }
         },
         {
@@ -3416,8 +3372,7 @@
           "expToNext": 399600,
           "attrs": {
             "constitution": 3,
-            "talent": 3,
-            "comprehension": 2
+            "talent": 3
           }
         },
         {
@@ -3425,8 +3380,7 @@
           "expToNext": 442800,
           "attrs": {
             "constitution": 4,
-            "talent": 3,
-            "comprehension": 2
+            "talent": 3
           }
         },
         {
@@ -3434,8 +3388,7 @@
           "expToNext": 491400,
           "attrs": {
             "constitution": 3,
-            "talent": 3,
-            "comprehension": 2
+            "talent": 3
           }
         },
         {
@@ -3452,8 +3405,7 @@
           "expToNext": 0,
           "attrs": {
             "constitution": 3,
-            "talent": 3,
-            "comprehension": 2
+            "talent": 3
           }
         }
       ]
@@ -3690,8 +3642,7 @@
           "attrs": {
             "constitution": 2,
             "spirit": 2,
-            "talent": 2,
-            "comprehension": 2
+            "talent": 2
           }
         },
         {
@@ -3701,7 +3652,6 @@
             "constitution": 2,
             "spirit": 2,
             "talent": 2,
-            "comprehension": 2,
             "perception": 2
           }
         },
@@ -3711,8 +3661,7 @@
           "attrs": {
             "constitution": 2,
             "spirit": 2,
-            "talent": 2,
-            "comprehension": 2
+            "talent": 2
           }
         },
         {
@@ -3731,8 +3680,7 @@
           "attrs": {
             "constitution": 2,
             "spirit": 2,
-            "talent": 2,
-            "comprehension": 2
+            "talent": 2
           }
         },
         {
@@ -3742,7 +3690,6 @@
             "constitution": 2,
             "spirit": 2,
             "talent": 2,
-            "comprehension": 2,
             "perception": 2
           }
         },
@@ -3752,8 +3699,7 @@
           "attrs": {
             "constitution": 2,
             "spirit": 2,
-            "talent": 2,
-            "comprehension": 2
+            "talent": 2
           }
         },
         {
@@ -3762,8 +3708,7 @@
           "attrs": {
             "constitution": 2,
             "spirit": 2,
-            "talent": 2,
-            "comprehension": 2
+            "talent": 2
           }
         },
         {
@@ -3773,7 +3718,6 @@
             "constitution": 2,
             "spirit": 2,
             "talent": 2,
-            "comprehension": 2,
             "perception": 2
           }
         },
@@ -3783,8 +3727,7 @@
           "attrs": {
             "constitution": 2,
             "spirit": 2,
-            "talent": 2,
-            "comprehension": 2
+            "talent": 2
           }
         },
         {
@@ -3803,8 +3746,7 @@
           "attrs": {
             "constitution": 2,
             "spirit": 2,
-            "talent": 2,
-            "comprehension": 2
+            "talent": 2
           }
         },
         {
@@ -3814,7 +3756,6 @@
             "constitution": 2,
             "spirit": 2,
             "talent": 2,
-            "comprehension": 2,
             "perception": 2
           }
         },
@@ -3824,8 +3765,7 @@
           "attrs": {
             "constitution": 2,
             "spirit": 2,
-            "talent": 2,
-            "comprehension": 2
+            "talent": 2
           }
         }
       ]
@@ -4494,8 +4434,7 @@
           "expToNext": 78200,
           "attrs": {
             "constitution": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -4512,8 +4451,7 @@
           "expToNext": 96600,
           "attrs": {
             "constitution": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -4529,8 +4467,7 @@
           "expToNext": 119600,
           "attrs": {
             "constitution": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -4547,8 +4484,7 @@
           "expToNext": 149500,
           "attrs": {
             "constitution": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -4556,8 +4492,7 @@
           "expToNext": 167900,
           "attrs": {
             "constitution": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -4574,8 +4509,7 @@
           "expToNext": 211600,
           "attrs": {
             "constitution": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -4591,8 +4525,7 @@
           "expToNext": 264500,
           "attrs": {
             "constitution": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -4609,8 +4542,7 @@
           "expToNext": 0,
           "attrs": {
             "constitution": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         }
       ]
@@ -4666,7 +4598,7 @@
               "color": "#ef6b3b",
               "duration": 12,
               "maxStacks": 9,
-              "statMode": "flat",
+              "statMode": "percent",
               "valueStats": {
                 "spellDef": -4,
                 "resolvePower": -3
@@ -4684,7 +4616,7 @@
               "color": "#ef6b3b",
               "duration": 12,
               "maxStacks": 9,
-              "statMode": "flat",
+              "statMode": "percent",
               "valueStats": {
                 "spellDef": -4,
                 "resolvePower": -3
@@ -5402,7 +5334,7 @@
               "color": "#69ba74",
               "duration": 16,
               "maxStacks": 8,
-              "statMode": "flat",
+              "statMode": "percent",
               "valueStats": {
                 "dodge": -3,
                 "resolvePower": -3,
@@ -5421,7 +5353,7 @@
               "color": "#69ba74",
               "duration": 16,
               "maxStacks": 8,
-              "statMode": "flat",
+              "statMode": "percent",
               "valueStats": {
                 "dodge": -3,
                 "resolvePower": -3,
@@ -5480,7 +5412,7 @@
               "color": "#79c07e",
               "duration": 8,
               "maxStacks": 1,
-              "statMode": "flat",
+              "statMode": "percent",
               "valueStats": {
                 "hpRegenRate": 100,
                 "qiRegenRate": 60
@@ -5505,8 +5437,7 @@
           "expToNext": 38000,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -5530,8 +5461,7 @@
           "expToNext": 51300,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -5555,8 +5485,7 @@
           "expToNext": 70300,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -5580,8 +5509,7 @@
           "expToNext": 98800,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -6625,8 +6553,7 @@
           "attrs": {
             "talent": 2,
             "spirit": 2,
-            "constitution": 2,
-            "comprehension": 2
+            "constitution": 2
           }
         },
         {
@@ -6643,8 +6570,7 @@
           "attrs": {
             "talent": 2,
             "spirit": 2,
-            "constitution": 2,
-            "comprehension": 2
+            "constitution": 2
           }
         },
         {
@@ -6653,8 +6579,7 @@
           "attrs": {
             "talent": 2,
             "spirit": 2,
-            "constitution": 2,
-            "comprehension": 2
+            "constitution": 2
           }
         },
         {
@@ -6663,8 +6588,7 @@
           "attrs": {
             "talent": 2,
             "spirit": 2,
-            "constitution": 2,
-            "comprehension": 2
+            "constitution": 2
           }
         },
         {
@@ -6681,8 +6605,7 @@
           "attrs": {
             "talent": 2,
             "spirit": 2,
-            "constitution": 2,
-            "comprehension": 2
+            "constitution": 2
           }
         },
         {
@@ -6691,8 +6614,7 @@
           "attrs": {
             "talent": 2,
             "spirit": 2,
-            "constitution": 2,
-            "comprehension": 2
+            "constitution": 2
           }
         },
         {
@@ -6709,8 +6631,7 @@
           "attrs": {
             "talent": 2,
             "spirit": 2,
-            "constitution": 2,
-            "comprehension": 2
+            "constitution": 2
           }
         },
         {
@@ -6719,8 +6640,7 @@
           "attrs": {
             "talent": 2,
             "spirit": 2,
-            "constitution": 2,
-            "comprehension": 2
+            "constitution": 2
           }
         },
         {
@@ -6729,8 +6649,7 @@
           "attrs": {
             "talent": 2,
             "spirit": 2,
-            "constitution": 2,
-            "comprehension": 2
+            "constitution": 2
           }
         },
         {
@@ -6747,8 +6666,7 @@
           "attrs": {
             "talent": 2,
             "spirit": 2,
-            "constitution": 2,
-            "comprehension": 2
+            "constitution": 2
           }
         }
       ]
@@ -6833,7 +6751,6 @@
           "level": 1,
           "expToNext": 100800,
           "attrs": {
-            "comprehension": 4,
             "spirit": 2
           }
         },
@@ -6841,7 +6758,6 @@
           "level": 2,
           "expToNext": 110400,
           "attrs": {
-            "comprehension": 4,
             "spirit": 2,
             "talent": 1
           }
@@ -6850,7 +6766,6 @@
           "level": 3,
           "expToNext": 120000,
           "attrs": {
-            "comprehension": 4,
             "spirit": 2
           }
         },
@@ -6858,7 +6773,6 @@
           "level": 4,
           "expToNext": 132000,
           "attrs": {
-            "comprehension": 4,
             "spirit": 2,
             "talent": 1
           }
@@ -6867,7 +6781,6 @@
           "level": 5,
           "expToNext": 144000,
           "attrs": {
-            "comprehension": 4,
             "spirit": 2
           }
         },
@@ -6875,7 +6788,6 @@
           "level": 6,
           "expToNext": 158400,
           "attrs": {
-            "comprehension": 4,
             "spirit": 2,
             "talent": 1
           }
@@ -6884,7 +6796,6 @@
           "level": 7,
           "expToNext": 175200,
           "attrs": {
-            "comprehension": 4,
             "spirit": 2
           }
         },
@@ -6892,7 +6803,6 @@
           "level": 8,
           "expToNext": 194400,
           "attrs": {
-            "comprehension": 4,
             "spirit": 2,
             "talent": 1
           }
@@ -6901,7 +6811,6 @@
           "level": 9,
           "expToNext": 216000,
           "attrs": {
-            "comprehension": 4,
             "spirit": 2
           }
         },
@@ -6909,7 +6818,6 @@
           "level": 10,
           "expToNext": 0,
           "attrs": {
-            "comprehension": 4,
             "spirit": 2,
             "talent": 1
           }
@@ -7122,8 +7030,7 @@
           "expToNext": 151200,
           "attrs": {
             "spirit": 3,
-            "perception": 3,
-            "comprehension": 2
+            "perception": 3
           }
         },
         {
@@ -7140,8 +7047,7 @@
           "expToNext": 186300,
           "attrs": {
             "spirit": 3,
-            "perception": 3,
-            "comprehension": 2
+            "perception": 3
           }
         },
         {
@@ -7150,7 +7056,6 @@
           "attrs": {
             "spirit": 2,
             "perception": 2,
-            "comprehension": 2,
             "talent": 2
           }
         },
@@ -7159,8 +7064,7 @@
           "expToNext": 232200,
           "attrs": {
             "spirit": 3,
-            "perception": 3,
-            "comprehension": 2
+            "perception": 3
           }
         },
         {
@@ -7177,8 +7081,7 @@
           "expToNext": 288900,
           "attrs": {
             "spirit": 3,
-            "perception": 3,
-            "comprehension": 2
+            "perception": 3
           }
         },
         {
@@ -7186,8 +7089,7 @@
           "expToNext": 321300,
           "attrs": {
             "spirit": 3,
-            "perception": 3,
-            "comprehension": 2
+            "perception": 3
           }
         },
         {
@@ -7204,8 +7106,7 @@
           "expToNext": 399600,
           "attrs": {
             "spirit": 3,
-            "perception": 3,
-            "comprehension": 2
+            "perception": 3
           }
         },
         {
@@ -7214,7 +7115,6 @@
           "attrs": {
             "spirit": 2,
             "perception": 2,
-            "comprehension": 2,
             "talent": 2
           }
         },
@@ -7223,8 +7123,7 @@
           "expToNext": 491400,
           "attrs": {
             "spirit": 3,
-            "perception": 3,
-            "comprehension": 2
+            "perception": 3
           }
         },
         {
@@ -7241,8 +7140,7 @@
           "expToNext": 0,
           "attrs": {
             "spirit": 3,
-            "perception": 3,
-            "comprehension": 2
+            "perception": 3
           }
         }
       ]
@@ -7497,7 +7395,7 @@
               "color": "#7da8c7",
               "duration": 12,
               "maxStacks": 7,
-              "statMode": "flat",
+              "statMode": "percent",
               "valueStats": {
                 "qiRegenRate": 70,
                 "spellDef": 3,
@@ -7516,7 +7414,7 @@
               "color": "#7da8c7",
               "duration": 12,
               "maxStacks": 7,
-              "statMode": "flat",
+              "statMode": "percent",
               "valueStats": {
                 "qiRegenRate": 70,
                 "spellDef": 3,
@@ -7548,7 +7446,7 @@
               "color": "#7da8c7",
               "duration": 12,
               "maxStacks": 7,
-              "statMode": "flat",
+              "statMode": "percent",
               "valueStats": {
                 "qiRegenRate": 70,
                 "spellDef": 3,
@@ -7567,7 +7465,7 @@
               "color": "#89a9c2",
               "duration": 8,
               "maxStacks": 1,
-              "statMode": "flat",
+              "statMode": "percent",
               "valueStats": {
                 "spellDef": 8,
                 "resolvePower": 6
@@ -7592,8 +7490,7 @@
           "expToNext": 38000,
           "attrs": {
             "talent": 3,
-            "spirit": 3,
-            "comprehension": 1
+            "spirit": 3
           }
         },
         {
@@ -7617,8 +7514,7 @@
           "expToNext": 51300,
           "attrs": {
             "talent": 3,
-            "spirit": 3,
-            "comprehension": 1
+            "spirit": 3
           }
         },
         {
@@ -7642,8 +7538,7 @@
           "expToNext": 70300,
           "attrs": {
             "talent": 3,
-            "spirit": 3,
-            "comprehension": 1
+            "spirit": 3
           }
         },
         {
@@ -7667,8 +7562,7 @@
           "expToNext": 98800,
           "attrs": {
             "talent": 3,
-            "spirit": 3,
-            "comprehension": 1
+            "spirit": 3
           }
         },
         {
@@ -7829,8 +7723,7 @@
           "expToNext": 78200,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -7847,8 +7740,7 @@
           "expToNext": 96600,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -7864,8 +7756,7 @@
           "expToNext": 119600,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -7882,8 +7773,7 @@
           "expToNext": 149500,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -7891,8 +7781,7 @@
           "expToNext": 167900,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -7909,8 +7798,7 @@
           "expToNext": 211600,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -7926,8 +7814,7 @@
           "expToNext": 264500,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -7944,8 +7831,7 @@
           "expToNext": 0,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         }
       ]
@@ -8110,8 +7996,7 @@
           "attrs": {
             "constitution": 2,
             "spirit": 2,
-            "talent": 2,
-            "comprehension": 1
+            "talent": 2
           }
         },
         {
@@ -8129,8 +8014,7 @@
           "attrs": {
             "constitution": 2,
             "spirit": 2,
-            "talent": 2,
-            "comprehension": 1
+            "talent": 2
           }
         },
         {
@@ -8139,8 +8023,7 @@
           "attrs": {
             "constitution": 2,
             "spirit": 2,
-            "talent": 2,
-            "comprehension": 1
+            "talent": 2
           }
         },
         {
@@ -8149,8 +8032,7 @@
           "attrs": {
             "constitution": 2,
             "spirit": 2,
-            "talent": 2,
-            "comprehension": 1
+            "talent": 2
           }
         },
         {
@@ -8168,8 +8050,7 @@
           "attrs": {
             "constitution": 2,
             "spirit": 2,
-            "talent": 2,
-            "comprehension": 1
+            "talent": 2
           }
         },
         {
@@ -8178,8 +8059,7 @@
           "attrs": {
             "constitution": 2,
             "spirit": 2,
-            "talent": 2,
-            "comprehension": 1
+            "talent": 2
           }
         },
         {
@@ -8197,8 +8077,7 @@
           "attrs": {
             "constitution": 2,
             "spirit": 2,
-            "talent": 2,
-            "comprehension": 1
+            "talent": 2
           }
         },
         {
@@ -8207,8 +8086,7 @@
           "attrs": {
             "constitution": 2,
             "spirit": 2,
-            "talent": 2,
-            "comprehension": 1
+            "talent": 2
           }
         },
         {
@@ -8217,8 +8095,7 @@
           "attrs": {
             "constitution": 2,
             "spirit": 2,
-            "talent": 2,
-            "comprehension": 1
+            "talent": 2
           }
         },
         {
@@ -8236,8 +8113,7 @@
           "attrs": {
             "constitution": 2,
             "spirit": 2,
-            "talent": 2,
-            "comprehension": 1
+            "talent": 2
           }
         }
       ]
@@ -8390,8 +8266,7 @@
           "expToNext": 78200,
           "attrs": {
             "spirit": 3,
-            "perception": 3,
-            "comprehension": 1
+            "perception": 3
           }
         },
         {
@@ -8408,8 +8283,7 @@
           "expToNext": 96600,
           "attrs": {
             "spirit": 3,
-            "perception": 3,
-            "comprehension": 1
+            "perception": 3
           }
         },
         {
@@ -8425,8 +8299,7 @@
           "expToNext": 119600,
           "attrs": {
             "spirit": 3,
-            "perception": 3,
-            "comprehension": 1
+            "perception": 3
           }
         },
         {
@@ -8443,8 +8316,7 @@
           "expToNext": 149500,
           "attrs": {
             "spirit": 3,
-            "perception": 3,
-            "comprehension": 1
+            "perception": 3
           }
         },
         {
@@ -8452,8 +8324,7 @@
           "expToNext": 167900,
           "attrs": {
             "spirit": 3,
-            "perception": 3,
-            "comprehension": 1
+            "perception": 3
           }
         },
         {
@@ -8470,8 +8341,7 @@
           "expToNext": 211600,
           "attrs": {
             "spirit": 3,
-            "perception": 3,
-            "comprehension": 1
+            "perception": 3
           }
         },
         {
@@ -8487,8 +8357,7 @@
           "expToNext": 264500,
           "attrs": {
             "spirit": 3,
-            "perception": 3,
-            "comprehension": 1
+            "perception": 3
           }
         },
         {
@@ -8505,8 +8374,7 @@
           "expToNext": 0,
           "attrs": {
             "spirit": 3,
-            "perception": 3,
-            "comprehension": 1
+            "perception": 3
           }
         }
       ]
@@ -10004,8 +9872,7 @@
           "expToNext": 151200,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 2
+            "talent": 3
           }
         },
         {
@@ -10014,7 +9881,6 @@
           "attrs": {
             "spirit": 3,
             "talent": 3,
-            "comprehension": 2,
             "constitution": 2
           }
         },
@@ -10023,8 +9889,7 @@
           "expToNext": 186300,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 2
+            "talent": 3
           }
         },
         {
@@ -10041,8 +9906,7 @@
           "expToNext": 232200,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 2
+            "talent": 3
           }
         },
         {
@@ -10051,7 +9915,6 @@
           "attrs": {
             "spirit": 3,
             "talent": 3,
-            "comprehension": 2,
             "constitution": 2
           }
         },
@@ -10060,8 +9923,7 @@
           "expToNext": 288900,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 2
+            "talent": 3
           }
         },
         {
@@ -10069,8 +9931,7 @@
           "expToNext": 321300,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 2
+            "talent": 3
           }
         },
         {
@@ -10079,7 +9940,6 @@
           "attrs": {
             "spirit": 3,
             "talent": 3,
-            "comprehension": 2,
             "constitution": 2
           }
         },
@@ -10088,8 +9948,7 @@
           "expToNext": 399600,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 2
+            "talent": 3
           }
         },
         {
@@ -10106,8 +9965,7 @@
           "expToNext": 491400,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 2
+            "talent": 3
           }
         },
         {
@@ -10116,7 +9974,6 @@
           "attrs": {
             "spirit": 3,
             "talent": 3,
-            "comprehension": 2,
             "constitution": 2
           }
         },
@@ -10125,8 +9982,7 @@
           "expToNext": 0,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 2
+            "talent": 3
           }
         }
       ]
@@ -11099,8 +10955,7 @@
           "expToNext": 78200,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -11116,8 +10971,7 @@
           "expToNext": 96600,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -11133,8 +10987,7 @@
           "expToNext": 119600,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -11150,8 +11003,7 @@
           "expToNext": 149500,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -11159,8 +11011,7 @@
           "expToNext": 167900,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -11176,8 +11027,7 @@
           "expToNext": 211600,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -11193,8 +11043,7 @@
           "expToNext": 264500,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         },
         {
@@ -11210,8 +11059,7 @@
           "expToNext": 0,
           "attrs": {
             "spirit": 3,
-            "talent": 3,
-            "comprehension": 1
+            "talent": 3
           }
         }
       ]
@@ -17661,7 +17509,7 @@
       "sourceSkillName": "牵萝缠脉",
       "realmLv": 1,
       "color": "#69ba74",
-      "statMode": "flat"
+      "statMode": "percent"
     },
     {
       "buffId": "buff.water_domain_lock",
@@ -17725,7 +17573,7 @@
       "sourceSkillName": "镇脉印",
       "realmLv": 1,
       "color": "#aa9271",
-      "statMode": "flat"
+      "statMode": "percent"
     },
     {
       "buffId": "item_buff.clear_eye",
@@ -17995,7 +17843,7 @@
       "sourceSkillName": "寒汐印",
       "realmLv": 1,
       "color": "#74bdd7",
-      "statMode": "flat"
+      "statMode": "percent"
     },
     {
       "buffId": "item_buff.earthrest_paste",
@@ -18027,7 +17875,7 @@
       "sourceSkillName": "回渡护元",
       "realmLv": 1,
       "color": "#89a9c2",
-      "statMode": "flat"
+      "statMode": "percent"
     },
     {
       "buffId": "buff.wood_bloom",
@@ -18403,7 +18251,7 @@
       "sourceSkillName": "枯荣逆抽",
       "realmLv": 1,
       "color": "#79c07e",
-      "statMode": "flat"
+      "statMode": "percent"
     },
     {
       "buffId": "equip.soul_devour_feast",
@@ -18501,7 +18349,7 @@
       "sourceSkillName": "净潮封脉",
       "realmLv": 1,
       "color": "#6db0cc",
-      "statMode": "flat"
+      "statMode": "percent"
     },
     {
       "buffId": "item_buff.windstride",
@@ -18715,7 +18563,7 @@
       "sourceSkillName": "合炁印",
       "realmLv": 1,
       "color": "#8aa39f",
-      "statMode": "flat"
+      "statMode": "percent"
     },
     {
       "buffId": "equip.heavy_claw_root",
@@ -18780,7 +18628,7 @@
       "sourceSkillName": "镇脉印",
       "realmLv": 1,
       "color": "#a48a68",
-      "statMode": "flat"
+      "statMode": "percent"
     },
     {
       "buffId": "item_buff.stabilizing_pellet",
