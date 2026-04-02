@@ -4,6 +4,7 @@ import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-too
 import { getItemTypeLabel } from '../domain-labels';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../utils/number';
 import { detailModalHost } from './detail-modal-host';
+import { confirmModalHost } from './confirm-modal-host';
 
 function escapeHtml(value: string): string {
   return value
@@ -63,6 +64,7 @@ interface NpcShopPurchaseState {
 
 export class NpcShopModal {
   private static readonly MODAL_OWNER = 'npc-shop-modal';
+  private static readonly CONFIRM_MODAL_OWNER = 'npc-shop-modal:confirm-purchase';
   private callbacks: NpcShopModalCallbacks | null = null;
   private inventory: Inventory = { items: [], capacity: 0 };
   private activeNpcId: string | null = null;
@@ -90,6 +92,7 @@ export class NpcShopModal {
     if (detailModalHost.isOpenFor(NpcShopModal.MODAL_OWNER)) {
       this.render();
     }
+    this.syncPurchaseConfirmModal();
   }
 
   open(npcId: string): void {
@@ -101,6 +104,7 @@ export class NpcShopModal {
       this.confirmPurchaseItemId = null;
       this.quantityDrafts.clear();
     }
+    confirmModalHost.close(NpcShopModal.CONFIRM_MODAL_OWNER);
     this.render();
     this.callbacks?.onRequestShop(npcId);
   }
@@ -126,6 +130,7 @@ export class NpcShopModal {
     if (detailModalHost.isOpenFor(NpcShopModal.MODAL_OWNER)) {
       this.render();
     }
+    this.syncPurchaseConfirmModal();
   }
 
   clear(): void {
@@ -138,6 +143,7 @@ export class NpcShopModal {
     this.quantityDrafts.clear();
     this.tooltipNode = null;
     this.tooltip.hide(true);
+    confirmModalHost.close(NpcShopModal.CONFIRM_MODAL_OWNER);
     detailModalHost.close(NpcShopModal.MODAL_OWNER);
   }
 
@@ -156,32 +162,9 @@ export class NpcShopModal {
         this.confirmPurchaseItemId = null;
         this.tooltipNode = null;
         this.tooltip.hide(true);
+        confirmModalHost.close(NpcShopModal.CONFIRM_MODAL_OWNER);
       },
       onAfterRender: (body) => {
-        body.querySelector<HTMLElement>('[data-npc-shop-confirm-back]')?.addEventListener('click', (event) => {
-          event.stopPropagation();
-          this.confirmPurchaseItemId = null;
-          this.render();
-        });
-
-        body.querySelector<HTMLElement>('[data-npc-shop-confirm-buy]')?.addEventListener('click', (event) => {
-          event.stopPropagation();
-          const npcId = this.activeNpcId;
-          const shop = this.shopState?.shop;
-          const itemId = this.confirmPurchaseItemId;
-          const entry = itemId ? shop?.items.find((item) => item.itemId === itemId) : null;
-          if (!npcId || !shop || !itemId || !entry) {
-            return;
-          }
-          const purchaseState = this.getPurchaseState(shop, entry);
-          if (purchaseState.purchaseDisabled || purchaseState.quantity === null) {
-            return;
-          }
-          this.confirmPurchaseItemId = null;
-          this.render();
-          this.callbacks?.onBuyItem(npcId, itemId, purchaseState.quantity);
-        });
-
         body.querySelectorAll<HTMLElement>('[data-npc-shop-select-item]').forEach((button) => {
           button.addEventListener('click', () => {
             const itemId = button.dataset.npcShopSelectItem;
@@ -237,7 +220,7 @@ export class NpcShopModal {
               return;
             }
             this.confirmPurchaseItemId = itemId;
-            this.render();
+            this.syncPurchaseConfirmModal();
           });
         });
 
@@ -258,12 +241,6 @@ export class NpcShopModal {
     }
     if (shop.items.length === 0) {
       return '<div class="empty-hint">这家店今天还没有上货。</div>';
-    }
-    if (this.confirmPurchaseItemId) {
-      const confirmItem = shop.items.find((item) => item.itemId === this.confirmPurchaseItemId);
-      if (confirmItem) {
-        return this.renderConfirmPanel(shop, confirmItem);
-      }
     }
 
     const selectedItem = shop.items.find((item) => item.itemId === this.selectedItemId) ?? shop.items[0]!;
@@ -407,55 +384,46 @@ export class NpcShopModal {
     `;
   }
 
-  private renderConfirmPanel(shop: NpcShopState, selectedItem: NpcShopItemState): string {
+  private renderConfirmBody(shop: NpcShopState, selectedItem: NpcShopItemState): string {
     const purchaseState = this.getPurchaseState(shop, selectedItem);
     const remainingCurrency = purchaseState.totalCost === null
       ? this.findInventoryItemCount(shop.currencyItemId)
       : Math.max(0, this.findInventoryItemCount(shop.currencyItemId) - purchaseState.totalCost);
     return `
-      <div class="market-book-column">
-        <div class="market-book-column-head">
-          <div class="market-book-column-title">确认购买</div>
-        </div>
-        <div class="market-trade-dialog-section">
-          <div class="market-trade-dialog-field">
-            <span>商品</span>
-            <div class="market-price-display">
-              <strong>${escapeHtml(selectedItem.item.name)}</strong>
-              <span>${escapeHtml(getItemTypeLabel(selectedItem.item.type))}</span>
-            </div>
+      <div class="market-trade-dialog-section">
+        <div class="market-trade-dialog-field">
+          <span>商品</span>
+          <div class="market-price-display">
+            <strong>${escapeHtml(selectedItem.item.name)}</strong>
+            <span>${escapeHtml(getItemTypeLabel(selectedItem.item.type))}</span>
           </div>
-        </div>
-        <div class="market-trade-dialog-section">
-          <div class="market-trade-dialog-field">
-            <span>购买数量</span>
-            <div class="market-price-display">
-              <strong>${formatDisplayInteger(purchaseState.quantity ?? 0)}</strong>
-              <span>最多可买 ${formatDisplayInteger(purchaseState.maxPurchasable)}</span>
-            </div>
-          </div>
-          <div class="market-trade-dialog-total ${purchaseState.errorText ? 'error' : ''}">
-            <span>总价</span>
-            <strong>${purchaseState.displayTotal} ${escapeHtml(shop.currencyItemName)}</strong>
-          </div>
-        </div>
-        <div class="market-trade-dialog-section">
-          <div class="market-trade-dialog-field">
-            <span>购买后剩余</span>
-            <div class="market-price-display">
-              <strong>${formatDisplayInteger(remainingCurrency)}</strong>
-              <span>${escapeHtml(shop.currencyItemName)}</span>
-            </div>
-          </div>
-        </div>
-        ${purchaseState.errorText
-          ? `<div class="market-action-hint market-action-hint--error">${escapeHtml(purchaseState.errorText)}</div>`
-          : `<div class="market-action-hint">确认后会直接向 ${escapeHtml(shop.npcName)} 购买，若货架刚刚变化会以服务端结算结果为准。</div>`}
-        <div class="market-trade-dialog-actions">
-          <button class="small-btn ghost" data-npc-shop-confirm-back type="button">返回修改</button>
-          <button class="small-btn" data-npc-shop-confirm-buy type="button" ${purchaseState.purchaseDisabled ? 'disabled' : ''}>确认购买</button>
         </div>
       </div>
+      <div class="market-trade-dialog-section">
+        <div class="market-trade-dialog-field">
+          <span>购买数量</span>
+          <div class="market-price-display">
+            <strong>${formatDisplayInteger(purchaseState.quantity ?? 0)}</strong>
+            <span>最多可买 ${formatDisplayInteger(purchaseState.maxPurchasable)}</span>
+          </div>
+        </div>
+        <div class="market-trade-dialog-total ${purchaseState.errorText ? 'error' : ''}">
+          <span>总价</span>
+          <strong>${purchaseState.displayTotal} ${escapeHtml(shop.currencyItemName)}</strong>
+        </div>
+      </div>
+      <div class="market-trade-dialog-section">
+        <div class="market-trade-dialog-field">
+          <span>购买后剩余</span>
+          <div class="market-price-display">
+            <strong>${formatDisplayInteger(remainingCurrency)}</strong>
+            <span>${escapeHtml(shop.currencyItemName)}</span>
+          </div>
+        </div>
+      </div>
+      ${purchaseState.errorText
+        ? `<div class="market-action-hint market-action-hint--error">${escapeHtml(purchaseState.errorText)}</div>`
+        : `<div class="market-action-hint">确认后会直接向 ${escapeHtml(shop.npcName)} 购买，若货架刚刚变化会以服务端结算结果为准。</div>`}
     `;
   }
 
@@ -523,6 +491,46 @@ export class NpcShopModal {
       purchaseDisabled: invalidTotal || soldOut || stockExceeded || insufficientCurrency,
       errorText,
     };
+  }
+
+  private syncPurchaseConfirmModal(): void {
+    const shop = this.shopState?.shop;
+    const itemId = this.confirmPurchaseItemId;
+    const entry = itemId ? shop?.items.find((item) => item.itemId === itemId) : null;
+    if (!itemId || !shop || !entry || !detailModalHost.isOpenFor(NpcShopModal.MODAL_OWNER)) {
+      this.confirmPurchaseItemId = null;
+      confirmModalHost.close(NpcShopModal.CONFIRM_MODAL_OWNER);
+      return;
+    }
+    const purchaseState = this.getPurchaseState(shop, entry);
+    confirmModalHost.open({
+      ownerId: NpcShopModal.CONFIRM_MODAL_OWNER,
+      title: '确认购买',
+      subtitle: `${shop.npcName} · ${entry.item.name}`,
+      bodyHtml: this.renderConfirmBody(shop, entry),
+      confirmLabel: '确认购买',
+      confirmDisabled: purchaseState.purchaseDisabled,
+      onConfirm: () => {
+        const npcId = this.activeNpcId;
+        const latestShop = this.shopState?.shop;
+        const latestEntry = itemId ? latestShop?.items.find((item) => item.itemId === itemId) : null;
+        if (!npcId || !latestShop || !latestEntry) {
+          this.confirmPurchaseItemId = null;
+          return;
+        }
+        const latestPurchaseState = this.getPurchaseState(latestShop, latestEntry);
+        if (latestPurchaseState.purchaseDisabled || latestPurchaseState.quantity === null) {
+          this.confirmPurchaseItemId = itemId;
+          this.syncPurchaseConfirmModal();
+          return;
+        }
+        this.confirmPurchaseItemId = null;
+        this.callbacks?.onBuyItem(npcId, itemId, latestPurchaseState.quantity);
+      },
+      onClose: () => {
+        this.confirmPurchaseItemId = null;
+      },
+    });
   }
 
   private formatRefreshHint(refreshAt: number | undefined): string | null {

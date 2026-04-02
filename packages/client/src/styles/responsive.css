@@ -452,6 +452,18 @@
         max-height: min(82dvh, min(760px, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2))));
         padding: 16px;
       }
+      .confirm-modal-card {
+        width: min(360px, calc(100vw - 12px));
+        max-height: min(82dvh, calc(100dvh - 16px));
+        padding: 10px;
+      }
+      .confirm-modal-actions {
+        justify-content: space-between;
+      }
+      .confirm-modal-actions .small-btn {
+        flex: 1 1 0;
+        min-width: 0;
+      }
       .detail-modal-card.detail-modal--skill-management {
         --detail-modal-compact-scale: 0.7;
         width: min(100%, calc(100vw - 16px));

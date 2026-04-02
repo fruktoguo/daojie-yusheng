@@ -27,6 +27,7 @@ import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { getViewportRoot } from '../responsive-viewport';
 import { detailModalHost } from '../detail-modal-host';
+import { confirmModalHost } from '../confirm-modal-host';
 import { preserveSelection } from '../selection-preserver';
 import { MARKET_MODAL_TABS, MARKET_PANE_HINT, MarketModalTab } from '../../constants/ui/market';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
@@ -73,7 +74,6 @@ interface MarketTradeDialogState {
   quantity: number;
   unitPrice: number;
   confirmPurchase: boolean;
-  confirming: boolean;
 }
 
 const MARKET_DESKTOP_PAGE_SIZE = 32;
@@ -93,6 +93,7 @@ const MARKET_TECHNIQUE_FILTERS: Array<{ id: MarketTechniqueFilter; label: string
 
 export class MarketPanel {
   private static readonly MODAL_OWNER = 'market-panel';
+  private static readonly CONFIRM_MODAL_OWNER = 'market-panel:confirm-purchase';
   private static readonly TRADE_MODAL_ID = 'market-trade-modal-root';
   private readonly pane = document.getElementById('pane-market')!;
   private callbacks: MarketPanelCallbacks | null = null;
@@ -111,6 +112,7 @@ export class MarketPanel {
   private itemBookLoading = false;
   private tradeHistoryLoading = false;
   private tradeDialog: MarketTradeDialogState | null = null;
+  private buyConfirmState: { itemKey: string; quantity: number; unitPrice: number } | null = null;
   private tradeHistory: S2C_MarketTradeHistory | null = null;
   private inventory: Inventory = { items: [], capacity: 0 };
   private tooltip = new FloatingTooltip('floating-tooltip market-item-tooltip');
@@ -135,6 +137,7 @@ export class MarketPanel {
     if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
       this.renderModal();
     }
+    this.syncBuyConfirmModal();
   }
 
   updateListings(data: S2C_MarketListings): void {
@@ -158,6 +161,7 @@ export class MarketPanel {
     } else {
       this.syncTradeDialogOverlay();
     }
+    this.syncBuyConfirmModal();
   }
 
   updateOrders(data: S2C_MarketOrders): void {
@@ -169,6 +173,7 @@ export class MarketPanel {
     } else {
       this.syncTradeDialogOverlay();
     }
+    this.syncBuyConfirmModal();
   }
 
   updateStorage(data: S2C_MarketStorage): void {
@@ -178,6 +183,7 @@ export class MarketPanel {
     if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
       this.renderModal();
     }
+    this.syncBuyConfirmModal();
   }
 
   updateItemBook(data: S2C_MarketItemBook): void {
@@ -191,6 +197,7 @@ export class MarketPanel {
     } else {
       this.syncTradeDialogOverlay();
     }
+    this.syncBuyConfirmModal();
   }
 
   updateTradeHistory(data: S2C_MarketTradeHistory): void {
@@ -218,11 +225,13 @@ export class MarketPanel {
     this.itemBookLoading = false;
     this.tradeHistoryLoading = false;
     this.tradeDialog = null;
+    this.buyConfirmState = null;
     this.tradeHistory = null;
     this.inventory = { items: [], capacity: 0 };
     this.tooltipNode = null;
     this.tooltip.hide(true);
     this.syncTradeDialogOverlay();
+    confirmModalHost.close(MarketPanel.CONFIRM_MODAL_OWNER);
     this.renderPane();
     detailModalHost.close(MarketPanel.MODAL_OWNER);
   }
@@ -363,6 +372,8 @@ export class MarketPanel {
         : '<div class="empty-hint">坊市盘面同步中……</div>',
       onClose: () => {
         this.itemBookLoading = false;
+        this.buyConfirmState = null;
+        confirmModalHost.close(MarketPanel.CONFIRM_MODAL_OWNER);
         this.tooltipNode = null;
         this.tooltip.hide(true);
       },
@@ -374,6 +385,8 @@ export class MarketPanel {
           }
           this.modalTab = tab;
           this.tradeDialog = null;
+          this.buyConfirmState = null;
+          confirmModalHost.close(MarketPanel.CONFIRM_MODAL_OWNER);
           if (tab === 'trade-history') {
             this.requestTradeHistory(this.tradeHistoryPage);
           } else if (tab === 'market' && this.selectedItemKey) {
@@ -396,6 +409,8 @@ export class MarketPanel {
           }
           this.currentPage = 1;
           this.tradeDialog = null;
+          this.buyConfirmState = null;
+          confirmModalHost.close(MarketPanel.CONFIRM_MODAL_OWNER);
           this.itemBook = null;
           this.requestListings(1);
         }));
@@ -408,6 +423,8 @@ export class MarketPanel {
           this.activeEquipmentCategory = category;
           this.currentPage = 1;
           this.tradeDialog = null;
+          this.buyConfirmState = null;
+          confirmModalHost.close(MarketPanel.CONFIRM_MODAL_OWNER);
           this.itemBook = null;
           this.requestListings(1);
         }));
@@ -420,6 +437,8 @@ export class MarketPanel {
           this.activeTechniqueCategory = category;
           this.currentPage = 1;
           this.tradeDialog = null;
+          this.buyConfirmState = null;
+          confirmModalHost.close(MarketPanel.CONFIRM_MODAL_OWNER);
           this.itemBook = null;
           this.requestListings(1);
         }));
@@ -431,6 +450,8 @@ export class MarketPanel {
           }
           this.currentPage = Math.max(1, Math.floor(nextPage));
           this.tradeDialog = null;
+          this.buyConfirmState = null;
+          confirmModalHost.close(MarketPanel.CONFIRM_MODAL_OWNER);
           this.requestListings(this.currentPage);
         }));
 
@@ -451,6 +472,8 @@ export class MarketPanel {
           this.selectedItemKey = itemKey;
           this.itemBook = null;
           this.tradeDialog = null;
+          this.buyConfirmState = null;
+          confirmModalHost.close(MarketPanel.CONFIRM_MODAL_OWNER);
           this.requestItemBook(itemKey);
           this.renderModal();
         }));
@@ -480,6 +503,7 @@ export class MarketPanel {
 
         this.bindItemTooltipEvents(body);
         this.syncTradeDialogOverlay();
+        this.syncBuyConfirmModal();
       },
     });
   }
@@ -748,9 +772,6 @@ export class MarketPanel {
       return '';
     }
     const dialog = this.tradeDialog;
-    if (dialog.kind === 'buy' && dialog.confirming) {
-      return this.renderBuyConfirmDialog(entry, currencyName);
-    }
     const matchedInventoryCount = this.findMatchingInventoryCount(entry.item);
     const matchedSlotIndex = this.findMatchingInventorySlot(entry.item);
     const isBuy = dialog.kind === 'buy';
@@ -1069,69 +1090,47 @@ export class MarketPanel {
       quantity: 1,
       unitPrice: this.getDefaultTradeDialogPrice(entry, kind, preferredPrice),
       confirmPurchase: kind === 'buy' && confirmPurchase,
-      confirming: false,
     };
     this.syncTradeDialogOverlay();
   }
 
-  private renderBuyConfirmDialog(entry: MarketListedItemView, currencyName: string): string {
-    if (!this.tradeDialog || this.tradeDialog.kind !== 'buy') {
-      return '';
-    }
-    const estimate = this.estimateImmediateBuy(entry, this.tradeDialog.quantity, this.tradeDialog.unitPrice);
-    const maxReservedCost = this.tradeDialog.quantity * this.tradeDialog.unitPrice;
+  private renderBuyConfirmBody(entry: MarketListedItemView, currencyName: string, quantity: number, unitPrice: number): string {
+    const estimate = this.estimateImmediateBuy(entry, quantity, unitPrice);
+    const maxReservedCost = quantity * unitPrice;
     const summary = estimate.immediateQuantity > 0
       ? estimate.pendingQuantity > 0
         ? `预计先按当前卖盘成交 ${formatDisplayInteger(estimate.immediateQuantity)} 件，剩余 ${formatDisplayInteger(estimate.pendingQuantity)} 件会继续挂为求购单。`
         : `预计会按当前卖盘直接成交 ${formatDisplayInteger(estimate.immediateQuantity)} 件。`
       : '当前无法保证立刻成交，确认后会按当前单价挂出求购单。';
     return `
-      <div class="market-trade-modal-shell">
-        <div class="market-trade-modal-backdrop" data-market-close-dialog></div>
-        <div class="market-trade-dialog market-trade-dialog--buy" role="dialog" aria-modal="true">
-          <div class="market-trade-dialog-head">
-            <div class="market-trade-dialog-title">
-              <div class="panel-section-title">确认购买</div>
-              <div class="market-trade-dialog-item market-trade-dialog-item--interactive" data-market-item-tooltip="selected">${escapeHtml(entry.item.name)}</div>
-            </div>
-            <button class="small-btn ghost" data-market-close-dialog type="button">关闭</button>
-          </div>
-          <div class="market-trade-dialog-body">
-            <div class="market-trade-dialog-section">
-              <div class="market-trade-dialog-field">
-                <span>购买数量</span>
-                <div class="market-price-display">
-                  <strong>${formatDisplayInteger(this.tradeDialog.quantity)}</strong>
-                  <span>单价 ${formatDisplayInteger(this.tradeDialog.unitPrice)} ${escapeHtml(currencyName)}</span>
-                </div>
-              </div>
-              <div class="market-trade-dialog-total">
-                <span>最高占用</span>
-                <strong>${formatDisplayInteger(maxReservedCost)} ${escapeHtml(currencyName)}</strong>
-              </div>
-            </div>
-            <div class="market-trade-dialog-section">
-              <div class="market-trade-dialog-field">
-                <span>撮合预估</span>
-                <div class="market-price-display">
-                  <strong>${formatDisplayInteger(estimate.immediateQuantity)}</strong>
-                  <span>预计立即成交</span>
-                </div>
-              </div>
-              <div class="market-trade-dialog-total ${estimate.pendingQuantity > 0 ? '' : 'hidden'}">
-                <span>剩余挂单</span>
-                <strong>${formatDisplayInteger(estimate.pendingQuantity)} 件</strong>
-              </div>
-            </div>
-            <div class="market-action-hint">${escapeHtml(summary)}</div>
-            <div class="market-action-hint ${estimate.immediateQuantity > 0 ? '' : 'hidden'}">若卖盘成交价低于你的出价，差额会按现有撮合规则退回。</div>
-          </div>
-          <div class="market-trade-dialog-actions">
-            <button class="small-btn ghost" data-market-confirm-back type="button">返回修改</button>
-            <button class="small-btn" data-market-confirm-buy type="button">确认购买</button>
+      <div class="market-trade-dialog-section">
+        <div class="market-trade-dialog-field">
+          <span>购买数量</span>
+          <div class="market-price-display">
+            <strong>${formatDisplayInteger(quantity)}</strong>
+            <span>单价 ${formatDisplayInteger(unitPrice)} ${escapeHtml(currencyName)}</span>
           </div>
         </div>
+        <div class="market-trade-dialog-total">
+          <span>最高占用</span>
+          <strong>${formatDisplayInteger(maxReservedCost)} ${escapeHtml(currencyName)}</strong>
+        </div>
       </div>
+      <div class="market-trade-dialog-section">
+        <div class="market-trade-dialog-field">
+          <span>撮合预估</span>
+          <div class="market-price-display">
+            <strong>${formatDisplayInteger(estimate.immediateQuantity)}</strong>
+            <span>预计立即成交</span>
+          </div>
+        </div>
+        <div class="market-trade-dialog-total ${estimate.pendingQuantity > 0 ? '' : 'hidden'}">
+          <span>剩余挂单</span>
+          <strong>${formatDisplayInteger(estimate.pendingQuantity)} 件</strong>
+        </div>
+      </div>
+      <div class="market-action-hint">${escapeHtml(summary)}</div>
+      <div class="market-action-hint ${estimate.immediateQuantity > 0 ? '' : 'hidden'}">若卖盘成交价低于你的出价，差额会按现有撮合规则退回。</div>
     `;
   }
 
@@ -1163,6 +1162,43 @@ export class MarketPanel {
       immediateQuantity,
       pendingQuantity: Math.max(0, remaining),
     };
+  }
+
+  private syncBuyConfirmModal(): void {
+    const confirmState = this.buyConfirmState;
+    const update = this.marketUpdate;
+    const entry = confirmState
+      ? update?.listedItems.find((item) => item.itemKey === confirmState.itemKey) ?? null
+      : null;
+    if (!confirmState || !update || !entry || !detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER) || this.modalTab !== 'market') {
+      this.buyConfirmState = null;
+      confirmModalHost.close(MarketPanel.CONFIRM_MODAL_OWNER);
+      return;
+    }
+    confirmModalHost.open({
+      ownerId: MarketPanel.CONFIRM_MODAL_OWNER,
+      title: '确认购买',
+      subtitle: entry.item.name,
+      bodyHtml: this.renderBuyConfirmBody(entry, update.currencyItemName, confirmState.quantity, confirmState.unitPrice),
+      confirmLabel: '确认购买',
+      onConfirm: () => {
+        const latest = this.buyConfirmState;
+        const latestEntry = latest
+          ? this.marketUpdate?.listedItems.find((item) => item.itemKey === latest.itemKey) ?? null
+          : null;
+        if (!latest || !latestEntry) {
+          this.buyConfirmState = null;
+          return;
+        }
+        this.tradeDialog = null;
+        this.syncTradeDialogOverlay();
+        this.callbacks?.onCreateBuyOrder(latestEntry.item.itemId, latest.quantity, latest.unitPrice);
+        this.buyConfirmState = null;
+      },
+      onClose: () => {
+        this.buyConfirmState = null;
+      },
+    });
   }
 
   private syncTradeDialogOverlay(): void {
@@ -1201,7 +1237,6 @@ export class MarketPanel {
         this.tradeDialog = {
           ...this.tradeDialog,
           quantity: this.normalizeTradeDialogQuantity(input.value, selected, this.tradeDialog.kind),
-          confirming: false,
         };
       });
 
@@ -1212,7 +1247,6 @@ export class MarketPanel {
         this.tradeDialog = {
           ...this.tradeDialog,
           quantity: this.normalizeTradeDialogQuantity(input.value, selected, this.tradeDialog.kind),
-          confirming: false,
         };
         this.syncTradeDialogOverlay();
       });
@@ -1230,7 +1264,6 @@ export class MarketPanel {
       this.tradeDialog = {
         ...this.tradeDialog,
         unitPrice: this.getNextTradeDialogPrice(this.tradeDialog.unitPrice, action, preset),
-        confirming: false,
       };
       this.syncTradeDialogOverlay();
     }));
@@ -1246,7 +1279,6 @@ export class MarketPanel {
       this.tradeDialog = {
         ...this.tradeDialog,
         quantity: Math.max(1, quantity),
-        confirming: false,
       };
       this.syncTradeDialogOverlay();
     }));
@@ -1260,13 +1292,12 @@ export class MarketPanel {
       const unitPrice = this.normalizeTradeDialogPrice(this.tradeDialog.unitPrice, kind === 'buy' ? 'up' : 'down');
       if (kind === 'buy') {
         if (this.tradeDialog.confirmPurchase) {
-          this.tradeDialog = {
-            ...this.tradeDialog,
+          this.buyConfirmState = {
+            itemKey: selected.itemKey,
             quantity,
             unitPrice,
-            confirming: true,
           };
-          this.syncTradeDialogOverlay();
+          this.syncBuyConfirmModal();
           return;
         }
         this.callbacks?.onCreateBuyOrder(selected.item.itemId, quantity, unitPrice);
@@ -1282,26 +1313,6 @@ export class MarketPanel {
       this.tradeDialog = null;
       this.syncTradeDialogOverlay();
     }));
-
-    root.querySelector<HTMLElement>('[data-market-confirm-back]')?.addEventListener('click', () => {
-      if (!this.tradeDialog || this.tradeDialog.kind !== 'buy') {
-        return;
-      }
-      this.tradeDialog = {
-        ...this.tradeDialog,
-        confirming: false,
-      };
-      this.syncTradeDialogOverlay();
-    });
-
-    root.querySelector<HTMLElement>('[data-market-confirm-buy]')?.addEventListener('click', () => {
-      if (!this.tradeDialog || this.tradeDialog.kind !== 'buy') {
-        return;
-      }
-      this.callbacks?.onCreateBuyOrder(selected.item.itemId, this.tradeDialog.quantity, this.tradeDialog.unitPrice);
-      this.tradeDialog = null;
-      this.syncTradeDialogOverlay();
-    });
   }
 
   private getTradeDialogOverlayRoot(): HTMLElement {
