@@ -2430,7 +2430,6 @@ function haveActionRenderStructureChanges(previousActions: ActionDef[], nextActi
       || previous.requiresTarget !== next.requiresTarget
       || previous.targetMode !== next.targetMode
       || previous.autoBattleEnabled !== next.autoBattleEnabled
-      || previous.autoBattleOrder !== next.autoBattleOrder
       || previous.skillEnabled !== next.skillEnabled
     ) {
       return true;

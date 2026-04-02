@@ -81,6 +81,7 @@ export class ActionPanel {
   private skillManagementFilterOpen = false;
   private skillManagementFilterToggles = new Set<SkillManagementFilterToggle>();
   private skillManagementExternalRevision: string | null = null;
+  private skillManagementListScrollTop = 0;
   private autoBattle = false;
   private autoRetaliate = true;
   private autoBattleStationary = false;
@@ -109,6 +110,7 @@ export class ActionPanel {
     this.actionRowRefs.clear();
     this.skillManagementDraft = null;
     this.skillManagementExternalRevision = null;
+    this.skillManagementListScrollTop = 0;
     detailModalHost.close(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER);
     this.pane.innerHTML = '<div class="empty-hint">暂无可用行动</div>';
   }
@@ -1217,23 +1219,76 @@ export class ActionPanel {
   }
 
   private buildSkillManagementExternalRevision(): string {
-    const parts = [String(this.getSkillSlotLimit())];
+    const parts = [
+      String(this.getSkillSlotLimit()),
+      this.skillManagementSortField,
+      this.skillManagementSortDirection,
+      [...this.skillManagementFilterToggles].sort().join(','),
+    ];
+    const includeMeleeRanged = this.skillManagementFilterToggles.has('melee') || this.skillManagementFilterToggles.has('ranged');
+    const includeDamageKind = this.skillManagementFilterToggles.has('physical') || this.skillManagementFilterToggles.has('spell');
+    const includeTargetKind = this.skillManagementFilterToggles.has('single') || this.skillManagementFilterToggles.has('aoe');
+    const needsMetrics = includeMeleeRanged || includeDamageKind || includeTargetKind || this.skillManagementSortField !== 'custom';
     for (const action of this.getSkillActions(this.currentActions)) {
-      const metrics = this.buildSkillManagementMetrics(action);
       parts.push(action.id);
       parts.push(action.name);
       parts.push(action.desc);
       parts.push(typeof action.range === 'number' ? String(action.range) : '');
       parts.push(action.autoBattleEnabled !== false ? '1' : '0');
-      parts.push(String(action.autoBattleOrder ?? ''));
       parts.push(action.skillEnabled !== false ? '1' : '0');
-      parts.push(String(metrics.actualDamage ?? ''));
-      parts.push(String(metrics.actualQiCost));
-      parts.push(String(metrics.range));
-      parts.push(String(metrics.targetCount));
-      parts.push(String(metrics.cooldown));
+      if (!needsMetrics) {
+        continue;
+      }
+      const metrics = this.buildSkillManagementMetrics(action);
+      if (includeMeleeRanged) {
+        parts.push(metrics.isMelee ? '1' : '0');
+        parts.push(metrics.isRanged ? '1' : '0');
+      }
+      if (includeDamageKind) {
+        parts.push(metrics.hasPhysicalDamage ? '1' : '0');
+        parts.push(metrics.hasSpellDamage ? '1' : '0');
+      }
+      if (includeTargetKind) {
+        parts.push(metrics.isSingleTarget ? '1' : '0');
+        parts.push(metrics.isAreaTarget ? '1' : '0');
+      }
+      switch (this.skillManagementSortField) {
+        case 'actualDamage':
+          parts.push(String(metrics.actualDamage ?? ''));
+          break;
+        case 'qiCost':
+          parts.push(String(metrics.actualQiCost));
+          break;
+        case 'range':
+          parts.push(String(metrics.range));
+          break;
+        case 'targetCount':
+          parts.push(String(metrics.targetCount));
+          break;
+        case 'cooldown':
+          parts.push(String(metrics.cooldown));
+          break;
+        default:
+          break;
+      }
     }
     return parts.join('\u0001');
+  }
+
+  private captureSkillManagementListScroll(): void {
+    const list = document.querySelector<HTMLElement>('.skill-manage-list');
+    if (!list) {
+      return;
+    }
+    this.skillManagementListScrollTop = list.scrollTop;
+  }
+
+  private restoreSkillManagementListScroll(root: HTMLElement): void {
+    const list = root.querySelector<HTMLElement>('.skill-manage-list');
+    if (!list) {
+      return;
+    }
+    list.scrollTop = this.skillManagementListScrollTop;
   }
 
   private areAutoBattleSkillConfigsEqual(
@@ -1337,6 +1392,7 @@ export class ActionPanel {
 
   private openSkillManagement(): void {
     this.skillManagementTab = this.activeSkillTab;
+    this.skillManagementListScrollTop = 0;
     this.syncSkillManagementDraft();
     this.renderSkillManagementModal();
   }
@@ -1415,6 +1471,9 @@ export class ActionPanel {
   }
 
   private renderSkillManagementModal(): void {
+    if (detailModalHost.isOpenFor(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER)) {
+      this.captureSkillManagementListScroll();
+    }
     const previewActions = this.getSkillManagementPreviewActions();
     const skillEntries = this.getSkillManagementEntries(previewActions);
     const filteredEntries = this.getFilteredSkillManagementEntries(skillEntries);
@@ -1524,6 +1583,7 @@ export class ActionPanel {
       onAfterRender: (body) => {
         this.bindSkillManagementEvents(body);
         this.bindTooltips(body);
+        this.restoreSkillManagementListScroll(body);
       },
     });
     this.skillManagementExternalRevision = this.buildSkillManagementExternalRevision();
@@ -1840,6 +1900,8 @@ export class ActionPanel {
       this.previewPlayer.autoBattleSkills = nextAutoBattleSkills;
     }
     this.skillManagementDraft = null;
+    this.skillManagementExternalRevision = null;
+    this.skillManagementListScrollTop = 0;
     this.bindingActionId = null;
     this.clearDragState();
     detailModalHost.close(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER);
@@ -1850,6 +1912,7 @@ export class ActionPanel {
   private discardSkillManagementDraft(): void {
     this.skillManagementDraft = null;
     this.skillManagementExternalRevision = null;
+    this.skillManagementListScrollTop = 0;
     this.bindingActionId = null;
     this.clearDragState();
   }
