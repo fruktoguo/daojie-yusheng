@@ -406,6 +406,35 @@
       padding: 0;
       border-radius: 10px;
     }
+    .hud-link-btn--labeled {
+      width: auto;
+      min-width: 88px;
+      height: 40px;
+      padding: 0 14px;
+      border-radius: 12px;
+    }
+    .hud-link-btn--ifdian {
+      width: auto;
+      min-width: 96px;
+      height: 40px;
+      padding: 0 16px;
+      border-radius: 12px;
+      background:
+        linear-gradient(180deg, rgba(255, 120, 120, 0.2), rgba(255, 94, 98, 0.12)),
+        var(--surface-muted-strong);
+      border-color: rgba(183, 62, 62, 0.3);
+      color: #a33131;
+      font-size: var(--font-size-role-body-14);
+      font-weight: var(--font-weight-semibold);
+      letter-spacing: 0.04em;
+    }
+    .hud-link-btn--ifdian:hover {
+      border-color: rgba(183, 62, 62, 0.45);
+      background:
+        linear-gradient(180deg, rgba(255, 120, 120, 0.28), rgba(255, 94, 98, 0.18)),
+        var(--surface-hover);
+      color: #8f2626;
+    }
     .hud-link-btn--tutorial {
       width: auto;
       min-width: 116px;
@@ -442,6 +471,11 @@
       width: 100%;
       height: 100%;
       fill: currentColor;
+    }
+    .hud-link-btn--labeled .hud-link-icon {
+      width: 16px;
+      height: 16px;
+      flex: 0 0 16px;
     }
     .hud-link-btn--qq .hud-link-icon {
       color: #12b7f5;

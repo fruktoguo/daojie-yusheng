@@ -79,29 +79,19 @@
       border-left: none; border-top: none;
     }
 
-    .login-title {
-      font-family: var(--font-role-title);
-      font-size: var(--font-size-role-title-52);
-      text-align: center;
-      color: var(--ink-black);
-      margin-bottom: 6px;
-      letter-spacing: 8px;
-    }
-
     .login-logo {
       width: min(168px, 46vw);
       display: block;
-      margin: 0 auto 16px;
+      margin: 0 auto 18px;
       filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.12));
     }
 
-    .login-subtitle {
-      font-family: var(--font-role-title);
-      font-size: var(--font-size-role-title-16);
-      text-align: center;
-      color: var(--ink-grey);
-      margin-bottom: 30px;
-      letter-spacing: 4px;
+    .login-link-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 24px;
     }
 
     .login-mode-tabs {

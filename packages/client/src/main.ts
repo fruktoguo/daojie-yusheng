@@ -152,7 +152,7 @@ const pingUnitEl = document.getElementById('map-ping-unit');
 const pingHundredsEl = pingValueEl?.querySelector<HTMLElement>('[data-ping-part="hundreds"]');
 const pingTensEl = pingValueEl?.querySelector<HTMLElement>('[data-ping-part="tens"]');
 const pingOnesEl = pingValueEl?.querySelector<HTMLElement>('[data-ping-part="ones"]');
-const joinQqGroupBtn = document.getElementById('hud-join-qq-group') as HTMLAnchorElement | null;
+const joinQqGroupBtns = document.querySelectorAll<HTMLAnchorElement>('[data-qq-group-link="true"]');
 
 const QQ_GROUP_NUMBER = '940886387';
 const QQ_GROUP_MOBILE_DEEP_LINK = `mqqapi://card/show_pslcard?src_type=internal&version=1&uin=${QQ_GROUP_NUMBER}&card_type=group&source=qrcode`;
@@ -1962,9 +1962,11 @@ zoomResetBtn?.addEventListener('click', () => {
   const zoom = applyZoomChange(2);
   showToast(`缩放已重置为 ${formatZoom(zoom)}x`);
 });
-joinQqGroupBtn?.addEventListener('click', (event) => {
-  event.preventDefault();
-  void handleQqGroupLinkClick();
+joinQqGroupBtns.forEach((button) => {
+  button.addEventListener('click', (event) => {
+    event.preventDefault();
+    void handleQqGroupLinkClick();
+  });
 });
 
 document.getElementById('hud-toggle-auto-battle')?.addEventListener('click', () => {
