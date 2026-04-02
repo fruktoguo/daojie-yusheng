@@ -9,6 +9,7 @@ RUN pnpm install --frozen-lockfile || pnpm install
 COPY packages/shared packages/shared
 COPY packages/client packages/client
 COPY packages/server/data packages/server/data
+COPY scripts scripts
 RUN pnpm --filter @mud/client build
 
 FROM nginx:alpine
