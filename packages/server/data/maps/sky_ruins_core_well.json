@@ -19,7 +19,7 @@
     "#空空霞霞....霞霞云云....#",
     "#霞霞::::....::::霞霞#",
     "#..霞霞==..==霞霞..oo#",
-    "#P===::::霞霞::::..#",
+    "#P===::::霞霞::::P.#",
     "#霞霞霞霞....oo..霞霞..#",
     "##################"
   ],
@@ -30,6 +30,18 @@
       "targetMapId": "sky_ruins",
       "targetX": 24,
       "targetY": 5,
+      "kind": "portal",
+      "trigger": "manual",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false
+    },
+    {
+      "x": 15,
+      "y": 9,
+      "targetMapId": "qizhen_crossing",
+      "targetX": 29,
+      "targetY": 14,
       "kind": "portal",
       "trigger": "manual",
       "routeDomain": "inherit",
