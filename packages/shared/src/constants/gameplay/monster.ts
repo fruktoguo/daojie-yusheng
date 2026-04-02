@@ -1,3 +1,4 @@
+import type { PartialNumericStats } from '../../numeric';
 import type { NumericStatPercentages, MonsterTier, TechniqueGrade } from '../../types';
 
 /**
@@ -71,6 +72,21 @@ export const MONSTER_GRADE_STAT_PERCENTS: Record<TechniqueGrade, NumericStatPerc
 
 /** 所有妖兽共享的全局数值调节层，用于压制优先属性带来的统一超模收益。 */
 export const MONSTER_GLOBAL_STAT_PERCENTS: NumericStatPercentages = createGlobalMonsterPercentProfile();
+
+/** 所有怪物共享的每级基础线性成长（按等级差叠加，1 级不额外加成）。 */
+export const MONSTER_LEVEL_FLAT_GROWTH_STATS: PartialNumericStats = {
+  maxHp: 10,
+  maxQi: 6,
+  physAtk: 1,
+  spellAtk: 1,
+  physDef: 1,
+  spellDef: 1,
+  hit: 1,
+  dodge: 1,
+  crit: 1,
+  breakPower: 1,
+  resolvePower: 1,
+};
 
 /** 妖兽血脉层次倍率。 */
 export const MONSTER_TIER_STAT_PERCENTS: Record<MonsterTier, NumericStatPercentages> = {

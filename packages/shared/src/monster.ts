@@ -13,6 +13,7 @@ import {
   EQUIP_SLOTS,
   MONSTER_GLOBAL_STAT_PERCENTS,
   MONSTER_GRADE_STAT_PERCENTS,
+  MONSTER_LEVEL_FLAT_GROWTH_STATS,
   MONSTER_TIER_EXP_MULTIPLIERS,
   MONSTER_TIER_OVERLEVEL_EXP_REDUCTION_RATES,
   MONSTER_TIER_STAT_PERCENTS,
@@ -256,6 +257,25 @@ function applyMonsterEquipmentStats(
   }
 }
 
+function applyMonsterLevelFlatGrowth(target: NumericStats, level: number): NumericStats {
+  const levelDelta = Math.max(0, level - 1);
+  if (levelDelta === 0) {
+    return target;
+  }
+  target.maxHp += (MONSTER_LEVEL_FLAT_GROWTH_STATS.maxHp ?? 0) * levelDelta;
+  target.maxQi += (MONSTER_LEVEL_FLAT_GROWTH_STATS.maxQi ?? 0) * levelDelta;
+  target.physAtk += (MONSTER_LEVEL_FLAT_GROWTH_STATS.physAtk ?? 0) * levelDelta;
+  target.spellAtk += (MONSTER_LEVEL_FLAT_GROWTH_STATS.spellAtk ?? 0) * levelDelta;
+  target.physDef += (MONSTER_LEVEL_FLAT_GROWTH_STATS.physDef ?? 0) * levelDelta;
+  target.spellDef += (MONSTER_LEVEL_FLAT_GROWTH_STATS.spellDef ?? 0) * levelDelta;
+  target.hit += (MONSTER_LEVEL_FLAT_GROWTH_STATS.hit ?? 0) * levelDelta;
+  target.dodge += (MONSTER_LEVEL_FLAT_GROWTH_STATS.dodge ?? 0) * levelDelta;
+  target.crit += (MONSTER_LEVEL_FLAT_GROWTH_STATS.crit ?? 0) * levelDelta;
+  target.breakPower += (MONSTER_LEVEL_FLAT_GROWTH_STATS.breakPower ?? 0) * levelDelta;
+  target.resolvePower += (MONSTER_LEVEL_FLAT_GROWTH_STATS.resolvePower ?? 0) * levelDelta;
+  return target;
+}
+
 export function computeMonsterBaseNumericStatsFromAttrs(
   attrs?: Partial<Attributes>,
   equipment?: Partial<EquipmentSlots>,
@@ -294,7 +314,7 @@ export function applyMonsterLevelScaling(stats: NumericStats, level?: number): N
       scaled[key] = Math.max(0, Math.round(scaled[key] * linearMultiplier));
     }
   }
-  return scaled;
+  return applyMonsterLevelFlatGrowth(scaled, normalizedLevel);
 }
 
 export function applyNumericStatPercentages(stats: NumericStats, percents?: NumericStatPercentages): NumericStats {
