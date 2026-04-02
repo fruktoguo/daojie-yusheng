@@ -1,0 +1,131 @@
+{
+  "id": "verdant_vine_vale_06_heart_gate",
+  "name": "青萝谷·06心藤坳口",
+  "width": 32,
+  "height": 20,
+  "routeDomain": "system",
+  "terrainProfileId": "earth_stone_wild",
+  "spaceVisionMode": "isolated",
+  "description": "青萝谷最终段子图。心藤坳口的外圈已经被整株老藤盘成半封闭木环，内圈留着一块还能绕步的坳地，真正的压迫不在直线卡口，而在整块坳地都像长在同一条主根上。",
+  "dangerLevel": 4,
+  "recommendedRealm": "29级",
+  "tiles": [
+    "################################",
+    "#,,,,,,,,,,,TTTTTTTT,,,,,,,,,,,#",
+    "#,,,,,,,TTTT,,,,,,,,TTTT,,,,,,,#",
+    "#,,,TTTT,,:::======:::,TTTT,,,,#",
+    "#,,TT,,::===::TTTT::===::,TT,,,#",
+    "#,,T,::=::TTT,,TT,,TTT::=::T,,,#",
+    "#,,T,:=,TT,,,,,TT,,,,,TT,=:T,,,#",
+    "#,,TT:=,TT,:::====:::,TT,=:TT,,#",
+    "#====:=:TT,:=TTTTTT=:,TT:=:====#",
+    "#,,TP:=:TT,:=TTooTT=:,TT:=:PT,,#",
+    "#,,TP:=:TT,:=TTooTT=:,TT:=:PT,,#",
+    "#====:=:TT,:=TTTTTT=:,TT:=:====#",
+    "#,,TT:=,TT,:::====:::,TT,=:TT,,#",
+    "#,,T,:=,TT,,,,,TT,,,,,TT,=:T,,,#",
+    "#,,T,::=::TTT,,TT,,TTT::=::T,,,#",
+    "#,,TT,,::===::TTTT::===::,TT,,,#",
+    "#,,,TTTT,,:::======:::,TTTT,,,,#",
+    "#,,,,,,,TTTT,,,,,,,,TTTT,,,,,,,#",
+    "#,,,,,,,,,,,TTTTTTTT,,,,,,,,,,,#",
+    "################################"
+  ],
+  "portals": [
+    {
+      "x": 27,
+      "y": 9,
+      "targetMapId": "verdant_vine_vale_05_inner_hollow",
+      "targetX": 4,
+      "targetY": 9,
+      "kind": "portal",
+      "trigger": "manual",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false
+    },
+    {
+      "x": 4,
+      "y": 9,
+      "targetMapId": "guizang_vein_cavern",
+      "targetX": 58,
+      "targetY": 28,
+      "kind": "portal",
+      "trigger": "manual",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false
+    }
+  ],
+  "spawnPoint": {
+    "x": 27,
+    "y": 9
+  },
+  "time": {
+    "offsetTicks": 210,
+    "scale": 1,
+    "light": {
+      "base": 42,
+      "timeInfluence": 30
+    },
+    "palette": {
+      "dawn": {
+        "tint": "#d6e0bb",
+        "alpha": 0.08
+      },
+      "dusk": {
+        "tint": "#7ca06b",
+        "alpha": 0.12
+      },
+      "night": {
+        "tint": "#1d3327",
+        "alpha": 0.24
+      }
+    }
+  },
+  "auras": [],
+  "resources": [
+    {
+      "x": 24,
+      "y": 9,
+      "resourceKey": "aura.refined.wood",
+      "value": 16000
+    },
+    {
+      "x": 7,
+      "y": 9,
+      "resourceKey": "aura.refined.wood",
+      "value": 16000
+    },
+    {
+      "x": 25,
+      "y": 10,
+      "resourceKey": "aura.refined.wood",
+      "value": 16000
+    }
+  ],
+  "safeZones": [],
+  "landmarks": [],
+  "npcs": [],
+  "monsterSpawns": [
+    {
+      "id": "spawn_verdant_06_sprite_a",
+      "templateId": "m_verdant_marrow_sprite",
+      "x": 24,
+      "y": 13
+    },
+    {
+      "id": "spawn_verdant_06_mother",
+      "templateId": "m_verdant_vein_mother",
+      "x": 20,
+      "y": 9
+    },
+    {
+      "id": "spawn_verdant_06_sprite_b",
+      "templateId": "m_verdant_marrow_sprite",
+      "x": 19,
+      "y": 12
+    }
+  ],
+  "terrainRealmLv": 29
+}

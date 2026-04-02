@@ -1749,5 +1749,6 @@
       "maxAlive": 8,
       "respawnTicks": 15
     }
-  ]
+  ],
+  "terrainRealmLv": 1
 }

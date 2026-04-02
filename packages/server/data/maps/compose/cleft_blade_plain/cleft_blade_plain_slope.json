@@ -1,0 +1,192 @@
+{
+  "id": "cleft_blade_plain_slope",
+  "name": "裂锋原·碎兵坡",
+  "width": 28,
+  "height": 18,
+  "routeDomain": "system",
+  "terrainProfileId": "earth_stone_wild",
+  "spaceVisionMode": "isolated",
+  "description": "裂锋原第一段子图。碎兵坡看着开阔，实则整道缓坡都被旧战场残兵和碎甲坑切得支离，玩家只能顺着中间那条最硬的主路一路往里顶。",
+  "dangerLevel": 3,
+  "recommendedRealm": "练气一层-练气三层",
+  "tiles": [
+    "############################",
+    "#,,,,,,,,,,,,,,,,,,,,,,,,,,#",
+    "#,,崖崖崖崖崖崖崖崖崖崖崖崖崖崖,,,,,,,,,,#",
+    "#,,崖崖崖崖崖崖崖崖崖崖崖崖崖崖,,,崖崖崖崖崖,,#",
+    "#,,崖崖崖崖崖崖崖崖崖崖崖崖崖崖,,,崖崖崖崖崖,,#",
+    "#,,,,.,,刃刃,,oo,,,,,,,,,,,,,#",
+    "#,,,,,刃o,,刃o,,刃o,oo,,刃o,,,,#",
+    "#,,,,,,,刃,,,o,,,,,,刃刃,,.,,,#",
+    "#P==============.=.=====:=P#",
+    "#P==============.=.=====:=P#",
+    "#,,,,,,,刃,,,o,,,,,,刃刃,,.,,,#",
+    "#,,,,,刃o,,刃o,,刃o,oo,,刃o,,,,#",
+    "#,,,,.,,刃刃,,oo,,,,,,,,,,,,,#",
+    "#,,崖崖崖崖崖崖崖崖崖崖崖崖崖崖,,,崖崖崖崖崖,,#",
+    "#,,崖崖崖崖崖崖崖崖崖崖崖崖崖崖,,,崖崖崖崖崖,,#",
+    "#,,崖崖崖崖崖崖崖崖崖崖崖崖崖崖,,,,,,,,,,#",
+    "#,,,,,,,,,,,,,,,,,,,,,,,,,,#",
+    "############################"
+  ],
+  "portals": [
+    {
+      "x": 1,
+      "y": 8,
+      "targetMapId": "cleft_blade_plain_straightway",
+      "targetX": 27,
+      "targetY": 8,
+      "kind": "portal",
+      "trigger": "manual",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false
+    },
+    {
+      "x": 1,
+      "y": 9,
+      "targetMapId": "cleft_blade_plain_straightway",
+      "targetX": 27,
+      "targetY": 9,
+      "kind": "portal",
+      "trigger": "manual",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false
+    },
+    {
+      "x": 26,
+      "y": 8,
+      "targetMapId": "cleft_blade_plain_entry",
+      "targetX": 2,
+      "targetY": 7,
+      "kind": "portal",
+      "trigger": "manual",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false
+    },
+    {
+      "x": 26,
+      "y": 9,
+      "targetMapId": "cleft_blade_plain_entry",
+      "targetX": 2,
+      "targetY": 8,
+      "kind": "portal",
+      "trigger": "manual",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false
+    }
+  ],
+  "spawnPoint": {
+    "x": 25,
+    "y": 8
+  },
+  "time": {
+    "offsetTicks": 320,
+    "scale": 1,
+    "light": {
+      "base": 34,
+      "timeInfluence": 24
+    },
+    "palette": {
+      "dawn": {
+        "tint": "#d7cfbf",
+        "alpha": 0.05
+      },
+      "dusk": {
+        "tint": "#b08458",
+        "alpha": 0.1
+      },
+      "night": {
+        "tint": "#1f2433",
+        "alpha": 0.24
+      }
+    }
+  },
+  "auras": [
+    {
+      "x": 22,
+      "y": 8,
+      "value": 1
+    },
+    {
+      "x": 8,
+      "y": 8,
+      "value": 2
+    }
+  ],
+  "resources": [
+    {
+      "x": 22,
+      "y": 8,
+      "resourceKey": "aura.refined.metal",
+      "value": 4
+    },
+    {
+      "x": 16,
+      "y": 8,
+      "resourceKey": "aura.refined.metal",
+      "value": 4
+    },
+    {
+      "x": 12,
+      "y": 6,
+      "resourceKey": "aura.refined.metal",
+      "value": 4
+    },
+    {
+      "x": 8,
+      "y": 8,
+      "resourceKey": "aura.refined.metal",
+      "value": 5
+    },
+    {
+      "x": 8,
+      "y": 8,
+      "resourceKey": "aura.refined.earth",
+      "value": 1
+    },
+    {
+      "x": 6,
+      "y": 10,
+      "resourceKey": "aura.refined.earth",
+      "value": 1
+    }
+  ],
+  "safeZones": [],
+  "landmarks": [
+    {
+      "id": "lm_cleft_slope_main",
+      "name": "碎兵坡",
+      "x": 13,
+      "y": 8,
+      "desc": "坡面不陡，但残兵碎甲把整片地切成一块块钝坑，真正能稳步推进的只有中间这条硬路。"
+    },
+    {
+      "id": "lm_cleft_slope_upper_pit",
+      "name": "裂盾坑",
+      "x": 10,
+      "y": 6,
+      "desc": "上坡这一带埋着最多裂盾和断矛，金砂一吹，碎锋会像草叶一样乱卷。"
+    },
+    {
+      "id": "lm_cleft_slope_lower_pit",
+      "name": "断枪坑",
+      "x": 10,
+      "y": 11,
+      "desc": "下坡坑里压着一层层断枪残杆，脚下一陷，人就很容易被怪从正面顶住。"
+    },
+    {
+      "id": "lm_cleft_slope_next_mouth",
+      "name": "金砂道口",
+      "x": 2,
+      "y": 8,
+      "desc": "再往前就是更直、更硬的金砂主道，碎兵坡只是让人先学会怎么顶着金行压力往前走。"
+    }
+  ],
+  "npcs": [],
+  "monsterSpawns": [],
+  "terrainRealmLv": 19
+}

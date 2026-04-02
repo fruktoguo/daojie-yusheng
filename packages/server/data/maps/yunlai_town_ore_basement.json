@@ -256,5 +256,6 @@
   ],
   "npcs": [],
   "monsterSpawns": [],
-  "terrainProfileId": "mystic_black_iron"
+  "terrainProfileId": "mystic_black_iron",
+  "terrainRealmLv": 1
 }

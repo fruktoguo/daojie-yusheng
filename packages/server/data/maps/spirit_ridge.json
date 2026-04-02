@@ -250,5 +250,6 @@
       "y": 10,
       "maxAlive": 4
     }
-  ]
+  ],
+  "terrainRealmLv": 12
 }

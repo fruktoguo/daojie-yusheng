@@ -2,13 +2,18 @@
  * 地图与可破坏地形常量。
  */
 
-import { TileType, type TechniqueGrade, type TerrainDurabilityMaterial } from '@mud/shared';
+import { TileType, type TerrainDurabilityMaterial } from '@mud/shared';
 
 /** 地形耐久配置。 */
 export type TerrainDurabilityProfile = {
-  grade: TechniqueGrade;
   material: TerrainDurabilityMaterial;
+  multiplier: number;
 };
+
+const durability = (material: TerrainDurabilityMaterial, multiplier: number): TerrainDurabilityProfile => ({
+  material,
+  multiplier,
+});
 
 /** 地形耐久预设 ID。 */
 export type TerrainDurabilityProfileId =
@@ -22,93 +27,96 @@ export type TerrainDurabilityProfileId =
 
 /** 各类地块的默认耐久材质。 */
 export const DEFAULT_TERRAIN_DURABILITY_BY_TILE: Partial<Record<TileType, TerrainDurabilityProfile>> = {
-  [TileType.Wall]: { grade: 'mortal', material: 'stone' },
-  [TileType.Cloud]: { grade: 'mortal', material: 'vine' },
-  [TileType.Tree]: { grade: 'mortal', material: 'wood' },
-  [TileType.Bamboo]: { grade: 'mortal', material: 'bamboo' },
-  [TileType.Cliff]: { grade: 'mortal', material: 'stone' },
-  [TileType.Stone]: { grade: 'mortal', material: 'stone' },
-  [TileType.SpiritOre]: { grade: 'mortal', material: 'stone' },
-  [TileType.BlackIronOre]: { grade: 'mortal', material: 'blackIron' },
-  [TileType.Door]: { grade: 'mortal', material: 'ironwood' },
-  [TileType.Window]: { grade: 'mortal', material: 'wood' },
+  [TileType.Wall]: durability('stone', 50),
+  [TileType.Cloud]: durability('vine', 3),
+  [TileType.Tree]: durability('wood', 10),
+  [TileType.Bamboo]: durability('bamboo', 8),
+  [TileType.Cliff]: durability('stone', 50),
+  [TileType.Stone]: durability('stone', 50),
+  [TileType.SpiritOre]: durability('spiritOre', 10000),
+  [TileType.BlackIronOre]: durability('blackIronOre', 2000),
+  [TileType.BrokenSwordHeap]: durability('brokenSwordHeap', 2),
+  [TileType.Door]: durability('ironwood', 14),
+  [TileType.Window]: durability('wood', 10),
+  [TileType.HouseEave]: durability('ironwood', 14),
+  [TileType.HouseCorner]: durability('ironwood', 14),
+  [TileType.ScreenWall]: durability('stone', 50),
+  [TileType.Veranda]: durability('wood', 10),
 };
 
 /** 不同地形主题的耐久预设。 */
 export const TERRAIN_DURABILITY_PROFILES: Record<TerrainDurabilityProfileId, Partial<Record<TileType, TerrainDurabilityProfile>>> = {
   mortal_settlement: {
-    [TileType.Wall]: { grade: 'mortal', material: 'stone' },
-    [TileType.Tree]: { grade: 'mortal', material: 'wood' },
-    [TileType.Cliff]: { grade: 'mortal', material: 'stone' },
-    [TileType.Stone]: { grade: 'mortal', material: 'stone' },
-    [TileType.SpiritOre]: { grade: 'mortal', material: 'stone' },
-    [TileType.BlackIronOre]: { grade: 'mortal', material: 'blackIron' },
-    [TileType.Door]: { grade: 'mortal', material: 'ironwood' },
-    [TileType.Window]: { grade: 'mortal', material: 'wood' },
+    [TileType.Wall]: durability('stone', 50),
+    [TileType.Tree]: durability('wood', 10),
+    [TileType.Cliff]: durability('stone', 50),
+    [TileType.Stone]: durability('stone', 50),
+    [TileType.SpiritOre]: durability('spiritOre', 10000),
+    [TileType.BlackIronOre]: durability('blackIronOre', 2000),
+    [TileType.Door]: durability('ironwood', 14),
+    [TileType.Window]: durability('wood', 10),
+    [TileType.HouseEave]: durability('ironwood', 14),
+    [TileType.HouseCorner]: durability('ironwood', 14),
+    [TileType.ScreenWall]: durability('stone', 50),
+    [TileType.Veranda]: durability('wood', 10),
   },
   yellow_frontier: {
-    [TileType.Wall]: { grade: 'yellow', material: 'stone' },
-    [TileType.Tree]: { grade: 'mortal', material: 'wood' },
-    [TileType.Bamboo]: { grade: 'mortal', material: 'bamboo' },
-    [TileType.Cliff]: { grade: 'yellow', material: 'stone' },
-    [TileType.Stone]: { grade: 'yellow', material: 'stone' },
-    [TileType.SpiritOre]: { grade: 'yellow', material: 'stone' },
-    [TileType.BlackIronOre]: { grade: 'yellow', material: 'blackIron' },
+    [TileType.Wall]: durability('stone', 50),
+    [TileType.Tree]: durability('wood', 10),
+    [TileType.Bamboo]: durability('bamboo', 8),
+    [TileType.Cliff]: durability('stone', 50),
+    [TileType.Stone]: durability('stone', 50),
+    [TileType.SpiritOre]: durability('spiritOre', 10000),
+    [TileType.BlackIronOre]: durability('blackIronOre', 2000),
   },
   yellow_bamboo: {
-    [TileType.Wall]: { grade: 'yellow', material: 'stone' },
-    [TileType.Tree]: { grade: 'yellow', material: 'bamboo' },
-    [TileType.Bamboo]: { grade: 'yellow', material: 'bamboo' },
-    [TileType.Cliff]: { grade: 'yellow', material: 'stone' },
-    [TileType.Stone]: { grade: 'yellow', material: 'stone' },
-    [TileType.SpiritOre]: { grade: 'yellow', material: 'stone' },
-    [TileType.BlackIronOre]: { grade: 'yellow', material: 'blackIron' },
-    [TileType.Door]: { grade: 'mortal', material: 'wood' },
+    [TileType.Wall]: durability('stone', 50),
+    [TileType.Tree]: durability('bamboo', 8),
+    [TileType.Bamboo]: durability('bamboo', 8),
+    [TileType.Cliff]: durability('stone', 50),
+    [TileType.Stone]: durability('stone', 50),
+    [TileType.SpiritOre]: durability('spiritOre', 10000),
+    [TileType.BlackIronOre]: durability('blackIronOre', 2000),
+    [TileType.Door]: durability('wood', 10),
   },
   mystic_black_iron: {
-    [TileType.Wall]: { grade: 'mystic', material: 'blackIron' },
-    [TileType.Cliff]: { grade: 'mystic', material: 'blackIron' },
-    [TileType.Stone]: { grade: 'mystic', material: 'blackIron' },
-    [TileType.SpiritOre]: { grade: 'mystic', material: 'blackIron' },
-    [TileType.BlackIronOre]: { grade: 'mystic', material: 'blackIron' },
-    [TileType.Door]: { grade: 'yellow', material: 'ironwood' },
+    [TileType.Wall]: durability('blackIron', 120),
+    [TileType.Cliff]: durability('blackIron', 120),
+    [TileType.Stone]: durability('blackIron', 120),
+    [TileType.SpiritOre]: durability('spiritOre', 10000),
+    [TileType.BlackIronOre]: durability('blackIronOre', 2000),
+    [TileType.Door]: durability('ironwood', 14),
   },
   mystic_rune_ruins: {
-    [TileType.Wall]: { grade: 'mystic', material: 'runeStone' },
-    [TileType.Tree]: { grade: 'yellow', material: 'spiritWood' },
-    [TileType.Bamboo]: { grade: 'yellow', material: 'spiritWood' },
-    [TileType.Cliff]: { grade: 'mystic', material: 'runeStone' },
-    [TileType.Stone]: { grade: 'mystic', material: 'runeStone' },
-    [TileType.SpiritOre]: { grade: 'mystic', material: 'runeStone' },
-    [TileType.BlackIronOre]: { grade: 'mystic', material: 'blackIron' },
-    [TileType.Door]: { grade: 'yellow', material: 'ironwood' },
+    [TileType.Wall]: durability('runeStone', 70),
+    [TileType.Tree]: durability('spiritWood', 18),
+    [TileType.Bamboo]: durability('spiritWood', 18),
+    [TileType.Cliff]: durability('runeStone', 70),
+    [TileType.Stone]: durability('runeStone', 70),
+    [TileType.SpiritOre]: durability('spiritOre', 10000),
+    [TileType.BlackIronOre]: durability('blackIronOre', 2000),
+    [TileType.Door]: durability('ironwood', 14),
   },
   earth_stone_wild: {
-    [TileType.Wall]: { grade: 'earth', material: 'stone' },
-    [TileType.Tree]: { grade: 'mystic', material: 'spiritWood' },
-    [TileType.Bamboo]: { grade: 'mystic', material: 'spiritWood' },
-    [TileType.Cliff]: { grade: 'earth', material: 'stone' },
-    [TileType.Stone]: { grade: 'earth', material: 'stone' },
-    [TileType.SpiritOre]: { grade: 'earth', material: 'stone' },
-    [TileType.BlackIronOre]: { grade: 'earth', material: 'blackIron' },
+    [TileType.Wall]: durability('stone', 50),
+    [TileType.Tree]: durability('spiritWood', 18),
+    [TileType.Bamboo]: durability('spiritWood', 18),
+    [TileType.Cliff]: durability('stone', 50),
+    [TileType.Stone]: durability('stone', 50),
+    [TileType.SpiritOre]: durability('spiritOre', 10000),
+    [TileType.BlackIronOre]: durability('blackIronOre', 2000),
   },
   earth_sky_metal: {
-    [TileType.Wall]: { grade: 'earth', material: 'skyMetal' },
-    [TileType.Cloud]: { grade: 'mortal', material: 'vine' },
-    [TileType.Tree]: { grade: 'mystic', material: 'spiritWood' },
-    [TileType.Bamboo]: { grade: 'mystic', material: 'spiritWood' },
-    [TileType.Cliff]: { grade: 'earth', material: 'skyMetal' },
-    [TileType.Stone]: { grade: 'earth', material: 'skyMetal' },
-    [TileType.SpiritOre]: { grade: 'earth', material: 'skyMetal' },
-    [TileType.BlackIronOre]: { grade: 'earth', material: 'blackIron' },
-    [TileType.Door]: { grade: 'mystic', material: 'metal' },
+    [TileType.Wall]: durability('skyMetal', 160),
+    [TileType.Cloud]: durability('vine', 3),
+    [TileType.Tree]: durability('spiritWood', 18),
+    [TileType.Bamboo]: durability('spiritWood', 18),
+    [TileType.Cliff]: durability('skyMetal', 160),
+    [TileType.Stone]: durability('skyMetal', 160),
+    [TileType.SpiritOre]: durability('spiritOre', 10000),
+    [TileType.BlackIronOre]: durability('blackIronOre', 2000),
+    [TileType.Door]: durability('metal', 100),
   },
-};
-
-/** 特殊地形的耐久倍率。 */
-export const SPECIAL_TILE_DURABILITY_MULTIPLIERS: Partial<Record<TileType, number>> = {
-  [TileType.SpiritOre]: 1000,
-  [TileType.BlackIronOre]: 1000,
 };
 
 /** 特殊地形的恢复速度倍率，越高表示复原越快。 */

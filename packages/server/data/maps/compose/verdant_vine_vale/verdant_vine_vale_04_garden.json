@@ -1,0 +1,143 @@
+{
+  "id": "verdant_vine_vale_04_garden",
+  "name": "青萝谷·04噬灵妖圃",
+  "width": 32,
+  "height": 20,
+  "routeDomain": "system",
+  "terrainProfileId": "earth_stone_wild",
+  "spaceVisionMode": "isolated",
+  "description": "青萝谷第三段子图。噬灵妖圃不是一整片平圃，而是被藤墙、泥水边和妖化药畦切成一块块小圃，路能走，但走到哪都像踩进别人家的地盘，资源区和危险区几乎贴在一起。",
+  "dangerLevel": 4,
+  "recommendedRealm": "25-27级",
+  "tiles": [
+    "################################",
+    "#,,,,,,,,TTTTTT,,,,TTTTTT,,,,,,#",
+    "#,,TTTTT,::===::,,::===::,TTT,,#",
+    "#,,T,,,T,:..T..:,,,:..T..:,T,,,#",
+    "#,,T,TTT,:..T..:TT:..T..P,TT,,,#",
+    "#,,T,;%;,::===::TT::===:P,;%;T,#",
+    "#,,TT;%;TT,,,,,,::,,,,,,TT;%TT,#",
+    "#,,,,:..:TTT,;;;;::;;;,TTT:..::#",
+    "#===::===::T,;%%;::;%%;,:===:==#",
+    "#,,,P..T..:T,;;;;TT;;;;,:T.P,,,#",
+    "#,,,P..T..:TTTTT::TTTTT,:T.P,,,#",
+    "#,,,:===::,,,,,,::,,,,,::===,,,#",
+    "#,,TT;%TT,TTT,;;;;;;,TTT,TT,,,,#",
+    "#,,T,;%;,::T,;%%%%;,T::,;%;T,,,#",
+    "#,,T,TTT,:..,;;;;;;,..:,TTT,,,,#",
+    "#,,T,,,T,:..TT::TT..:,T,,,T,,,,#",
+    "#,,TTTTT,::===::===::,TTTTT,,,,#",
+    "#,,,,,,,,TTTT,,,,TTTT,,,,,,,,,,#",
+    "#,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,#",
+    "################################"
+  ],
+  "portals": [
+    {
+      "x": 27,
+      "y": 9,
+      "targetMapId": "verdant_vine_vale_03_bridge",
+      "targetX": 4,
+      "targetY": 9,
+      "kind": "portal",
+      "trigger": "manual",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false
+    },
+    {
+      "x": 4,
+      "y": 9,
+      "targetMapId": "verdant_vine_vale_05_inner_hollow",
+      "targetX": 27,
+      "targetY": 9,
+      "kind": "portal",
+      "trigger": "manual",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false
+    },
+    {
+      "x": 24,
+      "y": 4,
+      "targetMapId": "verdant_vine_vale_02_slope",
+      "targetX": 14,
+      "targetY": 7,
+      "kind": "portal",
+      "trigger": "manual",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false
+    }
+  ],
+  "spawnPoint": {
+    "x": 27,
+    "y": 9
+  },
+  "time": {
+    "offsetTicks": 210,
+    "scale": 1,
+    "light": {
+      "base": 42,
+      "timeInfluence": 30
+    },
+    "palette": {
+      "dawn": {
+        "tint": "#d6e0bb",
+        "alpha": 0.08
+      },
+      "dusk": {
+        "tint": "#7ca06b",
+        "alpha": 0.12
+      },
+      "night": {
+        "tint": "#1d3327",
+        "alpha": 0.24
+      }
+    }
+  },
+  "auras": [],
+  "resources": [
+    {
+      "x": 23,
+      "y": 10,
+      "resourceKey": "aura.refined.wood",
+      "value": 8000
+    },
+    {
+      "x": 16,
+      "y": 8,
+      "resourceKey": "aura.refined.wood",
+      "value": 16000
+    },
+    {
+      "x": 10,
+      "y": 6,
+      "resourceKey": "aura.refined.wood",
+      "value": 8000
+    }
+  ],
+  "safeZones": [],
+  "landmarks": [],
+  "npcs": [],
+  "monsterSpawns": [
+    {
+      "id": "spawn_verdant_04_flower_a",
+      "templateId": "m_verdant_siphon_flower",
+      "x": 28,
+      "y": 9
+    },
+    {
+      "id": "spawn_verdant_04_flower_b",
+      "templateId": "m_verdant_siphon_flower",
+      "x": 15,
+      "y": 9
+    },
+    {
+      "id": "spawn_verdant_04_guard_a",
+      "templateId": "m_verdant_wither_guard",
+      "x": 8,
+      "y": 7
+    }
+  ],
+  "terrainRealmLv": 25
+}

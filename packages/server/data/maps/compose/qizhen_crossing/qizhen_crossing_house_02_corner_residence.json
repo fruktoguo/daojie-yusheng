@@ -59,5 +59,6 @@
   "safeZones": [],
   "landmarks": [],
   "npcs": [],
-  "monsterSpawns": []
+  "monsterSpawns": [],
+  "terrainRealmLv": 19
 }

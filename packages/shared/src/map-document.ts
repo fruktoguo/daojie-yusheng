@@ -378,6 +378,9 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
     terrainProfileId: typeof (source as { terrainProfileId?: unknown }).terrainProfileId === 'string'
       ? (source as { terrainProfileId: string }).terrainProfileId
       : undefined,
+    terrainRealmLv: Number.isFinite((source as { terrainRealmLv?: unknown }).terrainRealmLv)
+      ? Math.max(1, Math.floor(Number((source as { terrainRealmLv?: number }).terrainRealmLv)))
+      : undefined,
     parentMapId: typeof source.parentMapId === 'string' ? source.parentMapId : undefined,
     parentOriginX: Number.isInteger(source.parentOriginX) ? Number(source.parentOriginX) : undefined,
     parentOriginY: Number.isInteger(source.parentOriginY) ? Number(source.parentOriginY) : undefined,
@@ -897,6 +900,7 @@ export function buildEditableMapSummary(document: GmMapDocument): GmMapSummary {
     width: document.width,
     height: document.height,
     description: document.description,
+    terrainRealmLv: document.terrainRealmLv,
     dangerLevel: document.dangerLevel,
     recommendedRealm: document.recommendedRealm,
     portalCount: document.portals.length,

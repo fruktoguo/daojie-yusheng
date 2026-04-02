@@ -95,7 +95,6 @@ import { resolveRealmStageTargetLabel } from './quest-display';
 import {
   DEFAULT_TERRAIN_DURABILITY_BY_TILE,
   LEGACY_MAP_TERRAIN_PROFILE_IDS,
-  SPECIAL_TILE_DURABILITY_MULTIPLIERS,
   SPECIAL_TILE_RESTORE_SPEED_MULTIPLIERS,
   TERRAIN_DURABILITY_PROFILES,
   TerrainDurabilityProfile,
@@ -1574,9 +1573,8 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     if (!profile) {
       return 0;
     }
-    const baseDurability = calculateTerrainDurability(profile.grade, profile.material);
-    const multiplier = SPECIAL_TILE_DURABILITY_MULTIPLIERS[type] ?? 1;
-    return Math.max(1, Math.round(baseDurability * multiplier));
+    const terrainRealmLv = this.resolveTerrainRealmLvFromDocument(document);
+    return calculateTerrainDurability(terrainRealmLv, profile.multiplier);
   }
 
   private hasBlockingEntityAt(mapId: string, x: number, y: number): boolean {
@@ -4096,10 +4094,12 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     const source = raw as {
       monsterSpawns?: unknown[];
       terrainProfileId?: unknown;
+      terrainRealmLv?: unknown;
     };
     return {
       ...source,
       terrainProfileId: typeof source.terrainProfileId === 'string' ? source.terrainProfileId : undefined,
+      terrainRealmLv: Number.isFinite(source.terrainRealmLv) ? Math.max(1, Math.floor(Number(source.terrainRealmLv))) : undefined,
       monsterSpawns: Array.isArray(source.monsterSpawns)
         ? source.monsterSpawns.map((spawn) => this.hydrateMonsterSpawnRecord(spawn))
         : [],
@@ -4396,15 +4396,31 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     if (!profile) {
       return 0;
     }
-    const baseDurability = calculateTerrainDurability(profile.grade, profile.material);
-    const multiplier = SPECIAL_TILE_DURABILITY_MULTIPLIERS[type] ?? 1;
-    return Math.max(1, Math.round(baseDurability * multiplier));
+    const terrainRealmLv = this.resolveTerrainRealmLv(mapId);
+    return calculateTerrainDurability(terrainRealmLv, profile.multiplier);
   }
 
   private resolveTerrainProfileId(mapId: string): string {
     return this.maps.get(mapId)?.source.terrainProfileId
       ?? LEGACY_MAP_TERRAIN_PROFILE_IDS[mapId]
       ?? mapId;
+  }
+
+  private resolveTerrainRealmLv(mapId: string): number {
+    return this.resolveTerrainRealmLvFromDocument(this.maps.get(mapId)?.source);
+  }
+
+  private resolveTerrainRealmLvFromDocument(document: Pick<GmMapDocument, 'terrainRealmLv' | 'dangerLevel'> | undefined): number {
+    if (!document) {
+      return 1;
+    }
+    if (Number.isFinite(document.terrainRealmLv)) {
+      return Math.max(1, Math.floor(Number(document.terrainRealmLv)));
+    }
+    if (Number.isFinite(document.dangerLevel)) {
+      return Math.max(1, Math.floor(Number(document.dangerLevel)));
+    }
+    return 1;
   }
 
   private resolveTerrainDurabilityProfile(profileId: string, type: TileType): TerrainDurabilityProfile | undefined {

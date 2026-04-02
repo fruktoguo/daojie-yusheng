@@ -275,5 +275,6 @@
   ],
   "npcs": [],
   "monsterSpawns": [],
-  "terrainProfileId": "mortal_settlement"
+  "terrainProfileId": "mortal_settlement",
+  "terrainRealmLv": 1
 }

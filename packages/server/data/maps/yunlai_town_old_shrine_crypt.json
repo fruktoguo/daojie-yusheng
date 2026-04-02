@@ -251,5 +251,6 @@
     }
   ],
   "npcs": [],
-  "monsterSpawns": []
+  "monsterSpawns": [],
+  "terrainRealmLv": 1
 }

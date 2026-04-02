@@ -1367,6 +1367,7 @@ export interface GmMapLandmarkRecord {
   x: number;
   y: number;
   desc?: string;
+  resourceNodeId?: string;
   container?: GmMapContainerRecord;
 }
 
@@ -1497,6 +1498,7 @@ export interface GmMapDocument {
   height: number;
   routeDomain?: MapRouteDomain;
   terrainProfileId?: string;
+  terrainRealmLv?: number;
   parentMapId?: string;
   parentOriginX?: number;
   parentOriginY?: number;
