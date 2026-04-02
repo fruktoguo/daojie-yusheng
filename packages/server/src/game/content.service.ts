@@ -1545,6 +1545,24 @@ export class ContentService implements OnModuleInit {
     return this.techniques.get(techniqueId);
   }
 
+  getItemSortLevel(item: Pick<ItemStack, 'itemId' | 'level'>): number {
+    const template = this.items.get(item.itemId);
+    if (template?.learnTechniqueId) {
+      const technique = this.getTechnique(template.learnTechniqueId);
+      const techniqueRealmLv = technique?.realmLv;
+      if (Number.isFinite(techniqueRealmLv)) {
+        return Math.max(1, Math.floor(Number(techniqueRealmLv)));
+      }
+    }
+    if (Number.isFinite(item.level)) {
+      return Math.max(1, Math.floor(Number(item.level)));
+    }
+    if (!template) {
+      return 1;
+    }
+    return this.getEffectiveItemLevel(template);
+  }
+
   getRealmLevelsConfig(): RealmLevelsConfig | null {
     return this.realmLevelsConfig;
   }

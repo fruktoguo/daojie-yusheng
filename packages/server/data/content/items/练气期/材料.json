@@ -1,0 +1,58 @@
+[
+  {
+    "itemId": "sword_pellet",
+    "name": "剑丸",
+    "type": "material",
+    "level": 20,
+    "desc": "断剑堆中凝出的锋气丸珠，是金行低阶炼材。"
+  },
+  {
+    "itemId": "fivephase_dust",
+    "name": "五炁尘",
+    "type": "material",
+    "level": 29,
+    "desc": "归藏脉窟里五行乱炁磨出来的细尘，握在掌心都会互相顶撞。"
+  },
+  {
+    "itemId": "guizang_vein_core",
+    "name": "归藏脉核",
+    "type": "material",
+    "level": 30,
+    "desc": "混脉压到极处后凝出的硬核碎块，是练气后段少见的合脉炼材。"
+  },
+  {
+    "itemId": "cleft_iron_fragment",
+    "name": "残兵铁片",
+    "type": "material",
+    "level": 20,
+    "desc": "裂锋原旧兵器在风砂里磨剩下的铁片，边缘依旧带着细碎锋意。"
+  },
+  {
+    "itemId": "blade_pattern_crystal",
+    "name": "锋纹残晶",
+    "type": "material",
+    "level": 26,
+    "desc": "断兵锋气在碑纹与砂金间凝成的碎晶，常用于金行器胚重铸。"
+  },
+  {
+    "itemId": "earthbearing_stone",
+    "name": "承脉石",
+    "type": "material",
+    "level": 20,
+    "desc": "厚脉岭地气压出来的承重石，拿在手里就觉得气机往下沉。"
+  },
+  {
+    "itemId": "thickrock_core",
+    "name": "厚岩核",
+    "type": "material",
+    "level": 20,
+    "desc": "厚石里最密最实的一截岩心，炼体和护甲都用得上。"
+  },
+  {
+    "itemId": "stonegall_core",
+    "name": "镇岳石胆",
+    "type": "material",
+    "level": 26,
+    "desc": "石胆久受土行重压而成，最适合做稳脉、镇岳一类的核心炼材。"
+  }
+]

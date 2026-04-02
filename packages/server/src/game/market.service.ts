@@ -628,6 +628,11 @@ export class MarketService implements OnModuleInit {
         highestBuyPrice: entry.highestBuyPrice,
       }))
       .sort((left, right) => {
+        const leftLevel = this.contentService.getItemSortLevel(left.item);
+        const rightLevel = this.contentService.getItemSortLevel(right.item);
+        if (leftLevel !== rightLevel) {
+          return leftLevel - rightLevel;
+        }
         const leftHasSell = left.sellQuantity > 0 ? 1 : 0;
         const rightHasSell = right.sellQuantity > 0 ? 1 : 0;
         if (leftHasSell !== rightHasSell) {

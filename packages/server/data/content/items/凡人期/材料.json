@@ -1,0 +1,217 @@
+[
+  {
+    "itemId": "mat.beast_bone",
+    "name": "妖兽骨",
+    "type": "material",
+    "level": 1,
+    "desc": "山野妖兽遗骨，可留作后用。"
+  },
+  {
+    "itemId": "quest.miner_token",
+    "name": "矿洞令牌",
+    "type": "quest_item",
+    "desc": "证明你被允许深入矿洞与古修遗迹。"
+  },
+  {
+    "itemId": "wolf_fang",
+    "name": "狼牙",
+    "type": "material",
+    "level": 8,
+    "desc": "噬灵狼的利牙。"
+  },
+  {
+    "itemId": "serpent_gall",
+    "name": "竹蛇胆",
+    "type": "material",
+    "level": 6,
+    "desc": "青鳞竹蛇的胆囊。"
+  },
+  {
+    "itemId": "black_iron_chunk",
+    "name": "玄铁矿块",
+    "type": "material",
+    "level": 11,
+    "desc": "可用于炼器的粗矿。"
+  },
+  {
+    "itemId": "crystal_dust",
+    "name": "晶尘",
+    "type": "material",
+    "level": 6,
+    "desc": "晶背蝠掉落的微光粉末。"
+  },
+  {
+    "itemId": "mine_signal_core",
+    "name": "失落信标核心",
+    "type": "quest_item",
+    "desc": "矿洞旧阵的核心部件。"
+  },
+  {
+    "itemId": "rune_shard",
+    "name": "断纹石片",
+    "type": "material",
+    "level": 12,
+    "desc": "遗迹傀儡体内剥落的残纹。"
+  },
+  {
+    "itemId": "demon_wolf_bone",
+    "name": "妖狼骨",
+    "type": "material",
+    "level": 15,
+    "desc": "兽谷妖狼的坚骨。"
+  },
+  {
+    "itemId": "blood_feather",
+    "name": "血羽",
+    "type": "material",
+    "level": 17,
+    "desc": "血羽鸦留下的邪异翎羽。"
+  },
+  {
+    "itemId": "valley_core",
+    "name": "兽谷核心",
+    "type": "quest_item",
+    "desc": "谷底裂隙孕出的异质核心。"
+  },
+  {
+    "itemId": "spirit_iron_fragment",
+    "name": "灵铁碎片",
+    "type": "material",
+    "level": 14,
+    "desc": "蕴灵玄铁的碎片。"
+  },
+  {
+    "itemId": "rat_tail",
+    "name": "鼠尾",
+    "type": "material",
+    "level": 2,
+    "desc": "灰尾鼠的尾巴。"
+  },
+  {
+    "itemId": "boar_tusk",
+    "name": "彘牙",
+    "type": "material",
+    "level": 3,
+    "desc": "獠牙野彘的尖牙。"
+  },
+  {
+    "itemId": "lizard_scale",
+    "name": "泽鳞",
+    "type": "material",
+    "level": 4,
+    "desc": "泽鳞蜥脱落的鳞片。"
+  },
+  {
+    "itemId": "bandit_insignia",
+    "name": "匪徒腰牌",
+    "type": "material",
+    "level": 2,
+    "desc": "荒野匪徒身份的金属牌。"
+  },
+  {
+    "itemId": "bamboo_heart",
+    "name": "翠竹心",
+    "type": "material",
+    "level": 5,
+    "desc": "竹灵聚气形成的核心髓结。"
+  },
+  {
+    "itemId": "spider_silk",
+    "name": "阴沼丝",
+    "type": "material",
+    "level": 3,
+    "desc": "沼泽妖蛛吐出的坚韧蛛丝。"
+  },
+  {
+    "itemId": "mantis_blade",
+    "name": "螳锋",
+    "type": "material",
+    "level": 10,
+    "desc": "刃螳前臂外骨，可作刀坯。"
+  },
+  {
+    "itemId": "mine_crystal_core",
+    "name": "矿晶核",
+    "type": "quest_item",
+    "desc": "矿洞深层晶簇凝结出的核心。"
+  },
+  {
+    "itemId": "colossus_heart",
+    "name": "巨像核心",
+    "type": "quest_item",
+    "desc": "矿脉巨像的驱动核心。"
+  },
+  {
+    "itemId": "ruin_keystone",
+    "name": "遗迹钥石",
+    "type": "quest_item",
+    "desc": "可驱动古修阵门的钥石。"
+  },
+  {
+    "itemId": "soul_ink",
+    "name": "魂墨",
+    "type": "material",
+    "level": 9,
+    "desc": "古碑残魂凝结出的墨色灵液。"
+  },
+  {
+    "itemId": "serpent_scale",
+    "name": "谷蛇逆鳞",
+    "type": "material",
+    "level": 11,
+    "desc": "兽谷异蛇的逆鳞碎片。"
+  },
+  {
+    "itemId": "valley_emperor_fang",
+    "name": "谷皇獠牙",
+    "type": "quest_item",
+    "desc": "兽谷皇级妖兽的本命獠牙。"
+  },
+  {
+    "itemId": "ridge_beast_claw",
+    "name": "岭兽爪",
+    "type": "material",
+    "level": 12,
+    "desc": "灵岭猛兽留下的巨大爪痕骨。"
+  },
+  {
+    "itemId": "frost_essence",
+    "name": "霜华精粹",
+    "type": "material",
+    "level": 13,
+    "desc": "极寒灵气凝结的蓝白晶滴。"
+  },
+  {
+    "itemId": "spirit_ridge_sigil",
+    "name": "灵岭行令",
+    "type": "quest_item",
+    "desc": "灵岭守关者留下的通行令符。"
+  },
+  {
+    "itemId": "void_shard",
+    "name": "虚蚀碎片",
+    "type": "material",
+    "level": 14,
+    "desc": "虚空妖物躯壳剥落的暗晶。"
+  },
+  {
+    "itemId": "star_metal",
+    "name": "星陨金",
+    "type": "material",
+    "level": 15,
+    "desc": "坠星坑深处采得的高纯灵金。"
+  },
+  {
+    "itemId": "sky_pattern_page",
+    "name": "天纹残页",
+    "type": "material",
+    "level": 16,
+    "desc": "记录古天宫阵纹的残页。"
+  },
+  {
+    "itemId": "sky_seal_core",
+    "name": "天封核心",
+    "type": "quest_item",
+    "desc": "封印天宫裂隙所需的核心组件。"
+  }
+]
