@@ -14,6 +14,10 @@ export enum TileType {
   Door = 'door',
   Window = 'window',
   BrokenWindow = 'broken_window',
+  HouseEave = 'house_eave',
+  HouseCorner = 'house_corner',
+  ScreenWall = 'screen_wall',
+  Veranda = 'veranda',
   Portal = 'portal',
   Stairs = 'stairs',
   Grass = 'grass',
@@ -21,6 +25,8 @@ export enum TileType {
   Cliff = 'cliff',
   Mud = 'mud',
   Swamp = 'swamp',
+  ColdBog = 'cold_bog',
+  MoltenPool = 'molten_pool',
   Water = 'water',
   Cloud = 'cloud',
   CloudFloor = 'cloud_floor',
@@ -30,6 +36,7 @@ export enum TileType {
   Stone = 'stone',
   SpiritOre = 'spirit_ore',
   BlackIronOre = 'black_iron_ore',
+  BrokenSwordHeap = 'broken_sword_heap',
 }
 
 /** 方向 */
@@ -298,7 +305,9 @@ export type NumericStatPercentages = Partial<Record<NumericScalarStatKey, number
 export interface AttrBonus {
   source: string;
   attrs: Partial<Attributes>;
+  attrMode?: BuffModifierMode;
   stats?: PartialNumericStats;
+  statMode?: BuffModifierMode;
   qiProjection?: QiProjectionModifier[];
   label?: string;
   meta?: Record<string, unknown>;
@@ -384,7 +393,9 @@ export interface EquipmentStatAuraEffectDef {
   type: 'stat_aura';
   conditions?: EquipmentConditionGroup;
   attrs?: Partial<Attributes>;
+  attrMode?: BuffModifierMode;
   stats?: PartialNumericStats;
+  statMode?: BuffModifierMode;
   qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
 }
@@ -395,7 +406,9 @@ export interface EquipmentProgressEffectDef {
   type: 'progress_boost';
   conditions?: EquipmentConditionGroup;
   attrs?: Partial<Attributes>;
+  attrMode?: BuffModifierMode;
   stats?: PartialNumericStats;
+  statMode?: BuffModifierMode;
   qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
 }
@@ -838,6 +851,7 @@ export interface TechniqueState {
   realmLv: number;
   realm: TechniqueRealm;
   skills: SkillDef[];
+  skillsEnabled?: boolean;
   grade?: TechniqueGrade;
   category?: TechniqueCategory;
   layers?: TechniqueLayerDef[];

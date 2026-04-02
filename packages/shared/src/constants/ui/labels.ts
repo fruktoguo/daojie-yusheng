@@ -1,5 +1,6 @@
 import type { ElementKey, NumericScalarStatKey } from '../../numeric';
 import { Direction, TechniqueRealm, TileType } from '../../types';
+import { HOUSE_DECOR_TILE_LABELS } from '../gameplay/house-terrain';
 import type {
   ActionType,
   AttrKey,
@@ -36,6 +37,8 @@ export const TILE_TYPE_LABELS: Record<TileType, string> = {
   [TileType.Cliff]: '山崖',
   [TileType.Mud]: '泥地',
   [TileType.Swamp]: '沼泽',
+  [TileType.ColdBog]: '寒沼',
+  [TileType.MoltenPool]: '熔池',
   [TileType.Water]: '水域',
   [TileType.Cloud]: '云墙',
   [TileType.CloudFloor]: '云地',
@@ -45,6 +48,8 @@ export const TILE_TYPE_LABELS: Record<TileType, string> = {
   [TileType.Stone]: '岩石',
   [TileType.SpiritOre]: '灵石矿',
   [TileType.BlackIronOre]: '玄铁矿',
+  [TileType.BrokenSwordHeap]: '断剑堆',
+  ...HOUSE_DECOR_TILE_LABELS,
 };
 
 /** 六维属性中文标签 */

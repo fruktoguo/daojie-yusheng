@@ -14,6 +14,7 @@ import {
   TILE_TRAVERSAL_COST,
   TILE_TYPE_TO_MAP_CHAR,
 } from './constants/gameplay/terrain';
+import { HOUSE_DECOR_BLOCK_SIGHT_TILE_TYPES, HOUSE_DECOR_WALKABLE_TILE_TYPES } from './constants/gameplay/house-terrain';
 
 export {
   BASE_MOVE_POINTS_PER_TICK,
@@ -61,7 +62,10 @@ export function isTileTypeWalkable(type: TileType): boolean {
     type === TileType.Hill ||
     type === TileType.Mud ||
     type === TileType.Swamp ||
-    type === TileType.CloudFloor
+    type === TileType.ColdBog ||
+    type === TileType.MoltenPool ||
+    type === TileType.CloudFloor ||
+    HOUSE_DECOR_WALKABLE_TILE_TYPES.has(type)
   );
 }
 
@@ -74,12 +78,14 @@ export function doesTileTypeBlockSight(type: TileType): boolean {
     || type === TileType.Cliff
     || type === TileType.Stone
     || type === TileType.SpiritOre
-    || type === TileType.BlackIronOre;
+    || type === TileType.BlackIronOre
+    || type === TileType.BrokenSwordHeap
+    || HOUSE_DECOR_BLOCK_SIGHT_TILE_TYPES.has(type);
 }
 
 /** 根据移速属性计算每 tick 实际移动点数 */
 export function getMovePointsPerTick(moveSpeed: number): number {
-  return BASE_MOVE_POINTS_PER_TICK + (Number.isFinite(moveSpeed) ? Math.max(0, moveSpeed) : 0);
+  return Math.max(1, BASE_MOVE_POINTS_PER_TICK + (Number.isFinite(moveSpeed) ? moveSpeed : 0));
 }
 
 /** 地形耐久度材质类型 */

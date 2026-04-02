@@ -8,6 +8,7 @@
  * - `qi`：通用气机谱系与投影常量。
  * - `combat`：战斗成长与境界压制规则常量。
  * - `terrain`：地形恢复与耐久流转规则。
+ * - `house-terrain`：房屋轮廓与院落装饰地块定义。
  * - `inventory`：背包与地面掉落规则。
  * - `quest`：任务系统键集合与顺序。
  * - `attributes`：角色基础数值与六维换算。
@@ -26,6 +27,7 @@ export * from './aura';
 export * from './qi';
 export * from './combat';
 export * from './terrain';
+export * from './house-terrain';
 export * from './inventory';
 export * from './quest';
 export * from './attributes';

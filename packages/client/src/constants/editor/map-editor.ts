@@ -12,11 +12,17 @@ export const PAINT_TILE_TYPES: TileType[] = [
   TileType.Door,
   TileType.Window,
   TileType.BrokenWindow,
+  TileType.HouseEave,
+  TileType.HouseCorner,
+  TileType.ScreenWall,
+  TileType.Veranda,
   TileType.Grass,
   TileType.Hill,
   TileType.Cliff,
   TileType.Mud,
   TileType.Swamp,
+  TileType.ColdBog,
+  TileType.MoltenPool,
   TileType.Water,
   TileType.Cloud,
   TileType.CloudFloor,
@@ -35,23 +41,26 @@ export const TOOL_OPTIONS: Array<{ value: 'select' | 'paint' | 'pan'; label: str
   { value: 'pan', label: '平移', note: '左键拖动画布' },
 ];
 
-/** 可绘制图层配置，与地块与灵气双通道同步。 */
-export const PAINT_LAYER_OPTIONS: Array<{ value: 'tile' | 'aura'; label: string }> = [
+/** 可绘制图层配置，支持地块、无属性灵气与五行灵气。 */
+export const PAINT_LAYER_OPTIONS: Array<{ value: 'tile' | 'aura' | 'resource'; label: string }> = [
   { value: 'tile', label: '地块' },
-  { value: 'aura', label: '灵气' },
+  { value: 'aura', label: '无属性灵气' },
+  { value: 'resource', label: '五行灵气' },
 ];
 
 /** 灵气刷子等级，用于快速切换。 */
 export const AURA_BRUSH_LEVELS = [0, 1, 2, 3, 4, 5, 6] as const;
 
 /** 右侧检查器的标签页顺序与文字。 */
-export const INSPECTOR_TABS: Array<{ value: 'selection' | 'meta' | 'portal' | 'npc' | 'monster' | 'aura' | 'safeZone' | 'landmark' | 'container'; label: string }> = [
+export const INSPECTOR_TABS: Array<{ value: 'selection' | 'meta' | 'compose' | 'portal' | 'npc' | 'monster' | 'aura' | 'resource' | 'safeZone' | 'landmark' | 'container'; label: string }> = [
   { value: 'selection', label: '选区' },
   { value: 'meta', label: '地图' },
+  { value: 'aura', label: '无属性灵气' },
+  { value: 'resource', label: '五行灵气' },
+  { value: 'compose', label: '拼图' },
   { value: 'portal', label: '传送点' },
   { value: 'npc', label: 'NPC' },
   { value: 'monster', label: '怪物' },
-  { value: 'aura', label: '灵气' },
   { value: 'safeZone', label: '安全区' },
   { value: 'landmark', label: '地标' },
   { value: 'container', label: '容器' },

@@ -172,6 +172,16 @@ export {
   TECHNIQUE_EXP_TABLE,
 } from './constants/gameplay/technique';
 export {
+  HOUSE_DECOR_TILE_DEFINITIONS,
+  HOUSE_DECOR_TILE_TYPE_TO_MAP_CHAR,
+  HOUSE_DECOR_TILE_LABELS,
+  HOUSE_DECOR_TILE_TRAVERSAL_COST,
+  HOUSE_DECOR_TILE_BG_COLORS,
+  HOUSE_DECOR_TILE_GLYPHS,
+  HOUSE_DECOR_TILE_GLYPH_COLORS,
+  HOUSE_DECOR_TILE_MINIMAP_COLORS,
+} from './constants/gameplay/house-terrain';
+export {
   CAMERA_DELAY_SECONDS,
   CAMERA_SMOOTH_SPEED,
 } from './constants/visuals/camera';

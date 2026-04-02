@@ -1,5 +1,6 @@
 import { TileType } from '../../types';
 import type { MapMinimapMarkerKind } from '../../types';
+import { HOUSE_DECOR_TILE_MINIMAP_COLORS } from '../gameplay/house-terrain';
 
 /**
  * 小地图渲染视觉常量。
@@ -21,6 +22,8 @@ export const TILE_MINIMAP_COLORS: Record<TileType, string> = {
   [TileType.Cliff]: '#514842',
   [TileType.Mud]: '#6e5740',
   [TileType.Swamp]: '#526243',
+  [TileType.ColdBog]: '#587789',
+  [TileType.MoltenPool]: '#8c4022',
   [TileType.Water]: '#4f7696',
   [TileType.Cloud]: '#c6d3e5',
   [TileType.CloudFloor]: '#e3ebf7',
@@ -30,6 +33,8 @@ export const TILE_MINIMAP_COLORS: Record<TileType, string> = {
   [TileType.Stone]: '#605c58',
   [TileType.SpiritOre]: '#5675a5',
   [TileType.BlackIronOre]: '#6a7486',
+  [TileType.BrokenSwordHeap]: '#7b6557',
+  ...HOUSE_DECOR_TILE_MINIMAP_COLORS,
 };
 
 /** 小地图标记颜色映射。 */

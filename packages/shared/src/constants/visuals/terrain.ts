@@ -1,4 +1,9 @@
 import { TileType } from '../../types';
+import {
+  HOUSE_DECOR_TILE_BG_COLORS,
+  HOUSE_DECOR_TILE_GLYPHS,
+  HOUSE_DECOR_TILE_GLYPH_COLORS,
+} from '../gameplay/house-terrain';
 
 /**
  * 地形文字渲染视觉常量。
@@ -20,6 +25,8 @@ export const TILE_VISUAL_BG_COLORS: Record<TileType, string> = {
   [TileType.Cliff]: '#5a514a',
   [TileType.Mud]: '#8b6a4c',
   [TileType.Swamp]: '#556b3f',
+  [TileType.ColdBog]: '#4f6775',
+  [TileType.MoltenPool]: '#8e3d20',
   [TileType.Water]: '#6e9ab8',
   [TileType.Cloud]: '#d9e4f2',
   [TileType.CloudFloor]: '#edf3fb',
@@ -29,6 +36,8 @@ export const TILE_VISUAL_BG_COLORS: Record<TileType, string> = {
   [TileType.Stone]: '#7a7570',
   [TileType.SpiritOre]: '#4b5f87',
   [TileType.BlackIronOre]: '#4f5967',
+  [TileType.BrokenSwordHeap]: '#6a5b52',
+  ...HOUSE_DECOR_TILE_BG_COLORS,
 };
 
 /** 地形字符映射。 */
@@ -47,6 +56,8 @@ export const TILE_VISUAL_GLYPHS: Record<TileType, string> = {
   [TileType.Cliff]: '崖',
   [TileType.Mud]: '泥',
   [TileType.Swamp]: '沼',
+  [TileType.ColdBog]: '寒',
+  [TileType.MoltenPool]: '熔',
   [TileType.Water]: '水',
   [TileType.Cloud]: '云',
   [TileType.CloudFloor]: '云',
@@ -56,6 +67,8 @@ export const TILE_VISUAL_GLYPHS: Record<TileType, string> = {
   [TileType.Stone]: '石',
   [TileType.SpiritOre]: '灵',
   [TileType.BlackIronOre]: '铁',
+  [TileType.BrokenSwordHeap]: '刃',
+  ...HOUSE_DECOR_TILE_GLYPHS,
 };
 
 /** 地形字符颜色映射。 */
@@ -74,6 +87,8 @@ export const TILE_VISUAL_GLYPH_COLORS: Record<TileType, string> = {
   [TileType.Cliff]: 'rgba(245,240,232,0.28)',
   [TileType.Mud]: 'rgba(250,240,220,0.34)',
   [TileType.Swamp]: 'rgba(220,240,180,0.4)',
+  [TileType.ColdBog]: '#d5eefc',
+  [TileType.MoltenPool]: '#ffd0a1',
   [TileType.Water]: 'rgba(30,50,80,0.4)',
   [TileType.Cloud]: 'rgba(82,97,132,0.32)',
   [TileType.CloudFloor]: 'rgba(118,138,182,0.22)',
@@ -83,4 +98,6 @@ export const TILE_VISUAL_GLYPH_COLORS: Record<TileType, string> = {
   [TileType.Stone]: 'rgba(40,35,30,0.35)',
   [TileType.SpiritOre]: '#d2e7ff',
   [TileType.BlackIronOre]: '#d7deea',
+  [TileType.BrokenSwordHeap]: '#f0d3b0',
+  ...HOUSE_DECOR_TILE_GLYPH_COLORS,
 };

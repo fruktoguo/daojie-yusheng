@@ -13,10 +13,13 @@ import {
   GmMapNpcShopItemRecord,
   GmMapPortalRecord,
   GmMapQuestRecord,
+  GmMapResourceRecord,
   GmMapSafeZoneRecord,
   GmMapSummary,
 } from './protocol';
+import { parseQiResourceKey } from './qi';
 import { getTileTypeFromMapChar, isTileTypeWalkable } from './terrain';
+import { HOUSE_DECOR_TILE_MAP_CHARS } from './constants/gameplay/house-terrain';
 import {
   MapSpaceVisionMode,
   MapRouteDomain,
@@ -31,7 +34,7 @@ import {
   TileType,
 } from './types';
 
-const SUPPORTED_MAP_TILE_CHARS = new Set(['#', '.', '=', ':', 'P', 'S', '+', 'W', 'B', ',', '^', '崖', ';', '%', '~', '云', '霞', '空', 'T', '竹', 'o', 'L', '铁']);
+const SUPPORTED_MAP_TILE_CHARS = new Set(['#', '.', '=', ':', 'P', 'S', '+', 'W', 'B', ',', '^', '崖', ';', '%', '~', '寒', '熔', '云', '霞', '空', 'T', '竹', 'o', 'L', '铁', '刃', ...HOUSE_DECOR_TILE_MAP_CHARS]);
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -353,6 +356,9 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
     ? source.tiles.map((row) => typeof row === 'string' ? row : '')
     : [];
   const auras = Array.isArray(source.auras) ? source.auras : [];
+  const resources = Array.isArray((source as { resources?: unknown[] }).resources)
+    ? (source as { resources: unknown[] }).resources
+    : [];
   const safeZones = Array.isArray((source as { safeZones?: unknown[] }).safeZones)
     ? (source as { safeZones: unknown[] }).safeZones
     : [];
@@ -409,6 +415,14 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
       x: Number((point as GmMapAuraRecord).x ?? 0),
       y: Number((point as GmMapAuraRecord).y ?? 0),
       value: Number((point as GmMapAuraRecord).value ?? 0),
+    })),
+    resources: resources.map((point) => ({
+      x: Number((point as GmMapResourceRecord).x ?? 0),
+      y: Number((point as GmMapResourceRecord).y ?? 0),
+      resourceKey: typeof (point as GmMapResourceRecord).resourceKey === 'string'
+        ? (point as GmMapResourceRecord).resourceKey.trim()
+        : '',
+      value: Number((point as GmMapResourceRecord).value ?? 0),
     })),
     safeZones: safeZones.map((zone) => ({
       x: Number((zone as GmMapSafeZoneRecord).x ?? 0),
@@ -633,6 +647,25 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
     const point = document.auras![index]!;
     const error = ensurePointInBounds(point.x, point.y, `灵气点 ${index + 1}`);
     if (error) return error;
+  }
+
+  const resourcePointKeys = new Set<string>();
+  for (let index = 0; index < (document.resources?.length ?? 0); index += 1) {
+    const point = document.resources![index]!;
+    const label = `气机点 ${index + 1}`;
+    const error = ensurePointInBounds(point.x, point.y, label);
+    if (error) return error;
+    if (!point.resourceKey.trim()) {
+      return `${label} 的资源键不能为空`;
+    }
+    if (!parseQiResourceKey(point.resourceKey.trim())) {
+      return `${label} 的资源键无效`;
+    }
+    const pointKey = `${point.x},${point.y},${point.resourceKey.trim()}`;
+    if (resourcePointKeys.has(pointKey)) {
+      return `${label} 与其他同类气机点坐标重复`;
+    }
+    resourcePointKeys.add(pointKey);
   }
 
   for (let index = 0; index < (document.safeZones?.length ?? 0); index += 1) {

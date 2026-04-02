@@ -1,4 +1,5 @@
 import type { TechniqueGrade, TileType } from '../../types';
+import { HOUSE_DECOR_TILE_TRAVERSAL_COST, HOUSE_DECOR_TILE_TYPE_TO_MAP_CHAR } from './house-terrain';
 
 /**
  * 地块与地形规则常量。
@@ -20,7 +21,7 @@ export const MOVE_POINT_UNIT = 100;
 export const BASE_MOVE_POINTS_PER_TICK = MOVE_POINT_UNIT;
 
 /** 最大可累积移动点数 */
-export const MAX_STORED_MOVE_POINTS = MOVE_POINT_UNIT * 4;
+export const MAX_STORED_MOVE_POINTS = MOVE_POINT_UNIT * 8;
 
 /** 各地形类型的移动消耗 */
 export const TILE_TRAVERSAL_COST: Record<TileType, number> = {
@@ -31,6 +32,7 @@ export const TILE_TRAVERSAL_COST: Record<TileType, number> = {
   door: 100,
   window: 400,
   broken_window: 400,
+  ...HOUSE_DECOR_TILE_TRAVERSAL_COST,
   portal: 100,
   stairs: 100,
   grass: 80,
@@ -38,6 +40,8 @@ export const TILE_TRAVERSAL_COST: Record<TileType, number> = {
   cliff: 400,
   mud: 200,
   swamp: 300,
+  cold_bog: 360,
+  molten_pool: 800,
   water: 400,
   cloud: 400,
   cloud_floor: 90,
@@ -47,6 +51,7 @@ export const TILE_TRAVERSAL_COST: Record<TileType, number> = {
   stone: 400,
   spirit_ore: 400,
   black_iron_ore: 400,
+  broken_sword_heap: 400,
 };
 
 /** 地形类型到地图字符的映射 */
@@ -58,6 +63,7 @@ export const TILE_TYPE_TO_MAP_CHAR: Record<TileType, string> = {
   door: '+',
   window: 'W',
   broken_window: 'B',
+  ...HOUSE_DECOR_TILE_TYPE_TO_MAP_CHAR,
   portal: 'P',
   stairs: 'S',
   grass: ',',
@@ -65,6 +71,8 @@ export const TILE_TYPE_TO_MAP_CHAR: Record<TileType, string> = {
   cliff: '崖',
   mud: ';',
   swamp: '%',
+  cold_bog: '寒',
+  molten_pool: '熔',
   water: '~',
   cloud: '云',
   cloud_floor: '霞',
@@ -74,6 +82,7 @@ export const TILE_TYPE_TO_MAP_CHAR: Record<TileType, string> = {
   stone: 'o',
   spirit_ore: 'L',
   black_iron_ore: '铁',
+  broken_sword_heap: '刃',
 };
 
 /** 地形耐久度的品阶基础血量 */
