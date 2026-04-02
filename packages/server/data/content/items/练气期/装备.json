@@ -213,6 +213,7 @@
       {
         "effectId": "gold-sand-temper",
         "type": "progress_boost",
+        "statMode": "flat",
         "conditions": { "mode": "all", "items": [{ "type": "is_cultivating", "value": true }] },
         "valueStats": { "techniqueExpPerTick": 8 }
       }
@@ -439,6 +440,7 @@
       {
         "effectId": "sealed-edge-cultivate",
         "type": "progress_boost",
+        "statMode": "flat",
         "conditions": { "mode": "all", "items": [{ "type": "is_cultivating", "value": true }] },
         "valueStats": { "realmExpPerTick": 10, "techniqueExpPerTick": 10 }
       }
@@ -658,6 +660,7 @@
       {
         "effectId": "sealed-path-march",
         "type": "progress_boost",
+        "statMode": "flat",
         "conditions": { "mode": "all", "items": [{ "type": "is_cultivating", "value": true }] },
         "valueStats": { "realmExpPerTick": 12, "techniqueExpPerTick": 12 }
       }
@@ -876,6 +879,7 @@
       {
         "effectId": "shieldvein-breathe",
         "type": "progress_boost",
+        "statMode": "flat",
         "conditions": { "mode": "all", "items": [{ "type": "is_cultivating", "value": true }] },
         "valueStats": { "realmExpPerTick": 6, "techniqueExpPerTick": 6 }
       }
@@ -1081,6 +1085,7 @@
       {
         "effectId": "quakeheart-advance",
         "type": "progress_boost",
+        "statMode": "flat",
         "conditions": { "mode": "all", "items": [{ "type": "is_cultivating", "value": true }] },
         "valueStats": { "realmExpPerTick": 10, "techniqueExpPerTick": 10 }
       }
@@ -1216,6 +1221,7 @@
       {
         "effectId": "deepvein-shard-study",
         "type": "progress_boost",
+        "statMode": "flat",
         "conditions": { "mode": "all", "items": [{ "type": "is_cultivating", "value": true }] },
         "valueStats": { "realmExpPerTick": 8, "techniqueExpPerTick": 12 }
       }
@@ -1302,6 +1308,7 @@
       {
         "effectId": "deepvein-core-cultivate",
         "type": "progress_boost",
+        "statMode": "flat",
         "conditions": { "mode": "all", "items": [{ "type": "is_cultivating", "value": true }] },
         "valueStats": { "realmExpPerTick": 12, "techniqueExpPerTick": 12 }
       }
@@ -1338,6 +1345,7 @@
       {
         "effectId": "returnbreath-cultivate",
         "type": "progress_boost",
+        "statMode": "flat",
         "conditions": { "mode": "all", "items": [{ "type": "is_cultivating", "value": true }] },
         "valueStats": { "techniqueExpPerTick": 6 }
       }
@@ -1386,6 +1394,7 @@
       {
         "effectId": "verdant-crown-study",
         "type": "progress_boost",
+        "statMode": "flat",
         "conditions": { "mode": "all", "items": [{ "type": "is_cultivating", "value": true }] },
         "valueStats": { "techniqueExpPerTick": 6 }
       }

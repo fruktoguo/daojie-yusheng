@@ -1017,9 +1017,13 @@ export class ContentService implements OnModuleInit {
           type: 'progress_boost',
           conditions,
           attrs: this.normalizeItemAttrs(input.attrs),
-          attrMode: 'percent',
-          stats: this.resolveConfiguredBuffStats(input.stats, input.valueStats, 'percent'),
-          statMode: 'percent',
+          attrMode: this.normalizeBuffModifierMode(input.attrMode),
+          stats: this.resolveConfiguredBuffStats(
+            input.stats,
+            input.valueStats,
+            input.statMode === undefined ? 'flat' : this.normalizeBuffModifierMode(input.statMode),
+          ),
+          statMode: input.statMode === undefined ? 'flat' : this.normalizeBuffModifierMode(input.statMode),
           qiProjection: this.normalizeQiProjectionModifiers(input.qiProjection),
         }];
       case 'periodic_cost': {

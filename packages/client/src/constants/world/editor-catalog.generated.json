@@ -12126,7 +12126,7 @@
       "equipSlot": "accessory",
       "equipValueStats": {
         "maxQi": 1.5,
-        "techniqueExpRate": 5
+        "techniqueExpPerTick": 5
       }
     },
     {
@@ -12568,6 +12568,7 @@
         {
           "effectId": "blood-burn-growth",
           "type": "progress_boost",
+          "statMode": "flat",
           "conditions": {
             "mode": "all",
             "items": [
@@ -12617,6 +12618,7 @@
         {
           "effectId": "sealed-edge-cultivate",
           "type": "progress_boost",
+          "statMode": "flat",
           "conditions": {
             "mode": "all",
             "items": [
@@ -12691,6 +12693,7 @@
         {
           "effectId": "sealed-path-march",
           "type": "progress_boost",
+          "statMode": "flat",
           "conditions": {
             "mode": "all",
             "items": [
@@ -13063,6 +13066,7 @@
         {
           "effectId": "returnbreath-cultivate",
           "type": "progress_boost",
+          "statMode": "flat",
           "conditions": {
             "mode": "all",
             "items": [
@@ -13176,6 +13180,7 @@
         {
           "effectId": "deepvein-core-cultivate",
           "type": "progress_boost",
+          "statMode": "flat",
           "conditions": {
             "mode": "all",
             "items": [
@@ -13325,6 +13330,7 @@
         {
           "effectId": "deepvein-shard-study",
           "type": "progress_boost",
+          "statMode": "flat",
           "conditions": {
             "mode": "all",
             "items": [
@@ -13429,6 +13435,7 @@
         {
           "effectId": "shieldvein-breathe",
           "type": "progress_boost",
+          "statMode": "flat",
           "conditions": {
             "mode": "all",
             "items": [
@@ -14580,7 +14587,7 @@
       "equipSlot": "accessory",
       "equipValueStats": {
         "maxHp": 1,
-        "playerExpRate": 4
+        "realmExpPerTick": 4
       }
     },
     {
@@ -14675,6 +14682,7 @@
         {
           "effectId": "verdant-crown-study",
           "type": "progress_boost",
+          "statMode": "flat",
           "conditions": {
             "mode": "all",
             "items": [
@@ -14838,6 +14846,7 @@
         {
           "effectId": "gold-sand-temper",
           "type": "progress_boost",
+          "statMode": "flat",
           "conditions": {
             "mode": "all",
             "items": [
@@ -15084,7 +15093,7 @@
         "comprehension": 1
       },
       "equipValueStats": {
-        "techniqueExpRate": 6,
+        "techniqueExpPerTick": 6,
         "spellAtk": 3
       }
     },
@@ -15131,6 +15140,7 @@
         {
           "effectId": "soul-devour-growth",
           "type": "progress_boost",
+          "statMode": "flat",
           "conditions": {
             "mode": "all",
             "items": [
@@ -15160,9 +15170,10 @@
             "category": "buff",
             "visibility": "public",
             "color": "#8a3f2d",
+            "statMode": "flat",
             "valueStats": {
               "qiRegenRate": 1.6,
-              "techniqueExpRate": 6
+              "techniqueExpPerTick": 6
             }
           }
         }
@@ -16196,7 +16207,7 @@
         "comprehension": 1
       },
       "equipValueStats": {
-        "techniqueExpRate": 7,
+        "techniqueExpPerTick": 7,
         "qiRegenRate": 0.6
       }
     },
@@ -16324,6 +16335,7 @@
         {
           "effectId": "quakeheart-advance",
           "type": "progress_boost",
+          "statMode": "flat",
           "conditions": {
             "mode": "all",
             "items": [
@@ -18267,7 +18279,8 @@
       "sourceSkillId": "equip:equip.soul_devour_token:soul-devour-feast",
       "sourceSkillName": "噬元骨牌",
       "realmLv": 1,
-      "color": "#8a3f2d"
+      "color": "#8a3f2d",
+      "statMode": "flat"
     },
     {
       "buffId": "buff.monster_star_hunger",

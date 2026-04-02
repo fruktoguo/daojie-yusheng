@@ -139,7 +139,7 @@
     "equipSlot": "accessory",
     "equipValueStats": {
       "maxHp": 1,
-      "playerExpRate": 4
+      "realmExpPerTick": 4
     }
   },
   {
@@ -420,7 +420,7 @@
     "equipSlot": "accessory",
     "equipValueStats": {
       "maxQi": 1.5,
-      "techniqueExpRate": 5
+      "techniqueExpPerTick": 5
     }
   },
   {
@@ -752,7 +752,7 @@
       "comprehension": 1
     },
     "equipValueStats": {
-      "techniqueExpRate": 6,
+      "techniqueExpPerTick": 6,
       "spellAtk": 3
     }
   },
@@ -887,7 +887,7 @@
       "comprehension": 1
     },
     "equipValueStats": {
-      "techniqueExpRate": 7,
+      "techniqueExpPerTick": 7,
       "qiRegenRate": 0.6
     }
   },
@@ -1033,6 +1033,7 @@
       {
         "effectId": "blood-burn-growth",
         "type": "progress_boost",
+        "statMode": "flat",
         "conditions": {
           "mode": "all",
           "items": [
@@ -1091,6 +1092,7 @@
       {
         "effectId": "soul-devour-growth",
         "type": "progress_boost",
+        "statMode": "flat",
         "conditions": {
           "mode": "all",
           "items": [
@@ -1120,9 +1122,10 @@
           "category": "buff",
           "visibility": "public",
           "color": "#8a3f2d",
+          "statMode": "flat",
           "valueStats": {
             "qiRegenRate": 1.6,
-            "techniqueExpRate": 6
+            "techniqueExpPerTick": 6
           }
         }
       }
