@@ -7,7 +7,6 @@ import {
   ATTR_KEYS,
   ATTR_TO_PERCENT_NUMERIC_WEIGHTS,
   ATTR_TO_NUMERIC_WEIGHTS,
-  AttrBonus,
   AttrKey,
   Attributes,
   BASE_MOVE_POINTS_PER_TICK,
@@ -18,6 +17,7 @@ import {
   NumericStats,
   PlayerState,
   PlayerSpecialStats,
+  S2C_AttrDetail,
   percentModifierToMultiplier,
   S2C_AttrUpdate,
   signedRatioValue,
@@ -345,6 +345,10 @@ interface AttrPanelSnapshot {
   panes: Record<AttrTab, AttrPaneSnapshot>;
 }
 
+interface AttrPanelCallbacks {
+  onRequestDetail: () => void;
+}
+
 export class AttrPanel {
   private pane = document.getElementById('pane-attr')!;
   private activeTab: AttrTab = 'base';
@@ -352,6 +356,10 @@ export class AttrPanel {
   private lastSnapshot: AttrPanelSnapshot | null = null;
   private lastStructureKey: string | null = null;
   private tooltipTarget: Element | null = null;
+  private callbacks: AttrPanelCallbacks | null = null;
+  private latestData: S2C_AttrUpdate | null = null;
+  private detailData: S2C_AttrDetail | null = null;
+  private detailRequested = false;
 
   constructor() {
     this.ensureTooltipStyle();
@@ -359,7 +367,14 @@ export class AttrPanel {
     this.bindTooltipEvents();
   }
 
+  setCallbacks(callbacks: AttrPanelCallbacks): void {
+    this.callbacks = callbacks;
+  }
+
   clear(): void {
+    this.latestData = null;
+    this.detailData = null;
+    this.detailRequested = false;
     this.lastSnapshot = null;
     this.lastStructureKey = null;
     this.tooltipTarget = null;
@@ -369,19 +384,17 @@ export class AttrPanel {
 
   /** 接收属性更新事件并重新渲染 */
   update(data: S2C_AttrUpdate): void {
-    if (!data.baseAttrs || !data.bonuses) {
+    this.latestData = data;
+    const finalAttrs = data.finalAttrs ?? this.detailData?.finalAttrs;
+    if (!finalAttrs) {
       this.clear();
       return;
     }
-    const finalAttrs = data.finalAttrs ?? this.mergeAttrs(data.baseAttrs, data.bonuses);
     const snapshot = this.buildSnapshot(
-      data.baseAttrs,
-      data.bonuses,
       finalAttrs,
       data.numericStats,
-      data.ratioDivisors,
-      data.numericStatBreakdowns,
       data.specialStats,
+      this.detailData,
     );
     const structureKey = this.buildStructureKey(snapshot);
     if (this.lastStructureKey !== structureKey || !this.patch(snapshot)) {
@@ -392,59 +405,60 @@ export class AttrPanel {
   }
 
   initFromPlayer(player: PlayerState): void {
-    const finalAttrs = player.finalAttrs ?? this.mergeAttrs(player.baseAttrs, player.bonuses);
-    const snapshot = this.buildSnapshot(
-      player.baseAttrs,
-      player.bonuses,
-      finalAttrs,
-      player.numericStats,
-      player.ratioDivisors,
-      player.numericStatBreakdowns,
-      {
+    this.latestData = {
+      finalAttrs: player.finalAttrs ?? player.baseAttrs,
+      numericStats: player.numericStats,
+      maxHp: player.maxHp,
+      qi: player.qi,
+      specialStats: {
         foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
         combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
       },
+      boneAgeBaseYears: player.boneAgeBaseYears,
+      lifeElapsedTicks: player.lifeElapsedTicks,
+      lifespanYears: player.lifespanYears ?? null,
+      realmProgress: player.realm?.progress,
+      realmProgressToNext: player.realm?.progressToNext,
+      realmBreakthroughReady: player.realm?.breakthroughReady ?? player.breakthroughReady,
+    };
+    const snapshot = this.buildSnapshot(
+      this.latestData.finalAttrs ?? player.baseAttrs,
+      this.latestData.numericStats,
+      this.latestData.specialStats,
+      null,
     );
     this.render(snapshot);
   }
 
-  private mergeAttrs(base: Attributes, bonuses: AttrBonus[]): Attributes {
-    const result = { ...base };
-    for (const bonus of bonuses) {
-      for (const key of ATTR_KEYS) {
-        if (bonus.attrs[key] !== undefined) {
-          result[key] += bonus.attrs[key]!;
-        }
-      }
+  invalidateDetail(): void {
+    this.detailData = null;
+    this.detailRequested = false;
+    if (this.latestData) {
+      this.update(this.latestData);
     }
-    return result;
+  }
+
+  applyDetail(detail: S2C_AttrDetail): void {
+    this.detailData = detail;
+    this.detailRequested = true;
+    if (this.latestData) {
+      this.update(this.latestData);
+    }
   }
 
   private buildSnapshot(
-    base: Attributes,
-    bonuses: AttrBonus[],
     final: Attributes,
     stats?: NumericStats,
-    ratioDivisors?: NumericRatioDivisors,
-    numericStatBreakdowns?: NumericStatBreakdownMap,
     specialStats?: PlayerSpecialStats,
+    detail?: S2C_AttrDetail | null,
   ): AttrPanelSnapshot {
-    const totalBonus: Partial<Attributes> = {};
-    for (const bonus of bonuses) {
-      for (const key of ATTR_KEYS) {
-        if (bonus.attrs[key] !== undefined) {
-          totalBonus[key] = (totalBonus[key] || 0) + bonus.attrs[key]!;
-        }
-      }
-    }
-
     return {
       panes: {
-        base: this.buildBaseRadarSnapshot(base, final, totalBonus),
-        root: stats && ratioDivisors
-          ? this.buildRootRadarSnapshot(stats, ratioDivisors, bonuses)
+        base: this.buildBaseRadarSnapshot(final, detail),
+        root: stats
+          ? this.buildRootRadarSnapshot(stats, detail)
           : { kind: 'placeholder', message: '灵根信息尚未同步' },
-        combat: this.buildNumericPaneSnapshot('斗法数值', stats, ratioDivisors, numericStatBreakdowns, {
+        combat: this.buildNumericPaneSnapshot('斗法数值', stats, detail, {
           keys: ['maxHp', 'physAtk', 'spellAtk', 'physDef', 'spellDef', 'hit', 'dodge', 'crit', 'critDamage', 'breakPower', 'resolvePower'],
           ratioKeys: ['dodge', 'crit', 'breakPower', 'resolvePower'],
           legends: {
@@ -461,7 +475,7 @@ export class AttrPanel {
             resolvePower: '化解',
           },
         }, final),
-        qi: this.buildNumericPaneSnapshot('灵力运转', stats, ratioDivisors, numericStatBreakdowns, {
+        qi: this.buildNumericPaneSnapshot('灵力运转', stats, detail, {
           keys: ['maxQi', 'maxQiOutputPerTick', 'qiRegenRate', 'hpRegenRate', 'cooldownSpeed', 'auraCostReduce', 'auraPowerRate'],
           ratioKeys: ['cooldownSpeed'],
           legends: {
@@ -474,18 +488,18 @@ export class AttrPanel {
             auraPowerRate: '光环效果增强',
           },
         }, final),
-        special: this.buildSpecialPaneSnapshot(stats, ratioDivisors, numericStatBreakdowns, specialStats, final),
+        special: this.buildSpecialPaneSnapshot(stats, detail, specialStats, final),
       },
     };
   }
 
-  private buildBaseRadarSnapshot(base: Attributes, final: Attributes, totalBonus: Partial<Attributes>): AttrRadarPaneSnapshot {
+  private buildBaseRadarSnapshot(final: Attributes, detail?: S2C_AttrDetail | null): AttrRadarPaneSnapshot {
     const maxValue = Math.max(20, ...ATTR_KEYS.map((key) => final[key]));
     const radarMax = Math.ceil(maxValue / 5) * 5 || 20;
     const entries: RadarEntry[] = ATTR_KEYS.map((key, index) => {
       const finalValue = final[key];
-      const baseValue = base[key];
-      const bonusValue = totalBonus[key] ?? 0;
+      const baseValue = detail?.baseAttrs[key];
+      const bonusValue = detail?.bonuses.reduce((sum, bonus) => sum + (bonus.attrs[key] ?? 0), 0);
       const roundedValue = Math.round(finalValue);
       return {
         label: ATTR_KEY_LABELS[key],
@@ -494,8 +508,8 @@ export class AttrPanel {
         tooltipTitle: ATTR_KEY_LABELS[key],
         tooltipDetail: [
           `当前：${formatDisplayInteger(roundedValue)}`,
-          `基础：${formatDisplayInteger(baseValue)}`,
-          `增益：${bonusValue >= 0 ? '+' : ''}${formatDisplayInteger(bonusValue)}`,
+          typeof baseValue === 'number' ? `基础：${formatDisplayInteger(baseValue)}` : '完整构成：悬停后同步',
+          typeof bonusValue === 'number' ? `增益：${bonusValue >= 0 ? '+' : ''}${formatDisplayInteger(bonusValue)}` : '增益来源：悬停后同步',
           '实际转化：',
           ...buildAttrConversionLines(key, finalValue),
         ].join('\n'),
@@ -508,29 +522,32 @@ export class AttrPanel {
 
   private buildRootRadarSnapshot(
     stats: NumericStats,
-    ratioDivisors: NumericRatioDivisors,
-    bonuses: AttrBonus[],
+    detail?: S2C_AttrDetail | null,
   ): AttrRadarPaneSnapshot {
     const entries: RadarEntry[] = ELEMENT_KEYS.map((key, index) => {
       const damageBonus = stats.elementDamageBonus[key];
-      const reductionDivisor = ratioDivisors.elementDamageReduce[key] || 100;
+      const reductionDivisor = detail?.ratioDivisors.elementDamageReduce[key] || 100;
       const roundedBonus = Math.round(damageBonus);
+      const lines = [`当前：${formatDisplayInteger(roundedBonus)} 点`, `${ELEMENT_KEY_LABELS[key]}属性伤害增幅：${formatDisplayPercent(roundedBonus)}`];
+      if (detail?.ratioDivisors) {
+        lines.push(`${ELEMENT_KEY_LABELS[key]}属性实际减伤：${formatRatioPercent(stats.elementDamageReduce[key], reductionDivisor)}`);
+        lines.push(`${ELEMENT_KEY_LABELS[key]}属性灵气吸收效率：${formatDisplayPercent(getSpiritualRootAbsorptionRate(roundedBonus), { maximumFractionDigits: 2 })}`);
+      } else {
+        lines.push('完整灵根构成：悬停后同步');
+      }
       return {
         label: `${ELEMENT_KEY_LABELS[key]}灵根`,
         value: damageBonus,
         valueLabel: formatDisplayInteger(roundedBonus),
         tooltipTitle: `${ELEMENT_KEY_LABELS[key]}灵根`,
-        tooltipDetail: [
-          `当前：${formatDisplayInteger(roundedBonus)} 点`,
-          `${ELEMENT_KEY_LABELS[key]}属性伤害增幅：${formatDisplayPercent(roundedBonus)}`,
-          `${ELEMENT_KEY_LABELS[key]}属性实际减伤：${formatRatioPercent(stats.elementDamageReduce[key], reductionDivisor)}`,
-          `${ELEMENT_KEY_LABELS[key]}属性灵气吸收效率：${formatDisplayPercent(getSpiritualRootAbsorptionRate(roundedBonus), { maximumFractionDigits: 2 })}`,
-        ].join('\n'),
+        tooltipDetail: lines.join('\n'),
         color: ELEMENT_COLORS[index % ELEMENT_COLORS.length],
       };
     });
     const radarMax = Math.max(100, ...entries.map((entry) => entry.value)) || 100;
-    const rootTitle = describeSpiritualRoots(resolveSpiritualRootsFromBonuses(bonuses)).name;
+    const rootTitle = detail?.bonuses
+      ? describeSpiritualRoots(resolveSpiritualRootsFromBonuses(detail.bonuses)).name
+      : '灵根轮图';
     return this.buildRadarPaneSnapshot(rootTitle, radarMax, entries, 'root');
   }
 
@@ -610,14 +627,15 @@ export class AttrPanel {
   private buildNumericPaneSnapshot(
     title: string,
     stats?: NumericStats,
-    ratios?: NumericRatioDivisors,
-    breakdowns?: NumericStatBreakdownMap,
+    detail?: S2C_AttrDetail | null,
     meta?: { keys: NumericCardKey[]; ratioKeys: (keyof NumericRatioDivisors)[]; legends?: Record<string, string> },
     attrs?: Attributes,
   ): AttrPaneSnapshot {
-    if (!stats || !ratios || !meta || !attrs) {
+    if (!stats || !meta || !attrs) {
       return { kind: 'placeholder', message: `${title}尚未同步` };
     }
+    const ratios = detail?.ratioDivisors;
+    const breakdowns = detail?.numericStatBreakdowns;
 
     return {
       kind: 'numeric',
@@ -632,7 +650,7 @@ export class AttrPanel {
         if (key === 'physDef' || key === 'spellDef') {
           actualLine = `实际减伤：${formatDefenseReduction(numericValue)}`;
           sub = actualLine;
-        } else if (ratioKey && ratioKey !== 'elementDamageReduce') {
+        } else if (ratioKey && ratioKey !== 'elementDamageReduce' && ratios) {
           actualLine = `实际：${formatRatioPercent(numericValue, ratios[ratioKey])}`;
           sub = actualLine;
         } else if (RATE_BP_KEYS.has(key) && key !== 'critDamage') {
@@ -662,12 +680,11 @@ export class AttrPanel {
 
   private buildSpecialPaneSnapshot(
     stats?: NumericStats,
-    ratios?: NumericRatioDivisors,
-    breakdowns?: NumericStatBreakdownMap,
+    detail?: S2C_AttrDetail | null,
     specialStats?: PlayerSpecialStats,
     attrs?: Attributes,
   ): AttrPaneSnapshot {
-    if (!stats || !ratios || !attrs) {
+    if (!stats || !attrs) {
       return { kind: 'placeholder', message: '特殊属性尚未同步' };
     }
 
@@ -687,7 +704,7 @@ export class AttrPanel {
       };
     });
 
-    const numericPane = this.buildNumericPaneSnapshot('特殊属性', stats, ratios, breakdowns, {
+    const numericPane = this.buildNumericPaneSnapshot('特殊属性', stats, detail, {
       keys: ['viewRange', 'moveSpeed', 'playerExpRate', 'techniqueExpRate', 'realmExpPerTick', 'techniqueExpPerTick', 'lootRate', 'rareLootRate'],
       ratioKeys: [],
       legends: {
@@ -1079,6 +1096,7 @@ export class AttrPanel {
       if (!tooltipNode) {
         return;
       }
+      this.requestDetailIfNeeded();
       if (this.tooltip.isPinnedTo(tooltipNode)) {
         this.tooltipTarget = null;
         this.tooltip.hide(true);
@@ -1113,6 +1131,7 @@ export class AttrPanel {
         }
         return;
       }
+      this.requestDetailIfNeeded();
 
       if (this.tooltipTarget !== tooltipNode) {
         this.tooltipTarget = tooltipNode;
@@ -1137,5 +1156,13 @@ export class AttrPanel {
       this.tooltipTarget = null;
       this.tooltip.hide();
     });
+  }
+
+  private requestDetailIfNeeded(): void {
+    if (this.detailData || this.detailRequested || !this.latestData) {
+      return;
+    }
+    this.detailRequested = true;
+    this.callbacks?.onRequestDetail();
   }
 }

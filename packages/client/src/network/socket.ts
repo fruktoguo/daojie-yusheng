@@ -18,8 +18,10 @@ import {
   C2S_ClaimMailAttachments,
   C2S_DeleteMail,
   C2S_RequestMarket,
+  C2S_RequestMarketListings,
   C2S_RequestMarketItemBook,
   C2S_RequestMarketTradeHistory,
+  C2S_RequestAttrDetail,
   C2S_CreateMarketSellOrder,
   C2S_CreateMarketBuyOrder,
   C2S_BuyMarketItem,
@@ -38,8 +40,12 @@ import {
   S2C_RedeemCodesResult,
   S2C_MailOpResult,
   S2C_MarketUpdate,
+  S2C_MarketListings,
+  S2C_MarketOrders,
+  S2C_MarketStorage,
   S2C_MarketItemBook,
   S2C_MarketTradeHistory,
+  S2C_AttrDetail,
   S2C_NpcShop,
   S2C_Pong,
   S2C_TileRuntimeDetail,
@@ -78,8 +84,12 @@ export class SocketManager {
   private onRedeemCodesResultCallbacks: Array<(data: S2C_RedeemCodesResult) => void> = [];
   private onMailOpResultCallbacks: Array<(data: S2C_MailOpResult) => void> = [];
   private onMarketUpdateCallbacks: Array<(data: S2C_MarketUpdate) => void> = [];
+  private onMarketListingsCallbacks: Array<(data: S2C_MarketListings) => void> = [];
+  private onMarketOrdersCallbacks: Array<(data: S2C_MarketOrders) => void> = [];
+  private onMarketStorageCallbacks: Array<(data: S2C_MarketStorage) => void> = [];
   private onMarketItemBookCallbacks: Array<(data: S2C_MarketItemBook) => void> = [];
   private onMarketTradeHistoryCallbacks: Array<(data: S2C_MarketTradeHistory) => void> = [];
+  private onAttrDetailCallbacks: Array<(data: S2C_AttrDetail) => void> = [];
   private onNpcShopCallbacks: Array<(data: S2C_NpcShop) => void> = [];
   private onPongCallbacks: Array<(data: S2C_Pong) => void> = [];
   private onDisconnectCallbacks: Array<(reason: string) => void> = [];
@@ -127,8 +137,12 @@ export class SocketManager {
     this.bindServerEvent(S2C.RedeemCodesResult, this.onRedeemCodesResultCallbacks);
     this.bindServerEvent(S2C.MailOpResult, this.onMailOpResultCallbacks);
     this.bindServerEvent(S2C.MarketUpdate, this.onMarketUpdateCallbacks);
+    this.bindServerEvent(S2C.MarketListings, this.onMarketListingsCallbacks);
+    this.bindServerEvent(S2C.MarketOrders, this.onMarketOrdersCallbacks);
+    this.bindServerEvent(S2C.MarketStorage, this.onMarketStorageCallbacks);
     this.bindServerEvent(S2C.MarketItemBook, this.onMarketItemBookCallbacks);
     this.bindServerEvent(S2C.MarketTradeHistory, this.onMarketTradeHistoryCallbacks);
+    this.bindServerEvent(S2C.AttrDetail, this.onAttrDetailCallbacks);
     this.bindServerEvent(S2C.NpcShop, this.onNpcShopCallbacks);
     this.bindServerEvent(S2C.Pong, this.onPongCallbacks);
     this.bindServerEvent(S2C.Error, this.onErrorCallbacks);
@@ -333,12 +347,20 @@ export class SocketManager {
     this.emitServer(C2S.RequestMarket, {} satisfies C2S_RequestMarket);
   }
 
-  sendRequestMarketItemBook(itemKey: string) {
-    this.emitServer(C2S.RequestMarketItemBook, { itemKey } satisfies C2S_RequestMarketItemBook);
+  sendRequestMarketListings(payload: C2S_RequestMarketListings) {
+    this.emitServer(C2S.RequestMarketListings, payload satisfies C2S_RequestMarketListings);
+  }
+
+  sendRequestMarketItemBook(itemId: string) {
+    this.emitServer(C2S.RequestMarketItemBook, { itemId } satisfies C2S_RequestMarketItemBook);
   }
 
   sendRequestMarketTradeHistory(page: number) {
     this.emitServer(C2S.RequestMarketTradeHistory, { page } satisfies C2S_RequestMarketTradeHistory);
+  }
+
+  sendRequestAttrDetail() {
+    this.emitServer(C2S.RequestAttrDetail, {} satisfies C2S_RequestAttrDetail);
   }
 
   sendCreateMarketSellOrder(slotIndex: number, quantity: number, unitPrice: number) {
@@ -427,8 +449,12 @@ export class SocketManager {
   onRedeemCodesResult(cb: (data: S2C_RedeemCodesResult) => void) { this.onRedeemCodesResultCallbacks.push(cb); }
   onMailOpResult(cb: (data: S2C_MailOpResult) => void) { this.onMailOpResultCallbacks.push(cb); }
   onMarketUpdate(cb: (data: S2C_MarketUpdate) => void) { this.onMarketUpdateCallbacks.push(cb); }
+  onMarketListings(cb: (data: S2C_MarketListings) => void) { this.onMarketListingsCallbacks.push(cb); }
+  onMarketOrders(cb: (data: S2C_MarketOrders) => void) { this.onMarketOrdersCallbacks.push(cb); }
+  onMarketStorage(cb: (data: S2C_MarketStorage) => void) { this.onMarketStorageCallbacks.push(cb); }
   onMarketItemBook(cb: (data: S2C_MarketItemBook) => void) { this.onMarketItemBookCallbacks.push(cb); }
   onMarketTradeHistory(cb: (data: S2C_MarketTradeHistory) => void) { this.onMarketTradeHistoryCallbacks.push(cb); }
+  onAttrDetail(cb: (data: S2C_AttrDetail) => void) { this.onAttrDetailCallbacks.push(cb); }
   onNpcShop(cb: (data: S2C_NpcShop) => void) { this.onNpcShopCallbacks.push(cb); }
   onPong(cb: (data: S2C_Pong) => void) { this.onPongCallbacks.push(cb); }
   onError(cb: (data: S2C_Error) => void) { this.onErrorCallbacks.push(cb); }

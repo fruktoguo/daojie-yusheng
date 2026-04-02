@@ -8,7 +8,6 @@ import {
   AUTO_IDLE_CULTIVATION_DELAY_TICKS,
   ActionDef,
   ActionUpdateEntry,
-  AttrBonus,
   AutoBattleSkillConfig,
   CombatEffect,
   DEFAULT_AURA_LEVEL_BASE_VALUE,
@@ -68,7 +67,6 @@ import { PLAYER_SPECIAL_STATS_SYNC_INTERVAL_MS } from '../constants/gameplay/att
 import {
   DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID,
   HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID,
-  REALM_STATE_SOURCE,
   SHATTER_SPIRIT_PILL_ITEM_ID,
 } from '../constants/gameplay/technique';
 import { GAME_CONFIG_PATH } from '../constants/storage/config';
@@ -293,30 +291,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
   /** 在发送初始化快照后预热增量缓存，避免首个脏包再次回退到整包 */
   primePlayerPanelSyncState(player: PlayerState): void {
-    const finalAttrs = this.attrService.getPlayerFinalAttrs(player);
-    const numericStats = this.attrService.getPlayerNumericStats(player);
-    const ratioDivisors = this.attrService.getPlayerRatioDivisors(player);
-    const numericStatBreakdowns = this.attrService.getPlayerNumericStatBreakdowns(player);
-    this.lastSentAttrUpdates.set(player.id, this.cloneStructured({
-      baseAttrs: player.baseAttrs,
-      bonuses: this.getAttrSyncBonuses(player),
-      finalAttrs,
-      numericStats,
-      ratioDivisors,
-      numericStatBreakdowns,
-      maxHp: player.maxHp,
-      qi: player.qi,
-      specialStats: {
-        foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
-        combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
-      },
-      boneAgeBaseYears: player.boneAgeBaseYears,
-      lifeElapsedTicks: player.lifeElapsedTicks,
-      lifespanYears: player.lifespanYears ?? null,
-      realmProgress: player.realm?.progress,
-      realmProgressToNext: player.realm?.progressToNext,
-      realmBreakthroughReady: player.realm?.breakthroughReady,
-    } satisfies S2C_AttrUpdate));
+    this.lastSentAttrUpdates.set(player.id, this.cloneStructured(this.captureAttrUpdateState(player)));
     this.lastSentRealmStates.set(player.id, player.realm ? this.cloneStructured(player.realm) : null);
     this.lastSentSpecialStatsAt.set(player.id, Date.now());
     this.pendingSpecialStatsPlayers.delete(player.id);
@@ -2050,30 +2025,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
     if (flags.has('attr')) {
       this.measureCpuSection('state_sync_attr', '状态同步: 属性面板', () => {
-        const finalAttrs = this.attrService.getPlayerFinalAttrs(player);
-        const numericStats = this.attrService.getPlayerNumericStats(player);
-        const ratioDivisors = this.attrService.getPlayerRatioDivisors(player);
-        const numericStatBreakdowns = this.attrService.getPlayerNumericStatBreakdowns(player);
-        const update = this.buildSparseAttrUpdate(player.id, {
-          baseAttrs: player.baseAttrs,
-          bonuses: this.getAttrSyncBonuses(player),
-          finalAttrs,
-          numericStats,
-          ratioDivisors,
-          numericStatBreakdowns,
-          maxHp: player.maxHp,
-          qi: player.qi,
-          specialStats: {
-            foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
-            combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
-          },
-          boneAgeBaseYears: player.boneAgeBaseYears,
-          lifeElapsedTicks: player.lifeElapsedTicks,
-          lifespanYears: player.lifespanYears ?? null,
-          realmProgress: player.realm?.progress,
-          realmProgressToNext: player.realm?.progressToNext,
-          realmBreakthroughReady: player.realm?.breakthroughReady,
-        });
+        const update = this.buildSparseAttrUpdate(player.id, this.captureAttrUpdateState(player));
         if (update) {
           socket.emit(S2C.AttrUpdate, update);
         }
@@ -2122,7 +2074,13 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
     if (flags.has('quest')) {
       this.measureCpuSection('state_sync_quest', '状态同步: 任务面板', () => {
-        const update: S2C_QuestUpdate = { quests: player.quests };
+        const update: S2C_QuestUpdate = {
+          quests: player.quests.map((quest) => ({
+            id: quest.id,
+            status: quest.status,
+            progress: quest.progress,
+          })),
+        };
         socket.emit(S2C.QuestUpdate, update);
       });
     }
@@ -2516,8 +2474,23 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     };
   }
 
-  private getAttrSyncBonuses(player: PlayerState): AttrBonus[] {
-    return player.bonuses.filter((bonus) => bonus.source !== REALM_STATE_SOURCE);
+  private captureAttrUpdateState(player: PlayerState): S2C_AttrUpdate {
+    return {
+      finalAttrs: this.attrService.getPlayerFinalAttrs(player),
+      numericStats: this.attrService.getPlayerNumericStats(player),
+      maxHp: player.maxHp,
+      qi: player.qi,
+      specialStats: {
+        foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
+        combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
+      },
+      boneAgeBaseYears: player.boneAgeBaseYears,
+      lifeElapsedTicks: player.lifeElapsedTicks,
+      lifespanYears: player.lifespanYears ?? null,
+      realmProgress: player.realm?.progress,
+      realmProgressToNext: player.realm?.progressToNext,
+      realmBreakthroughReady: player.realm?.breakthroughReady,
+    };
   }
 
   private buildVisibilityKey(viewer: PlayerState, effectiveViewRange: number): string {

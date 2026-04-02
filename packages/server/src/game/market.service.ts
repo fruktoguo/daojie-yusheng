@@ -5,7 +5,9 @@ import { EntityManager, Repository } from 'typeorm';
 import {
   createItemStackSignature,
   DEFAULT_INVENTORY_CAPACITY,
+  EquipSlot,
   ItemStack,
+  ItemType,
   MarketListedItemView,
   MarketOrderBookView,
   MarketOrderSide,
@@ -14,7 +16,11 @@ import {
   MarketStorage,
   MarketTradeHistoryEntryView,
   PlayerState,
+  S2C_MarketListings,
+  S2C_MarketOrders,
+  S2C_MarketStorage,
   S2C_MarketUpdate,
+  TechniqueCategory,
   isValidMarketPrice,
 } from '@mud/shared';
 import { PlayerEntity } from '../database/entities/player.entity';
@@ -97,6 +103,76 @@ export class MarketService implements OnModuleInit {
     return this.contentService.getItem(MARKET_CURRENCY_ITEM_ID)?.name ?? '灵石';
   }
 
+  buildListingsPage(input: {
+    page: number;
+    pageSize?: number;
+    category?: ItemType | 'all';
+    equipmentSlot?: EquipSlot | 'all';
+    techniqueCategory?: TechniqueCategory | 'all';
+  }): S2C_MarketListings {
+    const category = input.category ?? 'all';
+    const equipmentSlot = input.equipmentSlot ?? 'all';
+    const techniqueCategory = input.techniqueCategory ?? 'all';
+    const pageSize = this.normalizeListingsPageSize(input.pageSize);
+    const filtered = this.filterListedItems(this.buildListedItems(), {
+      category,
+      equipmentSlot,
+      techniqueCategory,
+    });
+    const total = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const page = Math.max(1, Math.min(totalPages, Math.floor(Number.isFinite(input.page) ? input.page : 1)));
+    const start = (page - 1) * pageSize;
+    return {
+      currencyItemId: this.getCurrencyItemId(),
+      currencyItemName: this.getCurrencyItemName(),
+      page,
+      pageSize,
+      total,
+      category,
+      equipmentSlot,
+      techniqueCategory,
+      items: filtered
+        .slice(start, start + pageSize)
+        .map((entry) => ({
+          itemId: entry.item.itemId,
+          lowestSellPrice: entry.lowestSellPrice,
+          highestBuyPrice: entry.highestBuyPrice,
+        })),
+    };
+  }
+
+  buildOrdersUpdate(player: PlayerState): S2C_MarketOrders {
+    return {
+      currencyItemId: this.getCurrencyItemId(),
+      currencyItemName: this.getCurrencyItemName(),
+      orders: this.buildOwnOrders(player.id).map((order) => ({
+        id: order.id,
+        side: order.side,
+        status: order.status,
+        itemId: order.item.itemId,
+        remainingQuantity: order.remainingQuantity,
+        unitPrice: order.unitPrice,
+        createdAt: order.createdAt,
+      })),
+    };
+  }
+
+  buildStorageUpdate(player: PlayerState): S2C_MarketStorage {
+    const grouped = new Map<string, number>();
+    for (const item of player.marketStorage?.items ?? []) {
+      if (!item?.itemId || !Number.isFinite(item.count) || item.count <= 0) {
+        continue;
+      }
+      grouped.set(item.itemId, (grouped.get(item.itemId) ?? 0) + item.count);
+    }
+    return {
+      items: [...grouped.entries()]
+        .map(([itemId, count]) => ({ itemId, count }))
+        .sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-Hans-CN')),
+    };
+  }
+
   buildMarketUpdate(player: PlayerState): S2C_MarketUpdate {
     return {
       currencyItemId: this.getCurrencyItemId(),
@@ -107,20 +183,18 @@ export class MarketService implements OnModuleInit {
     };
   }
 
-  buildItemBook(itemKey: string): MarketOrderBookView | null {
+  buildItemBook(itemId: string): { itemId: string; sells: MarketPriceLevelView[]; buys: MarketPriceLevelView[] } | null {
     const orders = this.openOrders.filter((order) =>
       order.remainingQuantity > 0
       && this.canTradeItemOnMarket(this.cloneOrderItem(order))
-      && this.getOrderItemKey(order) === itemKey);
+      && this.cloneOrderItem(order).itemId === itemId);
     if (orders.length === 0) {
       return null;
     }
-    const item = this.cloneOrderItem(orders[0]);
     return {
-      itemKey,
-      item,
-      sells: this.buildPriceLevels(itemKey, 'sell'),
-      buys: this.buildPriceLevels(itemKey, 'buy'),
+      itemId,
+      sells: this.buildPriceLevelsByItemId(itemId, 'sell'),
+      buys: this.buildPriceLevelsByItemId(itemId, 'buy'),
     };
   }
 
@@ -151,7 +225,15 @@ export class MarketService implements OnModuleInit {
       totalVisible,
       records: visibleRecords
         .slice(start, start + MarketService.TRADE_HISTORY_PAGE_SIZE)
-        .map((record) => this.toTradeHistoryView(playerId, record)),
+        .map((record) => ({
+          id: record.id,
+          side: record.buyerId === playerId ? 'buy' : 'sell',
+          itemId: record.itemId,
+          itemName: this.contentService.getItem(record.itemId)?.name ?? record.itemId,
+          quantity: record.quantity,
+          unitPrice: record.unitPrice,
+          createdAt: record.createdAt,
+        })),
     };
   }
 
@@ -689,6 +771,81 @@ export class MarketService implements OnModuleInit {
       ? left.unitPrice - right.unitPrice
       : right.unitPrice - left.unitPrice);
     return levels;
+  }
+
+  private buildPriceLevelsByItemId(itemId: string, side: MarketOrderSide): MarketPriceLevelView[] {
+    const grouped = new Map<number, { quantity: number; orderCount: number }>();
+    for (const order of this.openOrders) {
+      const orderItem = this.cloneOrderItem(order);
+      if (
+        orderItem.itemId !== itemId
+        || order.side !== side
+        || order.remainingQuantity <= 0
+        || !this.canTradeItemOnMarket(orderItem)
+      ) {
+        continue;
+      }
+      const current = grouped.get(order.unitPrice) ?? { quantity: 0, orderCount: 0 };
+      current.quantity += order.remainingQuantity;
+      current.orderCount += 1;
+      grouped.set(order.unitPrice, current);
+    }
+    const levels = [...grouped.entries()].map(([unitPrice, entry]) => ({
+      unitPrice,
+      quantity: entry.quantity,
+      orderCount: entry.orderCount,
+    }));
+    levels.sort((left, right) => side === 'sell'
+      ? left.unitPrice - right.unitPrice
+      : right.unitPrice - left.unitPrice);
+    return levels;
+  }
+
+  private filterListedItems(
+    items: MarketListedItemView[],
+    filter: {
+      category: ItemType | 'all';
+      equipmentSlot: EquipSlot | 'all';
+      techniqueCategory: TechniqueCategory | 'all';
+    },
+  ): MarketListedItemView[] {
+    return items.filter((item) => {
+      if (filter.category !== 'all' && item.item.type !== filter.category) {
+        return false;
+      }
+      if (filter.category === 'equipment' && filter.equipmentSlot !== 'all' && item.item.equipSlot !== filter.equipmentSlot) {
+        return false;
+      }
+      if (filter.category === 'skill_book' && filter.techniqueCategory !== 'all') {
+        return this.resolveTechniqueCategoryForItem(item.item.itemId) === filter.techniqueCategory;
+      }
+      return true;
+    });
+  }
+
+  private resolveTechniqueCategoryForItem(itemId: string): TechniqueCategory | null {
+    const techniqueId = this.resolveTechniqueIdFromBookItemId(itemId);
+    if (!techniqueId) {
+      return null;
+    }
+    return this.contentService.getTechnique(techniqueId)?.category ?? null;
+  }
+
+  private resolveTechniqueIdFromBookItemId(itemId: string): string | null {
+    if (itemId.startsWith('book.')) {
+      return itemId.slice(5);
+    }
+    if (itemId.startsWith('book_')) {
+      return itemId.slice(5);
+    }
+    return null;
+  }
+
+  private normalizeListingsPageSize(pageSize: number | undefined): number {
+    if (!Number.isFinite(pageSize)) {
+      return 24;
+    }
+    return Math.max(8, Math.min(48, Math.floor(Number(pageSize))));
   }
 
   private getSortedOrders(itemKey: string, side: MarketOrderSide): MarketOrderEntity[] {

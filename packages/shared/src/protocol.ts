@@ -3,7 +3,7 @@
  * C2S = 客户端→服务端，S2C = 服务端→客户端。
  */
 import type { ElementKey } from './numeric';
-import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerSpecialStats, QuestState, CombatEffect, AutoBattleSkillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, MonsterTier, NumericStatPercentages, TechniqueCategory, TechniqueGrade, GroundItemPileView, LootSearchProgressView, VisibleBuffState, TemporaryBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, LootSourceKind, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, ConsumableBuffDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MapRouteDomain, PortalRouteDomain, MailSummaryView, MailPageView, MailDetailView, MailFilter, MailTemplateArg, MailAttachment } from './types';
+import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerSpecialStats, QuestState, CombatEffect, AutoBattleSkillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, MonsterTier, NumericStatPercentages, TechniqueCategory, TechniqueGrade, GroundItemPileView, LootSearchProgressView, VisibleBuffState, TemporaryBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, LootSourceKind, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, ConsumableBuffDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MarketPriceLevelView, MarketOrderSide, MapRouteDomain, PortalRouteDomain, MailSummaryView, MailPageView, MailDetailView, MailFilter, MailTemplateArg, MailAttachment } from './types';
 import { NumericRatioDivisors, NumericStatBreakdownMap, NumericStats } from './numeric';
 
 // ===== 事件名 =====
@@ -50,8 +50,10 @@ export const C2S = {
   GmMarkSuggestionCompleted: 'c:gmMarkSuggestionCompleted',
   GmRemoveSuggestion: 'c:gmRemoveSuggestion',
   RequestMarket: 'c:requestMarket',
+  RequestMarketListings: 'c:requestMarketListings',
   RequestMarketItemBook: 'c:requestMarketItemBook',
   RequestMarketTradeHistory: 'c:requestMarketTradeHistory',
+  RequestAttrDetail: 'c:requestAttrDetail',
   CreateMarketSellOrder: 'c:createMarketSellOrder',
   CreateMarketBuyOrder: 'c:createMarketBuyOrder',
   BuyMarketItem: 'c:buyMarketItem',
@@ -96,8 +98,12 @@ export const S2C = {
   MailOpResult: 's:mailOpResult',
   SuggestionUpdate: 's:suggestionUpdate',
   MarketUpdate: 's:marketUpdate',
+  MarketListings: 's:marketListings',
+  MarketOrders: 's:marketOrders',
+  MarketStorage: 's:marketStorage',
   MarketItemBook: 's:marketItemBook',
   MarketTradeHistory: 's:marketTradeHistory',
+  AttrDetail: 's:attrDetail',
   NpcShop: 's:npcShop',
 } as const;
 
@@ -341,6 +347,14 @@ export interface C2S_AckSystemMessages {
 
 export interface C2S_RequestMarket {}
 
+export interface C2S_RequestMarketListings {
+  page: number;
+  pageSize?: number;
+  category?: ItemType | 'all';
+  equipmentSlot?: EquipSlot | 'all';
+  techniqueCategory?: TechniqueCategory | 'all';
+}
+
 export interface C2S_RequestMailSummary {}
 
 export interface C2S_RequestMailPage {
@@ -366,12 +380,14 @@ export interface C2S_DeleteMail {
 }
 
 export interface C2S_RequestMarketItemBook {
-  itemKey: string;
+  itemId: string;
 }
 
 export interface C2S_RequestMarketTradeHistory {
   page: number;
 }
+
+export interface C2S_RequestAttrDetail {}
 
 export interface C2S_CreateMarketSellOrder {
   slotIndex: number;
@@ -858,18 +874,74 @@ export interface S2C_MarketUpdate {
   storage: MarketStorage;
 }
 
+export interface MarketListingPageEntry {
+  itemId: string;
+  lowestSellPrice?: number;
+  highestBuyPrice?: number;
+}
+
+export interface S2C_MarketListings {
+  currencyItemId: string;
+  currencyItemName: string;
+  page: number;
+  pageSize: number;
+  total: number;
+  category: ItemType | 'all';
+  equipmentSlot: EquipSlot | 'all';
+  techniqueCategory: TechniqueCategory | 'all';
+  items: MarketListingPageEntry[];
+}
+
+export interface MarketOwnOrderSyncEntry {
+  id: string;
+  side: MarketOrderSide;
+  status: 'open' | 'filled' | 'cancelled';
+  itemId: string;
+  remainingQuantity: number;
+  unitPrice: number;
+  createdAt: number;
+}
+
+export interface S2C_MarketOrders {
+  currencyItemId: string;
+  currencyItemName: string;
+  orders: MarketOwnOrderSyncEntry[];
+}
+
+export interface MarketStorageSyncEntry {
+  itemId: string;
+  count: number;
+}
+
+export interface S2C_MarketStorage {
+  items: MarketStorageSyncEntry[];
+}
+
+export interface MarketItemBookSyncView {
+  itemId: string;
+  sells: MarketPriceLevelView[];
+  buys: MarketPriceLevelView[];
+}
+
 export interface S2C_MarketItemBook {
   currencyItemId: string;
   currencyItemName: string;
-  itemKey: string;
-  book: MarketOrderBookView | null;
+  itemId: string;
+  book: MarketItemBookSyncView | null;
 }
 
 export interface S2C_MarketTradeHistory {
   page: number;
   pageSize: number;
   totalVisible: number;
-  records: MarketTradeHistoryEntryView[];
+  records: Array<{
+    id: string;
+    side: 'buy' | 'sell';
+    itemId: string;
+    quantity: number;
+    unitPrice: number;
+    createdAt: number;
+  }>;
 }
 
 export interface SyncedNpcShopItemView {
@@ -914,7 +986,20 @@ export interface S2C_TileRuntimeDetail {
 
 /** 任务列表更新 */
 export interface S2C_QuestUpdate {
-  quests: QuestState[];
+  quests: Array<{
+    id: string;
+    status: QuestState['status'];
+    progress: number;
+  }>;
+}
+
+export interface S2C_AttrDetail {
+  baseAttrs: Attributes;
+  bonuses: AttrBonus[];
+  finalAttrs: Attributes;
+  numericStats: NumericStats;
+  ratioDivisors: NumericRatioDivisors;
+  numericStatBreakdowns: NumericStatBreakdownMap;
 }
 
 /** 任务自动导航回执 */

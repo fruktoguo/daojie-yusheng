@@ -25,6 +25,7 @@ export class SidePanel {
   private visible = false;
   private onVisibilityChange: ((visible: boolean) => void) | null = null;
   private onLayoutChange: (() => void) | null = null;
+  private onTabChange: ((tabName: string) => void) | null = null;
   private dragState: {
     target: 'left' | 'right' | 'bottom';
     pointerId: number;
@@ -83,6 +84,10 @@ export class SidePanel {
 
   setLayoutChangeCallback(callback: () => void): void {
     this.onLayoutChange = callback;
+  }
+
+  setTabChangeCallback(callback: (tabName: string) => void): void {
+    this.onTabChange = callback;
   }
 
   switchTab(tabName: string): void {
@@ -396,6 +401,7 @@ export class SidePanel {
     this.getGroupPanes(group).forEach(pane => {
       pane.classList.toggle('active', pane.dataset.pane === tabName);
     });
+    this.onTabChange?.(tabName);
   }
 
   private getGroupTabs(group: HTMLElement): HTMLElement[] {

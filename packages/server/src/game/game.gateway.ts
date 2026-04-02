@@ -50,8 +50,10 @@ import {
   C2S_GmMarkSuggestionCompleted,
   C2S_GmRemoveSuggestion,
   C2S_RequestMarket,
+  C2S_RequestMarketListings,
   C2S_RequestMarketItemBook,
   C2S_RequestMarketTradeHistory,
+  C2S_RequestAttrDetail,
   C2S_CreateMarketSellOrder,
   C2S_CreateMarketBuyOrder,
   C2S_BuyMarketItem,
@@ -70,6 +72,7 @@ import {
   S2C_SystemMsg,
   S2C_Pong,
   S2C_TileRuntimeDetail,
+  S2C_AttrDetail,
   DEFAULT_BASE_ATTRS,
   DEFAULT_BONE_AGE_YEARS,
   DEFAULT_PLAYER_MAP_ID,
@@ -102,6 +105,8 @@ import { MailService } from './mail.service';
 import { buildDefaultRoleName } from '../auth/account-validation';
 import { DatabaseBackupService } from './database-backup.service';
 import { RedeemCodeService } from './redeem-code.service';
+import { AttrService } from './attr.service';
+import { REALM_STATE_SOURCE } from '../constants/gameplay/technique';
 
 @WebSocketGateway({ cors: true })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
@@ -110,6 +115,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
   private readonly logger = new Logger(GameGateway.name);
   private readonly marketSubscriberPlayerIds = new Set<string>();
+  private readonly marketListingRequests = new Map<string, C2S_RequestMarketListings>();
 
   constructor(
     private readonly authService: AuthService,
@@ -127,6 +133,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     private readonly suggestionRealtimeService: SuggestionRealtimeService,
     private readonly navigationService: NavigationService,
     private readonly marketService: MarketService,
+    private readonly attrService: AttrService,
     private readonly techniqueService: TechniqueService,
     private readonly mailService: MailService,
     private readonly redeemCodeService: RedeemCodeService,
@@ -309,6 +316,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     if (!playerId) return;
     if (this.playerService.getSocket(playerId) !== client) return;
     this.marketSubscriberPlayerIds.delete(playerId);
+    this.marketListingRequests.delete(playerId);
 
     const player = this.playerService.getPlayer(playerId);
     if (player) {
@@ -739,6 +747,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     const { pendingLogbookMessages: _pendingLogbookMessages, ...publicPlayer } = player;
     return {
       ...publicPlayer,
+      bonuses: [],
+      finalAttrs: undefined,
+      numericStats: undefined,
+      ratioDivisors: undefined,
+      numericStatBreakdowns: undefined,
       cultivationActive: this.techniqueService.hasCultivationBuff(player),
       inventory: {
         capacity: player.inventory.capacity,
@@ -968,7 +981,26 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     this.marketSubscriberPlayerIds.add(playerId);
-    client.emit(S2C.MarketUpdate, this.marketService.buildMarketUpdate(player));
+    const request = this.marketListingRequests.get(playerId) ?? { page: 1 };
+    this.marketListingRequests.set(playerId, request);
+    this.emitMarketPanelSnapshot(client, player, request);
+  }
+
+  @SubscribeMessage(C2S.RequestMarketListings)
+  handleRequestMarketListings(client: Socket, data: C2S_RequestMarketListings) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+    const request: C2S_RequestMarketListings = {
+      page: data.page,
+      pageSize: data.pageSize,
+      category: data.category ?? 'all',
+      equipmentSlot: data.equipmentSlot ?? 'all',
+      techniqueCategory: data.techniqueCategory ?? 'all',
+    };
+    this.marketSubscriberPlayerIds.add(playerId);
+    this.marketListingRequests.set(playerId, request);
+    client.emit(S2C.MarketListings, this.marketService.buildListingsPage(request));
   }
 
   @SubscribeMessage(C2S.RequestMarketItemBook)
@@ -976,8 +1008,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     client.emit(S2C.MarketItemBook, {
       currencyItemId: this.marketService.getCurrencyItemId(),
       currencyItemName: this.marketService.getCurrencyItemName(),
-      itemKey: data.itemKey,
-      book: this.marketService.buildItemBook(data.itemKey),
+      itemId: data.itemId,
+      book: this.marketService.buildItemBook(data.itemId),
     });
   }
 
@@ -985,6 +1017,23 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   async handleRequestMarketTradeHistory(client: Socket, data: C2S_RequestMarketTradeHistory) {
     const playerId = client.data?.playerId as string;
     client.emit(S2C.MarketTradeHistory, await this.marketService.buildTradeHistoryPage(playerId, data.page));
+  }
+
+  @SubscribeMessage(C2S.RequestAttrDetail)
+  handleRequestAttrDetail(client: Socket, _data: C2S_RequestAttrDetail) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) {
+      return;
+    }
+    client.emit(S2C.AttrDetail, {
+      baseAttrs: player.baseAttrs,
+      bonuses: player.bonuses.filter((bonus) => bonus.source !== REALM_STATE_SOURCE),
+      finalAttrs: this.attrService.getPlayerFinalAttrs(player),
+      numericStats: this.attrService.getPlayerNumericStats(player),
+      ratioDivisors: this.attrService.getPlayerRatioDivisors(player),
+      numericStatBreakdowns: this.attrService.getPlayerNumericStatBreakdowns(player),
+    } satisfies S2C_AttrDetail);
   }
 
   @SubscribeMessage(C2S.CreateMarketSellOrder)
@@ -1070,14 +1119,23 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       const player = this.playerService.getPlayer(playerId);
       if (!player) {
         this.marketSubscriberPlayerIds.delete(playerId);
+        this.marketListingRequests.delete(playerId);
         continue;
       }
       const socket = this.playerService.getSocket(player.id);
       if (!socket) {
         continue;
       }
-      socket.emit(S2C.MarketUpdate, this.marketService.buildMarketUpdate(player));
+      const request = this.marketListingRequests.get(player.id) ?? { page: 1 };
+      this.marketListingRequests.set(player.id, request);
+      this.emitMarketPanelSnapshot(socket, player, request);
     }
+  }
+
+  private emitMarketPanelSnapshot(client: Socket, player: PlayerState, request: C2S_RequestMarketListings): void {
+    client.emit(S2C.MarketListings, this.marketService.buildListingsPage(request));
+    client.emit(S2C.MarketOrders, this.marketService.buildOrdersUpdate(player));
+    client.emit(S2C.MarketStorage, this.marketService.buildStorageUpdate(player));
   }
 
   private toClientVisibleTiles(viewer: PlayerState, tiles: VisibleTile[][]): VisibleTile[][] {

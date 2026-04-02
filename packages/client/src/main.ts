@@ -51,6 +51,7 @@ import {
   resolvePreviewTechniques,
 } from './content/local-templates';
 import { scheduleDeferredLocalContentPreload } from './content/deferred-local-content';
+import { hydrateQuestStates } from './content/local-quests';
 import { assessMapDanger } from './utils/map-danger';
 
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './ui/floating-tooltip';
@@ -1292,12 +1293,8 @@ function cloneJson<T>(value: T): T {
 
 function buildAttrStateFromPlayer(player: PlayerState): S2C_AttrUpdate {
   return {
-    baseAttrs: cloneJson(player.baseAttrs),
-    bonuses: cloneJson(player.bonuses),
     finalAttrs: cloneJson(player.finalAttrs ?? player.baseAttrs),
     numericStats: player.numericStats ? cloneJson(player.numericStats) : undefined,
-    ratioDivisors: player.ratioDivisors ? cloneJson(player.ratioDivisors) : undefined,
-    numericStatBreakdowns: player.numericStatBreakdowns ? cloneJson(player.numericStatBreakdowns) : undefined,
     maxHp: player.maxHp,
     qi: player.qi,
     specialStats: {
@@ -1315,15 +1312,6 @@ function buildAttrStateFromPlayer(player: PlayerState): S2C_AttrUpdate {
 
 function mergeAttrUpdatePatch(previous: S2C_AttrUpdate | null, patch: S2C_AttrUpdate): S2C_AttrUpdate {
   return {
-    baseAttrs: patch.baseAttrs ? cloneJson(patch.baseAttrs) : cloneJson(previous?.baseAttrs ?? myPlayer?.baseAttrs ?? {
-      constitution: 0,
-      spirit: 0,
-      perception: 0,
-      talent: 0,
-      comprehension: 0,
-      luck: 0,
-    }),
-    bonuses: patch.bonuses ? cloneJson(patch.bonuses) : cloneJson(previous?.bonuses ?? myPlayer?.bonuses ?? []),
     finalAttrs: patch.finalAttrs ? cloneJson(patch.finalAttrs) : cloneJson(previous?.finalAttrs ?? myPlayer?.finalAttrs ?? previous?.baseAttrs ?? myPlayer?.baseAttrs ?? {
       constitution: 0,
       spirit: 0,
@@ -1333,10 +1321,6 @@ function mergeAttrUpdatePatch(previous: S2C_AttrUpdate | null, patch: S2C_AttrUp
       luck: 0,
     }),
     numericStats: patch.numericStats ? cloneJson(patch.numericStats) : (previous?.numericStats ? cloneJson(previous.numericStats) : undefined),
-    ratioDivisors: patch.ratioDivisors ? cloneJson(patch.ratioDivisors) : (previous?.ratioDivisors ? cloneJson(previous.ratioDivisors) : undefined),
-    numericStatBreakdowns: patch.numericStatBreakdowns
-      ? cloneJson(patch.numericStatBreakdowns)
-      : (previous?.numericStatBreakdowns ? cloneJson(previous.numericStatBreakdowns) : undefined),
     maxHp: patch.maxHp ?? previous?.maxHp ?? myPlayer?.maxHp ?? 0,
     qi: patch.qi ?? previous?.qi ?? myPlayer?.qi ?? 0,
     specialStats: patch.specialStats
@@ -1907,6 +1891,9 @@ techniquePanel.setCallbacks(
   (techId) => socket.sendCultivate(techId),
   (techId, enabled) => socket.sendUpdateTechniqueSkillAvailability(techId, enabled),
 );
+attrPanel.setCallbacks({
+  onRequestDetail: () => socket.sendRequestAttrDetail(),
+});
 questPanel.setCallbacks((questId) => {
   clearCurrentPath();
   pendingQuestNavigateId = questId;
@@ -1914,7 +1901,8 @@ questPanel.setCallbacks((questId) => {
 });
 marketPanel.setCallbacks({
   onRequestMarket: () => socket.sendRequestMarket(),
-  onRequestItemBook: (itemKey) => socket.sendRequestMarketItemBook(itemKey),
+  onRequestMarketListings: (payload) => socket.sendRequestMarketListings(payload),
+  onRequestItemBook: (itemId) => socket.sendRequestMarketItemBook(itemId),
   onRequestTradeHistory: (page) => socket.sendRequestMarketTradeHistory(page),
   onCreateSellOrder: (slotIndex, quantity, unitPrice) => socket.sendCreateMarketSellOrder(slotIndex, quantity, unitPrice),
   onCreateBuyOrder: (itemId, quantity, unitPrice) => socket.sendCreateMarketBuyOrder(itemId, quantity, unitPrice),
@@ -2066,6 +2054,7 @@ socket.onRealmUpdate((data: S2C_RealmUpdate) => {
   refreshUiChrome();
 });
 socket.onAttrUpdate((data) => {
+  attrPanel.invalidateDetail();
   latestAttrUpdate = mergeAttrUpdatePatch(latestAttrUpdate, data);
   if (myPlayer) {
     myPlayer.baseAttrs = latestAttrUpdate.baseAttrs ?? myPlayer.baseAttrs;
@@ -2103,6 +2092,9 @@ socket.onAttrUpdate((data) => {
   });
   inventoryPanel.syncPlayerContext(myPlayer ?? undefined);
   refreshUiChrome();
+});
+socket.onAttrDetail((data) => {
+  attrPanel.applyDetail(data);
 });
 socket.onInventoryUpdate((data) => {
   const mergedInventory = mergeInventoryUpdate(myPlayer?.inventory, data);
@@ -2219,9 +2211,10 @@ socket.onTileRuntimeDetail((data) => {
   renderObserveModal(data.x, data.y);
 });
 socket.onQuestUpdate((data) => {
-  if (myPlayer) myPlayer.quests = data.quests;
+  const hydratedQuests = hydrateQuestStates(data.quests);
+  if (myPlayer) myPlayer.quests = hydratedQuests;
   questPanel.setCurrentMapId(myPlayer?.mapId);
-  questPanel.update(data.quests);
+  questPanel.update(hydratedQuests);
   refreshUiChrome();
 });
 socket.onQuestNavigateResult((data) => {
@@ -2976,6 +2969,11 @@ sidePanel.setLayoutChangeCallback(() => {
   }
   scheduleLayoutViewportSync();
 });
+sidePanel.setTabChangeCallback((tabName) => {
+  if (tabName === 'market') {
+    socket.sendRequestMarket();
+  }
+});
 
 function resizeCanvas() {
   const cssWidth = Math.max(1, canvasHost.clientWidth);
@@ -3219,11 +3217,28 @@ socket.onMailOpResult((data) => {
   mailPanel.handleOpResult(data);
 });
 
-socket.onMarketUpdate((data) => {
+socket.onMarketListings((data) => {
+  marketPanel.updateListings(data);
+});
+socket.onMarketOrders((data) => {
+  marketPanel.updateOrders(data);
+});
+socket.onMarketStorage((data) => {
   if (myPlayer) {
-    myPlayer.marketStorage = data.storage;
+    myPlayer.marketStorage = {
+      items: data.items.map((item) => {
+        const template = getLocalItemTemplate(item.itemId);
+        return {
+          itemId: item.itemId,
+          count: item.count,
+          name: template?.name ?? item.itemId,
+          type: template?.type ?? 'material',
+          desc: template?.desc ?? '',
+        };
+      }),
+    };
   }
-  marketPanel.updateMarket(data);
+  marketPanel.updateStorage(data);
 });
 
 socket.onMarketItemBook((data) => {
