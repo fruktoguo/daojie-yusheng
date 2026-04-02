@@ -30,11 +30,22 @@
         "chance": 0.14
       },
       {
-        "itemId": "spirit_stone",
-        "name": "灵石",
-        "type": "consumable",
-        "count": 1,
-        "chance": 0.01
+        "itemId": "equip.crystal_maw_spike",
+        "name": "晶獠骨刺",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.oreplate_carapace",
+        "name": "矿壳重甲",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.mineral_pulse_core",
+        "name": "矿脉搏核",
+        "type": "equipment",
+        "count": 1
       }
     ],
     "grade": "mortal",
@@ -97,11 +108,22 @@
         "chance": 0.01
       },
       {
-        "itemId": "spirit_stone",
-        "name": "灵石",
-        "type": "consumable",
-        "count": 1,
-        "chance": 0.01
+        "itemId": "equip.echo_crystal_crest",
+        "name": "回声晶冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.cave_skitter_spurs",
+        "name": "穴行钩爪",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.mineral_pulse_core",
+        "name": "矿脉搏核",
+        "type": "equipment",
+        "count": 1
       }
     ],
     "grade": "mortal",
@@ -165,11 +187,22 @@
         "chance": 0.01
       },
       {
-        "itemId": "spirit_stone",
-        "name": "灵石",
-        "type": "consumable",
-        "count": 1,
-        "chance": 0.01
+        "itemId": "equip.soot_lamp_hood",
+        "name": "熄火矿灯冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.ash_tread",
+        "name": "炉灰踏靴",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.orevein_ring",
+        "name": "矿脉扣环",
+        "type": "equipment",
+        "count": 1
       }
     ],
     "grade": "mortal",
@@ -255,11 +288,28 @@
         "chance": 0.2
       },
       {
-        "itemId": "spirit_stone",
-        "name": "灵石",
-        "type": "consumable",
-        "count": 1,
-        "chance": 0.01
+        "itemId": "equip.orebreak_hammer",
+        "name": "矿卫破岩锤",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.oreplate_carapace",
+        "name": "矿壳重甲",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.mineral_pulse_core",
+        "name": "矿脉搏核",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "quest.miner_token",
+        "name": "矿洞令牌",
+        "type": "quest_item",
+        "count": 1
       }
     ],
     "grade": "mortal",
@@ -352,11 +402,22 @@
         "chance": 0.5
       },
       {
-        "itemId": "spirit_stone",
-        "name": "灵石",
-        "type": "consumable",
-        "count": 1,
-        "chance": 0.01
+        "itemId": "equip.blackiron_brigandine",
+        "name": "黑铁束身甲",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.ash_tread",
+        "name": "炉灰踏靴",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.mineral_pulse_core",
+        "name": "矿脉搏核",
+        "type": "equipment",
+        "count": 1
       }
     ],
     "grade": "mortal",

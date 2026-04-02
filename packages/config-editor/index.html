@@ -903,6 +903,8 @@
               <input id="map-search" class="search-input" type="text" placeholder="搜索地图 ID / 名称 / 推荐境界" />
             </div>
             <div class="button-row" style="margin: 12px 0;">
+              <button id="map-catalog-mode-main" class="small-btn primary" type="button">主图</button>
+              <button id="map-catalog-mode-piece" class="small-btn" type="button">散图</button>
               <button id="map-refresh-list" class="small-btn" type="button">刷新地图目录</button>
             </div>
             <div class="map-list-scroll">
@@ -934,7 +936,7 @@
           <div class="section-head compact">
             <div class="side-tabs">
               <button id="map-side-tab-overview" class="side-tab active" type="button">概览与工具</button>
-              <button id="map-side-tab-inspector" class="side-tab" type="button">检视编辑</button>
+              <button id="map-side-tab-inspector" class="side-tab" type="button">检视 / 拼图 / 对象</button>
               <button id="map-side-tab-json" class="side-tab" type="button">JSON</button>
             </div>
           </div>
@@ -947,6 +949,11 @@
                   <div id="map-tool-buttons" class="map-tool-grid"></div>
                   <div id="map-paint-layer-tabs" class="paint-layer-tabs"></div>
                   <div id="map-tile-palette" class="map-tile-palette" style="margin-top: 10px;"></div>
+                </div>
+                <div class="note-card" style="margin-top: 12px;">
+                  <div class="editor-section-title">子地图拼合入口</div>
+                  <div class="editor-note">右侧切到“检视 / 拼图 / 对象”后，再点里面的“拼图”标签，就能把别的地图当拼图块拖到当前图上。</div>
+                  <div class="editor-note">拼图块支持左键拖拽移动、左右旋转 90°，确认后可单块或全部烘焙进当前地图。</div>
                 </div>
               </div>
               <div id="map-side-panel-inspector" class="side-panel hidden">
@@ -1221,7 +1228,7 @@
         <section class="layout-section">
           <div class="section-head">
             <div class="section-title">原始 JSON 编辑</div>
-            <div class="section-subtitle">保存后会写回本地文件；内容配置变更将自动重启服务。</div>
+            <div class="section-subtitle">保存后会写回本地文件；若启用服务托管，内容配置变更会触发自动重启。</div>
           </div>
           <div class="section-body" style="display:flex; flex-direction:column; gap:12px;">
             <div id="config-file-empty" class="empty-hint">从左侧选择一个配置文件。</div>
@@ -1245,7 +1252,7 @@
         <section class="layout-section">
           <div class="section-head">
             <div class="section-title">本地服务控制</div>
-            <div class="section-subtitle">由配置编辑器托管的游戏服实例，配置变更会触发自动重启。</div>
+            <div class="section-subtitle">默认不托管主游戏服；仅在显式启用托管时，配置变更才会触发自动重启。</div>
           </div>
           <div class="section-body" style="display:flex; flex-direction:column; gap:12px;">
             <div class="service-card">
@@ -1254,13 +1261,14 @@
               <div id="service-running-meta" class="service-log">正在加载…</div>
             </div>
             <div class="button-row">
-              <button id="service-restart" class="small-btn primary" type="button">手动重启服务</button>
+              <button id="service-restart" class="small-btn primary" type="button">手动重启托管服务</button>
               <button id="service-refresh" class="small-btn" type="button">刷新状态</button>
             </div>
             <div class="note-card">
               <div class="editor-section-title">行为说明</div>
               <div class="editor-note">地图编辑只写本地文件，地图本身仍可依赖服务端热重载。</div>
-              <div class="editor-note">内容配置文件保存后，编辑器会自动重启由它托管的本地服务实例。</div>
+              <div class="editor-note">默认模式下，编辑器不会自动拉起或关闭 `@mud/server`，可与 `./start.sh` 并行使用。</div>
+              <div class="editor-note">如需由编辑器托管主游戏服，请用 `CONFIG_EDITOR_MANAGE_GAME_SERVER=1 ./packages/config-editor/start.sh` 启动。</div>
               <div class="editor-note">编辑器前端由 Vite 托管，页面与脚本改动会热更新；本地 API 现在也会随源码变更自动重启。</div>
               <div class="editor-note">这个工具不参与线上服务运行，也不对外暴露鉴权入口。</div>
             </div>

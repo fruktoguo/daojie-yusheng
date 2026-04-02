@@ -103,6 +103,7 @@ import {
   ORDINARY_MONSTER_SPAWN_COUNT,
   ORDINARY_MONSTER_SPAWN_MAX_ALIVE,
 } from '../constants/gameplay/monster';
+import { LANDMARK_RESOURCE_NODE_BY_ID } from '../constants/gameplay/resource-nodes';
 
 export interface QuestConfig {
   id: string;
@@ -2917,7 +2918,18 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     const result: ContainerConfig[] = [];
     for (const candidate of rawLandmarks) {
       const landmark = candidate as GmMapLandmarkRecord;
-      if (!landmark?.container || typeof landmark.id !== 'string' || typeof landmark.name !== 'string') {
+      const resourceNodeId = typeof landmark?.resourceNodeId === 'string' && landmark.resourceNodeId.trim().length > 0
+        ? landmark.resourceNodeId.trim()
+        : undefined;
+      const resourceNode = resourceNodeId ? LANDMARK_RESOURCE_NODE_BY_ID.get(resourceNodeId) : undefined;
+      const resolvedContainer = landmark?.container
+        ?? (resourceNode?.kind === 'landmark_container' ? resourceNode.container : undefined);
+
+      if (resourceNodeId && !resourceNode) {
+        this.logger.warn(`地图 ${meta.id} 的资源节点不存在: ${resourceNodeId}`);
+        continue;
+      }
+      if (!resolvedContainer || typeof landmark.id !== 'string' || typeof landmark.name !== 'string') {
         continue;
       }
       if (!Number.isInteger(landmark.x) || !Number.isInteger(landmark.y)) {
@@ -2927,6 +2939,9 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         this.logger.warn(`地图 ${meta.id} 的容器越界: ${landmark.id}`);
         continue;
       }
+      if (resourceNode && resourceNode.kind !== 'landmark_container' && !landmark.container) {
+        continue;
+      }
 
       result.push({
         id: landmark.id,
@@ -2934,18 +2949,18 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         x: landmark.x,
         y: landmark.y,
         desc: typeof landmark.desc === 'string' ? landmark.desc : undefined,
-        char: typeof landmark.container.char === 'string' && landmark.container.char.trim().length > 0
-          ? landmark.container.char.trim().slice(0, 1)
+        char: typeof resolvedContainer.char === 'string' && resolvedContainer.char.trim().length > 0
+          ? resolvedContainer.char.trim().slice(0, 1)
           : undefined,
-        color: typeof landmark.container.color === 'string' && landmark.container.color.trim().length > 0
-          ? landmark.container.color.trim()
+        color: typeof resolvedContainer.color === 'string' && resolvedContainer.color.trim().length > 0
+          ? resolvedContainer.color.trim()
           : undefined,
-        grade: this.normalizeContainerGrade(landmark.container.grade),
-        refreshTicks: Number.isInteger(landmark.container.refreshTicks) && landmark.container.refreshTicks! > 0
-          ? Number(landmark.container.refreshTicks)
+        grade: this.normalizeContainerGrade(resolvedContainer.grade),
+        refreshTicks: Number.isInteger(resolvedContainer.refreshTicks) && resolvedContainer.refreshTicks! > 0
+          ? Number(resolvedContainer.refreshTicks)
           : undefined,
-        drops: this.normalizeDrops(landmark.container.drops),
-        lootPools: this.normalizeContainerLootPools(landmark.container.lootPools),
+        drops: this.normalizeDrops(resolvedContainer.drops),
+        lootPools: this.normalizeContainerLootPools(resolvedContainer.lootPools),
       });
     }
 
@@ -2977,6 +2992,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     monsterSpawns: MonsterSpawnConfig[],
   ): MapMinimapSnapshot {
     const markers: MapMinimapMarker[] = [];
+    const containerLandmarkIds = new Set(containers.map((container) => container.id));
 
     const pushMarker = (marker: MapMinimapMarker): void => {
       if (marker.x < 0 || marker.x >= meta.width || marker.y < 0 || marker.y >= meta.height) {
@@ -2989,7 +3005,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       if (!Number.isInteger(landmark.x) || !Number.isInteger(landmark.y)) {
         continue;
       }
-      if (landmark.container) {
+      if (containerLandmarkIds.has(landmark.id)) {
         continue;
       }
       pushMarker({
@@ -3626,6 +3642,32 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
   getTileAura(mapId: string, x: number, y: number): number {
     return Math.max(0, this.getTile(mapId, x, y)?.aura ?? 0);
+  }
+
+  getTileAuraResourceValues(mapId: string, x: number, y: number): Array<{ key: string; value: number }> {
+    const key = this.tileStateKey(x, y);
+    const map = this.maps.get(mapId);
+    const resourceBucket = this.resourceStates.get(mapId);
+    const resourceKeys = new Set<string>([
+      ...(map?.baseResourceValues.keys() ?? []),
+      ...(resourceBucket ? [...resourceBucket.keys()] : []),
+    ]);
+    const resources: Array<{ key: string; value: number }> = [];
+    for (const resourceKey of resourceKeys) {
+      if (!isAuraQiResourceKey(resourceKey)) {
+        continue;
+      }
+      const value = Math.max(0, Math.round(
+        resourceBucket?.get(resourceKey)?.get(key)?.value
+          ?? map?.baseResourceValues.get(resourceKey)?.get(key)
+          ?? 0,
+      ));
+      if (value <= 0) {
+        continue;
+      }
+      resources.push({ key: resourceKey, value });
+    }
+    return resources;
   }
 
   getTileResourceValue(mapId: string, x: number, y: number, resourceKey: string): number {

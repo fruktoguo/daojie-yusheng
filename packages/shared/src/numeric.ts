@@ -123,6 +123,32 @@ export interface RealmNumericTemplate {
   ratioDivisors: NumericRatioDivisors;
 }
 
+/**
+ * 将“加减百分比”转换为最终乘区。
+ * 正向保持线性增长，负向改为反比衰减，避免任意乘区被直接压到 0。
+ * 例如:
+ * - +50 => 1.5
+ * - -50 => 1 / 1.5 = 0.666...
+ * - -100 => 0.5
+ */
+export function percentModifierToMultiplier(percent: number): number {
+  if (!Number.isFinite(percent) || percent === 0) {
+    return 1;
+  }
+  if (percent > 0) {
+    return 1 + percent / 100;
+  }
+  return 1 / (1 + Math.abs(percent) / 100);
+}
+
+/** 将万分比加减值转换为最终乘区。100 = 1%，-500 = -5%。 */
+export function basisPointModifierToMultiplier(rateBp: number): number {
+  if (!Number.isFinite(rateBp) || rateBp === 0) {
+    return 1;
+  }
+  return percentModifierToMultiplier(rateBp / 100);
+}
+
 /** 创建全零五行元素属性组 */
 export function createElementStatGroup(initialValue = 0): ElementStatGroup {
   return {
@@ -338,13 +364,15 @@ export function applyNumericStatsPercentMultiplier(target: NumericStats, patch?:
     const current = key === 'moveSpeed'
       ? target[key] + floor
       : target[key];
-    const multiplier = Math.max(0.01, 1 + percent / 100);
+    const multiplier = percentModifierToMultiplier(percent);
     const nextValue = current > 0
       ? Math.max(0, current * multiplier)
-      : Math.max(0, floor * multiplier);
-    target[key] = key === 'moveSpeed'
-      ? Math.max(0, nextValue - floor)
-      : nextValue;
+      : floor * multiplier - floor;
+    if (key === 'moveSpeed') {
+      target[key] = nextValue - floor;
+      continue;
+    }
+    target[key] = nextValue;
   }
   if (patch.elementDamageBonus) {
     for (const key of ELEMENT_KEYS) {
@@ -354,10 +382,10 @@ export function applyNumericStatsPercentMultiplier(target: NumericStats, patch?:
       }
       const floor = getElementStatMultiplierFloor('elementDamageBonus', key);
       const current = target.elementDamageBonus[key];
-      const multiplier = Math.max(0.01, 1 + percent / 100);
+      const multiplier = percentModifierToMultiplier(percent);
       target.elementDamageBonus[key] = current > 0
         ? Math.max(0, current * multiplier)
-        : Math.max(0, floor * multiplier - floor);
+        : floor * multiplier - floor;
     }
   }
   if (patch.elementDamageReduce) {
@@ -368,7 +396,7 @@ export function applyNumericStatsPercentMultiplier(target: NumericStats, patch?:
       }
       const floor = getElementStatMultiplierFloor('elementDamageReduce', key);
       const current = target.elementDamageReduce[key];
-      const multiplier = Math.max(0.01, 1 + percent / 100);
+      const multiplier = percentModifierToMultiplier(percent);
       target.elementDamageReduce[key] = current > 0
         ? Math.max(0, current * multiplier)
         : Math.max(0, floor * multiplier - floor);
@@ -408,6 +436,15 @@ export function ratioValue(value: number, divisor: number): number {
   if (value === 0) return 0;
   if (divisor <= 0) return value > 0 ? 1 : -1;
   return value > 0 ? value / (value + divisor) : -value / divisor;
+}
+
+/** 带符号的 RatioValue，负值保留方向，用于冷却等允许正负变化的比例属性。 */
+export function signedRatioValue(value: number, divisor: number): number {
+  if (value === 0) {
+    return 0;
+  }
+  const magnitude = ratioValue(Math.abs(value), divisor);
+  return value > 0 ? magnitude : -magnitude;
 }
 
 /** 获取指定标量属性的 RatioValue 百分比 */

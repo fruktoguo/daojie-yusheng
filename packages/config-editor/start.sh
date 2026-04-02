@@ -25,7 +25,12 @@ cleanup() {
 
 trap cleanup EXIT INT TERM
 
-echo "[config-editor] 启动本地 API（含服务托管与自动重启）"
+if [[ "${CONFIG_EDITOR_MANAGE_GAME_SERVER:-0}" == "1" ]]; then
+  echo "[config-editor] 启动本地 API（含主游戏服托管与自动重启）"
+else
+  echo "[config-editor] 启动本地 API（独立模式，不托管主游戏服）"
+  echo "[config-editor] 如需托管主游戏服，请使用 CONFIG_EDITOR_MANAGE_GAME_SERVER=1 ./packages/config-editor/start.sh"
+fi
 pnpm --filter @mud/config-editor start:api &
 API_PID=$!
 

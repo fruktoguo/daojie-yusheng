@@ -240,7 +240,9 @@ export class EquipmentEffectService {
       nextBonuses.push({
         source: this.getDynamicBonusSource(entry),
         attrs: effect.attrs ?? {},
+        attrMode: effect.attrMode ?? 'percent',
         stats: effect.stats,
+        statMode: effect.statMode ?? 'percent',
         qiProjection: effect.qiProjection,
         label: `${entry.item.name}:${effect.effectId ?? 'effect'}`,
       });
@@ -272,7 +274,13 @@ export class EquipmentEffectService {
       if (JSON.stringify(leftEntry.attrs ?? {}) !== JSON.stringify(rightEntry.attrs ?? {})) {
         return false;
       }
+      if ((leftEntry.attrMode ?? 'flat') !== (rightEntry.attrMode ?? 'flat')) {
+        return false;
+      }
       if (JSON.stringify(leftEntry.stats ?? null) !== JSON.stringify(rightEntry.stats ?? null)) {
+        return false;
+      }
+      if ((leftEntry.statMode ?? 'flat') !== (rightEntry.statMode ?? 'flat')) {
         return false;
       }
       if (JSON.stringify(leftEntry.qiProjection ?? null) !== JSON.stringify(rightEntry.qiProjection ?? null)) {
@@ -392,18 +400,19 @@ export class EquipmentEffectService {
       this.setCooldown(player, entry, effect.cooldown);
     }
 
+    const sourceRealmLv = Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? entry.item.level ?? 1));
     if (target.kind === 'player') {
-      this.applyBuffState(target.player, this.buildBuffState(entry.item, effect));
+      this.applyBuffState(target.player, this.buildBuffState(entry.item, effect, sourceRealmLv));
       return target.player.id === player.id
         ? { dirty: ['attr'] }
         : { dirty: [], dirtyPlayers: [target.player.id] };
     }
 
-    this.applyBuffStateToCollection(target.monster.temporaryBuffs ??= [], this.buildBuffState(entry.item, effect));
+    this.applyBuffStateToCollection(target.monster.temporaryBuffs ??= [], this.buildBuffState(entry.item, effect, sourceRealmLv));
     return { dirty: [] };
   }
 
-  private buildBuffState(item: ItemStack, effect: EquipmentTimedBuffEffectDef): TemporaryBuffState {
+  private buildBuffState(item: ItemStack, effect: EquipmentTimedBuffEffectDef, sourceRealmLv: number): TemporaryBuffState {
     const buff = effect.buff;
     const duration = Math.max(1, buff.duration);
     return syncDynamicBuffPresentation({
@@ -419,9 +428,12 @@ export class EquipmentEffectService {
       maxStacks: Math.max(1, buff.maxStacks ?? 1),
       sourceSkillId: `equip:${item.itemId}:${effect.effectId ?? 'effect'}`,
       sourceSkillName: item.name,
+      realmLv: Math.max(1, Math.floor(sourceRealmLv)),
       color: buff.color,
       attrs: buff.attrs,
+      attrMode: buff.attrMode,
       stats: buff.stats,
+      statMode: buff.statMode,
       qiProjection: buff.qiProjection,
     });
   }
@@ -446,9 +458,12 @@ export class EquipmentEffectService {
       existing.maxStacks = nextBuff.maxStacks;
       existing.sourceSkillId = nextBuff.sourceSkillId;
       existing.sourceSkillName = nextBuff.sourceSkillName;
+      existing.realmLv = nextBuff.realmLv;
       existing.color = nextBuff.color;
       existing.attrs = nextBuff.attrs;
+      existing.attrMode = nextBuff.attrMode;
       existing.stats = nextBuff.stats;
+      existing.statMode = nextBuff.statMode;
       existing.qiProjection = nextBuff.qiProjection;
       syncDynamicBuffPresentation(existing);
       return;

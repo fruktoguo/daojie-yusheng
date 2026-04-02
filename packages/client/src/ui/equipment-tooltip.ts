@@ -18,7 +18,6 @@ import {
 } from '../domain-labels';
 import { renderItemSourceListHtml } from '../content/item-sources';
 import {
-  getLocalItemTemplate,
   getLocalRealmLevelEntry,
   getLocalTechniqueTemplate,
   resolvePreviewItem,
@@ -61,8 +60,10 @@ function describeBuffStats(
   attrs?: NonNullable<ItemStack['equipAttrs']>,
   stats?: ItemStack['equipStats'],
   valueStats?: ItemStack['equipValueStats'],
+  attrMode?: 'flat' | 'percent',
+  statMode?: 'flat' | 'percent',
 ): string[] {
-  return describePreviewBonuses(attrs, stats, valueStats);
+  return describePreviewBonuses(attrs, stats, valueStats, attrMode, statMode);
 }
 
 function formatConditionText(effect: EquipmentEffectDef): string[] {
@@ -110,7 +111,7 @@ function buildTimedBuffAsideCard(effect: Extract<EquipmentEffectDef, { type: 'ti
   const stackLimit = formatBuffMaxStacks(effect.buff.maxStacks);
   const stackText = stackLimit ? ` · 最多 ${stackLimit} 层` : '';
   const conditionLines = formatConditionText(effect);
-  const buffLines = describeBuffStats(effect.buff.attrs, effect.buff.stats, effect.buff.valueStats);
+  const buffLines = describeBuffStats(effect.buff.attrs, effect.buff.stats, effect.buff.valueStats, effect.buff.attrMode ?? 'percent', effect.buff.statMode ?? 'percent');
   const lines = [
     `${formatTriggerLabel(effect.trigger)} · ${effect.target === 'target' ? '目标' : '自身'} · ${formatDisplayInteger(effect.buff.duration)} 息${stackText}`,
     ...(effect.cooldown !== undefined ? [`冷却：${formatDisplayInteger(effect.cooldown)} 息`] : []),
@@ -131,7 +132,7 @@ function buildEffectSummary(effect: EquipmentEffectDef): { lines: string[]; asid
   const conditionLines = formatConditionText(effect);
   switch (effect.type) {
     case 'stat_aura': {
-      const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats);
+      const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats, effect.attrMode, effect.statMode);
       return {
         lines: [
           renderPlainLine('常驻特效', effectLines.length > 0 ? effectLines.join('，') : '无数值变化'),
@@ -140,7 +141,7 @@ function buildEffectSummary(effect: EquipmentEffectDef): { lines: string[]; asid
       };
     }
     case 'progress_boost': {
-      const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats);
+      const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats, effect.attrMode, effect.statMode);
       return {
         lines: [
           renderPlainLine('推进特效', effectLines.length > 0 ? effectLines.join('，') : '无数值变化'),
@@ -215,14 +216,14 @@ function buildPlainEffectSummary(effect: EquipmentEffectDef): string[] {
   const conditionLines = formatConditionText(effect);
   switch (effect.type) {
     case 'stat_aura': {
-      const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats);
+      const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats, effect.attrMode, effect.statMode);
       return [
         `常驻特效：${effectLines.length > 0 ? effectLines.join('，') : '无数值变化'}`,
         ...(conditionLines.length > 0 ? [`生效条件：${conditionLines.join('，')}`] : []),
       ];
     }
     case 'progress_boost': {
-      const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats);
+      const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats, effect.attrMode, effect.statMode);
       return [
         `推进特效：${effectLines.length > 0 ? effectLines.join('，') : '无数值变化'}`,
         ...(conditionLines.length > 0 ? [`生效条件：${conditionLines.join('，')}`] : []),
@@ -257,36 +258,33 @@ function buildPlainEffectSummary(effect: EquipmentEffectDef): string[] {
 }
 
 function buildConsumableEffectDetails(item: ItemStack): string[] {
-  if (item.type !== 'consumable') {
-    return [];
-  }
-  const template = getLocalItemTemplate(item.itemId);
-  if (!template) {
+  const previewItem = resolvePreviewItem(item);
+  if (previewItem.type !== 'consumable') {
     return [];
   }
 
   const lines: string[] = [];
   const instantParts: string[] = [];
-  if (typeof template.healAmount === 'number' && template.healAmount > 0) {
-    instantParts.push(`恢复 ${formatDisplayInteger(template.healAmount)} 点气血`);
+  if (typeof previewItem.healAmount === 'number' && previewItem.healAmount > 0) {
+    instantParts.push(`恢复 ${formatDisplayInteger(previewItem.healAmount)} 点气血`);
   }
-  if (typeof template.healPercent === 'number' && template.healPercent > 0) {
-    instantParts.push(`恢复 ${formatDisplayPercent(template.healPercent * 100)} 气血`);
+  if (typeof previewItem.healPercent === 'number' && previewItem.healPercent > 0) {
+    instantParts.push(`恢复 ${formatDisplayPercent(previewItem.healPercent * 100)} 气血`);
   }
-  if (typeof template.qiPercent === 'number' && template.qiPercent > 0) {
-    instantParts.push(`恢复 ${formatDisplayPercent(template.qiPercent * 100)} 真气`);
+  if (typeof previewItem.qiPercent === 'number' && previewItem.qiPercent > 0) {
+    instantParts.push(`恢复 ${formatDisplayPercent(previewItem.qiPercent * 100)} 真气`);
   }
   if (instantParts.length > 0) {
     lines.push(`立即效果：${instantParts.join('，')}`);
   }
 
-  for (const buff of template.consumeBuffs ?? []) {
+  for (const buff of previewItem.consumeBuffs ?? []) {
     const metaParts = [`持续 ${formatDisplayInteger(buff.duration)} 息`];
     if (typeof buff.maxStacks === 'number' && buff.maxStacks > 1) {
       metaParts.push(`最多 ${formatDisplayInteger(buff.maxStacks)} 层`);
     }
     lines.push(`药效：${buff.name}${metaParts.length > 0 ? `，${metaParts.join('，')}` : ''}`);
-    const bonusLines = describeBuffStats(buff.attrs, buff.stats, buff.valueStats);
+    const bonusLines = describeBuffStats(buff.attrs, buff.stats, buff.valueStats, buff.attrMode ?? 'percent', buff.statMode ?? 'percent');
     if (bonusLines.length > 0) {
       lines.push(`具体加成：${bonusLines.join('，')}`);
     }
@@ -295,10 +293,10 @@ function buildConsumableEffectDetails(item: ItemStack): string[] {
     }
   }
 
-  if (typeof template.tileAuraGainAmount === 'number' && template.tileAuraGainAmount > 0) {
-    lines.push(`立即效果：当前地块灵力 +${formatDisplayInteger(template.tileAuraGainAmount)}`);
+  if (typeof previewItem.tileAuraGainAmount === 'number' && previewItem.tileAuraGainAmount > 0) {
+    lines.push(`立即效果：当前地块灵力 +${formatDisplayInteger(previewItem.tileAuraGainAmount)}`);
   }
-  if (template.mapUnlockId) {
+  if (previewItem.mapUnlockId) {
     lines.push('使用效果：永久解锁对应地图');
   }
 

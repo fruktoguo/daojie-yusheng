@@ -14,6 +14,7 @@ import {
   GmMapNpcRecord,
   GmMapPortalRecord,
   GmMapQuestRecord,
+  GmMapResourceRecord,
   GmMapSafeZoneRecord,
   MapRouteDomain,
   PortalRouteDomain,
@@ -29,8 +30,11 @@ import {
   TILE_VISUAL_GLYPH_COLORS,
   getMapCharFromTileType,
   getTileTypeFromMapChar,
+  getAuraLevel,
   isOffsetInRange,
   isTileTypeWalkable,
+  normalizeConfiguredAuraValue,
+  parseQiResourceKey,
 } from '@mud/shared';
 import {
   AURA_BRUSH_LEVELS,
@@ -65,6 +69,13 @@ const MONSTER_GRADE_OVERRIDE_OPTIONS = [
   { value: '', label: '跟随模板' },
   ...MONSTER_GRADE_OPTIONS,
 ];
+const FIVE_ELEMENT_AURA_OPTIONS = [
+  { value: 'aura.refined.metal', label: '金灵气' },
+  { value: 'aura.refined.wood', label: '木灵气' },
+  { value: 'aura.refined.water', label: '水灵气' },
+  { value: 'aura.refined.fire', label: '火灵气' },
+  { value: 'aura.refined.earth', label: '土灵气' },
+] as const;
 type GmMapEditorOptions = {
   mapApiBasePath?: string;
   syncedSummaryLabel?: string;
@@ -76,17 +87,32 @@ type MapEntitySelection =
   | { kind: 'npc'; index: number }
   | { kind: 'monster'; index: number }
   | { kind: 'aura'; index: number }
+  | { kind: 'resource'; index: number }
   | { kind: 'safeZone'; index: number }
   | { kind: 'landmark'; index: number }
   | { kind: 'container'; index: number }
   | null;
 
-type MapEntityKind = 'portal' | 'npc' | 'monster' | 'aura' | 'safeZone' | 'landmark' | 'container';
+type MapEntityKind = 'portal' | 'npc' | 'monster' | 'aura' | 'resource' | 'safeZone' | 'landmark' | 'container';
 
 type MapTool = 'select' | 'paint' | 'pan';
-type PaintLayer = 'tile' | 'aura';
-type InspectorTabId = 'selection' | 'meta' | 'portal' | 'npc' | 'monster' | 'aura' | 'safeZone' | 'landmark' | 'container';
+type PaintLayer = 'tile' | 'aura' | 'resource';
+type InspectorTabId = 'selection' | 'meta' | 'compose' | 'portal' | 'npc' | 'monster' | 'aura' | 'resource' | 'safeZone' | 'landmark' | 'container';
+type MapCatalogMode = 'main' | 'piece';
 type GridPoint = { x: number; y: number };
+type ComposeRotation = 0 | 90 | 180 | 270;
+
+type TileResourcePoint = GmMapResourceRecord;
+type MapComposePiece = {
+  id: string,
+  sourceMapId: string,
+  sourceMapName: string,
+  x: number,
+  y: number,
+  rotation: ComposeRotation,
+};
+
+const DEFAULT_RESOURCE_KEY = 'aura.refined.metal';
 
 type EditorUndoEntry = {
   draft: GmMapDocument;
@@ -95,6 +121,9 @@ type EditorUndoEntry = {
   resizeWidth: number;
   resizeHeight: number;
   resizeFillTileType: TileType;
+  composePieces: MapComposePiece[];
+  selectedComposePieceId: string | null;
+  composeSourceMapId: string;
   dirty: boolean;
 };
 
@@ -114,6 +143,26 @@ function escapeHtml(input: string): string {
 function formatJson(value: unknown): string {
   return JSON.stringify(value ?? null, null, 2);
 }
+
+const QI_FAMILY_LABELS = {
+  aura: '灵气',
+  demonic: '魔气',
+  sha: '煞气',
+} as const;
+
+const QI_FORM_LABELS = {
+  refined: '',
+  dispersed: '逸散',
+} as const;
+
+const QI_ELEMENT_LABELS = {
+  neutral: '无属性',
+  metal: '金',
+  wood: '木',
+  water: '水',
+  fire: '火',
+  earth: '土',
+} as const;
 
 function isEditableTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLInputElement
@@ -283,6 +332,170 @@ function parseTagGroups(raw: string): string[][] {
     .filter((group) => group.length > 0);
 }
 
+function getResourceRecordKeyName(point: Partial<TileResourcePoint>): string {
+  const key = Object.keys(point).find((entry) => entry.startsWith('resourceK'));
+  return key ?? 'resourceKey';
+}
+
+function getResourceRecordKey(point: Partial<TileResourcePoint>): string {
+  const keyName = getResourceRecordKeyName(point);
+  return typeof (point as Record<string, unknown>)[keyName] === 'string'
+    ? String((point as Record<string, unknown>)[keyName]).trim()
+    : '';
+}
+
+function setResourceRecordKey(point: Partial<TileResourcePoint>, resourceKey: string): void {
+  const keyName = getResourceRecordKeyName(point);
+  (point as Record<string, unknown>)[keyName] = resourceKey;
+}
+
+function getConfiguredAuraLevel(value: number): number {
+  return getAuraLevel(normalizeConfiguredAuraValue(value));
+}
+
+function formatAuraLevelText(value: number): string {
+  const level = getConfiguredAuraLevel(value);
+  return level > 0 ? `${level}级` : `值${value}`;
+}
+
+function formatAuraPointLabel(value: number): string {
+  return `无属性灵气 ${formatAuraLevelText(value)}`;
+}
+
+function formatResourceTypeLabel(resourceKey: string): string {
+  const descriptor = parseQiResourceKey(resourceKey);
+  if (!descriptor) {
+    return resourceKey || '未设资源键';
+  }
+
+  const familyLabel = QI_FAMILY_LABELS[descriptor.family];
+  const formLabel = QI_FORM_LABELS[descriptor.form];
+  const elementLabel = QI_ELEMENT_LABELS[descriptor.element];
+
+  if (descriptor.element === 'neutral') {
+    return descriptor.form === 'refined'
+      ? `${elementLabel}${familyLabel}`
+      : `${formLabel}${elementLabel}${familyLabel}`;
+  }
+  return `${formLabel}${elementLabel}${familyLabel}`;
+}
+
+function formatResourcePointLabel(point: Partial<TileResourcePoint>): string {
+  return `${formatResourceTypeLabel(getResourceRecordKey(point))} ${formatAuraLevelText(Number(point.value ?? 0))}`;
+}
+
+function formatResourceSummary(points: Partial<TileResourcePoint>[]): string {
+  if (points.length === 0) {
+    return '无';
+  }
+  return points.map((point) => formatResourcePointLabel(point)).join('；');
+}
+
+function getResourceTypeSortKey(resourceKey: string): string {
+  const descriptor = parseQiResourceKey(resourceKey);
+  if (!descriptor) {
+    return `9-${resourceKey}`;
+  }
+  const familyOrder = {
+    aura: 0,
+    demonic: 1,
+    sha: 2,
+  } as const;
+  const formOrder = {
+    refined: 0,
+    dispersed: 1,
+  } as const;
+  const elementOrder = {
+    neutral: 0,
+    metal: 1,
+    wood: 2,
+    water: 3,
+    fire: 4,
+    earth: 5,
+  } as const;
+  return `${familyOrder[descriptor.family]}-${formOrder[descriptor.form]}-${elementOrder[descriptor.element]}`;
+}
+
+function getResourcePointGlyphColor(point: Partial<TileResourcePoint>): string {
+  const descriptor = parseQiResourceKey(getResourceRecordKey(point));
+  if (!descriptor) {
+    return '#f6d27e';
+  }
+  switch (descriptor.element) {
+    case 'metal':
+      return '#f0c768';
+    case 'wood':
+      return '#58c98b';
+    case 'water':
+      return '#69b7ff';
+    case 'fire':
+      return '#ff885c';
+    case 'earth':
+      return '#cda15d';
+    case 'neutral':
+    default:
+      return descriptor.family === 'aura' ? '#8fd4ff' : '#d7c4ff';
+  }
+}
+
+function getResourcePointLabelColor(point: Partial<TileResourcePoint>): string {
+  const descriptor = parseQiResourceKey(getResourceRecordKey(point));
+  if (!descriptor) {
+    return '#ffe6b2';
+  }
+  switch (descriptor.element) {
+    case 'metal':
+      return '#ffe3a6';
+    case 'wood':
+      return '#c6ffd7';
+    case 'water':
+      return '#d3ebff';
+    case 'fire':
+      return '#ffd6c8';
+    case 'earth':
+      return '#f1ddbb';
+    case 'neutral':
+    default:
+      return descriptor.family === 'aura' ? '#d6ecff' : '#eadbff';
+  }
+}
+
+function buildResourceBrushPresetKeys(existingKeys: string[], currentKey: string): string[] {
+  const result: string[] = [];
+  for (const key of [...FIVE_ELEMENT_AURA_OPTIONS.map((option) => option.value), ...existingKeys, currentKey]) {
+    const normalized = key.trim();
+    if (!normalized || result.includes(normalized)) {
+      continue;
+    }
+    result.push(normalized);
+  }
+  return result;
+}
+
+function normalizeFiveElementAuraResourceKey(resourceKey: string): string {
+  const normalized = resourceKey.trim();
+  if (FIVE_ELEMENT_AURA_OPTIONS.some((option) => option.value === normalized)) {
+    return normalized;
+  }
+  return DEFAULT_RESOURCE_KEY;
+}
+
+function normalizeComposeRotation(value: number): ComposeRotation {
+  const normalized = ((Math.round(value / 90) * 90) % 360 + 360) % 360;
+  if (normalized === 90 || normalized === 180 || normalized === 270) {
+    return normalized;
+  }
+  return 0;
+}
+
+function rotateComposeClockwise(rotation: ComposeRotation): ComposeRotation {
+  return normalizeComposeRotation(rotation + 90);
+}
+
+function rotateComposeCounterClockwise(rotation: ComposeRotation): ComposeRotation {
+  return normalizeComposeRotation(rotation + 270);
+}
+
 function createDefaultContainerLootPool(): GmMapContainerLootPoolRecord {
   return {
     rolls: 1,
@@ -330,6 +543,8 @@ function createDefaultQuestRecord(npc: GmMapNpcRecord, index: number): GmMapQues
 export class GmMapEditor {
   private readonly listEl = document.getElementById('map-list') as HTMLDivElement;
   private readonly searchInput = document.getElementById('map-search') as HTMLInputElement;
+  private readonly catalogModeMainBtn = document.getElementById('map-catalog-mode-main') as HTMLButtonElement | null;
+  private readonly catalogModePieceBtn = document.getElementById('map-catalog-mode-piece') as HTMLButtonElement | null;
   private readonly saveBtn = document.getElementById('map-save') as HTMLButtonElement;
   private readonly resetBtn = document.getElementById('map-reset') as HTMLButtonElement;
   private readonly reloadBtn = document.getElementById('map-reload') as HTMLButtonElement;
@@ -357,6 +572,7 @@ export class GmMapEditor {
   private itemCatalog: GmEditorItemOption[] = [];
 
   private mapList: GmMapSummary[] = [];
+  private catalogMode: MapCatalogMode = 'main';
   private selectedMapId: string | null = null;
   private draft: GmMapDocument | null = null;
   private dirty = false;
@@ -365,6 +581,16 @@ export class GmMapEditor {
   private paintTileType: TileType = TileType.Grass;
   private paintLayer: PaintLayer = 'tile';
   private auraPaintValue = 1;
+  private resourcePaintValue = 1;
+  private resourcePaintKey = DEFAULT_RESOURCE_KEY;
+  private composeSourceMapId = '';
+  private composePieces: MapComposePiece[] = [];
+  private selectedComposePieceId: string | null = null;
+  private readonly composeSourceCache = new Map<string, GmMapDocument>();
+  private composeDragActive = false;
+  private composeDragOffsetX = 0;
+  private composeDragOffsetY = 0;
+  private composePieceCounter = 1;
   private selectedCell: { x: number; y: number } | null = null;
   private hoveredCell: { x: number; y: number } | null = null;
   private selectedEntity: MapEntitySelection = null;
@@ -432,6 +658,10 @@ export class GmMapEditor {
     this.selectedCell = null;
     this.hoveredCell = null;
     this.selectedEntity = null;
+    this.composePieces = [];
+    this.selectedComposePieceId = null;
+    this.composeDragActive = false;
+    this.composeSourceMapId = '';
     this.currentInspectorTab = 'selection';
     this.linePaintStart = null;
     this.undoStack = [];
@@ -472,6 +702,8 @@ export class GmMapEditor {
 
   private bindEvents(): void {
     this.searchInput.addEventListener('input', () => this.renderMapList());
+    this.catalogModeMainBtn?.addEventListener('click', () => this.setCatalogMode('main'));
+    this.catalogModePieceBtn?.addEventListener('click', () => this.setCatalogMode('piece'));
     this.refreshListBtn.addEventListener('click', () => {
       this.loadMapList(true).catch(() => {});
     });
@@ -522,6 +754,13 @@ export class GmMapEditor {
     this.tilePaletteEl.addEventListener('click', (event) => {
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
       if (!button) return;
+      const resourceKey = button.dataset.resourceKey;
+      if (resourceKey) {
+        this.resourcePaintKey = normalizeFiveElementAuraResourceKey(resourceKey);
+        this.renderToolControls();
+        this.renderInspector();
+        return;
+      }
       const tileType = button.dataset.tileType as TileType | undefined;
       if (tileType) {
         this.paintTileType = tileType;
@@ -531,7 +770,11 @@ export class GmMapEditor {
       }
       const auraValue = Number(button.dataset.auraValue ?? Number.NaN);
       if (!Number.isFinite(auraValue)) return;
-      this.auraPaintValue = Math.max(0, Math.floor(auraValue));
+      if (this.paintLayer === 'aura') {
+        this.auraPaintValue = Math.max(0, Math.floor(auraValue));
+      } else if (this.paintLayer === 'resource') {
+        this.resourcePaintValue = Math.max(0, Math.floor(auraValue));
+      }
       this.renderToolControls();
       this.renderInspector();
     });
@@ -551,10 +794,26 @@ export class GmMapEditor {
         return;
       }
       const entityButton = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-entity-kind]');
+      const composeButton = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-compose-piece-id]');
+      if (composeButton) {
+        const pieceId = composeButton.dataset.composePieceId;
+        if (pieceId) {
+          this.selectedComposePieceId = pieceId;
+          this.selectedEntity = null;
+          this.currentInspectorTab = 'compose';
+          const piece = this.getSelectedComposePiece();
+          if (piece) {
+            this.selectedCell = { x: piece.x, y: piece.y };
+          }
+          this.renderInspector();
+        }
+        return;
+      }
       if (!entityButton) return;
       const kind = entityButton.dataset.entityKind as MapEntityKind | undefined;
       const index = Number(entityButton.dataset.entityIndex ?? '-1');
       if (Number.isInteger(index) && kind) {
+        this.selectedComposePieceId = null;
         this.selectedEntity = { kind, index } as Exclude<MapEntitySelection, null>;
         this.currentInspectorTab = kind;
         const point = this.getSelectedEntityPoint();
@@ -571,7 +830,7 @@ export class GmMapEditor {
         return;
       }
       const result = this.syncInspectorToDraft();
-      if (!result.ok) {
+      if ('message' in result) {
         this.setStatus(result.message, true);
         return;
       }
@@ -610,7 +869,7 @@ export class GmMapEditor {
     const currentTool = this.getCurrentTool();
     this.toolButtonsEl.innerHTML = TOOL_OPTIONS.map((tool) => `
       <button class="map-tool-btn ${currentTool === tool.value ? 'active' : ''}" data-tool="${tool.value}" type="button">
-        ${escapeHtml(tool.label)} · ${escapeHtml(tool.value === 'paint' ? `左键拖拽刷${this.paintLayer === 'tile' ? '地块' : '灵气'}` : tool.note)}
+        ${escapeHtml(tool.label)} · ${escapeHtml(tool.value === 'paint' ? `左键拖拽刷${this.paintLayer === 'tile' ? '地块' : this.paintLayer === 'aura' ? '无属性灵气' : '五行灵气'}` : tool.note)}
       </button>
     `).join('');
 
@@ -628,11 +887,19 @@ export class GmMapEditor {
           ${escapeHtml(TILE_TYPE_LABELS[tileType])}
         </button>
       `).join('')
-      : AURA_BRUSH_LEVELS.map((value) => `
-        <button class="map-tile-btn ${this.auraPaintValue === value ? 'active' : ''}" data-aura-value="${value}" type="button">
-          ${value === 0 ? '清除' : `灵气 ${value}`}
+      : `${this.paintLayer === 'resource'
+        ? `<div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+          ${FIVE_ELEMENT_AURA_OPTIONS.map((option) => `
+            <button class="map-tile-btn ${normalizeFiveElementAuraResourceKey(this.resourcePaintKey) === option.value ? 'active' : ''}" data-resource-key="${escapeHtml(option.value)}" type="button">
+              ${escapeHtml(option.label)}
+            </button>
+          `).join('')}
+        </div>`
+        : ''}${AURA_BRUSH_LEVELS.map((value) => `
+        <button class="map-tile-btn ${(this.paintLayer === 'aura' ? this.auraPaintValue : this.resourcePaintValue) === value ? 'active' : ''}" data-aura-value="${value}" type="button">
+          ${value === 0 ? '清除' : `${this.paintLayer === 'aura' ? '灵气' : '五行灵气'} ${value}`}
         </button>
-      `).join('');
+      `).join('')}`;
   }
 
   private async loadMapList(force = false): Promise<void> {
@@ -646,22 +913,95 @@ export class GmMapEditor {
         this.draft = null;
       }
     }
-    if (!this.selectedMapId && data.maps.length > 0) {
-      this.selectedMapId = data.maps[0]!.id;
+    const visibleMaps = this.getVisibleMapList();
+    if (!this.selectedMapId && visibleMaps.length > 0) {
+      this.selectedMapId = visibleMaps[0]!.id;
       await this.loadMap(this.selectedMapId, false);
     }
     this.renderMapList();
   }
 
+  private getMapCatalogMode(map: GmMapSummary): MapCatalogMode {
+    return map.catalogMode === 'piece' ? 'piece' : 'main';
+  }
+
+  private getVisibleMapList(): GmMapSummary[] {
+    const mapsInMode = this.mapList.filter((map) => this.getMapCatalogMode(map) === this.catalogMode);
+    if (mapsInMode.length > 0) {
+      return mapsInMode;
+    }
+    return this.mapList;
+  }
+
+  private inferComposeGroupId(mapId: string): string {
+    const marker = mapId.lastIndexOf('_');
+    if (marker <= 0) {
+      return mapId;
+    }
+    return mapId.slice(0, marker);
+  }
+
+  private getComposeGroupIdForMap(mapId: string): string {
+    const summary = this.mapList.find((map) => map.id === mapId);
+    if (summary?.catalogMode === 'piece') {
+      return summary.catalogGroupId?.trim() || this.inferComposeGroupId(mapId);
+    }
+    return summary?.id || mapId;
+  }
+
+  private getComposeSourceOptionsForMap(mapId: string): GmMapSummary[] {
+    const groupId = this.getComposeGroupIdForMap(mapId);
+    return this.mapList.filter((map) => {
+      if (map.id === mapId) {
+        return false;
+      }
+      if (this.getMapCatalogMode(map) !== 'piece') {
+        return false;
+      }
+      return (map.catalogGroupId?.trim() || '') === groupId || map.id.startsWith(`${groupId}_`);
+    });
+  }
+
+  private setCatalogMode(mode: MapCatalogMode): void {
+    if (this.catalogMode === mode) {
+      return;
+    }
+    this.catalogMode = mode;
+    this.renderMapList();
+  }
+
+  private renderCatalogModeButtons(): void {
+    this.catalogModeMainBtn?.classList.toggle('primary', this.catalogMode === 'main');
+    this.catalogModePieceBtn?.classList.toggle('primary', this.catalogMode === 'piece');
+  }
+
   private renderMapList(): void {
     const keyword = this.searchInput.value.trim().toLowerCase();
-    const filtered = this.mapList.filter((map) => {
+    const filtered = this.getVisibleMapList().filter((map) => {
       if (!keyword) return true;
-      return [map.id, map.name, map.recommendedRealm ?? '', map.description ?? '']
+      return [map.id, map.name, map.recommendedRealm ?? '', map.description ?? '', map.catalogGroupName ?? '', map.sourcePath ?? '']
         .some((value) => value.toLowerCase().includes(keyword));
     });
+    this.renderCatalogModeButtons();
     if (filtered.length === 0) {
       this.listEl.innerHTML = '<div class="empty-hint">没有符合条件的地图。</div>';
+      return;
+    }
+    if (this.catalogMode === 'piece') {
+      let previousGroup = '';
+      this.listEl.innerHTML = filtered.map((map) => {
+        const groupName = map.catalogGroupName?.trim() || '未分组散图';
+        const heading = groupName !== previousGroup
+          ? `<div class="map-row-meta" style="margin:10px 0 6px; font-weight:700;">${escapeHtml(groupName)}</div>`
+          : '';
+        previousGroup = groupName;
+        return `${heading}
+      <button class="map-row ${map.id === this.selectedMapId ? 'active' : ''}" data-map-id="${escapeHtml(map.id)}" type="button">
+        <div class="map-row-title">${escapeHtml(map.name)}</div>
+        <div class="map-row-meta">${escapeHtml(map.id)} · ${map.width} x ${map.height} · 危险度 ${map.dangerLevel ?? '-'}</div>
+        <div class="map-row-meta">${escapeHtml(map.sourcePath ?? '散图')}</div>
+      </button>`;
+      }).join('');
       return;
     }
     this.listEl.innerHTML = filtered.map((map) => `
@@ -690,6 +1030,10 @@ export class GmMapEditor {
     this.selectedCell = { x: data.map.spawnPoint.x, y: data.map.spawnPoint.y };
     this.hoveredCell = null;
     this.selectedEntity = null;
+    this.composePieces = [];
+    this.selectedComposePieceId = null;
+    this.composeDragActive = false;
+    this.composeSourceMapId = this.getComposeSourceOptionsForMap(mapId)[0]?.id ?? '';
     this.currentInspectorTab = 'selection';
     this.linePaintStart = null;
     this.undoStack = [];
@@ -722,13 +1066,17 @@ export class GmMapEditor {
     const selectedCell = this.selectedCell;
     const selectedTileType = selectedCell ? this.getTileTypeAt(selectedCell.x, selectedCell.y) : null;
     const selectedEntityPoint = this.getSelectedEntityPoint();
+    this.draft.resources = this.draft.resources ?? [];
+
     const summaryBits = [
       `${this.draft.name} (${this.draft.id})`,
       `${this.draft.width} x ${this.draft.height}`,
+      `拼图块 ${this.composePieces.length}`,
       `传送点 ${this.draft.portals.length}`,
       `NPC ${this.draft.npcs.length}`,
       `怪物刷新点 ${this.draft.monsterSpawns.length}`,
-      `灵气点 ${this.draft.auras?.length ?? 0}`,
+      `无属性灵气点 ${this.draft.auras?.length ?? 0}`,
+      `五行灵气点 ${this.draft.resources?.length ?? 0}`,
       `安全区 ${(this.draft.safeZones ?? []).length}`,
       `地标 ${this.draft.landmarks?.length ?? 0}`,
       `容器 ${this.getContainerLandmarks().length}`,
@@ -763,6 +1111,8 @@ export class GmMapEditor {
         return this.renderSelectionTab(selectedCell, selectedTileType);
       case 'meta':
         return this.renderMetaTab();
+      case 'compose':
+        return this.renderComposeTab();
       case 'portal':
         return this.renderPortalTab(selectedEntityPoint);
       case 'npc':
@@ -771,6 +1121,8 @@ export class GmMapEditor {
         return this.renderMonsterTab(selectedEntityPoint);
       case 'aura':
         return this.renderAuraTab(selectedEntityPoint);
+      case 'resource':
+        return this.renderResourceTab(selectedEntityPoint);
       case 'safeZone':
         return this.renderSafeZoneTab(selectedEntityPoint);
       case 'landmark':
@@ -784,6 +1136,8 @@ export class GmMapEditor {
 
   private renderSelectionTab(selectedCell: { x: number; y: number } | null, selectedTileType: TileType | null): string {
     const selectedAura = selectedCell ? this.getAuraAt(selectedCell.x, selectedCell.y) : null;
+    const selectedResources = selectedCell ? this.getResourcesAt(selectedCell.x, selectedCell.y) : [];
+    const resourceSummary = formatResourceSummary(selectedResources);
     return `
       <section class="editor-section">
         <div class="editor-section-head">
@@ -796,8 +1150,9 @@ export class GmMapEditor {
           ${readonlyField('当前格', selectedCell ? `(${selectedCell.x}, ${selectedCell.y})` : '未选择')}
           ${readonlyField('悬停格', this.hoveredCell ? `(${this.hoveredCell.x}, ${this.hoveredCell.y})` : '无')}
           ${readonlyField('地块', selectedTileType ? TILE_TYPE_LABELS[selectedTileType] : '无')}
-          ${readonlyField('灵气', selectedAura ? String(selectedAura.value) : '0')}
-          ${readonlyField('当前工具', this.getCurrentTool() === 'paint' ? `绘制 · ${this.paintLayer === 'tile' ? '地块' : '灵气'}` : this.getCurrentTool() === 'pan' ? '平移' : '选取')}
+          ${readonlyField('无属性灵气', selectedAura ? formatAuraPointLabel(selectedAura.value) : '无')}
+          ${readonlyField('五行灵气', resourceSummary)}
+          ${readonlyField('当前工具', this.getCurrentTool() === 'paint' ? `绘制 · ${this.paintLayer === 'tile' ? '地块' : this.paintLayer === 'aura' ? '无属性灵气' : '五行灵气'}` : this.getCurrentTool() === 'pan' ? '平移' : '选取')}
           ${readonlyField('选中对象', this.describeSelectedEntity())}
         </div>
         <div class="button-row" style="margin-top: 10px;">
@@ -824,6 +1179,7 @@ export class GmMapEditor {
           ${selectField('路网域', 'routeDomain', this.draft.routeDomain ?? 'system', MAP_ROUTE_DOMAIN_OPTIONS)}
           ${textField('推荐境界', 'recommendedRealm', this.draft.recommendedRealm)}
           ${numberField('危险度', 'dangerLevel', this.draft.dangerLevel)}
+          ${numberField('地块境界等级', 'terrainRealmLv', this.draft.terrainRealmLv)}
           ${readonlyField('地图 ID', this.draft.id)}
           ${numberField('出生点 X', 'spawnPoint.x', this.draft.spawnPoint.x)}
           ${numberField('出生点 Y', 'spawnPoint.y', this.draft.spawnPoint.y)}
@@ -851,6 +1207,61 @@ export class GmMapEditor {
           <button class="small-btn" type="button" data-map-action="resize">应用尺寸</button>
         </div>
       </section>
+    `;
+  }
+
+  private renderComposeTab(): string {
+    if (!this.draft) return '';
+    const sourceOptions = this.getComposeSourceOptionsForMap(this.draft.id);
+    const selectedPiece = this.getSelectedComposePiece();
+    const selectedSource = this.composeSourceMapId
+      ? sourceOptions.find((map) => map.id === this.composeSourceMapId) ?? null
+      : null;
+    return `
+      <section class="editor-section">
+        <div class="editor-section-head">
+          <div>
+            <div class="editor-section-title">拼图块</div>
+            <div class="editor-section-note">这里只显示当前大图自己的散图。左键拖拽移动，旋转后再烘焙进当前地图。</div>
+          </div>
+          <button class="small-btn" type="button" data-map-action="compose-add-piece" ${sourceOptions.length > 0 ? '' : 'disabled'}>加入拼图块</button>
+        </div>
+        <div class="map-form-grid compact">
+          <label class="map-field wide">
+            <span>来源地图</span>
+            <select data-map-ui="composeSourceMapId">
+              <option value="">${sourceOptions.length > 0 ? '请选择子地图' : '当前没有同组散图'}</option>
+              ${sourceOptions.map((map) => `
+                <option value="${escapeHtml(map.id)}" ${map.id === this.composeSourceMapId ? 'selected' : ''}>
+                  ${escapeHtml(`${map.name} (${map.id})`)}
+                </option>
+              `).join('')}
+            </select>
+          </label>
+          ${readonlyField('当前来源', selectedSource ? `${selectedSource.name} · ${selectedSource.width}x${selectedSource.height}` : '未选择')}
+          ${readonlyField('选中拼图', selectedPiece ? `${selectedPiece.sourceMapName} @ (${selectedPiece.x}, ${selectedPiece.y}) · ${selectedPiece.rotation}°` : '无')}
+        </div>
+        <div class="button-row" style="margin-top: 10px;">
+          <button class="small-btn" type="button" data-map-action="compose-rotate-left" ${selectedPiece ? '' : 'disabled'}>左转 90°</button>
+          <button class="small-btn" type="button" data-map-action="compose-rotate-right" ${selectedPiece ? '' : 'disabled'}>右转 90°</button>
+          <button class="small-btn" type="button" data-map-action="compose-bake-selected" ${selectedPiece ? '' : 'disabled'}>烘焙选中块</button>
+          <button class="small-btn" type="button" data-map-action="compose-bake-all" ${this.composePieces.length > 0 ? '' : 'disabled'}>全部烘焙</button>
+        </div>
+        <div class="button-row" style="margin-top: 8px;">
+          <button class="small-btn danger" type="button" data-map-action="compose-remove-piece" ${selectedPiece ? '' : 'disabled'}>删除选中块</button>
+          <button class="small-btn danger" type="button" data-map-action="compose-clear-pieces" ${this.composePieces.length > 0 ? '' : 'disabled'}>清空拼图块</button>
+        </div>
+        <div class="map-entity-list" style="margin-top: 10px;">
+          ${this.composePieces.map((piece) => `
+            <button class="map-entity-btn ${piece.id === this.selectedComposePieceId ? 'active' : ''}" data-compose-piece-id="${escapeHtml(piece.id)}" type="button">
+              ${escapeHtml(`${piece.sourceMapName} @ (${piece.x},${piece.y}) · ${piece.rotation}°`)}
+            </button>
+          `).join('') || '<div class="editor-note">暂无拼图块。</div>'}
+        </div>
+      </section>
+      <div class="editor-note" style="margin-top: 8px;">
+        当前烘焙只写入地块，不自动带入子图里的传送点、NPC、怪物、灵气和地标，避免把内部逻辑一并拼进大图。
+      </div>
     `;
   }
 
@@ -935,22 +1346,93 @@ export class GmMapEditor {
       <section class="editor-section">
         <div class="editor-section-head">
           <div>
-            <div class="editor-section-title">灵气点</div>
-            <div class="editor-section-note">切到工具面板后可选灵气等级直接笔刷，0 表示清除。</div>
+            <div class="editor-section-title">无属性灵气点</div>
+            <div class="editor-section-note">切到工具面板后可选等级直接笔刷，0 表示清除。</div>
           </div>
           <button class="small-btn" type="button" data-map-action="add-aura">新建灵气点</button>
         </div>
         <div class="map-entity-list">
           ${(this.draft.auras ?? []).map((point, index) => `
             <button class="map-entity-btn ${this.selectedEntity?.kind === 'aura' && this.selectedEntity.index === index ? 'active' : ''}" data-entity-kind="aura" data-entity-index="${index}" type="button">
-              ${escapeHtml(`(${point.x},${point.y}) = ${point.value}`)}
+              ${escapeHtml(`(${point.x},${point.y}) ${formatAuraPointLabel(point.value)}`)}
             </button>
           `).join('') || '<div class="editor-note">暂无灵气点。</div>'}
         </div>
       </section>
       ${this.selectedEntity?.kind === 'aura'
         ? this.renderSelectedEntitySection(selectedPoint)
-        : '<div class="editor-note">选中一个灵气点后可在下方编辑属性。</div>'}
+        : '<div class="editor-note">选中一个无属性灵气点后可在下方编辑属性。</div>'}
+    `;
+  }
+
+  private renderResourceTab(selectedPoint: { x: number; y: number } | null): string {
+    if (!this.draft) return '';
+    const uniqueKeys = [...new Set((this.draft.resources ?? []).map((point) => getResourceRecordKey(point)).filter(Boolean))]
+      .sort((left, right) => {
+        const sortKeyCompare = getResourceTypeSortKey(left).localeCompare(getResourceTypeSortKey(right), 'zh-CN');
+        return sortKeyCompare !== 0 ? sortKeyCompare : left.localeCompare(right, 'zh-CN');
+      });
+    const brushPresetKeys = buildResourceBrushPresetKeys(uniqueKeys, this.resourcePaintKey);
+    const resourceGroups = uniqueKeys.map((resourceKey) => ({
+      resourceKey,
+      label: formatResourceTypeLabel(resourceKey),
+      items: (this.draft?.resources ?? [])
+        .map((point, index) => ({ point, index }))
+        .filter(({ point }) => getResourceRecordKey(point) === resourceKey)
+        .sort((left, right) => (
+          left.point.y - right.point.y
+          || left.point.x - right.point.x
+          || left.index - right.index
+        )),
+    }));
+    const selectedResource = this.selectedEntity?.kind === 'resource'
+      ? this.draft.resources?.[this.selectedEntity.index]
+      : null;
+    const selectedResourceKey = selectedResource ? getResourceRecordKey(selectedResource) : this.resourcePaintKey;
+    const currentBrushLabel = `${formatResourceTypeLabel(this.resourcePaintKey || selectedResourceKey)} ${formatAuraLevelText(this.resourcePaintValue)}`;
+    return `
+      <section class="editor-section">
+        <div class="editor-section-head">
+          <div>
+            <div class="editor-section-title">五行灵气点</div>
+            <div class="editor-section-note">同格允许并存多个不同属性灵气。常用的金木水火土灵气可直接从下拉里选。</div>
+          </div>
+          <button class="small-btn" type="button" data-map-action="add-resource">新建灵气点</button>
+        </div>
+        <div class="map-form-grid compact" style="margin-bottom: 10px;">
+          <label class="map-field">
+            <span>属性</span>
+            <select data-map-ui="resourcePaintKey">
+              ${FIVE_ELEMENT_AURA_OPTIONS.map((option) => `
+                <option value="${escapeHtml(option.value)}" ${option.value === normalizeFiveElementAuraResourceKey(this.resourcePaintKey) ? 'selected' : ''}>
+                  ${escapeHtml(option.label)}
+                </option>
+              `).join('')}
+            </select>
+          </label>
+          <label class="map-field">
+            <span>灵气值</span>
+            <input data-map-ui="resourcePaintValue" type="number" min="0" value="${this.resourcePaintValue}" />
+          </label>
+        </div>
+        <div class="editor-note" style="margin-bottom: 10px;">图上已有灵气种类：${escapeHtml(brushPresetKeys.length > 0 ? brushPresetKeys.map((resourceKey) => formatResourceTypeLabel(resourceKey)).join('、') : '无')}</div>
+        ${resourceGroups.length > 0
+          ? resourceGroups.map((group) => `
+            <div class="editor-note" style="margin: 10px 0 6px;">${escapeHtml(group.label)}</div>
+            <div class="map-entity-list">
+              ${group.items.map(({ point, index }) => `
+                <button class="map-entity-btn ${this.selectedEntity?.kind === 'resource' && this.selectedEntity.index === index ? 'active' : ''}" data-entity-kind="resource" data-entity-index="${index}" type="button">
+                  ${escapeHtml(`(${point.x},${point.y}) ${formatResourcePointLabel(point)}`)}
+                </button>
+              `).join('')}
+            </div>
+          `).join('')
+          : '<div class="editor-note">暂无五行灵气点。</div>'}
+      </section>
+      ${this.selectedEntity?.kind === 'resource'
+        ? this.renderSelectedEntitySection(selectedPoint)
+        : '<div class="editor-note">选中一个五行灵气点后可在下方编辑属性。</div>'}
+      <div class="editor-note" style="margin-top: 8px;">当前画笔：${escapeHtml(currentBrushLabel)}</div>
     `;
   }
 
@@ -1041,7 +1523,7 @@ export class GmMapEditor {
               <div class="editor-section-note">先从上面的对象列表里选中一个。</div>
             </div>
           </div>
-          <div class="editor-note">当前没有选中的传送点、NPC、怪物刷新点、灵气点、安全区、地标或容器。</div>
+          <div class="editor-note">当前没有选中的传送点、NPC、怪物刷新点、无属性灵气点、五行灵气点、安全区、地标或容器。</div>
         </section>
       `;
     }
@@ -1214,6 +1696,7 @@ export class GmMapEditor {
             ${textField('名称', `landmarks.${selectedIndex}.name`, containerLandmark.name)}
             ${numberField('X', `landmarks.${selectedIndex}.x`, containerLandmark.x)}
             ${numberField('Y', `landmarks.${selectedIndex}.y`, containerLandmark.y)}
+            ${textField('资源节点 ID', `landmarks.${selectedIndex}.resourceNodeId`, containerLandmark.resourceNodeId)}
             ${textField('显示字', `landmarks.${selectedIndex}.container.char`, container.char)}
             ${textField('颜色', `landmarks.${selectedIndex}.container.color`, container.color)}
             ${selectField('搜索阶次', `landmarks.${selectedIndex}.container.grade`, container.grade ?? 'mortal', MONSTER_GRADE_OPTIONS)}
@@ -1235,16 +1718,48 @@ export class GmMapEditor {
       return `
         <section class="editor-section">
           <div class="editor-section-head">
-            <div>
-              <div class="editor-section-title">灵气点属性</div>
-              <div class="editor-section-note">用于调试感气地图热点。</div>
-            </div>
+          <div>
+            <div class="editor-section-title">无属性灵气点属性</div>
+            <div class="editor-section-note">用于配置可自动回补的无属性灵气。</div>
+          </div>
             <button class="small-btn danger" type="button" data-map-action="remove-selected">删除</button>
           </div>
           <div class="map-form-grid">
             ${numberField('X', `auras.${this.selectedEntity.index}.x`, aura.x)}
             ${numberField('Y', `auras.${this.selectedEntity.index}.y`, aura.y)}
             ${numberField('灵气值', `auras.${this.selectedEntity.index}.value`, aura.value)}
+          </div>
+        </section>
+      `;
+    }
+
+    if (this.selectedEntity.kind === 'resource') {
+      const resource = this.draft.resources?.[this.selectedEntity.index];
+      if (!resource) return '';
+      const resourceKey = getResourceRecordKey(resource);
+      return `
+        <section class="editor-section">
+          <div class="editor-section-head">
+            <div>
+              <div class="editor-section-title">五行灵气点属性</div>
+              <div class="editor-section-note">同格可并存多个不同属性灵气。</div>
+            </div>
+            <button class="small-btn danger" type="button" data-map-action="remove-selected">删除</button>
+          </div>
+          <div class="map-form-grid">
+            ${numberField('X', `resources.${this.selectedEntity.index}.x`, resource.x)}
+            ${numberField('Y', `resources.${this.selectedEntity.index}.y`, resource.y)}
+            <label class="map-field">
+              <span>属性</span>
+              <select data-map-ui="resourceSelectedKey">
+                ${FIVE_ELEMENT_AURA_OPTIONS.map((option) => `
+                  <option value="${escapeHtml(option.value)}" ${option.value === normalizeFiveElementAuraResourceKey(resourceKey) ? 'selected' : ''}>
+                    ${escapeHtml(option.label)}
+                  </option>
+                `).join('')}
+              </select>
+            </label>
+            ${numberField('灵气值', `resources.${this.selectedEntity.index}.value`, resource.value)}
           </div>
         </section>
       `;
@@ -1266,6 +1781,7 @@ export class GmMapEditor {
           ${textField('名称', `landmarks.${this.selectedEntity.index}.name`, landmark.name)}
           ${numberField('X', `landmarks.${this.selectedEntity.index}.x`, landmark.x)}
           ${numberField('Y', `landmarks.${this.selectedEntity.index}.y`, landmark.y)}
+          ${textField('资源节点 ID', `landmarks.${this.selectedEntity.index}.resourceNodeId`, landmark.resourceNodeId)}
           ${textField('说明', `landmarks.${this.selectedEntity.index}.desc`, landmark.desc, 'wide')}
         </div>
       </section>
@@ -1273,6 +1789,10 @@ export class GmMapEditor {
   }
 
   private describeSelectedEntity(): string {
+    const selectedComposePiece = this.getSelectedComposePiece();
+    if (selectedComposePiece) {
+      return `拼图块 ${selectedComposePiece.sourceMapName} ${selectedComposePiece.rotation}°`;
+    }
     if (!this.draft || !this.selectedEntity) {
       return '无';
     }
@@ -1290,7 +1810,11 @@ export class GmMapEditor {
     }
     if (this.selectedEntity.kind === 'aura') {
       const aura = this.draft.auras?.[this.selectedEntity.index];
-      return aura ? `灵气 ${aura.value}` : '无';
+      return aura ? formatAuraPointLabel(aura.value) : '无';
+    }
+    if (this.selectedEntity.kind === 'resource') {
+      const resource = this.draft.resources?.[this.selectedEntity.index];
+      return resource ? formatResourcePointLabel(resource) : '无';
     }
     if (this.selectedEntity.kind === 'safeZone') {
       const zone = this.draft.safeZones?.[this.selectedEntity.index];
@@ -1304,9 +1828,26 @@ export class GmMapEditor {
     return landmark ? `地标 ${landmark.name || landmark.id}` : '无';
   }
 
+  private findComposePieceAt(x: number, y: number): MapComposePiece | null {
+    for (let index = this.composePieces.length - 1; index >= 0; index -= 1) {
+      const piece = this.composePieces[index]!;
+      const bounds = this.getComposePieceBounds(piece);
+      if (!bounds) continue;
+      if (x >= bounds.x && x < bounds.x + bounds.width && y >= bounds.y && y < bounds.y + bounds.height) {
+        return piece;
+      }
+    }
+    return null;
+  }
+
   private getAuraAt(x: number, y: number): { x: number; y: number; value: number } | null {
     if (!this.draft) return null;
     return this.draft.auras?.find((point) => point.x === x && point.y === y) ?? null;
+  }
+
+  private getResourcesAt(x: number, y: number): TileResourcePoint[] {
+    if (!this.draft) return [];
+    return (this.draft.resources ?? []).filter((point) => point.x === x && point.y === y);
   }
 
   private formatMapTargetLabel(mapId: string): string {
@@ -1361,6 +1902,46 @@ export class GmMapEditor {
     }
     if (field === 'resizeFill') {
       this.resizeFillTileType = value as TileType;
+      return;
+    }
+    if (field === 'composeSourceMapId') {
+      this.composeSourceMapId = value.trim();
+      this.renderInspector();
+      return;
+    }
+    if (field === 'resourcePaintKey') {
+      this.resourcePaintKey = normalizeFiveElementAuraResourceKey(value);
+      this.renderInspector();
+      return;
+    }
+    if (field === 'resourceSelectedKey') {
+      if (!this.draft || this.selectedEntity?.kind !== 'resource') {
+        return;
+      }
+      const resource = this.draft.resources?.[this.selectedEntity.index];
+      if (!resource) {
+        return;
+      }
+      const nextKey = normalizeFiveElementAuraResourceKey(value);
+      const currentKey = getResourceRecordKey(resource);
+      if (nextKey === currentKey) {
+        return;
+      }
+      const duplicateIndex = this.findResourceIndex(resource.x, resource.y, nextKey);
+      if (duplicateIndex >= 0 && duplicateIndex !== this.selectedEntity.index) {
+        this.setStatus('同一格不能重复放同属性灵气', true);
+        return;
+      }
+      this.captureUndoState();
+      setResourceRecordKey(resource, nextKey);
+      this.resourcePaintKey = nextKey;
+      this.markDirty(false);
+      this.renderInspector();
+      return;
+    }
+    if (field === 'resourcePaintValue') {
+      this.resourcePaintValue = Math.max(0, Math.floor(Number(value) || 0));
+      this.renderInspector();
     }
   }
 
@@ -1371,7 +1952,7 @@ export class GmMapEditor {
     const previousJson = formatJson(this.draft);
     const next = clone(this.draft);
     const fields = this.inspectorEl.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('[data-map-bind]');
-    for (const field of fields) {
+    for (const field of Array.from(fields)) {
       const path = field.dataset.mapBind;
       const kind = field.dataset.mapKind;
       if (!path || !kind) continue;
@@ -1440,7 +2021,7 @@ export class GmMapEditor {
   private handleAction(action: string, trigger: HTMLElement): void {
     if (!this.draft) return;
     const synced = this.syncInspectorToDraft();
-    if (!synced.ok) {
+    if ('message' in synced) {
       this.setStatus(synced.message, true);
       return;
     }
@@ -1463,6 +2044,27 @@ export class GmMapEditor {
       case 'move-selected':
         this.moveSelectedEntityToCurrentCell();
         return;
+      case 'compose-add-piece':
+        this.addComposePiece().catch(() => {});
+        return;
+      case 'compose-rotate-left':
+        this.rotateSelectedComposePiece(false);
+        return;
+      case 'compose-rotate-right':
+        this.rotateSelectedComposePiece(true);
+        return;
+      case 'compose-remove-piece':
+        this.removeSelectedComposePiece();
+        return;
+      case 'compose-clear-pieces':
+        this.clearComposePieces();
+        return;
+      case 'compose-bake-selected':
+        this.bakeSelectedComposePiece();
+        return;
+      case 'compose-bake-all':
+        this.bakeAllComposePieces();
+        return;
       case 'add-portal':
         this.currentInspectorTab = 'portal';
         this.addPortalAtCurrentCell();
@@ -1481,6 +2083,13 @@ export class GmMapEditor {
       case 'add-aura':
         this.currentInspectorTab = 'aura';
         this.addAuraAtCurrentCell();
+        return;
+      case 'add-resource':
+        this.currentInspectorTab = 'resource';
+        this.addResourceAtCurrentCell();
+        return;
+      case 'apply-resource-brush-key':
+        this.applyResourceBrushKey();
         return;
       case 'add-safe-zone':
         this.currentInspectorTab = 'safeZone';
@@ -1538,6 +2147,244 @@ export class GmMapEditor {
     });
     this.selectedEntity = { kind: 'portal', index: this.draft!.portals.length - 1 };
     this.markDirty();
+  }
+
+  private async ensureComposeSourceMap(sourceMapId: string): Promise<GmMapDocument> {
+    const cached = this.composeSourceCache.get(sourceMapId);
+    if (cached) {
+      return cached;
+    }
+    const data = await this.request<GmMapDetailRes>(`${this.mapApiBasePath}/${encodeURIComponent(sourceMapId)}`);
+    const map = clone(data.map);
+    this.composeSourceCache.set(sourceMapId, map);
+    return map;
+  }
+
+  private getComposePieceSize(piece: MapComposePiece): { width: number; height: number } | null {
+    const source = this.composeSourceCache.get(piece.sourceMapId);
+    if (!source) return null;
+    const interiorWidth = Math.max(0, source.width - 2);
+    const interiorHeight = Math.max(0, source.height - 2);
+    if (piece.rotation === 90 || piece.rotation === 270) {
+      return { width: interiorHeight, height: interiorWidth };
+    }
+    return { width: interiorWidth, height: interiorHeight };
+  }
+
+  private getComposePieceBounds(piece: MapComposePiece): { x: number; y: number; width: number; height: number } | null {
+    const size = this.getComposePieceSize(piece);
+    if (!size) return null;
+    return {
+      x: piece.x,
+      y: piece.y,
+      width: size.width,
+      height: size.height,
+    };
+  }
+
+  private clampComposePiecePosition(piece: MapComposePiece): MapComposePiece {
+    if (!this.draft) return piece;
+    const size = this.getComposePieceSize(piece);
+    if (!size) return piece;
+    return {
+      ...piece,
+      x: Math.min(Math.max(0, piece.x), Math.max(0, this.draft.width - size.width)),
+      y: Math.min(Math.max(0, piece.y), Math.max(0, this.draft.height - size.height)),
+    };
+  }
+
+  private getSelectedComposePiece(): MapComposePiece | null {
+    if (!this.selectedComposePieceId) return null;
+    return this.composePieces.find((piece) => piece.id === this.selectedComposePieceId) ?? null;
+  }
+
+  private async addComposePiece(): Promise<void> {
+    if (!this.draft) return;
+    const sourceMapId = this.composeSourceMapId.trim();
+    if (!sourceMapId) {
+      this.setStatus('请先选择来源地图', true);
+      return;
+    }
+    if (sourceMapId === this.draft.id) {
+      this.setStatus('不能把当前地图自己当成拼图块', true);
+      return;
+    }
+    const source = await this.ensureComposeSourceMap(sourceMapId);
+    const anchor = this.selectedCell
+      ? { ...this.selectedCell }
+      : { x: Math.max(0, Math.floor(this.draft.width / 2) - 2), y: Math.max(0, Math.floor(this.draft.height / 2) - 2) };
+    const piece = this.clampComposePiecePosition({
+      id: `compose_${this.composePieceCounter}`,
+      sourceMapId,
+      sourceMapName: source.name,
+      x: anchor.x,
+      y: anchor.y,
+      rotation: 0,
+    });
+    this.composePieceCounter += 1;
+    this.captureUndoState();
+    this.composePieces.push(piece);
+    this.selectedComposePieceId = piece.id;
+    this.selectedEntity = null;
+    this.currentInspectorTab = 'compose';
+    this.selectedCell = { x: piece.x, y: piece.y };
+    this.renderInspector();
+    this.setStatus(`已加入拼图块：${source.name}`);
+  }
+
+  private updateComposePiece(pieceId: string, updater: (piece: MapComposePiece) => MapComposePiece): boolean {
+    const index = this.composePieces.findIndex((piece) => piece.id === pieceId);
+    if (index < 0) return false;
+    this.composePieces[index] = this.clampComposePiecePosition(updater(this.composePieces[index]!));
+    return true;
+  }
+
+  private rotateSelectedComposePiece(clockwise: boolean): void {
+    const selected = this.getSelectedComposePiece();
+    if (!selected) {
+      this.setStatus('请先选中一个拼图块', true);
+      return;
+    }
+    this.captureUndoState();
+    this.updateComposePiece(selected.id, (piece) => ({
+      ...piece,
+      rotation: clockwise ? rotateComposeClockwise(piece.rotation) : rotateComposeCounterClockwise(piece.rotation),
+    }));
+    const updated = this.getSelectedComposePiece();
+    if (updated) {
+      this.selectedCell = { x: updated.x, y: updated.y };
+    }
+    this.renderInspector();
+    this.setStatus(`已${clockwise ? '右转' : '左转'}拼图块 90°`);
+  }
+
+  private removeSelectedComposePiece(): void {
+    const selected = this.getSelectedComposePiece();
+    if (!selected) {
+      this.setStatus('请先选中一个拼图块', true);
+      return;
+    }
+    this.captureUndoState();
+    this.composePieces = this.composePieces.filter((piece) => piece.id !== selected.id);
+    this.selectedComposePieceId = null;
+    this.renderInspector();
+    this.setStatus(`已删除拼图块：${selected.sourceMapName}`);
+  }
+
+  private clearComposePieces(): void {
+    if (this.composePieces.length === 0) {
+      this.setStatus('当前没有拼图块');
+      return;
+    }
+    this.captureUndoState();
+    this.composePieces = [];
+    this.selectedComposePieceId = null;
+    this.renderInspector();
+    this.setStatus('已清空全部拼图块');
+  }
+
+  private forEachComposePieceTile(
+    piece: MapComposePiece,
+    visitor: (targetX: number, targetY: number, sourceChar: string) => void,
+  ): void {
+    const source = this.composeSourceCache.get(piece.sourceMapId);
+    if (!source) return;
+    const interiorWidth = Math.max(0, source.width - 2);
+    const interiorHeight = Math.max(0, source.height - 2);
+    for (let sourceY = 1; sourceY < source.height - 1; sourceY += 1) {
+      const row = [...source.tiles[sourceY]!];
+      for (let sourceX = 1; sourceX < source.width - 1; sourceX += 1) {
+        const localX = sourceX - 1;
+        const localY = sourceY - 1;
+        let targetOffsetX = localX;
+        let targetOffsetY = localY;
+        switch (piece.rotation) {
+          case 90:
+            targetOffsetX = interiorHeight - 1 - localY;
+            targetOffsetY = localX;
+            break;
+          case 180:
+            targetOffsetX = interiorWidth - 1 - localX;
+            targetOffsetY = interiorHeight - 1 - localY;
+            break;
+          case 270:
+            targetOffsetX = localY;
+            targetOffsetY = interiorWidth - 1 - localX;
+            break;
+          default:
+            break;
+        }
+        visitor(piece.x + targetOffsetX, piece.y + targetOffsetY, row[sourceX]!);
+      }
+    }
+  }
+
+  private bakeComposePiece(piece: MapComposePiece, recordUndo: boolean): number {
+    if (!this.draft) return 0;
+    const changed = new Map<number, string[]>();
+    let changedCount = 0;
+    this.forEachComposePieceTile(piece, (targetX, targetY, sourceChar) => {
+      if (targetX < 0 || targetY < 0 || targetX >= this.draft!.width || targetY >= this.draft!.height) {
+        return;
+      }
+      const row = changed.get(targetY) ?? [...(this.draft!.tiles[targetY] ?? '')];
+      if (row[targetX] === sourceChar) {
+        changed.set(targetY, row);
+        return;
+      }
+      row[targetX] = sourceChar;
+      changed.set(targetY, row);
+      changedCount += 1;
+    });
+    if (changedCount === 0) {
+      return 0;
+    }
+    if (recordUndo) {
+      this.captureUndoState();
+    }
+    for (const [y, row] of changed) {
+      this.draft.tiles[y] = row.join('');
+    }
+    return changedCount;
+  }
+
+  private bakeSelectedComposePiece(): void {
+    const selected = this.getSelectedComposePiece();
+    if (!selected) {
+      this.setStatus('请先选中一个拼图块', true);
+      return;
+    }
+    const changed = this.bakeComposePiece(selected, true);
+    if (changed <= 0) {
+      this.setStatus('选中拼图块没有产生地块变化');
+      return;
+    }
+    this.composePieces = this.composePieces.filter((piece) => piece.id !== selected.id);
+    this.selectedComposePieceId = null;
+    this.markDirty();
+    this.setStatus(`已烘焙拼图块：${selected.sourceMapName}`);
+  }
+
+  private bakeAllComposePieces(): void {
+    if (!this.draft || this.composePieces.length === 0) {
+      this.setStatus('当前没有可烘焙的拼图块', true);
+      return;
+    }
+    this.captureUndoState();
+    let changed = 0;
+    for (const piece of this.composePieces) {
+      changed += this.bakeComposePiece(piece, false);
+    }
+    if (changed <= 0) {
+      this.undoStack.pop();
+      this.updateUndoButtonState();
+      this.setStatus('全部拼图块都没有产生地块变化');
+      return;
+    }
+    this.composePieces = [];
+    this.selectedComposePieceId = null;
+    this.markDirty();
+    this.setStatus(`已烘焙全部拼图块，共写入 ${changed} 个格子`);
   }
 
   private addNpcAtCurrentCell(): void {
@@ -1615,6 +2462,34 @@ export class GmMapEditor {
     const index = this.draft!.auras?.findIndex((point) => point.x === x && point.y === y) ?? -1;
     if (index >= 0) {
       this.selectedEntity = { kind: 'aura', index };
+    }
+    this.markDirty();
+  }
+
+  private applyResourceBrushKey(): void {
+    const normalized = this.resourcePaintKey.trim();
+    if (!normalized) {
+      this.setStatus('资源键不能为空', true);
+      return;
+    }
+    this.resourcePaintKey = normalized;
+    this.setStatus(`已设置五行灵气画笔类型：${formatResourceTypeLabel(normalized)}`);
+    this.renderInspector();
+  }
+
+  private addResourceAtCurrentCell(): void {
+    if (!this.ensureSelectedCell()) return;
+    const { x, y } = this.selectedCell!;
+    const normalizedKey = this.resourcePaintKey.trim();
+    if (!normalizedKey) {
+      this.setStatus('请先选择五行灵气类型', true);
+      return;
+    }
+    const changed = this.applyResourcePaint([{ x, y }], true, this.resourcePaintValue, normalizedKey);
+    if (!changed) return;
+    const index = this.findResourceIndex(x, y, normalizedKey);
+    if (index >= 0) {
+      this.selectedEntity = { kind: 'resource', index };
     }
     this.markDirty();
   }
@@ -1740,6 +2615,22 @@ export class GmMapEditor {
       return true;
     }
 
+    if (selection.kind === 'resource') {
+      const resource = this.draft.resources?.[selection.index];
+      if (!resource) return false;
+      const resourceKey = getResourceRecordKey(resource);
+      if (this.hasResourceAt(x, y, resourceKey, selection.index)) {
+        if (!silent) this.setStatus('目标格已有同类五行灵气点', true);
+        return false;
+      }
+      if (recordUndo) this.captureUndoState();
+      resource.x = x;
+      resource.y = y;
+      this.selectedCell = { x, y };
+      this.markDirty(false);
+      return true;
+    }
+
     if (selection.kind === 'safeZone') {
       const zone = this.draft.safeZones?.[selection.index];
       if (!zone) return false;
@@ -1827,6 +2718,8 @@ export class GmMapEditor {
       removeArrayIndex(this.draft, 'monsterSpawns', this.selectedEntity.index);
     } else if (this.selectedEntity.kind === 'aura') {
       removeArrayIndex(this.draft, 'auras', this.selectedEntity.index);
+    } else if (this.selectedEntity.kind === 'resource') {
+      removeArrayIndex(this.draft, 'resources', this.selectedEntity.index);
     } else if (this.selectedEntity.kind === 'safeZone') {
       removeArrayIndex(this.draft, 'safeZones', this.selectedEntity.index);
     } else if (this.selectedEntity.kind === 'container') {
@@ -1860,6 +2753,7 @@ export class GmMapEditor {
     this.draft.npcs = this.draft.npcs.filter((npc) => npc.x < width && npc.y < height && npc.x >= 0 && npc.y >= 0);
     this.draft.monsterSpawns = this.draft.monsterSpawns.filter((spawn) => spawn.x < width && spawn.y < height && spawn.x >= 0 && spawn.y >= 0);
     this.draft.auras = (this.draft.auras ?? []).filter((point) => point.x < width && point.y < height && point.x >= 0 && point.y >= 0);
+    this.draft.resources = (this.draft.resources ?? []).filter((point) => point.x < width && point.y < height && point.x >= 0 && point.y >= 0);
     this.draft.safeZones = (this.draft.safeZones ?? []).filter((zone) => zone.x < width && zone.y < height && zone.x >= 0 && zone.y >= 0);
     this.draft.landmarks = (this.draft.landmarks ?? []).filter((landmark) => landmark.x < width && landmark.y < height && landmark.x >= 0 && landmark.y >= 0);
     this.draft.spawnPoint = this.findNearestWalkable(this.clampPoint(this.draft.spawnPoint, width, height)) ?? this.clampPoint(this.draft.spawnPoint, width, height);
@@ -1920,10 +2814,13 @@ export class GmMapEditor {
       this.resizeWidth = next.width;
       this.resizeHeight = next.height;
       this.selectedCell = { x: next.spawnPoint.x, y: next.spawnPoint.y };
-      this.currentInspectorTab = 'selection';
-      this.linePaintStart = null;
-      this.dirty = true;
-      this.centerView();
+    this.currentInspectorTab = 'selection';
+    this.linePaintStart = null;
+    this.dirty = true;
+    this.composePieces = [];
+    this.selectedComposePieceId = null;
+    this.composeDragActive = false;
+    this.centerView();
       this.renderInspector();
       this.renderMapList();
       this.setStatus('地图 JSON 已应用到可视化编辑区');
@@ -1938,7 +2835,7 @@ export class GmMapEditor {
       return;
     }
     const synced = this.syncInspectorToDraft();
-    if (!synced.ok) {
+    if ('message' in synced) {
       this.setStatus(synced.message, true);
       return;
     }
@@ -2048,6 +2945,11 @@ export class GmMapEditor {
           ctx.fillRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
         }
 
+        if (this.getResourcesAt(gx, gy).length > 0) {
+          ctx.fillStyle = 'rgba(247, 208, 96, 0.16)';
+          ctx.fillRect(sx + 3, sy + 3, cellSize - 6, cellSize - 6);
+        }
+
         const isLineStart = this.linePaintStart?.x === gx && this.linePaintStart?.y === gy;
         const isSelected = this.selectedCell?.x === gx && this.selectedCell?.y === gy;
         const isHovered = this.hoveredCell?.x === gx && this.hoveredCell?.y === gy;
@@ -2069,7 +2971,69 @@ export class GmMapEditor {
       }
     }
 
+    this.drawComposePieces(ctx, screenW, screenH, cellSize);
     this.drawEntities(ctx, screenW, screenH, cellSize);
+  }
+
+  private drawComposePieces(ctx: CanvasRenderingContext2D, screenW: number, screenH: number, cellSize: number): void {
+    if (!this.draft || this.composePieces.length === 0) return;
+    const showLabels = cellSize >= 16;
+    for (const piece of this.composePieces) {
+      const bounds = this.getComposePieceBounds(piece);
+      if (!bounds) continue;
+      const isSelected = piece.id === this.selectedComposePieceId;
+      this.forEachComposePieceTile(piece, (targetX, targetY, sourceChar) => {
+        if (targetX < 0 || targetY < 0 || targetX >= this.draft!.width || targetY >= this.draft!.height) {
+          return;
+        }
+        const sx = targetX * cellSize - this.viewCenterX + screenW / 2;
+        const sy = targetY * cellSize - this.viewCenterY + screenH / 2;
+        if (sx + cellSize < 0 || sx > screenW || sy + cellSize < 0 || sy > screenH) return;
+        const type = getTileTypeFromMapChar(sourceChar);
+        ctx.fillStyle = TILE_VISUAL_BG_COLORS[type];
+        ctx.fillRect(sx, sy, cellSize, cellSize);
+        ctx.fillStyle = isSelected ? 'rgba(255, 220, 116, 0.16)' : 'rgba(124, 187, 255, 0.12)';
+        ctx.fillRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
+        ctx.strokeStyle = isSelected ? 'rgba(255, 219, 115, 0.42)' : 'rgba(135, 203, 255, 0.26)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(sx + 0.5, sy + 0.5, cellSize - 1, cellSize - 1);
+        const glyph = TILE_VISUAL_GLYPHS[type];
+        if (glyph) {
+          ctx.fillStyle = isSelected ? '#fff0be' : TILE_VISUAL_GLYPH_COLORS[type];
+          ctx.font = buildCanvasFont('tileGlyph', cellSize * 0.52);
+          ctx.fillText(glyph, sx + cellSize / 2, sy + cellSize / 2 + 1);
+        }
+      });
+
+      const boxX = bounds.x * cellSize - this.viewCenterX + screenW / 2;
+      const boxY = bounds.y * cellSize - this.viewCenterY + screenH / 2;
+      const boxW = bounds.width * cellSize;
+      const boxH = bounds.height * cellSize;
+      ctx.save();
+      ctx.shadowBlur = isSelected ? 16 : 10;
+      ctx.shadowColor = isSelected ? 'rgba(255, 211, 84, 0.72)' : 'rgba(116, 187, 255, 0.48)';
+      ctx.strokeStyle = isSelected ? 'rgba(255, 211, 84, 0.98)' : 'rgba(116, 187, 255, 0.88)';
+      ctx.lineWidth = isSelected ? 3 : 2;
+      ctx.strokeRect(boxX + 1.5, boxY + 1.5, boxW - 3, boxH - 3);
+      ctx.restore();
+
+      ctx.strokeStyle = isSelected ? 'rgba(255, 243, 186, 0.95)' : 'rgba(222, 244, 255, 0.82)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(boxX + 4.5, boxY + 4.5, boxW - 9, boxH - 9);
+
+      if (!showLabels) continue;
+      const label = `${piece.sourceMapName} ${piece.rotation}°`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.font = buildCanvasFont('label', Math.max(11, cellSize * 0.28));
+      const textWidth = ctx.measureText(label).width;
+      const labelX = boxX + 4;
+      const labelY = boxY - 10;
+      ctx.fillStyle = 'rgba(15, 12, 10, 0.78)';
+      ctx.fillRect(labelX - 3, labelY - 9, textWidth + 8, 18);
+      ctx.fillStyle = isSelected ? '#ffe7a8' : '#d7efff';
+      ctx.fillText(label, labelX + 1, labelY);
+    }
   }
 
   private drawEntities(ctx: CanvasRenderingContext2D, screenW: number, screenH: number, cellSize: number): void {
@@ -2087,7 +3051,15 @@ export class GmMapEditor {
         this.drawSafeZoneOverlay(ctx, screenW, screenH, cellSize, selectedZone);
       }
     }
-    const drawEntity = (wx: number, wy: number, char: string, color: string, name: string, kind: 'npc' | 'monster' | 'spawn' | 'container' | 'safeZone'): void => {
+    const drawEntity = (
+      wx: number,
+      wy: number,
+      char: string,
+      color: string,
+      name: string,
+      kind: 'npc' | 'monster' | 'spawn' | 'container' | 'safeZone',
+      labelColor?: string,
+    ): void => {
       const sx = wx * cellSize - this.viewCenterX + screenW / 2;
       const sy = wy * cellSize - this.viewCenterY + screenH / 2;
       if (sx + cellSize < 0 || sx > screenW || sy + cellSize < 0 || sy > screenH) return;
@@ -2114,9 +3086,9 @@ export class GmMapEditor {
           ? '#fff0b0'
           : kind === 'safeZone'
             ? '#d7fff2'
-          : kind === 'container'
-            ? '#f5ddb0'
-            : '#cce7ff';
+            : kind === 'container'
+              ? '#f5ddb0'
+            : (labelColor ?? '#cce7ff');
       ctx.textBaseline = 'alphabetic';
       ctx.strokeText(name, sx + cellSize / 2, sy - Math.max(6, cellSize * 0.18));
       ctx.fillText(name, sx + cellSize / 2, sy - Math.max(6, cellSize * 0.18));
@@ -2164,7 +3136,16 @@ export class GmMapEditor {
     });
     this.draft.npcs.forEach((npc) => drawEntity(npc.x, npc.y, npc.char || '人', npc.color || '#d6d0c4', npc.name || npc.id, 'npc'));
     this.draft.monsterSpawns.forEach((spawn) => drawEntity(spawn.x, spawn.y, spawn.char || '妖', spawn.color || '#d27a7a', spawn.name || spawn.id, 'monster'));
-    (this.draft.auras ?? []).forEach((point) => drawEntity(point.x, point.y, '灵', '#77b8ff', `灵气:${point.value}`, 'npc'));
+    (this.draft.auras ?? []).forEach((point) => drawEntity(point.x, point.y, '灵', '#77b8ff', formatAuraPointLabel(point.value), 'npc'));
+    (this.draft.resources ?? []).forEach((point) => drawEntity(
+      point.x,
+      point.y,
+      '炁',
+      getResourcePointGlyphColor(point),
+      formatResourcePointLabel(point),
+      'npc',
+      getResourcePointLabelColor(point),
+    ));
     (this.draft.safeZones ?? []).forEach((zone) => drawEntity(zone.x, zone.y, '安', '#7ce5c6', `安全区:${zone.radius}`, 'safeZone'));
     (this.draft.landmarks ?? [])
       .filter((landmark) => landmark.container)
@@ -2430,8 +3411,10 @@ export class GmMapEditor {
     if (event.button !== 0) return;
     if (!point) return;
     this.selectedCell = point;
+    const hitComposePiece = this.findComposePieceAt(point.x, point.y);
     const hitEntity = this.findEntityAt(point.x, point.y);
-    this.selectedEntity = hitEntity;
+    this.selectedComposePieceId = hitComposePiece?.id ?? null;
+    this.selectedEntity = hitComposePiece ? null : hitEntity;
     if (currentTool === 'paint') {
       if (event.altKey && this.paintLayer === 'tile') {
         this.sampleTileAt(point.x, point.y);
@@ -2460,17 +3443,32 @@ export class GmMapEditor {
       this.paintActive = true;
       const changed = this.paintLayer === 'tile'
         ? this.paintTileAt(point.x, point.y, true)
-        : this.paintAuraAt(point.x, point.y, true);
+        : this.paintLayer === 'aura'
+          ? this.paintAuraAt(point.x, point.y, true)
+          : this.paintResourceAt(point.x, point.y, true);
       this.paintSessionHasUndoSnapshot = changed;
       this.renderCanvas();
       return;
     }
 
-    if (currentTool === 'select' && hitEntity) {
+    if (currentTool === 'select' && hitComposePiece) {
+      const bounds = this.getComposePieceBounds(hitComposePiece);
+      this.currentInspectorTab = 'compose';
+      this.activePointerId = event.pointerId;
+      this.activePanButtonMask = 0;
+      this.dragSessionHasUndoSnapshot = false;
+      this.composeDragActive = true;
+      this.dragEntityActive = false;
+      this.paintActive = false;
+      this.composeDragOffsetX = bounds ? point.x - bounds.x : 0;
+      this.composeDragOffsetY = bounds ? point.y - bounds.y : 0;
+      this.canvas.setPointerCapture(event.pointerId);
+    } else if (currentTool === 'select' && hitEntity) {
       this.activePointerId = event.pointerId;
       this.activePanButtonMask = 0;
       this.dragSessionHasUndoSnapshot = false;
       this.dragEntityActive = true;
+      this.composeDragActive = false;
       this.paintActive = false;
       this.canvas.setPointerCapture(event.pointerId);
     }
@@ -2499,6 +3497,29 @@ export class GmMapEditor {
       this.renderCanvas();
       return;
     }
+    if (this.composeDragActive) {
+      if ((event.buttons & 1) === 0) {
+        this.endPointerInteraction();
+        return;
+      }
+      if (point) {
+        this.selectedCell = point;
+        const piece = this.getSelectedComposePiece();
+        if (piece) {
+          const nextX = point.x - this.composeDragOffsetX;
+          const nextY = point.y - this.composeDragOffsetY;
+          if (piece.x !== nextX || piece.y !== nextY) {
+            if (!this.dragSessionHasUndoSnapshot) {
+              this.captureUndoState();
+              this.dragSessionHasUndoSnapshot = true;
+            }
+            this.updateComposePiece(piece.id, (current) => ({ ...current, x: nextX, y: nextY }));
+          }
+        }
+      }
+      this.renderCanvas();
+      return;
+    }
     if (this.dragEntityActive) {
       if ((event.buttons & 1) === 0) {
         this.endPointerInteraction();
@@ -2521,7 +3542,9 @@ export class GmMapEditor {
     if (this.paintActive && point) {
       const changed = this.paintLayer === 'tile'
         ? this.paintTileAt(point.x, point.y, !this.paintSessionHasUndoSnapshot)
-        : this.paintAuraAt(point.x, point.y, !this.paintSessionHasUndoSnapshot);
+        : this.paintLayer === 'aura'
+          ? this.paintAuraAt(point.x, point.y, !this.paintSessionHasUndoSnapshot)
+          : this.paintResourceAt(point.x, point.y, !this.paintSessionHasUndoSnapshot);
       this.paintSessionHasUndoSnapshot = this.paintSessionHasUndoSnapshot || changed;
       this.renderCanvas();
       return;
@@ -2532,17 +3555,20 @@ export class GmMapEditor {
     if (this.activePointerId !== null && this.canvas.hasPointerCapture(this.activePointerId)) {
       this.canvas.releasePointerCapture(this.activePointerId);
     }
-    if ((this.paintActive || this.dragEntityActive) && this.draft) {
+    if ((this.paintActive || this.dragEntityActive || this.composeDragActive) && this.draft) {
       this.renderInspector();
     }
     this.paintActive = false;
     this.dragEntityActive = false;
+    this.composeDragActive = false;
     this.panActive = false;
     this.paintSessionHasUndoSnapshot = false;
     this.dragSessionHasUndoSnapshot = false;
     this.lastPaintKey = null;
     this.activePointerId = null;
     this.activePanButtonMask = 0;
+    this.composeDragOffsetX = 0;
+    this.composeDragOffsetY = 0;
     this.renderCanvas();
   }
 
@@ -2577,12 +3603,22 @@ export class GmMapEditor {
     return this.applyAuraPaint([{ x, y }], recordUndo) > 0;
   }
 
+  private paintResourceAt(x: number, y: number, recordUndo = false): boolean {
+    if (!this.draft) return false;
+    const key = `${x},${y},${this.resourcePaintKey}`;
+    if (this.lastPaintKey === key) return false;
+    this.lastPaintKey = key;
+    return this.applyResourcePaint([{ x, y }], recordUndo) > 0;
+  }
+
   private applyLinePaint(start: GridPoint, end: GridPoint): void {
     const changed = this.paintLayer === 'tile'
       ? this.applyTilePaint(this.getLinePoints(start, end), true)
-      : this.applyAuraPaint(this.getLinePoints(start, end), true);
+      : this.paintLayer === 'aura'
+        ? this.applyAuraPaint(this.getLinePoints(start, end), true)
+        : this.applyResourcePaint(this.getLinePoints(start, end), true);
     if (changed > 0) {
-      this.setStatus(`已沿直线填充 ${changed} 个${this.paintLayer === 'tile' ? '格子' : '灵气点'}`);
+      this.setStatus(`已沿直线填充 ${changed} 个${this.paintLayer === 'tile' ? '格子' : this.paintLayer === 'aura' ? '无属性灵气点' : '五行灵气点'}`);
     }
   }
 
@@ -2667,6 +3703,79 @@ export class GmMapEditor {
     return changedKeys.size;
   }
 
+  private applyResourcePaint(
+    points: GridPoint[],
+    recordUndo: boolean,
+    overrideValue?: number,
+    overrideResourceKey?: string,
+  ): number {
+    if (!this.draft) return 0;
+    const resourceKey = (overrideResourceKey ?? this.resourcePaintKey).trim();
+    if (!resourceKey) {
+      this.setStatus('资源键不能为空', true);
+      return 0;
+    }
+    const nextValue = Math.max(0, Math.floor(overrideValue ?? this.resourcePaintValue));
+    const selectedResourcePoint = this.selectedEntity?.kind === 'resource' ? this.getSelectedEntityPoint() : null;
+    const nextResources = [...(this.draft.resources ?? [])];
+    const changedKeys = new Set<string>();
+
+    for (const point of points) {
+      const key = `${point.x},${point.y},${resourceKey}`;
+      if (changedKeys.has(key)) continue;
+      const index = nextResources.findIndex((candidate) => (
+        candidate.x === point.x
+        && candidate.y === point.y
+        && getResourceRecordKey(candidate) === resourceKey
+      ));
+      if (nextValue === 0) {
+        if (index >= 0) {
+          nextResources.splice(index, 1);
+          changedKeys.add(key);
+        }
+        continue;
+      }
+      if (index >= 0) {
+        if (nextResources[index]!.value !== nextValue) {
+          nextResources[index] = { ...nextResources[index]!, value: nextValue };
+          setResourceRecordKey(nextResources[index]!, resourceKey);
+          changedKeys.add(key);
+        }
+        continue;
+      }
+      const nextPoint: TileResourcePoint = {
+        x: point.x,
+        y: point.y,
+        value: nextValue,
+        resourceKey: resourceKey,
+      };
+      nextResources.push(nextPoint);
+      changedKeys.add(key);
+    }
+
+    if (changedKeys.size === 0) {
+      return 0;
+    }
+    if (recordUndo) {
+      this.captureUndoState();
+    }
+    this.draft.resources = nextResources;
+    if (selectedResourcePoint) {
+      const nextIndex = nextResources.findIndex((point) => point.x === selectedResourcePoint.x && point.y === selectedResourcePoint.y);
+      this.selectedEntity = nextIndex >= 0 ? { kind: 'resource', index: nextIndex } : null;
+    }
+    this.resourcePaintKey = resourceKey;
+    this.markDirty(false);
+    return changedKeys.size;
+  }
+
+  private findResourceIndex(x: number, y: number, resourceKey: string): number {
+    if (!this.draft) {
+      return -1;
+    }
+    return (this.draft.resources ?? []).findIndex((point) => point.x === x && point.y === y && getResourceRecordKey(point) === resourceKey);
+  }
+
   private getLinePoints(start: GridPoint, end: GridPoint): GridPoint[] {
     const points: GridPoint[] = [];
     let x0 = start.x;
@@ -2710,6 +3819,16 @@ export class GmMapEditor {
     return (this.draft.auras ?? []).some((point, index) => index !== ignoredIndex && point.x === x && point.y === y);
   }
 
+  private hasResourceAt(x: number, y: number, resourceKey: string, ignoredIndex?: number): boolean {
+    if (!this.draft) return false;
+    return (this.draft.resources ?? []).some((point, index) => (
+      index !== ignoredIndex
+      && point.x === x
+      && point.y === y
+      && getResourceRecordKey(point) === resourceKey
+    ));
+  }
+
   private hasLandmarkAt(x: number, y: number, ignoredIndex?: number): boolean {
     if (!this.draft) return false;
     return (this.draft.landmarks ?? []).some((landmark, index) => index !== ignoredIndex && landmark.x === x && landmark.y === y);
@@ -2747,6 +3866,8 @@ export class GmMapEditor {
     if (portalIndex >= 0) return { kind: 'portal', index: portalIndex };
     const auraIndex = (this.draft.auras ?? []).findIndex((point) => point.x === x && point.y === y);
     if (auraIndex >= 0) return { kind: 'aura', index: auraIndex };
+    const resourceIndex = (this.draft.resources ?? []).findIndex((point) => point.x === x && point.y === y);
+    if (resourceIndex >= 0) return { kind: 'resource', index: resourceIndex };
     const safeZoneIndex = (this.draft.safeZones ?? []).findIndex((zone) => zone.x === x && zone.y === y);
     if (safeZoneIndex >= 0) return { kind: 'safeZone', index: safeZoneIndex };
     const containerIndex = (this.draft.landmarks ?? []).findIndex((landmark) => landmark.container && landmark.x === x && landmark.y === y);
@@ -2774,6 +3895,10 @@ export class GmMapEditor {
       const aura = this.draft.auras?.[this.selectedEntity.index];
       return aura ? { x: aura.x, y: aura.y } : null;
     }
+    if (this.selectedEntity.kind === 'resource') {
+      const resource = this.draft.resources?.[this.selectedEntity.index];
+      return resource ? { x: resource.x, y: resource.y } : null;
+    }
     if (this.selectedEntity.kind === 'safeZone') {
       const zone = this.draft.safeZones?.[this.selectedEntity.index];
       return zone ? { x: zone.x, y: zone.y } : null;
@@ -2795,6 +3920,9 @@ export class GmMapEditor {
       resizeWidth: this.resizeWidth,
       resizeHeight: this.resizeHeight,
       resizeFillTileType: this.resizeFillTileType,
+      composePieces: clone(this.composePieces),
+      selectedComposePieceId: this.selectedComposePieceId,
+      composeSourceMapId: this.composeSourceMapId,
       dirty: this.dirty,
     };
   }
@@ -2816,10 +3944,14 @@ export class GmMapEditor {
     this.resizeWidth = entry.resizeWidth;
     this.resizeHeight = entry.resizeHeight;
     this.resizeFillTileType = entry.resizeFillTileType;
+    this.composePieces = clone(entry.composePieces);
+    this.selectedComposePieceId = entry.selectedComposePieceId;
+    this.composeSourceMapId = entry.composeSourceMapId;
     this.dirty = entry.dirty;
     this.linePaintStart = null;
     this.paintActive = false;
     this.dragEntityActive = false;
+    this.composeDragActive = false;
     this.panActive = false;
     this.paintSessionHasUndoSnapshot = false;
     this.dragSessionHasUndoSnapshot = false;

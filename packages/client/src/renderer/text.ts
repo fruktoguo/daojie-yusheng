@@ -965,6 +965,8 @@ export class TextRenderer implements IRenderer {
           stacks: 1,
           maxStacks: 1,
           sourceSkillId: '',
+          realmLv: 1,
+          color: undefined,
         }]
       : displayed;
     const totalWidth = badges.length * badgeSize + Math.max(0, badges.length - 1) * gap;

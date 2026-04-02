@@ -767,7 +767,11 @@
     .tech-card-actions {
       display: flex;
       align-items: center;
+      align-self: center;
       flex: 0 0 auto;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
     }
     .tech-progress-meta {
       display: flex;

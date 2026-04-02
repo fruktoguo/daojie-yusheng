@@ -16,11 +16,22 @@
         "chance": 0.45
       },
       {
-        "itemId": "spirit_stone",
-        "name": "灵石",
-        "type": "consumable",
-        "count": 1,
-        "chance": 0.01
+        "itemId": "equip.scavenger_fang",
+        "name": "拾荒尖牙",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.scrap_hide",
+        "name": "杂皮护层",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "mat.beast_bone",
+        "name": "妖兽骨",
+        "type": "material",
+        "count": 1
       }
     ],
     "grade": "mortal",
@@ -83,11 +94,22 @@
         "chance": 0.18
       },
       {
-        "itemId": "spirit_stone",
-        "name": "灵石",
-        "type": "consumable",
-        "count": 1,
-        "chance": 0.01
+        "itemId": "equip.scrap_hide",
+        "name": "杂皮护层",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.gutter_paws",
+        "name": "沟行爪套",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.marsh_poison_gland",
+        "name": "沼毒囊结",
+        "type": "equipment",
+        "count": 1
       }
     ],
     "grade": "mortal",
@@ -151,11 +173,16 @@
         "chance": 0.01
       },
       {
-        "itemId": "spirit_stone",
-        "name": "灵石",
-        "type": "consumable",
-        "count": 1,
-        "chance": 0.01
+        "itemId": "equip.gate_headcloth",
+        "name": "门丁裹头巾",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.bound_chest",
+        "name": "旧皮绑胸",
+        "type": "equipment",
+        "count": 1
       }
     ],
     "grade": "mortal",
@@ -233,11 +260,28 @@
         "chance": 0.2
       },
       {
-        "itemId": "spirit_stone",
-        "name": "灵石",
-        "type": "consumable",
-        "count": 1,
-        "chance": 0.01
+        "itemId": "equip.scavenger_fang",
+        "name": "拾荒尖牙",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.scavenger_crest",
+        "name": "拾荒翎冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.gutter_paws",
+        "name": "沟行爪套",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.marsh_poison_gland",
+        "name": "沼毒囊结",
+        "type": "equipment",
+        "count": 1
       }
     ],
     "grade": "mortal",
@@ -316,11 +360,34 @@
         "chance": 0.5
       },
       {
-        "itemId": "spirit_stone",
-        "name": "灵石",
-        "type": "consumable",
-        "count": 1,
-        "chance": 0.01
+        "itemId": "equip.scavenger_fang",
+        "name": "拾荒尖牙",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.scavenger_crest",
+        "name": "拾荒翎冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.scrap_hide",
+        "name": "杂皮护层",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.gutter_paws",
+        "name": "沟行爪套",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.marsh_poison_gland",
+        "name": "沼毒囊结",
+        "type": "equipment",
+        "count": 1
       }
     ],
     "grade": "mortal",
@@ -387,11 +454,22 @@
         "chance": 0.01
       },
       {
-        "itemId": "spirit_stone",
-        "name": "灵石",
-        "type": "consumable",
-        "count": 1,
-        "chance": 0.01
+        "itemId": "equip.scavenger_crest",
+        "name": "拾荒翎冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.gutter_paws",
+        "name": "沟行爪套",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.marsh_poison_gland",
+        "name": "沼毒囊结",
+        "type": "equipment",
+        "count": 1
       }
     ],
     "grade": "mortal",

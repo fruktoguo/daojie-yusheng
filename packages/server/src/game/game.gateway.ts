@@ -563,6 +563,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     if (!detail && observedEntities.length === 0) {
       return;
     }
+    const auraLevelBaseValue = this.tickService.getAuraLevelBaseValue();
     const detailedAuraResources = (detail?.resources ?? [])
       .filter((resource) => {
         const parsedResource = parseQiResourceKey(resource.key);
@@ -572,6 +573,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         key: resource.key,
         value: resource.value,
       }));
+    const visibleDetailedAuraResources = detailedAuraResources.filter((resource) => (
+      this.qiProjectionService.getResourceVisibility(player, resource.key) !== 'hidden'
+    ));
     const response: S2C_TileRuntimeDetail = {
       mapId: player.mapId,
       x: targetX,
@@ -582,21 +586,24 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       restoreTicksLeft: detail?.restoreTicksLeft,
       resources: (detail?.resources ?? []).map((resource) => {
         if (resource.key === 'aura') {
-          const effectiveValue = detailedAuraResources.length > 0
-            ? this.qiProjectionService.getEffectiveAuraValueFromResources(player, detailedAuraResources)
+          if (detailedAuraResources.length > 0 && visibleDetailedAuraResources.length <= 0) {
+            return null;
+          }
+          const effectiveValue = visibleDetailedAuraResources.length > 0
+            ? this.qiProjectionService.getEffectiveAuraValueFromResources(player, visibleDetailedAuraResources)
             : this.qiProjectionService.getEffectiveAuraValue(player, resource.value);
           return {
             ...resource,
-            level: detailedAuraResources.length > 0
+            level: visibleDetailedAuraResources.length > 0
               ? this.qiProjectionService.getAuraLevelFromResources(
                   player,
-                  detailedAuraResources,
-                  this.tickService.getAuraLevelBaseValue(),
+                  visibleDetailedAuraResources,
+                  auraLevelBaseValue,
                 )
               : this.qiProjectionService.getAuraLevel(
                   player,
                   resource.value,
-                  this.tickService.getAuraLevelBaseValue(),
+                  auraLevelBaseValue,
                 ),
             effectiveValue,
           };
@@ -605,11 +612,16 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         if (!parsedResource || !isAuraQiResourceKey(resource.key)) {
           return resource;
         }
+        if (this.qiProjectionService.getResourceVisibility(player, resource.key) === 'hidden') {
+          return null;
+        }
+        const effectiveValue = this.qiProjectionService.getEffectiveResourceValue(player, resource.key, resource.value);
         return {
           ...resource,
-            effectiveValue: this.qiProjectionService.getEffectiveResourceValue(player, resource.key, resource.value),
+          effectiveValue,
+          level: this.qiProjectionService.getResourceAuraLevel(player, resource.key, resource.value, auraLevelBaseValue),
         };
-      }),
+      }).filter((resource): resource is NonNullable<typeof resource> => resource !== null),
       entities: observedEntities.length > 0 ? observedEntities : undefined,
     };
     client.emit(S2C.TileRuntimeDetail, response satisfies S2C_TileRuntimeDetail);
@@ -1070,14 +1082,23 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
   private toClientVisibleTiles(viewer: PlayerState, tiles: VisibleTile[][]): VisibleTile[][] {
     const auraLevelBaseValue = this.tickService.getAuraLevelBaseValue();
-    return tiles.map((row) => row.map((tile) => {
+    const originX = viewer.x - Math.floor(tiles[0]?.length ? tiles[0].length / 2 : 0);
+    const originY = viewer.y - Math.floor(tiles.length / 2);
+    return tiles.map((row, rowIndex) => row.map((tile, columnIndex) => {
       if (!tile) {
         return null;
       }
+      const x = originX + columnIndex;
+      const y = originY + rowIndex;
+      const auraResources = this.mapService.getTileAuraResourceValues(viewer.mapId, x, y);
       return {
         ...tile,
         aura: viewer.senseQiActive
-          ? this.qiProjectionService.getAuraLevel(viewer, tile.aura ?? 0, auraLevelBaseValue)
+          ? (
+            auraResources.length > 0
+              ? this.qiProjectionService.getAuraLevelFromResources(viewer, auraResources, auraLevelBaseValue)
+              : this.qiProjectionService.getAuraLevel(viewer, tile.aura ?? 0, auraLevelBaseValue)
+          )
           : 0,
       } satisfies NonNullable<VisibleTile>;
     }));

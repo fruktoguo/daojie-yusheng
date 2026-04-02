@@ -440,6 +440,7 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
       desc: typeof (landmark as GmMapLandmarkRecord).desc === 'string'
         ? (landmark as GmMapLandmarkRecord).desc
         : undefined,
+      resourceNodeId: normalizeOptionalTrimmedString((landmark as GmMapLandmarkRecord).resourceNodeId),
       container: normalizeEditableContainerRecord((landmark as GmMapLandmarkRecord).container),
     })),
     npcs: npcs.map((npc) => ({
@@ -688,6 +689,9 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
     if (!landmark.name.trim()) return `${label} 的名称不能为空`;
     const error = ensurePointInBounds(landmark.x, landmark.y, label);
     if (error) return error;
+    if (landmark.resourceNodeId !== undefined && !landmark.resourceNodeId.trim()) {
+      return `${label} 的资源节点 ID 不能为空字符串`;
+    }
     if (landmark.container) {
       const refreshTicks = landmark.container.refreshTicks;
       if (refreshTicks !== undefined && (!Number.isInteger(refreshTicks) || refreshTicks <= 0)) {

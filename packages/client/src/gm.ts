@@ -2431,7 +2431,7 @@ async function sendShortcutMail(): Promise<void> {
   const path = targetPlayerId
     ? `/gm/players/${encodeURIComponent(targetPlayerId)}/mail`
     : '/gm/mail/broadcast';
-  const result = await request<{ ok: true; mailId: string }>(path, {
+  const result = await request<{ ok: true; mailId: string; batchId?: string; recipientCount?: number }>(path, {
     method: 'POST',
     body: JSON.stringify(payload),
   });
@@ -2443,7 +2443,7 @@ async function sendShortcutMail(): Promise<void> {
   renderShortcutMailComposer();
   setStatus(targetPlayer
     ? `已向 ${targetPlayer.roleName} 发送邮件：${result.mailId}`
-    : `已发送全服邮件：${result.mailId}`);
+    : `已发送全服邮件批次 ${result.batchId ?? result.mailId}，覆盖 ${result.recipientCount ?? 0} 人`);
 }
 
 function getSelectedPlayer(): GmManagedPlayerSummary | null {
@@ -2528,6 +2528,7 @@ function createDefaultBuff(): TemporaryBuffState {
     stacks: 1,
     maxStacks: 1,
     sourceSkillId: '',
+    realmLv: 1,
     attrs: {},
     stats: {},
   };

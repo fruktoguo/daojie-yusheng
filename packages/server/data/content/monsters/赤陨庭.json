@@ -1,0 +1,676 @@
+[
+  {
+    "id": "m_ember_moth",
+    "name": "焦土火蛾",
+    "char": "蛾",
+    "color": "#ffbf76",
+    "grade": "yellow",
+    "tier": "mortal_blood",
+    "level": 20,
+    "count": 4,
+    "maxAlive": 4,
+    "radius": 5,
+    "aggroRange": 6,
+    "viewRange": 7,
+    "respawnSec": 15,
+    "attrs": {
+      "constitution": 184,
+      "spirit": 176,
+      "perception": 292,
+      "talent": 172,
+      "comprehension": 24,
+      "luck": 28
+    },
+    "statPercents": {
+      "maxHp": 94,
+      "maxQi": 84,
+      "physAtk": 118,
+      "spellAtk": 128,
+      "physDef": 92,
+      "spellDef": 102,
+      "hit": 134,
+      "dodge": 156,
+      "crit": 136,
+      "breakPower": 104,
+      "resolvePower": 94,
+      "maxQiOutputPerTick": 126,
+      "moveSpeed": 178
+    },
+    "skills": [
+      "skill.plume_shot",
+      "skill.echo_screech"
+    ],
+    "equipment": {
+      "head": {
+        "itemId": "equip.liyan_crown"
+      },
+      "legs": {
+        "itemId": "equip.firestride_boots"
+      },
+      "accessory": {
+        "itemId": "equip.furnace_red_ring"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "ember_sand",
+        "name": "陨火砂",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "embershard_char",
+        "name": "炎髓炭",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "book.liyan_duanxi",
+        "name": "《离炎锻息诀》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "equip.liyan_crown",
+        "name": "离炎束冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.firestride_boots",
+        "name": "踏火疾靴",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.furnace_red_ring",
+        "name": "炉心赤戒",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "pill.chiyang_draught",
+        "name": "赤阳液",
+        "type": "consumable",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_ember_whelp",
+    "name": "赤烬蜥幼",
+    "char": "蜥",
+    "color": "#ef8d56",
+    "grade": "yellow",
+    "tier": "mortal_blood",
+    "level": 23,
+    "count": 4,
+    "maxAlive": 4,
+    "radius": 5,
+    "aggroRange": 6,
+    "viewRange": 7,
+    "respawnSec": 16,
+    "attrs": {
+      "constitution": 244,
+      "spirit": 156,
+      "perception": 304,
+      "talent": 196,
+      "comprehension": 26,
+      "luck": 26
+    },
+    "statPercents": {
+      "maxHp": 108,
+      "maxQi": 80,
+      "physAtk": 132,
+      "spellAtk": 112,
+      "physDef": 102,
+      "spellDef": 96,
+      "hit": 140,
+      "dodge": 150,
+      "crit": 132,
+      "breakPower": 126,
+      "resolvePower": 98,
+      "maxQiOutputPerTick": 112,
+      "moveSpeed": 176
+    },
+    "skills": [
+      "skill.predator_pounce",
+      "skill.brutal_ram"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.ember_scorch_spear"
+      },
+      "body": {
+        "itemId": "equip.scorchcourt_battlecoat"
+      },
+      "legs": {
+        "itemId": "equip.firestride_boots"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "ember_sand",
+        "name": "陨火砂",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "embershard_char",
+        "name": "炎髓炭",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "equip.ember_scorch_spear",
+        "name": "赤陨灼枪",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.scorchcourt_battlecoat",
+        "name": "焦庭战衣",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.firestride_boots",
+        "name": "踏火疾靴",
+        "type": "equipment",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_ember_lizard",
+    "name": "熔纹火蜥",
+    "char": "蜴",
+    "color": "#ff7b47",
+    "grade": "mystic",
+    "tier": "mortal_blood",
+    "level": 26,
+    "count": 3,
+    "maxAlive": 3,
+    "radius": 5,
+    "aggroRange": 7,
+    "viewRange": 8,
+    "respawnSec": 18,
+    "attrs": {
+      "constitution": 292,
+      "spirit": 192,
+      "perception": 364,
+      "talent": 248,
+      "comprehension": 34,
+      "luck": 32
+    },
+    "statPercents": {
+      "maxHp": 116,
+      "maxQi": 88,
+      "physAtk": 152,
+      "spellAtk": 124,
+      "physDef": 108,
+      "spellDef": 102,
+      "hit": 154,
+      "dodge": 160,
+      "crit": 144,
+      "breakPower": 148,
+      "resolvePower": 104,
+      "maxQiOutputPerTick": 124,
+      "moveSpeed": 182
+    },
+    "skills": [
+      "skill.predator_pounce",
+      "skill.core_smash"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.ember_scorch_spear"
+      },
+      "head": {
+        "itemId": "equip.liyan_crown"
+      },
+      "accessory": {
+        "itemId": "equip.furnace_red_ring"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "ember_sand",
+        "name": "陨火砂",
+        "type": "material",
+        "count": 2
+      },
+      {
+        "itemId": "embershard_char",
+        "name": "炎髓炭",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "equip.ember_scorch_spear",
+        "name": "赤陨灼枪",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.liyan_crown",
+        "name": "离炎束冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.furnace_red_ring",
+        "name": "炉心赤戒",
+        "type": "equipment",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_ember_attendant",
+    "name": "炉心灼侍",
+    "char": "侍",
+    "color": "#ffc38e",
+    "grade": "mystic",
+    "tier": "mortal_blood",
+    "level": 29,
+    "count": 2,
+    "maxAlive": 2,
+    "radius": 5,
+    "aggroRange": 7,
+    "viewRange": 8,
+    "respawnSec": 20,
+    "attrs": {
+      "constitution": 336,
+      "spirit": 216,
+      "perception": 388,
+      "talent": 296,
+      "comprehension": 36,
+      "luck": 36
+    },
+    "statPercents": {
+      "maxHp": 122,
+      "maxQi": 94,
+      "physAtk": 166,
+      "spellAtk": 132,
+      "physDef": 116,
+      "spellDef": 110,
+      "hit": 160,
+      "dodge": 164,
+      "crit": 148,
+      "breakPower": 160,
+      "resolvePower": 108,
+      "maxQiOutputPerTick": 132,
+      "moveSpeed": 188
+    },
+    "skills": [
+      "skill.core_smash",
+      "skill.void_burst"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.ember_scorch_spear"
+      },
+      "body": {
+        "itemId": "equip.scorchcourt_battlecoat"
+      },
+      "accessory": {
+        "itemId": "equip.furnace_red_ring"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "ember_sand",
+        "name": "陨火砂",
+        "type": "material",
+        "count": 2
+      },
+      {
+        "itemId": "furnace_red_crystal",
+        "name": "炉心赤晶",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "equip.ember_scorch_spear",
+        "name": "赤陨灼枪",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.scorchcourt_battlecoat",
+        "name": "焦庭战衣",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.furnace_red_ring",
+        "name": "炉心赤戒",
+        "type": "equipment",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_ember_bone_patrol",
+    "name": "炽骨巡卒",
+    "char": "卒",
+    "color": "#d66a4a",
+    "grade": "mystic",
+    "tier": "variant",
+    "level": 26,
+    "count": 2,
+    "maxAlive": 2,
+    "radius": 5,
+    "aggroRange": 7,
+    "viewRange": 8,
+    "respawnSec": 24,
+    "attrs": {
+      "constitution": 385,
+      "spirit": 255,
+      "perception": 470,
+      "talent": 315,
+      "comprehension": 45,
+      "luck": 42
+    },
+    "statPercents": {
+      "maxHp": 118,
+      "maxQi": 92,
+      "physAtk": 166,
+      "spellAtk": 122,
+      "physDef": 112,
+      "spellDef": 104,
+      "hit": 152,
+      "dodge": 158,
+      "crit": 146,
+      "breakPower": 158,
+      "resolvePower": 106,
+      "maxQiOutputPerTick": 126,
+      "moveSpeed": 176
+    },
+    "skills": [
+      "skill.rending_claw",
+      "skill.brutal_ram"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.ember_scorch_spear"
+      },
+      "head": {
+        "itemId": "equip.liyan_crown"
+      },
+      "legs": {
+        "itemId": "equip.firestride_boots"
+      },
+      "accessory": {
+        "itemId": "equip.furnace_red_ring"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "ember_sand",
+        "name": "陨火砂",
+        "type": "material",
+        "count": 2
+      },
+      {
+        "itemId": "furnace_red_crystal",
+        "name": "炉心赤晶",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "book.chiyao_fenmai",
+        "name": "《赤曜焚脉篇》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "equip.ember_scorch_spear",
+        "name": "赤陨灼枪",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.liyan_crown",
+        "name": "离炎束冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.firestride_boots",
+        "name": "踏火疾靴",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.furnace_red_ring",
+        "name": "炉心赤戒",
+        "type": "equipment",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_ember_flame_guard",
+    "name": "流火戍灵",
+    "char": "灵",
+    "color": "#ff9a5b",
+    "grade": "earth",
+    "tier": "variant",
+    "level": 29,
+    "count": 2,
+    "maxAlive": 2,
+    "radius": 5,
+    "aggroRange": 7,
+    "viewRange": 8,
+    "respawnSec": 26,
+    "attrs": {
+      "constitution": 470,
+      "spirit": 290,
+      "perception": 545,
+      "talent": 380,
+      "comprehension": 52,
+      "luck": 48
+    },
+    "statPercents": {
+      "maxHp": 126,
+      "maxQi": 96,
+      "physAtk": 176,
+      "spellAtk": 136,
+      "physDef": 118,
+      "spellDef": 112,
+      "hit": 164,
+      "dodge": 172,
+      "crit": 152,
+      "breakPower": 166,
+      "resolvePower": 112,
+      "maxQiOutputPerTick": 136,
+      "moveSpeed": 192
+    },
+    "skills": [
+      "skill.guardian_quake",
+      "skill.brutal_ram"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.ember_scorch_spear"
+      },
+      "body": {
+        "itemId": "equip.scorchcourt_battlecoat"
+      },
+      "legs": {
+        "itemId": "equip.firestride_boots"
+      },
+      "accessory": {
+        "itemId": "equip.furnace_red_ring"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "ember_sand",
+        "name": "陨火砂",
+        "type": "material",
+        "count": 3
+      },
+      {
+        "itemId": "furnace_red_crystal",
+        "name": "炉心赤晶",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "book.voidflame_chapter",
+        "name": "《太虚劫光篇》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "equip.ember_scorch_spear",
+        "name": "赤陨灼枪",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.scorchcourt_battlecoat",
+        "name": "焦庭战衣",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.firestride_boots",
+        "name": "踏火疾靴",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.furnace_red_ring",
+        "name": "炉心赤戒",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "pill.chiyang_draught",
+        "name": "赤阳液",
+        "type": "consumable",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_ember_furnace_lord",
+    "name": "离火炉君",
+    "char": "君",
+    "color": "#ffcf96",
+    "grade": "earth",
+    "tier": "demon_king",
+    "level": 29,
+    "count": 1,
+    "maxAlive": 1,
+    "radius": 4,
+    "aggroRange": 8,
+    "viewRange": 9,
+    "respawnSec": 90,
+    "attrs": {
+      "constitution": 732,
+      "spirit": 444,
+      "perception": 672,
+      "talent": 528,
+      "comprehension": 72,
+      "luck": 66
+    },
+    "statPercents": {
+      "maxHp": 136,
+      "maxQi": 106,
+      "physAtk": 182,
+      "spellAtk": 148,
+      "physDef": 126,
+      "spellDef": 120,
+      "hit": 170,
+      "dodge": 168,
+      "crit": 156,
+      "breakPower": 172,
+      "resolvePower": 118,
+      "maxQiOutputPerTick": 148,
+      "moveSpeed": 186
+    },
+    "skills": [
+      "skill.core_smash",
+      "skill.guardian_quake",
+      "skill.void_burst"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.ember_scorch_spear"
+      },
+      "head": {
+        "itemId": "equip.liyan_crown"
+      },
+      "body": {
+        "itemId": "equip.scorchcourt_battlecoat"
+      },
+      "legs": {
+        "itemId": "equip.firestride_boots"
+      },
+      "accessory": {
+        "itemId": "equip.furnace_red_ring"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "furnace_red_crystal",
+        "name": "炉心赤晶",
+        "type": "material",
+        "count": 2
+      },
+      {
+        "itemId": "ember_sand",
+        "name": "陨火砂",
+        "type": "material",
+        "count": 4
+      },
+      {
+        "itemId": "book.zhuming_jintian",
+        "name": "《朱明烬天录》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "equip.ember_scorch_spear",
+        "name": "赤陨灼枪",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.liyan_crown",
+        "name": "离炎束冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.scorchcourt_battlecoat",
+        "name": "焦庭战衣",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.firestride_boots",
+        "name": "踏火疾靴",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.furnace_red_ring",
+        "name": "炉心赤戒",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "pill.chiyang_draught",
+        "name": "赤阳液",
+        "type": "consumable",
+        "count": 1
+      }
+    ]
+  }
+]

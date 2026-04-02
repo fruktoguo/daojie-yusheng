@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildResourceNodeIndexes } from '../../../scripts/lib/resource-nodes.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,6 +13,7 @@ const questsDir = path.join(repoRoot, 'packages/server/data/content/quests');
 const mapsDir = path.join(repoRoot, 'packages/server/data/maps');
 const outputPath = path.join(clientDir, 'src/constants/world/item-sources.generated.json');
 const monsterLocationOutputPath = path.join(clientDir, 'src/constants/world/monster-locations.generated.json');
+const { runtimeTileNodes, landmarkNodesById } = buildResourceNodeIndexes();
 
 const GRADE_ORDER = ['mortal', 'yellow', 'mystic', 'earth', 'heaven', 'spirit', 'saint', 'emperor'];
 const GRADE_INDEX = new Map(GRADE_ORDER.map((grade, index) => [grade, index]));
@@ -100,7 +102,18 @@ function resolveLootPoolItemIds(items, pool) {
     .sort((left, right) => left.localeCompare(right, 'zh-CN'));
 }
 
-function isMiningLandmark(landmark) {
+function resolveLandmarkResourceNode(landmark) {
+  if (typeof landmark?.resourceNodeId !== 'string') {
+    return undefined;
+  }
+  const resourceNodeId = landmark.resourceNodeId.trim();
+  return resourceNodeId ? landmarkNodesById.get(resourceNodeId) : undefined;
+}
+
+function isMiningLandmark(landmark, resourceNode) {
+  if (resourceNode) {
+    return true;
+  }
   const id = typeof landmark.id === 'string' ? landmark.id : '';
   const name = typeof landmark.name === 'string' ? landmark.name : '';
   const desc = typeof landmark.desc === 'string' ? landmark.desc : '';
@@ -126,16 +139,19 @@ function buildMonsterMapRefs(maps) {
   const mapRefsByMonsterId = new Map();
   for (const map of maps) {
     for (const spawn of map.monsterSpawns ?? []) {
-      if (typeof spawn?.id !== 'string') {
+      const monsterId = typeof spawn?.templateId === 'string'
+        ? spawn.templateId
+        : (typeof spawn?.id === 'string' ? spawn.id : null);
+      if (!monsterId) {
         continue;
       }
-      const refs = mapRefsByMonsterId.get(spawn.id) ?? new Map();
+      const refs = mapRefsByMonsterId.get(monsterId) ?? new Map();
       refs.set(map.id, {
         mapId: map.id,
         mapName: map.name,
         dangerLevel: escapeNonFiniteInteger(map.dangerLevel),
       });
-      mapRefsByMonsterId.set(spawn.id, refs);
+      mapRefsByMonsterId.set(monsterId, refs);
     }
   }
   return mapRefsByMonsterId;
@@ -311,11 +327,27 @@ function main() {
     }
 
     for (const landmark of map.landmarks ?? []) {
-      const container = landmark.container;
-      if (!container || typeof landmark.id !== 'string' || typeof landmark.name !== 'string') {
+      const resourceNode = resolveLandmarkResourceNode(landmark);
+      const container = landmark.container ?? (resourceNode?.kind === 'landmark_container' ? resourceNode.container : undefined);
+      if (
+        (typeof landmark.id !== 'string' || typeof landmark.name !== 'string')
+        || (!container && resourceNode?.kind !== 'landmark_marker')
+      ) {
         continue;
       }
-      const sourceKind = isMiningLandmark(landmark) ? 'mining' : 'search';
+      const sourceKind = isMiningLandmark(landmark, resourceNode) ? 'mining' : 'search';
+      if (resourceNode?.kind === 'landmark_marker') {
+        pushSource(sourceByItemId, resourceNode.itemId, {
+          kind: sourceKind,
+          mapId: map.id,
+          mapName: map.name,
+          landmarkId: landmark.id,
+          landmarkName: landmark.name,
+          mode: 'direct',
+          count: 1,
+        });
+        continue;
+      }
       const lootPools = Array.isArray(container.lootPools) ? container.lootPools : [];
       if (lootPools.length > 0) {
         lootPools.forEach((pool, poolIndex) => {
@@ -393,6 +425,18 @@ function main() {
         });
       }
     }
+  }
+
+  for (const source of runtimeTileNodes) {
+    pushSource(sourceByItemId, source.itemId, {
+      kind: 'mining',
+      mapId: 'runtime',
+      mapName: '运行时资源点',
+      landmarkId: `runtime:${source.itemId}`,
+      landmarkName: source.sourceLabel,
+      mode: 'direct',
+      count: 1,
+    });
   }
 
   const catalog = Object.fromEntries(

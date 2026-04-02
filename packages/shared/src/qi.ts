@@ -79,7 +79,7 @@ export const ALL_QI_RESOURCE_DESCRIPTORS: QiResourceDescriptor[] = QI_FAMILY_KEY
 export const ALL_QI_RESOURCE_KEYS = ALL_QI_RESOURCE_DESCRIPTORS.map((descriptor) => buildQiResourceKey(descriptor));
 
 export const DEFAULT_PLAYER_QI_RESOURCE_KEYS = ALL_QI_RESOURCE_DESCRIPTORS
-  .filter((descriptor) => descriptor.family === 'aura')
+  .filter((descriptor) => descriptor.family === 'aura' && descriptor.element === 'neutral')
   .map((descriptor) => buildQiResourceKey(descriptor));
 
 export const DISPERSED_AURA_RESOURCE_KEY = buildQiResourceKey(DISPERSED_AURA_RESOURCE_DESCRIPTOR);

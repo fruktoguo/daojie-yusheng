@@ -554,6 +554,7 @@ export class TechniqueService {
       realmLv,
       realm: deriveTechniqueRealm(1, layers),
       skills,
+      skillsEnabled: true,
       grade,
       category,
       layers,
@@ -593,8 +594,8 @@ export class TechniqueService {
     const auraMultiplier = this.measureCpuSection('cultivation_stats', '修炼: 数值采集', () => (
       this.getCultivationAuraMultiplier(player)
     ));
-    const realmExpBonus = Math.max(0, numericStats.playerExpRate) / 10000;
-    const techniqueExpBonus = Math.max(0, numericStats.techniqueExpRate) / 10000;
+    const realmExpBonus = numericStats.playerExpRate / 10000;
+    const techniqueExpBonus = numericStats.techniqueExpRate / 10000;
     const dirty = new Set<TechniqueDirtyFlag>(cultivationTarget.dirty);
     const messages: TechniqueMessage[] = [...cultivationTarget.messages];
 
@@ -716,8 +717,8 @@ export class TechniqueService {
   grantCombatExpFromMonsterKill(player: PlayerState, input: MonsterKillExpInput = {}): CultivationResult {
     this.initializePlayerProgression(player);
     const numericStats = this.attrService.getPlayerNumericStats(player);
-    const techniqueExpBonus = Math.max(0, numericStats.techniqueExpRate) / 10000;
-    const realmExpBonus = Math.max(0, numericStats.playerExpRate) / 10000;
+    const techniqueExpBonus = numericStats.techniqueExpRate / 10000;
+    const realmExpBonus = numericStats.playerExpRate / 10000;
     const normalizedMonsterLevel = Math.max(1, Math.floor(input.monsterLevel ?? 1));
     const contributionRatio = Math.min(1, Math.max(0, Number.isFinite(input.contributionRatio) ? Number(input.contributionRatio) : 1));
     const expAdjustmentRealmLv = Math.max(
@@ -804,6 +805,9 @@ export class TechniqueService {
     const actions: ActionDef[] = [];
 
     for (const technique of player.techniques) {
+      if (technique.skillsEnabled === false) {
+        continue;
+      }
       for (const skill of technique.skills) {
         const unlockPlayerRealm = skill.unlockPlayerRealm ?? DEFAULT_PLAYER_REALM_STAGE;
         if (technique.level < resolveSkillUnlockLevel(skill) || playerRealmStage < unlockPlayerRealm) {
@@ -823,6 +827,20 @@ export class TechniqueService {
     }
 
     return actions;
+  }
+
+  setTechniqueSkillsEnabled(player: PlayerState, techId: string, enabled: boolean): boolean {
+    this.initializePlayerProgression(player);
+    const technique = player.techniques.find((entry) => entry.techId === techId);
+    if (!technique) {
+      return false;
+    }
+    const normalizedEnabled = enabled !== false;
+    if ((technique.skillsEnabled !== false) === normalizedEnabled) {
+      return false;
+    }
+    technique.skillsEnabled = normalizedEnabled;
+    return true;
   }
 
   /** 获取突破行动（境界圆满时可用） */
@@ -1124,12 +1142,18 @@ export class TechniqueService {
   }
 
   private getCultivationAuraMultiplier(player: PlayerState): number {
-    const auraValue = this.mapService.getTileAura(player.mapId, player.x, player.y);
-    const auraLevel = this.qiProjectionService.getAuraLevel(
-      player,
-      auraValue,
-      this.mapService.getAuraLevelBaseValue(),
-    );
+    const auraResources = this.mapService.getTileAuraResourceValues(player.mapId, player.x, player.y);
+    const auraLevel = auraResources.length > 0
+      ? this.qiProjectionService.getAuraLevelFromResources(
+          player,
+          auraResources,
+          this.mapService.getAuraLevelBaseValue(),
+        )
+      : this.qiProjectionService.getAuraLevel(
+          player,
+          this.mapService.getTileAura(player.mapId, player.x, player.y),
+          this.mapService.getAuraLevelBaseValue(),
+        );
     return 1 + Math.max(0, auraLevel);
   }
 
@@ -1369,6 +1393,24 @@ export class TechniqueService {
       result[key] = Math.max(0, Math.min(100, Math.floor(roots[key] ?? 0)));
       return result;
     }, {} as HeavenGateRootValues);
+  }
+
+  private getSpiritualRootAbsorptionEfficiencyBp(value: number): number {
+    const normalized = Math.max(0, Math.min(100, Number.isFinite(value) ? Math.floor(value) : 0));
+    return normalized * normalized;
+  }
+
+  private buildHeavenGateRootQiProjection(roots: HeavenGateRootValues): NonNullable<AttrBonus['qiProjection']> {
+    return ELEMENT_KEYS
+      .filter((element) => (roots[element] ?? 0) > 0)
+      .map((element) => ({
+        selector: {
+          families: ['aura'],
+          elements: [element],
+        },
+        visibility: 'absorbable',
+        efficiencyBpMultiplier: this.getSpiritualRootAbsorptionEfficiencyBp(roots[element] ?? 0),
+      }));
   }
 
   normalizeHeavenGateRoots(value: unknown): HeavenGateRootValues | null {
@@ -2047,9 +2089,12 @@ export class TechniqueService {
   }
 
   private getMaxRealmLv(): number {
-    const levels = this.contentService.getRealmLevelsConfig()?.levels ?? [];
-    const maxRealmLv = levels[levels.length - 1]?.realmLv;
-    return typeof maxRealmLv === 'number' && maxRealmLv > 0 ? maxRealmLv : 1;
+    const levelCap = this.contentService.getRealmLevelsConfig()?.levels?.at(-1)?.realmLv;
+    const breakthroughCap = this.contentService.getMaxConfiguredBreakthroughRealmLv();
+    if (typeof levelCap === 'number' && levelCap > 0) {
+      return Math.min(levelCap, breakthroughCap);
+    }
+    return breakthroughCap;
   }
 
   private clampRealmLv(realmLv: number): number {
@@ -2078,6 +2123,7 @@ export class TechniqueService {
           elementDamageBonus: this.cloneHeavenGateRoots(roots),
           elementDamageReduce: this.cloneHeavenGateRoots(roots),
         },
+        qiProjection: this.buildHeavenGateRootQiProjection(roots),
       });
     }
     player.bonuses = nextBonuses;
@@ -2097,6 +2143,7 @@ export class TechniqueService {
       technique.realmLv = template.realmLv;
       technique.layers = template.layers;
       technique.skills = template.skills;
+      technique.skillsEnabled = technique.skillsEnabled !== false;
       const maxLevel = getTechniqueMaxLevel(template.layers);
       if (technique.level > maxLevel) {
         technique.level = maxLevel;

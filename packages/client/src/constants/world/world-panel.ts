@@ -40,6 +40,15 @@ export const WORLD_GUIDE: Record<string, WorldGuide> = {
     resources: ['主线任务', '基础补给', '镇内试手怪', '可搜索家具'],
     threats: ['零散鼠患', '夜间匪徒'],
   },
+  qizhen_crossing: {
+    title: '栖真渡',
+    recommendedRealm: '练气一层-半步筑基',
+    route: '北台接回渡阵，西去裂锋原，东分青萝谷与寒汐泽，南下赤陨庭。',
+    mood: '前线渡城',
+    desc: '主城改成三重错台加折线街巷，百工、静气、行修和旧渡口不再是几块平铺方盒。',
+    resources: ['五行路口', '散修交易', '稳脉调息', '练气补给'],
+    threats: ['外行修士混杂', '水线失足', '五行外图回压'],
+  },
   bamboo_forest: {
     title: '青竹林',
     recommendedRealm: '易筋-养气',
@@ -108,6 +117,7 @@ export const WORLD_GUIDE: Record<string, WorldGuide> = {
 /** 主界面兜底使用的地图推荐境界。 */
 export const MAP_FALLBACK: Record<string, { recommendedRealm: string }> = {
   yunlai_town: { recommendedRealm: '凡胎-锻骨' },
+  qizhen_crossing: { recommendedRealm: '练气一层-半步筑基' },
   bamboo_forest: { recommendedRealm: '易筋-养气' },
   wildlands: { recommendedRealm: '凡胎-锻骨' },
   black_iron_mine: { recommendedRealm: '养气-玉衡' },

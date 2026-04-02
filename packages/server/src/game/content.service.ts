@@ -1826,6 +1826,16 @@ export class ContentService implements OnModuleInit {
     return this.breakthroughConfigs.get(fromRealmLv);
   }
 
+  getMaxConfiguredBreakthroughRealmLv(): number {
+    let maxRealmLv = 1;
+    for (const config of this.breakthroughConfigs.values()) {
+      if (Number.isInteger(config.toRealmLv) && config.toRealmLv > maxRealmLv) {
+        maxRealmLv = config.toRealmLv;
+      }
+    }
+    return maxRealmLv;
+  }
+
   getRealmStageStartEntry(stage: PlayerRealmStage): RealmLevelEntry | undefined {
     return this.getRealmLevelEntry(this.getRealmLevelRange(stage).levelFrom);
   }

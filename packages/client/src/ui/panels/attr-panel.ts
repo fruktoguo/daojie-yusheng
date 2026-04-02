@@ -18,8 +18,9 @@ import {
   NumericStats,
   PlayerState,
   PlayerSpecialStats,
-  ratioValue,
+  percentModifierToMultiplier,
   S2C_AttrUpdate,
+  signedRatioValue,
   TileType,
   getTileTraversalCost,
 } from '@mud/shared';
@@ -73,7 +74,7 @@ function colorWithAlpha(color: string, alpha: number): string {
 }
 
 function formatRatioPercent(raw: number, divisor: number): string {
-  return formatDisplayPercent(ratioValue(raw, divisor) * 100);
+  return formatDisplayPercent(signedRatioValue(raw, divisor) * 100);
 }
 
 function formatNumericTooltipValue(key: NumericCardKey, value: number): string {
@@ -133,8 +134,7 @@ function formatDefenseReduction(value: number): string {
 }
 
 function formatMoveSpeedEffect(value: number): string {
-  const safeValue = Math.max(0, value);
-  const movePoints = BASE_MOVE_POINTS_PER_TICK + safeValue;
+  const movePoints = Math.max(1, BASE_MOVE_POINTS_PER_TICK + value);
   const roadTiles = movePoints / getTileTraversalCost(TileType.Road);
   const trailTiles = movePoints / getTileTraversalCost(TileType.Trail);
   const grassTiles = movePoints / getTileTraversalCost(TileType.Grass);
@@ -217,9 +217,9 @@ function buildNumericBreakdownLines(
   if (!breakdown) {
     return [];
   }
-  const attrMultiplier = 1 + breakdown.attrMultiplierPct / 100;
-  const buffMultiplier = 1 + breakdown.buffMultiplierPct / 100;
-  const pillMultiplier = 1 + breakdown.pillMultiplierPct / 100;
+  const attrMultiplier = percentModifierToMultiplier(breakdown.attrMultiplierPct);
+  const buffMultiplier = percentModifierToMultiplier(breakdown.buffMultiplierPct);
+  const pillMultiplier = percentModifierToMultiplier(breakdown.pillMultiplierPct);
   const totalMultiplier = attrMultiplier * breakdown.realmMultiplier * buffMultiplier * pillMultiplier;
   const attrFlatContribution = getAttrFlatContribution(key, attrs);
   const systemFixedBase = Math.max(0, SYSTEM_FIXED_BASE_BY_NUMERIC_KEY[key] ?? 0);

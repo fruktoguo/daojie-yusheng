@@ -23,11 +23,22 @@
         "chance": 0.44
       },
       {
-        "itemId": "spirit_stone",
-        "name": "灵石",
+        "itemId": "equip.ridge_calm_robe",
+        "name": "灵脊镇息袍",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.threshold_boots",
+        "name": "叩门行靴",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "recovery_powder",
+        "name": "回灵散",
         "type": "consumable",
-        "count": 1,
-        "chance": 0.01
+        "count": 1
       }
     ],
     "grade": "yellow",
@@ -93,11 +104,22 @@
         "chance": 0.01
       },
       {
-        "itemId": "spirit_stone",
-        "name": "灵石",
+        "itemId": "equip.threshold_boots",
+        "name": "叩门行靴",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.guiding_marrow_pendant",
+        "name": "引灵髓坠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "stabilizing_pellet",
+        "name": "镇脉丸",
         "type": "consumable",
-        "count": 1,
-        "chance": 0.01
+        "count": 1
       }
     ],
     "grade": "yellow",
@@ -176,11 +198,16 @@
         "chance": 0.2
       },
       {
-        "itemId": "spirit_stone",
-        "name": "灵石",
-        "type": "consumable",
-        "count": 1,
-        "chance": 0.01
+        "itemId": "equip.windhear_crown",
+        "name": "听风兽皮冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.threshold_boots",
+        "name": "叩门行靴",
+        "type": "equipment",
+        "count": 1
       }
     ],
     "grade": "yellow",
@@ -267,13 +294,6 @@
         "chance": 0.25
       },
       {
-        "itemId": "book.voidflame_chapter",
-        "name": "《太虚劫光篇》",
-        "type": "skill_book",
-        "count": 1,
-        "chance": 0.2
-      },
-      {
         "itemId": "equip.void_talisman",
         "name": "镇脉玄纹佩",
         "type": "equipment",
@@ -281,11 +301,17 @@
         "chance": 0.25
       },
       {
-        "itemId": "spirit_stone",
-        "name": "灵石",
+        "itemId": "equip.threshold_boots",
+        "name": "叩门行靴",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "pill.shatter_spirit",
+        "name": "碎灵丹",
         "type": "consumable",
         "count": 1,
-        "chance": 0.01
+        "chance": 0.001
       }
     ],
     "grade": "mystic",
@@ -328,8 +354,8 @@
     },
     "skills": [
       "skill.starfall_thrust",
-      "skill.skybreaker_lance",
-      "skill.meteor_break"
+      "skill.chasing_star",
+      "skill.skybreaker_lance"
     ]
   }
 ]

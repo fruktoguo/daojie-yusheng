@@ -1,0 +1,585 @@
+[
+  {
+    "id": "m_verdant_lesser_sprite",
+    "name": "青萝小妖",
+    "char": "妖",
+    "color": "#95d57c",
+    "grade": "yellow",
+    "tier": "mortal_blood",
+    "level": 20,
+    "count": 4,
+    "maxAlive": 4,
+    "radius": 4,
+    "aggroRange": 6,
+    "viewRange": 7,
+    "respawnSec": 15,
+    "attrs": {
+      "constitution": 204,
+      "spirit": 192,
+      "perception": 256,
+      "talent": 216,
+      "comprehension": 26,
+      "luck": 20
+    },
+    "statPercents": {
+      "maxHp": 112,
+      "maxQi": 96,
+      "physAtk": 106,
+      "spellAtk": 116,
+      "physDef": 104,
+      "spellDef": 114,
+      "hit": 128,
+      "dodge": 142,
+      "crit": 122,
+      "breakPower": 102,
+      "resolvePower": 112,
+      "maxQiOutputPerTick": 118,
+      "moveSpeed": 162
+    },
+    "skills": [
+      "skill.bamboo_whip",
+      "skill.predator_pounce"
+    ],
+    "equipment": {
+      "head": {
+        "itemId": "equip.verdant_crown"
+      },
+      "body": {
+        "itemId": "equip.returnvine_robe"
+      },
+      "accessory": {
+        "itemId": "equip.lifepulse_pendant"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "verdant_vine",
+        "name": "青髓藤",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "nurturing_leaf",
+        "name": "养脉叶",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "book.qingmu_yangmai",
+        "name": "《青木养脉篇》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "equip.verdant_crown",
+        "name": "青萝束冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.returnvine_robe",
+        "name": "回藤法衣",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.lifepulse_pendant",
+        "name": "生脉木佩",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "pill.nurturing_paste",
+        "name": "养脉膏",
+        "type": "consumable",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_verdant_parasitic_child",
+    "name": "寄脉藤童",
+    "char": "童",
+    "color": "#78c965",
+    "grade": "yellow",
+    "tier": "mortal_blood",
+    "level": 23,
+    "count": 4,
+    "maxAlive": 4,
+    "radius": 4,
+    "aggroRange": 6,
+    "viewRange": 7,
+    "respawnSec": 16,
+    "attrs": {
+      "constitution": 236,
+      "spirit": 244,
+      "perception": 268,
+      "talent": 232,
+      "comprehension": 28,
+      "luck": 22
+    },
+    "statPercents": {
+      "maxHp": 118,
+      "maxQi": 108,
+      "physAtk": 112,
+      "spellAtk": 122,
+      "physDef": 110,
+      "spellDef": 120,
+      "hit": 134,
+      "dodge": 148,
+      "crit": 124,
+      "breakPower": 106,
+      "resolvePower": 114,
+      "maxQiOutputPerTick": 132,
+      "moveSpeed": 166
+    },
+    "skills": [
+      "skill.bamboo_whip",
+      "skill.leaf_storm"
+    ],
+    "equipment": {
+      "head": {
+        "itemId": "equip.verdant_crown"
+      },
+      "legs": {
+        "itemId": "equip.vale_stride_boots"
+      },
+      "accessory": {
+        "itemId": "equip.lifepulse_pendant"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "verdant_vine",
+        "name": "青髓藤",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "nurturing_leaf",
+        "name": "养脉叶",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "equip.verdant_crown",
+        "name": "青萝束冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.vale_stride_boots",
+        "name": "绕谷轻履",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.lifepulse_pendant",
+        "name": "生脉木佩",
+        "type": "equipment",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_verdant_siphon_flower",
+    "name": "吸灵花妖",
+    "char": "花",
+    "color": "#c4e58d",
+    "grade": "mystic",
+    "tier": "mortal_blood",
+    "level": 26,
+    "count": 3,
+    "maxAlive": 3,
+    "radius": 4,
+    "aggroRange": 7,
+    "viewRange": 8,
+    "respawnSec": 18,
+    "attrs": {
+      "constitution": 264,
+      "spirit": 336,
+      "perception": 300,
+      "talent": 276,
+      "comprehension": 36,
+      "luck": 28
+    },
+    "statPercents": {
+      "maxHp": 124,
+      "maxQi": 136,
+      "physAtk": 108,
+      "spellAtk": 148,
+      "physDef": 114,
+      "spellDef": 132,
+      "hit": 142,
+      "dodge": 156,
+      "crit": 132,
+      "breakPower": 102,
+      "resolvePower": 122,
+      "maxQiOutputPerTick": 158,
+      "moveSpeed": 168
+    },
+    "skills": [
+      "skill.leaf_storm",
+      "skill.echo_screech"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.vineguide_staff"
+      },
+      "body": {
+        "itemId": "equip.returnvine_robe"
+      },
+      "accessory": {
+        "itemId": "equip.lifepulse_pendant"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "verdant_vine",
+        "name": "青髓藤",
+        "type": "material",
+        "count": 2
+      },
+      {
+        "itemId": "nurturing_leaf",
+        "name": "养脉叶",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "equip.vineguide_staff",
+        "name": "养枝引脉杖",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.returnvine_robe",
+        "name": "回藤法衣",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.lifepulse_pendant",
+        "name": "生脉木佩",
+        "type": "equipment",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_verdant_wither_guard",
+    "name": "枯荣藤卫",
+    "char": "卫",
+    "color": "#63a96b",
+    "grade": "mystic",
+    "tier": "variant",
+    "level": 26,
+    "count": 2,
+    "maxAlive": 2,
+    "radius": 4,
+    "aggroRange": 7,
+    "viewRange": 8,
+    "respawnSec": 24,
+    "attrs": {
+      "constitution": 440,
+      "spirit": 475,
+      "perception": 340,
+      "talent": 415,
+      "comprehension": 50,
+      "luck": 32
+    },
+    "statPercents": {
+      "maxHp": 142,
+      "maxQi": 148,
+      "physAtk": 122,
+      "spellAtk": 144,
+      "physDef": 126,
+      "spellDef": 148,
+      "hit": 136,
+      "dodge": 126,
+      "crit": 130,
+      "breakPower": 112,
+      "resolvePower": 138,
+      "maxQiOutputPerTick": 168,
+      "moveSpeed": 122
+    },
+    "skills": [
+      "skill.guardian_quake",
+      "skill.brutal_ram"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.vineguide_staff"
+      },
+      "head": {
+        "itemId": "equip.verdant_crown"
+      },
+      "body": {
+        "itemId": "equip.returnvine_robe"
+      },
+      "accessory": {
+        "itemId": "equip.lifepulse_pendant"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "verdant_vine",
+        "name": "青髓藤",
+        "type": "material",
+        "count": 2
+      },
+      {
+        "itemId": "spiritwood_heart",
+        "name": "生灵木心",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "book.wanzhi_huichun",
+        "name": "《万枝回春卷》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "equip.vineguide_staff",
+        "name": "养枝引脉杖",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.verdant_crown",
+        "name": "青萝束冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.returnvine_robe",
+        "name": "回藤法衣",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.lifepulse_pendant",
+        "name": "生脉木佩",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "pill.nurturing_paste",
+        "name": "养脉膏",
+        "type": "consumable",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_verdant_marrow_sprite",
+    "name": "碧髓树魈",
+    "char": "魈",
+    "color": "#5e8c55",
+    "grade": "earth",
+    "tier": "variant",
+    "level": 29,
+    "count": 2,
+    "maxAlive": 2,
+    "radius": 4,
+    "aggroRange": 8,
+    "viewRange": 8,
+    "respawnSec": 28,
+    "attrs": {
+      "constitution": 595,
+      "spirit": 445,
+      "perception": 355,
+      "talent": 565,
+      "comprehension": 55,
+      "luck": 42
+    },
+    "statPercents": {
+      "maxHp": 170,
+      "maxQi": 132,
+      "physAtk": 132,
+      "spellAtk": 146,
+      "physDef": 166,
+      "spellDef": 162,
+      "hit": 142,
+      "dodge": 128,
+      "crit": 132,
+      "breakPower": 122,
+      "resolvePower": 156,
+      "maxQiOutputPerTick": 162,
+      "moveSpeed": 108
+    },
+    "skills": [
+      "skill.core_smash",
+      "skill.guardian_quake"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.vineguide_staff"
+      },
+      "head": {
+        "itemId": "equip.verdant_crown"
+      },
+      "body": {
+        "itemId": "equip.returnvine_robe"
+      },
+      "legs": {
+        "itemId": "equip.vale_stride_boots"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "verdant_vine",
+        "name": "青髓藤",
+        "type": "material",
+        "count": 3
+      },
+      {
+        "itemId": "spiritwood_heart",
+        "name": "生灵木心",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "equip.vineguide_staff",
+        "name": "养枝引脉杖",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.verdant_crown",
+        "name": "青萝束冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.returnvine_robe",
+        "name": "回藤法衣",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.vale_stride_boots",
+        "name": "绕谷轻履",
+        "type": "equipment",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_verdant_vein_mother",
+    "name": "噬脉藤母",
+    "char": "母",
+    "color": "#d0ee9a",
+    "grade": "earth",
+    "tier": "demon_king",
+    "level": 29,
+    "count": 1,
+    "maxAlive": 1,
+    "radius": 2,
+    "aggroRange": 10,
+    "viewRange": 10,
+    "respawnSec": 45,
+    "attrs": {
+      "constitution": 852,
+      "spirit": 696,
+      "perception": 444,
+      "talent": 774,
+      "comprehension": 78,
+      "luck": 60
+    },
+    "statPercents": {
+      "maxHp": 182,
+      "maxQi": 152,
+      "physAtk": 128,
+      "spellAtk": 172,
+      "physDef": 154,
+      "spellDef": 178,
+      "hit": 148,
+      "dodge": 136,
+      "crit": 138,
+      "breakPower": 120,
+      "resolvePower": 166,
+      "maxQiOutputPerTick": 188,
+      "moveSpeed": 116
+    },
+    "skills": [
+      "skill.leaf_storm",
+      "skill.guardian_quake",
+      "skill.void_burst"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.vineguide_staff"
+      },
+      "head": {
+        "itemId": "equip.verdant_crown"
+      },
+      "body": {
+        "itemId": "equip.returnvine_robe"
+      },
+      "legs": {
+        "itemId": "equip.vale_stride_boots"
+      },
+      "accessory": {
+        "itemId": "equip.lifepulse_pendant"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "spiritwood_heart",
+        "name": "生灵木心",
+        "type": "material",
+        "count": 2
+      },
+      {
+        "itemId": "verdant_vine",
+        "name": "青髓藤",
+        "type": "material",
+        "count": 4
+      },
+      {
+        "itemId": "book.changsheng_chanyuan",
+        "name": "《长生缠元经》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "equip.vineguide_staff",
+        "name": "养枝引脉杖",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.verdant_crown",
+        "name": "青萝束冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.returnvine_robe",
+        "name": "回藤法衣",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.vale_stride_boots",
+        "name": "绕谷轻履",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.lifepulse_pendant",
+        "name": "生脉木佩",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "pill.nurturing_paste",
+        "name": "养脉膏",
+        "type": "consumable",
+        "count": 1
+      }
+    ]
+  }
+]

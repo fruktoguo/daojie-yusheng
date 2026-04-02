@@ -1,0 +1,9 @@
+export const MOLTEN_POOL_BURN_BUFF_ID = 'terrain_molten_pool_burn';
+export const MOLTEN_POOL_BURN_SOURCE_ID = 'terrain:molten_pool';
+export const MOLTEN_POOL_BURN_NAME = '熔池灼烧';
+export const MOLTEN_POOL_BURN_SHORT_MARK = '灼';
+export const MOLTEN_POOL_BURN_DESC = '站在熔池上会不断叠加灼烧。每层灼烧每息造成 1% 最大气血的火系伤害，持续 5 息，最多 10 层。';
+export const MOLTEN_POOL_BURN_COLOR = '#ff8e54';
+export const MOLTEN_POOL_BURN_DURATION_TICKS = 5;
+export const MOLTEN_POOL_BURN_MAX_STACKS = 10;
+export const MOLTEN_POOL_BURN_HP_PERCENT_PER_STACK = 0.01;

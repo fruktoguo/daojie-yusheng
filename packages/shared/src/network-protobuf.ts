@@ -160,6 +160,8 @@ message TechniqueUpdateEntryPayload {
   optional uint32 expToNext = 4;
   optional uint32 realm = 5;
   optional uint32 realmLv = 16;
+  optional bool skillsEnabled = 19;
+  optional bool clearSkillsEnabled = 20;
   optional string name = 6;
   optional bool clearName = 7;
   optional string grade = 8;
@@ -578,6 +580,7 @@ function toWireTechniqueEntry(entry: TechniqueUpdateEntry): Record<string, unkno
   if (entry.expToNext !== undefined) wire.expToNext = entry.expToNext;
   if (entry.realmLv !== undefined) wire.realmLv = entry.realmLv;
   if (entry.realm !== undefined) wire.realm = entry.realm;
+  setNullableWireValue(wire, 'skillsEnabled', 'clearSkillsEnabled', entry.skillsEnabled);
   setNullableWireValue(wire, 'name', 'clearName', entry.name);
   setNullableWireValue(wire, 'grade', 'clearGrade', entry.grade);
   setNullableWireValue(wire, 'category', 'clearCategory', entry.category);
@@ -608,6 +611,8 @@ function fromWireTechniqueEntry(wire: Record<string, unknown>): TechniqueUpdateE
   if (hasOwn(wire, 'expToNext')) patch.expToNext = Number(wire.expToNext ?? 0);
   if (hasOwn(wire, 'realmLv')) patch.realmLv = Number(wire.realmLv ?? 1);
   if (hasOwn(wire, 'realm')) patch.realm = Number(wire.realm ?? 0) as TechniqueState['realm'];
+  const skillsEnabled = readNullableWireValue<boolean>(wire, 'skillsEnabled', 'clearSkillsEnabled');
+  if (skillsEnabled !== undefined) patch.skillsEnabled = skillsEnabled;
   const name = readNullableWireValue<string>(wire, 'name', 'clearName');
   if (name !== undefined) patch.name = name;
   const grade = readNullableWireValue<TechniqueGrade>(wire, 'grade', 'clearGrade');

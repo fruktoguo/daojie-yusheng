@@ -23,11 +23,22 @@
         "chance": 0.01
       },
       {
-        "itemId": "spirit_stone",
-        "name": "灵石",
-        "type": "consumable",
-        "count": 1,
-        "chance": 0.01
+        "itemId": "equip.remnant_array_crown",
+        "name": "残阵束冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.stele_shell_armor",
+        "name": "断碑甲壳",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.soul_ink_pendant",
+        "name": "魂墨坠",
+        "type": "equipment",
+        "count": 1
       }
     ],
     "grade": "mortal",
@@ -91,18 +102,29 @@
         "chance": 0.4
       },
       {
-        "itemId": "spirit_stone",
-        "name": "灵石",
-        "type": "consumable",
-        "count": 1,
-        "chance": 0.01
-      },
-      {
         "itemId": "equip.soul_devour_token",
         "name": "噬元骨牌",
         "type": "equipment",
         "count": 1,
         "chance": 0.01
+      },
+      {
+        "itemId": "equip.remnant_array_crown",
+        "name": "残阵束冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.trace_pattern_boots",
+        "name": "踏纹履",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.pattern_picker_ring",
+        "name": "拾纹指环",
+        "type": "equipment",
+        "count": 1
       }
     ],
     "grade": "mortal",
@@ -180,11 +202,28 @@
         "chance": 0.2
       },
       {
-        "itemId": "spirit_stone",
-        "name": "灵石",
-        "type": "consumable",
-        "count": 1,
-        "chance": 0.01
+        "itemId": "equip.broken_rune_blade",
+        "name": "断碑纹剑",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.remnant_array_crown",
+        "name": "残阵束冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.trace_pattern_boots",
+        "name": "踏纹履",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.pattern_picker_ring",
+        "name": "拾纹指环",
+        "type": "equipment",
+        "count": 1
       }
     ],
     "grade": "mortal",
@@ -264,11 +303,34 @@
         "chance": 0.5
       },
       {
-        "itemId": "spirit_stone",
-        "name": "灵石",
-        "type": "consumable",
-        "count": 1,
-        "chance": 0.01
+        "itemId": "equip.broken_rune_blade",
+        "name": "断碑纹剑",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.remnant_array_crown",
+        "name": "残阵束冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.stele_shell_armor",
+        "name": "断碑甲壳",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.trace_pattern_boots",
+        "name": "踏纹履",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.soul_ink_pendant",
+        "name": "魂墨坠",
+        "type": "equipment",
+        "count": 1
       }
     ],
     "grade": "mortal",
@@ -341,11 +403,22 @@
         "chance": 0.01
       },
       {
-        "itemId": "spirit_stone",
-        "name": "灵石",
-        "type": "consumable",
-        "count": 1,
-        "chance": 0.01
+        "itemId": "equip.remnant_array_crown",
+        "name": "残阵束冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.trace_pattern_boots",
+        "name": "踏纹履",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.soul_ink_pendant",
+        "name": "魂墨坠",
+        "type": "equipment",
+        "count": 1
       }
     ],
     "grade": "mortal",

@@ -1,0 +1,108 @@
+{
+  "resourceNodes": [
+    {
+      "id": "tile.spirit_ore",
+      "kind": "runtime_tile",
+      "name": "灵石矿",
+      "sourceLabel": "灵石矿",
+      "tileType": "spirit_ore",
+      "itemId": "spirit_stone",
+      "baseChanceBps": 20
+    },
+    {
+      "id": "tile.black_iron_ore",
+      "kind": "runtime_tile",
+      "name": "玄铁矿",
+      "sourceLabel": "玄铁矿",
+      "tileType": "black_iron_ore",
+      "itemId": "black_iron_chunk",
+      "baseChanceBps": 50
+    },
+    {
+      "id": "tile.broken_sword_heap",
+      "kind": "runtime_tile",
+      "name": "断剑堆",
+      "sourceLabel": "断剑堆",
+      "tileType": "broken_sword_heap",
+      "itemId": "sword_pellet",
+      "baseChanceBps": 1200
+    },
+    {
+      "id": "tile.cloud_wall",
+      "kind": "runtime_tile",
+      "name": "云墙",
+      "sourceLabel": "云墙",
+      "tileType": "cloud",
+      "itemId": "cloud_puff",
+      "baseChanceBps": 200
+    },
+    {
+      "id": "landmark.spirit_ore_vein",
+      "kind": "landmark_marker",
+      "name": "灵石矿脉",
+      "sourceLabel": "灵石矿",
+      "itemId": "spirit_stone"
+    },
+    {
+      "id": "landmark.black_iron_vein",
+      "kind": "landmark_marker",
+      "name": "玄铁矿脉",
+      "sourceLabel": "玄铁矿",
+      "itemId": "black_iron_chunk"
+    },
+    {
+      "id": "landmark.ore_basement_black_iron_vein",
+      "kind": "landmark_container",
+      "name": "玄铁矿脉",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 2400,
+        "char": "矿",
+        "color": "#6b7787",
+        "lootPools": [
+          {
+            "chance": 0.75,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "countMin": 1,
+            "countMax": 2,
+            "tagGroups": [
+              [
+                "矿材"
+              ],
+              [
+                "玄铁"
+              ]
+            ]
+          },
+          {
+            "chance": 0.18,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "矿材"
+              ],
+              [
+                "灵铁"
+              ]
+            ]
+          },
+          {
+            "chance": 0.4,
+            "maxLevel": 2,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "消耗品"
+              ],
+              [
+                "灵石"
+              ]
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

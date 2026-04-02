@@ -1077,15 +1077,16 @@ function formatObservedResourceOverview(resource: TileRuntimeResourceDetail, fal
 }
 
 function buildObservedResourceAsideLines(resource: TileRuntimeResourceDetail): string[] {
-  const lines = [`当前数值：${formatAuraValueText(resource.value)}`];
-  if (
-    typeof resource.effectiveValue === 'number'
-    && Number.isFinite(resource.effectiveValue)
-    && Math.round(resource.effectiveValue) !== Math.round(resource.value)
-  ) {
-    lines.push(`当前可用值：${formatAuraValueText(resource.effectiveValue)}`);
+  const effectiveValue = typeof resource.effectiveValue === 'number' && Number.isFinite(resource.effectiveValue)
+    ? resource.effectiveValue
+    : undefined;
+  const hasProjectedValue = effectiveValue !== undefined
+    && Math.round(effectiveValue) !== Math.round(resource.value);
+  const lines = [`当前数值：${formatAuraValueText(hasProjectedValue ? effectiveValue : resource.value)}`];
+  if (hasProjectedValue) {
+    lines.push(`原始值：${formatAuraValueText(resource.value)}`);
   }
-  if (resource.key === 'aura' && typeof resource.level === 'number') {
+  if (typeof resource.level === 'number') {
     lines.unshift(`当前等级：${formatDisplayInteger(Math.max(0, Math.round(resource.level)))}`);
   }
   return lines;
@@ -1372,6 +1373,7 @@ function mergeTechniquePatch(patch: TechniqueUpdateEntry, previous?: TechniqueSt
     expToNext: patch.expToNext ?? previousSameTechnique?.expToNext ?? 0,
     realmLv: patch.realmLv ?? previousSameTechnique?.realmLv ?? template?.realmLv ?? 1,
     realm: patch.realm ?? previousSameTechnique?.realm ?? TechniqueRealm.Entry,
+    skillsEnabled: applyNullablePatch(patch.skillsEnabled, previousSameTechnique?.skillsEnabled) ?? true,
     name: applyNullablePatch(patch.name, previousSameTechnique?.name) ?? template?.name ?? patch.techId,
     skills: mergedSkills
       ? cloneJson(mergedSkills)
@@ -1903,6 +1905,7 @@ equipmentPanel.setCallbacks(
 );
 techniquePanel.setCallbacks(
   (techId) => socket.sendCultivate(techId),
+  (techId, enabled) => socket.sendUpdateTechniqueSkillAvailability(techId, enabled),
 );
 questPanel.setCallbacks((questId) => {
   clearCurrentPath();

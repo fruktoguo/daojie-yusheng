@@ -1,0 +1,741 @@
+[
+  {
+    "id": "m_deepvein_croc",
+    "name": "黄岩鼍兽",
+    "char": "鼍",
+    "color": "#c9aa7a",
+    "grade": "yellow",
+    "tier": "mortal_blood",
+    "level": 20,
+    "count": 4,
+    "maxAlive": 4,
+    "radius": 5,
+    "aggroRange": 6,
+    "viewRange": 7,
+    "respawnSec": 15,
+    "equipment": {
+      "head": {
+        "itemId": "equip.yellow_stone_browguard",
+        "count": 1
+      },
+      "body": {
+        "itemId": "equip.ridgehide_vest",
+        "count": 1
+      },
+      "legs": {
+        "itemId": "equip.heavy_claw_boots",
+        "count": 1
+      }
+    },
+    "attrs": {
+      "constitution": 296,
+      "spirit": 92,
+      "perception": 176,
+      "talent": 284,
+      "comprehension": 20,
+      "luck": 18
+    },
+    "statPercents": {
+      "maxHp": 138,
+      "maxQi": 62,
+      "physAtk": 112,
+      "spellAtk": 54,
+      "physDef": 148,
+      "spellDef": 126,
+      "hit": 112,
+      "dodge": 92,
+      "crit": 104,
+      "breakPower": 118,
+      "resolvePower": 136,
+      "maxQiOutputPerTick": 68,
+      "moveSpeed": 92
+    },
+    "skills": [
+      "skill.predator_pounce",
+      "skill.iron_bone_strike"
+    ],
+    "drops": [
+      {
+        "itemId": "earthbearing_stone",
+        "name": "承脉石",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "thickrock_core",
+        "name": "厚岩核",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "book.houtu_chengyuan",
+        "name": "《厚土承元功》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "equip.yellow_stone_browguard",
+        "name": "黄岩额护",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.ridgehide_vest",
+        "name": "岭皮坎肩",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.heavy_claw_boots",
+        "name": "重爪靴",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "pill.earthrest_paste",
+        "name": "厚土膏",
+        "type": "consumable",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_deepvein_stonebound",
+    "name": "沉脉石奴",
+    "char": "奴",
+    "color": "#b89469",
+    "grade": "yellow",
+    "tier": "mortal_blood",
+    "level": 23,
+    "count": 4,
+    "maxAlive": 4,
+    "radius": 5,
+    "aggroRange": 6,
+    "viewRange": 7,
+    "respawnSec": 16,
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.sinking_vein_hammer",
+        "count": 1
+      },
+      "body": {
+        "itemId": "equip.deepvein_plate",
+        "count": 1
+      },
+      "legs": {
+        "itemId": "equip.burden_greaves",
+        "count": 1
+      }
+    },
+    "attrs": {
+      "constitution": 368,
+      "spirit": 116,
+      "perception": 192,
+      "talent": 336,
+      "comprehension": 22,
+      "luck": 20
+    },
+    "statPercents": {
+      "maxHp": 152,
+      "maxQi": 66,
+      "physAtk": 118,
+      "spellAtk": 60,
+      "physDef": 162,
+      "spellDef": 138,
+      "hit": 116,
+      "dodge": 96,
+      "crit": 108,
+      "breakPower": 122,
+      "resolvePower": 148,
+      "maxQiOutputPerTick": 72,
+      "moveSpeed": 88
+    },
+    "skills": [
+      "skill.brutal_ram",
+      "skill.guardian_quake"
+    ],
+    "drops": [
+      {
+        "itemId": "earthbearing_stone",
+        "name": "承脉石",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "thickrock_core",
+        "name": "厚岩核",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "equip.sinking_vein_hammer",
+        "name": "沉脉锤",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.deepvein_plate",
+        "name": "厚脉板甲",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.burden_greaves",
+        "name": "负岳胫甲",
+        "type": "equipment",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_deepvein_armor_spirit",
+    "name": "坠岩甲灵",
+    "char": "甲",
+    "color": "#d0b488",
+    "grade": "mystic",
+    "tier": "mortal_blood",
+    "level": 26,
+    "count": 3,
+    "maxAlive": 3,
+    "radius": 5,
+    "aggroRange": 7,
+    "viewRange": 8,
+    "respawnSec": 18,
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.fallrock_maul",
+        "count": 1
+      },
+      "head": {
+        "itemId": "equip.stone_ridge_helm",
+        "count": 1
+      },
+      "body": {
+        "itemId": "equip.ridgewall_armor",
+        "count": 1
+      },
+      "accessory": {
+        "itemId": "equip.shieldvein_stone",
+        "count": 1
+      }
+    },
+    "attrs": {
+      "constitution": 424,
+      "spirit": 144,
+      "perception": 224,
+      "talent": 388,
+      "comprehension": 30,
+      "luck": 24
+    },
+    "statPercents": {
+      "maxHp": 164,
+      "maxQi": 74,
+      "physAtk": 126,
+      "spellAtk": 66,
+      "physDef": 176,
+      "spellDef": 148,
+      "hit": 124,
+      "dodge": 102,
+      "crit": 114,
+      "breakPower": 130,
+      "resolvePower": 162,
+      "maxQiOutputPerTick": 82,
+      "moveSpeed": 92
+    },
+    "skills": [
+      "skill.iron_bone_strike",
+      "skill.core_smash"
+    ],
+    "drops": [
+      {
+        "itemId": "earthbearing_stone",
+        "name": "承脉石",
+        "type": "material",
+        "count": 2
+      },
+      {
+        "itemId": "thickrock_core",
+        "name": "厚岩核",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "equip.deepvein_kneeguards",
+        "name": "厚脉护膝",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.fallrock_maul",
+        "name": "坠岩槌",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.stone_ridge_helm",
+        "name": "石岭盔",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.ridgewall_armor",
+        "name": "岭垣甲",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.shieldvein_stone",
+        "name": "护脉石",
+        "type": "equipment",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_deepvein_ridge_warden",
+    "name": "岳纹镇灵",
+    "char": "镇",
+    "color": "#dfc29a",
+    "grade": "mystic",
+    "tier": "mortal_blood",
+    "level": 29,
+    "count": 2,
+    "maxAlive": 2,
+    "radius": 5,
+    "aggroRange": 7,
+    "viewRange": 8,
+    "respawnSec": 20,
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.yuepattern_pole",
+        "count": 1
+      },
+      "head": {
+        "itemId": "equip.yuetown_mask",
+        "count": 1
+      },
+      "body": {
+        "itemId": "equip.terrace_guard_armor",
+        "count": 1
+      },
+      "accessory": {
+        "itemId": "equip.mountainheart_token",
+        "count": 1
+      }
+    },
+    "attrs": {
+      "constitution": 492,
+      "spirit": 172,
+      "perception": 236,
+      "talent": 464,
+      "comprehension": 34,
+      "luck": 28
+    },
+    "statPercents": {
+      "maxHp": 172,
+      "maxQi": 82,
+      "physAtk": 132,
+      "spellAtk": 72,
+      "physDef": 188,
+      "spellDef": 162,
+      "hit": 128,
+      "dodge": 106,
+      "crit": 116,
+      "breakPower": 136,
+      "resolvePower": 174,
+      "maxQiOutputPerTick": 88,
+      "moveSpeed": 90
+    },
+    "skills": [
+      "skill.guardian_quake",
+      "skill.kunyuan_fumai"
+    ],
+    "drops": [
+      {
+        "itemId": "earthbearing_stone",
+        "name": "承脉石",
+        "type": "material",
+        "count": 2
+      },
+      {
+        "itemId": "stonegall_core",
+        "name": "镇岳石胆",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "equip.deepvein_chestguard",
+        "name": "厚脉护胸",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.yuepattern_pole",
+        "name": "岳纹杆",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.yuetown_mask",
+        "name": "御土面",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.terrace_guard_armor",
+        "name": "台垣守甲",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.mountainheart_token",
+        "name": "山心符",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "pill.earthrest_paste",
+        "name": "厚土膏",
+        "type": "consumable",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_deepvein_stele_bearer",
+    "name": "厚土负碑者",
+    "char": "碑",
+    "color": "#b5966f",
+    "grade": "mystic",
+    "tier": "variant",
+    "level": 26,
+    "count": 2,
+    "maxAlive": 2,
+    "radius": 5,
+    "aggroRange": 7,
+    "viewRange": 8,
+    "respawnSec": 24,
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.burden_stele_staff",
+        "count": 1
+      },
+      "head": {
+        "itemId": "equip.heavystele_helm",
+        "count": 1
+      },
+      "body": {
+        "itemId": "equip.loadstone_plate",
+        "count": 1
+      },
+      "accessory": {
+        "itemId": "equip.quakeheart_stone",
+        "count": 1
+      }
+    },
+    "attrs": {
+      "constitution": 620,
+      "spirit": 205,
+      "perception": 270,
+      "talent": 565,
+      "comprehension": 45,
+      "luck": 32
+    },
+    "statPercents": {
+      "maxHp": 176,
+      "maxQi": 78,
+      "physAtk": 124,
+      "spellAtk": 68,
+      "physDef": 192,
+      "spellDef": 166,
+      "hit": 122,
+      "dodge": 98,
+      "crit": 112,
+      "breakPower": 132,
+      "resolvePower": 178,
+      "maxQiOutputPerTick": 84,
+      "moveSpeed": 84
+    },
+    "skills": [
+      "skill.guardian_quake",
+      "skill.core_smash"
+    ],
+    "drops": [
+      {
+        "itemId": "earthbearing_stone",
+        "name": "承脉石",
+        "type": "material",
+        "count": 2
+      },
+      {
+        "itemId": "stonegall_core",
+        "name": "镇岳石胆",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "book.kunyue_zhenhai",
+        "name": "《坤岳镇海篇》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "equip.deepvein_gauntlets",
+        "name": "厚脉护手",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.burden_stele_staff",
+        "name": "负碑杖",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.heavystele_helm",
+        "name": "重碑盔",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.loadstone_plate",
+        "name": "载山甲",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.quakeheart_stone",
+        "name": "震心石",
+        "type": "equipment",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_deepvein_heavy_guard",
+    "name": "裂岭重卫",
+    "char": "卫",
+    "color": "#a88960",
+    "grade": "earth",
+    "tier": "variant",
+    "level": 29,
+    "count": 2,
+    "maxAlive": 2,
+    "radius": 5,
+    "aggroRange": 7,
+    "viewRange": 8,
+    "respawnSec": 26,
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.ridgecleft_halberd",
+        "count": 1
+      },
+      "head": {
+        "itemId": "equip.mount_guard_helm",
+        "count": 1
+      },
+      "body": {
+        "itemId": "equip.rampart_plate",
+        "count": 1
+      },
+      "accessory": {
+        "itemId": "equip.sealridge_iron_ring",
+        "count": 1
+      }
+    },
+    "attrs": {
+      "constitution": 715,
+      "spirit": 240,
+      "perception": 305,
+      "talent": 635,
+      "comprehension": 50,
+      "luck": 40
+    },
+    "statPercents": {
+      "maxHp": 182,
+      "maxQi": 84,
+      "physAtk": 132,
+      "spellAtk": 74,
+      "physDef": 198,
+      "spellDef": 172,
+      "hit": 126,
+      "dodge": 102,
+      "crit": 116,
+      "breakPower": 138,
+      "resolvePower": 184,
+      "maxQiOutputPerTick": 88,
+      "moveSpeed": 82
+    },
+    "skills": [
+      "skill.brutal_ram",
+      "skill.guardian_quake"
+    ],
+    "drops": [
+      {
+        "itemId": "earthbearing_stone",
+        "name": "承脉石",
+        "type": "material",
+        "count": 3
+      },
+      {
+        "itemId": "stonegall_core",
+        "name": "镇岳石胆",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "book.wildsunder_chart",
+        "name": "《八荒裂岳图》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "equip.deepvein_relic_shard",
+        "name": "厚脉遗片",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.ridgecleft_halberd",
+        "name": "裂岭戟",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.mount_guard_helm",
+        "name": "镇岭盔",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.rampart_plate",
+        "name": "垒垣甲",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.sealridge_iron_ring",
+        "name": "封岭铁环",
+        "type": "equipment",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_deepvein_earth_effigy",
+    "name": "玄岳地傀",
+    "char": "傀",
+    "color": "#d8bc92",
+    "grade": "earth",
+    "tier": "demon_king",
+    "level": 29,
+    "count": 1,
+    "maxAlive": 1,
+    "radius": 3,
+    "aggroRange": 8,
+    "viewRange": 9,
+    "respawnSec": 40,
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.darkpeak_fist_seal",
+        "count": 1
+      },
+      "head": {
+        "itemId": "equip.earthlord_helm",
+        "count": 1
+      },
+      "body": {
+        "itemId": "equip.mountainseal_plate",
+        "count": 1
+      },
+      "accessory": {
+        "itemId": "equip.deepvein_core",
+        "count": 1
+      }
+    },
+    "attrs": {
+      "constitution": 1008,
+      "spirit": 324,
+      "perception": 384,
+      "talent": 888,
+      "comprehension": 66,
+      "luck": 54
+    },
+    "statPercents": {
+      "maxHp": 192,
+      "maxQi": 88,
+      "physAtk": 136,
+      "spellAtk": 78,
+      "physDef": 206,
+      "spellDef": 182,
+      "hit": 128,
+      "dodge": 104,
+      "crit": 118,
+      "breakPower": 142,
+      "resolvePower": 192,
+      "maxQiOutputPerTick": 92,
+      "moveSpeed": 80
+    },
+    "skills": [
+      "skill.guardian_quake",
+      "skill.kunyuan_fumai",
+      "skill.void_burst"
+    ],
+    "drops": [
+      {
+        "itemId": "stonegall_core",
+        "name": "镇岳石胆",
+        "type": "material",
+        "count": 2
+      },
+      {
+        "itemId": "earthbearing_stone",
+        "name": "承脉石",
+        "type": "material",
+        "count": 4
+      },
+      {
+        "itemId": "book.huangting_zaishan",
+        "name": "《黄庭载山经》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "equip.deepvein_relic",
+        "name": "厚脉遗器",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.darkpeak_fist_seal",
+        "name": "黯峰拳印",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.earthlord_helm",
+        "name": "镇岳君盔",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.mountainseal_plate",
+        "name": "封岳甲",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.deepvein_core",
+        "name": "厚脉核",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "pill.earthrest_paste",
+        "name": "厚土膏",
+        "type": "consumable",
+        "count": 1
+      }
+    ]
+  }
+]

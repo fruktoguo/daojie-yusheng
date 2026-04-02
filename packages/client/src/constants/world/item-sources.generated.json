@@ -105,6 +105,33 @@
       "count": 1
     },
     {
+      "kind": "mining",
+      "mapId": "black_iron_mine",
+      "mapName": "玄铁矿洞",
+      "landmarkId": "lm_black_iron_vein_east",
+      "landmarkName": "东支裸矿壁",
+      "mode": "direct",
+      "count": 1
+    },
+    {
+      "kind": "mining",
+      "mapId": "black_iron_mine",
+      "mapName": "玄铁矿洞",
+      "landmarkId": "lm_black_iron_vein_north",
+      "landmarkName": "北段玄铁矿脉",
+      "mode": "direct",
+      "count": 1
+    },
+    {
+      "kind": "mining",
+      "mapId": "black_iron_mine",
+      "mapName": "玄铁矿洞",
+      "landmarkId": "lm_black_iron_vein_south",
+      "landmarkName": "裂隙玄铁矿层",
+      "mode": "direct",
+      "count": 1
+    },
+    {
       "kind": "search",
       "mapId": "black_iron_mine",
       "mapName": "玄铁矿洞",
@@ -6075,6 +6102,15 @@
       "mapName": "运行时资源点",
       "landmarkId": "runtime:spirit_stone",
       "landmarkName": "灵石矿",
+      "mode": "direct",
+      "count": 1
+    },
+    {
+      "kind": "mining",
+      "mapId": "yunlai_town_ore_basement",
+      "mapName": "云来镇·旧屋矿窖",
+      "landmarkId": "lm_ore_basement_spirit_vein",
+      "landmarkName": "碎露灵石矿",
       "mode": "direct",
       "count": 1
     }

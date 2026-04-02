@@ -7,8 +7,9 @@ import {
   AutoBattleSkillConfig,
   PlayerState,
   enforceSkillEnabledLimit,
-  ratioValue,
+  percentModifierToMultiplier,
   resolvePlayerSkillSlotLimit,
+  signedRatioValue,
 } from '@mud/shared';
 import { AttrService } from './attr.service';
 import { TechniqueService } from './technique.service';
@@ -71,8 +72,9 @@ export class ActionService {
       if (skill) {
         const ratioDivisors = this.attrService.getPlayerRatioDivisors(player);
         const numericStats = this.attrService.getPlayerNumericStats(player);
-        const cooldownRate = Math.max(0, ratioValue(numericStats.cooldownSpeed, ratioDivisors.cooldownSpeed));
-        action.cooldownLeft = Math.max(1, Math.ceil(skill.cooldown * (1 - cooldownRate)));
+        const cooldownRate = signedRatioValue(numericStats.cooldownSpeed, ratioDivisors.cooldownSpeed);
+        const cooldownMultiplier = percentModifierToMultiplier(-cooldownRate * 100);
+        action.cooldownLeft = Math.max(1, Math.ceil(skill.cooldown * cooldownMultiplier));
         break;
       }
     }

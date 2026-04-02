@@ -212,6 +212,7 @@ export class TimeService {
       maxStacks: 5,
       sourceSkillId: WORLD_TIME_SOURCE_ID,
       sourceSkillName: '天时',
+      realmLv: 1,
       color: '#89a8c7',
     };
 

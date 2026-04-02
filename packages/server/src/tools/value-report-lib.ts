@@ -189,13 +189,14 @@ function mapDangerToEquipmentGrade(dangerLevel: number): string {
 function buildEquipmentMapDangerIndex(): Map<string, number> {
   const mapsDir = path.join(process.cwd(), 'data', 'maps');
   const index = new Map<string, number>();
-  for (const file of fs.readdirSync(mapsDir).filter((entry) => entry.endsWith('.json')).sort()) {
+  for (const filePath of collectJsonFiles(mapsDir).sort((left, right) => left.localeCompare(right, 'zh-CN'))) {
+    const file = path.basename(filePath);
     if (file === 'spawn.json' || file === 'yunlai_town.json') {
       continue;
     }
     let map: RawMap & Record<string, unknown>;
     try {
-      map = readJsonFile<RawMap & Record<string, unknown>>(path.join(mapsDir, file));
+      map = readJsonFile<RawMap & Record<string, unknown>>(filePath);
     } catch {
       continue;
     }

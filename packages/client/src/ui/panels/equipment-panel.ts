@@ -50,7 +50,7 @@ function formatItemEffects(item: EquipmentSlots[EquipSlot]): string[] {
     switch (effect.type) {
       case 'stat_aura':
       case 'progress_boost': {
-        const effectParts = describePreviewBonuses(effect.attrs, effect.stats, effect.valueStats);
+        const effectParts = describePreviewBonuses(effect.attrs, effect.stats, effect.valueStats, effect.attrMode, effect.statMode);
         return `特效:${effectParts.join(' / ') || '无数值变化'}${conditionText}`;
       }
       case 'periodic_cost': {
@@ -76,7 +76,13 @@ function formatItemEffects(item: EquipmentSlots[EquipSlot]): string[] {
           on_time_segment_changed: '时段切换时',
           on_enter_map: '入图时',
         };
-        const buffParts = describePreviewBonuses(effect.buff.attrs, effect.buff.stats, effect.buff.valueStats);
+        const buffParts = describePreviewBonuses(
+          effect.buff.attrs,
+          effect.buff.stats,
+          effect.buff.valueStats,
+          effect.buff.attrMode ?? 'percent',
+          effect.buff.statMode ?? 'percent',
+        );
         return `触发:${triggerMap[effect.trigger] ?? effect.trigger}获得 ${effect.buff.name} ${effect.buff.duration}息${conditionText}${buffParts.length > 0 ? `，效果:${buffParts.join(' / ')}` : ''}`;
       }
       default:

@@ -22,7 +22,7 @@ export const CULTIVATION_ACTION_ID = 'cultivation:toggle';
 /** 修炼 buff 默认持续期（单位：tick） */
 export const CULTIVATION_BUFF_DURATION = 1;
 /** 每 tick 境界经验的基础增量 */
-export const CULTIVATION_REALM_EXP_PER_TICK = 2;
+export const CULTIVATION_REALM_EXP_PER_TICK = 1;
 /** 断路条件提示文字：突破受阻 */
 export const PATH_SEVERED_BREAKTHROUGH_LABEL = '仙路断绝';
 /** 断路条件提示文字：具体说明 */

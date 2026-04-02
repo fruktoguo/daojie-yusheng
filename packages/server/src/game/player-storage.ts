@@ -59,6 +59,7 @@ interface PersistedTechniqueItem {
   level: number;
   exp: number;
   expToNext?: number;
+  skillsEnabled?: boolean;
 }
 
 interface PersistedTemporaryBuffItem {
@@ -212,6 +213,7 @@ function hydrateTechnique(snapshot: unknown): TechniqueState | null {
     realmLv: normalizePositiveInt(snapshot.realmLv, 1),
     realm: isTechniqueRealm(snapshot.realm) ? snapshot.realm : TechniqueRealm.Entry,
     skills: Array.isArray(snapshot.skills) ? snapshot.skills as SkillDef[] : [],
+    skillsEnabled: snapshot.skillsEnabled !== false,
     grade: isTechniqueGrade(snapshot.grade) ? snapshot.grade : undefined,
     category: isTechniqueCategory(snapshot.category) ? snapshot.category : undefined,
     layers: Array.isArray(snapshot.layers) ? snapshot.layers as TechniqueLayerDef[] : undefined,
@@ -229,6 +231,7 @@ function dehydrateTechnique(technique: TechniqueState, contentService: ContentSe
       level,
       exp,
       expToNext,
+      ...(technique.skillsEnabled === false ? { skillsEnabled: false } : {}),
     };
   }
   return {

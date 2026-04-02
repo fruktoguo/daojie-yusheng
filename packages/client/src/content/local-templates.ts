@@ -20,6 +20,29 @@ const skillTemplateMap = new Map(
     (technique.skills ?? []).map((skill) => [skill.id, skill] as const),
   ),
 );
+type LocalBuffTemplate = {
+  buffId: string;
+  name: string;
+  shortMark?: string;
+  category?: 'buff' | 'debuff';
+};
+
+const buffTemplateMap = new Map<string, LocalBuffTemplate>(
+  LOCAL_EDITOR_CATALOG.techniques.flatMap((technique) =>
+    (technique.skills ?? []).flatMap((skill) =>
+      skill.effects.flatMap((effect) => (
+        effect.type === 'buff'
+          ? [[effect.buffId, {
+            buffId: effect.buffId,
+            name: effect.name,
+            shortMark: effect.shortMark,
+            category: effect.category,
+          }] as const]
+          : []
+      )),
+    ),
+  ),
+);
 const divineSkillNameSet = new Set(
   LOCAL_EDITOR_CATALOG.techniques.flatMap((technique) => {
     const category = resolveTechniqueCategoryFromTemplate(technique);
@@ -102,6 +125,11 @@ export function getLocalSkillTemplate(skillId: string): SkillDef | null {
   return template ? clone(template) : null;
 }
 
+export function getLocalBuffTemplate(buffId: string): LocalBuffTemplate | null {
+  const template = buffTemplateMap.get(buffId);
+  return template ? { ...template } : null;
+}
+
 export function isLocalDivineSkillName(skillName: string): boolean {
   const normalizedName = skillName.trim();
   return normalizedName.length > 0 && divineSkillNameSet.has(normalizedName);
@@ -135,7 +163,14 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
     equipStats: item.equipStats ?? template.equipStats,
     equipValueStats: item.equipValueStats ?? template.equipValueStats,
     effects: item.effects ?? template.effects,
+    healAmount: item.healAmount ?? template.healAmount,
+    healPercent: item.healPercent ?? template.healPercent,
+    qiPercent: item.qiPercent ?? template.qiPercent,
+    consumeBuffs: item.consumeBuffs ?? template.consumeBuffs,
     tags: item.tags ?? template.tags,
+    mapUnlockId: item.mapUnlockId ?? template.mapUnlockId,
+    tileAuraGainAmount: item.tileAuraGainAmount ?? template.tileAuraGainAmount,
+    allowBatchUse: item.allowBatchUse ?? template.allowBatchUse,
   };
 }
 

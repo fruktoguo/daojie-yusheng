@@ -3,8 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
+    "generate:editor-catalog": "node ../../scripts/generate-editor-catalog.mjs --client=client --shared=shared",
     "generate:item-sources": "node ./scripts/generate-item-sources.mjs",
-    "prebuild": "pnpm --filter @mud/shared build && pnpm run generate:item-sources",
+    "prebuild": "pnpm --filter @mud/shared build && pnpm run generate:editor-catalog && pnpm run generate:item-sources",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview"

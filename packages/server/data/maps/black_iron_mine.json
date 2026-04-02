@@ -170,21 +170,24 @@
       "name": "北段玄铁矿脉",
       "x": 39,
       "y": 16,
-      "desc": "信标井旁的玄铁矿层被旧矿工剥开过大半，只剩几道还能继续撬下矿块的硬脉。"
+      "desc": "信标井旁的玄铁矿层被旧矿工剥开过大半，只剩几道还能继续撬下矿块的硬脉。",
+      "resourceNodeId": "landmark.black_iron_vein"
     },
     {
       "id": "lm_black_iron_vein_south",
       "name": "裂隙玄铁矿层",
       "x": 20,
       "y": 35,
-      "desc": "下层裂隙把黑沉矿层整片掀了出来，灵石不多，玄铁却扎得很密，是最适合久留开采的一段矿带。"
+      "desc": "下层裂隙把黑沉矿层整片掀了出来，灵石不多，玄铁却扎得很密，是最适合久留开采的一段矿带。",
+      "resourceNodeId": "landmark.black_iron_vein"
     },
     {
       "id": "lm_black_iron_vein_east",
       "name": "东支裸矿壁",
       "x": 37,
       "y": 36,
-      "desc": "东支巷道的矿壁被塌方磨掉一层，露出成片玄铁硬筋，旁边只嵌着零零散散的灵石点。"
+      "desc": "东支巷道的矿壁被塌方磨掉一层，露出成片玄铁硬筋，旁边只嵌着零零散散的灵石点。",
+      "resourceNodeId": "landmark.black_iron_vein"
     }
   ],
   "npcs": [
@@ -249,5 +252,6 @@
       "x": 30,
       "y": 24
     }
-  ]
+  ],
+  "terrainRealmLv": 6
 }

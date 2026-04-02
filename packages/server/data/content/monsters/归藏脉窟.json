@@ -1,0 +1,675 @@
+[
+  {
+    "id": "m_guizang_tangled_wisp",
+    "name": "错脉游灵",
+    "char": "灵",
+    "color": "#d8d2c4",
+    "grade": "mystic",
+    "tier": "mortal_blood",
+    "level": 29,
+    "count": 3,
+    "maxAlive": 3,
+    "radius": 5,
+    "aggroRange": 7,
+    "viewRange": 8,
+    "respawnSec": 18,
+    "attrs": {
+      "constitution": 324,
+      "spirit": 364,
+      "perception": 344,
+      "talent": 308,
+      "comprehension": 42,
+      "luck": 34
+    },
+    "statPercents": {
+      "maxHp": 138,
+      "maxQi": 132,
+      "physAtk": 126,
+      "spellAtk": 132,
+      "physDef": 122,
+      "spellDef": 128,
+      "hit": 148,
+      "dodge": 156,
+      "crit": 136,
+      "breakPower": 122,
+      "resolvePower": 126,
+      "maxQiOutputPerTick": 148,
+      "moveSpeed": 162
+    },
+    "skills": [
+      "skill.plume_shot",
+      "skill.echo_screech"
+    ],
+    "equipment": {
+      "head": {
+        "itemId": "equip.fiveqi_watch_crown"
+      },
+      "body": {
+        "itemId": "equip.guizang_aperture_robe"
+      },
+      "accessory": {
+        "itemId": "equip.halfbase_ring"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "fivephase_dust",
+        "name": "五炁尘",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "guizang_vein_core",
+        "name": "归藏脉核",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "book.tingmai_dingxi",
+        "name": "《听脉定息诀》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "equip.fiveqi_watch_crown",
+        "name": "五炁观脉冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.guizang_aperture_robe",
+        "name": "归窍法衣",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.halfbase_ring",
+        "name": "半基灵环",
+        "type": "equipment",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_guizang_reflux_attendant",
+    "name": "逆流残侍",
+    "char": "侍",
+    "color": "#c9b7a0",
+    "grade": "mystic",
+    "tier": "mortal_blood",
+    "level": 29,
+    "count": 3,
+    "maxAlive": 3,
+    "radius": 5,
+    "aggroRange": 7,
+    "viewRange": 8,
+    "respawnSec": 18,
+    "attrs": {
+      "constitution": 348,
+      "spirit": 388,
+      "perception": 332,
+      "talent": 328,
+      "comprehension": 44,
+      "luck": 34
+    },
+    "statPercents": {
+      "maxHp": 144,
+      "maxQi": 138,
+      "physAtk": 128,
+      "spellAtk": 138,
+      "physDef": 126,
+      "spellDef": 132,
+      "hit": 150,
+      "dodge": 150,
+      "crit": 138,
+      "breakPower": 124,
+      "resolvePower": 130,
+      "maxQiOutputPerTick": 156,
+      "moveSpeed": 154
+    },
+    "skills": [
+      "skill.core_smash",
+      "skill.nether_chain"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.guizang_conflux_blade"
+      },
+      "head": {
+        "itemId": "equip.fiveqi_watch_crown"
+      },
+      "accessory": {
+        "itemId": "equip.halfbase_ring"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "fivephase_dust",
+        "name": "五炁尘",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "guizang_vein_core",
+        "name": "归藏脉核",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "book.guicang_hemai",
+        "name": "《归藏合脉经》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "equip.guizang_conflux_blade",
+        "name": "归藏合流刃",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.fiveqi_watch_crown",
+        "name": "五炁观脉冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.halfbase_ring",
+        "name": "半基灵环",
+        "type": "equipment",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_guizang_fivephase_effigy",
+    "name": "五炁砂偶",
+    "char": "偶",
+    "color": "#c6b08b",
+    "grade": "earth",
+    "tier": "mortal_blood",
+    "level": 30,
+    "count": 2,
+    "maxAlive": 2,
+    "radius": 4,
+    "aggroRange": 7,
+    "viewRange": 8,
+    "respawnSec": 20,
+    "attrs": {
+      "constitution": 456,
+      "spirit": 376,
+      "perception": 284,
+      "talent": 428,
+      "comprehension": 44,
+      "luck": 32
+    },
+    "statPercents": {
+      "maxHp": 168,
+      "maxQi": 122,
+      "physAtk": 142,
+      "spellAtk": 136,
+      "physDef": 166,
+      "spellDef": 158,
+      "hit": 138,
+      "dodge": 122,
+      "crit": 128,
+      "breakPower": 138,
+      "resolvePower": 156,
+      "maxQiOutputPerTick": 132,
+      "moveSpeed": 96
+    },
+    "skills": [
+      "skill.brutal_ram",
+      "skill.guardian_quake"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.guizang_conflux_blade"
+      },
+      "body": {
+        "itemId": "equip.guizang_aperture_robe"
+      },
+      "legs": {
+        "itemId": "equip.returnarray_boots"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "fivephase_dust",
+        "name": "五炁尘",
+        "type": "material",
+        "count": 2
+      },
+      {
+        "itemId": "guizang_vein_core",
+        "name": "归藏脉核",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "equip.guizang_conflux_blade",
+        "name": "归藏合流刃",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.guizang_aperture_robe",
+        "name": "归窍法衣",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.returnarray_boots",
+        "name": "回阵行履",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "pill.fivephase_harmony_pellet",
+        "name": "五和丸",
+        "type": "consumable",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_guizang_chaos_sentry",
+    "name": "乱炁守侍",
+    "char": "卫",
+    "color": "#b8a28b",
+    "grade": "earth",
+    "tier": "mortal_blood",
+    "level": 30,
+    "count": 2,
+    "maxAlive": 2,
+    "radius": 4,
+    "aggroRange": 7,
+    "viewRange": 8,
+    "respawnSec": 20,
+    "attrs": {
+      "constitution": 472,
+      "spirit": 408,
+      "perception": 296,
+      "talent": 452,
+      "comprehension": 46,
+      "luck": 34
+    },
+    "statPercents": {
+      "maxHp": 172,
+      "maxQi": 128,
+      "physAtk": 146,
+      "spellAtk": 142,
+      "physDef": 168,
+      "spellDef": 164,
+      "hit": 142,
+      "dodge": 124,
+      "crit": 130,
+      "breakPower": 142,
+      "resolvePower": 160,
+      "maxQiOutputPerTick": 138,
+      "moveSpeed": 98
+    },
+    "skills": [
+      "skill.core_smash",
+      "skill.void_burst"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.guizang_conflux_blade"
+      },
+      "head": {
+        "itemId": "equip.fiveqi_watch_crown"
+      },
+      "body": {
+        "itemId": "equip.guizang_aperture_robe"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "fivephase_dust",
+        "name": "五炁尘",
+        "type": "material",
+        "count": 2
+      },
+      {
+        "itemId": "guizang_vein_core",
+        "name": "归藏脉核",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "equip.guizang_conflux_blade",
+        "name": "归藏合流刃",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.fiveqi_watch_crown",
+        "name": "五炁观脉冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.guizang_aperture_robe",
+        "name": "归窍法衣",
+        "type": "equipment",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_guizang_dualphase_beast",
+    "name": "双相脉兽",
+    "char": "兽",
+    "color": "#d7c29d",
+    "grade": "earth",
+    "tier": "variant",
+    "level": 30,
+    "count": 2,
+    "maxAlive": 2,
+    "radius": 4,
+    "aggroRange": 8,
+    "viewRange": 9,
+    "respawnSec": 26,
+    "attrs": {
+      "constitution": 620,
+      "spirit": 570,
+      "perception": 480,
+      "talent": 490,
+      "comprehension": 60,
+      "luck": 48
+    },
+    "statPercents": {
+      "maxHp": 154,
+      "maxQi": 152,
+      "physAtk": 152,
+      "spellAtk": 158,
+      "physDef": 142,
+      "spellDef": 148,
+      "hit": 156,
+      "dodge": 168,
+      "crit": 146,
+      "breakPower": 146,
+      "resolvePower": 142,
+      "maxQiOutputPerTick": 174,
+      "moveSpeed": 172
+    },
+    "skills": [
+      "skill.predator_pounce",
+      "skill.rending_claw",
+      "skill.brutal_ram"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.guizang_conflux_blade"
+      },
+      "body": {
+        "itemId": "equip.guizang_aperture_robe"
+      },
+      "legs": {
+        "itemId": "equip.returnarray_boots"
+      },
+      "accessory": {
+        "itemId": "equip.halfbase_ring"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "fivephase_dust",
+        "name": "五炁尘",
+        "type": "material",
+        "count": 2
+      },
+      {
+        "itemId": "guizang_vein_core",
+        "name": "归藏脉核",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "book.wuqi_guiliu",
+        "name": "《五炁归流篇》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "equip.guizang_conflux_blade",
+        "name": "归藏合流刃",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.guizang_aperture_robe",
+        "name": "归窍法衣",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.returnarray_boots",
+        "name": "回阵行履",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.halfbase_ring",
+        "name": "半基灵环",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "pill.fivephase_harmony_pellet",
+        "name": "五和丸",
+        "type": "consumable",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_guizang_ruined_relic",
+    "name": "乱基守遗",
+    "char": "遗",
+    "color": "#c7d1de",
+    "grade": "earth",
+    "tier": "variant",
+    "level": 30,
+    "count": 1,
+    "maxAlive": 1,
+    "radius": 3,
+    "aggroRange": 8,
+    "viewRange": 9,
+    "respawnSec": 28,
+    "attrs": {
+      "constitution": 670,
+      "spirit": 615,
+      "perception": 440,
+      "talent": 535,
+      "comprehension": 62,
+      "luck": 48
+    },
+    "statPercents": {
+      "maxHp": 162,
+      "maxQi": 162,
+      "physAtk": 156,
+      "spellAtk": 166,
+      "physDef": 148,
+      "spellDef": 156,
+      "hit": 158,
+      "dodge": 154,
+      "crit": 148,
+      "breakPower": 148,
+      "resolvePower": 150,
+      "maxQiOutputPerTick": 182,
+      "moveSpeed": 148
+    },
+    "skills": [
+      "skill.guardian_quake",
+      "skill.nether_chain",
+      "skill.void_burst"
+    ],
+    "equipment": {
+      "head": {
+        "itemId": "equip.fiveqi_watch_crown"
+      },
+      "body": {
+        "itemId": "equip.guizang_aperture_robe"
+      },
+      "accessory": {
+        "itemId": "equip.halfbase_ring"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "fivephase_dust",
+        "name": "五炁尘",
+        "type": "material",
+        "count": 3
+      },
+      {
+        "itemId": "guizang_vein_core",
+        "name": "归藏脉核",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "equip.fiveqi_watch_crown",
+        "name": "五炁观脉冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.guizang_aperture_robe",
+        "name": "归窍法衣",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.halfbase_ring",
+        "name": "半基灵环",
+        "type": "equipment",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_guizang_failed_foundation",
+    "name": "未成道基",
+    "char": "基",
+    "color": "#efe2bf",
+    "grade": "earth",
+    "tier": "demon_king",
+    "level": 30,
+    "count": 1,
+    "maxAlive": 1,
+    "radius": 3,
+    "aggroRange": 9,
+    "viewRange": 10,
+    "respawnSec": 40,
+    "attrs": {
+      "constitution": 954,
+      "spirit": 954,
+      "perception": 684,
+      "talent": 858,
+      "comprehension": 84,
+      "luck": 66
+    },
+    "statPercents": {
+      "maxHp": 186,
+      "maxQi": 184,
+      "physAtk": 162,
+      "spellAtk": 172,
+      "physDef": 166,
+      "spellDef": 172,
+      "hit": 166,
+      "dodge": 162,
+      "crit": 152,
+      "breakPower": 152,
+      "resolvePower": 166,
+      "maxQiOutputPerTick": 196,
+      "moveSpeed": 136
+    },
+    "skills": [
+      "skill.core_smash",
+      "skill.zaimai_guiyi",
+      "skill.void_burst"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.guizang_conflux_blade"
+      },
+      "head": {
+        "itemId": "equip.fiveqi_watch_crown"
+      },
+      "body": {
+        "itemId": "equip.guizang_aperture_robe"
+      },
+      "legs": {
+        "itemId": "equip.returnarray_boots"
+      },
+      "accessory": {
+        "itemId": "equip.halfbase_ring"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "half_base_embryo",
+        "name": "半基灵胚",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "guizang_vein_core",
+        "name": "归藏脉核",
+        "type": "material",
+        "count": 4
+      },
+      {
+        "itemId": "book.taichu_baoyuan",
+        "name": "《太初抱元章》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.hunyuan_zaimai",
+        "name": "《混元载脉图》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "equip.guizang_conflux_blade",
+        "name": "归藏合流刃",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.fiveqi_watch_crown",
+        "name": "五炁观脉冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.guizang_aperture_robe",
+        "name": "归窍法衣",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.returnarray_boots",
+        "name": "回阵行履",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.halfbase_ring",
+        "name": "半基灵环",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "pill.fivephase_harmony_pellet",
+        "name": "五和丸",
+        "type": "consumable",
+        "count": 1
+      }
+    ]
+  }
+]

@@ -22,6 +22,7 @@ export const C2S = {
   GmResetPlayer: 'c:gmResetPlayer',
   Action: 'c:action',
   UpdateAutoBattleSkills: 'c:updateAutoBattleSkills',
+  UpdateTechniqueSkillAvailability: 'c:updateTechniqueSkillAvailability',
   DebugResetSpawn: 'c:debugResetSpawn',
   Chat: 'c:chat',
   AckSystemMessages: 'c:ackSystemMessages',
@@ -104,9 +105,17 @@ export const S2C = {
 export const NEXT_C2S = {
   Hello: 'n:c:hello',
   Move: 'n:c:move',
+  MoveTo: 'n:c:moveTo',
+  NavigateQuest: 'n:c:navigateQuest',
   UseAction: 'n:c:useAction',
+  UpdateTechniqueSkillAvailability: 'n:c:updateTechniqueSkillAvailability',
   RequestDetail: 'n:c:requestDetail',
   RequestTileDetail: 'n:c:requestTileDetail',
+  GmGetState: 'n:c:gmGetState',
+  GmSpawnBots: 'n:c:gmSpawnBots',
+  GmRemoveBots: 'n:c:gmRemoveBots',
+  GmUpdatePlayer: 'n:c:gmUpdatePlayer',
+  GmResetPlayer: 'n:c:gmResetPlayer',
   RequestSuggestions: 'n:c:requestSuggestions',
   CreateSuggestion: 'n:c:createSuggestion',
   VoteSuggestion: 'n:c:voteSuggestion',
@@ -117,6 +126,7 @@ export const NEXT_C2S = {
   RequestMailSummary: 'n:c:requestMailSummary',
   RequestMailPage: 'n:c:requestMailPage',
   RequestMailDetail: 'n:c:requestMailDetail',
+  RedeemCodes: 'n:c:redeemCodes',
   MarkMailRead: 'n:c:markMailRead',
   ClaimMailAttachments: 'n:c:claimMailAttachments',
   DeleteMail: 'n:c:deleteMail',
@@ -136,28 +146,41 @@ export const NEXT_C2S = {
   UsePortal: 'n:c:usePortal',
   UseItem: 'n:c:useItem',
   DropItem: 'n:c:dropItem',
+  DestroyItem: 'n:c:destroyItem',
   TakeGround: 'n:c:takeGround',
+  SortInventory: 'n:c:sortInventory',
   Equip: 'n:c:equip',
   Unequip: 'n:c:unequip',
   Cultivate: 'n:c:cultivate',
   CastSkill: 'n:c:castSkill',
   RequestNpcShop: 'n:c:requestNpcShop',
   BuyNpcShopItem: 'n:c:buyNpcShopItem',
+  UpdateAutoBattleSkills: 'n:c:updateAutoBattleSkills',
+  DebugResetSpawn: 'n:c:debugResetSpawn',
+  Chat: 'n:c:chat',
+  AckSystemMessages: 'n:c:ackSystemMessages',
+  HeavenGateAction: 'n:c:heavenGateAction',
   Ping: 'n:c:ping',
 } as const;
 
 /** server-next 服务端 → 客户端 */
 export const NEXT_S2C = {
+  Bootstrap: 'n:s:bootstrap',
   InitSession: 'n:s:initSession',
   MapEnter: 'n:s:mapEnter',
+  MapStatic: 'n:s:mapStatic',
+  Realm: 'n:s:realm',
   WorldDelta: 'n:s:worldDelta',
   SelfDelta: 'n:s:selfDelta',
   PanelDelta: 'n:s:panelDelta',
+  LootWindowUpdate: 'n:s:lootWindowUpdate',
+  QuestNavigateResult: 'n:s:questNavigateResult',
   Notice: 'n:s:notice',
   SuggestionUpdate: 'n:s:suggestionUpdate',
   MailSummary: 'n:s:mailSummary',
   MailPage: 'n:s:mailPage',
   MailDetail: 'n:s:mailDetail',
+  RedeemCodesResult: 'n:s:redeemCodesResult',
   MailOpResult: 'n:s:mailOpResult',
   Quests: 'n:s:quests',
   NpcQuests: 'n:s:npcQuests',
@@ -167,10 +190,55 @@ export const NEXT_S2C = {
   Detail: 'n:s:detail',
   TileDetail: 'n:s:tileDetail',
   NpcShop: 'n:s:npcShop',
+  GmState: 'n:s:gmState',
   Error: 'n:s:error',
   Kick: 'n:s:kick',
   Pong: 'n:s:pong',
 } as const;
+
+export interface NEXT_S2C_Bootstrap {
+  self: PlayerState;
+  mapMeta: MapMeta;
+  minimap?: MapMinimapSnapshot;
+  visibleMinimapMarkers?: MapMinimapMarker[];
+  minimapLibrary: MapMinimapArchiveEntry[];
+  tiles: VisibleTile[][];
+  players: RenderEntity[];
+  time?: GameTimeState;
+  auraLevelBaseValue?: number;
+}
+export interface NEXT_S2C_LootWindowUpdate {
+  window: SyncedLootWindowState | null;
+}
+
+export interface NEXT_S2C_QuestNavigateResult {
+  questId: string;
+  ok: boolean;
+  error?: string;
+}
+
+export interface NEXT_S2C_RedeemCodesResult {
+  result: AccountRedeemCodesRes;
+}
+
+export interface NEXT_S2C_GmState {
+  players: GmPlayerSummary[];
+  mapIds: string[];
+  botCount: number;
+  perf: GmPerformanceSnapshot;
+}
+export interface NEXT_S2C_MapStatic {
+  mapId: string;
+  mapMeta?: MapMeta;
+  minimap?: MapMinimapSnapshot;
+  minimapLibrary?: MapMinimapArchiveEntry[];
+  visibleMinimapMarkers?: MapMinimapMarker[];
+  visibleMinimapMarkerAdds?: MapMinimapMarker[];
+  visibleMinimapMarkerRemoves?: string[];
+}
+export interface NEXT_S2C_Realm {
+  realm: PlayerRealmState | null;
+}
 
 // ===== Payload 类型 =====
 
@@ -250,6 +318,11 @@ export interface C2S_Action {
 
 export interface C2S_UpdateAutoBattleSkills {
   skills: AutoBattleSkillConfig[];
+}
+
+export interface C2S_UpdateTechniqueSkillAvailability {
+  techId: string;
+  enabled: boolean;
 }
 
 /** 调试：回出生点 */
@@ -700,6 +773,7 @@ export interface TechniqueUpdateEntry {
   expToNext?: number;
   realmLv?: number;
   realm?: TechniqueRealm;
+  skillsEnabled?: boolean | null;
   name?: string | null;
   grade?: TechniqueGrade | null;
   category?: TechniqueCategory | null;
@@ -1213,6 +1287,12 @@ export interface GmDatabaseStateRes {
   compatScope?: 'persistent_documents_only';
   restoreMode?: 'replace_persistent_documents';
   note?: string;
+  automation?: {
+    retentionEnforced: boolean;
+    schedulesActive: boolean;
+    restoreRequiresMaintenance: boolean;
+    preImportBackupEnabled: boolean;
+  };
   retention: {
     hourly: number;
     daily: number;
@@ -1530,11 +1610,16 @@ export interface GmMapSummary {
   width: number;
   height: number;
   description?: string;
+  terrainRealmLv?: number;
   dangerLevel?: number;
   recommendedRealm?: string;
   portalCount: number;
   npcCount: number;
   monsterSpawnCount: number;
+  catalogMode?: 'main' | 'piece';
+  catalogGroupId?: string;
+  catalogGroupName?: string;
+  sourcePath?: string;
 }
 
 export interface GmMapListRes {

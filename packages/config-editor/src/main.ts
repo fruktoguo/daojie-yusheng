@@ -3,8 +3,8 @@ import {
   ATTR_KEY_LABELS,
   ELEMENT_KEYS,
   ELEMENT_KEY_LABELS,
-  type BasicOkRes,
   EQUIP_SLOTS,
+  type BasicOkRes,
   ITEM_TYPE_LABELS,
   MONSTER_TIER_EXP_MULTIPLIERS,
   MONSTER_TIER_LABELS,
@@ -48,6 +48,7 @@ type LocalConfigFileRes = {
 };
 
 type LocalServerStatusRes = {
+  managed: boolean;
   running: boolean;
   pid?: number;
   lastRestartAt?: string;
@@ -183,6 +184,7 @@ let currentMonsterKey: string | null = null;
 let currentMonsterDraft: MonsterTemplateRecord | null = null;
 let monsterDirty = false;
 let servicePollTimer: number | null = null;
+let serviceManaged = false;
 let mapEditor: GmMapEditor | null = null;
 let editorItems: LocalEditorItemOption[] = [];
 let editorItemById = new Map<string, LocalEditorItemOption>();
@@ -1087,7 +1089,11 @@ async function saveMonsterTemplate(): Promise<void> {
     setMonsterStatus(result.updatedMapCount > 0
       ? `已保存怪物模板，并同步更新 ${result.updatedMapCount} 张地图中的引用`
       : '已保存怪物模板');
-    setAppStatus(`已写回怪物模板 ${result.monster.name}，本地服务将自动重启`);
+    setAppStatus(
+      serviceManaged
+        ? `已写回怪物模板 ${result.monster.name}，编辑器托管的本地服务将自动重启`
+        : `已写回怪物模板 ${result.monster.name}；当前未启用服务托管，如需生效请自行重启主游戏服`,
+    );
     await loadMonsterTemplateList(currentMonsterKey);
     await refreshServiceStatus();
   } catch (error) {
@@ -1173,7 +1179,11 @@ async function saveConfigFile(): Promise<void> {
     });
     configFileDirty = false;
     setConfigFileStatus(`已保存配置文件 ${currentConfigFilePath}`);
-    setAppStatus(`已写回 ${currentConfigFilePath}，本地服务将自动重启`);
+    setAppStatus(
+      serviceManaged
+        ? `已写回 ${currentConfigFilePath}，编辑器托管的本地服务将自动重启`
+        : `已写回 ${currentConfigFilePath}；当前未启用服务托管，如需生效请自行重启主游戏服`,
+    );
     await refreshServiceStatus();
   } catch (error) {
     setConfigFileStatus(error instanceof Error ? error.message : '保存配置文件失败', true);
@@ -1183,17 +1193,23 @@ async function saveConfigFile(): Promise<void> {
 }
 
 function renderServiceStatus(status: LocalServerStatusRes): void {
-  serviceSummaryEl.textContent = status.running
-    ? `本地服务运行中 · PID ${status.pid ?? '-'}`
-    : '本地服务当前未运行';
-  serviceRunningValueEl.textContent = status.running ? '运行中' : '未运行';
-  serviceRunningMetaEl.textContent = status.running
-    ? `当前进程 PID: ${status.pid ?? '-'}`
-    : '若服务刚重启，状态会在几秒内恢复。';
+  serviceManaged = status.managed;
+  serviceSummaryEl.textContent = status.managed
+    ? status.running
+      ? `编辑器托管服务运行中 · PID ${status.pid ?? '-'}`
+      : '编辑器托管服务当前未运行'
+    : '当前未启用服务托管，编辑器不会自动拉起主游戏服';
+  serviceRunningValueEl.textContent = status.managed ? (status.running ? '运行中' : '未运行') : '未托管';
+  serviceRunningMetaEl.textContent = status.managed
+    ? status.running
+      ? `当前进程 PID: ${status.pid ?? '-'}`
+      : '若服务刚重启，状态会在几秒内恢复。'
+    : '如需启用，请使用 CONFIG_EDITOR_MANAGE_GAME_SERVER=1 重新启动编辑器。';
   serviceModeEl.textContent = status.mode;
   serviceLastRestartAtEl.textContent = status.lastRestartAt ? new Date(status.lastRestartAt).toLocaleString() : '-';
   serviceLastRestartReasonEl.textContent = status.lastRestartReason ?? '-';
   servicePidEl.textContent = status.pid ? String(status.pid) : '-';
+  serviceRestartBtn.disabled = !status.managed;
 }
 
 async function refreshServiceStatus(): Promise<void> {
@@ -1212,12 +1228,12 @@ async function restartService(): Promise<void> {
       method: 'POST',
       body: JSON.stringify({}),
     });
-    setAppStatus('已触发本地服务重启');
+    setAppStatus('已触发编辑器托管服务重启');
     await refreshServiceStatus();
   } catch (error) {
     setAppStatus(error instanceof Error ? error.message : '重启服务失败', true);
   } finally {
-    serviceRestartBtn.disabled = false;
+    serviceRestartBtn.disabled = !serviceManaged;
   }
 }
 

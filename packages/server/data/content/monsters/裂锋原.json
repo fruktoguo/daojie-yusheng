@@ -1,0 +1,734 @@
+[
+  {
+    "id": "m_cleft_blade_wraith",
+    "name": "断刃游魂",
+    "char": "魂",
+    "color": "#d7c78f",
+    "grade": "yellow",
+    "tier": "mortal_blood",
+    "level": 20,
+    "count": 5,
+    "maxAlive": 5,
+    "radius": 6,
+    "aggroRange": 6,
+    "viewRange": 7,
+    "respawnSec": 15,
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.cleft_short_blade",
+        "count": 1
+      },
+      "head": {
+        "itemId": "equip.sand_edge_headband",
+        "count": 1
+      },
+      "legs": {
+        "itemId": "equip.scar_tread_boots",
+        "count": 1
+      }
+    },
+    "attrs": {
+      "constitution": 236,
+      "spirit": 108,
+      "perception": 276,
+      "talent": 192,
+      "comprehension": 24,
+      "luck": 22
+    },
+    "statPercents": {
+      "maxHp": 118,
+      "maxQi": 72,
+      "physAtk": 144,
+      "spellAtk": 62,
+      "physDef": 122,
+      "spellDef": 96,
+      "hit": 138,
+      "dodge": 146,
+      "crit": 134,
+      "breakPower": 142,
+      "resolvePower": 96,
+      "maxQiOutputPerTick": 82,
+      "moveSpeed": 168
+    },
+    "skills": [
+      "skill.predator_pounce",
+      "skill.rending_claw"
+    ],
+    "drops": [
+      {
+        "itemId": "sword_pellet",
+        "name": "剑丸",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "cleft_iron_fragment",
+        "name": "残兵铁片",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "book.genghua_ningfeng",
+        "name": "《庚华凝锋诀》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "equip.cleft_short_blade",
+        "name": "裂痕短刃",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.sand_edge_headband",
+        "name": "砂锋束额",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.scar_tread_boots",
+        "name": "裂痕踏靴",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "pill.edge_quenching_powder",
+        "name": "淬锋散",
+        "type": "consumable",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_cleft_sand_soldier",
+    "name": "裂甲砂兵",
+    "char": "兵",
+    "color": "#c9b27c",
+    "grade": "yellow",
+    "tier": "mortal_blood",
+    "level": 23,
+    "count": 4,
+    "maxAlive": 4,
+    "radius": 6,
+    "aggroRange": 6,
+    "viewRange": 7,
+    "respawnSec": 16,
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.cleft_long_halberd",
+        "count": 1
+      },
+      "body": {
+        "itemId": "equip.gold_sand_cuirass",
+        "count": 1
+      },
+      "legs": {
+        "itemId": "equip.iron_track_boots",
+        "count": 1
+      }
+    },
+    "attrs": {
+      "constitution": 312,
+      "spirit": 132,
+      "perception": 228,
+      "talent": 264,
+      "comprehension": 26,
+      "luck": 20
+    },
+    "statPercents": {
+      "maxHp": 146,
+      "maxQi": 74,
+      "physAtk": 136,
+      "spellAtk": 66,
+      "physDef": 154,
+      "spellDef": 120,
+      "hit": 132,
+      "dodge": 108,
+      "crit": 120,
+      "breakPower": 148,
+      "resolvePower": 126,
+      "maxQiOutputPerTick": 80,
+      "moveSpeed": 106
+    },
+    "skills": [
+      "skill.brutal_ram",
+      "skill.core_smash"
+    ],
+    "drops": [
+      {
+        "itemId": "sword_pellet",
+        "name": "剑丸",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "cleft_iron_fragment",
+        "name": "残兵铁片",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "equip.cleft_long_halberd",
+        "name": "裂原长戟",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.gold_sand_cuirass",
+        "name": "砂金胸甲",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.iron_track_boots",
+        "name": "铁辙靴",
+        "type": "equipment",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_cleft_blade_sprite",
+    "name": "金砂锋魈",
+    "char": "魈",
+    "color": "#e4c780",
+    "grade": "mystic",
+    "tier": "mortal_blood",
+    "level": 26,
+    "count": 4,
+    "maxAlive": 4,
+    "radius": 7,
+    "aggroRange": 7,
+    "viewRange": 8,
+    "respawnSec": 18,
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.full_edge_blade",
+        "count": 1
+      },
+      "head": {
+        "itemId": "equip.sand_ghost_mask",
+        "count": 1
+      },
+      "legs": {
+        "itemId": "equip.chasing_edge_boots",
+        "count": 1
+      },
+      "accessory": {
+        "itemId": "equip.gold_sand_talisman",
+        "count": 1
+      }
+    },
+    "attrs": {
+      "constitution": 288,
+      "spirit": 156,
+      "perception": 376,
+      "talent": 280,
+      "comprehension": 32,
+      "luck": 28
+    },
+    "statPercents": {
+      "maxHp": 132,
+      "maxQi": 86,
+      "physAtk": 156,
+      "spellAtk": 78,
+      "physDef": 128,
+      "spellDef": 108,
+      "hit": 158,
+      "dodge": 162,
+      "crit": 146,
+      "breakPower": 158,
+      "resolvePower": 112,
+      "maxQiOutputPerTick": 104,
+      "moveSpeed": 182
+    },
+    "skills": [
+      "skill.predator_pounce",
+      "skill.echo_screech"
+    ],
+    "drops": [
+      {
+        "itemId": "sword_pellet",
+        "name": "剑丸",
+        "type": "material",
+        "count": 2
+      },
+      {
+        "itemId": "cleft_iron_fragment",
+        "name": "残兵铁片",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "equip.cleft_edge_ring",
+        "name": "裂锋指环",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.full_edge_blade",
+        "name": "满锋刀",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.sand_ghost_mask",
+        "name": "砂魇面",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.chasing_edge_boots",
+        "name": "逐锋履",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.gold_sand_talisman",
+        "name": "砂金符坠",
+        "type": "equipment",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_cleft_banner_general",
+    "name": "残兵鸣将",
+    "char": "将",
+    "color": "#d0b06f",
+    "grade": "mystic",
+    "tier": "mortal_blood",
+    "level": 29,
+    "count": 3,
+    "maxAlive": 3,
+    "radius": 7,
+    "aggroRange": 7,
+    "viewRange": 8,
+    "respawnSec": 20,
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.banner_war_halberd",
+        "count": 1
+      },
+      "head": {
+        "itemId": "equip.remnant_banner_helm",
+        "count": 1
+      },
+      "body": {
+        "itemId": "equip.cleft_scale_armor",
+        "count": 1
+      },
+      "accessory": {
+        "itemId": "equip.edge_command_token",
+        "count": 1
+      }
+    },
+    "attrs": {
+      "constitution": 376,
+      "spirit": 184,
+      "perception": 352,
+      "talent": 352,
+      "comprehension": 36,
+      "luck": 32
+    },
+    "statPercents": {
+      "maxHp": 158,
+      "maxQi": 92,
+      "physAtk": 168,
+      "spellAtk": 88,
+      "physDef": 152,
+      "spellDef": 132,
+      "hit": 160,
+      "dodge": 136,
+      "crit": 152,
+      "breakPower": 170,
+      "resolvePower": 138,
+      "maxQiOutputPerTick": 110,
+      "moveSpeed": 154
+    },
+    "skills": [
+      "skill.rending_claw",
+      "skill.void_burst"
+    ],
+    "drops": [
+      {
+        "itemId": "sword_pellet",
+        "name": "剑丸",
+        "type": "material",
+        "count": 2
+      },
+      {
+        "itemId": "blade_pattern_crystal",
+        "name": "锋纹残晶",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "equip.cleft_blade_cloak",
+        "name": "裂锋披",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.banner_war_halberd",
+        "name": "残旗战戟",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.remnant_banner_helm",
+        "name": "残旗盔",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.cleft_scale_armor",
+        "name": "裂鳞甲",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.edge_command_token",
+        "name": "锋令牌",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "pill.edge_quenching_powder",
+        "name": "淬锋散",
+        "type": "consumable",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_cleft_stele_puppet",
+    "name": "断碑锋傀",
+    "char": "傀",
+    "color": "#bfa986",
+    "grade": "mystic",
+    "tier": "variant",
+    "level": 26,
+    "count": 2,
+    "maxAlive": 2,
+    "radius": 5,
+    "aggroRange": 7,
+    "viewRange": 8,
+    "respawnSec": 24,
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.stele_edge_blade",
+        "count": 1
+      },
+      "head": {
+        "itemId": "equip.stele_pattern_helm",
+        "count": 1
+      },
+      "body": {
+        "itemId": "equip.edge_core_shell",
+        "count": 1
+      },
+      "accessory": {
+        "itemId": "equip.sealed_edge_stoneheart",
+        "count": 1
+      }
+    },
+    "attrs": {
+      "constitution": 495,
+      "spirit": 225,
+      "perception": 320,
+      "talent": 470,
+      "comprehension": 42,
+      "luck": 32
+    },
+    "statPercents": {
+      "maxHp": 154,
+      "maxQi": 94,
+      "physAtk": 148,
+      "spellAtk": 86,
+      "physDef": 166,
+      "spellDef": 146,
+      "hit": 144,
+      "dodge": 118,
+      "crit": 132,
+      "breakPower": 152,
+      "resolvePower": 158,
+      "maxQiOutputPerTick": 108,
+      "moveSpeed": 96
+    },
+    "skills": [
+      "skill.core_smash",
+      "skill.guardian_quake"
+    ],
+    "drops": [
+      {
+        "itemId": "sword_pellet",
+        "name": "剑丸",
+        "type": "material",
+        "count": 2
+      },
+      {
+        "itemId": "blade_pattern_crystal",
+        "name": "锋纹残晶",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "book.baihong_duanyue",
+        "name": "《白虹断岳典》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "equip.cleft_blade_armguard",
+        "name": "裂锋护臂",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.stele_edge_blade",
+        "name": "碑锋刃",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.stele_pattern_helm",
+        "name": "碑纹盔",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.edge_core_shell",
+        "name": "锋核壳甲",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.sealed_edge_stoneheart",
+        "name": "封锋石心",
+        "type": "equipment",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_cleft_iron_guard",
+    "name": "残旌铁卫",
+    "char": "卫",
+    "color": "#d5b97f",
+    "grade": "earth",
+    "tier": "variant",
+    "level": 29,
+    "count": 2,
+    "maxAlive": 2,
+    "radius": 5,
+    "aggroRange": 8,
+    "viewRange": 8,
+    "respawnSec": 28,
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.remnant_banner_spear",
+        "count": 1
+      },
+      "head": {
+        "itemId": "equip.bent_flag_heavy_helm",
+        "count": 1
+      },
+      "body": {
+        "itemId": "equip.old_guard_iron_armor",
+        "count": 1
+      },
+      "accessory": {
+        "itemId": "equip.counter_shock_iron_ring",
+        "count": 1
+      }
+    },
+    "attrs": {
+      "constitution": 590,
+      "spirit": 275,
+      "perception": 405,
+      "talent": 535,
+      "comprehension": 50,
+      "luck": 42
+    },
+    "statPercents": {
+      "maxHp": 166,
+      "maxQi": 98,
+      "physAtk": 172,
+      "spellAtk": 96,
+      "physDef": 174,
+      "spellDef": 152,
+      "hit": 162,
+      "dodge": 134,
+      "crit": 150,
+      "breakPower": 174,
+      "resolvePower": 168,
+      "maxQiOutputPerTick": 114,
+      "moveSpeed": 108
+    },
+    "skills": [
+      "skill.brutal_ram",
+      "skill.guardian_quake"
+    ],
+    "drops": [
+      {
+        "itemId": "sword_pellet",
+        "name": "剑丸",
+        "type": "material",
+        "count": 3
+      },
+      {
+        "itemId": "blade_pattern_crystal",
+        "name": "锋纹残晶",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "equip.cleft_blade_shoulder",
+        "name": "裂锋肩甲",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.remnant_banner_spear",
+        "name": "残旌枪",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.bent_flag_heavy_helm",
+        "name": "折旗重盔",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.old_guard_iron_armor",
+        "name": "旧卫铁甲",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.counter_shock_iron_ring",
+        "name": "反震铁环",
+        "type": "equipment",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_cleft_gate_lord",
+    "name": "庚金镇门将",
+    "char": "门",
+    "color": "#f0d48c",
+    "grade": "earth",
+    "tier": "demon_king",
+    "level": 29,
+    "count": 1,
+    "maxAlive": 1,
+    "radius": 2,
+    "aggroRange": 10,
+    "viewRange": 10,
+    "respawnSec": 45,
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.geng_gate_blade",
+        "count": 1
+      },
+      "head": {
+        "itemId": "equip.tomb_gate_general_helm",
+        "count": 1
+      },
+      "body": {
+        "itemId": "equip.gold_coffin_plate",
+        "count": 1
+      },
+      "accessory": {
+        "itemId": "equip.sealed_path_token",
+        "count": 1
+      }
+    },
+    "attrs": {
+      "constitution": 894,
+      "spirit": 408,
+      "perception": 552,
+      "talent": 744,
+      "comprehension": 72,
+      "luck": 60
+    },
+    "statPercents": {
+      "maxHp": 178,
+      "maxQi": 116,
+      "physAtk": 168,
+      "spellAtk": 104,
+      "physDef": 188,
+      "spellDef": 166,
+      "hit": 170,
+      "dodge": 142,
+      "crit": 158,
+      "breakPower": 176,
+      "resolvePower": 182,
+      "maxQiOutputPerTick": 122,
+      "moveSpeed": 112
+    },
+    "skills": [
+      "skill.core_smash",
+      "skill.void_burst"
+    ],
+    "drops": [
+      {
+        "itemId": "blade_pattern_crystal",
+        "name": "锋纹残晶",
+        "type": "material",
+        "count": 2
+      },
+      {
+        "itemId": "sword_pellet",
+        "name": "剑丸",
+        "type": "material",
+        "count": 4
+      },
+      {
+        "itemId": "book.taibai_zhuxing",
+        "name": "《太白诛形录》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "equip.cleft_blade_relic_armor",
+        "name": "裂锋遗甲",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.geng_gate_blade",
+        "name": "庚门断锋",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.tomb_gate_general_helm",
+        "name": "镇门将盔",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.gold_coffin_plate",
+        "name": "金棺重甲",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.sealed_path_token",
+        "name": "封路令",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "pill.edge_quenching_powder",
+        "name": "淬锋散",
+        "type": "consumable",
+        "count": 1
+      }
+    ]
+  }
+]

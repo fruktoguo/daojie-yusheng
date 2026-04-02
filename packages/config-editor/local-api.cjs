@@ -20,6 +20,9 @@ const SERVER_DATA_DIR = path.join(ROOT_DIR, 'packages/server/data');
 const MAPS_DIR = path.join(SERVER_DATA_DIR, 'maps');
 const CONTENT_DIR = path.join(SERVER_DATA_DIR, 'content');
 const API_PORT = Number(process.env.CONFIG_EDITOR_API_PORT || 3101);
+const MANAGE_GAME_SERVER = ['1', 'true', 'yes', 'on'].includes(
+  String(process.env.CONFIG_EDITOR_MANAGE_GAME_SERVER || '').toLowerCase(),
+);
 const TECHNIQUE_GRADES = ['mortal', 'yellow', 'mystic', 'earth', 'heaven', 'spirit', 'saint', 'emperor'];
 const MONSTER_AGGRO_MODES = ['always', 'retaliate', 'day_only', 'night_only'];
 const ITEM_TYPES = ['consumable', 'equipment', 'material', 'quest_item', 'skill_book'];
@@ -29,11 +32,14 @@ let serverRestartToken = 0;
 let restartDebounceTimer = null;
 const contentWatchers = new Map();
 const serverState = {
+  managed: MANAGE_GAME_SERVER,
   running: false,
   pid: undefined,
   lastRestartAt: undefined,
-  lastRestartReason: '初始化启动',
-  mode: 'pnpm --filter @mud/server start:dev',
+  lastRestartReason: MANAGE_GAME_SERVER ? '初始化启动' : '未启用编辑器托管',
+  mode: MANAGE_GAME_SERVER
+    ? 'pnpm --filter @mud/server start:dev'
+    : '未托管（设置 CONFIG_EDITOR_MANAGE_GAME_SERVER=1 后启用）',
 };
 
 function writeJson(res, statusCode, payload) {
@@ -551,12 +557,73 @@ function dehydrateMapDocument(document) {
   };
 }
 
+function getAllMapFilePaths() {
+  return collectJsonFiles(MAPS_DIR);
+}
+
+function findMapFilePath(mapId) {
+  return getAllMapFilePaths().find((filePath) => path.basename(filePath, '.json') === mapId) || null;
+}
+
+function getMapCatalogMeta(filePath, mainMapNameById) {
+  const relativePath = path.relative(MAPS_DIR, filePath).replaceAll(path.sep, '/');
+  const segments = relativePath.split('/').filter(Boolean);
+  if (segments[0] === 'compose' && segments.length >= 3) {
+    const groupId = segments[1];
+    return {
+      catalogMode: 'piece',
+      catalogGroupId: groupId,
+      catalogGroupName: mainMapNameById.get(groupId) || groupId,
+      sourcePath: relativePath,
+    };
+  }
+  return {
+    catalogMode: 'main',
+    sourcePath: relativePath,
+  };
+}
+
+function buildLocalEditableMapList() {
+  const entries = getAllMapFilePaths().map((filePath) => {
+    const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    const document = normalizeEditableMapDocument(hydrateMapDocument(raw));
+    return { filePath, document };
+  });
+  const mainMapNameById = new Map(
+    entries
+      .filter(({ filePath }) => !path.relative(MAPS_DIR, filePath).replaceAll(path.sep, '/').startsWith('compose/'))
+      .map(({ document }) => [document.id, document.name]),
+  );
+  return {
+    maps: entries
+      .map(({ filePath, document }) => ({
+        id: document.id,
+        name: document.name,
+        width: document.width,
+        height: document.height,
+        description: document.description,
+        dangerLevel: document.dangerLevel,
+        recommendedRealm: document.recommendedRealm,
+        portalCount: document.portals.length,
+        npcCount: document.npcs.length,
+        monsterSpawnCount: document.monsterSpawns.length,
+        ...getMapCatalogMeta(filePath, mainMapNameById),
+      }))
+      .sort((left, right) => {
+        if ((left.catalogMode ?? 'main') !== (right.catalogMode ?? 'main')) {
+          return (left.catalogMode ?? 'main').localeCompare(right.catalogMode ?? 'main', 'zh-CN');
+        }
+        if ((left.catalogGroupName ?? '') !== (right.catalogGroupName ?? '')) {
+          return (left.catalogGroupName ?? '').localeCompare(right.catalogGroupName ?? '', 'zh-CN');
+        }
+        return left.id.localeCompare(right.id, 'zh-CN');
+      }),
+  };
+}
+
 function getAllMapDocuments() {
-  const files = fs.readdirSync(MAPS_DIR)
-    .filter((file) => file.endsWith('.json'))
-    .sort((left, right) => left.localeCompare(right, 'zh-CN'));
-  return files.map((file) => {
-    const raw = JSON.parse(fs.readFileSync(path.join(MAPS_DIR, file), 'utf-8'));
+  return getAllMapFilePaths().map((filePath) => {
+    const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     return normalizeEditableMapDocument(hydrateMapDocument(raw));
   });
 }
@@ -565,8 +632,8 @@ function getMapDocument(mapId) {
   if (!/^[a-zA-Z0-9._-]+$/.test(mapId)) {
     throw new Error('非法地图 ID');
   }
-  const filePath = path.join(MAPS_DIR, `${mapId}.json`);
-  if (!fs.existsSync(filePath)) {
+  const filePath = findMapFilePath(mapId);
+  if (!filePath || !fs.existsSync(filePath)) {
     throw new Error('目标地图不存在');
   }
   return normalizeEditableMapDocument(hydrateMapDocument(JSON.parse(fs.readFileSync(filePath, 'utf-8'))));
@@ -585,7 +652,8 @@ function saveMapDocument(mapId, rawDocument) {
     throw new Error(validationError);
   }
   const persisted = dehydrateMapDocument(normalized);
-  fs.writeFileSync(path.join(MAPS_DIR, `${mapId}.json`), `${JSON.stringify(persisted, null, 2)}\n`, 'utf-8');
+  const targetPath = findMapFilePath(mapId) || path.join(MAPS_DIR, `${mapId}.json`);
+  fs.writeFileSync(targetPath, `${JSON.stringify(persisted, null, 2)}\n`, 'utf-8');
 }
 
 function listContentJsonFiles() {
@@ -676,6 +744,9 @@ function stopServerProcess() {
 }
 
 async function restartServer(reason) {
+  if (!MANAGE_GAME_SERVER) {
+    throw new Error('当前配置编辑器未托管主游戏服；如需启用，请使用 CONFIG_EDITOR_MANAGE_GAME_SERVER=1 重新启动。');
+  }
   serverRestartToken += 1;
   const token = serverRestartToken;
   await stopServerProcess();
@@ -706,6 +777,9 @@ async function restartServer(reason) {
 }
 
 function scheduleRestart(reason) {
+  if (!MANAGE_GAME_SERVER) {
+    return;
+  }
   if (restartDebounceTimer) {
     clearTimeout(restartDebounceTimer);
   }
@@ -769,7 +843,7 @@ async function handleRequest(req, res) {
 
   try {
     if (req.method === 'GET' && pathname === '/api/maps') {
-      writeJson(res, 200, buildEditableMapList(getAllMapDocuments()));
+      writeJson(res, 200, buildLocalEditableMapList());
       return;
     }
 
@@ -857,7 +931,11 @@ async function handleRequest(req, res) {
 
 async function bootstrap() {
   refreshContentWatchers();
-  await restartServer('配置编辑器启动');
+  if (MANAGE_GAME_SERVER) {
+    await restartServer('配置编辑器启动');
+  } else {
+    console.log('[config-editor] 已以独立模式启动，不会自动拉起或重启 @mud/server');
+  }
 
   const server = http.createServer((req, res) => {
     handleRequest(req, res).catch((error) => {

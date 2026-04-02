@@ -39,6 +39,118 @@
     "dangerLevel": 3,
     "totalMaps": 1
   },
+  "m_cleft_banner_general": {
+    "monsterId": "m_cleft_banner_general",
+    "monsterName": "残兵鸣将",
+    "mapId": "cleft_blade_plain",
+    "mapName": "裂锋原",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
+  "m_cleft_blade_sprite": {
+    "monsterId": "m_cleft_blade_sprite",
+    "monsterName": "金砂锋魈",
+    "mapId": "cleft_blade_plain",
+    "mapName": "裂锋原",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
+  "m_cleft_blade_wraith": {
+    "monsterId": "m_cleft_blade_wraith",
+    "monsterName": "断刃游魂",
+    "mapId": "cleft_blade_plain",
+    "mapName": "裂锋原",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
+  "m_cleft_gate_lord": {
+    "monsterId": "m_cleft_gate_lord",
+    "monsterName": "庚金镇门将",
+    "mapId": "cleft_blade_plain",
+    "mapName": "裂锋原",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
+  "m_cleft_iron_guard": {
+    "monsterId": "m_cleft_iron_guard",
+    "monsterName": "残旌铁卫",
+    "mapId": "cleft_blade_plain",
+    "mapName": "裂锋原",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
+  "m_cleft_sand_soldier": {
+    "monsterId": "m_cleft_sand_soldier",
+    "monsterName": "裂甲砂兵",
+    "mapId": "cleft_blade_plain",
+    "mapName": "裂锋原",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
+  "m_cleft_stele_puppet": {
+    "monsterId": "m_cleft_stele_puppet",
+    "monsterName": "断碑锋傀",
+    "mapId": "cleft_blade_plain",
+    "mapName": "裂锋原",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
+  "m_cold_abyss_drake": {
+    "monsterId": "m_cold_abyss_drake",
+    "monsterName": "玄溟螭影",
+    "mapId": "cold_tide_marsh",
+    "mapName": "寒汐泽",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
+  "m_cold_bridge_patrol": {
+    "monsterId": "m_cold_bridge_patrol",
+    "monsterName": "雾桥巡灵",
+    "mapId": "cold_tide_marsh",
+    "mapName": "寒汐泽",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
+  "m_cold_marsh_wraith": {
+    "monsterId": "m_cold_marsh_wraith",
+    "monsterName": "浅泽雾鬼",
+    "mapId": "cold_tide_marsh",
+    "mapName": "寒汐泽",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
+  "m_cold_mirror_shade": {
+    "monsterId": "m_cold_mirror_shade",
+    "monsterName": "寒宫镜妖",
+    "mapId": "cold_tide_marsh",
+    "mapName": "寒汐泽",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
+  "m_cold_moonscale": {
+    "monsterId": "m_cold_moonscale",
+    "monsterName": "月沼鲛影",
+    "mapId": "cold_tide_marsh",
+    "mapName": "寒汐泽",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
+  "m_cold_pattern_guard": {
+    "monsterId": "m_cold_pattern_guard",
+    "monsterName": "冰纹水卒",
+    "mapId": "cold_tide_marsh",
+    "mapName": "寒汐泽",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
+  "m_cold_tide_sprite": {
+    "monsterId": "m_cold_tide_sprite",
+    "monsterName": "寒汐蜉灵",
+    "mapId": "cold_tide_marsh",
+    "mapName": "寒汐泽",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
   "m_crystal_bat": {
     "monsterId": "m_crystal_bat",
     "monsterName": "晶背蝠",
@@ -47,12 +159,124 @@
     "dangerLevel": 3,
     "totalMaps": 1
   },
+  "m_deepvein_armor_spirit": {
+    "monsterId": "m_deepvein_armor_spirit",
+    "monsterName": "坠岩甲灵",
+    "mapId": "deepvein_ridge",
+    "mapName": "厚脉岭",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
+  "m_deepvein_croc": {
+    "monsterId": "m_deepvein_croc",
+    "monsterName": "黄岩鼍兽",
+    "mapId": "deepvein_ridge",
+    "mapName": "厚脉岭",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
+  "m_deepvein_earth_effigy": {
+    "monsterId": "m_deepvein_earth_effigy",
+    "monsterName": "玄岳地傀",
+    "mapId": "deepvein_ridge",
+    "mapName": "厚脉岭",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
+  "m_deepvein_heavy_guard": {
+    "monsterId": "m_deepvein_heavy_guard",
+    "monsterName": "裂岭重卫",
+    "mapId": "deepvein_ridge",
+    "mapName": "厚脉岭",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
+  "m_deepvein_ridge_warden": {
+    "monsterId": "m_deepvein_ridge_warden",
+    "monsterName": "岳纹镇灵",
+    "mapId": "deepvein_ridge",
+    "mapName": "厚脉岭",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
+  "m_deepvein_stele_bearer": {
+    "monsterId": "m_deepvein_stele_bearer",
+    "monsterName": "厚土负碑者",
+    "mapId": "deepvein_ridge",
+    "mapName": "厚脉岭",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
+  "m_deepvein_stonebound": {
+    "monsterId": "m_deepvein_stonebound",
+    "monsterName": "沉脉石奴",
+    "mapId": "deepvein_ridge",
+    "mapName": "厚脉岭",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
   "m_dust_vulture": {
     "monsterId": "m_dust_vulture",
     "monsterName": "裂喙秃鹫",
     "mapId": "wildlands",
     "mapName": "荒野",
     "dangerLevel": 2,
+    "totalMaps": 1
+  },
+  "m_ember_attendant": {
+    "monsterId": "m_ember_attendant",
+    "monsterName": "炉心灼侍",
+    "mapId": "emberfall_court",
+    "mapName": "赤陨庭",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
+  "m_ember_bone_patrol": {
+    "monsterId": "m_ember_bone_patrol",
+    "monsterName": "炽骨巡卒",
+    "mapId": "emberfall_court",
+    "mapName": "赤陨庭",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
+  "m_ember_flame_guard": {
+    "monsterId": "m_ember_flame_guard",
+    "monsterName": "流火戍灵",
+    "mapId": "emberfall_court",
+    "mapName": "赤陨庭",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
+  "m_ember_furnace_lord": {
+    "monsterId": "m_ember_furnace_lord",
+    "monsterName": "离火炉君",
+    "mapId": "emberfall_court",
+    "mapName": "赤陨庭",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
+  "m_ember_lizard": {
+    "monsterId": "m_ember_lizard",
+    "monsterName": "熔纹火蜥",
+    "mapId": "emberfall_court",
+    "mapName": "赤陨庭",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
+  "m_ember_moth": {
+    "monsterId": "m_ember_moth",
+    "monsterName": "焦土火蛾",
+    "mapId": "emberfall_court",
+    "mapName": "赤陨庭",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
+  "m_ember_whelp": {
+    "monsterId": "m_ember_whelp",
+    "monsterName": "赤烬蜥幼",
+    "mapId": "emberfall_court",
+    "mapName": "赤陨庭",
+    "dangerLevel": 4,
     "totalMaps": 1
   },
   "m_fallen_palace_lord": {
@@ -101,6 +325,62 @@
     "mapId": "bamboo_forest_mantis_court",
     "mapName": "青竹林·青螂巢庭",
     "dangerLevel": 3,
+    "totalMaps": 1
+  },
+  "m_guizang_chaos_sentry": {
+    "monsterId": "m_guizang_chaos_sentry",
+    "monsterName": "乱炁守侍",
+    "mapId": "guizang_vein_cavern",
+    "mapName": "归藏脉窟",
+    "dangerLevel": 5,
+    "totalMaps": 1
+  },
+  "m_guizang_dualphase_beast": {
+    "monsterId": "m_guizang_dualphase_beast",
+    "monsterName": "双相脉兽",
+    "mapId": "guizang_vein_cavern",
+    "mapName": "归藏脉窟",
+    "dangerLevel": 5,
+    "totalMaps": 1
+  },
+  "m_guizang_failed_foundation": {
+    "monsterId": "m_guizang_failed_foundation",
+    "monsterName": "未成道基",
+    "mapId": "guizang_vein_cavern",
+    "mapName": "归藏脉窟",
+    "dangerLevel": 5,
+    "totalMaps": 1
+  },
+  "m_guizang_fivephase_effigy": {
+    "monsterId": "m_guizang_fivephase_effigy",
+    "monsterName": "五炁砂偶",
+    "mapId": "guizang_vein_cavern",
+    "mapName": "归藏脉窟",
+    "dangerLevel": 5,
+    "totalMaps": 1
+  },
+  "m_guizang_reflux_attendant": {
+    "monsterId": "m_guizang_reflux_attendant",
+    "monsterName": "逆流残侍",
+    "mapId": "guizang_vein_cavern",
+    "mapName": "归藏脉窟",
+    "dangerLevel": 5,
+    "totalMaps": 1
+  },
+  "m_guizang_ruined_relic": {
+    "monsterId": "m_guizang_ruined_relic",
+    "monsterName": "乱基守遗",
+    "mapId": "guizang_vein_cavern",
+    "mapName": "归藏脉窟",
+    "dangerLevel": 5,
+    "totalMaps": 1
+  },
+  "m_guizang_tangled_wisp": {
+    "monsterId": "m_guizang_tangled_wisp",
+    "monsterName": "错脉游灵",
+    "mapId": "guizang_vein_cavern",
+    "mapName": "归藏脉窟",
+    "dangerLevel": 5,
     "totalMaps": 1
   },
   "m_iron_devour_lord": {
@@ -286,6 +566,54 @@
     "mapName": "噬魂兽谷",
     "dangerLevel": 5,
     "totalMaps": 1
+  },
+  "m_verdant_lesser_sprite": {
+    "monsterId": "m_verdant_lesser_sprite",
+    "monsterName": "青萝小妖",
+    "mapId": "verdant_vine_vale_01_entry",
+    "mapName": "青萝谷·01回渡药圃",
+    "dangerLevel": 3,
+    "totalMaps": 2
+  },
+  "m_verdant_marrow_sprite": {
+    "monsterId": "m_verdant_marrow_sprite",
+    "monsterName": "碧髓树魈",
+    "mapId": "verdant_vine_vale_05_inner_hollow",
+    "mapName": "青萝谷·05盘根内坳",
+    "dangerLevel": 4,
+    "totalMaps": 2
+  },
+  "m_verdant_parasitic_child": {
+    "monsterId": "m_verdant_parasitic_child",
+    "monsterName": "寄脉藤童",
+    "mapId": "verdant_vine_vale_02_slope",
+    "mapName": "青萝谷·02引藤坡",
+    "dangerLevel": 3,
+    "totalMaps": 2
+  },
+  "m_verdant_siphon_flower": {
+    "monsterId": "m_verdant_siphon_flower",
+    "monsterName": "吸灵花妖",
+    "mapId": "verdant_vine_vale_03_bridge",
+    "mapName": "青萝谷·03双桥岔谷",
+    "dangerLevel": 3,
+    "totalMaps": 2
+  },
+  "m_verdant_vein_mother": {
+    "monsterId": "m_verdant_vein_mother",
+    "monsterName": "噬脉藤母",
+    "mapId": "verdant_vine_vale_06_heart_gate",
+    "mapName": "青萝谷·06心藤坳口",
+    "dangerLevel": 4,
+    "totalMaps": 1
+  },
+  "m_verdant_wither_guard": {
+    "monsterId": "m_verdant_wither_guard",
+    "monsterName": "枯荣藤卫",
+    "mapId": "verdant_vine_vale_04_garden",
+    "mapName": "青萝谷·04噬灵妖圃",
+    "dangerLevel": 4,
+    "totalMaps": 2
   },
   "m_void_hunter": {
     "monsterId": "m_void_hunter",

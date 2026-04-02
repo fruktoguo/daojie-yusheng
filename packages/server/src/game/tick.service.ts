@@ -2459,17 +2459,26 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   private toClientVisibleTiles(viewer: PlayerState, tiles: VisibleTile[][]): VisibleTile[][] {
-    return tiles.map((row) => row.map((tile) => this.toClientVisibleTile(viewer, tile)));
+    const originX = viewer.x - Math.floor(tiles[0]?.length ? tiles[0].length / 2 : 0);
+    const originY = viewer.y - Math.floor(tiles.length / 2);
+    return tiles.map((row, rowIndex) => row.map((tile, columnIndex) => (
+      this.toClientVisibleTile(viewer, tile, originX + columnIndex, originY + rowIndex)
+    )));
   }
 
-  private toClientVisibleTile(viewer: PlayerState, tile: VisibleTile): VisibleTile {
+  private toClientVisibleTile(viewer: PlayerState, tile: VisibleTile, x: number, y: number): VisibleTile {
     if (!tile) {
       return null;
     }
+    const auraResources = this.mapService.getTileAuraResourceValues(viewer.mapId, x, y);
     return {
       ...this.cloneStructured(tile),
       aura: viewer.senseQiActive
-        ? this.qiProjectionService.getAuraLevel(viewer, tile.aura ?? 0, this.auraLevelBaseValue)
+        ? (
+          auraResources.length > 0
+            ? this.qiProjectionService.getAuraLevelFromResources(viewer, auraResources, this.auraLevelBaseValue)
+            : this.qiProjectionService.getAuraLevel(viewer, tile.aura ?? 0, this.auraLevelBaseValue)
+        )
         : 0,
     };
   }

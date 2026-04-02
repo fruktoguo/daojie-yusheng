@@ -695,10 +695,212 @@
       ]
     },
     {
+      "fromRealmLv": 19,
+      "toRealmLv": 20,
+      "title": "二层养脉",
+      "requirements": [
+        {
+          "id": "bw_19_20_nurturing_leaf",
+          "type": "item",
+          "itemId": "nurturing_leaf",
+          "count": 2,
+          "label": "备齐养脉叶 2 片，温养新成经脉",
+          "increaseAttrRequirementPct": 12
+        },
+        {
+          "id": "bw_19_20_verdant_vine",
+          "type": "item",
+          "itemId": "verdant_vine",
+          "count": 1,
+          "label": "备齐青髓藤 1 段，束住初生木行气",
+          "increaseAttrRequirementPct": 12
+        },
+        {
+          "id": "bw_19_20_yellow_tech",
+          "type": "technique",
+          "minGrade": "yellow",
+          "count": 1,
+          "label": "至少掌握 1 门黄阶功法",
+          "increaseAttrRequirementPct": 40
+        },
+        {
+          "id": "bw_19_20_spirit",
+          "type": "attribute",
+          "attr": "spirit",
+          "minValue": 300,
+          "label": "神识达到 300"
+        }
+      ]
+    },
+    {
+      "fromRealmLv": 20,
+      "toRealmLv": 21,
+      "title": "三层凝露",
+      "requirements": [
+        {
+          "id": "bw_20_21_coldspirit_dew",
+          "type": "item",
+          "itemId": "coldspirit_dew",
+          "count": 2,
+          "label": "备齐寒魄露 2 滴，压住浮躁杂气",
+          "increaseAttrRequirementPct": 12
+        },
+        {
+          "id": "bw_20_21_moonwell_frost_sand",
+          "type": "item",
+          "itemId": "moonwell_frost_sand",
+          "count": 1,
+          "label": "备齐月井冰砂 1 份，凝实内息水相",
+          "increaseAttrRequirementPct": 12
+        },
+        {
+          "id": "bw_20_21_yellow_tech",
+          "type": "technique",
+          "minGrade": "yellow",
+          "minLevel": 2,
+          "count": 1,
+          "label": "至少有 1 门黄阶功法修至 2 级",
+          "increaseAttrRequirementPct": 50
+        },
+        {
+          "id": "bw_20_21_spirit",
+          "type": "attribute",
+          "attr": "spirit",
+          "minValue": 350,
+          "label": "神识达到 350"
+        }
+      ]
+    },
+    {
+      "fromRealmLv": 21,
+      "toRealmLv": 22,
+      "title": "四层承岳",
+      "requirements": [
+        {
+          "id": "bw_21_22_earthbearing_stone",
+          "type": "item",
+          "itemId": "earthbearing_stone",
+          "count": 2,
+          "label": "备齐承脉石 2 块，压稳周身气机",
+          "increaseAttrRequirementPct": 12
+        },
+        {
+          "id": "bw_21_22_thickrock_core",
+          "type": "item",
+          "itemId": "thickrock_core",
+          "count": 1,
+          "label": "备齐厚岩核 1 枚，补足脉轮承载",
+          "increaseAttrRequirementPct": 12
+        },
+        {
+          "id": "bw_21_22_yellow_tech",
+          "type": "technique",
+          "minGrade": "yellow",
+          "minLevel": 4,
+          "count": 1,
+          "label": "至少有 1 门黄阶功法修至 4 级",
+          "increaseAttrRequirementPct": 60
+        },
+        {
+          "id": "bw_21_22_spirit",
+          "type": "attribute",
+          "attr": "spirit",
+          "minValue": 400,
+          "label": "神识达到 400"
+        }
+      ]
+    },
+    {
+      "fromRealmLv": 22,
+      "toRealmLv": 23,
+      "title": "五层熬火",
+      "requirements": [
+        {
+          "id": "bw_22_23_ember_sand",
+          "type": "item",
+          "itemId": "ember_sand",
+          "count": 2,
+          "label": "备齐陨火砂 2 份，熬炼丹田火候",
+          "increaseAttrRequirementPct": 12
+        },
+        {
+          "id": "bw_22_23_embershard_char",
+          "type": "item",
+          "itemId": "embershard_char",
+          "count": 1,
+          "label": "备齐炎髓炭 1 块，借余烬逼炁回炉",
+          "increaseAttrRequirementPct": 12
+        },
+        {
+          "id": "bw_22_23_yellow_tech",
+          "type": "technique",
+          "minGrade": "yellow",
+          "minLevel": 6,
+          "count": 1,
+          "label": "至少有 1 门黄阶功法修至 6 级",
+          "increaseAttrRequirementPct": 70
+        },
+        {
+          "id": "bw_22_23_spirit",
+          "type": "attribute",
+          "attr": "spirit",
+          "minValue": 450,
+          "label": "神识达到 450"
+        }
+      ]
+    },
+    {
+      "fromRealmLv": 23,
+      "toRealmLv": 24,
+      "title": "六层凝锋",
+      "requirements": [
+        {
+          "id": "bw_23_24_sword_pellet",
+          "type": "item",
+          "itemId": "sword_pellet",
+          "count": 2,
+          "label": "备齐剑丸 2 枚，磨出一口凝练锋息",
+          "increaseAttrRequirementPct": 12
+        },
+        {
+          "id": "bw_23_24_cleft_iron_fragment",
+          "type": "item",
+          "itemId": "cleft_iron_fragment",
+          "count": 1,
+          "label": "备齐残兵铁片 1 枚，借旧兵余意束炁",
+          "increaseAttrRequirementPct": 12
+        },
+        {
+          "id": "bw_23_24_yellow_minor",
+          "type": "technique",
+          "minGrade": "yellow",
+          "minRealm": "Minor",
+          "count": 1,
+          "label": "至少有 1 门黄阶功法达到小成",
+          "increaseAttrRequirementPct": 75
+        },
+        {
+          "id": "bw_23_24_spirit",
+          "type": "attribute",
+          "attr": "spirit",
+          "minValue": 500,
+          "label": "神识达到 500"
+        }
+      ]
+    },
+    {
       "fromRealmLv": 24,
       "toRealmLv": 25,
       "title": "七层续炁",
       "requirements": [
+        {
+          "id": "bw_24_25_spiritwood_heart",
+          "type": "item",
+          "itemId": "spiritwood_heart",
+          "count": 1,
+          "label": "备齐生灵木心 1 枚，续起周天生机",
+          "increaseAttrRequirementPct": 15
+        },
         {
           "id": "bw_24_25_yellow_tech",
           "type": "technique",
@@ -711,8 +913,8 @@
           "id": "bw_24_25_spirit",
           "type": "attribute",
           "attr": "spirit",
-          "minValue": 13,
-          "label": "神识达到 13"
+          "minValue": 550,
+          "label": "神识达到 550"
         }
       ]
     },
@@ -721,6 +923,14 @@
       "toRealmLv": 26,
       "title": "八层聚海",
       "requirements": [
+        {
+          "id": "bw_25_26_cleantide_essence",
+          "type": "item",
+          "itemId": "cleantide_essence",
+          "count": 1,
+          "label": "备齐净潮水精 1 团，洗去周身滞炁",
+          "increaseAttrRequirementPct": 15
+        },
         {
           "id": "bw_25_26_yellow_tech",
           "type": "technique",
@@ -733,8 +943,8 @@
           "id": "bw_25_26_spirit",
           "type": "attribute",
           "attr": "spirit",
-          "minValue": 16,
-          "label": "神识达到 16"
+          "minValue": 600,
+          "label": "神识达到 600"
         }
       ]
     },
@@ -743,6 +953,14 @@
       "toRealmLv": 27,
       "title": "九层凝真",
       "requirements": [
+        {
+          "id": "bw_26_27_stonegall_core",
+          "type": "item",
+          "itemId": "stonegall_core",
+          "count": 1,
+          "label": "备齐镇岳石胆 1 枚，镇定九转真息",
+          "increaseAttrRequirementPct": 15
+        },
         {
           "id": "bw_26_27_yellow_tech",
           "type": "technique",
@@ -755,8 +973,8 @@
           "id": "bw_26_27_spirit",
           "type": "attribute",
           "attr": "spirit",
-          "minValue": 20,
-          "label": "神识达到 20"
+          "minValue": 650,
+          "label": "神识达到 650"
         }
       ]
     },
@@ -765,6 +983,14 @@
       "toRealmLv": 28,
       "title": "巅峰临门",
       "requirements": [
+        {
+          "id": "bw_27_28_furnace_red_crystal",
+          "type": "item",
+          "itemId": "furnace_red_crystal",
+          "count": 1,
+          "label": "备齐炉心赤晶 1 枚，以烈性逼近巅峰",
+          "increaseAttrRequirementPct": 15
+        },
         {
           "id": "bw_27_28_yellow_major",
           "type": "technique",
@@ -778,8 +1004,8 @@
           "id": "bw_27_28_spirit",
           "type": "attribute",
           "attr": "spirit",
-          "minValue": 25,
-          "label": "神识达到 25"
+          "minValue": 700,
+          "label": "神识达到 700"
         }
       ]
     },
@@ -788,6 +1014,14 @@
       "toRealmLv": 29,
       "title": "圆满归一",
       "requirements": [
+        {
+          "id": "bw_28_29_blade_pattern_crystal",
+          "type": "item",
+          "itemId": "blade_pattern_crystal",
+          "count": 1,
+          "label": "备齐锋纹残晶 1 枚，收束满身散锋",
+          "increaseAttrRequirementPct": 18
+        },
         {
           "id": "bw_28_29_yellow_major",
           "type": "technique",
@@ -801,8 +1035,8 @@
           "id": "bw_28_29_spirit",
           "type": "attribute",
           "attr": "spirit",
-          "minValue": 31,
-          "label": "神识达到 31"
+          "minValue": 750,
+          "label": "神识达到 750"
         }
       ]
     },
@@ -811,6 +1045,30 @@
       "toRealmLv": 30,
       "title": "半步筑基",
       "requirements": [
+        {
+          "id": "bw_29_30_fivephase_dust",
+          "type": "item",
+          "itemId": "fivephase_dust",
+          "count": 3,
+          "label": "备齐五炁尘 3 份，先试五行并流",
+          "increaseAttrRequirementPct": 18
+        },
+        {
+          "id": "bw_29_30_guizang_vein_core",
+          "type": "item",
+          "itemId": "guizang_vein_core",
+          "count": 2,
+          "label": "备齐归藏脉核 2 枚，压住合脉反冲",
+          "increaseAttrRequirementPct": 18
+        },
+        {
+          "id": "bw_29_30_half_base_embryo",
+          "type": "item",
+          "itemId": "half_base_embryo",
+          "count": 1,
+          "label": "备齐半基灵胚 1 枚，借旧基胚影摸向道基",
+          "increaseAttrRequirementPct": 20
+        },
         {
           "id": "bw_29_30_yellow_perfect",
           "type": "technique",
@@ -824,8 +1082,8 @@
           "id": "bw_29_30_spirit",
           "type": "attribute",
           "attr": "spirit",
-          "minValue": 38,
-          "label": "神识达到 38"
+          "minValue": 800,
+          "label": "神识达到 800"
         }
       ]
     }

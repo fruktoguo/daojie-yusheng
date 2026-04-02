@@ -97,25 +97,26 @@ export class PathWorkerPoolService implements OnModuleDestroy {
 
   private createWorkerSlot(id: number): WorkerSlot {
     const worker = new Worker(this.workerPath);
+    const eventedWorker = worker as Worker & NodeJS.EventEmitter;
     const slot: WorkerSlot = {
       id,
       worker,
       currentTask: null,
     };
 
-    worker.on('message', (result: PathfindingTaskResult) => {
+    eventedWorker.on('message', (result: PathfindingTaskResult) => {
       slot.currentTask = null;
       this.performanceService.recordPathfindingCompleted(result);
       this.syncWorkerState();
       this.completedResults.push(result);
     });
 
-    worker.on('error', (error: Error) => {
+    eventedWorker.on('error', (error: Error) => {
       this.logger.error(`寻路 worker #${id} 异常: ${error.message}`);
       this.failActiveTask(slot);
     });
 
-    worker.on('exit', (code) => {
+    eventedWorker.on('exit', (code: number) => {
       if (!this.shuttingDown && code !== 0) {
         this.failActiveTask(slot);
       }

@@ -11,6 +11,7 @@ import {
   ATTR_TO_NUMERIC_WEIGHTS,
   ATTR_TO_PERCENT_NUMERIC_WEIGHTS,
   DEFAULT_PLAYER_REALM_STAGE,
+  ELEMENT_KEYS,
   EQUIP_SLOTS,
   MONSTER_GLOBAL_STAT_PERCENTS,
   MONSTER_GRADE_STAT_PERCENTS,
@@ -381,10 +382,10 @@ function applyAttrWeight(target: NumericStats, attrs: Attributes): void {
 }
 
 function applyPercentBonuses(target: NumericStats, bonuses: PercentBonusAccumulator): void {
-  if (bonuses.maxHp !== 0) target.maxHp *= 1 + bonuses.maxHp / 100;
-  if (bonuses.maxQi !== 0) target.maxQi *= 1 + bonuses.maxQi / 100;
-  if (bonuses.physAtk !== 0) target.physAtk *= 1 + bonuses.physAtk / 100;
-  if (bonuses.spellAtk !== 0) target.spellAtk *= 1 + bonuses.spellAtk / 100;
+  if (bonuses.maxHp !== 0) target.maxHp *= percentModifierToMultiplier(bonuses.maxHp);
+  if (bonuses.maxQi !== 0) target.maxQi *= percentModifierToMultiplier(bonuses.maxQi);
+  if (bonuses.physAtk !== 0) target.physAtk *= percentModifierToMultiplier(bonuses.physAtk);
+  if (bonuses.spellAtk !== 0) target.spellAtk *= percentModifierToMultiplier(bonuses.spellAtk);
 }
 
 function mergeMonsterEquipmentAttrs(

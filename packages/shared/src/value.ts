@@ -476,7 +476,7 @@ function formatEquipmentStatValue(key: string, value: number): string {
   return formatNumber(value);
 }
 
-function describeAttrBonus(attrs?: Partial<Attributes>): string[] {
+function describeAttrBonus(attrs?: Partial<Attributes>, mode: 'flat' | 'percent' = 'flat'): string[] {
   if (!attrs) {
     return [];
   }
@@ -486,12 +486,12 @@ function describeAttrBonus(attrs?: Partial<Attributes>): string[] {
     if (!amount) {
       continue;
     }
-    parts.push(`${getAttrLabel(key)}+${formatNumber(amount)}`);
+    parts.push(`${getAttrLabel(key)}+${mode === 'percent' ? `${formatNumber(amount)}%` : formatNumber(amount)}`);
   }
   return parts;
 }
 
-function describeStatBonus(stats?: PartialNumericStats): string[] {
+function describeStatBonus(stats?: PartialNumericStats, mode: 'flat' | 'percent' = 'flat'): string[] {
   if (!stats) {
     return [];
   }
@@ -501,16 +501,16 @@ function describeStatBonus(stats?: PartialNumericStats): string[] {
     if (!amount) {
       continue;
     }
-    parts.push(`${getNumericStatLabel(key)}+${formatEquipmentStatValue(key, amount)}`);
+    parts.push(`${getNumericStatLabel(key)}+${mode === 'percent' ? `${formatNumber(amount)}%` : formatEquipmentStatValue(key, amount)}`);
   }
   for (const element of ELEMENT_KEYS) {
     const bonus = stats.elementDamageBonus?.[element];
     if (bonus) {
-      parts.push(`${element}行增伤+${formatNumber(bonus)}`);
+      parts.push(`${element}行增伤+${mode === 'percent' ? `${formatNumber(bonus)}%` : formatNumber(bonus)}`);
     }
     const reduce = stats.elementDamageReduce?.[element];
     if (reduce) {
-      parts.push(`${element}行减伤+${formatNumber(reduce)}`);
+      parts.push(`${element}行减伤+${mode === 'percent' ? `${formatNumber(reduce)}%` : formatNumber(reduce)}`);
     }
   }
   return parts;
@@ -565,9 +565,9 @@ function describeEquipmentEffect(effect: EquipmentEffectDef): string {
   const conditionText = describeEquipmentConditions(effect);
   switch (effect.type) {
     case 'stat_aura':
-      return `常驻特效:${[...describeAttrBonus(effect.attrs), ...describeStatBonus(effect.stats)].join(' / ') || '无数值变化'}${conditionText}`;
+      return `常驻特效:${[...describeAttrBonus(effect.attrs, effect.attrMode), ...describeStatBonus(effect.stats, effect.statMode)].join(' / ') || '无数值变化'}${conditionText}`;
     case 'progress_boost':
-      return `推进特效:${[...describeAttrBonus(effect.attrs), ...describeStatBonus(effect.stats)].join(' / ') || '无数值变化'}${conditionText}`;
+      return `推进特效:${[...describeAttrBonus(effect.attrs, effect.attrMode), ...describeStatBonus(effect.stats, effect.statMode)].join(' / ') || '无数值变化'}${conditionText}`;
     case 'periodic_cost': {
       const amount = effect.mode === 'flat'
         ? formatNumber(effect.value)
@@ -591,7 +591,7 @@ function describeEquipmentEffect(effect: EquipmentEffectDef): string {
       if (effect.chance !== undefined) {
         metaParts.push(`概率${formatNumber(effect.chance * 100)}%`);
       }
-      const effectParts = [...describeAttrBonus(effect.buff.attrs), ...describeStatBonus(effect.buff.stats)];
+      const effectParts = [...describeAttrBonus(effect.buff.attrs, effect.buff.attrMode), ...describeStatBonus(effect.buff.stats, effect.buff.statMode)];
       const descPart = effect.buff.desc ? `；${effect.buff.desc}` : '';
       return `触发特效:${metaParts.join(' · ')}，获得${effect.buff.name}${conditionText}${effectParts.length > 0 ? `，效果:${effectParts.join(' / ')}` : ''}${descPart}`;
     }

@@ -46,6 +46,10 @@ export class QiProjectionService {
     return this.getFamilyVisibility(player, 'aura');
   }
 
+  getResourceVisibility(player: PlayerState, resourceKey: string): QiVisibilityLevel {
+    return this.getResourceProjection(player, resourceKey).visibility;
+  }
+
   getAuraEfficiencyBp(player: PlayerState): number {
     return this.getResourceProjection(player, buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR)).efficiencyBp;
   }
@@ -64,6 +68,10 @@ export class QiProjectionService {
       return 0;
     }
     return projectQiValue(rawValue, projection.efficiencyBp);
+  }
+
+  getResourceAuraLevel(player: PlayerState, resourceKey: string, rawValue: number, baseValue: number): number {
+    return getAuraLevel(this.getEffectiveResourceValue(player, resourceKey, rawValue), baseValue);
   }
 
   getEffectiveAuraValueFromResources(player: PlayerState, resources: Iterable<{ key: string; value: number }>): number {

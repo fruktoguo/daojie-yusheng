@@ -17,6 +17,7 @@ import {
   clonePlainValue,
 } from '@mud/shared';
 import {
+  deleteRememberedMap,
   getRememberedMarkers,
   hydrateTileCacheFromMemory,
   rememberVisibleMarkers,
@@ -27,6 +28,7 @@ import {
   cacheMapMeta,
   cacheMapSnapshot,
   cacheUnlockedMinimapLibrary,
+  getCachedMapMeta,
   getCachedMapSnapshot,
 } from '../../map-static-cache';
 import type {
@@ -105,6 +107,55 @@ function buildThreatArrowKey(ownerId: string, targetId: string): string {
   return `${ownerId}->${targetId}`;
 }
 
+function isSameMinimapSnapshot(left: MapMinimapSnapshot | null, right: MapMinimapSnapshot | null): boolean {
+  if (!left || !right) {
+    return left === right;
+  }
+  if (left.width !== right.width || left.height !== right.height || left.terrainRows.length !== right.terrainRows.length || left.markers.length !== right.markers.length) {
+    return false;
+  }
+  for (let index = 0; index < left.terrainRows.length; index += 1) {
+    if (left.terrainRows[index] !== right.terrainRows[index]) {
+      return false;
+    }
+  }
+  for (let index = 0; index < left.markers.length; index += 1) {
+    const leftMarker = left.markers[index];
+    const rightMarker = right.markers[index];
+    if (
+      leftMarker.id !== rightMarker.id
+      || leftMarker.kind !== rightMarker.kind
+      || leftMarker.x !== rightMarker.x
+      || leftMarker.y !== rightMarker.y
+      || leftMarker.label !== rightMarker.label
+      || leftMarker.detail !== rightMarker.detail
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function shouldResetRememberedMap(mapId: string, nextMeta: MapMeta | null | undefined, nextSnapshot: MapMinimapSnapshot | null | undefined): boolean {
+  const cachedMeta = getCachedMapMeta(mapId);
+  if (cachedMeta && nextMeta) {
+    if (
+      cachedMeta.width !== nextMeta.width
+      || cachedMeta.height !== nextMeta.height
+      || cachedMeta.name !== nextMeta.name
+      || cachedMeta.floorLevel !== nextMeta.floorLevel
+      || cachedMeta.floorName !== nextMeta.floorName
+    ) {
+      return true;
+    }
+  }
+  const cachedSnapshot = getCachedMapSnapshot(mapId);
+  if (cachedSnapshot && nextSnapshot && !isSameMinimapSnapshot(cachedSnapshot, nextSnapshot)) {
+    return true;
+  }
+  return false;
+}
+
 export class MapStore {
   private mapMeta: MapMeta | null = null;
   private player: PlayerState | null = null;
@@ -131,6 +182,9 @@ export class MapStore {
   applyInit(data: S2C_Init): void {
     this.player = cloneJson(data.self);
     this.time = data.time ?? null;
+    if (shouldResetRememberedMap(this.player.mapId, data.mapMeta, data.minimap ?? null)) {
+      deleteRememberedMap(this.player.mapId);
+    }
     this.mapMeta = data.mapMeta;
     cacheMapMeta(data.mapMeta);
     this.visibleMinimapMarkers = cloneJson(data.visibleMinimapMarkers ?? []);
@@ -170,6 +224,9 @@ export class MapStore {
       this.mapMeta = data.mapMeta;
     }
     if (data.mapMeta) {
+      if (shouldResetRememberedMap(data.mapId, data.mapMeta, data.minimap)) {
+        deleteRememberedMap(data.mapId);
+      }
       cacheMapMeta(data.mapMeta);
     }
     if (data.minimapLibrary) {

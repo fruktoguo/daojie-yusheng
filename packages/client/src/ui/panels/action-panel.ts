@@ -62,6 +62,10 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+function getSkillEnabledTechniques(player: PlayerState): PlayerState['techniques'] {
+  return player.techniques.filter((technique) => technique.skillsEnabled !== false);
+}
+
 export class ActionPanel {
   private static readonly SKILL_MANAGEMENT_MODAL_OWNER = 'action-panel-skill-management';
   private pane = document.getElementById('pane-action')!;
@@ -174,9 +178,10 @@ export class ActionPanel {
   }
 
   private syncPlayerContext(player: PlayerState): void {
-    const knownSkills = player.techniques.flatMap((technique) => technique.skills);
+    const enabledTechniques = getSkillEnabledTechniques(player);
+    const knownSkills = enabledTechniques.flatMap((technique) => technique.skills);
     this.skillLookup = new Map(
-      player.techniques.flatMap((technique) => technique.skills.map((skill) => [
+      enabledTechniques.flatMap((technique) => technique.skills.map((skill) => [
         skill.id,
         { skill, techLevel: technique.level, knownSkills },
       ] as const)),
@@ -595,7 +600,7 @@ export class ActionPanel {
     const autoBattleSkillMap = new Map((player.autoBattleSkills ?? []).map((entry, index) => [entry.skillId, { entry, index }] as const));
     const playerRealmStage = player.realm?.stage ?? DEFAULT_PLAYER_REALM_STAGE;
     const fallback: ActionDef[] = [];
-    for (const technique of player.techniques) {
+    for (const technique of getSkillEnabledTechniques(player)) {
       for (const skill of technique.skills ?? []) {
         const unlockPlayerRealm = skill.unlockPlayerRealm ?? DEFAULT_PLAYER_REALM_STAGE;
         if (technique.level < resolveSkillUnlockLevel(skill) || playerRealmStage < unlockPlayerRealm) {

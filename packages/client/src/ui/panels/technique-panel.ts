@@ -9,12 +9,13 @@ import {
   calcTechniqueFinalAttrBonus,
   calcTechniqueNextLevelGains,
   deriveTechniqueRealm,
-  getTechniqueExpLevelAdjustment,
   getTechniqueMaxLevel,
+  getTechniqueExpLevelAdjustment,
   PlayerState,
   resolveSkillUnlockLevel,
   TECHNIQUE_ATTR_KEYS,
   TECHNIQUE_EXP_LEVEL_DELTA_MULTIPLIER_STEP,
+  TECHNIQUE_GRADE_ORDER,
   TechniqueCategory,
   TechniqueLayerDef,
   TechniqueRealm,
@@ -51,6 +52,10 @@ const TECHNIQUE_STATUS_FILTERS: Array<{ value: TechniqueStatusFilter; label: str
   { value: 'completed', label: '已圆满' },
   { value: 'all', label: '全部' },
 ];
+
+const TECHNIQUE_GRADE_SORT_INDEX = new Map(
+  TECHNIQUE_GRADE_ORDER.map((grade, index) => [grade, index] as const),
+);
 
 function escapeHtml(value: string): string {
   return value
@@ -94,6 +99,10 @@ function formatTechniqueContributionSummary(totalAttrs: Partial<Attributes>, raw
 
 function resolveTechniqueCategory(tech: TechniqueState): TechniqueCategory {
   return tech.category ?? (tech.skills.length > 0 ? 'arts' : 'internal');
+}
+
+function areTechniqueSkillsEnabled(tech: TechniqueState): boolean {
+  return tech.skillsEnabled !== false;
 }
 
 function getTechniqueProgressRatio(tech: TechniqueState): number {
@@ -140,6 +149,10 @@ function getResolvedTechniqueRealm(tech: TechniqueState): TechniqueRealm {
   return deriveTechniqueRealm(tech.level, tech.layers, tech.attrCurves);
 }
 
+function getTechniqueGradeSortIndex(tech: TechniqueState): number {
+  return TECHNIQUE_GRADE_SORT_INDEX.get(tech.grade ?? 'mortal') ?? -1;
+}
+
 function getPlayerRealmLv(player?: PlayerState): number | null {
   const realmLv = player?.realm?.realmLv ?? player?.realmLv;
   return Number.isFinite(realmLv) ? Math.max(1, Math.floor(Number(realmLv))) : null;
@@ -164,12 +177,38 @@ function buildTechniqueExpTooltipLines(tech: TechniqueState, player?: PlayerStat
   const delta = playerRealmLv - tech.realmLv;
   const adjustment = getTechniqueExpLevelAdjustment(playerRealmLv, tech.realmLv);
   lines.push(`你的境界：${getRealmLevelDisplayName(playerRealmLv)}`);
-  lines.push(delta === 0
-    ? `当前与功法同级，功法经验修正为 ${formatDisplayNumber(adjustment * 100)}%。`
-    : delta > 0
-      ? `当前高于功法 ${formatDisplayInteger(delta)} 级，功法经验修正为 ${formatDisplayNumber(adjustment * 100)}%。`
-      : `当前低于功法 ${formatDisplayInteger(-delta)} 级，功法经验修正为 ${formatDisplayNumber(adjustment * 100)}%。`);
+  if (delta === 0) {
+    lines.push(`当前与功法同级，功法经验修正为 ${formatDisplayNumber(adjustment * 100)}%。`);
+    return lines;
+  }
+  if (delta > 0) {
+    lines.push(`当前高于功法 ${formatDisplayInteger(delta)} 级，功法经验修正为 ${formatDisplayNumber(adjustment * 100)}%。`);
+    return lines;
+  }
+  lines.push(`当前低于功法 ${formatDisplayInteger(-delta)} 级，功法经验修正为 ${formatDisplayNumber(adjustment * 100)}%。`);
   return lines;
+}
+
+function sortTechniquesForPanel(techniques: TechniqueState[]): TechniqueState[] {
+  return [...techniques].sort((left, right) => {
+    const realmDelta = getResolvedTechniqueRealm(right) - getResolvedTechniqueRealm(left);
+    if (realmDelta !== 0) {
+      return realmDelta;
+    }
+    const gradeDelta = getTechniqueGradeSortIndex(right) - getTechniqueGradeSortIndex(left);
+    if (gradeDelta !== 0) {
+      return gradeDelta;
+    }
+    const realmLevelDelta = right.realmLv - left.realmLv;
+    if (realmLevelDelta !== 0) {
+      return realmLevelDelta;
+    }
+    const levelDelta = right.level - left.level;
+    if (levelDelta !== 0) {
+      return levelDelta;
+    }
+    return left.name.localeCompare(right.name, 'zh-CN');
+  });
 }
 
 function getTechniqueRealmLevelLabel(tech: TechniqueState): string {
@@ -208,6 +247,7 @@ export class TechniquePanel {
   private static readonly MODAL_OWNER = 'technique-panel';
   private pane = document.getElementById('pane-technique')!;
   private onCultivate: ((techId: string | null) => void) | null = null;
+  private onToggleTechniqueSkills: ((techId: string, enabled: boolean) => void) | null = null;
   private tooltip = new FloatingTooltip();
   private constellationCanvas: TechniqueConstellationCanvas | null = null;
   private openTechId: string | null = null;
@@ -226,8 +266,12 @@ export class TechniquePanel {
     this.closeModal();
   }
 
-  setCallbacks(onCultivate: (techId: string | null) => void): void {
+  setCallbacks(
+    onCultivate: (techId: string | null) => void,
+    onToggleTechniqueSkills?: (techId: string, enabled: boolean) => void,
+  ): void {
     this.onCultivate = onCultivate;
+    this.onToggleTechniqueSkills = onToggleTechniqueSkills ?? null;
   }
 
   /** 更新功法列表与主修状态 */
@@ -251,7 +295,7 @@ export class TechniquePanel {
   }
 
   private renderList(): void {
-    const techniques = resolvePreviewTechniques(this.lastState.techniques);
+    const techniques = sortTechniquesForPanel(resolvePreviewTechniques(this.lastState.techniques));
     if (techniques.length === 0) {
       this.clear();
       return;
@@ -298,6 +342,7 @@ export class TechniquePanel {
   private renderTechniqueCard(tech: TechniqueState): string {
     const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
     const isCultivating = this.lastState.cultivatingTechId === tech.techId;
+    const skillsEnabled = areTechniqueSkillsEnabled(tech);
     const progressRatio = getTechniqueProgressRatio(tech);
     const progressText = formatTechniqueProgressText(tech);
     const remainText = formatTechniqueRemainText(tech);
@@ -321,6 +366,12 @@ export class TechniquePanel {
         <span class="tech-progress-remain" data-tech-progress-remain="${tech.techId}">${remainText}</span>
       </button>
       <div class="tech-card-actions">
+        <button
+          class="small-btn ghost ${skillsEnabled ? 'active' : ''}"
+          data-tech-skills-toggle="${tech.techId}"
+          data-tech-skills-enabled="${skillsEnabled ? '1' : '0'}"
+          type="button"
+        >技能 ${skillsEnabled ? '开' : '关'}</button>
         <button
           class="small-btn ${isCultivating ? 'danger' : ''}"
           data-tech-cultivate-button="${tech.techId}"
@@ -635,6 +686,30 @@ export class TechniquePanel {
         return;
       }
 
+      const skillToggleButton = target.closest<HTMLElement>('[data-tech-skills-toggle]');
+      if (skillToggleButton) {
+        event.stopPropagation();
+        const techId = skillToggleButton.dataset.techSkillsToggle;
+        if (!techId) {
+          return;
+        }
+        const nextEnabled = skillToggleButton.dataset.techSkillsEnabled !== '1';
+        const targetTechnique = this.lastState.techniques.find((entry) => entry.techId === techId);
+        if (targetTechnique) {
+          targetTechnique.skillsEnabled = nextEnabled;
+        }
+        if (this.lastState.previewPlayer) {
+          const previewTechnique = this.lastState.previewPlayer.techniques.find((entry) => entry.techId === techId);
+          if (previewTechnique) {
+            previewTechnique.skillsEnabled = nextEnabled;
+          }
+        }
+        this.onToggleTechniqueSkills?.(techId, nextEnabled);
+        this.renderList();
+        this.patchModal();
+        return;
+      }
+
       const openButton = target.closest<HTMLElement>('[data-tech-open]');
       if (!openButton) {
         return;
@@ -823,12 +898,14 @@ export class TechniquePanel {
       const progressFillNode = this.pane.querySelector<HTMLElement>(`[data-tech-progress-fill="${CSS.escape(tech.techId)}"]`);
       const remainNode = this.pane.querySelector<HTMLElement>(`[data-tech-progress-remain="${CSS.escape(tech.techId)}"]`);
       const cultivateButton = this.pane.querySelector<HTMLButtonElement>(`[data-tech-cultivate-button="${CSS.escape(tech.techId)}"]`);
-      if (!card || !realmLevelNode || !realmNode || !layerNode || !progressTextNode || !progressFillNode || !remainNode || !cultivateButton) {
+      const skillToggleButton = this.pane.querySelector<HTMLButtonElement>(`[data-tech-skills-toggle="${CSS.escape(tech.techId)}"]`);
+      if (!card || !realmLevelNode || !realmNode || !layerNode || !progressTextNode || !progressFillNode || !remainNode || !cultivateButton || !skillToggleButton) {
         return false;
       }
 
       const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
       const isCultivating = cultivatingTechId === tech.techId;
+      const skillsEnabled = areTechniqueSkillsEnabled(tech);
       const progressRatio = getTechniqueProgressRatio(tech);
       const progressText = formatTechniqueProgressText(tech);
       const remainText = formatTechniqueRemainText(tech);
@@ -842,6 +919,9 @@ export class TechniquePanel {
       progressTextNode.textContent = progressText;
       progressFillNode.style.width = `${(progressRatio * 100).toFixed(2)}%`;
       remainNode.textContent = remainText;
+      skillToggleButton.textContent = `技能 ${skillsEnabled ? '开' : '关'}`;
+      skillToggleButton.classList.toggle('active', skillsEnabled);
+      skillToggleButton.dataset.techSkillsEnabled = skillsEnabled ? '1' : '0';
       cultivateButton.textContent = isCultivating ? '取消主修' : '设为主修';
       cultivateButton.classList.toggle('danger', isCultivating);
       cultivateButton.dataset.cultivate = isCultivating ? '' : tech.techId;

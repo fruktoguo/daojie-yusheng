@@ -82,7 +82,8 @@
       "name": "碎露灵石矿",
       "x": 11,
       "y": 2,
-      "desc": "矿壁里嵌着零散灵石，稍加开凿就会震落出可用灵石。"
+      "desc": "矿壁里嵌着零散灵石，稍加开凿就会震落出可用灵石。",
+      "resourceNodeId": "landmark.spirit_ore_vein"
     },
     {
       "id": "lm_ore_basement_black_iron_vein",
@@ -90,55 +91,7 @@
       "x": 10,
       "y": 9,
       "desc": "一段埋得很浅的玄铁矿层，被人粗粗凿开过，留下不少可继续撬取的矿块。",
-      "container": {
-        "grade": "mortal",
-        "refreshTicks": 2400,
-        "char": "矿",
-        "color": "#6b7787",
-        "lootPools": [
-          {
-            "chance": 0.75,
-            "maxLevel": 2,
-            "maxGrade": "yellow",
-            "countMin": 1,
-            "countMax": 2,
-            "tagGroups": [
-              [
-                "矿材"
-              ],
-              [
-                "玄铁"
-              ]
-            ]
-          },
-          {
-            "chance": 0.18,
-            "maxLevel": 2,
-            "maxGrade": "yellow",
-            "tagGroups": [
-              [
-                "矿材"
-              ],
-              [
-                "灵铁"
-              ]
-            ]
-          },
-          {
-            "chance": 0.4,
-            "maxLevel": 2,
-            "maxGrade": "mortal",
-            "tagGroups": [
-              [
-                "消耗品"
-              ],
-              [
-                "灵石"
-              ]
-            ]
-          }
-        ]
-      }
+      "resourceNodeId": "landmark.ore_basement_black_iron_vein"
     },
     {
       "id": "lm_ore_basement_tool_rack",
