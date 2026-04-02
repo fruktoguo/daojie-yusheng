@@ -153,20 +153,20 @@
     "name": "苦修丹",
     "type": "consumable",
     "level": 4,
-    "desc": "强行催运行功，2400 息内修炼速度明显提高，但气血与真气回复都会变慢，脚程也会变沉。",
+    "desc": "强行催运行功，3600 息内修炼速度明显提高，但灵力恢复与生命回复都会大幅衰减，脚程也会更沉。",
     "consumeBuffs": [
       {
         "buffId": "item_buff.bitter_cultivation",
         "name": "苦修",
-        "desc": "境界修为与功法修炼速度提高，但经脉始终带着涩滞感。",
+        "desc": "境界修为与功法修炼速度提高，但经脉始终带着涩滞感，灵力恢复、生命回复与脚程都会明显下滑。",
         "shortMark": "苦",
-        "duration": 2400,
+        "duration": 3600,
         "valueStats": {
           "realmExpPerTick": 25,
           "techniqueExpPerTick": 25,
-          "hpRegenRate": -6,
-          "qiRegenRate": -6,
-          "moveSpeed": -6
+          "hpRegenRate": -500,
+          "qiRegenRate": -500,
+          "moveSpeed": -10
         }
       }
     ]
