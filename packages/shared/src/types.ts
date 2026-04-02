@@ -1038,6 +1038,7 @@ export interface PlayerState {
   idleTicks?: number;
   revealedBreakthroughRequirementIds?: string[];
   unlockedMinimapIds?: string[];
+  respawnMapId?: string;
   realm?: PlayerRealmState;
   questNavigation?: QuestNavigationState;
   questCrossMapNavCooldownUntilLifeTicks?: number;

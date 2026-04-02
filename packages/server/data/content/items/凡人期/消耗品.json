@@ -1,0 +1,266 @@
+[
+  {
+    "itemId": "pill.minor_heal",
+    "name": "回春散",
+    "type": "consumable",
+    "level": 1,
+    "desc": "草木药气温和，服下后立刻恢复 22% 气血。",
+    "healPercent": 0.22
+  },
+  {
+    "itemId": "spirit_stone",
+    "name": "灵石",
+    "type": "consumable",
+    "desc": "内蕴温和灵机，捏碎后可滋养脚下地脉。使用时为当前所处地块增加 100 点灵力，可批量使用。",
+    "tileAuraGainAmount": 100,
+    "allowBatchUse": true
+  },
+  {
+    "itemId": "cloud_puff",
+    "name": "云朵",
+    "type": "consumable",
+    "desc": "揉散后像把一团轻云按进经脉，1800 息内身形飘然，移动速度提高 20。",
+    "consumeBuffs": [
+      {
+        "buffId": "item_buff.floating_cloud",
+        "name": "飘然",
+        "desc": "云气托体，脚下更轻，移动速度提高；即使身死，这股轻云余势也会继续残留到药尽为止。",
+        "shortMark": "飘",
+        "duration": 1800,
+        "valueStats": {
+          "moveSpeed": 20
+        }
+      }
+    ]
+  },
+  {
+    "itemId": "minor_qi_pill",
+    "name": "小还灵丹",
+    "type": "consumable",
+    "level": 2,
+    "desc": "药力柔和，立刻恢复 35% 气血与 25% 真气。",
+    "healPercent": 0.35,
+    "qiPercent": 0.25
+  },
+  {
+    "itemId": "major_qi_pill",
+    "name": "大还灵丹",
+    "type": "consumable",
+    "level": 3,
+    "desc": "药力浑厚，立刻恢复 55% 气血与 45% 真气。",
+    "healPercent": 0.55,
+    "qiPercent": 0.45
+  },
+  {
+    "itemId": "pure_yang_pill",
+    "name": "纯阳丹",
+    "type": "consumable",
+    "level": 4,
+    "desc": "烈阳药引直入气海，立刻恢复 30% 气血与 75% 真气。",
+    "healPercent": 0.3,
+    "qiPercent": 0.75
+  },
+  {
+    "itemId": "frost_heart_paste",
+    "name": "寒心膏",
+    "type": "consumable",
+    "level": 3,
+    "desc": "寒性药膏可稳住伤处，立刻恢复 42% 气血与 30% 真气。",
+    "healPercent": 0.42,
+    "qiPercent": 0.3
+  },
+  {
+    "itemId": "pill.crimson_bud_elixir",
+    "name": "赤芽丹",
+    "type": "consumable",
+    "level": 2,
+    "desc": "服后数千息内血勇更盛，即使身死药势也不会散，暴击明显提高。",
+    "consumeBuffs": [
+      {
+        "buffId": "item_buff.crimson_bud",
+        "name": "赤芽生锋",
+        "desc": "药力催得血气躁动，暴击提高；即使身死，药势仍会残留到药尽为止。",
+        "shortMark": "赤",
+        "duration": 3600,
+        "valueStats": {
+          "crit": 6
+        }
+      }
+    ]
+  },
+  {
+    "itemId": "pill.break_array_elixir",
+    "name": "破阵丹",
+    "type": "consumable",
+    "level": 3,
+    "desc": "药力凝在手眼与发力节点，数千息内破招与命中提高，身死不散。",
+    "consumeBuffs": [
+      {
+        "buffId": "item_buff.break_array",
+        "name": "破阵劲",
+        "desc": "下手更刁钻，破招与命中提高；此药势即使身死也不会立刻散去。",
+        "shortMark": "破",
+        "duration": 3600,
+        "valueStats": {
+          "breakPower": 8,
+          "hit": 4
+        }
+      }
+    ]
+  },
+  {
+    "itemId": "pill.clear_eye_elixir",
+    "name": "明目丹",
+    "type": "consumable",
+    "level": 3,
+    "desc": "服后心神澄明，数千息内命中与视野提高，死亡不消失。",
+    "consumeBuffs": [
+      {
+        "buffId": "item_buff.clear_eye",
+        "name": "澄目",
+        "desc": "目力与判断更清楚，命中提高，视野更远；身死也不会立刻散去。",
+        "shortMark": "明",
+        "duration": 3600,
+        "valueStats": {
+          "hit": 8,
+          "viewRange": 10
+        }
+      }
+    ]
+  },
+  {
+    "itemId": "pill.windstride_elixir",
+    "name": "轻身丹",
+    "type": "consumable",
+    "level": 3,
+    "desc": "药劲顺着经脉卸到脚下，数千息内移动速度与闪避提高，死亡不消失。",
+    "consumeBuffs": [
+      {
+        "buffId": "item_buff.windstride",
+        "name": "踏风",
+        "desc": "脚下更轻，移动与腾挪都更快；这股药劲即使身死也不会立刻散去。",
+        "shortMark": "疾",
+        "duration": 3600,
+        "valueStats": {
+          "moveSpeed": 18,
+          "dodge": 3
+        }
+      }
+    ]
+  },
+  {
+    "itemId": "pill.bitter_cultivation_elixir",
+    "name": "苦修丹",
+    "type": "consumable",
+    "level": 4,
+    "desc": "强行催运行功，2400 息内修炼速度明显提高，但气血与真气回复都会变慢，脚程也会变沉。",
+    "consumeBuffs": [
+      {
+        "buffId": "item_buff.bitter_cultivation",
+        "name": "苦修",
+        "desc": "境界修为与功法修炼速度提高，但经脉始终带着涩滞感。",
+        "shortMark": "苦",
+        "duration": 2400,
+        "valueStats": {
+          "realmExpPerTick": 25,
+          "techniqueExpPerTick": 25,
+          "hpRegenRate": -6,
+          "qiRegenRate": -6,
+          "moveSpeed": -6
+        }
+      }
+    ]
+  },
+  {
+    "itemId": "map.yunlai_town",
+    "name": "云来初境图",
+    "type": "consumable",
+    "level": 1,
+    "desc": "描摹新手区域的基础地图。使用后可永久解锁云来初境的完整舆图。",
+    "mapUnlockId": "yunlai_town"
+  },
+  {
+    "itemId": "map.bamboo_forest",
+    "name": "青竹林野图",
+    "type": "consumable",
+    "level": 3,
+    "desc": "记载青竹林野地势与出入口。使用后可永久解锁竹林地图。",
+    "mapUnlockId": "bamboo_forest"
+  },
+  {
+    "itemId": "map.wildlands",
+    "name": "荒原游猎图",
+    "type": "consumable",
+    "level": 2,
+    "desc": "标注荒原地貌、营地遗迹与危险通路。使用后可永久解锁荒原地图。",
+    "mapUnlockId": "wildlands"
+  },
+  {
+    "itemId": "map.black_iron_mine",
+    "name": "黑铁矿脉图",
+    "type": "consumable",
+    "level": 4,
+    "desc": "矿道分布与竖井方位都被誊录其上。使用后可永久解锁黑铁矿洞地图。",
+    "mapUnlockId": "black_iron_mine"
+  },
+  {
+    "itemId": "map.ancient_ruins",
+    "name": "古遗迹残图",
+    "type": "consumable",
+    "level": 4,
+    "desc": "残缺却仍可辨认主要遗迹轮廓。使用后可永久解锁古遗迹地图。",
+    "mapUnlockId": "ancient_ruins"
+  },
+  {
+    "itemId": "map.spirit_ridge",
+    "name": "灵脉山岭图",
+    "type": "consumable",
+    "level": 5,
+    "desc": "绘有山脊、灵穴与险峻通路。使用后可永久解锁灵脉山岭地图。",
+    "mapUnlockId": "spirit_ridge"
+  },
+  {
+    "itemId": "map.beast_valley",
+    "name": "群兽谷行图",
+    "type": "consumable",
+    "level": 5,
+    "desc": "专为猎妖者整理的谷地行图。使用后可永久解锁群兽谷地图。",
+    "mapUnlockId": "beast_valley"
+  },
+  {
+    "itemId": "map.sky_ruins",
+    "name": "天阙遗墟图",
+    "type": "consumable",
+    "level": 6,
+    "desc": "记载高阶遗墟的主要路径与坍塌区域。使用后可永久解锁天阙遗墟地图。",
+    "mapUnlockId": "sky_ruins"
+  },
+  {
+    "itemId": "fate_stone.yunlai_town",
+    "name": "命石-云来镇",
+    "type": "consumable",
+    "level": 1,
+    "desc": "以云来镇地脉落脚处为引的命石。使用后会将自己的复活点与遁返落点改为云来镇。",
+    "respawnBindMapId": "yunlai_town"
+  },
+  {
+    "itemId": "root_seed.heaven",
+    "name": "天品灵根幼苗",
+    "type": "consumable",
+    "desc": "封着五行先天气机的幼苗。使用后会将五行灵根先定为 99，再逐系以 50% 概率催至 100，且至少保底一系为 100；同时逆天改命累计额外增加 20 次。至少需在叩仙门境界使用，基础消耗相当于 20 次逆天改命的底蕴，已有逆天改命积累会等额抵扣。",
+    "spiritualRootSeedTier": "heaven"
+  },
+  {
+    "itemId": "root_seed.divine",
+    "name": "神品灵根幼苗",
+    "type": "consumable",
+    "desc": "被道蕴彻底养成的灵根幼苗。使用后会将五行灵根全部固定为 100，同时逆天改命累计额外增加 100 次。至少需在叩仙门境界使用，基础消耗相当于 100 次逆天改命的底蕴，已有逆天改命积累会等额抵扣。",
+    "spiritualRootSeedTier": "divine"
+  },
+  {
+    "itemId": "pill.shatter_spirit",
+    "name": "碎灵丹",
+    "type": "consumable",
+    "desc": "药力专碎命宫旧痕。使用后会立刻重置天门，清掉当前已开出的灵根结果，并额外增加 1 次逆天改命累计；同时消耗当前境界修为的 25%。至少需在叩仙门境界使用。"
+  }
+]

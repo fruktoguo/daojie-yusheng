@@ -85,6 +85,7 @@ interface ItemTemplate extends Omit<ItemStack, 'count'> {
   healPercent?: number;
   qiPercent?: number;
   consumeBuffs?: ConsumableBuffDef[];
+  respawnBindMapId?: string;
   spiritualRootSeedTier?: 'heaven' | 'divine';
 }
 
@@ -116,6 +117,7 @@ export interface EditorItemCatalogEntry {
   healPercent?: number;
   qiPercent?: number;
   consumeBuffs?: ConsumableBuffDef[];
+  respawnBindMapId?: string;
   mapUnlockId?: string;
   tileAuraGainAmount?: number;
   allowBatchUse?: boolean;
@@ -132,6 +134,12 @@ export interface MonsterTemplateDrop {
   type: ItemType;
   count: number;
   chance?: number;
+}
+
+interface MonsterDropContext {
+  grade: TechniqueGrade;
+  tier: MonsterTier;
+  level?: number;
 }
 
 export interface MonsterTemplate {
@@ -660,6 +668,7 @@ export class ContentService implements OnModuleInit {
   private buildMonsterDrops(
     configuredDrops: MonsterTemplateDrop[] | undefined,
     equipment: EquipmentSlots,
+    context: MonsterDropContext,
   ): MonsterTemplateDrop[] {
     const drops = Array.isArray(configuredDrops)
       ? configuredDrops.flatMap((drop) => (
@@ -677,22 +686,161 @@ export class ContentService implements OnModuleInit {
       ))
       : [];
 
-    const existingItemIds = new Set(drops.map((drop) => drop.itemId));
+    let spiritStoneOverride: MonsterTemplateDrop | undefined;
+    const nonSpiritDrops: MonsterTemplateDrop[] = [];
+    for (const drop of drops) {
+      if (drop.itemId === 'spirit_stone') {
+        spiritStoneOverride = drop;
+        continue;
+      }
+      nonSpiritDrops.push(this.resolveMonsterDropChance(drop, context));
+    }
+
+    const existingItemIds = new Set(nonSpiritDrops.map((drop) => drop.itemId));
     for (const item of Object.values(equipment)) {
       if (!item || existingItemIds.has(item.itemId)) {
         continue;
       }
-      drops.push({
+      nonSpiritDrops.push(this.resolveMonsterDropChance({
         itemId: item.itemId,
         name: item.name,
         type: item.type,
         count: 1,
-        chance: 0.01,
-      });
+      }, context));
       existingItemIds.add(item.itemId);
     }
 
-    return drops;
+    const spiritStoneDrop = this.buildSpiritStoneMonsterDrop(context, spiritStoneOverride);
+    if (spiritStoneDrop) {
+      nonSpiritDrops.push(spiritStoneDrop);
+    }
+
+    return nonSpiritDrops;
+  }
+
+  private resolveMonsterDropChance(drop: MonsterTemplateDrop, context: MonsterDropContext): MonsterTemplateDrop {
+    if (Number.isFinite(drop.chance)) {
+      return {
+        ...drop,
+        chance: Math.max(0, Math.min(1, Number(drop.chance))),
+      };
+    }
+    return {
+      ...drop,
+      chance: this.computeDefaultMonsterDropChance(drop, context),
+    };
+  }
+
+  private computeDefaultMonsterDropChance(drop: MonsterTemplateDrop, context: MonsterDropContext): number {
+    if (drop.type === 'quest_item') {
+      return 1;
+    }
+
+    const categoryBase = this.getMonsterDropCategoryBase(drop);
+    const itemGrade = this.getMonsterDropItemGrade(drop);
+    const monsterGradeIndex = TECHNIQUE_GRADE_ORDER.indexOf(context.grade);
+    const itemGradeIndex = TECHNIQUE_GRADE_ORDER.indexOf(itemGrade);
+    const gradeDelta = Math.max(-7, monsterGradeIndex - itemGradeIndex);
+    const tierFactor = this.getMonsterTierDropFactor(context.tier);
+    const chance = 0.01 * categoryBase * (3 ** gradeDelta) * tierFactor;
+    return Math.max(Number.MIN_VALUE, Math.min(1, chance));
+  }
+
+  private getMonsterDropCategoryBase(drop: Pick<MonsterTemplateDrop, 'itemId' | 'type'>): number {
+    if (drop.itemId === 'spirit_stone') {
+      return 1;
+    }
+    switch (drop.type) {
+      case 'skill_book':
+        return 1;
+      case 'equipment':
+        return 2;
+      case 'material':
+        return 20;
+      case 'consumable':
+        return 10;
+      case 'quest_item':
+        return 100;
+      default:
+        return 1;
+    }
+  }
+
+  private getMonsterTierDropFactor(tier: MonsterTier): number {
+    switch (tier) {
+      case 'variant':
+        return 1 / 3;
+      case 'demon_king':
+        return 1;
+      default:
+        return 0.1;
+    }
+  }
+
+  private getMonsterDropItemGrade(drop: Pick<MonsterTemplateDrop, 'itemId' | 'type'>): TechniqueGrade {
+    const item = this.items.get(drop.itemId);
+    if (item?.grade) {
+      return item.grade;
+    }
+    if (item?.learnTechniqueId) {
+      return this.techniques.get(item.learnTechniqueId)?.grade ?? 'mortal';
+    }
+    if (Number.isFinite(item?.level)) {
+      return this.inferTechniqueGradeFromItemLevel(Number(item?.level));
+    }
+    return 'mortal';
+  }
+
+  private inferTechniqueGradeFromItemLevel(level: number): TechniqueGrade {
+    const normalizedLevel = Math.max(1, Math.trunc(level));
+    if (normalizedLevel >= 85) return 'emperor';
+    if (normalizedLevel >= 73) return 'saint';
+    if (normalizedLevel >= 61) return 'spirit';
+    if (normalizedLevel >= 49) return 'heaven';
+    if (normalizedLevel >= 37) return 'earth';
+    if (normalizedLevel >= 25) return 'mystic';
+    if (normalizedLevel >= 13) return 'yellow';
+    return 'mortal';
+  }
+
+  private buildSpiritStoneMonsterDrop(
+    context: MonsterDropContext,
+    override?: MonsterTemplateDrop,
+  ): MonsterTemplateDrop | null {
+    const item = this.items.get('spirit_stone');
+    if (!item) {
+      return null;
+    }
+    const count = Number.isFinite(override?.count)
+      ? Math.max(1, Math.trunc(Number(override?.count)))
+      : this.computeSpiritStoneDropCount(context);
+    const chance = Number.isFinite(override?.chance)
+      ? Math.max(0, Math.min(1, Number(override?.chance)))
+      : this.computeSpiritStoneDropChance(context.tier);
+    return {
+      itemId: item.itemId,
+      name: item.name,
+      type: item.type,
+      count,
+      chance,
+    };
+  }
+
+  private computeSpiritStoneDropChance(tier: MonsterTier): number {
+    switch (tier) {
+      case 'variant':
+        return 0.03;
+      case 'demon_king':
+        return 0.1;
+      default:
+        return 0.01;
+    }
+  }
+
+  private computeSpiritStoneDropCount(context: MonsterDropContext): number {
+    const gradeIndex = Math.max(0, TECHNIQUE_GRADE_ORDER.indexOf(context.grade));
+    const level = Number.isFinite(context.level) ? Math.max(1, Math.trunc(Number(context.level))) : 1;
+    return Math.max(1, 1 + gradeIndex + Math.floor(level / 10));
   }
 
   private resolveConfiguredStats(actualStats: unknown, valueStats: unknown): ItemStack['equipStats'] {
@@ -701,6 +849,21 @@ export class ContentService implements OnModuleInit {
       return compileValueStatsToActualStats(configuredValueStats);
     }
     return this.normalizeItemStats(actualStats);
+  }
+
+  private resolveConfiguredBuffStats(
+    actualStats: unknown,
+    valueStats: unknown,
+    mode: 'flat' | 'percent' | undefined,
+  ): ItemStack['equipStats'] {
+    if (mode === 'flat') {
+      return this.resolveConfiguredStats(actualStats, valueStats);
+    }
+    const normalizedActualStats = this.normalizeItemStats(actualStats);
+    if (normalizedActualStats) {
+      return normalizedActualStats;
+    }
+    return this.normalizeItemStats(valueStats);
   }
 
   private normalizeQiProjectionModifiers(input: unknown): QiProjectionModifier[] | undefined {
@@ -830,7 +993,9 @@ export class ContentService implements OnModuleInit {
           type: 'stat_aura',
           conditions,
           attrs: this.normalizeItemAttrs(input.attrs),
-          stats: this.resolveConfiguredStats(input.stats, input.valueStats),
+          attrMode: 'percent',
+          stats: this.resolveConfiguredBuffStats(input.stats, input.valueStats, 'percent'),
+          statMode: 'percent',
           qiProjection: this.normalizeQiProjectionModifiers(input.qiProjection),
         }];
       case 'progress_boost':
@@ -839,7 +1004,9 @@ export class ContentService implements OnModuleInit {
           type: 'progress_boost',
           conditions,
           attrs: this.normalizeItemAttrs(input.attrs),
-          stats: this.resolveConfiguredStats(input.stats, input.valueStats),
+          attrMode: 'percent',
+          stats: this.resolveConfiguredBuffStats(input.stats, input.valueStats, 'percent'),
+          statMode: 'percent',
           qiProjection: this.normalizeQiProjectionModifiers(input.qiProjection),
         }];
       case 'periodic_cost': {
@@ -883,6 +1050,7 @@ export class ContentService implements OnModuleInit {
           chance: Number.isFinite(input.chance) ? Math.max(0, Math.min(1, Number(input.chance))) : undefined,
           conditions,
           buff: {
+            // Buff 默认走百分比乘区；percent 模式下 valueStats 应直接视为百分比，不再套固定值换算。
             buffId: buff.buffId.trim(),
             name: buff.name,
             desc: typeof buff.desc === 'string' ? buff.desc : undefined,
@@ -895,7 +1063,9 @@ export class ContentService implements OnModuleInit {
             duration: Math.max(1, Math.floor(Number(buff.duration))),
             maxStacks: Number.isFinite(buff.maxStacks) ? Math.max(1, Math.floor(Number(buff.maxStacks))) : undefined,
             attrs: this.normalizeItemAttrs(buff.attrs),
-            stats: this.resolveConfiguredStats(buff.stats, buff.valueStats),
+            attrMode: 'percent',
+            stats: this.resolveConfiguredBuffStats(buff.stats, buff.valueStats, 'percent'),
+            statMode: 'percent',
             qiProjection: this.normalizeQiProjectionModifiers(buff.qiProjection),
           },
         }];
@@ -931,7 +1101,9 @@ export class ContentService implements OnModuleInit {
         duration: Math.max(1, Math.floor(Number(entry.duration))),
         maxStacks: Number.isFinite(entry.maxStacks) ? Math.max(1, Math.floor(Number(entry.maxStacks))) : undefined,
         attrs: this.normalizeItemAttrs(entry.attrs),
-        stats: this.resolveConfiguredStats(entry.stats, entry.valueStats),
+        attrMode: 'percent',
+        stats: this.resolveConfiguredBuffStats(entry.stats, entry.valueStats, 'percent'),
+        statMode: 'percent',
         qiProjection: this.normalizeQiProjectionModifiers(entry.qiProjection),
       };
       return [buff];
@@ -959,6 +1131,9 @@ export class ContentService implements OnModuleInit {
           ? Math.max(0.01, Math.min(1, Number(raw.qiPercent)))
           : undefined,
         consumeBuffs: this.normalizeConsumableBuffs(raw.consumeBuffs),
+        respawnBindMapId: typeof raw.respawnBindMapId === 'string' && raw.respawnBindMapId.trim().length > 0
+          ? raw.respawnBindMapId.trim()
+          : undefined,
         spiritualRootSeedTier: raw.spiritualRootSeedTier === 'heaven' || raw.spiritualRootSeedTier === 'divine'
           ? raw.spiritualRootSeedTier
           : undefined,
@@ -1165,7 +1340,13 @@ export class ContentService implements OnModuleInit {
       const level = Number.isInteger(raw.level) ? Math.max(1, Number(raw.level)) : undefined;
       const equipment = this.normalizeMonsterEquipment(raw.equipment, raw.id);
       const skills = this.normalizeMonsterSkills(raw.skills, raw.id);
-      const drops = this.buildMonsterDrops(raw.drops, equipment);
+      const grade = raw.grade ?? 'mortal';
+      const tier = normalizeMonsterTier(raw.tier ?? inferMonsterTierFromName(raw.name));
+      const drops = this.buildMonsterDrops(raw.drops, equipment, {
+        grade,
+        tier,
+        level,
+      });
       const valueStats = configuredValueStats
         ?? (hasConfiguredAttrs
           ? undefined
@@ -1192,13 +1373,12 @@ export class ContentService implements OnModuleInit {
         ?? (raw.attrs
           ? undefined
           : createMonsterAutoStatPercents(legacyNumericStats, attrs, level, equipment));
-      const tier = normalizeMonsterTier(raw.tier ?? inferMonsterTierFromName(raw.name));
       const numericStats = resolveMonsterNumericStatsFromAttributes({
         attrs,
         equipment,
         level,
         statPercents,
-        grade: raw.grade ?? 'mortal',
+        grade,
         tier,
       });
       const combatModel: MonsterCombatModel = 'value_stats';
@@ -1207,7 +1387,7 @@ export class ContentService implements OnModuleInit {
         name: raw.name,
         char: raw.char,
         color: raw.color,
-        grade: raw.grade ?? 'mortal',
+        grade,
         attrs,
         equipment,
         statPercents,
@@ -1290,7 +1470,9 @@ export class ContentService implements OnModuleInit {
           duration: Math.max(1, Math.floor(Number(input.duration))),
           maxStacks: Number.isFinite(input.maxStacks) ? Math.max(1, Math.floor(Number(input.maxStacks))) : undefined,
           attrs: this.normalizeItemAttrs(input.attrs),
-          stats: this.resolveConfiguredStats(input.stats, input.valueStats),
+          attrMode: 'percent',
+          stats: this.resolveConfiguredBuffStats(input.stats, input.valueStats, 'percent'),
+          statMode: 'percent',
           qiProjection: this.normalizeQiProjectionModifiers(input.qiProjection),
         }];
       default:

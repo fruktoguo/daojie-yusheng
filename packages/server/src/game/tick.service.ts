@@ -50,6 +50,7 @@ import {
   TechniqueState,
   TechniqueUpdateEntry,
   TemporaryBuffState,
+  TileType,
   TickRenderEntity,
   VisibleTile,
   VisibleTilePatch,
@@ -92,6 +93,17 @@ import { PreparedRedeemCodeOperation, RedeemCodeService } from './redeem-code.se
 import { TimeService } from './time.service';
 import { WorldMessage, WorldService, WorldUpdate } from './world.service';
 import { syncDynamicBuffPresentation } from './buff-presentation';
+import {
+  MOLTEN_POOL_BURN_BUFF_ID,
+  MOLTEN_POOL_BURN_COLOR,
+  MOLTEN_POOL_BURN_DESC,
+  MOLTEN_POOL_BURN_DURATION_TICKS,
+  MOLTEN_POOL_BURN_HP_PERCENT_PER_STACK,
+  MOLTEN_POOL_BURN_MAX_STACKS,
+  MOLTEN_POOL_BURN_NAME,
+  MOLTEN_POOL_BURN_SHORT_MARK,
+  MOLTEN_POOL_BURN_SOURCE_ID,
+} from '../constants/gameplay/terrain-effects';
 
 /** 上一次发送给各玩家的 tick 快照，用于增量比对 */
 interface LastSentTickState {
@@ -284,12 +296,14 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     const finalAttrs = this.attrService.getPlayerFinalAttrs(player);
     const numericStats = this.attrService.getPlayerNumericStats(player);
     const ratioDivisors = this.attrService.getPlayerRatioDivisors(player);
+    const numericStatBreakdowns = this.attrService.getPlayerNumericStatBreakdowns(player);
     this.lastSentAttrUpdates.set(player.id, this.cloneStructured({
       baseAttrs: player.baseAttrs,
       bonuses: this.getAttrSyncBonuses(player),
       finalAttrs,
       numericStats,
       ratioDivisors,
+      numericStatBreakdowns,
       maxHp: player.maxHp,
       qi: player.qi,
       specialStats: {
@@ -971,6 +985,14 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (tickEffects.dirty.length > 0) {
         this.markDirty(player.id, tickEffects.dirty as DirtyFlag[]);
       }
+      const terrainUpdate = this.measureCpuSection('state_terrain', '角色状态: 地形结算', () => this.applyTerrainEffects(player));
+      this.applyWorldUpdate(player.id, terrainUpdate.update, messages);
+      if (terrainUpdate.changed) {
+        this.markPlayerActive(player, activePlayerIds);
+      }
+      if (terrainUpdate.update.playerDefeated) {
+        continue;
+      }
       if (this.measureCpuSection('state_buffs', '角色状态: Buff 推进', () => this.tickTemporaryBuffs(player))) {
         this.playerService.markDirty(player.id, 'attr');
       }
@@ -1102,6 +1124,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   private buildConsumableBuffState(
     item: NonNullable<ReturnType<ContentService['getItem']>>,
     buff: NonNullable<NonNullable<ReturnType<ContentService['getItem']>>['consumeBuffs']>[number],
+    sourceRealmLv: number,
   ): TemporaryBuffState {
     const duration = Math.max(1, buff.duration);
     return syncDynamicBuffPresentation({
@@ -1117,9 +1140,12 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       maxStacks: Math.max(1, buff.maxStacks ?? 1),
       sourceSkillId: `item:${item.itemId}`,
       sourceSkillName: item.name,
+      realmLv: Math.max(1, Math.floor(sourceRealmLv)),
       color: buff.color,
       attrs: buff.attrs,
+      attrMode: buff.attrMode,
       stats: buff.stats,
+      statMode: buff.statMode,
       qiProjection: buff.qiProjection,
     });
   }
@@ -1138,9 +1164,12 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       existing.maxStacks = nextBuff.maxStacks;
       existing.sourceSkillId = nextBuff.sourceSkillId;
       existing.sourceSkillName = nextBuff.sourceSkillName;
+      existing.realmLv = nextBuff.realmLv;
       existing.color = nextBuff.color;
       existing.attrs = nextBuff.attrs;
+      existing.attrMode = nextBuff.attrMode;
       existing.stats = nextBuff.stats;
+      existing.statMode = nextBuff.statMode;
       existing.qiProjection = nextBuff.qiProjection;
       syncDynamicBuffPresentation(existing);
       return existing;
@@ -1185,9 +1214,10 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     if (item.consumeBuffs?.length) {
       player.temporaryBuffs ??= [];
       const appliedSummaries = new Map<string, string>();
+      const sourceRealmLv = Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
       for (let index = 0; index < actualCount; index += 1) {
         for (const buff of item.consumeBuffs) {
-          const current = this.applyConsumableBuffState(player.temporaryBuffs, this.buildConsumableBuffState(item, buff));
+          const current = this.applyConsumableBuffState(player.temporaryBuffs, this.buildConsumableBuffState(item, buff, sourceRealmLv));
           const stackText = current.maxStacks > 1 ? `（${current.stacks}层）` : '';
           appliedSummaries.set(current.buffId, `${current.name}${stackText}，持续 ${current.duration} 息`);
         }
@@ -1262,6 +1292,20 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       messages.push({
         playerId: player.id,
         text: `你展开 ${item.name}，彻底记下了 ${mapMeta.name} 的地势。`,
+        kind: 'quest',
+      });
+    }
+
+    if (item.respawnBindMapId) {
+      const mapId = this.mapService.resolvePlayerRespawnMapId(item.respawnBindMapId);
+      const mapMeta = this.mapService.getMapMeta(mapId);
+      player.respawnMapId = mapId;
+      this.playerService.markDirty(player.id, 'actions');
+      messages.push({
+        playerId: player.id,
+        text: mapMeta
+          ? `你炼化 ${item.name}，命石已系向 ${mapMeta.name}，今后遁返与复活都会落在此处。`
+          : `你炼化 ${item.name}，命石已改换去处。`,
         kind: 'quest',
       });
     }
@@ -1801,6 +1845,15 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           });
           break;
         }
+        if (itemDef?.respawnBindMapId && this.mapService.resolvePlayerRespawnMapId(player.respawnMapId) === itemDef.respawnBindMapId) {
+          const mapMeta = this.mapService.getMapMeta(itemDef.respawnBindMapId);
+          messages.push({
+            playerId: player.id,
+            text: mapMeta ? `你的命石早已系在 ${mapMeta.name}。` : '你的命石早已系在此处。',
+            kind: 'system',
+          });
+          break;
+        }
         if (itemDef?.tileAuraGainAmount && this.mapService.isPlayerOverlapTile(player.mapId, player.x, player.y)) {
           messages.push({
             playerId: player.id,
@@ -1932,6 +1985,14 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         }
         break;
       }
+      case 'updateTechniqueSkillAvailability': {
+        const { techId, enabled } = data as { techId: string; enabled: boolean };
+        if (this.techniqueService.setTechniqueSkillsEnabled(player, techId, enabled)) {
+          this.playerService.markDirty(player.id, 'tech');
+          this.markActionsDirty(player.id);
+        }
+        break;
+      }
     }
 
     // 即时推送操作者自身的脏数据
@@ -1992,12 +2053,14 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         const finalAttrs = this.attrService.getPlayerFinalAttrs(player);
         const numericStats = this.attrService.getPlayerNumericStats(player);
         const ratioDivisors = this.attrService.getPlayerRatioDivisors(player);
+        const numericStatBreakdowns = this.attrService.getPlayerNumericStatBreakdowns(player);
         const update = this.buildSparseAttrUpdate(player.id, {
           baseAttrs: player.baseAttrs,
           bonuses: this.getAttrSyncBonuses(player),
           finalAttrs,
           numericStats,
           ratioDivisors,
+          numericStatBreakdowns,
           maxHp: player.maxHp,
           qi: player.qi,
           specialStats: {
@@ -2620,6 +2683,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     if (!previous || !this.isStructuredEqual(previous.ratioDivisors, nextState.ratioDivisors)) {
       patch.ratioDivisors = this.cloneStructured(nextState.ratioDivisors);
     }
+    if (!previous || !this.isStructuredEqual(previous.numericStatBreakdowns, nextState.numericStatBreakdowns)) {
+      patch.numericStatBreakdowns = this.cloneStructured(nextState.numericStatBreakdowns);
+    }
     if (!previous || previous.maxHp !== nextState.maxHp) {
       patch.maxHp = nextState.maxHp;
     }
@@ -2706,6 +2772,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (!previous || previous.expToNext !== technique.expToNext) patch.expToNext = technique.expToNext;
       if (!previous || previous.realmLv !== technique.realmLv) patch.realmLv = technique.realmLv;
       if (!previous || previous.realm !== technique.realm) patch.realm = technique.realm;
+      if (!previous || previous.skillsEnabled !== technique.skillsEnabled) {
+        patch.skillsEnabled = technique.skillsEnabled ?? null;
+      }
       if (!knownTechnique) {
         if (!previous || previous.name !== technique.name) patch.name = technique.name ?? null;
         if (!previous || previous.grade !== technique.grade) patch.grade = technique.grade ?? null;
@@ -3264,6 +3333,84 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       const recover = Math.max(1, Math.round(maxQi * (numericStats.qiRegenRate / 10000)));
       player.qi = Math.min(maxQi, player.qi + recover);
     }
+  }
+
+  private applyTerrainEffects(player: PlayerState): { update: WorldUpdate; changed: boolean } {
+    const tile = this.mapService.getTile(player.mapId, player.x, player.y);
+    let changed = false;
+
+    if (tile?.type === TileType.MoltenPool) {
+      changed = this.applyMoltenPoolBurnStack(player) || changed;
+    }
+
+    const burnBuff = this.getMoltenPoolBurnBuff(player);
+    if (!burnBuff) {
+      return { update: { messages: [], dirty: [] }, changed };
+    }
+
+    const baseDamage = Math.max(1, Math.round(player.maxHp * burnBuff.stacks * MOLTEN_POOL_BURN_HP_PERCENT_PER_STACK));
+    const update = this.worldService.applyTerrainDotDamageToPlayer(player, baseDamage, 'fire', MOLTEN_POOL_BURN_NAME);
+    return {
+      update,
+      changed: changed || baseDamage > 0 || update.playerDefeated === true,
+    };
+  }
+
+  private getMoltenPoolBurnBuff(player: PlayerState): TemporaryBuffState | undefined {
+    return player.temporaryBuffs?.find((buff) => (
+      buff.buffId === MOLTEN_POOL_BURN_BUFF_ID
+      && buff.sourceSkillId === MOLTEN_POOL_BURN_SOURCE_ID
+      && buff.remainingTicks > 0
+      && buff.stacks > 0
+    ));
+  }
+
+  private applyMoltenPoolBurnStack(player: PlayerState): boolean {
+    player.temporaryBuffs ??= [];
+    const existing = this.getMoltenPoolBurnBuff(player);
+    const realmLv = Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
+    if (existing) {
+      existing.name = MOLTEN_POOL_BURN_NAME;
+      existing.desc = MOLTEN_POOL_BURN_DESC;
+      existing.shortMark = MOLTEN_POOL_BURN_SHORT_MARK;
+      existing.category = 'debuff';
+      existing.visibility = 'public';
+      existing.remainingTicks = MOLTEN_POOL_BURN_DURATION_TICKS + 1;
+      existing.duration = MOLTEN_POOL_BURN_DURATION_TICKS;
+      existing.stacks = Math.min(MOLTEN_POOL_BURN_MAX_STACKS, existing.stacks + 1);
+      existing.maxStacks = MOLTEN_POOL_BURN_MAX_STACKS;
+      existing.sourceSkillId = MOLTEN_POOL_BURN_SOURCE_ID;
+      existing.sourceSkillName = '熔池';
+      existing.realmLv = realmLv;
+      existing.color = MOLTEN_POOL_BURN_COLOR;
+      existing.attrs = undefined;
+      existing.attrMode = undefined;
+      existing.stats = undefined;
+      existing.statMode = undefined;
+      existing.qiProjection = undefined;
+      syncDynamicBuffPresentation(existing);
+      this.playerService.markDirty(player.id, 'attr');
+      return true;
+    }
+
+    player.temporaryBuffs.push(syncDynamicBuffPresentation({
+      buffId: MOLTEN_POOL_BURN_BUFF_ID,
+      name: MOLTEN_POOL_BURN_NAME,
+      desc: MOLTEN_POOL_BURN_DESC,
+      shortMark: MOLTEN_POOL_BURN_SHORT_MARK,
+      category: 'debuff',
+      visibility: 'public',
+      remainingTicks: MOLTEN_POOL_BURN_DURATION_TICKS + 1,
+      duration: MOLTEN_POOL_BURN_DURATION_TICKS,
+      stacks: 1,
+      maxStacks: MOLTEN_POOL_BURN_MAX_STACKS,
+      sourceSkillId: MOLTEN_POOL_BURN_SOURCE_ID,
+      sourceSkillName: '熔池',
+      realmLv,
+      color: MOLTEN_POOL_BURN_COLOR,
+    }));
+    this.playerService.markDirty(player.id, 'attr');
+    return true;
   }
 
   /** 每 tick 递减临时 Buff 剩余时间，过期则移除并重算属性 */

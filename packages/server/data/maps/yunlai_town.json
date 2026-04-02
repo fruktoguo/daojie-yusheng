@@ -1630,6 +1630,55 @@
       "quests": []
     },
     {
+      "id": "npc_map_seller_yan_bo",
+      "name": "行图贩子·严伯",
+      "x": 14,
+      "y": 46,
+      "char": "图",
+      "color": "#d8c287",
+      "dialogue": "旧路新路都画在这几卷纸上。认路花的是灵石，乱闯赔的是命，自己掂量。",
+      "role": "trader",
+      "shopItems": [
+        {
+          "itemId": "fate_stone.yunlai_town",
+          "price": 1
+        },
+        {
+          "itemId": "map.yunlai_town",
+          "price": 1
+        },
+        {
+          "itemId": "map.wildlands",
+          "price": 4
+        },
+        {
+          "itemId": "map.bamboo_forest",
+          "price": 9
+        },
+        {
+          "itemId": "map.black_iron_mine",
+          "price": 16
+        },
+        {
+          "itemId": "map.ancient_ruins",
+          "price": 16
+        },
+        {
+          "itemId": "map.spirit_ridge",
+          "price": 25
+        },
+        {
+          "itemId": "map.beast_valley",
+          "price": 25
+        },
+        {
+          "itemId": "map.sky_ruins",
+          "price": 36
+        }
+      ],
+      "quests": []
+    },
+    {
       "id": "npc_blacksmith_han",
       "name": "韩铁匠",
       "x": 47,

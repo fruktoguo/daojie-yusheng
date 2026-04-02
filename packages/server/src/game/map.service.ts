@@ -21,6 +21,7 @@ import {
   GmMapMonsterSpawnRecord,
   GmMapNpcRecord,
   GmMapPortalRecord,
+  GmMapResourceRecord,
   GmMapSafeZoneRecord,
   GmMapSummary,
   inferMonsterValueStatsFromLegacy,
@@ -86,6 +87,7 @@ import {
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolveServerDataPath } from '../common/data-path';
+import { isPlayerRespawnMapId, PLAYER_RESPAWN_MAP_IDS } from '../constants/gameplay/respawn';
 import { PersistentDocumentService } from '../database/persistent-document.service';
 import { ContentService } from './content.service';
 import { PathfindingActorType, PathfindingStaticGrid } from './pathfinding/pathfinding.types';
@@ -285,6 +287,7 @@ interface MapData {
   portals: Portal[];
   auraPoints: MapAuraPoint[];
   baseAuraValues: Map<string, number>;
+  baseResourceValues: Map<string, Map<string, number>>;
   safeZones: SafeZoneConfig[];
   containers: ContainerConfig[];
   npcs: NpcConfig[];
@@ -298,6 +301,13 @@ interface MapData {
 interface MapAuraPoint {
   x: number;
   y: number;
+  value: number;
+}
+
+interface MapTileResourcePoint {
+  x: number;
+  y: number;
+  resourceKey: string;
   value: number;
 }
 
@@ -871,9 +881,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       persistedDocuments.map((entry) => [entry.key, this.normalizeEditableMapDocument(entry.payload)]),
     );
 
-    const files = fs.readdirSync(this.mapsDir)
-      .filter((file) => file.endsWith('.json'))
-      .sort((left, right) => left.localeCompare(right, 'zh-CN'));
+    const files = this.collectMapJsonFiles(this.mapsDir);
 
     const synced: SyncedMapDocument[] = [];
     const fileMapIds = new Set<string>();
@@ -882,7 +890,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
     for (const file of files) {
       try {
-        const raw = JSON.parse(fs.readFileSync(path.join(this.mapsDir, file), 'utf-8'));
+        const raw = JSON.parse(fs.readFileSync(file, 'utf-8'));
         const normalized = this.normalizeEditableMapDocument(raw);
         const nextPayload = this.dehydrateEditableMapDocument(normalized);
         const previousDocument = persistedByMapId.get(normalized.id);
@@ -917,6 +925,56 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     }
 
     return synced;
+  }
+
+  private collectMapJsonFiles(dirPath: string): string[] {
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true })
+      .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'));
+    const files: string[] = [];
+    for (const entry of entries) {
+      const entryPath = path.join(dirPath, entry.name);
+      if (entry.isDirectory()) {
+        files.push(...this.collectMapJsonFiles(entryPath));
+        continue;
+      }
+      if (entry.isFile() && entry.name.endsWith('.json')) {
+        files.push(entryPath);
+      }
+    }
+    return files;
+  }
+
+  private buildEditableMapCatalogMetaById(): Map<string, Pick<GmMapSummary, 'catalogMode' | 'catalogGroupId' | 'catalogGroupName' | 'sourcePath'>> {
+    const result = new Map<string, Pick<GmMapSummary, 'catalogMode' | 'catalogGroupId' | 'catalogGroupName' | 'sourcePath'>>();
+    const files = this.collectMapJsonFiles(this.mapsDir);
+    for (const filePath of files) {
+      const relativePath = path.relative(this.mapsDir, filePath).replace(/\\/g, '/');
+      const mapId = path.basename(filePath, '.json');
+      if (relativePath.startsWith('compose/')) {
+        const segments = relativePath.split('/');
+        const catalogGroupId = segments[1]?.trim() || this.inferComposeGroupIdFromMapId(mapId);
+        result.set(mapId, {
+          catalogMode: 'piece',
+          catalogGroupId,
+          catalogGroupName: this.maps.get(catalogGroupId)?.source.name ?? catalogGroupId,
+          sourcePath: relativePath,
+        });
+        continue;
+      }
+      result.set(mapId, {
+        catalogMode: 'main',
+        sourcePath: relativePath,
+      });
+    }
+    return result;
+  }
+
+  private inferComposeGroupIdFromMapId(mapId: string): string {
+    const marker = mapId.lastIndexOf('_');
+    if (marker <= 0) {
+      return mapId;
+    }
+    return mapId.slice(0, marker);
   }
 
   private loadAllMaps(entries: SyncedMapDocument[]) {
@@ -971,8 +1029,10 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     };
     const portals = this.normalizePortals(document.portals, meta);
     const auraPoints = this.normalizeAuraPoints(document.auras, meta);
+    const resourcePoints = this.normalizeTileResourcePoints(document.resources, meta);
     const safeZones = this.normalizeSafeZones(document.safeZones, meta);
     const baseAuraValues = new Map<string, number>(auraPoints.map((point) => [this.tileStateKey(point.x, point.y), point.value]));
+    const baseResourceValues = this.buildBaseTileResourceValueBucket(resourcePoints);
 
     // 显式入口需要落成楼梯/传送阵地块；隐藏入口则保留原始地貌，只通过 portal 配置参与触发与观察。
     for (const portal of portals) {
@@ -995,7 +1055,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
     this.rehydrateDynamicTileStates(document.id, document, tiles, previousDocument);
     this.rehydrateAuraStates(document.id, tiles, baseAuraValues);
-    this.rehydrateAdditionalTileResourceStates(document.id, tiles);
+    this.rehydrateConfiguredTileResourceStates(document.id, tiles, baseResourceValues);
     this.syncAuraFamilyTileMirrors(document.id, tiles);
 
     const containers = this.normalizeContainers(document.landmarks, meta);
@@ -1013,6 +1073,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       portals,
       auraPoints,
       baseAuraValues,
+      baseResourceValues,
       safeZones,
       containers,
       npcs,
@@ -1044,7 +1105,14 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   }
 
   getEditableMapList(): GmMapListRes {
-    return buildEditableMapListResult([...this.maps.values()].map((map) => map.source));
+    const baseList = buildEditableMapListResult([...this.maps.values()].map((map) => map.source));
+    const catalogMetaById = this.buildEditableMapCatalogMetaById();
+    return {
+      maps: baseList.maps.map((summary) => ({
+        ...summary,
+        ...catalogMetaById.get(summary.id),
+      })),
+    };
   }
 
   getEditableMap(mapId: string): GmMapDocument | undefined {
@@ -1843,7 +1911,22 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   }
 
   private getTileResourceFlowConfig(resourceKey: string): TileResourceFlowConfig | null {
-    return TILE_RESOURCE_FLOW_CONFIGS[resourceKey] ?? null;
+    const directConfig = TILE_RESOURCE_FLOW_CONFIGS[resourceKey];
+    if (directConfig) {
+      return directConfig;
+    }
+
+    const descriptor = parseQiResourceKey(resourceKey);
+    if (!descriptor || descriptor.family !== 'aura') {
+      return null;
+    }
+    if (descriptor.form === 'refined') {
+      return TILE_RESOURCE_FLOW_CONFIGS[AURA_RESOURCE_KEY] ?? null;
+    }
+    if (descriptor.form === 'dispersed') {
+      return TILE_RESOURCE_FLOW_CONFIGS[DISPERSED_AURA_RESOURCE_KEY] ?? null;
+    }
+    return null;
   }
 
   private calculateAuraFamilyValueForTile(
@@ -1938,10 +2021,15 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private rehydrateAdditionalTileResourceStates(mapId: string, tiles: Tile[][]): void {
+  private rehydrateConfiguredTileResourceStates(
+    mapId: string,
+    tiles: Tile[][],
+    baseResourceValues: Map<string, Map<string, number>>,
+  ): void {
     const persistedSourceBucket = this.persistedResourceStates.get(mapId);
     const runtimeSourceBucket = this.resourceStates.get(mapId);
     const allResourceKeys = new Set<string>([
+      ...baseResourceValues.keys(),
       ...(runtimeSourceBucket ? [...runtimeSourceBucket.keys()] : []),
       ...(persistedSourceBucket ? [...persistedSourceBucket.keys()] : []),
     ]);
@@ -1951,12 +2039,38 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         continue;
       }
 
+      const baseStateValues = baseResourceValues.get(resourceKey);
       const persistedSourceStates = persistedSourceBucket?.get(resourceKey);
       const sourceStates = runtimeSourceBucket?.get(resourceKey) ?? persistedSourceStates;
       const sourceCount = sourceStates?.size ?? 0;
       const nextStates = new Map<string, TileResourceRuntimeState>();
+      if (baseStateValues) {
+        for (const [key, sourceValue] of baseStateValues.entries()) {
+          const persisted = sourceStates?.get(key);
+          const [x, y] = key.split(',').map((value) => Number.parseInt(value, 10));
+          const tile = tiles[y]?.[x];
+          if (!tile) {
+            continue;
+          }
+          const state: TileResourceRuntimeState = {
+            x,
+            y,
+            value: Math.max(0, Math.round(persisted?.value ?? sourceValue)),
+            sourceValue,
+            decayRemainder: Math.max(0, Math.round(persisted?.decayRemainder ?? 0)),
+            sourceRemainder: Math.max(0, Math.round(persisted?.sourceRemainder ?? 0)),
+          };
+          if (this.shouldKeepTileResourceRuntimeState(state)) {
+            nextStates.set(key, state);
+          }
+        }
+      }
+
       if (sourceStates) {
         for (const [key, rawState] of sourceStates.entries()) {
+          if (nextStates.has(key)) {
+            continue;
+          }
           const tile = tiles[rawState.y]?.[rawState.x];
           if (!tile) {
             continue;
@@ -1965,7 +2079,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
             x: rawState.x,
             y: rawState.y,
             value: Math.max(0, Math.round(rawState.value)),
-            sourceValue: Math.max(0, Math.round(rawState.sourceValue ?? 0)),
+            sourceValue: 0,
             decayRemainder: Math.max(0, Math.round(rawState.decayRemainder ?? 0)),
             sourceRemainder: Math.max(0, Math.round(rawState.sourceRemainder ?? 0)),
           };
@@ -2080,7 +2194,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
   private getTileResourceLabel(resourceKey: string): string {
     if (resourceKey === AURA_RESOURCE_KEY) {
-      return '凝练灵气';
+      return '无属性灵气';
     }
 
     const descriptor = parseQiResourceKey(resourceKey);
@@ -2091,6 +2205,9 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     const familyLabel = QI_FAMILY_LABELS[descriptor.family];
     const formLabel = QI_FORM_LABELS[descriptor.form];
     const elementLabel = QI_ELEMENT_LABELS[descriptor.element];
+    if (descriptor.family === 'aura' && descriptor.form === 'refined' && descriptor.element === 'neutral') {
+      return '无属性灵气';
+    }
     if (descriptor.form === 'refined' && descriptor.element === 'neutral') {
       return familyLabel;
     }
@@ -2133,6 +2250,56 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         y: point.y!,
         value: normalizeConfiguredAuraValue(point.value!, this.auraLevelBaseValue),
       });
+    }
+    return result;
+  }
+
+  private normalizeTileResourcePoints(rawResources: unknown, meta: MapMeta): MapTileResourcePoint[] {
+    if (!Array.isArray(rawResources)) {
+      return [];
+    }
+
+    const result: MapTileResourcePoint[] = [];
+    for (const candidate of rawResources) {
+      const point = candidate as Partial<GmMapResourceRecord>;
+      const resourceKey = this.normalizeTileResourceKey(point.resourceKey);
+      const valid =
+        Number.isInteger(point.x) &&
+        Number.isInteger(point.y) &&
+        Number.isInteger(point.value) &&
+        typeof resourceKey === 'string' &&
+        resourceKey !== AURA_RESOURCE_KEY &&
+        parseQiResourceKey(resourceKey);
+      if (!valid) {
+        this.logger.warn(`地图 ${meta.id} 存在非法气机配置，已忽略`);
+        continue;
+      }
+      if (
+        point.x! < 0 || point.x! >= meta.width ||
+        point.y! < 0 || point.y! >= meta.height
+      ) {
+        this.logger.warn(`地图 ${meta.id} 的气机坐标越界: (${point.x}, ${point.y})`);
+        continue;
+      }
+      result.push({
+        x: point.x!,
+        y: point.y!,
+        resourceKey,
+        value: normalizeConfiguredAuraValue(point.value!, this.auraLevelBaseValue),
+      });
+    }
+    return result;
+  }
+
+  private buildBaseTileResourceValueBucket(
+    points: MapTileResourcePoint[],
+  ): Map<string, Map<string, number>> {
+    const result = new Map<string, Map<string, number>>();
+    for (const point of points) {
+      const key = this.tileStateKey(point.x, point.y);
+      const stateMap = result.get(point.resourceKey) ?? new Map<string, number>();
+      stateMap.set(key, point.value);
+      result.set(point.resourceKey, stateMap);
     }
     return result;
   }
@@ -3481,7 +3648,9 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       ));
     }
     return Math.max(0, Math.round(
-      this.getTileResourceStateMap(this.resourceStates, mapId, normalizedResourceKey)?.get(key)?.value ?? 0,
+      this.getTileResourceStateMap(this.resourceStates, mapId, normalizedResourceKey)?.get(key)?.value
+        ?? map?.baseResourceValues.get(normalizedResourceKey)?.get(key)
+        ?? 0,
     ));
   }
 
@@ -3591,7 +3760,9 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       x,
       y,
       value: previousValue,
-      sourceValue: normalizedResourceKey === AURA_RESOURCE_KEY ? (map.baseAuraValues.get(key) ?? 0) : 0,
+      sourceValue: normalizedResourceKey === AURA_RESOURCE_KEY
+        ? (map.baseAuraValues.get(key) ?? 0)
+        : (map.baseResourceValues.get(normalizedResourceKey)?.get(key) ?? 0),
       decayRemainder: 0,
       sourceRemainder: 0,
     };
@@ -3638,10 +3809,24 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     return this.supportsPlayerOverlap(mapId, x, y);
   }
 
-  resolveDefaultPlayerSpawnPosition(occupancyId?: string | null): { mapId: string; x: number; y: number } {
-    const mapId = this.getMapMeta(DEFAULT_PLAYER_MAP_ID)
+  resolvePlayerRespawnMapId(preferredMapId?: string | null): string {
+    if (isPlayerRespawnMapId(preferredMapId) && this.getMapMeta(preferredMapId)) {
+      return preferredMapId;
+    }
+    const configuredFallback = PLAYER_RESPAWN_MAP_IDS.find((mapId) => this.getMapMeta(mapId));
+    if (configuredFallback) {
+      return configuredFallback;
+    }
+    return this.getMapMeta(DEFAULT_PLAYER_MAP_ID)
       ? DEFAULT_PLAYER_MAP_ID
       : (this.getAllMapIds()[0] ?? DEFAULT_PLAYER_MAP_ID);
+  }
+
+  resolveDefaultPlayerSpawnPosition(
+    occupancyId?: string | null,
+    preferredMapId?: string | null,
+  ): { mapId: string; x: number; y: number } {
+    const mapId = this.resolvePlayerRespawnMapId(preferredMapId);
     const spawn = this.getSpawnPoint(mapId) ?? { x: 10, y: 10 };
     const pos = this.resolveWalkablePlayerPositionInMap(mapId, spawn.x, spawn.y, occupancyId);
     return { mapId, x: pos.x, y: pos.y };
@@ -4241,7 +4426,12 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       case TileType.Stone:
       case TileType.SpiritOre:
       case TileType.BlackIronOre:
+      case TileType.BrokenSwordHeap:
+      case TileType.HouseEave:
+      case TileType.HouseCorner:
+      case TileType.ScreenWall:
       case TileType.Door:
+      case TileType.Veranda:
         return TileType.Floor;
       default:
         return type;

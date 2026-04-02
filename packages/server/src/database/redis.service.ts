@@ -35,6 +35,7 @@ export class RedisService implements OnModuleDestroy {
     await this.client.hset(PLAYER_KEY(state.id), {
       name: state.name,
       mapId: state.mapId,
+      respawnMapId: state.respawnMapId ?? '',
       x: String(state.x),
       y: String(state.y),
       facing: String(state.facing),

@@ -40,6 +40,7 @@ import {
   C2S_DebugResetSpawn,
   C2S_Action,
   C2S_UpdateAutoBattleSkills,
+  C2S_UpdateTechniqueSkillAvailability,
   C2S_Chat,
   C2S_AckSystemMessages,
   C2S_CreateSuggestion,
@@ -246,6 +247,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       name: initRoleName || buildDefaultRoleName(username) || username,
       displayName,
       mapId: DEFAULT_PLAYER_MAP_ID,
+      respawnMapId: DEFAULT_PLAYER_MAP_ID,
       x: spawn.x,
       y: spawn.y,
       senseQiActive: false,
@@ -469,6 +471,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     this.tickService.executeImmediate(player, 'updateAutoBattleSkills', data);
+  }
+
+  @SubscribeMessage(C2S.UpdateTechniqueSkillAvailability)
+  handleUpdateTechniqueSkillAvailability(client: Socket, data: C2S_UpdateTechniqueSkillAvailability) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+    this.tickService.executeImmediate(player, 'updateTechniqueSkillAvailability', data);
   }
 
   @SubscribeMessage(C2S.DebugResetSpawn)

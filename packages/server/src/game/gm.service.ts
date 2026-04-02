@@ -706,6 +706,7 @@ export class GmService {
         id: player.id,
         name: player.name,
         mapId: player.mapId,
+        respawnMapId: player.respawnMapId,
         x: player.x,
         y: player.y,
         facing: player.facing,
@@ -750,6 +751,7 @@ export class GmService {
       name: entity.name,
       displayName: this.resolvePlayerDisplayName(displayName, undefined, entity.name),
       mapId: entity.mapId,
+      respawnMapId: this.mapService.resolvePlayerRespawnMapId(entity.respawnMapId),
       x: entity.x,
       y: entity.y,
       senseQiActive: false,
@@ -827,6 +829,7 @@ export class GmService {
 
     player.name = this.normalizeName(snapshot.name, player.name);
     player.mapId = nextMapId;
+    player.respawnMapId = this.mapService.resolvePlayerRespawnMapId(snapshot.respawnMapId ?? player.respawnMapId);
     player.x = nextX;
     player.y = nextY;
     player.facing = this.normalizeDirection(snapshot.facing);
@@ -934,6 +937,7 @@ export class GmService {
     await this.playerRepo.update(entity.id, {
       name: player.name,
       mapId: player.mapId,
+      respawnMapId: player.respawnMapId,
       x: player.x,
       y: player.y,
       facing: player.facing,

@@ -8,6 +8,10 @@ import { randomUUID } from 'crypto';
 import {
   ActionDef,
   Attributes,
+  basisPointModifierToMultiplier,
+  BuffModifierMode,
+  addPartialNumericStats,
+  applyNumericStatsPercentMultiplier,
   calcQiCostWithOutputLimit,
   cloneNumericStats,
   CombatEffect,
@@ -18,10 +22,12 @@ import {
   DISPERSED_AURA_RESOURCE_KEY,
   Direction,
   ElementKey,
+  ELEMENT_KEYS,
   estimateMonsterSpiritFromStats,
   gameplayConstants,
   GameTimeState,
   getDamageTrailColor,
+  getBuffRealmEffectivenessMultiplier,
   gridDistance,
   isOffsetInRange,
   getRealmGapDamageMultiplier,
@@ -30,6 +36,8 @@ import {
   MONSTER_TIER_LABELS,
   NumericRatioDivisors,
   NumericStats,
+  PartialNumericStats,
+  percentModifierToMultiplier,
   NpcQuestMarker,
   ObservationInsight,
   parseTileTargetRef,
@@ -50,14 +58,13 @@ import {
   TemporaryBuffState,
   TileType,
   VisibleBuffState,
+  signedRatioValue,
 } from '@mud/shared';
 import * as fs from 'fs';
 import { resolveServerDataPath } from '../common/data-path';
 import {
-  RETURN_TO_SPAWN_ACTION_DESC,
   RETURN_TO_SPAWN_ACTION_ID,
-  RETURN_TO_SPAWN_ACTION_NAME,
-  RETURN_TO_SPAWN_SUCCESS_TEXT,
+  RETURN_TO_SPAWN_COOLDOWN_TICKS,
 } from '../constants/gameplay/action';
 import { PersistentDocumentService } from '../database/persistent-document.service';
 import { AttrService } from './attr.service';
@@ -92,6 +99,7 @@ import {
   ORE_REWARD_BASE_DAMAGE,
   ORE_REWARD_DAMAGE_SCALE,
   ORE_REWARD_ITEM_ID_BY_TILE,
+  ORE_REWARD_SOURCE_LABEL_BY_TILE,
 } from '../constants/gameplay/terrain';
 import { MARKET_CURRENCY_ITEM_ID } from '../constants/gameplay/market';
 import {
@@ -264,6 +272,7 @@ export interface WorldUpdate {
   dirtyPlayers?: string[];
   usedActionId?: string;
   consumedAction?: boolean;
+  playerDefeated?: boolean;
 }
 
 
@@ -586,9 +595,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       range: effectiveViewRange,
     }, {
       id: RETURN_TO_SPAWN_ACTION_ID,
-      name: RETURN_TO_SPAWN_ACTION_NAME,
+      name: this.getReturnToSpawnActionName(player),
       type: 'travel',
-      desc: RETURN_TO_SPAWN_ACTION_DESC,
+      desc: this.getReturnToSpawnActionDesc(player),
       cooldownLeft: 0,
     }];
 
@@ -1483,7 +1492,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return fallback ?? '气';
   }
 
-  private buildTemporaryBuffState(skill: SkillDef, effect: Extract<SkillEffectDef, { type: 'buff' }>): TemporaryBuffState {
+  private buildTemporaryBuffState(skill: SkillDef, effect: Extract<SkillEffectDef, { type: 'buff' }>, sourceRealmLv: number): TemporaryBuffState {
     const maxStacks = Math.max(1, effect.maxStacks ?? 1);
     const duration = Math.max(1, effect.duration);
     return syncDynamicBuffPresentation({
@@ -1499,9 +1508,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       maxStacks,
       sourceSkillId: skill.id,
       sourceSkillName: skill.name,
+      realmLv: Math.max(1, Math.floor(sourceRealmLv)),
       color: effect.color,
       attrs: effect.attrs,
+      attrMode: effect.attrMode,
       stats: effect.stats,
+      statMode: effect.statMode,
       qiProjection: effect.qiProjection,
     });
   }
@@ -1520,9 +1532,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       existing.maxStacks = nextBuff.maxStacks;
       existing.sourceSkillId = nextBuff.sourceSkillId;
       existing.sourceSkillName = nextBuff.sourceSkillName;
+      existing.realmLv = nextBuff.realmLv;
       existing.color = nextBuff.color;
       existing.attrs = nextBuff.attrs;
+      existing.attrMode = nextBuff.attrMode;
       existing.stats = nextBuff.stats;
+      existing.statMode = nextBuff.statMode;
       existing.qiProjection = nextBuff.qiProjection;
       syncDynamicBuffPresentation(existing);
       return existing;
@@ -1550,9 +1565,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         maxStacks: buff.maxStacks,
         sourceSkillId: buff.sourceSkillId,
         sourceSkillName: buff.sourceSkillName,
+        realmLv: buff.realmLv,
         color: buff.color,
         attrs: buff.attrs,
+        attrMode: buff.attrMode,
         stats: buff.stats,
+        statMode: buff.statMode,
       }));
     return visible.length > 0 ? visible : undefined;
   }
@@ -1572,7 +1590,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         maxStacks: 1,
         sourceSkillId: buff.sourceSkillId,
         sourceSkillName: buff.sourceSkillName,
+        realmLv: buff.realmLv,
         color: buff.color,
+        attrMode: buff.attrMode,
+        statMode: buff.statMode,
       }));
     return visible && visible.length > 0 ? visible : undefined;
   }
@@ -1625,9 +1646,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     primaryTarget?: ResolvedTarget,
   ): WorldUpdate {
     const affected: Array<{ target: BuffTargetEntity; buff: TemporaryBuffState }> = [];
+    const sourceRealmLv = Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
     if (effect.target === 'self') {
       player.temporaryBuffs ??= [];
-      const current = this.applyBuffState(player.temporaryBuffs, this.buildTemporaryBuffState(skill, effect));
+      const current = this.applyBuffState(player.temporaryBuffs, this.buildTemporaryBuffState(skill, effect, sourceRealmLv));
       this.attrService.recalcPlayer(player);
       affected.push({ target: { kind: 'player', player }, buff: current });
     } else {
@@ -1639,12 +1661,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       for (const target of targets) {
         if (target.kind === 'monster') {
           target.monster.temporaryBuffs ??= [];
-          const current = this.applyBuffState(target.monster.temporaryBuffs, this.buildTemporaryBuffState(skill, effect));
+          const current = this.applyBuffState(target.monster.temporaryBuffs, this.buildTemporaryBuffState(skill, effect, sourceRealmLv));
           affected.push({ target: { kind: 'monster', monster: target.monster }, buff: current });
           continue;
         }
         target.player.temporaryBuffs ??= [];
-        const current = this.applyBuffState(target.player.temporaryBuffs, this.buildTemporaryBuffState(skill, effect));
+        const current = this.applyBuffState(target.player.temporaryBuffs, this.buildTemporaryBuffState(skill, effect, sourceRealmLv));
         this.attrService.recalcPlayer(target.player);
         affected.push({ target: { kind: 'player', player: target.player }, buff: current });
       }
@@ -1810,7 +1832,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
   resetPlayerToSpawn(player: PlayerState): WorldUpdate {
     this.logger.log(`重置玩家到出生点: ${player.id} (${player.mapId}:${player.x},${player.y})`);
-    return this.movePlayerToInitialSpawn(player, RETURN_TO_SPAWN_SUCCESS_TEXT, {
+    return this.movePlayerToInitialSpawn(player, this.getReturnToSpawnSuccessText(player), {
       restoreVitals: true,
       clearBuffs: true,
     });
@@ -2250,10 +2272,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   ): WorldUpdate {
     const messages: WorldMessage[] = [];
     const dirtyPlayers = new Set<string>();
+    const sourceRealmLv = Math.max(1, Math.floor(monster.level ?? 1));
 
     if (effect.target === 'self') {
       monster.temporaryBuffs ??= [];
-      const current = this.applyBuffState(monster.temporaryBuffs, this.buildTemporaryBuffState(skill, effect));
+      const current = this.applyBuffState(monster.temporaryBuffs, this.buildTemporaryBuffState(skill, effect, sourceRealmLv));
       if (primaryTarget?.kind === 'player') {
         const stackText = current.maxStacks > 1 ? `（${current.stacks}层）` : '';
         messages.push({
@@ -2273,7 +2296,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
     for (const target of targets) {
       target.player.temporaryBuffs ??= [];
-      const current = this.applyBuffState(target.player.temporaryBuffs, this.buildTemporaryBuffState(skill, effect));
+      const current = this.applyBuffState(target.player.temporaryBuffs, this.buildTemporaryBuffState(skill, effect, sourceRealmLv));
       this.attrService.recalcPlayer(target.player);
       dirtyPlayers.add(target.player.id);
       const stackText = current.maxStacks > 1 ? `（${current.stacks}层）` : '';
@@ -3161,7 +3184,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
     let damage = Math.max(1, Math.round(baseDamage));
     if (element) {
-      damage = Math.max(1, Math.round(damage * (1 + Math.max(0, attacker.stats.elementDamageBonus[element]) / 100)));
+      damage = Math.max(1, Math.round(damage * percentModifierToMultiplier(attacker.stats.elementDamageBonus[element])));
     }
 
     let defense = damageKind === 'physical' ? defender.stats.physDef : defender.stats.spellDef;
@@ -3190,6 +3213,86 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       resolved,
       broken,
       qiCost,
+    };
+  }
+
+  private resolveElementalDotDamage(
+    defender: CombatSnapshot,
+    baseDamage: number,
+    element: ElementKey,
+    applyDamage: (damage: number) => number,
+  ): number {
+    let damage = Math.max(1, Math.round(baseDamage));
+    const elementReduce = Math.max(
+      0,
+      ratioValue(defender.stats.elementDamageReduce[element], defender.ratios.elementDamageReduce[element]),
+    );
+    damage = Math.max(1, Math.round(damage * (1 - Math.min(0.95, elementReduce))));
+    return Math.max(0, applyDamage(damage));
+  }
+
+  applyTerrainDotDamageToPlayer(
+    player: PlayerState,
+    baseDamage: number,
+    element: ElementKey,
+    sourceName: string,
+  ): WorldUpdate {
+    if (baseDamage <= 0 || player.inWorld === false || player.hp <= 0) {
+      return EMPTY_UPDATE;
+    }
+
+    const cultivation = this.techniqueService.interruptCultivation(player, 'hit');
+    const previousHp = player.hp;
+    const actualDamage = this.resolveElementalDotDamage(
+      this.getPlayerCombatSnapshot(player),
+      baseDamage,
+      element,
+      (damage) => {
+        player.hp = Math.max(0, player.hp - damage);
+        return Math.max(0, previousHp - player.hp);
+      },
+    );
+    const effectColor = getDamageTrailColor('spell', element);
+    if (actualDamage > 0) {
+      this.pushEffect(player.mapId, {
+        type: 'float',
+        x: player.x,
+        y: player.y,
+        text: `-${actualDamage}`,
+        color: effectColor,
+      });
+    }
+
+    const messages: WorldMessage[] = cultivation.messages.map((message) => ({
+      playerId: player.id,
+      text: message.text,
+      kind: message.kind,
+    }));
+    const dirty = new Set<WorldDirtyFlag>(['attr', ...(cultivation.dirty as WorldDirtyFlag[])]);
+    let playerDefeated = false;
+
+    if (player.hp <= 0) {
+      messages.push({
+        playerId: player.id,
+        text: player.online === false
+          ? `你在离线中被${sourceName}灼杀，已退出当前世界。`
+          : `你被${sourceName}灼倒，已被护山阵法送回复活点。`,
+        kind: 'combat',
+      });
+      if (player.online === false) {
+        this.removePlayerFromWorld(player, 'death');
+      } else {
+        this.respawnPlayer(player);
+      }
+      dirty.add('actions');
+      dirty.add('quest');
+      playerDefeated = true;
+    }
+
+    return {
+      messages,
+      dirty: [...dirty],
+      playerDefeated,
     };
   }
 
@@ -3363,56 +3466,27 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return Math.max(0, Math.floor(Math.max(0, realmEntry.expToNext ?? 0) * gradeFactor));
   }
 
-  private applyMonsterBuffStats(stats: NumericStats, buffs: TemporaryBuffState[] | undefined): void {
+  private applyMonsterBuffStats(stats: NumericStats, buffs: TemporaryBuffState[] | undefined, targetRealmLv: number): void {
     if (!buffs || buffs.length === 0) {
       return;
     }
+    const percentBuffs = createNumericStats();
     for (const buff of buffs) {
       if (buff.remainingTicks <= 0 || buff.stacks <= 0 || !buff.stats) {
         continue;
       }
-      const stacks = Math.max(1, buff.stacks);
-      if (buff.stats.maxHp !== undefined) stats.maxHp += buff.stats.maxHp * stacks;
-      if (buff.stats.maxQi !== undefined) stats.maxQi += buff.stats.maxQi * stacks;
-      if (buff.stats.physAtk !== undefined) stats.physAtk += buff.stats.physAtk * stacks;
-      if (buff.stats.spellAtk !== undefined) stats.spellAtk += buff.stats.spellAtk * stacks;
-      if (buff.stats.physDef !== undefined) stats.physDef += buff.stats.physDef * stacks;
-      if (buff.stats.spellDef !== undefined) stats.spellDef += buff.stats.spellDef * stacks;
-      if (buff.stats.hit !== undefined) stats.hit += buff.stats.hit * stacks;
-      if (buff.stats.dodge !== undefined) stats.dodge += buff.stats.dodge * stacks;
-      if (buff.stats.crit !== undefined) stats.crit += buff.stats.crit * stacks;
-      if (buff.stats.critDamage !== undefined) stats.critDamage += buff.stats.critDamage * stacks;
-      if (buff.stats.breakPower !== undefined) stats.breakPower += buff.stats.breakPower * stacks;
-      if (buff.stats.resolvePower !== undefined) stats.resolvePower += buff.stats.resolvePower * stacks;
-      if (buff.stats.maxQiOutputPerTick !== undefined) stats.maxQiOutputPerTick += buff.stats.maxQiOutputPerTick * stacks;
-      if (buff.stats.qiRegenRate !== undefined) stats.qiRegenRate += buff.stats.qiRegenRate * stacks;
-      if (buff.stats.hpRegenRate !== undefined) stats.hpRegenRate += buff.stats.hpRegenRate * stacks;
-      if (buff.stats.cooldownSpeed !== undefined) stats.cooldownSpeed += buff.stats.cooldownSpeed * stacks;
-      if (buff.stats.auraCostReduce !== undefined) stats.auraCostReduce += buff.stats.auraCostReduce * stacks;
-      if (buff.stats.auraPowerRate !== undefined) stats.auraPowerRate += buff.stats.auraPowerRate * stacks;
-      if (buff.stats.playerExpRate !== undefined) stats.playerExpRate += buff.stats.playerExpRate * stacks;
-      if (buff.stats.techniqueExpRate !== undefined) stats.techniqueExpRate += buff.stats.techniqueExpRate * stacks;
-      if (buff.stats.realmExpPerTick !== undefined) stats.realmExpPerTick += buff.stats.realmExpPerTick * stacks;
-      if (buff.stats.techniqueExpPerTick !== undefined) stats.techniqueExpPerTick += buff.stats.techniqueExpPerTick * stacks;
-      if (buff.stats.lootRate !== undefined) stats.lootRate += buff.stats.lootRate * stacks;
-      if (buff.stats.rareLootRate !== undefined) stats.rareLootRate += buff.stats.rareLootRate * stacks;
-      if (buff.stats.viewRange !== undefined) stats.viewRange += buff.stats.viewRange * stacks;
-      if (buff.stats.moveSpeed !== undefined) stats.moveSpeed += buff.stats.moveSpeed * stacks;
-      if (buff.stats.elementDamageBonus) {
-        for (const key of ['metal', 'wood', 'water', 'fire', 'earth'] as const) {
-          if (buff.stats.elementDamageBonus[key] !== undefined) {
-            stats.elementDamageBonus[key] += buff.stats.elementDamageBonus[key]! * stacks;
-          }
-        }
+      const effectFactor = Math.max(1, buff.stacks) * getBuffRealmEffectivenessMultiplier(buff.realmLv, targetRealmLv);
+      const scaled = this.scaleNumericStats(buff.stats, effectFactor);
+      if (!scaled) {
+        continue;
       }
-      if (buff.stats.elementDamageReduce) {
-        for (const key of ['metal', 'wood', 'water', 'fire', 'earth'] as const) {
-          if (buff.stats.elementDamageReduce[key] !== undefined) {
-            stats.elementDamageReduce[key] += buff.stats.elementDamageReduce[key]! * stacks;
-          }
-        }
+      if (this.resolveBuffModifierMode(buff.statMode) === 'flat') {
+        addPartialNumericStats(stats, scaled);
+        continue;
       }
+      addPartialNumericStats(percentBuffs, scaled);
     }
+    applyNumericStatsPercentMultiplier(stats, percentBuffs);
   }
 
   private getMonsterCombatSnapshot(monster: RuntimeMonster): CombatSnapshot {
@@ -3430,13 +3504,80 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       stats.breakPower = level * 3;
       stats.resolvePower = level * 3;
     }
-    this.applyMonsterBuffStats(stats, monster.temporaryBuffs);
+    this.applyMonsterBuffStats(stats, monster.temporaryBuffs, level);
     return {
       stats,
       ratios: DEFAULT_MONSTER_RATIO_DIVISORS,
       realmLv: level,
       combatExp: this.getMonsterCombatExpEquivalent(monster, level),
     };
+  }
+
+  private resolveBuffModifierMode(mode: BuffModifierMode | undefined): BuffModifierMode {
+    return 'percent';
+  }
+
+  private scaleNumericStats(stats: PartialNumericStats | undefined, factor: number): PartialNumericStats | undefined {
+    if (!stats || factor === 0) {
+      return undefined;
+    }
+    const result: PartialNumericStats = {};
+    for (const key of [
+      'maxHp',
+      'maxQi',
+      'physAtk',
+      'spellAtk',
+      'physDef',
+      'spellDef',
+      'hit',
+      'dodge',
+      'crit',
+      'critDamage',
+      'breakPower',
+      'resolvePower',
+      'maxQiOutputPerTick',
+      'qiRegenRate',
+      'hpRegenRate',
+      'cooldownSpeed',
+      'auraCostReduce',
+      'auraPowerRate',
+      'playerExpRate',
+      'techniqueExpRate',
+      'realmExpPerTick',
+      'techniqueExpPerTick',
+      'lootRate',
+      'rareLootRate',
+      'viewRange',
+      'moveSpeed',
+      'extraAggroRate',
+    ] as const) {
+      const value = stats[key];
+      if (value === undefined) continue;
+      result[key] = value * factor;
+    }
+    if (stats.elementDamageBonus) {
+      const next: NonNullable<PartialNumericStats['elementDamageBonus']> = {};
+      for (const key of ELEMENT_KEYS) {
+        const value = stats.elementDamageBonus[key];
+        if (value === undefined) continue;
+        next[key] = value * factor;
+      }
+      if (Object.keys(next).length > 0) {
+        result.elementDamageBonus = next;
+      }
+    }
+    if (stats.elementDamageReduce) {
+      const next: NonNullable<PartialNumericStats['elementDamageReduce']> = {};
+      for (const key of ELEMENT_KEYS) {
+        const value = stats.elementDamageReduce[key];
+        if (value === undefined) continue;
+        next[key] = value * factor;
+      }
+      if (Object.keys(next).length > 0) {
+        result.elementDamageReduce = next;
+      }
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
   }
 
   private applyMonsterNaturalRecovery(monster: RuntimeMonster): void {
@@ -3786,7 +3927,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   }
 
   private formatRate(value: number): string {
-    const percent = Math.max(0, value) / 100;
+    const percent = value / 100;
     return `${percent.toFixed(percent % 1 === 0 ? 0 : percent % 0.1 === 0 ? 1 : 2)}%`;
   }
 
@@ -3796,7 +3937,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   }
 
   private formatRatio(value: number, divisor: number): string {
-    return `${(Math.max(0, ratioValue(value, divisor)) * 100).toFixed(2)}%`;
+    return `${(signedRatioValue(value, divisor) * 100).toFixed(2)}%`;
   }
 
   private consumeQiForSkill(player: PlayerState, skill: SkillDef): number | string {
@@ -3847,9 +3988,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
   private getEffectiveDropChance(player: PlayerState, drop: DropConfig): number {
     const stats = this.attrService.getPlayerNumericStats(player);
-    const commonBonus = Math.max(0, stats.lootRate) / 10000;
-    const rareBonus = drop.chance <= 0.2 ? Math.max(0, stats.rareLootRate) / 10000 : 0;
-    return Math.min(1, drop.chance * (1 + commonBonus + rareBonus));
+    const totalRateBp = stats.lootRate + (drop.chance <= 0.2 ? stats.rareLootRate : 0);
+    return Math.min(1, drop.chance * basisPointModifierToMultiplier(totalRateBp));
   }
 
   private inferMonsterElement(monster: RuntimeMonster): ElementKey | undefined {
@@ -4423,7 +4563,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   }
 
   private restorePlayerAfterDefeat(player: PlayerState, occupy: boolean) {
-    const respawnPlacement = this.mapService.resolveDefaultPlayerSpawnPosition(player.id);
+    const respawnPlacement = this.mapService.resolveDefaultPlayerSpawnPosition(player.id, player.respawnMapId);
     this.navigationService.clearMoveTarget(player.id);
     this.mapService.removeOccupant(player.mapId, player.x, player.y, player.id);
     player.mapId = respawnPlacement.mapId;
@@ -5042,7 +5182,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       ? this.techniqueService.interruptCultivation(player, 'attack')
       : { changed: false, dirty: [], messages: [] };
     const dirty = new Set<WorldDirtyFlag>(cultivation.dirty as WorldDirtyFlag[]);
-    const result = this.mapService.damageTile(player.mapId, x, y, damage);
+    const rawDamage = Math.max(0, Math.round(damage));
+    const result = this.mapService.damageTile(player.mapId, x, y, rawDamage);
     if (!result) {
       return { ...EMPTY_UPDATE, error: '该目标无法被攻击' };
     }
@@ -5060,7 +5201,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       type: 'float',
       x,
       y,
-      text: `-${appliedDamage}`,
+      text: `-${rawDamage}`,
       color: getDamageTrailColor(damageKind, element),
     });
 
@@ -5072,7 +5213,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       })),
       {
         playerId: player.id,
-        text: `${skillName}击中${targetName}，造成 ${appliedDamage} 点伤害。`,
+        text: `${skillName}击中${targetName}，造成 ${rawDamage} 点伤害。`,
         kind: 'combat',
       },
     ];
@@ -5117,10 +5258,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (this.inventoryService.addItem(player, reward)) {
+      const sourceLabel = ORE_REWARD_SOURCE_LABEL_BY_TILE[tileType] ?? '资源堆';
       return {
         messages: [{
           playerId: player.id,
-          text: `${reward.name} 从矿脉中震落而出 x${reward.count}。`,
+          text: `${reward.name} 从${sourceLabel}中震落而出 x${reward.count}。`,
           kind: 'loot',
         }],
         dirty: ['inv'],
@@ -5242,7 +5384,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     messageText: string,
     options: { restoreVitals: boolean; clearBuffs: boolean },
   ): WorldUpdate {
-    const spawn = this.mapService.resolveDefaultPlayerSpawnPosition(player.id);
+    const spawn = this.mapService.resolveDefaultPlayerSpawnPosition(player.id, player.respawnMapId);
     this.navigationService.clearMoveTarget(player.id);
     this.mapService.removeOccupant(player.mapId, player.x, player.y, player.id);
     player.mapId = spawn.mapId;
@@ -5272,6 +5414,23 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       }],
       dirty: [...new Set<WorldDirtyFlag>(['actions', ...(equipmentResult.dirty as WorldDirtyFlag[])])],
     };
+  }
+
+  private getReturnToSpawnTargetName(player: Pick<PlayerState, 'respawnMapId'>): string {
+    const mapId = this.mapService.resolvePlayerRespawnMapId(player.respawnMapId);
+    return this.mapService.getMapMeta(mapId)?.name ?? '落脚处';
+  }
+
+  private getReturnToSpawnActionName(player: Pick<PlayerState, 'respawnMapId'>): string {
+    return `遁返${this.getReturnToSpawnTargetName(player)}`;
+  }
+
+  private getReturnToSpawnActionDesc(player: Pick<PlayerState, 'respawnMapId'>): string {
+    return `催动归引灵符，立刻遁返${this.getReturnToSpawnTargetName(player)}落脚处，之后需调息 ${RETURN_TO_SPAWN_COOLDOWN_TICKS} 息。`;
+  }
+
+  private getReturnToSpawnSuccessText(player: Pick<PlayerState, 'respawnMapId'>): string {
+    return `归引灵符化作清光，你已遁返${this.getReturnToSpawnTargetName(player)}落脚处。`;
   }
 
   async persistMonsterRuntimeState(): Promise<void> {

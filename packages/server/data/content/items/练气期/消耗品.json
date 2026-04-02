@@ -1,0 +1,280 @@
+[
+  {
+    "itemId": "pill.guiding_powder",
+    "name": "引基散",
+    "type": "consumable",
+    "level": 4,
+    "desc": "药散入腹后会把乱气往气海底部慢慢拢住，立刻恢复 28% 气血与 65% 真气，并在一段时间内让修炼更稳。",
+    "healPercent": 0.28,
+    "qiPercent": 0.65,
+    "consumeBuffs": [
+      {
+        "buffId": "item_buff.guiding_powder",
+        "name": "引基",
+        "desc": "气机被药势往下拢住，功法修炼与境界积累略有提升。",
+        "shortMark": "引",
+        "duration": 1800,
+        "valueStats": {
+          "realmExpPerTick": 12,
+          "techniqueExpPerTick": 12
+        }
+      }
+    ],
+    "grade": "yellow"
+  },
+  {
+    "itemId": "recovery_powder",
+    "name": "回灵散",
+    "type": "consumable",
+    "level": 4,
+    "desc": "把散乱灵气压回经脉，立刻恢复 18% 气血与 42% 真气，并在短时间内加快气机回转。",
+    "healPercent": 0.18,
+    "qiPercent": 0.42,
+    "consumeBuffs": [
+      {
+        "buffId": "item_buff.recovery_powder",
+        "name": "回灵",
+        "desc": "药力沿经脉慢慢化开，气血与真气回复略有提升。",
+        "shortMark": "灵",
+        "duration": 900,
+        "valueStats": {
+          "hpRegenRate": 0.4,
+          "qiRegenRate": 0.8
+        }
+      }
+    ],
+    "grade": "yellow"
+  },
+  {
+    "itemId": "stabilizing_pellet",
+    "name": "镇脉丸",
+    "type": "consumable",
+    "level": 5,
+    "desc": "药势会贴着经脉走一圈，先恢复 10% 气血与 48% 真气，再暂时稳住护体与化解。",
+    "healPercent": 0.1,
+    "qiPercent": 0.48,
+    "consumeBuffs": [
+      {
+        "buffId": "item_buff.stabilizing_pellet",
+        "name": "镇脉",
+        "desc": "经脉被药力压稳，短时间内更不容易散乱。",
+        "shortMark": "镇",
+        "duration": 1200,
+        "valueStats": {
+          "spellDef": 5,
+          "resolvePower": 5
+        }
+      }
+    ],
+    "grade": "yellow"
+  },
+  {
+    "itemId": "pill.edge_quenching_powder",
+    "name": "淬锋散",
+    "type": "consumable",
+    "level": 5,
+    "desc": "金行药粉入口发涩，能在短时间内逼出更强的锋势与破势。",
+    "healPercent": 0.12,
+    "qiPercent": 0.32,
+    "consumeBuffs": [
+      {
+        "buffId": "item_buff.edge_quenching_powder",
+        "name": "淬锋",
+        "desc": "锋势短暂拔高，更易命中要害与打穿护体。",
+        "shortMark": "锋",
+        "duration": 900,
+        "valueStats": {
+          "hit": 4,
+          "crit": 3,
+          "breakPower": 4
+        }
+      }
+    ],
+    "grade": "mystic"
+  },
+  {
+    "itemId": "pill.nurturing_paste",
+    "name": "养脉膏",
+    "type": "consumable",
+    "level": 5,
+    "desc": "膏体入口微苦，能把散开的木行药势慢慢贴回经脉，适合拖长作战时续住命。",
+    "healPercent": 0.22,
+    "qiPercent": 0.24,
+    "consumeBuffs": [
+      {
+        "buffId": "item_buff.nurturing_paste",
+        "name": "养脉",
+        "desc": "药力贴脉而走，短时间内更容易稳住气血与回灵节奏。",
+        "shortMark": "脉",
+        "duration": 1200,
+        "valueStats": {
+          "hpRegenRate": 0.9,
+          "qiRegenRate": 0.6,
+          "spellDef": 4
+        }
+      }
+    ],
+    "grade": "mystic"
+  },
+  {
+    "itemId": "pill.cleartide_powder",
+    "name": "清脉散",
+    "type": "consumable",
+    "level": 5,
+    "desc": "药粉化开后会把杂气往外带，先回一口真气，再让经脉短时间内更干净顺手。",
+    "healPercent": 0.14,
+    "qiPercent": 0.48,
+    "consumeBuffs": [
+      {
+        "buffId": "item_buff.cleartide_powder",
+        "name": "清脉",
+        "desc": "杂气暂时被冲淡，真气回转和法修出手都会更顺。",
+        "shortMark": "清",
+        "duration": 900,
+        "valueStats": {
+          "qiRegenRate": 1,
+          "spellDef": 4,
+          "resolvePower": 4
+        }
+      }
+    ],
+    "grade": "mystic"
+  },
+  {
+    "itemId": "pill.chiyang_draught",
+    "name": "赤阳液",
+    "type": "consumable",
+    "level": 5,
+    "desc": "药液烈得像一口吞火，能短时把攻势和火炁都顶上去，适合硬压血线时一口闷下。",
+    "healPercent": 0.08,
+    "qiPercent": 0.26,
+    "consumeBuffs": [
+      {
+        "buffId": "item_buff.chiyang_draught",
+        "name": "赤阳",
+        "desc": "药势逼着火炁一起上涌，短时间内攻势会更烈更凶。",
+        "shortMark": "阳",
+        "duration": 600,
+        "valueStats": {
+          "physAtk": 6,
+          "spellAtk": 6,
+          "crit": 4,
+          "maxQiOutputPerTick": 6
+        }
+      }
+    ],
+    "grade": "mystic"
+  },
+  {
+    "itemId": "pill.earthrest_paste",
+    "name": "厚土膏",
+    "type": "consumable",
+    "level": 5,
+    "desc": "药膏入口厚重，立刻回一口气血，并在短时间内把护体压得更稳。",
+    "healPercent": 0.24,
+    "qiPercent": 0.18,
+    "consumeBuffs": [
+      {
+        "buffId": "item_buff.earthrest_paste",
+        "name": "厚土",
+        "desc": "肉身与经脉都被药力压稳，更适合硬扛。",
+        "shortMark": "土",
+        "duration": 900,
+        "valueStats": {
+          "physDef": 6,
+          "resolvePower": 6,
+          "hpRegenRate": 0.6
+        }
+      }
+    ],
+    "grade": "mystic"
+  },
+  {
+    "itemId": "pill.fivephase_harmony_pellet",
+    "name": "五和丸",
+    "type": "consumable",
+    "level": 6,
+    "desc": "把几种温顺药性压成一丸，恢复 18% 气血与 36% 真气，并在较长时间内帮助修炼。",
+    "healPercent": 0.18,
+    "qiPercent": 0.36,
+    "consumeBuffs": [
+      {
+        "buffId": "item_buff.fivephase_harmony_pellet",
+        "name": "五和",
+        "desc": "五行不再互相顶撞，修炼与真气运转都更平顺。",
+        "shortMark": "和",
+        "duration": 1800,
+        "valueStats": {
+          "spellDef": 4,
+          "realmExpPerTick": 8,
+          "techniqueExpPerTick": 8
+        }
+      }
+    ],
+    "grade": "earth"
+  },
+  {
+    "itemId": "map.qizhen_crossing",
+    "name": "栖真渡街图",
+    "type": "consumable",
+    "level": 7,
+    "desc": "记着栖真渡三重错台、行修街和五行出入口的主城街图。使用后可永久解锁栖真渡地图。",
+    "mapUnlockId": "qizhen_crossing"
+  },
+  {
+    "itemId": "map.deepvein_ridge",
+    "name": "厚脉岭采脉图",
+    "type": "consumable",
+    "level": 7,
+    "desc": "描出厚脉岭外坪、裂坡和采脉险路。使用后可永久解锁厚脉岭地图。",
+    "mapUnlockId": "deepvein_ridge"
+  },
+  {
+    "itemId": "map.cold_tide_marsh",
+    "name": "寒汐泽雾行图",
+    "type": "consumable",
+    "level": 8,
+    "desc": "按雾桥、水线和寒核方位誊录的行图。使用后可永久解锁寒汐泽地图。",
+    "mapUnlockId": "cold_tide_marsh"
+  },
+  {
+    "itemId": "map.verdant_vine_vale",
+    "name": "青萝谷藤径图",
+    "type": "consumable",
+    "level": 8,
+    "desc": "把藤门、桥径和谷中灵植带都标了出来。使用后可永久解锁青萝谷地图。",
+    "mapUnlockId": "verdant_vine_vale"
+  },
+  {
+    "itemId": "map.emberfall_court",
+    "name": "赤陨庭火路图",
+    "type": "consumable",
+    "level": 9,
+    "desc": "火路台阶、炉庭转折和退路都被压进了这张旧图。使用后可永久解锁赤陨庭地图。",
+    "mapUnlockId": "emberfall_court"
+  },
+  {
+    "itemId": "map.cleft_blade_plain",
+    "name": "裂锋原战线图",
+    "type": "consumable",
+    "level": 9,
+    "desc": "按残阵、砂兵线和断兵冢口整理出的长线战图。使用后可永久解锁裂锋原地图。",
+    "mapUnlockId": "cleft_blade_plain"
+  },
+  {
+    "itemId": "map.guizang_vein_cavern",
+    "name": "归藏脉窟阵脉图",
+    "type": "consumable",
+    "level": 10,
+    "desc": "窟内归窍支路、断脉井与回渡节点都被细细标出。使用后可永久解锁归藏脉窟地图。",
+    "mapUnlockId": "guizang_vein_cavern"
+  },
+  {
+    "itemId": "fate_stone.qizhen_crossing",
+    "name": "命石-栖真渡",
+    "type": "consumable",
+    "level": 7,
+    "desc": "以栖真渡回渡阵落脚处为引的命石。使用后会将自己的复活点与遁返落点改为栖真渡。",
+    "respawnBindMapId": "qizhen_crossing"
+  }
+]

@@ -34,6 +34,10 @@ export class PlayerEntity {
   @Column({ type: 'varchar', length: 50, default: 'yunlai_town' })
   mapId!: string;
 
+  /** 当前绑定的复活点地图 ID */
+  @Column({ type: 'varchar', length: 50, default: 'yunlai_town' })
+  respawnMapId!: string;
+
   @Column({ type: 'int' })
   x!: number;
 

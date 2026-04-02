@@ -449,6 +449,59 @@
       "role": "trader",
       "shopItems": [],
       "quests": []
+    },
+    {
+      "id": "npc_map_seller_qiu_shou",
+      "name": "渡图客·仇守",
+      "x": 31,
+      "y": 46,
+      "char": "图",
+      "color": "#d7c07d",
+      "dialogue": "五行外路、回渡旧线、命石落点，我这都有。肯花这点灵石，总比死了再摸路省事。",
+      "role": "trader",
+      "shopItems": [
+        {
+          "itemId": "fate_stone.yunlai_town",
+          "price": 1
+        },
+        {
+          "itemId": "fate_stone.qizhen_crossing",
+          "price": 49
+        },
+        {
+          "itemId": "map.sky_ruins",
+          "price": 36
+        },
+        {
+          "itemId": "map.qizhen_crossing",
+          "price": 49
+        },
+        {
+          "itemId": "map.deepvein_ridge",
+          "price": 49
+        },
+        {
+          "itemId": "map.cold_tide_marsh",
+          "price": 64
+        },
+        {
+          "itemId": "map.verdant_vine_vale",
+          "price": 64
+        },
+        {
+          "itemId": "map.emberfall_court",
+          "price": 81
+        },
+        {
+          "itemId": "map.cleft_blade_plain",
+          "price": 81
+        },
+        {
+          "itemId": "map.guizang_vein_cavern",
+          "price": 100
+        }
+      ],
+      "quests": []
     }
   ],
   "monsterSpawns": []

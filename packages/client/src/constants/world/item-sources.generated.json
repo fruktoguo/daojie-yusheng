@@ -113,6 +113,49 @@
       "mode": "direct",
       "chance": 0.8,
       "count": 2
+    },
+    {
+      "kind": "mining",
+      "mapId": "runtime",
+      "mapName": "运行时资源点",
+      "landmarkId": "runtime:black_iron_chunk",
+      "landmarkName": "玄铁矿",
+      "mode": "direct",
+      "count": 1
+    }
+  ],
+  "blade_pattern_crystal": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_banner_general",
+      "monsterName": "残兵鸣将",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_gate_lord",
+      "monsterName": "庚金镇门将",
+      "count": 2
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_iron_guard",
+      "monsterName": "残旌铁卫",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_stele_puppet",
+      "monsterName": "断碑锋傀",
+      "count": 1
     }
   ],
   "blood_feather": [
@@ -233,6 +276,16 @@
       "chapter": "第一章·粮路讨生"
     }
   ],
+  "book.baihong_duanyue": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_stele_puppet",
+      "monsterName": "断碑锋傀",
+      "count": 1
+    }
+  ],
   "book.bear_cauldron_art": [
     {
       "kind": "shop",
@@ -271,6 +324,26 @@
       "questTitle": "翻车留下的东西",
       "line": "main",
       "chapter": "第二章·青竹追线"
+    }
+  ],
+  "book.changsheng_chanyuan": [
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_06_heart_gate",
+      "mapName": "青萝谷·06心藤坳口",
+      "monsterId": "m_verdant_vein_mother",
+      "monsterName": "噬脉藤母",
+      "count": 1
+    }
+  ],
+  "book.chiyao_fenmai": [
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_bone_patrol",
+      "monsterName": "炽骨巡卒",
+      "count": 1
     }
   ],
   "book.cloud_blade": [
@@ -369,6 +442,16 @@
       "chapter": "第四章·兽谷问门"
     }
   ],
+  "book.genghua_ningfeng": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_blade_wraith",
+      "monsterName": "断刃游魂",
+      "count": 1
+    }
+  ],
   "book.golden_lock_body": [
     {
       "kind": "monster_drop",
@@ -389,6 +472,26 @@
       "chapter": "序章·断道入镇"
     }
   ],
+  "book.guicang_hemai": [
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_reflux_attendant",
+      "monsterName": "逆流残侍",
+      "count": 1
+    }
+  ],
+  "book.hanxi_ximai": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_tide_sprite",
+      "monsterName": "寒汐蜉灵",
+      "count": 1
+    }
+  ],
   "book.hidden_fortune_record": [
     {
       "kind": "monster_drop",
@@ -407,6 +510,26 @@
       "questTitle": "轮到遗迹开口",
       "line": "main",
       "chapter": "第三章·矿洞遗火"
+    }
+  ],
+  "book.houtu_chengyuan": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_croc",
+      "monsterName": "黄岩鼍兽",
+      "count": 1
+    }
+  ],
+  "book.huangting_zaishan": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_earth_effigy",
+      "monsterName": "玄岳地傀",
+      "count": 1
     }
   ],
   "book.hundred_temper_body": [
@@ -438,6 +561,16 @@
       "chapter": "第一章·粮路讨生"
     }
   ],
+  "book.hunyuan_zaimai": [
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_failed_foundation",
+      "monsterName": "未成道基",
+      "count": 1
+    }
+  ],
   "book.iron_bone_art": [
     {
       "kind": "monster_drop",
@@ -467,6 +600,16 @@
       "chapter": "第一章·粮路讨生"
     }
   ],
+  "book.kunyue_zhenhai": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_stele_bearer",
+      "monsterName": "厚土负碑者",
+      "count": 1
+    }
+  ],
   "book.lightshadow_art": [
     {
       "kind": "monster_drop",
@@ -485,6 +628,16 @@
       "questTitle": "叩门之前先成其身",
       "line": "main",
       "chapter": "第四章·兽谷问门"
+    }
+  ],
+  "book.liyan_duanxi": [
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_moth",
+      "monsterName": "焦土火蛾",
+      "count": 1
     }
   ],
   "book.mountain_insight_chart": [
@@ -535,6 +688,24 @@
       "monsterId": "m_bamboo_sprite",
       "monsterName": "竹心灵",
       "chance": 0.01,
+      "count": 1
+    }
+  ],
+  "book.qingmu_yangmai": [
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_01_entry",
+      "mapName": "青萝谷·01回渡药圃",
+      "monsterId": "m_verdant_lesser_sprite",
+      "monsterName": "青萝小妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_02_slope",
+      "mapName": "青萝谷·02引藤坡",
+      "monsterId": "m_verdant_lesser_sprite",
+      "monsterName": "青萝小妖",
       "count": 1
     }
   ],
@@ -652,29 +823,262 @@
       "chapter": "第五章·残宫封天"
     }
   ],
+  "book.taibai_zhuxing": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_gate_lord",
+      "monsterName": "庚金镇门将",
+      "count": 1
+    }
+  ],
+  "book.taichu_baoyuan": [
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_failed_foundation",
+      "monsterName": "未成道基",
+      "count": 1
+    }
+  ],
+  "book.taiyin_guichao": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_abyss_drake",
+      "monsterName": "玄溟螭影",
+      "count": 1
+    }
+  ],
+  "book.tingmai_dingxi": [
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_tangled_wisp",
+      "monsterName": "错脉游灵",
+      "count": 1
+    },
+    {
+      "kind": "quest",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "questId": "q_ridge_qi_refining",
+      "questTitle": "叩门之前先成其身",
+      "line": "main",
+      "chapter": "第四章·兽谷问门"
+    }
+  ],
   "book.voidflame_chapter": [
     {
       "kind": "monster_drop",
-      "mapId": "sky_ruins_core_well",
-      "mapName": "天穹残宫·封天核心井",
-      "monsterId": "m_fallen_palace_lord",
-      "monsterName": "坠星宫主",
-      "chance": 0.2,
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_flame_guard",
+      "monsterName": "流火戍灵",
+      "count": 1
+    }
+  ],
+  "book.wanzhi_huichun": [
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_04_garden",
+      "mapName": "青萝谷·04噬灵妖圃",
+      "monsterId": "m_verdant_wither_guard",
+      "monsterName": "枯荣藤卫",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_05_inner_hollow",
+      "mapName": "青萝谷·05盘根内坳",
+      "monsterId": "m_verdant_wither_guard",
+      "monsterName": "枯荣藤卫",
       "count": 1
     }
   ],
   "book.wildsunder_chart": [
     {
       "kind": "monster_drop",
-      "mapId": "spirit_ridge_old_gate",
-      "mapName": "灵脊岭·悬门旧关",
-      "monsterId": "m_spine_gate_lord",
-      "monsterName": "镇脊关主",
-      "chance": 0.2,
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_heavy_guard",
+      "monsterName": "裂岭重卫",
       "count": 1
     }
   ],
-  "cloud_puff": [],
+  "book.wuqi_guiliu": [
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_dualphase_beast",
+      "monsterName": "双相脉兽",
+      "count": 1
+    }
+  ],
+  "book.xuanjin_huilan": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_moonscale",
+      "monsterName": "月沼鲛影",
+      "count": 1
+    }
+  ],
+  "book.zhoutian_xihai": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_bridge_patrol",
+      "monsterName": "雾桥巡灵",
+      "count": 1
+    }
+  ],
+  "book.zhuming_jintian": [
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_furnace_lord",
+      "monsterName": "离火炉君",
+      "count": 1
+    }
+  ],
+  "cleantide_essence": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_abyss_drake",
+      "monsterName": "玄溟螭影",
+      "count": 2
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_bridge_patrol",
+      "monsterName": "雾桥巡灵",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_mirror_shade",
+      "monsterName": "寒宫镜妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_moonscale",
+      "monsterName": "月沼鲛影",
+      "count": 1
+    }
+  ],
+  "cleft_iron_fragment": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_blade_sprite",
+      "monsterName": "金砂锋魈",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_blade_wraith",
+      "monsterName": "断刃游魂",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_sand_soldier",
+      "monsterName": "裂甲砂兵",
+      "count": 1
+    }
+  ],
+  "cloud_puff": [
+    {
+      "kind": "mining",
+      "mapId": "runtime",
+      "mapName": "运行时资源点",
+      "landmarkId": "runtime:cloud_puff",
+      "landmarkName": "云墙",
+      "mode": "direct",
+      "count": 1
+    }
+  ],
+  "coldspirit_dew": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_abyss_drake",
+      "monsterName": "玄溟螭影",
+      "count": 4
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_bridge_patrol",
+      "monsterName": "雾桥巡灵",
+      "count": 3
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_marsh_wraith",
+      "monsterName": "浅泽雾鬼",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_mirror_shade",
+      "monsterName": "寒宫镜妖",
+      "count": 2
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_moonscale",
+      "monsterName": "月沼鲛影",
+      "count": 2
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_pattern_guard",
+      "monsterName": "冰纹水卒",
+      "count": 2
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_tide_sprite",
+      "monsterName": "寒汐蜉灵",
+      "count": 1
+    }
+  ],
   "colossus_heart": [
     {
       "kind": "monster_drop",
@@ -763,12 +1167,292 @@
       "count": 1
     }
   ],
-  "equip.ash_tread": [],
-  "equip.bamboo_fang_blade": [],
-  "equip.bamboo_hat": [],
-  "equip.bamboo_heart_charm": [],
-  "equip.bamboo_split_blade": [],
-  "equip.beastbone_mail": [],
+  "earthbearing_stone": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_armor_spirit",
+      "monsterName": "坠岩甲灵",
+      "count": 2
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_croc",
+      "monsterName": "黄岩鼍兽",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_earth_effigy",
+      "monsterName": "玄岳地傀",
+      "count": 4
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_heavy_guard",
+      "monsterName": "裂岭重卫",
+      "count": 3
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_ridge_warden",
+      "monsterName": "岳纹镇灵",
+      "count": 2
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_stele_bearer",
+      "monsterName": "厚土负碑者",
+      "count": 2
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_stonebound",
+      "monsterName": "沉脉石奴",
+      "count": 1
+    }
+  ],
+  "ember_sand": [
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_attendant",
+      "monsterName": "炉心灼侍",
+      "count": 2
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_bone_patrol",
+      "monsterName": "炽骨巡卒",
+      "count": 2
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_flame_guard",
+      "monsterName": "流火戍灵",
+      "count": 3
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_furnace_lord",
+      "monsterName": "离火炉君",
+      "count": 4
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_lizard",
+      "monsterName": "熔纹火蜥",
+      "count": 2
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_moth",
+      "monsterName": "焦土火蛾",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_whelp",
+      "monsterName": "赤烬蜥幼",
+      "count": 1
+    }
+  ],
+  "embershard_char": [
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_lizard",
+      "monsterName": "熔纹火蜥",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_moth",
+      "monsterName": "焦土火蛾",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_whelp",
+      "monsterName": "赤烬蜥幼",
+      "count": 1
+    }
+  ],
+  "equip.ash_tread": [
+    {
+      "kind": "monster_drop",
+      "mapId": "black_iron_mine",
+      "mapName": "玄铁矿洞",
+      "monsterId": "m_tunnel_stalker",
+      "monsterName": "隧影潜猎者",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "black_iron_mine_molten_heart",
+      "mapName": "玄铁矿洞·玄脉熔心",
+      "monsterId": "m_iron_devour_lord",
+      "monsterName": "噬铁矿君",
+      "count": 1
+    }
+  ],
+  "equip.bamboo_fang_blade": [
+    {
+      "kind": "monster_drop",
+      "mapId": "bamboo_forest",
+      "mapName": "青竹林",
+      "monsterId": "m_spirit_wolf",
+      "monsterName": "噬灵狼",
+      "count": 1
+    }
+  ],
+  "equip.bamboo_hat": [
+    {
+      "kind": "monster_drop",
+      "mapId": "bamboo_forest",
+      "mapName": "青竹林",
+      "monsterId": "m_bamboo_sprite",
+      "monsterName": "竹心灵",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "bamboo_forest_mantis_court",
+      "mapName": "青竹林·青螂巢庭",
+      "monsterId": "m_green_emperor_mantis",
+      "monsterName": "青皇竹螂",
+      "count": 1
+    }
+  ],
+  "equip.bamboo_heart_charm": [
+    {
+      "kind": "monster_drop",
+      "mapId": "bamboo_forest",
+      "mapName": "青竹林",
+      "monsterId": "m_bamboo_serpent",
+      "monsterName": "青鳞竹蛇",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "bamboo_forest_mantis_court",
+      "mapName": "青竹林·青螂巢庭",
+      "monsterId": "m_green_emperor_mantis",
+      "monsterName": "青皇竹螂",
+      "count": 1
+    }
+  ],
+  "equip.bamboo_split_blade": [
+    {
+      "kind": "monster_drop",
+      "mapId": "bamboo_forest",
+      "mapName": "青竹林",
+      "monsterId": "m_bamboo_mantis",
+      "monsterName": "刃竹螳精英",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "bamboo_forest_mantis_court",
+      "mapName": "青竹林·青螂巢庭",
+      "monsterId": "m_green_emperor_mantis",
+      "monsterName": "青皇竹螂",
+      "count": 1
+    }
+  ],
+  "equip.banner_war_halberd": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_banner_general",
+      "monsterName": "残兵鸣将",
+      "count": 1
+    }
+  ],
+  "equip.beastbone_mail": [
+    {
+      "kind": "monster_drop",
+      "mapId": "beast_valley",
+      "mapName": "噬魂兽谷",
+      "monsterId": "m_valley_alpha",
+      "monsterName": "裂渊狼主",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "beast_valley",
+      "mapName": "噬魂兽谷",
+      "monsterId": "m_valley_emperor",
+      "monsterName": "裂渊谷皇精英",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "beast_valley",
+      "mapName": "噬魂兽谷",
+      "monsterId": "m_valley_serpent",
+      "monsterName": "赤脊谷蛇",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "beast_valley_blood_altar",
+      "mapName": "噬魂兽谷·血祭坛",
+      "monsterId": "m_soul_wolf_ancestor",
+      "monsterName": "噬魂狼祖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "spirit_ridge",
+      "mapName": "灵脊岭",
+      "monsterId": "m_spirit_tiger",
+      "monsterName": "灵脊虎",
+      "count": 1
+    }
+  ],
+  "equip.bent_flag_heavy_helm": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_iron_guard",
+      "monsterName": "残旌铁卫",
+      "count": 1
+    }
+  ],
   "equip.black_iron_sword": [
     {
       "kind": "quest",
@@ -787,9 +1471,52 @@
       "line": "side"
     }
   ],
-  "equip.blackiron_brigandine": [],
-  "equip.blood_burn_rope": [],
-  "equip.bloodcore_talisman": [],
+  "equip.blackiron_brigandine": [
+    {
+      "kind": "monster_drop",
+      "mapId": "black_iron_mine_molten_heart",
+      "mapName": "玄铁矿洞·玄脉熔心",
+      "monsterId": "m_iron_devour_lord",
+      "monsterName": "噬铁矿君",
+      "count": 1
+    }
+  ],
+  "equip.blood_burn_rope": [
+    {
+      "kind": "monster_drop",
+      "mapId": "beast_valley",
+      "mapName": "噬魂兽谷",
+      "monsterId": "m_blood_crow",
+      "monsterName": "血羽鸦",
+      "count": 1
+    }
+  ],
+  "equip.bloodcore_talisman": [
+    {
+      "kind": "monster_drop",
+      "mapId": "beast_valley",
+      "mapName": "噬魂兽谷",
+      "monsterId": "m_blood_crow",
+      "monsterName": "血羽鸦",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "beast_valley",
+      "mapName": "噬魂兽谷",
+      "monsterId": "m_valley_alpha",
+      "monsterName": "裂渊狼主",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "beast_valley",
+      "mapName": "噬魂兽谷",
+      "monsterId": "m_valley_serpent",
+      "monsterName": "赤脊谷蛇",
+      "count": 1
+    }
+  ],
   "equip.bone_dagger": [
     {
       "kind": "quest",
@@ -800,9 +1527,64 @@
       "line": "side"
     }
   ],
-  "equip.bound_chest": [],
-  "equip.broken_rune_blade": [],
-  "equip.cave_skitter_spurs": [],
+  "equip.bound_chest": [
+    {
+      "kind": "monster_drop",
+      "mapId": "wildlands",
+      "mapName": "荒野",
+      "monsterId": "m_wild_bandit",
+      "monsterName": "荒野匪徒",
+      "count": 1
+    }
+  ],
+  "equip.broken_rune_blade": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ancient_ruins",
+      "mapName": "断碑遗迹",
+      "monsterId": "m_rune_watcher",
+      "monsterName": "残纹看守精英",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "ancient_ruins_monument_hall",
+      "mapName": "断碑遗迹·断碑主殿",
+      "monsterId": "m_stele_arbiter",
+      "monsterName": "裂碑司命",
+      "count": 1
+    }
+  ],
+  "equip.burden_greaves": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_stonebound",
+      "monsterName": "沉脉石奴",
+      "count": 1
+    }
+  ],
+  "equip.burden_stele_staff": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_stele_bearer",
+      "monsterName": "厚土负碑者",
+      "count": 1
+    }
+  ],
+  "equip.cave_skitter_spurs": [
+    {
+      "kind": "monster_drop",
+      "mapId": "black_iron_mine",
+      "mapName": "玄铁矿洞",
+      "monsterId": "m_crystal_bat",
+      "monsterName": "晶背蝠",
+      "count": 1
+    }
+  ],
   "equip.celestial_crown": [
     {
       "kind": "quest",
@@ -822,6 +1604,138 @@
       "chapter": "第四章·兽谷问门"
     }
   ],
+  "equip.chasing_edge_boots": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_blade_sprite",
+      "monsterName": "金砂锋魈",
+      "count": 1
+    }
+  ],
+  "equip.cleantide_robe": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_abyss_drake",
+      "monsterName": "玄溟螭影",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_bridge_patrol",
+      "monsterName": "雾桥巡灵",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_marsh_wraith",
+      "monsterName": "浅泽雾鬼",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_moonscale",
+      "monsterName": "月沼鲛影",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_pattern_guard",
+      "monsterName": "冰纹水卒",
+      "count": 1
+    }
+  ],
+  "equip.cleft_blade_armguard": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_stele_puppet",
+      "monsterName": "断碑锋傀",
+      "count": 1
+    }
+  ],
+  "equip.cleft_blade_cloak": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_banner_general",
+      "monsterName": "残兵鸣将",
+      "count": 1
+    }
+  ],
+  "equip.cleft_blade_relic_armor": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_gate_lord",
+      "monsterName": "庚金镇门将",
+      "count": 1
+    }
+  ],
+  "equip.cleft_blade_shoulder": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_iron_guard",
+      "monsterName": "残旌铁卫",
+      "count": 1
+    }
+  ],
+  "equip.cleft_edge_ring": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_blade_sprite",
+      "monsterName": "金砂锋魈",
+      "count": 1
+    }
+  ],
+  "equip.cleft_long_halberd": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_sand_soldier",
+      "monsterName": "裂甲砂兵",
+      "count": 1
+    }
+  ],
+  "equip.cleft_scale_armor": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_banner_general",
+      "monsterName": "残兵鸣将",
+      "count": 1
+    }
+  ],
+  "equip.cleft_short_blade": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_blade_wraith",
+      "monsterName": "断刃游魂",
+      "count": 1
+    }
+  ],
   "equip.cloud_boots": [
     {
       "kind": "quest",
@@ -833,12 +1747,488 @@
       "chapter": "第二章·青竹追线"
     }
   ],
-  "equip.crow_night_mask": [],
-  "equip.crystal_maw_spike": [],
-  "equip.dewstep_boots": [],
-  "equip.echo_crystal_crest": [],
-  "equip.gate_headcloth": [],
-  "equip.gather_qi_pendant": [],
+  "equip.counter_shock_iron_ring": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_iron_guard",
+      "monsterName": "残旌铁卫",
+      "count": 1
+    }
+  ],
+  "equip.crow_night_mask": [
+    {
+      "kind": "monster_drop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "monsterId": "m_night_blade",
+      "monsterName": "夜行刀客",
+      "count": 1
+    }
+  ],
+  "equip.crystal_maw_spike": [
+    {
+      "kind": "monster_drop",
+      "mapId": "black_iron_mine",
+      "mapName": "玄铁矿洞",
+      "monsterId": "m_mine_ghoul",
+      "monsterName": "矿魈",
+      "count": 1
+    }
+  ],
+  "equip.darkpeak_fist_seal": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_earth_effigy",
+      "monsterName": "玄岳地傀",
+      "count": 1
+    }
+  ],
+  "equip.deepvein_chestguard": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_ridge_warden",
+      "monsterName": "岳纹镇灵",
+      "count": 1
+    }
+  ],
+  "equip.deepvein_core": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_earth_effigy",
+      "monsterName": "玄岳地傀",
+      "count": 1
+    }
+  ],
+  "equip.deepvein_gauntlets": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_stele_bearer",
+      "monsterName": "厚土负碑者",
+      "count": 1
+    }
+  ],
+  "equip.deepvein_kneeguards": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_armor_spirit",
+      "monsterName": "坠岩甲灵",
+      "count": 1
+    }
+  ],
+  "equip.deepvein_plate": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_stonebound",
+      "monsterName": "沉脉石奴",
+      "count": 1
+    }
+  ],
+  "equip.deepvein_relic": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_earth_effigy",
+      "monsterName": "玄岳地傀",
+      "count": 1
+    }
+  ],
+  "equip.deepvein_relic_shard": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_heavy_guard",
+      "monsterName": "裂岭重卫",
+      "count": 1
+    }
+  ],
+  "equip.dew_tide_pendant": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_abyss_drake",
+      "monsterName": "玄溟螭影",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_bridge_patrol",
+      "monsterName": "雾桥巡灵",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_mirror_shade",
+      "monsterName": "寒宫镜妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_moonscale",
+      "monsterName": "月沼鲛影",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_pattern_guard",
+      "monsterName": "冰纹水卒",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_tide_sprite",
+      "monsterName": "寒汐蜉灵",
+      "count": 1
+    }
+  ],
+  "equip.dewstep_boots": [
+    {
+      "kind": "monster_drop",
+      "mapId": "bamboo_forest",
+      "mapName": "青竹林",
+      "monsterId": "m_bamboo_mantis",
+      "monsterName": "刃竹螳精英",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "bamboo_forest_mantis_court",
+      "mapName": "青竹林·青螂巢庭",
+      "monsterId": "m_green_emperor_mantis",
+      "monsterName": "青皇竹螂",
+      "count": 1
+    }
+  ],
+  "equip.earthlord_helm": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_earth_effigy",
+      "monsterName": "玄岳地傀",
+      "count": 1
+    }
+  ],
+  "equip.echo_crystal_crest": [
+    {
+      "kind": "monster_drop",
+      "mapId": "black_iron_mine",
+      "mapName": "玄铁矿洞",
+      "monsterId": "m_crystal_bat",
+      "monsterName": "晶背蝠",
+      "count": 1
+    }
+  ],
+  "equip.edge_command_token": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_banner_general",
+      "monsterName": "残兵鸣将",
+      "count": 1
+    }
+  ],
+  "equip.edge_core_shell": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_stele_puppet",
+      "monsterName": "断碑锋傀",
+      "count": 1
+    }
+  ],
+  "equip.ember_scorch_spear": [
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_attendant",
+      "monsterName": "炉心灼侍",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_bone_patrol",
+      "monsterName": "炽骨巡卒",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_flame_guard",
+      "monsterName": "流火戍灵",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_furnace_lord",
+      "monsterName": "离火炉君",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_lizard",
+      "monsterName": "熔纹火蜥",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_whelp",
+      "monsterName": "赤烬蜥幼",
+      "count": 1
+    }
+  ],
+  "equip.fallrock_maul": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_armor_spirit",
+      "monsterName": "坠岩甲灵",
+      "count": 1
+    }
+  ],
+  "equip.firestride_boots": [
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_bone_patrol",
+      "monsterName": "炽骨巡卒",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_flame_guard",
+      "monsterName": "流火戍灵",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_furnace_lord",
+      "monsterName": "离火炉君",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_moth",
+      "monsterName": "焦土火蛾",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_whelp",
+      "monsterName": "赤烬蜥幼",
+      "count": 1
+    }
+  ],
+  "equip.fiveqi_watch_crown": [
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_chaos_sentry",
+      "monsterName": "乱炁守侍",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_failed_foundation",
+      "monsterName": "未成道基",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_reflux_attendant",
+      "monsterName": "逆流残侍",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_ruined_relic",
+      "monsterName": "乱基守遗",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_tangled_wisp",
+      "monsterName": "错脉游灵",
+      "count": 1
+    }
+  ],
+  "equip.full_edge_blade": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_blade_sprite",
+      "monsterName": "金砂锋魈",
+      "count": 1
+    }
+  ],
+  "equip.furnace_red_ring": [
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_attendant",
+      "monsterName": "炉心灼侍",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_bone_patrol",
+      "monsterName": "炽骨巡卒",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_flame_guard",
+      "monsterName": "流火戍灵",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_furnace_lord",
+      "monsterName": "离火炉君",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_lizard",
+      "monsterName": "熔纹火蜥",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_moth",
+      "monsterName": "焦土火蛾",
+      "count": 1
+    }
+  ],
+  "equip.gate_headcloth": [
+    {
+      "kind": "monster_drop",
+      "mapId": "wildlands",
+      "mapName": "荒野",
+      "monsterId": "m_wild_bandit",
+      "monsterName": "荒野匪徒",
+      "count": 1
+    }
+  ],
+  "equip.gather_qi_pendant": [
+    {
+      "kind": "monster_drop",
+      "mapId": "bamboo_forest",
+      "mapName": "青竹林",
+      "monsterId": "m_bamboo_sprite",
+      "monsterName": "竹心灵",
+      "count": 1
+    }
+  ],
+  "equip.geng_gate_blade": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_gate_lord",
+      "monsterName": "庚金镇门将",
+      "count": 1
+    }
+  ],
+  "equip.gold_coffin_plate": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_gate_lord",
+      "monsterName": "庚金镇门将",
+      "count": 1
+    }
+  ],
+  "equip.gold_sand_cuirass": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_sand_soldier",
+      "monsterName": "裂甲砂兵",
+      "count": 1
+    }
+  ],
+  "equip.gold_sand_talisman": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_blade_sprite",
+      "monsterName": "金砂锋魈",
+      "count": 1
+    }
+  ],
   "equip.grassbound_shoes": [
     {
       "kind": "quest",
@@ -850,10 +2240,290 @@
       "chapter": "序章·断道入镇"
     }
   ],
-  "equip.guiding_marrow_pendant": [],
-  "equip.gutter_paws": [],
-  "equip.herb_basket_charm": [],
-  "equip.herb_mist_robe": [],
+  "equip.guiding_marrow_pendant": [
+    {
+      "kind": "monster_drop",
+      "mapId": "sky_ruins",
+      "mapName": "天穹残宫",
+      "monsterId": "m_sky_puppet",
+      "monsterName": "残宫傀仪",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "spirit_ridge",
+      "mapName": "灵脊岭",
+      "monsterId": "m_ridge_ghost",
+      "monsterName": "守岭残魂精英",
+      "count": 1
+    }
+  ],
+  "equip.guizang_aperture_robe": [
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_chaos_sentry",
+      "monsterName": "乱炁守侍",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_dualphase_beast",
+      "monsterName": "双相脉兽",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_failed_foundation",
+      "monsterName": "未成道基",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_fivephase_effigy",
+      "monsterName": "五炁砂偶",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_ruined_relic",
+      "monsterName": "乱基守遗",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_tangled_wisp",
+      "monsterName": "错脉游灵",
+      "count": 1
+    }
+  ],
+  "equip.guizang_conflux_blade": [
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_chaos_sentry",
+      "monsterName": "乱炁守侍",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_dualphase_beast",
+      "monsterName": "双相脉兽",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_failed_foundation",
+      "monsterName": "未成道基",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_fivephase_effigy",
+      "monsterName": "五炁砂偶",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_reflux_attendant",
+      "monsterName": "逆流残侍",
+      "count": 1
+    }
+  ],
+  "equip.gutter_paws": [
+    {
+      "kind": "monster_drop",
+      "mapId": "wildlands",
+      "mapName": "荒野",
+      "monsterId": "m_dust_vulture",
+      "monsterName": "裂喙秃鹫",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "wildlands",
+      "mapName": "荒野",
+      "monsterId": "m_mire_spider",
+      "monsterName": "阴沼毒蛛精英",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "wildlands",
+      "mapName": "荒野",
+      "monsterId": "m_swamp_lizard",
+      "monsterName": "泽鳞蜥",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "wildlands_gale_den",
+      "mapName": "荒野·荒骨风穴",
+      "monsterId": "m_gale_bone_king",
+      "monsterName": "裂风荒王",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "monsterId": "m_town_rat_refuse",
+      "monsterName": "废棚灰尾鼠",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "monsterId": "m_town_rat_south",
+      "monsterName": "南沟灰尾鼠",
+      "count": 1
+    }
+  ],
+  "equip.halfbase_ring": [
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_dualphase_beast",
+      "monsterName": "双相脉兽",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_failed_foundation",
+      "monsterName": "未成道基",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_reflux_attendant",
+      "monsterName": "逆流残侍",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_ruined_relic",
+      "monsterName": "乱基守遗",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_tangled_wisp",
+      "monsterName": "错脉游灵",
+      "count": 1
+    }
+  ],
+  "equip.hanxi_flow_ruler": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_abyss_drake",
+      "monsterName": "玄溟螭影",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_bridge_patrol",
+      "monsterName": "雾桥巡灵",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_moonscale",
+      "monsterName": "月沼鲛影",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_pattern_guard",
+      "monsterName": "冰纹水卒",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_tide_sprite",
+      "monsterName": "寒汐蜉灵",
+      "count": 1
+    }
+  ],
+  "equip.heavy_claw_boots": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_croc",
+      "monsterName": "黄岩鼍兽",
+      "count": 1
+    }
+  ],
+  "equip.heavystele_helm": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_stele_bearer",
+      "monsterName": "厚土负碑者",
+      "count": 1
+    }
+  ],
+  "equip.herb_basket_charm": [
+    {
+      "kind": "monster_drop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "monsterId": "m_night_blade",
+      "monsterName": "夜行刀客",
+      "count": 1
+    }
+  ],
+  "equip.herb_mist_robe": [
+    {
+      "kind": "monster_drop",
+      "mapId": "bamboo_forest",
+      "mapName": "青竹林",
+      "monsterId": "m_bamboo_sprite",
+      "monsterName": "竹心灵",
+      "count": 1
+    }
+  ],
   "equip.hunter_cap": [
     {
       "kind": "quest",
@@ -865,9 +2535,196 @@
       "chapter": "第一章·粮路讨生"
     }
   ],
-  "equip.leafshadow_crest": [],
-  "equip.leather_vest": [],
-  "equip.marsh_poison_gland": [],
+  "equip.iron_track_boots": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_sand_soldier",
+      "monsterName": "裂甲砂兵",
+      "count": 1
+    }
+  ],
+  "equip.leafshadow_crest": [
+    {
+      "kind": "monster_drop",
+      "mapId": "bamboo_forest",
+      "mapName": "青竹林",
+      "monsterId": "m_bamboo_mantis",
+      "monsterName": "刃竹螳精英",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "bamboo_forest",
+      "mapName": "青竹林",
+      "monsterId": "m_spirit_wolf",
+      "monsterName": "噬灵狼",
+      "count": 1
+    }
+  ],
+  "equip.leather_vest": [
+    {
+      "kind": "monster_drop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "monsterId": "m_gate_thug",
+      "monsterName": "断路暴徒",
+      "count": 1
+    }
+  ],
+  "equip.lifepulse_pendant": [
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_01_entry",
+      "mapName": "青萝谷·01回渡药圃",
+      "monsterId": "m_verdant_lesser_sprite",
+      "monsterName": "青萝小妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_02_slope",
+      "mapName": "青萝谷·02引藤坡",
+      "monsterId": "m_verdant_lesser_sprite",
+      "monsterName": "青萝小妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_02_slope",
+      "mapName": "青萝谷·02引藤坡",
+      "monsterId": "m_verdant_parasitic_child",
+      "monsterName": "寄脉藤童",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_03_bridge",
+      "mapName": "青萝谷·03双桥岔谷",
+      "monsterId": "m_verdant_parasitic_child",
+      "monsterName": "寄脉藤童",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_03_bridge",
+      "mapName": "青萝谷·03双桥岔谷",
+      "monsterId": "m_verdant_siphon_flower",
+      "monsterName": "吸灵花妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_04_garden",
+      "mapName": "青萝谷·04噬灵妖圃",
+      "monsterId": "m_verdant_siphon_flower",
+      "monsterName": "吸灵花妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_04_garden",
+      "mapName": "青萝谷·04噬灵妖圃",
+      "monsterId": "m_verdant_wither_guard",
+      "monsterName": "枯荣藤卫",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_05_inner_hollow",
+      "mapName": "青萝谷·05盘根内坳",
+      "monsterId": "m_verdant_wither_guard",
+      "monsterName": "枯荣藤卫",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_06_heart_gate",
+      "mapName": "青萝谷·06心藤坳口",
+      "monsterId": "m_verdant_vein_mother",
+      "monsterName": "噬脉藤母",
+      "count": 1
+    }
+  ],
+  "equip.liyan_crown": [
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_bone_patrol",
+      "monsterName": "炽骨巡卒",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_furnace_lord",
+      "monsterName": "离火炉君",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_lizard",
+      "monsterName": "熔纹火蜥",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_moth",
+      "monsterName": "焦土火蛾",
+      "count": 1
+    }
+  ],
+  "equip.loadstone_plate": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_stele_bearer",
+      "monsterName": "厚土负碑者",
+      "count": 1
+    }
+  ],
+  "equip.marsh_poison_gland": [
+    {
+      "kind": "monster_drop",
+      "mapId": "wildlands",
+      "mapName": "荒野",
+      "monsterId": "m_dust_vulture",
+      "monsterName": "裂喙秃鹫",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "wildlands",
+      "mapName": "荒野",
+      "monsterId": "m_mire_spider",
+      "monsterName": "阴沼毒蛛精英",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "wildlands",
+      "mapName": "荒野",
+      "monsterId": "m_swamp_lizard",
+      "monsterName": "泽鳞蜥",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "wildlands_gale_den",
+      "mapName": "荒野·荒骨风穴",
+      "monsterId": "m_gale_bone_king",
+      "monsterName": "裂风荒王",
+      "count": 1
+    }
+  ],
   "equip.miner_helmet": [
     {
       "kind": "monster_drop",
@@ -897,7 +2754,74 @@
       "line": "side"
     }
   ],
-  "equip.mineral_pulse_core": [],
+  "equip.mineral_pulse_core": [
+    {
+      "kind": "monster_drop",
+      "mapId": "black_iron_mine",
+      "mapName": "玄铁矿洞",
+      "monsterId": "m_crystal_bat",
+      "monsterName": "晶背蝠",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "black_iron_mine",
+      "mapName": "玄铁矿洞",
+      "monsterId": "m_mine_ghoul",
+      "monsterName": "矿魈",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "black_iron_mine",
+      "mapName": "玄铁矿洞",
+      "monsterId": "m_ore_colossus",
+      "monsterName": "玄矿巨像精英",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "black_iron_mine_molten_heart",
+      "mapName": "玄铁矿洞·玄脉熔心",
+      "monsterId": "m_iron_devour_lord",
+      "monsterName": "噬铁矿君",
+      "count": 1
+    }
+  ],
+  "equip.mistwalker_boots": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_abyss_drake",
+      "monsterName": "玄溟螭影",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_marsh_wraith",
+      "monsterName": "浅泽雾鬼",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_mirror_shade",
+      "monsterName": "寒宫镜妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_moonscale",
+      "monsterName": "月沼鲛影",
+      "count": 1
+    }
+  ],
   "equip.moonshadow_boots": [
     {
       "kind": "quest",
@@ -906,6 +2830,78 @@
       "questId": "q_ridge_tiger_claw",
       "questTitle": "拿爪换路",
       "line": "side"
+    }
+  ],
+  "equip.moonwell_gauze_crown": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_abyss_drake",
+      "monsterName": "玄溟螭影",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_bridge_patrol",
+      "monsterName": "雾桥巡灵",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_marsh_wraith",
+      "monsterName": "浅泽雾鬼",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_mirror_shade",
+      "monsterName": "寒宫镜妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_tide_sprite",
+      "monsterName": "寒汐蜉灵",
+      "count": 1
+    }
+  ],
+  "equip.mount_guard_helm": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_heavy_guard",
+      "monsterName": "裂岭重卫",
+      "count": 1
+    }
+  ],
+  "equip.mountainheart_token": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_ridge_warden",
+      "monsterName": "岳纹镇灵",
+      "count": 1
+    }
+  ],
+  "equip.mountainseal_plate": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_earth_effigy",
+      "monsterName": "玄岳地傀",
+      "count": 1
     }
   ],
   "equip.nanshi_token": [
@@ -927,14 +2923,397 @@
       "chapter": "第一章·粮路讨生"
     }
   ],
-  "equip.orebreak_hammer": [],
-  "equip.oreplate_carapace": [],
-  "equip.orevein_ring": [],
-  "equip.pattern_picker_ring": [],
-  "equip.porter_jacket": [],
-  "equip.predator_tendon_boots": [],
-  "equip.remnant_array_crown": [],
-  "equip.ridge_calm_robe": [],
+  "equip.old_guard_iron_armor": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_iron_guard",
+      "monsterName": "残旌铁卫",
+      "count": 1
+    }
+  ],
+  "equip.orebreak_hammer": [
+    {
+      "kind": "monster_drop",
+      "mapId": "black_iron_mine",
+      "mapName": "玄铁矿洞",
+      "monsterId": "m_ore_colossus",
+      "monsterName": "玄矿巨像精英",
+      "count": 1
+    }
+  ],
+  "equip.oreplate_carapace": [
+    {
+      "kind": "monster_drop",
+      "mapId": "black_iron_mine",
+      "mapName": "玄铁矿洞",
+      "monsterId": "m_mine_ghoul",
+      "monsterName": "矿魈",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "black_iron_mine",
+      "mapName": "玄铁矿洞",
+      "monsterId": "m_ore_colossus",
+      "monsterName": "玄矿巨像精英",
+      "count": 1
+    }
+  ],
+  "equip.orevein_ring": [
+    {
+      "kind": "monster_drop",
+      "mapId": "black_iron_mine",
+      "mapName": "玄铁矿洞",
+      "monsterId": "m_tunnel_stalker",
+      "monsterName": "隧影潜猎者",
+      "count": 1
+    }
+  ],
+  "equip.pattern_picker_ring": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ancient_ruins",
+      "mapName": "断碑遗迹",
+      "monsterId": "m_bone_owl",
+      "monsterName": "骨翎夜鸮",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "ancient_ruins",
+      "mapName": "断碑遗迹",
+      "monsterId": "m_rune_watcher",
+      "monsterName": "残纹看守精英",
+      "count": 1
+    }
+  ],
+  "equip.porter_jacket": [
+    {
+      "kind": "monster_drop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "monsterId": "m_gate_thug",
+      "monsterName": "断路暴徒",
+      "count": 1
+    }
+  ],
+  "equip.predator_tendon_boots": [
+    {
+      "kind": "monster_drop",
+      "mapId": "beast_valley",
+      "mapName": "噬魂兽谷",
+      "monsterId": "m_blood_crow",
+      "monsterName": "血羽鸦",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "beast_valley",
+      "mapName": "噬魂兽谷",
+      "monsterId": "m_valley_alpha",
+      "monsterName": "裂渊狼主",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "beast_valley",
+      "mapName": "噬魂兽谷",
+      "monsterId": "m_valley_emperor",
+      "monsterName": "裂渊谷皇精英",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "beast_valley",
+      "mapName": "噬魂兽谷",
+      "monsterId": "m_valley_serpent",
+      "monsterName": "赤脊谷蛇",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "beast_valley",
+      "mapName": "噬魂兽谷",
+      "monsterId": "m_valley_wolf",
+      "monsterName": "裂齿妖狼",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "beast_valley_blood_altar",
+      "mapName": "噬魂兽谷·血祭坛",
+      "monsterId": "m_soul_wolf_ancestor",
+      "monsterName": "噬魂狼祖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "spirit_ridge",
+      "mapName": "灵脊岭",
+      "monsterId": "m_spirit_tiger",
+      "monsterName": "灵脊虎",
+      "count": 1
+    }
+  ],
+  "equip.quakeheart_stone": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_stele_bearer",
+      "monsterName": "厚土负碑者",
+      "count": 1
+    }
+  ],
+  "equip.rampart_plate": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_heavy_guard",
+      "monsterName": "裂岭重卫",
+      "count": 1
+    }
+  ],
+  "equip.remnant_array_crown": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ancient_ruins",
+      "mapName": "断碑遗迹",
+      "monsterId": "m_bone_owl",
+      "monsterName": "骨翎夜鸮",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "ancient_ruins",
+      "mapName": "断碑遗迹",
+      "monsterId": "m_ghost_scribe",
+      "monsterName": "执墨残魂",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "ancient_ruins",
+      "mapName": "断碑遗迹",
+      "monsterId": "m_ruin_guardian",
+      "monsterName": "石卫傀",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "ancient_ruins",
+      "mapName": "断碑遗迹",
+      "monsterId": "m_rune_watcher",
+      "monsterName": "残纹看守精英",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "ancient_ruins_monument_hall",
+      "mapName": "断碑遗迹·断碑主殿",
+      "monsterId": "m_stele_arbiter",
+      "monsterName": "裂碑司命",
+      "count": 1
+    }
+  ],
+  "equip.remnant_banner_helm": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_banner_general",
+      "monsterName": "残兵鸣将",
+      "count": 1
+    }
+  ],
+  "equip.remnant_banner_spear": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_iron_guard",
+      "monsterName": "残旌铁卫",
+      "count": 1
+    }
+  ],
+  "equip.returnarray_boots": [
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_dualphase_beast",
+      "monsterName": "双相脉兽",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_failed_foundation",
+      "monsterName": "未成道基",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_fivephase_effigy",
+      "monsterName": "五炁砂偶",
+      "count": 1
+    }
+  ],
+  "equip.returnbreath_copper_pendant": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_tide_sprite",
+      "monsterName": "寒汐蜉灵",
+      "count": 1
+    },
+    {
+      "kind": "quest",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "questId": "q_ridge_qi_refining",
+      "questTitle": "叩门之前先成其身",
+      "line": "main",
+      "chapter": "第四章·兽谷问门"
+    }
+  ],
+  "equip.returnvine_robe": [
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_01_entry",
+      "mapName": "青萝谷·01回渡药圃",
+      "monsterId": "m_verdant_lesser_sprite",
+      "monsterName": "青萝小妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_02_slope",
+      "mapName": "青萝谷·02引藤坡",
+      "monsterId": "m_verdant_lesser_sprite",
+      "monsterName": "青萝小妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_03_bridge",
+      "mapName": "青萝谷·03双桥岔谷",
+      "monsterId": "m_verdant_siphon_flower",
+      "monsterName": "吸灵花妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_04_garden",
+      "mapName": "青萝谷·04噬灵妖圃",
+      "monsterId": "m_verdant_siphon_flower",
+      "monsterName": "吸灵花妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_04_garden",
+      "mapName": "青萝谷·04噬灵妖圃",
+      "monsterId": "m_verdant_wither_guard",
+      "monsterName": "枯荣藤卫",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_05_inner_hollow",
+      "mapName": "青萝谷·05盘根内坳",
+      "monsterId": "m_verdant_marrow_sprite",
+      "monsterName": "碧髓树魈",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_05_inner_hollow",
+      "mapName": "青萝谷·05盘根内坳",
+      "monsterId": "m_verdant_wither_guard",
+      "monsterName": "枯荣藤卫",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_06_heart_gate",
+      "mapName": "青萝谷·06心藤坳口",
+      "monsterId": "m_verdant_marrow_sprite",
+      "monsterName": "碧髓树魈",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_06_heart_gate",
+      "mapName": "青萝谷·06心藤坳口",
+      "monsterId": "m_verdant_vein_mother",
+      "monsterName": "噬脉藤母",
+      "count": 1
+    }
+  ],
+  "equip.ridge_calm_robe": [
+    {
+      "kind": "monster_drop",
+      "mapId": "sky_ruins",
+      "mapName": "天穹残宫",
+      "monsterId": "m_void_hunter",
+      "monsterName": "天宫猎者",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "spirit_ridge",
+      "mapName": "灵脊岭",
+      "monsterId": "m_frost_crane",
+      "monsterName": "寒翎鹤",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "spirit_ridge",
+      "mapName": "灵脊岭",
+      "monsterId": "m_ridge_ghost",
+      "monsterName": "守岭残魂精英",
+      "count": 1
+    }
+  ],
+  "equip.ridgecleft_halberd": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_heavy_guard",
+      "monsterName": "裂岭重卫",
+      "count": 1
+    }
+  ],
+  "equip.ridgehide_vest": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_croc",
+      "monsterName": "黄岩鼍兽",
+      "count": 1
+    }
+  ],
+  "equip.ridgewall_armor": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_armor_spirit",
+      "monsterName": "坠岩甲灵",
+      "count": 1
+    }
+  ],
   "equip.rift_guard_armor": [
     {
       "kind": "monster_drop",
@@ -1040,11 +3419,242 @@
       "line": "side"
     }
   ],
-  "equip.scavenger_crest": [],
-  "equip.scavenger_fang": [],
-  "equip.scrap_hide": [],
-  "equip.snakeshed_vest": [],
-  "equip.soot_lamp_hood": [],
+  "equip.sand_edge_headband": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_blade_wraith",
+      "monsterName": "断刃游魂",
+      "count": 1
+    }
+  ],
+  "equip.sand_ghost_mask": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_blade_sprite",
+      "monsterName": "金砂锋魈",
+      "count": 1
+    }
+  ],
+  "equip.scar_tread_boots": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_blade_wraith",
+      "monsterName": "断刃游魂",
+      "count": 1
+    }
+  ],
+  "equip.scavenger_crest": [
+    {
+      "kind": "monster_drop",
+      "mapId": "wildlands",
+      "mapName": "荒野",
+      "monsterId": "m_dust_vulture",
+      "monsterName": "裂喙秃鹫",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "wildlands",
+      "mapName": "荒野",
+      "monsterId": "m_mire_spider",
+      "monsterName": "阴沼毒蛛精英",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "wildlands_gale_den",
+      "mapName": "荒野·荒骨风穴",
+      "monsterId": "m_gale_bone_king",
+      "monsterName": "裂风荒王",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "monsterId": "m_town_rat_refuse",
+      "monsterName": "废棚灰尾鼠",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "monsterId": "m_town_rat_south",
+      "monsterName": "南沟灰尾鼠",
+      "count": 1
+    }
+  ],
+  "equip.scavenger_fang": [
+    {
+      "kind": "monster_drop",
+      "mapId": "wildlands",
+      "mapName": "荒野",
+      "monsterId": "m_mire_spider",
+      "monsterName": "阴沼毒蛛精英",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "wildlands",
+      "mapName": "荒野",
+      "monsterId": "m_wild_boar",
+      "monsterName": "獠牙野彘",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "wildlands_gale_den",
+      "mapName": "荒野·荒骨风穴",
+      "monsterId": "m_gale_bone_king",
+      "monsterName": "裂风荒王",
+      "count": 1
+    }
+  ],
+  "equip.scorchcourt_battlecoat": [
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_attendant",
+      "monsterName": "炉心灼侍",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_flame_guard",
+      "monsterName": "流火戍灵",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_furnace_lord",
+      "monsterName": "离火炉君",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_whelp",
+      "monsterName": "赤烬蜥幼",
+      "count": 1
+    }
+  ],
+  "equip.scrap_hide": [
+    {
+      "kind": "monster_drop",
+      "mapId": "wildlands",
+      "mapName": "荒野",
+      "monsterId": "m_swamp_lizard",
+      "monsterName": "泽鳞蜥",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "wildlands",
+      "mapName": "荒野",
+      "monsterId": "m_wild_boar",
+      "monsterName": "獠牙野彘",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "wildlands_gale_den",
+      "mapName": "荒野·荒骨风穴",
+      "monsterId": "m_gale_bone_king",
+      "monsterName": "裂风荒王",
+      "count": 1
+    }
+  ],
+  "equip.sealed_edge_stoneheart": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_stele_puppet",
+      "monsterName": "断碑锋傀",
+      "count": 1
+    }
+  ],
+  "equip.sealed_path_token": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_gate_lord",
+      "monsterName": "庚金镇门将",
+      "count": 1
+    }
+  ],
+  "equip.sealridge_iron_ring": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_heavy_guard",
+      "monsterName": "裂岭重卫",
+      "count": 1
+    }
+  ],
+  "equip.shieldvein_stone": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_armor_spirit",
+      "monsterName": "坠岩甲灵",
+      "count": 1
+    }
+  ],
+  "equip.sinking_vein_hammer": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_stonebound",
+      "monsterName": "沉脉石奴",
+      "count": 1
+    }
+  ],
+  "equip.snakeshed_vest": [
+    {
+      "kind": "monster_drop",
+      "mapId": "bamboo_forest",
+      "mapName": "青竹林",
+      "monsterId": "m_bamboo_serpent",
+      "monsterName": "青鳞竹蛇",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "bamboo_forest_mantis_court",
+      "mapName": "青竹林·青螂巢庭",
+      "monsterId": "m_green_emperor_mantis",
+      "monsterName": "青皇竹螂",
+      "count": 1
+    }
+  ],
+  "equip.soot_lamp_hood": [
+    {
+      "kind": "monster_drop",
+      "mapId": "black_iron_mine",
+      "mapName": "玄铁矿洞",
+      "monsterId": "m_tunnel_stalker",
+      "monsterName": "隧影潜猎者",
+      "count": 1
+    }
+  ],
   "equip.soul_devour_token": [
     {
       "kind": "monster_drop",
@@ -1109,7 +3719,32 @@
       "line": "side"
     }
   ],
-  "equip.soul_ink_pendant": [],
+  "equip.soul_ink_pendant": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ancient_ruins",
+      "mapName": "断碑遗迹",
+      "monsterId": "m_ghost_scribe",
+      "monsterName": "执墨残魂",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "ancient_ruins",
+      "mapName": "断碑遗迹",
+      "monsterId": "m_ruin_guardian",
+      "monsterName": "石卫傀",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "ancient_ruins_monument_hall",
+      "mapName": "断碑遗迹·断碑主殿",
+      "monsterId": "m_stele_arbiter",
+      "monsterName": "裂碑司命",
+      "count": 1
+    }
+  ],
   "equip.spirit_ring": [
     {
       "kind": "monster_drop",
@@ -1194,7 +3829,44 @@
       "chapter": "第五章·残宫封天"
     }
   ],
-  "equip.stele_shell_armor": [],
+  "equip.stele_edge_blade": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_stele_puppet",
+      "monsterName": "断碑锋傀",
+      "count": 1
+    }
+  ],
+  "equip.stele_pattern_helm": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_stele_puppet",
+      "monsterName": "断碑锋傀",
+      "count": 1
+    }
+  ],
+  "equip.stele_shell_armor": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ancient_ruins",
+      "mapName": "断碑遗迹",
+      "monsterId": "m_ruin_guardian",
+      "monsterName": "石卫傀",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "ancient_ruins_monument_hall",
+      "mapName": "断碑遗迹·断碑主殿",
+      "monsterId": "m_stele_arbiter",
+      "monsterName": "裂碑司命",
+      "count": 1
+    }
+  ],
   "equip.step_boots": [
     {
       "kind": "monster_drop",
@@ -1234,9 +3906,172 @@
       "chapter": "第二章·青竹追线"
     }
   ],
-  "equip.threshold_boots": [],
-  "equip.trace_pattern_boots": [],
-  "equip.trench_runner_boots": [],
+  "equip.stone_ridge_helm": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_armor_spirit",
+      "monsterName": "坠岩甲灵",
+      "count": 1
+    }
+  ],
+  "equip.terrace_guard_armor": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_ridge_warden",
+      "monsterName": "岳纹镇灵",
+      "count": 1
+    }
+  ],
+  "equip.threshold_boots": [
+    {
+      "kind": "monster_drop",
+      "mapId": "sky_ruins",
+      "mapName": "天穹残宫",
+      "monsterId": "m_sky_puppet",
+      "monsterName": "残宫傀仪",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "sky_ruins",
+      "mapName": "天穹残宫",
+      "monsterId": "m_star_devourer",
+      "monsterName": "噬星残兽精英",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "sky_ruins",
+      "mapName": "天穹残宫",
+      "monsterId": "m_void_hunter",
+      "monsterName": "天宫猎者",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "sky_ruins_core_well",
+      "mapName": "天穹残宫·封天核心井",
+      "monsterId": "m_fallen_palace_lord",
+      "monsterName": "坠星宫主",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "spirit_ridge",
+      "mapName": "灵脊岭",
+      "monsterId": "m_ridge_ghost",
+      "monsterName": "守岭残魂精英",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "spirit_ridge_old_gate",
+      "mapName": "灵脊岭·悬门旧关",
+      "monsterId": "m_spine_gate_lord",
+      "monsterName": "镇脊关主",
+      "count": 1
+    }
+  ],
+  "equip.tomb_gate_general_helm": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_gate_lord",
+      "monsterName": "庚金镇门将",
+      "count": 1
+    }
+  ],
+  "equip.trace_pattern_boots": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ancient_ruins",
+      "mapName": "断碑遗迹",
+      "monsterId": "m_bone_owl",
+      "monsterName": "骨翎夜鸮",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "ancient_ruins",
+      "mapName": "断碑遗迹",
+      "monsterId": "m_ghost_scribe",
+      "monsterName": "执墨残魂",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "ancient_ruins",
+      "mapName": "断碑遗迹",
+      "monsterId": "m_rune_watcher",
+      "monsterName": "残纹看守精英",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "ancient_ruins_monument_hall",
+      "mapName": "断碑遗迹·断碑主殿",
+      "monsterId": "m_stele_arbiter",
+      "monsterName": "裂碑司命",
+      "count": 1
+    }
+  ],
+  "equip.trench_runner_boots": [
+    {
+      "kind": "monster_drop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "monsterId": "m_night_blade",
+      "monsterName": "夜行刀客",
+      "count": 1
+    }
+  ],
+  "equip.vale_stride_boots": [
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_02_slope",
+      "mapName": "青萝谷·02引藤坡",
+      "monsterId": "m_verdant_parasitic_child",
+      "monsterName": "寄脉藤童",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_03_bridge",
+      "mapName": "青萝谷·03双桥岔谷",
+      "monsterId": "m_verdant_parasitic_child",
+      "monsterName": "寄脉藤童",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_05_inner_hollow",
+      "mapName": "青萝谷·05盘根内坳",
+      "monsterId": "m_verdant_marrow_sprite",
+      "monsterName": "碧髓树魈",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_06_heart_gate",
+      "mapName": "青萝谷·06心藤坳口",
+      "monsterId": "m_verdant_marrow_sprite",
+      "monsterName": "碧髓树魈",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_06_heart_gate",
+      "mapName": "青萝谷·06心藤坳口",
+      "monsterId": "m_verdant_vein_mother",
+      "monsterName": "噬脉藤母",
+      "count": 1
+    }
+  ],
   "equip.valley_fang_blade": [
     {
       "kind": "quest",
@@ -1254,6 +4089,138 @@
       "questTitle": "谷底那颗心",
       "line": "main",
       "chapter": "第四章·兽谷问门"
+    }
+  ],
+  "equip.verdant_crown": [
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_01_entry",
+      "mapName": "青萝谷·01回渡药圃",
+      "monsterId": "m_verdant_lesser_sprite",
+      "monsterName": "青萝小妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_02_slope",
+      "mapName": "青萝谷·02引藤坡",
+      "monsterId": "m_verdant_lesser_sprite",
+      "monsterName": "青萝小妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_02_slope",
+      "mapName": "青萝谷·02引藤坡",
+      "monsterId": "m_verdant_parasitic_child",
+      "monsterName": "寄脉藤童",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_03_bridge",
+      "mapName": "青萝谷·03双桥岔谷",
+      "monsterId": "m_verdant_parasitic_child",
+      "monsterName": "寄脉藤童",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_04_garden",
+      "mapName": "青萝谷·04噬灵妖圃",
+      "monsterId": "m_verdant_wither_guard",
+      "monsterName": "枯荣藤卫",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_05_inner_hollow",
+      "mapName": "青萝谷·05盘根内坳",
+      "monsterId": "m_verdant_marrow_sprite",
+      "monsterName": "碧髓树魈",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_05_inner_hollow",
+      "mapName": "青萝谷·05盘根内坳",
+      "monsterId": "m_verdant_wither_guard",
+      "monsterName": "枯荣藤卫",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_06_heart_gate",
+      "mapName": "青萝谷·06心藤坳口",
+      "monsterId": "m_verdant_marrow_sprite",
+      "monsterName": "碧髓树魈",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_06_heart_gate",
+      "mapName": "青萝谷·06心藤坳口",
+      "monsterId": "m_verdant_vein_mother",
+      "monsterName": "噬脉藤母",
+      "count": 1
+    }
+  ],
+  "equip.vineguide_staff": [
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_03_bridge",
+      "mapName": "青萝谷·03双桥岔谷",
+      "monsterId": "m_verdant_siphon_flower",
+      "monsterName": "吸灵花妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_04_garden",
+      "mapName": "青萝谷·04噬灵妖圃",
+      "monsterId": "m_verdant_siphon_flower",
+      "monsterName": "吸灵花妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_04_garden",
+      "mapName": "青萝谷·04噬灵妖圃",
+      "monsterId": "m_verdant_wither_guard",
+      "monsterName": "枯荣藤卫",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_05_inner_hollow",
+      "mapName": "青萝谷·05盘根内坳",
+      "monsterId": "m_verdant_marrow_sprite",
+      "monsterName": "碧髓树魈",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_05_inner_hollow",
+      "mapName": "青萝谷·05盘根内坳",
+      "monsterId": "m_verdant_wither_guard",
+      "monsterName": "枯荣藤卫",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_06_heart_gate",
+      "mapName": "青萝谷·06心藤坳口",
+      "monsterId": "m_verdant_marrow_sprite",
+      "monsterName": "碧髓树魈",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_06_heart_gate",
+      "mapName": "青萝谷·06心藤坳口",
+      "monsterId": "m_verdant_vein_mother",
+      "monsterName": "噬脉藤母",
+      "count": 1
     }
   ],
   "equip.void_talisman": [
@@ -1286,10 +4253,191 @@
       "chapter": "第五章·残宫封天"
     }
   ],
-  "equip.wasteland_cap": [],
-  "equip.wellward_talisman": [],
-  "equip.windhear_crown": [],
-  "equip.windjoint_boots": [],
+  "equip.wasteland_cap": [
+    {
+      "kind": "monster_drop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "monsterId": "m_night_blade",
+      "monsterName": "夜行刀客",
+      "count": 1
+    }
+  ],
+  "equip.wellward_talisman": [
+    {
+      "kind": "monster_drop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "monsterId": "m_night_blade",
+      "monsterName": "夜行刀客",
+      "count": 1
+    }
+  ],
+  "equip.windhear_crown": [
+    {
+      "kind": "monster_drop",
+      "mapId": "beast_valley",
+      "mapName": "噬魂兽谷",
+      "monsterId": "m_blood_crow",
+      "monsterName": "血羽鸦",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "beast_valley",
+      "mapName": "噬魂兽谷",
+      "monsterId": "m_valley_alpha",
+      "monsterName": "裂渊狼主",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "beast_valley",
+      "mapName": "噬魂兽谷",
+      "monsterId": "m_valley_wolf",
+      "monsterName": "裂齿妖狼",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "sky_ruins",
+      "mapName": "天穹残宫",
+      "monsterId": "m_star_devourer",
+      "monsterName": "噬星残兽精英",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "spirit_ridge",
+      "mapName": "灵脊岭",
+      "monsterId": "m_spirit_tiger",
+      "monsterName": "灵脊虎",
+      "count": 1
+    }
+  ],
+  "equip.windjoint_boots": [
+    {
+      "kind": "monster_drop",
+      "mapId": "bamboo_forest",
+      "mapName": "青竹林",
+      "monsterId": "m_bamboo_serpent",
+      "monsterName": "青鳞竹蛇",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "bamboo_forest",
+      "mapName": "青竹林",
+      "monsterId": "m_spirit_wolf",
+      "monsterName": "噬灵狼",
+      "count": 1
+    }
+  ],
+  "equip.yellow_stone_browguard": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_croc",
+      "monsterName": "黄岩鼍兽",
+      "count": 1
+    }
+  ],
+  "equip.yuepattern_pole": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_ridge_warden",
+      "monsterName": "岳纹镇灵",
+      "count": 1
+    }
+  ],
+  "equip.yuetown_mask": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_ridge_warden",
+      "monsterName": "岳纹镇灵",
+      "count": 1
+    }
+  ],
+  "fate_stone.qizhen_crossing": [
+    {
+      "kind": "shop",
+      "mapId": "qizhen_crossing",
+      "mapName": "栖真渡",
+      "npcId": "npc_map_seller_qiu_shou",
+      "npcName": "渡图客·仇守"
+    }
+  ],
+  "fate_stone.yunlai_town": [
+    {
+      "kind": "shop",
+      "mapId": "qizhen_crossing",
+      "mapName": "栖真渡",
+      "npcId": "npc_map_seller_qiu_shou",
+      "npcName": "渡图客·仇守"
+    },
+    {
+      "kind": "shop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "npcId": "npc_map_seller_yan_bo",
+      "npcName": "行图贩子·严伯"
+    }
+  ],
+  "fivephase_dust": [
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_chaos_sentry",
+      "monsterName": "乱炁守侍",
+      "count": 2
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_dualphase_beast",
+      "monsterName": "双相脉兽",
+      "count": 2
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_fivephase_effigy",
+      "monsterName": "五炁砂偶",
+      "count": 2
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_reflux_attendant",
+      "monsterName": "逆流残侍",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_ruined_relic",
+      "monsterName": "乱基守遗",
+      "count": 3
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_tangled_wisp",
+      "monsterName": "错脉游灵",
+      "count": 1
+    }
+  ],
   "frost_essence": [
     {
       "kind": "monster_drop",
@@ -1381,6 +4529,108 @@
       "chapter": "第一章·粮路讨生"
     }
   ],
+  "furnace_red_crystal": [
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_attendant",
+      "monsterName": "炉心灼侍",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_bone_patrol",
+      "monsterName": "炽骨巡卒",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_flame_guard",
+      "monsterName": "流火戍灵",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_furnace_lord",
+      "monsterName": "离火炉君",
+      "count": 2
+    }
+  ],
+  "guizang_vein_core": [
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_chaos_sentry",
+      "monsterName": "乱炁守侍",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_dualphase_beast",
+      "monsterName": "双相脉兽",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_failed_foundation",
+      "monsterName": "未成道基",
+      "count": 4
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_fivephase_effigy",
+      "monsterName": "五炁砂偶",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_reflux_attendant",
+      "monsterName": "逆流残侍",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_ruined_relic",
+      "monsterName": "乱基守遗",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_tangled_wisp",
+      "monsterName": "错脉游灵",
+      "count": 1
+    }
+  ],
+  "half_base_embryo": [
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_failed_foundation",
+      "monsterName": "未成道基",
+      "count": 1
+    }
+  ],
   "lizard_scale": [
     {
       "kind": "monster_drop",
@@ -1440,6 +4690,15 @@
       "questTitle": "把失落信标抢回来",
       "line": "main",
       "chapter": "第三章·矿洞遗火"
+    },
+    {
+      "kind": "quest",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "questId": "q_guizang_gate_warning",
+      "questTitle": "守口旧话",
+      "line": "side",
+      "chapter": "终章·归藏压基"
     },
     {
       "kind": "quest",
@@ -1516,6 +4775,13 @@
   ],
   "map.ancient_ruins": [
     {
+      "kind": "shop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "npcId": "npc_map_seller_yan_bo",
+      "npcName": "行图贩子·严伯"
+    },
+    {
       "kind": "quest",
       "mapId": "yunlai_town",
       "mapName": "云来镇",
@@ -1526,6 +4792,13 @@
     }
   ],
   "map.bamboo_forest": [
+    {
+      "kind": "shop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "npcId": "npc_map_seller_yan_bo",
+      "npcName": "行图贩子·严伯"
+    },
     {
       "kind": "quest",
       "mapId": "yunlai_town",
@@ -1538,6 +4811,13 @@
   ],
   "map.beast_valley": [
     {
+      "kind": "shop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "npcId": "npc_map_seller_yan_bo",
+      "npcName": "行图贩子·严伯"
+    },
+    {
       "kind": "quest",
       "mapId": "yunlai_town",
       "mapName": "云来镇",
@@ -1549,6 +4829,13 @@
   ],
   "map.black_iron_mine": [
     {
+      "kind": "shop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "npcId": "npc_map_seller_yan_bo",
+      "npcName": "行图贩子·严伯"
+    },
+    {
       "kind": "quest",
       "mapId": "yunlai_town",
       "mapName": "云来镇",
@@ -1558,7 +4845,75 @@
       "chapter": "第二章·青竹追线"
     }
   ],
+  "map.cleft_blade_plain": [
+    {
+      "kind": "shop",
+      "mapId": "qizhen_crossing",
+      "mapName": "栖真渡",
+      "npcId": "npc_map_seller_qiu_shou",
+      "npcName": "渡图客·仇守"
+    }
+  ],
+  "map.cold_tide_marsh": [
+    {
+      "kind": "shop",
+      "mapId": "qizhen_crossing",
+      "mapName": "栖真渡",
+      "npcId": "npc_map_seller_qiu_shou",
+      "npcName": "渡图客·仇守"
+    }
+  ],
+  "map.deepvein_ridge": [
+    {
+      "kind": "shop",
+      "mapId": "qizhen_crossing",
+      "mapName": "栖真渡",
+      "npcId": "npc_map_seller_qiu_shou",
+      "npcName": "渡图客·仇守"
+    }
+  ],
+  "map.emberfall_court": [
+    {
+      "kind": "shop",
+      "mapId": "qizhen_crossing",
+      "mapName": "栖真渡",
+      "npcId": "npc_map_seller_qiu_shou",
+      "npcName": "渡图客·仇守"
+    }
+  ],
+  "map.guizang_vein_cavern": [
+    {
+      "kind": "shop",
+      "mapId": "qizhen_crossing",
+      "mapName": "栖真渡",
+      "npcId": "npc_map_seller_qiu_shou",
+      "npcName": "渡图客·仇守"
+    }
+  ],
+  "map.qizhen_crossing": [
+    {
+      "kind": "shop",
+      "mapId": "qizhen_crossing",
+      "mapName": "栖真渡",
+      "npcId": "npc_map_seller_qiu_shou",
+      "npcName": "渡图客·仇守"
+    }
+  ],
   "map.sky_ruins": [
+    {
+      "kind": "shop",
+      "mapId": "qizhen_crossing",
+      "mapName": "栖真渡",
+      "npcId": "npc_map_seller_qiu_shou",
+      "npcName": "渡图客·仇守"
+    },
+    {
+      "kind": "shop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "npcId": "npc_map_seller_yan_bo",
+      "npcName": "行图贩子·严伯"
+    },
     {
       "kind": "quest",
       "mapId": "yunlai_town",
@@ -1571,6 +4926,13 @@
   ],
   "map.spirit_ridge": [
     {
+      "kind": "shop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "npcId": "npc_map_seller_yan_bo",
+      "npcName": "行图贩子·严伯"
+    },
+    {
       "kind": "quest",
       "mapId": "yunlai_town",
       "mapName": "云来镇",
@@ -1580,7 +4942,23 @@
       "chapter": "第四章·兽谷问门"
     }
   ],
+  "map.verdant_vine_vale": [
+    {
+      "kind": "shop",
+      "mapId": "qizhen_crossing",
+      "mapName": "栖真渡",
+      "npcId": "npc_map_seller_qiu_shou",
+      "npcName": "渡图客·仇守"
+    }
+  ],
   "map.wildlands": [
+    {
+      "kind": "shop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "npcId": "npc_map_seller_yan_bo",
+      "npcName": "行图贩子·严伯"
+    },
     {
       "kind": "quest",
       "mapId": "yunlai_town",
@@ -1593,6 +4971,13 @@
   ],
   "map.yunlai_town": [
     {
+      "kind": "shop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "npcId": "npc_map_seller_yan_bo",
+      "npcName": "行图贩子·严伯"
+    },
+    {
       "kind": "quest",
       "mapId": "yunlai_town",
       "mapName": "云来镇",
@@ -1602,7 +4987,24 @@
       "chapter": "序章·断道入镇"
     }
   ],
-  "mat.beast_bone": [],
+  "mat.beast_bone": [
+    {
+      "kind": "monster_drop",
+      "mapId": "beast_valley",
+      "mapName": "噬魂兽谷",
+      "monsterId": "m_valley_wolf",
+      "monsterName": "裂齿妖狼",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "wildlands",
+      "mapName": "荒野",
+      "monsterId": "m_wild_boar",
+      "monsterName": "獠牙野彘",
+      "count": 1
+    }
+  ],
   "mine_crystal_core": [
     {
       "kind": "monster_drop",
@@ -1674,6 +5076,82 @@
       "questId": "q_shen_bunk_deposit",
       "questTitle": "脚店押铺钱",
       "line": "side"
+    }
+  ],
+  "moonwell_frost_sand": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_marsh_wraith",
+      "monsterName": "浅泽雾鬼",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_pattern_guard",
+      "monsterName": "冰纹水卒",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_tide_sprite",
+      "monsterName": "寒汐蜉灵",
+      "count": 1
+    }
+  ],
+  "nurturing_leaf": [
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_01_entry",
+      "mapName": "青萝谷·01回渡药圃",
+      "monsterId": "m_verdant_lesser_sprite",
+      "monsterName": "青萝小妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_02_slope",
+      "mapName": "青萝谷·02引藤坡",
+      "monsterId": "m_verdant_lesser_sprite",
+      "monsterName": "青萝小妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_02_slope",
+      "mapName": "青萝谷·02引藤坡",
+      "monsterId": "m_verdant_parasitic_child",
+      "monsterName": "寄脉藤童",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_03_bridge",
+      "mapName": "青萝谷·03双桥岔谷",
+      "monsterId": "m_verdant_parasitic_child",
+      "monsterName": "寄脉藤童",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_03_bridge",
+      "mapName": "青萝谷·03双桥岔谷",
+      "monsterId": "m_verdant_siphon_flower",
+      "monsterName": "吸灵花妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_04_garden",
+      "mapName": "青萝谷·04噬灵妖圃",
+      "monsterId": "m_verdant_siphon_flower",
+      "monsterName": "吸灵花妖",
+      "count": 1
     }
   ],
   "pill.bitter_cultivation_elixir": [
@@ -1754,6 +5232,15 @@
     },
     {
       "kind": "quest",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "questId": "q_guizang_beast_test",
+      "questTitle": "混脉试手",
+      "line": "side",
+      "chapter": "终章·归藏压基"
+    },
+    {
+      "kind": "quest",
       "mapId": "sky_ruins",
       "mapName": "天穹残宫",
       "questId": "q_sky_star_metal_main",
@@ -1795,6 +5282,32 @@
       "chapter": "第一章·粮路讨生"
     }
   ],
+  "pill.chiyang_draught": [
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_flame_guard",
+      "monsterName": "流火戍灵",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_furnace_lord",
+      "monsterName": "离火炉君",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_moth",
+      "monsterName": "焦土火蛾",
+      "count": 1
+    }
+  ],
   "pill.clear_eye_elixir": [
     {
       "kind": "shop",
@@ -1818,6 +5331,15 @@
       "questId": "q_ruin_scholar_echo",
       "questTitle": "碑灵要你认字",
       "line": "side"
+    },
+    {
+      "kind": "quest",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "questId": "q_guizang_dust_record",
+      "questTitle": "五炁落账",
+      "line": "side",
+      "chapter": "终章·归藏压基"
     },
     {
       "kind": "quest",
@@ -1880,6 +5402,32 @@
       "chapter": "第一章·粮路讨生"
     }
   ],
+  "pill.cleartide_powder": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_abyss_drake",
+      "monsterName": "玄溟螭影",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_bridge_patrol",
+      "monsterName": "雾桥巡灵",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_tide_sprite",
+      "monsterName": "寒汐蜉灵",
+      "count": 1
+    }
+  ],
   "pill.crimson_bud_elixir": [
     {
       "kind": "shop",
@@ -1929,6 +5477,104 @@
       "questId": "q_lan_tail_medicine",
       "questTitle": "尾药驱秽",
       "line": "side"
+    }
+  ],
+  "pill.earthrest_paste": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_croc",
+      "monsterName": "黄岩鼍兽",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_earth_effigy",
+      "monsterName": "玄岳地傀",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_ridge_warden",
+      "monsterName": "岳纹镇灵",
+      "count": 1
+    }
+  ],
+  "pill.edge_quenching_powder": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_banner_general",
+      "monsterName": "残兵鸣将",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_blade_wraith",
+      "monsterName": "断刃游魂",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_gate_lord",
+      "monsterName": "庚金镇门将",
+      "count": 1
+    }
+  ],
+  "pill.fivephase_harmony_pellet": [
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_dualphase_beast",
+      "monsterName": "双相脉兽",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_failed_foundation",
+      "monsterName": "未成道基",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_fivephase_effigy",
+      "monsterName": "五炁砂偶",
+      "count": 1
+    }
+  ],
+  "pill.guiding_powder": [
+    {
+      "kind": "quest",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "questId": "q_guizang_beast_test",
+      "questTitle": "混脉试手",
+      "line": "side",
+      "chapter": "终章·归藏压基"
+    },
+    {
+      "kind": "quest",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "questId": "q_guizang_dust_record",
+      "questTitle": "五炁落账",
+      "line": "side",
+      "chapter": "终章·归藏压基"
     }
   ],
   "pill.minor_heal": [
@@ -2001,7 +5647,59 @@
       "chapter": "第一章·粮路讨生"
     }
   ],
-  "pill.shatter_spirit": [],
+  "pill.nurturing_paste": [
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_01_entry",
+      "mapName": "青萝谷·01回渡药圃",
+      "monsterId": "m_verdant_lesser_sprite",
+      "monsterName": "青萝小妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_02_slope",
+      "mapName": "青萝谷·02引藤坡",
+      "monsterId": "m_verdant_lesser_sprite",
+      "monsterName": "青萝小妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_04_garden",
+      "mapName": "青萝谷·04噬灵妖圃",
+      "monsterId": "m_verdant_wither_guard",
+      "monsterName": "枯荣藤卫",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_05_inner_hollow",
+      "mapName": "青萝谷·05盘根内坳",
+      "monsterId": "m_verdant_wither_guard",
+      "monsterName": "枯荣藤卫",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_06_heart_gate",
+      "mapName": "青萝谷·06心藤坳口",
+      "monsterId": "m_verdant_vein_mother",
+      "monsterName": "噬脉藤母",
+      "count": 1
+    }
+  ],
+  "pill.shatter_spirit": [
+    {
+      "kind": "monster_drop",
+      "mapId": "sky_ruins_core_well",
+      "mapName": "天穹残宫·封天核心井",
+      "monsterId": "m_fallen_palace_lord",
+      "monsterName": "坠星宫主",
+      "chance": 0.001,
+      "count": 1
+    }
+  ],
   "pill.windstride_elixir": [
     {
       "kind": "shop",
@@ -2072,6 +5770,15 @@
     },
     {
       "kind": "quest",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "questId": "q_guizang_beast_test",
+      "questTitle": "混脉试手",
+      "line": "side",
+      "chapter": "终章·归藏压基"
+    },
+    {
+      "kind": "quest",
       "mapId": "sky_ruins",
       "mapName": "天穹残宫",
       "questId": "q_sky_seal_core_main",
@@ -2107,7 +5814,16 @@
       "chapter": "第五章·残宫封天"
     }
   ],
-  "quest.miner_token": [],
+  "quest.miner_token": [
+    {
+      "kind": "monster_drop",
+      "mapId": "black_iron_mine",
+      "mapName": "玄铁矿洞",
+      "monsterId": "m_ore_colossus",
+      "monsterName": "玄矿巨像精英",
+      "count": 1
+    }
+  ],
   "rat_tail": [
     {
       "kind": "monster_drop",
@@ -2125,6 +5841,16 @@
       "monsterId": "m_town_rat_south",
       "monsterName": "南沟灰尾鼠",
       "chance": 0.6,
+      "count": 1
+    }
+  ],
+  "recovery_powder": [
+    {
+      "kind": "monster_drop",
+      "mapId": "sky_ruins",
+      "mapName": "天穹残宫",
+      "monsterId": "m_void_hunter",
+      "monsterName": "天宫猎者",
       "count": 1
     }
   ],
@@ -2344,354 +6070,64 @@
   ],
   "spirit_stone": [
     {
+      "kind": "mining",
+      "mapId": "runtime",
+      "mapName": "运行时资源点",
+      "landmarkId": "runtime:spirit_stone",
+      "landmarkName": "灵石矿",
+      "mode": "direct",
+      "count": 1
+    }
+  ],
+  "spiritwood_heart": [
+    {
       "kind": "monster_drop",
-      "mapId": "ancient_ruins",
-      "mapName": "断碑遗迹",
-      "monsterId": "m_bone_owl",
-      "monsterName": "骨翎夜鸮",
-      "chance": 0.01,
+      "mapId": "verdant_vine_vale_04_garden",
+      "mapName": "青萝谷·04噬灵妖圃",
+      "monsterId": "m_verdant_wither_guard",
+      "monsterName": "枯荣藤卫",
       "count": 1
     },
     {
       "kind": "monster_drop",
-      "mapId": "ancient_ruins",
-      "mapName": "断碑遗迹",
-      "monsterId": "m_ghost_scribe",
-      "monsterName": "执墨残魂",
-      "chance": 0.01,
+      "mapId": "verdant_vine_vale_05_inner_hollow",
+      "mapName": "青萝谷·05盘根内坳",
+      "monsterId": "m_verdant_marrow_sprite",
+      "monsterName": "碧髓树魈",
       "count": 1
     },
     {
       "kind": "monster_drop",
-      "mapId": "ancient_ruins",
-      "mapName": "断碑遗迹",
-      "monsterId": "m_ruin_guardian",
-      "monsterName": "石卫傀",
-      "chance": 0.01,
+      "mapId": "verdant_vine_vale_05_inner_hollow",
+      "mapName": "青萝谷·05盘根内坳",
+      "monsterId": "m_verdant_wither_guard",
+      "monsterName": "枯荣藤卫",
       "count": 1
     },
     {
       "kind": "monster_drop",
-      "mapId": "ancient_ruins",
-      "mapName": "断碑遗迹",
-      "monsterId": "m_rune_watcher",
-      "monsterName": "残纹看守精英",
-      "chance": 0.01,
+      "mapId": "verdant_vine_vale_06_heart_gate",
+      "mapName": "青萝谷·06心藤坳口",
+      "monsterId": "m_verdant_marrow_sprite",
+      "monsterName": "碧髓树魈",
       "count": 1
     },
     {
       "kind": "monster_drop",
-      "mapId": "ancient_ruins_monument_hall",
-      "mapName": "断碑遗迹·断碑主殿",
-      "monsterId": "m_stele_arbiter",
-      "monsterName": "裂碑司命",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "bamboo_forest",
-      "mapName": "青竹林",
-      "monsterId": "m_bamboo_mantis",
-      "monsterName": "刃竹螳精英",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "bamboo_forest",
-      "mapName": "青竹林",
-      "monsterId": "m_bamboo_serpent",
-      "monsterName": "青鳞竹蛇",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "bamboo_forest",
-      "mapName": "青竹林",
-      "monsterId": "m_bamboo_sprite",
-      "monsterName": "竹心灵",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "bamboo_forest",
-      "mapName": "青竹林",
-      "monsterId": "m_spirit_wolf",
-      "monsterName": "噬灵狼",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "bamboo_forest_mantis_court",
-      "mapName": "青竹林·青螂巢庭",
-      "monsterId": "m_green_emperor_mantis",
-      "monsterName": "青皇竹螂",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "beast_valley",
-      "mapName": "噬魂兽谷",
-      "monsterId": "m_blood_crow",
-      "monsterName": "血羽鸦",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "beast_valley",
-      "mapName": "噬魂兽谷",
-      "monsterId": "m_valley_alpha",
-      "monsterName": "裂渊狼主",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "beast_valley",
-      "mapName": "噬魂兽谷",
-      "monsterId": "m_valley_emperor",
-      "monsterName": "裂渊谷皇精英",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "beast_valley",
-      "mapName": "噬魂兽谷",
-      "monsterId": "m_valley_serpent",
-      "monsterName": "赤脊谷蛇",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "beast_valley",
-      "mapName": "噬魂兽谷",
-      "monsterId": "m_valley_wolf",
-      "monsterName": "裂齿妖狼",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "beast_valley_blood_altar",
-      "mapName": "噬魂兽谷·血祭坛",
-      "monsterId": "m_soul_wolf_ancestor",
-      "monsterName": "噬魂狼祖",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "black_iron_mine",
-      "mapName": "玄铁矿洞",
-      "monsterId": "m_crystal_bat",
-      "monsterName": "晶背蝠",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "black_iron_mine",
-      "mapName": "玄铁矿洞",
-      "monsterId": "m_mine_ghoul",
-      "monsterName": "矿魈",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "black_iron_mine",
-      "mapName": "玄铁矿洞",
-      "monsterId": "m_ore_colossus",
-      "monsterName": "玄矿巨像精英",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "black_iron_mine",
-      "mapName": "玄铁矿洞",
-      "monsterId": "m_tunnel_stalker",
-      "monsterName": "隧影潜猎者",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "black_iron_mine_molten_heart",
-      "mapName": "玄铁矿洞·玄脉熔心",
-      "monsterId": "m_iron_devour_lord",
-      "monsterName": "噬铁矿君",
-      "chance": 0.01,
-      "count": 1
-    },
+      "mapId": "verdant_vine_vale_06_heart_gate",
+      "mapName": "青萝谷·06心藤坳口",
+      "monsterId": "m_verdant_vein_mother",
+      "monsterName": "噬脉藤母",
+      "count": 2
+    }
+  ],
+  "stabilizing_pellet": [
     {
       "kind": "monster_drop",
       "mapId": "sky_ruins",
       "mapName": "天穹残宫",
       "monsterId": "m_sky_puppet",
       "monsterName": "残宫傀仪",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "sky_ruins",
-      "mapName": "天穹残宫",
-      "monsterId": "m_star_devourer",
-      "monsterName": "噬星残兽精英",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "sky_ruins",
-      "mapName": "天穹残宫",
-      "monsterId": "m_void_hunter",
-      "monsterName": "天宫猎者",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "sky_ruins_core_well",
-      "mapName": "天穹残宫·封天核心井",
-      "monsterId": "m_fallen_palace_lord",
-      "monsterName": "坠星宫主",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "spirit_ridge",
-      "mapName": "灵脊岭",
-      "monsterId": "m_frost_crane",
-      "monsterName": "寒翎鹤",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "spirit_ridge",
-      "mapName": "灵脊岭",
-      "monsterId": "m_ridge_ghost",
-      "monsterName": "守岭残魂精英",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "spirit_ridge",
-      "mapName": "灵脊岭",
-      "monsterId": "m_spirit_tiger",
-      "monsterName": "灵脊虎",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "spirit_ridge_old_gate",
-      "mapName": "灵脊岭·悬门旧关",
-      "monsterId": "m_spine_gate_lord",
-      "monsterName": "镇脊关主",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "wildlands",
-      "mapName": "荒野",
-      "monsterId": "m_dust_vulture",
-      "monsterName": "裂喙秃鹫",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "wildlands",
-      "mapName": "荒野",
-      "monsterId": "m_mire_spider",
-      "monsterName": "阴沼毒蛛精英",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "wildlands",
-      "mapName": "荒野",
-      "monsterId": "m_swamp_lizard",
-      "monsterName": "泽鳞蜥",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "wildlands",
-      "mapName": "荒野",
-      "monsterId": "m_wild_bandit",
-      "monsterName": "荒野匪徒",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "wildlands",
-      "mapName": "荒野",
-      "monsterId": "m_wild_boar",
-      "monsterName": "獠牙野彘",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "wildlands_gale_den",
-      "mapName": "荒野·荒骨风穴",
-      "monsterId": "m_gale_bone_king",
-      "monsterName": "裂风荒王",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "yunlai_town",
-      "mapName": "云来镇",
-      "monsterId": "m_gate_thug",
-      "monsterName": "断路暴徒",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "yunlai_town",
-      "mapName": "云来镇",
-      "monsterId": "m_night_blade",
-      "monsterName": "夜行刀客",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "yunlai_town",
-      "mapName": "云来镇",
-      "monsterId": "m_town_rat_refuse",
-      "monsterName": "废棚灰尾鼠",
-      "chance": 0.01,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "yunlai_town",
-      "mapName": "云来镇",
-      "monsterId": "m_town_rat_south",
-      "monsterName": "南沟灰尾鼠",
-      "chance": 0.01,
       "count": 1
     }
   ],
@@ -2734,6 +6170,133 @@
       "count": 2
     }
   ],
+  "stonegall_core": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_earth_effigy",
+      "monsterName": "玄岳地傀",
+      "count": 2
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_heavy_guard",
+      "monsterName": "裂岭重卫",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_ridge_warden",
+      "monsterName": "岳纹镇灵",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_stele_bearer",
+      "monsterName": "厚土负碑者",
+      "count": 1
+    }
+  ],
+  "sword_pellet": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_banner_general",
+      "monsterName": "残兵鸣将",
+      "count": 2
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_blade_sprite",
+      "monsterName": "金砂锋魈",
+      "count": 2
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_blade_wraith",
+      "monsterName": "断刃游魂",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_gate_lord",
+      "monsterName": "庚金镇门将",
+      "count": 4
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_iron_guard",
+      "monsterName": "残旌铁卫",
+      "count": 3
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_sand_soldier",
+      "monsterName": "裂甲砂兵",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_stele_puppet",
+      "monsterName": "断碑锋傀",
+      "count": 2
+    },
+    {
+      "kind": "mining",
+      "mapId": "runtime",
+      "mapName": "运行时资源点",
+      "landmarkId": "runtime:sword_pellet",
+      "landmarkName": "断剑堆",
+      "mode": "direct",
+      "count": 1
+    }
+  ],
+  "thickrock_core": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_armor_spirit",
+      "monsterName": "坠岩甲灵",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_croc",
+      "monsterName": "黄岩鼍兽",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_stonebound",
+      "monsterName": "沉脉石奴",
+      "count": 1
+    }
+  ],
   "valley_core": [
     {
       "kind": "monster_drop",
@@ -2754,6 +6317,96 @@
       "monsterName": "裂渊谷皇精英",
       "chance": 1,
       "count": 1
+    }
+  ],
+  "verdant_vine": [
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_01_entry",
+      "mapName": "青萝谷·01回渡药圃",
+      "monsterId": "m_verdant_lesser_sprite",
+      "monsterName": "青萝小妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_02_slope",
+      "mapName": "青萝谷·02引藤坡",
+      "monsterId": "m_verdant_lesser_sprite",
+      "monsterName": "青萝小妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_02_slope",
+      "mapName": "青萝谷·02引藤坡",
+      "monsterId": "m_verdant_parasitic_child",
+      "monsterName": "寄脉藤童",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_03_bridge",
+      "mapName": "青萝谷·03双桥岔谷",
+      "monsterId": "m_verdant_parasitic_child",
+      "monsterName": "寄脉藤童",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_03_bridge",
+      "mapName": "青萝谷·03双桥岔谷",
+      "monsterId": "m_verdant_siphon_flower",
+      "monsterName": "吸灵花妖",
+      "count": 2
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_04_garden",
+      "mapName": "青萝谷·04噬灵妖圃",
+      "monsterId": "m_verdant_siphon_flower",
+      "monsterName": "吸灵花妖",
+      "count": 2
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_04_garden",
+      "mapName": "青萝谷·04噬灵妖圃",
+      "monsterId": "m_verdant_wither_guard",
+      "monsterName": "枯荣藤卫",
+      "count": 2
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_05_inner_hollow",
+      "mapName": "青萝谷·05盘根内坳",
+      "monsterId": "m_verdant_marrow_sprite",
+      "monsterName": "碧髓树魈",
+      "count": 3
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_05_inner_hollow",
+      "mapName": "青萝谷·05盘根内坳",
+      "monsterId": "m_verdant_wither_guard",
+      "monsterName": "枯荣藤卫",
+      "count": 2
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_06_heart_gate",
+      "mapName": "青萝谷·06心藤坳口",
+      "monsterId": "m_verdant_marrow_sprite",
+      "monsterName": "碧髓树魈",
+      "count": 3
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_06_heart_gate",
+      "mapName": "青萝谷·06心藤坳口",
+      "monsterId": "m_verdant_vein_mother",
+      "monsterName": "噬脉藤母",
+      "count": 4
     }
   ],
   "void_shard": [
