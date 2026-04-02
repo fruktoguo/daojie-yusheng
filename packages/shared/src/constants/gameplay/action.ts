@@ -7,13 +7,42 @@ type SkillEnabledEntry = {
 /** 玩家默认可启用的技能数量。 */
 export const PLAYER_BASE_ENABLED_SKILL_SLOTS = 4;
 
-/** 玩家每提升多少级可额外获得一个技能栏位。 */
-export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP = 3;
+/** 1-6 级：每级额外 +1。 */
+export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_EARLY = 1;
+
+/** 7-18 级：每 2 级额外 +1。 */
+export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_MID = 2;
+
+/** 19-30 级：每 4 级额外 +1。 */
+export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_LATE = 4;
+
+/** 31 级及以上：每 6 级额外 +1。 */
+export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_ENDGAME = 6;
+
+/** 兼容旧导出，技能栏位现已改为分段成长。 */
+export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP = PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_MID;
 
 /** 根据玩家等级计算可启用的技能数量。 */
 export function getPlayerEnabledSkillSlotLimitByLevel(level: number | undefined): number {
   const normalizedLevel = Number.isFinite(level) ? Math.max(1, Math.floor(Number(level))) : 1;
-  return PLAYER_BASE_ENABLED_SKILL_SLOTS + Math.floor((normalizedLevel - 1) / PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP);
+  let extraSlots = 0;
+
+  const earlyLevels = Math.min(normalizedLevel, 6);
+  extraSlots += Math.max(0, earlyLevels - 1);
+
+  if (normalizedLevel >= 7) {
+    extraSlots += Math.floor((Math.min(normalizedLevel, 18) - 6) / PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_MID);
+  }
+
+  if (normalizedLevel >= 19) {
+    extraSlots += Math.floor((Math.min(normalizedLevel, 30) - 18) / PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_LATE);
+  }
+
+  if (normalizedLevel >= 31) {
+    extraSlots += Math.floor((normalizedLevel - 30) / PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_ENDGAME);
+  }
+
+  return PLAYER_BASE_ENABLED_SKILL_SLOTS + extraSlots;
 }
 
 /** 根据玩家状态解析当前可启用的技能数量。 */
