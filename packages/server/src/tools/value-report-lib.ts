@@ -4,6 +4,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import {
+  calculateAttrBonusValue,
   calculateTechniqueSkillQiCost,
   EquipmentEffectDef,
   ItemStack,
@@ -18,6 +19,7 @@ import {
   SkillDef,
   SkillFormula,
   SkillFormulaVar,
+  getTechniqueMaxLevel,
   TechniqueGrade,
   TechniqueLayerDef,
 } from '@mud/shared';
@@ -49,10 +51,21 @@ type RawMap = {
   dangerLevel?: number;
 };
 
+type RealmLevelEntry = {
+  realmLv: number;
+  displayName?: string | null;
+  name?: string | null;
+};
+
+type RealmLevelsConfig = {
+  levels?: RealmLevelEntry[];
+};
+
 /** 价值报表单行数据 */
 export interface ValueReportRow {
   name: string;
   grade: string;
+  realm?: string;
   level: string;
   baseQuantifiedValue?: string;
   range?: string;
@@ -63,19 +76,39 @@ export interface ValueReportRow {
   unquantifiedValue: string;
 }
 
+const jsonFileCache = new Map<string, unknown>();
+const jsonEntriesCache = new Map<string, unknown[]>();
+const compiledEquipmentEffectsCache = new WeakMap<object, EquipmentEffectDef[] | undefined>();
+
+let techniquesCache: RawTechnique[] | null = null;
+let equipmentItemsCache: RawEquipment[] | null = null;
+let equipmentMapDangerIndexCache: Map<string, number> | null = null;
+
 function getContentRoot(): string {
   return path.join(process.cwd(), 'data', 'content');
 }
 
 function readJsonFile<T>(filePath: string): T {
-  return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as T;
+  const cached = jsonFileCache.get(filePath);
+  if (cached !== undefined) {
+    return cached as T;
+  }
+  const parsed = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as T;
+  jsonFileCache.set(filePath, parsed);
+  return parsed;
 }
 
 function readJsonEntries<T>(dirPath: string): T[] {
+  const cached = jsonEntriesCache.get(dirPath);
+  if (cached) {
+    return cached as T[];
+  }
+
   const entries: T[] = [];
   for (const filePath of collectJsonFiles(dirPath)) {
     entries.push(...readJsonFile<T[]>(filePath));
   }
+  jsonEntriesCache.set(dirPath, entries);
   return entries;
 }
 
@@ -121,18 +154,30 @@ function walkForItemIds(value: unknown, found: Set<string>): void {
 
 /** 读取所有功法模板 */
 export function readTechniques(): RawTechnique[] {
-  return readJsonEntries<RawTechnique>(path.join(getContentRoot(), 'techniques'));
+  if (techniquesCache) {
+    return techniquesCache;
+  }
+  techniquesCache = readJsonEntries<RawTechnique>(path.join(getContentRoot(), 'techniques'));
+  return techniquesCache;
 }
 
 /** 读取所有装备类物品 */
 export function readEquipmentItems(): RawEquipment[] {
-  return readJsonEntries<RawEquipment>(path.join(getContentRoot(), 'items'))
+  if (equipmentItemsCache) {
+    return equipmentItemsCache;
+  }
+  equipmentItemsCache = readJsonEntries<RawEquipment>(path.join(getContentRoot(), 'items'))
     .filter((entry) => entry.type === 'equipment');
+  return equipmentItemsCache;
 }
 
 function compileEquipmentEffectsForReport(input: unknown): EquipmentEffectDef[] | undefined {
   if (!Array.isArray(input)) {
     return undefined;
+  }
+
+  if (compiledEquipmentEffectsCache.has(input)) {
+    return compiledEquipmentEffectsCache.get(input);
   }
 
   const effects: EquipmentEffectDef[] = [];
@@ -168,7 +213,9 @@ function compileEquipmentEffectsForReport(input: unknown): EquipmentEffectDef[] 
     }
   }
 
-  return effects.length > 0 ? effects : undefined;
+  const result = effects.length > 0 ? effects : undefined;
+  compiledEquipmentEffectsCache.set(input, result);
+  return result;
 }
 
 function formatTechniqueGrade(grade: TechniqueGrade): string {
@@ -186,7 +233,47 @@ function mapDangerToEquipmentGrade(dangerLevel: number): string {
   return mapping[dangerLevel] ?? '未定';
 }
 
+let realmLevelNameIndexCache: Map<number, string> | null = null;
+
+function getRealmLevelNameIndex(): Map<number, string> {
+  if (realmLevelNameIndexCache) {
+    return realmLevelNameIndexCache;
+  }
+
+  const config = readJsonFile<RealmLevelsConfig>(path.join(getContentRoot(), 'realm-levels.json'));
+  const index = new Map<number, string>();
+  for (const level of config.levels ?? []) {
+    if (!Number.isFinite(level.realmLv)) {
+      continue;
+    }
+    const label = level.displayName ?? level.name;
+    if (typeof label === 'string' && label.trim().length > 0) {
+      index.set(level.realmLv, label.trim());
+    }
+  }
+  realmLevelNameIndexCache = index;
+  return index;
+}
+
+function formatTechniqueRealm(realmLv: number): string {
+  const normalizedRealmLv = Math.max(1, Math.floor(realmLv));
+  const label = getRealmLevelNameIndex().get(normalizedRealmLv);
+  return label ? `${label}(${normalizedRealmLv})` : String(normalizedRealmLv);
+}
+
+function calculateTechniqueBaselineValue(totalValue: number, realmLv: number): number {
+  const normalizedRealmLv = Math.max(1, Math.floor(realmLv));
+  return totalValue / Math.pow(1.15, normalizedRealmLv - 1);
+}
+
+function isMonsterTechnique(technique: Pick<RawTechnique, 'id'>): boolean {
+  return technique.id.startsWith('monster_');
+}
+
 function buildEquipmentMapDangerIndex(): Map<string, number> {
+  if (equipmentMapDangerIndexCache) {
+    return equipmentMapDangerIndexCache;
+  }
   const mapsDir = path.join(process.cwd(), 'data', 'maps');
   const index = new Map<string, number>();
   for (const filePath of collectJsonFiles(mapsDir).sort((left, right) => left.localeCompare(right, 'zh-CN'))) {
@@ -213,6 +300,7 @@ function buildEquipmentMapDangerIndex(): Map<string, number> {
       }
     }
   }
+  equipmentMapDangerIndexCache = index;
   return index;
 }
 
@@ -351,16 +439,40 @@ function resolveSkillDamageTargets(skill: SkillDef): string {
   return '1';
 }
 
+function resolveEquipmentRuntimeStats(item: Pick<RawEquipment, 'equipStats' | 'equipValueStats'>): ItemStack['equipStats'] | undefined {
+  return item.equipStats ?? compileValueStatsToActualStats(item.equipValueStats);
+}
+
+function summarizeEquipmentForReport(item: RawEquipment): {
+  runtimeQuantifiedValue: number;
+  baseQuantifiedValue: number;
+  unquantified: string[];
+} {
+  const equipStats = resolveEquipmentRuntimeStats(item);
+  const effects = compileEquipmentEffectsForReport(item.effects);
+  const runtimeSummary = calculateAttrBonusValue({
+    attrs: item.equipAttrs ?? {},
+    stats: equipStats,
+  });
+  const analyticalSummary = calculateEquipmentValue({
+    ...item,
+    equipStats,
+    equipValueStats: item.equipValueStats,
+    effects,
+  });
+
+  return {
+    runtimeQuantifiedValue: runtimeSummary.quantifiedValue,
+    baseQuantifiedValue: analyticalSummary.baseQuantifiedValue,
+    unquantified: analyticalSummary.unquantified,
+  };
+}
+
 /** 构建装备价值报表行 */
 export function buildEquipmentRows(): ValueReportRow[] {
   const dangerIndex = buildEquipmentMapDangerIndex();
   return readEquipmentItems().map((item) => {
-    const summary = calculateEquipmentValue({
-      ...item,
-      equipStats: item.equipStats ?? compileValueStatsToActualStats(item.equipValueStats),
-      equipValueStats: item.equipValueStats,
-      effects: compileEquipmentEffectsForReport(item.effects),
-    });
+    const summary = summarizeEquipmentForReport(item);
     const dangerLevel = dangerIndex.get(item.itemId);
     const grade = item.grade
       ? formatTechniqueGrade(item.grade)
@@ -377,7 +489,7 @@ export function buildEquipmentRows(): ValueReportRow[] {
       grade,
       level,
       baseQuantifiedValue: formatNumber(summary.baseQuantifiedValue),
-      quantifiedValue: formatNumber(summary.actualQuantifiedValue),
+      quantifiedValue: formatNumber(summary.runtimeQuantifiedValue),
       unquantifiedValue: joinUnquantified(summary.unquantified),
     };
   });
@@ -385,20 +497,25 @@ export function buildEquipmentRows(): ValueReportRow[] {
 
 /** 构建功法价值报表行 */
 export function buildTechniqueRows(): ValueReportRow[] {
-  return readTechniques().map((technique) => {
-    const maxLevel = technique.layers[technique.layers.length - 1]?.level ?? 1;
-    const summary = calculateTechniqueValue({
-      level: maxLevel,
-      layers: technique.layers,
+  return readTechniques()
+    .filter((technique) => !isMonsterTechnique(technique))
+    .map((technique) => {
+      const maxLevel = getTechniqueMaxLevel(technique.layers);
+      const summary = calculateTechniqueValue({
+        level: maxLevel,
+        layers: technique.layers,
+      });
+      const totalValue = summary.quantifiedValue;
+      return {
+        name: technique.name,
+        grade: formatTechniqueGrade(technique.grade),
+        realm: formatTechniqueRealm(technique.realmLv),
+        level: String(maxLevel),
+        baseQuantifiedValue: formatNumber(calculateTechniqueBaselineValue(totalValue, technique.realmLv)),
+        quantifiedValue: formatNumber(totalValue),
+        unquantifiedValue: joinUnquantified(summary.unquantified),
+      };
     });
-    return {
-      name: technique.name,
-      grade: formatTechniqueGrade(technique.grade),
-      level: String(maxLevel),
-      quantifiedValue: formatNumber(summary.quantifiedValue),
-      unquantifiedValue: joinUnquantified(summary.unquantified),
-    };
-  });
 }
 
 /** 构建技能价值报表行 */
@@ -468,9 +585,15 @@ export function renderMarkdownTable(title: string, rows: ValueReportRow[]): stri
           '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
           ...sortedRows.map((row) => `| ${escapeCell(row.name)} | ${escapeCell(row.grade)} | ${escapeCell(row.level)} | ${escapeCell(row.range ?? '-')} | ${escapeCell(row.damageTargets ?? '-')} | ${escapeCell(row.cooldown ?? '-')} | ${escapeCell(row.cost ?? '-')} | ${escapeCell(row.quantifiedValue)} | ${escapeCell(row.unquantifiedValue)} |`),
         ]
+      : title === '功法价值报表'
+        ? [
+            '| 名字 | 品阶 | 功法境界 | 等级 | 总价值 | 基准量化值 | 无法量化价值 |',
+            '| --- | --- | --- | --- | --- | --- | --- |',
+            ...sortedRows.map((row) => `| ${escapeCell(row.name)} | ${escapeCell(row.grade)} | ${escapeCell(row.realm ?? '-')} | ${escapeCell(row.level)} | ${escapeCell(row.quantifiedValue)} | ${escapeCell(row.baseQuantifiedValue ?? '-')} | ${escapeCell(row.unquantifiedValue)} |`),
+          ]
       : title === '装备价值报表'
         ? [
-            '| 名字 | 品阶 | 等级 | 实际价值 | 基准价值 | 无法量化特效 |',
+            '| 名字 | 品阶 | 等级 | 运行时价值 | 配置预算 | 无法量化特效 |',
             '| --- | --- | --- | --- | --- | --- |',
             ...sortedRows.map((row) => `| ${escapeCell(row.name)} | ${escapeCell(row.grade)} | ${escapeCell(row.level)} | ${escapeCell(row.quantifiedValue)} | ${escapeCell(row.baseQuantifiedValue ?? '-')} | ${escapeCell(row.unquantifiedValue)} |`),
           ]

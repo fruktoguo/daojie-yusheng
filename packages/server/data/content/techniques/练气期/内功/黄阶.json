@@ -18,8 +18,8 @@
         "level": 2,
         "expFactor": 20,
         "attrs": {
-          "talent": 3,
-          "spirit": 3
+          "talent": 4,
+          "spirit": 4
         }
       },
       {
@@ -42,8 +42,8 @@
         "level": 5,
         "expFactor": 27,
         "attrs": {
-          "talent": 3,
-          "spirit": 3
+          "talent": 4,
+          "spirit": 4
         }
       },
       {
@@ -66,8 +66,8 @@
         "level": 8,
         "expFactor": 37,
         "attrs": {
-          "talent": 3,
-          "spirit": 3
+          "talent": 4,
+          "spirit": 4
         }
       },
       {

@@ -5,6 +5,7 @@
   "height": 64,
   "routeDomain": "system",
   "terrainProfileId": "earth_stone_wild",
+  "terrainRealmLv": 29,
   "spaceVisionMode": "isolated",
   "description": "练气期终图归藏脉窟。右侧汇入口接五行图深处传送，门口先被断崖拧成回折，外层是混脉回字外环，中层通过错流折廊不断改向，最里面压成一块歪掉的旧立基阵核。当前已补首版玩法层：回渡口、五炁灵气、地标、NPC 与终图怪物刷新点均已接入。",
   "dangerLevel": 5,
@@ -121,91 +122,91 @@
       "x": 46,
       "y": 8,
       "resourceKey": "aura.refined.metal",
-      "value": 8000
+      "value": 6
     },
     {
       "x": 38,
       "y": 15,
       "resourceKey": "aura.refined.wood",
-      "value": 8000
+      "value": 6
     },
     {
       "x": 50,
       "y": 40,
       "resourceKey": "aura.refined.water",
-      "value": 8000
+      "value": 6
     },
     {
       "x": 27,
       "y": 33,
       "resourceKey": "aura.refined.fire",
-      "value": 8000
+      "value": 6
     },
     {
       "x": 13,
       "y": 28,
       "resourceKey": "aura.refined.earth",
-      "value": 8000
+      "value": 6
     },
     {
       "x": 31,
       "y": 22,
       "resourceKey": "aura.refined.metal",
-      "value": 16000
+      "value": 6
     },
     {
       "x": 31,
       "y": 22,
       "resourceKey": "aura.refined.wood",
-      "value": 16000
+      "value": 6
     },
     {
       "x": 34,
       "y": 30,
       "resourceKey": "aura.refined.water",
-      "value": 16000
+      "value": 6
     },
     {
       "x": 34,
       "y": 30,
       "resourceKey": "aura.refined.fire",
-      "value": 16000
+      "value": 6
     },
     {
       "x": 12,
       "y": 45,
       "resourceKey": "aura.refined.earth",
-      "value": 16000
+      "value": 6
     },
     {
       "x": 29,
       "y": 31,
       "resourceKey": "aura.refined.metal",
-      "value": 16000
+      "value": 6
     },
     {
       "x": 29,
       "y": 31,
       "resourceKey": "aura.refined.wood",
-      "value": 16000
+      "value": 6
     },
     {
       "x": 29,
       "y": 31,
       "resourceKey": "aura.refined.water",
-      "value": 16000
+      "value": 6
     },
     {
       "x": 29,
       "y": 31,
       "resourceKey": "aura.refined.fire",
-      "value": 16000
+      "value": 6
     },
     {
       "x": 29,
       "y": 31,
       "resourceKey": "aura.refined.earth",
-      "value": 16000
+      "value": 6
     }
   ],
   "safeZones": [],
@@ -229,7 +230,7 @@
       "name": "偏脉外环",
       "x": 42,
       "y": 18,
-      "desc": "第一圈完整大环路就在这里开始成形。每一段看似有主属性，实际上都被别的偏炁从侧边拧进来，走久了会发现没有一块地是真正单行的。"
+      "desc": "第一圈完整大环路就在这里开始成形。每一段看似有主属性，实际上都被别的偏炁从侧��拧进来，走久了会发现没有一块地是真正单行的。"
     },
     {
       "id": "lm_guizang_bent_gallery",
@@ -322,6 +323,5 @@
       "x": 30,
       "y": 31
     }
-  ],
-  "terrainRealmLv": 29
+  ]
 }

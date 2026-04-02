@@ -10,122 +10,122 @@
         "level": 1,
         "expFactor": 56,
         "attrs": {
-          "talent": 2,
-          "spirit": 2,
-          "constitution": 2
+          "talent": 9,
+          "spirit": 9,
+          "constitution": 9
         }
       },
       {
         "level": 2,
         "expFactor": 62,
         "attrs": {
-          "talent": 4,
-          "spirit": 4
+          "talent": 17,
+          "spirit": 17
         }
       },
       {
         "level": 3,
         "expFactor": 69,
         "attrs": {
-          "talent": 2,
-          "spirit": 2,
-          "constitution": 2
+          "talent": 8,
+          "spirit": 8,
+          "constitution": 8
         }
       },
       {
         "level": 4,
         "expFactor": 77,
         "attrs": {
-          "talent": 2,
-          "spirit": 2,
-          "constitution": 2
+          "talent": 8,
+          "spirit": 8,
+          "constitution": 8
         }
       },
       {
         "level": 5,
         "expFactor": 86,
         "attrs": {
-          "talent": 2,
-          "spirit": 2,
-          "constitution": 2
+          "talent": 8,
+          "spirit": 8,
+          "constitution": 8
         }
       },
       {
         "level": 6,
         "expFactor": 96,
         "attrs": {
-          "talent": 4,
-          "spirit": 4
+          "talent": 17,
+          "spirit": 17
         }
       },
       {
         "level": 7,
         "expFactor": 107,
         "attrs": {
-          "talent": 2,
-          "spirit": 2,
-          "constitution": 2
+          "talent": 8,
+          "spirit": 8,
+          "constitution": 8
         }
       },
       {
         "level": 8,
         "expFactor": 119,
         "attrs": {
-          "talent": 2,
-          "spirit": 2,
-          "constitution": 2
+          "talent": 8,
+          "spirit": 8,
+          "constitution": 8
         }
       },
       {
         "level": 9,
         "expFactor": 133,
         "attrs": {
-          "talent": 4,
-          "spirit": 4
+          "talent": 17,
+          "spirit": 17
         }
       },
       {
         "level": 10,
         "expFactor": 148,
         "attrs": {
-          "talent": 2,
-          "spirit": 2,
-          "constitution": 2
+          "talent": 8,
+          "spirit": 8,
+          "constitution": 8
         }
       },
       {
         "level": 11,
         "expFactor": 164,
         "attrs": {
-          "talent": 2,
-          "spirit": 2,
-          "constitution": 2
+          "talent": 8,
+          "spirit": 8,
+          "constitution": 8
         }
       },
       {
         "level": 12,
         "expFactor": 182,
         "attrs": {
-          "talent": 2,
-          "spirit": 2,
-          "constitution": 2
+          "talent": 8,
+          "spirit": 8,
+          "constitution": 8
         }
       },
       {
         "level": 13,
         "expFactor": 202,
         "attrs": {
-          "talent": 4,
-          "spirit": 4
+          "talent": 17,
+          "spirit": 17
         }
       },
       {
         "level": 14,
         "expFactor": 0,
         "attrs": {
-          "talent": 2,
-          "spirit": 2,
-          "constitution": 2
+          "talent": 8,
+          "spirit": 8,
+          "constitution": 8
         }
       }
     ],

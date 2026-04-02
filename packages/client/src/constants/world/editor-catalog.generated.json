@@ -299,8 +299,8 @@
           "level": 1,
           "expToNext": 78200,
           "attrs": {
-            "constitution": 3,
-            "perception": 3,
+            "constitution": 5,
+            "perception": 5,
             "talent": 1
           }
         },
@@ -308,16 +308,16 @@
           "level": 2,
           "expToNext": 87400,
           "attrs": {
-            "constitution": 3,
-            "perception": 3
+            "constitution": 5,
+            "perception": 5
           }
         },
         {
           "level": 3,
           "expToNext": 96600,
           "attrs": {
-            "constitution": 3,
-            "perception": 3,
+            "constitution": 5,
+            "perception": 5,
             "talent": 1
           }
         },
@@ -325,16 +325,16 @@
           "level": 4,
           "expToNext": 108100,
           "attrs": {
-            "constitution": 3,
-            "perception": 3
+            "constitution": 5,
+            "perception": 5
           }
         },
         {
           "level": 5,
           "expToNext": 119600,
           "attrs": {
-            "constitution": 3,
-            "perception": 3,
+            "constitution": 5,
+            "perception": 5,
             "talent": 1
           }
         },
@@ -342,16 +342,16 @@
           "level": 6,
           "expToNext": 133400,
           "attrs": {
-            "constitution": 3,
-            "perception": 3
+            "constitution": 5,
+            "perception": 5
           }
         },
         {
           "level": 7,
           "expToNext": 149500,
           "attrs": {
-            "constitution": 3,
-            "perception": 3,
+            "constitution": 5,
+            "perception": 5,
             "talent": 1
           }
         },
@@ -359,8 +359,8 @@
           "level": 8,
           "expToNext": 167900,
           "attrs": {
-            "constitution": 3,
-            "perception": 3,
+            "constitution": 5,
+            "perception": 5,
             "talent": 1
           }
         },
@@ -368,16 +368,16 @@
           "level": 9,
           "expToNext": 188600,
           "attrs": {
-            "constitution": 3,
-            "perception": 3
+            "constitution": 5,
+            "perception": 5
           }
         },
         {
           "level": 10,
           "expToNext": 211600,
           "attrs": {
-            "constitution": 3,
-            "perception": 3,
+            "constitution": 5,
+            "perception": 5,
             "talent": 1
           }
         },
@@ -385,16 +385,16 @@
           "level": 11,
           "expToNext": 236900,
           "attrs": {
-            "constitution": 3,
-            "perception": 3
+            "constitution": 5,
+            "perception": 5
           }
         },
         {
           "level": 12,
           "expToNext": 264500,
           "attrs": {
-            "constitution": 3,
-            "perception": 3,
+            "constitution": 5,
+            "perception": 5,
             "talent": 1
           }
         },
@@ -402,16 +402,16 @@
           "level": 13,
           "expToNext": 296700,
           "attrs": {
-            "constitution": 3,
-            "perception": 3
+            "constitution": 4,
+            "perception": 4
           }
         },
         {
           "level": 14,
           "expToNext": 0,
           "attrs": {
-            "constitution": 3,
-            "perception": 3,
+            "constitution": 4,
+            "perception": 4,
             "talent": 1
           }
         }
@@ -1088,8 +1088,8 @@
           "level": 1,
           "expToNext": 78200,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
+            "constitution": 5,
+            "spirit": 5,
             "perception": 1
           }
         },
@@ -1097,16 +1097,16 @@
           "level": 2,
           "expToNext": 87400,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3
+            "constitution": 5,
+            "spirit": 5
           }
         },
         {
           "level": 3,
           "expToNext": 96600,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
+            "constitution": 5,
+            "spirit": 5,
             "perception": 1
           }
         },
@@ -1114,16 +1114,16 @@
           "level": 4,
           "expToNext": 108100,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3
+            "constitution": 5,
+            "spirit": 5
           }
         },
         {
           "level": 5,
           "expToNext": 119600,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
+            "constitution": 5,
+            "spirit": 5,
             "perception": 1
           }
         },
@@ -1131,16 +1131,16 @@
           "level": 6,
           "expToNext": 133400,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3
+            "constitution": 5,
+            "spirit": 5
           }
         },
         {
           "level": 7,
           "expToNext": 149500,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
+            "constitution": 5,
+            "spirit": 5,
             "perception": 1
           }
         },
@@ -1148,8 +1148,8 @@
           "level": 8,
           "expToNext": 167900,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
+            "constitution": 5,
+            "spirit": 5,
             "perception": 1
           }
         },
@@ -1157,16 +1157,16 @@
           "level": 9,
           "expToNext": 188600,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3
+            "constitution": 5,
+            "spirit": 5
           }
         },
         {
           "level": 10,
           "expToNext": 211600,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
+            "constitution": 5,
+            "spirit": 5,
             "perception": 1
           }
         },
@@ -1174,16 +1174,16 @@
           "level": 11,
           "expToNext": 236900,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3
+            "constitution": 5,
+            "spirit": 5
           }
         },
         {
           "level": 12,
           "expToNext": 264500,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
+            "constitution": 5,
+            "spirit": 5,
             "perception": 1
           }
         },
@@ -1191,16 +1191,16 @@
           "level": 13,
           "expToNext": 296700,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3
+            "constitution": 4,
+            "spirit": 4
           }
         },
         {
           "level": 14,
           "expToNext": 0,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
+            "constitution": 4,
+            "spirit": 4,
             "perception": 1
           }
         }
@@ -2023,8 +2023,8 @@
           "level": 2,
           "expToNext": 38000,
           "attrs": {
-            "constitution": 3,
-            "perception": 3,
+            "constitution": 4,
+            "perception": 4,
             "talent": 1
           }
         },
@@ -2299,9 +2299,9 @@
           "level": 1,
           "expToNext": 34200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2
+            "constitution": 3,
+            "spirit": 3,
+            "talent": 3
           }
         },
         {
@@ -2312,18 +2312,18 @@
           "level": 3,
           "expToNext": 41800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2
+            "constitution": 3,
+            "spirit": 3,
+            "talent": 3
           }
         },
         {
           "level": 4,
           "expToNext": 45600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2
+            "constitution": 3,
+            "spirit": 3,
+            "talent": 3
           }
         },
         {
@@ -2334,17 +2334,17 @@
           "level": 6,
           "expToNext": 57000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2
+            "constitution": 3,
+            "spirit": 3,
+            "talent": 3
           }
         },
         {
           "level": 7,
           "expToNext": 62700,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
+            "constitution": 3,
+            "spirit": 3,
             "talent": 2
           }
         },
@@ -2792,8 +2792,8 @@
           "level": 2,
           "expToNext": 38000,
           "attrs": {
-            "spirit": 3,
-            "perception": 3
+            "spirit": 4,
+            "perception": 4
           }
         },
         {
@@ -2816,8 +2816,8 @@
           "level": 5,
           "expToNext": 51300,
           "attrs": {
-            "spirit": 3,
-            "perception": 3
+            "spirit": 4,
+            "perception": 4
           }
         },
         {
@@ -2840,8 +2840,8 @@
           "level": 8,
           "expToNext": 70300,
           "attrs": {
-            "spirit": 3,
-            "perception": 3
+            "spirit": 4,
+            "perception": 4
           }
         },
         {
@@ -3013,8 +3013,8 @@
           "level": 2,
           "expToNext": 38000,
           "attrs": {
-            "constitution": 3,
-            "talent": 3
+            "constitution": 4,
+            "talent": 4
           }
         },
         {
@@ -3037,8 +3037,8 @@
           "level": 5,
           "expToNext": 51300,
           "attrs": {
-            "constitution": 3,
-            "talent": 3
+            "constitution": 4,
+            "talent": 4
           }
         },
         {
@@ -3061,8 +3061,8 @@
           "level": 8,
           "expToNext": 70300,
           "attrs": {
-            "constitution": 3,
-            "talent": 3
+            "constitution": 4,
+            "talent": 4
           }
         },
         {
@@ -3296,116 +3296,116 @@
           "level": 1,
           "expToNext": 151200,
           "attrs": {
-            "constitution": 3,
-            "talent": 3
+            "constitution": 12,
+            "talent": 12
           }
         },
         {
           "level": 2,
           "expToNext": 167400,
           "attrs": {
-            "constitution": 4,
-            "talent": 4,
-            "spirit": 1
+            "constitution": 15,
+            "talent": 15,
+            "spirit": 4
           }
         },
         {
           "level": 3,
           "expToNext": 186300,
           "attrs": {
-            "constitution": 3,
-            "talent": 3
+            "constitution": 12,
+            "talent": 12
           }
         },
         {
           "level": 4,
           "expToNext": 207900,
           "attrs": {
-            "constitution": 4,
-            "talent": 3
+            "constitution": 15,
+            "talent": 12
           }
         },
         {
           "level": 5,
           "expToNext": 232200,
           "attrs": {
-            "constitution": 3,
-            "talent": 3
+            "constitution": 12,
+            "talent": 12
           }
         },
         {
           "level": 6,
           "expToNext": 259200,
           "attrs": {
-            "constitution": 4,
-            "talent": 4,
-            "spirit": 1
+            "constitution": 15,
+            "talent": 15,
+            "spirit": 4
           }
         },
         {
           "level": 7,
           "expToNext": 288900,
           "attrs": {
-            "constitution": 3,
-            "talent": 3
+            "constitution": 12,
+            "talent": 12
           }
         },
         {
           "level": 8,
           "expToNext": 321300,
           "attrs": {
-            "constitution": 3,
-            "talent": 3
+            "constitution": 12,
+            "talent": 12
           }
         },
         {
           "level": 9,
           "expToNext": 359100,
           "attrs": {
-            "constitution": 4,
-            "talent": 4,
-            "spirit": 1
+            "constitution": 15,
+            "talent": 15,
+            "spirit": 4
           }
         },
         {
           "level": 10,
           "expToNext": 399600,
           "attrs": {
-            "constitution": 3,
-            "talent": 3
+            "constitution": 12,
+            "talent": 12
           }
         },
         {
           "level": 11,
           "expToNext": 442800,
           "attrs": {
-            "constitution": 4,
-            "talent": 3
+            "constitution": 15,
+            "talent": 12
           }
         },
         {
           "level": 12,
           "expToNext": 491400,
           "attrs": {
-            "constitution": 3,
-            "talent": 3
+            "constitution": 12,
+            "talent": 11
           }
         },
         {
           "level": 13,
           "expToNext": 545400,
           "attrs": {
-            "constitution": 4,
-            "talent": 4,
-            "spirit": 1
+            "constitution": 15,
+            "talent": 15,
+            "spirit": 4
           }
         },
         {
           "level": 14,
           "expToNext": 0,
           "attrs": {
-            "constitution": 3,
-            "talent": 3
+            "constitution": 11,
+            "talent": 11
           }
         }
       ]
@@ -3640,132 +3640,132 @@
           "level": 1,
           "expToNext": 151200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2
+            "constitution": 8,
+            "spirit": 8,
+            "talent": 8
           }
         },
         {
           "level": 2,
           "expToNext": 167400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2,
-            "perception": 2
+            "constitution": 8,
+            "spirit": 8,
+            "talent": 8,
+            "perception": 8
           }
         },
         {
           "level": 3,
           "expToNext": 186300,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2
+            "constitution": 8,
+            "spirit": 8,
+            "talent": 8
           }
         },
         {
           "level": 4,
           "expToNext": 207900,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "talent": 3,
-            "perception": 2
+            "constitution": 11,
+            "spirit": 11,
+            "talent": 11,
+            "perception": 8
           }
         },
         {
           "level": 5,
           "expToNext": 232200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2
+            "constitution": 8,
+            "spirit": 8,
+            "talent": 8
           }
         },
         {
           "level": 6,
           "expToNext": 259200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2,
-            "perception": 2
+            "constitution": 8,
+            "spirit": 8,
+            "talent": 8,
+            "perception": 8
           }
         },
         {
           "level": 7,
           "expToNext": 288900,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2
+            "constitution": 8,
+            "spirit": 7,
+            "talent": 7
           }
         },
         {
           "level": 8,
           "expToNext": 321300,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2
+            "constitution": 7,
+            "spirit": 7,
+            "talent": 7
           }
         },
         {
           "level": 9,
           "expToNext": 359100,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2,
-            "perception": 2
+            "constitution": 7,
+            "spirit": 7,
+            "talent": 7,
+            "perception": 7
           }
         },
         {
           "level": 10,
           "expToNext": 399600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2
+            "constitution": 7,
+            "spirit": 7,
+            "talent": 7
           }
         },
         {
           "level": 11,
           "expToNext": 442800,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "talent": 3,
-            "perception": 2
+            "constitution": 11,
+            "spirit": 11,
+            "talent": 11,
+            "perception": 7
           }
         },
         {
           "level": 12,
           "expToNext": 491400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2
+            "constitution": 7,
+            "spirit": 7,
+            "talent": 7
           }
         },
         {
           "level": 13,
           "expToNext": 545400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2,
-            "perception": 2
+            "constitution": 7,
+            "spirit": 7,
+            "talent": 7,
+            "perception": 7
           }
         },
         {
           "level": 14,
           "expToNext": 0,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2
+            "constitution": 7,
+            "spirit": 7,
+            "talent": 7
           }
         }
       ]
@@ -4433,16 +4433,16 @@
           "level": 1,
           "expToNext": 78200,
           "attrs": {
-            "constitution": 3,
-            "talent": 3
+            "constitution": 5,
+            "talent": 5
           }
         },
         {
           "level": 2,
           "expToNext": 87400,
           "attrs": {
-            "constitution": 3,
-            "talent": 3,
+            "constitution": 5,
+            "talent": 5,
             "spirit": 1
           }
         },
@@ -4450,32 +4450,32 @@
           "level": 3,
           "expToNext": 96600,
           "attrs": {
-            "constitution": 3,
-            "talent": 3
+            "constitution": 5,
+            "talent": 5
           }
         },
         {
           "level": 4,
           "expToNext": 108100,
           "attrs": {
-            "constitution": 3,
-            "talent": 3
+            "constitution": 5,
+            "talent": 5
           }
         },
         {
           "level": 5,
           "expToNext": 119600,
           "attrs": {
-            "constitution": 3,
-            "talent": 3
+            "constitution": 5,
+            "talent": 5
           }
         },
         {
           "level": 6,
           "expToNext": 133400,
           "attrs": {
-            "constitution": 3,
-            "talent": 3,
+            "constitution": 5,
+            "talent": 5,
             "spirit": 1
           }
         },
@@ -4483,24 +4483,24 @@
           "level": 7,
           "expToNext": 149500,
           "attrs": {
-            "constitution": 3,
-            "talent": 3
+            "constitution": 5,
+            "talent": 5
           }
         },
         {
           "level": 8,
           "expToNext": 167900,
           "attrs": {
-            "constitution": 3,
-            "talent": 3
+            "constitution": 5,
+            "talent": 5
           }
         },
         {
           "level": 9,
           "expToNext": 188600,
           "attrs": {
-            "constitution": 3,
-            "talent": 3,
+            "constitution": 5,
+            "talent": 5,
             "spirit": 1
           }
         },
@@ -4508,32 +4508,32 @@
           "level": 10,
           "expToNext": 211600,
           "attrs": {
-            "constitution": 3,
-            "talent": 3
+            "constitution": 5,
+            "talent": 5
           }
         },
         {
           "level": 11,
           "expToNext": 236900,
           "attrs": {
-            "constitution": 3,
-            "talent": 3
+            "constitution": 5,
+            "talent": 5
           }
         },
         {
           "level": 12,
           "expToNext": 264500,
           "attrs": {
-            "constitution": 3,
-            "talent": 3
+            "constitution": 5,
+            "talent": 5
           }
         },
         {
           "level": 13,
           "expToNext": 296700,
           "attrs": {
-            "constitution": 3,
-            "talent": 3,
+            "constitution": 5,
+            "talent": 5,
             "spirit": 1
           }
         },
@@ -4541,8 +4541,8 @@
           "level": 14,
           "expToNext": 0,
           "attrs": {
-            "constitution": 3,
-            "talent": 3
+            "constitution": 5,
+            "talent": 5
           }
         }
       ]
@@ -4685,8 +4685,8 @@
           "level": 2,
           "expToNext": 38000,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
+            "constitution": 4,
+            "spirit": 4,
             "perception": 1
           }
         },
@@ -5085,6 +5085,408 @@
       ]
     },
     {
+      "id": "ningqi_chengji",
+      "name": "凝气成基法",
+      "grade": "heaven",
+      "category": "internal",
+      "realmLv": 31,
+      "skills": [],
+      "layers": [
+        {
+          "level": 1,
+          "expToNext": 179800,
+          "attrs": {
+            "constitution": 11,
+            "talent": 11
+          }
+        },
+        {
+          "level": 2,
+          "expToNext": 186000,
+          "attrs": {
+            "constitution": 11,
+            "talent": 11
+          }
+        },
+        {
+          "level": 3,
+          "expToNext": 192200,
+          "attrs": {
+            "constitution": 11,
+            "talent": 11
+          }
+        },
+        {
+          "level": 4,
+          "expToNext": 207700,
+          "attrs": {
+            "constitution": 11,
+            "talent": 11
+          }
+        },
+        {
+          "level": 5,
+          "expToNext": 226300,
+          "attrs": {
+            "constitution": 11,
+            "talent": 11
+          }
+        },
+        {
+          "level": 6,
+          "expToNext": 251100,
+          "attrs": {
+            "constitution": 11,
+            "talent": 11
+          }
+        },
+        {
+          "level": 7,
+          "expToNext": 282100,
+          "attrs": {
+            "constitution": 11,
+            "talent": 11
+          }
+        },
+        {
+          "level": 8,
+          "expToNext": 319300,
+          "attrs": {
+            "constitution": 11,
+            "talent": 11
+          }
+        },
+        {
+          "level": 9,
+          "expToNext": 362700,
+          "attrs": {
+            "constitution": 11,
+            "talent": 11
+          }
+        },
+        {
+          "level": 10,
+          "expToNext": 409200,
+          "attrs": {
+            "constitution": 11,
+            "talent": 11
+          }
+        },
+        {
+          "level": 11,
+          "expToNext": 461900,
+          "attrs": {
+            "constitution": 9,
+            "talent": 9
+          }
+        },
+        {
+          "level": 12,
+          "expToNext": 520800,
+          "attrs": {
+            "constitution": 9,
+            "talent": 9
+          }
+        },
+        {
+          "level": 13,
+          "expToNext": 585900,
+          "attrs": {
+            "constitution": 9,
+            "talent": 9
+          }
+        },
+        {
+          "level": 14,
+          "expToNext": 657200,
+          "attrs": {
+            "constitution": 9,
+            "talent": 9
+          }
+        },
+        {
+          "level": 15,
+          "expToNext": 731600,
+          "attrs": {
+            "constitution": 9,
+            "talent": 9
+          }
+        },
+        {
+          "level": 16,
+          "expToNext": 812200,
+          "attrs": {
+            "constitution": 9,
+            "talent": 9
+          }
+        },
+        {
+          "level": 17,
+          "expToNext": 899000,
+          "attrs": {
+            "constitution": 9,
+            "talent": 9
+          }
+        },
+        {
+          "level": 18,
+          "expToNext": 992000,
+          "attrs": {
+            "constitution": 9,
+            "talent": 9
+          }
+        },
+        {
+          "level": 19,
+          "expToNext": 1091200,
+          "attrs": {
+            "constitution": 9,
+            "talent": 9
+          }
+        },
+        {
+          "level": 20,
+          "expToNext": 1156300,
+          "attrs": {
+            "constitution": 9,
+            "talent": 9
+          }
+        },
+        {
+          "level": 21,
+          "expToNext": 1224500,
+          "attrs": {
+            "constitution": 7,
+            "talent": 7
+          }
+        },
+        {
+          "level": 22,
+          "expToNext": 1298900,
+          "attrs": {
+            "constitution": 7,
+            "talent": 7
+          }
+        },
+        {
+          "level": 23,
+          "expToNext": 1376400,
+          "attrs": {
+            "constitution": 7,
+            "talent": 7
+          }
+        },
+        {
+          "level": 24,
+          "expToNext": 1460100,
+          "attrs": {
+            "constitution": 7,
+            "talent": 7
+          }
+        },
+        {
+          "level": 25,
+          "expToNext": 1546900,
+          "attrs": {
+            "constitution": 7,
+            "talent": 7
+          }
+        },
+        {
+          "level": 26,
+          "expToNext": 1639900,
+          "attrs": {
+            "constitution": 7,
+            "talent": 7
+          }
+        },
+        {
+          "level": 27,
+          "expToNext": 1739100,
+          "attrs": {
+            "constitution": 7,
+            "talent": 7
+          }
+        },
+        {
+          "level": 28,
+          "expToNext": 1844500,
+          "attrs": {
+            "constitution": 7,
+            "talent": 7
+          }
+        },
+        {
+          "level": 29,
+          "expToNext": 1956100,
+          "attrs": {
+            "constitution": 7,
+            "talent": 7
+          }
+        },
+        {
+          "level": 30,
+          "expToNext": 2073900,
+          "attrs": {
+            "constitution": 7,
+            "talent": 7
+          }
+        },
+        {
+          "level": 31,
+          "expToNext": 2197900,
+          "attrs": {
+            "constitution": 5,
+            "talent": 5
+          }
+        },
+        {
+          "level": 32,
+          "expToNext": 2331200,
+          "attrs": {
+            "constitution": 5,
+            "talent": 5
+          }
+        },
+        {
+          "level": 33,
+          "expToNext": 2470700,
+          "attrs": {
+            "constitution": 5,
+            "talent": 5
+          }
+        },
+        {
+          "level": 34,
+          "expToNext": 2619500,
+          "attrs": {
+            "constitution": 4,
+            "talent": 4
+          }
+        },
+        {
+          "level": 35,
+          "expToNext": 2777600,
+          "attrs": {
+            "constitution": 4,
+            "talent": 4
+          }
+        },
+        {
+          "level": 36,
+          "expToNext": 2945000,
+          "attrs": {
+            "constitution": 4,
+            "talent": 4
+          }
+        },
+        {
+          "level": 37,
+          "expToNext": 3121700,
+          "attrs": {
+            "constitution": 4,
+            "talent": 4
+          }
+        },
+        {
+          "level": 38,
+          "expToNext": 3307700,
+          "attrs": {
+            "constitution": 4,
+            "talent": 4
+          }
+        },
+        {
+          "level": 39,
+          "expToNext": 3506100,
+          "attrs": {
+            "constitution": 4,
+            "talent": 4
+          }
+        },
+        {
+          "level": 40,
+          "expToNext": 3716900,
+          "attrs": {
+            "constitution": 4,
+            "talent": 4
+          }
+        },
+        {
+          "level": 41,
+          "expToNext": 3940100,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 42,
+          "expToNext": 4175700,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 43,
+          "expToNext": 4426800,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 44,
+          "expToNext": 4693400,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 45,
+          "expToNext": 4975500,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 46,
+          "expToNext": 5273100,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 47,
+          "expToNext": 5589300,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 48,
+          "expToNext": 5924100,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 49,
+          "expToNext": 0,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        }
+      ]
+    },
+    {
       "id": "qingmu_sword",
       "name": "青木剑诀",
       "grade": "mortal",
@@ -5436,8 +5838,8 @@
           "level": 2,
           "expToNext": 38000,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 4,
+            "talent": 4
           }
         },
         {
@@ -5460,8 +5862,8 @@
           "level": 5,
           "expToNext": 51300,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 4,
+            "talent": 4
           }
         },
         {
@@ -5484,8 +5886,8 @@
           "level": 8,
           "expToNext": 70300,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 4,
+            "talent": 4
           }
         },
         {
@@ -6289,126 +6691,126 @@
           "level": 1,
           "expToNext": 151200,
           "attrs": {
-            "constitution": 3,
-            "perception": 3,
-            "talent": 2
+            "constitution": 10,
+            "perception": 10,
+            "talent": 6
           }
         },
         {
           "level": 2,
           "expToNext": 167400,
           "attrs": {
-            "constitution": 4,
-            "perception": 4,
-            "spirit": 1
+            "constitution": 13,
+            "perception": 13,
+            "spirit": 3
           }
         },
         {
           "level": 3,
           "expToNext": 186300,
           "attrs": {
-            "constitution": 3,
-            "perception": 3,
-            "talent": 2
+            "constitution": 10,
+            "perception": 10,
+            "talent": 6
           }
         },
         {
           "level": 4,
           "expToNext": 207900,
           "attrs": {
-            "constitution": 4,
-            "perception": 3,
-            "talent": 2
+            "constitution": 13,
+            "perception": 10,
+            "talent": 6
           }
         },
         {
           "level": 5,
           "expToNext": 232200,
           "attrs": {
-            "constitution": 3,
-            "perception": 3,
-            "talent": 2
+            "constitution": 10,
+            "perception": 10,
+            "talent": 6
           }
         },
         {
           "level": 6,
           "expToNext": 259200,
           "attrs": {
-            "constitution": 4,
-            "perception": 4,
-            "spirit": 1
+            "constitution": 13,
+            "perception": 13,
+            "spirit": 3
           }
         },
         {
           "level": 7,
           "expToNext": 288900,
           "attrs": {
-            "constitution": 3,
-            "perception": 3,
-            "talent": 2
+            "constitution": 10,
+            "perception": 10,
+            "talent": 6
           }
         },
         {
           "level": 8,
           "expToNext": 321300,
           "attrs": {
-            "constitution": 3,
-            "perception": 3,
-            "talent": 2
+            "constitution": 10,
+            "perception": 10,
+            "talent": 6
           }
         },
         {
           "level": 9,
           "expToNext": 359100,
           "attrs": {
-            "constitution": 4,
-            "perception": 4,
-            "spirit": 1
+            "constitution": 13,
+            "perception": 13,
+            "spirit": 3
           }
         },
         {
           "level": 10,
           "expToNext": 399600,
           "attrs": {
-            "constitution": 3,
-            "perception": 3,
-            "talent": 2
+            "constitution": 10,
+            "perception": 10,
+            "talent": 6
           }
         },
         {
           "level": 11,
           "expToNext": 442800,
           "attrs": {
-            "constitution": 4,
-            "perception": 3,
-            "talent": 2
+            "constitution": 13,
+            "perception": 10,
+            "talent": 6
           }
         },
         {
           "level": 12,
           "expToNext": 491400,
           "attrs": {
-            "constitution": 3,
-            "perception": 3,
-            "talent": 2
+            "constitution": 10,
+            "perception": 9,
+            "talent": 6
           }
         },
         {
           "level": 13,
           "expToNext": 545400,
           "attrs": {
-            "constitution": 4,
-            "perception": 4,
-            "spirit": 1
+            "constitution": 13,
+            "perception": 13,
+            "spirit": 3
           }
         },
         {
           "level": 14,
           "expToNext": 0,
           "attrs": {
-            "constitution": 3,
-            "perception": 3,
-            "talent": 2
+            "constitution": 9,
+            "perception": 9,
+            "talent": 6
           }
         }
       ]
@@ -6551,122 +6953,122 @@
           "level": 1,
           "expToNext": 151200,
           "attrs": {
-            "talent": 2,
-            "spirit": 2,
-            "constitution": 2
+            "talent": 9,
+            "spirit": 9,
+            "constitution": 9
           }
         },
         {
           "level": 2,
           "expToNext": 167400,
           "attrs": {
-            "talent": 4,
-            "spirit": 4
+            "talent": 17,
+            "spirit": 17
           }
         },
         {
           "level": 3,
           "expToNext": 186300,
           "attrs": {
-            "talent": 2,
-            "spirit": 2,
-            "constitution": 2
+            "talent": 8,
+            "spirit": 8,
+            "constitution": 8
           }
         },
         {
           "level": 4,
           "expToNext": 207900,
           "attrs": {
-            "talent": 2,
-            "spirit": 2,
-            "constitution": 2
+            "talent": 8,
+            "spirit": 8,
+            "constitution": 8
           }
         },
         {
           "level": 5,
           "expToNext": 232200,
           "attrs": {
-            "talent": 2,
-            "spirit": 2,
-            "constitution": 2
+            "talent": 8,
+            "spirit": 8,
+            "constitution": 8
           }
         },
         {
           "level": 6,
           "expToNext": 259200,
           "attrs": {
-            "talent": 4,
-            "spirit": 4
+            "talent": 17,
+            "spirit": 17
           }
         },
         {
           "level": 7,
           "expToNext": 288900,
           "attrs": {
-            "talent": 2,
-            "spirit": 2,
-            "constitution": 2
+            "talent": 8,
+            "spirit": 8,
+            "constitution": 8
           }
         },
         {
           "level": 8,
           "expToNext": 321300,
           "attrs": {
-            "talent": 2,
-            "spirit": 2,
-            "constitution": 2
+            "talent": 8,
+            "spirit": 8,
+            "constitution": 8
           }
         },
         {
           "level": 9,
           "expToNext": 359100,
           "attrs": {
-            "talent": 4,
-            "spirit": 4
+            "talent": 17,
+            "spirit": 17
           }
         },
         {
           "level": 10,
           "expToNext": 399600,
           "attrs": {
-            "talent": 2,
-            "spirit": 2,
-            "constitution": 2
+            "talent": 8,
+            "spirit": 8,
+            "constitution": 8
           }
         },
         {
           "level": 11,
           "expToNext": 442800,
           "attrs": {
-            "talent": 2,
-            "spirit": 2,
-            "constitution": 2
+            "talent": 8,
+            "spirit": 8,
+            "constitution": 8
           }
         },
         {
           "level": 12,
           "expToNext": 491400,
           "attrs": {
-            "talent": 2,
-            "spirit": 2,
-            "constitution": 2
+            "talent": 8,
+            "spirit": 8,
+            "constitution": 8
           }
         },
         {
           "level": 13,
           "expToNext": 545400,
           "attrs": {
-            "talent": 4,
-            "spirit": 4
+            "talent": 17,
+            "spirit": 17
           }
         },
         {
           "level": 14,
           "expToNext": 0,
           "attrs": {
-            "talent": 2,
-            "spirit": 2,
-            "constitution": 2
+            "talent": 8,
+            "spirit": 8,
+            "constitution": 8
           }
         }
       ]
@@ -7029,118 +7431,118 @@
           "level": 1,
           "expToNext": 151200,
           "attrs": {
-            "spirit": 3,
-            "perception": 3
+            "spirit": 12,
+            "perception": 12
           }
         },
         {
           "level": 2,
           "expToNext": 167400,
           "attrs": {
-            "spirit": 4,
-            "perception": 4,
-            "talent": 2
+            "spirit": 15,
+            "perception": 15,
+            "talent": 8
           }
         },
         {
           "level": 3,
           "expToNext": 186300,
           "attrs": {
-            "spirit": 3,
-            "perception": 3
+            "spirit": 12,
+            "perception": 11
           }
         },
         {
           "level": 4,
           "expToNext": 207900,
           "attrs": {
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "spirit": 8,
+            "perception": 8,
+            "talent": 8
           }
         },
         {
           "level": 5,
           "expToNext": 232200,
           "attrs": {
-            "spirit": 3,
-            "perception": 3
+            "spirit": 11,
+            "perception": 11
           }
         },
         {
           "level": 6,
           "expToNext": 259200,
           "attrs": {
-            "spirit": 4,
-            "perception": 4,
-            "talent": 2
+            "spirit": 15,
+            "perception": 15,
+            "talent": 8
           }
         },
         {
           "level": 7,
           "expToNext": 288900,
           "attrs": {
-            "spirit": 3,
-            "perception": 3
+            "spirit": 11,
+            "perception": 11
           }
         },
         {
           "level": 8,
           "expToNext": 321300,
           "attrs": {
-            "spirit": 3,
-            "perception": 3
+            "spirit": 11,
+            "perception": 11
           }
         },
         {
           "level": 9,
           "expToNext": 359100,
           "attrs": {
-            "spirit": 4,
-            "perception": 4,
-            "talent": 2
+            "spirit": 15,
+            "perception": 15,
+            "talent": 8
           }
         },
         {
           "level": 10,
           "expToNext": 399600,
           "attrs": {
-            "spirit": 3,
-            "perception": 3
+            "spirit": 11,
+            "perception": 11
           }
         },
         {
           "level": 11,
           "expToNext": 442800,
           "attrs": {
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "spirit": 8,
+            "perception": 8,
+            "talent": 8
           }
         },
         {
           "level": 12,
           "expToNext": 491400,
           "attrs": {
-            "spirit": 3,
-            "perception": 3
+            "spirit": 11,
+            "perception": 11
           }
         },
         {
           "level": 13,
           "expToNext": 545400,
           "attrs": {
-            "spirit": 4,
-            "perception": 4,
-            "talent": 2
+            "spirit": 15,
+            "perception": 15,
+            "talent": 8
           }
         },
         {
           "level": 14,
           "expToNext": 0,
           "attrs": {
-            "spirit": 3,
-            "perception": 3
+            "spirit": 11,
+            "perception": 11
           }
         }
       ]
@@ -7489,8 +7891,8 @@
           "level": 2,
           "expToNext": 38000,
           "attrs": {
-            "talent": 3,
-            "spirit": 3
+            "talent": 4,
+            "spirit": 4
           }
         },
         {
@@ -7513,8 +7915,8 @@
           "level": 5,
           "expToNext": 51300,
           "attrs": {
-            "talent": 3,
-            "spirit": 3
+            "talent": 4,
+            "spirit": 4
           }
         },
         {
@@ -7537,8 +7939,8 @@
           "level": 8,
           "expToNext": 70300,
           "attrs": {
-            "talent": 3,
-            "spirit": 3
+            "talent": 4,
+            "spirit": 4
           }
         },
         {
@@ -7722,16 +8124,16 @@
           "level": 1,
           "expToNext": 78200,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 5,
+            "talent": 5
           }
         },
         {
           "level": 2,
           "expToNext": 87400,
           "attrs": {
-            "spirit": 3,
-            "talent": 3,
+            "spirit": 5,
+            "talent": 5,
             "perception": 1
           }
         },
@@ -7739,32 +8141,32 @@
           "level": 3,
           "expToNext": 96600,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 5,
+            "talent": 5
           }
         },
         {
           "level": 4,
           "expToNext": 108100,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 5,
+            "talent": 5
           }
         },
         {
           "level": 5,
           "expToNext": 119600,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 5,
+            "talent": 5
           }
         },
         {
           "level": 6,
           "expToNext": 133400,
           "attrs": {
-            "spirit": 3,
-            "talent": 3,
+            "spirit": 5,
+            "talent": 5,
             "perception": 1
           }
         },
@@ -7772,24 +8174,24 @@
           "level": 7,
           "expToNext": 149500,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 5,
+            "talent": 5
           }
         },
         {
           "level": 8,
           "expToNext": 167900,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 5,
+            "talent": 5
           }
         },
         {
           "level": 9,
           "expToNext": 188600,
           "attrs": {
-            "spirit": 3,
-            "talent": 3,
+            "spirit": 5,
+            "talent": 5,
             "perception": 1
           }
         },
@@ -7797,32 +8199,32 @@
           "level": 10,
           "expToNext": 211600,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 5,
+            "talent": 5
           }
         },
         {
           "level": 11,
           "expToNext": 236900,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 5,
+            "talent": 5
           }
         },
         {
           "level": 12,
           "expToNext": 264500,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 5,
+            "talent": 5
           }
         },
         {
           "level": 13,
           "expToNext": 296700,
           "attrs": {
-            "spirit": 3,
-            "talent": 3,
+            "spirit": 5,
+            "talent": 5,
             "perception": 1
           }
         },
@@ -7830,8 +8232,8 @@
           "level": 14,
           "expToNext": 0,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 5,
+            "talent": 5
           }
         }
       ]
@@ -7994,126 +8396,126 @@
           "level": 1,
           "expToNext": 78200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2
+            "constitution": 4,
+            "spirit": 4,
+            "talent": 4
           }
         },
         {
           "level": 2,
           "expToNext": 87400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2
+            "constitution": 4,
+            "spirit": 4,
+            "talent": 4
           }
         },
         {
           "level": 3,
           "expToNext": 96600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2
+            "constitution": 4,
+            "spirit": 4,
+            "talent": 4
           }
         },
         {
           "level": 4,
           "expToNext": 108100,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2
+            "constitution": 4,
+            "spirit": 4,
+            "talent": 4
           }
         },
         {
           "level": 5,
           "expToNext": 119600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2
+            "constitution": 4,
+            "spirit": 4,
+            "talent": 4
           }
         },
         {
           "level": 6,
           "expToNext": 133400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2
+            "constitution": 4,
+            "spirit": 4,
+            "talent": 4
           }
         },
         {
           "level": 7,
           "expToNext": 149500,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2
+            "constitution": 3,
+            "spirit": 3,
+            "talent": 3
           }
         },
         {
           "level": 8,
           "expToNext": 167900,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2
+            "constitution": 3,
+            "spirit": 3,
+            "talent": 3
           }
         },
         {
           "level": 9,
           "expToNext": 188600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2
+            "constitution": 3,
+            "spirit": 3,
+            "talent": 3
           }
         },
         {
           "level": 10,
           "expToNext": 211600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2
+            "constitution": 3,
+            "spirit": 3,
+            "talent": 3
           }
         },
         {
           "level": 11,
           "expToNext": 236900,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2
+            "constitution": 3,
+            "spirit": 3,
+            "talent": 3
           }
         },
         {
           "level": 12,
           "expToNext": 264500,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2
+            "constitution": 3,
+            "spirit": 3,
+            "talent": 3
           }
         },
         {
           "level": 13,
           "expToNext": 296700,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2
+            "constitution": 3,
+            "spirit": 3,
+            "talent": 3
           }
         },
         {
           "level": 14,
           "expToNext": 0,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "talent": 2
+            "constitution": 3,
+            "spirit": 3,
+            "talent": 3
           }
         }
       ]
@@ -8265,16 +8667,16 @@
           "level": 1,
           "expToNext": 78200,
           "attrs": {
-            "spirit": 3,
-            "perception": 3
+            "spirit": 5,
+            "perception": 5
           }
         },
         {
           "level": 2,
           "expToNext": 87400,
           "attrs": {
-            "spirit": 3,
-            "perception": 3,
+            "spirit": 5,
+            "perception": 5,
             "talent": 1
           }
         },
@@ -8282,32 +8684,32 @@
           "level": 3,
           "expToNext": 96600,
           "attrs": {
-            "spirit": 3,
-            "perception": 3
+            "spirit": 5,
+            "perception": 5
           }
         },
         {
           "level": 4,
           "expToNext": 108100,
           "attrs": {
-            "spirit": 3,
-            "perception": 3
+            "spirit": 5,
+            "perception": 5
           }
         },
         {
           "level": 5,
           "expToNext": 119600,
           "attrs": {
-            "spirit": 3,
-            "perception": 3
+            "spirit": 5,
+            "perception": 5
           }
         },
         {
           "level": 6,
           "expToNext": 133400,
           "attrs": {
-            "spirit": 3,
-            "perception": 3,
+            "spirit": 5,
+            "perception": 5,
             "talent": 1
           }
         },
@@ -8315,24 +8717,24 @@
           "level": 7,
           "expToNext": 149500,
           "attrs": {
-            "spirit": 3,
-            "perception": 3
+            "spirit": 5,
+            "perception": 5
           }
         },
         {
           "level": 8,
           "expToNext": 167900,
           "attrs": {
-            "spirit": 3,
-            "perception": 3
+            "spirit": 5,
+            "perception": 5
           }
         },
         {
           "level": 9,
           "expToNext": 188600,
           "attrs": {
-            "spirit": 3,
-            "perception": 3,
+            "spirit": 5,
+            "perception": 5,
             "talent": 1
           }
         },
@@ -8340,32 +8742,32 @@
           "level": 10,
           "expToNext": 211600,
           "attrs": {
-            "spirit": 3,
-            "perception": 3
+            "spirit": 5,
+            "perception": 5
           }
         },
         {
           "level": 11,
           "expToNext": 236900,
           "attrs": {
-            "spirit": 3,
-            "perception": 3
+            "spirit": 5,
+            "perception": 5
           }
         },
         {
           "level": 12,
           "expToNext": 264500,
           "attrs": {
-            "spirit": 3,
-            "perception": 3
+            "spirit": 5,
+            "perception": 5
           }
         },
         {
           "level": 13,
           "expToNext": 296700,
           "attrs": {
-            "spirit": 3,
-            "perception": 3,
+            "spirit": 5,
+            "perception": 5,
             "talent": 1
           }
         },
@@ -8373,8 +8775,8 @@
           "level": 14,
           "expToNext": 0,
           "attrs": {
-            "spirit": 3,
-            "perception": 3
+            "spirit": 5,
+            "perception": 5
           }
         }
       ]
@@ -9871,118 +10273,118 @@
           "level": 1,
           "expToNext": 151200,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 12,
+            "talent": 12
           }
         },
         {
           "level": 2,
           "expToNext": 167400,
           "attrs": {
-            "spirit": 3,
-            "talent": 3,
-            "constitution": 2
+            "spirit": 12,
+            "talent": 12,
+            "constitution": 8
           }
         },
         {
           "level": 3,
           "expToNext": 186300,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 12,
+            "talent": 12
           }
         },
         {
           "level": 4,
           "expToNext": 207900,
           "attrs": {
-            "spirit": 3,
-            "talent": 3,
-            "constitution": 2
+            "spirit": 12,
+            "talent": 12,
+            "constitution": 8
           }
         },
         {
           "level": 5,
           "expToNext": 232200,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 12,
+            "talent": 12
           }
         },
         {
           "level": 6,
           "expToNext": 259200,
           "attrs": {
-            "spirit": 3,
-            "talent": 3,
-            "constitution": 2
+            "spirit": 12,
+            "talent": 12,
+            "constitution": 8
           }
         },
         {
           "level": 7,
           "expToNext": 288900,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 12,
+            "talent": 12
           }
         },
         {
           "level": 8,
           "expToNext": 321300,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 12,
+            "talent": 12
           }
         },
         {
           "level": 9,
           "expToNext": 359100,
           "attrs": {
-            "spirit": 3,
-            "talent": 3,
-            "constitution": 2
+            "spirit": 12,
+            "talent": 12,
+            "constitution": 8
           }
         },
         {
           "level": 10,
           "expToNext": 399600,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 12,
+            "talent": 12
           }
         },
         {
           "level": 11,
           "expToNext": 442800,
           "attrs": {
-            "spirit": 3,
-            "talent": 3,
-            "constitution": 2
+            "spirit": 12,
+            "talent": 12,
+            "constitution": 8
           }
         },
         {
           "level": 12,
           "expToNext": 491400,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 12,
+            "talent": 11
           }
         },
         {
           "level": 13,
           "expToNext": 545400,
           "attrs": {
-            "spirit": 3,
-            "talent": 3,
-            "constitution": 2
+            "spirit": 11,
+            "talent": 11,
+            "constitution": 8
           }
         },
         {
           "level": 14,
           "expToNext": 0,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 11,
+            "talent": 11
           }
         }
       ]
@@ -10954,112 +11356,112 @@
           "level": 1,
           "expToNext": 78200,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 6,
+            "talent": 6
           }
         },
         {
           "level": 2,
           "expToNext": 87400,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 6,
+            "talent": 6
           }
         },
         {
           "level": 3,
           "expToNext": 96600,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 5,
+            "talent": 5
           }
         },
         {
           "level": 4,
           "expToNext": 108100,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 5,
+            "talent": 5
           }
         },
         {
           "level": 5,
           "expToNext": 119600,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 5,
+            "talent": 5
           }
         },
         {
           "level": 6,
           "expToNext": 133400,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 5,
+            "talent": 5
           }
         },
         {
           "level": 7,
           "expToNext": 149500,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 5,
+            "talent": 5
           }
         },
         {
           "level": 8,
           "expToNext": 167900,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 5,
+            "talent": 5
           }
         },
         {
           "level": 9,
           "expToNext": 188600,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 5,
+            "talent": 5
           }
         },
         {
           "level": 10,
           "expToNext": 211600,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 5,
+            "talent": 5
           }
         },
         {
           "level": 11,
           "expToNext": 236900,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 5,
+            "talent": 5
           }
         },
         {
           "level": 12,
           "expToNext": 264500,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 5,
+            "talent": 5
           }
         },
         {
           "level": 13,
           "expToNext": 296700,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 5,
+            "talent": 5
           }
         },
         {
           "level": 14,
           "expToNext": 0,
           "attrs": {
-            "spirit": 3,
-            "talent": 3
+            "spirit": 5,
+            "talent": 5
           }
         }
       ]
@@ -11239,122 +11641,122 @@
           "level": 1,
           "expToNext": 151200,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2
+            "constitution": 10,
+            "spirit": 10,
+            "perception": 7
           }
         },
         {
           "level": 2,
           "expToNext": 167400,
           "attrs": {
-            "constitution": 4,
-            "spirit": 4
+            "constitution": 14,
+            "spirit": 14
           }
         },
         {
           "level": 3,
           "expToNext": 186300,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2
+            "constitution": 10,
+            "spirit": 10,
+            "perception": 7
           }
         },
         {
           "level": 4,
           "expToNext": 207900,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2
+            "constitution": 10,
+            "spirit": 10,
+            "perception": 7
           }
         },
         {
           "level": 5,
           "expToNext": 232200,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2
+            "constitution": 10,
+            "spirit": 10,
+            "perception": 7
           }
         },
         {
           "level": 6,
           "expToNext": 259200,
           "attrs": {
-            "constitution": 4,
-            "spirit": 4
+            "constitution": 14,
+            "spirit": 14
           }
         },
         {
           "level": 7,
           "expToNext": 288900,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2
+            "constitution": 10,
+            "spirit": 10,
+            "perception": 7
           }
         },
         {
           "level": 8,
           "expToNext": 321300,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2
+            "constitution": 10,
+            "spirit": 10,
+            "perception": 7
           }
         },
         {
           "level": 9,
           "expToNext": 359100,
           "attrs": {
-            "constitution": 4,
-            "spirit": 4
+            "constitution": 14,
+            "spirit": 13
           }
         },
         {
           "level": 10,
           "expToNext": 399600,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2
+            "constitution": 10,
+            "spirit": 10,
+            "perception": 7
           }
         },
         {
           "level": 11,
           "expToNext": 442800,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2
+            "constitution": 10,
+            "spirit": 10,
+            "perception": 7
           }
         },
         {
           "level": 12,
           "expToNext": 491400,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2
+            "constitution": 10,
+            "spirit": 10,
+            "perception": 7
           }
         },
         {
           "level": 13,
           "expToNext": 545400,
           "attrs": {
-            "constitution": 4,
-            "spirit": 4
+            "constitution": 13,
+            "spirit": 13
           }
         },
         {
           "level": 14,
           "expToNext": 0,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2
+            "constitution": 10,
+            "spirit": 10,
+            "perception": 7
           }
         }
       ]
@@ -11786,6 +12188,13 @@
       "learnTechniqueId": "bright_eye_sutra"
     },
     {
+      "itemId": "book.ningqi_chengji",
+      "name": "《凝气成基法》",
+      "type": "skill_book",
+      "desc": "记载凝气成基法的修行法门，使用后学会凝气成基法。",
+      "learnTechniqueId": "ningqi_chengji"
+    },
+    {
       "itemId": "book.qingmu_sword",
       "name": "《青木剑诀》",
       "type": "skill_book",
@@ -11962,14 +12371,14 @@
       "desc": "像把一整座黑峰的坠势封进了拳印里，越近身越凶。",
       "equipSlot": "weapon",
       "equipAttrs": {
-        "talent": 1
+        "talent": 2
       },
       "equipValueStats": {
-        "physAtk": 24,
-        "spellAtk": 6,
-        "hit": 6,
-        "breakPower": 9,
-        "resolvePower": 4
+        "physAtk": 32,
+        "spellAtk": 8,
+        "hit": 8,
+        "breakPower": 12,
+        "resolvePower": 5
       },
       "effects": [
         {
@@ -11987,9 +12396,9 @@
             "visibility": "public",
             "color": "#9f6846",
             "valueStats": {
-              "physAtk": 7,
-              "breakPower": 7,
-              "resolvePower": 4
+              "physAtk": 9,
+              "breakPower": 9,
+              "resolvePower": 5
             }
           }
         }
@@ -12004,10 +12413,10 @@
       "desc": "灵胚碎出的一圈淡光压成小环，贴身带着时气海会变得格外愿意听话。",
       "equipSlot": "accessory",
       "equipValueStats": {
-        "maxHp": 4,
-        "physAtk": 4,
-        "spellAtk": 4,
-        "qiRegenRate": 1
+        "maxHp": 5,
+        "physAtk": 5,
+        "spellAtk": 5,
+        "qiRegenRate": 1.2
       },
       "effects": [
         {
@@ -12025,10 +12434,10 @@
             ]
           },
           "valueStats": {
-            "physDef": 5,
-            "spellDef": 5,
-            "resolvePower": 5,
-            "maxQiOutputPerTick": 4
+            "physDef": 6,
+            "spellDef": 6,
+            "resolvePower": 6,
+            "maxQiOutputPerTick": 5
           }
         }
       ]
@@ -12050,10 +12459,10 @@
       "desc": "刀身像是从半块残碑里硬剖出来的，挥动时带着沉闷回震。",
       "equipSlot": "weapon",
       "equipValueStats": {
-        "physAtk": 20,
-        "spellAtk": 6,
-        "hit": 6,
-        "breakPower": 5
+        "physAtk": 26,
+        "spellAtk": 8,
+        "hit": 8,
+        "breakPower": 7
       },
       "effects": [
         {
@@ -12071,8 +12480,8 @@
             "visibility": "public",
             "color": "#a38e6a",
             "valueStats": {
-              "hit": 4,
-              "breakPower": 4
+              "hit": 5,
+              "breakPower": 5
             }
           }
         }
@@ -12087,12 +12496,12 @@
       "desc": "盔额上压着断碑纹路，神识稍一收束，眼前线条就会清楚许多。",
       "equipSlot": "head",
       "equipAttrs": {
-        "perception": 1
+        "perception": 2
       },
       "equipValueStats": {
-        "spellDef": 7,
+        "spellDef": 10,
         "viewRange": 1,
-        "resolvePower": 4
+        "resolvePower": 5
       },
       "effects": [
         {
@@ -12110,8 +12519,8 @@
             ]
           },
           "valueStats": {
-            "spellAtk": 5,
-            "hit": 2
+            "spellAtk": 6,
+            "hit": 3
           }
         }
       ]
@@ -12146,10 +12555,10 @@
       "desc": "枪杆极长，最适合踩着前势把人一口气钉退。",
       "equipSlot": "weapon",
       "equipValueStats": {
-        "physAtk": 22,
-        "hit": 6,
-        "crit": 4,
-        "breakPower": 5
+        "physAtk": 29,
+        "hit": 8,
+        "crit": 5,
+        "breakPower": 7
       },
       "effects": [
         {
@@ -12167,9 +12576,9 @@
             "visibility": "public",
             "color": "#b76d47",
             "valueStats": {
-              "hit": 4,
-              "crit": 4,
-              "qiRegenRate": 1
+              "hit": 5,
+              "crit": 5,
+              "qiRegenRate": 1.2
             }
           }
         }
@@ -12184,9 +12593,9 @@
       "desc": "旧盔顶上还留着旗杆卡槽，戴着的人总会不自觉把背挺直。",
       "equipSlot": "head",
       "equipValueStats": {
-        "maxHp": 2,
-        "resolvePower": 4,
-        "hit": 3
+        "maxHp": 2.5,
+        "resolvePower": 5,
+        "hit": 4
       },
       "effects": [
         {
@@ -12204,8 +12613,8 @@
             ]
           },
           "valueStats": {
-            "breakPower": 3,
-            "resolvePower": 2
+            "breakPower": 4,
+            "resolvePower": 3
           }
         }
       ]
@@ -12219,9 +12628,9 @@
       "desc": "戟杆还缠着半截旧旗，越挥越像是在往前压阵。",
       "equipSlot": "weapon",
       "equipValueStats": {
-        "physAtk": 18,
-        "hit": 5,
-        "breakPower": 6
+        "physAtk": 24,
+        "hit": 7,
+        "breakPower": 8
       },
       "effects": [
         {
@@ -12239,8 +12648,8 @@
             "visibility": "public",
             "color": "#b8824c",
             "valueStats": {
-              "physAtk": 6,
-              "breakPower": 4
+              "physAtk": 7,
+              "breakPower": 5
             }
           }
         }
@@ -12286,9 +12695,9 @@
       "desc": "锤头里灌了铅砂，砸在人身上和砸在地脉上一个味道。",
       "equipSlot": "weapon",
       "equipValueStats": {
-        "physAtk": 14,
-        "breakPower": 6,
-        "hit": 3
+        "physAtk": 21,
+        "breakPower": 9,
+        "hit": 4
       },
       "effects": [
         {
@@ -12306,8 +12715,8 @@
             "visibility": "public",
             "color": "#9a7b56",
             "valueStats": {
-              "breakPower": 3,
-              "resolvePower": 3
+              "breakPower": 4,
+              "resolvePower": 4
             }
           }
         }
@@ -12382,9 +12791,9 @@
       "desc": "枪锋烫得发暗，最适合一口气捅进人还没稳住的空门。",
       "equipSlot": "weapon",
       "equipValueStats": {
-        "physAtk": 10,
-        "spellAtk": 8,
-        "crit": 4
+        "physAtk": 15,
+        "spellAtk": 12,
+        "crit": 6
       }
     },
     {
@@ -12508,9 +12917,9 @@
       "desc": "以裂纹铁心打成的小环，挨上劲时总会顺着臂骨回出一段闷震。",
       "equipSlot": "accessory",
       "equipValueStats": {
-        "breakPower": 5,
-        "spellDef": 5,
-        "crit": 3
+        "breakPower": 7,
+        "spellDef": 7,
+        "crit": 4
       },
       "effects": [
         {
@@ -12528,8 +12937,8 @@
             "visibility": "public",
             "color": "#8e7352",
             "valueStats": {
-              "physDef": 6,
-              "breakPower": 4
+              "physDef": 8,
+              "breakPower": 5
             }
           }
         }
@@ -12607,12 +13016,12 @@
       "desc": "外头看着像块死石，行功时里头封着的锋气却会一点点醒过来。",
       "equipSlot": "accessory",
       "equipAttrs": {
-        "comprehension": 1
+        "comprehension": 2
       },
       "equipValueStats": {
-        "maxQi": 4,
-        "maxQiOutputPerTick": 5,
-        "resolvePower": 4
+        "maxQi": 5.5,
+        "maxQiOutputPerTick": 7,
+        "resolvePower": 5
       },
       "effects": [
         {
@@ -12629,8 +13038,8 @@
             ]
           },
           "valueStats": {
-            "realmExpPerTick": 10,
-            "techniqueExpPerTick": 10
+            "realmExpPerTick": 11,
+            "techniqueExpPerTick": 11
           }
         }
       ]
@@ -12644,10 +13053,10 @@
       "desc": "戴上后会觉得四肢发沉，但换来的就是格外稳的气机。",
       "equipSlot": "accessory",
       "equipValueStats": {
-        "maxQi": 3,
-        "physDef": 5,
-        "resolvePower": 6,
-        "breakPower": 5
+        "maxQi": 4,
+        "physDef": 7,
+        "resolvePower": 8,
+        "breakPower": 7
       },
       "effects": [
         {
@@ -12665,8 +13074,8 @@
             "visibility": "public",
             "color": "#7c6a57",
             "valueStats": {
-              "spellDef": 6,
-              "resolvePower": 6
+              "spellDef": 8,
+              "resolvePower": 8
             }
           }
         }
@@ -12681,13 +13090,13 @@
       "desc": "旧时封山闭路的令牌，修炼时有股强行把气机压回主脉的蛮劲。",
       "equipSlot": "accessory",
       "equipAttrs": {
-        "comprehension": 1
+        "comprehension": 2
       },
       "equipValueStats": {
-        "maxQi": 5,
-        "maxQiOutputPerTick": 6,
-        "spellAtk": 6,
-        "resolvePower": 5
+        "maxQi": 6.5,
+        "maxQiOutputPerTick": 8,
+        "spellAtk": 8,
+        "resolvePower": 7
       },
       "effects": [
         {
@@ -12704,8 +13113,8 @@
             ]
           },
           "valueStats": {
-            "realmExpPerTick": 12,
-            "techniqueExpPerTick": 12
+            "realmExpPerTick": 14,
+            "techniqueExpPerTick": 14
           }
         }
       ]
@@ -12719,10 +13128,10 @@
       "desc": "甲心像压着半座山印，硬碰硬时最能把人往死里钉。",
       "equipSlot": "body",
       "equipValueStats": {
-        "maxHp": 10,
-        "physDef": 16,
-        "spellDef": 10,
-        "resolvePower": 8
+        "maxHp": 13,
+        "physDef": 21,
+        "spellDef": 13,
+        "resolvePower": 11
       },
       "effects": [
         {
@@ -12739,9 +13148,9 @@
             ]
           },
           "valueStats": {
-            "physDef": 9,
-            "spellDef": 9,
-            "resolvePower": 6
+            "physDef": 11,
+            "spellDef": 11,
+            "resolvePower": 8
           }
         }
       ]
@@ -12755,10 +13164,10 @@
       "desc": "甲心封着一块未散锋核，真气越稳，它反咬出来的劲越足。",
       "equipSlot": "body",
       "equipValueStats": {
-        "maxHp": 7,
-        "maxQi": 3,
-        "physDef": 12,
-        "spellDef": 8
+        "maxHp": 9,
+        "maxQi": 4,
+        "physDef": 16,
+        "spellDef": 11
       },
       "effects": [
         {
@@ -12775,8 +13184,8 @@
             ]
           },
           "valueStats": {
-            "physAtk": 4,
-            "spellAtk": 4
+            "physAtk": 5,
+            "spellAtk": 5
           }
         }
       ]
@@ -12790,10 +13199,10 @@
       "desc": "旧军令牌的边口被磨得极锋，持有者会本能地找最直接的冲阵线。",
       "equipSlot": "accessory",
       "equipValueStats": {
-        "maxQi": 3.5,
-        "breakPower": 5,
-        "resolvePower": 3,
-        "maxQiOutputPerTick": 4
+        "maxQi": 4.5,
+        "breakPower": 7,
+        "resolvePower": 4,
+        "maxQiOutputPerTick": 5
       },
       "effects": [
         {
@@ -12811,8 +13220,8 @@
             ]
           },
           "valueStats": {
-            "hit": 3,
-            "breakPower": 3
+            "hit": 4,
+            "breakPower": 4
           }
         }
       ]
@@ -12834,10 +13243,10 @@
       "desc": "杖头像扛着半块碑，挥出去总有种压塌对面肩背的劲。",
       "equipSlot": "weapon",
       "equipValueStats": {
-        "physAtk": 19,
-        "spellAtk": 6,
-        "hit": 5,
-        "breakPower": 7
+        "physAtk": 25,
+        "spellAtk": 8,
+        "hit": 7,
+        "breakPower": 9
       },
       "effects": [
         {
@@ -12855,8 +13264,8 @@
             "visibility": "public",
             "color": "#8b7659",
             "valueStats": {
-              "spellAtk": 5,
-              "resolvePower": 6
+              "spellAtk": 6,
+              "resolvePower": 7
             }
           }
         }
@@ -12871,9 +13280,9 @@
       "desc": "看着累赘，真走起来反而会把步子压得很实。",
       "equipSlot": "legs",
       "equipValueStats": {
-        "moveSpeed": 16,
-        "physDef": 6,
-        "resolvePower": 3
+        "moveSpeed": 20,
+        "physDef": 9,
+        "resolvePower": 4
       },
       "effects": [
         {
@@ -12891,8 +13300,8 @@
             "visibility": "public",
             "color": "#7f6d55",
             "valueStats": {
-              "resolvePower": 4,
-              "spellDef": 3
+              "resolvePower": 5,
+              "spellDef": 4
             }
           }
         }
@@ -12920,14 +13329,14 @@
       "desc": "埋在门阙下多年的古刃，拔出来时还带着一股压门镇路的狠意。",
       "equipSlot": "weapon",
       "equipAttrs": {
-        "talent": 1
+        "talent": 2
       },
       "equipValueStats": {
-        "physAtk": 24,
-        "spellAtk": 8,
-        "hit": 7,
-        "breakPower": 7,
-        "crit": 4
+        "physAtk": 32,
+        "spellAtk": 11,
+        "hit": 9,
+        "breakPower": 9,
+        "crit": 5
       },
       "effects": [
         {
@@ -12945,9 +13354,9 @@
             "visibility": "public",
             "color": "#d0b36e",
             "valueStats": {
-              "physAtk": 6,
-              "breakPower": 6,
-              "hit": 4
+              "physAtk": 7,
+              "breakPower": 7,
+              "hit": 5
             }
           }
         }
@@ -13012,10 +13421,10 @@
       "desc": "刀脊里压着多股细气，挥起来像把几路劲同时并成一股。",
       "equipSlot": "weapon",
       "equipValueStats": {
-        "physAtk": 10,
-        "spellAtk": 10,
-        "hit": 4,
-        "maxQiOutputPerTick": 4
+        "physAtk": 13,
+        "spellAtk": 13,
+        "hit": 5,
+        "maxQiOutputPerTick": 5
       }
     },
     {
@@ -13043,10 +13452,10 @@
       "desc": "旧立基法衣残剩的外层，最擅长把多路气机往几个稳当的窍口里导。",
       "equipSlot": "body",
       "equipValueStats": {
-        "maxHp": 8,
-        "maxQi": 4,
-        "physDef": 8,
-        "spellDef": 8
+        "maxHp": 10.5,
+        "maxQi": 5,
+        "physDef": 11,
+        "spellDef": 11
       }
     },
     {
@@ -13058,9 +13467,9 @@
       "desc": "听脉之后发下来的小铜佩，佩口虽旧，却很会把散出去的真气慢慢拢回来。",
       "equipSlot": "accessory",
       "equipValueStats": {
-        "maxQi": 3,
-        "qiRegenRate": 0.8,
-        "maxQiOutputPerTick": 4
+        "maxQi": 4.5,
+        "qiRegenRate": 1.1,
+        "maxQiOutputPerTick": 6
       },
       "effects": [
         {
@@ -13077,7 +13486,7 @@
             ]
           },
           "valueStats": {
-            "techniqueExpPerTick": 6
+            "techniqueExpPerTick": 7
           }
         }
       ]
@@ -13099,9 +13508,9 @@
       "desc": "细尺里封着一缕寒汐潮气，出手时更容易把气机引到对方脉门上。",
       "equipSlot": "weapon",
       "equipValueStats": {
-        "spellAtk": 12,
-        "hit": 4,
-        "cooldownSpeed": 4
+        "spellAtk": 18,
+        "hit": 6,
+        "cooldownSpeed": 5
       }
     },
     {
@@ -13152,10 +13561,10 @@
       "desc": "甲片很宽，穿上后整个人都像被地气往下拽住。",
       "equipSlot": "body",
       "equipValueStats": {
-        "maxHp": 6,
-        "physDef": 11,
-        "spellDef": 4,
-        "resolvePower": 4
+        "maxHp": 8.5,
+        "physDef": 17,
+        "spellDef": 6,
+        "resolvePower": 6
       }
     },
     {
@@ -13167,14 +13576,14 @@
       "desc": "像一枚被地气反复压实的脉核，行功时很会往主脉里聚劲。",
       "equipSlot": "accessory",
       "equipAttrs": {
-        "comprehension": 1
+        "comprehension": 2
       },
       "equipValueStats": {
-        "maxQi": 5,
-        "maxQiOutputPerTick": 6,
-        "physDef": 5,
-        "resolvePower": 8,
-        "spellDef": 6
+        "maxQi": 6.5,
+        "maxQiOutputPerTick": 8,
+        "physDef": 7,
+        "resolvePower": 11,
+        "spellDef": 8
       },
       "effects": [
         {
@@ -13191,8 +13600,8 @@
             ]
           },
           "valueStats": {
-            "realmExpPerTick": 12,
-            "techniqueExpPerTick": 12
+            "realmExpPerTick": 14,
+            "techniqueExpPerTick": 14
           }
         }
       ]
@@ -13206,9 +13615,9 @@
       "desc": "拳背和掌侧都压了石片，格挡和发力都特别顶手。",
       "equipSlot": "accessory",
       "equipValueStats": {
-        "physAtk": 4,
-        "physDef": 4,
-        "breakPower": 5
+        "physAtk": 5,
+        "physDef": 5,
+        "breakPower": 7
       },
       "effects": [
         {
@@ -13226,8 +13635,8 @@
             "visibility": "public",
             "color": "#9d7651",
             "valueStats": {
-              "breakPower": 5,
-              "physDef": 4
+              "breakPower": 6,
+              "physDef": 5
             }
           }
         }
@@ -13242,9 +13651,9 @@
       "desc": "膝护边缘做得很厚，专门防着碎石坡上的冷绊子。",
       "equipSlot": "accessory",
       "equipValueStats": {
-        "physDef": 4,
-        "resolvePower": 4,
-        "moveSpeed": 6
+        "physDef": 6,
+        "resolvePower": 6,
+        "moveSpeed": 8
       },
       "effects": [
         {
@@ -13262,8 +13671,8 @@
             ]
           },
           "valueStats": {
-            "physDef": 3,
-            "moveSpeed": 2
+            "physDef": 4,
+            "moveSpeed": 3
           }
         }
       ]
@@ -13277,9 +13686,9 @@
       "desc": "胸口压着一整块厚脉石板，起手再猛也先得过它这一关。",
       "equipSlot": "body",
       "equipValueStats": {
-        "maxHp": 6.5,
-        "physDef": 11,
-        "resolvePower": 5
+        "maxHp": 8.5,
+        "physDef": 15,
+        "resolvePower": 7
       },
       "effects": [
         {
@@ -13296,7 +13705,7 @@
             ]
           },
           "valueStats": {
-            "spellDef": 5
+            "spellDef": 6
           }
         }
       ]
@@ -13318,13 +13727,13 @@
       "desc": "从旧祭器上崩下来的边角，残得厉害，却还记得几分旧法。",
       "equipSlot": "accessory",
       "equipAttrs": {
-        "comprehension": 1
+        "comprehension": 2
       },
       "equipValueStats": {
-        "maxHp": 4,
-        "maxQi": 3.5,
-        "physDef": 4,
-        "resolvePower": 5
+        "maxHp": 5.5,
+        "maxQi": 4.5,
+        "physDef": 5,
+        "resolvePower": 7
       },
       "effects": [
         {
@@ -13341,8 +13750,8 @@
             ]
           },
           "valueStats": {
-            "realmExpPerTick": 8,
-            "techniqueExpPerTick": 12
+            "realmExpPerTick": 9,
+            "techniqueExpPerTick": 14
           }
         }
       ]
@@ -13356,11 +13765,11 @@
       "desc": "旧祭器残到只剩一团沉核，贴身带着仍能借到一点古脉余势。",
       "equipSlot": "accessory",
       "equipValueStats": {
-        "maxHp": 5,
-        "maxQi": 4,
-        "physDef": 6,
-        "spellDef": 6,
-        "resolvePower": 6
+        "maxHp": 6.5,
+        "maxQi": 5.5,
+        "physDef": 8,
+        "spellDef": 8,
+        "resolvePower": 8
       },
       "effects": [
         {
@@ -13378,9 +13787,9 @@
             ]
           },
           "valueStats": {
-            "physDef": 5,
-            "spellDef": 5,
-            "breakPower": 4
+            "physDef": 6,
+            "spellDef": 6,
+            "breakPower": 5
           }
         }
       ]
@@ -13426,10 +13835,10 @@
       "desc": "贴身佩着时，真气会不自觉绕着经脉走得更稳。",
       "equipSlot": "accessory",
       "equipValueStats": {
-        "maxQi": 2.5,
-        "physDef": 4,
-        "resolvePower": 5,
-        "maxQiOutputPerTick": 3
+        "maxQi": 3.5,
+        "physDef": 6,
+        "resolvePower": 8,
+        "maxQiOutputPerTick": 5
       },
       "effects": [
         {
@@ -13446,8 +13855,8 @@
             ]
           },
           "valueStats": {
-            "realmExpPerTick": 6,
-            "techniqueExpPerTick": 6
+            "realmExpPerTick": 7,
+            "techniqueExpPerTick": 7
           }
         }
       ]
@@ -13482,9 +13891,9 @@
       "desc": "压在眉骨上的黄石片不算好看，但戴着很稳。",
       "equipSlot": "head",
       "equipValueStats": {
-        "maxHp": 2,
-        "physDef": 4,
-        "resolvePower": 4
+        "maxHp": 3,
+        "physDef": 6,
+        "resolvePower": 6
       },
       "effects": [
         {
@@ -13502,7 +13911,7 @@
             ]
           },
           "valueStats": {
-            "resolvePower": 4
+            "resolvePower": 6
           }
         }
       ]
@@ -13561,9 +13970,9 @@
       "desc": "把藤皮一层层回缠成衣，挨打时会先把劲道化开一截。",
       "equipSlot": "body",
       "equipValueStats": {
-        "maxHp": 6,
-        "spellDef": 9,
-        "hpRegenRate": 0.5
+        "maxHp": 8.5,
+        "spellDef": 14,
+        "hpRegenRate": 0.7
       }
     },
     {
@@ -13575,9 +13984,9 @@
       "desc": "靴底留着旧阵步纹，踩在乱流甬道里比寻常鞋更容易抢回步点。",
       "equipSlot": "legs",
       "equipValueStats": {
-        "moveSpeed": 21,
-        "dodge": 4,
-        "cooldownSpeed": 4
+        "moveSpeed": 25,
+        "dodge": 5,
+        "cooldownSpeed": 5
       }
     },
     {
@@ -13619,9 +14028,9 @@
       "desc": "战衣外层尽是旧烫痕，穿着它的人往往不是躲火，而是顶着火线往前冲。",
       "equipSlot": "body",
       "equipValueStats": {
-        "maxHp": 6,
-        "physDef": 7,
-        "spellAtk": 5
+        "maxHp": 8.5,
+        "physDef": 11,
+        "spellAtk": 8
       }
     },
     {
@@ -13633,10 +14042,10 @@
       "desc": "像棺板一样一层层压上的厚甲，沉得惊人，也稳得惊人。",
       "equipSlot": "body",
       "equipValueStats": {
-        "maxHp": 9,
-        "physDef": 15,
-        "spellDef": 10,
-        "resolvePower": 6
+        "maxHp": 12,
+        "physDef": 20,
+        "spellDef": 13,
+        "resolvePower": 8
       },
       "effects": [
         {
@@ -13653,9 +14062,9 @@
             ]
           },
           "valueStats": {
-            "physDef": 8,
-            "spellDef": 8,
-            "resolvePower": 5
+            "physDef": 10,
+            "spellDef": 10,
+            "resolvePower": 6
           }
         }
       ]
@@ -13704,9 +14113,9 @@
       "desc": "用净潮水精反复浸过的法衣，最擅长把杂气挡在衣外。",
       "equipSlot": "body",
       "equipValueStats": {
-        "maxQi": 4,
-        "spellDef": 9,
-        "resolvePower": 4
+        "maxQi": 6,
+        "spellDef": 14,
+        "resolvePower": 6
       }
     },
     {
@@ -13752,10 +14161,10 @@
       "desc": "并不漂亮，但就是那种会让人觉得能硬扛到底的老甲。",
       "equipSlot": "body",
       "equipValueStats": {
-        "maxHp": 8,
-        "physDef": 13,
-        "spellDef": 7,
-        "resolvePower": 5
+        "maxHp": 10.5,
+        "physDef": 17,
+        "spellDef": 9,
+        "resolvePower": 7
       }
     },
     {
@@ -13913,10 +14322,10 @@
       "desc": "一层比一层厚，站定以后像直接把人种进地里。",
       "equipSlot": "body",
       "equipValueStats": {
-        "maxHp": 9,
-        "physDef": 15,
-        "spellDef": 9,
-        "resolvePower": 7
+        "maxHp": 12,
+        "physDef": 20,
+        "spellDef": 12,
+        "resolvePower": 9
       }
     },
     {
@@ -13928,12 +14337,12 @@
       "desc": "束冠里压了一缕燥火，能让人出手时更敢顶着火压往前抢。",
       "equipSlot": "head",
       "equipAttrs": {
-        "spirit": 1
+        "spirit": 2
       },
       "equipValueStats": {
-        "crit": 3,
-        "hit": 3,
-        "spellAtk": 2
+        "crit": 5,
+        "hit": 5,
+        "spellAtk": 3
       }
     },
     {
@@ -13999,9 +14408,9 @@
       "desc": "护臂边缘做得比寻常更薄，架招时能顺手把力道顶回去。",
       "equipSlot": "accessory",
       "equipValueStats": {
-        "physDef": 5,
-        "breakPower": 4,
-        "hit": 3
+        "physDef": 7,
+        "breakPower": 5,
+        "hit": 4
       },
       "effects": [
         {
@@ -14019,8 +14428,8 @@
             "visibility": "public",
             "color": "#9d8254",
             "valueStats": {
-              "breakPower": 3,
-              "physDef": 3
+              "breakPower": 4,
+              "physDef": 4
             }
           }
         }
@@ -14035,9 +14444,9 @@
       "desc": "肩口故意做得外突，冲撞和顶肩时很占便宜。",
       "equipSlot": "accessory",
       "equipValueStats": {
-        "maxHp": 4,
-        "physDef": 5,
-        "resolvePower": 4
+        "maxHp": 5.5,
+        "physDef": 7,
+        "resolvePower": 5
       },
       "effects": [
         {
@@ -14055,8 +14464,8 @@
             ]
           },
           "valueStats": {
-            "physAtk": 3,
-            "resolvePower": 3
+            "physAtk": 4,
+            "resolvePower": 4
           }
         }
       ]
@@ -14070,9 +14479,9 @@
       "desc": "披摆里缝了不少碎刃片，转身时总能带出一点险劲。",
       "equipSlot": "body",
       "equipValueStats": {
-        "maxHp": 5.5,
-        "dodge": 4,
-        "spellDef": 5
+        "maxHp": 7,
+        "dodge": 5,
+        "spellDef": 7
       },
       "effects": [
         {
@@ -14090,8 +14499,8 @@
             "visibility": "public",
             "color": "#8b7860",
             "valueStats": {
-              "dodge": 3,
-              "spellDef": 3
+              "dodge": 4,
+              "spellDef": 4
             }
           }
         }
@@ -14106,10 +14515,10 @@
       "desc": "遗在古战阵中心的旧甲，碎得厉害，却还保着半口不肯散的锋势。",
       "equipSlot": "body",
       "equipValueStats": {
-        "maxHp": 10,
-        "physDef": 14,
-        "spellDef": 10,
-        "breakPower": 4
+        "maxHp": 13,
+        "physDef": 19,
+        "spellDef": 13,
+        "breakPower": 5
       },
       "effects": [
         {
@@ -14127,8 +14536,8 @@
             ]
           },
           "valueStats": {
-            "physAtk": 5,
-            "spellAtk": 5
+            "physAtk": 6,
+            "spellAtk": 6
           }
         }
       ]
@@ -14150,9 +14559,9 @@
       "desc": "环口有一道天然豁口，最适合卡着兵器发力。",
       "equipSlot": "accessory",
       "equipValueStats": {
-        "hit": 3,
-        "breakPower": 4,
-        "crit": 2
+        "hit": 5,
+        "breakPower": 6,
+        "crit": 3
       },
       "effects": [
         {
@@ -14170,8 +14579,8 @@
             "visibility": "public",
             "color": "#bfa15d",
             "valueStats": {
-              "breakPower": 3,
-              "physAtk": 3
+              "breakPower": 4,
+              "physAtk": 4
             }
           }
         }
@@ -14186,9 +14595,9 @@
       "desc": "沿断剑残口重新打磨出来的短刃，出手快，锋气也散得快。",
       "equipSlot": "weapon",
       "equipValueStats": {
-        "physAtk": 12,
-        "hit": 4,
-        "crit": 2
+        "physAtk": 18,
+        "hit": 6,
+        "crit": 3
       },
       "effects": [
         {
@@ -14206,8 +14615,8 @@
             "visibility": "public",
             "color": "#c9b06a",
             "valueStats": {
-              "crit": 3,
-              "breakPower": 3
+              "crit": 4,
+              "breakPower": 4
             }
           }
         }
@@ -14222,8 +14631,8 @@
       "desc": "鞋底尽是旧裂纹，踩在碎刃和砂地上反而不容易打滑。",
       "equipSlot": "legs",
       "equipValueStats": {
-        "moveSpeed": 22,
-        "dodge": 3
+        "moveSpeed": 28,
+        "dodge": 4
       },
       "effects": [
         {
@@ -14241,8 +14650,8 @@
             "visibility": "public",
             "color": "#b89d59",
             "valueStats": {
-              "hit": 2,
-              "dodge": 2
+              "hit": 3,
+              "dodge": 3
             }
           }
         }
@@ -14257,9 +14666,9 @@
       "desc": "层层铁片像断鳞一样扣在一起，硬顶硬拼时更显得可靠。",
       "equipSlot": "body",
       "equipValueStats": {
-        "maxHp": 6.5,
-        "physDef": 11,
-        "resolvePower": 4
+        "maxHp": 8.5,
+        "physDef": 15,
+        "resolvePower": 5
       },
       "effects": [
         {
@@ -14276,8 +14685,8 @@
             ]
           },
           "valueStats": {
-            "physDef": 6,
-            "resolvePower": 4
+            "physDef": 8,
+            "resolvePower": 5
           }
         }
       ]
@@ -14291,9 +14700,9 @@
       "desc": "戟锋像从山脊豁口里抽出来的一截石铁，砸出去就带裂地声。",
       "equipSlot": "weapon",
       "equipValueStats": {
-        "physAtk": 22,
-        "hit": 6,
-        "breakPower": 8
+        "physAtk": 29,
+        "hit": 8,
+        "breakPower": 11
       },
       "effects": [
         {
@@ -14311,8 +14720,8 @@
             "visibility": "public",
             "color": "#a86e47",
             "valueStats": {
-              "breakPower": 6,
-              "hit": 3
+              "breakPower": 7,
+              "hit": 4
             }
           }
         }
@@ -14327,9 +14736,9 @@
       "desc": "戟锋一长一短，专门拿来挑开兵甲缝隙。",
       "equipSlot": "weapon",
       "equipValueStats": {
-        "physAtk": 14,
-        "hit": 4,
-        "breakPower": 4
+        "physAtk": 21,
+        "hit": 6,
+        "breakPower": 6
       }
     },
     {
@@ -14384,8 +14793,8 @@
       "desc": "用厚脉岭妖兽硬皮裁出来的坎肩，粗糙但耐磨。",
       "equipSlot": "body",
       "equipValueStats": {
-        "maxHp": 5.5,
-        "physDef": 10
+        "maxHp": 8,
+        "physDef": 15
       }
     },
     {
@@ -14404,10 +14813,10 @@
       "desc": "甲面像小型岩垣一样一层层垒起，硬挡很出色。",
       "equipSlot": "body",
       "equipValueStats": {
-        "maxHp": 7,
-        "physDef": 12,
-        "spellDef": 5,
-        "resolvePower": 4
+        "maxHp": 10,
+        "physDef": 18,
+        "spellDef": 8,
+        "resolvePower": 6
       }
     },
     {
@@ -14432,9 +14841,9 @@
       "desc": "戒心里封着一粒炉心赤晶，真正开打时会把人的火劲再往上顶半截。",
       "equipSlot": "accessory",
       "equipValueStats": {
-        "spellAtk": 6,
-        "crit": 3,
-        "maxQiOutputPerTick": 6
+        "spellAtk": 8,
+        "crit": 4,
+        "maxQiOutputPerTick": 8
       },
       "effects": [
         {
@@ -14451,9 +14860,9 @@
             ]
           },
           "valueStats": {
-            "spellAtk": 4,
-            "crit": 4,
-            "breakPower": 4
+            "spellAtk": 5,
+            "crit": 5,
+            "breakPower": 5
           }
         }
       ]
@@ -14475,9 +14884,9 @@
       "desc": "刀身每一寸都被重新开锋，狠是够狠，就是不太讲后劲。",
       "equipSlot": "weapon",
       "equipValueStats": {
-        "physAtk": 16,
-        "hit": 5,
-        "crit": 4
+        "physAtk": 24,
+        "hit": 7,
+        "crit": 6
       },
       "effects": [
         {
@@ -14495,8 +14904,8 @@
             "visibility": "public",
             "color": "#d4bb77",
             "valueStats": {
-              "crit": 4,
-              "hit": 2
+              "crit": 5,
+              "hit": 3
             }
           }
         }
@@ -14599,9 +15008,9 @@
       "desc": "把净潮凝露压进佩坠后，法修出手总会带一点更冷更准的尾劲。",
       "equipSlot": "accessory",
       "equipValueStats": {
-        "spellAtk": 6,
-        "qiRegenRate": 0.8,
-        "hit": 3
+        "spellAtk": 8,
+        "qiRegenRate": 1,
+        "hit": 4
       },
       "effects": [
         {
@@ -14619,8 +15028,8 @@
             "visibility": "public",
             "color": "#87cde2",
             "valueStats": {
-              "hit": 3,
-              "cooldownSpeed": 4
+              "hit": 4,
+              "cooldownSpeed": 5
             }
           }
         }
@@ -14671,12 +15080,12 @@
       "desc": "细藤束成的浅冠，戴久了能让人下意识放缓呼吸。",
       "equipSlot": "head",
       "equipAttrs": {
-        "spirit": 1
+        "spirit": 2
       },
       "equipValueStats": {
-        "spellDef": 6,
+        "spellDef": 9,
         "viewRange": 1,
-        "resolvePower": 3
+        "resolvePower": 5
       },
       "effects": [
         {
@@ -14693,7 +15102,7 @@
             ]
           },
           "valueStats": {
-            "techniqueExpPerTick": 6
+            "techniqueExpPerTick": 7
           }
         }
       ]
@@ -14789,9 +15198,9 @@
       "desc": "鞋底轻而韧，最适合在藤桥和碎坡间边绕边退。",
       "equipSlot": "legs",
       "equipValueStats": {
-        "moveSpeed": 21,
-        "dodge": 4,
-        "qiRegenRate": 0.4
+        "moveSpeed": 27,
+        "dodge": 6,
+        "qiRegenRate": 0.5
       }
     },
     {
@@ -14803,8 +15212,8 @@
       "desc": "旧军阵里常见的束额，沾了砂金后反而更显眼利。",
       "equipSlot": "head",
       "equipValueStats": {
-        "hit": 3,
-        "dodge": 4,
+        "hit": 5,
+        "dodge": 6,
         "viewRange": 1
       },
       "effects": [
@@ -14823,7 +15232,7 @@
             ]
           },
           "valueStats": {
-            "hit": 2,
+            "hit": 3,
             "viewRange": 1
           }
         }
@@ -14838,9 +15247,9 @@
       "desc": "封着一撮砂金锋屑，静修时真气会沿着符纹自己磨一遍。",
       "equipSlot": "accessory",
       "equipValueStats": {
-        "maxQi": 3,
-        "qiRegenRate": 0.8,
-        "breakPower": 4
+        "maxQi": 4.5,
+        "qiRegenRate": 1.1,
+        "breakPower": 6
       },
       "effects": [
         {
@@ -14857,7 +15266,7 @@
             ]
           },
           "valueStats": {
-            "techniqueExpPerTick": 8
+            "techniqueExpPerTick": 10
           }
         }
       ]
@@ -14871,9 +15280,9 @@
       "desc": "以砂金熔层反复压出的胸甲，挨打时会先听见沙石摩擦声。",
       "equipSlot": "body",
       "equipValueStats": {
-        "maxHp": 5,
-        "physDef": 9,
-        "spellDef": 4
+        "maxHp": 7.5,
+        "physDef": 14,
+        "spellDef": 6
       }
     },
     {
@@ -14885,8 +15294,8 @@
       "desc": "戴久了会让人下意识压低呼吸，适合在乱刃间找空门。",
       "equipSlot": "head",
       "equipValueStats": {
-        "dodge": 4,
-        "crit": 4,
+        "dodge": 6,
+        "crit": 6,
         "viewRange": 1
       },
       "effects": [
@@ -14904,8 +15313,8 @@
             ]
           },
           "valueStats": {
-            "dodge": 3,
-            "hit": 3
+            "dodge": 4,
+            "hit": 4
           }
         }
       ]
@@ -14919,10 +15328,10 @@
       "desc": "符心像压着一颗小石胆，越乱的时候越能把气机往中宫收。",
       "equipSlot": "accessory",
       "equipValueStats": {
-        "maxHp": 3,
-        "maxQi": 3,
-        "physDef": 4,
-        "resolvePower": 6
+        "maxHp": 4,
+        "maxQi": 4,
+        "physDef": 5,
+        "resolvePower": 8
       },
       "effects": [
         {
@@ -14940,8 +15349,8 @@
             ]
           },
           "valueStats": {
-            "physDef": 4,
-            "breakPower": 3
+            "physDef": 5,
+            "breakPower": 4
           }
         }
       ]
@@ -14985,9 +15394,9 @@
       "desc": "木心磨出来的佩坠，贴身带着时气海总像有一股慢劲在往上托。",
       "equipSlot": "accessory",
       "equipValueStats": {
-        "maxQi": 4,
-        "spellAtk": 6,
-        "hpRegenRate": 0.7
+        "maxQi": 5.5,
+        "spellAtk": 8,
+        "hpRegenRate": 0.9
       },
       "effects": [
         {
@@ -15005,9 +15414,9 @@
             ]
           },
           "valueStats": {
-            "spellAtk": 4,
-            "qiRegenRate": 0.6,
-            "resolvePower": 4
+            "spellAtk": 5,
+            "qiRegenRate": 0.7,
+            "resolvePower": 5
           }
         }
       ]
@@ -15027,9 +15436,9 @@
       "desc": "盔沿压得很低，风砂灌进来也不容易乱眼。",
       "equipSlot": "head",
       "equipValueStats": {
-        "maxHp": 2.5,
-        "physDef": 5,
-        "resolvePower": 5,
+        "maxHp": 3.5,
+        "physDef": 8,
+        "resolvePower": 8,
         "viewRange": 1
       },
       "effects": [
@@ -15047,8 +15456,8 @@
             ]
           },
           "valueStats": {
-            "physDef": 4,
-            "resolvePower": 4
+            "physDef": 6,
+            "resolvePower": 6
           }
         }
       ]
@@ -15229,9 +15638,9 @@
       "desc": "靴底硬得能直接踏过烫地，最适合追着残血不让对方脱身。",
       "equipSlot": "legs",
       "equipValueStats": {
-        "moveSpeed": 22,
-        "crit": 3,
-        "breakPower": 3
+        "moveSpeed": 28,
+        "crit": 4,
+        "breakPower": 4
       }
     },
     {
@@ -15270,10 +15679,10 @@
       "desc": "像台地边墙一样层层搭起的守甲，很难被一口气打穿。",
       "equipSlot": "body",
       "equipValueStats": {
-        "maxHp": 8,
-        "physDef": 13,
-        "spellDef": 7,
-        "resolvePower": 5
+        "maxHp": 10.5,
+        "physDef": 17,
+        "spellDef": 9,
+        "resolvePower": 7
       },
       "effects": [
         {
@@ -15290,8 +15699,8 @@
             ]
           },
           "valueStats": {
-            "physDef": 6,
-            "resolvePower": 6
+            "physDef": 8,
+            "resolvePower": 8
           }
         }
       ]
@@ -15340,9 +15749,9 @@
       "desc": "踏地很沉，但起步时能把碎地踩出一条直线。",
       "equipSlot": "legs",
       "equipValueStats": {
-        "moveSpeed": 20,
-        "physDef": 4,
-        "hit": 2
+        "moveSpeed": 25,
+        "physDef": 6,
+        "hit": 3
       },
       "effects": [
         {
@@ -15360,8 +15769,8 @@
             "visibility": "public",
             "color": "#8f7a52",
             "valueStats": {
-              "breakPower": 2,
-              "resolvePower": 2
+              "breakPower": 3,
+              "resolvePower": 3
             }
           }
         }
@@ -15422,13 +15831,13 @@
       "desc": "冠骨里嵌着五色微纹，最适合在乱流里分辨哪一路气先要顶上来。",
       "equipSlot": "head",
       "equipAttrs": {
-        "spirit": 1,
-        "comprehension": 1
+        "spirit": 2,
+        "comprehension": 2
       },
       "equipValueStats": {
-        "maxQi": 3,
-        "spellDef": 7,
-        "resolvePower": 5
+        "maxQi": 4,
+        "spellDef": 10,
+        "resolvePower": 7
       }
     },
     {
@@ -15440,9 +15849,9 @@
       "desc": "湿地上踩不出多大声响，适合边游边退地拖节奏。",
       "equipSlot": "legs",
       "equipValueStats": {
-        "moveSpeed": 20,
-        "dodge": 4,
-        "cooldownSpeed": 4
+        "moveSpeed": 25,
+        "dodge": 6,
+        "cooldownSpeed": 5
       }
     },
     {
@@ -15623,9 +16032,9 @@
       "desc": "藤芯削成的细杖，挥出去时像在牵着周身经脉一同舒展开。",
       "equipSlot": "weapon",
       "equipValueStats": {
-        "spellAtk": 12,
-        "maxQi": 2,
-        "qiRegenRate": 0.6
+        "spellAtk": 18,
+        "maxQi": 3,
+        "qiRegenRate": 0.8
       },
       "effects": [
         {
@@ -15643,8 +16052,8 @@
             "visibility": "public",
             "color": "#7fbc63",
             "valueStats": {
-              "hpRegenRate": 0.6,
-              "qiRegenRate": 0.6
+              "hpRegenRate": 0.8,
+              "qiRegenRate": 0.8
             }
           }
         }
@@ -15867,11 +16276,11 @@
       "desc": "面甲内侧覆着一层细土膜，能把心火和浮气一起压下去。",
       "equipSlot": "head",
       "equipAttrs": {
-        "constitution": 1
+        "constitution": 2
       },
       "equipValueStats": {
-        "spellDef": 6,
-        "resolvePower": 6,
+        "spellDef": 8,
+        "resolvePower": 8,
         "viewRange": 1
       },
       "effects": [
@@ -15890,8 +16299,8 @@
             ]
           },
           "valueStats": {
-            "hit": 2,
-            "resolvePower": 4
+            "hit": 3,
+            "resolvePower": 5
           }
         }
       ]
@@ -15913,11 +16322,11 @@
       "desc": "寒井旁常见的轻纱小冠，最适合在雾里辨位和换气。",
       "equipSlot": "head",
       "equipAttrs": {
-        "spirit": 1
+        "spirit": 2
       },
       "equipValueStats": {
-        "spellDef": 5,
-        "dodge": 4,
+        "spellDef": 8,
+        "dodge": 6,
         "viewRange": 1
       }
     },
@@ -15930,10 +16339,10 @@
       "desc": "杆身刻着旧岳纹，越是硬碰硬，纹路越会亮。",
       "equipSlot": "weapon",
       "equipValueStats": {
-        "physAtk": 18,
-        "spellAtk": 4,
-        "hit": 5,
-        "breakPower": 6
+        "physAtk": 24,
+        "spellAtk": 5,
+        "hit": 7,
+        "breakPower": 8
       },
       "effects": [
         {
@@ -15951,8 +16360,8 @@
             "visibility": "public",
             "color": "#a58c69",
             "valueStats": {
-              "spellDef": 6,
-              "resolvePower": 4
+              "spellDef": 7,
+              "resolvePower": 5
             }
           }
         }
@@ -16051,10 +16460,10 @@
       "desc": "甲心嵌着磁石，能把周围散乱的冲劲都往甲面上拽。",
       "equipSlot": "body",
       "equipValueStats": {
-        "maxHp": 8.5,
-        "physDef": 14,
-        "spellDef": 8,
-        "resolvePower": 6
+        "maxHp": 11,
+        "physDef": 19,
+        "spellDef": 11,
+        "resolvePower": 8
       },
       "effects": [
         {
@@ -16071,8 +16480,8 @@
             ]
           },
           "valueStats": {
-            "physDef": 7,
-            "spellDef": 7
+            "physDef": 9,
+            "spellDef": 9
           }
         }
       ]
@@ -16107,9 +16516,9 @@
       "desc": "盔体沉得很，但也真能替人把一口硬气压住。",
       "equipSlot": "head",
       "equipValueStats": {
-        "maxHp": 2.5,
-        "physDef": 5,
-        "resolvePower": 5
+        "maxHp": 3.5,
+        "physDef": 7,
+        "resolvePower": 7
       },
       "effects": [
         {
@@ -16126,8 +16535,8 @@
             ]
           },
           "valueStats": {
-            "physDef": 6,
-            "resolvePower": 6
+            "physDef": 8,
+            "resolvePower": 8
           }
         }
       ]
@@ -16141,13 +16550,13 @@
       "desc": "盔壁很厚，像把半圈矮城墙扣在了头上。",
       "equipSlot": "head",
       "equipAttrs": {
-        "constitution": 1
+        "constitution": 2
       },
       "equipValueStats": {
-        "maxHp": 3.5,
-        "physDef": 6,
-        "resolvePower": 7,
-        "hit": 2
+        "maxHp": 4.5,
+        "physDef": 8,
+        "resolvePower": 10,
+        "hit": 3
       },
       "effects": [
         {
@@ -16165,8 +16574,8 @@
             ]
           },
           "valueStats": {
-            "resolvePower": 5,
-            "physDef": 4
+            "resolvePower": 6,
+            "physDef": 5
           }
         }
       ]
@@ -16220,13 +16629,13 @@
       "desc": "盔面还压着旧时将纹，看人时天然带股逼视感。",
       "equipSlot": "head",
       "equipAttrs": {
-        "perception": 1
+        "perception": 2
       },
       "equipValueStats": {
-        "maxHp": 3,
-        "spellDef": 8,
-        "resolvePower": 6,
-        "hit": 4
+        "maxHp": 4,
+        "spellDef": 11,
+        "resolvePower": 8,
+        "hit": 5
       },
       "effects": [
         {
@@ -16244,9 +16653,9 @@
             ]
           },
           "valueStats": {
-            "hit": 3,
-            "crit": 3,
-            "resolvePower": 4
+            "hit": 4,
+            "crit": 4,
+            "resolvePower": 5
           }
         }
       ]
@@ -16275,13 +16684,13 @@
       "desc": "盔冠像缩小后的山岳，戴上后连呼吸都像在往下沉。",
       "equipSlot": "head",
       "equipAttrs": {
-        "constitution": 1
+        "constitution": 2
       },
       "equipValueStats": {
-        "maxHp": 4,
-        "physDef": 7,
-        "spellDef": 7,
-        "resolvePower": 8
+        "maxHp": 5.5,
+        "physDef": 10,
+        "spellDef": 10,
+        "resolvePower": 11
       },
       "effects": [
         {
@@ -16299,9 +16708,9 @@
             ]
           },
           "valueStats": {
-            "physDef": 6,
-            "resolvePower": 6,
-            "hit": 3
+            "physDef": 8,
+            "resolvePower": 8,
+            "hit": 4
           }
         }
       ]
@@ -16323,13 +16732,13 @@
       "desc": "拿在手里会隐隐发颤，吞纳时却能把经脉震得更开。",
       "equipSlot": "accessory",
       "equipAttrs": {
-        "comprehension": 1
+        "comprehension": 2
       },
       "equipValueStats": {
-        "maxQi": 4,
-        "breakPower": 5,
-        "resolvePower": 6,
-        "spellDef": 5
+        "maxQi": 5.5,
+        "breakPower": 7,
+        "resolvePower": 8,
+        "spellDef": 7
       },
       "effects": [
         {
@@ -16346,8 +16755,8 @@
             ]
           },
           "valueStats": {
-            "realmExpPerTick": 10,
-            "techniqueExpPerTick": 10
+            "realmExpPerTick": 11,
+            "techniqueExpPerTick": 11
           }
         }
       ]
@@ -16368,12 +16777,12 @@
       "desc": "像直接顶着碑角一样沉，静下来后反而神完气足。",
       "equipSlot": "head",
       "equipAttrs": {
-        "constitution": 1
+        "constitution": 2
       },
       "equipValueStats": {
-        "maxHp": 3,
-        "spellDef": 7,
-        "resolvePower": 6
+        "maxHp": 4,
+        "spellDef": 10,
+        "resolvePower": 8
       },
       "effects": [
         {
@@ -16391,8 +16800,8 @@
             ]
           },
           "valueStats": {
-            "maxQiOutputPerTick": 4,
-            "resolvePower": 4
+            "maxQiOutputPerTick": 5,
+            "resolvePower": 5
           }
         }
       ]
@@ -16406,9 +16815,9 @@
       "desc": "靴底像爪钩一样啃地，踩塌松石坡时不容易被带走。",
       "equipSlot": "legs",
       "equipValueStats": {
-        "moveSpeed": 18,
-        "physDef": 5,
-        "breakPower": 2
+        "moveSpeed": 23,
+        "physDef": 7,
+        "breakPower": 3
       },
       "effects": [
         {
@@ -16426,8 +16835,8 @@
             "visibility": "public",
             "color": "#8c7a60",
             "valueStats": {
-              "physDef": 4,
-              "resolvePower": 2
+              "physDef": 5,
+              "resolvePower": 3
             }
           }
         }
@@ -16510,9 +16919,9 @@
       "desc": "鞋尖很薄，专为追着对手步点补刀。",
       "equipSlot": "legs",
       "equipValueStats": {
-        "moveSpeed": 24,
-        "hit": 3,
-        "crit": 2
+        "moveSpeed": 30,
+        "hit": 4,
+        "crit": 3
       },
       "effects": [
         {
@@ -16530,8 +16939,8 @@
             "visibility": "public",
             "color": "#d8c07e",
             "valueStats": {
-              "moveSpeed": 4,
-              "hit": 2
+              "moveSpeed": 5,
+              "hit": 3
             }
           }
         }
@@ -16560,9 +16969,9 @@
       "desc": "举起来慢，落下去却像整块坡石滚下来。",
       "equipSlot": "weapon",
       "equipValueStats": {
-        "physAtk": 16,
-        "breakPower": 7,
-        "hit": 4
+        "physAtk": 24,
+        "breakPower": 10,
+        "hit": 6
       },
       "effects": [
         {
@@ -16580,8 +16989,8 @@
             "visibility": "public",
             "color": "#aa8155",
             "valueStats": {
-              "physAtk": 4,
-              "breakPower": 4
+              "physAtk": 5,
+              "breakPower": 5
             }
           }
         }

@@ -10,8 +10,8 @@
         "level": 1,
         "expFactor": 34,
         "attrs": {
-          "constitution": 3,
-          "perception": 3,
+          "constitution": 5,
+          "perception": 5,
           "talent": 1
         }
       },
@@ -19,16 +19,16 @@
         "level": 2,
         "expFactor": 38,
         "attrs": {
-          "constitution": 3,
-          "perception": 3
+          "constitution": 5,
+          "perception": 5
         }
       },
       {
         "level": 3,
         "expFactor": 42,
         "attrs": {
-          "constitution": 3,
-          "perception": 3,
+          "constitution": 5,
+          "perception": 5,
           "talent": 1
         }
       },
@@ -36,16 +36,16 @@
         "level": 4,
         "expFactor": 47,
         "attrs": {
-          "constitution": 3,
-          "perception": 3
+          "constitution": 5,
+          "perception": 5
         }
       },
       {
         "level": 5,
         "expFactor": 52,
         "attrs": {
-          "constitution": 3,
-          "perception": 3,
+          "constitution": 5,
+          "perception": 5,
           "talent": 1
         }
       },
@@ -53,16 +53,16 @@
         "level": 6,
         "expFactor": 58,
         "attrs": {
-          "constitution": 3,
-          "perception": 3
+          "constitution": 5,
+          "perception": 5
         }
       },
       {
         "level": 7,
         "expFactor": 65,
         "attrs": {
-          "constitution": 3,
-          "perception": 3,
+          "constitution": 5,
+          "perception": 5,
           "talent": 1
         }
       },
@@ -70,8 +70,8 @@
         "level": 8,
         "expFactor": 73,
         "attrs": {
-          "constitution": 3,
-          "perception": 3,
+          "constitution": 5,
+          "perception": 5,
           "talent": 1
         }
       },
@@ -79,16 +79,16 @@
         "level": 9,
         "expFactor": 82,
         "attrs": {
-          "constitution": 3,
-          "perception": 3
+          "constitution": 5,
+          "perception": 5
         }
       },
       {
         "level": 10,
         "expFactor": 92,
         "attrs": {
-          "constitution": 3,
-          "perception": 3,
+          "constitution": 5,
+          "perception": 5,
           "talent": 1
         }
       },
@@ -96,16 +96,16 @@
         "level": 11,
         "expFactor": 103,
         "attrs": {
-          "constitution": 3,
-          "perception": 3
+          "constitution": 5,
+          "perception": 5
         }
       },
       {
         "level": 12,
         "expFactor": 115,
         "attrs": {
-          "constitution": 3,
-          "perception": 3,
+          "constitution": 5,
+          "perception": 5,
           "talent": 1
         }
       },
@@ -113,16 +113,16 @@
         "level": 13,
         "expFactor": 129,
         "attrs": {
-          "constitution": 3,
-          "perception": 3
+          "constitution": 4,
+          "perception": 4
         }
       },
       {
         "level": 14,
         "expFactor": 0,
         "attrs": {
-          "constitution": 3,
-          "perception": 3,
+          "constitution": 4,
+          "perception": 4,
           "talent": 1
         }
       }
@@ -273,8 +273,8 @@
         "level": 1,
         "expFactor": 34,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
+          "constitution": 5,
+          "spirit": 5,
           "perception": 1
         }
       },
@@ -282,16 +282,16 @@
         "level": 2,
         "expFactor": 38,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3
+          "constitution": 5,
+          "spirit": 5
         }
       },
       {
         "level": 3,
         "expFactor": 42,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
+          "constitution": 5,
+          "spirit": 5,
           "perception": 1
         }
       },
@@ -299,16 +299,16 @@
         "level": 4,
         "expFactor": 47,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3
+          "constitution": 5,
+          "spirit": 5
         }
       },
       {
         "level": 5,
         "expFactor": 52,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
+          "constitution": 5,
+          "spirit": 5,
           "perception": 1
         }
       },
@@ -316,16 +316,16 @@
         "level": 6,
         "expFactor": 58,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3
+          "constitution": 5,
+          "spirit": 5
         }
       },
       {
         "level": 7,
         "expFactor": 65,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
+          "constitution": 5,
+          "spirit": 5,
           "perception": 1
         }
       },
@@ -333,8 +333,8 @@
         "level": 8,
         "expFactor": 73,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
+          "constitution": 5,
+          "spirit": 5,
           "perception": 1
         }
       },
@@ -342,16 +342,16 @@
         "level": 9,
         "expFactor": 82,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3
+          "constitution": 5,
+          "spirit": 5
         }
       },
       {
         "level": 10,
         "expFactor": 92,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
+          "constitution": 5,
+          "spirit": 5,
           "perception": 1
         }
       },
@@ -359,16 +359,16 @@
         "level": 11,
         "expFactor": 103,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3
+          "constitution": 5,
+          "spirit": 5
         }
       },
       {
         "level": 12,
         "expFactor": 115,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
+          "constitution": 5,
+          "spirit": 5,
           "perception": 1
         }
       },
@@ -376,16 +376,16 @@
         "level": 13,
         "expFactor": 129,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3
+          "constitution": 4,
+          "spirit": 4
         }
       },
       {
         "level": 14,
         "expFactor": 0,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
+          "constitution": 4,
+          "spirit": 4,
           "perception": 1
         }
       }
@@ -571,16 +571,16 @@
         "level": 1,
         "expFactor": 34,
         "attrs": {
-          "constitution": 3,
-          "talent": 3
+          "constitution": 5,
+          "talent": 5
         }
       },
       {
         "level": 2,
         "expFactor": 38,
         "attrs": {
-          "constitution": 3,
-          "talent": 3,
+          "constitution": 5,
+          "talent": 5,
           "spirit": 1
         }
       },
@@ -588,32 +588,32 @@
         "level": 3,
         "expFactor": 42,
         "attrs": {
-          "constitution": 3,
-          "talent": 3
+          "constitution": 5,
+          "talent": 5
         }
       },
       {
         "level": 4,
         "expFactor": 47,
         "attrs": {
-          "constitution": 3,
-          "talent": 3
+          "constitution": 5,
+          "talent": 5
         }
       },
       {
         "level": 5,
         "expFactor": 52,
         "attrs": {
-          "constitution": 3,
-          "talent": 3
+          "constitution": 5,
+          "talent": 5
         }
       },
       {
         "level": 6,
         "expFactor": 58,
         "attrs": {
-          "constitution": 3,
-          "talent": 3,
+          "constitution": 5,
+          "talent": 5,
           "spirit": 1
         }
       },
@@ -621,24 +621,24 @@
         "level": 7,
         "expFactor": 65,
         "attrs": {
-          "constitution": 3,
-          "talent": 3
+          "constitution": 5,
+          "talent": 5
         }
       },
       {
         "level": 8,
         "expFactor": 73,
         "attrs": {
-          "constitution": 3,
-          "talent": 3
+          "constitution": 5,
+          "talent": 5
         }
       },
       {
         "level": 9,
         "expFactor": 82,
         "attrs": {
-          "constitution": 3,
-          "talent": 3,
+          "constitution": 5,
+          "talent": 5,
           "spirit": 1
         }
       },
@@ -646,32 +646,32 @@
         "level": 10,
         "expFactor": 92,
         "attrs": {
-          "constitution": 3,
-          "talent": 3
+          "constitution": 5,
+          "talent": 5
         }
       },
       {
         "level": 11,
         "expFactor": 103,
         "attrs": {
-          "constitution": 3,
-          "talent": 3
+          "constitution": 5,
+          "talent": 5
         }
       },
       {
         "level": 12,
         "expFactor": 115,
         "attrs": {
-          "constitution": 3,
-          "talent": 3
+          "constitution": 5,
+          "talent": 5
         }
       },
       {
         "level": 13,
         "expFactor": 129,
         "attrs": {
-          "constitution": 3,
-          "talent": 3,
+          "constitution": 5,
+          "talent": 5,
           "spirit": 1
         }
       },
@@ -679,8 +679,8 @@
         "level": 14,
         "expFactor": 0,
         "attrs": {
-          "constitution": 3,
-          "talent": 3
+          "constitution": 5,
+          "talent": 5
         }
       }
     ],
@@ -845,16 +845,16 @@
         "level": 1,
         "expFactor": 34,
         "attrs": {
-          "spirit": 3,
-          "talent": 3
+          "spirit": 5,
+          "talent": 5
         }
       },
       {
         "level": 2,
         "expFactor": 38,
         "attrs": {
-          "spirit": 3,
-          "talent": 3,
+          "spirit": 5,
+          "talent": 5,
           "perception": 1
         }
       },
@@ -862,32 +862,32 @@
         "level": 3,
         "expFactor": 42,
         "attrs": {
-          "spirit": 3,
-          "talent": 3
+          "spirit": 5,
+          "talent": 5
         }
       },
       {
         "level": 4,
         "expFactor": 47,
         "attrs": {
-          "spirit": 3,
-          "talent": 3
+          "spirit": 5,
+          "talent": 5
         }
       },
       {
         "level": 5,
         "expFactor": 52,
         "attrs": {
-          "spirit": 3,
-          "talent": 3
+          "spirit": 5,
+          "talent": 5
         }
       },
       {
         "level": 6,
         "expFactor": 58,
         "attrs": {
-          "spirit": 3,
-          "talent": 3,
+          "spirit": 5,
+          "talent": 5,
           "perception": 1
         }
       },
@@ -895,24 +895,24 @@
         "level": 7,
         "expFactor": 65,
         "attrs": {
-          "spirit": 3,
-          "talent": 3
+          "spirit": 5,
+          "talent": 5
         }
       },
       {
         "level": 8,
         "expFactor": 73,
         "attrs": {
-          "spirit": 3,
-          "talent": 3
+          "spirit": 5,
+          "talent": 5
         }
       },
       {
         "level": 9,
         "expFactor": 82,
         "attrs": {
-          "spirit": 3,
-          "talent": 3,
+          "spirit": 5,
+          "talent": 5,
           "perception": 1
         }
       },
@@ -920,32 +920,32 @@
         "level": 10,
         "expFactor": 92,
         "attrs": {
-          "spirit": 3,
-          "talent": 3
+          "spirit": 5,
+          "talent": 5
         }
       },
       {
         "level": 11,
         "expFactor": 103,
         "attrs": {
-          "spirit": 3,
-          "talent": 3
+          "spirit": 5,
+          "talent": 5
         }
       },
       {
         "level": 12,
         "expFactor": 115,
         "attrs": {
-          "spirit": 3,
-          "talent": 3
+          "spirit": 5,
+          "talent": 5
         }
       },
       {
         "level": 13,
         "expFactor": 129,
         "attrs": {
-          "spirit": 3,
-          "talent": 3,
+          "spirit": 5,
+          "talent": 5,
           "perception": 1
         }
       },
@@ -953,8 +953,8 @@
         "level": 14,
         "expFactor": 0,
         "attrs": {
-          "spirit": 3,
-          "talent": 3
+          "spirit": 5,
+          "talent": 5
         }
       }
     ],
@@ -1104,126 +1104,126 @@
         "level": 1,
         "expFactor": 34,
         "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "talent": 2
+          "constitution": 4,
+          "spirit": 4,
+          "talent": 4
         }
       },
       {
         "level": 2,
         "expFactor": 38,
         "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "talent": 2
+          "constitution": 4,
+          "spirit": 4,
+          "talent": 4
         }
       },
       {
         "level": 3,
         "expFactor": 42,
         "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "talent": 2
+          "constitution": 4,
+          "spirit": 4,
+          "talent": 4
         }
       },
       {
         "level": 4,
         "expFactor": 47,
         "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "talent": 2
+          "constitution": 4,
+          "spirit": 4,
+          "talent": 4
         }
       },
       {
         "level": 5,
         "expFactor": 52,
         "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "talent": 2
+          "constitution": 4,
+          "spirit": 4,
+          "talent": 4
         }
       },
       {
         "level": 6,
         "expFactor": 58,
         "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "talent": 2
+          "constitution": 4,
+          "spirit": 4,
+          "talent": 4
         }
       },
       {
         "level": 7,
         "expFactor": 65,
         "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "talent": 2
+          "constitution": 3,
+          "spirit": 3,
+          "talent": 3
         }
       },
       {
         "level": 8,
         "expFactor": 73,
         "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "talent": 2
+          "constitution": 3,
+          "spirit": 3,
+          "talent": 3
         }
       },
       {
         "level": 9,
         "expFactor": 82,
         "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "talent": 2
+          "constitution": 3,
+          "spirit": 3,
+          "talent": 3
         }
       },
       {
         "level": 10,
         "expFactor": 92,
         "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "talent": 2
+          "constitution": 3,
+          "spirit": 3,
+          "talent": 3
         }
       },
       {
         "level": 11,
         "expFactor": 103,
         "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "talent": 2
+          "constitution": 3,
+          "spirit": 3,
+          "talent": 3
         }
       },
       {
         "level": 12,
         "expFactor": 115,
         "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "talent": 2
+          "constitution": 3,
+          "spirit": 3,
+          "talent": 3
         }
       },
       {
         "level": 13,
         "expFactor": 129,
         "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "talent": 2
+          "constitution": 3,
+          "spirit": 3,
+          "talent": 3
         }
       },
       {
         "level": 14,
         "expFactor": 0,
         "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "talent": 2
+          "constitution": 3,
+          "spirit": 3,
+          "talent": 3
         }
       }
     ],
@@ -1384,16 +1384,16 @@
         "level": 1,
         "expFactor": 34,
         "attrs": {
-          "spirit": 3,
-          "perception": 3
+          "spirit": 5,
+          "perception": 5
         }
       },
       {
         "level": 2,
         "expFactor": 38,
         "attrs": {
-          "spirit": 3,
-          "perception": 3,
+          "spirit": 5,
+          "perception": 5,
           "talent": 1
         }
       },
@@ -1401,32 +1401,32 @@
         "level": 3,
         "expFactor": 42,
         "attrs": {
-          "spirit": 3,
-          "perception": 3
+          "spirit": 5,
+          "perception": 5
         }
       },
       {
         "level": 4,
         "expFactor": 47,
         "attrs": {
-          "spirit": 3,
-          "perception": 3
+          "spirit": 5,
+          "perception": 5
         }
       },
       {
         "level": 5,
         "expFactor": 52,
         "attrs": {
-          "spirit": 3,
-          "perception": 3
+          "spirit": 5,
+          "perception": 5
         }
       },
       {
         "level": 6,
         "expFactor": 58,
         "attrs": {
-          "spirit": 3,
-          "perception": 3,
+          "spirit": 5,
+          "perception": 5,
           "talent": 1
         }
       },
@@ -1434,24 +1434,24 @@
         "level": 7,
         "expFactor": 65,
         "attrs": {
-          "spirit": 3,
-          "perception": 3
+          "spirit": 5,
+          "perception": 5
         }
       },
       {
         "level": 8,
         "expFactor": 73,
         "attrs": {
-          "spirit": 3,
-          "perception": 3
+          "spirit": 5,
+          "perception": 5
         }
       },
       {
         "level": 9,
         "expFactor": 82,
         "attrs": {
-          "spirit": 3,
-          "perception": 3,
+          "spirit": 5,
+          "perception": 5,
           "talent": 1
         }
       },
@@ -1459,32 +1459,32 @@
         "level": 10,
         "expFactor": 92,
         "attrs": {
-          "spirit": 3,
-          "perception": 3
+          "spirit": 5,
+          "perception": 5
         }
       },
       {
         "level": 11,
         "expFactor": 103,
         "attrs": {
-          "spirit": 3,
-          "perception": 3
+          "spirit": 5,
+          "perception": 5
         }
       },
       {
         "level": 12,
         "expFactor": 115,
         "attrs": {
-          "spirit": 3,
-          "perception": 3
+          "spirit": 5,
+          "perception": 5
         }
       },
       {
         "level": 13,
         "expFactor": 129,
         "attrs": {
-          "spirit": 3,
-          "perception": 3,
+          "spirit": 5,
+          "perception": 5,
           "talent": 1
         }
       },
@@ -1492,8 +1492,8 @@
         "level": 14,
         "expFactor": 0,
         "attrs": {
-          "spirit": 3,
-          "perception": 3
+          "spirit": 5,
+          "perception": 5
         }
       }
     ],
