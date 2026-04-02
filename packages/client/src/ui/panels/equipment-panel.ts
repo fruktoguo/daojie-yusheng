@@ -8,35 +8,15 @@ import { getEquipSlotLabel } from '../../domain-labels';
 import { resolvePreviewItem } from '../../content/local-templates';
 import { preserveSelection } from '../selection-preserver';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
-import { buildItemTooltipPayload } from '../equipment-tooltip';
+import { buildItemTooltipPayload, formatEquipmentConditionText } from '../equipment-tooltip';
 import { describePreviewBonuses } from '../stat-preview';
 import { formatDisplayInteger, formatDisplayPercent } from '../../utils/number';
 
 function formatEffectCondition(effect: EquipmentEffectDef): string {
-  const conditions = effect?.conditions?.items ?? [];
-  if (conditions.length === 0) {
+  const parts = formatEquipmentConditionText(effect);
+  if (parts.length === 0) {
     return '';
   }
-  const parts = conditions.map((condition) => {
-    switch (condition.type) {
-      case 'time_segment':
-        return `时段:${condition.in.join('/')}`;
-      case 'map':
-        return `地图:${condition.mapIds.join('/')}`;
-      case 'hp_ratio':
-        return `生命${condition.op}${formatDisplayPercent(condition.value * 100)}`;
-      case 'qi_ratio':
-        return `灵力${condition.op}${formatDisplayPercent(condition.value * 100)}`;
-      case 'is_cultivating':
-        return condition.value ? '修炼中' : '未修炼';
-      case 'has_buff':
-        return `需带有 ${condition.buffId}`;
-      case 'target_kind':
-        return `目标:${condition.in.join('/')}`;
-      default:
-        return '';
-    }
-  }).filter((part) => part.length > 0);
   return parts.length > 0 ? ` [${parts.join('，')}]` : '';
 }
 

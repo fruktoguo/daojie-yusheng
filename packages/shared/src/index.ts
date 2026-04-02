@@ -28,5 +28,6 @@ export * from './qi';
 export * from './age';
 export * from './mail';
 export * from './market-price';
+export * from './inventory-sort';
 export * from './structured';
 export * from './role-name';

@@ -10,6 +10,7 @@ import {
   ItemStack,
   PlayerState,
   PlayerRealmState,
+  TechniqueGrade,
   createItemStackSignature,
 } from '@mud/shared';
 import {
@@ -61,6 +62,7 @@ const HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID = 'root_seed.heaven';
 const DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID = 'root_seed.divine';
 const SHATTER_SPIRIT_PILL_ITEM_ID = 'pill.shatter_spirit';
 const HEAVEN_GATE_REROLL_AVERAGE_BONUS = 2;
+const INVENTORY_GRADE_DECOR_TYPES = new Set<ItemStack['type']>(['equipment', 'material', 'skill_book']);
 
 function formatItemEffects(item: ItemStack): string[] {
   return describeItemEffectDetails(item);
@@ -220,7 +222,10 @@ export class InventoryPanel {
     visibleItems.forEach(({ item, slotIndex }) => {
       const nameClass = this.getNameClass(item.name);
       const primaryAction = this.getPrimaryAction(item);
-      html += `<div class="inventory-cell" data-open-item="${slotIndex}" data-item-slot="${slotIndex}" data-item-key="${this.escapeHtml(this.getItemIdentity(item))}">
+      const cellClassName = this.getItemCellClassName(item);
+      const gradeAttr = this.getItemDecorGrade(item);
+      const levelLabel = this.getItemLevelLabel(item);
+      html += `<div class="${cellClassName}" data-open-item="${slotIndex}" data-item-slot="${slotIndex}" data-item-key="${this.escapeHtml(this.getItemIdentity(item))}"${gradeAttr ? ` data-item-grade="${gradeAttr}"` : ''}>
         <div class="inventory-cell-head">
           <span class="inventory-cell-type" data-item-type="true">${getItemTypeLabel(item.type)}</span>
           <span class="inventory-cell-count" data-item-count="true">${formatDisplayCountBadge(item.count)}</span>
@@ -230,6 +235,7 @@ export class InventoryPanel {
           ${primaryAction ? `<button class="small-btn" data-inline-primary="${slotIndex}" data-item-primary="true" type="button" ${primaryAction.disabled ? 'disabled' : ''}>${primaryAction.label}</button>` : ''}
           <button class="small-btn danger" data-inline-drop="${slotIndex}" type="button">丢下</button>
         </div>
+        ${levelLabel ? `<span class="inventory-cell-level" data-item-level="true">${this.escapeHtml(levelLabel)}</span>` : ''}
       </div>`;
     });
 
@@ -812,16 +818,34 @@ export class InventoryPanel {
       if (!typeNode || !countNode || !nameNode) {
         return false;
       }
+      const levelNode = cell.querySelector<HTMLElement>('[data-item-level="true"]');
+      const levelLabel = this.getItemLevelLabel(item);
+      if (levelLabel && !levelNode) {
+        return false;
+      }
+      if (!levelLabel && levelNode) {
+        return false;
+      }
 
       const primaryAction = this.getPrimaryAction(item);
       const primaryButton = cell.querySelector<HTMLButtonElement>('[data-item-primary="true"]');
 
       cell.dataset.itemKey = this.getItemIdentity(item);
+      const gradeAttr = this.getItemDecorGrade(item);
+      if (gradeAttr) {
+        cell.dataset.itemGrade = gradeAttr;
+      } else {
+        delete cell.dataset.itemGrade;
+      }
+      cell.className = this.getItemCellClassName(item);
       typeNode.textContent = getItemTypeLabel(item.type);
       countNode.textContent = formatDisplayCountBadge(item.count);
       nameNode.textContent = item.name;
       nameNode.title = item.name;
       nameNode.className = `inventory-cell-name ${this.getNameClass(item.name)}`.trim();
+      if (levelNode) {
+        levelNode.textContent = levelLabel ?? '';
+      }
 
       if (primaryAction) {
         if (!primaryButton) {
@@ -1036,6 +1060,25 @@ export class InventoryPanel {
       return '已阅';
     }
     return null;
+  }
+
+  private getItemDecorGrade(item: ItemStack): TechniqueGrade | null {
+    if (!item.grade || !INVENTORY_GRADE_DECOR_TYPES.has(item.type)) {
+      return null;
+    }
+    return item.grade;
+  }
+
+  private getItemCellClassName(item: ItemStack): string {
+    const grade = this.getItemDecorGrade(item);
+    return `inventory-cell${grade ? ` inventory-cell--grade inventory-cell--grade-${grade}` : ''}`;
+  }
+
+  private getItemLevelLabel(item: ItemStack): string | null {
+    if (!Number.isFinite(item.level) || (item.level ?? 0) <= 0) {
+      return null;
+    }
+    return `Lv.${formatDisplayInteger(Math.floor(item.level ?? 0))}`;
   }
 
   private getEquippedItemForCompare(item: ItemStack): ItemStack | null {

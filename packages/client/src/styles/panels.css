@@ -453,6 +453,8 @@
       gap: 8px;
     }
     .inventory-cell {
+      --inventory-grade-border: transparent;
+      --inventory-grade-rgb: 0, 0, 0;
       display: grid;
       grid-template-rows: auto 1fr auto;
       gap: 6px;
@@ -465,11 +467,88 @@
       transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
       text-align: left;
       cursor: pointer;
+      position: relative;
+      overflow: visible;
+      isolation: isolate;
+    }
+    .inventory-cell > * {
+      position: relative;
+      z-index: 2;
+    }
+    .inventory-cell--grade {
+      border-color: var(--inventory-grade-border);
+      box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,0.36),
+        inset 0 0 0 1px color-mix(in srgb, var(--inventory-grade-border) 90%, rgba(255,255,255,0.08)),
+        0 0 0 1px rgba(var(--inventory-grade-rgb), 0.05);
+    }
+    .inventory-cell--grade::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: 10px;
+      background:
+        linear-gradient(180deg, rgba(var(--inventory-grade-rgb), 0.2), rgba(var(--inventory-grade-rgb), 0) 72%) top / 100% 18px no-repeat,
+        linear-gradient(0deg, rgba(var(--inventory-grade-rgb), 0.16), rgba(var(--inventory-grade-rgb), 0) 70%) bottom / 100% 16px no-repeat,
+        linear-gradient(90deg, rgba(var(--inventory-grade-rgb), 0.12), rgba(var(--inventory-grade-rgb), 0) 68%) left / 14px 100% no-repeat,
+        linear-gradient(270deg, rgba(var(--inventory-grade-rgb), 0.12), rgba(var(--inventory-grade-rgb), 0) 68%) right / 14px 100% no-repeat,
+        radial-gradient(circle at 10% 10%, rgba(var(--inventory-grade-rgb), 0.14), rgba(var(--inventory-grade-rgb), 0) 34%),
+        radial-gradient(circle at 90% 10%, rgba(var(--inventory-grade-rgb), 0.12), rgba(var(--inventory-grade-rgb), 0) 32%);
+      opacity: 0.9;
+      z-index: 0;
+    }
+    .inventory-cell--grade::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: 9px;
+      box-shadow:
+        inset 0 0 14px rgba(var(--inventory-grade-rgb), 0.1),
+        inset 0 0 24px rgba(var(--inventory-grade-rgb), 0.05);
+      z-index: 1;
+    }
+    .inventory-cell--grade-mortal {
+      --inventory-grade-border: rgba(126, 116, 104, 0.52);
+      --inventory-grade-rgb: 126, 116, 104;
+    }
+    .inventory-cell--grade-yellow {
+      --inventory-grade-border: rgba(173, 143, 74, 0.58);
+      --inventory-grade-rgb: 173, 143, 74;
+    }
+    .inventory-cell--grade-mystic {
+      --inventory-grade-border: rgba(96, 126, 170, 0.6);
+      --inventory-grade-rgb: 96, 126, 170;
+    }
+    .inventory-cell--grade-earth {
+      --inventory-grade-border: rgba(82, 134, 96, 0.62);
+      --inventory-grade-rgb: 82, 134, 96;
+    }
+    .inventory-cell--grade-heaven {
+      --inventory-grade-border: rgba(105, 154, 191, 0.64);
+      --inventory-grade-rgb: 105, 154, 191;
+    }
+    .inventory-cell--grade-spirit {
+      --inventory-grade-border: rgba(76, 153, 142, 0.64);
+      --inventory-grade-rgb: 76, 153, 142;
+    }
+    .inventory-cell--grade-saint {
+      --inventory-grade-border: rgba(183, 106, 132, 0.66);
+      --inventory-grade-rgb: 183, 106, 132;
+    }
+    .inventory-cell--grade-emperor {
+      --inventory-grade-border: rgba(146, 104, 178, 0.7);
+      --inventory-grade-rgb: 146, 104, 178;
     }
     .inventory-cell:hover {
       transform: translateY(-1px);
-      border-color: rgba(0,0,0,0.15);
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.65), 0 8px 18px rgba(0,0,0,0.08);
+      border-color: color-mix(in srgb, var(--inventory-grade-border) 74%, rgba(0,0,0,0.12));
+      box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,0.65),
+        inset 0 0 0 1px color-mix(in srgb, var(--inventory-grade-border) 82%, transparent),
+        0 8px 18px rgba(0,0,0,0.08),
+        0 0 20px rgba(var(--inventory-grade-rgb), 0.1);
     }
     .inventory-cell-head {
       display: flex;
@@ -482,10 +561,31 @@
       line-height: 1.2;
       color: var(--ink-grey);
     }
+    .inventory-cell-level {
+      position: absolute;
+      right: -2px;
+      bottom: -8px;
+      z-index: 3;
+      padding: 1px 7px 2px;
+      font-size: var(--font-size-10);
+      line-height: 1.1;
+      font-weight: var(--font-weight-strong);
+      color: color-mix(in srgb, var(--inventory-grade-border) 82%, var(--ink-black));
+      white-space: nowrap;
+      pointer-events: none;
+      border: 1px solid color-mix(in srgb, var(--inventory-grade-border) 88%, rgba(255,255,255,0.12));
+      border-radius: 999px;
+      background:
+        linear-gradient(180deg, color-mix(in srgb, var(--paper-light) 82%, rgba(var(--inventory-grade-rgb), 0.12)), color-mix(in srgb, var(--paper-light) 94%, rgba(var(--inventory-grade-rgb), 0.04)));
+      box-shadow:
+        0 4px 10px rgba(0,0,0,0.08),
+        0 0 14px rgba(var(--inventory-grade-rgb), 0.16);
+    }
     .inventory-cell-count {
       font-size: var(--font-size-11);
       font-weight: var(--font-weight-strong);
       color: var(--ink-black);
+      white-space: nowrap;
     }
     .inventory-cell-name {
       display: flex;

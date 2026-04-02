@@ -2,7 +2,7 @@
  * 背包管理：物品增删、使用、丢弃、整理排序
  */
 import { Injectable } from '@nestjs/common';
-import { PlayerState, ItemStack, ITEM_TYPE_SORT_ORDER, ITEM_USABLE_TYPES, EQUIP_SLOT_SORT_ORDER, createItemStackSignature } from '@mud/shared';
+import { PlayerState, ItemStack, ITEM_USABLE_TYPES, compareInventoryItems, createItemStackSignature } from '@mud/shared';
 
 @Injectable()
 export class InventoryService {
@@ -69,7 +69,7 @@ export class InventoryService {
     return player.inventory.items.findIndex(i => i.itemId === itemId);
   }
 
-  /** 整理背包：合并完全相同的物品，并按类型与名称稳定排序 */
+  /** 整理背包：合并完全相同的物品，并按类型、品阶、等级稳定排序 */
   sortInventory(player: PlayerState): void {
     const mergedItems = new Map<string, ItemStack>();
 
@@ -87,31 +87,6 @@ export class InventoryService {
       mergedItems.set(signature, { ...item });
     }
 
-    player.inventory.items = [...mergedItems.values()].sort((left, right) => {
-      const typeDiff = ITEM_TYPE_SORT_ORDER[left.type] - ITEM_TYPE_SORT_ORDER[right.type];
-      if (typeDiff !== 0) {
-        return typeDiff;
-      }
-
-      if (left.type === 'equipment' && right.type === 'equipment') {
-        const leftSlot = left.equipSlot ? EQUIP_SLOT_SORT_ORDER[left.equipSlot] : Number.MAX_SAFE_INTEGER;
-        const rightSlot = right.equipSlot ? EQUIP_SLOT_SORT_ORDER[right.equipSlot] : Number.MAX_SAFE_INTEGER;
-        if (leftSlot !== rightSlot) {
-          return leftSlot - rightSlot;
-        }
-      }
-
-      const nameDiff = left.name.localeCompare(right.name, 'zh-Hans-CN');
-      if (nameDiff !== 0) {
-        return nameDiff;
-      }
-
-      const itemIdDiff = left.itemId.localeCompare(right.itemId);
-      if (itemIdDiff !== 0) {
-        return itemIdDiff;
-      }
-
-      return right.count - left.count;
-    });
+    player.inventory.items = [...mergedItems.values()].sort(compareInventoryItems);
   }
 }

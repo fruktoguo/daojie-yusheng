@@ -6,6 +6,7 @@
 import {
   calcTechniqueAttrValues,
   EquipmentEffectDef,
+  GAME_TIME_PHASES,
   formatBuffMaxStacks,
   ItemStack,
   TECHNIQUE_ATTR_KEYS,
@@ -13,10 +14,12 @@ import {
 import {
   ATTR_KEY_LABELS,
   getEquipSlotLabel,
+  getEntityKindLabel,
   getItemTypeLabel,
   getTechniqueGradeLabel,
 } from '../domain-labels';
 import { renderItemSourceListHtml } from '../content/item-sources';
+import { getCachedMapMeta } from '../map-static-cache';
 import {
   getLocalRealmLevelEntry,
   getLocalTechniqueTemplate,
@@ -66,14 +69,29 @@ function describeBuffStats(
   return describePreviewBonuses(attrs, stats, valueStats, attrMode, statMode);
 }
 
-function formatConditionText(effect: EquipmentEffectDef): string[] {
+function getTimePhaseLabel(phaseId: string): string {
+  return GAME_TIME_PHASES.find((entry) => entry.id === phaseId)?.label ?? phaseId;
+}
+
+function getMapLabel(mapId: string): string {
+  return getCachedMapMeta(mapId)?.name ?? mapId;
+}
+
+function getConditionTargetKindLabel(kind: 'monster' | 'player' | 'tile'): string {
+  if (kind === 'tile') {
+    return '地块';
+  }
+  return getEntityKindLabel(kind, kind);
+}
+
+export function formatEquipmentConditionText(effect: EquipmentEffectDef): string[] {
   const conditions = effect.conditions?.items ?? [];
   return conditions.map((condition) => {
     switch (condition.type) {
       case 'time_segment':
-        return `时段：${condition.in.join(' / ')}`;
+        return `时段：${condition.in.map((entry) => getTimePhaseLabel(entry)).join(' / ')}`;
       case 'map':
-        return `地图：${condition.mapIds.join(' / ')}`;
+        return `地图：${condition.mapIds.map((entry) => getMapLabel(entry)).join(' / ')}`;
       case 'hp_ratio':
         return `生命 ${condition.op} ${formatDisplayPercent(condition.value * 100)}`;
       case 'qi_ratio':
@@ -83,7 +101,7 @@ function formatConditionText(effect: EquipmentEffectDef): string[] {
       case 'has_buff':
         return `需带有 ${condition.buffId}${condition.minStacks ? ` ${condition.minStacks} 层` : ''}`;
       case 'target_kind':
-        return `目标：${condition.in.join(' / ')}`;
+        return `目标：${condition.in.map((entry) => getConditionTargetKindLabel(entry)).join(' / ')}`;
       default:
         return '';
     }
@@ -110,7 +128,7 @@ function formatTriggerLabel(trigger: EquipmentEffectDef extends infer _T ? strin
 function buildTimedBuffAsideCard(effect: Extract<EquipmentEffectDef, { type: 'timed_buff' }>): SkillTooltipAsideCard {
   const stackLimit = formatBuffMaxStacks(effect.buff.maxStacks);
   const stackText = stackLimit ? ` · 最多 ${stackLimit} 层` : '';
-  const conditionLines = formatConditionText(effect);
+  const conditionLines = formatEquipmentConditionText(effect);
   const buffLines = describeBuffStats(effect.buff.attrs, effect.buff.stats, effect.buff.valueStats, effect.buff.attrMode ?? 'percent', effect.buff.statMode ?? 'percent');
   const lines = [
     `${formatTriggerLabel(effect.trigger)} · ${effect.target === 'target' ? '目标' : '自身'} · ${formatDisplayInteger(effect.buff.duration)} 息${stackText}`,
@@ -129,7 +147,7 @@ function buildTimedBuffAsideCard(effect: Extract<EquipmentEffectDef, { type: 'ti
 }
 
 function buildEffectSummary(effect: EquipmentEffectDef): { lines: string[]; asideCard?: SkillTooltipAsideCard } {
-  const conditionLines = formatConditionText(effect);
+  const conditionLines = formatEquipmentConditionText(effect);
   switch (effect.type) {
     case 'stat_aura': {
       const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats, effect.attrMode, effect.statMode);
@@ -213,7 +231,7 @@ function resolveItemStatusLabel(item: ItemStack, context?: ItemTooltipContext): 
 }
 
 function buildPlainEffectSummary(effect: EquipmentEffectDef): string[] {
-  const conditionLines = formatConditionText(effect);
+  const conditionLines = formatEquipmentConditionText(effect);
   switch (effect.type) {
     case 'stat_aura': {
       const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats, effect.attrMode, effect.statMode);

@@ -19,6 +19,7 @@ import {
 } from '@mud/shared';
 import { AttrService } from './attr.service';
 import { syncDynamicBuffPresentation } from './buff-presentation';
+import { MapService } from './map.service';
 import { TimeService } from './time.service';
 import { CULTIVATION_BUFF_ID } from '../constants/gameplay/technique';
 import {
@@ -74,6 +75,7 @@ function normalizeBuffShortMark(raw: string | undefined, fallbackName: string): 
 export class EquipmentEffectService {
   constructor(
     private readonly attrService: AttrService,
+    private readonly mapService: MapService,
     private readonly timeService: TimeService,
   ) {}
 
@@ -321,7 +323,7 @@ export class EquipmentEffectService {
       case 'time_segment':
         return condition.in.includes(this.timeService.buildPlayerTimeState(player).phase);
       case 'map':
-        return condition.mapIds.includes(player.mapId);
+        return this.mapService.matchesMapCondition(player.mapId, condition.mapIds);
       case 'hp_ratio': {
         const ratio = player.maxHp > 0 ? player.hp / player.maxHp : 0;
         return condition.op === '<=' ? ratio <= condition.value : ratio >= condition.value;

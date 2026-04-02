@@ -491,6 +491,7 @@ interface PortalObservationHint {
 export class MapService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(MapService.name);
   private maps: Map<string, MapData> = new Map();
+  private mapConditionAliasesById: Map<string, ReadonlySet<string>> = new Map();
   private quests: Map<string, QuestConfig> = new Map();
   private mainQuestChain: QuestConfig[] = [];
   private mainQuestIndexById: Map<string, number> = new Map();
@@ -538,6 +539,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 
   async reloadAllFromPersistence(): Promise<void> {
     this.maps.clear();
+    this.mapConditionAliasesById.clear();
     this.quests.clear();
     this.monsters.clear();
     this.revisions.clear();
@@ -982,9 +984,54 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     for (const entry of entries) {
       this.loadMap(entry.document, entry.previousDocument);
     }
+    this.rebuildMapConditionAliases();
     this.rebuildAllMinimapSnapshots();
     this.reloadQuestBindingsFromFiles();
     this.logger.log(`已加载 ${this.maps.size} 张地图`);
+  }
+
+  private rebuildMapConditionAliases(): void {
+    const aliasesById = new Map<string, Set<string>>();
+    for (const mapId of this.maps.keys()) {
+      aliasesById.set(mapId, new Set([mapId]));
+    }
+
+    const catalogMetaById = this.buildEditableMapCatalogMetaById();
+    for (const [mapId, meta] of catalogMetaById.entries()) {
+      const aliases = aliasesById.get(mapId);
+      if (!aliases) {
+        continue;
+      }
+      if (meta.catalogMode === 'piece' && typeof meta.catalogGroupId === 'string' && meta.catalogGroupId.trim().length > 0) {
+        aliases.add(meta.catalogGroupId);
+      }
+    }
+
+    for (const [mapId, map] of this.maps.entries()) {
+      if (typeof map.meta.parentMapId === 'string' && map.meta.parentMapId.trim().length > 0) {
+        aliasesById.get(mapId)?.add(map.meta.parentMapId);
+      }
+    }
+
+    this.mapConditionAliasesById = new Map(
+      [...aliasesById.entries()].map(([mapId, aliases]) => [mapId, new Set(aliases)]),
+    );
+  }
+
+  matchesMapCondition(currentMapId: string, expectedMapIds: readonly string[]): boolean {
+    if (expectedMapIds.length === 0) {
+      return false;
+    }
+    const aliases = this.mapConditionAliasesById.get(currentMapId);
+    if (!aliases || aliases.size === 0) {
+      return expectedMapIds.includes(currentMapId);
+    }
+    for (const expectedMapId of expectedMapIds) {
+      if (aliases.has(expectedMapId)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private loadMap(raw: unknown, previousDocument?: GmMapDocument) {
@@ -1146,6 +1193,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       fs.writeFileSync(filePath, `${JSON.stringify(persisted, null, 2)}\n`, 'utf-8');
       await this.persistentDocumentService.save(MAP_DOCUMENT_SCOPE, mapId, persisted);
       this.loadMap(normalized, previousDocument);
+      this.rebuildMapConditionAliases();
       this.reloadQuestBindingsFromFiles();
       return null;
     } catch (saveError) {
@@ -1178,6 +1226,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       if (previousDocument) {
         try {
           this.loadMap(previousDocument, previousDocument);
+          this.rebuildMapConditionAliases();
           this.reloadQuestBindingsFromFiles();
         } catch (rollbackError) {
           const rollbackMessage = rollbackError instanceof Error ? rollbackError.message : String(rollbackError);
