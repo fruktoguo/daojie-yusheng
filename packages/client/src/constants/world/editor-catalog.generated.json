@@ -77,14 +77,14 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 100800,
+          "expToNext": 403200,
           "attrs": {
             "constitution": 2
           }
         },
         {
           "level": 2,
-          "expToNext": 110400,
+          "expToNext": 441600,
           "attrs": {
             "constitution": 2,
             "perception": 1
@@ -92,14 +92,14 @@
         },
         {
           "level": 3,
-          "expToNext": 120000,
+          "expToNext": 480000,
           "attrs": {
             "constitution": 2
           }
         },
         {
           "level": 4,
-          "expToNext": 132000,
+          "expToNext": 528000,
           "attrs": {
             "constitution": 2,
             "perception": 1
@@ -107,14 +107,14 @@
         },
         {
           "level": 5,
-          "expToNext": 144000,
+          "expToNext": 576000,
           "attrs": {
             "constitution": 2
           }
         },
         {
           "level": 6,
-          "expToNext": 158400,
+          "expToNext": 633600,
           "attrs": {
             "constitution": 2,
             "perception": 1
@@ -122,14 +122,14 @@
         },
         {
           "level": 7,
-          "expToNext": 175200,
+          "expToNext": 700800,
           "attrs": {
             "constitution": 2
           }
         },
         {
           "level": 8,
-          "expToNext": 194400,
+          "expToNext": 777600,
           "attrs": {
             "constitution": 2,
             "perception": 1
@@ -137,7 +137,7 @@
         },
         {
           "level": 9,
-          "expToNext": 216000,
+          "expToNext": 864000,
           "attrs": {
             "constitution": 2
           }
@@ -297,7 +297,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 78200,
+          "expToNext": 312800,
           "attrs": {
             "constitution": 5,
             "perception": 5,
@@ -306,7 +306,7 @@
         },
         {
           "level": 2,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "constitution": 5,
             "perception": 5
@@ -314,7 +314,7 @@
         },
         {
           "level": 3,
-          "expToNext": 96600,
+          "expToNext": 386400,
           "attrs": {
             "constitution": 5,
             "perception": 5,
@@ -323,7 +323,7 @@
         },
         {
           "level": 4,
-          "expToNext": 108100,
+          "expToNext": 432400,
           "attrs": {
             "constitution": 5,
             "perception": 5
@@ -331,7 +331,7 @@
         },
         {
           "level": 5,
-          "expToNext": 119600,
+          "expToNext": 478400,
           "attrs": {
             "constitution": 5,
             "perception": 5,
@@ -340,7 +340,7 @@
         },
         {
           "level": 6,
-          "expToNext": 133400,
+          "expToNext": 533600,
           "attrs": {
             "constitution": 5,
             "perception": 5
@@ -348,7 +348,7 @@
         },
         {
           "level": 7,
-          "expToNext": 149500,
+          "expToNext": 598000,
           "attrs": {
             "constitution": 5,
             "perception": 5,
@@ -357,7 +357,7 @@
         },
         {
           "level": 8,
-          "expToNext": 167900,
+          "expToNext": 671600,
           "attrs": {
             "constitution": 5,
             "perception": 5,
@@ -366,7 +366,7 @@
         },
         {
           "level": 9,
-          "expToNext": 188600,
+          "expToNext": 754400,
           "attrs": {
             "constitution": 5,
             "perception": 5
@@ -374,7 +374,7 @@
         },
         {
           "level": 10,
-          "expToNext": 211600,
+          "expToNext": 846400,
           "attrs": {
             "constitution": 5,
             "perception": 5,
@@ -383,7 +383,7 @@
         },
         {
           "level": 11,
-          "expToNext": 236900,
+          "expToNext": 947600,
           "attrs": {
             "constitution": 5,
             "perception": 5
@@ -391,7 +391,7 @@
         },
         {
           "level": 12,
-          "expToNext": 264500,
+          "expToNext": 1058000,
           "attrs": {
             "constitution": 5,
             "perception": 5,
@@ -400,7 +400,7 @@
         },
         {
           "level": 13,
-          "expToNext": 296700,
+          "expToNext": 1186800,
           "attrs": {
             "constitution": 4,
             "perception": 4
@@ -1086,7 +1086,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 78200,
+          "expToNext": 312800,
           "attrs": {
             "constitution": 5,
             "spirit": 5,
@@ -1095,7 +1095,7 @@
         },
         {
           "level": 2,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "constitution": 5,
             "spirit": 5
@@ -1103,7 +1103,7 @@
         },
         {
           "level": 3,
-          "expToNext": 96600,
+          "expToNext": 386400,
           "attrs": {
             "constitution": 5,
             "spirit": 5,
@@ -1112,7 +1112,7 @@
         },
         {
           "level": 4,
-          "expToNext": 108100,
+          "expToNext": 432400,
           "attrs": {
             "constitution": 5,
             "spirit": 5
@@ -1120,7 +1120,7 @@
         },
         {
           "level": 5,
-          "expToNext": 119600,
+          "expToNext": 478400,
           "attrs": {
             "constitution": 5,
             "spirit": 5,
@@ -1129,7 +1129,7 @@
         },
         {
           "level": 6,
-          "expToNext": 133400,
+          "expToNext": 533600,
           "attrs": {
             "constitution": 5,
             "spirit": 5
@@ -1137,7 +1137,7 @@
         },
         {
           "level": 7,
-          "expToNext": 149500,
+          "expToNext": 598000,
           "attrs": {
             "constitution": 5,
             "spirit": 5,
@@ -1146,7 +1146,7 @@
         },
         {
           "level": 8,
-          "expToNext": 167900,
+          "expToNext": 671600,
           "attrs": {
             "constitution": 5,
             "spirit": 5,
@@ -1155,7 +1155,7 @@
         },
         {
           "level": 9,
-          "expToNext": 188600,
+          "expToNext": 754400,
           "attrs": {
             "constitution": 5,
             "spirit": 5
@@ -1163,7 +1163,7 @@
         },
         {
           "level": 10,
-          "expToNext": 211600,
+          "expToNext": 846400,
           "attrs": {
             "constitution": 5,
             "spirit": 5,
@@ -1172,7 +1172,7 @@
         },
         {
           "level": 11,
-          "expToNext": 236900,
+          "expToNext": 947600,
           "attrs": {
             "constitution": 5,
             "spirit": 5
@@ -1180,7 +1180,7 @@
         },
         {
           "level": 12,
-          "expToNext": 264500,
+          "expToNext": 1058000,
           "attrs": {
             "constitution": 5,
             "spirit": 5,
@@ -1189,7 +1189,7 @@
         },
         {
           "level": 13,
-          "expToNext": 296700,
+          "expToNext": 1186800,
           "attrs": {
             "constitution": 4,
             "spirit": 4
@@ -2013,7 +2013,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 34200,
+          "expToNext": 136800,
           "attrs": {
             "constitution": 2,
             "perception": 2
@@ -2021,7 +2021,7 @@
         },
         {
           "level": 2,
-          "expToNext": 38000,
+          "expToNext": 152000,
           "attrs": {
             "constitution": 4,
             "perception": 4,
@@ -2030,7 +2030,7 @@
         },
         {
           "level": 3,
-          "expToNext": 41800,
+          "expToNext": 167200,
           "attrs": {
             "constitution": 2,
             "perception": 2
@@ -2038,7 +2038,7 @@
         },
         {
           "level": 4,
-          "expToNext": 45600,
+          "expToNext": 182400,
           "attrs": {
             "constitution": 2,
             "perception": 2
@@ -2046,7 +2046,7 @@
         },
         {
           "level": 5,
-          "expToNext": 51300,
+          "expToNext": 205200,
           "attrs": {
             "constitution": 3,
             "perception": 3,
@@ -2055,7 +2055,7 @@
         },
         {
           "level": 6,
-          "expToNext": 57000,
+          "expToNext": 228000,
           "attrs": {
             "constitution": 2,
             "perception": 2
@@ -2063,7 +2063,7 @@
         },
         {
           "level": 7,
-          "expToNext": 62700,
+          "expToNext": 250800,
           "attrs": {
             "constitution": 2,
             "perception": 2
@@ -2071,7 +2071,7 @@
         },
         {
           "level": 8,
-          "expToNext": 70300,
+          "expToNext": 281200,
           "attrs": {
             "constitution": 3,
             "perception": 3,
@@ -2080,7 +2080,7 @@
         },
         {
           "level": 9,
-          "expToNext": 77900,
+          "expToNext": 311600,
           "attrs": {
             "constitution": 2,
             "perception": 2
@@ -2088,7 +2088,7 @@
         },
         {
           "level": 10,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "constitution": 2,
             "perception": 2
@@ -2096,7 +2096,7 @@
         },
         {
           "level": 11,
-          "expToNext": 98800,
+          "expToNext": 395200,
           "attrs": {
             "constitution": 3,
             "perception": 3,
@@ -2297,7 +2297,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 34200,
+          "expToNext": 136800,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -2306,11 +2306,11 @@
         },
         {
           "level": 2,
-          "expToNext": 38000
+          "expToNext": 152000
         },
         {
           "level": 3,
-          "expToNext": 41800,
+          "expToNext": 167200,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -2319,7 +2319,7 @@
         },
         {
           "level": 4,
-          "expToNext": 45600,
+          "expToNext": 182400,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -2328,11 +2328,11 @@
         },
         {
           "level": 5,
-          "expToNext": 51300
+          "expToNext": 205200
         },
         {
           "level": 6,
-          "expToNext": 57000,
+          "expToNext": 228000,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -2341,7 +2341,7 @@
         },
         {
           "level": 7,
-          "expToNext": 62700,
+          "expToNext": 250800,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -2350,11 +2350,11 @@
         },
         {
           "level": 8,
-          "expToNext": 70300
+          "expToNext": 281200
         },
         {
           "level": 9,
-          "expToNext": 77900,
+          "expToNext": 311600,
           "attrs": {
             "constitution": 2,
             "spirit": 2,
@@ -2363,7 +2363,7 @@
         },
         {
           "level": 10,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "constitution": 2,
             "spirit": 2,
@@ -2372,7 +2372,7 @@
         },
         {
           "level": 11,
-          "expToNext": 98800
+          "expToNext": 395200
         },
         {
           "level": 12,
@@ -2782,7 +2782,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 34200,
+          "expToNext": 136800,
           "attrs": {
             "spirit": 2,
             "perception": 2
@@ -2790,7 +2790,7 @@
         },
         {
           "level": 2,
-          "expToNext": 38000,
+          "expToNext": 152000,
           "attrs": {
             "spirit": 4,
             "perception": 4
@@ -2798,7 +2798,7 @@
         },
         {
           "level": 3,
-          "expToNext": 41800,
+          "expToNext": 167200,
           "attrs": {
             "spirit": 2,
             "perception": 2
@@ -2806,7 +2806,7 @@
         },
         {
           "level": 4,
-          "expToNext": 45600,
+          "expToNext": 182400,
           "attrs": {
             "perception": 2,
             "spirit": 2
@@ -2814,7 +2814,7 @@
         },
         {
           "level": 5,
-          "expToNext": 51300,
+          "expToNext": 205200,
           "attrs": {
             "spirit": 4,
             "perception": 4
@@ -2822,7 +2822,7 @@
         },
         {
           "level": 6,
-          "expToNext": 57000,
+          "expToNext": 228000,
           "attrs": {
             "spirit": 2,
             "perception": 2
@@ -2830,7 +2830,7 @@
         },
         {
           "level": 7,
-          "expToNext": 62700,
+          "expToNext": 250800,
           "attrs": {
             "spirit": 2,
             "perception": 2
@@ -2838,7 +2838,7 @@
         },
         {
           "level": 8,
-          "expToNext": 70300,
+          "expToNext": 281200,
           "attrs": {
             "spirit": 4,
             "perception": 4
@@ -2846,7 +2846,7 @@
         },
         {
           "level": 9,
-          "expToNext": 77900,
+          "expToNext": 311600,
           "attrs": {
             "spirit": 2,
             "perception": 2
@@ -2854,7 +2854,7 @@
         },
         {
           "level": 10,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "perception": 2,
             "spirit": 2
@@ -2862,7 +2862,7 @@
         },
         {
           "level": 11,
-          "expToNext": 98800,
+          "expToNext": 395200,
           "attrs": {
             "spirit": 3,
             "perception": 3
@@ -3003,7 +3003,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 34200,
+          "expToNext": 136800,
           "attrs": {
             "constitution": 2,
             "talent": 2
@@ -3011,7 +3011,7 @@
         },
         {
           "level": 2,
-          "expToNext": 38000,
+          "expToNext": 152000,
           "attrs": {
             "constitution": 4,
             "talent": 4
@@ -3019,7 +3019,7 @@
         },
         {
           "level": 3,
-          "expToNext": 41800,
+          "expToNext": 167200,
           "attrs": {
             "constitution": 2,
             "talent": 2
@@ -3027,7 +3027,7 @@
         },
         {
           "level": 4,
-          "expToNext": 45600,
+          "expToNext": 182400,
           "attrs": {
             "constitution": 2,
             "talent": 2
@@ -3035,7 +3035,7 @@
         },
         {
           "level": 5,
-          "expToNext": 51300,
+          "expToNext": 205200,
           "attrs": {
             "constitution": 4,
             "talent": 4
@@ -3043,7 +3043,7 @@
         },
         {
           "level": 6,
-          "expToNext": 57000,
+          "expToNext": 228000,
           "attrs": {
             "constitution": 2,
             "talent": 2
@@ -3051,7 +3051,7 @@
         },
         {
           "level": 7,
-          "expToNext": 62700,
+          "expToNext": 250800,
           "attrs": {
             "constitution": 2,
             "talent": 2
@@ -3059,7 +3059,7 @@
         },
         {
           "level": 8,
-          "expToNext": 70300,
+          "expToNext": 281200,
           "attrs": {
             "constitution": 4,
             "talent": 4
@@ -3067,7 +3067,7 @@
         },
         {
           "level": 9,
-          "expToNext": 77900,
+          "expToNext": 311600,
           "attrs": {
             "constitution": 2,
             "talent": 2
@@ -3075,7 +3075,7 @@
         },
         {
           "level": 10,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "constitution": 2,
             "talent": 2
@@ -3083,7 +3083,7 @@
         },
         {
           "level": 11,
-          "expToNext": 98800,
+          "expToNext": 395200,
           "attrs": {
             "constitution": 3,
             "talent": 3
@@ -3294,7 +3294,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 151200,
+          "expToNext": 604800,
           "attrs": {
             "constitution": 12,
             "talent": 12
@@ -3302,7 +3302,7 @@
         },
         {
           "level": 2,
-          "expToNext": 167400,
+          "expToNext": 669600,
           "attrs": {
             "constitution": 15,
             "talent": 15,
@@ -3311,7 +3311,7 @@
         },
         {
           "level": 3,
-          "expToNext": 186300,
+          "expToNext": 745200,
           "attrs": {
             "constitution": 12,
             "talent": 12
@@ -3319,7 +3319,7 @@
         },
         {
           "level": 4,
-          "expToNext": 207900,
+          "expToNext": 831600,
           "attrs": {
             "constitution": 15,
             "talent": 12
@@ -3327,7 +3327,7 @@
         },
         {
           "level": 5,
-          "expToNext": 232200,
+          "expToNext": 928800,
           "attrs": {
             "constitution": 12,
             "talent": 12
@@ -3335,7 +3335,7 @@
         },
         {
           "level": 6,
-          "expToNext": 259200,
+          "expToNext": 1036800,
           "attrs": {
             "constitution": 15,
             "talent": 15,
@@ -3344,7 +3344,7 @@
         },
         {
           "level": 7,
-          "expToNext": 288900,
+          "expToNext": 1155600,
           "attrs": {
             "constitution": 12,
             "talent": 12
@@ -3352,7 +3352,7 @@
         },
         {
           "level": 8,
-          "expToNext": 321300,
+          "expToNext": 1285200,
           "attrs": {
             "constitution": 12,
             "talent": 12
@@ -3360,7 +3360,7 @@
         },
         {
           "level": 9,
-          "expToNext": 359100,
+          "expToNext": 1436400,
           "attrs": {
             "constitution": 15,
             "talent": 15,
@@ -3369,7 +3369,7 @@
         },
         {
           "level": 10,
-          "expToNext": 399600,
+          "expToNext": 1598400,
           "attrs": {
             "constitution": 12,
             "talent": 12
@@ -3377,7 +3377,7 @@
         },
         {
           "level": 11,
-          "expToNext": 442800,
+          "expToNext": 1771200,
           "attrs": {
             "constitution": 15,
             "talent": 12
@@ -3385,7 +3385,7 @@
         },
         {
           "level": 12,
-          "expToNext": 491400,
+          "expToNext": 1965600,
           "attrs": {
             "constitution": 12,
             "talent": 11
@@ -3393,7 +3393,7 @@
         },
         {
           "level": 13,
-          "expToNext": 545400,
+          "expToNext": 2181600,
           "attrs": {
             "constitution": 15,
             "talent": 15,
@@ -3638,7 +3638,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 151200,
+          "expToNext": 604800,
           "attrs": {
             "constitution": 8,
             "spirit": 8,
@@ -3647,7 +3647,7 @@
         },
         {
           "level": 2,
-          "expToNext": 167400,
+          "expToNext": 669600,
           "attrs": {
             "constitution": 8,
             "spirit": 8,
@@ -3657,7 +3657,7 @@
         },
         {
           "level": 3,
-          "expToNext": 186300,
+          "expToNext": 745200,
           "attrs": {
             "constitution": 8,
             "spirit": 8,
@@ -3666,7 +3666,7 @@
         },
         {
           "level": 4,
-          "expToNext": 207900,
+          "expToNext": 831600,
           "attrs": {
             "constitution": 11,
             "spirit": 11,
@@ -3676,7 +3676,7 @@
         },
         {
           "level": 5,
-          "expToNext": 232200,
+          "expToNext": 928800,
           "attrs": {
             "constitution": 8,
             "spirit": 8,
@@ -3685,7 +3685,7 @@
         },
         {
           "level": 6,
-          "expToNext": 259200,
+          "expToNext": 1036800,
           "attrs": {
             "constitution": 8,
             "spirit": 8,
@@ -3695,7 +3695,7 @@
         },
         {
           "level": 7,
-          "expToNext": 288900,
+          "expToNext": 1155600,
           "attrs": {
             "constitution": 8,
             "spirit": 7,
@@ -3704,7 +3704,7 @@
         },
         {
           "level": 8,
-          "expToNext": 321300,
+          "expToNext": 1285200,
           "attrs": {
             "constitution": 7,
             "spirit": 7,
@@ -3713,7 +3713,7 @@
         },
         {
           "level": 9,
-          "expToNext": 359100,
+          "expToNext": 1436400,
           "attrs": {
             "constitution": 7,
             "spirit": 7,
@@ -3723,7 +3723,7 @@
         },
         {
           "level": 10,
-          "expToNext": 399600,
+          "expToNext": 1598400,
           "attrs": {
             "constitution": 7,
             "spirit": 7,
@@ -3732,7 +3732,7 @@
         },
         {
           "level": 11,
-          "expToNext": 442800,
+          "expToNext": 1771200,
           "attrs": {
             "constitution": 11,
             "spirit": 11,
@@ -3742,7 +3742,7 @@
         },
         {
           "level": 12,
-          "expToNext": 491400,
+          "expToNext": 1965600,
           "attrs": {
             "constitution": 7,
             "spirit": 7,
@@ -3751,7 +3751,7 @@
         },
         {
           "level": 13,
-          "expToNext": 545400,
+          "expToNext": 2181600,
           "attrs": {
             "constitution": 7,
             "spirit": 7,
@@ -4431,7 +4431,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 78200,
+          "expToNext": 312800,
           "attrs": {
             "constitution": 5,
             "talent": 5
@@ -4439,7 +4439,7 @@
         },
         {
           "level": 2,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "constitution": 5,
             "talent": 5,
@@ -4448,7 +4448,7 @@
         },
         {
           "level": 3,
-          "expToNext": 96600,
+          "expToNext": 386400,
           "attrs": {
             "constitution": 5,
             "talent": 5
@@ -4456,7 +4456,7 @@
         },
         {
           "level": 4,
-          "expToNext": 108100,
+          "expToNext": 432400,
           "attrs": {
             "constitution": 5,
             "talent": 5
@@ -4464,7 +4464,7 @@
         },
         {
           "level": 5,
-          "expToNext": 119600,
+          "expToNext": 478400,
           "attrs": {
             "constitution": 5,
             "talent": 5
@@ -4472,7 +4472,7 @@
         },
         {
           "level": 6,
-          "expToNext": 133400,
+          "expToNext": 533600,
           "attrs": {
             "constitution": 5,
             "talent": 5,
@@ -4481,7 +4481,7 @@
         },
         {
           "level": 7,
-          "expToNext": 149500,
+          "expToNext": 598000,
           "attrs": {
             "constitution": 5,
             "talent": 5
@@ -4489,7 +4489,7 @@
         },
         {
           "level": 8,
-          "expToNext": 167900,
+          "expToNext": 671600,
           "attrs": {
             "constitution": 5,
             "talent": 5
@@ -4497,7 +4497,7 @@
         },
         {
           "level": 9,
-          "expToNext": 188600,
+          "expToNext": 754400,
           "attrs": {
             "constitution": 5,
             "talent": 5,
@@ -4506,7 +4506,7 @@
         },
         {
           "level": 10,
-          "expToNext": 211600,
+          "expToNext": 846400,
           "attrs": {
             "constitution": 5,
             "talent": 5
@@ -4514,7 +4514,7 @@
         },
         {
           "level": 11,
-          "expToNext": 236900,
+          "expToNext": 947600,
           "attrs": {
             "constitution": 5,
             "talent": 5
@@ -4522,7 +4522,7 @@
         },
         {
           "level": 12,
-          "expToNext": 264500,
+          "expToNext": 1058000,
           "attrs": {
             "constitution": 5,
             "talent": 5
@@ -4530,7 +4530,7 @@
         },
         {
           "level": 13,
-          "expToNext": 296700,
+          "expToNext": 1186800,
           "attrs": {
             "constitution": 5,
             "talent": 5,
@@ -4675,7 +4675,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 34200,
+          "expToNext": 136800,
           "attrs": {
             "constitution": 2,
             "spirit": 2
@@ -4683,7 +4683,7 @@
         },
         {
           "level": 2,
-          "expToNext": 38000,
+          "expToNext": 152000,
           "attrs": {
             "constitution": 4,
             "spirit": 4,
@@ -4692,7 +4692,7 @@
         },
         {
           "level": 3,
-          "expToNext": 41800,
+          "expToNext": 167200,
           "attrs": {
             "constitution": 2,
             "spirit": 2
@@ -4700,7 +4700,7 @@
         },
         {
           "level": 4,
-          "expToNext": 45600,
+          "expToNext": 182400,
           "attrs": {
             "constitution": 2,
             "spirit": 2
@@ -4708,7 +4708,7 @@
         },
         {
           "level": 5,
-          "expToNext": 51300,
+          "expToNext": 205200,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -4717,7 +4717,7 @@
         },
         {
           "level": 6,
-          "expToNext": 57000,
+          "expToNext": 228000,
           "attrs": {
             "constitution": 2,
             "spirit": 2
@@ -4725,7 +4725,7 @@
         },
         {
           "level": 7,
-          "expToNext": 62700,
+          "expToNext": 250800,
           "attrs": {
             "constitution": 2,
             "spirit": 2
@@ -4733,7 +4733,7 @@
         },
         {
           "level": 8,
-          "expToNext": 70300,
+          "expToNext": 281200,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -4742,7 +4742,7 @@
         },
         {
           "level": 9,
-          "expToNext": 77900,
+          "expToNext": 311600,
           "attrs": {
             "constitution": 2,
             "spirit": 2
@@ -4750,7 +4750,7 @@
         },
         {
           "level": 10,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "constitution": 2,
             "spirit": 2
@@ -4758,7 +4758,7 @@
         },
         {
           "level": 11,
-          "expToNext": 98800,
+          "expToNext": 395200,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -5828,7 +5828,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 34200,
+          "expToNext": 136800,
           "attrs": {
             "spirit": 2,
             "talent": 2
@@ -5836,7 +5836,7 @@
         },
         {
           "level": 2,
-          "expToNext": 38000,
+          "expToNext": 152000,
           "attrs": {
             "spirit": 4,
             "talent": 4
@@ -5844,7 +5844,7 @@
         },
         {
           "level": 3,
-          "expToNext": 41800,
+          "expToNext": 167200,
           "attrs": {
             "spirit": 2,
             "talent": 2
@@ -5852,7 +5852,7 @@
         },
         {
           "level": 4,
-          "expToNext": 45600,
+          "expToNext": 182400,
           "attrs": {
             "spirit": 2,
             "talent": 2
@@ -5860,7 +5860,7 @@
         },
         {
           "level": 5,
-          "expToNext": 51300,
+          "expToNext": 205200,
           "attrs": {
             "spirit": 4,
             "talent": 4
@@ -5868,7 +5868,7 @@
         },
         {
           "level": 6,
-          "expToNext": 57000,
+          "expToNext": 228000,
           "attrs": {
             "spirit": 2,
             "talent": 2
@@ -5876,7 +5876,7 @@
         },
         {
           "level": 7,
-          "expToNext": 62700,
+          "expToNext": 250800,
           "attrs": {
             "spirit": 2,
             "talent": 2
@@ -5884,7 +5884,7 @@
         },
         {
           "level": 8,
-          "expToNext": 70300,
+          "expToNext": 281200,
           "attrs": {
             "spirit": 4,
             "talent": 4
@@ -5892,7 +5892,7 @@
         },
         {
           "level": 9,
-          "expToNext": 77900,
+          "expToNext": 311600,
           "attrs": {
             "spirit": 2,
             "talent": 2
@@ -5900,7 +5900,7 @@
         },
         {
           "level": 10,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "spirit": 2,
             "talent": 2
@@ -5908,7 +5908,7 @@
         },
         {
           "level": 11,
-          "expToNext": 98800,
+          "expToNext": 395200,
           "attrs": {
             "spirit": 3,
             "talent": 3
@@ -6689,7 +6689,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 151200,
+          "expToNext": 604800,
           "attrs": {
             "constitution": 10,
             "perception": 10,
@@ -6698,7 +6698,7 @@
         },
         {
           "level": 2,
-          "expToNext": 167400,
+          "expToNext": 669600,
           "attrs": {
             "constitution": 13,
             "perception": 13,
@@ -6707,7 +6707,7 @@
         },
         {
           "level": 3,
-          "expToNext": 186300,
+          "expToNext": 745200,
           "attrs": {
             "constitution": 10,
             "perception": 10,
@@ -6716,7 +6716,7 @@
         },
         {
           "level": 4,
-          "expToNext": 207900,
+          "expToNext": 831600,
           "attrs": {
             "constitution": 13,
             "perception": 10,
@@ -6725,7 +6725,7 @@
         },
         {
           "level": 5,
-          "expToNext": 232200,
+          "expToNext": 928800,
           "attrs": {
             "constitution": 10,
             "perception": 10,
@@ -6734,7 +6734,7 @@
         },
         {
           "level": 6,
-          "expToNext": 259200,
+          "expToNext": 1036800,
           "attrs": {
             "constitution": 13,
             "perception": 13,
@@ -6743,7 +6743,7 @@
         },
         {
           "level": 7,
-          "expToNext": 288900,
+          "expToNext": 1155600,
           "attrs": {
             "constitution": 10,
             "perception": 10,
@@ -6752,7 +6752,7 @@
         },
         {
           "level": 8,
-          "expToNext": 321300,
+          "expToNext": 1285200,
           "attrs": {
             "constitution": 10,
             "perception": 10,
@@ -6761,7 +6761,7 @@
         },
         {
           "level": 9,
-          "expToNext": 359100,
+          "expToNext": 1436400,
           "attrs": {
             "constitution": 13,
             "perception": 13,
@@ -6770,7 +6770,7 @@
         },
         {
           "level": 10,
-          "expToNext": 399600,
+          "expToNext": 1598400,
           "attrs": {
             "constitution": 10,
             "perception": 10,
@@ -6779,7 +6779,7 @@
         },
         {
           "level": 11,
-          "expToNext": 442800,
+          "expToNext": 1771200,
           "attrs": {
             "constitution": 13,
             "perception": 10,
@@ -6788,7 +6788,7 @@
         },
         {
           "level": 12,
-          "expToNext": 491400,
+          "expToNext": 1965600,
           "attrs": {
             "constitution": 10,
             "perception": 9,
@@ -6797,7 +6797,7 @@
         },
         {
           "level": 13,
-          "expToNext": 545400,
+          "expToNext": 2181600,
           "attrs": {
             "constitution": 13,
             "perception": 13,
@@ -6951,7 +6951,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 151200,
+          "expToNext": 604800,
           "attrs": {
             "talent": 9,
             "spirit": 9,
@@ -6960,7 +6960,7 @@
         },
         {
           "level": 2,
-          "expToNext": 167400,
+          "expToNext": 669600,
           "attrs": {
             "talent": 17,
             "spirit": 17
@@ -6968,7 +6968,7 @@
         },
         {
           "level": 3,
-          "expToNext": 186300,
+          "expToNext": 745200,
           "attrs": {
             "talent": 8,
             "spirit": 8,
@@ -6977,7 +6977,7 @@
         },
         {
           "level": 4,
-          "expToNext": 207900,
+          "expToNext": 831600,
           "attrs": {
             "talent": 8,
             "spirit": 8,
@@ -6986,7 +6986,7 @@
         },
         {
           "level": 5,
-          "expToNext": 232200,
+          "expToNext": 928800,
           "attrs": {
             "talent": 8,
             "spirit": 8,
@@ -6995,7 +6995,7 @@
         },
         {
           "level": 6,
-          "expToNext": 259200,
+          "expToNext": 1036800,
           "attrs": {
             "talent": 17,
             "spirit": 17
@@ -7003,7 +7003,7 @@
         },
         {
           "level": 7,
-          "expToNext": 288900,
+          "expToNext": 1155600,
           "attrs": {
             "talent": 8,
             "spirit": 8,
@@ -7012,7 +7012,7 @@
         },
         {
           "level": 8,
-          "expToNext": 321300,
+          "expToNext": 1285200,
           "attrs": {
             "talent": 8,
             "spirit": 8,
@@ -7021,7 +7021,7 @@
         },
         {
           "level": 9,
-          "expToNext": 359100,
+          "expToNext": 1436400,
           "attrs": {
             "talent": 17,
             "spirit": 17
@@ -7029,7 +7029,7 @@
         },
         {
           "level": 10,
-          "expToNext": 399600,
+          "expToNext": 1598400,
           "attrs": {
             "talent": 8,
             "spirit": 8,
@@ -7038,7 +7038,7 @@
         },
         {
           "level": 11,
-          "expToNext": 442800,
+          "expToNext": 1771200,
           "attrs": {
             "talent": 8,
             "spirit": 8,
@@ -7047,7 +7047,7 @@
         },
         {
           "level": 12,
-          "expToNext": 491400,
+          "expToNext": 1965600,
           "attrs": {
             "talent": 8,
             "spirit": 8,
@@ -7056,7 +7056,7 @@
         },
         {
           "level": 13,
-          "expToNext": 545400,
+          "expToNext": 2181600,
           "attrs": {
             "talent": 17,
             "spirit": 17
@@ -7151,14 +7151,14 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 100800,
+          "expToNext": 403200,
           "attrs": {
             "spirit": 2
           }
         },
         {
           "level": 2,
-          "expToNext": 110400,
+          "expToNext": 441600,
           "attrs": {
             "spirit": 2,
             "talent": 1
@@ -7166,14 +7166,14 @@
         },
         {
           "level": 3,
-          "expToNext": 120000,
+          "expToNext": 480000,
           "attrs": {
             "spirit": 2
           }
         },
         {
           "level": 4,
-          "expToNext": 132000,
+          "expToNext": 528000,
           "attrs": {
             "spirit": 2,
             "talent": 1
@@ -7181,14 +7181,14 @@
         },
         {
           "level": 5,
-          "expToNext": 144000,
+          "expToNext": 576000,
           "attrs": {
             "spirit": 2
           }
         },
         {
           "level": 6,
-          "expToNext": 158400,
+          "expToNext": 633600,
           "attrs": {
             "spirit": 2,
             "talent": 1
@@ -7196,14 +7196,14 @@
         },
         {
           "level": 7,
-          "expToNext": 175200,
+          "expToNext": 700800,
           "attrs": {
             "spirit": 2
           }
         },
         {
           "level": 8,
-          "expToNext": 194400,
+          "expToNext": 777600,
           "attrs": {
             "spirit": 2,
             "talent": 1
@@ -7211,7 +7211,7 @@
         },
         {
           "level": 9,
-          "expToNext": 216000,
+          "expToNext": 864000,
           "attrs": {
             "spirit": 2
           }
@@ -7429,7 +7429,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 151200,
+          "expToNext": 604800,
           "attrs": {
             "spirit": 12,
             "perception": 12
@@ -7437,7 +7437,7 @@
         },
         {
           "level": 2,
-          "expToNext": 167400,
+          "expToNext": 669600,
           "attrs": {
             "spirit": 15,
             "perception": 15,
@@ -7446,7 +7446,7 @@
         },
         {
           "level": 3,
-          "expToNext": 186300,
+          "expToNext": 745200,
           "attrs": {
             "spirit": 12,
             "perception": 11
@@ -7454,7 +7454,7 @@
         },
         {
           "level": 4,
-          "expToNext": 207900,
+          "expToNext": 831600,
           "attrs": {
             "spirit": 8,
             "perception": 8,
@@ -7463,7 +7463,7 @@
         },
         {
           "level": 5,
-          "expToNext": 232200,
+          "expToNext": 928800,
           "attrs": {
             "spirit": 11,
             "perception": 11
@@ -7471,7 +7471,7 @@
         },
         {
           "level": 6,
-          "expToNext": 259200,
+          "expToNext": 1036800,
           "attrs": {
             "spirit": 15,
             "perception": 15,
@@ -7480,7 +7480,7 @@
         },
         {
           "level": 7,
-          "expToNext": 288900,
+          "expToNext": 1155600,
           "attrs": {
             "spirit": 11,
             "perception": 11
@@ -7488,7 +7488,7 @@
         },
         {
           "level": 8,
-          "expToNext": 321300,
+          "expToNext": 1285200,
           "attrs": {
             "spirit": 11,
             "perception": 11
@@ -7496,7 +7496,7 @@
         },
         {
           "level": 9,
-          "expToNext": 359100,
+          "expToNext": 1436400,
           "attrs": {
             "spirit": 15,
             "perception": 15,
@@ -7505,7 +7505,7 @@
         },
         {
           "level": 10,
-          "expToNext": 399600,
+          "expToNext": 1598400,
           "attrs": {
             "spirit": 11,
             "perception": 11
@@ -7513,7 +7513,7 @@
         },
         {
           "level": 11,
-          "expToNext": 442800,
+          "expToNext": 1771200,
           "attrs": {
             "spirit": 8,
             "perception": 8,
@@ -7522,7 +7522,7 @@
         },
         {
           "level": 12,
-          "expToNext": 491400,
+          "expToNext": 1965600,
           "attrs": {
             "spirit": 11,
             "perception": 11
@@ -7530,7 +7530,7 @@
         },
         {
           "level": 13,
-          "expToNext": 545400,
+          "expToNext": 2181600,
           "attrs": {
             "spirit": 15,
             "perception": 15,
@@ -7881,7 +7881,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 34200,
+          "expToNext": 136800,
           "attrs": {
             "talent": 2,
             "spirit": 2
@@ -7889,7 +7889,7 @@
         },
         {
           "level": 2,
-          "expToNext": 38000,
+          "expToNext": 152000,
           "attrs": {
             "talent": 4,
             "spirit": 4
@@ -7897,7 +7897,7 @@
         },
         {
           "level": 3,
-          "expToNext": 41800,
+          "expToNext": 167200,
           "attrs": {
             "talent": 2,
             "spirit": 2
@@ -7905,7 +7905,7 @@
         },
         {
           "level": 4,
-          "expToNext": 45600,
+          "expToNext": 182400,
           "attrs": {
             "spirit": 2,
             "talent": 2
@@ -7913,7 +7913,7 @@
         },
         {
           "level": 5,
-          "expToNext": 51300,
+          "expToNext": 205200,
           "attrs": {
             "talent": 4,
             "spirit": 4
@@ -7921,7 +7921,7 @@
         },
         {
           "level": 6,
-          "expToNext": 57000,
+          "expToNext": 228000,
           "attrs": {
             "talent": 2,
             "spirit": 2
@@ -7929,7 +7929,7 @@
         },
         {
           "level": 7,
-          "expToNext": 62700,
+          "expToNext": 250800,
           "attrs": {
             "talent": 2,
             "spirit": 2
@@ -7937,7 +7937,7 @@
         },
         {
           "level": 8,
-          "expToNext": 70300,
+          "expToNext": 281200,
           "attrs": {
             "talent": 4,
             "spirit": 4
@@ -7945,7 +7945,7 @@
         },
         {
           "level": 9,
-          "expToNext": 77900,
+          "expToNext": 311600,
           "attrs": {
             "talent": 2,
             "spirit": 2
@@ -7953,7 +7953,7 @@
         },
         {
           "level": 10,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "spirit": 2,
             "talent": 2
@@ -7961,7 +7961,7 @@
         },
         {
           "level": 11,
-          "expToNext": 98800,
+          "expToNext": 395200,
           "attrs": {
             "talent": 3,
             "spirit": 3
@@ -8122,7 +8122,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 78200,
+          "expToNext": 312800,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -8130,7 +8130,7 @@
         },
         {
           "level": 2,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "spirit": 5,
             "talent": 5,
@@ -8139,7 +8139,7 @@
         },
         {
           "level": 3,
-          "expToNext": 96600,
+          "expToNext": 386400,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -8147,7 +8147,7 @@
         },
         {
           "level": 4,
-          "expToNext": 108100,
+          "expToNext": 432400,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -8155,7 +8155,7 @@
         },
         {
           "level": 5,
-          "expToNext": 119600,
+          "expToNext": 478400,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -8163,7 +8163,7 @@
         },
         {
           "level": 6,
-          "expToNext": 133400,
+          "expToNext": 533600,
           "attrs": {
             "spirit": 5,
             "talent": 5,
@@ -8172,7 +8172,7 @@
         },
         {
           "level": 7,
-          "expToNext": 149500,
+          "expToNext": 598000,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -8180,7 +8180,7 @@
         },
         {
           "level": 8,
-          "expToNext": 167900,
+          "expToNext": 671600,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -8188,7 +8188,7 @@
         },
         {
           "level": 9,
-          "expToNext": 188600,
+          "expToNext": 754400,
           "attrs": {
             "spirit": 5,
             "talent": 5,
@@ -8197,7 +8197,7 @@
         },
         {
           "level": 10,
-          "expToNext": 211600,
+          "expToNext": 846400,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -8205,7 +8205,7 @@
         },
         {
           "level": 11,
-          "expToNext": 236900,
+          "expToNext": 947600,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -8213,7 +8213,7 @@
         },
         {
           "level": 12,
-          "expToNext": 264500,
+          "expToNext": 1058000,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -8221,7 +8221,7 @@
         },
         {
           "level": 13,
-          "expToNext": 296700,
+          "expToNext": 1186800,
           "attrs": {
             "spirit": 5,
             "talent": 5,
@@ -8394,7 +8394,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 78200,
+          "expToNext": 312800,
           "attrs": {
             "constitution": 4,
             "spirit": 4,
@@ -8403,7 +8403,7 @@
         },
         {
           "level": 2,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "constitution": 4,
             "spirit": 4,
@@ -8412,7 +8412,7 @@
         },
         {
           "level": 3,
-          "expToNext": 96600,
+          "expToNext": 386400,
           "attrs": {
             "constitution": 4,
             "spirit": 4,
@@ -8421,7 +8421,7 @@
         },
         {
           "level": 4,
-          "expToNext": 108100,
+          "expToNext": 432400,
           "attrs": {
             "constitution": 4,
             "spirit": 4,
@@ -8430,7 +8430,7 @@
         },
         {
           "level": 5,
-          "expToNext": 119600,
+          "expToNext": 478400,
           "attrs": {
             "constitution": 4,
             "spirit": 4,
@@ -8439,7 +8439,7 @@
         },
         {
           "level": 6,
-          "expToNext": 133400,
+          "expToNext": 533600,
           "attrs": {
             "constitution": 4,
             "spirit": 4,
@@ -8448,7 +8448,7 @@
         },
         {
           "level": 7,
-          "expToNext": 149500,
+          "expToNext": 598000,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -8457,7 +8457,7 @@
         },
         {
           "level": 8,
-          "expToNext": 167900,
+          "expToNext": 671600,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -8466,7 +8466,7 @@
         },
         {
           "level": 9,
-          "expToNext": 188600,
+          "expToNext": 754400,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -8475,7 +8475,7 @@
         },
         {
           "level": 10,
-          "expToNext": 211600,
+          "expToNext": 846400,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -8484,7 +8484,7 @@
         },
         {
           "level": 11,
-          "expToNext": 236900,
+          "expToNext": 947600,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -8493,7 +8493,7 @@
         },
         {
           "level": 12,
-          "expToNext": 264500,
+          "expToNext": 1058000,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -8502,7 +8502,7 @@
         },
         {
           "level": 13,
-          "expToNext": 296700,
+          "expToNext": 1186800,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -8665,7 +8665,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 78200,
+          "expToNext": 312800,
           "attrs": {
             "spirit": 5,
             "perception": 5
@@ -8673,7 +8673,7 @@
         },
         {
           "level": 2,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "spirit": 5,
             "perception": 5,
@@ -8682,7 +8682,7 @@
         },
         {
           "level": 3,
-          "expToNext": 96600,
+          "expToNext": 386400,
           "attrs": {
             "spirit": 5,
             "perception": 5
@@ -8690,7 +8690,7 @@
         },
         {
           "level": 4,
-          "expToNext": 108100,
+          "expToNext": 432400,
           "attrs": {
             "spirit": 5,
             "perception": 5
@@ -8698,7 +8698,7 @@
         },
         {
           "level": 5,
-          "expToNext": 119600,
+          "expToNext": 478400,
           "attrs": {
             "spirit": 5,
             "perception": 5
@@ -8706,7 +8706,7 @@
         },
         {
           "level": 6,
-          "expToNext": 133400,
+          "expToNext": 533600,
           "attrs": {
             "spirit": 5,
             "perception": 5,
@@ -8715,7 +8715,7 @@
         },
         {
           "level": 7,
-          "expToNext": 149500,
+          "expToNext": 598000,
           "attrs": {
             "spirit": 5,
             "perception": 5
@@ -8723,7 +8723,7 @@
         },
         {
           "level": 8,
-          "expToNext": 167900,
+          "expToNext": 671600,
           "attrs": {
             "spirit": 5,
             "perception": 5
@@ -8731,7 +8731,7 @@
         },
         {
           "level": 9,
-          "expToNext": 188600,
+          "expToNext": 754400,
           "attrs": {
             "spirit": 5,
             "perception": 5,
@@ -8740,7 +8740,7 @@
         },
         {
           "level": 10,
-          "expToNext": 211600,
+          "expToNext": 846400,
           "attrs": {
             "spirit": 5,
             "perception": 5
@@ -8748,7 +8748,7 @@
         },
         {
           "level": 11,
-          "expToNext": 236900,
+          "expToNext": 947600,
           "attrs": {
             "spirit": 5,
             "perception": 5
@@ -8756,7 +8756,7 @@
         },
         {
           "level": 12,
-          "expToNext": 264500,
+          "expToNext": 1058000,
           "attrs": {
             "spirit": 5,
             "perception": 5
@@ -8764,7 +8764,7 @@
         },
         {
           "level": 13,
-          "expToNext": 296700,
+          "expToNext": 1186800,
           "attrs": {
             "spirit": 5,
             "perception": 5,
@@ -10271,7 +10271,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 151200,
+          "expToNext": 604800,
           "attrs": {
             "spirit": 12,
             "talent": 12
@@ -10279,7 +10279,7 @@
         },
         {
           "level": 2,
-          "expToNext": 167400,
+          "expToNext": 669600,
           "attrs": {
             "spirit": 12,
             "talent": 12,
@@ -10288,7 +10288,7 @@
         },
         {
           "level": 3,
-          "expToNext": 186300,
+          "expToNext": 745200,
           "attrs": {
             "spirit": 12,
             "talent": 12
@@ -10296,7 +10296,7 @@
         },
         {
           "level": 4,
-          "expToNext": 207900,
+          "expToNext": 831600,
           "attrs": {
             "spirit": 12,
             "talent": 12,
@@ -10305,7 +10305,7 @@
         },
         {
           "level": 5,
-          "expToNext": 232200,
+          "expToNext": 928800,
           "attrs": {
             "spirit": 12,
             "talent": 12
@@ -10313,7 +10313,7 @@
         },
         {
           "level": 6,
-          "expToNext": 259200,
+          "expToNext": 1036800,
           "attrs": {
             "spirit": 12,
             "talent": 12,
@@ -10322,7 +10322,7 @@
         },
         {
           "level": 7,
-          "expToNext": 288900,
+          "expToNext": 1155600,
           "attrs": {
             "spirit": 12,
             "talent": 12
@@ -10330,7 +10330,7 @@
         },
         {
           "level": 8,
-          "expToNext": 321300,
+          "expToNext": 1285200,
           "attrs": {
             "spirit": 12,
             "talent": 12
@@ -10338,7 +10338,7 @@
         },
         {
           "level": 9,
-          "expToNext": 359100,
+          "expToNext": 1436400,
           "attrs": {
             "spirit": 12,
             "talent": 12,
@@ -10347,7 +10347,7 @@
         },
         {
           "level": 10,
-          "expToNext": 399600,
+          "expToNext": 1598400,
           "attrs": {
             "spirit": 12,
             "talent": 12
@@ -10355,7 +10355,7 @@
         },
         {
           "level": 11,
-          "expToNext": 442800,
+          "expToNext": 1771200,
           "attrs": {
             "spirit": 12,
             "talent": 12,
@@ -10364,7 +10364,7 @@
         },
         {
           "level": 12,
-          "expToNext": 491400,
+          "expToNext": 1965600,
           "attrs": {
             "spirit": 12,
             "talent": 11
@@ -10372,7 +10372,7 @@
         },
         {
           "level": 13,
-          "expToNext": 545400,
+          "expToNext": 2181600,
           "attrs": {
             "spirit": 11,
             "talent": 11,
@@ -11354,7 +11354,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 78200,
+          "expToNext": 312800,
           "attrs": {
             "spirit": 6,
             "talent": 6
@@ -11362,7 +11362,7 @@
         },
         {
           "level": 2,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "spirit": 6,
             "talent": 6
@@ -11370,7 +11370,7 @@
         },
         {
           "level": 3,
-          "expToNext": 96600,
+          "expToNext": 386400,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -11378,7 +11378,7 @@
         },
         {
           "level": 4,
-          "expToNext": 108100,
+          "expToNext": 432400,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -11386,7 +11386,7 @@
         },
         {
           "level": 5,
-          "expToNext": 119600,
+          "expToNext": 478400,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -11394,7 +11394,7 @@
         },
         {
           "level": 6,
-          "expToNext": 133400,
+          "expToNext": 533600,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -11402,7 +11402,7 @@
         },
         {
           "level": 7,
-          "expToNext": 149500,
+          "expToNext": 598000,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -11410,7 +11410,7 @@
         },
         {
           "level": 8,
-          "expToNext": 167900,
+          "expToNext": 671600,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -11418,7 +11418,7 @@
         },
         {
           "level": 9,
-          "expToNext": 188600,
+          "expToNext": 754400,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -11426,7 +11426,7 @@
         },
         {
           "level": 10,
-          "expToNext": 211600,
+          "expToNext": 846400,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -11434,7 +11434,7 @@
         },
         {
           "level": 11,
-          "expToNext": 236900,
+          "expToNext": 947600,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -11442,7 +11442,7 @@
         },
         {
           "level": 12,
-          "expToNext": 264500,
+          "expToNext": 1058000,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -11450,7 +11450,7 @@
         },
         {
           "level": 13,
-          "expToNext": 296700,
+          "expToNext": 1186800,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -11639,7 +11639,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 151200,
+          "expToNext": 604800,
           "attrs": {
             "constitution": 10,
             "spirit": 10,
@@ -11648,7 +11648,7 @@
         },
         {
           "level": 2,
-          "expToNext": 167400,
+          "expToNext": 669600,
           "attrs": {
             "constitution": 14,
             "spirit": 14
@@ -11656,7 +11656,7 @@
         },
         {
           "level": 3,
-          "expToNext": 186300,
+          "expToNext": 745200,
           "attrs": {
             "constitution": 10,
             "spirit": 10,
@@ -11665,7 +11665,7 @@
         },
         {
           "level": 4,
-          "expToNext": 207900,
+          "expToNext": 831600,
           "attrs": {
             "constitution": 10,
             "spirit": 10,
@@ -11674,7 +11674,7 @@
         },
         {
           "level": 5,
-          "expToNext": 232200,
+          "expToNext": 928800,
           "attrs": {
             "constitution": 10,
             "spirit": 10,
@@ -11683,7 +11683,7 @@
         },
         {
           "level": 6,
-          "expToNext": 259200,
+          "expToNext": 1036800,
           "attrs": {
             "constitution": 14,
             "spirit": 14
@@ -11691,7 +11691,7 @@
         },
         {
           "level": 7,
-          "expToNext": 288900,
+          "expToNext": 1155600,
           "attrs": {
             "constitution": 10,
             "spirit": 10,
@@ -11700,7 +11700,7 @@
         },
         {
           "level": 8,
-          "expToNext": 321300,
+          "expToNext": 1285200,
           "attrs": {
             "constitution": 10,
             "spirit": 10,
@@ -11709,7 +11709,7 @@
         },
         {
           "level": 9,
-          "expToNext": 359100,
+          "expToNext": 1436400,
           "attrs": {
             "constitution": 14,
             "spirit": 13
@@ -11717,7 +11717,7 @@
         },
         {
           "level": 10,
-          "expToNext": 399600,
+          "expToNext": 1598400,
           "attrs": {
             "constitution": 10,
             "spirit": 10,
@@ -11726,7 +11726,7 @@
         },
         {
           "level": 11,
-          "expToNext": 442800,
+          "expToNext": 1771200,
           "attrs": {
             "constitution": 10,
             "spirit": 10,
@@ -11735,7 +11735,7 @@
         },
         {
           "level": 12,
-          "expToNext": 491400,
+          "expToNext": 1965600,
           "attrs": {
             "constitution": 10,
             "spirit": 10,
@@ -11744,7 +11744,7 @@
         },
         {
           "level": 13,
-          "expToNext": 545400,
+          "expToNext": 2181600,
           "attrs": {
             "constitution": 13,
             "spirit": 13

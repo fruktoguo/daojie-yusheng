@@ -8,7 +8,7 @@
     "layers": [
       {
         "level": 1,
-        "expFactor": 56,
+        "expFactor": 224,
         "attrs": {
           "talent": 9,
           "spirit": 9,
@@ -17,7 +17,7 @@
       },
       {
         "level": 2,
-        "expFactor": 62,
+        "expFactor": 248,
         "attrs": {
           "talent": 17,
           "spirit": 17
@@ -25,7 +25,7 @@
       },
       {
         "level": 3,
-        "expFactor": 69,
+        "expFactor": 276,
         "attrs": {
           "talent": 8,
           "spirit": 8,
@@ -34,7 +34,7 @@
       },
       {
         "level": 4,
-        "expFactor": 77,
+        "expFactor": 308,
         "attrs": {
           "talent": 8,
           "spirit": 8,
@@ -43,7 +43,7 @@
       },
       {
         "level": 5,
-        "expFactor": 86,
+        "expFactor": 344,
         "attrs": {
           "talent": 8,
           "spirit": 8,
@@ -52,7 +52,7 @@
       },
       {
         "level": 6,
-        "expFactor": 96,
+        "expFactor": 384,
         "attrs": {
           "talent": 17,
           "spirit": 17
@@ -60,7 +60,7 @@
       },
       {
         "level": 7,
-        "expFactor": 107,
+        "expFactor": 428,
         "attrs": {
           "talent": 8,
           "spirit": 8,
@@ -69,7 +69,7 @@
       },
       {
         "level": 8,
-        "expFactor": 119,
+        "expFactor": 476,
         "attrs": {
           "talent": 8,
           "spirit": 8,
@@ -78,7 +78,7 @@
       },
       {
         "level": 9,
-        "expFactor": 133,
+        "expFactor": 532,
         "attrs": {
           "talent": 17,
           "spirit": 17
@@ -86,7 +86,7 @@
       },
       {
         "level": 10,
-        "expFactor": 148,
+        "expFactor": 592,
         "attrs": {
           "talent": 8,
           "spirit": 8,
@@ -95,7 +95,7 @@
       },
       {
         "level": 11,
-        "expFactor": 164,
+        "expFactor": 656,
         "attrs": {
           "talent": 8,
           "spirit": 8,
@@ -104,7 +104,7 @@
       },
       {
         "level": 12,
-        "expFactor": 182,
+        "expFactor": 728,
         "attrs": {
           "talent": 8,
           "spirit": 8,
@@ -113,7 +113,7 @@
       },
       {
         "level": 13,
-        "expFactor": 202,
+        "expFactor": 808,
         "attrs": {
           "talent": 17,
           "spirit": 17
