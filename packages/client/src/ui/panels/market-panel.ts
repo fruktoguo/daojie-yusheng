@@ -72,6 +72,8 @@ interface MarketTradeDialogState {
   kind: MarketTradeDialogKind;
   quantity: number;
   unitPrice: number;
+  confirmPurchase: boolean;
+  confirming: boolean;
 }
 
 const MARKET_DESKTOP_PAGE_SIZE = 32;
@@ -460,7 +462,8 @@ export class MarketPanel {
             return;
           }
           const presetPrice = this.readDatasetInt(button.dataset.marketOpenDialogPrice);
-          this.openTradeDialog(selected, kind, presetPrice);
+          const confirmPurchase = button.dataset.marketOpenDialogConfirmPurchase === 'true';
+          this.openTradeDialog(selected, kind, presetPrice, confirmPurchase);
         }));
 
         body.querySelectorAll<HTMLElement>('[data-market-cancel-order]').forEach((button) => button.addEventListener('click', () => {
@@ -569,13 +572,14 @@ export class MarketPanel {
         <div class="market-book-column">
           <div class="market-book-column-head">
             <div class="market-book-column-title">挂售</div>
-            <button class="small-btn ghost" data-market-open-dialog="sell" type="button" ${(matchedInventoryCount > 0 && !sellConflict) ? '' : 'disabled'}>挂售</button>
+            <button class="small-btn ghost" data-market-open-dialog="sell" data-market-open-dialog-confirm-purchase="false" type="button" ${(matchedInventoryCount > 0 && !sellConflict) ? '' : 'disabled'}>挂售</button>
           </div>
           ${sellConflict ? '<div class="market-action-hint">你已在求购这件物品，不能再挂售。</div>' : ''}
           ${book
             ? this.renderPriceLevels(book.sells, currencyName, '当前还没有卖盘。', {
               kind: 'buy',
               label: '购买',
+              confirmPurchase: true,
               disabled: Boolean(buyConflict),
             })
             : this.renderBookLoading(this.itemBookLoading ? '卖盘同步中……' : '当前盘面已更新，请重新选择物品。')}
@@ -583,7 +587,7 @@ export class MarketPanel {
         <div class="market-book-column">
           <div class="market-book-column-head">
             <div class="market-book-column-title">求购</div>
-            <button class="small-btn ghost" data-market-open-dialog="buy" type="button" ${buyConflict ? 'disabled' : ''}>求购</button>
+            <button class="small-btn ghost" data-market-open-dialog="buy" data-market-open-dialog-confirm-purchase="false" type="button" ${buyConflict ? 'disabled' : ''}>求购</button>
           </div>
           ${buyConflict ? '<div class="market-action-hint">你已在挂售这件物品，不能再求购。</div>' : ''}
           ${book ? this.renderPriceLevels(book.buys, currencyName, '当前还没有求购。', {
@@ -603,6 +607,7 @@ export class MarketPanel {
     quickAction?: {
       kind: MarketTradeDialogKind;
       label: string;
+      confirmPurchase?: boolean;
       disabled?: boolean;
     },
   ): string {
@@ -620,6 +625,7 @@ export class MarketPanel {
               class="small-btn ghost market-book-level-action"
               data-market-open-dialog="${quickAction.kind}"
               data-market-open-dialog-price="${level.unitPrice}"
+              data-market-open-dialog-confirm-purchase="${quickAction.confirmPurchase ? 'true' : 'false'}"
               type="button"
               ${quickAction.disabled ? 'disabled' : ''}
             >${quickAction.label}</button>`
@@ -742,6 +748,9 @@ export class MarketPanel {
       return '';
     }
     const dialog = this.tradeDialog;
+    if (dialog.kind === 'buy' && dialog.confirming) {
+      return this.renderBuyConfirmDialog(entry, currencyName);
+    }
     const matchedInventoryCount = this.findMatchingInventoryCount(entry.item);
     const matchedSlotIndex = this.findMatchingInventorySlot(entry.item);
     const isBuy = dialog.kind === 'buy';
@@ -1049,13 +1058,111 @@ export class MarketPanel {
     this.callbacks?.onRequestTradeHistory(this.tradeHistoryPage);
   }
 
-  private openTradeDialog(entry: MarketListedItemView, kind: MarketTradeDialogKind, preferredPrice?: number | null): void {
+  private openTradeDialog(
+    entry: MarketListedItemView,
+    kind: MarketTradeDialogKind,
+    preferredPrice?: number | null,
+    confirmPurchase = false,
+  ): void {
     this.tradeDialog = {
       kind,
       quantity: 1,
       unitPrice: this.getDefaultTradeDialogPrice(entry, kind, preferredPrice),
+      confirmPurchase: kind === 'buy' && confirmPurchase,
+      confirming: false,
     };
     this.syncTradeDialogOverlay();
+  }
+
+  private renderBuyConfirmDialog(entry: MarketListedItemView, currencyName: string): string {
+    if (!this.tradeDialog || this.tradeDialog.kind !== 'buy') {
+      return '';
+    }
+    const estimate = this.estimateImmediateBuy(entry, this.tradeDialog.quantity, this.tradeDialog.unitPrice);
+    const maxReservedCost = this.tradeDialog.quantity * this.tradeDialog.unitPrice;
+    const summary = estimate.immediateQuantity > 0
+      ? estimate.pendingQuantity > 0
+        ? `预计先按当前卖盘成交 ${formatDisplayInteger(estimate.immediateQuantity)} 件，剩余 ${formatDisplayInteger(estimate.pendingQuantity)} 件会继续挂为求购单。`
+        : `预计会按当前卖盘直接成交 ${formatDisplayInteger(estimate.immediateQuantity)} 件。`
+      : '当前无法保证立刻成交，确认后会按当前单价挂出求购单。';
+    return `
+      <div class="market-trade-modal-shell">
+        <div class="market-trade-modal-backdrop" data-market-close-dialog></div>
+        <div class="market-trade-dialog market-trade-dialog--buy" role="dialog" aria-modal="true">
+          <div class="market-trade-dialog-head">
+            <div class="market-trade-dialog-title">
+              <div class="panel-section-title">确认购买</div>
+              <div class="market-trade-dialog-item market-trade-dialog-item--interactive" data-market-item-tooltip="selected">${escapeHtml(entry.item.name)}</div>
+            </div>
+            <button class="small-btn ghost" data-market-close-dialog type="button">关闭</button>
+          </div>
+          <div class="market-trade-dialog-body">
+            <div class="market-trade-dialog-section">
+              <div class="market-trade-dialog-field">
+                <span>购买数量</span>
+                <div class="market-price-display">
+                  <strong>${formatDisplayInteger(this.tradeDialog.quantity)}</strong>
+                  <span>单价 ${formatDisplayInteger(this.tradeDialog.unitPrice)} ${escapeHtml(currencyName)}</span>
+                </div>
+              </div>
+              <div class="market-trade-dialog-total">
+                <span>最高占用</span>
+                <strong>${formatDisplayInteger(maxReservedCost)} ${escapeHtml(currencyName)}</strong>
+              </div>
+            </div>
+            <div class="market-trade-dialog-section">
+              <div class="market-trade-dialog-field">
+                <span>撮合预估</span>
+                <div class="market-price-display">
+                  <strong>${formatDisplayInteger(estimate.immediateQuantity)}</strong>
+                  <span>预计立即成交</span>
+                </div>
+              </div>
+              <div class="market-trade-dialog-total ${estimate.pendingQuantity > 0 ? '' : 'hidden'}">
+                <span>剩余挂单</span>
+                <strong>${formatDisplayInteger(estimate.pendingQuantity)} 件</strong>
+              </div>
+            </div>
+            <div class="market-action-hint">${escapeHtml(summary)}</div>
+            <div class="market-action-hint ${estimate.immediateQuantity > 0 ? '' : 'hidden'}">若卖盘成交价低于你的出价，差额会按现有撮合规则退回。</div>
+          </div>
+          <div class="market-trade-dialog-actions">
+            <button class="small-btn ghost" data-market-confirm-back type="button">返回修改</button>
+            <button class="small-btn" data-market-confirm-buy type="button">确认购买</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private estimateImmediateBuy(entry: MarketListedItemView, quantity: number, unitPrice: number): {
+    immediateQuantity: number;
+    pendingQuantity: number;
+  } {
+    const book = this.itemBook;
+    if (!book || book.itemId !== entry.item.itemId) {
+      return {
+        immediateQuantity: 0,
+        pendingQuantity: quantity,
+      };
+    }
+    let remaining = quantity;
+    let immediateQuantity = 0;
+    for (const level of book.sells) {
+      if (remaining <= 0 || level.unitPrice > unitPrice) {
+        break;
+      }
+      const matched = Math.min(remaining, level.quantity);
+      if (matched <= 0) {
+        continue;
+      }
+      immediateQuantity += matched;
+      remaining -= matched;
+    }
+    return {
+      immediateQuantity,
+      pendingQuantity: Math.max(0, remaining),
+    };
   }
 
   private syncTradeDialogOverlay(): void {
@@ -1094,6 +1201,7 @@ export class MarketPanel {
         this.tradeDialog = {
           ...this.tradeDialog,
           quantity: this.normalizeTradeDialogQuantity(input.value, selected, this.tradeDialog.kind),
+          confirming: false,
         };
       });
 
@@ -1104,6 +1212,7 @@ export class MarketPanel {
         this.tradeDialog = {
           ...this.tradeDialog,
           quantity: this.normalizeTradeDialogQuantity(input.value, selected, this.tradeDialog.kind),
+          confirming: false,
         };
         this.syncTradeDialogOverlay();
       });
@@ -1121,6 +1230,7 @@ export class MarketPanel {
       this.tradeDialog = {
         ...this.tradeDialog,
         unitPrice: this.getNextTradeDialogPrice(this.tradeDialog.unitPrice, action, preset),
+        confirming: false,
       };
       this.syncTradeDialogOverlay();
     }));
@@ -1136,6 +1246,7 @@ export class MarketPanel {
       this.tradeDialog = {
         ...this.tradeDialog,
         quantity: Math.max(1, quantity),
+        confirming: false,
       };
       this.syncTradeDialogOverlay();
     }));
@@ -1148,6 +1259,16 @@ export class MarketPanel {
       const quantity = this.normalizeTradeDialogQuantity(this.tradeDialog.quantity, selected, kind);
       const unitPrice = this.normalizeTradeDialogPrice(this.tradeDialog.unitPrice, kind === 'buy' ? 'up' : 'down');
       if (kind === 'buy') {
+        if (this.tradeDialog.confirmPurchase) {
+          this.tradeDialog = {
+            ...this.tradeDialog,
+            quantity,
+            unitPrice,
+            confirming: true,
+          };
+          this.syncTradeDialogOverlay();
+          return;
+        }
         this.callbacks?.onCreateBuyOrder(selected.item.itemId, quantity, unitPrice);
         this.tradeDialog = null;
         this.syncTradeDialogOverlay();
@@ -1161,6 +1282,26 @@ export class MarketPanel {
       this.tradeDialog = null;
       this.syncTradeDialogOverlay();
     }));
+
+    root.querySelector<HTMLElement>('[data-market-confirm-back]')?.addEventListener('click', () => {
+      if (!this.tradeDialog || this.tradeDialog.kind !== 'buy') {
+        return;
+      }
+      this.tradeDialog = {
+        ...this.tradeDialog,
+        confirming: false,
+      };
+      this.syncTradeDialogOverlay();
+    });
+
+    root.querySelector<HTMLElement>('[data-market-confirm-buy]')?.addEventListener('click', () => {
+      if (!this.tradeDialog || this.tradeDialog.kind !== 'buy') {
+        return;
+      }
+      this.callbacks?.onCreateBuyOrder(selected.item.itemId, this.tradeDialog.quantity, this.tradeDialog.unitPrice);
+      this.tradeDialog = null;
+      this.syncTradeDialogOverlay();
+    });
   }
 
   private getTradeDialogOverlayRoot(): HTMLElement {

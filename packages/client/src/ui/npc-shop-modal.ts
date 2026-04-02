@@ -47,6 +47,20 @@ interface NpcShopResponseState {
   error?: string;
 }
 
+interface NpcShopPurchaseState {
+  quantity: number | null;
+  affordableCount: number;
+  maxPurchasable: number;
+  totalCost: number | null;
+  displayTotal: string;
+  invalidTotal: boolean;
+  insufficientCurrency: boolean;
+  soldOut: boolean;
+  stockExceeded: boolean;
+  purchaseDisabled: boolean;
+  errorText: string | null;
+}
+
 export class NpcShopModal {
   private static readonly MODAL_OWNER = 'npc-shop-modal';
   private callbacks: NpcShopModalCallbacks | null = null;
@@ -55,6 +69,7 @@ export class NpcShopModal {
   private loading = false;
   private shopState: NpcShopResponseState | null = null;
   private selectedItemId: string | null = null;
+  private confirmPurchaseItemId: string | null = null;
   private quantityDrafts = new Map<string, string>();
   private tooltip = new FloatingTooltip('floating-tooltip market-item-tooltip');
   private tooltipNode: HTMLElement | null = null;
@@ -83,6 +98,7 @@ export class NpcShopModal {
     if (this.shopState?.npcId !== npcId) {
       this.shopState = null;
       this.selectedItemId = null;
+      this.confirmPurchaseItemId = null;
       this.quantityDrafts.clear();
     }
     this.render();
@@ -98,6 +114,9 @@ export class NpcShopModal {
     const validItemIds = new Set(data.shop?.items.map((item) => item.itemId) ?? []);
     if (!this.selectedItemId || !validItemIds.has(this.selectedItemId)) {
       this.selectedItemId = data.shop?.items[0]?.itemId ?? null;
+    }
+    if (this.confirmPurchaseItemId && !validItemIds.has(this.confirmPurchaseItemId)) {
+      this.confirmPurchaseItemId = null;
     }
     for (const itemId of [...this.quantityDrafts.keys()]) {
       if (!validItemIds.has(itemId)) {
@@ -115,6 +134,7 @@ export class NpcShopModal {
     this.loading = false;
     this.shopState = null;
     this.selectedItemId = null;
+    this.confirmPurchaseItemId = null;
     this.quantityDrafts.clear();
     this.tooltipNode = null;
     this.tooltip.hide(true);
@@ -133,10 +153,35 @@ export class NpcShopModal {
       onClose: () => {
         this.activeNpcId = null;
         this.loading = false;
+        this.confirmPurchaseItemId = null;
         this.tooltipNode = null;
         this.tooltip.hide(true);
       },
       onAfterRender: (body) => {
+        body.querySelector<HTMLElement>('[data-npc-shop-confirm-back]')?.addEventListener('click', (event) => {
+          event.stopPropagation();
+          this.confirmPurchaseItemId = null;
+          this.render();
+        });
+
+        body.querySelector<HTMLElement>('[data-npc-shop-confirm-buy]')?.addEventListener('click', (event) => {
+          event.stopPropagation();
+          const npcId = this.activeNpcId;
+          const shop = this.shopState?.shop;
+          const itemId = this.confirmPurchaseItemId;
+          const entry = itemId ? shop?.items.find((item) => item.itemId === itemId) : null;
+          if (!npcId || !shop || !itemId || !entry) {
+            return;
+          }
+          const purchaseState = this.getPurchaseState(shop, entry);
+          if (purchaseState.purchaseDisabled || purchaseState.quantity === null) {
+            return;
+          }
+          this.confirmPurchaseItemId = null;
+          this.render();
+          this.callbacks?.onBuyItem(npcId, itemId, purchaseState.quantity);
+        });
+
         body.querySelectorAll<HTMLElement>('[data-npc-shop-select-item]').forEach((button) => {
           button.addEventListener('click', () => {
             const itemId = button.dataset.npcShopSelectItem;
@@ -181,13 +226,18 @@ export class NpcShopModal {
 
         body.querySelectorAll<HTMLElement>('[data-npc-shop-buy]').forEach((button) => {
           button.addEventListener('click', () => {
-            const npcId = this.activeNpcId;
             const itemId = button.dataset.npcShopBuy;
-            const quantity = itemId ? this.parseQuantity(itemId) : null;
-            if (!npcId || !itemId || quantity === null) {
+            const shop = this.shopState?.shop;
+            const entry = itemId ? shop?.items.find((item) => item.itemId === itemId) : null;
+            if (!itemId || !shop || !entry) {
               return;
             }
-            this.callbacks?.onBuyItem(npcId, itemId, quantity);
+            const purchaseState = this.getPurchaseState(shop, entry);
+            if (purchaseState.purchaseDisabled) {
+              return;
+            }
+            this.confirmPurchaseItemId = itemId;
+            this.render();
           });
         });
 
@@ -208,6 +258,12 @@ export class NpcShopModal {
     }
     if (shop.items.length === 0) {
       return '<div class="empty-hint">这家店今天还没有上货。</div>';
+    }
+    if (this.confirmPurchaseItemId) {
+      const confirmItem = shop.items.find((item) => item.itemId === this.confirmPurchaseItemId);
+      if (confirmItem) {
+        return this.renderConfirmPanel(shop, confirmItem);
+      }
     }
 
     const selectedItem = shop.items.find((item) => item.itemId === this.selectedItemId) ?? shop.items[0]!;
@@ -266,33 +322,16 @@ export class NpcShopModal {
     shop: NpcShopState,
     selectedItem: NpcShopItemState,
   ): string {
-    const quantity = this.parseQuantity(selectedItem.itemId);
+    const purchaseState = this.getPurchaseState(shop, selectedItem);
     const quantityText = this.quantityDrafts.get(selectedItem.itemId) ?? '1';
     const ownedCount = this.findInventoryItemCount(selectedItem.itemId);
-    const ownedCurrency = this.findInventoryItemCount(shop.currencyItemId);
     const effectLines = describeItemEffectDetails(selectedItem.item);
-    const affordableCount = selectedItem.unitPrice > 0 ? Math.floor(ownedCurrency / selectedItem.unitPrice) : 0;
-    const maxPurchasable = selectedItem.remainingQuantity === undefined
-      ? affordableCount
-      : Math.min(affordableCount, selectedItem.remainingQuantity);
-    const totalCost = quantity === null ? null : quantity * selectedItem.unitPrice;
-    const invalidTotal = totalCost === null || !Number.isSafeInteger(totalCost) || totalCost <= 0;
-    const soldOut = selectedItem.remainingQuantity !== undefined && selectedItem.remainingQuantity <= 0;
-    const stockExceeded = !soldOut && selectedItem.remainingQuantity !== undefined && quantity !== null && quantity > selectedItem.remainingQuantity;
-    const insufficientCurrency = !invalidTotal && totalCost > ownedCurrency;
-    const purchaseBlocked = invalidTotal || soldOut || stockExceeded;
-    const displayTotal = invalidTotal ? '--' : formatDisplayInteger(totalCost ?? 0);
     const refreshHint = this.formatRefreshHint(selectedItem.refreshAt);
     const stockSummary = selectedItem.remainingQuantity === undefined
       ? null
       : selectedItem.stockLimit
         ? `库存 ${formatDisplayInteger(selectedItem.remainingQuantity)}/${formatDisplayInteger(selectedItem.stockLimit)}`
         : `库存 ${formatDisplayInteger(selectedItem.remainingQuantity)}`;
-    const errorText = soldOut
-      ? `此物已售罄${refreshHint ? `，${refreshHint}` : ''}。`
-      : stockExceeded
-        ? `库存不足，当前仅剩 ${formatDisplayInteger(selectedItem.remainingQuantity ?? 0)}。`
-        : `${shop.currencyItemName}不足，当前需要 ${displayTotal}。`;
 
     return `
       <div class="market-book-header">
@@ -312,11 +351,11 @@ export class NpcShopModal {
       <div class="market-book-column">
         <div class="market-book-column-head">
           <div class="market-book-column-title">直接购买</div>
-          <button class="small-btn" data-npc-shop-buy="${escapeHtmlAttr(selectedItem.itemId)}" type="button" ${purchaseBlocked ? 'disabled' : ''}>购买</button>
+          <button class="small-btn" data-npc-shop-buy="${escapeHtmlAttr(selectedItem.itemId)}" type="button" ${purchaseState.purchaseDisabled ? 'disabled' : ''}>购买</button>
         </div>
         <div class="market-action-row">
           <span class="market-order-meta">已有 ${formatDisplayCountBadge(ownedCount)}</span>
-          <span class="market-order-meta">最多买得起 ${formatDisplayInteger(maxPurchasable)}</span>
+          <span class="market-order-meta">最多买得起 ${formatDisplayInteger(purchaseState.maxPurchasable)}</span>
         </div>
         ${stockSummary || refreshHint ? `
         <div class="market-action-row">
@@ -350,19 +389,71 @@ export class NpcShopModal {
               <button
                 class="small-btn ghost"
                 data-npc-shop-quick-qty="${escapeHtmlAttr(selectedItem.itemId)}"
-                data-npc-shop-quick-qty-value="${Math.max(1, maxPurchasable)}"
+                data-npc-shop-quick-qty-value="${Math.max(1, purchaseState.maxPurchasable)}"
                 type="button"
-                ${maxPurchasable <= 0 ? 'disabled' : ''}
+                ${purchaseState.maxPurchasable <= 0 ? 'disabled' : ''}
               >最大</button>
             </div>
           </div>
-          <div class="market-trade-dialog-total ${insufficientCurrency || soldOut || stockExceeded ? 'error' : ''}">
+          <div class="market-trade-dialog-total ${purchaseState.errorText ? 'error' : ''}">
             <span>总价</span>
-            <strong data-npc-shop-total="${escapeHtmlAttr(selectedItem.itemId)}">${displayTotal} ${escapeHtml(shop.currencyItemName)}</strong>
+            <strong data-npc-shop-total="${escapeHtmlAttr(selectedItem.itemId)}">${purchaseState.displayTotal} ${escapeHtml(shop.currencyItemName)}</strong>
           </div>
         </div>
-        <div class="market-action-hint market-action-hint--error" data-npc-shop-error="${escapeHtmlAttr(selectedItem.itemId)}" ${insufficientCurrency || soldOut || stockExceeded ? '' : 'hidden'}>
-          ${escapeHtml(errorText)}
+        <div class="market-action-hint market-action-hint--error" data-npc-shop-error="${escapeHtmlAttr(selectedItem.itemId)}" ${purchaseState.errorText ? '' : 'hidden'}>
+          ${escapeHtml(purchaseState.errorText ?? '')}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderConfirmPanel(shop: NpcShopState, selectedItem: NpcShopItemState): string {
+    const purchaseState = this.getPurchaseState(shop, selectedItem);
+    const remainingCurrency = purchaseState.totalCost === null
+      ? this.findInventoryItemCount(shop.currencyItemId)
+      : Math.max(0, this.findInventoryItemCount(shop.currencyItemId) - purchaseState.totalCost);
+    return `
+      <div class="market-book-column">
+        <div class="market-book-column-head">
+          <div class="market-book-column-title">确认购买</div>
+        </div>
+        <div class="market-trade-dialog-section">
+          <div class="market-trade-dialog-field">
+            <span>商品</span>
+            <div class="market-price-display">
+              <strong>${escapeHtml(selectedItem.item.name)}</strong>
+              <span>${escapeHtml(getItemTypeLabel(selectedItem.item.type))}</span>
+            </div>
+          </div>
+        </div>
+        <div class="market-trade-dialog-section">
+          <div class="market-trade-dialog-field">
+            <span>购买数量</span>
+            <div class="market-price-display">
+              <strong>${formatDisplayInteger(purchaseState.quantity ?? 0)}</strong>
+              <span>最多可买 ${formatDisplayInteger(purchaseState.maxPurchasable)}</span>
+            </div>
+          </div>
+          <div class="market-trade-dialog-total ${purchaseState.errorText ? 'error' : ''}">
+            <span>总价</span>
+            <strong>${purchaseState.displayTotal} ${escapeHtml(shop.currencyItemName)}</strong>
+          </div>
+        </div>
+        <div class="market-trade-dialog-section">
+          <div class="market-trade-dialog-field">
+            <span>购买后剩余</span>
+            <div class="market-price-display">
+              <strong>${formatDisplayInteger(remainingCurrency)}</strong>
+              <span>${escapeHtml(shop.currencyItemName)}</span>
+            </div>
+          </div>
+        </div>
+        ${purchaseState.errorText
+          ? `<div class="market-action-hint market-action-hint--error">${escapeHtml(purchaseState.errorText)}</div>`
+          : `<div class="market-action-hint">确认后会直接向 ${escapeHtml(shop.npcName)} 购买，若货架刚刚变化会以服务端结算结果为准。</div>`}
+        <div class="market-trade-dialog-actions">
+          <button class="small-btn ghost" data-npc-shop-confirm-back type="button">返回修改</button>
+          <button class="small-btn" data-npc-shop-confirm-buy type="button" ${purchaseState.purchaseDisabled ? 'disabled' : ''}>确认购买</button>
         </div>
       </div>
     `;
@@ -390,23 +481,48 @@ export class NpcShopModal {
       return;
     }
 
-    const quantity = this.parseQuantity(itemId);
+    const purchaseState = this.getPurchaseState(shop, entry);
+    totalNode.textContent = `${purchaseState.displayTotal} ${shop.currencyItemName}`;
+    totalNode.parentElement?.classList.toggle('error', Boolean(purchaseState.errorText));
+    errorNode.hidden = !purchaseState.errorText;
+    errorNode.textContent = purchaseState.errorText ?? '';
+    buttonNode.disabled = purchaseState.purchaseDisabled;
+  }
+
+  private getPurchaseState(shop: NpcShopState, entry: NpcShopItemState): NpcShopPurchaseState {
+    const quantity = this.parseQuantity(entry.itemId);
     const ownedCurrency = this.findInventoryItemCount(shop.currencyItemId);
+    const affordableCount = entry.unitPrice > 0 ? Math.floor(ownedCurrency / entry.unitPrice) : 0;
+    const maxPurchasable = entry.remainingQuantity === undefined
+      ? affordableCount
+      : Math.min(affordableCount, entry.remainingQuantity);
     const totalCost = quantity === null ? null : quantity * entry.unitPrice;
     const invalidTotal = totalCost === null || !Number.isSafeInteger(totalCost) || totalCost <= 0;
-    const insufficientCurrency = !invalidTotal && totalCost > ownedCurrency;
     const soldOut = entry.remainingQuantity !== undefined && entry.remainingQuantity <= 0;
     const stockExceeded = !soldOut && entry.remainingQuantity !== undefined && quantity !== null && quantity > entry.remainingQuantity;
+    const insufficientCurrency = !invalidTotal && totalCost > ownedCurrency;
     const displayTotal = invalidTotal ? '--' : formatDisplayInteger(totalCost ?? 0);
-    totalNode.textContent = `${displayTotal} ${shop.currencyItemName}`;
-    totalNode.parentElement?.classList.toggle('error', insufficientCurrency || soldOut || stockExceeded);
-    errorNode.hidden = !(insufficientCurrency || soldOut || stockExceeded);
-    errorNode.textContent = soldOut
-      ? `此物已售罄${this.formatRefreshHint(entry.refreshAt) ? `，${this.formatRefreshHint(entry.refreshAt)}` : ''}。`
+    const refreshHint = this.formatRefreshHint(entry.refreshAt);
+    const errorText = soldOut
+      ? `此物已售罄${refreshHint ? `，${refreshHint}` : ''}。`
       : stockExceeded
         ? `库存不足，当前仅剩 ${formatDisplayInteger(entry.remainingQuantity ?? 0)}。`
-        : `${shop.currencyItemName}不足，当前需要 ${displayTotal}。`;
-    buttonNode.disabled = invalidTotal || soldOut || stockExceeded;
+        : insufficientCurrency
+          ? `${shop.currencyItemName}不足，当前需要 ${displayTotal}。`
+          : null;
+    return {
+      quantity,
+      affordableCount,
+      maxPurchasable,
+      totalCost,
+      displayTotal,
+      invalidTotal,
+      insufficientCurrency,
+      soldOut,
+      stockExceeded,
+      purchaseDisabled: invalidTotal || soldOut || stockExceeded || insufficientCurrency,
+      errorText,
+    };
   }
 
   private formatRefreshHint(refreshAt: number | undefined): string | null {
