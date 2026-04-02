@@ -30,6 +30,7 @@ import {
   createNumericStats,
   NumericRatioDivisors,
   NumericStats,
+  percentModifierToMultiplier,
   resetNumericStats,
 } from '@mud/shared';
 import { REALM_EXPONENTIAL_NUMERIC_KEYS, REALM_LINEAR_NUMERIC_KEYS } from '../constants/gameplay/attr';
@@ -40,6 +41,17 @@ import { QiProjectionService } from './qi-projection.service';
 const SOUL_DEVOUR_EROSION_ATTR_KEYS: readonly AttrKey[] = ['constitution', 'spirit', 'perception', 'talent'];
 const REALM_EXPONENTIAL_NUMERIC_KEY_SET = new Set<NumericScalarStatKey>(REALM_EXPONENTIAL_NUMERIC_KEYS);
 const REALM_LINEAR_NUMERIC_KEY_SET = new Set<NumericScalarStatKey>(REALM_LINEAR_NUMERIC_KEYS);
+const SIGNED_NUMERIC_STAT_KEYS = new Set<NumericScalarStatKey>([
+  'moveSpeed',
+  'cooldownSpeed',
+  'auraCostReduce',
+  'auraPowerRate',
+  'playerExpRate',
+  'techniqueExpRate',
+  'lootRate',
+  'rareLootRate',
+  'extraAggroRate',
+]);
 
 function createAttributeSnapshot(initial = 0): Attributes {
   return {
@@ -106,7 +118,7 @@ function applyAttributePercentMultipliers(target: Attributes, multipliers: Parti
   for (const key of ATTR_KEYS) {
     const percent = multipliers[key];
     if (!percent) continue;
-    target[key] = Math.max(0, target[key] * Math.max(0.01, 1 + percent / 100));
+    target[key] = Math.max(0, target[key] * percentModifierToMultiplier(percent));
   }
 }
 
@@ -145,7 +157,12 @@ export class AttrService {
     result.comprehension = base.comprehension;
     result.luck = base.luck;
 
+    const bonusAttrMultipliers: Partial<Attributes> = {};
     for (const bonus of bonuses) {
+      if (this.resolveBonusModifierMode(bonus.attrMode) === 'percent') {
+        accumulateScaledAttributes(bonusAttrMultipliers, bonus.attrs, 1);
+        continue;
+      }
       applyAttributeAdditions(result, bonus.attrs);
     }
 
@@ -165,6 +182,7 @@ export class AttrService {
       accumulateScaledAttributes(bucket, buff.attrs, effectFactor);
     }
 
+    applyAttributePercentMultipliers(result, bonusAttrMultipliers);
     applyAttributeAdditions(result, flatBuffAttrs);
     applyAttributePercentMultipliers(result, buffAttrMultipliers);
     applyAttributePercentMultipliers(result, pillAttrMultipliers);
@@ -330,6 +348,10 @@ export class AttrService {
     addPartialNumericStats(staticBaseStats, template.stats);
 
     for (const bonus of bonuses) {
+      if (this.resolveBonusModifierMode(bonus.statMode) === 'percent') {
+        addPartialNumericStats(buffMultipliers, bonus.stats);
+        continue;
+      }
       addPartialNumericStats(target, bonus.stats);
       addPartialNumericStats(staticBaseStats, bonus.stats);
     }
@@ -484,16 +506,23 @@ export class AttrService {
 
   private roundNumericStats(target: NumericStats): void {
     for (const key of NUMERIC_SCALAR_STAT_KEYS) {
-      target[key] = Math.max(0, Math.round(target[key]));
+      const rounded = Math.round(target[key]);
+      target[key] = SIGNED_NUMERIC_STAT_KEYS.has(key)
+        ? rounded
+        : Math.max(0, rounded);
     }
     for (const key of ELEMENT_KEYS) {
-      target.elementDamageBonus[key] = Math.max(0, Math.round(target.elementDamageBonus[key]));
+      target.elementDamageBonus[key] = Math.round(target.elementDamageBonus[key]);
       target.elementDamageReduce[key] = Math.max(0, Math.round(target.elementDamageReduce[key]));
     }
   }
 
   private resolveBuffModifierMode(mode: BuffModifierMode | undefined): BuffModifierMode {
     return mode === 'flat' ? 'flat' : 'percent';
+  }
+
+  private resolveBonusModifierMode(mode: BuffModifierMode | undefined): BuffModifierMode {
+    return mode === 'percent' ? 'percent' : 'flat';
   }
 
   private isPillBuff(buff: TemporaryBuffState): boolean {

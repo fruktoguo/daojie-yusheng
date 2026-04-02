@@ -3514,7 +3514,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   }
 
   private resolveBuffModifierMode(mode: BuffModifierMode | undefined): BuffModifierMode {
-    return 'percent';
+    return mode === 'flat' ? 'flat' : 'percent';
   }
 
   private scaleNumericStats(stats: PartialNumericStats | undefined, factor: number): PartialNumericStats | undefined {
