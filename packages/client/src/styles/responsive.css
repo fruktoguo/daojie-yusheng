@@ -75,14 +75,9 @@
         width: min(120px, 34vw);
         margin-bottom: 10px;
       }
-      .login-title {
-        font-size: clamp(34px, 10vw, 44px);
-        letter-spacing: 4px;
-        margin-bottom: 4px;
-      }
-      .login-subtitle {
+      .login-link-actions {
+        gap: 6px;
         margin-bottom: 16px;
-        letter-spacing: 2px;
       }
       .login-mode-tabs {
         gap: 8px;
