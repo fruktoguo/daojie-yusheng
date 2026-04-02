@@ -1078,7 +1078,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (targetVisible) {
       const selectedSkill = this.selectAutoBattleSkillForTarget(player, target, availableSkills);
       if (selectedSkill) {
-        const update = this.performTargetedSkill(player, selectedSkill.skill.id, targetRef);
+        const update = selectedSkill.skill.requiresTarget === false
+          ? this.performSkill(player, selectedSkill.skill.id)
+          : this.performTargetedSkill(player, selectedSkill.skill.id, targetRef);
         if (update.consumedAction) {
           return { ...update, usedActionId: selectedSkill.skill.id };
         }
@@ -4824,7 +4826,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     target: ResolvedTarget,
     skills: AutoBattleSkillCandidate[],
   ): AutoBattleSkillCandidate | undefined {
-    return skills.find((entry) => isPointInRange(player, target, entry.skill.range));
+    return skills.find((entry) => (
+      entry.skill.requiresTarget === false
+      || isPointInRange(player, target, entry.skill.range)
+    ));
   }
 
   private canPlayerCastAutoBattleSkillFromCurrentPosition(
@@ -4840,7 +4845,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       return false;
     }
     return isPointInRange(player, target, 1)
-      || skills.some((entry) => isPointInRange(player, target, entry.skill.range));
+      || skills.some((entry) => (
+        entry.skill.requiresTarget === false
+        || isPointInRange(player, target, entry.skill.range)
+      ));
   }
 
   private refreshPlayerThreats(player: PlayerState, effectiveViewRange: number): void {

@@ -2118,7 +2118,9 @@ socket.onEquipmentUpdate((data) => {
   equipmentPanel.update(mergedEquipment);
 });
 socket.onTechniqueUpdate((data) => {
-  const mergedTechniques = mergeTechniqueStates(data.techniques, data.removeTechniqueIds ?? []);
+  const mergedTechniques = resolvePreviewTechniques(
+    mergeTechniqueStates(data.techniques, data.removeTechniqueIds ?? []),
+  );
   const nextCultivatingTechId = data.cultivatingTechId === undefined
     ? myPlayer?.cultivatingTechId
     : data.cultivatingTechId ?? undefined;

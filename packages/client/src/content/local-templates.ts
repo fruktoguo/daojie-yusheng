@@ -206,7 +206,11 @@ export function resolvePreviewTechnique(technique: TechniqueState): TechniqueSta
     ? technique.layers
     : clone(template.layers ?? []);
   const templateSkills = clone(template.skills ?? []);
-  const sourceSkills = technique.skills.length > 0 ? technique.skills : templateSkills;
+  const knownTemplateSkillIds = new Set(templateSkills.map((skill) => skill.id));
+  const persistedKnownSkills = technique.skills.length > 0
+    ? technique.skills.filter((skill) => knownTemplateSkillIds.has(skill.id))
+    : [];
+  const sourceSkills = persistedKnownSkills.length > 0 ? persistedKnownSkills : templateSkills;
   const realmLv = resolveTechniqueRealmLevel(technique.realmLv, technique.grade ?? template.grade);
   return {
     ...technique,

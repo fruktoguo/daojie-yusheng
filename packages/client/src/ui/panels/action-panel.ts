@@ -6,11 +6,13 @@
 import {
   ActionDef,
   AutoBattleSkillConfig,
+  DEFAULT_PLAYER_REALM_STAGE,
   PlayerState,
   SkillDef,
   countEnabledSkillEntries,
   enforceSkillEnabledLimit,
   resolvePlayerSkillSlotLimit,
+  resolveSkillUnlockLevel,
 } from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
@@ -591,9 +593,14 @@ export class ActionPanel {
     const currentSkillActions = currentActions.filter((action) => action.type === 'skill');
     const existingSkillIds = new Set(currentSkillActions.map((action) => action.id));
     const autoBattleSkillMap = new Map((player.autoBattleSkills ?? []).map((entry, index) => [entry.skillId, { entry, index }] as const));
+    const playerRealmStage = player.realm?.stage ?? DEFAULT_PLAYER_REALM_STAGE;
     const fallback: ActionDef[] = [];
     for (const technique of player.techniques) {
       for (const skill of technique.skills ?? []) {
+        const unlockPlayerRealm = skill.unlockPlayerRealm ?? DEFAULT_PLAYER_REALM_STAGE;
+        if (technique.level < resolveSkillUnlockLevel(skill) || playerRealmStage < unlockPlayerRealm) {
+          continue;
+        }
         if (existingSkillIds.has(skill.id)) {
           continue;
         }
@@ -606,7 +613,7 @@ export class ActionPanel {
           cooldownLeft: 0,
           range: skill.targeting?.range ?? skill.range,
           requiresTarget: skill.requiresTarget ?? true,
-          targetMode: skill.targetMode ?? 'entity',
+          targetMode: skill.targetMode ?? 'any',
           autoBattleEnabled: config?.entry.enabled ?? true,
           autoBattleOrder: config?.index,
           skillEnabled: config?.entry.skillEnabled ?? true,

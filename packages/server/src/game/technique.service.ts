@@ -2082,9 +2082,12 @@ export class TechniqueService {
   }
 
   private syncTechniqueMetadata(player: PlayerState): void {
+    const normalizedTechniques: TechniqueState[] = [];
     for (const technique of player.techniques) {
       const template = this.contentService.getTechnique(technique.techId);
-      if (!template) continue;
+      if (!template) {
+        continue;
+      }
       const previousExpToNext = Math.max(0, technique.expToNext);
       technique.name = template.name;
       technique.grade = template.grade;
@@ -2108,6 +2111,14 @@ export class TechniqueService {
         technique.exp = Math.floor(progressRate * technique.expToNext);
       } else if (technique.exp >= technique.expToNext) {
         technique.exp = Math.max(0, technique.expToNext - 1);
+      }
+      normalizedTechniques.push(technique);
+    }
+
+    if (normalizedTechniques.length !== player.techniques.length) {
+      player.techniques = normalizedTechniques;
+      if (!player.cultivatingTechId || !player.techniques.some((entry) => entry.techId === player.cultivatingTechId)) {
+        player.cultivatingTechId = player.techniques[0]?.techId;
       }
     }
   }
