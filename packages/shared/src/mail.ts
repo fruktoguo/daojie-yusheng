@@ -65,7 +65,7 @@ export const MAIL_TEMPLATE_DEFS: Record<string, MailTemplateDef> = {
     body: [
       { kind: 'text', value: '道途初启，先收好这份行装。' },
       { kind: 'text', value: '\n\n' },
-      { kind: 'text', value: '附件包含当前版本可获取的常用装备一套,除神通外的功法书各一本到，以及五枚苦修丹。' },
+      { kind: 'text', value: '附件包含当前开放阶段可获取的常用装备一套、非神通功法书各一本到，以及五枚苦修丹。' },
       { kind: 'text', value: '\n\n' },
       { kind: 'text', value: '若背包已满，请先整理后再领取。' },
     ],
@@ -99,7 +99,7 @@ export const GM_MAIL_TEMPLATE_OPTIONS: GmMailTemplateOption[] = [
   {
     templateId: MAIL_TEMPLATE_BEGINNER_JOURNEY_ID,
     label: '初入道途',
-    description: '发送常用装备一套、全部非神通功法书各一本到，并附带五枚苦修丹。',
+    description: '发送常用装备一套、当前开放阶段非神通功法书各一本到，并附带五枚苦修丹。',
   },
   {
     templateId: MAIL_TEMPLATE_HEAVEN_ROOT_SEED_ID,

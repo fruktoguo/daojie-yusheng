@@ -35,6 +35,7 @@ const BODY_NAME_PATTERNS = [
   /壮身/u,
   /骨功/u,
   /筋/u,
+  /凝气成基/u,
 ];
 
 const MOVEMENT_NAME_PATTERNS = [

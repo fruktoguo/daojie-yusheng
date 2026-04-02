@@ -74,7 +74,7 @@ import { ContentService } from './content.service';
 import { EquipmentEffectService } from './equipment-effect.service';
 import { InventoryService } from './inventory.service';
 import { LootService } from './loot.service';
-import { ContainerConfig, DropConfig, MapService, MonsterSpawnConfig, NpcConfig, QuestConfig } from './map.service';
+import { ContainerConfig, DropConfig, MapService, MonsterSpawnConfig, NpcConfig, NpcShopItemConfig, QuestConfig } from './map.service';
 import { NavigationService } from './navigation.service';
 import { PerformanceService } from './performance.service';
 import { PlayerService } from './player.service';
@@ -240,8 +240,34 @@ interface PersistedMonsterSpawnAccelerationRecord {
   clearDeadlineTick: number;
 }
 
+interface PersistedNpcShopRuntimeRecord {
+  refreshWindowStartMs: number;
+  soldQuantity: number;
+}
+
+interface PersistedNpcShopRuntimeSnapshot {
+  version: 1;
+  items: Record<string, PersistedNpcShopRuntimeRecord>;
+}
+
+interface ResolvedNpcShopStockState {
+  stateKey: string;
+  stockLimit: number;
+  refreshWindowStartMs: number;
+  refreshAt?: number;
+  soldQuantity: number;
+  remainingQuantity: number;
+}
+
+interface ResolvedNpcShopItemRuntime {
+  item: ItemStack;
+  unitPrice: number;
+  stock?: ResolvedNpcShopStockState;
+}
+
 const RUNTIME_STATE_SCOPE = 'runtime_state';
 const MAP_MONSTER_RUNTIME_DOCUMENT_KEY = 'map_monster';
+const NPC_SHOP_RUNTIME_DOCUMENT_KEY = 'npc_shop';
 
 function getMonsterDisplayName(name: string, tier: 'mortal_blood' | 'variant' | 'demon_king'): string {
   if (tier !== 'variant') {
@@ -335,9 +361,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   private readonly persistedMonsterSpawnAccelerationStatesByMap =
     new Map<string, Map<string, PersistedMonsterSpawnAccelerationRecord>>();
   private readonly effectsByMap = new Map<string, CombatEffect[]>();
+  private readonly npcShopRuntimeStates = new Map<string, PersistedNpcShopRuntimeRecord>();
   private readonly logger = new Logger(WorldService.name);
   private readonly monsterRuntimeStatePath = resolveServerDataPath('runtime', 'map-monster-runtime-state.json');
   private monsterRuntimeDirty = false;
+  private npcShopRuntimeDirty = false;
 
   constructor(
     private readonly mapService: MapService,
@@ -358,10 +386,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit(): Promise<void> {
     await this.loadPersistedMonsterRuntimeState();
+    await this.loadPersistedNpcShopRuntimeState();
   }
 
   async onModuleDestroy(): Promise<void> {
     await this.persistMonsterRuntimeState();
+    await this.persistNpcShopRuntimeState();
   }
 
   async reloadRuntimeStateFromPersistence(): Promise<void> {
@@ -378,9 +408,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     this.persistedMonstersByMap.clear();
     this.persistedMonsterSpawnAccelerationStatesByMap.clear();
     this.effectsByMap.clear();
+    this.npcShopRuntimeStates.clear();
     this.monsterRuntimeDirty = false;
+    this.npcShopRuntimeDirty = false;
     this.threatService.clearAll();
     await this.loadPersistedMonsterRuntimeState();
+    await this.loadPersistedNpcShopRuntimeState();
   }
 
   /** 获取玩家视野内的可见实体（容器、NPC、怪物） */
@@ -675,19 +708,22 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       return { shop: null, error: '对方现在没有经营商店' };
     }
 
+    const nowMs = Date.now();
     const items = npc.shopItems
-      .map((entry) => {
-        const item = this.contentService.createItem(entry.itemId, 1);
-        if (!item) {
-          return null;
+      .flatMap((entry) => {
+        const resolved = this.resolveNpcShopItemRuntime(npc.id, entry, nowMs);
+        if (!resolved) {
+          return [];
         }
-        return {
+        return [{
           itemId: entry.itemId,
-          item: this.toSyncedItemStack(item),
-          unitPrice: entry.price,
-        };
+          item: this.toSyncedItemStack(resolved.item),
+          unitPrice: resolved.unitPrice,
+          remainingQuantity: resolved.stock?.remainingQuantity,
+          stockLimit: resolved.stock?.stockLimit,
+          refreshAt: resolved.stock?.refreshAt,
+        }];
       })
-      .filter((entry): entry is SyncedNpcShopView['items'][number] => Boolean(entry));
 
     if (items.length === 0) {
       return { shop: null, error: '商铺货架还没有可售物品' };
@@ -749,7 +785,20 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       return { ...EMPTY_UPDATE, error: '购买数量无效' };
     }
 
-    const totalCost = payload.quantity * shopItem.price;
+    const resolved = this.resolveNpcShopItemRuntime(npc.id, shopItem, Date.now());
+    if (!resolved) {
+      return { ...EMPTY_UPDATE, error: '商品配置异常，暂时无法购买' };
+    }
+    if (resolved.stock && payload.quantity > resolved.stock.remainingQuantity) {
+      return {
+        ...EMPTY_UPDATE,
+        error: resolved.stock.remainingQuantity > 0
+          ? `库存不足，当前仅剩 ${resolved.stock.remainingQuantity} 件`
+          : '此物当前已售罄，需等下一轮补货',
+      };
+    }
+
+    const totalCost = payload.quantity * resolved.unitPrice;
     if (!Number.isSafeInteger(totalCost) || totalCost <= 0) {
       return { ...EMPTY_UPDATE, error: '购买总价过大，暂时无法结算' };
     }
@@ -773,6 +822,13 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (!this.inventoryService.addItem(player, purchasedItem)) {
       return { ...EMPTY_UPDATE, error: '背包空间不足，无法购买' };
     }
+    if (resolved.stock) {
+      this.updateNpcShopSoldQuantity(
+        resolved.stock.stateKey,
+        resolved.stock.refreshWindowStartMs,
+        resolved.stock.soldQuantity + payload.quantity,
+      );
+    }
 
     return {
       messages: [{
@@ -782,6 +838,107 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       }],
       dirty: ['inv'],
     };
+  }
+
+  private resolveNpcShopItemRuntime(
+    npcId: string,
+    shopItem: NpcShopItemConfig,
+    nowMs: number,
+  ): ResolvedNpcShopItemRuntime | null {
+    const item = this.contentService.createItem(shopItem.itemId, 1);
+    if (!item) {
+      return null;
+    }
+
+    const unitPrice = this.resolveNpcShopUnitPrice(shopItem);
+    if (!Number.isSafeInteger(unitPrice) || unitPrice <= 0) {
+      return null;
+    }
+
+    return {
+      item,
+      unitPrice,
+      stock: this.resolveNpcShopStockState(npcId, shopItem, nowMs),
+    };
+  }
+
+  private resolveNpcShopUnitPrice(shopItem: NpcShopItemConfig): number {
+    if (shopItem.priceFormula === 'technique_realm_square_grade') {
+      const techniqueId = this.contentService.getItem(shopItem.itemId)?.learnTechniqueId;
+      const technique = techniqueId ? this.contentService.getTechnique(techniqueId) : undefined;
+      if (technique) {
+        const realmLv = Math.max(1, Math.floor(technique.realmLv ?? 1));
+        const gradeIndex = Math.max(0, gameplayConstants.TECHNIQUE_GRADE_ORDER.indexOf(technique.grade ?? 'mortal'));
+        return realmLv * realmLv * (gradeIndex + 1);
+      }
+    }
+    return Number.isFinite(shopItem.price) ? Math.max(0, Math.floor(Number(shopItem.price))) : 0;
+  }
+
+  private resolveNpcShopStockState(
+    npcId: string,
+    shopItem: NpcShopItemConfig,
+    nowMs: number,
+  ): ResolvedNpcShopStockState | undefined {
+    if (!Number.isInteger(shopItem.stockLimit) || Number(shopItem.stockLimit) <= 0) {
+      return undefined;
+    }
+
+    const stockLimit = Number(shopItem.stockLimit);
+    const refreshWindowStartMs = this.resolveNpcShopRefreshWindowStart(nowMs, shopItem.refreshSeconds);
+    const stateKey = this.buildNpcShopRuntimeStateKey(npcId, shopItem.itemId);
+    const persisted = this.npcShopRuntimeStates.get(stateKey);
+
+    let soldQuantity = 0;
+    if (persisted) {
+      if (persisted.refreshWindowStartMs === refreshWindowStartMs) {
+        soldQuantity = Math.max(0, Math.floor(persisted.soldQuantity));
+      } else {
+        this.npcShopRuntimeStates.delete(stateKey);
+        this.npcShopRuntimeDirty = true;
+      }
+    }
+
+    return {
+      stateKey,
+      stockLimit,
+      refreshWindowStartMs,
+      refreshAt: Number.isInteger(shopItem.refreshSeconds) && Number(shopItem.refreshSeconds) > 0
+        ? refreshWindowStartMs + Number(shopItem.refreshSeconds) * 1000
+        : undefined,
+      soldQuantity,
+      remainingQuantity: Math.max(0, stockLimit - soldQuantity),
+    };
+  }
+
+  private resolveNpcShopRefreshWindowStart(nowMs: number, refreshSeconds: number | undefined): number {
+    if (!Number.isInteger(refreshSeconds) || Number(refreshSeconds) <= 0) {
+      return 0;
+    }
+    const refreshMs = Number(refreshSeconds) * 1000;
+    return nowMs - (nowMs % refreshMs);
+  }
+
+  private buildNpcShopRuntimeStateKey(npcId: string, itemId: string): string {
+    return `${npcId}:${itemId}`;
+  }
+
+  private updateNpcShopSoldQuantity(stateKey: string, refreshWindowStartMs: number, soldQuantity: number): void {
+    const normalizedSoldQuantity = Math.max(0, Math.floor(soldQuantity));
+    if (normalizedSoldQuantity <= 0) {
+      if (this.npcShopRuntimeStates.delete(stateKey)) {
+        this.npcShopRuntimeDirty = true;
+        void this.persistNpcShopRuntimeState();
+      }
+      return;
+    }
+
+    this.npcShopRuntimeStates.set(stateKey, {
+      refreshWindowStartMs: Math.max(0, Math.floor(refreshWindowStartMs)),
+      soldQuantity: normalizedSoldQuantity,
+    });
+    this.npcShopRuntimeDirty = true;
+    void this.persistNpcShopRuntimeState();
   }
 
   /** 处理无目标交互（开关自动战斗、传送、NPC 对话等） */
@@ -5587,6 +5744,83 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`导入旧怪物运行时 JSON 失败: ${message}`);
     }
+  }
+
+  private async persistNpcShopRuntimeState(): Promise<void> {
+    if (!this.npcShopRuntimeDirty) {
+      return;
+    }
+
+    try {
+      const snapshot: PersistedNpcShopRuntimeSnapshot = {
+        version: 1,
+        items: {},
+      };
+      for (const [key, record] of [...this.npcShopRuntimeStates.entries()].sort(([left], [right]) => left.localeCompare(right, 'zh-CN'))) {
+        if (record.soldQuantity <= 0) {
+          continue;
+        }
+        snapshot.items[key] = {
+          refreshWindowStartMs: Math.max(0, Math.floor(record.refreshWindowStartMs)),
+          soldQuantity: Math.max(0, Math.floor(record.soldQuantity)),
+        };
+      }
+      await this.persistentDocumentService.save(RUNTIME_STATE_SCOPE, NPC_SHOP_RUNTIME_DOCUMENT_KEY, snapshot);
+      this.npcShopRuntimeDirty = false;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`NPC 商店运行时持久化到 PostgreSQL 失败: ${message}`);
+    }
+  }
+
+  private async loadPersistedNpcShopRuntimeState(): Promise<void> {
+    const snapshot = await this.persistentDocumentService.get<Partial<PersistedNpcShopRuntimeSnapshot>>(
+      RUNTIME_STATE_SCOPE,
+      NPC_SHOP_RUNTIME_DOCUMENT_KEY,
+    );
+    if (!snapshot) {
+      return;
+    }
+
+    try {
+      if (!snapshot.items || typeof snapshot.items !== 'object') {
+        this.logger.warn('NPC 商店运行时持久化数据格式非法，已忽略');
+        return;
+      }
+
+      let restoredCount = 0;
+      for (const [key, rawRecord] of Object.entries(snapshot.items)) {
+        const record = this.normalizePersistedNpcShopRuntimeRecord(rawRecord);
+        if (!record) {
+          continue;
+        }
+        this.npcShopRuntimeStates.set(key, record);
+        restoredCount += 1;
+      }
+
+      if (restoredCount > 0) {
+        this.logger.log(`已恢复 NPC 商店运行时状态：${restoredCount} 条库存记录`);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`读取 NPC 商店运行时持久化数据失败: ${message}`);
+    }
+  }
+
+  private normalizePersistedNpcShopRuntimeRecord(raw: unknown): PersistedNpcShopRuntimeRecord | null {
+    const candidate = raw as Partial<PersistedNpcShopRuntimeRecord>;
+    if (
+      !Number.isInteger(candidate?.refreshWindowStartMs)
+      || !Number.isInteger(candidate?.soldQuantity)
+      || Number(candidate.refreshWindowStartMs) < 0
+      || Number(candidate.soldQuantity) < 0
+    ) {
+      return null;
+    }
+    return {
+      refreshWindowStartMs: Number(candidate.refreshWindowStartMs),
+      soldQuantity: Number(candidate.soldQuantity),
+    };
   }
 
   private buildAllowedMonsterRuntimeIds(mapId: string): Set<string> {

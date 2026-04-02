@@ -201,11 +201,16 @@ export interface NpcConfig {
   color: string;
   dialogue: string;
   role?: string;
-  shopItems: Array<{
-    itemId: string;
-    price: number;
-  }>;
+  shopItems: NpcShopItemConfig[];
   quests: QuestConfig[];
+}
+
+export interface NpcShopItemConfig {
+  itemId: string;
+  price?: number;
+  stockLimit?: number;
+  refreshSeconds?: number;
+  priceFormula?: 'technique_realm_square_grade';
 }
 
 export interface DropConfig {
@@ -2467,7 +2472,13 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       const npc = candidate as Partial<NpcConfig> & {
         quest?: unknown;
         role?: unknown;
-        shopItems?: Array<{ itemId?: unknown; price?: unknown }>;
+        shopItems?: Array<{
+          itemId?: unknown;
+          price?: unknown;
+          stockLimit?: unknown;
+          refreshSeconds?: unknown;
+          priceFormula?: unknown;
+        }>;
       };
       const valid =
         typeof npc.id === 'string' &&
@@ -2498,16 +2509,33 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         role: typeof (candidate as { role?: unknown }).role === 'string' ? String((candidate as { role?: unknown }).role) : undefined,
         shopItems: Array.isArray(npc.shopItems)
           ? npc.shopItems
-              .map((entry) => {
-                if (typeof entry?.itemId !== 'string' || !Number.isInteger(entry.price) || Number(entry.price) <= 0) {
-                  return null;
+              .flatMap((entry) => {
+                if (typeof entry?.itemId !== 'string' || !entry.itemId.trim()) {
+                  return [];
                 }
-                return {
-                  itemId: entry.itemId,
-                  price: Number(entry.price),
-                };
+                const staticPrice = Number.isInteger(entry.price) && Number(entry.price) > 0
+                  ? Number(entry.price)
+                  : undefined;
+                const priceFormula = entry.priceFormula === 'technique_realm_square_grade'
+                  ? 'technique_realm_square_grade'
+                  : undefined;
+                if (staticPrice === undefined && !priceFormula) {
+                  return [];
+                }
+                const stockLimit = Number.isInteger(entry.stockLimit) && Number(entry.stockLimit) > 0
+                  ? Number(entry.stockLimit)
+                  : undefined;
+                const refreshSeconds = Number.isInteger(entry.refreshSeconds) && Number(entry.refreshSeconds) > 0
+                  ? Number(entry.refreshSeconds)
+                  : undefined;
+                return [{
+                  itemId: entry.itemId.trim(),
+                  price: staticPrice,
+                  stockLimit,
+                  refreshSeconds,
+                  priceFormula,
+                }];
               })
-              .filter((entry): entry is { itemId: string; price: number } => Boolean(entry))
           : [],
         quests: [],
       });

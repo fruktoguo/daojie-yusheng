@@ -76,12 +76,22 @@ function normalizeContainerGrade(grade: unknown): TechniqueGrade {
 
 function normalizeEditableNpcShopItemRecord(raw: unknown): GmMapNpcShopItemRecord | null {
   const item = raw as Partial<GmMapNpcShopItemRecord>;
-  if (typeof item.itemId !== 'string' || !Number.isFinite(item.price)) {
+  if (typeof item.itemId !== 'string') {
+    return null;
+  }
+  const price = Number.isFinite(item.price) ? Math.floor(Number(item.price)) : undefined;
+  const priceFormula = item.priceFormula === 'technique_realm_square_grade'
+    ? 'technique_realm_square_grade'
+    : undefined;
+  if (price === undefined && !priceFormula) {
     return null;
   }
   return {
     itemId: item.itemId,
-    price: Number(item.price),
+    price,
+    stockLimit: normalizeOptionalInteger(item.stockLimit),
+    refreshSeconds: normalizeOptionalInteger(item.refreshSeconds),
+    priceFormula,
   };
 }
 
@@ -747,8 +757,10 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
       const shopItem = npc.shopItems![shopIndex]!;
       const shopLabel = `${label} 的商品 ${shopItem.itemId || shopIndex + 1}`;
       if (!shopItem.itemId.trim()) return `${shopLabel} 的物品 ID 不能为空`;
-      if (!Number.isInteger(shopItem.price) || shopItem.price <= 0) {
-        return `${shopLabel} 的价格必须为正整数`;
+      const hasStaticPrice = Number.isInteger(shopItem.price) && (shopItem.price ?? 0) > 0;
+      const hasPriceFormula = shopItem.priceFormula === 'technique_realm_square_grade';
+      if (!hasStaticPrice && !hasPriceFormula) {
+        return `${shopLabel} 必须配置正整数价格或合法价格公式`;
       }
       if (seenShopItemIds.has(shopItem.itemId)) {
         return `${label} 的商店商品 ID 不能重复: ${shopItem.itemId}`;

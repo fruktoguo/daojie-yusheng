@@ -519,7 +519,7 @@ export class MailService {
       seen.add(item.itemId);
     }
     for (const item of catalog) {
-      if (item.type !== 'skill_book' || seen.has(item.itemId) || this.isDivineTechniqueBook(item.itemId)) {
+      if (item.type !== 'skill_book' || seen.has(item.itemId) || !this.shouldIncludeBeginnerJourneyBook(item.itemId)) {
         continue;
       }
       attachments.push({ itemId: item.itemId, count: 1 });
@@ -539,6 +539,19 @@ export class MailService {
       return false;
     }
     return this.contentService.getTechnique(techniqueId)?.category === 'divine';
+  }
+
+  private shouldIncludeBeginnerJourneyBook(itemId: string): boolean {
+    const techniqueId = this.contentService.getItem(itemId)?.learnTechniqueId
+      ?? this.resolveTechniqueIdFromBookItemId(itemId);
+    if (!techniqueId) {
+      return false;
+    }
+    const technique = this.contentService.getTechnique(techniqueId);
+    if (!technique) {
+      return false;
+    }
+    return technique.category !== 'divine' && technique.realmLv <= 30;
   }
 
   private resolveTechniqueIdFromBookItemId(itemId: string): string | null {

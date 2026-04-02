@@ -1,0 +1,404 @@
+[
+  {
+    "id": "ningqi_chengji",
+    "name": "凝气成基法",
+    "grade": "heaven",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 58,
+        "attrs": {
+          "constitution": 11,
+          "talent": 11
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 60,
+        "attrs": {
+          "constitution": 11,
+          "talent": 11
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 62,
+        "attrs": {
+          "constitution": 11,
+          "talent": 11
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 67,
+        "attrs": {
+          "constitution": 11,
+          "talent": 11
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 73,
+        "attrs": {
+          "constitution": 11,
+          "talent": 11
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 81,
+        "attrs": {
+          "constitution": 11,
+          "talent": 11
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 91,
+        "attrs": {
+          "constitution": 11,
+          "talent": 11
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 103,
+        "attrs": {
+          "constitution": 11,
+          "talent": 11
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 117,
+        "attrs": {
+          "constitution": 11,
+          "talent": 11
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 132,
+        "attrs": {
+          "constitution": 11,
+          "talent": 11
+        }
+      },
+      {
+        "level": 11,
+        "expFactor": 149,
+        "attrs": {
+          "constitution": 9,
+          "talent": 9
+        }
+      },
+      {
+        "level": 12,
+        "expFactor": 168,
+        "attrs": {
+          "constitution": 9,
+          "talent": 9
+        }
+      },
+      {
+        "level": 13,
+        "expFactor": 189,
+        "attrs": {
+          "constitution": 9,
+          "talent": 9
+        }
+      },
+      {
+        "level": 14,
+        "expFactor": 212,
+        "attrs": {
+          "constitution": 9,
+          "talent": 9
+        }
+      },
+      {
+        "level": 15,
+        "expFactor": 236,
+        "attrs": {
+          "constitution": 9,
+          "talent": 9
+        }
+      },
+      {
+        "level": 16,
+        "expFactor": 262,
+        "attrs": {
+          "constitution": 9,
+          "talent": 9
+        }
+      },
+      {
+        "level": 17,
+        "expFactor": 290,
+        "attrs": {
+          "constitution": 9,
+          "talent": 9
+        }
+      },
+      {
+        "level": 18,
+        "expFactor": 320,
+        "attrs": {
+          "constitution": 9,
+          "talent": 9
+        }
+      },
+      {
+        "level": 19,
+        "expFactor": 352,
+        "attrs": {
+          "constitution": 9,
+          "talent": 9
+        }
+      },
+      {
+        "level": 20,
+        "expFactor": 373,
+        "attrs": {
+          "constitution": 9,
+          "talent": 9
+        }
+      },
+      {
+        "level": 21,
+        "expFactor": 395,
+        "attrs": {
+          "constitution": 7,
+          "talent": 7
+        }
+      },
+      {
+        "level": 22,
+        "expFactor": 419,
+        "attrs": {
+          "constitution": 7,
+          "talent": 7
+        }
+      },
+      {
+        "level": 23,
+        "expFactor": 444,
+        "attrs": {
+          "constitution": 7,
+          "talent": 7
+        }
+      },
+      {
+        "level": 24,
+        "expFactor": 471,
+        "attrs": {
+          "constitution": 7,
+          "talent": 7
+        }
+      },
+      {
+        "level": 25,
+        "expFactor": 499,
+        "attrs": {
+          "constitution": 7,
+          "talent": 7
+        }
+      },
+      {
+        "level": 26,
+        "expFactor": 529,
+        "attrs": {
+          "constitution": 7,
+          "talent": 7
+        }
+      },
+      {
+        "level": 27,
+        "expFactor": 561,
+        "attrs": {
+          "constitution": 7,
+          "talent": 7
+        }
+      },
+      {
+        "level": 28,
+        "expFactor": 595,
+        "attrs": {
+          "constitution": 7,
+          "talent": 7
+        }
+      },
+      {
+        "level": 29,
+        "expFactor": 631,
+        "attrs": {
+          "constitution": 7,
+          "talent": 7
+        }
+      },
+      {
+        "level": 30,
+        "expFactor": 669,
+        "attrs": {
+          "constitution": 7,
+          "talent": 7
+        }
+      },
+      {
+        "level": 31,
+        "expFactor": 709,
+        "attrs": {
+          "constitution": 5,
+          "talent": 5
+        }
+      },
+      {
+        "level": 32,
+        "expFactor": 752,
+        "attrs": {
+          "constitution": 5,
+          "talent": 5
+        }
+      },
+      {
+        "level": 33,
+        "expFactor": 797,
+        "attrs": {
+          "constitution": 5,
+          "talent": 5
+        }
+      },
+      {
+        "level": 34,
+        "expFactor": 845,
+        "attrs": {
+          "constitution": 4,
+          "talent": 4
+        }
+      },
+      {
+        "level": 35,
+        "expFactor": 896,
+        "attrs": {
+          "constitution": 4,
+          "talent": 4
+        }
+      },
+      {
+        "level": 36,
+        "expFactor": 950,
+        "attrs": {
+          "constitution": 4,
+          "talent": 4
+        }
+      },
+      {
+        "level": 37,
+        "expFactor": 1007,
+        "attrs": {
+          "constitution": 4,
+          "talent": 4
+        }
+      },
+      {
+        "level": 38,
+        "expFactor": 1067,
+        "attrs": {
+          "constitution": 4,
+          "talent": 4
+        }
+      },
+      {
+        "level": 39,
+        "expFactor": 1131,
+        "attrs": {
+          "constitution": 4,
+          "talent": 4
+        }
+      },
+      {
+        "level": 40,
+        "expFactor": 1199,
+        "attrs": {
+          "constitution": 4,
+          "talent": 4
+        }
+      },
+      {
+        "level": 41,
+        "expFactor": 1271,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 42,
+        "expFactor": 1347,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 43,
+        "expFactor": 1428,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 44,
+        "expFactor": 1514,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 45,
+        "expFactor": 1605,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 46,
+        "expFactor": 1701,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 47,
+        "expFactor": 1803,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 48,
+        "expFactor": 1911,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 49,
+        "expFactor": 0,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      }
+    ],
+    "skills": [],
+    "realmLv": 31,
+    "category": "internal"
+  }
+]

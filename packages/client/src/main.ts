@@ -1521,6 +1521,9 @@ function hydrateNpcShopResponse(data: S2C_NpcShop) {
           items: data.shop.items.map((entry) => ({
             itemId: entry.itemId,
             unitPrice: entry.unitPrice,
+            remainingQuantity: entry.remainingQuantity,
+            stockLimit: entry.stockLimit,
+            refreshAt: entry.refreshAt,
             item: hydrateSyncedItemStack(entry.item),
           })),
         }

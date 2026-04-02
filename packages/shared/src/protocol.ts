@@ -948,6 +948,9 @@ export interface SyncedNpcShopItemView {
   itemId: string;
   item: SyncedItemStack;
   unitPrice: number;
+  remainingQuantity?: number;
+  stockLimit?: number;
+  refreshAt?: number;
 }
 
 export interface SyncedNpcShopView {
@@ -1607,7 +1610,10 @@ export interface GmMapQuestRecord {
 
 export interface GmMapNpcShopItemRecord {
   itemId: string;
-  price: number;
+  price?: number;
+  stockLimit?: number;
+  refreshSeconds?: number;
+  priceFormula?: 'technique_realm_square_grade';
 }
 
 /** GM 地图 NPC 记录 */

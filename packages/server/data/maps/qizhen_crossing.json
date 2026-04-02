@@ -391,6 +391,59 @@
       "quests": []
     },
     {
+      "id": "npc_ji_mi_xuan",
+      "name": "秘籍商·纪密玄",
+      "x": 28,
+      "y": 13,
+      "char": "秘",
+      "color": "#b6c7a1",
+      "dialogue": "听脉的底子、五行的入门、再往上一截压基的老法，我这都有。书不替你成事，但总比拿命去试错便宜。",
+      "role": "trader",
+      "shopItems": [
+        {
+          "itemId": "book.tingmai_dingxi",
+          "price": 300
+        },
+        {
+          "itemId": "book.genghua_ningfeng",
+          "price": 300,
+          "stockLimit": 10,
+          "refreshSeconds": 3600
+        },
+        {
+          "itemId": "book.qingmu_yangmai",
+          "price": 300,
+          "stockLimit": 10,
+          "refreshSeconds": 3600
+        },
+        {
+          "itemId": "book.hanxi_ximai",
+          "price": 300,
+          "stockLimit": 10,
+          "refreshSeconds": 3600
+        },
+        {
+          "itemId": "book.liyan_duanxi",
+          "price": 300,
+          "stockLimit": 10,
+          "refreshSeconds": 3600
+        },
+        {
+          "itemId": "book.houtu_chengyuan",
+          "price": 300,
+          "stockLimit": 10,
+          "refreshSeconds": 3600
+        },
+        {
+          "itemId": "book.ningqi_chengji",
+          "price": 3000,
+          "stockLimit": 1,
+          "refreshSeconds": 3600
+        }
+      ],
+      "quests": []
+    },
+    {
       "id": "npc_su_jian",
       "name": "渡记官·苏简",
       "x": 29,

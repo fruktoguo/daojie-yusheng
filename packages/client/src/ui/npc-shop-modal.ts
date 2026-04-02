@@ -1,4 +1,4 @@
-import { Inventory, ItemStack, ItemType, PlayerState } from '@mud/shared';
+import { Inventory, ItemStack, PlayerState } from '@mud/shared';
 import { buildItemTooltipPayload, describeItemEffectDetails } from './equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 import { getItemTypeLabel } from '../domain-labels';
@@ -27,6 +27,9 @@ interface NpcShopItemState {
   itemId: string;
   item: ItemStack;
   unitPrice: number;
+  remainingQuantity?: number;
+  stockLimit?: number;
+  refreshAt?: number;
 }
 
 interface NpcShopState {
@@ -66,6 +69,9 @@ export class NpcShopModal {
 
   syncInventory(inventory: Inventory): void {
     this.inventory = inventory;
+    if (this.activeNpcId && detailModalHost.isOpenFor(NpcShopModal.MODAL_OWNER)) {
+      this.callbacks?.onRequestShop(this.activeNpcId);
+    }
     if (detailModalHost.isOpenFor(NpcShopModal.MODAL_OWNER)) {
       this.render();
     }
@@ -205,7 +211,9 @@ export class NpcShopModal {
     }
 
     const selectedItem = shop.items.find((item) => item.itemId === this.selectedItemId) ?? shop.items[0]!;
-    const listItems = shop.items.map((item) => this.renderListItem(item.itemId, item.item.name, item.item.type, item.unitPrice, item.itemId === selectedItem.itemId)).join('');
+    const listItems = shop.items
+      .map((item) => this.renderListItem(item, item.itemId === selectedItem.itemId))
+      .join('');
     const ownedCurrency = this.findInventoryItemCount(shop.currencyItemId);
 
     return `
@@ -230,26 +238,25 @@ export class NpcShopModal {
     `;
   }
 
-  private renderListItem(
-    itemId: string,
-    itemName: string,
-    itemType: ItemType,
-    unitPrice: number,
-    active: boolean,
-  ): string {
-    const ownedCount = this.findInventoryItemCount(itemId);
+  private renderListItem(item: NpcShopItemState, active: boolean): string {
+    const ownedCount = this.findInventoryItemCount(item.itemId);
     const ownedLabel = ownedCount > 0
       ? `<span class="market-item-cell-owned">${formatDisplayCountBadge(ownedCount)}</span>`
       : '';
+    const stockLabel = item.remainingQuantity === undefined
+      ? escapeHtml(getItemTypeLabel(item.item.type))
+      : item.remainingQuantity > 0
+        ? `${escapeHtml(getItemTypeLabel(item.item.type))} · 余 ${formatDisplayInteger(item.remainingQuantity)}${item.stockLimit ? `/${formatDisplayInteger(item.stockLimit)}` : ''}`
+        : `${escapeHtml(getItemTypeLabel(item.item.type))} · 已售罄`;
     return `
-      <button class="market-item-cell ${active ? 'active' : ''}" data-npc-shop-select-item="${escapeHtmlAttr(itemId)}" type="button">
-        <div class="market-item-cell-name" title="${escapeHtmlAttr(itemName)}">
-          <span class="market-item-cell-name-text market-item-title--interactive" data-npc-shop-item-tooltip="${escapeHtmlAttr(itemId)}">${escapeHtml(itemName)}</span>
+      <button class="market-item-cell ${active ? 'active' : ''}" data-npc-shop-select-item="${escapeHtmlAttr(item.itemId)}" type="button">
+        <div class="market-item-cell-name" title="${escapeHtmlAttr(item.item.name)}">
+          <span class="market-item-cell-name-text market-item-title--interactive" data-npc-shop-item-tooltip="${escapeHtmlAttr(item.itemId)}">${escapeHtml(item.item.name)}</span>
           ${ownedLabel}
         </div>
         <div class="market-item-cell-prices">
-          <span>售价 ${formatDisplayInteger(unitPrice)}</span>
-          <span>${escapeHtml(getItemTypeLabel(itemType))}</span>
+          <span>售价 ${formatDisplayInteger(item.unitPrice)}</span>
+          <span>${stockLabel}</span>
         </div>
       </button>
     `;
@@ -265,10 +272,27 @@ export class NpcShopModal {
     const ownedCurrency = this.findInventoryItemCount(shop.currencyItemId);
     const effectLines = describeItemEffectDetails(selectedItem.item);
     const affordableCount = selectedItem.unitPrice > 0 ? Math.floor(ownedCurrency / selectedItem.unitPrice) : 0;
+    const maxPurchasable = selectedItem.remainingQuantity === undefined
+      ? affordableCount
+      : Math.min(affordableCount, selectedItem.remainingQuantity);
     const totalCost = quantity === null ? null : quantity * selectedItem.unitPrice;
     const invalidTotal = totalCost === null || !Number.isSafeInteger(totalCost) || totalCost <= 0;
+    const soldOut = selectedItem.remainingQuantity !== undefined && selectedItem.remainingQuantity <= 0;
+    const stockExceeded = !soldOut && selectedItem.remainingQuantity !== undefined && quantity !== null && quantity > selectedItem.remainingQuantity;
     const insufficientCurrency = !invalidTotal && totalCost > ownedCurrency;
+    const purchaseBlocked = invalidTotal || soldOut || stockExceeded;
     const displayTotal = invalidTotal ? '--' : formatDisplayInteger(totalCost ?? 0);
+    const refreshHint = this.formatRefreshHint(selectedItem.refreshAt);
+    const stockSummary = selectedItem.remainingQuantity === undefined
+      ? null
+      : selectedItem.stockLimit
+        ? `库存 ${formatDisplayInteger(selectedItem.remainingQuantity)}/${formatDisplayInteger(selectedItem.stockLimit)}`
+        : `库存 ${formatDisplayInteger(selectedItem.remainingQuantity)}`;
+    const errorText = soldOut
+      ? `此物已售罄${refreshHint ? `，${refreshHint}` : ''}。`
+      : stockExceeded
+        ? `库存不足，当前仅剩 ${formatDisplayInteger(selectedItem.remainingQuantity ?? 0)}。`
+        : `${shop.currencyItemName}不足，当前需要 ${displayTotal}。`;
 
     return `
       <div class="market-book-header">
@@ -288,12 +312,18 @@ export class NpcShopModal {
       <div class="market-book-column">
         <div class="market-book-column-head">
           <div class="market-book-column-title">直接购买</div>
-          <button class="small-btn" data-npc-shop-buy="${escapeHtmlAttr(selectedItem.itemId)}" type="button" ${invalidTotal ? 'disabled' : ''}>购买</button>
+          <button class="small-btn" data-npc-shop-buy="${escapeHtmlAttr(selectedItem.itemId)}" type="button" ${purchaseBlocked ? 'disabled' : ''}>购买</button>
         </div>
         <div class="market-action-row">
           <span class="market-order-meta">已有 ${formatDisplayCountBadge(ownedCount)}</span>
-          <span class="market-order-meta">最多买得起 ${formatDisplayInteger(affordableCount)}</span>
+          <span class="market-order-meta">最多买得起 ${formatDisplayInteger(maxPurchasable)}</span>
         </div>
+        ${stockSummary || refreshHint ? `
+        <div class="market-action-row">
+          ${stockSummary ? `<span class="market-order-meta">${stockSummary}</span>` : '<span class="market-order-meta"></span>'}
+          ${refreshHint ? `<span class="market-order-meta">${escapeHtml(refreshHint)}</span>` : '<span class="market-order-meta"></span>'}
+        </div>
+        ` : ''}
         <div class="market-trade-dialog-section">
           <div class="market-trade-dialog-field">
             <span>单价</span>
@@ -320,19 +350,19 @@ export class NpcShopModal {
               <button
                 class="small-btn ghost"
                 data-npc-shop-quick-qty="${escapeHtmlAttr(selectedItem.itemId)}"
-                data-npc-shop-quick-qty-value="${Math.max(1, affordableCount)}"
+                data-npc-shop-quick-qty-value="${Math.max(1, maxPurchasable)}"
                 type="button"
-                ${affordableCount <= 0 ? 'disabled' : ''}
+                ${maxPurchasable <= 0 ? 'disabled' : ''}
               >最大</button>
             </div>
           </div>
-          <div class="market-trade-dialog-total ${insufficientCurrency ? 'error' : ''}">
+          <div class="market-trade-dialog-total ${insufficientCurrency || soldOut || stockExceeded ? 'error' : ''}">
             <span>总价</span>
             <strong data-npc-shop-total="${escapeHtmlAttr(selectedItem.itemId)}">${displayTotal} ${escapeHtml(shop.currencyItemName)}</strong>
           </div>
         </div>
-        <div class="market-action-hint market-action-hint--error" data-npc-shop-error="${escapeHtmlAttr(selectedItem.itemId)}" ${insufficientCurrency ? '' : 'hidden'}>
-          ${escapeHtml(shop.currencyItemName)}不足，当前需要 ${displayTotal}。
+        <div class="market-action-hint market-action-hint--error" data-npc-shop-error="${escapeHtmlAttr(selectedItem.itemId)}" ${insufficientCurrency || soldOut || stockExceeded ? '' : 'hidden'}>
+          ${escapeHtml(errorText)}
         </div>
       </div>
     `;
@@ -365,12 +395,34 @@ export class NpcShopModal {
     const totalCost = quantity === null ? null : quantity * entry.unitPrice;
     const invalidTotal = totalCost === null || !Number.isSafeInteger(totalCost) || totalCost <= 0;
     const insufficientCurrency = !invalidTotal && totalCost > ownedCurrency;
+    const soldOut = entry.remainingQuantity !== undefined && entry.remainingQuantity <= 0;
+    const stockExceeded = !soldOut && entry.remainingQuantity !== undefined && quantity !== null && quantity > entry.remainingQuantity;
     const displayTotal = invalidTotal ? '--' : formatDisplayInteger(totalCost ?? 0);
     totalNode.textContent = `${displayTotal} ${shop.currencyItemName}`;
-    totalNode.parentElement?.classList.toggle('error', insufficientCurrency);
-    errorNode.hidden = !insufficientCurrency;
-    errorNode.textContent = `${shop.currencyItemName}不足，当前需要 ${displayTotal}。`;
-    buttonNode.disabled = invalidTotal;
+    totalNode.parentElement?.classList.toggle('error', insufficientCurrency || soldOut || stockExceeded);
+    errorNode.hidden = !(insufficientCurrency || soldOut || stockExceeded);
+    errorNode.textContent = soldOut
+      ? `此物已售罄${this.formatRefreshHint(entry.refreshAt) ? `，${this.formatRefreshHint(entry.refreshAt)}` : ''}。`
+      : stockExceeded
+        ? `库存不足，当前仅剩 ${formatDisplayInteger(entry.remainingQuantity ?? 0)}。`
+        : `${shop.currencyItemName}不足，当前需要 ${displayTotal}。`;
+    buttonNode.disabled = invalidTotal || soldOut || stockExceeded;
+  }
+
+  private formatRefreshHint(refreshAt: number | undefined): string | null {
+    if (!Number.isFinite(refreshAt)) {
+      return null;
+    }
+    const remainingMs = Math.max(0, Number(refreshAt) - Date.now());
+    if (remainingMs <= 60_000) {
+      return '约 1 分钟内补货';
+    }
+    const remainingMinutes = Math.ceil(remainingMs / 60_000);
+    if (remainingMinutes < 60) {
+      return `约 ${formatDisplayInteger(remainingMinutes)} 分后补货`;
+    }
+    const remainingHours = Math.ceil(remainingMinutes / 60);
+    return `约 ${formatDisplayInteger(remainingHours)} 小时后补货`;
   }
 
   private bindItemTooltipEvents(body: HTMLElement): void {

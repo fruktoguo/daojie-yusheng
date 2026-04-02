@@ -532,6 +532,9 @@ export interface NpcShopItemView {
   itemId: string;
   item: ItemStack;
   unitPrice: number;
+  remainingQuantity?: number;
+  stockLimit?: number;
+  refreshAt?: number;
 }
 
 /** NPC 商店视图 */

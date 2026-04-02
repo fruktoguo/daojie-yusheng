@@ -477,6 +477,13 @@
       "monsterId": "m_cleft_blade_wraith",
       "monsterName": "断刃游魂",
       "count": 1
+    },
+    {
+      "kind": "shop",
+      "mapId": "qizhen_crossing",
+      "mapName": "栖真渡",
+      "npcId": "npc_ji_mi_xuan",
+      "npcName": "秘籍商·纪密玄"
     }
   ],
   "book.golden_lock_body": [
@@ -517,6 +524,13 @@
       "monsterId": "m_cold_tide_sprite",
       "monsterName": "寒汐蜉灵",
       "count": 1
+    },
+    {
+      "kind": "shop",
+      "mapId": "qizhen_crossing",
+      "mapName": "栖真渡",
+      "npcId": "npc_ji_mi_xuan",
+      "npcName": "秘籍商·纪密玄"
     }
   ],
   "book.hidden_fortune_record": [
@@ -547,6 +561,13 @@
       "monsterId": "m_deepvein_croc",
       "monsterName": "黄岩鼍兽",
       "count": 1
+    },
+    {
+      "kind": "shop",
+      "mapId": "qizhen_crossing",
+      "mapName": "栖真渡",
+      "npcId": "npc_ji_mi_xuan",
+      "npcName": "秘籍商·纪密玄"
     }
   ],
   "book.huangting_zaishan": [
@@ -665,6 +686,13 @@
       "monsterId": "m_ember_moth",
       "monsterName": "焦土火蛾",
       "count": 1
+    },
+    {
+      "kind": "shop",
+      "mapId": "qizhen_crossing",
+      "mapName": "栖真渡",
+      "npcId": "npc_ji_mi_xuan",
+      "npcName": "秘籍商·纪密玄"
     }
   ],
   "book.mountain_insight_chart": [
@@ -685,6 +713,15 @@
       "questTitle": "北井别回头",
       "line": "main",
       "chapter": "序章·断道入镇"
+    }
+  ],
+  "book.ningqi_chengji": [
+    {
+      "kind": "shop",
+      "mapId": "qizhen_crossing",
+      "mapName": "栖真渡",
+      "npcId": "npc_ji_mi_xuan",
+      "npcName": "秘籍商·纪密玄"
     }
   ],
   "book.nourishing_qi_art": [
@@ -734,6 +771,13 @@
       "monsterId": "m_verdant_lesser_sprite",
       "monsterName": "青萝小妖",
       "count": 1
+    },
+    {
+      "kind": "shop",
+      "mapId": "qizhen_crossing",
+      "mapName": "栖真渡",
+      "npcId": "npc_ji_mi_xuan",
+      "npcName": "秘籍商·纪密玄"
     }
   ],
   "book.redflame_art": [
@@ -888,6 +932,13 @@
       "monsterId": "m_guizang_tangled_wisp",
       "monsterName": "错脉游灵",
       "count": 1
+    },
+    {
+      "kind": "shop",
+      "mapId": "qizhen_crossing",
+      "mapName": "栖真渡",
+      "npcId": "npc_ji_mi_xuan",
+      "npcName": "秘籍商·纪密玄"
     },
     {
       "kind": "quest",
