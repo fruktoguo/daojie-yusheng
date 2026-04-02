@@ -4,16 +4,26 @@
  */
 
 import {
+  calcTechniqueAttrValues,
   EquipmentEffectDef,
   formatBuffMaxStacks,
   ItemStack,
+  TECHNIQUE_ATTR_KEYS,
 } from '@mud/shared';
 import {
+  ATTR_KEY_LABELS,
   getEquipSlotLabel,
   getItemTypeLabel,
+  getTechniqueGradeLabel,
 } from '../domain-labels';
 import { renderItemSourceListHtml } from '../content/item-sources';
-import { getLocalItemTemplate, resolvePreviewItem, resolveTechniqueIdFromBookItemId } from '../content/local-templates';
+import {
+  getLocalItemTemplate,
+  getLocalRealmLevelEntry,
+  getLocalTechniqueTemplate,
+  resolvePreviewItem,
+  resolveTechniqueIdFromBookItemId,
+} from '../content/local-templates';
 import { SkillTooltipAsideCard, SkillTooltipContent } from './skill-tooltip';
 import { describePreviewBonuses } from './stat-preview';
 import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../utils/number';
@@ -320,16 +330,68 @@ function buildEquipmentComparisonAsideCard(item: ItemStack): SkillTooltipAsideCa
   };
 }
 
+function formatTechniqueAttrSummary(attrs: ReturnType<typeof calcTechniqueAttrValues>): string {
+  const parts = TECHNIQUE_ATTR_KEYS
+    .map((key) => {
+      const value = attrs[key] ?? 0;
+      if (value <= 0) {
+        return null;
+      }
+      return `${ATTR_KEY_LABELS[key]}+${formatDisplayNumber(value)}`;
+    })
+    .filter((entry): entry is string => entry !== null);
+  return parts.length > 0 ? parts.join(' / ') : '无属性提升';
+}
+
+function buildTechniqueBookTooltipLines(item: ItemStack): string[] {
+  const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
+  if (!techniqueId) {
+    return [];
+  }
+  const technique = getLocalTechniqueTemplate(techniqueId);
+  if (!technique) {
+    return [];
+  }
+  const realmLabel = technique.realmLv
+    ? (getLocalRealmLevelEntry(technique.realmLv)?.displayName ?? `Lv.${formatDisplayInteger(technique.realmLv)}`)
+    : '未知';
+  const maxLevel = Math.max(
+    1,
+    ...((technique.layers ?? []).map((layer) => Math.max(1, Math.floor(layer.level)))),
+  );
+  const totalAttrs = calcTechniqueAttrValues(maxLevel, technique.layers);
+  const skillNames = (technique.skills ?? [])
+    .map((skill) => skill.name.trim())
+    .filter((name) => name.length > 0);
+  return [
+    renderPlainLine('功法', technique.name),
+    renderPlainLine('描述', item.desc?.trim() || '暂无描述'),
+    renderPlainLine('境界', realmLabel),
+    renderPlainLine('品阶', getTechniqueGradeLabel(technique.grade)),
+    renderPlainLine('满层属性', formatTechniqueAttrSummary(totalAttrs)),
+    renderPlainLine(
+      `附带技能${skillNames.length > 0 ? `（${formatDisplayInteger(skillNames.length)}）` : ''}`,
+      skillNames.length > 0 ? skillNames.join('、') : '无',
+    ),
+  ];
+}
+
 export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipContext): ItemTooltipPayload {
   const previewItem = resolvePreviewItem(item);
   const sourceListHtml = renderItemSourceListHtml(previewItem.itemId, { maxEntries: 3, compact: true });
   const statusLabel = resolveItemStatusLabel(previewItem, context);
   if (previewItem.type !== 'equipment') {
     const effectLines = describeItemEffectDetails(previewItem);
+    const techniqueBookLines = previewItem.type === 'skill_book'
+      ? buildTechniqueBookTooltipLines(previewItem)
+      : [];
     const lines = [
-      `<span class="skill-tooltip-desc">${escapeHtml(previewItem.desc ?? '')}</span>`,
+      ...(previewItem.type === 'skill_book'
+        ? []
+        : [`<span class="skill-tooltip-desc">${escapeHtml(previewItem.desc ?? '')}</span>`]),
       renderPlainLine('类型', getItemTypeLabel(previewItem.type)),
       ...(statusLabel ? [renderPlainLine('状态', statusLabel)] : []),
+      ...techniqueBookLines,
       ...effectLines.map((line) => `<span class="skill-tooltip-detail">${escapeHtml(line)}</span>`),
       `<div class="inventory-source-block"><span class="skill-tooltip-label">来源：</span>${sourceListHtml}</div>`,
     ].filter((line) => line.length > 0);
