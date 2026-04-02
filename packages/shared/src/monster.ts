@@ -14,6 +14,7 @@ import {
   MONSTER_GLOBAL_STAT_PERCENTS,
   MONSTER_GRADE_STAT_PERCENTS,
   MONSTER_TIER_EXP_MULTIPLIERS,
+  MONSTER_TIER_OVERLEVEL_EXP_REDUCTION_RATES,
   MONSTER_TIER_STAT_PERCENTS,
   NUMERIC_SCALAR_STAT_KEYS,
   PLAYER_REALM_NUMERIC_TEMPLATES,
@@ -118,6 +119,23 @@ export function shouldPersistMonsterTier(tier: MonsterTier | undefined, name: st
 
 export function shouldPersistMonsterExpMultiplier(expMultiplier: unknown, tier: MonsterTier | undefined): boolean {
   return resolveMonsterExpMultiplier(expMultiplier, tier) !== getDefaultMonsterExpMultiplier(tier);
+}
+
+export function getMonsterKillExpLevelAdjustment(
+  playerRealmLv: number,
+  monsterLevel: number,
+  tier: MonsterTier | undefined,
+): number {
+  const normalizedPlayerLevel = Math.max(1, Math.floor(playerRealmLv));
+  const normalizedMonsterLevel = Math.max(1, Math.floor(monsterLevel));
+  if (normalizedPlayerLevel < normalizedMonsterLevel) {
+    return 1.5 ** (normalizedMonsterLevel - normalizedPlayerLevel);
+  }
+  if (normalizedPlayerLevel > normalizedMonsterLevel) {
+    const reductionRate = MONSTER_TIER_OVERLEVEL_EXP_REDUCTION_RATES[normalizeMonsterTier(tier)] ?? 0.5;
+    return Math.max(0, 1 - reductionRate) ** (normalizedPlayerLevel - normalizedMonsterLevel);
+  }
+  return 1;
 }
 
 export function normalizeMonsterAttrs(

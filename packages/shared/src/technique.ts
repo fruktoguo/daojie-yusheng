@@ -17,6 +17,7 @@ import {
   TECHNIQUE_GRADE_ATTR_DECAY_K,
   TECHNIQUE_GRADE_ATTR_DECAY_SPANS,
   TECHNIQUE_GRADE_ATTR_FREE_LIMITS,
+  TECHNIQUE_EXP_LEVEL_DELTA_MULTIPLIER_STEP,
   TECHNIQUE_GRADE_QI_COST_MULTIPLIERS,
   TECHNIQUE_GRADE_ORDER,
 } from './constants/gameplay/technique';
@@ -138,6 +139,23 @@ export function calculateTechniqueSkillQiCost(
       * normalizedRealmLv,
     ),
   );
+}
+
+export function getTechniqueExpLevelAdjustment(
+  playerRealmLv: number | undefined,
+  techniqueRealmLv: number | undefined,
+): number {
+  const normalizedPlayerLevel = Number.isFinite(playerRealmLv) ? Math.max(1, Math.floor(Number(playerRealmLv))) : 1;
+  const normalizedTechniqueLevel = Number.isFinite(techniqueRealmLv) ? Math.max(1, Math.floor(Number(techniqueRealmLv))) : 1;
+  const stepMultiplier = 1 + TECHNIQUE_EXP_LEVEL_DELTA_MULTIPLIER_STEP;
+  const penaltyMultiplier = Math.max(0, 1 - TECHNIQUE_EXP_LEVEL_DELTA_MULTIPLIER_STEP);
+  if (normalizedPlayerLevel < normalizedTechniqueLevel) {
+    return penaltyMultiplier ** (normalizedTechniqueLevel - normalizedPlayerLevel);
+  }
+  if (normalizedPlayerLevel > normalizedTechniqueLevel) {
+    return stepMultiplier ** (normalizedPlayerLevel - normalizedTechniqueLevel);
+  }
+  return 1;
 }
 
 /** 计算功法在指定层数时累计提供的六维属性加成 */

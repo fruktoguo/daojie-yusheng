@@ -9,10 +9,12 @@ import {
   calcTechniqueFinalAttrBonus,
   calcTechniqueNextLevelGains,
   deriveTechniqueRealm,
+  getTechniqueExpLevelAdjustment,
   getTechniqueMaxLevel,
   PlayerState,
   resolveSkillUnlockLevel,
   TECHNIQUE_ATTR_KEYS,
+  TECHNIQUE_EXP_LEVEL_DELTA_MULTIPLIER_STEP,
   TechniqueCategory,
   TechniqueLayerDef,
   TechniqueRealm,
@@ -136,6 +138,38 @@ function calcTechniqueTotalExp(tech: TechniqueState): number {
 
 function getResolvedTechniqueRealm(tech: TechniqueState): TechniqueRealm {
   return deriveTechniqueRealm(tech.level, tech.layers, tech.attrCurves);
+}
+
+function getPlayerRealmLv(player?: PlayerState): number | null {
+  const realmLv = player?.realm?.realmLv ?? player?.realmLv;
+  return Number.isFinite(realmLv) ? Math.max(1, Math.floor(Number(realmLv))) : null;
+}
+
+function getRealmLevelDisplayName(realmLv: number): string {
+  const entry = getLocalRealmLevelEntry(realmLv);
+  return entry?.displayName ?? `Lv.${formatDisplayInteger(realmLv)}`;
+}
+
+function buildTechniqueExpTooltipLines(tech: TechniqueState, player?: PlayerState): string[] {
+  const stepPercent = Math.round(TECHNIQUE_EXP_LEVEL_DELTA_MULTIPLIER_STEP * 100);
+  const lines = [
+    '功法经验会按你的境界与功法境界差乘算。',
+    `每低一级乘 ${100 - stepPercent}% ，每高一级乘 ${100 + stepPercent}%。`,
+    `此功法境界：${getRealmLevelDisplayName(tech.realmLv)}`,
+  ];
+  const playerRealmLv = getPlayerRealmLv(player);
+  if (playerRealmLv === null) {
+    return lines;
+  }
+  const delta = playerRealmLv - tech.realmLv;
+  const adjustment = getTechniqueExpLevelAdjustment(playerRealmLv, tech.realmLv);
+  lines.push(`你的境界：${getRealmLevelDisplayName(playerRealmLv)}`);
+  lines.push(delta === 0
+    ? `当前与功法同级，功法经验修正为 ${formatDisplayNumber(adjustment * 100)}%。`
+    : delta > 0
+      ? `当前高于功法 ${formatDisplayInteger(delta)} 级，功法经验修正为 ${formatDisplayNumber(adjustment * 100)}%。`
+      : `当前低于功法 ${formatDisplayInteger(-delta)} 级，功法经验修正为 ${formatDisplayNumber(adjustment * 100)}%。`);
+  return lines;
 }
 
 function getTechniqueRealmLevelLabel(tech: TechniqueState): string {
@@ -366,7 +400,7 @@ export class TechniquePanel {
         <section class="tech-modal-summary">
           <div class="tech-modal-stat">
             <span class="tech-modal-label">当前经验</span>
-            <span data-tech-modal-current-exp="true">${formatTechniqueProgressText(tech)}</span>
+            <span data-tech-modal-current-exp="true" data-tech-exp-tooltip="true">${formatTechniqueProgressText(tech)}</span>
           </div>
           <div class="tech-modal-stat">
             <span class="tech-modal-label">总经验</span>
@@ -396,6 +430,7 @@ export class TechniquePanel {
       onAfterRender: (body) => {
         this.mountConstellation(body, tech, layers, selectedLevel, skillsByLevel, milestones);
         this.bindSkillTooltips(body);
+        this.bindTechniqueExpTooltip(body);
       },
     });
   }
@@ -699,6 +734,58 @@ export class TechniquePanel {
           allowHtml: rich,
           asideCards: tooltip.asideCards,
         });
+      });
+      node.addEventListener('pointermove', (event) => {
+        if (tapMode && this.tooltip.isPinned()) {
+          return;
+        }
+        this.tooltip.move(event.clientX, event.clientY);
+      });
+      node.addEventListener('pointerleave', () => {
+        this.tooltip.hide();
+      });
+    });
+  }
+
+  private bindTechniqueExpTooltip(modalBody: HTMLElement): void {
+    const tapMode = prefersPinnedTooltipInteraction();
+    modalBody.querySelectorAll<HTMLElement>('[data-tech-exp-tooltip="true"]').forEach((node) => {
+      if (node.dataset.techExpTooltipBound === '1') {
+        return;
+      }
+      node.dataset.techExpTooltipBound = '1';
+      const showTooltip = (clientX: number, clientY: number, pin = false): void => {
+        if (!this.openTechId) {
+          return;
+        }
+        const tech = this.findPreviewTechnique(this.openTechId);
+        if (!tech) {
+          return;
+        }
+        const lines = buildTechniqueExpTooltipLines(tech, this.lastState.previewPlayer);
+        if (pin) {
+          this.tooltip.showPinned(node, '功法经验修正', lines, clientX, clientY);
+          return;
+        }
+        this.tooltip.show('功法经验修正', lines, clientX, clientY);
+      };
+      node.addEventListener('click', (event) => {
+        if (!tapMode) {
+          return;
+        }
+        if (this.tooltip.isPinnedTo(node)) {
+          this.tooltip.hide(true);
+          return;
+        }
+        showTooltip(event.clientX, event.clientY, true);
+        event.preventDefault();
+        event.stopPropagation();
+      }, true);
+      node.addEventListener('pointerenter', (event) => {
+        if (tapMode && this.tooltip.isPinned()) {
+          return;
+        }
+        showTooltip(event.clientX, event.clientY);
       });
       node.addEventListener('pointermove', (event) => {
         if (tapMode && this.tooltip.isPinned()) {

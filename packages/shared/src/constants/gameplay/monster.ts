@@ -85,3 +85,10 @@ export const MONSTER_TIER_EXP_MULTIPLIERS: Record<MonsterTier, number> = {
   variant: 5,
   demon_king: 100,
 };
+
+/** 玩家等级高于怪物时，各血脉层次每级削减的击杀经验比例。 */
+export const MONSTER_TIER_OVERLEVEL_EXP_REDUCTION_RATES: Record<MonsterTier, number> = {
+  mortal_blood: 0.2,
+  variant: 0.4,
+  demon_king: 0.6,
+};

@@ -2905,6 +2905,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       const combatExp = this.techniqueService.grantCombatExpFromMonsterKill(participant, {
         monsterLevel: monster.level,
         monsterName: monster.name,
+        monsterTier: monster.tier,
         expMultiplier: monster.expMultiplier,
         contributionRatio,
         expAdjustmentRealmLv,

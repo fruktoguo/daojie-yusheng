@@ -14,6 +14,9 @@ export const CULTIVATION_REALM_EXP_PER_TICK = 2;
 /** 闲置自动修炼延迟（息） */
 export const AUTO_IDLE_CULTIVATION_DELAY_TICKS = 10;
 
+/** 玩家境界与功法境界存在差距时，每级功法经验乘算修正幅度。 */
+export const TECHNIQUE_EXP_LEVEL_DELTA_MULTIPLIER_STEP = 0.2;
+
 /** 功法层级经验基准值 */
 export const TECHNIQUE_EXP_BASE = 100;
 

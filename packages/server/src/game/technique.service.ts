@@ -14,10 +14,14 @@ import {
   ELEMENT_KEYS,
   ELEMENT_KEY_LABELS,
   ElementKey,
+  getMonsterKillExpLevelAdjustment,
+  getTechniqueExpLevelAdjustment,
   HeavenGateRootValues,
   HeavenGateState,
   getTechniqueExpToNext,
   getTechniqueMaxLevel,
+  MonsterTier,
+  percentModifierToMultiplier,
   PLAYER_REALM_CONFIG,
   PLAYER_REALM_ORDER,
   PlayerRealmStage,
@@ -89,6 +93,7 @@ interface ResolvedBreakthroughRequirement {
 interface MonsterKillExpInput {
   monsterLevel?: number;
   monsterName?: string;
+  monsterTier?: MonsterTier;
   expMultiplier?: number;
   contributionRatio?: number;
   isKiller?: boolean;
@@ -724,6 +729,7 @@ export class TechniqueService {
     const realmBaseExp = this.getRealmCombatExp(
       normalizedMonsterLevel,
       expAdjustmentRealmLv,
+      input.monsterTier,
       input.expMultiplier,
       contributionRatio,
     );
@@ -747,6 +753,7 @@ export class TechniqueService {
       this.getTechniqueCombatExp(
         normalizedMonsterLevel,
         expAdjustmentRealmLv,
+        input.monsterTier,
         input.expMultiplier,
         contributionRatio,
       ),
@@ -961,7 +968,7 @@ export class TechniqueService {
   }
 
   private applyRateBonus(base: number, bonusRate: number, minimumGain = 1): number {
-    const exactGain = Math.max(minimumGain, base * (1 + Math.max(0, bonusRate)));
+    const exactGain = Math.max(minimumGain, base * percentModifierToMultiplier(bonusRate * 100));
     const guaranteed = Math.floor(exactGain);
     const remainder = exactGain - guaranteed;
     if (remainder <= 0) {
@@ -1002,7 +1009,8 @@ export class TechniqueService {
       };
     }
 
-    const gain = this.applyRateBonus(baseGain, expBonus, minimumGain);
+    const techniqueLevelAdjustment = getTechniqueExpLevelAdjustment(this.getPlayerRealmLv(player), technique.realmLv);
+    const gain = this.applyRateBonus(baseGain * techniqueLevelAdjustment, expBonus, minimumGain);
     const previousLevel = technique.level;
     const previousExp = technique.exp;
     const messages: TechniqueMessage[] = [...resolvedTarget.messages];
@@ -1197,6 +1205,7 @@ export class TechniqueService {
   private getRealmCombatExp(
     monsterLevel: number,
     playerRealmLv: number,
+    monsterTier?: MonsterTier,
     expMultiplier = 1,
     contributionRatio = 1,
   ): number {
@@ -1208,7 +1217,7 @@ export class TechniqueService {
 
     const normalizedMultiplier = Number.isFinite(expMultiplier) ? Math.max(0, expMultiplier) : 1;
     const normalizedContributionRatio = Math.min(1, Math.max(0, Number.isFinite(contributionRatio) ? Number(contributionRatio) : 1));
-    const levelAdjustment = this.getMonsterKillRealmExpAdjustment(playerRealmLv, level);
+    const levelAdjustment = this.getMonsterKillRealmExpAdjustment(playerRealmLv, level, monsterTier);
     return (expToNext * normalizedMultiplier * levelAdjustment * normalizedContributionRatio) / 1000;
   }
 
@@ -1219,6 +1228,7 @@ export class TechniqueService {
   private getTechniqueCombatExp(
     monsterLevel: number,
     playerRealmLv: number,
+    monsterTier?: MonsterTier,
     expMultiplier = 1,
     contributionRatio = 1,
   ): number {
@@ -1230,20 +1240,12 @@ export class TechniqueService {
 
     const normalizedMultiplier = Number.isFinite(expMultiplier) ? Math.max(0, expMultiplier) : 1;
     const normalizedContributionRatio = Math.min(1, Math.max(0, Number.isFinite(contributionRatio) ? Number(contributionRatio) : 1));
-    const levelAdjustment = this.getMonsterKillRealmExpAdjustment(playerRealmLv, level);
+    const levelAdjustment = this.getMonsterKillRealmExpAdjustment(playerRealmLv, level, monsterTier);
     return (expToNext * normalizedMultiplier * levelAdjustment * normalizedContributionRatio) / 200;
   }
 
-  private getMonsterKillRealmExpAdjustment(playerRealmLv: number, monsterLevel: number): number {
-    const normalizedPlayerLevel = Math.max(1, Math.floor(playerRealmLv));
-    const normalizedMonsterLevel = Math.max(1, Math.floor(monsterLevel));
-    if (normalizedPlayerLevel < normalizedMonsterLevel) {
-      return 1.5 ** (normalizedMonsterLevel - normalizedPlayerLevel);
-    }
-    if (normalizedPlayerLevel > normalizedMonsterLevel) {
-      return 0.5 ** (normalizedPlayerLevel - normalizedMonsterLevel);
-    }
-    return 1;
+  private getMonsterKillRealmExpAdjustment(playerRealmLv: number, monsterLevel: number, monsterTier?: MonsterTier): number {
+    return getMonsterKillExpLevelAdjustment(playerRealmLv, monsterLevel, monsterTier);
   }
 
   private getPlayerRealmLv(player: PlayerState): number {
