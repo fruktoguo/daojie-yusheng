@@ -15,6 +15,7 @@ import {
   ELEMENT_KEY_LABELS,
   ElementKey,
   getMonsterKillExpLevelAdjustment,
+  getMonsterLevelExpDecayMultiplier,
   getTechniqueExpLevelAdjustment,
   HeavenGateRootValues,
   HeavenGateState,
@@ -1242,7 +1243,8 @@ export class TechniqueService {
     const normalizedMultiplier = Number.isFinite(expMultiplier) ? Math.max(0, expMultiplier) : 1;
     const normalizedContributionRatio = Math.min(1, Math.max(0, Number.isFinite(contributionRatio) ? Number(contributionRatio) : 1));
     const levelAdjustment = this.getMonsterKillRealmExpAdjustment(playerRealmLv, level, monsterTier);
-    return (expToNext * normalizedMultiplier * levelAdjustment * normalizedContributionRatio) / 1000;
+    const monsterLevelDecay = getMonsterLevelExpDecayMultiplier(level);
+    return (expToNext * normalizedMultiplier * levelAdjustment * monsterLevelDecay * normalizedContributionRatio) / 1000;
   }
 
   private getCultivationTechniqueExp(techniqueExpPerTick: number, auraMultiplier: number): number {
@@ -1265,7 +1267,8 @@ export class TechniqueService {
     const normalizedMultiplier = Number.isFinite(expMultiplier) ? Math.max(0, expMultiplier) : 1;
     const normalizedContributionRatio = Math.min(1, Math.max(0, Number.isFinite(contributionRatio) ? Number(contributionRatio) : 1));
     const levelAdjustment = this.getMonsterKillRealmExpAdjustment(playerRealmLv, level, monsterTier);
-    return (expToNext * normalizedMultiplier * levelAdjustment * normalizedContributionRatio) / 200;
+    const monsterLevelDecay = getMonsterLevelExpDecayMultiplier(level);
+    return (expToNext * normalizedMultiplier * levelAdjustment * monsterLevelDecay * normalizedContributionRatio) / 200;
   }
 
   private getMonsterKillRealmExpAdjustment(playerRealmLv: number, monsterLevel: number, monsterTier?: MonsterTier): number {
