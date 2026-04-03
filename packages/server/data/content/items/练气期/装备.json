@@ -292,7 +292,7 @@
       {
         "effectId": "gold-sand-temper",
         "type": "progress_boost",
-        "statMode": "percent",
+        "statMode": "flat",
         "conditions": {
           "mode": "all",
           "items": [
@@ -651,7 +651,7 @@
       {
         "effectId": "sealed-edge-cultivate",
         "type": "progress_boost",
-        "statMode": "percent",
+        "statMode": "flat",
         "conditions": {
           "mode": "all",
           "items": [
@@ -1001,7 +1001,7 @@
       {
         "effectId": "sealed-path-march",
         "type": "progress_boost",
-        "statMode": "percent",
+        "statMode": "flat",
         "conditions": {
           "mode": "all",
           "items": [
@@ -1328,7 +1328,7 @@
       {
         "effectId": "shieldvein-breathe",
         "type": "progress_boost",
-        "statMode": "percent",
+        "statMode": "flat",
         "conditions": {
           "mode": "all",
           "items": [
@@ -1690,7 +1690,7 @@
       {
         "effectId": "quakeheart-advance",
         "type": "progress_boost",
-        "statMode": "percent",
+        "statMode": "flat",
         "conditions": {
           "mode": "all",
           "items": [
@@ -1891,7 +1891,7 @@
       {
         "effectId": "deepvein-shard-study",
         "type": "progress_boost",
-        "statMode": "percent",
+        "statMode": "flat",
         "conditions": {
           "mode": "all",
           "items": [
@@ -2048,7 +2048,7 @@
       {
         "effectId": "deepvein-core-cultivate",
         "type": "progress_boost",
-        "statMode": "percent",
+        "statMode": "flat",
         "conditions": {
           "mode": "all",
           "items": [
@@ -2120,7 +2120,7 @@
       {
         "effectId": "returnbreath-cultivate",
         "type": "progress_boost",
-        "statMode": "percent",
+        "statMode": "flat",
         "conditions": {
           "mode": "all",
           "items": [
@@ -2192,7 +2192,7 @@
       {
         "effectId": "verdant-crown-study",
         "type": "progress_boost",
-        "statMode": "percent",
+        "statMode": "flat",
         "conditions": {
           "mode": "all",
           "items": [
