@@ -953,7 +953,7 @@
         "name": "净潮封脉",
         "desc": "小范围封脉，按寒印层数继续压制。",
         "cooldown": 13,
-        "costMultiplier": 6,
+        "costMultiplier": 3,
         "range": 3,
         "targeting": {
           "shape": "area",
@@ -1416,7 +1416,7 @@
         "name": "焚息诀",
         "desc": "读取灼脉，对小范围敌手做引爆。",
         "cooldown": 13,
-        "costMultiplier": 6,
+        "costMultiplier": 3,
         "range": 3,
         "targeting": {
           "shape": "area",
@@ -1818,7 +1818,7 @@
         "name": "枯荣逆抽",
         "desc": "沿缠脉回抽生机，兼顾输出与回转。",
         "cooldown": 12,
-        "costMultiplier": 6,
+        "costMultiplier": 3,
         "range": 3,
         "effects": [
           {

@@ -908,7 +908,7 @@
         "name": "回渡护元",
         "desc": "以定息护持经络，进一步稳住法防与化解。",
         "cooldown": 14,
-        "costMultiplier": 6,
+        "costMultiplier": 3,
         "range": 0,
         "requiresTarget": false,
         "effects": [

@@ -308,7 +308,7 @@
         "name": "铁骨崩拳",
         "desc": "拳劲先震骨再压向前臂，出拳同时也会把护体罡劲再压实一层。",
         "cooldown": 22,
-        "costMultiplier": 1,
+        "costMultiplier": 3,
         "range": 1,
         "effects": [
           {

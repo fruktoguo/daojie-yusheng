@@ -133,7 +133,7 @@
         "name": "白虹裂岳",
         "desc": "白虹贯线，同时给一路敌手压上锋痕。",
         "cooldown": 20,
-        "costMultiplier": 9,
+        "costMultiplier": 3,
         "range": 3,
         "targeting": {
           "shape": "line",
@@ -199,7 +199,7 @@
         "name": "削峰绝势",
         "desc": "读取锋痕压低目标命中与化解。",
         "cooldown": 16,
-        "costMultiplier": 6,
+        "costMultiplier": 3,
         "range": 2,
         "effects": [
           {
@@ -396,7 +396,7 @@
         "name": "赤曜烙心",
         "desc": "赤曜贯心，快速把灼脉叠到中高层。",
         "cooldown": 17,
-        "costMultiplier": 6,
+        "costMultiplier": 3,
         "range": 3,
         "effects": [
           {
@@ -493,7 +493,7 @@
         "name": "曜火回燃",
         "desc": "按灼脉层数放大爆发，并带少量范围蔓延。",
         "cooldown": 21,
-        "costMultiplier": 9,
+        "costMultiplier": 3,
         "range": 4,
         "targeting": {
           "shape": "area",
@@ -690,7 +690,7 @@
         "name": "坤岳镇形",
         "desc": "坤岳压形，边护己边推高镇脉。",
         "cooldown": 12,
-        "costMultiplier": 6,
+        "costMultiplier": 3,
         "range": 1,
         "effects": [
           {
@@ -790,7 +790,7 @@
         "name": "岳动回震",
         "desc": "借自身厚重与镇脉层数做反震重击。",
         "cooldown": 17,
-        "costMultiplier": 6,
+        "costMultiplier": 3,
         "range": 2,
         "effects": [
           {
@@ -964,7 +964,7 @@
         "name": "千枝绕脉",
         "desc": "木脉分化成枝，对多目标同时铺缠脉。",
         "cooldown": 19,
-        "costMultiplier": 6,
+        "costMultiplier": 3,
         "range": 3,
         "targeting": {
           "shape": "line",
@@ -1030,7 +1030,7 @@
         "name": "青生反哺",
         "desc": "读缠脉抽取生机，再反哺己身气血。",
         "cooldown": 19,
-        "costMultiplier": 9,
+        "costMultiplier": 3,
         "range": 3,
         "effects": [
           {
@@ -1233,7 +1233,7 @@
         "name": "五炁并流",
         "desc": "把散落五行痕迹汇成更稳定的杂相。",
         "cooldown": 20,
-        "costMultiplier": 9,
+        "costMultiplier": 3,
         "range": 3,
         "effects": [
           {
@@ -1346,7 +1346,7 @@
         "name": "脉转轮生",
         "desc": "以场上杂相回转自身灵息与承压。",
         "cooldown": 17,
-        "costMultiplier": 6,
+        "costMultiplier": 3,
         "range": 0,
         "requiresTarget": false,
         "effects": [
@@ -1503,7 +1503,7 @@
         "name": "玄津落印",
         "desc": "玄津回落，给一路敌手铺开寒印。",
         "cooldown": 19,
-        "costMultiplier": 6,
+        "costMultiplier": 3,
         "range": 3,
         "targeting": {
           "shape": "line",
@@ -1570,7 +1570,7 @@
         "name": "寒镜锁流",
         "desc": "读取寒印层数，把目标钉在寒流里。",
         "cooldown": 19,
-        "costMultiplier": 9,
+        "costMultiplier": 3,
         "range": 3,
         "effects": [
           {

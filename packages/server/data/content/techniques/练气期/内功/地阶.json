@@ -135,7 +135,7 @@
         "name": "太初归轮",
         "desc": "抱元归轮，令气血与灵息一并回稳。",
         "cooldown": 11,
-        "costMultiplier": 6,
+        "costMultiplier": 3,
         "range": 0,
         "requiresTarget": false,
         "effects": [
@@ -206,7 +206,7 @@
         "name": "无漏守中",
         "desc": "无漏守中，借高层定息稳定全身。",
         "cooldown": 21,
-        "costMultiplier": 9,
+        "costMultiplier": 3,
         "range": 0,
         "requiresTarget": false,
         "effects": [

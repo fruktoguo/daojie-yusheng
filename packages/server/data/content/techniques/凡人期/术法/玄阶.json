@@ -77,7 +77,7 @@
         "name": "噬魂哀鸣",
         "desc": "哀鸣先钉住心神，魂缚随后顺势缠上，让后手更容易压进识海。",
         "cooldown": 44,
-        "costMultiplier": 4,
+        "costMultiplier": 3,
         "range": 3,
         "effects": [
           {
@@ -134,7 +134,7 @@
         "name": "阴锁缠身",
         "desc": "顺着魂缚破口把阴锁压成一线，越被缠住的人越难从这道锁里挣开。",
         "cooldown": 56,
-        "costMultiplier": 5,
+        "costMultiplier": 3,
         "range": 3,
         "targeting": {
           "shape": "line",
@@ -343,7 +343,7 @@
         "name": "镇域震荡",
         "desc": "把矿核和岩壳一并轰进地面，近身敌群都会吃到这道镇域余震。",
         "cooldown": 56,
-        "costMultiplier": 5,
+        "costMultiplier": 3,
         "range": 2,
         "targeting": {
           "shape": "area",
@@ -573,7 +573,7 @@
         "name": "裂空残啸",
         "desc": "把噬入口中的残意轰成一团裂空乱流，周围都会像被星砂刮过。",
         "cooldown": 60,
-        "costMultiplier": 5,
+        "costMultiplier": 3,
         "range": 3,
         "targeting": {
           "shape": "area",
@@ -760,7 +760,7 @@
         "name": "惊雷掌",
         "desc": "掌劲先炸开雷势，再让后续每一掌都更容易破开前排防线。",
         "cooldown": 46,
-        "costMultiplier": 4,
+        "costMultiplier": 3,
         "range": 2,
         "targeting": {
           "shape": "line",
@@ -825,7 +825,7 @@
         "name": "奔雷贯心",
         "desc": "顺着雷势把掌力贯成一线，前排被炸开的瞬间，后排也会被一并贯穿。",
         "cooldown": 58,
-        "costMultiplier": 5,
+        "costMultiplier": 3,
         "range": 3,
         "targeting": {
           "shape": "line",
@@ -1021,7 +1021,7 @@
         "name": "止念印",
         "desc": "先把止念印压进神识表层，再让其术念与化解一并变慢。",
         "cooldown": 52,
-        "costMultiplier": 5,
+        "costMultiplier": 3,
         "range": 4,
         "effects": [
           {
@@ -1082,7 +1082,7 @@
         "name": "断识锥",
         "desc": "趁止念未散把神识压成一枚断识锥，沿直线一路凿进识海。",
         "cooldown": 56,
-        "costMultiplier": 5,
+        "costMultiplier": 3,
         "range": 3,
         "targeting": {
           "shape": "line",
@@ -1274,7 +1274,7 @@
         "name": "霜痕",
         "desc": "先凝出一道寒痕钉在体表，后续每次寒诀都会顺着旧痕再压一层。",
         "cooldown": 46,
-        "costMultiplier": 4,
+        "costMultiplier": 3,
         "range": 3,
         "effects": [
           {
@@ -1331,7 +1331,7 @@
         "name": "冰锁诀",
         "desc": "把寒意顺着寒痕钉进经络，再把前方一路锁成发白的冷线。",
         "cooldown": 56,
-        "costMultiplier": 5,
+        "costMultiplier": 3,
         "range": 3,
         "targeting": {
           "shape": "line",
@@ -1604,7 +1604,7 @@
         "name": "定魂钉",
         "desc": "顺着镇灵凝神把魂光定成一点，再把这一点直接钉进目标神识。",
         "cooldown": 56,
-        "costMultiplier": 5,
+        "costMultiplier": 3,
         "range": 3,
         "effects": [
           {
@@ -1833,7 +1833,7 @@
         "name": "坠星刺",
         "desc": "先把枪势校成坠星的一线，自身也会顺着这一刺积起更沉的坠势。",
         "cooldown": 54,
-        "costMultiplier": 5,
+        "costMultiplier": 3,
         "range": 3,
         "targeting": {
           "shape": "line",
@@ -1897,7 +1897,7 @@
         "name": "追星步",
         "desc": "借坠势踏前半步再补一枪，前一式压出的空档会被这一追直接追实。",
         "cooldown": 58,
-        "costMultiplier": 5,
+        "costMultiplier": 3,
         "range": 3,
         "effects": [
           {
@@ -1965,7 +1965,7 @@
         "name": "裂穹枪",
         "desc": "将前段积下的枪势一次性贯成长线，最适合用来破开中段敌阵。",
         "cooldown": 40,
-        "costMultiplier": 6,
+        "costMultiplier": 3,
         "range": 4,
         "targeting": {
           "shape": "line",

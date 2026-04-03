@@ -81,7 +81,7 @@
         "name": "风痕",
         "desc": "借步法切进身位先留下一道风痕，自身也会顺着这一切立起风行。",
         "cooldown": 28,
-        "costMultiplier": 2,
+        "costMultiplier": 3,
         "range": 2,
         "effects": [
           {
@@ -138,7 +138,7 @@
         "name": "逐影掠空",
         "desc": "借风行余势连续切位，拖出的劲风会沿直线把前方一并扫穿。",
         "cooldown": 46,
-        "costMultiplier": 4,
+        "costMultiplier": 3,
         "range": 3,
         "targeting": {
           "shape": "line",
@@ -266,7 +266,7 @@
         "name": "轻身换气",
         "desc": "换气的一瞬先贴身点出一记轻击，脚下也会顺势蓄起追云步势。",
         "cooldown": 28,
-        "costMultiplier": 2,
+        "costMultiplier": 3,
         "range": 2,
         "effects": [
           {
@@ -327,7 +327,7 @@
         "name": "收步回身",
         "desc": "借回身把追云余势拧成一条风线，扫过之后自身还会挂上一层借风。",
         "cooldown": 48,
-        "costMultiplier": 4,
+        "costMultiplier": 3,
         "range": 3,
         "targeting": {
           "shape": "line",

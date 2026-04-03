@@ -95,7 +95,7 @@
         "name": "提气轻行",
         "desc": "提气贴地掠过时先划出一道轻灵斩线，自身也会立起浮光身法。",
         "cooldown": 40,
-        "costMultiplier": 4,
+        "costMultiplier": 3,
         "range": 2,
         "effects": [
           {
@@ -157,7 +157,7 @@
         "name": "急步闪身",
         "desc": "把浮光拧成残影直切前方，残影散开后自身仍会留下更狠的掠影势。",
         "cooldown": 56,
-        "costMultiplier": 5,
+        "costMultiplier": 3,
         "range": 3,
         "targeting": {
           "shape": "line",

@@ -194,7 +194,7 @@
         "name": "护元周身",
         "desc": "周天气海外扩，令护元覆盖周身。",
         "cooldown": 17,
-        "costMultiplier": 6,
+        "costMultiplier": 3,
         "range": 0,
         "requiresTarget": false,
         "effects": [
