@@ -22,6 +22,7 @@ import {
   C2S_RequestMarketItemBook,
   C2S_RequestMarketTradeHistory,
   C2S_RequestAttrDetail,
+  C2S_RequestLeaderboard,
   C2S_CreateMarketSellOrder,
   C2S_CreateMarketBuyOrder,
   C2S_BuyMarketItem,
@@ -46,6 +47,7 @@ import {
   S2C_MarketItemBook,
   S2C_MarketTradeHistory,
   S2C_AttrDetail,
+  S2C_Leaderboard,
   S2C_NpcShop,
   S2C_Pong,
   S2C_TileRuntimeDetail,
@@ -90,6 +92,7 @@ export class SocketManager {
   private onMarketItemBookCallbacks: Array<(data: S2C_MarketItemBook) => void> = [];
   private onMarketTradeHistoryCallbacks: Array<(data: S2C_MarketTradeHistory) => void> = [];
   private onAttrDetailCallbacks: Array<(data: S2C_AttrDetail) => void> = [];
+  private onLeaderboardCallbacks: Array<(data: S2C_Leaderboard) => void> = [];
   private onNpcShopCallbacks: Array<(data: S2C_NpcShop) => void> = [];
   private onPongCallbacks: Array<(data: S2C_Pong) => void> = [];
   private onDisconnectCallbacks: Array<(reason: string) => void> = [];
@@ -143,6 +146,7 @@ export class SocketManager {
     this.bindServerEvent(S2C.MarketItemBook, this.onMarketItemBookCallbacks);
     this.bindServerEvent(S2C.MarketTradeHistory, this.onMarketTradeHistoryCallbacks);
     this.bindServerEvent(S2C.AttrDetail, this.onAttrDetailCallbacks);
+    this.bindServerEvent(S2C.Leaderboard, this.onLeaderboardCallbacks);
     this.bindServerEvent(S2C.NpcShop, this.onNpcShopCallbacks);
     this.bindServerEvent(S2C.Pong, this.onPongCallbacks);
     this.bindServerEvent(S2C.Error, this.onErrorCallbacks);
@@ -363,6 +367,10 @@ export class SocketManager {
     this.emitServer(C2S.RequestAttrDetail, {} satisfies C2S_RequestAttrDetail);
   }
 
+  sendRequestLeaderboard(limit?: number) {
+    this.emitServer(C2S.RequestLeaderboard, { limit } satisfies C2S_RequestLeaderboard);
+  }
+
   sendCreateMarketSellOrder(slotIndex: number, quantity: number, unitPrice: number) {
     this.emitServer(C2S.CreateMarketSellOrder, { slotIndex, quantity, unitPrice } satisfies C2S_CreateMarketSellOrder);
   }
@@ -455,6 +463,7 @@ export class SocketManager {
   onMarketItemBook(cb: (data: S2C_MarketItemBook) => void) { this.onMarketItemBookCallbacks.push(cb); }
   onMarketTradeHistory(cb: (data: S2C_MarketTradeHistory) => void) { this.onMarketTradeHistoryCallbacks.push(cb); }
   onAttrDetail(cb: (data: S2C_AttrDetail) => void) { this.onAttrDetailCallbacks.push(cb); }
+  onLeaderboard(cb: (data: S2C_Leaderboard) => void) { this.onLeaderboardCallbacks.push(cb); }
   onNpcShop(cb: (data: S2C_NpcShop) => void) { this.onNpcShopCallbacks.push(cb); }
   onPong(cb: (data: S2C_Pong) => void) { this.onPongCallbacks.push(cb); }
   onError(cb: (data: S2C_Error) => void) { this.onErrorCallbacks.push(cb); }

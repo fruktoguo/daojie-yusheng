@@ -131,6 +131,14 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
       supports: ['desktop', 'mobile'],
     },
     {
+      id: 'world-tianji',
+      title: '天机阁',
+      templateKind: 'embedded',
+      rootSelector: '#pane-tianji',
+      defaultPlacement: { desktop: 'center-intel', mobile: 'external' },
+      supports: ['desktop', 'mobile'],
+    },
+    {
       id: 'loot',
       title: '拾取',
       templateKind: 'modal',

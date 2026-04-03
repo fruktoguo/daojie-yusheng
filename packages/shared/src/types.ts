@@ -1026,6 +1026,11 @@ export interface PlayerState {
   dead: boolean;
   foundation?: number;
   combatExp?: number;
+  playerKillCount?: number;
+  monsterKillCount?: number;
+  eliteMonsterKillCount?: number;
+  bossMonsterKillCount?: number;
+  deathCount?: number;
   baseAttrs: Attributes;
   bonuses: AttrBonus[];
   temporaryBuffs?: TemporaryBuffState[];

@@ -54,6 +54,7 @@ import {
   C2S_RequestMarketItemBook,
   C2S_RequestMarketTradeHistory,
   C2S_RequestAttrDetail,
+  C2S_RequestLeaderboard,
   C2S_CreateMarketSellOrder,
   C2S_CreateMarketBuyOrder,
   C2S_BuyMarketItem,
@@ -73,6 +74,7 @@ import {
   S2C_Pong,
   S2C_TileRuntimeDetail,
   S2C_AttrDetail,
+  S2C_Leaderboard,
   DEFAULT_BASE_ATTRS,
   DEFAULT_BONE_AGE_YEARS,
   DEFAULT_PLAYER_MAP_ID,
@@ -106,6 +108,7 @@ import { buildDefaultRoleName } from '../auth/account-validation';
 import { DatabaseBackupService } from './database-backup.service';
 import { RedeemCodeService } from './redeem-code.service';
 import { AttrService } from './attr.service';
+import { LeaderboardService } from './leaderboard.service';
 import { REALM_STATE_SOURCE } from '../constants/gameplay/technique';
 
 @WebSocketGateway({ cors: true })
@@ -134,6 +137,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     private readonly navigationService: NavigationService,
     private readonly marketService: MarketService,
     private readonly attrService: AttrService,
+    private readonly leaderboardService: LeaderboardService,
     private readonly techniqueService: TechniqueService,
     private readonly mailService: MailService,
     private readonly redeemCodeService: RedeemCodeService,
@@ -266,6 +270,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       dead: false,
       foundation: 0,
       combatExp: 0,
+      playerKillCount: 0,
+      monsterKillCount: 0,
+      eliteMonsterKillCount: 0,
+      bossMonsterKillCount: 0,
+      deathCount: 0,
       boneAgeBaseYears: DEFAULT_BONE_AGE_YEARS,
       lifeElapsedTicks: 0,
       lifespanYears: null,
@@ -1034,6 +1043,16 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       ratioDivisors: this.attrService.getPlayerRatioDivisors(player),
       numericStatBreakdowns: this.attrService.getPlayerNumericStatBreakdowns(player),
     } satisfies S2C_AttrDetail);
+  }
+
+  @SubscribeMessage(C2S.RequestLeaderboard)
+  async handleRequestLeaderboard(client: Socket, data: C2S_RequestLeaderboard) {
+    const playerId = client.data?.playerId as string;
+    if (!playerId) {
+      return;
+    }
+    const payload = await this.leaderboardService.buildLeaderboard(data.limit);
+    client.emit(S2C.Leaderboard, payload satisfies S2C_Leaderboard);
   }
 
   @SubscribeMessage(C2S.CreateMarketSellOrder)

@@ -54,6 +54,7 @@ export const C2S = {
   RequestMarketItemBook: 'c:requestMarketItemBook',
   RequestMarketTradeHistory: 'c:requestMarketTradeHistory',
   RequestAttrDetail: 'c:requestAttrDetail',
+  RequestLeaderboard: 'c:requestLeaderboard',
   CreateMarketSellOrder: 'c:createMarketSellOrder',
   CreateMarketBuyOrder: 'c:createMarketBuyOrder',
   BuyMarketItem: 'c:buyMarketItem',
@@ -104,6 +105,7 @@ export const S2C = {
   MarketItemBook: 's:marketItemBook',
   MarketTradeHistory: 's:marketTradeHistory',
   AttrDetail: 's:attrDetail',
+  Leaderboard: 's:leaderboard',
   NpcShop: 's:npcShop',
 } as const;
 
@@ -388,6 +390,10 @@ export interface C2S_RequestMarketTradeHistory {
 }
 
 export interface C2S_RequestAttrDetail {}
+
+export interface C2S_RequestLeaderboard {
+  limit?: number;
+}
 
 export interface C2S_CreateMarketSellOrder {
   slotIndex: number;
@@ -1004,6 +1010,66 @@ export interface S2C_AttrDetail {
   numericStats: NumericStats;
   ratioDivisors: NumericRatioDivisors;
   numericStatBreakdowns: NumericStatBreakdownMap;
+}
+
+export interface LeaderboardPlayerEntry {
+  rank: number;
+  playerId: string;
+  playerName: string;
+}
+
+export interface LeaderboardRealmEntry extends LeaderboardPlayerEntry {
+  realmLv: number;
+  realmName: string;
+  realmShortName?: string;
+  progress: number;
+  foundation: number;
+}
+
+export interface LeaderboardMonsterKillEntry extends LeaderboardPlayerEntry {
+  totalKills: number;
+  eliteKills: number;
+  bossKills: number;
+}
+
+export interface LeaderboardSpiritStoneEntry extends LeaderboardPlayerEntry {
+  spiritStoneCount: number;
+}
+
+export interface LeaderboardPlayerKillEntry extends LeaderboardPlayerEntry {
+  playerKillCount: number;
+}
+
+export interface LeaderboardDeathEntry extends LeaderboardPlayerEntry {
+  deathCount: number;
+}
+
+export interface LeaderboardBodyTrainingEntry extends LeaderboardPlayerEntry {
+  level: number;
+  exp: number;
+  expToNext: number;
+}
+
+export interface LeaderboardSupremeAttrEntry {
+  attr: 'constitution' | 'spirit' | 'perception' | 'talent';
+  label: string;
+  playerId: string;
+  playerName: string;
+  value: number;
+}
+
+export interface S2C_Leaderboard {
+  generatedAt: number;
+  limit: number;
+  boards: {
+    realm: LeaderboardRealmEntry[];
+    monsterKills: LeaderboardMonsterKillEntry[];
+    spiritStones: LeaderboardSpiritStoneEntry[];
+    playerKills: LeaderboardPlayerKillEntry[];
+    deaths: LeaderboardDeathEntry[];
+    bodyTraining: LeaderboardBodyTrainingEntry[];
+    supremeAttrs: LeaderboardSupremeAttrEntry[];
+  };
 }
 
 /** 任务自动导航回执 */

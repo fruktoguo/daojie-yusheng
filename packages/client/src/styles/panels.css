@@ -1173,6 +1173,24 @@
       min-height: 0;
       overflow: hidden;
     }
+    .detail-modal-card.detail-modal--leaderboard {
+      width: min(1120px, calc(100vw - 24px));
+      height: min(76dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap) * 2)));
+      max-height: none;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at top right, rgba(197, 60, 60, 0.08), transparent 28%),
+        radial-gradient(circle at left bottom, rgba(214, 188, 142, 0.16), transparent 32%),
+        var(--surface-gradient-paper);
+      box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.16);
+    }
+    .detail-modal-card.detail-modal--leaderboard #detail-modal-body {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
     .detail-modal-card.detail-modal--tutorial {
       width: min(1180px, calc(100vw - 24px));
       height: min(68dvh, calc(100dvh - (var(--detail-modal-padding, 12px) * 2)));
@@ -5083,6 +5101,187 @@
       padding: 8px 10px;
       border: 1px solid var(--wash-ink);
       background: var(--surface-muted-strong);
+    }
+    .tianji-action-list {
+      display: grid;
+      gap: 10px;
+    }
+    .tianji-action-card {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid var(--wash-ink);
+      background:
+        linear-gradient(135deg, rgba(197, 60, 60, 0.06), rgba(214, 188, 142, 0.08)),
+        var(--surface-muted-strong);
+      text-align: left;
+      cursor: pointer;
+      color: inherit;
+      transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .tianji-action-card:hover {
+      border-color: rgba(197, 60, 60, 0.28);
+      box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.06);
+      transform: translate(-1px, -1px);
+    }
+    .tianji-action-title {
+      font-size: var(--font-size-role-body-15);
+      color: var(--color-role-body-strong);
+      font-weight: var(--font-weight-strong);
+    }
+    .tianji-action-desc {
+      margin-top: 6px;
+      font-size: var(--font-size-12);
+      line-height: 1.55;
+      color: var(--color-role-body-muted);
+    }
+    .tianji-action-arrow {
+      flex: 0 0 auto;
+      font-size: var(--font-size-12);
+      letter-spacing: 0.12em;
+      color: var(--stamp-red);
+    }
+    .leaderboard-shell {
+      height: 100%;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 12px;
+    }
+    .leaderboard-toolbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: nowrap;
+      min-width: 0;
+    }
+    .leaderboard-tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: nowrap;
+      min-width: 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding-bottom: 2px;
+      scrollbar-width: thin;
+    }
+    .leaderboard-tab-btn {
+      flex: 0 0 auto;
+      padding: 8px 12px;
+      border: 1px solid var(--wash-ink);
+      background: var(--surface-muted-strong);
+      color: var(--color-role-body);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-12);
+      white-space: nowrap;
+      cursor: pointer;
+      transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    }
+    .leaderboard-content {
+      min-height: 0;
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 10px;
+    }
+    .leaderboard-board {
+      min-height: 0;
+      overflow: hidden;
+      display: grid;
+    }
+    .leaderboard-tab-btn.active {
+      border-color: rgba(197, 60, 60, 0.32);
+      background: rgba(197, 60, 60, 0.1);
+      color: var(--color-role-body-strong);
+    }
+    .leaderboard-loading {
+      padding: 14px 16px;
+      border: 1px dashed var(--wash-ink);
+      background: rgba(214, 188, 142, 0.08);
+      font-size: var(--font-size-12);
+      color: var(--color-role-body-muted);
+    }
+    .leaderboard-list {
+      min-height: 0;
+      height: 100%;
+      overflow-y: auto;
+      display: grid;
+      gap: 10px;
+      padding-right: 4px;
+      align-content: start;
+    }
+    .leaderboard-row {
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid var(--wash-ink);
+      background: var(--surface-muted-strong);
+    }
+    .leaderboard-rank {
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-18);
+      color: var(--stamp-red);
+      letter-spacing: 0.06em;
+    }
+    .leaderboard-main {
+      min-width: 0;
+      display: grid;
+      gap: 4px;
+    }
+    .leaderboard-name {
+      font-size: var(--font-size-role-body-15);
+      color: var(--color-role-body-strong);
+      font-weight: var(--font-weight-strong);
+    }
+    .leaderboard-meta {
+      font-size: var(--font-size-12);
+      color: var(--color-role-body);
+      line-height: 1.5;
+    }
+    .leaderboard-submeta {
+      font-size: var(--font-size-12);
+      color: var(--color-role-body-muted);
+      line-height: 1.45;
+    }
+    .leaderboard-supreme-grid {
+      min-height: 0;
+      height: 100%;
+      overflow-y: auto;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      padding-right: 4px;
+      align-content: start;
+    }
+    .leaderboard-supreme-card {
+      padding: 16px;
+      border: 1px solid var(--wash-ink);
+      background:
+        linear-gradient(180deg, rgba(214, 188, 142, 0.08), transparent),
+        var(--surface-muted-strong);
+      display: grid;
+      gap: 8px;
+    }
+    .leaderboard-supreme-label {
+      font-size: var(--font-size-12);
+      letter-spacing: 0.12em;
+      color: var(--color-role-label);
+    }
+    .leaderboard-supreme-name {
+      font-size: var(--font-size-role-body-16);
+      color: var(--color-role-body-strong);
+      font-weight: var(--font-weight-strong);
+    }
+    .leaderboard-supreme-value {
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-22);
+      color: var(--stamp-red);
     }
 .info-line {
   display: flex;

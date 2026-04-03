@@ -2215,6 +2215,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         });
         if (defeated) {
           this.measureCpuSection('monster_death_post', '怪物: 死亡后处理', () => {
+            this.registerPlayerDefeat(target);
             allMessages.push({
               playerId: target.id,
               text: target.online === false
@@ -2593,6 +2594,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     messages.push(this.buildMonsterSkillAttackMessage(monster, target, skill, resolved, floatColor));
 
     if (target.hp <= 0) {
+      this.registerPlayerDefeat(target);
       messages.push({
         playerId: target.id,
         text: target.online === false
@@ -3021,6 +3023,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     this.recordMonsterDamage(monster, player.id, resolved.effectiveDamage);
 
     if (monster.hp <= 0) {
+      this.playerService.incrementMonsterKill(player, monster.tier);
       const expParticipants = this.resolveMonsterExpParticipants(monster, player);
       const topContributionRealmLv = this.resolveMonsterTopContributionRealmLv(expParticipants, player);
       const respawnTicks = this.resolveMonsterRespawnTicks(monster);
@@ -3269,6 +3272,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     this.tryActivateAutoRetaliate(target, dirtyPlayers);
 
     if (target.hp <= 0) {
+      this.registerPlayerDefeat(target, attacker);
       if (!attacker.isBot && !target.isBot) {
         const mapName = this.mapService.getMapMeta(target.mapId)?.name ?? target.mapId;
         this.playerService.queuePendingLogbookMessage(target.id, {
@@ -3520,6 +3524,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     let playerDefeated = false;
 
     if (player.hp <= 0) {
+      this.registerPlayerDefeat(player);
       messages.push({
         playerId: player.id,
         text: player.online === false
@@ -4923,6 +4928,13 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
   private respawnPlayer(player: PlayerState) {
     this.restorePlayerAfterDefeat(player, true);
+  }
+
+  private registerPlayerDefeat(player: PlayerState, killer?: PlayerState): void {
+    this.playerService.incrementDeathCount(player);
+    if (killer && killer.id !== player.id) {
+      this.playerService.incrementPlayerKill(killer);
+    }
   }
 
   private restorePlayerAfterDefeat(player: PlayerState, occupy: boolean) {

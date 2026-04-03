@@ -121,12 +121,20 @@ export class WorldPanel {
   private mapPane = document.getElementById('pane-map-intel')!;
   private nearbyPane = document.getElementById('pane-nearby')!;
   private suggestionPane = document.getElementById('pane-suggestions')!;
+  private tianjiPane = document.getElementById('pane-tianji')!;
   private lastNearbyMonsterIds: string[] | null = null;
   private lastNearbyNpcIds: string[] | null = null;
   private lastSuggestionActionIds: string[] | null = null;
   private nearbyMonsterRefs = new Map<string, NearbyMonsterRefs>();
   private nearbyNpcNameRefs = new Map<string, HTMLElement>();
   private suggestionActionRefs = new Map<string, SuggestionActionRefs>();
+  private onOpenLeaderboard: (() => void) | null = null;
+
+  setCallbacks(callbacks: {
+    onOpenLeaderboard?: () => void;
+  }): void {
+    this.onOpenLeaderboard = callbacks.onOpenLeaderboard ?? null;
+  }
 
   /** 根据玩家、地图、实体、行动、任务数据刷新三个子面板 */
   update(input: {
@@ -140,12 +148,14 @@ export class WorldPanel {
     this.syncMapPane(snapshot);
     this.syncNearbyPane(snapshot);
     this.syncSuggestionPane(snapshot);
+    this.syncTianjiPane();
   }
 
   clear(): void {
     this.mapPane.innerHTML = '<div class="empty-hint">尚未进入世界</div>';
     this.nearbyPane.innerHTML = '<div class="empty-hint">尚未进入世界</div>';
     this.suggestionPane.innerHTML = '<div class="empty-hint">尚未进入世界</div>';
+    this.tianjiPane.innerHTML = '<div class="empty-hint">尚未进入世界</div>';
     this.lastNearbyMonsterIds = null;
     this.lastNearbyNpcIds = null;
     this.lastSuggestionActionIds = null;
@@ -256,6 +266,13 @@ export class WorldPanel {
     }
   }
 
+  private syncTianjiPane(): void {
+    if (!this.patchTianjiPane()) {
+      this.renderTianjiPane();
+      this.patchTianjiPane();
+    }
+  }
+
   private renderMapPane(snapshot: WorldPanelSnapshot): void {
     const html = `
       <div class="world-hero compact">
@@ -348,6 +365,34 @@ export class WorldPanel {
       this.suggestionPane.innerHTML = html;
     });
     this.captureSuggestionRefs(snapshot);
+  }
+
+  private renderTianjiPane(): void {
+    const html = `
+      <div class="panel-section">
+        <div class="panel-section-title">天机阁</div>
+        <div class="panel-subtext">阁藏天下卷宗，专收低频榜册与汇总情报。</div>
+      </div>
+      <div class="tianji-action-list">
+        <button class="tianji-action-card" data-world-tianji-action="leaderboard" type="button">
+          <div>
+            <div class="tianji-action-title">排行榜</div>
+            <div class="tianji-action-desc">查看境界、击杀、灵石、死亡、炼体与四维最强榜单。</div>
+          </div>
+          <div class="tianji-action-arrow">查看</div>
+        </button>
+      </div>
+    `;
+    preserveSelection(this.tianjiPane, () => {
+      this.tianjiPane.innerHTML = html;
+    });
+    this.tianjiPane.querySelectorAll<HTMLButtonElement>('[data-world-tianji-action]').forEach((button) => {
+      button.addEventListener('click', () => {
+        if (button.dataset.worldTianjiAction === 'leaderboard') {
+          this.onOpenLeaderboard?.();
+        }
+      });
+    });
   }
 
   private patchMapPane(snapshot: WorldPanelSnapshot): boolean {
@@ -449,6 +494,10 @@ export class WorldPanel {
 
     this.lastSuggestionActionIds = snapshot.quickActions.map((action) => action.id);
     return true;
+  }
+
+  private patchTianjiPane(): boolean {
+    return this.tianjiPane.querySelector('[data-world-tianji-action="leaderboard"]') !== null;
   }
 
   private captureNearbyRefs(snapshot: WorldPanelSnapshot): void {

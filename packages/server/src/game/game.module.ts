@@ -48,6 +48,7 @@ import { DatabaseBackupService } from './database-backup.service';
 import { RedeemCodeGroupEntity } from '../database/entities/redeem-code-group.entity';
 import { RedeemCodeEntity } from '../database/entities/redeem-code.entity';
 import { RedeemCodeService } from './redeem-code.service';
+import { LeaderboardService } from './leaderboard.service';
 
 @Module({
   imports: [
@@ -95,6 +96,7 @@ import { RedeemCodeService } from './redeem-code.service';
     MarketService,
     MailService,
     RedeemCodeService,
+    LeaderboardService,
     PathRequestSchedulerService,
     PathWorkerPoolService,
     DatabaseBackupService,

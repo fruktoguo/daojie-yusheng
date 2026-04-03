@@ -33,6 +33,7 @@ import { MailPanel } from './ui/mail-panel';
 import { SuggestionPanel } from './ui/suggestion-panel';
 import { ChangelogPanel } from './ui/changelog-panel';
 import { TutorialPanel } from './ui/tutorial-panel';
+import { LeaderboardModal } from './ui/leaderboard-modal';
 import { getMonsterPresentation } from './monster-presentation';
 import { NpcShopModal } from './ui/npc-shop-modal';
 import { getHeavenGateHudAction, openHeavenGateModal, refreshHeavenGateModal } from './ui/heaven-gate-modal';
@@ -584,6 +585,7 @@ const actionPanel = new ActionPanel();
 const npcShopModal = new NpcShopModal();
 const lootPanel = new LootPanel();
 const worldPanel = new WorldPanel();
+const leaderboardModal = new LeaderboardModal();
 const settingsPanel = new SettingsPanel();
 const mailPanel = new MailPanel(socket);
 const suggestionPanel = new SuggestionPanel(socket);
@@ -1899,6 +1901,12 @@ techniquePanel.setCallbacks(
 attrPanel.setCallbacks({
   onRequestDetail: () => socket.sendRequestAttrDetail(),
 });
+worldPanel.setCallbacks({
+  onOpenLeaderboard: () => leaderboardModal.open(),
+});
+leaderboardModal.setCallbacks({
+  onRequestData: (limit) => socket.sendRequestLeaderboard(limit),
+});
 questPanel.setCallbacks((questId) => {
   clearCurrentPath();
   pendingQuestNavigateId = questId;
@@ -2100,6 +2108,9 @@ socket.onAttrUpdate((data) => {
 });
 socket.onAttrDetail((data) => {
   attrPanel.applyDetail(data);
+});
+socket.onLeaderboard((data) => {
+  leaderboardModal.applyData(data);
 });
 socket.onInventoryUpdate((data) => {
   const mergedInventory = mergeInventoryUpdate(myPlayer?.inventory, data);

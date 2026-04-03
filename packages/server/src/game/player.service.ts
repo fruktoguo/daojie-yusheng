@@ -21,6 +21,7 @@ import {
   DEFAULT_BONE_AGE_YEARS,
   DEFAULT_INVENTORY_CAPACITY,
   Direction,
+  MonsterTier,
   normalizeBoneAgeBaseYears,
   normalizeLifeElapsedTicks,
   normalizeLifespanYears,
@@ -206,6 +207,11 @@ export class PlayerService implements OnModuleInit {
       dead: state.dead,
       foundation: state.foundation,
       combatExp: state.combatExp,
+      playerKillCount: state.playerKillCount ?? 0,
+      monsterKillCount: state.monsterKillCount ?? 0,
+      eliteMonsterKillCount: state.eliteMonsterKillCount ?? 0,
+      bossMonsterKillCount: state.bossMonsterKillCount ?? 0,
+      deathCount: state.deathCount ?? 0,
       boneAgeBaseYears: state.boneAgeBaseYears,
       lifeElapsedTicks: state.lifeElapsedTicks,
       lifespanYears: state.lifespanYears,
@@ -393,6 +399,11 @@ export class PlayerService implements OnModuleInit {
     }
     state.foundation = normalizeNonNegativeCounter(state.foundation);
     state.combatExp = normalizeNonNegativeCounter(state.combatExp);
+    state.playerKillCount = normalizeNonNegativeCounter(state.playerKillCount);
+    state.monsterKillCount = normalizeNonNegativeCounter(state.monsterKillCount);
+    state.eliteMonsterKillCount = normalizeNonNegativeCounter(state.eliteMonsterKillCount);
+    state.bossMonsterKillCount = normalizeNonNegativeCounter(state.bossMonsterKillCount);
+    state.deathCount = normalizeNonNegativeCounter(state.deathCount);
     const persisted = this.buildPersistedCollections(state);
     const payload = this.buildPlayerPersistencePayload(state, persisted);
 
@@ -466,6 +477,36 @@ export class PlayerService implements OnModuleInit {
 
   getPlayer(playerId: string): PlayerState | undefined {
     return this.players.get(playerId);
+  }
+
+  hydrateStoredPlayerForRead(entity: PlayerEntity): PlayerState {
+    return this.hydratePlayerState(entity, entity.name);
+  }
+
+  incrementMonsterKill(player: PlayerState, tier?: MonsterTier): void {
+    if (player.isBot) {
+      return;
+    }
+    player.monsterKillCount = normalizeNonNegativeCounter(player.monsterKillCount) + 1;
+    if (tier === 'variant') {
+      player.eliteMonsterKillCount = normalizeNonNegativeCounter(player.eliteMonsterKillCount) + 1;
+    } else if (tier === 'demon_king') {
+      player.bossMonsterKillCount = normalizeNonNegativeCounter(player.bossMonsterKillCount) + 1;
+    }
+  }
+
+  incrementPlayerKill(player: PlayerState): void {
+    if (player.isBot) {
+      return;
+    }
+    player.playerKillCount = normalizeNonNegativeCounter(player.playerKillCount) + 1;
+  }
+
+  incrementDeathCount(player: PlayerState): void {
+    if (player.isBot) {
+      return;
+    }
+    player.deathCount = normalizeNonNegativeCounter(player.deathCount) + 1;
   }
 
   getPlayersByMap(mapId: string): PlayerState[] {
@@ -1044,6 +1085,11 @@ export class PlayerService implements OnModuleInit {
       dead: entity.dead,
       foundation: normalizeNonNegativeCounter(entity.foundation),
       combatExp: normalizeNonNegativeCounter(entity.combatExp),
+      playerKillCount: normalizeNonNegativeCounter(entity.playerKillCount),
+      monsterKillCount: normalizeNonNegativeCounter(entity.monsterKillCount),
+      eliteMonsterKillCount: normalizeNonNegativeCounter(entity.eliteMonsterKillCount),
+      bossMonsterKillCount: normalizeNonNegativeCounter(entity.bossMonsterKillCount),
+      deathCount: normalizeNonNegativeCounter(entity.deathCount),
       boneAgeBaseYears: normalizeBoneAgeBaseYears(entity.boneAgeBaseYears),
       lifeElapsedTicks: normalizeLifeElapsedTicks(entity.lifeElapsedTicks),
       lifespanYears: normalizeLifespanYears(entity.lifespanYears),

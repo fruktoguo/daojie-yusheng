@@ -70,6 +70,26 @@ export class PlayerEntity {
   @Column({ type: 'int', default: 0 })
   combatExp!: number;
 
+  /** 击杀玩家次数 */
+  @Column({ type: 'int', default: 0 })
+  playerKillCount!: number;
+
+  /** 击杀怪物总次数 */
+  @Column({ type: 'int', default: 0 })
+  monsterKillCount!: number;
+
+  /** 击杀精英怪次数 */
+  @Column({ type: 'int', default: 0 })
+  eliteMonsterKillCount!: number;
+
+  /** 击杀 Boss 次数 */
+  @Column({ type: 'int', default: 0 })
+  bossMonsterKillCount!: number;
+
+  /** 死亡次数 */
+  @Column({ type: 'int', default: 0 })
+  deathCount!: number;
+
   /** 角色初始骨龄（岁） */
   @Column({ type: 'int', default: DEFAULT_BONE_AGE_YEARS })
   boneAgeBaseYears!: number;
