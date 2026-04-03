@@ -83,12 +83,6 @@
         "count": 1
       },
       {
-        "itemId": "pill.chiyang_draught",
-        "name": "赤阳液",
-        "type": "consumable",
-        "count": 1
-      },
-      {
         "itemId": "book.liyan_duanxi",
         "name": "《离炎锻息诀》",
         "type": "skill_book",
@@ -98,6 +92,12 @@
         "itemId": "book.chiqi_ranqiao",
         "name": "《赤息燃窍功》",
         "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "pill.chiyang_draught",
+        "name": "赤阳液",
+        "type": "consumable",
         "count": 1
       }
     ]
@@ -299,6 +299,13 @@
         "name": "《曜火裂波术》",
         "type": "skill_book",
         "count": 1
+      },
+      {
+        "itemId": "pill.breakmirror_pellet",
+        "name": "破镜丹",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
       }
     ]
   },
@@ -384,6 +391,13 @@
         "name": "炉心赤戒",
         "type": "equipment",
         "count": 1
+      },
+      {
+        "itemId": "pill.breakmirror_pellet",
+        "name": "破镜丹",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
       }
     ]
   },
@@ -484,6 +498,13 @@
         "name": "《赤曜焚脉篇》",
         "type": "skill_book",
         "count": 1
+      },
+      {
+        "itemId": "pill.breakmirror_pellet",
+        "name": "破镜丹",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
       }
     ]
   },
@@ -580,15 +601,15 @@
         "count": 1
       },
       {
-        "itemId": "pill.chiyang_draught",
-        "name": "赤阳液",
-        "type": "consumable",
-        "count": 1
-      },
-      {
         "itemId": "book.voidflame_chapter",
         "name": "《太虚劫光篇》",
         "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "pill.chiyang_draught",
+        "name": "赤阳液",
+        "type": "consumable",
         "count": 1
       }
     ]
@@ -696,15 +717,15 @@
         "count": 1
       },
       {
-        "itemId": "pill.chiyang_draught",
-        "name": "赤阳液",
-        "type": "consumable",
-        "count": 1
-      },
-      {
         "itemId": "book.zhuming_jintian",
         "name": "《朱明烬天录》",
         "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "pill.chiyang_draught",
+        "name": "赤阳液",
+        "type": "consumable",
         "count": 1
       }
     ]

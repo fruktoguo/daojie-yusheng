@@ -16957,6 +16957,37 @@
       ]
     },
     {
+      "itemId": "pill.breakmirror_pellet",
+      "name": "破镜丹",
+      "type": "consumable",
+      "level": 10,
+      "desc": "药力会强行撬开六维潜势，短时间内把根骨、体魄与神识一并拔高，但也会压碎气血与灵力根基，只适合搏命时服下。",
+      "consumeBuffs": [
+        {
+          "buffId": "item_buff.breakmirror_pellet",
+          "name": "破镜",
+          "desc": "六维潜势被药力强行撬高，肉身与气海却被压得近乎崩裂。",
+          "shortMark": "破",
+          "duration": 3600,
+          "attrs": {
+            "constitution": 20,
+            "spirit": 20,
+            "perception": 20,
+            "talent": 20,
+            "comprehension": 20,
+            "luck": 20
+          },
+          "attrMode": "percent",
+          "stats": {
+            "maxHp": -500,
+            "maxQi": -500
+          },
+          "statMode": "percent"
+        }
+      ],
+      "grade": "earth"
+    },
+    {
       "itemId": "pill.break_array_elixir",
       "name": "破阵丹",
       "type": "consumable",
@@ -20550,6 +20581,35 @@
       "sourceSkillId": "item:cloud_puff",
       "sourceSkillName": "云朵",
       "realmLv": 1
+    },
+    {
+      "buffId": "item_buff.breakmirror_pellet",
+      "name": "破镜",
+      "desc": "六维潜势被药力强行撬高，肉身与气海却被压得近乎崩裂。",
+      "shortMark": "破",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 3600,
+      "duration": 3600,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "item:pill.breakmirror_pellet",
+      "sourceSkillName": "破镜丹",
+      "realmLv": 1,
+      "attrs": {
+        "constitution": 20,
+        "spirit": 20,
+        "perception": 20,
+        "talent": 20,
+        "comprehension": 20,
+        "luck": 20
+      },
+      "attrMode": "percent",
+      "stats": {
+        "maxHp": -500,
+        "maxQi": -500
+      },
+      "statMode": "percent"
     },
     {
       "buffId": "item_buff.break_array",

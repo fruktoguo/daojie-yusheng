@@ -89,12 +89,6 @@
         "count": 1
       },
       {
-        "itemId": "pill.cleartide_powder",
-        "name": "清脉散",
-        "type": "consumable",
-        "count": 1
-      },
-      {
         "itemId": "book.hanxi_ximai",
         "name": "《寒汐洗脉法》",
         "type": "skill_book",
@@ -104,6 +98,12 @@
         "itemId": "book.ningchao_hushen",
         "name": "《凝潮护身经》",
         "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "pill.cleartide_powder",
+        "name": "清脉散",
+        "type": "consumable",
         "count": 1
       }
     ]
@@ -305,6 +305,13 @@
         "name": "《玄镜落印诀》",
         "type": "skill_book",
         "count": 1
+      },
+      {
+        "itemId": "pill.breakmirror_pellet",
+        "name": "破镜丹",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
       }
     ]
   },
@@ -390,6 +397,13 @@
         "name": "凝露潮佩",
         "type": "equipment",
         "count": 1
+      },
+      {
+        "itemId": "pill.breakmirror_pellet",
+        "name": "破镜丹",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
       }
     ]
   },
@@ -490,6 +504,13 @@
         "name": "《玄津回澜录》",
         "type": "skill_book",
         "count": 1
+      },
+      {
+        "itemId": "pill.breakmirror_pellet",
+        "name": "破镜丹",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
       }
     ]
   },
@@ -586,15 +607,15 @@
         "count": 1
       },
       {
-        "itemId": "pill.cleartide_powder",
-        "name": "清脉散",
-        "type": "consumable",
-        "count": 1
-      },
-      {
         "itemId": "book.zhoutian_xihai",
         "name": "《周天息海篇》",
         "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "pill.cleartide_powder",
+        "name": "清脉散",
+        "type": "consumable",
         "count": 1
       }
     ]
@@ -702,15 +723,15 @@
         "count": 1
       },
       {
-        "itemId": "pill.cleartide_powder",
-        "name": "清脉散",
-        "type": "consumable",
-        "count": 1
-      },
-      {
         "itemId": "book.taiyin_guichao",
         "name": "《太阴归潮经》",
         "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "pill.cleartide_powder",
+        "name": "清脉散",
+        "type": "consumable",
         "count": 1
       }
     ]

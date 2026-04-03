@@ -5686,6 +5686,152 @@
       "chapter": "第一章·粮路讨生"
     }
   ],
+  "pill.breakmirror_pellet": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_banner_general",
+      "monsterName": "残兵鸣将",
+      "chance": 0.01,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_blade_sprite",
+      "monsterName": "金砂锋魈",
+      "chance": 0.01,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_stele_puppet",
+      "monsterName": "断碑锋傀",
+      "chance": 0.01,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_mirror_shade",
+      "monsterName": "寒宫镜妖",
+      "chance": 0.01,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_moonscale",
+      "monsterName": "月沼鲛影",
+      "chance": 0.01,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_pattern_guard",
+      "monsterName": "冰纹水卒",
+      "chance": 0.01,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_armor_spirit",
+      "monsterName": "坠岩甲灵",
+      "chance": 0.01,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_ridge_warden",
+      "monsterName": "岳纹镇灵",
+      "chance": 0.01,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_stele_bearer",
+      "monsterName": "厚土负碑者",
+      "chance": 0.01,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_attendant",
+      "monsterName": "炉心灼侍",
+      "chance": 0.01,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_bone_patrol",
+      "monsterName": "炽骨巡卒",
+      "chance": 0.01,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_lizard",
+      "monsterName": "熔纹火蜥",
+      "chance": 0.01,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_03_bridge",
+      "mapName": "青萝谷·03双桥岔谷",
+      "monsterId": "m_verdant_siphon_flower",
+      "monsterName": "吸灵花妖",
+      "chance": 0.01,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_04_garden",
+      "mapName": "青萝谷·04噬灵妖圃",
+      "monsterId": "m_verdant_siphon_flower",
+      "monsterName": "吸灵花妖",
+      "chance": 0.01,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_04_garden",
+      "mapName": "青萝谷·04噬灵妖圃",
+      "monsterId": "m_verdant_wither_guard",
+      "monsterName": "枯荣藤卫",
+      "chance": 0.01,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_05_inner_hollow",
+      "mapName": "青萝谷·05盘根内坳",
+      "monsterId": "m_verdant_wither_guard",
+      "monsterName": "枯荣藤卫",
+      "chance": 0.01,
+      "count": 1
+    }
+  ],
   "pill.chiyang_draught": [
     {
       "kind": "monster_drop",

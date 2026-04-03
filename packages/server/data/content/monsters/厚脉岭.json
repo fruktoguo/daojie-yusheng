@@ -86,12 +86,6 @@
         "count": 1
       },
       {
-        "itemId": "pill.earthrest_paste",
-        "name": "厚土膏",
-        "type": "consumable",
-        "count": 1
-      },
-      {
         "itemId": "book.houtu_chengyuan",
         "name": "《厚土承元功》",
         "type": "skill_book",
@@ -101,6 +95,12 @@
         "itemId": "book.zhenyue_huyuan",
         "name": "《镇岳护元诀》",
         "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "pill.earthrest_paste",
+        "name": "厚土膏",
+        "type": "consumable",
         "count": 1
       }
     ]
@@ -324,6 +324,13 @@
         "name": "《地脉覆脉术》",
         "type": "skill_book",
         "count": 1
+      },
+      {
+        "itemId": "pill.breakmirror_pellet",
+        "name": "破镜丹",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
       }
     ]
   },
@@ -434,6 +441,13 @@
         "name": "厚土膏",
         "type": "consumable",
         "count": 1
+      },
+      {
+        "itemId": "pill.breakmirror_pellet",
+        "name": "破镜丹",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
       }
     ]
   },
@@ -544,6 +558,13 @@
         "name": "《坤岳镇海篇》",
         "type": "skill_book",
         "count": 1
+      },
+      {
+        "itemId": "pill.breakmirror_pellet",
+        "name": "破镜丹",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
       }
     ]
   },
@@ -761,15 +782,15 @@
         "count": 1
       },
       {
-        "itemId": "pill.earthrest_paste",
-        "name": "厚土膏",
-        "type": "consumable",
-        "count": 1
-      },
-      {
         "itemId": "book.huangting_zaishan",
         "name": "《黄庭载山经》",
         "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "pill.earthrest_paste",
+        "name": "厚土膏",
+        "type": "consumable",
         "count": 1
       }
     ]

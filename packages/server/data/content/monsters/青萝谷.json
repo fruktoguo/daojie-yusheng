@@ -83,12 +83,6 @@
         "count": 1
       },
       {
-        "itemId": "pill.nurturing_paste",
-        "name": "养脉膏",
-        "type": "consumable",
-        "count": 1
-      },
-      {
         "itemId": "book.qingmu_yangmai",
         "name": "《青木养脉篇》",
         "type": "skill_book",
@@ -98,6 +92,12 @@
         "itemId": "book.qingteng_huixi",
         "name": "《青藤回息诀》",
         "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "pill.nurturing_paste",
+        "name": "养脉膏",
+        "type": "consumable",
         "count": 1
       }
     ]
@@ -299,6 +299,13 @@
         "name": "《蔓织绞络术》",
         "type": "skill_book",
         "count": 1
+      },
+      {
+        "itemId": "pill.breakmirror_pellet",
+        "name": "破镜丹",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
       }
     ]
   },
@@ -395,16 +402,23 @@
         "count": 1
       },
       {
+        "itemId": "book.wanzhi_huichun",
+        "name": "《万枝回春卷》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
         "itemId": "pill.nurturing_paste",
         "name": "养脉膏",
         "type": "consumable",
         "count": 1
       },
       {
-        "itemId": "book.wanzhi_huichun",
-        "name": "《万枝回春卷》",
-        "type": "skill_book",
-        "count": 1
+        "itemId": "pill.breakmirror_pellet",
+        "name": "破镜丹",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
       }
     ]
   },
@@ -605,15 +619,15 @@
         "count": 1
       },
       {
-        "itemId": "pill.nurturing_paste",
-        "name": "养脉膏",
-        "type": "consumable",
-        "count": 1
-      },
-      {
         "itemId": "book.changsheng_chanyuan",
         "name": "《长生缠元经》",
         "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "pill.nurturing_paste",
+        "name": "养脉膏",
+        "type": "consumable",
         "count": 1
       }
     ]

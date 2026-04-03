@@ -86,12 +86,6 @@
         "count": 1
       },
       {
-        "itemId": "pill.edge_quenching_powder",
-        "name": "淬锋散",
-        "type": "consumable",
-        "count": 1
-      },
-      {
         "itemId": "book.genghua_ningfeng",
         "name": "《庚华凝锋诀》",
         "type": "skill_book",
@@ -101,6 +95,12 @@
         "itemId": "book.jinluo_lifeng",
         "name": "《金络砺锋功》",
         "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "pill.edge_quenching_powder",
+        "name": "淬锋散",
+        "type": "consumable",
         "count": 1
       }
     ]
@@ -324,6 +324,13 @@
         "name": "《断金追星术》",
         "type": "skill_book",
         "count": 1
+      },
+      {
+        "itemId": "pill.breakmirror_pellet",
+        "name": "破镜丹",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
       }
     ]
   },
@@ -434,6 +441,13 @@
         "name": "淬锋散",
         "type": "consumable",
         "count": 1
+      },
+      {
+        "itemId": "pill.breakmirror_pellet",
+        "name": "破镜丹",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
       }
     ]
   },
@@ -544,6 +558,13 @@
         "name": "《白虹断岳典》",
         "type": "skill_book",
         "count": 1
+      },
+      {
+        "itemId": "pill.breakmirror_pellet",
+        "name": "破镜丹",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
       }
     ]
   },
@@ -754,15 +775,15 @@
         "count": 1
       },
       {
-        "itemId": "pill.edge_quenching_powder",
-        "name": "淬锋散",
-        "type": "consumable",
-        "count": 1
-      },
-      {
         "itemId": "book.taibai_zhuxing",
         "name": "《太白诛形录》",
         "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "pill.edge_quenching_powder",
+        "name": "淬锋散",
+        "type": "consumable",
         "count": 1
       }
     ]

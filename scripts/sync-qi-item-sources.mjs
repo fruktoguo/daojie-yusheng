@@ -26,6 +26,20 @@ const CONSUMABLE_ASSIGNMENTS = [
   { monsterId: 'm_guizang_fivephase_effigy', itemId: 'pill.fivephase_harmony_pellet' },
   { monsterId: 'm_guizang_dualphase_beast', itemId: 'pill.fivephase_harmony_pellet' },
   { monsterId: 'm_guizang_failed_foundation', itemId: 'pill.fivephase_harmony_pellet' },
+  { monsterId: 'm_cleft_blade_sprite', itemId: 'pill.breakmirror_pellet', chance: 0.01 },
+  { monsterId: 'm_cleft_banner_general', itemId: 'pill.breakmirror_pellet', chance: 0.01 },
+  { monsterId: 'm_cleft_stele_puppet', itemId: 'pill.breakmirror_pellet', chance: 0.01 },
+  { monsterId: 'm_verdant_siphon_flower', itemId: 'pill.breakmirror_pellet', chance: 0.01 },
+  { monsterId: 'm_verdant_wither_guard', itemId: 'pill.breakmirror_pellet', chance: 0.01 },
+  { monsterId: 'm_cold_pattern_guard', itemId: 'pill.breakmirror_pellet', chance: 0.01 },
+  { monsterId: 'm_cold_mirror_shade', itemId: 'pill.breakmirror_pellet', chance: 0.01 },
+  { monsterId: 'm_cold_moonscale', itemId: 'pill.breakmirror_pellet', chance: 0.01 },
+  { monsterId: 'm_ember_lizard', itemId: 'pill.breakmirror_pellet', chance: 0.01 },
+  { monsterId: 'm_ember_attendant', itemId: 'pill.breakmirror_pellet', chance: 0.01 },
+  { monsterId: 'm_ember_bone_patrol', itemId: 'pill.breakmirror_pellet', chance: 0.01 },
+  { monsterId: 'm_deepvein_armor_spirit', itemId: 'pill.breakmirror_pellet', chance: 0.01 },
+  { monsterId: 'm_deepvein_ridge_warden', itemId: 'pill.breakmirror_pellet', chance: 0.01 },
+  { monsterId: 'm_deepvein_stele_bearer', itemId: 'pill.breakmirror_pellet', chance: 0.01 },
 ];
 
 const TARGET_FILES = ['裂锋原.json', '青萝谷.json', '寒汐泽.json', '赤陨庭.json', '厚脉岭.json', '归藏脉窟.json'];
@@ -41,15 +55,25 @@ function writeJson(filePath, value) {
 function ensureDrop(monster, item) {
   const drops = Array.isArray(monster.drops) ? monster.drops : [];
   monster.drops = drops;
-  if (drops.some((drop) => drop?.itemId === item.itemId)) {
+  const existing = drops.find((drop) => drop?.itemId === item.itemId);
+  if (existing) {
+    if (Number.isFinite(item.chance)) {
+      existing.chance = Math.max(0, Math.min(1, Number(item.chance)));
+    } else {
+      delete existing.chance;
+    }
     return;
   }
-  drops.push({
+  const nextDrop = {
     itemId: item.itemId,
     name: item.name,
     type: item.type,
     count: 1,
-  });
+  };
+  if (Number.isFinite(item.chance)) {
+    nextDrop.chance = Math.max(0, Math.min(1, Number(item.chance)));
+  }
+  drops.push(nextDrop);
 }
 
 function stripDropChance(drop) {
@@ -127,7 +151,10 @@ function main() {
     if (!item) {
       throw new Error(`未找到物品：${assignment.itemId}`);
     }
-    ensureDrop(record.monster, item);
+    ensureDrop(record.monster, {
+      ...item,
+      chance: Number.isFinite(assignment.chance) ? assignment.chance : undefined,
+    });
   }
 
   validateEquipmentCoverage(equipmentItems, monstersById);
