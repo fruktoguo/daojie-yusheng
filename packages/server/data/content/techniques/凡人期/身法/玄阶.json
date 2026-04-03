@@ -94,7 +94,7 @@
         "id": "skill.lightshadow_glide",
         "name": "提气轻行",
         "desc": "提气贴地掠过时先划出一道轻灵斩线，自身也会立起浮光身法。",
-        "cooldown": 40,
+        "cooldown": 20,
         "costMultiplier": 3,
         "range": 2,
         "effects": [
@@ -156,7 +156,7 @@
         "id": "skill.shadowcross_flash",
         "name": "急步闪身",
         "desc": "把浮光拧成残影直切前方，残影散开后自身仍会留下更狠的掠影势。",
-        "cooldown": 56,
+        "cooldown": 28,
         "costMultiplier": 3,
         "range": 3,
         "targeting": {

@@ -76,7 +76,7 @@
         "id": "skill.soul_wail",
         "name": "噬魂哀鸣",
         "desc": "哀鸣先钉住心神，魂缚随后顺势缠上，让后手更容易压进识海。",
-        "cooldown": 44,
+        "cooldown": 22,
         "costMultiplier": 3,
         "range": 3,
         "effects": [
@@ -133,7 +133,7 @@
         "id": "skill.nether_chain",
         "name": "阴锁缠身",
         "desc": "顺着魂缚破口把阴锁压成一线，越被缠住的人越难从这道锁里挣开。",
-        "cooldown": 56,
+        "cooldown": 28,
         "costMultiplier": 3,
         "range": 3,
         "targeting": {
@@ -273,7 +273,7 @@
         "id": "skill.core_smash",
         "name": "矿核重击",
         "desc": "先以矿核重击压住正面，自身岩壳也会在这一击后继续增厚。",
-        "cooldown": 30,
+        "cooldown": 15,
         "costMultiplier": 3,
         "range": 1,
         "effects": [
@@ -342,7 +342,7 @@
         "id": "skill.guardian_quake",
         "name": "镇域震荡",
         "desc": "把矿核和岩壳一并轰进地面，近身敌群都会吃到这道镇域余震。",
-        "cooldown": 56,
+        "cooldown": 28,
         "costMultiplier": 3,
         "range": 2,
         "targeting": {
@@ -503,7 +503,7 @@
         "id": "skill.star_maw",
         "name": "噬星咬",
         "desc": "獠口先把残星煞意咬进目标体内，自身也会因此积起更凶的噬意。",
-        "cooldown": 38,
+        "cooldown": 19,
         "costMultiplier": 3,
         "range": 2,
         "effects": [
@@ -572,7 +572,7 @@
         "id": "skill.void_burst",
         "name": "裂空残啸",
         "desc": "把噬入口中的残意轰成一团裂空乱流，周围都会像被星砂刮过。",
-        "cooldown": 60,
+        "cooldown": 30,
         "costMultiplier": 3,
         "range": 3,
         "targeting": {
@@ -759,7 +759,7 @@
         "id": "skill.thunder_palm",
         "name": "惊雷掌",
         "desc": "掌劲先炸开雷势，再让后续每一掌都更容易破开前排防线。",
-        "cooldown": 46,
+        "cooldown": 23,
         "costMultiplier": 3,
         "range": 2,
         "targeting": {
@@ -824,7 +824,7 @@
         "id": "skill.rushing_thunder",
         "name": "奔雷贯心",
         "desc": "顺着雷势把掌力贯成一线，前排被炸开的瞬间，后排也会被一并贯穿。",
-        "cooldown": 58,
+        "cooldown": 29,
         "costMultiplier": 3,
         "range": 3,
         "targeting": {
@@ -1020,7 +1020,7 @@
         "id": "skill.stillheart_seal",
         "name": "止念印",
         "desc": "先把止念印压进神识表层，再让其术念与化解一并变慢。",
-        "cooldown": 52,
+        "cooldown": 26,
         "costMultiplier": 3,
         "range": 4,
         "effects": [
@@ -1081,7 +1081,7 @@
         "id": "skill.mind_break_spike",
         "name": "断识锥",
         "desc": "趁止念未散把神识压成一枚断识锥，沿直线一路凿进识海。",
-        "cooldown": 56,
+        "cooldown": 28,
         "costMultiplier": 3,
         "range": 3,
         "targeting": {
@@ -1273,7 +1273,7 @@
         "id": "skill.frost_mark",
         "name": "霜痕",
         "desc": "先凝出一道寒痕钉在体表，后续每次寒诀都会顺着旧痕再压一层。",
-        "cooldown": 46,
+        "cooldown": 23,
         "costMultiplier": 3,
         "range": 3,
         "effects": [
@@ -1330,7 +1330,7 @@
         "id": "skill.ice_lock_art",
         "name": "冰锁诀",
         "desc": "把寒意顺着寒痕钉进经络，再把前方一路锁成发白的冷线。",
-        "cooldown": 56,
+        "cooldown": 28,
         "costMultiplier": 3,
         "range": 3,
         "targeting": {
@@ -1542,7 +1542,7 @@
         "id": "skill.anchor_pulse",
         "name": "镇灵冲",
         "desc": "以镇灵冲先钉住气机，自身也会因此进入更稳的镇灵凝神。",
-        "cooldown": 38,
+        "cooldown": 19,
         "costMultiplier": 3,
         "range": 2,
         "effects": [
@@ -1603,7 +1603,7 @@
         "id": "skill.soul_nail",
         "name": "定魂钉",
         "desc": "顺着镇灵凝神把魂光定成一点，再把这一点直接钉进目标神识。",
-        "cooldown": 56,
+        "cooldown": 28,
         "costMultiplier": 3,
         "range": 3,
         "effects": [
@@ -1832,7 +1832,7 @@
         "id": "skill.starfall_thrust",
         "name": "坠星刺",
         "desc": "先把枪势校成坠星的一线，自身也会顺着这一刺积起更沉的坠势。",
-        "cooldown": 54,
+        "cooldown": 27,
         "costMultiplier": 3,
         "range": 3,
         "targeting": {
@@ -1896,7 +1896,7 @@
         "id": "skill.chasing_star",
         "name": "追星步",
         "desc": "借坠势踏前半步再补一枪，前一式压出的空档会被这一追直接追实。",
-        "cooldown": 58,
+        "cooldown": 29,
         "costMultiplier": 3,
         "range": 3,
         "effects": [
@@ -1964,7 +1964,7 @@
         "id": "skill.skybreaker_lance",
         "name": "裂穹枪",
         "desc": "将前段积下的枪势一次性贯成长线，最适合用来破开中段敌阵。",
-        "cooldown": 40,
+        "cooldown": 20,
         "costMultiplier": 3,
         "range": 4,
         "targeting": {

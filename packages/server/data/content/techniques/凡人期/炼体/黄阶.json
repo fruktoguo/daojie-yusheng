@@ -307,7 +307,7 @@
         "id": "skill.iron_bone_strike",
         "name": "铁骨崩拳",
         "desc": "拳劲先震骨再压向前臂，出拳同时也会把护体罡劲再压实一层。",
-        "cooldown": 22,
+        "cooldown": 11,
         "costMultiplier": 3,
         "range": 1,
         "effects": [
@@ -375,7 +375,7 @@
         "id": "skill.iron_guard_roar",
         "name": "震罡怒吼",
         "desc": "鼓荡罡劲一口气轰开身前敌群，越硬的躯壳越能把这一震压沉。",
-        "cooldown": 44,
+        "cooldown": 22,
         "costMultiplier": 3,
         "range": 2,
         "targeting": {

@@ -428,7 +428,7 @@
           "id": "skill.soul_wail",
           "name": "噬魂哀鸣",
           "desc": "哀鸣先钉住心神，魂缚随后顺势缠上，让后手更容易压进识海。",
-          "cooldown": 44,
+          "cooldown": 22,
           "costMultiplier": 3,
           "range": 3,
           "effects": [
@@ -486,7 +486,7 @@
           "id": "skill.nether_chain",
           "name": "阴锁缠身",
           "desc": "顺着魂缚破口把阴锁压成一线，越被缠住的人越难从这道锁里挣开。",
-          "cooldown": 56,
+          "cooldown": 28,
           "costMultiplier": 3,
           "range": 3,
           "targeting": {
@@ -899,7 +899,7 @@
           "id": "skill.fire_talisman",
           "name": "离火符",
           "desc": "离火先灼其表，再把灼印烙进经脉，方便后续火线顺着旧印穿透。",
-          "cooldown": 30,
+          "cooldown": 15,
           "costMultiplier": 3,
           "range": 3,
           "effects": [
@@ -956,7 +956,7 @@
           "id": "skill.blazing_thread",
           "name": "赤线灼脉",
           "desc": "把离火牵成一线贯进敌阵，被灼印缠住的目标会被这一线烧得更深。",
-          "cooldown": 54,
+          "cooldown": 27,
           "costMultiplier": 3,
           "range": 4,
           "targeting": {
@@ -2234,7 +2234,7 @@
           "id": "skill.cloudchase_breath",
           "name": "轻身换气",
           "desc": "换气的一瞬先贴身点出一记轻击，脚下也会顺势蓄起追云步势。",
-          "cooldown": 28,
+          "cooldown": 14,
           "costMultiplier": 3,
           "range": 2,
           "effects": [
@@ -2296,7 +2296,7 @@
           "id": "skill.borrowing_wind_turn",
           "name": "收步回身",
           "desc": "借回身把追云余势拧成一条风线，扫过之后自身还会挂上一层借风。",
-          "cooldown": 48,
+          "cooldown": 24,
           "costMultiplier": 3,
           "range": 3,
           "targeting": {
@@ -2945,7 +2945,7 @@
           "id": "skill.frost_mark",
           "name": "霜痕",
           "desc": "先凝出一道寒痕钉在体表，后续每次寒诀都会顺着旧痕再压一层。",
-          "cooldown": 46,
+          "cooldown": 23,
           "costMultiplier": 3,
           "range": 3,
           "effects": [
@@ -3003,7 +3003,7 @@
           "id": "skill.ice_lock_art",
           "name": "冰锁诀",
           "desc": "把寒意顺着寒痕钉进经络，再把前方一路锁成发白的冷线。",
-          "cooldown": 56,
+          "cooldown": 28,
           "costMultiplier": 3,
           "range": 3,
           "targeting": {
@@ -4523,7 +4523,7 @@
           "id": "skill.thunder_palm",
           "name": "惊雷掌",
           "desc": "掌劲先炸开雷势，再让后续每一掌都更容易破开前排防线。",
-          "cooldown": 46,
+          "cooldown": 23,
           "costMultiplier": 3,
           "range": 2,
           "targeting": {
@@ -4589,7 +4589,7 @@
           "id": "skill.rushing_thunder",
           "name": "奔雷贯心",
           "desc": "顺着雷势把掌力贯成一线，前排被炸开的瞬间，后排也会被一并贯穿。",
-          "cooldown": 58,
+          "cooldown": 29,
           "costMultiplier": 3,
           "range": 3,
           "targeting": {
@@ -4800,7 +4800,7 @@
           "id": "skill.core_smash",
           "name": "矿核重击",
           "desc": "先以矿核重击压住正面，自身岩壳也会在这一击后继续增厚。",
-          "cooldown": 30,
+          "cooldown": 15,
           "costMultiplier": 3,
           "range": 1,
           "effects": [
@@ -4870,7 +4870,7 @@
           "id": "skill.guardian_quake",
           "name": "镇域震荡",
           "desc": "把矿核和岩壳一并轰进地面，近身敌群都会吃到这道镇域余震。",
-          "cooldown": 56,
+          "cooldown": 28,
           "costMultiplier": 3,
           "range": 2,
           "targeting": {
@@ -5528,7 +5528,7 @@
           "id": "skill.cloud_cut",
           "name": "流云断",
           "desc": "先借步法起刀切入一线，斩中后身法自然续成风行。",
-          "cooldown": 30,
+          "cooldown": 15,
           "costMultiplier": 3,
           "range": 2,
           "targeting": {
@@ -5589,7 +5589,7 @@
           "id": "skill.rift_step_slash",
           "name": "踏隙斩",
           "desc": "借风行余势一脚踏进刀隙，整道刀光会沿着空档继续往前追。",
-          "cooldown": 46,
+          "cooldown": 23,
           "costMultiplier": 3,
           "range": 3,
           "targeting": {
@@ -7236,7 +7236,7 @@
           "id": "skill.scythe_limb",
           "name": "裂刃前肢",
           "desc": "前肢先切出一道刃口，自身刃势也会顺着这次扑杀一起提起来。",
-          "cooldown": 20,
+          "cooldown": 10,
           "costMultiplier": 3,
           "range": 1,
           "effects": [
@@ -7292,7 +7292,7 @@
           "id": "skill.whirl_scythe",
           "name": "回旋碎叶",
           "desc": "借刃势把前肢轮成一圈碎叶，贴身敌群会被一口气卷进斩击里。",
-          "cooldown": 34,
+          "cooldown": 17,
           "costMultiplier": 3,
           "range": 2,
           "targeting": {
@@ -7432,7 +7432,7 @@
           "id": "skill.star_maw",
           "name": "噬星咬",
           "desc": "獠口先把残星煞意咬进目标体内，自身也会因此积起更凶的噬意。",
-          "cooldown": 38,
+          "cooldown": 19,
           "costMultiplier": 3,
           "range": 2,
           "effects": [
@@ -7502,7 +7502,7 @@
           "id": "skill.void_burst",
           "name": "裂空残啸",
           "desc": "把噬入口中的残意轰成一团裂空乱流，周围都会像被星砂刮过。",
-          "cooldown": 60,
+          "cooldown": 30,
           "costMultiplier": 3,
           "range": 3,
           "targeting": {
@@ -7638,7 +7638,7 @@
           "id": "skill.wind_edge",
           "name": "风痕",
           "desc": "借步法切进身位先留下一道风痕，自身也会顺着这一切立起风行。",
-          "cooldown": 28,
+          "cooldown": 14,
           "costMultiplier": 3,
           "range": 2,
           "effects": [
@@ -7696,7 +7696,7 @@
           "id": "skill.chasing_shadow",
           "name": "逐影掠空",
           "desc": "借风行余势连续切位，拖出的劲风会沿直线把前方一并扫穿。",
-          "cooldown": 46,
+          "cooldown": 23,
           "costMultiplier": 3,
           "range": 3,
           "targeting": {
@@ -8859,7 +8859,7 @@
           "id": "skill.iron_bone_strike",
           "name": "铁骨崩拳",
           "desc": "拳劲先震骨再压向前臂，出拳同时也会把护体罡劲再压实一层。",
-          "cooldown": 22,
+          "cooldown": 11,
           "costMultiplier": 3,
           "range": 1,
           "effects": [
@@ -8928,7 +8928,7 @@
           "id": "skill.iron_guard_roar",
           "name": "震罡怒吼",
           "desc": "鼓荡罡劲一口气轰开身前敌群，越硬的躯壳越能把这一震压沉。",
-          "cooldown": 44,
+          "cooldown": 22,
           "costMultiplier": 3,
           "range": 2,
           "targeting": {
@@ -10419,7 +10419,7 @@
           "id": "skill.venom_fang",
           "name": "毒牙噬",
           "desc": "毒牙先把毒蚀送进经络，后续每一口瘴气都会更容易顺着伤处发作。",
-          "cooldown": 18,
+          "cooldown": 9,
           "costMultiplier": 3,
           "range": 1,
           "effects": [
@@ -10477,7 +10477,7 @@
           "id": "skill.miasma_spray",
           "name": "瘴雾喷吐",
           "desc": "把先前灌入的毒意化成瘴雾一路压过去，毒蚀越深，后劲越狠。",
-          "cooldown": 36,
+          "cooldown": 18,
           "costMultiplier": 3,
           "range": 3,
           "targeting": {
@@ -10618,7 +10618,7 @@
           "id": "skill.predator_pounce",
           "name": "裂喉扑杀",
           "desc": "压低妖躯后猛扑夺位，先抢到贴身节奏，再把凶奔一并提起来。",
-          "cooldown": 24,
+          "cooldown": 12,
           "costMultiplier": 3,
           "range": 2,
           "effects": [
@@ -10675,7 +10675,7 @@
           "id": "skill.rending_claw",
           "name": "裂骨爪",
           "desc": "借扑势把爪锋拖成一道撕骨长痕，凶奔越盛，这一下越难硬吃。",
-          "cooldown": 34,
+          "cooldown": 17,
           "costMultiplier": 3,
           "range": 2,
           "targeting": {
@@ -10740,7 +10740,7 @@
           "id": "skill.brutal_ram",
           "name": "蛮骨冲",
           "desc": "把筋骨、体重和凶奔余势全压进一撞里，最适合强行开路撞穿前排。",
-          "cooldown": 34,
+          "cooldown": 17,
           "costMultiplier": 3,
           "range": 2,
           "effects": [
@@ -11044,7 +11044,7 @@
           "id": "skill.plume_shot",
           "name": "裂羽攒射",
           "desc": "羽翎离弦时先校准高空身位，命中后自身也会顺势维持凌空压制。",
-          "cooldown": 26,
+          "cooldown": 13,
           "costMultiplier": 3,
           "range": 3,
           "effects": [
@@ -11101,7 +11101,7 @@
           "id": "skill.echo_screech",
           "name": "裂空尖啸",
           "desc": "以尖啸震乱前排后，再借凌空余势把回音一路压进整条战线。",
-          "cooldown": 48,
+          "cooldown": 24,
           "costMultiplier": 3,
           "range": 4,
           "targeting": {
@@ -11166,7 +11166,7 @@
           "id": "skill.frost_plume",
           "name": "霜羽坠",
           "desc": "把高空积起的寒意压进羽锋，坠下时会连霜痕一起钉进目标体表。",
-          "cooldown": 38,
+          "cooldown": 19,
           "costMultiplier": 3,
           "range": 3,
           "effects": [
@@ -11303,7 +11303,7 @@
           "id": "skill.starfall_thrust",
           "name": "坠星刺",
           "desc": "先把枪势校成坠星的一线，自身也会顺着这一刺积起更沉的坠势。",
-          "cooldown": 54,
+          "cooldown": 27,
           "costMultiplier": 3,
           "range": 3,
           "targeting": {
@@ -11368,7 +11368,7 @@
           "id": "skill.chasing_star",
           "name": "追星步",
           "desc": "借坠势踏前半步再补一枪，前一式压出的空档会被这一追直接追实。",
-          "cooldown": 58,
+          "cooldown": 29,
           "costMultiplier": 3,
           "range": 3,
           "effects": [
@@ -11437,7 +11437,7 @@
           "id": "skill.skybreaker_lance",
           "name": "裂穹枪",
           "desc": "将前段积下的枪势一次性贯成长线，最适合用来破开中段敌阵。",
-          "cooldown": 40,
+          "cooldown": 20,
           "costMultiplier": 3,
           "range": 4,
           "targeting": {
@@ -12058,7 +12058,7 @@
           "id": "skill.lightshadow_glide",
           "name": "提气轻行",
           "desc": "提气贴地掠过时先划出一道轻灵斩线，自身也会立起浮光身法。",
-          "cooldown": 40,
+          "cooldown": 20,
           "costMultiplier": 3,
           "range": 2,
           "effects": [
@@ -12121,7 +12121,7 @@
           "id": "skill.shadowcross_flash",
           "name": "急步闪身",
           "desc": "把浮光拧成残影直切前方，残影散开后自身仍会留下更狠的掠影势。",
-          "cooldown": 56,
+          "cooldown": 28,
           "costMultiplier": 3,
           "range": 3,
           "targeting": {
@@ -12360,7 +12360,7 @@
           "id": "skill.anchor_pulse",
           "name": "镇灵冲",
           "desc": "以镇灵冲先钉住气机，自身也会因此进入更稳的镇灵凝神。",
-          "cooldown": 38,
+          "cooldown": 19,
           "costMultiplier": 3,
           "range": 2,
           "effects": [
@@ -12422,7 +12422,7 @@
           "id": "skill.soul_nail",
           "name": "定魂钉",
           "desc": "顺着镇灵凝神把魂光定成一点，再把这一点直接钉进目标神识。",
-          "cooldown": 56,
+          "cooldown": 28,
           "costMultiplier": 3,
           "range": 3,
           "effects": [
@@ -12828,7 +12828,7 @@
           "id": "skill.stillheart_seal",
           "name": "止念印",
           "desc": "先把止念印压进神识表层，再让其术念与化解一并变慢。",
-          "cooldown": 52,
+          "cooldown": 26,
           "costMultiplier": 3,
           "range": 4,
           "effects": [
@@ -12890,7 +12890,7 @@
           "id": "skill.mind_break_spike",
           "name": "断识锥",
           "desc": "趁止念未散把神识压成一枚断识锥，沿直线一路凿进识海。",
-          "cooldown": 56,
+          "cooldown": 28,
           "costMultiplier": 3,
           "range": 3,
           "targeting": {
@@ -13623,7 +13623,7 @@
           "id": "skill.bamboo_whip",
           "name": "竹影抽",
           "desc": "先用竹影抽乱步点，再把草木青缠顺着这一抽一起缠上去。",
-          "cooldown": 26,
+          "cooldown": 13,
           "costMultiplier": 3,
           "range": 3,
           "effects": [
@@ -13680,7 +13680,7 @@
           "id": "skill.leaf_storm",
           "name": "青叶乱雨",
           "desc": "把缠在敌身上的草叶一口气搅成乱雨，青缠越深，落下时越密。",
-          "cooldown": 38,
+          "cooldown": 19,
           "costMultiplier": 3,
           "range": 3,
           "targeting": {
