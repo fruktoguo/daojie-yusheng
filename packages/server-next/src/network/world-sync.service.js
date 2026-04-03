@@ -58,7 +58,7 @@ let WorldSyncService = class WorldSyncService {
             this.emitNextInitialSync(binding.playerId, socket, view, player);
         }
         else {
-            this.emitLegacyInitialSync(binding.playerId, socket, view, player);
+            this.emitCompatInitialSync(binding.playerId, socket, view, player);
         }
         this.emitQuestSync(socket, binding.playerId, player.quests.revision);
         this.emitPendingNotices(binding.playerId, socket);
@@ -82,7 +82,7 @@ let WorldSyncService = class WorldSyncService {
                 this.emitNextDeltaSync(binding.playerId, socket, view, player);
             }
             else {
-                this.emitLegacyDeltaSync(binding.playerId, socket, view, player);
+                this.emitCompatDeltaSync(binding.playerId, socket, view, player);
             }
             const lastQuestRevision = this.lastQuestRevisionByPlayerId.get(binding.playerId) ?? 0;
             if (lastQuestRevision !== player.quests.revision) {
@@ -246,7 +246,7 @@ let WorldSyncService = class WorldSyncService {
             lootWindow: cloneLootWindow(lootWindow),
         });
     }
-    emitLegacyInitialSync(playerId, socket, view, player) {
+    emitCompatInitialSync(playerId, socket, view, player) {
         const template = this.templateRepository.getOrThrow(view.instance.templateId);
         const visibleTiles = this.buildVisibleTilesSnapshot(view, player, template);
         const renderEntities = this.buildRenderEntitiesSnapshot(view, player);
@@ -311,7 +311,7 @@ let WorldSyncService = class WorldSyncService {
         }
         this.syncStateByPlayerId.set(playerId, captureSyncSnapshot(view, player, template, timeState, path, threatArrows, visibleMinimapMarkers, renderEntities, visibleTiles.byKey, groundPiles, lootWindow));
     }
-    emitLegacyDeltaSync(playerId, socket, view, player) {
+    emitCompatDeltaSync(playerId, socket, view, player) {
         const previous = this.syncStateByPlayerId.get(playerId) ?? null;
         const template = this.templateRepository.getOrThrow(view.instance.templateId);
         const currentTiles = this.buildVisibleTilesSnapshot(view, player, template);
@@ -1712,7 +1712,6 @@ function isDerivedRuntimeBonusSource(source) {
         || source === 'runtime:vitals_baseline'
         || source === 'runtime:technique_aggregate'
         || source.startsWith('technique:')
-        || source.startsWith('equip:')
         || source.startsWith('equipment:')
         || source.startsWith('buff:');
 }

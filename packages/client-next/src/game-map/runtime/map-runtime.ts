@@ -4,7 +4,7 @@ import { CameraController } from '../camera/camera-controller';
 import { InteractionController } from '../interaction/interaction-controller';
 import { MinimapRuntime } from '../minimap/minimap-runtime';
 import { TopdownProjection } from '../projection/topdown-projection';
-import { LegacyCanvasTextRendererAdapter } from '../renderer/legacy-canvas-text-renderer-adapter';
+import { CanvasTextRendererAdapter } from '../renderer/canvas-text-renderer-adapter';
 import { MapScene } from '../scene/map-scene';
 import { MapStore } from '../store/map-store';
 import type {
@@ -24,7 +24,7 @@ export class MapRuntime implements MapRuntimeApi {
   private readonly viewport = new ViewportController();
   private readonly camera = new CameraController();
   private readonly projection = new TopdownProjection();
-  private readonly renderer = new LegacyCanvasTextRendererAdapter();
+  private readonly renderer = new CanvasTextRendererAdapter();
   private readonly minimap = new MinimapRuntime();
   private readonly interaction = new InteractionController(
     () => this.store.getSnapshot(),

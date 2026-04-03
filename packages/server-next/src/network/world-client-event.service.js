@@ -17,18 +17,21 @@ const market_runtime_service_1 = require("../runtime/market/market-runtime.servi
 const player_runtime_service_1 = require("../runtime/player/player-runtime.service");
 const suggestion_runtime_service_1 = require("../runtime/suggestion/suggestion-runtime.service");
 const world_session_service_1 = require("./world-session.service");
+const world_sync_service_1 = require("./world-sync.service");
 let WorldClientEventService = class WorldClientEventService {
     mailRuntimeService;
     marketRuntimeService;
     playerRuntimeService;
     suggestionRuntimeService;
     worldSessionService;
-    constructor(mailRuntimeService, marketRuntimeService, playerRuntimeService, suggestionRuntimeService, worldSessionService) {
+    worldSyncService;
+    constructor(mailRuntimeService, marketRuntimeService, playerRuntimeService, suggestionRuntimeService, worldSessionService, worldSyncService) {
         this.mailRuntimeService = mailRuntimeService;
         this.marketRuntimeService = marketRuntimeService;
         this.playerRuntimeService = playerRuntimeService;
         this.suggestionRuntimeService = suggestionRuntimeService;
         this.worldSessionService = worldSessionService;
+        this.worldSyncService = worldSyncService;
     }
     markPrefersNext(client) {
         this.markProtocol(client, 'next');
@@ -47,11 +50,132 @@ let WorldClientEventService = class WorldClientEventService {
         }
         return client?.data?.prefersNext === true ? 'next' : 'legacy';
     }
+    getExplicitProtocol(client) {
+        const protocol = client?.data?.protocol;
+        return protocol === 'next' || protocol === 'legacy' ? protocol : null;
+    }
     prefersNext(client) {
         return this.getProtocol(client) === 'next';
     }
     emitByPreference(client, nextEvent, legacyEvent, payload) {
         client.emit(this.prefersNext(client) ? nextEvent : legacyEvent, payload);
+    }
+    emitDual(client, nextEvent, legacyEvent, payload) {
+        const protocol = this.getExplicitProtocol(client);
+        if (protocol !== 'legacy') {
+            client.emit(nextEvent, payload);
+        }
+        if (protocol !== 'next') {
+            client.emit(legacyEvent, payload);
+        }
+    }
+    emitError(client, code, message) {
+        this.emitDual(client, shared_1.NEXT_S2C.Error, shared_1.S2C.Error, { code, message });
+    }
+    emitGatewayError(client, code, error) {
+        this.emitError(client, code, error instanceof Error ? error.message : 'unknown error');
+    }
+    emitNotReady(client) {
+        this.emitError(client, 'NOT_READY', 'send hello before gameplay commands');
+    }
+    emitPong(client, payload) {
+        this.emitDual(client, shared_1.NEXT_S2C.Pong, shared_1.S2C.Pong, {
+            clientAt: payload?.clientAt,
+            serverAt: Date.now(),
+        });
+    }
+    emitQuestNavigateResult(client, questId, ok, error) {
+        this.emitDual(client, shared_1.NEXT_S2C.QuestNavigateResult, shared_1.S2C.QuestNavigateResult, {
+            questId,
+            ok,
+            error,
+        });
+    }
+    emitLootWindowUpdate(client, playerId, x, y) {
+        const payload = this.worldSyncService.openLootWindow(playerId, x, y);
+        this.emitDual(client, shared_1.NEXT_S2C.LootWindowUpdate, shared_1.S2C.LootWindowUpdate, payload);
+    }
+    emitChatMessage(client, payload) {
+        const protocol = this.getExplicitProtocol(client);
+        if (protocol !== 'legacy') {
+            client.emit(shared_1.NEXT_S2C.Notice, {
+                items: [{
+                        kind: 'chat',
+                        text: payload.text,
+                        from: payload.from,
+                    }],
+            });
+        }
+        if (protocol !== 'next') {
+            client.emit(shared_1.S2C.SystemMsg, payload);
+        }
+    }
+    emitPendingLogbookMessages(client, playerId) {
+        const pending = this.playerRuntimeService.getPendingLogbookMessages(playerId);
+        const protocol = this.getExplicitProtocol(client);
+        for (const entry of pending) {
+            if (protocol !== 'legacy') {
+                client.emit(shared_1.NEXT_S2C.Notice, {
+                    items: [{
+                            messageId: entry.id,
+                            kind: 'grudge',
+                            text: entry.text,
+                            from: entry.from,
+                            occurredAt: entry.at,
+                            persistUntilAck: true,
+                        }],
+                });
+            }
+            if (protocol !== 'next') {
+                client.emit(shared_1.S2C.SystemMsg, {
+                    id: entry.id,
+                    text: entry.text,
+                    from: entry.from,
+                    kind: 'grudge',
+                    occurredAt: entry.at,
+                    persistUntilAck: true,
+                });
+            }
+        }
+    }
+    broadcastChat(playerId, payload) {
+        const message = typeof payload?.message === 'string' ? payload.message.trim() : '';
+        if (!message) {
+            return;
+        }
+        const player = this.playerRuntimeService.getPlayer(playerId);
+        if (!player) {
+            return;
+        }
+        const chatLabel = typeof player.displayName === 'string' && player.displayName.trim()
+            ? player.displayName.trim()
+            : typeof player.name === 'string' && player.name.trim()
+                ? player.name.trim()
+                : player.playerId;
+        const chatMsg = {
+            text: message.slice(0, 200),
+            kind: 'chat',
+            from: chatLabel,
+        };
+        for (const binding of this.worldSessionService.listBindings()) {
+            const target = this.playerRuntimeService.getPlayer(binding.playerId);
+            if (!target || target.instanceId !== player.instanceId) {
+                continue;
+            }
+            const socket = this.worldSessionService.getSocketByPlayerId(binding.playerId);
+            if (socket) {
+                this.emitChatMessage(socket, chatMsg);
+            }
+        }
+    }
+    acknowledgeSystemMessages(playerId, payload) {
+        const ids = Array.isArray(payload?.ids)
+            ? payload.ids.filter((entry) => typeof entry === 'string' && entry.trim().length > 0)
+            : [];
+        if (ids.length === 0) {
+            return;
+        }
+        this.playerRuntimeService.acknowledgePendingLogbookMessages(playerId, ids);
     }
     emitQuests(client, payload) {
         this.emitByPreference(client, shared_1.NEXT_S2C.Quests, shared_1.S2C.QuestUpdate, payload);
@@ -128,5 +252,6 @@ exports.WorldClientEventService = WorldClientEventService = __decorate([
         market_runtime_service_1.MarketRuntimeService,
         player_runtime_service_1.PlayerRuntimeService,
         suggestion_runtime_service_1.SuggestionRuntimeService,
-        world_session_service_1.WorldSessionService])
+        world_session_service_1.WorldSessionService,
+        world_sync_service_1.WorldSyncService])
 ], WorldClientEventService);

@@ -1,7 +1,7 @@
 # Next 协议审计报告
 
-- 生成时间: 2026-04-02T17:35:35.457Z
-- 目标服务: http://127.0.0.1:45584
+- 生成时间: 2026-04-03T10:59:08.563Z
+- 目标服务: http://127.0.0.1:44832
 - 运行模式: external-server
 - 统计口径: 应用层 payload bytes；对象载荷按 `JSON.stringify(payload)` 的 UTF-8 字节数计算，二进制载荷按 `byteLength` 计算。
 - 覆盖基线: 以 `server-next` 当前已声明并实际接线的 next socket 事件面为准；仍依赖 legacy 的 client-next 兼容流量不计入这份审计。
@@ -10,23 +10,23 @@
 
 | 用例 | 时长(ms) | C2S 观测 | S2C 观测 |
 | --- | ---: | --- | --- |
-| bootstrap-runtime | 1096 | Hello<br>Move<br>Ping<br>RequestTileDetail | Bootstrap<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>PanelDelta<br>Pong<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>TileDetail<br>WorldDelta |
-| heartbeat-chat | 416 | Chat<br>Heartbeat<br>Hello<br>Ping | Bootstrap<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>Notice<br>PanelDelta<br>Pong<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
+| bootstrap-runtime | 1087 | Hello<br>Move<br>Ping<br>RequestTileDetail | Bootstrap<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>PanelDelta<br>Pong<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>TileDetail<br>WorldDelta |
+| heartbeat-chat | 414 | Chat<br>Heartbeat<br>Hello<br>Ping | Bootstrap<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>Notice<br>PanelDelta<br>Pong<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
 | quest-navigation | 208 | Hello<br>NavigateQuest | Bootstrap<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>Notice<br>PanelDelta<br>QuestNavigateResult<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
-| portal-transfer | 207 | Hello<br>UsePortal | Bootstrap<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>Notice<br>PanelDelta<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
+| portal-transfer | 206 | Hello<br>UsePortal | Bootstrap<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>Notice<br>PanelDelta<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
 | session-kick | 207 | Hello | Bootstrap<br>InitSession<br>Kick<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>PanelDelta<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
-| error-path | 206 | Hello<br>RequestNpcShop | Bootstrap<br>Error<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>PanelDelta<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
-| inventory-ops | 128 | DestroyItem<br>Hello<br>SortInventory | Bootstrap<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>PanelDelta<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
-| player-controls | 521 | DebugResetSpawn<br>HeavenGateAction<br>Hello<br>UpdateAutoBattleSkills<br>UseItem<br>UsePortal | Bootstrap<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>Notice<br>PanelDelta<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
-| npc-shop | 417 | BuyNpcShopItem<br>Hello<br>RequestNpcShop<br>UseAction | Bootstrap<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>Notice<br>NpcShop<br>PanelDelta<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
+| error-path | 205 | Hello<br>RequestNpcShop | Bootstrap<br>Error<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>PanelDelta<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
+| inventory-ops | 124 | DestroyItem<br>Hello<br>SortInventory | Bootstrap<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>PanelDelta<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
+| player-controls | 520 | DebugResetSpawn<br>HeavenGateAction<br>Hello<br>UpdateAutoBattleSkills<br>UseItem<br>UsePortal | Bootstrap<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>Notice<br>PanelDelta<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
+| npc-shop | 414 | BuyNpcShopItem<br>Hello<br>RequestNpcShop<br>UseAction | Bootstrap<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>Notice<br>NpcShop<br>PanelDelta<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
 | npc-detail-quests | 508 | Hello<br>RequestDetail<br>RequestNpcQuests<br>RequestQuests<br>UseAction | Bootstrap<br>Detail<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>NpcQuests<br>PanelDelta<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
-| pending-logbook-ack | 113 | AckSystemMessages<br>Hello | Bootstrap<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>Notice<br>PanelDelta<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
-| gm-next | 844 | GmGetState<br>GmRemoveBots<br>GmResetPlayer<br>GmSpawnBots<br>GmUpdatePlayer<br>Hello | Bootstrap<br>GmState<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>Notice<br>PanelDelta<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
+| pending-logbook-ack | 111 | AckSystemMessages<br>Hello | Bootstrap<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>Notice<br>PanelDelta<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
+| gm-next | 836 | GmGetState<br>GmRemoveBots<br>GmResetPlayer<br>GmSpawnBots<br>GmUpdatePlayer<br>Hello | Bootstrap<br>GmState<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>Notice<br>PanelDelta<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
 | suggestions | 611 | CreateSuggestion<br>Hello<br>MarkSuggestionRepliesRead<br>ReplySuggestion<br>RequestSuggestions<br>VoteSuggestion | Bootstrap<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>PanelDelta<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
 | mail | 715 | ClaimMailAttachments<br>DeleteMail<br>Hello<br>MarkMailRead<br>RequestMailDetail<br>RequestMailPage<br>RequestMailSummary | Bootstrap<br>InitSession<br>LootWindowUpdate<br>MailDetail<br>MailOpResult<br>MailPage<br>MailSummary<br>MapEnter<br>MapStatic<br>PanelDelta<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
-| progression-combat | 739 | CastSkill<br>Cultivate<br>Equip<br>Hello<br>Unequip<br>UseItem | Bootstrap<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>Notice<br>PanelDelta<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
-| loot | 4303 | DropItem<br>Hello<br>Move<br>MoveTo<br>TakeGround | Bootstrap<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>Notice<br>PanelDelta<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
-| market | 1941 | BuyMarketItem<br>CancelMarketOrder<br>ClaimMarketStorage<br>CreateMarketBuyOrder<br>CreateMarketSellOrder<br>DropItem<br>Hello<br>RequestMarket<br>RequestMarketItemBook<br>RequestMarketTradeHistory<br>SellMarketItem | Bootstrap<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>MarketItemBook<br>MarketTradeHistory<br>MarketUpdate<br>Notice<br>PanelDelta<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
+| progression-combat | 736 | CastSkill<br>Cultivate<br>Equip<br>Hello<br>Unequip<br>UseItem | Bootstrap<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>Notice<br>PanelDelta<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
+| loot | 4304 | DropItem<br>Hello<br>Move<br>MoveTo<br>TakeGround | Bootstrap<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>Notice<br>PanelDelta<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
+| market | 1924 | BuyMarketItem<br>CancelMarketOrder<br>ClaimMarketStorage<br>CreateMarketBuyOrder<br>CreateMarketSellOrder<br>DropItem<br>Hello<br>RequestMarket<br>RequestMarketItemBook<br>RequestMarketTradeHistory<br>SellMarketItem | Bootstrap<br>InitSession<br>LootWindowUpdate<br>MailSummary<br>MapEnter<br>MapStatic<br>MarketItemBook<br>MarketTradeHistory<br>MarketUpdate<br>Notice<br>PanelDelta<br>Quests<br>Realm<br>SelfDelta<br>SuggestionUpdate<br>WorldDelta |
 
 ## 客户端到服务端覆盖
 
@@ -96,7 +96,7 @@
 | Realm | `n:s:realm` | 是 | 24 | 8.81 KB | 376 B | bootstrap-runtime<br>error-path<br>gm-next<br>heartbeat-chat<br>inventory-ops<br>loot<br>mail<br>market<br>npc-detail-quests<br>npc-shop<br>pending-logbook-ack<br>player-controls<br>portal-transfer<br>progression-combat<br>quest-navigation<br>session-kick<br>suggestions |
 | WorldDelta | `n:s:worldDelta` | 是 | 56 | 11.52 KB | 211 B | bootstrap-runtime<br>error-path<br>gm-next<br>heartbeat-chat<br>inventory-ops<br>loot<br>mail<br>market<br>npc-detail-quests<br>npc-shop<br>pending-logbook-ack<br>player-controls<br>portal-transfer<br>progression-combat<br>quest-navigation<br>session-kick<br>suggestions |
 | SelfDelta | `n:s:selfDelta` | 是 | 59 | 3.52 KB | 61 B | bootstrap-runtime<br>error-path<br>gm-next<br>heartbeat-chat<br>inventory-ops<br>loot<br>mail<br>market<br>npc-detail-quests<br>npc-shop<br>pending-logbook-ack<br>player-controls<br>portal-transfer<br>progression-combat<br>quest-navigation<br>session-kick<br>suggestions |
-| PanelDelta | `n:s:panelDelta` | 是 | 54 | 174.77 KB | 3.24 KB | bootstrap-runtime<br>error-path<br>gm-next<br>heartbeat-chat<br>inventory-ops<br>loot<br>mail<br>market<br>npc-detail-quests<br>npc-shop<br>pending-logbook-ack<br>player-controls<br>portal-transfer<br>progression-combat<br>quest-navigation<br>session-kick<br>suggestions |
+| PanelDelta | `n:s:panelDelta` | 是 | 54 | 175.26 KB | 3.25 KB | bootstrap-runtime<br>error-path<br>gm-next<br>heartbeat-chat<br>inventory-ops<br>loot<br>mail<br>market<br>npc-detail-quests<br>npc-shop<br>pending-logbook-ack<br>player-controls<br>portal-transfer<br>progression-combat<br>quest-navigation<br>session-kick<br>suggestions |
 | LootWindowUpdate | `n:s:lootWindowUpdate` | 是 | 24 | 360 B | 15 B | bootstrap-runtime<br>error-path<br>gm-next<br>heartbeat-chat<br>inventory-ops<br>loot<br>mail<br>market<br>npc-detail-quests<br>npc-shop<br>pending-logbook-ack<br>player-controls<br>portal-transfer<br>progression-combat<br>quest-navigation<br>session-kick<br>suggestions |
 | QuestNavigateResult | `n:s:questNavigateResult` | 是 | 1 | 47 B | 47 B | quest-navigation |
 | Notice | `n:s:notice` | 是 | 29 | 2.51 KB | 89 B | gm-next<br>heartbeat-chat<br>loot<br>market<br>npc-shop<br>pending-logbook-ack<br>player-controls<br>portal-transfer<br>progression-combat<br>quest-navigation |
@@ -112,8 +112,8 @@
 | MarketTradeHistory | `n:s:marketTradeHistory` | 是 | 1 | 205 B | 205 B | market |
 | Detail | `n:s:detail` | 是 | 1 | 585 B | 585 B | npc-detail-quests |
 | TileDetail | `n:s:tileDetail` | 是 | 1 | 518 B | 518 B | bootstrap-runtime |
-| NpcShop | `n:s:npcShop` | 是 | 2 | 8.24 KB | 4.12 KB | npc-shop |
-| GmState | `n:s:gmState` | 是 | 5 | 9.49 KB | 1.90 KB | gm-next |
+| NpcShop | `n:s:npcShop` | 是 | 2 | 8.39 KB | 4.19 KB | npc-shop |
+| GmState | `n:s:gmState` | 是 | 5 | 9.48 KB | 1.90 KB | gm-next |
 | Error | `n:s:error` | 是 | 1 | 64 B | 64 B | error-path |
 | Kick | `n:s:kick` | 是 | 1 | 21 B | 21 B | session-kick |
 | Pong | `n:s:pong` | 是 | 2 | 84 B | 42 B | bootstrap-runtime<br>heartbeat-chat |
@@ -124,13 +124,13 @@
 | --- | --- | --- | ---: | ---: | ---: | --- |
 | s2c | Bootstrap | `n:s:bootstrap` | 24 | 1351.90 KB | 56.33 KB | bootstrap-runtime<br>error-path<br>gm-next<br>heartbeat-chat<br>inventory-ops<br>loot<br>mail<br>market<br>npc-detail-quests<br>npc-shop<br>pending-logbook-ack<br>player-controls<br>portal-transfer<br>progression-combat<br>quest-navigation<br>session-kick<br>suggestions |
 | s2c | MapStatic | `n:s:mapStatic` | 33 | 786.71 KB | 23.84 KB | bootstrap-runtime<br>error-path<br>gm-next<br>heartbeat-chat<br>inventory-ops<br>loot<br>mail<br>market<br>npc-detail-quests<br>npc-shop<br>pending-logbook-ack<br>player-controls<br>portal-transfer<br>progression-combat<br>quest-navigation<br>session-kick<br>suggestions |
-| s2c | PanelDelta | `n:s:panelDelta` | 54 | 174.77 KB | 3.24 KB | bootstrap-runtime<br>error-path<br>gm-next<br>heartbeat-chat<br>inventory-ops<br>loot<br>mail<br>market<br>npc-detail-quests<br>npc-shop<br>pending-logbook-ack<br>player-controls<br>portal-transfer<br>progression-combat<br>quest-navigation<br>session-kick<br>suggestions |
+| s2c | PanelDelta | `n:s:panelDelta` | 54 | 175.26 KB | 3.25 KB | bootstrap-runtime<br>error-path<br>gm-next<br>heartbeat-chat<br>inventory-ops<br>loot<br>mail<br>market<br>npc-detail-quests<br>npc-shop<br>pending-logbook-ack<br>player-controls<br>portal-transfer<br>progression-combat<br>quest-navigation<br>session-kick<br>suggestions |
 | s2c | WorldDelta | `n:s:worldDelta` | 56 | 11.52 KB | 211 B | bootstrap-runtime<br>error-path<br>gm-next<br>heartbeat-chat<br>inventory-ops<br>loot<br>mail<br>market<br>npc-detail-quests<br>npc-shop<br>pending-logbook-ack<br>player-controls<br>portal-transfer<br>progression-combat<br>quest-navigation<br>session-kick<br>suggestions |
 | s2c | MarketUpdate | `n:s:marketUpdate` | 30 | 9.67 KB | 330 B | market |
-| s2c | GmState | `n:s:gmState` | 5 | 9.49 KB | 1.90 KB | gm-next |
+| s2c | GmState | `n:s:gmState` | 5 | 9.48 KB | 1.90 KB | gm-next |
 | s2c | SuggestionUpdate | `n:s:suggestionUpdate` | 29 | 9.34 KB | 330 B | bootstrap-runtime<br>error-path<br>gm-next<br>heartbeat-chat<br>inventory-ops<br>loot<br>mail<br>market<br>npc-detail-quests<br>npc-shop<br>pending-logbook-ack<br>player-controls<br>portal-transfer<br>progression-combat<br>quest-navigation<br>session-kick<br>suggestions |
 | s2c | Realm | `n:s:realm` | 24 | 8.81 KB | 376 B | bootstrap-runtime<br>error-path<br>gm-next<br>heartbeat-chat<br>inventory-ops<br>loot<br>mail<br>market<br>npc-detail-quests<br>npc-shop<br>pending-logbook-ack<br>player-controls<br>portal-transfer<br>progression-combat<br>quest-navigation<br>session-kick<br>suggestions |
-| s2c | NpcShop | `n:s:npcShop` | 2 | 8.24 KB | 4.12 KB | npc-shop |
+| s2c | NpcShop | `n:s:npcShop` | 2 | 8.39 KB | 4.19 KB | npc-shop |
 | s2c | SelfDelta | `n:s:selfDelta` | 59 | 3.52 KB | 61 B | bootstrap-runtime<br>error-path<br>gm-next<br>heartbeat-chat<br>inventory-ops<br>loot<br>mail<br>market<br>npc-detail-quests<br>npc-shop<br>pending-logbook-ack<br>player-controls<br>portal-transfer<br>progression-combat<br>quest-navigation<br>session-kick<br>suggestions |
 | s2c | MapEnter | `n:s:mapEnter` | 27 | 2.74 KB | 104 B | bootstrap-runtime<br>error-path<br>gm-next<br>heartbeat-chat<br>inventory-ops<br>loot<br>mail<br>market<br>npc-detail-quests<br>npc-shop<br>pending-logbook-ack<br>player-controls<br>portal-transfer<br>progression-combat<br>quest-navigation<br>session-kick<br>suggestions |
 | s2c | Notice | `n:s:notice` | 29 | 2.51 KB | 89 B | gm-next<br>heartbeat-chat<br>loot<br>market<br>npc-shop<br>pending-logbook-ack<br>player-controls<br>portal-transfer<br>progression-combat<br>quest-navigation |

@@ -257,7 +257,7 @@ export interface NEXT_S2C_MapStatic {
 
 export interface NEXT_S2C_NoticeItem {
   id?: number;
-  legacyId?: string;
+  messageId?: string;
   kind: 'info' | 'success' | 'warn' | 'travel' | 'combat' | 'loot' | 'system' | 'chat' | 'grudge' | 'quest';
   text: string;
   from?: string;

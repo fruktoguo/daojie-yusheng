@@ -29,7 +29,11 @@ const legacy_session_bootstrap_service_1 = require("./compat/legacy/legacy-sessi
 const legacy_socket_bridge_service_1 = require("./compat/legacy/legacy-socket-bridge.service");
 const world_gateway_1 = require("./network/world.gateway");
 const world_client_event_service_1 = require("./network/world-client-event.service");
+const world_legacy_player_source_service_1 = require("./network/world-legacy-player-source.service");
+const world_player_auth_service_1 = require("./network/world-player-auth.service");
+const world_player_snapshot_service_1 = require("./network/world-player-snapshot.service");
 const world_projector_service_1 = require("./network/world-projector.service");
+const world_session_bootstrap_service_1 = require("./network/world-session-bootstrap.service");
 const world_session_reaper_service_1 = require("./network/world-session-reaper.service");
 const world_session_service_1 = require("./network/world-session.service");
 const world_sync_service_1 = require("./network/world-sync.service");
@@ -108,7 +112,11 @@ exports.AppModule = AppModule = __decorate([
             player_runtime_service_1.PlayerRuntimeService,
             suggestion_runtime_service_1.SuggestionRuntimeService,
             redeem_code_runtime_service_1.RedeemCodeRuntimeService,
+            world_legacy_player_source_service_1.WorldLegacyPlayerSourceService,
+            world_player_auth_service_1.WorldPlayerAuthService,
+            world_player_snapshot_service_1.WorldPlayerSnapshotService,
             world_session_service_1.WorldSessionService,
+            world_session_bootstrap_service_1.WorldSessionBootstrapService,
             world_session_reaper_service_1.WorldSessionReaperService,
             world_client_event_service_1.WorldClientEventService,
             world_projector_service_1.WorldProjectorService,

@@ -3,12 +3,12 @@
  * 管理技能、对话、行动三大分类的操作列表，支持快捷键绑定、自动战斗技能排序与拖拽
  */
 
-import { ActionDef, AutoBattleSkillConfig, PlayerState, SkillDef } from '@mud/shared-next';
+import { ActionDef, AutoBattleSkillConfig, PlayerState, SkillDef, type ElementKey, type SkillDamageKind } from '@mud/shared-next';
 import { detailModalHost } from '../detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { buildSkillTooltipContent, type SkillPreviewMetrics, summarizeSkillPreviewMetrics } from '../skill-tooltip';
 import { preserveSelection } from '../selection-preserver';
-import { getActionTypeLabel } from '../../domain-labels';
+import { getActionTypeLabel, getElementKeyLabel } from '../../domain-labels';
 import { ACTION_SHORTCUTS_KEY, RETURN_TO_SPAWN_ACTION_ID } from '../../constants/ui/action';
 
 type ActionMainTab = 'dialogue' | 'skill' | 'toggle' | 'utility';
@@ -33,6 +33,13 @@ interface SkillManagementEntry {
   metrics: SkillPreviewMetrics;
 }
 
+interface ActionSkillAffinityBadge {
+  label: string;
+  title: string;
+  tone: 'physical' | 'spell' | 'mixed' | 'utility';
+  element: ElementKey | 'multi' | 'neutral';
+}
+
 function normalizeShortcutKey(key: string): string | null {
   if (key.length !== 1) return null;
   const lower = key.toLowerCase();
@@ -51,6 +58,83 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+function appendUnique<T>(list: T[], value: T): void {
+  if (!list.includes(value)) {
+    list.push(value);
+  }
+}
+
+function resolveSkillDamageProfile(skill: SkillDef): { kinds: SkillDamageKind[]; elements: ElementKey[] } {
+  const kinds: SkillDamageKind[] = [];
+  const elements: ElementKey[] = [];
+  for (const effect of skill.effects) {
+    if (effect.type !== 'damage') {
+      continue;
+    }
+    appendUnique(kinds, effect.damageKind === 'physical' ? 'physical' : 'spell');
+    if (effect.element) {
+      appendUnique(elements, effect.element);
+    }
+  }
+  return { kinds, elements };
+}
+
+function formatSkillAffinityLabel(
+  kind: ActionSkillAffinityBadge['tone'],
+  element: ActionSkillAffinityBadge['element'],
+): { label: string; title: string } {
+  const shortKindLabel = kind === 'physical'
+    ? '物'
+    : kind === 'spell'
+      ? '法'
+      : kind === 'mixed'
+        ? '混'
+        : '辅';
+  const fullKindLabel = kind === 'physical'
+    ? '物理'
+    : kind === 'spell'
+      ? '法术'
+      : kind === 'mixed'
+        ? '混合'
+        : '辅助';
+  const elementLabel = element === 'multi'
+    ? '五行'
+    : element === 'neutral'
+      ? ''
+      : `${getElementKeyLabel(element)}行`;
+  if (!elementLabel) {
+    return {
+      label: kind === 'utility' ? '辅助' : fullKindLabel,
+      title: kind === 'utility' ? '辅助型技能' : fullKindLabel,
+    };
+  }
+  return {
+    label: `${element === 'multi' ? elementLabel : getElementKeyLabel(element)}${shortKindLabel}`,
+    title: `${elementLabel}${fullKindLabel}`,
+  };
+}
+
+function getSkillAffinityBadge(skill: SkillDef): ActionSkillAffinityBadge {
+  const { kinds, elements } = resolveSkillDamageProfile(skill);
+  if (kinds.length === 0) {
+    return {
+      label: '辅助',
+      title: '辅助型技能',
+      tone: 'utility',
+      element: 'neutral',
+    };
+  }
+  const tone: ActionSkillAffinityBadge['tone'] = kinds.length > 1 ? 'mixed' : (kinds[0] === 'physical' ? 'physical' : 'spell');
+  const element: ActionSkillAffinityBadge['element'] = elements.length > 1 ? 'multi' : (elements[0] ?? 'neutral');
+  const text = formatSkillAffinityLabel(tone, element);
+  return {
+    label: text.label,
+    title: text.title,
+    tone,
+    element,
+  };
+}
+
 export class ActionPanel {
   private static readonly SKILL_MANAGEMENT_MODAL_OWNER = 'action-panel-skill-management';
   private pane = document.getElementById('pane-action')!;
@@ -65,6 +149,8 @@ export class ActionPanel {
   private skillManagementSortDirection: SkillManagementSortDirection = 'desc';
   private skillManagementFilterOpen = false;
   private skillManagementFilterToggles = new Set<SkillManagementFilterToggle>();
+  private skillManagementExternalRevision: string | null = null;
+  private skillManagementListScrollTop = 0;
   private autoBattle = false;
   private autoRetaliate = true;
   private autoBattleStationary = false;
@@ -92,6 +178,8 @@ export class ActionPanel {
     this.tooltip.hide(true);
     this.actionRowRefs.clear();
     this.skillManagementDraft = null;
+    this.skillManagementExternalRevision = null;
+    this.skillManagementListScrollTop = 0;
     detailModalHost.close(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER);
     this.pane.innerHTML = '<div class="empty-hint">暂无可用行动</div>';
   }
@@ -631,9 +719,10 @@ export class ActionPanel {
       ? `<button class="small-btn ghost ${autoBattleEnabled ? 'active' : ''}" data-auto-battle-toggle="${action.id}" type="button">${autoBattleEnabled ? '自动 开' : '自动 关'}</button>
          ${options?.showDragHandle ? `<button class="small-btn ghost action-drag-handle" data-auto-battle-drag="${action.id}" draggable="true" type="button">拖拽</button>` : ''}`
       : '';
+    const affinityChip = skillContext ? this.renderActionSkillAffinityChip(skillContext.skill) : '';
 
     return `<div class="action-item ${onCd ? 'cooldown' : ''} ${isAutoBattleSkill ? 'action-item-draggable' : ''}" data-action-row="${action.id}"${rowAttrs}>
-      <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''}"${tooltipAttrs}>
+      <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''} ${affinityChip ? 'action-copy--with-affinity' : ''}"${tooltipAttrs}>
         <div>
           <span class="action-name">${escapeHtml(action.name)}</span>
           <span class="action-type">[${getActionTypeLabel(action.type)}]</span>
@@ -645,6 +734,7 @@ export class ActionPanel {
           ${this.renderShortcutBadge(action.id)}
         </div>
         <div class="action-desc">${escapeHtml(action.desc)}</div>
+        ${affinityChip}
       </div>
       <div class="action-cta">
         ${autoBattleControls}
@@ -653,6 +743,13 @@ export class ActionPanel {
         <button class="small-btn" data-action="${action.id}" data-action-exec="${action.id}" data-action-name="${escapeHtml(action.name)}" data-action-range="${action.range ?? ''}" data-action-target="${action.requiresTarget ? '1' : '0'}" data-action-target-mode="${action.targetMode ?? ''}"${onCd ? ' hidden' : ''}>执行</button>
       </div>
     </div>`;
+  }
+
+  private renderActionSkillAffinityChip(skill: SkillDef): string {
+    const badge = getSkillAffinityBadge(skill);
+    const elementClass = badge.element === 'neutral' ? '' : ` item-card-chip--element-${badge.element}`;
+    const title = escapeHtml(badge.title);
+    return `<span class="item-card-chip item-card-chip--affinity item-card-chip--${badge.tone}${elementClass} action-skill-affinity-chip" title="${title}" aria-label="${title}">${escapeHtml(badge.label)}</span>`;
   }
 
   private toggleAutoBattleSkill(actionId: string): void {
@@ -1111,6 +1208,7 @@ export class ActionPanel {
 
   private openSkillManagement(): void {
     this.skillManagementTab = this.activeSkillTab;
+    this.skillManagementListScrollTop = 0;
     this.syncSkillManagementDraft();
     this.renderSkillManagementModal();
   }
@@ -1174,14 +1272,93 @@ export class ActionPanel {
     return this.replaceSkillActions(skillActions);
   }
 
+  private buildSkillManagementExternalRevision(): string {
+    const parts = [
+      this.skillManagementSortField,
+      this.skillManagementSortDirection,
+      [...this.skillManagementFilterToggles].sort().join(','),
+    ];
+    const includeMeleeRanged = this.skillManagementFilterToggles.has('melee') || this.skillManagementFilterToggles.has('ranged');
+    const includeDamageKind = this.skillManagementFilterToggles.has('physical') || this.skillManagementFilterToggles.has('spell');
+    const includeTargetKind = this.skillManagementFilterToggles.has('single') || this.skillManagementFilterToggles.has('aoe');
+    const needsMetrics = includeMeleeRanged || includeDamageKind || includeTargetKind || this.skillManagementSortField !== 'custom';
+    for (const action of this.getSkillActions(this.currentActions)) {
+      parts.push(action.id);
+      parts.push(action.name);
+      parts.push(action.desc);
+      parts.push(typeof action.range === 'number' ? String(action.range) : '');
+      parts.push(action.autoBattleEnabled !== false ? '1' : '0');
+      parts.push(action.skillEnabled !== false ? '1' : '0');
+      if (!needsMetrics) {
+        continue;
+      }
+      const metrics = this.buildSkillManagementMetrics(action);
+      if (includeMeleeRanged) {
+        parts.push(metrics.isMelee ? '1' : '0');
+        parts.push(metrics.isRanged ? '1' : '0');
+      }
+      if (includeDamageKind) {
+        parts.push(metrics.hasPhysicalDamage ? '1' : '0');
+        parts.push(metrics.hasSpellDamage ? '1' : '0');
+      }
+      if (includeTargetKind) {
+        parts.push(metrics.isSingleTarget ? '1' : '0');
+        parts.push(metrics.isAreaTarget ? '1' : '0');
+      }
+      switch (this.skillManagementSortField) {
+        case 'actualDamage':
+          parts.push(String(metrics.actualDamage ?? ''));
+          break;
+        case 'qiCost':
+          parts.push(String(metrics.actualQiCost));
+          break;
+        case 'range':
+          parts.push(String(metrics.range));
+          break;
+        case 'targetCount':
+          parts.push(String(metrics.targetCount));
+          break;
+        case 'cooldown':
+          parts.push(String(metrics.cooldown));
+          break;
+        default:
+          break;
+      }
+    }
+    return parts.join('\u0001');
+  }
+
+  private captureSkillManagementListScroll(): void {
+    const list = document.querySelector<HTMLElement>('.skill-manage-list');
+    if (!list) {
+      return;
+    }
+    this.skillManagementListScrollTop = list.scrollTop;
+  }
+
+  private restoreSkillManagementListScroll(root: HTMLElement): void {
+    const list = root.querySelector<HTMLElement>('.skill-manage-list');
+    if (!list) {
+      return;
+    }
+    list.scrollTop = this.skillManagementListScrollTop;
+  }
+
   private renderSkillManagementModalIfOpen(): void {
     if (!detailModalHost.isOpenFor(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER)) {
+      return;
+    }
+    const nextRevision = this.buildSkillManagementExternalRevision();
+    if (this.skillManagementExternalRevision === nextRevision) {
       return;
     }
     this.renderSkillManagementModal();
   }
 
   private renderSkillManagementModal(): void {
+    if (detailModalHost.isOpenFor(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER)) {
+      this.captureSkillManagementListScroll();
+    }
     const previewActions = this.getSkillManagementPreviewActions();
     const skillEntries = this.getSkillManagementEntries(previewActions);
     const filteredEntries = this.getFilteredSkillManagementEntries(skillEntries);
@@ -1286,8 +1463,10 @@ export class ActionPanel {
       onAfterRender: (body) => {
         this.bindSkillManagementEvents(body);
         this.bindTooltips(body);
+        this.restoreSkillManagementListScroll(body);
       },
     });
+    this.skillManagementExternalRevision = this.buildSkillManagementExternalRevision();
   }
 
   private bindSkillManagementEvents(root: HTMLElement): void {
@@ -1600,6 +1779,8 @@ export class ActionPanel {
       this.previewPlayer.autoBattleSkills = nextAutoBattleSkills;
     }
     this.skillManagementDraft = null;
+    this.skillManagementExternalRevision = null;
+    this.skillManagementListScrollTop = 0;
     this.bindingActionId = null;
     this.clearDragState();
     detailModalHost.close(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER);
@@ -1614,6 +1795,8 @@ export class ActionPanel {
 
   private discardSkillManagementDraft(): void {
     this.skillManagementDraft = null;
+    this.skillManagementExternalRevision = null;
+    this.skillManagementListScrollTop = 0;
     this.bindingActionId = null;
     this.clearDragState();
   }
@@ -1665,9 +1848,10 @@ export class ActionPanel {
       ? options.autoBattleDisplayOrder + 1
       : undefined;
     const rowAttrs = options?.showDragHandle ? ` data-skill-manage-skill-row="${action.id}"` : '';
+    const affinityChip = skillContext ? this.renderActionSkillAffinityChip(skillContext.skill) : '';
 
     return `<div class="action-item action-item-draggable" data-action-row="${action.id}"${rowAttrs}>
-      <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''}"${tooltipAttrs}>
+      <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''} ${affinityChip ? 'action-copy--with-affinity' : ''}"${tooltipAttrs}>
         <div>
           <span class="action-name">${escapeHtml(action.name)}</span>
           <span class="action-type">[技能]</span>
@@ -1677,6 +1861,7 @@ export class ActionPanel {
           ${autoBattleOrder ? `<span class="action-type">顺位 ${autoBattleOrder}</span>` : ''}
         </div>
         <div class="action-desc">${escapeHtml(action.desc)}</div>
+        ${affinityChip}
       </div>
       <div class="action-cta">
         <button class="small-btn ghost ${autoBattleEnabled ? 'active' : ''}" data-skill-manage-auto-toggle="${action.id}" type="button">${autoBattleEnabled ? '自动 开' : '自动 关'}</button>

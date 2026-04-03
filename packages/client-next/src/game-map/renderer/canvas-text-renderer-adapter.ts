@@ -8,7 +8,7 @@ import type { TopdownProjection } from '../projection/topdown-projection';
 import type { MapEntityTransition, MapSceneSnapshot } from '../types';
 import type { FloatingActionTextStyle } from '../../renderer/types';
 
-export class LegacyCanvasTextRendererAdapter {
+export class CanvasTextRendererAdapter {
   private readonly renderer = new TextRenderer();
   private readonly cameraBridge = new Camera();
   private canvas: HTMLCanvasElement | null = null;

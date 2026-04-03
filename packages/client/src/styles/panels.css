@@ -561,7 +561,8 @@
       line-height: 1.2;
       color: var(--ink-grey);
     }
-    .inventory-cell-level {
+    .inventory-cell-level,
+    .item-card-chip--level {
       position: absolute;
       right: -2px;
       bottom: -8px;
@@ -580,6 +581,61 @@
       box-shadow:
         0 4px 10px rgba(0,0,0,0.08),
         0 0 14px rgba(var(--inventory-grade-rgb), 0.16);
+    }
+    .item-card-chip {
+      position: absolute;
+      z-index: 3;
+      max-width: calc(100% - 16px);
+      padding: 1px 7px 2px;
+      font-size: var(--font-size-10);
+      line-height: 1.1;
+      font-weight: var(--font-weight-strong);
+      white-space: nowrap;
+      pointer-events: none;
+      border-radius: 999px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .item-card-chip--affinity {
+      left: -2px;
+      bottom: -8px;
+      color: color-mix(in srgb, rgba(var(--item-chip-rgb, 94, 94, 94), 0.92) 82%, var(--ink-black));
+      border: 1px solid rgba(var(--item-chip-rgb, 94, 94, 94), 0.42);
+      background:
+        linear-gradient(180deg, rgba(var(--item-chip-rgb, 94, 94, 94), 0.16), rgba(var(--item-chip-rgb, 94, 94, 94), 0.05));
+      box-shadow:
+        0 4px 10px rgba(0,0,0,0.08),
+        0 0 14px rgba(var(--item-chip-rgb, 94, 94, 94), 0.18);
+    }
+    .item-card-chip--physical {
+      --item-chip-rgb: 152, 110, 78;
+    }
+    .item-card-chip--spell {
+      --item-chip-rgb: 86, 123, 184;
+    }
+    .item-card-chip--mixed {
+      --item-chip-rgb: 132, 96, 176;
+    }
+    .item-card-chip--utility {
+      --item-chip-rgb: 82, 132, 108;
+    }
+    .item-card-chip--element-metal {
+      --item-chip-rgb: 151, 132, 94;
+    }
+    .item-card-chip--element-wood {
+      --item-chip-rgb: 90, 142, 103;
+    }
+    .item-card-chip--element-water {
+      --item-chip-rgb: 84, 126, 176;
+    }
+    .item-card-chip--element-fire {
+      --item-chip-rgb: 174, 94, 76;
+    }
+    .item-card-chip--element-earth {
+      --item-chip-rgb: 145, 120, 84;
+    }
+    .item-card-chip--element-multi {
+      --item-chip-rgb: 128, 97, 171;
     }
     .inventory-cell-count {
       font-size: var(--font-size-11);
@@ -4597,6 +4653,10 @@
       flex: 1;
       min-width: 0;
     }
+    .action-copy--with-affinity {
+      position: relative;
+      padding-bottom: 16px;
+    }
     .action-copy-tooltip {
       cursor: help;
     }
@@ -4617,6 +4677,11 @@
       font-size: var(--font-size-12);
       line-height: 1.45;
       color: var(--ink-grey);
+    }
+    .action-skill-affinity-chip {
+      left: 0;
+      bottom: -2px;
+      max-width: min(180px, calc(100% - 4px));
     }
     .breakthrough-requirement-item {
       background:

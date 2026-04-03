@@ -1073,7 +1073,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             selfRevision: 1,
             inventory: {
                 revision: Math.max(1, snapshot.inventory.revision),
-                capacity: snapshot.inventory.capacity,
+                capacity: Math.max(shared_1.DEFAULT_INVENTORY_CAPACITY, snapshot.inventory.capacity),
                 items: snapshot.inventory.items.map((entry) => this.contentTemplateRepository.normalizeItem(entry)),
             },
             equipment: {
@@ -1136,9 +1136,9 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 })),
             },
             lootWindowTarget: null,
-            pendingLogbookMessages: normalizePendingLogbookMessages(resolvePendingLogbookMessages(snapshot)),
+            pendingLogbookMessages: normalizePendingLogbookMessages(resolveCompatiblePendingLogbookMessages(snapshot)),
             vitalRecoveryDeferredUntilTick: -1,
-            runtimeBonuses: resolveRuntimeBonuses(snapshot)
+            runtimeBonuses: resolveCompatibleRuntimeBonuses(snapshot)
                 .map((entry) => cloneRuntimeBonus(entry))
                 .filter((entry) => Boolean(entry)),
         };
@@ -1397,14 +1397,16 @@ function normalizePendingLogbookMessages(input) {
     }
     return normalized.slice(-MAX_PENDING_LOGBOOK_MESSAGES);
 }
-function resolvePendingLogbookMessages(snapshot) {
-    if (Array.isArray(snapshot?.pendingLogbookMessages)) {
-        return snapshot.pendingLogbookMessages;
+function resolveCompatibleSnapshotArray(snapshot, primaryKey, compatResolver) {
+    const primaryValue = snapshot?.[primaryKey];
+    if (Array.isArray(primaryValue)) {
+        return primaryValue;
     }
-    if (Array.isArray(snapshot?.legacyCompat?.pendingLogbookMessages)) {
-        return snapshot.legacyCompat.pendingLogbookMessages;
-    }
-    return [];
+    const compatValue = compatResolver(snapshot);
+    return Array.isArray(compatValue) ? compatValue : [];
+}
+function resolveCompatiblePendingLogbookMessages(snapshot) {
+    return resolveCompatibleSnapshotArray(snapshot, 'pendingLogbookMessages', (candidate) => candidate?.legacyCompat?.pendingLogbookMessages);
 }
 function normalizePendingLogbookMessage(input) {
     if (!input || typeof input !== 'object') {
@@ -1859,7 +1861,7 @@ function ensureVitalBaselineBonus(player, vitals) {
     }
     nextBonuses.push({
         source: VITAL_BASELINE_BONUS_SOURCE,
-        label: '旧服生命灵力基线',
+        label: '生命灵力基线补正',
         stats,
         meta: {
             baselineHp,
@@ -1869,14 +1871,8 @@ function ensureVitalBaselineBonus(player, vitals) {
     player.runtimeBonuses = nextBonuses;
     return true;
 }
-function resolveRuntimeBonuses(snapshot) {
-    if (Array.isArray(snapshot?.runtimeBonuses)) {
-        return snapshot.runtimeBonuses;
-    }
-    if (Array.isArray(snapshot?.legacyBonuses)) {
-        return snapshot.legacyBonuses;
-    }
-    return [];
+function resolveCompatibleRuntimeBonuses(snapshot) {
+    return resolveCompatibleSnapshotArray(snapshot, 'runtimeBonuses', (candidate) => candidate?.legacyBonuses);
 }
 function canonicalizeRuntimeBonusSource(source) {
     const normalized = typeof source === 'string' ? source.trim() : '';

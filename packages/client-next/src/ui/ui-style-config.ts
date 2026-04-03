@@ -111,7 +111,7 @@ function normalizeConfig(
   raw: Partial<UiStyleConfig> | null | undefined,
   fallbackConfig: UiStyleConfig = DEFAULT_UI_STYLE_CONFIG,
 ): UiStyleConfig {
-  const legacyFontSizes = (() => {
+  const previousFontSizeOffset = (() => {
     const bodyDefinition = UI_FONT_LEVEL_DEFINITIONS.find((entry) => entry.key === 'body');
     if (!bodyDefinition) {
       return undefined;
@@ -125,7 +125,7 @@ function normalizeConfig(
 
   return {
     colorMode: raw?.colorMode === 'dark' ? 'dark' : fallbackConfig.colorMode,
-    globalFontOffset: clampGlobalFontOffset(raw?.globalFontOffset, legacyFontSizes ?? fallbackConfig.globalFontOffset),
+    globalFontOffset: clampGlobalFontOffset(raw?.globalFontOffset, previousFontSizeOffset ?? fallbackConfig.globalFontOffset),
     uiScale: clampUiScale(raw?.uiScale, fallbackConfig.uiScale),
   };
 }

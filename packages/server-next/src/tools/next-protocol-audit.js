@@ -350,7 +350,7 @@ async function pendingLogbookAckCase(runtime) {
   await hello(runtime, socket, { playerId: playerId, mapId: "yunlai_town", preferredX: 32, preferredY: 5 });
   await socket.waitForEvent(NEXT_S2C.Notice, function (payload) {
     return Array.isArray(payload?.items) && payload.items.some(function (item) {
-      return item?.legacyId === messageId
+      return item?.messageId === messageId
         && item.kind === 'grudge'
         && item.persistUntilAck === true
         && item.from === '系统审计';

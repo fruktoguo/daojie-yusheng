@@ -27,6 +27,7 @@ import { resolvePreviewItem, resolveTechniqueIdFromBookItemId } from '../../cont
 import { detailModalHost } from '../detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { buildItemTooltipPayload, describeItemEffectDetails } from '../equipment-tooltip';
+import { getItemAffixTypeLabel, getItemDecorClassName, getItemDisplayMeta } from '../item-display';
 import { preserveSelection } from '../selection-preserver';
 import { describePreviewBonuses } from '../stat-preview';
 import { INVENTORY_FILTER_TABS, InventoryFilter } from '../../constants/ui/inventory';
@@ -220,9 +221,10 @@ export class InventoryPanel {
     visibleItems.forEach(({ item, slotIndex }) => {
       const nameClass = this.getNameClass(item.name);
       const primaryAction = this.getPrimaryAction(item);
-      html += `<div class="inventory-cell" data-open-item="${slotIndex}" data-item-slot="${slotIndex}" data-item-key="${this.escapeHtml(this.getItemIdentity(item))}">
+      const itemMeta = getItemDisplayMeta(item);
+      html += `<div class="${getItemDecorClassName('inventory-cell', item)}" data-open-item="${slotIndex}" data-item-slot="${slotIndex}" data-item-key="${this.escapeHtml(this.getItemIdentity(item))}"${itemMeta.grade ? ` data-item-grade="${itemMeta.grade}"` : ''}>
         <div class="inventory-cell-head">
-          <span class="inventory-cell-type" data-item-type="true">${getItemTypeLabel(item.type)}</span>
+          <span class="inventory-cell-type" data-item-type="true">${this.escapeHtml(getItemAffixTypeLabel(item, getItemTypeLabel(item.type)))}</span>
           <span class="inventory-cell-count" data-item-count="true">${formatDisplayCountBadge(item.count)}</span>
         </div>
         <div class="inventory-cell-name ${nameClass}" data-item-name="true" title="${this.escapeHtml(item.name)}">${this.escapeHtml(item.name)}</div>
@@ -230,6 +232,8 @@ export class InventoryPanel {
           ${primaryAction ? `<button class="small-btn" data-inline-primary="${slotIndex}" data-item-primary="true" type="button" ${primaryAction.disabled ? 'disabled' : ''}>${primaryAction.label}</button>` : ''}
           <button class="small-btn danger" data-inline-drop="${slotIndex}" type="button">丢下</button>
         </div>
+        ${itemMeta.affinityBadge ? `<span class="item-card-chip item-card-chip--affinity item-card-chip--${itemMeta.affinityBadge.tone} item-card-chip--element-${itemMeta.affinityBadge.element}" data-item-affinity="true" title="${this.escapeHtml(itemMeta.affinityBadge.title)}">${this.escapeHtml(itemMeta.affinityBadge.label)}</span>` : ''}
+        ${itemMeta.levelLabel ? `<span class="item-card-chip item-card-chip--level" data-item-level="true">${this.escapeHtml(itemMeta.levelLabel)}</span>` : ''}
       </div>`;
     });
 
@@ -809,7 +813,22 @@ export class InventoryPanel {
       const typeNode = cell.querySelector<HTMLElement>('[data-item-type="true"]');
       const countNode = cell.querySelector<HTMLElement>('[data-item-count="true"]');
       const nameNode = cell.querySelector<HTMLElement>('[data-item-name="true"]');
+      const levelNode = cell.querySelector<HTMLElement>('[data-item-level="true"]');
+      const affinityNode = cell.querySelector<HTMLElement>('[data-item-affinity="true"]');
       if (!typeNode || !countNode || !nameNode) {
+        return false;
+      }
+      const itemMeta = getItemDisplayMeta(item);
+      if (itemMeta.levelLabel && !levelNode) {
+        return false;
+      }
+      if (!itemMeta.levelLabel && levelNode) {
+        return false;
+      }
+      if (itemMeta.affinityBadge && !affinityNode) {
+        return false;
+      }
+      if (!itemMeta.affinityBadge && affinityNode) {
         return false;
       }
 
@@ -817,11 +836,25 @@ export class InventoryPanel {
       const primaryButton = cell.querySelector<HTMLButtonElement>('[data-item-primary="true"]');
 
       cell.dataset.itemKey = this.getItemIdentity(item);
-      typeNode.textContent = getItemTypeLabel(item.type);
+      if (itemMeta.grade) {
+        cell.dataset.itemGrade = itemMeta.grade;
+      } else {
+        delete cell.dataset.itemGrade;
+      }
+      cell.className = getItemDecorClassName('inventory-cell', item);
+      typeNode.textContent = getItemAffixTypeLabel(item, getItemTypeLabel(item.type));
       countNode.textContent = formatDisplayCountBadge(item.count);
       nameNode.textContent = item.name;
       nameNode.title = item.name;
       nameNode.className = `inventory-cell-name ${this.getNameClass(item.name)}`.trim();
+      if (levelNode) {
+        levelNode.textContent = itemMeta.levelLabel ?? '';
+      }
+      if (affinityNode && itemMeta.affinityBadge) {
+        affinityNode.textContent = itemMeta.affinityBadge.label;
+        affinityNode.title = itemMeta.affinityBadge.title;
+        affinityNode.className = `item-card-chip item-card-chip--affinity item-card-chip--${itemMeta.affinityBadge.tone} item-card-chip--element-${itemMeta.affinityBadge.element}`;
+      }
 
       if (primaryAction) {
         if (!primaryButton) {

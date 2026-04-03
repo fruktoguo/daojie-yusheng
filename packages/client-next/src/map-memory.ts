@@ -21,7 +21,7 @@ type SerializedMapMemoryEntry = {
   tiles?: SerializedMapTileMemory;
   markers?: SerializedMapMarkerMemory;
 };
-type SerializedLegacyMapMemory = Record<string, SerializedMapTileMemory>;
+type SerializedMapMemoryTilesOnlyShape = Record<string, SerializedMapTileMemory>;
 type SerializedMapMemory = Record<string, SerializedMapMemoryEntry>;
 type SerializedMapMemoryEnvelope = {
   version: typeof MAP_MEMORY_FORMAT_VERSION;
@@ -119,11 +119,11 @@ function getStoredEnvelope(parsed: unknown): SerializedMapMemoryEnvelope | null 
 
   const candidateVersion = Number(candidate.version);
   if (candidateVersion === 2 || candidate.version === undefined) {
-    const legacyMaps = (candidateVersion === 2 && candidate.maps && typeof candidate.maps === 'object'
+    const tileOnlyMaps = (candidateVersion === 2 && candidate.maps && typeof candidate.maps === 'object'
       ? candidate.maps
-      : candidate) as SerializedLegacyMapMemory;
+      : candidate) as SerializedMapMemoryTilesOnlyShape;
     const maps: SerializedMapMemory = {};
-    for (const [mapId, tiles] of Object.entries(legacyMaps)) {
+    for (const [mapId, tiles] of Object.entries(tileOnlyMaps)) {
       maps[mapId] = { tiles };
     }
     return {

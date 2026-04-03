@@ -2860,6 +2860,13 @@ function handleSystemMsg(data: S2C_SystemMsg): void {
 }
 
 socket.onSystemMsg(handleSystemMsg);
+function resolveSystemMsgIdFromNextNotice(item: NEXT_S2C_NoticeItem): string | undefined {
+  if (typeof item.messageId === 'string' && item.messageId.length > 0) {
+    return item.messageId;
+  }
+  return typeof item.id === 'number' ? String(item.id) : undefined;
+}
+
 function toSystemMsgFromNextNotice(item: NEXT_S2C_NoticeItem): S2C_SystemMsg {
   const kind = item.kind === 'chat'
     ? 'chat'
@@ -2876,10 +2883,10 @@ function toSystemMsgFromNextNotice(item: NEXT_S2C_NoticeItem): S2C_SystemMsg {
               : item.kind === 'warn'
                 ? 'warn'
                 : item.kind === 'travel'
-                  ? 'travel'
-                  : 'system';
+      ? 'travel'
+      : 'system';
   return {
-    id: item.legacyId ?? (typeof item.id === 'number' ? String(item.id) : undefined),
+    id: resolveSystemMsgIdFromNextNotice(item),
     text: item.text,
     kind,
     from: item.from,
@@ -3051,7 +3058,6 @@ function haveActionRenderStructureChanges(previousActions: ActionDef[], nextActi
       || previous.requiresTarget !== next.requiresTarget
       || previous.targetMode !== next.targetMode
       || previous.autoBattleEnabled !== next.autoBattleEnabled
-      || previous.autoBattleOrder !== next.autoBattleOrder
       || previous.skillEnabled !== next.skillEnabled
     ) {
       return true;

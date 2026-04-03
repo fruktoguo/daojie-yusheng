@@ -55,13 +55,13 @@ let PlayerAttributesService = class PlayerAttributesService {
         const stage = player.realm?.stage ?? shared_1.DEFAULT_PLAYER_REALM_STAGE;
         const template = shared_1.PLAYER_REALM_NUMERIC_TEMPLATES[stage];
         const runtimeBonuses = Array.isArray(player.runtimeBonuses) ? player.runtimeBonuses : [];
-        const compatibleRuntimeBonuses = collectCompatibleRuntimeBonuses(runtimeBonuses);
+        const projectedRuntimeBonuses = collectProjectedRuntimeBonuses(runtimeBonuses);
         const vitalBaselineBonus = resolveVitalBaselineBonus(runtimeBonuses);
         const baseAttrs = createBaseAttributes();
         const techniqueAttrBonus = resolveTechniqueAttrBonus(player.techniques.techniques, runtimeBonuses);
         addAttributes(baseAttrs, shared_1.PLAYER_REALM_CONFIG[stage].attrBonus);
         addAttributes(baseAttrs, techniqueAttrBonus);
-        for (const bonus of compatibleRuntimeBonuses) {
+        for (const bonus of projectedRuntimeBonuses) {
             addAttributes(baseAttrs, bonus.attrs);
         }
         clampAttributes(baseAttrs);
@@ -97,7 +97,7 @@ let PlayerAttributesService = class PlayerAttributesService {
         for (const buff of player.buffs.buffs) {
             (0, shared_1.addPartialNumericStats)(numericStats, buff.stats);
         }
-        for (const bonus of compatibleRuntimeBonuses) {
+        for (const bonus of projectedRuntimeBonuses) {
             (0, shared_1.addPartialNumericStats)(numericStats, bonus.stats);
         }
         applyPercentBonuses(numericStats, percentBonuses);
@@ -251,7 +251,7 @@ function toTechniqueState(entry) {
         attrCurves: entry.attrCurves ?? undefined,
     };
 }
-function collectCompatibleRuntimeBonuses(bonuses) {
+function collectProjectedRuntimeBonuses(bonuses) {
     if (!Array.isArray(bonuses) || bonuses.length === 0) {
         return [];
     }
@@ -287,7 +287,6 @@ function isDerivedRuntimeBonusSource(source) {
         || source === 'runtime:vitals_baseline'
         || source === 'runtime:technique_aggregate'
         || source.startsWith('technique:')
-        || source.startsWith('equip:')
         || source.startsWith('equipment:')
         || source.startsWith('buff:');
 }

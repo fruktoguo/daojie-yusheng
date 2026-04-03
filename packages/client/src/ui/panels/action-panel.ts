@@ -7,8 +7,10 @@ import {
   ActionDef,
   AutoBattleSkillConfig,
   DEFAULT_PLAYER_REALM_STAGE,
+  type ElementKey,
   PlayerState,
   SkillDef,
+  type SkillDamageKind,
   countEnabledSkillEntries,
   enforceSkillEnabledLimit,
   resolvePlayerSkillSlotLimit,
@@ -18,7 +20,7 @@ import { detailModalHost } from '../detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { buildSkillTooltipContent, type SkillPreviewMetrics, summarizeSkillPreviewMetrics } from '../skill-tooltip';
 import { preserveSelection } from '../selection-preserver';
-import { getActionTypeLabel } from '../../domain-labels';
+import { getActionTypeLabel, getElementKeyLabel } from '../../domain-labels';
 import { ACTION_SHORTCUTS_KEY, RETURN_TO_SPAWN_ACTION_ID } from '../../constants/ui/action';
 import { formatDisplayNumber } from '../../utils/number';
 
@@ -44,6 +46,13 @@ interface SkillManagementEntry {
   metrics: SkillPreviewMetrics;
 }
 
+interface ActionSkillAffinityBadge {
+  label: string;
+  title: string;
+  tone: 'physical' | 'spell' | 'mixed' | 'utility';
+  element: ElementKey | 'multi' | 'neutral';
+}
+
 function normalizeShortcutKey(key: string): string | null {
   if (key.length !== 1) return null;
   const lower = key.toLowerCase();
@@ -60,6 +69,83 @@ function escapeHtml(value: string): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function appendUnique<T>(list: T[], value: T): void {
+  if (!list.includes(value)) {
+    list.push(value);
+  }
+}
+
+function resolveSkillDamageProfile(skill: SkillDef): { kinds: SkillDamageKind[]; elements: ElementKey[] } {
+  const kinds: SkillDamageKind[] = [];
+  const elements: ElementKey[] = [];
+  for (const effect of skill.effects) {
+    if (effect.type !== 'damage') {
+      continue;
+    }
+    appendUnique(kinds, effect.damageKind === 'physical' ? 'physical' : 'spell');
+    if (effect.element) {
+      appendUnique(elements, effect.element);
+    }
+  }
+  return { kinds, elements };
+}
+
+function formatSkillAffinityLabel(
+  kind: ActionSkillAffinityBadge['tone'],
+  element: ActionSkillAffinityBadge['element'],
+): { label: string; title: string } {
+  const shortKindLabel = kind === 'physical'
+    ? '物'
+    : kind === 'spell'
+      ? '法'
+      : kind === 'mixed'
+        ? '混'
+        : '辅';
+  const fullKindLabel = kind === 'physical'
+    ? '物理'
+    : kind === 'spell'
+      ? '法术'
+      : kind === 'mixed'
+        ? '混合'
+        : '辅助';
+  const elementLabel = element === 'multi'
+    ? '五行'
+    : element === 'neutral'
+      ? ''
+      : `${getElementKeyLabel(element)}行`;
+  if (!elementLabel) {
+    return {
+      label: kind === 'utility' ? '辅助' : fullKindLabel,
+      title: kind === 'utility' ? '辅助型技能' : fullKindLabel,
+    };
+  }
+  return {
+    label: `${element === 'multi' ? elementLabel : getElementKeyLabel(element)}${shortKindLabel}`,
+    title: `${elementLabel}${fullKindLabel}`,
+  };
+}
+
+function getSkillAffinityBadge(skill: SkillDef): ActionSkillAffinityBadge {
+  const { kinds, elements } = resolveSkillDamageProfile(skill);
+  if (kinds.length === 0) {
+    return {
+      label: '辅助',
+      title: '辅助型技能',
+      tone: 'utility',
+      element: 'neutral',
+    };
+  }
+  const tone: ActionSkillAffinityBadge['tone'] = kinds.length > 1 ? 'mixed' : (kinds[0] === 'physical' ? 'physical' : 'spell');
+  const element: ActionSkillAffinityBadge['element'] = elements.length > 1 ? 'multi' : (elements[0] ?? 'neutral');
+  const text = formatSkillAffinityLabel(tone, element);
+  return {
+    label: text.label,
+    title: text.title,
+    tone,
+    element,
+  };
 }
 
 function getSkillEnabledTechniques(player: PlayerState): PlayerState['techniques'] {
@@ -671,9 +757,10 @@ export class ActionPanel {
       ? `<button class="small-btn ghost ${autoBattleEnabled ? 'active' : ''}" data-auto-battle-toggle="${action.id}" type="button">${autoBattleEnabled ? '自动 开' : '自动 关'}</button>
          ${options?.showDragHandle ? `<button class="small-btn ghost action-drag-handle" data-auto-battle-drag="${action.id}" draggable="true" type="button">拖拽</button>` : ''}`
       : '';
+    const affinityChip = skillContext ? this.renderActionSkillAffinityChip(skillContext.skill) : '';
 
     return `<div class="action-item ${onCd ? 'cooldown' : ''} ${isAutoBattleSkill ? 'action-item-draggable' : ''}" data-action-row="${action.id}"${rowAttrs}>
-      <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''}"${tooltipAttrs}>
+      <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''} ${affinityChip ? 'action-copy--with-affinity' : ''}"${tooltipAttrs}>
         <div>
           <span class="action-name">${escapeHtml(action.name)}</span>
           <span class="action-type">[${getActionTypeLabel(action.type)}]</span>
@@ -685,6 +772,7 @@ export class ActionPanel {
           ${this.renderShortcutBadge(action.id)}
         </div>
         <div class="action-desc">${escapeHtml(action.desc)}</div>
+        ${affinityChip}
       </div>
       <div class="action-cta">
         ${autoBattleControls}
@@ -693,6 +781,13 @@ export class ActionPanel {
         <button class="small-btn" data-action="${action.id}" data-action-exec="${action.id}" data-action-name="${escapeHtml(action.name)}" data-action-range="${action.range ?? ''}" data-action-target="${action.requiresTarget ? '1' : '0'}" data-action-target-mode="${action.targetMode ?? ''}"${onCd ? ' hidden' : ''}>执行</button>
       </div>
     </div>`;
+  }
+
+  private renderActionSkillAffinityChip(skill: SkillDef): string {
+    const badge = getSkillAffinityBadge(skill);
+    const elementClass = badge.element === 'neutral' ? '' : ` item-card-chip--element-${badge.element}`;
+    const title = escapeHtml(badge.title);
+    return `<span class="item-card-chip item-card-chip--affinity item-card-chip--${badge.tone}${elementClass} action-skill-affinity-chip" title="${title}" aria-label="${title}">${escapeHtml(badge.label)}</span>`;
   }
 
   private toggleAutoBattleSkill(actionId: string): void {
@@ -1952,9 +2047,10 @@ export class ActionPanel {
     const canMoveUp = options?.canMoveUp === true;
     const canMoveDown = options?.canMoveDown === true;
     const metricReadout = metrics ? this.getSkillManagementMetricReadout(metrics) : '';
+    const affinityChip = skillContext ? this.renderActionSkillAffinityChip(skillContext.skill) : '';
 
     return `<div class="action-item action-item-draggable" data-action-row="${action.id}"${rowAttrs}>
-      <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''}"${tooltipAttrs}>
+      <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''} ${affinityChip ? 'action-copy--with-affinity' : ''}"${tooltipAttrs}>
         <div>
           <span class="action-name">${escapeHtml(action.name)}</span>
           <span class="action-type">[技能]</span>
@@ -1964,6 +2060,7 @@ export class ActionPanel {
           ${autoBattleOrder ? `<span class="action-type">顺位 ${autoBattleOrder}</span>` : ''}
         </div>
         <div class="action-desc">${escapeHtml(action.desc)}</div>
+        ${affinityChip}
       </div>
       <div class="action-cta">
         ${metricReadout ? `<span class="skill-manage-metric-readout">${escapeHtml(metricReadout)}</span>` : ''}

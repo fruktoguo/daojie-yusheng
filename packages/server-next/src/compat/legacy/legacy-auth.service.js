@@ -920,7 +920,7 @@ function normalizeInventory(value) {
     const inventory = value;
     return {
         revision: 1,
-        capacity: Math.max(1, toFiniteInt(inventory.capacity, shared_1.DEFAULT_INVENTORY_CAPACITY)),
+        capacity: Math.max(shared_1.DEFAULT_INVENTORY_CAPACITY, toFiniteInt(inventory.capacity, shared_1.DEFAULT_INVENTORY_CAPACITY)),
         items: Array.isArray(inventory.items)
             ? inventory.items.map(normalizeItem).filter((entry) => entry !== null)
             : [],
@@ -1103,7 +1103,7 @@ function normalizeLegacyRealmState(value) {
     }
     const entry = value.find((bonus) => (bonus
         && typeof bonus === 'object'
-        && bonus.source === 'realm:state'));
+        && (bonus.source === 'realm:state' || bonus.source === 'runtime:realm_state')));
     const stage = typeof entry?.meta?.stage === 'number' && entry.meta.stage in shared_1.PlayerRealmStage
         ? entry.meta.stage
         : shared_1.DEFAULT_PLAYER_REALM_STAGE;

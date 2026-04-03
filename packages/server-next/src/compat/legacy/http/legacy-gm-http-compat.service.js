@@ -1008,7 +1008,7 @@ let LegacyGmHttpCompatService = class LegacyGmHttpCompatService {
         if (section === 'items') {
             if (snapshot.inventory && typeof snapshot.inventory === 'object') {
                 if (Number.isFinite(snapshot.inventory.capacity)) {
-                    next.inventory.capacity = Math.max(1, Math.trunc(snapshot.inventory.capacity));
+                    next.inventory.capacity = Math.max(shared_1.DEFAULT_INVENTORY_CAPACITY, Math.trunc(snapshot.inventory.capacity));
                 }
                 if (Array.isArray(snapshot.inventory.items)) {
                     next.inventory.items = snapshot.inventory.items
@@ -1171,7 +1171,7 @@ let LegacyGmHttpCompatService = class LegacyGmHttpCompatService {
         if (section === 'items') {
             if (snapshot.inventory && typeof snapshot.inventory === 'object') {
                 if (Number.isFinite(snapshot.inventory.capacity)) {
-                    persisted.inventory.capacity = Math.max(1, Math.trunc(snapshot.inventory.capacity));
+                    persisted.inventory.capacity = Math.max(shared_1.DEFAULT_INVENTORY_CAPACITY, Math.trunc(snapshot.inventory.capacity));
                 }
                 if (Array.isArray(snapshot.inventory.items)) {
                     persisted.inventory.items = snapshot.inventory.items

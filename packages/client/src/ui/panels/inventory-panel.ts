@@ -28,6 +28,7 @@ import { resolvePreviewItem, resolveTechniqueIdFromBookItemId } from '../../cont
 import { detailModalHost } from '../detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { buildItemTooltipPayload, describeItemEffectDetails } from '../equipment-tooltip';
+import { getItemAffixTypeLabel, getItemDecorClassName, getItemDisplayMeta } from '../item-display';
 import { preserveSelection } from '../selection-preserver';
 import { describePreviewBonuses } from '../stat-preview';
 import { INVENTORY_FILTER_TABS, InventoryFilter } from '../../constants/ui/inventory';
@@ -62,7 +63,6 @@ const HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID = 'root_seed.heaven';
 const DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID = 'root_seed.divine';
 const SHATTER_SPIRIT_PILL_ITEM_ID = 'pill.shatter_spirit';
 const HEAVEN_GATE_REROLL_AVERAGE_BONUS = 2;
-const INVENTORY_GRADE_DECOR_TYPES = new Set<ItemStack['type']>(['equipment', 'material', 'skill_book']);
 
 function formatItemEffects(item: ItemStack): string[] {
   return describeItemEffectDetails(item);
@@ -222,12 +222,12 @@ export class InventoryPanel {
     visibleItems.forEach(({ item, slotIndex }) => {
       const nameClass = this.getNameClass(item.name);
       const primaryAction = this.getPrimaryAction(item);
+      const itemMeta = getItemDisplayMeta(item);
       const cellClassName = this.getItemCellClassName(item);
       const gradeAttr = this.getItemDecorGrade(item);
-      const levelLabel = this.getItemLevelLabel(item);
       html += `<div class="${cellClassName}" data-open-item="${slotIndex}" data-item-slot="${slotIndex}" data-item-key="${this.escapeHtml(this.getItemIdentity(item))}"${gradeAttr ? ` data-item-grade="${gradeAttr}"` : ''}>
         <div class="inventory-cell-head">
-          <span class="inventory-cell-type" data-item-type="true">${getItemTypeLabel(item.type)}</span>
+          <span class="inventory-cell-type" data-item-type="true">${this.escapeHtml(getItemAffixTypeLabel(item, getItemTypeLabel(item.type)))}</span>
           <span class="inventory-cell-count" data-item-count="true">${formatDisplayCountBadge(item.count)}</span>
         </div>
         <div class="inventory-cell-name ${nameClass}" data-item-name="true" title="${this.escapeHtml(item.name)}">${this.escapeHtml(item.name)}</div>
@@ -235,7 +235,8 @@ export class InventoryPanel {
           ${primaryAction ? `<button class="small-btn" data-inline-primary="${slotIndex}" data-item-primary="true" type="button" ${primaryAction.disabled ? 'disabled' : ''}>${primaryAction.label}</button>` : ''}
           <button class="small-btn danger" data-inline-drop="${slotIndex}" type="button">丢下</button>
         </div>
-        ${levelLabel ? `<span class="inventory-cell-level" data-item-level="true">${this.escapeHtml(levelLabel)}</span>` : ''}
+        ${itemMeta.affinityBadge ? `<span class="item-card-chip item-card-chip--affinity item-card-chip--${itemMeta.affinityBadge.tone} item-card-chip--element-${itemMeta.affinityBadge.element}" data-item-affinity="true" title="${this.escapeHtml(itemMeta.affinityBadge.title)}">${this.escapeHtml(itemMeta.affinityBadge.label)}</span>` : ''}
+        ${itemMeta.levelLabel ? `<span class="item-card-chip item-card-chip--level" data-item-level="true">${this.escapeHtml(itemMeta.levelLabel)}</span>` : ''}
       </div>`;
     });
 
@@ -815,15 +816,22 @@ export class InventoryPanel {
       const typeNode = cell.querySelector<HTMLElement>('[data-item-type="true"]');
       const countNode = cell.querySelector<HTMLElement>('[data-item-count="true"]');
       const nameNode = cell.querySelector<HTMLElement>('[data-item-name="true"]');
+      const affinityNode = cell.querySelector<HTMLElement>('[data-item-affinity="true"]');
       if (!typeNode || !countNode || !nameNode) {
         return false;
       }
       const levelNode = cell.querySelector<HTMLElement>('[data-item-level="true"]');
-      const levelLabel = this.getItemLevelLabel(item);
-      if (levelLabel && !levelNode) {
+      const itemMeta = getItemDisplayMeta(item);
+      if (itemMeta.levelLabel && !levelNode) {
         return false;
       }
-      if (!levelLabel && levelNode) {
+      if (!itemMeta.levelLabel && levelNode) {
+        return false;
+      }
+      if (itemMeta.affinityBadge && !affinityNode) {
+        return false;
+      }
+      if (!itemMeta.affinityBadge && affinityNode) {
         return false;
       }
 
@@ -831,20 +839,24 @@ export class InventoryPanel {
       const primaryButton = cell.querySelector<HTMLButtonElement>('[data-item-primary="true"]');
 
       cell.dataset.itemKey = this.getItemIdentity(item);
-      const gradeAttr = this.getItemDecorGrade(item);
-      if (gradeAttr) {
-        cell.dataset.itemGrade = gradeAttr;
+      if (itemMeta.grade) {
+        cell.dataset.itemGrade = itemMeta.grade;
       } else {
         delete cell.dataset.itemGrade;
       }
       cell.className = this.getItemCellClassName(item);
-      typeNode.textContent = getItemTypeLabel(item.type);
+      typeNode.textContent = getItemAffixTypeLabel(item, getItemTypeLabel(item.type));
       countNode.textContent = formatDisplayCountBadge(item.count);
       nameNode.textContent = item.name;
       nameNode.title = item.name;
       nameNode.className = `inventory-cell-name ${this.getNameClass(item.name)}`.trim();
       if (levelNode) {
-        levelNode.textContent = levelLabel ?? '';
+        levelNode.textContent = itemMeta.levelLabel ?? '';
+      }
+      if (affinityNode && itemMeta.affinityBadge) {
+        affinityNode.textContent = itemMeta.affinityBadge.label;
+        affinityNode.title = itemMeta.affinityBadge.title;
+        affinityNode.className = `item-card-chip item-card-chip--affinity item-card-chip--${itemMeta.affinityBadge.tone} item-card-chip--element-${itemMeta.affinityBadge.element}`;
       }
 
       if (primaryAction) {
@@ -1063,22 +1075,15 @@ export class InventoryPanel {
   }
 
   private getItemDecorGrade(item: ItemStack): TechniqueGrade | null {
-    if (!item.grade || !INVENTORY_GRADE_DECOR_TYPES.has(item.type)) {
-      return null;
-    }
-    return item.grade;
+    return getItemDisplayMeta(item).grade;
   }
 
   private getItemCellClassName(item: ItemStack): string {
-    const grade = this.getItemDecorGrade(item);
-    return `inventory-cell${grade ? ` inventory-cell--grade inventory-cell--grade-${grade}` : ''}`;
+    return getItemDecorClassName('inventory-cell', item);
   }
 
   private getItemLevelLabel(item: ItemStack): string | null {
-    if (!Number.isFinite(item.level) || (item.level ?? 0) <= 0) {
-      return null;
-    }
-    return `Lv.${formatDisplayInteger(Math.floor(item.level ?? 0))}`;
+    return getItemDisplayMeta(item).levelLabel;
   }
 
   private getEquippedItemForCompare(item: ItemStack): ItemStack | null {

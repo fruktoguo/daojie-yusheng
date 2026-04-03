@@ -17,6 +17,39 @@
 - 可以继续按“前台 next 独立线”推进
 - 还不能把整个仓库里的 `legacy` 一把删掉
 
+## 如果目标是“正式替换旧前台”
+
+### 当前判断
+
+- `client-next` 代码主链已经基本 ready，不再是正式替换的主要阻塞
+- 真正的 `P0` 在 `server-next` 的登录 / 会话 / bootstrap，以及替换验收证明链
+- 当前更准确的进度判断是：
+  - 距离“正式替换旧前台”：约还差 `20% - 30%`
+  - 距离“后端真正独立、可大幅移除 legacy”：仍明显更远
+
+### P0：正式替换旧前台前必须解决
+
+1. `next` socket 的认证 / 会话 / bootstrap 仍由 legacy 主链驱动。
+   当前 `WorldGateway.handleConnection / handleHello` 已改为依赖中性的 `WorldSessionBootstrapService`，而 `WorldSessionBootstrapService` 现在也只再依赖 `WorldPlayerAuthService / WorldPlayerSnapshotService / WorldClientEventService` 这类中性入口；其中 `WorldPlayerAuthService / WorldPlayerSnapshotService` 已不再直接注入 `LegacyAuthService`，改成依赖更窄的 `WorldLegacyPlayerSourceService`。但底层 token 规则与旧库读取仍继续依赖 legacy JWT 语义、旧 `users/players` 表以及 `loadLegacyPlayerSnapshot` 兼容装载。
+2. `next` 网关行为层仍部分借 `LegacyGatewayCompatService` 完成实际业务。
+   `quest navigate`、`chat`、`ack system messages`、bootstrap 待确认 logbook、以及 `WorldGateway` 里的 common error 发包都已经开始改走中性事件服务；但部分 legacy/dual emit 结果发包与 legacy 指令适配仍没有完全收完。
+3. 正式替换证明链还没闭环。
+   `pnpm verify:server-next` 当前不是完整替换验收入口，它不覆盖 `client-next build`、`audit:server-next-protocol`、shadow、以及带库 restore 闭环。
+4. `next` 协议审计还缺“禁止 next 连接额外收到 legacy 事件”的负向断言。
+   现在更像证明 next 事件存在，但还不足以证明不会回退双发。
+
+### P1：替换后应尽快继续收口
+
+1. `emitCompatDeltaSync` 这套高频 legacy diff/tick 仍留在 `WorldSyncService` 主服务内。
+2. `loadLegacyPlayerSnapshot` 仍是 bootstrap 热路径里的自动 fallback，最好降级成显式迁移入口。
+3. `runtime/persistence` 对旧快照字段和旧 runtime bonus source tag 的兼容回读仍在主装载流程里。
+
+### 可延后
+
+1. `LegacySocketBridgeService` 与低频 dual emit 外壳可以在替换后暂时保留。
+2. legacy HTTP / GM controller 与 admin/backup/restore 面可以先作为外层 compat 壳保留。
+   但前提是不再把 legacy 语义反向渗进 runtime 真源和 socket 主链。
+
 ## 当前最新进度
 
 ### 已完成的关键收口
@@ -45,7 +78,10 @@
   - `NEXT_C2S.UseAction`
   - `NEXT_C2S.UsePortal`
 - `client-next` 的 `socket.ts` 已不再监听任何 legacy 事件名，包含此前残留的 `S2C.Kick`。
-- `server-next` 的 `WorldSyncService` 已开始按协议分流同步计算：`protocol=next` 的连接不再进入整套 `emitLegacyDeltaSync` legacy 快照/diff 计算，只保留 next 仍需要的 `MapStatic / Realm / LootWindow` 辅助同步。
+- `client-next` 的地图运行时渲染适配层命名也已收口为中性语义，`MapRuntime` 不再继续引用 `LegacyCanvasTextRendererAdapter`。
+- `client-next` 的本地地图记忆迁移命名也已改成版本兼容语义，`main.ts` 的 next notice -> UI 转换已收口到中性消息 ID helper。
+- `shared-next` 的 `NEXT_S2C_NoticeItem` 也已把旧的 `legacyId` 协议兼容字段收口为中性语义的 `messageId`。
+- `server-next` 的 `WorldSyncService` 已开始按协议分流同步计算：`protocol=next` 的连接不再进入整套 `emitCompatDeltaSync` compat/legacy 快照-diff 计算，只保留 next 仍需要的 `MapStatic / Realm / LootWindow` 辅助同步。
 - `WorldSyncService` 的 next 增量 `MapStatic` 路径已不再为可见标记计算整张 legacy 可视瓦片矩阵，改成只构建可见坐标 key 集合，先收掉一段 hot path 的 legacy 投影开销。
 - `WorldSyncService` 的 next `Bootstrap / MapStatic` 首包路径已不再直接调用：
   - `buildLegacyVisibleTiles`
@@ -79,6 +115,7 @@
   - `legacyCompat.suppressVitalRecoveryUntilTick` -> `vitalRecoveryDeferredUntilTick`
   - `legacyBonuses` -> `runtimeBonuses`
   - 持久化与 legacy 导入仍兼容回读旧字段
+- `player-runtime / player-persistence` 对旧快照字段的回读也已继续收口到 compat helper，`legacyCompat.pendingLogbookMessages / legacyBonuses` 不再直接散落在主装载流程；`runtime:vitals_baseline` 的展示标签也已改成中性语义。
 
 ### 当前粗略完成度
 
@@ -92,39 +129,43 @@
 
 ## 现在还不能整体去掉 legacy 的原因
 
-### 1. client-next 还残留少量“内部实现级 legacy 痕迹”
+### 1. client-next 的内部命名清洗已基本完成
 
-这类问题已经不再是网络主链问题，而是内部实现边角：
+`client-next/src` 里的主要 `legacy` 命名边角已经收口完成，包括：
 
-- `packages/client-next/src/game-map/runtime/map-runtime.ts`
-  - 仍在使用 `LegacyCanvasTextRendererAdapter`
-- `packages/client-next/src/map-memory.ts`
-  - 仍保留旧地图缓存迁移逻辑
-- `packages/client-next/src/main.ts`
-  - Notice -> UI 的某些展示字段仍保留 `legacyId` 兼容映射
+- 地图运行时渲染适配器命名
+- 本地地图记忆迁移命名
+- chat / UI style 的旧存储迁移命名
+- technique panel 的 fallback 层命名
+- notice 消息 ID 的兼容字段命名
 
-这些不会阻塞 next 前台继续开发，但说明客户端内部还没有完全完成“命名和语义清洗”。
+这意味着客户端这边剩下的重点已经不再是内部命名清洗，而是继续维持 next 主链独立，并避免新的 compat 反向渗回主路径。
 
 ### 2. server-next 的登录 / 会话 / bootstrap 仍压在 legacy 服务上
 
 当前 `WorldGateway` 连接、Hello、GM token 校验、玩家 bootstrap、快照装载，仍依赖：
 
-- `LegacySessionBootstrapService`
-- `LegacyAuthService`
+- `WorldSessionBootstrapService`
+- `WorldPlayerAuthService`
+- `WorldPlayerSnapshotService`
+- `WorldLegacyPlayerSourceService`
+- `WorldClientEventService`
 - `LegacyGatewayCompatService`
 
 这意味着 `next` 连接虽然已经独立声明 `protocol=next`，但会话体系还不是 next 自己的。
 
-### 3. server-next 的同步投影内核仍在持续构建 legacy 快照
+### 3. server-next 的同步投影内核仍在持续构建 compat / legacy 快照
 
 当前 `WorldSyncService` 虽然已经把大量主实现收口到中性 helper，但 legacy socket 同步支路本身仍完整保留，主要体现在：
 
-- `emitLegacyInitialSync / emitLegacyDeltaSync`
+- `emitCompatInitialSync / emitCompatDeltaSync`
 - `protocol === 'legacy'` 的协议分流
 - `LegacyGmHttpCompatService` 这类 compat 注入仍在
 - legacy compat 目录与少量 runtime 逻辑里仍有部分 `emitLegacy* / buildLegacy* / resolveLegacy*` 名称
 
 所以服务端同步内核虽然已经明显收口，但还没有把 legacy 支路真正外置成薄兼容层。
+
+另外，`next-protocol-audit` 目前也还缺“next 连接不得额外收到 legacy 事件”的负向断言，这会直接影响正式替换前的信心。
 
 ### 4. server-next 的 runtime / persistence 仍把 legacy 状态当正式真源
 
@@ -156,9 +197,11 @@
 
 建议顺序：
 
-1. 继续清理 `client-next` 内部残余 legacy 命名与 renderer 适配器命名。
-2. 继续把 `server-next` 的 legacy payload builder / compat 壳往外压，逐步把 legacy socket 分支收缩成更薄的适配层。
-3. 继续清理 `runtimeBonuses` 内部仍保留的 legacy source tag 与兼容分支。
+1. 已经先把 `WorldGateway` 对 bootstrap 的直接依赖改到中性的 `WorldSessionBootstrapService`；下一步要继续把其中的 `LegacyAuthService` 降级成旧号导入 fallback。
+   现在这一步又进一步推进到了 `WorldPlayerAuthService / WorldPlayerSnapshotService / WorldLegacyPlayerSourceService / WorldClientEventService` 这层中性入口，且 `WorldSessionBootstrapService` 已不再直接注入 `LegacyGatewayCompatService`，`WorldGateway` 的 common error 发包也已统一切到 `WorldClientEventService`。下一步应继续把 `WorldLegacyPlayerSourceService` 底下的 legacy JWT/旧库读取语义收成显式旧号导入 fallback，而不是继续充当 next socket 正式认证链。
+2. 再把 next handler 中仍借 `LegacyGatewayCompatService` 的 quest/chat/ack/error 这些业务入口收成中性或 next emitter。
+3. 之后继续压薄 `WorldSyncService` 的 compat 高频分支，并补上协议审计的“禁止 legacy 额外事件”负向断言。
+4. 最后再继续清理 `runtimeBonuses` 和旧快照回读这类迁移兼容尾巴。
 
 做到这一步，可以认为“玩家前台 next 线已经真正独立”。
 
@@ -175,4 +218,4 @@
 
 建议统一用下面这句描述现状：
 
-> `client-next` 的玩家主链已经基本 next-native，shared 层的 next 低频类型名也已独立；真正还没拆掉的是 server-next 的登录/同步投影内核、后台 HTTP/GM 与 runtime 真源。
+> `client-next` 的玩家主链已经基本 next-native；真正阻塞正式替换旧前台的，已经主要收缩到 `server-next` 的登录/会话/bootstrap 主链、部分 next handler 仍借 compat 壳，以及替换验收证明链尚未闭环。

@@ -143,7 +143,7 @@ let LegacyGatewayCompatService = class LegacyGatewayCompatService {
             if (protocol !== 'legacy') {
                 client.emit(shared_1.NEXT_S2C.Notice, {
                     items: [{
-                            legacyId: entry.id,
+                            messageId: entry.id,
                             kind: 'grudge',
                             text: entry.text,
                             from: entry.from,

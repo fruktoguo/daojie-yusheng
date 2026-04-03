@@ -10,6 +10,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PlayerPersistenceService = void 0;
 const common_1 = require("@nestjs/common");
 const pg_1 = require("pg");
+const shared_1 = require("@mud/shared-next");
 const persistent_document_table_1 = require("./persistent-document-table");
 const PLAYER_SNAPSHOT_SCOPE = 'server_next_player_snapshots_v1';
 let PlayerPersistenceService = PlayerPersistenceService_1 = class PlayerPersistenceService {
@@ -144,7 +145,9 @@ function normalizePlayerSnapshot(raw) {
             : [],
         inventory: {
             revision: isFiniteNumber(inventory.revision) ? Math.trunc(inventory.revision) : 1,
-            capacity: isFiniteNumber(inventory.capacity) ? Math.trunc(inventory.capacity) : 100,
+            capacity: isFiniteNumber(inventory.capacity)
+                ? Math.max(shared_1.DEFAULT_INVENTORY_CAPACITY, Math.trunc(inventory.capacity))
+                : shared_1.DEFAULT_INVENTORY_CAPACITY,
             items: Array.isArray(inventory.items) ? inventory.items : [],
         },
         equipment: {
@@ -180,27 +183,23 @@ function normalizePlayerSnapshot(raw) {
             senseQiActive: combat.senseQiActive === true,
             autoBattleSkills: Array.isArray(combat.autoBattleSkills) ? combat.autoBattleSkills : [],
         },
-        pendingLogbookMessages: normalizePendingLogbookMessages(resolvePendingLogbookMessages(snapshot)),
-        runtimeBonuses: normalizeRuntimeBonuses(resolveRuntimeBonuses(snapshot)),
+        pendingLogbookMessages: normalizePendingLogbookMessages(resolveCompatiblePendingLogbookMessages(snapshot)),
+        runtimeBonuses: normalizeRuntimeBonuses(resolveCompatibleRuntimeBonuses(snapshot)),
     };
 }
-function resolveRuntimeBonuses(snapshot) {
-    if (Array.isArray(snapshot?.runtimeBonuses)) {
-        return snapshot.runtimeBonuses;
+function resolveCompatibleSnapshotArray(snapshot, primaryKey, compatResolver) {
+    const primaryValue = snapshot?.[primaryKey];
+    if (Array.isArray(primaryValue)) {
+        return primaryValue;
     }
-    if (Array.isArray(snapshot?.legacyBonuses)) {
-        return snapshot.legacyBonuses;
-    }
-    return [];
+    const compatValue = compatResolver(snapshot);
+    return Array.isArray(compatValue) ? compatValue : [];
 }
-function resolvePendingLogbookMessages(snapshot) {
-    if (Array.isArray(snapshot?.pendingLogbookMessages)) {
-        return snapshot.pendingLogbookMessages;
-    }
-    if (Array.isArray(snapshot?.legacyCompat?.pendingLogbookMessages)) {
-        return snapshot.legacyCompat.pendingLogbookMessages;
-    }
-    return [];
+function resolveCompatibleRuntimeBonuses(snapshot) {
+    return resolveCompatibleSnapshotArray(snapshot, 'runtimeBonuses', (candidate) => candidate?.legacyBonuses);
+}
+function resolveCompatiblePendingLogbookMessages(snapshot) {
+    return resolveCompatibleSnapshotArray(snapshot, 'pendingLogbookMessages', (candidate) => candidate?.legacyCompat?.pendingLogbookMessages);
 }
 function isFiniteNumber(value) {
     return typeof value === 'number' && Number.isFinite(value);

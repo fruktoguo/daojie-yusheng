@@ -187,10 +187,10 @@ function findTechniqueRealmStartLevel(
   realm: TechniqueRealm,
   maxLevel: number,
   layers?: TechniqueLayerDef[],
-  legacyCurves?: TechniqueState['attrCurves'],
+  compatCurves?: TechniqueState['attrCurves'],
 ): number | null {
   for (let level = 1; level <= maxLevel; level += 1) {
-    if (deriveTechniqueRealm(level, layers, legacyCurves) === realm) {
+    if (deriveTechniqueRealm(level, layers, compatCurves) === realm) {
       return level;
     }
   }
@@ -387,7 +387,7 @@ export class TechniquePanel {
 
     const layers = tech.layers && tech.layers.length > 0
       ? [...tech.layers].sort((left, right) => left.level - right.level)
-      : this.buildLegacyLayers(tech, maxLevel);
+      : this.buildFallbackLayers(tech, maxLevel);
     const selectedLevel = this.resolveOpenLayerLevel(layers, tech.level);
     const constellationHtml = this.renderConstellation(tech, layers, tech.level, selectedLevel, skillsByLevel, milestones);
     const focusHtml = this.renderLayerFocus(tech, layers, selectedLevel, skillsByLevel, milestones);
@@ -439,7 +439,7 @@ export class TechniquePanel {
     });
   }
 
-  private buildLegacyLayers(tech: TechniqueState, maxLevel: number): TechniqueLayerDef[] {
+  private buildFallbackLayers(tech: TechniqueState, maxLevel: number): TechniqueLayerDef[] {
     const rows: TechniqueLayerDef[] = [];
     for (let level = 1; level <= maxLevel; level += 1) {
       rows.push({
@@ -890,7 +890,7 @@ export class TechniquePanel {
     }
     const layers = tech.layers && tech.layers.length > 0
       ? [...tech.layers].sort((left, right) => left.level - right.level)
-      : this.buildLegacyLayers(tech, maxLevel);
+      : this.buildFallbackLayers(tech, maxLevel);
     const milestones = buildTechniqueMilestones(tech, maxLevel);
     const selectedLevel = this.resolveOpenLayerLevel(layers, tech.level);
 

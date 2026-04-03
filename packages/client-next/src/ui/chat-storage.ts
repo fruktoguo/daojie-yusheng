@@ -20,7 +20,7 @@ const CHAT_DB_STORE_NAME = 'messages';
 const CHAT_DB_INDEX_BY_CHANNEL_TIME = 'by-channel-time';
 
 let databasePromise: Promise<IDBDatabase | null> | null = null;
-let legacyStorageCleared = false;
+let previousStorageCleared = false;
 let indexedDbUnavailableWarned = false;
 
 function warnIndexedDbUnavailable(error: unknown): void {
@@ -46,7 +46,7 @@ function withTransactionComplete(transaction: IDBTransaction): Promise<void> {
   });
 }
 
-function getLegacyStorage(): Storage | null {
+function getPreviousStorage(): Storage | null {
   if (typeof window === 'undefined') {
     return null;
   }
@@ -57,12 +57,12 @@ function getLegacyStorage(): Storage | null {
   }
 }
 
-export function clearLegacyChatStorage(): void {
-  if (legacyStorageCleared) {
+export function clearPreviousChatStorage(): void {
+  if (previousStorageCleared) {
     return;
   }
-  legacyStorageCleared = true;
-  const storage = getLegacyStorage();
+  previousStorageCleared = true;
+  const storage = getPreviousStorage();
   if (!storage) {
     return;
   }

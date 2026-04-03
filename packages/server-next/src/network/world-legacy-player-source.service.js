@@ -5,20 +5,22 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
-var LegacyAuthService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.LegacyAuthService = void 0;
+exports.WorldLegacyPlayerSourceService = void 0;
 const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared-next");
 const node_crypto_1 = require("node:crypto");
 const pg_1 = require("pg");
-let LegacyAuthService = LegacyAuthService_1 = class LegacyAuthService {
-    logger = new common_1.Logger(LegacyAuthService_1.name);
+let WorldLegacyPlayerSourceService = class WorldLegacyPlayerSourceService {
+    logger = new common_1.Logger(WorldLegacyPlayerSourceService.name);
     jwtSecret = process.env.JWT_SECRET || 'daojie-yusheng-dev-secret';
     pool = null;
     poolInitPromise = null;
     poolUnavailable = false;
     poolUnavailableLogged = false;
+    async onModuleInit() {
+        await this.ensurePool();
+    }
     async onModuleDestroy() {
         const pool = this.pool;
         this.pool = null;
@@ -27,8 +29,8 @@ let LegacyAuthService = LegacyAuthService_1 = class LegacyAuthService {
             await pool.end().catch(() => undefined);
         }
     }
-    async authenticateSocketToken(token) {
-        const payload = this.validateToken(token);
+    async authenticatePlayerToken(token) {
+        const payload = this.validatePlayerToken(token);
         if (!payload) {
             return null;
         }
@@ -42,25 +44,42 @@ let LegacyAuthService = LegacyAuthService_1 = class LegacyAuthService {
                 playerName: resolvePlayerName(null, payload.username, payload.displayName),
             };
         }
-        const result = await pool.query(`
+        let result;
+        try {
+            result = await pool.query(`
         SELECT
           u.id AS "userId",
           u.username AS "username",
           u."displayName" AS "displayName",
+          u."pendingRoleName" AS "pendingRoleName",
           p.id AS "playerId",
           p.name AS "playerName"
         FROM users u
         LEFT JOIN players p ON p."userId" = u.id
-        WHERE u.id = $1
+        WHERE u.id::text = $1
         LIMIT 1
       `, [payload.sub]);
+        }
+        catch (error) {
+            if (isMissingLegacySchemaError(error)) {
+                this.logger.warn('World legacy player source auth fallback: users/players tables unavailable, using token identity');
+                return {
+                    userId: payload.sub,
+                    username: payload.username,
+                    displayName: resolveDisplayName(null, payload.username, payload.displayName),
+                    playerId: buildFallbackPlayerId(payload.sub),
+                    playerName: resolvePlayerName(null, payload.username, payload.displayName),
+                };
+            }
+            throw error;
+        }
         const row = result.rows[0];
         return {
             userId: row?.userId ?? payload.sub,
             username: row?.username ?? payload.username,
             displayName: resolveDisplayName(row?.displayName, row?.username ?? payload.username, payload.displayName),
             playerId: row?.playerId ?? buildFallbackPlayerId(payload.sub),
-            playerName: resolvePlayerName(row?.playerName ?? null, row?.username ?? payload.username, payload.displayName),
+            playerName: resolvePlayerName(row?.playerName ?? row?.pendingRoleName ?? null, row?.username ?? payload.username, payload.displayName),
         };
     }
     async loadLegacyPlayerSnapshot(playerId) {
@@ -68,7 +87,9 @@ let LegacyAuthService = LegacyAuthService_1 = class LegacyAuthService {
         if (!pool) {
             return null;
         }
-        const result = await pool.query(`
+        let result;
+        try {
+            result = await pool.query(`
         SELECT
           id,
           "mapId",
@@ -107,13 +128,20 @@ let LegacyAuthService = LegacyAuthService_1 = class LegacyAuthService {
         WHERE id = $1
         LIMIT 1
       `, [playerId]);
+        }
+        catch (error) {
+            if (isMissingLegacySchemaError(error)) {
+                return null;
+            }
+            throw error;
+        }
         const row = result.rows[0];
         if (!row) {
             return null;
         }
         return toLegacyPlayerSnapshot(row);
     }
-    validateToken(token) {
+    validatePlayerToken(token) {
         try {
             const payload = verifyLegacyJwt(token, this.jwtSecret);
             if (!payload || payload.role === 'gm') {
@@ -138,13 +166,12 @@ let LegacyAuthService = LegacyAuthService_1 = class LegacyAuthService {
         if (this.poolInitPromise) {
             return this.poolInitPromise;
         }
-        const databaseUrl = process.env.SERVER_NEXT_DATABASE_URL
-            ?? '';
+        const databaseUrl = process.env.SERVER_NEXT_DATABASE_URL ?? '';
         if (!databaseUrl.trim()) {
             this.poolUnavailable = true;
             if (!this.poolUnavailableLogged) {
                 this.poolUnavailableLogged = true;
-                this.logger.warn('Legacy auth degraded: no SERVER_NEXT_DATABASE_URL, fallback to token-only identity');
+                this.logger.warn('World legacy player source degraded: no SERVER_NEXT_DATABASE_URL, fallback to token-only identity');
             }
             return null;
         }
@@ -157,7 +184,7 @@ let LegacyAuthService = LegacyAuthService_1 = class LegacyAuthService {
             }
             catch (error) {
                 this.poolUnavailable = true;
-                this.logger.error('Legacy auth database init failed', error instanceof Error ? error.stack : String(error));
+                this.logger.error('World legacy player source database init failed', error instanceof Error ? error.stack : String(error));
                 await pool.end().catch(() => undefined);
                 return null;
             }
@@ -168,10 +195,13 @@ let LegacyAuthService = LegacyAuthService_1 = class LegacyAuthService {
         return this.poolInitPromise;
     }
 };
-exports.LegacyAuthService = LegacyAuthService;
-exports.LegacyAuthService = LegacyAuthService = LegacyAuthService_1 = __decorate([
+exports.WorldLegacyPlayerSourceService = WorldLegacyPlayerSourceService;
+exports.WorldLegacyPlayerSourceService = WorldLegacyPlayerSourceService = __decorate([
     (0, common_1.Injectable)()
-], LegacyAuthService);
+], WorldLegacyPlayerSourceService);
+function isMissingLegacySchemaError(error) {
+    return Boolean(error && typeof error === 'object' && error.code === '42P01');
+}
 function resolveDisplayName(displayName, username, fallback) {
     const normalized = typeof displayName === 'string' ? displayName.normalize('NFC') : '';
     if (normalized) {
@@ -682,4 +712,4 @@ function base64UrlEncode(value) {
         .replace(/\//g, '_')
         .replace(/=+$/g, '');
 }
-//# sourceMappingURL=legacy-auth.service.js.map
+//# sourceMappingURL=world-legacy-player-source.service.js.map

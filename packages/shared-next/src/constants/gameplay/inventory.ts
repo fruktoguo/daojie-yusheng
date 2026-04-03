@@ -5,7 +5,7 @@
 import type { ItemType } from '../../types';
 
 /** 默认背包容量。 */
-export const DEFAULT_INVENTORY_CAPACITY = 100;
+export const DEFAULT_INVENTORY_CAPACITY = 200;
 
 /** 地面物品保留时间，单位为息。 */
 export const GROUND_ITEM_EXPIRE_TICKS = 7200;

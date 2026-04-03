@@ -82,12 +82,14 @@
   - `legacyCompat.suppressVitalRecoveryUntilTick` -> `vitalRecoveryDeferredUntilTick`
   - `legacyBonuses` -> `runtimeBonuses`
   - 持久化与 legacy 导入仍兼容回读旧字段
+- `PlayerRuntimeService / PlayerPersistenceService` 对旧快照字段的回读也已继续收口到 compat helper，`legacyCompat.pendingLogbookMessages / legacyBonuses` 不再直接散落在主装载流程；`runtime:vitals_baseline` 的展示标签也已改成中性语义。
 
 ### 当前粗略完成度
 
 - `client-next` 主链独立度：约 `80% - 85%`
 - `server-next` 独立化：约 `50% - 60%`
 - 想整体移除仓库中的 `legacy`：约 `25% - 35%`
+- 如果目标是“正式替换旧前台”，当前大约还差 `20% - 30%`
 
 ### 需要避免的误判
 
@@ -95,28 +97,46 @@
 
 当前真正没拆掉的，已经主要收缩到下面四层：
 
-- next 登录 / 会话 / bootstrap 仍走 legacy session/auth
+- next 登录 / 会话 / bootstrap 虽已切到中性入口，但底层认证 / 旧号导入仍走 legacy auth
 - world sync 仍在大量构建 legacy 投影视图与缓存
 - AppModule 仍直接挂 legacy HTTP / GM 控制器
 - runtime / persistence 仍正式保存 legacy 状态字段
 
 ## 现在最大的阻碍在哪里
 
-## P1. next 登录与 bootstrap 仍依赖 legacy session/auth
+## P0. next 登录与 bootstrap 仍依赖 legacy session/auth
 
 当前 `WorldGateway` 的连接处理、Hello、GM token 校验、玩家鉴权、bootstrap、快照装载，都还压在：
 
-- `LegacySessionBootstrapService`
-- `LegacyAuthService`
+- `WorldSessionBootstrapService`
+- `WorldPlayerAuthService`
+- `WorldPlayerSnapshotService`
+- `WorldLegacyPlayerSourceService`
+- `WorldClientEventService`
 - `LegacyGatewayCompatService`
 
-这意味着 next 会话边界并没有真正独立。
+这意味着 next 会话边界虽然已经开始脱离直接 `LegacyAuthService` 依赖，但底层认证 / 旧号导入仍没有真正独立；当前 `WorldGateway` 的 common error 发包虽然已统一切到中性事件服务，但 result/dual emit 与 legacy 指令适配仍未完全收完。
 
-## P1. world sync 仍在维护大块 legacy 投影与缓存
+另外，`next` 玩家 token 当前也仍直接依赖 `verifyLegacyJwt` 与旧 `users/players` 表。next handler 中 `quest/chat/ack/bootstrap pending logbook` 这批路径以及 `WorldGateway` 的 common error 发包已经开始改走中性事件服务，但 common result/dual emit 仍未完全脱离 `LegacyGatewayCompatService`。这些都属于正式替换旧前台前必须处理的 `P0`。
+
+## P0. 替换验收证明链还没闭环
+
+当前 `pnpm verify:server-next` 虽然能作为基线入口，但它并不自动覆盖：
+
+- `pnpm build:client-next`
+- `pnpm audit:server-next-protocol`
+- `pnpm verify:server-next:shadow`
+- 带库 restore 闭环
+
+同时，`next-protocol-audit` 当前也还缺“next 连接不得额外收到 legacy 事件”的负向断言。
+
+这意味着即便代码主链已经基本可用，正式替换前的自动化证明仍然不足。
+
+## P1. world sync 仍在维护大块 compat / legacy 投影与缓存
 
 当前 `WorldSyncService` 虽然已经把大量主实现收口到中性 helper，但 legacy 同步支路本身仍完整保留，主要体现在：
 
-- `emitLegacyInitialSync / emitLegacyDeltaSync`
+- `emitCompatInitialSync / emitCompatDeltaSync`
 - `protocol === 'legacy'` 的协议分流
 - `LegacyGmHttpCompatService` 这类 compat 注入仍在
 - legacy compat 目录与少量 runtime 逻辑里仍有部分 `emitLegacy* / buildLegacy* / resolveLegacy*` 名称
@@ -160,20 +180,23 @@
 
 ## 建议的下一阶段顺序
 
-### 第一阶段：继续让 next 同步内核脱离 legacy 投影
+### 第一阶段：先完成正式替换旧前台所需的 P0
 
 建议顺序：
 
-1. 继续清理 `WorldSyncService` 的 legacy payload builder / compat 壳，逐步把 legacy socket 分支压缩到更薄的外层适配层。
-2. 把 loot window / pending logbook / bonuses 这批 legacy runtime 状态，从“next 主入口 + legacy 真源字段”继续推进到真正的 next 命名真源。
-3. 再决定登录 / auth / GM / HTTP 是保留外层 compat 壳，还是继续 next-native 化。
+1. `WorldGateway` 对 bootstrap 的直接依赖已先改到中性的 `WorldSessionBootstrapService`；下一步继续把其中的 `LegacyAuthService` 降级成旧号导入 / 迁移 fallback。
+2. 现在 `WorldSessionBootstrapService` 又已继续拆到 `WorldPlayerAuthService / WorldPlayerSnapshotService / WorldLegacyPlayerSourceService / WorldClientEventService`，并且已不再直接注入 `LegacyGatewayCompatService`，`WorldPlayerAuthService / WorldPlayerSnapshotService` 也不再直接注入 `LegacyAuthService`；下一步把 `WorldLegacyPlayerSourceService` 底下的 legacy JWT/旧库读取语义从 next socket 正式认证链降级成旧号导入 / 迁移 fallback。
+3. `quest/chat/ack/error/bootstrap pending logbook` 这批路径已经开始收进中性入口；下一步继续把 next handler 中剩余仍借 `LegacyGatewayCompatService` 的 common result/dual emit 和 legacy 指令适配边界继续压薄。
+4. 补齐正式替换证明链：`client-next build`、`next protocol audit`、shadow、带库 restore。
+5. 再为 `next-protocol-audit` 增加“禁止额外 legacy 事件”负向断言。
 
-### 第二阶段：再处理 auth / GM / HTTP
+### 第二阶段：再处理 sync / runtime / GM / HTTP 的进一步独立化
 
 之后再明确：
 
-- 是把 legacy auth / GM / HTTP 固化为外层兼容壳
+- 是把 legacy HTTP / GM 固化为外层兼容壳
 - 还是继续推进 next auth / next GM / next HTTP
+- 同时继续压薄 `WorldSyncService` 的 compat 高频支路与 runtime/persistence 迁移尾巴
 
 在这一步之前，不建议继续扩 compat。
 
@@ -181,4 +204,4 @@
 
 当前最准确的说法是：
 
-> `server-next` 已经完成前台高频同步分流和一轮表层 socket 收口，`client-next` 也基本完成 next 主链收口；真正还没拆掉的是登录/会话、同步投影内核、runtime 真源以及后台 HTTP/GM。
+> `server-next` 已经完成前台高频同步分流和一轮表层 socket 收口，`client-next` 也基本完成 next 主链收口；真正阻塞正式替换旧前台的，已经主要收缩到登录/会话/bootstrap 主链、部分 next handler 仍借 compat 壳，以及替换验收证明链尚未闭环。
