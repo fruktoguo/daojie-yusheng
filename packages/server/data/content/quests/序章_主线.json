@@ -48,6 +48,18 @@
           "name": "赶路草鞋",
           "type": "equipment",
           "count": 1
+        },
+        {
+          "itemId": "equip.scavenger_fang",
+          "name": "拾荒尖牙",
+          "type": "equipment",
+          "count": 1
+        },
+        {
+          "itemId": "equip.porter_jacket",
+          "name": "扛包短褂",
+          "type": "equipment",
+          "count": 1
         }
       ],
       "nextQuestId": "q_intro_manual",

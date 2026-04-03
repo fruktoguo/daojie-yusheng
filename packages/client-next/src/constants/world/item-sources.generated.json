@@ -3191,6 +3191,15 @@
       "monsterId": "m_gate_thug",
       "monsterName": "断路暴徒",
       "count": 1
+    },
+    {
+      "kind": "quest",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "questId": "q_intro_old_road_witness",
+      "questTitle": "断道见闻",
+      "line": "main",
+      "chapter": "序章·断道入镇"
     }
   ],
   "equip.predator_tendon_boots": [
@@ -3709,6 +3718,15 @@
       "monsterId": "m_gale_bone_king",
       "monsterName": "裂风荒王",
       "count": 1
+    },
+    {
+      "kind": "quest",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "questId": "q_intro_old_road_witness",
+      "questTitle": "断道见闻",
+      "line": "main",
+      "chapter": "序章·断道入镇"
     }
   ],
   "equip.scorchcourt_battlecoat": [

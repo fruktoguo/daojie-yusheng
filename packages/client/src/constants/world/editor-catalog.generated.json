@@ -6612,20 +6612,26 @@
           "id": "skill.qingmu_slash",
           "name": "青木斩",
           "desc": "木脉剑气先划开气口，再把青痕压进经络，方便后招顺着破口继续深扎。",
-          "cooldown": 12,
-          "costMultiplier": 1,
+          "cooldown": 6,
+          "costMultiplier": 3,
           "range": 1,
           "effects": [
             {
               "type": "damage",
-              "damageKind": "spell",
+              "damageKind": "physical",
               "element": "wood",
               "formula": {
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 1.25
+                    "op": "add",
+                    "args": [
+                      30,
+                      {
+                        "var": "caster.stat.physAtk",
+                        "scale": 1.25
+                      }
+                    ]
                   },
                   {
                     "op": "add",
@@ -6660,14 +6666,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 1
+          "cost": 3
         },
         {
           "id": "skill.qingmu_pierce",
           "name": "穿林式",
           "desc": "沿青痕切开的气脉追刺而入，前排被破开后，后方也会被连成一线。",
-          "cooldown": 20,
-          "costMultiplier": 2,
+          "cooldown": 6,
+          "costMultiplier": 3,
           "range": 2,
           "targeting": {
             "shape": "line",
@@ -6676,14 +6682,20 @@
           "effects": [
             {
               "type": "damage",
-              "damageKind": "spell",
+              "damageKind": "physical",
               "element": "wood",
               "formula": {
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 1.45
+                    "op": "add",
+                    "args": [
+                      30,
+                      {
+                        "var": "caster.stat.physAtk",
+                        "scale": 1.45
+                      }
+                    ]
                   },
                   {
                     "op": "add",
@@ -6722,7 +6734,7 @@
             }
           ],
           "unlockLevel": 5,
-          "cost": 2
+          "cost": 3
         }
       ],
       "layers": [
@@ -6730,72 +6742,72 @@
           "level": 1,
           "expToNext": 1300,
           "attrs": {
-            "perception": 3,
-            "spirit": 1
+            "perception": 5,
+            "spirit": 2
           }
         },
         {
           "level": 2,
           "expToNext": 1400,
           "attrs": {
-            "perception": 3,
-            "spirit": 1
+            "perception": 5,
+            "spirit": 2
           }
         },
         {
           "level": 3,
           "expToNext": 1600,
           "attrs": {
-            "perception": 3,
-            "spirit": 1
+            "perception": 5,
+            "spirit": 2
           }
         },
         {
           "level": 4,
           "expToNext": 1800,
           "attrs": {
-            "perception": 3,
-            "spirit": 1
+            "perception": 5,
+            "spirit": 2
           }
         },
         {
           "level": 5,
           "expToNext": 2100,
           "attrs": {
-            "perception": 3,
-            "spirit": 2
+            "perception": 5,
+            "spirit": 3
           }
         },
         {
           "level": 6,
           "expToNext": 2300,
           "attrs": {
-            "perception": 3,
-            "spirit": 2
+            "perception": 5,
+            "spirit": 3
           }
         },
         {
           "level": 7,
           "expToNext": 2700,
           "attrs": {
-            "perception": 3,
-            "spirit": 2
+            "perception": 5,
+            "spirit": 3
           }
         },
         {
           "level": 8,
           "expToNext": 3100,
           "attrs": {
-            "perception": 3,
-            "spirit": 2
+            "perception": 5,
+            "spirit": 3
           }
         },
         {
           "level": 9,
           "expToNext": 0,
           "attrs": {
-            "perception": 4,
-            "spirit": 2
+            "perception": 6,
+            "spirit": 3
           }
         }
       ]

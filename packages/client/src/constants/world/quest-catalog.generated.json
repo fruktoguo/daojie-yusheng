@@ -1989,16 +1989,30 @@
     "objectiveText": "和赵老六对话，问清断道上的见闻",
     "required": 1,
     "targetName": "赵老六",
-    "rewardText": "赶路草鞋 x1",
+    "rewardText": "赶路草鞋 x1、拾荒尖牙 x1、扛包短褂 x1",
     "targetMonsterId": "",
     "rewardItemId": "equip.grassbound_shoes",
     "rewardItemIds": [
-      "equip.grassbound_shoes"
+      "equip.grassbound_shoes",
+      "equip.scavenger_fang",
+      "equip.porter_jacket"
     ],
     "rewards": [
       {
         "itemId": "equip.grassbound_shoes",
         "name": "赶路草鞋",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.scavenger_fang",
+        "name": "拾荒尖牙",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.porter_jacket",
+        "name": "扛包短褂",
         "type": "equipment",
         "count": 1
       }
