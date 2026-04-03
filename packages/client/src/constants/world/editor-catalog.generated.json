@@ -79,7 +79,8 @@
           "level": 1,
           "expToNext": 403200,
           "attrs": {
-            "constitution": 2
+            "constitution": 2,
+            "comprehension": 1
           }
         },
         {
@@ -87,14 +88,16 @@
           "expToNext": 441600,
           "attrs": {
             "constitution": 2,
-            "perception": 1
+            "perception": 1,
+            "comprehension": 1
           }
         },
         {
           "level": 3,
           "expToNext": 480000,
           "attrs": {
-            "constitution": 2
+            "constitution": 2,
+            "comprehension": 1
           }
         },
         {
@@ -102,14 +105,16 @@
           "expToNext": 528000,
           "attrs": {
             "constitution": 2,
-            "perception": 1
+            "perception": 1,
+            "comprehension": 1
           }
         },
         {
           "level": 5,
           "expToNext": 576000,
           "attrs": {
-            "constitution": 2
+            "constitution": 2,
+            "comprehension": 1
           }
         },
         {
@@ -117,14 +122,16 @@
           "expToNext": 633600,
           "attrs": {
             "constitution": 2,
-            "perception": 1
+            "perception": 1,
+            "comprehension": 1
           }
         },
         {
           "level": 7,
           "expToNext": 700800,
           "attrs": {
-            "constitution": 2
+            "constitution": 2,
+            "comprehension": 1
           }
         },
         {
@@ -132,14 +139,16 @@
           "expToNext": 777600,
           "attrs": {
             "constitution": 2,
-            "perception": 1
+            "perception": 1,
+            "comprehension": 1
           }
         },
         {
           "level": 9,
           "expToNext": 864000,
           "attrs": {
-            "constitution": 2
+            "constitution": 2,
+            "comprehension": 1
           }
         },
         {
@@ -147,7 +156,8 @@
           "expToNext": 0,
           "attrs": {
             "constitution": 2,
-            "perception": 1
+            "perception": 1,
+            "comprehension": 1
           }
         }
       ]
@@ -8454,7 +8464,8 @@
           "level": 1,
           "expToNext": 403200,
           "attrs": {
-            "spirit": 2
+            "spirit": 2,
+            "comprehension": 1
           }
         },
         {
@@ -8462,14 +8473,16 @@
           "expToNext": 441600,
           "attrs": {
             "spirit": 2,
-            "talent": 1
+            "talent": 1,
+            "comprehension": 1
           }
         },
         {
           "level": 3,
           "expToNext": 480000,
           "attrs": {
-            "spirit": 2
+            "spirit": 2,
+            "comprehension": 1
           }
         },
         {
@@ -8477,14 +8490,16 @@
           "expToNext": 528000,
           "attrs": {
             "spirit": 2,
-            "talent": 1
+            "talent": 1,
+            "comprehension": 1
           }
         },
         {
           "level": 5,
           "expToNext": 576000,
           "attrs": {
-            "spirit": 2
+            "spirit": 2,
+            "comprehension": 1
           }
         },
         {
@@ -8492,14 +8507,16 @@
           "expToNext": 633600,
           "attrs": {
             "spirit": 2,
-            "talent": 1
+            "talent": 1,
+            "comprehension": 1
           }
         },
         {
           "level": 7,
           "expToNext": 700800,
           "attrs": {
-            "spirit": 2
+            "spirit": 2,
+            "comprehension": 1
           }
         },
         {
@@ -8507,14 +8524,16 @@
           "expToNext": 777600,
           "attrs": {
             "spirit": 2,
-            "talent": 1
+            "talent": 1,
+            "comprehension": 1
           }
         },
         {
           "level": 9,
           "expToNext": 864000,
           "attrs": {
-            "spirit": 2
+            "spirit": 2,
+            "comprehension": 1
           }
         },
         {
@@ -8522,7 +8541,8 @@
           "expToNext": 0,
           "attrs": {
             "spirit": 2,
-            "talent": 1
+            "talent": 1,
+            "comprehension": 1
           }
         }
       ]

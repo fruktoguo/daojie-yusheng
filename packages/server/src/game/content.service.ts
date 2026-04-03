@@ -570,8 +570,11 @@ export class ContentService implements OnModuleInit {
     techniqueId: string,
   ): TechniqueLayerDef['attrs'] {
     if (!attrs) return attrs;
-    if (category !== 'secret' && ((attrs.comprehension ?? 0) > 0 || (attrs.luck ?? 0) > 0)) {
-      throw new Error(`功法 ${techniqueId} 不是秘术，不能提供悟性或气运加成`);
+    if (category !== 'secret' && (attrs.luck ?? 0) > 0) {
+      throw new Error(`功法 ${techniqueId} 不是秘术，不能提供气运加成`);
+    }
+    if (category !== 'secret' && category !== 'divine' && (attrs.comprehension ?? 0) > 0) {
+      throw new Error(`功法 ${techniqueId} 不是秘术或神通，不能提供悟性加成`);
     }
     return { ...attrs };
   }
