@@ -2971,11 +2971,17 @@ sidePanel.setLayoutChangeCallback(() => {
   }
   scheduleLayoutViewportSync();
 });
+function syncChatLogbookVisibility(): void {
+  const logbookPane = document.querySelector<HTMLElement>('.split-tab-pane[data-pane="logbook"]');
+  chatUI.setLogbookVisible(logbookPane?.classList.contains('active') === true);
+}
 sidePanel.setTabChangeCallback((tabName) => {
+  syncChatLogbookVisibility();
   if (tabName === 'market') {
     socket.sendRequestMarket();
   }
 });
+syncChatLogbookVisibility();
 
 function resizeCanvas() {
   const cssWidth = Math.max(1, canvasHost.clientWidth);

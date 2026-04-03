@@ -127,6 +127,7 @@ export class ChatUI {
   private persistedMessageKeys = new Set<string>();
   private pendingPersistence = new Map<string, Promise<boolean>>();
   private scopeLoadToken = 0;
+  private logbookVisible = false;
 
   constructor() {
     clearLegacyChatStorage();
@@ -201,6 +202,24 @@ export class ChatUI {
     this.setPersistenceScope(null);
   }
 
+  setLogbookVisible(visible: boolean): void {
+    if (this.logbookVisible === visible) {
+      return;
+    }
+    this.logbookVisible = visible;
+    if (!visible) {
+      for (const channel of CHAT_CHANNELS) {
+        const state = this.channelStates.get(channel);
+        if (!state) {
+          continue;
+        }
+        this.trimChannelState(state, CHAT_LOG_MAX_VISIBLE_MESSAGES);
+      }
+      return;
+    }
+    this.renderChannel(this.activeChannel, { stickToBottom: true });
+  }
+
   async addMessage(
     text: string,
     from?: string,
@@ -251,6 +270,10 @@ export class ChatUI {
         const merged = mergeMessages([], state.messages);
         state.messages = merged.messages;
         state.messageIds = merged.ids;
+      }
+      if (!this.logbookVisible) {
+        this.trimChannelState(state, CHAT_LOG_MAX_VISIBLE_MESSAGES);
+        continue;
       }
       const total = state.messages.length;
       const log = this.logs.get(channel);
@@ -340,7 +363,7 @@ export class ChatUI {
   }
 
   private async handleLogScroll(channel: ChatChannel): Promise<void> {
-    if (channel !== this.activeChannel) {
+    if (!this.logbookVisible || channel !== this.activeChannel) {
       return;
     }
     const log = this.logs.get(channel);
@@ -400,7 +423,9 @@ export class ChatUI {
     this.panes.forEach((pane) => {
       pane.classList.toggle('active', pane.dataset.chatPane === channel);
     });
-    this.renderChannel(channel, { stickToBottom: true });
+    if (this.logbookVisible) {
+      this.renderChannel(channel, { stickToBottom: true });
+    }
   }
 
   private isLogNearBottom(log: HTMLElement | undefined): boolean {
@@ -449,6 +474,26 @@ export class ChatUI {
       }
     }
 
+    if (!this.logbookVisible) {
+      for (const channel of CHAT_CHANNELS) {
+        const state = this.channelStates.get(channel);
+        if (!state) {
+          continue;
+        }
+        this.trimChannelState(state, CHAT_LOG_MAX_VISIBLE_MESSAGES);
+      }
+      return;
+    }
+
     this.renderAllChannels({ stickToBottom: true });
+  }
+
+  private trimChannelState(state: ChatChannelState, maxMessages: number): void {
+    if (state.messages.length > maxMessages) {
+      state.messages = state.messages.slice(-maxMessages);
+      state.messageIds = new Set(state.messages.map((entry) => entry.id));
+      state.hasLoadedAll = false;
+    }
+    state.loadedCount = Math.min(state.messages.length, maxMessages);
   }
 }
