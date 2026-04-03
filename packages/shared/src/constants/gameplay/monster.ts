@@ -103,7 +103,7 @@ export const MONSTER_TIER_EXP_MULTIPLIERS: Record<MonsterTier, number> = {
 };
 
 /** 怪物境界每提升 1 级时，击杀经验额外乘算的衰减倍率。 */
-export const MONSTER_LEVEL_EXP_DECAY_MULTIPLIER = 0.95;
+export const MONSTER_LEVEL_EXP_DECAY_MULTIPLIER = 0.97;
 
 /** 玩家等级高于怪物时，各血脉层次每级削减的击杀经验比例。 */
 export const MONSTER_TIER_OVERLEVEL_EXP_REDUCTION_RATES: Record<MonsterTier, number> = {
