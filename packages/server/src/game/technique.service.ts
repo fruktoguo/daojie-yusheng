@@ -596,11 +596,10 @@ export class TechniqueService {
     const cultivationTarget = this.measureCpuSection('cultivation_resolve', '修炼: 主修解析', () => (
       this.resolveActiveCultivatingTechnique(player)
     ));
-    if (!cultivationTarget.technique) {
+    if (!cultivationTarget.technique && player.cultivatingTechId) {
       return this.clearInvalidCultivation(player);
     }
-    const technique = cultivationTarget.technique;
-    this.refreshCultivationBuff(cultivationBuff, technique.name, player.realm?.realmLv ?? player.realmLv ?? 1);
+    this.refreshCultivationBuff(cultivationBuff, cultivationTarget.technique?.name, player.realm?.realmLv ?? player.realmLv ?? 1);
 
     const numericStats = this.measureCpuSection('cultivation_stats', '修炼: 数值采集', () => (
       this.attrService.getPlayerNumericStats(player)
@@ -669,24 +668,18 @@ export class TechniqueService {
   startCultivation(player: PlayerState): CultivationResult {
     this.initializePlayerProgression(player);
     const technique = this.resolveCultivatingTechnique(player);
-    if (!technique) {
-      if (player.cultivatingTechId) {
-        return this.clearInvalidCultivation(player);
-      }
-      return {
-        error: '请先在功法面板选择一门主修功法',
-        changed: false,
-        dirty: [],
-        messages: [],
-      };
+    if (!technique && player.cultivatingTechId) {
+      return this.clearInvalidCultivation(player);
     }
 
+    const techniqueName = technique?.name;
+    const sourceRealmLv = player.realm?.realmLv ?? player.realmLv ?? 1;
     player.temporaryBuffs ??= [];
     const current = this.getCultivationBuff(player);
     if (current) {
-      this.refreshCultivationBuff(current, technique.name, player.realm?.realmLv ?? player.realmLv ?? 1);
+      this.refreshCultivationBuff(current, techniqueName, sourceRealmLv);
     } else {
-      player.temporaryBuffs.push(this.buildCultivationBuffState(technique.name, player.realm?.realmLv ?? player.realmLv ?? 1));
+      player.temporaryBuffs.push(this.buildCultivationBuffState(techniqueName, sourceRealmLv));
       this.attrService.recalcPlayer(player);
     }
 
@@ -694,7 +687,7 @@ export class TechniqueService {
       changed: true,
       dirty: ['attr', 'actions'],
       messages: [{
-        text: `你沉心运转 ${technique.name}，开始修炼。移动、主动出手或受击都会中断修炼。`,
+        text: this.buildCultivationStartMessage(techniqueName, player.techniques.length > 0),
         kind: 'quest',
       }],
     };
@@ -1260,11 +1253,11 @@ export class TechniqueService {
     return 1 + Math.max(0, auraLevel);
   }
 
-  private buildCultivationBuffState(techniqueName: string, sourceRealmLv: number): TemporaryBuffState {
+  private buildCultivationBuffState(techniqueName: string | undefined, sourceRealmLv: number): TemporaryBuffState {
     return {
       buffId: CULTIVATION_BUFF_ID,
       name: '修炼中',
-      desc: `${techniqueName} 正在运转，每息获得境界修为与功法经验，移动、主动攻击或受击都会打断修炼。`,
+      desc: this.buildCultivationBuffDescription(techniqueName),
       shortMark: '修',
       category: 'buff',
       visibility: 'public',
@@ -1283,9 +1276,9 @@ export class TechniqueService {
     };
   }
 
-  private refreshCultivationBuff(buff: TemporaryBuffState, techniqueName: string, sourceRealmLv: number): void {
+  private refreshCultivationBuff(buff: TemporaryBuffState, techniqueName: string | undefined, sourceRealmLv: number): void {
     buff.name = '修炼中';
-    buff.desc = `${techniqueName} 正在运转，每息获得境界修为与功法经验，移动、主动攻击或受击都会打断修炼。`;
+    buff.desc = this.buildCultivationBuffDescription(techniqueName);
     buff.shortMark = '修';
     buff.category = 'buff';
     buff.visibility = 'public';
@@ -1301,6 +1294,23 @@ export class TechniqueService {
       techniqueExpPerTick: CULTIVATE_EXP_PER_TICK,
     };
     buff.statMode = 'flat';
+  }
+
+  private buildCultivationStartMessage(techniqueName: string | undefined, hasLearnedTechniques: boolean): string {
+    if (techniqueName) {
+      return `你沉心运转 ${techniqueName}，开始修炼。移动、主动出手或受击都会中断修炼。`;
+    }
+    if (hasLearnedTechniques) {
+      return '你沉心调息，开始修炼。当前未设主修，功法经验会直接转入炼体。移动、主动出手或受击都会中断修炼。';
+    }
+    return '你沉心调息，开始修炼。移动、主动出手或受击都会中断修炼。';
+  }
+
+  private buildCultivationBuffDescription(techniqueName?: string): string {
+    if (techniqueName) {
+      return `${techniqueName} 正在运转，每息获得境界修为与功法经验，移动、主动攻击或受击都会打断修炼。`;
+    }
+    return '正在调息修炼，每息获得境界修为与功法经验；若未设主修，功法经验会直接转入炼体。移动、主动攻击或受击都会打断修炼。';
   }
 
   private removeCultivationBuff(player: PlayerState): boolean {

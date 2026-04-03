@@ -666,7 +666,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       id: 'cultivation:toggle',
       name: '当前修炼',
       type: 'toggle',
-      desc: '切换当前主修功法的修炼状态；需先在功法面板选择主修功法。',
+      desc: '切换当前修炼状态；未设主修时仍可修炼，功法经验会直接转入炼体。',
       cooldownLeft: 0,
     }, {
       id: 'battle:force_attack',

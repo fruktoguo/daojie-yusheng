@@ -590,9 +590,6 @@ export class ActionPanel {
       case 'toggle:auto_switch_cultivation':
         return { active: this.autoSwitchCultivation, label: this.autoSwitchCultivation ? '开' : '关' };
       case 'cultivation:toggle':
-        if (!this.previewPlayer?.cultivatingTechId) {
-          return { active: false, label: '未设' };
-        }
         return { active: this.cultivationActive, label: this.cultivationActive ? '开' : '关' };
       case 'sense_qi:toggle': {
         const active = this.previewPlayer?.senseQiActive === true;

@@ -1945,10 +1945,14 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       case 'cultivate': {
         const { techId } = data as { techId: string | null };
         if (!techId) {
-          const cultivation = this.techniqueService.stopCultivation(player, '你收束气机，停止了当前修炼。', 'quest');
           player.cultivatingTechId = undefined;
-          this.applyCultivationResult(player.id, cultivation, messages);
-          messages.push({ playerId: player.id, text: '你收束气机，取消了当前主修功法。', kind: 'quest' });
+          messages.push({
+            playerId: player.id,
+            text: this.techniqueService.hasCultivationBuff(player)
+              ? '你收束原本主修的行功路数，继续以无主修状态修炼；后续功法经验将直接转入炼体。'
+              : '你收束气机，取消了当前主修功法。',
+            kind: 'quest',
+          });
           this.playerService.markDirty(player.id, 'tech');
           this.markActionsDirty(player.id);
           break;
