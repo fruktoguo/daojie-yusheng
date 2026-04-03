@@ -11,6 +11,10 @@ import {
   MONSTER_TIER_ORDER,
   NUMERIC_SCALAR_STAT_KEYS,
   NUMERIC_SCALAR_STAT_LABELS,
+  PLAYER_REALM_CONFIG,
+  PLAYER_REALM_ORDER,
+  PLAYER_REALM_STAGE_LEVEL_RANGES,
+  TECHNIQUE_GRADE_ORDER,
   TECHNIQUE_GRADE_LABELS,
   resolveMonsterTemplateRecord,
   type Attributes,
@@ -26,6 +30,7 @@ import {
   type NumericStatPercentages,
   type NumericStats,
   type PartialNumericStats,
+  type PlayerRealmStage,
   type TechniqueGrade,
 } from '@mud/shared';
 import { GmMapEditor } from '../../client/src/gm-map-editor';
@@ -197,6 +202,18 @@ const AGGRO_MODE_OPTIONS: Array<{ value: MonsterAggroMode; label: string }> = [
   { value: 'day_only', label: '仅白天主动' },
   { value: 'night_only', label: '仅夜晚主动' },
 ];
+const MONSTER_TIER_SORT_ORDER = MONSTER_TIER_ORDER.reduce<Record<MonsterTier, number>>((accumulator, tier, index) => {
+  accumulator[tier] = index;
+  return accumulator;
+}, {} as Record<MonsterTier, number>);
+const TECHNIQUE_GRADE_SORT_ORDER = TECHNIQUE_GRADE_ORDER.reduce<Record<TechniqueGrade, number>>((accumulator, grade, index) => {
+  accumulator[grade] = index;
+  return accumulator;
+}, {} as Record<TechniqueGrade, number>);
+const PLAYER_REALM_STAGE_SORT_ORDER = PLAYER_REALM_ORDER.reduce<Record<PlayerRealmStage, number>>((accumulator, stage, index) => {
+  accumulator[stage] = index;
+  return accumulator;
+}, {} as Record<PlayerRealmStage, number>);
 
 const MONSTER_SOURCE_MODE_LABELS: Record<MonsterTemplateRecord['sourceMode'], string> = {
   legacy: '旧 hp/attack 模式',
@@ -343,6 +360,82 @@ function populateMonsterStaticOptions(): void {
     .join('');
 }
 
+function normalizeMonsterSortLevel(level: number | undefined): number {
+  if (!Number.isFinite(level)) {
+    return 1;
+  }
+  return Math.max(1, Math.floor(level ?? 1));
+}
+
+function resolveMonsterRealmStage(level: number | undefined): PlayerRealmStage {
+  const normalizedLevel = normalizeMonsterSortLevel(level);
+  for (let index = PLAYER_REALM_ORDER.length - 1; index >= 0; index -= 1) {
+    const stage = PLAYER_REALM_ORDER[index]!;
+    if (normalizedLevel >= PLAYER_REALM_STAGE_LEVEL_RANGES[stage].levelFrom) {
+      return stage;
+    }
+  }
+  return PLAYER_REALM_ORDER[0]!;
+}
+
+function getMonsterTierSortWeight(tier: MonsterTier): number {
+  return MONSTER_TIER_SORT_ORDER[tier] ?? -1;
+}
+
+function getMonsterGradeSortWeight(grade: TechniqueGrade): number {
+  return TECHNIQUE_GRADE_SORT_ORDER[grade] ?? -1;
+}
+
+function getMonsterRealmStageSortWeight(level: number | undefined): number {
+  return PLAYER_REALM_STAGE_SORT_ORDER[resolveMonsterRealmStage(level)] ?? -1;
+}
+
+function compareMonsterTemplateEntries(left: LocalMonsterTemplateEntry, right: LocalMonsterTemplateEntry): number {
+  const realmStageDiff = getMonsterRealmStageSortWeight(right.monster.level) - getMonsterRealmStageSortWeight(left.monster.level);
+  if (realmStageDiff !== 0) {
+    return realmStageDiff;
+  }
+
+  const tierDiff = getMonsterTierSortWeight(right.monster.tier) - getMonsterTierSortWeight(left.monster.tier);
+  if (tierDiff !== 0) {
+    return tierDiff;
+  }
+
+  const gradeDiff = getMonsterGradeSortWeight(right.monster.grade) - getMonsterGradeSortWeight(left.monster.grade);
+  if (gradeDiff !== 0) {
+    return gradeDiff;
+  }
+
+  const levelDiff = normalizeMonsterSortLevel(right.monster.level) - normalizeMonsterSortLevel(left.monster.level);
+  if (levelDiff !== 0) {
+    return levelDiff;
+  }
+
+  const nameDiff = (left.monster.name || left.monster.id).localeCompare(right.monster.name || right.monster.id, 'zh-Hans-CN');
+  if (nameDiff !== 0) {
+    return nameDiff;
+  }
+
+  const idDiff = left.monster.id.localeCompare(right.monster.id);
+  if (idDiff !== 0) {
+    return idDiff;
+  }
+
+  return left.filePath.localeCompare(right.filePath, 'zh-Hans-CN');
+}
+
+function formatMonsterListMeta(entry: LocalMonsterTemplateEntry): string {
+  const realmStage = resolveMonsterRealmStage(entry.monster.level);
+  const realmLabel = PLAYER_REALM_CONFIG[realmStage].shortName;
+  return [
+    entry.monster.id,
+    realmLabel,
+    MONSTER_TIER_LABELS[entry.monster.tier],
+    TECHNIQUE_GRADE_LABELS[entry.monster.grade],
+    entry.filePath,
+  ].join(' · ');
+}
+
 function renderMonsterList(): void {
   const keyword = monsterSearchEl.value.trim().toLowerCase();
   const filtered = monsterTemplates.filter((entry) => {
@@ -360,7 +453,7 @@ function renderMonsterList(): void {
   monsterListEl.innerHTML = filtered.map((entry) => `
     <button class="config-file-row ${entry.key === currentMonsterKey ? 'active' : ''}" data-monster-key="${escapeHtml(entry.key)}" type="button">
       <div class="config-file-name">${escapeHtml(entry.monster.name || entry.monster.id)}</div>
-      <div class="config-file-meta">${escapeHtml(entry.monster.id)} · ${escapeHtml(TECHNIQUE_GRADE_LABELS[entry.monster.grade])} · ${escapeHtml(entry.filePath)}</div>
+      <div class="config-file-meta">${escapeHtml(formatMonsterListMeta(entry))}</div>
     </button>
   `).join('');
 }
@@ -1017,7 +1110,7 @@ function onMonsterFormInput(): void {
 
 async function loadMonsterTemplateList(preferredKey?: string | null): Promise<void> {
   const result = await request<LocalMonsterTemplateListRes>('/api/monsters');
-  monsterTemplates = result.monsters;
+  monsterTemplates = [...result.monsters].sort(compareMonsterTemplateEntries);
   renderMonsterList();
 
   const nextKey = preferredKey && monsterTemplates.some((entry) => entry.key === preferredKey)
