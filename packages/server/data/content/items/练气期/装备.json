@@ -292,7 +292,7 @@
       {
         "effectId": "gold-sand-temper",
         "type": "progress_boost",
-        "statMode": "flat",
+        "statMode": "percent",
         "conditions": {
           "mode": "all",
           "items": [
@@ -651,7 +651,7 @@
       {
         "effectId": "sealed-edge-cultivate",
         "type": "progress_boost",
-        "statMode": "flat",
+        "statMode": "percent",
         "conditions": {
           "mode": "all",
           "items": [
@@ -736,7 +736,7 @@
           "valueStats": {
             "hit": 5,
             "crit": 5,
-            "qiRegenRate": 1.2
+            "qiRegenRate": 120
           }
         }
       }
@@ -1001,7 +1001,7 @@
       {
         "effectId": "sealed-path-march",
         "type": "progress_boost",
-        "statMode": "flat",
+        "statMode": "percent",
         "conditions": {
           "mode": "all",
           "items": [
@@ -1328,7 +1328,7 @@
       {
         "effectId": "shieldvein-breathe",
         "type": "progress_boost",
-        "statMode": "flat",
+        "statMode": "percent",
         "conditions": {
           "mode": "all",
           "items": [
@@ -1690,7 +1690,7 @@
       {
         "effectId": "quakeheart-advance",
         "type": "progress_boost",
-        "statMode": "flat",
+        "statMode": "percent",
         "conditions": {
           "mode": "all",
           "items": [
@@ -1891,7 +1891,7 @@
       {
         "effectId": "deepvein-shard-study",
         "type": "progress_boost",
-        "statMode": "flat",
+        "statMode": "percent",
         "conditions": {
           "mode": "all",
           "items": [
@@ -2048,7 +2048,7 @@
       {
         "effectId": "deepvein-core-cultivate",
         "type": "progress_boost",
-        "statMode": "flat",
+        "statMode": "percent",
         "conditions": {
           "mode": "all",
           "items": [
@@ -2120,7 +2120,7 @@
       {
         "effectId": "returnbreath-cultivate",
         "type": "progress_boost",
-        "statMode": "flat",
+        "statMode": "percent",
         "conditions": {
           "mode": "all",
           "items": [
@@ -2165,8 +2165,8 @@
           "visibility": "public",
           "color": "#7fbc63",
           "valueStats": {
-            "hpRegenRate": 0.8,
-            "qiRegenRate": 0.8
+            "hpRegenRate": 80,
+            "qiRegenRate": 80
           }
         }
       }
@@ -2192,7 +2192,7 @@
       {
         "effectId": "verdant-crown-study",
         "type": "progress_boost",
-        "statMode": "flat",
+        "statMode": "percent",
         "conditions": {
           "mode": "all",
           "items": [
@@ -2266,7 +2266,7 @@
         },
         "valueStats": {
           "spellAtk": 5,
-          "qiRegenRate": 0.7,
+          "qiRegenRate": 70,
           "resolvePower": 5
         }
       }

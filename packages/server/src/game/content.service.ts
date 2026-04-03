@@ -1021,9 +1021,9 @@ export class ContentService implements OnModuleInit {
           stats: this.resolveConfiguredBuffStats(
             input.stats,
             input.valueStats,
-            input.statMode === undefined ? 'flat' : this.normalizeBuffModifierMode(input.statMode),
+            this.normalizeBuffModifierMode(input.statMode),
           ),
-          statMode: input.statMode === undefined ? 'flat' : this.normalizeBuffModifierMode(input.statMode),
+          statMode: this.normalizeBuffModifierMode(input.statMode),
           qiProjection: this.normalizeQiProjectionModifiers(input.qiProjection),
         }];
       case 'periodic_cost': {

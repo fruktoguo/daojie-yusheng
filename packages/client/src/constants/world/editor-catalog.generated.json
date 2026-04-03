@@ -163,8 +163,8 @@
           "id": "skill.baihong_lieyue",
           "name": "白虹裂岳",
           "desc": "白虹贯线，同时给一路敌手压上锋痕。",
-          "cooldown": 40,
-          "costMultiplier": 3,
+          "cooldown": 20,
+          "costMultiplier": 9,
           "range": 3,
           "targeting": {
             "shape": "line",
@@ -224,14 +224,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 207
+          "cost": 621
         },
         {
           "id": "skill.xuefeng_jueshi",
           "name": "削峰绝势",
           "desc": "读取锋痕压低目标命中与化解。",
-          "cooldown": 32,
-          "costMultiplier": 2,
+          "cooldown": 16,
+          "costMultiplier": 6,
           "range": 2,
           "effects": [
             {
@@ -291,7 +291,7 @@
             }
           ],
           "unlockLevel": 6,
-          "cost": 138
+          "cost": 414
         }
       ],
       "layers": [
@@ -707,8 +707,8 @@
           "id": "skill.huomai_cuxing",
           "name": "火脉催行",
           "desc": "火息催窍，顺势添灼，借热提速后再逼近一步。",
-          "cooldown": 16,
-          "costMultiplier": 1,
+          "cooldown": 8,
+          "costMultiplier": 3,
           "range": 1,
           "effects": [
             {
@@ -782,7 +782,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 46
+          "cost": 138
         }
       ],
       "layers": [
@@ -1109,8 +1109,8 @@
           "id": "skill.chiyao_laoxin",
           "name": "赤曜烙心",
           "desc": "赤曜贯心，快速把灼脉叠到中高层。",
-          "cooldown": 34,
-          "costMultiplier": 2,
+          "cooldown": 17,
+          "costMultiplier": 6,
           "range": 3,
           "effects": [
             {
@@ -1201,14 +1201,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 138
+          "cost": 414
         },
         {
           "id": "skill.yaohuo_huiran",
           "name": "曜火回燃",
           "desc": "按灼脉层数放大爆发，并带少量范围蔓延。",
-          "cooldown": 42,
-          "costMultiplier": 3,
+          "cooldown": 21,
+          "costMultiplier": 9,
           "range": 4,
           "targeting": {
             "shape": "area",
@@ -1272,7 +1272,7 @@
             }
           ],
           "unlockLevel": 6,
-          "cost": 207
+          "cost": 621
         }
       ],
       "layers": [
@@ -1475,8 +1475,8 @@
           "id": "skill.luoshan_zhenmai",
           "name": "落山镇脉",
           "desc": "地气如落山压下，对小范围敌手一并沉脉。",
-          "cooldown": 18,
-          "costMultiplier": 1,
+          "cooldown": 9,
+          "costMultiplier": 3,
           "range": 3,
           "targeting": {
             "shape": "area",
@@ -1537,7 +1537,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 52
+          "cost": 156
         }
       ],
       "layers": [
@@ -1654,8 +1654,8 @@
           "id": "skill.xingmang_zhuiji",
           "name": "星芒追击",
           "desc": "碎星芒沿前路连点，对锋痕未散的敌手追出更深裂口。",
-          "cooldown": 18,
-          "costMultiplier": 1,
+          "cooldown": 9,
+          "costMultiplier": 3,
           "range": 3,
           "targeting": {
             "shape": "line",
@@ -1715,7 +1715,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 52
+          "cost": 156
         }
       ],
       "layers": [
@@ -2448,8 +2448,8 @@
           "id": "skill.ningfeng_ci",
           "name": "凝锋刺",
           "desc": "凝锋一刺，快速压出锋痕。",
-          "cooldown": 16,
-          "costMultiplier": 1,
+          "cooldown": 8,
+          "costMultiplier": 3,
           "range": 1,
           "effects": [
             {
@@ -2516,14 +2516,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 38
+          "cost": 114
         },
         {
           "id": "skill.duanbei_zhan",
           "name": "断碑斩",
           "desc": "借锋痕贯入脉门，对单体做收头重击。",
-          "cooldown": 18,
-          "costMultiplier": 1,
+          "cooldown": 9,
+          "costMultiplier": 3,
           "range": 1,
           "effects": [
             {
@@ -2556,7 +2556,7 @@
             }
           ],
           "unlockLevel": 4,
-          "cost": 38
+          "cost": 114
         }
       ],
       "layers": [
@@ -2753,8 +2753,8 @@
           "id": "skill.heqi_yin",
           "name": "合炁印",
           "desc": "读取目标身上已有五行痕迹，转成杂相起点。",
-          "cooldown": 24,
-          "costMultiplier": 1,
+          "cooldown": 12,
+          "costMultiplier": 3,
           "range": 3,
           "effects": [
             {
@@ -2840,7 +2840,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 38
+          "cost": 114
         }
       ],
       "layers": [
@@ -3192,8 +3192,8 @@
           "id": "skill.hanxi_yin",
           "name": "寒汐印",
           "desc": "寒印先落，压低目标机动。",
-          "cooldown": 22,
-          "costMultiplier": 1,
+          "cooldown": 11,
+          "costMultiplier": 3,
           "range": 3,
           "effects": [
             {
@@ -3262,14 +3262,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 38
+          "cost": 114
         },
         {
           "id": "skill.jingchao_fengmai",
           "name": "净潮封脉",
           "desc": "小范围封脉，按寒印层数继续压制。",
-          "cooldown": 26,
-          "costMultiplier": 2,
+          "cooldown": 13,
+          "costMultiplier": 6,
           "range": 3,
           "targeting": {
             "shape": "area",
@@ -3325,7 +3325,7 @@
             }
           ],
           "unlockLevel": 4,
-          "cost": 76
+          "cost": 228
         }
       ],
       "layers": [
@@ -3438,8 +3438,8 @@
           "id": "skill.zhenmai_yin",
           "name": "镇脉印",
           "desc": "厚土先护己身，再把镇脉压到目标身上。",
-          "cooldown": 16,
-          "costMultiplier": 1,
+          "cooldown": 8,
+          "costMultiplier": 3,
           "range": 1,
           "effects": [
             {
@@ -3506,14 +3506,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 38
+          "cost": 114
         },
         {
           "id": "skill.chengyuan_luobei",
           "name": "承元落碑",
           "desc": "按镇脉层数做重击收束。",
-          "cooldown": 18,
-          "costMultiplier": 1,
+          "cooldown": 9,
+          "costMultiplier": 3,
           "range": 1,
           "effects": [
             {
@@ -3546,7 +3546,7 @@
             }
           ],
           "unlockLevel": 4,
-          "cost": 38
+          "cost": 114
         }
       ],
       "layers": [
@@ -3659,8 +3659,8 @@
           "id": "skill.huangting_dingyue",
           "name": "黄庭定岳",
           "desc": "黄庭一镇，直接把镇脉抬到高层。",
-          "cooldown": 32,
-          "costMultiplier": 2,
+          "cooldown": 16,
+          "costMultiplier": 6,
           "range": 1,
           "effects": [
             {
@@ -3781,14 +3781,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 216
+          "cost": 648
         },
         {
           "id": "skill.kunyuan_fumai",
           "name": "坤元覆脉",
           "desc": "读取高层镇脉做稳定重压收束。",
-          "cooldown": 50,
-          "costMultiplier": 4,
+          "cooldown": 25,
+          "costMultiplier": 12,
           "range": 2,
           "effects": [
             {
@@ -3837,7 +3837,7 @@
             }
           ],
           "unlockLevel": 8,
-          "cost": 432
+          "cost": 1296
         }
       ],
       "layers": [
@@ -3970,8 +3970,8 @@
           "id": "skill.hunyuan_dianxiang",
           "name": "混元点相",
           "desc": "读取多路线痕迹，直接把杂相抬高。",
-          "cooldown": 50,
-          "costMultiplier": 4,
+          "cooldown": 25,
+          "costMultiplier": 12,
           "range": 3,
           "effects": [
             {
@@ -4109,14 +4109,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 432
+          "cost": 1296
         },
         {
           "id": "skill.zaimai_guiyi",
           "name": "载脉归一",
           "desc": "按杂相层数强化全系混行压制。",
-          "cooldown": 50,
-          "costMultiplier": 4,
+          "cooldown": 25,
+          "costMultiplier": 12,
           "range": 3,
           "effects": [
             {
@@ -4181,7 +4181,7 @@
             }
           ],
           "unlockLevel": 6,
-          "cost": 432
+          "cost": 1296
         }
       ],
       "layers": [
@@ -4330,8 +4330,8 @@
           "id": "skill.pojin_linghen",
           "name": "破筋棱痕",
           "desc": "贴身破筋，沿旧有锋痕再开一道棱痕，自身借势凝锐。",
-          "cooldown": 16,
-          "costMultiplier": 1,
+          "cooldown": 8,
+          "costMultiplier": 3,
           "range": 1,
           "effects": [
             {
@@ -4406,7 +4406,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 46
+          "cost": 138
         }
       ],
       "layers": [
@@ -5024,8 +5024,8 @@
           "id": "skill.kunyue_zhenxing",
           "name": "坤岳镇形",
           "desc": "坤岳压形，边护己边推高镇脉。",
-          "cooldown": 24,
-          "costMultiplier": 2,
+          "cooldown": 12,
+          "costMultiplier": 6,
           "range": 1,
           "effects": [
             {
@@ -5119,14 +5119,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 138
+          "cost": 414
         },
         {
           "id": "skill.yuedong_huizhen",
           "name": "岳动回震",
           "desc": "借自身厚重与镇脉层数做反震重击。",
-          "cooldown": 34,
-          "costMultiplier": 2,
+          "cooldown": 17,
+          "costMultiplier": 6,
           "range": 2,
           "effects": [
             {
@@ -5167,7 +5167,7 @@
             }
           ],
           "unlockLevel": 6,
-          "cost": 138
+          "cost": 414
         }
       ],
       "layers": [
@@ -5300,8 +5300,8 @@
           "id": "skill.yunhuo_laomai",
           "name": "陨火烙脉",
           "desc": "火意落脉，先把灼脉挂上去。",
-          "cooldown": 22,
-          "costMultiplier": 1,
+          "cooldown": 11,
+          "costMultiplier": 3,
           "range": 3,
           "effects": [
             {
@@ -5366,14 +5366,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 38
+          "cost": 114
         },
         {
           "id": "skill.fenxi_jue",
           "name": "焚息诀",
           "desc": "读取灼脉，对小范围敌手做引爆。",
-          "cooldown": 26,
-          "costMultiplier": 2,
+          "cooldown": 13,
+          "costMultiplier": 6,
           "range": 3,
           "targeting": {
             "shape": "area",
@@ -5411,7 +5411,7 @@
             }
           ],
           "unlockLevel": 4,
-          "cost": 76
+          "cost": 228
         }
       ],
       "layers": [
@@ -5757,8 +5757,8 @@
           "id": "skill.tengluo_manshen",
           "name": "藤络蔓伸",
           "desc": "藤络分织，向周身几处要穴同时补上缠脉。",
-          "cooldown": 18,
-          "costMultiplier": 1,
+          "cooldown": 9,
+          "costMultiplier": 3,
           "range": 3,
           "targeting": {
             "shape": "area",
@@ -5819,7 +5819,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 52
+          "cost": 156
         }
       ],
       "layers": [
@@ -6016,8 +6016,8 @@
           "id": "skill.hanliu_fuxing",
           "name": "寒流覆行",
           "desc": "寒流贴身再覆敌脉，寒印越深，自身越轻灵。",
-          "cooldown": 20,
-          "costMultiplier": 1,
+          "cooldown": 10,
+          "costMultiplier": 3,
           "range": 3,
           "effects": [
             {
@@ -6093,7 +6093,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 46
+          "cost": 138
         }
       ],
       "layers": [
@@ -6823,8 +6823,8 @@
           "id": "skill.qianluo_chanmai",
           "name": "牵萝缠脉",
           "desc": "木意牵络，先给目标挂上缠脉。",
-          "cooldown": 22,
-          "costMultiplier": 1,
+          "cooldown": 11,
+          "costMultiplier": 3,
           "range": 3,
           "effects": [
             {
@@ -6891,14 +6891,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 38
+          "cost": 114
         },
         {
           "id": "skill.kurong_nichou",
           "name": "枯荣逆抽",
           "desc": "沿缠脉回抽生机，兼顾输出与回转。",
-          "cooldown": 24,
-          "costMultiplier": 2,
+          "cooldown": 12,
+          "costMultiplier": 6,
           "range": 3,
           "effects": [
             {
@@ -6949,7 +6949,7 @@
             }
           ],
           "unlockLevel": 4,
-          "cost": 76
+          "cost": 228
         }
       ],
       "layers": [
@@ -7062,8 +7062,8 @@
           "id": "skill.huisheng_panluo",
           "name": "回生盘络",
           "desc": "木息盘络，循缠脉倒卷生机，伤敌时一并反哺己身。",
-          "cooldown": 20,
-          "costMultiplier": 1,
+          "cooldown": 10,
+          "costMultiplier": 3,
           "range": 3,
           "effects": [
             {
@@ -7119,7 +7119,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 46
+          "cost": 138
         }
       ],
       "layers": [
@@ -7825,8 +7825,8 @@
           "id": "skill.taibai_liuhen",
           "name": "太白留痕",
           "desc": "太白一划，迅速把锋痕推到高层。",
-          "cooldown": 32,
-          "costMultiplier": 2,
+          "cooldown": 16,
+          "costMultiplier": 6,
           "range": 1,
           "effects": [
             {
@@ -7928,14 +7928,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 216
+          "cost": 648
         },
         {
           "id": "skill.zhuxing_duanpo",
           "name": "诛形断魄",
           "desc": "按锋痕层数大幅放大金行处决伤害。",
-          "cooldown": 38,
-          "costMultiplier": 3,
+          "cooldown": 19,
+          "costMultiplier": 9,
           "range": 1,
           "effects": [
             {
@@ -7984,7 +7984,7 @@
             }
           ],
           "unlockLevel": 6,
-          "cost": 324
+          "cost": 972
         }
       ],
       "layers": [
@@ -8127,8 +8127,8 @@
           "id": "skill.taichu_guilun",
           "name": "太初归轮",
           "desc": "抱元归轮，令气血与灵息一并回稳。",
-          "cooldown": 22,
-          "costMultiplier": 2,
+          "cooldown": 11,
+          "costMultiplier": 6,
           "range": 0,
           "requiresTarget": false,
           "effects": [
@@ -8193,14 +8193,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 216
+          "cost": 648
         },
         {
           "id": "skill.wulou_shouzhong",
           "name": "无漏守中",
           "desc": "无漏守中，借高层定息稳定全身。",
-          "cooldown": 42,
-          "costMultiplier": 3,
+          "cooldown": 21,
+          "costMultiplier": 9,
           "range": 0,
           "requiresTarget": false,
           "effects": [
@@ -8246,7 +8246,7 @@
             }
           ],
           "unlockLevel": 8,
-          "cost": 324
+          "cost": 972
         }
       ],
       "layers": [
@@ -8538,8 +8538,8 @@
           "id": "skill.taiyin_chuiyin",
           "name": "太阴垂印",
           "desc": "太阴一落，寒印瞬间抬到高层。",
-          "cooldown": 48,
-          "costMultiplier": 3,
+          "cooldown": 24,
+          "costMultiplier": 9,
           "range": 3,
           "effects": [
             {
@@ -8644,14 +8644,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 324
+          "cost": 972
         },
         {
           "id": "skill.guichao_suojie",
           "name": "归潮锁界",
           "desc": "对一片区域延长寒意压制。",
-          "cooldown": 50,
-          "costMultiplier": 4,
+          "cooldown": 25,
+          "costMultiplier": 12,
           "range": 4,
           "targeting": {
             "shape": "area",
@@ -8724,7 +8724,7 @@
             }
           ],
           "unlockLevel": 6,
-          "cost": 432
+          "cost": 1296
         }
       ],
       "layers": [
@@ -9081,8 +9081,8 @@
           "id": "skill.ping_chao_xi",
           "name": "平潮息",
           "desc": "调息平潮，迅速立起定息。",
-          "cooldown": 16,
-          "costMultiplier": 1,
+          "cooldown": 8,
+          "costMultiplier": 3,
           "range": 0,
           "requiresTarget": false,
           "effects": [
@@ -9126,14 +9126,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 38
+          "cost": 114
         },
         {
           "id": "skill.huidu_huyuan",
           "name": "回渡护元",
           "desc": "以定息护持经络，进一步稳住法防与化解。",
-          "cooldown": 28,
-          "costMultiplier": 2,
+          "cooldown": 14,
+          "costMultiplier": 6,
           "range": 0,
           "requiresTarget": false,
           "effects": [
@@ -9176,7 +9176,7 @@
             }
           ],
           "unlockLevel": 4,
-          "cost": 76
+          "cost": 228
         }
       ],
       "layers": [
@@ -9289,8 +9289,8 @@
           "id": "skill.qianzhi_raomai",
           "name": "千枝绕脉",
           "desc": "木脉分化成枝，对多目标同时铺缠脉。",
-          "cooldown": 38,
-          "costMultiplier": 2,
+          "cooldown": 19,
+          "costMultiplier": 6,
           "range": 3,
           "targeting": {
             "shape": "line",
@@ -9350,14 +9350,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 138
+          "cost": 414
         },
         {
           "id": "skill.qingsheng_fanbu",
           "name": "青生反哺",
           "desc": "读缠脉抽取生机，再反哺己身气血。",
-          "cooldown": 38,
-          "costMultiplier": 3,
+          "cooldown": 19,
+          "costMultiplier": 9,
           "range": 3,
           "effects": [
             {
@@ -9417,7 +9417,7 @@
             }
           ],
           "unlockLevel": 6,
-          "cost": 207
+          "cost": 621
         }
       ],
       "layers": [
@@ -9550,8 +9550,8 @@
           "id": "skill.wuqi_bingliu",
           "name": "五炁并流",
           "desc": "把散落五行痕迹汇成更稳定的杂相。",
-          "cooldown": 40,
-          "costMultiplier": 3,
+          "cooldown": 20,
+          "costMultiplier": 9,
           "range": 3,
           "effects": [
             {
@@ -9658,14 +9658,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 207
+          "cost": 621
         },
         {
           "id": "skill.maizhuan_lunsheng",
           "name": "脉转轮生",
           "desc": "以场上杂相回转自身灵息与承压。",
-          "cooldown": 34,
-          "costMultiplier": 2,
+          "cooldown": 17,
+          "costMultiplier": 6,
           "range": 0,
           "requiresTarget": false,
           "effects": [
@@ -9689,7 +9689,7 @@
             }
           ],
           "unlockLevel": 6,
-          "cost": 138
+          "cost": 414
         }
       ],
       "layers": [
@@ -9832,8 +9832,8 @@
           "id": "skill.xuanjin_luoyin",
           "name": "玄津落印",
           "desc": "玄津回落，给一路敌手铺开寒印。",
-          "cooldown": 38,
-          "costMultiplier": 2,
+          "cooldown": 19,
+          "costMultiplier": 6,
           "range": 3,
           "targeting": {
             "shape": "line",
@@ -9894,14 +9894,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 138
+          "cost": 414
         },
         {
           "id": "skill.hanjing_suoliu",
           "name": "寒镜锁流",
           "desc": "读取寒印层数，把目标钉在寒流里。",
-          "cooldown": 38,
-          "costMultiplier": 3,
+          "cooldown": 19,
+          "costMultiplier": 9,
           "range": 3,
           "effects": [
             {
@@ -9960,7 +9960,7 @@
             }
           ],
           "unlockLevel": 6,
-          "cost": 207
+          "cost": 621
         }
       ],
       "layers": [
@@ -10093,8 +10093,8 @@
           "id": "skill.jingbo_suoyin",
           "name": "镜波锁印",
           "desc": "镜波定潮，小范围寒意同落，寒印深处更难抽身。",
-          "cooldown": 18,
-          "costMultiplier": 1,
+          "cooldown": 9,
+          "costMultiplier": 3,
           "range": 3,
           "targeting": {
             "shape": "area",
@@ -10156,7 +10156,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 52
+          "cost": 156
         }
       ],
       "layers": [
@@ -10867,8 +10867,8 @@
           "id": "skill.liebo_fenmai",
           "name": "裂波焚脉",
           "desc": "曜火裂波扫过前路，对一路敌手同时添上灼脉。",
-          "cooldown": 18,
-          "costMultiplier": 1,
+          "cooldown": 9,
+          "costMultiplier": 3,
           "range": 3,
           "targeting": {
             "shape": "line",
@@ -10927,7 +10927,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 52
+          "cost": 156
         }
       ],
       "layers": [
@@ -11744,8 +11744,8 @@
           "id": "skill.changsheng_yinmai",
           "name": "长生引脉",
           "desc": "长生木意顺脉而入，快速抬高缠脉。",
-          "cooldown": 46,
-          "costMultiplier": 3,
+          "cooldown": 23,
+          "costMultiplier": 9,
           "range": 3,
           "effects": [
             {
@@ -11847,14 +11847,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 324
+          "cost": 972
         },
         {
           "id": "skill.duomai_guiyuan",
           "name": "夺脉归元",
           "desc": "对高层缠脉目标做大额抽取。",
-          "cooldown": 50,
-          "costMultiplier": 4,
+          "cooldown": 25,
+          "costMultiplier": 12,
           "range": 3,
           "effects": [
             {
@@ -11923,7 +11923,7 @@
             }
           ],
           "unlockLevel": 8,
-          "cost": 432
+          "cost": 1296
         }
       ],
       "layers": [
@@ -12635,8 +12635,8 @@
           "id": "skill.yuepo_zhendao",
           "name": "岳魄镇道",
           "desc": "岳魄下沉，借镇脉稳住己身后再反压敌手。",
-          "cooldown": 16,
-          "costMultiplier": 1,
+          "cooldown": 8,
+          "costMultiplier": 3,
           "range": 1,
           "effects": [
             {
@@ -12711,7 +12711,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 46
+          "cost": 138
         }
       ],
       "layers": [
@@ -13083,8 +13083,8 @@
           "id": "skill.zhouliu_dinghai",
           "name": "周流定海",
           "desc": "周流一气，迅速抬高定息层数。",
-          "cooldown": 18,
-          "costMultiplier": 1,
+          "cooldown": 9,
+          "costMultiplier": 3,
           "range": 0,
           "requiresTarget": false,
           "effects": [
@@ -13147,14 +13147,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 69
+          "cost": 207
         },
         {
           "id": "skill.huyuan_zhoushen",
           "name": "护元周身",
           "desc": "周天气海外扩，令护元覆盖周身。",
-          "cooldown": 34,
-          "costMultiplier": 2,
+          "cooldown": 17,
+          "costMultiplier": 6,
           "range": 0,
           "requiresTarget": false,
           "effects": [
@@ -13199,7 +13199,7 @@
             }
           ],
           "unlockLevel": 6,
-          "cost": 138
+          "cost": 414
         }
       ],
       "layers": [
@@ -13328,8 +13328,8 @@
           "id": "skill.zhuming_dianmai",
           "name": "朱明点脉",
           "desc": "朱明点落，瞬间把灼脉抬高。",
-          "cooldown": 44,
-          "costMultiplier": 3,
+          "cooldown": 22,
+          "costMultiplier": 9,
           "range": 3,
           "effects": [
             {
@@ -13428,14 +13428,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 324
+          "cost": 972
         },
         {
           "id": "skill.jintian_liexi",
           "name": "烬天裂息",
           "desc": "按灼脉层数把单体爆发拉满。",
-          "cooldown": 50,
-          "costMultiplier": 4,
+          "cooldown": 25,
+          "costMultiplier": 12,
           "range": 3,
           "effects": [
             {
@@ -13484,7 +13484,7 @@
             }
           ],
           "unlockLevel": 6,
-          "cost": 432
+          "cost": 1296
         }
       ],
       "layers": [
