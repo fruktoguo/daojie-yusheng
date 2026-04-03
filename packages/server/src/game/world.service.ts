@@ -10,6 +10,9 @@ import {
   Attributes,
   basisPointModifierToMultiplier,
   BuffModifierMode,
+  EQUIP_SLOTS,
+  EquipmentConditionDef,
+  EquipmentConditionGroup,
   addPartialNumericStats,
   applyNumericStatsPercentMultiplier,
   calcQiCostWithOutputLimit,
@@ -47,6 +50,7 @@ import {
   Portal,
   QuestState,
   RenderEntity,
+  resolveMonsterNumericStatsFromAttributes,
   type ObservedTileEntityDetail,
   ratioValue,
   SkillDef,
@@ -108,6 +112,52 @@ import {
   MONSTER_RESPAWN_ACCELERATION_MAX_PERCENT,
   MONSTER_RESPAWN_ACCELERATION_STEP_PERCENT,
 } from '../constants/gameplay/monster';
+
+const MONSTER_ATTR_KEYS: readonly (keyof Attributes)[] = [
+  'constitution',
+  'spirit',
+  'perception',
+  'talent',
+  'comprehension',
+  'luck',
+];
+
+function createMonsterAttributeSnapshot(initial = 0): Attributes {
+  return {
+    constitution: initial,
+    spirit: initial,
+    perception: initial,
+    talent: initial,
+    comprehension: initial,
+    luck: initial,
+  };
+}
+
+function applyAttributeAdditions(target: Attributes, patch: Partial<Attributes> | undefined): void {
+  if (!patch) {
+    return;
+  }
+  for (const key of MONSTER_ATTR_KEYS) {
+    const value = patch[key];
+    if (value === undefined || value === 0) {
+      continue;
+    }
+    target[key] += value;
+  }
+}
+
+function applyAttributePercentMultipliers(target: Attributes, patch: Partial<Attributes> | undefined): void {
+  if (!patch) {
+    return;
+  }
+  for (const key of MONSTER_ATTR_KEYS) {
+    const value = patch[key];
+    if (value === undefined || value === 0) {
+      continue;
+    }
+    target[key] = Math.max(0, target[key] * percentModifierToMultiplier(value));
+  }
+}
 
 const STATIC_CONTEXT_TOGGLE_ACTIONS: readonly ActionDef[] = [{
   id: 'toggle:auto_battle',
@@ -3664,6 +3714,96 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return Math.max(0, Math.floor(Math.max(0, realmEntry.expToNext ?? 0) * gradeFactor));
   }
 
+  private collectMonsterEquipmentPassiveBonuses(monster: RuntimeMonster): {
+    flatAttrs: Attributes;
+    percentAttrs: Attributes;
+    flatStats: NumericStats;
+    percentStats: NumericStats;
+  } {
+    const flatAttrs = createMonsterAttributeSnapshot();
+    const percentAttrs = createMonsterAttributeSnapshot();
+    const flatStats = createNumericStats();
+    const percentStats = createNumericStats();
+
+    for (const slot of EQUIP_SLOTS) {
+      const item = monster.equipment[slot];
+      if (!item?.effects?.length) {
+        continue;
+      }
+      for (const effect of item.effects) {
+        if (effect.type !== 'stat_aura' && effect.type !== 'progress_boost') {
+          continue;
+        }
+        if (!this.matchesMonsterEquipmentConditions(monster, effect.conditions)) {
+          continue;
+        }
+        if (effect.attrs) {
+          const attrBucket = this.resolveBuffModifierMode(effect.attrMode) === 'flat' ? flatAttrs : percentAttrs;
+          applyAttributeAdditions(attrBucket, effect.attrs);
+        }
+        if (effect.stats) {
+          const statBucket = this.resolveBuffModifierMode(effect.statMode) === 'flat' ? flatStats : percentStats;
+          addPartialNumericStats(statBucket, effect.stats);
+        }
+      }
+    }
+
+    return {
+      flatAttrs,
+      percentAttrs,
+      flatStats,
+      percentStats,
+    };
+  }
+
+  private matchesMonsterEquipmentConditions(
+    monster: RuntimeMonster,
+    group: EquipmentConditionGroup | undefined,
+  ): boolean {
+    if (!group || group.items.length === 0) {
+      return true;
+    }
+    const mode = group.mode ?? 'all';
+    if (mode === 'any') {
+      return group.items.some((condition) => this.matchesMonsterEquipmentCondition(monster, condition));
+    }
+    return group.items.every((condition) => this.matchesMonsterEquipmentCondition(monster, condition));
+  }
+
+  private matchesMonsterEquipmentCondition(
+    monster: RuntimeMonster,
+    condition: EquipmentConditionDef,
+  ): boolean {
+    switch (condition.type) {
+      case 'time_segment':
+        return condition.in.includes(this.timeService.buildMonsterTimeState(monster).phase);
+      case 'map':
+        return this.mapService.matchesMapCondition(monster.mapId, condition.mapIds);
+      case 'hp_ratio': {
+        const maxHp = Math.max(1, Math.round(monster.maxHp));
+        const ratio = maxHp > 0 ? monster.hp / maxHp : 0;
+        return condition.op === '<=' ? ratio <= condition.value : ratio >= condition.value;
+      }
+      case 'qi_ratio': {
+        const maxQi = Math.max(0, Math.round(monster.numericStats?.maxQi ?? 0));
+        const ratio = maxQi > 0 ? monster.qi / maxQi : 0;
+        return condition.op === '<=' ? ratio <= condition.value : ratio >= condition.value;
+      }
+      case 'is_cultivating':
+        return condition.value === false;
+      case 'has_buff':
+        return (monster.temporaryBuffs ?? []).some((buff) => (
+          buff.buffId === condition.buffId
+          && buff.remainingTicks > 0
+          && buff.stacks >= (condition.minStacks ?? 1)
+        ));
+      case 'target_kind':
+        return false;
+      default:
+        return true;
+    }
+  }
+
   private applyMonsterBuffStats(stats: NumericStats, buffs: TemporaryBuffState[] | undefined, targetRealmLv: number): void {
     if (!buffs || buffs.length === 0) {
       return;
@@ -3688,9 +3828,31 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   }
 
   private getMonsterCombatSnapshot(monster: RuntimeMonster): CombatSnapshot {
-    const stats = monster.numericStats ? cloneNumericStats(monster.numericStats) : createNumericStats();
     const level = Math.max(1, monster.level ?? Math.round(monster.attack / 6));
-    if (!monster.numericStats) {
+    const passiveBonuses = this.collectMonsterEquipmentPassiveBonuses(monster);
+    const hasPassiveAttrBonuses = MONSTER_ATTR_KEYS.some((key) => (
+      passiveBonuses.flatAttrs[key] !== 0 || passiveBonuses.percentAttrs[key] !== 0
+    ));
+
+    let stats: NumericStats;
+    if (hasPassiveAttrBonuses) {
+      const attrs = createMonsterAttributeSnapshot();
+      applyAttributeAdditions(attrs, monster.attrs);
+      applyAttributeAdditions(attrs, passiveBonuses.flatAttrs);
+      applyAttributePercentMultipliers(attrs, passiveBonuses.percentAttrs);
+      stats = resolveMonsterNumericStatsFromAttributes({
+        attrs,
+        equipment: monster.equipment,
+        level: monster.level,
+        statPercents: monster.statPercents,
+        grade: monster.grade,
+        tier: monster.tier,
+      });
+    } else {
+      stats = monster.numericStats ? cloneNumericStats(monster.numericStats) : createNumericStats();
+    }
+
+    if (!monster.numericStats && !hasPassiveAttrBonuses) {
       stats.physAtk = monster.attack;
       stats.spellAtk = Math.max(1, Math.round(monster.attack * 0.9));
       stats.physDef = Math.max(0, Math.round(monster.maxHp * 0.18 + level * 2));
@@ -3702,6 +3864,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       stats.breakPower = level * 3;
       stats.resolvePower = level * 3;
     }
+
+    addPartialNumericStats(stats, passiveBonuses.flatStats);
+    applyNumericStatsPercentMultiplier(stats, passiveBonuses.percentStats);
     this.applyMonsterBuffStats(stats, monster.temporaryBuffs, level);
     return {
       stats,

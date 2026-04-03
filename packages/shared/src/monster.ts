@@ -1,5 +1,6 @@
 import {
   addPartialNumericStats,
+  applyNumericStatsPercentMultiplier,
   cloneNumericStats,
   createNumericStats,
   percentModifierToMultiplier,
@@ -178,7 +179,7 @@ export interface MonsterTemplateResolvedRecord extends MonsterTemplateConfigured
   drops: MonsterTemplateDropRecord[];
 }
 
-type PercentBonusAccumulator = Pick<NumericStats, 'maxHp' | 'maxQi' | 'physAtk' | 'spellAtk'>;
+type PercentBonusAccumulator = NumericStats;
 const MONSTER_SECONDARY_ATTR_RATIO = 0.2;
 const MONSTER_BASE_HP_REGEN_RATE = 5;
 
@@ -359,10 +360,13 @@ function accumulateAttrPercentBonus(target: PercentBonusAccumulator, attrs: Attr
     if (!weight) {
       continue;
     }
-    if (weight.maxHp !== undefined) target.maxHp += weight.maxHp * value;
-    if (weight.maxQi !== undefined) target.maxQi += weight.maxQi * value;
-    if (weight.physAtk !== undefined) target.physAtk += weight.physAtk * value;
-    if (weight.spellAtk !== undefined) target.spellAtk += weight.spellAtk * value;
+    for (const statKey of NUMERIC_SCALAR_STAT_KEYS) {
+      const weightValue = weight[statKey];
+      if (weightValue === undefined) {
+        continue;
+      }
+      target[statKey] += weightValue * value;
+    }
   }
 }
 
@@ -401,10 +405,7 @@ function applyAttrWeight(target: NumericStats, attrs: Attributes): void {
 }
 
 function applyPercentBonuses(target: NumericStats, bonuses: PercentBonusAccumulator): void {
-  if (bonuses.maxHp !== 0) target.maxHp *= percentModifierToMultiplier(bonuses.maxHp);
-  if (bonuses.maxQi !== 0) target.maxQi *= percentModifierToMultiplier(bonuses.maxQi);
-  if (bonuses.physAtk !== 0) target.physAtk *= percentModifierToMultiplier(bonuses.physAtk);
-  if (bonuses.spellAtk !== 0) target.spellAtk *= percentModifierToMultiplier(bonuses.spellAtk);
+  applyNumericStatsPercentMultiplier(target, bonuses);
 }
 
 function mergeMonsterEquipmentAttrs(
@@ -466,12 +467,7 @@ export function computeMonsterBaseNumericStatsFromAttrs(
 ): NumericStats {
   const normalizedAttrs = mergeMonsterEquipmentAttrs(normalizeMonsterAttrs(attrs), equipment);
   const template = PLAYER_REALM_NUMERIC_TEMPLATES[resolveMonsterBaseRealmStage(level)];
-  const percentBonuses: PercentBonusAccumulator = {
-    maxHp: 0,
-    maxQi: 0,
-    physAtk: 0,
-    spellAtk: 0,
-  };
+  const percentBonuses = createNumericStats();
   const stats = createNumericStats();
   addPartialNumericStats(stats, template.stats);
   stats.hpRegenRate = MONSTER_BASE_HP_REGEN_RATE;

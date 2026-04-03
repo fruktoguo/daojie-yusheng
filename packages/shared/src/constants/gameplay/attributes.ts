@@ -136,7 +136,6 @@ export const ATTR_TO_PERCENT_NUMERIC_WEIGHTS: Record<AttrKey, PartialNumericStat
   },
   luck: {
     crit: 1,
-    critDamage: 1,
     hit: 1,
     dodge: 1,
   },
