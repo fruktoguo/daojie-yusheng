@@ -50,6 +50,7 @@ import { PlayerEntity } from '../database/entities/player.entity';
 import { UserEntity } from '../database/entities/user.entity';
 import { NameUniquenessService } from '../auth/name-uniqueness.service';
 import { normalizeRoleName, validateRoleName } from '../auth/account-validation';
+import { RoleNameModerationService } from '../auth/role-name-moderation.service';
 import { AccountService } from './account.service';
 import { AttrService } from './attr.service';
 import { BotService } from './bot.service';
@@ -153,6 +154,7 @@ export class GmService {
     private readonly worldService: WorldService,
     private readonly accountService: AccountService,
     private readonly nameUniquenessService: NameUniquenessService,
+    private readonly roleNameModerationService: RoleNameModerationService,
     private readonly contentService: ContentService,
     private readonly equipmentService: EquipmentService,
     private readonly techniqueService: TechniqueService,
@@ -1067,6 +1069,10 @@ export class GmService {
     const roleNameError = validateRoleName(nextName);
     if (roleNameError) {
       return roleNameError;
+    }
+    const roleNameSensitiveError = this.roleNameModerationService.validateRoleName(nextName);
+    if (roleNameSensitiveError) {
+      return roleNameSensitiveError;
     }
 
     const userId = this.playerService.getUserIdByPlayerId(playerId) ?? (

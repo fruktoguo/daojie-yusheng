@@ -23,6 +23,7 @@ import {
 } from './account-validation';
 import { GM_CONFIG_PATH, GM_TOKEN_EXPIRES_IN } from '../constants/auth/gm';
 import { NameUniquenessService } from './name-uniqueness.service';
+import { RoleNameModerationService } from './role-name-moderation.service';
 
 /** GM 密码配置文件结构 */
 interface GmConfigFile {
@@ -54,6 +55,7 @@ export class AuthService implements OnModuleInit {
     private readonly playerRepo: Repository<PlayerEntity>,
     private readonly persistentDocumentService: PersistentDocumentService,
     private readonly nameUniquenessService: NameUniquenessService,
+    private readonly roleNameModerationService: RoleNameModerationService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -80,6 +82,10 @@ export class AuthService implements OnModuleInit {
     const roleNameError = validateRoleName(normalizedRoleName);
     if (roleNameError) {
       throw new BadRequestException(roleNameError);
+    }
+    const roleNameSensitiveError = this.roleNameModerationService.validateRoleName(normalizedRoleName);
+    if (roleNameSensitiveError) {
+      throw new BadRequestException(roleNameSensitiveError);
     }
 
     const usernameConflict = await this.nameUniquenessService.ensureAvailable(normalizedUsername, 'account');

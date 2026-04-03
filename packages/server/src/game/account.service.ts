@@ -20,6 +20,7 @@ import {
   validateUsername,
 } from '../auth/account-validation';
 import { NameUniquenessService } from '../auth/name-uniqueness.service';
+import { RoleNameModerationService } from '../auth/role-name-moderation.service';
 
 @Injectable()
 export class AccountService {
@@ -30,6 +31,7 @@ export class AccountService {
     private readonly playerRepo: Repository<PlayerEntity>,
     private readonly playerService: PlayerService,
     private readonly nameUniquenessService: NameUniquenessService,
+    private readonly roleNameModerationService: RoleNameModerationService,
   ) {}
 
   /** 验证旧密码后更新为新密码 */
@@ -161,6 +163,10 @@ export class AccountService {
     const roleNameError = validateRoleName(normalizedRoleName);
     if (roleNameError) {
       throw new BadRequestException(roleNameError);
+    }
+    const roleNameSensitiveError = this.roleNameModerationService.validateRoleName(normalizedRoleName);
+    if (roleNameSensitiveError) {
+      throw new BadRequestException(roleNameSensitiveError);
     }
 
     if (normalizedRoleName === normalizeRoleName(player.name)) {

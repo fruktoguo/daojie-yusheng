@@ -7,6 +7,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { NameUniquenessService } from './name-uniqueness.service';
+import { RoleNameModerationService } from './role-name-moderation.service';
 import { UserEntity } from '../database/entities/user.entity';
 import { PlayerEntity } from '../database/entities/player.entity';
 
@@ -20,7 +21,7 @@ import { PlayerEntity } from '../database/entities/player.entity';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, NameUniquenessService],
-  exports: [AuthService, NameUniquenessService],
+  providers: [AuthService, NameUniquenessService, RoleNameModerationService],
+  exports: [AuthService, NameUniquenessService, RoleNameModerationService],
 })
 export class AuthModule {}
