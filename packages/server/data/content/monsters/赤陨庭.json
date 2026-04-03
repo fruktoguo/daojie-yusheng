@@ -408,7 +408,7 @@
     "color": "#d66a4a",
     "grade": "mystic",
     "tier": "variant",
-    "level": 26,
+    "level": 23,
     "count": 2,
     "maxAlive": 2,
     "radius": 5,
@@ -443,18 +443,10 @@
       "skill.brutal_ram"
     ],
     "equipment": {
-      "weapon": {
-        "itemId": "equip.ember_scorch_spear"
-      },
-      "head": {
-        "itemId": "equip.liyan_crown"
-      },
-      "legs": {
-        "itemId": "equip.firestride_boots"
-      },
-      "accessory": {
-        "itemId": "equip.furnace_red_ring"
-      }
+      "weapon": "equip.ember_scorch_spear",
+      "head": "equip.liyan_crown",
+      "legs": "equip.firestride_boots",
+      "accessory": "equip.furnace_red_ring"
     },
     "drops": [
       {
@@ -506,7 +498,8 @@
         "count": 1,
         "chance": 0.01
       }
-    ]
+    ],
+    "aggroMode": "always"
   },
   {
     "id": "m_ember_flame_guard",

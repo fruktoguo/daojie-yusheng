@@ -458,7 +458,7 @@
     "color": "#bfa986",
     "grade": "mystic",
     "tier": "variant",
-    "level": 26,
+    "level": 23,
     "count": 2,
     "maxAlive": 2,
     "radius": 5,
@@ -466,22 +466,10 @@
     "viewRange": 8,
     "respawnSec": 24,
     "equipment": {
-      "weapon": {
-        "itemId": "equip.stele_edge_blade",
-        "count": 1
-      },
-      "head": {
-        "itemId": "equip.stele_pattern_helm",
-        "count": 1
-      },
-      "body": {
-        "itemId": "equip.edge_core_shell",
-        "count": 1
-      },
-      "accessory": {
-        "itemId": "equip.sealed_edge_stoneheart",
-        "count": 1
-      }
+      "weapon": "equip.stele_edge_blade",
+      "head": "equip.stele_pattern_helm",
+      "body": "equip.edge_core_shell",
+      "accessory": "equip.sealed_edge_stoneheart"
     },
     "attrs": {
       "constitution": 495,
@@ -566,7 +554,8 @@
         "count": 1,
         "chance": 0.01
       }
-    ]
+    ],
+    "aggroMode": "always"
   },
   {
     "id": "m_cleft_iron_guard",

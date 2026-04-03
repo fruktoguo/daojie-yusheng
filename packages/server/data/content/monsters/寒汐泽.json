@@ -414,7 +414,7 @@
     "color": "#8dd0e8",
     "grade": "mystic",
     "tier": "variant",
-    "level": 26,
+    "level": 23,
     "count": 2,
     "maxAlive": 2,
     "radius": 5,
@@ -449,18 +449,10 @@
       "skill.frost_plume"
     ],
     "equipment": {
-      "weapon": {
-        "itemId": "equip.hanxi_flow_ruler"
-      },
-      "body": {
-        "itemId": "equip.cleantide_robe"
-      },
-      "legs": {
-        "itemId": "equip.mistwalker_boots"
-      },
-      "accessory": {
-        "itemId": "equip.dew_tide_pendant"
-      }
+      "weapon": "equip.hanxi_flow_ruler",
+      "body": "equip.cleantide_robe",
+      "legs": "equip.mistwalker_boots",
+      "accessory": "equip.dew_tide_pendant"
     },
     "drops": [
       {
@@ -512,7 +504,8 @@
         "count": 1,
         "chance": 0.01
       }
-    ]
+    ],
+    "aggroMode": "always"
   },
   {
     "id": "m_cold_bridge_patrol",

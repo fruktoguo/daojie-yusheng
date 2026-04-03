@@ -458,7 +458,7 @@
     "color": "#b5966f",
     "grade": "mystic",
     "tier": "variant",
-    "level": 26,
+    "level": 23,
     "count": 2,
     "maxAlive": 2,
     "radius": 5,
@@ -466,22 +466,10 @@
     "viewRange": 8,
     "respawnSec": 24,
     "equipment": {
-      "weapon": {
-        "itemId": "equip.burden_stele_staff",
-        "count": 1
-      },
-      "head": {
-        "itemId": "equip.heavystele_helm",
-        "count": 1
-      },
-      "body": {
-        "itemId": "equip.loadstone_plate",
-        "count": 1
-      },
-      "accessory": {
-        "itemId": "equip.quakeheart_stone",
-        "count": 1
-      }
+      "weapon": "equip.burden_stele_staff",
+      "head": "equip.heavystele_helm",
+      "body": "equip.loadstone_plate",
+      "accessory": "equip.quakeheart_stone"
     },
     "attrs": {
       "constitution": 620,
@@ -566,7 +554,8 @@
         "count": 1,
         "chance": 0.01
       }
-    ]
+    ],
+    "aggroMode": "always"
   },
   {
     "id": "m_deepvein_heavy_guard",
