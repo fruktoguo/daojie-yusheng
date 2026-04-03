@@ -90,7 +90,7 @@ export class BodyTrainingPanel {
             </article>
             <article class="body-training-card body-training-card--wide">
               <span class="body-training-card-label">经验流向</span>
-              <strong class="body-training-card-value">所有功法圆满后，后续获得的功法经验会自动转入炼体</strong>
+              <strong class="body-training-card-value">未设置主修，或所有功法圆满后，后续获得的功法经验都会自动转入炼体</strong>
             </article>
           </section>
           <section class="body-training-attrs">

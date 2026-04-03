@@ -1015,6 +1015,10 @@ export class TechniqueService {
 
   private advanceTechniqueProgress(player: PlayerState, baseGain: number, expBonus = 0, minimumGain = 1): TechniqueExpAdvanceResult {
     if (!player.cultivatingTechId) {
+      if (player.techniques.length > 0) {
+        const gain = this.applyRateBonus(baseGain, expBonus, minimumGain);
+        return this.advanceBodyTrainingProgress(player, gain, { dirty: [], messages: [] });
+      }
       return { changed: false, gained: 0, expLabel: '功法经验', dirty: [], messages: [] };
     }
 
@@ -1043,10 +1047,9 @@ export class TechniqueService {
     }
 
     const maxLevel = getTechniqueMaxLevel(technique.layers);
-    const techniqueLevelAdjustment = getTechniqueExpLevelAdjustment(this.getPlayerRealmLv(player), technique.realmLv);
-    const gain = this.applyRateBonus(baseGain * techniqueLevelAdjustment, expBonus, minimumGain);
     if (technique.level >= maxLevel || technique.expToNext <= 0) {
       if (this.areAllTechniquesMaxed(player)) {
+        const gain = this.applyRateBonus(baseGain, expBonus, minimumGain);
         return this.advanceBodyTrainingProgress(player, gain, resolvedTarget);
       }
       return {
@@ -1059,6 +1062,8 @@ export class TechniqueService {
       };
     }
 
+    const techniqueLevelAdjustment = getTechniqueExpLevelAdjustment(this.getPlayerRealmLv(player), technique.realmLv);
+    const gain = this.applyRateBonus(baseGain * techniqueLevelAdjustment, expBonus, minimumGain);
     const previousLevel = technique.level;
     const previousExp = technique.exp;
     const messages: TechniqueMessage[] = [...resolvedTarget.messages];
