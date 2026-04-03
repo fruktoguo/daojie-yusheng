@@ -65,12 +65,6 @@
         "count": 1
       },
       {
-        "itemId": "book.liyan_duanxi",
-        "name": "《离炎锻息诀》",
-        "type": "skill_book",
-        "count": 1
-      },
-      {
         "itemId": "equip.liyan_crown",
         "name": "离炎束冠",
         "type": "equipment",
@@ -92,6 +86,12 @@
         "itemId": "pill.chiyang_draught",
         "name": "赤阳液",
         "type": "consumable",
+        "count": 1
+      },
+      {
+        "itemId": "book.liyan_duanxi",
+        "name": "《离炎锻息诀》",
+        "type": "skill_book",
         "count": 1
       }
     ]
@@ -178,6 +178,12 @@
         "name": "踏火疾靴",
         "type": "equipment",
         "count": 1
+      },
+      {
+        "itemId": "book.chiqi_ranqiao",
+        "name": "《赤息燃窍功》",
+        "type": "skill_book",
+        "count": 1
       }
     ]
   },
@@ -262,6 +268,12 @@
         "itemId": "equip.furnace_red_ring",
         "name": "炉心赤戒",
         "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.yaohuo_liebo",
+        "name": "《曜火裂波术》",
+        "type": "skill_book",
         "count": 1
       }
     ]
@@ -420,12 +432,6 @@
         "count": 1
       },
       {
-        "itemId": "book.chiyao_fenmai",
-        "name": "《赤曜焚脉篇》",
-        "type": "skill_book",
-        "count": 1
-      },
-      {
         "itemId": "equip.ember_scorch_spear",
         "name": "赤陨灼枪",
         "type": "equipment",
@@ -447,6 +453,12 @@
         "itemId": "equip.furnace_red_ring",
         "name": "炉心赤戒",
         "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.chiyao_fenmai",
+        "name": "《赤曜焚脉篇》",
+        "type": "skill_book",
         "count": 1
       }
     ]
@@ -520,12 +532,6 @@
         "count": 1
       },
       {
-        "itemId": "book.voidflame_chapter",
-        "name": "《太虚劫光篇》",
-        "type": "skill_book",
-        "count": 1
-      },
-      {
         "itemId": "equip.ember_scorch_spear",
         "name": "赤陨灼枪",
         "type": "equipment",
@@ -553,6 +559,12 @@
         "itemId": "pill.chiyang_draught",
         "name": "赤阳液",
         "type": "consumable",
+        "count": 1
+      },
+      {
+        "itemId": "book.voidflame_chapter",
+        "name": "《太虚劫光篇》",
+        "type": "skill_book",
         "count": 1
       }
     ]
@@ -630,12 +642,6 @@
         "count": 4
       },
       {
-        "itemId": "book.zhuming_jintian",
-        "name": "《朱明烬天录》",
-        "type": "skill_book",
-        "count": 1
-      },
-      {
         "itemId": "equip.ember_scorch_spear",
         "name": "赤陨灼枪",
         "type": "equipment",
@@ -669,6 +675,12 @@
         "itemId": "pill.chiyang_draught",
         "name": "赤阳液",
         "type": "consumable",
+        "count": 1
+      },
+      {
+        "itemId": "book.zhuming_jintian",
+        "name": "《朱明烬天录》",
+        "type": "skill_book",
         "count": 1
       }
     ]

@@ -68,12 +68,6 @@
         "count": 1
       },
       {
-        "itemId": "book.houtu_chengyuan",
-        "name": "《厚土承元功》",
-        "type": "skill_book",
-        "count": 1
-      },
-      {
         "itemId": "equip.yellow_stone_browguard",
         "name": "黄岩额护",
         "type": "equipment",
@@ -95,6 +89,12 @@
         "itemId": "pill.earthrest_paste",
         "name": "厚土膏",
         "type": "consumable",
+        "count": 1
+      },
+      {
+        "itemId": "book.houtu_chengyuan",
+        "name": "《厚土承元功》",
+        "type": "skill_book",
         "count": 1
       }
     ]
@@ -183,6 +183,12 @@
         "itemId": "equip.burden_greaves",
         "name": "负岳胫甲",
         "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.zhenyue_huyuan",
+        "name": "《镇岳护元诀》",
+        "type": "skill_book",
         "count": 1
       }
     ]
@@ -287,6 +293,12 @@
         "itemId": "equip.shieldvein_stone",
         "name": "护脉石",
         "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.dimai_fumai",
+        "name": "《地脉覆脉术》",
+        "type": "skill_book",
         "count": 1
       }
     ]
@@ -474,12 +486,6 @@
         "count": 1
       },
       {
-        "itemId": "book.kunyue_zhenhai",
-        "name": "《坤岳镇海篇》",
-        "type": "skill_book",
-        "count": 1
-      },
-      {
         "itemId": "equip.deepvein_gauntlets",
         "name": "厚脉护手",
         "type": "equipment",
@@ -507,6 +513,12 @@
         "itemId": "equip.quakeheart_stone",
         "name": "震心石",
         "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.kunyue_zhenhai",
+        "name": "《坤岳镇海篇》",
+        "type": "skill_book",
         "count": 1
       }
     ]
@@ -584,12 +596,6 @@
         "count": 1
       },
       {
-        "itemId": "book.wildsunder_chart",
-        "name": "《八荒裂岳图》",
-        "type": "skill_book",
-        "count": 1
-      },
-      {
         "itemId": "equip.deepvein_relic_shard",
         "name": "厚脉遗片",
         "type": "equipment",
@@ -617,6 +623,12 @@
         "itemId": "equip.sealridge_iron_ring",
         "name": "封岭铁环",
         "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.wildsunder_chart",
+        "name": "《八荒裂岳图》",
+        "type": "skill_book",
         "count": 1
       }
     ]
@@ -695,12 +707,6 @@
         "count": 4
       },
       {
-        "itemId": "book.huangting_zaishan",
-        "name": "《黄庭载山经》",
-        "type": "skill_book",
-        "count": 1
-      },
-      {
         "itemId": "equip.deepvein_relic",
         "name": "厚脉遗器",
         "type": "equipment",
@@ -734,6 +740,12 @@
         "itemId": "pill.earthrest_paste",
         "name": "厚土膏",
         "type": "consumable",
+        "count": 1
+      },
+      {
+        "itemId": "book.huangting_zaishan",
+        "name": "《黄庭载山经》",
+        "type": "skill_book",
         "count": 1
       }
     ]

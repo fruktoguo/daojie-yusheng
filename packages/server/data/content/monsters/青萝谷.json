@@ -65,12 +65,6 @@
         "count": 1
       },
       {
-        "itemId": "book.qingmu_yangmai",
-        "name": "《青木养脉篇》",
-        "type": "skill_book",
-        "count": 1
-      },
-      {
         "itemId": "equip.verdant_crown",
         "name": "青萝束冠",
         "type": "equipment",
@@ -92,6 +86,12 @@
         "itemId": "pill.nurturing_paste",
         "name": "养脉膏",
         "type": "consumable",
+        "count": 1
+      },
+      {
+        "itemId": "book.qingmu_yangmai",
+        "name": "《青木养脉篇》",
+        "type": "skill_book",
         "count": 1
       }
     ]
@@ -178,6 +178,12 @@
         "name": "生脉木佩",
         "type": "equipment",
         "count": 1
+      },
+      {
+        "itemId": "book.qingteng_huixi",
+        "name": "《青藤回息诀》",
+        "type": "skill_book",
+        "count": 1
       }
     ]
   },
@@ -263,6 +269,12 @@
         "name": "生脉木佩",
         "type": "equipment",
         "count": 1
+      },
+      {
+        "itemId": "book.manzhi_jiaoluo",
+        "name": "《蔓织绞络术》",
+        "type": "skill_book",
+        "count": 1
       }
     ]
   },
@@ -335,12 +347,6 @@
         "count": 1
       },
       {
-        "itemId": "book.wanzhi_huichun",
-        "name": "《万枝回春卷》",
-        "type": "skill_book",
-        "count": 1
-      },
-      {
         "itemId": "equip.vineguide_staff",
         "name": "养枝引脉杖",
         "type": "equipment",
@@ -368,6 +374,12 @@
         "itemId": "pill.nurturing_paste",
         "name": "养脉膏",
         "type": "consumable",
+        "count": 1
+      },
+      {
+        "itemId": "book.wanzhi_huichun",
+        "name": "《万枝回春卷》",
+        "type": "skill_book",
         "count": 1
       }
     ]
@@ -539,12 +551,6 @@
         "count": 4
       },
       {
-        "itemId": "book.changsheng_chanyuan",
-        "name": "《长生缠元经》",
-        "type": "skill_book",
-        "count": 1
-      },
-      {
         "itemId": "equip.vineguide_staff",
         "name": "养枝引脉杖",
         "type": "equipment",
@@ -578,6 +584,12 @@
         "itemId": "pill.nurturing_paste",
         "name": "养脉膏",
         "type": "consumable",
+        "count": 1
+      },
+      {
+        "itemId": "book.changsheng_chanyuan",
+        "name": "《长生缠元经》",
+        "type": "skill_book",
         "count": 1
       }
     ]

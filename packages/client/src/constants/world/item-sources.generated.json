@@ -363,6 +363,16 @@
       "count": 1
     }
   ],
+  "book.chiqi_ranqiao": [
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_whelp",
+      "monsterName": "赤烬蜥幼",
+      "count": 1
+    }
+  ],
   "book.chiyao_fenmai": [
     {
       "kind": "monster_drop",
@@ -431,6 +441,16 @@
       "chapter": "第二章·青竹追线"
     }
   ],
+  "book.dimai_fumai": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_armor_spirit",
+      "monsterName": "坠岩甲灵",
+      "count": 1
+    }
+  ],
   "book.dragon_elephant_bone": [
     {
       "kind": "shop",
@@ -438,6 +458,16 @@
       "mapName": "云来镇",
       "npcId": "npc_wenji",
       "npcName": "文籍师叔"
+    }
+  ],
+  "book.duanjin_zhuixing": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_blade_sprite",
+      "monsterName": "金砂锋魈",
+      "count": 1
     }
   ],
   "book.frost_sutra": [
@@ -648,6 +678,16 @@
       "chapter": "第一章·粮路讨生"
     }
   ],
+  "book.jinluo_lifeng": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_sand_soldier",
+      "monsterName": "裂甲砂兵",
+      "count": 1
+    }
+  ],
   "book.kunyue_zhenhai": [
     {
       "kind": "monster_drop",
@@ -695,6 +735,24 @@
       "npcName": "秘籍商·纪密玄"
     }
   ],
+  "book.manzhi_jiaoluo": [
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_03_bridge",
+      "mapName": "青萝谷·03双桥岔谷",
+      "monsterId": "m_verdant_siphon_flower",
+      "monsterName": "吸灵花妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_04_garden",
+      "mapName": "青萝谷·04噬灵妖圃",
+      "monsterId": "m_verdant_siphon_flower",
+      "monsterName": "吸灵花妖",
+      "count": 1
+    }
+  ],
   "book.mountain_insight_chart": [
     {
       "kind": "monster_drop",
@@ -713,6 +771,16 @@
       "questTitle": "北井别回头",
       "line": "main",
       "chapter": "序章·断道入镇"
+    }
+  ],
+  "book.ningchao_hushen": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_marsh_wraith",
+      "monsterName": "浅泽雾鬼",
+      "count": 1
     }
   ],
   "book.ningqi_chengji": [
@@ -778,6 +846,24 @@
       "mapName": "栖真渡",
       "npcId": "npc_ji_mi_xuan",
       "npcName": "秘籍商·纪密玄"
+    }
+  ],
+  "book.qingteng_huixi": [
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_02_slope",
+      "mapName": "青萝谷·02引藤坡",
+      "monsterId": "m_verdant_parasitic_child",
+      "monsterName": "寄脉藤童",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_03_bridge",
+      "mapName": "青萝谷·03双桥岔谷",
+      "monsterId": "m_verdant_parasitic_child",
+      "monsterName": "寄脉藤童",
+      "count": 1
     }
   ],
   "book.redflame_art": [
@@ -1005,6 +1091,36 @@
       "mapName": "寒汐泽",
       "monsterId": "m_cold_moonscale",
       "monsterName": "月沼鲛影",
+      "count": 1
+    }
+  ],
+  "book.xuanjing_luoyin": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_pattern_guard",
+      "monsterName": "冰纹水卒",
+      "count": 1
+    }
+  ],
+  "book.yaohuo_liebo": [
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_lizard",
+      "monsterName": "熔纹火蜥",
+      "count": 1
+    }
+  ],
+  "book.zhenyue_huyuan": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_stonebound",
+      "monsterName": "沉脉石奴",
       "count": 1
     }
   ],

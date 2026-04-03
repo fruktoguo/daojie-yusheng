@@ -65,12 +65,6 @@
         "count": 1
       },
       {
-        "itemId": "book.tingmai_dingxi",
-        "name": "《听脉定息诀》",
-        "type": "skill_book",
-        "count": 1
-      },
-      {
         "itemId": "equip.fiveqi_watch_crown",
         "name": "五炁观脉冠",
         "type": "equipment",
@@ -86,6 +80,12 @@
         "itemId": "equip.halfbase_ring",
         "name": "半基灵环",
         "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.tingmai_dingxi",
+        "name": "《听脉定息诀》",
+        "type": "skill_book",
         "count": 1
       }
     ]
@@ -156,12 +156,6 @@
         "count": 1
       },
       {
-        "itemId": "book.guicang_hemai",
-        "name": "《归藏合脉经》",
-        "type": "skill_book",
-        "count": 1
-      },
-      {
         "itemId": "equip.guizang_conflux_blade",
         "name": "归藏合流刃",
         "type": "equipment",
@@ -177,6 +171,12 @@
         "itemId": "equip.halfbase_ring",
         "name": "半基灵环",
         "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.guicang_hemai",
+        "name": "《归藏合脉经》",
+        "type": "skill_book",
         "count": 1
       }
     ]
@@ -427,12 +427,6 @@
         "count": 1
       },
       {
-        "itemId": "book.wuqi_guiliu",
-        "name": "《五炁归流篇》",
-        "type": "skill_book",
-        "count": 1
-      },
-      {
         "itemId": "equip.guizang_conflux_blade",
         "name": "归藏合流刃",
         "type": "equipment",
@@ -460,6 +454,12 @@
         "itemId": "pill.fivephase_harmony_pellet",
         "name": "五和丸",
         "type": "consumable",
+        "count": 1
+      },
+      {
+        "itemId": "book.wuqi_guiliu",
+        "name": "《五炁归流篇》",
+        "type": "skill_book",
         "count": 1
       }
     ]
@@ -623,18 +623,6 @@
         "count": 4
       },
       {
-        "itemId": "book.taichu_baoyuan",
-        "name": "《太初抱元章》",
-        "type": "skill_book",
-        "count": 1
-      },
-      {
-        "itemId": "book.hunyuan_zaimai",
-        "name": "《混元载脉图》",
-        "type": "skill_book",
-        "count": 1
-      },
-      {
         "itemId": "equip.guizang_conflux_blade",
         "name": "归藏合流刃",
         "type": "equipment",
@@ -668,6 +656,18 @@
         "itemId": "pill.fivephase_harmony_pellet",
         "name": "五和丸",
         "type": "consumable",
+        "count": 1
+      },
+      {
+        "itemId": "book.taichu_baoyuan",
+        "name": "《太初抱元章》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.hunyuan_zaimai",
+        "name": "《混元载脉图》",
+        "type": "skill_book",
         "count": 1
       }
     ]

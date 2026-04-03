@@ -77,14 +77,14 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 100800,
+          "expToNext": 403200,
           "attrs": {
             "constitution": 2
           }
         },
         {
           "level": 2,
-          "expToNext": 110400,
+          "expToNext": 441600,
           "attrs": {
             "constitution": 2,
             "perception": 1
@@ -92,14 +92,14 @@
         },
         {
           "level": 3,
-          "expToNext": 120000,
+          "expToNext": 480000,
           "attrs": {
             "constitution": 2
           }
         },
         {
           "level": 4,
-          "expToNext": 132000,
+          "expToNext": 528000,
           "attrs": {
             "constitution": 2,
             "perception": 1
@@ -107,14 +107,14 @@
         },
         {
           "level": 5,
-          "expToNext": 144000,
+          "expToNext": 576000,
           "attrs": {
             "constitution": 2
           }
         },
         {
           "level": 6,
-          "expToNext": 158400,
+          "expToNext": 633600,
           "attrs": {
             "constitution": 2,
             "perception": 1
@@ -122,14 +122,14 @@
         },
         {
           "level": 7,
-          "expToNext": 175200,
+          "expToNext": 700800,
           "attrs": {
             "constitution": 2
           }
         },
         {
           "level": 8,
-          "expToNext": 194400,
+          "expToNext": 777600,
           "attrs": {
             "constitution": 2,
             "perception": 1
@@ -137,7 +137,7 @@
         },
         {
           "level": 9,
-          "expToNext": 216000,
+          "expToNext": 864000,
           "attrs": {
             "constitution": 2
           }
@@ -297,7 +297,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 78200,
+          "expToNext": 312800,
           "attrs": {
             "constitution": 5,
             "perception": 5,
@@ -306,7 +306,7 @@
         },
         {
           "level": 2,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "constitution": 5,
             "perception": 5
@@ -314,7 +314,7 @@
         },
         {
           "level": 3,
-          "expToNext": 96600,
+          "expToNext": 386400,
           "attrs": {
             "constitution": 5,
             "perception": 5,
@@ -323,7 +323,7 @@
         },
         {
           "level": 4,
-          "expToNext": 108100,
+          "expToNext": 432400,
           "attrs": {
             "constitution": 5,
             "perception": 5
@@ -331,7 +331,7 @@
         },
         {
           "level": 5,
-          "expToNext": 119600,
+          "expToNext": 478400,
           "attrs": {
             "constitution": 5,
             "perception": 5,
@@ -340,7 +340,7 @@
         },
         {
           "level": 6,
-          "expToNext": 133400,
+          "expToNext": 533600,
           "attrs": {
             "constitution": 5,
             "perception": 5
@@ -348,7 +348,7 @@
         },
         {
           "level": 7,
-          "expToNext": 149500,
+          "expToNext": 598000,
           "attrs": {
             "constitution": 5,
             "perception": 5,
@@ -357,7 +357,7 @@
         },
         {
           "level": 8,
-          "expToNext": 167900,
+          "expToNext": 671600,
           "attrs": {
             "constitution": 5,
             "perception": 5,
@@ -366,7 +366,7 @@
         },
         {
           "level": 9,
-          "expToNext": 188600,
+          "expToNext": 754400,
           "attrs": {
             "constitution": 5,
             "perception": 5
@@ -374,7 +374,7 @@
         },
         {
           "level": 10,
-          "expToNext": 211600,
+          "expToNext": 846400,
           "attrs": {
             "constitution": 5,
             "perception": 5,
@@ -383,7 +383,7 @@
         },
         {
           "level": 11,
-          "expToNext": 236900,
+          "expToNext": 947600,
           "attrs": {
             "constitution": 5,
             "perception": 5
@@ -391,7 +391,7 @@
         },
         {
           "level": 12,
-          "expToNext": 264500,
+          "expToNext": 1058000,
           "attrs": {
             "constitution": 5,
             "perception": 5,
@@ -400,7 +400,7 @@
         },
         {
           "level": 13,
-          "expToNext": 296700,
+          "expToNext": 1186800,
           "attrs": {
             "constitution": 4,
             "perception": 4
@@ -692,6 +692,198 @@
           "expToNext": 0,
           "attrs": {
             "luck": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "chiqi_ranqiao",
+      "name": "赤息燃窍功",
+      "grade": "yellow",
+      "category": "internal",
+      "realmLv": 23,
+      "skills": [
+        {
+          "id": "skill.huomai_cuxing",
+          "name": "火脉催行",
+          "desc": "火息催窍，顺势添灼，借热提速后再逼近一步。",
+          "cooldown": 16,
+          "costMultiplier": 1,
+          "range": 1,
+          "effects": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "fire",
+              "formula": {
+                "op": "mul",
+                "args": [
+                  {
+                    "var": "caster.stat.spellAtk",
+                    "scale": 1.4
+                  },
+                  {
+                    "op": "add",
+                    "args": [
+                      1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.05
+                      },
+                      {
+                        "var": "target.buff.buff.fire_burn_mark.stacks",
+                        "scale": 0.015
+                      },
+                      {
+                        "var": "caster.stat.crit",
+                        "scale": 0.001
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "buff",
+              "target": "target",
+              "buffId": "buff.fire_burn_mark",
+              "name": "灼脉",
+              "desc": "火脉灼入经络，持续降低法防与化解。",
+              "shortMark": "灼",
+              "category": "debuff",
+              "visibility": "public",
+              "color": "#ef6b3b",
+              "duration": 12,
+              "maxStacks": 9,
+              "statMode": "percent",
+              "valueStats": {
+                "spellDef": -4,
+                "resolvePower": -3
+              }
+            },
+            {
+              "type": "buff",
+              "target": "self",
+              "buffId": "buff.fire_fervor",
+              "name": "炽行",
+              "desc": "火息催窍，提高暴击、移速与冷却速度。",
+              "shortMark": "炽",
+              "category": "buff",
+              "visibility": "public",
+              "color": "#f07c4a",
+              "duration": 8,
+              "maxStacks": 1,
+              "statMode": "percent",
+              "valueStats": {
+                "crit": 6,
+                "moveSpeed": 10,
+                "cooldownSpeed": 6
+              }
+            }
+          ],
+          "unlockLevel": 1,
+          "cost": 46
+        }
+      ],
+      "layers": [
+        {
+          "level": 1,
+          "expToNext": 165600,
+          "attrs": {
+            "constitution": 2,
+            "spirit": 2
+          }
+        },
+        {
+          "level": 2,
+          "expToNext": 184000,
+          "attrs": {
+            "constitution": 4,
+            "spirit": 4,
+            "perception": 1
+          }
+        },
+        {
+          "level": 3,
+          "expToNext": 202400,
+          "attrs": {
+            "constitution": 2,
+            "spirit": 2
+          }
+        },
+        {
+          "level": 4,
+          "expToNext": 220800,
+          "attrs": {
+            "constitution": 2,
+            "spirit": 2
+          }
+        },
+        {
+          "level": 5,
+          "expToNext": 248400,
+          "attrs": {
+            "constitution": 4,
+            "spirit": 4,
+            "perception": 1
+          }
+        },
+        {
+          "level": 6,
+          "expToNext": 276000,
+          "attrs": {
+            "constitution": 2,
+            "spirit": 2
+          }
+        },
+        {
+          "level": 7,
+          "expToNext": 303600,
+          "attrs": {
+            "constitution": 2,
+            "spirit": 2
+          }
+        },
+        {
+          "level": 8,
+          "expToNext": 340400,
+          "attrs": {
+            "constitution": 4,
+            "spirit": 4,
+            "perception": 1
+          }
+        },
+        {
+          "level": 9,
+          "expToNext": 377200,
+          "attrs": {
+            "constitution": 2,
+            "spirit": 2
+          }
+        },
+        {
+          "level": 10,
+          "expToNext": 423200,
+          "attrs": {
+            "constitution": 2,
+            "spirit": 2
+          }
+        },
+        {
+          "level": 11,
+          "expToNext": 478400,
+          "attrs": {
+            "constitution": 3,
+            "spirit": 3,
+            "perception": 1
+          }
+        },
+        {
+          "level": 12,
+          "expToNext": 0,
+          "attrs": {
+            "constitution": 2,
+            "spirit": 2
           }
         }
       ]
@@ -1086,7 +1278,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 78200,
+          "expToNext": 312800,
           "attrs": {
             "constitution": 5,
             "spirit": 5,
@@ -1095,7 +1287,7 @@
         },
         {
           "level": 2,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "constitution": 5,
             "spirit": 5
@@ -1103,7 +1295,7 @@
         },
         {
           "level": 3,
-          "expToNext": 96600,
+          "expToNext": 386400,
           "attrs": {
             "constitution": 5,
             "spirit": 5,
@@ -1112,7 +1304,7 @@
         },
         {
           "level": 4,
-          "expToNext": 108100,
+          "expToNext": 432400,
           "attrs": {
             "constitution": 5,
             "spirit": 5
@@ -1120,7 +1312,7 @@
         },
         {
           "level": 5,
-          "expToNext": 119600,
+          "expToNext": 478400,
           "attrs": {
             "constitution": 5,
             "spirit": 5,
@@ -1129,7 +1321,7 @@
         },
         {
           "level": 6,
-          "expToNext": 133400,
+          "expToNext": 533600,
           "attrs": {
             "constitution": 5,
             "spirit": 5
@@ -1137,7 +1329,7 @@
         },
         {
           "level": 7,
-          "expToNext": 149500,
+          "expToNext": 598000,
           "attrs": {
             "constitution": 5,
             "spirit": 5,
@@ -1146,7 +1338,7 @@
         },
         {
           "level": 8,
-          "expToNext": 167900,
+          "expToNext": 671600,
           "attrs": {
             "constitution": 5,
             "spirit": 5,
@@ -1155,7 +1347,7 @@
         },
         {
           "level": 9,
-          "expToNext": 188600,
+          "expToNext": 754400,
           "attrs": {
             "constitution": 5,
             "spirit": 5
@@ -1163,7 +1355,7 @@
         },
         {
           "level": 10,
-          "expToNext": 211600,
+          "expToNext": 846400,
           "attrs": {
             "constitution": 5,
             "spirit": 5,
@@ -1172,7 +1364,7 @@
         },
         {
           "level": 11,
-          "expToNext": 236900,
+          "expToNext": 947600,
           "attrs": {
             "constitution": 5,
             "spirit": 5
@@ -1180,7 +1372,7 @@
         },
         {
           "level": 12,
-          "expToNext": 264500,
+          "expToNext": 1058000,
           "attrs": {
             "constitution": 5,
             "spirit": 5,
@@ -1189,7 +1381,7 @@
         },
         {
           "level": 13,
-          "expToNext": 296700,
+          "expToNext": 1186800,
           "attrs": {
             "constitution": 4,
             "spirit": 4
@@ -1268,6 +1460,363 @@
           "expToNext": 0,
           "attrs": {
             "talent": 4
+          }
+        }
+      ]
+    },
+    {
+      "id": "dimai_fumai",
+      "name": "地脉覆脉术",
+      "grade": "yellow",
+      "category": "arts",
+      "realmLv": 26,
+      "skills": [
+        {
+          "id": "skill.luoshan_zhenmai",
+          "name": "落山镇脉",
+          "desc": "地气如落山压下，对小范围敌手一并沉脉。",
+          "cooldown": 18,
+          "costMultiplier": 1,
+          "range": 3,
+          "targeting": {
+            "shape": "area",
+            "radius": 1,
+            "maxTargets": 3
+          },
+          "effects": [
+            {
+              "type": "damage",
+              "damageKind": "physical",
+              "element": "earth",
+              "formula": {
+                "op": "mul",
+                "args": [
+                  {
+                    "var": "caster.stat.physAtk",
+                    "scale": 0.9
+                  },
+                  {
+                    "op": "add",
+                    "args": [
+                      1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.05
+                      },
+                      {
+                        "var": "target.buff.buff.earth_seal_mark.stacks",
+                        "scale": 0.01
+                      },
+                      {
+                        "var": "caster.stat.resolvePower",
+                        "scale": 0.001
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "buff",
+              "target": "target",
+              "buffId": "buff.earth_seal_mark",
+              "name": "镇脉",
+              "desc": "重压沉脉，持续削弱移速、破招与物防。",
+              "shortMark": "镇",
+              "category": "debuff",
+              "visibility": "public",
+              "color": "#a48a68",
+              "duration": 14,
+              "maxStacks": 8,
+              "statMode": "percent",
+              "valueStats": {
+                "moveSpeed": -6,
+                "breakPower": -3,
+                "physDef": -2
+              }
+            }
+          ],
+          "unlockLevel": 1,
+          "cost": 52
+        }
+      ],
+      "layers": [
+        {
+          "level": 1,
+          "expToNext": 187200,
+          "attrs": {
+            "constitution": 2,
+            "spirit": 2
+          }
+        },
+        {
+          "level": 2,
+          "expToNext": 208000,
+          "attrs": {
+            "constitution": 4,
+            "spirit": 4,
+            "talent": 1
+          }
+        },
+        {
+          "level": 3,
+          "expToNext": 228800,
+          "attrs": {
+            "constitution": 2,
+            "spirit": 2
+          }
+        },
+        {
+          "level": 4,
+          "expToNext": 249600,
+          "attrs": {
+            "constitution": 2,
+            "spirit": 2
+          }
+        },
+        {
+          "level": 5,
+          "expToNext": 280800,
+          "attrs": {
+            "constitution": 4,
+            "spirit": 4,
+            "talent": 1
+          }
+        },
+        {
+          "level": 6,
+          "expToNext": 312000,
+          "attrs": {
+            "constitution": 2,
+            "spirit": 2
+          }
+        },
+        {
+          "level": 7,
+          "expToNext": 343200,
+          "attrs": {
+            "constitution": 2,
+            "spirit": 2
+          }
+        },
+        {
+          "level": 8,
+          "expToNext": 384800,
+          "attrs": {
+            "constitution": 4,
+            "spirit": 4,
+            "talent": 1
+          }
+        },
+        {
+          "level": 9,
+          "expToNext": 426400,
+          "attrs": {
+            "constitution": 2,
+            "spirit": 2
+          }
+        },
+        {
+          "level": 10,
+          "expToNext": 478400,
+          "attrs": {
+            "constitution": 2,
+            "spirit": 2
+          }
+        },
+        {
+          "level": 11,
+          "expToNext": 540800,
+          "attrs": {
+            "constitution": 3,
+            "spirit": 3,
+            "talent": 1
+          }
+        },
+        {
+          "level": 12,
+          "expToNext": 0,
+          "attrs": {
+            "constitution": 2,
+            "spirit": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "duanjin_zhuixing",
+      "name": "断金追星术",
+      "grade": "yellow",
+      "category": "arts",
+      "realmLv": 26,
+      "skills": [
+        {
+          "id": "skill.xingmang_zhuiji",
+          "name": "星芒追击",
+          "desc": "碎星芒沿前路连点，对锋痕未散的敌手追出更深裂口。",
+          "cooldown": 18,
+          "costMultiplier": 1,
+          "range": 3,
+          "targeting": {
+            "shape": "line",
+            "maxTargets": 3
+          },
+          "effects": [
+            {
+              "type": "damage",
+              "damageKind": "physical",
+              "element": "metal",
+              "formula": {
+                "op": "mul",
+                "args": [
+                  {
+                    "var": "caster.stat.physAtk",
+                    "scale": 0.9
+                  },
+                  {
+                    "op": "add",
+                    "args": [
+                      1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.05
+                      },
+                      {
+                        "var": "target.buff.buff.metal_edge_mark.stacks",
+                        "scale": 0.01
+                      },
+                      {
+                        "var": "caster.stat.breakPower",
+                        "scale": 0.001
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "buff",
+              "target": "target",
+              "buffId": "buff.metal_edge_mark",
+              "name": "锋痕",
+              "desc": "金痕入脉，削弱物防、化解与命中。",
+              "shortMark": "锋",
+              "category": "debuff",
+              "visibility": "public",
+              "color": "#d2bd6e",
+              "duration": 14,
+              "maxStacks": 8,
+              "statMode": "percent",
+              "valueStats": {
+                "physDef": -4,
+                "resolvePower": -3,
+                "hit": -2
+              }
+            }
+          ],
+          "unlockLevel": 1,
+          "cost": 52
+        }
+      ],
+      "layers": [
+        {
+          "level": 1,
+          "expToNext": 187200,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 2,
+          "expToNext": 208000,
+          "attrs": {
+            "constitution": 4,
+            "talent": 4,
+            "perception": 1
+          }
+        },
+        {
+          "level": 3,
+          "expToNext": 228800,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 4,
+          "expToNext": 249600,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 5,
+          "expToNext": 280800,
+          "attrs": {
+            "constitution": 4,
+            "talent": 4,
+            "perception": 1
+          }
+        },
+        {
+          "level": 6,
+          "expToNext": 312000,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 7,
+          "expToNext": 343200,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 8,
+          "expToNext": 384800,
+          "attrs": {
+            "constitution": 4,
+            "talent": 4,
+            "perception": 1
+          }
+        },
+        {
+          "level": 9,
+          "expToNext": 426400,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 10,
+          "expToNext": 478400,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 11,
+          "expToNext": 540800,
+          "attrs": {
+            "constitution": 3,
+            "talent": 3,
+            "perception": 1
+          }
+        },
+        {
+          "level": 12,
+          "expToNext": 0,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
           }
         }
       ]
@@ -2013,7 +2562,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 34200,
+          "expToNext": 136800,
           "attrs": {
             "constitution": 2,
             "perception": 2
@@ -2021,7 +2570,7 @@
         },
         {
           "level": 2,
-          "expToNext": 38000,
+          "expToNext": 152000,
           "attrs": {
             "constitution": 4,
             "perception": 4,
@@ -2030,7 +2579,7 @@
         },
         {
           "level": 3,
-          "expToNext": 41800,
+          "expToNext": 167200,
           "attrs": {
             "constitution": 2,
             "perception": 2
@@ -2038,7 +2587,7 @@
         },
         {
           "level": 4,
-          "expToNext": 45600,
+          "expToNext": 182400,
           "attrs": {
             "constitution": 2,
             "perception": 2
@@ -2046,7 +2595,7 @@
         },
         {
           "level": 5,
-          "expToNext": 51300,
+          "expToNext": 205200,
           "attrs": {
             "constitution": 3,
             "perception": 3,
@@ -2055,7 +2604,7 @@
         },
         {
           "level": 6,
-          "expToNext": 57000,
+          "expToNext": 228000,
           "attrs": {
             "constitution": 2,
             "perception": 2
@@ -2063,7 +2612,7 @@
         },
         {
           "level": 7,
-          "expToNext": 62700,
+          "expToNext": 250800,
           "attrs": {
             "constitution": 2,
             "perception": 2
@@ -2071,7 +2620,7 @@
         },
         {
           "level": 8,
-          "expToNext": 70300,
+          "expToNext": 281200,
           "attrs": {
             "constitution": 3,
             "perception": 3,
@@ -2080,7 +2629,7 @@
         },
         {
           "level": 9,
-          "expToNext": 77900,
+          "expToNext": 311600,
           "attrs": {
             "constitution": 2,
             "perception": 2
@@ -2088,7 +2637,7 @@
         },
         {
           "level": 10,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "constitution": 2,
             "perception": 2
@@ -2096,7 +2645,7 @@
         },
         {
           "level": 11,
-          "expToNext": 98800,
+          "expToNext": 395200,
           "attrs": {
             "constitution": 3,
             "perception": 3,
@@ -2297,7 +2846,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 34200,
+          "expToNext": 136800,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -2306,11 +2855,11 @@
         },
         {
           "level": 2,
-          "expToNext": 38000
+          "expToNext": 152000
         },
         {
           "level": 3,
-          "expToNext": 41800,
+          "expToNext": 167200,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -2319,7 +2868,7 @@
         },
         {
           "level": 4,
-          "expToNext": 45600,
+          "expToNext": 182400,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -2328,11 +2877,11 @@
         },
         {
           "level": 5,
-          "expToNext": 51300
+          "expToNext": 205200
         },
         {
           "level": 6,
-          "expToNext": 57000,
+          "expToNext": 228000,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -2341,7 +2890,7 @@
         },
         {
           "level": 7,
-          "expToNext": 62700,
+          "expToNext": 250800,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -2350,11 +2899,11 @@
         },
         {
           "level": 8,
-          "expToNext": 70300
+          "expToNext": 281200
         },
         {
           "level": 9,
-          "expToNext": 77900,
+          "expToNext": 311600,
           "attrs": {
             "constitution": 2,
             "spirit": 2,
@@ -2363,7 +2912,7 @@
         },
         {
           "level": 10,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "constitution": 2,
             "spirit": 2,
@@ -2372,7 +2921,7 @@
         },
         {
           "level": 11,
-          "expToNext": 98800
+          "expToNext": 395200
         },
         {
           "level": 12,
@@ -2782,7 +3331,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 34200,
+          "expToNext": 136800,
           "attrs": {
             "spirit": 2,
             "perception": 2
@@ -2790,7 +3339,7 @@
         },
         {
           "level": 2,
-          "expToNext": 38000,
+          "expToNext": 152000,
           "attrs": {
             "spirit": 4,
             "perception": 4
@@ -2798,7 +3347,7 @@
         },
         {
           "level": 3,
-          "expToNext": 41800,
+          "expToNext": 167200,
           "attrs": {
             "spirit": 2,
             "perception": 2
@@ -2806,7 +3355,7 @@
         },
         {
           "level": 4,
-          "expToNext": 45600,
+          "expToNext": 182400,
           "attrs": {
             "perception": 2,
             "spirit": 2
@@ -2814,7 +3363,7 @@
         },
         {
           "level": 5,
-          "expToNext": 51300,
+          "expToNext": 205200,
           "attrs": {
             "spirit": 4,
             "perception": 4
@@ -2822,7 +3371,7 @@
         },
         {
           "level": 6,
-          "expToNext": 57000,
+          "expToNext": 228000,
           "attrs": {
             "spirit": 2,
             "perception": 2
@@ -2830,7 +3379,7 @@
         },
         {
           "level": 7,
-          "expToNext": 62700,
+          "expToNext": 250800,
           "attrs": {
             "spirit": 2,
             "perception": 2
@@ -2838,7 +3387,7 @@
         },
         {
           "level": 8,
-          "expToNext": 70300,
+          "expToNext": 281200,
           "attrs": {
             "spirit": 4,
             "perception": 4
@@ -2846,7 +3395,7 @@
         },
         {
           "level": 9,
-          "expToNext": 77900,
+          "expToNext": 311600,
           "attrs": {
             "spirit": 2,
             "perception": 2
@@ -2854,7 +3403,7 @@
         },
         {
           "level": 10,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "perception": 2,
             "spirit": 2
@@ -2862,7 +3411,7 @@
         },
         {
           "level": 11,
-          "expToNext": 98800,
+          "expToNext": 395200,
           "attrs": {
             "spirit": 3,
             "perception": 3
@@ -3003,7 +3552,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 34200,
+          "expToNext": 136800,
           "attrs": {
             "constitution": 2,
             "talent": 2
@@ -3011,7 +3560,7 @@
         },
         {
           "level": 2,
-          "expToNext": 38000,
+          "expToNext": 152000,
           "attrs": {
             "constitution": 4,
             "talent": 4
@@ -3019,7 +3568,7 @@
         },
         {
           "level": 3,
-          "expToNext": 41800,
+          "expToNext": 167200,
           "attrs": {
             "constitution": 2,
             "talent": 2
@@ -3027,7 +3576,7 @@
         },
         {
           "level": 4,
-          "expToNext": 45600,
+          "expToNext": 182400,
           "attrs": {
             "constitution": 2,
             "talent": 2
@@ -3035,7 +3584,7 @@
         },
         {
           "level": 5,
-          "expToNext": 51300,
+          "expToNext": 205200,
           "attrs": {
             "constitution": 4,
             "talent": 4
@@ -3043,7 +3592,7 @@
         },
         {
           "level": 6,
-          "expToNext": 57000,
+          "expToNext": 228000,
           "attrs": {
             "constitution": 2,
             "talent": 2
@@ -3051,7 +3600,7 @@
         },
         {
           "level": 7,
-          "expToNext": 62700,
+          "expToNext": 250800,
           "attrs": {
             "constitution": 2,
             "talent": 2
@@ -3059,7 +3608,7 @@
         },
         {
           "level": 8,
-          "expToNext": 70300,
+          "expToNext": 281200,
           "attrs": {
             "constitution": 4,
             "talent": 4
@@ -3067,7 +3616,7 @@
         },
         {
           "level": 9,
-          "expToNext": 77900,
+          "expToNext": 311600,
           "attrs": {
             "constitution": 2,
             "talent": 2
@@ -3075,7 +3624,7 @@
         },
         {
           "level": 10,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "constitution": 2,
             "talent": 2
@@ -3083,7 +3632,7 @@
         },
         {
           "level": 11,
-          "expToNext": 98800,
+          "expToNext": 395200,
           "attrs": {
             "constitution": 3,
             "talent": 3
@@ -3294,7 +3843,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 151200,
+          "expToNext": 604800,
           "attrs": {
             "constitution": 12,
             "talent": 12
@@ -3302,7 +3851,7 @@
         },
         {
           "level": 2,
-          "expToNext": 167400,
+          "expToNext": 669600,
           "attrs": {
             "constitution": 15,
             "talent": 15,
@@ -3311,7 +3860,7 @@
         },
         {
           "level": 3,
-          "expToNext": 186300,
+          "expToNext": 745200,
           "attrs": {
             "constitution": 12,
             "talent": 12
@@ -3319,7 +3868,7 @@
         },
         {
           "level": 4,
-          "expToNext": 207900,
+          "expToNext": 831600,
           "attrs": {
             "constitution": 15,
             "talent": 12
@@ -3327,7 +3876,7 @@
         },
         {
           "level": 5,
-          "expToNext": 232200,
+          "expToNext": 928800,
           "attrs": {
             "constitution": 12,
             "talent": 12
@@ -3335,7 +3884,7 @@
         },
         {
           "level": 6,
-          "expToNext": 259200,
+          "expToNext": 1036800,
           "attrs": {
             "constitution": 15,
             "talent": 15,
@@ -3344,7 +3893,7 @@
         },
         {
           "level": 7,
-          "expToNext": 288900,
+          "expToNext": 1155600,
           "attrs": {
             "constitution": 12,
             "talent": 12
@@ -3352,7 +3901,7 @@
         },
         {
           "level": 8,
-          "expToNext": 321300,
+          "expToNext": 1285200,
           "attrs": {
             "constitution": 12,
             "talent": 12
@@ -3360,7 +3909,7 @@
         },
         {
           "level": 9,
-          "expToNext": 359100,
+          "expToNext": 1436400,
           "attrs": {
             "constitution": 15,
             "talent": 15,
@@ -3369,7 +3918,7 @@
         },
         {
           "level": 10,
-          "expToNext": 399600,
+          "expToNext": 1598400,
           "attrs": {
             "constitution": 12,
             "talent": 12
@@ -3377,7 +3926,7 @@
         },
         {
           "level": 11,
-          "expToNext": 442800,
+          "expToNext": 1771200,
           "attrs": {
             "constitution": 15,
             "talent": 12
@@ -3385,7 +3934,7 @@
         },
         {
           "level": 12,
-          "expToNext": 491400,
+          "expToNext": 1965600,
           "attrs": {
             "constitution": 12,
             "talent": 11
@@ -3393,7 +3942,7 @@
         },
         {
           "level": 13,
-          "expToNext": 545400,
+          "expToNext": 2181600,
           "attrs": {
             "constitution": 15,
             "talent": 15,
@@ -3638,7 +4187,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 151200,
+          "expToNext": 604800,
           "attrs": {
             "constitution": 8,
             "spirit": 8,
@@ -3647,7 +4196,7 @@
         },
         {
           "level": 2,
-          "expToNext": 167400,
+          "expToNext": 669600,
           "attrs": {
             "constitution": 8,
             "spirit": 8,
@@ -3657,7 +4206,7 @@
         },
         {
           "level": 3,
-          "expToNext": 186300,
+          "expToNext": 745200,
           "attrs": {
             "constitution": 8,
             "spirit": 8,
@@ -3666,7 +4215,7 @@
         },
         {
           "level": 4,
-          "expToNext": 207900,
+          "expToNext": 831600,
           "attrs": {
             "constitution": 11,
             "spirit": 11,
@@ -3676,7 +4225,7 @@
         },
         {
           "level": 5,
-          "expToNext": 232200,
+          "expToNext": 928800,
           "attrs": {
             "constitution": 8,
             "spirit": 8,
@@ -3685,7 +4234,7 @@
         },
         {
           "level": 6,
-          "expToNext": 259200,
+          "expToNext": 1036800,
           "attrs": {
             "constitution": 8,
             "spirit": 8,
@@ -3695,7 +4244,7 @@
         },
         {
           "level": 7,
-          "expToNext": 288900,
+          "expToNext": 1155600,
           "attrs": {
             "constitution": 8,
             "spirit": 7,
@@ -3704,7 +4253,7 @@
         },
         {
           "level": 8,
-          "expToNext": 321300,
+          "expToNext": 1285200,
           "attrs": {
             "constitution": 7,
             "spirit": 7,
@@ -3713,7 +4262,7 @@
         },
         {
           "level": 9,
-          "expToNext": 359100,
+          "expToNext": 1436400,
           "attrs": {
             "constitution": 7,
             "spirit": 7,
@@ -3723,7 +4272,7 @@
         },
         {
           "level": 10,
-          "expToNext": 399600,
+          "expToNext": 1598400,
           "attrs": {
             "constitution": 7,
             "spirit": 7,
@@ -3732,7 +4281,7 @@
         },
         {
           "level": 11,
-          "expToNext": 442800,
+          "expToNext": 1771200,
           "attrs": {
             "constitution": 11,
             "spirit": 11,
@@ -3742,7 +4291,7 @@
         },
         {
           "level": 12,
-          "expToNext": 491400,
+          "expToNext": 1965600,
           "attrs": {
             "constitution": 7,
             "spirit": 7,
@@ -3751,7 +4300,7 @@
         },
         {
           "level": 13,
-          "expToNext": 545400,
+          "expToNext": 2181600,
           "attrs": {
             "constitution": 7,
             "spirit": 7,
@@ -3766,6 +4315,199 @@
             "constitution": 7,
             "spirit": 7,
             "talent": 7
+          }
+        }
+      ]
+    },
+    {
+      "id": "jinluo_lifeng",
+      "name": "金络砺锋功",
+      "grade": "yellow",
+      "category": "internal",
+      "realmLv": 23,
+      "skills": [
+        {
+          "id": "skill.pojin_linghen",
+          "name": "破筋棱痕",
+          "desc": "贴身破筋，沿旧有锋痕再开一道棱痕，自身借势凝锐。",
+          "cooldown": 16,
+          "costMultiplier": 1,
+          "range": 1,
+          "effects": [
+            {
+              "type": "damage",
+              "damageKind": "physical",
+              "element": "metal",
+              "formula": {
+                "op": "mul",
+                "args": [
+                  {
+                    "var": "caster.stat.physAtk",
+                    "scale": 1.45
+                  },
+                  {
+                    "op": "add",
+                    "args": [
+                      1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.05
+                      },
+                      {
+                        "var": "target.buff.buff.metal_edge_mark.stacks",
+                        "scale": 0.01
+                      },
+                      {
+                        "var": "caster.stat.hit",
+                        "scale": 0.001
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "buff",
+              "target": "target",
+              "buffId": "buff.metal_edge_mark",
+              "name": "锋痕",
+              "desc": "金痕入脉，削弱物防、化解与命中。",
+              "shortMark": "锋",
+              "category": "debuff",
+              "visibility": "public",
+              "color": "#d2bd6e",
+              "duration": 14,
+              "maxStacks": 8,
+              "statMode": "percent",
+              "valueStats": {
+                "physDef": -4,
+                "resolvePower": -3,
+                "hit": -2
+              }
+            },
+            {
+              "type": "buff",
+              "target": "self",
+              "buffId": "buff.metal_rush_sharpen",
+              "name": "锐势",
+              "desc": "锋意贴骨，提高命中、暴击与破招。",
+              "shortMark": "锐",
+              "category": "buff",
+              "visibility": "public",
+              "color": "#d7c56f",
+              "duration": 8,
+              "maxStacks": 1,
+              "statMode": "percent",
+              "valueStats": {
+                "hit": 6,
+                "crit": 5,
+                "breakPower": 6
+              }
+            }
+          ],
+          "unlockLevel": 1,
+          "cost": 46
+        }
+      ],
+      "layers": [
+        {
+          "level": 1,
+          "expToNext": 165600,
+          "attrs": {
+            "constitution": 2,
+            "perception": 2
+          }
+        },
+        {
+          "level": 2,
+          "expToNext": 184000,
+          "attrs": {
+            "constitution": 4,
+            "perception": 4,
+            "talent": 1
+          }
+        },
+        {
+          "level": 3,
+          "expToNext": 202400,
+          "attrs": {
+            "constitution": 2,
+            "perception": 2
+          }
+        },
+        {
+          "level": 4,
+          "expToNext": 220800,
+          "attrs": {
+            "constitution": 2,
+            "perception": 2
+          }
+        },
+        {
+          "level": 5,
+          "expToNext": 248400,
+          "attrs": {
+            "constitution": 4,
+            "perception": 4,
+            "talent": 1
+          }
+        },
+        {
+          "level": 6,
+          "expToNext": 276000,
+          "attrs": {
+            "constitution": 2,
+            "perception": 2
+          }
+        },
+        {
+          "level": 7,
+          "expToNext": 303600,
+          "attrs": {
+            "constitution": 2,
+            "perception": 2
+          }
+        },
+        {
+          "level": 8,
+          "expToNext": 340400,
+          "attrs": {
+            "constitution": 4,
+            "perception": 4,
+            "talent": 1
+          }
+        },
+        {
+          "level": 9,
+          "expToNext": 377200,
+          "attrs": {
+            "constitution": 2,
+            "perception": 2
+          }
+        },
+        {
+          "level": 10,
+          "expToNext": 423200,
+          "attrs": {
+            "constitution": 2,
+            "perception": 2
+          }
+        },
+        {
+          "level": 11,
+          "expToNext": 478400,
+          "attrs": {
+            "constitution": 3,
+            "perception": 3,
+            "talent": 1
+          }
+        },
+        {
+          "level": 12,
+          "expToNext": 0,
+          "attrs": {
+            "constitution": 2,
+            "perception": 2
           }
         }
       ]
@@ -4431,7 +5173,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 78200,
+          "expToNext": 312800,
           "attrs": {
             "constitution": 5,
             "talent": 5
@@ -4439,7 +5181,7 @@
         },
         {
           "level": 2,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "constitution": 5,
             "talent": 5,
@@ -4448,7 +5190,7 @@
         },
         {
           "level": 3,
-          "expToNext": 96600,
+          "expToNext": 386400,
           "attrs": {
             "constitution": 5,
             "talent": 5
@@ -4456,7 +5198,7 @@
         },
         {
           "level": 4,
-          "expToNext": 108100,
+          "expToNext": 432400,
           "attrs": {
             "constitution": 5,
             "talent": 5
@@ -4464,7 +5206,7 @@
         },
         {
           "level": 5,
-          "expToNext": 119600,
+          "expToNext": 478400,
           "attrs": {
             "constitution": 5,
             "talent": 5
@@ -4472,7 +5214,7 @@
         },
         {
           "level": 6,
-          "expToNext": 133400,
+          "expToNext": 533600,
           "attrs": {
             "constitution": 5,
             "talent": 5,
@@ -4481,7 +5223,7 @@
         },
         {
           "level": 7,
-          "expToNext": 149500,
+          "expToNext": 598000,
           "attrs": {
             "constitution": 5,
             "talent": 5
@@ -4489,7 +5231,7 @@
         },
         {
           "level": 8,
-          "expToNext": 167900,
+          "expToNext": 671600,
           "attrs": {
             "constitution": 5,
             "talent": 5
@@ -4497,7 +5239,7 @@
         },
         {
           "level": 9,
-          "expToNext": 188600,
+          "expToNext": 754400,
           "attrs": {
             "constitution": 5,
             "talent": 5,
@@ -4506,7 +5248,7 @@
         },
         {
           "level": 10,
-          "expToNext": 211600,
+          "expToNext": 846400,
           "attrs": {
             "constitution": 5,
             "talent": 5
@@ -4514,7 +5256,7 @@
         },
         {
           "level": 11,
-          "expToNext": 236900,
+          "expToNext": 947600,
           "attrs": {
             "constitution": 5,
             "talent": 5
@@ -4522,7 +5264,7 @@
         },
         {
           "level": 12,
-          "expToNext": 264500,
+          "expToNext": 1058000,
           "attrs": {
             "constitution": 5,
             "talent": 5
@@ -4530,7 +5272,7 @@
         },
         {
           "level": 13,
-          "expToNext": 296700,
+          "expToNext": 1186800,
           "attrs": {
             "constitution": 5,
             "talent": 5,
@@ -4675,7 +5417,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 34200,
+          "expToNext": 136800,
           "attrs": {
             "constitution": 2,
             "spirit": 2
@@ -4683,7 +5425,7 @@
         },
         {
           "level": 2,
-          "expToNext": 38000,
+          "expToNext": 152000,
           "attrs": {
             "constitution": 4,
             "spirit": 4,
@@ -4692,7 +5434,7 @@
         },
         {
           "level": 3,
-          "expToNext": 41800,
+          "expToNext": 167200,
           "attrs": {
             "constitution": 2,
             "spirit": 2
@@ -4700,7 +5442,7 @@
         },
         {
           "level": 4,
-          "expToNext": 45600,
+          "expToNext": 182400,
           "attrs": {
             "constitution": 2,
             "spirit": 2
@@ -4708,7 +5450,7 @@
         },
         {
           "level": 5,
-          "expToNext": 51300,
+          "expToNext": 205200,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -4717,7 +5459,7 @@
         },
         {
           "level": 6,
-          "expToNext": 57000,
+          "expToNext": 228000,
           "attrs": {
             "constitution": 2,
             "spirit": 2
@@ -4725,7 +5467,7 @@
         },
         {
           "level": 7,
-          "expToNext": 62700,
+          "expToNext": 250800,
           "attrs": {
             "constitution": 2,
             "spirit": 2
@@ -4733,7 +5475,7 @@
         },
         {
           "level": 8,
-          "expToNext": 70300,
+          "expToNext": 281200,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -4742,7 +5484,7 @@
         },
         {
           "level": 9,
-          "expToNext": 77900,
+          "expToNext": 311600,
           "attrs": {
             "constitution": 2,
             "spirit": 2
@@ -4750,7 +5492,7 @@
         },
         {
           "level": 10,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "constitution": 2,
             "spirit": 2
@@ -4758,7 +5500,7 @@
         },
         {
           "level": 11,
-          "expToNext": 98800,
+          "expToNext": 395200,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -5005,6 +5747,185 @@
       ]
     },
     {
+      "id": "manzhi_jiaoluo",
+      "name": "蔓织绞络术",
+      "grade": "yellow",
+      "category": "arts",
+      "realmLv": 26,
+      "skills": [
+        {
+          "id": "skill.tengluo_manshen",
+          "name": "藤络蔓伸",
+          "desc": "藤络分织，向周身几处要穴同时补上缠脉。",
+          "cooldown": 18,
+          "costMultiplier": 1,
+          "range": 3,
+          "targeting": {
+            "shape": "area",
+            "radius": 1,
+            "maxTargets": 3
+          },
+          "effects": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "wood",
+              "formula": {
+                "op": "mul",
+                "args": [
+                  {
+                    "var": "caster.stat.spellAtk",
+                    "scale": 0.9
+                  },
+                  {
+                    "op": "add",
+                    "args": [
+                      1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.05
+                      },
+                      {
+                        "var": "target.buff.buff.wood_vine_mark.stacks",
+                        "scale": 0.009
+                      },
+                      {
+                        "var": "caster.stat.hit",
+                        "scale": 0.001
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "buff",
+              "target": "target",
+              "buffId": "buff.wood_vine_mark",
+              "name": "缠脉",
+              "desc": "木意缠脉，削弱闪避、化解与法防。",
+              "shortMark": "缠",
+              "category": "debuff",
+              "visibility": "public",
+              "color": "#69ba74",
+              "duration": 16,
+              "maxStacks": 8,
+              "statMode": "percent",
+              "valueStats": {
+                "dodge": -3,
+                "resolvePower": -3,
+                "spellDef": -2
+              }
+            }
+          ],
+          "unlockLevel": 1,
+          "cost": 52
+        }
+      ],
+      "layers": [
+        {
+          "level": 1,
+          "expToNext": 187200,
+          "attrs": {
+            "spirit": 2,
+            "constitution": 2
+          }
+        },
+        {
+          "level": 2,
+          "expToNext": 208000,
+          "attrs": {
+            "spirit": 4,
+            "constitution": 4,
+            "talent": 1
+          }
+        },
+        {
+          "level": 3,
+          "expToNext": 228800,
+          "attrs": {
+            "spirit": 2,
+            "constitution": 2
+          }
+        },
+        {
+          "level": 4,
+          "expToNext": 249600,
+          "attrs": {
+            "spirit": 2,
+            "constitution": 2
+          }
+        },
+        {
+          "level": 5,
+          "expToNext": 280800,
+          "attrs": {
+            "spirit": 4,
+            "constitution": 4,
+            "talent": 1
+          }
+        },
+        {
+          "level": 6,
+          "expToNext": 312000,
+          "attrs": {
+            "spirit": 2,
+            "constitution": 2
+          }
+        },
+        {
+          "level": 7,
+          "expToNext": 343200,
+          "attrs": {
+            "spirit": 2,
+            "constitution": 2
+          }
+        },
+        {
+          "level": 8,
+          "expToNext": 384800,
+          "attrs": {
+            "spirit": 4,
+            "constitution": 4,
+            "talent": 1
+          }
+        },
+        {
+          "level": 9,
+          "expToNext": 426400,
+          "attrs": {
+            "spirit": 2,
+            "constitution": 2
+          }
+        },
+        {
+          "level": 10,
+          "expToNext": 478400,
+          "attrs": {
+            "spirit": 2,
+            "constitution": 2
+          }
+        },
+        {
+          "level": 11,
+          "expToNext": 540800,
+          "attrs": {
+            "spirit": 3,
+            "constitution": 3,
+            "talent": 1
+          }
+        },
+        {
+          "level": 12,
+          "expToNext": 0,
+          "attrs": {
+            "spirit": 2,
+            "constitution": 2
+          }
+        }
+      ]
+    },
+    {
       "id": "bright_eye_sutra",
       "name": "明目经",
       "grade": "yellow",
@@ -5080,6 +6001,200 @@
           "expToNext": 0,
           "attrs": {
             "perception": 4
+          }
+        }
+      ]
+    },
+    {
+      "id": "ningchao_hushen",
+      "name": "凝潮护身经",
+      "grade": "yellow",
+      "category": "internal",
+      "realmLv": 23,
+      "skills": [
+        {
+          "id": "skill.hanliu_fuxing",
+          "name": "寒流覆行",
+          "desc": "寒流贴身再覆敌脉，寒印越深，自身越轻灵。",
+          "cooldown": 20,
+          "costMultiplier": 1,
+          "range": 3,
+          "effects": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "water",
+              "formula": {
+                "op": "mul",
+                "args": [
+                  {
+                    "var": "caster.stat.spellAtk",
+                    "scale": 1.15
+                  },
+                  {
+                    "op": "add",
+                    "args": [
+                      1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.05
+                      },
+                      {
+                        "var": "target.buff.buff.water_frost_mark.stacks",
+                        "scale": 0.01
+                      },
+                      {
+                        "var": "caster.stat.dodge",
+                        "scale": 0.001
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "buff",
+              "target": "target",
+              "buffId": "buff.water_frost_mark",
+              "name": "寒印",
+              "desc": "寒意覆体，持续压低命中、闪避、移速与法防。",
+              "shortMark": "寒",
+              "category": "debuff",
+              "visibility": "public",
+              "color": "#74bdd7",
+              "duration": 16,
+              "maxStacks": 9,
+              "statMode": "percent",
+              "valueStats": {
+                "hit": -3,
+                "dodge": -3,
+                "moveSpeed": -7,
+                "spellDef": -4
+              }
+            },
+            {
+              "type": "buff",
+              "target": "self",
+              "buffId": "buff.water_glide",
+              "name": "流霜",
+              "desc": "寒流贴身，提高闪避、移速与冷却速度。",
+              "shortMark": "霜",
+              "category": "buff",
+              "visibility": "public",
+              "color": "#7dbfd8",
+              "duration": 8,
+              "maxStacks": 1,
+              "statMode": "percent",
+              "valueStats": {
+                "dodge": 6,
+                "moveSpeed": 8,
+                "cooldownSpeed": 6
+              }
+            }
+          ],
+          "unlockLevel": 1,
+          "cost": 46
+        }
+      ],
+      "layers": [
+        {
+          "level": 1,
+          "expToNext": 165600,
+          "attrs": {
+            "spirit": 2,
+            "perception": 2
+          }
+        },
+        {
+          "level": 2,
+          "expToNext": 184000,
+          "attrs": {
+            "spirit": 4,
+            "perception": 4,
+            "talent": 1
+          }
+        },
+        {
+          "level": 3,
+          "expToNext": 202400,
+          "attrs": {
+            "spirit": 2,
+            "perception": 2
+          }
+        },
+        {
+          "level": 4,
+          "expToNext": 220800,
+          "attrs": {
+            "spirit": 2,
+            "perception": 2
+          }
+        },
+        {
+          "level": 5,
+          "expToNext": 248400,
+          "attrs": {
+            "spirit": 4,
+            "perception": 4,
+            "talent": 1
+          }
+        },
+        {
+          "level": 6,
+          "expToNext": 276000,
+          "attrs": {
+            "spirit": 2,
+            "perception": 2
+          }
+        },
+        {
+          "level": 7,
+          "expToNext": 303600,
+          "attrs": {
+            "spirit": 2,
+            "perception": 2
+          }
+        },
+        {
+          "level": 8,
+          "expToNext": 340400,
+          "attrs": {
+            "spirit": 4,
+            "perception": 4,
+            "talent": 1
+          }
+        },
+        {
+          "level": 9,
+          "expToNext": 377200,
+          "attrs": {
+            "spirit": 2,
+            "perception": 2
+          }
+        },
+        {
+          "level": 10,
+          "expToNext": 423200,
+          "attrs": {
+            "spirit": 2,
+            "perception": 2
+          }
+        },
+        {
+          "level": 11,
+          "expToNext": 478400,
+          "attrs": {
+            "spirit": 3,
+            "perception": 3,
+            "talent": 1
+          }
+        },
+        {
+          "level": 12,
+          "expToNext": 0,
+          "attrs": {
+            "spirit": 2,
+            "perception": 2
           }
         }
       ]
@@ -5828,7 +6943,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 34200,
+          "expToNext": 136800,
           "attrs": {
             "spirit": 2,
             "talent": 2
@@ -5836,7 +6951,7 @@
         },
         {
           "level": 2,
-          "expToNext": 38000,
+          "expToNext": 152000,
           "attrs": {
             "spirit": 4,
             "talent": 4
@@ -5844,7 +6959,7 @@
         },
         {
           "level": 3,
-          "expToNext": 41800,
+          "expToNext": 167200,
           "attrs": {
             "spirit": 2,
             "talent": 2
@@ -5852,7 +6967,7 @@
         },
         {
           "level": 4,
-          "expToNext": 45600,
+          "expToNext": 182400,
           "attrs": {
             "spirit": 2,
             "talent": 2
@@ -5860,7 +6975,7 @@
         },
         {
           "level": 5,
-          "expToNext": 51300,
+          "expToNext": 205200,
           "attrs": {
             "spirit": 4,
             "talent": 4
@@ -5868,7 +6983,7 @@
         },
         {
           "level": 6,
-          "expToNext": 57000,
+          "expToNext": 228000,
           "attrs": {
             "spirit": 2,
             "talent": 2
@@ -5876,7 +6991,7 @@
         },
         {
           "level": 7,
-          "expToNext": 62700,
+          "expToNext": 250800,
           "attrs": {
             "spirit": 2,
             "talent": 2
@@ -5884,7 +6999,7 @@
         },
         {
           "level": 8,
-          "expToNext": 70300,
+          "expToNext": 281200,
           "attrs": {
             "spirit": 4,
             "talent": 4
@@ -5892,7 +7007,7 @@
         },
         {
           "level": 9,
-          "expToNext": 77900,
+          "expToNext": 311600,
           "attrs": {
             "spirit": 2,
             "talent": 2
@@ -5900,7 +7015,7 @@
         },
         {
           "level": 10,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "spirit": 2,
             "talent": 2
@@ -5908,10 +7023,184 @@
         },
         {
           "level": 11,
-          "expToNext": 98800,
+          "expToNext": 395200,
           "attrs": {
             "spirit": 3,
             "talent": 3
+          }
+        },
+        {
+          "level": 12,
+          "expToNext": 0,
+          "attrs": {
+            "spirit": 2,
+            "talent": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "qingteng_huixi",
+      "name": "青藤回息诀",
+      "grade": "yellow",
+      "category": "internal",
+      "realmLv": 23,
+      "skills": [
+        {
+          "id": "skill.huisheng_panluo",
+          "name": "回生盘络",
+          "desc": "木息盘络，循缠脉倒卷生机，伤敌时一并反哺己身。",
+          "cooldown": 20,
+          "costMultiplier": 1,
+          "range": 3,
+          "effects": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "wood",
+              "formula": {
+                "op": "mul",
+                "args": [
+                  {
+                    "var": "caster.stat.spellAtk",
+                    "scale": 1.2
+                  },
+                  {
+                    "op": "add",
+                    "args": [
+                      1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.05
+                      },
+                      {
+                        "var": "target.buff.buff.wood_vine_mark.stacks",
+                        "scale": 0.01
+                      },
+                      {
+                        "var": "caster.stat.spellDef",
+                        "scale": 0.001
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "buff",
+              "target": "self",
+              "buffId": "buff.wood_reflow",
+              "name": "回青",
+              "desc": "木息回流，提高生命回复、灵力回复与法防。",
+              "shortMark": "青",
+              "category": "buff",
+              "visibility": "public",
+              "color": "#78bf78",
+              "duration": 8,
+              "maxStacks": 1,
+              "statMode": "percent",
+              "valueStats": {
+                "hpRegenRate": 90,
+                "qiRegenRate": 70,
+                "spellDef": 4
+              }
+            }
+          ],
+          "unlockLevel": 1,
+          "cost": 46
+        }
+      ],
+      "layers": [
+        {
+          "level": 1,
+          "expToNext": 165600,
+          "attrs": {
+            "spirit": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 2,
+          "expToNext": 184000,
+          "attrs": {
+            "spirit": 4,
+            "talent": 4,
+            "constitution": 1
+          }
+        },
+        {
+          "level": 3,
+          "expToNext": 202400,
+          "attrs": {
+            "spirit": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 4,
+          "expToNext": 220800,
+          "attrs": {
+            "spirit": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 5,
+          "expToNext": 248400,
+          "attrs": {
+            "spirit": 4,
+            "talent": 4,
+            "constitution": 1
+          }
+        },
+        {
+          "level": 6,
+          "expToNext": 276000,
+          "attrs": {
+            "spirit": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 7,
+          "expToNext": 303600,
+          "attrs": {
+            "spirit": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 8,
+          "expToNext": 340400,
+          "attrs": {
+            "spirit": 4,
+            "talent": 4,
+            "constitution": 1
+          }
+        },
+        {
+          "level": 9,
+          "expToNext": 377200,
+          "attrs": {
+            "spirit": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 10,
+          "expToNext": 423200,
+          "attrs": {
+            "spirit": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 11,
+          "expToNext": 478400,
+          "attrs": {
+            "spirit": 3,
+            "talent": 3,
+            "constitution": 1
           }
         },
         {
@@ -6689,7 +7978,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 151200,
+          "expToNext": 604800,
           "attrs": {
             "constitution": 10,
             "perception": 10,
@@ -6698,7 +7987,7 @@
         },
         {
           "level": 2,
-          "expToNext": 167400,
+          "expToNext": 669600,
           "attrs": {
             "constitution": 13,
             "perception": 13,
@@ -6707,7 +7996,7 @@
         },
         {
           "level": 3,
-          "expToNext": 186300,
+          "expToNext": 745200,
           "attrs": {
             "constitution": 10,
             "perception": 10,
@@ -6716,7 +8005,7 @@
         },
         {
           "level": 4,
-          "expToNext": 207900,
+          "expToNext": 831600,
           "attrs": {
             "constitution": 13,
             "perception": 10,
@@ -6725,7 +8014,7 @@
         },
         {
           "level": 5,
-          "expToNext": 232200,
+          "expToNext": 928800,
           "attrs": {
             "constitution": 10,
             "perception": 10,
@@ -6734,7 +8023,7 @@
         },
         {
           "level": 6,
-          "expToNext": 259200,
+          "expToNext": 1036800,
           "attrs": {
             "constitution": 13,
             "perception": 13,
@@ -6743,7 +8032,7 @@
         },
         {
           "level": 7,
-          "expToNext": 288900,
+          "expToNext": 1155600,
           "attrs": {
             "constitution": 10,
             "perception": 10,
@@ -6752,7 +8041,7 @@
         },
         {
           "level": 8,
-          "expToNext": 321300,
+          "expToNext": 1285200,
           "attrs": {
             "constitution": 10,
             "perception": 10,
@@ -6761,7 +8050,7 @@
         },
         {
           "level": 9,
-          "expToNext": 359100,
+          "expToNext": 1436400,
           "attrs": {
             "constitution": 13,
             "perception": 13,
@@ -6770,7 +8059,7 @@
         },
         {
           "level": 10,
-          "expToNext": 399600,
+          "expToNext": 1598400,
           "attrs": {
             "constitution": 10,
             "perception": 10,
@@ -6779,7 +8068,7 @@
         },
         {
           "level": 11,
-          "expToNext": 442800,
+          "expToNext": 1771200,
           "attrs": {
             "constitution": 13,
             "perception": 10,
@@ -6788,7 +8077,7 @@
         },
         {
           "level": 12,
-          "expToNext": 491400,
+          "expToNext": 1965600,
           "attrs": {
             "constitution": 10,
             "perception": 9,
@@ -6797,7 +8086,7 @@
         },
         {
           "level": 13,
-          "expToNext": 545400,
+          "expToNext": 2181600,
           "attrs": {
             "constitution": 13,
             "perception": 13,
@@ -6951,7 +8240,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 151200,
+          "expToNext": 604800,
           "attrs": {
             "talent": 9,
             "spirit": 9,
@@ -6960,7 +8249,7 @@
         },
         {
           "level": 2,
-          "expToNext": 167400,
+          "expToNext": 669600,
           "attrs": {
             "talent": 17,
             "spirit": 17
@@ -6968,7 +8257,7 @@
         },
         {
           "level": 3,
-          "expToNext": 186300,
+          "expToNext": 745200,
           "attrs": {
             "talent": 8,
             "spirit": 8,
@@ -6977,7 +8266,7 @@
         },
         {
           "level": 4,
-          "expToNext": 207900,
+          "expToNext": 831600,
           "attrs": {
             "talent": 8,
             "spirit": 8,
@@ -6986,7 +8275,7 @@
         },
         {
           "level": 5,
-          "expToNext": 232200,
+          "expToNext": 928800,
           "attrs": {
             "talent": 8,
             "spirit": 8,
@@ -6995,7 +8284,7 @@
         },
         {
           "level": 6,
-          "expToNext": 259200,
+          "expToNext": 1036800,
           "attrs": {
             "talent": 17,
             "spirit": 17
@@ -7003,7 +8292,7 @@
         },
         {
           "level": 7,
-          "expToNext": 288900,
+          "expToNext": 1155600,
           "attrs": {
             "talent": 8,
             "spirit": 8,
@@ -7012,7 +8301,7 @@
         },
         {
           "level": 8,
-          "expToNext": 321300,
+          "expToNext": 1285200,
           "attrs": {
             "talent": 8,
             "spirit": 8,
@@ -7021,7 +8310,7 @@
         },
         {
           "level": 9,
-          "expToNext": 359100,
+          "expToNext": 1436400,
           "attrs": {
             "talent": 17,
             "spirit": 17
@@ -7029,7 +8318,7 @@
         },
         {
           "level": 10,
-          "expToNext": 399600,
+          "expToNext": 1598400,
           "attrs": {
             "talent": 8,
             "spirit": 8,
@@ -7038,7 +8327,7 @@
         },
         {
           "level": 11,
-          "expToNext": 442800,
+          "expToNext": 1771200,
           "attrs": {
             "talent": 8,
             "spirit": 8,
@@ -7047,7 +8336,7 @@
         },
         {
           "level": 12,
-          "expToNext": 491400,
+          "expToNext": 1965600,
           "attrs": {
             "talent": 8,
             "spirit": 8,
@@ -7056,7 +8345,7 @@
         },
         {
           "level": 13,
-          "expToNext": 545400,
+          "expToNext": 2181600,
           "attrs": {
             "talent": 17,
             "spirit": 17
@@ -7151,14 +8440,14 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 100800,
+          "expToNext": 403200,
           "attrs": {
             "spirit": 2
           }
         },
         {
           "level": 2,
-          "expToNext": 110400,
+          "expToNext": 441600,
           "attrs": {
             "spirit": 2,
             "talent": 1
@@ -7166,14 +8455,14 @@
         },
         {
           "level": 3,
-          "expToNext": 120000,
+          "expToNext": 480000,
           "attrs": {
             "spirit": 2
           }
         },
         {
           "level": 4,
-          "expToNext": 132000,
+          "expToNext": 528000,
           "attrs": {
             "spirit": 2,
             "talent": 1
@@ -7181,14 +8470,14 @@
         },
         {
           "level": 5,
-          "expToNext": 144000,
+          "expToNext": 576000,
           "attrs": {
             "spirit": 2
           }
         },
         {
           "level": 6,
-          "expToNext": 158400,
+          "expToNext": 633600,
           "attrs": {
             "spirit": 2,
             "talent": 1
@@ -7196,14 +8485,14 @@
         },
         {
           "level": 7,
-          "expToNext": 175200,
+          "expToNext": 700800,
           "attrs": {
             "spirit": 2
           }
         },
         {
           "level": 8,
-          "expToNext": 194400,
+          "expToNext": 777600,
           "attrs": {
             "spirit": 2,
             "talent": 1
@@ -7211,7 +8500,7 @@
         },
         {
           "level": 9,
-          "expToNext": 216000,
+          "expToNext": 864000,
           "attrs": {
             "spirit": 2
           }
@@ -7429,7 +8718,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 151200,
+          "expToNext": 604800,
           "attrs": {
             "spirit": 12,
             "perception": 12
@@ -7437,7 +8726,7 @@
         },
         {
           "level": 2,
-          "expToNext": 167400,
+          "expToNext": 669600,
           "attrs": {
             "spirit": 15,
             "perception": 15,
@@ -7446,7 +8735,7 @@
         },
         {
           "level": 3,
-          "expToNext": 186300,
+          "expToNext": 745200,
           "attrs": {
             "spirit": 12,
             "perception": 11
@@ -7454,7 +8743,7 @@
         },
         {
           "level": 4,
-          "expToNext": 207900,
+          "expToNext": 831600,
           "attrs": {
             "spirit": 8,
             "perception": 8,
@@ -7463,7 +8752,7 @@
         },
         {
           "level": 5,
-          "expToNext": 232200,
+          "expToNext": 928800,
           "attrs": {
             "spirit": 11,
             "perception": 11
@@ -7471,7 +8760,7 @@
         },
         {
           "level": 6,
-          "expToNext": 259200,
+          "expToNext": 1036800,
           "attrs": {
             "spirit": 15,
             "perception": 15,
@@ -7480,7 +8769,7 @@
         },
         {
           "level": 7,
-          "expToNext": 288900,
+          "expToNext": 1155600,
           "attrs": {
             "spirit": 11,
             "perception": 11
@@ -7488,7 +8777,7 @@
         },
         {
           "level": 8,
-          "expToNext": 321300,
+          "expToNext": 1285200,
           "attrs": {
             "spirit": 11,
             "perception": 11
@@ -7496,7 +8785,7 @@
         },
         {
           "level": 9,
-          "expToNext": 359100,
+          "expToNext": 1436400,
           "attrs": {
             "spirit": 15,
             "perception": 15,
@@ -7505,7 +8794,7 @@
         },
         {
           "level": 10,
-          "expToNext": 399600,
+          "expToNext": 1598400,
           "attrs": {
             "spirit": 11,
             "perception": 11
@@ -7513,7 +8802,7 @@
         },
         {
           "level": 11,
-          "expToNext": 442800,
+          "expToNext": 1771200,
           "attrs": {
             "spirit": 8,
             "perception": 8,
@@ -7522,7 +8811,7 @@
         },
         {
           "level": 12,
-          "expToNext": 491400,
+          "expToNext": 1965600,
           "attrs": {
             "spirit": 11,
             "perception": 11
@@ -7530,7 +8819,7 @@
         },
         {
           "level": 13,
-          "expToNext": 545400,
+          "expToNext": 2181600,
           "attrs": {
             "spirit": 15,
             "perception": 15,
@@ -7881,7 +9170,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 34200,
+          "expToNext": 136800,
           "attrs": {
             "talent": 2,
             "spirit": 2
@@ -7889,7 +9178,7 @@
         },
         {
           "level": 2,
-          "expToNext": 38000,
+          "expToNext": 152000,
           "attrs": {
             "talent": 4,
             "spirit": 4
@@ -7897,7 +9186,7 @@
         },
         {
           "level": 3,
-          "expToNext": 41800,
+          "expToNext": 167200,
           "attrs": {
             "talent": 2,
             "spirit": 2
@@ -7905,7 +9194,7 @@
         },
         {
           "level": 4,
-          "expToNext": 45600,
+          "expToNext": 182400,
           "attrs": {
             "spirit": 2,
             "talent": 2
@@ -7913,7 +9202,7 @@
         },
         {
           "level": 5,
-          "expToNext": 51300,
+          "expToNext": 205200,
           "attrs": {
             "talent": 4,
             "spirit": 4
@@ -7921,7 +9210,7 @@
         },
         {
           "level": 6,
-          "expToNext": 57000,
+          "expToNext": 228000,
           "attrs": {
             "talent": 2,
             "spirit": 2
@@ -7929,7 +9218,7 @@
         },
         {
           "level": 7,
-          "expToNext": 62700,
+          "expToNext": 250800,
           "attrs": {
             "talent": 2,
             "spirit": 2
@@ -7937,7 +9226,7 @@
         },
         {
           "level": 8,
-          "expToNext": 70300,
+          "expToNext": 281200,
           "attrs": {
             "talent": 4,
             "spirit": 4
@@ -7945,7 +9234,7 @@
         },
         {
           "level": 9,
-          "expToNext": 77900,
+          "expToNext": 311600,
           "attrs": {
             "talent": 2,
             "spirit": 2
@@ -7953,7 +9242,7 @@
         },
         {
           "level": 10,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "spirit": 2,
             "talent": 2
@@ -7961,7 +9250,7 @@
         },
         {
           "level": 11,
-          "expToNext": 98800,
+          "expToNext": 395200,
           "attrs": {
             "talent": 3,
             "spirit": 3
@@ -8122,7 +9411,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 78200,
+          "expToNext": 312800,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -8130,7 +9419,7 @@
         },
         {
           "level": 2,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "spirit": 5,
             "talent": 5,
@@ -8139,7 +9428,7 @@
         },
         {
           "level": 3,
-          "expToNext": 96600,
+          "expToNext": 386400,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -8147,7 +9436,7 @@
         },
         {
           "level": 4,
-          "expToNext": 108100,
+          "expToNext": 432400,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -8155,7 +9444,7 @@
         },
         {
           "level": 5,
-          "expToNext": 119600,
+          "expToNext": 478400,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -8163,7 +9452,7 @@
         },
         {
           "level": 6,
-          "expToNext": 133400,
+          "expToNext": 533600,
           "attrs": {
             "spirit": 5,
             "talent": 5,
@@ -8172,7 +9461,7 @@
         },
         {
           "level": 7,
-          "expToNext": 149500,
+          "expToNext": 598000,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -8180,7 +9469,7 @@
         },
         {
           "level": 8,
-          "expToNext": 167900,
+          "expToNext": 671600,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -8188,7 +9477,7 @@
         },
         {
           "level": 9,
-          "expToNext": 188600,
+          "expToNext": 754400,
           "attrs": {
             "spirit": 5,
             "talent": 5,
@@ -8197,7 +9486,7 @@
         },
         {
           "level": 10,
-          "expToNext": 211600,
+          "expToNext": 846400,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -8205,7 +9494,7 @@
         },
         {
           "level": 11,
-          "expToNext": 236900,
+          "expToNext": 947600,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -8213,7 +9502,7 @@
         },
         {
           "level": 12,
-          "expToNext": 264500,
+          "expToNext": 1058000,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -8221,7 +9510,7 @@
         },
         {
           "level": 13,
-          "expToNext": 296700,
+          "expToNext": 1186800,
           "attrs": {
             "spirit": 5,
             "talent": 5,
@@ -8394,7 +9683,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 78200,
+          "expToNext": 312800,
           "attrs": {
             "constitution": 4,
             "spirit": 4,
@@ -8403,7 +9692,7 @@
         },
         {
           "level": 2,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "constitution": 4,
             "spirit": 4,
@@ -8412,7 +9701,7 @@
         },
         {
           "level": 3,
-          "expToNext": 96600,
+          "expToNext": 386400,
           "attrs": {
             "constitution": 4,
             "spirit": 4,
@@ -8421,7 +9710,7 @@
         },
         {
           "level": 4,
-          "expToNext": 108100,
+          "expToNext": 432400,
           "attrs": {
             "constitution": 4,
             "spirit": 4,
@@ -8430,7 +9719,7 @@
         },
         {
           "level": 5,
-          "expToNext": 119600,
+          "expToNext": 478400,
           "attrs": {
             "constitution": 4,
             "spirit": 4,
@@ -8439,7 +9728,7 @@
         },
         {
           "level": 6,
-          "expToNext": 133400,
+          "expToNext": 533600,
           "attrs": {
             "constitution": 4,
             "spirit": 4,
@@ -8448,7 +9737,7 @@
         },
         {
           "level": 7,
-          "expToNext": 149500,
+          "expToNext": 598000,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -8457,7 +9746,7 @@
         },
         {
           "level": 8,
-          "expToNext": 167900,
+          "expToNext": 671600,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -8466,7 +9755,7 @@
         },
         {
           "level": 9,
-          "expToNext": 188600,
+          "expToNext": 754400,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -8475,7 +9764,7 @@
         },
         {
           "level": 10,
-          "expToNext": 211600,
+          "expToNext": 846400,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -8484,7 +9773,7 @@
         },
         {
           "level": 11,
-          "expToNext": 236900,
+          "expToNext": 947600,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -8493,7 +9782,7 @@
         },
         {
           "level": 12,
-          "expToNext": 264500,
+          "expToNext": 1058000,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -8502,7 +9791,7 @@
         },
         {
           "level": 13,
-          "expToNext": 296700,
+          "expToNext": 1186800,
           "attrs": {
             "constitution": 3,
             "spirit": 3,
@@ -8665,7 +9954,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 78200,
+          "expToNext": 312800,
           "attrs": {
             "spirit": 5,
             "perception": 5
@@ -8673,7 +9962,7 @@
         },
         {
           "level": 2,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "spirit": 5,
             "perception": 5,
@@ -8682,7 +9971,7 @@
         },
         {
           "level": 3,
-          "expToNext": 96600,
+          "expToNext": 386400,
           "attrs": {
             "spirit": 5,
             "perception": 5
@@ -8690,7 +9979,7 @@
         },
         {
           "level": 4,
-          "expToNext": 108100,
+          "expToNext": 432400,
           "attrs": {
             "spirit": 5,
             "perception": 5
@@ -8698,7 +9987,7 @@
         },
         {
           "level": 5,
-          "expToNext": 119600,
+          "expToNext": 478400,
           "attrs": {
             "spirit": 5,
             "perception": 5
@@ -8706,7 +9995,7 @@
         },
         {
           "level": 6,
-          "expToNext": 133400,
+          "expToNext": 533600,
           "attrs": {
             "spirit": 5,
             "perception": 5,
@@ -8715,7 +10004,7 @@
         },
         {
           "level": 7,
-          "expToNext": 149500,
+          "expToNext": 598000,
           "attrs": {
             "spirit": 5,
             "perception": 5
@@ -8723,7 +10012,7 @@
         },
         {
           "level": 8,
-          "expToNext": 167900,
+          "expToNext": 671600,
           "attrs": {
             "spirit": 5,
             "perception": 5
@@ -8731,7 +10020,7 @@
         },
         {
           "level": 9,
-          "expToNext": 188600,
+          "expToNext": 754400,
           "attrs": {
             "spirit": 5,
             "perception": 5,
@@ -8740,7 +10029,7 @@
         },
         {
           "level": 10,
-          "expToNext": 211600,
+          "expToNext": 846400,
           "attrs": {
             "spirit": 5,
             "perception": 5
@@ -8748,7 +10037,7 @@
         },
         {
           "level": 11,
-          "expToNext": 236900,
+          "expToNext": 947600,
           "attrs": {
             "spirit": 5,
             "perception": 5
@@ -8756,7 +10045,7 @@
         },
         {
           "level": 12,
-          "expToNext": 264500,
+          "expToNext": 1058000,
           "attrs": {
             "spirit": 5,
             "perception": 5
@@ -8764,7 +10053,7 @@
         },
         {
           "level": 13,
-          "expToNext": 296700,
+          "expToNext": 1186800,
           "attrs": {
             "spirit": 5,
             "perception": 5,
@@ -8777,6 +10066,186 @@
           "attrs": {
             "spirit": 5,
             "perception": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "xuanjing_luoyin",
+      "name": "玄镜落印诀",
+      "grade": "yellow",
+      "category": "arts",
+      "realmLv": 26,
+      "skills": [
+        {
+          "id": "skill.jingbo_suoyin",
+          "name": "镜波锁印",
+          "desc": "镜波定潮，小范围寒意同落，寒印深处更难抽身。",
+          "cooldown": 18,
+          "costMultiplier": 1,
+          "range": 3,
+          "targeting": {
+            "shape": "area",
+            "radius": 1,
+            "maxTargets": 3
+          },
+          "effects": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "water",
+              "formula": {
+                "op": "mul",
+                "args": [
+                  {
+                    "var": "caster.stat.spellAtk",
+                    "scale": 0.9
+                  },
+                  {
+                    "op": "add",
+                    "args": [
+                      1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.05
+                      },
+                      {
+                        "var": "target.buff.buff.water_frost_mark.stacks",
+                        "scale": 0.01
+                      },
+                      {
+                        "var": "target.stat.moveSpeed",
+                        "scale": 0.005
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "buff",
+              "target": "target",
+              "buffId": "buff.water_frost_mark",
+              "name": "寒印",
+              "desc": "寒意覆体，持续压低命中、闪避、移速与法防。",
+              "shortMark": "寒",
+              "category": "debuff",
+              "visibility": "public",
+              "color": "#74bdd7",
+              "duration": 16,
+              "maxStacks": 9,
+              "statMode": "percent",
+              "valueStats": {
+                "hit": -3,
+                "dodge": -3,
+                "moveSpeed": -7,
+                "spellDef": -4
+              }
+            }
+          ],
+          "unlockLevel": 1,
+          "cost": 52
+        }
+      ],
+      "layers": [
+        {
+          "level": 1,
+          "expToNext": 187200,
+          "attrs": {
+            "perception": 2,
+            "spirit": 2
+          }
+        },
+        {
+          "level": 2,
+          "expToNext": 208000,
+          "attrs": {
+            "perception": 4,
+            "spirit": 4,
+            "talent": 1
+          }
+        },
+        {
+          "level": 3,
+          "expToNext": 228800,
+          "attrs": {
+            "perception": 2,
+            "spirit": 2
+          }
+        },
+        {
+          "level": 4,
+          "expToNext": 249600,
+          "attrs": {
+            "perception": 2,
+            "spirit": 2
+          }
+        },
+        {
+          "level": 5,
+          "expToNext": 280800,
+          "attrs": {
+            "perception": 4,
+            "spirit": 4,
+            "talent": 1
+          }
+        },
+        {
+          "level": 6,
+          "expToNext": 312000,
+          "attrs": {
+            "perception": 2,
+            "spirit": 2
+          }
+        },
+        {
+          "level": 7,
+          "expToNext": 343200,
+          "attrs": {
+            "perception": 2,
+            "spirit": 2
+          }
+        },
+        {
+          "level": 8,
+          "expToNext": 384800,
+          "attrs": {
+            "perception": 4,
+            "spirit": 4,
+            "talent": 1
+          }
+        },
+        {
+          "level": 9,
+          "expToNext": 426400,
+          "attrs": {
+            "perception": 2,
+            "spirit": 2
+          }
+        },
+        {
+          "level": 10,
+          "expToNext": 478400,
+          "attrs": {
+            "perception": 2,
+            "spirit": 2
+          }
+        },
+        {
+          "level": 11,
+          "expToNext": 540800,
+          "attrs": {
+            "perception": 3,
+            "spirit": 3,
+            "talent": 1
+          }
+        },
+        {
+          "level": 12,
+          "expToNext": 0,
+          "attrs": {
+            "perception": 2,
+            "spirit": 2
           }
         }
       ]
@@ -9371,6 +10840,183 @@
           "attrs": {
             "constitution": 4,
             "perception": 3
+          }
+        }
+      ]
+    },
+    {
+      "id": "yaohuo_liebo",
+      "name": "曜火裂波术",
+      "grade": "yellow",
+      "category": "arts",
+      "realmLv": 26,
+      "skills": [
+        {
+          "id": "skill.liebo_fenmai",
+          "name": "裂波焚脉",
+          "desc": "曜火裂波扫过前路，对一路敌手同时添上灼脉。",
+          "cooldown": 18,
+          "costMultiplier": 1,
+          "range": 3,
+          "targeting": {
+            "shape": "line",
+            "maxTargets": 3
+          },
+          "effects": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "fire",
+              "formula": {
+                "op": "mul",
+                "args": [
+                  {
+                    "var": "caster.stat.spellAtk",
+                    "scale": 0.9
+                  },
+                  {
+                    "op": "add",
+                    "args": [
+                      1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.05
+                      },
+                      {
+                        "var": "target.buff.buff.fire_burn_mark.stacks",
+                        "scale": 0.01
+                      },
+                      {
+                        "var": "caster.stat.crit",
+                        "scale": 0.001
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "buff",
+              "target": "target",
+              "buffId": "buff.fire_burn_mark",
+              "name": "灼脉",
+              "desc": "火脉灼入经络，持续降低法防与化解。",
+              "shortMark": "灼",
+              "category": "debuff",
+              "visibility": "public",
+              "color": "#ef6b3b",
+              "duration": 12,
+              "maxStacks": 9,
+              "statMode": "percent",
+              "valueStats": {
+                "spellDef": -4,
+                "resolvePower": -3
+              }
+            }
+          ],
+          "unlockLevel": 1,
+          "cost": 52
+        }
+      ],
+      "layers": [
+        {
+          "level": 1,
+          "expToNext": 187200,
+          "attrs": {
+            "spirit": 2,
+            "perception": 2
+          }
+        },
+        {
+          "level": 2,
+          "expToNext": 208000,
+          "attrs": {
+            "spirit": 4,
+            "perception": 4,
+            "constitution": 1
+          }
+        },
+        {
+          "level": 3,
+          "expToNext": 228800,
+          "attrs": {
+            "spirit": 2,
+            "perception": 2
+          }
+        },
+        {
+          "level": 4,
+          "expToNext": 249600,
+          "attrs": {
+            "spirit": 2,
+            "perception": 2
+          }
+        },
+        {
+          "level": 5,
+          "expToNext": 280800,
+          "attrs": {
+            "spirit": 4,
+            "perception": 4,
+            "constitution": 1
+          }
+        },
+        {
+          "level": 6,
+          "expToNext": 312000,
+          "attrs": {
+            "spirit": 2,
+            "perception": 2
+          }
+        },
+        {
+          "level": 7,
+          "expToNext": 343200,
+          "attrs": {
+            "spirit": 2,
+            "perception": 2
+          }
+        },
+        {
+          "level": 8,
+          "expToNext": 384800,
+          "attrs": {
+            "spirit": 4,
+            "perception": 4,
+            "constitution": 1
+          }
+        },
+        {
+          "level": 9,
+          "expToNext": 426400,
+          "attrs": {
+            "spirit": 2,
+            "perception": 2
+          }
+        },
+        {
+          "level": 10,
+          "expToNext": 478400,
+          "attrs": {
+            "spirit": 2,
+            "perception": 2
+          }
+        },
+        {
+          "level": 11,
+          "expToNext": 540800,
+          "attrs": {
+            "spirit": 3,
+            "perception": 3,
+            "constitution": 1
+          }
+        },
+        {
+          "level": 12,
+          "expToNext": 0,
+          "attrs": {
+            "spirit": 2,
+            "perception": 2
           }
         }
       ]
@@ -10271,7 +11917,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 151200,
+          "expToNext": 604800,
           "attrs": {
             "spirit": 12,
             "talent": 12
@@ -10279,7 +11925,7 @@
         },
         {
           "level": 2,
-          "expToNext": 167400,
+          "expToNext": 669600,
           "attrs": {
             "spirit": 12,
             "talent": 12,
@@ -10288,7 +11934,7 @@
         },
         {
           "level": 3,
-          "expToNext": 186300,
+          "expToNext": 745200,
           "attrs": {
             "spirit": 12,
             "talent": 12
@@ -10296,7 +11942,7 @@
         },
         {
           "level": 4,
-          "expToNext": 207900,
+          "expToNext": 831600,
           "attrs": {
             "spirit": 12,
             "talent": 12,
@@ -10305,7 +11951,7 @@
         },
         {
           "level": 5,
-          "expToNext": 232200,
+          "expToNext": 928800,
           "attrs": {
             "spirit": 12,
             "talent": 12
@@ -10313,7 +11959,7 @@
         },
         {
           "level": 6,
-          "expToNext": 259200,
+          "expToNext": 1036800,
           "attrs": {
             "spirit": 12,
             "talent": 12,
@@ -10322,7 +11968,7 @@
         },
         {
           "level": 7,
-          "expToNext": 288900,
+          "expToNext": 1155600,
           "attrs": {
             "spirit": 12,
             "talent": 12
@@ -10330,7 +11976,7 @@
         },
         {
           "level": 8,
-          "expToNext": 321300,
+          "expToNext": 1285200,
           "attrs": {
             "spirit": 12,
             "talent": 12
@@ -10338,7 +11984,7 @@
         },
         {
           "level": 9,
-          "expToNext": 359100,
+          "expToNext": 1436400,
           "attrs": {
             "spirit": 12,
             "talent": 12,
@@ -10347,7 +11993,7 @@
         },
         {
           "level": 10,
-          "expToNext": 399600,
+          "expToNext": 1598400,
           "attrs": {
             "spirit": 12,
             "talent": 12
@@ -10355,7 +12001,7 @@
         },
         {
           "level": 11,
-          "expToNext": 442800,
+          "expToNext": 1771200,
           "attrs": {
             "spirit": 12,
             "talent": 12,
@@ -10364,7 +12010,7 @@
         },
         {
           "level": 12,
-          "expToNext": 491400,
+          "expToNext": 1965600,
           "attrs": {
             "spirit": 12,
             "talent": 11
@@ -10372,7 +12018,7 @@
         },
         {
           "level": 13,
-          "expToNext": 545400,
+          "expToNext": 2181600,
           "attrs": {
             "spirit": 11,
             "talent": 11,
@@ -10967,6 +12613,199 @@
       ]
     },
     {
+      "id": "zhenyue_huyuan",
+      "name": "镇岳护元诀",
+      "grade": "yellow",
+      "category": "internal",
+      "realmLv": 23,
+      "skills": [
+        {
+          "id": "skill.yuepo_zhendao",
+          "name": "岳魄镇道",
+          "desc": "岳魄下沉，借镇脉稳住己身后再反压敌手。",
+          "cooldown": 16,
+          "costMultiplier": 1,
+          "range": 1,
+          "effects": [
+            {
+              "type": "damage",
+              "damageKind": "physical",
+              "element": "earth",
+              "formula": {
+                "op": "mul",
+                "args": [
+                  {
+                    "var": "caster.stat.physAtk",
+                    "scale": 1.5
+                  },
+                  {
+                    "op": "add",
+                    "args": [
+                      1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.05
+                      },
+                      {
+                        "var": "target.buff.buff.earth_seal_mark.stacks",
+                        "scale": 0.01
+                      },
+                      {
+                        "var": "caster.stat.physDef",
+                        "scale": 0.001
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "buff",
+              "target": "target",
+              "buffId": "buff.earth_seal_mark",
+              "name": "镇脉",
+              "desc": "重压沉脉，持续削弱移速、破招与物防。",
+              "shortMark": "镇",
+              "category": "debuff",
+              "visibility": "public",
+              "color": "#a48a68",
+              "duration": 14,
+              "maxStacks": 8,
+              "statMode": "percent",
+              "valueStats": {
+                "moveSpeed": -6,
+                "breakPower": -3,
+                "physDef": -2
+              }
+            },
+            {
+              "type": "buff",
+              "target": "self",
+              "buffId": "buff.earth_holdfast",
+              "name": "镇元",
+              "desc": "岳意压身，提高双防与化解。",
+              "shortMark": "元",
+              "category": "buff",
+              "visibility": "public",
+              "color": "#ab9270",
+              "duration": 8,
+              "maxStacks": 1,
+              "statMode": "percent",
+              "valueStats": {
+                "physDef": 8,
+                "spellDef": 6,
+                "resolvePower": 6
+              }
+            }
+          ],
+          "unlockLevel": 1,
+          "cost": 46
+        }
+      ],
+      "layers": [
+        {
+          "level": 1,
+          "expToNext": 165600,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 2,
+          "expToNext": 184000,
+          "attrs": {
+            "constitution": 4,
+            "talent": 4,
+            "spirit": 1
+          }
+        },
+        {
+          "level": 3,
+          "expToNext": 202400,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 4,
+          "expToNext": 220800,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 5,
+          "expToNext": 248400,
+          "attrs": {
+            "constitution": 4,
+            "talent": 4,
+            "spirit": 1
+          }
+        },
+        {
+          "level": 6,
+          "expToNext": 276000,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 7,
+          "expToNext": 303600,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 8,
+          "expToNext": 340400,
+          "attrs": {
+            "constitution": 4,
+            "talent": 4,
+            "spirit": 1
+          }
+        },
+        {
+          "level": 9,
+          "expToNext": 377200,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 10,
+          "expToNext": 423200,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        },
+        {
+          "level": 11,
+          "expToNext": 478400,
+          "attrs": {
+            "constitution": 3,
+            "talent": 3,
+            "spirit": 1
+          }
+        },
+        {
+          "level": 12,
+          "expToNext": 0,
+          "attrs": {
+            "constitution": 2,
+            "talent": 2
+          }
+        }
+      ]
+    },
+    {
       "id": "stillheart",
       "name": "止念诀",
       "grade": "mystic",
@@ -11354,7 +13193,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 78200,
+          "expToNext": 312800,
           "attrs": {
             "spirit": 6,
             "talent": 6
@@ -11362,7 +13201,7 @@
         },
         {
           "level": 2,
-          "expToNext": 87400,
+          "expToNext": 349600,
           "attrs": {
             "spirit": 6,
             "talent": 6
@@ -11370,7 +13209,7 @@
         },
         {
           "level": 3,
-          "expToNext": 96600,
+          "expToNext": 386400,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -11378,7 +13217,7 @@
         },
         {
           "level": 4,
-          "expToNext": 108100,
+          "expToNext": 432400,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -11386,7 +13225,7 @@
         },
         {
           "level": 5,
-          "expToNext": 119600,
+          "expToNext": 478400,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -11394,7 +13233,7 @@
         },
         {
           "level": 6,
-          "expToNext": 133400,
+          "expToNext": 533600,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -11402,7 +13241,7 @@
         },
         {
           "level": 7,
-          "expToNext": 149500,
+          "expToNext": 598000,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -11410,7 +13249,7 @@
         },
         {
           "level": 8,
-          "expToNext": 167900,
+          "expToNext": 671600,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -11418,7 +13257,7 @@
         },
         {
           "level": 9,
-          "expToNext": 188600,
+          "expToNext": 754400,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -11426,7 +13265,7 @@
         },
         {
           "level": 10,
-          "expToNext": 211600,
+          "expToNext": 846400,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -11434,7 +13273,7 @@
         },
         {
           "level": 11,
-          "expToNext": 236900,
+          "expToNext": 947600,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -11442,7 +13281,7 @@
         },
         {
           "level": 12,
-          "expToNext": 264500,
+          "expToNext": 1058000,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -11450,7 +13289,7 @@
         },
         {
           "level": 13,
-          "expToNext": 296700,
+          "expToNext": 1186800,
           "attrs": {
             "spirit": 5,
             "talent": 5
@@ -11639,7 +13478,7 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 151200,
+          "expToNext": 604800,
           "attrs": {
             "constitution": 10,
             "spirit": 10,
@@ -11648,7 +13487,7 @@
         },
         {
           "level": 2,
-          "expToNext": 167400,
+          "expToNext": 669600,
           "attrs": {
             "constitution": 14,
             "spirit": 14
@@ -11656,7 +13495,7 @@
         },
         {
           "level": 3,
-          "expToNext": 186300,
+          "expToNext": 745200,
           "attrs": {
             "constitution": 10,
             "spirit": 10,
@@ -11665,7 +13504,7 @@
         },
         {
           "level": 4,
-          "expToNext": 207900,
+          "expToNext": 831600,
           "attrs": {
             "constitution": 10,
             "spirit": 10,
@@ -11674,7 +13513,7 @@
         },
         {
           "level": 5,
-          "expToNext": 232200,
+          "expToNext": 928800,
           "attrs": {
             "constitution": 10,
             "spirit": 10,
@@ -11683,7 +13522,7 @@
         },
         {
           "level": 6,
-          "expToNext": 259200,
+          "expToNext": 1036800,
           "attrs": {
             "constitution": 14,
             "spirit": 14
@@ -11691,7 +13530,7 @@
         },
         {
           "level": 7,
-          "expToNext": 288900,
+          "expToNext": 1155600,
           "attrs": {
             "constitution": 10,
             "spirit": 10,
@@ -11700,7 +13539,7 @@
         },
         {
           "level": 8,
-          "expToNext": 321300,
+          "expToNext": 1285200,
           "attrs": {
             "constitution": 10,
             "spirit": 10,
@@ -11709,7 +13548,7 @@
         },
         {
           "level": 9,
-          "expToNext": 359100,
+          "expToNext": 1436400,
           "attrs": {
             "constitution": 14,
             "spirit": 13
@@ -11717,7 +13556,7 @@
         },
         {
           "level": 10,
-          "expToNext": 399600,
+          "expToNext": 1598400,
           "attrs": {
             "constitution": 10,
             "spirit": 10,
@@ -11726,7 +13565,7 @@
         },
         {
           "level": 11,
-          "expToNext": 442800,
+          "expToNext": 1771200,
           "attrs": {
             "constitution": 10,
             "spirit": 10,
@@ -11735,7 +13574,7 @@
         },
         {
           "level": 12,
-          "expToNext": 491400,
+          "expToNext": 1965600,
           "attrs": {
             "constitution": 10,
             "spirit": 10,
@@ -11744,7 +13583,7 @@
         },
         {
           "level": 13,
-          "expToNext": 545400,
+          "expToNext": 2181600,
           "attrs": {
             "constitution": 13,
             "spirit": 13
@@ -12062,6 +13901,13 @@
       "learnTechniqueId": "hidden_fortune_record"
     },
     {
+      "itemId": "book.chiqi_ranqiao",
+      "name": "《赤息燃窍功》",
+      "type": "skill_book",
+      "desc": "记载赤息燃窍功的修行法门，使用后学会赤息燃窍功。",
+      "learnTechniqueId": "chiqi_ranqiao"
+    },
+    {
       "itemId": "book.redflame_art",
       "name": "《赤焰诀》",
       "type": "skill_book",
@@ -12081,6 +13927,20 @@
       "type": "skill_book",
       "desc": "拿石锁压肩练出来的苦功，修来极慢，但根骨扎得稳。",
       "learnTechniqueId": "bear_cauldron_art"
+    },
+    {
+      "itemId": "book.dimai_fumai",
+      "name": "《地脉覆脉术》",
+      "type": "skill_book",
+      "desc": "记载地脉覆脉术的修行法门，使用后学会地脉覆脉术。",
+      "learnTechniqueId": "dimai_fumai"
+    },
+    {
+      "itemId": "book.duanjin_zhuixing",
+      "name": "《断金追星术》",
+      "type": "skill_book",
+      "desc": "记载断金追星术的修行法门，使用后学会断金追星术。",
+      "learnTechniqueId": "duanjin_zhuixing"
     },
     {
       "itemId": "book.body_tempering_formula",
@@ -12153,6 +14013,13 @@
       "learnTechniqueId": "hunyuan_zaimai"
     },
     {
+      "itemId": "book.jinluo_lifeng",
+      "name": "《金络砺锋功》",
+      "type": "skill_book",
+      "desc": "记载金络砺锋功的修行法门，使用后学会金络砺锋功。",
+      "learnTechniqueId": "jinluo_lifeng"
+    },
+    {
       "itemId": "book_thunder_palm",
       "name": "《惊雷掌》残卷",
       "type": "skill_book",
@@ -12181,11 +14048,25 @@
       "learnTechniqueId": "cloud_blade"
     },
     {
+      "itemId": "book.manzhi_jiaoluo",
+      "name": "《蔓织绞络术》",
+      "type": "skill_book",
+      "desc": "记载蔓织绞络术的修行法门，使用后学会蔓织绞络术。",
+      "learnTechniqueId": "manzhi_jiaoluo"
+    },
+    {
       "itemId": "book.bright_eye_sutra",
       "name": "《明目经》",
       "type": "skill_book",
       "desc": "专修目力与感知的内功，久练后耳目心识会一起清亮。",
       "learnTechniqueId": "bright_eye_sutra"
+    },
+    {
+      "itemId": "book.ningchao_hushen",
+      "name": "《凝潮护身经》",
+      "type": "skill_book",
+      "desc": "记载凝潮护身经的修行法门，使用后学会凝潮护身经。",
+      "learnTechniqueId": "ningchao_hushen"
     },
     {
       "itemId": "book.ningqi_chengji",
@@ -12207,6 +14088,13 @@
       "type": "skill_book",
       "desc": "记载青木养脉篇的修行法门，使用后学会青木养脉篇。",
       "learnTechniqueId": "qingmu_yangmai"
+    },
+    {
+      "itemId": "book.qingteng_huixi",
+      "name": "《青藤回息诀》",
+      "type": "skill_book",
+      "desc": "记载青藤回息诀的修行法门，使用后学会青藤回息诀。",
+      "learnTechniqueId": "qingteng_huixi"
     },
     {
       "itemId": "book_wind_step",
@@ -12279,6 +14167,13 @@
       "learnTechniqueId": "xuanjin_huilan"
     },
     {
+      "itemId": "book.xuanjing_luoyin",
+      "name": "《玄镜落印诀》",
+      "type": "skill_book",
+      "desc": "记载玄镜落印诀的修行法门，使用后学会玄镜落印诀。",
+      "learnTechniqueId": "xuanjing_luoyin"
+    },
+    {
       "itemId": "book.mountain_insight_chart",
       "name": "《玄照图》",
       "type": "skill_book",
@@ -12291,6 +14186,13 @@
       "type": "skill_book",
       "desc": "只管稳气养神的内功，不讲花巧，胜在灵力根底厚。",
       "learnTechniqueId": "nourishing_qi_art"
+    },
+    {
+      "itemId": "book.yaohuo_liebo",
+      "name": "《曜火裂波术》",
+      "type": "skill_book",
+      "desc": "记载曜火裂波术的修行法门，使用后学会曜火裂波术。",
+      "learnTechniqueId": "yaohuo_liebo"
     },
     {
       "itemId": "book.starfall_spear",
@@ -12333,6 +14235,13 @@
       "type": "skill_book",
       "desc": "古修遗留的御神法门，可压制异兽灵识。",
       "learnTechniqueId": "spirit_anchor"
+    },
+    {
+      "itemId": "book.zhenyue_huyuan",
+      "name": "《镇岳护元诀》",
+      "type": "skill_book",
+      "desc": "记载镇岳护元诀的修行法门，使用后学会镇岳护元诀。",
+      "learnTechniqueId": "zhenyue_huyuan"
     },
     {
       "itemId": "book_stillheart",
@@ -14205,20 +16114,20 @@
       "name": "苦修丹",
       "type": "consumable",
       "level": 4,
-      "desc": "强行催运行功，2400 息内修炼速度明显提高，但气血与真气回复都会变慢，脚程也会变沉。",
+      "desc": "强行催运行功，3600 息内修炼速度明显提高，但灵力恢复与生命回复都会大幅衰减，脚程也会更沉。",
       "consumeBuffs": [
         {
           "buffId": "item_buff.bitter_cultivation",
           "name": "苦修",
-          "desc": "境界修为与功法修炼速度提高，但经脉始终带着涩滞感。",
+          "desc": "境界修为与功法修炼速度提高，但经脉始终带着涩滞感，灵力恢复、生命回复与脚程都会明显下滑。",
           "shortMark": "苦",
-          "duration": 2400,
+          "duration": 3600,
           "valueStats": {
             "realmExpPerTick": 25,
             "techniqueExpPerTick": 25,
-            "hpRegenRate": -6,
-            "qiRegenRate": -6,
-            "moveSpeed": -6
+            "hpRegenRate": -500,
+            "qiRegenRate": -500,
+            "moveSpeed": -10
           }
         }
       ]
@@ -17926,8 +19835,8 @@
       "duration": 16,
       "stacks": 1,
       "maxStacks": 8,
-      "sourceSkillId": "skill.qianluo_chanmai",
-      "sourceSkillName": "牵萝缠脉",
+      "sourceSkillId": "skill.tengluo_manshen",
+      "sourceSkillName": "藤络蔓伸",
       "realmLv": 1,
       "color": "#69ba74",
       "statMode": "percent"
@@ -18040,6 +19949,23 @@
       "sourceSkillId": "item:pill.chiyang_draught",
       "sourceSkillName": "赤阳液",
       "realmLv": 1
+    },
+    {
+      "buffId": "buff.fire_fervor",
+      "name": "炽行",
+      "desc": "火息催窍，提高暴击、移速与冷却速度。",
+      "shortMark": "炽",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 8,
+      "duration": 8,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill.huomai_cuxing",
+      "sourceSkillName": "火脉催行",
+      "realmLv": 1,
+      "color": "#f07c4a",
+      "statMode": "percent"
     },
     {
       "buffId": "item_buff.edge_quenching_powder",
@@ -18331,6 +20257,23 @@
       "realmLv": 1
     },
     {
+      "buffId": "buff.wood_reflow",
+      "name": "回青",
+      "desc": "木息回流，提高生命回复、灵力回复与法防。",
+      "shortMark": "青",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 8,
+      "duration": 8,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill.huisheng_panluo",
+      "sourceSkillName": "回生盘络",
+      "realmLv": 1,
+      "color": "#78bf78",
+      "statMode": "percent"
+    },
+    {
       "buffId": "equip.cleft_armguard_rebound",
       "name": "回震",
       "shortMark": "震",
@@ -18428,12 +20371,12 @@
     {
       "buffId": "item_buff.bitter_cultivation",
       "name": "苦修",
-      "desc": "境界修为与功法修炼速度提高，但经脉始终带着涩滞感。",
+      "desc": "境界修为与功法修炼速度提高，但经脉始终带着涩滞感，灵力恢复、生命回复与脚程都会明显下滑。",
       "shortMark": "苦",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 2400,
-      "duration": 2400,
+      "remainingTicks": 3600,
+      "duration": 3600,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:pill.bitter_cultivation_elixir",
@@ -18516,6 +20459,23 @@
       "sourceSkillName": "裂羽攒射",
       "realmLv": 1,
       "color": "#9bb7d4"
+    },
+    {
+      "buffId": "buff.water_glide",
+      "name": "流霜",
+      "desc": "寒流贴身，提高闪避、移速与冷却速度。",
+      "shortMark": "霜",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 8,
+      "duration": 8,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill.hanliu_fuxing",
+      "sourceSkillName": "寒流覆行",
+      "realmLv": 1,
+      "color": "#7dbfd8",
+      "statMode": "percent"
     },
     {
       "buffId": "equip.dewstep_dash",
@@ -18656,6 +20616,23 @@
       "sourceSkillName": "裂刃前肢",
       "realmLv": 1,
       "color": "#89c46a"
+    },
+    {
+      "buffId": "buff.metal_rush_sharpen",
+      "name": "锐势",
+      "desc": "锋意贴骨，提高命中、暴击与破招。",
+      "shortMark": "锐",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 8,
+      "duration": 8,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill.pojin_linghen",
+      "sourceSkillName": "破筋棱痕",
+      "realmLv": 1,
+      "color": "#d7c56f",
+      "statMode": "percent"
     },
     {
       "buffId": "buff.wood_nourish",
@@ -19046,8 +21023,8 @@
       "duration": 14,
       "stacks": 1,
       "maxStacks": 8,
-      "sourceSkillId": "skill.zhenmai_yin",
-      "sourceSkillName": "镇脉印",
+      "sourceSkillId": "skill.luoshan_zhenmai",
+      "sourceSkillName": "落山镇脉",
       "realmLv": 1,
       "color": "#a48a68",
       "statMode": "percent"
@@ -19082,6 +21059,23 @@
       "sourceSkillName": "坤岳镇形",
       "realmLv": 1,
       "color": "#a18b6b",
+      "statMode": "percent"
+    },
+    {
+      "buffId": "buff.earth_holdfast",
+      "name": "镇元",
+      "desc": "岳意压身，提高双防与化解。",
+      "shortMark": "元",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 8,
+      "duration": 8,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill.yuepo_zhendao",
+      "sourceSkillName": "岳魄镇道",
+      "realmLv": 1,
+      "color": "#ab9270",
       "statMode": "percent"
     },
     {
@@ -19205,8 +21199,8 @@
       "duration": 12,
       "stacks": 1,
       "maxStacks": 9,
-      "sourceSkillId": "skill.chiyao_laoxin",
-      "sourceSkillName": "赤曜烙心",
+      "sourceSkillId": "skill.huomai_cuxing",
+      "sourceSkillName": "火脉催行",
       "realmLv": 1,
       "color": "#ef6b3b",
       "statMode": "percent"

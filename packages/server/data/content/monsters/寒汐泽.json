@@ -65,12 +65,6 @@
         "count": 1
       },
       {
-        "itemId": "book.hanxi_ximai",
-        "name": "《寒汐洗脉法》",
-        "type": "skill_book",
-        "count": 1
-      },
-      {
         "itemId": "equip.returnbreath_copper_pendant",
         "name": "归息铜佩",
         "type": "equipment",
@@ -98,6 +92,12 @@
         "itemId": "pill.cleartide_powder",
         "name": "清脉散",
         "type": "consumable",
+        "count": 1
+      },
+      {
+        "itemId": "book.hanxi_ximai",
+        "name": "《寒汐洗脉法》",
+        "type": "skill_book",
         "count": 1
       }
     ]
@@ -184,6 +184,12 @@
         "name": "雾行履",
         "type": "equipment",
         "count": 1
+      },
+      {
+        "itemId": "book.ningchao_hushen",
+        "name": "《凝潮护身经》",
+        "type": "skill_book",
+        "count": 1
       }
     ]
   },
@@ -268,6 +274,12 @@
         "itemId": "equip.dew_tide_pendant",
         "name": "凝露潮佩",
         "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.xuanjing_luoyin",
+        "name": "《玄镜落印诀》",
+        "type": "skill_book",
         "count": 1
       }
     ]
@@ -426,12 +438,6 @@
         "count": 1
       },
       {
-        "itemId": "book.xuanjin_huilan",
-        "name": "《玄津回澜录》",
-        "type": "skill_book",
-        "count": 1
-      },
-      {
         "itemId": "equip.hanxi_flow_ruler",
         "name": "寒汐引流尺",
         "type": "equipment",
@@ -453,6 +459,12 @@
         "itemId": "equip.dew_tide_pendant",
         "name": "凝露潮佩",
         "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.xuanjin_huilan",
+        "name": "《玄津回澜录》",
+        "type": "skill_book",
         "count": 1
       }
     ]
@@ -526,12 +538,6 @@
         "count": 1
       },
       {
-        "itemId": "book.zhoutian_xihai",
-        "name": "《周天息海篇》",
-        "type": "skill_book",
-        "count": 1
-      },
-      {
         "itemId": "equip.hanxi_flow_ruler",
         "name": "寒汐引流尺",
         "type": "equipment",
@@ -559,6 +565,12 @@
         "itemId": "pill.cleartide_powder",
         "name": "清脉散",
         "type": "consumable",
+        "count": 1
+      },
+      {
+        "itemId": "book.zhoutian_xihai",
+        "name": "《周天息海篇》",
+        "type": "skill_book",
         "count": 1
       }
     ]
@@ -636,12 +648,6 @@
         "count": 4
       },
       {
-        "itemId": "book.taiyin_guichao",
-        "name": "《太阴归潮经》",
-        "type": "skill_book",
-        "count": 1
-      },
-      {
         "itemId": "equip.hanxi_flow_ruler",
         "name": "寒汐引流尺",
         "type": "equipment",
@@ -675,6 +681,12 @@
         "itemId": "pill.cleartide_powder",
         "name": "清脉散",
         "type": "consumable",
+        "count": 1
+      },
+      {
+        "itemId": "book.taiyin_guichao",
+        "name": "《太阴归潮经》",
+        "type": "skill_book",
         "count": 1
       }
     ]

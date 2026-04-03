@@ -68,12 +68,6 @@
         "count": 1
       },
       {
-        "itemId": "book.genghua_ningfeng",
-        "name": "《庚华凝锋诀》",
-        "type": "skill_book",
-        "count": 1
-      },
-      {
         "itemId": "equip.cleft_short_blade",
         "name": "裂痕短刃",
         "type": "equipment",
@@ -95,6 +89,12 @@
         "itemId": "pill.edge_quenching_powder",
         "name": "淬锋散",
         "type": "consumable",
+        "count": 1
+      },
+      {
+        "itemId": "book.genghua_ningfeng",
+        "name": "《庚华凝锋诀》",
+        "type": "skill_book",
         "count": 1
       }
     ]
@@ -183,6 +183,12 @@
         "itemId": "equip.iron_track_boots",
         "name": "铁辙靴",
         "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.jinluo_lifeng",
+        "name": "《金络砺锋功》",
+        "type": "skill_book",
         "count": 1
       }
     ]
@@ -287,6 +293,12 @@
         "itemId": "equip.gold_sand_talisman",
         "name": "砂金符坠",
         "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.duanjin_zhuixing",
+        "name": "《断金追星术》",
+        "type": "skill_book",
         "count": 1
       }
     ]
@@ -474,12 +486,6 @@
         "count": 1
       },
       {
-        "itemId": "book.baihong_duanyue",
-        "name": "《白虹断岳典》",
-        "type": "skill_book",
-        "count": 1
-      },
-      {
         "itemId": "equip.cleft_blade_armguard",
         "name": "裂锋护臂",
         "type": "equipment",
@@ -507,6 +513,12 @@
         "itemId": "equip.sealed_edge_stoneheart",
         "name": "封锋石心",
         "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.baihong_duanyue",
+        "name": "《白虹断岳典》",
+        "type": "skill_book",
         "count": 1
       }
     ]
@@ -688,12 +700,6 @@
         "count": 4
       },
       {
-        "itemId": "book.taibai_zhuxing",
-        "name": "《太白诛形录》",
-        "type": "skill_book",
-        "count": 1
-      },
-      {
         "itemId": "equip.cleft_blade_relic_armor",
         "name": "裂锋遗甲",
         "type": "equipment",
@@ -727,6 +733,12 @@
         "itemId": "pill.edge_quenching_powder",
         "name": "淬锋散",
         "type": "consumable",
+        "count": 1
+      },
+      {
+        "itemId": "book.taibai_zhuxing",
+        "name": "《太白诛形录》",
+        "type": "skill_book",
         "count": 1
       }
     ]
