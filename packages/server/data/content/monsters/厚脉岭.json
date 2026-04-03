@@ -246,19 +246,19 @@
       "luck": 24
     },
     "statPercents": {
-      "maxHp": 164,
-      "maxQi": 74,
-      "physAtk": 126,
-      "spellAtk": 66,
-      "physDef": 176,
-      "spellDef": 148,
-      "hit": 124,
-      "dodge": 102,
-      "crit": 114,
-      "breakPower": 130,
-      "resolvePower": 162,
-      "maxQiOutputPerTick": 82,
-      "moveSpeed": 92
+      "maxHp": 114.8,
+      "maxQi": 51.8,
+      "physAtk": 88.2,
+      "spellAtk": 46.2,
+      "physDef": 123.2,
+      "spellDef": 103.6,
+      "hit": 86.8,
+      "dodge": 71.4,
+      "crit": 79.8,
+      "breakPower": 91,
+      "resolvePower": 113.4,
+      "maxQiOutputPerTick": 57.4,
+      "moveSpeed": 64.4
     },
     "skills": [
       "skill.iron_bone_strike",
@@ -305,6 +305,18 @@
         "itemId": "equip.shieldvein_stone",
         "name": "护脉石",
         "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.houtu_chengyuan",
+        "name": "《厚土承元功》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.zhenyue_huyuan",
+        "name": "《镇岳护元诀》",
+        "type": "skill_book",
         "count": 1
       },
       {
@@ -466,19 +478,19 @@
       "luck": 32
     },
     "statPercents": {
-      "maxHp": 176,
-      "maxQi": 78,
-      "physAtk": 124,
-      "spellAtk": 68,
-      "physDef": 192,
-      "spellDef": 166,
-      "hit": 122,
-      "dodge": 98,
-      "crit": 112,
-      "breakPower": 132,
-      "resolvePower": 178,
-      "maxQiOutputPerTick": 84,
-      "moveSpeed": 84
+      "maxHp": 123.2,
+      "maxQi": 54.6,
+      "physAtk": 86.8,
+      "spellAtk": 47.6,
+      "physDef": 134.4,
+      "spellDef": 116.2,
+      "hit": 85.4,
+      "dodge": 68.6,
+      "crit": 78.4,
+      "breakPower": 92.4,
+      "resolvePower": 124.6,
+      "maxQiOutputPerTick": 58.8,
+      "moveSpeed": 58.8
     },
     "skills": [
       "skill.guardian_quake",
@@ -576,19 +588,19 @@
       "luck": 40
     },
     "statPercents": {
-      "maxHp": 182,
-      "maxQi": 84,
-      "physAtk": 132,
-      "spellAtk": 74,
-      "physDef": 198,
-      "spellDef": 172,
-      "hit": 126,
-      "dodge": 102,
-      "crit": 116,
-      "breakPower": 138,
-      "resolvePower": 184,
-      "maxQiOutputPerTick": 88,
-      "moveSpeed": 82
+      "maxHp": 127.4,
+      "maxQi": 58.8,
+      "physAtk": 92.4,
+      "spellAtk": 51.8,
+      "physDef": 138.6,
+      "spellDef": 120.4,
+      "hit": 88.2,
+      "dodge": 71.4,
+      "crit": 81.2,
+      "breakPower": 96.6,
+      "resolvePower": 128.8,
+      "maxQiOutputPerTick": 61.6,
+      "moveSpeed": 57.4
     },
     "skills": [
       "skill.brutal_ram",
@@ -686,19 +698,19 @@
       "luck": 54
     },
     "statPercents": {
-      "maxHp": 192,
-      "maxQi": 88,
-      "physAtk": 136,
-      "spellAtk": 78,
-      "physDef": 206,
-      "spellDef": 182,
-      "hit": 128,
-      "dodge": 104,
-      "crit": 118,
-      "breakPower": 142,
-      "resolvePower": 192,
-      "maxQiOutputPerTick": 92,
-      "moveSpeed": 80
+      "maxHp": 134.4,
+      "maxQi": 61.6,
+      "physAtk": 95.2,
+      "spellAtk": 54.6,
+      "physDef": 144.2,
+      "spellDef": 127.4,
+      "hit": 89.6,
+      "dodge": 72.8,
+      "crit": 82.6,
+      "breakPower": 99.4,
+      "resolvePower": 134.4,
+      "maxQiOutputPerTick": 64.4,
+      "moveSpeed": 56
     },
     "skills": [
       "skill.guardian_quake",

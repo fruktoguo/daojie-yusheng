@@ -246,19 +246,19 @@
       "luck": 28
     },
     "statPercents": {
-      "maxHp": 132,
-      "maxQi": 86,
-      "physAtk": 156,
-      "spellAtk": 78,
-      "physDef": 128,
-      "spellDef": 108,
-      "hit": 158,
-      "dodge": 162,
-      "crit": 146,
-      "breakPower": 158,
-      "resolvePower": 112,
-      "maxQiOutputPerTick": 104,
-      "moveSpeed": 182
+      "maxHp": 92.4,
+      "maxQi": 60.2,
+      "physAtk": 109.2,
+      "spellAtk": 54.6,
+      "physDef": 89.6,
+      "spellDef": 75.6,
+      "hit": 110.6,
+      "dodge": 113.4,
+      "crit": 102.2,
+      "breakPower": 110.6,
+      "resolvePower": 78.4,
+      "maxQiOutputPerTick": 72.8,
+      "moveSpeed": 127.4
     },
     "skills": [
       "skill.predator_pounce",
@@ -305,6 +305,18 @@
         "itemId": "equip.gold_sand_talisman",
         "name": "砂金符坠",
         "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.genghua_ningfeng",
+        "name": "《庚华凝锋诀》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.jinluo_lifeng",
+        "name": "《金络砺锋功》",
+        "type": "skill_book",
         "count": 1
       },
       {
@@ -466,19 +478,19 @@
       "luck": 32
     },
     "statPercents": {
-      "maxHp": 154,
-      "maxQi": 94,
-      "physAtk": 148,
-      "spellAtk": 86,
-      "physDef": 166,
-      "spellDef": 146,
-      "hit": 144,
-      "dodge": 118,
-      "crit": 132,
-      "breakPower": 152,
-      "resolvePower": 158,
-      "maxQiOutputPerTick": 108,
-      "moveSpeed": 96
+      "maxHp": 107.8,
+      "maxQi": 65.8,
+      "physAtk": 103.6,
+      "spellAtk": 60.2,
+      "physDef": 116.2,
+      "spellDef": 102.2,
+      "hit": 100.8,
+      "dodge": 82.6,
+      "crit": 92.4,
+      "breakPower": 106.4,
+      "resolvePower": 110.6,
+      "maxQiOutputPerTick": 75.6,
+      "moveSpeed": 67.2
     },
     "skills": [
       "skill.core_smash",
@@ -576,19 +588,19 @@
       "luck": 42
     },
     "statPercents": {
-      "maxHp": 166,
-      "maxQi": 98,
-      "physAtk": 172,
-      "spellAtk": 96,
-      "physDef": 174,
-      "spellDef": 152,
-      "hit": 162,
-      "dodge": 134,
-      "crit": 150,
-      "breakPower": 174,
-      "resolvePower": 168,
-      "maxQiOutputPerTick": 114,
-      "moveSpeed": 108
+      "maxHp": 116.2,
+      "maxQi": 68.6,
+      "physAtk": 120.4,
+      "spellAtk": 67.2,
+      "physDef": 121.8,
+      "spellDef": 106.4,
+      "hit": 113.4,
+      "dodge": 93.8,
+      "crit": 105,
+      "breakPower": 121.8,
+      "resolvePower": 117.6,
+      "maxQiOutputPerTick": 79.8,
+      "moveSpeed": 75.6
     },
     "skills": [
       "skill.brutal_ram",
@@ -680,19 +692,19 @@
       "luck": 60
     },
     "statPercents": {
-      "maxHp": 178,
-      "maxQi": 116,
-      "physAtk": 168,
-      "spellAtk": 104,
-      "physDef": 188,
-      "spellDef": 166,
-      "hit": 170,
-      "dodge": 142,
-      "crit": 158,
-      "breakPower": 176,
-      "resolvePower": 182,
-      "maxQiOutputPerTick": 122,
-      "moveSpeed": 112
+      "maxHp": 124.6,
+      "maxQi": 81.2,
+      "physAtk": 117.6,
+      "spellAtk": 72.8,
+      "physDef": 131.6,
+      "spellDef": 116.2,
+      "hit": 119,
+      "dodge": 99.4,
+      "crit": 110.6,
+      "breakPower": 123.2,
+      "resolvePower": 127.4,
+      "maxQiOutputPerTick": 85.4,
+      "moveSpeed": 78.4
     },
     "skills": [
       "skill.core_smash",

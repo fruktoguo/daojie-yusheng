@@ -19,3 +19,9 @@ export const COMBAT_EXPERIENCE_ADVANTAGE_THRESHOLD = 5;
 
 /** 战斗经验比较时附带的基础值，避免低值阶段被零值直接拉满优势 */
 export const COMBAT_EXPERIENCE_ADVANTAGE_BASELINE = 100;
+
+/** 普通攻击受战斗经验影响时的总伤害倍率下限 */
+export const BASIC_ATTACK_COMBAT_EXPERIENCE_DAMAGE_MULTIPLIER_MIN = 0.2;
+
+/** 普通攻击受战斗经验影响时的总伤害倍率上限（5 倍经验对应 5 倍平 A） */
+export const BASIC_ATTACK_COMBAT_EXPERIENCE_DAMAGE_MULTIPLIER_MAX = 5;

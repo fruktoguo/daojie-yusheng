@@ -3,6 +3,8 @@
  * 提供伤害颜色、境界属性成长倍率、境界压制/优势伤害系数等。
  */
 import {
+  BASIC_ATTACK_COMBAT_EXPERIENCE_DAMAGE_MULTIPLIER_MAX,
+  BASIC_ATTACK_COMBAT_EXPERIENCE_DAMAGE_MULTIPLIER_MIN,
   REALM_ATTRIBUTE_GROWTH_RATE,
   REALM_COMBAT_LINEAR_GROWTH_RATE,
   REALM_DAMAGE_ADVANTAGE_RATE,
@@ -17,6 +19,8 @@ import {
 } from './constants/visuals/combat';
 
 export {
+  BASIC_ATTACK_COMBAT_EXPERIENCE_DAMAGE_MULTIPLIER_MAX,
+  BASIC_ATTACK_COMBAT_EXPERIENCE_DAMAGE_MULTIPLIER_MIN,
   REALM_ATTRIBUTE_GROWTH_RATE,
   REALM_COMBAT_LINEAR_GROWTH_RATE,
   REALM_DAMAGE_ADVANTAGE_RATE,
@@ -68,4 +72,15 @@ export function getBuffRealmEffectivenessMultiplier(buffRealmLv: number, targetR
     return 1;
   }
   return Math.pow(0.9, normalizedTargetRealmLv - normalizedBuffRealmLv);
+}
+
+/** 普通攻击按双方战斗经验差距计算独立伤害乘区，最终倍率限制在 20% 到 500%。 */
+export function getBasicAttackCombatExperienceDamageMultiplier(attackerExp: number, defenderExp: number): number {
+  const normalizedAttackerExp = Math.max(1, Math.floor(attackerExp));
+  const normalizedDefenderExp = Math.max(1, Math.floor(defenderExp));
+  const ratio = normalizedAttackerExp / normalizedDefenderExp;
+  return Math.min(
+    BASIC_ATTACK_COMBAT_EXPERIENCE_DAMAGE_MULTIPLIER_MAX,
+    Math.max(BASIC_ATTACK_COMBAT_EXPERIENCE_DAMAGE_MULTIPLIER_MIN, ratio),
+  );
 }

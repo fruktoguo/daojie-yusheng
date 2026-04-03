@@ -222,19 +222,19 @@
       "luck": 28
     },
     "statPercents": {
-      "maxHp": 124,
-      "maxQi": 136,
-      "physAtk": 108,
-      "spellAtk": 148,
-      "physDef": 114,
-      "spellDef": 132,
-      "hit": 142,
-      "dodge": 156,
-      "crit": 132,
-      "breakPower": 102,
-      "resolvePower": 122,
-      "maxQiOutputPerTick": 158,
-      "moveSpeed": 168
+      "maxHp": 86.8,
+      "maxQi": 95.2,
+      "physAtk": 75.6,
+      "spellAtk": 103.6,
+      "physDef": 79.8,
+      "spellDef": 92.4,
+      "hit": 99.4,
+      "dodge": 109.2,
+      "crit": 92.4,
+      "breakPower": 71.4,
+      "resolvePower": 85.4,
+      "maxQiOutputPerTick": 110.6,
+      "moveSpeed": 117.6
     },
     "skills": [
       "skill.leaf_storm",
@@ -283,6 +283,18 @@
         "count": 1
       },
       {
+        "itemId": "book.qingmu_yangmai",
+        "name": "《青木养脉篇》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.qingteng_huixi",
+        "name": "《青藤回息诀》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
         "itemId": "book.manzhi_jiaoluo",
         "name": "《蔓织绞络术》",
         "type": "skill_book",
@@ -313,19 +325,19 @@
       "luck": 32
     },
     "statPercents": {
-      "maxHp": 142,
-      "maxQi": 148,
-      "physAtk": 122,
-      "spellAtk": 144,
-      "physDef": 126,
-      "spellDef": 148,
-      "hit": 136,
-      "dodge": 126,
-      "crit": 130,
-      "breakPower": 112,
-      "resolvePower": 138,
-      "maxQiOutputPerTick": 168,
-      "moveSpeed": 122
+      "maxHp": 99.4,
+      "maxQi": 103.6,
+      "physAtk": 85.4,
+      "spellAtk": 100.8,
+      "physDef": 88.2,
+      "spellDef": 103.6,
+      "hit": 95.2,
+      "dodge": 88.2,
+      "crit": 91,
+      "breakPower": 78.4,
+      "resolvePower": 96.6,
+      "maxQiOutputPerTick": 117.6,
+      "moveSpeed": 85.4
     },
     "skills": [
       "skill.guardian_quake",
@@ -419,19 +431,19 @@
       "luck": 42
     },
     "statPercents": {
-      "maxHp": 170,
-      "maxQi": 132,
-      "physAtk": 132,
-      "spellAtk": 146,
-      "physDef": 166,
-      "spellDef": 162,
-      "hit": 142,
-      "dodge": 128,
-      "crit": 132,
-      "breakPower": 122,
-      "resolvePower": 156,
-      "maxQiOutputPerTick": 162,
-      "moveSpeed": 108
+      "maxHp": 119,
+      "maxQi": 92.4,
+      "physAtk": 92.4,
+      "spellAtk": 102.2,
+      "physDef": 116.2,
+      "spellDef": 113.4,
+      "hit": 99.4,
+      "dodge": 89.6,
+      "crit": 92.4,
+      "breakPower": 85.4,
+      "resolvePower": 109.2,
+      "maxQiOutputPerTick": 113.4,
+      "moveSpeed": 75.6
     },
     "skills": [
       "skill.core_smash",
@@ -513,19 +525,19 @@
       "luck": 60
     },
     "statPercents": {
-      "maxHp": 182,
-      "maxQi": 152,
-      "physAtk": 128,
-      "spellAtk": 172,
-      "physDef": 154,
-      "spellDef": 178,
-      "hit": 148,
-      "dodge": 136,
-      "crit": 138,
-      "breakPower": 120,
-      "resolvePower": 166,
-      "maxQiOutputPerTick": 188,
-      "moveSpeed": 116
+      "maxHp": 127.4,
+      "maxQi": 106.4,
+      "physAtk": 89.6,
+      "spellAtk": 120.4,
+      "physDef": 107.8,
+      "spellDef": 124.6,
+      "hit": 103.6,
+      "dodge": 95.2,
+      "crit": 96.6,
+      "breakPower": 84,
+      "resolvePower": 116.2,
+      "maxQiOutputPerTick": 131.6,
+      "moveSpeed": 81.2
     },
     "skills": [
       "skill.leaf_storm",

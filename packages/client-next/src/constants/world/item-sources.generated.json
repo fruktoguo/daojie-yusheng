@@ -368,6 +368,14 @@
       "kind": "monster_drop",
       "mapId": "emberfall_court",
       "mapName": "赤陨庭",
+      "monsterId": "m_ember_lizard",
+      "monsterName": "熔纹火蜥",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
       "monsterId": "m_ember_moth",
       "monsterName": "焦土火蛾",
       "count": 1
@@ -512,6 +520,14 @@
       "kind": "monster_drop",
       "mapId": "cleft_blade_plain",
       "mapName": "裂锋原",
+      "monsterId": "m_cleft_blade_sprite",
+      "monsterName": "金砂锋魈",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
       "monsterId": "m_cleft_blade_wraith",
       "monsterName": "断刃游魂",
       "count": 1
@@ -575,6 +591,14 @@
       "kind": "monster_drop",
       "mapId": "cold_tide_marsh",
       "mapName": "寒汐泽",
+      "monsterId": "m_cold_pattern_guard",
+      "monsterName": "冰纹水卒",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
       "monsterId": "m_cold_tide_sprite",
       "monsterName": "寒汐蜉灵",
       "count": 1
@@ -608,6 +632,14 @@
     }
   ],
   "book.houtu_chengyuan": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_armor_spirit",
+      "monsterName": "坠岩甲灵",
+      "count": 1
+    },
     {
       "kind": "monster_drop",
       "mapId": "deepvein_ridge",
@@ -715,6 +747,14 @@
       "kind": "monster_drop",
       "mapId": "cleft_blade_plain",
       "mapName": "裂锋原",
+      "monsterId": "m_cleft_blade_sprite",
+      "monsterName": "金砂锋魈",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
       "monsterId": "m_cleft_blade_wraith",
       "monsterName": "断刃游魂",
       "count": 1
@@ -759,6 +799,14 @@
     }
   ],
   "book.liyan_duanxi": [
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_lizard",
+      "monsterName": "熔纹火蜥",
+      "count": 1
+    },
     {
       "kind": "monster_drop",
       "mapId": "emberfall_court",
@@ -828,6 +876,14 @@
       "mapName": "寒汐泽",
       "monsterId": "m_cold_marsh_wraith",
       "monsterName": "浅泽雾鬼",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_pattern_guard",
+      "monsterName": "冰纹水卒",
       "count": 1
     },
     {
@@ -913,6 +969,22 @@
       "count": 1
     },
     {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_03_bridge",
+      "mapName": "青萝谷·03双桥岔谷",
+      "monsterId": "m_verdant_siphon_flower",
+      "monsterName": "吸灵花妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_04_garden",
+      "mapName": "青萝谷·04噬灵妖圃",
+      "monsterId": "m_verdant_siphon_flower",
+      "monsterName": "吸灵花妖",
+      "count": 1
+    },
+    {
       "kind": "shop",
       "mapId": "qizhen_crossing",
       "mapName": "栖真渡",
@@ -951,6 +1023,22 @@
       "mapName": "青萝谷·03双桥岔谷",
       "monsterId": "m_verdant_parasitic_child",
       "monsterName": "寄脉藤童",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_03_bridge",
+      "mapName": "青萝谷·03双桥岔谷",
+      "monsterId": "m_verdant_siphon_flower",
+      "monsterName": "吸灵花妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_04_garden",
+      "mapName": "青萝谷·04噬灵妖圃",
+      "monsterId": "m_verdant_siphon_flower",
+      "monsterName": "吸灵花妖",
       "count": 1
     }
   ],
@@ -1203,6 +1291,14 @@
     }
   ],
   "book.zhenyue_huyuan": [
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_armor_spirit",
+      "monsterName": "坠岩甲灵",
+      "count": 1
+    },
     {
       "kind": "monster_drop",
       "mapId": "deepvein_ridge",

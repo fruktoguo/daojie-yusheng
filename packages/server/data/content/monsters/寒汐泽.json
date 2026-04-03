@@ -228,19 +228,19 @@
       "luck": 28
     },
     "statPercents": {
-      "maxHp": 126,
-      "maxQi": 138,
-      "physAtk": 116,
-      "spellAtk": 142,
-      "physDef": 118,
-      "spellDef": 136,
-      "hit": 146,
-      "dodge": 148,
-      "crit": 130,
-      "breakPower": 112,
-      "resolvePower": 124,
-      "maxQiOutputPerTick": 156,
-      "moveSpeed": 156
+      "maxHp": 88.2,
+      "maxQi": 96.6,
+      "physAtk": 81.2,
+      "spellAtk": 99.4,
+      "physDef": 82.6,
+      "spellDef": 95.2,
+      "hit": 102.2,
+      "dodge": 103.6,
+      "crit": 91,
+      "breakPower": 78.4,
+      "resolvePower": 86.8,
+      "maxQiOutputPerTick": 109.2,
+      "moveSpeed": 109.2
     },
     "skills": [
       "skill.core_smash",
@@ -286,6 +286,18 @@
         "itemId": "equip.dew_tide_pendant",
         "name": "凝露潮佩",
         "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.hanxi_ximai",
+        "name": "《寒汐洗脉法》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.ningchao_hushen",
+        "name": "《凝潮护身经》",
+        "type": "skill_book",
         "count": 1
       },
       {
@@ -404,19 +416,19 @@
       "luck": 38
     },
     "statPercents": {
-      "maxHp": 128,
-      "maxQi": 146,
-      "physAtk": 122,
-      "spellAtk": 148,
-      "physDef": 120,
-      "spellDef": 142,
-      "hit": 152,
-      "dodge": 176,
-      "crit": 142,
-      "breakPower": 116,
-      "resolvePower": 126,
-      "maxQiOutputPerTick": 170,
-      "moveSpeed": 182
+      "maxHp": 89.6,
+      "maxQi": 102.2,
+      "physAtk": 85.4,
+      "spellAtk": 103.6,
+      "physDef": 84,
+      "spellDef": 99.4,
+      "hit": 106.4,
+      "dodge": 123.2,
+      "crit": 99.4,
+      "breakPower": 81.2,
+      "resolvePower": 88.2,
+      "maxQiOutputPerTick": 119,
+      "moveSpeed": 127.4
     },
     "skills": [
       "skill.predator_pounce",
@@ -504,19 +516,19 @@
       "luck": 42
     },
     "statPercents": {
-      "maxHp": 138,
-      "maxQi": 162,
-      "physAtk": 124,
-      "spellAtk": 172,
-      "physDef": 128,
-      "spellDef": 164,
-      "hit": 158,
-      "dodge": 172,
-      "crit": 140,
-      "breakPower": 112,
-      "resolvePower": 142,
-      "maxQiOutputPerTick": 188,
-      "moveSpeed": 166
+      "maxHp": 96.6,
+      "maxQi": 113.4,
+      "physAtk": 86.8,
+      "spellAtk": 120.4,
+      "physDef": 89.6,
+      "spellDef": 114.8,
+      "hit": 110.6,
+      "dodge": 120.4,
+      "crit": 98,
+      "breakPower": 78.4,
+      "resolvePower": 99.4,
+      "maxQiOutputPerTick": 131.6,
+      "moveSpeed": 116.2
     },
     "skills": [
       "skill.nether_chain",
@@ -610,19 +622,19 @@
       "luck": 63
     },
     "statPercents": {
-      "maxHp": 172,
-      "maxQi": 176,
-      "physAtk": 122,
-      "spellAtk": 182,
-      "physDef": 136,
-      "spellDef": 186,
-      "hit": 162,
-      "dodge": 176,
-      "crit": 144,
-      "breakPower": 116,
-      "resolvePower": 148,
-      "maxQiOutputPerTick": 196,
-      "moveSpeed": 162
+      "maxHp": 120.4,
+      "maxQi": 123.2,
+      "physAtk": 85.4,
+      "spellAtk": 127.4,
+      "physDef": 95.2,
+      "spellDef": 130.2,
+      "hit": 113.4,
+      "dodge": 123.2,
+      "crit": 100.8,
+      "breakPower": 81.2,
+      "resolvePower": 103.6,
+      "maxQiOutputPerTick": 137.2,
+      "moveSpeed": 113.4
     },
     "skills": [
       "skill.frost_plume",

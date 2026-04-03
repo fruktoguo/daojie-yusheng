@@ -26,6 +26,7 @@ import {
   estimateMonsterSpiritFromStats,
   gameplayConstants,
   GameTimeState,
+  getBasicAttackCombatExperienceDamageMultiplier,
   getDamageTrailColor,
   getBuffRealmEffectivenessMultiplier,
   gridDistance,
@@ -2919,11 +2920,20 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     element?: ElementKey,
     qiCost = 0,
     activeAttackBehavior = false,
+    basicAttackCombatExpScaling = false,
   ): WorldUpdate {
     const cultivation = activeAttackBehavior
       ? this.techniqueService.interruptCultivation(player, 'attack')
       : { changed: false, dirty: [], messages: [] };
-    const resolved = this.resolvePlayerAttack(player, monster, baseDamage, damageKind, element, qiCost);
+    const resolved = this.resolvePlayerAttack(
+      player,
+      monster,
+      baseDamage,
+      damageKind,
+      element,
+      qiCost,
+      basicAttackCombatExpScaling,
+    );
     const effectColor = getDamageTrailColor(damageKind, element);
 
     this.pushEffect(player.mapId, {
@@ -3119,12 +3129,21 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     element?: ElementKey,
     qiCost = 0,
     activeAttackBehavior = false,
+    basicAttackCombatExpScaling = false,
   ): WorldUpdate {
     const attackerCultivation = activeAttackBehavior
       ? this.techniqueService.interruptCultivation(attacker, 'attack')
       : { changed: false, dirty: [], messages: [] };
     const targetCultivation = this.techniqueService.interruptCultivation(target, 'hit');
-    const resolved = this.resolvePlayerVsPlayerAttack(attacker, target, baseDamage, damageKind, element, qiCost);
+    const resolved = this.resolvePlayerVsPlayerAttack(
+      attacker,
+      target,
+      baseDamage,
+      damageKind,
+      element,
+      qiCost,
+      basicAttackCombatExpScaling,
+    );
     const effectColor = getDamageTrailColor(damageKind, element);
 
     this.pushEffect(attacker.mapId, {
@@ -3253,15 +3272,28 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     damageKind: SkillDamageKind,
     element: ElementKey | undefined,
     qiCost = 0,
+    basicAttackCombatExpScaling = false,
   ): ResolvedHit {
     const attacker = this.getPlayerCombatSnapshot(player);
     const defender = this.getMonsterCombatSnapshot(monster);
     const rawDamage = baseDamage;
     const previousHp = monster.hp;
-    return this.resolveHit(attacker, defender, rawDamage, damageKind, qiCost, element, (damage) => {
-      monster.hp = Math.max(0, monster.hp - damage);
-      return Math.max(0, previousHp - monster.hp);
-    });
+    const damageMultiplier = basicAttackCombatExpScaling
+      ? getBasicAttackCombatExperienceDamageMultiplier(attacker.combatExp, defender.combatExp)
+      : 1;
+    return this.resolveHit(
+      attacker,
+      defender,
+      rawDamage,
+      damageKind,
+      qiCost,
+      element,
+      (damage) => {
+        monster.hp = Math.max(0, monster.hp - damage);
+        return Math.max(0, previousHp - monster.hp);
+      },
+      damageMultiplier,
+    );
   }
 
   private resolvePlayerVsPlayerAttack(
@@ -3271,11 +3303,17 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     damageKind: SkillDamageKind,
     element: ElementKey | undefined,
     qiCost = 0,
+    basicAttackCombatExpScaling = false,
   ): ResolvedHit {
     const previousHp = defender.hp;
+    const attackerSnapshot = this.getPlayerCombatSnapshot(attacker);
+    const defenderSnapshot = this.getPlayerCombatSnapshot(defender);
+    const damageMultiplier = basicAttackCombatExpScaling
+      ? getBasicAttackCombatExperienceDamageMultiplier(attackerSnapshot.combatExp, defenderSnapshot.combatExp)
+      : 1;
     return this.resolveHit(
-      this.getPlayerCombatSnapshot(attacker),
-      this.getPlayerCombatSnapshot(defender),
+      attackerSnapshot,
+      defenderSnapshot,
       baseDamage,
       damageKind,
       qiCost,
@@ -3284,6 +3322,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         defender.hp = Math.max(0, defender.hp - damage);
         return Math.max(0, previousHp - defender.hp);
       },
+      damageMultiplier,
     );
   }
 
@@ -3311,6 +3350,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     qiCost: number,
     element: ElementKey | undefined,
     applyDamage: (damage: number) => number,
+    damageMultiplier = 1,
   ): ResolvedHit {
     const breakOverflow = Math.max(0, attacker.stats.breakPower - defender.stats.resolvePower);
     const breakChance = ratioValue(breakOverflow, attacker.ratios.breakPower);
@@ -3359,6 +3399,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       damage = Math.max(1, Math.round(damage * ((200 + Math.max(0, attacker.stats.critDamage) / 10) / 100)));
     }
     damage = Math.max(1, Math.round(damage * getRealmGapDamageMultiplier(attacker.realmLv, defender.realmLv)));
+    damage = Math.max(1, Math.round(damage * damageMultiplier));
 
     const effectiveDamage = Math.max(0, applyDamage(damage));
     return {
@@ -5496,10 +5537,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     const baseDamage = Math.max(1, Math.round(useSpellAttack ? combat.stats.spellAtk : combat.stats.physAtk));
     this.pushActionLabelEffect(player.mapId, player.x, player.y, '攻击');
     if (target.kind === 'monster') {
-      return this.attackMonster(player, target.monster, baseDamage, '你攻击命中', damageKind, undefined, 0, true);
+      return this.attackMonster(player, target.monster, baseDamage, '你攻击命中', damageKind, undefined, 0, true, true);
     }
     if (target.kind === 'player') {
-      return this.attackPlayer(player, target.player, baseDamage, '你攻击命中', damageKind, undefined, 0, true);
+      return this.attackPlayer(player, target.player, baseDamage, '你攻击命中', damageKind, undefined, 0, true, true);
     }
     return this.attackTerrain(player, target.x, target.y, baseDamage, '你攻击', target.tileType ?? '目标', damageKind, undefined, true);
   }

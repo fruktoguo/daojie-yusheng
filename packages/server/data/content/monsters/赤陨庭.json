@@ -222,19 +222,19 @@
       "luck": 32
     },
     "statPercents": {
-      "maxHp": 116,
-      "maxQi": 88,
-      "physAtk": 152,
-      "spellAtk": 124,
-      "physDef": 108,
-      "spellDef": 102,
-      "hit": 154,
-      "dodge": 160,
-      "crit": 144,
-      "breakPower": 148,
-      "resolvePower": 104,
-      "maxQiOutputPerTick": 124,
-      "moveSpeed": 182
+      "maxHp": 81.2,
+      "maxQi": 61.6,
+      "physAtk": 106.4,
+      "spellAtk": 86.8,
+      "physDef": 75.6,
+      "spellDef": 71.4,
+      "hit": 107.8,
+      "dodge": 112,
+      "crit": 100.8,
+      "breakPower": 103.6,
+      "resolvePower": 72.8,
+      "maxQiOutputPerTick": 86.8,
+      "moveSpeed": 127.4
     },
     "skills": [
       "skill.predator_pounce",
@@ -280,6 +280,18 @@
         "itemId": "equip.furnace_red_ring",
         "name": "炉心赤戒",
         "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.liyan_duanxi",
+        "name": "《离炎锻息诀》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.chiqi_ranqiao",
+        "name": "《赤息燃窍功》",
+        "type": "skill_book",
         "count": 1
       },
       {
@@ -398,19 +410,19 @@
       "luck": 42
     },
     "statPercents": {
-      "maxHp": 118,
-      "maxQi": 92,
-      "physAtk": 166,
-      "spellAtk": 122,
-      "physDef": 112,
-      "spellDef": 104,
-      "hit": 152,
-      "dodge": 158,
-      "crit": 146,
-      "breakPower": 158,
-      "resolvePower": 106,
-      "maxQiOutputPerTick": 126,
-      "moveSpeed": 176
+      "maxHp": 82.6,
+      "maxQi": 64.4,
+      "physAtk": 116.2,
+      "spellAtk": 85.4,
+      "physDef": 78.4,
+      "spellDef": 72.8,
+      "hit": 106.4,
+      "dodge": 110.6,
+      "crit": 102.2,
+      "breakPower": 110.6,
+      "resolvePower": 74.2,
+      "maxQiOutputPerTick": 88.2,
+      "moveSpeed": 123.2
     },
     "skills": [
       "skill.rending_claw",
@@ -498,19 +510,19 @@
       "luck": 48
     },
     "statPercents": {
-      "maxHp": 126,
-      "maxQi": 96,
-      "physAtk": 176,
-      "spellAtk": 136,
-      "physDef": 118,
-      "spellDef": 112,
-      "hit": 164,
-      "dodge": 172,
-      "crit": 152,
-      "breakPower": 166,
-      "resolvePower": 112,
-      "maxQiOutputPerTick": 136,
-      "moveSpeed": 192
+      "maxHp": 88.2,
+      "maxQi": 67.2,
+      "physAtk": 123.2,
+      "spellAtk": 95.2,
+      "physDef": 82.6,
+      "spellDef": 78.4,
+      "hit": 114.8,
+      "dodge": 120.4,
+      "crit": 106.4,
+      "breakPower": 116.2,
+      "resolvePower": 78.4,
+      "maxQiOutputPerTick": 95.2,
+      "moveSpeed": 134.4
     },
     "skills": [
       "skill.guardian_quake",
@@ -604,19 +616,19 @@
       "luck": 66
     },
     "statPercents": {
-      "maxHp": 136,
-      "maxQi": 106,
-      "physAtk": 182,
-      "spellAtk": 148,
-      "physDef": 126,
-      "spellDef": 120,
-      "hit": 170,
-      "dodge": 168,
-      "crit": 156,
-      "breakPower": 172,
-      "resolvePower": 118,
-      "maxQiOutputPerTick": 148,
-      "moveSpeed": 186
+      "maxHp": 95.2,
+      "maxQi": 74.2,
+      "physAtk": 127.4,
+      "spellAtk": 103.6,
+      "physDef": 88.2,
+      "spellDef": 84,
+      "hit": 119,
+      "dodge": 117.6,
+      "crit": 109.2,
+      "breakPower": 120.4,
+      "resolvePower": 82.6,
+      "maxQiOutputPerTick": 103.6,
+      "moveSpeed": 130.2
     },
     "skills": [
       "skill.core_smash",

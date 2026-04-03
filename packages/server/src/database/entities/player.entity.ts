@@ -66,7 +66,7 @@ export class PlayerEntity {
   @Column({ type: 'int', default: 0 })
   foundation!: number;
 
-  /** 战斗经验，影响战斗中的命中与闪避优势 */
+  /** 战斗经验，影响战斗中的命中/闪避优势与普通攻击伤害乘区 */
   @Column({ type: 'int', default: 0 })
   combatExp!: number;
 
