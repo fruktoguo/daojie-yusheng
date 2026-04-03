@@ -15,7 +15,9 @@ import {
   EQUIP_SLOTS,
   MONSTER_GLOBAL_STAT_PERCENTS,
   MONSTER_GRADE_STAT_PERCENTS,
-  MONSTER_LEVEL_EXP_DECAY_MULTIPLIER,
+  MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_EARLY,
+  MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_LATE,
+  MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_MID,
   MONSTER_LEVEL_FLAT_GROWTH_STATS,
   MONSTER_TIER_EXP_MULTIPLIERS,
   MONSTER_TIER_OVERLEVEL_EXP_REDUCTION_RATES,
@@ -306,7 +308,12 @@ export function getMonsterKillExpLevelAdjustment(
 
 export function getMonsterLevelExpDecayMultiplier(monsterLevel: number): number {
   const normalizedMonsterLevel = Math.max(1, Math.floor(monsterLevel));
-  return MONSTER_LEVEL_EXP_DECAY_MULTIPLIER ** Math.max(0, normalizedMonsterLevel - 1);
+  const earlyLevelSteps = Math.max(0, Math.min(normalizedMonsterLevel, 18) - 1);
+  const midLevelSteps = Math.max(0, Math.min(normalizedMonsterLevel, 30) - 18);
+  const lateLevelSteps = Math.max(0, normalizedMonsterLevel - 30);
+  return (MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_EARLY ** earlyLevelSteps)
+    * (MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_MID ** midLevelSteps)
+    * (MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_LATE ** lateLevelSteps);
 }
 
 export function normalizeMonsterAttrs(
