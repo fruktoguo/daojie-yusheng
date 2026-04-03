@@ -813,6 +813,29 @@ export class PlayerService implements OnModuleInit {
     return clonePlainValue(value);
   }
 
+  private normalizePersistedInventoryCapacity(value: unknown): { inventory: Record<string, unknown>; changed: boolean } {
+    const isRecord = Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+    const source = isRecord ? value as Record<string, unknown> : {};
+    const numericCapacity = typeof source.capacity === 'number' && Number.isFinite(source.capacity)
+      ? Math.trunc(source.capacity)
+      : null;
+    const parsedCapacity = numericCapacity ?? (
+      typeof source.capacity === 'string' && source.capacity.trim().length > 0 && Number.isFinite(Number(source.capacity))
+        ? Math.trunc(Number(source.capacity))
+        : null
+    );
+    const nextCapacity = Math.max(DEFAULT_INVENTORY_CAPACITY, parsedCapacity ?? 0);
+    const items = Array.isArray(source.items) ? source.items : [];
+    return {
+      inventory: {
+        ...source,
+        items,
+        capacity: nextCapacity,
+      },
+      changed: !isRecord || !Array.isArray(source.items) || numericCapacity !== nextCapacity,
+    };
+  }
+
   private async normalizePersistedRoleNames(): Promise<void> {
     const [players, users] = await Promise.all([
       this.playerRepo.find({
@@ -820,6 +843,7 @@ export class PlayerService implements OnModuleInit {
           id: true,
           userId: true,
           name: true,
+          inventory: true,
           createdAt: true,
         },
       }),
@@ -883,7 +907,8 @@ export class PlayerService implements OnModuleInit {
     let normalizedCount = 0;
     let duplicateRenamedCount = 0;
     let createdAtBackfilledCount = 0;
-    const updates: Array<{ id: string; changes: Pick<Partial<PlayerEntity>, 'name' | 'createdAt'> }> = [];
+    let inventoryCapacityBackfilledCount = 0;
+    const updates: Array<{ id: string; changes: Pick<Partial<PlayerEntity>, 'name' | 'createdAt' | 'inventory'> }> = [];
 
     const duplicateGroups = [...groupedByName.entries()]
       .filter(([, bucket]) => bucket.length > 1)
@@ -921,13 +946,20 @@ export class PlayerService implements OnModuleInit {
         changes.createdAt = entry.createdAt;
         createdAtBackfilledCount += 1;
       }
+      if (player) {
+        const normalizedInventory = this.normalizePersistedInventoryCapacity(player.inventory);
+        if (normalizedInventory.changed) {
+          changes.inventory = normalizedInventory.inventory;
+          inventoryCapacityBackfilledCount += 1;
+        }
+      }
       if (Object.keys(changes).length > 0) {
         updates.push({ id: entry.id, changes });
       }
     }
 
     for (const update of updates) {
-      await this.playerRepo.update(update.id, update.changes);
+      await this.playerRepo.update(update.id, update.changes as any);
     }
 
     if (normalizedCount > 0) {
@@ -938,6 +970,9 @@ export class PlayerService implements OnModuleInit {
     }
     if (createdAtBackfilledCount > 0) {
       this.logger.log(`启动时已回填 ${createdAtBackfilledCount} 个旧角色的创建时间`);
+    }
+    if (inventoryCapacityBackfilledCount > 0) {
+      this.logger.log(`启动时已将 ${inventoryCapacityBackfilledCount} 个角色的背包容量回填到 ${DEFAULT_INVENTORY_CAPACITY}`);
     }
   }
 
