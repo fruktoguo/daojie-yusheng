@@ -10,23 +10,17 @@ import {
   ATTR_KEYS,
   ATTR_TO_NUMERIC_WEIGHTS,
   ATTR_TO_PERCENT_NUMERIC_WEIGHTS,
-  DEFAULT_PLAYER_REALM_STAGE,
   ELEMENT_KEYS,
-  EQUIP_SLOTS,
-  MONSTER_GLOBAL_STAT_PERCENTS,
-  MONSTER_GRADE_STAT_PERCENTS,
-  MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_EARLY,
-  MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_LATE,
-  MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_MID,
-  MONSTER_LEVEL_FLAT_GROWTH_STATS,
-  MONSTER_TIER_EXP_MULTIPLIERS,
-  MONSTER_TIER_OVERLEVEL_EXP_REDUCTION_RATES,
-  MONSTER_TIER_STAT_PERCENTS,
   NUMERIC_SCALAR_STAT_KEYS,
+} from './constants/gameplay/attributes';
+import { EQUIP_SLOTS } from './constants/gameplay/equipment';
+import * as monsterGameplayConstants from './constants/gameplay/monster';
+import {
+  DEFAULT_PLAYER_REALM_STAGE,
   PLAYER_REALM_ORDER,
   PLAYER_REALM_NUMERIC_TEMPLATES,
   PLAYER_REALM_STAGE_LEVEL_RANGES,
-} from './constants';
+} from './constants/gameplay/realm';
 import { getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier } from './combat';
 import {
   compileValueStatsToActualStats,
@@ -47,6 +41,18 @@ import type {
 import type { NumericScalarStatKey } from './numeric';
 
 export type MonsterCombatModel = 'legacy' | 'value_stats';
+
+const {
+  MONSTER_GLOBAL_STAT_PERCENTS,
+  MONSTER_GRADE_STAT_PERCENTS,
+  MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_EARLY,
+  MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_LATE,
+  MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_MID,
+  MONSTER_LEVEL_FLAT_GROWTH_STATS,
+  MONSTER_TIER_EXP_MULTIPLIERS,
+  MONSTER_TIER_OVERLEVEL_EXP_REDUCTION_RATES,
+  MONSTER_TIER_STAT_PERCENTS,
+} = monsterGameplayConstants;
 
 const MONSTER_EXPONENTIAL_NUMERIC_KEYS = ['maxHp', 'maxQi', 'physAtk', 'spellAtk'] as const satisfies readonly NumericScalarStatKey[];
 const MONSTER_LINEAR_NUMERIC_KEYS = [
