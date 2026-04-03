@@ -306,3 +306,4 @@
 - `pnpm --filter @mud/server report:values:buff`
 - `pnpm --filter @mud/server report:values:all`
 - `pnpm --filter @mud/server report:values:docs` 生成 `docs/量化分析/` 下的四份独立报表
+- `pnpm build` 会在整仓构建完成后自动额外执行一次四份报表导出

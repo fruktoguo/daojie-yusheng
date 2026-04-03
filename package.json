@@ -2,8 +2,9 @@
   "name": "daojie-yusheng",
   "private": true,
   "scripts": {
-    "build": "pnpm -r build",
+    "build": "pnpm -r build && pnpm run sync:value-reports",
     "check:item-sources": "node scripts/check-item-sources.mjs",
+    "sync:value-reports": "pnpm --filter @mud/server exec node dist/tools/export-value-reports.js",
     "generate:editor-catalog": "node scripts/generate-editor-catalog.mjs --client=client --shared=shared",
     "generate:editor-catalog:next": "node scripts/generate-editor-catalog.mjs --client=client-next --shared=shared-next",
     "organize:techniques": "node scripts/organize-techniques.mjs --write",
