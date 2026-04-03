@@ -110,6 +110,10 @@ export class PlayerEntity {
   @Column({ type: 'jsonb', default: () => `'[]'` })
   techniques!: unknown[];
 
+  /** 炼体进度 */
+  @Column({ type: 'jsonb', default: () => '\'{"level":0,"exp":0,"expToNext":10000}\'' })
+  bodyTraining!: unknown;
+
   /** 任务进度 */
   @Column({ type: 'jsonb', default: () => `'[]'` })
   quests!: unknown[];

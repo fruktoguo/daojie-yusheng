@@ -5,6 +5,7 @@ import { Injectable } from '@nestjs/common';
 import {
   ActionDef,
   AttrBonus,
+  calcBodyTrainingAttrBonus,
   BreakthroughPreviewState,
   BreakthroughRequirementView,
   calcTechniqueFinalAttrBonus,
@@ -16,6 +17,7 @@ import {
   ElementKey,
   getMonsterKillExpLevelAdjustment,
   getMonsterLevelExpDecayMultiplier,
+  getBodyTrainingExpToNext,
   getTechniqueExpLevelAdjustment,
   HeavenGateRootValues,
   HeavenGateState,
@@ -35,6 +37,7 @@ import {
   TechniqueLayerDef,
   TechniqueRealm,
   TechniqueState,
+  normalizeBodyTrainingState,
   resolveSkillUnlockLevel,
   SkillDef,
 } from '@mud/shared';
@@ -45,6 +48,7 @@ import { MapService } from './map.service';
 import { PerformanceService } from './performance.service';
 import { QiProjectionService } from './qi-projection.service';
 import {
+  BODY_TRAINING_SOURCE,
   CULTIVATION_ACTION_ID,
   CULTIVATION_BUFF_DURATION,
   CULTIVATION_BUFF_ID,
@@ -68,6 +72,15 @@ interface TechniqueMessage {
 interface CultivationResult {
   error?: string;
   changed: boolean;
+  dirty: TechniqueDirtyFlag[];
+  messages: TechniqueMessage[];
+}
+
+interface TechniqueExpAdvanceResult {
+  changed: boolean;
+  gained: number;
+  targetLabel?: string;
+  expLabel: string;
   dirty: TechniqueDirtyFlag[];
   messages: TechniqueMessage[];
 }
@@ -777,8 +790,8 @@ export class TechniqueService {
       if (realmResult.foundationSpent > 0) {
         segments.push(`底蕴额外转化 ${realmResult.foundationSpent} 点境界修为`);
       }
-      if (techniqueResult.gained > 0 && techniqueResult.techniqueName) {
-        segments.push(`${techniqueResult.techniqueName} 获得 ${techniqueResult.gained} 点功法经验`);
+      if (techniqueResult.gained > 0 && techniqueResult.targetLabel) {
+        segments.push(`${techniqueResult.targetLabel} 获得 ${techniqueResult.gained} 点${techniqueResult.expLabel}`);
       }
       if (realmResult.combatExpGained > 0) {
         segments.push(`战斗经验增加 ${realmResult.combatExpGained}`);
@@ -996,13 +1009,13 @@ export class TechniqueService {
     return guaranteed + (Math.random() < remainder ? 1 : 0);
   }
 
-  private advanceTechniqueCombatExp(player: PlayerState, baseGain: number, expBonus = 0, minimumGain = 1): { changed: boolean; gained: number; techniqueName?: string; dirty: TechniqueDirtyFlag[]; messages: TechniqueMessage[] } {
+  private advanceTechniqueCombatExp(player: PlayerState, baseGain: number, expBonus = 0, minimumGain = 1): TechniqueExpAdvanceResult {
     return this.advanceTechniqueProgress(player, baseGain, expBonus, minimumGain);
   }
 
-  private advanceTechniqueProgress(player: PlayerState, baseGain: number, expBonus = 0, minimumGain = 1): { changed: boolean; gained: number; techniqueName?: string; dirty: TechniqueDirtyFlag[]; messages: TechniqueMessage[] } {
+  private advanceTechniqueProgress(player: PlayerState, baseGain: number, expBonus = 0, minimumGain = 1): TechniqueExpAdvanceResult {
     if (!player.cultivatingTechId) {
-      return { changed: false, gained: 0, dirty: [], messages: [] };
+      return { changed: false, gained: 0, expLabel: '功法经验', dirty: [], messages: [] };
     }
 
     const resolvedTarget = this.resolveActiveCultivatingTechnique(player);
@@ -1012,24 +1025,40 @@ export class TechniqueService {
       return {
         changed: cleared.changed,
         gained: 0,
+        expLabel: '功法经验',
         dirty: cleared.dirty,
         messages: cleared.messages,
       };
     }
 
-    const maxLevel = getTechniqueMaxLevel(technique.layers);
-    if (technique.level >= maxLevel || technique.expToNext <= 0 || baseGain <= 0) {
+    if (baseGain <= 0) {
       return {
         changed: resolvedTarget.dirty.length > 0,
         gained: 0,
-        techniqueName: technique.name,
+        targetLabel: technique.name,
+        expLabel: '功法经验',
         dirty: resolvedTarget.dirty,
         messages: resolvedTarget.messages,
       };
     }
 
+    const maxLevel = getTechniqueMaxLevel(technique.layers);
     const techniqueLevelAdjustment = getTechniqueExpLevelAdjustment(this.getPlayerRealmLv(player), technique.realmLv);
     const gain = this.applyRateBonus(baseGain * techniqueLevelAdjustment, expBonus, minimumGain);
+    if (technique.level >= maxLevel || technique.expToNext <= 0) {
+      if (this.areAllTechniquesMaxed(player)) {
+        return this.advanceBodyTrainingProgress(player, gain, resolvedTarget);
+      }
+      return {
+        changed: resolvedTarget.dirty.length > 0,
+        gained: 0,
+        targetLabel: technique.name,
+        expLabel: '功法经验',
+        dirty: resolvedTarget.dirty,
+        messages: resolvedTarget.messages,
+      };
+    }
+
     const previousLevel = technique.level;
     const previousExp = technique.exp;
     const messages: TechniqueMessage[] = [...resolvedTarget.messages];
@@ -1052,7 +1081,8 @@ export class TechniqueService {
       return {
         changed: resolvedTarget.dirty.length > 0,
         gained: 0,
-        techniqueName: technique.name,
+        targetLabel: technique.name,
+        expLabel: '功法经验',
         dirty: resolvedTarget.dirty,
         messages,
       };
@@ -1077,7 +1107,70 @@ export class TechniqueService {
     return {
       changed: true,
       gained: gain,
-      techniqueName: technique.name,
+      targetLabel: technique.name,
+      expLabel: '功法经验',
+      dirty: [...dirty],
+      messages,
+    };
+  }
+
+  private advanceBodyTrainingProgress(
+    player: PlayerState,
+    gain: number,
+    resolvedTarget: { dirty: TechniqueDirtyFlag[]; messages: TechniqueMessage[] },
+  ): TechniqueExpAdvanceResult {
+    if (gain <= 0) {
+      return {
+        changed: resolvedTarget.dirty.length > 0,
+        gained: 0,
+        targetLabel: '炼体',
+        expLabel: '炼体经验',
+        dirty: resolvedTarget.dirty,
+        messages: resolvedTarget.messages,
+      };
+    }
+
+    const bodyTraining = normalizeBodyTrainingState(player.bodyTraining);
+    const previousLevel = bodyTraining.level;
+    const previousExp = bodyTraining.exp;
+    const messages: TechniqueMessage[] = [...resolvedTarget.messages];
+    bodyTraining.exp += gain;
+
+    while (bodyTraining.exp >= bodyTraining.expToNext) {
+      bodyTraining.exp -= bodyTraining.expToNext;
+      bodyTraining.level += 1;
+      bodyTraining.expToNext = getBodyTrainingExpToNext(bodyTraining.level);
+      messages.push({
+        text: `炼体突破至第 ${bodyTraining.level} 层，体魄、神识、身法、根骨各提升 1 点。`,
+        kind: 'quest',
+      });
+    }
+
+    player.bodyTraining = bodyTraining;
+    if (bodyTraining.level === previousLevel && bodyTraining.exp === previousExp) {
+      return {
+        changed: resolvedTarget.dirty.length > 0,
+        gained: 0,
+        targetLabel: '炼体',
+        expLabel: '炼体经验',
+        dirty: resolvedTarget.dirty,
+        messages,
+      };
+    }
+
+    const dirty = new Set<TechniqueDirtyFlag>(['tech', ...resolvedTarget.dirty]);
+    if (bodyTraining.level !== previousLevel) {
+      this.applyTechniqueBonuses(player);
+      this.attrService.recalcPlayer(player);
+      dirty.add('attr');
+      dirty.add('actions');
+    }
+
+    return {
+      changed: true,
+      gained: gain,
+      targetLabel: '炼体',
+      expLabel: '炼体经验',
       dirty: [...dirty],
       messages,
     };
@@ -1136,6 +1229,10 @@ export class TechniqueService {
 
   private isTechniqueMaxed(technique: Pick<TechniqueState, 'level' | 'layers'>): boolean {
     return technique.level >= getTechniqueMaxLevel(technique.layers);
+  }
+
+  private areAllTechniquesMaxed(player: PlayerState): boolean {
+    return player.techniques.length > 0 && player.techniques.every((entry) => this.isTechniqueMaxed(entry));
   }
 
   private getCultivationBuff(player: PlayerState): TemporaryBuffState | undefined {
@@ -1282,6 +1379,7 @@ export class TechniqueService {
   private initializePlayerSpecialStats(player: PlayerState): void {
     player.foundation = this.normalizeCounter(player.foundation);
     player.combatExp = this.normalizeCounter(player.combatExp);
+    player.bodyTraining = normalizeBodyTrainingState(player.bodyTraining);
   }
 
   private normalizeCounter(value: unknown): number {
@@ -2106,7 +2204,9 @@ export class TechniqueService {
 
   private applyTechniqueBonuses(player: PlayerState): void {
     const nextBonuses = player.bonuses.filter((bonus) => (
-      !bonus.source.startsWith(TECHNIQUE_SOURCE_PREFIX) && bonus.source !== HEAVEN_GATE_ROOTS_SOURCE
+      !bonus.source.startsWith(TECHNIQUE_SOURCE_PREFIX)
+      && bonus.source !== HEAVEN_GATE_ROOTS_SOURCE
+      && bonus.source !== BODY_TRAINING_SOURCE
     ));
     const attrs = calcTechniqueFinalAttrBonus(player.techniques);
     if (Object.values(attrs).some((value) => value > 0)) {
@@ -2114,6 +2214,14 @@ export class TechniqueService {
         source: `${TECHNIQUE_SOURCE_PREFIX}aggregate`,
         label: '功法总池',
         attrs,
+      });
+    }
+    const bodyTrainingAttrs = calcBodyTrainingAttrBonus(player.bodyTraining?.level ?? 0);
+    if (Object.values(bodyTrainingAttrs).some((value) => (value ?? 0) > 0)) {
+      nextBonuses.push({
+        source: BODY_TRAINING_SOURCE,
+        label: '炼体',
+        attrs: bodyTrainingAttrs,
       });
     }
     const roots = this.normalizeHeavenGateRoots(player.spiritualRoots);

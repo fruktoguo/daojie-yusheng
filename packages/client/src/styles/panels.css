@@ -905,6 +905,101 @@
       font-size: var(--font-size-11);
       color: var(--ink-grey);
     }
+    .body-training-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .body-training-hero,
+    .body-training-card,
+    .body-training-attr-chip {
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      background:
+        linear-gradient(180deg, rgba(255, 182, 77, 0.12), rgba(255, 182, 77, 0.04)),
+        var(--panel-bg-elevated);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+    }
+    .body-training-hero {
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .body-training-hero-main {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .body-training-kicker,
+    .body-training-card-label,
+    .body-training-attr-label {
+      color: var(--ink-grey);
+      font-size: var(--font-size-11);
+    }
+    .body-training-level {
+      color: var(--ink-black);
+      font-size: var(--font-size-22);
+      letter-spacing: 0.04em;
+    }
+    .body-training-progress-text,
+    .body-training-card-value,
+    .body-training-attr-value {
+      color: var(--ink-black);
+      font-size: var(--font-size-12);
+      line-height: 1.5;
+    }
+    .body-training-progress-bar {
+      height: 10px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: color-mix(in srgb, var(--panel-border) 72%, transparent);
+    }
+    .body-training-progress-fill {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #f29f05, #f6c453);
+    }
+    .body-training-hero-note {
+      color: var(--ink-grey);
+      font-size: var(--font-size-11);
+    }
+    .body-training-grid,
+    .body-training-attrs {
+      display: grid;
+      gap: 10px;
+    }
+    .body-training-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .body-training-card {
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .body-training-card--wide {
+      grid-column: 1 / -1;
+    }
+    .body-training-attrs {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .body-training-attr-chip {
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    @media (max-width: 720px) {
+      .body-training-grid,
+      .body-training-attrs {
+        grid-template-columns: 1fr;
+      }
+    }
     .detail-modal {
       --detail-modal-padding: 24px;
       --detail-modal-padding-top: max(var(--detail-modal-padding), env(safe-area-inset-top, 0px));

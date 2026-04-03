@@ -15,6 +15,8 @@ export const REALM_STAGE_SOURCE = 'realm:stage';
 export const REALM_STATE_SOURCE = 'realm:state';
 /** 功法相关 runtime（如已习得功法）记录的键名前缀 */
 export const TECHNIQUE_SOURCE_PREFIX = 'technique:';
+/** 炼体总加成来源标识 */
+export const BODY_TRAINING_SOURCE = 'body_training:aggregate';
 /** 修炼状态的 buff 标识 */
 export const CULTIVATION_BUFF_ID = 'cultivation:active';
 /** 开启或关闭修炼状态所依赖的行动 ID */

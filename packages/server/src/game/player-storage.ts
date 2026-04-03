@@ -4,6 +4,7 @@
  * 已知物品/技能走精简快照（仅存 ID），未知的则保留完整字段以防丢失。
  */
 import {
+  BodyTrainingState,
   DEFAULT_INVENTORY_CAPACITY,
   EQUIP_SLOTS,
   EquipmentSlots,
@@ -30,6 +31,7 @@ import {
   WORLD_DARKNESS_BUFF_DURATION,
   WORLD_DARKNESS_BUFF_ID,
   WORLD_TIME_SOURCE_ID,
+  normalizeBodyTrainingState,
 } from '@mud/shared';
 import {
   CULTIVATION_ACTION_ID,
@@ -97,6 +99,7 @@ export interface PersistedPlayerCollections {
   marketStorage: PersistedInventorySnapshot;
   equipment: PersistedEquipmentSnapshot;
   techniques: PersistedTechniqueEntry[];
+  bodyTraining: BodyTrainingState;
   temporaryBuffs: PersistedTemporaryBuffEntry[];
   quests: PersistedQuestEntry[];
 }
@@ -106,6 +109,7 @@ interface PlayerStorageState {
   marketStorage?: MarketStorage;
   equipment: EquipmentSlots;
   techniques: TechniqueState[];
+  bodyTraining?: BodyTrainingState;
   temporaryBuffs?: TemporaryBuffState[];
   quests: QuestState[];
 }
@@ -615,6 +619,18 @@ export function hydrateTechniqueSnapshots(snapshot: unknown): TechniqueState[] {
     .filter((entry): entry is TechniqueState => entry !== null);
 }
 
+export function hydrateBodyTrainingSnapshot(snapshot: unknown): BodyTrainingState {
+  if (!isPlainObject(snapshot)) {
+    return normalizeBodyTrainingState();
+  }
+  const raw = snapshot as Record<string, unknown>;
+  return normalizeBodyTrainingState({
+    level: raw.level as number | undefined,
+    exp: raw.exp as number | undefined,
+    expToNext: raw.expToNext as number | undefined,
+  });
+}
+
 /** 从持久化快照还原临时 Buff 列表，根据技能定义补全完整字段 */
 export function hydrateTemporaryBuffSnapshots(snapshot: unknown, contentService: ContentService): TemporaryBuffState[] {
   if (!Array.isArray(snapshot)) {
@@ -657,6 +673,7 @@ export function buildPersistedPlayerCollections(player: PlayerStorageState, cont
       items: (player.marketStorage?.items ?? []).map((item) => dehydrateInventoryItem(item, contentService)),
     },
     equipment,
+    bodyTraining: normalizeBodyTrainingState(player.bodyTraining),
     temporaryBuffs: persistentTemporaryBuffs.map((buff) => dehydrateTemporaryBuff(buff, contentService)),
     techniques: player.techniques
       .filter((technique) => typeof technique.techId === 'string' && technique.techId.length > 0)

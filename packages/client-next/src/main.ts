@@ -22,6 +22,7 @@ import { AttrPanel } from './ui/panels/attr-panel';
 import { InventoryPanel } from './ui/panels/inventory-panel';
 import { EquipmentPanel } from './ui/panels/equipment-panel';
 import { TechniquePanel } from './ui/panels/technique-panel';
+import { BodyTrainingPanel } from './ui/panels/body-training-panel';
 import { QuestPanel } from './ui/panels/quest-panel';
 import { MarketPanel } from './ui/panels/market-panel';
 import { ActionPanel } from './ui/panels/action-panel';
@@ -594,6 +595,7 @@ const attrPanel = new AttrPanel();
 const inventoryPanel = new InventoryPanel();
 const equipmentPanel = new EquipmentPanel();
 const techniquePanel = new TechniquePanel();
+const bodyTrainingPanel = new BodyTrainingPanel();
 const questPanel = new QuestPanel();
 const marketPanel = new MarketPanel();
 const actionPanel = new ActionPanel();
@@ -1926,6 +1928,7 @@ function handleNextTechniqueDelta(data: NonNullable<NEXT_S2C_PanelDelta['tech']>
     techniques: data.techniques ? cloneJson(data.techniques) : [],
     removeTechniqueIds: data.removeTechniqueIds ? [...data.removeTechniqueIds] : undefined,
     cultivatingTechId: data.cultivatingTechId,
+    bodyTraining: data.bodyTraining ? clonePlainValue(data.bodyTraining) : data.bodyTraining,
   });
 }
 
@@ -2627,11 +2630,15 @@ function handleTechniqueUpdate(data: S2C_TechniqueUpdate): void {
   const nextCultivatingTechId = data.cultivatingTechId === undefined
     ? myPlayer?.cultivatingTechId
     : data.cultivatingTechId ?? undefined;
+  const nextBodyTraining = data.bodyTraining === undefined
+    ? myPlayer?.bodyTraining
+    : data.bodyTraining ?? undefined;
   const shouldRefreshTechniquePanel = !myPlayer
     || haveTechniqueStructureChanges(myPlayer.techniques, myPlayer.cultivatingTechId, mergedTechniques, nextCultivatingTechId);
   if (myPlayer) {
     myPlayer.techniques = mergedTechniques;
     myPlayer.cultivatingTechId = nextCultivatingTechId;
+    myPlayer.bodyTraining = nextBodyTraining;
     inventoryPanel.syncPlayerContext(myPlayer);
   }
   if (shouldRefreshTechniquePanel) {
@@ -2640,6 +2647,7 @@ function handleTechniqueUpdate(data: S2C_TechniqueUpdate): void {
   } else {
     techniquePanel.syncDynamic(mergedTechniques, nextCultivatingTechId, myPlayer ?? undefined);
   }
+  bodyTrainingPanel.syncDynamic(nextBodyTraining);
   if (myPlayer) {
     actionPanel.syncDynamic(myPlayer.actions, myPlayer.autoBattle, myPlayer.autoRetaliate, myPlayer);
   }
@@ -3870,6 +3878,7 @@ function handleBootstrap(data: NEXT_S2C_Bootstrap): void {
   marketPanel.initFromPlayer(myPlayer);
   equipmentPanel.initFromPlayer(myPlayer);
   techniquePanel.initFromPlayer(myPlayer);
+  bodyTrainingPanel.initFromPlayer(myPlayer);
   questPanel.initFromPlayer(myPlayer);
   socket.sendRequestQuests();
   npcShopModal.initFromPlayer(myPlayer);

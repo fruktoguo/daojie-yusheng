@@ -3,6 +3,7 @@
  */
 import type {
   Attributes,
+  BodyTrainingState,
   SkillDef,
   TechniqueAttrCurveSegment,
   TechniqueAttrCurves,
@@ -13,6 +14,9 @@ import type {
 } from './types';
 import { TechniqueRealm as TechniqueRealmEnum } from './types';
 import {
+  BODY_TRAINING_ATTR_KEYS,
+  BODY_TRAINING_EXP_BASE,
+  BODY_TRAINING_EXP_GROWTH_RATE,
   TECHNIQUE_ATTR_KEYS,
   TECHNIQUE_GRADE_ATTR_DECAY_K,
   TECHNIQUE_GRADE_ATTR_DECAY_SPANS,
@@ -156,6 +160,44 @@ export function getTechniqueExpLevelAdjustment(
     return stepMultiplier ** (normalizedPlayerLevel - normalizedTechniqueLevel);
   }
   return 1;
+}
+
+/** 获取当前炼体层数升到下一层所需经验 */
+export function getBodyTrainingExpToNext(level: number): number {
+  const normalizedLevel = Math.max(0, Math.floor(level));
+  return Math.max(1, Math.round(BODY_TRAINING_EXP_BASE * (BODY_TRAINING_EXP_GROWTH_RATE ** normalizedLevel)));
+}
+
+/** 规范化炼体状态，并把超额经验滚入后续层数 */
+export function normalizeBodyTrainingState(state?: Partial<BodyTrainingState> | null): BodyTrainingState {
+  let level = Math.max(0, Math.floor(Number(state?.level ?? 0) || 0));
+  let exp = Math.max(0, Math.floor(Number(state?.exp ?? 0) || 0));
+  let expToNext = getBodyTrainingExpToNext(level);
+
+  while (expToNext > 0 && exp >= expToNext) {
+    exp -= expToNext;
+    level += 1;
+    expToNext = getBodyTrainingExpToNext(level);
+  }
+
+  return {
+    level,
+    exp,
+    expToNext,
+  };
+}
+
+/** 计算炼体累计提供的固定四维加成 */
+export function calcBodyTrainingAttrBonus(level: number): Partial<Attributes> {
+  const normalizedLevel = Math.max(0, Math.floor(level));
+  if (normalizedLevel <= 0) {
+    return {};
+  }
+  const result: Partial<Attributes> = {};
+  for (const key of BODY_TRAINING_ATTR_KEYS) {
+    result[key] = normalizedLevel;
+  }
+  return result;
 }
 
 /** 计算功法在指定层数时累计提供的六维属性加成 */

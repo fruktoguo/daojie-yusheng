@@ -187,6 +187,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   private pendingSpecialStatsPlayers: Set<string> = new Set();
   private lastSentTechniqueStates: Map<string, Map<string, TechniqueState>> = new Map();
   private lastSentCultivatingTechIds: Map<string, string | null> = new Map();
+  private lastSentBodyTrainingStates: Map<string, PlayerState['bodyTraining'] | null> = new Map();
   private lastSentActionStates: Map<string, Map<string, ActionSyncStateEntry>> = new Map();
   private lastSentActionPanelStates: Map<string, ActionPanelSyncState> = new Map();
   private lastSentInventoryStates: Map<string, Inventory> = new Map();
@@ -243,6 +244,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     this.pendingSpecialStatsPlayers.delete(playerId);
     this.lastSentTechniqueStates.delete(playerId);
     this.lastSentCultivatingTechIds.delete(playerId);
+    this.lastSentBodyTrainingStates.delete(playerId);
     this.lastSentActionStates.delete(playerId);
     this.lastSentActionPanelStates.delete(playerId);
     this.lastSentInventoryStates.delete(playerId);
@@ -301,6 +303,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       player.techniques.map((technique) => [technique.techId, this.cloneStructured(technique)] as const),
     ));
     this.lastSentCultivatingTechIds.set(player.id, player.cultivatingTechId ?? null);
+    this.lastSentBodyTrainingStates.set(player.id, player.bodyTraining ? this.cloneStructured(player.bodyTraining) : null);
     this.lastSentActionStates.set(player.id, new Map(
       this.captureActionSyncState(player.actions).map((action) => [action.id, action] as const),
     ));
@@ -542,6 +545,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     this.pendingSpecialStatsPlayers.clear();
     this.lastSentTechniqueStates.clear();
     this.lastSentCultivatingTechIds.clear();
+    this.lastSentBodyTrainingStates.clear();
     this.lastSentActionStates.clear();
     this.lastSentActionPanelStates.clear();
     this.lastSentInventoryStates.clear();
@@ -2529,9 +2533,16 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       update.cultivatingTechId = nextCultivatingTechId;
     }
     this.lastSentCultivatingTechIds.set(player.id, nextCultivatingTechId);
+    const previousBodyTraining = this.lastSentBodyTrainingStates.get(player.id);
+    const nextBodyTraining = player.bodyTraining ? this.cloneStructured(player.bodyTraining) : null;
+    if (!this.isStructuredEqual(previousBodyTraining ?? null, nextBodyTraining ?? null)) {
+      update.bodyTraining = nextBodyTraining;
+    }
+    this.lastSentBodyTrainingStates.set(player.id, nextBodyTraining);
     return update.techniques.length > 0
       || (update.removeTechniqueIds?.length ?? 0) > 0
       || update.cultivatingTechId !== undefined
+      || update.bodyTraining !== undefined
       ? update
       : null;
   }

@@ -17,6 +17,15 @@ export const AUTO_IDLE_CULTIVATION_DELAY_TICKS = 10;
 /** 玩家境界与功法境界存在差距时，每级功法经验乘算修正幅度。 */
 export const TECHNIQUE_EXP_LEVEL_DELTA_MULTIPLIER_STEP = 0.2;
 
+/** 炼体第一层所需经验 */
+export const BODY_TRAINING_EXP_BASE = 10000;
+
+/** 炼体每层经验增长倍率 */
+export const BODY_TRAINING_EXP_GROWTH_RATE = 1.2;
+
+/** 炼体固定提升的四维属性键 */
+export const BODY_TRAINING_ATTR_KEYS: AttrKey[] = ['constitution', 'spirit', 'perception', 'talent'];
+
 /** 功法层级经验基准值 */
 export const TECHNIQUE_EXP_BASE = 100;
 

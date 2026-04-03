@@ -5,7 +5,7 @@
 import protobuf from 'protobufjs';
 import { C2S, S2C, type ActionUpdateEntry, type GroundItemPilePatch, type S2C_ActionsUpdate, type S2C_AttrUpdate, type S2C_TechniqueUpdate, type S2C_Tick, type TechniqueUpdateEntry, type TickRenderEntity, type VisibleTilePatch } from './protocol';
 import type { NumericRatioDivisors, NumericStats } from './numeric';
-import type { ActionDef, Attributes, AttrBonus, GameTimeState, ItemType, NpcQuestMarker, ObservationInsight, PlayerSpecialStats, QuestLine, TechniqueAttrCurves, TechniqueCategory, TechniqueGrade, TechniqueLayerDef, TechniqueState, VisibleBuffState, VisibleTile } from './types';
+import type { ActionDef, Attributes, AttrBonus, BodyTrainingState, GameTimeState, ItemType, NpcQuestMarker, ObservationInsight, PlayerSpecialStats, QuestLine, TechniqueAttrCurves, TechniqueCategory, TechniqueGrade, TechniqueLayerDef, TechniqueState, VisibleBuffState, VisibleTile } from './types';
 import { clonePlainValue } from './structured';
 
 const PROTO_SCHEMA = `
@@ -151,6 +151,8 @@ message TechniqueUpdatePayload {
   optional string cultivatingTechId = 2;
   optional bool clearCultivatingTechId = 3;
   repeated string removeTechniqueIds = 4;
+  optional string bodyTrainingJson = 5;
+  optional bool clearBodyTraining = 6;
 }
 
 message TechniqueUpdateEntryPayload {
@@ -861,6 +863,11 @@ function toWireTechniqueUpdate(payload: S2C_TechniqueUpdate): Record<string, unk
   if (payload.removeTechniqueIds) {
     wire.removeTechniqueIds = [...payload.removeTechniqueIds];
   }
+  if (payload.bodyTraining === null) {
+    wire.clearBodyTraining = true;
+  } else if (payload.bodyTraining !== undefined) {
+    wire.bodyTrainingJson = JSON.stringify(payload.bodyTraining);
+  }
   return wire;
 }
 
@@ -879,6 +886,11 @@ function fromWireTechniqueUpdate(wire: Record<string, unknown>): S2C_TechniqueUp
     payload.removeTechniqueIds = wire.removeTechniqueIds
       .map((entry) => String(entry ?? ''))
       .filter((entry) => entry.length > 0);
+  }
+  if (wire.clearBodyTraining === true) {
+    payload.bodyTraining = null;
+  } else if (typeof wire.bodyTrainingJson === 'string') {
+    payload.bodyTraining = parseJson<BodyTrainingState>(wire.bodyTrainingJson);
   }
   return payload;
 }

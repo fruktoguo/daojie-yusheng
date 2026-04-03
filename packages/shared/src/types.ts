@@ -861,6 +861,13 @@ export interface TechniqueState {
   attrCurves?: TechniqueAttrCurves;
 }
 
+/** 炼体状态 */
+export interface BodyTrainingState {
+  level: number;
+  exp: number;
+  expToNext: number;
+}
+
 /** 行动类型 */
 export type ActionType = 'skill' | 'gather' | 'interact' | 'quest' | 'toggle' | 'battle' | 'travel' | 'breakthrough';
 
@@ -1030,6 +1037,7 @@ export interface PlayerState {
   marketStorage?: MarketStorage;
   equipment: EquipmentSlots;
   techniques: TechniqueState[];
+  bodyTraining?: BodyTrainingState;
   actions: ActionDef[];
   quests: QuestState[];
   autoBattle: boolean;

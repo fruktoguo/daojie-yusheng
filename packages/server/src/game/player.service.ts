@@ -44,6 +44,7 @@ import { resolveDisplayName } from '../auth/account-validation';
 import { MAX_PENDING_LOGBOOK_MESSAGES } from '../constants/gameplay/logbook';
 import {
   buildPersistedPlayerCollections,
+  hydrateBodyTrainingSnapshot,
   hydrateEquipmentSnapshot,
   hydrateInventorySnapshot,
   hydrateMarketStorageSnapshot,
@@ -215,6 +216,7 @@ export class PlayerService implements OnModuleInit {
       marketStorage: persisted.marketStorage as any,
       equipment: persisted.equipment as any,
       techniques: persisted.techniques as any,
+      bodyTraining: persisted.bodyTraining as any,
       quests: persisted.quests as any,
       questCrossMapNavCooldownUntilLifeTicks: state.questCrossMapNavCooldownUntilLifeTicks ?? 0,
       revealedBreakthroughRequirementIds: state.revealedBreakthroughRequirementIds as any,
@@ -1017,6 +1019,7 @@ export class PlayerService implements OnModuleInit {
       marketStorage: hydrateMarketStorageSnapshot(entity.marketStorage, this.contentService),
       equipment: hydrateEquipmentSnapshot(entity.equipment, this.contentService),
       techniques: hydrateTechniqueSnapshots(entity.techniques),
+      bodyTraining: hydrateBodyTrainingSnapshot(entity.bodyTraining),
       quests: this.normalizeQuests(hydrateQuestSnapshots(entity.quests, this.mapService, this.contentService)),
       questCrossMapNavCooldownUntilLifeTicks: normalizeLifeElapsedTicks(entity.questCrossMapNavCooldownUntilLifeTicks),
       revealedBreakthroughRequirementIds: Array.isArray(entity.revealedBreakthroughRequirementIds)

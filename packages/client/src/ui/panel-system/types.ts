@@ -5,6 +5,7 @@ export type PanelId =
   | 'inventory'
   | 'equipment'
   | 'technique'
+  | 'body-training'
   | 'quest'
   | 'market'
   | 'action'

@@ -71,6 +71,15 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
       preservesInteractionState: true,
     },
     {
+      id: 'body-training',
+      title: '炼体',
+      templateKind: 'embedded',
+      rootSelector: '#pane-body-training',
+      defaultPlacement: { desktop: 'right-top', mobile: 'external' },
+      supports: ['desktop', 'mobile'],
+      preservesInteractionState: true,
+    },
+    {
       id: 'quest',
       title: '任务',
       templateKind: 'embedded',
