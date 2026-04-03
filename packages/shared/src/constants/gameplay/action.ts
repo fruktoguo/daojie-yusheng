@@ -19,6 +19,12 @@ export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_LATE = 4;
 /** 31 级及以上：每 6 级额外 +1。 */
 export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_ENDGAME = 6;
 
+/** 每 6 级额外奖励的技能槽位。 */
+export const PLAYER_ENABLED_SKILL_SLOT_BONUS_EVERY_SIX_LEVELS = 2;
+
+/** 每 12 级额外再奖励的技能槽位。 */
+export const PLAYER_ENABLED_SKILL_SLOT_BONUS_EVERY_TWELVE_LEVELS = 2;
+
 /** 兼容旧导出，技能栏位现已改为分段成长。 */
 export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP = PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_MID;
 
@@ -41,6 +47,9 @@ export function getPlayerEnabledSkillSlotLimitByLevel(level: number | undefined)
   if (normalizedLevel >= 31) {
     extraSlots += Math.floor((normalizedLevel - 30) / PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_ENDGAME);
   }
+
+  extraSlots += Math.floor(normalizedLevel / 6) * PLAYER_ENABLED_SKILL_SLOT_BONUS_EVERY_SIX_LEVELS;
+  extraSlots += Math.floor(normalizedLevel / 12) * PLAYER_ENABLED_SKILL_SLOT_BONUS_EVERY_TWELVE_LEVELS;
 
   return PLAYER_BASE_ENABLED_SKILL_SLOTS + extraSlots;
 }
