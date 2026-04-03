@@ -128,8 +128,8 @@
         "id": "skill.huangting_dingyue",
         "name": "黄庭定岳",
         "desc": "黄庭一镇，直接把镇脉抬到高层。",
-        "cooldown": 32,
-        "costMultiplier": 2,
+        "cooldown": 16,
+        "costMultiplier": 6,
         "range": 1,
         "effects": [
           {
@@ -255,8 +255,8 @@
         "id": "skill.kunyuan_fumai",
         "name": "坤元覆脉",
         "desc": "读取高层镇脉做稳定重压收束。",
-        "cooldown": 50,
-        "costMultiplier": 4,
+        "cooldown": 25,
+        "costMultiplier": 12,
         "range": 2,
         "effects": [
           {
@@ -453,8 +453,8 @@
         "id": "skill.hunyuan_dianxiang",
         "name": "混元点相",
         "desc": "读取多路线痕迹，直接把杂相抬高。",
-        "cooldown": 50,
-        "costMultiplier": 4,
+        "cooldown": 25,
+        "costMultiplier": 12,
         "range": 3,
         "effects": [
           {
@@ -597,8 +597,8 @@
         "id": "skill.zaimai_guiyi",
         "name": "载脉归一",
         "desc": "按杂相层数强化全系混行压制。",
-        "cooldown": 50,
-        "costMultiplier": 4,
+        "cooldown": 25,
+        "costMultiplier": 12,
         "range": 3,
         "effects": [
           {
@@ -805,8 +805,8 @@
         "id": "skill.taibai_liuhen",
         "name": "太白留痕",
         "desc": "太白一划，迅速把锋痕推到高层。",
-        "cooldown": 32,
-        "costMultiplier": 2,
+        "cooldown": 16,
+        "costMultiplier": 6,
         "range": 1,
         "effects": [
           {
@@ -913,8 +913,8 @@
         "id": "skill.zhuxing_duanpo",
         "name": "诛形断魄",
         "desc": "按锋痕层数大幅放大金行处决伤害。",
-        "cooldown": 38,
-        "costMultiplier": 3,
+        "cooldown": 19,
+        "costMultiplier": 9,
         "range": 1,
         "effects": [
           {
@@ -1097,8 +1097,8 @@
         "id": "skill.taiyin_chuiyin",
         "name": "太阴垂印",
         "desc": "太阴一落，寒印瞬间抬到高层。",
-        "cooldown": 48,
-        "costMultiplier": 3,
+        "cooldown": 24,
+        "costMultiplier": 9,
         "range": 3,
         "effects": [
           {
@@ -1208,8 +1208,8 @@
         "id": "skill.guichao_suojie",
         "name": "归潮锁界",
         "desc": "对一片区域延长寒意压制。",
-        "cooldown": 50,
-        "costMultiplier": 4,
+        "cooldown": 25,
+        "costMultiplier": 12,
         "range": 4,
         "targeting": {
           "shape": "area",
@@ -1416,8 +1416,8 @@
         "id": "skill.changsheng_yinmai",
         "name": "长生引脉",
         "desc": "长生木意顺脉而入，快速抬高缠脉。",
-        "cooldown": 46,
-        "costMultiplier": 3,
+        "cooldown": 23,
+        "costMultiplier": 9,
         "range": 3,
         "effects": [
           {
@@ -1524,8 +1524,8 @@
         "id": "skill.duomai_guiyuan",
         "name": "夺脉归元",
         "desc": "对高层缠脉目标做大额抽取。",
-        "cooldown": 50,
-        "costMultiplier": 4,
+        "cooldown": 25,
+        "costMultiplier": 12,
         "range": 3,
         "effects": [
           {
@@ -1732,8 +1732,8 @@
         "id": "skill.zhuming_dianmai",
         "name": "朱明点脉",
         "desc": "朱明点落，瞬间把灼脉抬高。",
-        "cooldown": 44,
-        "costMultiplier": 3,
+        "cooldown": 22,
+        "costMultiplier": 9,
         "range": 3,
         "effects": [
           {
@@ -1837,8 +1837,8 @@
         "id": "skill.jintian_liexi",
         "name": "烬天裂息",
         "desc": "按灼脉层数把单体爆发拉满。",
-        "cooldown": 50,
-        "costMultiplier": 4,
+        "cooldown": 25,
+        "costMultiplier": 12,
         "range": 3,
         "effects": [
           {

@@ -112,8 +112,8 @@
         "id": "skill.huomai_cuxing",
         "name": "火脉催行",
         "desc": "火息催窍，顺势添灼，借热提速后再逼近一步。",
-        "cooldown": 16,
-        "costMultiplier": 1,
+        "cooldown": 8,
+        "costMultiplier": 3,
         "range": 1,
         "effects": [
           {
@@ -303,8 +303,8 @@
         "id": "skill.pojin_linghen",
         "name": "破筋棱痕",
         "desc": "贴身破筋，沿旧有锋痕再开一道棱痕，自身借势凝锐。",
-        "cooldown": 16,
-        "costMultiplier": 1,
+        "cooldown": 8,
+        "costMultiplier": 3,
         "range": 1,
         "effects": [
           {
@@ -495,8 +495,8 @@
         "id": "skill.hanliu_fuxing",
         "name": "寒流覆行",
         "desc": "寒流贴身再覆敌脉，寒印越深，自身越轻灵。",
-        "cooldown": 20,
-        "costMultiplier": 1,
+        "cooldown": 10,
+        "costMultiplier": 3,
         "range": 3,
         "effects": [
           {
@@ -688,8 +688,8 @@
         "id": "skill.huisheng_panluo",
         "name": "回生盘络",
         "desc": "木息盘络，循缠脉倒卷生机，伤敌时一并反哺己身。",
-        "cooldown": 20,
-        "costMultiplier": 1,
+        "cooldown": 10,
+        "costMultiplier": 3,
         "range": 3,
         "effects": [
           {
@@ -857,8 +857,8 @@
         "id": "skill.ping_chao_xi",
         "name": "平潮息",
         "desc": "调息平潮，迅速立起定息。",
-        "cooldown": 16,
-        "costMultiplier": 1,
+        "cooldown": 8,
+        "costMultiplier": 3,
         "range": 0,
         "requiresTarget": false,
         "effects": [
@@ -907,8 +907,8 @@
         "id": "skill.huidu_huyuan",
         "name": "回渡护元",
         "desc": "以定息护持经络，进一步稳住法防与化解。",
-        "cooldown": 28,
-        "costMultiplier": 2,
+        "cooldown": 14,
+        "costMultiplier": 6,
         "range": 0,
         "requiresTarget": false,
         "effects": [
@@ -1067,8 +1067,8 @@
         "id": "skill.yuepo_zhendao",
         "name": "岳魄镇道",
         "desc": "岳魄下沉，借镇脉稳住己身后再反压敌手。",
-        "cooldown": 16,
-        "costMultiplier": 1,
+        "cooldown": 8,
+        "costMultiplier": 3,
         "range": 1,
         "effects": [
           {

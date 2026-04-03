@@ -93,6 +93,12 @@
         "name": "《离炎锻息诀》",
         "type": "skill_book",
         "count": 1
+      },
+      {
+        "itemId": "book.chiqi_ranqiao",
+        "name": "《赤息燃窍功》",
+        "type": "skill_book",
+        "count": 1
       }
     ]
   },
@@ -182,6 +188,12 @@
       {
         "itemId": "book.chiqi_ranqiao",
         "name": "《赤息燃窍功》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.liyan_duanxi",
+        "name": "《离炎锻息诀》",
         "type": "skill_book",
         "count": 1
       }

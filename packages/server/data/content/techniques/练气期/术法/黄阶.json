@@ -112,8 +112,8 @@
         "id": "skill.luoshan_zhenmai",
         "name": "落山镇脉",
         "desc": "地气如落山压下，对小范围敌手一并沉脉。",
-        "cooldown": 18,
-        "costMultiplier": 1,
+        "cooldown": 9,
+        "costMultiplier": 3,
         "range": 3,
         "targeting": {
           "shape": "area",
@@ -290,8 +290,8 @@
         "id": "skill.xingmang_zhuiji",
         "name": "星芒追击",
         "desc": "碎星芒沿前路连点，对锋痕未散的敌手追出更深裂口。",
-        "cooldown": 18,
-        "costMultiplier": 1,
+        "cooldown": 9,
+        "costMultiplier": 3,
         "range": 3,
         "targeting": {
           "shape": "line",
@@ -467,8 +467,8 @@
         "id": "skill.ningfeng_ci",
         "name": "凝锋刺",
         "desc": "凝锋一刺，快速压出锋痕。",
-        "cooldown": 16,
-        "costMultiplier": 1,
+        "cooldown": 8,
+        "costMultiplier": 3,
         "range": 1,
         "effects": [
           {
@@ -540,8 +540,8 @@
         "id": "skill.duanbei_zhan",
         "name": "断碑斩",
         "desc": "借锋痕贯入脉门，对单体做收头重击。",
-        "cooldown": 18,
-        "costMultiplier": 1,
+        "cooldown": 9,
+        "costMultiplier": 3,
         "range": 1,
         "effects": [
           {
@@ -678,8 +678,8 @@
         "id": "skill.heqi_yin",
         "name": "合炁印",
         "desc": "读取目标身上已有五行痕迹，转成杂相起点。",
-        "cooldown": 24,
-        "costMultiplier": 1,
+        "cooldown": 12,
+        "costMultiplier": 3,
         "range": 3,
         "effects": [
           {
@@ -877,8 +877,8 @@
         "id": "skill.hanxi_yin",
         "name": "寒汐印",
         "desc": "寒印先落，压低目标机动。",
-        "cooldown": 22,
-        "costMultiplier": 1,
+        "cooldown": 11,
+        "costMultiplier": 3,
         "range": 3,
         "effects": [
           {
@@ -952,8 +952,8 @@
         "id": "skill.jingchao_fengmai",
         "name": "净潮封脉",
         "desc": "小范围封脉，按寒印层数继续压制。",
-        "cooldown": 26,
-        "costMultiplier": 2,
+        "cooldown": 13,
+        "costMultiplier": 6,
         "range": 3,
         "targeting": {
           "shape": "area",
@@ -1121,8 +1121,8 @@
         "id": "skill.zhenmai_yin",
         "name": "镇脉印",
         "desc": "厚土先护己身，再把镇脉压到目标身上。",
-        "cooldown": 16,
-        "costMultiplier": 1,
+        "cooldown": 8,
+        "costMultiplier": 3,
         "range": 1,
         "effects": [
           {
@@ -1194,8 +1194,8 @@
         "id": "skill.chengyuan_luobei",
         "name": "承元落碑",
         "desc": "按镇脉层数做重击收束。",
-        "cooldown": 18,
-        "costMultiplier": 1,
+        "cooldown": 9,
+        "costMultiplier": 3,
         "range": 1,
         "effects": [
           {
@@ -1344,8 +1344,8 @@
         "id": "skill.yunhuo_laomai",
         "name": "陨火烙脉",
         "desc": "火意落脉，先把灼脉挂上去。",
-        "cooldown": 22,
-        "costMultiplier": 1,
+        "cooldown": 11,
+        "costMultiplier": 3,
         "range": 3,
         "effects": [
           {
@@ -1415,8 +1415,8 @@
         "id": "skill.fenxi_jue",
         "name": "焚息诀",
         "desc": "读取灼脉，对小范围敌手做引爆。",
-        "cooldown": 26,
-        "costMultiplier": 2,
+        "cooldown": 13,
+        "costMultiplier": 6,
         "range": 3,
         "targeting": {
           "shape": "area",
@@ -1570,8 +1570,8 @@
         "id": "skill.tengluo_manshen",
         "name": "藤络蔓伸",
         "desc": "藤络分织，向周身几处要穴同时补上缠脉。",
-        "cooldown": 18,
-        "costMultiplier": 1,
+        "cooldown": 9,
+        "costMultiplier": 3,
         "range": 3,
         "targeting": {
           "shape": "area",
@@ -1744,8 +1744,8 @@
         "id": "skill.qianluo_chanmai",
         "name": "牵萝缠脉",
         "desc": "木意牵络，先给目标挂上缠脉。",
-        "cooldown": 22,
-        "costMultiplier": 1,
+        "cooldown": 11,
+        "costMultiplier": 3,
         "range": 3,
         "effects": [
           {
@@ -1817,8 +1817,8 @@
         "id": "skill.kurong_nichou",
         "name": "枯荣逆抽",
         "desc": "沿缠脉回抽生机，兼顾输出与回转。",
-        "cooldown": 24,
-        "costMultiplier": 2,
+        "cooldown": 12,
+        "costMultiplier": 6,
         "range": 3,
         "effects": [
           {
@@ -1985,8 +1985,8 @@
         "id": "skill.jingbo_suoyin",
         "name": "镜波锁印",
         "desc": "镜波定潮，小范围寒意同落，寒印深处更难抽身。",
-        "cooldown": 18,
-        "costMultiplier": 1,
+        "cooldown": 9,
+        "costMultiplier": 3,
         "range": 3,
         "targeting": {
           "shape": "area",
@@ -2164,8 +2164,8 @@
         "id": "skill.liebo_fenmai",
         "name": "裂波焚脉",
         "desc": "曜火裂波扫过前路，对一路敌手同时添上灼脉。",
-        "cooldown": 18,
-        "costMultiplier": 1,
+        "cooldown": 9,
+        "costMultiplier": 3,
         "range": 3,
         "targeting": {
           "shape": "line",

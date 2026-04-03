@@ -1,19 +1,5 @@
 [
   {
-    "itemId": "book.dimai_fumai",
-    "name": "《地脉覆脉术》",
-    "type": "skill_book",
-    "desc": "记载地脉覆脉术的修行法门，使用后学会地脉覆脉术。",
-    "learnTechniqueId": "dimai_fumai"
-  },
-  {
-    "itemId": "book.duanjin_zhuixing",
-    "name": "《断金追星术》",
-    "type": "skill_book",
-    "desc": "记载断金追星术的修行法门，使用后学会断金追星术。",
-    "learnTechniqueId": "duanjin_zhuixing"
-  },
-  {
     "itemId": "book.genghua_ningfeng",
     "name": "《庚华凝锋诀》",
     "type": "skill_book",
@@ -49,18 +35,32 @@
     "learnTechniqueId": "liyan_duanxi"
   },
   {
-    "itemId": "book.manzhi_jiaoluo",
-    "name": "《蔓织绞络术》",
-    "type": "skill_book",
-    "desc": "记载蔓织绞络术的修行法门，使用后学会蔓织绞络术。",
-    "learnTechniqueId": "manzhi_jiaoluo"
-  },
-  {
     "itemId": "book.qingmu_yangmai",
     "name": "《青木养脉篇》",
     "type": "skill_book",
     "desc": "记载青木养脉篇的修行法门，使用后学会青木养脉篇。",
     "learnTechniqueId": "qingmu_yangmai"
+  },
+  {
+    "itemId": "book.dimai_fumai",
+    "name": "《地脉覆脉术》",
+    "type": "skill_book",
+    "desc": "记载地脉覆脉术的修行法门，使用后学会地脉覆脉术。",
+    "learnTechniqueId": "dimai_fumai"
+  },
+  {
+    "itemId": "book.duanjin_zhuixing",
+    "name": "《断金追星术》",
+    "type": "skill_book",
+    "desc": "记载断金追星术的修行法门，使用后学会断金追星术。",
+    "learnTechniqueId": "duanjin_zhuixing"
+  },
+  {
+    "itemId": "book.manzhi_jiaoluo",
+    "name": "《蔓织绞络术》",
+    "type": "skill_book",
+    "desc": "记载蔓织绞络术的修行法门，使用后学会蔓织绞络术。",
+    "learnTechniqueId": "manzhi_jiaoluo"
   },
   {
     "itemId": "book.xuanjing_luoyin",
@@ -75,6 +75,13 @@
     "type": "skill_book",
     "desc": "记载曜火裂波术的修行法门，使用后学会曜火裂波术。",
     "learnTechniqueId": "yaohuo_liebo"
+  },
+  {
+    "itemId": "book.tingmai_dingxi",
+    "name": "《听脉定息诀》",
+    "type": "skill_book",
+    "desc": "记载听脉定息诀的修行法门，使用后学会听脉定息诀。",
+    "learnTechniqueId": "tingmai_dingxi"
   },
   {
     "itemId": "book.chiqi_ranqiao",
@@ -103,13 +110,6 @@
     "type": "skill_book",
     "desc": "记载青藤回息诀的修行法门，使用后学会青藤回息诀。",
     "learnTechniqueId": "qingteng_huixi"
-  },
-  {
-    "itemId": "book.tingmai_dingxi",
-    "name": "《听脉定息诀》",
-    "type": "skill_book",
-    "desc": "记载听脉定息诀的修行法门，使用后学会听脉定息诀。",
-    "learnTechniqueId": "tingmai_dingxi"
   },
   {
     "itemId": "book.zhenyue_huyuan",

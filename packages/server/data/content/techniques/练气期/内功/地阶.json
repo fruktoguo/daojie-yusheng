@@ -134,8 +134,8 @@
         "id": "skill.taichu_guilun",
         "name": "太初归轮",
         "desc": "抱元归轮，令气血与灵息一并回稳。",
-        "cooldown": 22,
-        "costMultiplier": 2,
+        "cooldown": 11,
+        "costMultiplier": 6,
         "range": 0,
         "requiresTarget": false,
         "effects": [
@@ -205,8 +205,8 @@
         "id": "skill.wulou_shouzhong",
         "name": "无漏守中",
         "desc": "无漏守中，借高层定息稳定全身。",
-        "cooldown": 42,
-        "costMultiplier": 3,
+        "cooldown": 21,
+        "costMultiplier": 9,
         "range": 0,
         "requiresTarget": false,
         "effects": [

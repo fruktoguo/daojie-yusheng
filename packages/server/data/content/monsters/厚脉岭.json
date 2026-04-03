@@ -96,6 +96,12 @@
         "name": "《厚土承元功》",
         "type": "skill_book",
         "count": 1
+      },
+      {
+        "itemId": "book.zhenyue_huyuan",
+        "name": "《镇岳护元诀》",
+        "type": "skill_book",
+        "count": 1
       }
     ]
   },
@@ -188,6 +194,12 @@
       {
         "itemId": "book.zhenyue_huyuan",
         "name": "《镇岳护元诀》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.houtu_chengyuan",
+        "name": "《厚土承元功》",
         "type": "skill_book",
         "count": 1
       }

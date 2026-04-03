@@ -96,6 +96,12 @@
         "name": "《庚华凝锋诀》",
         "type": "skill_book",
         "count": 1
+      },
+      {
+        "itemId": "book.jinluo_lifeng",
+        "name": "《金络砺锋功》",
+        "type": "skill_book",
+        "count": 1
       }
     ]
   },
@@ -188,6 +194,12 @@
       {
         "itemId": "book.jinluo_lifeng",
         "name": "《金络砺锋功》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.genghua_ningfeng",
+        "name": "《庚华凝锋诀》",
         "type": "skill_book",
         "count": 1
       }

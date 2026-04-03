@@ -124,8 +124,8 @@
         "id": "skill.zhouliu_dinghai",
         "name": "周流定海",
         "desc": "周流一气，迅速抬高定息层数。",
-        "cooldown": 18,
-        "costMultiplier": 1,
+        "cooldown": 9,
+        "costMultiplier": 3,
         "range": 0,
         "requiresTarget": false,
         "effects": [
@@ -193,8 +193,8 @@
         "id": "skill.huyuan_zhoushen",
         "name": "护元周身",
         "desc": "周天气海外扩，令护元覆盖周身。",
-        "cooldown": 34,
-        "costMultiplier": 2,
+        "cooldown": 17,
+        "costMultiplier": 6,
         "range": 0,
         "requiresTarget": false,
         "effects": [

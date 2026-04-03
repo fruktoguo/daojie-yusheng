@@ -93,6 +93,12 @@
         "name": "《青木养脉篇》",
         "type": "skill_book",
         "count": 1
+      },
+      {
+        "itemId": "book.qingteng_huixi",
+        "name": "《青藤回息诀》",
+        "type": "skill_book",
+        "count": 1
       }
     ]
   },
@@ -182,6 +188,12 @@
       {
         "itemId": "book.qingteng_huixi",
         "name": "《青藤回息诀》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.qingmu_yangmai",
+        "name": "《青木养脉篇》",
         "type": "skill_book",
         "count": 1
       }
