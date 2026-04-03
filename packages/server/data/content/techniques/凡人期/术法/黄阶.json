@@ -118,7 +118,7 @@
             "visibility": "public",
             "color": "#89c46a",
             "duration": 12,
-            "maxStacks": 6,
+            "maxStacks": 18,
             "valueStats": {
               "crit": 4,
               "breakPower": 5
@@ -182,7 +182,7 @@
             "visibility": "public",
             "color": "#89c46a",
             "duration": 12,
-            "maxStacks": 6,
+            "maxStacks": 18,
             "valueStats": {
               "crit": 4,
               "breakPower": 5
@@ -313,7 +313,7 @@
             "visibility": "public",
             "color": "#6aa84f",
             "duration": 14,
-            "maxStacks": 8,
+            "maxStacks": 24,
             "valueStats": {
               "spellDef": -3,
               "dodge": -2,
@@ -378,7 +378,7 @@
             "visibility": "public",
             "color": "#6aa84f",
             "duration": 14,
-            "maxStacks": 8,
+            "maxStacks": 24,
             "valueStats": {
               "spellDef": -3,
               "dodge": -2,
@@ -509,7 +509,7 @@
             "visibility": "public",
             "color": "#c96d56",
             "duration": 12,
-            "maxStacks": 6,
+            "maxStacks": 18,
             "valueStats": {
               "moveSpeed": 8,
               "crit": 4,
@@ -573,7 +573,7 @@
             "visibility": "public",
             "color": "#c96d56",
             "duration": 12,
-            "maxStacks": 6,
+            "maxStacks": 18,
             "valueStats": {
               "moveSpeed": 8,
               "crit": 4,
@@ -756,7 +756,7 @@
             "visibility": "public",
             "color": "#9bb7d4",
             "duration": 12,
-            "maxStacks": 6,
+            "maxStacks": 18,
             "valueStats": {
               "hit": 4,
               "dodge": 4
@@ -820,7 +820,7 @@
             "visibility": "public",
             "color": "#9bb7d4",
             "duration": 12,
-            "maxStacks": 6,
+            "maxStacks": 18,
             "valueStats": {
               "hit": 4,
               "dodge": 4
@@ -880,7 +880,7 @@
             "visibility": "public",
             "color": "#7db5d8",
             "duration": 14,
-            "maxStacks": 8,
+            "maxStacks": 24,
             "valueStats": {
               "spellDef": -3,
               "hit": -3,
@@ -1012,7 +1012,7 @@
             "visibility": "public",
             "color": "#79b56b",
             "duration": 14,
-            "maxStacks": 8,
+            "maxStacks": 24,
             "valueStats": {
               "spellDef": -3,
               "dodge": -3
@@ -1076,7 +1076,7 @@
             "visibility": "public",
             "color": "#79b56b",
             "duration": 14,
-            "maxStacks": 8,
+            "maxStacks": 24,
             "valueStats": {
               "spellDef": -3,
               "dodge": -3
@@ -1218,7 +1218,7 @@
             "visibility": "public",
             "color": "#ef6b3b",
             "duration": 14,
-            "maxStacks": 10,
+            "maxStacks": 30,
             "valueStats": {
               "spellDef": -3,
               "resolvePower": -4
@@ -1282,7 +1282,7 @@
             "visibility": "public",
             "color": "#ef6b3b",
             "duration": 14,
-            "maxStacks": 10,
+            "maxStacks": 30,
             "valueStats": {
               "spellDef": -3,
               "resolvePower": -4
@@ -1440,7 +1440,7 @@
             "visibility": "public",
             "color": "#95c5a4",
             "duration": 12,
-            "maxStacks": 6,
+            "maxStacks": 18,
             "valueStats": {
               "moveSpeed": 10,
               "dodge": 5,
@@ -1508,7 +1508,7 @@
             "visibility": "public",
             "color": "#95c5a4",
             "duration": 12,
-            "maxStacks": 6,
+            "maxStacks": 18,
             "valueStats": {
               "moveSpeed": 10,
               "dodge": 5,

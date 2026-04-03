@@ -362,7 +362,7 @@
             "visibility": "public",
             "color": "#a28d74",
             "duration": 14,
-            "maxStacks": 8,
+            "maxStacks": 24,
             "valueStats": {
               "physDef": 3,
               "resolvePower": 3
@@ -439,7 +439,7 @@
             "visibility": "public",
             "color": "#a28d74",
             "duration": 14,
-            "maxStacks": 8,
+            "maxStacks": 24,
             "valueStats": {
               "physDef": 3,
               "resolvePower": 3

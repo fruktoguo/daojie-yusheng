@@ -127,7 +127,7 @@
             "visibility": "public",
             "color": "#68b96c",
             "duration": 14,
-            "maxStacks": 6,
+            "maxStacks": 18,
             "valueStats": {
               "spellDef": -3,
               "dodge": -2,
@@ -194,7 +194,7 @@
             "visibility": "public",
             "color": "#68b96c",
             "duration": 14,
-            "maxStacks": 6,
+            "maxStacks": 18,
             "valueStats": {
               "spellDef": -3,
               "dodge": -2,

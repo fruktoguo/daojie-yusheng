@@ -141,7 +141,7 @@
             "visibility": "public",
             "color": "#c7d9f5",
             "duration": 16,
-            "maxStacks": 4,
+            "maxStacks": 12,
             "valueStats": {
               "moveSpeed": 18,
               "dodge": 10,
@@ -211,7 +211,7 @@
             "visibility": "public",
             "color": "#b3c0ff",
             "duration": 14,
-            "maxStacks": 3,
+            "maxStacks": 9,
             "valueStats": {
               "moveSpeed": 24,
               "dodge": 14,

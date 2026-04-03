@@ -183,7 +183,7 @@
             "visibility": "public",
             "color": "#d2bd6e",
             "duration": 14,
-            "maxStacks": 8,
+            "maxStacks": 24,
             "statMode": "percent",
             "valueStats": {
               "physDef": -10,
@@ -249,7 +249,7 @@
             "visibility": "public",
             "color": "#cbb15d",
             "duration": 10,
-            "maxStacks": 1,
+            "maxStacks": 3,
             "statMode": "percent",
             "valueStats": {
               "hit": -14,
@@ -442,7 +442,7 @@
             "visibility": "public",
             "color": "#ef6b3b",
             "duration": 12,
-            "maxStacks": 9,
+            "maxStacks": 27,
             "statMode": "percent",
             "valueStats": {
               "spellDef": -10,
@@ -460,7 +460,7 @@
             "visibility": "public",
             "color": "#ef6b3b",
             "duration": 12,
-            "maxStacks": 9,
+            "maxStacks": 27,
             "statMode": "percent",
             "valueStats": {
               "spellDef": -10,
@@ -478,7 +478,7 @@
             "visibility": "public",
             "color": "#ef6b3b",
             "duration": 12,
-            "maxStacks": 9,
+            "maxStacks": 27,
             "statMode": "percent",
             "valueStats": {
               "spellDef": -10,
@@ -548,7 +548,7 @@
             "visibility": "public",
             "color": "#ef6b3b",
             "duration": 12,
-            "maxStacks": 9,
+            "maxStacks": 27,
             "statMode": "percent",
             "valueStats": {
               "spellDef": -10,
@@ -736,7 +736,7 @@
             "visibility": "public",
             "color": "#a18b6b",
             "duration": 12,
-            "maxStacks": 1,
+            "maxStacks": 3,
             "statMode": "percent",
             "valueStats": {
               "physDef": 16,
@@ -755,7 +755,7 @@
             "visibility": "public",
             "color": "#a48a68",
             "duration": 14,
-            "maxStacks": 8,
+            "maxStacks": 24,
             "statMode": "percent",
             "valueStats": {
               "moveSpeed": -14,
@@ -774,7 +774,7 @@
             "visibility": "public",
             "color": "#a48a68",
             "duration": 14,
-            "maxStacks": 8,
+            "maxStacks": 24,
             "statMode": "percent",
             "valueStats": {
               "moveSpeed": -14,
@@ -1014,7 +1014,7 @@
             "visibility": "public",
             "color": "#69ba74",
             "duration": 16,
-            "maxStacks": 8,
+            "maxStacks": 24,
             "statMode": "percent",
             "valueStats": {
               "dodge": -10,
@@ -1080,7 +1080,7 @@
             "visibility": "public",
             "color": "#6eb46a",
             "duration": 8,
-            "maxStacks": 1,
+            "maxStacks": 3,
             "statMode": "percent",
             "valueStats": {
               "hpRegenRate": 18,
@@ -1311,7 +1311,7 @@
             "visibility": "public",
             "color": "#8aa39f",
             "duration": 14,
-            "maxStacks": 7,
+            "maxStacks": 21,
             "statMode": "percent",
             "valueStats": {
               "physDef": -8,
@@ -1330,7 +1330,7 @@
             "visibility": "public",
             "color": "#8aa39f",
             "duration": 14,
-            "maxStacks": 7,
+            "maxStacks": 21,
             "statMode": "percent",
             "valueStats": {
               "physDef": -8,
@@ -1361,7 +1361,7 @@
             "visibility": "public",
             "color": "#8aa19a",
             "duration": 8,
-            "maxStacks": 1,
+            "maxStacks": 3,
             "statMode": "percent",
             "valueStats": {
               "qiRegenRate": 20,
@@ -1553,7 +1553,7 @@
             "visibility": "public",
             "color": "#74bdd7",
             "duration": 16,
-            "maxStacks": 9,
+            "maxStacks": 27,
             "statMode": "percent",
             "valueStats": {
               "hit": -10,
@@ -1620,7 +1620,7 @@
             "visibility": "public",
             "color": "#6db0cc",
             "duration": 10,
-            "maxStacks": 1,
+            "maxStacks": 3,
             "statMode": "percent",
             "valueStats": {
               "moveSpeed": -18,

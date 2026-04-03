@@ -1086,7 +1086,7 @@
           "category": "debuff",
           "visibility": "public",
           "color": "#6e4a3f",
-          "maxStacks": 2147483647
+          "maxStacks": 6442450941
         }
       },
       {

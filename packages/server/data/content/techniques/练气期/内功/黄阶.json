@@ -159,7 +159,7 @@
             "visibility": "public",
             "color": "#ef6b3b",
             "duration": 12,
-            "maxStacks": 9,
+            "maxStacks": 27,
             "statMode": "percent",
             "valueStats": {
               "spellDef": -4,
@@ -177,7 +177,7 @@
             "visibility": "public",
             "color": "#f07c4a",
             "duration": 8,
-            "maxStacks": 1,
+            "maxStacks": 3,
             "statMode": "percent",
             "valueStats": {
               "crit": 6,
@@ -350,7 +350,7 @@
             "visibility": "public",
             "color": "#d2bd6e",
             "duration": 14,
-            "maxStacks": 8,
+            "maxStacks": 24,
             "statMode": "percent",
             "valueStats": {
               "physDef": -4,
@@ -369,7 +369,7 @@
             "visibility": "public",
             "color": "#d7c56f",
             "duration": 8,
-            "maxStacks": 1,
+            "maxStacks": 3,
             "statMode": "percent",
             "valueStats": {
               "hit": 6,
@@ -542,7 +542,7 @@
             "visibility": "public",
             "color": "#74bdd7",
             "duration": 16,
-            "maxStacks": 9,
+            "maxStacks": 27,
             "statMode": "percent",
             "valueStats": {
               "hit": -3,
@@ -562,7 +562,7 @@
             "visibility": "public",
             "color": "#7dbfd8",
             "duration": 8,
-            "maxStacks": 1,
+            "maxStacks": 3,
             "statMode": "percent",
             "valueStats": {
               "dodge": 6,
@@ -735,7 +735,7 @@
             "visibility": "public",
             "color": "#78bf78",
             "duration": 8,
-            "maxStacks": 1,
+            "maxStacks": 3,
             "statMode": "percent",
             "valueStats": {
               "hpRegenRate": 90,
@@ -873,7 +873,7 @@
             "visibility": "public",
             "color": "#7da8c7",
             "duration": 12,
-            "maxStacks": 7,
+            "maxStacks": 21,
             "statMode": "percent",
             "valueStats": {
               "qiRegenRate": 70,
@@ -892,7 +892,7 @@
             "visibility": "public",
             "color": "#7da8c7",
             "duration": 12,
-            "maxStacks": 7,
+            "maxStacks": 21,
             "statMode": "percent",
             "valueStats": {
               "qiRegenRate": 70,
@@ -923,7 +923,7 @@
             "visibility": "public",
             "color": "#7da8c7",
             "duration": 12,
-            "maxStacks": 7,
+            "maxStacks": 21,
             "statMode": "percent",
             "valueStats": {
               "qiRegenRate": 70,
@@ -942,7 +942,7 @@
             "visibility": "public",
             "color": "#89a9c2",
             "duration": 8,
-            "maxStacks": 1,
+            "maxStacks": 3,
             "statMode": "percent",
             "valueStats": {
               "spellDef": 8,
@@ -1114,7 +1114,7 @@
             "visibility": "public",
             "color": "#a48a68",
             "duration": 14,
-            "maxStacks": 8,
+            "maxStacks": 24,
             "statMode": "percent",
             "valueStats": {
               "moveSpeed": -6,
@@ -1133,7 +1133,7 @@
             "visibility": "public",
             "color": "#ab9270",
             "duration": 8,
-            "maxStacks": 1,
+            "maxStacks": 3,
             "statMode": "percent",
             "valueStats": {
               "physDef": 8,
