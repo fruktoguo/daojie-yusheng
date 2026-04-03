@@ -70,12 +70,30 @@ async function main() {
             const state = await fetchPlayerState(playerId);
             return state.player?.actions?.actions?.some((entry) => entry.id === skillId);
         }, 5000);
-        await postJson(`/runtime/players/${playerId}/vitals`, { hp: boostedVitalCap, qi: boostedVitalCap });
+        const learnedState = await fetchPlayerState(playerId);
+        if (learnedState.player?.combat?.autoRetaliate) {
+            socket.emit(shared_1.NEXT_C2S.UseAction, { actionId: 'toggle:auto_retaliate' });
+            await waitFor(async () => (await fetchPlayerState(playerId)).player?.combat?.autoRetaliate === false, 5000);
+        }
+        if ((await fetchPlayerState(playerId)).player?.combat?.autoBattle) {
+            socket.emit(shared_1.NEXT_C2S.UseAction, { actionId: 'toggle:auto_battle' });
+            await waitFor(async () => (await fetchPlayerState(playerId)).player?.combat?.autoBattle === false, 5000);
+        }
+        await postJson(`/runtime/players/${playerId}/vitals`, {
+            hp: boostedVitalCap,
+            maxHp: boostedVitalCap,
+            qi: boostedVitalCap,
+            maxQi: boostedVitalCap,
+        });
         await waitFor(async () => {
             const state = await fetchPlayerState(playerId);
             return state.player?.instanceId === instanceId
-                && (state.player?.hp ?? 0) > 0
-                && (state.player?.qi ?? 0) >= 1;
+                && state.player?.combat?.autoRetaliate === false
+                && state.player?.combat?.autoBattle === false
+                && state.player?.hp === boostedVitalCap
+                && state.player?.maxHp === boostedVitalCap
+                && state.player?.qi === boostedVitalCap
+                && state.player?.maxQi === boostedVitalCap;
         }, 5000);
         const resolvedTarget = await waitForState(async () => {
             const [view, playerState] = await Promise.all([

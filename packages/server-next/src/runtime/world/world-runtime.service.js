@@ -8,6 +8,9 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); };
+};
 var WorldRuntimeService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldRuntimeService = void 0;
@@ -3962,6 +3965,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
 exports.WorldRuntimeService = WorldRuntimeService;
 exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __decorate([
     (0, common_1.Injectable)(),
+    __param(6, (0, common_1.Inject)((0, common_1.forwardRef)(() => world_client_event_service_1.WorldClientEventService))),
     __metadata("design:paramtypes", [content_template_repository_1.ContentTemplateRepository,
         map_template_repository_1.MapTemplateRepository,
         map_persistence_service_1.MapPersistenceService,

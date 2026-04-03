@@ -53,7 +53,15 @@ async function main() {
                 && state.player?.maxHp === boostedHp
                 && (state.player?.hp ?? 0) > 0;
         }, 5000);
-        const readyPlayer = await fetchPlayerState(playerId);
+        const initialState = await fetchPlayerState(playerId);
+        if (initialState.player?.combat?.autoRetaliate) {
+            socket.emit(shared_1.NEXT_C2S.UseAction, { actionId: 'toggle:auto_retaliate' });
+            await waitFor(async () => (await fetchPlayerState(playerId)).player?.combat?.autoRetaliate === false, 5000);
+        }
+        if ((await fetchPlayerState(playerId)).player?.combat?.autoBattle) {
+            socket.emit(shared_1.NEXT_C2S.UseAction, { actionId: 'toggle:auto_battle' });
+            await waitFor(async () => (await fetchPlayerState(playerId)).player?.combat?.autoBattle === false, 5000);
+        }
         const resolvedTarget = await waitForState(async () => {
             const view = await fetchPlayerView(playerId);
             const visibleMonsters = (view.view?.localMonsters ?? []);
@@ -61,6 +69,19 @@ async function main() {
             const fallbackTarget = visibleMonsters[0];
             return preferredTarget ?? fallbackTarget ?? null;
         }, 5000);
+        await postJson(`/runtime/players/${playerId}/vitals`, {
+            hp: boostedHp,
+            maxHp: boostedHp,
+        });
+        await waitFor(async () => {
+            const state = await fetchPlayerState(playerId);
+            return state.player?.instanceId === instanceId
+                && state.player?.combat?.autoRetaliate === false
+                && state.player?.combat?.autoBattle === false
+                && state.player?.hp === boostedHp
+                && state.player?.maxHp === boostedHp;
+        }, 5000);
+        const readyPlayer = await fetchPlayerState(playerId);
         const initialMonster = await fetchMonster(instanceId, resolvedTarget.runtimeId);
         await waitFor(async () => {
             const [playerState, monsterState] = await Promise.all([
@@ -72,7 +93,8 @@ async function main() {
                 && (monsterState.monster.x !== initialMonster.monster.x || monsterState.monster.y !== initialMonster.monster.y);
             const monsterPatched = worldEvents.some((payload) => payload.m?.some((entry) => entry.id === resolvedTarget.runtimeId && (entry.x !== undefined || entry.y !== undefined)));
             const selfDamaged = selfEvents.some((entry) => typeof entry.hp === 'number' && entry.hp < readyPlayer.player.hp);
-            return Boolean(playerDamaged && (monsterMoved || monsterPatched || selfDamaged));
+            const monsterAggroed = monsterState.monster?.aggroTargetPlayerId === playerId;
+            return Boolean(playerDamaged || selfDamaged || (monsterAggroed && (monsterMoved || monsterPatched)));
         }, 7000);
         const finalPlayer = await fetchPlayerState(playerId);
         const finalMonster = await fetchMonster(instanceId, resolvedTarget.runtimeId);
