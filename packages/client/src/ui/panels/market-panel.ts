@@ -22,7 +22,11 @@ import {
   normalizeMarketPriceDown,
   normalizeMarketPriceUp,
 } from '@mud/shared';
-import { getLocalItemTemplate, getLocalTechniqueCategoryForBookItem } from '../../content/local-templates';
+import {
+  getLocalItemTemplate,
+  getLocalTechniqueCategoryForBookItem,
+  resolveTechniqueIdFromBookItemId,
+} from '../../content/local-templates';
 import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { getViewportRoot } from '../responsive-viewport';
@@ -115,6 +119,8 @@ export class MarketPanel {
   private buyConfirmState: { itemKey: string; quantity: number; unitPrice: number } | null = null;
   private tradeHistory: S2C_MarketTradeHistory | null = null;
   private inventory: Inventory = { items: [], capacity: 0 };
+  private learnedTechniqueIds = new Set<string>();
+  private unlockedMinimapIds = new Set<string>();
   private tooltip = new FloatingTooltip('floating-tooltip market-item-tooltip');
   private tooltipNode: HTMLElement | null = null;
 
@@ -129,7 +135,28 @@ export class MarketPanel {
 
   initFromPlayer(player: PlayerState): void {
     this.inventory = player.inventory;
+    this.syncPlayerContext(player);
     this.renderPane();
+  }
+
+  syncPlayerContext(player?: Pick<PlayerState, 'techniques' | 'unlockedMinimapIds'>): void {
+    if (!player) {
+      this.learnedTechniqueIds.clear();
+      this.unlockedMinimapIds.clear();
+    } else {
+      this.learnedTechniqueIds = new Set(
+        (player.techniques ?? [])
+          .map((technique) => technique.techId)
+          .filter((techniqueId): techniqueId is string => typeof techniqueId === 'string' && techniqueId.length > 0),
+      );
+      this.unlockedMinimapIds = new Set(
+        (player.unlockedMinimapIds ?? [])
+          .filter((mapId): mapId is string => typeof mapId === 'string' && mapId.length > 0),
+      );
+    }
+    if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
+      this.renderModal();
+    }
   }
 
   syncInventory(inventory: Inventory): void {
@@ -228,6 +255,8 @@ export class MarketPanel {
     this.buyConfirmState = null;
     this.tradeHistory = null;
     this.inventory = { items: [], capacity: 0 };
+    this.learnedTechniqueIds.clear();
+    this.unlockedMinimapIds.clear();
     this.tooltipNode = null;
     this.tooltip.hide(true);
     this.syncTradeDialogOverlay();
@@ -564,11 +593,17 @@ export class MarketPanel {
 
   private renderListedItem(entry: MarketListedItemView, activeItemKey: string): string {
     const ownedCount = this.findInventoryItemCountByItemId(entry.item.itemId);
+    const status = this.getItemStatusState(entry.item);
     const ownedLabel = ownedCount > 0
       ? `<span class="market-item-cell-owned">${formatDisplayCountBadge(ownedCount)}</span>`
       : '';
+    const statusClass = status ? ` market-item-cell--status market-item-cell--status-${status.kind}` : '';
+    const statusRibbon = status
+      ? `<span class="market-item-cell-ribbon" aria-hidden="true"><span>${escapeHtml(status.label)}</span></span>`
+      : '';
     return `
-      <button class="market-item-cell ${entry.itemKey === activeItemKey ? 'active' : ''}" data-market-select-item="${escapeHtmlAttr(entry.itemKey)}" type="button">
+      <button class="market-item-cell ${entry.itemKey === activeItemKey ? 'active' : ''}${statusClass}" data-market-select-item="${escapeHtmlAttr(entry.itemKey)}" type="button">
+        ${statusRibbon}
         <div class="market-item-cell-name" title="${escapeHtmlAttr(entry.item.name)}">
           <span class="market-item-cell-name-text">${escapeHtml(entry.item.name)}</span>
           ${ownedLabel}
@@ -579,6 +614,19 @@ export class MarketPanel {
         </div>
       </button>
     `;
+  }
+
+  private getItemStatusState(item: ItemStack): { label: string; kind: 'learned' | 'unlocked' } | null {
+    if (item.type === 'skill_book') {
+      const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
+      if (techniqueId && this.learnedTechniqueIds.has(techniqueId)) {
+        return { label: '已学', kind: 'learned' };
+      }
+    }
+    if (item.mapUnlockId && this.unlockedMinimapIds.has(item.mapUnlockId)) {
+      return { label: '已阅', kind: 'unlocked' };
+    }
+    return null;
   }
 
   private renderBookPanel(entry: MarketListedItemView, book: S2C_MarketItemBook['book'] | null, currencyName: string): string {

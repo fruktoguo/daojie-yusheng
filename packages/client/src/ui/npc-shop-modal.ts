@@ -1,4 +1,5 @@
 import { Inventory, ItemStack, PlayerState } from '@mud/shared';
+import { resolveTechniqueIdFromBookItemId } from '../content/local-templates';
 import { buildItemTooltipPayload, describeItemEffectDetails } from './equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 import { getItemTypeLabel } from '../domain-labels';
@@ -73,6 +74,8 @@ export class NpcShopModal {
   private selectedItemId: string | null = null;
   private confirmPurchaseItemId: string | null = null;
   private quantityDrafts = new Map<string, string>();
+  private learnedTechniqueIds = new Set<string>();
+  private unlockedMinimapIds = new Set<string>();
   private tooltip = new FloatingTooltip('floating-tooltip market-item-tooltip');
   private tooltipNode: HTMLElement | null = null;
 
@@ -82,6 +85,28 @@ export class NpcShopModal {
 
   initFromPlayer(player: PlayerState): void {
     this.inventory = player.inventory;
+    this.syncPlayerContext(player);
+  }
+
+  syncPlayerContext(player?: Pick<PlayerState, 'techniques' | 'unlockedMinimapIds'>): void {
+    if (!player) {
+      this.learnedTechniqueIds.clear();
+      this.unlockedMinimapIds.clear();
+    } else {
+      this.learnedTechniqueIds = new Set(
+        (player.techniques ?? [])
+          .map((technique) => technique.techId)
+          .filter((techniqueId): techniqueId is string => typeof techniqueId === 'string' && techniqueId.length > 0),
+      );
+      this.unlockedMinimapIds = new Set(
+        (player.unlockedMinimapIds ?? [])
+          .filter((mapId): mapId is string => typeof mapId === 'string' && mapId.length > 0),
+      );
+    }
+    if (detailModalHost.isOpenFor(NpcShopModal.MODAL_OWNER)) {
+      this.render();
+      this.syncPurchaseConfirmModal();
+    }
   }
 
   syncInventory(inventory: Inventory): void {
@@ -141,6 +166,8 @@ export class NpcShopModal {
     this.selectedItemId = null;
     this.confirmPurchaseItemId = null;
     this.quantityDrafts.clear();
+    this.learnedTechniqueIds.clear();
+    this.unlockedMinimapIds.clear();
     this.tooltipNode = null;
     this.tooltip.hide(true);
     confirmModalHost.close(NpcShopModal.CONFIRM_MODAL_OWNER);
@@ -273,6 +300,7 @@ export class NpcShopModal {
 
   private renderListItem(item: NpcShopItemState, active: boolean): string {
     const ownedCount = this.findInventoryItemCount(item.itemId);
+    const status = this.getItemStatusState(item.item);
     const ownedLabel = ownedCount > 0
       ? `<span class="market-item-cell-owned">${formatDisplayCountBadge(ownedCount)}</span>`
       : '';
@@ -281,8 +309,13 @@ export class NpcShopModal {
       : item.remainingQuantity > 0
         ? `${escapeHtml(getItemTypeLabel(item.item.type))} · 余 ${formatDisplayInteger(item.remainingQuantity)}${item.stockLimit ? `/${formatDisplayInteger(item.stockLimit)}` : ''}`
         : `${escapeHtml(getItemTypeLabel(item.item.type))} · 已售罄`;
+    const statusClass = status ? ` market-item-cell--status market-item-cell--status-${status.kind}` : '';
+    const statusRibbon = status
+      ? `<span class="market-item-cell-ribbon" aria-hidden="true"><span>${escapeHtml(status.label)}</span></span>`
+      : '';
     return `
-      <button class="market-item-cell ${active ? 'active' : ''}" data-npc-shop-select-item="${escapeHtmlAttr(item.itemId)}" type="button">
+      <button class="market-item-cell ${active ? 'active' : ''}${statusClass}" data-npc-shop-select-item="${escapeHtmlAttr(item.itemId)}" type="button">
+        ${statusRibbon}
         <div class="market-item-cell-name" title="${escapeHtmlAttr(item.item.name)}">
           <span class="market-item-cell-name-text market-item-title--interactive" data-npc-shop-item-tooltip="${escapeHtmlAttr(item.itemId)}">${escapeHtml(item.item.name)}</span>
           ${ownedLabel}
@@ -293,6 +326,19 @@ export class NpcShopModal {
         </div>
       </button>
     `;
+  }
+
+  private getItemStatusState(item: ItemStack): { label: string; kind: 'learned' | 'unlocked' } | null {
+    if (item.type === 'skill_book') {
+      const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
+      if (techniqueId && this.learnedTechniqueIds.has(techniqueId)) {
+        return { label: '已学', kind: 'learned' };
+      }
+    }
+    if (item.mapUnlockId && this.unlockedMinimapIds.has(item.mapUnlockId)) {
+      return { label: '已阅', kind: 'unlocked' };
+    }
+    return null;
   }
 
   private renderDetailPanel(
