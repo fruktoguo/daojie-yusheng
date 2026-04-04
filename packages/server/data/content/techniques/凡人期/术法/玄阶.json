@@ -118,7 +118,7 @@
             "category": "debuff",
             "visibility": "public",
             "color": "#8170c2",
-            "duration": 14,
+            "duration": 28,
             "maxStacks": 24,
             "valueStats": {
               "hit": -3,
@@ -183,7 +183,7 @@
             "category": "debuff",
             "visibility": "public",
             "color": "#8170c2",
-            "duration": 14,
+            "duration": 28,
             "maxStacks": 24,
             "valueStats": {
               "hit": -3,
@@ -327,7 +327,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#8b8472",
-            "duration": 14,
+            "duration": 28,
             "maxStacks": 18,
             "valueStats": {
               "physDef": 4,
@@ -405,7 +405,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#8b8472",
-            "duration": 14,
+            "duration": 28,
             "maxStacks": 18,
             "valueStats": {
               "physDef": 4,
@@ -557,7 +557,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#d87e7e",
-            "duration": 14,
+            "duration": 28,
             "maxStacks": 18,
             "valueStats": {
               "hit": 4,
@@ -809,7 +809,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#d6c34a",
-            "duration": 12,
+            "duration": 24,
             "maxStacks": 18,
             "valueStats": {
               "hit": 3,
@@ -882,7 +882,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#d6c34a",
-            "duration": 12,
+            "duration": 24,
             "maxStacks": 18,
             "valueStats": {
               "hit": 3,
@@ -1066,7 +1066,7 @@
             "category": "debuff",
             "visibility": "public",
             "color": "#8f8a70",
-            "duration": 14,
+            "duration": 28,
             "maxStacks": 18,
             "valueStats": {
               "spellAtk": -3,
@@ -1135,7 +1135,7 @@
             "category": "debuff",
             "visibility": "public",
             "color": "#8f8a70",
-            "duration": 14,
+            "duration": 28,
             "maxStacks": 18,
             "valueStats": {
               "spellAtk": -3,
@@ -1315,7 +1315,7 @@
             "category": "debuff",
             "visibility": "public",
             "color": "#63b9d7",
-            "duration": 14,
+            "duration": 28,
             "maxStacks": 24,
             "valueStats": {
               "spellDef": -3,
@@ -1380,7 +1380,7 @@
             "category": "debuff",
             "visibility": "public",
             "color": "#63b9d7",
-            "duration": 14,
+            "duration": 28,
             "maxStacks": 24,
             "valueStats": {
               "spellDef": -3,
@@ -1588,7 +1588,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#7f9cff",
-            "duration": 12,
+            "duration": 24,
             "maxStacks": 18,
             "valueStats": {
               "spellAtk": 3,
@@ -1653,7 +1653,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#7f9cff",
-            "duration": 12,
+            "duration": 24,
             "maxStacks": 18,
             "valueStats": {
               "spellAtk": 3,
@@ -1881,7 +1881,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#d6a86a",
-            "duration": 14,
+            "duration": 28,
             "maxStacks": 18,
             "valueStats": {
               "hit": 3,
@@ -1949,7 +1949,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#d6a86a",
-            "duration": 14,
+            "duration": 28,
             "maxStacks": 18,
             "valueStats": {
               "hit": 3,

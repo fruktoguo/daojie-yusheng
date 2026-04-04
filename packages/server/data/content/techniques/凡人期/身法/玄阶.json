@@ -140,7 +140,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#c7d9f5",
-            "duration": 16,
+            "duration": 32,
             "maxStacks": 12,
             "valueStats": {
               "moveSpeed": 18,
@@ -210,7 +210,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#b3c0ff",
-            "duration": 14,
+            "duration": 28,
             "maxStacks": 9,
             "valueStats": {
               "moveSpeed": 24,

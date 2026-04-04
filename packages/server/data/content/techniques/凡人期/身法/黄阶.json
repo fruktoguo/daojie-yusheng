@@ -122,7 +122,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#95c5a4",
-            "duration": 12,
+            "duration": 24,
             "maxStacks": 18,
             "valueStats": {
               "moveSpeed": 10,
@@ -311,7 +311,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#9dc6c6",
-            "duration": 16,
+            "duration": 32,
             "maxStacks": 12,
             "valueStats": {
               "moveSpeed": 12,
@@ -380,7 +380,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#88b7a9",
-            "duration": 14,
+            "duration": 28,
             "maxStacks": 9,
             "valueStats": {
               "moveSpeed": 18,

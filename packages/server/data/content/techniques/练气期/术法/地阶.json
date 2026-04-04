@@ -182,7 +182,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#99845f",
-            "duration": 8,
+            "duration": 16,
             "maxStacks": 3,
             "statMode": "percent",
             "valueStats": {
@@ -498,7 +498,7 @@
             "category": "debuff",
             "visibility": "public",
             "color": "#8aa39f",
-            "duration": 14,
+            "duration": 28,
             "maxStacks": 21,
             "statMode": "percent",
             "valueStats": {
@@ -517,7 +517,7 @@
             "category": "debuff",
             "visibility": "public",
             "color": "#8aa39f",
-            "duration": 14,
+            "duration": 28,
             "maxStacks": 21,
             "statMode": "percent",
             "valueStats": {
@@ -536,7 +536,7 @@
             "category": "debuff",
             "visibility": "public",
             "color": "#8aa39f",
-            "duration": 14,
+            "duration": 28,
             "maxStacks": 21,
             "statMode": "percent",
             "valueStats": {
@@ -1133,7 +1133,7 @@
             "category": "debuff",
             "visibility": "public",
             "color": "#699fbc",
-            "duration": 10,
+            "duration": 20,
             "maxStacks": 3,
             "statMode": "percent",
             "valueStats": {
@@ -1399,7 +1399,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#66ae62",
-            "duration": 10,
+            "duration": 20,
             "maxStacks": 3,
             "statMode": "percent",
             "valueStats": {

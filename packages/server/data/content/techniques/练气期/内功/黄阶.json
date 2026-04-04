@@ -759,7 +759,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#7da8c7",
-            "duration": 12,
+            "duration": 24,
             "maxStacks": 21,
             "statMode": "percent",
             "valueStats": {
@@ -778,7 +778,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#7da8c7",
-            "duration": 12,
+            "duration": 24,
             "maxStacks": 21,
             "statMode": "percent",
             "valueStats": {
@@ -809,7 +809,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#7da8c7",
-            "duration": 12,
+            "duration": 24,
             "maxStacks": 21,
             "statMode": "percent",
             "valueStats": {
@@ -828,7 +828,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#89a9c2",
-            "duration": 8,
+            "duration": 16,
             "maxStacks": 3,
             "statMode": "percent",
             "valueStats": {
@@ -1002,7 +1002,7 @@
             "desc": "岳意压身，持续提高最大生命、生命回复、双抗与化解。",
             "shortMark": "元",
             "color": "#ab9270",
-            "duration": 8
+            "duration": 16
           }
         ],
         "unlockLevel": 1

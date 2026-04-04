@@ -126,7 +126,7 @@
             "category": "debuff",
             "visibility": "public",
             "color": "#68b96c",
-            "duration": 14,
+            "duration": 28,
             "maxStacks": 18,
             "valueStats": {
               "spellDef": -3,
@@ -193,7 +193,7 @@
             "category": "debuff",
             "visibility": "public",
             "color": "#68b96c",
-            "duration": 14,
+            "duration": 28,
             "maxStacks": 18,
             "valueStats": {
               "spellDef": -3,

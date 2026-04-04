@@ -139,7 +139,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#7da8c7",
-            "duration": 12,
+            "duration": 24,
             "maxStacks": 21,
             "statMode": "percent",
             "valueStats": {
@@ -158,7 +158,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#7da8c7",
-            "duration": 12,
+            "duration": 24,
             "maxStacks": 21,
             "statMode": "percent",
             "valueStats": {
@@ -177,7 +177,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#7da8c7",
-            "duration": 12,
+            "duration": 24,
             "maxStacks": 21,
             "statMode": "percent",
             "valueStats": {
@@ -208,7 +208,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#7da8c7",
-            "duration": 12,
+            "duration": 24,
             "maxStacks": 21,
             "statMode": "percent",
             "valueStats": {
@@ -227,7 +227,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#90aac6",
-            "duration": 8,
+            "duration": 16,
             "maxStacks": 3,
             "statMode": "percent",
             "valueStats": {

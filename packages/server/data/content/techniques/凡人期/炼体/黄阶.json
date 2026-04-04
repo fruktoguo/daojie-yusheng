@@ -361,7 +361,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#a28d74",
-            "duration": 14,
+            "duration": 28,
             "maxStacks": 24,
             "valueStats": {
               "physDef": 3,
@@ -438,7 +438,7 @@
             "category": "buff",
             "visibility": "public",
             "color": "#a28d74",
-            "duration": 14,
+            "duration": 28,
             "maxStacks": 24,
             "valueStats": {
               "physDef": 3,
