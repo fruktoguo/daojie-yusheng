@@ -655,19 +655,19 @@
       "luck": 66
     },
     "statPercents": {
-      "maxHp": 95.2,
-      "maxQi": 74.2,
-      "physAtk": 127.4,
-      "spellAtk": 103.6,
-      "physDef": 88.2,
-      "spellDef": 84,
-      "hit": 119,
-      "dodge": 117.6,
-      "crit": 109.2,
-      "breakPower": 120.4,
-      "resolvePower": 82.6,
-      "maxQiOutputPerTick": 103.6,
-      "moveSpeed": 130.2
+      "maxHp": 133.3,
+      "maxQi": 103.9,
+      "physAtk": 178.4,
+      "spellAtk": 145,
+      "physDef": 123.5,
+      "spellDef": 117.6,
+      "hit": 166.6,
+      "dodge": 164.6,
+      "crit": 152.9,
+      "breakPower": 168.6,
+      "resolvePower": 115.6,
+      "maxQiOutputPerTick": 145,
+      "moveSpeed": 182.3
     },
     "skills": [
       "skill.huomai_cuxing",

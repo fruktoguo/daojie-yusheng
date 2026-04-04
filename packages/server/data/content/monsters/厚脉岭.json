@@ -733,19 +733,19 @@
       "luck": 54
     },
     "statPercents": {
-      "maxHp": 134.4,
-      "maxQi": 61.6,
-      "physAtk": 95.2,
-      "spellAtk": 54.6,
-      "physDef": 144.2,
-      "spellDef": 127.4,
-      "hit": 89.6,
-      "dodge": 72.8,
-      "crit": 82.6,
-      "breakPower": 99.4,
-      "resolvePower": 134.4,
-      "maxQiOutputPerTick": 64.4,
-      "moveSpeed": 56
+      "maxHp": 188.2,
+      "maxQi": 86.2,
+      "physAtk": 133.3,
+      "spellAtk": 76.4,
+      "physDef": 201.9,
+      "spellDef": 178.4,
+      "hit": 125.4,
+      "dodge": 101.9,
+      "crit": 115.6,
+      "breakPower": 139.2,
+      "resolvePower": 188.2,
+      "maxQiOutputPerTick": 90.2,
+      "moveSpeed": 78.4
     },
     "skills": [
       "skill.yuepo_zhendao",

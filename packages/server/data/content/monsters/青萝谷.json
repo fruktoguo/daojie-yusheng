@@ -563,19 +563,19 @@
       "luck": 60
     },
     "statPercents": {
-      "maxHp": 127.4,
-      "maxQi": 106.4,
-      "physAtk": 89.6,
-      "spellAtk": 120.4,
-      "physDef": 107.8,
-      "spellDef": 124.6,
-      "hit": 103.6,
-      "dodge": 95.2,
-      "crit": 96.6,
-      "breakPower": 84,
-      "resolvePower": 116.2,
-      "maxQiOutputPerTick": 131.6,
-      "moveSpeed": 81.2
+      "maxHp": 178.4,
+      "maxQi": 149,
+      "physAtk": 125.4,
+      "spellAtk": 168.6,
+      "physDef": 150.9,
+      "spellDef": 174.4,
+      "hit": 145,
+      "dodge": 133.3,
+      "crit": 135.2,
+      "breakPower": 117.6,
+      "resolvePower": 162.7,
+      "maxQiOutputPerTick": 184.2,
+      "moveSpeed": 113.7
     },
     "skills": [
       "skill.huisheng_panluo",

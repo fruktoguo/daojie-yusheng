@@ -661,19 +661,19 @@
       "luck": 63
     },
     "statPercents": {
-      "maxHp": 120.4,
-      "maxQi": 123.2,
-      "physAtk": 85.4,
-      "spellAtk": 127.4,
-      "physDef": 95.2,
-      "spellDef": 130.2,
-      "hit": 113.4,
-      "dodge": 123.2,
-      "crit": 100.8,
-      "breakPower": 81.2,
-      "resolvePower": 103.6,
-      "maxQiOutputPerTick": 137.2,
-      "moveSpeed": 113.4
+      "maxHp": 168.6,
+      "maxQi": 172.5,
+      "physAtk": 119.6,
+      "spellAtk": 178.4,
+      "physDef": 133.3,
+      "spellDef": 182.3,
+      "hit": 158.8,
+      "dodge": 172.5,
+      "crit": 141.1,
+      "breakPower": 113.7,
+      "resolvePower": 145,
+      "maxQiOutputPerTick": 192.1,
+      "moveSpeed": 158.8
     },
     "skills": [
       "skill.hanliu_fuxing",
