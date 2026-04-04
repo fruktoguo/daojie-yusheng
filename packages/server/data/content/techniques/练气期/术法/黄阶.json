@@ -146,7 +146,7 @@
                     },
                     {
                       "var": "caster.stat.resolvePower",
-                      "scale": 0.001
+                      "scale": 0.002
                     }
                   ]
                 }
@@ -308,7 +308,7 @@
                     },
                     {
                       "var": "caster.stat.breakPower",
-                      "scale": 0.001
+                      "scale": 0.002
                     }
                   ]
                 }
@@ -1454,7 +1454,7 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.001
+                      "scale": 0.002
                     }
                   ]
                 }
@@ -1824,7 +1824,7 @@
                     },
                     {
                       "var": "target.stat.moveSpeed",
-                      "scale": 0.002
+                      "scale": 0.004
                     }
                   ]
                 }
@@ -1986,7 +1986,7 @@
                     },
                     {
                       "var": "caster.stat.crit",
-                      "scale": 0.001
+                      "scale": 0.002
                     }
                   ]
                 }

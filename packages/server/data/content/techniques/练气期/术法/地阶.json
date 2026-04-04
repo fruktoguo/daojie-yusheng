@@ -153,11 +153,11 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.0011
+                      "scale": 0.0022
                     },
                     {
                       "var": "caster.stat.breakPower",
-                      "scale": 0.0011
+                      "scale": 0.0022
                     },
                     {
                       "var": "caster.stat.physDef",
@@ -165,7 +165,7 @@
                     },
                     {
                       "var": "caster.stat.resolvePower",
-                      "scale": 0.0005
+                      "scale": 0.001
                     }
                   ]
                 }
@@ -243,15 +243,15 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.0003
+                      "scale": 0.0006
                     },
                     {
                       "var": "caster.stat.breakPower",
-                      "scale": 0.0003
+                      "scale": 0.0006
                     },
                     {
                       "var": "caster.stat.resolvePower",
-                      "scale": 0.0001
+                      "scale": 0.0002
                     }
                   ]
                 }
@@ -461,15 +461,15 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.0008
+                      "scale": 0.0016
                     },
                     {
                       "var": "caster.stat.crit",
-                      "scale": 0.0008
+                      "scale": 0.0016
                     },
                     {
                       "var": "caster.stat.breakPower",
-                      "scale": 0.0008
+                      "scale": 0.0016
                     },
                     {
                       "var": "caster.stat.physDef",
@@ -481,7 +481,7 @@
                     },
                     {
                       "var": "caster.stat.resolvePower",
-                      "scale": 0.0008
+                      "scale": 0.0016
                     }
                   ]
                 }
@@ -589,15 +589,15 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.0008
+                      "scale": 0.0016
                     },
                     {
                       "var": "caster.stat.crit",
-                      "scale": 0.0008
+                      "scale": 0.0016
                     },
                     {
                       "var": "caster.stat.breakPower",
-                      "scale": 0.0008
+                      "scale": 0.0016
                     },
                     {
                       "var": "caster.stat.physDef",
@@ -609,7 +609,7 @@
                     },
                     {
                       "var": "caster.stat.resolvePower",
-                      "scale": 0.0008
+                      "scale": 0.0016
                     }
                   ]
                 }
@@ -785,15 +785,15 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.0012
+                      "scale": 0.0024
                     },
                     {
                       "var": "caster.stat.crit",
-                      "scale": 0.0012
+                      "scale": 0.0024
                     },
                     {
                       "var": "caster.stat.breakPower",
-                      "scale": 0.0012
+                      "scale": 0.0024
                     },
                     {
                       "var": "target.stat.physDef",
@@ -852,15 +852,15 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.0012
+                      "scale": 0.0024
                     },
                     {
                       "var": "caster.stat.crit",
-                      "scale": 0.0012
+                      "scale": 0.0024
                     },
                     {
                       "var": "caster.stat.breakPower",
-                      "scale": 0.0012
+                      "scale": 0.0024
                     },
                     {
                       "var": "target.stat.physDef",
@@ -1032,19 +1032,19 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.001
+                      "scale": 0.002
                     },
                     {
                       "var": "caster.stat.crit",
-                      "scale": 0.001
+                      "scale": 0.002
                     },
                     {
                       "var": "caster.stat.dodge",
-                      "scale": 0.001
+                      "scale": 0.002
                     },
                     {
                       "var": "target.stat.dodge",
-                      "scale": 0.001
+                      "scale": 0.002
                     }
                   ]
                 }
@@ -1104,19 +1104,19 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.001
+                      "scale": 0.002
                     },
                     {
                       "var": "caster.stat.crit",
-                      "scale": 0.001
+                      "scale": 0.002
                     },
                     {
                       "var": "caster.stat.dodge",
-                      "scale": 0.001
+                      "scale": 0.002
                     },
                     {
                       "var": "target.stat.dodge",
-                      "scale": 0.001
+                      "scale": 0.002
                     }
                   ]
                 }
@@ -1303,15 +1303,15 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.0008
-                    },
-                    {
-                      "var": "caster.stat.resolvePower",
                       "scale": 0.0016
                     },
                     {
+                      "var": "caster.stat.resolvePower",
+                      "scale": 0.0032
+                    },
+                    {
                       "var": "caster.stat.dodge",
-                      "scale": 0.0008
+                      "scale": 0.0016
                     },
                     {
                       "var": "caster.stat.spellDef",
@@ -1370,15 +1370,15 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.0008
-                    },
-                    {
-                      "var": "caster.stat.resolvePower",
                       "scale": 0.0016
                     },
                     {
+                      "var": "caster.stat.resolvePower",
+                      "scale": 0.0032
+                    },
+                    {
                       "var": "caster.stat.dodge",
-                      "scale": 0.0008
+                      "scale": 0.0016
                     },
                     {
                       "var": "caster.stat.spellDef",
@@ -1574,15 +1574,15 @@
                     },
                     {
                       "var": "caster.stat.crit",
-                      "scale": 0.0016
+                      "scale": 0.0032
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.0008
+                      "scale": 0.0016
                     },
                     {
                       "var": "caster.stat.breakPower",
-                      "scale": 0.0008
+                      "scale": 0.0016
                     },
                     {
                       "var": "target.stat.spellDef",
@@ -1641,15 +1641,15 @@
                     },
                     {
                       "var": "caster.stat.crit",
-                      "scale": 0.0016
+                      "scale": 0.0032
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.0008
+                      "scale": 0.0016
                     },
                     {
                       "var": "caster.stat.breakPower",
-                      "scale": 0.0008
+                      "scale": 0.0016
                     },
                     {
                       "var": "target.stat.spellDef",

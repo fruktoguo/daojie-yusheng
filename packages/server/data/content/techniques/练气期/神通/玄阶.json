@@ -127,19 +127,19 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.001
+                      "scale": 0.002
                     },
                     {
                       "var": "caster.stat.breakPower",
-                      "scale": 0.0017
+                      "scale": 0.0034
                     },
                     {
                       "var": "caster.stat.crit",
-                      "scale": 0.0009
+                      "scale": 0.0018
                     },
                     {
                       "var": "caster.attr.constitution",
-                      "scale": 0.0013
+                      "scale": 0.0026
                     }
                   ]
                 }
@@ -280,19 +280,19 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.0012
+                      "scale": 0.0024
                     },
                     {
                       "var": "caster.stat.breakPower",
-                      "scale": 0.0012
+                      "scale": 0.0024
                     },
                     {
                       "var": "caster.stat.crit",
-                      "scale": 0.0012
+                      "scale": 0.0024
                     },
                     {
                       "var": "caster.attr.spirit",
-                      "scale": 0.0013
+                      "scale": 0.0026
                     }
                   ]
                 }

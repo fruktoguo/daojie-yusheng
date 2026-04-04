@@ -141,7 +141,7 @@
                     },
                     {
                       "var": "caster.stat.crit",
-                      "scale": 0.001
+                      "scale": 0.002
                     }
                   ]
                 }
@@ -299,7 +299,7 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.001
+                      "scale": 0.002
                     }
                   ]
                 }
@@ -457,7 +457,7 @@
                     },
                     {
                       "var": "caster.stat.dodge",
-                      "scale": 0.001
+                      "scale": 0.002
                     }
                   ]
                 }
