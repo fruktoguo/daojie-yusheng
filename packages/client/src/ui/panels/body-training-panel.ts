@@ -20,6 +20,8 @@ type BodyTrainingInfusionPlan = {
   previewState: BodyTrainingState;
 };
 
+type BodyTrainingInfusionMode = 'level' | 'all';
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -114,6 +116,20 @@ function buildInfusionPlan(state: BodyTrainingState, levelGain: number): BodyTra
   };
 }
 
+function buildAllInfusionPlan(state: BodyTrainingState, foundation: number): BodyTrainingInfusionPlan {
+  const foundationCost = normalizeFoundation(foundation);
+  return {
+    levelGain: Math.max(0, normalizeBodyTrainingState({
+      level: state.level,
+      exp: state.exp + foundationCost * BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER,
+      expToNext: state.expToNext,
+    }).level - state.level),
+    expNeeded: foundationCost * BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER,
+    foundationCost,
+    previewState: applyFoundationInfusion(state, foundationCost),
+  };
+}
+
 export class BodyTrainingPanel {
   private static readonly MODAL_OWNER = 'body-training-infuse-modal';
 
@@ -123,6 +139,7 @@ export class BodyTrainingPanel {
   private baseFoundation = 0;
   private displayFoundation = 0;
   private infusionModalOpen = false;
+  private selectedInfusionMode: BodyTrainingInfusionMode = 'level';
   private selectedLevelGain = 1;
   private onInfuse: ((foundationSpent: number) => void) | null = null;
 
@@ -271,6 +288,7 @@ export class BodyTrainingPanel {
       return;
     }
     this.infusionModalOpen = true;
+    this.selectedInfusionMode = this.getMaxLevelGain() > 0 ? this.selectedInfusionMode : 'all';
     this.selectedLevelGain = this.clampLevelGain(this.selectedLevelGain);
     this.renderInfusionModal();
   }
@@ -287,10 +305,13 @@ export class BodyTrainingPanel {
     if (!this.infusionModalOpen) {
       return;
     }
-    const maxLevelGain = this.getMaxLevelGain();
-    if (maxLevelGain <= 0 || !this.onInfuse) {
+    if (this.baseFoundation <= 0 || !this.onInfuse) {
       this.closeInfusionModal();
       return;
+    }
+    const maxLevelGain = this.getMaxLevelGain();
+    if (maxLevelGain <= 0) {
+      this.selectedInfusionMode = 'all';
     }
     this.selectedLevelGain = this.clampLevelGain(this.selectedLevelGain);
     this.renderInfusionModal();
@@ -298,12 +319,11 @@ export class BodyTrainingPanel {
 
   private renderInfusionModal(): void {
     const maxLevelGain = this.getMaxLevelGain();
-    if (!this.infusionModalOpen || maxLevelGain <= 0 || !this.onInfuse) {
+    if (!this.infusionModalOpen || this.baseFoundation <= 0 || !this.onInfuse) {
       this.closeInfusionModal();
       return;
     }
-    const levelGain = this.clampLevelGain(this.selectedLevelGain);
-    const plan = buildInfusionPlan(this.baseState, levelGain);
+    const plan = this.getSelectedPlan();
     detailModalHost.open({
       ownerId: BodyTrainingPanel.MODAL_OWNER,
       variantClass: 'detail-modal--body-training-infuse',
@@ -321,6 +341,7 @@ export class BodyTrainingPanel {
   }
 
   private renderInfusionModalBody(plan: BodyTrainingInfusionPlan, maxLevelGain: number): string {
+    const inAllMode = this.selectedInfusionMode === 'all';
     const canDecrease = plan.levelGain > 1;
     const canIncrease = plan.levelGain < maxLevelGain;
     return `
@@ -331,19 +352,19 @@ export class BodyTrainingPanel {
             <strong class="body-training-infuse-stat-value">${formatDisplayInteger(this.baseFoundation)}</strong>
           </article>
           <article class="body-training-infuse-stat">
-            <span class="body-training-infuse-stat-label">最多可升</span>
-            <strong class="body-training-infuse-stat-value">+${formatDisplayInteger(maxLevelGain)} 层</strong>
+            <span class="body-training-infuse-stat-label">${maxLevelGain > 0 ? '最多可升' : '当前可灌'}</span>
+            <strong class="body-training-infuse-stat-value">${maxLevelGain > 0 ? `+${formatDisplayInteger(maxLevelGain)} 层` : `${formatDisplayInteger(this.baseFoundation)} 底蕴`}</strong>
           </article>
         </section>
         <section class="body-training-infuse-picker">
-          <div class="body-training-infuse-picker-label">选择提升层数</div>
+          <div class="body-training-infuse-picker-label">选择灌注方式</div>
           <div class="body-training-infuse-picker-row">
-            <button class="small-btn ghost" type="button" data-body-infuse-adjust="-10" ${plan.levelGain <= 10 ? 'disabled' : ''}>-10</button>
-            <button class="small-btn ghost" type="button" data-body-infuse-adjust="-1" ${canDecrease ? '' : 'disabled'}>-1</button>
-            <strong class="body-training-infuse-picker-value">+${formatDisplayInteger(plan.levelGain)} 层</strong>
-            <button class="small-btn ghost" type="button" data-body-infuse-adjust="1" ${canIncrease ? '' : 'disabled'}>+1</button>
-            <button class="small-btn ghost" type="button" data-body-infuse-adjust="10" ${plan.levelGain + 10 <= maxLevelGain ? '' : 'disabled'}>+10</button>
-            <button class="small-btn ghost" type="button" data-body-infuse-max="true" ${canIncrease ? '' : 'disabled'}>拉满</button>
+            <button class="small-btn ghost ${!inAllMode ? 'active' : ''}" type="button" data-body-infuse-adjust="-10" ${(inAllMode || plan.levelGain <= 10) ? 'disabled' : ''}>-10</button>
+            <button class="small-btn ghost ${!inAllMode ? 'active' : ''}" type="button" data-body-infuse-adjust="-1" ${(inAllMode || !canDecrease) ? 'disabled' : ''}>-1</button>
+            <strong class="body-training-infuse-picker-value">${inAllMode ? '全部底蕴' : `+${formatDisplayInteger(plan.levelGain)} 层`}</strong>
+            <button class="small-btn ghost ${!inAllMode ? 'active' : ''}" type="button" data-body-infuse-adjust="1" ${(inAllMode || !canIncrease) ? 'disabled' : ''}>+1</button>
+            <button class="small-btn ghost ${!inAllMode ? 'active' : ''}" type="button" data-body-infuse-adjust="10" ${(inAllMode || plan.levelGain + 10 > maxLevelGain) ? 'disabled' : ''}>+10</button>
+            <button class="small-btn ghost ${inAllMode ? 'active' : ''}" type="button" data-body-infuse-all="true" ${this.baseFoundation > 0 ? '' : 'disabled'}>全部灌注</button>
           </div>
         </section>
         <section class="body-training-infuse-preview">
@@ -365,7 +386,9 @@ export class BodyTrainingPanel {
           </div>
         </section>
         <div class="body-training-infuse-note">
-          本次需要 ${formatDisplayInteger(plan.expNeeded)} 点炼体经验，换算为 ${formatDisplayInteger(plan.foundationCost)} 点底蕴。
+          ${inAllMode
+            ? `本次将直接灌入全部 ${formatDisplayInteger(plan.foundationCost)} 点底蕴。`
+            : `本次需要 ${formatDisplayInteger(plan.expNeeded)} 点炼体经验，换算为 ${formatDisplayInteger(plan.foundationCost)} 点底蕴。`}
         </div>
         <div class="body-training-infuse-actions">
           <button class="small-btn ghost" type="button" data-body-infuse-close="true">取消</button>
@@ -381,19 +404,21 @@ export class BodyTrainingPanel {
       if (!Number.isFinite(delta) || delta === 0) {
         return;
       }
+      this.selectedInfusionMode = 'level';
       this.selectedLevelGain = this.clampLevelGain(this.selectedLevelGain + delta);
       this.renderInfusionModal();
     }));
-    body.querySelector<HTMLElement>('[data-body-infuse-max="true"]')?.addEventListener('click', () => {
-      this.selectedLevelGain = maxLevelGain;
+    body.querySelector<HTMLElement>('[data-body-infuse-all="true"]')?.addEventListener('click', () => {
+      this.selectedInfusionMode = 'all';
+      this.selectedLevelGain = Math.max(1, Math.min(maxLevelGain, this.selectedLevelGain || 1));
       this.renderInfusionModal();
     });
     body.querySelector<HTMLElement>('[data-body-infuse-close="true"]')?.addEventListener('click', () => {
       this.closeInfusionModal();
     });
     body.querySelector<HTMLElement>('[data-body-infuse-confirm="true"]')?.addEventListener('click', () => {
-      const plan = buildInfusionPlan(this.baseState, this.clampLevelGain(this.selectedLevelGain));
-      if (!this.onInfuse || plan.levelGain <= 0 || plan.foundationCost <= 0 || plan.foundationCost > this.baseFoundation) {
+      const plan = this.getSelectedPlan();
+      if (!this.onInfuse || plan.foundationCost <= 0 || plan.foundationCost > this.baseFoundation) {
         return;
       }
       this.baseState = plan.previewState;
@@ -412,13 +437,13 @@ export class BodyTrainingPanel {
   private clampLevelGain(levelGain: number): number {
     const maxLevelGain = this.getMaxLevelGain();
     if (maxLevelGain <= 0) {
-      return 0;
+      return 1;
     }
     return Math.max(1, Math.min(maxLevelGain, Math.floor(levelGain || 1)));
   }
 
   private isInfusionButtonDisabled(): boolean {
-    return this.baseFoundation <= 0 || !this.onInfuse || this.getMaxLevelGain() <= 0;
+    return this.baseFoundation <= 0 || !this.onInfuse;
   }
 
   private getInfusionButtonLabel(): string {
@@ -434,7 +459,7 @@ export class BodyTrainingPanel {
   private getInfusionPreviewHeadline(): string {
     const maxLevelGain = this.getMaxLevelGain();
     if (maxLevelGain <= 0) {
-      return '当前底蕴不足以提升一层';
+      return '可先灌注底蕴积累经验';
     }
     return `本次最多可提升 ${formatDisplayInteger(maxLevelGain)} 层`;
   }
@@ -442,6 +467,9 @@ export class BodyTrainingPanel {
   private getInfusionPreviewDetail(): string {
     if (this.baseFoundation <= 0) {
       return '当前没有可用于灌注的底蕴。';
+    }
+    if (this.getMaxLevelGain() <= 0) {
+      return `当前底蕴暂不足提升一层，可直接灌注 ${formatDisplayInteger(this.baseFoundation)} 点底蕴。`;
     }
     return `1 点底蕴 = ${formatDisplayInteger(BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER)} 点炼体经验。`;
   }
@@ -452,8 +480,15 @@ export class BodyTrainingPanel {
       return '当前没有可用于灌注的底蕴。';
     }
     if (maxLevelGain <= 0) {
-      return `当前最多可转化为 ${formatDisplayInteger(this.baseFoundation * BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER)} 点炼体经验。`;
+      return `当前可直接灌入 ${formatDisplayInteger(this.baseFoundation)} 点底蕴。`;
     }
     return `当前最多可直达第 ${formatDisplayInteger(this.baseState.level + maxLevelGain)} 层。`;
+  }
+
+  private getSelectedPlan(): BodyTrainingInfusionPlan {
+    if (this.selectedInfusionMode === 'all') {
+      return buildAllInfusionPlan(this.baseState, this.baseFoundation);
+    }
+    return buildInfusionPlan(this.baseState, this.clampLevelGain(this.selectedLevelGain));
   }
 }
