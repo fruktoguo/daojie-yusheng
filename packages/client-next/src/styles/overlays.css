@@ -419,10 +419,11 @@
     }
     .map-minimap-modal-sidebar {
       min-width: 0;
-      display: grid;
-      grid-template-rows: auto auto minmax(0, 1fr);
+      display: flex;
+      flex-direction: column;
       gap: 10px;
       min-height: 0;
+      overflow: hidden;
     }
     .map-minimap-modal-toolbar {
       display: flex;
@@ -449,7 +450,9 @@
       border-color: rgba(245, 227, 185, 0.32);
     }
     .map-minimap-modal-list {
+      flex: 1 1 auto;
       min-height: 0;
+      max-height: 100%;
       overflow-y: auto;
       overflow-x: hidden;
       overscroll-behavior: contain;
@@ -457,6 +460,7 @@
       align-content: start;
       gap: 8px;
       padding-right: 2px;
+      scrollbar-gutter: stable;
     }
     .map-minimap-modal-empty {
       padding: 12px;
@@ -545,10 +549,10 @@
         grid-template-rows: auto minmax(0, 1fr);
       }
       .map-minimap-modal-sidebar {
-        grid-template-rows: auto auto auto;
+        max-height: min(38vh, 260px);
       }
       .map-minimap-modal-list {
-        max-height: 148px;
+        max-height: none;
       }
     }
     .observe-modal {
