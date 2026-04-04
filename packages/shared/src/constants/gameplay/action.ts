@@ -10,20 +10,20 @@ export const PLAYER_BASE_ENABLED_SKILL_SLOTS = 4;
 /** 1-6 级：每级额外 +1。 */
 export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_EARLY = 1;
 
-/** 7-18 级：每 2 级额外 +1。 */
-export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_MID = 2;
+/** 7-18 级：每 3 级额外 +1。 */
+export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_MID = 3;
 
-/** 19-30 级：每 4 级额外 +1。 */
-export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_LATE = 4;
+/** 19-30 级：每 5 级额外 +1。 */
+export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_LATE = 5;
 
 /** 31 级及以上：每 6 级额外 +1。 */
 export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_ENDGAME = 6;
 
 /** 每 6 级额外奖励的技能槽位。 */
-export const PLAYER_ENABLED_SKILL_SLOT_BONUS_EVERY_SIX_LEVELS = 2;
+export const PLAYER_ENABLED_SKILL_SLOT_BONUS_EVERY_SIX_LEVELS = 1;
 
 /** 每 12 级额外再奖励的技能槽位。 */
-export const PLAYER_ENABLED_SKILL_SLOT_BONUS_EVERY_TWELVE_LEVELS = 2;
+export const PLAYER_ENABLED_SKILL_SLOT_BONUS_EVERY_TWELVE_LEVELS = 1;
 
 /** 兼容旧导出，技能栏位现已改为分段成长。 */
 export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP = PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_MID;
