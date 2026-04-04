@@ -86,6 +86,7 @@ export const MONSTER_LEVEL_FLAT_GROWTH_STATS: PartialNumericStats = {
   crit: 1,
   breakPower: 1,
   resolvePower: 1,
+  cooldownSpeed: 3,
 };
 
 /** 妖兽血脉层次倍率。 */

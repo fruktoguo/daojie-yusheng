@@ -457,6 +457,7 @@ function applyMonsterLevelFlatGrowth(target: NumericStats, level: number): Numer
   target.crit += (MONSTER_LEVEL_FLAT_GROWTH_STATS.crit ?? 0) * levelDelta;
   target.breakPower += (MONSTER_LEVEL_FLAT_GROWTH_STATS.breakPower ?? 0) * levelDelta;
   target.resolvePower += (MONSTER_LEVEL_FLAT_GROWTH_STATS.resolvePower ?? 0) * levelDelta;
+  target.cooldownSpeed += (MONSTER_LEVEL_FLAT_GROWTH_STATS.cooldownSpeed ?? 0) * levelDelta;
   return target;
 }
 
