@@ -3502,6 +3502,18 @@
     .skill-formula-term-spell-def {
       color: #6043a4;
     }
+    .skill-formula-term-hit {
+      color: #1c6b78;
+    }
+    .skill-formula-term-dodge {
+      color: #3f7f68;
+    }
+    .skill-formula-term-crit {
+      color: #a0412b;
+    }
+    .skill-formula-term-break {
+      color: #8a4d19;
+    }
     .skill-formula-term-hp {
       color: #a03f54;
     }
@@ -3595,6 +3607,22 @@
     .skill-scaling-spell-def {
       background: #e4dcff;
       color: #6043a4;
+    }
+    .skill-scaling-hit {
+      background: #d7edf1;
+      color: #1c6b78;
+    }
+    .skill-scaling-dodge {
+      background: #dcefe6;
+      color: #3f7f68;
+    }
+    .skill-scaling-crit {
+      background: #f6ddd4;
+      color: #a0412b;
+    }
+    .skill-scaling-break {
+      background: #efdcc9;
+      color: #8a4d19;
     }
     .skill-scaling-hp {
       background: #f3d5da;

@@ -34,6 +34,7 @@ type StructuredDamagePreview = {
   total: number;
   fixedTotal: number;
   percentTotal: number;
+  percentFactorCount: number;
   fixedHtml: string;
   percentHtml: string;
 };
@@ -412,6 +413,7 @@ function extractStructuredDamagePreview(formula: SkillFormula, context: SkillToo
     total: Math.max(0, total),
     fixedTotal,
     percentTotal,
+    percentFactorCount: percentFactors.length,
     fixedHtml,
     percentHtml,
   };
@@ -565,7 +567,9 @@ function formatDamageFormula(formula: SkillFormula, context: SkillTooltipPreview
   const structured = extractStructuredDamagePreview(formula, context);
   if (structured) {
     const fixedPart = `<span class="skill-formula-group">${formatDisplayNumber(structured.fixedTotal)}<span class="skill-formula-breakdown">（${structured.fixedHtml}）</span></span>`;
-    const percentPart = structured.percentHtml.startsWith('<span class="skill-formula-empty">')
+    const percentPart = structured.percentFactorCount === 1
+      ? `<span class="skill-formula-group">${structured.percentHtml}</span>`
+      : structured.percentHtml.startsWith('<span class="skill-formula-empty">')
       ? `<span class="skill-formula-group">${formatPercent(structured.percentTotal)}</span>`
       : `<span class="skill-formula-group">${formatPercent(structured.percentTotal)}<span class="skill-formula-breakdown">（${structured.percentHtml}）</span></span>`;
     return `<span class="skill-damage-total skill-damage-total-${damageKind}">${formatDisplayNumber(structured.total)}</span><span class="skill-formula-equals"> = </span>${fixedPart}<span class="skill-formula-operator"> × </span>${percentPart}`;

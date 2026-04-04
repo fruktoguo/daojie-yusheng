@@ -34,6 +34,7 @@ type StructuredDamagePreview = {
   total: number | null;
   fixedTotal: number | null;
   percentTotal: number | null;
+  percentFactorCount: number;
   fixedHtml: string;
   percentHtml: string;
 };
@@ -488,6 +489,7 @@ function extractStructuredDamagePreview(formula: SkillFormula, context: SkillToo
     total,
     fixedTotal,
     percentTotal,
+    percentFactorCount: percentFactors.length,
     fixedHtml,
     percentHtml,
   };
@@ -682,7 +684,9 @@ function formatDamageFormula(formula: SkillFormula, context: SkillTooltipPreview
     const fixedPart = structured.fixedTotal === null
       ? `<span class="skill-formula-group">${structured.fixedHtml}</span>`
       : `<span class="skill-formula-group">${formatDisplayNumber(structured.fixedTotal)}<span class="skill-formula-breakdown">（${structured.fixedHtml}）</span></span>`;
-    const percentPart = structured.percentTotal === null
+    const percentPart = structured.percentFactorCount === 1
+      ? `<span class="skill-formula-group">${structured.percentHtml}</span>`
+      : structured.percentTotal === null
       ? `<span class="skill-formula-group">${structured.percentHtml}</span>`
       : structured.percentHtml.startsWith('<span class="skill-formula-empty">')
         ? `<span class="skill-formula-group">${formatPercent(structured.percentTotal)}</span>`
