@@ -127,6 +127,7 @@ export class ChatUI {
   private persistedMessageKeys = new Set<string>();
   private pendingPersistence = new Map<string, Promise<boolean>>();
   private scopeLoadToken = 0;
+  private logbookVisible = false;
 
   constructor() {
     clearPreviousChatStorage();
@@ -201,6 +202,26 @@ export class ChatUI {
     this.setPersistenceScope(null);
   }
 
+  setLogbookVisible(visible: boolean): void {
+    if (this.logbookVisible === visible) {
+      return;
+    }
+    this.logbookVisible = visible;
+    if (!visible) {
+      for (const channel of CHAT_CHANNELS) {
+        const state = this.channelStates.get(channel);
+        if (!state) {
+          continue;
+        }
+        this.trimChannelState(state, CHAT_LOG_MAX_VISIBLE_MESSAGES);
+        this.clearChannel(channel);
+      }
+      return;
+    }
+    this.clearInactiveChannels();
+    this.renderChannel(this.activeChannel, { stickToBottom: true });
+  }
+
   async addMessage(
     text: string,
     from?: string,
@@ -252,15 +273,21 @@ export class ChatUI {
         state.messages = merged.messages;
         state.messageIds = merged.ids;
       }
+      if (!this.logbookVisible) {
+        this.trimChannelState(state, CHAT_LOG_MAX_VISIBLE_MESSAGES);
+        continue;
+      }
       const total = state.messages.length;
+      if (channel !== this.activeChannel) {
+        state.loadedCount = Math.min(total, Math.max(state.loadedCount, CHAT_LOG_MAX_VISIBLE_MESSAGES));
+        continue;
+      }
       const log = this.logs.get(channel);
-      const stickToBottom = channel !== this.activeChannel || this.isLogNearBottom(log);
+      const stickToBottom = this.isLogNearBottom(log);
       if (stickToBottom || state.loadedCount <= CHAT_LOG_MAX_VISIBLE_MESSAGES) {
         state.loadedCount = Math.min(total, state.loadedCount + 1);
       }
-      if (channel === this.activeChannel || stickToBottom) {
-        this.renderChannel(channel, { stickToBottom });
-      }
+      this.renderChannel(channel, { stickToBottom });
     }
 
     const persistencePromise = appendChannelMessages(scopeId, entry, channels)
@@ -298,7 +325,11 @@ export class ChatUI {
 
   private renderAllChannels(options?: { stickToBottom?: boolean }): void {
     for (const channel of CHAT_CHANNELS) {
-      this.renderChannel(channel, { stickToBottom: options?.stickToBottom === true });
+      if (channel === this.activeChannel) {
+        this.renderChannel(channel, { stickToBottom: options?.stickToBottom === true });
+        continue;
+      }
+      this.clearChannel(channel);
     }
   }
 
@@ -340,7 +371,7 @@ export class ChatUI {
   }
 
   private async handleLogScroll(channel: ChatChannel): Promise<void> {
-    if (channel !== this.activeChannel) {
+    if (!this.logbookVisible || channel !== this.activeChannel) {
       return;
     }
     const log = this.logs.get(channel);
@@ -393,6 +424,7 @@ export class ChatUI {
   }
 
   private switchChannel(channel: ChatChannel): void {
+    const previousChannel = this.activeChannel;
     this.activeChannel = channel;
     this.tabs.forEach((tab) => {
       tab.classList.toggle('active', tab.dataset.chatChannel === channel);
@@ -400,7 +432,13 @@ export class ChatUI {
     this.panes.forEach((pane) => {
       pane.classList.toggle('active', pane.dataset.chatPane === channel);
     });
-    this.renderChannel(channel, { stickToBottom: true });
+    if (previousChannel !== channel) {
+      this.clearChannel(previousChannel);
+    }
+    if (this.logbookVisible) {
+      this.clearInactiveChannels();
+      this.renderChannel(channel, { stickToBottom: true });
+    }
   }
 
   private isLogNearBottom(log: HTMLElement | undefined): boolean {
@@ -449,6 +487,38 @@ export class ChatUI {
       }
     }
 
+    if (!this.logbookVisible) {
+      for (const channel of CHAT_CHANNELS) {
+        const state = this.channelStates.get(channel);
+        if (!state) {
+          continue;
+        }
+        this.trimChannelState(state, CHAT_LOG_MAX_VISIBLE_MESSAGES);
+      }
+      return;
+    }
+
     this.renderAllChannels({ stickToBottom: true });
+  }
+
+  private trimChannelState(state: ChatChannelState, maxMessages: number): void {
+    if (state.messages.length > maxMessages) {
+      state.messages = state.messages.slice(-maxMessages);
+      state.messageIds = new Set(state.messages.map((entry) => entry.id));
+      state.hasLoadedAll = false;
+    }
+    state.loadedCount = Math.min(state.messages.length, maxMessages);
+  }
+
+  private clearChannel(channel: ChatChannel): void {
+    this.logs.get(channel)?.replaceChildren();
+  }
+
+  private clearInactiveChannels(): void {
+    for (const channel of CHAT_CHANNELS) {
+      if (channel !== this.activeChannel) {
+        this.clearChannel(channel);
+      }
+    }
   }
 }

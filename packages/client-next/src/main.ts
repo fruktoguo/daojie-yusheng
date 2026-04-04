@@ -3647,6 +3647,7 @@ const keyboard = new KeyboardInput((dirs: Direction[]) => {
 
 sidePanel.setVisibilityChangeCallback((visible) => {
   panelSystem.store.setRuntime({ shellVisible: visible });
+  syncChatLogbookVisibility();
   if (visible) {
     scheduleLayoutViewportSync();
   }
@@ -3657,6 +3658,14 @@ sidePanel.setLayoutChangeCallback(() => {
   }
   scheduleLayoutViewportSync();
 });
+function syncChatLogbookVisibility(): void {
+  const logbookPane = document.querySelector<HTMLElement>('.split-tab-pane[data-pane="logbook"]');
+  chatUI.setLogbookVisible(sidePanel.isVisible() && logbookPane?.classList.contains('active') === true);
+}
+sidePanel.setTabChangeCallback(() => {
+  syncChatLogbookVisibility();
+});
+syncChatLogbookVisibility();
 
 function resizeCanvas() {
   const cssWidth = Math.max(1, canvasHost.clientWidth);

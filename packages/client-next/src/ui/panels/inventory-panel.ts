@@ -64,6 +64,9 @@ const HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID = 'root_seed.heaven';
 const DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID = 'root_seed.divine';
 const SHATTER_SPIRIT_PILL_ITEM_ID = 'pill.shatter_spirit';
 const HEAVEN_GATE_REROLL_AVERAGE_BONUS = 2;
+const INVENTORY_INITIAL_RENDER_COUNT = 72;
+const INVENTORY_RENDER_BATCH_SIZE = 48;
+const INVENTORY_LOAD_MORE_THRESHOLD_PX = 240;
 
 function formatItemEffects(item: ItemStack): string[] {
   return describeItemEffectDetails(item);
@@ -95,11 +98,24 @@ export class InventoryPanel {
   private playerRealm: PlayerRealmState | null = null;
   private playerHeavenGate: HeavenGateState | null = null;
   private playerFoundation = 0;
+  private renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
+  private pendingLoadMoreFrame: number | null = null;
+  private handleScrollCapture = (event: Event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+    if (target !== this.pane && !target.contains(this.pane)) {
+      return;
+    }
+    this.maybeLoadMoreVisibleItems(target);
+  };
 
   constructor() {
     this.ensureTooltipStyle();
     this.bindPaneEvents();
     this.bindTooltipEvents();
+    document.addEventListener('scroll', this.handleScrollCapture, { capture: true, passive: true });
   }
 
   clear(): void {
@@ -119,6 +135,11 @@ export class InventoryPanel {
     this.playerRealm = null;
     this.playerHeavenGate = null;
     this.playerFoundation = 0;
+    this.renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
+    if (this.pendingLoadMoreFrame !== null) {
+      cancelAnimationFrame(this.pendingLoadMoreFrame);
+      this.pendingLoadMoreFrame = null;
+    }
     this.tooltip.hide(true);
     this.pane.innerHTML = '<div class="empty-hint">背包空空如也</div>';
     detailModalHost.close(InventoryPanel.MODAL_OWNER);
@@ -141,6 +162,7 @@ export class InventoryPanel {
   /** 更新背包数据并刷新列表与弹层 */
   update(inventory: Inventory): void {
     this.lastInventory = inventory;
+    this.syncRenderedVisibleCount(this.getVisibleItems(inventory).length);
     const structureState = this.buildStructureState(inventory);
     if (!this.isSameStructureState(this.lastStructureState, structureState) || !this.patchList(inventory)) {
       this.render(inventory);
@@ -148,6 +170,7 @@ export class InventoryPanel {
     if (!this.patchModal()) {
       this.renderModal();
     }
+    this.scheduleLoadMoreCheck();
   }
 
   initFromPlayer(player: PlayerState): void {
@@ -194,7 +217,9 @@ export class InventoryPanel {
   private render(inventory: Inventory): void {
     this.lastInventory = inventory;
     const visibleItems = this.getVisibleItems(inventory);
-    this.lastStructureState = this.buildStructureStateFromVisibleItems(visibleItems);
+    this.syncRenderedVisibleCount(visibleItems.length);
+    const renderedItems = visibleItems.slice(0, this.renderedVisibleCount);
+    this.lastStructureState = this.buildStructureStateFromVisibleItems(renderedItems);
 
     let html = `<div class="panel-section">
       <div class="inventory-panel-head">
@@ -220,7 +245,7 @@ export class InventoryPanel {
 
     html += '<div class="inventory-grid" data-inventory-grid="true">';
 
-    visibleItems.forEach(({ item, slotIndex }) => {
+    renderedItems.forEach(({ item, slotIndex }) => {
       const nameClass = this.getNameClass(item.name);
       const primaryAction = this.getPrimaryAction(item);
       const itemMeta = getItemDisplayMeta(item);
@@ -239,7 +264,11 @@ export class InventoryPanel {
       </div>`;
     });
 
-    html += '</div></div>';
+    html += '</div>';
+    if (renderedItems.length < visibleItems.length) {
+      html += `<div class="inventory-load-hint" data-inventory-load-hint="true">向下滚动继续加载（已显示 ${formatDisplayInteger(renderedItems.length)} / ${formatDisplayInteger(visibleItems.length)}）</div>`;
+    }
+    html += '</div>';
     preserveSelection(this.pane, () => {
       this.pane.innerHTML = html;
     });
@@ -259,8 +288,11 @@ export class InventoryPanel {
           return;
         }
         this.activeFilter = filter;
+        this.renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
         if (this.lastInventory) {
           this.render(this.lastInventory);
+          this.scrollToTop();
+          this.scheduleLoadMoreCheck();
         }
         return;
       }
@@ -791,13 +823,15 @@ export class InventoryPanel {
     }
 
     const visibleItems = this.getVisibleItems(inventory);
+    this.syncRenderedVisibleCount(visibleItems.length);
+    const renderedItems = visibleItems.slice(0, this.renderedVisibleCount);
     if (visibleItems.length === 0) {
       const emptyNode = this.pane.querySelector<HTMLElement>('[data-inventory-empty="true"]');
       if (!emptyNode) {
         return false;
       }
       emptyNode.textContent = inventory.items.length === 0 ? '背包空空如也' : '当前分类暂无物品';
-      this.lastStructureState = this.buildStructureStateFromVisibleItems(visibleItems);
+      this.lastStructureState = this.buildStructureStateFromVisibleItems(renderedItems);
       return true;
     }
 
@@ -805,8 +839,17 @@ export class InventoryPanel {
     if (!grid) {
       return false;
     }
+    const loadHint = this.pane.querySelector<HTMLElement>('[data-inventory-load-hint="true"]');
+    if (renderedItems.length < visibleItems.length) {
+      if (!loadHint) {
+        return false;
+      }
+      loadHint.textContent = `向下滚动继续加载（已显示 ${formatDisplayInteger(renderedItems.length)} / ${formatDisplayInteger(visibleItems.length)}）`;
+    } else if (loadHint) {
+      return false;
+    }
 
-    for (const { item, slotIndex } of visibleItems) {
+    for (const { item, slotIndex } of renderedItems) {
       const cell = grid.querySelector<HTMLElement>(`[data-item-slot="${CSS.escape(String(slotIndex))}"]`);
       if (!cell) {
         return false;
@@ -870,7 +913,7 @@ export class InventoryPanel {
       }
     }
 
-    this.lastStructureState = this.buildStructureStateFromVisibleItems(visibleItems);
+    this.lastStructureState = this.buildStructureStateFromVisibleItems(renderedItems);
     return true;
   }
 
@@ -1149,8 +1192,88 @@ export class InventoryPanel {
       .filter(({ item }) => this.activeFilter === 'all' || item.type === this.activeFilter);
   }
 
+  private syncRenderedVisibleCount(totalVisibleItems: number): void {
+    if (totalVisibleItems <= 0) {
+      this.renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
+      return;
+    }
+    const minimumVisibleCount = Math.min(INVENTORY_INITIAL_RENDER_COUNT, totalVisibleItems);
+    this.renderedVisibleCount = Math.min(
+      totalVisibleItems,
+      Math.max(minimumVisibleCount, this.renderedVisibleCount),
+    );
+  }
+
+  private maybeLoadMoreVisibleItems(scrollTarget?: HTMLElement): void {
+    if (!this.lastInventory || !this.isPaneVisible()) {
+      return;
+    }
+    const visibleItemCount = this.getVisibleItems(this.lastInventory).length;
+    if (visibleItemCount === 0 || this.renderedVisibleCount >= visibleItemCount) {
+      return;
+    }
+    const scrollContainer = this.resolveScrollContainer(scrollTarget);
+    if (!scrollContainer) {
+      return;
+    }
+    const remainingDistance = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight;
+    if (remainingDistance > INVENTORY_LOAD_MORE_THRESHOLD_PX) {
+      return;
+    }
+    const nextRenderedCount = Math.min(visibleItemCount, this.renderedVisibleCount + INVENTORY_RENDER_BATCH_SIZE);
+    if (nextRenderedCount === this.renderedVisibleCount) {
+      return;
+    }
+    this.renderedVisibleCount = nextRenderedCount;
+    const previousScrollTop = scrollContainer.scrollTop;
+    this.render(this.lastInventory);
+    scrollContainer.scrollTop = previousScrollTop;
+    this.scheduleLoadMoreCheck(scrollContainer);
+  }
+
+  private scheduleLoadMoreCheck(scrollTarget?: HTMLElement): void {
+    if (this.pendingLoadMoreFrame !== null) {
+      cancelAnimationFrame(this.pendingLoadMoreFrame);
+    }
+    this.pendingLoadMoreFrame = requestAnimationFrame(() => {
+      this.pendingLoadMoreFrame = null;
+      this.maybeLoadMoreVisibleItems(scrollTarget);
+    });
+  }
+
+  private resolveScrollContainer(preferredTarget?: HTMLElement): HTMLElement | null {
+    if (preferredTarget && preferredTarget.contains(this.pane) && this.isScrollableContainer(preferredTarget)) {
+      return preferredTarget;
+    }
+    let current: HTMLElement | null = this.pane.parentElement;
+    while (current) {
+      if (this.isScrollableContainer(current)) {
+        return current;
+      }
+      current = current.parentElement;
+    }
+    return null;
+  }
+
+  private isScrollableContainer(element: HTMLElement): boolean {
+    const { overflowY } = window.getComputedStyle(element);
+    return (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay')
+      && element.clientHeight > 0;
+  }
+
+  private isPaneVisible(): boolean {
+    return !this.pane.classList.contains('hidden') && this.pane.getClientRects().length > 0;
+  }
+
+  private scrollToTop(): void {
+    const scrollContainer = this.resolveScrollContainer();
+    if (scrollContainer) {
+      scrollContainer.scrollTop = 0;
+    }
+  }
+
   private buildStructureState(inventory: Inventory): InventoryStructureState {
-    return this.buildStructureStateFromVisibleItems(this.getVisibleItems(inventory));
+    return this.buildStructureStateFromVisibleItems(this.getVisibleItems(inventory).slice(0, this.renderedVisibleCount));
   }
 
   private buildStructureStateFromVisibleItems(

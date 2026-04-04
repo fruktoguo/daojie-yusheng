@@ -283,6 +283,8 @@ interface FadingPathState {
 
 const DEFAULT_PATH_TRAIL_FADE_MS = 500;
 const PATH_TRAIL_FADE_ALPHA = 0.7;
+const MAX_FLOATING_TEXTS = 256;
+const MAX_ATTACK_TRAILS = 192;
 
 /** 文字渲染器，用汉字字符绘制地图地块、实体角色和战斗特效 */
 export class TextRenderer implements IRenderer {
@@ -1103,6 +1105,8 @@ export class TextRenderer implements IRenderer {
     variant: 'damage' | 'action' = 'damage',
     actionStyle?: FloatingActionTextStyle,
   ) {
+    const now = performance.now();
+    this.pruneExpiredFloatingTexts(now);
     this.floatingTexts.push({
       id: this.nextFloatingTextId++,
       x,
@@ -1111,13 +1115,16 @@ export class TextRenderer implements IRenderer {
       color,
       variant,
       actionStyle,
-      createdAt: performance.now(),
+      createdAt: now,
       duration: variant === 'action' && actionStyle === 'divine' ? 1000 : variant === 'action' ? 1000 : 850,
     });
+    this.trimFloatingTexts();
   }
 
   /** 添加攻击拖尾特效（从攻击者到目标的箭头线段） */
   addAttackTrail(fromX: number, fromY: number, toX: number, toY: number, color = '#ffd27a') {
+    const now = performance.now();
+    this.pruneExpiredAttackTrails(now);
     this.attackTrails.push({
       id: this.nextAttackTrailId++,
       fromX,
@@ -1125,9 +1132,10 @@ export class TextRenderer implements IRenderer {
       toX,
       toY,
       color,
-      createdAt: performance.now(),
+      createdAt: now,
       duration: 260,
     });
+    this.trimAttackTrails();
   }
 
   /** 绘制所有浮动文字，自动清理过期条目 */
@@ -1139,7 +1147,7 @@ export class TextRenderer implements IRenderer {
     const sh = ctx.canvas.height;
     const cellSize = getCellSize();
 
-    this.floatingTexts = this.floatingTexts.filter((entry) => now - entry.createdAt < entry.duration);
+    this.pruneExpiredFloatingTexts(now);
     const groups = new Map<string, FloatingText[]>();
     for (const entry of this.floatingTexts) {
       const key = `${entry.x},${entry.y},${entry.variant}`;
@@ -1244,7 +1252,7 @@ export class TextRenderer implements IRenderer {
     const sh = ctx.canvas.height;
     const cellSize = getCellSize();
 
-    this.attackTrails = this.attackTrails.filter((entry) => now - entry.createdAt < entry.duration);
+    this.pruneExpiredAttackTrails(now);
 
     for (const entry of this.attackTrails) {
       const progress = Math.min(1, (now - entry.createdAt) / entry.duration);
@@ -1303,6 +1311,28 @@ export class TextRenderer implements IRenderer {
       offsetX: centeredIndex * horizontalStep,
       offsetY: Math.abs(centeredIndex) * verticalStep,
     };
+  }
+
+  private pruneExpiredFloatingTexts(now: number): void {
+    this.floatingTexts = this.floatingTexts.filter((entry) => now - entry.createdAt < entry.duration);
+  }
+
+  private pruneExpiredAttackTrails(now: number): void {
+    this.attackTrails = this.attackTrails.filter((entry) => now - entry.createdAt < entry.duration);
+  }
+
+  private trimFloatingTexts(): void {
+    const overflow = this.floatingTexts.length - MAX_FLOATING_TEXTS;
+    if (overflow > 0) {
+      this.floatingTexts.splice(0, overflow);
+    }
+  }
+
+  private trimAttackTrails(): void {
+    const overflow = this.attackTrails.length - MAX_ATTACK_TRAILS;
+    if (overflow > 0) {
+      this.attackTrails.splice(0, overflow);
+    }
   }
 
   private renderPathArrows(

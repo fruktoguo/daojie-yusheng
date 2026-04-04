@@ -452,6 +452,12 @@
       grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
       gap: 8px;
     }
+    .inventory-load-hint {
+      padding: 10px 0 2px;
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+      text-align: center;
+    }
     .inventory-cell {
       --inventory-grade-border: transparent;
       --inventory-grade-rgb: 0, 0, 0;
