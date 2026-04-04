@@ -50,8 +50,10 @@ export class ActionService {
   updateAutoBattleSkills(player: PlayerState, input: AutoBattleSkillConfig[]): boolean {
     const skillActions = this.techniqueService.getSkillActions(player);
     const next = this.normalizeAutoBattleSkills(skillActions, input, resolvePlayerSkillSlotLimit(player));
+    const contextActions = player.actions.filter((action) => action.type !== 'skill');
     const changed = !this.isSameAutoBattleSkillConfigList(player.autoBattleSkills, next);
     player.autoBattleSkills = next;
+    this.rebuildActions(player, contextActions);
     return changed;
   }
 

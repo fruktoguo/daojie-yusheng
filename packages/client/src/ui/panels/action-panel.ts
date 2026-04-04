@@ -889,13 +889,19 @@ export class ActionPanel {
     mutator: (skills: ActionDef[]) => ActionDef[],
     rerender = true,
   ): void {
+    const orderedIds = this.skillManagementSortField === 'custom'
+      ? []
+      : this.getSortedSkillManagementActionIds();
     const skillActions = this.getSkillActions(this.getSkillManagementPreviewActions())
       .map((action) => ({
         ...action,
         autoBattleEnabled: action.autoBattleEnabled !== false,
         skillEnabled: action.skillEnabled !== false,
       }));
-    const mutated = this.normalizeSkillActions(mutator(skillActions));
+    const orderedSkillActions = orderedIds.length > 1
+      ? this.reorderSkillManagementSubset(skillActions, orderedIds)
+      : skillActions;
+    const mutated = this.normalizeSkillActions(mutator(orderedSkillActions));
     this.skillManagementDraft = this.getAutoBattleSkillConfigs(mutated);
     if (rerender) {
       this.renderSkillManagementModal();

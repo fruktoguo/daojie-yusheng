@@ -837,13 +837,19 @@ export class ActionPanel {
   }
 
   private applySkillManagementDraftMutation(mutator: (skills: ActionDef[]) => ActionDef[]): void {
+    const orderedIds = this.skillManagementSortField === 'custom'
+      ? []
+      : this.getSortedSkillManagementActionIds();
     const skillActions = this.getSkillActions(this.getSkillManagementPreviewActions())
       .map((action) => ({
         ...action,
         autoBattleEnabled: action.autoBattleEnabled !== false,
         skillEnabled: action.skillEnabled !== false,
       }));
-    const mutated = this.withSequentialAutoBattleOrder(mutator(skillActions));
+    const orderedSkillActions = orderedIds.length > 1
+      ? this.reorderSkillManagementSubset(skillActions, orderedIds)
+      : skillActions;
+    const mutated = this.withSequentialAutoBattleOrder(mutator(orderedSkillActions));
     this.skillManagementDraft = this.getAutoBattleSkillConfigs(mutated);
     this.renderSkillManagementModal();
   }
@@ -1211,6 +1217,30 @@ export class ActionPanel {
     this.skillManagementListScrollTop = 0;
     this.syncSkillManagementDraft();
     this.renderSkillManagementModal();
+  }
+
+  private getSortedSkillManagementActionIds(): string[] {
+    const previewActions = this.getSkillManagementPreviewActions();
+    const skillEntries = this.getFilteredSkillManagementEntries(this.getSkillManagementEntries(previewActions));
+    const visibleEntries = this.skillManagementTab === 'auto'
+      ? skillEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled !== false)
+      : this.skillManagementTab === 'manual'
+        ? skillEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled === false)
+        : skillEntries.filter((entry) => entry.action.skillEnabled === false);
+    return this.sortSkillManagementEntries(visibleEntries).map((entry) => entry.action.id);
+  }
+
+  private reorderSkillManagementSubset(skills: ActionDef[], orderedIds: string[]): ActionDef[] {
+    const subset = new Set(orderedIds);
+    const orderedActions = orderedIds
+      .map((id) => skills.find((action) => action.id === id))
+      .filter((action): action is ActionDef => Boolean(action));
+    let nextIndex = 0;
+    return skills.map((action) => (
+      subset.has(action.id)
+        ? (orderedActions[nextIndex++] ?? action)
+        : action
+    ));
   }
 
   private syncSkillManagementDraft(): AutoBattleSkillConfig[] {
