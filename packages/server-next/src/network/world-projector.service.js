@@ -245,6 +245,7 @@ function buildFullPanelDelta(player) {
             full: 1,
             techniques: player.techniques.techniques.map((entry) => ({ ...entry })),
             cultivatingTechId: player.techniques.cultivatingTechId,
+            bodyTraining: player.bodyTraining ? { ...player.bodyTraining } : null,
         },
         attr: buildFullAttrDelta(player),
         act: buildFullActionDelta(player),
@@ -319,6 +320,7 @@ function capture(view, player) {
             techniqueRevision: player.techniques.revision,
             techniques: player.techniques.techniques.map((entry) => ({ ...entry })),
             cultivatingTechId: player.techniques.cultivatingTechId,
+            bodyTraining: player.bodyTraining ? { ...player.bodyTraining } : null,
             attrRevision: player.attrs.revision,
             attrStage: player.attrs.stage,
             baseAttrs: cloneAttributes(player.attrs.baseAttrs),
@@ -462,6 +464,9 @@ function buildPanelDelta(previous, player) {
             removeTechniqueIds: removed.length > 0 ? removed : undefined,
             cultivatingTechId: previous.panel.cultivatingTechId !== player.techniques.cultivatingTechId
                 ? player.techniques.cultivatingTechId
+                : undefined,
+            bodyTraining: previous.panel.bodyTraining !== player.bodyTraining
+                ? (player.bodyTraining ? { ...player.bodyTraining } : null)
                 : undefined,
         };
     }

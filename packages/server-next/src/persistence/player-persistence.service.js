@@ -133,6 +133,7 @@ function normalizePlayerSnapshot(raw) {
         progression: {
             foundation: isFiniteNumber(progression.foundation) ? Math.trunc(progression.foundation) : 0,
             combatExp: isFiniteNumber(progression.combatExp) ? Math.trunc(progression.combatExp) : 0,
+            bodyTraining: typeof progression.bodyTraining === 'object' && progression.bodyTraining ? progression.bodyTraining : null,
             boneAgeBaseYears: isFiniteNumber(progression.boneAgeBaseYears) ? Math.trunc(progression.boneAgeBaseYears) : 16,
             lifeElapsedTicks: isFiniteNumber(progression.lifeElapsedTicks) ? Number(progression.lifeElapsedTicks) : 0,
             lifespanYears: isFiniteNumber(progression.lifespanYears) ? Math.trunc(progression.lifespanYears) : null,

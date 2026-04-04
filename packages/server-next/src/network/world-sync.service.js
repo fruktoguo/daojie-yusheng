@@ -701,6 +701,7 @@ function captureSyncSnapshot(view, player, template, timeState, path, threatArro
         equipmentSlots: player.equipment.slots.map((entry) => cloneEquipmentSlot(entry)),
         techniqueRevision: player.techniques.revision,
         cultivatingTechId: player.techniques.cultivatingTechId,
+        bodyTraining: player.bodyTraining ? { ...player.bodyTraining } : null,
         techniques: player.techniques.techniques.map((entry) => cloneTechniqueEntry(entry)),
         actionRevision: player.actions.revision,
         actions: normalizedActions,
@@ -925,18 +926,21 @@ function buildTechniqueUpdate(previous, player) {
         return {
             techniques: player.techniques.techniques.map((entry) => cloneTechniqueEntry(entry)),
             cultivatingTechId: player.techniques.cultivatingTechId,
+            bodyTraining: player.bodyTraining ? { ...player.bodyTraining } : null,
         };
     }
     const techniques = diffTechniqueEntries(previous.techniques, player.techniques.techniques);
     const removeTechniqueIds = diffRemovedIds(previous.techniques.map((entry) => entry.techId), player.techniques.techniques.map((entry) => entry.techId));
     const cultivatingChanged = previous.cultivatingTechId !== player.techniques.cultivatingTechId;
-    if (techniques.length === 0 && removeTechniqueIds.length === 0 && !cultivatingChanged) {
+    const bodyTrainingChanged = !isSameBodyTrainingState(previous.bodyTraining ?? null, player.bodyTraining ?? null);
+    if (techniques.length === 0 && removeTechniqueIds.length === 0 && !cultivatingChanged && !bodyTrainingChanged) {
         return null;
     }
     return {
         techniques,
         removeTechniqueIds: removeTechniqueIds.length > 0 ? removeTechniqueIds : undefined,
         cultivatingTechId: cultivatingChanged ? player.techniques.cultivatingTechId : undefined,
+        bodyTraining: bodyTrainingChanged ? (player.bodyTraining ? { ...player.bodyTraining } : null) : undefined,
     };
 }
 function buildActionsUpdate(previous, player) {
@@ -1057,6 +1061,7 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds) {
         },
         equipment: buildEquipmentRecord(player.equipment.slots),
         techniques: player.techniques.techniques.map((entry) => toTechniqueState(entry)),
+        bodyTraining: player.bodyTraining ? { ...player.bodyTraining } : undefined,
         actions: player.actions.actions.map((entry) => toActionDefinition(entry)),
         quests: player.quests.quests.map((entry) => cloneQuestState(entry)),
         realm: cloneRealmState(player.realm) ?? undefined,
@@ -2013,6 +2018,14 @@ function cloneSpecialStats(source) {
 function isSameSpecialStats(left, right) {
     return left.foundation === right.foundation
         && left.combatExp === right.combatExp;
+}
+function isSameBodyTrainingState(left, right) {
+    if (!left || !right) {
+        return left === right;
+    }
+    return left.level === right.level
+        && left.exp === right.exp
+        && left.expToNext === right.expToNext;
 }
 function isSameTile(left, right) {
     return left.type === right.type

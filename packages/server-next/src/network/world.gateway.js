@@ -532,6 +532,16 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
                 return;
             }
             const target = typeof payload?.target === 'string' ? payload.target.trim() : '';
+            if (actionId === 'body_training:infuse') {
+                const result = this.worldRuntimeService.executeAction(playerId, actionId, target);
+                if (result.kind === 'npcShop' && result.npcShop) {
+                    this.emitNextNpcShop(client, result.npcShop);
+                }
+                else if (result.kind === 'npcQuests' && result.npcQuests) {
+                    this.emitNextNpcQuests(client, result.npcQuests);
+                }
+                return;
+            }
             if (target) {
                 this.worldRuntimeService.enqueueCastSkillTargetRef(playerId, actionId, target);
                 return;

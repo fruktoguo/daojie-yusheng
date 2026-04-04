@@ -1007,6 +1007,11 @@
       font-size: var(--font-size-12);
       line-height: 1.5;
     }
+    .body-training-card-note {
+      color: var(--ink-grey);
+      font-size: var(--font-size-11);
+      line-height: 1.6;
+    }
     .body-training-progress-bar {
       height: 10px;
       border-radius: 999px;
@@ -1037,8 +1042,111 @@
       flex-direction: column;
       gap: 6px;
     }
+    .body-training-card--accent {
+      background:
+        linear-gradient(180deg, rgba(242, 159, 5, 0.16), rgba(246, 196, 83, 0.08)),
+        var(--panel-bg-elevated);
+    }
     .body-training-card--wide {
       grid-column: 1 / -1;
+    }
+    .body-training-infuse-btn {
+      margin-top: 4px;
+      width: 100%;
+      min-height: 40px;
+    }
+    .detail-modal-card.detail-modal--body-training-infuse {
+      width: min(560px, calc(100vw - 32px));
+    }
+    .detail-modal-card.detail-modal--body-training-infuse #detail-modal-body {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .body-training-infuse-modal {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .body-training-infuse-summary {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .body-training-infuse-stat,
+    .body-training-infuse-picker,
+    .body-training-infuse-preview {
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      background:
+        linear-gradient(180deg, rgba(255, 182, 77, 0.12), rgba(255, 182, 77, 0.04)),
+        var(--panel-bg-elevated);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+    }
+    .body-training-infuse-stat {
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .body-training-infuse-stat-label,
+    .body-training-infuse-picker-label {
+      color: var(--ink-grey);
+      font-size: var(--font-size-11);
+    }
+    .body-training-infuse-stat-value,
+    .body-training-infuse-picker-value {
+      color: var(--ink-black);
+      font-size: var(--font-size-18);
+      line-height: 1.4;
+    }
+    .body-training-infuse-picker,
+    .body-training-infuse-preview {
+      padding: 14px;
+    }
+    .body-training-infuse-picker {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .body-training-infuse-picker-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .body-training-infuse-picker-row .small-btn {
+      min-width: 56px;
+      min-height: 34px;
+    }
+    .body-training-infuse-preview {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .body-training-infuse-preview-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--ink-black);
+      font-size: var(--font-size-12);
+    }
+    .body-training-infuse-note {
+      color: var(--ink-grey);
+      font-size: var(--font-size-11);
+      line-height: 1.6;
+      padding: 0 2px;
+    }
+    .body-training-infuse-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding-top: 4px;
+    }
+    .body-training-infuse-actions .small-btn {
+      min-width: 88px;
+      min-height: 36px;
     }
     .body-training-attrs {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1054,6 +1162,17 @@
       .body-training-grid,
       .body-training-attrs {
         grid-template-columns: 1fr;
+      }
+      .body-training-infuse-summary {
+        grid-template-columns: 1fr;
+      }
+      .body-training-infuse-picker-row,
+      .body-training-infuse-actions {
+        justify-content: stretch;
+      }
+      .body-training-infuse-picker-row .small-btn,
+      .body-training-infuse-actions .small-btn {
+        flex: 1 1 calc(50% - 4px);
       }
     }
     .detail-modal {
@@ -4067,6 +4186,7 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      position: relative;
       gap: 8px;
       min-height: 0;
       padding: 10px 12px;
@@ -4075,13 +4195,30 @@
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
       text-align: left;
       cursor: pointer;
+      overflow: hidden;
       transition: background 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+    }
+    .market-item-cell--status {
+      --market-status-rgb: 105, 136, 94;
+      background: color-mix(in srgb, var(--surface-muted-strong) 84%, rgba(var(--market-status-rgb), 0.26));
+      border-color: color-mix(in srgb, var(--wash-ink) 62%, rgba(var(--market-status-rgb), 0.48));
+    }
+    .market-item-cell--status-learned {
+      --market-status-rgb: 105, 136, 94;
+    }
+    .market-item-cell--status-unlocked {
+      --market-status-rgb: 84, 121, 132;
     }
     .market-item-cell:hover,
     .market-item-cell.active {
       background: var(--surface-hover);
       border-color: var(--ink-black);
       transform: translateY(-1px);
+    }
+    .market-item-cell--status:hover,
+    .market-item-cell--status.active {
+      background: color-mix(in srgb, var(--surface-hover) 82%, rgba(var(--market-status-rgb), 0.3));
+      border-color: color-mix(in srgb, var(--ink-black) 72%, rgba(var(--market-status-rgb), 0.52));
     }
     .market-item-cell-name {
       display: inline-flex;
@@ -4096,11 +4233,36 @@
       font-weight: var(--font-weight-semibold);
       color: var(--ink-black);
     }
+    .market-item-cell--status .market-item-cell-name {
+      padding-left: 10px;
+    }
     .market-item-cell-name-text {
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .market-item-cell-ribbon {
+      position: absolute;
+      top: 10px;
+      left: -28px;
+      z-index: 1;
+      width: 84px;
+      padding: 2px 0;
+      background: color-mix(in srgb, rgba(var(--market-status-rgb), 0.94) 78%, var(--ink-black));
+      color: #f8f2e8;
+      font-size: 9px;
+      font-weight: var(--font-weight-strong);
+      letter-spacing: 0.08em;
+      text-align: center;
+      text-transform: uppercase;
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+      pointer-events: none;
+      transform: rotate(-45deg);
+    }
+    .market-item-cell-ribbon > span {
+      display: inline-block;
+      transform: translateX(-1px);
     }
     .market-item-cell-owned {
       flex: 0 0 auto;

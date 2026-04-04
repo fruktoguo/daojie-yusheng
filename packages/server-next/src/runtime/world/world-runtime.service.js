@@ -309,7 +309,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return this.getPlayerViewOrThrow(playerId);
     }
-    executeAction(playerId, actionIdInput) {
+    executeAction(playerId, actionIdInput, targetInput) {
         this.getPlayerLocationOrThrow(playerId);
         const currentTick = this.resolveCurrentTickForPlayerId(playerId);
         const rawActionId = typeof actionIdInput === 'string' ? actionIdInput.trim() : '';
@@ -330,6 +330,19 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             this.pendingCommands.set(playerId, {
                 kind: 'breakthrough',
             });
+            return {
+                kind: 'queued',
+                view: this.getPlayerViewOrThrow(playerId),
+            };
+        }
+        if (actionId === 'body_training:infuse') {
+            const target = typeof targetInput === 'string' ? targetInput.trim() : '';
+            const foundationAmount = Number.parseInt(target, 10);
+            if (!Number.isFinite(foundationAmount) || foundationAmount <= 0) {
+                throw new common_1.BadRequestException('foundation amount is required');
+            }
+            const result = this.playerRuntimeService.infuseBodyTraining(playerId, foundationAmount);
+            this.queuePlayerNotice(playerId, `你将 ${result.foundationSpent} 点底蕴灌入肉身，转化为 ${result.expGained} 点炼体经验`, 'success');
             return {
                 kind: 'queued',
                 view: this.getPlayerViewOrThrow(playerId),

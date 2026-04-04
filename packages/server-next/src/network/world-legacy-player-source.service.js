@@ -13,7 +13,6 @@ const node_crypto_1 = require("node:crypto");
 const pg_1 = require("pg");
 let WorldLegacyPlayerSourceService = class WorldLegacyPlayerSourceService {
     logger = new common_1.Logger(WorldLegacyPlayerSourceService.name);
-    jwtSecret = process.env.JWT_SECRET || 'daojie-yusheng-dev-secret';
     pool = null;
     poolInitPromise = null;
     poolUnavailable = false;
@@ -29,11 +28,7 @@ let WorldLegacyPlayerSourceService = class WorldLegacyPlayerSourceService {
             await pool.end().catch(() => undefined);
         }
     }
-    async authenticatePlayerToken(token) {
-        const payload = this.validatePlayerToken(token);
-        if (!payload) {
-            return null;
-        }
+    async resolvePlayerIdentity(payload) {
         const pool = await this.ensurePool();
         if (!pool) {
             return {
@@ -141,21 +136,6 @@ let WorldLegacyPlayerSourceService = class WorldLegacyPlayerSourceService {
         }
         return toLegacyPlayerSnapshot(row);
     }
-    validatePlayerToken(token) {
-        try {
-            const payload = verifyLegacyJwt(token, this.jwtSecret);
-            if (!payload || payload.role === 'gm') {
-                return null;
-            }
-            if (typeof payload.sub !== 'string' || typeof payload.username !== 'string') {
-                return null;
-            }
-            return payload;
-        }
-        catch {
-            return null;
-        }
-    }
     async ensurePool() {
         if (this.poolUnavailable) {
             return null;
@@ -251,6 +231,7 @@ function toLegacyPlayerSnapshot(row) {
         progression: {
             foundation: Math.max(0, toFiniteInt(row.foundation, 0)),
             combatExp: Math.max(0, toFiniteInt(row.combatExp, 0)),
+            bodyTraining: typeof row.bodyTraining === 'object' && row.bodyTraining ? row.bodyTraining : null,
             boneAgeBaseYears: Math.max(1, toFiniteInt(row.boneAgeBaseYears, shared_1.DEFAULT_BONE_AGE_YEARS)),
             lifeElapsedTicks: Math.max(0, toFiniteNumber(row.lifeElapsedTicks, 0)),
             lifespanYears: toNullablePositiveInt(row.lifespanYears),
@@ -658,58 +639,5 @@ function resolveRealmLevelFromStage(stage) {
         default:
             return 1;
     }
-}
-function verifyLegacyJwt(token, secret) {
-    const segments = token.split('.');
-    if (segments.length !== 3) {
-        return null;
-    }
-    const [encodedHeader, encodedPayload, encodedSignature] = segments;
-    const header = parseJwtSegment(encodedHeader);
-    const payload = parseJwtSegment(encodedPayload);
-    if (!header || !payload) {
-        return null;
-    }
-    if (header.alg !== 'HS256' || header.typ !== 'JWT') {
-        return null;
-    }
-    const expectedSignature = base64UrlEncode((0, node_crypto_1.createHmac)('sha256', secret)
-        .update(`${encodedHeader}.${encodedPayload}`)
-        .digest());
-    const left = Buffer.from(encodedSignature);
-    const right = Buffer.from(expectedSignature);
-    if (left.length !== right.length || !(0, node_crypto_1.timingSafeEqual)(left, right)) {
-        return null;
-    }
-    const now = Math.floor(Date.now() / 1000);
-    if (typeof payload.exp === 'number' && Number.isFinite(payload.exp) && payload.exp < now) {
-        return null;
-    }
-    if (typeof payload.nbf === 'number' && Number.isFinite(payload.nbf) && payload.nbf > now) {
-        return null;
-    }
-    return payload;
-}
-function parseJwtSegment(segment) {
-    try {
-        const json = Buffer.from(base64UrlDecode(segment), 'base64').toString('utf8');
-        const value = JSON.parse(json);
-        return value && typeof value === 'object' ? value : null;
-    }
-    catch {
-        return null;
-    }
-}
-function base64UrlDecode(value) {
-    const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
-    const padding = normalized.length % 4;
-    return padding === 0 ? normalized : `${normalized}${'='.repeat(4 - padding)}`;
-}
-function base64UrlEncode(value) {
-    return value
-        .toString('base64')
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/g, '');
 }
 //# sourceMappingURL=world-legacy-player-source.service.js.map

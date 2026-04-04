@@ -579,6 +579,9 @@ const inventoryPanel = new InventoryPanel();
 const equipmentPanel = new EquipmentPanel();
 const techniquePanel = new TechniquePanel();
 const bodyTrainingPanel = new BodyTrainingPanel();
+bodyTrainingPanel.setInfusionHandler((foundationSpent) => {
+  socket.sendAction('body_training:infuse', String(foundationSpent));
+});
 const questPanel = new QuestPanel();
 const marketPanel = new MarketPanel();
 const actionPanel = new ActionPanel();
@@ -2097,6 +2100,7 @@ socket.onAttrUpdate((data) => {
     }
     techniquePanel.syncDynamic(myPlayer.techniques, myPlayer.cultivatingTechId, myPlayer);
     actionPanel.syncDynamic(myPlayer.actions, myPlayer.autoBattle, myPlayer.autoRetaliate, myPlayer);
+    bodyTrainingPanel.syncFoundation(myPlayer.foundation);
   }
   attrPanel.update(latestAttrUpdate);
   refreshHeavenGateModal(myPlayer, {
@@ -2147,6 +2151,8 @@ socket.onTechniqueUpdate((data) => {
     myPlayer.cultivatingTechId = nextCultivatingTechId;
     myPlayer.bodyTraining = nextBodyTraining;
     inventoryPanel.syncPlayerContext(myPlayer);
+    marketPanel.syncPlayerContext(myPlayer);
+    npcShopModal.syncPlayerContext(myPlayer);
   }
   if (shouldRefreshTechniquePanel) {
     techniquePanel.update(mergedTechniques, nextCultivatingTechId, myPlayer ?? undefined);
@@ -2154,7 +2160,7 @@ socket.onTechniqueUpdate((data) => {
   } else {
     techniquePanel.syncDynamic(mergedTechniques, nextCultivatingTechId, myPlayer ?? undefined);
   }
-  bodyTrainingPanel.syncDynamic(nextBodyTraining);
+  bodyTrainingPanel.syncDynamic(nextBodyTraining, myPlayer?.foundation);
   if (myPlayer) {
     actionPanel.syncDynamic(myPlayer.actions, myPlayer.autoBattle, myPlayer.autoRetaliate, myPlayer);
   }
@@ -2253,6 +2259,8 @@ socket.onMapStaticSync((data: S2C_MapStaticSync) => {
   if (myPlayer && data.minimapLibrary) {
     myPlayer.unlockedMinimapIds = data.minimapLibrary.map((entry) => entry.mapId).sort();
     inventoryPanel.syncPlayerContext(myPlayer);
+    marketPanel.syncPlayerContext(myPlayer);
+    npcShopModal.syncPlayerContext(myPlayer);
   }
   if (myPlayer && data.mapId === myPlayer.mapId) {
     refreshUiChrome();

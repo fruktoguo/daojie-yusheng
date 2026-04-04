@@ -225,6 +225,10 @@ let LegacyGatewayCompatService = class LegacyGatewayCompatService {
                 return;
             }
             const target = typeof payload?.target === 'string' ? payload.target.trim() : '';
+            if (actionId === 'body_training:infuse') {
+                this.emitLegacyActionResult(client, playerId, this.worldRuntimeService.executeAction(playerId, actionId, target));
+                return;
+            }
             if (target) {
                 this.worldRuntimeService.enqueueCastSkillTargetRef(playerId, actionId, target);
                 return;

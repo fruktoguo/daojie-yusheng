@@ -596,6 +596,9 @@ const inventoryPanel = new InventoryPanel();
 const equipmentPanel = new EquipmentPanel();
 const techniquePanel = new TechniquePanel();
 const bodyTrainingPanel = new BodyTrainingPanel();
+bodyTrainingPanel.setInfusionHandler((foundationSpent) => {
+  socket.sendAction('body_training:infuse', String(foundationSpent));
+});
 const questPanel = new QuestPanel();
 const marketPanel = new MarketPanel();
 const actionPanel = new ActionPanel();
@@ -2595,6 +2598,7 @@ function handleAttrUpdate(data: S2C_AttrUpdate): void {
       myPlayer.realm.breakthroughReady = latestAttrUpdate.realmBreakthroughReady ?? myPlayer.realm.breakthroughReady;
       myPlayer.breakthroughReady = myPlayer.realm.breakthroughReady;
     }
+    bodyTrainingPanel.syncFoundation(myPlayer.foundation);
   }
   attrPanel.update(latestAttrUpdate);
   refreshHeavenGateModal(myPlayer, {
@@ -2647,7 +2651,7 @@ function handleTechniqueUpdate(data: S2C_TechniqueUpdate): void {
   } else {
     techniquePanel.syncDynamic(mergedTechniques, nextCultivatingTechId, myPlayer ?? undefined);
   }
-  bodyTrainingPanel.syncDynamic(nextBodyTraining);
+  bodyTrainingPanel.syncDynamic(nextBodyTraining, myPlayer?.foundation);
   if (myPlayer) {
     actionPanel.syncDynamic(myPlayer.actions, myPlayer.autoBattle, myPlayer.autoRetaliate, myPlayer);
   }

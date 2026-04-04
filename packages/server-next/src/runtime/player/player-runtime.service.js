@@ -74,6 +74,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             maxQi: 100,
             foundation: 0,
             combatExp: 0,
+            bodyTraining: (0, shared_1.normalizeBodyTrainingState)(),
             boneAgeBaseYears: shared_1.DEFAULT_BONE_AGE_YEARS,
             lifeElapsedTicks: 0,
             lifespanYears: null,
@@ -714,6 +715,39 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         this.bumpPersistentRevision(player);
         return player;
     }
+    infuseBodyTraining(playerId, foundationAmount) {
+        const player = this.getPlayerOrThrow(playerId);
+        const requested = normalizeCounter(foundationAmount);
+        if (requested <= 0) {
+            throw new common_1.BadRequestException('foundation amount is required');
+        }
+        if (player.foundation <= 0) {
+            throw new common_1.BadRequestException('foundation is insufficient');
+        }
+        const consumed = Math.min(player.foundation, requested);
+        const previousBodyTraining = (0, shared_1.normalizeBodyTrainingState)(player.bodyTraining);
+        const nextBodyTraining = (0, shared_1.normalizeBodyTrainingState)({
+            level: previousBodyTraining.level,
+            exp: previousBodyTraining.exp + consumed * shared_1.BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER,
+            expToNext: previousBodyTraining.expToNext,
+        });
+        player.foundation -= consumed;
+        player.bodyTraining = nextBodyTraining;
+        player.techniques.revision += 1;
+        if (nextBodyTraining.level !== previousBodyTraining.level) {
+            this.playerAttributesService.recalculate(player);
+        }
+        else {
+            this.playerAttributesService.markPanelDirty(player);
+        }
+        this.playerProgressionService.refreshPreview(player);
+        this.bumpPersistentRevision(player);
+        return {
+            player,
+            foundationSpent: consumed,
+            expGained: consumed * shared_1.BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER,
+        };
+    }
     recordActivity(playerId, currentTick, input = {}) {
         const player = this.getPlayerOrThrow(playerId);
         const normalizedTick = Math.max(0, Math.trunc(currentTick));
@@ -969,6 +1003,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             progression: {
                 foundation: player.foundation,
                 combatExp: player.combatExp,
+                bodyTraining: player.bodyTraining ? { ...player.bodyTraining } : null,
                 boneAgeBaseYears: player.boneAgeBaseYears,
                 lifeElapsedTicks: player.lifeElapsedTicks,
                 lifespanYears: player.lifespanYears,
@@ -1063,6 +1098,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             maxQi: snapshot.vitals.maxQi,
             foundation: normalizeCounter(snapshot.progression?.foundation),
             combatExp: normalizeCounter(snapshot.progression?.combatExp),
+            bodyTraining: (0, shared_1.normalizeBodyTrainingState)(snapshot.progression?.bodyTraining),
             boneAgeBaseYears: normalizeBoneAgeBaseYears(snapshot.progression?.boneAgeBaseYears),
             lifeElapsedTicks: normalizeLifeElapsedTicks(snapshot.progression?.lifeElapsedTicks),
             lifespanYears: normalizeLifespanYears(snapshot.progression?.lifespanYears),
@@ -1229,6 +1265,7 @@ function cloneRuntimePlayerState(player) {
         realm: cloneRealmState(player.realm),
         heavenGate: cloneHeavenGateState(player.heavenGate),
         spiritualRoots: cloneHeavenGateRoots(player.spiritualRoots),
+        bodyTraining: player.bodyTraining ? { ...player.bodyTraining } : null,
         unlockedMapIds: player.unlockedMapIds.slice(),
         inventory: {
             revision: player.inventory.revision,

@@ -59,8 +59,10 @@ let PlayerAttributesService = class PlayerAttributesService {
         const vitalBaselineBonus = resolveVitalBaselineBonus(runtimeBonuses);
         const baseAttrs = createBaseAttributes();
         const techniqueAttrBonus = resolveTechniqueAttrBonus(player.techniques.techniques, runtimeBonuses);
+        const bodyTrainingAttrBonus = (0, shared_1.calcBodyTrainingAttrBonus)(player.bodyTraining?.level ?? 0);
         addAttributes(baseAttrs, shared_1.PLAYER_REALM_CONFIG[stage].attrBonus);
         addAttributes(baseAttrs, techniqueAttrBonus);
+        addAttributes(baseAttrs, bodyTrainingAttrBonus);
         for (const bonus of projectedRuntimeBonuses) {
             addAttributes(baseAttrs, bonus.attrs);
         }

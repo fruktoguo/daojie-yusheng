@@ -745,6 +745,22 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
             });
             break;
           }
+          if (actionId === 'body_training:infuse') {
+            this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+              const requestedFoundation = Number.parseInt(target ?? '', 10);
+              const result = this.techniqueService.infuseBodyTrainingWithFoundation(player, requestedFoundation);
+              this.applyWorldUpdate(player.id, {
+                error: result.error,
+                dirty: result.dirty,
+                messages: result.messages.map((message) => ({
+                  playerId: player.id,
+                  text: message.text,
+                  kind: message.kind,
+                })),
+              }, messages);
+            });
+            break;
+          }
           this.syncActionsIfDirty(player, { skipQuestSync: true });
           const action = this.actionService.getAction(player, actionId);
           if (!action) {

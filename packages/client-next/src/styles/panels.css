@@ -996,6 +996,11 @@
       font-size: var(--font-size-12);
       line-height: 1.5;
     }
+    .body-training-card-note {
+      color: var(--ink-grey);
+      font-size: var(--font-size-11);
+      line-height: 1.6;
+    }
     .body-training-progress-bar {
       height: 10px;
       border-radius: 999px;
@@ -1026,8 +1031,111 @@
       flex-direction: column;
       gap: 6px;
     }
+    .body-training-card--accent {
+      background:
+        linear-gradient(180deg, rgba(242, 159, 5, 0.16), rgba(246, 196, 83, 0.08)),
+        var(--panel-bg-elevated);
+    }
     .body-training-card--wide {
       grid-column: 1 / -1;
+    }
+    .body-training-infuse-btn {
+      margin-top: 4px;
+      width: 100%;
+      min-height: 40px;
+    }
+    .detail-modal-card.detail-modal--body-training-infuse {
+      width: min(560px, calc(100vw - 32px));
+    }
+    .detail-modal-card.detail-modal--body-training-infuse #detail-modal-body {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .body-training-infuse-modal {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .body-training-infuse-summary {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .body-training-infuse-stat,
+    .body-training-infuse-picker,
+    .body-training-infuse-preview {
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      background:
+        linear-gradient(180deg, rgba(255, 182, 77, 0.12), rgba(255, 182, 77, 0.04)),
+        var(--panel-bg-elevated);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+    }
+    .body-training-infuse-stat {
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .body-training-infuse-stat-label,
+    .body-training-infuse-picker-label {
+      color: var(--ink-grey);
+      font-size: var(--font-size-11);
+    }
+    .body-training-infuse-stat-value,
+    .body-training-infuse-picker-value {
+      color: var(--ink-black);
+      font-size: var(--font-size-18);
+      line-height: 1.4;
+    }
+    .body-training-infuse-picker,
+    .body-training-infuse-preview {
+      padding: 14px;
+    }
+    .body-training-infuse-picker {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .body-training-infuse-picker-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .body-training-infuse-picker-row .small-btn {
+      min-width: 56px;
+      min-height: 34px;
+    }
+    .body-training-infuse-preview {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .body-training-infuse-preview-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--ink-black);
+      font-size: var(--font-size-12);
+    }
+    .body-training-infuse-note {
+      color: var(--ink-grey);
+      font-size: var(--font-size-11);
+      line-height: 1.6;
+      padding: 0 2px;
+    }
+    .body-training-infuse-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding-top: 4px;
+    }
+    .body-training-infuse-actions .small-btn {
+      min-width: 88px;
+      min-height: 36px;
     }
     .body-training-attrs {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1043,6 +1151,17 @@
       .body-training-grid,
       .body-training-attrs {
         grid-template-columns: 1fr;
+      }
+      .body-training-infuse-summary {
+        grid-template-columns: 1fr;
+      }
+      .body-training-infuse-picker-row,
+      .body-training-infuse-actions {
+        justify-content: stretch;
+      }
+      .body-training-infuse-picker-row .small-btn,
+      .body-training-infuse-actions .small-btn {
+        flex: 1 1 calc(50% - 4px);
       }
     }
     .detail-modal {

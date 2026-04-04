@@ -8,6 +8,7 @@ import {
   calcBodyTrainingAttrBonus,
   BreakthroughPreviewState,
   BreakthroughRequirementView,
+  BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER,
   calcTechniqueFinalAttrBonus,
   CULTIVATE_EXP_PER_TICK,
   DEFAULT_PLAYER_REALM_STAGE,
@@ -892,6 +893,33 @@ export class TechniqueService {
       return { error: '你的境界火候未到，尚不能突破', dirty: [], messages: [] };
     }
     return this.completeBreakthrough(player, realm);
+  }
+
+  infuseBodyTrainingWithFoundation(player: PlayerState, requestedFoundation: number): BreakthroughResult {
+    this.initializePlayerProgression(player);
+    const normalizedRequested = this.normalizeCounter(requestedFoundation);
+    if (normalizedRequested <= 0) {
+      return { error: '灌注量无效', dirty: [], messages: [] };
+    }
+    const consumed = this.consumeFoundation(player, normalizedRequested);
+    if (consumed <= 0) {
+      return { error: '当前底蕴不足，无法灌注', dirty: [], messages: [] };
+    }
+
+    const result = this.advanceBodyTrainingProgress(
+      player,
+      consumed * BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER,
+      { dirty: ['attr'], messages: [] },
+    );
+    const dirty = new Set<TechniqueDirtyFlag>(result.dirty);
+    dirty.add('attr');
+    return {
+      dirty: [...dirty],
+      messages: [{
+        text: `你将 ${consumed} 点底蕴灌入肉身，转化为 ${consumed * BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER} 点炼体经验。`,
+        kind: 'quest',
+      }, ...result.messages],
+    };
   }
 
   private advanceRealmProgress(player: PlayerState, baseGain: number, options: RealmExpAdvanceOptions = {}): RealmExpAdvanceResult {
