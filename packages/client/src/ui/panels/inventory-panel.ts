@@ -10,8 +10,10 @@ import {
   ItemStack,
   PlayerState,
   PlayerRealmState,
+  TECHNIQUE_LEARNING_HEAVY_DECAY_WARNING_DELTA,
   TechniqueGrade,
   createItemStackSignature,
+  shouldWarnTechniqueLearningDifficulty,
 } from '@mud/shared';
 import {
   getEquipSlotLabel,
@@ -24,7 +26,7 @@ import {
   preloadItemSourceCatalog,
   renderItemSourceListHtml,
 } from '../../content/item-sources';
-import { resolvePreviewItem, resolveTechniqueIdFromBookItemId } from '../../content/local-templates';
+import { getLocalTechniqueTemplate, resolvePreviewItem, resolveTechniqueIdFromBookItemId } from '../../content/local-templates';
 import { detailModalHost } from '../detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { buildItemTooltipPayload, describeItemEffectDetails } from '../equipment-tooltip';
@@ -669,8 +671,8 @@ export class InventoryPanel {
           </div>
           <div class="inventory-detail-actions">
             <div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch">
-              <button class="small-btn ghost" type="button" data-inventory-action-cancel>返回详情</button>
-              <button class="small-btn" type="button" data-inventory-action-confirm>确认使用</button>
+              <button class="small-btn ghost" type="button" data-inventory-action-cancel>${this.escapeHtml(specialUseSummary.cancelLabel ?? '返回详情')}</button>
+              <button class="small-btn" type="button" data-inventory-action-confirm>${this.escapeHtml(specialUseSummary.confirmLabel ?? '确认使用')}</button>
             </div>
           </div>
         `,
@@ -956,7 +958,9 @@ export class InventoryPanel {
   }
 
   private requiresUseConfirmation(item: ItemStack): boolean {
-    return this.getSpiritualRootSeedTier(item) !== null || item.itemId === SHATTER_SPIRIT_PILL_ITEM_ID;
+    return this.getSpiritualRootSeedTier(item) !== null
+      || item.itemId === SHATTER_SPIRIT_PILL_ITEM_ID
+      || this.getTechniqueLearningWarningSummary(item) !== null;
   }
 
   private getHeavenGateRerollCount(averageBonus: number): number {
@@ -974,7 +978,13 @@ export class InventoryPanel {
   private getSpecialUseConfirmSummary(item: ItemStack): {
     title: string;
     lines: string[];
+    confirmLabel?: string;
+    cancelLabel?: string;
   } | null {
+    const techniqueWarningSummary = this.getTechniqueLearningWarningSummary(item);
+    if (techniqueWarningSummary) {
+      return techniqueWarningSummary;
+    }
     const tier = this.getSpiritualRootSeedTier(item);
     if (tier) {
       const currentRerollCount = this.getHeavenGateRerollCount(this.playerHeavenGate?.averageBonus ?? 0);
@@ -1014,6 +1024,46 @@ export class InventoryPanel {
         `当前境界修为 ${formatDisplayInteger(currentExp)}，本次会消耗 ${formatDisplayInteger(expCost)}，使用后剩余 ${formatDisplayInteger(remainingExp)}。`,
         `当前逆天改命累计 ${formatDisplayInteger(currentRerollCount)} 次，使用后会额外增加 1 次，变为 ${formatDisplayInteger(nextRerollCount)} 次。`,
       ],
+    };
+  }
+
+  private getTechniqueLearningWarningSummary(item: ItemStack): {
+    title: string;
+    lines: string[];
+    confirmLabel?: string;
+    cancelLabel?: string;
+  } | null {
+    if (item.type !== 'skill_book') {
+      return null;
+    }
+    const playerRealmLv = Number.isFinite(this.playerRealm?.realmLv)
+      ? Math.max(1, Math.floor(Number(this.playerRealm?.realmLv)))
+      : null;
+    if (playerRealmLv === null) {
+      return null;
+    }
+    const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
+    if (!techniqueId) {
+      return null;
+    }
+    const technique = getLocalTechniqueTemplate(techniqueId);
+    if (!technique || !Number.isFinite(technique.realmLv)) {
+      return null;
+    }
+    const techniqueRealmLv = Math.max(1, Math.floor(Number(technique.realmLv)));
+    if (!shouldWarnTechniqueLearningDifficulty(playerRealmLv, techniqueRealmLv)) {
+      return null;
+    }
+    const gap = techniqueRealmLv - playerRealmLv;
+    return {
+      title: `确认学习 ${technique.name || item.name}`,
+      lines: [
+        '目标功法当前过于晦涩难懂，获得的经验值会大幅衰减。',
+        `你当前比这门功法低 ${formatDisplayInteger(gap)} 个境界，已超过 ${formatDisplayInteger(TECHNIQUE_LEARNING_HEAVY_DECAY_WARNING_DELTA)} 个境界的提醒阈值。`,
+        '确认后仍会照常学习；若暂时不学，点取消即可返回。',
+      ],
+      confirmLabel: '确认学习',
+      cancelLabel: '取消学习',
     };
   }
 

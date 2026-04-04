@@ -22,6 +22,7 @@ import {
   TECHNIQUE_GRADE_ATTR_DECAY_SPANS,
   TECHNIQUE_GRADE_ATTR_FREE_LIMITS,
   TECHNIQUE_EXP_LEVEL_DELTA_MULTIPLIER_STEP,
+  TECHNIQUE_LEARNING_HEAVY_DECAY_WARNING_DELTA,
   TECHNIQUE_GRADE_QI_COST_MULTIPLIERS,
   TECHNIQUE_GRADE_ORDER,
 } from './constants/gameplay/technique';
@@ -160,6 +161,15 @@ export function getTechniqueExpLevelAdjustment(
     return stepMultiplier ** (normalizedPlayerLevel - normalizedTechniqueLevel);
   }
   return 1;
+}
+
+export function shouldWarnTechniqueLearningDifficulty(
+  playerRealmLv: number | undefined,
+  techniqueRealmLv: number | undefined,
+): boolean {
+  const normalizedPlayerLevel = Number.isFinite(playerRealmLv) ? Math.max(1, Math.floor(Number(playerRealmLv))) : 1;
+  const normalizedTechniqueLevel = Number.isFinite(techniqueRealmLv) ? Math.max(1, Math.floor(Number(techniqueRealmLv))) : 1;
+  return normalizedTechniqueLevel - normalizedPlayerLevel > TECHNIQUE_LEARNING_HEAVY_DECAY_WARNING_DELTA;
 }
 
 /** 获取当前炼体层数升到下一层所需经验 */

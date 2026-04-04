@@ -15,7 +15,10 @@ export const CULTIVATION_REALM_EXP_PER_TICK = 1;
 export const AUTO_IDLE_CULTIVATION_DELAY_TICKS = 10;
 
 /** 玩家境界与功法境界存在差距时，每级功法经验乘算修正幅度。 */
-export const TECHNIQUE_EXP_LEVEL_DELTA_MULTIPLIER_STEP = 0.2;
+export const TECHNIQUE_EXP_LEVEL_DELTA_MULTIPLIER_STEP = 0.3;
+
+/** 学习高于自身过多境界的功法时，触发学习前确认提示的境界差阈值。 */
+export const TECHNIQUE_LEARNING_HEAVY_DECAY_WARNING_DELTA = 5;
 
 /** 炼体第一层所需经验 */
 export const BODY_TRAINING_EXP_BASE = 10000;
