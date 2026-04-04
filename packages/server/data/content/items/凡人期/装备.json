@@ -139,7 +139,7 @@
     "equipSlot": "accessory",
     "equipValueStats": {
       "maxHp": 1,
-      "realmExpPerTick": 4
+      "realmExpPerTick": 1
     }
   },
   {
