@@ -921,7 +921,7 @@ export class TechniqueService {
       ? Math.max(0, realm.progressToNext - realm.progress)
       : 0;
     if (room <= 0) {
-      const foundationGained = options.overflowToFoundation ? this.addFoundation(player, gain) : 0;
+      const foundationGained = options.overflowToFoundation ? this.addOverflowFoundation(player, realm, gain) : 0;
       if (foundationGained > 0) {
         dirty.add('attr');
       }
@@ -952,7 +952,8 @@ export class TechniqueService {
     const previousProgress = realm.progress;
     const nextState = this.normalizeRealmState(realm.realmLv, realm.progress + acceptedBaseGain + foundationSpent);
     const actualGain = Math.max(0, nextState.progress - previousProgress);
-    const foundationGained = options.overflowToFoundation ? this.addFoundation(player, Math.max(0, gain - acceptedBaseGain)) : 0;
+    const foundationOverflow = Math.max(0, gain - acceptedBaseGain);
+    const foundationGained = options.overflowToFoundation ? this.addOverflowFoundation(player, nextState, foundationOverflow) : 0;
     if (foundationGained > 0) {
       dirty.add('attr');
     }
@@ -1405,6 +1406,16 @@ export class TechniqueService {
     return this.normalizeCounter(player.foundation);
   }
 
+  private addOverflowFoundation(player: PlayerState, realm: Pick<PlayerRealmState, 'progressToNext'>, amount: number): number {
+    const exactGain = this.calculateOverflowFoundationGain(player, realm, amount);
+    const normalized = this.rollFractionalGain(exactGain);
+    if (normalized <= 0) {
+      return 0;
+    }
+    player.foundation = this.getPlayerFoundation(player) + normalized;
+    return normalized;
+  }
+
   private addFoundation(player: PlayerState, amount: number): number {
     const normalized = this.normalizeCounter(amount);
     if (normalized <= 0) {
@@ -1432,6 +1443,35 @@ export class TechniqueService {
     }
     player.combatExp = this.normalizeCounter(player.combatExp) + normalized;
     return normalized;
+  }
+
+  private calculateOverflowFoundationGain(player: PlayerState, realm: Pick<PlayerRealmState, 'progressToNext'>, amount: number): number {
+    const normalized = this.normalizeCounter(amount);
+    if (normalized <= 0) {
+      return 0;
+    }
+
+    const referenceProgress = this.normalizeCounter(realm.progressToNext);
+    if (referenceProgress <= 0) {
+      return normalized;
+    }
+
+    const currentFoundation = this.getPlayerFoundation(player);
+    const decayRate = Math.log(2) / (referenceProgress * 10);
+    const decaySeed = Math.exp(-decayRate * currentFoundation);
+    return Math.log1p(decayRate * normalized * decaySeed) / decayRate;
+  }
+
+  private rollFractionalGain(value: number): number {
+    if (!Number.isFinite(value) || value <= 0) {
+      return 0;
+    }
+    const guaranteed = Math.floor(value);
+    const remainder = value - guaranteed;
+    if (remainder <= 0) {
+      return guaranteed;
+    }
+    return guaranteed + (Math.random() < remainder ? 1 : 0);
   }
 
   private createRealmStateFromLevel(realmLv: number, progress = 0): PlayerRealmState {
