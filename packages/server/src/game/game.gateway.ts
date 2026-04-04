@@ -1130,7 +1130,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         kind: message.kind ?? 'system',
       } satisfies S2C_SystemMsg);
     }
-    this.broadcastMarketUpdates();
   }
 
   private broadcastMarketUpdates(): void {

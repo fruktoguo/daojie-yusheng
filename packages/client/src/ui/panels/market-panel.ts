@@ -140,26 +140,36 @@ export class MarketPanel {
   }
 
   syncPlayerContext(player?: Pick<PlayerState, 'techniques' | 'unlockedMinimapIds'>): void {
-    if (!player) {
-      this.learnedTechniqueIds.clear();
-      this.unlockedMinimapIds.clear();
-    } else {
-      this.learnedTechniqueIds = new Set(
+    const nextLearnedTechniqueIds = player
+      ? new Set(
         (player.techniques ?? [])
           .map((technique) => technique.techId)
           .filter((techniqueId): techniqueId is string => typeof techniqueId === 'string' && techniqueId.length > 0),
-      );
-      this.unlockedMinimapIds = new Set(
+      )
+      : new Set<string>();
+    const nextUnlockedMinimapIds = player
+      ? new Set(
         (player.unlockedMinimapIds ?? [])
           .filter((mapId): mapId is string => typeof mapId === 'string' && mapId.length > 0),
-      );
+      )
+      : new Set<string>();
+    const contextChanged = !this.areStringSetsEqual(this.learnedTechniqueIds, nextLearnedTechniqueIds)
+      || !this.areStringSetsEqual(this.unlockedMinimapIds, nextUnlockedMinimapIds);
+    if (!contextChanged) {
+      return;
     }
+    this.learnedTechniqueIds = nextLearnedTechniqueIds;
+    this.unlockedMinimapIds = nextUnlockedMinimapIds;
     if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
       this.renderModal();
     }
   }
 
   syncInventory(inventory: Inventory): void {
+    if (this.areInventoriesEquivalent(this.inventory, inventory)) {
+      this.syncBuyConfirmModal();
+      return;
+    }
     this.inventory = inventory;
     if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
       this.renderModal();
@@ -168,6 +178,9 @@ export class MarketPanel {
   }
 
   updateListings(data: S2C_MarketListings): void {
+    if (this.areMarketListingsEqual(this.marketListings, data)) {
+      return;
+    }
     this.marketListings = data;
     this.currentPage = data.page;
     this.marketUpdate = this.buildSyntheticMarketUpdate();
@@ -192,6 +205,9 @@ export class MarketPanel {
   }
 
   updateOrders(data: S2C_MarketOrders): void {
+    if (this.areMarketOrdersEqual(this.marketOrders, data)) {
+      return;
+    }
     this.marketOrders = data;
     this.marketUpdate = this.buildSyntheticMarketUpdate();
     this.renderPane();
@@ -204,6 +220,9 @@ export class MarketPanel {
   }
 
   updateStorage(data: S2C_MarketStorage): void {
+    if (this.areMarketStorageEqual(this.marketStorage, data)) {
+      return;
+    }
     this.marketStorage = data;
     this.marketUpdate = this.buildSyntheticMarketUpdate();
     this.renderPane();
@@ -218,6 +237,10 @@ export class MarketPanel {
       return;
     }
     this.itemBookLoading = false;
+    if (this.areMarketItemBooksEqual(this.itemBook, data.book)) {
+      this.syncBuyConfirmModal();
+      return;
+    }
     this.itemBook = data.book;
     if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
       this.renderModal();
@@ -229,6 +252,9 @@ export class MarketPanel {
 
   updateTradeHistory(data: S2C_MarketTradeHistory): void {
     this.tradeHistoryLoading = false;
+    if (this.areMarketTradeHistoryEqual(this.tradeHistory, data)) {
+      return;
+    }
     this.tradeHistory = data;
     this.tradeHistoryPage = data.page;
     if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
@@ -1484,5 +1510,168 @@ export class MarketPanel {
     return this.inventory.items
       .filter((entry) => entry.itemId === itemId)
       .reduce((sum, entry) => sum + entry.count, 0);
+  }
+
+  private areStringSetsEqual(left: ReadonlySet<string>, right: ReadonlySet<string>): boolean {
+    if (left.size !== right.size) {
+      return false;
+    }
+    for (const value of left) {
+      if (!right.has(value)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private areInventoriesEquivalent(left: Inventory | null | undefined, right: Inventory | null | undefined): boolean {
+    const leftItems = left?.items ?? [];
+    const rightItems = right?.items ?? [];
+    if ((left?.capacity ?? 0) !== (right?.capacity ?? 0) || leftItems.length !== rightItems.length) {
+      return false;
+    }
+    for (let index = 0; index < leftItems.length; index += 1) {
+      const leftItem = leftItems[index];
+      const rightItem = rightItems[index];
+      if (!leftItem || !rightItem) {
+        return false;
+      }
+      if (leftItem.itemId !== rightItem.itemId || leftItem.count !== rightItem.count) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private areMarketListingsEqual(left: S2C_MarketListings | null, right: S2C_MarketListings): boolean {
+    if (!left) {
+      return false;
+    }
+    if (
+      left.currencyItemId !== right.currencyItemId
+      || left.currencyItemName !== right.currencyItemName
+      || left.page !== right.page
+      || left.pageSize !== right.pageSize
+      || left.total !== right.total
+      || left.category !== right.category
+      || left.equipmentSlot !== right.equipmentSlot
+      || left.techniqueCategory !== right.techniqueCategory
+      || left.items.length !== right.items.length
+    ) {
+      return false;
+    }
+    for (let index = 0; index < left.items.length; index += 1) {
+      const leftItem = left.items[index];
+      const rightItem = right.items[index];
+      if (
+        leftItem.itemId !== rightItem.itemId
+        || leftItem.lowestSellPrice !== rightItem.lowestSellPrice
+        || leftItem.highestBuyPrice !== rightItem.highestBuyPrice
+      ) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private areMarketOrdersEqual(left: S2C_MarketOrders | null, right: S2C_MarketOrders): boolean {
+    if (!left) {
+      return false;
+    }
+    if (
+      left.currencyItemId !== right.currencyItemId
+      || left.currencyItemName !== right.currencyItemName
+      || left.orders.length !== right.orders.length
+    ) {
+      return false;
+    }
+    for (let index = 0; index < left.orders.length; index += 1) {
+      const leftOrder = left.orders[index];
+      const rightOrder = right.orders[index];
+      if (
+        leftOrder.id !== rightOrder.id
+        || leftOrder.side !== rightOrder.side
+        || leftOrder.status !== rightOrder.status
+        || leftOrder.itemId !== rightOrder.itemId
+        || leftOrder.remainingQuantity !== rightOrder.remainingQuantity
+        || leftOrder.unitPrice !== rightOrder.unitPrice
+        || leftOrder.createdAt !== rightOrder.createdAt
+      ) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private areMarketStorageEqual(left: S2C_MarketStorage | null, right: S2C_MarketStorage): boolean {
+    if (!left || left.items.length !== right.items.length) {
+      return false;
+    }
+    for (let index = 0; index < left.items.length; index += 1) {
+      const leftItem = left.items[index];
+      const rightItem = right.items[index];
+      if (leftItem.itemId !== rightItem.itemId || leftItem.count !== rightItem.count) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private areMarketItemBooksEqual(
+    left: S2C_MarketItemBook['book'] | null,
+    right: S2C_MarketItemBook['book'] | null,
+  ): boolean {
+    if (left === right) {
+      return true;
+    }
+    if (!left || !right || left.itemId !== right.itemId) {
+      return false;
+    }
+    return this.arePriceLevelsEqual(left.sells, right.sells) && this.arePriceLevelsEqual(left.buys, right.buys);
+  }
+
+  private arePriceLevelsEqual(
+    left: NonNullable<S2C_MarketItemBook['book']>['sells'],
+    right: NonNullable<S2C_MarketItemBook['book']>['sells'],
+  ): boolean {
+    if (left.length !== right.length) {
+      return false;
+    }
+    for (let index = 0; index < left.length; index += 1) {
+      const leftLevel = left[index];
+      const rightLevel = right[index];
+      if (leftLevel.unitPrice !== rightLevel.unitPrice || leftLevel.quantity !== rightLevel.quantity) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private areMarketTradeHistoryEqual(left: S2C_MarketTradeHistory | null, right: S2C_MarketTradeHistory): boolean {
+    if (!left) {
+      return false;
+    }
+    if (
+      left.page !== right.page
+      || left.pageSize !== right.pageSize
+      || left.totalVisible !== right.totalVisible
+      || left.records.length !== right.records.length
+    ) {
+      return false;
+    }
+    for (let index = 0; index < left.records.length; index += 1) {
+      const leftRecord = left.records[index];
+      const rightRecord = right.records[index];
+      if (
+        leftRecord.itemId !== rightRecord.itemId
+        || leftRecord.quantity !== rightRecord.quantity
+        || leftRecord.unitPrice !== rightRecord.unitPrice
+        || leftRecord.side !== rightRecord.side
+        || leftRecord.createdAt !== rightRecord.createdAt
+      ) {
+        return false;
+      }
+    }
+    return true;
   }
 }
