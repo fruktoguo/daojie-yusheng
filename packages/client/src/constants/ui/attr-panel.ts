@@ -4,13 +4,14 @@
  */
 import { NumericStats, PlayerSpecialStats } from '@mud/shared';
 
-export type AttrTab = 'base' | 'root' | 'combat' | 'qi' | 'special';
+export type AttrTab = 'base' | 'root' | 'vein' | 'combat' | 'qi' | 'special';
 export type NumericCardKey = Exclude<keyof NumericStats, 'elementDamageBonus' | 'elementDamageReduce'>;
 export type PlayerSpecialCardKey = keyof PlayerSpecialStats;
 
 export const ATTR_TAB_LABELS: Record<AttrTab, string> = {
   base: '六维',
   root: '灵根',
+  vein: '灵脉',
   combat: '斗法',
   qi: '灵力',
   special: '特殊',

@@ -1,6 +1,6 @@
 /**
  * 属性面板
- * 以雷达图和数值卡片展示六维、灵根、斗法、灵力、特殊五大分类属性
+ * 以雷达图和数值卡片展示六维、灵根、灵脉、斗法、灵力、特殊六大分类属性
  */
 
 import {
@@ -13,6 +13,7 @@ import {
   BASE_MOVE_POINTS_PER_TICK,
   DEFAULT_RATIO_DIVISOR,
   ELEMENT_KEYS,
+  HeavenGateRootValues,
   NumericRatioDivisors,
   NumericStats,
   PlayerState,
@@ -43,6 +44,7 @@ import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from 
 import {
   describeSpiritualRoots,
   getSpiritualRootAbsorptionRate,
+  normalizeSpiritualRoots,
   resolveSpiritualRootsFromBonuses,
 } from '../../utils/spiritual-roots';
 
@@ -54,6 +56,10 @@ function formatRateBp(value: number): string {
 
 function formatSimplePercent(value: number): string {
   return formatDisplayPercent(value);
+}
+
+function formatAuraAbsorptionRate(value: number): string {
+  return formatDisplayPercent(value, { maximumFractionDigits: 2 });
 }
 
 function formatCritDamageBonus(value: number): string {
@@ -318,6 +324,9 @@ export class AttrPanel {
         root: stats && ratioDivisors
           ? this.buildRootRadarSnapshot(stats, ratioDivisors, bonuses)
           : { kind: 'placeholder', message: '灵根信息尚未同步' },
+        vein: stats
+          ? this.buildVeinPaneSnapshot(stats, bonuses)
+          : { kind: 'placeholder', message: '灵脉信息尚未同步' },
         combat: this.buildNumericPaneSnapshot('斗法数值', stats, ratioDivisors, {
           keys: ['maxHp', 'physAtk', 'spellAtk', 'physDef', 'spellDef', 'hit', 'dodge', 'crit', 'critDamage', 'breakPower', 'resolvePower'],
           ratioKeys: ['dodge', 'crit', 'breakPower', 'resolvePower'],
@@ -406,6 +415,55 @@ export class AttrPanel {
     const radarMax = Math.max(100, ...entries.map((entry) => entry.value)) || 100;
     const rootTitle = describeSpiritualRoots(resolveSpiritualRootsFromBonuses(bonuses)).name;
     return this.buildRadarPaneSnapshot(rootTitle, radarMax, entries, 'root');
+  }
+
+  private buildVeinPaneSnapshot(
+    stats: NumericStats,
+    bonuses: AttrBonus[],
+  ): AttrNumericPaneSnapshot {
+    const roots = resolveSpiritualRootsFromBonuses(bonuses)
+      ?? normalizeSpiritualRoots(this.buildHeavenGateRootsFromStats(stats));
+    const cards: AttrNumericCardSnapshot[] = [{
+      key: 'neutral-aura',
+      label: '无属性灵气',
+      value: formatAuraAbsorptionRate(100),
+      tooltipTitle: '无属性灵气',
+      tooltipDetail: [
+        '对无属性灵气吸收效率为 100%。',
+      ].join('\n'),
+    }];
+
+    for (const key of ELEMENT_KEYS) {
+      const rootValue = roots?.[key] ?? 0;
+      if (rootValue <= 0) {
+        continue;
+      }
+      const rate = getSpiritualRootAbsorptionRate(rootValue);
+      const label = `${ELEMENT_KEY_LABELS[key]}灵气`;
+      cards.push({
+        key: `${key}-aura`,
+        label,
+        value: formatAuraAbsorptionRate(rate),
+        tooltipTitle: label,
+        tooltipDetail: [
+          `对${ELEMENT_KEY_LABELS[key]}灵气吸收效率为 ${formatAuraAbsorptionRate(rate)}。`,
+          `当前${ELEMENT_KEY_LABELS[key]}灵根：${formatDisplayInteger(rootValue)}`,
+        ].join('\n'),
+      });
+    }
+
+    return {
+      kind: 'numeric',
+      title: '灵脉流转',
+      cards,
+    };
+  }
+
+  private buildHeavenGateRootsFromStats(stats: NumericStats): HeavenGateRootValues {
+    return ELEMENT_KEYS.reduce((roots, key) => {
+      roots[key] = Math.max(0, Math.min(100, Math.round(stats.elementDamageBonus[key])));
+      return roots;
+    }, {} as HeavenGateRootValues);
   }
 
   private buildRadarPaneSnapshot(title: string, scale: number, entries: RadarEntry[], paneId: string): AttrRadarPaneSnapshot {
@@ -590,6 +648,7 @@ export class AttrPanel {
         <div class="action-tab-bar">${this.renderTabs()}</div>
         <div class="action-tab-pane ${this.activeTab === 'base' ? 'active' : ''}" data-attr-pane="base">${this.renderPane(snapshot.panes.base)}</div>
         <div class="action-tab-pane ${this.activeTab === 'root' ? 'active' : ''}" data-attr-pane="root">${this.renderPane(snapshot.panes.root)}</div>
+        <div class="action-tab-pane ${this.activeTab === 'vein' ? 'active' : ''}" data-attr-pane="vein">${this.renderPane(snapshot.panes.vein)}</div>
         <div class="action-tab-pane ${this.activeTab === 'combat' ? 'active' : ''}" data-attr-pane="combat">${this.renderPane(snapshot.panes.combat)}</div>
         <div class="action-tab-pane ${this.activeTab === 'qi' ? 'active' : ''}" data-attr-pane="qi">${this.renderPane(snapshot.panes.qi)}</div>
         <div class="action-tab-pane ${this.activeTab === 'special' ? 'active' : ''}" data-attr-pane="special">${this.renderPane(snapshot.panes.special)}</div>
@@ -657,6 +716,7 @@ export class AttrPanel {
     this.patchTabState();
     return this.patchPane('base', snapshot.panes.base)
       && this.patchPane('root', snapshot.panes.root)
+      && this.patchPane('vein', snapshot.panes.vein)
       && this.patchPane('combat', snapshot.panes.combat)
       && this.patchPane('qi', snapshot.panes.qi)
       && this.patchPane('special', snapshot.panes.special);
@@ -677,7 +737,8 @@ export class AttrPanel {
     }
     if (snapshot.kind === 'numeric') {
       const titleNode = pane.querySelector<HTMLElement>('[data-numeric-title="true"]');
-      if (!titleNode) {
+      const cardNodes = pane.querySelectorAll<HTMLElement>('[data-numeric-card]');
+      if (!titleNode || cardNodes.length !== snapshot.cards.length) {
         return false;
       }
       titleNode.textContent = snapshot.title;
@@ -686,13 +747,15 @@ export class AttrPanel {
         if (!cardNode) {
           return false;
         }
+        const labelNode = cardNode.querySelector<HTMLElement>('[data-numeric-label="true"]');
         const valueNode = cardNode.querySelector<HTMLElement>('[data-numeric-value="true"]');
         const subNode = cardNode.querySelector<HTMLElement>('[data-numeric-sub="true"]');
-        if (!valueNode || !subNode) {
+        if (!labelNode || !valueNode || !subNode) {
           return false;
         }
         cardNode.setAttribute('data-tooltip-title', card.tooltipTitle);
         cardNode.setAttribute('data-tooltip-detail', card.tooltipDetail);
+        labelNode.textContent = card.label;
         valueNode.textContent = card.value;
         subNode.textContent = card.sub ?? '';
         subNode.classList.toggle('hidden', !card.sub);
@@ -741,13 +804,16 @@ export class AttrPanel {
   }
 
   private buildStructureKey(snapshot: AttrPanelSnapshot): string {
-    return JSON.stringify({
-      base: snapshot.panes.base.kind,
-      root: snapshot.panes.root.kind,
-      combat: snapshot.panes.combat.kind,
-      qi: snapshot.panes.qi.kind,
-      special: snapshot.panes.special.kind,
+    const entries = Object.entries(snapshot.panes).map(([tab, pane]) => {
+      if (pane.kind === 'numeric') {
+        return [tab, { kind: pane.kind, cards: pane.cards.map((card) => card.key) }];
+      }
+      if (pane.kind === 'radar') {
+        return [tab, { kind: pane.kind, nodes: pane.nodes.length }];
+      }
+      return [tab, { kind: pane.kind }];
     });
+    return JSON.stringify(Object.fromEntries(entries));
   }
 
   private bindPaneEvents(): void {
