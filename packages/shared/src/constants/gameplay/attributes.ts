@@ -152,7 +152,8 @@ function createScalarMultiplierFloorStats(): Omit<NumericStats, 'elementDamageBo
     hit: 100,
     dodge: DEFAULT_RATIO_DIVISOR,
     crit: DEFAULT_RATIO_DIVISOR,
-    critDamage: 100,
+    // critDamage 只表示额外暴伤加成；基础 200% 暴伤不应被百分比乘区当成底座放大。
+    critDamage: 0,
     breakPower: DEFAULT_RATIO_DIVISOR,
     resolvePower: DEFAULT_RATIO_DIVISOR,
     maxQiOutputPerTick: BASE_MAX_QI_OUTPUT_PER_TICK,

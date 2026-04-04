@@ -284,6 +284,8 @@ export function computeMonsterBaseNumericStatsFromAttrs(
   };
   const stats = createNumericStats();
   addPartialNumericStats(stats, template.stats);
+  // 怪物只保留通用基础 200% 暴伤，不继承玩家境界模板里的额外暴伤。
+  stats.critDamage = 0;
   stats.hpRegenRate = MONSTER_BASE_HP_REGEN_RATE;
   applyAttrWeight(stats, normalizedAttrs);
   applyMonsterEquipmentStats(stats, equipment);
