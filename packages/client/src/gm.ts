@@ -80,6 +80,7 @@ import {
   GM_TECHNIQUE_REALM_OPTIONS,
 } from './constants/world/gm';
 import { getLocalEditorCatalog } from './content/editor-catalog';
+import { resolveTechniqueIdFromBookItemId } from './content/local-templates';
 import { GmWorldViewer } from './gm-world-viewer';
 import { startClientVersionReload } from './version-reload';
 
@@ -107,6 +108,7 @@ const editorTabPositionBtn = document.getElementById('editor-tab-position') as H
 const editorTabRealmBtn = document.getElementById('editor-tab-realm') as HTMLButtonElement;
 const editorTabBuffsBtn = document.getElementById('editor-tab-buffs') as HTMLButtonElement;
 const editorTabTechniquesBtn = document.getElementById('editor-tab-techniques') as HTMLButtonElement;
+const editorTabShortcutsBtn = document.getElementById('editor-tab-shortcuts') as HTMLButtonElement;
 const editorTabItemsBtn = document.getElementById('editor-tab-items') as HTMLButtonElement;
 const editorTabQuestsBtn = document.getElementById('editor-tab-quests') as HTMLButtonElement;
 const editorTabMailBtn = document.getElementById('editor-tab-mail') as HTMLButtonElement;
@@ -209,7 +211,7 @@ const redeemGroupEditorEl = document.getElementById('redeem-group-editor') as HT
 const redeemCodeListEl = document.getElementById('redeem-code-list') as HTMLDivElement | null;
 
 type PlayerSortMode = 'realm-desc' | 'realm-asc' | 'online' | 'map' | 'name';
-type GmEditorTab = GmPlayerUpdateSection | 'mail' | 'persisted';
+type GmEditorTab = GmPlayerUpdateSection | 'shortcuts' | 'mail' | 'persisted';
 
 interface GmMailAttachmentDraft {
   itemId: string;
@@ -233,7 +235,10 @@ interface RedeemGroupDraft {
   appendCount: string;
 }
 
+type SearchableItemScope = 'all' | 'inventory-add' | 'equipment-slot';
+
 const MAIL_ATTACHMENT_ITEM_PAGE_SIZE = 10;
+const SEARCHABLE_ITEM_RESULT_LIMIT = 80;
 
 startClientVersionReload({
   onBeforeReload: () => {
@@ -286,6 +291,8 @@ let broadcastMailDraft = createDefaultMailComposerDraft();
 let shortcutMailComposerRefreshBlocked = false;
 let directMailAttachmentPageByIndex = new Map<number, number>();
 let shortcutMailAttachmentPageByIndex = new Map<number, number>();
+let activeSearchableItemField: HTMLElement | null = null;
+let editorRenderRefreshBlocked = false;
 
 function getBrowserLocalStorage(): Storage | null {
   try {
@@ -844,7 +851,6 @@ function getMailComposerMarkup(
     ? `<div class="editor-note">${escapeHtml(templateMeta?.description || '该模板的附件由服务端固定生成。')}</div>`
     : draft.attachments.length > 0
       ? draft.attachments.map((entry, index) => {
-        const pageState = getMailAttachmentItemPageState(options.scope, index, entry.itemId);
         return `
         <div class="editor-card">
           <div class="editor-card-head">
@@ -855,27 +861,13 @@ function getMailComposerMarkup(
             <button class="small-btn danger" type="button" data-action="${options.scope === 'direct' ? 'remove-direct-mail-attachment' : 'remove-shortcut-mail-attachment'}" data-mail-attachment-index="${index}">删除附件</button>
           </div>
           <div class="editor-grid compact">
-            ${pageState.totalPages > 1 ? `
-            <label class="editor-field">
-              <span>物品页码</span>
-              <select data-mail-item-page="${options.scope}.${index}">
-                ${optionsMarkup(
-                  Array.from({ length: pageState.totalPages }, (_, pageIndex) => ({
-                    value: pageIndex + 1,
-                    label: `第 ${pageIndex + 1} / ${pageState.totalPages} 页`,
-                  })),
-                  pageState.page,
-                )}
-              </select>
-            </label>
-            ` : ''}
-            <label class="editor-field wide">
-              <span>物品模板</span>
-              <select data-mail-bind="${options.scope}.attachments.${index}.itemId">
-                <option value="">选择物品模板</option>
-                ${optionsMarkup(pageState.options, entry.itemId)}
-              </select>
-            </label>
+            ${searchableItemField(
+              '物品模板',
+              entry.itemId,
+              'all',
+              { 'data-mail-bind': `${options.scope}.attachments.${index}.itemId` },
+              'wide',
+            )}
             <label class="editor-field">
               <span>数量</span>
               <input type="number" min="1" data-mail-bind="${options.scope}.attachments.${index}.count" value="${Math.max(1, Math.floor(entry.count || 1))}" />
@@ -1065,6 +1057,37 @@ function getTechniqueSummary(technique: TechniqueState): string {
   return `${technique.name || technique.techId} · ${technique.grade ?? 'mortal'} · 境界 Lv.${technique.realmLv} · 等级 ${technique.level}`;
 }
 
+function getTechniqueTemplateMaxLevel(technique: TechniqueState): number {
+  const catalogEntry = findTechniqueCatalogEntry(technique.techId);
+  const levels = catalogEntry?.layers?.map((layer) => layer.level)
+    ?? technique.layers?.map((layer) => layer.level)
+    ?? [];
+  if (levels.length === 0) {
+    return Math.max(1, Math.floor(technique.level || 1));
+  }
+  return Math.max(1, ...levels);
+}
+
+function buildMaxLevelTechniqueState(technique: TechniqueState): TechniqueState {
+  const catalogEntry = findTechniqueCatalogEntry(technique.techId);
+  const maxLevel = getTechniqueTemplateMaxLevel(technique);
+  if (!catalogEntry) {
+    return {
+      ...clone(technique),
+      level: maxLevel,
+      exp: 0,
+      expToNext: 0,
+    };
+  }
+  const next = createTechniqueFromCatalog(technique.techId);
+  return {
+    ...next,
+    level: maxLevel,
+    exp: 0,
+    expToNext: 0,
+  };
+}
+
 function getInventoryRowMeta(item: ItemStack): string {
   const parts = [ITEM_TYPE_LABELS[item.type] ?? item.type];
   if (item.type === 'equipment' && item.equipSlot) {
@@ -1121,14 +1144,18 @@ function getTechniqueEditorControls(index: number, technique: TechniqueState): s
 }
 
 function getItemEditorControls(basePath: string, item: ItemStack, mode: 'inventory' | 'equipment'): string {
-  const itemOptions = mode === 'equipment'
-    ? getItemCatalogOptions((option) => option.type === 'equipment' && option.equipSlot === item.equipSlot)
-    : getItemCatalogOptions();
   const catalogEntry = findItemCatalogEntry(item.itemId);
   if (catalogEntry) {
     return `
       <div class="editor-grid compact">
-        ${selectField(mode === 'equipment' ? '装备模板' : '物品', `${basePath}.itemId`, item.itemId, itemOptions, 'wide')}
+        ${searchableItemField(
+          mode === 'equipment' ? '装备模板' : '物品',
+          item.itemId,
+          mode === 'equipment' ? 'equipment-slot' : 'all',
+          { 'data-bind': `${basePath}.itemId`, 'data-kind': 'string' },
+          'wide',
+          mode === 'equipment' ? item.equipSlot : undefined,
+        )}
         ${mode === 'inventory' ? numberField('数量', `${basePath}.count`, item.count) : ''}
         <div class="editor-field">
           <span>模板等级</span>
@@ -1151,7 +1178,14 @@ function getItemEditorControls(basePath: string, item: ItemStack, mode: 'invento
 
   return `
     <div class="editor-grid compact">
-      ${selectField(mode === 'equipment' ? '装备模板' : '物品', `${basePath}.itemId`, item.itemId, itemOptions, 'wide')}
+      ${searchableItemField(
+        mode === 'equipment' ? '装备模板' : '物品',
+        item.itemId,
+        mode === 'equipment' ? 'equipment-slot' : 'all',
+        { 'data-bind': `${basePath}.itemId`, 'data-kind': 'string' },
+        'wide',
+        mode === 'equipment' ? item.equipSlot : undefined,
+      )}
       ${mode === 'inventory' ? numberField('数量', `${basePath}.count`, item.count) : ''}
       ${numberField('等级', `${basePath}.level`, item.level)}
       ${nullableTextField('品阶', `${basePath}.grade`, item.grade, 'undefined')}
@@ -1259,6 +1293,7 @@ function syncVisualEditorFieldsFromDraft(draft: PlayerState): void {
     }
     setTextLikeValue(field, rawValue == null ? '' : String(rawValue));
   }
+  syncSearchableItemFields(editorContentEl);
 }
 
 function patchEditorPreview(detail: GmManagedPlayerRecord, draft: PlayerState): void {
@@ -1556,6 +1591,8 @@ function getEditorTabLabel(tab: GmEditorTab): string {
       return 'Buff';
     case 'techniques':
       return '功法';
+    case 'shortcuts':
+      return '快捷操作';
     case 'items':
       return '物品';
     case 'quests':
@@ -1574,6 +1611,7 @@ function switchEditorTab(tab: GmEditorTab): void {
   editorTabRealmBtn.classList.toggle('active', tab === 'realm');
   editorTabBuffsBtn.classList.toggle('active', tab === 'buffs');
   editorTabTechniquesBtn.classList.toggle('active', tab === 'techniques');
+  editorTabShortcutsBtn.classList.toggle('active', tab === 'shortcuts');
   editorTabItemsBtn.classList.toggle('active', tab === 'items');
   editorTabQuestsBtn.classList.toggle('active', tab === 'quests');
   editorTabMailBtn.classList.toggle('active', tab === 'mail');
@@ -1587,10 +1625,12 @@ function switchEditorTab(tab: GmEditorTab): void {
     savePlayerBtn.textContent = '高级区不直接保存';
   } else if (tab === 'mail') {
     savePlayerBtn.textContent = '邮件标签不直接保存';
+  } else if (tab === 'shortcuts') {
+    savePlayerBtn.textContent = '快捷标签按钮会直接提交';
   } else {
     savePlayerBtn.textContent = `保存${getEditorTabLabel(tab)}`;
   }
-  savePlayerBtn.disabled = tab === 'persisted' || tab === 'mail' || !selectedPlayerId;
+  savePlayerBtn.disabled = tab === 'persisted' || tab === 'mail' || tab === 'shortcuts' || !selectedPlayerId;
 }
 
 function setStatus(message: string, isError = false): void {
@@ -1730,13 +1770,13 @@ function renderRedeemPanel(): void {
           <button class="small-btn danger" type="button" data-action="remove-redeem-reward" data-reward-index="${index}">删除</button>
         </div>
         <div class="editor-grid compact">
-          <label class="editor-field wide">
-            <span>物品模板</span>
-            <select data-redeem-bind="rewards.${index}.itemId">
-              <option value="">选择物品模板</option>
-              ${optionsMarkup(getMailAttachmentItemOptions(), reward.itemId)}
-            </select>
-          </label>
+          ${searchableItemField(
+            '物品模板',
+            reward.itemId,
+            'all',
+            { 'data-redeem-bind': `rewards.${index}.itemId` },
+            'wide',
+          )}
           <label class="editor-field">
             <span>数量</span>
             <input type="number" min="1" value="${Math.max(1, Math.floor(reward.count || 1))}" data-redeem-bind="rewards.${index}.count" />
@@ -1801,10 +1841,27 @@ function renderRedeemPanel(): void {
       ` : ''}
     </div>
   `;
+  syncSearchableItemFields(redeemGroupEditorEl);
 
   const codeItems = redeemGroupDetailState?.codes ?? [];
-  redeemCodeListEl.innerHTML = codeItems.length > 0
-    ? codeItems.map((code) => getRedeemCodeMarkup(code)).join('')
+  const activeCodeCount = codeItems.filter((code) => code.status === 'active').length;
+  redeemCodeListEl.innerHTML = redeemGroupDetailState
+    ? `
+      <div class="editor-section">
+        <div class="editor-section-head">
+          <div>
+            <div class="editor-section-title">兑换码列表</div>
+            <div class="editor-section-note">当前分组共 ${codeItems.length} 个兑换码，其中 ${activeCodeCount} 个未使用。</div>
+          </div>
+          <button class="small-btn" type="button" data-action="copy-active-redeem-codes" ${activeCodeCount > 0 ? '' : 'disabled'}>复制全部未使用</button>
+        </div>
+        <div class="network-breakdown-list">
+          ${codeItems.length > 0
+            ? codeItems.map((code) => getRedeemCodeMarkup(code)).join('')
+            : '<div class="empty-hint">当前分组还没有兑换码。</div>'}
+        </div>
+      </div>
+    `
     : '<div class="empty-hint">请选择一个分组查看兑换码。</div>';
 }
 
@@ -1826,6 +1883,52 @@ function getRedeemCodeMarkup(code: RedeemCodeCodeView): string {
       </div>
     </div>
   `;
+}
+
+async function copyTextToClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // 某些浏览器或非安全上下文会拒绝 Clipboard API，此时回退到 execCommand。
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', 'true');
+  textarea.style.position = 'fixed';
+  textarea.style.top = '-9999px';
+  textarea.style.left = '-9999px';
+  document.body.appendChild(textarea);
+  textarea.select();
+
+  try {
+    return document.execCommand('copy');
+  } catch {
+    return false;
+  } finally {
+    document.body.removeChild(textarea);
+  }
+}
+
+async function copyActiveRedeemCodes(): Promise<void> {
+  const group = redeemGroupDetailState?.group;
+  const activeCodes = (redeemGroupDetailState?.codes ?? [])
+    .filter((code) => code.status === 'active')
+    .map((code) => code.code.trim())
+    .filter((code) => code.length > 0);
+  if (activeCodes.length === 0) {
+    setStatus('当前分组没有可复制的未使用兑换码', true);
+    return;
+  }
+  const copied = await copyTextToClipboard(activeCodes.join('\n'));
+  if (!copied) {
+    setStatus('复制未使用兑换码失败，请检查浏览器剪贴板权限', true);
+    return;
+  }
+  setStatus(`已复制 ${activeCodes.length} 个未使用兑换码${group ? ` · ${group.name}` : ''}`);
 }
 
 function getRedeemCodeStatusLabel(status: RedeemCodeCodeView['status']): string {
@@ -2160,6 +2263,7 @@ function renderShortcutMailComposer(preserveActiveInteraction = false): void {
       : '全服邮件不会混入高频地图同步，只在玩家打开收件箱时按需拉取。',
     showTargetPlayer: true,
   });
+  syncSearchableItemFields(shortcutMailComposerEl);
   lastShortcutMailComposerStructureKey = structureKey;
 }
 
@@ -2583,23 +2687,29 @@ function readCatalogSelectValue(
   slot?: EquipSlot,
 ): string {
   const selector = kind === 'equipment'
-    ? `select[data-catalog-select="${kind}"][data-slot="${slot}"]`
-    : `select[data-catalog-select="${kind}"]`;
-  const field = editorContentEl.querySelector<HTMLSelectElement>(selector);
+    ? `[data-catalog-select="${kind}"][data-slot="${slot}"]`
+    : `[data-catalog-select="${kind}"]`;
+  const field = editorContentEl.querySelector<HTMLInputElement | HTMLSelectElement>(selector);
   return field?.value ?? '';
 }
 
 function updateInventoryAddControls(resetSelectedItem = true): void {
   const typeSelect = editorContentEl.querySelector<HTMLSelectElement>('select[data-catalog-select="inventory-type"]');
-  const itemSelect = editorContentEl.querySelector<HTMLSelectElement>('select[data-catalog-select="inventory-item"]');
-  if (!typeSelect || !itemSelect) {
+  const itemField = editorContentEl.querySelector<HTMLElement>('[data-item-combobox][data-item-scope="inventory-add"]');
+  const itemValueField = editorContentEl.querySelector<HTMLInputElement>('input[data-item-combobox-value][data-catalog-select="inventory-item"]');
+  if (!typeSelect || !itemField || !itemValueField) {
     return;
   }
   typeSelect.value = currentInventoryAddType;
-  itemSelect.innerHTML = `<option value="">选择${ITEM_TYPE_LABELS[currentInventoryAddType]}模板</option>${optionsMarkup(getInventoryAddItemOptions(), '')}`;
+  itemField.dataset.placeholder = `点击后输入名称或 ID 搜索${ITEM_TYPE_LABELS[currentInventoryAddType]}模板`;
   if (resetSelectedItem) {
-    itemSelect.value = '';
+    itemValueField.value = '';
+    const input = getSearchableItemInput(itemField);
+    if (input) {
+      input.value = '';
+    }
   }
+  syncSearchableItemField(itemField);
 }
 
 function pathSegments(path: string): string[] {
@@ -2637,6 +2747,263 @@ function removeArrayIndex(target: unknown, path: string, index: number): void {
 
 function ensureArray<T>(value: T[] | undefined | null): T[] {
   return Array.isArray(value) ? value : [];
+}
+
+function buildHtmlAttributes(attributes: Record<string, string | undefined>): string {
+  return Object.entries(attributes)
+    .filter(([, value]) => value !== undefined)
+    .map(([name, value]) => ` ${name}="${escapeHtml(value ?? '')}"`)
+    .join('');
+}
+
+function getSearchableItemDisplayValue(itemId: string): string {
+  if (!itemId) {
+    return '';
+  }
+  const entry = findItemCatalogEntry(itemId);
+  return entry ? `${entry.name} · ${itemId}` : itemId;
+}
+
+function getSearchableItemOptions(scope: SearchableItemScope, slot?: EquipSlot): Array<{ value: string; label: string }> {
+  if (scope === 'inventory-add') {
+    return getInventoryAddItemOptions();
+  }
+  if (scope === 'equipment-slot') {
+    if (!slot) {
+      return [];
+    }
+    return getItemCatalogOptions((option) => option.type === 'equipment' && option.equipSlot === slot);
+  }
+  return getItemCatalogOptions();
+}
+
+function searchableItemField(
+  label: string,
+  value: string,
+  scope: SearchableItemScope,
+  hiddenFieldAttrs: Record<string, string | undefined>,
+  extraClass = '',
+  slot?: EquipSlot,
+  placeholder = '点击后输入名称或 ID 搜索物品模板',
+  wrapperAttrs: Record<string, string | undefined> = {},
+): string {
+  return `
+    <label class="editor-field ${extraClass}"${buildHtmlAttributes(wrapperAttrs)}>
+      <span>${escapeHtml(label)}</span>
+      <div class="gm-item-combobox" data-item-combobox data-item-scope="${escapeHtml(scope)}"${slot ? ` data-slot="${escapeHtml(slot)}"` : ''} data-placeholder="${escapeHtml(placeholder)}">
+        <div class="gm-item-combobox-shell">
+          <input
+            class="gm-item-combobox-input"
+            type="text"
+            autocomplete="off"
+            spellcheck="false"
+            data-item-combobox-input
+            value="${escapeHtml(getSearchableItemDisplayValue(value))}"
+            placeholder="${escapeHtml(placeholder)}"
+          />
+          <button class="gm-item-combobox-toggle" type="button" data-item-combobox-toggle aria-label="展开物品搜索">搜索</button>
+        </div>
+        <div class="gm-item-combobox-popover hidden" data-item-combobox-popover>
+          <div class="gm-item-combobox-hint" data-item-combobox-hint></div>
+          <div class="gm-item-combobox-list" data-item-combobox-list></div>
+        </div>
+        <input type="hidden" data-item-combobox-value${buildHtmlAttributes({ ...hiddenFieldAttrs, value })} />
+      </div>
+    </label>
+  `;
+}
+
+function getSearchableItemValueField(root: ParentNode): HTMLInputElement | null {
+  return root.querySelector<HTMLInputElement>('input[data-item-combobox-value]');
+}
+
+function getSearchableItemInput(root: ParentNode): HTMLInputElement | null {
+  return root.querySelector<HTMLInputElement>('input[data-item-combobox-input]');
+}
+
+function getSearchableItemList(root: ParentNode): HTMLElement | null {
+  return root.querySelector<HTMLElement>('[data-item-combobox-list]');
+}
+
+function getSearchableItemHint(root: ParentNode): HTMLElement | null {
+  return root.querySelector<HTMLElement>('[data-item-combobox-hint]');
+}
+
+function getSearchableItemPopover(root: ParentNode): HTMLElement | null {
+  return root.querySelector<HTMLElement>('[data-item-combobox-popover]');
+}
+
+function normalizeSearchableItemText(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function renderSearchableItemOptions(root: HTMLElement): void {
+  const input = getSearchableItemInput(root);
+  const valueField = getSearchableItemValueField(root);
+  const listEl = getSearchableItemList(root);
+  const hintEl = getSearchableItemHint(root);
+  if (!input || !valueField || !listEl || !hintEl) {
+    return;
+  }
+
+  const scope = (root.dataset.itemScope as SearchableItemScope | undefined) ?? 'all';
+  const slot = root.dataset.slot as EquipSlot | undefined;
+  const allOptions = getSearchableItemOptions(scope, slot);
+  const selectedValue = valueField.value;
+  const normalizedQuery = normalizeSearchableItemText(input.value);
+  const filteredOptions = normalizedQuery.length > 0
+    ? allOptions.filter((option) => normalizeSearchableItemText(`${option.label} ${option.value}`).includes(normalizedQuery))
+    : allOptions;
+  let visibleOptions = filteredOptions.slice(0, SEARCHABLE_ITEM_RESULT_LIMIT);
+
+  if (selectedValue && !visibleOptions.some((option) => option.value === selectedValue)) {
+    const selectedOption = allOptions.find((option) => option.value === selectedValue);
+    if (selectedOption && (normalizedQuery.length === 0 || normalizeSearchableItemText(`${selectedOption.label} ${selectedOption.value}`).includes(normalizedQuery))) {
+      visibleOptions = [selectedOption, ...visibleOptions.slice(0, Math.max(0, SEARCHABLE_ITEM_RESULT_LIMIT - 1))];
+    }
+  }
+
+  const renderedOptions = normalizedQuery.length === 0
+    ? [{ value: '', label: '清空选择' }, ...visibleOptions]
+    : visibleOptions;
+  const defaultActiveIndex = renderedOptions.findIndex((option) => option.value === selectedValue);
+  const fallbackActiveIndex = renderedOptions.findIndex((option) => option.value !== '');
+  const initialActiveIndex = defaultActiveIndex >= 0
+    ? defaultActiveIndex
+    : Math.max(0, fallbackActiveIndex >= 0 ? fallbackActiveIndex : 0);
+  const storedActiveIndex = Number(root.dataset.activeIndex ?? '-1');
+  const activeIndex = Number.isInteger(storedActiveIndex) && storedActiveIndex >= 0 && storedActiveIndex < renderedOptions.length
+    ? storedActiveIndex
+    : initialActiveIndex;
+  root.dataset.activeIndex = String(activeIndex);
+
+  hintEl.textContent = normalizedQuery.length > 0
+    ? `匹配 ${filteredOptions.length} 项${filteredOptions.length > visibleOptions.length ? `，当前显示前 ${visibleOptions.length} 项` : ''}`
+    : `共 ${allOptions.length} 项，输入名称或 ID 可继续筛选${allOptions.length > visibleOptions.length ? `，当前显示前 ${visibleOptions.length} 项` : ''}`;
+
+  if (renderedOptions.length === 0) {
+    listEl.innerHTML = '<div class="gm-item-combobox-empty">没有匹配的物品模板</div>';
+    return;
+  }
+
+  listEl.innerHTML = renderedOptions.map((option, index) => `
+    <button
+      class="gm-item-combobox-option${option.value === selectedValue ? ' selected' : ''}${index === activeIndex ? ' active' : ''}"
+      type="button"
+      data-item-option-value="${escapeHtml(option.value)}"
+    >
+      <span class="gm-item-combobox-option-title">${escapeHtml(option.label)}</span>
+      <span class="gm-item-combobox-option-meta">${escapeHtml(option.value || '恢复为空')}</span>
+    </button>
+  `).join('');
+  listEl.querySelector<HTMLElement>('.gm-item-combobox-option.active')?.scrollIntoView({ block: 'nearest' });
+}
+
+function syncSearchableItemField(root: HTMLElement): void {
+  const input = getSearchableItemInput(root);
+  const valueField = getSearchableItemValueField(root);
+  if (!input || !valueField) {
+    return;
+  }
+  if (root.dataset.open === 'true') {
+    renderSearchableItemOptions(root);
+    return;
+  }
+  input.value = getSearchableItemDisplayValue(valueField.value);
+  input.placeholder = root.dataset.placeholder ?? '点击后输入名称或 ID 搜索物品模板';
+}
+
+function syncSearchableItemFields(scope: ParentNode): void {
+  if (activeSearchableItemField && !activeSearchableItemField.isConnected) {
+    activeSearchableItemField = null;
+  }
+  scope.querySelectorAll<HTMLElement>('[data-item-combobox]').forEach((field) => {
+    syncSearchableItemField(field);
+  });
+}
+
+function closeSearchableItemField(root: HTMLElement): void {
+  if (activeSearchableItemField === root) {
+    activeSearchableItemField = null;
+  }
+  root.dataset.open = 'false';
+  root.dataset.activeIndex = '-1';
+  getSearchableItemPopover(root)?.classList.add('hidden');
+  syncSearchableItemField(root);
+  queueMicrotask(() => {
+    flushBlockedEditorRender();
+  });
+}
+
+function openSearchableItemField(root: HTMLElement, resetQuery = true): void {
+  if (activeSearchableItemField && activeSearchableItemField !== root) {
+    closeSearchableItemField(activeSearchableItemField);
+  }
+  const input = getSearchableItemInput(root);
+  const valueField = getSearchableItemValueField(root);
+  if (!input || !valueField) {
+    return;
+  }
+  activeSearchableItemField = root;
+  root.dataset.open = 'true';
+  root.dataset.activeIndex = '-1';
+  getSearchableItemPopover(root)?.classList.remove('hidden');
+  if (resetQuery) {
+    input.value = '';
+  }
+  input.placeholder = getSearchableItemDisplayValue(valueField.value) || (root.dataset.placeholder ?? '点击后输入名称或 ID 搜索物品模板');
+  renderSearchableItemOptions(root);
+}
+
+function moveSearchableItemActiveIndex(root: HTMLElement, offset: number): void {
+  const listEl = getSearchableItemList(root);
+  if (!listEl) {
+    return;
+  }
+  const optionButtons = Array.from(listEl.querySelectorAll<HTMLButtonElement>('[data-item-option-value]'));
+  if (optionButtons.length === 0) {
+    return;
+  }
+  const currentIndex = Number(root.dataset.activeIndex ?? '-1');
+  const nextIndex = currentIndex >= 0
+    ? Math.min(optionButtons.length - 1, Math.max(0, currentIndex + offset))
+    : Math.max(0, Math.min(optionButtons.length - 1, offset > 0 ? 0 : optionButtons.length - 1));
+  root.dataset.activeIndex = String(nextIndex);
+  renderSearchableItemOptions(root);
+}
+
+function commitSearchableItemSelection(root: HTMLElement, value: string): void {
+  const input = getSearchableItemInput(root);
+  const valueField = getSearchableItemValueField(root);
+  if (!input || !valueField) {
+    return;
+  }
+  const changed = valueField.value !== value;
+  valueField.value = value;
+  input.value = getSearchableItemDisplayValue(value);
+  closeSearchableItemField(root);
+  if (!changed) {
+    return;
+  }
+  valueField.dispatchEvent(new Event('input', { bubbles: true }));
+  valueField.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function flushBlockedEditorRender(): void {
+  if (!editorRenderRefreshBlocked || !state) {
+    return;
+  }
+  if (
+    activeSearchableItemField
+    && activeSearchableItemField.isConnected
+    && editorContentEl.contains(activeSearchableItemField)
+    && activeSearchableItemField.dataset.open === 'true'
+  ) {
+    return;
+  }
+  editorRenderRefreshBlocked = false;
+  lastEditorStructureKey = null;
+  renderEditor(state);
 }
 
 function optionsMarkup<T extends string | number>(options: Array<{ value: T; label: string }>, selected: T | undefined): string {
@@ -2760,13 +3127,15 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
         ${item ? getItemEditorControls(`equipment.${slot}`, item, 'equipment') : `
           <div class="editor-note">从下方选择装备模板后即可快速塞入这个槽位。</div>
           <div class="editor-grid compact">
-            <label class="editor-field wide">
-              <span>装备模板</span>
-              <select data-catalog-select="equipment" data-slot="${slot}">
-                <option value="">选择一个装备模板</option>
-                ${optionsMarkup(getItemCatalogOptions((option) => option.type === 'equipment' && option.equipSlot === slot), '')}
-              </select>
-            </label>
+            ${searchableItemField(
+              '装备模板',
+              '',
+              'equipment-slot',
+              { 'data-catalog-select': 'equipment', 'data-slot': slot },
+              'wide',
+              slot,
+              '点击后输入名称或 ID 搜索装备模板',
+            )}
           </div>
         `}
       </div>
@@ -3115,6 +3484,67 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
     </section>
     `)}
 
+    ${renderEditorTabSection('shortcuts', `
+    <section class="editor-section">
+      <div class="editor-section-head">
+        <div>
+          <div class="editor-section-title">功法快捷操作</div>
+          <div class="editor-section-note">按钮会直接修改草稿并自动提交对应标签，无需再切回功法或物品页手动保存。</div>
+        </div>
+      </div>
+      <div class="stats-grid" style="margin-bottom: 12px;">
+        <div class="stats-card">
+          <div class="stats-card-label">已学功法</div>
+          <div class="stats-card-value">${ensureArray(draft.techniques).length}</div>
+          <div class="stats-card-note">当前角色已写入运行态的功法数量</div>
+        </div>
+        <div class="stats-card">
+          <div class="stats-card-label">未学功法</div>
+          <div class="stats-card-value">${Math.max(0, getTechniqueCatalogOptions().length - ensureArray(draft.techniques).length)}</div>
+          <div class="stats-card-note">基于当前编辑目录推算的剩余可学功法</div>
+        </div>
+      </div>
+      <div class="editor-card-list">
+        <div class="editor-card">
+          <div class="editor-card-head">
+            <div>
+              <div class="editor-card-title">获取全部未学习功法书</div>
+              <div class="editor-card-meta">把尚未学习且背包里也没有的功法书补进背包。</div>
+            </div>
+            <button class="small-btn" type="button" data-action="grant-all-unlearned-technique-books">加入背包</button>
+          </div>
+        </div>
+        <div class="editor-card">
+          <div class="editor-card-head">
+            <div>
+              <div class="editor-card-title">当前全部功法满级</div>
+              <div class="editor-card-meta">按编辑目录模板把当前已学功法统一拉到最高层级。</div>
+            </div>
+            <button class="small-btn" type="button" data-action="max-all-techniques">立即满级</button>
+          </div>
+        </div>
+        <div class="editor-card">
+          <div class="editor-card-head">
+            <div>
+              <div class="editor-card-title">学习全部功法</div>
+              <div class="editor-card-meta">把当前目录里尚未学会的功法全部写入角色。</div>
+            </div>
+            <button class="small-btn primary" type="button" data-action="learn-all-techniques">全部学习</button>
+          </div>
+        </div>
+        <div class="editor-card">
+          <div class="editor-card-head">
+            <div>
+              <div class="editor-card-title">移除所有功法</div>
+              <div class="editor-card-meta">清空当前角色已学功法，并移除主修功法与自动战斗技能引用。</div>
+            </div>
+            <button class="small-btn danger" type="button" data-action="remove-all-techniques">全部移除</button>
+          </div>
+        </div>
+      </div>
+    </section>
+    `)}
+
     ${renderEditorTabSection('items', `
     <section class="editor-section">
       <div class="editor-section-head">
@@ -3130,13 +3560,16 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
               ${optionsMarkup(getInventoryAddTypeOptions(), currentInventoryAddType)}
             </select>
           </label>
-          <label class="editor-field" style="min-width: 260px;">
-            <span>新增物品</span>
-            <select data-catalog-select="inventory-item">
-              <option value="">选择${ITEM_TYPE_LABELS[currentInventoryAddType]}模板</option>
-              ${optionsMarkup(getInventoryAddItemOptions(), '')}
-            </select>
-          </label>
+          ${searchableItemField(
+            '新增物品',
+            '',
+            'inventory-add',
+            { 'data-catalog-select': 'inventory-item' },
+            '',
+            undefined,
+            `点击后输入名称或 ID 搜索${ITEM_TYPE_LABELS[currentInventoryAddType]}模板`,
+            { style: 'min-width: 260px;' },
+          )}
           <button class="small-btn" type="button" data-action="add-inventory-item-from-catalog">加入背包</button>
         </div>
       </div>
@@ -3329,6 +3762,19 @@ function renderEditor(data: GmStateRes): void {
   editorMetaEl.innerHTML = getEditorMetaMarkup(detail);
 
   const structureKey = buildEditorStructureKey(detail, draftSnapshot);
+  const shouldDelayStructureRefresh = (
+    lastEditorStructureKey !== structureKey
+    && draftSourcePlayerId === detail.id
+    && !!activeSearchableItemField
+    && activeSearchableItemField.isConnected
+    && editorContentEl.contains(activeSearchableItemField)
+    && activeSearchableItemField.dataset.open === 'true'
+  );
+  if (shouldDelayStructureRefresh) {
+    editorRenderRefreshBlocked = true;
+    return;
+  }
+  editorRenderRefreshBlocked = false;
   if (lastEditorStructureKey !== structureKey) {
     editorContentEl.innerHTML = renderVisualEditor(detail, draftSnapshot);
     lastEditorStructureKey = structureKey;
@@ -3339,6 +3785,7 @@ function renderEditor(data: GmStateRes): void {
     patchEditorPreview(detail, draftSnapshot);
   }
   updateInventoryAddControls(false);
+  syncSearchableItemFields(editorContentEl);
 
   setTextLikeValue(playerJsonEl, formatJson(draftSnapshot));
   setTextLikeValue(playerPersistedJsonEl, formatJson(detail.persistedSnapshot));
@@ -3716,7 +4163,7 @@ async function applyRawJson(): Promise<void> {
 }
 
 function getCurrentEditorSaveSection(): GmPlayerUpdateSection | null {
-  return currentEditorTab === 'persisted' || currentEditorTab === 'mail' ? null : currentEditorTab;
+  return currentEditorTab === 'persisted' || currentEditorTab === 'mail' || currentEditorTab === 'shortcuts' ? null : currentEditorTab;
 }
 
 function buildTechniqueSaveSnapshot(technique: TechniqueState): TechniqueState {
@@ -3837,6 +4284,124 @@ function buildSectionSnapshot(section: GmPlayerUpdateSection, draft: PlayerState
     default:
       return clone(draft);
   }
+}
+
+async function saveSelectedPlayerSections(sections: GmPlayerUpdateSection[], message: string): Promise<void> {
+  const selected = getSelectedPlayer();
+  if (!selected || !draftSnapshot) {
+    setStatus('请先选择角色', true);
+    return;
+  }
+  const uniqueSections = Array.from(new Set(sections));
+  if (uniqueSections.length === 0) {
+    setStatus('当前没有需要提交的快捷改动', true);
+    return;
+  }
+  for (const section of uniqueSections) {
+    const snapshot = buildSectionSnapshot(section, draftSnapshot);
+    await request<{ ok: true }>(`/gm/players/${encodeURIComponent(selected.id)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ snapshot, section } satisfies GmUpdatePlayerReq),
+    });
+  }
+  editorDirty = false;
+  await delayRefresh(message);
+}
+
+async function runPlayerTechniqueShortcut(
+  action: 'grant-all-unlearned-technique-books' | 'max-all-techniques' | 'learn-all-techniques' | 'remove-all-techniques',
+): Promise<void> {
+  if (!draftSnapshot) {
+    setStatus('当前没有可编辑角色', true);
+    return;
+  }
+
+  if (!editorCatalog) {
+    setStatus('编辑目录尚未加载完成，暂时无法执行快捷操作', true);
+    return;
+  }
+
+  if (action === 'grant-all-unlearned-technique-books') {
+    const learnedTechniqueIds = new Set(ensureArray(draftSnapshot.techniques).map((technique) => technique.techId).filter(Boolean));
+    const existingInventoryItemIds = new Set(ensureArray(draftSnapshot.inventory.items).map((item) => item.itemId));
+    const bookItemIds = editorCatalog.items
+      .filter((item) => item.type === 'skill_book')
+      .map((item) => item.itemId)
+      .filter((itemId) => {
+        const techniqueId = resolveTechniqueIdFromBookItemId(itemId);
+        return !!techniqueId && !learnedTechniqueIds.has(techniqueId) && !existingInventoryItemIds.has(itemId);
+      });
+    if (bookItemIds.length === 0) {
+      setStatus('当前没有可补发的未学习功法书');
+      return;
+    }
+    const changed = mutateDraft((draft) => {
+      draft.inventory.items.push(...bookItemIds.map((itemId) => createItemFromCatalog(itemId)));
+    });
+    if (!changed) {
+      return;
+    }
+    await saveSelectedPlayerSections(['items'], `已为当前角色补发 ${bookItemIds.length} 本未学习功法书`);
+    return;
+  }
+
+  if (action === 'max-all-techniques') {
+    const techniques = ensureArray(draftSnapshot.techniques);
+    if (techniques.length === 0) {
+      setStatus('当前角色还没有已学习功法');
+      return;
+    }
+    const upgradableCount = techniques.filter((technique) => technique.level < getTechniqueTemplateMaxLevel(technique) || technique.expToNext !== 0).length;
+    if (upgradableCount === 0) {
+      setStatus('当前全部功法已经处于满级状态');
+      return;
+    }
+    const changed = mutateDraft((draft) => {
+      draft.techniques = ensureArray(draft.techniques).map((technique) => buildMaxLevelTechniqueState(technique));
+    });
+    if (!changed) {
+      return;
+    }
+    await saveSelectedPlayerSections(['techniques'], `已将当前 ${techniques.length} 门功法提升至满级`);
+    return;
+  }
+
+  if (action === 'remove-all-techniques') {
+    const techniques = ensureArray(draftSnapshot.techniques);
+    if (techniques.length === 0) {
+      setStatus('当前角色没有可移除的已学功法');
+      return;
+    }
+    const changed = mutateDraft((draft) => {
+      draft.techniques = [];
+      draft.cultivatingTechId = undefined;
+      draft.autoBattleSkills = [];
+    });
+    if (!changed) {
+      return;
+    }
+    await saveSelectedPlayerSections(['techniques'], `已移除当前角色全部 ${techniques.length} 门功法`);
+    return;
+  }
+
+  const learnedTechniqueIds = new Set(ensureArray(draftSnapshot.techniques).map((technique) => technique.techId).filter(Boolean));
+  const missingTechniqueIds = editorCatalog.techniques
+    .map((technique) => technique.id)
+    .filter((techId) => !learnedTechniqueIds.has(techId));
+  if (missingTechniqueIds.length === 0) {
+    setStatus('当前角色已经学会目录内全部功法');
+    return;
+  }
+  const changed = mutateDraft((draft) => {
+    draft.techniques.push(...missingTechniqueIds.map((techId) => createTechniqueFromCatalog(techId)));
+    if (!draft.cultivatingTechId && draft.techniques[0]) {
+      draft.cultivatingTechId = draft.techniques[0].techId;
+    }
+  });
+  if (!changed) {
+    return;
+  }
+  await saveSelectedPlayerSections(['techniques'], `已为当前角色补齐 ${missingTechniqueIds.length} 门功法`);
 }
 
 function openSelectedPlayerMailTab(): void {
@@ -4320,6 +4885,17 @@ editorContentEl.addEventListener('click', (event) => {
     saveSelectedPlayerPassword().catch(() => {});
     return;
   }
+  if (
+    action === 'grant-all-unlearned-technique-books'
+    || action === 'max-all-techniques'
+    || action === 'learn-all-techniques'
+    || action === 'remove-all-techniques'
+  ) {
+    runPlayerTechniqueShortcut(action).catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '执行快捷操作失败', true);
+    });
+    return;
+  }
   handleEditorAction(action, trigger);
 });
 
@@ -4400,6 +4976,125 @@ editorContentEl.addEventListener('change', (event) => {
   if (detail && draftSnapshot) {
     editorMetaEl.innerHTML = getEditorMetaMarkup(detail);
     patchEditorPreview(detail, draftSnapshot);
+  }
+});
+
+editorContentEl.addEventListener('focusout', () => {
+  window.setTimeout(() => {
+    flushBlockedEditorRender();
+  }, 0);
+});
+
+document.addEventListener('pointerdown', (event) => {
+  const target = event.target;
+  if (!(target instanceof Element) || !activeSearchableItemField) {
+    return;
+  }
+  if (activeSearchableItemField.contains(target)) {
+    return;
+  }
+  closeSearchableItemField(activeSearchableItemField);
+});
+
+document.addEventListener('focusin', (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement) || target.dataset.itemComboboxInput === undefined) {
+    return;
+  }
+  const root = target.closest<HTMLElement>('[data-item-combobox]');
+  if (!root || root.dataset.open === 'true') {
+    return;
+  }
+  openSearchableItemField(root);
+});
+
+document.addEventListener('input', (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement) || target.dataset.itemComboboxInput === undefined) {
+    return;
+  }
+  const root = target.closest<HTMLElement>('[data-item-combobox]');
+  if (!root) {
+    return;
+  }
+  if (root.dataset.open !== 'true') {
+    openSearchableItemField(root, false);
+    return;
+  }
+  renderSearchableItemOptions(root);
+});
+
+document.addEventListener('click', (event) => {
+  const target = event.target;
+  if (!(target instanceof Element)) {
+    return;
+  }
+  const optionButton = target.closest<HTMLButtonElement>('[data-item-option-value]');
+  if (optionButton) {
+    const root = optionButton.closest<HTMLElement>('[data-item-combobox]');
+    if (!root) {
+      return;
+    }
+    commitSearchableItemSelection(root, optionButton.dataset.itemOptionValue ?? '');
+    return;
+  }
+  const toggleButton = target.closest<HTMLButtonElement>('[data-item-combobox-toggle]');
+  if (!toggleButton) {
+    return;
+  }
+  const root = toggleButton.closest<HTMLElement>('[data-item-combobox]');
+  if (!root) {
+    return;
+  }
+  event.preventDefault();
+  if (root.dataset.open === 'true') {
+    closeSearchableItemField(root);
+    return;
+  }
+  openSearchableItemField(root);
+  getSearchableItemInput(root)?.focus();
+});
+
+document.addEventListener('keydown', (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement) || target.dataset.itemComboboxInput === undefined) {
+    return;
+  }
+  const root = target.closest<HTMLElement>('[data-item-combobox]');
+  if (!root) {
+    return;
+  }
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+    if (root.dataset.open !== 'true') {
+      openSearchableItemField(root, false);
+      return;
+    }
+    moveSearchableItemActiveIndex(root, 1);
+    return;
+  }
+  if (event.key === 'ArrowUp') {
+    event.preventDefault();
+    if (root.dataset.open !== 'true') {
+      openSearchableItemField(root, false);
+      return;
+    }
+    moveSearchableItemActiveIndex(root, -1);
+    return;
+  }
+  if (event.key === 'Enter' && root.dataset.open === 'true') {
+    event.preventDefault();
+    const listEl = getSearchableItemList(root);
+    const activeIndex = Number(root.dataset.activeIndex ?? '-1');
+    const activeButton = listEl?.querySelectorAll<HTMLButtonElement>('[data-item-option-value]')[activeIndex];
+    if (activeButton) {
+      commitSearchableItemSelection(root, activeButton.dataset.itemOptionValue ?? '');
+    }
+    return;
+  }
+  if (event.key === 'Escape' && root.dataset.open === 'true') {
+    event.preventDefault();
+    closeSearchableItemField(root);
   }
 });
 
@@ -4519,6 +5214,7 @@ editorTabPositionBtn.addEventListener('click', () => switchEditorTab('position')
 editorTabRealmBtn.addEventListener('click', () => switchEditorTab('realm'));
 editorTabBuffsBtn.addEventListener('click', () => switchEditorTab('buffs'));
 editorTabTechniquesBtn.addEventListener('click', () => switchEditorTab('techniques'));
+editorTabShortcutsBtn.addEventListener('click', () => switchEditorTab('shortcuts'));
 editorTabItemsBtn.addEventListener('click', () => switchEditorTab('items'));
 editorTabQuestsBtn.addEventListener('click', () => switchEditorTab('quests'));
 editorTabMailBtn.addEventListener('click', () => switchEditorTab('mail'));
@@ -4671,6 +5367,12 @@ redeemWorkspaceEl?.addEventListener('click', (event) => {
   if (action === 'append-redeem-codes') {
     appendRedeemCodes().catch((error: unknown) => {
       setStatus(error instanceof Error ? error.message : '追加兑换码失败', true);
+    });
+    return;
+  }
+  if (action === 'copy-active-redeem-codes') {
+    copyActiveRedeemCodes().catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '复制未使用兑换码失败', true);
     });
     return;
   }

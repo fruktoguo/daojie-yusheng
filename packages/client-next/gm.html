@@ -871,6 +871,123 @@
       border-color: var(--ink-black);
     }
 
+    .gm-item-combobox {
+      position: relative;
+    }
+
+    .gm-item-combobox-shell {
+      display: flex;
+      gap: 6px;
+      align-items: stretch;
+    }
+
+    .gm-item-combobox-input {
+      flex: 1;
+      width: 100%;
+      min-width: 0;
+      padding: 9px 10px;
+      border: 1px solid var(--ink-light);
+      background: rgba(255,255,255,0.88);
+      color: var(--ink-dark);
+      font-family: var(--font-body);
+      font-size: 13px;
+      outline: none;
+    }
+
+    .gm-item-combobox-input:focus,
+    .gm-item-combobox[data-open="true"] .gm-item-combobox-input {
+      border-color: var(--ink-black);
+    }
+
+    .gm-item-combobox-toggle {
+      flex: 0 0 auto;
+      min-width: 58px;
+      padding: 0 12px;
+      border: 1px solid var(--ink-black);
+      background: rgba(255,255,255,0.5);
+      color: var(--ink-black);
+      cursor: pointer;
+      font-family: var(--font-heading-sub);
+      font-size: 12px;
+    }
+
+    .gm-item-combobox-toggle:hover {
+      background: var(--ink-black);
+      color: var(--paper-light);
+    }
+
+    .gm-item-combobox-popover {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(100% + 6px);
+      z-index: 6;
+      padding: 8px;
+      border: 1.5px solid var(--ink-black);
+      background: var(--paper-light);
+      box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.12);
+    }
+
+    .gm-item-combobox-hint,
+    .gm-item-combobox-empty {
+      font-size: 12px;
+      color: var(--ink-grey);
+    }
+
+    .gm-item-combobox-hint {
+      margin-bottom: 6px;
+    }
+
+    .gm-item-combobox-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 280px;
+      overflow: auto;
+    }
+
+    .gm-item-combobox-empty {
+      padding: 10px 8px;
+      border: 1px dashed var(--wash-ink);
+      background: rgba(255,255,255,0.58);
+    }
+
+    .gm-item-combobox-option {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--wash-ink);
+      background: rgba(255,255,255,0.7);
+      color: var(--ink-dark);
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .gm-item-combobox-option:hover,
+    .gm-item-combobox-option.active {
+      border-color: var(--ink-black);
+      background: rgba(17,17,17,0.06);
+    }
+
+    .gm-item-combobox-option.selected {
+      border-color: var(--stamp-red);
+      background: rgba(197,60,60,0.08);
+    }
+
+    .gm-item-combobox-option-title {
+      display: block;
+      font-family: var(--font-heading-sub);
+      font-size: 13px;
+      color: var(--ink-black);
+    }
+
+    .gm-item-combobox-option-meta {
+      display: block;
+      margin-top: 3px;
+      font-size: 11px;
+      color: var(--ink-grey);
+      word-break: break-all;
+    }
+
     .editor-toggle-row {
       display: flex;
       flex-wrap: wrap;
@@ -1587,6 +1704,7 @@
             <button id="editor-tab-realm" class="workspace-tab" type="button">属性</button>
             <button id="editor-tab-buffs" class="workspace-tab" type="button">Buff</button>
             <button id="editor-tab-techniques" class="workspace-tab" type="button">功法</button>
+            <button id="editor-tab-shortcuts" class="workspace-tab" type="button">快捷操作</button>
             <button id="editor-tab-items" class="workspace-tab" type="button">物品</button>
             <button id="editor-tab-quests" class="workspace-tab" type="button">任务</button>
             <button id="editor-tab-mail" class="workspace-tab" type="button">邮件</button>
