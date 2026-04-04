@@ -495,8 +495,11 @@
       "moveSpeed": 67.2
     },
     "skills": [
-      "skill.core_smash",
-      "skill.guardian_quake"
+      "skill.pojin_linghen",
+      "skill.xingmang_zhuiji",
+      "skill.ningfeng_ci",
+      "skill.duanbei_zhan",
+      "skill.baihong_lieyue"
     ],
     "drops": [
       {
@@ -613,8 +616,12 @@
       "moveSpeed": 90.7
     },
     "skills": [
-      "skill.brutal_ram",
-      "skill.guardian_quake"
+      "skill.pojin_linghen",
+      "skill.xingmang_zhuiji",
+      "skill.ningfeng_ci",
+      "skill.duanbei_zhan",
+      "skill.baihong_lieyue",
+      "skill.xuefeng_jueshi"
     ],
     "drops": [
       {

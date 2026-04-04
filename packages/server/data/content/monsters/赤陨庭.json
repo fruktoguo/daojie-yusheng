@@ -439,8 +439,11 @@
       "moveSpeed": 123.2
     },
     "skills": [
-      "skill.rending_claw",
-      "skill.brutal_ram"
+      "skill.huomai_cuxing",
+      "skill.yunhuo_laomai",
+      "skill.fenxi_jue",
+      "skill.liebo_fenmai",
+      "skill.chiyao_laoxin"
     ],
     "equipment": {
       "weapon": "equip.ember_scorch_spear",
@@ -539,8 +542,12 @@
       "moveSpeed": 161.3
     },
     "skills": [
-      "skill.guardian_quake",
-      "skill.brutal_ram"
+      "skill.huomai_cuxing",
+      "skill.yunhuo_laomai",
+      "skill.fenxi_jue",
+      "skill.liebo_fenmai",
+      "skill.chiyao_laoxin",
+      "skill.yaohuo_huiran"
     ],
     "equipment": {
       "weapon": {

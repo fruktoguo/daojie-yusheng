@@ -495,8 +495,11 @@
       "moveSpeed": 58.8
     },
     "skills": [
-      "skill.guardian_quake",
-      "skill.core_smash"
+      "skill.yuepo_zhendao",
+      "skill.zhenmai_yin",
+      "skill.chengyuan_luobei",
+      "skill.luoshan_zhenmai",
+      "skill.kunyue_zhenxing"
     ],
     "drops": [
       {
@@ -613,8 +616,12 @@
       "moveSpeed": 68.9
     },
     "skills": [
-      "skill.brutal_ram",
-      "skill.guardian_quake"
+      "skill.yuepo_zhendao",
+      "skill.zhenmai_yin",
+      "skill.chengyuan_luobei",
+      "skill.luoshan_zhenmai",
+      "skill.kunyue_zhenxing",
+      "skill.yuedong_huizhen"
     ],
     "drops": [
       {

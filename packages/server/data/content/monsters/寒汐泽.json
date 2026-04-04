@@ -445,8 +445,11 @@
       "moveSpeed": 127.4
     },
     "skills": [
-      "skill.predator_pounce",
-      "skill.frost_plume"
+      "skill.hanliu_fuxing",
+      "skill.hanxi_yin",
+      "skill.jingchao_fengmai",
+      "skill.jingbo_suoyin",
+      "skill.xuanjin_luoyin"
     ],
     "equipment": {
       "weapon": "equip.hanxi_flow_ruler",
@@ -545,8 +548,12 @@
       "moveSpeed": 139.4
     },
     "skills": [
-      "skill.nether_chain",
-      "skill.frost_plume"
+      "skill.hanliu_fuxing",
+      "skill.hanxi_yin",
+      "skill.jingchao_fengmai",
+      "skill.jingbo_suoyin",
+      "skill.xuanjin_luoyin",
+      "skill.hanjing_suoliu"
     ],
     "equipment": {
       "weapon": {

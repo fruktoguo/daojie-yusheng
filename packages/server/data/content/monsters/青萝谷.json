@@ -347,8 +347,11 @@
       "moveSpeed": 85.4
     },
     "skills": [
-      "skill.guardian_quake",
-      "skill.brutal_ram"
+      "skill.huisheng_panluo",
+      "skill.qianluo_chanmai",
+      "skill.kurong_nichou",
+      "skill.tengluo_manshen",
+      "skill.qianzhi_raomai"
     ],
     "equipment": {
       "weapon": "equip.vineguide_staff",
@@ -453,8 +456,12 @@
       "moveSpeed": 90.7
     },
     "skills": [
-      "skill.core_smash",
-      "skill.guardian_quake"
+      "skill.huisheng_panluo",
+      "skill.qianluo_chanmai",
+      "skill.kurong_nichou",
+      "skill.tengluo_manshen",
+      "skill.qianzhi_raomai",
+      "skill.qingsheng_fanbu"
     ],
     "equipment": {
       "weapon": {
