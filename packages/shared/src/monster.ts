@@ -50,9 +50,10 @@ const {
   MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_LATE,
   MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_MID,
   MONSTER_LEVEL_FLAT_GROWTH_STATS,
+  MONSTER_OVERLEVEL_EXP_MULTIPLIER,
   MONSTER_TIER_EXP_MULTIPLIERS,
-  MONSTER_TIER_OVERLEVEL_EXP_REDUCTION_RATES,
   MONSTER_TIER_STAT_PERCENTS,
+  MONSTER_TIER_UNDERLEVEL_EXP_BONUS_RATES,
 } = monsterGameplayConstants;
 
 const MONSTER_EXPONENTIAL_NUMERIC_KEYS = ['maxHp', 'maxQi', 'physAtk', 'spellAtk'] as const satisfies readonly NumericScalarStatKey[];
@@ -304,11 +305,11 @@ export function getMonsterKillExpLevelAdjustment(
   const normalizedPlayerLevel = Math.max(1, Math.floor(playerRealmLv));
   const normalizedMonsterLevel = Math.max(1, Math.floor(monsterLevel));
   if (normalizedPlayerLevel < normalizedMonsterLevel) {
-    return 1.5 ** (normalizedMonsterLevel - normalizedPlayerLevel);
+    const bonusRate = MONSTER_TIER_UNDERLEVEL_EXP_BONUS_RATES[normalizeMonsterTier(tier)] ?? 0.1;
+    return (1 + Math.max(0, bonusRate)) ** (normalizedMonsterLevel - normalizedPlayerLevel);
   }
   if (normalizedPlayerLevel > normalizedMonsterLevel) {
-    const reductionRate = MONSTER_TIER_OVERLEVEL_EXP_REDUCTION_RATES[normalizeMonsterTier(tier)] ?? 0.5;
-    return Math.max(0, 1 - reductionRate) ** (normalizedPlayerLevel - normalizedMonsterLevel);
+    return Math.max(0, MONSTER_OVERLEVEL_EXP_MULTIPLIER) ** (normalizedPlayerLevel - normalizedMonsterLevel);
   }
   return 1;
 }
