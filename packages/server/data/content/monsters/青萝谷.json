@@ -316,7 +316,7 @@
     "color": "#63a96b",
     "grade": "mystic",
     "tier": "variant",
-    "level": 23,
+    "level": 25,
     "count": 4,
     "maxAlive": 4,
     "radius": 8,
@@ -571,9 +571,14 @@
       "moveSpeed": 81.2
     },
     "skills": [
-      "skill.leaf_storm",
-      "skill.guardian_quake",
-      "skill.void_burst"
+      "skill.huisheng_panluo",
+      "skill.qianluo_chanmai",
+      "skill.kurong_nichou",
+      "skill.tengluo_manshen",
+      "skill.qianzhi_raomai",
+      "skill.qingsheng_fanbu",
+      "skill.changsheng_yinmai",
+      "skill.duomai_guiyuan"
     ],
     "equipment": {
       "weapon": {

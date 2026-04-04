@@ -414,7 +414,7 @@
     "color": "#8dd0e8",
     "grade": "mystic",
     "tier": "variant",
-    "level": 23,
+    "level": 25,
     "count": 4,
     "maxAlive": 4,
     "radius": 8,
@@ -669,9 +669,14 @@
       "moveSpeed": 113.4
     },
     "skills": [
-      "skill.frost_plume",
-      "skill.soul_wail",
-      "skill.void_burst"
+      "skill.hanliu_fuxing",
+      "skill.hanxi_yin",
+      "skill.jingchao_fengmai",
+      "skill.jingbo_suoyin",
+      "skill.xuanjin_luoyin",
+      "skill.hanjing_suoliu",
+      "skill.taiyin_chuiyin",
+      "skill.guichao_suojie"
     ],
     "equipment": {
       "weapon": {

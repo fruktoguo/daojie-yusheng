@@ -450,7 +450,7 @@
               "args": [
                 {
                   "var": "caster.stat.physAtk",
-                  "scale": 7
+                  "scale": 2.885
                 },
                 {
                   "op": "add",
@@ -481,7 +481,7 @@
         "name": "断碑斩",
         "desc": "借锋痕贯入脉门，对单体做收头重击。",
         "cooldown": 9,
-        "costMultiplier": 3,
+        "costMultiplier": 4,
         "range": 1,
         "effects": [
           {
@@ -830,7 +830,7 @@
               "args": [
                 {
                   "var": "caster.stat.spellAtk",
-                  "scale": 6
+                  "scale": 2.692
                 },
                 {
                   "op": "add",
@@ -861,7 +861,7 @@
         "name": "净潮封脉",
         "desc": "小范围封脉，按寒印层数继续压制。",
         "cooldown": 13,
-        "costMultiplier": 3,
+        "costMultiplier": 4,
         "range": 3,
         "targeting": {
           "shape": "area",
@@ -1042,7 +1042,7 @@
               "args": [
                 {
                   "var": "caster.stat.physAtk",
-                  "scale": 7
+                  "scale": 2.885
                 },
                 {
                   "op": "add",
@@ -1073,7 +1073,7 @@
         "name": "承元落碑",
         "desc": "按镇脉层数做重击收束。",
         "cooldown": 9,
-        "costMultiplier": 3,
+        "costMultiplier": 4,
         "range": 1,
         "effects": [
           {
@@ -1235,7 +1235,7 @@
               "args": [
                 {
                   "var": "caster.stat.spellAtk",
-                  "scale": 6
+                  "scale": 2.692
                 },
                 {
                   "op": "add",
@@ -1266,7 +1266,7 @@
         "name": "焚息诀",
         "desc": "读取灼脉，对小范围敌手做引爆。",
         "cooldown": 13,
-        "costMultiplier": 3,
+        "costMultiplier": 4,
         "range": 3,
         "targeting": {
           "shape": "area",
@@ -1592,7 +1592,7 @@
               "args": [
                 {
                   "var": "caster.stat.spellAtk",
-                  "scale": 6
+                  "scale": 2.692
                 },
                 {
                   "op": "add",
@@ -1623,7 +1623,7 @@
         "name": "枯荣逆抽",
         "desc": "沿缠脉回抽生机，兼顾输出与回转。",
         "cooldown": 12,
-        "costMultiplier": 3,
+        "costMultiplier": 4,
         "range": 3,
         "effects": [
           {
@@ -1824,7 +1824,7 @@
                     },
                     {
                       "var": "target.stat.moveSpeed",
-                      "scale": 0.005
+                      "scale": 0.002
                     }
                   ]
                 }

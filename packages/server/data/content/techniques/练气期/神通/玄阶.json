@@ -114,17 +114,8 @@
               "op": "mul",
               "args": [
                 {
-                  "op": "add",
-                  "args": [
-                    {
-                      "var": "caster.stat.physAtk",
-                      "scale": 0.15
-                    },
-                    {
-                      "var": "caster.maxHp",
-                      "scale": 0.14
-                    }
-                  ]
+                  "var": "caster.stat.physAtk",
+                  "scale": 0.15
                 },
                 {
                   "op": "add",
@@ -136,19 +127,19 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.008
+                      "scale": 0.001
                     },
                     {
                       "var": "caster.stat.breakPower",
-                      "scale": 0.013
+                      "scale": 0.0017
                     },
                     {
                       "var": "caster.stat.crit",
-                      "scale": 0.007
+                      "scale": 0.0009
                     },
                     {
                       "var": "caster.attr.constitution",
-                      "scale": 0.01
+                      "scale": 0.0013
                     }
                   ]
                 }
@@ -276,17 +267,8 @@
               "op": "mul",
               "args": [
                 {
-                  "op": "add",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 0.15
-                    },
-                    {
-                      "var": "caster.maxQi",
-                      "scale": 0.21
-                    }
-                  ]
+                  "var": "caster.stat.spellAtk",
+                  "scale": 0.15
                 },
                 {
                   "op": "add",
@@ -298,19 +280,19 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.009
+                      "scale": 0.0012
                     },
                     {
                       "var": "caster.stat.breakPower",
-                      "scale": 0.009
+                      "scale": 0.0012
                     },
                     {
                       "var": "caster.stat.crit",
-                      "scale": 0.009
+                      "scale": 0.0012
                     },
                     {
                       "var": "caster.attr.spirit",
-                      "scale": 0.01
+                      "scale": 0.0013
                     }
                   ]
                 }

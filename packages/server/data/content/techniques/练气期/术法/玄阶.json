@@ -149,7 +149,7 @@
               "args": [
                 {
                   "var": "caster.stat.physAtk",
-                  "scale": 10.5
+                  "scale": 3.558
                 },
                 {
                   "op": "add",
@@ -161,11 +161,11 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.002
+                      "scale": 0.0015
                     },
                     {
                       "var": "caster.stat.breakPower",
-                      "scale": 0.002
+                      "scale": 0.0015
                     }
                   ]
                 }
@@ -184,7 +184,7 @@
         "name": "削峰绝势",
         "desc": "读取锋痕压低目标命中与化解。",
         "cooldown": 16,
-        "costMultiplier": 3,
+        "costMultiplier": 4,
         "range": 2,
         "effects": [
           {
@@ -196,7 +196,7 @@
               "args": [
                 {
                   "var": "caster.stat.physAtk",
-                  "scale": 9.3
+                  "scale": 3.327
                 },
                 {
                   "op": "add",
@@ -212,11 +212,11 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.002
+                      "scale": 0.0015
                     },
                     {
                       "var": "caster.stat.breakPower",
-                      "scale": 0.002
+                      "scale": 0.0015
                     }
                   ]
                 }
@@ -393,7 +393,7 @@
               "args": [
                 {
                   "var": "caster.stat.spellAtk",
-                  "scale": 11
+                  "scale": 3.654
                 },
                 {
                   "op": "add",
@@ -436,7 +436,7 @@
         "name": "曜火回燃",
         "desc": "按灼脉层数放大爆发，并带少量范围蔓延。",
         "cooldown": 21,
-        "costMultiplier": 3,
+        "costMultiplier": 4,
         "range": 4,
         "targeting": {
           "shape": "area",
@@ -453,7 +453,7 @@
               "args": [
                 {
                   "var": "caster.stat.spellAtk",
-                  "scale": 7.8
+                  "scale": 3.038
                 },
                 {
                   "op": "add",
@@ -631,7 +631,7 @@
               "args": [
                 {
                   "var": "caster.stat.physAtk",
-                  "scale": 12
+                  "scale": 3.846
                 },
                 {
                   "op": "add",
@@ -643,11 +643,11 @@
                     },
                     {
                       "var": "caster.stat.physDef",
-                      "scale": 0.002
+                      "scale": 0.0012
                     },
                     {
                       "var": "caster.stat.resolvePower",
-                      "scale": 0.001
+                      "scale": 0.0006
                     }
                   ]
                 }
@@ -689,7 +689,7 @@
         "name": "岳动回震",
         "desc": "借自身厚重与镇脉层数做反震重击。",
         "cooldown": 17,
-        "costMultiplier": 3,
+        "costMultiplier": 4,
         "range": 2,
         "effects": [
           {
@@ -701,7 +701,7 @@
               "args": [
                 {
                   "var": "caster.stat.physAtk",
-                  "scale": 6.8
+                  "scale": 2.846
                 },
                 {
                   "op": "add",
@@ -717,11 +717,11 @@
                     },
                     {
                       "var": "caster.stat.physDef",
-                      "scale": 0.011
+                      "scale": 0.0014
                     },
                     {
                       "var": "caster.stat.resolvePower",
-                      "scale": 0.001
+                      "scale": 0.0001
                     }
                   ]
                 }
@@ -879,7 +879,7 @@
               "args": [
                 {
                   "var": "caster.stat.spellAtk",
-                  "scale": 10.8
+                  "scale": 3.615
                 },
                 {
                   "op": "add",
@@ -891,11 +891,11 @@
                     },
                     {
                       "var": "caster.stat.dodge",
-                      "scale": 0.002
+                      "scale": 0.0015
                     },
                     {
                       "var": "caster.stat.spellDef",
-                      "scale": 0.001
+                      "scale": 0.0007
                     }
                   ]
                 }
@@ -914,7 +914,7 @@
         "name": "青生反哺",
         "desc": "读缠脉抽取生机，再反哺己身气血。",
         "cooldown": 19,
-        "costMultiplier": 3,
+        "costMultiplier": 4,
         "range": 3,
         "effects": [
           {
@@ -926,7 +926,7 @@
               "args": [
                 {
                   "var": "caster.stat.spellAtk",
-                  "scale": 9
+                  "scale": 3.269
                 },
                 {
                   "op": "add",
@@ -942,11 +942,11 @@
                     },
                     {
                       "var": "caster.stat.dodge",
-                      "scale": 0.002
+                      "scale": 0.0015
                     },
                     {
                       "var": "caster.stat.spellDef",
-                      "scale": 0.001
+                      "scale": 0.0007
                     }
                   ]
                 }
@@ -1230,7 +1230,7 @@
         "name": "脉转轮生",
         "desc": "以场上杂相回转自身灵息与承压。",
         "cooldown": 17,
-        "costMultiplier": 3,
+        "costMultiplier": 4,
         "range": 0,
         "requiresTarget": false,
         "effects": [
@@ -1403,7 +1403,7 @@
               "args": [
                 {
                   "var": "caster.stat.spellAtk",
-                  "scale": 10.8
+                  "scale": 3.615
                 },
                 {
                   "op": "add",
@@ -1438,7 +1438,7 @@
         "name": "寒镜锁流",
         "desc": "读取寒印层数，把目标钉在寒流里。",
         "cooldown": 19,
-        "costMultiplier": 3,
+        "costMultiplier": 4,
         "range": 3,
         "effects": [
           {
@@ -1450,7 +1450,7 @@
               "args": [
                 {
                   "var": "caster.stat.spellAtk",
-                  "scale": 8.8
+                  "scale": 3.231
                 },
                 {
                   "op": "add",

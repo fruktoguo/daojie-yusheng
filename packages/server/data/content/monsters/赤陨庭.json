@@ -408,7 +408,7 @@
     "color": "#d66a4a",
     "grade": "mystic",
     "tier": "variant",
-    "level": 23,
+    "level": 25,
     "count": 4,
     "maxAlive": 4,
     "radius": 8,
@@ -663,9 +663,14 @@
       "moveSpeed": 130.2
     },
     "skills": [
-      "skill.core_smash",
-      "skill.guardian_quake",
-      "skill.void_burst"
+      "skill.huomai_cuxing",
+      "skill.yunhuo_laomai",
+      "skill.fenxi_jue",
+      "skill.liebo_fenmai",
+      "skill.chiyao_laoxin",
+      "skill.yaohuo_huiran",
+      "skill.zhuming_dianmai",
+      "skill.jintian_liexi"
     ],
     "equipment": {
       "weapon": {

@@ -598,17 +598,8 @@
               "op": "mul",
               "args": [
                 {
-                  "op": "add",
-                  "args": [
-                    {
-                      "var": "caster.stat.physAtk",
-                      "scale": 1.55
-                    },
-                    {
-                      "var": "caster.maxHp",
-                      "scale": 0.05
-                    }
-                  ]
+                  "var": "caster.stat.physAtk",
+                  "scale": 1.55
                 },
                 {
                   "op": "add",

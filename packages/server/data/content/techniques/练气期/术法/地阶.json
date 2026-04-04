@@ -141,7 +141,7 @@
               "args": [
                 {
                   "var": "caster.stat.physAtk",
-                  "scale": 16.8
+                  "scale": 4.769
                 },
                 {
                   "op": "add",
@@ -153,19 +153,19 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.002
+                      "scale": 0.0011
                     },
                     {
                       "var": "caster.stat.breakPower",
-                      "scale": 0.002
+                      "scale": 0.0011
                     },
                     {
                       "var": "caster.stat.physDef",
-                      "scale": 0.002
+                      "scale": 0.0011
                     },
                     {
                       "var": "caster.stat.resolvePower",
-                      "scale": 0.001
+                      "scale": 0.0005
                     }
                   ]
                 }
@@ -211,7 +211,7 @@
         "name": "坤元覆脉",
         "desc": "读取高层镇脉做稳定重压收束。",
         "cooldown": 25,
-        "costMultiplier": 3,
+        "costMultiplier": 5,
         "range": 2,
         "effects": [
           {
@@ -223,7 +223,7 @@
               "args": [
                 {
                   "var": "caster.stat.physAtk",
-                  "scale": 11.3
+                  "scale": 3.712
                 },
                 {
                   "op": "add",
@@ -239,19 +239,19 @@
                     },
                     {
                       "var": "caster.stat.physDef",
-                      "scale": 0.012
+                      "scale": 0.002
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.002
+                      "scale": 0.0003
                     },
                     {
                       "var": "caster.stat.breakPower",
-                      "scale": 0.002
+                      "scale": 0.0003
                     },
                     {
                       "var": "caster.stat.resolvePower",
-                      "scale": 0.001
+                      "scale": 0.0001
                     }
                   ]
                 }
@@ -423,7 +423,7 @@
                   "args": [
                     {
                       "var": "caster.stat.spellAtk",
-                      "scale": 7.3
+                      "scale": 2.942
                     },
                     {
                       "var": "caster.stat.physAtk",
@@ -461,27 +461,27 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.001
+                      "scale": 0.0008
                     },
                     {
                       "var": "caster.stat.crit",
-                      "scale": 0.001
+                      "scale": 0.0008
                     },
                     {
                       "var": "caster.stat.breakPower",
-                      "scale": 0.001
+                      "scale": 0.0008
                     },
                     {
                       "var": "caster.stat.physDef",
-                      "scale": 0.001
+                      "scale": 0.0008
                     },
                     {
                       "var": "caster.stat.spellDef",
-                      "scale": 0.001
+                      "scale": 0.0008
                     },
                     {
                       "var": "caster.stat.resolvePower",
-                      "scale": 0.001
+                      "scale": 0.0008
                     }
                   ]
                 }
@@ -553,7 +553,7 @@
         "name": "载脉归一",
         "desc": "按杂相层数强化全系混行压制。",
         "cooldown": 25,
-        "costMultiplier": 3,
+        "costMultiplier": 4,
         "range": 3,
         "effects": [
           {
@@ -567,11 +567,11 @@
                   "args": [
                     {
                       "var": "caster.stat.physAtk",
-                      "scale": 7
+                      "scale": 2.885
                     },
                     {
                       "var": "caster.stat.spellAtk",
-                      "scale": 7
+                      "scale": 2.885
                     }
                   ]
                 },
@@ -589,27 +589,27 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.001
+                      "scale": 0.0008
                     },
                     {
                       "var": "caster.stat.crit",
-                      "scale": 0.001
+                      "scale": 0.0008
                     },
                     {
                       "var": "caster.stat.breakPower",
-                      "scale": 0.001
+                      "scale": 0.0008
                     },
                     {
                       "var": "caster.stat.physDef",
-                      "scale": 0.001
+                      "scale": 0.0008
                     },
                     {
                       "var": "caster.stat.spellDef",
-                      "scale": 0.001
+                      "scale": 0.0008
                     },
                     {
                       "var": "caster.stat.resolvePower",
-                      "scale": 0.001
+                      "scale": 0.0008
                     }
                   ]
                 }
@@ -773,7 +773,7 @@
               "args": [
                 {
                   "var": "caster.stat.physAtk",
-                  "scale": 17
+                  "scale": 4.808
                 },
                 {
                   "op": "add",
@@ -785,19 +785,19 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.002
+                      "scale": 0.0012
                     },
                     {
                       "var": "caster.stat.crit",
-                      "scale": 0.002
+                      "scale": 0.0012
                     },
                     {
                       "var": "caster.stat.breakPower",
-                      "scale": 0.002
+                      "scale": 0.0012
                     },
                     {
                       "var": "target.stat.physDef",
-                      "scale": 0.001
+                      "scale": 0.0006
                     }
                   ]
                 }
@@ -824,7 +824,7 @@
         "name": "诛形断魄",
         "desc": "按锋痕层数大幅放大金行处决伤害。",
         "cooldown": 19,
-        "costMultiplier": 3,
+        "costMultiplier": 4,
         "range": 1,
         "effects": [
           {
@@ -836,7 +836,7 @@
               "args": [
                 {
                   "var": "caster.stat.physAtk",
-                  "scale": 14
+                  "scale": 4.231
                 },
                 {
                   "op": "add",
@@ -852,19 +852,19 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.002
+                      "scale": 0.0012
                     },
                     {
                       "var": "caster.stat.crit",
-                      "scale": 0.002
+                      "scale": 0.0012
                     },
                     {
                       "var": "caster.stat.breakPower",
-                      "scale": 0.002
+                      "scale": 0.0012
                     },
                     {
                       "var": "target.stat.physDef",
-                      "scale": 0.001
+                      "scale": 0.0006
                     }
                   ]
                 }
@@ -1020,7 +1020,7 @@
               "args": [
                 {
                   "var": "caster.stat.spellAtk",
-                  "scale": 15.8
+                  "scale": 4.577
                 },
                 {
                   "op": "add",
@@ -1071,7 +1071,7 @@
         "name": "归潮锁界",
         "desc": "对一片区域延长寒意压制。",
         "cooldown": 25,
-        "costMultiplier": 3,
+        "costMultiplier": 4,
         "range": 4,
         "targeting": {
           "shape": "area",
@@ -1088,7 +1088,7 @@
               "args": [
                 {
                   "var": "caster.stat.spellAtk",
-                  "scale": 14
+                  "scale": 4.231
                 },
                 {
                   "op": "add",
@@ -1291,7 +1291,7 @@
               "args": [
                 {
                   "var": "caster.stat.spellAtk",
-                  "scale": 16.3
+                  "scale": 4.673
                 },
                 {
                   "op": "add",
@@ -1303,19 +1303,19 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.001
+                      "scale": 0.0008
                     },
                     {
                       "var": "caster.stat.resolvePower",
-                      "scale": 0.002
+                      "scale": 0.0016
                     },
                     {
                       "var": "caster.stat.dodge",
-                      "scale": 0.001
+                      "scale": 0.0008
                     },
                     {
                       "var": "caster.stat.spellDef",
-                      "scale": 0.001
+                      "scale": 0.0008
                     }
                   ]
                 }
@@ -1342,7 +1342,7 @@
         "name": "夺脉归元",
         "desc": "对高层缠脉目标做大额抽取。",
         "cooldown": 25,
-        "costMultiplier": 3,
+        "costMultiplier": 5,
         "range": 3,
         "effects": [
           {
@@ -1354,7 +1354,7 @@
               "args": [
                 {
                   "var": "caster.stat.spellAtk",
-                  "scale": 14.3
+                  "scale": 4.288
                 },
                 {
                   "op": "add",
@@ -1370,19 +1370,19 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.001
+                      "scale": 0.0008
                     },
                     {
                       "var": "caster.stat.resolvePower",
-                      "scale": 0.002
+                      "scale": 0.0016
                     },
                     {
                       "var": "caster.stat.dodge",
-                      "scale": 0.001
+                      "scale": 0.0008
                     },
                     {
                       "var": "caster.stat.spellDef",
-                      "scale": 0.001
+                      "scale": 0.0008
                     }
                   ]
                 }
@@ -1562,7 +1562,7 @@
               "args": [
                 {
                   "var": "caster.stat.spellAtk",
-                  "scale": 16.5
+                  "scale": 4.712
                 },
                 {
                   "op": "add",
@@ -1574,19 +1574,19 @@
                     },
                     {
                       "var": "caster.stat.crit",
-                      "scale": 0.002
+                      "scale": 0.0016
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.001
+                      "scale": 0.0008
                     },
                     {
                       "var": "caster.stat.breakPower",
-                      "scale": 0.001
+                      "scale": 0.0008
                     },
                     {
                       "var": "target.stat.spellDef",
-                      "scale": 0.001
+                      "scale": 0.0008
                     }
                   ]
                 }
@@ -1613,7 +1613,7 @@
         "name": "烬天裂息",
         "desc": "按灼脉层数把单体爆发拉满。",
         "cooldown": 25,
-        "costMultiplier": 3,
+        "costMultiplier": 4,
         "range": 3,
         "effects": [
           {
@@ -1625,7 +1625,7 @@
               "args": [
                 {
                   "var": "caster.stat.spellAtk",
-                  "scale": 14.3
+                  "scale": 4.288
                 },
                 {
                   "op": "add",
@@ -1641,19 +1641,19 @@
                     },
                     {
                       "var": "caster.stat.crit",
-                      "scale": 0.002
+                      "scale": 0.0016
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.001
+                      "scale": 0.0008
                     },
                     {
                       "var": "caster.stat.breakPower",
-                      "scale": 0.001
+                      "scale": 0.0008
                     },
                     {
                       "var": "target.stat.spellDef",
-                      "scale": 0.001
+                      "scale": 0.0008
                     }
                   ]
                 }

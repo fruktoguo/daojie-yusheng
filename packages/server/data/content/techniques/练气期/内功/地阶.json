@@ -206,7 +206,7 @@
         "name": "无漏守中",
         "desc": "无漏守中，借高层定息稳定全身。",
         "cooldown": 21,
-        "costMultiplier": 3,
+        "costMultiplier": 5,
         "range": 0,
         "requiresTarget": false,
         "effects": [

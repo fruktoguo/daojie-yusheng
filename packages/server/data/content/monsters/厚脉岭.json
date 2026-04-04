@@ -458,7 +458,7 @@
     "color": "#b5966f",
     "grade": "mystic",
     "tier": "variant",
-    "level": 23,
+    "level": 25,
     "count": 4,
     "maxAlive": 4,
     "radius": 8,
@@ -741,9 +741,14 @@
       "moveSpeed": 56
     },
     "skills": [
-      "skill.guardian_quake",
-      "skill.kunyuan_fumai",
-      "skill.void_burst"
+      "skill.yuepo_zhendao",
+      "skill.zhenmai_yin",
+      "skill.chengyuan_luobei",
+      "skill.luoshan_zhenmai",
+      "skill.kunyue_zhenxing",
+      "skill.yuedong_huizhen",
+      "skill.huangting_dingyue",
+      "skill.kunyuan_fumai"
     ],
     "drops": [
       {
