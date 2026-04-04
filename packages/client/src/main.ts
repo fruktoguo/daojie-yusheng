@@ -1300,8 +1300,12 @@ function cloneJson<T>(value: T): T {
 
 function buildAttrStateFromPlayer(player: PlayerState): S2C_AttrUpdate {
   return {
+    baseAttrs: cloneJson(player.baseAttrs),
+    bonuses: cloneJson(player.bonuses),
     finalAttrs: cloneJson(player.finalAttrs ?? player.baseAttrs),
     numericStats: player.numericStats ? cloneJson(player.numericStats) : undefined,
+    ratioDivisors: player.ratioDivisors ? cloneJson(player.ratioDivisors) : undefined,
+    numericStatBreakdowns: player.numericStatBreakdowns ? cloneJson(player.numericStatBreakdowns) : undefined,
     maxHp: player.maxHp,
     qi: player.qi,
     specialStats: {
@@ -1319,6 +1323,15 @@ function buildAttrStateFromPlayer(player: PlayerState): S2C_AttrUpdate {
 
 function mergeAttrUpdatePatch(previous: S2C_AttrUpdate | null, patch: S2C_AttrUpdate): S2C_AttrUpdate {
   return {
+    baseAttrs: patch.baseAttrs ? cloneJson(patch.baseAttrs) : cloneJson(previous?.baseAttrs ?? myPlayer?.baseAttrs ?? {
+      constitution: 0,
+      spirit: 0,
+      perception: 0,
+      talent: 0,
+      comprehension: 0,
+      luck: 0,
+    }),
+    bonuses: patch.bonuses ? cloneJson(patch.bonuses) : cloneJson(previous?.bonuses ?? myPlayer?.bonuses ?? []),
     finalAttrs: patch.finalAttrs ? cloneJson(patch.finalAttrs) : cloneJson(previous?.finalAttrs ?? myPlayer?.finalAttrs ?? previous?.baseAttrs ?? myPlayer?.baseAttrs ?? {
       constitution: 0,
       spirit: 0,
@@ -1328,6 +1341,12 @@ function mergeAttrUpdatePatch(previous: S2C_AttrUpdate | null, patch: S2C_AttrUp
       luck: 0,
     }),
     numericStats: patch.numericStats ? cloneJson(patch.numericStats) : (previous?.numericStats ? cloneJson(previous.numericStats) : undefined),
+    ratioDivisors: patch.ratioDivisors
+      ? cloneJson(patch.ratioDivisors)
+      : (previous?.ratioDivisors ? cloneJson(previous.ratioDivisors) : (myPlayer?.ratioDivisors ? cloneJson(myPlayer.ratioDivisors) : undefined)),
+    numericStatBreakdowns: patch.numericStatBreakdowns
+      ? cloneJson(patch.numericStatBreakdowns)
+      : (previous?.numericStatBreakdowns ? cloneJson(previous.numericStatBreakdowns) : (myPlayer?.numericStatBreakdowns ? cloneJson(myPlayer.numericStatBreakdowns) : undefined)),
     maxHp: patch.maxHp ?? previous?.maxHp ?? myPlayer?.maxHp ?? 0,
     qi: patch.qi ?? previous?.qi ?? myPlayer?.qi ?? 0,
     specialStats: patch.specialStats

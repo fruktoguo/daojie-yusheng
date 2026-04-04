@@ -359,6 +359,7 @@ export class AttrPanel {
   private callbacks: AttrPanelCallbacks | null = null;
   private latestData: S2C_AttrUpdate | null = null;
   private detailData: S2C_AttrDetail | null = null;
+  private detailStale = false;
   private detailRequested = false;
 
   constructor() {
@@ -374,6 +375,7 @@ export class AttrPanel {
   clear(): void {
     this.latestData = null;
     this.detailData = null;
+    this.detailStale = false;
     this.detailRequested = false;
     this.lastSnapshot = null;
     this.lastStructureKey = null;
@@ -421,6 +423,7 @@ export class AttrPanel {
       realmProgressToNext: player.realm?.progressToNext,
       realmBreakthroughReady: player.realm?.breakthroughReady ?? player.breakthroughReady,
     };
+    this.detailStale = false;
     const snapshot = this.buildSnapshot(
       this.latestData.finalAttrs ?? player.baseAttrs,
       this.latestData.numericStats,
@@ -431,15 +434,13 @@ export class AttrPanel {
   }
 
   invalidateDetail(): void {
-    this.detailData = null;
+    this.detailStale = this.detailData !== null;
     this.detailRequested = false;
-    if (this.latestData) {
-      this.update(this.latestData);
-    }
   }
 
   applyDetail(detail: S2C_AttrDetail): void {
     this.detailData = detail;
+    this.detailStale = false;
     this.detailRequested = true;
     if (this.latestData) {
       this.update(this.latestData);
@@ -494,12 +495,14 @@ export class AttrPanel {
   }
 
   private buildBaseRadarSnapshot(final: Attributes, detail?: S2C_AttrDetail | null): AttrRadarPaneSnapshot {
+    const baseAttrs = detail?.baseAttrs ?? this.latestData?.baseAttrs;
+    const bonuses = detail?.bonuses ?? this.latestData?.bonuses;
     const maxValue = Math.max(20, ...ATTR_KEYS.map((key) => final[key]));
     const radarMax = Math.ceil(maxValue / 5) * 5 || 20;
     const entries: RadarEntry[] = ATTR_KEYS.map((key, index) => {
       const finalValue = final[key];
-      const baseValue = detail?.baseAttrs[key];
-      const bonusValue = detail?.bonuses.reduce((sum, bonus) => sum + (bonus.attrs[key] ?? 0), 0);
+      const baseValue = baseAttrs?.[key];
+      const bonusValue = bonuses?.reduce((sum, bonus) => sum + (bonus.attrs[key] ?? 0), 0);
       const roundedValue = Math.round(finalValue);
       return {
         label: ATTR_KEY_LABELS[key],
@@ -524,12 +527,14 @@ export class AttrPanel {
     stats: NumericStats,
     detail?: S2C_AttrDetail | null,
   ): AttrRadarPaneSnapshot {
+    const ratios = detail?.ratioDivisors ?? this.latestData?.ratioDivisors;
+    const bonuses = detail?.bonuses ?? this.latestData?.bonuses;
     const entries: RadarEntry[] = ELEMENT_KEYS.map((key, index) => {
       const damageBonus = stats.elementDamageBonus[key];
-      const reductionDivisor = detail?.ratioDivisors.elementDamageReduce[key] || 100;
+      const reductionDivisor = ratios?.elementDamageReduce[key] || 100;
       const roundedBonus = Math.round(damageBonus);
       const lines = [`当前：${formatDisplayInteger(roundedBonus)} 点`, `${ELEMENT_KEY_LABELS[key]}属性伤害增幅：${formatDisplayPercent(roundedBonus)}`];
-      if (detail?.ratioDivisors) {
+      if (ratios) {
         lines.push(`${ELEMENT_KEY_LABELS[key]}属性实际减伤：${formatRatioPercent(stats.elementDamageReduce[key], reductionDivisor)}`);
         lines.push(`${ELEMENT_KEY_LABELS[key]}属性灵气吸收效率：${formatDisplayPercent(getSpiritualRootAbsorptionRate(roundedBonus), { maximumFractionDigits: 2 })}`);
       } else {
@@ -545,8 +550,8 @@ export class AttrPanel {
       };
     });
     const radarMax = Math.max(100, ...entries.map((entry) => entry.value)) || 100;
-    const rootTitle = detail?.bonuses
-      ? describeSpiritualRoots(resolveSpiritualRootsFromBonuses(detail.bonuses)).name
+    const rootTitle = bonuses
+      ? describeSpiritualRoots(resolveSpiritualRootsFromBonuses(bonuses)).name
       : '灵根轮图';
     return this.buildRadarPaneSnapshot(rootTitle, radarMax, entries, 'root');
   }
@@ -634,8 +639,8 @@ export class AttrPanel {
     if (!stats || !meta || !attrs) {
       return { kind: 'placeholder', message: `${title}尚未同步` };
     }
-    const ratios = detail?.ratioDivisors;
-    const breakdowns = detail?.numericStatBreakdowns;
+    const ratios = detail?.ratioDivisors ?? this.latestData?.ratioDivisors;
+    const breakdowns = detail?.numericStatBreakdowns ?? this.latestData?.numericStatBreakdowns;
 
     return {
       kind: 'numeric',
@@ -1159,7 +1164,13 @@ export class AttrPanel {
   }
 
   private requestDetailIfNeeded(): void {
-    if (this.detailData || this.detailRequested || !this.latestData) {
+    if (!this.latestData) {
+      return;
+    }
+    if (this.detailData && !this.detailStale) {
+      return;
+    }
+    if (this.detailRequested) {
       return;
     }
     this.detailRequested = true;
