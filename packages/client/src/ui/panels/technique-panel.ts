@@ -255,13 +255,15 @@ export class TechniquePanel {
   private categoryFilter: TechniqueCategoryFilter = 'all';
   private statusFilter: TechniqueStatusFilter = 'in_progress';
   private lastState: TechniquePanelState = { techniques: [] };
+  private lastVisibleTechniqueIds: string[] | null = null;
 
   constructor() {
     this.bindPaneEvents();
   }
 
   clear(): void {
-    this.pane.innerHTML = '<div class="empty-hint">尚未习得功法</div>';
+    this.lastVisibleTechniqueIds = null;
+    this.pane.innerHTML = '<div class="empty-hint" data-tech-empty="true">尚未习得功法</div>';
     this.tooltip.hide(true);
     this.closeModal();
   }
@@ -284,7 +286,9 @@ export class TechniquePanel {
   /** 仅同步经验、进度条与主修状态，避免高频整块重绘 */
   syncDynamic(techniques: TechniqueState[], cultivatingTechId?: string, previewPlayer?: PlayerState): void {
     this.lastState = { techniques, cultivatingTechId, previewPlayer };
-    this.renderList();
+    if (!this.patchList()) {
+      this.renderList();
+    }
     if (!this.patchModal()) {
       this.renderModal();
     }
@@ -295,15 +299,13 @@ export class TechniquePanel {
   }
 
   private renderList(): void {
-    const techniques = sortTechniquesForPanel(resolvePreviewTechniques(this.lastState.techniques));
+    const techniques = this.getDisplayTechniques();
     if (techniques.length === 0) {
       this.clear();
       return;
     }
 
-    const filteredTechniques = techniques.filter((tech) => (
-      this.matchesCategoryFilter(tech) && this.matchesStatusFilter(tech)
-    ));
+    const filteredTechniques = this.getVisibleTechniques(techniques);
     const topTabsHtml = TECHNIQUE_CATEGORY_FILTERS.map((filter) => {
       const count = techniques.filter((tech) => (
         this.matchesStatusFilter(tech) && (filter.value === 'all' || resolveTechniqueCategory(tech) === filter.value)
@@ -312,7 +314,7 @@ export class TechniquePanel {
         class="tech-filter-tab ${this.categoryFilter === filter.value ? 'active' : ''}"
         data-tech-category-filter="${filter.value}"
         type="button"
-      >${escapeHtml(filter.label)}<span class="tech-filter-count">${formatDisplayInteger(count)}</span></button>`;
+      >${escapeHtml(filter.label)}<span class="tech-filter-count" data-tech-category-count="${filter.value}">${formatDisplayInteger(count)}</span></button>`;
     }).join('');
     const sideTabsHtml = TECHNIQUE_STATUS_FILTERS.map((filter) => {
       const count = techniques.filter((tech) => (
@@ -322,11 +324,11 @@ export class TechniquePanel {
         class="tech-side-tab ${this.statusFilter === filter.value ? 'active' : ''}"
         data-tech-status-filter="${filter.value}"
         type="button"
-      ><span>${escapeHtml(filter.label)}</span><span class="tech-filter-count">${formatDisplayInteger(count)}</span></button>`;
+      ><span>${escapeHtml(filter.label)}</span><span class="tech-filter-count" data-tech-status-count="${filter.value}">${formatDisplayInteger(count)}</span></button>`;
     }).join('');
     const listHtml = filteredTechniques.length > 0
       ? filteredTechniques.map((tech) => this.renderTechniqueCard(tech)).join('')
-      : `<div class="empty-hint">${escapeHtml(this.getFilteredEmptyHint())}</div>`;
+      : `<div class="empty-hint" data-tech-empty="true">${escapeHtml(this.getFilteredEmptyHint())}</div>`;
 
     preserveSelection(this.pane, () => {
       this.pane.innerHTML = `<div class="tech-panel-shell">
@@ -337,6 +339,7 @@ export class TechniquePanel {
         </div>
       </div>`;
     });
+    this.lastVisibleTechniqueIds = filteredTechniques.map((tech) => tech.techId);
   }
 
   private renderTechniqueCard(tech: TechniqueState): string {
@@ -406,6 +409,53 @@ export class TechniquePanel {
       return '当前没有已圆满的功法';
     }
     return '当前筛选下没有符合条件的功法';
+  }
+
+  private getDisplayTechniques(): TechniqueState[] {
+    return sortTechniquesForPanel(resolvePreviewTechniques(this.lastState.techniques));
+  }
+
+  private getVisibleTechniques(techniques: TechniqueState[]): TechniqueState[] {
+    return techniques.filter((tech) => (
+      this.matchesCategoryFilter(tech) && this.matchesStatusFilter(tech)
+    ));
+  }
+
+  private isSameTechniqueIdSequence(nextIds: string[]): boolean {
+    if (!this.lastVisibleTechniqueIds || this.lastVisibleTechniqueIds.length !== nextIds.length) {
+      return false;
+    }
+    return nextIds.every((techId, index) => this.lastVisibleTechniqueIds?.[index] === techId);
+  }
+
+  private patchFilterTabs(techniques: TechniqueState[]): boolean {
+    for (const filter of TECHNIQUE_CATEGORY_FILTERS) {
+      const button = this.pane.querySelector<HTMLButtonElement>(`[data-tech-category-filter="${filter.value}"]`);
+      const countNode = this.pane.querySelector<HTMLElement>(`[data-tech-category-count="${filter.value}"]`);
+      if (!button || !countNode) {
+        return false;
+      }
+      const count = techniques.filter((tech) => (
+        this.matchesStatusFilter(tech) && (filter.value === 'all' || resolveTechniqueCategory(tech) === filter.value)
+      )).length;
+      button.classList.toggle('active', this.categoryFilter === filter.value);
+      countNode.textContent = formatDisplayInteger(count);
+    }
+
+    for (const filter of TECHNIQUE_STATUS_FILTERS) {
+      const button = this.pane.querySelector<HTMLButtonElement>(`[data-tech-status-filter="${filter.value}"]`);
+      const countNode = this.pane.querySelector<HTMLElement>(`[data-tech-status-count="${filter.value}"]`);
+      if (!button || !countNode) {
+        return false;
+      }
+      const count = techniques.filter((tech) => (
+        this.matchesCategoryFilter(tech) && this.matchesStatusFilter(tech, filter.value)
+      )).length;
+      button.classList.toggle('active', this.statusFilter === filter.value);
+      countNode.textContent = formatDisplayInteger(count);
+    }
+
+    return true;
   }
 
   private renderModal(): void {
@@ -883,13 +933,34 @@ export class TechniquePanel {
   }
 
   private patchList(): boolean {
-    const techniques = resolvePreviewTechniques(this.lastState.techniques);
-    const { cultivatingTechId } = this.lastState;
+    const techniques = this.getDisplayTechniques();
     if (techniques.length === 0) {
       return false;
     }
+    if (!this.patchFilterTabs(techniques)) {
+      return false;
+    }
+    const filteredTechniques = this.getVisibleTechniques(techniques);
+    const visibleTechniqueIds = filteredTechniques.map((tech) => tech.techId);
+    const listRoot = this.pane.querySelector<HTMLElement>('[data-tech-list="true"]');
+    if (!listRoot) {
+      return false;
+    }
+    const emptyNode = listRoot.querySelector<HTMLElement>('[data-tech-empty="true"]');
+    if (filteredTechniques.length === 0) {
+      if (!emptyNode) {
+        return false;
+      }
+      emptyNode.textContent = this.getFilteredEmptyHint();
+      this.lastVisibleTechniqueIds = [];
+      return true;
+    }
+    if (emptyNode || !this.isSameTechniqueIdSequence(visibleTechniqueIds)) {
+      return false;
+    }
 
-    for (const tech of techniques) {
+    const { cultivatingTechId } = this.lastState;
+    for (const tech of filteredTechniques) {
       const card = this.pane.querySelector<HTMLElement>(`[data-tech-card="${CSS.escape(tech.techId)}"]`);
       const realmLevelNode = this.pane.querySelector<HTMLElement>(`[data-tech-realm-level="${CSS.escape(tech.techId)}"]`);
       const realmNode = this.pane.querySelector<HTMLElement>(`[data-tech-realm="${CSS.escape(tech.techId)}"]`);
@@ -928,6 +999,7 @@ export class TechniquePanel {
       cultivateButton.dataset.cultivateStop = isCultivating ? tech.techId : '';
     }
 
+    this.lastVisibleTechniqueIds = visibleTechniqueIds;
     return true;
   }
 

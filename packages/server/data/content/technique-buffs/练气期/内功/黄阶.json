@@ -1,0 +1,39 @@
+[
+  {
+    "id": "lianqi.neigong.yellow.qi_breath_calm",
+    "target": "self",
+    "buffId": "buff.qi_breath_calm",
+    "name": "定息",
+    "desc": "气息归平，持续提高灵力回复、法防与化解。",
+    "shortMark": "息",
+    "category": "buff",
+    "visibility": "public",
+    "color": "#7da8c7",
+    "duration": 24,
+    "maxStacks": 21,
+    "statMode": "percent",
+    "valueStats": {
+      "qiRegenRate": 70,
+      "spellDef": 3,
+      "resolvePower": 2
+    }
+  },
+  {
+    "id": "lianqi.neigong.yellow.listen_guard",
+    "target": "self",
+    "buffId": "buff.listen_guard",
+    "name": "护元",
+    "desc": "暂时护持经络。",
+    "shortMark": "护",
+    "category": "buff",
+    "visibility": "public",
+    "color": "#89a9c2",
+    "duration": 16,
+    "maxStacks": 3,
+    "statMode": "percent",
+    "valueStats": {
+      "spellDef": 8,
+      "resolvePower": 6
+    }
+  }
+]

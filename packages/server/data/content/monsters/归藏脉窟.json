@@ -573,19 +573,19 @@
       "luck": 66
     },
     "statPercents": {
-      "maxHp": 182.3,
-      "maxQi": 180.3,
-      "physAtk": 158.8,
-      "spellAtk": 168.6,
-      "physDef": 162.7,
-      "spellDef": 168.6,
-      "hit": 162.7,
-      "dodge": 158.8,
-      "crit": 149,
-      "breakPower": 149,
-      "resolvePower": 162.7,
-      "maxQiOutputPerTick": 192.1,
-      "moveSpeed": 133.3
+      "maxHp": 164.1,
+      "maxQi": 162.3,
+      "physAtk": 142.9,
+      "spellAtk": 151.7,
+      "physDef": 146.4,
+      "spellDef": 151.7,
+      "hit": 146.4,
+      "dodge": 142.9,
+      "crit": 134.1,
+      "breakPower": 134.1,
+      "resolvePower": 146.4,
+      "maxQiOutputPerTick": 172.9,
+      "moveSpeed": 120
     },
     "skills": [
       "skill.core_smash",

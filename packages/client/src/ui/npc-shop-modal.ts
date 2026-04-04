@@ -63,6 +63,11 @@ interface NpcShopPurchaseState {
   errorText: string | null;
 }
 
+interface NpcShopModalMeta {
+  title: string;
+  subtitle: string;
+}
+
 export class NpcShopModal {
   private static readonly MODAL_OWNER = 'npc-shop-modal';
   private static readonly CONFIRM_MODAL_OWNER = 'npc-shop-modal:confirm-purchase';
@@ -78,6 +83,7 @@ export class NpcShopModal {
   private unlockedMinimapIds = new Set<string>();
   private tooltip = new FloatingTooltip('floating-tooltip market-item-tooltip');
   private tooltipNode: HTMLElement | null = null;
+  private delegatedEventsBound = false;
 
   setCallbacks(callbacks: NpcShopModalCallbacks): void {
     this.callbacks = callbacks;
@@ -177,11 +183,16 @@ export class NpcShopModal {
   private render(): void {
     const response = this.shopState;
     const shop = response?.shop ?? null;
+    const meta = this.buildModalMeta();
+    const body = document.getElementById('detail-modal-body');
+    if (detailModalHost.isOpenFor(NpcShopModal.MODAL_OWNER) && body && this.patchBody(body, meta)) {
+      return;
+    }
     detailModalHost.open({
       ownerId: NpcShopModal.MODAL_OWNER,
       variantClass: 'detail-modal--market',
-      title: shop ? `${shop.npcName}的商店` : '商店',
-      subtitle: shop?.dialogue ?? '货架同步中',
+      title: meta.title,
+      subtitle: meta.subtitle,
       bodyHtml: this.renderBody(),
       onClose: () => {
         this.activeNpcId = null;
@@ -192,65 +203,7 @@ export class NpcShopModal {
         confirmModalHost.close(NpcShopModal.CONFIRM_MODAL_OWNER);
       },
       onAfterRender: (body) => {
-        body.querySelectorAll<HTMLElement>('[data-npc-shop-select-item]').forEach((button) => {
-          button.addEventListener('click', () => {
-            const itemId = button.dataset.npcShopSelectItem;
-            if (!itemId || itemId === this.selectedItemId) {
-              return;
-            }
-            this.selectedItemId = itemId;
-            this.render();
-          });
-        });
-
-        body.querySelectorAll<HTMLInputElement>('[data-npc-shop-quantity]').forEach((input) => {
-          input.addEventListener('input', () => {
-            const itemId = input.dataset.npcShopQuantity;
-            if (!itemId) {
-              return;
-            }
-            const normalized = input.value.replaceAll(/[^\d]/g, '');
-            this.quantityDrafts.set(itemId, normalized);
-            if (input.value !== normalized) {
-              input.value = normalized;
-            }
-            this.syncPurchaseState(body, itemId);
-          });
-        });
-
-        body.querySelectorAll<HTMLElement>('[data-npc-shop-quick-qty]').forEach((button) => {
-          button.addEventListener('click', () => {
-            const itemId = button.dataset.npcShopQuickQty;
-            const nextQuantity = button.dataset.npcShopQuickQtyValue;
-            if (!itemId || !nextQuantity) {
-              return;
-            }
-            this.quantityDrafts.set(itemId, nextQuantity);
-            const input = body.querySelector<HTMLInputElement>(`[data-npc-shop-quantity="${itemId}"]`);
-            if (input) {
-              input.value = nextQuantity;
-            }
-            this.syncPurchaseState(body, itemId);
-          });
-        });
-
-        body.querySelectorAll<HTMLElement>('[data-npc-shop-buy]').forEach((button) => {
-          button.addEventListener('click', () => {
-            const itemId = button.dataset.npcShopBuy;
-            const shop = this.shopState?.shop;
-            const entry = itemId ? shop?.items.find((item) => item.itemId === itemId) : null;
-            if (!itemId || !shop || !entry) {
-              return;
-            }
-            const purchaseState = this.getPurchaseState(shop, entry);
-            if (purchaseState.purchaseDisabled) {
-              return;
-            }
-            this.confirmPurchaseItemId = itemId;
-            this.syncPurchaseConfirmModal();
-          });
-        });
-
+        this.bindEvents(body);
         this.bindItemTooltipEvents(body);
       },
     });
@@ -283,12 +236,12 @@ export class NpcShopModal {
             <div class="market-board">
               <div class="market-board-list-wrap">
                 <div class="market-list-toolbar">
-                  <div class="market-list-toolbar-meta">共 ${formatDisplayInteger(shop.items.length)} 件，持有 ${escapeHtml(shop.currencyItemName)} ${formatDisplayInteger(ownedCurrency)}</div>
+                  <div class="market-list-toolbar-meta" data-npc-shop-toolbar-meta="true">共 ${formatDisplayInteger(shop.items.length)} 件，持有 ${escapeHtml(shop.currencyItemName)} ${formatDisplayInteger(ownedCurrency)}</div>
                   <div class="market-list-toolbar-actions"></div>
                 </div>
-                <div class="market-board-list">${listItems}</div>
+                <div class="market-board-list" data-npc-shop-list="true">${listItems}</div>
               </div>
-              <div class="market-book-panel">
+              <div class="market-book-panel" data-npc-shop-detail="true">
                 ${this.renderDetailPanel(shop, selectedItem)}
               </div>
             </div>
@@ -483,6 +436,136 @@ export class NpcShopModal {
       return null;
     }
     return quantity;
+  }
+
+  private bindEvents(body: HTMLElement): void {
+    if (this.delegatedEventsBound) {
+      return;
+    }
+    this.delegatedEventsBound = true;
+    body.addEventListener('click', (event) => this.handleBodyClick(event));
+    body.addEventListener('input', (event) => this.handleBodyInput(event));
+  }
+
+  private handleBodyClick(event: Event): void {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    const selectButton = target.closest<HTMLElement>('[data-npc-shop-select-item]');
+    if (selectButton) {
+      const itemId = selectButton.dataset.npcShopSelectItem;
+      if (!itemId || itemId === this.selectedItemId) {
+        return;
+      }
+      this.selectedItemId = itemId;
+      this.render();
+      return;
+    }
+
+    const quickQtyButton = target.closest<HTMLElement>('[data-npc-shop-quick-qty]');
+    if (quickQtyButton) {
+      const itemId = quickQtyButton.dataset.npcShopQuickQty;
+      const nextQuantity = quickQtyButton.dataset.npcShopQuickQtyValue;
+      if (!itemId || !nextQuantity) {
+        return;
+      }
+      this.quantityDrafts.set(itemId, nextQuantity);
+      const body = document.getElementById('detail-modal-body');
+      const input = body?.querySelector<HTMLInputElement>(`[data-npc-shop-quantity="${itemId}"]`);
+      if (input) {
+        input.value = nextQuantity;
+      }
+      if (body) {
+        this.syncPurchaseState(body, itemId);
+      }
+      return;
+    }
+
+    const buyButton = target.closest<HTMLElement>('[data-npc-shop-buy]');
+    if (!buyButton) {
+      return;
+    }
+    const itemId = buyButton.dataset.npcShopBuy;
+    const shop = this.shopState?.shop;
+    const entry = itemId ? shop?.items.find((item) => item.itemId === itemId) : null;
+    if (!itemId || !shop || !entry) {
+      return;
+    }
+    const purchaseState = this.getPurchaseState(shop, entry);
+    if (purchaseState.purchaseDisabled) {
+      return;
+    }
+    this.confirmPurchaseItemId = itemId;
+    this.syncPurchaseConfirmModal();
+  }
+
+  private handleBodyInput(event: Event): void {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) {
+      return;
+    }
+    const itemId = target.dataset.npcShopQuantity;
+    if (!itemId) {
+      return;
+    }
+    const normalized = target.value.replaceAll(/[^\d]/g, '');
+    this.quantityDrafts.set(itemId, normalized);
+    if (target.value !== normalized) {
+      target.value = normalized;
+    }
+    const body = document.getElementById('detail-modal-body');
+    if (body) {
+      this.syncPurchaseState(body, itemId);
+    }
+  }
+
+  private buildModalMeta(): NpcShopModalMeta {
+    const shop = this.shopState?.shop ?? null;
+    return {
+      title: shop ? `${shop.npcName}的商店` : '商店',
+      subtitle: shop?.dialogue ?? '货架同步中',
+    };
+  }
+
+  private patchBody(body: HTMLElement, meta: NpcShopModalMeta): boolean {
+    if (!body.querySelector('.npc-shop-modal-shell')) {
+      return false;
+    }
+    const shop = this.shopState?.shop ?? null;
+    if (!shop || shop.items.length === 0 || this.loading) {
+      return false;
+    }
+    const toolbarMeta = body.querySelector<HTMLElement>('[data-npc-shop-toolbar-meta="true"]');
+    const listRoot = body.querySelector<HTMLElement>('[data-npc-shop-list="true"]');
+    const detailRoot = body.querySelector<HTMLElement>('[data-npc-shop-detail="true"]');
+    if (!toolbarMeta || !listRoot || !detailRoot) {
+      return false;
+    }
+
+    const selectedItem = shop.items.find((item) => item.itemId === this.selectedItemId) ?? shop.items[0]!;
+    const ownedCurrency = this.findInventoryItemCount(shop.currencyItemId);
+    toolbarMeta.textContent = `共 ${formatDisplayInteger(shop.items.length)} 件，持有 ${shop.currencyItemName} ${formatDisplayInteger(ownedCurrency)}`;
+    listRoot.innerHTML = shop.items
+      .map((item) => this.renderListItem(item, item.itemId === selectedItem.itemId))
+      .join('');
+    detailRoot.innerHTML = this.renderDetailPanel(shop, selectedItem);
+    this.patchModalMeta(meta);
+    this.bindItemTooltipEvents(body);
+    return true;
+  }
+
+  private patchModalMeta(meta: NpcShopModalMeta): void {
+    const titleNode = document.getElementById('detail-modal-title');
+    const subtitleNode = document.getElementById('detail-modal-subtitle');
+    if (titleNode) {
+      titleNode.textContent = meta.title;
+    }
+    if (subtitleNode) {
+      subtitleNode.textContent = meta.subtitle;
+      subtitleNode.classList.toggle('hidden', meta.subtitle.length === 0);
+    }
   }
 
   private syncPurchaseState(root: ParentNode, itemId: string): void {

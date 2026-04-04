@@ -85,12 +85,7 @@ export class QuestPanel {
   update(quests: QuestState[]): void {
     this.lastQuests = quests;
     this.normalizeState(quests);
-    const visibleQuestIds = this.buildVisibleQuestIds(quests);
-    if (
-      this.lastStructureLine !== this.activeLine
-      || !isSameQuestIdSequence(this.lastVisibleQuestIds, visibleQuestIds)
-      || !this.patchList()
-    ) {
+    if (!this.patchList()) {
       this.renderList();
     }
     if (!this.patchModal()) {
@@ -212,6 +207,12 @@ export class QuestPanel {
       return false;
     }
 
+    const section = this.pane.querySelector<HTMLElement>('.panel-section');
+    const subtabs = section?.querySelector<HTMLElement>('.quest-subtabs');
+    if (!section || !subtabs) {
+      return false;
+    }
+
     const counts = this.buildCounts(quests);
     for (const line of LINE_ORDER) {
       const button = this.pane.querySelector<HTMLElement>(`[data-quest-line="${line}"]`);
@@ -224,48 +225,122 @@ export class QuestPanel {
     }
 
     const visibleQuests = this.getVisibleQuests(quests);
+    const visibleQuestIds = visibleQuests.map((quest) => quest.id);
     if (visibleQuests.length === 0) {
-      const emptyNode = this.pane.querySelector<HTMLElement>('[data-quest-empty="true"]');
-      if (!emptyNode) {
-        return false;
-      }
+      const emptyNode = this.pane.querySelector<HTMLElement>('[data-quest-empty="true"]') ?? this.createEmptyState();
       emptyNode.textContent = `当前没有${getQuestLineLabel(this.activeLine)}任务`;
+      this.syncSectionContent(section, subtabs, [emptyNode]);
       this.lastVisibleQuestIds = [];
       this.lastStructureLine = this.activeLine;
       return true;
     }
+
+    const existingCards = new Map<string, HTMLElement>();
+    this.pane.querySelectorAll<HTMLElement>('[data-quest-id]').forEach((card) => {
+      const questId = card.dataset.questId;
+      if (questId) {
+        existingCards.set(questId, card);
+      }
+    });
+    const orderedCards = visibleQuests.map((quest) => {
+      const card = existingCards.get(quest.id) ?? this.createQuestCard(quest);
+      this.patchQuestCard(card, quest);
+      existingCards.delete(quest.id);
+      return card;
+    });
+    existingCards.forEach((card) => card.remove());
+    this.syncSectionContent(section, subtabs, orderedCards);
 
     for (const quest of visibleQuests) {
       const card = this.pane.querySelector<HTMLElement>(`[data-quest-id="${CSS.escape(quest.id)}"]`);
       if (!card) {
         return false;
       }
-      const titleNode = card.querySelector<HTMLElement>('[data-quest-title="true"]');
-      const statusNode = card.querySelector<HTMLElement>('[data-quest-status="true"]');
-      const chapterNode = card.querySelector<HTMLElement>('[data-quest-chapter="true"]');
-      const descNode = card.querySelector<HTMLElement>('[data-quest-desc="true"]');
-      const progressLabelNode = card.querySelector<HTMLElement>('[data-quest-progress-label="true"]');
-      const progressFillNode = card.querySelector<HTMLElement>('[data-quest-progress-fill="true"]');
-      const nextStepNode = card.querySelector<HTMLElement>('[data-quest-next-step="true"]');
-      if (!titleNode || !statusNode || !chapterNode || !descNode || !progressLabelNode || !progressFillNode || !nextStepNode) {
+      if (!this.patchQuestCard(card, quest)) {
         return false;
       }
-
-      const percent = quest.required > 0 ? Math.min(100, Math.floor((quest.progress / quest.required) * 100)) : 0;
-      titleNode.textContent = quest.title;
-      statusNode.textContent = getQuestStatusLabel(quest.status);
-      statusNode.className = `quest-status ${STATUS_CLASS[quest.status]}`;
-      chapterNode.textContent = `章节：${quest.chapter ?? ''}`;
-      chapterNode.classList.toggle('hidden', !quest.chapter);
-      descNode.innerHTML = this.renderQuestText(quest.desc, quest);
-      progressLabelNode.innerHTML = `目标：${this.renderQuestText(this.resolveProgressText(quest), quest)}`;
-      progressFillNode.style.width = `${percent}%`;
-      nextStepNode.innerHTML = `下一步：${this.renderQuestText(this.resolveNextStep(quest), quest)}`;
     }
 
-    this.lastVisibleQuestIds = visibleQuests.map((quest) => quest.id);
+    this.lastVisibleQuestIds = visibleQuestIds;
     this.lastStructureLine = this.activeLine;
     return true;
+  }
+
+  private createEmptyState(): HTMLElement {
+    const empty = document.createElement('div');
+    empty.className = 'empty-hint';
+    empty.dataset.questEmpty = 'true';
+    return empty;
+  }
+
+  private createQuestCard(quest: QuestState): HTMLButtonElement {
+    const card = document.createElement('button');
+    card.className = 'quest-card quest-card-toggle';
+    card.dataset.questId = quest.id;
+    card.type = 'button';
+    card.innerHTML = `
+      <div class="quest-title-row">
+        <span class="quest-title" data-quest-title="true"></span>
+        <span data-quest-status="true"></span>
+      </div>
+      <div data-quest-chapter="true"></div>
+      <div class="quest-desc" data-quest-desc="true"></div>
+      <div class="quest-progress-label" data-quest-progress-label="true"></div>
+      <div class="quest-progress-bar"><div class="quest-progress-fill" data-quest-progress-fill="true"></div></div>
+      <div class="quest-meta" data-quest-next-step="true"></div>
+      <div class="quest-expand-hint">点击查看详情</div>
+    `;
+    this.patchQuestCard(card, quest);
+    return card;
+  }
+
+  private patchQuestCard(card: HTMLElement, quest: QuestState): boolean {
+    const titleNode = card.querySelector<HTMLElement>('[data-quest-title="true"]');
+    const statusNode = card.querySelector<HTMLElement>('[data-quest-status="true"]');
+    const chapterNode = card.querySelector<HTMLElement>('[data-quest-chapter="true"]');
+    const descNode = card.querySelector<HTMLElement>('[data-quest-desc="true"]');
+    const progressLabelNode = card.querySelector<HTMLElement>('[data-quest-progress-label="true"]');
+    const progressFillNode = card.querySelector<HTMLElement>('[data-quest-progress-fill="true"]');
+    const nextStepNode = card.querySelector<HTMLElement>('[data-quest-next-step="true"]');
+    if (!titleNode || !statusNode || !chapterNode || !descNode || !progressLabelNode || !progressFillNode || !nextStepNode) {
+      return false;
+    }
+
+    const percent = quest.required > 0 ? Math.min(100, Math.floor((quest.progress / quest.required) * 100)) : 0;
+    card.dataset.questId = quest.id;
+    titleNode.textContent = quest.title;
+    statusNode.textContent = getQuestStatusLabel(quest.status);
+    statusNode.className = `quest-status ${STATUS_CLASS[quest.status]}`;
+    chapterNode.className = `quest-meta ${quest.chapter ? '' : 'hidden'}`.trim();
+    chapterNode.textContent = `章节：${quest.chapter ?? ''}`;
+    descNode.innerHTML = this.renderQuestText(quest.desc, quest);
+    progressLabelNode.innerHTML = `目标：${this.renderQuestText(this.resolveProgressText(quest), quest)}`;
+    progressFillNode.style.width = `${percent}%`;
+    nextStepNode.innerHTML = `下一步：${this.renderQuestText(this.resolveNextStep(quest), quest)}`;
+    return true;
+  }
+
+  private syncSectionContent(section: HTMLElement, subtabs: HTMLElement, orderedNodes: HTMLElement[]): void {
+    const titleNode = section.querySelector<HTMLElement>('.panel-section-title');
+    if (!titleNode) {
+      return;
+    }
+    const allowed = new Set<HTMLElement>(orderedNodes);
+    for (const child of Array.from(section.children)) {
+      if (child === titleNode || child === subtabs) {
+        continue;
+      }
+      if (!(child instanceof HTMLElement) || !allowed.has(child)) {
+        child.remove();
+      }
+    }
+    let reference = subtabs.nextSibling;
+    for (const node of orderedNodes) {
+      if (reference !== node) {
+        section.insertBefore(node, reference);
+      }
+      reference = node.nextSibling;
+    }
   }
 
   private renderModal(): void {

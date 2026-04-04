@@ -661,19 +661,19 @@
       "luck": 63
     },
     "statPercents": {
-      "maxHp": 168.6,
-      "maxQi": 172.5,
-      "physAtk": 119.6,
-      "spellAtk": 178.4,
-      "physDef": 133.3,
-      "spellDef": 182.3,
-      "hit": 158.8,
-      "dodge": 172.5,
-      "crit": 141.1,
-      "breakPower": 113.7,
-      "resolvePower": 145,
-      "maxQiOutputPerTick": 192.1,
-      "moveSpeed": 158.8
+      "maxHp": 198,
+      "maxQi": 155.3,
+      "physAtk": 107.6,
+      "spellAtk": 160.6,
+      "physDef": 120,
+      "spellDef": 164.1,
+      "hit": 142.9,
+      "dodge": 155.3,
+      "crit": 127,
+      "breakPower": 102.3,
+      "resolvePower": 130.5,
+      "maxQiOutputPerTick": 172.9,
+      "moveSpeed": 142.9
     },
     "skills": [
       "skill.hanliu_fuxing",
@@ -686,21 +686,11 @@
       "skill.guichao_suojie"
     ],
     "equipment": {
-      "weapon": {
-        "itemId": "equip.hanxi_flow_ruler"
-      },
-      "head": {
-        "itemId": "equip.moonwell_gauze_crown"
-      },
-      "body": {
-        "itemId": "equip.cleantide_robe"
-      },
-      "legs": {
-        "itemId": "equip.mistwalker_boots"
-      },
-      "accessory": {
-        "itemId": "equip.dew_tide_pendant"
-      }
+      "weapon": "equip.hanxi_flow_ruler",
+      "head": "equip.moonwell_gauze_crown",
+      "body": "equip.cleantide_robe",
+      "legs": "equip.mistwalker_boots",
+      "accessory": "equip.dew_tide_pendant"
     },
     "drops": [
       {
@@ -757,6 +747,7 @@
         "type": "consumable",
         "count": 1
       }
-    ]
+    ],
+    "aggroMode": "always"
   }
 ]

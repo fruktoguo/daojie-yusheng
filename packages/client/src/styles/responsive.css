@@ -149,6 +149,12 @@
       #mobile-ui-shell {
         display: grid;
         grid-template-rows: auto minmax(0, 1fr);
+        padding:
+          max(0px, env(safe-area-inset-top, 0px))
+          max(0px, env(safe-area-inset-right, 0px))
+          max(0px, env(safe-area-inset-bottom, 0px))
+          max(0px, env(safe-area-inset-left, 0px));
+        box-sizing: border-box;
       }
       .section-shell,
       .split-tabs-shell {
@@ -220,7 +226,11 @@
         grid-template-rows: minmax(0, 1fr);
       }
       .mobile-ui-tab-bar {
-        padding: 6px;
+        padding:
+          6px
+          max(6px, env(safe-area-inset-right, 0px))
+          calc(env(safe-area-inset-bottom, 0px) + 6px)
+          max(6px, env(safe-area-inset-left, 0px));
         gap: 4px;
       }
       .mobile-ui-tab-btn {
@@ -519,14 +529,18 @@
       .map-minimap-modal {
         z-index: 260;
         background: rgba(3, 4, 6, 0.46);
-        padding: 6px;
+        padding:
+          max(6px, env(safe-area-inset-top, 0px))
+          max(6px, env(safe-area-inset-right, 0px))
+          max(6px, env(safe-area-inset-bottom, 0px))
+          max(6px, env(safe-area-inset-left, 0px));
       }
       .map-minimap-modal-window {
-        left: 6px;
-        top: 6px;
+        left: max(6px, env(safe-area-inset-left, 0px));
+        top: max(6px, env(safe-area-inset-top, 0px));
         transform: none;
-        width: calc(100vw - 12px);
-        height: calc(100dvh - 12px);
+        width: calc(100vw - max(12px, calc(env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px))));
+        height: calc(100dvh - max(12px, calc(env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px))));
         max-width: none;
         max-height: none;
         border-radius: 14px;
@@ -545,9 +559,9 @@
       }
       .map-minimap-modal-sidebar {
         position: absolute;
-        left: 8px;
-        right: 8px;
-        top: 8px;
+        left: max(8px, env(safe-area-inset-left, 0px));
+        right: max(8px, env(safe-area-inset-right, 0px));
+        top: max(8px, env(safe-area-inset-top, 0px));
         z-index: 3;
         max-height: min(42vh, 320px);
         padding: 10px;

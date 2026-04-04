@@ -733,19 +733,19 @@
       "luck": 60
     },
     "statPercents": {
-      "maxHp": 174.4,
-      "maxQi": 113.7,
-      "physAtk": 164.6,
-      "spellAtk": 101.9,
-      "physDef": 184.2,
-      "spellDef": 162.7,
-      "hit": 166.6,
-      "dodge": 139.2,
-      "crit": 154.8,
-      "breakPower": 172.5,
-      "resolvePower": 178.4,
-      "maxQiOutputPerTick": 119.6,
-      "moveSpeed": 109.8
+      "maxHp": 157,
+      "maxQi": 102.3,
+      "physAtk": 148.1,
+      "spellAtk": 91.7,
+      "physDef": 165.8,
+      "spellDef": 146.4,
+      "hit": 149.9,
+      "dodge": 125.3,
+      "crit": 139.3,
+      "breakPower": 155.3,
+      "resolvePower": 160.6,
+      "maxQiOutputPerTick": 107.6,
+      "moveSpeed": 98.8
     },
     "skills": [
       "skill.pojin_linghen",

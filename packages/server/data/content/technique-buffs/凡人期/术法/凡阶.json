@@ -1,0 +1,20 @@
+[
+  {
+    "id": "fanren.shufa.mortal.qingmu_mark",
+    "target": "target",
+    "buffId": "buff.qingmu_mark",
+    "name": "青痕",
+    "desc": "木灵缠入经络，削弱法抗、闪避与化解。",
+    "shortMark": "青",
+    "category": "debuff",
+    "visibility": "public",
+    "color": "#68b96c",
+    "duration": 28,
+    "maxStacks": 18,
+    "valueStats": {
+      "spellDef": -3,
+      "dodge": -2,
+      "resolvePower": -2
+    }
+  }
+]

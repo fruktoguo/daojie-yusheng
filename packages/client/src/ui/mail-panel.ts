@@ -47,6 +47,17 @@ const EMPTY_PAGE: MailPageView = {
 
 const MAIL_ATTACHMENT_PAGE_SIZE = 10;
 
+type MailRenderState = {
+  listScrollTop: number;
+  detailScrollTop: number;
+  focusSelector: string | null;
+};
+
+type MailModalMeta = {
+  subtitle: string;
+  hint: string;
+};
+
 export class MailPanel {
   private static readonly MODAL_OWNER = 'mail-panel';
   private playerId = '';
@@ -58,6 +69,7 @@ export class MailPanel {
   private detail: MailDetailView | null = null;
   private attachmentPage = 1;
   private statusMessage = '';
+  private delegatedEventsBound = false;
 
   constructor(private readonly socket: SocketManager) {
     document.getElementById('hud-open-mail')?.addEventListener('click', () => this.open());
@@ -177,14 +189,28 @@ export class MailPanel {
     if (!detailModalHost.isOpenFor(MailPanel.MODAL_OWNER)) {
       return;
     }
+    const body = document.getElementById('detail-modal-body');
+    const renderState = body ? this.captureRenderState(body) : null;
+    const meta = this.buildModalMeta();
+    if (body && this.patchBody(body, meta)) {
+      if (renderState) {
+        this.restoreRenderState(body, renderState);
+      }
+      return;
+    }
     detailModalHost.open({
       ownerId: MailPanel.MODAL_OWNER,
       variantClass: 'detail-modal--mail',
       title: '飞书台',
-      subtitle: `未读 ${this.summary.unreadCount} · 可领取 ${this.summary.claimableCount}`,
-      hint: this.statusMessage || '点击空白处关闭',
+      subtitle: meta.subtitle,
+      hint: meta.hint,
       bodyHtml: this.buildBodyHtml(),
-      onAfterRender: (body) => this.bindEvents(body),
+      onAfterRender: (nextBody) => {
+        this.bindEvents(nextBody);
+        if (renderState) {
+          this.restoreRenderState(nextBody, renderState);
+        }
+      },
     });
   }
 
@@ -197,18 +223,18 @@ export class MailPanel {
         <div class="mail-summary-grid">
           <div class="mail-summary-card">
             <div class="mail-summary-label">未读</div>
-            <div class="mail-summary-value">${this.summary.unreadCount}</div>
+            <div class="mail-summary-value" data-mail-summary-unread="true">${this.summary.unreadCount}</div>
             <div class="mail-summary-note">打开邮件详情后会进入已读队列。</div>
           </div>
           <div class="mail-summary-card">
             <div class="mail-summary-label">可领取</div>
-            <div class="mail-summary-value">${this.summary.claimableCount}</div>
+            <div class="mail-summary-value" data-mail-summary-claimable="true">${this.summary.claimableCount}</div>
             <div class="mail-summary-note">附件领取会走服务端受控流程，不进地图广播。</div>
           </div>
           <div class="mail-summary-card">
             <div class="mail-summary-label">当前筛选</div>
-            <div class="mail-summary-value">${total}</div>
-            <div class="mail-summary-note">第 ${this.pageData.page} / ${this.pageData.totalPages} 页，已勾选 ${selectedCount} 封。</div>
+            <div class="mail-summary-value" data-mail-summary-total="true">${total}</div>
+            <div class="mail-summary-note" data-mail-summary-page-meta="true">第 ${this.pageData.page} / ${this.pageData.totalPages} 页，已勾选 ${selectedCount} 封。</div>
           </div>
         </div>
 
@@ -231,7 +257,7 @@ export class MailPanel {
                 <button class="small-btn danger" data-mail-batch-delete type="button" ${selectedCount === 0 ? 'disabled' : ''}>删除勾选</button>
               </div>
             </div>
-            <div class="mail-list">
+            <div class="mail-list" data-mail-list="true">
               ${this.pageData.items.length > 0
                 ? this.pageData.items.map((item) => this.renderListEntry(item)).join('')
                 : '<div class="empty-hint">当前筛选下暂无邮件</div>'}
@@ -247,7 +273,7 @@ export class MailPanel {
               <div class="panel-section-title">邮件详情</div>
               <div class="mail-pane-note">单实例详情弹层</div>
             </div>
-            <div class="mail-detail">
+            <div class="mail-detail" data-mail-detail="true">
               ${detail ? this.renderDetail(detail) : '<div class="empty-hint">请选择一封邮件查看详情</div>'}
             </div>
           </section>
@@ -336,8 +362,23 @@ export class MailPanel {
   }
 
   private bindEvents(root: HTMLElement): void {
-    root.querySelectorAll<HTMLButtonElement>('[data-mail-filter]').forEach((button) => button.addEventListener('click', () => {
-      const filter = button.dataset.mailFilter as MailFilter | undefined;
+    if (this.delegatedEventsBound) {
+      return;
+    }
+    this.delegatedEventsBound = true;
+    root.addEventListener('click', (event) => this.handleRootClick(event));
+    root.addEventListener('change', (event) => this.handleRootChange(event));
+  }
+
+  private handleRootClick(event: Event): void {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    const filterButton = target.closest<HTMLButtonElement>('[data-mail-filter]');
+    if (filterButton) {
+      const filter = filterButton.dataset.mailFilter as MailFilter | undefined;
       if (!filter || filter === this.activeFilter) {
         return;
       }
@@ -346,10 +387,12 @@ export class MailPanel {
       this.selectedMailId = null;
       this.detail = null;
       this.requestCurrentPage();
-    }));
+      return;
+    }
 
-    root.querySelectorAll<HTMLButtonElement>('[data-mail-page-action]').forEach((button) => button.addEventListener('click', () => {
-      const action = button.dataset.mailPageAction;
+    const pageButton = target.closest<HTMLButtonElement>('[data-mail-page-action]');
+    if (pageButton) {
+      const action = pageButton.dataset.mailPageAction;
       if (action === 'prev' && this.pageData.page > 1) {
         this.pageData.page -= 1;
         this.requestCurrentPage();
@@ -357,14 +400,16 @@ export class MailPanel {
         this.pageData.page += 1;
         this.requestCurrentPage();
       }
-    }));
+      return;
+    }
 
-    root.querySelectorAll<HTMLButtonElement>('[data-mail-attachment-page]').forEach((button) => button.addEventListener('click', () => {
+    const attachmentPageButton = target.closest<HTMLButtonElement>('[data-mail-attachment-page]');
+    if (attachmentPageButton) {
       if (!this.detail) {
         return;
       }
       const totalAttachmentPages = Math.max(1, Math.ceil(this.detail.attachments.length / MAIL_ATTACHMENT_PAGE_SIZE));
-      const action = button.dataset.mailAttachmentPage;
+      const action = attachmentPageButton.dataset.mailAttachmentPage;
       if (action === 'prev' && this.attachmentPage > 1) {
         this.attachmentPage -= 1;
         this.render();
@@ -372,85 +417,224 @@ export class MailPanel {
         this.attachmentPage += 1;
         this.render();
       }
-    }));
+      return;
+    }
 
-    root.querySelectorAll<HTMLElement>('[data-mail-select]').forEach((node) => {
-      node.addEventListener('click', (event) => {
-        const target = event.target;
-        if (target instanceof HTMLInputElement && target.type === 'checkbox') {
-          return;
-        }
-        const mailId = node.dataset.mailSelect;
-        if (!mailId) {
-          return;
-        }
-        this.selectedMailId = mailId;
-        this.detail = null;
-        this.attachmentPage = 1;
-        this.requestDetail(mailId);
-        this.markReadIfNeeded(mailId);
-      });
-    });
-
-    root.querySelectorAll<HTMLInputElement>('[data-mail-check]').forEach((checkbox) => checkbox.addEventListener('change', () => {
-      const mailId = checkbox.dataset.mailCheck;
-      if (!mailId) {
-        return;
-      }
-      if (checkbox.checked) {
-        this.selectedMailIds.add(mailId);
-      } else {
-        this.selectedMailIds.delete(mailId);
-      }
-      this.render();
-    }));
-
-    root.querySelector('[data-mail-select-page]')?.addEventListener('click', () => {
+    if (target.closest('[data-mail-select-page]')) {
       this.selectedMailIds = new Set(this.pageData.items.map((item) => item.mailId));
       this.render();
-    });
-
-    root.querySelector('[data-mail-clear-selection]')?.addEventListener('click', () => {
+      return;
+    }
+    if (target.closest('[data-mail-clear-selection]')) {
       this.selectedMailIds.clear();
       this.render();
-    });
-
-    root.querySelector('[data-mail-batch-claim]')?.addEventListener('click', () => {
+      return;
+    }
+    if (target.closest('[data-mail-batch-claim]')) {
       const ids = [...this.selectedMailIds];
-      if (ids.length === 0) {
-        return;
+      if (ids.length > 0) {
+        this.socket.sendClaimMailAttachments(ids);
       }
-      this.socket.sendClaimMailAttachments(ids);
-    });
-
-    root.querySelector('[data-mail-batch-delete]')?.addEventListener('click', () => {
+      return;
+    }
+    if (target.closest('[data-mail-batch-delete]')) {
       const ids = [...this.selectedMailIds];
-      if (ids.length === 0) {
-        return;
+      if (ids.length > 0) {
+        this.socket.sendDeleteMail(ids);
       }
-      this.socket.sendDeleteMail(ids);
-    });
+      return;
+    }
 
-    root.querySelectorAll<HTMLButtonElement>('[data-mail-mark-read]').forEach((button) => button.addEventListener('click', () => {
-      const mailId = button.dataset.mailMarkRead;
+    const markReadButton = target.closest<HTMLButtonElement>('[data-mail-mark-read]');
+    if (markReadButton) {
+      const mailId = markReadButton.dataset.mailMarkRead;
       if (mailId) {
         this.socket.sendMarkMailRead([mailId]);
       }
-    }));
-
-    root.querySelectorAll<HTMLButtonElement>('[data-mail-claim]').forEach((button) => button.addEventListener('click', () => {
-      const mailId = button.dataset.mailClaim;
+      return;
+    }
+    const claimButton = target.closest<HTMLButtonElement>('[data-mail-claim]');
+    if (claimButton) {
+      const mailId = claimButton.dataset.mailClaim;
       if (mailId) {
         this.socket.sendClaimMailAttachments([mailId]);
       }
-    }));
-
-    root.querySelectorAll<HTMLButtonElement>('[data-mail-delete]').forEach((button) => button.addEventListener('click', () => {
-      const mailId = button.dataset.mailDelete;
+      return;
+    }
+    const deleteButton = target.closest<HTMLButtonElement>('[data-mail-delete]');
+    if (deleteButton) {
+      const mailId = deleteButton.dataset.mailDelete;
       if (mailId) {
         this.socket.sendDeleteMail([mailId]);
       }
-    }));
+      return;
+    }
+
+    if (target.closest('[data-mail-check]') || target.closest('.mail-entry-check')) {
+      return;
+    }
+    const mailEntry = target.closest<HTMLElement>('[data-mail-select]');
+    if (!mailEntry) {
+      return;
+    }
+    const mailId = mailEntry.dataset.mailSelect;
+    if (!mailId) {
+      return;
+    }
+    this.selectedMailId = mailId;
+    this.detail = null;
+    this.attachmentPage = 1;
+    this.requestDetail(mailId);
+    this.markReadIfNeeded(mailId);
+  }
+
+  private handleRootChange(event: Event): void {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) {
+      return;
+    }
+    const mailId = target.dataset.mailCheck;
+    if (!mailId) {
+      return;
+    }
+    if (target.checked) {
+      this.selectedMailIds.add(mailId);
+    } else {
+      this.selectedMailIds.delete(mailId);
+    }
+    this.render();
+  }
+
+  private patchBody(body: HTMLElement, meta: MailModalMeta): boolean {
+    if (!body.querySelector('.mail-shell')) {
+      return false;
+    }
+    this.patchModalMeta(meta);
+
+    const unreadNode = body.querySelector<HTMLElement>('[data-mail-summary-unread="true"]');
+    const claimableNode = body.querySelector<HTMLElement>('[data-mail-summary-claimable="true"]');
+    const totalNode = body.querySelector<HTMLElement>('[data-mail-summary-total="true"]');
+    const pageMetaNode = body.querySelector<HTMLElement>('[data-mail-summary-page-meta="true"]');
+    const listRoot = body.querySelector<HTMLElement>('[data-mail-list="true"]');
+    const detailRoot = body.querySelector<HTMLElement>('[data-mail-detail="true"]');
+    if (!unreadNode || !claimableNode || !totalNode || !pageMetaNode || !listRoot || !detailRoot) {
+      return false;
+    }
+
+    const selectedCount = this.selectedMailIds.size;
+    unreadNode.textContent = String(this.summary.unreadCount);
+    claimableNode.textContent = String(this.summary.claimableCount);
+    totalNode.textContent = String(this.pageData.total);
+    pageMetaNode.textContent = `第 ${this.pageData.page} / ${this.pageData.totalPages} 页，已勾选 ${selectedCount} 封。`;
+
+    for (const option of MAIL_FILTER_OPTIONS) {
+      const button = body.querySelector<HTMLButtonElement>(`[data-mail-filter="${escapeHtmlAttr(option.id)}"]`);
+      if (!button) {
+        return false;
+      }
+      button.classList.toggle('active', option.id === this.activeFilter);
+    }
+
+    const selectPageButton = body.querySelector<HTMLButtonElement>('[data-mail-select-page]');
+    const clearSelectionButton = body.querySelector<HTMLButtonElement>('[data-mail-clear-selection]');
+    const batchClaimButton = body.querySelector<HTMLButtonElement>('[data-mail-batch-claim]');
+    const batchDeleteButton = body.querySelector<HTMLButtonElement>('[data-mail-batch-delete]');
+    const prevPageButton = body.querySelector<HTMLButtonElement>('[data-mail-page-action="prev"]');
+    const nextPageButton = body.querySelector<HTMLButtonElement>('[data-mail-page-action="next"]');
+    if (!selectPageButton || !clearSelectionButton || !batchClaimButton || !batchDeleteButton || !prevPageButton || !nextPageButton) {
+      return false;
+    }
+    selectPageButton.disabled = this.pageData.items.length === 0;
+    clearSelectionButton.disabled = selectedCount === 0;
+    batchClaimButton.disabled = selectedCount === 0;
+    batchDeleteButton.disabled = selectedCount === 0;
+    prevPageButton.disabled = this.pageData.page <= 1;
+    nextPageButton.disabled = this.pageData.page >= this.pageData.totalPages;
+
+    listRoot.innerHTML = this.pageData.items.length > 0
+      ? this.pageData.items.map((item) => this.renderListEntry(item)).join('')
+      : '<div class="empty-hint">当前筛选下暂无邮件</div>';
+
+    const detail = this.detail && this.selectedMailId === this.detail.mailId ? this.detail : null;
+    detailRoot.innerHTML = detail ? this.renderDetail(detail) : '<div class="empty-hint">请选择一封邮件查看详情</div>';
+    return true;
+  }
+
+  private buildModalMeta(): MailModalMeta {
+    return {
+      subtitle: `未读 ${this.summary.unreadCount} · 可领取 ${this.summary.claimableCount}`,
+      hint: this.statusMessage || '点击空白处关闭',
+    };
+  }
+
+  private patchModalMeta(meta: MailModalMeta): void {
+    const subtitleNode = document.getElementById('detail-modal-subtitle');
+    const hintNode = document.getElementById('detail-modal-hint');
+    if (subtitleNode) {
+      subtitleNode.textContent = meta.subtitle;
+      subtitleNode.classList.toggle('hidden', meta.subtitle.length === 0);
+    }
+    if (hintNode) {
+      hintNode.textContent = meta.hint;
+    }
+  }
+
+  private captureRenderState(body: HTMLElement): MailRenderState {
+    const activeElement = document.activeElement;
+    return {
+      listScrollTop: body.querySelector<HTMLElement>('.mail-list')?.scrollTop ?? 0,
+      detailScrollTop: body.querySelector<HTMLElement>('.mail-detail')?.scrollTop ?? 0,
+      focusSelector: activeElement instanceof HTMLElement && body.contains(activeElement)
+        ? this.resolveFocusSelector(activeElement)
+        : null,
+    };
+  }
+
+  private restoreRenderState(body: HTMLElement, state: MailRenderState): void {
+    const list = body.querySelector<HTMLElement>('.mail-list');
+    const detail = body.querySelector<HTMLElement>('.mail-detail');
+    if (list) {
+      list.scrollTop = state.listScrollTop;
+    }
+    if (detail) {
+      detail.scrollTop = state.detailScrollTop;
+    }
+    if (!state.focusSelector) {
+      return;
+    }
+    const focusTarget = body.querySelector<HTMLElement>(state.focusSelector);
+    focusTarget?.focus({ preventScroll: true });
+  }
+
+  private resolveFocusSelector(element: HTMLElement): string | null {
+    const datasetEntries: Array<[string, string | undefined, (value: string) => string]> = [
+      ['mailFilter', element.dataset.mailFilter, (value) => `[data-mail-filter="${escapeHtmlAttr(value)}"]`],
+      ['mailPageAction', element.dataset.mailPageAction, (value) => `[data-mail-page-action="${escapeHtmlAttr(value)}"]`],
+      ['mailAttachmentPage', element.dataset.mailAttachmentPage, (value) => `[data-mail-attachment-page="${escapeHtmlAttr(value)}"]`],
+      ['mailSelect', element.dataset.mailSelect, (value) => `[data-mail-select="${escapeHtmlAttr(value)}"]`],
+      ['mailCheck', element.dataset.mailCheck, (value) => `[data-mail-check="${escapeHtmlAttr(value)}"]`],
+      ['mailMarkRead', element.dataset.mailMarkRead, (value) => `[data-mail-mark-read="${escapeHtmlAttr(value)}"]`],
+      ['mailClaim', element.dataset.mailClaim, (value) => `[data-mail-claim="${escapeHtmlAttr(value)}"]`],
+      ['mailDelete', element.dataset.mailDelete, (value) => `[data-mail-delete="${escapeHtmlAttr(value)}"]`],
+    ];
+    for (const [, value, buildSelector] of datasetEntries) {
+      if (value) {
+        return buildSelector(value);
+      }
+    }
+    if (element.hasAttribute('data-mail-select-page')) {
+      return '[data-mail-select-page]';
+    }
+    if (element.hasAttribute('data-mail-clear-selection')) {
+      return '[data-mail-clear-selection]';
+    }
+    if (element.hasAttribute('data-mail-batch-claim')) {
+      return '[data-mail-batch-claim]';
+    }
+    if (element.hasAttribute('data-mail-batch-delete')) {
+      return '[data-mail-batch-delete]';
+    }
+    return null;
   }
 
   private updateHudUnreadState(): void {

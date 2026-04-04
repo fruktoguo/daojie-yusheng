@@ -1,0 +1,146 @@
+[
+  {
+    "id": "fanren.shufa.mystic.monster_soulbind",
+    "target": "target",
+    "buffId": "buff.monster_soulbind",
+    "name": "魂缚",
+    "desc": "神识被阴压缠住，命中、闪避与最大灵力输出都被拖慢。",
+    "shortMark": "缚",
+    "category": "debuff",
+    "visibility": "public",
+    "color": "#8170c2",
+    "duration": 28,
+    "maxStacks": 24,
+    "valueStats": {
+      "hit": -3,
+      "dodge": -3,
+      "maxQiOutputPerTick": -5
+    }
+  },
+  {
+    "id": "fanren.shufa.mystic.monster_stonehide",
+    "target": "self",
+    "buffId": "buff.monster_stonehide",
+    "name": "岩壳",
+    "desc": "外壳收紧，防御和化解继续上提。",
+    "shortMark": "岩",
+    "category": "buff",
+    "visibility": "public",
+    "color": "#8b8472",
+    "duration": 28,
+    "maxStacks": 18,
+    "valueStats": {
+      "physDef": 4,
+      "spellDef": 4,
+      "resolvePower": 3
+    }
+  },
+  {
+    "id": "fanren.shufa.mystic.monster_star_hunger",
+    "target": "self",
+    "buffId": "buff.monster_star_hunger",
+    "name": "噬意",
+    "desc": "残意躁动，命中、暴击和灵力输出进一步上扬。",
+    "shortMark": "噬",
+    "category": "buff",
+    "visibility": "public",
+    "color": "#d87e7e",
+    "duration": 28,
+    "maxStacks": 18,
+    "valueStats": {
+      "hit": 4,
+      "crit": 5,
+      "maxQiOutputPerTick": 6
+    }
+  },
+  {
+    "id": "fanren.shufa.mystic.thunder_palm_force",
+    "target": "self",
+    "buffId": "buff.thunder_palm_force",
+    "name": "雷势",
+    "desc": "掌中余雷未散，提高命中、破招与暴击。",
+    "shortMark": "雷",
+    "category": "buff",
+    "visibility": "public",
+    "color": "#d6c34a",
+    "duration": 24,
+    "maxStacks": 18,
+    "valueStats": {
+      "hit": 3,
+      "crit": 5,
+      "breakPower": 5
+    }
+  },
+  {
+    "id": "fanren.shufa.mystic.stillheart_suppress",
+    "target": "target",
+    "buffId": "buff.stillheart_suppress",
+    "name": "止念",
+    "desc": "神识遭镇，法攻、破招与化解皆被压住。",
+    "shortMark": "念",
+    "category": "debuff",
+    "visibility": "public",
+    "color": "#8f8a70",
+    "duration": 28,
+    "maxStacks": 18,
+    "valueStats": {
+      "spellAtk": -3,
+      "breakPower": -3,
+      "resolvePower": -5
+    }
+  },
+  {
+    "id": "fanren.shufa.mystic.frost_mark_chill",
+    "target": "target",
+    "buffId": "buff.frost_mark_chill",
+    "name": "寒痕",
+    "desc": "寒意黏身，法抗、闪避与命中同步走低。",
+    "shortMark": "寒",
+    "category": "debuff",
+    "visibility": "public",
+    "color": "#63b9d7",
+    "duration": 28,
+    "maxStacks": 24,
+    "valueStats": {
+      "spellDef": -3,
+      "dodge": -4,
+      "hit": -3
+    }
+  },
+  {
+    "id": "fanren.shufa.mystic.anchor_focus",
+    "target": "self",
+    "buffId": "buff.anchor_focus",
+    "name": "镇灵凝神",
+    "desc": "凝聚心神，暂时提高法术攻击、暴击与化解。",
+    "shortMark": "凝",
+    "category": "buff",
+    "visibility": "public",
+    "color": "#7f9cff",
+    "duration": 24,
+    "maxStacks": 18,
+    "valueStats": {
+      "spellAtk": 3,
+      "crit": 5,
+      "resolvePower": 5
+    }
+  },
+  {
+    "id": "fanren.shufa.mystic.starfall_momentum",
+    "target": "self",
+    "buffId": "buff.starfall_momentum",
+    "name": "坠势",
+    "desc": "枪势下压，提高命中、破招与暴击。",
+    "shortMark": "坠",
+    "category": "buff",
+    "visibility": "public",
+    "color": "#d6a86a",
+    "duration": 28,
+    "maxStacks": 18,
+    "valueStats": {
+      "hit": 3,
+      "breakPower": 4,
+      "crit": 4
+    }
+  }
+]

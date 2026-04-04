@@ -655,19 +655,19 @@
       "luck": 66
     },
     "statPercents": {
-      "maxHp": 133.3,
-      "maxQi": 103.9,
-      "physAtk": 178.4,
-      "spellAtk": 145,
-      "physDef": 123.5,
-      "spellDef": 117.6,
-      "hit": 166.6,
-      "dodge": 164.6,
-      "crit": 152.9,
-      "breakPower": 168.6,
-      "resolvePower": 115.6,
-      "maxQiOutputPerTick": 145,
-      "moveSpeed": 182.3
+      "maxHp": 165,
+      "maxQi": 93.5,
+      "physAtk": 160.6,
+      "spellAtk": 130.5,
+      "physDef": 111.2,
+      "spellDef": 105.8,
+      "hit": 149.9,
+      "dodge": 148.1,
+      "crit": 137.6,
+      "breakPower": 151.7,
+      "resolvePower": 104,
+      "maxQiOutputPerTick": 130.5,
+      "moveSpeed": 164.1
     },
     "skills": [
       "skill.huomai_cuxing",
@@ -680,21 +680,11 @@
       "skill.jintian_liexi"
     ],
     "equipment": {
-      "weapon": {
-        "itemId": "equip.ember_scorch_spear"
-      },
-      "head": {
-        "itemId": "equip.liyan_crown"
-      },
-      "body": {
-        "itemId": "equip.scorchcourt_battlecoat"
-      },
-      "legs": {
-        "itemId": "equip.firestride_boots"
-      },
-      "accessory": {
-        "itemId": "equip.furnace_red_ring"
-      }
+      "weapon": "equip.ember_scorch_spear",
+      "head": "equip.liyan_crown",
+      "body": "equip.scorchcourt_battlecoat",
+      "legs": "equip.firestride_boots",
+      "accessory": "equip.furnace_red_ring"
     },
     "drops": [
       {
@@ -751,6 +741,7 @@
         "type": "consumable",
         "count": 1
       }
-    ]
+    ],
+    "aggroMode": "always"
   }
 ]

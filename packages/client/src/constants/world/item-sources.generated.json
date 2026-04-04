@@ -308,6 +308,14 @@
       "kind": "monster_drop",
       "mapId": "cleft_blade_plain",
       "mapName": "裂锋原",
+      "monsterId": "m_cleft_iron_guard",
+      "monsterName": "残旌铁卫",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
       "monsterId": "m_cleft_stele_puppet",
       "monsterName": "断碑锋傀",
       "count": 1
@@ -364,6 +372,14 @@
     }
   ],
   "book.chiqi_ranqiao": [
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_flame_guard",
+      "monsterName": "流火戍灵",
+      "count": 1
+    },
     {
       "kind": "monster_drop",
       "mapId": "emberfall_court",
@@ -465,6 +481,14 @@
       "monsterId": "m_deepvein_armor_spirit",
       "monsterName": "坠岩甲灵",
       "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_heavy_guard",
+      "monsterName": "裂岭重卫",
+      "count": 1
     }
   ],
   "book.dragon_elephant_bone": [
@@ -483,6 +507,14 @@
       "mapName": "裂锋原",
       "monsterId": "m_cleft_blade_sprite",
       "monsterName": "金砂锋魈",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
+      "monsterId": "m_cleft_iron_guard",
+      "monsterName": "残旌铁卫",
       "count": 1
     }
   ],
@@ -536,6 +568,14 @@
       "kind": "monster_drop",
       "mapId": "cleft_blade_plain",
       "mapName": "裂锋原",
+      "monsterId": "m_cleft_iron_guard",
+      "monsterName": "残旌铁卫",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
       "monsterId": "m_cleft_sand_soldier",
       "monsterName": "裂甲砂兵",
       "count": 1
@@ -579,6 +619,14 @@
     }
   ],
   "book.hanxi_ximai": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_bridge_patrol",
+      "monsterName": "雾桥巡灵",
+      "count": 1
+    },
     {
       "kind": "monster_drop",
       "mapId": "cold_tide_marsh",
@@ -646,6 +694,14 @@
       "mapName": "厚脉岭",
       "monsterId": "m_deepvein_croc",
       "monsterName": "黄岩鼍兽",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_heavy_guard",
+      "monsterName": "裂岭重卫",
       "count": 1
     },
     {
@@ -763,6 +819,14 @@
       "kind": "monster_drop",
       "mapId": "cleft_blade_plain",
       "mapName": "裂锋原",
+      "monsterId": "m_cleft_iron_guard",
+      "monsterName": "残旌铁卫",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cleft_blade_plain",
+      "mapName": "裂锋原",
       "monsterId": "m_cleft_sand_soldier",
       "monsterName": "裂甲砂兵",
       "count": 1
@@ -799,6 +863,14 @@
     }
   ],
   "book.liyan_duanxi": [
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_flame_guard",
+      "monsterName": "流火戍灵",
+      "count": 1
+    },
     {
       "kind": "monster_drop",
       "mapId": "emberfall_court",
@@ -847,6 +919,22 @@
       "monsterId": "m_verdant_siphon_flower",
       "monsterName": "吸灵花妖",
       "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_05_inner_hollow",
+      "mapName": "青萝谷·05盘根内坳",
+      "monsterId": "m_verdant_marrow_sprite",
+      "monsterName": "碧髓树魈",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_06_heart_gate",
+      "mapName": "青萝谷·06心藤坳口",
+      "monsterId": "m_verdant_marrow_sprite",
+      "monsterName": "碧髓树魈",
+      "count": 1
     }
   ],
   "book.mountain_insight_chart": [
@@ -870,6 +958,14 @@
     }
   ],
   "book.ningchao_hushen": [
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
+      "monsterId": "m_cold_bridge_patrol",
+      "monsterName": "雾桥巡灵",
+      "count": 1
+    },
     {
       "kind": "monster_drop",
       "mapId": "cold_tide_marsh",
@@ -985,6 +1081,22 @@
       "count": 1
     },
     {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_05_inner_hollow",
+      "mapName": "青萝谷·05盘根内坳",
+      "monsterId": "m_verdant_marrow_sprite",
+      "monsterName": "碧髓树魈",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_06_heart_gate",
+      "mapName": "青萝谷·06心藤坳口",
+      "monsterId": "m_verdant_marrow_sprite",
+      "monsterName": "碧髓树魈",
+      "count": 1
+    },
+    {
       "kind": "shop",
       "mapId": "qizhen_crossing",
       "mapName": "栖真渡",
@@ -1039,6 +1151,22 @@
       "mapName": "青萝谷·04噬灵妖圃",
       "monsterId": "m_verdant_siphon_flower",
       "monsterName": "吸灵花妖",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_05_inner_hollow",
+      "mapName": "青萝谷·05盘根内坳",
+      "monsterId": "m_verdant_marrow_sprite",
+      "monsterName": "碧髓树魈",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_06_heart_gate",
+      "mapName": "青萝谷·06心藤坳口",
+      "monsterId": "m_verdant_marrow_sprite",
+      "monsterName": "碧髓树魈",
       "count": 1
     }
   ],
@@ -1235,8 +1363,24 @@
       "kind": "monster_drop",
       "mapId": "verdant_vine_vale_05_inner_hollow",
       "mapName": "青萝谷·05盘根内坳",
+      "monsterId": "m_verdant_marrow_sprite",
+      "monsterName": "碧髓树魈",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_05_inner_hollow",
+      "mapName": "青萝谷·05盘根内坳",
       "monsterId": "m_verdant_wither_guard",
       "monsterName": "枯荣藤卫",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "verdant_vine_vale_06_heart_gate",
+      "mapName": "青萝谷·06心藤坳口",
+      "monsterId": "m_verdant_marrow_sprite",
+      "monsterName": "碧髓树魈",
       "count": 1
     }
   ],
@@ -1275,12 +1419,28 @@
       "kind": "monster_drop",
       "mapId": "cold_tide_marsh",
       "mapName": "寒汐泽",
+      "monsterId": "m_cold_bridge_patrol",
+      "monsterName": "雾桥巡灵",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "cold_tide_marsh",
+      "mapName": "寒汐泽",
       "monsterId": "m_cold_pattern_guard",
       "monsterName": "冰纹水卒",
       "count": 1
     }
   ],
   "book.yaohuo_liebo": [
+    {
+      "kind": "monster_drop",
+      "mapId": "emberfall_court",
+      "mapName": "赤陨庭",
+      "monsterId": "m_ember_flame_guard",
+      "monsterName": "流火戍灵",
+      "count": 1
+    },
     {
       "kind": "monster_drop",
       "mapId": "emberfall_court",
@@ -1305,6 +1465,14 @@
       "mapName": "厚脉岭",
       "monsterId": "m_deepvein_croc",
       "monsterName": "黄岩鼍兽",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "deepvein_ridge",
+      "mapName": "厚脉岭",
+      "monsterId": "m_deepvein_heavy_guard",
+      "monsterName": "裂岭重卫",
       "count": 1
     },
     {

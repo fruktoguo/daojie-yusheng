@@ -1,0 +1,41 @@
+[
+  {
+    "id": "lianqi.neigong.mystic.qi_breath_calm",
+    "target": "self",
+    "buffId": "buff.qi_breath_calm",
+    "name": "定息",
+    "desc": "气息归平，持续提高灵力回复、法防与化解。",
+    "shortMark": "息",
+    "category": "buff",
+    "visibility": "public",
+    "color": "#7da8c7",
+    "duration": 24,
+    "maxStacks": 21,
+    "statMode": "percent",
+    "valueStats": {
+      "qiRegenRate": 16,
+      "spellDef": 10,
+      "resolvePower": 8
+    }
+  },
+  {
+    "id": "lianqi.neigong.mystic.cycle_guard",
+    "target": "self",
+    "buffId": "buff.cycle_guard",
+    "name": "周护",
+    "desc": "周天护体，提高双防与冷却速度。",
+    "shortMark": "周",
+    "category": "buff",
+    "visibility": "public",
+    "color": "#90aac6",
+    "duration": 16,
+    "maxStacks": 3,
+    "statMode": "percent",
+    "valueStats": {
+      "physDef": 14,
+      "spellDef": 14,
+      "resolvePower": 12,
+      "cooldownSpeed": 8
+    }
+  }
+]

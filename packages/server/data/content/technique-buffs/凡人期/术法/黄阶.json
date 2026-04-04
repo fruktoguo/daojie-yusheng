@@ -1,0 +1,142 @@
+[
+  {
+    "id": "fanren.shufa.yellow.monster_blade_limb",
+    "target": "self",
+    "buffId": "buff.monster_blade_limb",
+    "name": "刃势",
+    "desc": "肢锋未止，下一式更容易撕开破绽。",
+    "shortMark": "刃",
+    "category": "buff",
+    "visibility": "public",
+    "color": "#89c46a",
+    "duration": 24,
+    "maxStacks": 18,
+    "valueStats": {
+      "crit": 4,
+      "breakPower": 5
+    }
+  },
+  {
+    "id": "fanren.shufa.yellow.monster_toxin",
+    "target": "target",
+    "buffId": "buff.monster_toxin",
+    "name": "毒蚀",
+    "desc": "毒性沿血脉渗开，法抗、闪避和化解一并走低。",
+    "shortMark": "毒",
+    "category": "debuff",
+    "visibility": "public",
+    "color": "#6aa84f",
+    "duration": 28,
+    "maxStacks": 24,
+    "valueStats": {
+      "spellDef": -3,
+      "dodge": -2,
+      "resolvePower": -3
+    }
+  },
+  {
+    "id": "fanren.shufa.yellow.monster_bloodrush",
+    "target": "self",
+    "buffId": "buff.monster_bloodrush",
+    "name": "凶奔",
+    "desc": "血气翻涌，扑杀后更快更狠。",
+    "shortMark": "凶",
+    "category": "buff",
+    "visibility": "public",
+    "color": "#c96d56",
+    "duration": 24,
+    "maxStacks": 18,
+    "valueStats": {
+      "moveSpeed": 8,
+      "crit": 4,
+      "breakPower": 4
+    }
+  },
+  {
+    "id": "fanren.shufa.yellow.monster_skyline",
+    "target": "self",
+    "buffId": "buff.monster_skyline",
+    "name": "凌空",
+    "desc": "尖啸过后气机更稳，命中与闪避都随之走高。",
+    "shortMark": "凌",
+    "category": "buff",
+    "visibility": "public",
+    "color": "#9bb7d4",
+    "duration": 24,
+    "maxStacks": 18,
+    "valueStats": {
+      "hit": 4,
+      "dodge": 4
+    }
+  },
+  {
+    "id": "fanren.shufa.yellow.monster_frost",
+    "target": "target",
+    "buffId": "buff.monster_frost",
+    "name": "霜痕",
+    "desc": "寒意黏身，法抗、命中与闪避同步下降。",
+    "shortMark": "霜",
+    "category": "debuff",
+    "visibility": "public",
+    "color": "#7db5d8",
+    "duration": 28,
+    "maxStacks": 24,
+    "valueStats": {
+      "spellDef": -3,
+      "hit": -3,
+      "dodge": -3
+    }
+  },
+  {
+    "id": "fanren.shufa.yellow.monster_bamboo_bind",
+    "target": "target",
+    "buffId": "buff.monster_bamboo_bind",
+    "name": "青缠",
+    "desc": "草木灵气缠身，闪避和法抗一并走低。",
+    "shortMark": "缠",
+    "category": "debuff",
+    "visibility": "public",
+    "color": "#79b56b",
+    "duration": 28,
+    "maxStacks": 24,
+    "valueStats": {
+      "spellDef": -3,
+      "dodge": -3
+    }
+  },
+  {
+    "id": "fanren.shufa.yellow.fire_talisman_burn",
+    "target": "target",
+    "buffId": "buff.fire_talisman_burn",
+    "name": "灼印",
+    "desc": "火印未熄，法抗与化解被持续灼穿。",
+    "shortMark": "灼",
+    "category": "debuff",
+    "visibility": "public",
+    "color": "#ef6b3b",
+    "duration": 28,
+    "maxStacks": 30,
+    "valueStats": {
+      "spellDef": -3,
+      "resolvePower": -4
+    }
+  },
+  {
+    "id": "fanren.shufa.yellow.mobility_flow",
+    "target": "self",
+    "buffId": "buff.mobility_flow",
+    "name": "风行",
+    "desc": "身法入势，大幅提高移速，并少量带动闪避与暴击。",
+    "shortMark": "行",
+    "category": "buff",
+    "visibility": "public",
+    "color": "#95c5a4",
+    "duration": 24,
+    "maxStacks": 18,
+    "valueStats": {
+      "moveSpeed": 10,
+      "dodge": 5,
+      "crit": 4
+    }
+  }
+]

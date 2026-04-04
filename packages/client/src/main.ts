@@ -606,6 +606,8 @@ const observeModalSubtitleEl = document.getElementById('observe-modal-subtitle')
 const observeModalShellEl = observeModalEl?.querySelector('.observe-modal-shell') as HTMLElement | null;
 const observeModalAsideEl = document.getElementById('observe-modal-aside');
 const observeBuffTooltip = new FloatingTooltip();
+let observeBuffTooltipHoverNode: HTMLElement | null = null;
+let observeBuffTooltipDelegatedBound = false;
 const senseQiTooltip = new FloatingTooltip();
 let pendingTargetedAction: {
   actionId: string;
@@ -1060,6 +1062,79 @@ type ObserveAsideCard = {
   tone?: 'buff' | 'debuff';
 };
 
+function createObserveAsideLineElement(line: string): HTMLSpanElement {
+  const element = document.createElement('span');
+  element.className = 'floating-tooltip-aside-line';
+  element.textContent = line;
+  return element;
+}
+
+function patchObserveAsideLineElements(container: HTMLElement, lines: string[]): void {
+  while (container.children.length > lines.length) {
+    container.lastElementChild?.remove();
+  }
+  lines.forEach((line, index) => {
+    const existing = container.children.item(index);
+    const lineEl = existing instanceof HTMLSpanElement ? existing : createObserveAsideLineElement(line);
+    if (existing !== lineEl) {
+      container.insertBefore(lineEl, existing ?? null);
+    }
+    lineEl.className = 'floating-tooltip-aside-line';
+    if (lineEl.textContent !== line) {
+      lineEl.textContent = line;
+    }
+  });
+}
+
+function patchObserveAsideCardElement(cardEl: HTMLElement, card: ObserveAsideCard): void {
+  cardEl.className = `floating-tooltip-aside-card ${card.tone === 'debuff' ? 'debuff' : 'buff'}`;
+
+  let headEl = cardEl.firstElementChild;
+  if (!(headEl instanceof HTMLDivElement) || !headEl.classList.contains('floating-tooltip-aside-head')) {
+    headEl = document.createElement('div');
+    headEl.className = 'floating-tooltip-aside-head';
+    cardEl.prepend(headEl);
+  }
+
+  let markEl = headEl.querySelector(':scope > .floating-tooltip-aside-mark');
+  if (card.mark) {
+    if (!(markEl instanceof HTMLSpanElement)) {
+      markEl = document.createElement('span');
+      markEl.className = 'floating-tooltip-aside-mark';
+      headEl.prepend(markEl);
+    }
+    if (markEl.textContent !== card.mark) {
+      markEl.textContent = card.mark;
+    }
+  } else if (markEl instanceof HTMLElement) {
+    markEl.remove();
+  }
+
+  let titleEl = headEl.querySelector(':scope > strong');
+  if (!(titleEl instanceof HTMLElement)) {
+    titleEl = document.createElement('strong');
+    headEl.append(titleEl);
+  }
+  if (titleEl.textContent !== card.title) {
+    titleEl.textContent = card.title;
+  }
+
+  const detailEl = cardEl.querySelector(':scope > .floating-tooltip-aside-detail');
+  if (card.lines.length === 0) {
+    detailEl?.remove();
+    return;
+  }
+
+  const nextDetailEl = detailEl instanceof HTMLDivElement
+    ? detailEl
+    : document.createElement('div');
+  nextDetailEl.className = 'floating-tooltip-aside-detail';
+  if (nextDetailEl.parentElement !== cardEl) {
+    cardEl.append(nextDetailEl);
+  }
+  patchObserveAsideLineElements(nextDetailEl, card.lines);
+}
+
 function getObservedTileRuntimeResources(targetX: number, targetY: number): TileRuntimeResourceDetail[] {
   if (
     !myPlayer
@@ -1154,23 +1229,24 @@ function renderObserveAsideCards(cards: ObserveAsideCard[]): void {
     return;
   }
   if (cards.length === 0) {
-    observeModalAsideEl.innerHTML = '';
+    observeModalAsideEl.replaceChildren();
     observeModalAsideEl.classList.add('hidden');
     observeModalAsideEl.setAttribute('aria-hidden', 'true');
     return;
   }
-  observeModalAsideEl.innerHTML = cards.map((card) => {
-    const detail = card.lines
-      .map((line) => `<span class="floating-tooltip-aside-line">${escapeHtml(line)}</span>`)
-      .join('');
-    return `<div class="floating-tooltip-aside-card ${card.tone === 'debuff' ? 'debuff' : 'buff'}">
-      <div class="floating-tooltip-aside-head">
-        ${card.mark ? `<span class="floating-tooltip-aside-mark">${escapeHtml(card.mark)}</span>` : ''}
-        <strong>${escapeHtml(card.title)}</strong>
-      </div>
-      ${detail ? `<div class="floating-tooltip-aside-detail">${detail}</div>` : ''}
-    </div>`;
-  }).join('');
+  while (observeModalAsideEl.children.length > cards.length) {
+    observeModalAsideEl.lastElementChild?.remove();
+  }
+  cards.forEach((card, index) => {
+    const existing = observeModalAsideEl.children.item(index);
+    const cardEl = existing instanceof HTMLDivElement
+      ? existing
+      : document.createElement('div');
+    if (existing !== cardEl) {
+      observeModalAsideEl.insertBefore(cardEl, existing ?? null);
+    }
+    patchObserveAsideCardElement(cardEl, card);
+  });
   observeModalAsideEl.classList.remove('hidden');
   observeModalAsideEl.setAttribute('aria-hidden', 'false');
 }
@@ -1777,33 +1853,96 @@ function buildObservedEntitySectionHtml(entities: ObserveEntityCardData[]): stri
   </section>`;
 }
 
-function bindObserveBuffTooltips(root: ParentNode): void {
-  root.querySelectorAll<HTMLElement>('[data-buff-tooltip-title]').forEach((node) => {
-    const title = node.dataset.buffTooltipTitle ?? '';
-    const detail = node.dataset.buffTooltipDetail ?? '';
-    const lines = detail.split('\n').filter(Boolean);
-    const tapMode = prefersPinnedTooltipInteraction();
-    node.addEventListener('click', (event) => {
-      if (!tapMode) {
-        return;
-      }
-      if (observeBuffTooltip.isPinnedTo(node)) {
-        observeBuffTooltip.hide(true);
-        return;
-      }
+function resolveObserveBuffTooltipNode(target: EventTarget | null): HTMLElement | null {
+  if (!(target instanceof HTMLElement)) {
+    return null;
+  }
+  return target.closest<HTMLElement>('[data-buff-tooltip-title]');
+}
+
+function readObserveBuffTooltipPayload(node: HTMLElement): { title: string; lines: string[] } {
+  return {
+    title: node.dataset.buffTooltipTitle ?? '',
+    lines: (node.dataset.buffTooltipDetail ?? '').split('\n').filter(Boolean),
+  };
+}
+
+function bindObserveBuffTooltips(root: HTMLElement): void {
+  if (observeBuffTooltipDelegatedBound) {
+    return;
+  }
+  observeBuffTooltipDelegatedBound = true;
+
+  root.addEventListener('click', (event) => {
+    const node = resolveObserveBuffTooltipNode(event.target);
+    if (!node || !prefersPinnedTooltipInteraction() || !(event instanceof MouseEvent)) {
+      return;
+    }
+    const { title, lines } = readObserveBuffTooltipPayload(node);
+    if (observeBuffTooltip.isPinnedTo(node)) {
+      observeBuffTooltip.hide(true);
+      observeBuffTooltipHoverNode = null;
+    } else {
       observeBuffTooltip.showPinned(node, title, lines, event.clientX, event.clientY);
-      event.preventDefault();
-      event.stopPropagation();
-    }, true);
-    node.addEventListener('mouseenter', (event) => {
+      observeBuffTooltipHoverNode = node;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+  }, true);
+
+  root.addEventListener('pointerover', (event) => {
+    if (!(event instanceof PointerEvent)) {
+      return;
+    }
+    const node = resolveObserveBuffTooltipNode(event.target);
+    if (!node) {
+      return;
+    }
+    const relatedTarget = event.relatedTarget;
+    if (relatedTarget instanceof Node && node.contains(relatedTarget)) {
+      return;
+    }
+    if (prefersPinnedTooltipInteraction() && observeBuffTooltip.isPinned()) {
+      return;
+    }
+    const { title, lines } = readObserveBuffTooltipPayload(node);
+    observeBuffTooltip.show(title, lines, event.clientX, event.clientY);
+    observeBuffTooltipHoverNode = node;
+  });
+
+  root.addEventListener('pointermove', (event) => {
+    if (!(event instanceof PointerEvent)) {
+      return;
+    }
+    const node = resolveObserveBuffTooltipNode(event.target);
+    if (!node || (prefersPinnedTooltipInteraction() && observeBuffTooltip.isPinned())) {
+      return;
+    }
+    if (observeBuffTooltipHoverNode !== node) {
+      const { title, lines } = readObserveBuffTooltipPayload(node);
       observeBuffTooltip.show(title, lines, event.clientX, event.clientY);
-    });
-    node.addEventListener('mousemove', (event) => {
-      observeBuffTooltip.move(event.clientX, event.clientY);
-    });
-    node.addEventListener('mouseleave', () => {
+      observeBuffTooltipHoverNode = node;
+      return;
+    }
+    observeBuffTooltip.move(event.clientX, event.clientY);
+  });
+
+  root.addEventListener('pointerout', (event) => {
+    const node = resolveObserveBuffTooltipNode(event.target);
+    if (!node) {
+      return;
+    }
+    const relatedTarget = event.relatedTarget;
+    if (relatedTarget instanceof Node && node.contains(relatedTarget)) {
+      return;
+    }
+    if (observeBuffTooltip.isPinnedTo(node)) {
+      return;
+    }
+    if (observeBuffTooltipHoverNode === node) {
+      observeBuffTooltipHoverNode = null;
       observeBuffTooltip.hide();
-    });
+    }
   });
 }
 
@@ -2450,7 +2589,26 @@ function refreshZoomChrome(zoom = getZoom()) {
     zoomSlider.value = zoom.toFixed(2);
   }
   if (zoomLevelEl) {
-    zoomLevelEl.innerHTML = `<span>x</span><span>${formatZoom(zoom)}</span>`;
+    let prefixEl = zoomLevelEl.children.item(0);
+    if (!(prefixEl instanceof HTMLSpanElement)) {
+      prefixEl = document.createElement('span');
+      zoomLevelEl.prepend(prefixEl);
+    }
+    if (prefixEl.textContent !== 'x') {
+      prefixEl.textContent = 'x';
+    }
+    let valueEl = zoomLevelEl.children.item(1);
+    if (!(valueEl instanceof HTMLSpanElement)) {
+      valueEl = document.createElement('span');
+      zoomLevelEl.append(valueEl);
+    }
+    const zoomText = formatZoom(zoom);
+    if (valueEl.textContent !== zoomText) {
+      valueEl.textContent = zoomText;
+    }
+    while (zoomLevelEl.children.length > 2) {
+      zoomLevelEl.lastElementChild?.remove();
+    }
   }
 }
 

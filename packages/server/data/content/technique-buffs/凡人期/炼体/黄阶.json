@@ -1,0 +1,19 @@
+[
+  {
+    "id": "fanren.lianti.yellow.iron_bone_guard",
+    "target": "self",
+    "buffId": "buff.iron_bone_guard",
+    "name": "罡劲",
+    "desc": "罡气绕体，提高护甲与化解，供后续重击借势。",
+    "shortMark": "罡",
+    "category": "buff",
+    "visibility": "public",
+    "color": "#a28d74",
+    "duration": 28,
+    "maxStacks": 24,
+    "valueStats": {
+      "physDef": 3,
+      "resolvePower": 3
+    }
+  }
+]

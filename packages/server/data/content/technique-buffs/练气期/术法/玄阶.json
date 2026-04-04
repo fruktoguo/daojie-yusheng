@@ -1,0 +1,114 @@
+[
+  {
+    "id": "lianqi.shufa.mystic.metal_break_seal",
+    "target": "target",
+    "buffId": "buff.metal_break_seal",
+    "name": "绝势",
+    "desc": "锋势压身，进一步压低命中与化解。",
+    "shortMark": "绝",
+    "category": "debuff",
+    "visibility": "public",
+    "color": "#cbb15d",
+    "duration": 20,
+    "maxStacks": 3,
+    "statMode": "percent",
+    "valueStats": {
+      "hit": -14,
+      "resolvePower": -12,
+      "physDef": -12
+    }
+  },
+  {
+    "id": "lianqi.shufa.mystic.earth_bulwark",
+    "target": "self",
+    "buffId": "buff.earth_bulwark",
+    "name": "镇形",
+    "desc": "坤岳镇形，护持自身。",
+    "shortMark": "岳",
+    "category": "buff",
+    "visibility": "public",
+    "color": "#a18b6b",
+    "duration": 24,
+    "maxStacks": 3,
+    "statMode": "percent",
+    "valueStats": {
+      "physDef": 16,
+      "spellDef": 14,
+      "resolvePower": 14
+    }
+  },
+  {
+    "id": "lianqi.shufa.mystic.wood_bloom",
+    "target": "self",
+    "buffId": "buff.wood_bloom",
+    "name": "回春",
+    "desc": "木脉回春，进一步强化恢复。",
+    "shortMark": "春",
+    "category": "buff",
+    "visibility": "public",
+    "color": "#6eb46a",
+    "duration": 16,
+    "maxStacks": 3,
+    "statMode": "percent",
+    "valueStats": {
+      "hpRegenRate": 18,
+      "qiRegenRate": 14,
+      "spellDef": 10
+    }
+  },
+  {
+    "id": "lianqi.shufa.mystic.hybrid_mixed_mark",
+    "target": "target",
+    "buffId": "buff.hybrid_mixed_mark",
+    "name": "杂相",
+    "desc": "杂相缠体，持续削弱物防、法防与化解。",
+    "shortMark": "杂",
+    "category": "debuff",
+    "visibility": "public",
+    "color": "#8aa39f",
+    "duration": 28,
+    "maxStacks": 21,
+    "statMode": "percent",
+    "valueStats": {
+      "physDef": -8,
+      "spellDef": -8,
+      "resolvePower": -6
+    }
+  },
+  {
+    "id": "lianqi.shufa.mystic.hybrid_flow",
+    "target": "self",
+    "buffId": "buff.hybrid_flow",
+    "name": "归流",
+    "desc": "五炁回转，提高灵力循环与化解。",
+    "shortMark": "流",
+    "category": "buff",
+    "visibility": "public",
+    "color": "#8aa19a",
+    "duration": 16,
+    "maxStacks": 3,
+    "statMode": "percent",
+    "valueStats": {
+      "qiRegenRate": 20,
+      "resolvePower": 12
+    }
+  },
+  {
+    "id": "lianqi.shufa.mystic.water_lockflow",
+    "target": "target",
+    "buffId": "buff.water_lockflow",
+    "name": "锁流",
+    "desc": "寒流锁身，进一步压低移速与冷却速度。",
+    "shortMark": "锁",
+    "category": "debuff",
+    "visibility": "public",
+    "color": "#6db0cc",
+    "duration": 20,
+    "maxStacks": 3,
+    "statMode": "percent",
+    "valueStats": {
+      "moveSpeed": -18,
+      "cooldownSpeed": -10
+    }
+  }
+]
