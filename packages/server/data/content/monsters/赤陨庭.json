@@ -524,19 +524,19 @@
       "luck": 48
     },
     "statPercents": {
-      "maxHp": 88.2,
-      "maxQi": 67.2,
-      "physAtk": 123.2,
-      "spellAtk": 95.2,
-      "physDef": 82.6,
-      "spellDef": 78.4,
-      "hit": 114.8,
-      "dodge": 120.4,
-      "crit": 106.4,
-      "breakPower": 116.2,
-      "resolvePower": 78.4,
-      "maxQiOutputPerTick": 95.2,
-      "moveSpeed": 134.4
+      "maxHp": 105.8,
+      "maxQi": 80.6,
+      "physAtk": 147.8,
+      "spellAtk": 114.2,
+      "physDef": 99.1,
+      "spellDef": 94.1,
+      "hit": 137.8,
+      "dodge": 144.5,
+      "crit": 127.7,
+      "breakPower": 139.4,
+      "resolvePower": 94.1,
+      "maxQiOutputPerTick": 114.2,
+      "moveSpeed": 161.3
     },
     "skills": [
       "skill.guardian_quake",
@@ -591,6 +591,24 @@
         "itemId": "equip.furnace_red_ring",
         "name": "炉心赤戒",
         "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.liyan_duanxi",
+        "name": "《离炎锻息诀》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.chiqi_ranqiao",
+        "name": "《赤息燃窍功》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.yaohuo_liebo",
+        "name": "《曜火裂波术》",
+        "type": "skill_book",
         "count": 1
       },
       {

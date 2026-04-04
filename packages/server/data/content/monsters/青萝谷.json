@@ -438,19 +438,19 @@
       "luck": 42
     },
     "statPercents": {
-      "maxHp": 119,
-      "maxQi": 92.4,
-      "physAtk": 92.4,
-      "spellAtk": 102.2,
-      "physDef": 116.2,
-      "spellDef": 113.4,
-      "hit": 99.4,
-      "dodge": 89.6,
-      "crit": 92.4,
-      "breakPower": 85.4,
-      "resolvePower": 109.2,
-      "maxQiOutputPerTick": 113.4,
-      "moveSpeed": 75.6
+      "maxHp": 142.8,
+      "maxQi": 110.9,
+      "physAtk": 110.9,
+      "spellAtk": 122.6,
+      "physDef": 139.4,
+      "spellDef": 136.1,
+      "hit": 119.3,
+      "dodge": 107.5,
+      "crit": 110.9,
+      "breakPower": 102.5,
+      "resolvePower": 131,
+      "maxQiOutputPerTick": 136.1,
+      "moveSpeed": 90.7
     },
     "skills": [
       "skill.core_smash",
@@ -505,6 +505,30 @@
         "itemId": "equip.vale_stride_boots",
         "name": "绕谷轻履",
         "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.qingmu_yangmai",
+        "name": "《青木养脉篇》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.qingteng_huixi",
+        "name": "《青藤回息诀》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.manzhi_jiaoluo",
+        "name": "《蔓织绞络术》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.wanzhi_huichun",
+        "name": "《万枝回春卷》",
+        "type": "skill_book",
         "count": 1
       }
     ]

@@ -598,19 +598,19 @@
       "luck": 42
     },
     "statPercents": {
-      "maxHp": 116.2,
-      "maxQi": 68.6,
-      "physAtk": 120.4,
-      "spellAtk": 67.2,
-      "physDef": 121.8,
-      "spellDef": 106.4,
-      "hit": 113.4,
-      "dodge": 93.8,
-      "crit": 105,
-      "breakPower": 121.8,
-      "resolvePower": 117.6,
-      "maxQiOutputPerTick": 79.8,
-      "moveSpeed": 75.6
+      "maxHp": 139.4,
+      "maxQi": 82.3,
+      "physAtk": 144.5,
+      "spellAtk": 80.6,
+      "physDef": 146.2,
+      "spellDef": 127.7,
+      "hit": 136.1,
+      "dodge": 112.6,
+      "crit": 126,
+      "breakPower": 146.2,
+      "resolvePower": 141.1,
+      "maxQiOutputPerTick": 95.8,
+      "moveSpeed": 90.7
     },
     "skills": [
       "skill.brutal_ram",
@@ -657,6 +657,30 @@
         "itemId": "equip.counter_shock_iron_ring",
         "name": "反震铁环",
         "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.genghua_ningfeng",
+        "name": "《庚华凝锋诀》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.jinluo_lifeng",
+        "name": "《金络砺锋功》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.duanjin_zhuixing",
+        "name": "《断金追星术》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.baihong_duanyue",
+        "name": "《白虹断岳典》",
+        "type": "skill_book",
         "count": 1
       }
     ]

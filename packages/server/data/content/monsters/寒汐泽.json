@@ -530,19 +530,19 @@
       "luck": 42
     },
     "statPercents": {
-      "maxHp": 96.6,
-      "maxQi": 113.4,
-      "physAtk": 86.8,
-      "spellAtk": 120.4,
-      "physDef": 89.6,
-      "spellDef": 114.8,
-      "hit": 110.6,
-      "dodge": 120.4,
-      "crit": 98,
-      "breakPower": 78.4,
-      "resolvePower": 99.4,
-      "maxQiOutputPerTick": 131.6,
-      "moveSpeed": 116.2
+      "maxHp": 115.9,
+      "maxQi": 136.1,
+      "physAtk": 104.2,
+      "spellAtk": 144.5,
+      "physDef": 107.5,
+      "spellDef": 137.8,
+      "hit": 132.7,
+      "dodge": 144.5,
+      "crit": 117.6,
+      "breakPower": 94.1,
+      "resolvePower": 119.3,
+      "maxQiOutputPerTick": 157.9,
+      "moveSpeed": 139.4
     },
     "skills": [
       "skill.nether_chain",
@@ -597,6 +597,24 @@
         "itemId": "equip.dew_tide_pendant",
         "name": "凝露潮佩",
         "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.hanxi_ximai",
+        "name": "《寒汐洗脉法》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.ningchao_hushen",
+        "name": "《凝潮护身经》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.xuanjing_luoyin",
+        "name": "《玄镜落印诀》",
+        "type": "skill_book",
         "count": 1
       },
       {

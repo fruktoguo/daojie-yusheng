@@ -598,19 +598,19 @@
       "luck": 40
     },
     "statPercents": {
-      "maxHp": 127.4,
-      "maxQi": 58.8,
-      "physAtk": 92.4,
-      "spellAtk": 51.8,
-      "physDef": 138.6,
-      "spellDef": 120.4,
-      "hit": 88.2,
-      "dodge": 71.4,
-      "crit": 81.2,
-      "breakPower": 96.6,
-      "resolvePower": 128.8,
-      "maxQiOutputPerTick": 61.6,
-      "moveSpeed": 57.4
+      "maxHp": 152.9,
+      "maxQi": 70.6,
+      "physAtk": 110.9,
+      "spellAtk": 62.2,
+      "physDef": 166.3,
+      "spellDef": 144.5,
+      "hit": 105.8,
+      "dodge": 85.7,
+      "crit": 97.4,
+      "breakPower": 115.9,
+      "resolvePower": 154.6,
+      "maxQiOutputPerTick": 73.9,
+      "moveSpeed": 68.9
     },
     "skills": [
       "skill.brutal_ram",
@@ -657,6 +657,24 @@
         "itemId": "equip.sealridge_iron_ring",
         "name": "封岭铁环",
         "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.houtu_chengyuan",
+        "name": "《厚土承元功》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.zhenyue_huyuan",
+        "name": "《镇岳护元诀》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.dimai_fumai",
+        "name": "《地脉覆脉术》",
+        "type": "skill_book",
         "count": 1
       },
       {
