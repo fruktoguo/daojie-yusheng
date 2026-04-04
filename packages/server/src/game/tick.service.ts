@@ -65,6 +65,10 @@ import { PersistentDocumentService } from '../database/persistent-document.servi
 import { RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS } from '../constants/gameplay/action';
 import { PLAYER_SPECIAL_STATS_SYNC_INTERVAL_MS } from '../constants/gameplay/attr';
 import {
+  FIRE_BURN_MARK_BUFF_ID,
+  FIRE_BURN_MARK_HP_RATIO_PER_STACK,
+} from '../constants/gameplay/technique-buffs';
+import {
   DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID,
   HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID,
   SHATTER_SPIRIT_PILL_ITEM_ID,
@@ -986,6 +990,14 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         this.markPlayerActive(player, activePlayerIds);
       }
       if (terrainUpdate.update.playerDefeated) {
+        continue;
+      }
+      const buffEffectUpdate = this.measureCpuSection('state_buff_effects', '角色状态: Buff 结算', () => this.applySkillBuffEffects(player));
+      this.applyWorldUpdate(player.id, buffEffectUpdate.update, messages);
+      if (buffEffectUpdate.changed) {
+        this.markPlayerActive(player, activePlayerIds);
+      }
+      if (buffEffectUpdate.update.playerDefeated) {
         continue;
       }
       if (this.measureCpuSection('state_buffs', '角色状态: Buff 推进', () => this.tickTemporaryBuffs(player))) {
@@ -3385,6 +3397,32 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       && buff.remainingTicks > 0
       && buff.stacks > 0
     ));
+  }
+
+  private getFireBurnMarkBuff(player: PlayerState): TemporaryBuffState | undefined {
+    return player.temporaryBuffs?.find((buff) => (
+      buff.buffId === FIRE_BURN_MARK_BUFF_ID
+      && buff.remainingTicks > 0
+      && buff.stacks > 0
+    ));
+  }
+
+  private applySkillBuffEffects(player: PlayerState): { update: WorldUpdate; changed: boolean } {
+    const burnBuff = this.getFireBurnMarkBuff(player);
+    if (!burnBuff) {
+      return { update: { messages: [], dirty: [] }, changed: false };
+    }
+    const baseDamage = Math.max(1, Math.round(player.hp * burnBuff.stacks * FIRE_BURN_MARK_HP_RATIO_PER_STACK));
+    const update = this.worldService.applyTerrainDotDamageToPlayer(
+      player,
+      baseDamage,
+      'fire',
+      burnBuff.sourceSkillName ?? burnBuff.name,
+    );
+    return {
+      update,
+      changed: baseDamage > 0 || update.playerDefeated === true,
+    };
   }
 
   private applyMoltenPoolBurnStack(player: PlayerState): boolean {

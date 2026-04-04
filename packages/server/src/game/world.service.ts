@@ -71,6 +71,12 @@ import {
   RETURN_TO_SPAWN_ACTION_ID,
   RETURN_TO_SPAWN_COOLDOWN_TICKS,
 } from '../constants/gameplay/action';
+import {
+  FIRE_BURN_MARK_BOSS_MULTIPLIER,
+  FIRE_BURN_MARK_BUFF_ID,
+  FIRE_BURN_MARK_HP_RATIO_PER_STACK,
+  FIRE_BURN_MARK_VARIANT_MULTIPLIER,
+} from '../constants/gameplay/technique-buffs';
 import { PersistentDocumentService } from '../database/persistent-document.service';
 import { AttrService } from './attr.service';
 import { AoiService } from './aoi.service';
@@ -1700,7 +1706,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return fallback ?? '气';
   }
 
-  private buildTemporaryBuffState(skill: SkillDef, effect: Extract<SkillEffectDef, { type: 'buff' }>, sourceRealmLv: number): TemporaryBuffState {
+  private buildTemporaryBuffState(
+    skill: SkillDef,
+    effect: Extract<SkillEffectDef, { type: 'buff' }>,
+    sourceRealmLv: number,
+    sourceCasterId?: string,
+  ): TemporaryBuffState {
     const maxStacks = Math.max(1, effect.maxStacks ?? 1);
     const duration = Math.max(1, effect.duration);
     return syncDynamicBuffPresentation({
@@ -1715,6 +1726,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       stacks: 1,
       maxStacks,
       sourceSkillId: skill.id,
+      sourceCasterId,
       sourceSkillName: skill.name,
       realmLv: Math.max(1, Math.floor(sourceRealmLv)),
       color: effect.color,
@@ -1739,6 +1751,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       existing.stacks = Math.min(nextBuff.maxStacks, existing.stacks + 1);
       existing.maxStacks = nextBuff.maxStacks;
       existing.sourceSkillId = nextBuff.sourceSkillId;
+      existing.sourceCasterId = nextBuff.sourceCasterId;
       existing.sourceSkillName = nextBuff.sourceSkillName;
       existing.realmLv = nextBuff.realmLv;
       existing.color = nextBuff.color;
@@ -1857,7 +1870,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     const sourceRealmLv = Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
     if (effect.target === 'self') {
       player.temporaryBuffs ??= [];
-      const current = this.applyBuffState(player.temporaryBuffs, this.buildTemporaryBuffState(skill, effect, sourceRealmLv));
+      const current = this.applyBuffState(player.temporaryBuffs, this.buildTemporaryBuffState(skill, effect, sourceRealmLv, player.id));
       this.attrService.recalcPlayer(player);
       affected.push({ target: { kind: 'player', player }, buff: current });
     } else {
@@ -1869,12 +1882,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       for (const target of targets) {
         if (target.kind === 'monster') {
           target.monster.temporaryBuffs ??= [];
-          const current = this.applyBuffState(target.monster.temporaryBuffs, this.buildTemporaryBuffState(skill, effect, sourceRealmLv));
+          const current = this.applyBuffState(target.monster.temporaryBuffs, this.buildTemporaryBuffState(skill, effect, sourceRealmLv, player.id));
           affected.push({ target: { kind: 'monster', monster: target.monster }, buff: current });
           continue;
         }
         target.player.temporaryBuffs ??= [];
-        const current = this.applyBuffState(target.player.temporaryBuffs, this.buildTemporaryBuffState(skill, effect, sourceRealmLv));
+        const current = this.applyBuffState(target.player.temporaryBuffs, this.buildTemporaryBuffState(skill, effect, sourceRealmLv, player.id));
         this.attrService.recalcPlayer(target.player);
         affected.push({ target: { kind: 'player', player: target.player }, buff: current });
       }
@@ -2117,6 +2130,32 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           }
         });
         continue;
+      }
+
+      const fireBurnBuff = monster.temporaryBuffs.find((buff) => (
+        buff.buffId === FIRE_BURN_MARK_BUFF_ID
+        && buff.remainingTicks > 0
+        && buff.stacks > 0
+      ));
+      if (fireBurnBuff) {
+        this.measureCpuSection('monster_fire_burn', '怪物: 灼脉结算', () => {
+          const tierMultiplier = this.getFireBurnMarkTierMultiplier(monster.tier);
+          const burnDamage = Math.max(
+            1,
+            Math.round(monster.hp * fireBurnBuff.stacks * FIRE_BURN_MARK_HP_RATIO_PER_STACK * tierMultiplier),
+          );
+          const update = this.applyBuffDotDamageToMonster(
+            monster,
+            burnDamage,
+            'fire',
+            fireBurnBuff.sourceSkillName ?? fireBurnBuff.name,
+            fireBurnBuff.sourceCasterId,
+          );
+          allMessages.push(...update.messages);
+        });
+        if (!monster.alive) {
+          continue;
+        }
       }
 
       if (monster.temporaryBuffs.length > 0) {
@@ -3023,52 +3062,96 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     this.recordMonsterDamage(monster, player.id, resolved.effectiveDamage);
 
     if (monster.hp <= 0) {
-      this.playerService.incrementMonsterKill(player, monster.tier);
-      const expParticipants = this.resolveMonsterExpParticipants(monster, player);
-      const topContributionRealmLv = this.resolveMonsterTopContributionRealmLv(expParticipants, player);
-      const respawnTicks = this.resolveMonsterRespawnTicks(monster);
-      monster.alive = false;
-      monster.respawnLeft = respawnTicks;
-      monster.temporaryBuffs = [];
-      monster.damageContributors.clear();
-      monster.targetPlayerId = undefined;
-      this.mapService.removeOccupant(monster.mapId, monster.x, monster.y, monster.runtimeId);
-      this.handleMonsterDefeat(monster);
-      messages.push({
-        playerId: player.id,
-        text: `${monster.name} 被你斩杀。`,
-        kind: 'combat',
-      });
-
-      for (const flag of this.advanceQuestProgress(player, monster.id, monster.name)) {
-        dirty.add(flag);
-      }
-
-      this.distributeMonsterKillExp(monster, player, expParticipants, topContributionRealmLv, dirty, messages);
-
-      for (const drop of monster.drops) {
-        if (Math.random() > this.getEffectiveDropChance(player, drop)) continue;
-        const loot = this.createItemFromDrop(drop);
-        if (!loot) continue;
-        this.deliverMonsterLoot(player, monster, loot, dirty, messages);
-      }
-
-      if (this.refreshQuestStatuses(player)) {
-        dirty.add('quest');
-        dirty.add('actions');
-      }
-
-      const killEquipment = this.equipmentEffectService.dispatch(player, {
-        trigger: 'on_kill',
-        targetKind: 'monster',
-        target: { kind: 'monster', monster },
-      });
-      for (const flag of killEquipment.dirty) {
-        dirty.add(flag as WorldDirtyFlag);
-      }
+      this.handleMonsterDefeatByPlayer(monster, player, messages, dirty);
     }
 
     return { messages, dirty: [...dirty] };
+  }
+
+  private handleMonsterDefeatByPlayer(
+    monster: RuntimeMonster,
+    killer: PlayerState,
+    messages: WorldMessage[],
+    killerDirty?: Set<WorldDirtyFlag>,
+    killText?: string,
+  ): void {
+    const localDirty = killerDirty ?? new Set<WorldDirtyFlag>();
+    this.playerService.incrementMonsterKill(killer, monster.tier);
+    const expParticipants = this.resolveMonsterExpParticipants(monster, killer);
+    const topContributionRealmLv = this.resolveMonsterTopContributionRealmLv(expParticipants, killer);
+    const respawnTicks = this.resolveMonsterRespawnTicks(monster);
+    monster.alive = false;
+    monster.respawnLeft = respawnTicks;
+    monster.temporaryBuffs = [];
+    monster.damageContributors.clear();
+    monster.targetPlayerId = undefined;
+    this.mapService.removeOccupant(monster.mapId, monster.x, monster.y, monster.runtimeId);
+    this.handleMonsterDefeat(monster);
+    messages.push({
+      playerId: killer.id,
+      text: killText ?? `${monster.name} 被你斩杀。`,
+      kind: 'combat',
+    });
+
+    for (const flag of this.advanceQuestProgress(killer, monster.id, monster.name)) {
+      localDirty.add(flag);
+    }
+
+    this.distributeMonsterKillExp(monster, killer, expParticipants, topContributionRealmLv, localDirty, messages);
+
+    for (const drop of monster.drops) {
+      if (Math.random() > this.getEffectiveDropChance(killer, drop)) continue;
+      const loot = this.createItemFromDrop(drop);
+      if (!loot) continue;
+      this.deliverMonsterLoot(killer, monster, loot, localDirty, messages);
+    }
+
+    if (this.refreshQuestStatuses(killer)) {
+      localDirty.add('quest');
+      localDirty.add('actions');
+    }
+
+    const killEquipment = this.equipmentEffectService.dispatch(killer, {
+      trigger: 'on_kill',
+      targetKind: 'monster',
+      target: { kind: 'monster', monster },
+    });
+    for (const flag of killEquipment.dirty) {
+      localDirty.add(flag as WorldDirtyFlag);
+    }
+
+    if (!killerDirty) {
+      this.markDirtyFlagsForPlayer(killer.id, localDirty);
+    }
+  }
+
+  private markDirtyFlagsForPlayer(playerId: string, flags: Iterable<WorldDirtyFlag>): void {
+    for (const flag of flags) {
+      this.playerService.markDirty(playerId, flag);
+    }
+  }
+
+  private resolveMonsterDotKiller(monster: RuntimeMonster, sourceCasterId?: string): PlayerState | null {
+    if (typeof sourceCasterId === 'string' && sourceCasterId.length > 0) {
+      const directSource = this.playerService.getPlayer(sourceCasterId);
+      if (directSource) {
+        return directSource;
+      }
+    }
+    let bestPlayer: PlayerState | null = null;
+    let bestDamage = 0;
+    for (const [playerId, damage] of monster.damageContributors) {
+      if (damage <= bestDamage) {
+        continue;
+      }
+      const player = this.playerService.getPlayer(playerId);
+      if (!player) {
+        continue;
+      }
+      bestPlayer = player;
+      bestDamage = damage;
+    }
+    return bestPlayer;
   }
 
   private recordMonsterDamage(monster: RuntimeMonster, playerId: string, damage: number): void {
@@ -3481,6 +3564,77 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     );
     damage = Math.max(1, Math.round(damage * (1 - Math.min(0.95, elementReduce))));
     return Math.max(0, applyDamage(damage));
+  }
+
+  private getFireBurnMarkTierMultiplier(tier?: RuntimeMonster['tier']): number {
+    if (tier === 'demon_king') {
+      return FIRE_BURN_MARK_BOSS_MULTIPLIER;
+    }
+    if (tier === 'variant') {
+      return FIRE_BURN_MARK_VARIANT_MULTIPLIER;
+    }
+    return 1;
+  }
+
+  applyBuffDotDamageToMonster(
+    monster: RuntimeMonster,
+    baseDamage: number,
+    element: ElementKey,
+    sourceName: string,
+    sourceCasterId?: string,
+  ): WorldUpdate {
+    if (baseDamage <= 0 || !monster.alive || monster.hp <= 0) {
+      return EMPTY_UPDATE;
+    }
+
+    const previousHp = monster.hp;
+    const actualDamage = this.resolveElementalDotDamage(
+      this.getMonsterCombatSnapshot(monster),
+      baseDamage,
+      element,
+      (damage) => {
+        monster.hp = Math.max(0, monster.hp - damage);
+        return Math.max(0, previousHp - monster.hp);
+      },
+    );
+    const effectColor = getDamageTrailColor('spell', element);
+    if (actualDamage > 0) {
+      this.pushEffect(monster.mapId, {
+        type: 'float',
+        x: monster.x,
+        y: monster.y,
+        text: `-${actualDamage}`,
+        color: effectColor,
+      });
+    }
+
+    const messages: WorldMessage[] = [];
+    const killer = this.resolveMonsterDotKiller(monster, sourceCasterId);
+    if (killer && actualDamage > 0) {
+      this.recordMonsterDamage(monster, killer.id, actualDamage);
+    }
+    if (monster.hp <= 0) {
+      if (killer) {
+        this.handleMonsterDefeatByPlayer(
+          monster,
+          killer,
+          messages,
+          undefined,
+          `${monster.name} 被${sourceName}烧杀。`,
+        );
+      } else {
+        const respawnTicks = this.resolveMonsterRespawnTicks(monster);
+        monster.alive = false;
+        monster.respawnLeft = respawnTicks;
+        monster.temporaryBuffs = [];
+        monster.damageContributors.clear();
+        monster.targetPlayerId = undefined;
+        this.mapService.removeOccupant(monster.mapId, monster.x, monster.y, monster.runtimeId);
+        this.handleMonsterDefeat(monster);
+      }
+    }
+
+    return { messages, dirty: [] };
   }
 
   applyTerrainDotDamageToPlayer(

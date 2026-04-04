@@ -214,11 +214,10 @@
               }
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.metal_edge_mark",
               "name": "锋痕",
-              "desc": "金痕入脉，削弱物防、化解与命中。",
+              "desc": "金痕裂甲，专注削弱物防与法防。",
               "shortMark": "锋",
               "category": "debuff",
               "visibility": "public",
@@ -227,10 +226,10 @@
               "maxStacks": 24,
               "statMode": "percent",
               "valueStats": {
-                "physDef": -10,
-                "resolvePower": -8,
-                "hit": -6
-              }
+                "physDef": -4,
+                "spellDef": -4
+              },
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -716,7 +715,7 @@
         {
           "id": "skill.huomai_cuxing",
           "name": "火脉催行",
-          "desc": "火息催窍，顺势添灼，借热提速后再逼近一步。",
+          "desc": "火息催窍，顺势添灼，把灼脉直压进对手经络。",
           "cooldown": 8,
           "costMultiplier": 3,
           "range": 1,
@@ -754,41 +753,18 @@
               }
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.fire_burn_mark",
               "name": "灼脉",
-              "desc": "火脉灼入经络，持续降低法防与化解。",
+              "desc": "火脉灼入经络，每层每息造成目标当前气血 1% 的火伤，最多 30 层；对精英仅 10% 效果，对 Boss 仅 1% 效果。",
               "shortMark": "灼",
               "category": "debuff",
               "visibility": "public",
               "color": "#ef6b3b",
               "duration": 12,
-              "maxStacks": 27,
+              "maxStacks": 30,
               "statMode": "percent",
-              "valueStats": {
-                "spellDef": -4,
-                "resolvePower": -3
-              }
-            },
-            {
-              "type": "buff",
-              "target": "self",
-              "buffId": "buff.fire_fervor",
-              "name": "炽行",
-              "desc": "火息催窍，提高暴击、移速与冷却速度。",
-              "shortMark": "炽",
-              "category": "buff",
-              "visibility": "public",
-              "color": "#f07c4a",
-              "duration": 8,
-              "maxStacks": 3,
-              "statMode": "percent",
-              "valueStats": {
-                "crit": 6,
-                "moveSpeed": 10,
-                "cooldownSpeed": 6
-              }
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -1156,58 +1132,46 @@
               }
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.fire_burn_mark",
               "name": "灼脉",
-              "desc": "火脉灼入经络，持续降低法防与化解。",
+              "desc": "火脉灼入经络，每层每息造成目标当前气血 1% 的火伤，最多 30 层；对精英仅 10% 效果，对 Boss 仅 1% 效果。",
               "shortMark": "灼",
               "category": "debuff",
               "visibility": "public",
               "color": "#ef6b3b",
               "duration": 12,
-              "maxStacks": 27,
+              "maxStacks": 30,
               "statMode": "percent",
-              "valueStats": {
-                "spellDef": -10,
-                "resolvePower": -8
-              }
+              "type": "buff"
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.fire_burn_mark",
               "name": "灼脉",
-              "desc": "火脉灼入经络，持续降低法防与化解。",
+              "desc": "火脉灼入经络，每层每息造成目标当前气血 1% 的火伤，最多 30 层；对精英仅 10% 效果，对 Boss 仅 1% 效果。",
               "shortMark": "灼",
               "category": "debuff",
               "visibility": "public",
               "color": "#ef6b3b",
               "duration": 12,
-              "maxStacks": 27,
+              "maxStacks": 30,
               "statMode": "percent",
-              "valueStats": {
-                "spellDef": -10,
-                "resolvePower": -8
-              }
+              "type": "buff"
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.fire_burn_mark",
               "name": "灼脉",
-              "desc": "火脉灼入经络，持续降低法防与化解。",
+              "desc": "火脉灼入经络，每层每息造成目标当前气血 1% 的火伤，最多 30 层；对精英仅 10% 效果，对 Boss 仅 1% 效果。",
               "shortMark": "灼",
               "category": "debuff",
               "visibility": "public",
               "color": "#ef6b3b",
               "duration": 12,
-              "maxStacks": 27,
+              "maxStacks": 30,
               "statMode": "percent",
-              "valueStats": {
-                "spellDef": -10,
-                "resolvePower": -8
-              }
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -1263,22 +1227,18 @@
               }
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.fire_burn_mark",
               "name": "灼脉",
-              "desc": "火脉灼入经络，持续降低法防与化解。",
+              "desc": "火脉灼入经络，每层每息造成目标当前气血 1% 的火伤，最多 30 层；对精英仅 10% 效果，对 Boss 仅 1% 效果。",
               "shortMark": "灼",
               "category": "debuff",
               "visibility": "public",
               "color": "#ef6b3b",
               "duration": 12,
-              "maxStacks": 27,
+              "maxStacks": 30,
               "statMode": "percent",
-              "valueStats": {
-                "spellDef": -10,
-                "resolvePower": -8
-              }
+              "type": "buff"
             }
           ],
           "unlockLevel": 6,
@@ -1527,7 +1487,6 @@
               }
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.earth_seal_mark",
               "name": "镇脉",
@@ -1543,7 +1502,8 @@
                 "moveSpeed": -6,
                 "breakPower": -3,
                 "physDef": -2
-              }
+              },
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -1705,11 +1665,10 @@
               }
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.metal_edge_mark",
               "name": "锋痕",
-              "desc": "金痕入脉，削弱物防、化解与命中。",
+              "desc": "金痕裂甲，专注削弱物防与法防。",
               "shortMark": "锋",
               "category": "debuff",
               "visibility": "public",
@@ -1719,9 +1678,9 @@
               "statMode": "percent",
               "valueStats": {
                 "physDef": -4,
-                "resolvePower": -3,
-                "hit": -2
-              }
+                "spellDef": -4
+              },
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -2487,11 +2446,10 @@
               }
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.metal_edge_mark",
               "name": "锋痕",
-              "desc": "金痕入脉，削弱物防、化解与命中。",
+              "desc": "金痕裂甲，专注削弱物防与法防。",
               "shortMark": "锋",
               "category": "debuff",
               "visibility": "public",
@@ -2501,16 +2459,15 @@
               "statMode": "percent",
               "valueStats": {
                 "physDef": -4,
-                "resolvePower": -3,
-                "hit": -2
-              }
+                "spellDef": -4
+              },
+              "type": "buff"
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.metal_edge_mark",
               "name": "锋痕",
-              "desc": "金痕入脉，削弱物防、化解与命中。",
+              "desc": "金痕裂甲，专注削弱物防与法防。",
               "shortMark": "锋",
               "category": "debuff",
               "visibility": "public",
@@ -2520,9 +2477,9 @@
               "statMode": "percent",
               "valueStats": {
                 "physDef": -4,
-                "resolvePower": -3,
-                "hit": -2
-              }
+                "spellDef": -4
+              },
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -3231,44 +3188,40 @@
               }
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.water_frost_mark",
               "name": "寒印",
-              "desc": "寒意覆体，持续压低命中、闪避、移速与法防。",
+              "desc": "寒流入脉，持续压低物攻与法攻。",
               "shortMark": "寒",
               "category": "debuff",
               "visibility": "public",
               "color": "#74bdd7",
               "duration": 16,
-              "maxStacks": 27,
+              "maxStacks": 33,
               "statMode": "percent",
               "valueStats": {
-                "hit": -3,
-                "dodge": -3,
-                "moveSpeed": -7,
-                "spellDef": -4
-              }
+                "physAtk": -3,
+                "spellAtk": -3
+              },
+              "type": "buff"
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.water_frost_mark",
               "name": "寒印",
-              "desc": "寒意覆体，持续压低命中、闪避、移速与法防。",
+              "desc": "寒流入脉，持续压低物攻与法攻。",
               "shortMark": "寒",
               "category": "debuff",
               "visibility": "public",
               "color": "#74bdd7",
               "duration": 16,
-              "maxStacks": 27,
+              "maxStacks": 33,
               "statMode": "percent",
               "valueStats": {
-                "hit": -3,
-                "dodge": -3,
-                "moveSpeed": -7,
-                "spellDef": -4
-              }
+                "physAtk": -3,
+                "spellAtk": -3
+              },
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -3477,26 +3430,27 @@
               }
             },
             {
-              "type": "buff",
               "target": "self",
               "buffId": "buff.earth_guard",
               "name": "承元",
-              "desc": "厚土护身，提高双防与化解。",
+              "desc": "土息护体，持续提高最大生命、生命回复、双抗与化解。",
               "shortMark": "承",
               "category": "buff",
               "visibility": "public",
               "color": "#aa9271",
               "duration": 10,
-              "maxStacks": 3,
+              "maxStacks": 33,
               "statMode": "percent",
               "valueStats": {
-                "physDef": 10,
-                "spellDef": 8,
-                "resolvePower": 8
-              }
+                "maxHp": 3,
+                "hpRegenRate": 3,
+                "physDef": 3,
+                "spellDef": 3,
+                "resolvePower": 3
+              },
+              "type": "buff"
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.earth_seal_mark",
               "name": "镇脉",
@@ -3512,7 +3466,8 @@
                 "moveSpeed": -6,
                 "breakPower": -3,
                 "physDef": -2
-              }
+              },
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -3733,7 +3688,6 @@
               }
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.earth_seal_mark",
               "name": "镇脉",
@@ -3746,13 +3700,13 @@
               "maxStacks": 24,
               "statMode": "percent",
               "valueStats": {
-                "moveSpeed": -18,
-                "breakPower": -12,
-                "physDef": -10
-              }
+                "moveSpeed": -6,
+                "breakPower": -3,
+                "physDef": -2
+              },
+              "type": "buff"
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.earth_seal_mark",
               "name": "镇脉",
@@ -3765,13 +3719,13 @@
               "maxStacks": 24,
               "statMode": "percent",
               "valueStats": {
-                "moveSpeed": -18,
-                "breakPower": -12,
-                "physDef": -10
-              }
+                "moveSpeed": -6,
+                "breakPower": -3,
+                "physDef": -2
+              },
+              "type": "buff"
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.earth_seal_mark",
               "name": "镇脉",
@@ -3784,10 +3738,11 @@
               "maxStacks": 24,
               "statMode": "percent",
               "valueStats": {
-                "moveSpeed": -18,
-                "breakPower": -12,
-                "physDef": -10
-              }
+                "moveSpeed": -6,
+                "breakPower": -3,
+                "physDef": -2
+              },
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -4339,7 +4294,7 @@
         {
           "id": "skill.pojin_linghen",
           "name": "破筋棱痕",
-          "desc": "贴身破筋，沿旧有锋痕再开一道棱痕，自身借势凝锐。",
+          "desc": "贴身破筋，沿旧有锋痕再补一道裂甲棱痕。",
           "cooldown": 8,
           "costMultiplier": 3,
           "range": 1,
@@ -4377,11 +4332,10 @@
               }
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.metal_edge_mark",
               "name": "锋痕",
-              "desc": "金痕入脉，削弱物防、化解与命中。",
+              "desc": "金痕裂甲，专注削弱物防与法防。",
               "shortMark": "锋",
               "category": "debuff",
               "visibility": "public",
@@ -4391,28 +4345,9 @@
               "statMode": "percent",
               "valueStats": {
                 "physDef": -4,
-                "resolvePower": -3,
-                "hit": -2
-              }
-            },
-            {
-              "type": "buff",
-              "target": "self",
-              "buffId": "buff.metal_rush_sharpen",
-              "name": "锐势",
-              "desc": "锋意贴骨，提高命中、暴击与破招。",
-              "shortMark": "锐",
-              "category": "buff",
-              "visibility": "public",
-              "color": "#d7c56f",
-              "duration": 8,
-              "maxStacks": 3,
-              "statMode": "percent",
-              "valueStats": {
-                "hit": 6,
-                "crit": 5,
-                "breakPower": 6
-              }
+                "spellDef": -4
+              },
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -5090,7 +5025,6 @@
               }
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.earth_seal_mark",
               "name": "镇脉",
@@ -5103,13 +5037,13 @@
               "maxStacks": 24,
               "statMode": "percent",
               "valueStats": {
-                "moveSpeed": -14,
-                "breakPower": -10,
-                "physDef": -8
-              }
+                "moveSpeed": -6,
+                "breakPower": -3,
+                "physDef": -2
+              },
+              "type": "buff"
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.earth_seal_mark",
               "name": "镇脉",
@@ -5122,10 +5056,11 @@
               "maxStacks": 24,
               "statMode": "percent",
               "valueStats": {
-                "moveSpeed": -14,
-                "breakPower": -10,
-                "physDef": -8
-              }
+                "moveSpeed": -6,
+                "breakPower": -3,
+                "physDef": -2
+              },
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -5339,40 +5274,32 @@
               }
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.fire_burn_mark",
               "name": "灼脉",
-              "desc": "火脉灼入经络，持续降低法防与化解。",
+              "desc": "火脉灼入经络，每层每息造成目标当前气血 1% 的火伤，最多 30 层；对精英仅 10% 效果，对 Boss 仅 1% 效果。",
               "shortMark": "灼",
               "category": "debuff",
               "visibility": "public",
               "color": "#ef6b3b",
               "duration": 12,
-              "maxStacks": 27,
+              "maxStacks": 30,
               "statMode": "percent",
-              "valueStats": {
-                "spellDef": -4,
-                "resolvePower": -3
-              }
+              "type": "buff"
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.fire_burn_mark",
               "name": "灼脉",
-              "desc": "火脉灼入经络，持续降低法防与化解。",
+              "desc": "火脉灼入经络，每层每息造成目标当前气血 1% 的火伤，最多 30 层；对精英仅 10% 效果，对 Boss 仅 1% 效果。",
               "shortMark": "灼",
               "category": "debuff",
               "visibility": "public",
               "color": "#ef6b3b",
               "duration": 12,
-              "maxStacks": 27,
+              "maxStacks": 30,
               "statMode": "percent",
-              "valueStats": {
-                "spellDef": -4,
-                "resolvePower": -3
-              }
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -5809,11 +5736,10 @@
               }
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.wood_vine_mark",
               "name": "缠脉",
-              "desc": "木意缠脉，削弱闪避、化解与法防。",
+              "desc": "木意缠脉，压低生命回复、灵力回复与命中。",
               "shortMark": "缠",
               "category": "debuff",
               "visibility": "public",
@@ -5822,10 +5748,11 @@
               "maxStacks": 24,
               "statMode": "percent",
               "valueStats": {
-                "dodge": -3,
-                "resolvePower": -3,
-                "spellDef": -2
-              }
+                "hpRegenRate": -3,
+                "qiRegenRate": -3,
+                "hit": -3
+              },
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -6063,43 +5990,47 @@
               }
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.water_frost_mark",
               "name": "寒印",
-              "desc": "寒意覆体，持续压低命中、闪避、移速与法防。",
+              "desc": "寒流入脉，持续压低物攻与法攻。",
               "shortMark": "寒",
               "category": "debuff",
               "visibility": "public",
               "color": "#74bdd7",
               "duration": 16,
-              "maxStacks": 27,
+              "maxStacks": 33,
               "statMode": "percent",
               "valueStats": {
-                "hit": -3,
-                "dodge": -3,
-                "moveSpeed": -7,
-                "spellDef": -4
-              }
+                "physAtk": -3,
+                "spellAtk": -3
+              },
+              "type": "buff"
             },
             {
-              "type": "buff",
               "target": "self",
               "buffId": "buff.water_glide",
               "name": "流霜",
-              "desc": "寒流贴身，提高闪避、移速与冷却速度。",
+              "desc": "寒流回身，持续提高双攻、双抗、生命灵力回复、冷却、命中与闪避。",
               "shortMark": "霜",
               "category": "buff",
               "visibility": "public",
               "color": "#7dbfd8",
               "duration": 8,
-              "maxStacks": 3,
+              "maxStacks": 33,
               "statMode": "percent",
               "valueStats": {
-                "dodge": 6,
-                "moveSpeed": 8,
-                "cooldownSpeed": 6
-              }
+                "physAtk": 3,
+                "spellAtk": 3,
+                "physDef": 3,
+                "spellDef": 3,
+                "hpRegenRate": 3,
+                "qiRegenRate": 3,
+                "cooldownSpeed": 3,
+                "hit": 3,
+                "dodge": 3
+              },
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -6862,11 +6793,10 @@
               }
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.wood_vine_mark",
               "name": "缠脉",
-              "desc": "木意缠脉，削弱闪避、化解与法防。",
+              "desc": "木意缠脉，压低生命回复、灵力回复与命中。",
               "shortMark": "缠",
               "category": "debuff",
               "visibility": "public",
@@ -6875,17 +6805,17 @@
               "maxStacks": 24,
               "statMode": "percent",
               "valueStats": {
-                "dodge": -3,
-                "resolvePower": -3,
-                "spellDef": -2
-              }
+                "hpRegenRate": -3,
+                "qiRegenRate": -3,
+                "hit": -3
+              },
+              "type": "buff"
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.wood_vine_mark",
               "name": "缠脉",
-              "desc": "木意缠脉，削弱闪避、化解与法防。",
+              "desc": "木意缠脉，压低生命回复、灵力回复与命中。",
               "shortMark": "缠",
               "category": "debuff",
               "visibility": "public",
@@ -6894,10 +6824,11 @@
               "maxStacks": 24,
               "statMode": "percent",
               "valueStats": {
-                "dodge": -3,
-                "resolvePower": -3,
-                "spellDef": -2
-              }
+                "hpRegenRate": -3,
+                "qiRegenRate": -3,
+                "hit": -3
+              },
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -7071,7 +7002,7 @@
         {
           "id": "skill.huisheng_panluo",
           "name": "回生盘络",
-          "desc": "木息盘络，循缠脉倒卷生机，伤敌时一并反哺己身。",
+          "desc": "木息盘络，循缠脉倒卷经络，持续压低对手回复与命中。",
           "cooldown": 10,
           "costMultiplier": 3,
           "range": 3,
@@ -7109,23 +7040,23 @@
               }
             },
             {
-              "type": "buff",
-              "target": "self",
-              "buffId": "buff.wood_reflow",
-              "name": "回青",
-              "desc": "木息回流，提高生命回复、灵力回复与法防。",
-              "shortMark": "青",
-              "category": "buff",
+              "target": "target",
+              "buffId": "buff.wood_vine_mark",
+              "name": "缠脉",
+              "desc": "木意缠脉，压低生命回复、灵力回复与命中。",
+              "shortMark": "缠",
+              "category": "debuff",
               "visibility": "public",
-              "color": "#78bf78",
-              "duration": 8,
-              "maxStacks": 3,
+              "color": "#69ba74",
+              "duration": 16,
+              "maxStacks": 24,
               "statMode": "percent",
               "valueStats": {
-                "hpRegenRate": 90,
-                "qiRegenRate": 70,
-                "spellDef": 4
-              }
+                "hpRegenRate": -3,
+                "qiRegenRate": -3,
+                "hit": -3
+              },
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -7880,11 +7811,10 @@
               }
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.metal_edge_mark",
               "name": "锋痕",
-              "desc": "金痕入脉，削弱物防、化解与命中。",
+              "desc": "金痕裂甲，专注削弱物防与法防。",
               "shortMark": "锋",
               "category": "debuff",
               "visibility": "public",
@@ -7893,17 +7823,16 @@
               "maxStacks": 24,
               "statMode": "percent",
               "valueStats": {
-                "physDef": -12,
-                "resolvePower": -10,
-                "hit": -8
-              }
+                "physDef": -4,
+                "spellDef": -4
+              },
+              "type": "buff"
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.metal_edge_mark",
               "name": "锋痕",
-              "desc": "金痕入脉，削弱物防、化解与命中。",
+              "desc": "金痕裂甲，专注削弱物防与法防。",
               "shortMark": "锋",
               "category": "debuff",
               "visibility": "public",
@@ -7912,17 +7841,16 @@
               "maxStacks": 24,
               "statMode": "percent",
               "valueStats": {
-                "physDef": -12,
-                "resolvePower": -10,
-                "hit": -8
-              }
+                "physDef": -4,
+                "spellDef": -4
+              },
+              "type": "buff"
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.metal_edge_mark",
               "name": "锋痕",
-              "desc": "金痕入脉，削弱物防、化解与命中。",
+              "desc": "金痕裂甲，专注削弱物防与法防。",
               "shortMark": "锋",
               "category": "debuff",
               "visibility": "public",
@@ -7931,10 +7859,10 @@
               "maxStacks": 24,
               "statMode": "percent",
               "valueStats": {
-                "physDef": -12,
-                "resolvePower": -10,
-                "hit": -8
-              }
+                "physDef": -4,
+                "spellDef": -4
+              },
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -8603,64 +8531,58 @@
               }
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.water_frost_mark",
               "name": "寒印",
-              "desc": "寒意覆体，持续压低命中、闪避、移速与法防。",
+              "desc": "寒流入脉，持续压低物攻与法攻。",
               "shortMark": "寒",
               "category": "debuff",
               "visibility": "public",
               "color": "#74bdd7",
               "duration": 16,
-              "maxStacks": 27,
+              "maxStacks": 33,
               "statMode": "percent",
               "valueStats": {
-                "hit": -12,
-                "dodge": -12,
-                "moveSpeed": -18,
-                "spellDef": -10
-              }
+                "physAtk": -3,
+                "spellAtk": -3
+              },
+              "type": "buff"
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.water_frost_mark",
               "name": "寒印",
-              "desc": "寒意覆体，持续压低命中、闪避、移速与法防。",
+              "desc": "寒流入脉，持续压低物攻与法攻。",
               "shortMark": "寒",
               "category": "debuff",
               "visibility": "public",
               "color": "#74bdd7",
               "duration": 16,
-              "maxStacks": 27,
+              "maxStacks": 33,
               "statMode": "percent",
               "valueStats": {
-                "hit": -12,
-                "dodge": -12,
-                "moveSpeed": -18,
-                "spellDef": -10
-              }
+                "physAtk": -3,
+                "spellAtk": -3
+              },
+              "type": "buff"
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.water_frost_mark",
               "name": "寒印",
-              "desc": "寒意覆体，持续压低命中、闪避、移速与法防。",
+              "desc": "寒流入脉，持续压低物攻与法攻。",
               "shortMark": "寒",
               "category": "debuff",
               "visibility": "public",
               "color": "#74bdd7",
               "duration": 16,
-              "maxStacks": 27,
+              "maxStacks": 33,
               "statMode": "percent",
               "valueStats": {
-                "hit": -12,
-                "dodge": -12,
-                "moveSpeed": -18,
-                "spellDef": -10
-              }
+                "physAtk": -3,
+                "spellAtk": -3
+              },
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -9350,11 +9272,10 @@
               }
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.wood_vine_mark",
               "name": "缠脉",
-              "desc": "木意缠脉，削弱闪避、化解与法防。",
+              "desc": "木意缠脉，压低生命回复、灵力回复与命中。",
               "shortMark": "缠",
               "category": "debuff",
               "visibility": "public",
@@ -9363,10 +9284,11 @@
               "maxStacks": 24,
               "statMode": "percent",
               "valueStats": {
-                "dodge": -10,
-                "resolvePower": -8,
-                "spellDef": -6
-              }
+                "hpRegenRate": -3,
+                "qiRegenRate": -3,
+                "hit": -3
+              },
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -9893,24 +9815,22 @@
               }
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.water_frost_mark",
               "name": "寒印",
-              "desc": "寒意覆体，持续压低命中、闪避、移速与法防。",
+              "desc": "寒流入脉，持续压低物攻与法攻。",
               "shortMark": "寒",
               "category": "debuff",
               "visibility": "public",
               "color": "#74bdd7",
               "duration": 16,
-              "maxStacks": 27,
+              "maxStacks": 33,
               "statMode": "percent",
               "valueStats": {
-                "hit": -10,
-                "dodge": -10,
-                "moveSpeed": -16,
-                "spellDef": -8
-              }
+                "physAtk": -3,
+                "spellAtk": -3
+              },
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -10155,24 +10075,22 @@
               }
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.water_frost_mark",
               "name": "寒印",
-              "desc": "寒意覆体，持续压低命中、闪避、移速与法防。",
+              "desc": "寒流入脉，持续压低物攻与法攻。",
               "shortMark": "寒",
               "category": "debuff",
               "visibility": "public",
               "color": "#74bdd7",
               "duration": 16,
-              "maxStacks": 27,
+              "maxStacks": 33,
               "statMode": "percent",
               "valueStats": {
-                "hit": -3,
-                "dodge": -3,
-                "moveSpeed": -7,
-                "spellDef": -4
-              }
+                "physAtk": -3,
+                "spellAtk": -3
+              },
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -10928,22 +10846,18 @@
               }
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.fire_burn_mark",
               "name": "灼脉",
-              "desc": "火脉灼入经络，持续降低法防与化解。",
+              "desc": "火脉灼入经络，每层每息造成目标当前气血 1% 的火伤，最多 30 层；对精英仅 10% 效果，对 Boss 仅 1% 效果。",
               "shortMark": "灼",
               "category": "debuff",
               "visibility": "public",
               "color": "#ef6b3b",
               "duration": 12,
-              "maxStacks": 27,
+              "maxStacks": 30,
               "statMode": "percent",
-              "valueStats": {
-                "spellDef": -4,
-                "resolvePower": -3
-              }
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -11809,11 +11723,10 @@
               }
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.wood_vine_mark",
               "name": "缠脉",
-              "desc": "木意缠脉，削弱闪避、化解与法防。",
+              "desc": "木意缠脉，压低生命回复、灵力回复与命中。",
               "shortMark": "缠",
               "category": "debuff",
               "visibility": "public",
@@ -11822,17 +11735,17 @@
               "maxStacks": 24,
               "statMode": "percent",
               "valueStats": {
-                "dodge": -12,
-                "resolvePower": -10,
-                "spellDef": -8
-              }
+                "hpRegenRate": -3,
+                "qiRegenRate": -3,
+                "hit": -3
+              },
+              "type": "buff"
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.wood_vine_mark",
               "name": "缠脉",
-              "desc": "木意缠脉，削弱闪避、化解与法防。",
+              "desc": "木意缠脉，压低生命回复、灵力回复与命中。",
               "shortMark": "缠",
               "category": "debuff",
               "visibility": "public",
@@ -11841,17 +11754,17 @@
               "maxStacks": 24,
               "statMode": "percent",
               "valueStats": {
-                "dodge": -12,
-                "resolvePower": -10,
-                "spellDef": -8
-              }
+                "hpRegenRate": -3,
+                "qiRegenRate": -3,
+                "hit": -3
+              },
+              "type": "buff"
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.wood_vine_mark",
               "name": "缠脉",
-              "desc": "木意缠脉，削弱闪避、化解与法防。",
+              "desc": "木意缠脉，压低生命回复、灵力回复与命中。",
               "shortMark": "缠",
               "category": "debuff",
               "visibility": "public",
@@ -11860,10 +11773,11 @@
               "maxStacks": 24,
               "statMode": "percent",
               "valueStats": {
-                "dodge": -12,
-                "resolvePower": -10,
-                "spellDef": -8
-              }
+                "hpRegenRate": -3,
+                "qiRegenRate": -3,
+                "hit": -3
+              },
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -12692,7 +12606,6 @@
               }
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.earth_seal_mark",
               "name": "镇脉",
@@ -12708,26 +12621,29 @@
                 "moveSpeed": -6,
                 "breakPower": -3,
                 "physDef": -2
-              }
+              },
+              "type": "buff"
             },
             {
-              "type": "buff",
               "target": "self",
               "buffId": "buff.earth_holdfast",
               "name": "镇元",
-              "desc": "岳意压身，提高双防与化解。",
+              "desc": "岳意压身，持续提高最大生命、生命回复、双抗与化解。",
               "shortMark": "元",
               "category": "buff",
               "visibility": "public",
               "color": "#ab9270",
               "duration": 8,
-              "maxStacks": 3,
+              "maxStacks": 33,
               "statMode": "percent",
               "valueStats": {
-                "physDef": 8,
-                "spellDef": 6,
-                "resolvePower": 6
-              }
+                "maxHp": 3,
+                "hpRegenRate": 3,
+                "physDef": 3,
+                "spellDef": 3,
+                "resolvePower": 3
+              },
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -13393,58 +13309,46 @@
               }
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.fire_burn_mark",
               "name": "灼脉",
-              "desc": "火脉灼入经络，持续降低法防与化解。",
+              "desc": "火脉灼入经络，每层每息造成目标当前气血 1% 的火伤，最多 30 层；对精英仅 10% 效果，对 Boss 仅 1% 效果。",
               "shortMark": "灼",
               "category": "debuff",
               "visibility": "public",
               "color": "#ef6b3b",
               "duration": 12,
-              "maxStacks": 27,
+              "maxStacks": 30,
               "statMode": "percent",
-              "valueStats": {
-                "spellDef": -12,
-                "resolvePower": -10
-              }
+              "type": "buff"
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.fire_burn_mark",
               "name": "灼脉",
-              "desc": "火脉灼入经络，持续降低法防与化解。",
+              "desc": "火脉灼入经络，每层每息造成目标当前气血 1% 的火伤，最多 30 层；对精英仅 10% 效果，对 Boss 仅 1% 效果。",
               "shortMark": "灼",
               "category": "debuff",
               "visibility": "public",
               "color": "#ef6b3b",
               "duration": 12,
-              "maxStacks": 27,
+              "maxStacks": 30,
               "statMode": "percent",
-              "valueStats": {
-                "spellDef": -12,
-                "resolvePower": -10
-              }
+              "type": "buff"
             },
             {
-              "type": "buff",
               "target": "target",
               "buffId": "buff.fire_burn_mark",
               "name": "灼脉",
-              "desc": "火脉灼入经络，持续降低法防与化解。",
+              "desc": "火脉灼入经络，每层每息造成目标当前气血 1% 的火伤，最多 30 层；对精英仅 10% 效果，对 Boss 仅 1% 效果。",
               "shortMark": "灼",
               "category": "debuff",
               "visibility": "public",
               "color": "#ef6b3b",
               "duration": 12,
-              "maxStacks": 27,
+              "maxStacks": 30,
               "statMode": "percent",
-              "valueStats": {
-                "spellDef": -12,
-                "resolvePower": -10
-              }
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -19890,7 +19794,7 @@
     {
       "buffId": "buff.wood_vine_mark",
       "name": "缠脉",
-      "desc": "木意缠脉，削弱闪避、化解与法防。",
+      "desc": "木意缠脉，压低生命回复、灵力回复与命中。",
       "shortMark": "缠",
       "category": "debuff",
       "visibility": "public",
@@ -19954,14 +19858,14 @@
     {
       "buffId": "buff.earth_guard",
       "name": "承元",
-      "desc": "厚土护身，提高双防与化解。",
+      "desc": "土息护体，持续提高最大生命、生命回复、双抗与化解。",
       "shortMark": "承",
       "category": "buff",
       "visibility": "public",
       "remainingTicks": 10,
       "duration": 10,
       "stacks": 1,
-      "maxStacks": 3,
+      "maxStacks": 33,
       "sourceSkillId": "skill.zhenmai_yin",
       "sourceSkillName": "镇脉印",
       "realmLv": 1,
@@ -20012,23 +19916,6 @@
       "sourceSkillId": "item:pill.chiyang_draught",
       "sourceSkillName": "赤阳液",
       "realmLv": 1
-    },
-    {
-      "buffId": "buff.fire_fervor",
-      "name": "炽行",
-      "desc": "火息催窍，提高暴击、移速与冷却速度。",
-      "shortMark": "炽",
-      "category": "buff",
-      "visibility": "public",
-      "remainingTicks": 8,
-      "duration": 8,
-      "stacks": 1,
-      "maxStacks": 3,
-      "sourceSkillId": "skill.huomai_cuxing",
-      "sourceSkillName": "火脉催行",
-      "realmLv": 1,
-      "color": "#f07c4a",
-      "statMode": "percent"
     },
     {
       "buffId": "item_buff.edge_quenching_powder",
@@ -20159,7 +20046,7 @@
     {
       "buffId": "buff.metal_edge_mark",
       "name": "锋痕",
-      "desc": "金痕入脉，削弱物防、化解与命中。",
+      "desc": "金痕裂甲，专注削弱物防与法防。",
       "shortMark": "锋",
       "category": "debuff",
       "visibility": "public",
@@ -20241,14 +20128,14 @@
     {
       "buffId": "buff.water_frost_mark",
       "name": "寒印",
-      "desc": "寒意覆体，持续压低命中、闪避、移速与法防。",
+      "desc": "寒流入脉，持续压低物攻与法攻。",
       "shortMark": "寒",
       "category": "debuff",
       "visibility": "public",
       "remainingTicks": 16,
       "duration": 16,
       "stacks": 1,
-      "maxStacks": 27,
+      "maxStacks": 33,
       "sourceSkillId": "skill.hanxi_yin",
       "sourceSkillName": "寒汐印",
       "realmLv": 1,
@@ -20318,23 +20205,6 @@
       "sourceSkillId": "item:recovery_powder",
       "sourceSkillName": "回灵散",
       "realmLv": 1
-    },
-    {
-      "buffId": "buff.wood_reflow",
-      "name": "回青",
-      "desc": "木息回流，提高生命回复、灵力回复与法防。",
-      "shortMark": "青",
-      "category": "buff",
-      "visibility": "public",
-      "remainingTicks": 8,
-      "duration": 8,
-      "stacks": 1,
-      "maxStacks": 3,
-      "sourceSkillId": "skill.huisheng_panluo",
-      "sourceSkillName": "回生盘络",
-      "realmLv": 1,
-      "color": "#78bf78",
-      "statMode": "percent"
     },
     {
       "buffId": "equip.cleft_armguard_rebound",
@@ -20526,14 +20396,14 @@
     {
       "buffId": "buff.water_glide",
       "name": "流霜",
-      "desc": "寒流贴身，提高闪避、移速与冷却速度。",
+      "desc": "寒流回身，持续提高双攻、双抗、生命灵力回复、冷却、命中与闪避。",
       "shortMark": "霜",
       "category": "buff",
       "visibility": "public",
       "remainingTicks": 8,
       "duration": 8,
       "stacks": 1,
-      "maxStacks": 3,
+      "maxStacks": 33,
       "sourceSkillId": "skill.hanliu_fuxing",
       "sourceSkillName": "寒流覆行",
       "realmLv": 1,
@@ -20708,23 +20578,6 @@
       "sourceSkillName": "裂刃前肢",
       "realmLv": 1,
       "color": "#89c46a"
-    },
-    {
-      "buffId": "buff.metal_rush_sharpen",
-      "name": "锐势",
-      "desc": "锋意贴骨，提高命中、暴击与破招。",
-      "shortMark": "锐",
-      "category": "buff",
-      "visibility": "public",
-      "remainingTicks": 8,
-      "duration": 8,
-      "stacks": 1,
-      "maxStacks": 3,
-      "sourceSkillId": "skill.pojin_linghen",
-      "sourceSkillName": "破筋棱痕",
-      "realmLv": 1,
-      "color": "#d7c56f",
-      "statMode": "percent"
     },
     {
       "buffId": "buff.wood_nourish",
@@ -21156,14 +21009,14 @@
     {
       "buffId": "buff.earth_holdfast",
       "name": "镇元",
-      "desc": "岳意压身，提高双防与化解。",
+      "desc": "岳意压身，持续提高最大生命、生命回复、双抗与化解。",
       "shortMark": "元",
       "category": "buff",
       "visibility": "public",
       "remainingTicks": 8,
       "duration": 8,
       "stacks": 1,
-      "maxStacks": 3,
+      "maxStacks": 33,
       "sourceSkillId": "skill.yuepo_zhendao",
       "sourceSkillName": "岳魄镇道",
       "realmLv": 1,
@@ -21283,14 +21136,14 @@
     {
       "buffId": "buff.fire_burn_mark",
       "name": "灼脉",
-      "desc": "火脉灼入经络，持续降低法防与化解。",
+      "desc": "火脉灼入经络，每层每息造成目标当前气血 1% 的火伤，最多 30 层；对精英仅 10% 效果，对 Boss 仅 1% 效果。",
       "shortMark": "灼",
       "category": "debuff",
       "visibility": "public",
       "remainingTicks": 12,
       "duration": 12,
       "stacks": 1,
-      "maxStacks": 27,
+      "maxStacks": 30,
       "sourceSkillId": "skill.huomai_cuxing",
       "sourceSkillName": "火脉催行",
       "realmLv": 1,

@@ -111,7 +111,7 @@
       {
         "id": "skill.huomai_cuxing",
         "name": "火脉催行",
-        "desc": "火息催窍，顺势添灼，借热提速后再逼近一步。",
+        "desc": "火息催窍，顺势添灼，把灼脉直压进对手经络。",
         "cooldown": 8,
         "costMultiplier": 3,
         "range": 1,
@@ -150,40 +150,7 @@
           },
           {
             "type": "buff",
-            "target": "target",
-            "buffId": "buff.fire_burn_mark",
-            "name": "灼脉",
-            "desc": "火脉灼入经络，持续降低法防与化解。",
-            "shortMark": "灼",
-            "category": "debuff",
-            "visibility": "public",
-            "color": "#ef6b3b",
-            "duration": 12,
-            "maxStacks": 27,
-            "statMode": "percent",
-            "valueStats": {
-              "spellDef": -4,
-              "resolvePower": -3
-            }
-          },
-          {
-            "type": "buff",
-            "target": "self",
-            "buffId": "buff.fire_fervor",
-            "name": "炽行",
-            "desc": "火息催窍，提高暴击、移速与冷却速度。",
-            "shortMark": "炽",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#f07c4a",
-            "duration": 8,
-            "maxStacks": 3,
-            "statMode": "percent",
-            "valueStats": {
-              "crit": 6,
-              "moveSpeed": 10,
-              "cooldownSpeed": 6
-            }
+            "buffRef": "lianqi.fire.burn_mark"
           }
         ],
         "unlockLevel": 1
@@ -302,7 +269,7 @@
       {
         "id": "skill.pojin_linghen",
         "name": "破筋棱痕",
-        "desc": "贴身破筋，沿旧有锋痕再开一道棱痕，自身借势凝锐。",
+        "desc": "贴身破筋，沿旧有锋痕再补一道裂甲棱痕。",
         "cooldown": 8,
         "costMultiplier": 3,
         "range": 1,
@@ -341,41 +308,7 @@
           },
           {
             "type": "buff",
-            "target": "target",
-            "buffId": "buff.metal_edge_mark",
-            "name": "锋痕",
-            "desc": "金痕入脉，削弱物防、化解与命中。",
-            "shortMark": "锋",
-            "category": "debuff",
-            "visibility": "public",
-            "color": "#d2bd6e",
-            "duration": 14,
-            "maxStacks": 24,
-            "statMode": "percent",
-            "valueStats": {
-              "physDef": -4,
-              "resolvePower": -3,
-              "hit": -2
-            }
-          },
-          {
-            "type": "buff",
-            "target": "self",
-            "buffId": "buff.metal_rush_sharpen",
-            "name": "锐势",
-            "desc": "锋意贴骨，提高命中、暴击与破招。",
-            "shortMark": "锐",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#d7c56f",
-            "duration": 8,
-            "maxStacks": 3,
-            "statMode": "percent",
-            "valueStats": {
-              "hit": 6,
-              "crit": 5,
-              "breakPower": 6
-            }
+            "buffRef": "lianqi.metal.edge_mark"
           }
         ],
         "unlockLevel": 1
@@ -533,42 +466,11 @@
           },
           {
             "type": "buff",
-            "target": "target",
-            "buffId": "buff.water_frost_mark",
-            "name": "寒印",
-            "desc": "寒意覆体，持续压低命中、闪避、移速与法防。",
-            "shortMark": "寒",
-            "category": "debuff",
-            "visibility": "public",
-            "color": "#74bdd7",
-            "duration": 16,
-            "maxStacks": 27,
-            "statMode": "percent",
-            "valueStats": {
-              "hit": -3,
-              "dodge": -3,
-              "moveSpeed": -7,
-              "spellDef": -4
-            }
+            "buffRef": "lianqi.water.frost_mark"
           },
           {
             "type": "buff",
-            "target": "self",
-            "buffId": "buff.water_glide",
-            "name": "流霜",
-            "desc": "寒流贴身，提高闪避、移速与冷却速度。",
-            "shortMark": "霜",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#7dbfd8",
-            "duration": 8,
-            "maxStacks": 3,
-            "statMode": "percent",
-            "valueStats": {
-              "dodge": 6,
-              "moveSpeed": 8,
-              "cooldownSpeed": 6
-            }
+            "buffRef": "lianqi.water.glide"
           }
         ],
         "unlockLevel": 1
@@ -687,7 +589,7 @@
       {
         "id": "skill.huisheng_panluo",
         "name": "回生盘络",
-        "desc": "木息盘络，循缠脉倒卷生机，伤敌时一并反哺己身。",
+        "desc": "木息盘络，循缠脉倒卷经络，持续压低对手回复与命中。",
         "cooldown": 10,
         "costMultiplier": 3,
         "range": 3,
@@ -726,22 +628,7 @@
           },
           {
             "type": "buff",
-            "target": "self",
-            "buffId": "buff.wood_reflow",
-            "name": "回青",
-            "desc": "木息回流，提高生命回复、灵力回复与法防。",
-            "shortMark": "青",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#78bf78",
-            "duration": 8,
-            "maxStacks": 3,
-            "statMode": "percent",
-            "valueStats": {
-              "hpRegenRate": 90,
-              "qiRegenRate": 70,
-              "spellDef": 4
-            }
+            "buffRef": "lianqi.wood.vine_mark"
           }
         ],
         "unlockLevel": 1
@@ -1105,41 +992,17 @@
           },
           {
             "type": "buff",
-            "target": "target",
-            "buffId": "buff.earth_seal_mark",
-            "name": "镇脉",
-            "desc": "重压沉脉，持续削弱移速、破招与物防。",
-            "shortMark": "镇",
-            "category": "debuff",
-            "visibility": "public",
-            "color": "#a48a68",
-            "duration": 14,
-            "maxStacks": 24,
-            "statMode": "percent",
-            "valueStats": {
-              "moveSpeed": -6,
-              "breakPower": -3,
-              "physDef": -2
-            }
+            "buffRef": "lianqi.earth.seal_mark"
           },
           {
             "type": "buff",
-            "target": "self",
+            "buffRef": "lianqi.earth.self_fortify",
             "buffId": "buff.earth_holdfast",
             "name": "镇元",
-            "desc": "岳意压身，提高双防与化解。",
+            "desc": "岳意压身，持续提高最大生命、生命回复、双抗与化解。",
             "shortMark": "元",
-            "category": "buff",
-            "visibility": "public",
             "color": "#ab9270",
-            "duration": 8,
-            "maxStacks": 3,
-            "statMode": "percent",
-            "valueStats": {
-              "physDef": 8,
-              "spellDef": 6,
-              "resolvePower": 6
-            }
+            "duration": 8
           }
         ],
         "unlockLevel": 1

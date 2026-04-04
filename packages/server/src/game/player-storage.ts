@@ -67,6 +67,7 @@ interface PersistedTechniqueItem {
 interface PersistedTemporaryBuffItem {
   buffId: string;
   sourceSkillId: string;
+  sourceCasterId?: string;
   realmLv: number;
   remainingTicks: number;
   duration: number;
@@ -268,6 +269,7 @@ function buildSkillBuffState(skill: SkillDef, effect: Extract<SkillEffectDef, { 
     stacks: normalizePositiveInt(snapshot.stacks, 1),
     maxStacks: normalizePositiveInt(snapshot.maxStacks, Math.max(1, effect.maxStacks ?? 1)),
     sourceSkillId: skill.id,
+    sourceCasterId: typeof snapshot.sourceCasterId === 'string' && snapshot.sourceCasterId.length > 0 ? snapshot.sourceCasterId : undefined,
     sourceSkillName: skill.name,
     realmLv: normalizePositiveInt(snapshot.realmLv, 1),
     color: effect.color,
@@ -333,6 +335,7 @@ function hydrateTemporaryBuff(snapshot: unknown, contentService: ContentService)
   const minimal: PersistedTemporaryBuffItem = {
     buffId: snapshot.buffId,
     sourceSkillId: snapshot.sourceSkillId,
+    sourceCasterId: typeof snapshot.sourceCasterId === 'string' && snapshot.sourceCasterId.length > 0 ? snapshot.sourceCasterId : undefined,
     realmLv: normalizePositiveInt(snapshot.realmLv, 1),
     remainingTicks: normalizePositiveInt(snapshot.remainingTicks, 1),
     duration: normalizePositiveInt(snapshot.duration, 1),
@@ -376,6 +379,7 @@ function hydrateTemporaryBuff(snapshot: unknown, contentService: ContentService)
     visibility: snapshot.visibility === 'hidden' || snapshot.visibility === 'observe_only' ? snapshot.visibility : 'public',
     desc: typeof snapshot.desc === 'string' ? snapshot.desc : undefined,
     sourceSkillName: typeof snapshot.sourceSkillName === 'string' ? snapshot.sourceSkillName : undefined,
+    sourceCasterId: minimal.sourceCasterId,
     color: typeof snapshot.color === 'string' ? snapshot.color : undefined,
     attrs: isPlainObject(snapshot.attrs) ? snapshot.attrs as TemporaryBuffState['attrs'] : undefined,
     attrMode: snapshot.attrMode === 'flat' ? 'flat' : snapshot.attrMode === 'percent' ? 'percent' : undefined,
@@ -395,6 +399,7 @@ function dehydrateTemporaryBuff(buff: TemporaryBuffState, contentService: Conten
     return {
       buffId: buff.buffId,
       sourceSkillId: buff.sourceSkillId,
+      sourceCasterId: typeof buff.sourceCasterId === 'string' && buff.sourceCasterId.length > 0 ? buff.sourceCasterId : undefined,
       realmLv: normalizePositiveInt(buff.realmLv, 1),
       remainingTicks: normalizePositiveInt(buff.remainingTicks, 1),
       duration: normalizePositiveInt(buff.duration, 1),

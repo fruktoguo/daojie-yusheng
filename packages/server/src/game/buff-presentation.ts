@@ -1,5 +1,6 @@
 import type { TemporaryBuffState } from '@mud/shared';
 import { SOUL_DEVOUR_EROSION_BUFF_ID } from '../constants/gameplay/equipment';
+import { FIRE_BURN_MARK_BUFF_ID } from '../constants/gameplay/technique-buffs';
 
 export function getSoulDevourErosionRatio(stacks: number): number {
   const safeStacks = Math.max(0, stacks);
@@ -23,6 +24,10 @@ function formatDynamicPercent(value: number): string {
 export function buildDynamicBuffDescription(buffId: string, stacks: number, fallback?: string): string | undefined {
   if (buffId === SOUL_DEVOUR_EROSION_BUFF_ID) {
     return `当前总层数 ${Math.max(0, Math.round(stacks))}，四维已降低 ${formatDynamicPercent(getSoulDevourErosionRatio(stacks))}；此残意即使身死也不会散去。`;
+  }
+  if (buffId === FIRE_BURN_MARK_BUFF_ID) {
+    const safeStacks = Math.max(0, Math.round(stacks));
+    return `当前 ${safeStacks} 层；每层每息造成目标当前气血 1% 的火伤，对精英仅 10% 效果，对 Boss 仅 1% 效果。`;
   }
   return fallback;
 }

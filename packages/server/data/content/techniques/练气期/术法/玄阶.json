@@ -174,22 +174,7 @@
           },
           {
             "type": "buff",
-            "target": "target",
-            "buffId": "buff.metal_edge_mark",
-            "name": "锋痕",
-            "desc": "金痕入脉，削弱物防、化解与命中。",
-            "shortMark": "锋",
-            "category": "debuff",
-            "visibility": "public",
-            "color": "#d2bd6e",
-            "duration": 14,
-            "maxStacks": 24,
-            "statMode": "percent",
-            "valueStats": {
-              "physDef": -10,
-              "resolvePower": -8,
-              "hit": -6
-            }
+            "buffRef": "lianqi.metal.edge_mark"
           }
         ],
         "unlockLevel": 1
@@ -433,57 +418,15 @@
           },
           {
             "type": "buff",
-            "target": "target",
-            "buffId": "buff.fire_burn_mark",
-            "name": "灼脉",
-            "desc": "火脉灼入经络，持续降低法防与化解。",
-            "shortMark": "灼",
-            "category": "debuff",
-            "visibility": "public",
-            "color": "#ef6b3b",
-            "duration": 12,
-            "maxStacks": 27,
-            "statMode": "percent",
-            "valueStats": {
-              "spellDef": -10,
-              "resolvePower": -8
-            }
+            "buffRef": "lianqi.fire.burn_mark"
           },
           {
             "type": "buff",
-            "target": "target",
-            "buffId": "buff.fire_burn_mark",
-            "name": "灼脉",
-            "desc": "火脉灼入经络，持续降低法防与化解。",
-            "shortMark": "灼",
-            "category": "debuff",
-            "visibility": "public",
-            "color": "#ef6b3b",
-            "duration": 12,
-            "maxStacks": 27,
-            "statMode": "percent",
-            "valueStats": {
-              "spellDef": -10,
-              "resolvePower": -8
-            }
+            "buffRef": "lianqi.fire.burn_mark"
           },
           {
             "type": "buff",
-            "target": "target",
-            "buffId": "buff.fire_burn_mark",
-            "name": "灼脉",
-            "desc": "火脉灼入经络，持续降低法防与化解。",
-            "shortMark": "灼",
-            "category": "debuff",
-            "visibility": "public",
-            "color": "#ef6b3b",
-            "duration": 12,
-            "maxStacks": 27,
-            "statMode": "percent",
-            "valueStats": {
-              "spellDef": -10,
-              "resolvePower": -8
-            }
+            "buffRef": "lianqi.fire.burn_mark"
           }
         ],
         "unlockLevel": 1
@@ -539,21 +482,7 @@
           },
           {
             "type": "buff",
-            "target": "target",
-            "buffId": "buff.fire_burn_mark",
-            "name": "灼脉",
-            "desc": "火脉灼入经络，持续降低法防与化解。",
-            "shortMark": "灼",
-            "category": "debuff",
-            "visibility": "public",
-            "color": "#ef6b3b",
-            "duration": 12,
-            "maxStacks": 27,
-            "statMode": "percent",
-            "valueStats": {
-              "spellDef": -10,
-              "resolvePower": -8
-            }
+            "buffRef": "lianqi.fire.burn_mark"
           }
         ],
         "unlockLevel": 6
@@ -746,41 +675,11 @@
           },
           {
             "type": "buff",
-            "target": "target",
-            "buffId": "buff.earth_seal_mark",
-            "name": "镇脉",
-            "desc": "重压沉脉，持续削弱移速、破招与物防。",
-            "shortMark": "镇",
-            "category": "debuff",
-            "visibility": "public",
-            "color": "#a48a68",
-            "duration": 14,
-            "maxStacks": 24,
-            "statMode": "percent",
-            "valueStats": {
-              "moveSpeed": -14,
-              "breakPower": -10,
-              "physDef": -8
-            }
+            "buffRef": "lianqi.earth.seal_mark"
           },
           {
             "type": "buff",
-            "target": "target",
-            "buffId": "buff.earth_seal_mark",
-            "name": "镇脉",
-            "desc": "重压沉脉，持续削弱移速、破招与物防。",
-            "shortMark": "镇",
-            "category": "debuff",
-            "visibility": "public",
-            "color": "#a48a68",
-            "duration": 14,
-            "maxStacks": 24,
-            "statMode": "percent",
-            "valueStats": {
-              "moveSpeed": -14,
-              "breakPower": -10,
-              "physDef": -8
-            }
+            "buffRef": "lianqi.earth.seal_mark"
           }
         ],
         "unlockLevel": 1
@@ -1005,22 +904,7 @@
           },
           {
             "type": "buff",
-            "target": "target",
-            "buffId": "buff.wood_vine_mark",
-            "name": "缠脉",
-            "desc": "木意缠脉，削弱闪避、化解与法防。",
-            "shortMark": "缠",
-            "category": "debuff",
-            "visibility": "public",
-            "color": "#69ba74",
-            "duration": 16,
-            "maxStacks": 24,
-            "statMode": "percent",
-            "valueStats": {
-              "dodge": -10,
-              "resolvePower": -8,
-              "spellDef": -6
-            }
+            "buffRef": "lianqi.wood.vine_mark"
           }
         ],
         "unlockLevel": 1
@@ -1544,23 +1428,7 @@
           },
           {
             "type": "buff",
-            "target": "target",
-            "buffId": "buff.water_frost_mark",
-            "name": "寒印",
-            "desc": "寒意覆体，持续压低命中、闪避、移速与法防。",
-            "shortMark": "寒",
-            "category": "debuff",
-            "visibility": "public",
-            "color": "#74bdd7",
-            "duration": 16,
-            "maxStacks": 27,
-            "statMode": "percent",
-            "valueStats": {
-              "hit": -10,
-              "dodge": -10,
-              "moveSpeed": -16,
-              "spellDef": -8
-            }
+            "buffRef": "lianqi.water.frost_mark"
           }
         ],
         "unlockLevel": 1

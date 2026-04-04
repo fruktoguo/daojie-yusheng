@@ -1,0 +1,136 @@
+[
+  {
+    "id": "lianqi.fire.burn_mark",
+    "target": "target",
+    "buffId": "buff.fire_burn_mark",
+    "name": "灼脉",
+    "desc": "火脉灼入经络，每层每息造成目标当前气血 1% 的火伤，最多 30 层；对精英仅 10% 效果，对 Boss 仅 1% 效果。",
+    "shortMark": "灼",
+    "category": "debuff",
+    "visibility": "public",
+    "color": "#ef6b3b",
+    "duration": 12,
+    "maxStacks": 30,
+    "statMode": "percent"
+  },
+  {
+    "id": "lianqi.metal.edge_mark",
+    "target": "target",
+    "buffId": "buff.metal_edge_mark",
+    "name": "锋痕",
+    "desc": "金痕裂甲，专注削弱物防与法防。",
+    "shortMark": "锋",
+    "category": "debuff",
+    "visibility": "public",
+    "color": "#d2bd6e",
+    "duration": 14,
+    "maxStacks": 24,
+    "statMode": "percent",
+    "valueStats": {
+      "physDef": -4,
+      "spellDef": -4
+    }
+  },
+  {
+    "id": "lianqi.water.frost_mark",
+    "target": "target",
+    "buffId": "buff.water_frost_mark",
+    "name": "寒印",
+    "desc": "寒流入脉，持续压低物攻与法攻。",
+    "shortMark": "寒",
+    "category": "debuff",
+    "visibility": "public",
+    "color": "#74bdd7",
+    "duration": 16,
+    "maxStacks": 33,
+    "statMode": "percent",
+    "valueStats": {
+      "physAtk": -3,
+      "spellAtk": -3
+    }
+  },
+  {
+    "id": "lianqi.water.glide",
+    "target": "self",
+    "buffId": "buff.water_glide",
+    "name": "流霜",
+    "desc": "寒流回身，持续提高双攻、双抗、生命灵力回复、冷却、命中与闪避。",
+    "shortMark": "霜",
+    "category": "buff",
+    "visibility": "public",
+    "color": "#7dbfd8",
+    "duration": 8,
+    "maxStacks": 33,
+    "statMode": "percent",
+    "valueStats": {
+      "physAtk": 3,
+      "spellAtk": 3,
+      "physDef": 3,
+      "spellDef": 3,
+      "hpRegenRate": 3,
+      "qiRegenRate": 3,
+      "cooldownSpeed": 3,
+      "hit": 3,
+      "dodge": 3
+    }
+  },
+  {
+    "id": "lianqi.wood.vine_mark",
+    "target": "target",
+    "buffId": "buff.wood_vine_mark",
+    "name": "缠脉",
+    "desc": "木意缠脉，压低生命回复、灵力回复与命中。",
+    "shortMark": "缠",
+    "category": "debuff",
+    "visibility": "public",
+    "color": "#69ba74",
+    "duration": 16,
+    "maxStacks": 24,
+    "statMode": "percent",
+    "valueStats": {
+      "hpRegenRate": -3,
+      "qiRegenRate": -3,
+      "hit": -3
+    }
+  },
+  {
+    "id": "lianqi.earth.seal_mark",
+    "target": "target",
+    "buffId": "buff.earth_seal_mark",
+    "name": "镇脉",
+    "desc": "重压沉脉，持续削弱移速、破招与物防。",
+    "shortMark": "镇",
+    "category": "debuff",
+    "visibility": "public",
+    "color": "#a48a68",
+    "duration": 14,
+    "maxStacks": 24,
+    "statMode": "percent",
+    "valueStats": {
+      "moveSpeed": -6,
+      "breakPower": -3,
+      "physDef": -2
+    }
+  },
+  {
+    "id": "lianqi.earth.self_fortify",
+    "target": "self",
+    "buffId": "buff.earth_guard",
+    "name": "承元",
+    "desc": "土息护体，持续提高最大生命、生命回复、双抗与化解。",
+    "shortMark": "承",
+    "category": "buff",
+    "visibility": "public",
+    "color": "#aa9271",
+    "duration": 10,
+    "maxStacks": 33,
+    "statMode": "percent",
+    "valueStats": {
+      "maxHp": 3,
+      "hpRegenRate": 3,
+      "physDef": 3,
+      "spellDef": 3,
+      "resolvePower": 3
+    }
+  }
+]

@@ -188,6 +188,26 @@ interface RawSkillDef extends Omit<SkillDef, 'unlockRealm' | 'unlockPlayerRealm'
   unlockPlayerRealm?: keyof typeof PlayerRealmStage | PlayerRealmStage;
 }
 
+interface RawSharedTechniqueBuffDef {
+  id: string;
+  target?: 'self' | 'target';
+  buffId?: string;
+  name?: string;
+  desc?: string;
+  shortMark?: string;
+  category?: 'buff' | 'debuff';
+  visibility?: 'public' | 'observe_only' | 'hidden';
+  color?: string;
+  duration?: number;
+  maxStacks?: number;
+  attrs?: unknown;
+  attrMode?: BuffModifierMode;
+  stats?: unknown;
+  statMode?: BuffModifierMode;
+  qiProjection?: unknown;
+  valueStats?: unknown;
+}
+
 interface RawItemTemplate extends Omit<ItemTemplate, 'equipStats' | 'equipValueStats' | 'effects' | 'consumeBuffs'> {
   equipStats?: unknown;
   equipValueStats?: unknown;
@@ -452,12 +472,14 @@ export class ContentService implements OnModuleInit {
   private readonly techniques = new Map<string, TechniqueTemplate>();
   private readonly items = new Map<string, ItemTemplate>();
   private readonly monsters = new Map<string, MonsterTemplate>();
+  private readonly sharedTechniqueBuffs = new Map<string, Extract<SkillEffectDef, { type: 'buff' }>>();
   private loaded = false;
   private realmLevelsConfig: RealmLevelsConfig | null = null;
   private readonly realmLevels = new Map<number, RealmLevelEntry>();
   private readonly breakthroughConfigs = new Map<number, BreakthroughConfigEntry>();
   private starterInventoryEntries: StarterInventoryEntry[] = [];
   private readonly contentDir = resolveServerDataPath('content');
+  private readonly sharedTechniqueBuffsDir = path.join(this.contentDir, 'technique-buffs');
   private readonly techniquesDir = path.join(this.contentDir, 'techniques');
   private readonly itemsDir = path.join(this.contentDir, 'items');
   private readonly monstersDir = path.join(this.contentDir, 'monsters');
@@ -481,9 +503,11 @@ export class ContentService implements OnModuleInit {
     this.techniques.clear();
     this.items.clear();
     this.monsters.clear();
+    this.sharedTechniqueBuffs.clear();
     this.realmLevels.clear();
     this.breakthroughConfigs.clear();
     this.loadRealmLevels();
+    this.loadSharedTechniqueBuffs();
     this.loadTechniques();
     this.loadItems();
     this.loadMonsters();
@@ -537,6 +561,25 @@ export class ContentService implements OnModuleInit {
         }),
       };
       this.techniques.set(technique.id, technique);
+    }
+  }
+
+  private loadSharedTechniqueBuffs(): void {
+    if (!fs.existsSync(this.sharedTechniqueBuffsDir)) {
+      return;
+    }
+    for (const raw of this.readJsonEntries<RawSharedTechniqueBuffDef>(this.sharedTechniqueBuffsDir)) {
+      if (typeof raw.id !== 'string' || raw.id.trim().length === 0) {
+        continue;
+      }
+      const effect = this.normalizeRawSkillBuffEffect({
+        ...raw,
+        type: 'buff',
+      });
+      if (!effect) {
+        throw new Error(`共享功法 Buff 模板 ${raw.id} 配置无效`);
+      }
+      this.sharedTechniqueBuffs.set(raw.id.trim(), effect);
     }
   }
 
@@ -1473,43 +1516,68 @@ export class ContentService implements OnModuleInit {
           element: ELEMENT_KEYS.includes(input.element as typeof ELEMENT_KEYS[number]) ? input.element as typeof ELEMENT_KEYS[number] : undefined,
           formula: input.formula as SkillFormula,
         }];
-      case 'buff':
-        if (
-          (input.target !== 'self' && input.target !== 'target')
-          || typeof input.buffId !== 'string'
-          || input.buffId.trim().length === 0
-          || typeof input.name !== 'string'
-          || !Number.isFinite(input.duration)
-        ) {
-          return [];
-        }
-        return [{
-          type: 'buff',
-          target: input.target,
-          buffId: input.buffId.trim(),
-          name: input.name,
-          desc: typeof input.desc === 'string' ? input.desc : undefined,
-          shortMark: typeof input.shortMark === 'string' ? input.shortMark : undefined,
-          category: input.category === 'debuff' ? 'debuff' : input.category === 'buff' ? 'buff' : undefined,
-          visibility: input.visibility === 'hidden' || input.visibility === 'observe_only' || input.visibility === 'public'
-            ? input.visibility
-            : undefined,
-          color: typeof input.color === 'string' ? input.color : undefined,
-          duration: Math.max(1, Math.floor(Number(input.duration))),
-          maxStacks: Number.isFinite(input.maxStacks) ? Math.max(1, Math.floor(Number(input.maxStacks))) : undefined,
-          attrs: this.normalizeItemAttrs(input.attrs),
-          attrMode: this.normalizeBuffModifierMode(input.attrMode),
-          stats: this.resolveConfiguredBuffStats(
-            input.stats,
-            input.valueStats,
-            this.normalizeBuffModifierMode(input.statMode),
-          ),
-          statMode: this.normalizeBuffModifierMode(input.statMode),
-          qiProjection: this.normalizeQiProjectionModifiers(input.qiProjection),
-        }];
+      case 'buff': {
+        const resolvedInput = this.resolveSharedTechniqueBuffInput(input);
+        const effect = this.normalizeRawSkillBuffEffect(resolvedInput);
+        return effect ? [effect] : [];
+      }
       default:
         return [];
     }
+  }
+
+  private resolveSharedTechniqueBuffInput(input: Record<string, unknown>): Record<string, unknown> {
+    const buffRef = typeof input.buffRef === 'string' && input.buffRef.trim().length > 0
+      ? input.buffRef.trim()
+      : null;
+    if (!buffRef) {
+      return input;
+    }
+    const template = this.sharedTechniqueBuffs.get(buffRef);
+    if (!template) {
+      throw new Error(`共享功法 Buff 模板 ${buffRef} 不存在`);
+    }
+    return {
+      ...template,
+      ...input,
+      type: 'buff',
+    };
+  }
+
+  private normalizeRawSkillBuffEffect(input: Record<string, unknown>): Extract<SkillEffectDef, { type: 'buff' }> | null {
+    if (
+      (input.target !== 'self' && input.target !== 'target')
+      || typeof input.buffId !== 'string'
+      || input.buffId.trim().length === 0
+      || typeof input.name !== 'string'
+      || !Number.isFinite(input.duration)
+    ) {
+      return null;
+    }
+    return {
+      type: 'buff',
+      target: input.target,
+      buffId: input.buffId.trim(),
+      name: input.name,
+      desc: typeof input.desc === 'string' ? input.desc : undefined,
+      shortMark: typeof input.shortMark === 'string' ? input.shortMark : undefined,
+      category: input.category === 'debuff' ? 'debuff' : input.category === 'buff' ? 'buff' : undefined,
+      visibility: input.visibility === 'hidden' || input.visibility === 'observe_only' || input.visibility === 'public'
+        ? input.visibility
+        : undefined,
+      color: typeof input.color === 'string' ? input.color : undefined,
+      duration: Math.max(1, Math.floor(Number(input.duration))),
+      maxStacks: Number.isFinite(input.maxStacks) ? Math.max(1, Math.floor(Number(input.maxStacks))) : undefined,
+      attrs: this.normalizeItemAttrs(input.attrs),
+      attrMode: this.normalizeBuffModifierMode(input.attrMode),
+      stats: this.resolveConfiguredBuffStats(
+        input.stats,
+        input.valueStats,
+        this.normalizeBuffModifierMode(input.statMode),
+      ),
+      statMode: this.normalizeBuffModifierMode(input.statMode),
+      qiProjection: this.normalizeQiProjectionModifiers(input.qiProjection),
+    };
   }
 
   private loadStarterInventory(): void {

@@ -840,6 +840,7 @@ export interface SkillDef {
 
 /** 临时 Buff 状态（含属性和数值加成） */
 export interface TemporaryBuffState extends VisibleBuffState {
+  sourceCasterId?: string;
   attrs?: Partial<Attributes>;
   stats?: PartialNumericStats;
 }

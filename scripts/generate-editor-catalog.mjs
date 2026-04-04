@@ -21,8 +21,9 @@ const {
 
 const realmLevelsConfig = readJson(realmLevelsPath);
 const gradeBandLevelFrom = buildGradeBandLevelMap(realmLevelsConfig.gradeBands);
+const sharedTechniqueBuffs = loadSharedTechniqueBuffs(path.join(contentDir, 'technique-buffs'));
 const items = loadItems(path.join(contentDir, 'items'));
-const techniques = loadTechniques(path.join(contentDir, 'techniques'), gradeBandLevelFrom, {
+const techniques = loadTechniques(path.join(contentDir, 'techniques'), sharedTechniqueBuffs, gradeBandLevelFrom, {
   calculateTechniqueSkillQiCost,
   scaleTechniqueExp,
 });
@@ -107,18 +108,43 @@ function loadItems(itemsDir) {
     .sort((left, right) => sortByNameThenId(left.name, right.name, left.itemId, right.itemId));
 }
 
-function loadTechniques(techniquesDir, gradeBandLevelFrom, helpers) {
+function loadSharedTechniqueBuffs(sharedTechniqueBuffsDir) {
+  const sharedBuffs = new Map();
+  if (!fs.existsSync(sharedTechniqueBuffsDir)) {
+    return sharedBuffs;
+  }
+  for (const filePath of walkJsonFiles(sharedTechniqueBuffsDir)) {
+    const entries = readJson(filePath);
+    if (!Array.isArray(entries)) {
+      continue;
+    }
+    for (const entry of entries) {
+      const id = typeof entry?.id === 'string' ? entry.id.trim() : '';
+      if (!id) {
+        continue;
+      }
+      const { id: _id, ...template } = entry;
+      sharedBuffs.set(id, {
+        ...template,
+        type: 'buff',
+      });
+    }
+  }
+  return sharedBuffs;
+}
+
+function loadTechniques(techniquesDir, sharedTechniqueBuffs, gradeBandLevelFrom, helpers) {
   return walkJsonFiles(techniquesDir)
     .flatMap((filePath) => {
       const entries = readJson(filePath);
       return Array.isArray(entries) ? entries : [];
     })
     .filter((technique) => typeof technique?.id === 'string' && typeof technique?.name === 'string')
-    .map((technique) => normalizeTechnique(technique, gradeBandLevelFrom, helpers))
+    .map((technique) => normalizeTechnique(technique, sharedTechniqueBuffs, gradeBandLevelFrom, helpers))
     .sort((left, right) => sortByNameThenId(left.name, right.name, left.id, right.id));
 }
 
-function normalizeTechnique(raw, gradeBandLevelFrom, helpers) {
+function normalizeTechnique(raw, sharedTechniqueBuffs, gradeBandLevelFrom, helpers) {
   const realmLv = Number.isFinite(raw.realmLv)
     ? Math.max(1, Math.floor(Number(raw.realmLv)))
     : (gradeBandLevelFrom.get(raw.grade) ?? 1);
@@ -144,6 +170,7 @@ function normalizeTechnique(raw, gradeBandLevelFrom, helpers) {
           : 0;
         return {
           ...skill,
+          effects: normalizeSkillEffects(skill.effects, sharedTechniqueBuffs),
           costMultiplier,
           cost: helpers.calculateTechniqueSkillQiCost(costMultiplier, grade, realmLv),
         };
@@ -157,6 +184,41 @@ function normalizeTechnique(raw, gradeBandLevelFrom, helpers) {
     realmLv,
     skills,
     layers,
+  };
+}
+
+function normalizeSkillEffects(effects, sharedTechniqueBuffs) {
+  if (!Array.isArray(effects)) {
+    return [];
+  }
+  return effects.flatMap((effect) => normalizeSkillEffect(effect, sharedTechniqueBuffs));
+}
+
+function normalizeSkillEffect(effect, sharedTechniqueBuffs) {
+  if (!isPlainObject(effect) || typeof effect.type !== 'string') {
+    return [];
+  }
+  if (effect.type !== 'buff') {
+    return [{ ...effect }];
+  }
+  const resolved = resolveSharedTechniqueBuffEffect(effect, sharedTechniqueBuffs);
+  return resolved ? [resolved] : [];
+}
+
+function resolveSharedTechniqueBuffEffect(effect, sharedTechniqueBuffs) {
+  const buffRef = typeof effect.buffRef === 'string' ? effect.buffRef.trim() : '';
+  if (!buffRef) {
+    return { ...effect };
+  }
+  const template = sharedTechniqueBuffs.get(buffRef);
+  if (!template) {
+    throw new Error(`共享功法 Buff 模板 ${buffRef} 不存在`);
+  }
+  const { buffRef: _buffRef, ...resolvedEffect } = effect;
+  return {
+    ...template,
+    ...resolvedEffect,
+    type: 'buff',
   };
 }
 
