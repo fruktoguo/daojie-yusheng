@@ -3213,6 +3213,31 @@
                 "spellAtk": -3
               },
               "type": "buff"
+            },
+            {
+              "target": "self",
+              "buffId": "buff.water_glide",
+              "name": "流霜",
+              "desc": "寒流回身，持续提高双攻、双抗、生命灵力回复、冷却、命中与闪避。",
+              "shortMark": "霜",
+              "category": "buff",
+              "visibility": "public",
+              "color": "#7dbfd8",
+              "duration": 16,
+              "maxStacks": 33,
+              "statMode": "percent",
+              "valueStats": {
+                "physAtk": 3,
+                "spellAtk": 3,
+                "physDef": 3,
+                "spellDef": 3,
+                "hpRegenRate": 3,
+                "qiRegenRate": 3,
+                "cooldownSpeed": 3,
+                "hit": 3,
+                "dodge": 3
+              },
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -3276,6 +3301,31 @@
                 "moveSpeed": -10,
                 "cooldownSpeed": -4
               }
+            },
+            {
+              "target": "self",
+              "buffId": "buff.water_glide",
+              "name": "流霜",
+              "desc": "寒流回身，持续提高双攻、双抗、生命灵力回复、冷却、命中与闪避。",
+              "shortMark": "霜",
+              "category": "buff",
+              "visibility": "public",
+              "color": "#7dbfd8",
+              "duration": 16,
+              "maxStacks": 33,
+              "statMode": "percent",
+              "valueStats": {
+                "physAtk": 3,
+                "spellAtk": 3,
+                "physDef": 3,
+                "spellDef": 3,
+                "hpRegenRate": 3,
+                "qiRegenRate": 3,
+                "cooldownSpeed": 3,
+                "hit": 3,
+                "dodge": 3
+              },
+              "type": "buff"
             }
           ],
           "unlockLevel": 4,
@@ -8538,6 +8588,31 @@
                 "spellAtk": -3
               },
               "type": "buff"
+            },
+            {
+              "target": "self",
+              "buffId": "buff.water_glide",
+              "name": "流霜",
+              "desc": "寒流回身，持续提高双攻、双抗、生命灵力回复、冷却、命中与闪避。",
+              "shortMark": "霜",
+              "category": "buff",
+              "visibility": "public",
+              "color": "#7dbfd8",
+              "duration": 16,
+              "maxStacks": 33,
+              "statMode": "percent",
+              "valueStats": {
+                "physAtk": 3,
+                "spellAtk": 3,
+                "physDef": 3,
+                "spellDef": 3,
+                "hpRegenRate": 3,
+                "qiRegenRate": 3,
+                "cooldownSpeed": 3,
+                "hit": 3,
+                "dodge": 3
+              },
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -8618,6 +8693,31 @@
                 "dodge": -18,
                 "moveSpeed": -24
               }
+            },
+            {
+              "target": "self",
+              "buffId": "buff.water_glide",
+              "name": "流霜",
+              "desc": "寒流回身，持续提高双攻、双抗、生命灵力回复、冷却、命中与闪避。",
+              "shortMark": "霜",
+              "category": "buff",
+              "visibility": "public",
+              "color": "#7dbfd8",
+              "duration": 16,
+              "maxStacks": 33,
+              "statMode": "percent",
+              "valueStats": {
+                "physAtk": 3,
+                "spellAtk": 3,
+                "physDef": 3,
+                "spellDef": 3,
+                "hpRegenRate": 3,
+                "qiRegenRate": 3,
+                "cooldownSpeed": 3,
+                "hit": 3,
+                "dodge": 3
+              },
+              "type": "buff"
             }
           ],
           "unlockLevel": 6,
@@ -9768,6 +9868,31 @@
                 "spellAtk": -3
               },
               "type": "buff"
+            },
+            {
+              "target": "self",
+              "buffId": "buff.water_glide",
+              "name": "流霜",
+              "desc": "寒流回身，持续提高双攻、双抗、生命灵力回复、冷却、命中与闪避。",
+              "shortMark": "霜",
+              "category": "buff",
+              "visibility": "public",
+              "color": "#7dbfd8",
+              "duration": 16,
+              "maxStacks": 33,
+              "statMode": "percent",
+              "valueStats": {
+                "physAtk": 3,
+                "spellAtk": 3,
+                "physDef": 3,
+                "spellDef": 3,
+                "hpRegenRate": 3,
+                "qiRegenRate": 3,
+                "cooldownSpeed": 3,
+                "hit": 3,
+                "dodge": 3
+              },
+              "type": "buff"
             }
           ],
           "unlockLevel": 1,
@@ -9834,6 +9959,31 @@
                 "moveSpeed": -18,
                 "cooldownSpeed": -10
               }
+            },
+            {
+              "target": "self",
+              "buffId": "buff.water_glide",
+              "name": "流霜",
+              "desc": "寒流回身，持续提高双攻、双抗、生命灵力回复、冷却、命中与闪避。",
+              "shortMark": "霜",
+              "category": "buff",
+              "visibility": "public",
+              "color": "#7dbfd8",
+              "duration": 16,
+              "maxStacks": 33,
+              "statMode": "percent",
+              "valueStats": {
+                "physAtk": 3,
+                "spellAtk": 3,
+                "physDef": 3,
+                "spellDef": 3,
+                "hpRegenRate": 3,
+                "qiRegenRate": 3,
+                "cooldownSpeed": 3,
+                "hit": 3,
+                "dodge": 3
+              },
+              "type": "buff"
             }
           ],
           "unlockLevel": 6,
@@ -10026,6 +10176,31 @@
               "valueStats": {
                 "physAtk": -3,
                 "spellAtk": -3
+              },
+              "type": "buff"
+            },
+            {
+              "target": "self",
+              "buffId": "buff.water_glide",
+              "name": "流霜",
+              "desc": "寒流回身，持续提高双攻、双抗、生命灵力回复、冷却、命中与闪避。",
+              "shortMark": "霜",
+              "category": "buff",
+              "visibility": "public",
+              "color": "#7dbfd8",
+              "duration": 16,
+              "maxStacks": 33,
+              "statMode": "percent",
+              "valueStats": {
+                "physAtk": 3,
+                "spellAtk": 3,
+                "physDef": 3,
+                "spellDef": 3,
+                "hpRegenRate": 3,
+                "qiRegenRate": 3,
+                "cooldownSpeed": 3,
+                "hit": 3,
+                "dodge": 3
               },
               "type": "buff"
             }
@@ -20332,8 +20507,8 @@
       "duration": 16,
       "stacks": 1,
       "maxStacks": 33,
-      "sourceSkillId": "skill.hanliu_fuxing",
-      "sourceSkillName": "寒流覆行",
+      "sourceSkillId": "skill.hanxi_yin",
+      "sourceSkillName": "寒汐印",
       "realmLv": 1,
       "color": "#7dbfd8",
       "statMode": "percent"

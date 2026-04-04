@@ -1429,6 +1429,10 @@
           {
             "type": "buff",
             "buffRef": "lianqi.water.frost_mark"
+          },
+          {
+            "type": "buff",
+            "buffRef": "lianqi.water.glide"
           }
         ],
         "unlockLevel": 1
@@ -1494,6 +1498,10 @@
               "moveSpeed": -18,
               "cooldownSpeed": -10
             }
+          },
+          {
+            "type": "buff",
+            "buffRef": "lianqi.water.glide"
           }
         ],
         "unlockLevel": 6
