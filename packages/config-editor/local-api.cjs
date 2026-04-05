@@ -24,6 +24,7 @@ const MANAGE_GAME_SERVER = ['1', 'true', 'yes', 'on'].includes(
   String(process.env.CONFIG_EDITOR_MANAGE_GAME_SERVER || '').toLowerCase(),
 );
 const TECHNIQUE_GRADES = ['mortal', 'yellow', 'mystic', 'earth', 'heaven', 'spirit', 'saint', 'emperor'];
+const TECHNIQUE_CATEGORIES = ['arts', 'internal', 'divine', 'secret'];
 const MONSTER_AGGRO_MODES = ['always', 'retaliate', 'day_only', 'night_only'];
 const ITEM_TYPES = ['consumable', 'equipment', 'material', 'quest_item', 'skill_book'];
 
@@ -447,6 +448,134 @@ function saveMonsterTemplateEntry(key, rawMonster) {
   return {
     monster,
     updatedMapCount,
+  };
+}
+
+function compareTechniqueEntries(left, right) {
+  const leftRealm = Number.isFinite(left.technique.realmLv) ? Math.max(1, Math.floor(Number(left.technique.realmLv))) : 1;
+  const rightRealm = Number.isFinite(right.technique.realmLv) ? Math.max(1, Math.floor(Number(right.technique.realmLv))) : 1;
+  if (leftRealm !== rightRealm) {
+    return leftRealm - rightRealm;
+  }
+  const leftGrade = TECHNIQUE_GRADES.indexOf(left.technique.grade);
+  const rightGrade = TECHNIQUE_GRADES.indexOf(right.technique.grade);
+  if (leftGrade !== rightGrade) {
+    return leftGrade - rightGrade;
+  }
+  const leftCategory = TECHNIQUE_CATEGORIES.indexOf(left.technique.category);
+  const rightCategory = TECHNIQUE_CATEGORIES.indexOf(right.technique.category);
+  if (leftCategory !== rightCategory) {
+    return leftCategory - rightCategory;
+  }
+  const nameOrder = String(left.technique.name ?? left.technique.id).localeCompare(String(right.technique.name ?? right.technique.id), 'zh-CN');
+  if (nameOrder !== 0) {
+    return nameOrder;
+  }
+  return String(left.technique.id).localeCompare(String(right.technique.id), 'zh-CN');
+}
+
+function listTechniqueTemplates() {
+  const techniquesDir = path.join(CONTENT_DIR, 'techniques');
+  const result = [];
+  for (const filePath of collectJsonFiles(techniquesDir)) {
+    const relativePath = path.relative(CONTENT_DIR, filePath).replaceAll(path.sep, '/');
+    const entries = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    if (!Array.isArray(entries)) {
+      continue;
+    }
+    entries.forEach((entry, index) => {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+        return;
+      }
+      if (typeof entry.id !== 'string' || !entry.id.trim()) {
+        return;
+      }
+      result.push({
+        key: createMonsterEntryKey(relativePath, index),
+        filePath: relativePath,
+        index,
+        technique: entry,
+      });
+    });
+  }
+  return result.sort(compareTechniqueEntries);
+}
+
+function listTechniqueBuffTemplates() {
+  const buffsDir = path.join(CONTENT_DIR, 'technique-buffs');
+  const result = [];
+  for (const filePath of collectJsonFiles(buffsDir)) {
+    const entries = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    if (!Array.isArray(entries)) {
+      continue;
+    }
+    for (const entry of entries) {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+        continue;
+      }
+      if (typeof entry.id !== 'string' || !entry.id.trim()) {
+        continue;
+      }
+      result.push(entry);
+    }
+  }
+  return result.sort((left, right) => String(left.id).localeCompare(String(right.id), 'zh-CN'));
+}
+
+function validateTechniqueTemplate(technique, currentKey) {
+  if (!technique || typeof technique !== 'object' || Array.isArray(technique)) {
+    throw new Error('功法配置非法');
+  }
+  if (typeof technique.id !== 'string' || technique.id.trim().length === 0) {
+    throw new Error('功法 ID 不能为空');
+  }
+  if (typeof technique.name !== 'string' || technique.name.trim().length === 0) {
+    throw new Error(`功法 ${technique.id} 的名称不能为空`);
+  }
+  if (!TECHNIQUE_GRADES.includes(technique.grade)) {
+    throw new Error(`功法 ${technique.id} 的品阶非法`);
+  }
+  if (technique.category !== undefined && !TECHNIQUE_CATEGORIES.includes(technique.category)) {
+    throw new Error(`功法 ${technique.id} 的分类非法`);
+  }
+  if (!Array.isArray(technique.skills)) {
+    throw new Error(`功法 ${technique.id} 的技能列表非法`);
+  }
+  for (const skill of technique.skills) {
+    if (!skill || typeof skill !== 'object' || Array.isArray(skill)) {
+      throw new Error(`功法 ${technique.id} 存在非法技能项`);
+    }
+    if (typeof skill.id !== 'string' || skill.id.trim().length === 0) {
+      throw new Error(`功法 ${technique.id} 存在空技能 ID`);
+    }
+    if (typeof skill.name !== 'string' || skill.name.trim().length === 0) {
+      throw new Error(`功法 ${technique.id} 的技能 ${skill.id} 名称不能为空`);
+    }
+    if (!Array.isArray(skill.effects)) {
+      throw new Error(`功法 ${technique.id} 的技能 ${skill.id} effects 非数组`);
+    }
+  }
+  const duplicated = listTechniqueTemplates().find((entry) => entry.technique.id === technique.id && entry.key !== currentKey);
+  if (duplicated) {
+    throw new Error(`功法 ID 重复：${technique.id}`);
+  }
+}
+
+function saveTechniqueTemplateEntry(key, technique) {
+  const { filePath, index } = parseMonsterEntryKey(key);
+  if (!filePath.startsWith('techniques/')) {
+    throw new Error('目标功法文件路径非法');
+  }
+  const absolutePath = ensureWithin(CONTENT_DIR, filePath);
+  const entries = JSON.parse(fs.readFileSync(absolutePath, 'utf-8'));
+  if (!Array.isArray(entries) || !entries[index] || typeof entries[index] !== 'object') {
+    throw new Error('目标功法不存在');
+  }
+  validateTechniqueTemplate(technique, key);
+  entries[index] = technique;
+  fs.writeFileSync(absolutePath, `${JSON.stringify(entries, null, 2)}\n`, 'utf-8');
+  return {
+    technique,
   };
 }
 
@@ -875,6 +1004,14 @@ async function handleRequest(req, res) {
       return;
     }
 
+    if (req.method === 'GET' && pathname === '/api/techniques') {
+      writeJson(res, 200, {
+        techniques: listTechniqueTemplates(),
+        sharedBuffs: listTechniqueBuffTemplates(),
+      });
+      return;
+    }
+
     if (req.method === 'GET' && pathname === '/api/editor-catalog') {
       writeJson(res, 200, { items: listEditorItems() });
       return;
@@ -888,6 +1025,17 @@ async function handleRequest(req, res) {
       }
       const result = saveMonsterTemplateEntry(body.key, body.monster);
       writeJson(res, 200, { ok: true, updatedMapCount: result.updatedMapCount, monster: result.monster });
+      return;
+    }
+
+    if (req.method === 'PUT' && pathname === '/api/techniques') {
+      const body = await readJsonBody(req);
+      if (!body || typeof body.key !== 'string' || !body.technique || typeof body.technique !== 'object') {
+        writeError(res, 400, '缺少功法键或功法数据');
+        return;
+      }
+      const result = saveTechniqueTemplateEntry(body.key, body.technique);
+      writeJson(res, 200, { ok: true, technique: result.technique });
       return;
     }
 

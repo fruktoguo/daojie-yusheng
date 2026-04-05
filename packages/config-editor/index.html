@@ -205,6 +205,7 @@
     }
 
     .files-workspace,
+    .skills-workspace,
     .monsters-workspace,
     .service-workspace {
       display: grid;
@@ -216,6 +217,7 @@
       grid-template-columns: 320px minmax(480px, 1fr);
     }
 
+    .skills-workspace,
     .monsters-workspace {
       grid-template-columns: 320px minmax(560px, 1fr);
     }
@@ -669,6 +671,91 @@
       color: #f4fff7;
     }
 
+    .technique-editor-stack,
+    .technique-bonus-list,
+    .technique-meta-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .technique-select-grid,
+    .technique-bonus-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .technique-meta-list {
+      gap: 8px;
+    }
+
+    .technique-meta-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .technique-meta-key {
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .technique-meta-value {
+      font-size: 13px;
+      color: var(--text);
+      text-align: right;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    .technique-bonus-block {
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.025);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .technique-bonus-row {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: minmax(180px, 1fr) minmax(120px, 0.7fr) auto;
+      align-items: end;
+    }
+
+    .technique-bonus-row .small-btn {
+      height: 42px;
+    }
+
+    .technique-inline-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 26px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(117, 193, 143, 0.25);
+      background: rgba(117, 193, 143, 0.08);
+      color: #dff8e6;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .technique-inline-chip.warn {
+      border-color: rgba(216, 116, 116, 0.25);
+      background: rgba(216, 116, 116, 0.08);
+      color: #ffdada;
+    }
+
     .monster-drop-grid {
       display: grid;
       gap: 10px;
@@ -838,6 +925,7 @@
     @media (max-width: 1440px) {
       .map-workspace,
       .files-workspace,
+      .skills-workspace,
       .monsters-workspace,
       .service-workspace {
         grid-template-columns: 1fr;
@@ -850,6 +938,9 @@
       }
 
       .monster-editor-layout,
+      .technique-select-grid,
+      .technique-bonus-grid,
+      .technique-bonus-row,
       .monster-stat-grid,
       .monster-computed-grid,
       .monster-drop-grid,
@@ -888,6 +979,7 @@
     <div class="tabbar">
       <button id="page-tab-maps" class="page-tab active" type="button">地图编辑</button>
       <button id="page-tab-monsters" class="page-tab" type="button">怪物模板</button>
+      <button id="page-tab-skills" class="page-tab" type="button">技能</button>
       <button id="page-tab-files" class="page-tab" type="button">配置文件</button>
       <button id="page-tab-service" class="page-tab" type="button">服务控制</button>
     </div>
@@ -1201,6 +1293,89 @@
               </div>
 
               <div id="monster-status" class="status-bar"></div>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section id="page-skills" class="page skills-workspace hidden">
+        <section class="layout-section">
+          <div class="section-head">
+            <div class="section-title">功法目录</div>
+            <div class="section-subtitle">按名字或 ID 搜索，直接维护 `packages/server/data/content/techniques` 下的功法技能效果。</div>
+          </div>
+          <div class="section-body config-file-list-body">
+            <div class="filter-row">
+              <input id="technique-search" class="search-input" type="text" placeholder="搜索功法名字 / ID / 文件路径" />
+            </div>
+            <div class="button-row" style="margin: 12px 0;">
+              <button id="technique-refresh" class="small-btn" type="button">刷新功法列表</button>
+            </div>
+            <div class="config-file-list-scroll">
+              <div id="technique-list" class="config-file-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="layout-section">
+          <div class="section-head">
+            <div class="section-title">技能加成编辑</div>
+            <div class="section-subtitle">选择功法后，用下拉切换技能和 Buff 效果，直接编辑基础值与百分比加成并保存回原配置。</div>
+          </div>
+          <div class="section-body" style="display:flex; flex-direction:column; gap:12px;">
+            <div id="technique-empty" class="empty-hint">从左侧选择一个功法。</div>
+            <div id="technique-panel" class="hidden" style="display:flex; flex-direction:column; gap:12px; min-height:0;">
+              <div class="note-card">
+                <div id="technique-current-name" class="config-file-name">未选择功法</div>
+                <div id="technique-current-meta" class="config-file-meta"></div>
+              </div>
+              <div class="button-row">
+                <button id="technique-save" class="small-btn primary" type="button">保存功法技能</button>
+                <button id="technique-reload" class="small-btn" type="button">重新读取</button>
+              </div>
+
+              <div class="editor-section">
+                <div class="editor-section-head">
+                  <div>
+                    <div class="editor-section-title">切换目标</div>
+                    <div class="editor-note">先选技能，再选要编辑的 Buff 效果。只有 Buff 效果会在下拉中出现。</div>
+                  </div>
+                </div>
+                <div class="technique-select-grid">
+                  <label class="map-field">
+                    <span>技能</span>
+                    <select id="technique-skill-select"></select>
+                  </label>
+                  <label class="map-field">
+                    <span>Buff 效果</span>
+                    <select id="technique-effect-select"></select>
+                  </label>
+                </div>
+              </div>
+
+              <div class="technique-bonus-grid">
+                <div class="editor-section">
+                  <div class="editor-section-head">
+                    <div>
+                      <div class="editor-section-title">技能信息</div>
+                      <div class="editor-note">当前技能的描述、冷却、消耗和解锁信息。</div>
+                    </div>
+                  </div>
+                  <div id="technique-skill-summary" class="technique-meta-list"></div>
+                </div>
+                <div class="editor-section">
+                  <div class="editor-section-head">
+                    <div>
+                      <div class="editor-section-title">当前效果</div>
+                      <div class="editor-note">展示当前 Buff 效果来源、持续时间和生效模式。</div>
+                    </div>
+                  </div>
+                  <div id="technique-effect-summary" class="technique-meta-list"></div>
+                </div>
+              </div>
+
+              <div id="technique-effect-editor" class="technique-editor-stack"></div>
+              <div id="technique-status" class="status-bar"></div>
             </div>
           </div>
         </section>

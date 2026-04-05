@@ -18,6 +18,7 @@ import {
   TECHNIQUE_GRADE_LABELS,
   resolveMonsterTemplateRecord,
   type Attributes,
+  type AttrKey,
   type ElementKey,
   type EquipSlot,
   type ItemType,
@@ -31,11 +32,13 @@ import {
   type NumericStats,
   type PartialNumericStats,
   type PlayerRealmStage,
+  type TechniqueCategory,
   type TechniqueGrade,
+  type TechniqueLayerDef,
 } from '@mud/shared';
 import { GmMapEditor } from '../../client/src/gm-map-editor';
 
-type PageId = 'maps' | 'monsters' | 'files' | 'service';
+type PageId = 'maps' | 'monsters' | 'skills' | 'files' | 'service';
 
 type LocalConfigFileSummary = {
   path: string;
@@ -50,6 +53,91 @@ type LocalConfigFileListRes = {
 type LocalConfigFileRes = {
   path: string;
   content: string;
+};
+
+type LocalBuffModifierMode = 'flat' | 'percent';
+
+type LocalTechniqueBuffTemplate = {
+  id: string;
+  target?: 'self' | 'target';
+  buffId?: string;
+  name?: string;
+  desc?: string;
+  shortMark?: string;
+  category?: 'buff' | 'debuff';
+  visibility?: 'public' | 'observe_only' | 'hidden';
+  color?: string;
+  duration?: number;
+  maxStacks?: number;
+  attrs?: Partial<Attributes>;
+  attrMode?: LocalBuffModifierMode;
+  stats?: PartialNumericStats;
+  statMode?: LocalBuffModifierMode;
+  valueStats?: PartialNumericStats;
+  buffRef?: string;
+  type?: string;
+};
+
+type LocalTechniqueEffect = {
+  type: string;
+  buffRef?: string;
+  target?: 'self' | 'target';
+  buffId?: string;
+  name?: string;
+  desc?: string;
+  shortMark?: string;
+  category?: 'buff' | 'debuff';
+  visibility?: 'public' | 'observe_only' | 'hidden';
+  color?: string;
+  duration?: number;
+  maxStacks?: number;
+  attrs?: Partial<Attributes>;
+  attrMode?: LocalBuffModifierMode;
+  stats?: PartialNumericStats;
+  statMode?: LocalBuffModifierMode;
+  valueStats?: PartialNumericStats;
+  [key: string]: unknown;
+};
+
+type LocalTechniqueSkill = {
+  id: string;
+  name: string;
+  desc: string;
+  cooldown?: number;
+  cost?: number;
+  costMultiplier?: number;
+  range?: number;
+  unlockLevel?: number;
+  unlockRealm?: number | string;
+  effects: LocalTechniqueEffect[];
+  [key: string]: unknown;
+};
+
+type LocalTechniqueTemplateRecord = {
+  id: string;
+  name: string;
+  grade: TechniqueGrade;
+  category?: TechniqueCategory;
+  realmLv?: number;
+  layers?: TechniqueLayerDef[];
+  skills: LocalTechniqueSkill[];
+  [key: string]: unknown;
+};
+
+type LocalTechniqueEntry = {
+  key: string;
+  filePath: string;
+  index: number;
+  technique: LocalTechniqueTemplateRecord;
+};
+
+type LocalTechniqueListRes = {
+  techniques: LocalTechniqueEntry[];
+  sharedBuffs: LocalTechniqueBuffTemplate[];
+};
+
+type LocalTechniqueSaveRes = BasicOkRes & {
+  technique: LocalTechniqueTemplateRecord;
 };
 
 type LocalServerStatusRes = {
@@ -89,6 +177,7 @@ type LocalEditorCatalogRes = {
 type MonsterDropIdentity = Pick<MonsterTemplateDrop, 'itemId' | 'name' | 'type'>;
 
 type MapSideTabId = 'overview' | 'inspector' | 'json';
+type TechniqueModifierGroupKey = 'valueStats' | 'stats' | 'attrs';
 
 const appStatusBarEl = document.getElementById('app-status-bar') as HTMLDivElement;
 const serviceSummaryEl = document.getElementById('service-summary') as HTMLDivElement;
@@ -96,6 +185,7 @@ const serviceSummaryEl = document.getElementById('service-summary') as HTMLDivEl
 const pageMap = {
   maps: document.getElementById('page-maps') as HTMLElement,
   monsters: document.getElementById('page-monsters') as HTMLElement,
+  skills: document.getElementById('page-skills') as HTMLElement,
   files: document.getElementById('page-files') as HTMLElement,
   service: document.getElementById('page-service') as HTMLElement,
 };
@@ -103,6 +193,7 @@ const pageMap = {
 const pageTabs = {
   maps: document.getElementById('page-tab-maps') as HTMLButtonElement,
   monsters: document.getElementById('page-tab-monsters') as HTMLButtonElement,
+  skills: document.getElementById('page-tab-skills') as HTMLButtonElement,
   files: document.getElementById('page-tab-files') as HTMLButtonElement,
   service: document.getElementById('page-tab-service') as HTMLButtonElement,
 };
@@ -130,6 +221,22 @@ const configFileEditorEl = document.getElementById('config-file-editor') as HTML
 const configFileSaveBtn = document.getElementById('config-file-save') as HTMLButtonElement;
 const configFileReloadBtn = document.getElementById('config-file-reload') as HTMLButtonElement;
 const configFileStatusEl = document.getElementById('config-file-status') as HTMLDivElement;
+
+const techniqueSearchEl = document.getElementById('technique-search') as HTMLInputElement;
+const techniqueRefreshBtn = document.getElementById('technique-refresh') as HTMLButtonElement;
+const techniqueListEl = document.getElementById('technique-list') as HTMLDivElement;
+const techniqueEmptyEl = document.getElementById('technique-empty') as HTMLDivElement;
+const techniquePanelEl = document.getElementById('technique-panel') as HTMLDivElement;
+const techniqueCurrentNameEl = document.getElementById('technique-current-name') as HTMLDivElement;
+const techniqueCurrentMetaEl = document.getElementById('technique-current-meta') as HTMLDivElement;
+const techniqueSaveBtn = document.getElementById('technique-save') as HTMLButtonElement;
+const techniqueReloadBtn = document.getElementById('technique-reload') as HTMLButtonElement;
+const techniqueSkillSelectEl = document.getElementById('technique-skill-select') as HTMLSelectElement;
+const techniqueEffectSelectEl = document.getElementById('technique-effect-select') as HTMLSelectElement;
+const techniqueSkillSummaryEl = document.getElementById('technique-skill-summary') as HTMLDivElement;
+const techniqueEffectSummaryEl = document.getElementById('technique-effect-summary') as HTMLDivElement;
+const techniqueEffectEditorEl = document.getElementById('technique-effect-editor') as HTMLDivElement;
+const techniqueStatusEl = document.getElementById('technique-status') as HTMLDivElement;
 
 const monsterSearchEl = document.getElementById('monster-search') as HTMLInputElement;
 const monsterRefreshBtn = document.getElementById('monster-refresh') as HTMLButtonElement;
@@ -184,6 +291,14 @@ let currentMapSideTab: MapSideTabId = 'overview';
 let configFiles: LocalConfigFileSummary[] = [];
 let currentConfigFilePath: string | null = null;
 let configFileDirty = false;
+let techniqueTemplates: LocalTechniqueEntry[] = [];
+let techniqueBuffTemplates: LocalTechniqueBuffTemplate[] = [];
+let techniqueBuffTemplateById = new Map<string, LocalTechniqueBuffTemplate>();
+let currentTechniqueKey: string | null = null;
+let currentTechniqueDraft: LocalTechniqueTemplateRecord | null = null;
+let currentTechniqueSkillId: string | null = null;
+let currentTechniqueEffectIndex: number | null = null;
+let techniqueDirty = false;
 let monsterTemplates: LocalMonsterTemplateEntry[] = [];
 let currentMonsterKey: string | null = null;
 let currentMonsterDraft: MonsterTemplateRecord | null = null;
@@ -219,6 +334,13 @@ const MONSTER_SOURCE_MODE_LABELS: Record<MonsterTemplateRecord['sourceMode'], st
   legacy: '旧 hp/attack 模式',
   value_stats: 'valueStats 推导模式',
   attributes: 'attrs / statPercents 模式',
+};
+
+const TECHNIQUE_CATEGORY_LABELS: Record<TechniqueCategory, string> = {
+  arts: '术法',
+  internal: '内功',
+  divine: '神通',
+  secret: '秘术',
 };
 
 const EQUIP_SLOT_LABELS: Record<EquipSlot, string> = {
@@ -268,6 +390,11 @@ function setAppStatus(message: string, isError = false): void {
 function setConfigFileStatus(message: string, isError = false): void {
   configFileStatusEl.textContent = message;
   configFileStatusEl.style.color = isError ? '#ffb0b0' : 'var(--text-muted)';
+}
+
+function setTechniqueStatus(message: string, isError = false): void {
+  techniqueStatusEl.textContent = message;
+  techniqueStatusEl.style.color = isError ? '#ffb0b0' : 'var(--text-muted)';
 }
 
 function setMonsterStatus(message: string, isError = false): void {
@@ -346,6 +473,665 @@ function renderConfigFileList(): void {
       <div class="config-file-meta">${escapeHtml(file.category)} · ${escapeHtml(file.path)}</div>
     </button>
   `).join('');
+}
+
+function normalizeTechniqueSortRealmLv(realmLv: number | undefined): number {
+  if (!Number.isFinite(realmLv)) {
+    return 1;
+  }
+  return Math.max(1, Math.floor(realmLv ?? 1));
+}
+
+function compareTechniqueTemplateEntries(left: LocalTechniqueEntry, right: LocalTechniqueEntry): number {
+  const realmDiff = normalizeTechniqueSortRealmLv(left.technique.realmLv) - normalizeTechniqueSortRealmLv(right.technique.realmLv);
+  if (realmDiff !== 0) {
+    return realmDiff;
+  }
+
+  const gradeDiff = getMonsterGradeSortWeight(left.technique.grade) - getMonsterGradeSortWeight(right.technique.grade);
+  if (gradeDiff !== 0) {
+    return gradeDiff;
+  }
+
+  const categoryDiff = (left.technique.category ?? 'internal').localeCompare(right.technique.category ?? 'internal', 'zh-Hans-CN');
+  if (categoryDiff !== 0) {
+    return categoryDiff;
+  }
+
+  const nameDiff = (left.technique.name || left.technique.id).localeCompare(right.technique.name || right.technique.id, 'zh-Hans-CN');
+  if (nameDiff !== 0) {
+    return nameDiff;
+  }
+
+  return left.filePath.localeCompare(right.filePath, 'zh-Hans-CN');
+}
+
+function formatTechniqueListMeta(entry: LocalTechniqueEntry): string {
+  const parts = [
+    entry.technique.id,
+    `境界 ${normalizeTechniqueSortRealmLv(entry.technique.realmLv)}`,
+    TECHNIQUE_GRADE_LABELS[entry.technique.grade] ?? entry.technique.grade,
+  ];
+  if (entry.technique.category) {
+    parts.push(TECHNIQUE_CATEGORY_LABELS[entry.technique.category] ?? entry.technique.category);
+  }
+  parts.push(entry.filePath);
+  return parts.join(' · ');
+}
+
+function renderTechniqueList(): void {
+  const keyword = techniqueSearchEl.value.trim().toLowerCase();
+  const filtered = techniqueTemplates.filter((entry) => {
+    if (!keyword) return true;
+    return entry.technique.name.toLowerCase().includes(keyword)
+      || entry.technique.id.toLowerCase().includes(keyword)
+      || entry.filePath.toLowerCase().includes(keyword);
+  });
+
+  if (filtered.length === 0) {
+    techniqueListEl.innerHTML = '<div class="empty-hint">没有符合条件的功法。</div>';
+    return;
+  }
+
+  techniqueListEl.innerHTML = filtered.map((entry) => `
+    <button class="config-file-row ${entry.key === currentTechniqueKey ? 'active' : ''}" data-technique-key="${escapeHtml(entry.key)}" type="button">
+      <div class="config-file-name">${escapeHtml(entry.technique.name || entry.technique.id)}</div>
+      <div class="config-file-meta">${escapeHtml(formatTechniqueListMeta(entry))}</div>
+    </button>
+  `).join('');
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function hasOwnField(target: unknown, key: string): boolean {
+  return isPlainRecord(target) && Object.prototype.hasOwnProperty.call(target, key);
+}
+
+function cloneTechniqueTemplateRecord(technique: LocalTechniqueTemplateRecord): LocalTechniqueTemplateRecord {
+  return JSON.parse(JSON.stringify(technique)) as LocalTechniqueTemplateRecord;
+}
+
+function normalizeTechniqueModifierMode(mode: unknown): LocalBuffModifierMode {
+  return mode === 'flat' ? 'flat' : 'percent';
+}
+
+function normalizeTechniqueNumericGroup(raw: unknown): PartialNumericStats {
+  const normalized: PartialNumericStats = {};
+  if (!isPlainRecord(raw)) {
+    return normalized;
+  }
+  for (const key of NUMERIC_SCALAR_STAT_KEYS) {
+    const value = raw[key];
+    if (Number.isFinite(value)) {
+      normalized[key] = Number(value);
+    }
+  }
+  return normalized;
+}
+
+function normalizeTechniqueAttrGroup(raw: unknown): Partial<Attributes> {
+  const normalized: Partial<Attributes> = {};
+  if (!isPlainRecord(raw)) {
+    return normalized;
+  }
+  for (const key of ATTR_KEYS) {
+    const value = raw[key];
+    if (Number.isFinite(value)) {
+      normalized[key] = Number(value);
+    }
+  }
+  return normalized;
+}
+
+function formatTechniqueModeLabel(mode: LocalBuffModifierMode): string {
+  return mode === 'flat' ? '基础值' : '百分比';
+}
+
+function buildTechniqueMetaRow(label: string, value: string): string {
+  return `
+    <div class="technique-meta-row">
+      <div class="technique-meta-key">${escapeHtml(label)}</div>
+      <div class="technique-meta-value">${escapeHtml(value || '-')}</div>
+    </div>
+  `;
+}
+
+function buildTechniqueChip(text: string, extraClass = ''): string {
+  return `<span class="technique-inline-chip ${escapeHtml(extraClass)}">${escapeHtml(text)}</span>`;
+}
+
+function getCurrentTechniqueSkill(): LocalTechniqueSkill | null {
+  if (!currentTechniqueDraft) {
+    return null;
+  }
+  if (!currentTechniqueSkillId) {
+    return currentTechniqueDraft.skills[0] ?? null;
+  }
+  return currentTechniqueDraft.skills.find((skill) => skill.id === currentTechniqueSkillId) ?? currentTechniqueDraft.skills[0] ?? null;
+}
+
+function isTechniqueBuffEffect(effect: LocalTechniqueEffect | undefined): effect is LocalTechniqueEffect {
+  return Boolean(effect && effect.type === 'buff');
+}
+
+function resolveTechniqueBuffEffect(effect: LocalTechniqueEffect): LocalTechniqueEffect {
+  if (!isTechniqueBuffEffect(effect)) {
+    return effect;
+  }
+  const buffRef = typeof effect.buffRef === 'string' && effect.buffRef.trim() ? effect.buffRef.trim() : '';
+  const template = buffRef ? techniqueBuffTemplateById.get(buffRef) : undefined;
+  return template ? { ...template, ...effect, type: 'buff' } : effect;
+}
+
+function getTechniqueBuffEffectOptions(skill: LocalTechniqueSkill | null): Array<{
+  rawIndex: number;
+  rawEffect: LocalTechniqueEffect;
+  resolvedEffect: LocalTechniqueEffect;
+}> {
+  if (!skill) {
+    return [];
+  }
+  return skill.effects
+    .map((effect, rawIndex) => ({ rawIndex, rawEffect: effect, resolvedEffect: resolveTechniqueBuffEffect(effect) }))
+    .filter((entry) => isTechniqueBuffEffect(entry.rawEffect));
+}
+
+function getCurrentTechniqueBuffEffectSelection(): {
+  skill: LocalTechniqueSkill;
+  rawEffect: LocalTechniqueEffect;
+  resolvedEffect: LocalTechniqueEffect;
+  rawIndex: number;
+} | null {
+  const skill = getCurrentTechniqueSkill();
+  if (!skill) {
+    return null;
+  }
+  const options = getTechniqueBuffEffectOptions(skill);
+  if (options.length === 0) {
+    return null;
+  }
+  const selected = options.find((entry) => entry.rawIndex === currentTechniqueEffectIndex) ?? options[0]!;
+  return {
+    skill,
+    rawEffect: selected.rawEffect,
+    resolvedEffect: selected.resolvedEffect,
+    rawIndex: selected.rawIndex,
+  };
+}
+
+function getTechniqueEffectGroup(
+  rawEffect: LocalTechniqueEffect,
+  resolvedEffect: LocalTechniqueEffect,
+  groupKey: TechniqueModifierGroupKey,
+): PartialNumericStats | Partial<Attributes> {
+  if (groupKey === 'attrs') {
+    if (hasOwnField(rawEffect, groupKey)) {
+      return normalizeTechniqueAttrGroup(rawEffect[groupKey]);
+    }
+    return normalizeTechniqueAttrGroup(resolvedEffect[groupKey]);
+  }
+  if (hasOwnField(rawEffect, groupKey)) {
+    return normalizeTechniqueNumericGroup(rawEffect[groupKey]);
+  }
+  return normalizeTechniqueNumericGroup(resolvedEffect[groupKey]);
+}
+
+function getTechniqueEffectMode(
+  rawEffect: LocalTechniqueEffect,
+  resolvedEffect: LocalTechniqueEffect,
+  modeKey: 'statMode' | 'attrMode',
+): LocalBuffModifierMode {
+  if (hasOwnField(rawEffect, modeKey)) {
+    return normalizeTechniqueModifierMode(rawEffect[modeKey]);
+  }
+  return normalizeTechniqueModifierMode(resolvedEffect[modeKey]);
+}
+
+function ensureTechniqueSelection(): void {
+  if (!currentTechniqueDraft) {
+    currentTechniqueSkillId = null;
+    currentTechniqueEffectIndex = null;
+    return;
+  }
+  const skill = getCurrentTechniqueSkill();
+  currentTechniqueSkillId = skill?.id ?? null;
+  const effectOptions = getTechniqueBuffEffectOptions(skill);
+  if (effectOptions.length === 0) {
+    currentTechniqueEffectIndex = null;
+    return;
+  }
+  if (currentTechniqueEffectIndex !== null && effectOptions.some((entry) => entry.rawIndex === currentTechniqueEffectIndex)) {
+    return;
+  }
+  currentTechniqueEffectIndex = effectOptions[0]!.rawIndex;
+}
+
+function renderTechniqueSelectors(): void {
+  if (!currentTechniqueDraft) {
+    techniqueSkillSelectEl.innerHTML = '<option value="">没有技能</option>';
+    techniqueEffectSelectEl.innerHTML = '<option value="">没有 Buff 效果</option>';
+    techniqueSkillSelectEl.disabled = true;
+    techniqueEffectSelectEl.disabled = true;
+    return;
+  }
+
+  ensureTechniqueSelection();
+  const skills = currentTechniqueDraft.skills;
+  techniqueSkillSelectEl.innerHTML = skills.length > 0
+    ? skills.map((skill) => `<option value="${escapeHtml(skill.id)}" ${skill.id === currentTechniqueSkillId ? 'selected' : ''}>${escapeHtml(skill.name)} · ${escapeHtml(skill.id)}</option>`).join('')
+    : '<option value="">没有技能</option>';
+  techniqueSkillSelectEl.disabled = skills.length === 0;
+
+  const effectOptions = getTechniqueBuffEffectOptions(getCurrentTechniqueSkill());
+  techniqueEffectSelectEl.innerHTML = effectOptions.length > 0
+    ? effectOptions.map((entry, index) => {
+      const label = entry.resolvedEffect.name
+        || entry.resolvedEffect.buffId
+        || entry.rawEffect.buffRef
+        || `Buff 效果 ${index + 1}`;
+      const source = entry.rawEffect.buffRef ? '共享模板' : '内联';
+      return `<option value="${entry.rawIndex}" ${entry.rawIndex === currentTechniqueEffectIndex ? 'selected' : ''}>${escapeHtml(`效果 ${index + 1} · ${label} · ${source}`)}</option>`;
+    }).join('')
+    : '<option value="">当前技能没有 Buff 效果</option>';
+  techniqueEffectSelectEl.disabled = effectOptions.length === 0;
+}
+
+function renderTechniqueSkillSummary(): void {
+  const skill = getCurrentTechniqueSkill();
+  if (!skill) {
+    techniqueSkillSummaryEl.innerHTML = '<div class="empty-hint">当前功法没有技能。</div>';
+    return;
+  }
+  const lines = [
+    buildTechniqueMetaRow('技能描述', skill.desc || '-'),
+    buildTechniqueMetaRow('冷却 / 射程', `${stringifyOptionalNumber(skill.cooldown)} / ${stringifyOptionalNumber(skill.range)}`),
+    buildTechniqueMetaRow('消耗倍率 / 消耗', `${stringifyOptionalNumber(skill.costMultiplier)} / ${stringifyOptionalNumber(skill.cost)}`),
+    buildTechniqueMetaRow('解锁层数', stringifyOptionalNumber(skill.unlockLevel)),
+    buildTechniqueMetaRow('效果数量', `${skill.effects.length} 个，其中 Buff ${getTechniqueBuffEffectOptions(skill).length} 个`),
+  ];
+  techniqueSkillSummaryEl.innerHTML = lines.join('');
+}
+
+function renderTechniqueEffectSummary(): void {
+  const selection = getCurrentTechniqueBuffEffectSelection();
+  if (!selection) {
+    const skill = getCurrentTechniqueSkill();
+    if (skill) {
+      const damageCount = skill.effects.filter((effect) => effect.type === 'damage').length;
+      techniqueEffectSummaryEl.innerHTML = [
+        buildTechniqueMetaRow('当前状态', '当前技能没有可编辑的 Buff 效果'),
+        buildTechniqueMetaRow('其余效果', damageCount > 0 ? `还有 ${damageCount} 个伤害效果` : '没有额外效果'),
+      ].join('');
+    } else {
+      techniqueEffectSummaryEl.innerHTML = '<div class="empty-hint">请选择技能。</div>';
+    }
+    return;
+  }
+
+  const { rawEffect, resolvedEffect } = selection;
+  const summary = [
+    buildTechniqueMetaRow('效果名称', resolvedEffect.name || resolvedEffect.buffId || rawEffect.buffRef || '未命名效果'),
+    buildTechniqueMetaRow('来源', rawEffect.buffRef ? `共享模板 ${rawEffect.buffRef}` : '技能内联配置'),
+    buildTechniqueMetaRow('目标 / 持续', `${resolvedEffect.target === 'target' ? '目标' : '自身'} / ${stringifyOptionalNumber(resolvedEffect.duration)} 息`),
+    buildTechniqueMetaRow('叠层 / 模式', `${stringifyOptionalNumber(resolvedEffect.maxStacks)} / ${formatTechniqueModeLabel(getTechniqueEffectMode(rawEffect, resolvedEffect, 'statMode'))}`),
+    buildTechniqueMetaRow('说明', resolvedEffect.desc || '-'),
+  ];
+  if (rawEffect.buffRef && !techniqueBuffTemplateById.has(rawEffect.buffRef)) {
+    summary.push(buildTechniqueMetaRow('共享模板状态', '未找到对应 buffRef，当前仅显示技能内联字段'));
+  }
+  techniqueEffectSummaryEl.innerHTML = summary.join('');
+}
+
+function buildTechniqueModifierKeyOptions(
+  groupKey: TechniqueModifierGroupKey,
+  selectedKey: string,
+): string {
+  const options = ['<option value="">请选择属性</option>'];
+  if (groupKey === 'attrs') {
+    for (const key of ATTR_KEYS) {
+      options.push(`<option value="${escapeHtml(key)}" ${key === selectedKey ? 'selected' : ''}>${escapeHtml(ATTR_KEY_LABELS[key])} · ${escapeHtml(key)}</option>`);
+    }
+    return options.join('');
+  }
+  for (const key of NUMERIC_SCALAR_STAT_KEYS) {
+    options.push(`<option value="${escapeHtml(key)}" ${key === selectedKey ? 'selected' : ''}>${escapeHtml(NUMERIC_SCALAR_STAT_LABELS[key])} · ${escapeHtml(key)}</option>`);
+  }
+  return options.join('');
+}
+
+function buildTechniqueModifierRows(
+  groupKey: TechniqueModifierGroupKey,
+  values: PartialNumericStats | Partial<Attributes>,
+): string {
+  const entries = Object.entries(values);
+  if (entries.length === 0) {
+    return '<div class="empty-hint">当前没有配置条目，可用上方按钮新增。</div>';
+  }
+  return entries.map(([key, value]) => `
+    <div class="technique-bonus-row" data-tech-bonus-row data-tech-bonus-group="${escapeHtml(groupKey)}" data-tech-bonus-key="${escapeHtml(key)}">
+      <label class="map-field">
+        <span>属性</span>
+        <select data-tech-bonus-key-select>${buildTechniqueModifierKeyOptions(groupKey, key)}</select>
+      </label>
+      <label class="map-field">
+        <span>${groupKey === 'attrs' ? '数值' : '加成值'}</span>
+        <input data-tech-bonus-value-input type="number" step="any" value="${escapeHtml(stringifyOptionalNumber(typeof value === 'number' ? value : Number(value)))}" />
+      </label>
+      <button class="small-btn danger" type="button" data-tech-remove-row>删除</button>
+    </div>
+  `).join('');
+}
+
+function renderTechniqueEffectEditor(): void {
+  const selection = getCurrentTechniqueBuffEffectSelection();
+  if (!selection) {
+    techniqueEffectEditorEl.innerHTML = '<div class="empty-hint">当前技能没有可编辑 Buff 效果，切换别的技能后再编辑。</div>';
+    return;
+  }
+
+  const { rawEffect, resolvedEffect } = selection;
+  const valueStats = getTechniqueEffectGroup(rawEffect, resolvedEffect, 'valueStats') as PartialNumericStats;
+  const stats = getTechniqueEffectGroup(rawEffect, resolvedEffect, 'stats') as PartialNumericStats;
+  const attrs = getTechniqueEffectGroup(rawEffect, resolvedEffect, 'attrs') as Partial<Attributes>;
+  const statMode = getTechniqueEffectMode(rawEffect, resolvedEffect, 'statMode');
+  const attrMode = getTechniqueEffectMode(rawEffect, resolvedEffect, 'attrMode');
+  const inheritedHint = rawEffect.buffRef
+    ? buildTechniqueChip(`共享模板：${rawEffect.buffRef}`)
+    : buildTechniqueChip('技能内联配置');
+  const missingTemplateHint = rawEffect.buffRef && !techniqueBuffTemplateById.has(rawEffect.buffRef)
+    ? buildTechniqueChip('共享模板未找到', 'warn')
+    : '';
+
+  techniqueEffectEditorEl.innerHTML = `
+    <div class="note-card">
+      <div class="editor-section-title">当前编辑上下文</div>
+      <div class="editor-note">当前技能页展示的是解析后的生效值；修改后会把当前效果写成技能自己的覆盖字段，不会直接改共享 Buff 模板。</div>
+      <div class="button-row">
+        ${inheritedHint}
+        ${missingTemplateHint}
+      </div>
+    </div>
+
+    <div class="editor-section">
+      <div class="editor-section-head">
+        <div>
+          <div class="editor-section-title">基础数值加成</div>
+          <div class="editor-note">这里优先编辑 valueStats。flat 表示基础值，percent 表示百分比；你可以直接在输入框里填百分比。</div>
+        </div>
+        <label class="map-field" style="min-width: 150px;">
+          <span>数值模式</span>
+          <select id="technique-stat-mode">
+            <option value="flat" ${statMode === 'flat' ? 'selected' : ''}>基础值</option>
+            <option value="percent" ${statMode === 'percent' ? 'selected' : ''}>百分比</option>
+          </select>
+        </label>
+      </div>
+      <div class="technique-bonus-list">
+        <div class="technique-bonus-block">
+          <div class="editor-section-head">
+            <div>
+              <div class="editor-section-title">基准数值 valueStats</div>
+              <div class="editor-note">现有功法技能大多都写在这一组；用于配置基础值加成或百分比加成。</div>
+            </div>
+            <button class="small-btn" type="button" data-tech-add-row="valueStats">新增条目</button>
+          </div>
+          <div class="technique-bonus-list">${buildTechniqueModifierRows('valueStats', valueStats)}</div>
+        </div>
+        <div class="technique-bonus-block">
+          <div class="editor-section-head">
+            <div>
+              <div class="editor-section-title">直接面板 stats</div>
+              <div class="editor-note">保留给少量直接写实际面板值的效果；和 valueStats 共用同一个数值模式。</div>
+            </div>
+            <button class="small-btn" type="button" data-tech-add-row="stats">新增条目</button>
+          </div>
+          <div class="technique-bonus-list">${buildTechniqueModifierRows('stats', stats)}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="editor-section">
+      <div class="editor-section-head">
+        <div>
+          <div class="editor-section-title">六维加成</div>
+          <div class="editor-note">如果后续某个 Buff 直接给六维，这里也能编辑；当前大部分功法技能通常为空。</div>
+        </div>
+        <label class="map-field" style="min-width: 150px;">
+          <span>六维模式</span>
+          <select id="technique-attr-mode">
+            <option value="flat" ${attrMode === 'flat' ? 'selected' : ''}>基础值</option>
+            <option value="percent" ${attrMode === 'percent' ? 'selected' : ''}>百分比</option>
+          </select>
+        </label>
+      </div>
+      <div class="technique-bonus-block">
+        <div class="editor-section-head">
+          <div>
+            <div class="editor-section-title">六维条目 attrs</div>
+            <div class="editor-note">支持体质、神识、感知、资质、悟性和气运。</div>
+          </div>
+          <button class="small-btn" type="button" data-tech-add-row="attrs">新增条目</button>
+        </div>
+        <div class="technique-bonus-list">${buildTechniqueModifierRows('attrs', attrs)}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderTechniquePanel(): void {
+  if (!currentTechniqueDraft) {
+    techniqueEmptyEl.classList.remove('hidden');
+    techniquePanelEl.classList.add('hidden');
+    techniqueCurrentNameEl.textContent = '未选择功法';
+    techniqueCurrentMetaEl.textContent = '';
+    return;
+  }
+
+  techniqueEmptyEl.classList.add('hidden');
+  techniquePanelEl.classList.remove('hidden');
+  techniqueCurrentNameEl.textContent = `${currentTechniqueDraft.name} · ${currentTechniqueDraft.id}`;
+  techniqueCurrentMetaEl.textContent = [
+    techniqueTemplates.find((entry) => entry.key === currentTechniqueKey)?.filePath ?? '-',
+    `第 ${(techniqueTemplates.find((entry) => entry.key === currentTechniqueKey)?.index ?? 0) + 1} 项`,
+    TECHNIQUE_GRADE_LABELS[currentTechniqueDraft.grade] ?? currentTechniqueDraft.grade,
+    currentTechniqueDraft.category ? (TECHNIQUE_CATEGORY_LABELS[currentTechniqueDraft.category] ?? currentTechniqueDraft.category) : '未分类',
+    `境界 ${normalizeTechniqueSortRealmLv(currentTechniqueDraft.realmLv)}`,
+  ].join(' · ');
+  renderTechniqueSelectors();
+  renderTechniqueSkillSummary();
+  renderTechniqueEffectSummary();
+  renderTechniqueEffectEditor();
+}
+
+function ensureTechniqueRawEffectGroup(
+  rawEffect: LocalTechniqueEffect,
+  resolvedEffect: LocalTechniqueEffect,
+  groupKey: TechniqueModifierGroupKey,
+): PartialNumericStats | Partial<Attributes> {
+  if (groupKey === 'attrs') {
+    if (!hasOwnField(rawEffect, groupKey) || !isPlainRecord(rawEffect[groupKey])) {
+      rawEffect[groupKey] = { ...(getTechniqueEffectGroup(rawEffect, resolvedEffect, groupKey) as Partial<Attributes>) };
+    }
+    return rawEffect[groupKey] as Partial<Attributes>;
+  }
+  if (!hasOwnField(rawEffect, groupKey) || !isPlainRecord(rawEffect[groupKey])) {
+    rawEffect[groupKey] = { ...(getTechniqueEffectGroup(rawEffect, resolvedEffect, groupKey) as PartialNumericStats) };
+  }
+  return rawEffect[groupKey] as PartialNumericStats;
+}
+
+function getTechniqueModifierKeys(groupKey: TechniqueModifierGroupKey): readonly string[] {
+  return groupKey === 'attrs' ? ATTR_KEYS : NUMERIC_SCALAR_STAT_KEYS;
+}
+
+function markTechniqueDirty(message = '功法技能有未保存修改'): void {
+  techniqueDirty = true;
+  setTechniqueStatus(message);
+}
+
+function updateTechniqueMode(modeKey: 'statMode' | 'attrMode', value: LocalBuffModifierMode): void {
+  const selection = getCurrentTechniqueBuffEffectSelection();
+  if (!selection) {
+    return;
+  }
+  selection.rawEffect[modeKey] = value;
+  markTechniqueDirty();
+  renderTechniqueEffectSummary();
+  renderTechniqueEffectEditor();
+}
+
+function addTechniqueModifierRow(groupKey: TechniqueModifierGroupKey): void {
+  const selection = getCurrentTechniqueBuffEffectSelection();
+  if (!selection) {
+    return;
+  }
+  const group = ensureTechniqueRawEffectGroup(selection.rawEffect, selection.resolvedEffect, groupKey);
+  const candidateKey = getTechniqueModifierKeys(groupKey).find((key) => !Object.prototype.hasOwnProperty.call(group, key))
+    ?? getTechniqueModifierKeys(groupKey)[0];
+  if (!candidateKey) {
+    return;
+  }
+  group[candidateKey as keyof typeof group] = 0 as never;
+  markTechniqueDirty();
+  renderTechniqueEffectEditor();
+}
+
+function removeTechniqueModifierRow(groupKey: TechniqueModifierGroupKey, key: string): void {
+  const selection = getCurrentTechniqueBuffEffectSelection();
+  if (!selection) {
+    return;
+  }
+  const group = ensureTechniqueRawEffectGroup(selection.rawEffect, selection.resolvedEffect, groupKey);
+  delete group[key as keyof typeof group];
+  markTechniqueDirty();
+  renderTechniqueEffectEditor();
+}
+
+function updateTechniqueModifierKey(groupKey: TechniqueModifierGroupKey, previousKey: string, nextKey: string): void {
+  if (!nextKey || previousKey === nextKey) {
+    return;
+  }
+  const selection = getCurrentTechniqueBuffEffectSelection();
+  if (!selection) {
+    return;
+  }
+  const group = ensureTechniqueRawEffectGroup(selection.rawEffect, selection.resolvedEffect, groupKey);
+  const previousValue = group[previousKey as keyof typeof group];
+  delete group[previousKey as keyof typeof group];
+  group[nextKey as keyof typeof group] = (typeof previousValue === 'number' ? previousValue : 0) as never;
+  markTechniqueDirty();
+  renderTechniqueEffectEditor();
+}
+
+function updateTechniqueModifierValue(groupKey: TechniqueModifierGroupKey, key: string, rawValue: string): void {
+  const selection = getCurrentTechniqueBuffEffectSelection();
+  if (!selection) {
+    return;
+  }
+  const group = ensureTechniqueRawEffectGroup(selection.rawEffect, selection.resolvedEffect, groupKey);
+  const value = rawValue.trim();
+  if (!value) {
+    delete group[key as keyof typeof group];
+    markTechniqueDirty();
+    return;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    setTechniqueStatus(`字段 ${key} 不是合法数字`, true);
+    return;
+  }
+  group[key as keyof typeof group] = parsed as never;
+  markTechniqueDirty();
+}
+
+async function loadTechniqueTemplateList(
+  preferredKey?: string | null,
+  preferredSkillId?: string | null,
+  preferredEffectIndex?: number | null,
+): Promise<void> {
+  const result = await request<LocalTechniqueListRes>('/api/techniques');
+  techniqueTemplates = [...result.techniques].sort(compareTechniqueTemplateEntries);
+  techniqueBuffTemplates = result.sharedBuffs;
+  techniqueBuffTemplateById = new Map(result.sharedBuffs.map((entry) => [entry.id, entry] as const));
+  renderTechniqueList();
+
+  const nextKey = preferredKey && techniqueTemplates.some((entry) => entry.key === preferredKey)
+    ? preferredKey
+    : (currentTechniqueKey && techniqueTemplates.some((entry) => entry.key === currentTechniqueKey) ? currentTechniqueKey : techniqueTemplates[0]?.key ?? null);
+
+  if (!nextKey) {
+    currentTechniqueKey = null;
+    currentTechniqueDraft = null;
+    currentTechniqueSkillId = null;
+    currentTechniqueEffectIndex = null;
+    techniqueDirty = false;
+    renderTechniquePanel();
+    setTechniqueStatus('');
+    return;
+  }
+
+  await selectTechniqueTemplate(nextKey, false, preferredSkillId ?? currentTechniqueSkillId, preferredEffectIndex ?? currentTechniqueEffectIndex);
+}
+
+async function selectTechniqueTemplate(
+  key: string,
+  announce = true,
+  preferredSkillId?: string | null,
+  preferredEffectIndex?: number | null,
+): Promise<void> {
+  if (techniqueDirty && currentTechniqueKey && currentTechniqueKey !== key) {
+    const proceed = window.confirm('当前功法技能有未保存修改，切换后会丢失这些内容。继续吗？');
+    if (!proceed) {
+      return;
+    }
+  }
+
+  const entry = techniqueTemplates.find((item) => item.key === key);
+  if (!entry) {
+    throw new Error('目标功法不存在');
+  }
+
+  currentTechniqueKey = entry.key;
+  currentTechniqueDraft = cloneTechniqueTemplateRecord(entry.technique);
+  currentTechniqueSkillId = preferredSkillId ?? currentTechniqueDraft.skills[0]?.id ?? null;
+  currentTechniqueEffectIndex = preferredEffectIndex ?? null;
+  techniqueDirty = false;
+  renderTechniqueList();
+  renderTechniquePanel();
+  setTechniqueStatus(announce ? `已载入功法 ${entry.technique.name}` : '');
+}
+
+async function saveTechniqueTemplate(): Promise<void> {
+  if (!currentTechniqueKey || !currentTechniqueDraft) {
+    setTechniqueStatus('请先选择一个功法', true);
+    return;
+  }
+
+  techniqueSaveBtn.disabled = true;
+  try {
+    const result = await request<LocalTechniqueSaveRes>('/api/techniques', {
+      method: 'PUT',
+      body: JSON.stringify({
+        key: currentTechniqueKey,
+        technique: currentTechniqueDraft,
+      }),
+    });
+    techniqueDirty = false;
+    setTechniqueStatus('已保存功法技能');
+    setAppStatus(
+      serviceManaged
+        ? `已写回功法 ${result.technique.name}，编辑器托管的本地服务将自动重启`
+        : `已写回功法 ${result.technique.name}；当前未启用服务托管，如需生效请自行重启主游戏服`,
+    );
+    await loadTechniqueTemplateList(currentTechniqueKey, currentTechniqueSkillId, currentTechniqueEffectIndex);
+    await refreshServiceStatus();
+  } catch (error) {
+    setTechniqueStatus(error instanceof Error ? error.message : '保存功法技能失败', true);
+  } finally {
+    techniqueSaveBtn.disabled = false;
+  }
 }
 
 function populateMonsterStaticOptions(): void {
@@ -1333,6 +2119,7 @@ async function restartService(): Promise<void> {
 function bindEvents(): void {
   pageTabs.maps.addEventListener('click', () => switchPage('maps'));
   pageTabs.monsters.addEventListener('click', () => switchPage('monsters'));
+  pageTabs.skills.addEventListener('click', () => switchPage('skills'));
   pageTabs.files.addEventListener('click', () => switchPage('files'));
   pageTabs.service.addEventListener('click', () => switchPage('service'));
 
@@ -1366,6 +2153,94 @@ function bindEvents(): void {
       setConfigFileStatus(error instanceof Error ? error.message : '重新读取配置文件失败', true);
     });
   });
+
+  techniqueSearchEl.addEventListener('input', () => renderTechniqueList());
+  techniqueRefreshBtn.addEventListener('click', () => {
+    loadTechniqueTemplateList(currentTechniqueKey, currentTechniqueSkillId, currentTechniqueEffectIndex).catch((error: unknown) => {
+      setTechniqueStatus(error instanceof Error ? error.message : '加载功法列表失败', true);
+    });
+  });
+  techniqueListEl.addEventListener('click', (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-technique-key]');
+    const key = button?.dataset.techniqueKey;
+    if (!key) return;
+    selectTechniqueTemplate(key).catch((error: unknown) => {
+      setTechniqueStatus(error instanceof Error ? error.message : '读取功法失败', true);
+    });
+  });
+  techniqueSkillSelectEl.addEventListener('change', () => {
+    currentTechniqueSkillId = techniqueSkillSelectEl.value || null;
+    currentTechniqueEffectIndex = null;
+    renderTechniquePanel();
+  });
+  techniqueEffectSelectEl.addEventListener('change', () => {
+    const value = techniqueEffectSelectEl.value.trim();
+    currentTechniqueEffectIndex = value ? Number(value) : null;
+    renderTechniqueEffectSummary();
+    renderTechniqueEffectEditor();
+  });
+  techniqueEffectEditorEl.addEventListener('change', (event) => {
+    const target = event.target as HTMLElement;
+    if (target instanceof HTMLSelectElement && target.id === 'technique-stat-mode') {
+      updateTechniqueMode('statMode', target.value === 'flat' ? 'flat' : 'percent');
+      return;
+    }
+    if (target instanceof HTMLSelectElement && target.id === 'technique-attr-mode') {
+      updateTechniqueMode('attrMode', target.value === 'flat' ? 'flat' : 'percent');
+      return;
+    }
+    if (target instanceof HTMLSelectElement && target.hasAttribute('data-tech-bonus-key-select')) {
+      const row = target.closest<HTMLElement>('[data-tech-bonus-row]');
+      const groupKey = row?.dataset.techBonusGroup as TechniqueModifierGroupKey | undefined;
+      const previousKey = row?.dataset.techBonusKey;
+      if (!groupKey || !previousKey) {
+        return;
+      }
+      updateTechniqueModifierKey(groupKey, previousKey, target.value.trim());
+    }
+  });
+  techniqueEffectEditorEl.addEventListener('input', (event) => {
+    const target = event.target as HTMLElement;
+    if (!(target instanceof HTMLInputElement) || !target.hasAttribute('data-tech-bonus-value-input')) {
+      return;
+    }
+    const row = target.closest<HTMLElement>('[data-tech-bonus-row]');
+    const groupKey = row?.dataset.techBonusGroup as TechniqueModifierGroupKey | undefined;
+    const key = row?.dataset.techBonusKey;
+    if (!groupKey || !key) {
+      return;
+    }
+    updateTechniqueModifierValue(groupKey, key, target.value);
+  });
+  techniqueEffectEditorEl.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement;
+    const addButton = target.closest<HTMLButtonElement>('[data-tech-add-row]');
+    if (addButton) {
+      addTechniqueModifierRow(addButton.dataset.techAddRow as TechniqueModifierGroupKey);
+      return;
+    }
+    const removeButton = target.closest<HTMLButtonElement>('[data-tech-remove-row]');
+    if (!removeButton) {
+      return;
+    }
+    const row = removeButton.closest<HTMLElement>('[data-tech-bonus-row]');
+    const groupKey = row?.dataset.techBonusGroup as TechniqueModifierGroupKey | undefined;
+    const key = row?.dataset.techBonusKey;
+    if (!groupKey || !key) {
+      return;
+    }
+    removeTechniqueModifierRow(groupKey, key);
+  });
+  techniqueSaveBtn.addEventListener('click', () => {
+    saveTechniqueTemplate().catch(() => {});
+  });
+  techniqueReloadBtn.addEventListener('click', () => {
+    if (!currentTechniqueKey) return;
+    selectTechniqueTemplate(currentTechniqueKey, true, currentTechniqueSkillId, currentTechniqueEffectIndex).catch((error: unknown) => {
+      setTechniqueStatus(error instanceof Error ? error.message : '重新读取功法失败', true);
+    });
+  });
+
   serviceRestartBtn.addEventListener('click', () => {
     restartService().catch(() => {});
   });
@@ -1483,6 +2358,7 @@ async function bootstrap(): Promise<void> {
   await Promise.all([
     nextMapEditor.ensureLoaded(),
     loadEditorCatalog(),
+    loadTechniqueTemplateList(),
     loadMonsterTemplateList(),
     loadConfigFileList(),
     refreshServiceStatus(),
