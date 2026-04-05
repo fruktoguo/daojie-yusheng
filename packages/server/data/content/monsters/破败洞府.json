@@ -1,0 +1,36 @@
+[
+  {
+    "id": "m_huanling_zhenren",
+    "name": "唤灵真人",
+    "char": "真",
+    "color": "#f0d2a4",
+    "grade": "spirit",
+    "tier": "demon_king",
+    "level": 43,
+    "count": 1,
+    "maxAlive": 1,
+    "radius": 2,
+    "aggroRange": 10,
+    "viewRange": 11,
+    "respawnSec": 120,
+    "attrs": {
+      "constitution": 9999,
+      "spirit": 9999,
+      "perception": 9999,
+      "talent": 9999,
+      "comprehension": 999,
+      "luck": 999
+    },
+    "statPercents": {
+      "maxQiOutputPerTick": 10,
+      "moveSpeed": 88
+    },
+    "skills": [
+      "skill.huanling_duanhun_ding",
+      "skill.huanling_lieqi_zhixian",
+      "skill.huanling_difu_chenyin"
+    ],
+    "drops": [],
+    "aggroMode": "always"
+  }
+]

@@ -267,6 +267,14 @@ interface AttackTrail {
   duration: number;
 }
 
+interface WarningZone {
+  id: number;
+  cells: Array<{ x: number; y: number }>;
+  color: string;
+  createdAt: number;
+  duration: number;
+}
+
 interface FloatingTextBurstOffset {
   offsetX: number;
   offsetY: number;
@@ -285,6 +293,8 @@ const DEFAULT_PATH_TRAIL_FADE_MS = 500;
 const PATH_TRAIL_FADE_ALPHA = 0.7;
 const MAX_FLOATING_TEXTS = 256;
 const MAX_ATTACK_TRAILS = 192;
+const MAX_WARNING_ZONES = 64;
+const DEFAULT_WARNING_ZONE_DURATION_MS = 1240;
 
 /** 文字渲染器，用汉字字符绘制地图地块、实体角色和战斗特效 */
 export class TextRenderer implements IRenderer {
@@ -303,8 +313,10 @@ export class TextRenderer implements IRenderer {
   private targetingAffectedKeys = new Set<string>();
   private floatingTexts: FloatingText[] = [];
   private attackTrails: AttackTrail[] = [];
+  private warningZones: WarningZone[] = [];
   private nextFloatingTextId = 1;
   private nextAttackTrailId = 1;
+  private nextWarningZoneId = 1;
   private lastMotionSyncToken?: number;
   private previousVisibleTileKeys = new Set<string>();
   private previousVisibleTileRevision = -1;
@@ -338,6 +350,7 @@ export class TextRenderer implements IRenderer {
     this.containerTileKeys.clear();
     this.floatingTexts = [];
     this.attackTrails = [];
+    this.warningZones = [];
     this.lastMotionSyncToken = undefined;
     this.previousVisibleTileKeys.clear();
     this.previousVisibleTileRevision = -1;
@@ -1104,6 +1117,7 @@ export class TextRenderer implements IRenderer {
     color = '#ffd27a',
     variant: 'damage' | 'action' = 'damage',
     actionStyle?: FloatingActionTextStyle,
+    durationMs?: number,
   ) {
     const now = performance.now();
     this.pruneExpiredFloatingTexts(now);
@@ -1116,7 +1130,15 @@ export class TextRenderer implements IRenderer {
       variant,
       actionStyle,
       createdAt: now,
-      duration: variant === 'action' && actionStyle === 'divine' ? 1000 : variant === 'action' ? 1000 : 850,
+      duration: durationMs !== undefined
+        ? Math.max(1, Math.round(durationMs))
+        : variant === 'action' && actionStyle === 'divine'
+          ? 1000
+          : variant === 'action' && actionStyle === 'chant'
+            ? 1240
+            : variant === 'action'
+              ? 1000
+              : 850,
     });
     this.trimFloatingTexts();
   }
@@ -1136,6 +1158,22 @@ export class TextRenderer implements IRenderer {
       duration: 260,
     });
     this.trimAttackTrails();
+  }
+
+  addWarningZone(cells: Array<{ x: number; y: number }>, color = '#ff2a2a', durationMs = DEFAULT_WARNING_ZONE_DURATION_MS) {
+    if (cells.length === 0) {
+      return;
+    }
+    const now = performance.now();
+    this.pruneExpiredWarningZones(now);
+    this.warningZones.push({
+      id: this.nextWarningZoneId++,
+      cells: cells.map((cell) => ({ x: cell.x, y: cell.y })),
+      color,
+      createdAt: now,
+      duration: Math.max(1, Math.round(durationMs)),
+    });
+    this.trimWarningZones();
   }
 
   /** 绘制所有浮动文字，自动清理过期条目 */
@@ -1206,6 +1244,32 @@ export class TextRenderer implements IRenderer {
             entry.color,
             'rgba(15,12,10,0.9)',
             lineHeight,
+          );
+        } else if (actionStyle === 'chant') {
+          const fontSize = Math.max(24, cellSize * 0.82);
+          const lineHeight = fontSize * 1.02;
+          const chars = [...entry.text.trim()].filter((char) => char.trim().length > 0);
+          const stackHeight = chars.length > 0 ? lineHeight * Math.max(0, chars.length - 1) + fontSize : fontSize;
+          const alpha = progress < 0.95 ? 1 : 1 - Math.max(0, (progress - 0.95) / 0.05);
+          ctx.globalAlpha = alpha;
+          ctx.translate(
+            sx - cellSize * 0.12 + burst.offsetX,
+            sy - cellSize * 0.48 - burst.offsetY - stackHeight,
+          );
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+          ctx.font = buildCanvasFont('floatingAction', fontSize);
+          ctx.shadowColor = 'rgba(120, 18, 12, 0.55)';
+          ctx.shadowBlur = Math.max(6, cellSize * 0.16);
+          this.drawChantText(
+            entry.text,
+            progress,
+            0,
+            0,
+            entry.color,
+            'rgba(24,8,6,0.98)',
+            lineHeight,
+            fontSize,
           );
         } else {
           const fontSize = Math.max(10, cellSize * 0.28);
@@ -1282,6 +1346,42 @@ export class TextRenderer implements IRenderer {
     }
   }
 
+  renderWarningZones(camera: Camera) {
+    if (!this.ctx || this.warningZones.length === 0) return;
+    const ctx = this.ctx;
+    const now = performance.now();
+    const sw = ctx.canvas.width;
+    const sh = ctx.canvas.height;
+    const cellSize = getCellSize();
+
+    this.pruneExpiredWarningZones(now);
+
+    for (const zone of this.warningZones) {
+      const progress = Math.min(1, (now - zone.createdAt) / zone.duration);
+      const fadeProgress = progress <= 0.72 ? 0 : Math.min(1, (progress - 0.72) / 0.28);
+      const pulse = 0.92 + Math.sin(progress * Math.PI * 4) * 0.08;
+      const fillAlpha = Math.max(0.04, (1 - fadeProgress * 0.9) * 0.18 * pulse);
+      const strokeAlpha = Math.max(0.18, (1 - fadeProgress * 0.82) * 0.72);
+
+      for (const cell of zone.cells) {
+        const { sx, sy } = camera.worldToScreen(cell.x * cellSize, cell.y * cellSize, sw, sh);
+        if (sx + cellSize < 0 || sx > sw || sy + cellSize < 0 || sy > sh) {
+          continue;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = fillAlpha;
+        ctx.fillStyle = zone.color;
+        ctx.fillRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
+        ctx.globalAlpha = strokeAlpha;
+        ctx.strokeStyle = zone.color;
+        ctx.lineWidth = Math.max(1.25, cellSize * 0.08);
+        ctx.strokeRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3);
+        ctx.restore();
+      }
+    }
+  }
+
   destroy() {
     this.ctx = null;
     this.entities.clear();
@@ -1294,6 +1394,7 @@ export class TextRenderer implements IRenderer {
     this.fadingPath = null;
     this.floatingTexts = [];
     this.attackTrails = [];
+    this.warningZones = [];
     this.lastMotionSyncToken = undefined;
     this.previousVisibleTileRevision = -1;
     this.textMeasureCache.clear();
@@ -1313,12 +1414,74 @@ export class TextRenderer implements IRenderer {
     };
   }
 
+  private drawChantText(
+    text: string,
+    progress: number,
+    x: number,
+    y: number,
+    fill: string,
+    stroke: string,
+    lineHeight: number,
+    fontSize: number,
+  ): void {
+    if (!this.ctx) {
+      return;
+    }
+    const ctx = this.ctx;
+    const chars = [...text.trim()].filter((char) => char.trim().length > 0);
+    if (chars.length === 0) {
+      return;
+    }
+    const segment = 1 / chars.length;
+    const slamWindow = Math.max(segment * 0.45, 0.06);
+
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = Math.max(3.2, fontSize * 0.12);
+    ctx.strokeStyle = stroke;
+    ctx.fillStyle = fill;
+
+    chars.forEach((char, index) => {
+      const start = segment * index;
+      const localProgress = Math.max(0, Math.min(1, (progress - start) / slamWindow));
+      if (localProgress <= 0) {
+        return;
+      }
+      const fallPhase = Math.min(1, localProgress / 0.72);
+      const settlePhase = Math.max(0, (localProgress - 0.72) / 0.28);
+      const acceleratedFall = Math.pow(fallPhase, 2.6);
+      const impactDrop = (1 - acceleratedFall) * fontSize * 0.92;
+      const settle = easeOutCubic(settlePhase);
+      let impactScaleX = 1 - Math.min(1, fallPhase * 1.2) * 0.08;
+      let impactScaleY = 1 + Math.min(1, fallPhase * 1.2) * 0.16;
+      if (settlePhase > 0) {
+        impactScaleX = 1.22 - settle * 0.22;
+        impactScaleY = 0.76 + settle * 0.24;
+      }
+      const charAlpha = Math.min(1, localProgress * 1.8);
+      const offsetDirection = index % 2 === 0 ? -1 : 1;
+      const staggerOffsetX = offsetDirection * fontSize * 0.12;
+      const drawY = y + lineHeight * index - impactDrop;
+
+      ctx.save();
+      ctx.globalAlpha *= charAlpha;
+      ctx.translate(x + staggerOffsetX, drawY);
+      ctx.scale(impactScaleX, impactScaleY);
+      ctx.strokeText(char, 0, 0);
+      ctx.fillText(char, 0, 0);
+      ctx.restore();
+    });
+  }
+
   private pruneExpiredFloatingTexts(now: number): void {
     this.floatingTexts = this.floatingTexts.filter((entry) => now - entry.createdAt < entry.duration);
   }
 
   private pruneExpiredAttackTrails(now: number): void {
     this.attackTrails = this.attackTrails.filter((entry) => now - entry.createdAt < entry.duration);
+  }
+
+  private pruneExpiredWarningZones(now: number): void {
+    this.warningZones = this.warningZones.filter((entry) => now - entry.createdAt < entry.duration);
   }
 
   private trimFloatingTexts(): void {
@@ -1332,6 +1495,13 @@ export class TextRenderer implements IRenderer {
     const overflow = this.attackTrails.length - MAX_ATTACK_TRAILS;
     if (overflow > 0) {
       this.attackTrails.splice(0, overflow);
+    }
+  }
+
+  private trimWarningZones(): void {
+    const overflow = this.warningZones.length - MAX_WARNING_ZONES;
+    if (overflow > 0) {
+      this.warningZones.splice(0, overflow);
     }
   }
 

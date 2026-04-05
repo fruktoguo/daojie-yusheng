@@ -232,6 +232,16 @@ interface RuntimeMonster extends MonsterSpawnConfig {
   damageContributors: Map<string, number>;
   facing?: Direction;
   targetPlayerId?: string;
+  pendingCast?: PendingMonsterSkillCast;
+}
+
+interface PendingMonsterSkillCast {
+  skillId: string;
+  targetX: number;
+  targetY: number;
+  remainingTicks: number;
+  qiCost: number;
+  warningColor?: string;
 }
 
 interface NpcInteractionState {
@@ -278,6 +288,7 @@ interface PersistedMonsterRuntimeRecord {
   damageContributors?: Record<string, number>;
   facing?: Direction;
   targetPlayerId?: string;
+  pendingCast?: PendingMonsterSkillCast;
 }
 
 interface PersistedMonsterRuntimeSnapshot {
@@ -2120,6 +2131,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
               monster.alive = true;
               monster.temporaryBuffs = [];
               monster.skillCooldowns = {};
+              monster.pendingCast = undefined;
               monster.damageContributors.clear();
               this.threatService.clearThreat(this.getMonsterThreatId(monster));
               monster.targetPlayerId = undefined;
@@ -2175,6 +2187,16 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       this.measureCpuSection('monster_recovery', '怪物: 自然恢复', () => {
         this.applyMonsterNaturalRecovery(monster);
       });
+      const pendingUpdate = this.measureCpuSection('monster_pending_skill', '怪物: 前摇技能', () => (
+        this.resolvePendingMonsterSkillCast(monster, mapId)
+      ));
+      if (pendingUpdate) {
+        allMessages.push(...pendingUpdate.messages);
+        for (const playerId of pendingUpdate.dirtyPlayers ?? []) {
+          dirtyPlayers.add(playerId);
+        }
+        continue;
+      }
       const target = this.measureCpuSection('monster_target', '怪物: 目标选择', () => (
         this.resolveMonsterTarget(monster, players, timeState)
       ));
@@ -2221,6 +2243,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
               distance: gridDistance(target, monster),
             });
           }
+          this.pushActionLabelEffect(mapId, monster.x, monster.y, '攻击');
           if (resolved.hit) {
             const hitEquipment = this.equipmentEffectService.dispatch(target, {
               trigger: 'on_hit',
@@ -2309,7 +2332,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (!skill) {
       return false;
     }
-    const update = this.castMonsterSkill(monster, skill, target, mapId);
+    const windupTicks = this.getMonsterSkillWindupTicks(skill);
+    const update = windupTicks > 0
+      ? this.beginMonsterSkillCast(monster, skill, target, mapId)
+      : this.castMonsterSkill(monster, skill, target, mapId);
     if (update.error) {
       return false;
     }
@@ -2318,6 +2344,19 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       dirtyPlayers.add(playerId);
     }
     return true;
+  }
+
+  private getMonsterSkillWindupTicks(skill: SkillDef): number {
+    const windupTicks = skill.monsterCast?.windupTicks;
+    return Number.isFinite(windupTicks)
+      ? Math.max(0, Math.floor(Number(windupTicks)))
+      : 0;
+  }
+
+  private getMonsterSkillWarningColor(skill: SkillDef): string | undefined {
+    return typeof skill.monsterCast?.warningColor === 'string' && skill.monsterCast.warningColor.trim().length > 0
+      ? skill.monsterCast.warningColor.trim()
+      : undefined;
   }
 
   private selectMonsterSkill(monster: RuntimeMonster, target: PlayerState): SkillDef | undefined {
@@ -2335,6 +2374,40 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       return skill;
     }
     return undefined;
+  }
+
+  private buildMonsterSkillAffectedCells(
+    monster: RuntimeMonster,
+    skill: SkillDef,
+    anchor: { x: number; y: number },
+  ): Array<{ x: number; y: number }> {
+    const targeting = skill.targeting;
+    const shape = targeting?.shape ?? 'single';
+    if (shape === 'single') {
+      return isPointInRange(monster, anchor, skill.range) ? [{ x: anchor.x, y: anchor.y }] : [];
+    }
+    return computeAffectedCellsFromAnchor(monster, anchor, {
+      range: skill.range,
+      shape,
+      radius: targeting?.radius,
+      width: targeting?.width,
+      height: targeting?.height,
+    });
+  }
+
+  private selectMonsterSkillTargetsFromAnchor(
+    monster: RuntimeMonster,
+    skill: SkillDef,
+    anchor: { x: number; y: number },
+  ): ResolvedTarget[] {
+    const cells = this.buildMonsterSkillAffectedCells(monster, skill, anchor);
+    if (cells.length === 0) {
+      return [];
+    }
+    const players = this.playerService.getPlayersByMap(monster.mapId)
+      .filter((entry) => !entry.dead);
+    const maxTargets = Math.max(1, skill.targeting?.maxTargets ?? 99);
+    return this.collectMonsterSkillTargetsFromCells(players, cells, maxTargets);
   }
 
   private canMonsterCastSkill(monster: RuntimeMonster, skill: SkillDef): boolean {
@@ -2431,24 +2504,103 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return resolved;
   }
 
-  private castMonsterSkill(
+  private beginMonsterSkillCast(
     monster: RuntimeMonster,
     skill: SkillDef,
     target: PlayerState,
     mapId: string,
   ): WorldUpdate {
-    const primaryTarget: ResolvedTarget = { kind: 'player', x: target.x, y: target.y, player: target };
-    const selectedTargets = this.selectMonsterSkillTargets(monster, skill, primaryTarget);
-    if (skill.requiresTarget !== false && selectedTargets.length === 0) {
+    const windupTicks = this.getMonsterSkillWindupTicks(skill);
+    if (windupTicks <= 0) {
+      return this.castMonsterSkill(monster, skill, target, mapId);
+    }
+    const anchor = { x: target.x, y: target.y };
+    const warningCells = this.buildMonsterSkillAffectedCells(monster, skill, anchor);
+    if (warningCells.length === 0) {
       return { ...EMPTY_UPDATE, error: '目标超出技能范围' };
     }
     const qiCost = this.consumeMonsterQiForSkill(monster, skill);
     if (typeof qiCost === 'string') {
       return { ...EMPTY_UPDATE, error: qiCost };
     }
+    this.faceToward(monster, anchor.x, anchor.y);
+    monster.pendingCast = {
+      skillId: skill.id,
+      targetX: anchor.x,
+      targetY: anchor.y,
+      remainingTicks: windupTicks,
+      qiCost,
+      warningColor: this.getMonsterSkillWarningColor(skill),
+    };
+    this.pushActionLabelEffect(mapId, monster.x, monster.y, skill.name, {
+      actionStyle: 'chant',
+      durationMs: windupTicks * 1000 + 240,
+    });
+    this.pushEffect(mapId, {
+      type: 'warning_zone',
+      cells: warningCells.map((cell) => ({ x: cell.x, y: cell.y })),
+      color: monster.pendingCast.warningColor,
+      durationMs: windupTicks * 1000,
+    });
+    return { messages: [], dirty: [], dirtyPlayers: [] };
+  }
 
-    this.faceToward(monster, target.x, target.y);
-    this.pushActionLabelEffect(mapId, monster.x, monster.y, skill.name);
+  private resolvePendingMonsterSkillCast(monster: RuntimeMonster, mapId: string): WorldUpdate | null {
+    const pendingCast = monster.pendingCast;
+    if (!pendingCast) {
+      return null;
+    }
+    pendingCast.remainingTicks -= 1;
+    if (pendingCast.remainingTicks > 0) {
+      return { messages: [], dirty: [], dirtyPlayers: [] };
+    }
+    monster.pendingCast = undefined;
+    const skill = this.contentService.getSkill(pendingCast.skillId);
+    if (!skill) {
+      return { messages: [], dirty: [], dirtyPlayers: [] };
+    }
+    return this.castMonsterSkillAtAnchor(
+      monster,
+      skill,
+      { x: pendingCast.targetX, y: pendingCast.targetY },
+      mapId,
+      { qiCost: pendingCast.qiCost, allowMiss: true, showActionLabel: true },
+    );
+  }
+
+  private castMonsterSkill(
+    monster: RuntimeMonster,
+    skill: SkillDef,
+    target: PlayerState,
+    mapId: string,
+  ): WorldUpdate {
+    return this.castMonsterSkillAtAnchor(monster, skill, { x: target.x, y: target.y }, mapId);
+  }
+
+  private castMonsterSkillAtAnchor(
+    monster: RuntimeMonster,
+    skill: SkillDef,
+    anchor: { x: number; y: number },
+    mapId: string,
+    options?: {
+      qiCost?: number;
+      allowMiss?: boolean;
+      showActionLabel?: boolean;
+    },
+  ): WorldUpdate {
+    const selectedTargets = this.selectMonsterSkillTargetsFromAnchor(monster, skill, anchor);
+    if (skill.requiresTarget !== false && selectedTargets.length === 0 && options?.allowMiss !== true) {
+      return { ...EMPTY_UPDATE, error: '目标超出技能范围' };
+    }
+    const qiCost = options?.qiCost ?? this.consumeMonsterQiForSkill(monster, skill);
+    if (typeof qiCost === 'string') {
+      return { ...EMPTY_UPDATE, error: qiCost };
+    }
+
+    this.faceToward(monster, anchor.x, anchor.y);
+    if (options?.showActionLabel !== false) {
+      this.pushActionLabelEffect(mapId, monster.x, monster.y, skill.name);
+    }
     const casterStats = this.getMonsterCombatSnapshot(monster).stats;
     const casterAttrs = monster.attrs;
     const techLevel = this.getMonsterSkillTechniqueLevel(monster, skill);
@@ -2458,7 +2610,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
     for (const effect of skill.effects) {
       if (effect.type === 'damage') {
-        const damageTargets = this.pickDamageTargets(selectedTargets, primaryTarget)
+        const damageTargets = selectedTargets
           .filter((entry): entry is Extract<ResolvedTarget, { kind: 'player' }> => entry.kind === 'player');
         if (damageTargets.length === 0) {
           continue;
@@ -2496,7 +2648,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         continue;
       }
 
-      const update = this.applyMonsterBuffEffect(monster, skill, effect, selectedTargets, primaryTarget);
+      const update = this.applyMonsterBuffEffect(monster, skill, effect, selectedTargets, selectedTargets[0]);
       messages.push(...update.messages);
       for (const playerId of update.dirtyPlayers ?? []) {
         dirtyPlayers.add(playerId);
@@ -2506,7 +2658,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    if (!appliedEffect) {
+    if (!appliedEffect && options?.allowMiss !== true) {
       return { ...EMPTY_UPDATE, error: '怪物技能未命中有效目标' };
     }
     return { messages, dirty: [], dirtyPlayers: [...dirtyPlayers] };
@@ -3084,6 +3236,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     monster.alive = false;
     monster.respawnLeft = respawnTicks;
     monster.temporaryBuffs = [];
+    monster.pendingCast = undefined;
     monster.damageContributors.clear();
     monster.targetPlayerId = undefined;
     this.mapService.removeOccupant(monster.mapId, monster.x, monster.y, monster.runtimeId);
@@ -3628,6 +3781,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         monster.alive = false;
         monster.respawnLeft = respawnTicks;
         monster.temporaryBuffs = [];
+        monster.pendingCast = undefined;
         monster.damageContributors.clear();
         monster.targetPlayerId = undefined;
         this.mapService.removeOccupant(monster.mapId, monster.x, monster.y, monster.runtimeId);
@@ -4648,6 +4802,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           respawnLeft: 0,
           temporaryBuffs: [],
           skillCooldowns: {},
+          pendingCast: undefined,
           damageContributors: new Map(),
           targetPlayerId: undefined,
         };
@@ -5840,7 +5995,16 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     this.effectsByMap.set(mapId, list);
   }
 
-  private pushActionLabelEffect(mapId: string, x: number, y: number, text: string) {
+  private pushActionLabelEffect(
+    mapId: string,
+    x: number,
+    y: number,
+    text: string,
+    options?: {
+      actionStyle?: 'default' | 'divine' | 'chant';
+      durationMs?: number;
+    },
+  ) {
     this.pushEffect(mapId, {
       type: 'float',
       x,
@@ -5848,6 +6012,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       text,
       color: '#efe3c2',
       variant: 'action',
+      actionStyle: options?.actionStyle,
+      durationMs: options?.durationMs,
     });
   }
 
@@ -6272,6 +6438,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       skillCooldowns: Object.keys(monster.skillCooldowns).length > 0
         ? { ...monster.skillCooldowns }
         : undefined,
+      pendingCast: monster.pendingCast
+        ? { ...monster.pendingCast }
+        : undefined,
       damageContributors: monster.damageContributors.size > 0
         ? Object.fromEntries([...monster.damageContributors.entries()].map(([playerId, damage]) => [playerId, damage]))
         : undefined,
@@ -6307,6 +6476,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         .filter(([, ticks]) => Number.isFinite(ticks) && Number(ticks) > 0)
         .map(([skillId, ticks]) => [skillId, Math.max(1, Math.round(Number(ticks)))])
     );
+    runtime.pendingCast = this.normalizePendingMonsterSkillCast(persisted.pendingCast);
     runtime.damageContributors = new Map<string, number>(
       Object.entries(persisted.damageContributors ?? {})
         .filter(([, damage]) => Number.isFinite(damage) && Number(damage) > 0)
@@ -6338,6 +6508,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     runtime.x = preferredX;
     runtime.y = preferredY;
     runtime.alive = false;
+    runtime.pendingCast = undefined;
     runtime.respawnLeft = Math.max(1, Number.isFinite(persisted.respawnLeft) ? Math.round(persisted.respawnLeft) : runtime.respawnTicks);
   }
 
@@ -6404,6 +6575,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
               .map(([skillId, ticks]) => [skillId, Math.max(1, Math.round(Number(ticks)))])
           )
         : undefined,
+      pendingCast: this.normalizePendingMonsterSkillCast(candidate.pendingCast),
       damageContributors: candidate.damageContributors && typeof candidate.damageContributors === 'object'
         ? Object.fromEntries(
             Object.entries(candidate.damageContributors)
@@ -6413,6 +6585,32 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         : undefined,
       facing: candidate.facing,
       targetPlayerId: typeof candidate.targetPlayerId === 'string' ? candidate.targetPlayerId : undefined,
+    };
+  }
+
+  private normalizePendingMonsterSkillCast(raw: unknown): PendingMonsterSkillCast | undefined {
+    if (!raw || typeof raw !== 'object') {
+      return undefined;
+    }
+    const candidate = raw as Record<string, unknown>;
+    if (
+      typeof candidate.skillId !== 'string'
+      || !Number.isInteger(candidate.targetX)
+      || !Number.isInteger(candidate.targetY)
+      || !Number.isFinite(candidate.remainingTicks)
+      || !Number.isFinite(candidate.qiCost)
+    ) {
+      return undefined;
+    }
+    return {
+      skillId: candidate.skillId,
+      targetX: Number(candidate.targetX),
+      targetY: Number(candidate.targetY),
+      remainingTicks: Math.max(1, Math.round(Number(candidate.remainingTicks))),
+      qiCost: Math.max(0, Math.round(Number(candidate.qiCost))),
+      warningColor: typeof candidate.warningColor === 'string' && candidate.warningColor.trim().length > 0
+        ? candidate.warningColor.trim()
+        : undefined,
     };
   }
 

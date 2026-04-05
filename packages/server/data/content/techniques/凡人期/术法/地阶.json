@@ -1,0 +1,250 @@
+[
+  {
+    "id": "monster_huanling_arts",
+    "name": "残丹唤灵诀",
+    "grade": "earth",
+    "category": "arts",
+    "realmLv": 1,
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 18,
+        "attrs": {
+          "spirit": 6,
+          "perception": 5
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 22,
+        "attrs": {
+          "spirit": 7,
+          "talent": 5
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 28,
+        "attrs": {
+          "spirit": 6,
+          "perception": 6
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 34,
+        "attrs": {
+          "talent": 7,
+          "constitution": 4
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 42,
+        "attrs": {
+          "spirit": 7,
+          "talent": 6
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 50,
+        "attrs": {
+          "perception": 7,
+          "constitution": 5
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 60,
+        "attrs": {
+          "spirit": 8,
+          "talent": 6
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 0,
+        "attrs": {
+          "spirit": 8,
+          "perception": 7
+        }
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.huanling_duanhun_ding",
+        "name": "断魂灵钉",
+        "desc": "拖着裂开的金丹把灵识强压成一点，盯住一格后硬生生钉穿过去。",
+        "cooldown": 14,
+        "costMultiplier": 8,
+        "range": 6,
+        "targeting": {
+          "shape": "single",
+          "maxTargets": 1
+        },
+        "monsterCast": {
+          "windupTicks": 1,
+            "warningColor": "#ff2a2a"
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "earth",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 4.2
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.003
+                    },
+                    {
+                      "var": "caster.stat.breakPower",
+                      "scale": 0.003
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.huanling_lieqi_zhixian",
+        "name": "裂炁直线",
+        "desc": "把崩散丹炁硬拽成一线，沿八码直路一路拖杀过去。",
+        "cooldown": 18,
+        "costMultiplier": 8,
+        "range": 8,
+        "targeting": {
+          "shape": "line",
+          "maxTargets": 8
+        },
+        "monsterCast": {
+          "windupTicks": 1,
+            "warningColor": "#ff2020"
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "metal",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "op": "add",
+                  "args": [
+                    {
+                      "var": "caster.stat.spellAtk",
+                      "scale": 2.8
+                    },
+                    {
+                      "var": "caster.maxQi",
+                      "scale": 0.105
+                    }
+                  ]
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.003
+                    },
+                    {
+                      "var": "caster.stat.breakPower",
+                      "scale": 0.003
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 4
+      },
+      {
+        "id": "skill.huanling_difu_chenyin",
+        "name": "地府沉印",
+        "desc": "借地底残阵把三丈见方一并往下压，中心一息内尽数吃满。",
+        "cooldown": 22,
+        "costMultiplier": 8,
+        "range": 5,
+        "targeting": {
+          "shape": "box",
+          "width": 3,
+          "height": 3,
+          "maxTargets": 9
+        },
+        "monsterCast": {
+          "windupTicks": 1,
+            "warningColor": "#ff3838"
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "earth",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "op": "add",
+                  "args": [
+                    {
+                      "var": "caster.stat.spellAtk",
+                      "scale": 2.35
+                    },
+                    {
+                      "var": "caster.maxHp",
+                      "scale": 0.08
+                    }
+                  ]
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.002
+                    },
+                    {
+                      "var": "caster.stat.resolvePower",
+                      "scale": 0.002
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 8
+      }
+    ]
+  }
+]

@@ -78,6 +78,18 @@
   ],
   "portals": [
     {
+      "x": 30,
+      "y": 32,
+      "targetMapId": "ruined_cavern_manor",
+      "targetX": 3,
+      "targetY": 9,
+      "kind": "portal",
+      "trigger": "auto",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": true
+    },
+    {
       "x": 60,
       "y": 32,
       "targetMapId": "qizhen_crossing",

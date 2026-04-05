@@ -5,7 +5,7 @@
 import { GameTimeState, GridPoint, NpcQuestMarker, TargetingShape, Tile } from '@mud/shared';
 import { Camera } from './camera';
 
-export type FloatingActionTextStyle = 'default' | 'divine';
+export type FloatingActionTextStyle = 'default' | 'divine' | 'chant';
 
 /** 技能瞄准叠加层状态 */
 export interface TargetingOverlayState {
@@ -75,6 +75,7 @@ export interface IRenderer {
     color?: string,
     variant?: 'damage' | 'action',
     actionStyle?: FloatingActionTextStyle,
+    durationMs?: number,
   ): void;
   addAttackTrail(fromX: number, fromY: number, toX: number, toY: number, color?: string): void;
   renderFloatingTexts(camera: Camera): void;

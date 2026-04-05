@@ -820,6 +820,12 @@ export interface SkillBuffEffectDef {
 /** 技能效果联合类型 */
 export type SkillEffectDef = SkillDamageEffectDef | SkillBuffEffectDef;
 
+/** 怪物技能前摇定义 */
+export interface SkillMonsterCastDef {
+  windupTicks?: number;
+  warningColor?: string;
+}
+
 /** 技能完整定义 */
 export interface SkillDef {
   id: string;
@@ -836,6 +842,7 @@ export interface SkillDef {
   unlockPlayerRealm?: PlayerRealmStage;
   requiresTarget?: boolean;
   targetMode?: 'any' | 'entity' | 'tile';
+  monsterCast?: SkillMonsterCastDef;
 }
 
 /** 临时 Buff 状态（含属性和数值加成） */
@@ -912,10 +919,20 @@ export interface CombatEffectFloat {
   text: string;
   color?: string;
   variant?: 'damage' | 'action';
+  actionStyle?: 'default' | 'divine' | 'chant';
+  durationMs?: number;
+}
+
+/** 战斗地块警戒特效 */
+export interface CombatEffectWarningZone {
+  type: 'warning_zone';
+  cells: GridPoint[];
+  color?: string;
+  durationMs?: number;
 }
 
 /** 战斗特效联合类型 */
-export type CombatEffect = CombatEffectAttack | CombatEffectFloat;
+export type CombatEffect = CombatEffectAttack | CombatEffectFloat | CombatEffectWarningZone;
 
 /** 场景实体类型 */
 export type EntityKind = 'npc' | 'monster' | 'container' | 'crowd';

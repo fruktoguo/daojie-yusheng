@@ -100,6 +100,9 @@ message CombatEffectPayload {
   optional sint32 y = 8;
   optional string text = 9;
   optional string variant = 10;
+  repeated PointPayload cells = 11;
+  optional uint32 durationMs = 12;
+  optional string actionStyle = 13;
 }
 
 message VisibleTileRowPayload {

@@ -69,6 +69,10 @@ export class CanvasTextRendererAdapter {
       this.renderer.addAttackTrail(effect.fromX, effect.fromY, effect.toX, effect.toY, effect.color);
       return;
     }
+    if (effect.type === 'warning_zone') {
+      this.renderer.addWarningZone(effect.cells, effect.color, effect.durationMs);
+      return;
+    }
     this.renderer.addFloatingText(
       effect.x,
       effect.y,
@@ -76,6 +80,7 @@ export class CanvasTextRendererAdapter {
       effect.color,
       effect.variant,
       this.resolveActionTextStyle(effect),
+      effect.durationMs,
     );
   }
 
@@ -121,6 +126,7 @@ export class CanvasTextRendererAdapter {
       getDisplayRangeY(),
       scene.terrain.time,
     );
+    this.renderer.renderWarningZones(this.cameraBridge);
     this.renderer.renderAttackTrails(this.cameraBridge);
     this.renderer.renderEntities(this.cameraBridge, progress, scene.player.id);
     this.renderer.renderFloatingTexts(this.cameraBridge);
@@ -133,6 +139,9 @@ export class CanvasTextRendererAdapter {
   private resolveActionTextStyle(effect: Extract<CombatEffect, { type: 'float' }>): FloatingActionTextStyle | undefined {
     if (effect.variant !== 'action') {
       return undefined;
+    }
+    if (effect.actionStyle) {
+      return effect.actionStyle;
     }
     return isLocalDivineSkillName(effect.text) ? 'divine' : 'default';
   }

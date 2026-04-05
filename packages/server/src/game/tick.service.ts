@@ -3372,6 +3372,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (effect.type === 'attack') {
         return visibleKeys.has(`${effect.fromX},${effect.fromY}`) || visibleKeys.has(`${effect.toX},${effect.toY}`);
       }
+      if (effect.type === 'warning_zone') {
+        return effect.cells.some((cell) => visibleKeys.has(`${cell.x},${cell.y}`));
+      }
       return visibleKeys.has(`${effect.x},${effect.y}`);
     });
   }
