@@ -60,6 +60,8 @@ export const NUMERIC_STAT_POINTS_PER_VALUE = {
   viewRange: 1,
   moveSpeed: 1,
   extraAggroRate: 1,
+  extraRange: 1,
+  extraArea: 1,
 } satisfies Record<typeof NUMERIC_SCALAR_STAT_KEYS[number], number>;
 
 /** 配置层每 1 价值对应的真实数值点数 */
@@ -91,6 +93,8 @@ export const NUMERIC_STAT_ACTUAL_POINTS_PER_CONFIG_VALUE = {
   viewRange: 1,
   moveSpeed: 1,
   extraAggroRate: 1,
+  extraRange: 1,
+  extraArea: 1,
 } satisfies Record<typeof NUMERIC_SCALAR_STAT_KEYS[number], number>;
 
 type QuantifiableFormulaVar =
@@ -130,6 +134,8 @@ const FORMULA_VAR_VALUE_UNITS: Partial<Record<QuantifiableFormulaVar, number>> =
   'caster.stat.viewRange': NUMERIC_STAT_POINTS_PER_VALUE.viewRange,
   'caster.stat.moveSpeed': NUMERIC_STAT_POINTS_PER_VALUE.moveSpeed,
   'caster.stat.extraAggroRate': NUMERIC_STAT_POINTS_PER_VALUE.extraAggroRate,
+  'caster.stat.extraRange': NUMERIC_STAT_POINTS_PER_VALUE.extraRange,
+  'caster.stat.extraArea': NUMERIC_STAT_POINTS_PER_VALUE.extraArea,
 };
 
 const MULTIPLIER_BASELINE = 100;
@@ -354,6 +360,8 @@ function getNumericStatLabel(key: string): string {
     lootRate: '掉落倍率',
     rareLootRate: '稀有掉落倍率',
     viewRange: '视野范围',
+    extraRange: '额外射程',
+    extraArea: '额外范围',
   };
   return labels[key] ?? key;
 }

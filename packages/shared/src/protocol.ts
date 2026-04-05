@@ -448,6 +448,7 @@ export interface TickRenderEntity {
   name?: string | null;
   kind?: EntityKind | 'player' | null;
   monsterTier?: MonsterTier | null;
+  monsterScale?: number | null;
   hp?: number | null;
   maxHp?: number | null;
   qi?: number | null;
@@ -462,6 +463,7 @@ export interface ObservedTileEntityDetail {
   name?: string;
   kind?: EntityKind | 'player' | null;
   monsterTier?: MonsterTier | null;
+  monsterScale?: number | null;
   hp?: number;
   maxHp?: number;
   qi?: number;

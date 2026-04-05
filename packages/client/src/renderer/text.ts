@@ -225,6 +225,7 @@ interface AnimEntity {
   name?: string;
   kind?: string;
   monsterTier?: MonsterTier;
+  monsterScale?: number;
   hp?: number;
   maxHp?: number;
   npcQuestMarker?: NpcQuestMarker;
@@ -587,7 +588,7 @@ export class TextRenderer implements IRenderer {
 
   /** 更新实体列表，记录旧位置用于插值动画 */
   updateEntities(
-    list: readonly { id: string; wx: number; wy: number; char: string; color: string; name?: string; kind?: string; monsterTier?: MonsterTier; hp?: number; maxHp?: number; npcQuestMarker?: NpcQuestMarker | null; buffs?: VisibleBuffState[] }[],
+    list: readonly { id: string; wx: number; wy: number; char: string; color: string; name?: string; kind?: string; monsterTier?: MonsterTier; monsterScale?: number; hp?: number; maxHp?: number; npcQuestMarker?: NpcQuestMarker | null; buffs?: VisibleBuffState[] }[],
     movedId?: string,
     shiftX = 0,
     shiftY = 0,
@@ -646,6 +647,7 @@ export class TextRenderer implements IRenderer {
         anim.name = e.name;
         anim.kind = e.kind;
         anim.monsterTier = e.monsterTier;
+        anim.monsterScale = e.monsterScale;
         anim.hp = e.hp;
         anim.maxHp = e.maxHp;
         anim.npcQuestMarker = e.npcQuestMarker ?? undefined;
@@ -664,6 +666,7 @@ export class TextRenderer implements IRenderer {
           name: e.name,
           kind: e.kind,
           monsterTier: e.monsterTier,
+          monsterScale: e.monsterScale,
           hp: e.hp,
           maxHp: e.maxHp,
           npcQuestMarker: e.npcQuestMarker ?? undefined,
@@ -699,7 +702,7 @@ export class TextRenderer implements IRenderer {
       const presentation = anim.kind === 'monster'
         ? getMonsterPresentation(anim.name, anim.monsterTier)
         : null;
-      const visualScale = presentation?.scale ?? 1;
+      const visualScale = (presentation?.scale ?? 1) * Math.max(1, anim.monsterScale ?? 1);
       const visualCellSize = cellSize * visualScale;
       const visualSx = sx - (visualCellSize - cellSize) / 2;
       const visualSy = sy - (visualCellSize - cellSize);
@@ -775,7 +778,7 @@ export class TextRenderer implements IRenderer {
         }
 
         if (!isCrowd) {
-          this.drawBuffRows(visualSx, visualSy, visualCellSize, anim.buffs);
+          this.drawBuffRows(sx, visualSy, renderedCellSize, anim.buffs);
         }
 
         if (!isCrowd && (anim.maxHp ?? 0) > 0) {

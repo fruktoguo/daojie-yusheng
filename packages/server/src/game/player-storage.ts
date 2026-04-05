@@ -278,6 +278,7 @@ function buildSkillBuffState(skill: SkillDef, effect: Extract<SkillEffectDef, { 
     stats: effect.stats,
     statMode: effect.statMode,
     qiProjection: effect.qiProjection,
+    presentationScale: effect.presentationScale,
   });
 }
 
@@ -385,6 +386,7 @@ function hydrateTemporaryBuff(snapshot: unknown, contentService: ContentService)
     attrMode: snapshot.attrMode === 'flat' ? 'flat' : snapshot.attrMode === 'percent' ? 'percent' : undefined,
     stats: isPlainObject(snapshot.stats) ? snapshot.stats as TemporaryBuffState['stats'] : undefined,
     statMode: snapshot.statMode === 'flat' ? 'flat' : snapshot.statMode === 'percent' ? 'percent' : undefined,
+    presentationScale: Number.isFinite(snapshot.presentationScale) ? Number(snapshot.presentationScale) : undefined,
   };
   return syncDynamicBuffPresentation(hydrated);
 }

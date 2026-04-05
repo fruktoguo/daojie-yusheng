@@ -162,6 +162,7 @@ export interface RenderEntity {
   name?: string;
   kind?: EntityKind | 'player';
   monsterTier?: MonsterTier;
+  monsterScale?: number;
   hp?: number;
   maxHp?: number;
   qi?: number;
@@ -366,6 +367,7 @@ export interface EquipmentBuffDef {
   statMode?: BuffModifierMode;
   qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
+  presentationScale?: number;
 }
 
 /** 消耗品施加的 Buff 定义 */
@@ -385,6 +387,7 @@ export interface ConsumableBuffDef {
   statMode?: BuffModifierMode;
   qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
+  presentationScale?: number;
 }
 
 /** 装备常驻数值效果 */
@@ -398,6 +401,7 @@ export interface EquipmentStatAuraEffectDef {
   statMode?: BuffModifierMode;
   qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
+  presentationScale?: number;
 }
 
 /** 装备成长推进效果 */
@@ -815,6 +819,7 @@ export interface SkillBuffEffectDef {
   statMode?: BuffModifierMode;
   qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
+  presentationScale?: number;
 }
 
 /** 技能效果联合类型 */
@@ -824,6 +829,7 @@ export type SkillEffectDef = SkillDamageEffectDef | SkillBuffEffectDef;
 export interface SkillMonsterCastDef {
   windupTicks?: number;
   warningColor?: string;
+  conditions?: EquipmentConditionGroup;
 }
 
 /** 技能完整定义 */
@@ -850,6 +856,7 @@ export interface TemporaryBuffState extends VisibleBuffState {
   sourceCasterId?: string;
   attrs?: Partial<Attributes>;
   stats?: PartialNumericStats;
+  presentationScale?: number;
 }
 
 /** 功法状态 */

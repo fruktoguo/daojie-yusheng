@@ -69,6 +69,8 @@ export interface NumericStats {
   viewRange: number;
   moveSpeed: number;
   extraAggroRate: number;
+  extraRange: number;
+  extraArea: number;
   elementDamageBonus: ElementStatGroup;
   elementDamageReduce: ElementStatGroup;
 }
@@ -222,6 +224,8 @@ export function createNumericStats(): NumericStats {
     viewRange: 0,
     moveSpeed: 0,
     extraAggroRate: 0,
+    extraRange: 0,
+    extraArea: 0,
     elementDamageBonus: createElementStatGroup(),
     elementDamageReduce: createElementStatGroup(),
   };
@@ -257,6 +261,8 @@ export function cloneNumericStats(source: NumericStats): NumericStats {
     viewRange: source.viewRange,
     moveSpeed: source.moveSpeed,
     extraAggroRate: source.extraAggroRate,
+    extraRange: source.extraRange,
+    extraArea: source.extraArea,
     elementDamageBonus: cloneElementStatGroup(source.elementDamageBonus),
     elementDamageReduce: cloneElementStatGroup(source.elementDamageReduce),
   };
@@ -291,6 +297,8 @@ export function resetNumericStats(target: NumericStats): NumericStats {
   target.viewRange = 0;
   target.moveSpeed = 0;
   target.extraAggroRate = 0;
+  target.extraRange = 0;
+  target.extraArea = 0;
   resetElementStatGroup(target.elementDamageBonus);
   resetElementStatGroup(target.elementDamageReduce);
   return target;
@@ -326,6 +334,8 @@ export function addPartialNumericStats(target: NumericStats, patch?: PartialNume
   if (patch.viewRange !== undefined) target.viewRange += patch.viewRange;
   if (patch.moveSpeed !== undefined) target.moveSpeed += patch.moveSpeed;
   if (patch.extraAggroRate !== undefined) target.extraAggroRate += patch.extraAggroRate;
+  if (patch.extraRange !== undefined) target.extraRange += patch.extraRange;
+  if (patch.extraArea !== undefined) target.extraArea += patch.extraArea;
   addPartialElementStatGroup(target.elementDamageBonus, patch.elementDamageBonus);
   addPartialElementStatGroup(target.elementDamageReduce, patch.elementDamageReduce);
   return target;

@@ -73,6 +73,64 @@
     ],
     "skills": [
       {
+        "id": "skill.huanling_candan_faxiang",
+        "name": "残丹法相",
+        "desc": "气血跌入半数后，强行把碎裂金丹撑成法相，妖躯暴涨，杀势尽开。",
+        "cooldown": 1800,
+        "costMultiplier": 6,
+        "range": 1,
+        "requiresTarget": false,
+        "monsterCast": {
+          "conditions": {
+            "mode": "all",
+            "items": [
+              {
+                "type": "hp_ratio",
+                "op": "<=",
+                "value": 0.5
+              }
+            ]
+          }
+        },
+        "effects": [
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.huanling_candan_faxiang",
+            "name": "残丹法相",
+            "desc": "重伤之下强撑残丹法相，体型额外暴涨三倍，攻势与术势尽数失控。",
+            "shortMark": "相",
+            "category": "buff",
+            "visibility": "public",
+            "duration": 600,
+            "stats": {
+              "physAtk": 100,
+              "spellAtk": 100,
+              "cooldownSpeed": 100
+            },
+            "statMode": "percent",
+            "presentationScale": 4
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.huanling_candan_kuoyu",
+            "name": "残丹扩域",
+            "desc": "残丹余波外翻，术法的射程与杀域同时扩开。",
+            "shortMark": "域",
+            "category": "buff",
+            "visibility": "hidden",
+            "duration": 600,
+            "stats": {
+              "extraRange": 2,
+              "extraArea": 1
+            },
+            "statMode": "flat"
+          }
+        ],
+        "unlockLevel": 8
+      },
+      {
         "id": "skill.huanling_duanhun_ding",
         "name": "断魂灵钉",
         "desc": "拖着裂开的金丹把灵识强压成一点，盯住一格后硬生生钉穿过去。",

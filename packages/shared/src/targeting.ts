@@ -21,6 +21,11 @@ export interface TargetingGeometrySpec {
   height?: number;
 }
 
+export interface TargetingGeometryModifiers {
+  extraRange?: number;
+  extraArea?: number;
+}
+
 /** 用 Bresenham 算法计算两点间直线经过的格子 */
 export function getLineCells(start: GridPoint, end: GridPoint): GridPoint[] {
   const cells: GridPoint[] = [];
@@ -83,6 +88,75 @@ export function getBoxCells(center: GridPoint, width: number, height: number): G
   return cells;
 }
 
+function getLinePerpendicularOffsets(width: number, dx: number, dy: number): GridPoint[] {
+  const normalizedWidth = Math.max(1, Math.floor(width));
+  const negative = Math.floor((normalizedWidth - 1) / 2);
+  const positive = normalizedWidth - 1 - negative;
+  const offsets: GridPoint[] = [];
+  const expandAlongX = Math.abs(dy) > Math.abs(dx);
+  for (let step = -negative; step <= positive; step += 1) {
+    offsets.push(expandAlongX ? { x: step, y: 0 } : { x: 0, y: step });
+  }
+  return offsets;
+}
+
+function getWideLineCells(start: GridPoint, end: GridPoint, width: number): GridPoint[] {
+  const line = getLineCells(start, end).slice(1);
+  if (line.length === 0) {
+    return [];
+  }
+  const offsets = getLinePerpendicularOffsets(width, end.x - start.x, end.y - start.y);
+  const cells: GridPoint[] = [];
+  const seen = new Set<string>();
+  for (const point of line) {
+    for (const offset of offsets) {
+      const cell = { x: point.x + offset.x, y: point.y + offset.y };
+      const key = `${cell.x},${cell.y}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      cells.push(cell);
+    }
+  }
+  return cells;
+}
+
+export function buildEffectiveTargetingGeometry(
+  spec: TargetingGeometrySpec,
+  modifiers?: TargetingGeometryModifiers,
+): TargetingGeometrySpec {
+  const extraRange = Math.max(0, Math.floor(modifiers?.extraRange ?? 0));
+  const extraArea = Math.max(0, Math.floor(modifiers?.extraArea ?? 0));
+  const shape = spec.shape ?? 'single';
+  const effective: TargetingGeometrySpec = {
+    ...spec,
+    shape,
+    range: Math.max(0, Math.floor(spec.range) + extraRange),
+  };
+
+  if (extraArea <= 0) {
+    return effective;
+  }
+  if (shape === 'single') {
+    effective.shape = 'box';
+    effective.width = 1 + extraArea * 2;
+    effective.height = 1 + extraArea * 2;
+    return effective;
+  }
+  if (shape === 'line') {
+    effective.width = Math.max(1, Math.floor(spec.width ?? 1) + extraArea * 2);
+    return effective;
+  }
+  if (shape === 'area') {
+    effective.radius = Math.max(0, Math.floor(spec.radius ?? 1) + extraArea);
+    return effective;
+  }
+  effective.width = Math.max(1, Math.floor(spec.width ?? 1) + extraArea * 2);
+  effective.height = Math.max(1, Math.floor(spec.height ?? spec.width ?? 1) + extraArea * 2);
+  return effective;
+}
+
 /** 根据施法者位置、锚点和几何参数，计算受影响的格子列表 */
 export function computeAffectedCellsFromAnchor(
   origin: GridPoint,
@@ -93,7 +167,7 @@ export function computeAffectedCellsFromAnchor(
     return [];
   }
   if (spec.shape === 'line') {
-    return getLineCells(origin, anchor).slice(1);
+    return getWideLineCells(origin, anchor, spec.width ?? 1);
   }
   if (spec.shape === 'area') {
     return getAreaCells(anchor, spec.radius ?? 1);

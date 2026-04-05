@@ -655,6 +655,7 @@ type ObservedEntity = {
   name?: string;
   kind?: string;
   monsterTier?: MonsterTier;
+  monsterScale?: number;
   hp?: number;
   maxHp?: number;
   qi?: number;

@@ -206,6 +206,7 @@ interface RawSharedTechniqueBuffDef {
   statMode?: BuffModifierMode;
   qiProjection?: unknown;
   valueStats?: unknown;
+  presentationScale?: number;
 }
 
 interface RawItemTemplate extends Omit<ItemTemplate, 'equipStats' | 'equipValueStats' | 'effects' | 'consumeBuffs'> {
@@ -1577,6 +1578,7 @@ export class ContentService implements OnModuleInit {
       ),
       statMode: this.normalizeBuffModifierMode(input.statMode),
       qiProjection: this.normalizeQiProjectionModifiers(input.qiProjection),
+      presentationScale: Number.isFinite(input.presentationScale) ? Math.max(0, Number(input.presentationScale)) : undefined,
     };
   }
 

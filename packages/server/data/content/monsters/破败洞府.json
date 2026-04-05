@@ -26,6 +26,7 @@
       "moveSpeed": 88
     },
     "skills": [
+      "skill.huanling_candan_faxiang",
       "skill.huanling_duanhun_ding",
       "skill.huanling_lieqi_zhixian",
       "skill.huanling_difu_chenyin"

@@ -9,6 +9,7 @@ import {
   ActionDef,
   Attributes,
   basisPointModifierToMultiplier,
+  buildEffectiveTargetingGeometry,
   BuffModifierMode,
   EQUIP_SLOTS,
   EquipmentConditionDef,
@@ -1275,7 +1276,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     const effectiveViewRange = this.timeService.getEffectiveViewRangeFromBuff(player.viewRange, player.temporaryBuffs);
     const stationaryMode = player.autoBattleStationary === true;
     const availableSkills = this.collectAutoBattleSkillCandidates(player);
-    const preferredRange = this.resolveAutoBattlePreferredRange(availableSkills);
+    const preferredRange = this.resolveAutoBattlePreferredRange(player, availableSkills);
 
     let target: ResolvedTarget | undefined;
     let targetVisible = true;
@@ -1387,15 +1388,22 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (!target) {
       return { ...EMPTY_UPDATE, error: '目标不存在或不可选中' };
     }
-    if (!isPointInRange(player, target, skill.range)) {
+    const playerStats = this.attrService.getPlayerNumericStats(player);
+    const geometry = this.buildEffectiveSkillGeometry(skill, playerStats);
+    if (!isPointInRange(player, target, geometry.range)) {
       return { ...EMPTY_UPDATE, error: '目标超出技能范围' };
     }
 
-    return this.castSkill(player, skill, target);
+    return this.castSkill(player, skill, target, playerStats);
   }
 
   /** 技能施放核心流程：中断修炼 → 选择目标 → 消耗真气 → 逐效果结算 */
-  private castSkill(player: PlayerState, skill: SkillDef, primaryTarget?: ResolvedTarget): WorldUpdate {
+  private castSkill(
+    player: PlayerState,
+    skill: SkillDef,
+    primaryTarget?: ResolvedTarget,
+    playerStats?: NumericStats,
+  ): WorldUpdate {
     const cultivation = this.techniqueService.interruptCultivation(player, 'attack');
     const dirty = new Set<WorldDirtyFlag>(cultivation.dirty as WorldDirtyFlag[]);
     const result: WorldUpdate = {
@@ -1410,7 +1418,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (primaryTarget) {
       this.faceToward(player, primaryTarget.x, primaryTarget.y);
     }
-    const selectedTargets = this.selectSkillTargets(player, skill, primaryTarget);
+    const casterStats = playerStats ?? this.attrService.getPlayerNumericStats(player);
+    const selectedTargets = this.selectSkillTargets(player, skill, primaryTarget, casterStats);
     if (skill.requiresTarget !== false && selectedTargets.length === 0) {
       return { ...EMPTY_UPDATE, error: '没有可命中的目标' };
     }
@@ -1421,7 +1430,6 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
     this.pushActionLabelEffect(player.mapId, player.x, player.y, skill.name);
 
-    const casterStats = this.attrService.getPlayerNumericStats(player);
     const casterAttrs = this.attrService.getPlayerFinalAttrs(player);
     const techLevel = this.getSkillTechniqueLevel(player, skill.id);
     let appliedEffect = false;
@@ -1597,12 +1605,34 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return { ...update, dirty: [...dirty] };
   }
 
-  private selectSkillTargets(player: PlayerState, skill: SkillDef, primaryTarget?: ResolvedTarget): ResolvedTarget[] {
+  private getSkillTargetingModifiers(stats: NumericStats | undefined): { extraRange: number; extraArea: number } {
+    return {
+      extraRange: Math.max(0, Math.floor(stats?.extraRange ?? 0)),
+      extraArea: Math.max(0, Math.floor(stats?.extraArea ?? 0)),
+    };
+  }
+
+  private buildEffectiveSkillGeometry(skill: SkillDef, stats: NumericStats | undefined) {
+    return buildEffectiveTargetingGeometry({
+      range: skill.range,
+      shape: skill.targeting?.shape ?? 'single',
+      radius: skill.targeting?.radius,
+      width: skill.targeting?.width,
+      height: skill.targeting?.height,
+    }, this.getSkillTargetingModifiers(stats));
+  }
+
+  private selectSkillTargets(
+    player: PlayerState,
+    skill: SkillDef,
+    primaryTarget?: ResolvedTarget,
+    playerStats?: NumericStats,
+  ): ResolvedTarget[] {
     if (!primaryTarget) {
       return [];
     }
-    const targeting = skill.targeting;
-    const shape = targeting?.shape ?? 'single';
+    const geometry = this.buildEffectiveSkillGeometry(skill, playerStats ?? this.attrService.getPlayerNumericStats(player));
+    const shape = geometry.shape ?? 'single';
     if (shape === 'single') {
       return [primaryTarget];
     }
@@ -1613,21 +1643,13 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       ? this.playerService.getPlayersByMap(player.mapId)
         .filter((entry) => entry.id !== player.id && !entry.dead)
       : [];
-    const maxTargets = Math.max(1, targeting?.maxTargets ?? 99);
-    if (shape === 'line') {
-      const cells = computeAffectedCellsFromAnchor(player, primaryTarget, {
-        range: skill.range,
-        shape: 'line',
-      });
-      return this.collectTargetsFromCells(player, monsters, players, cells, maxTargets);
-    }
-
+    const maxTargets = Math.max(1, skill.targeting?.maxTargets ?? 99);
     const cells = computeAffectedCellsFromAnchor(player, primaryTarget, {
-      range: skill.range,
+      range: geometry.range,
       shape,
-      radius: targeting?.radius,
-      width: targeting?.width,
-      height: targeting?.height,
+      radius: geometry.radius,
+      width: geometry.width,
+      height: geometry.height,
     });
     return this.collectTargetsFromCells(player, monsters, players, cells, maxTargets);
   }
@@ -1747,6 +1769,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       stats: effect.stats,
       statMode: effect.statMode,
       qiProjection: effect.qiProjection,
+      presentationScale: effect.presentationScale,
     });
   }
 
@@ -1772,6 +1795,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       existing.stats = nextBuff.stats;
       existing.statMode = nextBuff.statMode;
       existing.qiProjection = nextBuff.qiProjection;
+      existing.presentationScale = nextBuff.presentationScale;
       syncDynamicBuffPresentation(existing);
       return existing;
     }
@@ -2360,15 +2384,17 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   }
 
   private selectMonsterSkill(monster: RuntimeMonster, target: PlayerState): SkillDef | undefined {
+    const monsterStats = this.getMonsterCombatSnapshot(monster).stats;
     for (const skillId of monster.skills) {
       const skill = this.contentService.getSkill(skillId);
       if (!skill) {
         continue;
       }
-      if (skill.requiresTarget !== false && !isPointInRange(monster, target, skill.range)) {
+      const geometry = this.buildEffectiveSkillGeometry(skill, monsterStats);
+      if (skill.requiresTarget !== false && !isPointInRange(monster, target, geometry.range)) {
         continue;
       }
-      if (!this.canMonsterCastSkill(monster, skill)) {
+      if (!this.canMonsterCastSkill(monster, skill, monsterStats)) {
         continue;
       }
       return skill;
@@ -2381,17 +2407,17 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     skill: SkillDef,
     anchor: { x: number; y: number },
   ): Array<{ x: number; y: number }> {
-    const targeting = skill.targeting;
-    const shape = targeting?.shape ?? 'single';
+    const geometry = this.buildEffectiveSkillGeometry(skill, this.getMonsterCombatSnapshot(monster).stats);
+    const shape = geometry.shape ?? 'single';
     if (shape === 'single') {
-      return isPointInRange(monster, anchor, skill.range) ? [{ x: anchor.x, y: anchor.y }] : [];
+      return isPointInRange(monster, anchor, geometry.range) ? [{ x: anchor.x, y: anchor.y }] : [];
     }
     return computeAffectedCellsFromAnchor(monster, anchor, {
-      range: skill.range,
+      range: geometry.range,
       shape,
-      radius: targeting?.radius,
-      width: targeting?.width,
-      height: targeting?.height,
+      radius: geometry.radius,
+      width: geometry.width,
+      height: geometry.height,
     });
   }
 
@@ -2410,18 +2436,21 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return this.collectMonsterSkillTargetsFromCells(players, cells, maxTargets);
   }
 
-  private canMonsterCastSkill(monster: RuntimeMonster, skill: SkillDef): boolean {
+  private canMonsterCastSkill(monster: RuntimeMonster, skill: SkillDef, numericStats?: NumericStats): boolean {
     if ((monster.skillCooldowns[skill.id] ?? 0) > 0) {
       return false;
     }
-    const actualCost = this.getMonsterSkillQiCost(monster, skill);
+    if (!this.matchesMonsterEquipmentConditions(monster, skill.monsterCast?.conditions)) {
+      return false;
+    }
+    const actualCost = this.getMonsterSkillQiCost(monster, skill, numericStats);
     return actualCost !== null && monster.qi >= actualCost;
   }
 
-  private getMonsterSkillQiCost(monster: RuntimeMonster, skill: SkillDef): number | null {
-    const numericStats = this.getMonsterCombatSnapshot(monster).stats;
+  private getMonsterSkillQiCost(monster: RuntimeMonster, skill: SkillDef, numericStats?: NumericStats): number | null {
+    const stats = numericStats ?? this.getMonsterCombatSnapshot(monster).stats;
     const plannedCost = Math.max(0, skill.cost);
-    const actualCost = Math.round(calcQiCostWithOutputLimit(plannedCost, Math.max(0, numericStats.maxQiOutputPerTick)));
+    const actualCost = Math.round(calcQiCostWithOutputLimit(plannedCost, Math.max(0, stats.maxQiOutputPerTick)));
     if (!Number.isFinite(actualCost) || actualCost < 0) {
       return null;
     }
@@ -2436,9 +2465,14 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (monster.qi < actualCost) {
       return '怪物灵力不足';
     }
+    const cooldownRate = signedRatioValue(
+      this.getMonsterCombatSnapshot(monster).stats.cooldownSpeed,
+      DEFAULT_MONSTER_RATIO_DIVISORS.cooldownSpeed,
+    );
+    const cooldownMultiplier = percentModifierToMultiplier(-cooldownRate * 100);
     monster.qi = Math.max(0, monster.qi - actualCost);
     this.addDispersedAuraAround(monster.mapId, monster.x, monster.y, actualCost);
-    monster.skillCooldowns[skill.id] = Math.max(1, Math.round(skill.cooldown));
+    monster.skillCooldowns[skill.id] = Math.max(1, Math.ceil(skill.cooldown * cooldownMultiplier));
     return actualCost;
   }
 
@@ -2452,29 +2486,21 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (!primaryTarget) {
       return [];
     }
-    const targeting = skill.targeting;
-    const shape = targeting?.shape ?? 'single';
+    const geometry = this.buildEffectiveSkillGeometry(skill, this.getMonsterCombatSnapshot(monster).stats);
+    const shape = geometry.shape ?? 'single';
     if (shape === 'single') {
       return [primaryTarget];
     }
 
     const players = this.playerService.getPlayersByMap(monster.mapId)
       .filter((entry) => !entry.dead);
-    const maxTargets = Math.max(1, targeting?.maxTargets ?? 99);
-    if (shape === 'line') {
-      const cells = computeAffectedCellsFromAnchor(monster, primaryTarget, {
-        range: skill.range,
-        shape: 'line',
-      });
-      return this.collectMonsterSkillTargetsFromCells(players, cells, maxTargets);
-    }
-
+    const maxTargets = Math.max(1, skill.targeting?.maxTargets ?? 99);
     const cells = computeAffectedCellsFromAnchor(monster, primaryTarget, {
-      range: skill.range,
+      range: geometry.range,
       shape,
-      radius: targeting?.radius,
-      width: targeting?.width,
-      height: targeting?.height,
+      radius: geometry.radius,
+      width: geometry.width,
+      height: geometry.height,
     });
     return this.collectMonsterSkillTargetsFromCells(players, cells, maxTargets);
   }
@@ -4194,6 +4220,19 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return mode === 'flat' ? 'flat' : 'percent';
   }
 
+  private getMonsterPresentationScale(monster: RuntimeMonster): number {
+    let scale = 1;
+    for (const buff of monster.temporaryBuffs ?? []) {
+      if (buff.remainingTicks <= 0 || buff.stacks <= 0) {
+        continue;
+      }
+      if (Number.isFinite(buff.presentationScale) && Number(buff.presentationScale) > scale) {
+        scale = Number(buff.presentationScale);
+      }
+    }
+    return scale;
+  }
+
   private scaleNumericStats(stats: PartialNumericStats | undefined, factor: number): PartialNumericStats | undefined {
     if (!stats || factor === 0) {
       return undefined;
@@ -4227,6 +4266,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       'viewRange',
       'moveSpeed',
       'extraAggroRate',
+      'extraRange',
+      'extraArea',
     ] as const) {
       const value = stats[key];
       if (value === undefined) continue;
@@ -4280,6 +4321,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       name: getMonsterDisplayName(monster.name, monster.tier),
       kind: 'monster',
       monsterTier: monster.tier,
+      monsterScale: this.getMonsterPresentationScale(monster),
       hp: monster.hp,
       maxHp: monster.maxHp,
       buffs: this.getMapRenderableBuffs(monster.temporaryBuffs),
@@ -4334,6 +4376,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       name: getMonsterDisplayName(monster.name, monster.tier),
       kind: 'monster',
       monsterTier: monster.tier,
+      monsterScale: this.getMonsterPresentationScale(monster),
       hp: monster.hp,
       maxHp: monster.maxHp,
       qi: snapshot.qi,
@@ -5648,8 +5691,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       .filter((entry) => this.canPlayerCastSkill(player, entry.skill));
   }
 
-  private resolveAutoBattlePreferredRange(skills: AutoBattleSkillCandidate[]): number {
-    return skills.reduce((maxRange, entry) => Math.max(maxRange, Math.max(1, entry.skill.range)), 1);
+  private resolveAutoBattlePreferredRange(player: PlayerState, skills: AutoBattleSkillCandidate[]): number {
+    const playerStats = this.attrService.getPlayerNumericStats(player);
+    return skills.reduce((maxRange, entry) => Math.max(maxRange, this.buildEffectiveSkillGeometry(entry.skill, playerStats).range), 1);
   }
 
   private selectAutoBattleSkillForTarget(
@@ -5657,9 +5701,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     target: ResolvedTarget,
     skills: AutoBattleSkillCandidate[],
   ): AutoBattleSkillCandidate | undefined {
+    const playerStats = this.attrService.getPlayerNumericStats(player);
     return skills.find((entry) => (
       entry.skill.requiresTarget === false
-      || isPointInRange(player, target, entry.skill.range)
+      || isPointInRange(player, target, this.buildEffectiveSkillGeometry(entry.skill, playerStats).range)
     ));
   }
 
@@ -5675,10 +5720,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (!this.canPlayerSeeTarget(player, target, effectiveViewRange)) {
       return false;
     }
+    const playerStats = this.attrService.getPlayerNumericStats(player);
     return isPointInRange(player, target, 1)
       || skills.some((entry) => (
         entry.skill.requiresTarget === false
-        || isPointInRange(player, target, entry.skill.range)
+        || isPointInRange(player, target, this.buildEffectiveSkillGeometry(entry.skill, playerStats).range)
       ));
   }
 
@@ -6785,6 +6831,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       duration: Math.max(1, Math.round(Number(candidate.duration))),
       stacks: Math.max(0, Math.round(Number(candidate.stacks))),
       maxStacks: Math.max(1, Math.round(Number(candidate.maxStacks))),
+      presentationScale: Number.isFinite(candidate.presentationScale) ? Number(candidate.presentationScale) : undefined,
     })) as TemporaryBuffState;
   }
 

@@ -3275,6 +3275,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         const nameChanged = !previous || previous.name !== entity.name;
         const kindChanged = !previous || previous.kind !== entity.kind;
         const monsterTierChanged = !previous || previous.monsterTier !== entity.monsterTier;
+        const monsterScaleChanged = !previous || previous.monsterScale !== entity.monsterScale;
         const hpChanged = !previous || previous.hp !== entity.hp;
         const maxHpChanged = !previous || previous.maxHp !== entity.maxHp;
         const qiChanged = !previous || previous.qi !== entity.qi;
@@ -3289,6 +3290,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           || nameChanged
           || kindChanged
           || monsterTierChanged
+          || monsterScaleChanged
           || hpChanged
           || maxHpChanged
           || qiChanged
@@ -3312,6 +3314,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         if (nameChanged) next.name = entity.name ?? null;
         if (kindChanged) next.kind = entity.kind ?? null;
         if (monsterTierChanged) next.monsterTier = entity.monsterTier ?? null;
+        if (monsterScaleChanged) next.monsterScale = entity.monsterScale ?? null;
         if (hpChanged) next.hp = entity.hp ?? null;
         if (maxHpChanged) next.maxHp = entity.maxHp ?? null;
         if (qiChanged) next.qi = entity.qi ?? null;
