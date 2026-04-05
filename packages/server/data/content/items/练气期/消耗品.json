@@ -38,8 +38,8 @@
         "shortMark": "灵",
         "duration": 900,
         "valueStats": {
-          "hpRegenRate": 0.4,
-          "qiRegenRate": 0.8
+          "hpRegenRate": 40,
+          "qiRegenRate": 80
         }
       }
     ],
@@ -108,8 +108,8 @@
         "shortMark": "脉",
         "duration": 1200,
         "valueStats": {
-          "hpRegenRate": 0.9,
-          "qiRegenRate": 0.6,
+          "hpRegenRate": 70,
+          "qiRegenRate": 60,
           "spellDef": 4
         }
       }
@@ -183,7 +183,7 @@
         "valueStats": {
           "physDef": 6,
           "resolvePower": 6,
-          "hpRegenRate": 0.6
+          "hpRegenRate": 60
         }
       }
     ],
