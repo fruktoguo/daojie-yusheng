@@ -30,4 +30,5 @@ export * from './mail';
 export * from './market-price';
 export * from './inventory-sort';
 export * from './structured';
+export * from './grapheme';
 export * from './role-name';

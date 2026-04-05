@@ -1,6 +1,7 @@
 import {
   ACCOUNT_MAX_LENGTH,
   ACCOUNT_MIN_LENGTH,
+  getGraphemeCount,
   getRoleNameLimitText,
   isRoleNameWithinLimit,
   PASSWORD_MIN_LENGTH,
@@ -49,7 +50,7 @@ export function validateDisplayName(displayName: string): string | null {
   if (hasWhitespace(displayName)) {
     return '显示名称不支持空格';
   }
-  if ([...displayName].length !== 1) {
+  if (getGraphemeCount(displayName) !== 1) {
     return '显示名称必须为 1 个字符';
   }
   return null;

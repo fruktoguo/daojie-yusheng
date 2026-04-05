@@ -366,7 +366,7 @@ export class SettingsPanel {
         <div class="account-settings-name-grid">
           <div class="account-settings-field account-settings-field--display">
             <label for="settings-display-name">显示名称</label>
-            <input id="settings-display-name" class="account-settings-display-input" type="text" maxlength="1" value="${escapeHtml(this.currentDisplayName)}" placeholder="字" />
+            <input id="settings-display-name" class="account-settings-display-input" type="text" value="${escapeHtml(this.currentDisplayName)}" placeholder="字" />
             <div id="settings-display-name-status" class="account-settings-status">当前名称可继续使用</div>
             <div class="account-settings-actions">
               <button id="settings-display-name-submit" class="small-btn" type="button">保存显示名称</button>
@@ -374,7 +374,7 @@ export class SettingsPanel {
           </div>
           <div class="account-settings-field">
             <label for="settings-role-name">角色名称</label>
-            <input id="settings-role-name" type="text" maxlength="${ROLE_NAME_MAX_ASCII_LENGTH}" value="${escapeHtml(this.currentRoleName)}" placeholder="输入角色名称" />
+            <input id="settings-role-name" type="text" value="${escapeHtml(this.currentRoleName)}" placeholder="输入角色名称" />
             <div id="settings-role-name-status" class="account-settings-status"></div>
             <div class="account-settings-actions">
               <button id="settings-role-name-submit" class="small-btn" type="button">保存角色名称</button>

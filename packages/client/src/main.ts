@@ -123,6 +123,7 @@ import {
   directionToDelta,
   getTileTraversalCost,
   clonePlainValue,
+  getFirstGrapheme,
   isPlainEqual,
 } from '@mud/shared';
 
@@ -193,6 +194,7 @@ let pendingSocketPing:
   | null = null;
 let currentTimeStateSyncedAt = performance.now();
 let currentTimeTickIntervalMs = 1000;
+let currentTimeTickIntervalUpdatedAt = performance.now();
 let fpsMonitorFrameRequestId: number | null = null;
 let fpsMonitorEnabled = false;
 let fpsSampleFrameCount = 0;
@@ -200,6 +202,9 @@ let fpsSampleStartedAt = performance.now();
 let fpsLastFrameAt = 0;
 let fpsFrameDurations: number[] = [];
 let fpsFrameDurationWriteIndex = 0;
+
+const PING_BLOCKED_TICK_INTERVAL_MS = 1_500;
+const PING_BLOCKED_TICK_GRACE_MS = 8_000;
 
 type FpsSampleStats = {
   fps: number | null;
@@ -401,6 +406,7 @@ function syncCurrentTimeTickInterval(dtMs: number | null | undefined): void {
     return;
   }
   currentTimeTickIntervalMs = dtMs;
+  currentTimeTickIntervalUpdatedAt = performance.now();
 }
 
 function renderPingLatency(latencyMs: number | null, status = '毫秒') {
@@ -423,10 +429,17 @@ function renderPingLatency(latencyMs: number | null, status = '毫秒') {
   if (pingUnitEl) pingUnitEl.textContent = status;
   if (pingLatencyEl) {
     const title = latencyMs === null
-      ? `当前域名 ${window.location.host} 的服务器延迟${status === '离线' ? '不可用' : `状态：${status}`}`
-      : `当前域名 ${window.location.host} 上游戏连接往返约 ${Math.round(latencyMs)}ms`;
+      ? status === '阻塞'
+        ? `当前域名 ${window.location.host} 的游戏连接仍可达，但最近 tick/主循环出现明显阻塞，当前“灵网延迟”已不再代表纯网络延迟`
+        : `当前域名 ${window.location.host} 的游戏连接响应${status === '离线' ? '不可用' : `状态：${status}`}`
+      : `当前域名 ${window.location.host} 上游戏连接往返约 ${Math.round(latencyMs)}ms；该值同时会受到服务端主循环阻塞影响`;
     pingLatencyEl.setAttribute('title', title);
   }
+}
+
+function hasRecentTickStall(now = performance.now()): boolean {
+  return currentTimeTickIntervalMs >= PING_BLOCKED_TICK_INTERVAL_MS
+    && now - currentTimeTickIntervalUpdatedAt <= PING_BLOCKED_TICK_GRACE_MS;
 }
 
 async function waitFor(ms: number): Promise<void> {
@@ -486,7 +499,7 @@ function markSocketPingTimeout(serial: number): void {
     return;
   }
   pendingSocketPing = null;
-  renderPingLatency(null, socket.connected ? '超时' : '离线');
+  renderPingLatency(null, socket.connected ? (hasRecentTickStall() ? '阻塞' : '超时') : '离线');
 }
 
 function sampleServerPing(): void {
@@ -2500,7 +2513,12 @@ socket.onPong((data) => {
   }
   window.clearTimeout(pendingSocketPing.timeoutId);
   pendingSocketPing = null;
-  renderPingLatency(performance.now() - data.clientAt);
+  const latencyMs = performance.now() - data.clientAt;
+  if (latencyMs > 999 && hasRecentTickStall()) {
+    renderPingLatency(null, '阻塞');
+    return;
+  }
+  renderPingLatency(latencyMs);
 });
 
 let pathCells: { x: number; y: number }[] = [];
@@ -3129,7 +3147,7 @@ function applyLocalDisplayName(displayName: string) {
     }
     return {
       ...entity,
-      char: [...displayName][0] ?? entity.char,
+      char: getFirstGrapheme(displayName) || entity.char,
     };
   });
   mapRuntime.replaceVisibleEntities(latestEntities);

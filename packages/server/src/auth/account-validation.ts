@@ -4,6 +4,8 @@
 import {
   ACCOUNT_MAX_LENGTH,
   ACCOUNT_MIN_LENGTH,
+  getFirstGrapheme,
+  getGraphemeCount,
   getRoleNameLimitText,
   isRoleNameWithinLimit,
   PASSWORD_MIN_LENGTH,
@@ -37,7 +39,7 @@ export function normalizeRoleName(value: string): string {
 
 /** 取账号首字符作为默认显示名称 */
 export function getDefaultDisplayName(username: string): string {
-  return [...normalizeUsername(username)][0] ?? '';
+  return getFirstGrapheme(normalizeUsername(username));
 }
 
 /** 新角色默认名称取账号前若干字，避免账号与角色名长度约束互相冲突 */
@@ -87,7 +89,7 @@ export function validateDisplayName(displayName: string): string | null {
   if (containsWhitespace(normalized)) {
     return '显示名称不支持空格';
   }
-  if ([...normalized].length !== 1) {
+  if (getGraphemeCount(normalized) !== 1) {
     return '显示名称必须为 1 个字符';
   }
   return null;

@@ -30,6 +30,7 @@ import {
   gameplayConstants,
   GameTimeState,
   getBasicAttackCombatExperienceDamageMultiplier,
+  getFirstGrapheme,
   getDamageTrailColor,
   getBuffRealmEffectivenessMultiplier,
   gridDistance,
@@ -585,7 +586,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
   /** 构建玩家的渲染实体数据（用于其他玩家视野中的显示） */
   buildPlayerRenderEntity(viewer: PlayerState, target: PlayerState, color: string): RenderEntity {
-    const displayName = target.displayName ?? [...target.name][0] ?? '@';
+    const displayName = target.displayName ?? (getFirstGrapheme(target.name) || '@');
     return {
       id: target.id,
       x: target.x,
