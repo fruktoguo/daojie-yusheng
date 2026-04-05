@@ -575,6 +575,7 @@
       "breakPower": 105.8,
       "resolvePower": 146.4,
       "maxQiOutputPerTick": 165.8,
+      "hpRegenRate": 1,
       "moveSpeed": 102.3
     },
     "skills": [
@@ -588,21 +589,11 @@
       "skill.duomai_guiyuan"
     ],
     "equipment": {
-      "weapon": {
-        "itemId": "equip.vineguide_staff"
-      },
-      "head": {
-        "itemId": "equip.verdant_crown"
-      },
-      "body": {
-        "itemId": "equip.returnvine_robe"
-      },
-      "legs": {
-        "itemId": "equip.vale_stride_boots"
-      },
-      "accessory": {
-        "itemId": "equip.lifepulse_pendant"
-      }
+      "weapon": "equip.vineguide_staff",
+      "head": "equip.verdant_crown",
+      "body": "equip.returnvine_robe",
+      "legs": "equip.vale_stride_boots",
+      "accessory": "equip.lifepulse_pendant"
     },
     "drops": [
       {
@@ -659,6 +650,7 @@
         "type": "consumable",
         "count": 1
       }
-    ]
+    ],
+    "aggroMode": "always"
   }
 ]

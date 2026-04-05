@@ -98,7 +98,7 @@
         "name": "崩界天陨",
         "desc": "以裂岳真意锁住落点，轰然震塌一片地脉；命中、破招、暴击与体魄越高，塌势越重。",
         "cooldown": 1800,
-        "costMultiplier": 6,
+        "costMultiplier": 8,
         "range": 8,
         "targeting": {
           "shape": "box",
@@ -115,7 +115,7 @@
               "args": [
                 {
                   "var": "caster.stat.physAtk",
-                  "scale": 0.15
+                  "scale": 6
                 },
                 {
                   "op": "add",
@@ -250,7 +250,7 @@
         "name": "劫光灭域",
         "desc": "引太虚劫光覆落成域，命中、破招、暴击与神识越高，寂灭波就越深。",
         "cooldown": 1800,
-        "costMultiplier": 6,
+        "costMultiplier": 8,
         "range": 9,
         "targeting": {
           "shape": "box",
@@ -268,7 +268,7 @@
               "args": [
                 {
                   "var": "caster.stat.spellAtk",
-                  "scale": 0.15
+                  "scale": 7
                 },
                 {
                   "op": "add",
