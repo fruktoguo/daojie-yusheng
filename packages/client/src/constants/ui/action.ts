@@ -7,3 +7,6 @@ export const RETURN_TO_SPAWN_ACTION_ID = 'travel:return_spawn';
 
 /** localStorage 键，用于保存行动快捷键配置。 */
 export const ACTION_SHORTCUTS_KEY = 'mud.action.shortcuts.v1';
+
+/** localStorage 键，用于保存技能方案配置。 */
+export const ACTION_SKILL_PRESETS_KEY = 'mud.action.skill-presets.v1';

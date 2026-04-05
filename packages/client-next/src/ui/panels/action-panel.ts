@@ -9,7 +9,7 @@ import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-to
 import { buildSkillTooltipContent, type SkillPreviewMetrics, summarizeSkillPreviewMetrics } from '../skill-tooltip';
 import { preserveSelection } from '../selection-preserver';
 import { getActionTypeLabel, getElementKeyLabel } from '../../domain-labels';
-import { ACTION_SHORTCUTS_KEY, RETURN_TO_SPAWN_ACTION_ID } from '../../constants/ui/action';
+import { ACTION_SHORTCUTS_KEY, ACTION_SKILL_PRESETS_KEY, RETURN_TO_SPAWN_ACTION_ID } from '../../constants/ui/action';
 
 type ActionMainTab = 'dialogue' | 'skill' | 'toggle' | 'utility';
 type SkillSubTab = 'auto' | 'manual';
@@ -18,6 +18,7 @@ type SkillManagementBulkMode = SkillSubTab | 'enabled' | 'disabled';
 type SkillManagementSortField = 'custom' | 'actualDamage' | 'qiCost' | 'range' | 'targetCount' | 'cooldown';
 type SkillManagementSortDirection = 'asc' | 'desc';
 type SkillManagementFilterToggle = 'melee' | 'ranged' | 'physical' | 'spell' | 'single' | 'aoe';
+type SkillPresetStatusTone = 'success' | 'error' | 'info';
 
 interface ActionRowRefs {
   row: HTMLElement;
@@ -40,6 +41,34 @@ interface ActionSkillAffinityBadge {
   element: ElementKey | 'multi' | 'neutral';
 }
 
+interface SkillPresetSkillState {
+  skillId: string;
+  enabled: boolean;
+  skillEnabled: boolean;
+}
+
+interface SkillPresetRecord {
+  id: string;
+  name: string;
+  skills: SkillPresetSkillState[];
+}
+
+interface SkillPresetLibrary {
+  v: number;
+  p: Array<{
+    n: string;
+    s: Array<[string, 0 | 1]>;
+  }>;
+}
+
+interface SkillPresetStatus {
+  tone: SkillPresetStatusTone;
+  text: string;
+}
+
+const SKILL_PRESET_NAME_MAX_LENGTH = 24;
+const SKILL_PRESET_EXPORT_VERSION = 2;
+
 function normalizeShortcutKey(key: string): string | null {
   if (key.length !== 1) return null;
   const lower = key.toLowerCase();
@@ -61,6 +90,27 @@ function escapeHtml(value: string): string {
 function appendUnique<T>(list: T[], value: T): void {
   if (!list.includes(value)) {
     list.push(value);
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function readBoolean(...values: unknown[]): boolean {
+  for (const value of values) {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+  }
+  return true;
+}
+
+function decodePresetTextValue(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
   }
 }
 
@@ -137,6 +187,7 @@ function getSkillAffinityBadge(skill: SkillDef): ActionSkillAffinityBadge {
 
 export class ActionPanel {
   private static readonly SKILL_MANAGEMENT_MODAL_OWNER = 'action-panel-skill-management';
+  private static readonly SKILL_PRESET_MODAL_OWNER = 'action-panel-skill-preset';
   private pane = document.getElementById('pane-action')!;
   private onAction: ((actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string) => void) | null = null;
   private onUpdateAutoBattleSkills: ((skills: AutoBattleSkillConfig[]) => void) | null = null;
@@ -150,6 +201,7 @@ export class ActionPanel {
   private skillManagementFilterOpen = false;
   private skillManagementFilterToggles = new Set<SkillManagementFilterToggle>();
   private skillManagementExternalRevision: string | null = null;
+  private skillPresetExternalRevision: string | null = null;
   private skillManagementListScrollTop = 0;
   private autoBattle = false;
   private autoRetaliate = true;
@@ -160,6 +212,11 @@ export class ActionPanel {
   private cultivationActive = false;
   private currentActions: ActionDef[] = [];
   private shortcutBindings = new Map<string, string>();
+  private skillPresets: SkillPresetRecord[] = [];
+  private selectedSkillPresetId: string | null = null;
+  private skillPresetNameDraft = '';
+  private skillPresetImportText = '';
+  private skillPresetStatus: SkillPresetStatus | null = null;
   private bindingActionId: string | null = null;
   private draggingSkillId: string | null = null;
   private dragOverSkillId: string | null = null;
@@ -171,6 +228,8 @@ export class ActionPanel {
 
   constructor() {
     this.shortcutBindings = this.loadShortcutBindings();
+    this.skillPresets = this.loadSkillPresets();
+    this.selectedSkillPresetId = this.skillPresets[0]?.id ?? null;
     window.addEventListener('keydown', (event) => this.handleGlobalKeydown(event));
   }
 
@@ -179,8 +238,10 @@ export class ActionPanel {
     this.actionRowRefs.clear();
     this.skillManagementDraft = null;
     this.skillManagementExternalRevision = null;
+    this.skillPresetExternalRevision = null;
     this.skillManagementListScrollTop = 0;
     detailModalHost.close(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER);
+    detailModalHost.close(ActionPanel.SKILL_PRESET_MODAL_OWNER);
     this.pane.innerHTML = '<div class="empty-hint">暂无可用行动</div>';
   }
 
@@ -208,6 +269,7 @@ export class ActionPanel {
     if (_autoRetaliate !== undefined) this.autoRetaliate = _autoRetaliate;
     this.render(this.currentActions);
     this.renderSkillManagementModalIfOpen();
+    this.renderSkillPresetModalIfOpen();
   }
 
   /** 增量同步行动状态，优先 DOM patch 避免全量重绘 */
@@ -229,6 +291,7 @@ export class ActionPanel {
       this.render(this.currentActions);
     }
     this.renderSkillManagementModalIfOpen();
+    this.renderSkillPresetModalIfOpen();
   }
 
   initFromPlayer(player: PlayerState): void {
@@ -244,6 +307,7 @@ export class ActionPanel {
     this.cultivationActive = player.cultivationActive === true;
     this.render(this.currentActions);
     this.renderSkillManagementModalIfOpen();
+    this.renderSkillPresetModalIfOpen();
   }
 
   private syncPlayerContext(player: PlayerState): void {
@@ -395,6 +459,11 @@ export class ActionPanel {
     this.pane.querySelectorAll<HTMLElement>('[data-action-skill-manage-open]').forEach((button) => {
       button.addEventListener('click', () => {
         this.openSkillManagement();
+      });
+    });
+    this.pane.querySelectorAll<HTMLElement>('[data-action-skill-preset-open]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.openSkillPresetModal();
       });
     });
     this.bindActionCardEvents(this.pane);
@@ -622,6 +691,271 @@ export class ActionPanel {
   private saveShortcutBindings(): void {
     const payload = Object.fromEntries(this.shortcutBindings.entries());
     localStorage.setItem(ACTION_SHORTCUTS_KEY, JSON.stringify(payload));
+  }
+
+  private loadSkillPresets(): SkillPresetRecord[] {
+    try {
+      const raw = localStorage.getItem(ACTION_SKILL_PRESETS_KEY);
+      if (!raw) {
+        return [];
+      }
+      const parsed = JSON.parse(raw) as unknown;
+      return this.parseSkillPresetCollection(parsed, { preserveIds: true });
+    } catch {
+      return [];
+    }
+  }
+
+  private saveSkillPresets(): void {
+    localStorage.setItem(ACTION_SKILL_PRESETS_KEY, JSON.stringify(this.buildSkillPresetExportPayload(this.skillPresets)));
+  }
+
+  private parseSkillPresetCollection(
+    payload: unknown,
+    options?: { preserveIds?: boolean; existingNames?: Set<string> },
+  ): SkillPresetRecord[] {
+    const preserveIds = options?.preserveIds === true;
+    const existingNames = options?.existingNames ?? new Set<string>();
+    const source = Array.isArray(payload)
+      ? payload
+      : isRecord(payload) && Array.isArray(payload.p)
+        ? payload.p
+      : isRecord(payload) && Array.isArray(payload.presets)
+        ? payload.presets
+        : isRecord(payload) && (Array.isArray(payload.skills) || Array.isArray(payload.s))
+          ? [payload]
+          : [];
+    const result: SkillPresetRecord[] = [];
+    const usedNames = new Set(existingNames);
+
+    for (const [index, value] of source.entries()) {
+      const preset = this.parseSkillPresetRecord(value, index, { preserveIds });
+      if (!preset) {
+        continue;
+      }
+      const uniqueName = this.resolveUniqueSkillPresetName(preset.name, usedNames);
+      result.push({
+        ...preset,
+        name: uniqueName,
+      });
+      usedNames.add(uniqueName);
+    }
+    return result;
+  }
+
+  private parseSkillPresetRecord(
+    value: unknown,
+    index: number,
+    options?: { preserveIds?: boolean },
+  ): SkillPresetRecord | null {
+    if (!isRecord(value)) {
+      return null;
+    }
+    const rawSkills = Array.isArray(value.s)
+      ? value.s
+      : Array.isArray(value.skills)
+        ? value.skills
+        : Array.isArray(value.entries)
+          ? value.entries
+          : null;
+    if (!rawSkills || rawSkills.length === 0) {
+      return null;
+    }
+    const skills: SkillPresetSkillState[] = [];
+    const seen = new Set<string>();
+    for (const entry of rawSkills) {
+      if (Array.isArray(entry)) {
+        const skillId = typeof entry[0] === 'string' ? entry[0].trim() : '';
+        const auto = entry[1] === 1;
+        if (!skillId || seen.has(skillId)) {
+          continue;
+        }
+        skills.push({
+          skillId,
+          enabled: auto,
+          skillEnabled: true,
+        });
+        seen.add(skillId);
+        continue;
+      }
+      if (!isRecord(entry)) {
+        continue;
+      }
+      const skillId = typeof entry.skillId === 'string'
+        ? entry.skillId.trim()
+        : typeof entry.id === 'string'
+          ? entry.id.trim()
+          : '';
+      const skillEnabled = readBoolean(entry.skillEnabled);
+      if (!skillId || seen.has(skillId) || skillEnabled === false) {
+        continue;
+      }
+      skills.push({
+        skillId,
+        enabled: readBoolean(entry.enabled, entry.autoBattleEnabled),
+        skillEnabled: true,
+      });
+      seen.add(skillId);
+    }
+    if (skills.length === 0) {
+      return null;
+    }
+    const fallbackName = `技能方案 ${index + 1}`;
+    const name = this.sanitizeSkillPresetName(
+      typeof value.n === 'string'
+        ? value.n
+        : typeof value.name === 'string'
+          ? value.name
+          : typeof value.title === 'string'
+            ? value.title
+            : fallbackName,
+    ) || fallbackName;
+    return {
+      id: options?.preserveIds === true && typeof value.id === 'string' && value.id
+        ? value.id
+        : this.generateSkillPresetId(),
+      name,
+      skills,
+    };
+  }
+
+  private sanitizeSkillPresetName(value: string): string {
+    return value.replace(/\s+/g, ' ').trim().slice(0, SKILL_PRESET_NAME_MAX_LENGTH);
+  }
+
+  private resolveUniqueSkillPresetName(name: string, usedNames: Set<string>): string {
+    const base = this.sanitizeSkillPresetName(name) || '技能方案';
+    if (!usedNames.has(base)) {
+      return base;
+    }
+    let suffix = 2;
+    while (usedNames.has(`${base} (${suffix})`)) {
+      suffix += 1;
+    }
+    return `${base} (${suffix})`;
+  }
+
+  private generateSkillPresetId(): string {
+    return `skill-preset-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  private getCurrentSkillPresetSnapshot(): SkillPresetSkillState[] {
+    return this.getAutoBattleSkillConfigs(this.currentActions)
+      .filter((entry) => entry.skillEnabled !== false)
+      .map((entry) => ({
+        skillId: entry.skillId,
+        enabled: entry.enabled !== false,
+        skillEnabled: true,
+      }));
+  }
+
+  private buildSkillPresetExportPayload(presets: SkillPresetRecord[]): SkillPresetLibrary {
+    return {
+      v: SKILL_PRESET_EXPORT_VERSION,
+      p: presets.map((preset) => ({
+        n: preset.name,
+        s: preset.skills
+          .filter((skill) => skill.skillEnabled !== false)
+          .map((skill) => [skill.skillId, skill.enabled !== false ? 1 : 0] as [string, 0 | 1]),
+      })),
+    };
+  }
+
+  private buildSkillPresetExportText(presets: SkillPresetRecord[]): string {
+    const lines = [`v=${SKILL_PRESET_EXPORT_VERSION + 1}`];
+    for (const preset of presets) {
+      lines.push(`p=${encodeURIComponent(preset.name)}`);
+      for (const skill of preset.skills) {
+        if (skill.skillEnabled === false) {
+          continue;
+        }
+        lines.push(`s=${encodeURIComponent(skill.skillId)},${skill.enabled !== false ? '1' : '0'}`);
+      }
+    }
+    return `${lines.join('\n')}\n`;
+  }
+
+  private parseSkillPresetText(
+    text: string,
+    options?: { preserveIds?: boolean; existingNames?: Set<string> },
+  ): SkillPresetRecord[] {
+    const parsedPresets: Array<{ n: string; s: Array<[string, 0 | 1]> }> = [];
+    let current: { n: string; s: Array<[string, 0 | 1]> } | null = null;
+    for (const rawLine of text.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith('#')) {
+        continue;
+      }
+      const separatorIndex = line.indexOf('=');
+      if (separatorIndex <= 0) {
+        continue;
+      }
+      const key = line.slice(0, separatorIndex).trim();
+      const value = line.slice(separatorIndex + 1).trim();
+      if (key === 'v') {
+        continue;
+      }
+      if (key === 'p') {
+        if (current && current.s.length > 0) {
+          parsedPresets.push(current);
+        }
+        current = {
+          n: decodePresetTextValue(value),
+          s: [],
+        };
+        continue;
+      }
+      if (key === 's' && current) {
+        const commaIndex = value.lastIndexOf(',');
+        if (commaIndex <= 0) {
+          continue;
+        }
+        const skillId = decodePresetTextValue(value.slice(0, commaIndex).trim());
+        const autoFlag = value.slice(commaIndex + 1).trim() === '1' ? 1 : 0;
+        if (!skillId) {
+          continue;
+        }
+        current.s.push([skillId, autoFlag]);
+      }
+    }
+    if (current && current.s.length > 0) {
+      parsedPresets.push(current);
+    }
+    if (parsedPresets.length === 0) {
+      return [];
+    }
+    return this.parseSkillPresetCollection({ p: parsedPresets }, options);
+  }
+
+  private downloadSkillPresetPayload(fileName: string, text: string): void {
+    const blob = new Blob([text], {
+      type: 'text/plain;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  private buildDefaultSkillPresetName(): string {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hour = String(now.getHours()).padStart(2, '0');
+    const minute = String(now.getMinutes()).padStart(2, '0');
+    return `技能方案 ${month}-${day} ${hour}:${minute}`;
+  }
+
+  private buildSkillPresetExternalRevision(): string {
+    const parts: string[] = [];
+    for (const action of this.getSkillActions(this.currentActions)) {
+      parts.push(action.id);
+      parts.push(action.autoBattleEnabled !== false ? '1' : '0');
+      parts.push(action.skillEnabled !== false ? '1' : '0');
+    }
+    return parts.join('\u0001');
   }
 
   private withUtilityActions(actions: ActionDef[]): ActionDef[] {
@@ -972,7 +1306,10 @@ export class ActionPanel {
     let html = `<div class="panel-section">
       <div class="panel-section-head">
         <div class="panel-section-title">技能</div>
-        <button class="small-btn ghost" data-action-skill-manage-open type="button">技能管理</button>
+        <div class="action-section-actions">
+          <button class="small-btn ghost" data-action-skill-manage-open type="button">技能管理</button>
+          <button class="small-btn ghost" data-action-skill-preset-open type="button">技能方案</button>
+        </div>
       </div>
       <div class="action-skill-subtabs">
         <button class="action-skill-subtab-btn ${this.activeSkillTab === 'auto' ? 'active' : ''}" data-action-skill-tab="auto" type="button">
@@ -1219,6 +1556,523 @@ export class ActionPanel {
     this.renderSkillManagementModal();
   }
 
+  private openSkillPresetModal(): void {
+    if (!this.skillPresetNameDraft) {
+      this.skillPresetNameDraft = this.buildDefaultSkillPresetName();
+    }
+    if (!this.selectedSkillPresetId) {
+      this.selectedSkillPresetId = this.skillPresets[0]?.id ?? null;
+    }
+    this.skillPresetStatus = null;
+    this.renderSkillPresetModal();
+  }
+
+  private resetSkillPresetModalState(): void {
+    this.skillPresetNameDraft = '';
+    this.skillPresetImportText = '';
+    this.skillPresetStatus = null;
+    if (!this.skillPresets.some((preset) => preset.id === this.selectedSkillPresetId)) {
+      this.selectedSkillPresetId = this.skillPresets[0]?.id ?? null;
+    }
+  }
+
+  private getSelectedSkillPreset(): SkillPresetRecord | null {
+    if (!this.selectedSkillPresetId) {
+      return null;
+    }
+    return this.skillPresets.find((preset) => preset.id === this.selectedSkillPresetId) ?? null;
+  }
+
+  private getSkillPresetSummaryLine(skills: SkillPresetSkillState[]): string {
+    const auto = skills.filter((skill) => skill.enabled !== false).length;
+    const manual = skills.length - auto;
+    return `已记录 ${skills.length} 项 · 自动 ${auto} · 手动 ${manual}`;
+  }
+
+  private getSkillPresetCompatibilitySummary(preset: SkillPresetRecord): string {
+    const currentSkillIds = new Set(this.getSkillActions(this.currentActions).map((action) => action.id));
+    const presetSkillIds = new Set(preset.skills.map((skill) => skill.skillId));
+    let matched = 0;
+    for (const skill of preset.skills) {
+      if (currentSkillIds.has(skill.skillId)) {
+        matched += 1;
+      }
+    }
+    let currentOnly = 0;
+    for (const action of this.getSkillActions(this.currentActions)) {
+      if (!presetSkillIds.has(action.id)) {
+        currentOnly += 1;
+      }
+    }
+    return `命中 ${matched}/${preset.skills.length} 项 · 当前新增 ${currentOnly} 项`;
+  }
+
+  private renderSkillPresetStatus(): string {
+    if (!this.skillPresetStatus) {
+      return '';
+    }
+    return `<div class="skill-preset-status ${this.skillPresetStatus.tone === 'error' ? 'error' : this.skillPresetStatus.tone === 'success' ? 'success' : ''}">${escapeHtml(this.skillPresetStatus.text)}</div>`;
+  }
+
+  private renderSkillPresetModal(): void {
+    const currentSkills = this.getCurrentSkillPresetSnapshot();
+    const selected = this.getSelectedSkillPreset();
+    const currentSummary = this.getSkillPresetSummaryLine(currentSkills);
+    const selectedSummary = selected ? this.getSkillPresetSummaryLine(selected.skills) : '未选择方案';
+    const compatibilitySummary = selected ? this.getSkillPresetCompatibilitySummary(selected) : '从列表选择一个方案后可查看兼容情况。';
+
+    detailModalHost.open({
+      ownerId: ActionPanel.SKILL_PRESET_MODAL_OWNER,
+      variantClass: 'detail-modal--skill-preset',
+      title: '技能方案',
+      subtitle: `本地方案 ${this.skillPresets.length} 份 · 当前技能 ${currentSkills.length} 项`,
+      bodyHtml: `
+        <div class="skill-preset-shell">
+          <div class="skill-preset-hero">
+            <div class="skill-preset-card">
+              <div class="skill-preset-card-title">保存当前技能布局</div>
+              <div class="skill-preset-card-copy">只记录当前已启用技能的顺序，以及它们是自动还是手动。未写进方案的技能会视为禁用，只保存在当前浏览器。导入时会自动忽略不存在的技能，并把你当前多出来的技能保留在禁用区。</div>
+              <div class="skill-manage-summary">
+                <span>${escapeHtml(currentSummary)}</span>
+              </div>
+              <div class="skill-preset-save-row">
+                <input
+                  class="skill-preset-name-input"
+                  data-skill-preset-name-input
+                  type="text"
+                  maxlength="${SKILL_PRESET_NAME_MAX_LENGTH}"
+                  placeholder="输入方案名"
+                  value="${escapeHtml(this.skillPresetNameDraft)}"
+                />
+                <button class="small-btn" data-skill-preset-save type="button"${currentSkills.length > 0 ? '' : ' disabled'}>保存当前</button>
+                <button class="small-btn ghost" data-skill-preset-overwrite type="button"${selected && currentSkills.length > 0 ? '' : ' disabled'}>覆盖选中</button>
+              </div>
+            </div>
+            <div class="skill-preset-card">
+              <div class="skill-preset-card-title">选中方案</div>
+              <div class="skill-preset-card-copy">${selected ? escapeHtml(selectedSummary) : '还没有选中任何技能方案。'}</div>
+              <div class="skill-manage-summary">
+                <span>${escapeHtml(compatibilitySummary)}</span>
+                <span>${selected ? '导出内容只包含技能 id 顺序和自动/手动标记' : '可导出单个方案或整个本地列表'}</span>
+              </div>
+              <div class="skill-preset-actions">
+                <button class="small-btn" data-skill-preset-apply type="button"${selected ? '' : ' disabled'}>套用选中</button>
+                <button class="small-btn ghost" data-skill-preset-copy type="button"${selected ? '' : ' disabled'}>复制选中</button>
+                <button class="small-btn ghost" data-skill-preset-export-selected type="button"${selected ? '' : ' disabled'}>导出选中</button>
+                <button class="small-btn ghost" data-skill-preset-export-all type="button"${this.skillPresets.length > 0 ? '' : ' disabled'}>导出全部</button>
+                <button class="small-btn danger" data-skill-preset-delete type="button"${selected ? '' : ' disabled'}>删除选中</button>
+              </div>
+            </div>
+          </div>
+          ${this.renderSkillPresetStatus()}
+          <div class="skill-preset-layout">
+            <div class="skill-preset-list-card">
+              <div class="skill-preset-section-head">
+                <div class="skill-preset-card-title">本地方案列表</div>
+                <div class="skill-preset-list-meta">${this.skillPresets.length > 0 ? '列表从上到下按最近保存排序' : '当前还没有保存任何方案'}</div>
+              </div>
+              ${this.skillPresets.length === 0
+                ? '<div class="empty-hint">先保存一份当前技能方案，再进行导出或分享。</div>'
+                : `<div class="skill-preset-list">
+                    ${this.skillPresets.map((preset) => `
+                      <button
+                        class="skill-preset-item ${preset.id === this.selectedSkillPresetId ? 'active' : ''}"
+                        data-skill-preset-select="${escapeHtml(preset.id)}"
+                        type="button"
+                      >
+                        <span class="skill-preset-item-name">${escapeHtml(preset.name)}</span>
+                        <span class="skill-preset-item-meta">${escapeHtml(this.getSkillPresetSummaryLine(preset.skills))}</span>
+                        <span class="skill-preset-item-meta">${escapeHtml(this.getSkillPresetCompatibilitySummary(preset))}</span>
+                      </button>
+                    `).join('')}
+                  </div>`}
+            </div>
+            <div class="skill-preset-import-card">
+              <div class="skill-preset-section-head">
+                <div class="skill-preset-card-title">导入数据</div>
+                <button class="small-btn ghost" data-skill-preset-import-file-open type="button">读取文件</button>
+              </div>
+              <div class="skill-preset-card-copy">支持导入键值文本，也兼容之前的 JSON 分享数据。若名称重复，会自动在本地追加编号。</div>
+              <textarea
+                class="skill-preset-import-input"
+                data-skill-preset-import-input
+                placeholder="粘贴技能方案文本，例如：&#10;v=3&#10;p=日常刷图&#10;s=fireball,1&#10;s=guard,0"
+              >${escapeHtml(this.skillPresetImportText)}</textarea>
+              <input class="hidden" data-skill-preset-import-file type="file" accept="text/plain,.txt,.preset,application/json,.json" />
+              <div class="skill-preset-actions">
+                <button class="small-btn" data-skill-preset-import type="button"${this.skillPresetImportText.trim() ? '' : ' disabled'}>导入到本地</button>
+                <button class="small-btn ghost" data-skill-preset-import-clear type="button"${this.skillPresetImportText.trim() ? '' : ' disabled'}>清空输入</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `,
+      onClose: () => {
+        this.resetSkillPresetModalState();
+      },
+      onAfterRender: (body) => {
+        this.bindSkillPresetEvents(body);
+      },
+    });
+    this.skillPresetExternalRevision = this.buildSkillPresetExternalRevision();
+  }
+
+  private bindSkillPresetEvents(root: HTMLElement): void {
+    root.querySelectorAll<HTMLInputElement>('[data-skill-preset-name-input]').forEach((input) => {
+      input.addEventListener('input', () => {
+        this.skillPresetNameDraft = input.value.slice(0, SKILL_PRESET_NAME_MAX_LENGTH);
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-preset-save]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.saveCurrentSkillPreset(false);
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-preset-overwrite]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.saveCurrentSkillPreset(true);
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-preset-select]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const presetId = button.dataset.skillPresetSelect;
+        if (!presetId) {
+          return;
+        }
+        this.selectedSkillPresetId = presetId;
+        const preset = this.getSelectedSkillPreset();
+        this.skillPresetNameDraft = preset?.name ?? this.skillPresetNameDraft;
+        this.skillPresetStatus = null;
+        this.renderSkillPresetModal();
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-preset-apply]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.applySelectedSkillPreset();
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-preset-copy]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.copySelectedSkillPreset();
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-preset-export-selected]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.exportSelectedSkillPreset();
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-preset-export-all]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.exportAllSkillPresets();
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-preset-delete]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.deleteSelectedSkillPreset();
+      });
+    });
+    root.querySelectorAll<HTMLTextAreaElement>('[data-skill-preset-import-input]').forEach((input) => {
+      input.addEventListener('input', () => {
+        this.skillPresetImportText = input.value;
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-preset-import-clear]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.skillPresetImportText = '';
+        this.skillPresetStatus = null;
+        this.renderSkillPresetModal();
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-preset-import]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.importSkillPresetsFromText(this.skillPresetImportText);
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-skill-preset-import-file-open]').forEach((button) => {
+      button.addEventListener('click', () => {
+        root.querySelector<HTMLInputElement>('[data-skill-preset-import-file]')?.click();
+      });
+    });
+    root.querySelectorAll<HTMLInputElement>('[data-skill-preset-import-file]').forEach((input) => {
+      input.addEventListener('change', async () => {
+        const file = input.files?.[0];
+        if (!file) {
+          return;
+        }
+        try {
+          this.skillPresetImportText = await file.text();
+          this.skillPresetStatus = {
+            tone: 'info',
+            text: `已读取文件 ${file.name}，确认后即可导入本地。`,
+          };
+          this.renderSkillPresetModal();
+        } catch {
+          this.skillPresetStatus = {
+            tone: 'error',
+            text: '读取技能方案文件失败，请改用复制粘贴导入。',
+          };
+          this.renderSkillPresetModal();
+        } finally {
+          input.value = '';
+        }
+      });
+    });
+  }
+
+  private saveCurrentSkillPreset(overwriteSelected: boolean): void {
+    const snapshot = this.getCurrentSkillPresetSnapshot();
+    if (snapshot.length === 0) {
+      this.skillPresetStatus = {
+        tone: 'error',
+        text: '当前没有可保存的技能。',
+      };
+      this.renderSkillPresetModal();
+      return;
+    }
+    const selected = this.getSelectedSkillPreset();
+    const inputName = this.sanitizeSkillPresetName(this.skillPresetNameDraft);
+    if (!inputName && !overwriteSelected) {
+      this.skillPresetStatus = {
+        tone: 'error',
+        text: '请先输入方案名。',
+      };
+      this.renderSkillPresetModal();
+      return;
+    }
+
+    if (overwriteSelected && selected) {
+      const nextName = inputName || selected.name;
+      const updatedPreset: SkillPresetRecord = {
+        ...selected,
+        name: nextName,
+        skills: snapshot,
+      };
+      this.skillPresets = [
+        updatedPreset,
+        ...this.skillPresets.filter((preset) => preset.id !== selected.id),
+      ];
+      this.selectedSkillPresetId = selected.id;
+      this.skillPresetNameDraft = nextName;
+      this.skillPresetStatus = {
+        tone: 'success',
+        text: `已覆盖方案“${nextName}”。`,
+      };
+    } else {
+      const usedNames = new Set(this.skillPresets.map((preset) => preset.name));
+      const nextName = this.resolveUniqueSkillPresetName(inputName || this.buildDefaultSkillPresetName(), usedNames);
+      const preset: SkillPresetRecord = {
+        id: this.generateSkillPresetId(),
+        name: nextName,
+        skills: snapshot,
+      };
+      this.skillPresets = [preset, ...this.skillPresets];
+      this.selectedSkillPresetId = preset.id;
+      this.skillPresetNameDraft = nextName;
+      this.skillPresetStatus = {
+        tone: 'success',
+        text: `已保存方案“${nextName}”。`,
+      };
+    }
+
+    this.saveSkillPresets();
+    this.renderSkillPresetModal();
+  }
+
+  private resolveAppliedSkillPresetConfigs(preset: SkillPresetRecord): AutoBattleSkillConfig[] {
+    const currentSkillActions = this.getSkillActions(this.currentActions);
+    const currentMap = new Map(currentSkillActions.map((action) => [action.id, action] as const));
+    const next: AutoBattleSkillConfig[] = [];
+    const seen = new Set<string>();
+
+    for (const skill of preset.skills) {
+      if (seen.has(skill.skillId) || !currentMap.has(skill.skillId)) {
+        continue;
+      }
+      next.push({
+        skillId: skill.skillId,
+        enabled: skill.enabled !== false,
+        skillEnabled: true,
+      });
+      seen.add(skill.skillId);
+    }
+
+    for (const action of currentSkillActions) {
+      if (seen.has(action.id)) {
+        continue;
+      }
+      next.push({
+        skillId: action.id,
+        enabled: action.autoBattleEnabled !== false,
+        skillEnabled: false,
+      });
+      seen.add(action.id);
+    }
+
+    return next;
+  }
+
+  private commitSkillPresetActions(nextActions: ActionDef[]): void {
+    const nextAutoBattleSkills = this.getAutoBattleSkillConfigs(nextActions);
+    this.currentActions = nextActions;
+    if (this.previewPlayer) {
+      this.previewPlayer.actions = this.currentActions.filter((action) => action.id !== 'client:observe');
+      this.previewPlayer.autoBattleSkills = nextAutoBattleSkills;
+    }
+    this.skillManagementDraft = null;
+    this.skillManagementExternalRevision = null;
+    this.skillPresetExternalRevision = null;
+    this.skillManagementListScrollTop = 0;
+    this.bindingActionId = null;
+    this.clearDragState();
+    this.render(this.currentActions);
+    this.onUpdateAutoBattleSkills?.(nextAutoBattleSkills);
+  }
+
+  private applySelectedSkillPreset(): void {
+    const preset = this.getSelectedSkillPreset();
+    if (!preset) {
+      this.skillPresetStatus = {
+        tone: 'error',
+        text: '请先选择一个技能方案。',
+      };
+      this.renderSkillPresetModal();
+      return;
+    }
+    const previousDraft = this.skillManagementDraft;
+    this.skillManagementDraft = this.resolveAppliedSkillPresetConfigs(preset);
+    const nextActions = this.getSkillManagementPreviewActions();
+    this.skillManagementDraft = previousDraft;
+    this.commitSkillPresetActions(nextActions);
+    this.skillPresetStatus = {
+      tone: 'success',
+      text: `已套用方案“${preset.name}”。`,
+    };
+    this.renderSkillPresetModal();
+  }
+
+  private async copySelectedSkillPreset(): Promise<void> {
+    const preset = this.getSelectedSkillPreset();
+    if (!preset) {
+      this.skillPresetStatus = {
+        tone: 'error',
+        text: '请先选择一个技能方案。',
+      };
+      this.renderSkillPresetModal();
+      return;
+    }
+    const text = this.buildSkillPresetExportText([preset]);
+    if (!navigator.clipboard?.writeText) {
+      this.skillPresetStatus = {
+        tone: 'error',
+        text: '当前浏览器不支持直接复制，请改用导出文件。',
+      };
+      this.renderSkillPresetModal();
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      this.skillPresetStatus = {
+        tone: 'success',
+        text: `已复制方案“${preset.name}”的数据。`,
+      };
+    } catch {
+      this.skillPresetStatus = {
+        tone: 'error',
+        text: '复制失败，请改用导出文件。',
+      };
+    }
+    this.renderSkillPresetModal();
+  }
+
+  private exportSelectedSkillPreset(): void {
+    const preset = this.getSelectedSkillPreset();
+    if (!preset) {
+      return;
+    }
+    this.downloadSkillPresetPayload(`${preset.name}.txt`, this.buildSkillPresetExportText([preset]));
+    this.skillPresetStatus = {
+      tone: 'success',
+      text: `已导出方案“${preset.name}”。`,
+    };
+    this.renderSkillPresetModal();
+  }
+
+  private exportAllSkillPresets(): void {
+    if (this.skillPresets.length === 0) {
+      return;
+    }
+    this.downloadSkillPresetPayload('skill-presets.txt', this.buildSkillPresetExportText(this.skillPresets));
+    this.skillPresetStatus = {
+      tone: 'success',
+      text: `已导出全部 ${this.skillPresets.length} 份技能方案。`,
+    };
+    this.renderSkillPresetModal();
+  }
+
+  private deleteSelectedSkillPreset(): void {
+    const preset = this.getSelectedSkillPreset();
+    if (!preset) {
+      return;
+    }
+    if (!window.confirm(`确定删除技能方案“${preset.name}”吗？`)) {
+      return;
+    }
+    this.skillPresets = this.skillPresets.filter((entry) => entry.id !== preset.id);
+    this.selectedSkillPresetId = this.skillPresets[0]?.id ?? null;
+    this.skillPresetNameDraft = this.getSelectedSkillPreset()?.name ?? this.buildDefaultSkillPresetName();
+    this.skillPresetStatus = {
+      tone: 'success',
+      text: `已删除方案“${preset.name}”。`,
+    };
+    this.saveSkillPresets();
+    this.renderSkillPresetModal();
+  }
+
+  private importSkillPresetsFromText(rawText: string): void {
+    const text = rawText.trim();
+    if (!text) {
+      this.skillPresetStatus = {
+        tone: 'error',
+        text: '请先粘贴要导入的技能方案数据。',
+      };
+      this.renderSkillPresetModal();
+      return;
+    }
+    try {
+      const importOptions = {
+        existingNames: new Set(this.skillPresets.map((preset) => preset.name)),
+      };
+      const imported = this.parseSkillPresetText(text, importOptions);
+      if (imported.length === 0) {
+        const parsed = JSON.parse(text) as unknown;
+        imported.push(...this.parseSkillPresetCollection(parsed, importOptions));
+      }
+      if (imported.length === 0) {
+        this.skillPresetStatus = {
+          tone: 'error',
+          text: '导入数据里没有找到可用的技能方案。',
+        };
+        this.renderSkillPresetModal();
+        return;
+      }
+      this.skillPresets = [...imported, ...this.skillPresets];
+      this.selectedSkillPresetId = imported[0]?.id ?? this.selectedSkillPresetId;
+      this.skillPresetNameDraft = imported[0]?.name ?? this.buildDefaultSkillPresetName();
+      this.skillPresetStatus = {
+        tone: 'success',
+        text: `已导入 ${imported.length} 份技能方案。`,
+      };
+      this.saveSkillPresets();
+      this.renderSkillPresetModal();
+    } catch {
+      this.skillPresetStatus = {
+        tone: 'error',
+        text: '技能方案数据格式无效，请检查键值文本后重试。',
+      };
+      this.renderSkillPresetModal();
+    }
+  }
+
   private getSortedSkillManagementActionIds(): string[] {
     const previewActions = this.getSkillManagementPreviewActions();
     const skillEntries = this.getFilteredSkillManagementEntries(this.getSkillManagementEntries(previewActions));
@@ -1383,6 +2237,17 @@ export class ActionPanel {
       return;
     }
     this.renderSkillManagementModal();
+  }
+
+  private renderSkillPresetModalIfOpen(): void {
+    if (!detailModalHost.isOpenFor(ActionPanel.SKILL_PRESET_MODAL_OWNER)) {
+      return;
+    }
+    const nextRevision = this.buildSkillPresetExternalRevision();
+    if (this.skillPresetExternalRevision === nextRevision) {
+      return;
+    }
+    this.renderSkillPresetModal();
   }
 
   private renderSkillManagementModal(): void {
