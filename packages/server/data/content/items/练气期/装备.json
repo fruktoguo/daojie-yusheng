@@ -662,7 +662,7 @@
           ]
         },
         "valueStats": {
-          "realmExpPerTick": 4,
+          "realmExpPerTick": 7,
           "techniqueExpPerTick": 11
         }
       }
@@ -1012,7 +1012,7 @@
           ]
         },
         "valueStats": {
-          "realmExpPerTick": 4,
+          "realmExpPerTick": 7,
           "techniqueExpPerTick": 14
         }
       }
@@ -1339,7 +1339,7 @@
           ]
         },
         "valueStats": {
-          "realmExpPerTick": 3,
+          "realmExpPerTick": 5,
           "techniqueExpPerTick": 7
         }
       }
@@ -1701,7 +1701,7 @@
           ]
         },
         "valueStats": {
-          "realmExpPerTick": 4,
+          "realmExpPerTick": 7,
           "techniqueExpPerTick": 11
         }
       }
@@ -1902,7 +1902,7 @@
           ]
         },
         "valueStats": {
-          "realmExpPerTick": 4,
+          "realmExpPerTick": 7,
           "techniqueExpPerTick": 14
         }
       }
@@ -2059,7 +2059,7 @@
           ]
         },
         "valueStats": {
-          "realmExpPerTick": 4,
+          "realmExpPerTick": 7,
           "techniqueExpPerTick": 14
         }
       }

@@ -14936,7 +14936,7 @@
             ]
           },
           "valueStats": {
-            "realmExpPerTick": 1
+            "realmExpPerTick": 2
           }
         }
       ]
@@ -14986,7 +14986,7 @@
             ]
           },
           "valueStats": {
-            "realmExpPerTick": 4,
+            "realmExpPerTick": 7,
             "techniqueExpPerTick": 11
           }
         }
@@ -15061,7 +15061,7 @@
             ]
           },
           "valueStats": {
-            "realmExpPerTick": 4,
+            "realmExpPerTick": 7,
             "techniqueExpPerTick": 14
           }
         }
@@ -15548,7 +15548,7 @@
             ]
           },
           "valueStats": {
-            "realmExpPerTick": 4,
+            "realmExpPerTick": 7,
             "techniqueExpPerTick": 14
           }
         }
@@ -15698,7 +15698,7 @@
             ]
           },
           "valueStats": {
-            "realmExpPerTick": 4,
+            "realmExpPerTick": 7,
             "techniqueExpPerTick": 14
           }
         }
@@ -15760,7 +15760,7 @@
           "valueStats": {
             "physDef": 6,
             "resolvePower": 6,
-            "hpRegenRate": 0.6
+            "hpRegenRate": 60
           }
         }
       ],
@@ -15803,7 +15803,7 @@
             ]
           },
           "valueStats": {
-            "realmExpPerTick": 3,
+            "realmExpPerTick": 5,
             "techniqueExpPerTick": 7
           }
         }
@@ -15888,8 +15888,8 @@
           "shortMark": "灵",
           "duration": 900,
           "valueStats": {
-            "hpRegenRate": 0.4,
-            "qiRegenRate": 0.8
+            "hpRegenRate": 40,
+            "qiRegenRate": 80
           }
         }
       ],
@@ -16944,7 +16944,7 @@
       "equipSlot": "accessory",
       "equipValueStats": {
         "maxHp": 1,
-        "realmExpPerTick": 1
+        "realmExpPerTick": 2
       }
     },
     {
@@ -17539,7 +17539,7 @@
             ]
           },
           "stats": {
-            "realmExpPerTick": 2,
+            "realmExpPerTick": 4,
             "techniqueExpPerTick": 5
           }
         },
@@ -17986,8 +17986,8 @@
           "shortMark": "脉",
           "duration": 1200,
           "valueStats": {
-            "hpRegenRate": 0.9,
-            "qiRegenRate": 0.6,
+            "hpRegenRate": 70,
+            "qiRegenRate": 60,
             "spellDef": 4
           }
         }
@@ -18734,7 +18734,7 @@
             ]
           },
           "valueStats": {
-            "realmExpPerTick": 4,
+            "realmExpPerTick": 7,
             "techniqueExpPerTick": 11
           }
         }
