@@ -5094,6 +5094,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   private restorePlayerAfterDefeat(player: PlayerState, occupy: boolean) {
     const respawnPlacement = this.mapService.resolveDefaultPlayerSpawnPosition(player.id, player.respawnMapId);
     this.navigationService.clearMoveTarget(player.id);
+    player.questNavigation = undefined;
+    if (player.temporaryBuffs?.length) {
+      player.temporaryBuffs = player.temporaryBuffs.filter((buff) => buff.category !== 'debuff');
+    }
+    this.attrService.recalcPlayer(player);
     this.mapService.removeOccupant(player.mapId, player.x, player.y, player.id);
     player.mapId = respawnPlacement.mapId;
     player.x = respawnPlacement.x;
