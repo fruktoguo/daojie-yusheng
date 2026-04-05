@@ -110,6 +110,9 @@ export class EquipmentPanel {
     this.lastEquipment = null;
     this.tooltipSlot = null;
     this.tooltip.hide(true);
+    this.slotViews.clear();
+    this.sectionEl = null;
+    this.emptyStateEl = null;
     this.pane.innerHTML = '<div class="empty-hint">尚未装备任何物品</div>';
   }
 
@@ -135,7 +138,7 @@ export class EquipmentPanel {
     }
 
     const hasAnyEquipment = EQUIP_SLOTS.some((slot) => !!equipment[slot]);
-    this.emptyStateEl.classList.toggle('hidden', hasAnyEquipment);
+    this.emptyStateEl.hidden = hasAnyEquipment;
 
     for (const slot of EQUIP_SLOTS) {
       const slotView = this.slotViews.get(slot);
@@ -152,11 +155,11 @@ export class EquipmentPanel {
       }
       slotView.name.textContent = getEquipSlotLabel(slot);
       slotView.item.textContent = item?.name ?? '';
-      slotView.item.classList.toggle('hidden', !hasItem);
+      slotView.item.hidden = !hasItem;
       slotView.empty.textContent = '空';
-      slotView.empty.classList.toggle('hidden', hasItem);
+      slotView.empty.hidden = hasItem;
       slotView.meta.textContent = hasItem ? formatItemBonuses(item) : '尚未装备';
-      slotView.action.classList.toggle('hidden', !hasItem);
+      slotView.action.hidden = !hasItem;
       slotView.action.disabled = !hasItem;
       slotView.action.dataset.unequip = slot;
     }
@@ -180,8 +183,9 @@ export class EquipmentPanel {
       sectionEl.append(titleEl);
 
       const emptyStateEl = document.createElement('div');
-      emptyStateEl.className = 'empty-hint hidden';
+      emptyStateEl.className = 'empty-hint';
       emptyStateEl.textContent = '尚未装备任何物品';
+      emptyStateEl.hidden = true;
       sectionEl.append(emptyStateEl);
 
       for (const slot of EQUIP_SLOTS) {
@@ -208,7 +212,8 @@ export class EquipmentPanel {
     name.textContent = getEquipSlotLabel(slot);
 
     const item = document.createElement('span');
-    item.className = 'equip-slot-item hidden';
+    item.className = 'equip-slot-item';
+    item.hidden = true;
 
     const empty = document.createElement('span');
     empty.className = 'equip-slot-empty';
@@ -219,9 +224,10 @@ export class EquipmentPanel {
     meta.textContent = '尚未装备';
 
     const action = document.createElement('button');
-    action.className = 'small-btn hidden';
+    action.className = 'small-btn';
     action.type = 'button';
     action.textContent = '卸下';
+    action.hidden = true;
     action.disabled = true;
     action.dataset.unequip = slot;
 

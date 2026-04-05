@@ -94,6 +94,15 @@ function formatItemBonuses(item: EquipmentSlots[EquipSlot]): string {
   return parts.length > 0 ? parts.join(' / ') : '暂无词条';
 }
 
+type EquipmentSlotView = {
+  root: HTMLDivElement;
+  name: HTMLSpanElement;
+  item: HTMLSpanElement;
+  empty: HTMLSpanElement;
+  meta: HTMLSpanElement;
+  action: HTMLButtonElement;
+};
+
 /** 装备面板：显示5个装备槽位 */
 export class EquipmentPanel {
   private pane = document.getElementById('pane-equipment')!;
@@ -101,9 +110,13 @@ export class EquipmentPanel {
   private lastEquipment: EquipmentSlots | null = null;
   private tooltip = new FloatingTooltip('floating-tooltip equipment-tooltip');
   private tooltipSlot: EquipSlot | null = null;
+  private slotViews = new Map<EquipSlot, EquipmentSlotView>();
+  private emptyStateEl: HTMLDivElement | null = null;
+  private sectionEl: HTMLDivElement | null = null;
 
   constructor() {
     this.ensureTooltipStyle();
+    this.bindActionEvents();
     this.bindTooltipEvents();
   }
 
@@ -111,6 +124,9 @@ export class EquipmentPanel {
     this.lastEquipment = null;
     this.tooltipSlot = null;
     this.tooltip.hide(true);
+    this.slotViews.clear();
+    this.sectionEl = null;
+    this.emptyStateEl = null;
     this.pane.innerHTML = '<div class="empty-hint">尚未装备任何物品</div>';
   }
 
@@ -130,42 +146,123 @@ export class EquipmentPanel {
   }
 
   private render(equipment: EquipmentSlots): void {
-    let html = '<div class="panel-section">';
-    html += '<div class="panel-section-title">装备栏</div>';
-
-    for (const slot of EQUIP_SLOTS) {
-      const item = equipment[slot];
-      if (item) {
-        const bonusText = formatItemBonuses(item);
-        html += `<div class="equip-slot" data-equip-tooltip-slot="${slot}">
-          <div class="equip-copy">
-            <span class="equip-slot-name">${getEquipSlotLabel(slot)}</span>
-            <span class="equip-slot-item">${item.name}</span>
-            <span class="equip-slot-meta">${bonusText}</span>
-          </div>
-          <button class="small-btn" data-unequip="${slot}">卸下</button>
-        </div>`;
-      } else {
-        html += `<div class="equip-slot">
-          <div class="equip-copy">
-            <span class="equip-slot-name">${getEquipSlotLabel(slot)}</span>
-            <span class="equip-slot-empty">空</span>
-            <span class="equip-slot-meta">尚未装备</span>
-          </div>
-        </div>`;
-      }
+    this.ensureStructure();
+    if (!this.sectionEl || !this.emptyStateEl) {
+      return;
     }
 
-    html += '</div>';
-    preserveSelection(this.pane, () => {
-      this.pane.innerHTML = html;
+    const hasAnyEquipment = EQUIP_SLOTS.some((slot) => !!equipment[slot]);
+    this.emptyStateEl.hidden = hasAnyEquipment;
 
-      this.pane.querySelectorAll('[data-unequip]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const slot = (btn as HTMLElement).dataset.unequip as EquipSlot;
-          this.onUnequip?.(slot);
-        });
-      });
+    for (const slot of EQUIP_SLOTS) {
+      const slotView = this.slotViews.get(slot);
+      if (!slotView) {
+        continue;
+      }
+      const item = equipment[slot];
+      const hasItem = !!item;
+      slotView.root.toggleAttribute('data-equip-tooltip-slot', hasItem);
+      if (hasItem) {
+        slotView.root.dataset.equipTooltipSlot = slot;
+      } else {
+        delete slotView.root.dataset.equipTooltipSlot;
+      }
+      slotView.name.textContent = getEquipSlotLabel(slot);
+      slotView.item.textContent = item?.name ?? '';
+      slotView.item.hidden = !hasItem;
+      slotView.empty.textContent = '空';
+      slotView.empty.hidden = hasItem;
+      slotView.meta.textContent = hasItem ? formatItemBonuses(item) : '尚未装备';
+      slotView.action.hidden = !hasItem;
+      slotView.action.disabled = !hasItem;
+      slotView.action.dataset.unequip = slot;
+    }
+  }
+
+  private ensureStructure(): void {
+    if (this.sectionEl && this.emptyStateEl && this.slotViews.size === EQUIP_SLOTS.length) {
+      return;
+    }
+
+    preserveSelection(this.pane, () => {
+      this.pane.replaceChildren();
+      this.slotViews.clear();
+
+      const sectionEl = document.createElement('div');
+      sectionEl.className = 'panel-section';
+
+      const titleEl = document.createElement('div');
+      titleEl.className = 'panel-section-title';
+      titleEl.textContent = '装备栏';
+      sectionEl.append(titleEl);
+
+      const emptyStateEl = document.createElement('div');
+      emptyStateEl.className = 'empty-hint';
+      emptyStateEl.textContent = '尚未装备任何物品';
+      emptyStateEl.hidden = true;
+      sectionEl.append(emptyStateEl);
+
+      for (const slot of EQUIP_SLOTS) {
+        const slotView = this.createSlotView(slot);
+        this.slotViews.set(slot, slotView);
+        sectionEl.append(slotView.root);
+      }
+
+      this.pane.append(sectionEl);
+      this.sectionEl = sectionEl;
+      this.emptyStateEl = emptyStateEl;
+    });
+  }
+
+  private createSlotView(slot: EquipSlot): EquipmentSlotView {
+    const root = document.createElement('div');
+    root.className = 'equip-slot';
+
+    const copy = document.createElement('div');
+    copy.className = 'equip-copy';
+
+    const name = document.createElement('span');
+    name.className = 'equip-slot-name';
+    name.textContent = getEquipSlotLabel(slot);
+
+    const item = document.createElement('span');
+    item.className = 'equip-slot-item';
+    item.hidden = true;
+
+    const empty = document.createElement('span');
+    empty.className = 'equip-slot-empty';
+    empty.textContent = '空';
+
+    const meta = document.createElement('span');
+    meta.className = 'equip-slot-meta';
+    meta.textContent = '尚未装备';
+
+    const action = document.createElement('button');
+    action.className = 'small-btn';
+    action.type = 'button';
+    action.textContent = '卸下';
+    action.hidden = true;
+    action.disabled = true;
+    action.dataset.unequip = slot;
+
+    copy.append(name, item, empty, meta);
+    root.append(copy, action);
+
+    return { root, name, item, empty, meta, action };
+  }
+
+  private bindActionEvents(): void {
+    this.pane.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      const button = target.closest<HTMLButtonElement>('[data-unequip]');
+      const slot = button?.dataset.unequip as EquipSlot | undefined;
+      if (!button || !slot || button.disabled) {
+        return;
+      }
+      this.onUnequip?.(slot);
     });
   }
 
