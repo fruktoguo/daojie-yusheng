@@ -17770,6 +17770,14 @@
       }
     },
     {
+      "itemId": "pill.wangsheng",
+      "name": "往生丹",
+      "type": "consumable",
+      "level": 10,
+      "grade": "heaven",
+      "desc": "丹成如返照回光，服下后会散尽旧日修为，重归凡胎。使用后境界回到凡胎，境界修为与底蕴归零，天门与灵根痕迹也会一并散去。"
+    },
+    {
       "itemId": "pill.fivephase_harmony_pellet",
       "name": "五和丸",
       "type": "consumable",

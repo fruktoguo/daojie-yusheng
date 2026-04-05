@@ -72,6 +72,7 @@ import {
   DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID,
   HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID,
   SHATTER_SPIRIT_PILL_ITEM_ID,
+  WANGSHENG_PILL_ITEM_ID,
 } from '../constants/gameplay/technique';
 import { GAME_CONFIG_PATH } from '../constants/storage/config';
 import { ActionService } from './action.service';
@@ -1349,6 +1350,26 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
     if (item.itemId === SHATTER_SPIRIT_PILL_ITEM_ID) {
       const result = this.techniqueService.useShatterSpiritPill(player);
+      if (result.error) {
+        messages.push({
+          playerId: player.id,
+          text: result.error,
+          kind: 'system',
+        });
+        return;
+      }
+      this.markDirty(player.id, result.dirty as DirtyFlag[]);
+      for (const message of result.messages) {
+        messages.push({
+          playerId: player.id,
+          text: message.text,
+          kind: message.kind ?? 'system',
+        });
+      }
+    }
+
+    if (item.itemId === WANGSHENG_PILL_ITEM_ID) {
+      const result = this.techniqueService.useWangshengPill(player);
       if (result.error) {
         messages.push({
           playerId: player.id,

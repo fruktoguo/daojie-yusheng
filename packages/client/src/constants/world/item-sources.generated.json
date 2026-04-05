@@ -6418,6 +6418,17 @@
       "count": 1
     }
   ],
+  "pill.wangsheng": [
+    {
+      "kind": "monster_drop",
+      "mapId": "guizang_vein_cavern",
+      "mapName": "归藏脉窟",
+      "monsterId": "m_guizang_failed_foundation",
+      "monsterName": "未成道基",
+      "chance": 0.001,
+      "count": 1
+    }
+  ],
   "pill.windstride_elixir": [
     {
       "kind": "shop",

@@ -486,6 +486,19 @@ export class TechniqueService {
     };
   }
 
+  useWangshengPill(player: PlayerState): HeavenGateActionResult {
+    const nextRealm = this.normalizeRealmState(1, 0);
+    this.applyHeavenGateResetState(player, nextRealm, 0);
+    player.foundation = 0;
+    return {
+      dirty: ['attr', 'actions', 'tech'],
+      messages: [{
+        text: '往生丹药力尽化前尘，境界已重归凡胎，境界修为与底蕴尽数归零。',
+        kind: 'quest',
+      }],
+    };
+  }
+
   canUseSpiritualRootSeed(player: PlayerState, tier: SpiritualRootSeedTier): string | null {
     this.initializePlayerProgression(player);
     const realm = player.realm;

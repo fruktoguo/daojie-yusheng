@@ -36,3 +36,5 @@ export const HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID = 'root_seed.heaven';
 export const DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID = 'root_seed.divine';
 /** 碎灵丹物品 ID */
 export const SHATTER_SPIRIT_PILL_ITEM_ID = 'pill.shatter_spirit';
+/** 往生丹物品 ID */
+export const WANGSHENG_PILL_ITEM_ID = 'pill.wangsheng';
