@@ -394,6 +394,7 @@ export class AttrPanel {
     ratioDivisors: NumericRatioDivisors,
     bonuses: AttrBonus[],
   ): AttrRadarPaneSnapshot {
+    const roots = this.resolveDisplaySpiritualRoots(stats, bonuses);
     const entries: RadarEntry[] = ELEMENT_KEYS.map((key, index) => {
       const damageBonus = stats.elementDamageBonus[key];
       const reductionDivisor = ratioDivisors.elementDamageReduce[key] || 100;
@@ -413,7 +414,7 @@ export class AttrPanel {
       };
     });
     const radarMax = Math.max(100, ...entries.map((entry) => entry.value)) || 100;
-    const rootTitle = describeSpiritualRoots(resolveSpiritualRootsFromBonuses(bonuses)).name;
+    const rootTitle = describeSpiritualRoots(roots).name;
     return this.buildRadarPaneSnapshot(rootTitle, radarMax, entries, 'root');
   }
 
@@ -421,8 +422,7 @@ export class AttrPanel {
     stats: NumericStats,
     bonuses: AttrBonus[],
   ): AttrNumericPaneSnapshot {
-    const roots = resolveSpiritualRootsFromBonuses(bonuses)
-      ?? normalizeSpiritualRoots(this.buildHeavenGateRootsFromStats(stats));
+    const roots = this.resolveDisplaySpiritualRoots(stats, bonuses);
     const cards: AttrNumericCardSnapshot[] = [{
       key: 'neutral-aura',
       label: '无属性灵气',
@@ -464,6 +464,11 @@ export class AttrPanel {
       roots[key] = Math.max(0, Math.min(100, Math.round(stats.elementDamageBonus[key])));
       return roots;
     }, {} as HeavenGateRootValues);
+  }
+
+  private resolveDisplaySpiritualRoots(stats: NumericStats, bonuses: AttrBonus[]): HeavenGateRootValues | null {
+    return resolveSpiritualRootsFromBonuses(bonuses)
+      ?? normalizeSpiritualRoots(this.buildHeavenGateRootsFromStats(stats));
   }
 
   private buildRadarPaneSnapshot(title: string, scale: number, entries: RadarEntry[], paneId: string): AttrRadarPaneSnapshot {
