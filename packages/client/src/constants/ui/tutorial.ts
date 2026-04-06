@@ -1,3 +1,5 @@
+import { TUTORIAL_MECHANIC_TOPICS as SHARED_TUTORIAL_MECHANIC_TOPICS } from '@mud/shared';
+
 export interface TutorialTopicSection {
   title: string;
   items: string[];
@@ -334,6 +336,8 @@ export const TUTORIAL_TOPICS: TutorialTopic[] = [
     ],
   },
 ];
+
+export const TUTORIAL_MECHANIC_TOPICS: TutorialTopic[] = SHARED_TUTORIAL_MECHANIC_TOPICS;
 
 export const TUTORIAL_FLOW_TOPICS: TutorialFlowTopic[] = [
   {

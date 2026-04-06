@@ -30,3 +30,4 @@ export * from './mail';
 export * from './market-price';
 export * from './structured';
 export * from './role-name';
+export * from './tutorial-mechanics.generated';
