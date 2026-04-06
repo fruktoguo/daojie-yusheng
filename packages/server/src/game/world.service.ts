@@ -117,6 +117,10 @@ import {
 } from '../constants/gameplay/terrain';
 import { MARKET_CURRENCY_ITEM_ID } from '../constants/gameplay/market';
 import {
+  ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_MULTIPLIER,
+  ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_THRESHOLD,
+} from '../constants/gameplay/monster';
+import {
   MONSTER_RESPAWN_ACCELERATION_BASE_PERCENT,
   MONSTER_RESPAWN_ACCELERATION_MAX_PERCENT,
   MONSTER_RESPAWN_ACCELERATION_STEP_PERCENT,
@@ -3536,7 +3540,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     this.distributeMonsterKillExp(monster, killer, expParticipants, topContributionRealmLv, localDirty, messages);
 
     for (const drop of monster.drops) {
-      if (Math.random() > this.getEffectiveDropChance(killer, drop)) continue;
+      if (Math.random() > this.getEffectiveDropChance(killer, monster, drop)) continue;
       const loot = this.createItemFromDrop(drop);
       if (!loot) continue;
       this.deliverMonsterLoot(killer, monster, loot, localDirty, messages);
@@ -4967,7 +4971,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return actualCost;
   }
 
-  private getEffectiveDropChance(player: PlayerState, drop: DropConfig): number {
+  private getEffectiveDropChance(player: PlayerState, monster: RuntimeMonster, drop: DropConfig): number {
     const stats = this.attrService.getPlayerNumericStats(player);
     const baseChance = Math.max(0, Math.min(1, drop.chance));
     if (baseChance <= 0) {
@@ -4978,7 +4982,23 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (!Number.isFinite(killEquivalent) || killEquivalent <= 0) {
       return 0;
     }
-    return 1 - Math.pow(1 - baseChance, killEquivalent);
+    const effectiveChance = 1 - Math.pow(1 - baseChance, killEquivalent);
+    return effectiveChance * this.getOrdinaryMonsterSpiritStoneDropMultiplier(player, monster, drop);
+  }
+
+  private getOrdinaryMonsterSpiritStoneDropMultiplier(
+    player: PlayerState,
+    monster: RuntimeMonster,
+    drop: DropConfig,
+  ): number {
+    if (drop.itemId !== MARKET_CURRENCY_ITEM_ID || !this.isOrdinaryMonster(monster)) {
+      return 1;
+    }
+    const playerRealmLv = Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
+    const monsterRealmLv = Math.max(1, Math.floor(monster.level ?? Math.round(monster.attack / 6)));
+    return playerRealmLv - monsterRealmLv >= ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_THRESHOLD
+      ? ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_MULTIPLIER
+      : 1;
   }
 
   private inferMonsterElement(monster: RuntimeMonster): ElementKey | undefined {
