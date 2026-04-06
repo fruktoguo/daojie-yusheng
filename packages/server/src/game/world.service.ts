@@ -40,12 +40,14 @@ import {
   isPointInRange,
   ItemStack,
   MONSTER_TIER_LABELS,
+  MonsterInitialBuffDef,
   NumericRatioDivisors,
   NumericStats,
   PartialNumericStats,
   percentModifierToMultiplier,
   NpcQuestMarker,
   ObservationInsight,
+  ObservationLootPreview,
   parseTileTargetRef,
   PlayerState,
   PlayerRealmStage,
@@ -96,6 +98,13 @@ import { isLikelyInternalContentId, resolveQuestTargetName } from './quest-displ
 import { TechniqueService } from './technique.service';
 import { ThreatService } from './threat.service';
 import { TimeService } from './time.service';
+import {
+  buildMonsterInitialBuffSourceId,
+  dehydrateTemporaryBuff,
+  hydrateTemporaryBuffSnapshots,
+  normalizePersistedTemporaryBuffSnapshot,
+  PersistedTemporaryBuffSnapshot,
+} from './temporary-buff-storage';
 import {
   DEFAULT_MONSTER_RATIO_DIVISORS,
   EMPTY_UPDATE,
@@ -289,7 +298,7 @@ interface PersistedMonsterRuntimeRecord {
   qi?: number;
   alive: boolean;
   respawnLeft: number;
-  temporaryBuffs?: TemporaryBuffState[];
+  temporaryBuffs?: PersistedTemporaryBuffSnapshot[];
   skillCooldowns?: Record<string, number>;
   damageContributors?: Record<string, number>;
   facing?: Direction;
@@ -298,7 +307,7 @@ interface PersistedMonsterRuntimeRecord {
 }
 
 interface PersistedMonsterRuntimeSnapshot {
-  version: 1 | 2 | 3;
+  version: 1 | 2 | 3 | 4;
   maps: Record<string, PersistedMonsterRuntimeRecord[]>;
   spawnAccelerationStates?: Record<string, PersistedMonsterSpawnAccelerationRecord[]>;
 }
@@ -378,6 +387,7 @@ export interface WorldUpdate {
 
 
 interface CombatSnapshot {
+  attrs: Attributes;
   stats: NumericStats;
   ratios: NumericRatioDivisors;
   realmLv: number;
@@ -1492,6 +1502,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           continue;
         }
         for (const target of damageTargets) {
+          const targetMonsterCombat = target.kind === 'monster'
+            ? this.getMonsterCombatSnapshot(target.monster)
+            : undefined;
           const context: SkillFormulaContext = {
             player,
             skill,
@@ -1500,13 +1513,13 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
             casterStats,
             casterAttrs,
             target,
-            targetStats: target.kind === 'monster'
-              ? this.getMonsterCombatSnapshot(target.monster).stats
+            targetStats: targetMonsterCombat
+              ? targetMonsterCombat.stats
               : target.kind === 'player'
                 ? this.getPlayerCombatSnapshot(target.player).stats
                 : undefined,
-            targetAttrs: target.kind === 'monster'
-              ? target.monster.attrs
+            targetAttrs: targetMonsterCombat
+              ? targetMonsterCombat.attrs
               : target.kind === 'player'
                 ? this.attrService.getPlayerFinalAttrs(target.player)
                 : undefined,
@@ -1539,7 +1552,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         continue;
       }
 
-      const update = this.applyBuffEffect(player, skill, effect, selectedTargets, options?.primaryTarget);
+      const update = effect.type === 'buff'
+        ? this.applyBuffEffect(player, skill, effect, selectedTargets, options?.primaryTarget)
+        : this.applyPlayerTerrainEffect(player, skill, effect, anchor);
       result.messages.push(...update.messages);
       for (const flag of update.dirty) {
         dirty.add(flag);
@@ -1984,6 +1999,80 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  private buildMonsterInitialBuffState(
+    monster: Pick<RuntimeMonster, 'id' | 'name' | 'level'>,
+    effect: MonsterInitialBuffDef,
+  ): TemporaryBuffState {
+    const maxStacks = Math.max(1, effect.maxStacks ?? 1);
+    const duration = Math.max(1, effect.duration);
+    const infiniteDuration = effect.infiniteDuration === true;
+    const initialStacks = Math.min(maxStacks, Math.max(1, effect.stacks ?? 1));
+    return syncDynamicBuffPresentation({
+      buffId: effect.buffId,
+      name: effect.name,
+      desc: effect.desc,
+      baseDesc: effect.desc,
+      shortMark: effect.shortMark?.trim() ? [...effect.shortMark.trim()][0] ?? effect.shortMark.trim() : ([...effect.name.trim()][0] ?? '气'),
+      category: effect.category ?? 'buff',
+      visibility: effect.visibility ?? 'public',
+      remainingTicks: infiniteDuration ? 1 : duration + 1,
+      duration,
+      stacks: initialStacks,
+      maxStacks,
+      sourceSkillId: buildMonsterInitialBuffSourceId(monster.id, effect.buffId),
+      sourceSkillName: `${monster.name}·先天妖势`,
+      realmLv: Math.max(1, Math.floor(monster.level ?? 1)),
+      color: effect.color,
+      attrs: effect.attrs,
+      attrMode: effect.attrMode,
+      stats: effect.stats,
+      statMode: effect.statMode,
+      qiProjection: effect.qiProjection,
+      presentationScale: effect.presentationScale,
+      infiniteDuration,
+      sustainCost: effect.sustainCost,
+      sustainTicksElapsed: effect.sustainCost ? 0 : undefined,
+      expireWithBuffId: effect.expireWithBuffId,
+    });
+  }
+
+  private applyMonsterInitialBuffs(monster: RuntimeMonster): void {
+    if (!monster.initialBuffs || monster.initialBuffs.length === 0) {
+      monster.temporaryBuffs = [];
+      this.syncMonsterRuntimeResources(monster, { fillHp: true, fillQi: true });
+      return;
+    }
+    const nextBuffs: TemporaryBuffState[] = [];
+    for (const effect of monster.initialBuffs) {
+      this.applyBuffState(nextBuffs, this.buildMonsterInitialBuffState(monster, effect));
+    }
+    monster.temporaryBuffs = nextBuffs.filter((buff) => buff.remainingTicks > 0 && buff.stacks > 0);
+    this.syncMonsterRuntimeResources(monster, { fillHp: true, fillQi: true });
+  }
+
+  private syncMonsterRuntimeResources(
+    monster: RuntimeMonster,
+    options: {
+      fillHp?: boolean;
+      fillQi?: boolean;
+      previousHp?: number;
+      previousQi?: number;
+    } = {},
+  ): void {
+    const combat = this.getMonsterCombatSnapshot(monster);
+    const nextMaxHp = Math.max(1, Math.round(combat.stats.maxHp));
+    const nextMaxQi = Math.max(0, Math.round(combat.stats.maxQi));
+    const previousHp = Number.isFinite(options.previousHp) ? Number(options.previousHp) : monster.hp;
+    const previousQi = Number.isFinite(options.previousQi) ? Number(options.previousQi) : monster.qi;
+    monster.maxHp = nextMaxHp;
+    monster.hp = options.fillHp
+      ? nextMaxHp
+      : Math.max(0, Math.min(nextMaxHp, Math.round(previousHp)));
+    monster.qi = options.fillQi
+      ? nextMaxQi
+      : Math.max(0, Math.min(nextMaxQi, Math.round(previousQi)));
+  }
+
   private applyBuffState(targetBuffs: TemporaryBuffState[], nextBuff: TemporaryBuffState): TemporaryBuffState {
     const existing = targetBuffs.find((entry) => entry.buffId === nextBuff.buffId);
     if (existing) {
@@ -2136,7 +2225,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       for (const target of targets) {
         if (target.kind === 'monster') {
           target.monster.temporaryBuffs ??= [];
+          const previousHp = target.monster.hp;
+          const previousQi = target.monster.qi;
           const current = this.applyBuffState(target.monster.temporaryBuffs, this.buildTemporaryBuffState(skill, effect, sourceRealmLv, player.id));
+          this.syncMonsterRuntimeResources(target.monster, { previousHp, previousQi });
           affected.push({ target: { kind: 'monster', monster: target.monster }, buff: current });
           continue;
         }
@@ -2372,7 +2464,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
               monster.hp = monster.maxHp;
               monster.qi = Math.max(0, Math.round(monster.numericStats.maxQi));
               monster.alive = true;
-              monster.temporaryBuffs = [];
+              this.applyMonsterInitialBuffs(monster);
               monster.skillCooldowns = {};
               monster.pendingCast = undefined;
               monster.damageContributors.clear();
@@ -2416,6 +2508,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
       if (monster.temporaryBuffs.length > 0) {
         this.measureCpuSection('monster_buffs', '怪物: Buff 推进', () => {
+          const previousHp = monster.hp;
+          const previousQi = monster.qi;
+          const previousBuffCount = monster.temporaryBuffs.length;
           const nextBuffs: TemporaryBuffState[] = [];
           for (const buff of monster.temporaryBuffs) {
             const sustainCost = getBuffSustainCost(buff);
@@ -2441,6 +2536,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           }
           const activeBuffIds = new Set(nextBuffs.map((buff) => buff.buffId));
           monster.temporaryBuffs = nextBuffs.filter((buff) => !buff.expireWithBuffId || activeBuffIds.has(buff.expireWithBuffId));
+          if (monster.temporaryBuffs.length !== previousBuffCount) {
+            this.syncMonsterRuntimeResources(monster, { previousHp, previousQi });
+          }
         });
       }
       this.tickMonsterSkillCooldowns(monster);
@@ -2887,8 +2985,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (options?.showActionLabel !== false) {
       this.pushActionLabelEffect(mapId, monster.x, monster.y, skill.name);
     }
-    const casterStats = this.getMonsterCombatSnapshot(monster).stats;
-    const casterAttrs = monster.attrs;
+    const monsterCombat = this.getMonsterCombatSnapshot(monster);
+    const casterStats = monsterCombat.stats;
+    const casterAttrs = monsterCombat.attrs;
     const techLevel = this.getMonsterSkillTechniqueLevel(monster, skill);
     const messages: WorldMessage[] = [];
     const dirtyPlayers = new Set<string>();
@@ -2934,7 +3033,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         continue;
       }
 
-      const update = this.applyMonsterBuffEffect(monster, skill, effect, selectedTargets, selectedTargets[0]);
+      const update = effect.type === 'buff'
+        ? this.applyMonsterBuffEffect(monster, skill, effect, selectedTargets, selectedTargets[0])
+        : this.applyMonsterTerrainEffect(monster, skill, effect, anchor, mapId, selectedTargets[0]);
       messages.push(...update.messages);
       for (const playerId of update.dirtyPlayers ?? []) {
         dirtyPlayers.add(playerId);
@@ -2963,7 +3064,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
     if (effect.target === 'self') {
       monster.temporaryBuffs ??= [];
+      const previousHp = monster.hp;
+      const previousQi = monster.qi;
       const current = this.applyBuffState(monster.temporaryBuffs, this.buildTemporaryBuffState(skill, effect, sourceRealmLv));
+      this.syncMonsterRuntimeResources(monster, { previousHp, previousQi });
       if (primaryTarget?.kind === 'player') {
         const stackText = current.maxStacks > 1 ? `（${current.stacks}层）` : '';
         messages.push({
@@ -2995,6 +3099,86 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
 
     return { messages, dirty: [], dirtyPlayers: [...dirtyPlayers] };
+  }
+
+  private applyPlayerTerrainEffect(
+    player: PlayerState,
+    skill: SkillDef,
+    effect: Extract<SkillEffectDef, { type: 'terrain' }>,
+    anchor?: { x: number; y: number },
+  ): WorldUpdate {
+    if (!anchor) {
+      return { ...EMPTY_UPDATE, error: '当前技能缺少地形作用点' };
+    }
+    const cells = this.buildPlayerSkillAffectedCells(player, skill, anchor);
+    const changed = cells.filter((cell) => this.mapService.transformTile(
+      player.mapId,
+      cell.x,
+      cell.y,
+      effect.terrainType,
+      effect.duration,
+      effect.allowedOriginalTypes,
+    ));
+    if (changed.length === 0) {
+      return { ...EMPTY_UPDATE, error: '当前技能没有改变任何地形' };
+    }
+    return {
+      messages: [{
+        playerId: player.id,
+        text: `${skill.name}改写了 ${changed.length} 处地形。`,
+        kind: 'combat',
+      }],
+      dirty: [],
+    };
+  }
+
+  private applyMonsterTerrainEffect(
+    monster: RuntimeMonster,
+    skill: SkillDef,
+    effect: Extract<SkillEffectDef, { type: 'terrain' }>,
+    anchor: { x: number; y: number },
+    mapId: string,
+    primaryTarget?: ResolvedTarget,
+  ): WorldUpdate {
+    const cells = this.buildMonsterSkillAffectedCells(monster, skill, anchor);
+    let changedCount = 0;
+    for (const cell of cells) {
+      if (this.mapService.transformTile(
+        mapId,
+        cell.x,
+        cell.y,
+        effect.terrainType,
+        effect.duration,
+        effect.allowedOriginalTypes,
+      )) {
+        changedCount += 1;
+      }
+    }
+    if (changedCount <= 0) {
+      return { ...EMPTY_UPDATE, error: '当前技能没有改变任何地形' };
+    }
+
+    const recipientIds = new Set<string>();
+    const playersByMap = this.playerService.getPlayersByMap(mapId).filter((entry) => !entry.dead);
+    const affectedCellKeys = new Set(cells.map((cell) => `${cell.x},${cell.y}`));
+    for (const player of playersByMap) {
+      if (affectedCellKeys.has(`${player.x},${player.y}`)) {
+        recipientIds.add(player.id);
+      }
+    }
+    if (primaryTarget?.kind === 'player') {
+      recipientIds.add(primaryTarget.player.id);
+    }
+
+    return {
+      messages: [...recipientIds].map((playerId) => ({
+        playerId,
+        text: `${monster.name}施展${skill.name}，洞府地势骤变。`,
+        kind: 'combat' as const,
+      })),
+      dirty: [],
+      dirtyPlayers: [],
+    };
   }
 
   private attackPlayerFromMonsterSkill(
@@ -4278,6 +4462,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
   private getPlayerCombatSnapshot(player: PlayerState): CombatSnapshot {
     return {
+      attrs: this.attrService.getPlayerFinalAttrs(player),
       stats: this.attrService.getPlayerNumericStats(player),
       ratios: this.attrService.getPlayerRatioDivisors(player),
       realmLv: Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1)),
@@ -4427,21 +4612,80 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     applyNumericStatsPercentMultiplier(stats, percentBuffs);
   }
 
+  private scaleMonsterAttributes(attrs: Partial<Attributes> | undefined, factor: number): Partial<Attributes> | undefined {
+    if (!attrs || factor === 0) {
+      return undefined;
+    }
+    const result: Partial<Attributes> = {};
+    for (const key of MONSTER_ATTR_KEYS) {
+      const value = attrs[key];
+      if (value === undefined || value === 0) {
+        continue;
+      }
+      result[key] = value * factor;
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+  }
+
+  private hasMonsterAttributeModifiers(attrs: Pick<Attributes, keyof Attributes>): boolean {
+    return MONSTER_ATTR_KEYS.some((key) => attrs[key] !== 0);
+  }
+
+  private collectMonsterBuffAttrBonuses(
+    monster: RuntimeMonster,
+    targetRealmLv: number,
+  ): {
+    flatAttrs: Attributes;
+    percentAttrs: Attributes;
+  } {
+    const flatAttrs = createMonsterAttributeSnapshot();
+    const percentAttrs = createMonsterAttributeSnapshot();
+    for (const buff of monster.temporaryBuffs ?? []) {
+      if (buff.remainingTicks <= 0 || buff.stacks <= 0 || !buff.attrs) {
+        continue;
+      }
+      const effectFactor = Math.max(1, buff.stacks) * getBuffRealmEffectivenessMultiplier(buff.realmLv, targetRealmLv);
+      const scaled = this.scaleMonsterAttributes(buff.attrs, effectFactor);
+      if (!scaled) {
+        continue;
+      }
+      const bucket = this.resolveBuffModifierMode(buff.attrMode) === 'flat' ? flatAttrs : percentAttrs;
+      applyAttributeAdditions(bucket, scaled);
+    }
+    return { flatAttrs, percentAttrs };
+  }
+
+  private getMonsterFinalAttrs(
+    monster: RuntimeMonster,
+    passiveBonuses: ReturnType<WorldService['collectMonsterEquipmentPassiveBonuses']>,
+    buffBonuses: ReturnType<WorldService['collectMonsterBuffAttrBonuses']>,
+  ): Attributes {
+    const attrs = createMonsterAttributeSnapshot();
+    applyAttributeAdditions(attrs, monster.attrs);
+    applyAttributeAdditions(attrs, passiveBonuses.flatAttrs);
+    applyAttributePercentMultipliers(attrs, passiveBonuses.percentAttrs);
+    applyAttributeAdditions(attrs, buffBonuses.flatAttrs);
+    applyAttributePercentMultipliers(attrs, buffBonuses.percentAttrs);
+    for (const key of MONSTER_ATTR_KEYS) {
+      attrs[key] = Math.max(0, attrs[key]);
+    }
+    return attrs;
+  }
+
   private getMonsterCombatSnapshot(monster: RuntimeMonster): CombatSnapshot {
     const level = Math.max(1, monster.level ?? Math.round(monster.attack / 6));
     const passiveBonuses = this.collectMonsterEquipmentPassiveBonuses(monster);
-    const hasPassiveAttrBonuses = MONSTER_ATTR_KEYS.some((key) => (
-      passiveBonuses.flatAttrs[key] !== 0 || passiveBonuses.percentAttrs[key] !== 0
-    ));
+    const buffAttrBonuses = this.collectMonsterBuffAttrBonuses(monster, level);
+    const finalAttrs = this.getMonsterFinalAttrs(monster, passiveBonuses, buffAttrBonuses);
+    const hasPassiveAttrBonuses = this.hasMonsterAttributeModifiers(passiveBonuses.flatAttrs)
+      || this.hasMonsterAttributeModifiers(passiveBonuses.percentAttrs);
+    const hasBuffAttrBonuses = this.hasMonsterAttributeModifiers(buffAttrBonuses.flatAttrs)
+      || this.hasMonsterAttributeModifiers(buffAttrBonuses.percentAttrs);
 
     let stats: NumericStats;
-    if (hasPassiveAttrBonuses) {
-      const attrs = createMonsterAttributeSnapshot();
-      applyAttributeAdditions(attrs, monster.attrs);
-      applyAttributeAdditions(attrs, passiveBonuses.flatAttrs);
-      applyAttributePercentMultipliers(attrs, passiveBonuses.percentAttrs);
+    if (hasPassiveAttrBonuses || hasBuffAttrBonuses) {
       stats = resolveMonsterNumericStatsFromAttributes({
-        attrs,
+        attrs: finalAttrs,
         equipment: monster.equipment,
         level: monster.level,
         statPercents: monster.statPercents,
@@ -4469,6 +4713,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     applyNumericStatsPercentMultiplier(stats, passiveBonuses.percentStats);
     this.applyMonsterBuffStats(stats, monster.temporaryBuffs, level);
     return {
+      attrs: finalAttrs,
       stats,
       ratios: DEFAULT_MONSTER_RATIO_DIVISORS,
       realmLv: level,
@@ -4636,6 +4881,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       ...this.buildObservationLineSpecs(snapshot, true),
       { threshold: 0.28, label: '血脉层次', value: MONSTER_TIER_LABELS[monster.tier] ?? '凡血' },
     ];
+    const observation = this.buildObservationInsight(
+      viewer,
+      snapshot,
+      lineSpecs,
+    );
     return {
       id: monster.runtimeId,
       name: getMonsterDisplayName(monster.name, monster.tier),
@@ -4646,11 +4896,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       maxHp: monster.maxHp,
       qi: snapshot.qi,
       maxQi: snapshot.maxQi,
-      observation: this.buildObservationInsight(
-        viewer,
-        snapshot,
-        lineSpecs,
-      ),
+      observation,
+      lootPreview: observation.clarity === 'complete'
+        ? this.buildMonsterObservationLootPreview(viewer, monster)
+        : undefined,
       buffs: this.getRenderableBuffs(monster.temporaryBuffs),
     };
   }
@@ -4716,7 +4965,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
   private createMonsterObservationSnapshot(monster: RuntimeMonster): ObservationTargetSnapshot {
     const combat = this.getMonsterCombatSnapshot(monster);
-    const spirit = Math.max(1, Math.round(monster.attrs?.spirit ?? this.estimateMonsterSpirit(monster, combat.stats)));
+    const spirit = Math.max(1, Math.round(combat.attrs.spirit ?? this.estimateMonsterSpirit(monster, combat.stats)));
     const maxQi = Math.max(24, Math.round(combat.stats.maxQi > 0 ? combat.stats.maxQi : (spirit * 2 + (monster.level ?? 1) * 8)));
     return {
       hp: monster.hp,
@@ -4726,7 +4975,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       spirit,
       stats: combat.stats,
       ratios: combat.ratios,
-      attrs: { ...monster.attrs },
+      attrs: { ...combat.attrs },
       realmLabel: this.describeMonsterRealm(monster),
     };
   }
@@ -4823,6 +5072,23 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         label: line.label,
         value: progress >= line.threshold ? line.value : '???',
       })),
+    };
+  }
+
+  private buildMonsterObservationLootPreview(
+    viewer: PlayerState,
+    monster: RuntimeMonster,
+  ): ObservationLootPreview {
+    const entries = monster.drops.map((drop) => ({
+      itemId: drop.itemId,
+      name: drop.name,
+      type: drop.type,
+      count: drop.count,
+      chance: this.getEffectiveDropChance(viewer, monster, drop),
+    }));
+    return {
+      entries,
+      emptyText: entries.length > 0 ? undefined : '此獠身上暂未看出稳定掉落。',
     };
   }
 
@@ -5142,6 +5408,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         if (persisted) {
           this.applyPersistedMonsterState(mapId, runtime, persisted);
         } else {
+          this.applyMonsterInitialBuffs(runtime);
           const pos = this.findSpawnPosition(mapId, runtime);
           if (pos && this.mapService.isWalkable(mapId, pos.x, pos.y, { actorType: 'monster' })) {
             runtime.x = pos.x;
@@ -6407,7 +6674,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   }
 
   private isHostileSkill(skill: SkillDef): boolean {
-    return skill.effects.some((effect) => effect.type === 'damage' || (effect.type === 'buff' && effect.target === 'target'));
+    return skill.effects.some((effect) => (
+      effect.type === 'damage'
+      || effect.type === 'terrain'
+      || (effect.type === 'buff' && effect.target === 'target')
+    ));
   }
 
   private getSafeZoneAttackBlockError(player: Pick<PlayerState, 'mapId' | 'x' | 'y'>): string | undefined {
@@ -6478,7 +6749,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
     try {
       const snapshot: PersistedMonsterRuntimeSnapshot = {
-        version: 3,
+        version: 4,
         maps: {},
         spawnAccelerationStates: {},
       };
@@ -6770,7 +7041,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       alive: monster.alive,
       respawnLeft: monster.respawnLeft,
       temporaryBuffs: monster.temporaryBuffs.length > 0
-        ? JSON.parse(JSON.stringify(monster.temporaryBuffs)) as TemporaryBuffState[]
+        ? monster.temporaryBuffs.map((buff) => dehydrateTemporaryBuff(buff, this.contentService))
         : undefined,
       skillCooldowns: Object.keys(monster.skillCooldowns).length > 0
         ? { ...monster.skillCooldowns }
@@ -6801,13 +7072,14 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     runtime: RuntimeMonster,
     persisted: PersistedMonsterRuntimeRecord,
   ): void {
-    runtime.hp = Math.max(0, Math.min(runtime.maxHp, Math.round(persisted.hp)));
-    runtime.qi = Math.max(0, Math.min(Math.max(0, Math.round(runtime.numericStats.maxQi)), Math.round(persisted.qi ?? runtime.qi)));
+    const persistedHp = Math.round(persisted.hp);
+    const persistedQi = Math.round(persisted.qi ?? runtime.qi);
+    runtime.hp = Math.max(0, Math.min(runtime.maxHp, persistedHp));
+    runtime.qi = Math.max(0, Math.min(Math.max(0, Math.round(runtime.numericStats.maxQi)), persistedQi));
     runtime.facing = persisted.facing;
     runtime.targetPlayerId = typeof persisted.targetPlayerId === 'string' ? persisted.targetPlayerId : undefined;
-    runtime.temporaryBuffs = (persisted.temporaryBuffs ?? [])
-      .map((buff) => this.normalizePersistedTemporaryBuffState(buff))
-      .filter((buff): buff is TemporaryBuffState => buff !== null);
+    runtime.temporaryBuffs = hydrateTemporaryBuffSnapshots(persisted.temporaryBuffs, this.contentService);
+    this.syncMonsterRuntimeResources(runtime, { previousHp: persistedHp, previousQi: persistedQi });
     runtime.skillCooldowns = Object.fromEntries(
       Object.entries(persisted.skillCooldowns ?? {})
         .filter(([, ticks]) => Number.isFinite(ticks) && Number(ticks) > 0)
@@ -6902,8 +7174,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       respawnLeft: Math.max(0, Math.round(Number(candidate.respawnLeft))),
       temporaryBuffs: Array.isArray(candidate.temporaryBuffs)
         ? candidate.temporaryBuffs
-            .map((buff) => this.normalizePersistedTemporaryBuffState(buff))
-            .filter((buff): buff is TemporaryBuffState => buff !== null)
+            .map((buff) => normalizePersistedTemporaryBuffSnapshot(buff))
+            .filter((buff): buff is PersistedTemporaryBuffSnapshot => buff !== null)
         : undefined,
       skillCooldowns: candidate.skillCooldowns && typeof candidate.skillCooldowns === 'object'
         ? Object.fromEntries(

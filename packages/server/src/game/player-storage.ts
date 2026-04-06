@@ -47,6 +47,11 @@ import { normalizeBuffSustainCost } from './buff-sustain';
 import { ContentService } from './content.service';
 import { MapService } from './map.service';
 import { resolveQuestTargetName } from './quest-display';
+import {
+  dehydrateTemporaryBuff as dehydratePersistedTemporaryBuff,
+  hydrateTemporaryBuffSnapshots as hydratePersistedTemporaryBuffSnapshots,
+  PersistedTemporaryBuffSnapshot,
+} from './temporary-buff-storage';
 
 interface PersistedInventoryItem {
   itemId: string;
@@ -103,7 +108,7 @@ export interface PersistedPlayerCollections {
   equipment: PersistedEquipmentSnapshot;
   techniques: PersistedTechniqueEntry[];
   bodyTraining: BodyTrainingState;
-  temporaryBuffs: PersistedTemporaryBuffEntry[];
+  temporaryBuffs: PersistedTemporaryBuffSnapshot[];
   quests: PersistedQuestEntry[];
 }
 
@@ -662,13 +667,9 @@ export function hydrateBodyTrainingSnapshot(snapshot: unknown): BodyTrainingStat
 
 /** 从持久化快照还原临时 Buff 列表，根据技能定义补全完整字段 */
 export function hydrateTemporaryBuffSnapshots(snapshot: unknown, contentService: ContentService): TemporaryBuffState[] {
-  if (!Array.isArray(snapshot)) {
-    return [];
-  }
-
-  return snapshot
-    .map((entry) => hydrateTemporaryBuff(entry, contentService))
-    .filter((entry): entry is TemporaryBuffState => entry !== null);
+  return hydratePersistedTemporaryBuffSnapshots(snapshot, contentService, {
+    ignore: (entry) => isTransientGmObserveBuff(entry.buffId, entry.sourceSkillId),
+  });
 }
 
 /** 从持久化快照还原任务列表，根据任务配置补全完整字段 */
@@ -703,7 +704,7 @@ export function buildPersistedPlayerCollections(player: PlayerStorageState, cont
     },
     equipment,
     bodyTraining: normalizeBodyTrainingState(player.bodyTraining),
-    temporaryBuffs: persistentTemporaryBuffs.map((buff) => dehydrateTemporaryBuff(buff, contentService)),
+    temporaryBuffs: persistentTemporaryBuffs.map((buff) => dehydratePersistedTemporaryBuff(buff, contentService)),
     techniques: player.techniques
       .filter((technique) => typeof technique.techId === 'string' && technique.techId.length > 0)
       .map((technique) => dehydrateTechnique(technique, contentService)),
