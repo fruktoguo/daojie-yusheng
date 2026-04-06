@@ -96,6 +96,7 @@ import { PreparedRedeemCodeOperation, RedeemCodeService } from './redeem-code.se
 import { TimeService } from './time.service';
 import { WorldMessage, WorldService, WorldUpdate } from './world.service';
 import { syncDynamicBuffPresentation } from './buff-presentation';
+import { getBuffSustainCost, getBuffSustainResourceLabel } from './buff-sustain';
 import {
   MOLTEN_POOL_BURN_BUFF_ID,
   MOLTEN_POOL_BURN_COLOR,
@@ -1001,7 +1002,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (buffEffectUpdate.update.playerDefeated) {
         continue;
       }
-      if (this.measureCpuSection('state_buffs', '角色状态: Buff 推进', () => this.tickTemporaryBuffs(player))) {
+      if (this.measureCpuSection('state_buffs', '角色状态: Buff 推进', () => this.tickTemporaryBuffs(player, messages))) {
         this.playerService.markDirty(player.id, 'attr');
       }
 
@@ -1135,19 +1136,25 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     sourceRealmLv: number,
   ): TemporaryBuffState {
     const duration = Math.max(1, buff.duration);
+    const infiniteDuration = buff.infiniteDuration === true;
+    const sourceSkillId = buff.sourceSkillId?.trim() || `item:${item.itemId}`;
+    const sourceSkillName = (sourceSkillId !== `item:${item.itemId}`
+      ? this.contentService.getSkill(sourceSkillId)?.name
+      : undefined) ?? item.name;
     return syncDynamicBuffPresentation({
       buffId: buff.buffId,
       name: buff.name,
       desc: buff.desc,
+      baseDesc: buff.desc,
       shortMark: normalizeConsumableBuffShortMark(buff.shortMark, buff.name),
       category: buff.category ?? 'buff',
       visibility: buff.visibility ?? 'public',
-      remainingTicks: duration + 1,
+      remainingTicks: infiniteDuration ? 1 : duration + 1,
       duration,
       stacks: 1,
       maxStacks: Math.max(1, buff.maxStacks ?? 1),
-      sourceSkillId: `item:${item.itemId}`,
-      sourceSkillName: item.name,
+      sourceSkillId,
+      sourceSkillName,
       realmLv: Math.max(1, Math.floor(sourceRealmLv)),
       color: buff.color,
       attrs: buff.attrs,
@@ -1155,6 +1162,11 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       stats: buff.stats,
       statMode: buff.statMode,
       qiProjection: buff.qiProjection,
+      presentationScale: buff.presentationScale,
+      infiniteDuration,
+      sustainCost: buff.sustainCost,
+      sustainTicksElapsed: buff.sustainCost ? 0 : undefined,
+      expireWithBuffId: buff.expireWithBuffId,
     });
   }
 
@@ -1165,11 +1177,17 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       const addedDuration = Math.max(1, nextBuff.duration);
       existing.name = nextBuff.name;
       existing.desc = nextBuff.desc;
+      existing.baseDesc = nextBuff.baseDesc;
       existing.shortMark = nextBuff.shortMark;
       existing.category = nextBuff.category;
       existing.visibility = nextBuff.visibility;
-      existing.duration = currentRemainingDuration + addedDuration;
-      existing.remainingTicks = existing.duration + 1;
+      if (nextBuff.infiniteDuration) {
+        existing.duration = nextBuff.duration;
+        existing.remainingTicks = nextBuff.remainingTicks;
+      } else {
+        existing.duration = currentRemainingDuration + addedDuration;
+        existing.remainingTicks = existing.duration + 1;
+      }
       existing.stacks = Math.min(nextBuff.maxStacks, existing.stacks + 1);
       existing.maxStacks = nextBuff.maxStacks;
       existing.sourceSkillId = nextBuff.sourceSkillId;
@@ -1181,6 +1199,11 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       existing.stats = nextBuff.stats;
       existing.statMode = nextBuff.statMode;
       existing.qiProjection = nextBuff.qiProjection;
+      existing.presentationScale = nextBuff.presentationScale;
+      existing.infiniteDuration = nextBuff.infiniteDuration;
+      existing.sustainCost = nextBuff.sustainCost;
+      existing.sustainTicksElapsed = nextBuff.sustainTicksElapsed;
+      existing.expireWithBuffId = nextBuff.expireWithBuffId;
       syncDynamicBuffPresentation(existing);
       return existing;
     }
@@ -3500,21 +3523,55 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     return true;
   }
 
-  /** 每 tick 递减临时 Buff 剩余时间，过期则移除并重算属性 */
-  private tickTemporaryBuffs(player: PlayerState): boolean {
+  /** 每 tick 推进临时 Buff，处理维持代价、持续时间与过期移除 */
+  private tickTemporaryBuffs(player: PlayerState, messages: WorldMessage[]): boolean {
     if (!player.temporaryBuffs || player.temporaryBuffs.length === 0) {
       return false;
     }
-    const before = player.temporaryBuffs.length;
+    let removed = false;
+    let resourceSpent = false;
+    const nextBuffs: TemporaryBuffState[] = [];
     for (const buff of player.temporaryBuffs) {
-      buff.remainingTicks -= 1;
+      const sustainCost = getBuffSustainCost(buff);
+      if (sustainCost !== null && buff.sustainCost) {
+        const currentResource = buff.sustainCost.resource === 'hp' ? player.hp : player.qi;
+        if (currentResource < sustainCost) {
+          removed = true;
+          messages.push({
+            playerId: player.id,
+            text: `${buff.name}因${getBuffSustainResourceLabel(buff.sustainCost.resource)}不足而散去。`,
+            kind: 'system',
+          });
+          continue;
+        }
+        if (buff.sustainCost.resource === 'hp') {
+          player.hp = Math.max(0, player.hp - sustainCost);
+        } else {
+          player.qi = Math.max(0, player.qi - sustainCost);
+        }
+        buff.sustainTicksElapsed = Math.max(0, Math.floor(buff.sustainTicksElapsed ?? 0)) + 1;
+        syncDynamicBuffPresentation(buff);
+        resourceSpent = true;
+      }
+      if (!buff.infiniteDuration) {
+        buff.remainingTicks -= 1;
+      }
+      if (buff.remainingTicks > 0 && buff.stacks > 0) {
+        nextBuffs.push(buff);
+      } else {
+        removed = true;
+      }
     }
-    player.temporaryBuffs = player.temporaryBuffs.filter((buff) => buff.remainingTicks > 0 && buff.stacks > 0);
-    if (player.temporaryBuffs.length !== before) {
+    const activeBuffIds = new Set(nextBuffs.map((buff) => buff.buffId));
+    const filteredBuffs = nextBuffs.filter((buff) => !buff.expireWithBuffId || activeBuffIds.has(buff.expireWithBuffId));
+    if (filteredBuffs.length !== nextBuffs.length) {
+      removed = true;
+    }
+    player.temporaryBuffs = filteredBuffs;
+    if (removed) {
       this.attrService.recalcPlayer(player);
-      return true;
     }
-    return false;
+    return removed || resourceSpent;
   }
 
 }

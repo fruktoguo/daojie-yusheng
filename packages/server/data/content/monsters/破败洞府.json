@@ -31,7 +31,14 @@
       "skill.huanling_lieqi_zhixian",
       "skill.huanling_difu_chenyin"
     ],
-    "drops": [],
+    "drops": [
+      {
+        "itemId": "pill.ningxiang",
+        "name": "凝相丹",
+        "type": "consumable",
+        "count": 1
+      }
+    ],
     "aggroMode": "always"
   }
 ]

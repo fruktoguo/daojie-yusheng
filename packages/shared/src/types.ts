@@ -227,6 +227,7 @@ export interface VisibleBuffState {
   stats?: PartialNumericStats;
   statMode?: BuffModifierMode;
   qiProjection?: QiProjectionModifier[];
+  infiniteDuration?: boolean;
 }
 
 /** 时间段 ID */
@@ -370,6 +371,13 @@ export interface EquipmentBuffDef {
   presentationScale?: number;
 }
 
+/** Buff 维持代价定义 */
+export interface BuffSustainCostDef {
+  resource: 'hp' | 'qi';
+  baseCost: number;
+  growthRate?: number;
+}
+
 /** 消耗品施加的 Buff 定义 */
 export interface ConsumableBuffDef {
   buffId: string;
@@ -388,6 +396,10 @@ export interface ConsumableBuffDef {
   qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
   presentationScale?: number;
+  infiniteDuration?: boolean;
+  sustainCost?: BuffSustainCostDef;
+  expireWithBuffId?: string;
+  sourceSkillId?: string;
 }
 
 /** 装备常驻数值效果 */
@@ -820,6 +832,9 @@ export interface SkillBuffEffectDef {
   qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
   presentationScale?: number;
+  infiniteDuration?: boolean;
+  sustainCost?: BuffSustainCostDef;
+  expireWithBuffId?: string;
 }
 
 /** 技能效果联合类型 */
@@ -854,9 +869,13 @@ export interface SkillDef {
 /** 临时 Buff 状态（含属性和数值加成） */
 export interface TemporaryBuffState extends VisibleBuffState {
   sourceCasterId?: string;
+  baseDesc?: string;
   attrs?: Partial<Attributes>;
   stats?: PartialNumericStats;
   presentationScale?: number;
+  sustainCost?: BuffSustainCostDef;
+  sustainTicksElapsed?: number;
+  expireWithBuffId?: string;
 }
 
 /** 功法状态 */
@@ -935,6 +954,9 @@ export interface CombatEffectWarningZone {
   type: 'warning_zone';
   cells: GridPoint[];
   color?: string;
+  baseColor?: string;
+  originX?: number;
+  originY?: number;
   durationMs?: number;
 }
 

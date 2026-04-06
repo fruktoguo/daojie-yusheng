@@ -43,6 +43,7 @@ import {
   GM_WORLD_OBSERVE_SOURCE_ID,
 } from '../constants/gameplay/gm-observe';
 import { syncDynamicBuffPresentation } from './buff-presentation';
+import { normalizeBuffSustainCost } from './buff-sustain';
 import { ContentService } from './content.service';
 import { MapService } from './map.service';
 import { resolveQuestTargetName } from './quest-display';
@@ -73,6 +74,7 @@ interface PersistedTemporaryBuffItem {
   duration: number;
   stacks: number;
   maxStacks: number;
+  sustainTicksElapsed?: number;
 }
 
 interface PersistedQuestItem {
@@ -261,6 +263,7 @@ function buildSkillBuffState(skill: SkillDef, effect: Extract<SkillEffectDef, { 
     buffId: effect.buffId,
     name: effect.name,
     desc: effect.desc,
+    baseDesc: effect.desc,
     shortMark: normalizeBuffShortMark(effect),
     category: effect.category ?? (effect.target === 'self' ? 'buff' : 'debuff'),
     visibility: effect.visibility ?? 'public',
@@ -279,6 +282,10 @@ function buildSkillBuffState(skill: SkillDef, effect: Extract<SkillEffectDef, { 
     statMode: effect.statMode,
     qiProjection: effect.qiProjection,
     presentationScale: effect.presentationScale,
+    infiniteDuration: effect.infiniteDuration === true,
+    sustainCost: effect.sustainCost,
+    sustainTicksElapsed: effect.sustainCost ? normalizeNonNegativeInt(snapshot.sustainTicksElapsed, 0) : undefined,
+    expireWithBuffId: effect.expireWithBuffId,
   });
 }
 
@@ -299,6 +306,7 @@ function buildSystemBuffState(snapshot: PersistedTemporaryBuffItem): TemporaryBu
       sourceSkillName: '天时',
       realmLv: normalizePositiveInt(snapshot.realmLv, 1),
       color: '#89a8c7',
+      baseDesc: '夜色会按层数压缩视野；若身处恒明或得以免疫，此压制可被抵消。',
     };
   }
 
@@ -317,6 +325,7 @@ function buildSystemBuffState(snapshot: PersistedTemporaryBuffItem): TemporaryBu
       sourceSkillId: CULTIVATION_ACTION_ID,
       sourceSkillName: '修炼',
       realmLv: normalizePositiveInt(snapshot.realmLv, 1),
+      baseDesc: '正在运转主修功法，每息获得境界修为与功法经验，移动、主动攻击或受击都会打断修炼。',
       stats: {
         realmExpPerTick: 1,
         techniqueExpPerTick: 5,
@@ -342,6 +351,7 @@ function hydrateTemporaryBuff(snapshot: unknown, contentService: ContentService)
     duration: normalizePositiveInt(snapshot.duration, 1),
     stacks: normalizePositiveInt(snapshot.stacks, 1),
     maxStacks: normalizePositiveInt(snapshot.maxStacks, 1),
+    sustainTicksElapsed: normalizeNonNegativeInt(snapshot.sustainTicksElapsed, 0),
   };
 
   if (isTransientGmObserveBuff(minimal.buffId, minimal.sourceSkillId)) {
@@ -379,6 +389,11 @@ function hydrateTemporaryBuff(snapshot: unknown, contentService: ContentService)
     category: snapshot.category === 'debuff' ? 'debuff' : 'buff',
     visibility: snapshot.visibility === 'hidden' || snapshot.visibility === 'observe_only' ? snapshot.visibility : 'public',
     desc: typeof snapshot.desc === 'string' ? snapshot.desc : undefined,
+    baseDesc: typeof snapshot.baseDesc === 'string'
+      ? snapshot.baseDesc
+      : typeof snapshot.desc === 'string'
+        ? snapshot.desc
+        : undefined,
     sourceSkillName: typeof snapshot.sourceSkillName === 'string' ? snapshot.sourceSkillName : undefined,
     sourceCasterId: minimal.sourceCasterId,
     color: typeof snapshot.color === 'string' ? snapshot.color : undefined,
@@ -387,6 +402,12 @@ function hydrateTemporaryBuff(snapshot: unknown, contentService: ContentService)
     stats: isPlainObject(snapshot.stats) ? snapshot.stats as TemporaryBuffState['stats'] : undefined,
     statMode: snapshot.statMode === 'flat' ? 'flat' : snapshot.statMode === 'percent' ? 'percent' : undefined,
     presentationScale: Number.isFinite(snapshot.presentationScale) ? Number(snapshot.presentationScale) : undefined,
+    infiniteDuration: snapshot.infiniteDuration === true,
+    sustainCost: normalizeBuffSustainCost(snapshot.sustainCost),
+    sustainTicksElapsed: minimal.sustainTicksElapsed,
+    expireWithBuffId: typeof snapshot.expireWithBuffId === 'string' && snapshot.expireWithBuffId.length > 0
+      ? snapshot.expireWithBuffId
+      : undefined,
   };
   return syncDynamicBuffPresentation(hydrated);
 }
@@ -407,6 +428,7 @@ function dehydrateTemporaryBuff(buff: TemporaryBuffState, contentService: Conten
       duration: normalizePositiveInt(buff.duration, 1),
       stacks: normalizePositiveInt(buff.stacks, 1),
       maxStacks: normalizePositiveInt(buff.maxStacks, 1),
+      sustainTicksElapsed: effect?.sustainCost ? normalizeNonNegativeInt(buff.sustainTicksElapsed, 0) : undefined,
     };
   }
 

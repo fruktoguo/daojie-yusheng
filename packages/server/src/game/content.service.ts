@@ -68,6 +68,7 @@ import {
   PLAYER_REALM_STAGE_LEVEL_RANGES,
   TIME_PHASE_IDS,
 } from '../constants/gameplay/content';
+import { normalizeBuffSustainCost } from './buff-sustain';
 import { resolveServerDataPath } from '../common/data-path';
 
 interface TechniqueTemplate {
@@ -207,6 +208,9 @@ interface RawSharedTechniqueBuffDef {
   qiProjection?: unknown;
   valueStats?: unknown;
   presentationScale?: number;
+  infiniteDuration?: boolean;
+  sustainCost?: unknown;
+  expireWithBuffId?: string;
 }
 
 interface RawItemTemplate extends Omit<ItemTemplate, 'equipStats' | 'equipValueStats' | 'effects' | 'consumeBuffs'> {
@@ -1177,6 +1181,15 @@ export class ContentService implements OnModuleInit {
         ),
         statMode: this.normalizeBuffModifierMode(entry.statMode),
         qiProjection: this.normalizeQiProjectionModifiers(entry.qiProjection),
+        presentationScale: Number.isFinite(entry.presentationScale) ? Math.max(0, Number(entry.presentationScale)) : undefined,
+        infiniteDuration: entry.infiniteDuration === true,
+        sustainCost: normalizeBuffSustainCost(entry.sustainCost),
+        expireWithBuffId: typeof entry.expireWithBuffId === 'string' && entry.expireWithBuffId.trim().length > 0
+          ? entry.expireWithBuffId.trim()
+          : undefined,
+        sourceSkillId: typeof entry.sourceSkillId === 'string' && entry.sourceSkillId.trim().length > 0
+          ? entry.sourceSkillId.trim()
+          : undefined,
       };
       return [buff];
     });
@@ -1579,6 +1592,11 @@ export class ContentService implements OnModuleInit {
       statMode: this.normalizeBuffModifierMode(input.statMode),
       qiProjection: this.normalizeQiProjectionModifiers(input.qiProjection),
       presentationScale: Number.isFinite(input.presentationScale) ? Math.max(0, Number(input.presentationScale)) : undefined,
+      infiniteDuration: input.infiniteDuration === true,
+      sustainCost: normalizeBuffSustainCost(input.sustainCost),
+      expireWithBuffId: typeof input.expireWithBuffId === 'string' && input.expireWithBuffId.trim().length > 0
+        ? input.expireWithBuffId.trim()
+        : undefined,
     };
   }
 

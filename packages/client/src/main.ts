@@ -72,6 +72,7 @@ import { findPath } from './pathfinding';
 import {
   ActionDef,
   AccountRedeemCodesRes,
+  buildEffectiveTargetingGeometry,
   computeAffectedCellsFromAnchor,
   CONNECTION_RECOVERY_RETRY_MS,
   CURRENT_TIME_REFRESH_MS,
@@ -812,27 +813,27 @@ function syncTargetingOverlay() {
     syncSenseQiOverlay();
     return;
   }
-  pendingTargetedAction.range = resolveCurrentTargetingRange(pendingTargetedAction);
+  const geometry = getEffectiveTargetingGeometry(pendingTargetedAction);
   const affectedCells = computeAffectedCells(pendingTargetedAction);
   mapRuntime.setTargetingOverlay({
     originX: myPlayer.x,
     originY: myPlayer.y,
-    range: pendingTargetedAction.range,
+    range: geometry.range,
     visibleOnly: doesTargetingRequireVision(pendingTargetedAction.actionId),
-    shape: pendingTargetedAction.shape,
-    radius: pendingTargetedAction.radius,
+    shape: geometry.shape,
+    radius: geometry.radius,
     affectedCells,
     hoverX: pendingTargetedAction.hoverX,
     hoverY: pendingTargetedAction.hoverY,
   });
   if (targetingBadgeEl) {
-    const rangeLabel = pendingTargetedAction.actionId === 'client:observe' ? `视野 ${pendingTargetedAction.range}` : `射程 ${pendingTargetedAction.range}`;
-    const shapeLabel = pendingTargetedAction.shape === 'line'
+    const rangeLabel = pendingTargetedAction.actionId === 'client:observe' ? `视野 ${geometry.range}` : `射程 ${geometry.range}`;
+    const shapeLabel = geometry.shape === 'line'
       ? ` · 直线${pendingTargetedAction.maxTargets ? ` ${pendingTargetedAction.maxTargets}目标` : ''}`
-      : pendingTargetedAction.shape === 'box'
-        ? ` · 矩形 ${Math.max(1, pendingTargetedAction.width ?? 1)}x${Math.max(1, pendingTargetedAction.height ?? pendingTargetedAction.width ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
-      : pendingTargetedAction.shape === 'area'
-        ? ` · 范围半径 ${Math.max(0, pendingTargetedAction.radius ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
+      : geometry.shape === 'box'
+        ? ` · 矩形 ${Math.max(1, geometry.width ?? 1)}x${Math.max(1, geometry.height ?? geometry.width ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
+      : geometry.shape === 'area'
+        ? ` · 范围半径 ${Math.max(0, geometry.radius ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
         : '';
     targetingBadgeEl.textContent = `选定 ${pendingTargetedAction.actionName} 目标 · ${rangeLabel}${shapeLabel}`;
     targetingBadgeEl.classList.remove('hidden');
@@ -860,13 +861,41 @@ function getSkillDefByActionId(actionId: string): SkillDef | null {
   return null;
 }
 
+function getPlayerTargetingModifiers(): { extraRange: number; extraArea: number } | undefined {
+  const stats = myPlayer?.numericStats;
+  if (!stats) {
+    return undefined;
+  }
+  return {
+    extraRange: Math.max(0, Math.floor(stats.extraRange ?? 0)),
+    extraArea: Math.max(0, Math.floor(stats.extraArea ?? 0)),
+  };
+}
+
+function getEffectiveTargetingGeometry(
+  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height'>,
+): TargetingGeometrySpec {
+  const skill = getSkillDefByActionId(action.actionId);
+  const baseSpec: TargetingGeometrySpec = {
+    range: Math.max(1, skill?.range ?? action.range),
+    shape: skill?.targeting?.shape ?? action.shape ?? 'single',
+    radius: skill?.targeting?.radius ?? action.radius,
+    width: skill?.targeting?.width ?? action.width,
+    height: skill?.targeting?.height ?? action.height,
+  };
+  if (!skill) {
+    return baseSpec;
+  }
+  return buildEffectiveTargetingGeometry(baseSpec, getPlayerTargetingModifiers());
+}
+
 function resolveCurrentTargetingRange(
-  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'range'>,
+  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height'>,
 ): number {
   if (action.actionId === 'client:observe' || action.actionId === 'battle:force_attack') {
     return Math.max(1, getInfoRadius());
   }
-  return Math.max(1, action.range);
+  return Math.max(1, getEffectiveTargetingGeometry(action).range);
 }
 
 function doesTargetingRequireVision(actionId: string): boolean {
@@ -890,13 +919,12 @@ function beginTargeting(actionId: string, actionName: string, targetMode?: strin
     height: skill?.targeting?.height,
     maxTargets: skill?.targeting?.maxTargets,
   };
-  pendingTargetedAction.range = resolveCurrentTargetingRange(pendingTargetedAction);
   syncTargetingOverlay();
   if (actionId === 'client:observe') {
     showToast('请选择当前视野内的目标格，Esc 或右键取消');
     return;
   }
-  showToast(`请选择 ${pendingTargetedAction.range} 格内目标，Esc 或右键取消`);
+  showToast(`请选择 ${resolveCurrentTargetingRange(pendingTargetedAction)} 格内目标，Esc 或右键取消`);
 }
 
 function computeAffectedCells(action: NonNullable<typeof pendingTargetedAction>): Array<{ x: number; y: number }> {
@@ -907,24 +935,18 @@ function computeAffectedCells(action: NonNullable<typeof pendingTargetedAction>)
 }
 
 function computeAffectedCellsForAction(
-  action: Pick<NonNullable<typeof pendingTargetedAction>, 'range' | 'shape' | 'radius' | 'width' | 'height'>,
+  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height'>,
   anchor: GridPoint,
 ): GridPoint[] {
   if (!myPlayer) {
     return [];
   }
-  const spec: TargetingGeometrySpec = {
-    range: action.range,
-    shape: action.shape,
-    radius: action.radius,
-    width: action.width,
-    height: action.height,
-  };
+  const spec = getEffectiveTargetingGeometry(action);
   return computeAffectedCellsFromAnchor({ x: myPlayer.x, y: myPlayer.y }, anchor, spec);
 }
 
 function resolveTargetRefForAction(
-  action: Pick<NonNullable<typeof pendingTargetedAction>, 'shape' | 'targetMode'>,
+  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'shape' | 'range' | 'radius' | 'width' | 'height' | 'targetMode'>,
   target: { x: number; y: number; entityId?: string; entityKind?: string },
 ): string | null {
   const entityTargetRef = target.entityKind === 'player' && target.entityId
@@ -932,7 +954,8 @@ function resolveTargetRefForAction(
     : target.entityKind === 'monster' && target.entityId
       ? target.entityId
       : null;
-  if (action.shape && action.shape !== 'single') {
+  const geometry = getEffectiveTargetingGeometry(action);
+  if ((geometry.shape ?? 'single') !== 'single') {
     return encodeTileTargetRef({ x: target.x, y: target.y });
   }
   if (action.targetMode === 'entity') {
@@ -948,11 +971,12 @@ function resolveTargetRefForAction(
 }
 
 function hasAffectableTargetInArea(
-  action: Pick<NonNullable<typeof pendingTargetedAction>, 'shape' | 'range' | 'radius'>,
+  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'shape' | 'range' | 'radius' | 'width' | 'height'>,
   anchorX: number,
   anchorY: number,
 ): boolean {
-  if (!action.shape || action.shape === 'single') {
+  const geometry = getEffectiveTargetingGeometry(action);
+  if (!geometry.shape || geometry.shape === 'single') {
     return true;
   }
   const affectedCells = computeAffectedCellsForAction(action, { x: anchorX, y: anchorY });
@@ -1266,6 +1290,9 @@ function renderObserveAsideCards(cards: ObserveAsideCard[]): void {
 }
 
 function formatBuffDuration(buff: VisibleBuffState): string {
+  if (buff.infiniteDuration) {
+    return '∞';
+  }
   return `${formatDisplayInteger(Math.max(0, Math.round(buff.remainingTicks)))} / ${formatDisplayInteger(Math.max(1, Math.round(buff.duration)))} 息`;
 }
 
@@ -3295,8 +3322,9 @@ mapRuntime.setInteractionCallbacks({
         cancelTargeting();
         return;
       }
-      if (!myPlayer || !isPointInRange({ x: myPlayer.x, y: myPlayer.y }, { x: target.x, y: target.y }, pendingTargetedAction.range)) {
-        showToast(`超出施法范围，最多 ${pendingTargetedAction.range} 格`);
+      const geometry = getEffectiveTargetingGeometry(pendingTargetedAction);
+      if (!myPlayer || !isPointInRange({ x: myPlayer.x, y: myPlayer.y }, { x: target.x, y: target.y }, geometry.range)) {
+        showToast(`超出施法范围，最多 ${geometry.range} 格`);
         return;
       }
       if (!hasAffectableTargetInArea(pendingTargetedAction, target.x, target.y)) {

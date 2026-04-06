@@ -83,6 +83,7 @@ import { PersistentDocumentService } from '../database/persistent-document.servi
 import { AttrService } from './attr.service';
 import { AoiService } from './aoi.service';
 import { syncDynamicBuffPresentation } from './buff-presentation';
+import { getBuffSustainCost } from './buff-sustain';
 import { ContentService } from './content.service';
 import { EquipmentEffectService } from './equipment-effect.service';
 import { InventoryService } from './inventory.service';
@@ -607,6 +608,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       color,
       name: target.name,
       kind: 'player',
+      monsterScale: this.getTemporaryBuffPresentationScale(target.temporaryBuffs),
       hp: target.hp,
       maxHp: target.maxHp,
       buffs: this.getMapRenderableBuffs(target.temporaryBuffs),
@@ -1748,14 +1750,16 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   ): TemporaryBuffState {
     const maxStacks = Math.max(1, effect.maxStacks ?? 1);
     const duration = Math.max(1, effect.duration);
+    const infiniteDuration = effect.infiniteDuration === true;
     return syncDynamicBuffPresentation({
       buffId: effect.buffId,
       name: effect.name,
       desc: effect.desc,
+      baseDesc: effect.desc,
       shortMark: this.normalizeBuffShortMark(effect),
       category: effect.category ?? (effect.target === 'self' ? 'buff' : 'debuff'),
       visibility: effect.visibility ?? 'public',
-      remainingTicks: duration + 1,
+      remainingTicks: infiniteDuration ? 1 : duration + 1,
       duration,
       stacks: 1,
       maxStacks,
@@ -1770,6 +1774,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       statMode: effect.statMode,
       qiProjection: effect.qiProjection,
       presentationScale: effect.presentationScale,
+      infiniteDuration,
+      sustainCost: effect.sustainCost,
+      sustainTicksElapsed: effect.sustainCost ? 0 : undefined,
+      expireWithBuffId: effect.expireWithBuffId,
     });
   }
 
@@ -1778,6 +1786,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (existing) {
       existing.name = nextBuff.name;
       existing.desc = nextBuff.desc;
+      existing.baseDesc = nextBuff.baseDesc;
       existing.shortMark = nextBuff.shortMark;
       existing.category = nextBuff.category;
       existing.visibility = nextBuff.visibility;
@@ -1796,6 +1805,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       existing.statMode = nextBuff.statMode;
       existing.qiProjection = nextBuff.qiProjection;
       existing.presentationScale = nextBuff.presentationScale;
+      existing.infiniteDuration = nextBuff.infiniteDuration;
+      existing.sustainCost = nextBuff.sustainCost;
+      existing.sustainTicksElapsed = nextBuff.sustainTicksElapsed;
+      existing.expireWithBuffId = nextBuff.expireWithBuffId;
       syncDynamicBuffPresentation(existing);
       return existing;
     }
@@ -1828,6 +1841,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         attrMode: buff.attrMode,
         stats: buff.stats,
         statMode: buff.statMode,
+        infiniteDuration: buff.infiniteDuration,
       }));
     return visible.length > 0 ? visible : undefined;
   }
@@ -1851,6 +1865,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         color: buff.color,
         attrMode: buff.attrMode,
         statMode: buff.statMode,
+        infiniteDuration: buff.infiniteDuration,
       }));
     return visible && visible.length > 0 ? visible : undefined;
   }
@@ -2197,10 +2212,31 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
       if (monster.temporaryBuffs.length > 0) {
         this.measureCpuSection('monster_buffs', '怪物: Buff 推进', () => {
+          const nextBuffs: TemporaryBuffState[] = [];
           for (const buff of monster.temporaryBuffs) {
-            buff.remainingTicks -= 1;
+            const sustainCost = getBuffSustainCost(buff);
+            if (sustainCost !== null && buff.sustainCost) {
+              const currentResource = buff.sustainCost.resource === 'hp' ? monster.hp : monster.qi;
+              if (currentResource < sustainCost) {
+                continue;
+              }
+              if (buff.sustainCost.resource === 'hp') {
+                monster.hp = Math.max(0, monster.hp - sustainCost);
+              } else {
+                monster.qi = Math.max(0, monster.qi - sustainCost);
+              }
+              buff.sustainTicksElapsed = Math.max(0, Math.floor(buff.sustainTicksElapsed ?? 0)) + 1;
+              syncDynamicBuffPresentation(buff);
+            }
+            if (!buff.infiniteDuration) {
+              buff.remainingTicks -= 1;
+            }
+            if (buff.remainingTicks > 0 && buff.stacks > 0) {
+              nextBuffs.push(buff);
+            }
           }
-          monster.temporaryBuffs = monster.temporaryBuffs.filter((buff) => buff.remainingTicks > 0 && buff.stacks > 0);
+          const activeBuffIds = new Set(nextBuffs.map((buff) => buff.buffId));
+          monster.temporaryBuffs = nextBuffs.filter((buff) => !buff.expireWithBuffId || activeBuffIds.has(buff.expireWithBuffId));
         });
       }
       this.tickMonsterSkillCooldowns(monster);
@@ -4220,9 +4256,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return mode === 'flat' ? 'flat' : 'percent';
   }
 
-  private getMonsterPresentationScale(monster: RuntimeMonster): number {
+  private getTemporaryBuffPresentationScale(buffs: TemporaryBuffState[] | undefined): number {
     let scale = 1;
-    for (const buff of monster.temporaryBuffs ?? []) {
+    for (const buff of buffs ?? []) {
       if (buff.remainingTicks <= 0 || buff.stacks <= 0) {
         continue;
       }
@@ -4231,6 +4267,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       }
     }
     return scale;
+  }
+
+  private getMonsterPresentationScale(monster: RuntimeMonster): number {
+    return this.getTemporaryBuffPresentationScale(monster.temporaryBuffs);
   }
 
   private scaleNumericStats(stats: PartialNumericStats | undefined, factor: number): PartialNumericStats | undefined {
@@ -4351,6 +4391,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       id: target.id,
       name: target.name,
       kind: 'player',
+      monsterScale: this.getTemporaryBuffPresentationScale(target.temporaryBuffs),
       hp: target.hp,
       maxHp: target.maxHp,
       qi: target.qi,

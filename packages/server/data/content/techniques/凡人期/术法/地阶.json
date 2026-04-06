@@ -102,11 +102,18 @@
             "shortMark": "相",
             "category": "buff",
             "visibility": "public",
-            "duration": 600,
+            "duration": 1,
+            "infiniteDuration": true,
+            "sustainCost": {
+              "resource": "qi",
+              "baseCost": 100,
+              "growthRate": 0.2
+            },
             "stats": {
               "physAtk": 100,
               "spellAtk": 100,
-              "cooldownSpeed": 100
+              "cooldownSpeed": 100,
+              "viewRange": 50
             },
             "statMode": "percent",
             "presentationScale": 4
@@ -120,9 +127,11 @@
             "shortMark": "域",
             "category": "buff",
             "visibility": "hidden",
-            "duration": 600,
+            "duration": 1,
+            "infiniteDuration": true,
+            "expireWithBuffId": "buff.huanling_candan_faxiang",
             "stats": {
-              "extraRange": 2,
+              "extraRange": 5,
               "extraArea": 1
             },
             "statMode": "flat"
