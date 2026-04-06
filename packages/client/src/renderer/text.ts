@@ -498,11 +498,11 @@ export class TextRenderer implements IRenderer {
             if (inCastRange || affected) {
               ctx.fillStyle = affected
                 ? (hovered ? 'rgba(208, 76, 56, 0.42)' : 'rgba(198, 72, 48, 0.3)')
-                : (hovered ? 'rgba(208, 76, 56, 0.34)' : 'rgba(212, 164, 71, 0.18)');
+                : (hovered ? 'rgba(66, 153, 225, 0.3)' : 'rgba(88, 180, 214, 0.18)');
               ctx.fillRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
               ctx.strokeStyle = affected
                 ? (hovered ? 'rgba(150, 28, 24, 0.98)' : 'rgba(171, 56, 36, 0.9)')
-                : (hovered ? 'rgba(166, 37, 31, 0.92)' : 'rgba(123, 91, 20, 0.55)');
+                : (hovered ? 'rgba(125, 211, 252, 0.94)' : 'rgba(151, 236, 255, 0.72)');
               ctx.lineWidth = hovered || affected ? 2 : 1;
               ctx.strokeRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3);
             }
