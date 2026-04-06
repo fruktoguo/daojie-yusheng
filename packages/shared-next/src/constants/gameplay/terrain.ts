@@ -12,7 +12,7 @@ export const TERRAIN_DESTROYED_RESTORE_TICKS = 7200;
 export const TERRAIN_RESTORE_RETRY_DELAY_TICKS = 60;
 
 /** 可摧毁地形每息自动恢复比例 */
-export const TERRAIN_REGEN_RATE_PER_TICK = 0.001;
+export const TERRAIN_REGEN_RATE_PER_TICK = 0.01;
 
 /** 移动点数基本单位 */
 export const MOVE_POINT_UNIT = 100;
