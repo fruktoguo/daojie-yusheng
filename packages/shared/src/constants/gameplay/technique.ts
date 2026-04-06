@@ -20,6 +20,15 @@ export const TECHNIQUE_EXP_LEVEL_DELTA_MULTIPLIER_STEP = 0.3;
 /** 学习高于自身过多境界的功法时，触发学习前确认提示的境界差阈值。 */
 export const TECHNIQUE_LEARNING_HEAVY_DECAY_WARNING_DELTA = 5;
 
+/** 斩断或补回单系灵根时，按当前境界修为上限扣除的比例。 */
+export const HEAVEN_GATE_SEVER_COST_RATIO = 0.1;
+
+/** 逆天改命与灵根幼苗折算底蕴时，按当前境界修为上限扣除的比例。 */
+export const HEAVEN_GATE_REROLL_COST_RATIO = 0.25;
+
+/** 使用碎灵丹时，按当前已有境界修为扣除的比例。 */
+export const SHATTER_SPIRIT_PILL_COST_RATIO = 0.25;
+
 /** 炼体第一层所需经验 */
 export const BODY_TRAINING_EXP_BASE = 10000;
 

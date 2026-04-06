@@ -19,6 +19,8 @@ import {
   getMonsterKillExpLevelAdjustment,
   getMonsterLevelExpDecayMultiplier,
   getBodyTrainingExpToNext,
+  HEAVEN_GATE_REROLL_COST_RATIO,
+  HEAVEN_GATE_SEVER_COST_RATIO,
   getTechniqueExpLevelAdjustment,
   HeavenGateRootValues,
   HeavenGateState,
@@ -31,6 +33,7 @@ import {
   PlayerRealmStage,
   PlayerRealmState,
   PlayerState,
+  SHATTER_SPIRIT_PILL_COST_RATIO,
   TemporaryBuffState,
   TECHNIQUE_GRADE_LABELS,
   TECHNIQUE_GRADE_ORDER,
@@ -1665,15 +1668,15 @@ export class TechniqueService {
   }
 
   private getHeavenGateSeverCost(realm: PlayerRealmState): number {
-    return Math.max(1, Math.round(realm.progressToNext * 0.1));
+    return Math.max(1, Math.round(realm.progressToNext * HEAVEN_GATE_SEVER_COST_RATIO));
   }
 
   private getHeavenGateRerollCost(realm: PlayerRealmState): number {
-    return Math.max(1, Math.round(realm.progressToNext * 0.25));
+    return Math.max(1, Math.round(realm.progressToNext * HEAVEN_GATE_REROLL_COST_RATIO));
   }
 
   private getShatterSpiritPillCost(realm: PlayerRealmState): number {
-    return Math.max(0, Math.round(Math.max(0, realm.progress) * 0.25));
+    return Math.max(0, Math.round(Math.max(0, realm.progress) * SHATTER_SPIRIT_PILL_COST_RATIO));
   }
 
   private getHeavenGateRerollCount(averageBonus: number): number {

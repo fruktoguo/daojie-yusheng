@@ -1,4 +1,11 @@
-import type { ElementKey, HeavenGateRootValues, HeavenGateState, PlayerState } from '@mud/shared-next';
+import {
+  HEAVEN_GATE_REROLL_COST_RATIO,
+  HEAVEN_GATE_SEVER_COST_RATIO,
+  type ElementKey,
+  type HeavenGateRootValues,
+  type HeavenGateState,
+  type PlayerState,
+} from '@mud/shared-next';
 import { detailModalHost } from './detail-modal-host';
 import { getElementKeyLabel } from '../domain-labels';
 import { formatDisplayInteger } from '../utils/number';
@@ -8,6 +15,7 @@ import { describeSpiritualRoots, normalizeSpiritualRoots } from '../utils/spirit
 const HEAVEN_GATE_OWNER = 'realm:heaven_gate';
 const HEAVEN_GATE_MIN_REALM_LEVEL = 18;
 const ELEMENTS: readonly ElementKey[] = ['metal', 'wood', 'water', 'fire', 'earth'];
+const HEAVEN_GATE_SEVER_COST_PERCENT = Math.round(HEAVEN_GATE_SEVER_COST_RATIO * 100);
 
 type PendingAction =
   | { kind: 'sever' | 'restore'; element: ElementKey }
@@ -77,11 +85,11 @@ function buildSession(player: PlayerState): HeavenGateSession | null {
 }
 
 function getSeverCost(session: HeavenGateSession): number {
-  return Math.max(1, Math.round(session.maxExp * 0.1));
+  return Math.max(1, Math.round(session.maxExp * HEAVEN_GATE_SEVER_COST_RATIO));
 }
 
 function getRerollCost(session: HeavenGateSession): number {
-  return Math.max(1, Math.round(session.maxExp * 0.25));
+  return Math.max(1, Math.round(session.maxExp * HEAVEN_GATE_REROLL_COST_RATIO));
 }
 
 function createPlaceholderRoots(session: HeavenGateSession): HeavenGateRootValues {
@@ -208,8 +216,8 @@ function renderPendingPopup(session: HeavenGateSession): string {
     const actionLabel = pendingAction.kind === 'sever' ? '斩断' : '补回';
     const cost = formatDisplayInteger(getSeverCost(session));
     const desc = pendingAction.kind === 'sever'
-      ? `斩断后，这一系灵根本次将完全不参与随机分配；保留的灵根越少，单条数值通常越容易更高，但你也等于主动放弃了这一系出现在最终结果里的可能。若不斩，则这一系仍会和其他灵根一起分摊总值，更容易形成多灵根结果。此次会消耗 ${cost} 点境界修为（当前境界修为上限的 10%）；若想补回，补灵根同样需要 ${cost} 点境界修为。若当前已有开天门结果，结果会立刻失效并退回重新开门。`
-      : `补回后，这一系灵根会重新进入本次开天门随机池。补回意味着最终更可能出现多灵根、总值分配更分散；不补则会继续提高剩余灵根吃到高数值的机会。补灵根会消耗 ${cost} 点境界修为（当前境界修为上限的 10%）；若当前已有开天门结果，结果同样会立刻失效并退回重新开门。`;
+      ? `斩断后，这一系灵根本次将完全不参与随机分配；保留的灵根越少，单条数值通常越容易更高，但你也等于主动放弃了这一系出现在最终结果里的可能。若不斩，则这一系仍会和其他灵根一起分摊总值，更容易形成多灵根结果。此次会消耗 ${cost} 点境界修为（当前境界修为上限的 ${HEAVEN_GATE_SEVER_COST_PERCENT}%）；若想补回，补灵根同样需要 ${cost} 点境界修为。若当前已有开天门结果，结果会立刻失效并退回重新开门。`
+      : `补回后，这一系灵根会重新进入本次开天门随机池。补回意味着最终更可能出现多灵根、总值分配更分散；不补则会继续提高剩余灵根吃到高数值的机会。补灵根会消耗 ${cost} 点境界修为（当前境界修为上限的 ${HEAVEN_GATE_SEVER_COST_PERCENT}%）；若当前已有开天门结果，结果同样会立刻失效并退回重新开门。`;
     return `
       <div class="heaven-gate-popup-overlay" data-heaven-gate-popup-overlay>
         <section class="heaven-gate-popup" data-heaven-gate-popup>

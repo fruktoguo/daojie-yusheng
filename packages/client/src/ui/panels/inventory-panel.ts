@@ -6,10 +6,12 @@
 import {
   EquipSlot,
   HeavenGateState,
+  HEAVEN_GATE_REROLL_COST_RATIO,
   Inventory,
   ItemStack,
   PlayerState,
   PlayerRealmState,
+  SHATTER_SPIRIT_PILL_COST_RATIO,
   TECHNIQUE_LEARNING_HEAVY_DECAY_WARNING_DELTA,
   TechniqueGrade,
   createItemStackSignature,
@@ -1011,7 +1013,7 @@ export class InventoryPanel {
   }
 
   private getHeavenGateRerollCost(realm: PlayerRealmState | null): number {
-    return Math.max(1, Math.round(Math.max(1, Math.floor(realm?.progressToNext ?? 1)) * 0.25));
+    return Math.max(1, Math.round(Math.max(1, Math.floor(realm?.progressToNext ?? 1)) * HEAVEN_GATE_REROLL_COST_RATIO));
   }
 
   private getSpiritualRootSeedEquivalentRerollCount(tier: 'heaven' | 'divine'): number {
@@ -1057,7 +1059,7 @@ export class InventoryPanel {
       return null;
     }
     const currentExp = Math.max(0, Math.floor(this.playerRealm?.progress ?? 0));
-    const expCost = Math.max(0, Math.round(currentExp * 0.25));
+    const expCost = Math.max(0, Math.round(currentExp * SHATTER_SPIRIT_PILL_COST_RATIO));
     const remainingExp = Math.max(0, currentExp - expCost);
     const nextRerollCount = currentRerollCount + 1;
     return {
