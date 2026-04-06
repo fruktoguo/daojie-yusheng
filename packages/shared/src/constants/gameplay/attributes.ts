@@ -105,7 +105,6 @@ export const ATTR_TO_NUMERIC_WEIGHTS: Record<AttrKey, PartialNumericStats> = {
   },
   luck: {
     lootRate: 100,
-    rareLootRate: 100,
   },
 };
 

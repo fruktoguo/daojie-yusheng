@@ -285,14 +285,18 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         }
         const normalizedRolls = Math.max(1, Math.trunc(rolls));
         const result = new Map();
-        const normalizedLootRateBonus = Number.isFinite(lootRateBonus) ? Math.max(0, lootRateBonus) : 0;
-        const normalizedRareLootRateBonus = Number.isFinite(rareLootRateBonus) ? Math.max(0, rareLootRateBonus) : 0;
-        const commonChanceMultiplier = 1 + normalizedLootRateBonus / 10000;
-        const rareChanceMultiplier = 1 + normalizedRareLootRateBonus / 10000;
+        const normalizedLootRateBonus = Number.isFinite(lootRateBonus) ? lootRateBonus : 0;
+        const normalizedRareLootRateBonus = Number.isFinite(rareLootRateBonus) ? rareLootRateBonus : 0;
         for (let rollIndex = 0; rollIndex < normalizedRolls; rollIndex += 1) {
             for (const drop of dropTable) {
                 const baseChance = typeof drop.chance === 'number' ? Math.max(0, Math.min(1, drop.chance)) : 1;
-                const chance = Math.min(1, baseChance * commonChanceMultiplier * (baseChance <= 0.2 ? rareChanceMultiplier : 1));
+                const totalRateBonus = normalizedLootRateBonus + (baseChance <= 0.001 ? normalizedRareLootRateBonus : 0);
+                const killEquivalent = totalRateBonus >= 0
+                    ? 1 + totalRateBonus / 10000
+                    : 1 / (1 + Math.abs(totalRateBonus) / 10000);
+                const chance = baseChance <= 0 || killEquivalent <= 0
+                    ? 0
+                    : 1 - Math.pow(1 - baseChance, killEquivalent);
                 if (chance <= 0 || Math.random() > chance) {
                     continue;
                 }
