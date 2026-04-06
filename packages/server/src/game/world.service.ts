@@ -1770,6 +1770,26 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }, this.getSkillTargetingModifiers(stats));
   }
 
+  private getEffectiveDamageTargetLimit(
+    skill: SkillDef,
+    buffs: TemporaryBuffState[] | undefined,
+  ): number {
+    const configuredMaxTargets = skill.targeting?.maxTargets;
+    if (!Number.isFinite(configuredMaxTargets) || (configuredMaxTargets ?? 0) <= 0) {
+      return 99;
+    }
+    const baseMaxTargets = Math.max(1, Number(configuredMaxTargets));
+    if (!skill.effects.some((effect) => effect.type === 'damage')) {
+      return baseMaxTargets;
+    }
+    const hasFaxiang = (buffs ?? []).some((buff) => (
+      buff.buffId === 'buff.huanling_candan_faxiang'
+      && buff.remainingTicks > 0
+      && buff.stacks > 0
+    ));
+    return hasFaxiang ? Math.max(baseMaxTargets, baseMaxTargets * 2) : baseMaxTargets;
+  }
+
   private buildPlayerSkillAffectedCells(
     player: PlayerState,
     skill: SkillDef,
@@ -1830,7 +1850,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       ? this.playerService.getPlayersByMap(player.mapId)
         .filter((entry) => entry.id !== player.id && !entry.dead)
       : [];
-    const maxTargets = Math.max(1, skill.targeting?.maxTargets ?? 99);
+    const maxTargets = this.getEffectiveDamageTargetLimit(skill, player.temporaryBuffs);
     const cells = this.buildPlayerSkillAffectedCells(player, skill, anchor, playerStats);
     return this.collectTargetsFromCells(player, monsters, players, cells, maxTargets);
   }
@@ -2661,7 +2681,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
     const players = this.playerService.getPlayersByMap(monster.mapId)
       .filter((entry) => !entry.dead);
-    const maxTargets = Math.max(1, skill.targeting?.maxTargets ?? 99);
+    const maxTargets = this.getEffectiveDamageTargetLimit(skill, monster.temporaryBuffs);
     return this.collectMonsterSkillTargetsFromCells(players, cells, maxTargets);
   }
 
@@ -2723,7 +2743,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
     const players = this.playerService.getPlayersByMap(monster.mapId)
       .filter((entry) => !entry.dead);
-    const maxTargets = Math.max(1, skill.targeting?.maxTargets ?? 99);
+    const maxTargets = this.getEffectiveDamageTargetLimit(skill, monster.temporaryBuffs);
     const cells = computeAffectedCellsFromAnchor(monster, primaryTarget, {
       range: geometry.range,
       shape,
