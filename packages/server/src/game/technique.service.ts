@@ -200,7 +200,7 @@ interface RealmExpAdvanceResult {
 const FOUNDATION_EXP_MULTIPLIER = 3;
 const FOUNDATION_EXP_BONUS_MULTIPLIER = FOUNDATION_EXP_MULTIPLIER - 1;
 const SPIRITUAL_ROOT_SEED_REROLL_EQUIVALENTS: Record<SpiritualRootSeedTier, number> = {
-  heaven: 20,
+  heaven: 10,
   divine: 100,
 };
 
@@ -488,8 +488,11 @@ export class TechniqueService {
 
   useWangshengPill(player: PlayerState): HeavenGateActionResult {
     const nextRealm = this.normalizeRealmState(1, 0);
-    this.applyHeavenGateResetState(player, nextRealm, 0);
+    this.applyResolvedRealmState(player, nextRealm);
     player.foundation = 0;
+    player.hp = Math.min(player.maxHp, Math.max(1, player.hp));
+    player.qi = Math.min(Math.round(player.numericStats?.maxQi ?? player.qi), Math.max(0, player.qi));
+    player.dead = false;
     return {
       dirty: ['attr', 'actions', 'tech'],
       messages: [{
@@ -1625,7 +1628,6 @@ export class TechniqueService {
 
   private syncHeavenGateState(player: PlayerState, realm: PlayerRealmState): HeavenGateState | null {
     if (!this.hasReachedHeavenGateRealm(realm.realmLv)) {
-      player.heavenGate = null;
       return null;
     }
     const persisted = this.normalizeHeavenGateState(player.heavenGate);

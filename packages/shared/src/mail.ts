@@ -76,7 +76,7 @@ export const MAIL_TEMPLATE_DEFS: Record<string, MailTemplateDef> = {
     body: [
       { kind: 'text', value: '司命台封存了一株天品灵根幼苗，请查收附件。' },
       { kind: 'text', value: '\n\n' },
-      { kind: 'text', value: '此物会将五行灵根先定为 99，再逐系以五成概率催至 100，且至少保底一系圆满；同时逆天改命累计额外增加 20 次。使用时会按你当前逆天改命积累折减所需底蕴。' },
+      { kind: 'text', value: '此物会将五行灵根先定为 99，再逐系以五成概率催至 100，且至少保底一系圆满；同时逆天改命累计额外增加 10 次。使用时会按你当前逆天改命积累折减所需底蕴。' },
     ],
   },
   [MAIL_TEMPLATE_DIVINE_ROOT_SEED_ID]: {

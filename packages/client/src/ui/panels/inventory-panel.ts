@@ -1015,7 +1015,7 @@ export class InventoryPanel {
   }
 
   private getSpiritualRootSeedEquivalentRerollCount(tier: 'heaven' | 'divine'): number {
-    return tier === 'divine' ? 100 : 20;
+    return tier === 'divine' ? 100 : 10;
   }
 
   private getSpecialUseConfirmSummary(item: ItemStack): {
