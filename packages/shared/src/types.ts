@@ -847,6 +847,12 @@ export interface SkillMonsterCastDef {
   conditions?: EquipmentConditionGroup;
 }
 
+/** 玩家技能吟唱定义 */
+export interface SkillPlayerCastDef {
+  windupTicks?: number;
+  warningColor?: string;
+}
+
 /** 技能完整定义 */
 export interface SkillDef {
   id: string;
@@ -863,7 +869,18 @@ export interface SkillDef {
   unlockPlayerRealm?: PlayerRealmStage;
   requiresTarget?: boolean;
   targetMode?: 'any' | 'entity' | 'tile';
+  playerCast?: SkillPlayerCastDef;
   monsterCast?: SkillMonsterCastDef;
+}
+
+export interface PendingPlayerSkillCast {
+  skillId: string;
+  targetX: number;
+  targetY: number;
+  remainingTicks: number;
+  qiCost: number;
+  warningColor?: string;
+  skipProgressThisTick?: boolean;
 }
 
 /** 临时 Buff 状态（含属性和数值加成） */
@@ -1105,6 +1122,7 @@ export interface PlayerState {
   realm?: PlayerRealmState;
   questNavigation?: QuestNavigationState;
   questCrossMapNavCooldownUntilLifeTicks?: number;
+  pendingSkillCast?: PendingPlayerSkillCast;
 }
 
 /** 意见状态 */

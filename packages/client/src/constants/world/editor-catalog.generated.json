@@ -14,6 +14,10 @@
           "cooldown": 1800,
           "costMultiplier": 8,
           "range": 8,
+          "playerCast": {
+            "windupTicks": 3,
+            "warningColor": "#ffb14a"
+          },
           "targeting": {
             "shape": "box",
             "width": 5,
@@ -8340,6 +8344,10 @@
           "cooldown": 1800,
           "costMultiplier": 8,
           "range": 9,
+          "playerCast": {
+            "windupTicks": 3,
+            "warningColor": "#ff8c42"
+          },
           "targeting": {
             "shape": "box",
             "width": 7,

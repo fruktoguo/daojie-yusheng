@@ -627,6 +627,11 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
               player.combatTargetLocked = false;
               this.markActionsDirty(player.id);
             }
+            this.applyWorldUpdate(
+              player.id,
+              this.worldService.interruptPendingPlayerSkillCast(player, '你移动了身形。'),
+              messages,
+            );
             this.applyCultivationResult(player.id, this.techniqueService.interruptCultivation(player, 'move'), messages);
             const { d } = cmd.data as { d: Direction };
             const moved = this.navigationService.stepPlayerByDirection(player, d);
@@ -646,6 +651,11 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
               player.combatTargetLocked = false;
               this.markActionsDirty(player.id);
             }
+            this.applyWorldUpdate(
+              player.id,
+              this.worldService.interruptPendingPlayerSkillCast(player, '你移动了身形。'),
+              messages,
+            );
             this.applyCultivationResult(player.id, this.techniqueService.interruptCultivation(player, 'move'), messages);
             const {
               x,
@@ -718,6 +728,10 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         }
         case 'action': {
           const { actionId, target } = cmd.data as { actionId: string; target?: string };
+          if (player.pendingSkillCast && actionId !== 'debug:reset_spawn') {
+            messages.push({ playerId: player.id, text: '你正在吟唱中，移动会打断当前神通。', kind: 'system' });
+            break;
+          }
           if (actionId === 'debug:reset_spawn') {
             this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
               this.logger.log(`执行兼容调试回城(action): ${player.id}`);
@@ -931,6 +945,16 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         if (navigation.moved && this.measureCpuSection('pathfinding', '寻路与移动', () => this.applyAutoTravelIfNeeded(player, messages))) {
           this.markPlayerActive(player, activePlayerIds);
           continue;
+        }
+      }
+
+      const pendingSkillUpdate = this.measureCpuSection('combat', '战斗与技能计算', () => (
+        this.worldService.resolvePendingPlayerSkillCast(player)
+      ));
+      if (pendingSkillUpdate) {
+        this.applyWorldUpdate(player.id, pendingSkillUpdate, messages);
+        if (pendingSkillUpdate.consumedAction || pendingSkillUpdate.messages.length > 0) {
+          this.markPlayerActive(player, activePlayerIds);
         }
       }
 
