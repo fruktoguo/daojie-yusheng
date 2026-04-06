@@ -68,6 +68,8 @@ export interface PlayerCommand {
 /** 数据变更类型标记，用于增量同步 */
 export type DirtyFlag = 'attr' | 'inv' | 'equip' | 'tech' | 'actions' | 'loot' | 'quest';
 
+const PLAYER_PERSIST_CONCURRENCY = 8;
+
 function normalizeUnlockedMinimapIds(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
@@ -432,8 +434,20 @@ export class PlayerService implements OnModuleInit {
   async persistAll(): Promise<void> {
     const states = [...this.players.values()].filter((player) => !player.isBot);
     if (states.length === 0) return;
-    for (const state of states) {
-      await this.persistPlayerState(state);
+    const failures: string[] = [];
+    for (let index = 0; index < states.length; index += PLAYER_PERSIST_CONCURRENCY) {
+      const batch = states.slice(index, index + PLAYER_PERSIST_CONCURRENCY);
+      const results = await Promise.allSettled(batch.map((state) => this.persistPlayerState(state)));
+      results.forEach((result, batchIndex) => {
+        if (result.status === 'fulfilled') {
+          return;
+        }
+        const reason = result.reason instanceof Error ? result.reason.message : String(result.reason);
+        failures.push(`${batch[batchIndex]?.id ?? 'unknown'}: ${reason}`);
+      });
+    }
+    if (failures.length > 0) {
+      throw new Error(`玩家批量落盘失败 ${failures.length}/${states.length} 项: ${failures.slice(0, 3).join('; ')}`);
     }
     this.logger.log(`批量落盘 ${states.length} 名玩家`);
   }
