@@ -28,6 +28,9 @@ import {
   normalizeLifespanYears,
   isRoleNameWithinLimit,
   truncateRoleName,
+  DEFAULT_INVISIBLE_ROLE_NAME_BASE,
+  DEFAULT_VISIBLE_DISPLAY_NAME,
+  hasVisibleNameGrapheme,
   VIEW_RADIUS,
   clonePlainValue,
   S2C,
@@ -42,7 +45,11 @@ import { MapService } from './map.service';
 import { resolveQuestTargetName } from './quest-display';
 import { EquipmentService } from './equipment.service';
 import { TechniqueService } from './technique.service';
-import { resolveDisplayName } from '../auth/account-validation';
+import {
+  normalizeDisplayName,
+  resolveDisplayName,
+  validateDisplayName,
+} from '../auth/account-validation';
 import { MAX_PENDING_LOGBOOK_MESSAGES } from '../constants/gameplay/logbook';
 import {
   buildPersistedPlayerCollections,
@@ -118,6 +125,7 @@ export class PlayerService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
+    await this.ensureDisplayNameUniquenessPolicy();
     await this.normalizePersistedRoleNames();
   }
 
@@ -894,6 +902,36 @@ export class PlayerService implements OnModuleInit {
     };
   }
 
+  private async ensureDisplayNameUniquenessPolicy(): Promise<void> {
+    const rows = await this.userRepo.query(`
+      SELECT con.conname
+      FROM pg_constraint con
+      INNER JOIN pg_class rel ON rel.oid = con.conrelid
+      INNER JOIN LATERAL unnest(con.conkey) WITH ORDINALITY AS key(attnum, ordinality) ON TRUE
+      INNER JOIN pg_attribute attr ON attr.attrelid = rel.oid AND attr.attnum = key.attnum
+      WHERE rel.relname = 'users'
+        AND con.contype = 'u'
+      GROUP BY con.conname
+      HAVING array_agg(attr.attname ORDER BY key.ordinality) = ARRAY['displayName']
+    `);
+    for (const row of rows as Array<{ conname?: unknown }>) {
+      const constraintName = typeof row?.conname === 'string' ? row.conname.trim() : '';
+      if (!constraintName) {
+        continue;
+      }
+      await this.userRepo.query(`ALTER TABLE "users" DROP CONSTRAINT IF EXISTS ${this.quotePgIdentifier(constraintName)}`);
+    }
+    await this.userRepo.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "idx_users_display_name_unique_except_person"
+      ON "users" ("displayName")
+      WHERE "displayName" IS NOT NULL AND "displayName" <> '${DEFAULT_VISIBLE_DISPLAY_NAME}'
+    `);
+  }
+
+  private quotePgIdentifier(value: string): string {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+
   private async normalizePersistedRoleNames(): Promise<void> {
     const [players, users] = await Promise.all([
       this.playerRepo.find({
@@ -914,15 +952,45 @@ export class PlayerService implements OnModuleInit {
         },
       }),
     ]);
-    if (players.length === 0) {
+    if (players.length === 0 && users.length === 0) {
       return;
     }
 
     const userById = new Map(users.map((user) => [user.id, user]));
+    const effectiveDisplayNameByUserId = new Map<string, string>();
+    const userDisplayUpdates: Array<{ id: string; displayName: string | null }> = [];
+    let defaultDisplayAssignedCount = 0;
+    let displayNameNormalizedCount = 0;
+    for (const user of users) {
+      const normalizedStoredDisplayName = typeof user.displayName === 'string'
+        ? normalizeDisplayName(user.displayName)
+        : '';
+      let nextStoredDisplayName = user.displayName;
+      if (normalizedStoredDisplayName) {
+        const displayNameError = validateDisplayName(normalizedStoredDisplayName);
+        if (displayNameError) {
+          nextStoredDisplayName = DEFAULT_VISIBLE_DISPLAY_NAME;
+          defaultDisplayAssignedCount += 1;
+        } else if (normalizedStoredDisplayName !== user.displayName) {
+          nextStoredDisplayName = normalizedStoredDisplayName;
+          displayNameNormalizedCount += 1;
+        }
+      } else if (resolveDisplayName(user.displayName, user.username) === DEFAULT_VISIBLE_DISPLAY_NAME) {
+        nextStoredDisplayName = DEFAULT_VISIBLE_DISPLAY_NAME;
+        defaultDisplayAssignedCount += 1;
+      }
+      if (nextStoredDisplayName !== user.displayName) {
+        userDisplayUpdates.push({ id: user.id, displayName: nextStoredDisplayName });
+      }
+      effectiveDisplayNameByUserId.set(
+        user.id,
+        resolveDisplayName(nextStoredDisplayName, user.username),
+      );
+    }
     const occupiedNames = new Set<string>();
     for (const user of users) {
       occupiedNames.add(user.username);
-      occupiedNames.add(resolveDisplayName(user.displayName, user.username));
+      occupiedNames.add(effectiveDisplayNameByUserId.get(user.id) ?? resolveDisplayName(user.displayName, user.username));
     }
 
     type StartupPlayerEntry = {
@@ -932,10 +1000,15 @@ export class PlayerService implements OnModuleInit {
       normalizedName: string;
       createdAt: Date | null;
       createdAtSource: number;
+      requiresAnonymousRename: boolean;
     };
 
     const entries: StartupPlayerEntry[] = players.map((player) => {
-      const normalizedName = truncateRoleName(player.name.normalize('NFC').trim());
+      const trimmedName = player.name.normalize('NFC').trim();
+      const requiresAnonymousRename = !hasVisibleNameGrapheme(trimmedName);
+      const normalizedName = requiresAnonymousRename
+        ? DEFAULT_INVISIBLE_ROLE_NAME_BASE
+        : truncateRoleName(trimmedName);
       const user = userById.get(player.userId);
       const createdAt = this.resolvePlayerCreatedAt(player.id, player.createdAt, user?.createdAt ?? null);
       return {
@@ -945,11 +1018,15 @@ export class PlayerService implements OnModuleInit {
         normalizedName: normalizedName || player.name,
         createdAt,
         createdAtSource: createdAt?.getTime() ?? 0,
+        requiresAnonymousRename,
       };
     });
 
     const groupedByName = new Map<string, StartupPlayerEntry[]>();
     for (const entry of entries) {
+      if (entry.requiresAnonymousRename) {
+        continue;
+      }
       const bucket = groupedByName.get(entry.normalizedName) ?? [];
       bucket.push(entry);
       groupedByName.set(entry.normalizedName, bucket);
@@ -964,6 +1041,7 @@ export class PlayerService implements OnModuleInit {
 
     let normalizedCount = 0;
     let duplicateRenamedCount = 0;
+    let anonymousRoleRenamedCount = 0;
     let createdAtBackfilledCount = 0;
     let inventoryCapacityBackfilledCount = 0;
     const updates: Array<{ id: string; changes: Pick<Partial<PlayerEntity>, 'name' | 'createdAt' | 'inventory'> }> = [];
@@ -989,11 +1067,27 @@ export class PlayerService implements OnModuleInit {
       }
     }
 
+    const anonymousEntries = entries
+      .filter((entry) => entry.requiresAnonymousRename)
+      .sort((left, right) => (
+        left.createdAtSource - right.createdAtSource
+        || left.id.localeCompare(right.id)
+      ));
+    let anonymousSuffix = 1;
+    for (const entry of anonymousEntries) {
+      const renamed = this.allocateDuplicateRoleName(DEFAULT_INVISIBLE_ROLE_NAME_BASE, anonymousSuffix, occupiedNames, 1);
+      anonymousSuffix = renamed.nextSuffix;
+      entry.normalizedName = renamed.name;
+      occupiedNames.add(renamed.name);
+    }
+
     for (const entry of entries) {
       const changes: Partial<PlayerEntity> = {};
       if (entry.normalizedName !== entry.originalName) {
         changes.name = entry.normalizedName;
-        if (truncateRoleName(entry.originalName.normalize('NFC').trim()) === entry.normalizedName) {
+        if (entry.requiresAnonymousRename) {
+          anonymousRoleRenamedCount += 1;
+        } else if (truncateRoleName(entry.originalName.normalize('NFC').trim()) === entry.normalizedName) {
           normalizedCount += 1;
         } else {
           duplicateRenamedCount += 1;
@@ -1016,15 +1110,27 @@ export class PlayerService implements OnModuleInit {
       }
     }
 
+    for (const update of userDisplayUpdates) {
+      await this.userRepo.update(update.id, { displayName: update.displayName });
+    }
     for (const update of updates) {
       await this.playerRepo.update(update.id, update.changes as any);
     }
 
+    if (defaultDisplayAssignedCount > 0) {
+      this.logger.warn(`启动时已将 ${defaultDisplayAssignedCount} 个无效显示名修正为 ${DEFAULT_VISIBLE_DISPLAY_NAME}`);
+    }
+    if (displayNameNormalizedCount > 0) {
+      this.logger.log(`启动时已规范化 ${displayNameNormalizedCount} 个显示名的 Unicode 形式`);
+    }
     if (normalizedCount > 0) {
       this.logger.log(`启动时已裁切 ${normalizedCount} 个超长角色名`);
     }
     if (duplicateRenamedCount > 0) {
       this.logger.warn(`启动时已为 ${duplicateRenamedCount} 个重名角色自动追加序号`);
+    }
+    if (anonymousRoleRenamedCount > 0) {
+      this.logger.warn(`启动时已将 ${anonymousRoleRenamedCount} 个透明角色自动改名为 ${DEFAULT_INVISIBLE_ROLE_NAME_BASE}#序号`);
     }
     if (createdAtBackfilledCount > 0) {
       this.logger.log(`启动时已回填 ${createdAtBackfilledCount} 个旧角色的创建时间`);
@@ -1061,8 +1167,13 @@ export class PlayerService implements OnModuleInit {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
   }
 
-  private allocateDuplicateRoleName(baseName: string, startSuffix: number, occupiedNames: Set<string>): { name: string; nextSuffix: number } {
-    let suffix = Math.max(2, Math.floor(startSuffix));
+  private allocateDuplicateRoleName(
+    baseName: string,
+    startSuffix: number,
+    occupiedNames: Set<string>,
+    minimumSuffix = 2,
+  ): { name: string; nextSuffix: number } {
+    let suffix = Math.max(minimumSuffix, Math.floor(startSuffix));
     while (true) {
       const suffixText = `#${suffix}`;
       const candidate = this.appendRoleNameSuffix(baseName, suffixText);

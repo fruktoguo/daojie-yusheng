@@ -6,9 +6,14 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  Index,
 } from 'typeorm';
 
 /** 用户表，一个用户对应一个游戏角色 */
+@Index('idx_users_display_name_unique_except_person', ['displayName'], {
+  unique: true,
+  where: `"displayName" IS NOT NULL AND "displayName" <> '人'`,
+})
 @Entity('users')
 export class UserEntity {
   @PrimaryGeneratedColumn('uuid')
@@ -19,7 +24,7 @@ export class UserEntity {
   username!: string;
 
   /** 地图上显示的单字符名称，为空时回退到用户名首字符 */
-  @Column({ type: 'varchar', length: 16, unique: true, nullable: true })
+  @Column({ type: 'varchar', length: 16, nullable: true })
   displayName!: string | null;
 
   /** 注册后待创建角色时使用的角色名称 */

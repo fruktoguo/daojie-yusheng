@@ -32,4 +32,5 @@ export * from './inventory-sort';
 export * from './structured';
 export * from './grapheme';
 export * from './role-name';
+export * from './name-visibility';
 export * from './tutorial-mechanics.generated';
