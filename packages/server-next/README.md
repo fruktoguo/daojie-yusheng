@@ -4,7 +4,9 @@
 
 当前状态先说结论：
 
+- 这次提交 `next` 的定位是阶段性备份和继续协作，不是“已经可以投入生产”的口径。
 - `server-next` 现在可以继续作为 next 前后台迁移的主后端推进，但还不能宣称“已经完整替换游戏整体”。
+- 当前所有镜像、workflow、stack 和 smoke 默认都只服务于 shadow / 备份线，不应视作正式生产发布链。
 - 截至 `2026-04-06`，`pnpm verify:replace-ready`、`pnpm verify:replace-ready:proof:with-db`、`pnpm --filter @mud/server-next verify:replace-ready`、`pnpm audit:server-next-protocol`、`pnpm audit:server-next-boundaries` 这轮都已通过。
 - 保守口径不变：如果目标是“完整替换游戏整体”，当前仍约差 `40% - 45%`。
 - 用户最初目标的当前判断是：最小包体 `部分满足`、最高性能 `未满足`、极高扩展度 `部分满足`、系统稳定性 `部分满足`。
@@ -197,6 +199,7 @@
 当前部署约束：
 
 - 这些 `server-next` 入口都是新增的独立路径，不会替换或修改旧后端当前的 compose、stack、自动部署工作流。
+- 默认镜像 tag 也应视为 shadow / 备份 tag，而不是生产稳定 tag。
 - `docker-stack.server-next.yml` 默认把 `server-next` 独立暴露在 `11923`，用于替换前 shadow 演练，不和旧后端 `11922` 端口冲突。
 - `docker-stack.server-next.yml` 当前会同时部署独立的 `server-next/postgres/redis`，shadow 演练默认不接旧服现网库。
 - compose / stack 默认额外挂载 `server_next_backup_data`，用于保存 `gm/database/*` 兼容备份文件，避免容器重建后本地备份丢失。

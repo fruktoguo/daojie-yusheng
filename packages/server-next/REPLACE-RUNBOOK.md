@@ -5,6 +5,7 @@
 ## 目标边界
 
 - `server-next` 默认走独立容器、独立 stack、独立 workflow
+- 当前这些入口的定位是 shadow 演练与阶段性备份，不是正式生产切换
 - shadow 演练默认使用 `11923`
 - 旧后端正式端口 `11922` 不在本手册范围内直接改动
 - 兼容入口集中在 `src/compat/legacy/`，后续移除兼容层时优先从这里收口
@@ -171,6 +172,7 @@ shadow / acceptance / full 额外需要：
 2. 触发 [.github/workflows/publish-server-next-image.yml](/home/yuohira/mud-mmo/.github/workflows/publish-server-next-image.yml)
 3. 确认镜像发布前置 job 已在临时 PostgreSQL service 上通过 `pnpm verify:replace-ready`，并自动走到 `verify:replace-ready:with-db`
 4. 确认镜像已推到 `ghcr.io/<owner>/daojie-yusheng-server-next`
+5. 确认推送的是 `shadow-latest` / `shadow-sha-<commit>`，而不是把 `server-next` 当成正式生产稳定标签
 
 手工部署 shadow stack：
 
@@ -218,6 +220,7 @@ shadow / acceptance / full 额外需要：
 - `gm-database-backup-persistence` 已证明同一 `SERVER_NEXT_GM_DATABASE_BACKUP_DIR` 在服务重建后仍能读回旧备份；容器/stack 演练时仍应确认它对应独立卷
 - GitHub publish/deploy workflow 当前都会先在临时 PostgreSQL service 上跑 `pnpm verify:replace-ready`，因此前置门禁已自动覆盖 `persistence + gm/database` 带库回归
 - GitHub deploy workflow 现在会在 `docker stack deploy` 后额外跑一次 `pnpm verify:replace-ready:shadow` 与 `pnpm --filter @mud/server-next smoke:gm-compat`，验证对象是已部署的 `11923` 实例本身，而不是本地自启 smoke 进程
+- 这些 workflow 的用途仍然只是 shadow / 备份线演练，不代表 next 已具备正式生产发布资格
 
 ## 回滚
 
@@ -240,3 +243,4 @@ shadow 回滚：
 - 没有真数据库环境时，`backup/restore` 只能做到代码路径与保护逻辑验证，无法替代真实闭环演练
 - `gm/database/*` 仍只覆盖 `persistent_documents`，不覆盖旧后端正式 `users/players` 表；这是刻意保守边界，不是遗留 bug
 - 目前手工 workflow 是独立的，不会自动替换旧服生产流；正式切换前仍需要按本手册人工验收
+- 即使手工 workflow 已跑通，也只说明 shadow / 备份线闭环可演练，不等于可以直接让 next 投入生产

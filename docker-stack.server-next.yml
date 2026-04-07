@@ -1,6 +1,6 @@
 services:
   server-next:
-    image: ${SERVER_NEXT_IMAGE_REPOSITORY:-ghcr.io/${GHCR_OWNER:-fruktoguo}/daojie-yusheng-server-next}:${SERVER_NEXT_IMAGE_TAG:-latest}
+    image: ${SERVER_NEXT_IMAGE_REPOSITORY:-ghcr.io/${GHCR_OWNER:-fruktoguo}/daojie-yusheng-server-next}:${SERVER_NEXT_IMAGE_TAG:-shadow-latest}
     environment:
       SERVER_NEXT_HOST: 0.0.0.0
       SERVER_NEXT_PORT: 3000

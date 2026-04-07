@@ -6,6 +6,8 @@
 
 `next` 现在已经不再只是“新事件名包着旧链路”。
 
+但这次把 `next` 推上仓库，当前更准确的定位仍然只是阶段性备份和继续协作，不是“已经可以投入生产”的信号。
+
 如需看后续阶段、工作流拆分、完成定义与执行顺序，直接看 [docs/next-remaining-execution-plan.md](/home/yuohira/mud-mmo/docs/next-remaining-execution-plan.md)。
 
 如需直接看“还差多少”的工程账本、`P0/P1/P2` 拆分、legacy 删除门槛与串并行判断，直接看 [docs/next-remaining-engineering-ledger.md](/home/yuohira/mud-mmo/docs/next-remaining-engineering-ledger.md)。

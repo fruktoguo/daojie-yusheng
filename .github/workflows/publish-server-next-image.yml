@@ -1,4 +1,4 @@
-name: Publish Server Next Image
+name: Publish Server Next Shadow Image
 
 on:
   workflow_dispatch:
@@ -46,7 +46,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile || pnpm install
 
-      - name: Verify replace-ready with DB
+      - name: Verify shadow backup gate with DB
         run: pnpm verify:replace-ready
 
   build-server-next-image:
@@ -71,15 +71,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push server-next image
+      - name: Build and push server-next shadow image
         uses: docker/build-push-action@v7
         with:
           context: .
           file: packages/server-next/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ steps.prep.outputs.owner }}/daojie-yusheng-server-next:latest
-            ghcr.io/${{ steps.prep.outputs.owner }}/daojie-yusheng-server-next:sha-${{ github.sha }}
+            ghcr.io/${{ steps.prep.outputs.owner }}/daojie-yusheng-server-next:shadow-latest
+            ghcr.io/${{ steps.prep.outputs.owner }}/daojie-yusheng-server-next:shadow-sha-${{ github.sha }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}

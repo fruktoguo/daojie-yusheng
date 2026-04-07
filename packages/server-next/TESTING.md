@@ -1,5 +1,7 @@
 # server-next 验证
 
+先强调边界：这些验证入口当前只服务于 shadow / 备份线证明，不代表 `server-next` 已经可以投入生产。
+
 当前正式替换验收优先使用根入口；包内命令仍保留给局部 smoke / 子集回归：
 
 - `pnpm verify:replace-ready:doctor`

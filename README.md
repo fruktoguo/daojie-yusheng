@@ -137,6 +137,7 @@ pnpm dev:server
 
 ## server-next 状态
 
+- 这次仓库里的 `next` 相关提交先按“阶段性备份与继续协作”理解，不是“已经可以投入生产”的宣告
 - `server-next` 当前仍处于独立 shadow / replace-ready 验收阶段，不是默认正式替换入口
 - 先用 `pnpm verify:replace-ready:doctor` 检查本地 / with-db / shadow 三条链当前缺哪些环境变量
 - 当前推荐的本地主证明链入口是 `pnpm verify:replace-ready`
@@ -146,6 +147,7 @@ pnpm dev:server
 - 如需串行跑“本地主证明链 + shadow 实物验收 + shadow GM 关键写路径验证”，使用 `pnpm verify:replace-ready:acceptance`
 - `pnpm verify:server-next*` 当前只是兼容别名；需要独立 CI 带库补证时，可触发 [verify-server-next-with-db.yml](/home/yuohira/mud-mmo/.github/workflows/verify-server-next-with-db.yml)
 - 这些验证只说明 replace-ready 主证明链已覆盖到当前范围，不等于 `next` 已完整替换整体游戏
+- 手工 workflow 现在也应只视为 shadow / 备份线工具，不代表已经建立了 next 的正式生产发布流
 - 详细口径见 [packages/server-next/TESTING.md](/home/yuohira/mud-mmo/packages/server-next/TESTING.md)、[packages/server-next/REPLACE-RUNBOOK.md](/home/yuohira/mud-mmo/packages/server-next/REPLACE-RUNBOOK.md) 和 [docs/next-gap-analysis.md](/home/yuohira/mud-mmo/docs/next-gap-analysis.md)
 
 ## 自动部署
