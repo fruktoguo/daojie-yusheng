@@ -50,8 +50,11 @@ function validateDisplayName(displayName) {
     if (containsWhitespace(normalized)) {
         return '显示名称不支持空格';
     }
-    if ([...normalized].length !== 1) {
+    if ((0, shared_1.getGraphemeCount)(normalized) !== 1) {
         return '显示名称必须为 1 个字符';
+    }
+    if (!(0, shared_1.hasVisibleNameGrapheme)(normalized) || (0, shared_1.containsInvisibleOnlyNameGrapheme)(normalized)) {
+        return '显示名称必须为可见字符';
     }
     return null;
 }
@@ -60,6 +63,12 @@ function validateRoleName(roleName) {
     const normalized = normalizeRoleName(roleName);
     if (!normalized) {
         return '角色名称不能为空';
+    }
+    if (!(0, shared_1.hasVisibleNameGrapheme)(normalized)) {
+        return '角色名称必须包含可见字符';
+    }
+    if ((0, shared_1.containsInvisibleOnlyNameGrapheme)(normalized)) {
+        return '角色名称不支持不可见字符';
     }
     if (!(0, shared_1.isRoleNameWithinLimit)(normalized)) {
         return `角色名称${(0, shared_1.getRoleNameLimitText)()}`;
@@ -74,8 +83,8 @@ exports.buildDefaultRoleName = buildDefaultRoleName;
 function resolveDisplayName(displayName, username) {
     const normalized = normalizeDisplayName(displayName);
     if (normalized) {
-        return normalized;
+        return validateDisplayName(normalized) === null ? normalized : shared_1.DEFAULT_VISIBLE_DISPLAY_NAME;
     }
-    return [...normalizeUsername(username)][0] ?? '';
+    return (0, shared_1.resolveDefaultVisibleDisplayName)(normalizeUsername(username));
 }
 exports.resolveDisplayName = resolveDisplayName;

@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const node_child_process_1 = require("node:child_process");
 const net = __importStar(require("node:net"));
 const path = __importStar(require("node:path"));
+const env_alias_1 = require("../config/env-alias");
 const packageRoot = path.resolve(__dirname, '..', '..');
 const distRoot = path.join(packageRoot, 'dist');
 const serverEntry = path.join(distRoot, 'main.js');
@@ -44,12 +45,16 @@ const includePersistence = cliArgs.includes('--include-persistence');
 const requireLegacyAuth = cliArgs.includes('--require-legacy-auth');
 const selectedCaseNames = readOptionValues(cliArgs, '--case');
 const smokeCases = [
+    { name: 'readiness-gate', scriptFile: 'readiness-gate-smoke.js', standalone: true },
     { name: 'session', scriptFile: 'session-smoke.js' },
     { name: 'runtime', scriptFile: 'runtime-smoke.js' },
     { name: 'progression', scriptFile: 'progression-smoke.js' },
     { name: 'combat', scriptFile: 'combat-smoke.js' },
     { name: 'loot', scriptFile: 'loot-smoke.js' },
-    { name: 'legacy-auth', scriptFile: 'legacy-auth-smoke.js' },
+    { name: 'legacy-auth', scriptFile: 'compat/legacy-auth-smoke.js' },
+    { name: 'next-auth-bootstrap', scriptFile: 'next-auth-bootstrap-smoke.js' },
+    { name: 'legacy-player-compat', scriptFile: 'compat/legacy-player-compat-smoke.js' },
+    { name: 'gm-compat', scriptFile: 'compat/gm-compat-smoke.js' },
     { name: 'redeem-code', scriptFile: 'redeem-code-smoke.js' },
     { name: 'monster-runtime', scriptFile: 'monster-runtime-smoke.js' },
     { name: 'monster-combat', scriptFile: 'monster-combat-smoke.js' },
@@ -97,33 +102,42 @@ async function main() {
 async function runIsolatedSmoke(entry) {
     const port = await allocateFreePort();
     const baseUrl = `http://127.0.0.1:${port}`;
-    const server = await startServer(port);
+    const extraEnv = resolveCaseExtraEnv(entry);
+    const server = await startServer(port, extraEnv);
     try {
         await waitForHealth(baseUrl, 12_000, {
             requireReady: hasDatabaseUrl(),
         });
         await runNodeScript(path.join(distRoot, 'tools', entry.scriptFile), {
             SERVER_NEXT_URL: baseUrl,
-            ...resolveCaseExtraEnv(entry),
+            ...extraEnv,
         });
     }
     finally {
         await stopServer(server);
+        cleanupCaseExtraEnv(extraEnv);
     }
 }
 async function runStandaloneSmoke(entry) {
     const port = await allocateFreePort();
-    await runNodeScript(path.join(distRoot, 'tools', entry.scriptFile), {
-        SERVER_NEXT_SMOKE_PORT: String(port),
-        ...resolveCaseExtraEnv(entry),
-    });
+    const extraEnv = resolveCaseExtraEnv(entry);
+    try {
+        await runNodeScript(path.join(distRoot, 'tools', entry.scriptFile), {
+            SERVER_NEXT_SMOKE_PORT: String(port),
+            ...extraEnv,
+        });
+    }
+    finally {
+        cleanupCaseExtraEnv(extraEnv);
+    }
 }
-async function startServer(port) {
+async function startServer(port, extraEnv = {}) {
     const allowUnreadyTraffic = !hasDatabaseUrl();
     const child = (0, node_child_process_1.spawn)('node', [serverEntry], {
         cwd: packageRoot,
         env: {
             ...process.env,
+            ...extraEnv,
             SERVER_NEXT_PORT: String(port),
             SERVER_NEXT_RUNTIME_HTTP: '1',
             ...(allowUnreadyTraffic
@@ -207,12 +221,37 @@ function resolveSelectedCases() {
     return resolved;
 }
 function resolveCaseExtraEnv(entry) {
-    if (entry.name === 'legacy-auth' && requireLegacyAuth) {
-        return {
-            SERVER_NEXT_LEGACY_AUTH_REQUIRED: '1',
-        };
+    const extraEnv = {};
+    const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
+    if (databaseUrl) {
+        extraEnv.SERVER_NEXT_DATABASE_URL = databaseUrl;
     }
-    return {};
+    if ((entry.name === 'legacy-auth' || entry.name === 'legacy-player-compat') && requireLegacyAuth) {
+        extraEnv.SERVER_NEXT_LEGACY_AUTH_REQUIRED = '1';
+    }
+    if (entry.name === 'session') {
+        extraEnv.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS = '4000';
+    }
+    if (entry.name === 'next-auth-bootstrap') {
+        extraEnv.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS = '4000';
+        const traceSuffix = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        extraEnv.NEXT_AUTH_TRACE_ENABLED = '1';
+        extraEnv.SERVER_NEXT_AUTH_TRACE_ENABLED = '1';
+        extraEnv.NEXT_AUTH_TRACE_FILE = path.join(packageRoot, '.runtime', `next-auth-trace-${traceSuffix}.jsonl`);
+    }
+    return extraEnv;
+}
+function cleanupCaseExtraEnv(extraEnv) {
+    const traceFile = typeof extraEnv.NEXT_AUTH_TRACE_FILE === 'string' ? extraEnv.NEXT_AUTH_TRACE_FILE.trim() : '';
+    if (!traceFile) {
+        return;
+    }
+    try {
+        path.isAbsolute(traceFile) && require('node:fs').rmSync(traceFile, { force: true });
+    }
+    catch {
+        // ignore trace cleanup failures
+    }
 }
 async function waitForHealth(baseUrl, timeoutMs, options = {}) {
     const requireReady = options.requireReady === true;
@@ -235,8 +274,7 @@ async function waitForHealth(baseUrl, timeoutMs, options = {}) {
     throw new Error(`server health timeout: ${baseUrl}`);
 }
 function hasDatabaseUrl() {
-    const databaseUrl = process.env.SERVER_NEXT_DATABASE_URL ?? '';
-    return databaseUrl.trim().length > 0;
+    return Boolean((0, env_alias_1.resolveServerNextDatabaseUrl)());
 }
 function readOptionValues(args, name) {
     const values = [];

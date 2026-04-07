@@ -36,6 +36,7 @@ export class MapRuntime implements MapRuntimeApi {
   private currentScene: MapSceneSnapshot = this.sceneBuilder.build(this.store.getSnapshot());
   private frameHandle: number | null = null;
   private lastFrameAt = performance.now();
+  private safeArea: MapSafeAreaInsets = { ...DEFAULT_SAFE_AREA };
 
   attach(host: HTMLElement): void {
     this.host = host;
@@ -71,8 +72,9 @@ export class MapRuntime implements MapRuntimeApi {
   }
 
   setSafeArea(insets: MapSafeAreaInsets): void {
-    this.viewport.setSafeArea(insets);
-    this.camera.setSafeArea(insets);
+    this.safeArea = { ...insets };
+    this.viewport.setSafeArea(this.safeArea);
+    this.camera.setSafeArea(this.safeArea);
     this.syncViewportDerivedState(true);
   }
 
@@ -84,7 +86,8 @@ export class MapRuntime implements MapRuntimeApi {
 
   applyBootstrap(data: Parameters<MapRuntimeApi['applyBootstrap']>[0]): void {
     this.store.applyBootstrap(data);
-    this.camera.setSafeArea(DEFAULT_SAFE_AREA);
+    this.viewport.setSafeArea(this.safeArea);
+    this.camera.setSafeArea(this.safeArea);
     this.camera.snap(data.self.x, data.self.y);
     this.syncViewportDerivedState(true);
   }
@@ -127,6 +130,8 @@ export class MapRuntime implements MapRuntimeApi {
   reset(): void {
     this.store.reset();
     this.camera.reset();
+    this.viewport.setSafeArea(this.safeArea);
+    this.camera.setSafeArea(this.safeArea);
     this.renderer.resetScene();
     this.minimap.clear();
     this.currentScene = this.sceneBuilder.build(this.store.getSnapshot());

@@ -12,8 +12,23 @@ let serverProcess = null;
 let serverGeneration = 0;
 let watchReady = false;
 
+function padDatePart(value) {
+  return String(value).padStart(2, "0");
+}
+
+function getTimestamp() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = padDatePart(now.getMonth() + 1);
+  const day = padDatePart(now.getDate());
+  const hours = padDatePart(now.getHours());
+  const minutes = padDatePart(now.getMinutes());
+  const seconds = padDatePart(now.getSeconds());
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
 function log(message) {
-  process.stdout.write(`[server-next dev] ${message}\n`);
+  process.stdout.write(`[${getTimestamp()}] [server-next dev] ${message}\n`);
 }
 
 function forwardWithCapture(stream, onText) {

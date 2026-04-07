@@ -12,16 +12,20 @@ const common_1 = require("@nestjs/common");
 const pg_1 = require("pg");
 const shared_1 = require("@mud/shared-next");
 const persistent_document_table_1 = require("./persistent-document-table");
+const player_snapshot_compat_1 = require("./player-snapshot-compat");
+const env_alias_1 = require("../config/env-alias");
 const PLAYER_SNAPSHOT_SCOPE = 'server_next_player_snapshots_v1';
+const PLAYER_SNAPSHOT_META_KEY = '__snapshotMeta';
+const PLAYER_SNAPSHOT_PERSISTED_SOURCE_NATIVE = 'native';
+const PLAYER_SNAPSHOT_PERSISTED_SOURCE_LEGACY_SEEDED = 'legacy_seeded';
 let PlayerPersistenceService = PlayerPersistenceService_1 = class PlayerPersistenceService {
     logger = new common_1.Logger(PlayerPersistenceService_1.name);
     pool = null;
     enabled = false;
     async onModuleInit() {
-        const databaseUrl = process.env.SERVER_NEXT_DATABASE_URL
-            ?? '';
+        const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
         if (!databaseUrl.trim()) {
-            this.logger.log('Persistence disabled: no SERVER_NEXT_DATABASE_URL');
+            this.logger.log('Persistence disabled: no SERVER_NEXT_DATABASE_URL/DATABASE_URL');
             return;
         }
         this.pool = new pg_1.Pool({
@@ -44,6 +48,10 @@ let PlayerPersistenceService = PlayerPersistenceService_1 = class PlayerPersiste
         return this.enabled && this.pool !== null;
     }
     async loadPlayerSnapshot(playerId) {
+        const record = await this.loadPlayerSnapshotRecord(playerId);
+        return record?.snapshot ?? null;
+    }
+    async loadPlayerSnapshotRecord(playerId) {
         if (!this.pool || !this.enabled) {
             return null;
         }
@@ -51,7 +59,13 @@ let PlayerPersistenceService = PlayerPersistenceService_1 = class PlayerPersiste
         if (result.rowCount === 0) {
             return null;
         }
-        return normalizePlayerSnapshot(result.rows[0]?.payload);
+        const record = normalizePlayerSnapshotRecord(result.rows[0]?.payload);
+        if (!record) {
+            const message = `Persisted player snapshot record invalid: playerId=${playerId} scope=${PLAYER_SNAPSHOT_SCOPE}`;
+            this.logger.error(message);
+            throw new Error(message);
+        }
+        return record;
     }
     async listPlayerSnapshots() {
         if (!this.pool || !this.enabled) {
@@ -61,7 +75,8 @@ let PlayerPersistenceService = PlayerPersistenceService_1 = class PlayerPersiste
         return result.rows
             .map((row) => {
             const playerId = typeof row?.key === 'string' ? row.key.trim() : '';
-            const snapshot = normalizePlayerSnapshot(row?.payload);
+            const record = normalizePlayerSnapshotRecord(row?.payload);
+            const snapshot = record?.snapshot ?? null;
             if (!playerId || !snapshot) {
                 return null;
             }
@@ -75,16 +90,26 @@ let PlayerPersistenceService = PlayerPersistenceService_1 = class PlayerPersiste
         })
             .filter((entry) => entry !== null);
     }
-    async savePlayerSnapshot(playerId, snapshot) {
+    async savePlayerSnapshot(playerId, snapshot, options = undefined) {
         if (!this.pool || !this.enabled) {
             return;
         }
+        const normalizedSnapshot = normalizePlayerSnapshotPayload(snapshot);
+        if (!normalizedSnapshot) {
+            return;
+        }
+        const persistedSource = normalizePlayerSnapshotPersistedSource(options?.persistedSource)
+            ?? PLAYER_SNAPSHOT_PERSISTED_SOURCE_NATIVE;
+        const payload = buildPersistedPlayerSnapshotPayload(normalizedSnapshot, {
+            persistedSource,
+            seededAt: options?.seededAt,
+        });
         await this.pool.query(`
         INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
         VALUES ($1, $2, $3::jsonb, now())
         ON CONFLICT (scope, key)
         DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-      `, [PLAYER_SNAPSHOT_SCOPE, playerId, JSON.stringify(snapshot)]);
+      `, [PLAYER_SNAPSHOT_SCOPE, playerId, JSON.stringify(payload)]);
     }
     async safeClosePool() {
         const pool = this.pool;
@@ -99,7 +124,20 @@ exports.PlayerPersistenceService = PlayerPersistenceService;
 exports.PlayerPersistenceService = PlayerPersistenceService = PlayerPersistenceService_1 = __decorate([
     (0, common_1.Injectable)()
 ], PlayerPersistenceService);
-function normalizePlayerSnapshot(raw) {
+function normalizePlayerSnapshotRecord(raw) {
+    const snapshot = normalizePlayerSnapshotPayload(raw);
+    if (!snapshot) {
+        return null;
+    }
+    const meta = raw && typeof raw === 'object' ? raw[PLAYER_SNAPSHOT_META_KEY] : null;
+    return {
+        snapshot,
+        persistedSource: normalizePlayerSnapshotPersistedSource(meta?.persistedSource)
+            ?? PLAYER_SNAPSHOT_PERSISTED_SOURCE_NATIVE,
+        seededAt: Number.isFinite(meta?.seededAt) ? Math.max(0, Math.trunc(meta.seededAt)) : null,
+    };
+}
+function normalizePlayerSnapshotPayload(raw) {
     if (!raw || typeof raw !== 'object') {
         return null;
     }
@@ -184,23 +222,29 @@ function normalizePlayerSnapshot(raw) {
             senseQiActive: combat.senseQiActive === true,
             autoBattleSkills: Array.isArray(combat.autoBattleSkills) ? combat.autoBattleSkills : [],
         },
-        pendingLogbookMessages: normalizePendingLogbookMessages(resolveCompatiblePendingLogbookMessages(snapshot)),
-        runtimeBonuses: normalizeRuntimeBonuses(resolveCompatibleRuntimeBonuses(snapshot)),
+        pendingLogbookMessages: normalizePendingLogbookMessages((0, player_snapshot_compat_1.resolveCompatiblePendingLogbookMessages)(snapshot)),
+        runtimeBonuses: normalizeRuntimeBonuses((0, player_snapshot_compat_1.resolveCompatibleRuntimeBonuses)(snapshot)),
     };
 }
-function resolveCompatibleSnapshotArray(snapshot, primaryKey, compatResolver) {
-    const primaryValue = snapshot?.[primaryKey];
-    if (Array.isArray(primaryValue)) {
-        return primaryValue;
+function buildPersistedPlayerSnapshotPayload(snapshot, meta) {
+    const payload = {
+        ...snapshot,
+    };
+    payload[PLAYER_SNAPSHOT_META_KEY] = {
+        persistedSource: normalizePlayerSnapshotPersistedSource(meta?.persistedSource)
+            ?? PLAYER_SNAPSHOT_PERSISTED_SOURCE_NATIVE,
+    };
+    if (Number.isFinite(meta?.seededAt)) {
+        payload[PLAYER_SNAPSHOT_META_KEY].seededAt = Math.max(0, Math.trunc(meta.seededAt));
     }
-    const compatValue = compatResolver(snapshot);
-    return Array.isArray(compatValue) ? compatValue : [];
+    return payload;
 }
-function resolveCompatibleRuntimeBonuses(snapshot) {
-    return resolveCompatibleSnapshotArray(snapshot, 'runtimeBonuses', (candidate) => candidate?.legacyBonuses);
-}
-function resolveCompatiblePendingLogbookMessages(snapshot) {
-    return resolveCompatibleSnapshotArray(snapshot, 'pendingLogbookMessages', (candidate) => candidate?.legacyCompat?.pendingLogbookMessages);
+function normalizePlayerSnapshotPersistedSource(value) {
+    return value === PLAYER_SNAPSHOT_PERSISTED_SOURCE_LEGACY_SEEDED
+        ? PLAYER_SNAPSHOT_PERSISTED_SOURCE_LEGACY_SEEDED
+        : value === PLAYER_SNAPSHOT_PERSISTED_SOURCE_NATIVE
+            ? PLAYER_SNAPSHOT_PERSISTED_SOURCE_NATIVE
+            : null;
 }
 function isFiniteNumber(value) {
     return typeof value === 'number' && Number.isFinite(value);
@@ -212,7 +256,7 @@ function normalizeRuntimeBonuses(value) {
     return value
         .filter((entry) => entry && typeof entry === 'object')
         .map((entry) => ({
-        source: canonicalizeRuntimeBonusSource(typeof entry.source === 'string' ? entry.source : ''),
+        source: (0, player_snapshot_compat_1.canonicalizeRuntimeBonusSource)(typeof entry.source === 'string' ? entry.source : ''),
         label: typeof entry.label === 'string' ? entry.label : undefined,
         attrs: entry.attrs && typeof entry.attrs === 'object' ? { ...entry.attrs } : undefined,
         stats: entry.stats && typeof entry.stats === 'object' ? { ...entry.stats } : undefined,
@@ -220,31 +264,6 @@ function normalizeRuntimeBonuses(value) {
         meta: entry.meta && typeof entry.meta === 'object' ? { ...entry.meta } : undefined,
     }))
         .filter((entry) => entry.source.length > 0);
-}
-function canonicalizeRuntimeBonusSource(source) {
-    const normalized = typeof source === 'string' ? source.trim() : '';
-    if (!normalized) {
-        return '';
-    }
-    if (normalized === 'legacy:vitals_baseline') {
-        return 'runtime:vitals_baseline';
-    }
-    if (normalized === 'technique:aggregate') {
-        return 'runtime:technique_aggregate';
-    }
-    if (normalized === 'realm:state') {
-        return 'runtime:realm_state';
-    }
-    if (normalized === 'realm:stage') {
-        return 'runtime:realm_stage';
-    }
-    if (normalized === 'heaven_gate:roots') {
-        return 'runtime:heaven_gate_roots';
-    }
-    if (normalized.startsWith('equip:')) {
-        return `equipment:${normalized.slice('equip:'.length)}`;
-    }
-    return normalized;
 }
 function normalizePendingLogbookMessages(value) {
     if (!Array.isArray(value)) {

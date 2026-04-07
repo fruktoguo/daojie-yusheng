@@ -11,16 +11,16 @@ exports.MailPersistenceService = void 0;
 const common_1 = require("@nestjs/common");
 const pg_1 = require("pg");
 const persistent_document_table_1 = require("./persistent-document-table");
+const env_alias_1 = require("../config/env-alias");
 const MAILBOX_SCOPE = 'server_next_mailboxes_v1';
 let MailPersistenceService = MailPersistenceService_1 = class MailPersistenceService {
     logger = new common_1.Logger(MailPersistenceService_1.name);
     pool = null;
     enabled = false;
     async onModuleInit() {
-        const databaseUrl = process.env.SERVER_NEXT_DATABASE_URL
-            ?? '';
+        const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
         if (!databaseUrl.trim()) {
-            this.logger.log('Mail persistence disabled: no SERVER_NEXT_DATABASE_URL');
+            this.logger.log('Mail persistence disabled: no SERVER_NEXT_DATABASE_URL/DATABASE_URL');
             return;
         }
         this.pool = new pg_1.Pool({

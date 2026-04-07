@@ -1,6 +1,7 @@
 import type { RealmNumericTemplate } from '../../numeric';
 import type { Attributes, BreakthroughItemRequirement } from '../../types';
 import { PlayerRealmStage, TechniqueRealm } from '../../types';
+import { ensureNumericStatsTemplateStats } from '../../numeric';
 
 import {
   BASE_HIT,
@@ -172,7 +173,7 @@ export const PLAYER_REALM_CONFIG: Record<PlayerRealmStage, RealmConfig> = {
 export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumericTemplate> = {
   [PlayerRealmStage.Mortal]: {
     stage: PlayerRealmStage.Mortal,
-    stats: {
+    stats: ensureNumericStatsTemplateStats({
       maxHp: BASE_MAX_HP,
       maxQi: BASE_MAX_QI,
       physAtk: BASE_PHYS_ATK,
@@ -204,7 +205,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       extraArea: 0,
       elementDamageBonus: { ...ZERO_ELEMENT_STATS },
       elementDamageReduce: { ...ZERO_ELEMENT_STATS },
-    },
+    }),
     ratioDivisors: {
       dodge: 100,
       crit: 100,
@@ -223,7 +224,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   },
   [PlayerRealmStage.BodyTempering]: {
     stage: PlayerRealmStage.BodyTempering,
-    stats: {
+    stats: ensureNumericStatsTemplateStats({
       maxHp: BASE_MAX_HP + 20,
       maxQi: BASE_MAX_QI,
       physAtk: BASE_PHYS_ATK + 2,
@@ -255,7 +256,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       extraArea: 0,
       elementDamageBonus: { ...ZERO_ELEMENT_STATS },
       elementDamageReduce: { ...ZERO_ELEMENT_STATS },
-    },
+    }),
     ratioDivisors: {
       dodge: 120,
       crit: 120,
@@ -274,7 +275,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   },
   [PlayerRealmStage.BoneForging]: {
     stage: PlayerRealmStage.BoneForging,
-    stats: {
+    stats: ensureNumericStatsTemplateStats({
       maxHp: BASE_MAX_HP + 45,
       maxQi: BASE_MAX_QI + 10,
       physAtk: BASE_PHYS_ATK + 4,
@@ -306,7 +307,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       extraArea: 0,
       elementDamageBonus: { ...ZERO_ELEMENT_STATS },
       elementDamageReduce: { ...ZERO_ELEMENT_STATS },
-    },
+    }),
     ratioDivisors: {
       dodge: 150,
       crit: 150,
@@ -325,7 +326,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   },
   [PlayerRealmStage.Meridian]: {
     stage: PlayerRealmStage.Meridian,
-    stats: {
+    stats: ensureNumericStatsTemplateStats({
       maxHp: BASE_MAX_HP + 80,
       maxQi: BASE_MAX_QI + 25,
       physAtk: BASE_PHYS_ATK + 6,
@@ -357,7 +358,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       extraArea: 0,
       elementDamageBonus: { ...ZERO_ELEMENT_STATS },
       elementDamageReduce: { ...ZERO_ELEMENT_STATS },
-    },
+    }),
     ratioDivisors: {
       dodge: 190,
       crit: 190,
@@ -376,7 +377,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   },
   [PlayerRealmStage.Innate]: {
     stage: PlayerRealmStage.Innate,
-    stats: {
+    stats: ensureNumericStatsTemplateStats({
       maxHp: BASE_MAX_HP + 130,
       maxQi: BASE_MAX_QI + 45,
       physAtk: BASE_PHYS_ATK + 10,
@@ -408,7 +409,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       extraArea: 0,
       elementDamageBonus: { ...ZERO_ELEMENT_STATS },
       elementDamageReduce: { ...ZERO_ELEMENT_STATS },
-    },
+    }),
     ratioDivisors: {
       dodge: 240,
       crit: 240,
@@ -427,7 +428,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   },
   [PlayerRealmStage.QiRefining]: {
     stage: PlayerRealmStage.QiRefining,
-    stats: {
+    stats: ensureNumericStatsTemplateStats({
       maxHp: BASE_MAX_HP + 190,
       maxQi: BASE_MAX_QI + 90,
       physAtk: BASE_PHYS_ATK + 14,
@@ -459,7 +460,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       extraArea: 0,
       elementDamageBonus: { ...ZERO_ELEMENT_STATS },
       elementDamageReduce: { ...ZERO_ELEMENT_STATS },
-    },
+    }),
     ratioDivisors: {
       dodge: 300,
       crit: 300,
@@ -478,7 +479,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
   },
   [PlayerRealmStage.Foundation]: {
     stage: PlayerRealmStage.Foundation,
-    stats: {
+    stats: ensureNumericStatsTemplateStats({
       maxHp: BASE_MAX_HP + 270,
       maxQi: BASE_MAX_QI + 150,
       physAtk: BASE_PHYS_ATK + 22,
@@ -510,7 +511,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       extraArea: 0,
       elementDamageBonus: { ...ZERO_ELEMENT_STATS },
       elementDamageReduce: { ...ZERO_ELEMENT_STATS },
-    },
+    }),
     ratioDivisors: {
       dodge: 380,
       crit: 380,

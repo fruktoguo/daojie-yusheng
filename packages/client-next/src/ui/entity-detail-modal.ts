@@ -157,7 +157,7 @@ export class EntityDetailModal {
         <div class="quest-detail-section"><strong>状态</strong><span>${monster.alive ? '存活' : '待重生'}</span></div>
         <div class="quest-detail-section"><strong>重生</strong><span>${escapeHtml(monster.alive ? '无需等待' : formatRespawnTicks(monster.respawnTicks))}</span></div>
       </div>
-      ${this.renderObservation(monster.observation)}
+      ${this.renderObservation(monster.observation, true)}
       ${this.renderBuffs(monster.buffs ?? [])}
     `;
   }
@@ -178,7 +178,7 @@ export class EntityDetailModal {
         <div class="quest-detail-section"><strong>生命</strong><span>${player.hp}/${player.maxHp}</span></div>
         <div class="quest-detail-section"><strong>灵力</strong><span>${player.qi}/${player.maxQi}</span></div>
       </div>
-      ${this.renderObservation(player.observation)}
+      ${this.renderObservation(player.observation, true)}
       ${this.renderBuffs(player.buffs ?? [])}
     `;
   }
@@ -235,11 +235,16 @@ export class EntityDetailModal {
     `;
   }
 
-  private renderObservation(observation: { verdict?: string; lines?: Array<{ label: string; value: string }> } | null | undefined): string {
+  private renderObservation(
+    observation: { verdict?: string; lines?: Array<{ label: string; value: string }> } | null | undefined,
+    hideVitals = false,
+  ): string {
     if (!observation) {
       return '<div class="quest-detail-section"><strong>观测</strong><div>未得更多回响。</div></div>';
     }
-    const lines = observation.lines ?? [];
+    const lines = hideVitals
+      ? (observation.lines ?? []).filter((line) => line.label !== '生命' && line.label !== '气血' && line.label !== '灵力')
+      : (observation.lines ?? []);
     const rows = lines.length > 0
       ? `<div class="entity-detail-list">${lines.map((line) => `<div class="observe-modal-row"><span class="observe-modal-label">${escapeHtml(line.label)}</span><span class="observe-modal-value">${escapeHtml(line.value)}</span></div>`).join('')}</div>`
       : '<div>暂无额外细节。</div>';

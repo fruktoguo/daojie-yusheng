@@ -225,6 +225,7 @@ interface AnimEntity {
   name?: string;
   kind?: string;
   monsterTier?: MonsterTier;
+  monsterScale?: number;
   hp?: number;
   maxHp?: number;
   npcQuestMarker?: NpcQuestMarker;
@@ -269,8 +270,12 @@ interface AttackTrail {
 
 interface WarningZone {
   id: number;
-  cells: Array<{ x: number; y: number }>;
+  cells: Array<{ x: number; y: number; expandDistance: number }>;
   color: string;
+  baseColor: string;
+  originX: number;
+  originY: number;
+  maxExpandDistance: number;
   createdAt: number;
   duration: number;
 }
@@ -587,7 +592,7 @@ export class TextRenderer implements IRenderer {
 
   /** 更新实体列表，记录旧位置用于插值动画 */
   updateEntities(
-    list: readonly { id: string; wx: number; wy: number; char: string; color: string; name?: string; kind?: string; monsterTier?: MonsterTier; hp?: number; maxHp?: number; npcQuestMarker?: NpcQuestMarker | null; buffs?: VisibleBuffState[] }[],
+    list: readonly { id: string; wx: number; wy: number; char: string; color: string; name?: string; kind?: string; monsterTier?: MonsterTier; monsterScale?: number; hp?: number; maxHp?: number; npcQuestMarker?: NpcQuestMarker | null; buffs?: VisibleBuffState[] }[],
     movedId?: string,
     shiftX = 0,
     shiftY = 0,
@@ -646,6 +651,7 @@ export class TextRenderer implements IRenderer {
         anim.name = e.name;
         anim.kind = e.kind;
         anim.monsterTier = e.monsterTier;
+        anim.monsterScale = e.monsterScale;
         anim.hp = e.hp;
         anim.maxHp = e.maxHp;
         anim.npcQuestMarker = e.npcQuestMarker ?? undefined;
@@ -664,6 +670,7 @@ export class TextRenderer implements IRenderer {
           name: e.name,
           kind: e.kind,
           monsterTier: e.monsterTier,
+          monsterScale: e.monsterScale,
           hp: e.hp,
           maxHp: e.maxHp,
           npcQuestMarker: e.npcQuestMarker ?? undefined,
@@ -699,7 +706,7 @@ export class TextRenderer implements IRenderer {
       const presentation = anim.kind === 'monster'
         ? getMonsterPresentation(anim.name, anim.monsterTier)
         : null;
-      const visualScale = presentation?.scale ?? 1;
+      const visualScale = (presentation?.scale ?? 1) * Math.max(1, anim.monsterScale ?? 1);
       const visualCellSize = cellSize * visualScale;
       const visualSx = sx - (visualCellSize - cellSize) / 2;
       const visualSy = sy - (visualCellSize - cellSize);
@@ -775,7 +782,7 @@ export class TextRenderer implements IRenderer {
         }
 
         if (!isCrowd) {
-          this.drawBuffRows(visualSx, visualSy, visualCellSize, anim.buffs);
+          this.drawBuffRows(sx, visualSy, renderedCellSize, anim.buffs);
         }
 
         if (!isCrowd && (anim.maxHp ?? 0) > 0) {
@@ -1158,16 +1165,42 @@ export class TextRenderer implements IRenderer {
     this.trimAttackTrails();
   }
 
-  addWarningZone(cells: Array<{ x: number; y: number }>, color = '#ff2a2a', durationMs = DEFAULT_WARNING_ZONE_DURATION_MS) {
+  addWarningZone(
+    cells: Array<{ x: number; y: number }>,
+    color = '#ff2a2a',
+    durationMs = DEFAULT_WARNING_ZONE_DURATION_MS,
+    baseColor?: string,
+    originX?: number,
+    originY?: number,
+  ) {
     if (cells.length === 0) {
       return;
     }
     const now = performance.now();
     this.pruneExpiredWarningZones(now);
+    const origin = this.resolveWarningZoneOrigin(cells, originX, originY);
+    const rawDistances = cells.map((cell) => Math.max(Math.abs(cell.x - origin.x), Math.abs(cell.y - origin.y)));
+    const minExpandDistance = rawDistances.reduce(
+      (minDistance, distance) => Math.min(minDistance, distance),
+      rawDistances[0] ?? 0,
+    );
+    const zoneCells = cells.map((cell, index) => ({
+      x: cell.x,
+      y: cell.y,
+      expandDistance: Math.max(0, rawDistances[index] - minExpandDistance),
+    }));
+    const maxExpandDistance = zoneCells.reduce(
+      (maxDistance, cell) => Math.max(maxDistance, cell.expandDistance),
+      0,
+    );
     this.warningZones.push({
       id: this.nextWarningZoneId++,
-      cells: cells.map((cell) => ({ x: cell.x, y: cell.y })),
+      cells: zoneCells,
       color,
+      baseColor: baseColor ?? color,
+      originX: origin.x,
+      originY: origin.y,
+      maxExpandDistance,
       createdAt: now,
       duration: Math.max(1, Math.round(durationMs)),
     });
@@ -1357,9 +1390,14 @@ export class TextRenderer implements IRenderer {
     for (const zone of this.warningZones) {
       const progress = Math.min(1, (now - zone.createdAt) / zone.duration);
       const fadeProgress = progress <= 0.72 ? 0 : Math.min(1, (progress - 0.72) / 0.28);
-      const pulse = 0.92 + Math.sin(progress * Math.PI * 4) * 0.08;
-      const fillAlpha = Math.max(0.04, (1 - fadeProgress * 0.9) * 0.18 * pulse);
-      const strokeAlpha = Math.max(0.18, (1 - fadeProgress * 0.82) * 0.72);
+      const pulse = 0.96 + Math.sin(progress * Math.PI * 3) * 0.04;
+      const baseFillAlpha = Math.max(0.02, (1 - fadeProgress * 0.9) * 0.1);
+      const baseStrokeAlpha = Math.max(0.08, (1 - fadeProgress * 0.84) * 0.32);
+      const expandFillAlpha = Math.max(0.045, (1 - fadeProgress * 0.9) * 0.18 * pulse);
+      const expandStrokeAlpha = Math.max(0.16, (1 - fadeProgress * 0.82) * 0.72);
+      const revealDistance = progress * (zone.maxExpandDistance + 1);
+      const settledDistance = Math.floor(revealDistance);
+      const frontierAlpha = Math.max(0, Math.min(1, revealDistance - settledDistance));
 
       for (const cell of zone.cells) {
         const { sx, sy } = camera.worldToScreen(cell.x * cellSize, cell.y * cellSize, sw, sh);
@@ -1368,12 +1406,32 @@ export class TextRenderer implements IRenderer {
         }
 
         ctx.save();
-        ctx.globalAlpha = fillAlpha;
+        ctx.globalAlpha = baseFillAlpha;
+        ctx.fillStyle = zone.baseColor;
+        ctx.fillRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
+        ctx.globalAlpha = baseStrokeAlpha;
+        ctx.strokeStyle = zone.baseColor;
+        ctx.lineWidth = Math.max(1.25, cellSize * 0.08);
+        ctx.strokeRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3);
+        ctx.restore();
+
+        let overlayAlpha = 0;
+        if (cell.expandDistance < settledDistance) {
+          overlayAlpha = 1;
+        } else if (cell.expandDistance === settledDistance) {
+          overlayAlpha = frontierAlpha;
+        }
+        if (overlayAlpha <= 0.01) {
+          continue;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = expandFillAlpha * overlayAlpha;
         ctx.fillStyle = zone.color;
         ctx.fillRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
-        ctx.globalAlpha = strokeAlpha;
+        ctx.globalAlpha = expandStrokeAlpha * overlayAlpha;
         ctx.strokeStyle = zone.color;
-        ctx.lineWidth = Math.max(1.25, cellSize * 0.08);
+        ctx.lineWidth = Math.max(1.35, cellSize * 0.09);
         ctx.strokeRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3);
         ctx.restore();
       }
@@ -1468,6 +1526,33 @@ export class TextRenderer implements IRenderer {
       ctx.fillText(char, 0, 0);
       ctx.restore();
     });
+  }
+
+  private resolveWarningZoneOrigin(
+    cells: Array<{ x: number; y: number }>,
+    originX?: number,
+    originY?: number,
+  ): { x: number; y: number } {
+    if (Number.isFinite(originX) && Number.isFinite(originY)) {
+      return {
+        x: Math.round(originX ?? 0),
+        y: Math.round(originY ?? 0),
+      };
+    }
+    let minX = cells[0].x;
+    let maxX = cells[0].x;
+    let minY = cells[0].y;
+    let maxY = cells[0].y;
+    for (const cell of cells) {
+      if (cell.x < minX) minX = cell.x;
+      if (cell.x > maxX) maxX = cell.x;
+      if (cell.y < minY) minY = cell.y;
+      if (cell.y > maxY) maxY = cell.y;
+    }
+    return {
+      x: Math.round((minX + maxX) / 2),
+      y: Math.round((minY + maxY) / 2),
+    };
   }
 
   private pruneExpiredFloatingTexts(now: number): void {

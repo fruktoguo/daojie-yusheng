@@ -61,6 +61,7 @@ async function runAudit(baseUrl) {
     env: {
       ...process.env,
       SERVER_NEXT_URL: baseUrl,
+      SERVER_NEXT_SHADOW_URL: baseUrl,
     },
     stdio: "inherit",
   });

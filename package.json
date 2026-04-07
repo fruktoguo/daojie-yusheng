@@ -4,6 +4,7 @@
   "scripts": {
     "build": "pnpm -r build && pnpm run sync:value-reports",
     "check:item-sources": "node scripts/check-item-sources.mjs",
+    "sync:tutorial-mechanics": "node scripts/sync-tutorial-mechanics.mjs",
     "sync:value-reports": "pnpm --filter @mud/server exec node dist/tools/export-value-reports.js",
     "generate:editor-catalog": "node scripts/generate-editor-catalog.mjs --client=client --shared=shared",
     "generate:editor-catalog:next": "node scripts/generate-editor-catalog.mjs --client=client-next --shared=shared-next",
@@ -19,10 +20,24 @@
     "start:server-next": "pnpm --filter @mud/server-next start",
     "build:shared-next": "pnpm --filter @mud/shared-next build",
     "build:client-next": "pnpm --filter @mud/client-next build",
+    "verify:replace-ready": "node scripts/replace-ready.js",
+    "verify:replace-ready:acceptance": "node scripts/replace-ready-acceptance.js",
+    "verify:replace-ready:doctor": "node scripts/replace-ready-doctor.js",
+    "verify:replace-ready:full": "node scripts/replace-ready-full.js",
+    "verify:replace-ready:proof:with-db": "node scripts/replace-ready-proof-with-db.js",
+    "verify:replace-ready:shadow:destructive": "node scripts/replace-ready-shadow-destructive.js",
+    "verify:replace-ready:with-db": "node scripts/replace-ready-with-db.js",
+    "verify:replace-ready:shadow": "node scripts/replace-ready-shadow.js",
     "verify:server-next": "node scripts/server-next-verify.js",
+    "verify:server-next:acceptance": "node scripts/server-next-verify-acceptance.js",
+    "verify:server-next:doctor": "node scripts/server-next-verify-doctor.js",
+    "verify:server-next:full": "node scripts/server-next-verify-full.js",
+    "verify:server-next:proof:with-db": "node scripts/server-next-verify-proof-with-db.js",
+    "verify:server-next:shadow:destructive": "node scripts/server-next-verify-shadow-destructive.js",
     "verify:server-next:with-db": "node scripts/server-next-verify-with-db.js",
     "verify:server-next:shadow": "node scripts/server-next-verify-shadow.js",
-    "audit:server-next-protocol": "pnpm --filter @mud/server-next audit:next-protocol"
+    "audit:server-next-protocol": "pnpm --filter @mud/server-next audit:next-protocol",
+    "audit:server-next-boundaries": "pnpm --filter @mud/server-next audit:legacy-boundaries"
   },
   "engines": {
     "node": ">=18"

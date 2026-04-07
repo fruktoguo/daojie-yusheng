@@ -1,0 +1,66 @@
+#!/usr/bin/env node
+'use strict';
+
+const { spawnSync } = require('node:child_process');
+const path = require('node:path');
+
+const repoRoot = path.resolve(__dirname, '..');
+const {
+  resolveServerNextGmPassword,
+  resolveServerNextGmPasswordEnvSource,
+  resolveServerNextShadowUrl,
+  resolveServerNextShadowUrlEnvSource,
+} = require('../packages/server-next/src/config/env-alias');
+const { normalizeBooleanEnv } = require('../packages/server-next/src/tools/gm-database-proof-lib');
+
+const shadowUrl = resolveServerNextShadowUrl();
+const shadowUrlEnvSource = resolveServerNextShadowUrlEnvSource();
+const gmPassword = resolveServerNextGmPassword();
+const gmPasswordEnvSource = resolveServerNextGmPasswordEnvSource();
+const allowDestructive = normalizeBooleanEnv(process.env.SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE);
+
+if (!shadowUrl) {
+  process.stderr.write('replace-ready shadow destructive requires SERVER_NEXT_SHADOW_URL or SERVER_NEXT_URL\n');
+  process.stderr.write('set SERVER_NEXT_SHADOW_URL or SERVER_NEXT_URL first, then run pnpm verify:replace-ready:shadow:destructive\n');
+  process.exit(1);
+}
+
+if (!gmPassword) {
+  process.stderr.write('replace-ready shadow destructive requires SERVER_NEXT_GM_PASSWORD or GM_PASSWORD\n');
+  process.stderr.write('set SERVER_NEXT_GM_PASSWORD or GM_PASSWORD first, then run pnpm verify:replace-ready:shadow:destructive\n');
+  process.exit(1);
+}
+
+if (!allowDestructive) {
+  process.stderr.write('replace-ready shadow destructive requires SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1\n');
+  process.stderr.write('only run this during a maintenance window after you explicitly allow destructive GM database proof\n');
+  process.exit(1);
+}
+
+process.stdout.write('[replace-ready:shadow:destructive] steps=smoke:shadow:gm-database\n');
+process.stdout.write('[replace-ready:shadow:destructive] start step=smoke:shadow:gm-database\n');
+
+const result = spawnSync('pnpm', ['--filter', '@mud/server-next', 'smoke:shadow:gm-database'], {
+  cwd: repoRoot,
+  stdio: 'inherit',
+  shell: process.platform === 'win32',
+  env: {
+    ...process.env,
+    ...(shadowUrlEnvSource === 'SERVER_NEXT_SHADOW_URL' ? null : { SERVER_NEXT_SHADOW_URL: shadowUrl }),
+    ...(gmPasswordEnvSource === 'SERVER_NEXT_GM_PASSWORD' ? null : { SERVER_NEXT_GM_PASSWORD: gmPassword }),
+    SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE: '1',
+  },
+});
+
+if (result.error) {
+  throw result.error;
+}
+
+if (result.status !== 0) {
+  process.stderr.write(`[replace-ready:shadow:destructive] failed step=smoke:shadow:gm-database status=${result.status ?? 1}\n`);
+  process.exit(result.status ?? 1);
+}
+
+process.stdout.write('[replace-ready:shadow:destructive] done step=smoke:shadow:gm-database\n');
+process.stdout.write('[replace-ready:shadow:destructive] completed\n');
+process.exit(0);

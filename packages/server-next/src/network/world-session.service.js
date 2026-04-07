@@ -9,35 +9,60 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldSessionService = void 0;
 const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared-next");
+const DEFAULT_SESSION_DETACH_EXPIRE_MS = 15_000;
+function resolveSessionDetachExpireMs() {
+    const raw = process.env.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS;
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed)) {
+        return Math.max(0, Math.trunc(parsed));
+    }
+    return DEFAULT_SESSION_DETACH_EXPIRE_MS;
+}
 let WorldSessionService = class WorldSessionService {
     socketsById = new Map();
     bindingBySocketId = new Map();
     bindingByPlayerId = new Map();
+    bindingBySessionId = new Map();
     expiryTimerByPlayerId = new Map();
     expiredBindings = new Map();
     purgedPlayerIds = new Set();
     nextSessionSequence = 1;
-    registerSocket(client, playerId, requestedSessionId) {
+    nextGuestPlayerSequence = 1;
+    sessionDetachExpireMs = resolveSessionDetachExpireMs();
+    registerSocket(client, playerId, requestedSessionId, options = undefined) {
         this.socketsById.set(client.id, client);
         const previous = this.bindingByPlayerId.get(playerId);
         const requested = requestedSessionId?.trim() || '';
-        const resumable = previous && !previous.connected && (!requested || requested === previous.sessionId);
-        const sessionId = resumable
+        const hasDetachedBinding = previous && !previous.connected;
+        const allowImplicitDetachedResume = options?.allowImplicitDetachedResume !== false;
+        const allowRequestedDetachedResume = options?.allowRequestedDetachedResume !== false;
+        const allowConnectedSessionReuse = options?.allowConnectedSessionReuse !== false;
+        const resumeMatched = hasDetachedBinding && (requested
+            ? allowRequestedDetachedResume && requested === previous.sessionId
+            : allowImplicitDetachedResume);
+        const reuseConnectedSession = previous?.connected === true && allowConnectedSessionReuse;
+        const sessionId = resumeMatched
             ? previous.sessionId
-            : requested || previous?.sessionId || this.createSessionId(playerId);
+            : reuseConnectedSession
+                ? previous.sessionId
+                : this.createSessionId(playerId);
         const binding = {
             playerId,
             sessionId,
             socketId: client.id,
-            resumed: resumable === true,
+            resumed: resumeMatched === true,
             connected: true,
             detachedAt: null,
             expireAt: null,
         };
         this.clearExpiry(playerId);
         this.expiredBindings.delete(playerId);
+        if (previous?.sessionId && previous.sessionId !== sessionId) {
+            this.bindingBySessionId.delete(previous.sessionId);
+        }
         this.bindingBySocketId.set(client.id, binding);
         this.bindingByPlayerId.set(playerId, binding);
+        this.bindingBySessionId.set(sessionId, binding);
         if (previous && previous.connected && previous.socketId && previous.socketId !== client.id) {
             this.bindingBySocketId.delete(previous.socketId);
             const previousSocket = this.socketsById.get(previous.socketId);
@@ -67,18 +92,38 @@ let WorldSessionService = class WorldSessionService {
             resumed: false,
             connected: false,
             detachedAt,
-            expireAt: null,
+            expireAt: detachedAt + this.sessionDetachExpireMs,
         };
         this.clearExpiry(binding.playerId);
         this.expiredBindings.delete(binding.playerId);
         this.bindingByPlayerId.set(binding.playerId, detachedBinding);
+        this.bindingBySessionId.set(detachedBinding.sessionId, detachedBinding);
+        this.scheduleExpiry(detachedBinding);
         return detachedBinding;
     }
     getBinding(playerId) {
         return this.bindingByPlayerId.get(playerId) ?? null;
     }
+    getBindingBySessionId(sessionId) {
+        const normalizedSessionId = typeof sessionId === 'string' ? sessionId.trim() : '';
+        if (!normalizedSessionId) {
+            return null;
+        }
+        return this.bindingBySessionId.get(normalizedSessionId) ?? null;
+    }
+    getDetachedBindingBySessionId(sessionId) {
+        const binding = this.getBindingBySessionId(sessionId);
+        if (!binding || binding.connected === true) {
+            return null;
+        }
+        return binding;
+    }
     getBindingBySocketId(socketId) {
         return this.bindingBySocketId.get(socketId) ?? null;
+    }
+    createGuestPlayerId() {
+        const sequence = this.nextGuestPlayerSequence++;
+        return `guest_${Date.now().toString(36)}_${sequence.toString(36)}`;
     }
     getSocketByPlayerId(playerId) {
         const binding = this.bindingByPlayerId.get(playerId);
@@ -128,6 +173,7 @@ let WorldSessionService = class WorldSessionService {
         this.bindingByPlayerId.delete(normalizedPlayerId);
         this.clearExpiry(normalizedPlayerId);
         this.expiredBindings.delete(normalizedPlayerId);
+        this.bindingBySessionId.delete(binding.sessionId);
         if (binding.socketId) {
             this.bindingBySocketId.delete(binding.socketId);
             const socket = this.socketsById.get(binding.socketId) ?? null;
@@ -160,6 +206,7 @@ let WorldSessionService = class WorldSessionService {
                 return;
             }
             this.bindingByPlayerId.delete(binding.playerId);
+            this.bindingBySessionId.delete(current.sessionId);
             this.expiredBindings.set(binding.playerId, current);
             this.expiryTimerByPlayerId.delete(binding.playerId);
         }, delay);

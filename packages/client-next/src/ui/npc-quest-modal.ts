@@ -20,6 +20,17 @@ interface NpcQuestModalCallbacks {
   onNavigateQuest: (questId: string) => void;
 }
 
+type NpcQuestModalMeta = {
+  title: string;
+  subtitle: string;
+};
+
+type NpcQuestRenderState = {
+  listScrollTop: number;
+  detailScrollTop: number;
+  focusSelector: string | null;
+};
+
 export class NpcQuestModal {
   private static readonly MODAL_OWNER = 'npc-quest-modal';
   private callbacks: NpcQuestModalCallbacks | null = null;
@@ -29,6 +40,7 @@ export class NpcQuestModal {
   private inventory: Inventory = { items: [], capacity: 0 };
   private state: NEXT_S2C_NpcQuests | null = null;
   private selectedQuestId: string | null = null;
+  private delegatedEventsBound = false;
 
   setCallbacks(callbacks: NpcQuestModalCallbacks): void {
     this.callbacks = callbacks;
@@ -103,17 +115,22 @@ export class NpcQuestModal {
   }
 
   private render(): void {
-    const npcName = this.state?.npcName ?? '任务委托';
-    const subtitle = this.loading && !this.state
-      ? '正在同步任务列表'
-      : this.state
-        ? `当前可见 ${this.state.quests.length} 条任务线索`
-        : '暂无可同步内容';
+    const meta = this.buildModalMeta();
+    const body = detailModalHost.isOpenFor(NpcQuestModal.MODAL_OWNER)
+      ? document.getElementById('detail-modal-body')
+      : null;
+    const renderState = body ? this.captureRenderState(body) : null;
+    if (detailModalHost.isOpenFor(NpcQuestModal.MODAL_OWNER) && body && this.patchBody(body, meta)) {
+      if (renderState) {
+        this.restoreRenderState(body, renderState);
+      }
+      return;
+    }
     detailModalHost.open({
       ownerId: NpcQuestModal.MODAL_OWNER,
       variantClass: 'detail-modal--quest',
-      title: `${npcName}`,
-      subtitle,
+      title: meta.title,
+      subtitle: meta.subtitle,
       bodyHtml: this.renderBody(),
       onClose: () => {
         this.activeNpcId = null;
@@ -121,36 +138,23 @@ export class NpcQuestModal {
       },
       onAfterRender: (body) => {
         bindInlineItemTooltips(body);
-        body.querySelectorAll<HTMLElement>('[data-npc-quest-select]').forEach((button) => {
-          button.addEventListener('click', () => {
-            const questId = button.dataset.npcQuestSelect;
-            if (!questId || questId === this.selectedQuestId) {
-              return;
-            }
-            this.selectedQuestId = questId;
-            this.render();
-          });
-        });
-        body.querySelector<HTMLElement>('[data-npc-quest-accept]')?.addEventListener('click', () => {
-          if (!this.activeNpcId || !this.selectedQuestId) {
-            return;
-          }
-          this.callbacks?.onAcceptQuest(this.activeNpcId, this.selectedQuestId);
-        });
-        body.querySelector<HTMLElement>('[data-npc-quest-submit]')?.addEventListener('click', () => {
-          if (!this.activeNpcId || !this.selectedQuestId) {
-            return;
-          }
-          this.callbacks?.onSubmitQuest(this.activeNpcId, this.selectedQuestId);
-        });
-        body.querySelector<HTMLElement>('[data-npc-quest-navigate]')?.addEventListener('click', () => {
-          if (!this.selectedQuestId) {
-            return;
-          }
-          this.callbacks?.onNavigateQuest(this.selectedQuestId);
-        });
+        this.bindEvents(body);
+        if (renderState) {
+          this.restoreRenderState(body, renderState);
+        }
       },
     });
+  }
+
+  private buildModalMeta(): NpcQuestModalMeta {
+    return {
+      title: this.state?.npcName ?? '任务委托',
+      subtitle: this.loading && !this.state
+        ? '正在同步任务列表'
+        : this.state
+          ? `当前可见 ${this.state.quests.length} 条任务线索`
+          : '暂无可同步内容',
+    };
   }
 
   private renderBody(): string {
@@ -164,8 +168,23 @@ export class NpcQuestModal {
       return `<div class="empty-hint">${escapeHtml(this.state.npcName)} 目前没有新的委托。</div>`;
     }
 
-    const selected = this.state.quests.find((quest) => quest.id === this.selectedQuestId) ?? this.state.quests[0]!;
-    const listHtml = this.state.quests.map((quest) => {
+    const selected = this.resolveSelectedQuest();
+    if (!selected) {
+      return '<div class="empty-hint">暂时无法读取任务详情。</div>';
+    }
+
+    return `
+      <div class="npc-quest-modal-shell">
+        <div class="npc-quest-list" data-npc-quest-list="true">${this.renderQuestList(selected)}</div>
+        <div data-npc-quest-detail="true">
+          ${this.renderQuestDetail(selected)}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderQuestList(selected: QuestState): string {
+    return this.state?.quests.map((quest) => {
       const activeClass = quest.id === selected.id ? ' is-active' : '';
       return `<button class="quest-card quest-card-toggle npc-quest-card${activeClass}" data-npc-quest-select="${escapeHtml(quest.id)}" type="button">
         <div class="quest-title-row">
@@ -175,8 +194,10 @@ export class NpcQuestModal {
         <div class="quest-meta">${escapeHtml(getQuestLineLabel(quest.line))}</div>
         <div class="quest-desc">${this.renderQuestText(quest.desc, quest)}</div>
       </button>`;
-    }).join('');
+    }).join('') ?? '';
+  }
 
+  private renderQuestDetail(selected: QuestState): string {
     const canNavigate = this.canNavigateQuest(selected);
     const navigateLabel = selected.status === 'ready' ? '前往交付' : '前往目标';
     const actionButton = selected.status === 'available'
@@ -184,30 +205,152 @@ export class NpcQuestModal {
       : selected.status === 'ready'
         ? '<button class="small-btn primary" data-npc-quest-submit="true" type="button">提交任务</button>'
         : '';
-
     return `
-      <div class="npc-quest-modal-shell">
-        <div class="npc-quest-list">${listHtml}</div>
-        <div class="quest-detail-section"><strong>任务描述</strong><div>${this.renderQuestText(selected.desc, selected)}</div></div>
-        <div class="quest-detail-grid">
-          <div class="quest-detail-section"><strong>发布者</strong><span>${escapeHtml(selected.giverName)}</span></div>
-          <div class="quest-detail-section"><strong>当前状态</strong><span>${escapeHtml(getQuestStatusLabel(selected.status))}</span></div>
-          <div class="quest-detail-section"><strong>目标地点</strong><span>${escapeHtml(this.formatQuestLocation(selected.targetMapName ?? (selected.objectiveType === 'kill' ? selected.giverMapName : undefined), selected.targetX, selected.targetY))}</span></div>
-          <div class="quest-detail-section"><strong>提交地点</strong><span>${escapeHtml(this.formatQuestLocation(selected.submitMapName ?? selected.giverMapName, selected.submitX ?? selected.giverX, selected.submitY ?? selected.giverY))}</span></div>
-          <div class="quest-detail-section"><strong>当前进度</strong><div>${this.renderQuestText(this.resolveProgressText(selected), selected)}</div></div>
-          <div class="quest-detail-section"><strong>下一步</strong><div>${this.renderQuestText(this.resolveNextStep(selected), selected)}</div></div>
-          <div class="quest-detail-section"><strong>奖励</strong><div>${this.renderRewardContent(selected)}</div></div>
-          <div class="quest-detail-section ${selected.requiredItemId ? '' : 'hidden'}"><strong>任务需求</strong><div>${this.renderRequiredItemContent(selected)}</div></div>
-        </div>
-        <div class="quest-detail-section ${selected.story ? '' : 'hidden'}"><strong>剧情</strong><div>${escapeHtml(selected.story ?? '')}</div></div>
-        <div class="quest-detail-section ${selected.objectiveText ? '' : 'hidden'}"><strong>任务说明</strong><div>${this.renderQuestText(selected.objectiveText ?? '', selected)}</div></div>
-        <div class="quest-detail-section ${selected.relayMessage ? '' : 'hidden'}"><strong>传话内容</strong><div>${this.renderQuestText(selected.relayMessage ?? '', selected)}</div></div>
-        <div class="quest-detail-actions">
-          ${actionButton}
-          <button class="small-btn ghost" data-npc-quest-navigate="true" type="button" ${canNavigate ? '' : 'disabled'}>${navigateLabel}</button>
-        </div>
+      <div class="quest-detail-section"><strong>任务描述</strong><div>${this.renderQuestText(selected.desc, selected)}</div></div>
+      <div class="quest-detail-grid">
+        <div class="quest-detail-section"><strong>发布者</strong><span>${escapeHtml(selected.giverName)}</span></div>
+        <div class="quest-detail-section"><strong>当前状态</strong><span>${escapeHtml(getQuestStatusLabel(selected.status))}</span></div>
+        <div class="quest-detail-section"><strong>目标地点</strong><span>${escapeHtml(this.formatQuestLocation(selected.targetMapName ?? (selected.objectiveType === 'kill' ? selected.giverMapName : undefined), selected.targetX, selected.targetY))}</span></div>
+        <div class="quest-detail-section"><strong>提交地点</strong><span>${escapeHtml(this.formatQuestLocation(selected.submitMapName ?? selected.giverMapName, selected.submitX ?? selected.giverX, selected.submitY ?? selected.giverY))}</span></div>
+        <div class="quest-detail-section"><strong>当前进度</strong><div>${this.renderQuestText(this.resolveProgressText(selected), selected)}</div></div>
+        <div class="quest-detail-section"><strong>下一步</strong><div>${this.renderQuestText(this.resolveNextStep(selected), selected)}</div></div>
+        <div class="quest-detail-section"><strong>奖励</strong><div>${this.renderRewardContent(selected)}</div></div>
+        <div class="quest-detail-section ${selected.requiredItemId ? '' : 'hidden'}"><strong>任务需求</strong><div>${this.renderRequiredItemContent(selected)}</div></div>
+      </div>
+      <div class="quest-detail-section ${selected.story ? '' : 'hidden'}"><strong>剧情</strong><div>${escapeHtml(selected.story ?? '')}</div></div>
+      <div class="quest-detail-section ${selected.objectiveText ? '' : 'hidden'}"><strong>任务说明</strong><div>${this.renderQuestText(selected.objectiveText ?? '', selected)}</div></div>
+      <div class="quest-detail-section ${selected.relayMessage ? '' : 'hidden'}"><strong>传话内容</strong><div>${this.renderQuestText(selected.relayMessage ?? '', selected)}</div></div>
+      <div class="quest-detail-actions">
+        ${actionButton}
+        <button class="small-btn ghost" data-npc-quest-navigate="true" type="button" ${canNavigate ? '' : 'disabled'}>${navigateLabel}</button>
       </div>
     `;
+  }
+
+  private bindEvents(body: HTMLElement): void {
+    if (this.delegatedEventsBound) {
+      return;
+    }
+    this.delegatedEventsBound = true;
+    body.addEventListener('click', (event) => this.handleBodyClick(event));
+  }
+
+  private handleBodyClick(event: Event): void {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    const selectButton = target.closest<HTMLElement>('[data-npc-quest-select]');
+    if (selectButton) {
+      const questId = selectButton.dataset.npcQuestSelect;
+      if (!questId || questId === this.selectedQuestId) {
+        return;
+      }
+      this.selectedQuestId = questId;
+      this.render();
+      return;
+    }
+
+    if (target.closest('[data-npc-quest-accept]')) {
+      if (!this.activeNpcId || !this.selectedQuestId) {
+        return;
+      }
+      this.callbacks?.onAcceptQuest(this.activeNpcId, this.selectedQuestId);
+      return;
+    }
+
+    if (target.closest('[data-npc-quest-submit]')) {
+      if (!this.activeNpcId || !this.selectedQuestId) {
+        return;
+      }
+      this.callbacks?.onSubmitQuest(this.activeNpcId, this.selectedQuestId);
+      return;
+    }
+
+    if (!target.closest('[data-npc-quest-navigate]') || !this.selectedQuestId) {
+      return;
+    }
+    this.callbacks?.onNavigateQuest(this.selectedQuestId);
+  }
+
+  private patchBody(body: HTMLElement, meta: NpcQuestModalMeta): boolean {
+    if (!body.querySelector('.npc-quest-modal-shell')) {
+      return false;
+    }
+    const selected = this.resolveSelectedQuest();
+    const listRoot = body.querySelector<HTMLElement>('[data-npc-quest-list="true"]');
+    const detailRoot = body.querySelector<HTMLElement>('[data-npc-quest-detail="true"]');
+    if (!selected || !listRoot || !detailRoot) {
+      return false;
+    }
+    this.patchModalMeta(meta);
+    listRoot.innerHTML = this.renderQuestList(selected);
+    detailRoot.innerHTML = this.renderQuestDetail(selected);
+    bindInlineItemTooltips(body);
+    return true;
+  }
+
+  private patchModalMeta(meta: NpcQuestModalMeta): void {
+    const titleNode = document.getElementById('detail-modal-title');
+    const subtitleNode = document.getElementById('detail-modal-subtitle');
+    if (titleNode) {
+      titleNode.textContent = meta.title;
+    }
+    if (subtitleNode) {
+      subtitleNode.textContent = meta.subtitle;
+      subtitleNode.classList.toggle('hidden', meta.subtitle.length === 0);
+    }
+  }
+
+  private captureRenderState(body: HTMLElement): NpcQuestRenderState {
+    const activeElement = document.activeElement;
+    return {
+      listScrollTop: body.querySelector<HTMLElement>('[data-npc-quest-list="true"]')?.scrollTop ?? 0,
+      detailScrollTop: body.querySelector<HTMLElement>('[data-npc-quest-detail="true"]')?.scrollTop ?? 0,
+      focusSelector: activeElement instanceof HTMLElement && body.contains(activeElement)
+        ? this.resolveFocusSelector(activeElement)
+        : null,
+    };
+  }
+
+  private restoreRenderState(body: HTMLElement, state: NpcQuestRenderState): void {
+    const listRoot = body.querySelector<HTMLElement>('[data-npc-quest-list="true"]');
+    const detailRoot = body.querySelector<HTMLElement>('[data-npc-quest-detail="true"]');
+    if (listRoot) {
+      listRoot.scrollTop = state.listScrollTop;
+    }
+    if (detailRoot) {
+      detailRoot.scrollTop = state.detailScrollTop;
+    }
+    if (!state.focusSelector) {
+      return;
+    }
+    body.querySelector<HTMLElement>(state.focusSelector)?.focus({ preventScroll: true });
+  }
+
+  private resolveFocusSelector(element: HTMLElement): string | null {
+    const questId = element.dataset.npcQuestSelect;
+    if (questId) {
+      return `[data-npc-quest-select="${escapeHtml(questId)}"]`;
+    }
+    if (element.hasAttribute('data-npc-quest-accept')) {
+      return '[data-npc-quest-accept]';
+    }
+    if (element.hasAttribute('data-npc-quest-submit')) {
+      return '[data-npc-quest-submit]';
+    }
+    if (element.hasAttribute('data-npc-quest-navigate')) {
+      return '[data-npc-quest-navigate]';
+    }
+    return null;
+  }
+
+  private resolveSelectedQuest(): QuestState | null {
+    if (!this.state || this.state.quests.length === 0) {
+      return null;
+    }
+    return this.state.quests.find((quest) => quest.id === this.selectedQuestId) ?? this.state.quests[0] ?? null;
   }
 
   private pickPreferredQuestId(quests: QuestState[]): string | null {

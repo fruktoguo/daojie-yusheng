@@ -5,19 +5,21 @@ const node_net_1 = require("node:net");
 const node_path_1 = require("node:path");
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared-next");
+const env_alias_1 = require("../config/env-alias");
 const packageRoot = (0, node_path_1.resolve)(__dirname, '..', '..');
 const serverEntry = (0, node_path_1.join)(packageRoot, 'dist', 'main.js');
-const databaseUrl = process.env.SERVER_NEXT_DATABASE_URL ?? '';
+const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
 const defaultPort = Number(process.env.SERVER_NEXT_SMOKE_PORT ?? 3112);
 let currentPort = defaultPort;
 let baseUrl = `http://127.0.0.1:${currentPort}`;
-const playerId = process.env.SERVER_NEXT_SMOKE_PLAYER_ID ?? `persist_${Date.now().toString(36)}`;
+let playerId = '';
+let accessToken = '';
 async function main() {
     if (!databaseUrl.trim()) {
         console.log(JSON.stringify({
             ok: true,
             skipped: true,
-            reason: 'SERVER_NEXT_DATABASE_URL missing',
+            reason: 'SERVER_NEXT_DATABASE_URL/DATABASE_URL missing',
         }, null, 2));
         return;
     }
@@ -25,7 +27,9 @@ async function main() {
     let server = await startServer();
     try {
         await waitForHealth();
-        reconnectTarget = await connectAndMutate();
+        const auth = await registerAndLoginPlayer();
+        accessToken = auth.accessToken;
+        reconnectTarget = await connectAndMutate(accessToken);
     }
     finally {
         await stopServer(server);
@@ -41,22 +45,31 @@ async function main() {
         }, null, 2));
     }
     finally {
+        if (playerId) {
+            await deletePlayer(playerId).catch(() => undefined);
+        }
         await stopServer(server);
     }
 }
-async function connectAndMutate() {
+async function connectAndMutate(token) {
     const socket = (0, socket_io_client_1.io)(baseUrl, {
         path: '/socket.io',
         transports: ['websocket'],
+        forceNew: true,
+        auth: {
+            token,
+            protocol: 'next',
+        },
     });
+    const initSession = waitForSocketEvent(socket, shared_1.NEXT_S2C.InitSession);
+    const mapEnter = waitForSocketEvent(socket, shared_1.NEXT_S2C.MapEnter);
     await onceConnected(socket);
-    socket.emit('n:c:hello', {
-        playerId,
-        mapId: 'yunlai_town',
-        preferredX: 31,
-        preferredY: 54,
-    });
-    await waitForSocketEvent(socket, shared_1.NEXT_S2C.MapEnter);
+    const initPayload = await initSession;
+    playerId = typeof initPayload?.pid === 'string' ? initPayload.pid.trim() : '';
+    if (!playerId) {
+        throw new Error(`invalid init session payload: ${JSON.stringify(initPayload)}`);
+    }
+    await mapEnter;
     socket.emit('n:c:usePortal', {});
     await waitForCondition(async () => {
         const state = await fetchJson(`${baseUrl}/runtime/players/${playerId}/view`);
@@ -134,9 +147,17 @@ async function connectAndMutate() {
     return persistedTile;
 }
 async function reconnectAndRead(persistedTile) {
+    if (!accessToken) {
+        throw new Error('missing access token for persistence reconnect');
+    }
     const socket = (0, socket_io_client_1.io)(baseUrl, {
         path: '/socket.io',
         transports: ['websocket'],
+        forceNew: true,
+        auth: {
+            token: accessToken,
+            protocol: 'next',
+        },
     });
     const captured = {
         mapEnter: null,
@@ -144,6 +165,12 @@ async function reconnectAndRead(persistedTile) {
         panelDelta: null,
         worldDelta: null,
     };
+    const legacyEvents = [];
+    socket.onAny((event) => {
+        if (typeof event === 'string' && event.startsWith('s:')) {
+            legacyEvents.push(event);
+        }
+    });
     socket.on(shared_1.NEXT_S2C.MapEnter, (payload) => {
         captured.mapEnter = payload;
     });
@@ -156,10 +183,19 @@ async function reconnectAndRead(persistedTile) {
     socket.on(shared_1.NEXT_S2C.WorldDelta, (payload) => {
         captured.worldDelta = payload;
     });
+    const initSession = waitForSocketEvent(socket, shared_1.NEXT_S2C.InitSession);
     await onceConnected(socket);
-    socket.emit('n:c:hello', {
-        playerId,
-    });
+    const reconnectInit = await initSession;
+    const reconnectPlayerId = typeof reconnectInit?.pid === 'string' ? reconnectInit.pid.trim() : '';
+    if (!reconnectPlayerId) {
+        throw new Error(`invalid reconnect init session payload: ${JSON.stringify(reconnectInit)}`);
+    }
+    if (reconnectPlayerId !== playerId) {
+        throw new Error(`expected persisted reconnect pid ${playerId}, got ${reconnectPlayerId}`);
+    }
+    if (legacyEvents.length > 0) {
+        throw new Error(`expected next reconnect to avoid legacy events, got ${legacyEvents.join(', ')}`);
+    }
     await waitForCondition(() => captured.mapEnter !== null && captured.selfDelta !== null && captured.panelDelta !== null && captured.worldDelta !== null, 5000);
     socket.close();
     if (!captured.mapEnter || !captured.selfDelta || !captured.panelDelta || !captured.worldDelta) {
@@ -199,6 +235,7 @@ async function reconnectAndRead(persistedTile) {
     }
     return {
         mapEnter: captured.mapEnter,
+        reconnectInit,
         selfDelta: captured.selfDelta,
         panelDelta: captured.panelDelta,
         worldDelta: captured.worldDelta,
@@ -208,6 +245,34 @@ async function reconnectAndRead(persistedTile) {
         persistedTile: targetTile,
         tileAura: tileState.tile?.aura ?? 0,
         tileGroundPileItemCount: restoredGroundCount,
+    };
+}
+async function registerAndLoginPlayer() {
+    const suffix = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    const accountName = `acct_persist_${suffix}`;
+    const password = `Pass_${suffix}`;
+    await requestJson('/auth/register', {
+        method: 'POST',
+        body: {
+            accountName,
+            password,
+            displayName: buildUniqueDisplayName(`persistence:${suffix}`),
+            roleName: `久存${suffix.slice(-4)}`,
+        },
+    });
+    const login = await requestJson('/auth/login', {
+        method: 'POST',
+        body: {
+            loginName: accountName,
+            password,
+        },
+    });
+    const nextAccessToken = typeof login?.accessToken === 'string' ? login.accessToken.trim() : '';
+    if (!nextAccessToken) {
+        throw new Error(`unexpected login payload: ${JSON.stringify(login)}`);
+    }
+    return {
+        accessToken: nextAccessToken,
     };
 }
 async function startServer() {
@@ -284,13 +349,31 @@ async function onceConnected(socket) {
     });
 }
 async function waitForSocketEvent(socket, eventName) {
-    await new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error(`socket event timeout: ${eventName}`)), 5000);
-        socket.once(eventName, () => {
+        socket.once(eventName, (payload) => {
             clearTimeout(timer);
-            resolve();
+            resolve(payload);
         });
     });
+}
+async function requestJson(path, init = {}) {
+    const body = init.body === undefined ? undefined : JSON.stringify(init.body);
+    const response = await fetch(`${baseUrl}${path}`, {
+        method: init.method ?? 'GET',
+        headers: body === undefined ? undefined : {
+            'content-type': 'application/json',
+            ...(init.token ? { authorization: `Bearer ${init.token}` } : {}),
+        },
+        body,
+    });
+    if (!response.ok) {
+        throw new Error(`request failed: ${init.method ?? 'GET'} ${path}: ${response.status} ${await response.text()}`);
+    }
+    if (response.status === 204) {
+        return null;
+    }
+    return response.json();
 }
 async function postJson(path, body) {
     const response = await fetch(`${baseUrl}${path}`, {
@@ -311,6 +394,14 @@ async function fetchJson(url) {
     }
     return response.json();
 }
+async function deletePlayer(playerIdToDelete) {
+    const response = await fetch(`${baseUrl}/runtime/players/${playerIdToDelete}`, {
+        method: 'DELETE',
+    });
+    if (!response.ok && response.status !== 404) {
+        throw new Error(`request failed: ${response.status} ${await response.text()}`);
+    }
+}
 async function waitForCondition(predicate, timeoutMs) {
     const startedAt = Date.now();
     while (!(await predicate())) {
@@ -324,6 +415,13 @@ function delay(ms) {
     return new Promise((resolve) => {
         setTimeout(resolve, ms);
     });
+}
+function buildUniqueDisplayName(seed) {
+    let hash = 0;
+    for (let index = 0; index < seed.length; index += 1) {
+        hash = (hash * 33 + seed.charCodeAt(index)) >>> 0;
+    }
+    return String.fromCodePoint(0x4E00 + (hash % (0x9FFF - 0x4E00 + 1)));
 }
 async function allocateFreePort() {
     return new Promise((resolve, reject) => {

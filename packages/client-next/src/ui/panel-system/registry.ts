@@ -60,6 +60,7 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
       rootSelector: '#pane-equipment',
       defaultPlacement: { desktop: 'right-top', mobile: 'external' },
       supports: ['desktop', 'mobile'],
+      preservesInteractionState: true,
     },
     {
       id: 'technique',
@@ -113,6 +114,7 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
       rootSelector: '#pane-map-intel',
       defaultPlacement: { desktop: 'center-intel', mobile: 'external' },
       supports: ['desktop', 'mobile'],
+      preservesInteractionState: true,
     },
     {
       id: 'world-nearby',
@@ -121,6 +123,7 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
       rootSelector: '#pane-nearby',
       defaultPlacement: { desktop: 'center-intel', mobile: 'external' },
       supports: ['desktop', 'mobile'],
+      preservesInteractionState: true,
     },
     {
       id: 'world-suggestions',
@@ -129,6 +132,7 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
       rootSelector: '#pane-suggestions',
       defaultPlacement: { desktop: 'center-intel', mobile: 'external' },
       supports: ['desktop', 'mobile'],
+      preservesInteractionState: true,
     },
     {
       id: 'loot',
@@ -160,6 +164,7 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
       templateKind: 'modal',
       defaultPlacement: { desktop: 'overlay', mobile: 'overlay' },
       supports: ['desktop', 'mobile'],
+      preservesInteractionState: true,
     },
     {
       id: 'changelog',
@@ -167,6 +172,7 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
       templateKind: 'modal',
       defaultPlacement: { desktop: 'overlay', mobile: 'overlay' },
       supports: ['desktop', 'mobile'],
+      preservesInteractionState: true,
     },
     {
       id: 'minimap',
@@ -182,6 +188,7 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
       rootSelector: '#debug-panel',
       defaultPlacement: { desktop: 'overlay', mobile: 'overlay' },
       supports: ['desktop', 'mobile'],
+      preservesInteractionState: true,
     },
   ];
 

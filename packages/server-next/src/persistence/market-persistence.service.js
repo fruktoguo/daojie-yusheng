@@ -11,6 +11,7 @@ exports.MarketPersistenceService = void 0;
 const common_1 = require("@nestjs/common");
 const pg_1 = require("pg");
 const persistent_document_table_1 = require("./persistent-document-table");
+const env_alias_1 = require("../config/env-alias");
 const MARKET_ORDER_SCOPE = 'server_next_market_orders_v1';
 const MARKET_TRADE_SCOPE = 'server_next_market_trade_history_v1';
 const MARKET_STORAGE_SCOPE = 'server_next_market_storage_v1';
@@ -19,10 +20,9 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
     pool = null;
     enabled = false;
     async onModuleInit() {
-        const databaseUrl = process.env.SERVER_NEXT_DATABASE_URL
-            ?? '';
+        const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
         if (!databaseUrl.trim()) {
-            this.logger.log('Market persistence disabled: no SERVER_NEXT_DATABASE_URL');
+            this.logger.log('Market persistence disabled: no SERVER_NEXT_DATABASE_URL/DATABASE_URL');
             return;
         }
         this.pool = new pg_1.Pool({

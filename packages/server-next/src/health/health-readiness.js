@@ -1,16 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildHealthResponse = buildHealthResponse;
+const env_alias_1 = require("../config/env-alias");
 function buildHealthResponse(dependencies) {
     const database = resolveDatabaseReadiness();
-    const maintenance = resolveMaintenanceReadiness(dependencies.legacyGmAdminCompatService);
+    const maintenance = resolveMaintenanceReadiness(dependencies.maintenanceStateService);
     const persistence = {
         player: resolvePersistenceReadiness(database.configured, dependencies.playerPersistenceService),
         mail: resolvePersistenceReadiness(database.configured, dependencies.mailPersistenceService),
         market: resolvePersistenceReadiness(database.configured, dependencies.marketPersistenceService),
         suggestion: resolvePersistenceReadiness(database.configured, dependencies.suggestionPersistenceService),
     };
-    const legacyAuth = resolveLegacyAuthReadiness(database.source, dependencies.legacyAuthService);
+    const legacyAuth = resolveLegacyAuthReadiness(database.source, dependencies.authStateService);
     const runtime = resolveRuntimeReadiness(dependencies.worldRuntimeService);
     const readinessOk = !maintenance.active
         && database.configured
@@ -60,10 +61,7 @@ function resolveDatabaseReadiness() {
     };
 }
 function resolveDatabaseSource() {
-    if (readConfiguredEnv('SERVER_NEXT_DATABASE_URL')) {
-        return 'SERVER_NEXT_DATABASE_URL';
-    }
-    return null;
+    return (0, env_alias_1.resolveServerNextDatabaseEnvSource)();
 }
 function resolvePersistenceReadiness(databaseConfigured, service) {
     if (!databaseConfigured) {
@@ -179,10 +177,6 @@ function resolveRuntimeReadiness(service) {
             pendingCommandCount: 0,
         };
     }
-}
-function readConfiguredEnv(key) {
-    const value = process.env[key];
-    return typeof value === 'string' && value.trim().length > 0;
 }
 function readNonNegativeInt(value) {
     if (typeof value !== 'number' || !Number.isFinite(value)) {

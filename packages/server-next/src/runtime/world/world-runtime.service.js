@@ -211,12 +211,12 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.playerLocations.delete(playerId);
         return disconnected;
     }
-    removePlayer(playerId) {
+    removePlayer(playerId, reason = 'removed') {
         const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
         if (!normalizedPlayerId) {
             return false;
         }
-        this.worldSessionService.purgePlayerSession(normalizedPlayerId);
+        this.worldSessionService.purgePlayerSession(normalizedPlayerId, reason);
         this.navigationIntents.delete(normalizedPlayerId);
         this.pendingCommands.delete(normalizedPlayerId);
         this.pendingRespawnPlayerIds.delete(normalizedPlayerId);
@@ -846,6 +846,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             if (!monster) {
                 continue;
             }
+            const observation = buildMonsterObservation(viewer.attrs.finalAttrs.spirit, monster);
             entities.push({
                 id: monster.runtimeId,
                 name: monster.name,
@@ -853,7 +854,10 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 monsterTier: monster.tier,
                 hp: monster.hp,
                 maxHp: monster.maxHp,
-                observation: buildMonsterObservation(viewer.attrs.finalAttrs.spirit, monster),
+                observation,
+                lootPreview: observation.clarity === 'complete'
+                    ? buildMonsterLootPreview(this.contentTemplateRepository, viewer, monster)
+                    : undefined,
                 buffs: monster.buffs.map((entry) => cloneVisibleBuff(entry)),
             });
         }
@@ -920,7 +924,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         const sources = [];
         const groundSources = view.localGroundPiles
             .filter((entry) => entry.x === tileX && entry.y === tileY && entry.items.length > 0)
-            .sort((left, right) => left.sourceId.localeCompare(right.sourceId, 'zh-Hans-CN'));
+            .sort((left, right) => compareStableStrings(left.sourceId, right.sourceId));
         for (const [index, pile] of groundSources.entries()) {
             sources.push({
                 sourceId: pile.sourceId,
@@ -1295,7 +1299,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 dirty.add(instanceId);
             }
         }
-        return Array.from(dirty).sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
+        return Array.from(dirty).sort(compareStableStrings);
     }
     buildMapPersistenceSnapshot(instanceId) {
         const instance = this.instances.get(instanceId);
@@ -1337,7 +1341,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                     remainingTicks: state.activeSearch.remainingTicks,
                 }
                 : undefined,
-        })).sort((left, right) => left.sourceId.localeCompare(right.sourceId, 'zh-Hans-CN'));
+        })).sort((left, right) => compareStableStrings(left.sourceId, right.sourceId));
     }
     hydrateContainerStates(instanceId, entries) {
         if (entries.length === 0) {
@@ -3651,7 +3655,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 cooldownLeft: 0,
             });
         }
-        actions.sort((left, right) => left.id.localeCompare(right.id, 'zh-Hans-CN'));
+        actions.sort((left, right) => compareStableStrings(left.id, right.id));
         return actions;
     }
     applyMonsterAction(action) {
@@ -4043,8 +4047,65 @@ function parseContainerSourceId(sourceId) {
 function createSyncedItemStackSignature(item) {
     const comparableEntries = Object.entries(item)
         .filter(([key, value]) => key !== 'count' && value !== undefined)
-        .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey));
-    return JSON.stringify(Object.fromEntries(comparableEntries));
+        .sort(([leftKey], [rightKey]) => compareStableKeys(leftKey, rightKey));
+    let signature = '';
+    for (const [key, value] of comparableEntries) {
+        signature += `${key}=`;
+        signature += serializeStableComparableValue(value);
+        signature += ';';
+    }
+    return signature;
+}
+function compareStableKeys(left, right) {
+    if (left < right) {
+        return -1;
+    }
+    if (left > right) {
+        return 1;
+    }
+    return 0;
+}
+function serializeStableComparableValue(value) {
+    if (value === null) {
+        return 'null';
+    }
+    if (typeof value === 'string') {
+        return `s:${value.length}:${value}`;
+    }
+    if (typeof value === 'number') {
+        return Number.isFinite(value) ? `n:${value}` : 'n:null';
+    }
+    if (typeof value === 'boolean') {
+        return value ? 'b:1' : 'b:0';
+    }
+    if (Array.isArray(value)) {
+        let serialized = 'a[';
+        for (let index = 0; index < value.length; index += 1) {
+            if (index > 0) {
+                serialized += ',';
+            }
+            serialized += serializeStableComparableValue(value[index]);
+        }
+        serialized += ']';
+        return serialized;
+    }
+    if (typeof value === 'object') {
+        const entries = Object.entries(value)
+            .filter(([, nestedValue]) => nestedValue !== undefined)
+            .sort(([leftKey], [rightKey]) => compareStableKeys(leftKey, rightKey));
+        let serialized = 'o{';
+        for (let index = 0; index < entries.length; index += 1) {
+            const [nestedKey, nestedValue] = entries[index];
+            if (index > 0) {
+                serialized += ',';
+            }
+            serialized += `${nestedKey}=`;
+            serialized += serializeStableComparableValue(nestedValue);
+        }
+        serialized += '}';
+        return serialized;
+    }
+    return `u:${typeof value}`;
 }
 function groupContainerLootRows(entries) {
     const rows = [];
@@ -4266,8 +4327,17 @@ function compareQuestViews(left, right) {
         completed: 3,
     };
     return statusOrder[left.status] - statusOrder[right.status]
-        || left.line.localeCompare(right.line, 'zh-Hans-CN')
-        || left.id.localeCompare(right.id, 'zh-Hans-CN');
+        || compareStableStrings(left.line, right.line)
+        || compareStableStrings(left.id, right.id);
+}
+function compareStableStrings(left, right) {
+    if (left < right) {
+        return -1;
+    }
+    if (left > right) {
+        return 1;
+    }
+    return 0;
 }
 function parseDirection(input) {
     if (typeof input === 'number' && shared_1.Direction[input] !== undefined) {
@@ -4633,6 +4703,45 @@ function buildMonsterObservation(viewerSpirit, monster) {
         { threshold: 0.58, label: '神识', value: String(monster.attrs.spirit) },
         { threshold: 0.78, label: '境界', value: `等级 ${monster.level}` },
     ]);
+}
+function buildMonsterLootPreview(contentTemplateRepository, viewer, monster) {
+    const dropTable = contentTemplateRepository?.monsterDropsByMonsterId?.get(monster.monsterId) ?? [];
+    const lootRate = viewer?.attrs?.numericStats?.lootRate ?? 0;
+    const rareLootRate = viewer?.attrs?.numericStats?.rareLootRate ?? 0;
+    const entries = dropTable
+        .map((drop) => ({
+        itemId: drop.itemId,
+        name: drop.name,
+        type: drop.type,
+        count: drop.count,
+        chance: resolveObservedDropChance(drop.chance, lootRate, rareLootRate),
+    }))
+        .sort((left, right) => right.chance - left.chance || compareStableText(left.itemId, right.itemId));
+    return {
+        entries,
+        emptyText: entries.length > 0 ? undefined : '此獠身上暂未看出稳定掉落。',
+    };
+}
+function resolveObservedDropChance(baseChanceInput, lootRateBonus, rareLootRateBonus) {
+    const baseChance = typeof baseChanceInput === 'number' ? Math.max(0, Math.min(1, baseChanceInput)) : 1;
+    if (baseChance <= 0) {
+        return 0;
+    }
+    const totalRateBonus = (Number.isFinite(lootRateBonus) ? lootRateBonus : 0)
+        + (baseChance <= 0.001 ? (Number.isFinite(rareLootRateBonus) ? rareLootRateBonus : 0) : 0);
+    const killEquivalent = totalRateBonus >= 0
+        ? 1 + totalRateBonus / 10000
+        : 1 / (1 + Math.abs(totalRateBonus) / 10000);
+    if (killEquivalent <= 0) {
+        return 0;
+    }
+    return 1 - Math.pow(1 - baseChance, killEquivalent);
+}
+function compareStableText(left, right) {
+    if (left === right) {
+        return 0;
+    }
+    return left < right ? -1 : 1;
 }
 function buildNpcObservation(npc) {
     const lines = [

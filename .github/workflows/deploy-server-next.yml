@@ -2,6 +2,15 @@ name: Deploy Server Next
 
 on:
   workflow_dispatch:
+    inputs:
+      run-destructive-proof:
+        description: "是否在 shadow deploy 后跑 destructive proof"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "true"
+          - "false"
 
 permissions:
   contents: read
@@ -12,8 +21,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  verify-server-next:
+  verify-replace-ready:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: mud_next_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d mud_next_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mud_next_ci?schema=public
+      SERVER_NEXT_GM_PASSWORD: admin123
 
     steps:
       - name: Checkout
@@ -30,12 +59,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile || pnpm install
 
-      - name: Verify server-next
-        run: pnpm verify:server-next
+      - name: Verify replace-ready with DB
+        run: pnpm verify:replace-ready
 
   build-server-next-image:
     runs-on: ubuntu-latest
-    needs: verify-server-next
+    needs: verify-replace-ready
 
     steps:
       - name: Checkout
@@ -134,9 +163,32 @@ jobs:
         run: |
           docker --context production-server-next stack deploy --with-registry-auth -c docker-stack.server-next.yml daojie-yusheng-server-next
 
+      - name: Doctor deployed shadow env
+        env:
+          DEPLOY_SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
+          SERVER_NEXT_GM_PASSWORD: ${{ secrets.PROD_GM_PASSWORD }}
+          SERVER_NEXT_SHADOW_URL: http://${{ secrets.DEPLOY_SSH_HOST }}:11923
+        run: pnpm verify:replace-ready:doctor
+
       - name: Verify deployed shadow instance
         env:
           DEPLOY_SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
           SERVER_NEXT_GM_PASSWORD: ${{ secrets.PROD_GM_PASSWORD }}
           SERVER_NEXT_SHADOW_URL: http://${{ secrets.DEPLOY_SSH_HOST }}:11923
-        run: pnpm verify:server-next:shadow
+        run: pnpm verify:replace-ready:shadow
+
+      - name: Verify shadow destructive proof
+        if: ${{ github.event.inputs.run-destructive-proof == 'true' }}
+        env:
+          DEPLOY_SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
+          SERVER_NEXT_GM_PASSWORD: ${{ secrets.PROD_GM_PASSWORD }}
+          SERVER_NEXT_SHADOW_URL: http://${{ secrets.DEPLOY_SSH_HOST }}:11923
+          SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE: '1'
+        run: pnpm verify:replace-ready:shadow:destructive
+
+      - name: Verify deployed shadow GM compat
+        env:
+          DEPLOY_SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
+          SERVER_NEXT_GM_PASSWORD: ${{ secrets.PROD_GM_PASSWORD }}
+          SERVER_NEXT_URL: http://${{ secrets.DEPLOY_SSH_HOST }}:11923
+        run: pnpm --filter @mud/server-next smoke:gm-compat

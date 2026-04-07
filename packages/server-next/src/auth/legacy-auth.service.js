@@ -12,6 +12,7 @@ const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared-next");
 const node_crypto_1 = require("node:crypto");
 const pg_1 = require("pg");
+const env_alias_1 = require("../config/env-alias");
 let LegacyAuthService = LegacyAuthService_1 = class LegacyAuthService {
     logger = new common_1.Logger(LegacyAuthService_1.name);
     jwtSecret = process.env.JWT_SECRET || 'daojie-yusheng-dev-secret';
@@ -138,13 +139,12 @@ let LegacyAuthService = LegacyAuthService_1 = class LegacyAuthService {
         if (this.poolInitPromise) {
             return this.poolInitPromise;
         }
-        const databaseUrl = process.env.SERVER_NEXT_DATABASE_URL
-            ?? '';
+        const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
         if (!databaseUrl.trim()) {
             this.poolUnavailable = true;
             if (!this.poolUnavailableLogged) {
                 this.poolUnavailableLogged = true;
-                this.logger.warn('Legacy auth degraded: no SERVER_NEXT_DATABASE_URL, fallback to token-only identity');
+                this.logger.warn('Legacy auth degraded: no SERVER_NEXT_DATABASE_URL/DATABASE_URL, fallback to token-only identity');
             }
             return null;
         }
@@ -174,13 +174,14 @@ exports.LegacyAuthService = LegacyAuthService = LegacyAuthService_1 = __decorate
 ], LegacyAuthService);
 function resolveDisplayName(displayName, username, fallback) {
     const normalized = typeof displayName === 'string' ? displayName.normalize('NFC') : '';
-    if (normalized) {
+    if (isValidVisibleDisplayName(normalized)) {
         return normalized;
     }
-    if (typeof fallback === 'string' && fallback.trim()) {
-        return fallback;
+    const normalizedFallback = typeof fallback === 'string' ? fallback.trim().normalize('NFC') : '';
+    if (isValidVisibleDisplayName(normalizedFallback)) {
+        return normalizedFallback;
     }
-    return [...username.normalize('NFC')][0] ?? username;
+    return (0, shared_1.resolveDefaultVisibleDisplayName)(username.normalize('NFC'));
 }
 function resolvePlayerName(playerName, username, fallback) {
     const normalized = typeof playerName === 'string' ? playerName.trim().normalize('NFC') : '';
@@ -195,6 +196,13 @@ function resolvePlayerName(playerName, username, fallback) {
 function buildFallbackPlayerId(userId) {
     const normalized = userId.trim();
     return normalized ? `p_${normalized}` : 'p_guest';
+}
+function isValidVisibleDisplayName(value) {
+    return typeof value === 'string'
+        && value.length > 0
+        && (0, shared_1.getGraphemeCount)(value) === 1
+        && (0, shared_1.hasVisibleNameGrapheme)(value)
+        && !(0, shared_1.containsInvisibleOnlyNameGrapheme)(value);
 }
 function toLegacyPlayerSnapshot(row) {
     const inventory = normalizeInventory(row.inventory);

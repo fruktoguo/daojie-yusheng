@@ -731,6 +731,40 @@
       gap: 10px;
       margin-top: 10px;
     }
+    .observe-entity-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 10px;
+    }
+    .observe-entity-action-btn.is-disabled {
+      opacity: 0.56;
+      cursor: not-allowed;
+    }
+    .observe-loot-preview-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .observe-loot-preview-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--wash-ink);
+      background: var(--surface-muted-strong);
+    }
+    .observe-loot-preview-item {
+      min-width: 0;
+    }
+    .observe-loot-preview-chance {
+      flex: 0 0 auto;
+      font-size: var(--font-size-12);
+      font-weight: var(--font-weight-strong);
+      color: var(--ink-black);
+      white-space: nowrap;
+    }
     .observe-buff-section {
       display: flex;
       flex-direction: column;
@@ -824,6 +858,10 @@
       }
       .observe-buff-columns {
         grid-template-columns: minmax(0, 1fr);
+      }
+      .observe-loot-preview-row {
+        flex-direction: column;
+        align-items: flex-start;
       }
     }
     @media (min-width: 821px) and (max-width: 1180px) {

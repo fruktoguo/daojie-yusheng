@@ -142,48 +142,44 @@ export class GmPanel {
 
   private updateSuggestions() {
     if (!this.suggestionListEl) return;
-    
+
+    const preserved = this.captureContainerState(this.suggestionListEl);
     if (this.suggestions.length === 0) {
-      this.suggestionListEl.innerHTML = '<div style="color:#666; padding:10px; text-align:center;">暂无意见收集</div>';
+      const empty = document.createElement('div');
+      empty.dataset.gmEmptyState = 'suggestions';
+      empty.style.color = '#666';
+      empty.style.padding = '10px';
+      empty.style.textAlign = 'center';
+      empty.textContent = '暂无意见收集';
+      this.suggestionListEl.replaceChildren(empty);
       return;
     }
 
-    this.suggestionListEl.innerHTML = this.suggestions
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .map(s => `
-        <div style="border-bottom:1px solid #333; padding:5px; margin-bottom:5px;">
-          <div style="display:flex; justify-content:space-between;">
-            <span style="font-weight: var(--font-weight-strong); color:${s.status === 'completed' ? '#0f0' : '#ffcc00'}">${s.title}</span>
-            <span style="color:#888; font-size:10px;">${s.authorName}</span>
-          </div>
-          <div style="color:#aaa; margin:3px 0; word-break:break-all;">${s.description}</div>
-          <div style="display:flex; gap:10px; align-items:center; margin-top:5px;">
-            <span style="color:#888;">👍${s.upvotes.length} 👎${s.downvotes.length}</span>
-            ${s.status === 'pending' ? `<button class="gm-suggest-complete" data-id="${s.id}" style="font-size:10px; padding:1px 4px; cursor:pointer;">标记完成</button>` : ''}
-            <button class="gm-suggest-remove" data-id="${s.id}" style="font-size:10px; padding:1px 4px; color:#ff4444; cursor:pointer;">移除</button>
-          </div>
-        </div>
-      `).join('');
-
-    this.suggestionListEl.querySelectorAll('.gm-suggest-complete').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = (btn as HTMLElement).dataset.id;
-        if (id) this.callbacks?.onMarkSuggestionCompleted(id);
-      });
+    const orderedSuggestions = [...this.suggestions].sort((a, b) => b.createdAt - a.createdAt);
+    const existingItems = new Map<string, HTMLElement>();
+    this.suggestionListEl.querySelectorAll<HTMLElement>('[data-gm-suggestion-id]').forEach((item) => {
+      const id = item.dataset.gmSuggestionId;
+      if (id) {
+        existingItems.set(id, item);
+      }
     });
 
-    this.suggestionListEl.querySelectorAll('.gm-suggest-remove').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = (btn as HTMLElement).dataset.id;
-        if (id && confirm('确定移除这条意见吗？')) {
-          this.callbacks?.onRemoveSuggestion(id);
-        }
-      });
+    const orderedItems = orderedSuggestions.map((suggestion) => {
+      const existing = existingItems.get(suggestion.id);
+      const item = existing ?? this.createSuggestionItem();
+      this.patchSuggestionItem(item, suggestion);
+      existingItems.delete(suggestion.id);
+      return item;
     });
+
+    existingItems.forEach((item) => item.remove());
+    this.syncContainerChildren(this.suggestionListEl, orderedItems);
+    this.restoreContainerState(this.suggestionListEl, preserved);
   }
 
   clear(): void {
     this.state = createEmptyGmState();
+    this.suggestions = [];
     this.selectedPlayerId = null;
     this.initialized = false;
     this.perfCpuEl = null;
@@ -194,6 +190,7 @@ export class GmPanel {
     this.playerListEl = null;
     this.detailFormEl = null;
     this.detailEmptyEl = null;
+    this.suggestionListEl = null;
     this.mapSelect = null;
     this.xInput = null;
     this.yInput = null;
@@ -202,6 +199,7 @@ export class GmPanel {
     this.saveBtn = null;
     this.healBtn = null;
     this.resetBtn = null;
+    this.resetHeavenGateBtn = null;
     this.removeBtn = null;
     this.botCountInput = null;
     this.pane.innerHTML = '<div class="empty-hint">暂无 GM 数据</div>';
@@ -335,6 +333,21 @@ export class GmPanel {
         this.handlePlayerSelect(id);
       }
     });
+    this.suggestionListEl?.addEventListener('click', (event) => {
+      const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-gm-suggest-action][data-id]');
+      const id = button?.dataset.id;
+      if (!id) {
+        return;
+      }
+      const action = button.dataset.gmSuggestAction;
+      if (action === 'complete') {
+        this.callbacks?.onMarkSuggestionCompleted(id);
+        return;
+      }
+      if (action === 'remove' && confirm('确定移除这条意见吗？')) {
+        this.callbacks?.onRemoveSuggestion(id);
+      }
+    });
 
     this.saveBtn?.addEventListener('click', () => this.handleSave());
     this.healBtn?.addEventListener('click', () => this.handleHeal());
@@ -361,19 +374,32 @@ export class GmPanel {
 
   private updatePlayerList(): void {
     if (!this.playerListEl) return;
+    const preserved = this.captureContainerState(this.playerListEl);
     if (this.state.players.length === 0) {
-      this.playerListEl.innerHTML = '<div class="empty-hint">当前没有在线玩家</div>';
+      const empty = document.createElement('div');
+      empty.className = 'empty-hint';
+      empty.dataset.gmEmptyState = 'players';
+      empty.textContent = '当前没有在线玩家';
+      this.playerListEl.replaceChildren(empty);
       return;
     }
-    this.playerListEl.innerHTML = this.state.players.map((player) => `
-      <button class="gm-player-row ${player.id === this.selectedPlayerId ? 'active' : ''}" data-gm-player-id="${player.id}">
-        <div>
-          <div class="gm-player-name">${player.roleName}</div>
-          <div class="gm-player-meta">账号: ${getPlayerAccountLabel(player)} · 显示名: ${player.displayName}</div>
-          <div class="gm-player-meta">${player.isBot ? '机器人' : '真人'} · ${getPlayerMapLabel(player)}</div>
-        </div>
-      </button>
-    `).join('');
+    const existingRows = new Map<string, HTMLButtonElement>();
+    this.playerListEl.querySelectorAll<HTMLButtonElement>('[data-gm-player-id]').forEach((row) => {
+      const id = row.dataset.gmPlayerId;
+      if (id) {
+        existingRows.set(id, row);
+      }
+    });
+    const orderedRows = this.state.players.map((player) => {
+      const existing = existingRows.get(player.id);
+      const row = existing ?? this.createPlayerRow();
+      this.patchPlayerRow(row, player);
+      existingRows.delete(player.id);
+      return row;
+    });
+    existingRows.forEach((row) => row.remove());
+    this.syncContainerChildren(this.playerListEl, orderedRows);
+    this.restoreContainerState(this.playerListEl, preserved);
   }
 
   private updateDetail(): void {
@@ -493,6 +519,206 @@ export class GmPanel {
     const player = this.getSelectedPlayer();
     if (!player || !player.isBot) return;
     this.callbacks?.onRemoveBots([player.id], false);
+  }
+
+  private createPlayerRow(): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.className = 'gm-player-row';
+    button.type = 'button';
+    const content = document.createElement('div');
+    const name = document.createElement('div');
+    name.className = 'gm-player-name';
+    name.dataset.gmRole = 'name';
+    const accountMeta = document.createElement('div');
+    accountMeta.className = 'gm-player-meta';
+    accountMeta.dataset.gmRole = 'account';
+    const mapMeta = document.createElement('div');
+    mapMeta.className = 'gm-player-meta';
+    mapMeta.dataset.gmRole = 'map';
+    content.append(name, accountMeta, mapMeta);
+    button.appendChild(content);
+    return button;
+  }
+
+  private patchPlayerRow(row: HTMLButtonElement, player: GmPlayerSummary): void {
+    row.dataset.gmPlayerId = player.id;
+    row.classList.toggle('active', player.id === this.selectedPlayerId);
+    const name = row.querySelector<HTMLElement>('[data-gm-role="name"]');
+    const accountMeta = row.querySelector<HTMLElement>('[data-gm-role="account"]');
+    const mapMeta = row.querySelector<HTMLElement>('[data-gm-role="map"]');
+    if (name) {
+      name.textContent = player.roleName;
+    }
+    if (accountMeta) {
+      accountMeta.textContent = `账号: ${getPlayerAccountLabel(player)} · 显示名: ${player.displayName}`;
+    }
+    if (mapMeta) {
+      mapMeta.textContent = `${player.isBot ? '机器人' : '真人'} · ${getPlayerMapLabel(player)}`;
+    }
+  }
+
+  private createSuggestionItem(): HTMLElement {
+    const item = document.createElement('div');
+    item.style.borderBottom = '1px solid #333';
+    item.style.padding = '5px';
+    item.style.marginBottom = '5px';
+
+    const header = document.createElement('div');
+    header.style.display = 'flex';
+    header.style.justifyContent = 'space-between';
+
+    const title = document.createElement('span');
+    title.dataset.gmSuggestionRole = 'title';
+    title.style.fontWeight = 'var(--font-weight-strong)';
+    const author = document.createElement('span');
+    author.dataset.gmSuggestionRole = 'author';
+    author.style.color = '#888';
+    author.style.fontSize = '10px';
+    header.append(title, author);
+
+    const description = document.createElement('div');
+    description.dataset.gmSuggestionRole = 'description';
+    description.style.color = '#aaa';
+    description.style.margin = '3px 0';
+    description.style.wordBreak = 'break-all';
+
+    const actions = document.createElement('div');
+    actions.dataset.gmSuggestionRole = 'actions';
+    actions.style.display = 'flex';
+    actions.style.gap = '10px';
+    actions.style.alignItems = 'center';
+    actions.style.marginTop = '5px';
+
+    const votes = document.createElement('span');
+    votes.dataset.gmSuggestionRole = 'votes';
+    votes.style.color = '#888';
+    actions.appendChild(votes);
+
+    item.append(header, description, actions);
+    return item;
+  }
+
+  private patchSuggestionItem(item: HTMLElement, suggestion: Suggestion): void {
+    item.dataset.gmSuggestionId = suggestion.id;
+    const title = item.querySelector<HTMLElement>('[data-gm-suggestion-role="title"]');
+    const author = item.querySelector<HTMLElement>('[data-gm-suggestion-role="author"]');
+    const description = item.querySelector<HTMLElement>('[data-gm-suggestion-role="description"]');
+    const votes = item.querySelector<HTMLElement>('[data-gm-suggestion-role="votes"]');
+    const actions = item.querySelector<HTMLElement>('[data-gm-suggestion-role="actions"]');
+
+    if (title) {
+      title.textContent = suggestion.title;
+      title.style.color = suggestion.status === 'completed' ? '#0f0' : '#ffcc00';
+    }
+    if (author) {
+      author.textContent = suggestion.authorName;
+    }
+    if (description) {
+      description.textContent = suggestion.description;
+    }
+    if (votes) {
+      votes.textContent = `👍${suggestion.upvotes.length} 👎${suggestion.downvotes.length}`;
+    }
+    if (!actions) {
+      return;
+    }
+
+    this.setSuggestionPendingAction(actions, suggestion);
+    let removeButton = actions.querySelector<HTMLButtonElement>('[data-gm-suggest-action="remove"]');
+    if (!removeButton) {
+      removeButton = this.createSuggestionActionButton('移除', 'remove', '#ff4444');
+      actions.appendChild(removeButton);
+    }
+    removeButton.dataset.id = suggestion.id;
+  }
+
+  private setSuggestionPendingAction(actions: HTMLElement, suggestion: Suggestion): void {
+    const existing = actions.querySelector<HTMLButtonElement>('[data-gm-suggest-action="complete"]');
+    if (suggestion.status !== 'pending') {
+      existing?.remove();
+      return;
+    }
+    const button = existing ?? this.createSuggestionActionButton('标记完成', 'complete');
+    button.dataset.id = suggestion.id;
+    if (!existing) {
+      const removeButton = actions.querySelector('[data-gm-suggest-action="remove"]');
+      actions.insertBefore(button, removeButton ?? null);
+    }
+  }
+
+  private createSuggestionActionButton(label: string, action: 'complete' | 'remove', color?: string): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.gmSuggestAction = action;
+    button.style.fontSize = '10px';
+    button.style.padding = '1px 4px';
+    button.style.cursor = 'pointer';
+    if (color) {
+      button.style.color = color;
+    }
+    button.textContent = label;
+    return button;
+  }
+
+  private syncContainerChildren(container: HTMLElement, orderedChildren: HTMLElement[]): void {
+    const allowed = new Set(orderedChildren);
+    Array.from(container.children).forEach((child) => {
+      if (child instanceof HTMLElement && !allowed.has(child)) {
+        child.remove();
+      }
+    });
+    orderedChildren.forEach((child, index) => {
+      const current = container.children.item(index);
+      if (current !== child) {
+        container.insertBefore(child, current ?? null);
+      }
+    });
+  }
+
+  private captureContainerState(container: HTMLElement): { scrollTop: number; focusSelector: string | null } {
+    return {
+      scrollTop: container.scrollTop,
+      focusSelector: this.buildContainedFocusSelector(container),
+    };
+  }
+
+  private restoreContainerState(container: HTMLElement, preserved: { scrollTop: number; focusSelector: string | null }): void {
+    container.scrollTop = preserved.scrollTop;
+    if (!preserved.focusSelector) {
+      return;
+    }
+    const target = container.querySelector<HTMLElement>(preserved.focusSelector);
+    target?.focus({ preventScroll: true });
+  }
+
+  private buildContainedFocusSelector(container: HTMLElement): string | null {
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement) || !container.contains(active)) {
+      return null;
+    }
+    const suggestionButton = active.closest<HTMLElement>('[data-gm-suggest-action][data-id]');
+    if (suggestionButton && container.contains(suggestionButton)) {
+      const action = suggestionButton.dataset.gmSuggestAction;
+      const id = suggestionButton.dataset.id;
+      if (action && id) {
+        return `[data-gm-suggest-action="${action}"][data-id="${this.escapeSelectorValue(id)}"]`;
+      }
+    }
+    const playerButton = active.closest<HTMLElement>('[data-gm-player-id]');
+    if (playerButton && container.contains(playerButton)) {
+      const id = playerButton.dataset.gmPlayerId;
+      if (id) {
+        return `[data-gm-player-id="${this.escapeSelectorValue(id)}"]`;
+      }
+    }
+    return null;
+  }
+
+  private escapeSelectorValue(value: string): string {
+    if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+      return CSS.escape(value);
+    }
+    return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   }
 
   private isActiveElement(element?: Element | null): boolean {

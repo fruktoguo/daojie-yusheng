@@ -6,6 +6,33 @@ function matchMediaSafe(win: Window, query: string): boolean {
   return typeof win.matchMedia === 'function' ? win.matchMedia(query).matches : false;
 }
 
+function readSafeAreaInsets(win: Window): PanelCapabilities['safeAreaInsets'] {
+  const probe = win.document.createElement('div');
+  probe.setAttribute('aria-hidden', 'true');
+  probe.style.position = 'fixed';
+  probe.style.inset = '0';
+  probe.style.visibility = 'hidden';
+  probe.style.pointerEvents = 'none';
+  probe.style.paddingTop = 'env(safe-area-inset-top, 0px)';
+  probe.style.paddingRight = 'env(safe-area-inset-right, 0px)';
+  probe.style.paddingBottom = 'env(safe-area-inset-bottom, 0px)';
+  probe.style.paddingLeft = 'env(safe-area-inset-left, 0px)';
+  win.document.body.appendChild(probe);
+  const computed = win.getComputedStyle(probe);
+  const toPixels = (value: string): number => {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+  };
+  const insets = {
+    top: toPixels(computed.paddingTop),
+    right: toPixels(computed.paddingRight),
+    bottom: toPixels(computed.paddingBottom),
+    left: toPixels(computed.paddingLeft),
+  };
+  probe.remove();
+  return insets;
+}
+
 export function detectPanelCapabilities(win: Window): PanelCapabilities {
   const viewportWidth = getEffectiveViewportWidth(win);
   const viewportHeight = getEffectiveViewportHeight(win);
@@ -26,12 +53,7 @@ export function detectPanelCapabilities(win: Window): PanelCapabilities {
     reducedMotion,
     breakpoint,
     viewport: pointerCoarse || viewportWidth < UI_RESPONSIVE_BREAKPOINTS.panelViewportMobile ? 'mobile' : 'desktop',
-    safeAreaInsets: {
-      top: 0,
-      right: 0,
-      bottom: 0,
-      left: 0,
-    },
+    safeAreaInsets: readSafeAreaInsets(win),
   };
 }
 

@@ -2,10 +2,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared-next");
-const SERVER_NEXT_URL = process.env.SERVER_NEXT_URL ?? 'http://127.0.0.1:3111';
-const GM_PASSWORD = String(process.env.SERVER_NEXT_GM_PASSWORD ?? '').trim() || 'admin123';
-const databaseUrl = process.env.SERVER_NEXT_DATABASE_URL ?? '';
-const playerId = process.env.SERVER_NEXT_SMOKE_PLAYER_ID ?? `redeem_${Date.now().toString(36)}`;
+const env_alias_1 = require("../config/env-alias");
+const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
+const GM_PASSWORD = (0, env_alias_1.resolveServerNextGmPassword)('admin123');
+const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
+let playerId = '';
 const REWARD_ITEM_ID = 'spirit_stone';
 const REWARD_COUNT = 4;
 async function main() {
@@ -43,15 +44,20 @@ async function main() {
     socket.on(shared_1.NEXT_S2C.RedeemCodesResult, (payload) => {
         redeemResults.push(payload);
     });
+    socket.on(shared_1.NEXT_S2C.InitSession, (payload) => {
+        playerId = String(payload?.pid ?? '');
+    });
     try {
         await onceConnected(socket);
         socket.emit(shared_1.NEXT_C2S.Hello, {
-            playerId,
             mapId: 'yunlai_town',
             preferredX: 32,
             preferredY: 5,
         });
         await waitFor(async () => {
+            if (!playerId) {
+                return false;
+            }
             const state = await fetchState();
             return Boolean(state.player?.playerId) && panelEvents.length > 0;
         }, 5000);
@@ -125,7 +131,9 @@ async function main() {
     }
     finally {
         socket.close();
-        await deletePlayer(playerId).catch(() => undefined);
+        if (playerId) {
+            await deletePlayer(playerId).catch(() => undefined);
+        }
     }
 }
 async function onceConnected(socket) {

@@ -50,6 +50,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
     logger = new common_1.Logger(ContentTemplateRepository_1.name);
     itemTemplates = new Map();
     techniqueTemplates = new Map();
+    sharedTechniqueBuffs = new Map();
     monsterDropsByMonsterId = new Map();
     monsterRuntimeTemplates = new Map();
     monsterRuntimeStatesByMapId = new Map();
@@ -425,9 +426,26 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         }
         return null;
     }
+    loadSharedTechniqueBuffs() {
+        const sharedBuffFiles = collectJsonFiles((0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'content', 'technique-buffs'));
+        for (const file of sharedBuffFiles) {
+            const parsed = JSON.parse(fs.readFileSync(file, 'utf-8'));
+            if (!Array.isArray(parsed)) {
+                continue;
+            }
+            for (const entry of parsed) {
+                const effect = normalizeSharedTechniqueBuffEffect(entry);
+                if (!effect) {
+                    continue;
+                }
+                this.sharedTechniqueBuffs.set(effect.id, effect);
+            }
+        }
+    }
     loadAll() {
         this.itemTemplates.clear();
         this.techniqueTemplates.clear();
+        this.sharedTechniqueBuffs.clear();
         this.monsterDropsByMonsterId.clear();
         this.monsterRuntimeTemplates.clear();
         this.monsterRuntimeStatesByMapId.clear();
@@ -446,6 +464,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
                 this.itemTemplates.set(normalized.itemId, normalized);
             }
         }
+        this.loadSharedTechniqueBuffs();
         const techniqueFiles = collectJsonFiles((0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'content', 'techniques'));
         for (const file of techniqueFiles) {
             const parsed = JSON.parse(fs.readFileSync(file, 'utf-8'));
@@ -453,7 +472,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
                 continue;
             }
             for (const entry of parsed) {
-                const normalized = normalizeTechniqueTemplate(entry);
+                const normalized = normalizeTechniqueTemplate(entry, this.sharedTechniqueBuffs);
                 if (!normalized) {
                     continue;
                 }
@@ -1252,7 +1271,7 @@ function isRecord(value) {
 function clampUnitRatio(value) {
     return Math.max(0.01, Math.min(1, Number(value)));
 }
-function normalizeTechniqueTemplate(raw) {
+function normalizeTechniqueTemplate(raw, sharedTechniqueBuffs = new Map()) {
     if (!raw || typeof raw !== 'object') {
         return null;
     }
@@ -1272,7 +1291,7 @@ function normalizeTechniqueTemplate(raw) {
         : [];
     const skills = Array.isArray(candidate.skills)
         ? candidate.skills
-            .map((skill) => normalizeSkill(skill, grade, realmLv))
+            .map((skill) => normalizeSkill(skill, grade, realmLv, sharedTechniqueBuffs))
             .filter((entry) => Boolean(entry))
         : [];
     return {
@@ -1339,7 +1358,7 @@ function normalizeTechniqueAttrCurves(raw) {
     }
     return Object.keys(result).length > 0 ? result : undefined;
 }
-function normalizeSkill(raw, grade, realmLv) {
+function normalizeSkill(raw, grade, realmLv, sharedTechniqueBuffs = new Map()) {
     if (!raw || typeof raw !== 'object') {
         return null;
     }
@@ -1369,7 +1388,7 @@ function normalizeSkill(raw, grade, realmLv) {
         costMultiplier,
         range,
         targeting: candidate.targeting ? { ...candidate.targeting } : undefined,
-        effects: cloneSkillEffects(candidate.effects),
+        effects: cloneSkillEffects(candidate.effects, sharedTechniqueBuffs),
         unlockLevel,
         unlockRealm,
         unlockPlayerRealm: candidate.unlockPlayerRealm,
@@ -1377,10 +1396,45 @@ function normalizeSkill(raw, grade, realmLv) {
         targetMode: candidate.targetMode,
     };
 }
-function cloneSkillEffects(raw) {
+function cloneSkillEffects(raw, sharedTechniqueBuffs = new Map()) {
     return raw
         .filter((entry) => Boolean(entry) && typeof entry === 'object' && !Array.isArray(entry))
-        .map((entry) => ({ ...entry }));
+        .map((entry) => resolveSharedTechniqueBuffEffect(entry, sharedTechniqueBuffs));
+}
+function normalizeSharedTechniqueBuffEffect(raw) {
+    if (!raw || typeof raw !== 'object') {
+        return null;
+    }
+    const candidate = raw;
+    if (typeof candidate.id !== 'string' || !candidate.id.trim()) {
+        return null;
+    }
+    return {
+        ...candidate,
+        id: candidate.id.trim(),
+        type: 'buff',
+    };
+}
+function resolveSharedTechniqueBuffEffect(raw, sharedTechniqueBuffs) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+        return raw;
+    }
+    const candidate = raw;
+    if (candidate.type !== 'buff' || typeof candidate.buffRef !== 'string' || !candidate.buffRef.trim()) {
+        return { ...candidate };
+    }
+    const buffRef = candidate.buffRef.trim();
+    const template = sharedTechniqueBuffs.get(buffRef);
+    if (!template) {
+        throw new Error(`共享功法 Buff 模板 ${buffRef} 不存在`);
+    }
+    const { id: _id, ...templateEffect } = template;
+    const { buffRef: _buffRef, ...effect } = candidate;
+    return {
+        ...templateEffect,
+        ...effect,
+        type: 'buff',
+    };
 }
 function isTechniqueGrade(value) {
     return value === 'mortal'

@@ -131,6 +131,8 @@ import {
   NEXT_S2C_WorldDelta,
   NEXT_S2C_SelfDelta,
   NEXT_S2C_PanelDelta,
+  NEXT_S2C_MapStatic,
+  NEXT_S2C_Realm,
   directionToDelta,
   getTileTraversalCost,
   clonePlainValue,
@@ -1301,6 +1303,7 @@ function buildAttrStateFromPlayer(player: PlayerState): S2C_AttrUpdate {
     realmProgress: player.realm?.progress,
     realmProgressToNext: player.realm?.progressToNext,
     realmBreakthroughReady: player.realm?.breakthroughReady ?? player.breakthroughReady,
+    alchemySkill: player.alchemySkill ? cloneJson(player.alchemySkill) : undefined,
   };
 }
 
@@ -1345,6 +1348,9 @@ function mergeAttrUpdatePatch(previous: S2C_AttrUpdate | null, patch: S2C_AttrUp
       ?? myPlayer?.realm?.breakthroughReady
       ?? myPlayer?.breakthroughReady
       ?? undefined,
+    alchemySkill: patch.alchemySkill
+      ? cloneJson(patch.alchemySkill)
+      : (previous?.alchemySkill ? cloneJson(previous.alchemySkill) : (myPlayer?.alchemySkill ? cloneJson(myPlayer.alchemySkill) : undefined)),
   };
 }
 
@@ -1426,6 +1432,8 @@ function hydrateSyncedItemStack(item: SyncedItemStack, previous?: Inventory['ite
         : template?.tags
           ? [...template.tags]
           : undefined,
+    alchemySuccessRate: item.alchemySuccessRate ?? previousSameItem?.alchemySuccessRate ?? template?.alchemySuccessRate,
+    alchemySpeedRate: item.alchemySpeedRate ?? previousSameItem?.alchemySpeedRate ?? template?.alchemySpeedRate,
     mapUnlockId: item.mapUnlockId ?? previousSameItem?.mapUnlockId,
     tileAuraGainAmount: item.tileAuraGainAmount ?? previousSameItem?.tileAuraGainAmount,
     allowBatchUse: item.allowBatchUse ?? previousSameItem?.allowBatchUse,
@@ -2543,7 +2551,7 @@ document.getElementById('hud-toggle-auto-retaliate')?.addEventListener('click', 
   socket.sendAction('toggle:auto_retaliate');
 });
 // S2C 更新回调
-function handleRealmUpdate(data: S2C_RealmUpdate): void {
+function handleRealmUpdate(data: NEXT_S2C_Realm): void {
   if (!myPlayer) {
     return;
   }
@@ -2592,6 +2600,7 @@ function handleAttrUpdate(data: S2C_AttrUpdate): void {
       myPlayer.viewRange = Math.max(1, Math.round(latestAttrUpdate.numericStats.viewRange || myPlayer.viewRange));
     }
     myPlayer.breakthroughReady = latestAttrUpdate.realmBreakthroughReady ?? myPlayer.breakthroughReady;
+    myPlayer.alchemySkill = latestAttrUpdate.alchemySkill ?? myPlayer.alchemySkill;
     if (myPlayer.realm) {
       myPlayer.realm.progress = latestAttrUpdate.realmProgress ?? myPlayer.realm.progress;
       myPlayer.realm.progressToNext = latestAttrUpdate.realmProgressToNext ?? myPlayer.realm.progressToNext;
@@ -2752,7 +2761,7 @@ function handleNextPanelDelta(data: NEXT_S2C_PanelDelta): void {
   }
 }
 
-socket.onRealmUpdate(handleRealmUpdate);
+socket.onRealm(handleRealmUpdate);
 socket.onNextInitSession((data) => {
   latestNextInitSession = data;
 });
@@ -2815,8 +2824,16 @@ socket.onQuestNavigateResult((data) => {
   }
   questPanel.closeDetail();
 });
-socket.onMapStaticSync((data: S2C_MapStaticSync) => {
-  mapRuntime.applyMapStaticSync(data);
+function handleNextMapStatic(data: NEXT_S2C_MapStatic): void {
+  mapRuntime.applyMapStaticSync({
+    mapId: data.mapId,
+    mapMeta: data.mapMeta,
+    minimap: data.minimap,
+    minimapLibrary: data.minimapLibrary,
+    visibleMinimapMarkers: data.visibleMinimapMarkers,
+    visibleMinimapMarkerAdds: data.visibleMinimapMarkerAdds,
+    visibleMinimapMarkerRemoves: data.visibleMinimapMarkerRemoves,
+  });
   if (myPlayer && data.minimapLibrary) {
     myPlayer.unlockedMinimapIds = data.minimapLibrary.map((entry) => entry.mapId).sort();
     inventoryPanel.syncPlayerContext(myPlayer);
@@ -2824,7 +2841,8 @@ socket.onMapStaticSync((data: S2C_MapStaticSync) => {
   if (myPlayer && data.mapId === myPlayer.mapId) {
     refreshUiChrome();
   }
-});
+}
+socket.onMapStatic(handleNextMapStatic);
 function handleSystemMsg(data: S2C_SystemMsg): void {
   if (data.kind === 'chat') {
     void chatUI.addMessage(data.text, data.from, data.kind);

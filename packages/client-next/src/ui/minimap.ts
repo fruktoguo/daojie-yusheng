@@ -128,15 +128,6 @@ function ensureCanvasSize(canvas: HTMLCanvasElement): boolean {
   return true;
 }
 
-function escapeHtml(input: string): string {
-  return input
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-}
-
 function buildFallbackMapMeta(mapId: string, snapshot: MapMinimapSnapshot | null, tileCache: Map<string, Tile>): MapMeta {
   let width = snapshot?.width ?? 1;
   let height = snapshot?.height ?? 1;
@@ -210,6 +201,8 @@ export class Minimap {
   private modalPanState: ModalPanState | null = null;
   private hoveredModalPoint: { x: number; y: number } | null = null;
   private mobileCatalogOpen = false;
+  private readonly catalogEntryNodes = new Map<string, HTMLButtonElement>();
+  private catalogEmptyNode: HTMLElement | null = null;
 
   constructor() {
     this.mountModalToBody();
@@ -730,26 +723,129 @@ export class Minimap {
       this.deleteMemoryBtn.title = selectedEntry?.hasMemory ? `删除 ${selectedEntry.mapMeta?.name ?? selectedEntry.mapId} 的本地记忆` : '当前地图没有可删除的本地记忆';
     }
 
+    const catalogContainer = this.modalList;
+    const previousScrollTop = catalogContainer.scrollTop;
+    const filteredIds = new Set(filteredEntries.map((entry) => entry.mapId));
+
     if (filteredEntries.length === 0) {
-      this.modalList.innerHTML = '<div class="map-minimap-modal-empty">当前分类下没有可浏览的地图。</div>';
+      this.removeAllCatalogNodes();
+      catalogContainer.replaceChildren(this.getCatalogEmptyNode());
       return;
     }
 
-    this.modalList.innerHTML = filteredEntries.map((entry) => {
-      const name = entry.mapMeta?.name ?? '无名地域';
-      const description = this.getCatalogDescription(entry);
-      const badges = [
-        entry.hasUnlock ? '<span class="map-minimap-modal-badge unlock">图</span>' : '',
-        entry.hasMemory ? '<span class="map-minimap-modal-badge memory">记</span>' : '',
-      ].join('');
-      return `<button class="map-minimap-modal-item ${entry.mapId === this.selectedMapId ? 'active' : ''}" data-map-id="${escapeHtml(entry.mapId)}" type="button">
-        <div class="map-minimap-modal-item-head">
-          <span class="map-minimap-modal-item-name">${escapeHtml(name)}</span>
-          <span class="map-minimap-modal-item-badges">${badges}</span>
-        </div>
-        <div class="map-minimap-modal-item-desc">${escapeHtml(description)}</div>
-      </button>`;
-    }).join('');
+    if (this.catalogEmptyNode?.parentElement === catalogContainer) {
+      catalogContainer.removeChild(this.catalogEmptyNode);
+    }
+
+    for (const existingId of Array.from(this.catalogEntryNodes.keys())) {
+      if (!filteredIds.has(existingId)) {
+        this.catalogEntryNodes.get(existingId)?.remove();
+        this.catalogEntryNodes.delete(existingId);
+      }
+    }
+
+    let previousNode: HTMLButtonElement | null = null;
+    for (const entry of filteredEntries) {
+      let node = this.catalogEntryNodes.get(entry.mapId);
+      if (!node) {
+        node = this.createCatalogItemNode(entry);
+        this.catalogEntryNodes.set(entry.mapId, node);
+      }
+      this.updateCatalogItemNode(entry, node);
+      this.insertCatalogItemNodeInOrder(node, previousNode, catalogContainer);
+      previousNode = node;
+    }
+
+    catalogContainer.scrollTop = previousScrollTop;
+  }
+
+  private createCatalogItemNode(entry: CatalogEntry): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'map-minimap-modal-item';
+    button.dataset.mapId = entry.mapId;
+
+    const head = document.createElement('div');
+    head.className = 'map-minimap-modal-item-head';
+
+    const name = document.createElement('span');
+    name.className = 'map-minimap-modal-item-name';
+    head.appendChild(name);
+
+    const badges = document.createElement('span');
+    badges.className = 'map-minimap-modal-item-badges';
+    head.appendChild(badges);
+
+    button.appendChild(head);
+
+    const desc = document.createElement('div');
+    desc.className = 'map-minimap-modal-item-desc';
+    button.appendChild(desc);
+
+    return button;
+  }
+
+  private updateCatalogItemNode(entry: CatalogEntry, node: HTMLButtonElement): void {
+    const nameNode = node.querySelector<HTMLSpanElement>('.map-minimap-modal-item-name');
+    if (nameNode) {
+      nameNode.textContent = entry.mapMeta?.name ?? '无名地域';
+    }
+
+    const descNode = node.querySelector<HTMLElement>('.map-minimap-modal-item-desc');
+    if (descNode) {
+      descNode.textContent = this.getCatalogDescription(entry);
+    }
+
+    const badgesNode = node.querySelector<HTMLElement>('.map-minimap-modal-item-badges');
+    if (badgesNode) {
+      while (badgesNode.firstChild) {
+        badgesNode.removeChild(badgesNode.firstChild);
+      }
+      if (entry.hasUnlock) {
+        badgesNode.appendChild(this.buildCatalogBadge('unlock', '图'));
+      }
+      if (entry.hasMemory) {
+        badgesNode.appendChild(this.buildCatalogBadge('memory', '记'));
+      }
+    }
+
+    node.dataset.mapId = entry.mapId;
+    node.classList.toggle('active', entry.mapId === this.selectedMapId);
+  }
+
+  private insertCatalogItemNodeInOrder(
+    node: HTMLButtonElement,
+    previousNode: HTMLButtonElement | null,
+    container: HTMLElement,
+  ): void {
+    const anchor = previousNode ? previousNode.nextElementSibling : container.firstElementChild;
+    if (anchor === node) {
+      return;
+    }
+    container.insertBefore(node, anchor);
+  }
+
+  private getCatalogEmptyNode(): HTMLElement {
+    if (!this.catalogEmptyNode) {
+      this.catalogEmptyNode = document.createElement('div');
+      this.catalogEmptyNode.className = 'map-minimap-modal-empty';
+    }
+    this.catalogEmptyNode.textContent = '当前分类下没有可浏览的地图。';
+    return this.catalogEmptyNode;
+  }
+
+  private removeAllCatalogNodes(): void {
+    this.catalogEntryNodes.forEach((node) => {
+      node.remove();
+    });
+    this.catalogEntryNodes.clear();
+  }
+
+  private buildCatalogBadge(badgeClass: 'unlock' | 'memory', label: string): HTMLSpanElement {
+    const badge = document.createElement('span');
+    badge.className = `map-minimap-modal-badge ${badgeClass}`;
+    badge.textContent = label;
+    return badge;
   }
 
   private getCatalogDescription(entry: CatalogEntry): string {

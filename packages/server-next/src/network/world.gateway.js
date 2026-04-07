@@ -18,9 +18,6 @@ const websockets_1 = require("@nestjs/websockets");
 const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared-next");
 const socket_io_1 = require("socket.io");
-const legacy_gm_compat_service_1 = require("../compat/legacy/legacy-gm-compat.service");
-const legacy_gm_admin_compat_service_1 = require("../compat/legacy/http/legacy-gm-admin-compat.service");
-const legacy_gateway_compat_service_1 = require("../compat/legacy/legacy-gateway-compat.service");
 const health_readiness_service_1 = require("../health/health-readiness.service");
 const player_persistence_flush_service_1 = require("../persistence/player-persistence-flush.service");
 const mail_runtime_service_1 = require("../runtime/mail/mail-runtime.service");
@@ -29,12 +26,13 @@ const player_runtime_service_1 = require("../runtime/player/player-runtime.servi
 const suggestion_runtime_service_1 = require("../runtime/suggestion/suggestion-runtime.service");
 const world_runtime_service_1 = require("../runtime/world/world-runtime.service");
 const world_client_event_service_1 = require("./world-client-event.service");
+const world_gm_socket_service_1 = require("./world-gm-socket.service");
+const world_protocol_projection_service_1 = require("./world-protocol-projection.service");
 const world_session_bootstrap_service_1 = require("./world-session-bootstrap.service");
 const world_session_service_1 = require("./world-session.service");
 let WorldGateway = WorldGateway_1 = class WorldGateway {
-    legacyGmCompatService;
-    legacyGmAdminCompatService;
-    legacyGatewayCompatService;
+    worldGmSocketService;
+    worldProtocolProjectionService;
     sessionBootstrapService;
     healthReadinessService;
     playerPersistenceFlushService;
@@ -48,10 +46,9 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     server;
     logger = new common_1.Logger(WorldGateway_1.name);
     marketSubscriberPlayerIds = new Set();
-    constructor(legacyGmCompatService, legacyGmAdminCompatService, legacyGatewayCompatService, sessionBootstrapService, healthReadinessService, playerPersistenceFlushService, playerRuntimeService, mailRuntimeService, marketRuntimeService, suggestionRuntimeService, worldRuntimeService, worldClientEventService, worldSessionService) {
-        this.legacyGmCompatService = legacyGmCompatService;
-        this.legacyGmAdminCompatService = legacyGmAdminCompatService;
-        this.legacyGatewayCompatService = legacyGatewayCompatService;
+    constructor(worldGmSocketService, worldProtocolProjectionService, sessionBootstrapService, healthReadinessService, playerPersistenceFlushService, playerRuntimeService, mailRuntimeService, marketRuntimeService, suggestionRuntimeService, worldRuntimeService, worldClientEventService, worldSessionService) {
+        this.worldGmSocketService = worldGmSocketService;
+        this.worldProtocolProjectionService = worldProtocolProjectionService;
         this.sessionBootstrapService = sessionBootstrapService;
         this.healthReadinessService = healthReadinessService;
         this.playerPersistenceFlushService = playerPersistenceFlushService;
@@ -63,56 +60,132 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.worldClientEventService = worldClientEventService;
         this.worldSessionService = worldSessionService;
     }
-    async handleConnection(client) {
-        this.logger.debug(`Socket connected: ${client.id}`);
-        const handshakeProtocol = typeof client.handshake?.auth?.protocol === 'string'
-            ? client.handshake.auth.protocol.trim().toLowerCase()
-            : '';
-        if (handshakeProtocol === 'next' || handshakeProtocol === 'legacy') {
-            this.markClientProtocol(client, handshakeProtocol);
+    setBootstrapTraceContext(client, entryPath, identity) {
+        client.data.bootstrapEntryPath = entryPath;
+        client.data.bootstrapIdentitySource = identity?.authSource ?? null;
+    }
+    resolveBootstrapPromise(client) {
+        const promise = client?.data?.bootstrapPromise;
+        return promise && typeof promise.then === 'function' ? promise : null;
+    }
+    rememberBootstrapPromise(client, promise) {
+        client.data.bootstrapPromise = promise;
+        promise.finally(() => {
+            if (client.data.bootstrapPromise === promise) {
+                client.data.bootstrapPromise = null;
+            }
+        }).catch(() => undefined);
+        return promise;
+    }
+    async awaitPendingBootstrap(client) {
+        const promise = this.resolveBootstrapPromise(client);
+        if (!promise) {
+            return false;
         }
-        if (this.rejectWhenNotReady(client)) {
-            return;
+        await promise;
+        return true;
+    }
+    hasSocketToken(client) {
+        return this.sessionBootstrapService.pickSocketToken(client).length > 0;
+    }
+    startAuthenticatedBootstrap(client, entryPath, identity) {
+        const existing = this.resolveBootstrapPromise(client);
+        if (existing) {
+            return existing;
         }
+        this.setBootstrapTraceContext(client, entryPath, identity);
+        const promise = (async () => {
+            await this.sessionBootstrapService.bootstrapPlayerSession(client, {
+                playerId: identity.playerId,
+                requestedSessionId: this.sessionBootstrapService.pickSocketRequestedSessionId(client) || undefined,
+                name: identity.playerName,
+                displayName: identity.displayName,
+                mapId: undefined,
+                preferredX: undefined,
+                preferredY: undefined,
+                loadSnapshot: () => this.sessionBootstrapService.loadAuthenticatedPlayerSnapshot(identity),
+            });
+            client.data.userId = identity.userId;
+        })();
+        return this.rememberBootstrapPromise(client, promise);
+    }
+    resolveGuestDetachedBinding(payloadSessionId) {
+        return this.worldSessionService.getDetachedBindingBySessionId(payloadSessionId);
+    }
+    buildGuestHelloBootstrapInput(client, payload) {
+        const guestDetachedBinding = this.resolveGuestDetachedBinding(payload?.sessionId);
+        const playerId = guestDetachedBinding?.playerId
+            ?? this.worldSessionService.createGuestPlayerId();
+        return {
+            playerId,
+            requestedSessionId: guestDetachedBinding?.sessionId,
+            mapId: payload.mapId,
+            preferredX: payload.preferredX,
+            preferredY: payload.preferredY,
+            loadSnapshot: () => this.sessionBootstrapService.loadPlayerSnapshot(playerId, false),
+        };
+    }
+    async handleGuestHello(client, payload) {
+        this.setBootstrapTraceContext(client, 'hello_guest', null);
+        await this.sessionBootstrapService.bootstrapPlayerSession(client, this.buildGuestHelloBootstrapInput(client, payload));
+    }
+    async resolveBootstrapAuthContext(client, options = undefined) {
+        const allowGuest = options?.allowGuest === true;
         const token = this.sessionBootstrapService.pickSocketToken(client);
         const gmToken = this.sessionBootstrapService.pickSocketGmToken(client);
         if (gmToken) {
             if (!this.sessionBootstrapService.authenticateSocketGmToken(gmToken)) {
                 this.worldClientEventService.emitError(client, 'GM_AUTH_FAIL', 'GM 认证失败');
                 client.disconnect(true);
-                return;
+                return null;
             }
             if (!token) {
                 this.worldClientEventService.emitError(client, 'GM_PLAYER_AUTH_REQUIRED', 'GM socket 需要同时提供玩家登录令牌');
                 client.disconnect(true);
-                return;
+                return null;
             }
             client.data.isGm = true;
             client.data.gmRole = 'gm';
         }
-        if (!token || typeof client.data.playerId === 'string') {
+        if (!token) {
+            return allowGuest
+                ? {
+                    identity: null,
+                }
+                : null;
+        }
+        const identity = await this.sessionBootstrapService.authenticateSocketToken(token);
+        if (!identity) {
+            this.worldClientEventService.emitError(client, 'AUTH_FAIL', '认证失败');
+            client.disconnect(true);
+            return null;
+        }
+        return { identity };
+    }
+    async handleConnection(client) {
+        this.logger.debug(`Socket connected: ${client.id}`);
+        const handshakeProtocol = typeof client.handshake?.auth?.protocol === 'string'
+            ? client.handshake.auth.protocol.trim().toLowerCase()
+            : '';
+        if (handshakeProtocol === 'next' || handshakeProtocol === 'legacy') {
+            this.worldClientEventService.markProtocol(client, handshakeProtocol);
+        }
+        if (this.rejectWhenNotReady(client)) {
+            return;
+        }
+        if (typeof client.data.playerId === 'string') {
             return;
         }
         try {
-            const identity = await this.sessionBootstrapService.authenticateSocketToken(token);
-            if (!identity) {
-                this.worldClientEventService.emitError(client, 'AUTH_FAIL', '认证失败');
-                client.disconnect(true);
+            const authContext = await this.resolveBootstrapAuthContext(client);
+            if (!authContext?.identity) {
                 return;
             }
-            await this.sessionBootstrapService.bootstrapPlayerSession(client, {
-                playerId: identity.playerId,
-                name: identity.playerName,
-                displayName: identity.displayName,
-                mapId: undefined,
-                preferredX: undefined,
-                preferredY: undefined,
-                loadSnapshot: () => this.sessionBootstrapService.loadPlayerSnapshot(identity.playerId, true),
-            });
-            client.data.userId = identity.userId;
+            const { identity } = authContext;
+            await this.startAuthenticatedBootstrap(client, 'connect_token', identity);
         }
         catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'LEGACY_AUTH_FAILED', error);
+            this.worldClientEventService.emitGatewayError(client, 'AUTH_FAIL', error);
             client.disconnect(true);
         }
     }
@@ -132,7 +205,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.logger.debug(`Socket detached: ${client.id} -> ${binding.playerId}, expiresAt=${binding.expireAt}`);
     }
     async handleHello(client, payload) {
-        this.markClientProtocol(client, 'next');
+        this.worldClientEventService.markProtocol(client, 'next');
         try {
             if (this.rejectWhenNotReady(client)) {
                 return;
@@ -140,54 +213,11 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             if (typeof client.data.playerId === 'string' && client.data.playerId.trim()) {
                 return;
             }
-            const gmToken = this.sessionBootstrapService.pickSocketGmToken(client);
-            if (gmToken) {
-                if (!this.sessionBootstrapService.authenticateSocketGmToken(gmToken)) {
-                    this.worldClientEventService.emitError(client, 'GM_AUTH_FAIL', 'GM 认证失败');
-                    client.disconnect(true);
-                    return;
-                }
-                client.data.isGm = true;
-                client.data.gmRole = 'gm';
-            }
-            const token = this.sessionBootstrapService.pickSocketToken(client);
-            const identity = token
-                ? await this.sessionBootstrapService.authenticateSocketToken(token)
-                : null;
-            if (gmToken && !identity) {
-                this.worldClientEventService.emitError(client, 'GM_PLAYER_AUTH_REQUIRED', 'GM socket 需要同时提供玩家登录令牌');
-                client.disconnect(true);
+            if (this.hasSocketToken(client)) {
+                await this.awaitPendingBootstrap(client);
                 return;
             }
-            if (token && !identity) {
-                this.worldClientEventService.emitError(client, 'AUTH_FAIL', '认证失败');
-                client.disconnect(true);
-                return;
-            }
-            const requestedPlayerId = String(payload?.playerId ?? '').trim();
-            if (identity && requestedPlayerId && requestedPlayerId !== identity.playerId) {
-                this.worldClientEventService.emitError(client, 'PLAYER_ID_MISMATCH', 'playerId 与登录令牌不匹配');
-                client.disconnect(true);
-                return;
-            }
-            const playerId = identity?.playerId ?? requestedPlayerId;
-            if (!playerId) {
-                this.worldClientEventService.emitError(client, 'PLAYER_ID_REQUIRED', 'playerId is required');
-                return;
-            }
-            await this.sessionBootstrapService.bootstrapPlayerSession(client, {
-                playerId,
-                name: identity?.playerName,
-                displayName: identity?.displayName,
-                requestedSessionId: payload.sessionId,
-                mapId: payload.mapId,
-                preferredX: payload.preferredX,
-                preferredY: payload.preferredY,
-                loadSnapshot: () => this.sessionBootstrapService.loadPlayerSnapshot(playerId, Boolean(identity)),
-            });
-            if (identity) {
-                client.data.userId = identity.userId;
-            }
+            await this.handleGuestHello(client, payload);
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, 'HELLO_FAILED', error);
@@ -222,59 +252,85 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         return true;
     }
     handleLegacyGmGetState(client, _payload) {
+        this.handleGmGetState(client, _payload);
+    }
+    handleNextGmGetState(client, _payload) {
+        this.handleGmGetState(client, _payload);
+    }
+    handleGmGetState(client, _payload) {
         const playerId = this.requireGm(client);
         if (!playerId) {
             return;
         }
-        this.legacyGmCompatService.emitState(client);
+        this.worldGmSocketService.emitState(client);
     }
     handleLegacyGmSpawnBots(client, payload) {
+        this.handleGmSpawnBots(client, payload);
+    }
+    handleNextGmSpawnBots(client, payload) {
+        this.handleGmSpawnBots(client, payload);
+    }
+    handleGmSpawnBots(client, payload) {
         const playerId = this.requireGm(client);
         if (!playerId) {
             return;
         }
         try {
-            this.legacyGmCompatService.enqueueSpawnBots(playerId, payload?.count);
-            this.legacyGmCompatService.queueStatePush(playerId);
+            this.worldGmSocketService.enqueueSpawnBots(playerId, payload?.count);
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, 'GM_SPAWN_BOTS_FAILED', error);
         }
     }
     handleLegacyGmRemoveBots(client, payload) {
+        this.handleGmRemoveBots(client, payload);
+    }
+    handleNextGmRemoveBots(client, payload) {
+        this.handleGmRemoveBots(client, payload);
+    }
+    handleGmRemoveBots(client, payload) {
         const playerId = this.requireGm(client);
         if (!playerId) {
             return;
         }
         try {
-            this.legacyGmCompatService.enqueueRemoveBots(payload?.playerIds, payload?.all);
-            this.legacyGmCompatService.queueStatePush(playerId);
+            this.worldGmSocketService.enqueueRemoveBots(playerId, payload?.playerIds, payload?.all);
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, 'GM_REMOVE_BOTS_FAILED', error);
         }
     }
     handleLegacyGmUpdatePlayer(client, payload) {
+        this.handleGmUpdatePlayer(client, payload);
+    }
+    handleNextGmUpdatePlayer(client, payload) {
+        this.handleGmUpdatePlayer(client, payload);
+    }
+    handleGmUpdatePlayer(client, payload) {
         const requesterPlayerId = this.requireGm(client);
         if (!requesterPlayerId) {
             return;
         }
         try {
-            this.legacyGmCompatService.enqueueUpdatePlayer(payload);
-            this.legacyGmCompatService.queueStatePush(requesterPlayerId);
+            this.worldGmSocketService.enqueueUpdatePlayer(requesterPlayerId, payload);
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, 'GM_UPDATE_PLAYER_FAILED', error);
         }
     }
     handleLegacyGmResetPlayer(client, payload) {
+        this.handleGmResetPlayer(client, payload);
+    }
+    handleNextGmResetPlayer(client, payload) {
+        this.handleGmResetPlayer(client, payload);
+    }
+    handleGmResetPlayer(client, payload) {
         const requesterPlayerId = this.requireGm(client);
         if (!requesterPlayerId) {
             return;
         }
         try {
-            this.legacyGmCompatService.enqueueResetPlayer(payload?.playerId);
-            this.legacyGmCompatService.queueStatePush(requesterPlayerId);
+            this.worldGmSocketService.enqueueResetPlayer(requesterPlayerId, payload?.playerId);
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, 'GM_RESET_PLAYER_FAILED', error);
@@ -284,11 +340,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.handleMove(client, payload);
     }
     handleLegacyMoveTo(client, payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        this.legacyGatewayCompatService.handleLegacyMoveTo(client, playerId, payload);
+        this.handleNextMoveTo(client, payload);
     }
     handleNextMoveTo(client, payload) {
         const playerId = this.requirePlayerId(client);
@@ -303,11 +355,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleLegacyNavigateQuest(client, payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        this.legacyGatewayCompatService.handleLegacyNavigateQuest(client, playerId, payload);
+        this.worldClientEventService.markProtocol(client, 'legacy');
+        this.handleNextNavigateQuest(client, payload);
     }
     handleNextNavigateQuest(client, payload) {
         const playerId = this.requirePlayerId(client);
@@ -332,7 +381,13 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         if (!playerId) {
             return;
         }
-        this.legacyGatewayCompatService.handleLegacyAction(client, playerId, payload);
+        this.worldClientEventService.markProtocol(client, 'legacy');
+        try {
+            this.handleProtocolAction(client, playerId, payload);
+        }
+        catch (error) {
+            this.worldClientEventService.emitProtocolFailure(client, 'LEGACY_COMMAND_FAILED', error instanceof Error ? error.message : String(error));
+        }
     }
     handleMove(client, payload) {
         const playerId = this.requirePlayerId(client);
@@ -347,11 +402,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleLegacyDestroyItem(client, payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        this.legacyGatewayCompatService.handleLegacyDestroyItem(client, playerId, payload);
+        this.handleNextDestroyItem(client, payload);
     }
     handleNextDestroyItem(client, payload) {
         const playerId = this.requirePlayerId(client);
@@ -370,18 +421,10 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleLegacyTakeLoot(client, payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        this.legacyGatewayCompatService.handleLegacyTakeLoot(client, playerId, payload);
+        this.handleTakeGround(client, payload);
     }
     handleLegacySortInventory(client, _payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        this.legacyGatewayCompatService.handleLegacySortInventory(client, playerId, _payload);
+        this.handleNextSortInventory(client, _payload);
     }
     handleNextSortInventory(client, _payload) {
         const playerId = this.requirePlayerId(client);
@@ -404,14 +447,16 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         if (!playerId) {
             return;
         }
-        this.legacyGatewayCompatService.handleLegacyInspectTileRuntime(client, playerId, payload);
+        this.worldClientEventService.markProtocol(client, 'legacy');
+        try {
+            this.worldProtocolProjectionService.emitTileDetail(client, this.worldRuntimeService.buildTileDetail(playerId, payload));
+        }
+        catch (error) {
+            this.worldClientEventService.emitProtocolFailure(client, 'LEGACY_COMMAND_FAILED', error instanceof Error ? error.message : String(error));
+        }
     }
     handleLegacyChat(client, payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        this.legacyGatewayCompatService.handleLegacyChat(playerId, payload);
+        this.handleNextChat(client, payload);
     }
     handleNextChat(client, payload) {
         const playerId = this.requirePlayerId(client);
@@ -421,11 +466,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.worldClientEventService.broadcastChat(playerId, payload);
     }
     handleLegacyAckSystemMessages(client, payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        this.legacyGatewayCompatService.handleLegacyAckSystemMessages(playerId, payload);
+        this.handleNextAckSystemMessages(client, payload);
     }
     handleNextAckSystemMessages(client, payload) {
         const playerId = this.requirePlayerId(client);
@@ -449,11 +490,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.worldRuntimeService.enqueueResetPlayerSpawn(playerId);
     }
     handleLegacyUpdateAutoBattleSkills(client, payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        this.legacyGatewayCompatService.handleLegacyUpdateAutoBattleSkills(client, playerId, payload);
+        this.handleNextUpdateAutoBattleSkills(client, payload);
     }
     handleNextUpdateAutoBattleSkills(client, payload) {
         const playerId = this.requirePlayerId(client);
@@ -467,12 +504,20 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'UPDATE_AUTO_BATTLE_SKILLS_FAILED', error);
         }
     }
-    handleLegacyHeavenGateAction(client, payload) {
+    handleNextUpdateTechniqueSkillAvailability(client, payload) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
-        this.legacyGatewayCompatService.handleLegacyHeavenGateAction(client, playerId, payload);
+        try {
+            this.playerRuntimeService.updateTechniqueSkillAvailability(playerId, payload?.techId ?? '', payload?.enabled !== false);
+        }
+        catch (error) {
+            this.worldClientEventService.emitGatewayError(client, 'UPDATE_TECHNIQUE_SKILL_AVAILABILITY_FAILED', error);
+        }
+    }
+    handleLegacyHeavenGateAction(client, payload) {
+        this.handleNextHeavenGateAction(client, payload);
     }
     handleNextHeavenGateAction(client, payload) {
         const playerId = this.requirePlayerId(client);
@@ -491,69 +536,9 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         if (!playerId) {
             return;
         }
+        this.worldClientEventService.markProtocol(client, 'next');
         try {
-            const actionId = typeof payload?.actionId === 'string' && payload.actionId.trim()
-                ? payload.actionId.trim()
-                : (typeof payload?.type === 'string' ? payload.type.trim() : '');
-            if (!actionId) {
-                throw new common_1.BadRequestException('actionId is required');
-            }
-            if (actionId === 'debug:reset_spawn' || actionId === 'travel:return_spawn') {
-                this.worldRuntimeService.enqueueResetPlayerSpawn(playerId);
-                return;
-            }
-            if (actionId === 'loot:open') {
-                const tile = typeof payload?.target === 'string' ? (0, shared_1.parseTileTargetRef)(payload.target) : null;
-                if (!tile) {
-                    throw new common_1.BadRequestException('拿取需要指定目标格子');
-                }
-                const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-                if (Math.max(Math.abs(player.x - tile.x), Math.abs(player.y - tile.y)) > 1) {
-                    throw new common_1.BadRequestException('拿取范围只有 1 格。');
-                }
-                client.emit(shared_1.NEXT_S2C.TileDetail, this.worldRuntimeService.buildTileDetail(playerId, tile));
-                this.worldClientEventService.emitLootWindowUpdate(client, playerId, tile.x, tile.y);
-                return;
-            }
-            if (actionId === 'battle:engage' || actionId === 'battle:force_attack') {
-                const target = typeof payload?.target === 'string' ? payload.target.trim() : '';
-                const tile = target ? (0, shared_1.parseTileTargetRef)(target) : null;
-                const targetPlayerId = target.startsWith('player:') ? target.slice('player:'.length) : null;
-                const targetMonsterId = target && !target.startsWith('player:') && !tile ? target : null;
-                if (targetMonsterId) {
-                    this.worldRuntimeService.enqueueBattleTarget(playerId, actionId === 'battle:force_attack', null, targetMonsterId);
-                    return;
-                }
-                this.worldRuntimeService.enqueueBattleTarget(playerId, actionId === 'battle:force_attack', targetPlayerId, null, tile?.x, tile?.y);
-                return;
-            }
-            if (actionId.startsWith('npc:')) {
-                this.worldRuntimeService.enqueueLegacyNpcInteraction(playerId, actionId);
-                return;
-            }
-            const target = typeof payload?.target === 'string' ? payload.target.trim() : '';
-            if (actionId === 'body_training:infuse') {
-                const result = this.worldRuntimeService.executeAction(playerId, actionId, target);
-                if (result.kind === 'npcShop' && result.npcShop) {
-                    this.emitNextNpcShop(client, result.npcShop);
-                }
-                else if (result.kind === 'npcQuests' && result.npcQuests) {
-                    this.emitNextNpcQuests(client, result.npcQuests);
-                }
-                return;
-            }
-            if (target) {
-                this.worldRuntimeService.enqueueCastSkillTargetRef(playerId, actionId, target);
-                return;
-            }
-            const result = this.worldRuntimeService.executeAction(playerId, actionId);
-            if (result.kind === 'npcShop' && result.npcShop) {
-                this.emitNextNpcShop(client, result.npcShop);
-            }
-            else if (result.kind === 'npcQuests' && result.npcQuests) {
-                client.emit(shared_1.NEXT_S2C.NpcQuests, result.npcQuests);
-                this.emitNextQuests(client, this.worldRuntimeService.buildQuestListView(playerId));
-            }
+            this.handleProtocolAction(client, playerId, payload);
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, 'USE_ACTION_FAILED', error);
@@ -577,7 +562,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             return;
         }
         try {
-            await this.legacyGatewayCompatService.emitMailSummaryForPlayer(client, playerId);
+            await this.emitLegacyMailSummaryForPlayer(client, playerId);
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_MAIL_SUMMARY_FAILED', error);
@@ -600,7 +585,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         if (!playerId) {
             return;
         }
-        this.legacyGatewayCompatService.emitSuggestionUpdate(client, this.suggestionRuntimeService.getAll());
+        this.emitLegacySuggestionUpdate(client, this.suggestionRuntimeService.getAll());
     }
     handleNextRequestSuggestions(client, payload) {
         const playerId = this.requirePlayerId(client);
@@ -615,7 +600,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             return;
         }
         try {
-            this.legacyGatewayCompatService.emitMailPage(client, await this.mailRuntimeService.getPage(playerId, payload?.page, payload?.pageSize, payload?.filter));
+            this.emitLegacyMailPage(client, await this.mailRuntimeService.getPage(playerId, payload?.page, payload?.pageSize, payload?.filter));
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_MAIL_PAGE_FAILED', error);
@@ -639,7 +624,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             return;
         }
         try {
-            this.legacyGatewayCompatService.emitMailDetail(client, await this.mailRuntimeService.getDetail(playerId, payload?.mailId ?? ''));
+            this.emitLegacyMailDetail(client, await this.mailRuntimeService.getDetail(playerId, payload?.mailId ?? ''));
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_MAIL_DETAIL_FAILED', error);
@@ -680,7 +665,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         try {
             this.marketSubscriberPlayerIds.add(playerId);
             const response = this.marketRuntimeService.buildMarketUpdate(playerId);
-            this.legacyGatewayCompatService.emitMarketUpdate(client, response);
+            this.emitLegacyMarketUpdate(client, response);
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_MARKET_FAILED', error);
@@ -706,7 +691,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
         try {
             const response = await this.mailRuntimeService.markRead(playerId, payload?.mailIds ?? []);
-            this.legacyGatewayCompatService.emitMailOperationResult(client, response);
+            this.emitLegacyMailOperationResult(client, response);
             await this.emitMailSummary(client, playerId);
         }
         catch (error) {
@@ -889,7 +874,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
         try {
             const response = await this.mailRuntimeService.claimAttachments(playerId, payload?.mailIds ?? []);
-            this.legacyGatewayCompatService.emitMailOperationResult(client, response);
+            this.emitLegacyMailOperationResult(client, response);
             await this.emitMailSummary(client, playerId);
         }
         catch (error) {
@@ -916,7 +901,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
         try {
             const response = await this.mailRuntimeService.deleteMails(playerId, payload?.mailIds ?? []);
-            this.legacyGatewayCompatService.emitMailOperationResult(client, response);
+            this.emitLegacyMailOperationResult(client, response);
             await this.emitMailSummary(client, playerId);
         }
         catch (error) {
@@ -943,7 +928,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
         try {
             const response = this.marketRuntimeService.buildItemBook(payload?.itemKey ?? '');
-            this.legacyGatewayCompatService.emitMarketItemBook(client, response);
+            this.emitLegacyMarketItemBook(client, response);
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_MARKET_ITEM_BOOK_FAILED', error);
@@ -968,7 +953,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
         try {
             const response = this.marketRuntimeService.buildTradeHistoryPage(playerId, payload?.page);
-            this.legacyGatewayCompatService.emitMarketTradeHistory(client, response);
+            this.emitLegacyMarketTradeHistory(client, response);
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_MARKET_TRADE_HISTORY_FAILED', error);
@@ -1138,7 +1123,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
         try {
             const response = this.worldRuntimeService.buildNpcShopView(playerId, payload?.npcId);
-            this.legacyGatewayCompatService.emitDualNpcShop(client, response);
+            this.emitLegacyNpcShop(client, response);
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, 'NPC_SHOP_REQUEST_FAILED', error);
@@ -1330,6 +1315,46 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.worldClientEventService.markProtocol(client, 'next');
         this.worldClientEventService.emitSuggestionUpdate(client, suggestions);
     }
+    emitLegacySuggestionUpdate(client, suggestions) {
+        this.worldClientEventService.markProtocol(client, 'legacy');
+        this.worldClientEventService.emitSuggestionUpdate(client, suggestions);
+    }
+    emitLegacyMailSummary(client, summary) {
+        this.worldClientEventService.markProtocol(client, 'legacy');
+        this.worldClientEventService.emitMailSummary(client, summary);
+    }
+    async emitLegacyMailSummaryForPlayer(client, playerId) {
+        this.worldClientEventService.markProtocol(client, 'legacy');
+        await this.worldClientEventService.emitMailSummaryForPlayer(client, playerId);
+    }
+    emitLegacyMailPage(client, page) {
+        this.worldClientEventService.markProtocol(client, 'legacy');
+        this.worldClientEventService.emitMailPage(client, page);
+    }
+    emitLegacyMailDetail(client, detail) {
+        this.worldClientEventService.markProtocol(client, 'legacy');
+        this.worldClientEventService.emitMailDetail(client, detail);
+    }
+    emitLegacyMailOperationResult(client, payload) {
+        this.worldClientEventService.markProtocol(client, 'legacy');
+        this.worldClientEventService.emitMailOperationResult(client, payload);
+    }
+    emitLegacyMarketUpdate(client, payload) {
+        this.worldClientEventService.markProtocol(client, 'legacy');
+        this.worldClientEventService.emitMarketUpdate(client, payload);
+    }
+    emitLegacyMarketItemBook(client, payload) {
+        this.worldClientEventService.markProtocol(client, 'legacy');
+        this.worldClientEventService.emitMarketItemBook(client, payload);
+    }
+    emitLegacyMarketTradeHistory(client, payload) {
+        this.worldClientEventService.markProtocol(client, 'legacy');
+        this.worldClientEventService.emitMarketTradeHistory(client, payload);
+    }
+    emitLegacyNpcShop(client, payload) {
+        this.worldClientEventService.markProtocol(client, 'legacy');
+        this.worldClientEventService.emitNpcShop(client, payload);
+    }
     emitNextMailSummary(client, summary) {
         this.worldClientEventService.markProtocol(client, 'next');
         this.worldClientEventService.emitMailSummary(client, summary);
@@ -1366,14 +1391,72 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.worldClientEventService.markProtocol(client, 'next');
         this.worldClientEventService.emitNpcShop(client, payload);
     }
-    markClientProtocol(client, protocol) {
-        if (!client?.data || (protocol !== 'next' && protocol !== 'legacy')) {
+    handleProtocolAction(client, playerId, payload) {
+        const actionId = this.resolveActionId(payload);
+        if (actionId === 'debug:reset_spawn' || actionId === 'travel:return_spawn') {
+            this.worldRuntimeService.enqueueResetPlayerSpawn(playerId);
             return;
         }
-        client.data.protocol = protocol;
+        if (actionId === 'loot:open') {
+            const tile = typeof payload?.target === 'string' ? (0, shared_1.parseTileTargetRef)(payload.target) : null;
+            if (!tile) {
+                throw new Error('拿取需要指定目标格子');
+            }
+            const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+            if (Math.max(Math.abs(player.x - tile.x), Math.abs(player.y - tile.y)) > 1) {
+                throw new Error('拿取范围只有 1 格。');
+            }
+            this.worldProtocolProjectionService.emitTileLootInteraction(client, playerId, this.worldRuntimeService.buildTileDetail(playerId, tile));
+            return;
+        }
+        if (actionId === 'battle:engage' || actionId === 'battle:force_attack') {
+            const target = typeof payload?.target === 'string' ? payload.target.trim() : '';
+            const tile = target ? (0, shared_1.parseTileTargetRef)(target) : null;
+            const targetPlayerId = target.startsWith('player:') ? target.slice('player:'.length) : null;
+            const targetMonsterId = target && !target.startsWith('player:') && !tile ? target : null;
+            if (targetMonsterId) {
+                this.worldRuntimeService.enqueueBattleTarget(playerId, actionId === 'battle:force_attack', null, targetMonsterId);
+                return;
+            }
+            this.worldRuntimeService.enqueueBattleTarget(playerId, actionId === 'battle:force_attack', targetPlayerId, null, tile?.x, tile?.y);
+            return;
+        }
+        if (actionId.startsWith('npc:')) {
+            this.worldRuntimeService.enqueueLegacyNpcInteraction(playerId, actionId);
+            return;
+        }
+        const target = typeof payload?.target === 'string' ? payload.target.trim() : '';
+        if (actionId === 'body_training:infuse') {
+            this.emitProtocolActionResult(client, playerId, this.worldRuntimeService.executeAction(playerId, actionId, target));
+            return;
+        }
+        if (target) {
+            this.worldRuntimeService.enqueueCastSkillTargetRef(playerId, actionId, target);
+            return;
+        }
+        this.emitProtocolActionResult(client, playerId, this.worldRuntimeService.executeAction(playerId, actionId));
     }
-    isNextClient(client) {
-        return client?.data?.protocol === 'next';
+    resolveActionId(payload) {
+        const actionId = typeof payload?.actionId === 'string' && payload.actionId.trim()
+            ? payload.actionId.trim()
+            : (typeof payload?.type === 'string' ? payload.type.trim() : '');
+        if (!actionId) {
+            throw new Error('actionId is required');
+        }
+        return actionId;
+    }
+    emitProtocolActionResult(client, playerId, result) {
+        if (result.kind === 'npcShop' && result.npcShop) {
+            this.worldClientEventService.emitNpcShop(client, result.npcShop);
+            return;
+        }
+        if (result.kind !== 'npcQuests') {
+            return;
+        }
+        if (this.worldClientEventService.getExplicitProtocol(client) === 'next' && result.npcQuests) {
+            client.emit(shared_1.NEXT_S2C.NpcQuests, result.npcQuests);
+        }
+        this.worldClientEventService.emitQuests(client, this.worldRuntimeService.buildQuestListView(playerId));
     }
     requirePlayerId(client) {
         const playerId = typeof client.data.playerId === 'string' ? client.data.playerId : '';
@@ -1442,7 +1525,6 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], WorldGateway.prototype, "handleLegacyPing", null);
 __decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.NEXT_C2S.GmGetState),
     (0, websockets_1.SubscribeMessage)(shared_1.C2S.GmGetState),
     __param(0, (0, websockets_1.ConnectedSocket)()),
     __param(1, (0, websockets_1.MessageBody)()),
@@ -1451,7 +1533,14 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], WorldGateway.prototype, "handleLegacyGmGetState", null);
 __decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.NEXT_C2S.GmSpawnBots),
+    (0, websockets_1.SubscribeMessage)(shared_1.NEXT_C2S.GmGetState),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __param(1, (0, websockets_1.MessageBody)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
+    __metadata("design:returntype", void 0)
+], WorldGateway.prototype, "handleNextGmGetState", null);
+__decorate([
     (0, websockets_1.SubscribeMessage)(shared_1.C2S.GmSpawnBots),
     __param(0, (0, websockets_1.ConnectedSocket)()),
     __param(1, (0, websockets_1.MessageBody)()),
@@ -1460,7 +1549,14 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], WorldGateway.prototype, "handleLegacyGmSpawnBots", null);
 __decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.NEXT_C2S.GmRemoveBots),
+    (0, websockets_1.SubscribeMessage)(shared_1.NEXT_C2S.GmSpawnBots),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __param(1, (0, websockets_1.MessageBody)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
+    __metadata("design:returntype", void 0)
+], WorldGateway.prototype, "handleNextGmSpawnBots", null);
+__decorate([
     (0, websockets_1.SubscribeMessage)(shared_1.C2S.GmRemoveBots),
     __param(0, (0, websockets_1.ConnectedSocket)()),
     __param(1, (0, websockets_1.MessageBody)()),
@@ -1469,7 +1565,14 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], WorldGateway.prototype, "handleLegacyGmRemoveBots", null);
 __decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.NEXT_C2S.GmUpdatePlayer),
+    (0, websockets_1.SubscribeMessage)(shared_1.NEXT_C2S.GmRemoveBots),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __param(1, (0, websockets_1.MessageBody)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
+    __metadata("design:returntype", void 0)
+], WorldGateway.prototype, "handleNextGmRemoveBots", null);
+__decorate([
     (0, websockets_1.SubscribeMessage)(shared_1.C2S.GmUpdatePlayer),
     __param(0, (0, websockets_1.ConnectedSocket)()),
     __param(1, (0, websockets_1.MessageBody)()),
@@ -1478,7 +1581,14 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], WorldGateway.prototype, "handleLegacyGmUpdatePlayer", null);
 __decorate([
-    (0, websockets_1.SubscribeMessage)(shared_1.NEXT_C2S.GmResetPlayer),
+    (0, websockets_1.SubscribeMessage)(shared_1.NEXT_C2S.GmUpdatePlayer),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __param(1, (0, websockets_1.MessageBody)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
+    __metadata("design:returntype", void 0)
+], WorldGateway.prototype, "handleNextGmUpdatePlayer", null);
+__decorate([
     (0, websockets_1.SubscribeMessage)(shared_1.C2S.GmResetPlayer),
     __param(0, (0, websockets_1.ConnectedSocket)()),
     __param(1, (0, websockets_1.MessageBody)()),
@@ -1486,6 +1596,14 @@ __decorate([
     __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
     __metadata("design:returntype", void 0)
 ], WorldGateway.prototype, "handleLegacyGmResetPlayer", null);
+__decorate([
+    (0, websockets_1.SubscribeMessage)(shared_1.NEXT_C2S.GmResetPlayer),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __param(1, (0, websockets_1.MessageBody)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
+    __metadata("design:returntype", void 0)
+], WorldGateway.prototype, "handleNextGmResetPlayer", null);
 __decorate([
     (0, websockets_1.SubscribeMessage)(shared_1.C2S.Move),
     __param(0, (0, websockets_1.ConnectedSocket)()),
@@ -1654,6 +1772,14 @@ __decorate([
     __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
     __metadata("design:returntype", void 0)
 ], WorldGateway.prototype, "handleNextUpdateAutoBattleSkills", null);
+__decorate([
+    (0, websockets_1.SubscribeMessage)(shared_1.NEXT_C2S.UpdateTechniqueSkillAvailability),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __param(1, (0, websockets_1.MessageBody)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
+    __metadata("design:returntype", void 0)
+], WorldGateway.prototype, "handleNextUpdateTechniqueSkillAvailability", null);
 __decorate([
     (0, websockets_1.SubscribeMessage)(shared_1.C2S.HeavenGateAction),
     __param(0, (0, websockets_1.ConnectedSocket)()),
@@ -2242,9 +2368,8 @@ exports.WorldGateway = WorldGateway = WorldGateway_1 = __decorate([
         cors: true,
         path: '/socket.io',
     }),
-    __metadata("design:paramtypes", [legacy_gm_compat_service_1.LegacyGmCompatService,
-        legacy_gm_admin_compat_service_1.LegacyGmAdminCompatService,
-        legacy_gateway_compat_service_1.LegacyGatewayCompatService,
+    __metadata("design:paramtypes", [world_gm_socket_service_1.WorldGmSocketService,
+        world_protocol_projection_service_1.WorldProtocolProjectionService,
         world_session_bootstrap_service_1.WorldSessionBootstrapService,
         health_readiness_service_1.HealthReadinessService,
         player_persistence_flush_service_1.PlayerPersistenceFlushService,

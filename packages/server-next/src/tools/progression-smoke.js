@@ -2,8 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared-next");
-const SERVER_NEXT_URL = process.env.SERVER_NEXT_URL ?? 'http://127.0.0.1:3111';
-const playerId = process.env.SERVER_NEXT_SMOKE_PLAYER_ID ?? `progress_${Date.now().toString(36)}`;
+const env_alias_1 = require("../config/env-alias");
+const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
+let playerId = '';
 async function main() {
     const socket = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
         path: '/socket.io',
@@ -20,14 +21,19 @@ async function main() {
     socket.on(shared_1.NEXT_S2C.SelfDelta, (payload) => {
         selfEvents.push(payload);
     });
+    socket.on(shared_1.NEXT_S2C.InitSession, (payload) => {
+        playerId = String(payload?.pid ?? '');
+    });
     await onceConnected(socket);
     socket.emit(shared_1.NEXT_C2S.Hello, {
-        playerId,
         mapId: 'yunlai_town',
         preferredX: 32,
         preferredY: 5,
     });
     await waitFor(async () => {
+        if (!playerId) {
+            return false;
+        }
         const state = await fetchState();
         return Array.isArray(state.player?.inventory.items) && state.player.inventory.items.length >= 2 && panelEvents.length > 0;
     }, 5000);
@@ -142,7 +148,9 @@ async function main() {
     }, 5000);
     const finalTileAura = await fetchTileAura(currentState.player.instanceId, currentState.player.x, currentState.player.y);
     socket.close();
-    await deletePlayer(playerId);
+    if (playerId) {
+        await deletePlayer(playerId);
+    }
     console.log(JSON.stringify({
         ok: true,
         url: SERVER_NEXT_URL,

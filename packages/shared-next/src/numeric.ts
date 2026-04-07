@@ -138,6 +138,55 @@ export function resetElementStatGroup(target: ElementStatGroup, value = 0): Elem
   return target;
 }
 
+/** 所有 `NumericStats` 字段列表，便于模板/守护工具重用 */
+export const NUMERIC_STATS_KEYS: (keyof NumericStats)[] = [
+  'maxHp',
+  'maxQi',
+  'physAtk',
+  'spellAtk',
+  'physDef',
+  'spellDef',
+  'hit',
+  'dodge',
+  'crit',
+  'critDamage',
+  'breakPower',
+  'resolvePower',
+  'maxQiOutputPerTick',
+  'qiRegenRate',
+  'hpRegenRate',
+  'cooldownSpeed',
+  'auraCostReduce',
+  'auraPowerRate',
+  'playerExpRate',
+  'techniqueExpRate',
+  'realmExpPerTick',
+  'techniqueExpPerTick',
+  'lootRate',
+  'rareLootRate',
+  'viewRange',
+  'moveSpeed',
+  'extraAggroRate',
+  'extraRange',
+  'extraArea',
+  'elementDamageBonus',
+  'elementDamageReduce',
+];
+
+/** 守护 Realm 模板 stats 结构的工具，确保字段完整 */
+export function ensureNumericStatsTemplateStats(stats: Partial<NumericStats>): NumericStats {
+  const missing: Array<keyof NumericStats> = [];
+  for (const key of NUMERIC_STATS_KEYS) {
+    if (!(key in stats)) {
+      missing.push(key);
+    }
+  }
+  if (missing.length) {
+    throw new Error(`incomplete numeric stats template: missing ${missing.join(', ')}`);
+  }
+  return stats as NumericStats;
+}
+
 /** 将部分五行属性叠加到目标上 */
 export function addPartialElementStatGroup(target: ElementStatGroup, patch?: PartialElementStatGroup): ElementStatGroup {
   if (!patch) return target;

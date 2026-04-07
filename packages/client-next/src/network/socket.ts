@@ -3,11 +3,13 @@
  */
 
 import { io, Socket } from 'socket.io-client';
+import type { NEXT_S2C_MapStatic, NEXT_S2C_Realm } from '@mud/shared-next';
 import {
   NEXT_C2S,
   NEXT_S2C,
   C2S_Move, C2S_MoveTo, C2S_NavigateQuest, C2S_GmGetState, C2S_GmSpawnBots, C2S_GmRemoveBots, C2S_GmUpdatePlayer, C2S_GmResetPlayer, C2S_Action, C2S_UpdateAutoBattleSkills, C2S_DebugResetSpawn, C2S_UseItem, C2S_DropItem, C2S_DestroyItem,
   C2S_TakeLoot, C2S_SortInventory, C2S_Equip, C2S_Unequip, C2S_Cultivate, C2S_Chat, C2S_AckSystemMessages,
+  C2S_UpdateTechniqueSkillAvailability,
   C2S_Heartbeat,
   C2S_InspectTileRuntime,
   C2S_Ping,
@@ -80,8 +82,8 @@ export class SocketManager {
   private onNextNpcQuestsCallbacks: Array<(data: NEXT_S2C_NpcQuests) => void> = [];
   private onNextDetailCallbacks: Array<(data: NEXT_S2C_Detail) => void> = [];
   private onNextTileDetailCallbacks: Array<(data: NEXT_S2C_TileDetail) => void> = [];
-  private onMapStaticSyncCallbacks: Array<(data: S2C_MapStaticSync) => void> = [];
-  private onRealmUpdateCallbacks: Array<(data: S2C_RealmUpdate) => void> = [];
+  private onMapStaticCallbacks: Array<(data: NEXT_S2C_MapStatic) => void> = [];
+  private onRealmCallbacks: Array<(data: NEXT_S2C_Realm) => void> = [];
   private onLootWindowUpdateCallbacks: Array<(data: S2C_LootWindowUpdate) => void> = [];
   private onQuestUpdateCallbacks: Array<(data: S2C_QuestUpdate) => void> = [];
   private onQuestNavigateResultCallbacks: Array<(data: S2C_QuestNavigateResult) => void> = [];
@@ -126,8 +128,8 @@ export class SocketManager {
     this.bindServerEvent(NEXT_S2C.Bootstrap, this.onBootstrapCallbacks);
     this.bindServerEvent(NEXT_S2C.InitSession, this.onNextInitSessionCallbacks);
     this.bindServerEvent(NEXT_S2C.MapEnter, this.onNextMapEnterCallbacks);
-    this.bindServerEvent(NEXT_S2C.MapStatic, this.onMapStaticSyncCallbacks);
-    this.bindServerEvent(NEXT_S2C.Realm, this.onRealmUpdateCallbacks);
+    this.bindServerEvent(NEXT_S2C.MapStatic, this.onMapStaticCallbacks);
+    this.bindServerEvent(NEXT_S2C.Realm, this.onRealmCallbacks);
     this.bindServerEvent(NEXT_S2C.WorldDelta, this.onNextWorldDeltaCallbacks);
     this.bindServerEvent(NEXT_S2C.SelfDelta, this.onNextSelfDeltaCallbacks);
     this.bindServerEvent(NEXT_S2C.PanelDelta, this.onNextPanelDeltaCallbacks);
@@ -450,6 +452,10 @@ export class SocketManager {
     this.emitServer(NEXT_C2S.UpdateAutoBattleSkills, { skills } satisfies C2S_UpdateAutoBattleSkills);
   }
 
+  sendUpdateTechniqueSkillAvailability(techId: string, enabled: boolean) {
+    this.emitServer(NEXT_C2S.UpdateTechniqueSkillAvailability, { techId, enabled } satisfies C2S_UpdateTechniqueSkillAvailability);
+  }
+
   sendDebugResetSpawn() {
     this.emitServer(NEXT_C2S.DebugResetSpawn, { force: true } satisfies C2S_DebugResetSpawn);
   }
@@ -475,8 +481,10 @@ export class SocketManager {
   onNextNpcQuests(cb: (data: NEXT_S2C_NpcQuests) => void) { this.onNextNpcQuestsCallbacks.push(cb); }
   onNextDetail(cb: (data: NEXT_S2C_Detail) => void) { this.onNextDetailCallbacks.push(cb); }
   onNextTileDetail(cb: (data: NEXT_S2C_TileDetail) => void) { this.onNextTileDetailCallbacks.push(cb); }
-  onMapStaticSync(cb: (data: S2C_MapStaticSync) => void) { this.onMapStaticSyncCallbacks.push(cb); }
-  onRealmUpdate(cb: (data: S2C_RealmUpdate) => void) { this.onRealmUpdateCallbacks.push(cb); }
+  onMapStatic(cb: (data: NEXT_S2C_MapStatic) => void) { this.onMapStaticCallbacks.push(cb); }
+  onRealm(cb: (data: NEXT_S2C_Realm) => void) { this.onRealmCallbacks.push(cb); }
+  onMapStaticSync(cb: (data: S2C_MapStaticSync) => void) { this.onMapStaticCallbacks.push(cb as unknown as (data: NEXT_S2C_MapStatic) => void); }
+  onRealmUpdate(cb: (data: S2C_RealmUpdate) => void) { this.onRealmCallbacks.push(cb as unknown as (data: NEXT_S2C_Realm) => void); }
   onKick(cb: () => void) { this.onKickCallbacks.push(cb); }
   onLootWindowUpdate(cb: (data: S2C_LootWindowUpdate) => void) { this.onLootWindowUpdateCallbacks.push(cb); }
   onQuestUpdate(cb: (data: S2C_QuestUpdate) => void) { this.onQuestUpdateCallbacks.push(cb); }

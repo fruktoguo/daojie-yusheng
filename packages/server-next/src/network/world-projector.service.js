@@ -39,6 +39,8 @@ const NUMERIC_STAT_KEYS = [
     'viewRange',
     'moveSpeed',
     'extraAggroRate',
+    'extraRange',
+    'extraArea',
 ];
 const RATIO_DIVISOR_KEYS = [
     'dodge',
@@ -52,7 +54,7 @@ const ELEMENT_GROUP_KEYS = ['metal', 'wood', 'water', 'fire', 'earth'];
 let WorldProjectorService = class WorldProjectorService {
     cacheByPlayerId = new Map();
     createInitialEnvelope(binding, view, player) {
-        this.cacheByPlayerId.set(binding.playerId, capture(view, player));
+        this.cacheByPlayerId.set(binding.playerId, captureProjectorState(view, player));
         return {
             initSession: {
                 sid: binding.sessionId,
@@ -69,7 +71,7 @@ let WorldProjectorService = class WorldProjectorService {
     createDeltaEnvelope(view, player) {
         const previous = this.cacheByPlayerId.get(view.playerId);
         if (!previous) {
-            this.cacheByPlayerId.set(view.playerId, capture(view, player));
+            this.cacheByPlayerId.set(view.playerId, captureProjectorState(view, player));
             return {
                 mapEnter: buildMapEnter(view),
                 worldDelta: buildFullWorldDelta(view),
@@ -77,22 +79,27 @@ let WorldProjectorService = class WorldProjectorService {
                 panelDelta: buildFullPanelDelta(player),
             };
         }
-        const current = capture(view, player);
+        if (previous.instanceId !== view.instance.instanceId) {
+            this.cacheByPlayerId.set(view.playerId, captureProjectorState(view, player));
+            return {
+                mapEnter: buildMapEnter(view),
+                worldDelta: buildFullWorldDelta(view),
+                selfDelta: buildFullSelfDelta(player),
+                panelDelta: buildFullPanelDelta(player),
+            };
+        }
+        const currentWorld = previous.worldRevision === view.worldRevision
+            ? previous
+            : captureWorldState(view);
+        const current = combineProjectorState(currentWorld, capturePlayerState(player));
         this.cacheByPlayerId.set(view.playerId, current);
-        if (previous.instanceId !== current.instanceId) {
-            return {
-                mapEnter: buildMapEnter(view),
-                worldDelta: buildFullWorldDelta(view),
-                selfDelta: buildFullSelfDelta(player),
-                panelDelta: buildFullPanelDelta(player),
-            };
-        }
-        const playerPatch = diffPlayerEntries(previous.players, current.players);
-        const monsterPatch = diffMonsterEntries(previous.monsters, current.monsters);
-        const npcPatch = diffNpcEntries(previous.npcs, current.npcs);
-        const portalPatch = diffPortalEntries(previous.portals, current.portals);
-        const groundPatch = diffGroundPiles(previous.groundPiles, current.groundPiles);
-        const containerPatch = diffContainerEntries(previous.containers, current.containers);
+        const worldChanged = previous.worldRevision !== current.worldRevision;
+        const playerPatch = worldChanged ? diffPlayerEntries(previous.players, current.players) : [];
+        const monsterPatch = worldChanged ? diffMonsterEntries(previous.monsters, current.monsters) : [];
+        const npcPatch = worldChanged ? diffNpcEntries(previous.npcs, current.npcs) : [];
+        const portalPatch = worldChanged ? diffPortalEntries(previous.portals, current.portals) : [];
+        const groundPatch = worldChanged ? diffGroundPiles(previous.groundPiles, current.groundPiles) : [];
+        const containerPatch = worldChanged ? diffContainerEntries(previous.containers, current.containers) : [];
         const selfDelta = buildSelfDelta(previous, player);
         const panelDelta = buildPanelDelta(previous, player);
         if (playerPatch.length === 0
@@ -243,7 +250,7 @@ function buildFullPanelDelta(player) {
         tech: {
             r: player.techniques.revision,
             full: 1,
-            techniques: player.techniques.techniques.map((entry) => ({ ...entry })),
+            techniques: player.techniques.techniques.map((entry) => cloneTechniqueEntry(entry)),
             cultivatingTechId: player.techniques.cultivatingTechId,
             bodyTraining: player.bodyTraining ? { ...player.bodyTraining } : null,
         },
@@ -252,9 +259,10 @@ function buildFullPanelDelta(player) {
         buff: buildFullBuffDelta(player),
     };
 }
-function capture(view, player) {
+function captureWorldState(view) {
     return {
         instanceId: view.instance.instanceId,
+        worldRevision: view.worldRevision,
         players: new Map(view.visiblePlayers.map((entry) => [entry.playerId, {
                 x: entry.x,
                 y: entry.y,
@@ -296,6 +304,10 @@ function capture(view, player) {
                 ch: entry.char,
                 c: entry.color,
             }])),
+    };
+}
+function capturePlayerState(player) {
+    return {
         selfRevision: player.selfRevision,
         self: {
             instanceId: player.instanceId,
@@ -318,15 +330,26 @@ function capture(view, player) {
                 item: entry.item ? { ...entry.item } : null,
             })),
             techniqueRevision: player.techniques.revision,
-            techniques: player.techniques.techniques.map((entry) => ({ ...entry })),
+            techniques: player.techniques.techniques.map((entry) => cloneTechniqueEntry(entry)),
             cultivatingTechId: player.techniques.cultivatingTechId,
             bodyTraining: player.bodyTraining ? { ...player.bodyTraining } : null,
             attrRevision: player.attrs.revision,
             attrStage: player.attrs.stage,
             baseAttrs: cloneAttributes(player.attrs.baseAttrs),
+            attrBonuses: buildAttrBonuses(player),
             finalAttrs: cloneAttributes(player.attrs.finalAttrs),
             numericStats: cloneNumericStats(player.attrs.numericStats),
             ratioDivisors: cloneNumericRatioDivisors(player.attrs.ratioDivisors),
+            attrSpecialStats: cloneSpecialStats({
+                foundation: player.foundation,
+                combatExp: player.combatExp,
+            }),
+            attrBoneAgeBaseYears: player.boneAgeBaseYears,
+            attrLifeElapsedTicks: player.lifeElapsedTicks,
+            attrLifespanYears: player.lifespanYears,
+            attrRealmProgress: player.realm?.progress,
+            attrRealmProgressToNext: player.realm?.progressToNext,
+            attrRealmBreakthroughReady: player.realm?.breakthroughReady,
             actionRevision: player.actions.revision,
             actions: player.actions.actions.map((entry) => ({ ...entry })),
             actionAutoBattle: player.combat.autoBattle,
@@ -344,15 +367,44 @@ function capture(view, player) {
         },
     };
 }
+function combineProjectorState(worldState, playerState) {
+    return {
+        instanceId: worldState.instanceId,
+        worldRevision: worldState.worldRevision,
+        players: worldState.players,
+        npcs: worldState.npcs,
+        monsters: worldState.monsters,
+        portals: worldState.portals,
+        groundPiles: worldState.groundPiles,
+        containers: worldState.containers,
+        selfRevision: playerState.selfRevision,
+        self: playerState.self,
+        panel: playerState.panel,
+    };
+}
+function captureProjectorState(view, player) {
+    return combineProjectorState(captureWorldState(view), capturePlayerState(player));
+}
 function buildFullAttrDelta(player) {
     return {
         r: player.attrs.revision,
         full: 1,
         stage: player.attrs.stage,
         baseAttrs: cloneAttributes(player.attrs.baseAttrs),
+        bonuses: buildAttrBonuses(player),
         finalAttrs: cloneAttributes(player.attrs.finalAttrs),
         numericStats: cloneNumericStats(player.attrs.numericStats),
         ratioDivisors: cloneNumericRatioDivisors(player.attrs.ratioDivisors),
+        specialStats: cloneSpecialStats({
+            foundation: player.foundation,
+            combatExp: player.combatExp,
+        }),
+        boneAgeBaseYears: player.boneAgeBaseYears,
+        lifeElapsedTicks: player.lifeElapsedTicks,
+        lifespanYears: player.lifespanYears,
+        realmProgress: player.realm?.progress,
+        realmProgressToNext: player.realm?.progressToNext,
+        realmBreakthroughReady: player.realm?.breakthroughReady,
     };
 }
 function buildFullActionDelta(player) {
@@ -383,14 +435,35 @@ function buildFullBuffDelta(player) {
 function buildAttrDelta(previous, player) {
     const stageChanged = previous.panel.attrStage !== player.attrs.stage;
     const baseAttrsPatch = diffAttributes(previous.panel.baseAttrs, player.attrs.baseAttrs);
+    const nextBonuses = buildAttrBonuses(player);
+    const bonusesChanged = !isSameAttrBonuses(previous.panel.attrBonuses, nextBonuses);
     const finalAttrsPatch = diffAttributes(previous.panel.finalAttrs, player.attrs.finalAttrs);
     const numericStatsPatch = diffNumericStats(previous.panel.numericStats, player.attrs.numericStats);
     const ratioDivisorsPatch = diffRatioDivisors(previous.panel.ratioDivisors, player.attrs.ratioDivisors);
+    const nextSpecialStats = {
+        foundation: player.foundation,
+        combatExp: player.combatExp,
+    };
+    const specialStatsChanged = !isSameSpecialStats(previous.panel.attrSpecialStats, nextSpecialStats);
+    const boneAgeBaseYearsChanged = previous.panel.attrBoneAgeBaseYears !== player.boneAgeBaseYears;
+    const lifeElapsedTicksChanged = previous.panel.attrLifeElapsedTicks !== player.lifeElapsedTicks;
+    const lifespanYearsChanged = previous.panel.attrLifespanYears !== player.lifespanYears;
+    const realmProgressChanged = previous.panel.attrRealmProgress !== player.realm?.progress;
+    const realmProgressToNextChanged = previous.panel.attrRealmProgressToNext !== player.realm?.progressToNext;
+    const realmBreakthroughReadyChanged = previous.panel.attrRealmBreakthroughReady !== player.realm?.breakthroughReady;
     const totalChanges = (stageChanged ? 1 : 0)
         + baseAttrsPatch.changes
+        + (bonusesChanged ? 1 : 0)
         + finalAttrsPatch.changes
         + numericStatsPatch.changes
-        + ratioDivisorsPatch.changes;
+        + ratioDivisorsPatch.changes
+        + (specialStatsChanged ? 1 : 0)
+        + (boneAgeBaseYearsChanged ? 1 : 0)
+        + (lifeElapsedTicksChanged ? 1 : 0)
+        + (lifespanYearsChanged ? 1 : 0)
+        + (realmProgressChanged ? 1 : 0)
+        + (realmProgressToNextChanged ? 1 : 0)
+        + (realmBreakthroughReadyChanged ? 1 : 0);
     if (totalChanges > ATTR_DELTA_PATCH_THRESHOLD) {
         return buildFullAttrDelta(player);
     }
@@ -398,9 +471,17 @@ function buildAttrDelta(previous, player) {
         r: player.attrs.revision,
         stage: stageChanged ? player.attrs.stage : undefined,
         baseAttrs: baseAttrsPatch.patch,
+        bonuses: bonusesChanged ? nextBonuses : undefined,
         finalAttrs: finalAttrsPatch.patch,
         numericStats: numericStatsPatch.patch,
         ratioDivisors: ratioDivisorsPatch.patch,
+        specialStats: specialStatsChanged ? cloneSpecialStats(nextSpecialStats) : undefined,
+        boneAgeBaseYears: boneAgeBaseYearsChanged ? player.boneAgeBaseYears : undefined,
+        lifeElapsedTicks: lifeElapsedTicksChanged ? player.lifeElapsedTicks : undefined,
+        lifespanYears: lifespanYearsChanged ? player.lifespanYears : undefined,
+        realmProgress: realmProgressChanged ? player.realm?.progress : undefined,
+        realmProgressToNext: realmProgressToNextChanged ? player.realm?.progressToNext : undefined,
+        realmBreakthroughReady: realmBreakthroughReadyChanged ? player.realm?.breakthroughReady : undefined,
     };
 }
 function buildSelfDelta(previous, player) {
@@ -470,7 +551,18 @@ function buildPanelDelta(previous, player) {
                 : undefined,
         };
     }
-    if (previous.panel.attrRevision !== player.attrs.revision) {
+    const attrMetaChanged = previous.panel.attrBoneAgeBaseYears !== player.boneAgeBaseYears
+        || previous.panel.attrLifeElapsedTicks !== player.lifeElapsedTicks
+        || previous.panel.attrLifespanYears !== player.lifespanYears
+        || previous.panel.attrRealmProgress !== player.realm?.progress
+        || previous.panel.attrRealmProgressToNext !== player.realm?.progressToNext
+        || previous.panel.attrRealmBreakthroughReady !== player.realm?.breakthroughReady
+        || !isSameSpecialStats(previous.panel.attrSpecialStats, {
+            foundation: player.foundation,
+            combatExp: player.combatExp,
+        })
+        || !isSameAttrBonuses(previous.panel.attrBonuses, buildAttrBonuses(player));
+    if (previous.panel.attrRevision !== player.attrs.revision || attrMetaChanged) {
         delta.attr = buildAttrDelta(previous, player);
     }
     if (previous.panel.actionRevision !== player.actions.revision) {
@@ -779,7 +871,7 @@ function diffTechniqueEntries(previous, current) {
     const previousById = new Map(previous.map((entry) => [entry.techId, entry]));
     return current
         .filter((entry) => !isSameTechniqueEntry(previousById.get(entry.techId) ?? null, entry))
-        .map((entry) => ({ ...entry }));
+        .map((entry) => cloneTechniqueEntry(entry));
 }
 function diffRemovedTechniqueIds(previous, current) {
     const currentIds = new Set(current.map((entry) => entry.techId));
@@ -903,6 +995,19 @@ function isSameItem(left, right) {
         && left.tileAuraGainAmount === right.tileAuraGainAmount
         && left.allowBatchUse === right.allowBatchUse;
 }
+function cloneTechniqueEntry(source) {
+    return {
+        ...source,
+        skillsEnabled: source.skillsEnabled !== false,
+        skills: source.skills?.map((entry) => ({ ...entry })),
+        layers: source.layers?.map((entry) => ({
+            level: entry.level,
+            expToNext: entry.expToNext,
+            attrs: entry.attrs ? { ...entry.attrs } : undefined,
+        })),
+        attrCurves: source.attrCurves ? { ...source.attrCurves } : undefined,
+    };
+}
 function isSameTechniqueEntry(left, right) {
     if (left === right) {
         return true;
@@ -916,6 +1021,7 @@ function isSameTechniqueEntry(left, right) {
         && left.expToNext === right.expToNext
         && left.realmLv === right.realmLv
         && left.realm === right.realm
+        && (left.skillsEnabled !== false) === (right.skillsEnabled !== false)
         && left.name === right.name
         && left.grade === right.grade
         && left.category === right.category
@@ -1061,6 +1167,49 @@ function cloneAttributes(source) {
         luck: source.luck,
     };
 }
+function buildAttrBonuses(player) {
+    return Array.isArray(player.bonuses)
+        ? player.bonuses.map((entry) => cloneAttrBonus(entry))
+        : [];
+}
+function cloneSpecialStats(source) {
+    return {
+        foundation: source.foundation,
+        combatExp: source.combatExp,
+    };
+}
+function isSameAttrBonuses(left, right) {
+    if (left.length !== right.length) {
+        return false;
+    }
+    for (let index = 0; index < left.length; index += 1) {
+        const leftEntry = left[index];
+        const rightEntry = right[index];
+        if (leftEntry.source !== rightEntry.source
+            || leftEntry.label !== rightEntry.label
+            || !isSameAttributes(leftEntry.attrs, rightEntry.attrs)
+            || !shallowEqualRecord(leftEntry.stats, rightEntry.stats)
+            || !shallowEqualArray(leftEntry.qiProjection, rightEntry.qiProjection)
+            || !shallowEqualRecord(leftEntry.meta, rightEntry.meta)) {
+            return false;
+        }
+    }
+    return true;
+}
+function cloneAttrBonus(source) {
+    return {
+        source: source.source,
+        label: source.label,
+        attrs: cloneAttributes(source.attrs),
+        stats: clonePartialNumericStats(source.stats),
+        qiProjection: source.qiProjection ? source.qiProjection.map((entry) => cloneQiProjectionModifier(entry)) : undefined,
+        meta: source.meta && typeof source.meta === 'object' ? { ...source.meta } : undefined,
+    };
+}
+function isSameSpecialStats(left, right) {
+    return left.foundation === right.foundation
+        && left.combatExp === right.combatExp;
+}
 function cloneNumericStats(source) {
     return {
         maxHp: source.maxHp,
@@ -1090,6 +1239,8 @@ function cloneNumericStats(source) {
         viewRange: source.viewRange,
         moveSpeed: source.moveSpeed,
         extraAggroRate: source.extraAggroRate,
+        extraRange: source.extraRange,
+        extraArea: source.extraArea,
         elementDamageBonus: {
             metal: source.elementDamageBonus.metal,
             wood: source.elementDamageBonus.wood,
@@ -1106,6 +1257,24 @@ function cloneNumericStats(source) {
         },
     };
 }
+function clonePartialNumericStats(source) {
+    if (!source) {
+        return undefined;
+    }
+    const clone = {};
+    for (const key of NUMERIC_STAT_KEYS) {
+        if (source[key] !== undefined) {
+            clone[key] = source[key];
+        }
+    }
+    if (source.elementDamageBonus) {
+        clone.elementDamageBonus = { ...source.elementDamageBonus };
+    }
+    if (source.elementDamageReduce) {
+        clone.elementDamageReduce = { ...source.elementDamageReduce };
+    }
+    return Object.keys(clone).length > 0 ? clone : undefined;
+}
 function cloneNumericRatioDivisors(source) {
     return {
         dodge: source.dodge,
@@ -1121,6 +1290,20 @@ function cloneNumericRatioDivisors(source) {
             fire: source.elementDamageReduce.fire,
             earth: source.elementDamageReduce.earth,
         },
+    };
+}
+function cloneQiProjectionModifier(source) {
+    return {
+        ...source,
+        selector: source.selector
+            ? {
+                ...source.selector,
+                resourceKeys: source.selector.resourceKeys ? source.selector.resourceKeys.slice() : undefined,
+                families: source.selector.families ? source.selector.families.slice() : undefined,
+                forms: source.selector.forms ? source.selector.forms.slice() : undefined,
+                elements: source.selector.elements ? source.selector.elements.slice() : undefined,
+            }
+            : undefined,
     };
 }
 function cloneVisibleBuff(source) {

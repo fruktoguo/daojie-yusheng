@@ -6,6 +6,7 @@ const fs = require("node:fs");
 const net = require("node:net");
 const path = require("node:path");
 const socket_io_client_1 = require("socket.io-client");
+const env_alias_1 = require("../config/env-alias");
 exports.packageRoot = path.resolve(__dirname, '..', '..');
 exports.distRoot = path.join(exports.packageRoot, 'dist');
 exports.repoRoot = path.resolve(exports.packageRoot, '..', '..');
@@ -466,6 +467,9 @@ function createCaseRuntime(options) {
       sockets.push(socket);
       return socket;
     },
+    getSockets() {
+      return [...sockets];
+    },
     async cleanup() {
       for (const socket of sockets.splice(0)) {
         try {
@@ -705,7 +709,7 @@ function uniquePlayerId(prefix) {
 }
 
 function hasDatabaseUrl() {
-  const databaseUrl = process.env.SERVER_NEXT_DATABASE_URL ?? '';
+  const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
   return databaseUrl.trim().length > 0;
 }
 

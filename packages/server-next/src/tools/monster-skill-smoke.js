@@ -2,8 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared-next");
-const SERVER_NEXT_URL = process.env.SERVER_NEXT_URL ?? 'http://127.0.0.1:3111';
-const playerId = process.env.SERVER_NEXT_SMOKE_PLAYER_ID ?? `monster_skill_${Date.now().toString(36)}`;
+const env_alias_1 = require("../config/env-alias");
+const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
+let playerId = '';
 const instanceId = process.env.SERVER_NEXT_SMOKE_INSTANCE_ID ?? 'public:wildlands';
 const preferredMonsterId = process.env.SERVER_NEXT_SMOKE_MONSTER_ID ?? 'm_swamp_lizard';
 const boostedHp = 999;
@@ -27,10 +28,12 @@ async function main() {
     socket.on(shared_1.NEXT_S2C.Error, (payload) => {
         throw new Error(`socket error: ${JSON.stringify(payload)}`);
     });
+    socket.on(shared_1.NEXT_S2C.InitSession, (payload) => {
+        playerId = String(payload?.pid ?? '');
+    });
     try {
         await onceConnected(socket);
         socket.emit(shared_1.NEXT_C2S.Hello, {
-            playerId,
             mapId: instanceId.replace('public:', ''),
             // Spawn on the monster anchor and let runtime pick the nearest open tile.
             // This avoids brittle assumptions about fixed offset positions still being visible/in-range.
@@ -38,6 +41,9 @@ async function main() {
             preferredY: target.y,
         });
         const initialPlayer = await waitForState(async () => {
+            if (!playerId) {
+                return null;
+            }
             const state = await fetchPlayerState(playerId);
             return state.player ? state : null;
         }, 5000);

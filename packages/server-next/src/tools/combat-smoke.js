@@ -2,9 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared-next");
-const SERVER_NEXT_URL = process.env.SERVER_NEXT_URL ?? 'http://127.0.0.1:3111';
-const attackerId = process.env.SERVER_NEXT_SMOKE_ATTACKER_ID ?? `combat_attacker_${Date.now().toString(36)}`;
-const defenderId = process.env.SERVER_NEXT_SMOKE_DEFENDER_ID ?? `combat_defender_${Date.now().toString(36)}`;
+const env_alias_1 = require("../config/env-alias");
+const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
+let attackerId = '';
+let defenderId = '';
 async function main() {
     const attacker = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
         path: '/socket.io',
@@ -36,20 +37,27 @@ async function main() {
     defender.on(shared_1.NEXT_S2C.SelfDelta, (payload) => {
         defenderSelf.push(payload);
     });
+    attacker.on(shared_1.NEXT_S2C.InitSession, (payload) => {
+        attackerId = String(payload?.pid ?? '');
+    });
+    defender.on(shared_1.NEXT_S2C.InitSession, (payload) => {
+        defenderId = String(payload?.pid ?? '');
+    });
     await Promise.all([onceConnected(attacker), onceConnected(defender)]);
     attacker.emit(shared_1.NEXT_C2S.Hello, {
-        playerId: attackerId,
         mapId: 'yunlai_town',
         preferredX: 24,
         preferredY: 5,
     });
     defender.emit(shared_1.NEXT_C2S.Hello, {
-        playerId: defenderId,
         mapId: 'yunlai_town',
         preferredX: 25,
         preferredY: 5,
     });
     await waitFor(async () => {
+        if (!attackerId || !defenderId) {
+            return false;
+        }
         const [attackerState, defenderState] = await Promise.all([fetchState(attackerId), fetchState(defenderId)]);
         return attackerState.player && defenderState.player;
     }, 5000);
@@ -124,8 +132,12 @@ async function main() {
     const finalDefender = await fetchState(defenderId);
     attacker.close();
     defender.close();
-    await deletePlayer(attackerId);
-    await deletePlayer(defenderId);
+    if (attackerId) {
+        await deletePlayer(attackerId);
+    }
+    if (defenderId) {
+        await deletePlayer(defenderId);
+    }
     console.log(JSON.stringify({
         ok: true,
         url: SERVER_NEXT_URL,
