@@ -1,0 +1,145 @@
+{
+  "meta": {
+    "realm": "凡人期",
+    "grade": "地阶",
+    "lv": 0
+  },
+  "reference": {
+    "base": {
+      "lower": 3.8,
+      "upper": 4.2,
+      "target": 4
+    },
+    "percent": {
+      "lower": 3,
+      "upper": 3,
+      "target": 3
+    },
+    "range": {
+      "lower": 3,
+      "upper": 4,
+      "target": 3.5
+    },
+    "area": {
+      "lower": 3,
+      "upper": 4,
+      "target": 3.5
+    }
+  },
+  "weightedBudget": 20,
+  "scores": {
+    "baseScore": 10.8,
+    "percentScore": 1.2,
+    "rangeScore": 2,
+    "areaScore": 1.2,
+    "totalScore": 327.888
+  },
+  "targetingHint": {
+    "shape": "checkerboard",
+    "desiredTargetCount": 13,
+    "suggestedTargeting": {
+      "shape": "checkerboard",
+      "width": 5,
+      "height": 5,
+      "maxTargets": 13
+    },
+    "approxTargetCount": 13
+  },
+  "suggested": {
+    "cooldown": 80,
+    "costMultiplier": 8
+  },
+  "resolvedTerms": {
+    "baseTerms": [
+      {
+        "var": "caster.stat.spellAtk",
+        "scale": 10.8
+      }
+    ],
+    "percentTerms": [
+      {
+        "var": "techLevel",
+        "scale": 0.05
+      },
+      {
+        "var": "caster.stat.hit",
+        "scale": 0.003
+      },
+      {
+        "var": "caster.stat.resolvePower",
+        "scale": 0.003
+      },
+      {
+        "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+        "scale": 0.025
+      }
+    ]
+  },
+  "skill": {
+    "id": "skill.huanling_xingluo_canpan",
+    "name": "星罗残盘",
+    "desc": "借洞府残阵把落点周围拆成明灭交错的棋盘，错踩一格便会被残火与阴脉同时点穿。",
+    "cooldown": 80,
+    "costMultiplier": 8,
+    "range": 5,
+    "targeting": {
+      "shape": "checkerboard",
+      "width": 5,
+      "height": 5,
+      "maxTargets": 13
+    },
+    "effects": [
+      {
+        "type": "damage",
+        "damageKind": "spell",
+        "element": "earth",
+        "formula": {
+          "op": "mul",
+          "args": [
+            {
+              "var": "caster.stat.spellAtk",
+              "scale": 10.8
+            },
+            {
+              "op": "add",
+              "args": [
+                1,
+                {
+                  "var": "techLevel",
+                  "scale": 0.05
+                },
+                {
+                  "var": "caster.stat.hit",
+                  "scale": 0.003
+                },
+                {
+                  "var": "caster.stat.resolvePower",
+                  "scale": 0.003
+                },
+                {
+                  "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                  "scale": 0.025
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "buff",
+        "target": "target",
+        "buffId": "buff.huanling_rongmai_yin",
+        "name": "熔脉阴痕",
+        "desc": "踩错残盘步位后，阴脉裂痕会沿着经络继续扩开。",
+        "shortMark": "熔",
+        "category": "debuff",
+        "visibility": "public",
+        "duration": 6,
+        "stacks": 10,
+        "maxStacks": 100,
+        "color": "#ff8a54"
+      }
+    ],
+    "unlockLevel": 5
+  }
+}

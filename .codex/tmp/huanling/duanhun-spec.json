@@ -1,0 +1,46 @@
+{
+  "realm": "凡人期",
+  "grade": "地阶",
+  "lv": 0,
+  "skill": {
+    "id": "skill.huanling_duanhun_ding",
+    "name": "断魂灵钉",
+    "desc": "认准被熔池烙开的裂口，把残丹灵识压成一根钉，沿着伤脉直接钉穿神魂。",
+    "unlockLevel": 1,
+    "damageKind": "spell",
+    "element": "earth",
+    "range": 6,
+    "targeting": {
+      "shape": "single",
+      "maxTargets": 1
+    },
+    "baseScoreTarget": 10,
+    "percentScoreTarget": 1.2,
+    "baseWeights": [
+      { "var": "caster.stat.spellAtk", "weight": 1 }
+    ],
+    "percentWeights": [
+      { "var": "techLevel", "weight": 1 },
+      { "var": "caster.stat.hit", "weight": 1 },
+      { "var": "caster.stat.breakPower", "weight": 1 },
+      { "var": "target.buff.buff.huanling_rongmai_yin.stacks", "weight": 1, "scalePerScore": 0.08 },
+      { "var": "target.buff.terrain_molten_pool_burn.stacks", "weight": 1, "scalePerScore": 0.06 }
+    ],
+    "buffEffects": [
+      {
+        "type": "buff",
+        "target": "target",
+        "buffId": "buff.huanling_rongmai_yin",
+        "name": "熔脉阴痕",
+        "desc": "断魂灵钉沿着裂脉再补一记，后续沉印更容易整片压塌。",
+        "shortMark": "熔",
+        "category": "debuff",
+        "visibility": "public",
+        "duration": 6,
+        "stacks": 10,
+        "maxStacks": 100,
+        "color": "#ff8a54"
+      }
+    ]
+  }
+}

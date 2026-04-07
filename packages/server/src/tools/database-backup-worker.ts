@@ -42,14 +42,17 @@ interface ProcessSpec {
 }
 
 const LOOP_INTERVAL_MS = 10_000;
+const HEARTBEAT_INTERVAL_MS = 10_000;
+const PROCESS_TIMEOUT_MS = resolveProcessTimeoutMs();
+const PROCESS_FORCE_KILL_GRACE_MS = 5_000;
 
 async function main(): Promise<void> {
   ensureBackupWorkspace();
   recoverInterruptedJob();
+  startHeartbeatLoop();
 
   for (;;) {
     try {
-      writeHeartbeat();
       const state = readBackupWorkerState();
       const restoreRequest = listBackupRestoreRequests()[0];
       const manualRequest = listBackupManualRequests()[0];
@@ -67,6 +70,18 @@ async function main(): Promise<void> {
     }
     await sleep(LOOP_INTERVAL_MS);
   }
+}
+
+function startHeartbeatLoop(): void {
+  writeHeartbeat();
+  const timer = setInterval(() => {
+    try {
+      writeHeartbeat();
+    } catch (error) {
+      console.error('[database-backup-worker] 写心跳失败', error);
+    }
+  }, HEARTBEAT_INTERVAL_MS);
+  timer.unref();
 }
 
 function recoverInterruptedJob(): void {
@@ -264,12 +279,16 @@ async function runDumpProcess(filePath: string): Promise<void> {
     const output = fs.createWriteStream(filePath);
     let stderr = '';
     let settled = false;
+    const timeout = createProcessTimeout(child, 'pg_dump', (message) => {
+      stderr = stderr ? `${stderr}\n${message}` : message;
+    });
 
     const fail = (error: Error): void => {
       if (settled) {
         return;
       }
       settled = true;
+      timeout.clear();
       output.destroy();
       void fs.promises.rm(filePath, { force: true }).catch(() => {});
       reject(error);
@@ -292,6 +311,7 @@ async function runDumpProcess(filePath: string): Promise<void> {
     });
     child.on('close', (code) => {
       output.end();
+      timeout.clear();
       if (settled) {
         return;
       }
@@ -317,12 +337,16 @@ async function runRestoreProcess(filePath: string): Promise<void> {
     const input = fs.createReadStream(filePath);
     let stderr = '';
     let settled = false;
+    const timeout = createProcessTimeout(child, 'pg_restore', (message) => {
+      stderr = stderr ? `${stderr}\n${message}` : message;
+    });
 
     const fail = (error: Error): void => {
       if (settled) {
         return;
       }
       settled = true;
+      timeout.clear();
       input.destroy();
       stdin.destroy();
       reject(error);
@@ -347,6 +371,7 @@ async function runRestoreProcess(filePath: string): Promise<void> {
       stdin.end();
     });
     child.on('close', (code) => {
+      timeout.clear();
       if (settled) {
         return;
       }
@@ -454,6 +479,55 @@ function commandExists(command: string): boolean {
     stdio: 'ignore',
   });
   return result.status === 0;
+}
+
+function createProcessTimeout(
+  child: ReturnType<typeof spawn>,
+  label: 'pg_dump' | 'pg_restore',
+  appendError: (message: string) => void,
+): { clear: () => void } {
+  let forceKillTimer: ReturnType<typeof setTimeout> | null = null;
+  const timeoutId = setTimeout(() => {
+    const message = `${label} 执行超过 ${formatDurationLabel(PROCESS_TIMEOUT_MS)}，已判定为卡死并尝试终止`;
+    appendError(message);
+    child.kill('SIGTERM');
+    forceKillTimer = setTimeout(() => {
+      child.kill('SIGKILL');
+    }, PROCESS_FORCE_KILL_GRACE_MS);
+  }, PROCESS_TIMEOUT_MS);
+
+  return {
+    clear: () => {
+      clearTimeout(timeoutId);
+      if (forceKillTimer !== null) {
+        clearTimeout(forceKillTimer);
+        forceKillTimer = null;
+      }
+    },
+  };
+}
+
+function resolveProcessTimeoutMs(): number {
+  const raw = Number(process.env.DB_BACKUP_PROCESS_TIMEOUT_MS ?? 15 * 60_000);
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return 15 * 60_000;
+  }
+  return Math.max(60_000, Math.floor(raw));
+}
+
+function formatDurationLabel(durationMs: number): string {
+  const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
+  if (totalSeconds < 60) {
+    return `${totalSeconds} 秒`;
+  }
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (totalMinutes < 60) {
+    return seconds > 0 ? `${totalMinutes} 分 ${seconds} 秒` : `${totalMinutes} 分`;
+  }
+  const totalHours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return minutes > 0 ? `${totalHours} 小时 ${minutes} 分` : `${totalHours} 小时`;
 }
 
 function sleep(ms: number): Promise<void> {

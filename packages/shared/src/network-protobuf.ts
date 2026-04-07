@@ -203,6 +203,8 @@ message ActionsUpdatePayload {
   repeated string actionOrder = 10;
   optional bool cultivationActive = 11;
   optional string autoBattleTargetingMode = 12;
+  optional string autoUsePillsJson = 13;
+  optional bool clearAutoUsePills = 14;
 }
 
 message ActionUpdateEntryPayload {
@@ -928,6 +930,9 @@ function toWireActionsUpdate(payload: S2C_ActionsUpdate): Record<string, unknown
   if (payload.removeActionIds) wire.removeActionIds = [...payload.removeActionIds];
   if (payload.actionOrder) wire.actionOrder = [...payload.actionOrder];
   if (payload.autoBattle !== undefined) wire.autoBattle = payload.autoBattle;
+  if (payload.autoUsePills !== undefined) {
+    wire.autoUsePillsJson = JSON.stringify(payload.autoUsePills);
+  }
   if (payload.autoBattleTargetingMode !== undefined) wire.autoBattleTargetingMode = payload.autoBattleTargetingMode;
   if (payload.autoRetaliate !== undefined) wire.autoRetaliate = payload.autoRetaliate;
   if (payload.autoBattleStationary !== undefined) wire.autoBattleStationary = payload.autoBattleStationary;
@@ -956,6 +961,11 @@ function fromWireActionsUpdate(wire: Record<string, unknown>): S2C_ActionsUpdate
       .filter((entry) => entry.length > 0);
   }
   if (hasOwn(wire, 'autoBattle')) payload.autoBattle = Boolean(wire.autoBattle);
+  if (wire.clearAutoUsePills === true) {
+    payload.autoUsePills = [];
+  } else if (typeof wire.autoUsePillsJson === 'string') {
+    payload.autoUsePills = parseJson<S2C_ActionsUpdate['autoUsePills']>(wire.autoUsePillsJson) ?? [];
+  }
   if (typeof wire.autoBattleTargetingMode === 'string') payload.autoBattleTargetingMode = wire.autoBattleTargetingMode as S2C_ActionsUpdate['autoBattleTargetingMode'];
   if (hasOwn(wire, 'autoRetaliate')) payload.autoRetaliate = Boolean(wire.autoRetaliate);
   if (hasOwn(wire, 'autoBattleStationary')) payload.autoBattleStationary = Boolean(wire.autoBattleStationary);

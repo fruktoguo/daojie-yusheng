@@ -4,7 +4,7 @@
 
 import { io, Socket } from 'socket.io-client';
 import {
-  C2S, S2C, C2S_Move, C2S_MoveTo, C2S_NavigateQuest, C2S_GmGetState, C2S_GmSpawnBots, C2S_GmRemoveBots, C2S_GmUpdatePlayer, C2S_GmResetPlayer, C2S_Action, C2S_UpdateAutoBattleSkills, C2S_UpdateAutoBattleTargetingMode, C2S_UpdateTechniqueSkillAvailability, C2S_DebugResetSpawn, C2S_UseItem, C2S_DropItem, C2S_DestroyItem,
+  C2S, S2C, C2S_Move, C2S_MoveTo, C2S_NavigateQuest, C2S_GmGetState, C2S_GmSpawnBots, C2S_GmRemoveBots, C2S_GmUpdatePlayer, C2S_GmResetPlayer, C2S_Action, C2S_UpdateAutoBattleSkills, C2S_UpdateAutoUsePills, C2S_UpdateAutoBattleTargetingMode, C2S_UpdateTechniqueSkillAvailability, C2S_DebugResetSpawn, C2S_UseItem, C2S_DropItem, C2S_DestroyItem,
   C2S_TakeLoot, C2S_SortInventory, C2S_Equip, C2S_Unequip, C2S_Cultivate, C2S_Chat, C2S_AckSystemMessages,
   C2S_Heartbeat,
   C2S_InspectTileRuntime,
@@ -31,6 +31,11 @@ import {
   C2S_ClaimMarketStorage,
   C2S_RequestNpcShop,
   C2S_BuyNpcShopItem,
+  C2S_RequestAlchemyPanel,
+  C2S_SaveAlchemyPreset,
+  C2S_DeleteAlchemyPreset,
+  C2S_StartAlchemy,
+  C2S_CancelAlchemy,
   C2S_HeavenGateAction,
   S2C_Tick, S2C_Init, S2C_MapStaticSync, S2C_RealmUpdate, S2C_AttrUpdate, S2C_InventoryUpdate,
   S2C_EquipmentUpdate, S2C_TechniqueUpdate, S2C_ActionsUpdate, S2C_LootWindowUpdate, S2C_QuestUpdate, S2C_QuestNavigateResult, S2C_SystemMsg, S2C_GmState,
@@ -49,10 +54,11 @@ import {
   S2C_AttrDetail,
   S2C_Leaderboard,
   S2C_NpcShop,
+  S2C_AlchemyPanel,
   S2C_Pong,
   S2C_TileRuntimeDetail,
   S2C_Error, decodeServerEventPayload, encodeClientEventPayload,
-  AutoBattleSkillConfig, AutoBattleTargetingMode, Direction, EquipSlot, PLAYER_HEARTBEAT_INTERVAL_MS,
+  AutoBattleSkillConfig, AutoBattleTargetingMode, AutoUsePillConfig, Direction, EquipSlot, PLAYER_HEARTBEAT_INTERVAL_MS,
   SOCKET_CONNECT_TIMEOUT_MS, SOCKET_RECONNECTION_ATTEMPTS, SOCKET_RECONNECTION_DELAY_MS,
   SOCKET_RECONNECTION_DELAY_MAX_MS, SOCKET_TRANSPORTS,
 } from '@mud/shared';
@@ -94,6 +100,7 @@ export class SocketManager {
   private onAttrDetailCallbacks: Array<(data: S2C_AttrDetail) => void> = [];
   private onLeaderboardCallbacks: Array<(data: S2C_Leaderboard) => void> = [];
   private onNpcShopCallbacks: Array<(data: S2C_NpcShop) => void> = [];
+  private onAlchemyPanelCallbacks: Array<(data: S2C_AlchemyPanel) => void> = [];
   private onPongCallbacks: Array<(data: S2C_Pong) => void> = [];
   private onDisconnectCallbacks: Array<(reason: string) => void> = [];
   private onConnectErrorCallbacks: Array<(message: string) => void> = [];
@@ -148,6 +155,7 @@ export class SocketManager {
     this.bindServerEvent(S2C.AttrDetail, this.onAttrDetailCallbacks);
     this.bindServerEvent(S2C.Leaderboard, this.onLeaderboardCallbacks);
     this.bindServerEvent(S2C.NpcShop, this.onNpcShopCallbacks);
+    this.bindServerEvent(S2C.AlchemyPanel, this.onAlchemyPanelCallbacks);
     this.bindServerEvent(S2C.Pong, this.onPongCallbacks);
     this.bindServerEvent(S2C.Error, this.onErrorCallbacks);
     this.bindServerEvent(S2C.GmState, this.onGmStateCallbacks);
@@ -403,6 +411,26 @@ export class SocketManager {
     this.emitServer(C2S.BuyNpcShopItem, { npcId, itemId, quantity } satisfies C2S_BuyNpcShopItem);
   }
 
+  sendRequestAlchemyPanel(knownCatalogVersion?: number) {
+    this.emitServer(C2S.RequestAlchemyPanel, { knownCatalogVersion } satisfies C2S_RequestAlchemyPanel);
+  }
+
+  sendSaveAlchemyPreset(payload: C2S_SaveAlchemyPreset) {
+    this.emitServer(C2S.SaveAlchemyPreset, payload);
+  }
+
+  sendDeleteAlchemyPreset(presetId: string) {
+    this.emitServer(C2S.DeleteAlchemyPreset, { presetId } satisfies C2S_DeleteAlchemyPreset);
+  }
+
+  sendStartAlchemy(payload: C2S_StartAlchemy) {
+    this.emitServer(C2S.StartAlchemy, payload);
+  }
+
+  sendCancelAlchemy() {
+    this.emitServer(C2S.CancelAlchemy, {} satisfies C2S_CancelAlchemy);
+  }
+
   sendHeavenGateAction(action: C2S_HeavenGateAction['action'], element?: C2S_HeavenGateAction['element']) {
     this.emitServer(C2S.HeavenGateAction, { action, element } satisfies C2S_HeavenGateAction);
   }
@@ -413,6 +441,10 @@ export class SocketManager {
 
   sendUpdateAutoBattleSkills(skills: AutoBattleSkillConfig[]) {
     this.emitServer(C2S.UpdateAutoBattleSkills, { skills } satisfies C2S_UpdateAutoBattleSkills);
+  }
+
+  sendUpdateAutoUsePills(pills: AutoUsePillConfig[]) {
+    this.emitServer(C2S.UpdateAutoUsePills, { pills } satisfies C2S_UpdateAutoUsePills);
   }
 
   sendUpdateAutoBattleTargetingMode(mode: AutoBattleTargetingMode) {
@@ -469,6 +501,7 @@ export class SocketManager {
   onAttrDetail(cb: (data: S2C_AttrDetail) => void) { this.onAttrDetailCallbacks.push(cb); }
   onLeaderboard(cb: (data: S2C_Leaderboard) => void) { this.onLeaderboardCallbacks.push(cb); }
   onNpcShop(cb: (data: S2C_NpcShop) => void) { this.onNpcShopCallbacks.push(cb); }
+  onAlchemyPanel(cb: (data: S2C_AlchemyPanel) => void) { this.onAlchemyPanelCallbacks.push(cb); }
   onPong(cb: (data: S2C_Pong) => void) { this.onPongCallbacks.push(cb); }
   onError(cb: (data: S2C_Error) => void) { this.onErrorCallbacks.push(cb); }
   onGmState(cb: (data: S2C_GmState) => void) { this.onGmStateCallbacks.push(cb); }

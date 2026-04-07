@@ -2676,6 +2676,7 @@ function createDefaultPlayerSnapshot(source?: PlayerState): PlayerState {
     quests: [],
     autoBattle: false,
     autoBattleSkills: [],
+    autoUsePills: [],
     autoBattleTargetingMode: 'auto',
     autoRetaliate: true,
     autoIdleCultivation: true,

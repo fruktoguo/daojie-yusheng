@@ -758,6 +758,14 @@ function formatTargeting(skill: SkillDef): string {
   if (shape === 'line') {
     return `直线，最多命中 ${formatDisplayInteger(skill.targeting?.maxTargets ?? 99)} 个目标`;
   }
+  if (shape === 'ring') {
+    return `环带，内半径 ${formatDisplayNumber(skill.targeting?.innerRadius ?? Math.max((skill.targeting?.radius ?? 1) - 1, 0))}，外半径 ${formatDisplayNumber(skill.targeting?.radius ?? 1)}，最多命中 ${formatDisplayInteger(skill.targeting?.maxTargets ?? 99)} 个目标`;
+  }
+  if (shape === 'checkerboard') {
+    const width = skill.targeting?.width ?? 1;
+    const height = skill.targeting?.height ?? width;
+    return `棋盘，范围 ${formatDisplayInteger(width)}x${formatDisplayInteger(height)}，隔格交错，最多命中 ${formatDisplayInteger(skill.targeting?.maxTargets ?? 99)} 个目标`;
+  }
   if (shape === 'area') {
     return `范围，半径 ${formatDisplayNumber(skill.targeting?.radius ?? 1)}，最多命中 ${formatDisplayInteger(skill.targeting?.maxTargets ?? 99)} 个目标`;
   }

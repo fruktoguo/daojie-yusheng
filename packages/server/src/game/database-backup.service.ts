@@ -72,6 +72,7 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit(): void {
     ensureBackupWorkspace();
+    this.logBackupWorkerAvailabilityOnBoot();
     this.resumeRestoreMonitorIfNeeded();
   }
 
@@ -85,11 +86,12 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
 
   async getState(): Promise<GmDatabaseStateRes> {
     const workerState = readBackupWorkerState();
+    const workerStatusNote = this.buildBackupWorkerStatusNote();
     return {
       backups: await this.listBackups(),
       runningJob: this.toJobSnapshot(this.currentJob) ?? workerState.runningJob,
       lastJob: this.resolveLatestJobSnapshot(this.toJobSnapshot(this.lastJob), workerState.lastJob),
-      note: '正式数据库备份与恢复由独立 backup worker 执行，游戏服只负责发起请求、维护窗口、展示状态与下载产物。',
+      note: `正式数据库备份与恢复由独立 backup worker 执行，游戏服只负责发起请求、维护窗口、展示状态与下载产物。${workerStatusNote}`,
       retention: {
         hourly: HOURLY_BACKUP_RETENTION,
         daily: DAILY_BACKUP_RETENTION,
@@ -387,5 +389,66 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
     const leftTime = new Date(left.startedAt).getTime();
     const rightTime = new Date(right.startedAt).getTime();
     return rightTime > leftTime ? right : left;
+  }
+
+  private logBackupWorkerAvailabilityOnBoot(): void {
+    const heartbeat = readBackupWorkerHeartbeat();
+    if (!heartbeat) {
+      this.logger.warn('启动时未检测到 backup worker 心跳；手动数据库备份/导入会失败，自动整点/每日备份也不会继续执行');
+      return;
+    }
+
+    const heartbeatTime = new Date(heartbeat.updatedAt).getTime();
+    if (!Number.isFinite(heartbeatTime)) {
+      this.logger.warn('启动时检测到损坏的 backup worker 心跳文件；请检查 backup worker 是否仍在正常写入状态目录');
+      return;
+    }
+
+    const ageMs = Date.now() - heartbeatTime;
+    if (ageMs > BACKUP_WORKER_HEARTBEAT_TTL_MS) {
+      this.logger.warn(`启动时检测到过期的 backup worker 心跳：${heartbeat.updatedAt}（约 ${this.formatDurationLabel(ageMs)} 前）`);
+      return;
+    }
+
+    this.logger.log(`检测到 backup worker 在线：${heartbeat.hostname}#${heartbeat.workerPid}，最近心跳 ${heartbeat.updatedAt}`);
+  }
+
+  private buildBackupWorkerStatusNote(): string {
+    const heartbeat = readBackupWorkerHeartbeat();
+    if (!heartbeat) {
+      return ' 当前未检测到 backup worker 心跳；这通常意味着独立备份进程或容器没有在跑，手动导出/导入会直接失败，自动整点/每日备份当前也不会继续执行。';
+    }
+
+    const heartbeatTime = new Date(heartbeat.updatedAt).getTime();
+    if (!Number.isFinite(heartbeatTime)) {
+      return ' 当前检测到损坏的 backup worker 心跳文件；请检查 backup worker 是否与游戏服共享同一备份目录，并确认其状态文件可正常写入。';
+    }
+
+    const ageMs = Date.now() - heartbeatTime;
+    if (ageMs > BACKUP_WORKER_HEARTBEAT_TTL_MS) {
+      return ` backup worker 心跳已过期，最后一次心跳在 ${heartbeat.updatedAt}（约 ${this.formatDurationLabel(ageMs)} 前）；这通常意味着 worker 已卡死、退出，或写到了错误的数据目录。`;
+    }
+
+    return ` 当前已检测到 backup worker 在线：${heartbeat.hostname}#${heartbeat.workerPid}，最近心跳 ${heartbeat.updatedAt}。`;
+  }
+
+  private formatDurationLabel(durationMs: number): string {
+    const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
+    if (totalSeconds < 60) {
+      return `${totalSeconds} 秒`;
+    }
+    const totalMinutes = Math.floor(totalSeconds / 60);
+    if (totalMinutes < 60) {
+      const seconds = totalSeconds % 60;
+      return seconds > 0 ? `${totalMinutes} 分 ${seconds} 秒` : `${totalMinutes} 分`;
+    }
+    const totalHours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (totalHours < 24) {
+      return minutes > 0 ? `${totalHours} 小时 ${minutes} 分` : `${totalHours} 小时`;
+    }
+    const days = Math.floor(totalHours / 24);
+    const hours = totalHours % 24;
+    return hours > 0 ? `${days} 天 ${hours} 小时` : `${days} 天`;
   }
 }

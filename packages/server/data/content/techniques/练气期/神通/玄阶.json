@@ -119,7 +119,7 @@
               "args": [
                 {
                   "var": "caster.stat.physAtk",
-                  "scale": 6
+                  "scale": 16
                 },
                 {
                   "op": "add",
@@ -276,7 +276,7 @@
               "args": [
                 {
                   "var": "caster.stat.spellAtk",
-                  "scale": 7
+                  "scale": 17
                 },
                 {
                   "op": "add",

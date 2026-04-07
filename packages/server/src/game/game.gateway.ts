@@ -40,6 +40,7 @@ import {
   C2S_DebugResetSpawn,
   C2S_Action,
   C2S_UpdateAutoBattleSkills,
+  C2S_UpdateAutoUsePills,
   C2S_UpdateAutoBattleTargetingMode,
   C2S_UpdateTechniqueSkillAvailability,
   C2S_Chat,
@@ -64,8 +65,14 @@ import {
   C2S_ClaimMarketStorage,
   C2S_RequestNpcShop,
   C2S_BuyNpcShopItem,
+  C2S_RequestAlchemyPanel,
+  C2S_SaveAlchemyPreset,
+  C2S_DeleteAlchemyPreset,
+  C2S_StartAlchemy,
+  C2S_CancelAlchemy,
   C2S_HeavenGateAction,
   PlayerState,
+  S2C_AlchemyPanel,
   S2C_Init,
   S2C_MailDetail,
   S2C_MailOpResult,
@@ -111,6 +118,7 @@ import { RedeemCodeService } from './redeem-code.service';
 import { AttrService } from './attr.service';
 import { LeaderboardService } from './leaderboard.service';
 import { REALM_STATE_SOURCE } from '../constants/gameplay/technique';
+import { AlchemyService } from './alchemy.service';
 
 @WebSocketGateway({ cors: true })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
@@ -143,6 +151,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     private readonly mailService: MailService,
     private readonly redeemCodeService: RedeemCodeService,
     private readonly databaseBackupService: DatabaseBackupService,
+    private readonly alchemyService: AlchemyService,
   ) {}
 
   afterInit(server: Server): void {
@@ -254,6 +263,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     const spawn = this.mapService.getSpawnPoint(DEFAULT_PLAYER_MAP_ID) ?? { x: 10, y: 10 };
     const initRoleName = await this.authService.takePendingRoleName(userId);
     const initMaxHp = BASE_MAX_HP + DEFAULT_BASE_ATTRS.constitution * HP_PER_CONSTITUTION;
+    const initialAlchemyExpToNext = Math.max(0, this.contentService.getRealmLevelEntry(1)?.expToNext ?? 60);
     const playerState: PlayerState = {
       id: playerId,
       name: initRoleName || buildDefaultRoleName(username) || username,
@@ -289,8 +299,16 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       actions: [],
       quests: [],
       unlockedMinimapIds: [],
+      alchemySkill: {
+        level: 1,
+        exp: 0,
+        expToNext: initialAlchemyExpToNext,
+      },
+      alchemyPresets: [],
+      alchemyJob: null,
       autoBattle: false,
       autoBattleSkills: [],
+      autoUsePills: [],
       autoBattleTargetingMode: 'auto',
       autoRetaliate: true,
       autoBattleStationary: false,
@@ -484,12 +502,84 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     });
   }
 
+  @SubscribeMessage(C2S.RequestAlchemyPanel)
+  handleRequestAlchemyPanel(client: Socket, data: C2S_RequestAlchemyPanel) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+    client.emit(S2C.AlchemyPanel, this.alchemyService.buildPanelPayload(player, data.knownCatalogVersion) satisfies S2C_AlchemyPanel);
+  }
+
+  @SubscribeMessage(C2S.SaveAlchemyPreset)
+  handleSaveAlchemyPreset(client: Socket, data: C2S_SaveAlchemyPreset) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+
+    this.playerService.enqueueCommand(player.mapId, {
+      playerId,
+      type: 'saveAlchemyPreset',
+      data,
+      timestamp: Date.now(),
+    });
+  }
+
+  @SubscribeMessage(C2S.DeleteAlchemyPreset)
+  handleDeleteAlchemyPreset(client: Socket, data: C2S_DeleteAlchemyPreset) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+
+    this.playerService.enqueueCommand(player.mapId, {
+      playerId,
+      type: 'deleteAlchemyPreset',
+      data,
+      timestamp: Date.now(),
+    });
+  }
+
+  @SubscribeMessage(C2S.StartAlchemy)
+  handleStartAlchemy(client: Socket, data: C2S_StartAlchemy) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+
+    this.playerService.enqueueCommand(player.mapId, {
+      playerId,
+      type: 'startAlchemy',
+      data,
+      timestamp: Date.now(),
+    });
+  }
+
+  @SubscribeMessage(C2S.CancelAlchemy)
+  handleCancelAlchemy(client: Socket, _data: C2S_CancelAlchemy) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+
+    this.playerService.enqueueCommand(player.mapId, {
+      playerId,
+      type: 'cancelAlchemy',
+      data: {},
+      timestamp: Date.now(),
+    });
+  }
+
   @SubscribeMessage(C2S.UpdateAutoBattleSkills)
   handleUpdateAutoBattleSkills(client: Socket, data: C2S_UpdateAutoBattleSkills) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     this.tickService.executeImmediate(player, 'updateAutoBattleSkills', data);
+  }
+
+  @SubscribeMessage(C2S.UpdateAutoUsePills)
+  handleUpdateAutoUsePills(client: Socket, data: C2S_UpdateAutoUsePills) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+    this.tickService.executeImmediate(player, 'updateAutoUsePills', data);
   }
 
   @SubscribeMessage(C2S.UpdateAutoBattleTargetingMode)
@@ -1052,6 +1142,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       numericStats: this.attrService.getPlayerNumericStats(player),
       ratioDivisors: this.attrService.getPlayerRatioDivisors(player),
       numericStatBreakdowns: this.attrService.getPlayerNumericStatBreakdowns(player),
+      alchemySkill: player.alchemySkill,
     } satisfies S2C_AttrDetail);
   }
 

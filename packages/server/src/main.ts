@@ -5,6 +5,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { SERVER_PORT } from '@mud/shared';
 import { PerformanceService } from './game/performance.service';
+import { DateConsoleLogger } from './logging/date-console-logger';
 
 /** 计算数据块的字节长度，用于网络流量统计 */
 function getByteLength(chunk: unknown, encoding?: BufferEncoding): number {
@@ -48,7 +49,8 @@ function buildHttpMetricLabel(req: { method?: string; path?: string; originalUrl
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const logger = new DateConsoleLogger('Bootstrap');
+  const app = await NestFactory.create(AppModule, { logger });
   const performanceService = app.get(PerformanceService);
 
   app.use((req: { headers: Record<string, unknown>; method?: string; path?: string; originalUrl?: string; url?: string }, res: any, next: () => void) => {
@@ -80,6 +82,6 @@ async function bootstrap() {
   const host = process.env.HOST || '0.0.0.0';
 
   await app.listen(port, host);
-  console.log(`Server running on http://${host}:${port}`);
+  logger.log(`Server running on http://${host}:${port}`);
 }
 bootstrap();

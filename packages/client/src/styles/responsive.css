@@ -760,6 +760,16 @@
     height: min(84dvh, calc(100dvh - 8px));
     padding: 12px 10px 10px;
   }
+  .detail-modal-card.detail-modal--alchemy {
+    width: calc(100vw - 8px);
+    height: min(84dvh, calc(100dvh - 8px));
+    padding: 12px 10px 10px;
+  }
+  .detail-modal-card.detail-modal--herb-gather {
+    width: calc(100vw - 8px);
+    height: min(84dvh, calc(100dvh - 8px));
+    padding: 12px 10px 10px;
+  }
   .detail-modal-card.detail-modal--leaderboard {
     width: calc(100vw - 8px);
     height: min(84dvh, calc(100dvh - 8px));
@@ -852,6 +862,55 @@
     gap: 8px;
     height: 100%;
     overflow: hidden;
+  }
+  .alchemy-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 10px;
+  }
+  .alchemy-recipe-list {
+    max-height: min(188px, 28dvh);
+    padding-right: 2px;
+  }
+  .alchemy-modal-tabs {
+    gap: 4px;
+    padding: 4px;
+  }
+  .alchemy-tab-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    justify-content: center;
+    padding: 7px 10px;
+  }
+  .alchemy-detail-panel {
+    min-height: 0;
+  }
+  .alchemy-ingredient-row,
+  .alchemy-job-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .alchemy-ingredient-editor {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .alchemy-actions {
+    justify-content: flex-start;
+  }
+  .alchemy-preset-strip {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: thin;
+  }
+  .alchemy-actions .small-btn,
+  .alchemy-preset-strip .alchemy-preset-chip {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+  .herb-gather-summary-meta,
+  .herb-gather-meta {
+    gap: 6px;
   }
   .market-board-list-wrap,
   .market-book-panel,

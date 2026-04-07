@@ -70,7 +70,14 @@ export class LegacyCanvasTextRendererAdapter {
       return;
     }
     if (effect.type === 'warning_zone') {
-      this.renderer.addWarningZone(effect.cells, effect.color, effect.durationMs);
+      this.renderer.addWarningZone(
+        effect.cells,
+        effect.color,
+        effect.durationMs,
+        effect.baseColor,
+        effect.originX,
+        effect.originY,
+      );
       return;
     }
     this.renderer.addFloatingText(

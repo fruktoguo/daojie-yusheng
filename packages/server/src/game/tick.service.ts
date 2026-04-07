@@ -644,6 +644,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
               this.worldService.interruptPendingPlayerSkillCast(player, '你移动了身形。'),
               messages,
             );
+            this.applyAlchemyResult(player.id, this.alchemyService.interruptAlchemy(player, 'move'), messages);
             this.applyCultivationResult(player.id, this.techniqueService.interruptCultivation(player, 'move'), messages);
             const { d } = cmd.data as { d: Direction };
             const moved = this.navigationService.stepPlayerByDirection(player, d);
@@ -668,6 +669,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
               this.worldService.interruptPendingPlayerSkillCast(player, '你移动了身形。'),
               messages,
             );
+            this.applyAlchemyResult(player.id, this.alchemyService.interruptAlchemy(player, 'move'), messages);
             this.applyCultivationResult(player.id, this.techniqueService.interruptCultivation(player, 'move'), messages);
             const {
               x,
@@ -772,6 +774,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           }
           if (actionId === 'battle:engage') {
             this.measureCpuSection('combat', '战斗与技能计算', () => {
+              this.applyAlchemyResult(player.id, this.alchemyService.interruptAlchemy(player, 'attack'), messages);
               const result = this.worldService.engageTarget(player, target);
               this.applyWorldUpdate(player.id, result, messages);
             });
@@ -827,6 +830,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
           let result: WorldUpdate;
           if (action.type === 'skill' || action.type === 'battle') {
+            this.applyAlchemyResult(player.id, this.alchemyService.interruptAlchemy(player, 'attack'), messages);
             result = this.measureCpuSection('combat', '战斗与技能计算', () => {
               const skillResult = action.requiresTarget === false
                 ? this.worldService.performSkill(player, actionId)
@@ -903,23 +907,43 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         }
         case 'startAlchemy': {
           this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+            if (player.pendingSkillCast) {
+              messages.push({ playerId: player.id, text: '吟唱中无法分心炼丹。', kind: 'system' });
+              return;
+            }
             const result = this.alchemyService.startAlchemy(
               player,
-              cmd.data as { recipeId: string; ingredients: AlchemyIngredientSelection[] },
+              cmd.data as { recipeId: string; ingredients: AlchemyIngredientSelection[]; quantity: number },
             );
             if (result.error) {
               messages.push({ playerId: player.id, text: result.error, kind: 'system' });
               return;
             }
-            if (result.inventoryChanged) {
-              this.playerService.markDirty(player.id, 'inv');
+            this.navigationService.clearMoveTarget(player.id);
+            player.questNavigation = undefined;
+            if (player.autoBattle) {
+              player.autoBattle = false;
+              player.combatTargetId = undefined;
+              player.combatTargetLocked = false;
+              this.markActionsDirty(player.id);
             }
-            if (result.panelChanged) {
-              this.pendingAlchemyPanelPushPlayers.add(player.id);
+            this.applyCultivationResult(
+              player.id,
+              this.techniqueService.stopCultivation(player, '你收束气机，开始专心炼丹。', 'quest'),
+              messages,
+            );
+            this.applyAlchemyResult(player.id, result, messages);
+          });
+          break;
+        }
+        case 'cancelAlchemy': {
+          this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+            const result = this.alchemyService.cancelAlchemy(player);
+            if (result.error) {
+              messages.push({ playerId: player.id, text: result.error, kind: 'system' });
+              return;
             }
-            for (const message of result.messages) {
-              messages.push({ playerId: player.id, text: message.text, kind: message.kind ?? 'system' });
-            }
+            this.applyAlchemyResult(player.id, result, messages);
           });
           break;
         }
@@ -1036,6 +1060,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
       const autoBattleStartX = player.x;
       const autoBattleStartY = player.y;
+      if (player.autoBattle) {
+        this.applyAlchemyResult(player.id, this.alchemyService.interruptAlchemy(player, 'attack'), messages);
+      }
       const autoBattle = this.measureCpuSection('combat', '战斗与技能计算', () => (
         this.worldService.performAutoBattle(player)
       ));
@@ -2012,6 +2039,18 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
+  private applyAlchemyResult(playerId: string, result: ReturnType<AlchemyService['interruptAlchemy']>, messages: WorldMessage[]) {
+    if (result.inventoryChanged) {
+      this.playerService.markDirty(playerId, 'inv');
+    }
+    if (result.panelChanged) {
+      this.pendingAlchemyPanelPushPlayers.add(playerId);
+    }
+    for (const message of result.messages) {
+      messages.push({ playerId, text: message.text, kind: message.kind ?? 'system' });
+    }
+  }
+
   /** 标记玩家为活跃状态，重置闲置计时 */
   private markPlayerActive(player: PlayerState, activePlayerIds: Set<string>) {
     player.idleTicks = 0;
@@ -2025,6 +2064,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       || player.autoIdleCultivation === false
       || this.navigationService.hasMoveTarget(player.id)
       || Boolean(player.questNavigation?.questId)
+      || this.alchemyService.hasActiveAlchemyJob(player)
       || this.techniqueService.hasCultivationBuff(player)
     ) {
       player.idleTicks = 0;
@@ -2173,75 +2213,8 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     switch (type) {
       case 'useItem': {
         const { slotIndex, count } = data as { slotIndex: number; count?: number };
-        const item = this.inventoryService.getItem(player, slotIndex);
-        if (!item) {
-          messages.push({ playerId: player.id, text: '物品不存在', kind: 'system' });
-          break;
-        }
         const requestedCount = Number.isInteger(count) ? Number(count) : 1;
-        if (requestedCount <= 0) {
-          messages.push({ playerId: player.id, text: '使用数量无效', kind: 'system' });
-          break;
-        }
-        const itemDef = this.contentService.getItem(item.itemId);
-        if (requestedCount > 1 && itemDef?.allowBatchUse !== true) {
-          messages.push({ playerId: player.id, text: '该物品不支持批量使用', kind: 'system' });
-          break;
-        }
-        if (itemDef?.learnTechniqueId && player.techniques.some((technique) => technique.techId === itemDef.learnTechniqueId)) {
-          messages.push({ playerId: player.id, text: '你已经学会这门功法了。', kind: 'system' });
-          break;
-        }
-        if (itemDef?.mapUnlockId && (player.unlockedMinimapIds ?? []).includes(itemDef.mapUnlockId)) {
-          const mapMeta = this.mapService.getMapMeta(itemDef.mapUnlockId);
-          messages.push({
-            playerId: player.id,
-            text: mapMeta ? `${mapMeta.name} 的地图你早已记下。` : '这份地图你早已记下。',
-            kind: 'system',
-          });
-          break;
-        }
-        if (itemDef?.respawnBindMapId && this.mapService.resolvePlayerRespawnMapId(player.respawnMapId) === itemDef.respawnBindMapId) {
-          const mapMeta = this.mapService.getMapMeta(itemDef.respawnBindMapId);
-          messages.push({
-            playerId: player.id,
-            text: mapMeta ? `你的命石早已系在 ${mapMeta.name}。` : '你的命石早已系在此处。',
-            kind: 'system',
-          });
-          break;
-        }
-        if (itemDef?.tileAuraGainAmount && this.mapService.isPlayerOverlapTile(player.mapId, player.x, player.y)) {
-          messages.push({
-            playerId: player.id,
-            text: '当前位于安全区、出生点或传送点附近，无法使用灵石。',
-            kind: 'system',
-          });
-          break;
-        }
-        if (itemDef?.spiritualRootSeedTier) {
-          const seedUseError = this.techniqueService.canUseSpiritualRootSeed(
-            player,
-            itemDef.spiritualRootSeedTier,
-          );
-          if (seedUseError) {
-            messages.push({ playerId: player.id, text: seedUseError, kind: 'system' });
-            break;
-          }
-        }
-        if (itemDef?.itemId === SHATTER_SPIRIT_PILL_ITEM_ID) {
-          const shatterSpiritPillError = this.techniqueService.canUseShatterSpiritPill(player);
-          if (shatterSpiritPillError) {
-            messages.push({ playerId: player.id, text: shatterSpiritPillError, kind: 'system' });
-            break;
-          }
-        }
-        const useErr = this.inventoryService.useItem(player, slotIndex, requestedCount);
-        if (useErr) {
-          messages.push({ playerId: player.id, text: useErr, kind: 'system' });
-          break;
-        }
-        this.playerService.markDirty(player.id, 'inv');
-        this.applyItemEffect(player, item.itemId, messages, requestedCount);
+        this.tryUseInventoryItem(player, slotIndex, requestedCount, messages);
         break;
       }
       case 'dropItem': {
@@ -2329,6 +2302,10 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       }
       case 'cultivate': {
         const { techId } = data as { techId: string | null };
+        if (this.alchemyService.hasActiveAlchemyJob(player)) {
+          messages.push({ playerId: player.id, text: '炼丹进行中，无法进入修炼。', kind: 'system' });
+          break;
+        }
         if (!techId) {
           player.cultivatingTechId = undefined;
           messages.push({

@@ -87,7 +87,7 @@
               {
                 "type": "hp_ratio",
                 "op": "<=",
-                "value": 0.72
+                "value": 0.75
               }
             ]
           }
@@ -143,14 +143,24 @@
         "id": "skill.huanling_duanhun_ding",
         "name": "断魂灵钉",
         "desc": "认准被熔池烙开的裂口，把残丹灵识压成一根钉，沿着伤脉直接钉穿神魂。",
-        "cooldown": 58,
-        "costMultiplier": 6,
+        "cooldown": 80,
+        "costMultiplier": 8,
         "range": 6,
         "targeting": {
           "shape": "single",
           "maxTargets": 1
         },
         "monsterCast": {
+          "conditions": {
+            "mode": "all",
+            "items": [
+              {
+                "type": "hp_ratio",
+                "op": "<=",
+                "value": 1
+              }
+            ]
+          },
           "windupTicks": 1,
           "warningColor": "#ff2a2a"
         },
@@ -163,17 +173,8 @@
               "op": "mul",
               "args": [
                 {
-                  "op": "add",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 1.4
-                    },
-                    {
-                      "var": "caster.maxQi",
-                      "scale": 0.045
-                    }
-                  ]
+                  "var": "caster.stat.spellAtk",
+                  "scale": 10
                 },
                 {
                   "op": "add",
@@ -181,23 +182,23 @@
                     1,
                     {
                       "var": "techLevel",
-                      "scale": 0
+                      "scale": 0.05
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.002
+                      "scale": 0.003
                     },
                     {
                       "var": "caster.stat.breakPower",
-                      "scale": 0.002
+                      "scale": 0.003
                     },
                     {
                       "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                      "scale": 0.008
+                      "scale": 0.02
                     },
                     {
                       "var": "target.buff.terrain_molten_pool_burn.stacks",
-                      "scale": 0.006
+                      "scale": 0.015
                     }
                   ]
                 }
@@ -209,12 +210,20 @@
             "target": "target",
             "buffId": "buff.huanling_rongmai_yin",
             "name": "熔脉阴痕",
-            "desc": "断魂灵钉沿着裂脉再补一记，后续沉印更容易整片压塌。",
+            "desc": "断魂灵钉沿着裂脉再补一记，阴痕会持续拖垮攻势与护体。",
             "shortMark": "熔",
             "category": "debuff",
             "visibility": "public",
-            "duration": 6,
-            "maxStacks": 3,
+            "duration": 60,
+            "stacks": 1,
+            "maxStacks": 100,
+            "stats": {
+              "physAtk": -10,
+              "spellAtk": -10,
+              "physDef": -10,
+              "spellDef": -10
+            },
+            "statMode": "percent",
             "color": "#ff8a54"
           }
         ],
@@ -237,6 +246,11 @@
             "mode": "all",
             "items": [
               {
+                "type": "hp_ratio",
+                "op": "<=",
+                "value": 0.5
+              },
+              {
                 "type": "has_buff",
                 "buffId": "buff.huanling_candan_faxiang"
               }
@@ -254,17 +268,8 @@
               "op": "mul",
               "args": [
                 {
-                  "op": "add",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 6.3
-                    },
-                    {
-                      "var": "caster.maxQi",
-                      "scale": 0.3
-                    }
-                  ]
+                  "var": "caster.stat.spellAtk",
+                  "scale": 10.5
                 },
                 {
                   "op": "add",
@@ -272,19 +277,19 @@
                     1,
                     {
                       "var": "techLevel",
-                      "scale": 0.2
+                      "scale": 0.05
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.006
+                      "scale": 0.004
                     },
                     {
                       "var": "caster.stat.resolvePower",
-                      "scale": 0.006
+                      "scale": 0.004
                     },
                     {
                       "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                      "scale": 0.01
+                      "scale": 0.025
                     }
                   ]
                 }
@@ -296,23 +301,37 @@
             "target": "target",
             "buffId": "buff.huanling_canmai_suobu",
             "name": "残脉锁步",
-            "desc": "脚下被熔流残脉绊住，步法与闪避都会迟滞片刻。",
+            "desc": "脚下被熔流残脉死死拖住，身法几乎废掉。",
             "shortMark": "锁",
             "category": "debuff",
             "visibility": "public",
-            "duration": 2,
+            "duration": 20,
             "maxStacks": 1,
             "color": "#ff954f",
             "stats": {
-              "moveSpeed": -35,
-              "dodge": -20
+              "moveSpeed": -200,
+              "dodge": -200
             },
             "statMode": "percent"
           },
           {
+            "type": "buff",
+            "target": "target",
+            "buffId": "terrain_molten_pool_burn",
+            "name": "熔池灼烧",
+            "desc": "熔河当头卷过，火毒直接烙进经脉。每层灼烧每息造成 1% 最大气血的火系伤害，持续 10 息，最多 20 层。",
+            "shortMark": "灼",
+            "category": "debuff",
+            "visibility": "public",
+            "duration": 10,
+            "stacks": 10,
+            "maxStacks": 20,
+            "color": "#ff8e54"
+          },
+          {
             "type": "terrain",
             "terrainType": "molten_pool",
-            "duration": 8,
+            "duration": 30,
             "allowedOriginalTypes": [
               "floor",
               "stone"
@@ -325,8 +344,8 @@
         "id": "skill.huanling_lieqi_zhixian",
         "name": "移脉熔宫",
         "desc": "拖着裂丹把洞府残脉猛然拽偏，落点一带尽数熔成赤池，后续杀招都会顺着熔痕灌进去。",
-        "cooldown": 50,
-        "costMultiplier": 5,
+        "cooldown": 80,
+        "costMultiplier": 8,
         "range": 5,
         "targeting": {
           "shape": "box",
@@ -338,6 +357,11 @@
           "conditions": {
             "mode": "all",
             "items": [
+              {
+                "type": "hp_ratio",
+                "op": "<=",
+                "value": 0.75
+              },
               {
                 "type": "has_buff",
                 "buffId": "buff.huanling_candan_faxiang"
@@ -356,17 +380,8 @@
               "op": "mul",
               "args": [
                 {
-                  "op": "add",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 0.75
-                    },
-                    {
-                      "var": "caster.maxQi",
-                      "scale": 0.045
-                    }
-                  ]
+                  "var": "caster.stat.spellAtk",
+                  "scale": 10.2
                 },
                 {
                   "op": "add",
@@ -378,11 +393,11 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.002
+                      "scale": 0.004
                     },
                     {
                       "var": "caster.stat.resolvePower",
-                      "scale": 0.002
+                      "scale": 0.004
                     }
                   ]
                 }
@@ -394,18 +409,40 @@
             "target": "target",
             "buffId": "buff.huanling_rongmai_yin",
             "name": "熔脉阴痕",
-            "desc": "被熔宫残脉烙开经络，断魂灵钉与地府沉印会顺着伤口追入。",
+            "desc": "被熔宫残脉烙开经络，阴痕会持续拖垮攻势与护体。",
             "shortMark": "熔",
             "category": "debuff",
             "visibility": "public",
-            "duration": 6,
-            "maxStacks": 3,
+            "duration": 60,
+            "stacks": 1,
+            "maxStacks": 100,
+            "stats": {
+              "physAtk": -10,
+              "spellAtk": -10,
+              "physDef": -10,
+              "spellDef": -10
+            },
+            "statMode": "percent",
             "color": "#ff8a54"
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "terrain_molten_pool_burn",
+            "name": "熔池灼烧",
+            "desc": "熔宫崩开时，赤池灼火会直接烙进经脉。每层灼烧每息造成 1% 最大气血的火系伤害，持续 10 息，最多 20 层。",
+            "shortMark": "灼",
+            "category": "debuff",
+            "visibility": "public",
+            "duration": 10,
+            "stacks": 10,
+            "maxStacks": 20,
+            "color": "#ff8e54"
           },
           {
             "type": "terrain",
             "terrainType": "molten_pool",
-            "duration": 8,
+            "duration": 30,
             "allowedOriginalTypes": [
               "floor",
               "stone"
@@ -432,6 +469,11 @@
             "mode": "all",
             "items": [
               {
+                "type": "hp_ratio",
+                "op": "<=",
+                "value": 0.5
+              },
+              {
                 "type": "has_buff",
                 "buffId": "buff.huanling_candan_faxiang"
               }
@@ -449,17 +491,8 @@
               "op": "mul",
               "args": [
                 {
-                  "op": "add",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 7
-                    },
-                    {
-                      "var": "caster.maxHp",
-                      "scale": 0.2
-                    }
-                  ]
+                  "var": "caster.stat.spellAtk",
+                  "scale": 10.8
                 },
                 {
                   "op": "add",
@@ -467,19 +500,19 @@
                     1,
                     {
                       "var": "techLevel",
-                      "scale": 0.2
+                      "scale": 0.05
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.007
+                      "scale": 0.003
                     },
                     {
                       "var": "caster.stat.resolvePower",
-                      "scale": 0.007
+                      "scale": 0.003
                     },
                     {
                       "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                      "scale": 0.008
+                      "scale": 0.025
                     }
                   ]
                 }
@@ -491,12 +524,20 @@
             "target": "target",
             "buffId": "buff.huanling_rongmai_yin",
             "name": "熔脉阴痕",
-            "desc": "踩错残盘步位后，阴脉裂痕会沿着经络继续扩开。",
+            "desc": "踩错残盘步位后，阴痕会持续拖垮攻势与护体。",
             "shortMark": "熔",
             "category": "debuff",
             "visibility": "public",
-            "duration": 6,
-            "maxStacks": 3,
+            "duration": 60,
+            "stacks": 1,
+            "maxStacks": 100,
+            "stats": {
+              "physAtk": -10,
+              "spellAtk": -10,
+              "physDef": -10,
+              "spellDef": -10
+            },
+            "statMode": "percent",
             "color": "#ff8a54"
           }
         ],
@@ -520,6 +561,11 @@
             "mode": "all",
             "items": [
               {
+                "type": "hp_ratio",
+                "op": "<=",
+                "value": 0.25
+              },
+              {
                 "type": "has_buff",
                 "buffId": "buff.huanling_candan_faxiang"
               }
@@ -537,17 +583,8 @@
               "op": "mul",
               "args": [
                 {
-                  "op": "add",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 7.7
-                    },
-                    {
-                      "var": "caster.maxHp",
-                      "scale": 0.21
-                    }
-                  ]
+                  "var": "caster.stat.spellAtk",
+                  "scale": 11
                 },
                 {
                   "op": "add",
@@ -555,23 +592,23 @@
                     1,
                     {
                       "var": "techLevel",
-                      "scale": 0.15
+                      "scale": 0.05
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.006
+                      "scale": 0.003
                     },
                     {
                       "var": "caster.stat.resolvePower",
-                      "scale": 0.006
+                      "scale": 0.003
                     },
                     {
                       "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                      "scale": 0.008
+                      "scale": 0.02
                     },
                     {
                       "var": "target.buff.terrain_molten_pool_burn.stacks",
-                      "scale": 0.006
+                      "scale": 0.015
                     }
                   ]
                 }
@@ -583,16 +620,16 @@
             "target": "target",
             "buffId": "buff.huanling_canmai_suobu",
             "name": "残脉锁步",
-            "desc": "内环绞到腿脚，短时间内很难再完整踏出步法。",
+            "desc": "内环绞到腿脚，整套身法几乎被当场压废。",
             "shortMark": "锁",
             "category": "debuff",
             "visibility": "public",
-            "duration": 2,
+            "duration": 20,
             "maxStacks": 1,
             "color": "#ff954f",
             "stats": {
-              "moveSpeed": -35,
-              "dodge": -20
+              "moveSpeed": -200,
+              "dodge": -200
             },
             "statMode": "percent"
           }
@@ -617,6 +654,11 @@
             "mode": "all",
             "items": [
               {
+                "type": "hp_ratio",
+                "op": "<=",
+                "value": 0.25
+              },
+              {
                 "type": "has_buff",
                 "buffId": "buff.huanling_candan_faxiang"
               }
@@ -634,21 +676,8 @@
               "op": "mul",
               "args": [
                 {
-                  "op": "add",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 5.8
-                    },
-                    {
-                      "var": "caster.maxHp",
-                      "scale": 0.18
-                    },
-                    {
-                      "var": "caster.maxQi",
-                      "scale": 0.195
-                    }
-                  ]
+                  "var": "caster.stat.spellAtk",
+                  "scale": 11.5
                 },
                 {
                   "op": "add",
@@ -656,23 +685,23 @@
                     1,
                     {
                       "var": "techLevel",
-                      "scale": 0.2
+                      "scale": 0.05
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.006
+                      "scale": 0.003
                     },
                     {
                       "var": "caster.stat.resolvePower",
-                      "scale": 0.006
+                      "scale": 0.003
                     },
                     {
                       "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                      "scale": 0.01
+                      "scale": 0.03
                     },
                     {
                       "var": "target.buff.terrain_molten_pool_burn.stacks",
-                      "scale": 0.008
+                      "scale": 0.025
                     }
                   ]
                 }
@@ -684,12 +713,20 @@
             "target": "target",
             "buffId": "buff.huanling_rongmai_yin",
             "name": "熔脉阴痕",
-            "desc": "被外环整片压过之后，体内裂脉会被进一步扩大。",
+            "desc": "被外环整片压过之后，阴痕会持续拖垮攻势与护体。",
             "shortMark": "熔",
             "category": "debuff",
             "visibility": "public",
-            "duration": 6,
-            "maxStacks": 3,
+            "duration": 60,
+            "stacks": 1,
+            "maxStacks": 100,
+            "stats": {
+              "physAtk": -10,
+              "spellAtk": -10,
+              "physDef": -10,
+              "spellDef": -10
+            },
+            "statMode": "percent",
             "color": "#ff8a54"
           }
         ],
@@ -699,8 +736,8 @@
         "id": "skill.huanling_difu_chenyin",
         "name": "地府沉印",
         "desc": "借洞府残阵把熔开的地脉整片往下按，阴痕越多、灼得越深，塌下去的那一刻就越重。",
-        "cooldown": 72,
-        "costMultiplier": 7,
+        "cooldown": 80,
+        "costMultiplier": 8,
         "range": 5,
         "targeting": {
           "shape": "box",
@@ -712,6 +749,11 @@
           "conditions": {
             "mode": "all",
             "items": [
+              {
+                "type": "hp_ratio",
+                "op": "<=",
+                "value": 0.25
+              },
               {
                 "type": "has_buff",
                 "buffId": "buff.huanling_candan_faxiang"
@@ -730,17 +772,8 @@
               "op": "mul",
               "args": [
                 {
-                  "op": "add",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 1
-                    },
-                    {
-                      "var": "caster.maxHp",
-                      "scale": 0.04
-                    }
-                  ]
+                  "var": "caster.stat.spellAtk",
+                  "scale": 12
                 },
                 {
                   "op": "add",
@@ -752,19 +785,19 @@
                     },
                     {
                       "var": "caster.stat.hit",
-                      "scale": 0.002
+                      "scale": 0.003
                     },
                     {
                       "var": "caster.stat.resolvePower",
-                      "scale": 0.002
+                      "scale": 0.003
                     },
                     {
                       "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                      "scale": 0.01
+                      "scale": 0.03
                     },
                     {
                       "var": "target.buff.terrain_molten_pool_burn.stacks",
-                      "scale": 0.009
+                      "scale": 0.03
                     }
                   ]
                 }
@@ -773,6 +806,42 @@
           }
         ],
         "unlockLevel": 8
+      },
+      {
+        "id": "skill.huanling_canpo_zhang",
+        "name": "残魄掌",
+        "desc": "随手把残丹余魄拍出一掌，当作最基础的索命手段。",
+        "cooldown": 0,
+        "costMultiplier": 0,
+        "range": 5,
+        "targeting": {
+          "shape": "single",
+          "maxTargets": 1
+        },
+        "monsterCast": {
+          "windupTicks": 1,
+          "warningColor": "#dca06a"
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "formula": {
+              "op": "add",
+              "args": [
+                {
+                  "var": "caster.stat.physAtk",
+                  "scale": 5
+                },
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 5
+                }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 1
       }
     ]
   }

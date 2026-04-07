@@ -36,6 +36,7 @@ import { TutorialPanel } from './ui/tutorial-panel';
 import { LeaderboardModal } from './ui/leaderboard-modal';
 import { getMonsterPresentation } from './monster-presentation';
 import { NpcShopModal } from './ui/npc-shop-modal';
+import { AlchemyModal } from './ui/alchemy-modal';
 import { getHeavenGateHudAction, openHeavenGateModal, refreshHeavenGateModal } from './ui/heaven-gate-modal';
 import { initializeUiStyleConfig } from './ui/ui-style-config';
 import { createClientPanelSystem } from './ui/panel-system/bootstrap';
@@ -600,6 +601,7 @@ const questPanel = new QuestPanel();
 const marketPanel = new MarketPanel();
 const actionPanel = new ActionPanel();
 const npcShopModal = new NpcShopModal();
+const alchemyModal = new AlchemyModal();
 const lootPanel = new LootPanel();
 const worldPanel = new WorldPanel();
 const leaderboardModal = new LeaderboardModal();
@@ -995,7 +997,14 @@ function hasAffectableTargetInArea(
   return affectedCells.some((cell) => {
     const hasMonster = latestEntities.some((entity) => entity.kind === 'monster' && entity.wx === cell.x && entity.wy === cell.y);
     const hasPlayer = latestEntities.some((entity) => isPlayerLikeEntityKind(entity.kind) && entity.wx === cell.x && entity.wy === cell.y);
-    if (hasMonster || hasPlayer) {
+    const hasAttackableContainer = latestEntities.some((entity) => (
+      entity.kind === 'container'
+      && entity.wx === cell.x
+      && entity.wy === cell.y
+      && (entity.hp ?? 0) > 0
+      && (entity.maxHp ?? 0) > 0
+    ));
+    if (hasMonster || hasPlayer || hasAttackableContainer) {
       return true;
     }
     const tile = getVisibleTileAt(cell.x, cell.y);
@@ -1444,6 +1453,7 @@ function buildAttrStateFromPlayer(player: PlayerState): S2C_AttrUpdate {
     realmProgress: player.realm?.progress,
     realmProgressToNext: player.realm?.progressToNext,
     realmBreakthroughReady: player.realm?.breakthroughReady ?? player.breakthroughReady,
+    alchemySkill: player.alchemySkill ? cloneJson(player.alchemySkill) : undefined,
   };
 }
 
@@ -1493,6 +1503,9 @@ function mergeAttrUpdatePatch(previous: S2C_AttrUpdate | null, patch: S2C_AttrUp
       ?? myPlayer?.realm?.breakthroughReady
       ?? myPlayer?.breakthroughReady
       ?? undefined,
+    alchemySkill: patch.alchemySkill
+      ? cloneJson(patch.alchemySkill)
+      : (previous?.alchemySkill ? cloneJson(previous.alchemySkill) : (myPlayer?.alchemySkill ? cloneJson(myPlayer.alchemySkill) : undefined)),
   };
 }
 
@@ -1575,6 +1588,8 @@ function hydrateSyncedItemStack(item: SyncedItemStack, previous?: Inventory['ite
         : template?.tags
           ? [...template.tags]
           : undefined,
+    alchemySuccessRate: item.alchemySuccessRate ?? previousSameItem?.alchemySuccessRate ?? template?.alchemySuccessRate,
+    alchemySpeedRate: item.alchemySpeedRate ?? previousSameItem?.alchemySpeedRate ?? template?.alchemySpeedRate,
     mapUnlockId: item.mapUnlockId ?? previousSameItem?.mapUnlockId,
     tileAuraGainAmount: item.tileAuraGainAmount ?? previousSameItem?.tileAuraGainAmount,
     allowBatchUse: item.allowBatchUse ?? previousSameItem?.allowBatchUse,
@@ -1645,11 +1660,14 @@ function hydrateLootWindowState(window: S2C_LootWindowUpdate['window']): LootWin
     sources: window.sources.map((source) => ({
       sourceId: source.sourceId,
       kind: source.kind,
+      variant: source.variant,
       title: source.title,
       desc: source.desc,
       grade: source.grade,
       searchable: source.searchable,
       search: source.search ? cloneJson(source.search) : undefined,
+      herb: source.herb ? cloneJson(source.herb) : undefined,
+      destroyed: source.destroyed === true,
       emptyText: source.emptyText,
       items: source.items.map((entry) => ({
         itemKey: entry.itemKey,
@@ -2232,6 +2250,13 @@ npcShopModal.setCallbacks({
   onRequestShop: (npcId) => socket.sendRequestNpcShop(npcId),
   onBuyItem: (npcId, itemId, quantity) => socket.sendBuyNpcShopItem(npcId, itemId, quantity),
 });
+alchemyModal.setCallbacks({
+  onRequestPanel: (knownCatalogVersion) => socket.sendRequestAlchemyPanel(knownCatalogVersion),
+  onSavePreset: (payload) => socket.sendSaveAlchemyPreset(payload),
+  onDeletePreset: (presetId) => socket.sendDeleteAlchemyPreset(presetId),
+  onStartAlchemy: (payload) => socket.sendStartAlchemy(payload),
+  onCancelAlchemy: () => socket.sendCancelAlchemy(),
+});
 actionPanel.setCallbacks(
   (actionId, requiresTarget, targetMode, range, actionName) => {
     if (actionId === 'client:take') {
@@ -2250,6 +2275,12 @@ actionPanel.setCallbacks(
       npcShopModal.open(actionId.slice('npc_shop:'.length));
       return;
     }
+    if (actionId === 'alchemy:open') {
+      cancelTargeting();
+      hideObserveModal();
+      alchemyModal.open();
+      return;
+    }
     if (requiresTarget) {
       beginTargeting(actionId, actionName ?? actionId, targetMode, actionId === 'client:observe' ? getInfoRadius() : (range ?? 1));
       return;
@@ -2260,6 +2291,9 @@ actionPanel.setCallbacks(
   },
   (skills) => {
     socket.sendUpdateAutoBattleSkills(skills);
+  },
+  (pills) => {
+    socket.sendUpdateAutoUsePills(pills);
   },
   (mode) => {
     socket.sendUpdateAutoBattleTargetingMode(mode);
@@ -2398,6 +2432,7 @@ socket.onAttrUpdate((data) => {
       myPlayer.viewRange = Math.max(1, Math.round(latestAttrUpdate.numericStats.viewRange || myPlayer.viewRange));
     }
     myPlayer.breakthroughReady = latestAttrUpdate.realmBreakthroughReady ?? myPlayer.breakthroughReady;
+    myPlayer.alchemySkill = latestAttrUpdate.alchemySkill ?? myPlayer.alchemySkill;
     if (myPlayer.realm) {
       myPlayer.realm.progress = latestAttrUpdate.realmProgress ?? myPlayer.realm.progress;
       myPlayer.realm.progressToNext = latestAttrUpdate.realmProgressToNext ?? myPlayer.realm.progressToNext;
@@ -2407,6 +2442,7 @@ socket.onAttrUpdate((data) => {
     techniquePanel.syncDynamic(myPlayer.techniques, myPlayer.cultivatingTechId, myPlayer);
     actionPanel.syncDynamic(myPlayer.actions, myPlayer.autoBattle, myPlayer.autoRetaliate, myPlayer);
     bodyTrainingPanel.syncFoundation(myPlayer.foundation);
+    alchemyModal.syncAlchemySkill(myPlayer.alchemySkill);
   }
   attrPanel.update(latestAttrUpdate);
   refreshHeavenGateModal(myPlayer, {
@@ -2426,11 +2462,13 @@ socket.onInventoryUpdate((data) => {
   const mergedInventory = mergeInventoryUpdate(myPlayer?.inventory, data);
   if (myPlayer) {
     myPlayer.inventory = mergedInventory;
+    actionPanel.syncDynamic(myPlayer.actions, myPlayer.autoBattle, myPlayer.autoRetaliate, myPlayer);
   }
   inventoryPanel.update(mergedInventory);
   questPanel.syncInventory(mergedInventory);
   marketPanel.syncInventory(mergedInventory);
   npcShopModal.syncInventory(mergedInventory);
+  alchemyModal.syncInventory(mergedInventory);
 });
 socket.onEquipmentUpdate((data) => {
   const mergedEquipment = mergeEquipmentUpdate(myPlayer?.equipment, data);
@@ -2439,6 +2477,7 @@ socket.onEquipmentUpdate((data) => {
     inventoryPanel.syncPlayerContext(myPlayer);
   }
   equipmentPanel.update(mergedEquipment);
+  alchemyModal.syncEquipment(mergedEquipment);
 });
 socket.onTechniqueUpdate((data) => {
   const mergedTechniques = resolvePreviewTechniques(
@@ -2483,6 +2522,7 @@ socket.onActionsUpdate((data) => {
   const previousAutoSwitchCultivation = myPlayer?.autoSwitchCultivation ?? false;
   const previousCultivationActive = myPlayer?.cultivationActive ?? false;
   const nextAutoBattle = data.autoBattle ?? myPlayer?.autoBattle ?? false;
+  const nextAutoUsePills = data.autoUsePills ?? myPlayer?.autoUsePills ?? [];
   const nextAutoBattleTargetingMode = data.autoBattleTargetingMode ?? myPlayer?.autoBattleTargetingMode ?? 'auto';
   const nextAutoRetaliate = data.autoRetaliate ?? myPlayer?.autoRetaliate ?? true;
   const nextAutoBattleStationary = data.autoBattleStationary ?? myPlayer?.autoBattleStationary ?? false;
@@ -2511,6 +2551,7 @@ socket.onActionsUpdate((data) => {
         skillEnabled: action.skillEnabled !== false,
       }));
     myPlayer.autoBattle = data.autoBattle ?? myPlayer.autoBattle;
+    myPlayer.autoUsePills = nextAutoUsePills;
     myPlayer.autoBattleTargetingMode = nextAutoBattleTargetingMode;
     myPlayer.autoRetaliate = data.autoRetaliate ?? (myPlayer.autoRetaliate !== false);
     myPlayer.autoBattleStationary = nextAutoBattleStationary;
@@ -3261,6 +3302,7 @@ function resetGameState() {
   marketPanel.clear();
   actionPanel.clear();
   npcShopModal.clear();
+  alchemyModal.clear();
   lootPanel.clear();
   worldPanel.clear();
   mailPanel.clear();
@@ -3551,6 +3593,7 @@ socket.onInit((data: S2C_Init) => {
   bodyTrainingPanel.initFromPlayer(myPlayer);
   questPanel.initFromPlayer(myPlayer);
   npcShopModal.initFromPlayer(myPlayer);
+  alchemyModal.initFromPlayer(myPlayer);
   actionPanel.initFromPlayer(myPlayer);
   refreshUiChrome();
   mailPanel.setPlayerId(myPlayer.id);
@@ -3620,6 +3663,9 @@ socket.onMarketTradeHistory((data) => {
 });
 socket.onNpcShop((data) => {
   npcShopModal.updateShop(hydrateNpcShopResponse(data));
+});
+socket.onAlchemyPanel((data) => {
+  alchemyModal.updatePanel(data);
 });
 
 // Tick 更新

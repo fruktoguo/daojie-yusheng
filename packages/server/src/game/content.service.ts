@@ -121,6 +121,8 @@ export interface EditorItemCatalogEntry {
   healPercent?: number;
   qiPercent?: number;
   consumeBuffs?: ConsumableBuffDef[];
+  alchemySuccessRate?: number;
+  alchemySpeedRate?: number;
   respawnBindMapId?: string;
   mapUnlockId?: string;
   tileAuraGainAmount?: number;
@@ -427,17 +429,43 @@ const ITEM_TAG_OVERRIDES: Partial<Record<string, string[]>> = {
   'book.iron_bone_art': ['炼体'],
 };
 
+const CULTIVATION_PILL_ITEM_IDS = new Set([
+  'pill.bitter_cultivation_elixir',
+  'pill.guiding_powder',
+  'pill.fivephase_harmony_pellet',
+  'pill.shatter_spirit',
+  'pill.wangsheng',
+]);
+
+function isMedicineItem(item: ItemTemplate): boolean {
+  return item.type === 'consumable'
+    && (
+      typeof item.healAmount === 'number'
+      || typeof item.healPercent === 'number'
+      || typeof item.qiPercent === 'number'
+      || (item.consumeBuffs?.length ?? 0) > 0
+      || /丹|散|膏|药|丸|液/.test(item.name)
+    );
+}
+
+function isCultivationPill(item: ItemTemplate): boolean {
+  if (!isMedicineItem(item)) {
+    return false;
+  }
+  if (CULTIVATION_PILL_ITEM_IDS.has(item.itemId)) {
+    return true;
+  }
+  return (item.consumeBuffs ?? []).some((buff) => {
+    const valueStats = buff.valueStats;
+    return typeof valueStats?.realmExpPerTick === 'number'
+      || typeof valueStats?.techniqueExpPerTick === 'number';
+  });
+}
+
 const ITEM_NAME_TAG_RULES: Array<{ tag: string; test: (item: ItemTemplate) => boolean }> = [
   {
     tag: '药品',
-    test: (item) => item.type === 'consumable'
-      && (
-        typeof item.healAmount === 'number'
-        || typeof item.healPercent === 'number'
-        || typeof item.qiPercent === 'number'
-        || (item.consumeBuffs?.length ?? 0) > 0
-        || /丹|散|膏|药/.test(item.name)
-      ),
+    test: (item) => isMedicineItem(item),
   },
   {
     tag: '恢复',
@@ -451,6 +479,8 @@ const ITEM_NAME_TAG_RULES: Array<{ tag: string; test: (item: ItemTemplate) => bo
   { tag: '丹药', test: (item) => /丹/.test(item.name) },
   { tag: '药散', test: (item) => /散/.test(item.name) },
   { tag: '药膏', test: (item) => /膏/.test(item.name) },
+  { tag: '修为丹药', test: (item) => isCultivationPill(item) },
+  { tag: '战斗丹药', test: (item) => isMedicineItem(item) && !isCultivationPill(item) },
   { tag: '地图', test: (item) => typeof item.mapUnlockId === 'string' || item.itemId.startsWith('map.') },
   { tag: '功能物品', test: (item) => typeof item.mapUnlockId === 'string' },
   { tag: '灵石', test: (item) => item.itemId === 'spirit_stone' || item.name.includes('灵石') },
@@ -692,8 +722,15 @@ export class ContentService implements OnModuleInit {
       equipSlot: item.equipSlot,
       equipAttrs: item.equipAttrs,
       equipStats: item.equipStats,
+      equipValueStats: item.equipValueStats,
       effects: item.effects,
+      healAmount: item.healAmount,
+      healPercent: item.healPercent,
+      qiPercent: item.qiPercent,
+      consumeBuffs: item.consumeBuffs,
       tags: item.tags,
+      alchemySuccessRate: item.alchemySuccessRate,
+      alchemySpeedRate: item.alchemySpeedRate,
       mapUnlockId: item.mapUnlockId,
       tileAuraGainAmount: item.tileAuraGainAmount,
       allowBatchUse: item.allowBatchUse,
@@ -1220,6 +1257,12 @@ export class ContentService implements OnModuleInit {
           ? Math.max(0.01, Math.min(1, Number(raw.qiPercent)))
           : undefined,
         consumeBuffs: this.normalizeConsumableBuffs(raw.consumeBuffs),
+        alchemySuccessRate: Number.isFinite(raw.alchemySuccessRate)
+          ? Math.max(-0.95, Number(raw.alchemySuccessRate))
+          : undefined,
+        alchemySpeedRate: Number.isFinite(raw.alchemySpeedRate)
+          ? Math.max(-0.95, Number(raw.alchemySpeedRate))
+          : undefined,
         respawnBindMapId: typeof raw.respawnBindMapId === 'string' && raw.respawnBindMapId.trim().length > 0
           ? raw.respawnBindMapId.trim()
           : undefined,
@@ -1357,6 +1400,8 @@ export class ContentService implements OnModuleInit {
         healPercent: item.healPercent,
         qiPercent: item.qiPercent,
         consumeBuffs: item.consumeBuffs ? JSON.parse(JSON.stringify(item.consumeBuffs)) as ConsumableBuffDef[] : undefined,
+        alchemySuccessRate: item.alchemySuccessRate,
+        alchemySpeedRate: item.alchemySpeedRate,
         mapUnlockId: item.mapUnlockId,
         tileAuraGainAmount: item.tileAuraGainAmount,
         allowBatchUse: item.allowBatchUse,
@@ -1654,6 +1699,7 @@ export class ContentService implements OnModuleInit {
         : undefined,
       color: typeof input.color === 'string' ? input.color : undefined,
       duration: Math.max(1, Math.floor(Number(input.duration))),
+      stacks: Number.isFinite(input.stacks) ? Math.max(1, Math.floor(Number(input.stacks))) : undefined,
       maxStacks: Number.isFinite(input.maxStacks) ? Math.max(1, Math.floor(Number(input.maxStacks))) : undefined,
       attrs: this.normalizeItemAttrs(input.attrs),
       attrMode: this.normalizeBuffModifierMode(input.attrMode),
@@ -1978,6 +2024,8 @@ export class ContentService implements OnModuleInit {
           : undefined,
         tags: item.tags ? [...item.tags] : undefined,
         effects: item.effects ? JSON.parse(JSON.stringify(item.effects)) as EquipmentEffectDef[] : undefined,
+        alchemySuccessRate: item.alchemySuccessRate,
+        alchemySpeedRate: item.alchemySpeedRate,
       }))
       .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'));
   }

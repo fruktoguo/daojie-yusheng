@@ -534,7 +534,17 @@ export interface PlayerAlchemyJob {
   recipeId: string;
   outputItemId: string;
   outputCount: number;
+  quantity: number;
+  completedCount: number;
+  successCount: number;
+  failureCount: number;
   ingredients: AlchemyIngredientSelection[];
+  phase: 'preparing' | 'brewing' | 'paused';
+  preparationTicks: number;
+  batchBrewTicks: number;
+  currentBatchRemainingTicks: number;
+  pausedTicks: number;
+  spiritStoneCost: number;
   totalTicks: number;
   remainingTicks: number;
   successRate: number;

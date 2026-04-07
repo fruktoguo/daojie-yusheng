@@ -650,7 +650,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       monsterScale: this.getTemporaryBuffPresentationScale(target.temporaryBuffs),
       hp: target.hp,
       maxHp: target.maxHp,
-      buffs: this.getMapRenderableBuffs(target.temporaryBuffs),
+      buffs: this.getPlayerMapRenderableBuffs(target),
     };
   }
 
@@ -2221,6 +2221,30 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         infiniteDuration: buff.infiniteDuration,
       }));
     return visible && visible.length > 0 ? visible : undefined;
+  }
+
+  private getPlayerRenderableBuffs(player: PlayerState): VisibleBuffState[] | undefined {
+    const visible = this.getRenderableBuffs(player.temporaryBuffs) ?? [];
+    const alchemyBuff = this.alchemyService.buildVisibleAlchemyBuff(player);
+    if (alchemyBuff) {
+      visible.push(alchemyBuff);
+    }
+    return visible.length > 0 ? visible : undefined;
+  }
+
+  private getPlayerMapRenderableBuffs(player: PlayerState): VisibleBuffState[] | undefined {
+    const visible = this.getMapRenderableBuffs(player.temporaryBuffs) ?? [];
+    const alchemyBuff = this.alchemyService.buildVisibleAlchemyBuff(player);
+    if (alchemyBuff) {
+      visible.push({
+        ...alchemyBuff,
+        remainingTicks: 0,
+        duration: 0,
+        stacks: 1,
+        maxStacks: 1,
+      });
+    }
+    return visible.length > 0 ? visible : undefined;
   }
 
   getObservedEntitiesAt(viewer: PlayerState, x: number, y: number): ObservedTileEntityDetail[] {
@@ -5101,7 +5125,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         this.buildObservationLineSpecs(snapshot, true),
         viewer.id === target.id,
       ),
-      buffs: this.getRenderableBuffs(target.temporaryBuffs),
+      buffs: this.getPlayerRenderableBuffs(target),
     };
   }
 

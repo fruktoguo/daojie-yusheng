@@ -1,0 +1,25 @@
+{
+  "realm": "凡人期",
+  "grade": "地阶",
+  "lv": 0,
+  "skill": {
+    "id": "skill.huanling_canpo_zhang",
+    "name": "残魄掌",
+    "desc": "随手把残丹余魄拍出一掌，当作最基础的索命手段。",
+    "unlockLevel": 1,
+    "damageKind": "physical",
+    "range": 5,
+    "targeting": {
+      "shape": "single",
+      "maxTargets": 1
+    },
+    "baseScoreTarget": 10,
+    "percentScoreTarget": 0,
+    "baseWeights": [
+      { "var": "caster.stat.physAtk", "weight": 1 },
+      { "var": "caster.stat.spellAtk", "weight": 1 }
+    ],
+    "percentWeights": [],
+    "buffEffects": []
+  }
+}

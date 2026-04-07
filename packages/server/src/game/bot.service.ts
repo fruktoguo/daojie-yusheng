@@ -72,6 +72,7 @@ export class BotService {
         unlockedMinimapIds: [],
         autoBattle: false,
         autoBattleSkills: [],
+        autoUsePills: [],
         autoBattleTargetingMode: 'auto',
         autoRetaliate: false,
         allowAoePlayerHit: false,

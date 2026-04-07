@@ -16,7 +16,11 @@ import {
   TemporaryBuffState,
   ActionDef,
   AutoBattleSkillConfig,
+  normalizeAutoUsePillConfigs,
   normalizeAutoBattleTargetingMode,
+  normalizeAlchemySkillState,
+  normalizePlayerAlchemyJob,
+  normalizePlayerAlchemyPresets,
   QuestState,
   DEFAULT_BASE_ATTRS,
   DEFAULT_BONE_AGE_YEARS,
@@ -63,12 +67,12 @@ import {
 } from './player-storage';
 
 /** 即时执行的操作类型（不入队，gateway 收到后直接执行） */
-export type ImmediateCommandType = 'equip' | 'unequip' | 'sortInventory' | 'useItem' | 'dropItem' | 'destroyItem' | 'cultivate' | 'updateAutoBattleSkills' | 'updateAutoBattleTargetingMode' | 'updateTechniqueSkillAvailability';
+export type ImmediateCommandType = 'equip' | 'unequip' | 'sortInventory' | 'useItem' | 'dropItem' | 'destroyItem' | 'cultivate' | 'updateAutoBattleSkills' | 'updateAutoUsePills' | 'updateAutoBattleTargetingMode' | 'updateTechniqueSkillAvailability';
 
 /** 玩家指令，由客户端消息转化后入队，在 tick 中统一执行 */
 export interface PlayerCommand {
   playerId: string;
-  type: 'move' | 'moveTo' | 'navigateQuest' | 'action' | 'takeLoot' | 'debugResetSpawn' | 'buyNpcShopItem' | 'mailRead' | 'mailClaim' | 'mailDelete' | 'redeemCodes';
+  type: 'move' | 'moveTo' | 'navigateQuest' | 'action' | 'takeLoot' | 'debugResetSpawn' | 'buyNpcShopItem' | 'saveAlchemyPreset' | 'deleteAlchemyPreset' | 'startAlchemy' | 'cancelAlchemy' | 'mailRead' | 'mailClaim' | 'mailDelete' | 'redeemCodes';
   data: unknown;
   timestamp: number;
 }
@@ -240,8 +244,12 @@ export class PlayerService implements OnModuleInit {
       heavenGate: this.toNullableJsonbValue(state.heavenGate),
       spiritualRoots: this.toNullableJsonbValue(state.spiritualRoots),
       unlockedMinimapIds: state.unlockedMinimapIds as any,
+      alchemySkill: state.alchemySkill as any,
+      alchemyPresets: (state.alchemyPresets ?? []) as any,
+      alchemyJob: this.toNullableJsonbValue(state.alchemyJob),
       autoBattle: state.autoBattle,
       autoBattleSkills: state.autoBattleSkills as any,
+      autoUsePills: (state.autoUsePills ?? []) as any,
       autoBattleTargetingMode: state.autoBattleTargetingMode,
       combatTargetId: state.combatTargetId ?? null,
       combatTargetLocked: state.combatTargetLocked === true,
@@ -384,6 +392,7 @@ export class PlayerService implements OnModuleInit {
     if (state.autoBattle === undefined) state.autoBattle = false;
     if (state.combatTargetLocked === undefined) state.combatTargetLocked = false;
     if (!state.autoBattleSkills) state.autoBattleSkills = [];
+    state.autoUsePills = normalizeAutoUsePillConfigs(state.autoUsePills);
     state.autoBattleTargetingMode = normalizeAutoBattleTargetingMode(state.autoBattleTargetingMode);
     if (state.autoRetaliate === undefined) state.autoRetaliate = true;
     if (state.autoBattleStationary === undefined) state.autoBattleStationary = false;
@@ -912,7 +921,7 @@ export class PlayerService implements OnModuleInit {
       WHERE rel.relname = 'users'
         AND con.contype = 'u'
       GROUP BY con.conname
-      HAVING array_agg(attr.attname ORDER BY key.ordinality) = ARRAY['displayName']
+      HAVING array_agg(attr.attname::text ORDER BY key.ordinality) = ARRAY['displayName']::text[]
     `);
     for (const row of rows as Array<{ conname?: unknown }>) {
       const constraintName = typeof row?.conname === 'string' ? row.conname.trim() : '';
@@ -1237,8 +1246,15 @@ export class PlayerService implements OnModuleInit {
       heavenGate: this.techniqueService.normalizeHeavenGateState(entity.heavenGate),
       spiritualRoots: this.techniqueService.normalizeHeavenGateRoots(entity.spiritualRoots),
       unlockedMinimapIds: normalizeUnlockedMinimapIds(entity.unlockedMinimapIds),
+      alchemySkill: normalizeAlchemySkillState(
+        entity.alchemySkill,
+        this.contentService.getRealmLevelEntry(1)?.expToNext ?? 60,
+      ),
+      alchemyPresets: normalizePlayerAlchemyPresets(entity.alchemyPresets),
+      alchemyJob: normalizePlayerAlchemyJob(entity.alchemyJob),
       autoBattle: entity.autoBattle ?? false,
       autoBattleSkills: (entity.autoBattleSkills ?? []) as AutoBattleSkillConfig[],
+      autoUsePills: normalizeAutoUsePillConfigs(entity.autoUsePills),
       autoBattleTargetingMode: normalizeAutoBattleTargetingMode(entity.autoBattleTargetingMode),
       combatTargetId: entity.combatTargetId ?? undefined,
       combatTargetLocked: entity.combatTargetLocked === true,

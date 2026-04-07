@@ -1,0 +1,158 @@
+{
+  "meta": {
+    "realm": "凡人期",
+    "grade": "地阶",
+    "lv": 0
+  },
+  "reference": {
+    "base": {
+      "lower": 3.8,
+      "upper": 4.2,
+      "target": 4
+    },
+    "percent": {
+      "lower": 3,
+      "upper": 3,
+      "target": 3
+    },
+    "range": {
+      "lower": 3,
+      "upper": 4,
+      "target": 3.5
+    },
+    "area": {
+      "lower": 3,
+      "upper": 4,
+      "target": 3.5
+    }
+  },
+  "weightedBudget": 20,
+  "scores": {
+    "baseScore": 11,
+    "percentScore": 1.3,
+    "rangeScore": 2,
+    "areaScore": 0.7,
+    "totalScore": 274.89
+  },
+  "targetingHint": {
+    "shape": "ring",
+    "desiredTargetCount": 8,
+    "suggestedTargeting": {
+      "shape": "ring",
+      "innerRadius": 1,
+      "radius": 2,
+      "maxTargets": 8
+    },
+    "approxTargetCount": 8
+  },
+  "suggested": {
+    "cooldown": 80,
+    "costMultiplier": 8
+  },
+  "resolvedTerms": {
+    "baseTerms": [
+      {
+        "var": "caster.stat.spellAtk",
+        "scale": 11
+      }
+    ],
+    "percentTerms": [
+      {
+        "var": "techLevel",
+        "scale": 0.05
+      },
+      {
+        "var": "caster.stat.hit",
+        "scale": 0.003
+      },
+      {
+        "var": "caster.stat.resolvePower",
+        "scale": 0.003
+      },
+      {
+        "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+        "scale": 0.02
+      },
+      {
+        "var": "target.buff.terrain_molten_pool_burn.stacks",
+        "scale": 0.015
+      }
+    ]
+  },
+  "skill": {
+    "id": "skill.huanling_suogong_neihuan",
+    "name": "锁宫内环",
+    "desc": "先把目标脚边一圈地脉瞬间勒紧，贴得太近的人会被内环直接绞住，必须立刻改步离位。",
+    "cooldown": 80,
+    "costMultiplier": 8,
+    "range": 5,
+    "targeting": {
+      "shape": "ring",
+      "innerRadius": 1,
+      "radius": 2,
+      "maxTargets": 8
+    },
+    "effects": [
+      {
+        "type": "damage",
+        "damageKind": "spell",
+        "element": "earth",
+        "formula": {
+          "op": "mul",
+          "args": [
+            {
+              "var": "caster.stat.spellAtk",
+              "scale": 11
+            },
+            {
+              "op": "add",
+              "args": [
+                1,
+                {
+                  "var": "techLevel",
+                  "scale": 0.05
+                },
+                {
+                  "var": "caster.stat.hit",
+                  "scale": 0.003
+                },
+                {
+                  "var": "caster.stat.resolvePower",
+                  "scale": 0.003
+                },
+                {
+                  "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                  "scale": 0.02
+                },
+                {
+                  "var": "target.buff.terrain_molten_pool_burn.stacks",
+                  "scale": 0.015
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "buff",
+        "target": "target",
+        "buffId": "buff.huanling_canmai_suobu",
+        "name": "残脉锁步",
+        "desc": "内环绞到腿脚，短时间内很难再完整踏出步法。",
+        "shortMark": "锁",
+        "category": "debuff",
+        "visibility": "public",
+        "duration": 2,
+        "stacks": 10,
+        "maxStacks": 100,
+        "color": "#ff954f",
+        "stats": {
+          "moveSpeed": -35,
+          "dodge": -20
+        },
+        "statMode": "percent"
+      }
+    ],
+    "unlockLevel": 6
+  }
+}

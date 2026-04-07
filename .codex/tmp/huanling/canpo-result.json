@@ -1,0 +1,95 @@
+{
+  "meta": {
+    "realm": "凡人期",
+    "grade": "地阶",
+    "lv": 0
+  },
+  "reference": {
+    "base": {
+      "lower": 3.8,
+      "upper": 4.2,
+      "target": 4
+    },
+    "percent": {
+      "lower": 3,
+      "upper": 3,
+      "target": 3
+    },
+    "range": {
+      "lower": 3,
+      "upper": 4,
+      "target": 3.5
+    },
+    "area": {
+      "lower": 3,
+      "upper": 4,
+      "target": 3.5
+    }
+  },
+  "weightedBudget": 20,
+  "scores": {
+    "baseScore": 10,
+    "percentScore": 0,
+    "rangeScore": 2,
+    "areaScore": 0,
+    "totalScore": 30
+  },
+  "targetingHint": {
+    "shape": "single",
+    "desiredTargetCount": 1,
+    "suggestedTargeting": {
+      "shape": "single",
+      "maxTargets": 1
+    },
+    "approxTargetCount": 1
+  },
+  "suggested": {
+    "cooldown": 78,
+    "costMultiplier": 8
+  },
+  "resolvedTerms": {
+    "baseTerms": [
+      {
+        "var": "caster.stat.physAtk",
+        "scale": 5
+      },
+      {
+        "var": "caster.stat.spellAtk",
+        "scale": 5
+      }
+    ],
+    "percentTerms": []
+  },
+  "skill": {
+    "id": "skill.huanling_canpo_zhang",
+    "name": "残魄掌",
+    "desc": "随手把残丹余魄拍出一掌，当作最基础的索命手段。",
+    "cooldown": 78,
+    "costMultiplier": 8,
+    "range": 5,
+    "targeting": {
+      "shape": "single",
+      "maxTargets": 1
+    },
+    "effects": [
+      {
+        "type": "damage",
+        "damageKind": "physical",
+        "formula": {
+          "op": "add",
+          "args": [
+            {
+              "var": "caster.stat.physAtk",
+              "scale": 5
+            },
+            {
+              "var": "caster.stat.spellAtk",
+              "scale": 5
+            }
+          ]
+        }
+      }
+    ],
+    "unlockLevel": 1
+  }
+}

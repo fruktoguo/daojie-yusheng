@@ -32,6 +32,7 @@ import {
   GmUpdateMapTimeReq,
   Inventory,
   normalizeAutoBattleTargetingMode,
+  normalizeAutoUsePillConfigs,
   PlayerState,
   QuestState,
   TechniqueState,
@@ -779,6 +780,7 @@ export class GmService {
       quests: this.normalizeQuests(hydrateQuestSnapshots(entity.quests, this.mapService, this.contentService)),
       autoBattle: entity.autoBattle ?? false,
       autoBattleSkills: this.cloneArray<AutoBattleSkillConfig>(entity.autoBattleSkills),
+      autoUsePills: normalizeAutoUsePillConfigs(entity.autoUsePills),
       autoBattleTargetingMode: normalizeAutoBattleTargetingMode(entity.autoBattleTargetingMode),
       autoRetaliate: entity.autoRetaliate ?? true,
       autoBattleStationary: entity.autoBattleStationary === true,
@@ -854,6 +856,7 @@ export class GmService {
     player.techniques = this.cloneArray<TechniqueState>(snapshot.techniques);
     player.quests = this.cloneArray<QuestState>(snapshot.quests);
     player.autoBattleSkills = this.cloneArray<AutoBattleSkillConfig>(snapshot.autoBattleSkills);
+    player.autoUsePills = normalizeAutoUsePillConfigs(snapshot.autoUsePills ?? player.autoUsePills);
     player.autoBattleTargetingMode = normalizeAutoBattleTargetingMode(snapshot.autoBattleTargetingMode, player.autoBattleTargetingMode);
     player.autoRetaliate = snapshot.autoRetaliate !== false;
     player.autoBattleStationary = snapshot.autoBattleStationary === true;
@@ -969,6 +972,7 @@ export class GmService {
       unlockedMinimapIds: player.unlockedMinimapIds as any,
       autoBattle: player.autoBattle,
       autoBattleSkills: player.autoBattleSkills as any,
+      autoUsePills: (player.autoUsePills ?? []) as any,
       autoBattleTargetingMode: player.autoBattleTargetingMode,
       combatTargetId: player.combatTargetId ?? null,
       combatTargetLocked: player.combatTargetLocked === true,
@@ -1116,6 +1120,7 @@ export class GmService {
         merged.qi = snapshot.qi ?? merged.qi;
         merged.dead = snapshot.dead ?? merged.dead;
         merged.autoBattle = snapshot.autoBattle ?? merged.autoBattle;
+        merged.autoUsePills = normalizeAutoUsePillConfigs(snapshot.autoUsePills ?? merged.autoUsePills);
         merged.autoBattleTargetingMode = snapshot.autoBattleTargetingMode ?? merged.autoBattleTargetingMode;
         merged.autoRetaliate = snapshot.autoRetaliate;
         merged.autoBattleStationary = snapshot.autoBattleStationary;
@@ -1148,6 +1153,7 @@ export class GmService {
       case 'techniques':
         merged.techniques = this.cloneArray<TechniqueState>(snapshot.techniques);
         merged.autoBattleSkills = this.cloneArray<AutoBattleSkillConfig>(snapshot.autoBattleSkills);
+        merged.autoUsePills = normalizeAutoUsePillConfigs(snapshot.autoUsePills ?? merged.autoUsePills);
         merged.cultivatingTechId = snapshot.cultivatingTechId;
         break;
       case 'items':

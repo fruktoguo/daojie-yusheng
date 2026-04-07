@@ -158,6 +158,18 @@ export class PlayerEntity {
   @Column({ type: 'jsonb', default: () => `'[]'` })
   unlockedMinimapIds!: unknown[];
 
+  /** 炼丹技艺等级 */
+  @Column({ type: 'jsonb', default: () => '\'{"level":1,"exp":0,"expToNext":60}\'' })
+  alchemySkill!: unknown;
+
+  /** 玩家保存的简易丹方 */
+  @Column({ type: 'jsonb', default: () => `'[]'` })
+  alchemyPresets!: unknown[];
+
+  /** 当前进行中的炼丹任务 */
+  @Column({ type: 'jsonb', default: () => '\'null\'' })
+  alchemyJob!: unknown | null;
+
   /** 是否开启自动战斗 */
   @Column({ type: 'boolean', default: false })
   autoBattle!: boolean;
@@ -165,6 +177,10 @@ export class PlayerEntity {
   /** 自动战斗使用的技能列表 */
   @Column({ type: 'jsonb', default: () => `'[]'` })
   autoBattleSkills!: unknown[];
+
+  /** 自动使用战斗丹药配置 */
+  @Column({ type: 'jsonb', default: () => `'[]'` })
+  autoUsePills!: unknown[];
 
   /** 自动战斗索敌方案 */
   @Column({ type: 'varchar', default: 'auto' })

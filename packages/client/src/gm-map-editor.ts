@@ -1699,6 +1699,10 @@ export class GmMapEditor {
             ${textField('资源节点 ID', `landmarks.${selectedIndex}.resourceNodeId`, containerLandmark.resourceNodeId)}
             ${textField('显示字', `landmarks.${selectedIndex}.container.char`, container.char)}
             ${textField('颜色', `landmarks.${selectedIndex}.container.color`, container.color)}
+            ${selectField('容器变种', `landmarks.${selectedIndex}.container.variant`, container.variant ?? 'default', [
+              { value: 'default', label: '普通容器' },
+              { value: 'herb', label: '草药采集' },
+            ])}
             ${selectField('搜索阶次', `landmarks.${selectedIndex}.container.grade`, container.grade ?? 'mortal', MONSTER_GRADE_OPTIONS)}
             ${nullableNumberField('刷新 ticks', `landmarks.${selectedIndex}.container.refreshTicks`, container.refreshTicks)}
             ${textareaField('说明', `landmarks.${selectedIndex}.desc`, containerLandmark.desc, 'wide')}

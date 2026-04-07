@@ -3,7 +3,7 @@
  * C2S = 客户端→服务端，S2C = 服务端→客户端。
  */
 import type { ElementKey } from './numeric';
-import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerSpecialStats, QuestState, CombatEffect, AutoBattleSkillConfig, AutoBattleTargetingMode, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, MonsterInitialBuffDef, MonsterTier, NumericStatPercentages, TechniqueCategory, TechniqueGrade, GroundItemPileView, LootSearchProgressView, VisibleBuffState, TemporaryBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, LootSourceKind, LootSourceVariant, LootWindowHerbMeta, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, ConsumableBuffDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MarketPriceLevelView, MarketOrderSide, MapRouteDomain, PortalRouteDomain, MailSummaryView, MailPageView, MailDetailView, MailFilter, MailTemplateArg, MailAttachment, BodyTrainingState, AlchemyIngredientSelection, AlchemyRecipeCatalogEntry, SyncedAlchemyPanelState } from './types';
+import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerSpecialStats, QuestState, CombatEffect, AutoBattleSkillConfig, AutoBattleTargetingMode, AutoUsePillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, MonsterInitialBuffDef, MonsterTier, NumericStatPercentages, TechniqueCategory, TechniqueGrade, GroundItemPileView, LootSearchProgressView, VisibleBuffState, TemporaryBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, LootSourceKind, LootSourceVariant, LootWindowHerbMeta, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, ConsumableBuffDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MarketPriceLevelView, MarketOrderSide, MapRouteDomain, PortalRouteDomain, MailSummaryView, MailPageView, MailDetailView, MailFilter, MailTemplateArg, MailAttachment, BodyTrainingState, AlchemyIngredientSelection, AlchemyRecipeCatalogEntry, SyncedAlchemyPanelState } from './types';
 import { NumericRatioDivisors, NumericStatBreakdownMap, NumericStats } from './numeric';
 
 // ===== 事件名 =====
@@ -22,6 +22,7 @@ export const C2S = {
   GmResetPlayer: 'c:gmResetPlayer',
   Action: 'c:action',
   UpdateAutoBattleSkills: 'c:updateAutoBattleSkills',
+  UpdateAutoUsePills: 'c:updateAutoUsePills',
   UpdateAutoBattleTargetingMode: 'c:updateAutoBattleTargetingMode',
   UpdateTechniqueSkillAvailability: 'c:updateTechniqueSkillAvailability',
   DebugResetSpawn: 'c:debugResetSpawn',
@@ -68,6 +69,7 @@ export const C2S = {
   SaveAlchemyPreset: 'c:saveAlchemyPreset',
   DeleteAlchemyPreset: 'c:deleteAlchemyPreset',
   StartAlchemy: 'c:startAlchemy',
+  CancelAlchemy: 'c:cancelAlchemy',
   HeavenGateAction: 'c:heavenGateAction',
 } as const;
 
@@ -170,6 +172,7 @@ export const NEXT_C2S = {
   RequestNpcShop: 'n:c:requestNpcShop',
   BuyNpcShopItem: 'n:c:buyNpcShopItem',
   UpdateAutoBattleSkills: 'n:c:updateAutoBattleSkills',
+  UpdateAutoUsePills: 'n:c:updateAutoUsePills',
   DebugResetSpawn: 'n:c:debugResetSpawn',
   Chat: 'n:c:chat',
   AckSystemMessages: 'n:c:ackSystemMessages',
@@ -334,6 +337,10 @@ export interface C2S_UpdateAutoBattleSkills {
   skills: AutoBattleSkillConfig[];
 }
 
+export interface C2S_UpdateAutoUsePills {
+  pills: AutoUsePillConfig[];
+}
+
 export interface C2S_UpdateAutoBattleTargetingMode {
   mode: AutoBattleTargetingMode;
 }
@@ -461,7 +468,10 @@ export interface C2S_DeleteAlchemyPreset {
 export interface C2S_StartAlchemy {
   recipeId: string;
   ingredients: AlchemyIngredientSelection[];
+  quantity: number;
 }
+
+export interface C2S_CancelAlchemy {}
 
 export interface C2S_HeavenGateAction {
   action: 'sever' | 'restore' | 'open' | 'reroll' | 'enter';
@@ -884,6 +894,7 @@ export interface S2C_ActionsUpdate {
   removeActionIds?: string[];
   actionOrder?: string[];
   autoBattle?: boolean;
+  autoUsePills?: AutoUsePillConfig[];
   autoBattleTargetingMode?: AutoBattleTargetingMode;
   combatTargetId?: string | null;
   combatTargetLocked?: boolean;
