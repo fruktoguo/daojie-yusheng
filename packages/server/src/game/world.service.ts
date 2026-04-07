@@ -228,6 +228,19 @@ const STATIC_CONTEXT_TOGGLE_ACTIONS: readonly ActionDef[] = [{
 const INTRO_BODY_TECHNIQUE_ID = 'standing_stake_art';
 const INTRO_BODY_TECHNIQUE_BOOK_ID = 'book.standing_stake_art';
 const INTRO_BODY_TEMPERING_QUEST_ID = 'q_intro_body_tempering';
+const HUANLING_ZHENREN_MONSTER_ID = 'm_huanling_zhenren';
+const HUANLING_FAXIANG_SKILL_ID = 'skill.huanling_candan_faxiang';
+const HUANLING_LIEFU_WAIHUAN_SKILL_ID = 'skill.huanling_liefu_waihuan';
+const HUANLING_XINGLUO_CANPAN_SKILL_ID = 'skill.huanling_xingluo_canpan';
+const HUANLING_RONGHE_GUANMAI_SKILL_ID = 'skill.huanling_ronghe_guanmai';
+const HUANLING_LIEQI_ZHIXIAN_SKILL_ID = 'skill.huanling_lieqi_zhixian';
+const HUANLING_SUOGONG_NEIHUAN_SKILL_ID = 'skill.huanling_suogong_neihuan';
+const HUANLING_DIFU_CHENYIN_SKILL_ID = 'skill.huanling_difu_chenyin';
+const HUANLING_DUANHUN_DING_SKILL_ID = 'skill.huanling_duanhun_ding';
+const HUANLING_FAXIANG_BUFF_ID = 'buff.huanling_candan_faxiang';
+const HUANLING_RONGMAI_YIN_BUFF_ID = 'buff.huanling_rongmai_yin';
+const HUANLING_CANMAI_SUOBU_BUFF_ID = 'buff.huanling_canmai_suobu';
+const TERRAIN_MOLTEN_POOL_BURN_BUFF_ID = 'terrain_molten_pool_burn';
 
 type MessageKind = 'system' | 'quest' | 'combat' | 'loot';
 type WorldDirtyFlag = 'inv' | 'quest' | 'actions' | 'tech' | 'attr' | 'loot';
@@ -2738,6 +2751,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
   private selectMonsterSkill(monster: RuntimeMonster, target: PlayerState): SkillDef | undefined {
     const monsterStats = this.getMonsterCombatSnapshot(monster).stats;
+    if (monster.id === HUANLING_ZHENREN_MONSTER_ID) {
+      return this.selectHuanlingZhenrenSkill(monster, target, monsterStats);
+    }
     for (const skillId of monster.skills) {
       const skill = this.contentService.getSkill(skillId);
       if (!skill) {
@@ -2753,6 +2769,127 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       return skill;
     }
     return undefined;
+  }
+
+  private selectHuanlingZhenrenSkill(
+    monster: RuntimeMonster,
+    target: PlayerState,
+    monsterStats: NumericStats,
+  ): SkillDef | undefined {
+    const distance = gridDistance(monster, target);
+    const hasFaxiang = this.entityHasActiveBuff(monster.temporaryBuffs, HUANLING_FAXIANG_BUFF_ID);
+    const targetYinStacks = this.getEntityBuffStacks(target.temporaryBuffs, HUANLING_RONGMAI_YIN_BUFF_ID);
+    const targetBurnStacks = this.getEntityBuffStacks(target.temporaryBuffs, TERRAIN_MOLTEN_POOL_BURN_BUFF_ID);
+    const targetLocked = this.entityHasActiveBuff(target.temporaryBuffs, HUANLING_CANMAI_SUOBU_BUFF_ID);
+    const targetPrimed = targetYinStacks + targetBurnStacks;
+
+    if (!hasFaxiang) {
+      return this.pickFirstCastableMonsterSkill(monster, target, monsterStats, [
+        HUANLING_FAXIANG_SKILL_ID,
+        HUANLING_DUANHUN_DING_SKILL_ID,
+      ]);
+    }
+
+    if (targetLocked || targetPrimed >= 4) {
+      const finisher = this.pickFirstCastableMonsterSkill(monster, target, monsterStats, [
+        HUANLING_DIFU_CHENYIN_SKILL_ID,
+        HUANLING_DUANHUN_DING_SKILL_ID,
+      ]);
+      if (finisher) {
+        return finisher;
+      }
+    }
+
+    if (distance <= 2) {
+      const closeControl = this.pickFirstCastableMonsterSkill(monster, target, monsterStats, [
+        HUANLING_SUOGONG_NEIHUAN_SKILL_ID,
+        HUANLING_XINGLUO_CANPAN_SKILL_ID,
+      ]);
+      if (closeControl) {
+        return closeControl;
+      }
+    }
+
+    if (distance >= 4) {
+      const longRangePressure = this.pickFirstCastableMonsterSkill(monster, target, monsterStats, [
+        HUANLING_LIEFU_WAIHUAN_SKILL_ID,
+        HUANLING_RONGHE_GUANMAI_SKILL_ID,
+      ]);
+      if (longRangePressure) {
+        return longRangePressure;
+      }
+    }
+
+    if (!targetLocked) {
+      const setup = this.pickFirstCastableMonsterSkill(monster, target, monsterStats, [
+        HUANLING_XINGLUO_CANPAN_SKILL_ID,
+        HUANLING_RONGHE_GUANMAI_SKILL_ID,
+        HUANLING_LIEQI_ZHIXIAN_SKILL_ID,
+        HUANLING_SUOGONG_NEIHUAN_SKILL_ID,
+      ]);
+      if (setup) {
+        return setup;
+      }
+    }
+
+    if (targetPrimed >= 2) {
+      const cashOut = this.pickFirstCastableMonsterSkill(monster, target, monsterStats, [
+        HUANLING_DIFU_CHENYIN_SKILL_ID,
+        HUANLING_DUANHUN_DING_SKILL_ID,
+        HUANLING_SUOGONG_NEIHUAN_SKILL_ID,
+      ]);
+      if (cashOut) {
+        return cashOut;
+      }
+    }
+
+    return this.pickFirstCastableMonsterSkill(monster, target, monsterStats, [
+      HUANLING_LIEFU_WAIHUAN_SKILL_ID,
+      HUANLING_XINGLUO_CANPAN_SKILL_ID,
+      HUANLING_RONGHE_GUANMAI_SKILL_ID,
+      HUANLING_LIEQI_ZHIXIAN_SKILL_ID,
+      HUANLING_SUOGONG_NEIHUAN_SKILL_ID,
+      HUANLING_DIFU_CHENYIN_SKILL_ID,
+      HUANLING_DUANHUN_DING_SKILL_ID,
+    ]);
+  }
+
+  private pickFirstCastableMonsterSkill(
+    monster: RuntimeMonster,
+    target: PlayerState,
+    monsterStats: NumericStats,
+    skillIds: string[],
+  ): SkillDef | undefined {
+    for (const skillId of skillIds) {
+      if (!monster.skills.includes(skillId)) {
+        continue;
+      }
+      const skill = this.contentService.getSkill(skillId);
+      if (!skill) {
+        continue;
+      }
+      const geometry = this.buildEffectiveSkillGeometry(skill, monsterStats);
+      if (skill.requiresTarget !== false && !isPointInRange(monster, target, geometry.range)) {
+        continue;
+      }
+      if (!this.canMonsterCastSkill(monster, skill, monsterStats)) {
+        continue;
+      }
+      return skill;
+    }
+    return undefined;
+  }
+
+  private entityHasActiveBuff(buffs: TemporaryBuffState[] | undefined, buffId: string, minStacks = 1): boolean {
+    return (buffs ?? []).some((buff) => (
+      buff.buffId === buffId
+      && buff.remainingTicks > 0
+      && buff.stacks >= minStacks
+    ));
+  }
+
+  private getEntityBuffStacks(buffs: TemporaryBuffState[] | undefined, buffId: string): number {
+    return (buffs ?? []).find((buff) => buff.buffId === buffId && buff.remainingTicks > 0)?.stacks ?? 0;
   }
 
   private buildMonsterSkillAffectedCells(

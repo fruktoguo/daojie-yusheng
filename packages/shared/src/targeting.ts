@@ -1,5 +1,5 @@
 /**
- * 技能目标选取几何计算：单体、直线、范围三种形状的受影响格子计算。
+ * 技能目标选取几何计算：单体、直线、范围、矩形、环带、棋盘等形状的受影响格子计算。
  */
 import { isPointInRange } from './geometry';
 
@@ -10,15 +10,17 @@ export interface GridPoint {
 }
 
 /** 目标选取形状 */
-export type TargetingShape = 'single' | 'line' | 'area' | 'box';
+export type TargetingShape = 'single' | 'line' | 'area' | 'box' | 'ring' | 'checkerboard';
 
 /** 目标选取几何参数 */
 export interface TargetingGeometrySpec {
   range: number;
   shape?: TargetingShape;
   radius?: number;
+  innerRadius?: number;
   width?: number;
   height?: number;
+  checkerParity?: 'even' | 'odd';
 }
 
 export interface TargetingGeometryModifiers {
@@ -71,6 +73,25 @@ export function getAreaCells(center: GridPoint, radius: number): GridPoint[] {
   return cells;
 }
 
+/** 计算以中心点为圆心、内外半径限定的环带格子 */
+export function getRingCells(center: GridPoint, innerRadius: number, outerRadius: number): GridPoint[] {
+  const cells: GridPoint[] = [];
+  const normalizedOuterRadius = Math.max(0, Math.floor(outerRadius));
+  const normalizedInnerRadius = Math.max(0, Math.min(normalizedOuterRadius, Math.floor(innerRadius)));
+  const innerSquared = normalizedInnerRadius * normalizedInnerRadius;
+  const outerSquared = normalizedOuterRadius * normalizedOuterRadius;
+  for (let dy = -normalizedOuterRadius; dy <= normalizedOuterRadius; dy += 1) {
+    for (let dx = -normalizedOuterRadius; dx <= normalizedOuterRadius; dx += 1) {
+      const distanceSquared = dx * dx + dy * dy;
+      if (distanceSquared > outerSquared || distanceSquared <= innerSquared) {
+        continue;
+      }
+      cells.push({ x: center.x + dx, y: center.y + dy });
+    }
+  }
+  return cells;
+}
+
 /** 计算以中心点附近展开、指定宽高的矩形格子 */
 export function getBoxCells(center: GridPoint, width: number, height: number): GridPoint[] {
   const cells: GridPoint[] = [];
@@ -86,6 +107,25 @@ export function getBoxCells(center: GridPoint, width: number, height: number): G
     }
   }
   return cells;
+}
+
+/** 计算交错棋盘格范围 */
+export function getCheckerboardCells(
+  center: GridPoint,
+  width: number,
+  height: number,
+  parity: 'even' | 'odd' = 'even',
+): GridPoint[] {
+  const normalizedWidth = Math.max(1, Math.floor(width));
+  const normalizedHeight = Math.max(1, Math.floor(height));
+  const left = Math.floor((normalizedWidth - 1) / 2);
+  const top = Math.floor((normalizedHeight - 1) / 2);
+  return getBoxCells(center, normalizedWidth, normalizedHeight).filter((cell) => {
+    const dx = cell.x - center.x + left;
+    const dy = cell.y - center.y + top;
+    const even = (dx + dy) % 2 === 0;
+    return parity === 'even' ? even : !even;
+  });
 }
 
 function getLinePerpendicularOffsets(width: number, dx: number, dy: number): GridPoint[] {
@@ -152,6 +192,14 @@ export function buildEffectiveTargetingGeometry(
     effective.radius = Math.max(0, Math.floor(spec.radius ?? 1) + extraArea);
     return effective;
   }
+  if (shape === 'ring') {
+    effective.radius = Math.max(0, Math.floor(spec.radius ?? 1) + extraArea);
+    effective.innerRadius = Math.max(
+      0,
+      Math.floor(spec.innerRadius ?? Math.max((spec.radius ?? 1) - 1, 0)) - extraArea,
+    );
+    return effective;
+  }
   effective.width = Math.max(1, Math.floor(spec.width ?? 1) + extraArea * 2);
   effective.height = Math.max(1, Math.floor(spec.height ?? spec.width ?? 1) + extraArea * 2);
   return effective;
@@ -172,8 +220,14 @@ export function computeAffectedCellsFromAnchor(
   if (spec.shape === 'area') {
     return getAreaCells(anchor, spec.radius ?? 1);
   }
+  if (spec.shape === 'ring') {
+    return getRingCells(anchor, spec.innerRadius ?? Math.max((spec.radius ?? 1) - 1, 0), spec.radius ?? 1);
+  }
   if (spec.shape === 'box') {
     return getBoxCells(anchor, spec.width ?? 1, spec.height ?? spec.width ?? 1);
+  }
+  if (spec.shape === 'checkerboard') {
+    return getCheckerboardCells(anchor, spec.width ?? 1, spec.height ?? spec.width ?? 1, spec.checkerParity ?? 'even');
   }
   return [{ x: anchor.x, y: anchor.y }];
 }

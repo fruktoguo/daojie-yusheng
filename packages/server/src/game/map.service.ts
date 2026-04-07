@@ -39,6 +39,7 @@ import {
   MapTimeConfig,
   MonsterAggroMode,
   MonsterCombatModel,
+  MonsterInitialBuffDef,
   MonsterTier,
   NumericStats,
   NumericStatPercentages,
@@ -265,6 +266,7 @@ export interface MonsterSpawnConfig {
   attrs: Attributes;
   equipment: EquipmentSlots;
   statPercents?: NumericStatPercentages;
+  initialBuffs?: MonsterInitialBuffDef[];
   skills: string[];
   tier: MonsterTier;
   valueStats?: PartialNumericStats;
@@ -324,6 +326,8 @@ interface DynamicTileState {
   maxHp: number;
   destroyed: boolean;
   restoreTicksLeft?: number;
+  transformedType?: TileType;
+  transformTicksLeft?: number;
 }
 
 function resolveMonsterSpawnPopulation(
@@ -349,6 +353,8 @@ interface PersistedDynamicTileRecord {
   hp: number;
   destroyed: boolean;
   restoreTicksLeft?: number;
+  transformedType?: TileType;
+  transformTicksLeft?: number;
 }
 
 interface PersistedDynamicTileSnapshot {
@@ -382,6 +388,8 @@ interface PersistedTileRuntimeTerrainRecord {
   hp: number;
   destroyed: boolean;
   restoreTicksLeft?: number;
+  transformedType?: TileType;
+  transformTicksLeft?: number;
 }
 
 interface PersistedTileRuntimeResourceRecord {
@@ -638,6 +646,9 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
             && Number.isFinite(terrain.hp)
             && typeof terrain.destroyed === 'boolean'
           ) {
+            const transformedType = Object.values(TileType).includes(terrain.transformedType as TileType)
+              ? terrain.transformedType as TileType
+              : undefined;
             terrainRecords.set(key, {
               x: Number(record.x),
               y: Number(record.y),
@@ -649,6 +660,8 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
                   this.getBaseTileType(mapId, Number(record.x), Number(record.y)) ?? TileType.Floor,
                 )
                 : undefined,
+              transformedType,
+              transformTicksLeft: transformedType ? this.normalizeTransformTicksLeft(terrain.transformTicksLeft) : undefined,
             });
           }
 
@@ -786,6 +799,12 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
                 record.restoreTicksLeft,
                 this.getBaseTileType(mapId, Number(record.x), Number(record.y)) ?? TileType.Floor,
               )
+              : undefined,
+            transformedType: Object.values(TileType).includes(record.transformedType as TileType)
+              ? record.transformedType as TileType
+              : undefined,
+            transformTicksLeft: Object.values(TileType).includes(record.transformedType as TileType)
+              ? this.normalizeTransformTicksLeft(record.transformTicksLeft)
               : undefined,
           };
           records.set(this.tileStateKey(normalized.x, normalized.y), normalized);
@@ -1308,7 +1327,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     let visibilityChanged = false;
     if (stateMap) {
       for (const [key, state] of stateMap) {
-        if (state.hp < state.maxHp) {
+        if (!state.transformedType && state.hp < state.maxHp) {
           const regen = this.calculateTileRegen(state.maxHp);
           const nextHp = Math.min(state.maxHp, state.hp + regen);
           if (nextHp !== state.hp) {
@@ -1341,6 +1360,30 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
           }
         }
 
+        if (state.transformedType) {
+          const nextTransformTicksLeft = Math.max(0, (state.transformTicksLeft ?? 0) - 1);
+          if (nextTransformTicksLeft !== (state.transformTicksLeft ?? 0)) {
+            state.transformTicksLeft = nextTransformTicksLeft;
+            terrainStateChanged = true;
+            this.markTileDirty(mapId, state.x, state.y);
+          }
+
+          if ((state.transformTicksLeft ?? 0) <= 0) {
+            const originalWalkable = isTileTypeWalkable(state.originalType);
+            if (!originalWalkable && this.hasBlockingEntityAt(mapId, state.x, state.y)) {
+              state.transformTicksLeft = 1;
+              terrainStateChanged = true;
+              this.markTileDirty(mapId, state.x, state.y);
+            } else {
+              state.transformedType = undefined;
+              state.transformTicksLeft = undefined;
+              terrainStateChanged = true;
+              visibilityChanged = true;
+              this.markTileDirty(mapId, state.x, state.y);
+            }
+          }
+        }
+
         const tile = this.getTile(mapId, state.x, state.y);
         if (!tile) {
           stateMap.delete(key);
@@ -1348,7 +1391,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
           continue;
         }
 
-        if (!state.destroyed && state.hp >= state.maxHp) {
+        if (!this.shouldKeepDynamicTileState(state)) {
           stateMap.delete(key);
           this.resetTileToBaseState(mapId, state.x, state.y);
           terrainStateChanged = true;
@@ -1438,7 +1481,10 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       const originalType = getTileTypeFromMapChar(document.tiles[rawState.y]?.[rawState.x] ?? '#');
       const maxHp = this.tileDurabilityFromDocument(document, originalType);
       const tile = tiles[rawState.y]?.[rawState.x];
-      if (!tile || maxHp <= 0) {
+      const transformedType = Object.values(TileType).includes(rawState.transformedType as TileType)
+        ? rawState.transformedType as TileType
+        : undefined;
+      if (!tile || (maxHp <= 0 && !transformedType)) {
         continue;
       }
 
@@ -1454,9 +1500,11 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         restoreTicksLeft: destroyed
           ? this.normalizeRestoreTicksLeft(rawState.restoreTicksLeft, originalType)
           : undefined,
+        transformedType,
+        transformTicksLeft: transformedType ? this.normalizeTransformTicksLeft(rawState.transformTicksLeft) : undefined,
       };
 
-      if (!destroyed && normalized.hp >= normalized.maxHp) {
+      if (!this.shouldKeepDynamicTileState(normalized)) {
         continue;
       }
 
@@ -1556,14 +1604,17 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   }
 
   private applyDynamicTileStateToTile(tile: Tile, state: DynamicTileState) {
-    const type = state.destroyed ? this.destroyedTileType(state.originalType) : state.originalType;
+    const type = state.destroyed
+      ? this.destroyedTileType(state.originalType)
+      : (state.transformedType ?? state.originalType);
     tile.type = type;
     tile.walkable = isTileTypeWalkable(type);
     tile.blocksSight = doesTileTypeBlockSight(type);
-    tile.hp = state.destroyed ? undefined : state.hp;
-    tile.maxHp = state.destroyed ? undefined : state.maxHp;
-    tile.hpVisible = !state.destroyed && state.hp < state.maxHp;
-    tile.modifiedAt = state.destroyed || state.hp < state.maxHp ? Date.now() : null;
+    const shouldShowDurability = !state.destroyed && !state.transformedType && state.maxHp > 0;
+    tile.hp = shouldShowDurability ? state.hp : undefined;
+    tile.maxHp = shouldShowDurability ? state.maxHp : undefined;
+    tile.hpVisible = shouldShowDurability && state.hp < state.maxHp;
+    tile.modifiedAt = state.destroyed || !!state.transformedType || state.hp < state.maxHp ? Date.now() : null;
   }
 
   private resetTileToBaseState(mapId: string, x: number, y: number) {
@@ -1581,6 +1632,10 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     tile.maxHp = maxHp > 0 ? maxHp : undefined;
     tile.hpVisible = false;
     tile.modifiedAt = null;
+  }
+
+  private shouldKeepDynamicTileState(state: Pick<DynamicTileState, 'destroyed' | 'hp' | 'maxHp' | 'transformedType'>): boolean {
+    return state.destroyed || state.hp < state.maxHp || state.transformedType !== undefined;
   }
 
   private hasStaticTerrainConflict(
@@ -1780,6 +1835,12 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       : this.calculateTileRestoreTicks(type);
   }
 
+  private normalizeTransformTicksLeft(value: unknown): number | undefined {
+    return Number.isInteger(value) && Number(value) > 0
+      ? Number(value)
+      : undefined;
+  }
+
   private getStoredMapTimeState(mapId: string): PersistedMapTimeState | undefined {
     return this.mapTimeStates.get(mapId) ?? this.persistedMapTimeStates.get(mapId);
   }
@@ -1926,6 +1987,10 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
           destroyed: terrain.destroyed,
           restoreTicksLeft: terrain.destroyed
             ? this.normalizeRestoreTicksLeft(terrain.restoreTicksLeft, terrainType)
+            : undefined,
+          transformedType: terrain.transformedType,
+          transformTicksLeft: terrain.transformedType
+            ? this.normalizeTransformTicksLeft(terrain.transformTicksLeft)
             : undefined,
         };
       }
@@ -2901,6 +2966,9 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         ?? (rawSpawn.attrs || template.attrs
           ? undefined
           : createMonsterAutoStatPercents(legacyNumericStats, attrs, level, equipment));
+      const initialBuffs = Array.isArray(rawSpawn.initialBuffs)
+        ? rawSpawn.initialBuffs.map((entry) => ({ ...entry }))
+        : (template.initialBuffs?.map((entry) => ({ ...entry })) ?? undefined);
       const tier = normalizeMonsterTier(rawSpawn.tier ?? template.tier);
       const numericStats = resolveMonsterNumericStatsFromAttributes({
         attrs,
@@ -2953,6 +3021,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         attrs,
         equipment,
         statPercents,
+        initialBuffs,
         skills,
         tier,
         valueStats,
@@ -3854,6 +3923,73 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     return this.setTileResourceValue(mapId, x, y, AURA_RESOURCE_KEY, value);
   }
 
+  transformTile(
+    mapId: string,
+    x: number,
+    y: number,
+    transformedType: TileType,
+    durationTicks: number,
+    allowedOriginalTypes?: TileType[],
+  ): boolean {
+    const tile = this.getTile(mapId, x, y);
+    const originalType = this.getBaseTileType(mapId, x, y);
+    if (!tile || originalType === null) {
+      return false;
+    }
+    if (allowedOriginalTypes && allowedOriginalTypes.length > 0 && !allowedOriginalTypes.includes(originalType)) {
+      return false;
+    }
+    if (!Object.values(TileType).includes(transformedType)) {
+      return false;
+    }
+
+    const normalizedDuration = Math.max(1, Math.floor(durationTicks));
+    const targetWalkable = isTileTypeWalkable(transformedType);
+    if (!targetWalkable && this.hasBlockingEntityAt(mapId, x, y)) {
+      return false;
+    }
+
+    const key = this.tileStateKey(x, y);
+    const mapStates = this.dynamicTileStates.get(mapId) ?? new Map<string, DynamicTileState>();
+    const current = mapStates.get(key);
+    if (current?.destroyed) {
+      return false;
+    }
+
+    const maxHp = this.tileDurability(mapId, originalType);
+    const nextState: DynamicTileState = current ?? {
+      x,
+      y,
+      originalType,
+      hp: maxHp,
+      maxHp,
+      destroyed: false,
+    };
+    nextState.originalType = originalType;
+    nextState.maxHp = maxHp;
+    nextState.hp = current ? Math.max(0, Math.min(current.hp, maxHp)) : maxHp;
+    nextState.transformedType = transformedType === originalType ? undefined : transformedType;
+    nextState.transformTicksLeft = nextState.transformedType ? normalizedDuration : undefined;
+
+    if (!this.shouldKeepDynamicTileState(nextState)) {
+      mapStates.delete(key);
+      this.resetTileToBaseState(mapId, x, y);
+    } else {
+      mapStates.set(key, nextState);
+      this.applyDynamicTileStateToTile(tile, nextState);
+    }
+
+    if (mapStates.size > 0) {
+      this.dynamicTileStates.set(mapId, mapStates);
+    } else {
+      this.dynamicTileStates.delete(mapId);
+    }
+    this.dynamicTileStatesDirty = true;
+    this.markTileRuntimeMapDirty(mapId);
+    this.markTileDirty(mapId, x, y);
+    return true;
+  }
+
   setTileResourceValue(mapId: string, x: number, y: number, resourceKey: string, value: number): number | null {
     const map = this.maps.get(mapId);
     const tile = this.getTile(mapId, x, y);
@@ -4255,6 +4391,9 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       ?? (spawn.attrs || template.attrs
         ? undefined
         : createMonsterAutoStatPercents(legacyNumericStats, attrs, level, equipment));
+    const initialBuffs = Array.isArray(spawn.initialBuffs)
+      ? spawn.initialBuffs.map((entry) => ({ ...entry }))
+      : (template.initialBuffs?.map((entry) => ({ ...entry })) ?? undefined);
     const tier = normalizeMonsterTier(spawn.tier ?? template.tier);
     const configuredMaxAlive = Number.isInteger(spawn.maxAlive) ? Math.max(1, Number(spawn.maxAlive)) : template.maxAlive;
     const configuredCount = Number.isInteger(spawn.count) ? Math.max(1, Number(spawn.count)) : template.count;
@@ -4282,6 +4421,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       attrs,
       equipment,
       statPercents,
+      initialBuffs,
       skills,
       tier,
       hp: Math.max(1, Math.round(numericStats.maxHp || template.hp)),
@@ -4330,6 +4470,9 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     if (JSON.stringify(spawn.attrs) !== JSON.stringify(template.attrs)) persisted.attrs = spawn.attrs;
     if (JSON.stringify(spawn.statPercents ?? null) !== JSON.stringify(template.statPercents ?? null)) {
       persisted.statPercents = spawn.statPercents;
+    }
+    if (JSON.stringify(spawn.initialBuffs ?? null) !== JSON.stringify(template.initialBuffs ?? null)) {
+      persisted.initialBuffs = spawn.initialBuffs;
     }
     if (JSON.stringify(spawn.skills) !== JSON.stringify(template.skills)) persisted.skills = spawn.skills;
     const effectiveTier = normalizeMonsterTier(spawn.tier ?? template.tier);

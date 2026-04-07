@@ -250,12 +250,12 @@
     "type": "consumable",
     "level": 10,
     "grade": "earth",
-    "desc": "以残丹法门逆炼成丸，服下后会强行凝出法相。法相若要维持，必须持续燃烧灵力，一旦后继无力便会当场崩散。",
+    "desc": "以重伤金丹真人的残丹法门逆炼成丸，服下后会强行凝出法相虚影。虚影若要维持，必须持续燃烧灵力，一旦后继无力便会当场崩散。",
     "consumeBuffs": [
       {
         "buffId": "buff.huanling_candan_faxiang",
-        "name": "残丹法相",
-        "desc": "丹力强行撑起残丹法相，体型额外暴涨三倍，攻势与术势尽数失控。",
+        "name": "残丹法相虚影",
+        "desc": "丹力强行撑起残丹法相虚影，体型额外暴涨三倍，攻势与术势尽数失控。",
         "sourceSkillId": "skill.huanling_candan_faxiang",
         "shortMark": "相",
         "category": "buff",
@@ -278,8 +278,8 @@
       },
       {
         "buffId": "buff.huanling_candan_kuoyu",
-        "name": "残丹扩域",
-        "desc": "残丹余波外翻，术法的射程与杀域同时扩开。",
+        "name": "虚影扩域",
+        "desc": "法相虚影外翻余波，术法的射程与杀域同时扩开。",
         "sourceSkillId": "skill.huanling_candan_faxiang",
         "shortMark": "域",
         "category": "buff",

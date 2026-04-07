@@ -26,6 +26,7 @@ import {
   ItemStack,
   MonsterAggroMode,
   MonsterCombatModel,
+  MonsterInitialBuffDef,
   MonsterTier,
   NUMERIC_SCALAR_STAT_KEYS,
   NumericStatPercentages,
@@ -44,6 +45,7 @@ import {
   SkillDef,
   SkillEffectDef,
   SkillFormula,
+  TileType,
   TechniqueCategory,
   TechniqueGrade,
   TechniqueLayerDef,
@@ -153,6 +155,7 @@ export interface MonsterTemplate {
   attrs: Attributes;
   equipment: EquipmentSlots;
   statPercents?: NumericStatPercentages;
+  initialBuffs?: MonsterInitialBuffDef[];
   skills: string[];
   tier: MonsterTier;
   valueStats?: PartialNumericStats;
@@ -220,11 +223,12 @@ interface RawItemTemplate extends Omit<ItemTemplate, 'equipStats' | 'equipValueS
   consumeBuffs?: unknown;
 }
 
-interface RawMonsterTemplate extends Omit<MonsterTemplate, 'grade' | 'attrs' | 'equipment' | 'statPercents' | 'skills' | 'tier' | 'valueStats' | 'numericStats' | 'combatModel' | 'hp' | 'maxHp' | 'attack' | 'count' | 'radius' | 'maxAlive' | 'aggroRange' | 'viewRange' | 'aggroMode' | 'respawnTicks' | 'expMultiplier' | 'drops'> {
+interface RawMonsterTemplate extends Omit<MonsterTemplate, 'grade' | 'attrs' | 'equipment' | 'statPercents' | 'initialBuffs' | 'skills' | 'tier' | 'valueStats' | 'numericStats' | 'combatModel' | 'hp' | 'maxHp' | 'attack' | 'count' | 'radius' | 'maxAlive' | 'aggroRange' | 'viewRange' | 'aggroMode' | 'respawnTicks' | 'expMultiplier' | 'drops'> {
   grade?: TechniqueGrade;
   attrs?: Partial<Attributes>;
   equipment?: unknown;
   statPercents?: NumericStatPercentages;
+  initialBuffs?: unknown;
   skills?: unknown;
   tier?: MonsterTier;
   valueStats?: unknown;
@@ -1458,6 +1462,7 @@ export class ContentService implements OnModuleInit {
         ?? (raw.attrs
           ? undefined
           : createMonsterAutoStatPercents(legacyNumericStats, attrs, level, equipment));
+      const initialBuffs = this.normalizeMonsterInitialBuffs(raw.initialBuffs);
       const numericStats = resolveMonsterNumericStatsFromAttributes({
         attrs,
         equipment,
@@ -1476,6 +1481,7 @@ export class ContentService implements OnModuleInit {
         attrs,
         equipment,
         statPercents,
+        initialBuffs,
         skills,
         tier,
         valueStats,
@@ -1514,6 +1520,52 @@ export class ContentService implements OnModuleInit {
     return input.flatMap((entry) => this.normalizeSkillEffect(entry));
   }
 
+  private normalizeMonsterInitialBuffs(input: unknown): MonsterInitialBuffDef[] | undefined {
+    if (!Array.isArray(input)) {
+      return undefined;
+    }
+    const result = input.flatMap((entry) => this.normalizeMonsterInitialBuff(entry));
+    return result.length > 0 ? result : undefined;
+  }
+
+  private normalizeMonsterInitialBuff(input: unknown): MonsterInitialBuffDef[] {
+    if (!isPlainObject(input)) {
+      return [];
+    }
+    const resolvedInput = this.resolveSharedTechniqueBuffInput(input);
+    const effect = this.normalizeRawSkillBuffEffect({
+      ...resolvedInput,
+      type: 'buff',
+      target: 'self',
+    });
+    if (!effect || effect.target !== 'self') {
+      return [];
+    }
+    return [{
+      type: 'buff',
+      target: 'self',
+      buffId: effect.buffId,
+      name: effect.name,
+      desc: effect.desc,
+      shortMark: effect.shortMark,
+      category: effect.category,
+      visibility: effect.visibility,
+      color: effect.color,
+      duration: effect.duration,
+      maxStacks: effect.maxStacks,
+      stacks: Number.isFinite(input.stacks) ? Math.max(1, Math.floor(Number(input.stacks))) : undefined,
+      attrs: effect.attrs,
+      attrMode: effect.attrMode,
+      stats: effect.stats,
+      statMode: effect.statMode,
+      qiProjection: effect.qiProjection,
+      presentationScale: effect.presentationScale,
+      infiniteDuration: effect.infiniteDuration,
+      sustainCost: effect.sustainCost,
+      expireWithBuffId: effect.expireWithBuffId,
+    }];
+  }
+
   private normalizeSkillEffect(input: unknown): SkillEffectDef[] {
     if (!isPlainObject(input) || typeof input.type !== 'string') {
       return [];
@@ -1534,6 +1586,27 @@ export class ContentService implements OnModuleInit {
         const resolvedInput = this.resolveSharedTechniqueBuffInput(input);
         const effect = this.normalizeRawSkillBuffEffect(resolvedInput);
         return effect ? [effect] : [];
+      }
+      case 'terrain': {
+        if (!Number.isFinite(input.duration)) {
+          return [];
+        }
+        const validTileTypes = Object.values(TileType);
+        const terrainType = validTileTypes.includes(input.terrainType as TileType)
+          ? input.terrainType as TileType
+          : null;
+        if (!terrainType) {
+          return [];
+        }
+        const allowedOriginalTypes = Array.isArray(input.allowedOriginalTypes)
+          ? input.allowedOriginalTypes.filter((entry): entry is TileType => validTileTypes.includes(entry as TileType))
+          : [];
+        return [{
+          type: 'terrain',
+          terrainType,
+          duration: Math.max(1, Math.floor(Number(input.duration))),
+          ...(allowedOriginalTypes.length > 0 ? { allowedOriginalTypes } : {}),
+        }];
       }
       default:
         return [];

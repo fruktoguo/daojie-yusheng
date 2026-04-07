@@ -546,6 +546,16 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
         }
         return Object.keys(normalized).length > 0 ? normalized : undefined;
       })(),
+      initialBuffs: (() => {
+        const rawInitialBuffs = (spawn as GmMapMonsterSpawnRecord).initialBuffs;
+        if (!Array.isArray(rawInitialBuffs)) {
+          return undefined;
+        }
+        const normalized = rawInitialBuffs
+          .filter((entry): entry is NonNullable<GmMapMonsterSpawnRecord['initialBuffs']>[number] => !!entry && typeof entry === 'object')
+          .map((entry) => clone(entry));
+        return normalized.length > 0 ? normalized : undefined;
+      })(),
       skills: (() => {
         const rawSkills = (spawn as GmMapMonsterSpawnRecord).skills;
         if (!Array.isArray(rawSkills)) {
@@ -876,6 +886,32 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
       for (const [key, value] of Object.entries(spawn.statPercents)) {
         if (!Number.isFinite(value) || value < 0) {
           return `${label} 的 ${key} 百分比必须为非负数`;
+        }
+      }
+    }
+    if (spawn.initialBuffs) {
+      for (let buffIndex = 0; buffIndex < spawn.initialBuffs.length; buffIndex += 1) {
+        const buff = spawn.initialBuffs[buffIndex];
+        if (!buff || typeof buff !== 'object') {
+          return `${label} 的初始 Buff #${buffIndex + 1} 非法`;
+        }
+        if (buff.target !== undefined && buff.target !== 'self') {
+          return `${label} 的初始 Buff #${buffIndex + 1} 只能作用于自身`;
+        }
+        if (typeof buff.buffId !== 'string' || buff.buffId.trim().length === 0) {
+          return `${label} 的初始 Buff #${buffIndex + 1} 缺少 buffId`;
+        }
+        if (typeof buff.name !== 'string' || buff.name.trim().length === 0) {
+          return `${label} 的初始 Buff #${buffIndex + 1} 缺少名称`;
+        }
+        if (!Number.isFinite(buff.duration) || Number(buff.duration) <= 0) {
+          return `${label} 的初始 Buff #${buffIndex + 1} 持续时间必须为正数`;
+        }
+        if (buff.stacks !== undefined && (!Number.isFinite(buff.stacks) || Number(buff.stacks) <= 0)) {
+          return `${label} 的初始 Buff #${buffIndex + 1} 层数必须为正数`;
+        }
+        if (buff.maxStacks !== undefined && (!Number.isFinite(buff.maxStacks) || Number(buff.maxStacks) <= 0)) {
+          return `${label} 的初始 Buff #${buffIndex + 1} 最大层数必须为正数`;
         }
       }
     }
