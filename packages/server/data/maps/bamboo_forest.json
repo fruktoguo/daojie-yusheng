@@ -246,5 +246,101 @@
       "y": 24
     }
   ],
-  "terrainRealmLv": 4
+  "terrainRealmLv": 4,
+  "resourceNodeGroups": [
+    {
+      "resourceNodeId": "landmark.herb.swiftwind_reed",
+      "idPrefix": "lm_bamboo_swiftwind",
+      "name": "潭边疾风苇",
+      "placements": [
+        {
+          "x": 15,
+          "y": 31
+        },
+        {
+          "x": 14,
+          "y": 32
+        },
+        {
+          "x": 15,
+          "y": 30
+        },
+        {
+          "x": 14,
+          "y": 31
+        },
+        {
+          "x": 13,
+          "y": 32
+        },
+        {
+          "x": 14,
+          "y": 33
+        },
+        {
+          "x": 15,
+          "y": 29
+        },
+        {
+          "x": 14,
+          "y": 30
+        },
+        {
+          "x": 16,
+          "y": 30
+        },
+        {
+          "x": 13,
+          "y": 31
+        }
+      ]
+    },
+    {
+      "resourceNodeId": "landmark.herb.clear_mind_flower",
+      "idPrefix": "lm_bamboo_clearmind",
+      "name": "岔口明心花",
+      "placements": [
+        {
+          "x": 25,
+          "y": 22
+        },
+        {
+          "x": 26,
+          "y": 23
+        },
+        {
+          "x": 24,
+          "y": 22
+        },
+        {
+          "x": 26,
+          "y": 22
+        },
+        {
+          "x": 25,
+          "y": 23
+        },
+        {
+          "x": 27,
+          "y": 23
+        },
+        {
+          "x": 26,
+          "y": 24
+        },
+        {
+          "x": 25,
+          "y": 20
+        },
+        {
+          "x": 24,
+          "y": 21
+        },
+        {
+          "x": 26,
+          "y": 21
+        }
+      ]
+    }
+  ]
 }

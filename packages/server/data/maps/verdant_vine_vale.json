@@ -188,5 +188,54 @@
   ],
   "npcs": [],
   "monsterSpawns": [],
-  "terrainRealmLv": 19
+  "terrainRealmLv": 19,
+  "resourceNodeGroups": [
+    {
+      "resourceNodeId": "landmark.herb.bitterheart_vine",
+      "idPrefix": "lm_verdant_bitterheart",
+      "name": "苦心藤架",
+      "placements": [
+        {
+          "x": 8,
+          "y": 27
+        },
+        {
+          "x": 9,
+          "y": 27
+        },
+        {
+          "x": 8,
+          "y": 26
+        },
+        {
+          "x": 9,
+          "y": 26
+        },
+        {
+          "x": 7,
+          "y": 27
+        },
+        {
+          "x": 10,
+          "y": 27
+        },
+        {
+          "x": 9,
+          "y": 28
+        },
+        {
+          "x": 8,
+          "y": 25
+        },
+        {
+          "x": 9,
+          "y": 25
+        },
+        {
+          "x": 7,
+          "y": 26
+        }
+      ]
+    }
+  ]
 }

@@ -289,5 +289,54 @@
       "x": 30,
       "y": 30
     }
+  ],
+  "resourceNodeGroups": [
+    {
+      "resourceNodeId": "landmark.herb.frost_lotus_petal",
+      "idPrefix": "lm_cold_frost_lotus",
+      "name": "寒雾残莲",
+      "placements": [
+        {
+          "x": 36,
+          "y": 40
+        },
+        {
+          "x": 37,
+          "y": 40
+        },
+        {
+          "x": 36,
+          "y": 39
+        },
+        {
+          "x": 37,
+          "y": 39
+        },
+        {
+          "x": 35,
+          "y": 40
+        },
+        {
+          "x": 38,
+          "y": 40
+        },
+        {
+          "x": 37,
+          "y": 41
+        },
+        {
+          "x": 36,
+          "y": 38
+        },
+        {
+          "x": 37,
+          "y": 38
+        },
+        {
+          "x": 35,
+          "y": 39
+        }
+      ]
+    }
   ]
 }

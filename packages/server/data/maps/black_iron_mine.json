@@ -253,5 +253,54 @@
       "y": 24
     }
   ],
-  "terrainRealmLv": 6
+  "terrainRealmLv": 6,
+  "resourceNodeGroups": [
+    {
+      "resourceNodeId": "landmark.herb.breakarray_shard",
+      "idPrefix": "lm_mine_breakarray",
+      "name": "裂阵砂痕",
+      "placements": [
+        {
+          "x": 24,
+          "y": 21
+        },
+        {
+          "x": 24,
+          "y": 22
+        },
+        {
+          "x": 24,
+          "y": 20
+        },
+        {
+          "x": 23,
+          "y": 21
+        },
+        {
+          "x": 25,
+          "y": 21
+        },
+        {
+          "x": 23,
+          "y": 22
+        },
+        {
+          "x": 25,
+          "y": 22
+        },
+        {
+          "x": 24,
+          "y": 19
+        },
+        {
+          "x": 23,
+          "y": 20
+        },
+        {
+          "x": 25,
+          "y": 20
+        }
+      ]
+    }
+  ]
 }

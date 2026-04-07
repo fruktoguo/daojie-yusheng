@@ -81,8 +81,10 @@ import {
   DISPERSED_AURA_RESOURCE_DESCRIPTOR,
   DEFAULT_QI_RESOURCE_DESCRIPTOR,
   Attributes,
+  expandMapResourceNodeGroups,
   EquipmentSlots,
   isAuraQiResourceKey,
+  LootSourceVariant,
   parseQiResourceKey,
 } from '@mud/shared';
 import * as fs from 'fs';
@@ -241,10 +243,13 @@ export interface ContainerConfig {
   x: number;
   y: number;
   desc?: string;
+  variant?: LootSourceVariant;
   char?: string;
   color?: string;
   grade: TechniqueGrade;
   refreshTicks?: number;
+  refreshTicksMin?: number;
+  refreshTicksMax?: number;
   drops: DropConfig[];
   lootPools: ContainerLootPoolConfig[];
 }
@@ -1129,7 +1134,8 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     this.rehydrateConfiguredTileResourceStates(document.id, tiles, baseResourceValues);
     this.syncAuraFamilyTileMirrors(document.id, tiles);
 
-    const containers = this.normalizeContainers(document.landmarks, meta);
+    const expandedLandmarks = expandMapResourceNodeGroups(document);
+    const containers = this.normalizeContainers(expandedLandmarks, meta);
     const npcs = this.normalizeNpcs(document.npcs, meta);
     const monsterSpawns = this.normalizeMonsterSpawns(document.monsterSpawns, meta);
     const minimap = this.buildMinimapSnapshot(meta, document, portals, containers, npcs, monsterSpawns);
@@ -3095,6 +3101,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         x: landmark.x,
         y: landmark.y,
         desc: typeof landmark.desc === 'string' ? landmark.desc : undefined,
+        variant: resolvedContainer.variant === 'herb' ? 'herb' : undefined,
         char: typeof resolvedContainer.char === 'string' && resolvedContainer.char.trim().length > 0
           ? resolvedContainer.char.trim().slice(0, 1)
           : undefined,
@@ -3104,6 +3111,12 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         grade: this.normalizeContainerGrade(resolvedContainer.grade),
         refreshTicks: Number.isInteger(resolvedContainer.refreshTicks) && resolvedContainer.refreshTicks! > 0
           ? Number(resolvedContainer.refreshTicks)
+          : undefined,
+        refreshTicksMin: Number.isInteger(resolvedContainer.refreshTicksMin) && resolvedContainer.refreshTicksMin! > 0
+          ? Number(resolvedContainer.refreshTicksMin)
+          : undefined,
+        refreshTicksMax: Number.isInteger(resolvedContainer.refreshTicksMax) && resolvedContainer.refreshTicksMax! > 0
+          ? Number(resolvedContainer.refreshTicksMax)
           : undefined,
         drops: this.normalizeDrops(resolvedContainer.drops),
         lootPools: this.normalizeContainerLootPools(resolvedContainer.lootPools),
@@ -3139,6 +3152,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   ): MapMinimapSnapshot {
     const markers: MapMinimapMarker[] = [];
     const containerLandmarkIds = new Set(containers.map((container) => container.id));
+    const landmarks = expandMapResourceNodeGroups(document);
 
     const pushMarker = (marker: MapMinimapMarker): void => {
       if (marker.x < 0 || marker.x >= meta.width || marker.y < 0 || marker.y >= meta.height) {
@@ -3147,7 +3161,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       markers.push(marker);
     };
 
-    for (const landmark of document.landmarks ?? []) {
+    for (const landmark of landmarks) {
       if (!Number.isInteger(landmark.x) || !Number.isInteger(landmark.y)) {
         continue;
       }
@@ -4519,8 +4533,11 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     }
     const container = input as GmMapContainerRecord;
     return {
+      variant: container.variant === 'herb' ? 'herb' : undefined,
       grade: this.normalizeContainerGrade(container.grade),
       refreshTicks: Number.isFinite(container.refreshTicks) ? Number(container.refreshTicks) : undefined,
+      refreshTicksMin: Number.isFinite(container.refreshTicksMin) ? Number(container.refreshTicksMin) : undefined,
+      refreshTicksMax: Number.isFinite(container.refreshTicksMax) ? Number(container.refreshTicksMax) : undefined,
       char: typeof container.char === 'string' && container.char.trim().length > 0
         ? container.char.trim().slice(0, 1)
         : undefined,

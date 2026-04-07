@@ -8,7 +8,10 @@ import {
   GroundItemPileView,
   GROUND_ITEM_EXPIRE_TICKS,
   ItemStack,
+  LootSourceVariant,
+  LootWindowHerbMeta,
   PlayerState,
+  resolveAlchemyGradeValue,
   SyncedItemStack,
   SyncedLootWindowItemView,
   SyncedLootWindowState,
@@ -50,9 +53,15 @@ interface ContainerState {
   sourceId: string;
   mapId: string;
   containerId: string;
+  variant?: LootSourceVariant;
   generatedAtTick?: number;
   refreshAtTick?: number;
+  respawnTotalTicks?: number;
   entries: LootEntry[];
+  herb?: LootWindowHerbMeta;
+  hp?: number;
+  maxHp?: number;
+  destroyed?: boolean;
   activeSearch?: {
     itemKey: string;
     totalTicks: number;
@@ -105,9 +114,15 @@ interface PersistedContainerSearchRecord {
 
 interface PersistedContainerRecord {
   containerId: string;
+  variant?: LootSourceVariant;
   generatedAtTick?: number;
   refreshAtTick?: number;
+  respawnTotalTicks?: number;
   entries: PersistedLootEntryRecord[];
+  herb?: LootWindowHerbMeta;
+  hp?: number;
+  maxHp?: number;
+  destroyed?: boolean;
   activeSearch?: PersistedContainerSearchRecord;
 }
 
@@ -194,7 +209,13 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       state.entries = [];
       state.generatedAtTick = undefined;
       state.refreshAtTick = undefined;
+      state.respawnTotalTicks = undefined;
       state.activeSearch = undefined;
+      if (state.variant === 'herb') {
+        state.hp = undefined;
+        state.maxHp = undefined;
+        state.destroyed = false;
+      }
       this.markRuntimeStateDirty();
       const container = this.resolveContainerBySourceId(sourceId);
       if (container) {
@@ -222,7 +243,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       const container = this.mapService.getContainerAt(mapId, session.tileX, session.tileY);
       if (container) {
         const state = this.ensureContainerState(mapId, container);
-        if (!state.activeSearch && this.hasHiddenContainerEntries(state.entries)) {
+        if (!state.activeSearch && !state.destroyed && this.hasHiddenContainerEntries(state.entries)) {
           this.beginContainerSearch(mapId, container);
           dirtyPlayers.add(playerId);
         }
@@ -258,7 +279,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       state.activeSearch = undefined;
       this.markRuntimeStateDirty();
 
-      if (this.hasHiddenContainerEntries(state.entries) && this.hasActiveViewerForTile(mapId, container.x, container.y)) {
+      if (!state.destroyed && this.hasHiddenContainerEntries(state.entries) && this.hasActiveViewerForTile(mapId, container.x, container.y)) {
         this.beginContainerSearch(mapId, container);
       }
     }
@@ -398,14 +419,18 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     const container = this.mapService.getContainerAt(session.mapId, session.tileX, session.tileY);
     if (container) {
       const state = this.ensureContainerState(session.mapId, container);
-      const items = this.buildVisibleLootWindowItems(state.entries);
+      const isHerb = container.variant === 'herb';
+      const herbRespawning = isHerb && this.isHerbRespawningState(state);
+      const respawnRemainingTicks = isHerb ? this.getRespawnRemainingTicks(session.mapId, state) : undefined;
+      const items = state.destroyed ? [] : this.buildVisibleLootWindowItems(state.entries);
       sources.push({
         sourceId: this.buildContainerSourceId(session.mapId, container.id),
         kind: 'container',
+        variant: state.variant,
         title: container.name,
         desc: container.desc,
-        grade: container.grade,
-        searchable: true,
+        grade: state.herb?.grade ?? container.grade,
+        searchable: !state.destroyed && !herbRespawning,
         search: state.activeSearch
           ? {
               totalTicks: state.activeSearch.totalTicks,
@@ -413,10 +438,22 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
               elapsedTicks: state.activeSearch.totalTicks - state.activeSearch.remainingTicks,
             }
           : undefined,
+        herb: state.herb ? { ...state.herb } : undefined,
+        destroyed: state.destroyed === true,
         items,
-        emptyText: this.hasHiddenContainerEntries(state.entries)
-          ? '正在翻找，每完成一轮搜索会显露一件物品。'
-          : '容器里已经空了。',
+        emptyText: isHerb
+          ? (state.destroyed
+            ? (respawnRemainingTicks !== undefined
+              ? `这株草药已被摧毁，还需 ${Math.max(1, respawnRemainingTicks)} 息再生。`
+              : '这株草药已被摧毁，无法再采集。')
+            : (herbRespawning
+              ? `这株草药药性回生中，还需 ${Math.max(1, respawnRemainingTicks ?? 0)} 息。`
+              : (this.hasHiddenContainerEntries(state.entries)
+                ? '正在采集，待药性稳定后方可摘取。'
+                : '这株草药已经被采尽，静待再生。')))
+          : (this.hasHiddenContainerEntries(state.entries)
+            ? '正在翻找，每完成一轮搜索会显露一件物品。'
+            : '容器里已经空了。'),
       });
     }
 
@@ -478,6 +515,82 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     }
     result.sort((left, right) => (left.y - right.y) || (left.x - right.x));
     return result;
+  }
+
+  getContainerRuntimeView(mapId: string, container: ContainerConfig): {
+    variant?: LootSourceVariant;
+    herb?: LootWindowHerbMeta;
+    hp?: number;
+    maxHp?: number;
+    destroyed: boolean;
+    respawning: boolean;
+    respawnRemainingTicks?: number;
+    respawnTotalTicks?: number;
+  } {
+    const state = this.ensureContainerState(mapId, container);
+    const respawnRemainingTicks = this.getRespawnRemainingTicks(mapId, state);
+    return {
+      variant: state.variant,
+      herb: state.herb ? { ...state.herb } : undefined,
+      hp: state.hp,
+      maxHp: state.maxHp,
+      destroyed: state.destroyed === true,
+      respawning: this.isHerbRespawningState(state),
+      respawnRemainingTicks,
+      respawnTotalTicks: respawnRemainingTicks !== undefined ? state.respawnTotalTicks : undefined,
+    };
+  }
+
+  damageContainer(
+    mapId: string,
+    containerId: string,
+    damage: number,
+  ): {
+    destroyed: boolean;
+    hp: number;
+    maxHp: number;
+    appliedDamage: number;
+    dirtyPlayers: string[];
+    herb: LootWindowHerbMeta;
+  } | null {
+    const container = this.mapService.getContainerById(mapId, containerId);
+    if (!container || container.variant !== 'herb') {
+      return null;
+    }
+    const state = this.ensureContainerState(mapId, container);
+    if (
+      !state.herb
+      || !Number.isFinite(state.maxHp)
+      || state.maxHp! <= 0
+      || state.destroyed === true
+      || this.isHerbRespawningState(state)
+    ) {
+      return null;
+    }
+
+    const nextDamage = Math.max(0, Math.round(damage));
+    const currentHp = Math.max(0, Math.round(state.hp ?? state.maxHp ?? 0));
+    const appliedDamage = Math.min(currentHp, nextDamage);
+    const nextHp = Math.max(0, currentHp - appliedDamage);
+    state.hp = nextHp;
+    if (nextHp <= 0) {
+      state.destroyed = true;
+      state.entries = [];
+      state.activeSearch = undefined;
+      const respawnTicks = this.resolveContainerRefreshTicks(container);
+      state.refreshAtTick = respawnTicks !== undefined ? this.getCurrentTick(mapId) + respawnTicks : undefined;
+      state.respawnTotalTicks = respawnTicks;
+    }
+    this.markRuntimeStateDirty();
+
+    return {
+      destroyed: state.destroyed === true,
+      hp: Math.max(0, Math.round(state.hp ?? 0)),
+      maxHp: Math.max(1, Math.round(state.maxHp ?? 1)),
+      appliedDamage,
+      dirtyPlayers: this.getTileViewerIds(mapId, container.x, container.y),
+      herb: { ...state.herb },
+    };
   }
 
   private takeFromGround(player: PlayerState, session: LootSession, sourceId: string, itemKey: string): LootActionResult {
@@ -574,23 +687,42 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     }
 
     const state = this.ensureContainerState(session.mapId, container);
+    if (state.destroyed) {
+      return { error: '这株草药已被摧毁，无法采集。', messages: [], dirtyPlayers: this.getTileViewerIds(session.mapId, session.tileX, session.tileY) };
+    }
+    if (container.variant === 'herb' && this.isHerbRespawningState(state)) {
+      return {
+        error: `这株草药尚在回生，还需 ${Math.max(1, this.getRespawnRemainingTicks(session.mapId, state) ?? 0)} 息。`,
+        messages: [],
+        dirtyPlayers: this.getTileViewerIds(session.mapId, session.tileX, session.tileY),
+      };
+    }
     const row = this.groupLootEntries(state.entries.filter((entry) => entry.visible)).find((entry) => entry.itemKey === itemKey);
     if (!row) {
-      return { error: '目标物品已经被其他人拿走了。', messages: [], dirtyPlayers: this.getTileViewerIds(session.mapId, session.tileX, session.tileY) };
+      return {
+        error: container.variant === 'herb' ? '当前还没有可采下的草药。' : '目标物品已经被其他人拿走了。',
+        messages: [],
+        dirtyPlayers: this.getTileViewerIds(session.mapId, session.tileX, session.tileY),
+      };
     }
     if (!this.canAddItems(player, row.entries.map((entry) => entry.item))) {
-      return { error: '背包空间不足，无法拿取该物品。', messages: [], dirtyPlayers: [] };
+      return { error: container.variant === 'herb' ? '背包空间不足，无法采下该草药。' : '背包空间不足，无法拿取该物品。', messages: [], dirtyPlayers: [] };
     }
 
     this.addItems(player, row.entries.map((entry) => entry.item));
     const keySet = new Set(row.entries);
     state.entries = state.entries.filter((entry) => !keySet.has(entry));
+    if (container.variant === 'herb' && state.entries.length === 0) {
+      this.scheduleHerbRespawn(session.mapId, container, state);
+    }
     this.markRuntimeStateDirty();
 
     return {
       messages: [{
         playerId: player.id,
-        text: `你从 ${container.name} 中拿走了 ${row.item.name} x${row.item.count}。`,
+        text: container.variant === 'herb'
+          ? `你采得了 ${row.item.name} x${row.item.count}。`
+          : `你从 ${container.name} 中拿走了 ${row.item.name} x${row.item.count}。`,
         kind: 'loot',
       }],
       dirtyPlayers: this.getTileViewerIds(session.mapId, session.tileX, session.tileY),
@@ -610,9 +742,23 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     }
 
     const state = this.ensureContainerState(session.mapId, container);
+    if (state.destroyed) {
+      return { error: '这株草药已被摧毁，无法采集。', messages: [], dirtyPlayers: this.getTileViewerIds(session.mapId, session.tileX, session.tileY) };
+    }
+    if (container.variant === 'herb' && this.isHerbRespawningState(state)) {
+      return {
+        error: `这株草药尚在回生，还需 ${Math.max(1, this.getRespawnRemainingTicks(session.mapId, state) ?? 0)} 息。`,
+        messages: [],
+        dirtyPlayers: this.getTileViewerIds(session.mapId, session.tileX, session.tileY),
+      };
+    }
     const rows = this.groupLootEntries(state.entries.filter((entry) => entry.visible));
     if (rows.length === 0) {
-      return { error: '当前没有可拿取的物品。', messages: [], dirtyPlayers: this.getTileViewerIds(session.mapId, session.tileX, session.tileY) };
+      return {
+        error: container.variant === 'herb' ? '当前还没有可采下的草药。' : '当前没有可拿取的物品。',
+        messages: [],
+        dirtyPlayers: this.getTileViewerIds(session.mapId, session.tileX, session.tileY),
+      };
     }
 
     const result = this.takeRowsWithCapacity(player, rows);
@@ -622,11 +768,16 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
 
     const keySet = new Set(result.takenRows.flatMap((row) => row.entries));
     state.entries = state.entries.filter((entry) => !keySet.has(entry));
+    if (container.variant === 'herb' && state.entries.length === 0) {
+      this.scheduleHerbRespawn(session.mapId, container, state);
+    }
     this.markRuntimeStateDirty();
 
     const messages: LootMessage[] = [{
       playerId: player.id,
-      text: `你从 ${container.name} 中拿走了 ${this.formatTakenRowsSummary(result.takenRows)}。`,
+      text: container.variant === 'herb'
+        ? `你采得了 ${this.formatTakenRowsSummary(result.takenRows)}。`
+        : `你从 ${container.name} 中拿走了 ${this.formatTakenRowsSummary(result.takenRows)}。`,
       kind: 'loot',
     }];
     if (result.blockedByCapacity) {
@@ -683,6 +834,8 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       return {
         itemId: item.itemId,
         count: Math.max(1, Math.floor(item.count)),
+        alchemySuccessRate: item.alchemySuccessRate,
+        alchemySpeedRate: item.alchemySpeedRate,
         mapUnlockId: item.mapUnlockId,
         tileAuraGainAmount: item.tileAuraGainAmount,
         allowBatchUse: item.allowBatchUse,
@@ -703,6 +856,8 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       equipValueStats: item.equipValueStats ? structuredClone(item.equipValueStats) : undefined,
       effects: item.effects ? structuredClone(item.effects) : undefined,
       tags: item.tags ? [...item.tags] : undefined,
+      alchemySuccessRate: item.alchemySuccessRate,
+      alchemySpeedRate: item.alchemySpeedRate,
       mapUnlockId: item.mapUnlockId,
       tileAuraGainAmount: item.tileAuraGainAmount,
       allowBatchUse: item.allowBatchUse,
@@ -805,6 +960,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     const sourceId = this.buildContainerSourceId(mapId, container.id);
     const existing = this.containers.get(sourceId);
     if (existing && existing.generatedAtTick !== undefined) {
+      this.syncContainerVariantState(container, existing);
       return existing;
     }
 
@@ -813,13 +969,19 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       sourceId,
       mapId,
       containerId: container.id,
+      variant: container.variant,
       entries: [],
       activeSearch: undefined,
     };
     generated.entries = this.generateContainerEntries(container, currentTick);
     generated.generatedAtTick = currentTick;
-    generated.refreshAtTick = container.refreshTicks ? currentTick + container.refreshTicks : undefined;
+    generated.refreshAtTick = container.variant === 'herb'
+      ? undefined
+      : (container.refreshTicks ? currentTick + container.refreshTicks : undefined);
+    generated.respawnTotalTicks = undefined;
     generated.activeSearch = undefined;
+    generated.variant = container.variant;
+    this.syncContainerVariantState(container, generated, true);
     this.containers.set(sourceId, generated);
     this.markRuntimeStateDirty();
     return generated;
@@ -861,7 +1023,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
 
   private beginContainerSearch(mapId: string, container: ContainerConfig): void {
     const state = this.ensureContainerState(mapId, container);
-    if (state.activeSearch) {
+    if (state.activeSearch || state.destroyed) {
       return;
     }
 
@@ -870,13 +1032,119 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    const totalTicks = CONTAINER_SEARCH_TICKS[container.grade] ?? 1;
+    const totalTicks = state.herb?.gatherTicks ?? (CONTAINER_SEARCH_TICKS[container.grade] ?? 1);
     state.activeSearch = {
       itemKey: nextHidden.itemKey,
       totalTicks,
       remainingTicks: totalTicks,
     };
     this.markRuntimeStateDirty();
+  }
+
+  private syncContainerVariantState(container: ContainerConfig, state: ContainerState, resetHp = false): void {
+    state.variant = container.variant;
+    if (container.variant !== 'herb') {
+      state.herb = undefined;
+      state.hp = undefined;
+      state.maxHp = undefined;
+      state.destroyed = undefined;
+      state.respawnTotalTicks = undefined;
+      return;
+    }
+
+    const herbItem = state.entries[0]?.item;
+    if (herbItem) {
+      state.herb = this.buildHerbMeta(herbItem);
+    }
+    if (!state.herb) {
+      return;
+    }
+
+    const nextMaxHp = this.computeHerbDurability(state.herb);
+    state.maxHp = nextMaxHp;
+    if (this.isHerbRespawningState(state)) {
+      state.hp = 0;
+      state.destroyed = false;
+      return;
+    }
+    if (resetHp || !Number.isFinite(state.hp) || state.destroyed === undefined) {
+      state.hp = nextMaxHp;
+      state.destroyed = false;
+      return;
+    }
+    state.hp = Math.max(0, Math.min(Math.round(state.hp!), nextMaxHp));
+    state.destroyed = state.destroyed === true && state.hp <= 0;
+  }
+
+  private isHerbRespawningState(state: Pick<ContainerState, 'variant' | 'refreshAtTick' | 'entries' | 'destroyed'>): boolean {
+    return state.variant === 'herb' && state.destroyed !== true && state.refreshAtTick !== undefined && state.entries.length === 0;
+  }
+
+  private getRespawnRemainingTicks(
+    mapId: string,
+    state: Pick<ContainerState, 'refreshAtTick'>,
+  ): number | undefined {
+    if (state.refreshAtTick === undefined) {
+      return undefined;
+    }
+    return Math.max(0, state.refreshAtTick - this.getCurrentTick(mapId));
+  }
+
+  private resolveContainerRefreshTicks(container: ContainerConfig): number | undefined {
+    const fixed = Number.isInteger(container.refreshTicks) && container.refreshTicks! > 0
+      ? Number(container.refreshTicks)
+      : undefined;
+    const min = Number.isInteger(container.refreshTicksMin) && container.refreshTicksMin! > 0
+      ? Number(container.refreshTicksMin)
+      : fixed;
+    const max = Number.isInteger(container.refreshTicksMax) && container.refreshTicksMax! > 0
+      ? Number(container.refreshTicksMax)
+      : (fixed ?? min);
+    if (min === undefined && max === undefined) {
+      return undefined;
+    }
+    const lower = Math.max(1, Math.min(min ?? max ?? 1, max ?? min ?? 1));
+    const upper = Math.max(lower, max ?? min ?? lower);
+    if (lower === upper) {
+      return lower;
+    }
+    return lower + Math.floor(Math.random() * (upper - lower + 1));
+  }
+
+  private scheduleHerbRespawn(mapId: string, container: ContainerConfig, state: ContainerState): void {
+    const respawnTicks = this.resolveContainerRefreshTicks(container);
+    state.activeSearch = undefined;
+    state.hp = 0;
+    state.destroyed = false;
+    if (respawnTicks === undefined) {
+      state.refreshAtTick = undefined;
+      state.respawnTotalTicks = undefined;
+      return;
+    }
+    state.refreshAtTick = this.getCurrentTick(mapId) + respawnTicks;
+    state.respawnTotalTicks = respawnTicks;
+  }
+
+  private buildHerbMeta(item: ItemStack): LootWindowHerbMeta {
+    const grade = item.grade;
+    const level = Math.max(1, Math.floor(Number(item.level) || 1));
+    return {
+      itemId: item.itemId,
+      name: item.name,
+      grade,
+      level,
+      gatherTicks: this.computeHerbGatherTicks(grade, level),
+    };
+  }
+
+  private computeHerbGatherTicks(grade: TechniqueGrade | undefined, level: number | undefined): number {
+    const normalizedLevel = Math.max(1, Math.floor(Number(level) || 1));
+    return Math.max(1, normalizedLevel + resolveAlchemyGradeValue(grade) - 1);
+  }
+
+  private computeHerbDurability(herb: LootWindowHerbMeta): number {
+    const level = Math.max(1, Math.floor(Number(herb.level) || 1));
+    return 8 + level * 6 + resolveAlchemyGradeValue(herb.grade) * 8;
   }
 
   private hasHiddenContainerEntries(entries: LootEntry[]): boolean {
@@ -970,9 +1238,15 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
           .sort((left, right) => left.containerId.localeCompare(right.containerId, 'zh-CN'))
           .map((state) => ({
             containerId: state.containerId,
+            variant: state.variant,
             generatedAtTick: state.generatedAtTick,
             refreshAtTick: state.refreshAtTick,
+            respawnTotalTicks: state.respawnTotalTicks,
             entries: state.entries.map((entry) => this.toPersistedLootEntry(entry)),
+            herb: state.herb ? { ...state.herb } : undefined,
+            hp: state.hp,
+            maxHp: state.maxHp,
+            destroyed: state.destroyed,
             activeSearch: state.activeSearch
               ? {
                   itemKey: state.activeSearch.itemKey,
@@ -1164,10 +1438,37 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       sourceId: this.buildContainerSourceId(mapId, candidate.containerId),
       mapId,
       containerId: candidate.containerId,
+      variant: candidate.variant === 'herb' ? 'herb' : undefined,
       generatedAtTick: Number.isInteger(candidate.generatedAtTick) ? Number(candidate.generatedAtTick) : undefined,
       refreshAtTick: Number.isInteger(candidate.refreshAtTick) ? Number(candidate.refreshAtTick) : undefined,
+      respawnTotalTicks: Number.isInteger(candidate.respawnTotalTicks) ? Number(candidate.respawnTotalTicks) : undefined,
       entries,
+      herb: this.normalizePersistedHerbMeta(candidate.herb),
+      hp: Number.isFinite(candidate.hp) ? Math.max(0, Math.round(Number(candidate.hp))) : undefined,
+      maxHp: Number.isFinite(candidate.maxHp) ? Math.max(1, Math.round(Number(candidate.maxHp))) : undefined,
+      destroyed: candidate.destroyed === true,
       activeSearch: this.normalizePersistedContainerSearch(candidate.activeSearch),
+    };
+  }
+
+  private normalizePersistedHerbMeta(raw: unknown): LootWindowHerbMeta | undefined {
+    if (!raw || typeof raw !== 'object') {
+      return undefined;
+    }
+    const candidate = raw as Partial<LootWindowHerbMeta>;
+    if (
+      typeof candidate.itemId !== 'string'
+      || typeof candidate.name !== 'string'
+      || !Number.isInteger(candidate.gatherTicks)
+    ) {
+      return undefined;
+    }
+    return {
+      itemId: candidate.itemId,
+      name: candidate.name,
+      grade: candidate.grade,
+      level: Number.isFinite(candidate.level) ? Math.max(1, Math.floor(Number(candidate.level))) : undefined,
+      gatherTicks: Math.max(1, Math.floor(Number(candidate.gatherTicks))),
     };
   }
 

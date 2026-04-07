@@ -285,5 +285,54 @@
       "y": 30
     }
   ],
-  "terrainRealmLv": 19
+  "terrainRealmLv": 19,
+  "resourceNodeGroups": [
+    {
+      "resourceNodeId": "landmark.herb.sunmelt_seed",
+      "idPrefix": "lm_ember_sunmelt",
+      "name": "融阳灼株",
+      "placements": [
+        {
+          "x": 24,
+          "y": 38
+        },
+        {
+          "x": 25,
+          "y": 38
+        },
+        {
+          "x": 24,
+          "y": 37
+        },
+        {
+          "x": 25,
+          "y": 37
+        },
+        {
+          "x": 26,
+          "y": 38
+        },
+        {
+          "x": 25,
+          "y": 39
+        },
+        {
+          "x": 24,
+          "y": 36
+        },
+        {
+          "x": 25,
+          "y": 36
+        },
+        {
+          "x": 23,
+          "y": 37
+        },
+        {
+          "x": 26,
+          "y": 37
+        }
+      ]
+    }
+  ]
 }

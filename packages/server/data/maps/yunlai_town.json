@@ -1750,5 +1750,101 @@
       "respawnTicks": 15
     }
   ],
-  "terrainRealmLv": 1
+  "terrainRealmLv": 1,
+  "resourceNodeGroups": [
+    {
+      "resourceNodeId": "landmark.herb.moondew_grass",
+      "idPrefix": "lm_yunlai_moondew",
+      "name": "药铺晨露圃",
+      "placements": [
+        {
+          "x": 43,
+          "y": 32
+        },
+        {
+          "x": 44,
+          "y": 32
+        },
+        {
+          "x": 43,
+          "y": 33
+        },
+        {
+          "x": 44,
+          "y": 33
+        },
+        {
+          "x": 43,
+          "y": 30
+        },
+        {
+          "x": 44,
+          "y": 30
+        },
+        {
+          "x": 45,
+          "y": 33
+        },
+        {
+          "x": 43,
+          "y": 34
+        },
+        {
+          "x": 42,
+          "y": 30
+        },
+        {
+          "x": 45,
+          "y": 30
+        }
+      ]
+    },
+    {
+      "resourceNodeId": "landmark.herb.green_spirit_stem",
+      "idPrefix": "lm_yunlai_spirit_stem",
+      "name": "后院青灵畦",
+      "placements": [
+        {
+          "x": 42,
+          "y": 34
+        },
+        {
+          "x": 43,
+          "y": 35
+        },
+        {
+          "x": 41,
+          "y": 34
+        },
+        {
+          "x": 42,
+          "y": 35
+        },
+        {
+          "x": 44,
+          "y": 35
+        },
+        {
+          "x": 43,
+          "y": 36
+        },
+        {
+          "x": 41,
+          "y": 33
+        },
+        {
+          "x": 40,
+          "y": 34
+        },
+        {
+          "x": 41,
+          "y": 35
+        },
+        {
+          "x": 45,
+          "y": 35
+        }
+      ]
+    }
+  ]
 }

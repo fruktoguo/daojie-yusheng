@@ -58,6 +58,8 @@ export interface IRenderer {
       kind?: string;
       hp?: number;
       maxHp?: number;
+      respawnRemainingTicks?: number;
+      respawnTotalTicks?: number;
       npcQuestMarker?: NpcQuestMarker;
     }[],
     movedId?: string,

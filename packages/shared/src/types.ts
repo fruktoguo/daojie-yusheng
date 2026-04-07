@@ -165,6 +165,8 @@ export interface RenderEntity {
   monsterScale?: number;
   hp?: number;
   maxHp?: number;
+  respawnRemainingTicks?: number;
+  respawnTotalTicks?: number;
   qi?: number;
   maxQi?: number;
   npcQuestMarker?: NpcQuestMarker;
@@ -361,6 +363,7 @@ export interface EquipmentBuffDef {
   visibility?: BuffVisibility;
   color?: string;
   duration: number;
+  stacks?: number;
   maxStacks?: number;
   attrs?: Partial<Attributes>;
   attrMode?: BuffModifierMode;
@@ -480,9 +483,69 @@ export interface ItemStack {
   qiPercent?: number;
   consumeBuffs?: ConsumableBuffDef[];
   tags?: string[];
+  alchemySuccessRate?: number;
+  alchemySpeedRate?: number;
   mapUnlockId?: string;
   tileAuraGainAmount?: number;
   allowBatchUse?: boolean;
+}
+
+export type AlchemyIngredientRole = 'main' | 'aux';
+
+export interface AlchemyIngredientSelection {
+  itemId: string;
+  count: number;
+}
+
+export interface AlchemyRecipeIngredientDef extends AlchemyIngredientSelection {
+  name: string;
+  role: AlchemyIngredientRole;
+  level: number;
+  grade: TechniqueGrade;
+  powerPerUnit: number;
+}
+
+export interface AlchemyRecipeCatalogEntry {
+  recipeId: string;
+  outputItemId: string;
+  outputName: string;
+  outputCount: number;
+  outputLevel: number;
+  baseBrewTicks: number;
+  fullPower: number;
+  ingredients: AlchemyRecipeIngredientDef[];
+}
+
+export interface PlayerAlchemyPreset {
+  presetId: string;
+  recipeId: string;
+  name: string;
+  ingredients: AlchemyIngredientSelection[];
+  updatedAt: number;
+}
+
+export interface AlchemySkillState {
+  level: number;
+  exp: number;
+  expToNext: number;
+}
+
+export interface PlayerAlchemyJob {
+  recipeId: string;
+  outputItemId: string;
+  outputCount: number;
+  ingredients: AlchemyIngredientSelection[];
+  totalTicks: number;
+  remainingTicks: number;
+  successRate: number;
+  exactRecipe: boolean;
+  startedAt: number;
+}
+
+export interface SyncedAlchemyPanelState {
+  furnaceItemId?: string;
+  presets: PlayerAlchemyPreset[];
+  job: PlayerAlchemyJob | null;
 }
 
 /** 背包 */
@@ -578,6 +641,18 @@ export interface MarketOwnOrderView {
 /** 拾取来源类型 */
 export type LootSourceKind = 'ground' | 'container';
 
+/** 拾取来源变种 */
+export type LootSourceVariant = 'default' | 'herb';
+
+/** 草药采集元信息 */
+export interface LootWindowHerbMeta {
+  itemId: string;
+  name: string;
+  grade?: TechniqueGrade;
+  level?: number;
+  gatherTicks: number;
+}
+
 /** 地面物品条目视图 */
 export interface GroundItemEntryView {
   itemKey: string;
@@ -614,11 +689,14 @@ export interface LootWindowItemView {
 export interface LootWindowSourceView {
   sourceId: string;
   kind: LootSourceKind;
+  variant?: LootSourceVariant;
   title: string;
   desc?: string;
   grade?: TechniqueGrade;
   searchable: boolean;
   search?: LootSearchProgressView;
+  herb?: LootWindowHerbMeta;
+  destroyed?: boolean;
   items: LootWindowItemView[];
   emptyText?: string;
 }
@@ -826,6 +904,7 @@ export interface SkillBuffEffectDef {
   visibility?: BuffVisibility;
   color?: string;
   duration: number;
+  stacks?: number;
   maxStacks?: number;
   attrs?: Partial<Attributes>;
   attrMode?: BuffModifierMode;
@@ -1177,6 +1256,9 @@ export interface PlayerState {
   questNavigation?: QuestNavigationState;
   questCrossMapNavCooldownUntilLifeTicks?: number;
   pendingSkillCast?: PendingPlayerSkillCast;
+  alchemySkill?: AlchemySkillState;
+  alchemyPresets?: PlayerAlchemyPreset[];
+  alchemyJob?: PlayerAlchemyJob | null;
 }
 
 /** 意见状态 */

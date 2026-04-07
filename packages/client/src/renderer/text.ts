@@ -228,6 +228,8 @@ interface AnimEntity {
   monsterScale?: number;
   hp?: number;
   maxHp?: number;
+  respawnRemainingTicks?: number;
+  respawnTotalTicks?: number;
   npcQuestMarker?: NpcQuestMarker;
   buffs?: VisibleBuffState[];
 }
@@ -608,7 +610,7 @@ export class TextRenderer implements IRenderer {
 
   /** 更新实体列表，记录旧位置用于插值动画 */
   updateEntities(
-    list: readonly { id: string; wx: number; wy: number; char: string; color: string; name?: string; kind?: string; monsterTier?: MonsterTier; monsterScale?: number; hp?: number; maxHp?: number; npcQuestMarker?: NpcQuestMarker | null; buffs?: VisibleBuffState[] }[],
+    list: readonly { id: string; wx: number; wy: number; char: string; color: string; name?: string; kind?: string; monsterTier?: MonsterTier; monsterScale?: number; hp?: number; maxHp?: number; respawnRemainingTicks?: number; respawnTotalTicks?: number; npcQuestMarker?: NpcQuestMarker | null; buffs?: VisibleBuffState[] }[],
     movedId?: string,
     shiftX = 0,
     shiftY = 0,
@@ -670,6 +672,8 @@ export class TextRenderer implements IRenderer {
         anim.monsterScale = e.monsterScale;
         anim.hp = e.hp;
         anim.maxHp = e.maxHp;
+        anim.respawnRemainingTicks = e.respawnRemainingTicks;
+        anim.respawnTotalTicks = e.respawnTotalTicks;
         anim.npcQuestMarker = e.npcQuestMarker ?? undefined;
         anim.buffs = e.buffs;
       } else {
@@ -689,6 +693,8 @@ export class TextRenderer implements IRenderer {
           monsterScale: e.monsterScale,
           hp: e.hp,
           maxHp: e.maxHp,
+          respawnRemainingTicks: e.respawnRemainingTicks,
+          respawnTotalTicks: e.respawnTotalTicks,
           npcQuestMarker: e.npcQuestMarker ?? undefined,
           buffs: e.buffs,
         });
@@ -810,6 +816,17 @@ export class TextRenderer implements IRenderer {
           ctx.fillRect(barX, barY, barW, 3);
           ctx.fillStyle = isMonster ? '#d15252' : isNpc ? '#58a8ff' : isContainer ? '#c18b46' : '#63c46b';
           ctx.fillRect(barX, barY, barW * ratio, 3);
+          if (isContainer && (anim.respawnRemainingTicks ?? 0) > 0) {
+            ctx.textBaseline = 'top';
+            ctx.font = buildCanvasFont('label', renderedCellSize * 0.22);
+            this.drawOutlinedText(
+              `再生 ${this.formatRespawnCountdown(anim.respawnRemainingTicks)}`,
+              sx + renderedCellSize / 2,
+              barY + 6,
+              '#e7d5a7',
+              'rgba(15,12,10,0.92)',
+            );
+          }
         }
 
         if (isNpc && anim.npcQuestMarker) {
@@ -903,6 +920,16 @@ export class TextRenderer implements IRenderer {
     ctx.lineTo(baseX - (-arrowUy) * headWidth, baseY - arrowUx * headWidth);
     ctx.closePath();
     ctx.fill();
+  }
+
+  private formatRespawnCountdown(ticks: number | undefined): string {
+    const totalSeconds = Math.max(0, Math.round(Number(ticks) || 0));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    if (minutes <= 0) {
+      return `${Math.max(1, seconds)}息`;
+    }
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   }
 
   private getQuadraticPoint(start: number, control: number, end: number, t: number): number {

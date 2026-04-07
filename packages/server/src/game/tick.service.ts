@@ -8,6 +8,7 @@ import {
   AUTO_IDLE_CULTIVATION_DELAY_TICKS,
   ActionDef,
   ActionUpdateEntry,
+  AlchemyIngredientSelection,
   AutoBattleSkillConfig,
   CombatEffect,
   DEFAULT_AURA_LEVEL_BASE_VALUE,
@@ -109,6 +110,7 @@ import {
   MOLTEN_POOL_BURN_SHORT_MARK,
   MOLTEN_POOL_BURN_SOURCE_ID,
 } from '../constants/gameplay/terrain-effects';
+import { AlchemyService } from './alchemy.service';
 
 /** 上一次发送给各玩家的 tick 快照，用于增量比对 */
 interface LastSentTickState {
@@ -204,6 +206,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   private lastSentGroundPiles: Map<string, Map<string, GroundItemPileView>> = new Map();
   private lastSentVisibleTiles: Map<string, Map<string, VisibleTile>> = new Map();
   private lastSentRenderEntities: Map<string, Map<string, RenderEntity>> = new Map();
+  private pendingAlchemyPanelPushPlayers: Set<string> = new Set();
   private lastPeriodicSyncAt: Map<string, number> = new Map();
   private forcedTickSyncPlayers: Set<string> = new Set();
   private persistTimer: ReturnType<typeof setInterval> | null = null;
@@ -229,6 +232,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     private readonly contentService: ContentService,
     private readonly lootService: LootService,
     private readonly worldService: WorldService,
+    private readonly alchemyService: AlchemyService,
     private readonly timeService: TimeService,
     private readonly qiProjectionService: QiProjectionService,
     private readonly mailService: MailService,
@@ -258,6 +262,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     this.lastSentInventoryStates.delete(playerId);
     this.lastSentEquipmentStates.delete(playerId);
     this.cooldownOnlyActionDirtyPlayers.delete(playerId);
+    this.pendingAlchemyPanelPushPlayers.delete(playerId);
   }
 
   /** 切图时仅重置地图可见性与 AOI 相关缓存，避免面板差量缓存回退到整包 */
@@ -853,6 +858,66 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           });
           break;
         }
+        case 'saveAlchemyPreset': {
+          this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+            const result = this.alchemyService.savePreset(
+              player,
+              cmd.data as { presetId?: string; recipeId: string; name: string; ingredients: AlchemyIngredientSelection[] },
+            );
+            if (result.error) {
+              messages.push({ playerId: player.id, text: result.error, kind: 'system' });
+              return;
+            }
+            if (result.panelChanged) {
+              this.pendingAlchemyPanelPushPlayers.add(player.id);
+            }
+            for (const message of result.messages) {
+              messages.push({ playerId: player.id, text: message.text, kind: message.kind ?? 'system' });
+            }
+          });
+          break;
+        }
+        case 'deleteAlchemyPreset': {
+          this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+            const result = this.alchemyService.deletePreset(
+              player,
+              cmd.data as { presetId: string },
+            );
+            if (result.error) {
+              messages.push({ playerId: player.id, text: result.error, kind: 'system' });
+              return;
+            }
+            if (result.panelChanged) {
+              this.pendingAlchemyPanelPushPlayers.add(player.id);
+            }
+            for (const message of result.messages) {
+              messages.push({ playerId: player.id, text: message.text, kind: message.kind ?? 'system' });
+            }
+          });
+          break;
+        }
+        case 'startAlchemy': {
+          this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+            const result = this.alchemyService.startAlchemy(
+              player,
+              cmd.data as { recipeId: string; ingredients: AlchemyIngredientSelection[] },
+            );
+            if (result.error) {
+              messages.push({ playerId: player.id, text: result.error, kind: 'system' });
+              return;
+            }
+            if (result.inventoryChanged) {
+              this.playerService.markDirty(player.id, 'inv');
+            }
+            if (result.panelChanged) {
+              this.pendingAlchemyPanelPushPlayers.add(player.id);
+            }
+            for (const message of result.messages) {
+              messages.push({ playerId: player.id, text: message.text, kind: message.kind ?? 'system' });
+            }
+          });
+          break;
+        }
         case 'mailRead': {
           this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
             this.mailService.applyPreparedMarkRead(
@@ -1036,6 +1101,20 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         this.markActionCooldownDirty(player.id);
       }
 
+      const alchemyUpdate = this.measureCpuSection('state_alchemy', '角色状态: 炼丹推进', () => this.alchemyService.tickAlchemy(player));
+      if (alchemyUpdate.inventoryChanged) {
+        this.playerService.markDirty(player.id, 'inv');
+      }
+      for (const dirtyPlayerId of alchemyUpdate.dirtyPlayers ?? []) {
+        this.playerService.markDirty(dirtyPlayerId, 'loot');
+      }
+      if (alchemyUpdate.panelChanged) {
+        this.pendingAlchemyPanelPushPlayers.add(player.id);
+      }
+      for (const message of alchemyUpdate.messages) {
+        messages.push({ playerId: player.id, text: message.text, kind: message.kind ?? 'system' });
+      }
+
       if (player.mapId !== startMapId || player.x !== startX || player.y !== startY) {
         this.markActionsDirty(player.id);
         const moveEffects = this.equipmentEffectService.dispatch(player, { trigger: 'on_move' });
@@ -1078,6 +1157,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
 
     this.flushDirtyUpdates([...affectedPlayers.values()]);
+    this.flushAlchemyPanels();
     this.measureCpuSection('broadcast_messages', '广播: 系统消息分发', () => {
       this.flushMessages(messages);
     });
@@ -2022,6 +2102,15 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       }
       case 'equip': {
         const { slotIndex } = data as { slotIndex: number };
+        const nextItem = this.inventoryService.getItem(player, slotIndex);
+        if (
+          nextItem?.equipSlot === 'weapon'
+          && this.alchemyService.hasEquippedFurnace(player)
+          && (player.alchemyJob?.remainingTicks ?? 0) > 0
+        ) {
+          messages.push({ playerId: player.id, text: '炼丹进行中，暂时不能替换丹炉。', kind: 'system' });
+          break;
+        }
         const equipErr = this.equipmentService.equip(player, slotIndex);
         if (!equipErr) {
           this.markDirty(player.id, ['inv', 'equip', 'attr']);
@@ -2032,6 +2121,14 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       }
       case 'unequip': {
         const { slot } = data as { slot: string };
+        if (
+          slot === 'weapon'
+          && this.alchemyService.hasEquippedFurnace(player)
+          && (player.alchemyJob?.remainingTicks ?? 0) > 0
+        ) {
+          messages.push({ playerId: player.id, text: '炼丹进行中，暂时不能卸下丹炉。', kind: 'system' });
+          break;
+        }
         const unequipErr = this.equipmentService.unequip(player, slot as any);
         if (!unequipErr) {
           this.markDirty(player.id, ['inv', 'equip', 'attr']);
@@ -2096,6 +2193,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
     // 即时推送操作者自身的脏数据
     this.flushPlayerDirtyUpdates(player);
+    this.flushPlayerAlchemyPanel(player.id);
     // 即时推送操作者的系统消息
     this.flushImmediateMessages(player.id, messages);
   }
@@ -2113,6 +2211,22 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     for (const player of players) {
       this.flushPlayerDirtyUpdates(player);
     }
+  }
+
+  private flushAlchemyPanels(): void {
+    for (const playerId of [...this.pendingAlchemyPanelPushPlayers]) {
+      this.flushPlayerAlchemyPanel(playerId);
+    }
+  }
+
+  private flushPlayerAlchemyPanel(playerId: string): void {
+    this.pendingAlchemyPanelPushPlayers.delete(playerId);
+    const player = this.playerService.getPlayer(playerId);
+    const socket = player ? this.playerService.getSocket(playerId) : null;
+    if (!player || !socket) {
+      return;
+    }
+    socket.emit(S2C.AlchemyPanel, this.alchemyService.buildPanelPayload(player, this.alchemyService.getCatalogVersion()));
   }
 
   /** 推送单个玩家的脏标记数据并清除标记 */
@@ -2615,6 +2729,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       realmProgress: player.realm?.progress,
       realmProgressToNext: player.realm?.progressToNext,
       realmBreakthroughReady: player.realm?.breakthroughReady,
+      alchemySkill: player.alchemySkill ? this.cloneStructured(player.alchemySkill) : undefined,
     };
   }
 
@@ -2841,6 +2956,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     if (!previous || previous.realmBreakthroughReady !== nextState.realmBreakthroughReady) {
       patch.realmBreakthroughReady = nextState.realmBreakthroughReady;
     }
+    if (!previous || !this.isStructuredEqual(previous.alchemySkill, nextState.alchemySkill)) {
+      patch.alchemySkill = nextState.alchemySkill ? this.cloneStructured(nextState.alchemySkill) : undefined;
+    }
 
     this.lastSentAttrUpdates.set(playerId, cachedState);
     return Object.keys(patch).length > 0 ? patch : null;
@@ -3049,6 +3167,8 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       return {
         itemId: item.itemId,
         count,
+        alchemySuccessRate: item.alchemySuccessRate,
+        alchemySpeedRate: item.alchemySpeedRate,
         mapUnlockId: item.mapUnlockId,
         tileAuraGainAmount: item.tileAuraGainAmount,
         allowBatchUse: item.allowBatchUse,
@@ -3069,6 +3189,8 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       equipValueStats: item.equipValueStats ? this.cloneStructured(item.equipValueStats) : undefined,
       effects: item.effects ? this.cloneStructured(item.effects) : undefined,
       tags: item.tags ? [...item.tags] : undefined,
+      alchemySuccessRate: item.alchemySuccessRate,
+      alchemySpeedRate: item.alchemySpeedRate,
       mapUnlockId: item.mapUnlockId,
       tileAuraGainAmount: item.tileAuraGainAmount,
       allowBatchUse: item.allowBatchUse,
@@ -3341,6 +3463,8 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         const monsterScaleChanged = !previous || previous.monsterScale !== entity.monsterScale;
         const hpChanged = !previous || previous.hp !== entity.hp;
         const maxHpChanged = !previous || previous.maxHp !== entity.maxHp;
+        const respawnRemainingTicksChanged = !previous || previous.respawnRemainingTicks !== entity.respawnRemainingTicks;
+        const respawnTotalTicksChanged = !previous || previous.respawnTotalTicks !== entity.respawnTotalTicks;
         const qiChanged = !previous || previous.qi !== entity.qi;
         const maxQiChanged = !previous || previous.maxQi !== entity.maxQi;
         const npcQuestMarkerChanged = !previous || !this.isStructuredEqual(previous.npcQuestMarker, entity.npcQuestMarker);
@@ -3356,6 +3480,8 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           || monsterScaleChanged
           || hpChanged
           || maxHpChanged
+          || respawnRemainingTicksChanged
+          || respawnTotalTicksChanged
           || qiChanged
           || maxQiChanged
           || npcQuestMarkerChanged
@@ -3380,6 +3506,8 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         if (monsterScaleChanged) next.monsterScale = entity.monsterScale ?? null;
         if (hpChanged) next.hp = entity.hp ?? null;
         if (maxHpChanged) next.maxHp = entity.maxHp ?? null;
+        if (respawnRemainingTicksChanged) next.respawnRemainingTicks = entity.respawnRemainingTicks ?? null;
+        if (respawnTotalTicksChanged) next.respawnTotalTicks = entity.respawnTotalTicks ?? null;
         if (qiChanged) next.qi = entity.qi ?? null;
         if (maxQiChanged) next.maxQi = entity.maxQi ?? null;
         if (npcQuestMarkerChanged) {
@@ -3483,7 +3611,6 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   private getMoltenPoolBurnBuff(player: PlayerState): TemporaryBuffState | undefined {
     return player.temporaryBuffs?.find((buff) => (
       buff.buffId === MOLTEN_POOL_BURN_BUFF_ID
-      && buff.sourceSkillId === MOLTEN_POOL_BURN_SOURCE_ID
       && buff.remainingTicks > 0
       && buff.stacks > 0
     ));

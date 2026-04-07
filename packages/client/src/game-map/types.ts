@@ -34,6 +34,8 @@ export interface ObservedMapEntity {
   monsterScale?: number;
   hp?: number;
   maxHp?: number;
+  respawnRemainingTicks?: number;
+  respawnTotalTicks?: number;
   qi?: number;
   maxQi?: number;
   npcQuestMarker?: TickRenderEntity['npcQuestMarker'];

@@ -13,6 +13,8 @@ import {
   GmMapNpcShopItemRecord,
   GmMapPortalRecord,
   GmMapQuestRecord,
+  GmMapResourceNodeGroupRecord,
+  GmMapResourceNodePlacementRecord,
   GmMapResourceRecord,
   GmMapSafeZoneRecord,
   GmMapSummary,
@@ -183,8 +185,11 @@ function normalizeEditableContainerRecord(input: unknown): GmMapContainerRecord 
   }
   const container = input as GmMapContainerRecord;
   return {
+    variant: container.variant === 'herb' ? 'herb' : undefined,
     grade: normalizeContainerGrade(container.grade),
     refreshTicks: Number.isFinite(container.refreshTicks) ? Number(container.refreshTicks) : undefined,
+    refreshTicksMin: Number.isFinite(container.refreshTicksMin) ? Number(container.refreshTicksMin) : undefined,
+    refreshTicksMax: Number.isFinite(container.refreshTicksMax) ? Number(container.refreshTicksMax) : undefined,
     char: normalizeOptionalTrimmedString(container.char),
     color: normalizeOptionalTrimmedString(container.color),
     drops: Array.isArray(container.drops)
@@ -230,6 +235,82 @@ function normalizeEditableContainerLootPoolRecord(input: unknown): GmMapContaine
     countMax: Number.isFinite(pool.countMax) ? Number(pool.countMax) : undefined,
     allowDuplicates: pool.allowDuplicates === true,
   };
+}
+
+function normalizeEditableResourceNodePlacementRecord(input: unknown): GmMapResourceNodePlacementRecord | undefined {
+  if (!input || typeof input !== 'object') {
+    return undefined;
+  }
+  const placement = input as GmMapResourceNodePlacementRecord;
+  return {
+    x: Number(placement.x ?? 0),
+    y: Number(placement.y ?? 0),
+    id: normalizeOptionalTrimmedString(placement.id),
+    name: normalizeOptionalTrimmedString(placement.name),
+    desc: normalizeOptionalTrimmedString(placement.desc),
+  };
+}
+
+function normalizeEditableResourceNodeGroupRecord(input: unknown): GmMapResourceNodeGroupRecord | undefined {
+  if (!input || typeof input !== 'object') {
+    return undefined;
+  }
+  const group = input as GmMapResourceNodeGroupRecord;
+  return {
+    resourceNodeId: typeof group.resourceNodeId === 'string' ? group.resourceNodeId.trim() : '',
+    idPrefix: normalizeOptionalTrimmedString(group.idPrefix),
+    name: normalizeOptionalTrimmedString(group.name),
+    desc: normalizeOptionalTrimmedString(group.desc),
+    placements: Array.isArray(group.placements)
+      ? group.placements
+        .map((placement) => normalizeEditableResourceNodePlacementRecord(placement))
+        .filter((placement): placement is GmMapResourceNodePlacementRecord => Boolean(placement))
+      : [],
+  };
+}
+
+function normalizeResourceNodeLandmarkIdPrefix(resourceNodeId: string, explicitPrefix?: string): string {
+  const normalizedPrefix = explicitPrefix?.trim();
+  if (normalizedPrefix) {
+    return normalizedPrefix;
+  }
+  const fallback = resourceNodeId.trim().replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  return fallback.length > 0 ? fallback : 'resource_node';
+}
+
+export function expandMapResourceNodeGroups(
+  document: Pick<GmMapDocument, 'landmarks' | 'resourceNodeGroups'>,
+): GmMapLandmarkRecord[] {
+  const baseLandmarks = Array.isArray(document.landmarks)
+    ? document.landmarks.map((landmark) => ({
+      ...landmark,
+      container: landmark.container ? clone(landmark.container) : undefined,
+    }))
+    : [];
+  const groups = Array.isArray(document.resourceNodeGroups) ? document.resourceNodeGroups : [];
+
+  for (const group of groups) {
+    const resourceNodeId = group.resourceNodeId?.trim() ?? '';
+    if (!resourceNodeId) {
+      continue;
+    }
+    const idPrefix = normalizeResourceNodeLandmarkIdPrefix(resourceNodeId, group.idPrefix);
+    const groupName = group.name?.trim() || resourceNodeId;
+    const groupDesc = group.desc?.trim() || undefined;
+    for (const placement of group.placements ?? []) {
+      baseLandmarks.push({
+        id: placement.id?.trim() || `${idPrefix}_${Math.floor(placement.x)}_${Math.floor(placement.y)}`,
+        name: placement.name?.trim() || groupName,
+        x: Number(placement.x ?? 0),
+        y: Number(placement.y ?? 0),
+        desc: placement.desc?.trim() || groupDesc,
+        resourceNodeId,
+        container: undefined,
+      });
+    }
+  }
+
+  return baseLandmarks;
 }
 
 function normalizeEditableDropRecord(input: unknown): GmMapDropRecord | undefined {
@@ -375,6 +456,9 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
   const landmarks = Array.isArray((source as { landmarks?: unknown[] }).landmarks)
     ? (source as { landmarks: unknown[] }).landmarks
     : [];
+  const resourceNodeGroups = Array.isArray((source as { resourceNodeGroups?: unknown[] }).resourceNodeGroups)
+    ? (source as { resourceNodeGroups: unknown[] }).resourceNodeGroups
+    : [];
   const portals = Array.isArray(source.portals) ? source.portals : [];
   const npcs = Array.isArray(source.npcs) ? source.npcs : [];
   const monsterSpawns = Array.isArray(source.monsterSpawns) ? source.monsterSpawns : [];
@@ -453,6 +537,9 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
       resourceNodeId: normalizeOptionalTrimmedString((landmark as GmMapLandmarkRecord).resourceNodeId),
       container: normalizeEditableContainerRecord((landmark as GmMapLandmarkRecord).container),
     })),
+    resourceNodeGroups: resourceNodeGroups
+      .map((group) => normalizeEditableResourceNodeGroupRecord(group))
+      .filter((group): group is GmMapResourceNodeGroupRecord => Boolean(group)),
     npcs: npcs.map((npc) => ({
       id: String((npc as GmMapNpcRecord).id ?? ''),
       name: String((npc as GmMapNpcRecord).name ?? ''),
@@ -702,8 +789,26 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
     }
   }
 
-  for (let index = 0; index < (document.landmarks?.length ?? 0); index += 1) {
-    const landmark = document.landmarks![index]!;
+  for (let index = 0; index < (document.resourceNodeGroups?.length ?? 0); index += 1) {
+    const group = document.resourceNodeGroups![index]!;
+    const label = `资源点分组 ${group.resourceNodeId || index + 1}`;
+    if (!group.resourceNodeId.trim()) {
+      return `${label} 的资源节点 ID 不能为空`;
+    }
+    if ((group.placements?.length ?? 0) <= 0) {
+      return `${label} 至少需要一个布点`;
+    }
+    for (let placementIndex = 0; placementIndex < group.placements.length; placementIndex += 1) {
+      const placement = group.placements[placementIndex]!;
+      const placementLabel = `${label} 的布点 ${placement.id || placementIndex + 1}`;
+      const error = ensurePointInBounds(placement.x, placement.y, placementLabel);
+      if (error) return error;
+    }
+  }
+
+  const expandedLandmarks = expandMapResourceNodeGroups(document);
+  for (let index = 0; index < expandedLandmarks.length; index += 1) {
+    const landmark = expandedLandmarks[index]!;
     const label = `地标 ${landmark.id || index + 1}`;
     if (!landmark.id.trim()) return `${label} 的 ID 不能为空`;
     if (!landmark.name.trim()) return `${label} 的名称不能为空`;
@@ -713,9 +818,27 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
       return `${label} 的资源节点 ID 不能为空字符串`;
     }
     if (landmark.container) {
+      if (landmark.container.variant !== undefined && landmark.container.variant !== 'herb') {
+        return `${label} 的容器变种非法`;
+      }
       const refreshTicks = landmark.container.refreshTicks;
       if (refreshTicks !== undefined && (!Number.isInteger(refreshTicks) || refreshTicks <= 0)) {
         return `${label} 的容器刷新时间必须为正整数`;
+      }
+      const refreshTicksMin = landmark.container.refreshTicksMin;
+      if (refreshTicksMin !== undefined && (!Number.isInteger(refreshTicksMin) || refreshTicksMin <= 0)) {
+        return `${label} 的容器最小刷新时间必须为正整数`;
+      }
+      const refreshTicksMax = landmark.container.refreshTicksMax;
+      if (refreshTicksMax !== undefined && (!Number.isInteger(refreshTicksMax) || refreshTicksMax <= 0)) {
+        return `${label} 的容器最大刷新时间必须为正整数`;
+      }
+      if (
+        refreshTicksMin !== undefined
+        && refreshTicksMax !== undefined
+        && refreshTicksMax < refreshTicksMin
+      ) {
+        return `${label} 的容器最大刷新时间不能小于最小刷新时间`;
       }
       for (let poolIndex = 0; poolIndex < (landmark.container.lootPools?.length ?? 0); poolIndex += 1) {
         const pool = landmark.container.lootPools![poolIndex]!;

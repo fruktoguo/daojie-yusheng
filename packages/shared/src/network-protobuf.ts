@@ -50,16 +50,20 @@ message TickRenderEntityPayload {
   optional bool clearHp = 15;
   optional sint32 maxHp = 16;
   optional bool clearMaxHp = 17;
-  optional sint32 qi = 18;
-  optional bool clearQi = 19;
-  optional sint32 maxQi = 20;
-  optional bool clearMaxQi = 21;
-  optional NpcQuestMarkerPayload npcQuestMarker = 22;
-  optional bool clearNpcQuestMarker = 23;
-  optional string observationJson = 24;
-  optional bool clearObservation = 25;
-  optional string buffsJson = 26;
-  optional bool clearBuffs = 27;
+  optional sint32 respawnRemainingTicks = 18;
+  optional bool clearRespawnRemainingTicks = 19;
+  optional sint32 respawnTotalTicks = 20;
+  optional bool clearRespawnTotalTicks = 21;
+  optional sint32 qi = 22;
+  optional bool clearQi = 23;
+  optional sint32 maxQi = 24;
+  optional bool clearMaxQi = 25;
+  optional NpcQuestMarkerPayload npcQuestMarker = 26;
+  optional bool clearNpcQuestMarker = 27;
+  optional string observationJson = 28;
+  optional bool clearObservation = 29;
+  optional string buffsJson = 30;
+  optional bool clearBuffs = 31;
 }
 
 message NpcQuestMarkerPayload {
@@ -231,6 +235,7 @@ message AttrUpdatePayload {
   optional NumericStatsPayload numericStats = 4;
   optional NumericRatioDivisorsPayload ratioDivisors = 5;
   optional string numericStatBreakdownsJson = 18;
+  optional string alchemySkillJson = 19;
   optional uint32 maxHp = 6;
   optional uint32 qi = 7;
   optional string realmJson = 8;
@@ -469,6 +474,8 @@ function toWireTickEntity(entity: TickRenderEntity): Record<string, unknown> {
   setNullableWireValue(wire, 'monsterScale', 'clearMonsterScale', entity.monsterScale);
   setNullableWireValue(wire, 'hp', 'clearHp', entity.hp);
   setNullableWireValue(wire, 'maxHp', 'clearMaxHp', entity.maxHp);
+  setNullableWireValue(wire, 'respawnRemainingTicks', 'clearRespawnRemainingTicks', entity.respawnRemainingTicks);
+  setNullableWireValue(wire, 'respawnTotalTicks', 'clearRespawnTotalTicks', entity.respawnTotalTicks);
   setNullableWireValue(wire, 'qi', 'clearQi', entity.qi);
   setNullableWireValue(wire, 'maxQi', 'clearMaxQi', entity.maxQi);
   if (entity.npcQuestMarker === null) {
@@ -509,6 +516,10 @@ function fromWireTickEntity(wire: Record<string, unknown>): TickRenderEntity {
   if (hp !== undefined) patch.hp = hp === null ? null : Number(hp);
   const maxHp = readNullableWireValue<number>(wire, 'maxHp', 'clearMaxHp');
   if (maxHp !== undefined) patch.maxHp = maxHp === null ? null : Number(maxHp);
+  const respawnRemainingTicks = readNullableWireValue<number>(wire, 'respawnRemainingTicks', 'clearRespawnRemainingTicks');
+  if (respawnRemainingTicks !== undefined) patch.respawnRemainingTicks = respawnRemainingTicks === null ? null : Number(respawnRemainingTicks);
+  const respawnTotalTicks = readNullableWireValue<number>(wire, 'respawnTotalTicks', 'clearRespawnTotalTicks');
+  if (respawnTotalTicks !== undefined) patch.respawnTotalTicks = respawnTotalTicks === null ? null : Number(respawnTotalTicks);
   const qi = readNullableWireValue<number>(wire, 'qi', 'clearQi');
   if (qi !== undefined) patch.qi = qi === null ? null : Number(qi);
   const maxQi = readNullableWireValue<number>(wire, 'maxQi', 'clearMaxQi');
@@ -964,6 +975,7 @@ function toWireAttrUpdate(payload: S2C_AttrUpdate): Record<string, unknown> {
   if (payload.numericStats) wire.numericStats = toWireNumericStats(payload.numericStats);
   if (payload.ratioDivisors) wire.ratioDivisors = toWireRatioDivisors(payload.ratioDivisors);
   if (payload.numericStatBreakdowns !== undefined) wire.numericStatBreakdownsJson = JSON.stringify(payload.numericStatBreakdowns);
+  if (payload.alchemySkill !== undefined) wire.alchemySkillJson = JSON.stringify(payload.alchemySkill);
   if (payload.maxHp !== undefined) wire.maxHp = payload.maxHp;
   if (payload.qi !== undefined) wire.qi = payload.qi;
   if (payload.specialStats) wire.specialStats = toWirePlayerSpecialStats(payload.specialStats);
@@ -988,6 +1000,7 @@ function fromWireAttrUpdate(wire: Record<string, unknown>): S2C_AttrUpdate {
   if (hasOwn(wire, 'numericStats')) payload.numericStats = fromWireNumericStats(wire.numericStats as Record<string, unknown>);
   if (hasOwn(wire, 'ratioDivisors')) payload.ratioDivisors = fromWireRatioDivisors(wire.ratioDivisors as Record<string, unknown>);
   if (typeof wire.numericStatBreakdownsJson === 'string') payload.numericStatBreakdowns = parseJson(wire.numericStatBreakdownsJson);
+  if (typeof wire.alchemySkillJson === 'string') payload.alchemySkill = parseJson(wire.alchemySkillJson);
   if (hasOwn(wire, 'maxHp')) payload.maxHp = Number(wire.maxHp ?? 0);
   if (hasOwn(wire, 'qi')) payload.qi = Number(wire.qi ?? 0);
   if (hasOwn(wire, 'specialStats')) payload.specialStats = fromWirePlayerSpecialStats(wire.specialStats as Record<string, unknown>);

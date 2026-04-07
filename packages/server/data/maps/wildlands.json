@@ -251,5 +251,101 @@
       "y": 14
     }
   ],
-  "terrainRealmLv": 1
+  "terrainRealmLv": 1,
+  "resourceNodeGroups": [
+    {
+      "resourceNodeId": "landmark.herb.red_flame_leaf",
+      "idPrefix": "lm_wild_redflame",
+      "name": "赤火灌丛",
+      "placements": [
+        {
+          "x": 24,
+          "y": 11
+        },
+        {
+          "x": 25,
+          "y": 12
+        },
+        {
+          "x": 23,
+          "y": 11
+        },
+        {
+          "x": 25,
+          "y": 11
+        },
+        {
+          "x": 24,
+          "y": 12
+        },
+        {
+          "x": 26,
+          "y": 12
+        },
+        {
+          "x": 25,
+          "y": 13
+        },
+        {
+          "x": 24,
+          "y": 9
+        },
+        {
+          "x": 23,
+          "y": 10
+        },
+        {
+          "x": 25,
+          "y": 10
+        }
+      ]
+    },
+    {
+      "resourceNodeId": "landmark.herb.bloodbud_fruit",
+      "idPrefix": "lm_wild_bloodbud",
+      "name": "赤芽矮丛",
+      "placements": [
+        {
+          "x": 31,
+          "y": 23
+        },
+        {
+          "x": 32,
+          "y": 24
+        },
+        {
+          "x": 31,
+          "y": 22
+        },
+        {
+          "x": 30,
+          "y": 23
+        },
+        {
+          "x": 31,
+          "y": 24
+        },
+        {
+          "x": 32,
+          "y": 25
+        },
+        {
+          "x": 31,
+          "y": 21
+        },
+        {
+          "x": 30,
+          "y": 22
+        },
+        {
+          "x": 32,
+          "y": 22
+        },
+        {
+          "x": 29,
+          "y": 23
+        }
+      ]
+    }
+  ]
 }
