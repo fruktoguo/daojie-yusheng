@@ -1,5 +1,9 @@
 import { DEFAULT_AURA_LEVEL_BASE_VALUE } from './constants/gameplay/aura';
 
+function getNextAuraLevelThreshold(currentThreshold: number): number {
+  return Math.max(1, Math.ceil(currentThreshold * 1.5));
+}
+
 export function normalizeAuraLevelBaseValue(value: unknown, fallback = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
   const normalizedFallback = Number.isFinite(fallback) && Number(fallback) > 0
     ? Math.max(1, Math.round(Number(fallback)))
@@ -23,7 +27,11 @@ export function getAuraLevelThreshold(level: number, baseValue = DEFAULT_AURA_LE
     return 0;
   }
   const base = normalizeAuraLevelBaseValue(baseValue);
-  return base * Math.pow(2, normalizedLevel - 1);
+  let threshold = base;
+  for (let currentLevel = 1; currentLevel < normalizedLevel; currentLevel += 1) {
+    threshold = getNextAuraLevelThreshold(threshold);
+  }
+  return threshold;
 }
 
 export function getAuraLevel(auraValue: number, baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
@@ -37,10 +45,10 @@ export function getAuraLevel(auraValue: number, baseValue = DEFAULT_AURA_LEVEL_B
   let threshold = base;
   while (normalizedValue >= threshold) {
     level += 1;
-    if (threshold > Number.MAX_SAFE_INTEGER / 2) {
+    if (threshold > Number.MAX_SAFE_INTEGER / 1.5) {
       break;
     }
-    threshold *= 2;
+    threshold = getNextAuraLevelThreshold(threshold);
   }
   return level;
 }
