@@ -3768,6 +3768,18 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     return this.dynamicTileStates.get(mapId)?.get(key)?.destroyed === true;
   }
 
+  canDamageTile(mapId: string, x: number, y: number): boolean {
+    const tile = this.getTile(mapId, x, y);
+    const originalType = this.getBaseTileType(mapId, x, y);
+    if (!tile || originalType === null) {
+      return false;
+    }
+    if (this.isTileDestroyed(mapId, x, y)) {
+      return false;
+    }
+    return this.tileDurability(mapId, originalType) > 0;
+  }
+
   getCompositeTile(mapId: string, x: number, y: number): Tile | null {
     const local = this.getTile(mapId, x, y);
     if (local) {

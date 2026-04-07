@@ -1349,6 +1349,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         const update = selectedSkill.skill.requiresTarget === false
           ? this.performSkill(player, selectedSkill.skill.id)
           : this.performTargetedSkill(player, selectedSkill.skill.id, targetRef);
+        const stopUpdate = this.stopLockedForceAttackForInvalidTile(player, target, update);
+        if (stopUpdate) {
+          return stopUpdate;
+        }
         if (update.consumedAction) {
           return { ...update, usedActionId: selectedSkill.skill.id };
         }
@@ -1356,7 +1360,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
       if (isPointInRange(player, target, 1)) {
         this.faceToward(player, target.x, target.y);
-        return this.performBasicAttack(player, target);
+        const update = this.performBasicAttack(player, target);
+        return this.stopLockedForceAttackForInvalidTile(player, target, update) ?? update;
       }
     }
 
@@ -1770,6 +1775,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     const effectiveViewRange = this.timeService.getEffectiveViewRangeFromBuff(player.viewRange, player.temporaryBuffs);
     if (!isPointInRange(player, target, effectiveViewRange) || !this.canPlayerSeeTarget(player, target, effectiveViewRange)) {
       return { ...EMPTY_UPDATE, error: '目标超出可锁定范围' };
+    }
+    if (target.kind === 'tile' && !this.mapService.canDamageTile(player.mapId, target.x, target.y)) {
+      return { ...EMPTY_UPDATE, error: '该目标无法被攻击' };
     }
 
     player.autoBattle = true;
@@ -6665,6 +6673,36 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       return undefined;
     }
     return target;
+  }
+
+  private stopLockedForceAttackForInvalidTile(
+    player: PlayerState,
+    target: ResolvedTarget,
+    update: WorldUpdate,
+  ): WorldUpdate | null {
+    if (
+      !player.combatTargetLocked
+      || target.kind !== 'tile'
+      || (update.error !== '该目标无法被攻击' && update.error !== '没有可命中的目标')
+    ) {
+      return null;
+    }
+
+    player.autoBattle = false;
+    this.clearCombatTarget(player);
+    return {
+      ...update,
+      error: undefined,
+      messages: [
+        ...update.messages,
+        {
+          playerId: player.id,
+          text: '强制攻击目标无法被攻击，自动战斗已停止。',
+          kind: 'combat',
+        },
+      ],
+      dirty: [...new Set<WorldDirtyFlag>([...update.dirty, 'actions'])],
+    };
   }
 
   private canPlayerSeeTarget(player: PlayerState, target: ResolvedTarget, effectiveViewRange: number): boolean {
