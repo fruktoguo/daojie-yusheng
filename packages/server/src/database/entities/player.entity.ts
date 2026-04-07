@@ -166,6 +166,10 @@ export class PlayerEntity {
   @Column({ type: 'jsonb', default: () => `'[]'` })
   autoBattleSkills!: unknown[];
 
+  /** 自动战斗索敌方案 */
+  @Column({ type: 'varchar', default: 'auto' })
+  autoBattleTargetingMode!: string;
+
   /** 当前自动战斗锁定的目标引用 */
   @Column({ type: 'varchar', nullable: true })
   combatTargetId!: string | null;

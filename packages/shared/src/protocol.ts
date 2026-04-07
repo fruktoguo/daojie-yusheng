@@ -3,7 +3,7 @@
  * C2S = 客户端→服务端，S2C = 服务端→客户端。
  */
 import type { ElementKey } from './numeric';
-import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerSpecialStats, QuestState, CombatEffect, AutoBattleSkillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, MonsterTier, NumericStatPercentages, TechniqueCategory, TechniqueGrade, GroundItemPileView, LootSearchProgressView, VisibleBuffState, TemporaryBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, LootSourceKind, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, ConsumableBuffDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MarketPriceLevelView, MarketOrderSide, MapRouteDomain, PortalRouteDomain, MailSummaryView, MailPageView, MailDetailView, MailFilter, MailTemplateArg, MailAttachment, BodyTrainingState } from './types';
+import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerSpecialStats, QuestState, CombatEffect, AutoBattleSkillConfig, AutoBattleTargetingMode, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, MonsterInitialBuffDef, MonsterTier, NumericStatPercentages, TechniqueCategory, TechniqueGrade, GroundItemPileView, LootSearchProgressView, VisibleBuffState, TemporaryBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, LootSourceKind, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, ConsumableBuffDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MarketPriceLevelView, MarketOrderSide, MapRouteDomain, PortalRouteDomain, MailSummaryView, MailPageView, MailDetailView, MailFilter, MailTemplateArg, MailAttachment, BodyTrainingState } from './types';
 import { NumericRatioDivisors, NumericStatBreakdownMap, NumericStats } from './numeric';
 
 // ===== 事件名 =====
@@ -22,6 +22,7 @@ export const C2S = {
   GmResetPlayer: 'c:gmResetPlayer',
   Action: 'c:action',
   UpdateAutoBattleSkills: 'c:updateAutoBattleSkills',
+  UpdateAutoBattleTargetingMode: 'c:updateAutoBattleTargetingMode',
   UpdateTechniqueSkillAvailability: 'c:updateTechniqueSkillAvailability',
   DebugResetSpawn: 'c:debugResetSpawn',
   Chat: 'c:chat',
@@ -328,6 +329,10 @@ export interface C2S_UpdateAutoBattleSkills {
   skills: AutoBattleSkillConfig[];
 }
 
+export interface C2S_UpdateAutoBattleTargetingMode {
+  mode: AutoBattleTargetingMode;
+}
+
 export interface C2S_UpdateTechniqueSkillAvailability {
   techId: string;
   enabled: boolean;
@@ -458,6 +463,19 @@ export interface TickRenderEntity {
   buffs?: VisibleBuffState[] | null;
 }
 
+export interface ObservationLootPreviewEntry {
+  itemId: string;
+  name: string;
+  type: ItemType;
+  count: number;
+  chance: number;
+}
+
+export interface ObservationLootPreview {
+  entries: ObservationLootPreviewEntry[];
+  emptyText?: string;
+}
+
 export interface ObservedTileEntityDetail {
   id: string;
   name?: string;
@@ -470,6 +488,7 @@ export interface ObservedTileEntityDetail {
   maxQi?: number;
   npcQuestMarker?: NpcQuestMarker | null;
   observation?: ObservationInsight | null;
+  lootPreview?: ObservationLootPreview | null;
   buffs?: VisibleBuffState[] | null;
 }
 
@@ -835,6 +854,7 @@ export interface S2C_ActionsUpdate {
   removeActionIds?: string[];
   actionOrder?: string[];
   autoBattle?: boolean;
+  autoBattleTargetingMode?: AutoBattleTargetingMode;
   combatTargetId?: string | null;
   combatTargetLocked?: boolean;
   autoRetaliate?: boolean;
@@ -1724,6 +1744,7 @@ export interface GmMapMonsterSpawnRecord {
   level?: number;
   attrs?: Partial<Attributes>;
   statPercents?: NumericStatPercentages;
+  initialBuffs?: MonsterInitialBuffDef[];
   skills?: string[];
   tier?: MonsterTier;
   expMultiplier?: number;

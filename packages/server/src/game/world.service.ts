@@ -1784,6 +1784,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       range: skill.range,
       shape: skill.targeting?.shape ?? 'single',
       radius: skill.targeting?.radius,
+      innerRadius: skill.targeting?.innerRadius,
       width: skill.targeting?.width,
       height: skill.targeting?.height,
     }, this.getSkillTargetingModifiers(stats));
@@ -1824,6 +1825,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       range: geometry.range,
       shape,
       radius: geometry.radius,
+      innerRadius: geometry.innerRadius,
       width: geometry.width,
       height: geometry.height,
     });
@@ -2767,6 +2769,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       range: geometry.range,
       shape,
       radius: geometry.radius,
+      innerRadius: geometry.innerRadius,
       width: geometry.width,
       height: geometry.height,
     });
@@ -2850,6 +2853,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       range: geometry.range,
       shape,
       radius: geometry.radius,
+      innerRadius: geometry.innerRadius,
       width: geometry.width,
       height: geometry.height,
     });
@@ -6211,22 +6215,125 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     this.refreshPlayerThreats(player, effectiveViewRange);
     const ownerId = this.getPlayerThreatId(player);
     const threshold = this.getAggroThreshold(player);
-    const targetId = this.threatService.getHighestAttackableThreatTarget(ownerId, (candidateId) => {
-      if (this.threatService.getThreat(ownerId, candidateId) < threshold) {
-        return false;
+    return this.findPlayerAutoBattleTargetByThreat(
+      player,
+      this.threatService.getThreatEntries(ownerId),
+      threshold,
+      (target) => (
+        stationaryMode
+          ? this.canPlayerCastAutoBattleSkillFromCurrentPosition(player, target, effectiveViewRange, availableSkills)
+          : this.canPlayerAttackTarget(player, target, effectiveViewRange, preferredRange)
+      ),
+    );
+  }
+
+  private findPlayerAutoBattleTargetByThreat(
+    player: PlayerState,
+    threatEntries: ReturnType<ThreatService['getThreatEntries']>,
+    threshold: number,
+    predicate: (target: ResolvedTarget) => boolean,
+  ): ResolvedTarget | undefined {
+    const candidates: Array<{
+      target: ResolvedTarget;
+      threatValue: number;
+      distance: number;
+      hpRatio: number;
+    }> = [];
+
+    for (const entry of threatEntries) {
+      if (entry.value < threshold) {
+        continue;
       }
-      const target = this.resolveThreatTargetForPlayer(player, candidateId);
+      const target = this.resolveThreatTargetForPlayer(player, entry.targetId);
       if (!target || target.kind === 'tile') {
-        return false;
+        continue;
       }
-      return stationaryMode
-        ? this.canPlayerCastAutoBattleSkillFromCurrentPosition(player, target, effectiveViewRange, availableSkills)
-        : this.canPlayerAttackTarget(player, target, effectiveViewRange, preferredRange);
-    });
-    if (!targetId) {
+      if (!predicate(target)) {
+        continue;
+      }
+      candidates.push({
+        target,
+        threatValue: entry.value,
+        distance: gridDistance(player, target),
+        hpRatio: this.getResolvedTargetHpRatio(target),
+      });
+    }
+    if (candidates.length === 0) {
       return undefined;
     }
-    return this.resolveThreatTargetForPlayer(player, targetId) ?? undefined;
+
+    let bestTarget: ResolvedTarget | undefined;
+    let bestScore = Number.NEGATIVE_INFINITY;
+    const nearestDistance = candidates.reduce((min, candidate) => Math.min(min, candidate.distance), Number.POSITIVE_INFINITY);
+    const lowestHpRatio = candidates.reduce((min, candidate) => Math.min(min, candidate.hpRatio), Number.POSITIVE_INFINITY);
+    const highestHpRatio = candidates.reduce((max, candidate) => Math.max(max, candidate.hpRatio), Number.NEGATIVE_INFINITY);
+
+    for (const candidate of candidates) {
+      const score = this.getDynamicThreatSelectionScore(candidate.distance, candidate.threatValue)
+        * this.getPlayerTargetingThreatMultiplier(
+          player,
+          candidate.target,
+          candidate.distance,
+          candidate.hpRatio,
+          nearestDistance,
+          lowestHpRatio,
+          highestHpRatio,
+        );
+      if (score > bestScore) {
+        bestTarget = candidate.target;
+        bestScore = score;
+      }
+    }
+    return bestTarget;
+  }
+
+  private getDynamicThreatSelectionScore(
+    distance: number,
+    threatValue: number,
+  ): number {
+    const distanceMultiplier = distance <= 1
+      ? 1
+      : Math.pow(gameplayConstants.THREAT_DISTANCE_FALLOFF_PER_TILE, distance - 1);
+    return threatValue * distanceMultiplier;
+  }
+
+  private getResolvedTargetHpRatio(target: ResolvedTarget): number {
+    if (target.kind === 'tile') {
+      return 0;
+    }
+    const hp = target.kind === 'monster' ? target.monster.hp : target.player.hp;
+    const maxHp = target.kind === 'monster' ? target.monster.maxHp : target.player.maxHp;
+    if (!Number.isFinite(maxHp) || maxHp <= 0) {
+      return 0;
+    }
+    return Math.max(0, Math.min(1, hp / maxHp));
+  }
+
+  private getPlayerTargetingThreatMultiplier(
+    player: PlayerState,
+    target: ResolvedTarget,
+    distance: number,
+    hpRatio: number,
+    nearestDistance: number,
+    lowestHpRatio: number,
+    highestHpRatio: number,
+  ): number {
+    const multiplier = gameplayConstants.PLAYER_TARGETING_PREFERENCE_THREAT_MULTIPLIER;
+    switch (player.autoBattleTargetingMode) {
+      case 'nearest':
+        return distance === nearestDistance ? multiplier : 1;
+      case 'low_hp':
+        return Math.abs(hpRatio - lowestHpRatio) <= 1e-6 ? multiplier : 1;
+      case 'full_hp':
+        return Math.abs(hpRatio - highestHpRatio) <= 1e-6 ? multiplier : 1;
+      case 'boss':
+        return target.kind === 'monster' && target.monster.tier === 'demon_king' ? multiplier : 1;
+      case 'player':
+        return target.kind === 'player' ? multiplier : 1;
+      case 'auto':
+      default:
+        return 1;
+    }
   }
 
   private collectAutoBattleSkillCandidates(player: PlayerState): AutoBattleSkillCandidate[] {

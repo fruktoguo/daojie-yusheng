@@ -1325,6 +1325,26 @@
       min-height: 0;
       overflow: hidden;
     }
+    .detail-modal-card.detail-modal--targeting-plan {
+      --detail-modal-compact-scale: 0.88;
+      width: min(920px, calc(100vw - 24px));
+      height: min(70dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap) * 2) - 16px));
+      max-height: none;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      zoom: var(--detail-modal-compact-scale);
+      background:
+        radial-gradient(circle at top right, rgba(84, 119, 55, 0.1), transparent 28%),
+        radial-gradient(circle at left bottom, rgba(214, 188, 142, 0.12), transparent 30%),
+        var(--surface-gradient-paper);
+      box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.16);
+    }
+    .detail-modal-card.detail-modal--targeting-plan #detail-modal-body {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
     .detail-modal-card.detail-modal--leaderboard {
       width: min(1120px, calc(100vw - 24px));
       height: min(76dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap) * 2)));
@@ -1385,6 +1405,7 @@
       .detail-modal-card.detail-modal--technique,
       .detail-modal-card.detail-modal--skill-management,
       .detail-modal-card.detail-modal--skill-preset,
+      .detail-modal-card.detail-modal--targeting-plan,
       .detail-modal-card.detail-modal--suggestion {
         transform: scale(var(--detail-modal-compact-scale, 1));
         transform-origin: center center;
@@ -5401,6 +5422,85 @@
       }
       .skill-preset-import-input {
         min-height: 140px;
+      }
+    }
+    .targeting-plan-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      height: 100%;
+      min-height: 0;
+    }
+    .targeting-plan-hero {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .targeting-plan-card {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 0;
+      padding: 12px;
+      border: 1px solid var(--wash-ink);
+      background: var(--surface-muted-strong);
+    }
+    .targeting-plan-current {
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-16);
+      color: var(--ink-black);
+    }
+    .targeting-plan-options {
+      flex: 1 1 auto;
+    }
+    .targeting-plan-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .targeting-plan-option {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+      width: 100%;
+      min-height: 96px;
+      padding: 12px;
+      border: 1px solid rgba(34, 26, 19, 0.12);
+      background: var(--paper-white);
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+      transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    }
+    .targeting-plan-option:hover {
+      border-color: rgba(84, 119, 55, 0.28);
+      box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.05);
+      transform: translate(-1px, -1px);
+    }
+    .targeting-plan-option.active {
+      border-color: #547737;
+      background: rgba(84, 119, 55, 0.08);
+      box-shadow: inset 0 -2px 0 #547737;
+    }
+    .targeting-plan-option-title {
+      font-size: var(--font-size-13);
+      color: var(--ink-black);
+    }
+    .targeting-plan-option-copy {
+      font-size: var(--font-size-12);
+      line-height: 1.55;
+      color: var(--ink-grey);
+    }
+    :root[data-color-mode="dark"] .targeting-plan-option.active {
+      border-color: rgba(120, 167, 84, 0.4);
+      background: rgba(84, 119, 55, 0.18);
+      box-shadow: inset 0 -2px 0 rgba(120, 167, 84, 0.75);
+    }
+    @media (max-width: 900px) {
+      .targeting-plan-hero,
+      .targeting-plan-grid {
+        grid-template-columns: 1fr;
       }
     }
 

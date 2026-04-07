@@ -481,6 +481,12 @@
         height: min(84dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2) - 16px));
         max-height: none;
       }
+      .detail-modal-card.detail-modal--targeting-plan {
+        --detail-modal-compact-scale: 0.78;
+        width: min(100%, calc(100vw - 16px));
+        height: min(76dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2) - 16px));
+        max-height: none;
+      }
       .detail-modal-card.detail-modal--leaderboard {
         width: min(100%, calc(100vw - 16px));
         height: min(82dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2) - 12px));

@@ -16,6 +16,7 @@ import {
   TemporaryBuffState,
   ActionDef,
   AutoBattleSkillConfig,
+  normalizeAutoBattleTargetingMode,
   QuestState,
   DEFAULT_BASE_ATTRS,
   DEFAULT_BONE_AGE_YEARS,
@@ -55,7 +56,7 @@ import {
 } from './player-storage';
 
 /** 即时执行的操作类型（不入队，gateway 收到后直接执行） */
-export type ImmediateCommandType = 'equip' | 'unequip' | 'sortInventory' | 'useItem' | 'dropItem' | 'destroyItem' | 'cultivate' | 'updateAutoBattleSkills' | 'updateTechniqueSkillAvailability';
+export type ImmediateCommandType = 'equip' | 'unequip' | 'sortInventory' | 'useItem' | 'dropItem' | 'destroyItem' | 'cultivate' | 'updateAutoBattleSkills' | 'updateAutoBattleTargetingMode' | 'updateTechniqueSkillAvailability';
 
 /** 玩家指令，由客户端消息转化后入队，在 tick 中统一执行 */
 export interface PlayerCommand {
@@ -233,6 +234,7 @@ export class PlayerService implements OnModuleInit {
       unlockedMinimapIds: state.unlockedMinimapIds as any,
       autoBattle: state.autoBattle,
       autoBattleSkills: state.autoBattleSkills as any,
+      autoBattleTargetingMode: state.autoBattleTargetingMode,
       combatTargetId: state.combatTargetId ?? null,
       combatTargetLocked: state.combatTargetLocked === true,
       autoRetaliate: state.autoRetaliate,
@@ -374,6 +376,7 @@ export class PlayerService implements OnModuleInit {
     if (state.autoBattle === undefined) state.autoBattle = false;
     if (state.combatTargetLocked === undefined) state.combatTargetLocked = false;
     if (!state.autoBattleSkills) state.autoBattleSkills = [];
+    state.autoBattleTargetingMode = normalizeAutoBattleTargetingMode(state.autoBattleTargetingMode);
     if (state.autoRetaliate === undefined) state.autoRetaliate = true;
     if (state.autoBattleStationary === undefined) state.autoBattleStationary = false;
     if (state.allowAoePlayerHit === undefined) state.allowAoePlayerHit = false;
@@ -1125,6 +1128,7 @@ export class PlayerService implements OnModuleInit {
       unlockedMinimapIds: normalizeUnlockedMinimapIds(entity.unlockedMinimapIds),
       autoBattle: entity.autoBattle ?? false,
       autoBattleSkills: (entity.autoBattleSkills ?? []) as AutoBattleSkillConfig[],
+      autoBattleTargetingMode: normalizeAutoBattleTargetingMode(entity.autoBattleTargetingMode),
       combatTargetId: entity.combatTargetId ?? undefined,
       combatTargetLocked: entity.combatTargetLocked === true,
       autoRetaliate: entity.autoRetaliate ?? true,

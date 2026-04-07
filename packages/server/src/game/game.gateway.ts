@@ -40,6 +40,7 @@ import {
   C2S_DebugResetSpawn,
   C2S_Action,
   C2S_UpdateAutoBattleSkills,
+  C2S_UpdateAutoBattleTargetingMode,
   C2S_UpdateTechniqueSkillAvailability,
   C2S_Chat,
   C2S_AckSystemMessages,
@@ -290,6 +291,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       unlockedMinimapIds: [],
       autoBattle: false,
       autoBattleSkills: [],
+      autoBattleTargetingMode: 'auto',
       autoRetaliate: true,
       autoBattleStationary: false,
       allowAoePlayerHit: false,
@@ -488,6 +490,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     this.tickService.executeImmediate(player, 'updateAutoBattleSkills', data);
+  }
+
+  @SubscribeMessage(C2S.UpdateAutoBattleTargetingMode)
+  handleUpdateAutoBattleTargetingMode(client: Socket, data: C2S_UpdateAutoBattleTargetingMode) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+    this.tickService.executeImmediate(player, 'updateAutoBattleTargetingMode', data);
   }
 
   @SubscribeMessage(C2S.UpdateTechniqueSkillAvailability)

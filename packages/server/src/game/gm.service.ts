@@ -31,6 +31,7 @@ import {
   GmStateRes,
   GmUpdateMapTimeReq,
   Inventory,
+  normalizeAutoBattleTargetingMode,
   PlayerState,
   QuestState,
   TechniqueState,
@@ -731,6 +732,7 @@ export class GmService {
         unlockedMinimapIds: player.unlockedMinimapIds ?? [],
         autoBattle: player.autoBattle,
         autoBattleSkills: player.autoBattleSkills,
+        autoBattleTargetingMode: player.autoBattleTargetingMode,
         combatTargetId: player.combatTargetId,
         combatTargetLocked: player.combatTargetLocked,
         autoRetaliate: player.autoRetaliate,
@@ -777,6 +779,7 @@ export class GmService {
       quests: this.normalizeQuests(hydrateQuestSnapshots(entity.quests, this.mapService, this.contentService)),
       autoBattle: entity.autoBattle ?? false,
       autoBattleSkills: this.cloneArray<AutoBattleSkillConfig>(entity.autoBattleSkills),
+      autoBattleTargetingMode: normalizeAutoBattleTargetingMode(entity.autoBattleTargetingMode),
       autoRetaliate: entity.autoRetaliate ?? true,
       autoBattleStationary: entity.autoBattleStationary === true,
       allowAoePlayerHit: entity.allowAoePlayerHit === true,
@@ -851,6 +854,7 @@ export class GmService {
     player.techniques = this.cloneArray<TechniqueState>(snapshot.techniques);
     player.quests = this.cloneArray<QuestState>(snapshot.quests);
     player.autoBattleSkills = this.cloneArray<AutoBattleSkillConfig>(snapshot.autoBattleSkills);
+    player.autoBattleTargetingMode = normalizeAutoBattleTargetingMode(snapshot.autoBattleTargetingMode, player.autoBattleTargetingMode);
     player.autoRetaliate = snapshot.autoRetaliate !== false;
     player.autoBattleStationary = snapshot.autoBattleStationary === true;
     player.allowAoePlayerHit = snapshot.allowAoePlayerHit === true;
@@ -889,6 +893,7 @@ export class GmService {
     }
 
     player.autoBattle = !player.dead && Boolean(snapshot.autoBattle);
+    player.autoBattleTargetingMode = normalizeAutoBattleTargetingMode(snapshot.autoBattleTargetingMode, player.autoBattleTargetingMode);
     player.combatTargetId = player.autoBattle && typeof snapshot.combatTargetId === 'string'
       ? snapshot.combatTargetId
       : undefined;
@@ -964,6 +969,7 @@ export class GmService {
       unlockedMinimapIds: player.unlockedMinimapIds as any,
       autoBattle: player.autoBattle,
       autoBattleSkills: player.autoBattleSkills as any,
+      autoBattleTargetingMode: player.autoBattleTargetingMode,
       combatTargetId: player.combatTargetId ?? null,
       combatTargetLocked: player.combatTargetLocked === true,
       autoRetaliate: player.autoRetaliate,
@@ -1110,6 +1116,7 @@ export class GmService {
         merged.qi = snapshot.qi ?? merged.qi;
         merged.dead = snapshot.dead ?? merged.dead;
         merged.autoBattle = snapshot.autoBattle ?? merged.autoBattle;
+        merged.autoBattleTargetingMode = snapshot.autoBattleTargetingMode ?? merged.autoBattleTargetingMode;
         merged.autoRetaliate = snapshot.autoRetaliate;
         merged.autoBattleStationary = snapshot.autoBattleStationary;
         merged.allowAoePlayerHit = snapshot.allowAoePlayerHit;

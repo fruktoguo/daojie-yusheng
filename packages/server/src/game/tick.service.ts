@@ -24,6 +24,7 @@ import {
   MapMeta,
   MapMinimapMarker,
   MapRouteDomain,
+  normalizeAutoBattleTargetingMode,
   normalizeAuraLevelBaseValue,
   parseTileTargetRef,
   PLAYER_HEARTBEAT_TIMEOUT_MS,
@@ -145,6 +146,7 @@ interface ActionSyncStateEntry {
 
 interface ActionPanelSyncState {
   autoBattle: boolean;
+  autoBattleTargetingMode: PlayerState['autoBattleTargetingMode'];
   autoRetaliate: boolean;
   autoBattleStationary: boolean;
   allowAoePlayerHit: boolean;
@@ -2073,6 +2075,15 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         }
         break;
       }
+      case 'updateAutoBattleTargetingMode': {
+        const { mode } = data as { mode: PlayerState['autoBattleTargetingMode'] };
+        const nextMode = normalizeAutoBattleTargetingMode(mode, player.autoBattleTargetingMode);
+        if (player.autoBattleTargetingMode !== nextMode) {
+          player.autoBattleTargetingMode = nextMode;
+          this.markActionsDirty(player.id);
+        }
+        break;
+      }
       case 'updateTechniqueSkillAvailability': {
         const { techId, enabled } = data as { techId: string; enabled: boolean };
         if (this.techniqueService.setTechniqueSkillsEnabled(player, techId, enabled)) {
@@ -2577,6 +2588,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   private captureActionPanelSyncState(player: PlayerState): ActionPanelSyncState {
     return {
       autoBattle: player.autoBattle,
+      autoBattleTargetingMode: player.autoBattleTargetingMode,
       autoRetaliate: player.autoRetaliate !== false,
       autoBattleStationary: player.autoBattleStationary === true,
       allowAoePlayerHit: player.allowAoePlayerHit === true,
@@ -2727,6 +2739,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     if (!previousPanelState || previousPanelState.autoBattle !== nextPanelState.autoBattle) {
       update.autoBattle = nextPanelState.autoBattle;
     }
+    if (!previousPanelState || previousPanelState.autoBattleTargetingMode !== nextPanelState.autoBattleTargetingMode) {
+      update.autoBattleTargetingMode = nextPanelState.autoBattleTargetingMode;
+    }
     if (!previousPanelState || previousPanelState.autoRetaliate !== nextPanelState.autoRetaliate) {
       update.autoRetaliate = nextPanelState.autoRetaliate;
     }
@@ -2753,6 +2768,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       || (update.removeActionIds?.length ?? 0) > 0
       || (update.actionOrder?.length ?? 0) > 0
       || update.autoBattle !== undefined
+      || update.autoBattleTargetingMode !== undefined
       || update.autoRetaliate !== undefined
       || update.autoBattleStationary !== undefined
       || update.allowAoePlayerHit !== undefined

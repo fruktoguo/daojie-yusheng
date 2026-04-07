@@ -68,6 +68,7 @@ export class RedisService implements OnModuleDestroy {
       unlockedMinimapIds: JSON.stringify(state.unlockedMinimapIds ?? []),
       autoBattle: state.autoBattle ? '1' : '0',
       autoBattleSkills: JSON.stringify(state.autoBattleSkills),
+      autoBattleTargetingMode: state.autoBattleTargetingMode ?? 'auto',
       combatTargetId: state.combatTargetId ?? '',
       combatTargetLocked: state.combatTargetLocked === true ? '1' : '0',
       autoRetaliate: state.autoRetaliate === false ? '0' : '1',

@@ -105,6 +105,9 @@ message CombatEffectPayload {
   repeated PointPayload cells = 11;
   optional uint32 durationMs = 12;
   optional string actionStyle = 13;
+  optional string baseColor = 14;
+  optional sint32 originX = 15;
+  optional sint32 originY = 16;
 }
 
 message VisibleTileRowPayload {
@@ -195,6 +198,7 @@ message ActionsUpdatePayload {
   repeated string removeActionIds = 9;
   repeated string actionOrder = 10;
   optional bool cultivationActive = 11;
+  optional string autoBattleTargetingMode = 12;
 }
 
 message ActionUpdateEntryPayload {
@@ -913,6 +917,7 @@ function toWireActionsUpdate(payload: S2C_ActionsUpdate): Record<string, unknown
   if (payload.removeActionIds) wire.removeActionIds = [...payload.removeActionIds];
   if (payload.actionOrder) wire.actionOrder = [...payload.actionOrder];
   if (payload.autoBattle !== undefined) wire.autoBattle = payload.autoBattle;
+  if (payload.autoBattleTargetingMode !== undefined) wire.autoBattleTargetingMode = payload.autoBattleTargetingMode;
   if (payload.autoRetaliate !== undefined) wire.autoRetaliate = payload.autoRetaliate;
   if (payload.autoBattleStationary !== undefined) wire.autoBattleStationary = payload.autoBattleStationary;
   if (payload.allowAoePlayerHit !== undefined) wire.allowAoePlayerHit = payload.allowAoePlayerHit;
@@ -940,6 +945,7 @@ function fromWireActionsUpdate(wire: Record<string, unknown>): S2C_ActionsUpdate
       .filter((entry) => entry.length > 0);
   }
   if (hasOwn(wire, 'autoBattle')) payload.autoBattle = Boolean(wire.autoBattle);
+  if (typeof wire.autoBattleTargetingMode === 'string') payload.autoBattleTargetingMode = wire.autoBattleTargetingMode as S2C_ActionsUpdate['autoBattleTargetingMode'];
   if (hasOwn(wire, 'autoRetaliate')) payload.autoRetaliate = Boolean(wire.autoRetaliate);
   if (hasOwn(wire, 'autoBattleStationary')) payload.autoBattleStationary = Boolean(wire.autoBattleStationary);
   if (hasOwn(wire, 'allowAoePlayerHit')) payload.allowAoePlayerHit = Boolean(wire.allowAoePlayerHit);

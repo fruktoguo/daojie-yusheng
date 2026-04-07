@@ -797,8 +797,10 @@ export interface SkillTargetingDef {
   shape?: TargetingShape;
   range?: number;
   radius?: number;
+  innerRadius?: number;
   width?: number;
   height?: number;
+  checkerParity?: 'even' | 'odd';
   maxTargets?: number;
   requiresTarget?: boolean;
   targetMode?: 'any' | 'entity' | 'tile';
@@ -837,8 +839,43 @@ export interface SkillBuffEffectDef {
   expireWithBuffId?: string;
 }
 
+/** 怪物出生自带 Buff 配置 */
+export interface MonsterInitialBuffDef {
+  type?: 'buff';
+  target?: 'self';
+  buffRef?: string;
+  buffId: string;
+  name: string;
+  desc?: string;
+  shortMark?: string;
+  category?: BuffCategory;
+  visibility?: BuffVisibility;
+  color?: string;
+  duration: number;
+  maxStacks?: number;
+  stacks?: number;
+  attrs?: Partial<Attributes>;
+  attrMode?: BuffModifierMode;
+  stats?: PartialNumericStats;
+  statMode?: BuffModifierMode;
+  qiProjection?: QiProjectionModifier[];
+  valueStats?: PartialNumericStats;
+  presentationScale?: number;
+  infiniteDuration?: boolean;
+  sustainCost?: BuffSustainCostDef;
+  expireWithBuffId?: string;
+}
+
+/** 技能地形效果定义 */
+export interface SkillTerrainEffectDef {
+  type: 'terrain';
+  terrainType: TileType;
+  duration: number;
+  allowedOriginalTypes?: TileType[];
+}
+
 /** 技能效果联合类型 */
-export type SkillEffectDef = SkillDamageEffectDef | SkillBuffEffectDef;
+export type SkillEffectDef = SkillDamageEffectDef | SkillBuffEffectDef | SkillTerrainEffectDef;
 
 /** 怪物技能前摇定义 */
 export interface SkillMonsterCastDef {
@@ -927,6 +964,22 @@ export interface AutoBattleSkillConfig {
   skillId: string;
   enabled: boolean;
   skillEnabled?: boolean;
+}
+
+/** 自动战斗索敌方案 */
+export type AutoBattleTargetingMode = 'auto' | 'nearest' | 'low_hp' | 'full_hp' | 'boss' | 'player';
+
+export const AUTO_BATTLE_TARGETING_MODES = ['auto', 'nearest', 'low_hp', 'full_hp', 'boss', 'player'] as const satisfies readonly AutoBattleTargetingMode[];
+
+export function isAutoBattleTargetingMode(value: unknown): value is AutoBattleTargetingMode {
+  return typeof value === 'string' && (AUTO_BATTLE_TARGETING_MODES as readonly string[]).includes(value);
+}
+
+export function normalizeAutoBattleTargetingMode(
+  value: unknown,
+  fallback: AutoBattleTargetingMode = 'auto',
+): AutoBattleTargetingMode {
+  return isAutoBattleTargetingMode(value) ? value : fallback;
 }
 
 /** 行动定义 */
@@ -1111,6 +1164,7 @@ export interface PlayerState {
   quests: QuestState[];
   autoBattle: boolean;
   autoBattleSkills: AutoBattleSkillConfig[];
+  autoBattleTargetingMode: AutoBattleTargetingMode;
   combatTargetId?: string;
   combatTargetLocked?: boolean;
   cultivatingTechId?: string;

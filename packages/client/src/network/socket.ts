@@ -4,7 +4,7 @@
 
 import { io, Socket } from 'socket.io-client';
 import {
-  C2S, S2C, C2S_Move, C2S_MoveTo, C2S_NavigateQuest, C2S_GmGetState, C2S_GmSpawnBots, C2S_GmRemoveBots, C2S_GmUpdatePlayer, C2S_GmResetPlayer, C2S_Action, C2S_UpdateAutoBattleSkills, C2S_UpdateTechniqueSkillAvailability, C2S_DebugResetSpawn, C2S_UseItem, C2S_DropItem, C2S_DestroyItem,
+  C2S, S2C, C2S_Move, C2S_MoveTo, C2S_NavigateQuest, C2S_GmGetState, C2S_GmSpawnBots, C2S_GmRemoveBots, C2S_GmUpdatePlayer, C2S_GmResetPlayer, C2S_Action, C2S_UpdateAutoBattleSkills, C2S_UpdateAutoBattleTargetingMode, C2S_UpdateTechniqueSkillAvailability, C2S_DebugResetSpawn, C2S_UseItem, C2S_DropItem, C2S_DestroyItem,
   C2S_TakeLoot, C2S_SortInventory, C2S_Equip, C2S_Unequip, C2S_Cultivate, C2S_Chat, C2S_AckSystemMessages,
   C2S_Heartbeat,
   C2S_InspectTileRuntime,
@@ -52,7 +52,7 @@ import {
   S2C_Pong,
   S2C_TileRuntimeDetail,
   S2C_Error, decodeServerEventPayload, encodeClientEventPayload,
-  AutoBattleSkillConfig, Direction, EquipSlot, PLAYER_HEARTBEAT_INTERVAL_MS,
+  AutoBattleSkillConfig, AutoBattleTargetingMode, Direction, EquipSlot, PLAYER_HEARTBEAT_INTERVAL_MS,
   SOCKET_CONNECT_TIMEOUT_MS, SOCKET_RECONNECTION_ATTEMPTS, SOCKET_RECONNECTION_DELAY_MS,
   SOCKET_RECONNECTION_DELAY_MAX_MS, SOCKET_TRANSPORTS,
 } from '@mud/shared';
@@ -413,6 +413,10 @@ export class SocketManager {
 
   sendUpdateAutoBattleSkills(skills: AutoBattleSkillConfig[]) {
     this.emitServer(C2S.UpdateAutoBattleSkills, { skills } satisfies C2S_UpdateAutoBattleSkills);
+  }
+
+  sendUpdateAutoBattleTargetingMode(mode: AutoBattleTargetingMode) {
+    this.emitServer(C2S.UpdateAutoBattleTargetingMode, { mode } satisfies C2S_UpdateAutoBattleTargetingMode);
   }
 
   sendUpdateTechniqueSkillAvailability(techId: string, enabled: boolean) {

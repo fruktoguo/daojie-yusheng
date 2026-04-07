@@ -6,6 +6,7 @@
 import {
   ActionDef,
   AutoBattleSkillConfig,
+  AutoBattleTargetingMode,
   DEFAULT_PLAYER_REALM_STAGE,
   type ElementKey,
   PlayerState,
@@ -81,6 +82,18 @@ interface SkillPresetStatus {
 
 const SKILL_PRESET_NAME_MAX_LENGTH = 24;
 const SKILL_PRESET_EXPORT_VERSION = 2;
+const AUTO_BATTLE_TARGETING_MODE_OPTIONS: Array<{
+  mode: AutoBattleTargetingMode;
+  label: string;
+  summary: string;
+}> = [
+  { mode: 'auto', label: '自动', summary: '按仇恨自动切换。' },
+  { mode: 'nearest', label: '优先更近', summary: '更偏向最近目标。' },
+  { mode: 'low_hp', label: '优先残血', summary: '更偏向血量低的目标。' },
+  { mode: 'full_hp', label: '优先满血', summary: '更偏向血量高的目标。' },
+  { mode: 'boss', label: '优先Boss', summary: '更偏向妖王目标。' },
+  { mode: 'player', label: '优先玩家', summary: '更偏向玩家目标。' },
+];
 
 function normalizeShortcutKey(key: string): string | null {
   if (key.length !== 1) return null;
@@ -205,9 +218,11 @@ function getSkillEnabledTechniques(player: PlayerState): PlayerState['techniques
 export class ActionPanel {
   private static readonly SKILL_MANAGEMENT_MODAL_OWNER = 'action-panel-skill-management';
   private static readonly SKILL_PRESET_MODAL_OWNER = 'action-panel-skill-preset';
+  private static readonly TARGETING_PLAN_MODAL_OWNER = 'action-panel-targeting-plan';
   private pane = document.getElementById('pane-action')!;
   private onAction: ((actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string) => void) | null = null;
   private onUpdateAutoBattleSkills: ((skills: AutoBattleSkillConfig[]) => void) | null = null;
+  private onUpdateAutoBattleTargetingMode: ((mode: AutoBattleTargetingMode) => void) | null = null;
   private activeTab: ActionMainTab = 'dialogue';
   private activeSkillTab: SkillSubTab = 'auto';
   private skillManagementTab: SkillManagementTab = 'auto';
@@ -219,6 +234,7 @@ export class ActionPanel {
   private skillManagementFilterToggles = new Set<SkillManagementFilterToggle>();
   private skillManagementExternalRevision: string | null = null;
   private skillPresetExternalRevision: string | null = null;
+  private targetingPlanExternalRevision: string | null = null;
   private skillManagementListScrollTop = 0;
   private autoBattle = false;
   private autoRetaliate = true;
@@ -259,15 +275,18 @@ export class ActionPanel {
     this.skillManagementListScrollTop = 0;
     detailModalHost.close(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER);
     detailModalHost.close(ActionPanel.SKILL_PRESET_MODAL_OWNER);
+    detailModalHost.close(ActionPanel.TARGETING_PLAN_MODAL_OWNER);
     this.pane.innerHTML = '<div class="empty-hint">暂无可用行动</div>';
   }
 
   setCallbacks(
     onAction: (actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string) => void,
     onUpdateAutoBattleSkills?: (skills: AutoBattleSkillConfig[]) => void,
+    onUpdateAutoBattleTargetingMode?: (mode: AutoBattleTargetingMode) => void,
   ): void {
     this.onAction = onAction;
     this.onUpdateAutoBattleSkills = onUpdateAutoBattleSkills ?? null;
+    this.onUpdateAutoBattleTargetingMode = onUpdateAutoBattleTargetingMode ?? null;
   }
 
   /** 全量更新行动列表并重新渲染 */
@@ -287,6 +306,7 @@ export class ActionPanel {
     this.render(this.currentActions);
     this.renderSkillManagementModalIfOpen();
     this.renderSkillPresetModalIfOpen();
+    this.renderTargetingPlanModalIfOpen();
   }
 
   /** 增量同步行动状态，优先 DOM patch 避免全量重绘 */
@@ -311,6 +331,7 @@ export class ActionPanel {
     }
     this.renderSkillManagementModalIfOpen();
     this.renderSkillPresetModalIfOpen();
+    this.renderTargetingPlanModalIfOpen();
   }
 
   initFromPlayer(player: PlayerState): void {
@@ -327,6 +348,7 @@ export class ActionPanel {
     this.render(this.currentActions);
     this.renderSkillManagementModalIfOpen();
     this.renderSkillPresetModalIfOpen();
+    this.renderTargetingPlanModalIfOpen();
   }
 
   private syncPlayerContext(player: PlayerState): void {
@@ -488,6 +510,11 @@ export class ActionPanel {
     this.pane.querySelectorAll<HTMLElement>('[data-action-skill-preset-open]').forEach((button) => {
       button.addEventListener('click', () => {
         this.openSkillPresetModal();
+      });
+    });
+    this.pane.querySelectorAll<HTMLElement>('[data-action-targeting-plan-open]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.openTargetingPlanModal();
       });
     });
     this.bindActionCardEvents(this.pane);
@@ -1364,6 +1391,7 @@ export class ActionPanel {
         <div class="action-section-actions">
           <button class="small-btn ghost" data-action-skill-manage-open type="button">技能管理</button>
           <button class="small-btn ghost" data-action-skill-preset-open type="button">技能方案</button>
+          <button class="small-btn ghost" data-action-targeting-plan-open type="button">索敌方案 · ${escapeHtml(this.getAutoBattleTargetingModeLabel())}</button>
         </div>
       </div>
       <div class="action-skill-subtabs">
@@ -1841,6 +1869,18 @@ export class ActionPanel {
     }
     this.skillPresetStatus = null;
     this.renderSkillPresetModal();
+  }
+
+  private openTargetingPlanModal(): void {
+    this.renderTargetingPlanModal();
+  }
+
+  private getAutoBattleTargetingMode(): AutoBattleTargetingMode {
+    return this.previewPlayer?.autoBattleTargetingMode ?? 'auto';
+  }
+
+  private getAutoBattleTargetingModeLabel(mode = this.getAutoBattleTargetingMode()): string {
+    return AUTO_BATTLE_TARGETING_MODE_OPTIONS.find((entry) => entry.mode === mode)?.label ?? '自动';
   }
 
   private resetSkillPresetModalState(): void {
@@ -2432,6 +2472,80 @@ export class ActionPanel {
       return;
     }
     this.renderSkillPresetModal();
+  }
+
+  private renderTargetingPlanModalIfOpen(): void {
+    if (!detailModalHost.isOpenFor(ActionPanel.TARGETING_PLAN_MODAL_OWNER)) {
+      return;
+    }
+    const nextRevision = this.getAutoBattleTargetingMode();
+    if (this.targetingPlanExternalRevision === nextRevision) {
+      return;
+    }
+    this.renderTargetingPlanModal();
+  }
+
+  private renderTargetingPlanModal(): void {
+    const activeMode = this.getAutoBattleTargetingMode();
+    const activeOption = AUTO_BATTLE_TARGETING_MODE_OPTIONS.find((entry) => entry.mode === activeMode)
+      ?? AUTO_BATTLE_TARGETING_MODE_OPTIONS[0]!;
+    detailModalHost.open({
+      ownerId: ActionPanel.TARGETING_PLAN_MODAL_OWNER,
+      variantClass: 'detail-modal--targeting-plan',
+      title: '索敌方案',
+      subtitle: `当前 ${activeOption.label}`,
+      bodyHtml: `
+        <div class="targeting-plan-shell">
+          <div class="targeting-plan-hero">
+            <div class="targeting-plan-card">
+              <div class="skill-preset-card-title">当前方案</div>
+              <div class="targeting-plan-current">${escapeHtml(activeOption.label)}</div>
+              <div class="skill-preset-card-copy">${escapeHtml(activeOption.summary)}</div>
+            </div>
+          </div>
+          <div class="targeting-plan-card targeting-plan-options">
+            <div class="skill-preset-section-head">
+              <div class="skill-preset-card-title">方案切换</div>
+              <div class="skill-preset-list-meta">点击后立即切换。</div>
+            </div>
+            <div class="targeting-plan-grid">
+              ${AUTO_BATTLE_TARGETING_MODE_OPTIONS.map((entry) => `
+                <button
+                  class="targeting-plan-option ${entry.mode === activeMode ? 'active' : ''}"
+                  data-targeting-plan-mode="${escapeHtml(entry.mode)}"
+                  type="button"
+                >
+                  <span class="targeting-plan-option-title">${escapeHtml(entry.label)}</span>
+                  <span class="targeting-plan-option-copy">${escapeHtml(entry.summary)}</span>
+                </button>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `,
+      onAfterRender: (body) => {
+        this.bindTargetingPlanEvents(body);
+      },
+    });
+    this.targetingPlanExternalRevision = activeMode;
+  }
+
+  private bindTargetingPlanEvents(root: HTMLElement): void {
+    root.querySelectorAll<HTMLElement>('[data-targeting-plan-mode]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const mode = button.dataset.targetingPlanMode as AutoBattleTargetingMode | undefined;
+        if (!mode || mode === this.getAutoBattleTargetingMode()) {
+          return;
+        }
+        if (this.previewPlayer) {
+          this.previewPlayer.autoBattleTargetingMode = mode;
+        }
+        this.targetingPlanExternalRevision = null;
+        this.render(this.currentActions);
+        this.renderTargetingPlanModal();
+        this.onUpdateAutoBattleTargetingMode?.(mode);
+      });
+    });
   }
 
   private renderSkillManagementModal(): void {

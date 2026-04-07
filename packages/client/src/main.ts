@@ -58,7 +58,7 @@ import { assessMapDanger } from './utils/map-danger';
 
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './ui/floating-tooltip';
 import { detailModalHost } from './ui/detail-modal-host';
-import { bindInlineItemTooltips, renderTextWithInlineItemHighlights } from './ui/item-inline-tooltip';
+import { bindInlineItemTooltips, renderInlineItemChip, renderTextWithInlineItemHighlights } from './ui/item-inline-tooltip';
 import { describePreviewBonuses } from './ui/stat-preview';
 import {
   initializeMapPerformanceConfig,
@@ -622,6 +622,7 @@ const observeModalAsideEl = document.getElementById('observe-modal-aside');
 const observeBuffTooltip = new FloatingTooltip();
 let observeBuffTooltipHoverNode: HTMLElement | null = null;
 let observeBuffTooltipDelegatedBound = false;
+let observeLootPreviewDelegatedBound = false;
 const senseQiTooltip = new FloatingTooltip();
 let pendingTargetedAction: {
   actionId: string;
@@ -630,6 +631,7 @@ let pendingTargetedAction: {
   range: number;
   shape?: TargetingShape;
   radius?: number;
+  innerRadius?: number;
   width?: number;
   height?: number;
   maxTargets?: number;
@@ -663,6 +665,7 @@ type ObservedEntity = {
   maxQi?: number;
   npcQuestMarker?: RenderEntity['npcQuestMarker'];
   observation?: RenderEntity['observation'];
+  lootPreview?: NonNullable<S2C_TileRuntimeDetail['entities']>[number]['lootPreview'];
   buffs?: VisibleBuffState[];
 };
 
@@ -676,7 +679,7 @@ function isPlayerLikeEntityKind(kind: string | null | undefined): boolean {
 
 type ObserveEntityCardData = Pick<
   ObservedEntity,
-  'id' | 'name' | 'kind' | 'monsterTier' | 'hp' | 'maxHp' | 'qi' | 'maxQi' | 'npcQuestMarker' | 'observation' | 'buffs'
+  'id' | 'name' | 'kind' | 'monsterTier' | 'hp' | 'maxHp' | 'qi' | 'maxQi' | 'npcQuestMarker' | 'observation' | 'lootPreview' | 'buffs'
 >;
 
 type PendingAutoInteraction =
@@ -830,6 +833,10 @@ function syncTargetingOverlay() {
     const rangeLabel = pendingTargetedAction.actionId === 'client:observe' ? `视野 ${geometry.range}` : `射程 ${geometry.range}`;
     const shapeLabel = geometry.shape === 'line'
       ? ` · 直线${pendingTargetedAction.maxTargets ? ` ${pendingTargetedAction.maxTargets}目标` : ''}`
+      : geometry.shape === 'ring'
+        ? ` · 环带 ${Math.max(0, geometry.innerRadius ?? Math.max((geometry.radius ?? 1) - 1, 0))}-${Math.max(0, geometry.radius ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
+      : geometry.shape === 'checkerboard'
+        ? ` · 棋盘 ${Math.max(1, geometry.width ?? 1)}x${Math.max(1, geometry.height ?? geometry.width ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
       : geometry.shape === 'box'
         ? ` · 矩形 ${Math.max(1, geometry.width ?? 1)}x${Math.max(1, geometry.height ?? geometry.width ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
       : geometry.shape === 'area'
@@ -873,13 +880,14 @@ function getPlayerTargetingModifiers(): { extraRange: number; extraArea: number 
 }
 
 function getEffectiveTargetingGeometry(
-  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height'>,
+  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height'>,
 ): TargetingGeometrySpec {
   const skill = getSkillDefByActionId(action.actionId);
   const baseSpec: TargetingGeometrySpec = {
     range: Math.max(1, skill?.range ?? action.range),
     shape: skill?.targeting?.shape ?? action.shape ?? 'single',
     radius: skill?.targeting?.radius ?? action.radius,
+    innerRadius: skill?.targeting?.innerRadius ?? action.innerRadius,
     width: skill?.targeting?.width ?? action.width,
     height: skill?.targeting?.height ?? action.height,
   };
@@ -890,7 +898,7 @@ function getEffectiveTargetingGeometry(
 }
 
 function resolveCurrentTargetingRange(
-  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height'>,
+  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height'>,
 ): number {
   if (action.actionId === 'client:observe' || action.actionId === 'battle:force_attack') {
     return Math.max(1, getInfoRadius());
@@ -915,6 +923,7 @@ function beginTargeting(actionId: string, actionName: string, targetMode?: strin
     range: Math.max(1, range),
     shape: skill?.targeting?.shape ?? 'single',
     radius: skill?.targeting?.radius,
+    innerRadius: skill?.targeting?.innerRadius,
     width: skill?.targeting?.width,
     height: skill?.targeting?.height,
     maxTargets: skill?.targeting?.maxTargets,
@@ -935,7 +944,7 @@ function computeAffectedCells(action: NonNullable<typeof pendingTargetedAction>)
 }
 
 function computeAffectedCellsForAction(
-  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height'>,
+  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height'>,
   anchor: GridPoint,
 ): GridPoint[] {
   if (!myPlayer) {
@@ -946,7 +955,7 @@ function computeAffectedCellsForAction(
 }
 
 function resolveTargetRefForAction(
-  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'shape' | 'range' | 'radius' | 'width' | 'height' | 'targetMode'>,
+  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'shape' | 'range' | 'radius' | 'innerRadius' | 'width' | 'height' | 'targetMode'>,
   target: { x: number; y: number; entityId?: string; entityKind?: string },
 ): string | null {
   const entityTargetRef = target.entityKind === 'player' && target.entityId
@@ -971,7 +980,7 @@ function resolveTargetRefForAction(
 }
 
 function hasAffectableTargetInArea(
-  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'shape' | 'range' | 'radius' | 'width' | 'height'>,
+  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'shape' | 'range' | 'radius' | 'innerRadius' | 'width' | 'height'>,
   anchorX: number,
   anchorY: number,
 ): boolean {
@@ -1812,6 +1821,7 @@ function normalizeObserveEntityCardData(entity: NonNullable<S2C_TileRuntimeDetai
     maxQi: entity.maxQi,
     npcQuestMarker: entity.npcQuestMarker ?? undefined,
     observation: entity.observation ?? undefined,
+    lootPreview: entity.lootPreview ?? undefined,
     buffs: entity.buffs ?? undefined,
   };
 }
@@ -1827,7 +1837,7 @@ function buildObservedEntityCardHtml(entity: ObserveEntityCardData): string {
       <div class="observe-entity-empty">地图广播已将此格玩家聚合为人群显示，不再实时展开单人的血条、Buff 与细节变化。</div>
     </div>`;
   }
-  const detailRows = entity.observation?.lines ?? [];
+  const detailRows = (entity.observation?.lines ?? []).filter((row) => row.label !== '生命' && row.label !== '气血' && row.label !== '灵力');
   const monsterPresentation = entity.kind === 'monster'
     ? getMonsterPresentation(entity.name, entity.monsterTier)
     : null;
@@ -1852,6 +1862,17 @@ function buildObservedEntityCardHtml(entity: ObserveEntityCardData): string {
     ${buildBuffSectionHtml('增益状态', [...publicBuffs, ...observeOnlyBuffs], '当前未见明显增益状态')}
     ${buildBuffSectionHtml('减益状态', [...publicDebuffs, ...observeOnlyDebuffs], '当前未见明显减益状态')}
   </div>`;
+  const lootAction = entity.kind === 'monster'
+    ? `<div class="observe-entity-actions">
+        <button
+          class="small-btn ghost observe-entity-action-btn${entity.observation?.clarity === 'complete' ? '' : ' is-disabled'}"
+          type="button"
+          data-observe-loot-id="${escapeHtml(entity.id)}"
+          aria-disabled="${entity.observation?.clarity === 'complete' ? 'false' : 'true'}"
+          title="${escapeHtml(entity.observation?.clarity === 'complete' ? '查看掉落物与概率' : '神识完全探查后可查看掉落物与概率')}"
+        >掉落物</button>
+      </div>`
+    : '';
   return `<div class="observe-entity-card">
     <div class="observe-entity-head">
       <span class="observe-entity-name">${badge}${escapeHtml(title)}</span>
@@ -1862,7 +1883,89 @@ function buildObservedEntityCardHtml(entity: ObserveEntityCardData): string {
       ? `<div class="observe-entity-grid">${buildObservationRows(detailGrid)}</div>`
       : '<div class="observe-entity-empty">此身气机尽藏，暂未看出更多端倪。</div>'}
     ${buffSection}
+    ${lootAction}
   </div>`;
+}
+
+function findObservedEntityById(entityId: string): ObserveEntityCardData | null {
+  const entities = activeObservedTileDetail?.entities;
+  if (!entities) {
+    return null;
+  }
+  const matched = entities.find((entity) => entity.id === entityId);
+  return matched ? normalizeObserveEntityCardData(matched) : null;
+}
+
+function formatObserveLootChance(chance: number): string {
+  const normalized = Math.max(0, Math.min(1, Number.isFinite(chance) ? chance : 0));
+  const percent = normalized * 100;
+  if (percent >= 10) {
+    return `${percent.toFixed(1)}%`;
+  }
+  if (percent >= 1) {
+    return `${percent.toFixed(2)}%`;
+  }
+  return `${percent.toFixed(3)}%`;
+}
+
+function openObserveLootPreview(entity: ObserveEntityCardData): void {
+  if (entity.kind !== 'monster' || entity.observation?.clarity !== 'complete' || !entity.lootPreview) {
+    return;
+  }
+  const rowsHtml = entity.lootPreview.entries.length > 0
+    ? entity.lootPreview.entries.map((entry) => `
+        <div class="observe-loot-preview-row">
+          <div class="observe-loot-preview-item">${renderInlineItemChip(entry.itemId, { count: entry.count, label: entry.name, tone: 'reward' })}</div>
+          <span class="observe-loot-preview-chance">${escapeHtml(formatObserveLootChance(entry.chance))}</span>
+        </div>
+      `).join('')
+    : `<div class="observe-entity-empty">${escapeHtml(entity.lootPreview.emptyText ?? '未探到稳定掉落。')}</div>`;
+  detailModalHost.open({
+    ownerId: 'observe-loot-preview',
+    variantClass: 'detail-modal--loot',
+    title: `${entity.name ?? '目标'}掉落物`,
+    subtitle: '当前神识推演下的实际掉落概率',
+    bodyHtml: `
+      <section class="quest-detail-section">
+        <strong>掉落预览</strong>
+        <div class="observe-loot-preview-list">${rowsHtml}</div>
+      </section>
+    `,
+    onAfterRender: (body) => {
+      bindInlineItemTooltips(body);
+    },
+  });
+}
+
+function bindObserveLootPreviewActions(root: HTMLElement): void {
+  if (observeLootPreviewDelegatedBound) {
+    return;
+  }
+  observeLootPreviewDelegatedBound = true;
+  root.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+    const button = target.closest<HTMLElement>('[data-observe-loot-id]');
+    if (!button) {
+      return;
+    }
+    const entityId = button.dataset.observeLootId?.trim();
+    if (!entityId) {
+      return;
+    }
+    const entity = findObservedEntityById(entityId);
+    if (!entity || entity.kind !== 'monster' || entity.observation?.clarity !== 'complete' || !entity.lootPreview) {
+      showToast('神识尚未完全探明其掉落。');
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    openObserveLootPreview(entity);
+    event.preventDefault();
+    event.stopPropagation();
+  });
 }
 
 function resolveObserveEntities(targetX: number, targetY: number): ObserveEntityCardData[] {
@@ -2060,6 +2163,7 @@ function renderObserveModal(targetX: number, targetY: number): void {
       </div>
       ${buildObservedEntitySectionHtml(sortedEntities)}
     `;
+    bindObserveLootPreviewActions(observeModalBodyEl);
     bindObserveBuffTooltips(observeModalBodyEl);
   }
   renderObserveAsideCards(buildObservedResourceAsideCards(targetX, targetY, tile));
@@ -2156,6 +2260,9 @@ actionPanel.setCallbacks(
   },
   (skills) => {
     socket.sendUpdateAutoBattleSkills(skills);
+  },
+  (mode) => {
+    socket.sendUpdateAutoBattleTargetingMode(mode);
   },
 );
 debugPanel.setCallbacks(() => {
@@ -2368,6 +2475,7 @@ socket.onActionsUpdate((data) => {
   const mergedActions = mergeActionStates(data.actions, data.removeActionIds ?? [], data.actionOrder);
   const previousActions = myPlayer?.actions ?? [];
   const previousAutoBattle = myPlayer?.autoBattle ?? false;
+  const previousAutoBattleTargetingMode = myPlayer?.autoBattleTargetingMode ?? 'auto';
   const previousAutoRetaliate = myPlayer?.autoRetaliate ?? true;
   const previousAutoBattleStationary = myPlayer?.autoBattleStationary ?? false;
   const previousAllowAoePlayerHit = myPlayer?.allowAoePlayerHit ?? false;
@@ -2375,6 +2483,7 @@ socket.onActionsUpdate((data) => {
   const previousAutoSwitchCultivation = myPlayer?.autoSwitchCultivation ?? false;
   const previousCultivationActive = myPlayer?.cultivationActive ?? false;
   const nextAutoBattle = data.autoBattle ?? myPlayer?.autoBattle ?? false;
+  const nextAutoBattleTargetingMode = data.autoBattleTargetingMode ?? myPlayer?.autoBattleTargetingMode ?? 'auto';
   const nextAutoRetaliate = data.autoRetaliate ?? myPlayer?.autoRetaliate ?? true;
   const nextAutoBattleStationary = data.autoBattleStationary ?? myPlayer?.autoBattleStationary ?? false;
   const nextAllowAoePlayerHit = data.allowAoePlayerHit ?? myPlayer?.allowAoePlayerHit ?? false;
@@ -2384,6 +2493,7 @@ socket.onActionsUpdate((data) => {
   const nextSenseQiActive = data.senseQiActive ?? myPlayer?.senseQiActive ?? false;
   const shouldRefreshActionPanel = !myPlayer
     || previousAutoBattle !== nextAutoBattle
+    || previousAutoBattleTargetingMode !== nextAutoBattleTargetingMode
     || previousAutoRetaliate !== nextAutoRetaliate
     || previousAutoBattleStationary !== nextAutoBattleStationary
     || previousAllowAoePlayerHit !== nextAllowAoePlayerHit
@@ -2401,6 +2511,7 @@ socket.onActionsUpdate((data) => {
         skillEnabled: action.skillEnabled !== false,
       }));
     myPlayer.autoBattle = data.autoBattle ?? myPlayer.autoBattle;
+    myPlayer.autoBattleTargetingMode = nextAutoBattleTargetingMode;
     myPlayer.autoRetaliate = data.autoRetaliate ?? (myPlayer.autoRetaliate !== false);
     myPlayer.autoBattleStationary = nextAutoBattleStationary;
     myPlayer.allowAoePlayerHit = nextAllowAoePlayerHit;
@@ -3401,6 +3512,7 @@ socket.onInit((data: S2C_Init) => {
   latestAttrUpdate = buildAttrStateFromPlayer(myPlayer);
   myPlayer.senseQiActive = myPlayer.senseQiActive === true;
   myPlayer.autoBattleStationary = myPlayer.autoBattleStationary === true;
+  myPlayer.autoBattleTargetingMode = myPlayer.autoBattleTargetingMode ?? 'auto';
   myPlayer.allowAoePlayerHit = myPlayer.allowAoePlayerHit === true;
   myPlayer.autoIdleCultivation = myPlayer.autoIdleCultivation !== false;
   myPlayer.autoSwitchCultivation = myPlayer.autoSwitchCultivation === true;
