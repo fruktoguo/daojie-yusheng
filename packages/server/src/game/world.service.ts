@@ -11,6 +11,7 @@ import {
   basisPointModifierToMultiplier,
   buildEffectiveTargetingGeometry,
   BuffModifierMode,
+  calculateDispersedAuraGainPerTile,
   EQUIP_SLOTS,
   EquipmentConditionDef,
   EquipmentConditionGroup,
@@ -5480,7 +5481,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   }
 
   private addDispersedAuraAround(mapId: string, centerX: number, centerY: number, qiCost: number): void {
-    const dispersedAuraGainPerTile = Math.floor(qiCost * 0.1);
+    const dispersedAuraGainPerTile = calculateDispersedAuraGainPerTile(qiCost);
     if (dispersedAuraGainPerTile <= 0) {
       return;
     }

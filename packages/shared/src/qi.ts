@@ -92,6 +92,24 @@ export const DEFAULT_QI_RUNTIME_FLOW_CONFIGS: Partial<Record<string, QiRuntimeFl
   },
 };
 
+/**
+ * 根据单次灵力消耗，计算每个 3x3 地块应注入的逸散灵气值。
+ *
+ * 说明：
+ * - `100` 以内维持原本每格 `10%` 的线性转化。
+ * - 超过 `100` 后按对数曲线衰减，保证单次消耗越大，单位灵力可转化出的逸散越低。
+ * - 该函数返回“每格”注入值；外围 3x3 的总注入量由调用方决定。
+ */
+export function calculateDispersedAuraGainPerTile(qiCost: number): number {
+  const normalizedCost = Number.isFinite(qiCost) ? Math.max(0, Math.floor(qiCost)) : 0;
+  if (normalizedCost <= 0) {
+    return 0;
+  }
+  const overflowLogFactor = normalizedCost <= 100 ? 0 : Math.log10(normalizedCost / 100);
+  const conversionDivisor = 10 * (1 + Math.max(0, overflowLogFactor));
+  return Math.max(0, Math.floor(normalizedCost / conversionDivisor));
+}
+
 export function buildQiResourceKey(descriptor: QiResourceDescriptor): string {
   return `${descriptor.family}.${descriptor.form}.${descriptor.element}`;
 }
