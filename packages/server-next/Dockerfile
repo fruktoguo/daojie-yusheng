@@ -6,6 +6,8 @@ COPY tsconfig.base.json ./
 COPY packages/shared-next/package.json packages/shared-next/
 COPY packages/server-next/package.json packages/server-next/
 RUN pnpm install --frozen-lockfile || pnpm install
+COPY scripts scripts
+COPY docs/tutorial-mechanics.md docs/tutorial-mechanics.md
 COPY packages/shared-next packages/shared-next
 COPY packages/server-next packages/server-next
 COPY packages/server/data packages/server/data

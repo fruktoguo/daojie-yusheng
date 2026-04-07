@@ -6,6 +6,8 @@ COPY tsconfig.base.json ./
 COPY packages/shared/package.json packages/shared/
 COPY packages/server/package.json packages/server/
 RUN pnpm install --frozen-lockfile || pnpm install
+COPY scripts scripts
+COPY docs/tutorial-mechanics.md docs/tutorial-mechanics.md
 COPY packages/shared packages/shared
 COPY packages/server packages/server
 RUN pnpm --filter @mud/shared build && pnpm --filter @mud/server build

@@ -159,8 +159,19 @@ const markdown = await fs.readFile(sourcePath, 'utf8');
 const topics = parseTopics(markdown);
 const output = renderGeneratedFile(topics);
 
+let writtenCount = 0;
 for (const targetPath of targets) {
+  try {
+    await fs.access(path.dirname(targetPath));
+  } catch {
+    continue;
+  }
   await fs.writeFile(targetPath, output, 'utf8');
+  writtenCount += 1;
 }
 
-console.log(`已同步教程机制文档到 ${targets.length} 个 shared 产物。`);
+if (writtenCount === 0) {
+  throw new Error('未找到可写入的教程机制 shared 产物目录');
+}
+
+console.log(`已同步教程机制文档到 ${writtenCount} 个 shared 产物。`);
