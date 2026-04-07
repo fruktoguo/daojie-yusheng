@@ -251,7 +251,7 @@
     {
       "resourceNodeId": "landmark.herb.swiftwind_reed",
       "idPrefix": "lm_bamboo_swiftwind",
-      "name": "潭边疾风苇",
+      "name": "疾风苇",
       "placements": [
         {
           "x": 1,
@@ -298,7 +298,7 @@
     {
       "resourceNodeId": "landmark.herb.clear_mind_flower",
       "idPrefix": "lm_bamboo_clearmind",
-      "name": "岔口明心花",
+      "name": "明心花",
       "placements": [
         {
           "x": 2,

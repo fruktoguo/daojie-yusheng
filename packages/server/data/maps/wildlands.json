@@ -256,7 +256,7 @@
     {
       "resourceNodeId": "landmark.herb.red_flame_leaf",
       "idPrefix": "lm_wild_redflame",
-      "name": "赤火灌丛",
+      "name": "赤火叶",
       "placements": [
         {
           "x": 1,
@@ -303,7 +303,7 @@
     {
       "resourceNodeId": "landmark.herb.bloodbud_fruit",
       "idPrefix": "lm_wild_bloodbud",
-      "name": "赤芽矮丛",
+      "name": "赤芽果",
       "placements": [
         {
           "x": 2,

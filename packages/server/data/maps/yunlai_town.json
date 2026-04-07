@@ -1755,7 +1755,7 @@
     {
       "resourceNodeId": "landmark.herb.moondew_grass",
       "idPrefix": "lm_yunlai_moondew",
-      "name": "药铺晨露圃",
+      "name": "月露草",
       "placements": [
         {
           "x": 1,
@@ -1802,7 +1802,7 @@
     {
       "resourceNodeId": "landmark.herb.green_spirit_stem",
       "idPrefix": "lm_yunlai_spirit_stem",
-      "name": "后院青灵畦",
+      "name": "青灵茎",
       "placements": [
         {
           "x": 26,

@@ -107,7 +107,7 @@
     {
       "id": "landmark.herb.moondew_grass",
       "kind": "landmark_container",
-      "name": "月露草丛",
+      "name": "月露草",
       "container": {
         "variant": "herb",
         "grade": "mortal",
@@ -128,7 +128,7 @@
     {
       "id": "landmark.herb.red_flame_leaf",
       "kind": "landmark_container",
-      "name": "赤火叶株",
+      "name": "赤火叶",
       "container": {
         "variant": "herb",
         "grade": "yellow",
@@ -149,7 +149,7 @@
     {
       "id": "landmark.herb.green_spirit_stem",
       "kind": "landmark_container",
-      "name": "青灵茎圃",
+      "name": "青灵茎",
       "container": {
         "variant": "herb",
         "grade": "yellow",
@@ -170,7 +170,7 @@
     {
       "id": "landmark.herb.frost_lotus_petal",
       "kind": "landmark_container",
-      "name": "寒雾残莲",
+      "name": "寒莲瓣",
       "container": {
         "variant": "herb",
         "grade": "mystic",
@@ -191,7 +191,7 @@
     {
       "id": "landmark.herb.clear_mind_flower",
       "kind": "landmark_container",
-      "name": "明心花簇",
+      "name": "明心花",
       "container": {
         "variant": "herb",
         "grade": "mystic",
@@ -212,7 +212,7 @@
     {
       "id": "landmark.herb.bloodbud_fruit",
       "kind": "landmark_container",
-      "name": "赤芽灌木",
+      "name": "赤芽果",
       "container": {
         "variant": "herb",
         "grade": "yellow",
@@ -233,7 +233,7 @@
     {
       "id": "landmark.herb.breakarray_shard",
       "kind": "landmark_container",
-      "name": "裂阵砂痕",
+      "name": "破纹砂",
       "container": {
         "variant": "herb",
         "grade": "mystic",
@@ -254,7 +254,7 @@
     {
       "id": "landmark.herb.swiftwind_reed",
       "kind": "landmark_container",
-      "name": "疾风苇荡",
+      "name": "疾风苇",
       "container": {
         "variant": "herb",
         "grade": "mystic",
@@ -275,7 +275,7 @@
     {
       "id": "landmark.herb.bitterheart_vine",
       "kind": "landmark_container",
-      "name": "苦心藤架",
+      "name": "苦心藤",
       "container": {
         "variant": "herb",
         "grade": "earth",
@@ -296,7 +296,7 @@
     {
       "id": "landmark.herb.sunmelt_seed",
       "kind": "landmark_container",
-      "name": "融阳灼株",
+      "name": "融阳子",
       "container": {
         "variant": "herb",
         "grade": "earth",
