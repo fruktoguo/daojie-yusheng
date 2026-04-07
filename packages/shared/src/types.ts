@@ -1045,6 +1045,141 @@ export interface AutoBattleSkillConfig {
   skillEnabled?: boolean;
 }
 
+/** 自动丹药阈值条件支持的资源 */
+export type AutoUsePillResource = 'hp' | 'qi';
+
+/** 自动丹药阈值条件比较方式 */
+export type AutoUsePillConditionOperator = 'lt' | 'gt';
+
+/** 自动丹药条件：按当前资源百分比触发 */
+export interface AutoUsePillResourceCondition {
+  type: 'resource_ratio';
+  resource: AutoUsePillResource;
+  op: AutoUsePillConditionOperator;
+  thresholdPct: number;
+}
+
+/** 自动丹药条件：当前药品附带的持续效果未生效时触发 */
+export interface AutoUsePillBuffMissingCondition {
+  type: 'buff_missing';
+}
+
+/** 自动丹药触发条件 */
+export type AutoUsePillCondition = AutoUsePillResourceCondition | AutoUsePillBuffMissingCondition;
+
+/** 自动使用丹药配置 */
+export interface AutoUsePillConfig {
+  itemId: string;
+  conditions: AutoUsePillCondition[];
+}
+
+export const AUTO_USE_PILL_RESOURCES = ['hp', 'qi'] as const satisfies readonly AutoUsePillResource[];
+export const AUTO_USE_PILL_CONDITION_OPERATORS = ['lt', 'gt'] as const satisfies readonly AutoUsePillConditionOperator[];
+
+export function isAutoUsePillResource(value: unknown): value is AutoUsePillResource {
+  return typeof value === 'string' && (AUTO_USE_PILL_RESOURCES as readonly string[]).includes(value);
+}
+
+export function isAutoUsePillConditionOperator(value: unknown): value is AutoUsePillConditionOperator {
+  return typeof value === 'string' && (AUTO_USE_PILL_CONDITION_OPERATORS as readonly string[]).includes(value);
+}
+
+function isAutoUsePillConditionRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+export function normalizeAutoUsePillConditions(
+  value: unknown,
+  options?: {
+    allowBuffMissing?: boolean;
+    maxConditions?: number;
+  },
+): AutoUsePillCondition[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const maxConditions = Math.max(1, Math.floor(options?.maxConditions ?? 4));
+  const normalized: AutoUsePillCondition[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of value) {
+    if (!isAutoUsePillConditionRecord(entry)) {
+      continue;
+    }
+    if (entry.type === 'resource_ratio') {
+      const resource = isAutoUsePillResource(entry.resource) ? entry.resource : 'hp';
+      const op = isAutoUsePillConditionOperator(entry.op) ? entry.op : 'lt';
+      const rawThreshold = Number(entry.thresholdPct);
+      const thresholdPct = Number.isFinite(rawThreshold)
+        ? Math.max(0, Math.min(100, Math.round(rawThreshold)))
+        : 50;
+      const key = `resource_ratio:${resource}:${op}:${thresholdPct}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      normalized.push({
+        type: 'resource_ratio',
+        resource,
+        op,
+        thresholdPct,
+      });
+      seen.add(key);
+    } else if (entry.type === 'buff_missing' && options?.allowBuffMissing !== false) {
+      const key = 'buff_missing';
+      if (seen.has(key)) {
+        continue;
+      }
+      normalized.push({ type: 'buff_missing' });
+      seen.add(key);
+    }
+    if (normalized.length >= maxConditions) {
+      break;
+    }
+  }
+
+  return normalized;
+}
+
+export function normalizeAutoUsePillConfigs(
+  value: unknown,
+  options?: {
+    allowItemId?: (itemId: string) => boolean;
+    allowBuffMissing?: (itemId: string) => boolean;
+    maxItems?: number;
+    maxConditionsPerItem?: number;
+  },
+): AutoUsePillConfig[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const maxItems = Math.max(1, Math.floor(options?.maxItems ?? 12));
+  const normalized: AutoUsePillConfig[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of value) {
+    if (!isAutoUsePillConditionRecord(entry) || typeof entry.itemId !== 'string') {
+      continue;
+    }
+    const itemId = entry.itemId.trim();
+    if (!itemId || seen.has(itemId) || (options?.allowItemId && !options.allowItemId(itemId))) {
+      continue;
+    }
+    normalized.push({
+      itemId,
+      conditions: normalizeAutoUsePillConditions(entry.conditions, {
+        allowBuffMissing: options?.allowBuffMissing ? options.allowBuffMissing(itemId) : true,
+        maxConditions: options?.maxConditionsPerItem,
+      }),
+    });
+    seen.add(itemId);
+    if (normalized.length >= maxItems) {
+      break;
+    }
+  }
+
+  return normalized;
+}
+
 /** 自动战斗索敌方案 */
 export type AutoBattleTargetingMode = 'auto' | 'nearest' | 'low_hp' | 'full_hp' | 'boss' | 'player';
 
@@ -1243,6 +1378,7 @@ export interface PlayerState {
   quests: QuestState[];
   autoBattle: boolean;
   autoBattleSkills: AutoBattleSkillConfig[];
+  autoUsePills: AutoUsePillConfig[];
   autoBattleTargetingMode: AutoBattleTargetingMode;
   combatTargetId?: string;
   combatTargetLocked?: boolean;

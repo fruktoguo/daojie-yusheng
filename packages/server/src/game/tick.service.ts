@@ -10,6 +10,7 @@ import {
   ActionUpdateEntry,
   AlchemyIngredientSelection,
   AutoBattleSkillConfig,
+  AutoUsePillConfig,
   CombatEffect,
   DEFAULT_AURA_LEVEL_BASE_VALUE,
   DEFAULT_PLAYER_MAP_ID,
@@ -26,6 +27,7 @@ import {
   MapMinimapMarker,
   MapRouteDomain,
   normalizeAutoBattleTargetingMode,
+  normalizeAutoUsePillConfigs,
   normalizeAuraLevelBaseValue,
   parseTileTargetRef,
   PLAYER_HEARTBEAT_TIMEOUT_MS,
@@ -148,6 +150,7 @@ interface ActionSyncStateEntry {
 
 interface ActionPanelSyncState {
   autoBattle: boolean;
+  autoUsePills: PlayerState['autoUsePills'];
   autoBattleTargetingMode: PlayerState['autoBattleTargetingMode'];
   autoRetaliate: boolean;
   autoBattleStationary: boolean;
@@ -174,6 +177,7 @@ const TICK_CONFIG_DOCUMENT_KEY = 'tick_runtime';
 const DEFAULT_SYSTEM_ROUTE_DOMAINS: readonly MapRouteDomain[] = ['system'];
 const PERIODIC_SYNC_INTERVAL_MS = 60_000;
 const PERIODIC_SYNC_DIRTY_FLAGS: readonly DirtyFlag[] = ['attr', 'inv', 'equip', 'tech', 'actions', 'loot', 'quest'];
+const AUTO_USE_PILL_INSTANT_EFFECT_COOLDOWN_TICKS = 60;
 
 function normalizeConsumableBuffShortMark(raw: string | undefined, fallbackName: string): string {
   const trimmed = raw?.trim();
@@ -209,6 +213,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   private pendingAlchemyPanelPushPlayers: Set<string> = new Set();
   private lastPeriodicSyncAt: Map<string, number> = new Map();
   private forcedTickSyncPlayers: Set<string> = new Set();
+  private autoUsePillInstantCooldowns: Map<string, number> = new Map();
   private persistTimer: ReturnType<typeof setInterval> | null = null;
   private minTickInterval = 1000;
   private offlinePlayerTimeoutMs = DEFAULT_OFFLINE_PLAYER_TIMEOUT_SEC * 1000;
@@ -1015,6 +1020,10 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         }
       }
 
+      if (this.measureCpuSection('combat', '战斗与技能计算', () => this.tryAutoUsePills(player, messages))) {
+        this.markPlayerActive(player, activePlayerIds);
+      }
+
       const pendingSkillUpdate = this.measureCpuSection('combat', '战斗与技能计算', () => (
         this.worldService.resolvePendingPlayerSkillCast(player)
       ));
@@ -1520,6 +1529,187 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     if (attrChanged) {
       this.playerService.markDirty(player.id, 'attr');
     }
+  }
+
+  private isBattlePillItem(itemId: string): boolean {
+    return this.contentService.getItem(itemId)?.tags?.includes('战斗丹药') === true;
+  }
+
+  private normalizeAutoUsePills(input: unknown): AutoUsePillConfig[] {
+    return normalizeAutoUsePillConfigs(input, {
+      allowItemId: (itemId) => this.isBattlePillItem(itemId),
+      allowBuffMissing: (itemId) => (this.contentService.getItem(itemId)?.consumeBuffs?.length ?? 0) > 0,
+      maxItems: 12,
+      maxConditionsPerItem: 4,
+    });
+  }
+
+  private tryUseInventoryItem(
+    player: PlayerState,
+    slotIndex: number,
+    requestedCount: number,
+    messages: WorldMessage[],
+    options?: { silent?: boolean },
+  ): boolean {
+    const silent = options?.silent === true;
+    const pushError = (text: string): void => {
+      if (!silent) {
+        messages.push({ playerId: player.id, text, kind: 'system' });
+      }
+    };
+    const item = this.inventoryService.getItem(player, slotIndex);
+    if (!item) {
+      pushError('物品不存在');
+      return false;
+    }
+    if (requestedCount <= 0) {
+      pushError('使用数量无效');
+      return false;
+    }
+    const itemDef = this.contentService.getItem(item.itemId);
+    if (requestedCount > 1 && itemDef?.allowBatchUse !== true) {
+      pushError('该物品不支持批量使用');
+      return false;
+    }
+    if (itemDef?.learnTechniqueId && player.techniques.some((technique) => technique.techId === itemDef.learnTechniqueId)) {
+      pushError('你已经学会这门功法了。');
+      return false;
+    }
+    if (itemDef?.mapUnlockId && (player.unlockedMinimapIds ?? []).includes(itemDef.mapUnlockId)) {
+      const mapMeta = this.mapService.getMapMeta(itemDef.mapUnlockId);
+      pushError(mapMeta ? `${mapMeta.name} 的地图你早已记下。` : '这份地图你早已记下。');
+      return false;
+    }
+    if (itemDef?.respawnBindMapId && this.mapService.resolvePlayerRespawnMapId(player.respawnMapId) === itemDef.respawnBindMapId) {
+      const mapMeta = this.mapService.getMapMeta(itemDef.respawnBindMapId);
+      pushError(mapMeta ? `你的命石早已系在 ${mapMeta.name}。` : '你的命石早已系在此处。');
+      return false;
+    }
+    if (itemDef?.tileAuraGainAmount && this.mapService.isPlayerOverlapTile(player.mapId, player.x, player.y)) {
+      pushError('当前位于安全区、出生点或传送点附近，无法使用灵石。');
+      return false;
+    }
+    if (itemDef?.spiritualRootSeedTier) {
+      const seedUseError = this.techniqueService.canUseSpiritualRootSeed(player, itemDef.spiritualRootSeedTier);
+      if (seedUseError) {
+        pushError(seedUseError);
+        return false;
+      }
+    }
+    if (itemDef?.itemId === SHATTER_SPIRIT_PILL_ITEM_ID) {
+      const shatterSpiritPillError = this.techniqueService.canUseShatterSpiritPill(player);
+      if (shatterSpiritPillError) {
+        pushError(shatterSpiritPillError);
+        return false;
+      }
+    }
+    const useErr = this.inventoryService.useItem(player, slotIndex, requestedCount);
+    if (useErr) {
+      pushError(useErr);
+      return false;
+    }
+    this.playerService.markDirty(player.id, 'inv');
+    this.applyItemEffect(player, item.itemId, messages, requestedCount);
+    return true;
+  }
+
+  private shouldEvaluateAutoUsePills(player: PlayerState): boolean {
+    return player.dead !== true
+      && (
+        player.autoBattle === true
+        || Boolean(player.pendingSkillCast)
+        || typeof player.combatTargetId === 'string'
+      );
+  }
+
+  private getAutoUsePillCooldownTicks(itemId: string): number {
+    const item = this.contentService.getItem(itemId);
+    if (!item) {
+      return 0;
+    }
+    return (item.healAmount ?? 0) > 0 || (item.healPercent ?? 0) > 0 || (item.qiPercent ?? 0) > 0
+      ? AUTO_USE_PILL_INSTANT_EFFECT_COOLDOWN_TICKS
+      : 0;
+  }
+
+  private isAutoUsePillOnCooldown(player: PlayerState, itemId: string): boolean {
+    if (this.getAutoUsePillCooldownTicks(itemId) <= 0) {
+      return false;
+    }
+    const readyAtMs = this.autoUsePillInstantCooldowns.get(player.id);
+    if (typeof readyAtMs !== 'number' || !Number.isFinite(readyAtMs) || readyAtMs <= 0) {
+      return false;
+    }
+    if (Date.now() >= readyAtMs) {
+      this.autoUsePillInstantCooldowns.delete(player.id);
+      return false;
+    }
+    return true;
+  }
+
+  private markAutoUsePillCooldown(player: PlayerState, itemId: string): void {
+    const cooldownTicks = this.getAutoUsePillCooldownTicks(itemId);
+    if (cooldownTicks <= 0) {
+      return;
+    }
+    this.autoUsePillInstantCooldowns.set(player.id, Date.now() + cooldownTicks * this.minTickInterval);
+  }
+
+  private shouldAutoUsePill(player: PlayerState, config: AutoUsePillConfig): boolean {
+    if ((config.conditions?.length ?? 0) === 0) {
+      return false;
+    }
+    const item = this.contentService.getItem(config.itemId);
+    if (!item || !this.isBattlePillItem(config.itemId)) {
+      return false;
+    }
+    return config.conditions.some((condition) => {
+      if (condition.type === 'resource_ratio') {
+        const current = condition.resource === 'hp' ? player.hp : player.qi;
+        const max = condition.resource === 'hp'
+          ? Math.max(1, player.maxHp)
+          : Math.max(0, Math.round(player.numericStats?.maxQi ?? player.qi));
+        const ratioPct = max > 0 ? (current / max) * 100 : 0;
+        return condition.op === 'lt'
+          ? ratioPct < condition.thresholdPct
+          : ratioPct > condition.thresholdPct;
+      }
+      const buffIds = (item.consumeBuffs ?? [])
+        .map((buff) => buff.buffId)
+        .filter((buffId): buffId is string => typeof buffId === 'string' && buffId.length > 0);
+      if (buffIds.length === 0) {
+        return false;
+      }
+      const activeBuffIds = new Set(
+        (player.temporaryBuffs ?? [])
+          .filter((buff) => buff.remainingTicks > 0 && buff.stacks > 0)
+          .map((buff) => buff.buffId),
+      );
+      return buffIds.every((buffId) => !activeBuffIds.has(buffId));
+    });
+  }
+
+  private tryAutoUsePills(player: PlayerState, messages: WorldMessage[]): boolean {
+    if (!this.shouldEvaluateAutoUsePills(player)) {
+      return false;
+    }
+    for (const config of player.autoUsePills ?? []) {
+      if (!this.shouldAutoUsePill(player, config)) {
+        continue;
+      }
+      if (this.isAutoUsePillOnCooldown(player, config.itemId)) {
+        continue;
+      }
+      const slotIndex = this.inventoryService.findItem(player, config.itemId);
+      if (slotIndex < 0) {
+        continue;
+      }
+      if (this.tryUseInventoryItem(player, slotIndex, 1, messages, { silent: true })) {
+        this.markAutoUsePillCooldown(player, config.itemId);
+        return true;
+      }
+    }
+    return false;
   }
 
   private getUnlockedMinimapIds(player: PlayerState): string[] {
@@ -2172,6 +2362,15 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         }
         break;
       }
+      case 'updateAutoUsePills': {
+        const { pills } = data as { pills: AutoUsePillConfig[] };
+        const nextPills = this.normalizeAutoUsePills(pills);
+        if (!isPlainEqual(player.autoUsePills ?? [], nextPills)) {
+          player.autoUsePills = nextPills;
+          this.markActionsDirty(player.id);
+        }
+        break;
+      }
       case 'updateAutoBattleTargetingMode': {
         const { mode } = data as { mode: PlayerState['autoBattleTargetingMode'] };
         const nextMode = normalizeAutoBattleTargetingMode(mode, player.autoBattleTargetingMode);
@@ -2702,6 +2901,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   private captureActionPanelSyncState(player: PlayerState): ActionPanelSyncState {
     return {
       autoBattle: player.autoBattle,
+      autoUsePills: this.cloneStructured(player.autoUsePills ?? []),
       autoBattleTargetingMode: player.autoBattleTargetingMode,
       autoRetaliate: player.autoRetaliate !== false,
       autoBattleStationary: player.autoBattleStationary === true,
@@ -2854,6 +3054,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     if (!previousPanelState || previousPanelState.autoBattle !== nextPanelState.autoBattle) {
       update.autoBattle = nextPanelState.autoBattle;
     }
+    if (!previousPanelState || !this.isStructuredEqual(previousPanelState.autoUsePills, nextPanelState.autoUsePills)) {
+      update.autoUsePills = this.cloneStructured(nextPanelState.autoUsePills);
+    }
     if (!previousPanelState || previousPanelState.autoBattleTargetingMode !== nextPanelState.autoBattleTargetingMode) {
       update.autoBattleTargetingMode = nextPanelState.autoBattleTargetingMode;
     }
@@ -2883,6 +3086,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       || (update.removeActionIds?.length ?? 0) > 0
       || (update.actionOrder?.length ?? 0) > 0
       || update.autoBattle !== undefined
+      || update.autoUsePills !== undefined
       || update.autoBattleTargetingMode !== undefined
       || update.autoRetaliate !== undefined
       || update.autoBattleStationary !== undefined
