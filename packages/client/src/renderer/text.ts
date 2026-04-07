@@ -270,8 +270,12 @@ interface AttackTrail {
 
 interface WarningZone {
   id: number;
-  cells: Array<{ x: number; y: number }>;
+  cells: Array<{ x: number; y: number; expandDistance: number }>;
   color: string;
+  baseColor: string;
+  originX: number;
+  originY: number;
+  maxExpandDistance: number;
   createdAt: number;
   duration: number;
 }
@@ -296,6 +300,22 @@ const MAX_FLOATING_TEXTS = 256;
 const MAX_ATTACK_TRAILS = 192;
 const MAX_WARNING_ZONES = 64;
 const DEFAULT_WARNING_ZONE_DURATION_MS = 1240;
+
+function buildFloatingTextGroupKey(entry: Pick<FloatingText, 'x' | 'y' | 'variant'>): string {
+  return `${entry.x},${entry.y},${entry.variant}`;
+}
+
+function pruneExpiredTimedEntriesInPlace<T extends { createdAt: number; duration: number }>(entries: T[], now: number): void {
+  let writeIndex = 0;
+  for (let readIndex = 0; readIndex < entries.length; readIndex += 1) {
+    const entry = entries[readIndex];
+    if (now - entry.createdAt < entry.duration) {
+      entries[writeIndex] = entry;
+      writeIndex += 1;
+    }
+  }
+  entries.length = writeIndex;
+}
 
 /** 文字渲染器，用汉字字符绘制地图地块、实体角色和战斗特效 */
 export class TextRenderer implements IRenderer {
@@ -1163,16 +1183,42 @@ export class TextRenderer implements IRenderer {
     this.trimAttackTrails();
   }
 
-  addWarningZone(cells: Array<{ x: number; y: number }>, color = '#ff2a2a', durationMs = DEFAULT_WARNING_ZONE_DURATION_MS) {
+  addWarningZone(
+    cells: Array<{ x: number; y: number }>,
+    color = '#ff2a2a',
+    durationMs = DEFAULT_WARNING_ZONE_DURATION_MS,
+    baseColor?: string,
+    originX?: number,
+    originY?: number,
+  ) {
     if (cells.length === 0) {
       return;
     }
     const now = performance.now();
     this.pruneExpiredWarningZones(now);
+    const origin = this.resolveWarningZoneOrigin(cells, originX, originY);
+    const rawDistances = cells.map((cell) => Math.max(Math.abs(cell.x - origin.x), Math.abs(cell.y - origin.y)));
+    const minExpandDistance = rawDistances.reduce(
+      (minDistance, distance) => Math.min(minDistance, distance),
+      rawDistances[0] ?? 0,
+    );
+    const zoneCells = cells.map((cell, index) => ({
+      x: cell.x,
+      y: cell.y,
+      expandDistance: Math.max(0, rawDistances[index] - minExpandDistance),
+    }));
+    const maxExpandDistance = zoneCells.reduce(
+      (maxDistance, cell) => Math.max(maxDistance, cell.expandDistance),
+      0,
+    );
     this.warningZones.push({
       id: this.nextWarningZoneId++,
-      cells: cells.map((cell) => ({ x: cell.x, y: cell.y })),
+      cells: zoneCells,
       color,
+      baseColor: baseColor ?? color,
+      originX: origin.x,
+      originY: origin.y,
+      maxExpandDistance,
       createdAt: now,
       duration: Math.max(1, Math.round(durationMs)),
     });
@@ -1189,21 +1235,18 @@ export class TextRenderer implements IRenderer {
     const cellSize = getCellSize();
 
     this.pruneExpiredFloatingTexts(now);
-    const groups = new Map<string, FloatingText[]>();
+    const groupTotals = new Map<string, number>();
     for (const entry of this.floatingTexts) {
-      const key = `${entry.x},${entry.y},${entry.variant}`;
-      const group = groups.get(key);
-      if (group) {
-        group.push(entry);
-      } else {
-        groups.set(key, [entry]);
-      }
+      const key = buildFloatingTextGroupKey(entry);
+      groupTotals.set(key, (groupTotals.get(key) ?? 0) + 1);
     }
-    for (const group of groups.values()) {
-      group.sort((left, right) => left.createdAt - right.createdAt || left.id - right.id);
-    }
+    const groupSeen = new Map<string, number>();
 
     for (const entry of this.floatingTexts) {
+      const groupKey = buildFloatingTextGroupKey(entry);
+      const count = groupTotals.get(groupKey) ?? 1;
+      const index = groupSeen.get(groupKey) ?? 0;
+      groupSeen.set(groupKey, index + 1);
       const progress = Math.min(1, (now - entry.createdAt) / entry.duration);
       const actionStyle = entry.variant === 'action' ? (entry.actionStyle ?? 'default') : undefined;
       const motionProgress = entry.variant === 'action' && actionStyle === 'default' ? progress * progress : progress;
@@ -1219,9 +1262,7 @@ export class TextRenderer implements IRenderer {
       const worldY = entry.y * cellSize;
       const { sx, sy } = camera.worldToScreen(worldX, worldY, sw, sh);
       if (sx + cellSize < 0 || sx > sw || sy + cellSize < 0 || sy > sh) continue;
-      const group = groups.get(`${entry.x},${entry.y},${entry.variant}`) ?? [entry];
-      const index = group.findIndex((item) => item.id === entry.id);
-      const burst = this.getFloatingTextBurstOffset(index, group.length, cellSize);
+      const burst = this.getFloatingTextBurstOffset(index, count, cellSize);
 
       ctx.save();
       ctx.globalAlpha = alpha;
@@ -1362,9 +1403,14 @@ export class TextRenderer implements IRenderer {
     for (const zone of this.warningZones) {
       const progress = Math.min(1, (now - zone.createdAt) / zone.duration);
       const fadeProgress = progress <= 0.72 ? 0 : Math.min(1, (progress - 0.72) / 0.28);
-      const pulse = 0.92 + Math.sin(progress * Math.PI * 4) * 0.08;
-      const fillAlpha = Math.max(0.04, (1 - fadeProgress * 0.9) * 0.18 * pulse);
-      const strokeAlpha = Math.max(0.18, (1 - fadeProgress * 0.82) * 0.72);
+      const pulse = 0.96 + Math.sin(progress * Math.PI * 3) * 0.04;
+      const baseFillAlpha = Math.max(0.02, (1 - fadeProgress * 0.9) * 0.1);
+      const baseStrokeAlpha = Math.max(0.08, (1 - fadeProgress * 0.84) * 0.32);
+      const expandFillAlpha = Math.max(0.045, (1 - fadeProgress * 0.9) * 0.18 * pulse);
+      const expandStrokeAlpha = Math.max(0.16, (1 - fadeProgress * 0.82) * 0.72);
+      const revealDistance = progress * (zone.maxExpandDistance + 1);
+      const settledDistance = Math.floor(revealDistance);
+      const frontierAlpha = Math.max(0, Math.min(1, revealDistance - settledDistance));
 
       for (const cell of zone.cells) {
         const { sx, sy } = camera.worldToScreen(cell.x * cellSize, cell.y * cellSize, sw, sh);
@@ -1373,12 +1419,32 @@ export class TextRenderer implements IRenderer {
         }
 
         ctx.save();
-        ctx.globalAlpha = fillAlpha;
+        ctx.globalAlpha = baseFillAlpha;
+        ctx.fillStyle = zone.baseColor;
+        ctx.fillRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
+        ctx.globalAlpha = baseStrokeAlpha;
+        ctx.strokeStyle = zone.baseColor;
+        ctx.lineWidth = Math.max(1.25, cellSize * 0.08);
+        ctx.strokeRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3);
+        ctx.restore();
+
+        let overlayAlpha = 0;
+        if (cell.expandDistance < settledDistance) {
+          overlayAlpha = 1;
+        } else if (cell.expandDistance === settledDistance) {
+          overlayAlpha = frontierAlpha;
+        }
+        if (overlayAlpha <= 0.01) {
+          continue;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = expandFillAlpha * overlayAlpha;
         ctx.fillStyle = zone.color;
         ctx.fillRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
-        ctx.globalAlpha = strokeAlpha;
+        ctx.globalAlpha = expandStrokeAlpha * overlayAlpha;
         ctx.strokeStyle = zone.color;
-        ctx.lineWidth = Math.max(1.25, cellSize * 0.08);
+        ctx.lineWidth = Math.max(1.35, cellSize * 0.09);
         ctx.strokeRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3);
         ctx.restore();
       }
@@ -1475,16 +1541,43 @@ export class TextRenderer implements IRenderer {
     });
   }
 
+  private resolveWarningZoneOrigin(
+    cells: Array<{ x: number; y: number }>,
+    originX?: number,
+    originY?: number,
+  ): { x: number; y: number } {
+    if (Number.isFinite(originX) && Number.isFinite(originY)) {
+      return {
+        x: Math.round(originX ?? 0),
+        y: Math.round(originY ?? 0),
+      };
+    }
+    let minX = cells[0].x;
+    let maxX = cells[0].x;
+    let minY = cells[0].y;
+    let maxY = cells[0].y;
+    for (const cell of cells) {
+      if (cell.x < minX) minX = cell.x;
+      if (cell.x > maxX) maxX = cell.x;
+      if (cell.y < minY) minY = cell.y;
+      if (cell.y > maxY) maxY = cell.y;
+    }
+    return {
+      x: Math.round((minX + maxX) / 2),
+      y: Math.round((minY + maxY) / 2),
+    };
+  }
+
   private pruneExpiredFloatingTexts(now: number): void {
-    this.floatingTexts = this.floatingTexts.filter((entry) => now - entry.createdAt < entry.duration);
+    pruneExpiredTimedEntriesInPlace(this.floatingTexts, now);
   }
 
   private pruneExpiredAttackTrails(now: number): void {
-    this.attackTrails = this.attackTrails.filter((entry) => now - entry.createdAt < entry.duration);
+    pruneExpiredTimedEntriesInPlace(this.attackTrails, now);
   }
 
   private pruneExpiredWarningZones(now: number): void {
-    this.warningZones = this.warningZones.filter((entry) => now - entry.createdAt < entry.duration);
+    pruneExpiredTimedEntriesInPlace(this.warningZones, now);
   }
 
   private trimFloatingTexts(): void {
