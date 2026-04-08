@@ -1753,9 +1753,10 @@ export interface GmShortcutRunRes {
   totalPlayers: number;
   queuedRuntimePlayers: number;
   updatedOfflinePlayers: number;
-  targetMapId: string;
-  targetX: number;
-  targetY: number;
+  totalCombatExpGranted?: number;
+  targetMapId?: string;
+  targetX?: number;
+  targetY?: number;
 }
 
 /** GM 地图传送点记录 */

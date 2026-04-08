@@ -4848,6 +4848,32 @@ async function returnAllPlayersToDefaultSpawn(): Promise<void> {
   }
 }
 
+async function compensateAllPlayersCombatExp(): Promise<void> {
+  if (!window.confirm('这会给所有非机器人角色补偿战斗经验。每个角色获得的数值 = 当前境界升级所需经验 + 当前炼体境界升级所需经验。在线角色下一息生效，离线角色会直接改存档。确认继续吗？')) {
+    return;
+  }
+
+  const button = document.getElementById('shortcut-compensate-combat-exp-2026-04-09') as HTMLButtonElement | null;
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    const result = await request<GmShortcutRunRes>('/gm/shortcuts/compensation/combat-exp-2026-04-09', {
+      method: 'POST',
+    });
+    editorDirty = false;
+    await delayRefresh(
+      `已提交战斗经验补偿，共 ${result.totalPlayers} 个角色，在线 ${result.queuedRuntimePlayers} 个，离线 ${result.updatedOfflinePlayers} 个，累计补偿 ${Math.floor(result.totalCombatExpGranted ?? 0)} 点战斗经验`,
+    );
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '执行补偿失败', true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
 async function resetNetworkStats(): Promise<void> {
   resetNetworkStatsBtn.disabled = true;
   try {
@@ -5409,6 +5435,9 @@ document.getElementById('remove-all-bots')?.addEventListener('click', () => {
 });
 document.getElementById('shortcut-return-all-to-default-spawn')?.addEventListener('click', () => {
   returnAllPlayersToDefaultSpawn().catch(() => {});
+});
+document.getElementById('shortcut-compensate-combat-exp-2026-04-09')?.addEventListener('click', () => {
+  compensateAllPlayersCombatExp().catch(() => {});
 });
 shortcutWorkspaceEl.addEventListener('click', (event) => {
   const trigger = (event.target as HTMLElement).closest<HTMLElement>('[data-action]');

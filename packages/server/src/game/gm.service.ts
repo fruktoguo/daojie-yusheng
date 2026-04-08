@@ -33,6 +33,7 @@ import {
   Inventory,
   normalizeAutoBattleTargetingMode,
   normalizeAutoUsePillConfigs,
+  normalizeBodyTrainingState,
   PlayerState,
   QuestState,
   TechniqueState,
@@ -114,6 +115,11 @@ type GmCommand =
       x: number;
       y: number;
       count: number;
+    }
+  | {
+      type: 'grantCombatExpCompensation';
+      playerId: string;
+      amount: number;
     }
   | {
       type: 'removeBots';
@@ -507,6 +513,55 @@ export class GmService {
     };
   }
 
+  async compensateAllPlayersCombatExp(): Promise<GmShortcutRunRes> {
+    const runtimePlayers = this.playerService.getAllPlayers().filter((player) => !player.isBot && player.inWorld !== false);
+    const runtimeIds = new Set(runtimePlayers.map((player) => player.id));
+    let queuedRuntimePlayers = 0;
+    let updatedOfflinePlayers = 0;
+    let totalCombatExpGranted = 0;
+
+    for (const player of runtimePlayers) {
+      const amount = this.calculateCombatExpCompensation(player);
+      if (amount <= 0) {
+        continue;
+      }
+      this.enqueue(player.mapId, {
+        type: 'grantCombatExpCompensation',
+        playerId: player.id,
+        amount,
+      });
+      queuedRuntimePlayers += 1;
+      totalCombatExpGranted += amount;
+    }
+
+    const entities = await this.playerRepo.find();
+    for (const entity of entities) {
+      if (runtimeIds.has(entity.id)) {
+        continue;
+      }
+      const player = this.hydrateStoredPlayer(entity);
+      if (player.isBot) {
+        continue;
+      }
+      const amount = this.calculateCombatExpCompensation(player);
+      if (amount <= 0) {
+        continue;
+      }
+      player.combatExp = this.normalizeNonNegativeInt(player.combatExp) + amount;
+      await this.persistOfflinePlayer(entity, player);
+      updatedOfflinePlayers += 1;
+      totalCombatExpGranted += amount;
+    }
+
+    return {
+      ok: true,
+      totalPlayers: queuedRuntimePlayers + updatedOfflinePlayers,
+      queuedRuntimePlayers,
+      updatedOfflinePlayers,
+      totalCombatExpGranted,
+    };
+  }
+
   async enqueueResetHeavenGate(playerId: string): Promise<string | null> {
     const runtime = this.playerService.getPlayer(playerId);
     if (runtime) {
@@ -598,6 +653,8 @@ export class GmService {
         return this.applyQueuedResetHeavenGate(command.playerId);
       case 'spawnBots':
         return this.applyQueuedSpawnBots(command.mapId, command.x, command.y, command.count);
+      case 'grantCombatExpCompensation':
+        return this.applyQueuedGrantCombatExpCompensation(command.playerId, command.amount);
       case 'removeBots':
         return this.applyQueuedRemoveBots(command.playerIds, command.all);
     }
@@ -637,6 +694,20 @@ export class GmService {
   private applyQueuedSpawnBots(mapId: string, x: number, y: number, count: number): string | null {
     const created = this.botService.spawnBotsAt(mapId, x, y, count);
     if (created <= 0) return '附近没有可用于生成机器人的空位';
+    return null;
+  }
+
+  private applyQueuedGrantCombatExpCompensation(playerId: string, amount: number): string | null {
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return '目标玩家不存在';
+    if (amount <= 0) {
+      return null;
+    }
+    player.combatExp = this.normalizeNonNegativeInt(player.combatExp) + amount;
+    this.markDirty(player.id, ['attr']);
+    void this.playerService.savePlayer(player.id).catch((error: Error) => {
+      this.logger.error(`GM 补偿战斗经验落盘失败: ${player.id} ${error.message}`);
+    });
     return null;
   }
 
@@ -1050,6 +1121,12 @@ export class GmService {
     for (const flag of flags) {
       this.playerService.markDirty(playerId, flag);
     }
+  }
+
+  private calculateCombatExpCompensation(player: Pick<PlayerState, 'realm' | 'bodyTraining'>): number {
+    const realmExpToNext = this.normalizeNonNegativeInt(player.realm?.progressToNext ?? 0);
+    const bodyTrainingExpToNext = normalizeBodyTrainingState(player.bodyTraining).expToNext;
+    return realmExpToNext + this.normalizeNonNegativeInt(bodyTrainingExpToNext);
   }
 
   private async validateManagedPlayerRoleNameUpdate(

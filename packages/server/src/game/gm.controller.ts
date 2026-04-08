@@ -376,6 +376,11 @@ export class GmController {
     return this.gmService.returnAllPlayersToDefaultSpawn();
   }
 
+  @Post('shortcuts/compensation/combat-exp-2026-04-09')
+  async compensateAllPlayersCombatExp(): Promise<GmShortcutRunRes> {
+    return this.gmService.compensateAllPlayersCombatExp();
+  }
+
   /** 生成 Bot */
   @Post('bots/spawn')
   async spawnBots(@Body() body: GmSpawnBotsReq): Promise<{ ok: true }> {
