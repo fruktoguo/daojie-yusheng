@@ -178,6 +178,7 @@ const DEFAULT_SYSTEM_ROUTE_DOMAINS: readonly MapRouteDomain[] = ['system'];
 const PERIODIC_SYNC_INTERVAL_MS = 60_000;
 const PERIODIC_SYNC_DIRTY_FLAGS: readonly DirtyFlag[] = ['attr', 'inv', 'equip', 'tech', 'actions', 'loot', 'quest'];
 const AUTO_USE_PILL_INSTANT_EFFECT_COOLDOWN_TICKS = 60;
+type PersistTrigger = 'interval' | 'interval_catchup' | 'maintenance' | 'shutdown';
 
 function normalizeConsumableBuffShortMark(raw: string | undefined, fallbackName: string): string {
   const trimmed = raw?.trim();
@@ -215,6 +216,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   private forcedTickSyncPlayers: Set<string> = new Set();
   private autoUsePillInstantCooldowns: Map<string, number> = new Map();
   private persistTimer: ReturnType<typeof setInterval> | null = null;
+  private persistInFlight: Promise<void> | null = null;
+  private persistFollowupRequested = false;
+  private persistFollowupReason: PersistTrigger | null = null;
   private minTickInterval = 1000;
   private offlinePlayerTimeoutMs = DEFAULT_OFFLINE_PLAYER_TIMEOUT_SEC * 1000;
   private auraLevelBaseValue = DEFAULT_AURA_LEVEL_BASE_VALUE;
@@ -287,10 +291,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       clearTimeout(timer);
     }
     this.timers.clear();
-    await this.mapService.persistTileRuntimeStates();
-    await this.lootService.persistRuntimeState();
-    await this.worldService.persistMonsterRuntimeState();
-    await this.playerService.persistAll().catch((err) => {
+    await this.flushPersistenceNow('shutdown').catch((err) => {
       this.logger.error(`关闭落盘失败: ${err.message}`);
     });
   }
@@ -511,6 +512,10 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     this.startPersistTimer();
   }
 
+  async flushPersistenceNow(trigger: Extract<PersistTrigger, 'maintenance' | 'shutdown'>): Promise<void> {
+    await this.requestPersistenceCycle(trigger, { forceFollowup: true });
+  }
+
   private getEffectiveInterval(mapId: string): number {
     const speed = this.mapTickSpeed.get(mapId) ?? 1;
     if (speed <= 0) return this.minTickInterval;
@@ -539,20 +544,78 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       return;
     }
     this.persistTimer = setInterval(() => {
-      const startedAt = process.hrtime.bigint();
-      Promise.all([
-        this.playerService.persistAll(),
-        this.mapService.persistTileRuntimeStates(),
-        this.lootService.persistRuntimeState(),
-        this.worldService.persistMonsterRuntimeState(),
-      ]).then(() => {
-        const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
-        this.performanceService.recordCpuSection(elapsedMs, 'io_persist', '落盘与外部 I/O');
-      }).catch((err) => {
+      void this.requestPersistenceCycle('interval').catch((err) => {
         this.logger.error(`定时落盘失败: ${err.message}`);
       });
     }, PERSIST_INTERVAL * 1000);
     this.logger.log(`定时落盘已启动，间隔: ${PERSIST_INTERVAL}s`);
+  }
+
+  private async requestPersistenceCycle(
+    trigger: PersistTrigger,
+    options?: { forceFollowup?: boolean },
+  ): Promise<void> {
+    const forceFollowup = options?.forceFollowup === true;
+    const inFlight = this.persistInFlight;
+    if (!inFlight) {
+      await this.startPersistenceCycle(trigger);
+      return;
+    }
+
+    if (!this.persistFollowupRequested || forceFollowup) {
+      this.persistFollowupRequested = true;
+      this.persistFollowupReason = forceFollowup ? trigger : (this.persistFollowupReason ?? 'interval_catchup');
+      if (trigger === 'interval') {
+        this.logger.warn('定时落盘仍在执行，当前不会并发开启下一轮；待本轮结束后会立即补跑一次。');
+      }
+    }
+
+    try {
+      await inFlight;
+    } catch (error) {
+      if (!forceFollowup) {
+        return;
+      }
+    }
+    if (forceFollowup) {
+      while (this.persistInFlight) {
+        await this.persistInFlight;
+      }
+    }
+  }
+
+  private async startPersistenceCycle(trigger: PersistTrigger): Promise<void> {
+    const task = this.executePersistenceCycle(trigger);
+    this.persistInFlight = task.finally(() => {
+      const nextReason = this.persistFollowupRequested ? (this.persistFollowupReason ?? 'interval_catchup') : null;
+      this.persistInFlight = null;
+      this.persistFollowupRequested = false;
+      this.persistFollowupReason = null;
+      if (nextReason) {
+        void this.startPersistenceCycle(nextReason).catch((error) => {
+          const message = error instanceof Error ? error.message : String(error);
+          this.logger.error(`补跑落盘失败: ${message}`);
+        });
+      }
+    });
+    await this.persistInFlight;
+  }
+
+  private async executePersistenceCycle(trigger: PersistTrigger): Promise<void> {
+    const startedAt = process.hrtime.bigint();
+    await Promise.all([
+      this.playerService.persistAll(),
+      this.mapService.persistTileRuntimeStates(),
+      this.lootService.persistRuntimeState(),
+      this.worldService.persistMonsterRuntimeState(),
+    ]);
+    const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+    this.performanceService.recordCpuSection(elapsedMs, 'io_persist', '落盘与外部 I/O');
+    if (elapsedMs > PERSIST_INTERVAL * 1000) {
+      this.logger.warn(
+        `落盘耗时 ${elapsedMs.toFixed(0)}ms，已超过定时间隔 ${PERSIST_INTERVAL * 1000}ms；本轮触发来源=${trigger}，后续会自动串行补跑，避免重叠压垮服务。`,
+      );
+    }
   }
 
   private resetAllSyncState(): void {
@@ -637,6 +700,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
               player.autoBattle = false;
               player.combatTargetId = undefined;
               player.combatTargetLocked = false;
+              player.retaliatePlayerTargetId = undefined;
               this.markActionsDirty(player.id);
             }
             this.applyWorldUpdate(
@@ -662,6 +726,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
               player.autoBattle = false;
               player.combatTargetId = undefined;
               player.combatTargetLocked = false;
+              player.retaliatePlayerTargetId = undefined;
               this.markActionsDirty(player.id);
             }
             this.applyWorldUpdate(
@@ -705,6 +770,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
               player.autoBattle = false;
               player.combatTargetId = undefined;
               player.combatTargetLocked = false;
+              player.retaliatePlayerTargetId = undefined;
               this.markActionsDirty(player.id);
             }
           });
@@ -925,6 +991,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
               player.autoBattle = false;
               player.combatTargetId = undefined;
               player.combatTargetLocked = false;
+              player.retaliatePlayerTargetId = undefined;
               this.markActionsDirty(player.id);
             }
             this.applyCultivationResult(

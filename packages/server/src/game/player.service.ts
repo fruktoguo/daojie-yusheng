@@ -1294,6 +1294,7 @@ export class PlayerService implements OnModuleInit {
     state.autoBattle = false;
     state.combatTargetId = undefined;
     state.combatTargetLocked = false;
+    state.retaliatePlayerTargetId = undefined;
     state.idleTicks = 0;
     await this.persistPlayerState(state);
     await this.syncPlayerCache(state);

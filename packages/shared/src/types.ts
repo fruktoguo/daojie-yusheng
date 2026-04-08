@@ -1003,6 +1003,7 @@ export interface PendingPlayerSkillCast {
   skillId: string;
   targetX: number;
   targetY: number;
+  targetRef?: string;
   remainingTicks: number;
   qiCost: number;
   warningColor?: string;
@@ -1392,6 +1393,7 @@ export interface PlayerState {
   autoBattleTargetingMode: AutoBattleTargetingMode;
   combatTargetId?: string;
   combatTargetLocked?: boolean;
+  retaliatePlayerTargetId?: string;
   cultivatingTechId?: string;
   pendingLogbookMessages?: PendingLogbookMessage[];
   idleTicks?: number;

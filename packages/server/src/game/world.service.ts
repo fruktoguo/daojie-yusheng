@@ -205,7 +205,7 @@ const STATIC_CONTEXT_TOGGLE_ACTIONS: readonly ActionDef[] = [{
   id: 'toggle:allow_aoe_player_hit',
   name: '全体攻击',
   type: 'toggle',
-  desc: '控制群体攻击是否会误伤其他玩家。',
+  desc: '控制是否允许主动攻击其他玩家；关闭后只会对袭击你的玩家进行反击。',
   cooldownLeft: 0,
 }, {
   id: 'toggle:auto_idle_cultivation',
@@ -1114,8 +1114,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         messages: [{
           playerId: player.id,
           text: player.allowAoePlayerHit === true
-            ? '已开启全体攻击，群体攻击现在也会命中玩家。'
-            : '已关闭全体攻击，群体攻击将不会命中玩家。',
+            ? '已开启全体攻击，现在可以主动攻击其他玩家。'
+            : '已关闭全体攻击，现在只会反击主动攻击你的玩家。',
           kind: 'combat',
         }],
         dirty: ['actions'],
@@ -1334,6 +1334,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     let targetVisible = true;
 
     if (player.combatTargetLocked) {
+      const retaliationTargetId = player.retaliatePlayerTargetId;
       target = this.resolveCombatTarget(player);
       if (!target) {
         player.autoBattle = false;
@@ -1341,7 +1342,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         return {
           messages: [{
             playerId: player.id,
-            text: '强制攻击目标已经失去踪迹，自动战斗已停止。',
+            text: retaliationTargetId
+              ? '反击目标已经失去踪迹，自动战斗已停止。'
+              : '强制攻击目标已经失去踪迹，自动战斗已停止。',
             kind: 'combat',
           }],
           dirty: ['actions'],
@@ -1358,6 +1361,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       }
       player.combatTargetId = this.getTargetRef(target);
       player.combatTargetLocked = false;
+      player.retaliatePlayerTargetId = undefined;
       targetVisible = true;
     }
 
@@ -1455,6 +1459,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (!target) {
       return { ...EMPTY_UPDATE, error: '目标不存在或不可选中' };
     }
+    if (target.kind === 'player' && !this.canPlayerDealDamageToPlayer(player, target.player)) {
+      return { ...EMPTY_UPDATE, error: '已关闭全体攻击，当前不会主动攻击其他玩家。' };
+    }
     const playerStats = this.attrService.getPlayerNumericStats(player);
     const geometry = this.buildEffectiveSkillGeometry(skill, playerStats);
     if (!isPointInRange(player, target, geometry.range)) {
@@ -1462,7 +1469,14 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
     const windupTicks = this.getPlayerSkillWindupTicks(skill);
     if (windupTicks > 0) {
-      return this.beginPlayerSkillCast(player, skill, { x: target.x, y: target.y }, playerStats, player.autoBattle !== true);
+      return this.beginPlayerSkillCast(
+        player,
+        skill,
+        { x: target.x, y: target.y },
+        playerStats,
+        player.autoBattle !== true,
+        targetRef,
+      );
     }
     return this.castSkill(player, skill, target, playerStats);
   }
@@ -1514,7 +1528,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
     const casterStats = options?.playerStats ?? this.attrService.getPlayerNumericStats(player);
     const selectedTargets = anchor
-      ? this.selectSkillTargetsFromAnchor(player, skill, anchor, casterStats)
+      ? this.selectSkillTargetsFromAnchor(player, skill, anchor, casterStats, options?.primaryTarget)
       : this.selectSkillTargets(player, skill, options?.primaryTarget, casterStats);
     if (skill.requiresTarget !== false && selectedTargets.length === 0 && options?.allowMiss !== true) {
       return { ...EMPTY_UPDATE, error: '没有可命中的目标' };
@@ -1658,11 +1672,15 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (!skill) {
       return { messages: [], dirty: [] };
     }
+    const primaryTarget = pendingCast.targetRef
+      ? this.resolveTargetRef(player, pendingCast.targetRef) ?? undefined
+      : undefined;
     return this.castSkillAtAnchor(
       player,
       skill,
       { x: pendingCast.targetX, y: pendingCast.targetY },
       {
+        primaryTarget,
         qiCost: pendingCast.qiCost,
         allowMiss: true,
         showActionLabel: true,
@@ -1697,10 +1715,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     anchor: { x: number; y: number },
     playerStats?: NumericStats,
     skipProgressThisTick = false,
+    targetRef?: string,
   ): WorldUpdate {
     const windupTicks = this.getPlayerSkillWindupTicks(skill);
     if (windupTicks <= 0) {
-      return this.castSkillAtAnchor(player, skill, anchor, { playerStats });
+      const primaryTarget = targetRef ? this.resolveTargetRef(player, targetRef) ?? undefined : undefined;
+      return this.castSkillAtAnchor(player, skill, anchor, { primaryTarget, playerStats });
     }
     const warningCells = this.buildPlayerSkillAffectedCells(player, skill, anchor, playerStats);
     if (warningCells.length === 0) {
@@ -1721,6 +1741,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       skillId: skill.id,
       targetX: anchor.x,
       targetY: anchor.y,
+      targetRef,
       remainingTicks: windupTicks,
       qiCost,
       warningColor: this.getPlayerSkillWarningColor(skill),
@@ -1754,6 +1775,29 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
 
     target.autoBattle = true;
+    target.retaliatePlayerTargetId = undefined;
+    dirtyPlayers.add(target.id);
+  }
+
+  private tryActivatePlayerAutoRetaliate(
+    target: PlayerState,
+    attacker: PlayerState,
+    dirtyPlayers: Set<string>,
+  ): void {
+    if (
+      target.hp <= 0
+      || target.autoRetaliate === false
+      || target.autoBattle
+      // 手动寻路期间保持路径意图优先，避免受击反击把角色切进自动战斗。
+      || this.navigationService.hasMoveTarget(target.id)
+    ) {
+      return;
+    }
+
+    target.autoBattle = true;
+    target.combatTargetId = this.getPlayerThreatId(attacker);
+    target.combatTargetLocked = true;
+    target.retaliatePlayerTargetId = attacker.id;
     dirtyPlayers.add(target.id);
   }
 
@@ -1775,6 +1819,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     this.addThreatToTarget(this.getPlayerThreatId(player), player, target, gameplayConstants.DEFAULT_AGGRO_THRESHOLD);
     player.combatTargetId = target.monster.runtimeId;
     player.combatTargetLocked = false;
+    player.retaliatePlayerTargetId = undefined;
     this.navigationService.clearMoveTarget(player.id);
     const update = this.performAutoBattle(player);
     const dirty = new Set(update.dirty);
@@ -1794,6 +1839,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (!target) {
       return { ...EMPTY_UPDATE, error: '目标不存在或不可选中' };
     }
+    if (target.kind === 'player' && !this.canPlayerDealDamageToPlayer(player, target.player)) {
+      return { ...EMPTY_UPDATE, error: '已关闭全体攻击，当前不会主动攻击其他玩家。' };
+    }
     const effectiveViewRange = this.timeService.getEffectiveViewRangeFromBuff(player.viewRange, player.temporaryBuffs);
     if (!isPointInRange(player, target, effectiveViewRange) || !this.canPlayerSeeTarget(player, target, effectiveViewRange)) {
       return { ...EMPTY_UPDATE, error: '目标超出可锁定范围' };
@@ -1808,6 +1856,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
     player.combatTargetId = this.getTargetRef(target);
     player.combatTargetLocked = true;
+    player.retaliatePlayerTargetId = undefined;
     this.navigationService.clearMoveTarget(player.id);
     const update = this.performAutoBattle(player);
     const dirty = new Set(update.dirty);
@@ -1916,7 +1965,18 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       : [];
     const maxTargets = this.getEffectiveDamageTargetLimit(skill, player.temporaryBuffs);
     const cells = this.buildPlayerSkillAffectedCells(player, skill, anchor, playerStats);
-    return this.collectTargetsFromCells(player, monsters, players, cells, maxTargets);
+    const targets = this.collectTargetsFromCells(player, monsters, players, cells, maxTargets);
+    if (
+      primaryTarget?.kind === 'player'
+      && this.canPlayerDealDamageToPlayer(player, primaryTarget.player)
+      && !targets.some((entry) => entry.kind === 'player' && entry.player.id === primaryTarget.player.id)
+    ) {
+      targets.unshift(primaryTarget);
+      if (targets.length > maxTargets) {
+        targets.length = maxTargets;
+      }
+    }
+    return targets;
   }
 
   private collectTargetsFromCells(
@@ -4230,7 +4290,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       });
     }
 
-    this.tryActivateAutoRetaliate(target, dirtyPlayers);
+    this.tryActivatePlayerAutoRetaliate(target, attacker, dirtyPlayers);
 
     if (target.hp <= 0) {
       this.registerPlayerDefeat(target, attacker);
@@ -6544,6 +6604,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       if (!target || target.kind === 'tile') {
         continue;
       }
+      if (target.kind === 'player' && !this.canPlayerDealDamageToPlayer(player, target.player)) {
+        continue;
+      }
       if (!predicate(target)) {
         continue;
       }
@@ -7161,6 +7224,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       return this.attackMonster(player, target.monster, baseDamage, '你攻击命中', damageKind, undefined, 0, true, true);
     }
     if (target.kind === 'player') {
+      if (!this.canPlayerDealDamageToPlayer(player, target.player)) {
+        return { ...EMPTY_UPDATE, error: '已关闭全体攻击，当前不会主动攻击其他玩家。' };
+      }
       return this.attackPlayer(player, target.player, baseDamage, '你攻击命中', damageKind, undefined, 0, true, true);
     }
     if (target.kind === 'container') {
@@ -7195,6 +7261,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   private clearCombatTarget(player: PlayerState): void {
     player.combatTargetId = undefined;
     player.combatTargetLocked = false;
+    player.retaliatePlayerTargetId = undefined;
+  }
+
+  private canPlayerDealDamageToPlayer(attacker: PlayerState, target: PlayerState): boolean {
+    return attacker.allowAoePlayerHit === true || attacker.retaliatePlayerTargetId === target.id;
   }
 
   private ensurePlayerCanStartSkillAttack(player: PlayerState, skill: SkillDef): string | undefined {

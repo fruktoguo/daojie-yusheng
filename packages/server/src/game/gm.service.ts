@@ -928,6 +928,7 @@ export class GmService {
     player.autoBattle = false;
     player.combatTargetId = undefined;
     player.combatTargetLocked = false;
+    player.retaliatePlayerTargetId = undefined;
   }
 
   private canSetPosition(mapId: string, x: number, y: number, playerId: string, runtime: boolean): boolean {
