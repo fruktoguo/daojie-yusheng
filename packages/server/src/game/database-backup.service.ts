@@ -10,21 +10,26 @@ import { RedisService } from '../database/redis.service';
 import { BotService } from './bot.service';
 import {
   BACKUP_WORKER_HEARTBEAT_TTL_MS,
+  createBackupRecord,
   DAILY_BACKUP_HOUR,
   DAILY_BACKUP_MINUTE,
   DAILY_BACKUP_RETENTION,
   ensureBackupWorkspace,
   createTimestampId,
   findBackupById,
+  getBackupScheduleSlotId,
   HOURLY_BACKUP_RETENTION,
   listBackupRestoreRequests,
   listBackups,
-  readBackupWorkerHeartbeat,
   readBackupWorkerState,
+  readBackupWorkerHeartbeat,
+  writeBackupWorkerState,
   type ResolvedBackupRecord,
   writeBackupManualRequest,
   writeBackupRestoreRequest,
+  planBackup,
 } from './database-backup-shared';
+import { createBackupFile } from './database-backup-process';
 import { GmService } from './gm.service';
 import { LootService } from './loot.service';
 import { MapService } from './map.service';
@@ -50,12 +55,16 @@ interface InternalJobState {
 export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DatabaseBackupService.name);
   private readonly restoreMonitorIntervalMs = 1_000;
+  private readonly fallbackAutomationIntervalMs = 10_000;
+  private readonly serverFallbackEnabled = this.resolveServerFallbackEnabled();
   private currentJob: InternalJobState | null = null;
   private lastJob: InternalJobState | null = null;
   private runtimeMaintenance = false;
   private restoreMonitorTimer: ReturnType<typeof setInterval> | null = null;
   private restoreMonitorPolling = false;
   private pendingRestoreJobId: string | null = null;
+  private fallbackAutomationTimer: ReturnType<typeof setInterval> | null = null;
+  private fallbackAutomationPolling = false;
 
   constructor(
     private readonly tickService: TickService,
@@ -72,12 +81,15 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit(): void {
     ensureBackupWorkspace();
-    this.logBackupWorkerAvailabilityOnBoot();
+    this.recoverInterruptedBackupJobIfNeeded();
+    this.logBackupAutomationModeOnBoot();
     this.resumeRestoreMonitorIfNeeded();
+    this.startFallbackAutomationLoop();
   }
 
   onModuleDestroy(): void {
     this.stopRestoreMonitor();
+    this.stopFallbackAutomationLoop();
   }
 
   isRuntimeMaintenanceActive(): boolean {
@@ -87,19 +99,17 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
   async getState(): Promise<GmDatabaseStateRes> {
     const workerState = readBackupWorkerState();
     const workerStatusNote = this.buildBackupWorkerStatusNote();
+    const schedules = this.buildScheduleDescription();
     return {
       backups: await this.listBackups(),
       runningJob: this.toJobSnapshot(this.currentJob) ?? workerState.runningJob,
       lastJob: this.resolveLatestJobSnapshot(this.toJobSnapshot(this.lastJob), workerState.lastJob),
-      note: `正式数据库备份与恢复由独立 backup worker 执行，游戏服只负责发起请求、维护窗口、展示状态与下载产物。${workerStatusNote}`,
+      note: workerStatusNote,
       retention: {
         hourly: HOURLY_BACKUP_RETENTION,
         daily: DAILY_BACKUP_RETENTION,
       },
-      schedules: {
-        hourly: '每小时整点由独立 backup worker 执行',
-        daily: `每天 ${String(DAILY_BACKUP_HOUR).padStart(2, '0')}:${String(DAILY_BACKUP_MINUTE).padStart(2, '0')} 由独立 backup worker 执行`,
-      },
+      schedules,
     };
   }
 
@@ -108,10 +118,9 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
       throw new Error(`当前已有数据库任务执行中：${this.describeJob(this.currentJob)}`);
     }
     const workerState = readBackupWorkerState();
-    if (workerState.runningJob?.status === 'running') {
+    if (this.hasActiveSharedJob(workerState.runningJob)) {
       throw new Error('当前已有数据库任务执行中，请稍后再试');
     }
-    this.assertBackupWorkerAvailable();
     const now = Date.now();
     const backupId = createTimestampId(now, 'manual');
     const job: GmDatabaseJobSnapshot = {
@@ -122,17 +131,30 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
       kind: 'manual',
       backupId,
     };
-    writeBackupManualRequest({
-      job,
-      requestedAt: job.startedAt,
+    if (!this.shouldUseServerFallback()) {
+      this.assertBackupWorkerAvailable();
+      writeBackupManualRequest({
+        job,
+        requestedAt: job.startedAt,
+      });
+      return { job };
+    }
+
+    const internalJob = this.startJob({
+      type: 'backup',
+      kind: 'manual',
+      backupId,
     });
-    return { job };
+    const snapshot = this.toJobSnapshot(internalJob)!;
+    this.persistSharedRunningJob(snapshot);
+    void this.runLocalBackupJob(internalJob, createBackupRecord('manual', backupId, now), '游戏服内置手动备份');
+    return { job: snapshot };
   }
 
   async triggerRestore(backupId: string): Promise<GmTriggerDatabaseBackupRes> {
     const source = this.getBackupByIdOrThrow(backupId);
     const workerState = readBackupWorkerState();
-    if (workerState.runningJob?.status === 'running') {
+    if (this.hasActiveSharedJob(workerState.runningJob)) {
       throw new Error('当前已有数据库任务执行中，请稍后再试');
     }
     this.assertBackupWorkerAvailable();
@@ -258,12 +280,197 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
   private assertBackupWorkerAvailable(): void {
     const heartbeat = readBackupWorkerHeartbeat();
     if (!heartbeat) {
-      throw new Error('当前未检测到独立数据库 worker，请先启动 backup worker 后再执行数据库任务');
+      throw new Error('当前未检测到独立数据库 worker；自动备份可由游戏服兜底，但数据库导入仍需独立 backup worker');
     }
     const heartbeatTime = new Date(heartbeat.updatedAt).getTime();
     if (!Number.isFinite(heartbeatTime) || Date.now() - heartbeatTime > BACKUP_WORKER_HEARTBEAT_TTL_MS) {
-      throw new Error('独立数据库 worker 心跳已过期，请先检查 backup worker 是否仍在运行');
+      throw new Error('独立数据库 worker 心跳已过期；自动备份可由游戏服兜底，但数据库导入仍需独立 backup worker');
     }
+  }
+
+  private shouldUseServerFallback(): boolean {
+    return this.serverFallbackEnabled && !this.hasFreshBackupWorkerHeartbeat();
+  }
+
+  private hasFreshBackupWorkerHeartbeat(): boolean {
+    const heartbeat = readBackupWorkerHeartbeat();
+    if (!heartbeat) {
+      return false;
+    }
+    const heartbeatTime = new Date(heartbeat.updatedAt).getTime();
+    return Number.isFinite(heartbeatTime) && Date.now() - heartbeatTime <= BACKUP_WORKER_HEARTBEAT_TTL_MS;
+  }
+
+  private hasActiveSharedJob(job?: GmDatabaseJobSnapshot | null): boolean {
+    if (!job || job.status !== 'running') {
+      return false;
+    }
+    if (job.type === 'restore') {
+      return true;
+    }
+    return this.hasFreshBackupWorkerHeartbeat();
+  }
+
+  private startFallbackAutomationLoop(): void {
+    if (!this.serverFallbackEnabled || this.fallbackAutomationTimer) {
+      return;
+    }
+    this.fallbackAutomationTimer = setInterval(() => {
+      void this.pollFallbackAutomation();
+    }, this.fallbackAutomationIntervalMs);
+    void this.pollFallbackAutomation();
+  }
+
+  private stopFallbackAutomationLoop(): void {
+    if (this.fallbackAutomationTimer) {
+      clearInterval(this.fallbackAutomationTimer);
+      this.fallbackAutomationTimer = null;
+    }
+  }
+
+  private async pollFallbackAutomation(): Promise<void> {
+    if (this.fallbackAutomationPolling || !this.serverFallbackEnabled) {
+      return;
+    }
+    this.fallbackAutomationPolling = true;
+    try {
+      if (!this.shouldUseServerFallback()) {
+        return;
+      }
+      if (this.currentJob?.status === 'running') {
+        return;
+      }
+      const state = readBackupWorkerState();
+      if (this.hasActiveSharedJob(state.runningJob)) {
+        return;
+      }
+      const now = Date.now();
+      if (this.shouldRunDailyBackup(state, now)) {
+        await this.runLocalScheduledBackup('daily', now);
+        return;
+      }
+      if (this.shouldRunHourlyBackup(state, now)) {
+        await this.runLocalScheduledBackup('hourly', now);
+      }
+    } finally {
+      this.fallbackAutomationPolling = false;
+    }
+  }
+
+  private shouldRunDailyBackup(state: ReturnType<typeof readBackupWorkerState>, now: number): boolean {
+    const date = new Date(now);
+    const reachedWindow = date.getHours() > DAILY_BACKUP_HOUR
+      || (date.getHours() === DAILY_BACKUP_HOUR && date.getMinutes() >= DAILY_BACKUP_MINUTE);
+    if (!reachedWindow) {
+      return false;
+    }
+    return state.lastScheduledSlots?.daily !== getBackupScheduleSlotId('daily', now);
+  }
+
+  private shouldRunHourlyBackup(state: ReturnType<typeof readBackupWorkerState>, now: number): boolean {
+    return state.lastScheduledSlots?.hourly !== getBackupScheduleSlotId('hourly', now);
+  }
+
+  private async runLocalScheduledBackup(kind: 'hourly' | 'daily', now: number): Promise<void> {
+    const planned = planBackup(kind, now);
+    this.persistScheduledSlot(kind, now);
+    const job = this.startJob({
+      type: 'backup',
+      kind,
+      backupId: planned.id,
+    });
+    this.persistSharedRunningJob(this.toJobSnapshot(job)!);
+    await this.runLocalBackupJob(job, planned, `游戏服内置 ${kind} 定时备份`);
+  }
+
+  private async runLocalBackupJob(
+    job: InternalJobState,
+    planned: ResolvedBackupRecord,
+    label: string,
+  ): Promise<void> {
+    try {
+      await createBackupFile(planned);
+      job.status = 'completed';
+      this.finishJob(job);
+      this.logger.log(`${label}完成：${planned.id}`);
+    } catch (error) {
+      this.logger.error(`${label}失败: ${error instanceof Error ? error.message : String(error)}`);
+      this.failJob(job, error);
+    } finally {
+      const snapshot = this.toJobSnapshot(this.lastJob ?? job);
+      if (snapshot) {
+        this.persistSharedFinishedJob(snapshot);
+      }
+    }
+  }
+
+  private persistScheduledSlot(kind: 'hourly' | 'daily', now: number): void {
+    const state = readBackupWorkerState();
+    state.lastScheduledSlots = {
+      ...state.lastScheduledSlots,
+      [kind]: getBackupScheduleSlotId(kind, now),
+    };
+    writeBackupWorkerState(state);
+  }
+
+  private persistSharedRunningJob(snapshot: GmDatabaseJobSnapshot): void {
+    const state = readBackupWorkerState();
+    state.runningJob = snapshot;
+    writeBackupWorkerState(state);
+  }
+
+  private persistSharedFinishedJob(snapshot: GmDatabaseJobSnapshot): void {
+    const state = readBackupWorkerState();
+    if (state.runningJob?.id === snapshot.id) {
+      delete state.runningJob;
+    }
+    state.lastJob = snapshot;
+    writeBackupWorkerState(state);
+  }
+
+  private recoverInterruptedBackupJobIfNeeded(): void {
+    if (this.hasFreshBackupWorkerHeartbeat()) {
+      return;
+    }
+    const state = readBackupWorkerState();
+    if (state.runningJob?.status !== 'running' || state.runningJob.type !== 'backup') {
+      return;
+    }
+    state.lastJob = {
+      ...state.runningJob,
+      status: 'failed',
+      finishedAt: new Date().toISOString(),
+      error: '未检测到可用 backup worker，历史备份任务已中断；后续将由游戏服内置兜底恢复自动备份',
+    };
+    delete state.runningJob;
+    writeBackupWorkerState(state);
+  }
+
+  private resolveServerFallbackEnabled(): boolean {
+    const raw = process.env.DB_BACKUP_SERVER_FALLBACK_ENABLED;
+    if (!raw) {
+      return true;
+    }
+    return !['0', 'false', 'no', 'off'].includes(raw.trim().toLowerCase());
+  }
+
+  private buildScheduleDescription(): GmDatabaseStateRes['schedules'] {
+    if (this.hasFreshBackupWorkerHeartbeat()) {
+      return {
+        hourly: '每小时整点由独立 backup worker 执行',
+        daily: `每天 ${String(DAILY_BACKUP_HOUR).padStart(2, '0')}:${String(DAILY_BACKUP_MINUTE).padStart(2, '0')} 由独立 backup worker 执行`,
+      };
+    }
+    if (this.serverFallbackEnabled) {
+      return {
+        hourly: '每小时整点由游戏服内置兜底执行（当前未检测到独立 backup worker）',
+        daily: `每天 ${String(DAILY_BACKUP_HOUR).padStart(2, '0')}:${String(DAILY_BACKUP_MINUTE).padStart(2, '0')} 由游戏服内置兜底执行（当前未检测到独立 backup worker）`,
+      };
+    }
+    return {
+      hourly: '每小时整点由独立 backup worker 执行（当前未启用游戏服兜底）',
+      daily: `每天 ${String(DAILY_BACKUP_HOUR).padStart(2, '0')}:${String(DAILY_BACKUP_MINUTE).padStart(2, '0')} 由独立 backup worker 执行（当前未启用游戏服兜底）`,
+    };
   }
 
   private resumeRestoreMonitorIfNeeded(): void {
@@ -386,7 +593,16 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
     return rightTime > leftTime ? right : left;
   }
 
-  private logBackupWorkerAvailabilityOnBoot(): void {
+  private logBackupAutomationModeOnBoot(): void {
+    if (this.hasFreshBackupWorkerHeartbeat()) {
+      const heartbeat = readBackupWorkerHeartbeat()!;
+      this.logger.log(`检测到 backup worker 在线：${heartbeat.hostname}#${heartbeat.workerPid}，最近心跳 ${heartbeat.updatedAt}`);
+      return;
+    }
+    if (this.serverFallbackEnabled) {
+      this.logger.warn('启动时未检测到可用 backup worker；自动整点/每日备份与手动导出将切换为游戏服内置兜底执行，数据库导入仍需独立 worker');
+      return;
+    }
     const heartbeat = readBackupWorkerHeartbeat();
     if (!heartbeat) {
       this.logger.warn('启动时未检测到 backup worker 心跳；手动数据库备份/导入会失败，自动整点/每日备份也不会继续执行');
@@ -402,29 +618,39 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
     const ageMs = Date.now() - heartbeatTime;
     if (ageMs > BACKUP_WORKER_HEARTBEAT_TTL_MS) {
       this.logger.warn(`启动时检测到过期的 backup worker 心跳：${heartbeat.updatedAt}（约 ${this.formatDurationLabel(ageMs)} 前）`);
-      return;
     }
-
-    this.logger.log(`检测到 backup worker 在线：${heartbeat.hostname}#${heartbeat.workerPid}，最近心跳 ${heartbeat.updatedAt}`);
   }
 
   private buildBackupWorkerStatusNote(): string {
+    if (this.hasFreshBackupWorkerHeartbeat()) {
+      const heartbeat = readBackupWorkerHeartbeat()!;
+      return `数据库备份与恢复当前由独立 backup worker 执行；游戏服负责发起请求、维护窗口与展示状态。当前已检测到 backup worker 在线：${heartbeat.hostname}#${heartbeat.workerPid}，最近心跳 ${heartbeat.updatedAt}。`;
+    }
+
     const heartbeat = readBackupWorkerHeartbeat();
+    if (this.serverFallbackEnabled) {
+      if (!heartbeat) {
+        return '当前未检测到 backup worker 心跳；自动整点/每日备份和手动导出已切换为游戏服内置兜底执行，但数据库导入仍需独立 backup worker。';
+      }
+      const heartbeatTime = new Date(heartbeat.updatedAt).getTime();
+      if (!Number.isFinite(heartbeatTime)) {
+        return '当前检测到损坏的 backup worker 心跳文件；自动备份已切换为游戏服内置兜底执行，但数据库导入仍需独立 backup worker。';
+      }
+      const ageMs = Date.now() - heartbeatTime;
+      return `backup worker 心跳已过期，最后一次心跳在 ${heartbeat.updatedAt}（约 ${this.formatDurationLabel(ageMs)} 前）；自动整点/每日备份和手动导出已切换为游戏服内置兜底执行，但数据库导入仍需独立 backup worker。`;
+    }
+
     if (!heartbeat) {
-      return ' 当前未检测到 backup worker 心跳；这通常意味着独立备份进程或容器没有在跑，手动导出/导入会直接失败，自动整点/每日备份当前也不会继续执行。';
+      return '当前未检测到 backup worker 心跳；手动导出/导入会直接失败，自动整点/每日备份当前也不会继续执行。';
     }
 
     const heartbeatTime = new Date(heartbeat.updatedAt).getTime();
     if (!Number.isFinite(heartbeatTime)) {
-      return ' 当前检测到损坏的 backup worker 心跳文件；请检查 backup worker 是否与游戏服共享同一备份目录，并确认其状态文件可正常写入。';
+      return '当前检测到损坏的 backup worker 心跳文件；请检查 backup worker 是否与游戏服共享同一备份目录，并确认其状态文件可正常写入。';
     }
 
     const ageMs = Date.now() - heartbeatTime;
-    if (ageMs > BACKUP_WORKER_HEARTBEAT_TTL_MS) {
-      return ` backup worker 心跳已过期，最后一次心跳在 ${heartbeat.updatedAt}（约 ${this.formatDurationLabel(ageMs)} 前）；这通常意味着 worker 已卡死、退出，或写到了错误的数据目录。`;
-    }
-
-    return ` 当前已检测到 backup worker 在线：${heartbeat.hostname}#${heartbeat.workerPid}，最近心跳 ${heartbeat.updatedAt}。`;
+    return `backup worker 心跳已过期，最后一次心跳在 ${heartbeat.updatedAt}（约 ${this.formatDurationLabel(ageMs)} 前）；这通常意味着 worker 已卡死、退出，或写到了错误的数据目录。`;
   }
 
   private formatDurationLabel(durationMs: number): string {
