@@ -7,7 +7,7 @@
     "grade": "spirit",
     "tier": "demon_king",
     "level": 43,
-    "expMultiplier": 10,
+    "expMultiplier": 3,
     "count": 1,
     "maxAlive": 1,
     "radius": 2,
