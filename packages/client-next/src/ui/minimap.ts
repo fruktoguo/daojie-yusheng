@@ -518,10 +518,19 @@ export class Minimap {
       this.baseKey = null;
       this.hoveredModalPoint = null;
       this.closeMoveConfirm();
-    } else if (!this.selectedMapId || this.selectedMapId === previousCurrentMapId) {
-      this.selectedMapId = scene.mapMeta?.id ?? null;
-      this.baseKey = null;
-      this.hoveredModalPoint = null;
+    } else {
+      const nextCurrentMapId = scene.mapMeta?.id ?? null;
+      const currentMapChanged = nextCurrentMapId !== previousCurrentMapId;
+      if (currentMapChanged || !this.selectedMapId || this.selectedMapId === previousCurrentMapId) {
+        this.selectedMapId = nextCurrentMapId;
+        this.baseKey = null;
+        this.hoveredModalPoint = null;
+        this.closeMoveConfirm();
+        if (currentMapChanged) {
+          this.resetModalViewport();
+          this.cancelModalPan();
+        }
+      }
     }
     this.render();
   }
