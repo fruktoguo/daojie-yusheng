@@ -33,7 +33,7 @@ export class MarketOrderEntity {
   @Column({ type: 'int' })
   remainingQuantity!: number;
 
-  @Column({ type: 'int' })
+  @Column({ type: 'bigint', transformer: BIGINT_NUMBER_TRANSFORMER })
   unitPrice!: number;
 
   @Column({ type: 'varchar', length: 16, default: 'open' })

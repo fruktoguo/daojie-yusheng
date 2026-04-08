@@ -81,6 +81,18 @@ export interface PlayerCommand {
 export type DirtyFlag = 'attr' | 'inv' | 'equip' | 'tech' | 'actions' | 'loot' | 'quest';
 
 const PLAYER_PERSIST_CONCURRENCY = 8;
+const USER_BIGINT_PERSIST_COLUMNS = [
+  'totalOnlineSeconds',
+] as const;
+const PLAYER_BIGINT_PERSIST_COLUMNS = [
+  'foundation',
+  'combatExp',
+  'playerKillCount',
+  'monsterKillCount',
+  'eliteMonsterKillCount',
+  'bossMonsterKillCount',
+  'deathCount',
+] as const;
 
 function normalizeUnlockedMinimapIds(value: unknown): string[] {
   if (!Array.isArray(value)) {
@@ -129,6 +141,8 @@ export class PlayerService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
+    await this.ensureUserCounterColumnCapacity();
+    await this.ensurePlayerCounterColumnCapacity();
     await this.ensureDisplayNameUniquenessPolicy();
     await this.normalizePersistedRoleNames();
   }
@@ -939,6 +953,70 @@ export class PlayerService implements OnModuleInit {
 
   private quotePgIdentifier(value: string): string {
     return `"${value.replace(/"/g, '""')}"`;
+  }
+
+  private async ensureUserCounterColumnCapacity(): Promise<void> {
+    const rows = await this.userRepo.query(`
+      SELECT column_name, data_type
+      FROM information_schema.columns
+      WHERE table_schema = current_schema()
+        AND table_name = 'users'
+        AND column_name = ANY($1::text[])
+    `, [USER_BIGINT_PERSIST_COLUMNS]);
+
+    const columnsNeedingUpgrade = new Set(
+      (rows as Array<{ column_name?: unknown; data_type?: unknown }>)
+        .filter((row) => row.data_type === 'integer' && typeof row.column_name === 'string')
+        .map((row) => row.column_name as string),
+    );
+
+    if (columnsNeedingUpgrade.size === 0) {
+      return;
+    }
+
+    for (const columnName of USER_BIGINT_PERSIST_COLUMNS) {
+      if (!columnsNeedingUpgrade.has(columnName)) {
+        continue;
+      }
+      await this.userRepo.query(`
+        ALTER TABLE "users"
+        ALTER COLUMN ${this.quotePgIdentifier(columnName)} TYPE bigint
+      `);
+    }
+
+    this.logger.warn(`已将 users 表计数字段升级为 bigint: ${[...columnsNeedingUpgrade].join(', ')}`);
+  }
+
+  private async ensurePlayerCounterColumnCapacity(): Promise<void> {
+    const rows = await this.playerRepo.query(`
+      SELECT column_name, data_type
+      FROM information_schema.columns
+      WHERE table_schema = current_schema()
+        AND table_name = 'players'
+        AND column_name = ANY($1::text[])
+    `, [PLAYER_BIGINT_PERSIST_COLUMNS]);
+
+    const columnsNeedingUpgrade = new Set(
+      (rows as Array<{ column_name?: unknown; data_type?: unknown }>)
+        .filter((row) => row.data_type === 'integer' && typeof row.column_name === 'string')
+        .map((row) => row.column_name as string),
+    );
+
+    if (columnsNeedingUpgrade.size === 0) {
+      return;
+    }
+
+    for (const columnName of PLAYER_BIGINT_PERSIST_COLUMNS) {
+      if (!columnsNeedingUpgrade.has(columnName)) {
+        continue;
+      }
+      await this.playerRepo.query(`
+        ALTER TABLE "players"
+        ALTER COLUMN ${this.quotePgIdentifier(columnName)} TYPE bigint
+      `);
+    }
+
+    this.logger.warn(`已将 players 表计数字段升级为 bigint: ${[...columnsNeedingUpgrade].join(', ')}`);
   }
 
   private async normalizePersistedRoleNames(): Promise<void> {

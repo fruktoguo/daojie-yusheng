@@ -16,6 +16,11 @@ import {
   VIEW_RADIUS,
 } from '@mud/shared';
 
+const BIGINT_NUMBER_TRANSFORMER = {
+  to: (value: number): number => value,
+  from: (value: string | number): number => Number(value),
+};
+
 /** 玩家角色存档表，主键为角色存档 ID */
 @Entity('players')
 export class PlayerEntity {
@@ -63,31 +68,31 @@ export class PlayerEntity {
   dead!: boolean;
 
   /** 底蕴，可在获得境界经验时额外转化为经验增益 */
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: 'bigint', transformer: BIGINT_NUMBER_TRANSFORMER, default: 0 })
   foundation!: number;
 
   /** 战斗经验，影响战斗中的命中/闪避优势与普通攻击伤害乘区 */
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: 'bigint', transformer: BIGINT_NUMBER_TRANSFORMER, default: 0 })
   combatExp!: number;
 
   /** 击杀玩家次数 */
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: 'bigint', transformer: BIGINT_NUMBER_TRANSFORMER, default: 0 })
   playerKillCount!: number;
 
   /** 击杀怪物总次数 */
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: 'bigint', transformer: BIGINT_NUMBER_TRANSFORMER, default: 0 })
   monsterKillCount!: number;
 
   /** 击杀精英怪次数 */
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: 'bigint', transformer: BIGINT_NUMBER_TRANSFORMER, default: 0 })
   eliteMonsterKillCount!: number;
 
   /** 击杀 Boss 次数 */
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: 'bigint', transformer: BIGINT_NUMBER_TRANSFORMER, default: 0 })
   bossMonsterKillCount!: number;
 
   /** 死亡次数 */
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: 'bigint', transformer: BIGINT_NUMBER_TRANSFORMER, default: 0 })
   deathCount!: number;
 
   /** 角色初始骨龄（岁） */

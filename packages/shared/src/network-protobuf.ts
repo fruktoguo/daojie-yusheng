@@ -253,8 +253,8 @@ message AttrUpdatePayload {
 }
 
 message PlayerSpecialStatsPayload {
-  optional uint32 foundation = 1;
-  optional uint32 combatExp = 2;
+  optional uint64 foundation = 1;
+  optional uint64 combatExp = 2;
 }
 
 message AttributesPayload {

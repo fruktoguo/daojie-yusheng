@@ -65,6 +65,10 @@ export interface MarketActionResult {
 @Injectable()
 export class MarketService implements OnModuleInit {
   private readonly logger = new Logger(MarketService.name);
+  private static readonly MARKET_BIGINT_COLUMN_TABLES = [
+    { table: 'market_orders', column: 'unitPrice' },
+    { table: 'market_trade_history', column: 'unitPrice' },
+  ] as const;
   private static readonly TRADE_HISTORY_VISIBLE_LIMIT = 100;
   private static readonly TRADE_HISTORY_PAGE_SIZE = 10;
   private openOrders: MarketOrderEntity[] = [];
@@ -83,6 +87,7 @@ export class MarketService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
+    await this.ensureMarketUnitPriceCapacity();
     await this.reloadOpenOrders();
   }
 
@@ -987,6 +992,48 @@ export class MarketService implements OnModuleInit {
       return null;
     }
     return unitPrice;
+  }
+
+  private async ensureMarketUnitPriceCapacity(): Promise<void> {
+    const tableNames = [...new Set(MarketService.MARKET_BIGINT_COLUMN_TABLES.map((entry) => entry.table))];
+    const columnNames = [...new Set(MarketService.MARKET_BIGINT_COLUMN_TABLES.map((entry) => entry.column))];
+    const rows = await this.marketOrderRepo.query(`
+      SELECT table_name, column_name, data_type
+      FROM information_schema.columns
+      WHERE table_schema = current_schema()
+        AND table_name = ANY($1::text[])
+        AND column_name = ANY($2::text[])
+    `, [tableNames, columnNames]);
+
+    const columnsNeedingUpgrade = new Set<string>();
+    for (const row of rows as Array<{ table_name?: unknown; column_name?: unknown; data_type?: unknown }>) {
+      if (row.data_type === 'integer'
+        && typeof row.table_name === 'string'
+        && typeof row.column_name === 'string') {
+        columnsNeedingUpgrade.add(`${row.table_name}.${row.column_name}`);
+      }
+    }
+
+    if (columnsNeedingUpgrade.size === 0) {
+      return;
+    }
+
+    for (const entry of MarketService.MARKET_BIGINT_COLUMN_TABLES) {
+      const key = `${entry.table}.${entry.column}`;
+      if (!columnsNeedingUpgrade.has(key)) {
+        continue;
+      }
+      await this.marketOrderRepo.query(`
+        ALTER TABLE ${this.quotePgIdentifier(entry.table)}
+        ALTER COLUMN ${this.quotePgIdentifier(entry.column)} TYPE bigint
+      `);
+    }
+
+    this.logger.warn(`已将市场表 unitPrice 字段升级为 bigint: ${[...columnsNeedingUpgrade].join(', ')}`);
+  }
+
+  private quotePgIdentifier(value: string): string {
+    return `"${value.replace(/"/g, '""')}"`;
   }
 
   private consumeCurrencyFromInventory(player: PlayerState, count: number): boolean {

@@ -9,6 +9,11 @@ import {
   Index,
 } from 'typeorm';
 
+const BIGINT_NUMBER_TRANSFORMER = {
+  to: (value: number): number => value,
+  from: (value: string | number): number => Number(value),
+};
+
 /** 用户表，一个用户对应一个游戏角色 */
 @Index('idx_users_display_name_unique_except_person', ['displayName'], {
   unique: true,
@@ -36,7 +41,7 @@ export class UserEntity {
   passwordHash!: string;
 
   /** 累计在线时长，单位为秒 */
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: 'bigint', transformer: BIGINT_NUMBER_TRANSFORMER, default: 0 })
   totalOnlineSeconds!: number;
 
   /** 当前在线会话开始时间，用于累计在线时长结算 */
