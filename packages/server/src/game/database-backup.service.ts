@@ -227,12 +227,7 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async flushRuntimePersistence(): Promise<void> {
-    await Promise.all([
-      this.playerService.persistAll(),
-      this.mapService.persistTileRuntimeStates(),
-      this.lootService.persistRuntimeState(),
-      this.worldService.persistMonsterRuntimeState(),
-    ]);
+    await this.tickService.flushPersistenceNow('maintenance');
   }
 
   private getBackupByIdOrThrow(backupId: string): ResolvedBackupRecord {
