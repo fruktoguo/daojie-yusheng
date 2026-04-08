@@ -12,6 +12,8 @@ import {
   GM_PANEL_POLL_INTERVAL_MS,
   type GmAppendRedeemCodesReq,
   type GmAppendRedeemCodesRes,
+  type GmAddPlayerCombatExpReq,
+  type GmAddPlayerFoundationReq,
   type GmCreateRedeemCodeGroupReq,
   type GmCreateRedeemCodeGroupRes,
   type GmDatabaseBackupRecord,
@@ -20,6 +22,7 @@ import {
   type GmRedeemCodeGroupDetailRes,
   type GmRedeemCodeGroupListRes,
   type GmReplySuggestionReq,
+  type GmSetPlayerBodyTrainingLevelReq,
   type GmSuggestionListRes,
   GM_PASSWORD_STORAGE_KEY,
   type GmCpuSectionSnapshot,
@@ -3632,6 +3635,62 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
           </div>
         </div>
       </div>
+    </section>
+
+    <section class="editor-section">
+      <div class="editor-section-head">
+        <div>
+          <div class="editor-section-title">属性快速设置</div>
+          <div class="editor-section-note">这里直接请求服务端修改角色存档，不走整份角色快照覆盖。炼体等级默认保留现有炼体经验；如果经验超出目标等级上限，会自动截到升级前一档。底蕴和战斗经验则按输入值直接增加。</div>
+        </div>
+      </div>
+      <div class="editor-card-list">
+        <div class="editor-card">
+          <div class="editor-card-head">
+            <div>
+              <div class="editor-card-title">炼体等级</div>
+              <div class="editor-card-meta">当前为 ${Math.max(0, Math.floor(draft.bodyTraining?.level ?? 0))} 层。修改后会立即重算炼体带来的属性加成。</div>
+            </div>
+            <div class="button-row">
+              <label class="editor-field" style="min-width: 160px;">
+                <span>目标等级</span>
+                <input id="shortcut-body-training-level" type="number" min="0" step="1" value="${Math.max(0, Math.floor(draft.bodyTraining?.level ?? 0))}" />
+              </label>
+              <button class="small-btn primary" type="button" data-action="set-body-training-level">确认修改</button>
+            </div>
+          </div>
+        </div>
+        <div class="editor-card">
+          <div class="editor-card-head">
+            <div>
+              <div class="editor-card-title">增加底蕴</div>
+              <div class="editor-card-meta">当前为 ${Math.max(0, Math.floor(draft.foundation ?? 0))}。输入多少就直接加多少。</div>
+            </div>
+            <div class="button-row">
+              <label class="editor-field" style="min-width: 160px;">
+                <span>增加数值</span>
+                <input id="shortcut-foundation-amount" type="number" min="0" step="1" value="0" />
+              </label>
+              <button class="small-btn primary" type="button" data-action="add-foundation">确认增加</button>
+            </div>
+          </div>
+        </div>
+        <div class="editor-card">
+          <div class="editor-card-head">
+            <div>
+              <div class="editor-card-title">增加战斗经验</div>
+              <div class="editor-card-meta">当前为 ${Math.max(0, Math.floor(draft.combatExp ?? 0))}。输入多少就直接加多少。</div>
+            </div>
+            <div class="button-row">
+              <label class="editor-field" style="min-width: 160px;">
+                <span>增加数值</span>
+                <input id="shortcut-combat-exp-amount" type="number" min="0" step="1" value="0" />
+              </label>
+              <button class="small-btn primary" type="button" data-action="add-combat-exp">确认增加</button>
+            </div>
+          </div>
+        </div>
+      </div>
       ${catalogFallbackNote ? `<div class="editor-note" style="margin-top: 12px; color: var(--stamp-red);">${escapeHtml(catalogFallbackNote)}</div>` : ''}
     </section>
     `)}
@@ -4455,6 +4514,114 @@ async function saveSelectedPlayerSections(sections: GmPlayerUpdateSection[], mes
   await delayRefresh(message);
 }
 
+async function setSelectedPlayerBodyTrainingLevel(): Promise<void> {
+  const detail = getSelectedPlayerDetail();
+  if (!detail) {
+    setStatus('请先选择角色', true);
+    return;
+  }
+
+  const input = editorContentEl.querySelector<HTMLInputElement>('#shortcut-body-training-level');
+  const button = editorContentEl.querySelector<HTMLButtonElement>('[data-action="set-body-training-level"]');
+  const rawValue = input?.value.trim() ?? '';
+  const level = Number(rawValue);
+
+  if (!rawValue || !Number.isFinite(level) || level < 0 || !Number.isInteger(level)) {
+    setStatus('请输入非负整数炼体等级', true);
+    return;
+  }
+
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    await request<BasicOkRes>(`/gm/players/${encodeURIComponent(detail.id)}/body-training/level`, {
+      method: 'POST',
+      body: JSON.stringify({ level } satisfies GmSetPlayerBodyTrainingLevelReq),
+    });
+    editorDirty = false;
+    await delayRefresh(`已将 ${detail.name} 的炼体等级设置为 ${level} 层`);
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '设置炼体等级失败', true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
+async function addSelectedPlayerFoundation(): Promise<void> {
+  const detail = getSelectedPlayerDetail();
+  if (!detail) {
+    setStatus('请先选择角色', true);
+    return;
+  }
+
+  const input = editorContentEl.querySelector<HTMLInputElement>('#shortcut-foundation-amount');
+  const button = editorContentEl.querySelector<HTMLButtonElement>('[data-action="add-foundation"]');
+  const rawValue = input?.value.trim() ?? '';
+  const amount = Number(rawValue);
+
+  if (!rawValue || !Number.isFinite(amount) || amount < 0 || !Number.isInteger(amount)) {
+    setStatus('请输入非负整数底蕴增量', true);
+    return;
+  }
+
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    await request<BasicOkRes>(`/gm/players/${encodeURIComponent(detail.id)}/foundation/add`, {
+      method: 'POST',
+      body: JSON.stringify({ amount } satisfies GmAddPlayerFoundationReq),
+    });
+    editorDirty = false;
+    await delayRefresh(`已给 ${detail.name} 增加 ${amount} 点底蕴`);
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '增加底蕴失败', true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
+async function addSelectedPlayerCombatExp(): Promise<void> {
+  const detail = getSelectedPlayerDetail();
+  if (!detail) {
+    setStatus('请先选择角色', true);
+    return;
+  }
+
+  const input = editorContentEl.querySelector<HTMLInputElement>('#shortcut-combat-exp-amount');
+  const button = editorContentEl.querySelector<HTMLButtonElement>('[data-action="add-combat-exp"]');
+  const rawValue = input?.value.trim() ?? '';
+  const amount = Number(rawValue);
+
+  if (!rawValue || !Number.isFinite(amount) || amount < 0 || !Number.isInteger(amount)) {
+    setStatus('请输入非负整数战斗经验增量', true);
+    return;
+  }
+
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    await request<BasicOkRes>(`/gm/players/${encodeURIComponent(detail.id)}/combat-exp/add`, {
+      method: 'POST',
+      body: JSON.stringify({ amount } satisfies GmAddPlayerCombatExpReq),
+    });
+    editorDirty = false;
+    await delayRefresh(`已给 ${detail.name} 增加 ${amount} 点战斗经验`);
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '增加战斗经验失败', true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
 async function runPlayerTechniqueShortcut(
   action: 'grant-all-unlearned-technique-books' | 'max-all-techniques' | 'learn-all-techniques' | 'remove-all-techniques',
 ): Promise<void> {
@@ -5099,6 +5266,24 @@ editorContentEl.addEventListener('click', (event) => {
   }
   if (action === 'save-player-password') {
     saveSelectedPlayerPassword().catch(() => {});
+    return;
+  }
+  if (action === 'set-body-training-level') {
+    setSelectedPlayerBodyTrainingLevel().catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '设置炼体等级失败', true);
+    });
+    return;
+  }
+  if (action === 'add-foundation') {
+    addSelectedPlayerFoundation().catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '增加底蕴失败', true);
+    });
+    return;
+  }
+  if (action === 'add-combat-exp') {
+    addSelectedPlayerCombatExp().catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '增加战斗经验失败', true);
+    });
     return;
   }
   if (

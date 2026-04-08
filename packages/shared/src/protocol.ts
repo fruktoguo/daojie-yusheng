@@ -1651,6 +1651,18 @@ export interface GmUpdatePlayerReq {
   section?: GmPlayerUpdateSection;
 }
 
+export interface GmSetPlayerBodyTrainingLevelReq {
+  level: number;
+}
+
+export interface GmAddPlayerFoundationReq {
+  amount: number;
+}
+
+export interface GmAddPlayerCombatExpReq {
+  amount: number;
+}
+
 export interface GmSpawnBotsReq {
   anchorPlayerId: string;
   count: number;

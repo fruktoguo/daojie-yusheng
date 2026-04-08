@@ -19,6 +19,8 @@ import {
   GmDatabaseStateRes,
   GmListPlayersQuery,
   GmListSuggestionsQuery,
+  GmAddPlayerCombatExpReq,
+  GmAddPlayerFoundationReq,
   GmReplySuggestionReq,
   GmSuggestionListRes,
   GmRestoreDatabaseReq,
@@ -34,6 +36,7 @@ import {
   GmRedeemCodeGroupDetailRes,
   GmRedeemCodeGroupListRes,
   GmRemoveBotsReq,
+  GmSetPlayerBodyTrainingLevelReq,
   GmShortcutRunRes,
   GmSpawnBotsReq,
   GmStateRes,
@@ -355,6 +358,45 @@ export class GmController {
   @Post('players/:playerId/reset')
   async resetPlayer(@Param('playerId') playerId: string): Promise<{ ok: true }> {
     const error = await this.gmService.enqueueResetPlayer(playerId);
+    if (error) {
+      throw new BadRequestException(error);
+    }
+    return { ok: true };
+  }
+
+  /** 快捷设置炼体等级 */
+  @Post('players/:playerId/body-training/level')
+  async setPlayerBodyTrainingLevel(
+    @Param('playerId') playerId: string,
+    @Body() body: GmSetPlayerBodyTrainingLevelReq,
+  ): Promise<{ ok: true }> {
+    const error = await this.gmService.setManagedPlayerBodyTrainingLevel(playerId, body?.level);
+    if (error) {
+      throw new BadRequestException(error);
+    }
+    return { ok: true };
+  }
+
+  /** 快捷增加底蕴 */
+  @Post('players/:playerId/foundation/add')
+  async addPlayerFoundation(
+    @Param('playerId') playerId: string,
+    @Body() body: GmAddPlayerFoundationReq,
+  ): Promise<{ ok: true }> {
+    const error = await this.gmService.addManagedPlayerFoundation(playerId, body?.amount);
+    if (error) {
+      throw new BadRequestException(error);
+    }
+    return { ok: true };
+  }
+
+  /** 快捷增加战斗经验 */
+  @Post('players/:playerId/combat-exp/add')
+  async addPlayerCombatExp(
+    @Param('playerId') playerId: string,
+    @Body() body: GmAddPlayerCombatExpReq,
+  ): Promise<{ ok: true }> {
+    const error = await this.gmService.addManagedPlayerCombatExp(playerId, body?.amount);
     if (error) {
       throw new BadRequestException(error);
     }

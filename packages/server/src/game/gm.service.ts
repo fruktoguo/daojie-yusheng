@@ -36,6 +36,7 @@ import {
   normalizeAutoBattleTargetingMode,
   normalizeAutoUsePillConfigs,
   normalizeBodyTrainingState,
+  getBodyTrainingExpToNext,
   PlayerState,
   QuestState,
   TechniqueState,
@@ -114,6 +115,21 @@ type GmCommand =
   | {
       type: 'resetHeavenGate';
       playerId: string;
+    }
+  | {
+      type: 'setBodyTrainingLevel';
+      playerId: string;
+      level: number;
+    }
+  | {
+      type: 'addFoundation';
+      playerId: string;
+      amount: number;
+    }
+  | {
+      type: 'addCombatExp';
+      playerId: string;
+      amount: number;
     }
   | {
       type: 'spawnBots';
@@ -639,6 +655,81 @@ export class GmService {
     return null;
   }
 
+  async setManagedPlayerBodyTrainingLevel(playerId: string, requestedLevel: unknown): Promise<string | null> {
+    const level = this.parseBodyTrainingLevel(requestedLevel);
+    if (level === null) {
+      return '炼体等级必须是非负整数';
+    }
+
+    const runtime = this.playerService.getPlayer(playerId);
+    if (runtime) {
+      this.enqueue(runtime.mapId, {
+        type: 'setBodyTrainingLevel',
+        playerId,
+        level,
+      });
+      return null;
+    }
+
+    const entity = await this.playerRepo.findOne({ where: { id: playerId } });
+    if (!entity) return '目标玩家不存在';
+
+    const player = this.hydrateStoredPlayer(entity);
+    this.applyBodyTrainingLevel(player, level);
+    await this.persistOfflinePlayer(entity, player);
+    return null;
+  }
+
+  async addManagedPlayerFoundation(playerId: string, requestedAmount: unknown): Promise<string | null> {
+    const amount = this.parseCounterDelta(requestedAmount, '底蕴增量');
+    if (typeof amount === 'string') {
+      return amount;
+    }
+
+    const runtime = this.playerService.getPlayer(playerId);
+    if (runtime) {
+      this.enqueue(runtime.mapId, {
+        type: 'addFoundation',
+        playerId,
+        amount,
+      });
+      return null;
+    }
+
+    const entity = await this.playerRepo.findOne({ where: { id: playerId } });
+    if (!entity) return '目标玩家不存在';
+
+    const player = this.hydrateStoredPlayer(entity);
+    player.foundation = this.normalizeNonNegativeInt(player.foundation) + amount;
+    await this.persistOfflinePlayer(entity, player);
+    return null;
+  }
+
+  async addManagedPlayerCombatExp(playerId: string, requestedAmount: unknown): Promise<string | null> {
+    const amount = this.parseCounterDelta(requestedAmount, '战斗经验增量');
+    if (typeof amount === 'string') {
+      return amount;
+    }
+
+    const runtime = this.playerService.getPlayer(playerId);
+    if (runtime) {
+      this.enqueue(runtime.mapId, {
+        type: 'addCombatExp',
+        playerId,
+        amount,
+      });
+      return null;
+    }
+
+    const entity = await this.playerRepo.findOne({ where: { id: playerId } });
+    if (!entity) return '目标玩家不存在';
+
+    const player = this.hydrateStoredPlayer(entity);
+    player.combatExp = this.normalizeNonNegativeInt(player.combatExp) + amount;
+    await this.persistOfflinePlayer(entity, player);
+    return null;
+  }
+
   /** 批量将所有非机器人角色送回默认新手村出生点 */
   async returnAllPlayersToDefaultSpawn(): Promise<GmShortcutRunRes> {
     const runtimePlayers = this.playerService.getAllPlayers().filter((player) => !player.isBot && player.inWorld !== false);
@@ -861,6 +952,12 @@ export class GmService {
         return this.applyQueuedResetPlayer(command.playerId);
       case 'resetHeavenGate':
         return this.applyQueuedResetHeavenGate(command.playerId);
+      case 'setBodyTrainingLevel':
+        return this.applyQueuedSetBodyTrainingLevel(command.playerId, command.level);
+      case 'addFoundation':
+        return this.applyQueuedAddFoundation(command.playerId, command.amount);
+      case 'addCombatExp':
+        return this.applyQueuedAddCombatExp(command.playerId, command.amount);
       case 'spawnBots':
         return this.applyQueuedSpawnBots(command.mapId, command.x, command.y, command.count);
       case 'grantCombatExpCompensation':
@@ -900,6 +997,45 @@ export class GmService {
     if (!player) return '目标玩家不存在';
     this.techniqueService.resetHeavenGateForTesting(player);
     this.markDirty(player.id, ['attr', 'actions', 'tech']);
+    return null;
+  }
+
+  private applyQueuedSetBodyTrainingLevel(playerId: string, level: number): string | null {
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return '目标玩家不存在';
+    this.applyBodyTrainingLevel(player, level);
+    this.markDirty(player.id, ['attr', 'actions', 'tech']);
+    void this.playerService.savePlayer(player.id).catch((error: Error) => {
+      this.logger.error(`GM 设置炼体等级落盘失败: ${player.id} ${error.message}`);
+    });
+    return null;
+  }
+
+  private applyQueuedAddFoundation(playerId: string, amount: number): string | null {
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return '目标玩家不存在';
+    if (amount <= 0) {
+      return null;
+    }
+    player.foundation = this.normalizeNonNegativeInt(player.foundation) + amount;
+    this.markDirty(player.id, ['attr']);
+    void this.playerService.savePlayer(player.id).catch((error: Error) => {
+      this.logger.error(`GM 增加底蕴落盘失败: ${player.id} ${error.message}`);
+    });
+    return null;
+  }
+
+  private applyQueuedAddCombatExp(playerId: string, amount: number): string | null {
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return '目标玩家不存在';
+    if (amount <= 0) {
+      return null;
+    }
+    player.combatExp = this.normalizeNonNegativeInt(player.combatExp) + amount;
+    this.markDirty(player.id, ['attr']);
+    void this.playerService.savePlayer(player.id).catch((error: Error) => {
+      this.logger.error(`GM 增加战斗经验落盘失败: ${player.id} ${error.message}`);
+    });
     return null;
   }
 
@@ -1304,6 +1440,32 @@ export class GmService {
   private calculateFoundationCompensation(player: Pick<PlayerState, 'realm'>): number {
     const realmExpToNext = this.normalizeNonNegativeInt(player.realm?.progressToNext ?? 0);
     return realmExpToNext * 5;
+  }
+
+  private applyBodyTrainingLevel(player: PlayerState, level: number): void {
+    const preservedExp = this.normalizeNonNegativeInt(player.bodyTraining?.exp ?? 0);
+    const expToNext = getBodyTrainingExpToNext(level);
+    player.bodyTraining = normalizeBodyTrainingState({
+      level,
+      exp: Math.min(preservedExp, Math.max(0, expToNext - 1)),
+    });
+    this.techniqueService.initializePlayerProgression(player);
+  }
+
+  private parseBodyTrainingLevel(value: unknown): number | null {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric < 0) {
+      return null;
+    }
+    return Math.floor(numeric);
+  }
+
+  private parseCounterDelta(value: unknown, label: string): number | string {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric < 0) {
+      return `${label}必须是非负整数`;
+    }
+    return Math.floor(numeric);
   }
 
   private async validateManagedPlayerRoleNameUpdate(
