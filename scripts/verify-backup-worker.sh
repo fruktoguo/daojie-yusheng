@@ -41,6 +41,10 @@ show_verify_service_ps() {
   docker --context "$DOCKER_CONTEXT" service ps "$VERIFY_SERVICE_NAME" --no-trunc || true
 }
 
+get_docker_daemon_hostname() {
+  docker --context "$DOCKER_CONTEXT" info --format '{{.Name}}' 2>/dev/null || true
+}
+
 is_valid_heartbeat_json() {
   local raw="$1"
   if [[ -z "$raw" ]]; then
@@ -139,9 +143,61 @@ start_verify_service() {
     >/dev/null
 }
 
+probe_heartbeat_from_local_daemon_volume() {
+  local target_node="$1"
+  local max_wait_sec="${2:-$VERIFY_SERVICE_LOG_TIMEOUT_SEC}"
+  local daemon_hostname
+  daemon_hostname="$(get_docker_daemon_hostname)"
+  if [[ -z "$daemon_hostname" || "$daemon_hostname" != "$target_node" ]]; then
+    return 2
+  fi
+
+  local helper_image
+  helper_image="$(resolve_helper_image)"
+
+  local output=''
+  local status=0
+  output="$(timeout "${max_wait_sec}s" docker --context "$DOCKER_CONTEXT" run --rm \
+    --mount "type=volume,source=${VOLUME_NAME},target=/backup" \
+    --env "HEARTBEAT_MAX_AGE_MS=${HEARTBEAT_MAX_AGE_MS}" \
+    "$helper_image" \
+    sh -lc '
+      set -eu
+      file=/backup/_meta/worker-heartbeat.json
+      if [ ! -s "$file" ]; then
+        echo "missing-heartbeat-file" >&2
+        exit 2
+      fi
+      mtime="$(stat -c %Y "$file" 2>/dev/null || stat -f %m "$file")"
+      now="$(date +%s)"
+      age_ms=$(( (now - mtime) * 1000 ))
+      if [ "$age_ms" -gt "${HEARTBEAT_MAX_AGE_MS:-60000}" ]; then
+        echo "stale-heartbeat-file:${age_ms}ms" >&2
+        exit 3
+      fi
+      cat "$file"
+    ' 2>&1)" || status=$?
+
+  VERIFY_SERVICE_LAST_STATE="direct-run-exit:${status}"
+  VERIFY_SERVICE_LAST_LOGS="$output"
+  if is_valid_heartbeat_json "$output"; then
+    return 0
+  fi
+  return 1
+}
+
 probe_heartbeat_from_server_node_volume() {
   local target_node="$1"
   local max_wait_sec="${2:-$VERIFY_SERVICE_LOG_TIMEOUT_SEC}"
+  if probe_heartbeat_from_local_daemon_volume "$target_node" "$max_wait_sec"; then
+    return 0
+  else
+    local direct_probe_status=$?
+    if (( direct_probe_status != 2 )); then
+      return 1
+    fi
+  fi
+
   local helper_image
   helper_image="$(resolve_helper_image)"
 
