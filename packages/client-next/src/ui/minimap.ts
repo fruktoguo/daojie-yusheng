@@ -432,21 +432,13 @@ export class Minimap {
         return;
       }
       const display = this.getModalDisplayScene();
-      if (!display || !display.isCurrent || !display.player || !this.modalCanvas) {
-        return;
-      }
-      const point = this.resolveCanvasPoint(this.modalCanvas, event.clientX, event.clientY, display, true);
-      if (!point) {
-        return;
-      }
-      const tile = this.getTileAt(display, point.x, point.y);
-      const walkable = tile ? tile.walkable : isTileTypeWalkable(this.getTileTypeAt(display, point.x, point.y));
-      if (!walkable) {
+      const moveTarget = this.resolveCurrentMoveTarget(display, this.modalCanvas, event.clientX, event.clientY, true);
+      if (!display || !moveTarget) {
         return;
       }
       event.preventDefault();
       event.stopPropagation();
-      this.openMoveConfirm(display.mapMeta, point.x, point.y);
+      this.openMoveConfirm(display.mapMeta, moveTarget.x, moveTarget.y);
     });
 
     window.addEventListener('pointerup', (event) => {
@@ -521,12 +513,12 @@ export class Minimap {
     } else {
       const nextCurrentMapId = scene.mapMeta?.id ?? null;
       const currentMapChanged = nextCurrentMapId !== previousCurrentMapId;
-      if (currentMapChanged || !this.selectedMapId || this.selectedMapId === previousCurrentMapId) {
+      if (currentMapChanged || !this.selectedMapId) {
         this.selectedMapId = nextCurrentMapId;
         this.baseKey = null;
         this.hoveredModalPoint = null;
-        this.closeMoveConfirm();
         if (currentMapChanged) {
+          this.closeMoveConfirm();
           this.resetModalViewport();
           this.cancelModalPan();
         }
@@ -1052,16 +1044,18 @@ export class Minimap {
       },
       onAfterRender: (body) => {
         body.querySelector<HTMLElement>('[data-map-move-cancel]')?.addEventListener('click', (event) => {
+          event.preventDefault();
           event.stopPropagation();
           this.closeMoveConfirm();
         });
         body.querySelector<HTMLElement>('[data-map-move-confirm]')?.addEventListener('click', (event) => {
+          event.preventDefault();
           event.stopPropagation();
-          if (!this.pendingMovePoint || !this.moveHandler) {
+          if (!this.moveHandler) {
             this.closeMoveConfirm();
             return;
           }
-          this.moveHandler(this.pendingMovePoint.x, this.pendingMovePoint.y);
+          this.moveHandler(x, y);
           this.closeMoveConfirm();
         });
       },
@@ -1221,6 +1215,28 @@ export class Minimap {
       x: clamp(Math.floor(world.x), 0, metrics.mapWidth - 1),
       y: clamp(Math.floor(world.y), 0, metrics.mapHeight - 1),
     };
+  }
+
+  private resolveCurrentMoveTarget(
+    display: DisplayMapScene | null,
+    canvas: HTMLCanvasElement | null,
+    clientX: number,
+    clientY: number,
+    isModal: boolean,
+  ): { x: number; y: number } | null {
+    if (!display || !display.isCurrent || !display.player || !canvas) {
+      return null;
+    }
+    const point = this.resolveCanvasPoint(canvas, clientX, clientY, display, isModal);
+    if (!point) {
+      return null;
+    }
+    const tile = this.getTileAt(display, point.x, point.y);
+    const walkable = tile ? tile.walkable : isTileTypeWalkable(this.getTileTypeAt(display, point.x, point.y));
+    if (!walkable) {
+      return null;
+    }
+    return point;
   }
 
   private getTileAt(display: DisplayMapScene, x: number, y: number): Tile | null {
