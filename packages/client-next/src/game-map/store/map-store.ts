@@ -177,6 +177,7 @@ export class MapStore {
   private senseQi: MapSenseQiOverlayState | null = null;
   private threatArrows: Array<{ ownerId: string; targetId: string }> = [];
   private minimapMemoryVersion = 0;
+  private awaitingFullVisibilityMapId: string | null = null;
   private tickTiming = {
     startedAt: performance.now(),
     durationMs: 1000,
@@ -209,6 +210,7 @@ export class MapStore {
     this.visibleTiles.clear();
     hydrateTileCacheFromMemory(player.mapId, this.tileCache);
     this.cacheVisibleTiles(player.mapId, data.tiles, player.x - this.getViewRadius(), player.y - this.getViewRadius());
+    this.awaitingFullVisibilityMapId = null;
 
     this.entities = data.players.map(toObservedEntity);
     this.entityMap = new Map(this.entities.map((entry) => [entry.id, entry]));
@@ -317,6 +319,7 @@ export class MapStore {
         ? getCachedMapSnapshot(this.player.mapId)
         : null;
       hydrateTileCacheFromMemory(this.player.mapId, this.tileCache);
+      this.awaitingFullVisibilityMapId = this.player.mapId;
     }
 
     if (typeof data.hp === 'number') {
@@ -393,6 +396,7 @@ export class MapStore {
     this.senseQi = null;
     this.threatArrows = [];
     this.minimapMemoryVersion = 0;
+    this.awaitingFullVisibilityMapId = null;
     this.entityTransition = null;
     publishLatestObservedEntitiesSnapshot([]);
     this.tickTiming.startedAt = performance.now();
@@ -585,5 +589,8 @@ export class MapStore {
     }
     this.minimapMemoryVersion += 1;
     this.visibleTileRevision += 1;
+    if (this.awaitingFullVisibilityMapId === mapId) {
+      this.awaitingFullVisibilityMapId = null;
+    }
   }
 }
