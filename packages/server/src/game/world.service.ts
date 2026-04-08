@@ -128,13 +128,12 @@ import {
 } from '../constants/gameplay/terrain';
 import { MARKET_CURRENCY_ITEM_ID } from '../constants/gameplay/market';
 import {
-  ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_MULTIPLIER,
-  ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_THRESHOLD,
-} from '../constants/gameplay/monster';
-import {
+  MONSTER_LOST_SIGHT_CHASE_TICKS,
   MONSTER_RESPAWN_ACCELERATION_BASE_PERCENT,
   MONSTER_RESPAWN_ACCELERATION_MAX_PERCENT,
   MONSTER_RESPAWN_ACCELERATION_STEP_PERCENT,
+  ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_MULTIPLIER,
+  ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_THRESHOLD,
 } from '../constants/gameplay/monster';
 
 const MONSTER_ATTR_KEYS: readonly (keyof Attributes)[] = [
@@ -263,6 +262,9 @@ interface RuntimeMonster extends MonsterSpawnConfig {
   damageContributors: Map<string, number>;
   facing?: Direction;
   targetPlayerId?: string;
+  lastSeenTargetX?: number;
+  lastSeenTargetY?: number;
+  lastSeenTargetTick?: number;
   pendingCast?: PendingMonsterSkillCast;
 }
 
@@ -319,6 +321,9 @@ interface PersistedMonsterRuntimeRecord {
   damageContributors?: Record<string, number>;
   facing?: Direction;
   targetPlayerId?: string;
+  lastSeenTargetX?: number;
+  lastSeenTargetY?: number;
+  lastSeenTargetTick?: number;
   pendingCast?: PendingMonsterSkillCast;
 }
 
@@ -2594,6 +2599,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   tickMonsters(mapId: string, players: PlayerState[]): WorldUpdate {
     this.ensureMapInitialized(mapId);
     const monsters = this.monstersByMap.get(mapId) ?? [];
+    const currentTick = this.timeService.getTotalTicks(mapId);
     const allMessages: WorldMessage[] = [];
     const dirtyPlayers = new Set<string>();
 
@@ -2614,7 +2620,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
               monster.pendingCast = undefined;
               monster.damageContributors.clear();
               this.threatService.clearThreat(this.getMonsterThreatId(monster));
-              monster.targetPlayerId = undefined;
+              this.clearMonsterTargetPursuit(monster);
               this.mapService.addOccupant(mapId, monster.x, monster.y, monster.runtimeId, 'monster');
               this.handleMonsterRespawn(monster);
             } else {
@@ -2705,9 +2711,18 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         continue;
       }
       const target = this.measureCpuSection('monster_target', '怪物: 目标选择', () => (
-        this.resolveMonsterTarget(monster, players, timeState)
+        this.resolveMonsterTarget(monster, players, timeState, currentTick)
       ));
       if (!target) {
+        const lostSightTarget = this.resolveMonsterLostSightChaseTarget(monster, currentTick);
+        if (lostSightTarget) {
+          this.measureCpuSection('monster_chase_memory', '怪物: 丢视野追击', () => {
+            this.stepMonsterTowardLastSeenPosition(monster, lostSightTarget.x, lostSightTarget.y);
+          });
+          continue;
+        }
+
+        this.clearMonsterTargetPursuit(monster);
         if (!this.isMonsterWithinWanderRange(monster, monster.x, monster.y)) {
           this.measureCpuSection('monster_return', '怪物: 回巢移动', () => {
             this.stepToward(mapId, monster, monster.spawnX, monster.spawnY, monster.runtimeId);
@@ -4022,7 +4037,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     monster.temporaryBuffs = [];
     monster.pendingCast = undefined;
     monster.damageContributors.clear();
-    monster.targetPlayerId = undefined;
+    this.clearMonsterTargetPursuit(monster);
     this.mapService.removeOccupant(monster.mapId, monster.x, monster.y, monster.runtimeId);
     this.handleMonsterDefeat(monster);
     messages.push({
@@ -4567,7 +4582,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         monster.temporaryBuffs = [];
         monster.pendingCast = undefined;
         monster.damageContributors.clear();
-        monster.targetPlayerId = undefined;
+        this.clearMonsterTargetPursuit(monster);
         this.mapService.removeOccupant(monster.mapId, monster.x, monster.y, monster.runtimeId);
         this.handleMonsterDefeat(monster);
       }
@@ -5763,6 +5778,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           pendingCast: undefined,
           damageContributors: new Map(),
           targetPlayerId: undefined,
+          lastSeenTargetX: undefined,
+          lastSeenTargetY: undefined,
+          lastSeenTargetTick: undefined,
         };
         const persisted = persistedStates?.get(runtime.runtimeId);
         if (persisted) {
@@ -6161,7 +6179,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return best;
   }
 
-  private resolveMonsterTarget(monster: RuntimeMonster, players: PlayerState[], timeState: GameTimeState): PlayerState | undefined {
+  private resolveMonsterTarget(
+    monster: RuntimeMonster,
+    players: PlayerState[],
+    timeState: GameTimeState,
+    currentTick: number,
+  ): PlayerState | undefined {
     this.refreshMonsterThreats(monster, players, timeState);
     const ownerId = this.getMonsterThreatId(monster);
     const targetId = this.threatService.getHighestAttackableThreatTarget(ownerId, (candidateId) => {
@@ -6172,13 +6195,69 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       return this.canMonsterAttackTarget(monster, target, timeState);
     });
     if (!targetId) {
-      monster.targetPlayerId = undefined;
       return undefined;
     }
 
     const target = this.resolveThreatPlayerForMonster(monster, targetId);
-    monster.targetPlayerId = target?.id;
+    if (target) {
+      this.rememberMonsterTargetSight(monster, target, currentTick);
+    }
     return target ?? undefined;
+  }
+
+  private rememberMonsterTargetSight(
+    monster: RuntimeMonster,
+    target: PlayerState,
+    currentTick: number,
+  ): void {
+    monster.targetPlayerId = target.id;
+    monster.lastSeenTargetX = target.x;
+    monster.lastSeenTargetY = target.y;
+    monster.lastSeenTargetTick = currentTick;
+  }
+
+  private clearMonsterTargetPursuit(monster: RuntimeMonster): void {
+    monster.targetPlayerId = undefined;
+    monster.lastSeenTargetX = undefined;
+    monster.lastSeenTargetY = undefined;
+    monster.lastSeenTargetTick = undefined;
+  }
+
+  private resolveMonsterLostSightChaseTarget(
+    monster: RuntimeMonster,
+    currentTick: number,
+  ): { x: number; y: number } | null {
+    const targetPlayerId = monster.targetPlayerId;
+    const lastSeenTick = monster.lastSeenTargetTick;
+    const lastSeenX = monster.lastSeenTargetX;
+    const lastSeenY = monster.lastSeenTargetY;
+    if (
+      typeof targetPlayerId !== 'string'
+      || !Number.isInteger(lastSeenTick)
+      || !Number.isInteger(lastSeenX)
+      || !Number.isInteger(lastSeenY)
+    ) {
+      return null;
+    }
+
+    const normalizedLastSeenTick = Number(lastSeenTick);
+    const normalizedLastSeenX = Number(lastSeenX);
+    const normalizedLastSeenY = Number(lastSeenY);
+
+    if (currentTick > normalizedLastSeenTick + MONSTER_LOST_SIGHT_CHASE_TICKS) {
+      return null;
+    }
+
+    const target = this.playerService.getPlayer(targetPlayerId);
+    if (!target || target.dead || target.mapId !== monster.mapId) {
+      return null;
+    }
+
+    if (isPointInRange(monster, { x: normalizedLastSeenX, y: normalizedLastSeenY }, 1)) {
+      return null;
+    }
+
+    return { x: normalizedLastSeenX, y: normalizedLastSeenY };
   }
 
   private isMonsterAutoAggroEnabled(monster: RuntimeMonster, timeState: GameTimeState): boolean {
@@ -6293,6 +6372,28 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       monster,
       { kind: 'player', x: target.x, y: target.y, player: target },
       range,
+      monster.runtimeId,
+      'monster',
+    );
+    if (!next || (next.x === monster.x && next.y === monster.y)) {
+      return null;
+    }
+    if (!this.moveActorTo(monster.mapId, monster, next.x, next.y, monster.runtimeId, 'monster')) {
+      return null;
+    }
+    return monster.facing ?? null;
+  }
+
+  private stepMonsterTowardLastSeenPosition(
+    monster: RuntimeMonster,
+    lastSeenX: number,
+    lastSeenY: number,
+  ): Direction | null {
+    const next = this.findNextAttackApproachStep(
+      monster.mapId,
+      monster,
+      { kind: 'tile', x: lastSeenX, y: lastSeenY },
+      1,
       monster.runtimeId,
       'monster',
     );
@@ -7656,6 +7757,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         : undefined,
       facing: monster.facing,
       targetPlayerId: monster.targetPlayerId,
+      lastSeenTargetX: monster.lastSeenTargetX,
+      lastSeenTargetY: monster.lastSeenTargetY,
+      lastSeenTargetTick: monster.lastSeenTargetTick,
     };
   }
 
@@ -7680,6 +7784,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     runtime.qi = Math.max(0, Math.min(Math.max(0, Math.round(runtime.numericStats.maxQi)), persistedQi));
     runtime.facing = persisted.facing;
     runtime.targetPlayerId = typeof persisted.targetPlayerId === 'string' ? persisted.targetPlayerId : undefined;
+    runtime.lastSeenTargetX = Number.isInteger(persisted.lastSeenTargetX) ? Number(persisted.lastSeenTargetX) : undefined;
+    runtime.lastSeenTargetY = Number.isInteger(persisted.lastSeenTargetY) ? Number(persisted.lastSeenTargetY) : undefined;
+    runtime.lastSeenTargetTick = Number.isInteger(persisted.lastSeenTargetTick) ? Number(persisted.lastSeenTargetTick) : undefined;
     runtime.temporaryBuffs = hydrateTemporaryBuffSnapshots(persisted.temporaryBuffs, this.contentService);
     this.syncMonsterRuntimeResources(runtime, { previousHp: persistedHp, previousQi: persistedQi });
     runtime.skillCooldowns = Object.fromEntries(
@@ -7796,6 +7903,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         : undefined,
       facing: candidate.facing,
       targetPlayerId: typeof candidate.targetPlayerId === 'string' ? candidate.targetPlayerId : undefined,
+      lastSeenTargetX: Number.isInteger(candidate.lastSeenTargetX) ? Number(candidate.lastSeenTargetX) : undefined,
+      lastSeenTargetY: Number.isInteger(candidate.lastSeenTargetY) ? Number(candidate.lastSeenTargetY) : undefined,
+      lastSeenTargetTick: Number.isInteger(candidate.lastSeenTargetTick) ? Number(candidate.lastSeenTargetTick) : undefined,
     };
   }
 
