@@ -17,6 +17,7 @@ import {
 import {
   GmEditorCatalogRes,
   GmDatabaseStateRes,
+  GmListPlayersQuery,
   GmListSuggestionsQuery,
   GmReplySuggestionReq,
   GmSuggestionListRes,
@@ -67,8 +68,8 @@ export class GmController {
 
   /** 获取全局 GM 状态 */
   @Get('state')
-  getState(): Promise<GmStateRes> {
-    return this.gmService.getState();
+  getState(@Query() query: GmListPlayersQuery): Promise<GmStateRes> {
+    return this.gmService.getState(query);
   }
 
   @Get('editor-catalog')
@@ -379,6 +380,11 @@ export class GmController {
   @Post('shortcuts/compensation/combat-exp-2026-04-09')
   async compensateAllPlayersCombatExp(): Promise<GmShortcutRunRes> {
     return this.gmService.compensateAllPlayersCombatExp();
+  }
+
+  @Post('shortcuts/compensation/foundation-2026-04-09')
+  async compensateAllPlayersFoundation(): Promise<GmShortcutRunRes> {
+    return this.gmService.compensateAllPlayersFoundation();
   }
 
   /** 生成 Bot */

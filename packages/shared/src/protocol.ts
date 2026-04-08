@@ -1407,8 +1407,35 @@ export interface GmManagedPlayerRecord extends GmManagedPlayerSummary {
   persistedSnapshot: unknown;
 }
 
+export type GmPlayerSortMode = 'realm-desc' | 'realm-asc' | 'online' | 'map' | 'name';
+
+export interface GmListPlayersQuery {
+  page?: number;
+  pageSize?: number;
+  keyword?: string;
+  sort?: GmPlayerSortMode;
+}
+
+export interface GmPlayerListPage {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  keyword: string;
+  sort: GmPlayerSortMode;
+}
+
+export interface GmPlayerSummaryStats {
+  totalPlayers: number;
+  onlinePlayers: number;
+  offlineHangingPlayers: number;
+  offlinePlayers: number;
+}
+
 export interface GmStateRes {
   players: GmManagedPlayerSummary[];
+  playerPage: GmPlayerListPage;
+  playerStats: GmPlayerSummaryStats;
   mapIds: string[];
   botCount: number;
   perf: GmPerformanceSnapshot;
@@ -1640,6 +1667,7 @@ export interface GmShortcutRunRes {
   queuedRuntimePlayers: number;
   updatedOfflinePlayers: number;
   totalCombatExpGranted?: number;
+  totalFoundationGranted?: number;
   targetMapId?: string;
   targetX?: number;
   targetY?: number;

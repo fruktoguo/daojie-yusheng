@@ -41,6 +41,7 @@ import {
   type GmLoginReq,
   type GmLoginRes,
   type GmManagedPlayerRecord,
+  type GmPlayerSortMode,
   type GmRemoveBotsReq,
   type GmRestoreDatabaseReq,
   type GmShortcutRunRes,
@@ -94,6 +95,9 @@ const statusBarEl = document.getElementById('status-bar') as HTMLDivElement;
 const playerSearchInput = document.getElementById('player-search') as HTMLInputElement;
 const playerSortSelect = document.getElementById('player-sort') as HTMLSelectElement;
 const playerListEl = document.getElementById('player-list') as HTMLDivElement;
+const playerPrevPageBtn = document.getElementById('player-page-prev') as HTMLButtonElement;
+const playerNextPageBtn = document.getElementById('player-page-next') as HTMLButtonElement;
+const playerPageMetaEl = document.getElementById('player-page-meta') as HTMLDivElement;
 const spawnCountInput = document.getElementById('spawn-count') as HTMLInputElement;
 const editorEmptyEl = document.getElementById('editor-empty') as HTMLDivElement;
 const editorPanelEl = document.getElementById('editor-panel') as HTMLDivElement;
@@ -213,7 +217,6 @@ const redeemGroupListEl = document.getElementById('redeem-group-list') as HTMLDi
 const redeemGroupEditorEl = document.getElementById('redeem-group-editor') as HTMLDivElement | null;
 const redeemCodeListEl = document.getElementById('redeem-code-list') as HTMLDivElement | null;
 
-type PlayerSortMode = 'realm-desc' | 'realm-asc' | 'online' | 'map' | 'name';
 type GmEditorTab = GmPlayerUpdateSection | 'shortcuts' | 'mail' | 'persisted';
 
 interface GmMailAttachmentDraft {
@@ -270,7 +273,10 @@ let currentServerTab: 'overview' | 'traffic' | 'cpu' | 'database' = 'overview';
 let currentCpuBreakdownSort: 'total' | 'count' | 'avg' = 'total';
 let currentEditorTab: GmEditorTab = 'basic';
 let currentInventoryAddType: (typeof ITEM_TYPES)[number] = 'material';
-let currentPlayerSort: PlayerSortMode = (playerSortSelect.value as PlayerSortMode) || 'realm-desc';
+let currentPlayerSort: GmPlayerSortMode = (playerSortSelect.value as GmPlayerSortMode) || 'realm-desc';
+let currentPlayerPage = 1;
+let currentPlayerTotalPages = 1;
+let playerSearchTimer: number | null = null;
 let currentSuggestionPage = 1;
 let currentSuggestionTotalPages = 1;
 let currentSuggestionTotal = 0;
@@ -525,54 +531,7 @@ function assertTrustedEditorCatalog(actionLabel: string): void {
 }
 
 function getFilteredPlayers(data: GmStateRes): GmManagedPlayerSummary[] {
-  const keyword = playerSearchInput.value.trim().toLowerCase();
-  const filtered = data.players.filter((player) => {
-    if (!keyword) return true;
-    return [player.accountName ?? '', player.roleName, player.displayName, player.mapName, player.mapId]
-      .some((value) => value.toLowerCase().includes(keyword));
-  });
-  return sortPlayers(filtered);
-}
-
-function comparePlayerName(left: GmManagedPlayerSummary, right: GmManagedPlayerSummary): number {
-  return left.roleName.localeCompare(right.roleName, 'zh-CN');
-}
-
-function comparePlayerRealm(left: GmManagedPlayerSummary, right: GmManagedPlayerSummary): number {
-  if (left.realmLv !== right.realmLv) {
-    return right.realmLv - left.realmLv;
-  }
-  return comparePlayerName(left, right);
-}
-
-function sortPlayers(players: GmManagedPlayerSummary[]): GmManagedPlayerSummary[] {
-  return [...players].sort((left, right) => {
-    switch (currentPlayerSort) {
-      case 'realm-asc':
-        return comparePlayerRealm(right, left);
-      case 'online':
-        if (left.meta.online !== right.meta.online) {
-          return left.meta.online ? -1 : 1;
-        }
-        if (left.realmLv !== right.realmLv) {
-          return right.realmLv - left.realmLv;
-        }
-        return comparePlayerName(left, right);
-      case 'map':
-        if (left.mapName !== right.mapName) {
-          return left.mapName.localeCompare(right.mapName, 'zh-CN');
-        }
-        if (left.realmLv !== right.realmLv) {
-          return right.realmLv - left.realmLv;
-        }
-        return comparePlayerName(left, right);
-      case 'name':
-        return comparePlayerName(left, right);
-      case 'realm-desc':
-      default:
-        return comparePlayerRealm(left, right);
-    }
-  });
+  return data.players;
 }
 
 function getPlayerIdentityLine(player: GmManagedPlayerSummary): string {
@@ -868,13 +827,21 @@ function isServerManagedMailTemplate(templateId: string): boolean {
 
 function getShortcutMailTargetOptions(): Array<{ value: string; label: string }> {
   const players = state?.players.filter((player) => !player.meta.isBot) ?? [];
-  return [
+  const options = [
     { value: '', label: '发送给全服玩家' },
     ...players.map((player) => ({
       value: player.id,
       label: `${player.roleName} · ${player.accountName || '无账号'} · ${player.meta.online ? '在线' : '离线'}`,
     })),
   ];
+  const selectedTargetId = broadcastMailDraft.targetPlayerId.trim();
+  if (selectedTargetId && !options.some((option) => option.value === selectedTargetId)) {
+    const fallbackLabel = selectedPlayerDetail?.id === selectedTargetId
+      ? `${selectedPlayerDetail.roleName} · ${selectedPlayerDetail.account?.username || '无账号'} · 已选中`
+      : `当前目标 · ${selectedTargetId}`;
+    options.push({ value: selectedTargetId, label: fallbackLabel });
+  }
+  return options;
 }
 
 function getMailComposerPayload(draft: GmMailComposerDraft): GmCreateMailReq {
@@ -2332,14 +2299,11 @@ function renderShortcutMailComposer(preserveActiveInteraction = false): void {
   if (!shortcutMailComposerEl) {
     return;
   }
-  if (broadcastMailDraft.targetPlayerId) {
-    const targetExists = (state?.players ?? []).some((player) => player.id === broadcastMailDraft.targetPlayerId);
-    if (!targetExists) {
-      broadcastMailDraft.targetPlayerId = '';
-    }
-  }
   const targetPlayer = broadcastMailDraft.targetPlayerId
-    ? (state?.players.find((player) => player.id === broadcastMailDraft.targetPlayerId) ?? null)
+    ? (
+      state?.players.find((player) => player.id === broadcastMailDraft.targetPlayerId)
+      ?? (selectedPlayerDetail?.id === broadcastMailDraft.targetPlayerId ? selectedPlayerDetail : null)
+    )
     : null;
   const structureKey = JSON.stringify({
     targetPlayerId: broadcastMailDraft.targetPlayerId,
@@ -3746,17 +3710,13 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
 }
 
 function renderSummary(data: GmStateRes): void {
-  const humanPlayers = data.players.filter((player) => !player.meta.isBot);
-  const onlineCount = humanPlayers.filter((player) => player.meta.online).length;
-  const offlineHangingCount = humanPlayers.filter((player) => !player.meta.online && player.meta.inWorld).length;
-  const offlineCount = humanPlayers.filter((player) => !player.meta.online && !player.meta.inWorld).length;
   const elapsedSec = Math.max(0, data.perf.networkStatsElapsedSec);
   const startedAt = data.perf.networkStatsStartedAt > 0 ? new Date(data.perf.networkStatsStartedAt) : null;
   const tickPerf = getTickPerf(data.perf);
-  summaryTotalEl.textContent = `${humanPlayers.length}`;
-  summaryOnlineEl.textContent = `${onlineCount}`;
-  summaryOfflineHangingEl.textContent = `${offlineHangingCount}`;
-  summaryOfflineEl.textContent = `${offlineCount}`;
+  summaryTotalEl.textContent = `${data.playerStats.totalPlayers}`;
+  summaryOnlineEl.textContent = `${data.playerStats.onlinePlayers}`;
+  summaryOfflineHangingEl.textContent = `${data.playerStats.offlineHangingPlayers}`;
+  summaryOfflineEl.textContent = `${data.playerStats.offlinePlayers}`;
   summaryBotsEl.textContent = `${data.botCount}`;
   summaryTickEl.textContent = tickPerf.lastMapId
     ? `${Math.round(tickPerf.lastMs)} ms · ${tickPerf.lastMapId}`
@@ -3818,6 +3778,12 @@ function renderSummary(data: GmStateRes): void {
   renderPerfLists(data);
 }
 
+function renderPlayerPageMeta(data: GmStateRes): void {
+  playerPageMetaEl.textContent = `第 ${data.playerPage.page} / ${data.playerPage.totalPages} 页 · 共 ${data.playerPage.total} 条`;
+  playerPrevPageBtn.disabled = data.playerPage.page <= 1;
+  playerNextPageBtn.disabled = data.playerPage.page >= data.playerPage.totalPages;
+}
+
 function renderPlayerList(data: GmStateRes): void {
   const filtered = getFilteredPlayers(data);
 
@@ -3830,6 +3796,7 @@ function renderPlayerList(data: GmStateRes): void {
       playerListEl.innerHTML = '<div class="empty-hint">没有符合筛选条件的角色。</div>';
       lastPlayerListStructureKey = 'empty';
     }
+    renderPlayerPageMeta(data);
     return;
   }
 
@@ -3846,6 +3813,7 @@ function renderPlayerList(data: GmStateRes): void {
     }
     patchPlayerRow(row, player, player.id === selectedPlayerId);
   });
+  renderPlayerPageMeta(data);
 }
 
 function renderEditor(data: GmStateRes): void {
@@ -4086,8 +4054,19 @@ function applyCatalogBindingChange(path: string, value: string): boolean {
 
 async function loadState(silent = false, refreshDetail = false): Promise<void> {
   if (!token) return;
-  const data = await request<GmStateRes>('/gm/state');
+  const params = new URLSearchParams({
+    page: String(currentPlayerPage),
+    pageSize: '50',
+    sort: currentPlayerSort,
+  });
+  const keyword = playerSearchInput.value.trim();
+  if (keyword) {
+    params.set('keyword', keyword);
+  }
+  const data = await request<GmStateRes>(`/gm/state?${params.toString()}`);
   state = data;
+  currentPlayerPage = data.playerPage.page;
+  currentPlayerTotalPages = data.playerPage.totalPages;
   const previousSelectedPlayerId = selectedPlayerId;
   if (!selectedPlayerId || !data.players.some((player) => player.id === selectedPlayerId)) {
     selectedPlayerId = data.players[0]?.id ?? null;
@@ -4109,7 +4088,7 @@ async function loadState(silent = false, refreshDetail = false): Promise<void> {
     loadingPlayerDetailId = null;
   }
   if (!silent) {
-    setStatus(`已同步 ${data.players.length} 条角色数据`);
+    setStatus(`已同步角色列表第 ${data.playerPage.page} / ${data.playerPage.totalPages} 页，本页 ${data.players.length} 条，共 ${data.playerPage.total} 条`);
   }
   if (currentTab === 'server' && currentServerTab === 'database') {
     await loadDatabaseState(true);
@@ -4201,6 +4180,10 @@ function logout(message?: string): void {
     window.clearTimeout(suggestionSearchTimer);
     suggestionSearchTimer = null;
   }
+  if (playerSearchTimer !== null) {
+    window.clearTimeout(playerSearchTimer);
+    playerSearchTimer = null;
+  }
   playerListEl.innerHTML = '';
   lastPlayerListStructureKey = null;
   clearEditorRenderCache();
@@ -4213,6 +4196,12 @@ function logout(message?: string): void {
   suggestionPageMetaEl.textContent = '第 1 / 1 页';
   suggestionPrevPageBtn.disabled = true;
   suggestionNextPageBtn.disabled = true;
+  currentPlayerPage = 1;
+  currentPlayerTotalPages = 1;
+  playerSearchInput.value = '';
+  playerPageMetaEl.textContent = '第 1 / 1 页 · 共 0 条';
+  playerPrevPageBtn.disabled = true;
+  playerNextPageBtn.disabled = true;
   lastNetworkInStructureKey = null;
   lastNetworkOutStructureKey = null;
   lastCpuBreakdownStructureKey = null;
@@ -4874,6 +4863,32 @@ async function compensateAllPlayersCombatExp(): Promise<void> {
   }
 }
 
+async function compensateAllPlayersFoundation(): Promise<void> {
+  if (!window.confirm('这会给所有非机器人角色补偿底蕴。每个角色获得的数值 = 当前境界升级所需经验的五倍。在线角色下一息生效，离线和离线挂机角色会直接改存档。确认继续吗？')) {
+    return;
+  }
+
+  const button = document.getElementById('shortcut-compensate-foundation-2026-04-09') as HTMLButtonElement | null;
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    const result = await request<GmShortcutRunRes>('/gm/shortcuts/compensation/foundation-2026-04-09', {
+      method: 'POST',
+    });
+    editorDirty = false;
+    await delayRefresh(
+      `已提交底蕴补偿，共 ${result.totalPlayers} 个角色，在线 ${result.queuedRuntimePlayers} 个，离线 ${result.updatedOfflinePlayers} 个，累计补偿 ${Math.floor(result.totalFoundationGranted ?? 0)} 点底蕴`,
+    );
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '执行补偿失败', true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
 async function resetNetworkStats(): Promise<void> {
   resetNetworkStatsBtn.disabled = true;
   try {
@@ -5365,29 +5380,41 @@ suggestionNextPageBtn.addEventListener('click', () => {
 });
 
 playerSearchInput.addEventListener('input', () => {
-  if (!state) return;
-  const previousSelectedPlayerId = selectedPlayerId;
-  renderPlayerList(state);
-  const selectedChanged = previousSelectedPlayerId !== selectedPlayerId;
-  if (selectedChanged) {
-    selectedPlayerDetail = null;
-    loadingPlayerDetailId = selectedPlayerId;
-    draftSnapshot = null;
-    draftSourcePlayerId = null;
-    editorDirty = false;
+  currentPlayerPage = 1;
+  if (playerSearchTimer !== null) {
+    window.clearTimeout(playerSearchTimer);
   }
-  renderEditor(state);
-  if (selectedChanged && selectedPlayerId) {
-    loadSelectedPlayerDetail(selectedPlayerId, true).catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '加载角色详情失败', true);
+  playerSearchTimer = window.setTimeout(() => {
+    loadState(true).catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
     });
-  }
+  }, 250);
 });
 playerSortSelect.addEventListener('change', () => {
-  currentPlayerSort = (playerSortSelect.value as PlayerSortMode) || 'realm-desc';
+  currentPlayerSort = (playerSortSelect.value as GmPlayerSortMode) || 'realm-desc';
+  currentPlayerPage = 1;
   lastPlayerListStructureKey = null;
-  if (!state) return;
-  renderPlayerList(state);
+  loadState(true).catch((error: unknown) => {
+    setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
+  });
+});
+playerPrevPageBtn.addEventListener('click', () => {
+  if (currentPlayerPage <= 1) {
+    return;
+  }
+  currentPlayerPage -= 1;
+  loadState(true).catch((error: unknown) => {
+    setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
+  });
+});
+playerNextPageBtn.addEventListener('click', () => {
+  if (currentPlayerPage >= currentPlayerTotalPages) {
+    return;
+  }
+  currentPlayerPage += 1;
+  loadState(true).catch((error: unknown) => {
+    setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
+  });
 });
 redeemTabBtn.addEventListener('click', () => switchTab('redeem'));
 playerTabBtn.addEventListener('click', () => switchTab('players'));
@@ -5438,6 +5465,9 @@ document.getElementById('shortcut-return-all-to-default-spawn')?.addEventListene
 });
 document.getElementById('shortcut-compensate-combat-exp-2026-04-09')?.addEventListener('click', () => {
   compensateAllPlayersCombatExp().catch(() => {});
+});
+document.getElementById('shortcut-compensate-foundation-2026-04-09')?.addEventListener('click', () => {
+  compensateAllPlayersFoundation().catch(() => {});
 });
 shortcutWorkspaceEl.addEventListener('click', (event) => {
   const trigger = (event.target as HTMLElement).closest<HTMLElement>('[data-action]');
