@@ -128,6 +128,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   private readonly logger = new Logger(GameGateway.name);
   private readonly marketSubscriberPlayerIds = new Set<string>();
   private readonly marketListingRequests = new Map<string, C2S_RequestMarketListings>();
+  private readonly marketTradeHistoryRequests = new Map<string, number>();
 
   constructor(
     private readonly authService: AuthService,
@@ -346,6 +347,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     if (this.playerService.getSocket(playerId) !== client) return;
     this.marketSubscriberPlayerIds.delete(playerId);
     this.marketListingRequests.delete(playerId);
+    this.marketTradeHistoryRequests.delete(playerId);
 
     const player = this.playerService.getPlayer(playerId);
     if (player) {
@@ -1125,6 +1127,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   @SubscribeMessage(C2S.RequestMarketTradeHistory)
   async handleRequestMarketTradeHistory(client: Socket, data: C2S_RequestMarketTradeHistory) {
     const playerId = client.data?.playerId as string;
+    if (playerId) {
+      this.marketTradeHistoryRequests.set(playerId, data.page);
+    }
     client.emit(S2C.MarketTradeHistory, await this.marketService.buildTradeHistoryPage(playerId, data.page));
   }
 
@@ -1162,7 +1167,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     const result = await this.marketService.createSellOrder(player, data);
-    this.flushMarketResult(result);
+    await this.flushMarketResult(result);
   }
 
   @SubscribeMessage(C2S.CreateMarketBuyOrder)
@@ -1171,7 +1176,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     const result = await this.marketService.createBuyOrder(player, data);
-    this.flushMarketResult(result);
+    await this.flushMarketResult(result);
   }
 
   @SubscribeMessage(C2S.BuyMarketItem)
@@ -1180,7 +1185,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     const result = await this.marketService.buyNow(player, data);
-    this.flushMarketResult(result);
+    await this.flushMarketResult(result);
   }
 
   @SubscribeMessage(C2S.SellMarketItem)
@@ -1189,7 +1194,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     const result = await this.marketService.sellNow(player, data);
-    this.flushMarketResult(result);
+    await this.flushMarketResult(result);
   }
 
   @SubscribeMessage(C2S.CancelMarketOrder)
@@ -1198,7 +1203,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     const result = await this.marketService.cancelOrder(player, data);
-    this.flushMarketResult(result);
+    await this.flushMarketResult(result);
   }
 
   @SubscribeMessage(C2S.ClaimMarketStorage)
@@ -1207,7 +1212,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     const result = await this.marketService.claimStorage(player);
-    this.flushMarketResult(result);
+    await this.flushMarketResult(result);
   }
 
   /** 向所有在线玩家广播最新建议列表 */
@@ -1215,7 +1220,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     this.suggestionRealtimeService.broadcastSuggestions(this.suggestionService.getAll());
   }
 
-  private flushMarketResult(result: MarketActionResult): void {
+  private async flushMarketResult(result: MarketActionResult): Promise<void> {
+    const privateStatePlayerIds = new Set(result.privateStatePlayerIds);
+    const touchedItemIds = new Set(result.touchedItemIds);
+    const tradeHistoryPlayerIds = new Set(result.tradeHistoryPlayerIds);
+
     for (const playerId of result.affectedPlayerIds) {
       const player = this.playerService.getPlayer(playerId);
       if (!player) {
@@ -1231,6 +1240,45 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         kind: message.kind ?? 'system',
       } satisfies S2C_SystemMsg);
     }
+
+    for (const affectedPlayerId of privateStatePlayerIds) {
+      const player = this.playerService.getPlayer(affectedPlayerId);
+      const socket = player ? this.playerService.getSocket(affectedPlayerId) : null;
+      if (!player || !socket) {
+        continue;
+      }
+      socket.emit(S2C.MarketOrders, this.marketService.buildOrdersUpdate(player));
+      socket.emit(S2C.MarketStorage, this.marketService.buildStorageUpdate(player));
+    }
+
+    if (touchedItemIds.size > 0) {
+      for (const subscriberPlayerId of Array.from(this.marketSubscriberPlayerIds)) {
+        const player = this.playerService.getPlayer(subscriberPlayerId);
+        const socket = player ? this.playerService.getSocket(subscriberPlayerId) : null;
+        if (!player || !socket) {
+          this.marketSubscriberPlayerIds.delete(subscriberPlayerId);
+          this.marketListingRequests.delete(subscriberPlayerId);
+          this.marketTradeHistoryRequests.delete(subscriberPlayerId);
+          continue;
+        }
+        const request = this.marketListingRequests.get(subscriberPlayerId) ?? { page: 1 };
+        this.marketListingRequests.set(subscriberPlayerId, request);
+        socket.emit(S2C.MarketListings, this.marketService.buildListingsPage(request));
+      }
+    }
+
+    await Promise.all([...tradeHistoryPlayerIds].map(async (playerId) => {
+      const page = this.marketTradeHistoryRequests.get(playerId);
+      if (!page) {
+        return;
+      }
+      const socket = this.playerService.getSocket(playerId);
+      if (!socket) {
+        this.marketTradeHistoryRequests.delete(playerId);
+        return;
+      }
+      socket.emit(S2C.MarketTradeHistory, await this.marketService.buildTradeHistoryPage(playerId, page));
+    }));
   }
 
   private broadcastMarketUpdates(): void {
