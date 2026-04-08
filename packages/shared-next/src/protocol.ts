@@ -837,11 +837,22 @@ export interface GmPathfindingSnapshot {
   failureReasons: GmPathfindingFailureBucket[];
 }
 
+export interface GmTickSnapshot {
+  lastMapId: string | null;
+  lastMs: number;
+  windowElapsedSec: number;
+  windowTickCount: number;
+  windowTotalMs: number;
+  windowAvgMs: number;
+  windowBusyPercent: number;
+}
+
 /** GM 性能快照 */
 export interface GmPerformanceSnapshot {
   cpuPercent: number;
   memoryMb: number;
   tickMs: number;
+  tick: GmTickSnapshot;
   cpu: GmCpuSnapshot;
   pathfinding: GmPathfindingSnapshot;
   networkStatsStartedAt: number;

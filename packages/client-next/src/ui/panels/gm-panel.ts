@@ -35,6 +35,15 @@ function createEmptyGmState(): S2C_GmState {
       cpuPercent: 0,
       memoryMb: 0,
       tickMs: 0,
+      tick: {
+        lastMapId: null,
+        lastMs: 0,
+        windowElapsedSec: 0,
+        windowTickCount: 0,
+        windowTotalMs: 0,
+        windowAvgMs: 0,
+        windowBusyPercent: 0,
+      },
       cpu: {
         cores: 0,
         loadAvg1m: 0,
@@ -213,7 +222,7 @@ export class GmPanel {
         <div class="panel-section-title">服务端性能</div>
         <div class="panel-row"><span class="panel-label">CPU 压力</span><span class="panel-value" data-gm-perf-cpu>0%</span></div>
         <div class="panel-row"><span class="panel-label">内存占用</span><span class="panel-value" data-gm-perf-memory>0 MB</span></div>
-        <div class="panel-row"><span class="panel-label">单息耗时</span><span class="panel-value" data-gm-perf-tick>0 ms</span></div>
+        <div class="panel-row"><span class="panel-label">最近单图 tick</span><span class="panel-value" data-gm-perf-tick>0 ms</span></div>
       </div>
       <div class="panel-section">
         <div class="panel-section-title">GM 概览</div>
@@ -360,7 +369,14 @@ export class GmPanel {
     if (!this.perfCpuEl || !this.perfMemoryEl || !this.perfTickEl) return;
     this.perfCpuEl.textContent = `${Math.round(this.state.perf.cpuPercent)}%`;
     this.perfMemoryEl.textContent = `${Math.round(this.state.perf.memoryMb)} MB`;
-    this.perfTickEl.textContent = `${Math.round(this.state.perf.tickMs)} ms`;
+    const tickPerf = this.state.perf.tick ?? {
+      lastMapId: null,
+      lastMs: this.state.perf.tickMs,
+    };
+    const lastMapId = tickPerf.lastMapId;
+    this.perfTickEl.textContent = lastMapId
+      ? `${Math.round(tickPerf.lastMs)} ms · ${lastMapId}`
+      : `${Math.round(tickPerf.lastMs)} ms`;
   }
 
   private updateOverview(): void {

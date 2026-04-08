@@ -129,6 +129,7 @@ const summaryOfflineHangingEl = document.getElementById('summary-offline-hanging
 const summaryOfflineEl = document.getElementById('summary-offline') as HTMLDivElement;
 const summaryBotsEl = document.getElementById('summary-bots') as HTMLDivElement;
 const summaryTickEl = document.getElementById('summary-tick') as HTMLDivElement;
+const summaryTickWindowEl = document.getElementById('summary-tick-window') as HTMLDivElement;
 const summaryCpuEl = document.getElementById('summary-cpu') as HTMLDivElement;
 const summaryMemoryEl = document.getElementById('summary-memory') as HTMLDivElement;
 const summaryNetInEl = document.getElementById('summary-net-in') as HTMLDivElement;
@@ -155,6 +156,8 @@ const resetNetworkStatsBtn = document.getElementById('reset-network-stats') as H
 const resetCpuStatsBtn = document.getElementById('reset-cpu-stats') as HTMLButtonElement;
 const resetPathfindingStatsBtn = document.getElementById('reset-pathfinding-stats') as HTMLButtonElement;
 const cpuCurrentPercentEl = document.getElementById('cpu-current-percent') as HTMLDivElement;
+const cpuTickWindowPercentEl = document.getElementById('cpu-tick-window-percent') as HTMLDivElement;
+const cpuTickWindowNoteEl = document.getElementById('cpu-tick-window-note') as HTMLDivElement;
 const cpuProfileMetaEl = document.getElementById('cpu-profile-meta') as HTMLDivElement;
 const cpuCoreCountEl = document.getElementById('cpu-core-count') as HTMLDivElement;
 const cpuUserMsEl = document.getElementById('cpu-user-ms') as HTMLDivElement;
@@ -1444,6 +1447,18 @@ function getNetworkBucketMeta(
   elapsedSec: number,
 ): string {
   return `${formatBytes(bucket.bytes)} · ${formatPercent(bucket.bytes, totalBytes)} · ${bucket.count} 次 · 均次 ${formatAverageBytesPerEvent(bucket.bytes, bucket.count)} · 均秒 ${formatBytesPerSecond(bucket.bytes, elapsedSec)}`;
+}
+
+function getTickPerf(perf: GmStateRes['perf']) {
+  return perf.tick ?? {
+    lastMapId: null,
+    lastMs: perf.tickMs,
+    windowElapsedSec: 0,
+    windowTickCount: 0,
+    windowTotalMs: 0,
+    windowAvgMs: perf.tickMs,
+    windowBusyPercent: 0,
+  };
 }
 
 function getStatRowMarkup(key: string): string {
@@ -3737,12 +3752,16 @@ function renderSummary(data: GmStateRes): void {
   const offlineCount = humanPlayers.filter((player) => !player.meta.online && !player.meta.inWorld).length;
   const elapsedSec = Math.max(0, data.perf.networkStatsElapsedSec);
   const startedAt = data.perf.networkStatsStartedAt > 0 ? new Date(data.perf.networkStatsStartedAt) : null;
+  const tickPerf = getTickPerf(data.perf);
   summaryTotalEl.textContent = `${humanPlayers.length}`;
   summaryOnlineEl.textContent = `${onlineCount}`;
   summaryOfflineHangingEl.textContent = `${offlineHangingCount}`;
   summaryOfflineEl.textContent = `${offlineCount}`;
   summaryBotsEl.textContent = `${data.botCount}`;
-  summaryTickEl.textContent = `${Math.round(data.perf.tickMs)} ms`;
+  summaryTickEl.textContent = tickPerf.lastMapId
+    ? `${Math.round(tickPerf.lastMs)} ms · ${tickPerf.lastMapId}`
+    : `${Math.round(tickPerf.lastMs)} ms`;
+  summaryTickWindowEl.textContent = `${Math.round(tickPerf.windowBusyPercent)}%`;
   summaryCpuEl.textContent = `${Math.round(data.perf.cpuPercent)}%`;
   summaryMemoryEl.textContent = `${Math.round(data.perf.memoryMb)} MB`;
   summaryNetInEl.textContent = formatBytes(data.perf.networkInBytes);
@@ -3764,6 +3783,12 @@ function renderSummary(data: GmStateRes): void {
     data.perf.networkOutBuckets.reduce((sum, bucket) => sum + bucket.count, 0),
   )} · 均秒 ${formatBytesPerSecond(data.perf.networkOutBytes, elapsedSec)}`;
   cpuCurrentPercentEl.textContent = `${Math.round(data.perf.cpuPercent)}%`;
+  cpuTickWindowPercentEl.textContent = `${Math.round(tickPerf.windowBusyPercent)}%`;
+  cpuTickWindowNoteEl.textContent = tickPerf.windowTickCount > 0
+    ? `${tickPerf.windowTickCount} 次 tick · 总计 ${Math.round(tickPerf.windowTotalMs)} ms · 均次 ${tickPerf.windowAvgMs.toFixed(1)} ms`
+    : tickPerf.windowBusyPercent > 0
+      ? `兼容口径估算 · 最近 tick 约 ${tickPerf.windowAvgMs.toFixed(1)} ms`
+      : '最近采样窗口内暂无 tick 记录';
   cpuProfileMetaEl.textContent = data.perf.cpu.profileStartedAt > 0
     ? `CPU 画像起点：${new Date(data.perf.cpu.profileStartedAt).toLocaleString()} · 已累计 ${formatDurationSeconds(data.perf.cpu.profileElapsedSec)}`
     : 'CPU 画像尚未开始。';

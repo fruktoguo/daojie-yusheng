@@ -531,7 +531,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         this.tick(mapId, start);
       }
       const elapsed = Date.now() - start;
-      this.performanceService.recordTick(elapsed);
+      this.performanceService.recordTick(mapId, elapsed);
       const effectiveInterval = this.getEffectiveInterval(mapId);
       const nextDelay = Math.max(0, effectiveInterval - elapsed);
       this.scheduleNextTick(mapId, nextDelay);

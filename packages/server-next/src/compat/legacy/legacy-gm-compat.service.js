@@ -164,10 +164,20 @@ let LegacyGmCompatService = LegacyGmCompatService_1 = class LegacyGmCompatServic
         const processUptimeSec = process.uptime();
         const now = Date.now();
         const sharedGmStatePerf = this.buildSharedGmStatePerf();
+        const tickAvgMs = summary.tickPerf?.totalMs?.avg60 ?? summary.lastTickDurationMs;
         return {
             cpuPercent: 0,
             memoryMb: bytesToMb(memoryUsage.rss),
             tickMs: summary.lastTickDurationMs,
+            tick: {
+                lastMapId: null,
+                lastMs: summary.lastTickDurationMs,
+                windowElapsedSec: 0,
+                windowTickCount: 0,
+                windowTotalMs: 0,
+                windowAvgMs: tickAvgMs,
+                windowBusyPercent: roundMetric(Math.max(0, Math.min(100, (tickAvgMs / 1000) * 100))),
+            },
             cpu: {
                 cores: os.cpus().length,
                 loadAvg1m: roundMetric(loadAvg[0] ?? 0),

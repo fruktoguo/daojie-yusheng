@@ -32,7 +32,15 @@ const DATABASE_ENTITIES = [
   RedeemCodeEntity,
 ];
 
-const PRESYNC_MARKET_BIGINT_COLUMNS = [
+const PRESYNC_BIGINT_COLUMNS = [
+  { table: 'users', column: 'totalOnlineSeconds' },
+  { table: 'players', column: 'foundation' },
+  { table: 'players', column: 'combatExp' },
+  { table: 'players', column: 'playerKillCount' },
+  { table: 'players', column: 'monsterKillCount' },
+  { table: 'players', column: 'eliteMonsterKillCount' },
+  { table: 'players', column: 'bossMonsterKillCount' },
+  { table: 'players', column: 'deathCount' },
   { table: 'market_orders', column: 'unitPrice' },
   { table: 'market_trade_history', column: 'unitPrice' },
 ] as const;
@@ -134,7 +142,7 @@ async function applyPreSynchronizeCompatibilityFixes(connectionOptions: PgBootst
   const client = new PgClient(connectionOptions);
   await client.connect();
   try {
-    for (const entry of PRESYNC_MARKET_BIGINT_COLUMNS) {
+    for (const entry of PRESYNC_BIGINT_COLUMNS) {
       const row = await client.query<{
         data_type: string;
       }>(

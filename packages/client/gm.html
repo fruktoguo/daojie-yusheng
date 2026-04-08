@@ -1475,7 +1475,8 @@
           </div>
           <div class="summary-grid">
             <div class="summary-card"><div class="panel-title">机器人</div><div id="summary-bots" class="panel-value">0</div></div>
-            <div class="summary-card"><div class="panel-title">单息耗时</div><div id="summary-tick" class="panel-value">0 ms</div></div>
+            <div class="summary-card"><div class="panel-title">最近单图 tick</div><div id="summary-tick" class="panel-value">0 ms</div></div>
+            <div class="summary-card"><div class="panel-title">tick 占窗</div><div id="summary-tick-window" class="panel-value">0%</div></div>
             <div class="summary-card"><div class="panel-title">CPU 压力</div><div id="summary-cpu" class="panel-value">0%</div></div>
             <div class="summary-card"><div class="panel-title">内存占用</div><div id="summary-memory" class="panel-value">0 MB</div></div>
           </div>
@@ -1573,7 +1574,8 @@
           </div>
           <div id="cpu-profile-meta" class="note-card">CPU 画像尚未开始。</div>
           <div class="stats-grid">
-            <div class="stats-card"><div class="stats-card-label">当前 CPU 压力</div><div id="cpu-current-percent" class="stats-card-value">0%</div><div class="stats-card-note">基于最近一次采样窗口</div></div>
+            <div class="stats-card"><div class="stats-card-label">当前 CPU 压力</div><div id="cpu-current-percent" class="stats-card-value">0%</div><div class="stats-card-note">全进程最近一次采样窗口</div></div>
+            <div class="stats-card"><div class="stats-card-label">tick 占窗</div><div id="cpu-tick-window-percent" class="stats-card-value">0%</div><div id="cpu-tick-window-note" class="stats-card-note">最近采样窗口内全部地图 tick 累计墙钟</div></div>
             <div class="stats-card"><div class="stats-card-label">逻辑核心数</div><div id="cpu-core-count" class="stats-card-value">0</div><div class="stats-card-note">Node 进程可见 CPU 核心</div></div>
             <div class="stats-card"><div class="stats-card-label">用户态 CPU 时间</div><div id="cpu-user-ms" class="stats-card-value">0 ms</div><div class="stats-card-note">进程累计 user CPU</div></div>
             <div class="stats-card"><div class="stats-card-label">内核态 CPU 时间</div><div id="cpu-system-ms" class="stats-card-value">0 ms</div><div class="stats-card-note">进程累计 system CPU</div></div>
