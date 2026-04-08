@@ -10,6 +10,7 @@ import type {
 
 export const ALCHEMY_MAX_PRESET_COUNT = 24;
 export const ALCHEMY_PREPARATION_TICKS = 10;
+export const ALCHEMY_FURNACE_OUTPUT_COUNT = 6;
 const DEFAULT_ALCHEMY_SKILL_EXP_TO_NEXT = 60;
 
 function clampUnitRate(value: number): number {
@@ -22,6 +23,19 @@ function normalizeAlchemyLevel(value: number | undefined): number {
 
 export function normalizeAlchemyQuantity(value: number | undefined): number {
   return Math.max(1, Math.floor(Number(value) || 1));
+}
+
+export function computeAlchemyBatchOutputCount(outputCount: number | undefined): number {
+  return computeAlchemyBatchOutputCountWithSize(outputCount, ALCHEMY_FURNACE_OUTPUT_COUNT);
+}
+
+export function computeAlchemyBatchOutputCountWithSize(
+  outputCount: number | undefined,
+  furnaceOutputCount: number | undefined,
+): number {
+  const normalizedOutputCount = Math.max(1, Math.floor(Number(outputCount) || 1));
+  const normalizedFurnaceOutputCount = Math.max(1, Math.floor(Number(furnaceOutputCount) || ALCHEMY_FURNACE_OUTPUT_COUNT));
+  return normalizedOutputCount * normalizedFurnaceOutputCount;
 }
 
 export function getAlchemySpiritStoneCost(
@@ -187,13 +201,15 @@ export function computeAlchemyBrewTicks(
   baseBrewTicks: number,
   recipe: Pick<AlchemyRecipeCatalogEntry, 'fullPower' | 'ingredients'>,
   submitted: readonly AlchemyIngredientSelection[] | undefined,
+  furnaceOutputCount = ALCHEMY_FURNACE_OUTPUT_COUNT,
 ): number {
   const normalizedBase = Math.max(1, Math.floor(Number(baseBrewTicks) || 1));
+  const normalizedFurnaceOutputCount = Math.max(1, Math.floor(Number(furnaceOutputCount) || ALCHEMY_FURNACE_OUTPUT_COUNT));
   if (isExactAlchemyRecipe(recipe, submitted)) {
-    return normalizedBase;
+    return normalizedBase * normalizedFurnaceOutputCount;
   }
   const ratio = computeAlchemyPowerRatio(recipe, submitted);
-  return Math.max(1, Math.ceil(normalizedBase * Math.max(0, ratio)));
+  return Math.max(1, Math.ceil(normalizedBase * Math.max(0, ratio))) * normalizedFurnaceOutputCount;
 }
 
 export function computeAlchemySpeedMultiplier(
@@ -227,8 +243,9 @@ export function computeAlchemyAdjustedBrewTicks(
   recipeLevel: number | undefined,
   alchemyLevel: number | undefined,
   furnaceSpeedRate = 0,
+  furnaceOutputCount = ALCHEMY_FURNACE_OUTPUT_COUNT,
 ): number {
-  const baseTicks = computeAlchemyBrewTicks(baseBrewTicks, recipe, submitted);
+  const baseTicks = computeAlchemyBrewTicks(baseBrewTicks, recipe, submitted, furnaceOutputCount);
   const speedMultiplier = computeAlchemySpeedMultiplier(recipeLevel, alchemyLevel, furnaceSpeedRate);
   return Math.max(1, Math.ceil(baseTicks / speedMultiplier));
 }

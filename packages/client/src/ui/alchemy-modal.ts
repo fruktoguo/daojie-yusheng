@@ -1,4 +1,5 @@
 import {
+  ALCHEMY_FURNACE_OUTPUT_COUNT,
   ALCHEMY_PREPARATION_TICKS,
   AlchemyIngredientSelection,
   AlchemyRecipeCatalogEntry,
@@ -11,6 +12,7 @@ import {
   S2C_AlchemyPanel,
   SyncedAlchemyPanelState,
   buildAlchemyIngredientCountMap,
+  computeAlchemyBatchOutputCountWithSize,
   computeAlchemyAdjustedBrewTicks,
   computeAlchemyAdjustedSuccessRate,
   computeAlchemyPowerRatio,
@@ -394,11 +396,11 @@ export class AlchemyModal {
     }
     const successNode = jobHost.querySelector<HTMLElement>('[data-alchemy-job-success="true"]');
     if (successNode && job) {
-      successNode.textContent = `已成 ${job.successCount}`;
+      successNode.textContent = `成丹 ${job.successCount}`;
     }
     const failureNode = jobHost.querySelector<HTMLElement>('[data-alchemy-job-failure="true"]');
     if (failureNode && job) {
-      failureNode.textContent = `已败 ${job.failureCount}`;
+      failureNode.textContent = `散尽 ${job.failureCount}`;
     }
     const spiritStoneNode = jobHost.querySelector<HTMLElement>('[data-alchemy-job-spirit-stone="true"]');
     if (spiritStoneNode && job) {
@@ -576,10 +578,11 @@ export class AlchemyModal {
           <div class="alchemy-job-metrics">
             <span class="alchemy-metric-chip alchemy-job-phase-chip ${phaseChipClass}" data-alchemy-job-phase-chip="true">${escapeHtml(this.getAlchemyJobPhaseLabel(job))}</span>
             <span class="alchemy-metric-chip">数量 ${escapeHtml(String(job.quantity))} 炉</span>
+            <span class="alchemy-metric-chip">一炉 ${escapeHtml(String(job.outputCount))} 枚</span>
             <span class="alchemy-metric-chip" data-alchemy-job-spirit-stone="true">灵石 ${escapeHtml(String(job.spiritStoneCost))}</span>
-            <span class="alchemy-metric-chip" data-alchemy-job-success="true">已成 ${escapeHtml(String(job.successCount))}</span>
-            <span class="alchemy-metric-chip" data-alchemy-job-failure="true">已败 ${escapeHtml(String(job.failureCount))}</span>
-            <span class="alchemy-metric-chip">成丹率 ${escapeHtml(formatPercent(job.successRate))}</span>
+            <span class="alchemy-metric-chip" data-alchemy-job-success="true">成丹 ${escapeHtml(String(job.successCount))}</span>
+            <span class="alchemy-metric-chip" data-alchemy-job-failure="true">散尽 ${escapeHtml(String(job.failureCount))}</span>
+            <span class="alchemy-metric-chip">单枚成丹率 ${escapeHtml(formatPercent(job.successRate))}</span>
             <span class="alchemy-metric-chip">${job.exactRecipe ? '完整丹方' : '简易丹方'}</span>
           </div>
         </div>
@@ -755,6 +758,7 @@ export class AlchemyModal {
       recipe.outputLevel,
       this.getAlchemySkillLevel(),
       this.getFurnaceBonuses().speedRate,
+      this.getBatchOutputSize(recipe),
     );
     const startDisabled = maxQuantity <= 0 ? 'disabled' : '';
     const buttonsHtml = mode === 'full'
@@ -769,7 +773,7 @@ export class AlchemyModal {
         ${options?.selectedPresetId ? `<button class="small-btn danger" type="button" data-action="delete-preset" data-preset-id="${escapeHtml(options.selectedPresetId)}">删除已选</button>` : ''}
       `;
     const availabilityNote = maxQuantity > 0
-      ? `点击炼制后选择数量，当前最多可炼 ${maxQuantity} 炉，起炉 ${ALCHEMY_PREPARATION_TICKS} 息后自动开炼。`
+      ? `点击炼制后选择数量，当前最多可炼 ${maxQuantity} 炉；每炉固定 ${this.getBatchOutputCount(recipe)} 枚，起炉 ${ALCHEMY_PREPARATION_TICKS} 息后自动开炼。`
       : '材料或灵石不足，当前无法开炉。';
     return `
       <div class="alchemy-actions" data-alchemy-actions="true" data-tab-mode="${mode}">
@@ -778,7 +782,7 @@ export class AlchemyModal {
         </div>
         <div class="alchemy-action-note" data-alchemy-action-note="true">${escapeHtml(availabilityNote)}</div>
         ${options?.exactRecipe ? '<span class="alchemy-inline-note">当前投料已等同完整丹方。</span>' : ''}
-        <span class="alchemy-inline-note">单炉需灵石 ${escapeHtml(String(spiritStoneCost))} 枚，单炉耗时 ${escapeHtml(String(batchBrewTicks))} 息。</span>
+        <span class="alchemy-inline-note">单炉固定 ${escapeHtml(String(this.getBatchOutputCount(recipe)))} 枚，每枚独立判定；单炉需灵石 ${escapeHtml(String(spiritStoneCost))} 枚，单炉耗时 ${escapeHtml(String(batchBrewTicks))} 息。</span>
       </div>
     `;
   }
@@ -796,8 +800,8 @@ export class AlchemyModal {
         </div>
         <div class="alchemy-summary-metrics">
           ${this.renderMetricCard('power', '药力百分比', metrics.powerText)}
-          ${this.renderMetricCard('success', '成丹率', metrics.successText)}
-          ${this.renderMetricCard('time', '炼丹时间', metrics.brewTimeText)}
+          ${this.renderMetricCard('success', '单枚成丹率', metrics.successText)}
+          ${this.renderMetricCard('time', '单炉时间', metrics.brewTimeText)}
         </div>
       </div>
     `;
@@ -831,6 +835,7 @@ export class AlchemyModal {
       recipe.outputLevel,
       alchemyLevel,
       furnaceBonuses.speedRate,
+      this.getBatchOutputSize(recipe),
     );
     return {
       powerText: formatPercent(powerRatio),
@@ -1158,7 +1163,7 @@ export class AlchemyModal {
 
   private buildRecipeMetaText(recipe: AlchemyRecipeCatalogEntry): string {
     const simpleCount = this.getRecipePresets(recipe.recipeId).length;
-    return `药力 ${recipe.fullPower} · 基时 ${recipe.baseBrewTicks} 息 · 简方 ${simpleCount}`;
+    return `一炉 ${this.getBatchOutputCount(recipe)} 枚 · 基时 ${recipe.baseBrewTicks * this.getBatchOutputSize(recipe)} 息 · 简方 ${simpleCount}`;
   }
 
   private getSpiritStoneOwnedCount(): number {
@@ -1167,6 +1172,14 @@ export class AlchemyModal {
 
   private getAlchemySpiritStoneCost(recipe: AlchemyRecipeCatalogEntry, quantity: number): number {
     return getAlchemySpiritStoneCost(recipe.outputLevel, this.resolveRecipeCategory(recipe) === 'cultivation') * normalizeAlchemyQuantity(quantity);
+  }
+
+  private getBatchOutputCount(recipe: AlchemyRecipeCatalogEntry): number {
+    return computeAlchemyBatchOutputCountWithSize(recipe.outputCount, this.getBatchOutputSize(recipe));
+  }
+
+  private getBatchOutputSize(recipe: AlchemyRecipeCatalogEntry): number {
+    return this.resolveRecipeCategory(recipe) === 'cultivation' ? 1 : ALCHEMY_FURNACE_OUTPUT_COUNT;
   }
 
   private getMaxCraftQuantity(
@@ -1247,6 +1260,7 @@ export class AlchemyModal {
       recipe.outputLevel,
       this.getAlchemySkillLevel(),
       this.getFurnaceBonuses().speedRate,
+      this.getBatchOutputSize(recipe),
     );
     const totalTicks = quantity === null
       ? null
@@ -1293,7 +1307,7 @@ export class AlchemyModal {
             <span>丹药</span>
             <div class="market-price-display">
               <strong>${escapeHtml(recipe.outputName)}</strong>
-              <span>${mode === 'full' ? '完整丹方' : '简易丹方'}</span>
+              <span>${mode === 'full' ? '完整丹方' : '简易丹方'} · 一炉 ${this.getBatchOutputCount(recipe)} 枚</span>
             </div>
           </div>
         </div>
@@ -1344,7 +1358,7 @@ export class AlchemyModal {
             <strong data-alchemy-confirm-total-ticks="true">${state.totalTicks === null ? '--' : state.totalTicks} 息</strong>
           </div>
         </div>
-        <div class="market-action-hint" data-alchemy-confirm-hint="true">当前最多可炼 ${escapeHtml(String(state.maxQuantity))} 炉，确认后会先准备 ${ALCHEMY_PREPARATION_TICKS} 息；移动或出手都会打断炼丹。</div>
+        <div class="market-action-hint" data-alchemy-confirm-hint="true">当前最多可炼 ${escapeHtml(String(state.maxQuantity))} 炉；每炉固定 ${escapeHtml(String(this.getBatchOutputCount(recipe)))} 枚并按单枚独立判定，确认后会先准备 ${ALCHEMY_PREPARATION_TICKS} 息；移动或出手都会打断炼丹。</div>
         <div class="market-action-hint market-action-hint--error" data-alchemy-confirm-error="true" ${state.errorText ? '' : 'hidden'}>${escapeHtml(state.errorText ?? '')}</div>
       </div>
     `;
@@ -1417,7 +1431,7 @@ export class AlchemyModal {
       totalTicksNode.parentElement?.classList.toggle('error', Boolean(state.errorText));
     }
     if (hintNode) {
-      hintNode.textContent = `当前最多可炼 ${state.maxQuantity} 炉，确认后会先准备 ${ALCHEMY_PREPARATION_TICKS} 息；移动或出手都会打断炼丹。`;
+      hintNode.textContent = `当前最多可炼 ${state.maxQuantity} 炉；每炉固定 ${this.getBatchOutputCount(recipe)} 枚并按单枚独立判定，确认后会先准备 ${ALCHEMY_PREPARATION_TICKS} 息；移动或出手都会打断炼丹。`;
     }
     if (maxButton) {
       maxButton.dataset.alchemyConfirmQuickQty = String(Math.max(1, state.maxQuantity));
@@ -1526,6 +1540,7 @@ export class AlchemyModal {
     return [
       job.recipeId,
       job.phase,
+      job.outputCount,
       job.quantity,
       job.completedCount,
       job.successCount,

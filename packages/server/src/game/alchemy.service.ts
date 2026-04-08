@@ -22,6 +22,7 @@ import {
   computeAlchemyAdjustedSuccessRate,
   computeAlchemyTotalJobTicks,
   buildAlchemyIngredientCountMap,
+  computeAlchemyBatchOutputCountWithSize,
   computeAlchemyMaterialPower,
   computeAlchemySuccessRate,
   getAlchemySpiritStoneCost,
@@ -67,7 +68,8 @@ interface AlchemyBatchResolution {
   inventoryChanged: boolean;
   dirtyPlayers: string[];
   messages: AlchemyResultMessage[];
-  success: boolean;
+  successCount: number;
+  failureCount: number;
 }
 
 interface AlchemyGrantResolution {
@@ -305,6 +307,7 @@ export class AlchemyService implements OnModuleInit {
       recipe.outputLevel,
       alchemySkill.level,
       furnaceBonuses.speedRate,
+      this.getRecipeBatchOutputSize(recipe),
     );
     const totalTicks = computeAlchemyTotalJobTicks(batchBrewTicks, quantity, ALCHEMY_PREPARATION_TICKS);
     const exactRecipe = isExactAlchemyRecipe(recipe, normalizedSelection.ingredients);
@@ -314,10 +317,14 @@ export class AlchemyService implements OnModuleInit {
       alchemySkill.level,
       furnaceBonuses.successRate,
     );
+    const batchOutputCount = computeAlchemyBatchOutputCountWithSize(
+      recipe.outputCount,
+      this.getRecipeBatchOutputSize(recipe),
+    );
     player.alchemyJob = {
       recipeId: recipe.recipeId,
       outputItemId: recipe.outputItemId,
-      outputCount: recipe.outputCount * quantity,
+      outputCount: batchOutputCount,
       quantity,
       completedCount: 0,
       successCount: 0,
@@ -338,7 +345,7 @@ export class AlchemyService implements OnModuleInit {
 
     return {
       messages: [{
-        text: `开始准备炼制 ${recipe.outputName}${quantity > 1 ? ` x${quantity}` : ''}${spiritStoneCost > 0 ? `，消耗 ${spiritStoneName} x${spiritStoneCost}` : ''}；${ALCHEMY_PREPARATION_TICKS} 息后自动开炼，总计 ${totalTicks} 息，单炉成丹率 ${(successRate * 100).toFixed(successRate === 1 ? 0 : 1)}%。`,
+        text: `开始准备炼制 ${recipe.outputName}${quantity > 1 ? `，共 ${quantity} 炉` : ''}${spiritStoneCost > 0 ? `，消耗 ${spiritStoneName} x${spiritStoneCost}` : ''}；${ALCHEMY_PREPARATION_TICKS} 息后自动开炼，总计 ${totalTicks} 息。单炉固定 ${batchOutputCount} 枚，每枚成丹率 ${(successRate * 100).toFixed(successRate === 1 ? 0 : 1)}%。`,
         kind: 'quest',
       }],
       panelChanged: true,
@@ -505,25 +512,23 @@ export class AlchemyService implements OnModuleInit {
     const currentBatch = Math.min(job.quantity, Math.max(1, job.completedCount + 1));
     const batchResolution = this.resolveAlchemyBatch(player, job, recipe, currentBatch);
     job.completedCount += 1;
-    if (batchResolution.success) {
-      job.successCount += 1;
-    } else {
-      job.failureCount += 1;
-    }
+    job.successCount += batchResolution.successCount;
+    job.failureCount += batchResolution.failureCount;
 
     const skillMessages = this.grantAlchemySkillExp(
       player,
       recipe.outputLevel,
       recipe.baseBrewTicks,
-      batchResolution.success ? 1 : 0,
-      batchResolution.success ? 0 : 1,
+      batchResolution.successCount,
+      batchResolution.failureCount,
     );
     const messages = [...batchResolution.messages, ...skillMessages];
     const finished = job.completedCount >= job.quantity;
     if (finished) {
+      const totalOutputCount = job.quantity * Math.max(1, job.outputCount);
       const summary = job.failureCount <= 0
-        ? `${recipe.outputName} 共 ${job.quantity} 炉已全部炼成。`
-        : `${recipe.outputName} 共 ${job.quantity} 炉炼制完成，成功 ${job.successCount} 炉，失败 ${job.failureCount} 炉。`;
+        ? `${recipe.outputName} 共 ${job.quantity} 炉已全部炼成，累计成丹 ${job.successCount} 枚。`
+        : `${recipe.outputName} 共 ${job.quantity} 炉炼制完成，成丹 ${job.successCount}/${totalOutputCount} 枚，散尽 ${job.failureCount} 枚。`;
       player.alchemyJob = null;
       return {
         messages: [...messages, { text: summary, kind: 'quest' }],
@@ -583,7 +588,10 @@ export class AlchemyService implements OnModuleInit {
     player.alchemyJob = {
       ...job,
       outputItemId: recipe.outputItemId,
-      outputCount: Math.max(recipe.outputCount, Math.floor(Number(job.outputCount) || recipe.outputCount)),
+      outputCount: computeAlchemyBatchOutputCountWithSize(
+        recipe.outputCount,
+        this.getRecipeBatchOutputSize(recipe),
+      ),
       quantity: normalizeAlchemyQuantity(job.quantity),
       completedCount: Math.max(0, Math.min(
         normalizeAlchemyQuantity(job.quantity),
@@ -614,13 +622,14 @@ export class AlchemyService implements OnModuleInit {
       exactRecipe: job.exactRecipe === true,
       startedAt: Math.max(0, Math.floor(Number(job.startedAt) || 0)),
     } satisfies PlayerAlchemyJob;
-    player.alchemyJob.successCount = Math.min(player.alchemyJob.completedCount, player.alchemyJob.successCount);
+    const resolvedCountCap = player.alchemyJob.completedCount * player.alchemyJob.outputCount;
+    player.alchemyJob.successCount = Math.min(resolvedCountCap, player.alchemyJob.successCount);
     player.alchemyJob.failureCount = Math.min(
-      player.alchemyJob.completedCount,
+      resolvedCountCap,
       Math.max(0, player.alchemyJob.failureCount),
     );
-    if ((player.alchemyJob.successCount + player.alchemyJob.failureCount) > player.alchemyJob.completedCount) {
-      player.alchemyJob.failureCount = Math.max(0, player.alchemyJob.completedCount - player.alchemyJob.successCount);
+    if ((player.alchemyJob.successCount + player.alchemyJob.failureCount) > resolvedCountCap) {
+      player.alchemyJob.failureCount = Math.max(0, resolvedCountCap - player.alchemyJob.successCount);
     }
     if (player.alchemyJob.phase !== 'paused') {
       player.alchemyJob.pausedTicks = 0;
@@ -679,6 +688,10 @@ export class AlchemyService implements OnModuleInit {
     return getAlchemySpiritStoneCost(recipe.outputLevel, this.recipeConsumesSpiritStone(recipe)) * quantity;
   }
 
+  private getRecipeBatchOutputSize(recipe: AlchemyRecipeCatalogEntry): number {
+    return this.recipeConsumesSpiritStone(recipe) ? 1 : 6;
+  }
+
   private grantAlchemyRefundItem(player: PlayerState, itemId: string, count: number): AlchemyGrantResolution {
     if (count <= 0) {
       return { inventoryChanged: false, dirtyPlayers: [], droppedToGround: false };
@@ -700,23 +713,32 @@ export class AlchemyService implements OnModuleInit {
     recipe: AlchemyRecipeCatalogEntry,
     currentBatch: number,
   ): AlchemyBatchResolution {
-    const success = Math.random() <= job.successRate;
-    if (!success) {
+    const batchOutputCount = Math.max(1, job.outputCount);
+    let successCount = 0;
+    for (let index = 0; index < batchOutputCount; index += 1) {
+      if (Math.random() <= job.successRate) {
+        successCount += 1;
+      }
+    }
+    const failureCount = Math.max(0, batchOutputCount - successCount);
+    if (successCount <= 0) {
       return {
-        success: false,
+        successCount: 0,
+        failureCount,
         inventoryChanged: false,
         dirtyPlayers: [],
         messages: [{
-          text: `${recipe.outputName} 第 ${currentBatch}/${job.quantity} 炉炼制失败，药力散尽。`,
+          text: `${recipe.outputName} 第 ${currentBatch}/${job.quantity} 炉炼制失败，${failureCount} 枚药坯尽数散尽。`,
           kind: 'system',
         }],
       };
     }
 
-    const reward = this.contentService.createItem(job.outputItemId, recipe.outputCount);
+    const reward = this.contentService.createItem(job.outputItemId, successCount);
     if (!reward) {
       return {
-        success: false,
+        successCount: 0,
+        failureCount: batchOutputCount,
         inventoryChanged: false,
         dirtyPlayers: [],
         messages: [{
@@ -726,24 +748,32 @@ export class AlchemyService implements OnModuleInit {
       };
     }
     if (this.inventoryService.addItem(player, reward)) {
+      const resultText = failureCount > 0
+        ? `${recipe.outputName} 第 ${currentBatch}/${job.quantity} 炉炼制完成，成丹 ${reward.count}/${batchOutputCount} 枚，其余 ${failureCount} 枚药力散尽。`
+        : `${recipe.outputName} 第 ${currentBatch}/${job.quantity} 炉炼制成功，成丹 ${reward.count} 枚，已收入背包。`;
       return {
-        success: true,
+        successCount: reward.count,
+        failureCount,
         inventoryChanged: true,
         dirtyPlayers: [],
         messages: [{
-          text: `${recipe.outputName} 第 ${currentBatch}/${job.quantity} 炉炼制成功，成丹 ${reward.count} 枚，已收入背包。`,
+          text: resultText,
           kind: 'quest',
         }],
       };
     }
 
     const dirtyPlayers = this.lootService.dropToGround(player.mapId, player.x, player.y, reward);
+    const resultText = failureCount > 0
+      ? `${recipe.outputName} 第 ${currentBatch}/${job.quantity} 炉炼制完成，成丹 ${reward.count}/${batchOutputCount} 枚，但背包已满，成丹落在你脚边；其余 ${failureCount} 枚药力散尽。`
+      : `${recipe.outputName} 第 ${currentBatch}/${job.quantity} 炉炼制成功，但背包已满，成丹 ${reward.count} 枚落在你脚边。`;
     return {
-      success: true,
+      successCount: reward.count,
+      failureCount,
       inventoryChanged: false,
       dirtyPlayers,
       messages: [{
-        text: `${recipe.outputName} 第 ${currentBatch}/${job.quantity} 炉炼制成功，但背包已满，成丹落在你脚边。`,
+        text: resultText,
         kind: 'loot',
       }],
     };
