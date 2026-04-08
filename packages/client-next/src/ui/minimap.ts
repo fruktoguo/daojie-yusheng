@@ -778,10 +778,6 @@ export class Minimap {
 
     button.appendChild(head);
 
-    const desc = document.createElement('div');
-    desc.className = 'map-minimap-modal-item-desc';
-    button.appendChild(desc);
-
     return button;
   }
 
@@ -791,21 +787,14 @@ export class Minimap {
       nameNode.textContent = entry.mapMeta?.name ?? '无名地域';
     }
 
-    const descNode = node.querySelector<HTMLElement>('.map-minimap-modal-item-desc');
-    if (descNode) {
-      descNode.textContent = this.getCatalogDescription(entry);
-    }
-
     const badgesNode = node.querySelector<HTMLElement>('.map-minimap-modal-item-badges');
     if (badgesNode) {
-      while (badgesNode.firstChild) {
-        badgesNode.removeChild(badgesNode.firstChild);
+      badgesNode.replaceChildren();
+      if (entry.hasMemory) {
+        badgesNode.appendChild(this.buildCatalogBadge('memory', '忆'));
       }
       if (entry.hasUnlock) {
         badgesNode.appendChild(this.buildCatalogBadge('unlock', '图'));
-      }
-      if (entry.hasMemory) {
-        badgesNode.appendChild(this.buildCatalogBadge('memory', '记'));
       }
     }
 

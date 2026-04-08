@@ -419,8 +419,8 @@
     }
     .map-minimap-modal-sidebar {
       min-width: 0;
-      display: flex;
-      flex-direction: column;
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
       gap: 10px;
       min-height: 0;
       overflow: hidden;
@@ -450,16 +450,15 @@
       border-color: rgba(245, 227, 185, 0.32);
     }
     .map-minimap-modal-list {
-      flex: 1 1 auto;
       min-height: 0;
-      max-height: 100%;
       overflow-y: auto;
       overflow-x: hidden;
       overscroll-behavior: contain;
       display: grid;
       align-content: start;
-      gap: 8px;
-      padding-right: 2px;
+      gap: 6px;
+      padding-right: 4px;
+      padding-bottom: 4px;
       scrollbar-gutter: stable;
     }
     .map-minimap-modal-empty {
@@ -471,14 +470,14 @@
     }
     .map-minimap-modal-item {
       width: 100%;
-      padding: 10px 10px 9px;
+      padding: 8px 10px;
       border: 1px solid rgba(235, 220, 184, 0.16);
       background: rgba(255, 255, 255, 0.03);
       color: rgba(245, 235, 216, 0.9);
       text-align: left;
       cursor: pointer;
       transition: border-color 0.2s, background 0.2s, transform 0.2s;
-      overflow: hidden;
+      overflow: visible;
     }
     .map-minimap-modal-item:hover {
       border-color: rgba(245, 227, 185, 0.32);
@@ -494,18 +493,22 @@
       align-items: center;
       justify-content: space-between;
       gap: 8px;
+      min-width: 0;
     }
     .map-minimap-modal-item-name {
       min-width: 0;
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
+      display: block;
       font-family: var(--font-role-body);
       font-size: var(--font-size-role-body-14);
       letter-spacing: 1px;
+      line-height: 1.35;
     }
     .map-minimap-modal-item-badges {
       display: inline-flex;
+      align-items: center;
       gap: 4px;
       flex-shrink: 0;
     }
@@ -513,12 +516,12 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 20px;
-      height: 20px;
+      width: 18px;
+      height: 18px;
       border-radius: 999px;
       font-size: var(--font-size-11);
       line-height: 1;
-      color: #0f0e0c;
+      color: rgba(17, 16, 14, 0.92);
     }
     .map-minimap-modal-badge.unlock {
       background: #f0d38a;
@@ -527,14 +530,7 @@
       background: #91c5d8;
     }
     .map-minimap-modal-item-desc {
-      margin-top: 6px;
-      font-size: var(--font-size-11);
-      line-height: 1.7;
-      color: rgba(245, 235, 216, 0.62);
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
+      display: none;
     }
     .map-minimap-modal-stage {
       position: relative;
