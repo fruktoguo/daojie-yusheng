@@ -41,6 +41,28 @@ show_verify_service_ps() {
   docker --context "$DOCKER_CONTEXT" service ps "$VERIFY_SERVICE_NAME" --no-trunc || true
 }
 
+is_valid_heartbeat_json() {
+  local raw="$1"
+  if [[ -z "$raw" ]]; then
+    return 1
+  fi
+  HEARTBEAT_JSON="$raw" node <<'NODE' >/dev/null 2>&1
+const raw = process.env.HEARTBEAT_JSON ?? '';
+try {
+  const parsed = JSON.parse(raw);
+  if (typeof parsed !== 'object' || parsed === null) {
+    process.exit(1);
+  }
+  if (typeof parsed.updatedAt !== 'string' || !parsed.updatedAt) {
+    process.exit(1);
+  }
+  process.exit(0);
+} catch {
+  process.exit(1);
+}
+NODE
+}
+
 get_current_service_task_field() {
   local target_service="$1"
   local field_index="$2"
@@ -129,12 +151,22 @@ probe_heartbeat_from_server_node_volume() {
   start_verify_service "$target_node" "$helper_image"
   local deadline=$((SECONDS + max_wait_sec))
   while (( SECONDS < deadline )); do
+    local logs
+    logs="$(docker --context "$DOCKER_CONTEXT" service logs --raw --no-task-ids "$VERIFY_SERVICE_NAME" 2>/dev/null || true)"
+    if is_valid_heartbeat_json "$logs"; then
+      VERIFY_SERVICE_LAST_STATE="$(get_current_service_task_state "$VERIFY_SERVICE_NAME" || true)"
+      VERIFY_SERVICE_LAST_LOGS="$logs"
+      return 0
+    fi
+
     local state
     state="$(get_current_service_task_state "$VERIFY_SERVICE_NAME" || true)"
     if [[ "$state" == Complete* ]]; then
       VERIFY_SERVICE_LAST_STATE="$state"
-      VERIFY_SERVICE_LAST_LOGS="$(docker --context "$DOCKER_CONTEXT" service logs --raw --no-task-ids "$VERIFY_SERVICE_NAME" 2>/dev/null || true)"
-      return 0
+      VERIFY_SERVICE_LAST_LOGS="$logs"
+      if is_valid_heartbeat_json "$VERIFY_SERVICE_LAST_LOGS"; then
+        return 0
+      fi
     fi
     if [[ "$state" == Failed* || "$state" == Rejected* || "$state" == Shutdown* ]]; then
       break
@@ -143,6 +175,9 @@ probe_heartbeat_from_server_node_volume() {
   done
   VERIFY_SERVICE_LAST_STATE="$(get_current_service_task_state "$VERIFY_SERVICE_NAME" || true)"
   VERIFY_SERVICE_LAST_LOGS="$(docker --context "$DOCKER_CONTEXT" service logs --raw --no-task-ids "$VERIFY_SERVICE_NAME" 2>/dev/null || true)"
+  if is_valid_heartbeat_json "$VERIFY_SERVICE_LAST_LOGS"; then
+    return 0
+  fi
   return 1
 }
 
