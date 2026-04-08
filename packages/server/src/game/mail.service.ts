@@ -28,7 +28,9 @@ import {
 } from '@mud/shared';
 import { MailAudienceMemberEntity } from '../database/entities/mail-audience-member.entity';
 import { MailCampaignEntity } from '../database/entities/mail-campaign.entity';
+import { PlayerEntity } from '../database/entities/player.entity';
 import { PlayerMailReceiptEntity } from '../database/entities/player-mail-receipt.entity';
+import { UserEntity } from '../database/entities/user.entity';
 import { ContentService } from './content.service';
 import { InventoryService } from './inventory.service';
 import { PlayerService } from './player.service';
@@ -616,10 +618,18 @@ export class MailService {
     return this.mailCampaignRepo.createQueryBuilder('campaign')
       .leftJoin(MailAudienceMemberEntity, 'audience', 'audience.mailId = campaign.id AND audience.playerId = :playerId', { playerId })
       .leftJoin(PlayerMailReceiptEntity, 'receipt', 'receipt.mailId = campaign.id AND receipt.playerId = :playerId', { playerId })
+      .leftJoin(PlayerEntity, 'player', 'player.id = :playerId', { playerId })
+      .leftJoin(UserEntity, 'mail_user', 'mail_user.id = player."userId"')
       .where('campaign.status = :status', { status: 'active' })
       .andWhere('(campaign.startAt IS NULL OR campaign.startAt <= :now)', { now })
       .andWhere('(campaign.expireAt IS NULL OR campaign.expireAt > :now)', { now })
       .andWhere('(campaign.scope = :globalScope OR audience.playerId IS NOT NULL)', { globalScope: 'global' })
+      .andWhere(`(
+        campaign.scope <> :globalScope
+        OR campaign.templateId IS NOT NULL
+        OR COALESCE(player.createdAt, mail_user.createdAt) IS NULL
+        OR COALESCE(player.createdAt, mail_user.createdAt) <= TO_TIMESTAMP(campaign.createdAt / 1000.0)
+      )`, { globalScope: 'global' })
       .andWhere('receipt.deletedAt IS NULL');
   }
 
