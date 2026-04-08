@@ -6,12 +6,14 @@ STACK_NAME="${STACK_NAME:-daojie-yusheng}"
 SERVER_SERVICE_NAME="${SERVER_SERVICE_NAME:-${STACK_NAME}_server}"
 SERVICE_NAME="${SERVICE_NAME:-${STACK_NAME}_backup-worker}"
 VOLUME_NAME="${VOLUME_NAME:-${STACK_NAME}_server_backup_data}"
-HELPER_IMAGE="${BACKUP_WORKER_VERIFY_HELPER_IMAGE:-alpine:3.20}"
+HELPER_IMAGE="${BACKUP_WORKER_VERIFY_HELPER_IMAGE:-}"
 SERVICE_TIMEOUT_SEC="${BACKUP_WORKER_SERVICE_TIMEOUT_SEC:-180}"
 HEARTBEAT_TIMEOUT_SEC="${BACKUP_WORKER_HEARTBEAT_TIMEOUT_SEC:-180}"
 HEARTBEAT_MAX_AGE_MS="${BACKUP_WORKER_HEARTBEAT_MAX_AGE_MS:-60000}"
 VERIFY_SERVICE_LOG_TIMEOUT_SEC="${BACKUP_WORKER_VERIFY_SERVICE_LOG_TIMEOUT_SEC:-20}"
 VERIFY_SERVICE_NAME="${STACK_NAME}-backup-worker-verify-${RANDOM:-0}-$$"
+VERIFY_SERVICE_LAST_STATE=''
+VERIFY_SERVICE_LAST_LOGS=''
 
 log() {
   printf '[verify-backup-worker] %s\n' "$*"
@@ -54,41 +56,94 @@ get_current_service_task_node() {
   get_current_service_task_field "$1" 4
 }
 
+get_running_service_task_field() {
+  local target_service="$1"
+  local field_index="$2"
+  docker --context "$DOCKER_CONTEXT" service ps "$target_service" --no-trunc --format '{{.Name}}|{{.CurrentState}}|{{.DesiredState}}|{{.Node}}' \
+    | awk -F'|' -v field_index="$field_index" '$2 ~ /^Running / { print $field_index; exit }'
+}
+
+get_running_service_task_node() {
+  get_running_service_task_field "$1" 4
+}
+
+get_preferred_running_service_task_node() {
+  local target_service="$1"
+  local current_state
+  current_state="$(get_current_service_task_state "$target_service" || true)"
+  if [[ "$current_state" == Running* ]]; then
+    get_current_service_task_node "$target_service"
+    return 0
+  fi
+  get_running_service_task_node "$target_service"
+}
+
+resolve_helper_image() {
+  if [[ -n "$HELPER_IMAGE" ]]; then
+    printf '%s\n' "$HELPER_IMAGE"
+    return 0
+  fi
+
+  docker --context "$DOCKER_CONTEXT" service inspect "$SERVICE_NAME" --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}'
+}
+
 start_verify_service() {
   local target_node="$1"
+  local helper_image="$2"
   docker --context "$DOCKER_CONTEXT" service create \
     --quiet \
     --name "$VERIFY_SERVICE_NAME" \
     --restart-condition none \
     --constraint "node.hostname==${target_node}" \
     --mount "type=volume,source=${VOLUME_NAME},target=/backup" \
-    "$HELPER_IMAGE" \
-    sh -lc 'if [ -s /backup/_meta/worker-heartbeat.json ]; then cat /backup/_meta/worker-heartbeat.json; else echo "missing-heartbeat-file" >&2; exit 2; fi' \
+    --env "HEARTBEAT_MAX_AGE_MS=${HEARTBEAT_MAX_AGE_MS}" \
+    "$helper_image" \
+    sh -lc '
+      set -eu
+      file=/backup/_meta/worker-heartbeat.json
+      if [ ! -s "$file" ]; then
+        echo "missing-heartbeat-file" >&2
+        exit 2
+      fi
+      mtime="$(stat -c %Y "$file" 2>/dev/null || stat -f %m "$file")"
+      now="$(date +%s)"
+      age_ms=$(( (now - mtime) * 1000 ))
+      if [ "$age_ms" -gt "${HEARTBEAT_MAX_AGE_MS:-60000}" ]; then
+        echo "stale-heartbeat-file:${age_ms}ms" >&2
+        exit 3
+      fi
+      cat "$file"
+    ' \
     >/dev/null
 }
 
-read_heartbeat_json_from_server_node_volume() {
+probe_heartbeat_from_server_node_volume() {
   local target_node="$1"
   local max_wait_sec="${2:-$VERIFY_SERVICE_LOG_TIMEOUT_SEC}"
+  local helper_image
+  helper_image="$(resolve_helper_image)"
+
+  VERIFY_SERVICE_LAST_STATE=''
+  VERIFY_SERVICE_LAST_LOGS=''
   cleanup
-  start_verify_service "$target_node"
+  start_verify_service "$target_node" "$helper_image"
   local deadline=$((SECONDS + max_wait_sec))
   while (( SECONDS < deadline )); do
-    local logs
-    logs="$(docker --context "$DOCKER_CONTEXT" service logs --raw --no-task-ids "$VERIFY_SERVICE_NAME" 2>/dev/null || true)"
-    if [[ -n "$logs" ]]; then
-      printf '%s\n' "$logs"
-      return 0
-    fi
-
     local state
     state="$(get_current_service_task_state "$VERIFY_SERVICE_NAME" || true)"
-    if [[ "$state" == Complete* || "$state" == Failed* || "$state" == Rejected* || "$state" == Shutdown* ]]; then
+    if [[ "$state" == Complete* ]]; then
+      VERIFY_SERVICE_LAST_STATE="$state"
+      VERIFY_SERVICE_LAST_LOGS="$(docker --context "$DOCKER_CONTEXT" service logs --raw --no-task-ids "$VERIFY_SERVICE_NAME" 2>/dev/null || true)"
+      return 0
+    fi
+    if [[ "$state" == Failed* || "$state" == Rejected* || "$state" == Shutdown* ]]; then
       break
     fi
     sleep 2
   done
-  docker --context "$DOCKER_CONTEXT" service logs --raw --no-task-ids "$VERIFY_SERVICE_NAME" 2>/dev/null || true
+  VERIFY_SERVICE_LAST_STATE="$(get_current_service_task_state "$VERIFY_SERVICE_NAME" || true)"
+  VERIFY_SERVICE_LAST_LOGS="$(docker --context "$DOCKER_CONTEXT" service logs --raw --no-task-ids "$VERIFY_SERVICE_NAME" 2>/dev/null || true)"
+  return 1
 }
 
 log "检查游戏服服务 ${SERVER_SERVICE_NAME}"
@@ -104,9 +159,8 @@ log "等待游戏服任务进入 Running"
 server_deadline=$((SECONDS + SERVICE_TIMEOUT_SEC))
 server_node=''
 while (( SECONDS < server_deadline )); do
-  current_server_state="$(get_current_service_task_state "$SERVER_SERVICE_NAME" || true)"
-  server_node="$(get_current_service_task_node "$SERVER_SERVICE_NAME" || true)"
-  if [[ "$current_server_state" == Running* && -n "$server_node" ]]; then
+  server_node="$(get_preferred_running_service_task_node "$SERVER_SERVICE_NAME" || true)"
+  if [[ -n "$server_node" ]]; then
     break
   fi
   sleep 5
@@ -125,8 +179,8 @@ log "等待 backup worker 任务进入 Running"
 service_deadline=$((SECONDS + SERVICE_TIMEOUT_SEC))
 service_running=0
 while (( SECONDS < service_deadline )); do
-  current_worker_state="$(get_current_service_task_state "$SERVICE_NAME" || true)"
-  if [[ "$current_worker_state" == Running* ]]; then
+  worker_node="$(get_preferred_running_service_task_node "$SERVICE_NAME" || true)"
+  if [[ -n "$worker_node" ]]; then
     service_running=1
     break
   fi
@@ -145,8 +199,13 @@ show_service_ps
 log "等待游戏服所在节点看到新鲜的 backup worker 心跳"
 heartbeat_deadline=$((SECONDS + HEARTBEAT_TIMEOUT_SEC))
 heartbeat_ready=0
-last_heartbeat_json=''
 while (( SECONDS < heartbeat_deadline )); do
+  server_node="$(get_preferred_running_service_task_node "$SERVER_SERVICE_NAME" || true)"
+  if [[ -z "$server_node" ]]; then
+    sleep 5
+    continue
+  fi
+
   remaining_heartbeat_sec=$((heartbeat_deadline - SECONDS))
   if (( remaining_heartbeat_sec <= 0 )); then
     break
@@ -157,53 +216,22 @@ while (( SECONDS < heartbeat_deadline )); do
     current_verify_wait_sec="$remaining_heartbeat_sec"
   fi
 
-  last_heartbeat_json="$(read_heartbeat_json_from_server_node_volume "$server_node" "$current_verify_wait_sec" || true)"
-  if [[ -n "$last_heartbeat_json" ]]; then
-    if HEARTBEAT_JSON="$last_heartbeat_json" HEARTBEAT_MAX_AGE_MS="$HEARTBEAT_MAX_AGE_MS" node <<'NODE'
-const raw = process.env.HEARTBEAT_JSON ?? '';
-const maxAgeMs = Number(process.env.HEARTBEAT_MAX_AGE_MS ?? '60000');
-
-let parsed;
-try {
-  parsed = JSON.parse(raw);
-} catch (error) {
-  console.error(`心跳文件不是合法 JSON: ${error instanceof Error ? error.message : String(error)}`);
-  process.exit(1);
-}
-
-const updatedAt = new Date(parsed.updatedAt ?? '');
-const updatedAtMs = updatedAt.getTime();
-if (!Number.isFinite(updatedAtMs)) {
-  console.error(`心跳时间非法: ${String(parsed.updatedAt ?? '')}`);
-  process.exit(1);
-}
-
-const ageMs = Date.now() - updatedAtMs;
-if (ageMs > maxAgeMs) {
-  console.error(`心跳已过期: ${parsed.updatedAt}，距今约 ${ageMs} ms`);
-  process.exit(1);
-}
-
-console.log(`backup worker 心跳正常: ${parsed.hostname ?? 'unknown'}#${parsed.workerPid ?? 'unknown'} ${parsed.updatedAt}`);
-NODE
-    then
-      heartbeat_ready=1
-      break
-    fi
+  if probe_heartbeat_from_server_node_volume "$server_node" "$current_verify_wait_sec"; then
+    heartbeat_ready=1
+    break
   fi
   sleep 5
 done
 
 if (( heartbeat_ready == 0 )); then
   log "backup worker 心跳在 ${HEARTBEAT_TIMEOUT_SEC} 秒内没有被游戏服节点识别为可用"
-  if [[ -n "$last_heartbeat_json" ]]; then
-    printf '%s\n' "$last_heartbeat_json"
+  if [[ -n "$VERIFY_SERVICE_LAST_LOGS" ]]; then
+    printf '%s\n' "$VERIFY_SERVICE_LAST_LOGS"
   else
-    log "游戏服所在节点卷中尚未发现 worker-heartbeat.json"
+    log "游戏服所在节点卷中尚未发现可用心跳输出"
   fi
-  verify_task_state="$(get_current_service_task_state "$VERIFY_SERVICE_NAME" || true)"
-  if [[ -n "$verify_task_state" ]]; then
-    log "helper 校验任务当前状态: ${verify_task_state}"
+  if [[ -n "$VERIFY_SERVICE_LAST_STATE" ]]; then
+    log "helper 校验任务当前状态: ${VERIFY_SERVICE_LAST_STATE}"
     show_verify_service_ps
   fi
   show_server_service_ps
@@ -212,4 +240,7 @@ if (( heartbeat_ready == 0 )); then
   exit 1
 fi
 
+if [[ -n "$VERIFY_SERVICE_LAST_LOGS" ]]; then
+  printf '%s\n' "$VERIFY_SERVICE_LAST_LOGS"
+fi
 log "backup worker 校验通过"
