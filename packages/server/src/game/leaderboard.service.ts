@@ -62,10 +62,6 @@ function compareName(left: LeaderboardSnapshot, right: LeaderboardSnapshot): num
   return left.playerName.localeCompare(right.playerName, 'zh-Hans-CN');
 }
 
-function getRealmBoardReserveScore(snapshot: LeaderboardSnapshot): number {
-  return snapshot.foundation + snapshot.bodyTrainingExp / 5;
-}
-
 @Injectable()
 export class LeaderboardService {
   private cachedLeaderboard: S2C_Leaderboard | null = null;
@@ -171,7 +167,7 @@ export class LeaderboardService {
       .sort((left, right) => (
         right.realmLv - left.realmLv
         || right.realmProgress - left.realmProgress
-        || getRealmBoardReserveScore(right) - getRealmBoardReserveScore(left)
+        || right.bodyTrainingLevel - left.bodyTrainingLevel
         || right.foundation - left.foundation
         || right.bodyTrainingExp - left.bodyTrainingExp
         || compareName(left, right)

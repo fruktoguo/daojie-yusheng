@@ -641,6 +641,41 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     this.ensureMapInitialized(mapId);
   }
 
+  clearPlayerMonsterExpContributionRecords(playerId: string): void {
+    if (!playerId) {
+      return;
+    }
+    let changed = false;
+
+    for (const monsters of this.monstersByMap.values()) {
+      for (const monster of monsters) {
+        if (!monster.damageContributors.has(playerId)) {
+          continue;
+        }
+        monster.damageContributors.delete(playerId);
+        changed = true;
+      }
+    }
+
+    for (const records of this.persistedMonstersByMap.values()) {
+      for (const record of records.values()) {
+        if (!record.damageContributors || !(playerId in record.damageContributors)) {
+          continue;
+        }
+        const nextDamageContributors = { ...record.damageContributors };
+        delete nextDamageContributors[playerId];
+        record.damageContributors = Object.keys(nextDamageContributors).length > 0
+          ? nextDamageContributors
+          : undefined;
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      this.monsterRuntimeDirty = true;
+    }
+  }
+
   /** 构建玩家的渲染实体数据（用于其他玩家视野中的显示） */
   buildPlayerRenderEntity(viewer: PlayerState, target: PlayerState, color: string): RenderEntity {
     const displayName = target.displayName ?? (getFirstGrapheme(target.name) || '@');
@@ -4030,7 +4065,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     const localDirty = killerDirty ?? new Set<WorldDirtyFlag>();
     this.playerService.incrementMonsterKill(killer, monster.tier);
     const expParticipants = this.resolveMonsterExpParticipants(monster, killer);
-    const topContributionRealmLv = this.resolveMonsterTopContributionRealmLv(expParticipants, killer);
+    const highestSettlementRealmLv = this.resolveMonsterHighestSettlementRealmLv(expParticipants, killer);
     const respawnTicks = this.resolveMonsterRespawnTicks(monster);
     monster.alive = false;
     monster.respawnLeft = respawnTicks;
@@ -4050,7 +4085,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       localDirty.add(flag);
     }
 
-    this.distributeMonsterKillExp(monster, killer, expParticipants, topContributionRealmLv, localDirty, messages);
+    this.distributeMonsterKillExp(monster, killer, expParticipants, highestSettlementRealmLv, localDirty, messages);
 
     for (const drop of monster.drops) {
       if (Math.random() > this.getEffectiveDropChance(killer, monster, drop)) continue;
@@ -4148,17 +4183,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }];
   }
 
-  private resolveMonsterTopContributionRealmLv(participants: MonsterExpParticipant[], killer: PlayerState): number {
-    let topParticipant = killer;
-    let topContribution = 0;
+  private resolveMonsterHighestSettlementRealmLv(participants: MonsterExpParticipant[], killer: PlayerState): number {
+    let highestRealmLv = this.getNormalizedPlayerRealmLv(killer);
     for (const participant of participants) {
-      if (participant.contribution <= topContribution) {
-        continue;
-      }
-      topContribution = participant.contribution;
-      topParticipant = participant.player;
+      highestRealmLv = Math.max(highestRealmLv, this.getNormalizedPlayerRealmLv(participant.player));
     }
-    return this.getNormalizedPlayerRealmLv(topParticipant);
+    return highestRealmLv;
   }
 
   private getNormalizedPlayerRealmLv(player: PlayerState): number {
@@ -4169,16 +4199,18 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     monster: RuntimeMonster,
     killer: PlayerState,
     participants: MonsterExpParticipant[],
-    topContributionRealmLv: number,
+    highestSettlementRealmLv: number,
     killerDirty: Set<WorldDirtyFlag>,
     messages: WorldMessage[],
   ): void {
     const totalContribution = participants.reduce((sum, participant) => sum + participant.contribution, 0);
+    const killerRealmLv = this.getNormalizedPlayerRealmLv(killer);
     for (const participantEntry of participants) {
       const participant = participantEntry.player;
       const contributionRatio = totalContribution > 0 ? participantEntry.contribution / totalContribution : 1;
       const expAdjustmentRealmLv = Math.max(
-        topContributionRealmLv,
+        highestSettlementRealmLv,
+        killerRealmLv,
         this.getNormalizedPlayerRealmLv(participant),
       );
       const combatExp = this.techniqueService.grantCombatExpFromMonsterKill(participant, {

@@ -1610,6 +1610,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         });
         return;
       }
+      this.worldService.clearPlayerMonsterExpContributionRecords(player.id);
       this.markDirty(player.id, result.dirty as DirtyFlag[]);
       for (const message of result.messages) {
         messages.push({

@@ -92,3 +92,6 @@ export const MONSTER_TIER_OVERLEVEL_EXP_REDUCTION_RATES: Record<MonsterTier, num
   variant: 0.4,
   demon_king: 0.6,
 };
+
+/** 击杀经验的等级差修正最多只按 10 级计算，避免极端越级导致收益爆炸。 */
+export const MONSTER_KILL_EXP_LEVEL_DELTA_CAP = 10;

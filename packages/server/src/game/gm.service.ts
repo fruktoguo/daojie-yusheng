@@ -700,7 +700,7 @@ export class GmService {
     if (!entity) return '目标玩家不存在';
 
     const player = this.hydrateStoredPlayer(entity);
-    player.foundation = this.normalizeNonNegativeInt(player.foundation) + amount;
+    player.foundation = this.applyCounterDelta(player.foundation, amount);
     await this.persistOfflinePlayer(entity, player);
     return null;
   }
@@ -725,7 +725,7 @@ export class GmService {
     if (!entity) return '目标玩家不存在';
 
     const player = this.hydrateStoredPlayer(entity);
-    player.combatExp = this.normalizeNonNegativeInt(player.combatExp) + amount;
+    player.combatExp = this.applyCounterDelta(player.combatExp, amount);
     await this.persistOfflinePlayer(entity, player);
     return null;
   }
@@ -1014,10 +1014,10 @@ export class GmService {
   private applyQueuedAddFoundation(playerId: string, amount: number): string | null {
     const player = this.playerService.getPlayer(playerId);
     if (!player) return '目标玩家不存在';
-    if (amount <= 0) {
+    if (amount === 0) {
       return null;
     }
-    player.foundation = this.normalizeNonNegativeInt(player.foundation) + amount;
+    player.foundation = this.applyCounterDelta(player.foundation, amount);
     this.markDirty(player.id, ['attr']);
     void this.playerService.savePlayer(player.id).catch((error: Error) => {
       this.logger.error(`GM 增加底蕴落盘失败: ${player.id} ${error.message}`);
@@ -1028,10 +1028,10 @@ export class GmService {
   private applyQueuedAddCombatExp(playerId: string, amount: number): string | null {
     const player = this.playerService.getPlayer(playerId);
     if (!player) return '目标玩家不存在';
-    if (amount <= 0) {
+    if (amount === 0) {
       return null;
     }
-    player.combatExp = this.normalizeNonNegativeInt(player.combatExp) + amount;
+    player.combatExp = this.applyCounterDelta(player.combatExp, amount);
     this.markDirty(player.id, ['attr']);
     void this.playerService.savePlayer(player.id).catch((error: Error) => {
       this.logger.error(`GM 增加战斗经验落盘失败: ${player.id} ${error.message}`);
@@ -1462,10 +1462,14 @@ export class GmService {
 
   private parseCounterDelta(value: unknown, label: string): number | string {
     const numeric = Number(value);
-    if (!Number.isFinite(numeric) || numeric < 0) {
-      return `${label}必须是非负整数`;
+    if (!Number.isFinite(numeric) || !Number.isInteger(numeric)) {
+      return `${label}必须是整数`;
     }
-    return Math.floor(numeric);
+    return numeric;
+  }
+
+  private applyCounterDelta(currentValue: unknown, amount: number): number {
+    return Math.max(0, this.normalizeNonNegativeInt(currentValue) + amount);
   }
 
   private async validateManagedPlayerRoleNameUpdate(
