@@ -1,7 +1,16 @@
 /**
  * 游戏客户端主入口 —— 初始化所有子系统、绑定网络事件、驱动渲染循环
+ * 
+ * 这个文件是整个游戏客户端的核心入口点，负责：
+ * 1. 初始化游戏UI组件（HUD、面板、对话框等）
+ * 2. 设置网络通信（Socket连接、消息处理）
+ * 3. 处理用户输入（键盘、鼠标事件）
+ * 4. 管理游戏状态（玩家数据、地图数据、实体状态）
+ * 5. 处理游戏逻辑（移动、战斗、交互）
+ * 6. 渲染游戏画面（地图、实体、特效）
  */
 
+// 导入样式文件
 import './styles/tokens.css';
 import './styles/base.css';
 import './styles/layout.css';
@@ -10,208 +19,254 @@ import './styles/overlays.css';
 import './styles/panels.css';
 import './styles/responsive.css';
 
-import { startClientVersionReload } from './version-reload';
-import { SocketManager } from './network/socket';
-import { KeyboardInput } from './input/keyboard';
-import { LoginUI } from './ui/login';
-import { HUD } from './ui/hud';
-import { ChatUI } from './ui/chat';
-import { SidePanel } from './ui/side-panel';
-import { DebugPanel } from './ui/debug-panel';
-import { AttrPanel } from './ui/panels/attr-panel';
-import { InventoryPanel } from './ui/panels/inventory-panel';
-import { EquipmentPanel } from './ui/panels/equipment-panel';
-import { TechniquePanel } from './ui/panels/technique-panel';
-import { BodyTrainingPanel } from './ui/panels/body-training-panel';
-import { QuestPanel } from './ui/panels/quest-panel';
-import { MarketPanel } from './ui/panels/market-panel';
-import { ActionPanel } from './ui/panels/action-panel';
-import { LootPanel } from './ui/panels/loot-panel';
-import { SettingsPanel } from './ui/panels/settings-panel';
-import { WorldPanel } from './ui/panels/world-panel';
-import { MailPanel } from './ui/mail-panel';
-import { SuggestionPanel } from './ui/suggestion-panel';
-import { ChangelogPanel } from './ui/changelog-panel';
-import { TutorialPanel } from './ui/tutorial-panel';
-import { LeaderboardModal } from './ui/leaderboard-modal';
-import { getMonsterPresentation } from './monster-presentation';
-import { NpcShopModal } from './ui/npc-shop-modal';
-import { getHeavenGateHudAction, openHeavenGateModal, refreshHeavenGateModal } from './ui/heaven-gate-modal';
-import { initializeUiStyleConfig } from './ui/ui-style-config';
-import { createClientPanelSystem } from './ui/panel-system/bootstrap';
-import { RESPONSIVE_VIEWPORT_CHANGE_EVENT, bindResponsiveViewportCss } from './ui/responsive-viewport';
-import { createMapRuntime } from './game-map/runtime/map-runtime';
-import { getLatestObservedEntitiesSnapshot } from './game-map/store/map-store';
-import { getEntityKindLabel, getTileTypeLabel } from './domain-labels';
-import { MAP_FALLBACK } from './constants/world/world-panel';
-import { MAP_FPS_SAMPLE_INTERVAL_MS, MAP_FPS_SAMPLE_WINDOW_SIZE } from './constants/ui/performance';
+// 导入核心功能模块
+import { startClientVersionReload } from './version-reload'; // 版本更新检测
+import { SocketManager } from './network/socket'; // 网络通信管理
+import { KeyboardInput } from './input/keyboard'; // 键盘输入处理
+
+// 导入UI组件
+import { LoginUI } from './ui/login'; // 登录界面
+import { HUD } from './ui/hud'; // 游戏主界面HUD
+import { ChatUI } from './ui/chat'; // 聊天界面
+import { SidePanel } from './ui/side-panel'; // 侧边面板容器
+import { DebugPanel } from './ui/debug-panel'; // 调试面板
+import { AttrPanel } from './ui/panels/attr-panel'; // 属性面板
+import { InventoryPanel } from './ui/panels/inventory-panel'; // 背包面板
+import { EquipmentPanel } from './ui/panels/equipment-panel'; // 装备面板
+import { TechniquePanel } from './ui/panels/technique-panel'; // 功法面板
+import { BodyTrainingPanel } from './ui/panels/body-training-panel'; // 炼体面板
+import { QuestPanel } from './ui/panels/quest-panel'; // 任务面板
+import { MarketPanel } from './ui/panels/market-panel'; // 市场面板
+import { ActionPanel } from './ui/panels/action-panel'; // 技能/动作面板
+import { LootPanel } from './ui/panels/loot-panel'; // 拾取面板
+import { SettingsPanel } from './ui/panels/settings-panel'; // 设置面板
+import { WorldPanel } from './ui/panels/world-panel'; // 世界信息面板
+import { MailPanel } from './ui/mail-panel'; // 邮件面板
+import { SuggestionPanel } from './ui/suggestion-panel'; // 建议面板
+import { ChangelogPanel } from './ui/changelog-panel'; // 更新日志面板
+import { TutorialPanel } from './ui/tutorial-panel'; // 教程面板
+import { LeaderboardModal } from './ui/leaderboard-modal'; // 排行榜弹窗
+import { getMonsterPresentation } from './monster-presentation'; // 怪物显示信息
+import { NpcShopModal } from './ui/npc-shop-modal'; // NPC商店弹窗
+import { getHeavenGateHudAction, openHeavenGateModal, refreshHeavenGateModal } from './ui/heaven-gate-modal'; // 开天门弹窗
+
+// 导入UI系统相关
+import { initializeUiStyleConfig } from './ui/ui-style-config'; // UI样式配置初始化
+import { createClientPanelSystem } from './ui/panel-system/bootstrap'; // 面板系统初始化
+import { RESPONSIVE_VIEWPORT_CHANGE_EVENT, bindResponsiveViewportCss } from './ui/responsive-viewport'; // 响应式视口处理
+
+// 导入地图相关
+import { createMapRuntime } from './game-map/runtime/map-runtime'; // 地图运行时创建
+import { getLatestObservedEntitiesSnapshot } from './game-map/store/map-store'; // 获取实体快照
+
+// 导入工具函数
+import { getEntityKindLabel, getTileTypeLabel } from './domain-labels'; // 实体和地块标签获取
+import { MAP_FALLBACK } from './constants/world/world-panel'; // 地图默认配置
+import { MAP_FPS_SAMPLE_INTERVAL_MS, MAP_FPS_SAMPLE_WINDOW_SIZE } from './constants/ui/performance'; // 性能监控常量
 import {
   getLocalItemTemplate,
   getLocalSkillTemplate,
   getLocalTechniqueTemplate,
   resolvePreviewTechnique,
   resolvePreviewTechniques,
-} from './content/local-templates';
-import { scheduleDeferredLocalContentPreload } from './content/deferred-local-content';
-import { hydrateQuestStates } from './content/local-quests';
-import { assessMapDanger } from './utils/map-danger';
+} from './content/local-templates'; // 本地模板数据
+import { scheduleDeferredLocalContentPreload } from './content/deferred-local-content'; // 延迟加载本地内容
+import { hydrateQuestStates } from './content/local-quests'; // 任务状态处理
+import { assessMapDanger } from './utils/map-danger'; // 地图危险度评估
 
-import { FloatingTooltip, prefersPinnedTooltipInteraction } from './ui/floating-tooltip';
-import { detailModalHost } from './ui/detail-modal-host';
-import { bindInlineItemTooltips, renderTextWithInlineItemHighlights } from './ui/item-inline-tooltip';
-import { describePreviewBonuses } from './ui/stat-preview';
+// 导入UI组件和工具
+import { FloatingTooltip, prefersPinnedTooltipInteraction } from './ui/floating-tooltip'; // 浮动提示框
+import { detailModalHost } from './ui/detail-modal-host'; // 详情弹窗主机
+import { bindInlineItemTooltips, renderTextWithInlineItemHighlights } from './ui/item-inline-tooltip'; // 物品内联提示
+import { describePreviewBonuses } from './ui/stat-preview'; // 属性预览描述
 import {
   initializeMapPerformanceConfig,
   MAP_PERFORMANCE_CONFIG_CHANGE_EVENT,
   type MapPerformanceConfig,
-} from './ui/performance-config';
-import { MAX_ZOOM, MIN_ZOOM, getDisplayRangeX, getDisplayRangeY, getZoom, setZoom } from './display';
-import { getAccessToken, getCurrentAccountName } from './ui/auth-api';
-import { formatDisplayCountBadge, formatDisplayCurrentMax, formatDisplayInteger } from './utils/number';
-import { findPath } from './pathfinding';
+} from './ui/performance-config'; // 地图性能配置
+
+// 导入显示相关
+import { MAX_ZOOM, MIN_ZOOM, getDisplayRangeX, getDisplayRangeY, getZoom, setZoom } from './display'; // 缩放和显示范围
+
+// 导入认证相关
+import { getAccessToken, getCurrentAccountName } from './ui/auth-api'; // 认证API
+
+// 导入格式化工具
+import { formatDisplayCountBadge, formatDisplayCurrentMax, formatDisplayInteger } from './utils/number'; // 数字格式化
+
+// 导入路径查找
+import { findPath } from './pathfinding'; // A*寻路算法
+
+// 导入共享类型和常量
 import {
-  ActionDef,
-  AccountRedeemCodesRes,
-  computeAffectedCellsFromAnchor,
-  CONNECTION_RECOVERY_RETRY_MS,
-  CURRENT_TIME_REFRESH_MS,
-  DEFAULT_AURA_LEVEL_BASE_VALUE,
-  Direction,
-  EQUIP_SLOTS,
-  formatBuffMaxStacks,
-  encodeTileTargetRef,
-  GAME_TIME_PHASES,
-  GameTimeState,
-  gridDistance,
-  GroundItemPileView,
-  GridPoint,
-  Inventory,
-  isPointInRange,
-  LootWindowState,
-  MapMeta,
-  MonsterTier,
-  PartialNumericStats,
-  PlayerState,
-  packDirections,
-  RenderEntity,
-  S2C_AttrUpdate,
-  S2C_EquipmentUpdate,
-  S2C_InventoryUpdate,
-  S2C_LootWindowUpdate,
-  S2C_RealmUpdate,
-  S2C_RedeemCodesResult,
-  TechniqueUpdateEntry,
-  ActionUpdateEntry,
-  BreakthroughRequirementView,
-  SkillDef,
-  Tile,
-  TileType,
-  TechniqueState,
-  S2C_Init,
-  S2C_MapStaticSync,
-  S2C_NpcShop,
-  S2C_TileRuntimeDetail,
-  S2C_Tick,
-  SERVER_PING_INTERVAL_MS,
-  SOCKET_PING_TIMEOUT_MS,
-  TargetingGeometrySpec,
-  TargetingShape,
-  VisibleBuffState,
-  VIEW_RADIUS,
-  SyncedItemStack,
-  TechniqueRealm,
-  directionToDelta,
-  getTileTraversalCost,
-  clonePlainValue,
-  getFirstGrapheme,
-  isPlainEqual,
+  ActionDef, // 动作定义
+  AccountRedeemCodesRes, // 账户兑换码响应
+  computeAffectedCellsFromAnchor, // 计算受影响区域
+  CONNECTION_RECOVERY_RETRY_MS, // 连接恢复重试间隔
+  CURRENT_TIME_REFRESH_MS, // 当前时间刷新间隔
+  DEFAULT_AURA_LEVEL_BASE_VALUE, // 默认灵气等级基准值
+  Direction, // 方向枚举
+  EQUIP_SLOTS, // 装备槽位
+  formatBuffMaxStacks, // 格式化Buff最大层数
+  encodeTileTargetRef, // 编码地块目标引用
+  GAME_TIME_PHASES, // 游戏时间阶段
+  GameTimeState, // 游戏时间状态
+  gridDistance, // 网格距离计算
+  GroundItemPileView, // 地面物品堆视图
+  GridPoint, // 网格点
+  Inventory, // 背包
+  isPointInRange, // 检查点是否在范围内
+  LootWindowState, // 拾取窗口状态
+  MapMeta, // 地图元数据
+  MonsterTier, // 怪物等级
+  PartialNumericStats, // 部分数值属性
+  PlayerState, // 玩家状态
+  packDirections, // 打包方向
+  RenderEntity, // 渲染实体
+  S2C_AttrUpdate, // 服务器到客户端属性更新
+  S2C_EquipmentUpdate, // 服务器到客户端装备更新
+  S2C_InventoryUpdate, // 服务器到客户端背包更新
+  S2C_LootWindowUpdate, // 服务器到客户端拾取窗口更新
+  S2C_RealmUpdate, // 服务器到客户端境界更新
+  S2C_RedeemCodesResult, // 服务器到客户端兑换码结果
+  TechniqueUpdateEntry, // 功法更新条目
+  ActionUpdateEntry, // 动作更新条目
+  BreakthroughRequirementView, // 突破要求视图
+  SkillDef, // 技能定义
+  Tile, // 地块
+  TileType, // 地块类型
+  TechniqueState, // 功法状态
+  S2C_Init, // 服务器到客户端初始化
+  S2C_MapStaticSync, // 服务器到客户端地图静态同步
+  S2C_NpcShop, // 服务器到客户端NPC商店
+  S2C_TileRuntimeDetail, // 服务器到客户端地块运行时详情
+  S2C_Tick, // 服务器到客户端Tick
+  SERVER_PING_INTERVAL_MS, // 服务器Ping间隔
+  SOCKET_PING_TIMEOUT_MS, // Socket Ping超时
+  TargetingGeometrySpec, // 目标几何规范
+  TargetingShape, // 目标形状
+  VisibleBuffState, // 可见Buff状态
+  VIEW_RADIUS, // 视野半径
+  SyncedItemStack, // 同步物品堆
+  TechniqueRealm, // 功法境界
+  directionToDelta, // 方向转增量
+  getTileTraversalCost, // 获取地块移动消耗
+  clonePlainValue, // 克隆纯值
+  getFirstGrapheme, // 获取第一个字素
+  isPlainEqual, // 纯值相等比较
 } from '@mud/shared';
 
-const canvasHost = document.getElementById('game-stage') as HTMLElement;
-const zoomSlider = document.getElementById('zoom-slider') as HTMLInputElement | null;
-const zoomLevelEl = document.getElementById('zoom-level');
-const zoomResetBtn = document.getElementById('zoom-reset') as HTMLButtonElement | null;
-const tickRateEl = document.getElementById('map-tick-rate');
+// 获取DOM元素引用
+const canvasHost = document.getElementById('game-stage') as HTMLElement; // 游戏画布容器
+const zoomSlider = document.getElementById('zoom-slider') as HTMLInputElement | null; // 缩放滑块
+const zoomLevelEl = document.getElementById('zoom-level'); // 缩放级别显示
+const zoomResetBtn = document.getElementById('zoom-reset') as HTMLButtonElement | null; // 缩放重置按钮
+const tickRateEl = document.getElementById('map-tick-rate'); // Tick率显示
 
+// 预加载延迟加载的本地内容
 scheduleDeferredLocalContentPreload();
-const currentTimeEl = document.getElementById('map-current-time');
-const currentTimeValueEl = document.getElementById('map-current-time-value');
-const currentTimePhaseEl = document.getElementById('map-current-time-phase');
-const currentTimeHourAEl = currentTimeValueEl?.querySelector<HTMLElement>('[data-time-part="hour-a"]');
-const currentTimeHourBEl = currentTimeValueEl?.querySelector<HTMLElement>('[data-time-part="hour-b"]');
-const currentTimeDotEl = currentTimeValueEl?.querySelector<HTMLElement>('[data-time-part="dot"]');
-const currentTimeMinAEl = currentTimeValueEl?.querySelector<HTMLElement>('[data-time-part="min-a"]');
-const currentTimeMinBEl = currentTimeValueEl?.querySelector<HTMLElement>('[data-time-part="min-b"]');
-const tickRateValueEl = document.getElementById('map-tick-rate-value');
-const tickRateIntEl = tickRateValueEl?.querySelector<HTMLElement>('[data-part="int"]');
-const tickRateDotEl = tickRateValueEl?.querySelector<HTMLElement>('[data-part="dot"]');
-const tickRateFracAEl = tickRateValueEl?.querySelector<HTMLElement>('[data-part="frac-a"]');
-const tickRateFracBEl = tickRateValueEl?.querySelector<HTMLElement>('[data-part="frac-b"]');
-const fpsRateEl = document.getElementById('map-fps-rate');
-const fpsValueEl = document.getElementById('map-fps-value');
-const fpsLowValueEl = document.getElementById('map-fps-low-value');
-const fpsOnePercentValueEl = document.getElementById('map-fps-one-percent-value');
-const pingLatencyEl = document.getElementById('map-ping-rate');
-const pingValueEl = document.getElementById('map-ping-value');
-const pingUnitEl = document.getElementById('map-ping-unit');
-const pingHundredsEl = pingValueEl?.querySelector<HTMLElement>('[data-ping-part="hundreds"]');
-const pingTensEl = pingValueEl?.querySelector<HTMLElement>('[data-ping-part="tens"]');
-const pingOnesEl = pingValueEl?.querySelector<HTMLElement>('[data-ping-part="ones"]');
+
+// 获取时间显示相关DOM元素
+const currentTimeEl = document.getElementById('map-current-time'); // 当前时间元素
+const currentTimeValueEl = document.getElementById('map-current-time-value'); // 当前时间值元素
+const currentTimePhaseEl = document.getElementById('map-current-time-phase'); // 当前时间阶段元素
+const currentTimeHourAEl = currentTimeValueEl?.querySelector<HTMLElement>('[data-time-part="hour-a"]'); // 小时第一位
+const currentTimeHourBEl = currentTimeValueEl?.querySelector<HTMLElement>('[data-time-part="hour-b"]'); // 小时第二位
+const currentTimeDotEl = currentTimeValueEl?.querySelector<HTMLElement>('[data-time-part="dot"]'); // 时间分隔符
+const currentTimeMinAEl = currentTimeValueEl?.querySelector<HTMLElement>('[data-time-part="min-a"]'); // 分钟第一位
+const currentTimeMinBEl = currentTimeValueEl?.querySelector<HTMLElement>('[data-time-part="min-b"]'); // 分钟第二位
+
+// 获取Tick率显示相关DOM元素
+const tickRateValueEl = document.getElementById('map-tick-rate-value'); // Tick率值元素
+const tickRateIntEl = tickRateValueEl?.querySelector<HTMLElement>('[data-part="int"]'); // Tick率整数部分
+const tickRateDotEl = tickRateValueEl?.querySelector<HTMLElement>('[data-part="dot"]'); // Tick率小数点
+const tickRateFracAEl = tickRateValueEl?.querySelector<HTMLElement>('[data-part="frac-a"]'); // Tick率小数第一位
+const tickRateFracBEl = tickRateValueEl?.querySelector<HTMLElement>('[data-part="frac-b"]'); // Tick率小数第二位
+
+// 获取FPS显示相关DOM元素
+const fpsRateEl = document.getElementById('map-fps-rate'); // FPS率显示
+const fpsValueEl = document.getElementById('map-fps-value'); // FPS值显示
+const fpsLowValueEl = document.getElementById('map-fps-low-value'); // FPS最低值显示
+const fpsOnePercentValueEl = document.getElementById('map-fps-one-percent-value'); // FPS 1%最低值显示
+
+// 获取延迟显示相关DOM元素
+const pingLatencyEl = document.getElementById('map-ping-rate'); // 延迟显示
+const pingValueEl = document.getElementById('map-ping-value'); // 延迟值显示
+const pingUnitEl = document.getElementById('map-ping-unit'); // 延迟单位显示
+const pingHundredsEl = pingValueEl?.querySelector<HTMLElement>('[data-ping-part="hundreds"]'); // 延迟百位
+const pingTensEl = pingValueEl?.querySelector<HTMLElement>('[data-ping-part="tens"]'); // 延迟十位
+const pingOnesEl = pingValueEl?.querySelector<HTMLElement>('[data-ping-part="ones"]'); // 延迟个位
+
+// 获取QQ群链接按钮
 const joinQqGroupBtns = document.querySelectorAll<HTMLAnchorElement>('[data-qq-group-link="true"]');
 
-const QQ_GROUP_NUMBER = '940886387';
-const QQ_GROUP_MOBILE_DEEP_LINK = `mqqapi://card/show_pslcard?src_type=internal&version=1&uin=${QQ_GROUP_NUMBER}&card_type=group&source=qrcode`;
-const QQ_GROUP_DESKTOP_DEEP_LINK = `tencent://AddContact/?fromId=45&fromSubId=1&subcmd=all&uin=${QQ_GROUP_NUMBER}`;
+// QQ群相关常量
+const QQ_GROUP_NUMBER = '940886387'; // QQ群号
+const QQ_GROUP_MOBILE_DEEP_LINK = `mqqapi://card/show_pslcard?src_type=internal&version=1&uin=${QQ_GROUP_NUMBER}&card_type=group&source=qrcode`; // 移动端QQ群链接
+const QQ_GROUP_DESKTOP_DEEP_LINK = `tencent://AddContact/?fromId=45&fromSubId=1&subcmd=all&uin=${QQ_GROUP_NUMBER}`; // 桌面端QQ群链接
 
-let auraLevelBaseValue = DEFAULT_AURA_LEVEL_BASE_VALUE;
-let pendingQuestNavigateId: string | null = null;
-let pendingRedeemCodesRequest:
+// 游戏状态变量
+let auraLevelBaseValue = DEFAULT_AURA_LEVEL_BASE_VALUE; // 灵气等级基准值
+let pendingQuestNavigateId: string | null = null; // 待处理的任务导航ID
+let pendingRedeemCodesRequest: // 待处理的兑换码请求
   | {
-      resolve: (value: AccountRedeemCodesRes) => void;
-      reject: (reason?: unknown) => void;
-      timeoutId: ReturnType<typeof setTimeout>;
+      resolve: (value: AccountRedeemCodesRes) => void; // 成功回调
+      reject: (reason?: unknown) => void; // 失败回调
+      timeoutId: ReturnType<typeof setTimeout>; // 超时定时器ID
     }
   | null = null;
-let activeObservedTile:
+let activeObservedTile: // 当前观察的地块
   | {
-      mapId: string;
-      x: number;
-      y: number;
+      mapId: string; // 地图ID
+      x: number; // X坐标
+      y: number; // Y坐标
     }
   | null = null;
-let activeObservedTileDetail: S2C_TileRuntimeDetail | null = null;
+let activeObservedTileDetail: S2C_TileRuntimeDetail | null = null; // 当前观察地块的详细信息
 
-let connectionRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
-let connectionRecoveryPromise: Promise<void> | null = null;
-let pingTimer: ReturnType<typeof setTimeout> | null = null;
-let pingRequestSerial = 0;
-let pendingSocketPing:
+// 连接状态变量
+let connectionRecoveryTimer: ReturnType<typeof setTimeout> | null = null; // 连接恢复定时器
+let connectionRecoveryPromise: Promise<void> | null = null; // 连接恢复Promise
+let pingTimer: ReturnType<typeof setTimeout> | null = null; // Ping定时器
+let pingRequestSerial = 0; // Ping请求序列号
+let pendingSocketPing: // 待处理的Socket Ping
   | {
-      serial: number;
-      clientAt: number;
-      timeoutId: ReturnType<typeof setTimeout>;
+      serial: number; // 序列号
+      clientAt: number; // 客户端发送时间
+      timeoutId: ReturnType<typeof setTimeout>; // 超时定时器ID
     }
   | null = null;
-let currentTimeStateSyncedAt = performance.now();
-let currentTimeTickIntervalMs = 1000;
-let currentTimeTickIntervalUpdatedAt = performance.now();
-let fpsMonitorFrameRequestId: number | null = null;
-let fpsMonitorEnabled = false;
-let fpsSampleFrameCount = 0;
-let fpsSampleStartedAt = performance.now();
-let fpsLastFrameAt = 0;
-let fpsFrameDurations: number[] = [];
-let fpsFrameDurationWriteIndex = 0;
 
-const PING_BLOCKED_TICK_INTERVAL_MS = 1_500;
-const PING_BLOCKED_TICK_GRACE_MS = 8_000;
+// 时间状态变量
+let currentTimeStateSyncedAt = performance.now(); // 当前时间状态同步时间
+let currentTimeTickIntervalMs = 1000; // 当前时间Tick间隔(毫秒)
+let currentTimeTickIntervalUpdatedAt = performance.now(); // 当前时间Tick间隔更新时间
 
+// FPS监控变量
+let fpsMonitorFrameRequestId: number | null = null; // FPS监控帧请求ID
+let fpsMonitorEnabled = false; // FPS监控是否启用
+let fpsSampleFrameCount = 0; // FPS采样帧数
+let fpsSampleStartedAt = performance.now(); // FPS采样开始时间
+let fpsLastFrameAt = 0; // 上一帧时间
+let fpsFrameDurations: number[] = []; // 帧持续时间数组
+let fpsFrameDurationWriteIndex = 0; // 帧持续时间写入索引
+
+// Ping阻塞检测常量
+const PING_BLOCKED_TICK_INTERVAL_MS = 1_500; // Ping阻塞的Tick间隔阈值(毫秒)
+const PING_BLOCKED_TICK_GRACE_MS = 8_000; // Ping阻塞的宽限期(毫秒)
+
+// FPS采样统计类型
 type FpsSampleStats = {
-  fps: number | null;
-  low: number | null;
-  onePercentLow: number | null;
+  fps: number | null; // 当前FPS
+  low: number | null; // 最低FPS
+  onePercentLow: number | null; // 1%最低FPS
 };
 
+/**
+ * 格式化FPS指标为显示字符串
+ * @param value - FPS值，null表示未采样
+ * @returns 格式化后的字符串，如"060"或"---"
+ */
 function formatFpsMetric(value: number | null): string {
   if (value === null) {
     return '---';
@@ -219,6 +274,10 @@ function formatFpsMetric(value: number | null): string {
   return String(Math.min(999, Math.max(0, Math.round(value)))).padStart(3, '0');
 }
 
+/**
+ * 渲染FPS统计数据到UI
+ * @param stats - FPS统计对象，包含平均FPS、最低FPS和1%最低FPS
+ */
 function renderFpsStats(stats: FpsSampleStats): void {
   if (fpsValueEl) {
     fpsValueEl.textContent = formatFpsMetric(stats.fps);
@@ -239,6 +298,10 @@ function renderFpsStats(stats: FpsSampleStats): void {
   }
 }
 
+/**
+ * 重置FPS监控样本数据
+ * @param now - 当前时间戳，默认为performance.now()
+ */
 function resetFpsMonitorSamples(now = performance.now()): void {
   fpsSampleFrameCount = 0;
   fpsSampleStartedAt = now;
@@ -247,6 +310,11 @@ function resetFpsMonitorSamples(now = performance.now()): void {
   fpsFrameDurationWriteIndex = 0;
 }
 
+/**
+ * 添加帧持续时间到FPS样本缓冲区
+ * 使用环形缓冲区避免频繁的内存分配
+ * @param frameDurationMs - 帧持续时间（毫秒）
+ */
 function appendFpsFrameDuration(frameDurationMs: number): void {
   const safeDuration = Math.max(1, frameDurationMs);
   if (fpsFrameDurations.length < MAP_FPS_SAMPLE_WINDOW_SIZE) {
@@ -258,6 +326,10 @@ function appendFpsFrameDuration(frameDurationMs: number): void {
   fpsFrameDurationWriteIndex = (fpsFrameDurationWriteIndex + 1) % MAP_FPS_SAMPLE_WINDOW_SIZE;
 }
 
+/**
+ * 计算FPS最低值统计
+ * @returns 包含最低FPS和1%最低FPS的对象
+ */
 function resolveFpsLowStats(): Pick<FpsSampleStats, 'low' | 'onePercentLow'> {
   if (fpsFrameDurations.length === 0) {
     return {
@@ -278,6 +350,11 @@ function resolveFpsLowStats(): Pick<FpsSampleStats, 'low' | 'onePercentLow'> {
   };
 }
 
+/**
+ * FPS监控循环函数
+ * 每帧调用一次，收集帧时间数据并定期更新UI
+ * @param now - 当前时间戳
+ */
 function tickFpsMonitor(now: number): void {
   if (!fpsMonitorEnabled) {
     fpsMonitorFrameRequestId = null;
@@ -311,6 +388,10 @@ function tickFpsMonitor(now: number): void {
   fpsMonitorFrameRequestId = requestAnimationFrame(tickFpsMonitor);
 }
 
+/**
+ * 启动FPS监控
+ * 如果已启动或缺少必要DOM元素，则不执行任何操作
+ */
 function startFpsMonitor(): void {
   if (fpsMonitorEnabled || !fpsRateEl || !fpsValueEl || !fpsLowValueEl || !fpsOnePercentValueEl) {
     return;
@@ -326,6 +407,10 @@ function startFpsMonitor(): void {
   fpsMonitorFrameRequestId = requestAnimationFrame(tickFpsMonitor);
 }
 
+/**
+ * 停止FPS监控
+ * 取消动画帧请求并重置样本数据
+ */
 function stopFpsMonitor(): void {
   fpsMonitorEnabled = false;
   if (fpsMonitorFrameRequestId !== null) {
@@ -343,6 +428,10 @@ function stopFpsMonitor(): void {
   }
 }
 
+/**
+ * 根据参数同步FPS监控的可见性
+ * @param showFpsMonitor - 是否显示FPS监控
+ */
 function syncFpsMonitorVisibility(showFpsMonitor: boolean): void {
   if (showFpsMonitor) {
     startFpsMonitor();
@@ -351,6 +440,10 @@ function syncFpsMonitorVisibility(showFpsMonitor: boolean): void {
   stopFpsMonitor();
 }
 
+/**
+ * 渲染Tick率到UI
+ * @param seconds - Tick间隔时间（秒）
+ */
 function renderTickRate(seconds: number) {
   const [integer, fraction] = seconds.toFixed(2).split('.');
   if (tickRateIntEl) tickRateIntEl.textContent = integer;
@@ -359,6 +452,13 @@ function renderTickRate(seconds: number) {
   if (tickRateFracBEl) tickRateFracBEl.textContent = fraction[1] ?? '0';
 }
 
+/**
+ * 计算当前显示的本地Tick数
+ * 考虑时间流逝和时间缩放因素
+ * @param state - 游戏时间状态
+ * @param now - 当前时间戳，默认为performance.now()
+ * @returns 计算出的本地Tick数，如果状态为null则返回null
+ */
 function resolveDisplayedLocalTicks(state: GameTimeState | null, now = performance.now()): number | null {
   if (!state) {
     return null;
@@ -371,11 +471,22 @@ function resolveDisplayedLocalTicks(state: GameTimeState | null, now = performan
   return ((state.localTicks + elapsedTicks) % dayLength + dayLength) % dayLength;
 }
 
+/**
+ * 根据本地Tick数获取时间阶段标签
+ * @param state - 游戏时间状态
+ * @param localTicks - 本地Tick数
+ * @returns 时间阶段标签，如"晨曦"、"正午"等
+ */
 function resolveDisplayedPhaseLabel(state: GameTimeState, localTicks: number): string {
   const phase = GAME_TIME_PHASES.find((entry) => localTicks >= entry.startTick && localTicks < entry.endTick);
   return phase?.label ?? state.phaseLabel;
 }
 
+/**
+ * 渲染当前游戏时间到UI
+ * @param state - 游戏时间状态
+ * @param now - 当前时间戳，默认为performance.now()
+ */
 function renderCurrentTime(state: GameTimeState | null, now = performance.now()) {
   const localTicks = resolveDisplayedLocalTicks(state, now);
   const totalMinutes = localTicks === null
@@ -395,12 +506,20 @@ function renderCurrentTime(state: GameTimeState | null, now = performance.now())
   }
 }
 
+/**
+ * 同步当前游戏时间状态
+ * @param state - 新的游戏时间状态
+ */
 function syncCurrentTimeState(state: GameTimeState | null): void {
   currentTimeState = state;
   currentTimeStateSyncedAt = performance.now();
   renderCurrentTime(currentTimeState, currentTimeStateSyncedAt);
 }
 
+/**
+ * 同步当前Tick间隔
+ * @param dtMs - 新的Tick间隔时间（毫秒）
+ */
 function syncCurrentTimeTickInterval(dtMs: number | null | undefined): void {
   if (typeof dtMs !== 'number' || !Number.isFinite(dtMs) || dtMs <= 0) {
     return;
