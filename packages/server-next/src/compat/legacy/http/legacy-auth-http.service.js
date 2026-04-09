@@ -16,19 +16,31 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LegacyAuthHttpService = void 0;
 const common_1 = require("@nestjs/common");
+const shared_1 = require("@mud/shared-next");
 const node_crypto_1 = require("node:crypto");
+const player_identity_persistence_service_1 = require("../../../persistence/player-identity-persistence.service");
+const player_persistence_service_1 = require("../../../persistence/player-persistence.service");
 const legacy_account_validation_1 = require("../legacy-account-validation");
 const legacy_password_hash_1 = require("../legacy-password-hash");
 const legacy_auth_service_1 = require("../legacy-auth.service");
+const world_player_token_codec_service_1 = require("../../../network/world-player-token-codec.service");
+const world_legacy_player_repository_1 = require("../../../network/world-legacy-player-repository");
 let LegacyAuthHttpService = class LegacyAuthHttpService {
+    logger = new common_1.Logger(LegacyAuthHttpService.name);
     legacyAuthService;
+    playerIdentityPersistenceService;
+    playerPersistenceService;
+    worldPlayerTokenCodecService;
     memoryUsersById = new Map();
     memoryUserIdByUsername = new Map();
-    constructor(legacyAuthService) {
+    constructor(legacyAuthService, playerIdentityPersistenceService, playerPersistenceService, worldPlayerTokenCodecService) {
         this.legacyAuthService = legacyAuthService;
+        this.playerIdentityPersistenceService = playerIdentityPersistenceService;
+        this.playerPersistenceService = playerPersistenceService;
+        this.worldPlayerTokenCodecService = worldPlayerTokenCodecService;
     }
     async register(accountName, password, displayName, roleName) {
-        return this.runWithPrimaryAuth(() => this.legacyAuthService.register(accountName, password, displayName, roleName), async () => {
+        const result = await this.runWithPrimaryAuth(() => this.legacyAuthService.register(accountName, password, displayName, roleName), async () => {
             const normalizedUsername = (0, legacy_account_validation_1.normalizeUsername)(accountName);
             const normalizedDisplayName = (0, legacy_account_validation_1.normalizeDisplayName)(displayName);
             const normalizedRoleName = (0, legacy_account_validation_1.normalizeRoleName)(roleName);
@@ -74,9 +86,14 @@ let LegacyAuthHttpService = class LegacyAuthHttpService {
             this.saveMemoryUser(created);
             return this.issueTokens(created);
         });
+        const syncedIdentity = await this.syncNextPlayerIdentityFromAuthResult(result, { roleNameHint: roleName }).catch(() => null);
+        await this.syncNextPlayerSnapshotForIdentity(syncedIdentity).catch((error) => {
+            this.logger.warn(`Next player snapshot sync after register failed: ${error instanceof Error ? error.message : String(error)}`);
+        });
+        return result;
     }
     async login(loginName, password) {
-        return this.runWithPrimaryAuth(() => this.legacyAuthService.login(loginName, password), async () => {
+        const result = await this.runWithPrimaryAuth(() => this.legacyAuthService.login(loginName, password), async () => {
             const normalizedLoginName = (0, legacy_account_validation_1.normalizeUsername)(loginName).trim();
             const directUser = await this.findUserByUsername(normalizedLoginName);
             const roleMatchedUsers = await this.findUsersByRoleName(normalizedLoginName);
@@ -107,10 +124,15 @@ let LegacyAuthHttpService = class LegacyAuthHttpService {
             }
             throw new common_1.BadRequestException('该角色名对应多个账号，请改用账号登录');
         });
+        const syncedIdentity = await this.syncNextPlayerIdentityFromAuthResult(result).catch(() => null);
+        await this.syncNextPlayerSnapshotForIdentity(syncedIdentity).catch((error) => {
+            this.logger.warn(`Next player snapshot sync after login failed: ${error instanceof Error ? error.message : String(error)}`);
+        });
+        return result;
     }
     async refresh(refreshToken) {
-        return this.runWithPrimaryAuth(() => this.legacyAuthService.refresh(refreshToken), async () => {
-            const payload = verifyLegacyJwt(typeof refreshToken === 'string' ? refreshToken.trim() : '', this.legacyAuthService.jwtSecret);
+        const result = await this.runWithPrimaryAuth(() => this.legacyAuthService.refresh(refreshToken), async () => {
+            const payload = this.worldPlayerTokenCodecService.validateRefreshToken(typeof refreshToken === 'string' ? refreshToken.trim() : '');
             if (!payload || payload.role === 'gm' || typeof payload.sub !== 'string' || typeof payload.username !== 'string') {
                 throw new common_1.UnauthorizedException('刷新令牌无效或已过期');
             }
@@ -120,6 +142,11 @@ let LegacyAuthHttpService = class LegacyAuthHttpService {
             }
             return this.issueTokens(user);
         });
+        const syncedIdentity = await this.syncNextPlayerIdentityFromAuthResult(result).catch(() => null);
+        await this.syncNextPlayerSnapshotForIdentity(syncedIdentity).catch((error) => {
+            this.logger.warn(`Next player snapshot sync after refresh failed: ${error instanceof Error ? error.message : String(error)}`);
+        });
+        return result;
     }
     async checkDisplayNameAvailability(displayName) {
         return this.runWithPrimaryAuth(() => this.legacyAuthService.checkDisplayNameAvailability(displayName), async () => {
@@ -182,7 +209,7 @@ let LegacyAuthHttpService = class LegacyAuthHttpService {
         });
     }
     async updateManagedPlayerAccount(playerId, username) {
-        return this.runWithPrimaryAuth(() => this.legacyAuthService.updateManagedPlayerAccount(playerId, username), async () => {
+        const result = await this.runWithPrimaryAuth(() => this.legacyAuthService.updateManagedPlayerAccount(playerId, username), async () => {
             const user = await this.resolveManagedUserByPlayerId(playerId);
             if (!user) {
                 throw new common_1.BadRequestException('目标玩家没有可管理的账号');
@@ -221,6 +248,8 @@ let LegacyAuthHttpService = class LegacyAuthHttpService {
                 nextDisplayName,
             };
         });
+        await this.syncNextPlayerIdentityByPlayerId(playerId).catch(() => undefined);
+        return result;
     }
     async runWithPrimaryAuth(primaryTask, fallbackTask) {
         if (await this.legacyAuthService.ensurePool()) {
@@ -236,17 +265,195 @@ let LegacyAuthHttpService = class LegacyAuthHttpService {
         return fallbackTask();
     }
     issueTokens(user) {
+        const displayName = (0, legacy_account_validation_1.resolveDisplayName)(user.displayName, user.username);
+        const playerName = typeof user.pendingRoleName === 'string' && user.pendingRoleName.trim()
+            ? user.pendingRoleName.trim()
+            : user.username;
         const payload = {
             sub: user.id,
             username: user.username,
-            displayName: (0, legacy_account_validation_1.resolveDisplayName)(user.displayName, user.username),
+            displayName,
+            playerId: `p_${user.id}`,
+            playerName,
         };
         return {
-            accessToken: signLegacyJwt(payload, this.legacyAuthService.jwtSecret, readPositiveIntEnv('SERVER_NEXT_AUTH_ACCESS_TOKEN_EXPIRES_IN', 15 * 60)),
-            refreshToken: signLegacyJwt({ ...payload, scope: 'refresh' }, this.legacyAuthService.jwtSecret, readPositiveIntEnv('SERVER_NEXT_AUTH_REFRESH_TOKEN_EXPIRES_IN', 30 * 24 * 60 * 60)),
+            accessToken: this.worldPlayerTokenCodecService.issueAccessToken(payload),
+            refreshToken: this.worldPlayerTokenCodecService.issueRefreshToken(payload),
+        };
+    }
+    async syncNextPlayerIdentityFromAuthResult(result, options = {}) {
+        const accessToken = typeof result?.accessToken === 'string' ? result.accessToken.trim() : '';
+        if (!accessToken) {
+            return null;
+        }
+        const payload = this.worldPlayerTokenCodecService.validateAccessToken(accessToken);
+        if (!payload || payload.role === 'gm' || typeof payload.sub !== 'string') {
+            return null;
+        }
+        const synced = await this.syncNextPlayerIdentityByUserId(payload.sub, options);
+        if (synced) {
+            return synced;
+        }
+        const fallbackIdentity = this.buildNextPlayerIdentityFromTokenPayload(payload, options);
+        if (!fallbackIdentity) {
+            return null;
+        }
+        return this.playerIdentityPersistenceService.savePlayerIdentity({
+            ...fallbackIdentity,
+            persistedSource: 'legacy_sync',
+            updatedAt: Date.now(),
+        });
+    }
+    async syncNextPlayerSnapshotForIdentity(identity) {
+        const playerId = typeof identity?.playerId === 'string' ? identity.playerId.trim() : '';
+        if (!playerId || !this.playerPersistenceService.isEnabled()) {
+            return null;
+        }
+        const pool = await this.legacyAuthService.ensurePool();
+        if (!pool) {
+            return null;
+        }
+        let row;
+        try {
+            row = await (0, world_legacy_player_repository_1.queryLegacyPlayerSnapshotRow)(pool, playerId);
+        }
+        catch (error) {
+            if (isMissingLegacySchemaError(error)) {
+                return null;
+            }
+            throw error;
+        }
+        if (!row) {
+            return null;
+        }
+        const { toPlayerSnapshotFromCompatRow } = require("../../../network/world-legacy-player-source.service");
+        const snapshot = toPlayerSnapshotFromCompatRow(row);
+        await this.playerPersistenceService.savePlayerSnapshot(playerId, snapshot, {
+            persistedSource: 'legacy_seeded',
+            seededAt: Date.now(),
+        });
+        return snapshot;
+    }
+    async syncNextPlayerIdentityByUserId(userId, options = {}) {
+        const user = await this.findUserById(userId);
+        if (!user) {
+            return null;
+        }
+        const existingNextIdentity = await this.playerIdentityPersistenceService.loadPlayerIdentity(userId);
+        const identity = await this.buildNextPlayerIdentity(user, {
+            ...options,
+            playerIdHint: typeof options.playerIdHint === 'string' && options.playerIdHint.trim()
+                ? options.playerIdHint.trim()
+                : existingNextIdentity?.playerId,
+            allowFallbackIdentity: existingNextIdentity !== null,
+        });
+        if (!identity) {
+            return null;
+        }
+        return this.playerIdentityPersistenceService.savePlayerIdentity({
+            ...identity,
+            persistedSource: 'legacy_sync',
+            updatedAt: Date.now(),
+        });
+    }
+    async syncNextPlayerIdentityByPlayerId(playerId) {
+        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+        if (!normalizedPlayerId) {
+            return null;
+        }
+        const user = await this.resolveManagedUserByPlayerId(normalizedPlayerId);
+        if (!user) {
+            return null;
+        }
+        return this.syncNextPlayerIdentityByUserId(user.id, {
+            playerIdHint: normalizedPlayerId,
+        });
+    }
+    async buildNextPlayerIdentity(user, options = {}) {
+        const username = (0, legacy_account_validation_1.normalizeUsername)(user.username);
+        if (!username) {
+            return null;
+        }
+        const displayName = (0, legacy_account_validation_1.resolveDisplayName)(user.displayName, username);
+        const fallbackPlayerId = typeof options.playerIdHint === 'string' && options.playerIdHint.trim()
+            ? options.playerIdHint.trim()
+            : buildFallbackPlayerId(user.id);
+        const fallbackPlayerName = resolveIdentityPlayerName(options.roleNameHint ?? user.pendingRoleName, username);
+        const pool = await this.legacyAuthService.ensurePool();
+        if (pool) {
+            try {
+                const playerRecord = await this.loadDatabasePlayerRecord(user.id, pool);
+                if (playerRecord) {
+                    return {
+                        userId: user.id,
+                        username,
+                        displayName,
+                        playerId: playerRecord.playerId,
+                        playerName: resolveIdentityPlayerName(playerRecord.roleName, username),
+                    };
+                }
+                if (options.allowFallbackIdentity !== true) {
+                    return null;
+                }
+            }
+            catch (error) {
+                if (!isMissingLegacySchemaError(error)) {
+                    throw error;
+                }
+            }
+        }
+        return {
+            userId: user.id,
+            username,
+            displayName,
+            playerId: fallbackPlayerId,
+            playerName: fallbackPlayerName,
+        };
+    }
+    buildNextPlayerIdentityFromTokenPayload(payload, options = {}) {
+        const userId = typeof payload?.sub === 'string' ? payload.sub.trim() : '';
+        const username = typeof payload?.username === 'string'
+            ? (0, legacy_account_validation_1.normalizeUsername)(payload.username)
+            : '';
+        const playerId = typeof payload?.playerId === 'string' ? payload.playerId.trim() : '';
+        if (!userId || !username || !playerId) {
+            return null;
+        }
+        const displayName = typeof payload?.displayName === 'string' && payload.displayName.trim()
+            ? payload.displayName.trim()
+            : (0, legacy_account_validation_1.resolveDisplayName)('', username);
+        const playerName = resolveIdentityPlayerName(typeof payload?.playerName === 'string' && payload.playerName.trim()
+            ? payload.playerName.trim()
+            : options.roleNameHint, username);
+        return {
+            userId,
+            username,
+            displayName,
+            playerId,
+            playerName,
+        };
+    }
+    async loadDatabasePlayerRecord(userId, pool) {
+        const result = await pool.query(`
+        SELECT id, name
+        FROM players
+        WHERE "userId" = $1
+        LIMIT 1
+      `, [userId]);
+        const row = result.rows[0];
+        const playerId = typeof row?.id === 'string' ? row.id.trim() : '';
+        if (!playerId) {
+            return null;
+        }
+        return {
+            playerId,
+            roleName: typeof row?.name === 'string' ? row.name : '',
         };
     }
     async ensureAvailable(value, requestedKind, options = {}) {
+        if (requestedKind === 'display' && (0, shared_1.isDuplicateFriendlyDisplayName)(value)) {
+            return null;
+        }
         const conflict = await this.findConflict(value, requestedKind, options);
         if (!conflict) {
             return null;
@@ -299,6 +506,9 @@ let LegacyAuthHttpService = class LegacyAuthHttpService {
                     }
                 }
                 else {
+                    if ((0, shared_1.isDuplicateFriendlyDisplayName)(value)) {
+                        return null;
+                    }
                     const users = await pool.query(`
             SELECT id, username, "displayName"
             FROM users
@@ -486,7 +696,10 @@ let LegacyAuthHttpService = class LegacyAuthHttpService {
 exports.LegacyAuthHttpService = LegacyAuthHttpService;
 exports.LegacyAuthHttpService = LegacyAuthHttpService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [legacy_auth_service_1.LegacyAuthService])
+    __metadata("design:paramtypes", [legacy_auth_service_1.LegacyAuthService,
+        player_identity_persistence_service_1.PlayerIdentityPersistenceService,
+        player_persistence_service_1.PlayerPersistenceService,
+        world_player_token_codec_service_1.WorldPlayerTokenCodecService])
 ], LegacyAuthHttpService);
 function normalizeUserRow(row) {
     if (!row || typeof row !== 'object') {
@@ -549,6 +762,13 @@ function parseFallbackPlayerUserId(playerId) {
 function buildFallbackPlayerId(userId) {
     const normalized = typeof userId === 'string' ? userId.trim() : '';
     return normalized ? `p_${normalized}` : 'p_guest';
+}
+function resolveIdentityPlayerName(playerName, username) {
+    const normalized = typeof playerName === 'string' ? playerName.trim().normalize('NFC') : '';
+    if (normalized) {
+        return normalized;
+    }
+    return username.normalize('NFC');
 }
 function readPositiveIntEnv(name, fallback) {
     const raw = Number(process.env[name] ?? Number.NaN);

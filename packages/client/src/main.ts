@@ -19,50 +19,42 @@ import './styles/overlays.css';
 import './styles/panels.css';
 import './styles/responsive.css';
 
-// 导入核心功能模块
-import { startClientVersionReload } from './version-reload'; // 版本更新检测
-import { SocketManager } from './network/socket'; // 网络通信管理
-import { KeyboardInput } from './input/keyboard'; // 键盘输入处理
-
-// 导入UI组件
-import { LoginUI } from './ui/login'; // 登录界面
-import { HUD } from './ui/hud'; // 游戏主界面HUD
-import { ChatUI } from './ui/chat'; // 聊天界面
-import { SidePanel } from './ui/side-panel'; // 侧边面板容器
-import { DebugPanel } from './ui/debug-panel'; // 调试面板
-import { AttrPanel } from './ui/panels/attr-panel'; // 属性面板
-import { InventoryPanel } from './ui/panels/inventory-panel'; // 背包面板
-import { EquipmentPanel } from './ui/panels/equipment-panel'; // 装备面板
-import { TechniquePanel } from './ui/panels/technique-panel'; // 功法面板
-import { BodyTrainingPanel } from './ui/panels/body-training-panel'; // 炼体面板
-import { QuestPanel } from './ui/panels/quest-panel'; // 任务面板
-import { MarketPanel } from './ui/panels/market-panel'; // 市场面板
-import { ActionPanel } from './ui/panels/action-panel'; // 技能/动作面板
-import { LootPanel } from './ui/panels/loot-panel'; // 拾取面板
-import { SettingsPanel } from './ui/panels/settings-panel'; // 设置面板
-import { WorldPanel } from './ui/panels/world-panel'; // 世界信息面板
-import { MailPanel } from './ui/mail-panel'; // 邮件面板
-import { SuggestionPanel } from './ui/suggestion-panel'; // 建议面板
-import { ChangelogPanel } from './ui/changelog-panel'; // 更新日志面板
-import { TutorialPanel } from './ui/tutorial-panel'; // 教程面板
-import { LeaderboardModal } from './ui/leaderboard-modal'; // 排行榜弹窗
-import { getMonsterPresentation } from './monster-presentation'; // 怪物显示信息
-import { NpcShopModal } from './ui/npc-shop-modal'; // NPC商店弹窗
-import { getHeavenGateHudAction, openHeavenGateModal, refreshHeavenGateModal } from './ui/heaven-gate-modal'; // 开天门弹窗
-
-// 导入UI系统相关
-import { initializeUiStyleConfig } from './ui/ui-style-config'; // UI样式配置初始化
-import { createClientPanelSystem } from './ui/panel-system/bootstrap'; // 面板系统初始化
-import { RESPONSIVE_VIEWPORT_CHANGE_EVENT, bindResponsiveViewportCss } from './ui/responsive-viewport'; // 响应式视口处理
-
-// 导入地图相关
-import { createMapRuntime } from './game-map/runtime/map-runtime'; // 地图运行时创建
-import { getLatestObservedEntitiesSnapshot } from './game-map/store/map-store'; // 获取实体快照
-
-// 导入工具函数
-import { getEntityKindLabel, getTileTypeLabel } from './domain-labels'; // 实体和地块标签获取
-import { MAP_FALLBACK } from './constants/world/world-panel'; // 地图默认配置
-import { MAP_FPS_SAMPLE_INTERVAL_MS, MAP_FPS_SAMPLE_WINDOW_SIZE } from './constants/ui/performance'; // 性能监控常量
+import { startClientVersionReload } from './version-reload';
+import { SocketManager } from './network/socket';
+import { KeyboardInput } from './input/keyboard';
+import { LoginUI } from './ui/login';
+import { HUD } from './ui/hud';
+import { ChatUI } from './ui/chat';
+import { SidePanel } from './ui/side-panel';
+import { DebugPanel } from './ui/debug-panel';
+import { AttrPanel } from './ui/panels/attr-panel';
+import { InventoryPanel } from './ui/panels/inventory-panel';
+import { EquipmentPanel } from './ui/panels/equipment-panel';
+import { TechniquePanel } from './ui/panels/technique-panel';
+import { BodyTrainingPanel } from './ui/panels/body-training-panel';
+import { QuestPanel } from './ui/panels/quest-panel';
+import { MarketPanel } from './ui/panels/market-panel';
+import { ActionPanel } from './ui/panels/action-panel';
+import { LootPanel } from './ui/panels/loot-panel';
+import { SettingsPanel } from './ui/panels/settings-panel';
+import { WorldPanel } from './ui/panels/world-panel';
+import { MailPanel } from './ui/mail-panel';
+import { SuggestionPanel } from './ui/suggestion-panel';
+import { ChangelogPanel } from './ui/changelog-panel';
+import { TutorialPanel } from './ui/tutorial-panel';
+import { LeaderboardModal } from './ui/leaderboard-modal';
+import { getMonsterPresentation } from './monster-presentation';
+import { NpcShopModal } from './ui/npc-shop-modal';
+import { AlchemyModal } from './ui/alchemy-modal';
+import { getHeavenGateHudAction, openHeavenGateModal, refreshHeavenGateModal } from './ui/heaven-gate-modal';
+import { initializeUiStyleConfig } from './ui/ui-style-config';
+import { createClientPanelSystem } from './ui/panel-system/bootstrap';
+import { RESPONSIVE_VIEWPORT_CHANGE_EVENT, bindResponsiveViewportCss } from './ui/responsive-viewport';
+import { createMapRuntime } from './game-map/runtime/map-runtime';
+import { getLatestObservedEntitiesSnapshot } from './game-map/store/map-store';
+import { getEntityKindLabel, getTileTypeLabel } from './domain-labels';
+import { MAP_FALLBACK } from './constants/world/world-panel';
+import { MAP_FPS_SAMPLE_INTERVAL_MS, MAP_FPS_SAMPLE_WINDOW_SIZE } from './constants/ui/performance';
 import {
   getLocalItemTemplate,
   getLocalSkillTemplate,
@@ -74,11 +66,10 @@ import { scheduleDeferredLocalContentPreload } from './content/deferred-local-co
 import { hydrateQuestStates } from './content/local-quests'; // 任务状态处理
 import { assessMapDanger } from './utils/map-danger'; // 地图危险度评估
 
-// 导入UI组件和工具
-import { FloatingTooltip, prefersPinnedTooltipInteraction } from './ui/floating-tooltip'; // 浮动提示框
-import { detailModalHost } from './ui/detail-modal-host'; // 详情弹窗主机
-import { bindInlineItemTooltips, renderTextWithInlineItemHighlights } from './ui/item-inline-tooltip'; // 物品内联提示
-import { describePreviewBonuses } from './ui/stat-preview'; // 属性预览描述
+import { FloatingTooltip, prefersPinnedTooltipInteraction } from './ui/floating-tooltip';
+import { detailModalHost } from './ui/detail-modal-host';
+import { bindInlineItemTooltips, renderInlineItemChip, renderTextWithInlineItemHighlights } from './ui/item-inline-tooltip';
+import { describePreviewBonuses } from './ui/stat-preview';
 import {
   initializeMapPerformanceConfig,
   MAP_PERFORMANCE_CONFIG_CHANGE_EVENT,
@@ -99,61 +90,62 @@ import { findPath } from './pathfinding'; // A*寻路算法
 
 // 导入共享类型和常量
 import {
-  ActionDef, // 动作定义
-  AccountRedeemCodesRes, // 账户兑换码响应
-  computeAffectedCellsFromAnchor, // 计算受影响区域
-  CONNECTION_RECOVERY_RETRY_MS, // 连接恢复重试间隔
-  CURRENT_TIME_REFRESH_MS, // 当前时间刷新间隔
-  DEFAULT_AURA_LEVEL_BASE_VALUE, // 默认灵气等级基准值
-  Direction, // 方向枚举
-  EQUIP_SLOTS, // 装备槽位
-  formatBuffMaxStacks, // 格式化Buff最大层数
-  encodeTileTargetRef, // 编码地块目标引用
-  GAME_TIME_PHASES, // 游戏时间阶段
-  GameTimeState, // 游戏时间状态
-  gridDistance, // 网格距离计算
-  GroundItemPileView, // 地面物品堆视图
-  GridPoint, // 网格点
-  Inventory, // 背包
-  isPointInRange, // 检查点是否在范围内
-  LootWindowState, // 拾取窗口状态
-  MapMeta, // 地图元数据
-  MonsterTier, // 怪物等级
-  PartialNumericStats, // 部分数值属性
-  PlayerState, // 玩家状态
-  packDirections, // 打包方向
-  RenderEntity, // 渲染实体
-  S2C_AttrUpdate, // 服务器到客户端属性更新
-  S2C_EquipmentUpdate, // 服务器到客户端装备更新
-  S2C_InventoryUpdate, // 服务器到客户端背包更新
-  S2C_LootWindowUpdate, // 服务器到客户端拾取窗口更新
-  S2C_RealmUpdate, // 服务器到客户端境界更新
-  S2C_RedeemCodesResult, // 服务器到客户端兑换码结果
-  TechniqueUpdateEntry, // 功法更新条目
-  ActionUpdateEntry, // 动作更新条目
-  BreakthroughRequirementView, // 突破要求视图
-  SkillDef, // 技能定义
-  Tile, // 地块
-  TileType, // 地块类型
-  TechniqueState, // 功法状态
-  S2C_Init, // 服务器到客户端初始化
-  S2C_MapStaticSync, // 服务器到客户端地图静态同步
-  S2C_NpcShop, // 服务器到客户端NPC商店
-  S2C_TileRuntimeDetail, // 服务器到客户端地块运行时详情
-  S2C_Tick, // 服务器到客户端Tick
-  SERVER_PING_INTERVAL_MS, // 服务器Ping间隔
-  SOCKET_PING_TIMEOUT_MS, // Socket Ping超时
-  TargetingGeometrySpec, // 目标几何规范
-  TargetingShape, // 目标形状
-  VisibleBuffState, // 可见Buff状态
-  VIEW_RADIUS, // 视野半径
-  SyncedItemStack, // 同步物品堆
-  TechniqueRealm, // 功法境界
-  directionToDelta, // 方向转增量
-  getTileTraversalCost, // 获取地块移动消耗
-  clonePlainValue, // 克隆纯值
-  getFirstGrapheme, // 获取第一个字素
-  isPlainEqual, // 纯值相等比较
+  ActionDef,
+  AccountRedeemCodesRes,
+  buildEffectiveTargetingGeometry,
+  computeAffectedCellsFromAnchor,
+  CONNECTION_RECOVERY_RETRY_MS,
+  CURRENT_TIME_REFRESH_MS,
+  DEFAULT_AURA_LEVEL_BASE_VALUE,
+  Direction,
+  EQUIP_SLOTS,
+  formatBuffMaxStacks,
+  encodeTileTargetRef,
+  GAME_TIME_PHASES,
+  GameTimeState,
+  gridDistance,
+  GroundItemPileView,
+  GridPoint,
+  Inventory,
+  isPointInRange,
+  LootWindowState,
+  MapMeta,
+  MonsterTier,
+  PartialNumericStats,
+  PlayerState,
+  packDirections,
+  RenderEntity,
+  S2C_AttrUpdate,
+  S2C_EquipmentUpdate,
+  S2C_InventoryUpdate,
+  S2C_LootWindowUpdate,
+  S2C_RealmUpdate,
+  S2C_RedeemCodesResult,
+  TechniqueUpdateEntry,
+  ActionUpdateEntry,
+  BreakthroughRequirementView,
+  SkillDef,
+  Tile,
+  TileType,
+  TechniqueState,
+  S2C_Init,
+  S2C_MapStaticSync,
+  S2C_NpcShop,
+  S2C_TileRuntimeDetail,
+  S2C_Tick,
+  SERVER_PING_INTERVAL_MS,
+  SOCKET_PING_TIMEOUT_MS,
+  TargetingGeometrySpec,
+  TargetingShape,
+  VisibleBuffState,
+  VIEW_RADIUS,
+  SyncedItemStack,
+  TechniqueRealm,
+  directionToDelta,
+  getTileTraversalCost,
+  clonePlainValue,
+  getFirstGrapheme,
+  isPlainEqual,
 } from '@mud/shared';
 
 // 获取DOM元素引用
@@ -718,6 +710,7 @@ const questPanel = new QuestPanel();
 const marketPanel = new MarketPanel();
 const actionPanel = new ActionPanel();
 const npcShopModal = new NpcShopModal();
+const alchemyModal = new AlchemyModal();
 const lootPanel = new LootPanel();
 const worldPanel = new WorldPanel();
 const leaderboardModal = new LeaderboardModal();
@@ -740,6 +733,7 @@ const observeModalAsideEl = document.getElementById('observe-modal-aside');
 const observeBuffTooltip = new FloatingTooltip();
 let observeBuffTooltipHoverNode: HTMLElement | null = null;
 let observeBuffTooltipDelegatedBound = false;
+let observeLootPreviewDelegatedBound = false;
 const senseQiTooltip = new FloatingTooltip();
 let pendingTargetedAction: {
   actionId: string;
@@ -748,6 +742,7 @@ let pendingTargetedAction: {
   range: number;
   shape?: TargetingShape;
   radius?: number;
+  innerRadius?: number;
   width?: number;
   height?: number;
   maxTargets?: number;
@@ -774,12 +769,14 @@ type ObservedEntity = {
   name?: string;
   kind?: string;
   monsterTier?: MonsterTier;
+  monsterScale?: number;
   hp?: number;
   maxHp?: number;
   qi?: number;
   maxQi?: number;
   npcQuestMarker?: RenderEntity['npcQuestMarker'];
   observation?: RenderEntity['observation'];
+  lootPreview?: NonNullable<S2C_TileRuntimeDetail['entities']>[number]['lootPreview'];
   buffs?: VisibleBuffState[];
 };
 
@@ -793,7 +790,7 @@ function isPlayerLikeEntityKind(kind: string | null | undefined): boolean {
 
 type ObserveEntityCardData = Pick<
   ObservedEntity,
-  'id' | 'name' | 'kind' | 'monsterTier' | 'hp' | 'maxHp' | 'qi' | 'maxQi' | 'npcQuestMarker' | 'observation' | 'buffs'
+  'id' | 'name' | 'kind' | 'monsterTier' | 'hp' | 'maxHp' | 'qi' | 'maxQi' | 'npcQuestMarker' | 'observation' | 'lootPreview' | 'buffs'
 >;
 
 type PendingAutoInteraction =
@@ -930,27 +927,31 @@ function syncTargetingOverlay() {
     syncSenseQiOverlay();
     return;
   }
-  pendingTargetedAction.range = resolveCurrentTargetingRange(pendingTargetedAction);
+  const geometry = getEffectiveTargetingGeometry(pendingTargetedAction);
   const affectedCells = computeAffectedCells(pendingTargetedAction);
   mapRuntime.setTargetingOverlay({
     originX: myPlayer.x,
     originY: myPlayer.y,
-    range: pendingTargetedAction.range,
+    range: geometry.range,
     visibleOnly: doesTargetingRequireVision(pendingTargetedAction.actionId),
-    shape: pendingTargetedAction.shape,
-    radius: pendingTargetedAction.radius,
+    shape: geometry.shape,
+    radius: geometry.radius,
     affectedCells,
     hoverX: pendingTargetedAction.hoverX,
     hoverY: pendingTargetedAction.hoverY,
   });
   if (targetingBadgeEl) {
-    const rangeLabel = pendingTargetedAction.actionId === 'client:observe' ? `视野 ${pendingTargetedAction.range}` : `射程 ${pendingTargetedAction.range}`;
-    const shapeLabel = pendingTargetedAction.shape === 'line'
+    const rangeLabel = pendingTargetedAction.actionId === 'client:observe' ? `视野 ${geometry.range}` : `射程 ${geometry.range}`;
+    const shapeLabel = geometry.shape === 'line'
       ? ` · 直线${pendingTargetedAction.maxTargets ? ` ${pendingTargetedAction.maxTargets}目标` : ''}`
-      : pendingTargetedAction.shape === 'box'
-        ? ` · 矩形 ${Math.max(1, pendingTargetedAction.width ?? 1)}x${Math.max(1, pendingTargetedAction.height ?? pendingTargetedAction.width ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
-      : pendingTargetedAction.shape === 'area'
-        ? ` · 范围半径 ${Math.max(0, pendingTargetedAction.radius ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
+      : geometry.shape === 'ring'
+        ? ` · 环带 ${Math.max(0, geometry.innerRadius ?? Math.max((geometry.radius ?? 1) - 1, 0))}-${Math.max(0, geometry.radius ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
+      : geometry.shape === 'checkerboard'
+        ? ` · 棋盘 ${Math.max(1, geometry.width ?? 1)}x${Math.max(1, geometry.height ?? geometry.width ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
+      : geometry.shape === 'box'
+        ? ` · 矩形 ${Math.max(1, geometry.width ?? 1)}x${Math.max(1, geometry.height ?? geometry.width ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
+      : geometry.shape === 'area'
+        ? ` · 范围半径 ${Math.max(0, geometry.radius ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
         : '';
     targetingBadgeEl.textContent = `选定 ${pendingTargetedAction.actionName} 目标 · ${rangeLabel}${shapeLabel}`;
     targetingBadgeEl.classList.remove('hidden');
@@ -978,13 +979,42 @@ function getSkillDefByActionId(actionId: string): SkillDef | null {
   return null;
 }
 
+function getPlayerTargetingModifiers(): { extraRange: number; extraArea: number } | undefined {
+  const stats = myPlayer?.numericStats;
+  if (!stats) {
+    return undefined;
+  }
+  return {
+    extraRange: Math.max(0, Math.floor(stats.extraRange ?? 0)),
+    extraArea: Math.max(0, Math.floor(stats.extraArea ?? 0)),
+  };
+}
+
+function getEffectiveTargetingGeometry(
+  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height'>,
+): TargetingGeometrySpec {
+  const skill = getSkillDefByActionId(action.actionId);
+  const baseSpec: TargetingGeometrySpec = {
+    range: Math.max(1, skill?.range ?? action.range),
+    shape: skill?.targeting?.shape ?? action.shape ?? 'single',
+    radius: skill?.targeting?.radius ?? action.radius,
+    innerRadius: skill?.targeting?.innerRadius ?? action.innerRadius,
+    width: skill?.targeting?.width ?? action.width,
+    height: skill?.targeting?.height ?? action.height,
+  };
+  if (!skill) {
+    return baseSpec;
+  }
+  return buildEffectiveTargetingGeometry(baseSpec, getPlayerTargetingModifiers());
+}
+
 function resolveCurrentTargetingRange(
-  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'range'>,
+  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height'>,
 ): number {
   if (action.actionId === 'client:observe' || action.actionId === 'battle:force_attack') {
     return Math.max(1, getInfoRadius());
   }
-  return Math.max(1, action.range);
+  return Math.max(1, getEffectiveTargetingGeometry(action).range);
 }
 
 function doesTargetingRequireVision(actionId: string): boolean {
@@ -1004,17 +1034,17 @@ function beginTargeting(actionId: string, actionName: string, targetMode?: strin
     range: Math.max(1, range),
     shape: skill?.targeting?.shape ?? 'single',
     radius: skill?.targeting?.radius,
+    innerRadius: skill?.targeting?.innerRadius,
     width: skill?.targeting?.width,
     height: skill?.targeting?.height,
     maxTargets: skill?.targeting?.maxTargets,
   };
-  pendingTargetedAction.range = resolveCurrentTargetingRange(pendingTargetedAction);
   syncTargetingOverlay();
   if (actionId === 'client:observe') {
     showToast('请选择当前视野内的目标格，Esc 或右键取消');
     return;
   }
-  showToast(`请选择 ${pendingTargetedAction.range} 格内目标，Esc 或右键取消`);
+  showToast(`请选择 ${resolveCurrentTargetingRange(pendingTargetedAction)} 格内目标，Esc 或右键取消`);
 }
 
 function computeAffectedCells(action: NonNullable<typeof pendingTargetedAction>): Array<{ x: number; y: number }> {
@@ -1025,24 +1055,18 @@ function computeAffectedCells(action: NonNullable<typeof pendingTargetedAction>)
 }
 
 function computeAffectedCellsForAction(
-  action: Pick<NonNullable<typeof pendingTargetedAction>, 'range' | 'shape' | 'radius' | 'width' | 'height'>,
+  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height'>,
   anchor: GridPoint,
 ): GridPoint[] {
   if (!myPlayer) {
     return [];
   }
-  const spec: TargetingGeometrySpec = {
-    range: action.range,
-    shape: action.shape,
-    radius: action.radius,
-    width: action.width,
-    height: action.height,
-  };
+  const spec = getEffectiveTargetingGeometry(action);
   return computeAffectedCellsFromAnchor({ x: myPlayer.x, y: myPlayer.y }, anchor, spec);
 }
 
 function resolveTargetRefForAction(
-  action: Pick<NonNullable<typeof pendingTargetedAction>, 'shape' | 'targetMode'>,
+  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'shape' | 'range' | 'radius' | 'innerRadius' | 'width' | 'height' | 'targetMode'>,
   target: { x: number; y: number; entityId?: string; entityKind?: string },
 ): string | null {
   const entityTargetRef = target.entityKind === 'player' && target.entityId
@@ -1050,7 +1074,8 @@ function resolveTargetRefForAction(
     : target.entityKind === 'monster' && target.entityId
       ? target.entityId
       : null;
-  if (action.shape && action.shape !== 'single') {
+  const geometry = getEffectiveTargetingGeometry(action);
+  if ((geometry.shape ?? 'single') !== 'single') {
     return encodeTileTargetRef({ x: target.x, y: target.y });
   }
   if (action.targetMode === 'entity') {
@@ -1066,11 +1091,12 @@ function resolveTargetRefForAction(
 }
 
 function hasAffectableTargetInArea(
-  action: Pick<NonNullable<typeof pendingTargetedAction>, 'shape' | 'range' | 'radius'>,
+  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'shape' | 'range' | 'radius' | 'innerRadius' | 'width' | 'height'>,
   anchorX: number,
   anchorY: number,
 ): boolean {
-  if (!action.shape || action.shape === 'single') {
+  const geometry = getEffectiveTargetingGeometry(action);
+  if (!geometry.shape || geometry.shape === 'single') {
     return true;
   }
   const affectedCells = computeAffectedCellsForAction(action, { x: anchorX, y: anchorY });
@@ -1080,7 +1106,14 @@ function hasAffectableTargetInArea(
   return affectedCells.some((cell) => {
     const hasMonster = latestEntities.some((entity) => entity.kind === 'monster' && entity.wx === cell.x && entity.wy === cell.y);
     const hasPlayer = latestEntities.some((entity) => isPlayerLikeEntityKind(entity.kind) && entity.wx === cell.x && entity.wy === cell.y);
-    if (hasMonster || hasPlayer) {
+    const hasAttackableContainer = latestEntities.some((entity) => (
+      entity.kind === 'container'
+      && entity.wx === cell.x
+      && entity.wy === cell.y
+      && (entity.hp ?? 0) > 0
+      && (entity.maxHp ?? 0) > 0
+    ));
+    if (hasMonster || hasPlayer || hasAttackableContainer) {
       return true;
     }
     const tile = getVisibleTileAt(cell.x, cell.y);
@@ -1384,6 +1417,9 @@ function renderObserveAsideCards(cards: ObserveAsideCard[]): void {
 }
 
 function formatBuffDuration(buff: VisibleBuffState): string {
+  if (buff.infiniteDuration) {
+    return '∞';
+  }
   return `${formatDisplayInteger(Math.max(0, Math.round(buff.remainingTicks)))} / ${formatDisplayInteger(Math.max(1, Math.round(buff.duration)))} 息`;
 }
 
@@ -1526,6 +1562,7 @@ function buildAttrStateFromPlayer(player: PlayerState): S2C_AttrUpdate {
     realmProgress: player.realm?.progress,
     realmProgressToNext: player.realm?.progressToNext,
     realmBreakthroughReady: player.realm?.breakthroughReady ?? player.breakthroughReady,
+    alchemySkill: player.alchemySkill ? cloneJson(player.alchemySkill) : undefined,
   };
 }
 
@@ -1575,6 +1612,9 @@ function mergeAttrUpdatePatch(previous: S2C_AttrUpdate | null, patch: S2C_AttrUp
       ?? myPlayer?.realm?.breakthroughReady
       ?? myPlayer?.breakthroughReady
       ?? undefined,
+    alchemySkill: patch.alchemySkill
+      ? cloneJson(patch.alchemySkill)
+      : (previous?.alchemySkill ? cloneJson(previous.alchemySkill) : (myPlayer?.alchemySkill ? cloneJson(myPlayer.alchemySkill) : undefined)),
   };
 }
 
@@ -1657,6 +1697,8 @@ function hydrateSyncedItemStack(item: SyncedItemStack, previous?: Inventory['ite
         : template?.tags
           ? [...template.tags]
           : undefined,
+    alchemySuccessRate: item.alchemySuccessRate ?? previousSameItem?.alchemySuccessRate ?? template?.alchemySuccessRate,
+    alchemySpeedRate: item.alchemySpeedRate ?? previousSameItem?.alchemySpeedRate ?? template?.alchemySpeedRate,
     mapUnlockId: item.mapUnlockId ?? previousSameItem?.mapUnlockId,
     tileAuraGainAmount: item.tileAuraGainAmount ?? previousSameItem?.tileAuraGainAmount,
     allowBatchUse: item.allowBatchUse ?? previousSameItem?.allowBatchUse,
@@ -1727,11 +1769,14 @@ function hydrateLootWindowState(window: S2C_LootWindowUpdate['window']): LootWin
     sources: window.sources.map((source) => ({
       sourceId: source.sourceId,
       kind: source.kind,
+      variant: source.variant,
       title: source.title,
       desc: source.desc,
       grade: source.grade,
       searchable: source.searchable,
       search: source.search ? cloneJson(source.search) : undefined,
+      herb: source.herb ? cloneJson(source.herb) : undefined,
+      destroyed: source.destroyed === true,
       emptyText: source.emptyText,
       items: source.items.map((entry) => ({
         itemKey: entry.itemKey,
@@ -1903,6 +1948,7 @@ function normalizeObserveEntityCardData(entity: NonNullable<S2C_TileRuntimeDetai
     maxQi: entity.maxQi,
     npcQuestMarker: entity.npcQuestMarker ?? undefined,
     observation: entity.observation ?? undefined,
+    lootPreview: entity.lootPreview ?? undefined,
     buffs: entity.buffs ?? undefined,
   };
 }
@@ -1918,7 +1964,7 @@ function buildObservedEntityCardHtml(entity: ObserveEntityCardData): string {
       <div class="observe-entity-empty">地图广播已将此格玩家聚合为人群显示，不再实时展开单人的血条、Buff 与细节变化。</div>
     </div>`;
   }
-  const detailRows = entity.observation?.lines ?? [];
+  const detailRows = (entity.observation?.lines ?? []).filter((row) => row.label !== '生命' && row.label !== '气血' && row.label !== '灵力');
   const monsterPresentation = entity.kind === 'monster'
     ? getMonsterPresentation(entity.name, entity.monsterTier)
     : null;
@@ -1943,6 +1989,17 @@ function buildObservedEntityCardHtml(entity: ObserveEntityCardData): string {
     ${buildBuffSectionHtml('增益状态', [...publicBuffs, ...observeOnlyBuffs], '当前未见明显增益状态')}
     ${buildBuffSectionHtml('减益状态', [...publicDebuffs, ...observeOnlyDebuffs], '当前未见明显减益状态')}
   </div>`;
+  const lootAction = entity.kind === 'monster'
+    ? `<div class="observe-entity-actions">
+        <button
+          class="small-btn ghost observe-entity-action-btn${entity.observation?.clarity === 'complete' ? '' : ' is-disabled'}"
+          type="button"
+          data-observe-loot-id="${escapeHtml(entity.id)}"
+          aria-disabled="${entity.observation?.clarity === 'complete' ? 'false' : 'true'}"
+          title="${escapeHtml(entity.observation?.clarity === 'complete' ? '查看掉落物与概率' : '神识完全探查后可查看掉落物与概率')}"
+        >掉落物</button>
+      </div>`
+    : '';
   return `<div class="observe-entity-card">
     <div class="observe-entity-head">
       <span class="observe-entity-name">${badge}${escapeHtml(title)}</span>
@@ -1953,7 +2010,89 @@ function buildObservedEntityCardHtml(entity: ObserveEntityCardData): string {
       ? `<div class="observe-entity-grid">${buildObservationRows(detailGrid)}</div>`
       : '<div class="observe-entity-empty">此身气机尽藏，暂未看出更多端倪。</div>'}
     ${buffSection}
+    ${lootAction}
   </div>`;
+}
+
+function findObservedEntityById(entityId: string): ObserveEntityCardData | null {
+  const entities = activeObservedTileDetail?.entities;
+  if (!entities) {
+    return null;
+  }
+  const matched = entities.find((entity) => entity.id === entityId);
+  return matched ? normalizeObserveEntityCardData(matched) : null;
+}
+
+function formatObserveLootChance(chance: number): string {
+  const normalized = Math.max(0, Math.min(1, Number.isFinite(chance) ? chance : 0));
+  const percent = normalized * 100;
+  if (percent >= 10) {
+    return `${percent.toFixed(1)}%`;
+  }
+  if (percent >= 1) {
+    return `${percent.toFixed(2)}%`;
+  }
+  return `${percent.toFixed(3)}%`;
+}
+
+function openObserveLootPreview(entity: ObserveEntityCardData): void {
+  if (entity.kind !== 'monster' || entity.observation?.clarity !== 'complete' || !entity.lootPreview) {
+    return;
+  }
+  const rowsHtml = entity.lootPreview.entries.length > 0
+    ? entity.lootPreview.entries.map((entry) => `
+        <div class="observe-loot-preview-row">
+          <div class="observe-loot-preview-item">${renderInlineItemChip(entry.itemId, { count: entry.count, label: entry.name, tone: 'reward' })}</div>
+          <span class="observe-loot-preview-chance">${escapeHtml(formatObserveLootChance(entry.chance))}</span>
+        </div>
+      `).join('')
+    : `<div class="observe-entity-empty">${escapeHtml(entity.lootPreview.emptyText ?? '未探到稳定掉落。')}</div>`;
+  detailModalHost.open({
+    ownerId: 'observe-loot-preview',
+    variantClass: 'detail-modal--loot',
+    title: `${entity.name ?? '目标'}掉落物`,
+    subtitle: '当前神识推演下的实际掉落概率',
+    bodyHtml: `
+      <section class="quest-detail-section">
+        <strong>掉落预览</strong>
+        <div class="observe-loot-preview-list">${rowsHtml}</div>
+      </section>
+    `,
+    onAfterRender: (body) => {
+      bindInlineItemTooltips(body);
+    },
+  });
+}
+
+function bindObserveLootPreviewActions(root: HTMLElement): void {
+  if (observeLootPreviewDelegatedBound) {
+    return;
+  }
+  observeLootPreviewDelegatedBound = true;
+  root.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+    const button = target.closest<HTMLElement>('[data-observe-loot-id]');
+    if (!button) {
+      return;
+    }
+    const entityId = button.dataset.observeLootId?.trim();
+    if (!entityId) {
+      return;
+    }
+    const entity = findObservedEntityById(entityId);
+    if (!entity || entity.kind !== 'monster' || entity.observation?.clarity !== 'complete' || !entity.lootPreview) {
+      showToast('神识尚未完全探明其掉落。');
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    openObserveLootPreview(entity);
+    event.preventDefault();
+    event.stopPropagation();
+  });
 }
 
 function resolveObserveEntities(targetX: number, targetY: number): ObserveEntityCardData[] {
@@ -2151,6 +2290,7 @@ function renderObserveModal(targetX: number, targetY: number): void {
       </div>
       ${buildObservedEntitySectionHtml(sortedEntities)}
     `;
+    bindObserveLootPreviewActions(observeModalBodyEl);
     bindObserveBuffTooltips(observeModalBodyEl);
   }
   renderObserveAsideCards(buildObservedResourceAsideCards(targetX, targetY, tile));
@@ -2219,6 +2359,13 @@ npcShopModal.setCallbacks({
   onRequestShop: (npcId) => socket.sendRequestNpcShop(npcId),
   onBuyItem: (npcId, itemId, quantity) => socket.sendBuyNpcShopItem(npcId, itemId, quantity),
 });
+alchemyModal.setCallbacks({
+  onRequestPanel: (knownCatalogVersion) => socket.sendRequestAlchemyPanel(knownCatalogVersion),
+  onSavePreset: (payload) => socket.sendSaveAlchemyPreset(payload),
+  onDeletePreset: (presetId) => socket.sendDeleteAlchemyPreset(presetId),
+  onStartAlchemy: (payload) => socket.sendStartAlchemy(payload),
+  onCancelAlchemy: () => socket.sendCancelAlchemy(),
+});
 actionPanel.setCallbacks(
   (actionId, requiresTarget, targetMode, range, actionName) => {
     if (actionId === 'client:take') {
@@ -2237,6 +2384,12 @@ actionPanel.setCallbacks(
       npcShopModal.open(actionId.slice('npc_shop:'.length));
       return;
     }
+    if (actionId === 'alchemy:open') {
+      cancelTargeting();
+      hideObserveModal();
+      alchemyModal.open();
+      return;
+    }
     if (requiresTarget) {
       beginTargeting(actionId, actionName ?? actionId, targetMode, actionId === 'client:observe' ? getInfoRadius() : (range ?? 1));
       return;
@@ -2247,6 +2400,12 @@ actionPanel.setCallbacks(
   },
   (skills) => {
     socket.sendUpdateAutoBattleSkills(skills);
+  },
+  (pills) => {
+    socket.sendUpdateAutoUsePills(pills);
+  },
+  (mode) => {
+    socket.sendUpdateAutoBattleTargetingMode(mode);
   },
 );
 debugPanel.setCallbacks(() => {
@@ -2382,6 +2541,7 @@ socket.onAttrUpdate((data) => {
       myPlayer.viewRange = Math.max(1, Math.round(latestAttrUpdate.numericStats.viewRange || myPlayer.viewRange));
     }
     myPlayer.breakthroughReady = latestAttrUpdate.realmBreakthroughReady ?? myPlayer.breakthroughReady;
+    myPlayer.alchemySkill = latestAttrUpdate.alchemySkill ?? myPlayer.alchemySkill;
     if (myPlayer.realm) {
       myPlayer.realm.progress = latestAttrUpdate.realmProgress ?? myPlayer.realm.progress;
       myPlayer.realm.progressToNext = latestAttrUpdate.realmProgressToNext ?? myPlayer.realm.progressToNext;
@@ -2391,6 +2551,7 @@ socket.onAttrUpdate((data) => {
     techniquePanel.syncDynamic(myPlayer.techniques, myPlayer.cultivatingTechId, myPlayer);
     actionPanel.syncDynamic(myPlayer.actions, myPlayer.autoBattle, myPlayer.autoRetaliate, myPlayer);
     bodyTrainingPanel.syncFoundation(myPlayer.foundation);
+    alchemyModal.syncAlchemySkill(myPlayer.alchemySkill);
   }
   attrPanel.update(latestAttrUpdate);
   refreshHeavenGateModal(myPlayer, {
@@ -2410,11 +2571,13 @@ socket.onInventoryUpdate((data) => {
   const mergedInventory = mergeInventoryUpdate(myPlayer?.inventory, data);
   if (myPlayer) {
     myPlayer.inventory = mergedInventory;
+    actionPanel.syncDynamic(myPlayer.actions, myPlayer.autoBattle, myPlayer.autoRetaliate, myPlayer);
   }
   inventoryPanel.update(mergedInventory);
   questPanel.syncInventory(mergedInventory);
   marketPanel.syncInventory(mergedInventory);
   npcShopModal.syncInventory(mergedInventory);
+  alchemyModal.syncInventory(mergedInventory);
 });
 socket.onEquipmentUpdate((data) => {
   const mergedEquipment = mergeEquipmentUpdate(myPlayer?.equipment, data);
@@ -2423,6 +2586,7 @@ socket.onEquipmentUpdate((data) => {
     inventoryPanel.syncPlayerContext(myPlayer);
   }
   equipmentPanel.update(mergedEquipment);
+  alchemyModal.syncEquipment(mergedEquipment);
 });
 socket.onTechniqueUpdate((data) => {
   const mergedTechniques = resolvePreviewTechniques(
@@ -2459,6 +2623,7 @@ socket.onActionsUpdate((data) => {
   const mergedActions = mergeActionStates(data.actions, data.removeActionIds ?? [], data.actionOrder);
   const previousActions = myPlayer?.actions ?? [];
   const previousAutoBattle = myPlayer?.autoBattle ?? false;
+  const previousAutoBattleTargetingMode = myPlayer?.autoBattleTargetingMode ?? 'auto';
   const previousAutoRetaliate = myPlayer?.autoRetaliate ?? true;
   const previousAutoBattleStationary = myPlayer?.autoBattleStationary ?? false;
   const previousAllowAoePlayerHit = myPlayer?.allowAoePlayerHit ?? false;
@@ -2466,6 +2631,8 @@ socket.onActionsUpdate((data) => {
   const previousAutoSwitchCultivation = myPlayer?.autoSwitchCultivation ?? false;
   const previousCultivationActive = myPlayer?.cultivationActive ?? false;
   const nextAutoBattle = data.autoBattle ?? myPlayer?.autoBattle ?? false;
+  const nextAutoUsePills = data.autoUsePills ?? myPlayer?.autoUsePills ?? [];
+  const nextAutoBattleTargetingMode = data.autoBattleTargetingMode ?? myPlayer?.autoBattleTargetingMode ?? 'auto';
   const nextAutoRetaliate = data.autoRetaliate ?? myPlayer?.autoRetaliate ?? true;
   const nextAutoBattleStationary = data.autoBattleStationary ?? myPlayer?.autoBattleStationary ?? false;
   const nextAllowAoePlayerHit = data.allowAoePlayerHit ?? myPlayer?.allowAoePlayerHit ?? false;
@@ -2475,6 +2642,7 @@ socket.onActionsUpdate((data) => {
   const nextSenseQiActive = data.senseQiActive ?? myPlayer?.senseQiActive ?? false;
   const shouldRefreshActionPanel = !myPlayer
     || previousAutoBattle !== nextAutoBattle
+    || previousAutoBattleTargetingMode !== nextAutoBattleTargetingMode
     || previousAutoRetaliate !== nextAutoRetaliate
     || previousAutoBattleStationary !== nextAutoBattleStationary
     || previousAllowAoePlayerHit !== nextAllowAoePlayerHit
@@ -2492,6 +2660,8 @@ socket.onActionsUpdate((data) => {
         skillEnabled: action.skillEnabled !== false,
       }));
     myPlayer.autoBattle = data.autoBattle ?? myPlayer.autoBattle;
+    myPlayer.autoUsePills = nextAutoUsePills;
+    myPlayer.autoBattleTargetingMode = nextAutoBattleTargetingMode;
     myPlayer.autoRetaliate = data.autoRetaliate ?? (myPlayer.autoRetaliate !== false);
     myPlayer.autoBattleStationary = nextAutoBattleStationary;
     myPlayer.allowAoePlayerHit = nextAllowAoePlayerHit;
@@ -3241,6 +3411,7 @@ function resetGameState() {
   marketPanel.clear();
   actionPanel.clear();
   npcShopModal.clear();
+  alchemyModal.clear();
   lootPanel.clear();
   worldPanel.clear();
   mailPanel.clear();
@@ -3413,8 +3584,9 @@ mapRuntime.setInteractionCallbacks({
         cancelTargeting();
         return;
       }
-      if (!myPlayer || !isPointInRange({ x: myPlayer.x, y: myPlayer.y }, { x: target.x, y: target.y }, pendingTargetedAction.range)) {
-        showToast(`超出施法范围，最多 ${pendingTargetedAction.range} 格`);
+      const geometry = getEffectiveTargetingGeometry(pendingTargetedAction);
+      if (!myPlayer || !isPointInRange({ x: myPlayer.x, y: myPlayer.y }, { x: target.x, y: target.y }, geometry.range)) {
+        showToast(`超出施法范围，最多 ${geometry.range} 格`);
         return;
       }
       if (!hasAffectableTargetInArea(pendingTargetedAction, target.x, target.y)) {
@@ -3491,6 +3663,7 @@ socket.onInit((data: S2C_Init) => {
   latestAttrUpdate = buildAttrStateFromPlayer(myPlayer);
   myPlayer.senseQiActive = myPlayer.senseQiActive === true;
   myPlayer.autoBattleStationary = myPlayer.autoBattleStationary === true;
+  myPlayer.autoBattleTargetingMode = myPlayer.autoBattleTargetingMode ?? 'auto';
   myPlayer.allowAoePlayerHit = myPlayer.allowAoePlayerHit === true;
   myPlayer.autoIdleCultivation = myPlayer.autoIdleCultivation !== false;
   myPlayer.autoSwitchCultivation = myPlayer.autoSwitchCultivation === true;
@@ -3529,6 +3702,7 @@ socket.onInit((data: S2C_Init) => {
   bodyTrainingPanel.initFromPlayer(myPlayer);
   questPanel.initFromPlayer(myPlayer);
   npcShopModal.initFromPlayer(myPlayer);
+  alchemyModal.initFromPlayer(myPlayer);
   actionPanel.initFromPlayer(myPlayer);
   refreshUiChrome();
   mailPanel.setPlayerId(myPlayer.id);
@@ -3598,6 +3772,9 @@ socket.onMarketTradeHistory((data) => {
 });
 socket.onNpcShop((data) => {
   npcShopModal.updateShop(hydrateNpcShopResponse(data));
+});
+socket.onAlchemyPanel((data) => {
+  alchemyModal.updatePanel(data);
 });
 
 // Tick 更新

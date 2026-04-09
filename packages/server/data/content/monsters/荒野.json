@@ -246,13 +246,6 @@
         "chance": 0.2
       },
       {
-        "itemId": "frost_heart_paste",
-        "name": "寒心膏",
-        "type": "consumable",
-        "count": 1,
-        "chance": 0.1
-      },
-      {
         "itemId": "book.cloudchase_steps",
         "name": "《分光步》",
         "type": "skill_book",

@@ -49,7 +49,10 @@ let LegacyGmController = class LegacyGmController {
         return player;
     }
     async updatePlayerPassword(playerId, body) {
-        await this.legacyGmHttpCompatService.updateManagedPlayerPassword(playerId, body?.newPassword ?? '');
+        const nextPassword = typeof body?.newPassword === 'string' && body.newPassword.trim()
+            ? body.newPassword
+            : body?.password ?? '';
+        await this.legacyGmHttpCompatService.updateManagedPlayerPassword(playerId, nextPassword);
         return { ok: true };
     }
     async updatePlayerAccount(playerId, body) {

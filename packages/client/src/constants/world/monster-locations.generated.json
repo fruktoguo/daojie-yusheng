@@ -383,6 +383,14 @@
     "dangerLevel": 5,
     "totalMaps": 1
   },
+  "m_huanling_zhenren": {
+    "monsterId": "m_huanling_zhenren",
+    "monsterName": "重伤的唤灵真人",
+    "mapId": "ruined_cavern_manor",
+    "mapName": "破败洞府",
+    "dangerLevel": 6,
+    "totalMaps": 1
+  },
   "m_iron_devour_lord": {
     "monsterId": "m_iron_devour_lord",
     "monsterName": "噬铁矿君",

@@ -29,4 +29,7 @@ export * from './age';
 export * from './mail';
 export * from './market-price';
 export * from './structured';
+export * from './grapheme';
 export * from './role-name';
+export * from './name-visibility';
+export * from './tutorial-mechanics.generated';

@@ -2,9 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared-next");
-const SERVER_NEXT_URL = process.env.SERVER_NEXT_URL ?? 'http://127.0.0.1:3111';
-const dropperId = process.env.SERVER_NEXT_SMOKE_DROPPER_ID ?? `loot_dropper_${Date.now().toString(36)}`;
-const looterId = process.env.SERVER_NEXT_SMOKE_LOOTER_ID ?? `loot_looter_${Date.now().toString(36)}`;
+const env_alias_1 = require("../config/env-alias");
+const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
+let dropperId = '';
+let looterId = '';
 const TARGET_ITEM_ID = 'rat_tail';
 const DROP_COUNT = 2;
 async function main() {
@@ -38,20 +39,27 @@ async function main() {
     looter.on(shared_1.NEXT_S2C.WorldDelta, (payload) => {
         looterWorld.push(payload);
     });
+    dropper.on(shared_1.NEXT_S2C.InitSession, (payload) => {
+        dropperId = String(payload?.pid ?? '');
+    });
+    looter.on(shared_1.NEXT_S2C.InitSession, (payload) => {
+        looterId = String(payload?.pid ?? '');
+    });
     await Promise.all([onceConnected(dropper), onceConnected(looter)]);
     dropper.emit(shared_1.NEXT_C2S.Hello, {
-        playerId: dropperId,
         mapId: 'yunlai_town',
         preferredX: 32,
         preferredY: 5,
     });
     looter.emit(shared_1.NEXT_C2S.Hello, {
-        playerId: looterId,
         mapId: 'yunlai_town',
         preferredX: 33,
         preferredY: 5,
     });
     await waitFor(async () => {
+        if (!dropperId || !looterId) {
+            return false;
+        }
         const [dropperState, looterState] = await Promise.all([fetchState(dropperId), fetchState(looterId)]);
         return dropperState.player && looterState.player && chebyshevDistance(dropperState.player, looterState.player) <= 1;
     }, 5000);

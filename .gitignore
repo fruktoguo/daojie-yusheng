@@ -3,6 +3,7 @@ dist/
 .env
 *.log
 .DS_Store
+.codex/tmp/
 参考/
 packages/server/data/gm-config.json
 packages/server/data/runtime/

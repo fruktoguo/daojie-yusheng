@@ -12,6 +12,8 @@ import {
   GM_PANEL_POLL_INTERVAL_MS,
   type GmAppendRedeemCodesReq,
   type GmAppendRedeemCodesRes,
+  type GmAddPlayerCombatExpReq,
+  type GmAddPlayerFoundationReq,
   type GmCreateRedeemCodeGroupReq,
   type GmCreateRedeemCodeGroupRes,
   type GmDatabaseBackupRecord,
@@ -20,6 +22,7 @@ import {
   type GmRedeemCodeGroupDetailRes,
   type GmRedeemCodeGroupListRes,
   type GmReplySuggestionReq,
+  type GmSetPlayerBodyTrainingLevelReq,
   type GmSuggestionListRes,
   GM_PASSWORD_STORAGE_KEY,
   type GmCpuSectionSnapshot,
@@ -41,6 +44,7 @@ import {
   type GmLoginReq,
   type GmLoginRes,
   type GmManagedPlayerRecord,
+  type GmPlayerSortMode,
   type GmRemoveBotsReq,
   type GmRestoreDatabaseReq,
   type GmShortcutRunRes,
@@ -94,6 +98,9 @@ const statusBarEl = document.getElementById('status-bar') as HTMLDivElement;
 const playerSearchInput = document.getElementById('player-search') as HTMLInputElement;
 const playerSortSelect = document.getElementById('player-sort') as HTMLSelectElement;
 const playerListEl = document.getElementById('player-list') as HTMLDivElement;
+const playerPrevPageBtn = document.getElementById('player-page-prev') as HTMLButtonElement;
+const playerNextPageBtn = document.getElementById('player-page-next') as HTMLButtonElement;
+const playerPageMetaEl = document.getElementById('player-page-meta') as HTMLDivElement;
 const spawnCountInput = document.getElementById('spawn-count') as HTMLInputElement;
 const editorEmptyEl = document.getElementById('editor-empty') as HTMLDivElement;
 const editorPanelEl = document.getElementById('editor-panel') as HTMLDivElement;
@@ -129,6 +136,7 @@ const summaryOfflineHangingEl = document.getElementById('summary-offline-hanging
 const summaryOfflineEl = document.getElementById('summary-offline') as HTMLDivElement;
 const summaryBotsEl = document.getElementById('summary-bots') as HTMLDivElement;
 const summaryTickEl = document.getElementById('summary-tick') as HTMLDivElement;
+const summaryTickWindowEl = document.getElementById('summary-tick-window') as HTMLDivElement;
 const summaryCpuEl = document.getElementById('summary-cpu') as HTMLDivElement;
 const summaryMemoryEl = document.getElementById('summary-memory') as HTMLDivElement;
 const summaryNetInEl = document.getElementById('summary-net-in') as HTMLDivElement;
@@ -155,6 +163,8 @@ const resetNetworkStatsBtn = document.getElementById('reset-network-stats') as H
 const resetCpuStatsBtn = document.getElementById('reset-cpu-stats') as HTMLButtonElement;
 const resetPathfindingStatsBtn = document.getElementById('reset-pathfinding-stats') as HTMLButtonElement;
 const cpuCurrentPercentEl = document.getElementById('cpu-current-percent') as HTMLDivElement;
+const cpuTickWindowPercentEl = document.getElementById('cpu-tick-window-percent') as HTMLDivElement;
+const cpuTickWindowNoteEl = document.getElementById('cpu-tick-window-note') as HTMLDivElement;
 const cpuProfileMetaEl = document.getElementById('cpu-profile-meta') as HTMLDivElement;
 const cpuCoreCountEl = document.getElementById('cpu-core-count') as HTMLDivElement;
 const cpuUserMsEl = document.getElementById('cpu-user-ms') as HTMLDivElement;
@@ -210,7 +220,6 @@ const redeemGroupListEl = document.getElementById('redeem-group-list') as HTMLDi
 const redeemGroupEditorEl = document.getElementById('redeem-group-editor') as HTMLDivElement | null;
 const redeemCodeListEl = document.getElementById('redeem-code-list') as HTMLDivElement | null;
 
-type PlayerSortMode = 'realm-desc' | 'realm-asc' | 'online' | 'map' | 'name';
 type GmEditorTab = GmPlayerUpdateSection | 'shortcuts' | 'mail' | 'persisted';
 
 interface GmMailAttachmentDraft {
@@ -267,7 +276,10 @@ let currentServerTab: 'overview' | 'traffic' | 'cpu' | 'database' = 'overview';
 let currentCpuBreakdownSort: 'total' | 'count' | 'avg' = 'total';
 let currentEditorTab: GmEditorTab = 'basic';
 let currentInventoryAddType: (typeof ITEM_TYPES)[number] = 'material';
-let currentPlayerSort: PlayerSortMode = (playerSortSelect.value as PlayerSortMode) || 'realm-desc';
+let currentPlayerSort: GmPlayerSortMode = (playerSortSelect.value as GmPlayerSortMode) || 'realm-desc';
+let currentPlayerPage = 1;
+let currentPlayerTotalPages = 1;
+let playerSearchTimer: number | null = null;
 let currentSuggestionPage = 1;
 let currentSuggestionTotalPages = 1;
 let currentSuggestionTotal = 0;
@@ -522,54 +534,7 @@ function assertTrustedEditorCatalog(actionLabel: string): void {
 }
 
 function getFilteredPlayers(data: GmStateRes): GmManagedPlayerSummary[] {
-  const keyword = playerSearchInput.value.trim().toLowerCase();
-  const filtered = data.players.filter((player) => {
-    if (!keyword) return true;
-    return [player.accountName ?? '', player.roleName, player.displayName, player.mapName, player.mapId]
-      .some((value) => value.toLowerCase().includes(keyword));
-  });
-  return sortPlayers(filtered);
-}
-
-function comparePlayerName(left: GmManagedPlayerSummary, right: GmManagedPlayerSummary): number {
-  return left.roleName.localeCompare(right.roleName, 'zh-CN');
-}
-
-function comparePlayerRealm(left: GmManagedPlayerSummary, right: GmManagedPlayerSummary): number {
-  if (left.realmLv !== right.realmLv) {
-    return right.realmLv - left.realmLv;
-  }
-  return comparePlayerName(left, right);
-}
-
-function sortPlayers(players: GmManagedPlayerSummary[]): GmManagedPlayerSummary[] {
-  return [...players].sort((left, right) => {
-    switch (currentPlayerSort) {
-      case 'realm-asc':
-        return comparePlayerRealm(right, left);
-      case 'online':
-        if (left.meta.online !== right.meta.online) {
-          return left.meta.online ? -1 : 1;
-        }
-        if (left.realmLv !== right.realmLv) {
-          return right.realmLv - left.realmLv;
-        }
-        return comparePlayerName(left, right);
-      case 'map':
-        if (left.mapName !== right.mapName) {
-          return left.mapName.localeCompare(right.mapName, 'zh-CN');
-        }
-        if (left.realmLv !== right.realmLv) {
-          return right.realmLv - left.realmLv;
-        }
-        return comparePlayerName(left, right);
-      case 'name':
-        return comparePlayerName(left, right);
-      case 'realm-desc':
-      default:
-        return comparePlayerRealm(left, right);
-    }
-  });
+  return data.players;
 }
 
 function getPlayerIdentityLine(player: GmManagedPlayerSummary): string {
@@ -865,13 +830,21 @@ function isServerManagedMailTemplate(templateId: string): boolean {
 
 function getShortcutMailTargetOptions(): Array<{ value: string; label: string }> {
   const players = state?.players.filter((player) => !player.meta.isBot) ?? [];
-  return [
+  const options = [
     { value: '', label: '发送给全服玩家' },
     ...players.map((player) => ({
       value: player.id,
       label: `${player.roleName} · ${player.accountName || '无账号'} · ${player.meta.online ? '在线' : '离线'}`,
     })),
   ];
+  const selectedTargetId = broadcastMailDraft.targetPlayerId.trim();
+  if (selectedTargetId && !options.some((option) => option.value === selectedTargetId)) {
+    const fallbackLabel = selectedPlayerDetail?.id === selectedTargetId
+      ? `${selectedPlayerDetail.roleName} · ${selectedPlayerDetail.account?.username || '无账号'} · 已选中`
+      : `当前目标 · ${selectedTargetId}`;
+    options.push({ value: selectedTargetId, label: fallbackLabel });
+  }
+  return options;
 }
 
 function getMailComposerPayload(draft: GmMailComposerDraft): GmCreateMailReq {
@@ -1444,6 +1417,18 @@ function getNetworkBucketMeta(
   elapsedSec: number,
 ): string {
   return `${formatBytes(bucket.bytes)} · ${formatPercent(bucket.bytes, totalBytes)} · ${bucket.count} 次 · 均次 ${formatAverageBytesPerEvent(bucket.bytes, bucket.count)} · 均秒 ${formatBytesPerSecond(bucket.bytes, elapsedSec)}`;
+}
+
+function getTickPerf(perf: GmStateRes['perf']) {
+  return perf.tick ?? {
+    lastMapId: null,
+    lastMs: perf.tickMs,
+    windowElapsedSec: 0,
+    windowTickCount: 0,
+    windowTotalMs: 0,
+    windowAvgMs: perf.tickMs,
+    windowBusyPercent: 0,
+  };
 }
 
 function getStatRowMarkup(key: string): string {
@@ -2317,14 +2302,11 @@ function renderShortcutMailComposer(preserveActiveInteraction = false): void {
   if (!shortcutMailComposerEl) {
     return;
   }
-  if (broadcastMailDraft.targetPlayerId) {
-    const targetExists = (state?.players ?? []).some((player) => player.id === broadcastMailDraft.targetPlayerId);
-    if (!targetExists) {
-      broadcastMailDraft.targetPlayerId = '';
-    }
-  }
   const targetPlayer = broadcastMailDraft.targetPlayerId
-    ? (state?.players.find((player) => player.id === broadcastMailDraft.targetPlayerId) ?? null)
+    ? (
+      state?.players.find((player) => player.id === broadcastMailDraft.targetPlayerId)
+      ?? (selectedPlayerDetail?.id === broadcastMailDraft.targetPlayerId ? selectedPlayerDetail : null)
+    )
     : null;
   const structureKey = JSON.stringify({
     targetPlayerId: broadcastMailDraft.targetPlayerId,
@@ -3653,6 +3635,62 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
           </div>
         </div>
       </div>
+    </section>
+
+    <section class="editor-section">
+      <div class="editor-section-head">
+        <div>
+          <div class="editor-section-title">属性快速设置</div>
+          <div class="editor-section-note">这里直接请求服务端修改角色存档，不走整份角色快照覆盖。炼体等级默认保留现有炼体经验；如果经验超出目标等级上限，会自动截到升级前一档。底蕴和战斗经验则按输入值直接增加。</div>
+        </div>
+      </div>
+      <div class="editor-card-list">
+        <div class="editor-card">
+          <div class="editor-card-head">
+            <div>
+              <div class="editor-card-title">炼体等级</div>
+              <div class="editor-card-meta">当前为 ${Math.max(0, Math.floor(draft.bodyTraining?.level ?? 0))} 层。修改后会立即重算炼体带来的属性加成。</div>
+            </div>
+            <div class="button-row">
+              <label class="editor-field" style="min-width: 160px;">
+                <span>目标等级</span>
+                <input id="shortcut-body-training-level" type="number" min="0" step="1" value="${Math.max(0, Math.floor(draft.bodyTraining?.level ?? 0))}" />
+              </label>
+              <button class="small-btn primary" type="button" data-action="set-body-training-level">确认修改</button>
+            </div>
+          </div>
+        </div>
+        <div class="editor-card">
+          <div class="editor-card-head">
+            <div>
+              <div class="editor-card-title">增加底蕴</div>
+              <div class="editor-card-meta">当前为 ${Math.max(0, Math.floor(draft.foundation ?? 0))}。输入多少就直接加多少。</div>
+            </div>
+            <div class="button-row">
+              <label class="editor-field" style="min-width: 160px;">
+                <span>增加数值</span>
+                <input id="shortcut-foundation-amount" type="number" min="0" step="1" value="0" />
+              </label>
+              <button class="small-btn primary" type="button" data-action="add-foundation">确认增加</button>
+            </div>
+          </div>
+        </div>
+        <div class="editor-card">
+          <div class="editor-card-head">
+            <div>
+              <div class="editor-card-title">增加战斗经验</div>
+              <div class="editor-card-meta">当前为 ${Math.max(0, Math.floor(draft.combatExp ?? 0))}。输入多少就直接加多少。</div>
+            </div>
+            <div class="button-row">
+              <label class="editor-field" style="min-width: 160px;">
+                <span>增加数值</span>
+                <input id="shortcut-combat-exp-amount" type="number" min="0" step="1" value="0" />
+              </label>
+              <button class="small-btn primary" type="button" data-action="add-combat-exp">确认增加</button>
+            </div>
+          </div>
+        </div>
+      </div>
       ${catalogFallbackNote ? `<div class="editor-note" style="margin-top: 12px; color: var(--stamp-red);">${escapeHtml(catalogFallbackNote)}</div>` : ''}
     </section>
     `)}
@@ -3731,18 +3769,18 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
 }
 
 function renderSummary(data: GmStateRes): void {
-  const humanPlayers = data.players.filter((player) => !player.meta.isBot);
-  const onlineCount = humanPlayers.filter((player) => player.meta.online).length;
-  const offlineHangingCount = humanPlayers.filter((player) => !player.meta.online && player.meta.inWorld).length;
-  const offlineCount = humanPlayers.filter((player) => !player.meta.online && !player.meta.inWorld).length;
   const elapsedSec = Math.max(0, data.perf.networkStatsElapsedSec);
   const startedAt = data.perf.networkStatsStartedAt > 0 ? new Date(data.perf.networkStatsStartedAt) : null;
-  summaryTotalEl.textContent = `${humanPlayers.length}`;
-  summaryOnlineEl.textContent = `${onlineCount}`;
-  summaryOfflineHangingEl.textContent = `${offlineHangingCount}`;
-  summaryOfflineEl.textContent = `${offlineCount}`;
+  const tickPerf = getTickPerf(data.perf);
+  summaryTotalEl.textContent = `${data.playerStats.totalPlayers}`;
+  summaryOnlineEl.textContent = `${data.playerStats.onlinePlayers}`;
+  summaryOfflineHangingEl.textContent = `${data.playerStats.offlineHangingPlayers}`;
+  summaryOfflineEl.textContent = `${data.playerStats.offlinePlayers}`;
   summaryBotsEl.textContent = `${data.botCount}`;
-  summaryTickEl.textContent = `${Math.round(data.perf.tickMs)} ms`;
+  summaryTickEl.textContent = tickPerf.lastMapId
+    ? `${Math.round(tickPerf.lastMs)} ms · ${tickPerf.lastMapId}`
+    : `${Math.round(tickPerf.lastMs)} ms`;
+  summaryTickWindowEl.textContent = `${Math.round(tickPerf.windowBusyPercent)}%`;
   summaryCpuEl.textContent = `${Math.round(data.perf.cpuPercent)}%`;
   summaryMemoryEl.textContent = `${Math.round(data.perf.memoryMb)} MB`;
   summaryNetInEl.textContent = formatBytes(data.perf.networkInBytes);
@@ -3764,6 +3802,12 @@ function renderSummary(data: GmStateRes): void {
     data.perf.networkOutBuckets.reduce((sum, bucket) => sum + bucket.count, 0),
   )} · 均秒 ${formatBytesPerSecond(data.perf.networkOutBytes, elapsedSec)}`;
   cpuCurrentPercentEl.textContent = `${Math.round(data.perf.cpuPercent)}%`;
+  cpuTickWindowPercentEl.textContent = `${Math.round(tickPerf.windowBusyPercent)}%`;
+  cpuTickWindowNoteEl.textContent = tickPerf.windowTickCount > 0
+    ? `${tickPerf.windowTickCount} 次 tick · 总计 ${Math.round(tickPerf.windowTotalMs)} ms · 均次 ${tickPerf.windowAvgMs.toFixed(1)} ms`
+    : tickPerf.windowBusyPercent > 0
+      ? `兼容口径估算 · 最近 tick 约 ${tickPerf.windowAvgMs.toFixed(1)} ms`
+      : '最近采样窗口内暂无 tick 记录';
   cpuProfileMetaEl.textContent = data.perf.cpu.profileStartedAt > 0
     ? `CPU 画像起点：${new Date(data.perf.cpu.profileStartedAt).toLocaleString()} · 已累计 ${formatDurationSeconds(data.perf.cpu.profileElapsedSec)}`
     : 'CPU 画像尚未开始。';
@@ -3793,6 +3837,12 @@ function renderSummary(data: GmStateRes): void {
   renderPerfLists(data);
 }
 
+function renderPlayerPageMeta(data: GmStateRes): void {
+  playerPageMetaEl.textContent = `第 ${data.playerPage.page} / ${data.playerPage.totalPages} 页 · 共 ${data.playerPage.total} 条`;
+  playerPrevPageBtn.disabled = data.playerPage.page <= 1;
+  playerNextPageBtn.disabled = data.playerPage.page >= data.playerPage.totalPages;
+}
+
 function renderPlayerList(data: GmStateRes): void {
   const filtered = getFilteredPlayers(data);
 
@@ -3805,6 +3855,7 @@ function renderPlayerList(data: GmStateRes): void {
       playerListEl.innerHTML = '<div class="empty-hint">没有符合筛选条件的角色。</div>';
       lastPlayerListStructureKey = 'empty';
     }
+    renderPlayerPageMeta(data);
     return;
   }
 
@@ -3821,6 +3872,7 @@ function renderPlayerList(data: GmStateRes): void {
     }
     patchPlayerRow(row, player, player.id === selectedPlayerId);
   });
+  renderPlayerPageMeta(data);
 }
 
 function renderEditor(data: GmStateRes): void {
@@ -4061,8 +4113,19 @@ function applyCatalogBindingChange(path: string, value: string): boolean {
 
 async function loadState(silent = false, refreshDetail = false): Promise<void> {
   if (!token) return;
-  const data = await request<GmStateRes>('/gm/state');
+  const params = new URLSearchParams({
+    page: String(currentPlayerPage),
+    pageSize: '50',
+    sort: currentPlayerSort,
+  });
+  const keyword = playerSearchInput.value.trim();
+  if (keyword) {
+    params.set('keyword', keyword);
+  }
+  const data = await request<GmStateRes>(`/gm/state?${params.toString()}`);
   state = data;
+  currentPlayerPage = data.playerPage.page;
+  currentPlayerTotalPages = data.playerPage.totalPages;
   const previousSelectedPlayerId = selectedPlayerId;
   if (!selectedPlayerId || !data.players.some((player) => player.id === selectedPlayerId)) {
     selectedPlayerId = data.players[0]?.id ?? null;
@@ -4084,7 +4147,7 @@ async function loadState(silent = false, refreshDetail = false): Promise<void> {
     loadingPlayerDetailId = null;
   }
   if (!silent) {
-    setStatus(`已同步 ${data.players.length} 条角色数据`);
+    setStatus(`已同步角色列表第 ${data.playerPage.page} / ${data.playerPage.totalPages} 页，本页 ${data.players.length} 条，共 ${data.playerPage.total} 条`);
   }
   if (currentTab === 'server' && currentServerTab === 'database') {
     await loadDatabaseState(true);
@@ -4176,6 +4239,10 @@ function logout(message?: string): void {
     window.clearTimeout(suggestionSearchTimer);
     suggestionSearchTimer = null;
   }
+  if (playerSearchTimer !== null) {
+    window.clearTimeout(playerSearchTimer);
+    playerSearchTimer = null;
+  }
   playerListEl.innerHTML = '';
   lastPlayerListStructureKey = null;
   clearEditorRenderCache();
@@ -4188,6 +4255,12 @@ function logout(message?: string): void {
   suggestionPageMetaEl.textContent = '第 1 / 1 页';
   suggestionPrevPageBtn.disabled = true;
   suggestionNextPageBtn.disabled = true;
+  currentPlayerPage = 1;
+  currentPlayerTotalPages = 1;
+  playerSearchInput.value = '';
+  playerPageMetaEl.textContent = '第 1 / 1 页 · 共 0 条';
+  playerPrevPageBtn.disabled = true;
+  playerNextPageBtn.disabled = true;
   lastNetworkInStructureKey = null;
   lastNetworkOutStructureKey = null;
   lastCpuBreakdownStructureKey = null;
@@ -4439,6 +4512,114 @@ async function saveSelectedPlayerSections(sections: GmPlayerUpdateSection[], mes
   }
   editorDirty = false;
   await delayRefresh(message);
+}
+
+async function setSelectedPlayerBodyTrainingLevel(): Promise<void> {
+  const detail = getSelectedPlayerDetail();
+  if (!detail) {
+    setStatus('请先选择角色', true);
+    return;
+  }
+
+  const input = editorContentEl.querySelector<HTMLInputElement>('#shortcut-body-training-level');
+  const button = editorContentEl.querySelector<HTMLButtonElement>('[data-action="set-body-training-level"]');
+  const rawValue = input?.value.trim() ?? '';
+  const level = Number(rawValue);
+
+  if (!rawValue || !Number.isFinite(level) || level < 0 || !Number.isInteger(level)) {
+    setStatus('请输入非负整数炼体等级', true);
+    return;
+  }
+
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    await request<BasicOkRes>(`/gm/players/${encodeURIComponent(detail.id)}/body-training/level`, {
+      method: 'POST',
+      body: JSON.stringify({ level } satisfies GmSetPlayerBodyTrainingLevelReq),
+    });
+    editorDirty = false;
+    await delayRefresh(`已将 ${detail.name} 的炼体等级设置为 ${level} 层`);
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '设置炼体等级失败', true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
+async function addSelectedPlayerFoundation(): Promise<void> {
+  const detail = getSelectedPlayerDetail();
+  if (!detail) {
+    setStatus('请先选择角色', true);
+    return;
+  }
+
+  const input = editorContentEl.querySelector<HTMLInputElement>('#shortcut-foundation-amount');
+  const button = editorContentEl.querySelector<HTMLButtonElement>('[data-action="add-foundation"]');
+  const rawValue = input?.value.trim() ?? '';
+  const amount = Number(rawValue);
+
+  if (!rawValue || !Number.isFinite(amount) || amount < 0 || !Number.isInteger(amount)) {
+    setStatus('请输入非负整数底蕴增量', true);
+    return;
+  }
+
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    await request<BasicOkRes>(`/gm/players/${encodeURIComponent(detail.id)}/foundation/add`, {
+      method: 'POST',
+      body: JSON.stringify({ amount } satisfies GmAddPlayerFoundationReq),
+    });
+    editorDirty = false;
+    await delayRefresh(`已给 ${detail.name} 增加 ${amount} 点底蕴`);
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '增加底蕴失败', true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
+async function addSelectedPlayerCombatExp(): Promise<void> {
+  const detail = getSelectedPlayerDetail();
+  if (!detail) {
+    setStatus('请先选择角色', true);
+    return;
+  }
+
+  const input = editorContentEl.querySelector<HTMLInputElement>('#shortcut-combat-exp-amount');
+  const button = editorContentEl.querySelector<HTMLButtonElement>('[data-action="add-combat-exp"]');
+  const rawValue = input?.value.trim() ?? '';
+  const amount = Number(rawValue);
+
+  if (!rawValue || !Number.isFinite(amount) || amount < 0 || !Number.isInteger(amount)) {
+    setStatus('请输入非负整数战斗经验增量', true);
+    return;
+  }
+
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    await request<BasicOkRes>(`/gm/players/${encodeURIComponent(detail.id)}/combat-exp/add`, {
+      method: 'POST',
+      body: JSON.stringify({ amount } satisfies GmAddPlayerCombatExpReq),
+    });
+    editorDirty = false;
+    await delayRefresh(`已给 ${detail.name} 增加 ${amount} 点战斗经验`);
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '增加战斗经验失败', true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
 }
 
 async function runPlayerTechniqueShortcut(
@@ -4823,6 +5004,58 @@ async function returnAllPlayersToDefaultSpawn(): Promise<void> {
   }
 }
 
+async function compensateAllPlayersCombatExp(): Promise<void> {
+  if (!window.confirm('这会给所有非机器人角色补偿战斗经验。每个角色获得的数值 = 当前境界升级所需经验 + 当前炼体境界升级所需经验。在线角色下一息生效，离线角色会直接改存档。确认继续吗？')) {
+    return;
+  }
+
+  const button = document.getElementById('shortcut-compensate-combat-exp-2026-04-09') as HTMLButtonElement | null;
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    const result = await request<GmShortcutRunRes>('/gm/shortcuts/compensation/combat-exp-2026-04-09', {
+      method: 'POST',
+    });
+    editorDirty = false;
+    await delayRefresh(
+      `已提交战斗经验补偿，共 ${result.totalPlayers} 个角色，在线 ${result.queuedRuntimePlayers} 个，离线 ${result.updatedOfflinePlayers} 个，累计补偿 ${Math.floor(result.totalCombatExpGranted ?? 0)} 点战斗经验`,
+    );
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '执行补偿失败', true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
+async function compensateAllPlayersFoundation(): Promise<void> {
+  if (!window.confirm('这会给所有非机器人角色补偿底蕴。每个角色获得的数值 = 当前境界升级所需经验的五倍。在线角色下一息生效，离线和离线挂机角色会直接改存档。确认继续吗？')) {
+    return;
+  }
+
+  const button = document.getElementById('shortcut-compensate-foundation-2026-04-09') as HTMLButtonElement | null;
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    const result = await request<GmShortcutRunRes>('/gm/shortcuts/compensation/foundation-2026-04-09', {
+      method: 'POST',
+    });
+    editorDirty = false;
+    await delayRefresh(
+      `已提交底蕴补偿，共 ${result.totalPlayers} 个角色，在线 ${result.queuedRuntimePlayers} 个，离线 ${result.updatedOfflinePlayers} 个，累计补偿 ${Math.floor(result.totalFoundationGranted ?? 0)} 点底蕴`,
+    );
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '执行补偿失败', true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
 async function resetNetworkStats(): Promise<void> {
   resetNetworkStatsBtn.disabled = true;
   try {
@@ -5033,6 +5266,24 @@ editorContentEl.addEventListener('click', (event) => {
   }
   if (action === 'save-player-password') {
     saveSelectedPlayerPassword().catch(() => {});
+    return;
+  }
+  if (action === 'set-body-training-level') {
+    setSelectedPlayerBodyTrainingLevel().catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '设置炼体等级失败', true);
+    });
+    return;
+  }
+  if (action === 'add-foundation') {
+    addSelectedPlayerFoundation().catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '增加底蕴失败', true);
+    });
+    return;
+  }
+  if (action === 'add-combat-exp') {
+    addSelectedPlayerCombatExp().catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '增加战斗经验失败', true);
+    });
     return;
   }
   if (
@@ -5314,29 +5565,41 @@ suggestionNextPageBtn.addEventListener('click', () => {
 });
 
 playerSearchInput.addEventListener('input', () => {
-  if (!state) return;
-  const previousSelectedPlayerId = selectedPlayerId;
-  renderPlayerList(state);
-  const selectedChanged = previousSelectedPlayerId !== selectedPlayerId;
-  if (selectedChanged) {
-    selectedPlayerDetail = null;
-    loadingPlayerDetailId = selectedPlayerId;
-    draftSnapshot = null;
-    draftSourcePlayerId = null;
-    editorDirty = false;
+  currentPlayerPage = 1;
+  if (playerSearchTimer !== null) {
+    window.clearTimeout(playerSearchTimer);
   }
-  renderEditor(state);
-  if (selectedChanged && selectedPlayerId) {
-    loadSelectedPlayerDetail(selectedPlayerId, true).catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '加载角色详情失败', true);
+  playerSearchTimer = window.setTimeout(() => {
+    loadState(true).catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
     });
-  }
+  }, 250);
 });
 playerSortSelect.addEventListener('change', () => {
-  currentPlayerSort = (playerSortSelect.value as PlayerSortMode) || 'realm-desc';
+  currentPlayerSort = (playerSortSelect.value as GmPlayerSortMode) || 'realm-desc';
+  currentPlayerPage = 1;
   lastPlayerListStructureKey = null;
-  if (!state) return;
-  renderPlayerList(state);
+  loadState(true).catch((error: unknown) => {
+    setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
+  });
+});
+playerPrevPageBtn.addEventListener('click', () => {
+  if (currentPlayerPage <= 1) {
+    return;
+  }
+  currentPlayerPage -= 1;
+  loadState(true).catch((error: unknown) => {
+    setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
+  });
+});
+playerNextPageBtn.addEventListener('click', () => {
+  if (currentPlayerPage >= currentPlayerTotalPages) {
+    return;
+  }
+  currentPlayerPage += 1;
+  loadState(true).catch((error: unknown) => {
+    setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
+  });
 });
 redeemTabBtn.addEventListener('click', () => switchTab('redeem'));
 playerTabBtn.addEventListener('click', () => switchTab('players'));
@@ -5384,6 +5647,12 @@ document.getElementById('remove-all-bots')?.addEventListener('click', () => {
 });
 document.getElementById('shortcut-return-all-to-default-spawn')?.addEventListener('click', () => {
   returnAllPlayersToDefaultSpawn().catch(() => {});
+});
+document.getElementById('shortcut-compensate-combat-exp-2026-04-09')?.addEventListener('click', () => {
+  compensateAllPlayersCombatExp().catch(() => {});
+});
+document.getElementById('shortcut-compensate-foundation-2026-04-09')?.addEventListener('click', () => {
+  compensateAllPlayersFoundation().catch(() => {});
 });
 shortcutWorkspaceEl.addEventListener('click', (event) => {
   const trigger = (event.target as HTMLElement).closest<HTMLElement>('[data-action]');

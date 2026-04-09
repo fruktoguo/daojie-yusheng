@@ -155,6 +155,7 @@ export const NEXT_C2S = {
   RequestNpcShop: 'n:c:requestNpcShop',
   BuyNpcShopItem: 'n:c:buyNpcShopItem',
   UpdateAutoBattleSkills: 'n:c:updateAutoBattleSkills',
+  UpdateTechniqueSkillAvailability: 'n:c:updateTechniqueSkillAvailability',
   DebugResetSpawn: 'n:c:debugResetSpawn',
   Chat: 'n:c:chat',
   AckSystemMessages: 'n:c:ackSystemMessages',
@@ -277,6 +278,7 @@ export interface NEXT_S2C_WorldPlayerPatch {
   id: string;
   x?: number;
   y?: number;
+  sc?: number | null;
   rm?: 1;
 }
 
@@ -290,6 +292,7 @@ export interface NEXT_S2C_WorldMonsterPatch {
   n?: string;
   c?: string;
   tr?: MonsterTier;
+  sc?: number | null;
   rm?: 1;
 }
 
@@ -384,9 +387,17 @@ export interface NEXT_S2C_PanelAttrDelta {
   full?: 1;
   stage?: PlayerRealmStage;
   baseAttrs?: Attributes;
+  bonuses?: AttrBonus[];
   finalAttrs?: Attributes;
   numericStats?: NumericStats;
   ratioDivisors?: NumericRatioDivisors;
+  specialStats?: PlayerSpecialStats;
+  boneAgeBaseYears?: number;
+  lifeElapsedTicks?: number;
+  lifespanYears?: number | null;
+  realmProgress?: number;
+  realmProgressToNext?: number;
+  realmBreakthroughReady?: boolean;
 }
 
 export interface NEXT_S2C_PanelActionDelta {
@@ -501,6 +512,11 @@ export interface C2S_Action {
 
 export interface C2S_UpdateAutoBattleSkills {
   skills: AutoBattleSkillConfig[];
+}
+
+export interface C2S_UpdateTechniqueSkillAvailability {
+  techId: string;
+  enabled: boolean;
 }
 
 /** 调试：回出生点 */
@@ -625,6 +641,7 @@ export interface TickRenderEntity {
   name?: string | null;
   kind?: EntityKind | 'player' | null;
   monsterTier?: MonsterTier | null;
+  monsterScale?: number | null;
   hp?: number | null;
   maxHp?: number | null;
   qi?: number | null;
@@ -634,17 +651,32 @@ export interface TickRenderEntity {
   buffs?: VisibleBuffState[] | null;
 }
 
+export interface ObservationLootPreviewEntry {
+  itemId: string;
+  name: string;
+  type: ItemType;
+  count: number;
+  chance: number;
+}
+
+export interface ObservationLootPreview {
+  entries: ObservationLootPreviewEntry[];
+  emptyText?: string;
+}
+
 export interface ObservedTileEntityDetail {
   id: string;
   name?: string;
   kind?: EntityKind | 'player' | null;
   monsterTier?: MonsterTier | null;
+  monsterScale?: number | null;
   hp?: number;
   maxHp?: number;
   qi?: number;
   maxQi?: number;
   npcQuestMarker?: NpcQuestMarker | null;
   observation?: ObservationInsight | null;
+  lootPreview?: ObservationLootPreview | null;
   buffs?: VisibleBuffState[] | null;
 }
 
@@ -805,11 +837,22 @@ export interface GmPathfindingSnapshot {
   failureReasons: GmPathfindingFailureBucket[];
 }
 
+export interface GmTickSnapshot {
+  lastMapId: string | null;
+  lastMs: number;
+  windowElapsedSec: number;
+  windowTickCount: number;
+  windowTotalMs: number;
+  windowAvgMs: number;
+  windowBusyPercent: number;
+}
+
 /** GM 性能快照 */
 export interface GmPerformanceSnapshot {
   cpuPercent: number;
   memoryMb: number;
   tickMs: number;
+  tick: GmTickSnapshot;
   cpu: GmCpuSnapshot;
   pathfinding: GmPathfindingSnapshot;
   networkStatsStartedAt: number;
@@ -899,6 +942,7 @@ export interface S2C_AttrUpdate {
   realmProgress?: number;
   realmProgressToNext?: number;
   realmBreakthroughReady?: boolean;
+  alchemySkill?: PlayerState['alchemySkill'];
 }
 
 /** 境界低频同步：完整下发当前境界展示、突破与开天门详情 */
@@ -926,6 +970,8 @@ export interface SyncedItemStack {
   qiPercent?: number;
   consumeBuffs?: ConsumableBuffDef[];
   tags?: string[];
+  alchemySuccessRate?: number;
+  alchemySpeedRate?: number;
   mapUnlockId?: string;
   tileAuraGainAmount?: number;
   allowBatchUse?: boolean;
@@ -971,6 +1017,7 @@ export interface TechniqueUpdateEntry {
   expToNext?: number;
   realmLv?: number;
   realm?: TechniqueRealm;
+  skillsEnabled?: boolean | null;
   name?: string | null;
   grade?: TechniqueGrade | null;
   category?: TechniqueCategory | null;
@@ -1474,8 +1521,35 @@ export interface GmManagedPlayerRecord extends GmManagedPlayerSummary {
   persistedSnapshot: unknown;
 }
 
+export type GmPlayerSortMode = 'realm-desc' | 'realm-asc' | 'online' | 'map' | 'name';
+
+export interface GmListPlayersQuery {
+  page?: number;
+  pageSize?: number;
+  keyword?: string;
+  sort?: GmPlayerSortMode;
+}
+
+export interface GmPlayerListPage {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  keyword: string;
+  sort: GmPlayerSortMode;
+}
+
+export interface GmPlayerSummaryStats {
+  totalPlayers: number;
+  onlinePlayers: number;
+  offlineHangingPlayers: number;
+  offlinePlayers: number;
+}
+
 export interface GmStateRes {
   players: GmManagedPlayerSummary[];
+  playerPage: GmPlayerListPage;
+  playerStats: GmPlayerSummaryStats;
   mapIds: string[];
   botCount: number;
   perf: GmPerformanceSnapshot;
@@ -1652,6 +1726,8 @@ export interface GmEditorItemOption {
   healPercent?: number;
   qiPercent?: number;
   consumeBuffs?: ConsumableBuffDef[];
+  alchemySuccessRate?: number;
+  alchemySpeedRate?: number;
   mapUnlockId?: string;
   tileAuraGainAmount?: number;
   allowBatchUse?: boolean;
@@ -1689,6 +1765,18 @@ export interface GmUpdatePlayerReq {
   section?: GmPlayerUpdateSection;
 }
 
+export interface GmSetPlayerBodyTrainingLevelReq {
+  level: number;
+}
+
+export interface GmAddPlayerFoundationReq {
+  amount: number;
+}
+
+export interface GmAddPlayerCombatExpReq {
+  amount: number;
+}
+
 export interface GmSpawnBotsReq {
   anchorPlayerId: string;
   count: number;
@@ -1704,9 +1792,11 @@ export interface GmShortcutRunRes {
   totalPlayers: number;
   queuedRuntimePlayers: number;
   updatedOfflinePlayers: number;
-  targetMapId: string;
-  targetX: number;
-  targetY: number;
+  totalCombatExpGranted?: number;
+  totalFoundationGranted?: number;
+  targetMapId?: string;
+  targetX?: number;
+  targetY?: number;
 }
 
 /** GM 地图传送点记录 */

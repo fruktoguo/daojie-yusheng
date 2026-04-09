@@ -18,10 +18,24 @@ const CHAT_DB_NAME = 'mud-chat-log';
 const CHAT_DB_VERSION = 1;
 const CHAT_DB_STORE_NAME = 'messages';
 const CHAT_DB_INDEX_BY_CHANNEL_TIME = 'by-channel-time';
+const CHAT_PERSIST_FLUSH_DELAY_MS = 200;
+const CHAT_PERSIST_BATCH_SIZE = 200;
 
 let databasePromise: Promise<IDBDatabase | null> | null = null;
 let legacyStorageCleared = false;
 let indexedDbUnavailableWarned = false;
+let persistLifecycleBound = false;
+let persistFlushTimer: number | null = null;
+let persistFlushRunning = false;
+
+type PendingPersistEntry = {
+  scopeId: string;
+  entry: ChatStoredMessage;
+  channels: ChatChannel[];
+  resolve: (value: boolean) => void;
+};
+
+const pendingPersistEntries: PendingPersistEntry[] = [];
 
 function warnIndexedDbUnavailable(error: unknown): void {
   if (indexedDbUnavailableWarned) {
@@ -71,6 +85,21 @@ export function clearLegacyChatStorage(): void {
   } catch (error) {
     console.warn('[chat] 清理旧版 localStorage 聊天缓存失败。', error);
   }
+}
+
+function bindPersistLifecycle(): void {
+  if (persistLifecycleBound || typeof window === 'undefined') {
+    return;
+  }
+  persistLifecycleBound = true;
+  window.addEventListener('pagehide', () => {
+    void flushPendingPersistEntries();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      void flushPendingPersistEntries();
+    }
+  });
 }
 
 async function openDatabase(): Promise<IDBDatabase | null> {
@@ -228,6 +257,83 @@ async function pruneChannel(scopeId: string, channel: ChatChannel): Promise<void
   }
 }
 
+async function persistBatch(entries: PendingPersistEntry[]): Promise<boolean> {
+  const database = await openDatabase();
+  if (!database || entries.length === 0) {
+    return false;
+  }
+
+  try {
+    const dedupedRecords = new Map<string, ChatMessageRecord>();
+    const touchedChannels = new Map<string, { scopeId: string; channel: ChatChannel }>();
+    for (const pending of entries) {
+      for (const channel of pending.channels) {
+        const dedupeKey = `${pending.scopeId}\n${channel}\n${pending.entry.id}`;
+        dedupedRecords.set(dedupeKey, {
+          scopeId: pending.scopeId,
+          channel,
+          id: pending.entry.id,
+          at: pending.entry.at,
+          text: pending.entry.text,
+          from: pending.entry.from,
+          kind: pending.entry.kind as ChatMessageKind,
+          scope: pending.entry.scope as ChatMessageScope | undefined,
+        });
+        touchedChannels.set(`${pending.scopeId}\n${channel}`, {
+          scopeId: pending.scopeId,
+          channel,
+        });
+      }
+    }
+
+    const transaction = database.transaction(CHAT_DB_STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(CHAT_DB_STORE_NAME);
+    for (const record of dedupedRecords.values()) {
+      store.put(record);
+    }
+    await withTransactionComplete(transaction);
+
+    await Promise.all([...touchedChannels.values()].map(({ scopeId, channel }) => pruneChannel(scopeId, channel)));
+    return true;
+  } catch (error) {
+    console.warn('[chat] 写入聊天记录失败。', error);
+    return false;
+  }
+}
+
+async function flushPendingPersistEntries(): Promise<void> {
+  if (persistFlushTimer !== null && typeof window !== 'undefined') {
+    window.clearTimeout(persistFlushTimer);
+    persistFlushTimer = null;
+  }
+  if (persistFlushRunning) {
+    return;
+  }
+  persistFlushRunning = true;
+  try {
+    while (pendingPersistEntries.length > 0) {
+      const batch = pendingPersistEntries.splice(0, CHAT_PERSIST_BATCH_SIZE);
+      const persisted = await persistBatch(batch);
+      batch.forEach(({ resolve }) => resolve(persisted));
+    }
+  } finally {
+    persistFlushRunning = false;
+    if (pendingPersistEntries.length > 0) {
+      schedulePersistFlush();
+    }
+  }
+}
+
+function schedulePersistFlush(): void {
+  bindPersistLifecycle();
+  if (persistFlushTimer !== null || typeof window === 'undefined') {
+    return;
+  }
+  persistFlushTimer = window.setTimeout(() => {
+    void flushPendingPersistEntries();
+  }, CHAT_PERSIST_FLUSH_DELAY_MS);
+}
+
 export async function loadRecentChannelMessages(
   scopeId: string,
   channel: ChatChannel,
@@ -250,32 +356,16 @@ export async function appendChannelMessages(
   entry: ChatStoredMessage,
   channels: ChatChannel[],
 ): Promise<boolean> {
-  const database = await openDatabase();
-  if (!database || channels.length === 0) {
+  if (channels.length === 0) {
     return false;
   }
-
-  try {
-    const transaction = database.transaction(CHAT_DB_STORE_NAME, 'readwrite');
-    const store = transaction.objectStore(CHAT_DB_STORE_NAME);
-    for (const channel of channels) {
-      const record: ChatMessageRecord = {
-        scopeId,
-        channel,
-        id: entry.id,
-        at: entry.at,
-        text: entry.text,
-        from: entry.from,
-        kind: entry.kind as ChatMessageKind,
-        scope: entry.scope as ChatMessageScope | undefined,
-      };
-      store.put(record);
-    }
-    await withTransactionComplete(transaction);
-    await Promise.all(channels.map((channel) => pruneChannel(scopeId, channel)));
-    return true;
-  } catch (error) {
-    console.warn('[chat] 写入聊天记录失败。', error);
-    return false;
-  }
+  return new Promise<boolean>((resolve) => {
+    pendingPersistEntries.push({
+      scopeId,
+      entry,
+      channels: [...channels],
+      resolve,
+    });
+    schedulePersistFlush();
+  });
 }

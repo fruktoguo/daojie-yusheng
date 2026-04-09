@@ -58,6 +58,13 @@ function formatSimplePercent(value: number): string {
   return formatDisplayPercent(value);
 }
 
+function getCraftProgressRatio(exp: number, expToNext: number): number {
+  if (expToNext <= 0) {
+    return 1;
+  }
+  return Math.max(0, Math.min(1, exp / expToNext));
+}
+
 function formatAuraAbsorptionRate(value: number): string {
   return formatDisplayPercent(value, { maximumFractionDigits: 2 });
 }
@@ -229,7 +236,21 @@ interface AttrPlaceholderPaneSnapshot {
   message: string;
 }
 
-type AttrPaneSnapshot = AttrRadarPaneSnapshot | AttrNumericPaneSnapshot | AttrPlaceholderPaneSnapshot;
+interface AttrCraftSkillSnapshot {
+  key: string;
+  label: string;
+  level: string;
+  progress: string;
+  remain: string;
+  progressPercent: string;
+}
+
+interface AttrCraftPaneSnapshot {
+  kind: 'craft';
+  skills: AttrCraftSkillSnapshot[];
+}
+
+type AttrPaneSnapshot = AttrRadarPaneSnapshot | AttrNumericPaneSnapshot | AttrPlaceholderPaneSnapshot | AttrCraftPaneSnapshot;
 
 interface AttrPanelSnapshot {
   panes: Record<AttrTab, AttrPaneSnapshot>;
@@ -264,7 +285,15 @@ export class AttrPanel {
       return;
     }
     const finalAttrs = data.finalAttrs ?? this.mergeAttrs(data.baseAttrs, data.bonuses);
-    const snapshot = this.buildSnapshot(data.baseAttrs, data.bonuses, finalAttrs, data.numericStats, data.ratioDivisors, data.specialStats);
+    const snapshot = this.buildSnapshot(
+      data.baseAttrs,
+      data.bonuses,
+      finalAttrs,
+      data.numericStats,
+      data.ratioDivisors,
+      data.specialStats,
+      data.alchemySkill,
+    );
     const structureKey = this.buildStructureKey(snapshot);
     if (this.lastStructureKey !== structureKey || !this.patch(snapshot)) {
       this.render(snapshot);
@@ -285,6 +314,7 @@ export class AttrPanel {
         foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
         combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
       },
+      player.alchemySkill,
     );
     this.render(snapshot);
   }
@@ -308,6 +338,7 @@ export class AttrPanel {
     stats?: NumericStats,
     ratioDivisors?: NumericRatioDivisors,
     specialStats?: PlayerSpecialStats,
+    alchemySkill?: PlayerState['alchemySkill'],
   ): AttrPanelSnapshot {
     const totalBonus: Partial<Attributes> = {};
     for (const bonus of bonuses) {
@@ -358,6 +389,7 @@ export class AttrPanel {
           },
         }),
         special: this.buildSpecialPaneSnapshot(stats, ratioDivisors, specialStats),
+        craft: this.buildCraftPaneSnapshot(alchemySkill),
       },
     };
   }
@@ -645,6 +677,24 @@ export class AttrPanel {
     };
   }
 
+  private buildCraftPaneSnapshot(alchemySkill?: PlayerState['alchemySkill']): AttrPaneSnapshot {
+    if (!alchemySkill) {
+      return { kind: 'placeholder', message: '技艺信息尚未同步' };
+    }
+    const remain = Math.max(0, alchemySkill.expToNext - alchemySkill.exp);
+    return {
+      kind: 'craft',
+      skills: [{
+        key: 'alchemy',
+        label: '炼丹',
+        level: `LV ${formatDisplayInteger(alchemySkill.level)}`,
+        progress: `${formatDisplayInteger(alchemySkill.exp)}/${formatDisplayInteger(alchemySkill.expToNext)}`,
+        remain: `距下一级还需 ${formatDisplayInteger(remain)} 炼丹经验`,
+        progressPercent: `${(getCraftProgressRatio(alchemySkill.exp, alchemySkill.expToNext) * 100).toFixed(2)}%`,
+      }],
+    };
+  }
+
   private render(snapshot: AttrPanelSnapshot): void {
     this.lastSnapshot = snapshot;
     this.lastStructureKey = this.buildStructureKey(snapshot);
@@ -657,6 +707,7 @@ export class AttrPanel {
         <div class="action-tab-pane ${this.activeTab === 'combat' ? 'active' : ''}" data-attr-pane="combat">${this.renderPane(snapshot.panes.combat)}</div>
         <div class="action-tab-pane ${this.activeTab === 'qi' ? 'active' : ''}" data-attr-pane="qi">${this.renderPane(snapshot.panes.qi)}</div>
         <div class="action-tab-pane ${this.activeTab === 'special' ? 'active' : ''}" data-attr-pane="special">${this.renderPane(snapshot.panes.special)}</div>
+        <div class="action-tab-pane ${this.activeTab === 'craft' ? 'active' : ''}" data-attr-pane="craft">${this.renderPane(snapshot.panes.craft)}</div>
       </div>`;
     });
   }
@@ -683,6 +734,23 @@ export class AttrPanel {
             </div>
           `).join('')}
         </div>
+      </div>`;
+    }
+    if (snapshot.kind === 'craft') {
+      return `<div class="body-training-panel" data-pane-kind="craft">
+        ${snapshot.skills.map((skill) => `
+          <section class="body-training-hero" data-craft-skill="${skill.key}">
+            <div class="body-training-hero-main">
+              <span class="body-training-kicker" data-craft-label="true">${skill.label}</span>
+              <strong class="body-training-level" data-craft-level="true">${skill.level}</strong>
+              <span class="body-training-progress-text" data-craft-progress="true">${skill.progress}</span>
+            </div>
+            <div class="body-training-progress-bar">
+              <span class="body-training-progress-fill" data-craft-progress-fill="true" style="width:${skill.progressPercent}"></span>
+            </div>
+            <div class="body-training-hero-note" data-craft-remain="true">${skill.remain}</div>
+          </section>
+        `).join('')}
       </div>`;
     }
 
@@ -724,7 +792,8 @@ export class AttrPanel {
       && this.patchPane('vein', snapshot.panes.vein)
       && this.patchPane('combat', snapshot.panes.combat)
       && this.patchPane('qi', snapshot.panes.qi)
-      && this.patchPane('special', snapshot.panes.special);
+      && this.patchPane('special', snapshot.panes.special)
+      && this.patchPane('craft', snapshot.panes.craft);
   }
 
   private patchPane(tab: AttrTab, snapshot: AttrPaneSnapshot): boolean {
@@ -764,6 +833,32 @@ export class AttrPanel {
         valueNode.textContent = card.value;
         subNode.textContent = card.sub ?? '';
         subNode.classList.toggle('hidden', !card.sub);
+      }
+      return true;
+    }
+    if (snapshot.kind === 'craft') {
+      const skillNodes = pane.querySelectorAll<HTMLElement>('[data-craft-skill]');
+      if (skillNodes.length !== snapshot.skills.length) {
+        return false;
+      }
+      for (const skill of snapshot.skills) {
+        const skillNode = pane.querySelector<HTMLElement>(`[data-craft-skill="${skill.key}"]`);
+        if (!skillNode) {
+          return false;
+        }
+        const labelNode = skillNode.querySelector<HTMLElement>('[data-craft-label="true"]');
+        const levelNode = skillNode.querySelector<HTMLElement>('[data-craft-level="true"]');
+        const progressNode = skillNode.querySelector<HTMLElement>('[data-craft-progress="true"]');
+        const fillNode = skillNode.querySelector<HTMLElement>('[data-craft-progress-fill="true"]');
+        const remainNode = skillNode.querySelector<HTMLElement>('[data-craft-remain="true"]');
+        if (!labelNode || !levelNode || !progressNode || !fillNode || !remainNode) {
+          return false;
+        }
+        labelNode.textContent = skill.label;
+        levelNode.textContent = skill.level;
+        progressNode.textContent = skill.progress;
+        fillNode.style.width = skill.progressPercent;
+        remainNode.textContent = skill.remain;
       }
       return true;
     }
@@ -815,6 +910,9 @@ export class AttrPanel {
       }
       if (pane.kind === 'radar') {
         return [tab, { kind: pane.kind, nodes: pane.nodes.length }];
+      }
+      if (pane.kind === 'craft') {
+        return [tab, { kind: pane.kind, skills: pane.skills.map((skill) => skill.key) }];
       }
       return [tab, { kind: pane.kind }];
     });

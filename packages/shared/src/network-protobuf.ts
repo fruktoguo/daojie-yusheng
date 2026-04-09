@@ -44,20 +44,26 @@ message TickRenderEntityPayload {
   optional bool clearKind = 9;
   optional string monsterTier = 10;
   optional bool clearMonsterTier = 11;
-  optional sint32 hp = 12;
-  optional bool clearHp = 13;
-  optional sint32 maxHp = 14;
-  optional bool clearMaxHp = 15;
-  optional sint32 qi = 16;
-  optional bool clearQi = 17;
-  optional sint32 maxQi = 18;
-  optional bool clearMaxQi = 19;
-  optional NpcQuestMarkerPayload npcQuestMarker = 20;
-  optional bool clearNpcQuestMarker = 21;
-  optional string observationJson = 22;
-  optional bool clearObservation = 23;
-  optional string buffsJson = 24;
-  optional bool clearBuffs = 25;
+  optional float monsterScale = 12;
+  optional bool clearMonsterScale = 13;
+  optional sint32 hp = 14;
+  optional bool clearHp = 15;
+  optional sint32 maxHp = 16;
+  optional bool clearMaxHp = 17;
+  optional sint32 respawnRemainingTicks = 18;
+  optional bool clearRespawnRemainingTicks = 19;
+  optional sint32 respawnTotalTicks = 20;
+  optional bool clearRespawnTotalTicks = 21;
+  optional sint32 qi = 22;
+  optional bool clearQi = 23;
+  optional sint32 maxQi = 24;
+  optional bool clearMaxQi = 25;
+  optional NpcQuestMarkerPayload npcQuestMarker = 26;
+  optional bool clearNpcQuestMarker = 27;
+  optional string observationJson = 28;
+  optional bool clearObservation = 29;
+  optional string buffsJson = 30;
+  optional bool clearBuffs = 31;
 }
 
 message NpcQuestMarkerPayload {
@@ -100,6 +106,12 @@ message CombatEffectPayload {
   optional sint32 y = 8;
   optional string text = 9;
   optional string variant = 10;
+  repeated PointPayload cells = 11;
+  optional uint32 durationMs = 12;
+  optional string actionStyle = 13;
+  optional string baseColor = 14;
+  optional sint32 originX = 15;
+  optional sint32 originY = 16;
 }
 
 message VisibleTileRowPayload {
@@ -190,6 +202,9 @@ message ActionsUpdatePayload {
   repeated string removeActionIds = 9;
   repeated string actionOrder = 10;
   optional bool cultivationActive = 11;
+  optional string autoBattleTargetingMode = 12;
+  optional string autoUsePillsJson = 13;
+  optional bool clearAutoUsePills = 14;
 }
 
 message ActionUpdateEntryPayload {
@@ -222,6 +237,7 @@ message AttrUpdatePayload {
   optional NumericStatsPayload numericStats = 4;
   optional NumericRatioDivisorsPayload ratioDivisors = 5;
   optional string numericStatBreakdownsJson = 18;
+  optional string alchemySkillJson = 19;
   optional uint32 maxHp = 6;
   optional uint32 qi = 7;
   optional string realmJson = 8;
@@ -237,8 +253,8 @@ message AttrUpdatePayload {
 }
 
 message PlayerSpecialStatsPayload {
-  optional uint32 foundation = 1;
-  optional uint32 combatExp = 2;
+  optional uint64 foundation = 1;
+  optional uint64 combatExp = 2;
 }
 
 message AttributesPayload {
@@ -277,8 +293,11 @@ message NumericStatsPayload {
   optional sint32 rareLootRate = 24;
   optional sint32 viewRange = 25;
   optional sint32 moveSpeed = 26;
-  optional ElementStatGroupPayload elementDamageBonus = 27;
-  optional ElementStatGroupPayload elementDamageReduce = 28;
+  optional sint32 extraAggroRate = 27;
+  optional sint32 extraRange = 28;
+  optional sint32 extraArea = 29;
+  optional ElementStatGroupPayload elementDamageBonus = 30;
+  optional ElementStatGroupPayload elementDamageReduce = 31;
 }
 
 message NumericRatioDivisorsPayload {
@@ -454,8 +473,11 @@ function toWireTickEntity(entity: TickRenderEntity): Record<string, unknown> {
   setNullableWireValue(wire, 'name', 'clearName', entity.name);
   setNullableWireValue(wire, 'kind', 'clearKind', entity.kind);
   setNullableWireValue(wire, 'monsterTier', 'clearMonsterTier', entity.monsterTier);
+  setNullableWireValue(wire, 'monsterScale', 'clearMonsterScale', entity.monsterScale);
   setNullableWireValue(wire, 'hp', 'clearHp', entity.hp);
   setNullableWireValue(wire, 'maxHp', 'clearMaxHp', entity.maxHp);
+  setNullableWireValue(wire, 'respawnRemainingTicks', 'clearRespawnRemainingTicks', entity.respawnRemainingTicks);
+  setNullableWireValue(wire, 'respawnTotalTicks', 'clearRespawnTotalTicks', entity.respawnTotalTicks);
   setNullableWireValue(wire, 'qi', 'clearQi', entity.qi);
   setNullableWireValue(wire, 'maxQi', 'clearMaxQi', entity.maxQi);
   if (entity.npcQuestMarker === null) {
@@ -490,10 +512,16 @@ function fromWireTickEntity(wire: Record<string, unknown>): TickRenderEntity {
   if (kind !== undefined) patch.kind = kind;
   const monsterTier = readNullableWireValue<TickRenderEntity['monsterTier']>(wire, 'monsterTier', 'clearMonsterTier');
   if (monsterTier !== undefined) patch.monsterTier = monsterTier;
+  const monsterScale = readNullableWireValue<number>(wire, 'monsterScale', 'clearMonsterScale');
+  if (monsterScale !== undefined) patch.monsterScale = monsterScale === null ? null : Number(monsterScale);
   const hp = readNullableWireValue<number>(wire, 'hp', 'clearHp');
   if (hp !== undefined) patch.hp = hp === null ? null : Number(hp);
   const maxHp = readNullableWireValue<number>(wire, 'maxHp', 'clearMaxHp');
   if (maxHp !== undefined) patch.maxHp = maxHp === null ? null : Number(maxHp);
+  const respawnRemainingTicks = readNullableWireValue<number>(wire, 'respawnRemainingTicks', 'clearRespawnRemainingTicks');
+  if (respawnRemainingTicks !== undefined) patch.respawnRemainingTicks = respawnRemainingTicks === null ? null : Number(respawnRemainingTicks);
+  const respawnTotalTicks = readNullableWireValue<number>(wire, 'respawnTotalTicks', 'clearRespawnTotalTicks');
+  if (respawnTotalTicks !== undefined) patch.respawnTotalTicks = respawnTotalTicks === null ? null : Number(respawnTotalTicks);
   const qi = readNullableWireValue<number>(wire, 'qi', 'clearQi');
   if (qi !== undefined) patch.qi = qi === null ? null : Number(qi);
   const maxQi = readNullableWireValue<number>(wire, 'maxQi', 'clearMaxQi');
@@ -902,6 +930,10 @@ function toWireActionsUpdate(payload: S2C_ActionsUpdate): Record<string, unknown
   if (payload.removeActionIds) wire.removeActionIds = [...payload.removeActionIds];
   if (payload.actionOrder) wire.actionOrder = [...payload.actionOrder];
   if (payload.autoBattle !== undefined) wire.autoBattle = payload.autoBattle;
+  if (payload.autoUsePills !== undefined) {
+    wire.autoUsePillsJson = JSON.stringify(payload.autoUsePills);
+  }
+  if (payload.autoBattleTargetingMode !== undefined) wire.autoBattleTargetingMode = payload.autoBattleTargetingMode;
   if (payload.autoRetaliate !== undefined) wire.autoRetaliate = payload.autoRetaliate;
   if (payload.autoBattleStationary !== undefined) wire.autoBattleStationary = payload.autoBattleStationary;
   if (payload.allowAoePlayerHit !== undefined) wire.allowAoePlayerHit = payload.allowAoePlayerHit;
@@ -929,6 +961,12 @@ function fromWireActionsUpdate(wire: Record<string, unknown>): S2C_ActionsUpdate
       .filter((entry) => entry.length > 0);
   }
   if (hasOwn(wire, 'autoBattle')) payload.autoBattle = Boolean(wire.autoBattle);
+  if (wire.clearAutoUsePills === true) {
+    payload.autoUsePills = [];
+  } else if (typeof wire.autoUsePillsJson === 'string') {
+    payload.autoUsePills = parseJson<S2C_ActionsUpdate['autoUsePills']>(wire.autoUsePillsJson) ?? [];
+  }
+  if (typeof wire.autoBattleTargetingMode === 'string') payload.autoBattleTargetingMode = wire.autoBattleTargetingMode as S2C_ActionsUpdate['autoBattleTargetingMode'];
   if (hasOwn(wire, 'autoRetaliate')) payload.autoRetaliate = Boolean(wire.autoRetaliate);
   if (hasOwn(wire, 'autoBattleStationary')) payload.autoBattleStationary = Boolean(wire.autoBattleStationary);
   if (hasOwn(wire, 'allowAoePlayerHit')) payload.allowAoePlayerHit = Boolean(wire.allowAoePlayerHit);
@@ -947,6 +985,7 @@ function toWireAttrUpdate(payload: S2C_AttrUpdate): Record<string, unknown> {
   if (payload.numericStats) wire.numericStats = toWireNumericStats(payload.numericStats);
   if (payload.ratioDivisors) wire.ratioDivisors = toWireRatioDivisors(payload.ratioDivisors);
   if (payload.numericStatBreakdowns !== undefined) wire.numericStatBreakdownsJson = JSON.stringify(payload.numericStatBreakdowns);
+  if (payload.alchemySkill !== undefined) wire.alchemySkillJson = JSON.stringify(payload.alchemySkill);
   if (payload.maxHp !== undefined) wire.maxHp = payload.maxHp;
   if (payload.qi !== undefined) wire.qi = payload.qi;
   if (payload.specialStats) wire.specialStats = toWirePlayerSpecialStats(payload.specialStats);
@@ -971,6 +1010,7 @@ function fromWireAttrUpdate(wire: Record<string, unknown>): S2C_AttrUpdate {
   if (hasOwn(wire, 'numericStats')) payload.numericStats = fromWireNumericStats(wire.numericStats as Record<string, unknown>);
   if (hasOwn(wire, 'ratioDivisors')) payload.ratioDivisors = fromWireRatioDivisors(wire.ratioDivisors as Record<string, unknown>);
   if (typeof wire.numericStatBreakdownsJson === 'string') payload.numericStatBreakdowns = parseJson(wire.numericStatBreakdownsJson);
+  if (typeof wire.alchemySkillJson === 'string') payload.alchemySkill = parseJson(wire.alchemySkillJson);
   if (hasOwn(wire, 'maxHp')) payload.maxHp = Number(wire.maxHp ?? 0);
   if (hasOwn(wire, 'qi')) payload.qi = Number(wire.qi ?? 0);
   if (hasOwn(wire, 'specialStats')) payload.specialStats = fromWirePlayerSpecialStats(wire.specialStats as Record<string, unknown>);

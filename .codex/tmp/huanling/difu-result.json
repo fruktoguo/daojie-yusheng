@@ -1,0 +1,139 @@
+{
+  "meta": {
+    "realm": "凡人期",
+    "grade": "地阶",
+    "lv": 0
+  },
+  "reference": {
+    "base": {
+      "lower": 3.8,
+      "upper": 4.2,
+      "target": 4
+    },
+    "percent": {
+      "lower": 3,
+      "upper": 3,
+      "target": 3
+    },
+    "range": {
+      "lower": 3,
+      "upper": 4,
+      "target": 3.5
+    },
+    "area": {
+      "lower": 3,
+      "upper": 4,
+      "target": 3.5
+    }
+  },
+  "weightedBudget": 20,
+  "scores": {
+    "baseScore": 12,
+    "percentScore": 1.6,
+    "rangeScore": 2,
+    "areaScore": 0.8,
+    "totalScore": 375.84
+  },
+  "targetingHint": {
+    "shape": "box",
+    "desiredTargetCount": 9,
+    "suggestedTargeting": {
+      "shape": "box",
+      "width": 3,
+      "height": 3,
+      "maxTargets": 9
+    },
+    "approxTargetCount": 9
+  },
+  "suggested": {
+    "cooldown": 80,
+    "costMultiplier": 8
+  },
+  "resolvedTerms": {
+    "baseTerms": [
+      {
+        "var": "caster.stat.spellAtk",
+        "scale": 12
+      }
+    ],
+    "percentTerms": [
+      {
+        "var": "techLevel",
+        "scale": 0.05
+      },
+      {
+        "var": "caster.stat.hit",
+        "scale": 0.003
+      },
+      {
+        "var": "caster.stat.resolvePower",
+        "scale": 0.003
+      },
+      {
+        "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+        "scale": 0.03
+      },
+      {
+        "var": "target.buff.terrain_molten_pool_burn.stacks",
+        "scale": 0.03
+      }
+    ]
+  },
+  "skill": {
+    "id": "skill.huanling_difu_chenyin",
+    "name": "地府沉印",
+    "desc": "借洞府残阵把熔开的地脉整片往下按，阴痕越多、灼得越深，塌下去的那一刻就越重。",
+    "cooldown": 80,
+    "costMultiplier": 8,
+    "range": 5,
+    "targeting": {
+      "shape": "box",
+      "width": 3,
+      "height": 3,
+      "maxTargets": 9
+    },
+    "effects": [
+      {
+        "type": "damage",
+        "damageKind": "spell",
+        "element": "earth",
+        "formula": {
+          "op": "mul",
+          "args": [
+            {
+              "var": "caster.stat.spellAtk",
+              "scale": 12
+            },
+            {
+              "op": "add",
+              "args": [
+                1,
+                {
+                  "var": "techLevel",
+                  "scale": 0.05
+                },
+                {
+                  "var": "caster.stat.hit",
+                  "scale": 0.003
+                },
+                {
+                  "var": "caster.stat.resolvePower",
+                  "scale": 0.003
+                },
+                {
+                  "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                  "scale": 0.03
+                },
+                {
+                  "var": "target.buff.terrain_molten_pool_burn.stacks",
+                  "scale": 0.03
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "unlockLevel": 8
+  }
+}

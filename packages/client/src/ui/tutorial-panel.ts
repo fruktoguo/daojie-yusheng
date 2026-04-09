@@ -1,5 +1,6 @@
 import {
   TUTORIAL_FLOW_TOPICS,
+  TUTORIAL_MECHANIC_TOPICS,
   TUTORIAL_TOPICS,
   type TutorialFlowTopic,
   type TutorialTopic,
@@ -54,11 +55,12 @@ const TUTORIAL_OPERATION_HINTS: TutorialOperationHint[] = [
 
 const SORTED_TUTORIAL_OPERATION_HINTS = [...TUTORIAL_OPERATION_HINTS].sort((left, right) => right.label.length - left.label.length);
 
-type TutorialMainTabId = 'operations' | 'flow';
+type TutorialMainTabId = 'operations' | 'mechanics' | 'flow';
 type TutorialFlowTopicId = string;
 
 const TUTORIAL_MAIN_TABS: Array<{ id: TutorialMainTabId; label: string }> = [
   { id: 'operations', label: '基础操作' },
+  { id: 'mechanics', label: '机制' },
   { id: 'flow', label: '流程指导' },
 ];
 
@@ -126,6 +128,7 @@ export class TutorialPanel {
   private static readonly MODAL_OWNER = 'tutorial-panel';
   private activeMainTabId: TutorialMainTabId = 'operations';
   private activeTopicId = TUTORIAL_TOPICS[0]?.id ?? 'basics';
+  private activeMechanicTopicId = TUTORIAL_MECHANIC_TOPICS[0]?.id ?? 'aura';
   private activeFlowTopicId: TutorialFlowTopicId = TUTORIAL_FLOW_TOPICS[0]?.id ?? 'how-to-play';
   private readonly tooltip = new FloatingTooltip();
 
@@ -169,6 +172,21 @@ export class TutorialPanel {
               </div>
               <div class="tutorial-modal-content">
                 ${TUTORIAL_TOPICS.map((topic) => this.renderPane(topic)).join('')}
+              </div>
+            </div>
+          </section>
+          <section
+            class="tutorial-modal-main-pane tutorial-modal-main-pane--mechanics${this.activeMainTabId === 'mechanics' ? ' active' : ''}"
+            data-tutorial-main-pane="mechanics"
+            role="tabpanel"
+            aria-hidden="${this.activeMainTabId === 'mechanics' ? 'false' : 'true'}"
+          >
+            <div class="tutorial-modal-shell">
+              <div class="tutorial-modal-tabs" role="tablist" aria-orientation="vertical" aria-label="机制目录">
+                ${TUTORIAL_MECHANIC_TOPICS.map((topic) => this.renderMechanicTab(topic)).join('')}
+              </div>
+              <div class="tutorial-modal-content">
+                ${TUTORIAL_MECHANIC_TOPICS.map((topic) => this.renderMechanicPane(topic)).join('')}
               </div>
             </div>
           </section>
@@ -226,6 +244,56 @@ export class TutorialPanel {
       >
         <div class="tutorial-pane-hero">
           <div class="tutorial-pane-kicker">简明说明</div>
+          <div class="tutorial-pane-summary">${renderTutorialRichText(topic.summary)}</div>
+        </div>
+        <div class="tutorial-pane-sections">
+          ${topic.sections.map((section) => `
+            <section class="tutorial-section-card">
+              <div class="tutorial-section-title">${escapeHtml(section.title)}</div>
+              <ul class="tutorial-section-list">
+                ${section.items.map((item) => `<li>${renderTutorialRichText(item)}</li>`).join('')}
+              </ul>
+            </section>
+          `).join('')}
+        </div>
+        ${topic.tips && topic.tips.length > 0 ? `
+          <section class="tutorial-tip-card">
+            <div class="tutorial-section-title">小提醒</div>
+            <ul class="tutorial-section-list tutorial-section-list--tips">
+              ${topic.tips.map((tip) => `<li>${renderTutorialRichText(tip)}</li>`).join('')}
+            </ul>
+          </section>
+        ` : ''}
+      </section>
+    `;
+  }
+
+  private renderMechanicTab(topic: TutorialTopic): string {
+    const active = topic.id === this.activeMechanicTopicId;
+    return `
+      <button
+        class="tutorial-modal-tab${active ? ' active' : ''}"
+        type="button"
+        role="tab"
+        data-tutorial-mechanic-tab="${escapeHtml(topic.id)}"
+        aria-selected="${active ? 'true' : 'false'}"
+      >
+        <span class="tutorial-modal-tab-label">${escapeHtml(topic.label)}</span>
+      </button>
+    `;
+  }
+
+  private renderMechanicPane(topic: TutorialTopic): string {
+    const active = topic.id === this.activeMechanicTopicId;
+    return `
+      <section
+        class="tutorial-modal-pane${active ? ' active' : ''}"
+        data-tutorial-mechanic-pane="${escapeHtml(topic.id)}"
+        role="tabpanel"
+        aria-hidden="${active ? 'false' : 'true'}"
+      >
+        <div class="tutorial-pane-hero">
+          <div class="tutorial-pane-kicker">核心机制</div>
           <div class="tutorial-pane-summary">${renderTutorialRichText(topic.summary)}</div>
         </div>
         <div class="tutorial-pane-sections">
@@ -341,6 +409,17 @@ export class TutorialPanel {
         this.sync(body);
       });
     });
+    body.querySelectorAll<HTMLButtonElement>('[data-tutorial-mechanic-tab]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const nextId = button.dataset.tutorialMechanicTab;
+        if (!nextId || nextId === this.activeMechanicTopicId) {
+          return;
+        }
+        this.activeMechanicTopicId = nextId;
+        this.tooltip.hide(true);
+        this.sync(body);
+      });
+    });
     body.querySelectorAll<HTMLButtonElement>('[data-tutorial-flow-tab]').forEach((button) => {
       button.addEventListener('click', () => {
         const nextId = button.dataset.tutorialFlowTab;
@@ -373,6 +452,16 @@ export class TutorialPanel {
     });
     body.querySelectorAll<HTMLElement>('[data-tutorial-pane]').forEach((entry) => {
       const active = entry.dataset.tutorialPane === this.activeTopicId;
+      entry.classList.toggle('active', active);
+      entry.setAttribute('aria-hidden', active ? 'false' : 'true');
+    });
+    body.querySelectorAll<HTMLElement>('[data-tutorial-mechanic-tab]').forEach((entry) => {
+      const active = entry.dataset.tutorialMechanicTab === this.activeMechanicTopicId;
+      entry.classList.toggle('active', active);
+      entry.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    body.querySelectorAll<HTMLElement>('[data-tutorial-mechanic-pane]').forEach((entry) => {
+      const active = entry.dataset.tutorialMechanicPane === this.activeMechanicTopicId;
       entry.classList.toggle('active', active);
       entry.setAttribute('aria-hidden', active ? 'false' : 'true');
     });

@@ -26,7 +26,7 @@ export class MarketTradeHistoryEntity {
   @Column({ type: 'int' })
   quantity!: number;
 
-  @Column({ type: 'int' })
+  @Column({ type: 'bigint', transformer: BIGINT_NUMBER_TRANSFORMER })
   unitPrice!: number;
 
   @Column({ type: 'bigint', transformer: BIGINT_NUMBER_TRANSFORMER })

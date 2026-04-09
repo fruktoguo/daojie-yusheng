@@ -9,7 +9,9 @@ import {
   ActionDef,
   Attributes,
   basisPointModifierToMultiplier,
+  buildEffectiveTargetingGeometry,
   BuffModifierMode,
+  calculateDispersedAuraGainPerTile,
   EQUIP_SLOTS,
   EquipmentConditionDef,
   EquipmentConditionGroup,
@@ -39,12 +41,14 @@ import {
   isPointInRange,
   ItemStack,
   MONSTER_TIER_LABELS,
+  MonsterInitialBuffDef,
   NumericRatioDivisors,
   NumericStats,
   PartialNumericStats,
   percentModifierToMultiplier,
   NpcQuestMarker,
   ObservationInsight,
+  ObservationLootPreview,
   parseTileTargetRef,
   PlayerState,
   PlayerRealmStage,
@@ -82,6 +86,7 @@ import { PersistentDocumentService } from '../database/persistent-document.servi
 import { AttrService } from './attr.service';
 import { AoiService } from './aoi.service';
 import { syncDynamicBuffPresentation } from './buff-presentation';
+import { getBuffSustainCost } from './buff-sustain';
 import { ContentService } from './content.service';
 import { EquipmentEffectService } from './equipment-effect.service';
 import { InventoryService } from './inventory.service';
@@ -94,6 +99,14 @@ import { isLikelyInternalContentId, resolveQuestTargetName } from './quest-displ
 import { TechniqueService } from './technique.service';
 import { ThreatService } from './threat.service';
 import { TimeService } from './time.service';
+import { AlchemyService } from './alchemy.service';
+import {
+  buildMonsterInitialBuffSourceId,
+  dehydrateTemporaryBuff,
+  hydrateTemporaryBuffSnapshots,
+  normalizePersistedTemporaryBuffSnapshot,
+  PersistedTemporaryBuffSnapshot,
+} from './temporary-buff-storage';
 import {
   DEFAULT_MONSTER_RATIO_DIVISORS,
   EMPTY_UPDATE,
@@ -115,9 +128,12 @@ import {
 } from '../constants/gameplay/terrain';
 import { MARKET_CURRENCY_ITEM_ID } from '../constants/gameplay/market';
 import {
+  MONSTER_LOST_SIGHT_CHASE_TICKS,
   MONSTER_RESPAWN_ACCELERATION_BASE_PERCENT,
   MONSTER_RESPAWN_ACCELERATION_MAX_PERCENT,
   MONSTER_RESPAWN_ACCELERATION_STEP_PERCENT,
+  ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_MULTIPLIER,
+  ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_THRESHOLD,
 } from '../constants/gameplay/monster';
 
 const MONSTER_ATTR_KEYS: readonly (keyof Attributes)[] = [
@@ -188,7 +204,7 @@ const STATIC_CONTEXT_TOGGLE_ACTIONS: readonly ActionDef[] = [{
   id: 'toggle:allow_aoe_player_hit',
   name: '全体攻击',
   type: 'toggle',
-  desc: '控制群体攻击是否会误伤其他玩家。',
+  desc: '控制是否允许主动攻击其他玩家；关闭后只会对袭击你的玩家进行反击。',
   cooldownLeft: 0,
 }, {
   id: 'toggle:auto_idle_cultivation',
@@ -213,6 +229,20 @@ const STATIC_CONTEXT_TOGGLE_ACTIONS: readonly ActionDef[] = [{
 const INTRO_BODY_TECHNIQUE_ID = 'standing_stake_art';
 const INTRO_BODY_TECHNIQUE_BOOK_ID = 'book.standing_stake_art';
 const INTRO_BODY_TEMPERING_QUEST_ID = 'q_intro_body_tempering';
+const HUANLING_ZHENREN_MONSTER_ID = 'm_huanling_zhenren';
+const HUANLING_FAXIANG_SKILL_ID = 'skill.huanling_candan_faxiang';
+const HUANLING_LIEFU_WAIHUAN_SKILL_ID = 'skill.huanling_liefu_waihuan';
+const HUANLING_XINGLUO_CANPAN_SKILL_ID = 'skill.huanling_xingluo_canpan';
+const HUANLING_RONGHE_GUANMAI_SKILL_ID = 'skill.huanling_ronghe_guanmai';
+const HUANLING_LIEQI_ZHIXIAN_SKILL_ID = 'skill.huanling_lieqi_zhixian';
+const HUANLING_SUOGONG_NEIHUAN_SKILL_ID = 'skill.huanling_suogong_neihuan';
+const HUANLING_DIFU_CHENYIN_SKILL_ID = 'skill.huanling_difu_chenyin';
+const HUANLING_DUANHUN_DING_SKILL_ID = 'skill.huanling_duanhun_ding';
+const HUANLING_CANPO_ZHANG_SKILL_ID = 'skill.huanling_canpo_zhang';
+const HUANLING_FAXIANG_BUFF_ID = 'buff.huanling_candan_faxiang';
+const HUANLING_RONGMAI_YIN_BUFF_ID = 'buff.huanling_rongmai_yin';
+const HUANLING_CANMAI_SUOBU_BUFF_ID = 'buff.huanling_canmai_suobu';
+const TERRAIN_MOLTEN_POOL_BURN_BUFF_ID = 'terrain_molten_pool_burn';
 
 type MessageKind = 'system' | 'quest' | 'combat' | 'loot';
 type WorldDirtyFlag = 'inv' | 'quest' | 'actions' | 'tech' | 'attr' | 'loot';
@@ -232,6 +262,19 @@ interface RuntimeMonster extends MonsterSpawnConfig {
   damageContributors: Map<string, number>;
   facing?: Direction;
   targetPlayerId?: string;
+  lastSeenTargetX?: number;
+  lastSeenTargetY?: number;
+  lastSeenTargetTick?: number;
+  pendingCast?: PendingMonsterSkillCast;
+}
+
+interface PendingMonsterSkillCast {
+  skillId: string;
+  targetX: number;
+  targetY: number;
+  remainingTicks: number;
+  qiCost: number;
+  warningColor?: string;
 }
 
 interface NpcInteractionState {
@@ -273,15 +316,19 @@ interface PersistedMonsterRuntimeRecord {
   qi?: number;
   alive: boolean;
   respawnLeft: number;
-  temporaryBuffs?: TemporaryBuffState[];
+  temporaryBuffs?: PersistedTemporaryBuffSnapshot[];
   skillCooldowns?: Record<string, number>;
   damageContributors?: Record<string, number>;
   facing?: Direction;
   targetPlayerId?: string;
+  lastSeenTargetX?: number;
+  lastSeenTargetY?: number;
+  lastSeenTargetTick?: number;
+  pendingCast?: PendingMonsterSkillCast;
 }
 
 interface PersistedMonsterRuntimeSnapshot {
-  version: 1 | 2 | 3;
+  version: 1 | 2 | 3 | 4;
   maps: Record<string, PersistedMonsterRuntimeRecord[]>;
   spawnAccelerationStates?: Record<string, PersistedMonsterSpawnAccelerationRecord[]>;
 }
@@ -361,6 +408,7 @@ export interface WorldUpdate {
 
 
 interface CombatSnapshot {
+  attrs: Attributes;
   stats: NumericStats;
   ratios: NumericRatioDivisors;
   realmLv: number;
@@ -386,6 +434,7 @@ interface MonsterExpParticipant {
 type ResolvedTarget =
   | { kind: 'monster'; x: number; y: number; monster: RuntimeMonster }
   | { kind: 'player'; x: number; y: number; player: PlayerState }
+  | { kind: 'container'; x: number; y: number; container: ContainerConfig }
   | { kind: 'tile'; x: number; y: number; tileType?: string };
 
 interface SkillFormulaContext {
@@ -440,6 +489,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     private readonly performanceService: PerformanceService,
     private readonly threatService: ThreatService,
     private readonly persistentDocumentService: PersistentDocumentService,
+    private readonly alchemyService: AlchemyService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -515,6 +565,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         if (!projected) {
           return [];
         }
+        const runtime = container.variant === 'herb'
+          ? this.lootService.getContainerRuntimeView(sourceMapId, container)
+          : null;
         return [{
           id: `container:${sourceMapId}:${container.id}`,
           x: projected.x,
@@ -523,6 +576,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           color: container.color?.trim() ? container.color.trim() : '#c18b46',
           name: container.name,
           kind: 'container',
+          hp: runtime?.hp,
+          maxHp: runtime?.maxHp,
+          respawnRemainingTicks: runtime?.respawnRemainingTicks,
+          respawnTotalTicks: runtime?.respawnTotalTicks,
         }];
       });
 
@@ -595,9 +652,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       color,
       name: target.name,
       kind: 'player',
+      monsterScale: this.getTemporaryBuffPresentationScale(target.temporaryBuffs),
       hp: target.hp,
       maxHp: target.maxHp,
-      buffs: this.getMapRenderableBuffs(target.temporaryBuffs),
+      buffs: this.getPlayerMapRenderableBuffs(target),
     };
   }
 
@@ -695,6 +753,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     const breakthroughAction = this.techniqueService.getBreakthroughAction(player);
     if (breakthroughAction) {
       actions.push(breakthroughAction);
+    }
+    const alchemyAction = this.alchemyService.getAlchemyAction(player);
+    if (alchemyAction) {
+      actions.push(alchemyAction);
     }
 
     const portal = this.mapService.getPortalNear(player.mapId, player.x, player.y, 1, { trigger: 'manual' });
@@ -804,6 +866,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       return {
         itemId: item.itemId,
         count: Math.max(1, Math.floor(item.count)),
+        alchemySuccessRate: item.alchemySuccessRate,
+        alchemySpeedRate: item.alchemySpeedRate,
         mapUnlockId: item.mapUnlockId,
         tileAuraGainAmount: item.tileAuraGainAmount,
         allowBatchUse: item.allowBatchUse,
@@ -824,6 +888,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       equipValueStats: item.equipValueStats ? structuredClone(item.equipValueStats) : undefined,
       effects: item.effects ? structuredClone(item.effects) : undefined,
       tags: item.tags ? [...item.tags] : undefined,
+      alchemySuccessRate: item.alchemySuccessRate,
+      alchemySpeedRate: item.alchemySpeedRate,
       mapUnlockId: item.mapUnlockId,
       tileAuraGainAmount: item.tileAuraGainAmount,
       allowBatchUse: item.allowBatchUse,
@@ -1053,8 +1119,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         messages: [{
           playerId: player.id,
           text: player.allowAoePlayerHit === true
-            ? '已开启全体攻击，群体攻击现在也会命中玩家。'
-            : '已关闭全体攻击，群体攻击将不会命中玩家。',
+            ? '已开启全体攻击，现在可以主动攻击其他玩家。'
+            : '已关闭全体攻击，现在只会反击主动攻击你的玩家。',
           kind: 'combat',
         }],
         dirty: ['actions'],
@@ -1245,6 +1311,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   /** 自动战斗逻辑：寻敌 → 追击 → 释放技能/普攻 */
   performAutoBattle(player: PlayerState): WorldUpdate {
     if (!player.autoBattle || player.dead) return EMPTY_UPDATE;
+    if (player.pendingSkillCast) {
+      return EMPTY_UPDATE;
+    }
     const safeZoneAttackError = this.getSafeZoneAttackBlockError(player);
     if (safeZoneAttackError) {
       player.autoBattle = false;
@@ -1264,12 +1333,13 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     const effectiveViewRange = this.timeService.getEffectiveViewRangeFromBuff(player.viewRange, player.temporaryBuffs);
     const stationaryMode = player.autoBattleStationary === true;
     const availableSkills = this.collectAutoBattleSkillCandidates(player);
-    const preferredRange = this.resolveAutoBattlePreferredRange(availableSkills);
+    const preferredRange = this.resolveAutoBattlePreferredRange(player, availableSkills);
 
     let target: ResolvedTarget | undefined;
     let targetVisible = true;
 
     if (player.combatTargetLocked) {
+      const retaliationTargetId = player.retaliatePlayerTargetId;
       target = this.resolveCombatTarget(player);
       if (!target) {
         player.autoBattle = false;
@@ -1277,7 +1347,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         return {
           messages: [{
             playerId: player.id,
-            text: '强制攻击目标已经失去踪迹，自动战斗已停止。',
+            text: retaliationTargetId
+              ? '反击目标已经失去踪迹，自动战斗已停止。'
+              : '强制攻击目标已经失去踪迹，自动战斗已停止。',
             kind: 'combat',
           }],
           dirty: ['actions'],
@@ -1294,6 +1366,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       }
       player.combatTargetId = this.getTargetRef(target);
       player.combatTargetLocked = false;
+      player.retaliatePlayerTargetId = undefined;
       targetVisible = true;
     }
 
@@ -1305,6 +1378,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         const update = selectedSkill.skill.requiresTarget === false
           ? this.performSkill(player, selectedSkill.skill.id)
           : this.performTargetedSkill(player, selectedSkill.skill.id, targetRef);
+        const stopUpdate = this.stopLockedForceAttackForInvalidTile(player, target, update);
+        if (stopUpdate) {
+          return stopUpdate;
+        }
         if (update.consumedAction) {
           return { ...update, usedActionId: selectedSkill.skill.id };
         }
@@ -1312,7 +1389,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
       if (isPointInRange(player, target, 1)) {
         this.faceToward(player, target.x, target.y);
-        return this.performBasicAttack(player, target);
+        const update = this.performBasicAttack(player, target);
+        return this.stopLockedForceAttackForInvalidTile(player, target, update) ?? update;
       }
     }
 
@@ -1344,6 +1422,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
   /** 释放无目标技能 */
   performSkill(player: PlayerState, skillId: string): WorldUpdate {
+    if (player.pendingSkillCast) {
+      return { ...EMPTY_UPDATE, error: '正在吟唱中，无法继续施法。' };
+    }
     const skill = this.contentService.getSkill(skillId);
     if (!skill) {
       return { ...EMPTY_UPDATE, error: '技能不存在' };
@@ -1355,11 +1436,18 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (skill.requiresTarget !== false) {
       return { ...EMPTY_UPDATE, error: '缺少目标' };
     }
+    const windupTicks = this.getPlayerSkillWindupTicks(skill);
+    if (windupTicks > 0) {
+      return this.beginPlayerSkillCast(player, skill, { x: player.x, y: player.y }, undefined, player.autoBattle !== true);
+    }
     return this.castSkill(player, skill);
   }
 
   /** 释放指定目标的技能 */
   performTargetedSkill(player: PlayerState, skillId: string, targetRef?: string): WorldUpdate {
+    if (player.pendingSkillCast) {
+      return { ...EMPTY_UPDATE, error: '正在吟唱中，无法继续施法。' };
+    }
     const skill = this.contentService.getSkill(skillId);
     if (!skill) {
       return { ...EMPTY_UPDATE, error: '技能不存在' };
@@ -1376,15 +1464,59 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (!target) {
       return { ...EMPTY_UPDATE, error: '目标不存在或不可选中' };
     }
-    if (!isPointInRange(player, target, skill.range)) {
+    if (target.kind === 'player' && !this.canPlayerDealDamageToPlayer(player, target.player)) {
+      return { ...EMPTY_UPDATE, error: '已关闭全体攻击，当前不会主动攻击其他玩家。' };
+    }
+    const playerStats = this.attrService.getPlayerNumericStats(player);
+    const geometry = this.buildEffectiveSkillGeometry(skill, playerStats);
+    if (!isPointInRange(player, target, geometry.range)) {
       return { ...EMPTY_UPDATE, error: '目标超出技能范围' };
     }
-
-    return this.castSkill(player, skill, target);
+    const windupTicks = this.getPlayerSkillWindupTicks(skill);
+    if (windupTicks > 0) {
+      return this.beginPlayerSkillCast(
+        player,
+        skill,
+        { x: target.x, y: target.y },
+        playerStats,
+        player.autoBattle !== true,
+        targetRef,
+      );
+    }
+    return this.castSkill(player, skill, target, playerStats);
   }
 
   /** 技能施放核心流程：中断修炼 → 选择目标 → 消耗真气 → 逐效果结算 */
-  private castSkill(player: PlayerState, skill: SkillDef, primaryTarget?: ResolvedTarget): WorldUpdate {
+  private castSkill(
+    player: PlayerState,
+    skill: SkillDef,
+    primaryTarget?: ResolvedTarget,
+    playerStats?: NumericStats,
+  ): WorldUpdate {
+    return this.castSkillAtAnchor(
+      player,
+      skill,
+      primaryTarget ? { x: primaryTarget.x, y: primaryTarget.y } : undefined,
+      {
+        primaryTarget,
+        playerStats,
+      },
+    );
+  }
+
+  private castSkillAtAnchor(
+    player: PlayerState,
+    skill: SkillDef,
+    anchor?: { x: number; y: number },
+    options?: {
+      primaryTarget?: ResolvedTarget;
+      playerStats?: NumericStats;
+      qiCost?: number;
+      allowMiss?: boolean;
+      showActionLabel?: boolean;
+      consumedAction?: boolean;
+    },
+  ): WorldUpdate {
     const cultivation = this.techniqueService.interruptCultivation(player, 'attack');
     const dirty = new Set<WorldDirtyFlag>(cultivation.dirty as WorldDirtyFlag[]);
     const result: WorldUpdate = {
@@ -1394,23 +1526,27 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         kind: message.kind,
       })),
       dirty: [],
-      consumedAction: true,
+      consumedAction: options?.consumedAction ?? true,
     };
-    if (primaryTarget) {
-      this.faceToward(player, primaryTarget.x, primaryTarget.y);
+    if (anchor) {
+      this.faceToward(player, anchor.x, anchor.y);
     }
-    const selectedTargets = this.selectSkillTargets(player, skill, primaryTarget);
-    if (skill.requiresTarget !== false && selectedTargets.length === 0) {
+    const casterStats = options?.playerStats ?? this.attrService.getPlayerNumericStats(player);
+    const selectedTargets = anchor
+      ? this.selectSkillTargetsFromAnchor(player, skill, anchor, casterStats, options?.primaryTarget)
+      : this.selectSkillTargets(player, skill, options?.primaryTarget, casterStats);
+    if (skill.requiresTarget !== false && selectedTargets.length === 0 && options?.allowMiss !== true) {
       return { ...EMPTY_UPDATE, error: '没有可命中的目标' };
     }
 
-    const qiCost = this.consumeQiForSkill(player, skill);
+    const qiCost = options?.qiCost ?? this.consumeQiForSkill(player, skill);
     if (typeof qiCost === 'string') {
       return { ...EMPTY_UPDATE, error: qiCost };
     }
-    this.pushActionLabelEffect(player.mapId, player.x, player.y, skill.name);
+    if (options?.showActionLabel !== false) {
+      this.pushActionLabelEffect(player.mapId, player.x, player.y, skill.name);
+    }
 
-    const casterStats = this.attrService.getPlayerNumericStats(player);
     const casterAttrs = this.attrService.getPlayerFinalAttrs(player);
     const techLevel = this.getSkillTechniqueLevel(player, skill.id);
     let appliedEffect = false;
@@ -1418,11 +1554,14 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
     for (const effect of skill.effects) {
       if (effect.type === 'damage') {
-        const damageTargets = this.pickDamageTargets(selectedTargets, primaryTarget);
+        const damageTargets = this.pickDamageTargets(selectedTargets, options?.primaryTarget);
         if (damageTargets.length === 0) {
           continue;
         }
         for (const target of damageTargets) {
+          const targetMonsterCombat = target.kind === 'monster'
+            ? this.getMonsterCombatSnapshot(target.monster)
+            : undefined;
           const context: SkillFormulaContext = {
             player,
             skill,
@@ -1431,13 +1570,13 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
             casterStats,
             casterAttrs,
             target,
-            targetStats: target.kind === 'monster'
-              ? this.getMonsterCombatSnapshot(target.monster).stats
+            targetStats: targetMonsterCombat
+              ? targetMonsterCombat.stats
               : target.kind === 'player'
                 ? this.getPlayerCombatSnapshot(target.player).stats
                 : undefined,
-            targetAttrs: target.kind === 'monster'
-              ? target.monster.attrs
+            targetAttrs: targetMonsterCombat
+              ? targetMonsterCombat.attrs
               : target.kind === 'player'
                 ? this.attrService.getPlayerFinalAttrs(target.player)
                 : undefined,
@@ -1447,6 +1586,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
             ? this.attackMonster(player, target.monster, baseDamage, `${skill.name}击中`, effect.damageKind ?? 'spell', effect.element, qiCost)
             : target.kind === 'player'
               ? this.attackPlayer(player, target.player, baseDamage, `${skill.name}击中`, effect.damageKind ?? 'spell', effect.element, qiCost)
+              : target.kind === 'container'
+                ? this.attackContainer(player, target.container, baseDamage, skill.name, target.container.name, effect.damageKind ?? 'spell', effect.element)
               : this.attackTerrain(player, target.x, target.y, baseDamage, skill.name, target.tileType ?? '目标', effect.damageKind ?? 'spell', effect.element);
           result.messages.push(...update.messages);
           for (const flag of update.dirty) {
@@ -1470,7 +1611,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         continue;
       }
 
-      const update = this.applyBuffEffect(player, skill, effect, selectedTargets, primaryTarget);
+      const update = effect.type === 'buff'
+        ? this.applyBuffEffect(player, skill, effect, selectedTargets, options?.primaryTarget)
+        : this.applyPlayerTerrainEffect(player, skill, effect, anchor);
       result.messages.push(...update.messages);
       for (const flag of update.dirty) {
         dirty.add(flag);
@@ -1494,10 +1637,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (!appliedEffect && firstError) {
       result.error = firstError;
     }
-    const castTarget = primaryTarget ?? selectedTargets[0];
+    const castTarget = options?.primaryTarget ?? selectedTargets[0];
     const equipmentResult = this.equipmentEffectService.dispatch(player, {
       trigger: 'on_skill_cast',
-      targetKind: castTarget?.kind,
+      targetKind: castTarget?.kind === 'container' ? 'tile' : castTarget?.kind,
       target: this.toEquipmentEffectTarget(castTarget),
     });
     for (const flag of equipmentResult.dirty) {
@@ -1516,6 +1659,115 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return result;
   }
 
+  resolvePendingPlayerSkillCast(player: PlayerState): WorldUpdate | null {
+    const pendingCast = player.pendingSkillCast;
+    if (!pendingCast) {
+      return null;
+    }
+    if (pendingCast.skipProgressThisTick) {
+      pendingCast.skipProgressThisTick = false;
+      return { messages: [], dirty: [] };
+    }
+    pendingCast.remainingTicks -= 1;
+    if (pendingCast.remainingTicks > 0) {
+      return { messages: [], dirty: [] };
+    }
+    player.pendingSkillCast = undefined;
+    const skill = this.contentService.getSkill(pendingCast.skillId);
+    if (!skill) {
+      return { messages: [], dirty: [] };
+    }
+    const primaryTarget = pendingCast.targetRef
+      ? this.resolveTargetRef(player, pendingCast.targetRef) ?? undefined
+      : undefined;
+    return this.castSkillAtAnchor(
+      player,
+      skill,
+      { x: pendingCast.targetX, y: pendingCast.targetY },
+      {
+        primaryTarget,
+        qiCost: pendingCast.qiCost,
+        allowMiss: true,
+        showActionLabel: true,
+        consumedAction: false,
+      },
+    );
+  }
+
+  interruptPendingPlayerSkillCast(player: PlayerState, reason?: string): WorldUpdate {
+    const pendingCast = player.pendingSkillCast;
+    if (!pendingCast) {
+      return EMPTY_UPDATE;
+    }
+    player.pendingSkillCast = undefined;
+    const skill = this.contentService.getSkill(pendingCast.skillId);
+    if (!reason) {
+      return EMPTY_UPDATE;
+    }
+    return {
+      messages: [{
+        playerId: player.id,
+        text: `${skill?.name ?? '当前神通'}的吟唱被打断：${reason}`,
+        kind: 'combat',
+      }],
+      dirty: [],
+    };
+  }
+
+  private beginPlayerSkillCast(
+    player: PlayerState,
+    skill: SkillDef,
+    anchor: { x: number; y: number },
+    playerStats?: NumericStats,
+    skipProgressThisTick = false,
+    targetRef?: string,
+  ): WorldUpdate {
+    const windupTicks = this.getPlayerSkillWindupTicks(skill);
+    if (windupTicks <= 0) {
+      const primaryTarget = targetRef ? this.resolveTargetRef(player, targetRef) ?? undefined : undefined;
+      return this.castSkillAtAnchor(player, skill, anchor, { primaryTarget, playerStats });
+    }
+    const warningCells = this.buildPlayerSkillAffectedCells(player, skill, anchor, playerStats);
+    if (warningCells.length === 0) {
+      return { ...EMPTY_UPDATE, error: '目标超出技能范围' };
+    }
+    const qiCost = this.consumeQiForSkill(player, skill);
+    if (typeof qiCost === 'string') {
+      return { ...EMPTY_UPDATE, error: qiCost };
+    }
+    this.navigationService.clearMoveTarget(player.id);
+    player.questNavigation = undefined;
+    this.faceToward(player, anchor.x, anchor.y);
+    const geometry = this.buildEffectiveSkillGeometry(skill, playerStats ?? this.attrService.getPlayerNumericStats(player));
+    const warningOrigin = (geometry.shape ?? 'single') === 'line'
+      ? { x: player.x, y: player.y }
+      : anchor;
+    player.pendingSkillCast = {
+      skillId: skill.id,
+      targetX: anchor.x,
+      targetY: anchor.y,
+      targetRef,
+      remainingTicks: windupTicks,
+      qiCost,
+      warningColor: this.getPlayerSkillWarningColor(skill),
+      skipProgressThisTick,
+    };
+    this.pushActionLabelEffect(player.mapId, player.x, player.y, skill.name, {
+      actionStyle: 'chant',
+      durationMs: windupTicks * 1000 + 240,
+    });
+    this.pushEffect(player.mapId, {
+      type: 'warning_zone',
+      cells: warningCells.map((cell) => ({ x: cell.x, y: cell.y })),
+      color: player.pendingSkillCast.warningColor ?? '#ff9a30',
+      baseColor: '#ffe0a6',
+      originX: warningOrigin.x,
+      originY: warningOrigin.y,
+      durationMs: windupTicks * 1000,
+    });
+    return { messages: [], dirty: [], consumedAction: true };
+  }
+
   private tryActivateAutoRetaliate(target: PlayerState, dirtyPlayers: Set<string>): void {
     if (
       target.hp <= 0
@@ -1528,6 +1780,29 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
 
     target.autoBattle = true;
+    target.retaliatePlayerTargetId = undefined;
+    dirtyPlayers.add(target.id);
+  }
+
+  private tryActivatePlayerAutoRetaliate(
+    target: PlayerState,
+    attacker: PlayerState,
+    dirtyPlayers: Set<string>,
+  ): void {
+    if (
+      target.hp <= 0
+      || target.autoRetaliate === false
+      || target.autoBattle
+      // 手动寻路期间保持路径意图优先，避免受击反击把角色切进自动战斗。
+      || this.navigationService.hasMoveTarget(target.id)
+    ) {
+      return;
+    }
+
+    target.autoBattle = true;
+    target.combatTargetId = this.getPlayerThreatId(attacker);
+    target.combatTargetLocked = true;
+    target.retaliatePlayerTargetId = attacker.id;
     dirtyPlayers.add(target.id);
   }
 
@@ -1549,6 +1824,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     this.addThreatToTarget(this.getPlayerThreatId(player), player, target, gameplayConstants.DEFAULT_AGGRO_THRESHOLD);
     player.combatTargetId = target.monster.runtimeId;
     player.combatTargetLocked = false;
+    player.retaliatePlayerTargetId = undefined;
     this.navigationService.clearMoveTarget(player.id);
     const update = this.performAutoBattle(player);
     const dirty = new Set(update.dirty);
@@ -1568,9 +1844,15 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (!target) {
       return { ...EMPTY_UPDATE, error: '目标不存在或不可选中' };
     }
+    if (target.kind === 'player' && !this.canPlayerDealDamageToPlayer(player, target.player)) {
+      return { ...EMPTY_UPDATE, error: '已关闭全体攻击，当前不会主动攻击其他玩家。' };
+    }
     const effectiveViewRange = this.timeService.getEffectiveViewRangeFromBuff(player.viewRange, player.temporaryBuffs);
     if (!isPointInRange(player, target, effectiveViewRange) || !this.canPlayerSeeTarget(player, target, effectiveViewRange)) {
       return { ...EMPTY_UPDATE, error: '目标超出可锁定范围' };
+    }
+    if (target.kind === 'tile' && !this.mapService.canDamageTile(player.mapId, target.x, target.y)) {
+      return { ...EMPTY_UPDATE, error: '该目标无法被攻击' };
     }
 
     player.autoBattle = true;
@@ -1579,6 +1861,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
     player.combatTargetId = this.getTargetRef(target);
     player.combatTargetLocked = true;
+    player.retaliatePlayerTargetId = undefined;
     this.navigationService.clearMoveTarget(player.id);
     const update = this.performAutoBattle(player);
     const dirty = new Set(update.dirty);
@@ -1586,14 +1869,97 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return { ...update, dirty: [...dirty] };
   }
 
-  private selectSkillTargets(player: PlayerState, skill: SkillDef, primaryTarget?: ResolvedTarget): ResolvedTarget[] {
+  private getSkillTargetingModifiers(stats: NumericStats | undefined): { extraRange: number; extraArea: number } {
+    return {
+      extraRange: Math.max(0, Math.floor(stats?.extraRange ?? 0)),
+      extraArea: Math.max(0, Math.floor(stats?.extraArea ?? 0)),
+    };
+  }
+
+  private buildEffectiveSkillGeometry(skill: SkillDef, stats: NumericStats | undefined) {
+    return buildEffectiveTargetingGeometry({
+      range: skill.range,
+      shape: skill.targeting?.shape ?? 'single',
+      radius: skill.targeting?.radius,
+      innerRadius: skill.targeting?.innerRadius,
+      width: skill.targeting?.width,
+      height: skill.targeting?.height,
+    }, this.getSkillTargetingModifiers(stats));
+  }
+
+  private getEffectiveDamageTargetLimit(
+    skill: SkillDef,
+    buffs: TemporaryBuffState[] | undefined,
+  ): number {
+    const configuredMaxTargets = skill.targeting?.maxTargets;
+    if (!Number.isFinite(configuredMaxTargets) || (configuredMaxTargets ?? 0) <= 0) {
+      return 99;
+    }
+    const baseMaxTargets = Math.max(1, Number(configuredMaxTargets));
+    if (!skill.effects.some((effect) => effect.type === 'damage')) {
+      return baseMaxTargets;
+    }
+    const hasFaxiang = (buffs ?? []).some((buff) => (
+      buff.buffId === 'buff.huanling_candan_faxiang'
+      && buff.remainingTicks > 0
+      && buff.stacks > 0
+    ));
+    return hasFaxiang ? Math.max(baseMaxTargets, baseMaxTargets * 2) : baseMaxTargets;
+  }
+
+  private buildPlayerSkillAffectedCells(
+    player: PlayerState,
+    skill: SkillDef,
+    anchor: { x: number; y: number },
+    playerStats?: NumericStats,
+  ): Array<{ x: number; y: number }> {
+    const geometry = this.buildEffectiveSkillGeometry(skill, playerStats ?? this.attrService.getPlayerNumericStats(player));
+    const shape = geometry.shape ?? 'single';
+    if (shape === 'single') {
+      return isPointInRange(player, anchor, geometry.range) ? [{ x: anchor.x, y: anchor.y }] : [];
+    }
+    return computeAffectedCellsFromAnchor(player, anchor, {
+      range: geometry.range,
+      shape,
+      radius: geometry.radius,
+      innerRadius: geometry.innerRadius,
+      width: geometry.width,
+      height: geometry.height,
+    });
+  }
+
+  private selectSkillTargets(
+    player: PlayerState,
+    skill: SkillDef,
+    primaryTarget?: ResolvedTarget,
+    playerStats?: NumericStats,
+  ): ResolvedTarget[] {
     if (!primaryTarget) {
       return [];
     }
-    const targeting = skill.targeting;
-    const shape = targeting?.shape ?? 'single';
+    return this.selectSkillTargetsFromAnchor(player, skill, { x: primaryTarget.x, y: primaryTarget.y }, playerStats, primaryTarget);
+  }
+
+  private selectSkillTargetsFromAnchor(
+    player: PlayerState,
+    skill: SkillDef,
+    anchor: { x: number; y: number },
+    playerStats?: NumericStats,
+    primaryTarget?: ResolvedTarget,
+  ): ResolvedTarget[] {
+    const geometry = this.buildEffectiveSkillGeometry(skill, playerStats ?? this.attrService.getPlayerNumericStats(player));
+    const shape = geometry.shape ?? 'single';
     if (shape === 'single') {
-      return [primaryTarget];
+      if (primaryTarget) {
+        return [primaryTarget];
+      }
+      const monsters = this.monstersByMap.get(player.mapId) ?? [];
+      const canHitPlayersWithGroupSkill = player.allowAoePlayerHit === true;
+      const players = canHitPlayersWithGroupSkill
+        ? this.playerService.getPlayersByMap(player.mapId)
+          .filter((entry) => entry.id !== player.id && !entry.dead)
+        : [];
+      return this.collectTargetsFromCells(player, monsters, players, [{ x: anchor.x, y: anchor.y }], 1);
     }
 
     const monsters = this.monstersByMap.get(player.mapId) ?? [];
@@ -1602,23 +1968,20 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       ? this.playerService.getPlayersByMap(player.mapId)
         .filter((entry) => entry.id !== player.id && !entry.dead)
       : [];
-    const maxTargets = Math.max(1, targeting?.maxTargets ?? 99);
-    if (shape === 'line') {
-      const cells = computeAffectedCellsFromAnchor(player, primaryTarget, {
-        range: skill.range,
-        shape: 'line',
-      });
-      return this.collectTargetsFromCells(player, monsters, players, cells, maxTargets);
+    const maxTargets = this.getEffectiveDamageTargetLimit(skill, player.temporaryBuffs);
+    const cells = this.buildPlayerSkillAffectedCells(player, skill, anchor, playerStats);
+    const targets = this.collectTargetsFromCells(player, monsters, players, cells, maxTargets);
+    if (
+      primaryTarget?.kind === 'player'
+      && this.canPlayerDealDamageToPlayer(player, primaryTarget.player)
+      && !targets.some((entry) => entry.kind === 'player' && entry.player.id === primaryTarget.player.id)
+    ) {
+      targets.unshift(primaryTarget);
+      if (targets.length > maxTargets) {
+        targets.length = maxTargets;
+      }
     }
-
-    const cells = computeAffectedCellsFromAnchor(player, primaryTarget, {
-      range: skill.range,
-      shape,
-      radius: targeting?.radius,
-      width: targeting?.width,
-      height: targeting?.height,
-    });
-    return this.collectTargetsFromCells(player, monsters, players, cells, maxTargets);
+    return targets;
   }
 
   private collectTargetsFromCells(
@@ -1652,6 +2015,21 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           seen.add(key);
           if (resolved.length >= maxTargets) {
             return resolved;
+          }
+        }
+      }
+
+      const container = this.mapService.getContainerAt(player.mapId, cell.x, cell.y);
+      if (container?.variant === 'herb') {
+        const runtime = this.lootService.getContainerRuntimeView(player.mapId, container);
+        if (!runtime.destroyed && !runtime.respawning) {
+          const key = `container:${container.id}`;
+          if (!seen.has(key)) {
+            resolved.push({ kind: 'container', x: container.x, y: container.y, container });
+            seen.add(key);
+            if (resolved.length >= maxTargets) {
+              return resolved;
+            }
           }
         }
       }
@@ -1715,16 +2093,19 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   ): TemporaryBuffState {
     const maxStacks = Math.max(1, effect.maxStacks ?? 1);
     const duration = Math.max(1, effect.duration);
+    const infiniteDuration = effect.infiniteDuration === true;
+    const initialStacks = Math.min(maxStacks, Math.max(1, effect.stacks ?? 1));
     return syncDynamicBuffPresentation({
       buffId: effect.buffId,
       name: effect.name,
       desc: effect.desc,
+      baseDesc: effect.desc,
       shortMark: this.normalizeBuffShortMark(effect),
       category: effect.category ?? (effect.target === 'self' ? 'buff' : 'debuff'),
       visibility: effect.visibility ?? 'public',
-      remainingTicks: duration + 1,
+      remainingTicks: infiniteDuration ? 1 : duration + 1,
       duration,
-      stacks: 1,
+      stacks: initialStacks,
       maxStacks,
       sourceSkillId: skill.id,
       sourceCasterId,
@@ -1736,7 +2117,86 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       stats: effect.stats,
       statMode: effect.statMode,
       qiProjection: effect.qiProjection,
+      presentationScale: effect.presentationScale,
+      infiniteDuration,
+      sustainCost: effect.sustainCost,
+      sustainTicksElapsed: effect.sustainCost ? 0 : undefined,
+      expireWithBuffId: effect.expireWithBuffId,
     });
+  }
+
+  private buildMonsterInitialBuffState(
+    monster: Pick<RuntimeMonster, 'id' | 'name' | 'level'>,
+    effect: MonsterInitialBuffDef,
+  ): TemporaryBuffState {
+    const maxStacks = Math.max(1, effect.maxStacks ?? 1);
+    const duration = Math.max(1, effect.duration);
+    const infiniteDuration = effect.infiniteDuration === true;
+    const initialStacks = Math.min(maxStacks, Math.max(1, effect.stacks ?? 1));
+    return syncDynamicBuffPresentation({
+      buffId: effect.buffId,
+      name: effect.name,
+      desc: effect.desc,
+      baseDesc: effect.desc,
+      shortMark: effect.shortMark?.trim() ? [...effect.shortMark.trim()][0] ?? effect.shortMark.trim() : ([...effect.name.trim()][0] ?? '气'),
+      category: effect.category ?? 'buff',
+      visibility: effect.visibility ?? 'public',
+      remainingTicks: infiniteDuration ? 1 : duration + 1,
+      duration,
+      stacks: initialStacks,
+      maxStacks,
+      sourceSkillId: buildMonsterInitialBuffSourceId(monster.id, effect.buffId),
+      sourceSkillName: `${monster.name}·先天妖势`,
+      realmLv: Math.max(1, Math.floor(monster.level ?? 1)),
+      color: effect.color,
+      attrs: effect.attrs,
+      attrMode: effect.attrMode,
+      stats: effect.stats,
+      statMode: effect.statMode,
+      qiProjection: effect.qiProjection,
+      presentationScale: effect.presentationScale,
+      infiniteDuration,
+      sustainCost: effect.sustainCost,
+      sustainTicksElapsed: effect.sustainCost ? 0 : undefined,
+      expireWithBuffId: effect.expireWithBuffId,
+    });
+  }
+
+  private applyMonsterInitialBuffs(monster: RuntimeMonster): void {
+    if (!monster.initialBuffs || monster.initialBuffs.length === 0) {
+      monster.temporaryBuffs = [];
+      this.syncMonsterRuntimeResources(monster, { fillHp: true, fillQi: true });
+      return;
+    }
+    const nextBuffs: TemporaryBuffState[] = [];
+    for (const effect of monster.initialBuffs) {
+      this.applyBuffState(nextBuffs, this.buildMonsterInitialBuffState(monster, effect));
+    }
+    monster.temporaryBuffs = nextBuffs.filter((buff) => buff.remainingTicks > 0 && buff.stacks > 0);
+    this.syncMonsterRuntimeResources(monster, { fillHp: true, fillQi: true });
+  }
+
+  private syncMonsterRuntimeResources(
+    monster: RuntimeMonster,
+    options: {
+      fillHp?: boolean;
+      fillQi?: boolean;
+      previousHp?: number;
+      previousQi?: number;
+    } = {},
+  ): void {
+    const combat = this.getMonsterCombatSnapshot(monster);
+    const nextMaxHp = Math.max(1, Math.round(combat.stats.maxHp));
+    const nextMaxQi = Math.max(0, Math.round(combat.stats.maxQi));
+    const previousHp = Number.isFinite(options.previousHp) ? Number(options.previousHp) : monster.hp;
+    const previousQi = Number.isFinite(options.previousQi) ? Number(options.previousQi) : monster.qi;
+    monster.maxHp = nextMaxHp;
+    monster.hp = options.fillHp
+      ? nextMaxHp
+      : Math.max(0, Math.min(nextMaxHp, Math.round(previousHp)));
+    monster.qi = options.fillQi
+      ? nextMaxQi
+      : Math.max(0, Math.min(nextMaxQi, Math.round(previousQi)));
   }
 
   private applyBuffState(targetBuffs: TemporaryBuffState[], nextBuff: TemporaryBuffState): TemporaryBuffState {
@@ -1744,12 +2204,13 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (existing) {
       existing.name = nextBuff.name;
       existing.desc = nextBuff.desc;
+      existing.baseDesc = nextBuff.baseDesc;
       existing.shortMark = nextBuff.shortMark;
       existing.category = nextBuff.category;
       existing.visibility = nextBuff.visibility;
       existing.remainingTicks = nextBuff.remainingTicks;
       existing.duration = nextBuff.duration;
-      existing.stacks = Math.min(nextBuff.maxStacks, existing.stacks + 1);
+      existing.stacks = Math.min(nextBuff.maxStacks, existing.stacks + Math.max(1, nextBuff.stacks));
       existing.maxStacks = nextBuff.maxStacks;
       existing.sourceSkillId = nextBuff.sourceSkillId;
       existing.sourceCasterId = nextBuff.sourceCasterId;
@@ -1761,6 +2222,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       existing.stats = nextBuff.stats;
       existing.statMode = nextBuff.statMode;
       existing.qiProjection = nextBuff.qiProjection;
+      existing.presentationScale = nextBuff.presentationScale;
+      existing.infiniteDuration = nextBuff.infiniteDuration;
+      existing.sustainCost = nextBuff.sustainCost;
+      existing.sustainTicksElapsed = nextBuff.sustainTicksElapsed;
+      existing.expireWithBuffId = nextBuff.expireWithBuffId;
       syncDynamicBuffPresentation(existing);
       return existing;
     }
@@ -1793,6 +2259,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         attrMode: buff.attrMode,
         stats: buff.stats,
         statMode: buff.statMode,
+        infiniteDuration: buff.infiniteDuration,
       }));
     return visible.length > 0 ? visible : undefined;
   }
@@ -1816,8 +2283,33 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         color: buff.color,
         attrMode: buff.attrMode,
         statMode: buff.statMode,
+        infiniteDuration: buff.infiniteDuration,
       }));
     return visible && visible.length > 0 ? visible : undefined;
+  }
+
+  private getPlayerRenderableBuffs(player: PlayerState): VisibleBuffState[] | undefined {
+    const visible = this.getRenderableBuffs(player.temporaryBuffs) ?? [];
+    const alchemyBuff = this.alchemyService.buildVisibleAlchemyBuff(player);
+    if (alchemyBuff) {
+      visible.push(alchemyBuff);
+    }
+    return visible.length > 0 ? visible : undefined;
+  }
+
+  private getPlayerMapRenderableBuffs(player: PlayerState): VisibleBuffState[] | undefined {
+    const visible = this.getMapRenderableBuffs(player.temporaryBuffs) ?? [];
+    const alchemyBuff = this.alchemyService.buildVisibleAlchemyBuff(player);
+    if (alchemyBuff) {
+      visible.push({
+        ...alchemyBuff,
+        remainingTicks: 0,
+        duration: 0,
+        stacks: 1,
+        maxStacks: 1,
+      });
+    }
+    return visible.length > 0 ? visible : undefined;
   }
 
   getObservedEntitiesAt(viewer: PlayerState, x: number, y: number): ObservedTileEntityDetail[] {
@@ -1883,7 +2375,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       for (const target of targets) {
         if (target.kind === 'monster') {
           target.monster.temporaryBuffs ??= [];
+          const previousHp = target.monster.hp;
+          const previousQi = target.monster.qi;
           const current = this.applyBuffState(target.monster.temporaryBuffs, this.buildTemporaryBuffState(skill, effect, sourceRealmLv, player.id));
+          this.syncMonsterRuntimeResources(target.monster, { previousHp, previousQi });
           affected.push({ target: { kind: 'monster', monster: target.monster }, buff: current });
           continue;
         }
@@ -2083,6 +2578,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (reason === 'death') {
       this.restorePlayerAfterDefeat(player, false);
     } else {
+      player.pendingSkillCast = undefined;
       this.navigationService.clearMoveTarget(player.id);
       this.mapService.removeOccupant(player.mapId, player.x, player.y, player.id);
       player.autoBattle = false;
@@ -2103,6 +2599,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   tickMonsters(mapId: string, players: PlayerState[]): WorldUpdate {
     this.ensureMapInitialized(mapId);
     const monsters = this.monstersByMap.get(mapId) ?? [];
+    const currentTick = this.timeService.getTotalTicks(mapId);
     const allMessages: WorldMessage[] = [];
     const dirtyPlayers = new Set<string>();
 
@@ -2118,11 +2615,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
               monster.hp = monster.maxHp;
               monster.qi = Math.max(0, Math.round(monster.numericStats.maxQi));
               monster.alive = true;
-              monster.temporaryBuffs = [];
+              this.applyMonsterInitialBuffs(monster);
               monster.skillCooldowns = {};
+              monster.pendingCast = undefined;
               monster.damageContributors.clear();
               this.threatService.clearThreat(this.getMonsterThreatId(monster));
-              monster.targetPlayerId = undefined;
+              this.clearMonsterTargetPursuit(monster);
               this.mapService.addOccupant(mapId, monster.x, monster.y, monster.runtimeId, 'monster');
               this.handleMonsterRespawn(monster);
             } else {
@@ -2161,10 +2659,37 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
       if (monster.temporaryBuffs.length > 0) {
         this.measureCpuSection('monster_buffs', '怪物: Buff 推进', () => {
+          const previousHp = monster.hp;
+          const previousQi = monster.qi;
+          const previousBuffCount = monster.temporaryBuffs.length;
+          const nextBuffs: TemporaryBuffState[] = [];
           for (const buff of monster.temporaryBuffs) {
-            buff.remainingTicks -= 1;
+            const sustainCost = getBuffSustainCost(buff);
+            if (sustainCost !== null && buff.sustainCost) {
+              const currentResource = buff.sustainCost.resource === 'hp' ? monster.hp : monster.qi;
+              if (currentResource < sustainCost) {
+                continue;
+              }
+              if (buff.sustainCost.resource === 'hp') {
+                monster.hp = Math.max(0, monster.hp - sustainCost);
+              } else {
+                monster.qi = Math.max(0, monster.qi - sustainCost);
+              }
+              buff.sustainTicksElapsed = Math.max(0, Math.floor(buff.sustainTicksElapsed ?? 0)) + 1;
+              syncDynamicBuffPresentation(buff);
+            }
+            if (!buff.infiniteDuration) {
+              buff.remainingTicks -= 1;
+            }
+            if (buff.remainingTicks > 0 && buff.stacks > 0) {
+              nextBuffs.push(buff);
+            }
           }
-          monster.temporaryBuffs = monster.temporaryBuffs.filter((buff) => buff.remainingTicks > 0 && buff.stacks > 0);
+          const activeBuffIds = new Set(nextBuffs.map((buff) => buff.buffId));
+          monster.temporaryBuffs = nextBuffs.filter((buff) => !buff.expireWithBuffId || activeBuffIds.has(buff.expireWithBuffId));
+          if (monster.temporaryBuffs.length !== previousBuffCount) {
+            this.syncMonsterRuntimeResources(monster, { previousHp, previousQi });
+          }
         });
       }
       this.tickMonsterSkillCooldowns(monster);
@@ -2175,10 +2700,29 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       this.measureCpuSection('monster_recovery', '怪物: 自然恢复', () => {
         this.applyMonsterNaturalRecovery(monster);
       });
+      const pendingUpdate = this.measureCpuSection('monster_pending_skill', '怪物: 前摇技能', () => (
+        this.resolvePendingMonsterSkillCast(monster, mapId)
+      ));
+      if (pendingUpdate) {
+        allMessages.push(...pendingUpdate.messages);
+        for (const playerId of pendingUpdate.dirtyPlayers ?? []) {
+          dirtyPlayers.add(playerId);
+        }
+        continue;
+      }
       const target = this.measureCpuSection('monster_target', '怪物: 目标选择', () => (
-        this.resolveMonsterTarget(monster, players, timeState)
+        this.resolveMonsterTarget(monster, players, timeState, currentTick)
       ));
       if (!target) {
+        const lostSightTarget = this.resolveMonsterLostSightChaseTarget(monster, currentTick);
+        if (lostSightTarget) {
+          this.measureCpuSection('monster_chase_memory', '怪物: 丢视野追击', () => {
+            this.stepMonsterTowardLastSeenPosition(monster, lostSightTarget.x, lostSightTarget.y);
+          });
+          continue;
+        }
+
+        this.clearMonsterTargetPursuit(monster);
         if (!this.isMonsterWithinWanderRange(monster, monster.x, monster.y)) {
           this.measureCpuSection('monster_return', '怪物: 回巢移动', () => {
             this.stepToward(mapId, monster, monster.spawnX, monster.spawnY, monster.runtimeId);
@@ -2221,6 +2765,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
               distance: gridDistance(target, monster),
             });
           }
+          this.pushActionLabelEffect(mapId, monster.x, monster.y, '攻击');
           if (resolved.hit) {
             const hitEquipment = this.equipmentEffectService.dispatch(target, {
               trigger: 'on_hit',
@@ -2309,7 +2854,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (!skill) {
       return false;
     }
-    const update = this.castMonsterSkill(monster, skill, target, mapId);
+    const windupTicks = this.getMonsterSkillWindupTicks(skill);
+    const update = windupTicks > 0
+      ? this.beginMonsterSkillCast(monster, skill, target, mapId)
+      : this.castMonsterSkill(monster, skill, target, mapId);
     if (update.error) {
       return false;
     }
@@ -2320,16 +2868,47 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return true;
   }
 
+  private getMonsterSkillWindupTicks(skill: SkillDef): number {
+    const windupTicks = skill.monsterCast?.windupTicks;
+    return Number.isFinite(windupTicks)
+      ? Math.max(0, Math.floor(Number(windupTicks)))
+      : 0;
+  }
+
+  private getPlayerSkillWindupTicks(skill: SkillDef): number {
+    const windupTicks = skill.playerCast?.windupTicks;
+    return Number.isFinite(windupTicks)
+      ? Math.max(0, Math.floor(Number(windupTicks)))
+      : 0;
+  }
+
+  private getMonsterSkillWarningColor(skill: SkillDef): string | undefined {
+    return typeof skill.monsterCast?.warningColor === 'string' && skill.monsterCast.warningColor.trim().length > 0
+      ? skill.monsterCast.warningColor.trim()
+      : undefined;
+  }
+
+  private getPlayerSkillWarningColor(skill: SkillDef): string | undefined {
+    return typeof skill.playerCast?.warningColor === 'string' && skill.playerCast.warningColor.trim().length > 0
+      ? skill.playerCast.warningColor.trim()
+      : undefined;
+  }
+
   private selectMonsterSkill(monster: RuntimeMonster, target: PlayerState): SkillDef | undefined {
+    const monsterStats = this.getMonsterCombatSnapshot(monster).stats;
+    if (monster.id === HUANLING_ZHENREN_MONSTER_ID) {
+      return this.selectHuanlingZhenrenSkill(monster, target, monsterStats);
+    }
     for (const skillId of monster.skills) {
       const skill = this.contentService.getSkill(skillId);
       if (!skill) {
         continue;
       }
-      if (skill.requiresTarget !== false && !isPointInRange(monster, target, skill.range)) {
+      const geometry = this.buildEffectiveSkillGeometry(skill, monsterStats);
+      if (skill.requiresTarget !== false && !isPointInRange(monster, target, geometry.range)) {
         continue;
       }
-      if (!this.canMonsterCastSkill(monster, skill)) {
+      if (!this.canMonsterCastSkill(monster, skill, monsterStats)) {
         continue;
       }
       return skill;
@@ -2337,18 +2916,220 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return undefined;
   }
 
-  private canMonsterCastSkill(monster: RuntimeMonster, skill: SkillDef): boolean {
+  private selectHuanlingZhenrenSkill(
+    monster: RuntimeMonster,
+    target: PlayerState,
+    monsterStats: NumericStats,
+  ): SkillDef | undefined {
+    const distance = gridDistance(monster, target);
+    const hpRatio = monsterStats.maxHp > 0 ? monster.hp / monsterStats.maxHp : 1;
+    const hasFaxiang = this.entityHasActiveBuff(monster.temporaryBuffs, HUANLING_FAXIANG_BUFF_ID);
+    const targetYinStacks = this.getEntityBuffStacks(target.temporaryBuffs, HUANLING_RONGMAI_YIN_BUFF_ID);
+    const targetBurnStacks = this.getEntityBuffStacks(target.temporaryBuffs, TERRAIN_MOLTEN_POOL_BURN_BUFF_ID);
+    const targetLocked = this.entityHasActiveBuff(target.temporaryBuffs, HUANLING_CANMAI_SUOBU_BUFF_ID);
+    const targetPrimed = targetYinStacks + targetBurnStacks;
+
+    if (!hasFaxiang && hpRatio <= 0.75) {
+      const phaseAwaken = this.pickFirstCastableMonsterSkill(monster, target, monsterStats, [
+        HUANLING_FAXIANG_SKILL_ID,
+        HUANLING_LIEQI_ZHIXIAN_SKILL_ID,
+        HUANLING_CANPO_ZHANG_SKILL_ID,
+      ]);
+      if (phaseAwaken) {
+        return phaseAwaken;
+      }
+    }
+
+    if (hpRatio <= 0.25) {
+      const desperation = this.pickFirstCastableMonsterSkill(monster, target, monsterStats, [
+        HUANLING_DIFU_CHENYIN_SKILL_ID,
+        HUANLING_LIEFU_WAIHUAN_SKILL_ID,
+        HUANLING_SUOGONG_NEIHUAN_SKILL_ID,
+      ]);
+      if (desperation) {
+        return desperation;
+      }
+    }
+
+    if (hpRatio <= 0.5) {
+      const collapse = this.pickFirstCastableMonsterSkill(monster, target, monsterStats, [
+        HUANLING_XINGLUO_CANPAN_SKILL_ID,
+        HUANLING_RONGHE_GUANMAI_SKILL_ID,
+      ]);
+      if (collapse) {
+        return collapse;
+      }
+    }
+
+    if (!hasFaxiang) {
+      return this.pickFirstCastableMonsterSkill(monster, target, monsterStats, [
+        HUANLING_DUANHUN_DING_SKILL_ID,
+        HUANLING_CANPO_ZHANG_SKILL_ID,
+      ]);
+    }
+
+    if (targetLocked || targetPrimed >= 4) {
+      const finisher = this.pickFirstCastableMonsterSkill(monster, target, monsterStats, [
+        HUANLING_DIFU_CHENYIN_SKILL_ID,
+        HUANLING_LIEFU_WAIHUAN_SKILL_ID,
+        HUANLING_DUANHUN_DING_SKILL_ID,
+        HUANLING_CANPO_ZHANG_SKILL_ID,
+      ]);
+      if (finisher) {
+        return finisher;
+      }
+    }
+
+    if (distance <= 2) {
+      const closeControl = this.pickFirstCastableMonsterSkill(monster, target, monsterStats, [
+        HUANLING_SUOGONG_NEIHUAN_SKILL_ID,
+        HUANLING_DIFU_CHENYIN_SKILL_ID,
+        HUANLING_XINGLUO_CANPAN_SKILL_ID,
+        HUANLING_CANPO_ZHANG_SKILL_ID,
+      ]);
+      if (closeControl) {
+        return closeControl;
+      }
+    }
+
+    if (distance >= 4) {
+      const longRangePressure = this.pickFirstCastableMonsterSkill(monster, target, monsterStats, [
+        HUANLING_LIEFU_WAIHUAN_SKILL_ID,
+        HUANLING_RONGHE_GUANMAI_SKILL_ID,
+        HUANLING_XINGLUO_CANPAN_SKILL_ID,
+        HUANLING_CANPO_ZHANG_SKILL_ID,
+      ]);
+      if (longRangePressure) {
+        return longRangePressure;
+      }
+    }
+
+    if (!targetLocked) {
+      const setup = this.pickFirstCastableMonsterSkill(monster, target, monsterStats, [
+        HUANLING_LIEQI_ZHIXIAN_SKILL_ID,
+        HUANLING_XINGLUO_CANPAN_SKILL_ID,
+        HUANLING_RONGHE_GUANMAI_SKILL_ID,
+        HUANLING_SUOGONG_NEIHUAN_SKILL_ID,
+        HUANLING_CANPO_ZHANG_SKILL_ID,
+      ]);
+      if (setup) {
+        return setup;
+      }
+    }
+
+    if (targetPrimed >= 2) {
+      const cashOut = this.pickFirstCastableMonsterSkill(monster, target, monsterStats, [
+        HUANLING_DIFU_CHENYIN_SKILL_ID,
+        HUANLING_LIEFU_WAIHUAN_SKILL_ID,
+        HUANLING_SUOGONG_NEIHUAN_SKILL_ID,
+        HUANLING_DUANHUN_DING_SKILL_ID,
+        HUANLING_CANPO_ZHANG_SKILL_ID,
+      ]);
+      if (cashOut) {
+        return cashOut;
+      }
+    }
+
+    return this.pickFirstCastableMonsterSkill(monster, target, monsterStats, [
+      HUANLING_DIFU_CHENYIN_SKILL_ID,
+      HUANLING_LIEFU_WAIHUAN_SKILL_ID,
+      HUANLING_SUOGONG_NEIHUAN_SKILL_ID,
+      HUANLING_XINGLUO_CANPAN_SKILL_ID,
+      HUANLING_RONGHE_GUANMAI_SKILL_ID,
+      HUANLING_LIEQI_ZHIXIAN_SKILL_ID,
+      HUANLING_DUANHUN_DING_SKILL_ID,
+      HUANLING_CANPO_ZHANG_SKILL_ID,
+    ]);
+  }
+
+  private pickFirstCastableMonsterSkill(
+    monster: RuntimeMonster,
+    target: PlayerState,
+    monsterStats: NumericStats,
+    skillIds: string[],
+  ): SkillDef | undefined {
+    for (const skillId of skillIds) {
+      if (!monster.skills.includes(skillId)) {
+        continue;
+      }
+      const skill = this.contentService.getSkill(skillId);
+      if (!skill) {
+        continue;
+      }
+      const geometry = this.buildEffectiveSkillGeometry(skill, monsterStats);
+      if (skill.requiresTarget !== false && !isPointInRange(monster, target, geometry.range)) {
+        continue;
+      }
+      if (!this.canMonsterCastSkill(monster, skill, monsterStats)) {
+        continue;
+      }
+      return skill;
+    }
+    return undefined;
+  }
+
+  private entityHasActiveBuff(buffs: TemporaryBuffState[] | undefined, buffId: string, minStacks = 1): boolean {
+    return (buffs ?? []).some((buff) => (
+      buff.buffId === buffId
+      && buff.remainingTicks > 0
+      && buff.stacks >= minStacks
+    ));
+  }
+
+  private getEntityBuffStacks(buffs: TemporaryBuffState[] | undefined, buffId: string): number {
+    return (buffs ?? []).find((buff) => buff.buffId === buffId && buff.remainingTicks > 0)?.stacks ?? 0;
+  }
+
+  private buildMonsterSkillAffectedCells(
+    monster: RuntimeMonster,
+    skill: SkillDef,
+    anchor: { x: number; y: number },
+  ): Array<{ x: number; y: number }> {
+    const geometry = this.buildEffectiveSkillGeometry(skill, this.getMonsterCombatSnapshot(monster).stats);
+    const shape = geometry.shape ?? 'single';
+    if (shape === 'single') {
+      return isPointInRange(monster, anchor, geometry.range) ? [{ x: anchor.x, y: anchor.y }] : [];
+    }
+    return computeAffectedCellsFromAnchor(monster, anchor, {
+      range: geometry.range,
+      shape,
+      radius: geometry.radius,
+      innerRadius: geometry.innerRadius,
+      width: geometry.width,
+      height: geometry.height,
+    });
+  }
+
+  private selectMonsterSkillTargetsFromAnchor(
+    monster: RuntimeMonster,
+    skill: SkillDef,
+    anchor: { x: number; y: number },
+  ): ResolvedTarget[] {
+    const cells = this.buildMonsterSkillAffectedCells(monster, skill, anchor);
+    if (cells.length === 0) {
+      return [];
+    }
+    const players = this.playerService.getPlayersByMap(monster.mapId)
+      .filter((entry) => !entry.dead);
+    const maxTargets = this.getEffectiveDamageTargetLimit(skill, monster.temporaryBuffs);
+    return this.collectMonsterSkillTargetsFromCells(players, cells, maxTargets);
+  }
+
+  private canMonsterCastSkill(monster: RuntimeMonster, skill: SkillDef, numericStats?: NumericStats): boolean {
     if ((monster.skillCooldowns[skill.id] ?? 0) > 0) {
       return false;
     }
-    const actualCost = this.getMonsterSkillQiCost(monster, skill);
+    if (!this.matchesMonsterEquipmentConditions(monster, skill.monsterCast?.conditions)) {
+      return false;
+    }
+    const actualCost = this.getMonsterSkillQiCost(monster, skill, numericStats);
     return actualCost !== null && monster.qi >= actualCost;
   }
 
-  private getMonsterSkillQiCost(monster: RuntimeMonster, skill: SkillDef): number | null {
-    const numericStats = this.getMonsterCombatSnapshot(monster).stats;
+  private getMonsterSkillQiCost(monster: RuntimeMonster, skill: SkillDef, numericStats?: NumericStats): number | null {
+    const stats = numericStats ?? this.getMonsterCombatSnapshot(monster).stats;
     const plannedCost = Math.max(0, skill.cost);
-    const actualCost = Math.round(calcQiCostWithOutputLimit(plannedCost, Math.max(0, numericStats.maxQiOutputPerTick)));
+    const actualCost = Math.round(calcQiCostWithOutputLimit(plannedCost, Math.max(0, stats.maxQiOutputPerTick)));
     if (!Number.isFinite(actualCost) || actualCost < 0) {
       return null;
     }
@@ -2363,9 +3144,14 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (monster.qi < actualCost) {
       return '怪物灵力不足';
     }
+    const cooldownRate = signedRatioValue(
+      this.getMonsterCombatSnapshot(monster).stats.cooldownSpeed,
+      DEFAULT_MONSTER_RATIO_DIVISORS.cooldownSpeed,
+    );
+    const cooldownMultiplier = percentModifierToMultiplier(-cooldownRate * 100);
     monster.qi = Math.max(0, monster.qi - actualCost);
     this.addDispersedAuraAround(monster.mapId, monster.x, monster.y, actualCost);
-    monster.skillCooldowns[skill.id] = Math.max(1, Math.round(skill.cooldown));
+    monster.skillCooldowns[skill.id] = Math.max(1, Math.ceil(skill.cooldown * cooldownMultiplier));
     return actualCost;
   }
 
@@ -2379,29 +3165,22 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (!primaryTarget) {
       return [];
     }
-    const targeting = skill.targeting;
-    const shape = targeting?.shape ?? 'single';
+    const geometry = this.buildEffectiveSkillGeometry(skill, this.getMonsterCombatSnapshot(monster).stats);
+    const shape = geometry.shape ?? 'single';
     if (shape === 'single') {
       return [primaryTarget];
     }
 
     const players = this.playerService.getPlayersByMap(monster.mapId)
       .filter((entry) => !entry.dead);
-    const maxTargets = Math.max(1, targeting?.maxTargets ?? 99);
-    if (shape === 'line') {
-      const cells = computeAffectedCellsFromAnchor(monster, primaryTarget, {
-        range: skill.range,
-        shape: 'line',
-      });
-      return this.collectMonsterSkillTargetsFromCells(players, cells, maxTargets);
-    }
-
+    const maxTargets = this.getEffectiveDamageTargetLimit(skill, monster.temporaryBuffs);
     const cells = computeAffectedCellsFromAnchor(monster, primaryTarget, {
-      range: skill.range,
+      range: geometry.range,
       shape,
-      radius: targeting?.radius,
-      width: targeting?.width,
-      height: targeting?.height,
+      radius: geometry.radius,
+      innerRadius: geometry.innerRadius,
+      width: geometry.width,
+      height: geometry.height,
     });
     return this.collectMonsterSkillTargetsFromCells(players, cells, maxTargets);
   }
@@ -2431,26 +3210,113 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return resolved;
   }
 
-  private castMonsterSkill(
+  private beginMonsterSkillCast(
     monster: RuntimeMonster,
     skill: SkillDef,
     target: PlayerState,
     mapId: string,
   ): WorldUpdate {
-    const primaryTarget: ResolvedTarget = { kind: 'player', x: target.x, y: target.y, player: target };
-    const selectedTargets = this.selectMonsterSkillTargets(monster, skill, primaryTarget);
-    if (skill.requiresTarget !== false && selectedTargets.length === 0) {
+    const windupTicks = this.getMonsterSkillWindupTicks(skill);
+    if (windupTicks <= 0) {
+      return this.castMonsterSkill(monster, skill, target, mapId);
+    }
+    const anchor = { x: target.x, y: target.y };
+    const warningCells = this.buildMonsterSkillAffectedCells(monster, skill, anchor);
+    if (warningCells.length === 0) {
       return { ...EMPTY_UPDATE, error: '目标超出技能范围' };
     }
     const qiCost = this.consumeMonsterQiForSkill(monster, skill);
     if (typeof qiCost === 'string') {
       return { ...EMPTY_UPDATE, error: qiCost };
     }
+    this.faceToward(monster, anchor.x, anchor.y);
+    const geometry = this.buildEffectiveSkillGeometry(skill, this.getMonsterCombatSnapshot(monster).stats);
+    const warningOrigin = (geometry.shape ?? 'single') === 'line'
+      ? { x: monster.x, y: monster.y }
+      : anchor;
+    monster.pendingCast = {
+      skillId: skill.id,
+      targetX: anchor.x,
+      targetY: anchor.y,
+      remainingTicks: windupTicks,
+      qiCost,
+      warningColor: this.getMonsterSkillWarningColor(skill),
+    };
+    this.pushActionLabelEffect(mapId, monster.x, monster.y, skill.name, {
+      actionStyle: 'chant',
+      durationMs: windupTicks * 1000 + 240,
+    });
+    this.pushEffect(mapId, {
+      type: 'warning_zone',
+      cells: warningCells.map((cell) => ({ x: cell.x, y: cell.y })),
+      color: monster.pendingCast.warningColor ?? '#ff3030',
+      baseColor: '#ff8a8a',
+      originX: warningOrigin.x,
+      originY: warningOrigin.y,
+      durationMs: windupTicks * 1000,
+    });
+    return { messages: [], dirty: [], dirtyPlayers: [] };
+  }
 
-    this.faceToward(monster, target.x, target.y);
-    this.pushActionLabelEffect(mapId, monster.x, monster.y, skill.name);
-    const casterStats = this.getMonsterCombatSnapshot(monster).stats;
-    const casterAttrs = monster.attrs;
+  private resolvePendingMonsterSkillCast(monster: RuntimeMonster, mapId: string): WorldUpdate | null {
+    const pendingCast = monster.pendingCast;
+    if (!pendingCast) {
+      return null;
+    }
+    pendingCast.remainingTicks -= 1;
+    if (pendingCast.remainingTicks > 0) {
+      return { messages: [], dirty: [], dirtyPlayers: [] };
+    }
+    monster.pendingCast = undefined;
+    const skill = this.contentService.getSkill(pendingCast.skillId);
+    if (!skill) {
+      return { messages: [], dirty: [], dirtyPlayers: [] };
+    }
+    return this.castMonsterSkillAtAnchor(
+      monster,
+      skill,
+      { x: pendingCast.targetX, y: pendingCast.targetY },
+      mapId,
+      { qiCost: pendingCast.qiCost, allowMiss: true, showActionLabel: true },
+    );
+  }
+
+  private castMonsterSkill(
+    monster: RuntimeMonster,
+    skill: SkillDef,
+    target: PlayerState,
+    mapId: string,
+  ): WorldUpdate {
+    return this.castMonsterSkillAtAnchor(monster, skill, { x: target.x, y: target.y }, mapId);
+  }
+
+  private castMonsterSkillAtAnchor(
+    monster: RuntimeMonster,
+    skill: SkillDef,
+    anchor: { x: number; y: number },
+    mapId: string,
+    options?: {
+      qiCost?: number;
+      allowMiss?: boolean;
+      showActionLabel?: boolean;
+    },
+  ): WorldUpdate {
+    const selectedTargets = this.selectMonsterSkillTargetsFromAnchor(monster, skill, anchor);
+    if (skill.requiresTarget !== false && selectedTargets.length === 0 && options?.allowMiss !== true) {
+      return { ...EMPTY_UPDATE, error: '目标超出技能范围' };
+    }
+    const qiCost = options?.qiCost ?? this.consumeMonsterQiForSkill(monster, skill);
+    if (typeof qiCost === 'string') {
+      return { ...EMPTY_UPDATE, error: qiCost };
+    }
+
+    this.faceToward(monster, anchor.x, anchor.y);
+    if (options?.showActionLabel !== false) {
+      this.pushActionLabelEffect(mapId, monster.x, monster.y, skill.name);
+    }
+    const monsterCombat = this.getMonsterCombatSnapshot(monster);
+    const casterStats = monsterCombat.stats;
+    const casterAttrs = monsterCombat.attrs;
     const techLevel = this.getMonsterSkillTechniqueLevel(monster, skill);
     const messages: WorldMessage[] = [];
     const dirtyPlayers = new Set<string>();
@@ -2458,7 +3324,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
     for (const effect of skill.effects) {
       if (effect.type === 'damage') {
-        const damageTargets = this.pickDamageTargets(selectedTargets, primaryTarget)
+        const damageTargets = selectedTargets
           .filter((entry): entry is Extract<ResolvedTarget, { kind: 'player' }> => entry.kind === 'player');
         if (damageTargets.length === 0) {
           continue;
@@ -2496,7 +3362,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         continue;
       }
 
-      const update = this.applyMonsterBuffEffect(monster, skill, effect, selectedTargets, primaryTarget);
+      const update = effect.type === 'buff'
+        ? this.applyMonsterBuffEffect(monster, skill, effect, selectedTargets, selectedTargets[0])
+        : this.applyMonsterTerrainEffect(monster, skill, effect, anchor, mapId, selectedTargets[0]);
       messages.push(...update.messages);
       for (const playerId of update.dirtyPlayers ?? []) {
         dirtyPlayers.add(playerId);
@@ -2506,7 +3374,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    if (!appliedEffect) {
+    if (!appliedEffect && options?.allowMiss !== true) {
       return { ...EMPTY_UPDATE, error: '怪物技能未命中有效目标' };
     }
     return { messages, dirty: [], dirtyPlayers: [...dirtyPlayers] };
@@ -2525,7 +3393,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
     if (effect.target === 'self') {
       monster.temporaryBuffs ??= [];
+      const previousHp = monster.hp;
+      const previousQi = monster.qi;
       const current = this.applyBuffState(monster.temporaryBuffs, this.buildTemporaryBuffState(skill, effect, sourceRealmLv));
+      this.syncMonsterRuntimeResources(monster, { previousHp, previousQi });
       if (primaryTarget?.kind === 'player') {
         const stackText = current.maxStacks > 1 ? `（${current.stacks}层）` : '';
         messages.push({
@@ -2557,6 +3428,86 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
 
     return { messages, dirty: [], dirtyPlayers: [...dirtyPlayers] };
+  }
+
+  private applyPlayerTerrainEffect(
+    player: PlayerState,
+    skill: SkillDef,
+    effect: Extract<SkillEffectDef, { type: 'terrain' }>,
+    anchor?: { x: number; y: number },
+  ): WorldUpdate {
+    if (!anchor) {
+      return { ...EMPTY_UPDATE, error: '当前技能缺少地形作用点' };
+    }
+    const cells = this.buildPlayerSkillAffectedCells(player, skill, anchor);
+    const changed = cells.filter((cell) => this.mapService.transformTile(
+      player.mapId,
+      cell.x,
+      cell.y,
+      effect.terrainType,
+      effect.duration,
+      effect.allowedOriginalTypes,
+    ));
+    if (changed.length === 0) {
+      return { ...EMPTY_UPDATE, error: '当前技能没有改变任何地形' };
+    }
+    return {
+      messages: [{
+        playerId: player.id,
+        text: `${skill.name}改写了 ${changed.length} 处地形。`,
+        kind: 'combat',
+      }],
+      dirty: [],
+    };
+  }
+
+  private applyMonsterTerrainEffect(
+    monster: RuntimeMonster,
+    skill: SkillDef,
+    effect: Extract<SkillEffectDef, { type: 'terrain' }>,
+    anchor: { x: number; y: number },
+    mapId: string,
+    primaryTarget?: ResolvedTarget,
+  ): WorldUpdate {
+    const cells = this.buildMonsterSkillAffectedCells(monster, skill, anchor);
+    let changedCount = 0;
+    for (const cell of cells) {
+      if (this.mapService.transformTile(
+        mapId,
+        cell.x,
+        cell.y,
+        effect.terrainType,
+        effect.duration,
+        effect.allowedOriginalTypes,
+      )) {
+        changedCount += 1;
+      }
+    }
+    if (changedCount <= 0) {
+      return { ...EMPTY_UPDATE, error: '当前技能没有改变任何地形' };
+    }
+
+    const recipientIds = new Set<string>();
+    const playersByMap = this.playerService.getPlayersByMap(mapId).filter((entry) => !entry.dead);
+    const affectedCellKeys = new Set(cells.map((cell) => `${cell.x},${cell.y}`));
+    for (const player of playersByMap) {
+      if (affectedCellKeys.has(`${player.x},${player.y}`)) {
+        recipientIds.add(player.id);
+      }
+    }
+    if (primaryTarget?.kind === 'player') {
+      recipientIds.add(primaryTarget.player.id);
+    }
+
+    return {
+      messages: [...recipientIds].map((playerId) => ({
+        playerId,
+        text: `${monster.name}施展${skill.name}，洞府地势骤变。`,
+        kind: 'combat' as const,
+      })),
+      dirty: [],
+      dirtyPlayers: [],
+    };
   }
 
   private attackPlayerFromMonsterSkill(
@@ -3084,8 +4035,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     monster.alive = false;
     monster.respawnLeft = respawnTicks;
     monster.temporaryBuffs = [];
+    monster.pendingCast = undefined;
     monster.damageContributors.clear();
-    monster.targetPlayerId = undefined;
+    this.clearMonsterTargetPursuit(monster);
     this.mapService.removeOccupant(monster.mapId, monster.x, monster.y, monster.runtimeId);
     this.handleMonsterDefeat(monster);
     messages.push({
@@ -3101,7 +4053,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     this.distributeMonsterKillExp(monster, killer, expParticipants, topContributionRealmLv, localDirty, messages);
 
     for (const drop of monster.drops) {
-      if (Math.random() > this.getEffectiveDropChance(killer, drop)) continue;
+      if (Math.random() > this.getEffectiveDropChance(killer, monster, drop)) continue;
       const loot = this.createItemFromDrop(drop);
       if (!loot) continue;
       this.deliverMonsterLoot(killer, monster, loot, localDirty, messages);
@@ -3353,7 +4305,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       });
     }
 
-    this.tryActivateAutoRetaliate(target, dirtyPlayers);
+    this.tryActivatePlayerAutoRetaliate(target, attacker, dirtyPlayers);
 
     if (target.hp <= 0) {
       this.registerPlayerDefeat(target, attacker);
@@ -3628,8 +4580,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         monster.alive = false;
         monster.respawnLeft = respawnTicks;
         monster.temporaryBuffs = [];
+        monster.pendingCast = undefined;
         monster.damageContributors.clear();
-        monster.targetPlayerId = undefined;
+        this.clearMonsterTargetPursuit(monster);
         this.mapService.removeOccupant(monster.mapId, monster.x, monster.y, monster.runtimeId);
         this.handleMonsterDefeat(monster);
       }
@@ -3838,6 +4791,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
   private getPlayerCombatSnapshot(player: PlayerState): CombatSnapshot {
     return {
+      attrs: this.attrService.getPlayerFinalAttrs(player),
       stats: this.attrService.getPlayerNumericStats(player),
       ratios: this.attrService.getPlayerRatioDivisors(player),
       realmLv: Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1)),
@@ -3987,21 +4941,80 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     applyNumericStatsPercentMultiplier(stats, percentBuffs);
   }
 
+  private scaleMonsterAttributes(attrs: Partial<Attributes> | undefined, factor: number): Partial<Attributes> | undefined {
+    if (!attrs || factor === 0) {
+      return undefined;
+    }
+    const result: Partial<Attributes> = {};
+    for (const key of MONSTER_ATTR_KEYS) {
+      const value = attrs[key];
+      if (value === undefined || value === 0) {
+        continue;
+      }
+      result[key] = value * factor;
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+  }
+
+  private hasMonsterAttributeModifiers(attrs: Pick<Attributes, keyof Attributes>): boolean {
+    return MONSTER_ATTR_KEYS.some((key) => attrs[key] !== 0);
+  }
+
+  private collectMonsterBuffAttrBonuses(
+    monster: RuntimeMonster,
+    targetRealmLv: number,
+  ): {
+    flatAttrs: Attributes;
+    percentAttrs: Attributes;
+  } {
+    const flatAttrs = createMonsterAttributeSnapshot();
+    const percentAttrs = createMonsterAttributeSnapshot();
+    for (const buff of monster.temporaryBuffs ?? []) {
+      if (buff.remainingTicks <= 0 || buff.stacks <= 0 || !buff.attrs) {
+        continue;
+      }
+      const effectFactor = Math.max(1, buff.stacks) * getBuffRealmEffectivenessMultiplier(buff.realmLv, targetRealmLv);
+      const scaled = this.scaleMonsterAttributes(buff.attrs, effectFactor);
+      if (!scaled) {
+        continue;
+      }
+      const bucket = this.resolveBuffModifierMode(buff.attrMode) === 'flat' ? flatAttrs : percentAttrs;
+      applyAttributeAdditions(bucket, scaled);
+    }
+    return { flatAttrs, percentAttrs };
+  }
+
+  private getMonsterFinalAttrs(
+    monster: RuntimeMonster,
+    passiveBonuses: ReturnType<WorldService['collectMonsterEquipmentPassiveBonuses']>,
+    buffBonuses: ReturnType<WorldService['collectMonsterBuffAttrBonuses']>,
+  ): Attributes {
+    const attrs = createMonsterAttributeSnapshot();
+    applyAttributeAdditions(attrs, monster.attrs);
+    applyAttributeAdditions(attrs, passiveBonuses.flatAttrs);
+    applyAttributePercentMultipliers(attrs, passiveBonuses.percentAttrs);
+    applyAttributeAdditions(attrs, buffBonuses.flatAttrs);
+    applyAttributePercentMultipliers(attrs, buffBonuses.percentAttrs);
+    for (const key of MONSTER_ATTR_KEYS) {
+      attrs[key] = Math.max(0, attrs[key]);
+    }
+    return attrs;
+  }
+
   private getMonsterCombatSnapshot(monster: RuntimeMonster): CombatSnapshot {
     const level = Math.max(1, monster.level ?? Math.round(monster.attack / 6));
     const passiveBonuses = this.collectMonsterEquipmentPassiveBonuses(monster);
-    const hasPassiveAttrBonuses = MONSTER_ATTR_KEYS.some((key) => (
-      passiveBonuses.flatAttrs[key] !== 0 || passiveBonuses.percentAttrs[key] !== 0
-    ));
+    const buffAttrBonuses = this.collectMonsterBuffAttrBonuses(monster, level);
+    const finalAttrs = this.getMonsterFinalAttrs(monster, passiveBonuses, buffAttrBonuses);
+    const hasPassiveAttrBonuses = this.hasMonsterAttributeModifiers(passiveBonuses.flatAttrs)
+      || this.hasMonsterAttributeModifiers(passiveBonuses.percentAttrs);
+    const hasBuffAttrBonuses = this.hasMonsterAttributeModifiers(buffAttrBonuses.flatAttrs)
+      || this.hasMonsterAttributeModifiers(buffAttrBonuses.percentAttrs);
 
     let stats: NumericStats;
-    if (hasPassiveAttrBonuses) {
-      const attrs = createMonsterAttributeSnapshot();
-      applyAttributeAdditions(attrs, monster.attrs);
-      applyAttributeAdditions(attrs, passiveBonuses.flatAttrs);
-      applyAttributePercentMultipliers(attrs, passiveBonuses.percentAttrs);
+    if (hasPassiveAttrBonuses || hasBuffAttrBonuses) {
       stats = resolveMonsterNumericStatsFromAttributes({
-        attrs,
+        attrs: finalAttrs,
         equipment: monster.equipment,
         level: monster.level,
         statPercents: monster.statPercents,
@@ -4029,6 +5042,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     applyNumericStatsPercentMultiplier(stats, passiveBonuses.percentStats);
     this.applyMonsterBuffStats(stats, monster.temporaryBuffs, level);
     return {
+      attrs: finalAttrs,
       stats,
       ratios: DEFAULT_MONSTER_RATIO_DIVISORS,
       realmLv: level,
@@ -4038,6 +5052,23 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
   private resolveBuffModifierMode(mode: BuffModifierMode | undefined): BuffModifierMode {
     return mode === 'flat' ? 'flat' : 'percent';
+  }
+
+  private getTemporaryBuffPresentationScale(buffs: TemporaryBuffState[] | undefined): number {
+    let scale = 1;
+    for (const buff of buffs ?? []) {
+      if (buff.remainingTicks <= 0 || buff.stacks <= 0) {
+        continue;
+      }
+      if (Number.isFinite(buff.presentationScale) && Number(buff.presentationScale) > scale) {
+        scale = Number(buff.presentationScale);
+      }
+    }
+    return scale;
+  }
+
+  private getMonsterPresentationScale(monster: RuntimeMonster): number {
+    return this.getTemporaryBuffPresentationScale(monster.temporaryBuffs);
   }
 
   private scaleNumericStats(stats: PartialNumericStats | undefined, factor: number): PartialNumericStats | undefined {
@@ -4073,6 +5104,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       'viewRange',
       'moveSpeed',
       'extraAggroRate',
+      'extraRange',
+      'extraArea',
     ] as const) {
       const value = stats[key];
       if (value === undefined) continue;
@@ -4126,6 +5159,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       name: getMonsterDisplayName(monster.name, monster.tier),
       kind: 'monster',
       monsterTier: monster.tier,
+      monsterScale: this.getMonsterPresentationScale(monster),
       hp: monster.hp,
       maxHp: monster.maxHp,
       buffs: this.getMapRenderableBuffs(monster.temporaryBuffs),
@@ -4155,6 +5189,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       id: target.id,
       name: target.name,
       kind: 'player',
+      monsterScale: this.getTemporaryBuffPresentationScale(target.temporaryBuffs),
       hp: target.hp,
       maxHp: target.maxHp,
       qi: target.qi,
@@ -4165,7 +5200,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         this.buildObservationLineSpecs(snapshot, true),
         viewer.id === target.id,
       ),
-      buffs: this.getRenderableBuffs(target.temporaryBuffs),
+      buffs: this.getPlayerRenderableBuffs(target),
     };
   }
 
@@ -4175,20 +5210,25 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       ...this.buildObservationLineSpecs(snapshot, true),
       { threshold: 0.28, label: '血脉层次', value: MONSTER_TIER_LABELS[monster.tier] ?? '凡血' },
     ];
+    const observation = this.buildObservationInsight(
+      viewer,
+      snapshot,
+      lineSpecs,
+    );
     return {
       id: monster.runtimeId,
       name: getMonsterDisplayName(monster.name, monster.tier),
       kind: 'monster',
       monsterTier: monster.tier,
+      monsterScale: this.getMonsterPresentationScale(monster),
       hp: monster.hp,
       maxHp: monster.maxHp,
       qi: snapshot.qi,
       maxQi: snapshot.maxQi,
-      observation: this.buildObservationInsight(
-        viewer,
-        snapshot,
-        lineSpecs,
-      ),
+      observation,
+      lootPreview: observation.clarity === 'complete'
+        ? this.buildMonsterObservationLootPreview(viewer, monster)
+        : undefined,
       buffs: this.getRenderableBuffs(monster.temporaryBuffs),
     };
   }
@@ -4218,6 +5258,52 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   }
 
   private buildContainerObservationDetail(mapId: string, container: ContainerConfig): ObservedTileEntityDetail {
+    if (container.variant === 'herb') {
+      const runtime = this.lootService.getContainerRuntimeView(mapId, container);
+      if (!runtime.herb) {
+        return {
+          id: `container:${mapId}:${container.id}`,
+          name: container.name,
+          kind: 'container',
+          observation: {
+            clarity: 'clear',
+            verdict: container.desc?.trim() || `${container.name}可以采集，但此时药性尚未凝稳。`,
+            lines: [
+              { label: '类别', value: '可采集草药' },
+            ],
+          },
+        };
+      }
+      return {
+        id: `container:${mapId}:${container.id}`,
+        name: container.name,
+        kind: 'container',
+        hp: runtime.hp,
+        maxHp: runtime.maxHp,
+        observation: {
+          clarity: 'clear',
+          verdict: runtime.destroyed
+            ? (runtime.respawnRemainingTicks !== undefined
+              ? `${container.name}已经枯毁，残枝里药气断绝，约 ${this.formatRespawnTicks(runtime.respawnRemainingTicks)} 后再生。`
+              : `${container.name}已经枯毁，枝叶里再无药气。`)
+            : (runtime.respawning
+              ? `${container.name}已被采尽，药性仍在回转，约 ${this.formatRespawnTicks(runtime.respawnRemainingTicks)} 后再生。`
+              : (container.desc?.trim() || `${container.name}药性尚存，可以用拿取行动慢慢采集。`)),
+          lines: [
+            { label: '类别', value: '可采集草药' },
+            { label: '药材', value: runtime.herb.name },
+            { label: '品阶', value: runtime.herb.grade ?? 'mortal' },
+            { label: '等级', value: `${runtime.herb.level ?? 1}` },
+            { label: '采集耗时', value: `${runtime.herb.gatherTicks} 息` },
+            { label: '状态', value: runtime.destroyed ? '已摧毁' : (runtime.respawning ? '回生中' : '可采集') },
+            ...((runtime.destroyed || runtime.respawning) ? [{
+              label: '再生剩余',
+              value: this.formatRespawnTicks(runtime.respawnRemainingTicks),
+            }] : []),
+          ],
+        },
+      };
+    }
     return {
       id: `container:${mapId}:${container.id}`,
       name: container.name,
@@ -4254,7 +5340,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
   private createMonsterObservationSnapshot(monster: RuntimeMonster): ObservationTargetSnapshot {
     const combat = this.getMonsterCombatSnapshot(monster);
-    const spirit = Math.max(1, Math.round(monster.attrs?.spirit ?? this.estimateMonsterSpirit(monster, combat.stats)));
+    const spirit = Math.max(1, Math.round(combat.attrs.spirit ?? this.estimateMonsterSpirit(monster, combat.stats)));
     const maxQi = Math.max(24, Math.round(combat.stats.maxQi > 0 ? combat.stats.maxQi : (spirit * 2 + (monster.level ?? 1) * 8)));
     return {
       hp: monster.hp,
@@ -4264,7 +5350,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       spirit,
       stats: combat.stats,
       ratios: combat.ratios,
-      attrs: { ...monster.attrs },
+      attrs: { ...combat.attrs },
       realmLabel: this.describeMonsterRealm(monster),
     };
   }
@@ -4361,6 +5447,23 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         label: line.label,
         value: progress >= line.threshold ? line.value : '???',
       })),
+    };
+  }
+
+  private buildMonsterObservationLootPreview(
+    viewer: PlayerState,
+    monster: RuntimeMonster,
+  ): ObservationLootPreview {
+    const entries = monster.drops.map((drop) => ({
+      itemId: drop.itemId,
+      name: drop.name,
+      type: drop.type,
+      count: drop.count,
+      chance: this.getEffectiveDropChance(viewer, monster, drop),
+    }));
+    return {
+      entries,
+      emptyText: entries.length > 0 ? undefined : '此獠身上暂未看出稳定掉落。',
     };
   }
 
@@ -4477,7 +5580,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   }
 
   private addDispersedAuraAround(mapId: string, centerX: number, centerY: number, qiCost: number): void {
-    const dispersedAuraGainPerTile = Math.floor(qiCost * 0.1);
+    const dispersedAuraGainPerTile = calculateDispersedAuraGainPerTile(qiCost);
     if (dispersedAuraGainPerTile <= 0) {
       return;
     }
@@ -4509,10 +5612,34 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return actualCost;
   }
 
-  private getEffectiveDropChance(player: PlayerState, drop: DropConfig): number {
+  private getEffectiveDropChance(player: PlayerState, monster: RuntimeMonster, drop: DropConfig): number {
     const stats = this.attrService.getPlayerNumericStats(player);
-    const totalRateBp = stats.lootRate + (drop.chance <= 0.2 ? stats.rareLootRate : 0);
-    return Math.min(1, drop.chance * basisPointModifierToMultiplier(totalRateBp));
+    const baseChance = Math.max(0, Math.min(1, drop.chance));
+    if (baseChance <= 0) {
+      return 0;
+    }
+    const totalRateBp = stats.lootRate + (baseChance <= 0.001 ? stats.rareLootRate : 0);
+    const killEquivalent = basisPointModifierToMultiplier(totalRateBp);
+    if (!Number.isFinite(killEquivalent) || killEquivalent <= 0) {
+      return 0;
+    }
+    const effectiveChance = 1 - Math.pow(1 - baseChance, killEquivalent);
+    return effectiveChance * this.getOrdinaryMonsterSpiritStoneDropMultiplier(player, monster, drop);
+  }
+
+  private getOrdinaryMonsterSpiritStoneDropMultiplier(
+    player: PlayerState,
+    monster: RuntimeMonster,
+    drop: DropConfig,
+  ): number {
+    if (drop.itemId !== MARKET_CURRENCY_ITEM_ID || !this.isOrdinaryMonster(monster)) {
+      return 1;
+    }
+    const playerRealmLv = Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
+    const monsterRealmLv = Math.max(1, Math.floor(monster.level ?? Math.round(monster.attack / 6)));
+    return playerRealmLv - monsterRealmLv >= ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_THRESHOLD
+      ? ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_MULTIPLIER
+      : 1;
   }
 
   private inferMonsterElement(monster: RuntimeMonster): ElementKey | undefined {
@@ -4648,13 +5775,18 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           respawnLeft: 0,
           temporaryBuffs: [],
           skillCooldowns: {},
+          pendingCast: undefined,
           damageContributors: new Map(),
           targetPlayerId: undefined,
+          lastSeenTargetX: undefined,
+          lastSeenTargetY: undefined,
+          lastSeenTargetTick: undefined,
         };
         const persisted = persistedStates?.get(runtime.runtimeId);
         if (persisted) {
           this.applyPersistedMonsterState(mapId, runtime, persisted);
         } else {
+          this.applyMonsterInitialBuffs(runtime);
           const pos = this.findSpawnPosition(mapId, runtime);
           if (pos && this.mapService.isWalkable(mapId, pos.x, pos.y, { actorType: 'monster' })) {
             runtime.x = pos.x;
@@ -5047,7 +6179,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return best;
   }
 
-  private resolveMonsterTarget(monster: RuntimeMonster, players: PlayerState[], timeState: GameTimeState): PlayerState | undefined {
+  private resolveMonsterTarget(
+    monster: RuntimeMonster,
+    players: PlayerState[],
+    timeState: GameTimeState,
+    currentTick: number,
+  ): PlayerState | undefined {
     this.refreshMonsterThreats(monster, players, timeState);
     const ownerId = this.getMonsterThreatId(monster);
     const targetId = this.threatService.getHighestAttackableThreatTarget(ownerId, (candidateId) => {
@@ -5058,13 +6195,69 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       return this.canMonsterAttackTarget(monster, target, timeState);
     });
     if (!targetId) {
-      monster.targetPlayerId = undefined;
       return undefined;
     }
 
     const target = this.resolveThreatPlayerForMonster(monster, targetId);
-    monster.targetPlayerId = target?.id;
+    if (target) {
+      this.rememberMonsterTargetSight(monster, target, currentTick);
+    }
     return target ?? undefined;
+  }
+
+  private rememberMonsterTargetSight(
+    monster: RuntimeMonster,
+    target: PlayerState,
+    currentTick: number,
+  ): void {
+    monster.targetPlayerId = target.id;
+    monster.lastSeenTargetX = target.x;
+    monster.lastSeenTargetY = target.y;
+    monster.lastSeenTargetTick = currentTick;
+  }
+
+  private clearMonsterTargetPursuit(monster: RuntimeMonster): void {
+    monster.targetPlayerId = undefined;
+    monster.lastSeenTargetX = undefined;
+    monster.lastSeenTargetY = undefined;
+    monster.lastSeenTargetTick = undefined;
+  }
+
+  private resolveMonsterLostSightChaseTarget(
+    monster: RuntimeMonster,
+    currentTick: number,
+  ): { x: number; y: number } | null {
+    const targetPlayerId = monster.targetPlayerId;
+    const lastSeenTick = monster.lastSeenTargetTick;
+    const lastSeenX = monster.lastSeenTargetX;
+    const lastSeenY = monster.lastSeenTargetY;
+    if (
+      typeof targetPlayerId !== 'string'
+      || !Number.isInteger(lastSeenTick)
+      || !Number.isInteger(lastSeenX)
+      || !Number.isInteger(lastSeenY)
+    ) {
+      return null;
+    }
+
+    const normalizedLastSeenTick = Number(lastSeenTick);
+    const normalizedLastSeenX = Number(lastSeenX);
+    const normalizedLastSeenY = Number(lastSeenY);
+
+    if (currentTick > normalizedLastSeenTick + MONSTER_LOST_SIGHT_CHASE_TICKS) {
+      return null;
+    }
+
+    const target = this.playerService.getPlayer(targetPlayerId);
+    if (!target || target.dead || target.mapId !== monster.mapId) {
+      return null;
+    }
+
+    if (isPointInRange(monster, { x: normalizedLastSeenX, y: normalizedLastSeenY }, 1)) {
+      return null;
+    }
+
+    return { x: normalizedLastSeenX, y: normalizedLastSeenY };
   }
 
   private isMonsterAutoAggroEnabled(monster: RuntimeMonster, timeState: GameTimeState): boolean {
@@ -5094,6 +6287,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
   private restorePlayerAfterDefeat(player: PlayerState, occupy: boolean) {
     const respawnPlacement = this.mapService.resolveDefaultPlayerSpawnPosition(player.id, player.respawnMapId);
+    player.pendingSkillCast = undefined;
     this.navigationService.clearMoveTarget(player.id);
     player.questNavigation = undefined;
     if (player.temporaryBuffs?.length) {
@@ -5178,6 +6372,28 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       monster,
       { kind: 'player', x: target.x, y: target.y, player: target },
       range,
+      monster.runtimeId,
+      'monster',
+    );
+    if (!next || (next.x === monster.x && next.y === monster.y)) {
+      return null;
+    }
+    if (!this.moveActorTo(monster.mapId, monster, next.x, next.y, monster.runtimeId, 'monster')) {
+      return null;
+    }
+    return monster.facing ?? null;
+  }
+
+  private stepMonsterTowardLastSeenPosition(
+    monster: RuntimeMonster,
+    lastSeenX: number,
+    lastSeenY: number,
+  ): Direction | null {
+    const next = this.findNextAttackApproachStep(
+      monster.mapId,
+      monster,
+      { kind: 'tile', x: lastSeenX, y: lastSeenY },
+      1,
       monster.runtimeId,
       'monster',
     );
@@ -5430,7 +6646,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     target: ResolvedTarget,
     baseThreat: number,
   ): void {
-    if (target.kind === 'tile') {
+    if (target.kind === 'tile' || target.kind === 'container') {
       return;
     }
     const targetId = target.kind === 'monster'
@@ -5456,22 +6672,128 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     this.refreshPlayerThreats(player, effectiveViewRange);
     const ownerId = this.getPlayerThreatId(player);
     const threshold = this.getAggroThreshold(player);
-    const targetId = this.threatService.getHighestAttackableThreatTarget(ownerId, (candidateId) => {
-      if (this.threatService.getThreat(ownerId, candidateId) < threshold) {
-        return false;
+    return this.findPlayerAutoBattleTargetByThreat(
+      player,
+      this.threatService.getThreatEntries(ownerId),
+      threshold,
+      (target) => (
+        stationaryMode
+          ? this.canPlayerCastAutoBattleSkillFromCurrentPosition(player, target, effectiveViewRange, availableSkills)
+          : this.canPlayerAttackTarget(player, target, effectiveViewRange, preferredRange)
+      ),
+    );
+  }
+
+  private findPlayerAutoBattleTargetByThreat(
+    player: PlayerState,
+    threatEntries: ReturnType<ThreatService['getThreatEntries']>,
+    threshold: number,
+    predicate: (target: ResolvedTarget) => boolean,
+  ): ResolvedTarget | undefined {
+    const candidates: Array<{
+      target: ResolvedTarget;
+      threatValue: number;
+      distance: number;
+      hpRatio: number;
+    }> = [];
+
+    for (const entry of threatEntries) {
+      if (entry.value < threshold) {
+        continue;
       }
-      const target = this.resolveThreatTargetForPlayer(player, candidateId);
+      const target = this.resolveThreatTargetForPlayer(player, entry.targetId);
       if (!target || target.kind === 'tile') {
-        return false;
+        continue;
       }
-      return stationaryMode
-        ? this.canPlayerCastAutoBattleSkillFromCurrentPosition(player, target, effectiveViewRange, availableSkills)
-        : this.canPlayerAttackTarget(player, target, effectiveViewRange, preferredRange);
-    });
-    if (!targetId) {
+      if (target.kind === 'player' && !this.canPlayerDealDamageToPlayer(player, target.player)) {
+        continue;
+      }
+      if (!predicate(target)) {
+        continue;
+      }
+      candidates.push({
+        target,
+        threatValue: entry.value,
+        distance: gridDistance(player, target),
+        hpRatio: this.getResolvedTargetHpRatio(target),
+      });
+    }
+    if (candidates.length === 0) {
       return undefined;
     }
-    return this.resolveThreatTargetForPlayer(player, targetId) ?? undefined;
+
+    let bestTarget: ResolvedTarget | undefined;
+    let bestScore = Number.NEGATIVE_INFINITY;
+    const nearestDistance = candidates.reduce((min, candidate) => Math.min(min, candidate.distance), Number.POSITIVE_INFINITY);
+    const lowestHpRatio = candidates.reduce((min, candidate) => Math.min(min, candidate.hpRatio), Number.POSITIVE_INFINITY);
+    const highestHpRatio = candidates.reduce((max, candidate) => Math.max(max, candidate.hpRatio), Number.NEGATIVE_INFINITY);
+
+    for (const candidate of candidates) {
+      const score = this.getDynamicThreatSelectionScore(candidate.distance, candidate.threatValue)
+        * this.getPlayerTargetingThreatMultiplier(
+          player,
+          candidate.target,
+          candidate.distance,
+          candidate.hpRatio,
+          nearestDistance,
+          lowestHpRatio,
+          highestHpRatio,
+        );
+      if (score > bestScore) {
+        bestTarget = candidate.target;
+        bestScore = score;
+      }
+    }
+    return bestTarget;
+  }
+
+  private getDynamicThreatSelectionScore(
+    distance: number,
+    threatValue: number,
+  ): number {
+    const distanceMultiplier = distance <= 1
+      ? 1
+      : Math.pow(gameplayConstants.THREAT_DISTANCE_FALLOFF_PER_TILE, distance - 1);
+    return threatValue * distanceMultiplier;
+  }
+
+  private getResolvedTargetHpRatio(target: ResolvedTarget): number {
+    if (target.kind === 'tile' || target.kind === 'container') {
+      return 0;
+    }
+    const hp = target.kind === 'monster' ? target.monster.hp : target.player.hp;
+    const maxHp = target.kind === 'monster' ? target.monster.maxHp : target.player.maxHp;
+    if (!Number.isFinite(maxHp) || maxHp <= 0) {
+      return 0;
+    }
+    return Math.max(0, Math.min(1, hp / maxHp));
+  }
+
+  private getPlayerTargetingThreatMultiplier(
+    player: PlayerState,
+    target: ResolvedTarget,
+    distance: number,
+    hpRatio: number,
+    nearestDistance: number,
+    lowestHpRatio: number,
+    highestHpRatio: number,
+  ): number {
+    const multiplier = gameplayConstants.PLAYER_TARGETING_PREFERENCE_THREAT_MULTIPLIER;
+    switch (player.autoBattleTargetingMode) {
+      case 'nearest':
+        return distance === nearestDistance ? multiplier : 1;
+      case 'low_hp':
+        return Math.abs(hpRatio - lowestHpRatio) <= 1e-6 ? multiplier : 1;
+      case 'full_hp':
+        return Math.abs(hpRatio - highestHpRatio) <= 1e-6 ? multiplier : 1;
+      case 'boss':
+        return target.kind === 'monster' && target.monster.tier === 'demon_king' ? multiplier : 1;
+      case 'player':
+        return target.kind === 'player' ? multiplier : 1;
+      case 'auto':
+      default:
+        return 1;
+    }
   }
 
   private collectAutoBattleSkillCandidates(player: PlayerState): AutoBattleSkillCandidate[] {
@@ -5493,8 +6815,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       .filter((entry) => this.canPlayerCastSkill(player, entry.skill));
   }
 
-  private resolveAutoBattlePreferredRange(skills: AutoBattleSkillCandidate[]): number {
-    return skills.reduce((maxRange, entry) => Math.max(maxRange, Math.max(1, entry.skill.range)), 1);
+  private resolveAutoBattlePreferredRange(player: PlayerState, skills: AutoBattleSkillCandidate[]): number {
+    const playerStats = this.attrService.getPlayerNumericStats(player);
+    return skills.reduce((maxRange, entry) => Math.max(maxRange, this.buildEffectiveSkillGeometry(entry.skill, playerStats).range), 1);
   }
 
   private selectAutoBattleSkillForTarget(
@@ -5502,9 +6825,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     target: ResolvedTarget,
     skills: AutoBattleSkillCandidate[],
   ): AutoBattleSkillCandidate | undefined {
+    const playerStats = this.attrService.getPlayerNumericStats(player);
     return skills.find((entry) => (
       entry.skill.requiresTarget === false
-      || isPointInRange(player, target, entry.skill.range)
+      || isPointInRange(player, target, this.buildEffectiveSkillGeometry(entry.skill, playerStats).range)
     ));
   }
 
@@ -5520,10 +6844,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (!this.canPlayerSeeTarget(player, target, effectiveViewRange)) {
       return false;
     }
+    const playerStats = this.attrService.getPlayerNumericStats(player);
     return isPointInRange(player, target, 1)
       || skills.some((entry) => (
         entry.skill.requiresTarget === false
-        || isPointInRange(player, target, entry.skill.range)
+        || isPointInRange(player, target, this.buildEffectiveSkillGeometry(entry.skill, playerStats).range)
       ));
   }
 
@@ -5665,6 +6990,36 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return target;
   }
 
+  private stopLockedForceAttackForInvalidTile(
+    player: PlayerState,
+    target: ResolvedTarget,
+    update: WorldUpdate,
+  ): WorldUpdate | null {
+    if (
+      !player.combatTargetLocked
+      || target.kind !== 'tile'
+      || (update.error !== '该目标无法被攻击' && update.error !== '没有可命中的目标')
+    ) {
+      return null;
+    }
+
+    player.autoBattle = false;
+    this.clearCombatTarget(player);
+    return {
+      ...update,
+      error: undefined,
+      messages: [
+        ...update.messages,
+        {
+          playerId: player.id,
+          text: '强制攻击目标无法被攻击，自动战斗已停止。',
+          kind: 'combat',
+        },
+      ],
+      dirty: [...new Set<WorldDirtyFlag>([...update.dirty, 'actions'])],
+    };
+  }
+
   private canPlayerSeeTarget(player: PlayerState, target: ResolvedTarget, effectiveViewRange: number): boolean {
     if (!isPointInRange(player, target, effectiveViewRange)) {
       return false;
@@ -5691,9 +7046,29 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       return { kind: 'player', x: targetPlayer.x, y: targetPlayer.y, player: targetPlayer };
     }
 
+    if (targetRef.startsWith('container:')) {
+      const containerId = targetRef.slice('container:'.length);
+      const container = this.mapService.getContainerById(player.mapId, containerId);
+      if (!container || container.variant !== 'herb') {
+        return null;
+      }
+      const runtime = this.lootService.getContainerRuntimeView(player.mapId, container);
+      if (runtime.destroyed || runtime.respawning) {
+        return null;
+      }
+      return { kind: 'container', x: container.x, y: container.y, container };
+    }
+
     const tileTarget = parseTileTargetRef(targetRef);
     if (tileTarget) {
       const { x, y } = tileTarget;
+      const container = this.mapService.getContainerAt(player.mapId, x, y);
+      if (container?.variant === 'herb') {
+        const runtime = this.lootService.getContainerRuntimeView(player.mapId, container);
+        if (!runtime.destroyed && !runtime.respawning) {
+          return { kind: 'container', x: container.x, y: container.y, container };
+        }
+      }
       const tile = this.mapService.getTile(player.mapId, x, y);
       if (!tile || this.mapService.isTileDestroyed(player.mapId, x, y)) return null;
       return { kind: 'tile', x, y, tileType: tile.type };
@@ -5769,6 +7144,68 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return { messages, dirty: [...dirty] };
   }
 
+  private attackContainer(
+    player: PlayerState,
+    container: ContainerConfig,
+    damage: number,
+    skillName: string,
+    targetName: string,
+    damageKind: SkillDamageKind = 'physical',
+    element?: ElementKey,
+    activeAttackBehavior = false,
+  ): WorldUpdate {
+    const cultivation = activeAttackBehavior
+      ? this.techniqueService.interruptCultivation(player, 'attack')
+      : { changed: false, dirty: [], messages: [] };
+    const dirty = new Set<WorldDirtyFlag>(cultivation.dirty as WorldDirtyFlag[]);
+    const rawDamage = Math.max(0, Math.round(damage));
+    const result = this.lootService.damageContainer(player.mapId, container.id, rawDamage);
+    if (!result) {
+      return { ...EMPTY_UPDATE, error: '该目标无法被攻击' };
+    }
+
+    this.pushEffect(player.mapId, {
+      type: 'attack',
+      fromX: player.x,
+      fromY: player.y,
+      toX: container.x,
+      toY: container.y,
+      color: getDamageTrailColor(damageKind, element),
+    });
+    this.pushEffect(player.mapId, {
+      type: 'float',
+      x: container.x,
+      y: container.y,
+      text: `-${rawDamage}`,
+      color: getDamageTrailColor(damageKind, element),
+    });
+
+    const messages: WorldMessage[] = [
+      ...cultivation.messages.map((message) => ({
+        playerId: player.id,
+        text: message.text,
+        kind: message.kind,
+      })),
+      {
+        playerId: player.id,
+        text: `${skillName}击中${targetName}，造成 ${rawDamage} 点伤害。`,
+        kind: 'combat',
+      },
+    ];
+    if (result.destroyed) {
+      messages.push({
+        playerId: player.id,
+        text: `${targetName} 被摧毁了。`,
+        kind: 'combat',
+      });
+    }
+    return {
+      messages,
+      dirty: [...dirty],
+      dirtyPlayers: result.dirtyPlayers,
+    };
+  }
+
   private tryGrantOreReward(
     player: PlayerState,
     x: number,
@@ -5840,7 +7277,16 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     this.effectsByMap.set(mapId, list);
   }
 
-  private pushActionLabelEffect(mapId: string, x: number, y: number, text: string) {
+  private pushActionLabelEffect(
+    mapId: string,
+    x: number,
+    y: number,
+    text: string,
+    options?: {
+      actionStyle?: 'default' | 'divine' | 'chant';
+      durationMs?: number;
+    },
+  ) {
     this.pushEffect(mapId, {
       type: 'float',
       x,
@@ -5848,6 +7294,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       text,
       color: '#efe3c2',
       variant: 'action',
+      actionStyle: options?.actionStyle,
+      durationMs: options?.durationMs,
     });
   }
 
@@ -5877,9 +7325,25 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       return this.attackMonster(player, target.monster, baseDamage, '你攻击命中', damageKind, undefined, 0, true, true);
     }
     if (target.kind === 'player') {
+      if (!this.canPlayerDealDamageToPlayer(player, target.player)) {
+        return { ...EMPTY_UPDATE, error: '已关闭全体攻击，当前不会主动攻击其他玩家。' };
+      }
       return this.attackPlayer(player, target.player, baseDamage, '你攻击命中', damageKind, undefined, 0, true, true);
     }
+    if (target.kind === 'container') {
+      return this.attackContainer(player, target.container, baseDamage, '你攻击', target.container.name, damageKind, undefined, true);
+    }
     return this.attackTerrain(player, target.x, target.y, baseDamage, '你攻击', target.tileType ?? '目标', damageKind, undefined, true);
+  }
+
+  private formatRespawnTicks(ticks: number | undefined): string {
+    const totalSeconds = Math.max(0, Math.round(Number(ticks) || 0));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    if (minutes <= 0) {
+      return `${Math.max(1, seconds)} 息`;
+    }
+    return `${minutes} 分 ${seconds.toString().padStart(2, '0')} 息`;
   }
 
   private getTargetRef(target: ResolvedTarget): string {
@@ -5889,12 +7353,20 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (target.kind === 'player') {
       return `player:${target.player.id}`;
     }
+    if (target.kind === 'container') {
+      return `container:${target.container.id}`;
+    }
     return `tile:${target.x}:${target.y}`;
   }
 
   private clearCombatTarget(player: PlayerState): void {
     player.combatTargetId = undefined;
     player.combatTargetLocked = false;
+    player.retaliatePlayerTargetId = undefined;
+  }
+
+  private canPlayerDealDamageToPlayer(attacker: PlayerState, target: PlayerState): boolean {
+    return attacker.allowAoePlayerHit === true || attacker.retaliatePlayerTargetId === target.id;
   }
 
   private ensurePlayerCanStartSkillAttack(player: PlayerState, skill: SkillDef): string | undefined {
@@ -5905,7 +7377,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   }
 
   private isHostileSkill(skill: SkillDef): boolean {
-    return skill.effects.some((effect) => effect.type === 'damage' || (effect.type === 'buff' && effect.target === 'target'));
+    return skill.effects.some((effect) => (
+      effect.type === 'damage'
+      || effect.type === 'terrain'
+      || (effect.type === 'buff' && effect.target === 'target')
+    ));
   }
 
   private getSafeZoneAttackBlockError(player: Pick<PlayerState, 'mapId' | 'x' | 'y'>): string | undefined {
@@ -5920,6 +7396,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     options: { restoreVitals: boolean; clearBuffs: boolean },
   ): WorldUpdate {
     const spawn = this.mapService.resolveDefaultPlayerSpawnPosition(player.id, player.respawnMapId);
+    player.pendingSkillCast = undefined;
     this.navigationService.clearMoveTarget(player.id);
     this.mapService.removeOccupant(player.mapId, player.x, player.y, player.id);
     player.mapId = spawn.mapId;
@@ -5975,7 +7452,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
     try {
       const snapshot: PersistedMonsterRuntimeSnapshot = {
-        version: 3,
+        version: 4,
         maps: {},
         spawnAccelerationStates: {},
       };
@@ -6267,16 +7744,22 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       alive: monster.alive,
       respawnLeft: monster.respawnLeft,
       temporaryBuffs: monster.temporaryBuffs.length > 0
-        ? JSON.parse(JSON.stringify(monster.temporaryBuffs)) as TemporaryBuffState[]
+        ? monster.temporaryBuffs.map((buff) => dehydrateTemporaryBuff(buff, this.contentService))
         : undefined,
       skillCooldowns: Object.keys(monster.skillCooldowns).length > 0
         ? { ...monster.skillCooldowns }
+        : undefined,
+      pendingCast: monster.pendingCast
+        ? { ...monster.pendingCast }
         : undefined,
       damageContributors: monster.damageContributors.size > 0
         ? Object.fromEntries([...monster.damageContributors.entries()].map(([playerId, damage]) => [playerId, damage]))
         : undefined,
       facing: monster.facing,
       targetPlayerId: monster.targetPlayerId,
+      lastSeenTargetX: monster.lastSeenTargetX,
+      lastSeenTargetY: monster.lastSeenTargetY,
+      lastSeenTargetTick: monster.lastSeenTargetTick,
     };
   }
 
@@ -6295,18 +7778,23 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     runtime: RuntimeMonster,
     persisted: PersistedMonsterRuntimeRecord,
   ): void {
-    runtime.hp = Math.max(0, Math.min(runtime.maxHp, Math.round(persisted.hp)));
-    runtime.qi = Math.max(0, Math.min(Math.max(0, Math.round(runtime.numericStats.maxQi)), Math.round(persisted.qi ?? runtime.qi)));
+    const persistedHp = Math.round(persisted.hp);
+    const persistedQi = Math.round(persisted.qi ?? runtime.qi);
+    runtime.hp = Math.max(0, Math.min(runtime.maxHp, persistedHp));
+    runtime.qi = Math.max(0, Math.min(Math.max(0, Math.round(runtime.numericStats.maxQi)), persistedQi));
     runtime.facing = persisted.facing;
     runtime.targetPlayerId = typeof persisted.targetPlayerId === 'string' ? persisted.targetPlayerId : undefined;
-    runtime.temporaryBuffs = (persisted.temporaryBuffs ?? [])
-      .map((buff) => this.normalizePersistedTemporaryBuffState(buff))
-      .filter((buff): buff is TemporaryBuffState => buff !== null);
+    runtime.lastSeenTargetX = Number.isInteger(persisted.lastSeenTargetX) ? Number(persisted.lastSeenTargetX) : undefined;
+    runtime.lastSeenTargetY = Number.isInteger(persisted.lastSeenTargetY) ? Number(persisted.lastSeenTargetY) : undefined;
+    runtime.lastSeenTargetTick = Number.isInteger(persisted.lastSeenTargetTick) ? Number(persisted.lastSeenTargetTick) : undefined;
+    runtime.temporaryBuffs = hydrateTemporaryBuffSnapshots(persisted.temporaryBuffs, this.contentService);
+    this.syncMonsterRuntimeResources(runtime, { previousHp: persistedHp, previousQi: persistedQi });
     runtime.skillCooldowns = Object.fromEntries(
       Object.entries(persisted.skillCooldowns ?? {})
         .filter(([, ticks]) => Number.isFinite(ticks) && Number(ticks) > 0)
         .map(([skillId, ticks]) => [skillId, Math.max(1, Math.round(Number(ticks)))])
     );
+    runtime.pendingCast = this.normalizePendingMonsterSkillCast(persisted.pendingCast);
     runtime.damageContributors = new Map<string, number>(
       Object.entries(persisted.damageContributors ?? {})
         .filter(([, damage]) => Number.isFinite(damage) && Number(damage) > 0)
@@ -6338,6 +7826,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     runtime.x = preferredX;
     runtime.y = preferredY;
     runtime.alive = false;
+    runtime.pendingCast = undefined;
     runtime.respawnLeft = Math.max(1, Number.isFinite(persisted.respawnLeft) ? Math.round(persisted.respawnLeft) : runtime.respawnTicks);
   }
 
@@ -6394,8 +7883,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       respawnLeft: Math.max(0, Math.round(Number(candidate.respawnLeft))),
       temporaryBuffs: Array.isArray(candidate.temporaryBuffs)
         ? candidate.temporaryBuffs
-            .map((buff) => this.normalizePersistedTemporaryBuffState(buff))
-            .filter((buff): buff is TemporaryBuffState => buff !== null)
+            .map((buff) => normalizePersistedTemporaryBuffSnapshot(buff))
+            .filter((buff): buff is PersistedTemporaryBuffSnapshot => buff !== null)
         : undefined,
       skillCooldowns: candidate.skillCooldowns && typeof candidate.skillCooldowns === 'object'
         ? Object.fromEntries(
@@ -6404,6 +7893,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
               .map(([skillId, ticks]) => [skillId, Math.max(1, Math.round(Number(ticks)))])
           )
         : undefined,
+      pendingCast: this.normalizePendingMonsterSkillCast(candidate.pendingCast),
       damageContributors: candidate.damageContributors && typeof candidate.damageContributors === 'object'
         ? Object.fromEntries(
             Object.entries(candidate.damageContributors)
@@ -6413,6 +7903,35 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         : undefined,
       facing: candidate.facing,
       targetPlayerId: typeof candidate.targetPlayerId === 'string' ? candidate.targetPlayerId : undefined,
+      lastSeenTargetX: Number.isInteger(candidate.lastSeenTargetX) ? Number(candidate.lastSeenTargetX) : undefined,
+      lastSeenTargetY: Number.isInteger(candidate.lastSeenTargetY) ? Number(candidate.lastSeenTargetY) : undefined,
+      lastSeenTargetTick: Number.isInteger(candidate.lastSeenTargetTick) ? Number(candidate.lastSeenTargetTick) : undefined,
+    };
+  }
+
+  private normalizePendingMonsterSkillCast(raw: unknown): PendingMonsterSkillCast | undefined {
+    if (!raw || typeof raw !== 'object') {
+      return undefined;
+    }
+    const candidate = raw as Record<string, unknown>;
+    if (
+      typeof candidate.skillId !== 'string'
+      || !Number.isInteger(candidate.targetX)
+      || !Number.isInteger(candidate.targetY)
+      || !Number.isFinite(candidate.remainingTicks)
+      || !Number.isFinite(candidate.qiCost)
+    ) {
+      return undefined;
+    }
+    return {
+      skillId: candidate.skillId,
+      targetX: Number(candidate.targetX),
+      targetY: Number(candidate.targetY),
+      remainingTicks: Math.max(1, Math.round(Number(candidate.remainingTicks))),
+      qiCost: Math.max(0, Math.round(Number(candidate.qiCost))),
+      warningColor: typeof candidate.warningColor === 'string' && candidate.warningColor.trim().length > 0
+        ? candidate.warningColor.trim()
+        : undefined,
     };
   }
 
@@ -6587,6 +8106,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       duration: Math.max(1, Math.round(Number(candidate.duration))),
       stacks: Math.max(0, Math.round(Number(candidate.stacks))),
       maxStacks: Math.max(1, Math.round(Number(candidate.maxStacks))),
+      presentationScale: Number.isFinite(candidate.presentationScale) ? Number(candidate.presentationScale) : undefined,
     })) as TemporaryBuffState;
   }
 

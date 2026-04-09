@@ -213,5 +213,85 @@
     "name": "天封核心",
     "type": "quest_item",
     "desc": "封印天宫裂隙所需的核心组件。"
+  },
+  {
+    "itemId": "mat.moondew_grass",
+    "name": "月露草",
+    "type": "material",
+    "grade": "mortal",
+    "level": 1,
+    "desc": "清晨叶尖常挂月白露珠，是最常见的温和药底。"
+  },
+  {
+    "itemId": "mat.red_flame_leaf",
+    "name": "赤火叶",
+    "type": "material",
+    "grade": "yellow",
+    "level": 2,
+    "desc": "叶脉似有火线流过，微温不烈，常用来提振炉火药性。"
+  },
+  {
+    "itemId": "mat.green_spirit_stem",
+    "name": "青灵茎",
+    "type": "material",
+    "grade": "yellow",
+    "level": 2,
+    "desc": "蕴有淡薄灵机的草茎，常作聚气和缓冲药引。"
+  },
+  {
+    "itemId": "mat.frost_lotus_petal",
+    "name": "寒莲瓣",
+    "type": "material",
+    "grade": "mystic",
+    "level": 3,
+    "desc": "带着寒雾水汽的薄瓣，能压住燥烈药势。"
+  },
+  {
+    "itemId": "mat.clear_mind_flower",
+    "name": "明心花",
+    "type": "material",
+    "grade": "mystic",
+    "level": 3,
+    "desc": "花香清冽，炼入丹中常能扶正心神、澄明五感。"
+  },
+  {
+    "itemId": "mat.bloodbud_fruit",
+    "name": "赤芽果",
+    "type": "material",
+    "grade": "yellow",
+    "level": 2,
+    "desc": "果肉辛甜，药气偏热，最适合催发血气。"
+  },
+  {
+    "itemId": "mat.breakarray_shard",
+    "name": "破纹砂",
+    "type": "material",
+    "grade": "mystic",
+    "level": 3,
+    "desc": "从旧阵裂缝里筛出的细砂，药性带着轻微撕裂感。"
+  },
+  {
+    "itemId": "mat.swiftwind_reed",
+    "name": "疾风苇",
+    "type": "material",
+    "grade": "mystic",
+    "level": 3,
+    "desc": "细长苇芯中藏着轻灵风息，常用来炼制轻身类丹药。"
+  },
+  {
+    "itemId": "mat.bitterheart_vine",
+    "name": "苦心藤",
+    "type": "material",
+    "grade": "earth",
+    "level": 4,
+    "desc": "入口极苦，药劲却最能逼出修者经脉里的勤修之意。"
+  },
+  {
+    "itemId": "mat.sunmelt_seed",
+    "name": "融阳子",
+    "type": "material",
+    "grade": "earth",
+    "level": 4,
+    "desc": "在炽热岩缝里长成的赤金种子，蕴着强横烈阳药引。"
   }
 ]

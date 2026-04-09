@@ -1,0 +1,848 @@
+[
+  {
+    "id": "monster_huanling_arts",
+    "name": "残丹唤灵诀",
+    "grade": "earth",
+    "category": "arts",
+    "realmLv": 1,
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 18,
+        "attrs": {
+          "spirit": 6,
+          "perception": 5
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 22,
+        "attrs": {
+          "spirit": 7,
+          "talent": 5
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 28,
+        "attrs": {
+          "spirit": 6,
+          "perception": 6
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 34,
+        "attrs": {
+          "talent": 7,
+          "constitution": 4
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 42,
+        "attrs": {
+          "spirit": 7,
+          "talent": 6
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 50,
+        "attrs": {
+          "perception": 7,
+          "constitution": 5
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 60,
+        "attrs": {
+          "spirit": 8,
+          "talent": 6
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 0,
+        "attrs": {
+          "spirit": 8,
+          "perception": 7
+        }
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.huanling_candan_faxiang",
+        "name": "残丹法相虚影",
+        "desc": "气血跌入七成后，强行把碎裂金丹撑成法相虚影，借此把整座洞府重新拖回自己的残丹脉路里。",
+        "cooldown": 1800,
+        "costMultiplier": 6,
+        "range": 1,
+        "requiresTarget": false,
+        "monsterCast": {
+          "conditions": {
+            "mode": "all",
+            "items": [
+              {
+                "type": "hp_ratio",
+                "op": "<=",
+                "value": 0.75
+              }
+            ]
+          }
+        },
+        "effects": [
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.huanling_candan_faxiang",
+            "name": "残丹法相虚影",
+            "desc": "重伤之下强撑残丹法相虚影，术势外翻，后续所有熔脉杀招都会跟着整座洞府一并扩开。",
+            "shortMark": "相",
+            "category": "buff",
+            "visibility": "public",
+            "duration": 1,
+            "infiniteDuration": true,
+            "sustainCost": {
+              "resource": "qi",
+              "baseCost": 100,
+              "growthRate": 0.2
+            },
+            "stats": {
+              "physAtk": 60,
+              "spellAtk": 80,
+              "cooldownSpeed": 120,
+              "viewRange": 30
+            },
+            "statMode": "percent",
+            "presentationScale": 4
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.huanling_candan_kuoyu",
+            "name": "虚影扩域",
+            "desc": "法相虚影外翻余波，术法的射程与杀域同时扩开。",
+            "shortMark": "域",
+            "category": "buff",
+            "visibility": "hidden",
+            "duration": 1,
+            "infiniteDuration": true,
+            "expireWithBuffId": "buff.huanling_candan_faxiang",
+            "stats": {
+              "extraRange": 3,
+              "extraArea": 1
+            },
+            "statMode": "flat"
+          }
+        ],
+        "unlockLevel": 8
+      },
+      {
+        "id": "skill.huanling_duanhun_ding",
+        "name": "断魂灵钉",
+        "desc": "认准被熔池烙开的裂口，把残丹灵识压成一根钉，沿着伤脉直接钉穿神魂。",
+        "cooldown": 80,
+        "costMultiplier": 8,
+        "range": 6,
+        "targeting": {
+          "shape": "single",
+          "maxTargets": 1
+        },
+        "monsterCast": {
+          "conditions": {
+            "mode": "all",
+            "items": [
+              {
+                "type": "hp_ratio",
+                "op": "<=",
+                "value": 1
+              }
+            ]
+          },
+          "windupTicks": 1,
+          "warningColor": "#ff2a2a"
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "earth",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 10
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.003
+                    },
+                    {
+                      "var": "caster.stat.breakPower",
+                      "scale": 0.003
+                    },
+                    {
+                      "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                      "scale": 0.02
+                    },
+                    {
+                      "var": "target.buff.terrain_molten_pool_burn.stacks",
+                      "scale": 0.015
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.huanling_rongmai_yin",
+            "name": "熔脉阴痕",
+            "desc": "断魂灵钉沿着裂脉再补一记，阴痕会持续拖垮攻势与护体。",
+            "shortMark": "熔",
+            "category": "debuff",
+            "visibility": "public",
+            "duration": 60,
+            "stacks": 1,
+            "maxStacks": 100,
+            "stats": {
+              "physAtk": -10,
+              "spellAtk": -10,
+              "physDef": -10,
+              "spellDef": -10
+            },
+            "statMode": "percent",
+            "color": "#ff8a54"
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.huanling_ronghe_guanmai",
+        "name": "熔河贯脉",
+        "desc": "把洞府残脉拧成一条赤河直贯出去，整线被拖开的地面都会化作熔流；被卷中的人脚下会被残脉绊住，下一轮更难脱出杀域。",
+        "cooldown": 80,
+        "costMultiplier": 8,
+        "range": 6,
+        "targeting": {
+          "shape": "line",
+          "width": 1,
+          "maxTargets": 6
+        },
+        "monsterCast": {
+          "conditions": {
+            "mode": "all",
+            "items": [
+              {
+                "type": "hp_ratio",
+                "op": "<=",
+                "value": 0.5
+              },
+              {
+                "type": "has_buff",
+                "buffId": "buff.huanling_candan_faxiang"
+              }
+            ]
+          },
+          "windupTicks": 1,
+          "warningColor": "#ff7a33"
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "fire",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 10.5
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.004
+                    },
+                    {
+                      "var": "caster.stat.resolvePower",
+                      "scale": 0.004
+                    },
+                    {
+                      "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                      "scale": 0.025
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.huanling_canmai_suobu",
+            "name": "残脉锁步",
+            "desc": "脚下被熔流残脉死死拖住，身法几乎废掉。",
+            "shortMark": "锁",
+            "category": "debuff",
+            "visibility": "public",
+            "duration": 20,
+            "maxStacks": 1,
+            "color": "#ff954f",
+            "stats": {
+              "moveSpeed": -200,
+              "dodge": -200
+            },
+            "statMode": "percent"
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "terrain_molten_pool_burn",
+            "name": "熔池灼烧",
+            "desc": "熔河当头卷过，火毒直接烙进经脉。每层灼烧每息造成 1% 最大气血的火系伤害，持续 10 息，最多 20 层。",
+            "shortMark": "灼",
+            "category": "debuff",
+            "visibility": "public",
+            "duration": 10,
+            "stacks": 10,
+            "maxStacks": 20,
+            "color": "#ff8e54"
+          },
+          {
+            "type": "terrain",
+            "terrainType": "molten_pool",
+            "duration": 30,
+            "allowedOriginalTypes": [
+              "floor",
+              "stone"
+            ]
+          }
+        ],
+        "unlockLevel": 2
+      },
+      {
+        "id": "skill.huanling_lieqi_zhixian",
+        "name": "移脉熔宫",
+        "desc": "拖着裂丹把洞府残脉猛然拽偏，落点一带尽数熔成赤池，后续杀招都会顺着熔痕灌进去。",
+        "cooldown": 80,
+        "costMultiplier": 8,
+        "range": 5,
+        "targeting": {
+          "shape": "box",
+          "width": 3,
+          "height": 3,
+          "maxTargets": 9
+        },
+        "monsterCast": {
+          "conditions": {
+            "mode": "all",
+            "items": [
+              {
+                "type": "hp_ratio",
+                "op": "<=",
+                "value": 0.75
+              },
+              {
+                "type": "has_buff",
+                "buffId": "buff.huanling_candan_faxiang"
+              }
+            ]
+          },
+          "windupTicks": 1,
+          "warningColor": "#ff6a2f"
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "fire",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 10.2
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.004
+                    },
+                    {
+                      "var": "caster.stat.resolvePower",
+                      "scale": 0.004
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.huanling_rongmai_yin",
+            "name": "熔脉阴痕",
+            "desc": "被熔宫残脉烙开经络，阴痕会持续拖垮攻势与护体。",
+            "shortMark": "熔",
+            "category": "debuff",
+            "visibility": "public",
+            "duration": 60,
+            "stacks": 1,
+            "maxStacks": 100,
+            "stats": {
+              "physAtk": -10,
+              "spellAtk": -10,
+              "physDef": -10,
+              "spellDef": -10
+            },
+            "statMode": "percent",
+            "color": "#ff8a54"
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "terrain_molten_pool_burn",
+            "name": "熔池灼烧",
+            "desc": "熔宫崩开时，赤池灼火会直接烙进经脉。每层灼烧每息造成 1% 最大气血的火系伤害，持续 10 息，最多 20 层。",
+            "shortMark": "灼",
+            "category": "debuff",
+            "visibility": "public",
+            "duration": 10,
+            "stacks": 10,
+            "maxStacks": 20,
+            "color": "#ff8e54"
+          },
+          {
+            "type": "terrain",
+            "terrainType": "molten_pool",
+            "duration": 30,
+            "allowedOriginalTypes": [
+              "floor",
+              "stone"
+            ]
+          }
+        ],
+        "unlockLevel": 4
+      },
+      {
+        "id": "skill.huanling_xingluo_canpan",
+        "name": "星罗残盘",
+        "desc": "借洞府残阵把落点周围拆成明灭交错的棋盘，错踩一格便会被残火与阴脉同时点穿。",
+        "cooldown": 80,
+        "costMultiplier": 8,
+        "range": 5,
+        "targeting": {
+          "shape": "checkerboard",
+          "width": 5,
+          "height": 5,
+          "maxTargets": 13
+        },
+        "monsterCast": {
+          "conditions": {
+            "mode": "all",
+            "items": [
+              {
+                "type": "hp_ratio",
+                "op": "<=",
+                "value": 0.5
+              },
+              {
+                "type": "has_buff",
+                "buffId": "buff.huanling_candan_faxiang"
+              }
+            ]
+          },
+          "windupTicks": 1,
+          "warningColor": "#ffc16f"
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "earth",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 10.8
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.003
+                    },
+                    {
+                      "var": "caster.stat.resolvePower",
+                      "scale": 0.003
+                    },
+                    {
+                      "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                      "scale": 0.025
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.huanling_rongmai_yin",
+            "name": "熔脉阴痕",
+            "desc": "踩错残盘步位后，阴痕会持续拖垮攻势与护体。",
+            "shortMark": "熔",
+            "category": "debuff",
+            "visibility": "public",
+            "duration": 60,
+            "stacks": 1,
+            "maxStacks": 100,
+            "stats": {
+              "physAtk": -10,
+              "spellAtk": -10,
+              "physDef": -10,
+              "spellDef": -10
+            },
+            "statMode": "percent",
+            "color": "#ff8a54"
+          }
+        ],
+        "unlockLevel": 5
+      },
+      {
+        "id": "skill.huanling_suogong_neihuan",
+        "name": "锁宫内环",
+        "desc": "先把目标脚边一圈地脉瞬间勒紧，贴得太近的人会被内环直接绞住，必须立刻改步离位。",
+        "cooldown": 80,
+        "costMultiplier": 8,
+        "range": 5,
+        "targeting": {
+          "shape": "ring",
+          "innerRadius": 1,
+          "radius": 2,
+          "maxTargets": 8
+        },
+        "monsterCast": {
+          "conditions": {
+            "mode": "all",
+            "items": [
+              {
+                "type": "hp_ratio",
+                "op": "<=",
+                "value": 0.25
+              },
+              {
+                "type": "has_buff",
+                "buffId": "buff.huanling_candan_faxiang"
+              }
+            ]
+          },
+          "windupTicks": 1,
+          "warningColor": "#ff9c64"
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "earth",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 11
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.003
+                    },
+                    {
+                      "var": "caster.stat.resolvePower",
+                      "scale": 0.003
+                    },
+                    {
+                      "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                      "scale": 0.02
+                    },
+                    {
+                      "var": "target.buff.terrain_molten_pool_burn.stacks",
+                      "scale": 0.015
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.huanling_canmai_suobu",
+            "name": "残脉锁步",
+            "desc": "内环绞到腿脚，整套身法几乎被当场压废。",
+            "shortMark": "锁",
+            "category": "debuff",
+            "visibility": "public",
+            "duration": 20,
+            "maxStacks": 1,
+            "color": "#ff954f",
+            "stats": {
+              "moveSpeed": -200,
+              "dodge": -200
+            },
+            "statMode": "percent"
+          }
+        ],
+        "unlockLevel": 6
+      },
+      {
+        "id": "skill.huanling_liefu_waihuan",
+        "name": "裂府外环",
+        "desc": "把更外层的洞府残脉整圈掀起，外环会晚半拍一齐压落；若前面已经沾了阴痕或灼伤，被卷入这一圈时伤势会被整片放大。",
+        "cooldown": 80,
+        "costMultiplier": 8,
+        "range": 6,
+        "targeting": {
+          "shape": "ring",
+          "innerRadius": 3,
+          "radius": 5,
+          "maxTargets": 18
+        },
+        "monsterCast": {
+          "conditions": {
+            "mode": "all",
+            "items": [
+              {
+                "type": "hp_ratio",
+                "op": "<=",
+                "value": 0.25
+              },
+              {
+                "type": "has_buff",
+                "buffId": "buff.huanling_candan_faxiang"
+              }
+            ]
+          },
+          "windupTicks": 2,
+          "warningColor": "#ff4d36"
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "fire",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 11.5
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.003
+                    },
+                    {
+                      "var": "caster.stat.resolvePower",
+                      "scale": 0.003
+                    },
+                    {
+                      "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                      "scale": 0.03
+                    },
+                    {
+                      "var": "target.buff.terrain_molten_pool_burn.stacks",
+                      "scale": 0.025
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.huanling_rongmai_yin",
+            "name": "熔脉阴痕",
+            "desc": "被外环整片压过之后，阴痕会持续拖垮攻势与护体。",
+            "shortMark": "熔",
+            "category": "debuff",
+            "visibility": "public",
+            "duration": 60,
+            "stacks": 1,
+            "maxStacks": 100,
+            "stats": {
+              "physAtk": -10,
+              "spellAtk": -10,
+              "physDef": -10,
+              "spellDef": -10
+            },
+            "statMode": "percent",
+            "color": "#ff8a54"
+          }
+        ],
+        "unlockLevel": 7
+      },
+      {
+        "id": "skill.huanling_difu_chenyin",
+        "name": "地府沉印",
+        "desc": "借洞府残阵把熔开的地脉整片往下按，阴痕越多、灼得越深，塌下去的那一刻就越重。",
+        "cooldown": 80,
+        "costMultiplier": 8,
+        "range": 5,
+        "targeting": {
+          "shape": "box",
+          "width": 3,
+          "height": 3,
+          "maxTargets": 9
+        },
+        "monsterCast": {
+          "conditions": {
+            "mode": "all",
+            "items": [
+              {
+                "type": "hp_ratio",
+                "op": "<=",
+                "value": 0.25
+              },
+              {
+                "type": "has_buff",
+                "buffId": "buff.huanling_candan_faxiang"
+              }
+            ]
+          },
+          "windupTicks": 1,
+          "warningColor": "#ff3838"
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "earth",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 12
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.003
+                    },
+                    {
+                      "var": "caster.stat.resolvePower",
+                      "scale": 0.003
+                    },
+                    {
+                      "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                      "scale": 0.03
+                    },
+                    {
+                      "var": "target.buff.terrain_molten_pool_burn.stacks",
+                      "scale": 0.03
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 8
+      },
+      {
+        "id": "skill.huanling_canpo_zhang",
+        "name": "残魄掌",
+        "desc": "随手把残丹余魄拍出一掌，当作最基础的索命手段。",
+        "cooldown": 0,
+        "costMultiplier": 0,
+        "range": 5,
+        "targeting": {
+          "shape": "single",
+          "maxTargets": 1
+        },
+        "monsterCast": {
+          "windupTicks": 1,
+          "warningColor": "#dca06a"
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "formula": {
+              "op": "add",
+              "args": [
+                {
+                  "var": "caster.stat.physAtk",
+                  "scale": 5
+                },
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 5
+                }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 1
+      }
+    ]
+  }
+]

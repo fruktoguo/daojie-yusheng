@@ -103,6 +103,216 @@
           }
         ]
       }
+    },
+    {
+      "id": "landmark.herb.moondew_grass",
+      "kind": "landmark_container",
+      "name": "月露草",
+      "container": {
+        "variant": "herb",
+        "grade": "mortal",
+        "refreshTicksMin": 50,
+        "refreshTicksMax": 70,
+        "char": "草",
+        "color": "#7bbd8f",
+        "drops": [
+          {
+            "itemId": "mat.moondew_grass",
+            "name": "月露草",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.red_flame_leaf",
+      "kind": "landmark_container",
+      "name": "赤火叶",
+      "container": {
+        "variant": "herb",
+        "grade": "yellow",
+        "refreshTicksMin": 50,
+        "refreshTicksMax": 70,
+        "char": "叶",
+        "color": "#c86d4a",
+        "drops": [
+          {
+            "itemId": "mat.red_flame_leaf",
+            "name": "赤火叶",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.green_spirit_stem",
+      "kind": "landmark_container",
+      "name": "青灵茎",
+      "container": {
+        "variant": "herb",
+        "grade": "yellow",
+        "refreshTicksMin": 50,
+        "refreshTicksMax": 70,
+        "char": "茎",
+        "color": "#6ba06f",
+        "drops": [
+          {
+            "itemId": "mat.green_spirit_stem",
+            "name": "青灵茎",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.frost_lotus_petal",
+      "kind": "landmark_container",
+      "name": "寒莲瓣",
+      "container": {
+        "variant": "herb",
+        "grade": "mystic",
+        "refreshTicksMin": 50,
+        "refreshTicksMax": 70,
+        "char": "莲",
+        "color": "#8bb8cf",
+        "drops": [
+          {
+            "itemId": "mat.frost_lotus_petal",
+            "name": "寒莲瓣",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.clear_mind_flower",
+      "kind": "landmark_container",
+      "name": "明心花",
+      "container": {
+        "variant": "herb",
+        "grade": "mystic",
+        "refreshTicksMin": 50,
+        "refreshTicksMax": 70,
+        "char": "花",
+        "color": "#d7e5c0",
+        "drops": [
+          {
+            "itemId": "mat.clear_mind_flower",
+            "name": "明心花",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.bloodbud_fruit",
+      "kind": "landmark_container",
+      "name": "赤芽果",
+      "container": {
+        "variant": "herb",
+        "grade": "yellow",
+        "refreshTicksMin": 50,
+        "refreshTicksMax": 70,
+        "char": "果",
+        "color": "#bf5a4c",
+        "drops": [
+          {
+            "itemId": "mat.bloodbud_fruit",
+            "name": "赤芽果",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.breakarray_shard",
+      "kind": "landmark_container",
+      "name": "破纹砂",
+      "container": {
+        "variant": "herb",
+        "grade": "mystic",
+        "refreshTicksMin": 50,
+        "refreshTicksMax": 70,
+        "char": "砂",
+        "color": "#8a8174",
+        "drops": [
+          {
+            "itemId": "mat.breakarray_shard",
+            "name": "破纹砂",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.swiftwind_reed",
+      "kind": "landmark_container",
+      "name": "疾风苇",
+      "container": {
+        "variant": "herb",
+        "grade": "mystic",
+        "refreshTicksMin": 50,
+        "refreshTicksMax": 70,
+        "char": "苇",
+        "color": "#9ac6ad",
+        "drops": [
+          {
+            "itemId": "mat.swiftwind_reed",
+            "name": "疾风苇",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.bitterheart_vine",
+      "kind": "landmark_container",
+      "name": "苦心藤",
+      "container": {
+        "variant": "herb",
+        "grade": "earth",
+        "refreshTicksMin": 50,
+        "refreshTicksMax": 70,
+        "char": "藤",
+        "color": "#567a4b",
+        "drops": [
+          {
+            "itemId": "mat.bitterheart_vine",
+            "name": "苦心藤",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.sunmelt_seed",
+      "kind": "landmark_container",
+      "name": "融阳子",
+      "container": {
+        "variant": "herb",
+        "grade": "earth",
+        "refreshTicksMin": 50,
+        "refreshTicksMax": 70,
+        "char": "子",
+        "color": "#d59a43",
+        "drops": [
+          {
+            "itemId": "mat.sunmelt_seed",
+            "name": "融阳子",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
     }
   ]
 }

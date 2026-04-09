@@ -1,5 +1,6 @@
 "use strict";
-const SERVER_NEXT_URL = process.env.SERVER_NEXT_URL ?? 'http://127.0.0.1:3111';
+const env_alias_1 = require("../config/env-alias");
+const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
 const instanceId = process.env.SERVER_NEXT_SMOKE_INSTANCE_ID ?? 'public:wildlands';
 const preferredMonsterId = process.env.SERVER_NEXT_SMOKE_MONSTER_ID ?? 'm_dust_vulture';
 const damageAmount = Number.isFinite(Number(process.env.SERVER_NEXT_SMOKE_DAMAGE))

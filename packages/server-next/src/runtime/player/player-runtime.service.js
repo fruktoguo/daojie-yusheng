@@ -917,6 +917,42 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         this.bumpPersistentRevision(player);
         return player;
     }
+    updateTechniqueSkillAvailability(playerId, techId, enabled) {
+        const player = this.getPlayerOrThrow(playerId);
+        const normalizedTechId = typeof techId === 'string' ? techId.trim() : '';
+        if (!normalizedTechId) {
+            return player;
+        }
+        const technique = player.techniques.techniques.find((entry) => entry.techId === normalizedTechId);
+        if (!technique) {
+            return player;
+        }
+        const unlockedSkillIds = new Set((technique.skills ?? [])
+            .filter((skill) => (technique.level ?? 1) >= (typeof skill.unlockLevel === 'number' ? skill.unlockLevel : 1))
+            .map((skill) => skill.id));
+        if (unlockedSkillIds.size === 0) {
+            return player;
+        }
+        const normalized = normalizeAutoBattleSkills(collectUnlockedSkillIds(player), player.combat.autoBattleSkills);
+        let changed = false;
+        for (const entry of normalized) {
+            if (!unlockedSkillIds.has(entry.skillId)) {
+                continue;
+            }
+            if ((entry.skillEnabled !== false) === (enabled !== false)) {
+                continue;
+            }
+            entry.skillEnabled = enabled !== false;
+            changed = true;
+        }
+        if (!changed) {
+            return player;
+        }
+        player.combat.autoBattleSkills = normalized;
+        this.rebuildActionState(player, 0);
+        this.bumpPersistentRevision(player);
+        return player;
+    }
     updateCombatSettings(playerId, input, currentTick = 0) {
         const player = this.getPlayerOrThrow(playerId);
         let changed = false;
@@ -1328,11 +1364,17 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     }
     rebuildActionState(player, currentTick) {
         const nextActions = buildActionEntries(player, currentTick);
-        if (isSameActionList(player.actions.actions, nextActions)) {
+        const techniqueFlagsChanged = syncTechniqueSkillAvailability(player);
+        if (isSameActionList(player.actions.actions, nextActions) && !techniqueFlagsChanged) {
             return;
         }
-        player.actions.actions = nextActions;
-        player.actions.revision += 1;
+        if (!isSameActionList(player.actions.actions, nextActions)) {
+            player.actions.actions = nextActions;
+            player.actions.revision += 1;
+        }
+        if (techniqueFlagsChanged) {
+            player.techniques.revision += 1;
+        }
     }
     applyConsumableItem(player, item) {
         let consumed = false;
@@ -1627,6 +1669,7 @@ function toTechniqueUpdateEntry(technique) {
         expToNext: technique.expToNext,
         realmLv: technique.realmLv,
         realm: technique.realm ?? shared_1.TechniqueRealm.Entry,
+        skillsEnabled: technique.skillsEnabled !== false,
         name: technique.name,
         grade: technique.grade ?? null,
         category: technique.category ?? null,
@@ -1755,6 +1798,36 @@ function collectUnlockedSkillIds(player) {
         }
     }
     return skillIds;
+}
+function syncTechniqueSkillAvailability(player) {
+    const skillEnabledMap = new Map(player.combat.autoBattleSkills.map((entry) => [entry.skillId, entry.skillEnabled !== false]));
+    let changed = false;
+    for (const technique of player.techniques.techniques) {
+        const nextEnabled = resolveTechniqueSkillAvailability(technique, skillEnabledMap);
+        if ((technique.skillsEnabled !== false) === nextEnabled) {
+            continue;
+        }
+        technique.skillsEnabled = nextEnabled;
+        changed = true;
+    }
+    return changed;
+}
+function resolveTechniqueSkillAvailability(technique, skillEnabledMap) {
+    let hasResolvedSkill = false;
+    for (const skill of technique.skills ?? []) {
+        const unlockLevel = typeof skill.unlockLevel === 'number' ? skill.unlockLevel : 1;
+        if ((technique.level ?? 1) < unlockLevel) {
+            continue;
+        }
+        if (!skillEnabledMap.has(skill.id)) {
+            continue;
+        }
+        hasResolvedSkill = true;
+        if (skillEnabledMap.get(skill.id) !== false) {
+            return true;
+        }
+    }
+    return hasResolvedSkill ? false : true;
 }
 function isSameAutoBattleSkillList(previous, current) {
     if (previous.length !== current.length) {

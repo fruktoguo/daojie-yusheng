@@ -1,0 +1,48 @@
+{
+  "realm": "凡人期",
+  "grade": "地阶",
+  "lv": 0,
+  "skill": {
+    "id": "skill.huanling_xingluo_canpan",
+    "name": "星罗残盘",
+    "desc": "借洞府残阵把落点周围拆成明灭交错的棋盘，错踩一格便会被残火与阴脉同时点穿。",
+    "unlockLevel": 5,
+    "damageKind": "spell",
+    "element": "earth",
+    "range": 5,
+    "targeting": {
+      "shape": "checkerboard",
+      "width": 5,
+      "height": 5,
+      "maxTargets": 13
+    },
+    "baseScoreTarget": 10.8,
+    "percentScoreTarget": 1.2,
+    "areaScoreTarget": 1.2,
+    "baseWeights": [
+      { "var": "caster.stat.spellAtk", "weight": 1 }
+    ],
+    "percentWeights": [
+      { "var": "techLevel", "weight": 1 },
+      { "var": "caster.stat.hit", "weight": 1 },
+      { "var": "caster.stat.resolvePower", "weight": 1 },
+      { "var": "target.buff.buff.huanling_rongmai_yin.stacks", "weight": 1, "scalePerScore": 0.08 }
+    ],
+    "buffEffects": [
+      {
+        "type": "buff",
+        "target": "target",
+        "buffId": "buff.huanling_rongmai_yin",
+        "name": "熔脉阴痕",
+        "desc": "踩错残盘步位后，阴脉裂痕会沿着经络继续扩开。",
+        "shortMark": "熔",
+        "category": "debuff",
+        "visibility": "public",
+        "duration": 6,
+        "stacks": 10,
+        "maxStacks": 100,
+        "color": "#ff8a54"
+      }
+    ]
+  }
+}

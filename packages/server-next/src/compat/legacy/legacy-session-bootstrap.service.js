@@ -21,11 +21,9 @@ const world_sync_service_1 = require("../../network/world-sync.service");
 const world_client_event_service_1 = require("../../network/world-client-event.service");
 const legacy_auth_service_1 = require("./legacy-auth.service");
 const legacy_gm_http_auth_service_1 = require("./http/legacy-gm-http-auth.service");
-const legacy_gateway_compat_service_1 = require("./legacy-gateway-compat.service");
 let LegacySessionBootstrapService = class LegacySessionBootstrapService {
     legacyAuthService;
     legacyGmHttpAuthService;
-    legacyGatewayCompatService;
     playerPersistenceService;
     playerRuntimeService;
     mailRuntimeService;
@@ -34,10 +32,9 @@ let LegacySessionBootstrapService = class LegacySessionBootstrapService {
     worldSessionService;
     worldSyncService;
     worldClientEventService;
-    constructor(legacyAuthService, legacyGmHttpAuthService, legacyGatewayCompatService, playerPersistenceService, playerRuntimeService, mailRuntimeService, suggestionRuntimeService, worldRuntimeService, worldSessionService, worldSyncService, worldClientEventService) {
+    constructor(legacyAuthService, legacyGmHttpAuthService, playerPersistenceService, playerRuntimeService, mailRuntimeService, suggestionRuntimeService, worldRuntimeService, worldSessionService, worldSyncService, worldClientEventService) {
         this.legacyAuthService = legacyAuthService;
         this.legacyGmHttpAuthService = legacyGmHttpAuthService;
-        this.legacyGatewayCompatService = legacyGatewayCompatService;
         this.playerPersistenceService = playerPersistenceService;
         this.playerRuntimeService = playerRuntimeService;
         this.mailRuntimeService = mailRuntimeService;
@@ -82,7 +79,7 @@ let LegacySessionBootstrapService = class LegacySessionBootstrapService {
         this.worldSyncService.emitInitialSync(binding.playerId);
         this.worldClientEventService.emitSuggestionUpdate(client, this.suggestionRuntimeService.getAll());
         await this.worldClientEventService.emitMailSummaryForPlayer(client, binding.playerId);
-        this.legacyGatewayCompatService.emitLegacyPendingLogbookMessages(client, binding.playerId);
+        this.worldClientEventService.emitPendingLogbookMessages(client, binding.playerId);
     }
     async loadBootstrapSnapshot(playerId, allowLegacyFallback) {
         const nextSnapshot = await this.playerPersistenceService.loadPlayerSnapshot(playerId);
@@ -97,7 +94,6 @@ exports.LegacySessionBootstrapService = LegacySessionBootstrapService = __decora
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [legacy_auth_service_1.LegacyAuthService,
         legacy_gm_http_auth_service_1.LegacyGmHttpAuthService,
-        legacy_gateway_compat_service_1.LegacyGatewayCompatService,
         player_persistence_service_1.PlayerPersistenceService,
         player_runtime_service_1.PlayerRuntimeService,
         mail_runtime_service_1.MailRuntimeService,

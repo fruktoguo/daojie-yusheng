@@ -90,6 +90,8 @@ export const NUMERIC_SCALAR_STAT_KEYS = [
   'viewRange',
   'moveSpeed',
   'extraAggroRate',
+  'extraRange',
+  'extraArea',
 ] as const;
 
 /** 六维提供的原始点数加成 */
@@ -170,6 +172,8 @@ function createScalarMultiplierFloorStats(): Omit<NumericStats, 'elementDamageBo
     viewRange: VIEW_RANGE_REFERENCE,
     moveSpeed: DEFAULT_RATIO_DIVISOR,
     extraAggroRate: 10000,
+    extraRange: 0,
+    extraArea: 0,
   };
 }
 
@@ -213,6 +217,8 @@ export const NUMERIC_SCALAR_STAT_VALUE_TYPES = {
   viewRange: 'flat',
   moveSpeed: 'flat',
   extraAggroRate: 'flat',
+  extraRange: 'flat',
+  extraArea: 'flat',
 } satisfies Record<typeof NUMERIC_SCALAR_STAT_KEYS[number], NumericValueType>;
 
 /** 默认 RatioValue 除数 */

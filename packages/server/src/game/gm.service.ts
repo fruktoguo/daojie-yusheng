@@ -4,7 +4,7 @@
  */
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { Brackets, In, Repository, SelectQueryBuilder } from 'typeorm';
 import {
   AttrBonus,
   Attributes,
@@ -19,18 +19,24 @@ import {
   EquipmentSlots,
   GmEditorBuffOption,
   GmEditorCatalogRes,
+  GmListPlayersQuery,
   GmManagedAccountRecord,
   GmMapDocument,
   GmMapListRes,
   GmMapRuntimeRes,
   GmManagedPlayerRecord,
   GmManagedPlayerSummary,
+  GmPlayerSortMode,
   GmPlayerUpdateSection,
   GmRuntimeEntity,
   GmShortcutRunRes,
   GmStateRes,
   GmUpdateMapTimeReq,
   Inventory,
+  normalizeAutoBattleTargetingMode,
+  normalizeAutoUsePillConfigs,
+  normalizeBodyTrainingState,
+  getBodyTrainingExpToNext,
   PlayerState,
   QuestState,
   TechniqueState,
@@ -88,7 +94,12 @@ import {
   CULTIVATION_ACTION_ID,
   CULTIVATION_BUFF_DURATION,
   CULTIVATION_BUFF_ID,
+  REALM_STATE_SOURCE,
 } from '../constants/gameplay/technique';
+
+const GM_PLAYER_PAGE_SIZE_DEFAULT = 50;
+const GM_PLAYER_PAGE_SIZE_MAX = 100;
+const GM_PLAYER_KEYWORD_MAX_LENGTH = 60;
 
 type GmCommand =
   | {
@@ -106,12 +117,37 @@ type GmCommand =
       playerId: string;
     }
   | {
+      type: 'setBodyTrainingLevel';
+      playerId: string;
+      level: number;
+    }
+  | {
+      type: 'addFoundation';
+      playerId: string;
+      amount: number;
+    }
+  | {
+      type: 'addCombatExp';
+      playerId: string;
+      amount: number;
+    }
+  | {
       type: 'spawnBots';
       anchorPlayerId: string;
       mapId: string;
       x: number;
       y: number;
       count: number;
+    }
+  | {
+      type: 'grantCombatExpCompensation';
+      playerId: string;
+      amount: number;
+    }
+  | {
+      type: 'grantFoundationCompensation';
+      playerId: string;
+      amount: number;
     }
   | {
       type: 'removeBots';
@@ -161,66 +197,215 @@ export class GmService {
     private readonly timeService: TimeService,
   ) {}
 
-  /** 获取全局 GM 状态：所有玩家摘要、地图列表、Bot 数量、性能快照 */
-  async getState(): Promise<GmStateRes> {
-    const [entities, runtimePlayers] = await Promise.all([
-      this.playerRepo.find(),
-      Promise.resolve(this.playerService.getAllPlayers()),
+  /** 获取分页后的 GM 全局状态：玩家列表当前页、聚合统计、地图列表、性能快照 */
+  async getState(query?: GmListPlayersQuery): Promise<GmStateRes> {
+    const normalizedQuery = this.normalizePlayerListQuery(query);
+    const [playerPage, playerStats] = await Promise.all([
+      this.loadPlayerPage(normalizedQuery),
+      this.loadPlayerSummaryStats(),
     ]);
-
-    const runtimeUserIdByPlayerId = new Map(
-      runtimePlayers.map((player) => [player.id, this.playerService.getUserIdByPlayerId(player.id)]),
-    );
-    const userById = await this.loadUsersByIds([
-      ...entities.map((entity) => entity.userId),
-      ...runtimeUserIdByPlayerId.values(),
-    ]);
-    const runtimeById = new Map(runtimePlayers.map((player) => [player.id, player]));
-    const records: GmManagedPlayerSummary[] = [];
-
-    for (const entity of entities) {
-      const runtime = runtimeById.get(entity.id);
-      const user = userById.get(entity.userId);
-      const snapshot = runtime
-        ? this.clonePlayer(runtime)
-        : this.hydrateStoredPlayer(entity, this.resolveStoredDisplayName(user));
-      records.push(
-        this.buildSummary(
-          snapshot,
-          { userId: entity.userId, accountName: user?.username },
-          runtime ? snapshot.online === true : false,
-          entity.updatedAt,
-        ),
-      );
-      runtimeById.delete(entity.id);
-    }
-
-    for (const runtime of runtimeById.values()) {
-      const userId = runtimeUserIdByPlayerId.get(runtime.id);
-      const user = userId ? userById.get(userId) : undefined;
-      records.push(
-        this.buildSummary(
-          runtime,
-          { userId, accountName: user?.username },
-          runtime.online === true,
-          undefined,
-        ),
-      );
-    }
-
-    records.sort((left, right) => {
-      if (left.meta.isBot !== right.meta.isBot) return left.meta.isBot ? 1 : -1;
-      if (left.meta.online !== right.meta.online) return left.meta.online ? -1 : 1;
-      if (left.mapName !== right.mapName) return left.mapName.localeCompare(right.mapName, 'zh-CN');
-      return left.roleName.localeCompare(right.roleName, 'zh-CN');
-    });
 
     return {
-      players: records,
+      players: playerPage.players,
+      playerPage: {
+        page: playerPage.page,
+        pageSize: playerPage.pageSize,
+        total: playerPage.total,
+        totalPages: playerPage.totalPages,
+        keyword: normalizedQuery.keyword,
+        sort: normalizedQuery.sort,
+      },
+      playerStats,
       mapIds: this.mapService.getAllMapIds().sort(),
       botCount: this.botService.getBotCount(),
       perf: this.performanceService.getSnapshot(),
     };
+  }
+
+  private normalizePlayerListQuery(query?: GmListPlayersQuery): {
+    page: number;
+    pageSize: number;
+    keyword: string;
+    sort: GmPlayerSortMode;
+  } {
+    const rawPage = Number(query?.page);
+    const page = Number.isFinite(rawPage)
+      ? Math.max(1, Math.floor(rawPage))
+      : 1;
+    const rawPageSize = Number(query?.pageSize);
+    const requestedPageSize = Number.isFinite(rawPageSize)
+      ? Math.floor(rawPageSize)
+      : GM_PLAYER_PAGE_SIZE_DEFAULT;
+    const pageSize = Math.max(1, Math.min(GM_PLAYER_PAGE_SIZE_MAX, requestedPageSize || GM_PLAYER_PAGE_SIZE_DEFAULT));
+    const keyword = typeof query?.keyword === 'string'
+      ? query.keyword.trim().slice(0, GM_PLAYER_KEYWORD_MAX_LENGTH)
+      : '';
+    const sort = this.normalizePlayerSortMode(query?.sort);
+    return { page, pageSize, keyword, sort };
+  }
+
+  private normalizePlayerSortMode(sort: string | undefined): GmPlayerSortMode {
+    switch (sort) {
+      case 'realm-asc':
+      case 'online':
+      case 'map':
+      case 'name':
+        return sort;
+      case 'realm-desc':
+      default:
+        return 'realm-desc';
+    }
+  }
+
+  private async loadPlayerSummaryStats(): Promise<{
+    totalPlayers: number;
+    onlinePlayers: number;
+    offlineHangingPlayers: number;
+    offlinePlayers: number;
+  }> {
+    const [totalPlayers, onlinePlayers, offlineHangingPlayers] = await Promise.all([
+      this.playerRepo.count(),
+      this.playerRepo.count({ where: { online: true } }),
+      this.playerRepo.count({ where: { online: false, inWorld: true } }),
+    ]);
+    return {
+      totalPlayers,
+      onlinePlayers,
+      offlineHangingPlayers,
+      offlinePlayers: Math.max(0, totalPlayers - onlinePlayers - offlineHangingPlayers),
+    };
+  }
+
+  private async loadPlayerPage(query: {
+    page: number;
+    pageSize: number;
+    keyword: string;
+    sort: GmPlayerSortMode;
+  }): Promise<{
+    players: GmManagedPlayerSummary[];
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  }> {
+    const baseQuery = this.playerRepo.createQueryBuilder('player')
+      .leftJoin(UserEntity, 'player_user', 'player_user.id = player."userId"');
+    this.applyPlayerListKeyword(baseQuery, query.keyword);
+
+    const total = await baseQuery.clone().getCount();
+    const totalPages = Math.max(1, Math.ceil(total / query.pageSize));
+    const page = Math.min(totalPages, query.page);
+    const entities = await this.applyPlayerListSort(baseQuery.clone(), query.sort)
+      .offset((page - 1) * query.pageSize)
+      .limit(query.pageSize)
+      .getMany();
+
+    const userById = await this.loadUsersByIds(entities.map((entity) => entity.userId));
+    const players = entities.map((entity) => {
+      const user = userById.get(entity.userId);
+      return this.buildSummary(
+        this.hydrateStoredPlayer(entity, this.resolveStoredDisplayName(user)),
+        { userId: entity.userId, accountName: user?.username },
+        entity.online === true,
+        entity.updatedAt,
+      );
+    });
+
+    return {
+      players,
+      page,
+      pageSize: query.pageSize,
+      total,
+      totalPages,
+    };
+  }
+
+  private applyPlayerListKeyword(query: SelectQueryBuilder<PlayerEntity>, keyword: string): void {
+    if (!keyword) {
+      return;
+    }
+    const normalizedKeyword = keyword.toLowerCase();
+    const likeKeyword = `%${normalizedKeyword}%`;
+    const matchedMapIds = this.findMatchingMapIds(keyword);
+    query.andWhere(new Brackets((builder) => {
+      builder
+        .where('LOWER(player.name) LIKE :likeKeyword', { likeKeyword })
+        .orWhere('LOWER(COALESCE(player_user.username, \'\')) LIKE :likeKeyword', { likeKeyword })
+        .orWhere('LOWER(COALESCE(player_user."displayName", \'\')) LIKE :likeKeyword', { likeKeyword })
+        .orWhere('LOWER(player."mapId") LIKE :likeKeyword', { likeKeyword });
+      if (matchedMapIds.length > 0) {
+        builder.orWhere('player."mapId" IN (:...matchedMapIds)', { matchedMapIds });
+      }
+    }));
+  }
+
+  private applyPlayerListSort(
+    query: SelectQueryBuilder<PlayerEntity>,
+    sort: GmPlayerSortMode,
+  ): SelectQueryBuilder<PlayerEntity> {
+    const realmLvExpression = this.getPlayerRealmLevelSql('player');
+    switch (sort) {
+      case 'realm-asc':
+        return query
+          .orderBy(realmLvExpression, 'ASC')
+          .addOrderBy('player.name', 'ASC');
+      case 'online':
+        return query
+          .orderBy('player.online', 'DESC')
+          .addOrderBy('player.inWorld', 'DESC')
+          .addOrderBy(realmLvExpression, 'DESC')
+          .addOrderBy('player.name', 'ASC');
+      case 'map':
+        return query
+          .orderBy(this.getPlayerMapNameSql('player'), 'ASC')
+          .addOrderBy(realmLvExpression, 'DESC')
+          .addOrderBy('player.name', 'ASC');
+      case 'name':
+        return query
+          .orderBy('player.name', 'ASC');
+      case 'realm-desc':
+      default:
+        return query
+          .orderBy(realmLvExpression, 'DESC')
+          .addOrderBy('player.name', 'ASC');
+    }
+  }
+
+  private findMatchingMapIds(keyword: string): string[] {
+    const normalizedKeyword = keyword.trim().toLowerCase();
+    if (!normalizedKeyword) {
+      return [];
+    }
+    return this.mapService.getAllMapIds().filter((mapId) => {
+      const meta = this.mapService.getMapMeta(mapId);
+      return mapId.toLowerCase().includes(normalizedKeyword)
+        || (meta?.name?.toLowerCase().includes(normalizedKeyword) ?? false);
+    });
+  }
+
+  private getPlayerRealmLevelSql(alias: string): string {
+    return `COALESCE((
+      SELECT NULLIF(bonus->'meta'->>'realmLv', '')::int
+      FROM jsonb_array_elements(${alias}.bonuses) AS bonus
+      WHERE bonus->>'source' = ${this.quoteSqlStringLiteral(REALM_STATE_SOURCE)}
+      LIMIT 1
+    ), 1)`;
+  }
+
+  private getPlayerMapNameSql(alias: string): string {
+    const mapIds = this.mapService.getAllMapIds();
+    if (mapIds.length === 0) {
+      return `${alias}."mapId"`;
+    }
+    const cases = mapIds.map((mapId) => {
+      const mapName = this.mapService.getMapMeta(mapId)?.name ?? mapId;
+      return `WHEN ${this.quoteSqlStringLiteral(mapId)} THEN ${this.quoteSqlStringLiteral(mapName)}`;
+    }).join(' ');
+    return `CASE ${alias}."mapId" ${cases} ELSE ${alias}."mapId" END`;
+  }
+
+  private quoteSqlStringLiteral(value: string): string {
+    return `'${value.replace(/'/g, `''`)}'`;
   }
 
   /** 获取单个玩家的完整详情（在线取运行时，离线取数据库） */
@@ -470,6 +655,81 @@ export class GmService {
     return null;
   }
 
+  async setManagedPlayerBodyTrainingLevel(playerId: string, requestedLevel: unknown): Promise<string | null> {
+    const level = this.parseBodyTrainingLevel(requestedLevel);
+    if (level === null) {
+      return '炼体等级必须是非负整数';
+    }
+
+    const runtime = this.playerService.getPlayer(playerId);
+    if (runtime) {
+      this.enqueue(runtime.mapId, {
+        type: 'setBodyTrainingLevel',
+        playerId,
+        level,
+      });
+      return null;
+    }
+
+    const entity = await this.playerRepo.findOne({ where: { id: playerId } });
+    if (!entity) return '目标玩家不存在';
+
+    const player = this.hydrateStoredPlayer(entity);
+    this.applyBodyTrainingLevel(player, level);
+    await this.persistOfflinePlayer(entity, player);
+    return null;
+  }
+
+  async addManagedPlayerFoundation(playerId: string, requestedAmount: unknown): Promise<string | null> {
+    const amount = this.parseCounterDelta(requestedAmount, '底蕴增量');
+    if (typeof amount === 'string') {
+      return amount;
+    }
+
+    const runtime = this.playerService.getPlayer(playerId);
+    if (runtime) {
+      this.enqueue(runtime.mapId, {
+        type: 'addFoundation',
+        playerId,
+        amount,
+      });
+      return null;
+    }
+
+    const entity = await this.playerRepo.findOne({ where: { id: playerId } });
+    if (!entity) return '目标玩家不存在';
+
+    const player = this.hydrateStoredPlayer(entity);
+    player.foundation = this.normalizeNonNegativeInt(player.foundation) + amount;
+    await this.persistOfflinePlayer(entity, player);
+    return null;
+  }
+
+  async addManagedPlayerCombatExp(playerId: string, requestedAmount: unknown): Promise<string | null> {
+    const amount = this.parseCounterDelta(requestedAmount, '战斗经验增量');
+    if (typeof amount === 'string') {
+      return amount;
+    }
+
+    const runtime = this.playerService.getPlayer(playerId);
+    if (runtime) {
+      this.enqueue(runtime.mapId, {
+        type: 'addCombatExp',
+        playerId,
+        amount,
+      });
+      return null;
+    }
+
+    const entity = await this.playerRepo.findOne({ where: { id: playerId } });
+    if (!entity) return '目标玩家不存在';
+
+    const player = this.hydrateStoredPlayer(entity);
+    player.combatExp = this.normalizeNonNegativeInt(player.combatExp) + amount;
+    await this.persistOfflinePlayer(entity, player);
+    return null;
+  }
+
   /** 批量将所有非机器人角色送回默认新手村出生点 */
   async returnAllPlayersToDefaultSpawn(): Promise<GmShortcutRunRes> {
     const runtimePlayers = this.playerService.getAllPlayers().filter((player) => !player.isBot && player.inWorld !== false);
@@ -502,6 +762,104 @@ export class GmService {
       targetMapId: placement.mapId,
       targetX: placement.x,
       targetY: placement.y,
+    };
+  }
+
+  async compensateAllPlayersCombatExp(): Promise<GmShortcutRunRes> {
+    const runtimePlayers = this.playerService.getAllPlayers().filter((player) => !player.isBot && player.inWorld !== false);
+    const runtimeIds = new Set(runtimePlayers.map((player) => player.id));
+    let queuedRuntimePlayers = 0;
+    let updatedOfflinePlayers = 0;
+    let totalCombatExpGranted = 0;
+
+    for (const player of runtimePlayers) {
+      const amount = this.calculateCombatExpCompensation(player);
+      if (amount <= 0) {
+        continue;
+      }
+      this.enqueue(player.mapId, {
+        type: 'grantCombatExpCompensation',
+        playerId: player.id,
+        amount,
+      });
+      queuedRuntimePlayers += 1;
+      totalCombatExpGranted += amount;
+    }
+
+    const entities = await this.playerRepo.find();
+    for (const entity of entities) {
+      if (runtimeIds.has(entity.id)) {
+        continue;
+      }
+      const player = this.hydrateStoredPlayer(entity);
+      if (player.isBot) {
+        continue;
+      }
+      const amount = this.calculateCombatExpCompensation(player);
+      if (amount <= 0) {
+        continue;
+      }
+      player.combatExp = this.normalizeNonNegativeInt(player.combatExp) + amount;
+      await this.persistOfflinePlayer(entity, player);
+      updatedOfflinePlayers += 1;
+      totalCombatExpGranted += amount;
+    }
+
+    return {
+      ok: true,
+      totalPlayers: queuedRuntimePlayers + updatedOfflinePlayers,
+      queuedRuntimePlayers,
+      updatedOfflinePlayers,
+      totalCombatExpGranted,
+    };
+  }
+
+  async compensateAllPlayersFoundation(): Promise<GmShortcutRunRes> {
+    const runtimePlayers = this.playerService.getAllPlayers().filter((player) => !player.isBot && player.inWorld !== false);
+    const runtimeIds = new Set(runtimePlayers.map((player) => player.id));
+    let queuedRuntimePlayers = 0;
+    let updatedOfflinePlayers = 0;
+    let totalFoundationGranted = 0;
+
+    for (const player of runtimePlayers) {
+      const amount = this.calculateFoundationCompensation(player);
+      if (amount <= 0) {
+        continue;
+      }
+      this.enqueue(player.mapId, {
+        type: 'grantFoundationCompensation',
+        playerId: player.id,
+        amount,
+      });
+      queuedRuntimePlayers += 1;
+      totalFoundationGranted += amount;
+    }
+
+    const entities = await this.playerRepo.find();
+    for (const entity of entities) {
+      if (runtimeIds.has(entity.id)) {
+        continue;
+      }
+      const player = this.hydrateStoredPlayer(entity);
+      if (player.isBot) {
+        continue;
+      }
+      const amount = this.calculateFoundationCompensation(player);
+      if (amount <= 0) {
+        continue;
+      }
+      player.foundation = this.normalizeNonNegativeInt(player.foundation) + amount;
+      await this.persistOfflinePlayer(entity, player);
+      updatedOfflinePlayers += 1;
+      totalFoundationGranted += amount;
+    }
+
+    return {
+      ok: true,
+      totalPlayers: queuedRuntimePlayers + updatedOfflinePlayers,
+      queuedRuntimePlayers,
+      updatedOfflinePlayers,
+      totalFoundationGranted,
     };
   }
 
@@ -594,8 +952,18 @@ export class GmService {
         return this.applyQueuedResetPlayer(command.playerId);
       case 'resetHeavenGate':
         return this.applyQueuedResetHeavenGate(command.playerId);
+      case 'setBodyTrainingLevel':
+        return this.applyQueuedSetBodyTrainingLevel(command.playerId, command.level);
+      case 'addFoundation':
+        return this.applyQueuedAddFoundation(command.playerId, command.amount);
+      case 'addCombatExp':
+        return this.applyQueuedAddCombatExp(command.playerId, command.amount);
       case 'spawnBots':
         return this.applyQueuedSpawnBots(command.mapId, command.x, command.y, command.count);
+      case 'grantCombatExpCompensation':
+        return this.applyQueuedGrantCombatExpCompensation(command.playerId, command.amount);
+      case 'grantFoundationCompensation':
+        return this.applyQueuedGrantFoundationCompensation(command.playerId, command.amount);
       case 'removeBots':
         return this.applyQueuedRemoveBots(command.playerIds, command.all);
     }
@@ -632,9 +1000,76 @@ export class GmService {
     return null;
   }
 
+  private applyQueuedSetBodyTrainingLevel(playerId: string, level: number): string | null {
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return '目标玩家不存在';
+    this.applyBodyTrainingLevel(player, level);
+    this.markDirty(player.id, ['attr', 'actions', 'tech']);
+    void this.playerService.savePlayer(player.id).catch((error: Error) => {
+      this.logger.error(`GM 设置炼体等级落盘失败: ${player.id} ${error.message}`);
+    });
+    return null;
+  }
+
+  private applyQueuedAddFoundation(playerId: string, amount: number): string | null {
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return '目标玩家不存在';
+    if (amount <= 0) {
+      return null;
+    }
+    player.foundation = this.normalizeNonNegativeInt(player.foundation) + amount;
+    this.markDirty(player.id, ['attr']);
+    void this.playerService.savePlayer(player.id).catch((error: Error) => {
+      this.logger.error(`GM 增加底蕴落盘失败: ${player.id} ${error.message}`);
+    });
+    return null;
+  }
+
+  private applyQueuedAddCombatExp(playerId: string, amount: number): string | null {
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return '目标玩家不存在';
+    if (amount <= 0) {
+      return null;
+    }
+    player.combatExp = this.normalizeNonNegativeInt(player.combatExp) + amount;
+    this.markDirty(player.id, ['attr']);
+    void this.playerService.savePlayer(player.id).catch((error: Error) => {
+      this.logger.error(`GM 增加战斗经验落盘失败: ${player.id} ${error.message}`);
+    });
+    return null;
+  }
+
   private applyQueuedSpawnBots(mapId: string, x: number, y: number, count: number): string | null {
     const created = this.botService.spawnBotsAt(mapId, x, y, count);
     if (created <= 0) return '附近没有可用于生成机器人的空位';
+    return null;
+  }
+
+  private applyQueuedGrantCombatExpCompensation(playerId: string, amount: number): string | null {
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return '目标玩家不存在';
+    if (amount <= 0) {
+      return null;
+    }
+    player.combatExp = this.normalizeNonNegativeInt(player.combatExp) + amount;
+    this.markDirty(player.id, ['attr']);
+    void this.playerService.savePlayer(player.id).catch((error: Error) => {
+      this.logger.error(`GM 补偿战斗经验落盘失败: ${player.id} ${error.message}`);
+    });
+    return null;
+  }
+
+  private applyQueuedGrantFoundationCompensation(playerId: string, amount: number): string | null {
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return '目标玩家不存在';
+    if (amount <= 0) {
+      return null;
+    }
+    player.foundation = this.normalizeNonNegativeInt(player.foundation) + amount;
+    this.markDirty(player.id, ['attr']);
+    void this.playerService.savePlayer(player.id).catch((error: Error) => {
+      this.logger.error(`GM 补偿底蕴落盘失败: ${player.id} ${error.message}`);
+    });
     return null;
   }
 
@@ -731,6 +1166,7 @@ export class GmService {
         unlockedMinimapIds: player.unlockedMinimapIds ?? [],
         autoBattle: player.autoBattle,
         autoBattleSkills: player.autoBattleSkills,
+        autoBattleTargetingMode: player.autoBattleTargetingMode,
         combatTargetId: player.combatTargetId,
         combatTargetLocked: player.combatTargetLocked,
         autoRetaliate: player.autoRetaliate,
@@ -748,60 +1184,8 @@ export class GmService {
 
   /** 从数据库实体还原为运行时 PlayerState */
   private hydrateStoredPlayer(entity: PlayerEntity, displayName?: string): PlayerState {
-    const player: PlayerState = {
-      id: entity.id,
-      name: entity.name,
-      displayName: this.resolvePlayerDisplayName(displayName, undefined, entity.name),
-      mapId: entity.mapId,
-      respawnMapId: this.mapService.resolvePlayerRespawnMapId(entity.respawnMapId),
-      x: entity.x,
-      y: entity.y,
-      senseQiActive: false,
-      facing: this.normalizeDirection(entity.facing),
-      viewRange: this.normalizePositiveInt(entity.viewRange, VIEW_RADIUS),
-      hp: this.normalizeNonNegativeInt(entity.hp),
-      maxHp: Math.max(1, this.normalizePositiveInt(entity.maxHp, 1)),
-      qi: this.normalizeNonNegativeInt(entity.qi ?? 0),
-      dead: Boolean(entity.dead),
-      foundation: this.normalizeNonNegativeInt(entity.foundation ?? 0),
-      combatExp: this.normalizeNonNegativeInt(entity.combatExp ?? 0),
-      boneAgeBaseYears: normalizeBoneAgeBaseYears(entity.boneAgeBaseYears),
-      lifeElapsedTicks: normalizeLifeElapsedTicks(entity.lifeElapsedTicks),
-      lifespanYears: normalizeLifespanYears(entity.lifespanYears),
-      baseAttrs: this.normalizeAttributes(entity.baseAttrs),
-      bonuses: this.cloneArray<AttrBonus>(entity.bonuses),
-      temporaryBuffs: this.normalizeTemporaryBuffs(hydrateTemporaryBuffSnapshots(entity.temporaryBuffs, this.contentService)),
-      inventory: hydrateInventorySnapshot(entity.inventory, this.contentService),
-      equipment: hydrateEquipmentSnapshot(entity.equipment, this.contentService),
-      techniques: hydrateTechniqueSnapshots(entity.techniques),
-      quests: this.normalizeQuests(hydrateQuestSnapshots(entity.quests, this.mapService, this.contentService)),
-      autoBattle: entity.autoBattle ?? false,
-      autoBattleSkills: this.cloneArray<AutoBattleSkillConfig>(entity.autoBattleSkills),
-      autoRetaliate: entity.autoRetaliate ?? true,
-      autoBattleStationary: entity.autoBattleStationary === true,
-      allowAoePlayerHit: entity.allowAoePlayerHit === true,
-      autoIdleCultivation: entity.autoIdleCultivation ?? true,
-      autoSwitchCultivation: entity.autoSwitchCultivation === true,
-      actions: [],
-      cultivatingTechId: entity.cultivatingTechId ?? undefined,
-      idleTicks: 0,
-      online: entity.online ?? false,
-      inWorld: entity.inWorld ?? false,
-      lastHeartbeatAt: entity.lastHeartbeatAt?.getTime(),
-      offlineSinceAt: entity.offlineSinceAt?.getTime(),
-      revealedBreakthroughRequirementIds: Array.isArray(entity.revealedBreakthroughRequirementIds)
-        ? entity.revealedBreakthroughRequirementIds.filter((entry): entry is string => typeof entry === 'string')
-        : [],
-      unlockedMinimapIds: Array.isArray(entity.unlockedMinimapIds)
-        ? entity.unlockedMinimapIds.filter((entry): entry is string => typeof entry === 'string')
-        : [],
-      combatTargetId: entity.combatTargetId ?? undefined,
-      combatTargetLocked: entity.combatTargetLocked === true,
-    };
-
-    this.techniqueService.initializePlayerProgression(player);
-    player.hp = Math.min(player.maxHp, Math.max(0, player.hp));
-    player.dead = player.hp <= 0 || player.dead;
+    const player = this.playerService.hydrateStoredPlayerForRead(entity);
+    player.displayName = this.resolvePlayerDisplayName(displayName, undefined, entity.name);
     return player;
   }
 
@@ -851,6 +1235,8 @@ export class GmService {
     player.techniques = this.cloneArray<TechniqueState>(snapshot.techniques);
     player.quests = this.cloneArray<QuestState>(snapshot.quests);
     player.autoBattleSkills = this.cloneArray<AutoBattleSkillConfig>(snapshot.autoBattleSkills);
+    player.autoUsePills = normalizeAutoUsePillConfigs(snapshot.autoUsePills ?? player.autoUsePills);
+    player.autoBattleTargetingMode = normalizeAutoBattleTargetingMode(snapshot.autoBattleTargetingMode, player.autoBattleTargetingMode);
     player.autoRetaliate = snapshot.autoRetaliate !== false;
     player.autoBattleStationary = snapshot.autoBattleStationary === true;
     player.allowAoePlayerHit = snapshot.allowAoePlayerHit === true;
@@ -889,6 +1275,7 @@ export class GmService {
     }
 
     player.autoBattle = !player.dead && Boolean(snapshot.autoBattle);
+    player.autoBattleTargetingMode = normalizeAutoBattleTargetingMode(snapshot.autoBattleTargetingMode, player.autoBattleTargetingMode);
     player.combatTargetId = player.autoBattle && typeof snapshot.combatTargetId === 'string'
       ? snapshot.combatTargetId
       : undefined;
@@ -920,6 +1307,7 @@ export class GmService {
     player.autoBattle = false;
     player.combatTargetId = undefined;
     player.combatTargetLocked = false;
+    player.retaliatePlayerTargetId = undefined;
   }
 
   private canSetPosition(mapId: string, x: number, y: number, playerId: string, runtime: boolean): boolean {
@@ -964,6 +1352,8 @@ export class GmService {
       unlockedMinimapIds: player.unlockedMinimapIds as any,
       autoBattle: player.autoBattle,
       autoBattleSkills: player.autoBattleSkills as any,
+      autoUsePills: (player.autoUsePills ?? []) as any,
+      autoBattleTargetingMode: player.autoBattleTargetingMode,
       combatTargetId: player.combatTargetId ?? null,
       combatTargetLocked: player.combatTargetLocked === true,
       autoRetaliate: player.autoRetaliate,
@@ -1041,6 +1431,43 @@ export class GmService {
     }
   }
 
+  private calculateCombatExpCompensation(player: Pick<PlayerState, 'realm' | 'bodyTraining'>): number {
+    const realmExpToNext = this.normalizeNonNegativeInt(player.realm?.progressToNext ?? 0);
+    const bodyTrainingExpToNext = normalizeBodyTrainingState(player.bodyTraining).expToNext;
+    return realmExpToNext + this.normalizeNonNegativeInt(bodyTrainingExpToNext);
+  }
+
+  private calculateFoundationCompensation(player: Pick<PlayerState, 'realm'>): number {
+    const realmExpToNext = this.normalizeNonNegativeInt(player.realm?.progressToNext ?? 0);
+    return realmExpToNext * 5;
+  }
+
+  private applyBodyTrainingLevel(player: PlayerState, level: number): void {
+    const preservedExp = this.normalizeNonNegativeInt(player.bodyTraining?.exp ?? 0);
+    const expToNext = getBodyTrainingExpToNext(level);
+    player.bodyTraining = normalizeBodyTrainingState({
+      level,
+      exp: Math.min(preservedExp, Math.max(0, expToNext - 1)),
+    });
+    this.techniqueService.initializePlayerProgression(player);
+  }
+
+  private parseBodyTrainingLevel(value: unknown): number | null {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric < 0) {
+      return null;
+    }
+    return Math.floor(numeric);
+  }
+
+  private parseCounterDelta(value: unknown, label: string): number | string {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric < 0) {
+      return `${label}必须是非负整数`;
+    }
+    return Math.floor(numeric);
+  }
+
   private async validateManagedPlayerRoleNameUpdate(
     playerId: string,
     snapshot: Partial<PlayerState>,
@@ -1110,6 +1537,8 @@ export class GmService {
         merged.qi = snapshot.qi ?? merged.qi;
         merged.dead = snapshot.dead ?? merged.dead;
         merged.autoBattle = snapshot.autoBattle ?? merged.autoBattle;
+        merged.autoUsePills = normalizeAutoUsePillConfigs(snapshot.autoUsePills ?? merged.autoUsePills);
+        merged.autoBattleTargetingMode = snapshot.autoBattleTargetingMode ?? merged.autoBattleTargetingMode;
         merged.autoRetaliate = snapshot.autoRetaliate;
         merged.autoBattleStationary = snapshot.autoBattleStationary;
         merged.allowAoePlayerHit = snapshot.allowAoePlayerHit;
@@ -1141,6 +1570,7 @@ export class GmService {
       case 'techniques':
         merged.techniques = this.cloneArray<TechniqueState>(snapshot.techniques);
         merged.autoBattleSkills = this.cloneArray<AutoBattleSkillConfig>(snapshot.autoBattleSkills);
+        merged.autoUsePills = normalizeAutoUsePillConfigs(snapshot.autoUsePills ?? merged.autoUsePills);
         merged.cultivatingTechId = snapshot.cultivatingTechId;
         break;
       case 'items':

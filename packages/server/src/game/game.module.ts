@@ -49,6 +49,7 @@ import { RedeemCodeGroupEntity } from '../database/entities/redeem-code-group.en
 import { RedeemCodeEntity } from '../database/entities/redeem-code.entity';
 import { RedeemCodeService } from './redeem-code.service';
 import { LeaderboardService } from './leaderboard.service';
+import { AlchemyService } from './alchemy.service';
 
 @Module({
   imports: [
@@ -97,6 +98,7 @@ import { LeaderboardService } from './leaderboard.service';
     MailService,
     RedeemCodeService,
     LeaderboardService,
+    AlchemyService,
     PathRequestSchedulerService,
     PathWorkerPoolService,
     DatabaseBackupService,

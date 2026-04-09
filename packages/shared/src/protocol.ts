@@ -3,7 +3,7 @@
  * C2S = 客户端→服务端，S2C = 服务端→客户端。
  */
 import type { ElementKey } from './numeric';
-import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerSpecialStats, QuestState, CombatEffect, AutoBattleSkillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, MonsterTier, NumericStatPercentages, TechniqueCategory, TechniqueGrade, GroundItemPileView, LootSearchProgressView, VisibleBuffState, TemporaryBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, LootSourceKind, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, ConsumableBuffDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MarketPriceLevelView, MarketOrderSide, MapRouteDomain, PortalRouteDomain, MailSummaryView, MailPageView, MailDetailView, MailFilter, MailTemplateArg, MailAttachment, BodyTrainingState } from './types';
+import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerSpecialStats, QuestState, CombatEffect, AutoBattleSkillConfig, AutoBattleTargetingMode, AutoUsePillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, MonsterInitialBuffDef, MonsterTier, NumericStatPercentages, TechniqueCategory, TechniqueGrade, GroundItemPileView, LootSearchProgressView, VisibleBuffState, TemporaryBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, LootSourceKind, LootSourceVariant, LootWindowHerbMeta, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, ConsumableBuffDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MarketPriceLevelView, MarketOrderSide, MapRouteDomain, PortalRouteDomain, MailSummaryView, MailPageView, MailDetailView, MailFilter, MailTemplateArg, MailAttachment, BodyTrainingState, AlchemyIngredientSelection, AlchemyRecipeCatalogEntry, SyncedAlchemyPanelState } from './types';
 import { NumericRatioDivisors, NumericStatBreakdownMap, NumericStats } from './numeric';
 
 // ===== 事件名 =====
@@ -22,6 +22,8 @@ export const C2S = {
   GmResetPlayer: 'c:gmResetPlayer',
   Action: 'c:action',
   UpdateAutoBattleSkills: 'c:updateAutoBattleSkills',
+  UpdateAutoUsePills: 'c:updateAutoUsePills',
+  UpdateAutoBattleTargetingMode: 'c:updateAutoBattleTargetingMode',
   UpdateTechniqueSkillAvailability: 'c:updateTechniqueSkillAvailability',
   DebugResetSpawn: 'c:debugResetSpawn',
   Chat: 'c:chat',
@@ -63,6 +65,11 @@ export const C2S = {
   ClaimMarketStorage: 'c:claimMarketStorage',
   RequestNpcShop: 'c:requestNpcShop',
   BuyNpcShopItem: 'c:buyNpcShopItem',
+  RequestAlchemyPanel: 'c:requestAlchemyPanel',
+  SaveAlchemyPreset: 'c:saveAlchemyPreset',
+  DeleteAlchemyPreset: 'c:deleteAlchemyPreset',
+  StartAlchemy: 'c:startAlchemy',
+  CancelAlchemy: 'c:cancelAlchemy',
   HeavenGateAction: 'c:heavenGateAction',
 } as const;
 
@@ -107,6 +114,7 @@ export const S2C = {
   AttrDetail: 's:attrDetail',
   Leaderboard: 's:leaderboard',
   NpcShop: 's:npcShop',
+  AlchemyPanel: 's:alchemyPanel',
 } as const;
 
 /** server-next 客户端 → 服务端 */
@@ -164,6 +172,7 @@ export const NEXT_C2S = {
   RequestNpcShop: 'n:c:requestNpcShop',
   BuyNpcShopItem: 'n:c:buyNpcShopItem',
   UpdateAutoBattleSkills: 'n:c:updateAutoBattleSkills',
+  UpdateAutoUsePills: 'n:c:updateAutoUsePills',
   DebugResetSpawn: 'n:c:debugResetSpawn',
   Chat: 'n:c:chat',
   AckSystemMessages: 'n:c:ackSystemMessages',
@@ -328,6 +337,14 @@ export interface C2S_UpdateAutoBattleSkills {
   skills: AutoBattleSkillConfig[];
 }
 
+export interface C2S_UpdateAutoUsePills {
+  pills: AutoUsePillConfig[];
+}
+
+export interface C2S_UpdateAutoBattleTargetingMode {
+  mode: AutoBattleTargetingMode;
+}
+
 export interface C2S_UpdateTechniqueSkillAvailability {
   techId: string;
   enabled: boolean;
@@ -433,6 +450,29 @@ export interface C2S_BuyNpcShopItem {
   quantity: number;
 }
 
+export interface C2S_RequestAlchemyPanel {
+  knownCatalogVersion?: number;
+}
+
+export interface C2S_SaveAlchemyPreset {
+  presetId?: string;
+  recipeId: string;
+  name: string;
+  ingredients: AlchemyIngredientSelection[];
+}
+
+export interface C2S_DeleteAlchemyPreset {
+  presetId: string;
+}
+
+export interface C2S_StartAlchemy {
+  recipeId: string;
+  ingredients: AlchemyIngredientSelection[];
+  quantity: number;
+}
+
+export interface C2S_CancelAlchemy {}
+
 export interface C2S_HeavenGateAction {
   action: 'sever' | 'restore' | 'open' | 'reroll' | 'enter';
   element?: ElementKey;
@@ -448,8 +488,11 @@ export interface TickRenderEntity {
   name?: string | null;
   kind?: EntityKind | 'player' | null;
   monsterTier?: MonsterTier | null;
+  monsterScale?: number | null;
   hp?: number | null;
   maxHp?: number | null;
+  respawnRemainingTicks?: number | null;
+  respawnTotalTicks?: number | null;
   qi?: number | null;
   maxQi?: number | null;
   npcQuestMarker?: NpcQuestMarker | null;
@@ -457,17 +500,32 @@ export interface TickRenderEntity {
   buffs?: VisibleBuffState[] | null;
 }
 
+export interface ObservationLootPreviewEntry {
+  itemId: string;
+  name: string;
+  type: ItemType;
+  count: number;
+  chance: number;
+}
+
+export interface ObservationLootPreview {
+  entries: ObservationLootPreviewEntry[];
+  emptyText?: string;
+}
+
 export interface ObservedTileEntityDetail {
   id: string;
   name?: string;
   kind?: EntityKind | 'player' | null;
   monsterTier?: MonsterTier | null;
+  monsterScale?: number | null;
   hp?: number;
   maxHp?: number;
   qi?: number;
   maxQi?: number;
   npcQuestMarker?: NpcQuestMarker | null;
   observation?: ObservationInsight | null;
+  lootPreview?: ObservationLootPreview | null;
   buffs?: VisibleBuffState[] | null;
 }
 
@@ -628,11 +686,22 @@ export interface GmPathfindingSnapshot {
   failureReasons: GmPathfindingFailureBucket[];
 }
 
+export interface GmTickSnapshot {
+  lastMapId: string | null;
+  lastMs: number;
+  windowElapsedSec: number;
+  windowTickCount: number;
+  windowTotalMs: number;
+  windowAvgMs: number;
+  windowBusyPercent: number;
+}
+
 /** GM 性能快照 */
 export interface GmPerformanceSnapshot {
   cpuPercent: number;
   memoryMb: number;
   tickMs: number;
+  tick: GmTickSnapshot;
   cpu: GmCpuSnapshot;
   pathfinding: GmPathfindingSnapshot;
   networkStatsStartedAt: number;
@@ -723,6 +792,7 @@ export interface S2C_AttrUpdate {
   realmProgress?: number;
   realmProgressToNext?: number;
   realmBreakthroughReady?: boolean;
+  alchemySkill?: PlayerState['alchemySkill'];
 }
 
 /** 境界低频同步：完整下发当前境界展示、突破与开天门详情 */
@@ -750,6 +820,8 @@ export interface SyncedItemStack {
   qiPercent?: number;
   consumeBuffs?: ConsumableBuffDef[];
   tags?: string[];
+  alchemySuccessRate?: number;
+  alchemySpeedRate?: number;
   mapUnlockId?: string;
   tileAuraGainAmount?: number;
   allowBatchUse?: boolean;
@@ -833,6 +905,8 @@ export interface S2C_ActionsUpdate {
   removeActionIds?: string[];
   actionOrder?: string[];
   autoBattle?: boolean;
+  autoUsePills?: AutoUsePillConfig[];
+  autoBattleTargetingMode?: AutoBattleTargetingMode;
   combatTargetId?: string | null;
   combatTargetLocked?: boolean;
   autoRetaliate?: boolean;
@@ -853,11 +927,14 @@ export interface SyncedLootWindowItemView {
 export interface SyncedLootWindowSourceView {
   sourceId: string;
   kind: LootSourceKind;
+  variant?: LootSourceVariant;
   title: string;
   desc?: string;
   grade?: TechniqueGrade;
   searchable: boolean;
   search?: LootSearchProgressView;
+  herb?: LootWindowHerbMeta;
+  destroyed?: boolean;
   items: SyncedLootWindowItemView[];
   emptyText?: string;
 }
@@ -975,6 +1052,13 @@ export interface S2C_NpcShop {
   error?: string;
 }
 
+export interface S2C_AlchemyPanel {
+  state: SyncedAlchemyPanelState | null;
+  catalogVersion: number;
+  catalog?: AlchemyRecipeCatalogEntry[];
+  error?: string;
+}
+
 export interface S2C_TileRuntimeDetail {
   mapId: string;
   x: number;
@@ -1010,6 +1094,7 @@ export interface S2C_AttrDetail {
   numericStats: NumericStats;
   ratioDivisors: NumericRatioDivisors;
   numericStatBreakdowns: NumericStatBreakdownMap;
+  alchemySkill?: PlayerState['alchemySkill'];
 }
 
 export interface LeaderboardPlayerEntry {
@@ -1322,8 +1407,35 @@ export interface GmManagedPlayerRecord extends GmManagedPlayerSummary {
   persistedSnapshot: unknown;
 }
 
+export type GmPlayerSortMode = 'realm-desc' | 'realm-asc' | 'online' | 'map' | 'name';
+
+export interface GmListPlayersQuery {
+  page?: number;
+  pageSize?: number;
+  keyword?: string;
+  sort?: GmPlayerSortMode;
+}
+
+export interface GmPlayerListPage {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  keyword: string;
+  sort: GmPlayerSortMode;
+}
+
+export interface GmPlayerSummaryStats {
+  totalPlayers: number;
+  onlinePlayers: number;
+  offlineHangingPlayers: number;
+  offlinePlayers: number;
+}
+
 export interface GmStateRes {
   players: GmManagedPlayerSummary[];
+  playerPage: GmPlayerListPage;
+  playerStats: GmPlayerSummaryStats;
   mapIds: string[];
   botCount: number;
   perf: GmPerformanceSnapshot;
@@ -1500,6 +1612,8 @@ export interface GmEditorItemOption {
   healPercent?: number;
   qiPercent?: number;
   consumeBuffs?: ConsumableBuffDef[];
+  alchemySuccessRate?: number;
+  alchemySpeedRate?: number;
   mapUnlockId?: string;
   tileAuraGainAmount?: number;
   allowBatchUse?: boolean;
@@ -1537,6 +1651,18 @@ export interface GmUpdatePlayerReq {
   section?: GmPlayerUpdateSection;
 }
 
+export interface GmSetPlayerBodyTrainingLevelReq {
+  level: number;
+}
+
+export interface GmAddPlayerFoundationReq {
+  amount: number;
+}
+
+export interface GmAddPlayerCombatExpReq {
+  amount: number;
+}
+
 export interface GmSpawnBotsReq {
   anchorPlayerId: string;
   count: number;
@@ -1552,9 +1678,11 @@ export interface GmShortcutRunRes {
   totalPlayers: number;
   queuedRuntimePlayers: number;
   updatedOfflinePlayers: number;
-  targetMapId: string;
-  targetX: number;
-  targetY: number;
+  totalCombatExpGranted?: number;
+  totalFoundationGranted?: number;
+  targetMapId?: string;
+  targetX?: number;
+  targetY?: number;
 }
 
 /** GM 地图传送点记录 */
@@ -1606,6 +1734,24 @@ export interface GmMapLandmarkRecord {
   container?: GmMapContainerRecord;
 }
 
+/** GM 地图资源节点分组中的单个布点 */
+export interface GmMapResourceNodePlacementRecord {
+  x: number;
+  y: number;
+  id?: string;
+  name?: string;
+  desc?: string;
+}
+
+/** GM 地图资源节点分组记录 */
+export interface GmMapResourceNodeGroupRecord {
+  resourceNodeId: string;
+  idPrefix?: string;
+  name?: string;
+  desc?: string;
+  placements: GmMapResourceNodePlacementRecord[];
+}
+
 /** GM 地图掉落物记录 */
 export interface GmMapDropRecord {
   itemId: string;
@@ -1631,8 +1777,11 @@ export interface GmMapContainerLootPoolRecord {
 
 /** GM 地图容器记录 */
 export interface GmMapContainerRecord {
+  variant?: LootSourceVariant;
   grade?: TechniqueGrade;
   refreshTicks?: number;
+  refreshTicksMin?: number;
+  refreshTicksMax?: number;
   char?: string;
   color?: string;
   drops?: GmMapDropRecord[];
@@ -1722,6 +1871,7 @@ export interface GmMapMonsterSpawnRecord {
   level?: number;
   attrs?: Partial<Attributes>;
   statPercents?: NumericStatPercentages;
+  initialBuffs?: MonsterInitialBuffDef[];
   skills?: string[];
   tier?: MonsterTier;
   expMultiplier?: number;
@@ -1757,6 +1907,7 @@ export interface GmMapDocument {
   resources?: GmMapResourceRecord[];
   safeZones?: GmMapSafeZoneRecord[];
   landmarks?: GmMapLandmarkRecord[];
+  resourceNodeGroups?: GmMapResourceNodeGroupRecord[];
   npcs: GmMapNpcRecord[];
   monsterSpawns: GmMapMonsterSpawnRecord[];
 }

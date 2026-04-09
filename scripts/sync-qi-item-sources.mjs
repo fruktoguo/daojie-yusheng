@@ -8,24 +8,6 @@ const ITEMS_DIR = path.join(ROOT, 'packages/server/data/content/items/练气期'
 const MONSTERS_DIR = path.join(ROOT, 'packages/server/data/content/monsters');
 
 const CONSUMABLE_ASSIGNMENTS = [
-  { monsterId: 'm_cleft_blade_wraith', itemId: 'pill.edge_quenching_powder' },
-  { monsterId: 'm_cleft_banner_general', itemId: 'pill.edge_quenching_powder' },
-  { monsterId: 'm_cleft_gate_lord', itemId: 'pill.edge_quenching_powder' },
-  { monsterId: 'm_verdant_lesser_sprite', itemId: 'pill.nurturing_paste' },
-  { monsterId: 'm_verdant_wither_guard', itemId: 'pill.nurturing_paste' },
-  { monsterId: 'm_verdant_vein_mother', itemId: 'pill.nurturing_paste' },
-  { monsterId: 'm_cold_tide_sprite', itemId: 'pill.cleartide_powder' },
-  { monsterId: 'm_cold_bridge_patrol', itemId: 'pill.cleartide_powder' },
-  { monsterId: 'm_cold_abyss_drake', itemId: 'pill.cleartide_powder' },
-  { monsterId: 'm_ember_moth', itemId: 'pill.chiyang_draught' },
-  { monsterId: 'm_ember_flame_guard', itemId: 'pill.chiyang_draught' },
-  { monsterId: 'm_ember_furnace_lord', itemId: 'pill.chiyang_draught' },
-  { monsterId: 'm_deepvein_croc', itemId: 'pill.earthrest_paste' },
-  { monsterId: 'm_deepvein_ridge_warden', itemId: 'pill.earthrest_paste' },
-  { monsterId: 'm_deepvein_earth_effigy', itemId: 'pill.earthrest_paste' },
-  { monsterId: 'm_guizang_fivephase_effigy', itemId: 'pill.fivephase_harmony_pellet' },
-  { monsterId: 'm_guizang_dualphase_beast', itemId: 'pill.fivephase_harmony_pellet' },
-  { monsterId: 'm_guizang_failed_foundation', itemId: 'pill.fivephase_harmony_pellet' },
   { monsterId: 'm_cleft_blade_sprite', itemId: 'pill.breakmirror_pellet', chance: 0.01 },
   { monsterId: 'm_cleft_banner_general', itemId: 'pill.breakmirror_pellet', chance: 0.01 },
   { monsterId: 'm_cleft_stele_puppet', itemId: 'pill.breakmirror_pellet', chance: 0.01 },
@@ -43,6 +25,12 @@ const CONSUMABLE_ASSIGNMENTS = [
 ];
 
 const TARGET_FILES = ['裂锋原.json', '青萝谷.json', '寒汐泽.json', '赤陨庭.json', '厚脉岭.json', '归藏脉窟.json'];
+const SPECIAL_CONSUMABLES_WITH_CHANCE = new Set([
+  'pill.shatter_spirit',
+  'pill.wangsheng',
+  'pill.ningxiang',
+  'pill.breakmirror_pellet',
+]);
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -81,6 +69,9 @@ function stripDropChance(drop) {
     return drop;
   }
   if (drop.type === 'quest_item') {
+    return drop;
+  }
+  if (typeof drop.itemId === 'string' && SPECIAL_CONSUMABLES_WITH_CHANCE.has(drop.itemId)) {
     return drop;
   }
   const next = { ...drop };

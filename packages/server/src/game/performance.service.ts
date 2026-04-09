@@ -53,7 +53,10 @@ export class PerformanceService {
   private lastCpuUsage = process.cpuUsage();
   private lastCpuTime = process.hrtime.bigint();
   private lastTickMs = 0;
+  private lastTickMapId: string | null = null;
   private cpuProfileStartedAt = Date.now();
+  private tickWindowCount = 0;
+  private tickWindowTotalMs = 0;
   private networkStatsStartedAt = Date.now();
   private totalNetworkInBytes = 0;
   private totalNetworkOutBytes = 0;
@@ -63,8 +66,13 @@ export class PerformanceService {
   private pathfindingStats = this.createPathfindingStatsState();
 
   /** 记录单次 tick 耗时 */
-  recordTick(elapsedMs: number) {
+  recordTick(mapId: string, elapsedMs: number) {
     this.lastTickMs = elapsedMs;
+    this.lastTickMapId = mapId;
+    if (Number.isFinite(elapsedMs) && elapsedMs > 0) {
+      this.tickWindowCount += 1;
+      this.tickWindowTotalMs += elapsedMs;
+    }
   }
 
   /** 记录入站网络字节数 */
@@ -158,6 +166,7 @@ export class PerformanceService {
   resetCpuStats(): void {
     this.cpuProfileStartedAt = Date.now();
     this.lastTickMs = 0;
+    this.lastTickMapId = null;
     this.cpuSections.clear();
   }
 
@@ -339,9 +348,15 @@ export class PerformanceService {
     const cpuUsage = process.cpuUsage(this.lastCpuUsage);
     const elapsedMicros = Number(now - this.lastCpuTime) / 1000;
     const cpuMicros = cpuUsage.user + cpuUsage.system;
+    const tickWindowElapsedMs = Math.max(0, Number(now - this.lastCpuTime) / 1_000_000);
+    const tickWindowElapsedSec = tickWindowElapsedMs / 1000;
+    const tickWindowTotalMs = this.tickWindowTotalMs;
+    const tickWindowCount = this.tickWindowCount;
 
     this.lastCpuUsage = process.cpuUsage();
     this.lastCpuTime = now;
+    this.tickWindowCount = 0;
+    this.tickWindowTotalMs = 0;
 
     const cpuPercent = elapsedMicros > 0
       ? Math.max(0, Math.min(100, (cpuMicros / elapsedMicros) * 100))
@@ -357,6 +372,17 @@ export class PerformanceService {
       cpuPercent: Number(cpuPercent.toFixed(1)),
       memoryMb: Number(memoryMb.toFixed(1)),
       tickMs: Number(this.lastTickMs.toFixed(1)),
+      tick: {
+        lastMapId: this.lastTickMapId,
+        lastMs: Number(this.lastTickMs.toFixed(1)),
+        windowElapsedSec: Number(tickWindowElapsedSec.toFixed(1)),
+        windowTickCount: tickWindowCount,
+        windowTotalMs: Number(tickWindowTotalMs.toFixed(1)),
+        windowAvgMs: tickWindowCount > 0 ? Number((tickWindowTotalMs / tickWindowCount).toFixed(2)) : 0,
+        windowBusyPercent: tickWindowElapsedMs > 0
+          ? Number(Math.max(0, Math.min(100, (tickWindowTotalMs / tickWindowElapsedMs) * 100)).toFixed(1))
+          : 0,
+      },
       cpu: {
         cores: os.cpus().length,
         loadAvg1m: Number(loadAvg1m.toFixed(2)),

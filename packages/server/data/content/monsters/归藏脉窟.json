@@ -263,12 +263,6 @@
         "name": "回阵行履",
         "type": "equipment",
         "count": 1
-      },
-      {
-        "itemId": "pill.fivephase_harmony_pellet",
-        "name": "五和丸",
-        "type": "consumable",
-        "count": 1
       }
     ]
   },
@@ -454,12 +448,6 @@
         "itemId": "book.wuqi_guiliu",
         "name": "《五炁归流篇》",
         "type": "skill_book",
-        "count": 1
-      },
-      {
-        "itemId": "pill.fivephase_harmony_pellet",
-        "name": "五和丸",
-        "type": "consumable",
         "count": 1
       }
     ]
@@ -662,12 +650,6 @@
         "itemId": "book.hunyuan_zaimai",
         "name": "《混元载脉图》",
         "type": "skill_book",
-        "count": 1
-      },
-      {
-        "itemId": "pill.fivephase_harmony_pellet",
-        "name": "五和丸",
-        "type": "consumable",
         "count": 1
       },
       {

@@ -205,10 +205,25 @@ AI 后续要做的事：
 
 - `caster.stat.physAtk`
 - `caster.stat.spellAtk`
+
+默认禁止把下列变量写进技能公式或技能加成：
+
 - `caster.maxHp`
 - `caster.maxQi`
 - `caster.stat.maxHp`
 - `caster.stat.maxQi`
+- `target.maxHp`
+- `target.maxQi`
+- `target.stat.maxHp`
+- `target.stat.maxQi`
+
+这条限制同时适用于：
+
+- 基础伤害段
+- 百分比乘区
+- buff / debuff 的数值加成设计
+
+只有用户明确强调要做“生命值 / 灵气值联动”时，才允许破例使用，而且必须先在回复里点明这是按用户特意要求执行，不要默认加入。
 
 不允许在基础伤害段加入：
 

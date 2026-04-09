@@ -96,12 +96,6 @@
         "name": "《金络砺锋功》",
         "type": "skill_book",
         "count": 1
-      },
-      {
-        "itemId": "pill.edge_quenching_powder",
-        "name": "淬锋散",
-        "type": "consumable",
-        "count": 1
       }
     ]
   },
@@ -434,12 +428,6 @@
         "itemId": "equip.edge_command_token",
         "name": "锋令牌",
         "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "pill.edge_quenching_powder",
-        "name": "淬锋散",
-        "type": "consumable",
         "count": 1
       },
       {
@@ -804,12 +792,6 @@
         "itemId": "book.taibai_zhuxing",
         "name": "《太白诛形录》",
         "type": "skill_book",
-        "count": 1
-      },
-      {
-        "itemId": "pill.edge_quenching_powder",
-        "name": "淬锋散",
-        "type": "consumable",
         "count": 1
       }
     ]

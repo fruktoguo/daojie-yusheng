@@ -1169,5 +1169,21 @@
         }
       }
     ]
+  },
+  {
+    "itemId": "equip.copper_pill_furnace",
+    "name": "铜胎丹炉",
+    "type": "equipment",
+    "grade": "yellow",
+    "level": 2,
+    "desc": "小巧耐烧的铜胎丹炉，炉壁内侧刻着稳火与散药气的浅纹，正适合初学炼丹者随身携带。",
+    "equipSlot": "weapon",
+    "tags": [
+      "alchemy_furnace"
+    ],
+    "equipValueStats": {
+      "qiRegenRate": 40,
+      "resolvePower": 1
+    }
   }
 ]

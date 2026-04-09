@@ -21,6 +21,7 @@ const bcrypt = require("bcryptjs");
 const crypto = require("node:crypto");
 const pg_1 = require("pg");
 const persistent_document_table_1 = require("../../../persistence/persistent-document-table");
+const env_alias_1 = require("../../../config/env-alias");
 const GM_AUTH_SCOPE = 'server_next_legacy_gm_auth_v1';
 const GM_AUTH_KEY = 'gm_auth';
 const LEGACY_GM_AUTH_SCOPE = 'server_config';
@@ -33,8 +34,7 @@ let LegacyGmHttpAuthService = LegacyGmHttpAuthService_1 = class LegacyGmHttpAuth
     persistenceEnabled = false;
     memoryRecord = null;
     async onModuleInit() {
-        const databaseUrl = process.env.SERVER_NEXT_DATABASE_URL
-            ?? '';
+        const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
         if (!databaseUrl.trim()) {
             return;
         }
@@ -204,8 +204,7 @@ let LegacyGmHttpAuthService = LegacyGmHttpAuthService_1 = class LegacyGmHttpAuth
         return normalizePasswordRecord(legacyResult.rows[0]?.payload);
     }
     getInitialPassword() {
-        return process.env.SERVER_NEXT_GM_PASSWORD?.trim()
-            || DEFAULT_GM_PASSWORD;
+        return (0, env_alias_1.resolveServerNextGmPassword)(DEFAULT_GM_PASSWORD);
     }
     async closePool() {
         const pool = this.pool;

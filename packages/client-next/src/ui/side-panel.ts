@@ -9,6 +9,17 @@ type MobilePaneId =
   | 'mobile-bag'
   | 'mobile-action';
 
+type LayoutTarget = 'left' | 'right' | 'bottom';
+
+type SidePanelPersistedState = {
+  version: 1;
+  layoutState?: Partial<Record<`${LayoutTarget}Collapsed`, boolean>>;
+  layoutSizes?: Partial<Record<LayoutTarget, number>>;
+  activeTabs?: Record<string, string>;
+};
+
+const SIDE_PANEL_STORAGE_KEY = 'mud:side-panel-state:v1';
+
 type MobileSectionMount = {
   element: HTMLElement;
   paneId: MobilePaneId;
@@ -21,6 +32,7 @@ export class SidePanel {
   private panel: HTMLElement;
   private mobileShell: HTMLElement | null;
   private mobileSections: MobileSectionMount[];
+  private persistedState: SidePanelPersistedState | null;
   private mobileLayoutActive = false;
   private visible = false;
   private onVisibilityChange: ((visible: boolean) => void) | null = null;
@@ -45,12 +57,16 @@ export class SidePanel {
   constructor() {
     this.panel = document.getElementById('game-shell')!;
     this.mobileShell = document.getElementById('mobile-ui-shell');
+    this.persistedState = this.readPersistedState();
+    this.restorePersistedLayoutState();
     this.mobileSections = this.collectMobileSections();
     this.bindTabGroups();
     this.bindLayoutToggles();
     this.bindLayoutTransitionSync();
     this.bindResponsiveLayout();
+    this.restorePersistedLayoutSizes();
     this.syncLayoutState();
+    this.restorePersistedTabs();
     this.syncResponsiveLayout();
   }
 
@@ -201,6 +217,7 @@ export class SidePanel {
           button.releasePointerCapture(event.pointerId);
         }
         if (dragged) {
+          this.persistCurrentLayoutSizes();
           this.onLayoutChange?.();
           return;
         }
@@ -350,6 +367,7 @@ export class SidePanel {
     this.syncToggleButton('bottom', this.layoutState.bottomCollapsed
       ? { text: '^', title: '展开下方面板' }
       : { text: 'v', title: '收起下方面板' });
+    this.persistCurrentLayoutState();
   }
 
   private syncToggleButton(target: 'left' | 'right' | 'bottom', state: { text: string; title: string }): void {
@@ -401,6 +419,7 @@ export class SidePanel {
     this.getGroupPanes(group).forEach(pane => {
       pane.classList.toggle('active', pane.dataset.pane === tabName);
     });
+    this.persistGroupActiveTab(group, tabName);
     this.onTabChange?.(tabName);
   }
 
@@ -412,5 +431,139 @@ export class SidePanel {
   private getGroupPanes(group: HTMLElement): HTMLElement[] {
     return [...group.querySelectorAll<HTMLElement>('[data-pane]')]
       .filter((pane) => pane.closest<HTMLElement>('[data-tab-group]') === group);
+  }
+
+  private restorePersistedLayoutState(): void {
+    const persistedLayoutState = this.persistedState?.layoutState;
+    if (!persistedLayoutState) {
+      return;
+    }
+    this.layoutState.leftCollapsed = persistedLayoutState.leftCollapsed === true;
+    this.layoutState.rightCollapsed = persistedLayoutState.rightCollapsed === true;
+    this.layoutState.bottomCollapsed = persistedLayoutState.bottomCollapsed === true;
+  }
+
+  private restorePersistedLayoutSizes(): void {
+    const layoutSizes = this.persistedState?.layoutSizes;
+    if (!layoutSizes) {
+      return;
+    }
+    const leftSize = this.normalizeStoredLayoutSize('left', layoutSizes.left);
+    const rightSize = this.normalizeStoredLayoutSize('right', layoutSizes.right);
+    const bottomSize = this.normalizeStoredLayoutSize('bottom', layoutSizes.bottom);
+    if (leftSize !== null) {
+      this.panel.style.setProperty('--layout-left-size', `${leftSize}px`);
+    }
+    if (rightSize !== null) {
+      this.panel.style.setProperty('--layout-right-size', `${rightSize}px`);
+    }
+    if (bottomSize !== null) {
+      this.panel.style.setProperty('--layout-bottom-size', `${bottomSize}px`);
+    }
+  }
+
+  private restorePersistedTabs(): void {
+    const activeTabs = this.persistedState?.activeTabs;
+    if (!activeTabs) {
+      return;
+    }
+    this.panel.querySelectorAll<HTMLElement>('[data-tab-group]').forEach((group) => {
+      const groupId = group.dataset.tabGroup;
+      if (!groupId) {
+        return;
+      }
+      const tabName = activeTabs[groupId];
+      if (!tabName) {
+        return;
+      }
+      const hasTarget = this.getGroupTabs(group).some((button) => button.dataset.tab === tabName)
+        && this.getGroupPanes(group).some((pane) => pane.dataset.pane === tabName);
+      if (!hasTarget) {
+        return;
+      }
+      this.switchGroupTab(group, tabName);
+    });
+  }
+
+  private persistCurrentLayoutState(): void {
+    this.persistedState = {
+      version: 1,
+      ...this.persistedState,
+      layoutState: {
+        leftCollapsed: this.layoutState.leftCollapsed,
+        rightCollapsed: this.layoutState.rightCollapsed,
+        bottomCollapsed: this.layoutState.bottomCollapsed,
+      },
+    };
+    this.writePersistedState();
+  }
+
+  private persistCurrentLayoutSizes(): void {
+    this.persistedState = {
+      version: 1,
+      ...this.persistedState,
+      layoutSizes: {
+        left: this.getLayoutSize('left'),
+        right: this.getLayoutSize('right'),
+        bottom: this.getLayoutSize('bottom'),
+      },
+    };
+    this.writePersistedState();
+  }
+
+  private persistGroupActiveTab(group: HTMLElement, tabName: string): void {
+    const groupId = group.dataset.tabGroup;
+    if (!groupId) {
+      return;
+    }
+    this.persistedState = {
+      version: 1,
+      ...this.persistedState,
+      activeTabs: {
+        ...(this.persistedState?.activeTabs ?? {}),
+        [groupId]: tabName,
+      },
+    };
+    this.writePersistedState();
+  }
+
+  private normalizeStoredLayoutSize(target: LayoutTarget, value: unknown): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return null;
+    }
+    if (target === 'left') {
+      return this.clamp(Math.round(value), DESKTOP_LAYOUT_DRAG_LIMITS.leftMin, DESKTOP_LAYOUT_DRAG_LIMITS.leftMax);
+    }
+    if (target === 'right') {
+      return this.clamp(Math.round(value), DESKTOP_LAYOUT_DRAG_LIMITS.rightMin, DESKTOP_LAYOUT_DRAG_LIMITS.rightMax);
+    }
+    return this.clamp(Math.round(value), DESKTOP_LAYOUT_DRAG_LIMITS.bottomMin, DESKTOP_LAYOUT_DRAG_LIMITS.bottomMax);
+  }
+
+  private readPersistedState(): SidePanelPersistedState | null {
+    try {
+      const raw = window.localStorage.getItem(SIDE_PANEL_STORAGE_KEY);
+      if (!raw) {
+        return null;
+      }
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object' || parsed.version !== 1) {
+        return null;
+      }
+      return parsed as SidePanelPersistedState;
+    } catch {
+      return null;
+    }
+  }
+
+  private writePersistedState(): void {
+    if (!this.persistedState) {
+      return;
+    }
+    try {
+      window.localStorage.setItem(SIDE_PANEL_STORAGE_KEY, JSON.stringify(this.persistedState));
+    } catch {
+      // 本地存储不可用时保留当前会话内状态。
+    }
   }
 }

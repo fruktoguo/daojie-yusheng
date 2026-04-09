@@ -67,6 +67,8 @@ export interface NumericStats {
   viewRange: number;
   moveSpeed: number;
   extraAggroRate: number;
+  extraRange: number;
+  extraArea: number;
   elementDamageBonus: ElementStatGroup;
   elementDamageReduce: ElementStatGroup;
 }
@@ -136,6 +138,55 @@ export function resetElementStatGroup(target: ElementStatGroup, value = 0): Elem
   return target;
 }
 
+/** 所有 `NumericStats` 字段列表，便于模板/守护工具重用 */
+export const NUMERIC_STATS_KEYS: (keyof NumericStats)[] = [
+  'maxHp',
+  'maxQi',
+  'physAtk',
+  'spellAtk',
+  'physDef',
+  'spellDef',
+  'hit',
+  'dodge',
+  'crit',
+  'critDamage',
+  'breakPower',
+  'resolvePower',
+  'maxQiOutputPerTick',
+  'qiRegenRate',
+  'hpRegenRate',
+  'cooldownSpeed',
+  'auraCostReduce',
+  'auraPowerRate',
+  'playerExpRate',
+  'techniqueExpRate',
+  'realmExpPerTick',
+  'techniqueExpPerTick',
+  'lootRate',
+  'rareLootRate',
+  'viewRange',
+  'moveSpeed',
+  'extraAggroRate',
+  'extraRange',
+  'extraArea',
+  'elementDamageBonus',
+  'elementDamageReduce',
+];
+
+/** 守护 Realm 模板 stats 结构的工具，确保字段完整 */
+export function ensureNumericStatsTemplateStats(stats: Partial<NumericStats>): NumericStats {
+  const missing: Array<keyof NumericStats> = [];
+  for (const key of NUMERIC_STATS_KEYS) {
+    if (!(key in stats)) {
+      missing.push(key);
+    }
+  }
+  if (missing.length) {
+    throw new Error(`incomplete numeric stats template: missing ${missing.join(', ')}`);
+  }
+  return stats as NumericStats;
+}
+
 /** 将部分五行属性叠加到目标上 */
 export function addPartialElementStatGroup(target: ElementStatGroup, patch?: PartialElementStatGroup): ElementStatGroup {
   if (!patch) return target;
@@ -177,6 +228,8 @@ export function createNumericStats(): NumericStats {
     viewRange: 0,
     moveSpeed: 0,
     extraAggroRate: 0,
+    extraRange: 0,
+    extraArea: 0,
     elementDamageBonus: createElementStatGroup(),
     elementDamageReduce: createElementStatGroup(),
   };
@@ -212,6 +265,8 @@ export function cloneNumericStats(source: NumericStats): NumericStats {
     viewRange: source.viewRange,
     moveSpeed: source.moveSpeed,
     extraAggroRate: source.extraAggroRate,
+    extraRange: source.extraRange,
+    extraArea: source.extraArea,
     elementDamageBonus: cloneElementStatGroup(source.elementDamageBonus),
     elementDamageReduce: cloneElementStatGroup(source.elementDamageReduce),
   };
@@ -246,6 +301,8 @@ export function resetNumericStats(target: NumericStats): NumericStats {
   target.viewRange = 0;
   target.moveSpeed = 0;
   target.extraAggroRate = 0;
+  target.extraRange = 0;
+  target.extraArea = 0;
   resetElementStatGroup(target.elementDamageBonus);
   resetElementStatGroup(target.elementDamageReduce);
   return target;
@@ -281,6 +338,8 @@ export function addPartialNumericStats(target: NumericStats, patch?: PartialNume
   if (patch.viewRange !== undefined) target.viewRange += patch.viewRange;
   if (patch.moveSpeed !== undefined) target.moveSpeed += patch.moveSpeed;
   if (patch.extraAggroRate !== undefined) target.extraAggroRate += patch.extraAggroRate;
+  if (patch.extraRange !== undefined) target.extraRange += patch.extraRange;
+  if (patch.extraArea !== undefined) target.extraArea += patch.extraArea;
   addPartialElementStatGroup(target.elementDamageBonus, patch.elementDamageBonus);
   addPartialElementStatGroup(target.elementDamageReduce, patch.elementDamageReduce);
   return target;

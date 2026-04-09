@@ -1,0 +1,49 @@
+{
+  "realm": "凡人期",
+  "grade": "地阶",
+  "lv": 0,
+  "skill": {
+    "id": "skill.huanling_liefu_waihuan",
+    "name": "裂府外环",
+    "desc": "把更外层的洞府残脉整圈掀起，外环会晚半拍一齐压落；若前面已经沾了阴痕或灼伤，被卷入这一圈时伤势会被整片放大。",
+    "unlockLevel": 7,
+    "damageKind": "spell",
+    "element": "fire",
+    "range": 6,
+    "targeting": {
+      "shape": "ring",
+      "innerRadius": 3,
+      "radius": 5,
+      "maxTargets": 18
+    },
+    "baseScoreTarget": 11.5,
+    "percentScoreTarget": 1.5,
+    "areaScoreTarget": 1.7,
+    "baseWeights": [
+      { "var": "caster.stat.spellAtk", "weight": 1 }
+    ],
+    "percentWeights": [
+      { "var": "techLevel", "weight": 1 },
+      { "var": "caster.stat.hit", "weight": 1 },
+      { "var": "caster.stat.resolvePower", "weight": 1 },
+      { "var": "target.buff.buff.huanling_rongmai_yin.stacks", "weight": 1, "scalePerScore": 0.1 },
+      { "var": "target.buff.terrain_molten_pool_burn.stacks", "weight": 1, "scalePerScore": 0.08 }
+    ],
+    "buffEffects": [
+      {
+        "type": "buff",
+        "target": "target",
+        "buffId": "buff.huanling_rongmai_yin",
+        "name": "熔脉阴痕",
+        "desc": "被外环整片压过之后，体内裂脉会被进一步扩大。",
+        "shortMark": "熔",
+        "category": "debuff",
+        "visibility": "public",
+        "duration": 6,
+        "stacks": 10,
+        "maxStacks": 100,
+        "color": "#ff8a54"
+      }
+    ]
+  }
+}

@@ -19,29 +19,26 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.HealthReadinessService = void 0;
 const common_1 = require("@nestjs/common");
-const legacy_auth_service_1 = require("../compat/legacy/legacy-auth.service");
-const legacy_gm_admin_compat_service_1 = require("../compat/legacy/http/legacy-gm-admin-compat.service");
 const health_readiness_1 = require("./health-readiness");
 const mail_persistence_service_1 = require("../persistence/mail-persistence.service");
 const market_persistence_service_1 = require("../persistence/market-persistence.service");
 const player_persistence_service_1 = require("../persistence/player-persistence.service");
 const suggestion_persistence_service_1 = require("../persistence/suggestion-persistence.service");
 const world_runtime_service_1 = require("../runtime/world/world-runtime.service");
+const server_readiness_dependencies_service_1 = require("./server-readiness-dependencies.service");
 let HealthReadinessService = class HealthReadinessService {
     playerPersistenceService;
     mailPersistenceService;
     marketPersistenceService;
     suggestionPersistenceService;
-    legacyAuthService;
-    legacyGmAdminCompatService;
+    serverReadinessDependenciesService;
     worldRuntimeService;
-    constructor(playerPersistenceService, mailPersistenceService, marketPersistenceService, suggestionPersistenceService, legacyAuthService, legacyGmAdminCompatService, worldRuntimeService) {
+    constructor(playerPersistenceService, mailPersistenceService, marketPersistenceService, suggestionPersistenceService, serverReadinessDependenciesService, worldRuntimeService) {
         this.playerPersistenceService = playerPersistenceService;
         this.mailPersistenceService = mailPersistenceService;
         this.marketPersistenceService = marketPersistenceService;
         this.suggestionPersistenceService = suggestionPersistenceService;
-        this.legacyAuthService = legacyAuthService;
-        this.legacyGmAdminCompatService = legacyGmAdminCompatService;
+        this.serverReadinessDependenciesService = serverReadinessDependenciesService;
         this.worldRuntimeService = worldRuntimeService;
     }
     build() {
@@ -50,8 +47,7 @@ let HealthReadinessService = class HealthReadinessService {
             mailPersistenceService: this.mailPersistenceService,
             marketPersistenceService: this.marketPersistenceService,
             suggestionPersistenceService: this.suggestionPersistenceService,
-            legacyAuthService: this.legacyAuthService,
-            legacyGmAdminCompatService: this.legacyGmAdminCompatService,
+            ...this.serverReadinessDependenciesService.build(),
             worldRuntimeService: this.worldRuntimeService,
         });
     }
@@ -68,12 +64,10 @@ exports.HealthReadinessService = HealthReadinessService = __decorate([
     __param(3, (0, common_1.Optional)()),
     __param(4, (0, common_1.Optional)()),
     __param(5, (0, common_1.Optional)()),
-    __param(6, (0, common_1.Optional)()),
     __metadata("design:paramtypes", [player_persistence_service_1.PlayerPersistenceService,
         mail_persistence_service_1.MailPersistenceService,
         market_persistence_service_1.MarketPersistenceService,
         suggestion_persistence_service_1.SuggestionPersistenceService,
-        legacy_auth_service_1.LegacyAuthService,
-        legacy_gm_admin_compat_service_1.LegacyGmAdminCompatService,
+        server_readiness_dependencies_service_1.ServerReadinessDependenciesService,
         world_runtime_service_1.WorldRuntimeService])
 ], HealthReadinessService);

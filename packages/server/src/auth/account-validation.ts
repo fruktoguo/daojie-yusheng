@@ -4,10 +4,13 @@
 import {
   ACCOUNT_MAX_LENGTH,
   ACCOUNT_MIN_LENGTH,
-  getFirstGrapheme,
+  containsInvisibleOnlyNameGrapheme,
   getGraphemeCount,
   getRoleNameLimitText,
+  hasVisibleNameGrapheme,
   isRoleNameWithinLimit,
+  DEFAULT_VISIBLE_DISPLAY_NAME,
+  resolveDefaultVisibleDisplayName,
   PASSWORD_MIN_LENGTH,
   truncateRoleName,
 } from '@mud/shared';
@@ -39,7 +42,7 @@ export function normalizeRoleName(value: string): string {
 
 /** 取账号首字符作为默认显示名称 */
 export function getDefaultDisplayName(username: string): string {
-  return getFirstGrapheme(normalizeUsername(username));
+  return resolveDefaultVisibleDisplayName(normalizeUsername(username));
 }
 
 /** 新角色默认名称取账号前若干字，避免账号与角色名长度约束互相冲突 */
@@ -50,7 +53,10 @@ export function buildDefaultRoleName(username: string): string {
 /** 优先使用自定义显示名称，为空时回退到账号首字符 */
 export function resolveDisplayName(displayName: string | null | undefined, username: string): string {
   const normalized = typeof displayName === 'string' ? normalizeDisplayName(displayName) : '';
-  return normalized || getDefaultDisplayName(username);
+  if (normalized) {
+    return validateDisplayName(normalized) === null ? normalized : DEFAULT_VISIBLE_DISPLAY_NAME;
+  }
+  return getDefaultDisplayName(username);
 }
 
 /** 校验账号格式，返回 null 表示通过，否则返回错误信息 */
@@ -92,6 +98,9 @@ export function validateDisplayName(displayName: string): string | null {
   if (getGraphemeCount(normalized) !== 1) {
     return '显示名称必须为 1 个字符';
   }
+  if (!hasVisibleNameGrapheme(normalized) || containsInvisibleOnlyNameGrapheme(normalized)) {
+    return '显示名称必须为可见字符';
+  }
   return null;
 }
 
@@ -100,6 +109,12 @@ export function validateRoleName(roleName: string): string | null {
   const normalized = normalizeRoleName(roleName);
   if (!normalized) {
     return '角色名称不能为空';
+  }
+  if (!hasVisibleNameGrapheme(normalized)) {
+    return '角色名称必须包含可见字符';
+  }
+  if (containsInvisibleOnlyNameGrapheme(normalized)) {
+    return '角色名称不支持不可见字符';
   }
   if (!isRoleNameWithinLimit(normalized)) {
     return `角色名称${getRoleNameLimitText()}`;

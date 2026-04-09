@@ -20,14 +20,17 @@ const legacy_account_validation_1 = require("../legacy-account-validation");
 const legacy_password_hash_1 = require("../legacy-password-hash");
 const legacy_auth_service_1 = require("../legacy-auth.service");
 const legacy_auth_http_service_1 = require("./legacy-auth-http.service");
+const player_identity_persistence_service_1 = require("../../../persistence/player-identity-persistence.service");
 const player_runtime_service_1 = require("../../../runtime/player/player-runtime.service");
 let LegacyAccountHttpService = class LegacyAccountHttpService {
     legacyAuthService;
     legacyAuthHttpService;
+    playerIdentityPersistenceService;
     playerRuntimeService;
-    constructor(legacyAuthService, legacyAuthHttpService, playerRuntimeService) {
+    constructor(legacyAuthService, legacyAuthHttpService, playerIdentityPersistenceService, playerRuntimeService) {
         this.legacyAuthService = legacyAuthService;
         this.legacyAuthHttpService = legacyAuthHttpService;
+        this.playerIdentityPersistenceService = playerIdentityPersistenceService;
         this.playerRuntimeService = playerRuntimeService;
     }
     async updatePassword(authorization, currentPassword, newPassword) {
@@ -87,6 +90,8 @@ let LegacyAccountHttpService = class LegacyAccountHttpService {
                 displayName: normalizedDisplayName,
             });
         }
+        await this.legacyAuthHttpService.syncNextPlayerIdentityByUserId(userId).catch(() => undefined);
+        await this.patchPersistedNextIdentity(userId, { displayName: normalizedDisplayName }).catch(() => undefined);
         await this.syncRuntimeDisplayName(userId, normalizedDisplayName);
         return { displayName: normalizedDisplayName };
     }
@@ -99,11 +104,13 @@ let LegacyAccountHttpService = class LegacyAccountHttpService {
             throw new common_1.BadRequestException(roleNameError);
         }
         if (pool) {
-            const playerRecord = await this.loadDatabasePlayerRecord(userId, pool);
-            if (!playerRecord) {
-                throw new common_1.UnauthorizedException('角色不存在');
+            const user = await this.legacyAuthHttpService.findUserById(userId);
+            if (!user) {
+                throw new common_1.UnauthorizedException('用户不存在');
             }
-            if ((0, legacy_account_validation_1.normalizeRoleName)(playerRecord.roleName) === normalizedRoleName) {
+            const playerRecord = await this.loadDatabasePlayerRecord(userId, pool);
+            const currentRoleName = (0, legacy_account_validation_1.normalizeRoleName)(playerRecord?.roleName ?? user.pendingRoleName);
+            if (currentRoleName === normalizedRoleName) {
                 return { roleName: normalizedRoleName };
             }
             const roleNameConflict = await this.legacyAuthHttpService.ensureAvailable(normalizedRoleName, 'role', {
@@ -112,8 +119,13 @@ let LegacyAccountHttpService = class LegacyAccountHttpService {
             if (roleNameConflict) {
                 throw new common_1.BadRequestException(roleNameConflict);
             }
-            await pool.query('UPDATE players SET name = $2 WHERE "userId" = $1', [userId, normalizedRoleName]);
-            this.syncRuntimeRoleName(playerRecord.playerId, normalizedRoleName);
+            await pool.query('UPDATE users SET "pendingRoleName" = $2 WHERE id = $1', [userId, normalizedRoleName]);
+            if (playerRecord) {
+                await pool.query('UPDATE players SET name = $2 WHERE "userId" = $1', [userId, normalizedRoleName]);
+            }
+            await this.legacyAuthHttpService.syncNextPlayerIdentityByUserId(userId, { roleNameHint: normalizedRoleName }).catch(() => undefined);
+            await this.patchPersistedNextIdentity(userId, { playerName: normalizedRoleName }).catch(() => undefined);
+            this.syncRuntimeRoleName(playerRecord?.playerId ?? buildFallbackPlayerId(userId), normalizedRoleName);
             return { roleName: normalizedRoleName };
         }
         const user = await this.legacyAuthHttpService.findUserById(userId);
@@ -133,6 +145,8 @@ let LegacyAccountHttpService = class LegacyAccountHttpService {
             ...user,
             pendingRoleName: normalizedRoleName,
         });
+        await this.legacyAuthHttpService.syncNextPlayerIdentityByUserId(userId, { roleNameHint: normalizedRoleName }).catch(() => undefined);
+        await this.patchPersistedNextIdentity(userId, { playerName: normalizedRoleName }).catch(() => undefined);
         this.syncRuntimeRoleName(buildFallbackPlayerId(userId), normalizedRoleName);
         return { roleName: normalizedRoleName };
     }
@@ -194,12 +208,29 @@ let LegacyAccountHttpService = class LegacyAccountHttpService {
             roleName: typeof row?.name === 'string' ? row.name : '',
         };
     }
+    async patchPersistedNextIdentity(userId, patch) {
+        const existingIdentity = await this.playerIdentityPersistenceService.loadPlayerIdentity(userId);
+        if (!existingIdentity) {
+            return null;
+        }
+        return this.playerIdentityPersistenceService.savePlayerIdentity({
+            ...existingIdentity,
+            ...(typeof patch.displayName === 'string' && patch.displayName.trim()
+                ? { displayName: patch.displayName.trim() }
+                : {}),
+            ...(typeof patch.playerName === 'string' && patch.playerName.trim()
+                ? { playerName: patch.playerName.trim() }
+                : {}),
+            updatedAt: Date.now(),
+        });
+    }
 };
 exports.LegacyAccountHttpService = LegacyAccountHttpService;
 exports.LegacyAccountHttpService = LegacyAccountHttpService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [legacy_auth_service_1.LegacyAuthService,
         legacy_auth_http_service_1.LegacyAuthHttpService,
+        player_identity_persistence_service_1.PlayerIdentityPersistenceService,
         player_runtime_service_1.PlayerRuntimeService])
 ], LegacyAccountHttpService);
 function buildFallbackPlayerId(userId) {

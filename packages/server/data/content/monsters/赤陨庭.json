@@ -93,12 +93,6 @@
         "name": "《赤息燃窍功》",
         "type": "skill_book",
         "count": 1
-      },
-      {
-        "itemId": "pill.chiyang_draught",
-        "name": "赤阳液",
-        "type": "consumable",
-        "count": 1
       }
     ]
   },
@@ -623,12 +617,6 @@
         "name": "《太虚劫光篇》",
         "type": "skill_book",
         "count": 1
-      },
-      {
-        "itemId": "pill.chiyang_draught",
-        "name": "赤阳液",
-        "type": "consumable",
-        "count": 1
       }
     ]
   },
@@ -733,12 +721,6 @@
         "itemId": "book.zhuming_jintian",
         "name": "《朱明烬天录》",
         "type": "skill_book",
-        "count": 1
-      },
-      {
-        "itemId": "pill.chiyang_draught",
-        "name": "赤阳液",
-        "type": "consumable",
         "count": 1
       }
     ],

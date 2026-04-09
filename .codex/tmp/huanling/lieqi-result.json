@@ -1,0 +1,146 @@
+{
+  "meta": {
+    "realm": "凡人期",
+    "grade": "地阶",
+    "lv": 0
+  },
+  "reference": {
+    "base": {
+      "lower": 3.8,
+      "upper": 4.2,
+      "target": 4
+    },
+    "percent": {
+      "lower": 3,
+      "upper": 3,
+      "target": 3
+    },
+    "range": {
+      "lower": 3,
+      "upper": 4,
+      "target": 3.5
+    },
+    "area": {
+      "lower": 3,
+      "upper": 4,
+      "target": 3.5
+    }
+  },
+  "weightedBudget": 20,
+  "scores": {
+    "baseScore": 10.2,
+    "percentScore": 1,
+    "rangeScore": 2,
+    "areaScore": 0.8,
+    "totalScore": 220.32
+  },
+  "targetingHint": {
+    "shape": "box",
+    "desiredTargetCount": 9,
+    "suggestedTargeting": {
+      "shape": "box",
+      "width": 3,
+      "height": 3,
+      "maxTargets": 9
+    },
+    "approxTargetCount": 9
+  },
+  "suggested": {
+    "cooldown": 80,
+    "costMultiplier": 8
+  },
+  "resolvedTerms": {
+    "baseTerms": [
+      {
+        "var": "caster.stat.spellAtk",
+        "scale": 10.2
+      }
+    ],
+    "percentTerms": [
+      {
+        "var": "techLevel",
+        "scale": 0.05
+      },
+      {
+        "var": "caster.stat.hit",
+        "scale": 0.004
+      },
+      {
+        "var": "caster.stat.resolvePower",
+        "scale": 0.004
+      }
+    ]
+  },
+  "skill": {
+    "id": "skill.huanling_lieqi_zhixian",
+    "name": "移脉熔宫",
+    "desc": "拖着裂丹把洞府残脉猛然拽偏，落点一带尽数熔成赤池，后续杀招都会顺着熔痕灌进去。",
+    "cooldown": 80,
+    "costMultiplier": 8,
+    "range": 5,
+    "targeting": {
+      "shape": "box",
+      "width": 3,
+      "height": 3,
+      "maxTargets": 9
+    },
+    "effects": [
+      {
+        "type": "damage",
+        "damageKind": "spell",
+        "element": "fire",
+        "formula": {
+          "op": "mul",
+          "args": [
+            {
+              "var": "caster.stat.spellAtk",
+              "scale": 10.2
+            },
+            {
+              "op": "add",
+              "args": [
+                1,
+                {
+                  "var": "techLevel",
+                  "scale": 0.05
+                },
+                {
+                  "var": "caster.stat.hit",
+                  "scale": 0.004
+                },
+                {
+                  "var": "caster.stat.resolvePower",
+                  "scale": 0.004
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "buff",
+        "target": "target",
+        "buffId": "buff.huanling_rongmai_yin",
+        "name": "熔脉阴痕",
+        "desc": "被熔宫残脉烙开经络，断魂灵钉与地府沉印会顺着伤口追入。",
+        "shortMark": "熔",
+        "category": "debuff",
+        "visibility": "public",
+        "duration": 6,
+        "stacks": 10,
+        "maxStacks": 100,
+        "color": "#ff8a54"
+      },
+      {
+        "type": "terrain",
+        "terrainType": "molten_pool",
+        "duration": 8,
+        "allowedOriginalTypes": [
+          "floor",
+          "stone"
+        ]
+      }
+    ],
+    "unlockLevel": 4
+  }
+}

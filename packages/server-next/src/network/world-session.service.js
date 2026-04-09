@@ -19,11 +19,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldSessionService = void 0;
 const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared-next");
-/**
- * 世界会话服务类
- * 
- * 负责管理玩家会话的生命周期
- */
+const DEFAULT_SESSION_DETACH_EXPIRE_MS = 15_000;
+function resolveSessionDetachExpireMs() {
+    const raw = process.env.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS;
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed)) {
+        return Math.max(0, Math.trunc(parsed));
+    }
+    return DEFAULT_SESSION_DETACH_EXPIRE_MS;
+}
 let WorldSessionService = class WorldSessionService {
     // ==================== 会话管理 ====================
     /** WebSocket连接缓存：socketId -> Socket */
@@ -32,9 +36,7 @@ let WorldSessionService = class WorldSessionService {
     bindingBySocketId = new Map();
     /** 玩家会话绑定缓存：playerId -> SessionBinding */
     bindingByPlayerId = new Map();
-    
-    // ==================== 过期管理 ====================
-    /** 会话过期定时器：playerId -> Timer */
+    bindingBySessionId = new Map();
     expiryTimerByPlayerId = new Map();
     /** 已过期的会话绑定：playerId -> SessionBinding */
     expiredBindings = new Map();
@@ -46,18 +48,9 @@ let WorldSessionService = class WorldSessionService {
     // ==================== 会话序列 ====================
     /** 下一个会话序列号 */
     nextSessionSequence = 1;
-    /**
-     * 注册WebSocket连接
-     * 
-     * 为玩家注册新的WebSocket连接，处理会话恢复和替换
-     * 
-     * @param client WebSocket客户端实例
-     * @param playerId 玩家ID
-     * @param requestedSessionId 请求的会话ID（可选）
-     * @returns 会话绑定对象
-     */
-    registerSocket(client, playerId, requestedSessionId) {
-        // 缓存WebSocket连接
+    nextGuestPlayerSequence = 1;
+    sessionDetachExpireMs = resolveSessionDetachExpireMs();
+    registerSocket(client, playerId, requestedSessionId, options = undefined) {
         this.socketsById.set(client.id, client);
         
         // 获取之前的会话绑定
@@ -65,24 +58,27 @@ let WorldSessionService = class WorldSessionService {
         
         // 清理请求的会话ID
         const requested = requestedSessionId?.trim() || '';
-        
-        // 检查是否可以恢复之前的会话
-        const resumable = previous && !previous.connected && (!requested || requested === previous.sessionId);
-        
-        // 确定会话ID
-        const sessionId = resumable
+        const hasDetachedBinding = previous && !previous.connected;
+        const allowImplicitDetachedResume = options?.allowImplicitDetachedResume !== false;
+        const allowRequestedDetachedResume = options?.allowRequestedDetachedResume !== false;
+        const allowConnectedSessionReuse = options?.allowConnectedSessionReuse !== false;
+        const resumeMatched = hasDetachedBinding && (requested
+            ? allowRequestedDetachedResume && requested === previous.sessionId
+            : allowImplicitDetachedResume);
+        const reuseConnectedSession = previous?.connected === true && allowConnectedSessionReuse;
+        const sessionId = resumeMatched
             ? previous.sessionId
-            : requested || previous?.sessionId || this.createSessionId(playerId);
-        
-        // 创建新的会话绑定
+            : reuseConnectedSession
+                ? previous.sessionId
+                : this.createSessionId(playerId);
         const binding = {
-            playerId,                // 玩家ID
-            sessionId,              // 会话ID
-            socketId: client.id,      // WebSocket连接ID
-            resumed: resumable === true,  // 是否恢复会话
-            connected: true,           // 是否已连接
-            detachedAt: null,        // 断开时间
-            expireAt: null,           // 过期时间
+            playerId,
+            sessionId,
+            socketId: client.id,
+            resumed: resumeMatched === true,
+            connected: true,
+            detachedAt: null,
+            expireAt: null,
         };
         
         // 清除过期定时器
@@ -90,12 +86,12 @@ let WorldSessionService = class WorldSessionService {
         
         // 移除过期绑定
         this.expiredBindings.delete(playerId);
-        
-        // 缓存新的会话绑定
+        if (previous?.sessionId && previous.sessionId !== sessionId) {
+            this.bindingBySessionId.delete(previous.sessionId);
+        }
         this.bindingBySocketId.set(client.id, binding);
         this.bindingByPlayerId.set(playerId, binding);
-        
-        // 处理之前的会话（如果存在且已连接）
+        this.bindingBySessionId.set(sessionId, binding);
         if (previous && previous.connected && previous.socketId && previous.socketId !== client.id) {
             // 移除旧的会话绑定
             this.bindingBySocketId.delete(previous.socketId);
@@ -132,18 +128,38 @@ let WorldSessionService = class WorldSessionService {
             resumed: false,
             connected: false,
             detachedAt,
-            expireAt: null,
+            expireAt: detachedAt + this.sessionDetachExpireMs,
         };
         this.clearExpiry(binding.playerId);
         this.expiredBindings.delete(binding.playerId);
         this.bindingByPlayerId.set(binding.playerId, detachedBinding);
+        this.bindingBySessionId.set(detachedBinding.sessionId, detachedBinding);
+        this.scheduleExpiry(detachedBinding);
         return detachedBinding;
     }
     getBinding(playerId) {
         return this.bindingByPlayerId.get(playerId) ?? null;
     }
+    getBindingBySessionId(sessionId) {
+        const normalizedSessionId = typeof sessionId === 'string' ? sessionId.trim() : '';
+        if (!normalizedSessionId) {
+            return null;
+        }
+        return this.bindingBySessionId.get(normalizedSessionId) ?? null;
+    }
+    getDetachedBindingBySessionId(sessionId) {
+        const binding = this.getBindingBySessionId(sessionId);
+        if (!binding || binding.connected === true) {
+            return null;
+        }
+        return binding;
+    }
     getBindingBySocketId(socketId) {
         return this.bindingBySocketId.get(socketId) ?? null;
+    }
+    createGuestPlayerId() {
+        const sequence = this.nextGuestPlayerSequence++;
+        return `guest_${Date.now().toString(36)}_${sequence.toString(36)}`;
     }
     getSocketByPlayerId(playerId) {
         const binding = this.bindingByPlayerId.get(playerId);
@@ -193,6 +209,7 @@ let WorldSessionService = class WorldSessionService {
         this.bindingByPlayerId.delete(normalizedPlayerId);
         this.clearExpiry(normalizedPlayerId);
         this.expiredBindings.delete(normalizedPlayerId);
+        this.bindingBySessionId.delete(binding.sessionId);
         if (binding.socketId) {
             this.bindingBySocketId.delete(binding.socketId);
             const socket = this.socketsById.get(binding.socketId) ?? null;
@@ -225,6 +242,7 @@ let WorldSessionService = class WorldSessionService {
                 return;
             }
             this.bindingByPlayerId.delete(binding.playerId);
+            this.bindingBySessionId.delete(current.sessionId);
             this.expiredBindings.set(binding.playerId, current);
             this.expiryTimerByPlayerId.delete(binding.playerId);
         }, delay);

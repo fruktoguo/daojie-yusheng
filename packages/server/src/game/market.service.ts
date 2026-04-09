@@ -57,11 +57,18 @@ interface MarketMutationContext {
 export interface MarketActionResult {
   affectedPlayerIds: string[];
   messages: MarketMessage[];
+  privateStatePlayerIds: string[];
+  touchedItemIds: string[];
+  tradeHistoryPlayerIds: string[];
 }
 
 @Injectable()
 export class MarketService implements OnModuleInit {
   private readonly logger = new Logger(MarketService.name);
+  private static readonly MARKET_BIGINT_COLUMN_TABLES = [
+    { table: 'market_orders', column: 'unitPrice' },
+    { table: 'market_trade_history', column: 'unitPrice' },
+  ] as const;
   private static readonly TRADE_HISTORY_VISIBLE_LIMIT = 100;
   private static readonly TRADE_HISTORY_PAGE_SIZE = 10;
   private openOrders: MarketOrderEntity[] = [];
@@ -80,6 +87,7 @@ export class MarketService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
+    await this.ensureMarketUnitPriceCapacity();
     await this.reloadOpenOrders();
   }
 
@@ -278,6 +286,8 @@ export class MarketService implements OnModuleInit {
     context.touchedOnlinePlayerIds.add(player.id);
 
     const result = this.createEmptyResult(player.id);
+    this.touchPrivateStatePlayer(result, player.id);
+    this.touchItem(result, orderItem.itemId);
     let remaining = removed.count;
     const buyOrders = this.getSortedOrders(itemKey, 'buy')
       .filter((order) => order.ownerId !== player.id && order.unitPrice >= unitPrice);
@@ -300,6 +310,9 @@ export class MarketService implements OnModuleInit {
         quantity: tradeQuantity,
         unitPrice: tradePrice,
       }, context);
+      this.touchPrivateStatePlayer(result, buyOrder.ownerId);
+      this.touchTradeHistoryPlayer(result, buyOrder.ownerId);
+      this.touchTradeHistoryPlayer(result, player.id);
       remaining -= tradeQuantity;
       buyOrder.remainingQuantity -= tradeQuantity;
       buyOrder.updatedAt = Date.now();
@@ -371,6 +384,8 @@ export class MarketService implements OnModuleInit {
     context.touchedOnlinePlayerIds.add(player.id);
 
     const result = this.createEmptyResult(player.id);
+    this.touchPrivateStatePlayer(result, player.id);
+    this.touchItem(result, orderItem.itemId);
     let remaining = quantity;
     const sellOrders = this.getSortedOrders(itemKey, 'sell')
       .filter((order) => order.ownerId !== player.id && order.unitPrice <= unitPrice);
@@ -393,6 +408,9 @@ export class MarketService implements OnModuleInit {
         quantity: tradeQuantity,
         unitPrice: tradePrice,
       }, context);
+      this.touchPrivateStatePlayer(result, sellOrder.ownerId);
+      this.touchTradeHistoryPlayer(result, player.id);
+      this.touchTradeHistoryPlayer(result, sellOrder.ownerId);
       const refund = tradeQuantity * Math.max(0, unitPrice - tradePrice);
       if (refund > 0) {
         await this.deliverItemToPlayer(player.id, this.createCurrencyItem(refund), context);
@@ -463,8 +481,10 @@ export class MarketService implements OnModuleInit {
     context.touchedOnlinePlayerIds.add(player.id);
 
     const result = this.createEmptyResult(player.id);
+    this.touchPrivateStatePlayer(result, player.id);
     let remaining = quantity;
     const item = this.cloneOrderItem(sells[0]);
+    this.touchItem(result, item.itemId);
 
     for (const sellOrder of sells) {
       if (remaining <= 0) {
@@ -484,6 +504,9 @@ export class MarketService implements OnModuleInit {
         quantity: tradeQuantity,
         unitPrice: tradePrice,
       }, context);
+      this.touchPrivateStatePlayer(result, sellOrder.ownerId);
+      this.touchTradeHistoryPlayer(result, player.id);
+      this.touchTradeHistoryPlayer(result, sellOrder.ownerId);
       sellOrder.remainingQuantity -= tradeQuantity;
       sellOrder.updatedAt = Date.now();
       remaining -= tradeQuantity;
@@ -542,8 +565,10 @@ export class MarketService implements OnModuleInit {
     context.touchedOnlinePlayerIds.add(player.id);
 
     const result = this.createEmptyResult(player.id);
+    this.touchPrivateStatePlayer(result, player.id);
     let remaining = quantity;
     let totalIncome = 0;
+    this.touchItem(result, orderItem.itemId);
 
     for (const buyOrder of buys) {
       if (remaining <= 0) {
@@ -563,6 +588,9 @@ export class MarketService implements OnModuleInit {
         quantity: tradeQuantity,
         unitPrice: tradePrice,
       }, context);
+      this.touchPrivateStatePlayer(result, buyOrder.ownerId);
+      this.touchTradeHistoryPlayer(result, buyOrder.ownerId);
+      this.touchTradeHistoryPlayer(result, player.id);
       buyOrder.remainingQuantity -= tradeQuantity;
       buyOrder.updatedAt = Date.now();
       remaining -= tradeQuantity;
@@ -600,10 +628,13 @@ export class MarketService implements OnModuleInit {
       await this.deliverItemToPlayer(player.id, this.createCurrencyItem(order.remainingQuantity * order.unitPrice), context);
     }
 
+    const result = this.singleMessage(player.id, '订单已取消，剩余托管物已退回你的坊市托管仓。');
+    this.touchPrivateStatePlayer(result, player.id);
+    this.touchItem(result, this.cloneOrderItem(order).itemId);
     order.updatedAt = Date.now();
     await this.persistOrderState(order, 'cancelled', context);
     this.compactOpenOrders();
-    return this.singleMessage(player.id, '订单已取消，剩余托管物已退回你的坊市托管仓。');
+    return result;
   }
 
   async claimStorage(player: PlayerState): Promise<MarketActionResult> {
@@ -635,10 +666,18 @@ export class MarketService implements OnModuleInit {
     if (movedCount === 0) {
       return this.singleMessage(player.id, '背包空间不足，托管仓物品暂时无法领取。');
     }
+    const result = this.singleMessage(
+      player.id,
+      nextItems.length > 0
+        ? `已领取部分托管物，共 ${movedCount} 件，其余因背包空间不足仍保留在坊市托管仓。`
+        : `已领取坊市托管仓中的全部物品，共 ${movedCount} 件。`,
+      'loot',
+    );
+    this.touchPrivateStatePlayer(result, player.id);
     if (nextItems.length > 0) {
-      return this.singleMessage(player.id, `已领取部分托管物，共 ${movedCount} 件，其余因背包空间不足仍保留在坊市托管仓。`, 'loot');
+      return result;
     }
-    return this.singleMessage(player.id, `已领取坊市托管仓中的全部物品，共 ${movedCount} 件。`, 'loot');
+    return result;
   }
 
   private buildListedItems(): MarketListedItemView[] {
@@ -955,6 +994,48 @@ export class MarketService implements OnModuleInit {
     return unitPrice;
   }
 
+  private async ensureMarketUnitPriceCapacity(): Promise<void> {
+    const tableNames = [...new Set(MarketService.MARKET_BIGINT_COLUMN_TABLES.map((entry) => entry.table))];
+    const columnNames = [...new Set(MarketService.MARKET_BIGINT_COLUMN_TABLES.map((entry) => entry.column))];
+    const rows = await this.marketOrderRepo.query(`
+      SELECT table_name, column_name, data_type
+      FROM information_schema.columns
+      WHERE table_schema = current_schema()
+        AND table_name = ANY($1::text[])
+        AND column_name = ANY($2::text[])
+    `, [tableNames, columnNames]);
+
+    const columnsNeedingUpgrade = new Set<string>();
+    for (const row of rows as Array<{ table_name?: unknown; column_name?: unknown; data_type?: unknown }>) {
+      if (row.data_type === 'integer'
+        && typeof row.table_name === 'string'
+        && typeof row.column_name === 'string') {
+        columnsNeedingUpgrade.add(`${row.table_name}.${row.column_name}`);
+      }
+    }
+
+    if (columnsNeedingUpgrade.size === 0) {
+      return;
+    }
+
+    for (const entry of MarketService.MARKET_BIGINT_COLUMN_TABLES) {
+      const key = `${entry.table}.${entry.column}`;
+      if (!columnsNeedingUpgrade.has(key)) {
+        continue;
+      }
+      await this.marketOrderRepo.query(`
+        ALTER TABLE ${this.quotePgIdentifier(entry.table)}
+        ALTER COLUMN ${this.quotePgIdentifier(entry.column)} TYPE bigint
+      `);
+    }
+
+    this.logger.warn(`已将市场表 unitPrice 字段升级为 bigint: ${[...columnsNeedingUpgrade].join(', ')}`);
+  }
+
+  private quotePgIdentifier(value: string): string {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+
   private consumeCurrencyFromInventory(player: PlayerState, count: number): boolean {
     if (count <= 0) {
       return true;
@@ -1155,6 +1236,9 @@ export class MarketService implements OnModuleInit {
     return {
       affectedPlayerIds: [playerId],
       messages: [],
+      privateStatePlayerIds: [],
+      touchedItemIds: [],
+      tradeHistoryPlayerIds: [],
     };
   }
 
@@ -1162,6 +1246,9 @@ export class MarketService implements OnModuleInit {
     return {
       affectedPlayerIds: [playerId],
       messages: [{ playerId, text, kind }],
+      privateStatePlayerIds: [],
+      touchedItemIds: [],
+      tradeHistoryPlayerIds: [],
     };
   }
 
@@ -1174,6 +1261,24 @@ export class MarketService implements OnModuleInit {
   private pushMessage(result: MarketActionResult, playerId: string, text: string, kind: 'system' | 'loot' = 'system'): void {
     result.messages.push({ playerId, text, kind });
     this.touchAffectedPlayer(result, playerId);
+  }
+
+  private touchPrivateStatePlayer(result: MarketActionResult, playerId: string): void {
+    if (!result.privateStatePlayerIds.includes(playerId)) {
+      result.privateStatePlayerIds.push(playerId);
+    }
+  }
+
+  private touchItem(result: MarketActionResult, itemId: string): void {
+    if (!result.touchedItemIds.includes(itemId)) {
+      result.touchedItemIds.push(itemId);
+    }
+  }
+
+  private touchTradeHistoryPlayer(result: MarketActionResult, playerId: string): void {
+    if (!result.tradeHistoryPlayerIds.includes(playerId)) {
+      result.tradeHistoryPlayerIds.push(playerId);
+    }
   }
 
   private async runExclusiveMarketMutation(

@@ -12,8 +12,35 @@ import { detailModalHost } from './detail-modal-host';
 import { SUGGESTION_PANEL_REFRESH_INTERVAL_MS } from '../constants/ui/suggestion';
 
 type SuggestionListTab = 'all' | 'mine';
+type SuggestionEditableFieldId = 'suggest-title' | 'suggest-desc' | 'suggest-reply-content' | 'suggest-search';
 
 const SUGGESTION_PAGE_SIZE = 6;
+const SUGGESTION_EDITABLE_FIELD_IDS = new Set<SuggestionEditableFieldId>([
+  'suggest-title',
+  'suggest-desc',
+  'suggest-reply-content',
+  'suggest-search',
+]);
+
+type SuggestionRenderState = {
+  focusedFieldId: SuggestionEditableFieldId | null;
+  selectionStart: number | null;
+  selectionEnd: number | null;
+  fieldScrollTop: number;
+  listScrollTop: number;
+  threadScrollTop: number;
+};
+
+type SuggestionPageData = {
+  items: Suggestion[];
+  total: number;
+  page: number;
+  totalPages: number;
+};
+
+type SuggestionModalMeta = {
+  subtitle: string;
+};
 
 /** 意见收集面板 */
 export class SuggestionPanel {
@@ -29,6 +56,7 @@ export class SuggestionPanel {
   private pageByTab: Record<SuggestionListTab, number> = { all: 1, mine: 1 };
   private lastSuggestionSyncAt = 0;
   private lastRefreshRequestAt = 0;
+  private delegatedEventsBound = false;
 
   constructor(private readonly socket: SocketManager) {
     this.setupGlobalListeners();
@@ -61,10 +89,11 @@ export class SuggestionPanel {
   open(): void {
     this.requestSuggestionsIfNeeded();
     this.ensureSelection();
+    const meta = this.buildModalMeta();
     detailModalHost.open({
       ownerId: SuggestionPanel.MODAL_OWNER,
       title: '意见收集',
-      subtitle: this.buildSubtitle(),
+      subtitle: meta.subtitle,
       variantClass: 'detail-modal--suggestion',
       hint: '点击空白处关闭',
       bodyHtml: this.buildBodyHtml(),
@@ -102,17 +131,17 @@ export class SuggestionPanel {
         <div class="suggestion-summary-grid">
           <div class="suggestion-stat">
             <div class="suggestion-stat-label">待处理</div>
-            <div class="suggestion-stat-value">${pendingCount}</div>
+            <div class="suggestion-stat-value" data-suggestion-summary-pending="true">${pendingCount}</div>
             <div class="suggestion-stat-note">尚未归档的意见会优先排在列表前方。</div>
           </div>
           <div class="suggestion-stat">
             <div class="suggestion-stat-label">我的意见</div>
-            <div class="suggestion-stat-value">${mySuggestions.length}</div>
+            <div class="suggestion-stat-value" data-suggestion-summary-mine="true">${mySuggestions.length}</div>
             <div class="suggestion-stat-note">只展示你自己发起的意见与后续往来记录。</div>
           </div>
           <div class="suggestion-stat">
             <div class="suggestion-stat-label">开发者未读回复</div>
-            <div class="suggestion-stat-value">${unreadCount}</div>
+            <div class="suggestion-stat-value" data-suggestion-summary-unread="true">${unreadCount}</div>
             <div class="suggestion-stat-note">进入对应意见详情后，红点会随已读状态一并消失。</div>
           </div>
         </div>
@@ -141,10 +170,7 @@ export class SuggestionPanel {
             <div class="suggestion-pane-head">
               <div class="suggestion-tab-row">
                 <button class="suggestion-tab-btn ${this.activeTab === 'all' ? 'active' : ''}" data-suggestion-tab="all" type="button">全部意见</button>
-                <button class="suggestion-tab-btn ${this.activeTab === 'mine' ? 'active' : ''}" data-suggestion-tab="mine" type="button">
-                  我的意见
-                  ${unreadCount > 0 ? `<span class="suggestion-inline-dot" aria-hidden="true">${unreadCount}</span>` : ''}
-                </button>
+                <button class="suggestion-tab-btn ${this.activeTab === 'mine' ? 'active' : ''}" data-suggestion-tab="mine" type="button">${this.renderMineTabLabel(unreadCount)}</button>
               </div>
               <div class="suggestion-pane-note">搜索与分页</div>
             </div>
@@ -157,11 +183,11 @@ export class SuggestionPanel {
                 placeholder="搜索标题、描述或回复内容"
                 value="${escapeHtmlAttr(this.searchKeyword)}"
               />
-              <div class="suggestion-toolbar-note">
+              <div class="suggestion-toolbar-note" data-suggestion-toolbar-note="true">
                 共 ${pageData.total} 条，第 ${pageData.page} / ${pageData.totalPages} 页
               </div>
             </div>
-            <div class="suggestion-list" data-list-kind="${escapeHtmlAttr(this.activeTab)}">
+            <div class="suggestion-list" data-suggestion-list="true" data-list-kind="${escapeHtmlAttr(this.activeTab)}">
               ${pageData.items.length > 0
                 ? pageData.items.map((suggestion) => this.renderSuggestionListEntry(suggestion)).join('')
                 : `<div class="empty-hint">${this.activeTab === 'mine' ? '暂无符合条件的我的意见' : '暂无符合条件的意见'}</div>`}
@@ -177,7 +203,7 @@ export class SuggestionPanel {
               <div class="panel-section-title">意见详情</div>
               <div class="suggestion-pane-note">单实例会话视图</div>
             </div>
-            <div class="suggestion-thread" data-thread-kind="detail">
+            <div class="suggestion-thread" data-suggestion-thread="true" data-thread-kind="detail">
               ${selectedSuggestion ? this.renderSuggestionDetail(selectedSuggestion) : '<div class="empty-hint">请选择一条意见查看详情与回复记录</div>'}
             </div>
           </section>
@@ -301,133 +327,13 @@ export class SuggestionPanel {
   }
 
   private bindEvents(el: HTMLElement): void {
-    const titleInput = el.querySelector<HTMLInputElement>('#suggest-title');
-    const descInput = el.querySelector<HTMLTextAreaElement>('#suggest-desc');
-    const replyInput = el.querySelector<HTMLTextAreaElement>('#suggest-reply-content');
-    const searchInput = el.querySelector<HTMLInputElement>('#suggest-search');
-    const submitButton = el.querySelector<HTMLButtonElement>('#btn-submit-suggest');
-    const submitReplyButton = el.querySelector<HTMLButtonElement>('#btn-submit-suggest-reply');
-
-    titleInput?.addEventListener('input', () => {
-      this.draftTitle = titleInput.value;
-    });
-    descInput?.addEventListener('input', () => {
-      this.draftDescription = descInput.value;
-    });
-    replyInput?.addEventListener('input', () => {
-      this.replyDraft = replyInput.value;
-    });
-    searchInput?.addEventListener('input', () => {
-      this.searchKeyword = searchInput.value;
-      this.pageByTab[this.activeTab] = 1;
-      this.ensureSelection();
-      this.render();
-    });
-
-    submitButton?.addEventListener('click', () => {
-      if (!titleInput || !descInput) {
-        return;
-      }
-      const title = titleInput.value.trim();
-      const description = descInput.value.trim();
-
-      if (!title) {
-        alert('请输入标题');
-        return;
-      }
-      if (!description) {
-        alert('请输入建议描述');
-        return;
-      }
-
-      this.socket.emit(NEXT_C2S.CreateSuggestion, { title, description } as C2S_CreateSuggestion);
-      this.draftTitle = '';
-      this.draftDescription = '';
-      titleInput.value = '';
-      descInput.value = '';
-    });
-
-    submitReplyButton?.addEventListener('click', () => {
-      const selectedSuggestion = this.getSelectedSuggestion();
-      if (!selectedSuggestion || !replyInput) {
-        return;
-      }
-      const content = replyInput.value.trim();
-      if (!content) {
-        alert('请输入回复内容');
-        return;
-      }
-      if (!this.canCurrentPlayerReply(selectedSuggestion)) {
-        alert('当前还不能回复，请等待开发者回复后再补充。');
-        return;
-      }
-
-      this.socket.emit(NEXT_C2S.ReplySuggestion, {
-        suggestionId: selectedSuggestion.id,
-        content,
-      } as C2S_ReplySuggestion);
-      this.replyDraft = '';
-      replyInput.value = '';
-    });
-
-    el.querySelectorAll<HTMLElement>('.suggestion-vote-btn').forEach((btn) => {
-      btn.addEventListener('click', (event) => {
-        event.stopPropagation();
-        const id = btn.dataset.id;
-        const vote = btn.dataset.vote;
-        if (!id || (vote !== 'up' && vote !== 'down')) {
-          return;
-        }
-        this.socket.emit(NEXT_C2S.VoteSuggestion, { suggestionId: id, vote } as C2S_VoteSuggestion);
-      });
-    });
-
-    el.querySelectorAll<HTMLButtonElement>('[data-suggestion-tab]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const tab = button.dataset.suggestionTab;
-        if (tab !== 'all' && tab !== 'mine') {
-          return;
-        }
-        this.activeTab = tab;
-        this.ensureSelection();
-        this.render();
-      });
-    });
-
-    el.querySelectorAll<HTMLElement>('[data-suggestion-select]').forEach((node) => {
-      const selectSuggestion = () => {
-        const suggestionId = node.dataset.suggestionSelect;
-        if (!suggestionId) {
-          return;
-        }
-        this.selectedSuggestionId = suggestionId;
-        this.replyDraft = '';
-        this.markSuggestionReadIfNeeded(suggestionId);
-        this.render();
-      };
-      node.addEventListener('click', selectSuggestion);
-      node.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          selectSuggestion();
-        }
-      });
-    });
-
-    el.querySelectorAll<HTMLButtonElement>('[data-suggestion-page-action]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const action = button.dataset.suggestionPageAction;
-        const pageData = this.getPagedSuggestions(this.activeTab);
-        if (action === 'prev' && pageData.page > 1) {
-          this.pageByTab[this.activeTab] -= 1;
-        }
-        if (action === 'next' && pageData.page < pageData.totalPages) {
-          this.pageByTab[this.activeTab] += 1;
-        }
-        this.ensureSelection();
-        this.render();
-      });
-    });
+    if (this.delegatedEventsBound) {
+      return;
+    }
+    this.delegatedEventsBound = true;
+    el.addEventListener('input', (event) => this.handleInput(event));
+    el.addEventListener('click', (event) => this.handleClick(event));
+    el.addEventListener('keydown', (event) => this.handleKeyDown(event));
   }
 
   private render(): void {
@@ -442,24 +348,80 @@ export class SuggestionPanel {
 
     this.captureDraft(body);
     this.ensureSelection();
+    const renderState = this.captureRenderState(body);
+    if (!this.patchBody(body)) {
+      const meta = this.buildModalMeta();
+      detailModalHost.open({
+        ownerId: SuggestionPanel.MODAL_OWNER,
+        title: '意见收集',
+        subtitle: meta.subtitle,
+        variantClass: 'detail-modal--suggestion',
+        hint: '点击空白处关闭',
+        bodyHtml: this.buildBodyHtml(),
+        onAfterRender: (el: HTMLElement) => this.bindEvents(el),
+      });
+    }
+    this.restoreRenderState(body, renderState);
+  }
+
+  private captureRenderState(body: HTMLElement): SuggestionRenderState {
+    const activeElement = document.activeElement;
     const listScrollTop = body.querySelector<HTMLElement>(`[data-list-kind="${this.activeTab}"]`)?.scrollTop ?? 0;
     const threadScrollTop = body.querySelector<HTMLElement>('[data-thread-kind="detail"]')?.scrollTop ?? 0;
-
-    const subtitle = document.getElementById('detail-modal-subtitle');
-    if (subtitle) {
-      subtitle.textContent = this.buildSubtitle();
-      subtitle.classList.toggle('hidden', !subtitle.textContent);
+    if (
+      !(activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement)
+      || !body.contains(activeElement)
+      || !SUGGESTION_EDITABLE_FIELD_IDS.has(activeElement.id as SuggestionEditableFieldId)
+    ) {
+      return {
+        focusedFieldId: null,
+        selectionStart: null,
+        selectionEnd: null,
+        fieldScrollTop: 0,
+        listScrollTop,
+        threadScrollTop,
+      };
     }
-    body.innerHTML = this.buildBodyHtml();
-    this.bindEvents(body);
+    return {
+      focusedFieldId: activeElement.id as SuggestionEditableFieldId,
+      selectionStart: activeElement.selectionStart,
+      selectionEnd: activeElement.selectionEnd,
+      fieldScrollTop: activeElement instanceof HTMLTextAreaElement ? activeElement.scrollTop : 0,
+      listScrollTop,
+      threadScrollTop,
+    };
+  }
 
+  private restoreRenderState(body: HTMLElement, state: SuggestionRenderState): void {
     const list = body.querySelector<HTMLElement>(`[data-list-kind="${this.activeTab}"]`);
     const thread = body.querySelector<HTMLElement>('[data-thread-kind="detail"]');
     if (list) {
-      list.scrollTop = listScrollTop;
+      list.scrollTop = state.listScrollTop;
     }
     if (thread) {
-      thread.scrollTop = threadScrollTop;
+      thread.scrollTop = state.threadScrollTop;
+    }
+    if (!state.focusedFieldId) {
+      return;
+    }
+    const field = body.querySelector<HTMLInputElement | HTMLTextAreaElement>(`#${state.focusedFieldId}`);
+    if (!field || field.disabled) {
+      return;
+    }
+    try {
+      field.focus({ preventScroll: true });
+    } catch {
+      field.focus();
+    }
+    if (typeof state.selectionStart === 'number' && typeof state.selectionEnd === 'number') {
+      try {
+        field.setSelectionRange(state.selectionStart, state.selectionEnd);
+      } catch {
+        // ignore unsupported selection restoration
+      }
+    }
+    if (field instanceof HTMLTextAreaElement) {
+      field.scrollTop = state.fieldScrollTop;
     }
   }
 
@@ -473,6 +435,235 @@ export class SuggestionPanel {
   private buildSubtitle(): string {
     const myUnreadCount = this.getMySuggestions().filter((suggestion) => this.hasUnreadGmReply(suggestion)).length;
     return `待处理 ${this.suggestions.filter((suggestion) => suggestion.status === 'pending').length} · 我的意见 ${this.getMySuggestions().length} · 未读回复 ${myUnreadCount}`;
+  }
+
+  private buildModalMeta(): SuggestionModalMeta {
+    return {
+      subtitle: this.buildSubtitle(),
+    };
+  }
+
+  private renderMineTabLabel(unreadCount: number): string {
+    return `我的意见${unreadCount > 0 ? `<span class="suggestion-inline-dot" aria-hidden="true">${unreadCount}</span>` : ''}`;
+  }
+
+  private patchBody(body: HTMLElement): boolean {
+    if (!body.querySelector('.suggestion-shell')) {
+      return false;
+    }
+
+    const pendingNode = body.querySelector<HTMLElement>('[data-suggestion-summary-pending="true"]');
+    const mineNode = body.querySelector<HTMLElement>('[data-suggestion-summary-mine="true"]');
+    const unreadNode = body.querySelector<HTMLElement>('[data-suggestion-summary-unread="true"]');
+    const toolbarNoteNode = body.querySelector<HTMLElement>('[data-suggestion-toolbar-note="true"]');
+    const listRoot = body.querySelector<HTMLElement>('[data-suggestion-list="true"]');
+    const threadRoot = body.querySelector<HTMLElement>('[data-suggestion-thread="true"]');
+    const allTabButton = body.querySelector<HTMLButtonElement>('[data-suggestion-tab="all"]');
+    const mineTabButton = body.querySelector<HTMLButtonElement>('[data-suggestion-tab="mine"]');
+    const prevPageButton = body.querySelector<HTMLButtonElement>('[data-suggestion-page-action="prev"]');
+    const nextPageButton = body.querySelector<HTMLButtonElement>('[data-suggestion-page-action="next"]');
+    if (!pendingNode || !mineNode || !unreadNode || !toolbarNoteNode || !listRoot || !threadRoot || !allTabButton || !mineTabButton || !prevPageButton || !nextPageButton) {
+      return false;
+    }
+
+    const pendingCount = this.suggestions.filter((suggestion) => suggestion.status === 'pending').length;
+    const mySuggestions = this.getMySuggestions();
+    const unreadCount = mySuggestions.filter((suggestion) => this.hasUnreadGmReply(suggestion)).length;
+    const pageData = this.getPagedSuggestions(this.activeTab);
+    const selectedSuggestion = this.getSelectedSuggestion();
+
+    pendingNode.textContent = String(pendingCount);
+    mineNode.textContent = String(mySuggestions.length);
+    unreadNode.textContent = String(unreadCount);
+    toolbarNoteNode.textContent = `共 ${pageData.total} 条，第 ${pageData.page} / ${pageData.totalPages} 页`;
+
+    allTabButton.classList.toggle('active', this.activeTab === 'all');
+    mineTabButton.classList.toggle('active', this.activeTab === 'mine');
+    mineTabButton.innerHTML = this.renderMineTabLabel(unreadCount);
+
+    listRoot.dataset.listKind = this.activeTab;
+    listRoot.innerHTML = pageData.items.length > 0
+      ? pageData.items.map((suggestion) => this.renderSuggestionListEntry(suggestion)).join('')
+      : `<div class="empty-hint">${this.activeTab === 'mine' ? '暂无符合条件的我的意见' : '暂无符合条件的意见'}</div>`;
+    threadRoot.innerHTML = selectedSuggestion
+      ? this.renderSuggestionDetail(selectedSuggestion)
+      : '<div class="empty-hint">请选择一条意见查看详情与回复记录</div>';
+
+    prevPageButton.disabled = pageData.page <= 1;
+    nextPageButton.disabled = pageData.page >= pageData.totalPages;
+    this.patchModalMeta(this.buildModalMeta());
+    return true;
+  }
+
+  private patchModalMeta(meta: SuggestionModalMeta): void {
+    const subtitle = document.getElementById('detail-modal-subtitle');
+    if (subtitle) {
+      subtitle.textContent = meta.subtitle;
+      subtitle.classList.toggle('hidden', meta.subtitle.length === 0);
+    }
+  }
+
+  private handleInput(event: Event): void {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) {
+      return;
+    }
+    if (target.id === 'suggest-title') {
+      this.draftTitle = target.value;
+      return;
+    }
+    if (target.id === 'suggest-desc') {
+      this.draftDescription = target.value;
+      return;
+    }
+    if (target.id === 'suggest-reply-content') {
+      this.replyDraft = target.value;
+      return;
+    }
+    if (target.id === 'suggest-search') {
+      this.searchKeyword = target.value;
+      this.pageByTab[this.activeTab] = 1;
+      this.ensureSelection();
+      this.render();
+    }
+  }
+
+  private handleClick(event: Event): void {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    const submitButton = target.closest<HTMLButtonElement>('#btn-submit-suggest');
+    if (submitButton) {
+      const title = this.draftTitle.trim();
+      const description = this.draftDescription.trim();
+      if (!title) {
+        alert('请输入标题');
+        return;
+      }
+      if (!description) {
+        alert('请输入建议描述');
+        return;
+      }
+      this.socket.emit(NEXT_C2S.CreateSuggestion, { title, description } as C2S_CreateSuggestion);
+      this.draftTitle = '';
+      this.draftDescription = '';
+      const body = document.getElementById('detail-modal-body');
+      const titleInput = body?.querySelector<HTMLInputElement>('#suggest-title');
+      const descInput = body?.querySelector<HTMLTextAreaElement>('#suggest-desc');
+      if (titleInput) {
+        titleInput.value = '';
+      }
+      if (descInput) {
+        descInput.value = '';
+      }
+      return;
+    }
+
+    const submitReplyButton = target.closest<HTMLButtonElement>('#btn-submit-suggest-reply');
+    if (submitReplyButton) {
+      const selectedSuggestion = this.getSelectedSuggestion();
+      const content = this.replyDraft.trim();
+      if (!selectedSuggestion) {
+        return;
+      }
+      if (!content) {
+        alert('请输入回复内容');
+        return;
+      }
+      if (!this.canCurrentPlayerReply(selectedSuggestion)) {
+        alert('当前还不能回复，请等待开发者回复后再补充。');
+        return;
+      }
+      this.socket.emit(NEXT_C2S.ReplySuggestion, {
+        suggestionId: selectedSuggestion.id,
+        content,
+      } as C2S_ReplySuggestion);
+      this.replyDraft = '';
+      const body = document.getElementById('detail-modal-body');
+      const replyInput = body?.querySelector<HTMLTextAreaElement>('#suggest-reply-content');
+      if (replyInput) {
+        replyInput.value = '';
+      }
+      return;
+    }
+
+    const voteButton = target.closest<HTMLElement>('.suggestion-vote-btn');
+    if (voteButton) {
+      event.stopPropagation();
+      const id = voteButton.dataset.id;
+      const vote = voteButton.dataset.vote;
+      if (!id || (vote !== 'up' && vote !== 'down')) {
+        return;
+      }
+      this.socket.emit(NEXT_C2S.VoteSuggestion, { suggestionId: id, vote } as C2S_VoteSuggestion);
+      return;
+    }
+
+    const tabButton = target.closest<HTMLButtonElement>('[data-suggestion-tab]');
+    if (tabButton) {
+      const tab = tabButton.dataset.suggestionTab;
+      if (tab !== 'all' && tab !== 'mine') {
+        return;
+      }
+      this.activeTab = tab;
+      this.ensureSelection();
+      this.render();
+      return;
+    }
+
+    const pageButton = target.closest<HTMLButtonElement>('[data-suggestion-page-action]');
+    if (pageButton) {
+      const action = pageButton.dataset.suggestionPageAction;
+      const pageData = this.getPagedSuggestions(this.activeTab);
+      if (action === 'prev' && pageData.page > 1) {
+        this.pageByTab[this.activeTab] -= 1;
+      }
+      if (action === 'next' && pageData.page < pageData.totalPages) {
+        this.pageByTab[this.activeTab] += 1;
+      }
+      this.ensureSelection();
+      this.render();
+      return;
+    }
+
+    const suggestionEntry = target.closest<HTMLElement>('[data-suggestion-select]');
+    if (!suggestionEntry) {
+      return;
+    }
+    const suggestionId = suggestionEntry.dataset.suggestionSelect;
+    if (!suggestionId) {
+      return;
+    }
+    this.selectSuggestion(suggestionId);
+  }
+
+  private handleKeyDown(event: Event): void {
+    if (!(event instanceof KeyboardEvent)) {
+      return;
+    }
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return;
+    }
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+    const suggestionEntry = target.closest<HTMLElement>('[data-suggestion-select]');
+    const suggestionId = suggestionEntry?.dataset.suggestionSelect;
+    if (!suggestionId) {
+      return;
+    }
+    event.preventDefault();
+    this.selectSuggestion(suggestionId);
+  }
+
+  private selectSuggestion(suggestionId: string): void {
+    this.selectedSuggestionId = suggestionId;
+    this.replyDraft = '';
+    this.markSuggestionReadIfNeeded(suggestionId);
+    this.render();
   }
 
   private getMySuggestions(): Suggestion[] {

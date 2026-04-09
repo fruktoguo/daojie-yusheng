@@ -57,6 +57,21 @@
 - 日常 `push main` 不会覆盖 `prod`
 - 正式服务器如果拉的是 `prod`，就只会在你手动发布后才更新
 
+## 正式服部署链路
+
+1. 先完成 `Publish Prod Image`
+2. 打开 GitHub 仓库的 `Actions`
+3. 选择 `Deploy Prod Stack`
+4. 点击 `Run workflow`
+5. 工作流会用 `prod` 标签重新部署正式 stack
+6. 部署后会额外校验 `daojie-yusheng_backup-worker` 服务是否在线
+7. 只有当 backup worker 已进入 Running，且游戏服所在节点看到的备份卷 `worker-heartbeat.json` 是新鲜心跳时，工作流才会通过
+
+说明：
+
+- 这一步不会重建镜像，只会把正式服更新到当前 `prod` 标签
+- 如果 backup worker 没拉起、反复重启，或写心跳写到了错误目录，工作流会直接失败，避免“游戏服可用但备份已失效”的静默状态
+
 ## 一次性服务器准备
 
 服务器需要：
@@ -97,6 +112,8 @@ docker swarm init
 
 - [docker-stack.yml](../docker-stack.yml)
 - [.github/workflows/deploy.yml](../.github/workflows/deploy.yml)
+- [.github/workflows/deploy-prod-stack.yml](../.github/workflows/deploy-prod-stack.yml)
+- [scripts/verify-backup-worker.sh](../scripts/verify-backup-worker.sh)
 - [packages/server/src/main.ts](../packages/server/src/main.ts)
 - [packages/server/src/health.controller.ts](../packages/server/src/health.controller.ts)
 
@@ -141,7 +158,8 @@ daojie.yuohira.com {
 
 1. 正常提交并 `push main`
 2. 等待 GitHub Actions 自动完成测试镜像构建与测试服部署
-3. 如需重跑测试服部署，可在 GitHub Actions 页面手动运行 `Build And Deploy`
+3. 部署完成后，工作流会自动校验独立 `backup-worker` 是否已正常写入心跳
+4. 如需重跑测试服部署，可在 GitHub Actions 页面手动运行 `Build And Deploy`
 
 正式发布：
 
@@ -151,7 +169,9 @@ daojie.yuohira.com {
 4. 点击 `Run workflow`
 5. 保持分支为 `main` 并执行
 6. 等待镜像推送完成
-7. 通知 Faith 继续使用或拉取 `ghcr.io/fruktoguo/daojie-yusheng-server:prod`
+7. 再运行 `Deploy Prod Stack`
+8. 等待 stack 部署与 backup worker 校验完成
+9. 再通知 Faith 继续使用正式服
 
 ## 回滚
 

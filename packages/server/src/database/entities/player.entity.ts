@@ -16,6 +16,11 @@ import {
   VIEW_RADIUS,
 } from '@mud/shared';
 
+const BIGINT_NUMBER_TRANSFORMER = {
+  to: (value: number): number => value,
+  from: (value: string | number): number => Number(value),
+};
+
 /** 玩家角色存档表，主键为角色存档 ID */
 @Entity('players')
 export class PlayerEntity {
@@ -63,31 +68,31 @@ export class PlayerEntity {
   dead!: boolean;
 
   /** 底蕴，可在获得境界经验时额外转化为经验增益 */
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: 'bigint', transformer: BIGINT_NUMBER_TRANSFORMER, default: 0 })
   foundation!: number;
 
   /** 战斗经验，影响战斗中的命中/闪避优势与普通攻击伤害乘区 */
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: 'bigint', transformer: BIGINT_NUMBER_TRANSFORMER, default: 0 })
   combatExp!: number;
 
   /** 击杀玩家次数 */
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: 'bigint', transformer: BIGINT_NUMBER_TRANSFORMER, default: 0 })
   playerKillCount!: number;
 
   /** 击杀怪物总次数 */
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: 'bigint', transformer: BIGINT_NUMBER_TRANSFORMER, default: 0 })
   monsterKillCount!: number;
 
   /** 击杀精英怪次数 */
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: 'bigint', transformer: BIGINT_NUMBER_TRANSFORMER, default: 0 })
   eliteMonsterKillCount!: number;
 
   /** 击杀 Boss 次数 */
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: 'bigint', transformer: BIGINT_NUMBER_TRANSFORMER, default: 0 })
   bossMonsterKillCount!: number;
 
   /** 死亡次数 */
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: 'bigint', transformer: BIGINT_NUMBER_TRANSFORMER, default: 0 })
   deathCount!: number;
 
   /** 角色初始骨龄（岁） */
@@ -158,6 +163,18 @@ export class PlayerEntity {
   @Column({ type: 'jsonb', default: () => `'[]'` })
   unlockedMinimapIds!: unknown[];
 
+  /** 炼丹技艺等级 */
+  @Column({ type: 'jsonb', default: () => '\'{"level":1,"exp":0,"expToNext":60}\'' })
+  alchemySkill!: unknown;
+
+  /** 玩家保存的简易丹方 */
+  @Column({ type: 'jsonb', default: () => `'[]'` })
+  alchemyPresets!: unknown[];
+
+  /** 当前进行中的炼丹任务 */
+  @Column({ type: 'jsonb', default: () => '\'null\'' })
+  alchemyJob!: unknown | null;
+
   /** 是否开启自动战斗 */
   @Column({ type: 'boolean', default: false })
   autoBattle!: boolean;
@@ -165,6 +182,14 @@ export class PlayerEntity {
   /** 自动战斗使用的技能列表 */
   @Column({ type: 'jsonb', default: () => `'[]'` })
   autoBattleSkills!: unknown[];
+
+  /** 自动使用战斗丹药配置 */
+  @Column({ type: 'jsonb', default: () => `'[]'` })
+  autoUsePills!: unknown[];
+
+  /** 自动战斗索敌方案 */
+  @Column({ type: 'varchar', default: 'auto' })
+  autoBattleTargetingMode!: string;
 
   /** 当前自动战斗锁定的目标引用 */
   @Column({ type: 'varchar', nullable: true })

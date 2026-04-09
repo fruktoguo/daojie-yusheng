@@ -2,21 +2,23 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared-next");
-const SERVER_NEXT_URL = process.env.SERVER_NEXT_URL ?? 'http://127.0.0.1:3111';
-const playerId = process.env.SERVER_NEXT_SMOKE_PLAYER_ID ?? `smoke_${Date.now().toString(36)}`;
+const env_alias_1 = require("../config/env-alias");
+const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
 async function main() {
     const socket = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
         path: '/socket.io',
         transports: ['websocket'],
     });
     const eventLog = [];
+    let playerId = '';
     let initialPanel = null;
     let vitalsDelta = null;
     let inventoryDelta = null;
     socket.on(shared_1.NEXT_S2C.Error, (payload) => {
         throw new Error(`socket error: ${JSON.stringify(payload)}`);
     });
-    socket.on(shared_1.NEXT_S2C.InitSession, () => {
+    socket.on(shared_1.NEXT_S2C.InitSession, (payload) => {
+        playerId = String(payload?.pid ?? '');
         eventLog.push('initSession');
     });
     socket.on(shared_1.NEXT_S2C.MapEnter, () => {
@@ -43,12 +45,11 @@ async function main() {
     });
     await onceConnected(socket);
     socket.emit('n:c:hello', {
-        playerId,
         mapId: 'yunlai_town',
         preferredX: 32,
         preferredY: 5,
     });
-    await waitFor(() => initialPanel !== null && eventLog.includes('initSession') && eventLog.includes('mapEnter'), 4000);
+    await waitFor(() => playerId.length > 0 && initialPanel !== null && eventLog.includes('initSession') && eventLog.includes('mapEnter'), 4000);
     socket.emit('n:c:move', { d: shared_1.Direction.North });
     await delay(1200);
     await postJson(`/runtime/players/${playerId}/vitals`, {

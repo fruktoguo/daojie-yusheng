@@ -277,7 +277,7 @@ export class GmWorldViewer {
       hp: 1, maxHp: 1, qi: 0, dead: false, baseAttrs: {} as any,
       bonuses: [], temporaryBuffs: [], inventory: {} as any,
       equipment: {} as any, techniques: [], quests: [], actions: [],
-      autoBattle: false, autoBattleSkills: [], autoRetaliate: true,
+      autoBattle: false, autoBattleSkills: [], autoUsePills: [], autoRetaliate: true,
       autoIdleCultivation: true, idleTicks: 0,
     } as any;
     this.camera.snap(fakePlayer);

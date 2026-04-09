@@ -16,7 +16,9 @@ const legacy_gm_http_compat_service_1 = require("../compat/legacy/http/legacy-gm
 const map_template_repository_1 = require("../runtime/map/map-template.repository");
 const world_runtime_service_1 = require("../runtime/world/world-runtime.service");
 const player_runtime_service_1 = require("../runtime/player/player-runtime.service");
+const world_legacy_sync_service_1 = require("./world-legacy-sync.service");
 const world_projector_service_1 = require("./world-projector.service");
+const world_sync_protocol_service_1 = require("./world-sync-protocol.service");
 const world_session_service_1 = require("./world-session.service");
 let WorldSyncService = class WorldSyncService {
     worldRuntimeService;
@@ -25,26 +27,21 @@ let WorldSyncService = class WorldSyncService {
     worldSessionService;
     templateRepository;
     mapRuntimeConfigService;
+    worldSyncProtocolService;
+    worldLegacySyncService;
     lastQuestRevisionByPlayerId = new Map();
     syncStateByPlayerId = new Map();
     lootWindowByPlayerId = new Map();
     nextAuxStateByPlayerId = new Map();
-    /**
-     * 构造函数
-     * @param worldRuntimeService 世界运行时服务
-     * @param playerRuntimeService 玩家运行时服务
-     * @param worldProjectorService 世界投影服务
-     * @param worldSessionService 世界会话服务
-     * @param templateRepository 地图模板仓库
-     * @param mapRuntimeConfigService 地图运行时配置服务
-     */
-    constructor(worldRuntimeService, playerRuntimeService, worldProjectorService, worldSessionService, templateRepository, mapRuntimeConfigService) {
+    constructor(worldRuntimeService, playerRuntimeService, worldProjectorService, worldSessionService, templateRepository, mapRuntimeConfigService, worldSyncProtocolService, worldLegacySyncService) {
         this.worldRuntimeService = worldRuntimeService;
         this.playerRuntimeService = playerRuntimeService;
         this.worldProjectorService = worldProjectorService;
         this.worldSessionService = worldSessionService;
         this.templateRepository = templateRepository;
         this.mapRuntimeConfigService = mapRuntimeConfigService;
+        this.worldSyncProtocolService = worldSyncProtocolService;
+        this.worldLegacySyncService = worldLegacySyncService;
     }
     
     /**
@@ -83,11 +80,7 @@ let WorldSyncService = class WorldSyncService {
         
         // 创建初始同步数据包
         const envelope = this.worldProjectorService.createInitialEnvelope(binding, view, player);
-        
-        // 确定协议类型
-        const { protocol, emitNext } = resolveProtocolEmission(socket);
-        
-        // 发送Next协议的数据包
+        const { protocol, emitNext } = this.worldSyncProtocolService.resolveEmission(socket);
         if (emitNext) {
             this.emitNextEnvelope(socket, envelope);
         }
@@ -97,7 +90,7 @@ let WorldSyncService = class WorldSyncService {
             this.emitNextInitialSync(binding.playerId, socket, view, player);
         }
         else {
-            this.emitCompatInitialSync(binding.playerId, socket, view, player);
+            this.worldLegacySyncService.emitInitialSync(this.buildLegacySyncContext(binding.playerId, socket, view, player));
         }
         
         // 发送任务同步数据
@@ -137,11 +130,7 @@ let WorldSyncService = class WorldSyncService {
             
             // 创建增量同步数据包
             const envelope = this.worldProjectorService.createDeltaEnvelope(view, player);
-            
-            // 确定协议类型
-            const { protocol, emitNext } = resolveProtocolEmission(socket);
-            
-            // 发送Next协议的数据包
+            const { protocol, emitNext } = this.worldSyncProtocolService.resolveEmission(socket);
             if (emitNext) {
                 this.emitNextEnvelope(socket, envelope);
             }
@@ -151,7 +140,7 @@ let WorldSyncService = class WorldSyncService {
                 this.emitNextDeltaSync(binding.playerId, socket, view, player);
             }
             else {
-                this.emitCompatDeltaSync(binding.playerId, socket, view, player);
+                this.worldLegacySyncService.emitDeltaSync(this.buildLegacySyncContext(binding.playerId, socket, view, player));
             }
             
             // 检查任务状态是否变化，如果变化则发送任务同步数据
@@ -185,13 +174,7 @@ let WorldSyncService = class WorldSyncService {
         const payload = {
             quests: this.playerRuntimeService.listQuests(playerId),
         };
-        const { emitNext, emitLegacy } = resolveProtocolEmission(socket);
-        if (emitNext) {
-            socket.emit(shared_1.NEXT_S2C.Quests, payload);
-        }
-        if (emitLegacy) {
-            socket.emit(shared_1.S2C.QuestUpdate, payload);
-        }
+        this.worldSyncProtocolService.sendQuestSync(socket, payload);
         this.lastQuestRevisionByPlayerId.set(playerId, revision);
     }
     /**
@@ -263,14 +246,9 @@ let WorldSyncService = class WorldSyncService {
         const payload = {
             window: this.buildLootWindowSyncState(playerId),
         };
-        
-        // 确定协议类型
-        const { emitNext, emitLegacy } = resolveProtocolEmission(socket);
-        
-        // 发送Next协议数据
+        const { emitNext } = this.worldSyncProtocolService.resolveEmission(socket);
+        this.worldSyncProtocolService.sendLootWindow(socket, payload);
         if (emitNext) {
-            socket.emit(shared_1.NEXT_S2C.LootWindowUpdate, payload);
-            // 更新Next协议辅助状态
             const nextAux = this.nextAuxStateByPlayerId.get(playerId);
             if (nextAux) {
                 this.nextAuxStateByPlayerId.set(playerId, {
@@ -278,11 +256,6 @@ let WorldSyncService = class WorldSyncService {
                     lootWindow: cloneLootWindow(payload.window),
                 });
             }
-        }
-        
-        // 发送Legacy协议数据
-        if (emitLegacy) {
-            socket.emit(shared_1.S2C.LootWindowUpdate, payload);
         }
     }
     
@@ -321,15 +294,15 @@ let WorldSyncService = class WorldSyncService {
         const timeState = this.buildGameTimeState(template, view, player);
         const bootstrapPayload = this.buildBootstrapSyncPayload(view, player, template, visibleTiles, renderEntities, visibleMinimapMarkers, minimapLibrary, timeState);
         socket.emit(shared_1.NEXT_S2C.Bootstrap, bootstrapPayload);
-        socket.emit(shared_1.NEXT_S2C.MapStatic, this.buildMapStaticSyncPayload(template, {
+        this.worldSyncProtocolService.sendMapStatic(socket, this.buildMapStaticSyncPayload(template, {
             mapMeta: bootstrapPayload.mapMeta,
             minimap: bootstrapPayload.minimap,
             visibleMinimapMarkers,
             minimapLibrary,
         }));
-        socket.emit(shared_1.NEXT_S2C.Realm, this.buildRealmSyncPayload(player));
+        this.worldSyncProtocolService.sendRealm(socket, this.buildRealmSyncPayload(player));
         const lootWindow = this.buildLootWindowSyncState(playerId);
-        socket.emit(shared_1.NEXT_S2C.LootWindowUpdate, { window: lootWindow });
+        this.worldSyncProtocolService.sendLootWindow(socket, { window: lootWindow });
         this.nextAuxStateByPlayerId.set(playerId, {
             mapId: view.instance.templateId,
             instanceId: view.instance.instanceId,
@@ -352,7 +325,7 @@ let WorldSyncService = class WorldSyncService {
             || previous.instanceId !== view.instance.instanceId;
         if (mapChanged) {
             const minimapLibrary = this.buildMinimapLibrarySync(player, template.id);
-            socket.emit(shared_1.NEXT_S2C.MapStatic, this.buildMapStaticSyncPayload(template, {
+            this.worldSyncProtocolService.sendMapStatic(socket, this.buildMapStaticSyncPayload(template, {
                 mapMeta: this.buildMapMetaSync(template),
                 minimap: this.buildMinimapSnapshotSync(template),
                 visibleMinimapMarkers: currentVisibleMinimapMarkers,
@@ -362,7 +335,7 @@ let WorldSyncService = class WorldSyncService {
         else {
             const markerPatch = diffVisibleMinimapMarkers(previous.visibleMinimapMarkers, currentVisibleMinimapMarkers);
             if (markerPatch.adds.length > 0 || markerPatch.removes.length > 0) {
-                socket.emit(shared_1.NEXT_S2C.MapStatic, this.buildMapStaticSyncPayload(template, {
+                this.worldSyncProtocolService.sendMapStatic(socket, this.buildMapStaticSyncPayload(template, {
                     visibleMinimapMarkerAdds: markerPatch.adds.length > 0 ? markerPatch.adds : undefined,
                     visibleMinimapMarkerRemoves: markerPatch.removes.length > 0 ? markerPatch.removes : undefined,
                 }));
@@ -370,11 +343,11 @@ let WorldSyncService = class WorldSyncService {
         }
         const currentRealm = cloneRealmState(player.realm);
         if (!isSameRealmState(previous.realm, currentRealm)) {
-            socket.emit(shared_1.NEXT_S2C.Realm, this.buildRealmSyncPayload(player, currentRealm));
+            this.worldSyncProtocolService.sendRealm(socket, this.buildRealmSyncPayload(player, currentRealm));
         }
         const lootWindow = this.buildLootWindowSyncState(playerId);
         if (!isSameLootWindow(previous.lootWindow ?? null, lootWindow)) {
-            socket.emit(shared_1.NEXT_S2C.LootWindowUpdate, { window: lootWindow });
+            this.worldSyncProtocolService.sendLootWindow(socket, { window: lootWindow });
         }
         this.nextAuxStateByPlayerId.set(playerId, {
             mapId: view.instance.templateId,
@@ -384,167 +357,41 @@ let WorldSyncService = class WorldSyncService {
             lootWindow: cloneLootWindow(lootWindow),
         });
     }
-    emitCompatInitialSync(playerId, socket, view, player) {
-        const template = this.templateRepository.getOrThrow(view.instance.templateId);
-        const visibleTiles = this.buildVisibleTilesSnapshot(view, player, template);
-        const renderEntities = this.buildRenderEntitiesSnapshot(view, player);
-        const groundPiles = toGroundPileMap(view.localGroundPiles);
-        const path = this.worldRuntimeService.getLegacyNavigationPath(playerId);
-        const threatArrows = this.buildThreatArrows(view);
-        const allMinimapMarkers = this.buildMinimapMarkers(template);
-        const visibleMinimapMarkers = this.buildVisibleMinimapMarkers(allMinimapMarkers, visibleTiles.byKey);
-        const minimapLibrary = this.buildMinimapLibrarySync(player, template.id);
-        const timeState = this.buildGameTimeState(template, view, player);
-        const initPayload = this.buildBootstrapSyncPayload(view, player, template, visibleTiles, renderEntities, visibleMinimapMarkers, minimapLibrary, timeState);
-        const mapStaticPayload = this.buildMapStaticSyncPayload(template, {
-            mapMeta: initPayload.mapMeta,
-            minimap: initPayload.minimap,
-            visibleMinimapMarkers,
-            minimapLibrary,
-        });
-        const { emitNext, emitLegacy } = resolveProtocolEmission(socket);
-        if (emitNext) {
-            socket.emit(shared_1.NEXT_S2C.Bootstrap, initPayload);
-            socket.emit(shared_1.NEXT_S2C.MapStatic, mapStaticPayload);
-        }
-        if (emitLegacy) {
-            socket.emit(shared_1.S2C.Init, initPayload);
-        }
-        const realmPayload = this.buildRealmSyncPayload(player);
-        if (emitNext) {
-            socket.emit(shared_1.NEXT_S2C.Realm, realmPayload);
-        }
-        if (emitLegacy) {
-            socket.emit(shared_1.S2C.RealmUpdate, realmPayload);
-        }
-        const attrUpdate = this.buildAttrUpdate(null, player);
-        if (attrUpdate && emitLegacy) {
-            socket.emit(shared_1.S2C.AttrUpdate, attrUpdate);
-        }
-        const inventoryUpdate = this.buildInventoryUpdate(null, player);
-        if (inventoryUpdate && emitLegacy) {
-            socket.emit(shared_1.S2C.InventoryUpdate, inventoryUpdate);
-        }
-        const equipmentUpdate = this.buildEquipmentUpdate(null, player);
-        if (equipmentUpdate && emitLegacy) {
-            socket.emit(shared_1.S2C.EquipmentUpdate, equipmentUpdate);
-        }
-        const techniqueUpdate = this.buildTechniqueUpdate(null, player);
-        if (techniqueUpdate && emitLegacy) {
-            socket.emit(shared_1.S2C.TechniqueUpdate, techniqueUpdate);
-        }
-        const actionsUpdate = this.buildActionsUpdate(null, player);
-        if (actionsUpdate && emitLegacy) {
-            socket.emit(shared_1.S2C.ActionsUpdate, actionsUpdate);
-        }
-        const lootWindow = this.buildLootWindowSyncState(playerId);
-        const lootPayload = {
-            window: lootWindow,
+    buildLegacySyncContext(playerId, socket, view, player) {
+        return {
+            playerId,
+            socket,
+            view,
+            player,
+            worldRuntimeService: this.worldRuntimeService,
+            templateRepository: this.templateRepository,
+            syncStateByPlayerId: this.syncStateByPlayerId,
+            buildVisibleTilesSnapshot: (inputView, inputPlayer, template) => this.buildVisibleTilesSnapshot(inputView, inputPlayer, template),
+            buildRenderEntitiesSnapshot: (inputView, inputPlayer) => this.buildRenderEntitiesSnapshot(inputView, inputPlayer),
+            buildThreatArrows: (inputView) => this.buildThreatArrows(inputView),
+            buildMinimapMarkers: (template) => this.buildMinimapMarkers(template),
+            buildVisibleMinimapMarkers: (markers, visibleTiles) => this.buildVisibleMinimapMarkers(markers, visibleTiles),
+            buildMinimapLibrarySync: (inputPlayer, currentMapId) => this.buildMinimapLibrarySync(inputPlayer, currentMapId),
+            buildGameTimeState: (template, inputView, inputPlayer) => this.buildGameTimeState(template, inputView, inputPlayer),
+            buildBootstrapSyncPayload: (inputView, inputPlayer, template, visibleTiles, renderEntities, visibleMinimapMarkers, minimapLibrary, timeState) => this.buildBootstrapSyncPayload(inputView, inputPlayer, template, visibleTiles, renderEntities, visibleMinimapMarkers, minimapLibrary, timeState),
+            buildMapStaticSyncPayload: (template, options) => this.buildMapStaticSyncPayload(template, options),
+            buildRealmSyncPayload: (inputPlayer, realm) => this.buildRealmSyncPayload(inputPlayer, realm),
+            buildMapMetaSync: (template) => this.buildMapMetaSync(template),
+            buildMinimapSnapshotSync: (template) => this.buildMinimapSnapshotSync(template),
+            buildAttrUpdate: (previous, inputPlayer) => this.buildAttrUpdate(previous, inputPlayer),
+            buildInventoryUpdate: (previous, inputPlayer) => this.buildInventoryUpdate(previous, inputPlayer),
+            buildEquipmentUpdate: (previous, inputPlayer) => this.buildEquipmentUpdate(previous, inputPlayer),
+            buildTechniqueUpdate: (previous, inputPlayer) => this.buildTechniqueUpdate(previous, inputPlayer),
+            buildActionsUpdate: (previous, inputPlayer) => this.buildActionsUpdate(previous, inputPlayer),
+            buildTickPayload: (previous, inputView, inputPlayer, template, timeState, renderEntities, visibleTiles, groundPiles, path, threatArrows, effects, mapChanged) => this.buildTickPayload(previous, inputView, inputPlayer, template, timeState, renderEntities, visibleTiles, groundPiles, path, threatArrows, effects, mapChanged),
+            buildLootWindowSyncState: (inputPlayerId) => this.buildLootWindowSyncState(inputPlayerId),
+            captureSyncSnapshot,
+            diffVisibleMinimapMarkers,
+            filterLegacyCombatEffects,
+            isSameRealmState,
+            isSameLootWindow,
+            toGroundPileMap,
         };
-        if (emitNext) {
-            socket.emit(shared_1.NEXT_S2C.LootWindowUpdate, lootPayload);
-        }
-        if (emitLegacy) {
-            socket.emit(shared_1.S2C.LootWindowUpdate, lootPayload);
-        }
-        this.syncStateByPlayerId.set(playerId, captureSyncSnapshot(view, player, template, timeState, path, threatArrows, visibleMinimapMarkers, renderEntities, visibleTiles.byKey, groundPiles, lootWindow));
-    }
-    emitCompatDeltaSync(playerId, socket, view, player) {
-        const previous = this.syncStateByPlayerId.get(playerId) ?? null;
-        const template = this.templateRepository.getOrThrow(view.instance.templateId);
-        const currentTiles = this.buildVisibleTilesSnapshot(view, player, template);
-        const currentEntities = this.buildRenderEntitiesSnapshot(view, player);
-        const currentGroundPiles = toGroundPileMap(view.localGroundPiles);
-        const currentPath = this.worldRuntimeService.getLegacyNavigationPath(playerId);
-        const currentThreatArrows = this.buildThreatArrows(view);
-        const allMinimapMarkers = this.buildMinimapMarkers(template);
-        const currentVisibleMinimapMarkers = this.buildVisibleMinimapMarkers(allMinimapMarkers, currentTiles.byKey);
-        const currentEffects = filterLegacyCombatEffects(this.worldRuntimeService.getLegacyCombatEffects(view.instance.instanceId), currentTiles.byKey);
-        const currentTimeState = this.buildGameTimeState(template, view, player);
-        const { emitNext, emitLegacy } = resolveProtocolEmission(socket);
-        const mapChanged = !previous
-            || previous.mapId !== view.instance.templateId
-            || previous.instanceId !== view.instance.instanceId;
-        if (mapChanged) {
-            const minimapLibrary = this.buildMinimapLibrarySync(player, template.id);
-            const mapStaticPayload = {
-                mapId: template.id,
-                mapMeta: this.buildMapMetaSync(template),
-                minimap: this.buildMinimapSnapshotSync(template),
-                visibleMinimapMarkers: currentVisibleMinimapMarkers,
-                minimapLibrary,
-            };
-            if (emitNext) {
-                socket.emit(shared_1.NEXT_S2C.MapStatic, mapStaticPayload);
-            }
-            if (emitLegacy) {
-                socket.emit(shared_1.S2C.MapStaticSync, mapStaticPayload);
-            }
-        }
-        else if (previous) {
-            const markerPatch = diffVisibleMinimapMarkers(previous.visibleMinimapMarkers, currentVisibleMinimapMarkers);
-            if (markerPatch.adds.length > 0 || markerPatch.removes.length > 0) {
-                const mapStaticPatch = {
-                    mapId: template.id,
-                    visibleMinimapMarkerAdds: markerPatch.adds.length > 0 ? markerPatch.adds : undefined,
-                    visibleMinimapMarkerRemoves: markerPatch.removes.length > 0 ? markerPatch.removes : undefined,
-                };
-                if (emitNext) {
-                    socket.emit(shared_1.NEXT_S2C.MapStatic, mapStaticPatch);
-                }
-                if (emitLegacy) {
-                    socket.emit(shared_1.S2C.MapStaticSync, mapStaticPatch);
-                }
-            }
-        }
-        const tickPayload = this.buildTickPayload(previous, view, player, template, currentTimeState, currentEntities, currentTiles, currentGroundPiles, currentPath, currentThreatArrows, currentEffects, mapChanged);
-        if (tickPayload && emitLegacy) {
-            socket.emit(shared_1.S2C.Tick, tickPayload);
-        }
-        if (!previous || previous.attrRevision !== player.attrs.revision) {
-            const attrUpdate = this.buildAttrUpdate(previous?.attrState ?? null, player);
-            if (attrUpdate && emitLegacy) {
-                socket.emit(shared_1.S2C.AttrUpdate, attrUpdate);
-            }
-        }
-        if (!previous || !isSameRealmState(previous.realm, player.realm)) {
-            const realmPayload = this.buildRealmSyncPayload(player);
-            if (emitNext) {
-                socket.emit(shared_1.NEXT_S2C.Realm, realmPayload);
-            }
-            if (emitLegacy) {
-                socket.emit(shared_1.S2C.RealmUpdate, realmPayload);
-            }
-        }
-        const inventoryUpdate = this.buildInventoryUpdate(previous, player);
-        if (inventoryUpdate && emitLegacy) {
-            socket.emit(shared_1.S2C.InventoryUpdate, inventoryUpdate);
-        }
-        const equipmentUpdate = this.buildEquipmentUpdate(previous, player);
-        if (equipmentUpdate && emitLegacy) {
-            socket.emit(shared_1.S2C.EquipmentUpdate, equipmentUpdate);
-        }
-        const techniqueUpdate = this.buildTechniqueUpdate(previous, player);
-        if (techniqueUpdate && emitLegacy) {
-            socket.emit(shared_1.S2C.TechniqueUpdate, techniqueUpdate);
-        }
-        const actionsUpdate = this.buildActionsUpdate(previous, player);
-        if (actionsUpdate && emitLegacy) {
-            socket.emit(shared_1.S2C.ActionsUpdate, actionsUpdate);
-        }
-        const lootWindow = this.buildLootWindowSyncState(playerId);
-        if (!isSameLootWindow(previous?.lootWindow ?? null, lootWindow)) {
-            const lootPayload = {
-                window: lootWindow,
-            };
-            if (emitNext) {
-                socket.emit(shared_1.NEXT_S2C.LootWindowUpdate, lootPayload);
-            }
-            if (emitLegacy) {
-                socket.emit(shared_1.S2C.LootWindowUpdate, lootPayload);
-            }
-        }
-        this.syncStateByPlayerId.set(playerId, captureSyncSnapshot(view, player, template, currentTimeState, currentPath, currentThreatArrows, currentVisibleMinimapMarkers, currentEntities, currentTiles.byKey, currentGroundPiles, lootWindow));
     }
     buildBootstrapSyncPayload(view, player, template, visibleTiles, renderEntities, visibleMinimapMarkers, minimapLibrary, timeState) {
         return {
@@ -661,6 +508,7 @@ let WorldSyncService = class WorldSyncService {
                 name: monster.name,
                 kind: 'monster',
                 monsterTier: monster.tier,
+                monsterScale: getBuffPresentationScale(monster.buffs),
                 hp: monster.hp,
                 maxHp: monster.maxHp,
             });
@@ -681,7 +529,7 @@ let WorldSyncService = class WorldSyncService {
     buildMinimapLibrarySync(player, currentMapId) {
         const mapIds = Array.from(new Set([...player.unlockedMapIds, currentMapId]))
             .filter((entry) => this.templateRepository.has(entry))
-            .sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
+            .sort(compareStableStrings);
         return mapIds.map((mapId) => {
             const template = this.templateRepository.getOrThrow(mapId);
             return {
@@ -778,18 +626,7 @@ let WorldSyncService = class WorldSyncService {
         if (items.length === 0) {
             return;
         }
-        const protocol = getSocketProtocol(socket);
-        if (protocol !== 'legacy') {
-            socket.emit(shared_1.NEXT_S2C.Notice, { items });
-        }
-        if (protocol !== 'next') {
-            for (const item of items) {
-                socket.emit(shared_1.S2C.SystemMsg, {
-                    text: item.text,
-                    kind: mapLegacyNoticeKind(item.kind),
-                });
-            }
-        }
+        this.worldSyncProtocolService.sendNotices(socket, items);
     }
     buildLootWindowSyncState(playerId) {
         const player = this.playerRuntimeService.getPlayer(playerId);
@@ -818,7 +655,9 @@ exports.WorldSyncService = WorldSyncService = __decorate([
         world_projector_service_1.WorldProjectorService,
         world_session_service_1.WorldSessionService,
         map_template_repository_1.MapTemplateRepository,
-        legacy_gm_http_compat_service_1.LegacyGmHttpCompatService])
+        legacy_gm_http_compat_service_1.LegacyGmHttpCompatService,
+        world_sync_protocol_service_1.WorldSyncProtocolService,
+        world_legacy_sync_service_1.WorldLegacySyncService])
 ], WorldSyncService);
 function captureSyncSnapshot(view, player, template, timeState, path, threatArrows, visibleMinimapMarkers, renderEntities, visibleTiles, groundPiles, lootWindow) {
     const normalizedActions = player.actions.actions.map((entry) => normalizeActionEntry(entry));
@@ -1288,7 +1127,7 @@ function buildMinimapMarkers(template) {
             detail: portal.targetMapId,
         });
     }
-    markers.sort((left, right) => left.y - right.y || left.x - right.x || left.id.localeCompare(right.id, 'zh-Hans-CN'));
+    markers.sort((left, right) => left.y - right.y || left.x - right.x || compareStableStrings(left.id, right.id));
     return markers;
 }
 function buildVisibleMinimapMarkers(markers, visibleTiles) {
@@ -1402,6 +1241,18 @@ function isSameGameTimeState(left, right) {
         && left.tint === right.tint
         && left.overlayAlpha === right.overlayAlpha;
 }
+function getBuffPresentationScale(buffs) {
+    let scale = 1;
+    for (const buff of buffs ?? []) {
+        if ((buff?.remainingTicks ?? 0) <= 0 || (buff?.stacks ?? 0) <= 0) {
+            continue;
+        }
+        if (Number.isFinite(buff.presentationScale) && Number(buff.presentationScale) > scale) {
+            scale = Number(buff.presentationScale);
+        }
+    }
+    return scale;
+}
 function buildPlayerRenderEntity(player, color) {
     return {
         id: player.playerId,
@@ -1411,6 +1262,7 @@ function buildPlayerRenderEntity(player, color) {
         color,
         name: player.name,
         kind: 'player',
+        monsterScale: getBuffPresentationScale(player.buffs?.buffs),
         hp: player.hp,
         maxHp: player.maxHp,
     };
@@ -1445,11 +1297,11 @@ function buildRenderEntityPatch(previous, current) {
     if (!previous) {
         return toTickRenderEntity(current);
     }
-    const patch = {
-        id: current.id,
-        x: current.x,
-        y: current.y,
-    };
+        const patch = {
+            id: current.id,
+            x: current.x,
+            y: current.y,
+        };
     let changed = previous.x !== current.x || previous.y !== current.y;
     if (previous.char !== current.char) {
         patch.char = current.char;
@@ -1469,6 +1321,10 @@ function buildRenderEntityPatch(previous, current) {
     }
     if (previous.monsterTier !== current.monsterTier) {
         patch.monsterTier = current.monsterTier ?? null;
+        changed = true;
+    }
+    if (previous.monsterScale !== current.monsterScale) {
+        patch.monsterScale = current.monsterScale ?? null;
         changed = true;
     }
     if (previous.hp !== current.hp) {
@@ -1495,6 +1351,7 @@ function toTickRenderEntity(source) {
         name: source.name ?? null,
         kind: source.kind ?? null,
         monsterTier: source.monsterTier ?? null,
+        monsterScale: source.monsterScale ?? null,
         hp: source.hp ?? null,
         maxHp: source.maxHp ?? null,
         npcQuestMarker: source.npcQuestMarker ?? null,
@@ -1624,6 +1481,7 @@ function toTechniqueState(entry) {
         expToNext: entry.expToNext ?? 0,
         realmLv: entry.realmLv ?? 1,
         realm: entry.realm ?? shared_1.TechniqueRealm.Entry,
+        skillsEnabled: entry.skillsEnabled !== false,
         skills,
         grade: entry.grade ?? undefined,
         category: entry.category ?? undefined,
@@ -1683,8 +1541,14 @@ function buildCoordKey(x, y) {
     return `${x},${y}`;
 }
 function parseCoordKey(key) {
-    const [x, y] = key.split(',');
-    return [Number(x), Number(y)];
+    const separatorIndex = key.indexOf(',');
+    if (separatorIndex < 0) {
+        return [0, 0];
+    }
+    return [
+        Number(key.slice(0, separatorIndex)),
+        Number(key.slice(separatorIndex + 1)),
+    ];
 }
 function cloneRenderEntity(source) {
     return {
@@ -1771,6 +1635,7 @@ function cloneTechniqueEntry(source) {
         expToNext: source.expToNext,
         realmLv: source.realmLv,
         realm: source.realm,
+        skillsEnabled: source.skillsEnabled !== false,
         name: null,
         grade: source.grade ?? undefined,
         category: source.category ?? undefined,
@@ -1814,33 +1679,45 @@ function buildAttrBonuses(player) {
     }
     for (const entry of player.equipment.slots) {
         const item = entry.item;
-        if (!item?.equipAttrs || !hasNonZeroAttributes(item.equipAttrs)) {
+        if (!item || (!hasNonZeroAttributes(item.equipAttrs) && !hasNonZeroPartialNumericStats(item.equipStats))) {
             continue;
         }
         bonuses.push({
             source: `equipment:${entry.slot}`,
             label: item.itemId,
             attrs: clonePartialAttributes(item.equipAttrs),
+            stats: clonePartialNumericStats(item.equipStats),
         });
     }
     for (const buff of player.buffs.buffs) {
-        if (!buff.attrs || !hasNonZeroAttributes(buff.attrs)) {
+        if (!hasNonZeroAttributes(buff.attrs) && !hasNonZeroPartialNumericStats(buff.stats) && !Array.isArray(buff.qiProjection)) {
             continue;
         }
         bonuses.push({
             source: `buff:${buff.buffId}`,
             label: buff.name || buff.buffId,
             attrs: clonePartialAttributes(buff.attrs),
+            stats: clonePartialNumericStats(buff.stats),
+            qiProjection: cloneQiProjectionModifiers(buff.qiProjection),
         });
     }
     for (const bonus of player.runtimeBonuses ?? []) {
-        if (!bonus?.attrs || !hasNonZeroAttributes(bonus.attrs) || isDerivedRuntimeBonusSource(bonus.source)) {
+        if (!bonus || isDerivedRuntimeBonusSource(bonus.source)) {
+            continue;
+        }
+        if (!hasNonZeroAttributes(bonus.attrs)
+            && !hasNonZeroPartialNumericStats(bonus.stats)
+            && !Array.isArray(bonus.qiProjection)
+            && !isPlainObject(bonus.meta)) {
             continue;
         }
         bonuses.push({
             source: bonus.source,
             label: bonus.label ?? bonus.source,
             attrs: clonePartialAttributes(bonus.attrs),
+            stats: clonePartialNumericStats(bonus.stats),
+            qiProjection: cloneQiProjectionModifiers(bonus.qiProjection),
+            meta: isPlainObject(bonus.meta) ? { ...bonus.meta } : undefined,
         });
     }
     return bonuses;
@@ -1864,6 +1741,51 @@ function hasNonZeroAttributes(attrs) {
     }
     return shared_1.ATTR_KEYS.some((key) => Number(attrs[key] ?? 0) !== 0);
 }
+function hasNonZeroPartialNumericStats(stats) {
+    if (!stats) {
+        return false;
+    }
+    const scalarKeys = [
+        'maxHp',
+        'maxQi',
+        'physAtk',
+        'spellAtk',
+        'physDef',
+        'spellDef',
+        'hit',
+        'dodge',
+        'crit',
+        'critDamage',
+        'breakPower',
+        'resolvePower',
+        'maxQiOutputPerTick',
+        'qiRegenRate',
+        'hpRegenRate',
+        'cooldownSpeed',
+        'auraCostReduce',
+        'auraPowerRate',
+        'playerExpRate',
+        'techniqueExpRate',
+        'realmExpPerTick',
+        'techniqueExpPerTick',
+        'lootRate',
+        'rareLootRate',
+        'viewRange',
+        'moveSpeed',
+        'extraAggroRate',
+        'extraRange',
+        'extraArea',
+    ];
+    for (const key of scalarKeys) {
+        if (Number(stats[key] ?? 0) !== 0) {
+            return true;
+        }
+    }
+    return ['elementDamageBonus', 'elementDamageReduce'].some((groupKey) => {
+        const group = stats[groupKey];
+        return isPlainObject(group) && Object.values(group).some((value) => Number(value ?? 0) !== 0);
+    });
+}
 function clonePartialAttributes(attrs) {
     const result = {};
     for (const key of shared_1.ATTR_KEYS) {
@@ -1873,6 +1795,72 @@ function clonePartialAttributes(attrs) {
         }
     }
     return result;
+}
+function clonePartialNumericStats(stats) {
+    if (!stats) {
+        return undefined;
+    }
+    const clone = {};
+    const scalarKeys = [
+        'maxHp',
+        'maxQi',
+        'physAtk',
+        'spellAtk',
+        'physDef',
+        'spellDef',
+        'hit',
+        'dodge',
+        'crit',
+        'critDamage',
+        'breakPower',
+        'resolvePower',
+        'maxQiOutputPerTick',
+        'qiRegenRate',
+        'hpRegenRate',
+        'cooldownSpeed',
+        'auraCostReduce',
+        'auraPowerRate',
+        'playerExpRate',
+        'techniqueExpRate',
+        'realmExpPerTick',
+        'techniqueExpPerTick',
+        'lootRate',
+        'rareLootRate',
+        'viewRange',
+        'moveSpeed',
+        'extraAggroRate',
+        'extraRange',
+        'extraArea',
+    ];
+    for (const key of scalarKeys) {
+        if (stats[key] !== undefined) {
+            clone[key] = stats[key];
+        }
+    }
+    if (isPlainObject(stats.elementDamageBonus)) {
+        clone.elementDamageBonus = { ...stats.elementDamageBonus };
+    }
+    if (isPlainObject(stats.elementDamageReduce)) {
+        clone.elementDamageReduce = { ...stats.elementDamageReduce };
+    }
+    return Object.keys(clone).length > 0 ? clone : undefined;
+}
+function cloneQiProjectionModifiers(source) {
+    if (!Array.isArray(source) || source.length === 0) {
+        return undefined;
+    }
+    return source.map((entry) => ({
+        ...entry,
+        selector: entry.selector
+            ? {
+                ...entry.selector,
+                resourceKeys: entry.selector.resourceKeys ? entry.selector.resourceKeys.slice() : undefined,
+                families: entry.selector.families ? entry.selector.families.slice() : undefined,
+                forms: entry.selector.forms ? entry.selector.forms.slice() : undefined,
+                elements: entry.selector.elements ? entry.selector.elements.slice() : undefined,
+            }
+            : undefined,
+    }));
 }
 function cloneActionEntry(source) {
     return { ...source };
@@ -2071,9 +2059,18 @@ function buildThreatArrowKey(ownerId, targetId) {
 }
 function compareThreatArrows(left, right) {
     if (left[0] !== right[0]) {
-        return left[0].localeCompare(right[0], 'zh-Hans-CN');
+        return compareStableStrings(left[0], right[0]);
     }
-    return left[1].localeCompare(right[1], 'zh-Hans-CN');
+    return compareStableStrings(left[1], right[1]);
+}
+function compareStableStrings(left, right) {
+    if (left < right) {
+        return -1;
+    }
+    if (left > right) {
+        return 1;
+    }
+    return 0;
 }
 function filterLegacyCombatEffects(effects, visibleTiles) {
     if (effects.length === 0 || visibleTiles.size === 0) {
@@ -2111,7 +2108,15 @@ function isSameAttrBonuses(left, right) {
         return false;
     }
     for (let index = 0; index < left.length; index += 1) {
-        if (left[index] !== right[index]) {
+        const leftEntry = left[index];
+        const rightEntry = right[index];
+        if (!leftEntry || !rightEntry
+            || leftEntry.source !== rightEntry.source
+            || leftEntry.label !== rightEntry.label
+            || !isSameNumericRecord(leftEntry.attrs, rightEntry.attrs)
+            || !isSameNumericRecord(leftEntry.stats, rightEntry.stats)
+            || !isSameNumericRecord(leftEntry.meta, rightEntry.meta)
+            || !isSameNumericRecord(leftEntry.qiProjection, rightEntry.qiProjection)) {
             return false;
         }
     }
@@ -2299,6 +2304,7 @@ function isSameTechniqueEntry(left, right) {
         && left.expToNext === right.expToNext
         && left.realmLv === right.realmLv
         && left.realm === right.realm
+        && (left.skillsEnabled !== false) === (right.skillsEnabled !== false)
         && left.name === right.name
         && left.grade === right.grade
         && left.category === right.category
@@ -2377,27 +2383,5 @@ function isPlainEqual(left, right) {
         return shallowEqualRecord(left, right);
     }
     return false;
-}
-function mapLegacyNoticeKind(kind) {
-    switch (kind) {
-        case 'loot':
-            return 'loot';
-        case 'combat':
-            return 'combat';
-        default:
-            return 'system';
-    }
-}
-function getSocketProtocol(socket) {
-    const protocol = socket?.data?.protocol;
-    return protocol === 'next' || protocol === 'legacy' ? protocol : null;
-}
-function resolveProtocolEmission(socket) {
-    const protocol = getSocketProtocol(socket);
-    return {
-        protocol,
-        emitNext: protocol !== 'legacy',
-        emitLegacy: protocol !== 'next',
-    };
 }
 //# sourceMappingURL=world-sync.service.js.map

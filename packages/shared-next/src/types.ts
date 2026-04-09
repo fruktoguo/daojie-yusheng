@@ -160,6 +160,7 @@ export interface RenderEntity {
   name?: string;
   kind?: EntityKind | 'player';
   monsterTier?: MonsterTier;
+  monsterScale?: number;
   hp?: number;
   maxHp?: number;
   qi?: number;
@@ -218,6 +219,7 @@ export interface VisibleBuffState {
   attrs?: Partial<Attributes>;
   stats?: PartialNumericStats;
   qiProjection?: QiProjectionModifier[];
+  infiniteDuration?: boolean;
 }
 
 /** 时间段 ID */
@@ -349,11 +351,20 @@ export interface EquipmentBuffDef {
   visibility?: BuffVisibility;
   color?: string;
   duration: number;
+  stacks?: number;
   maxStacks?: number;
   attrs?: Partial<Attributes>;
   stats?: PartialNumericStats;
   qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
+  presentationScale?: number;
+}
+
+/** Buff 维持代价定义 */
+export interface BuffSustainCostDef {
+  resource: 'hp' | 'qi';
+  baseCost: number;
+  growthRate?: number;
 }
 
 /** 消耗品施加的 Buff 定义 */
@@ -371,6 +382,11 @@ export interface ConsumableBuffDef {
   stats?: PartialNumericStats;
   qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
+  presentationScale?: number;
+  infiniteDuration?: boolean;
+  sustainCost?: BuffSustainCostDef;
+  expireWithBuffId?: string;
+  sourceSkillId?: string;
 }
 
 /** 装备常驻数值效果 */
@@ -382,6 +398,7 @@ export interface EquipmentStatAuraEffectDef {
   stats?: PartialNumericStats;
   qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
+  presentationScale?: number;
 }
 
 /** 装备成长推进效果 */
@@ -446,9 +463,17 @@ export interface ItemStack {
   qiPercent?: number;
   consumeBuffs?: ConsumableBuffDef[];
   tags?: string[];
+  alchemySuccessRate?: number;
+  alchemySpeedRate?: number;
   mapUnlockId?: string;
   tileAuraGainAmount?: number;
   allowBatchUse?: boolean;
+}
+
+export interface AlchemySkillState {
+  level: number;
+  exp: number;
+  expToNext: number;
 }
 
 /** 背包 */
@@ -763,8 +788,10 @@ export interface SkillTargetingDef {
   shape?: TargetingShape;
   range?: number;
   radius?: number;
+  innerRadius?: number;
   width?: number;
   height?: number;
+  checkerParity?: 'even' | 'odd';
   maxTargets?: number;
   requiresTarget?: boolean;
   targetMode?: 'any' | 'entity' | 'tile';
@@ -790,15 +817,27 @@ export interface SkillBuffEffectDef {
   visibility?: BuffVisibility;
   color?: string;
   duration: number;
+  stacks?: number;
   maxStacks?: number;
   attrs?: Partial<Attributes>;
   stats?: PartialNumericStats;
   qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
+  presentationScale?: number;
+  infiniteDuration?: boolean;
+  sustainCost?: BuffSustainCostDef;
+  expireWithBuffId?: string;
 }
 
 /** 技能效果联合类型 */
 export type SkillEffectDef = SkillDamageEffectDef | SkillBuffEffectDef;
+
+/** 怪物技能前摇定义 */
+export interface SkillMonsterCastDef {
+  windupTicks?: number;
+  warningColor?: string;
+  conditions?: EquipmentConditionGroup;
+}
 
 /** 技能完整定义 */
 export interface SkillDef {
@@ -816,12 +855,18 @@ export interface SkillDef {
   unlockPlayerRealm?: PlayerRealmStage;
   requiresTarget?: boolean;
   targetMode?: 'any' | 'entity' | 'tile';
+  monsterCast?: SkillMonsterCastDef;
 }
 
 /** 临时 Buff 状态（含属性和数值加成） */
 export interface TemporaryBuffState extends VisibleBuffState {
+  baseDesc?: string;
   attrs?: Partial<Attributes>;
   stats?: PartialNumericStats;
+  presentationScale?: number;
+  sustainCost?: BuffSustainCostDef;
+  sustainTicksElapsed?: number;
+  expireWithBuffId?: string;
 }
 
 /** 功法状态 */
@@ -833,6 +878,7 @@ export interface TechniqueState {
   expToNext: number;
   realmLv: number;
   realm: TechniqueRealm;
+  skillsEnabled?: boolean;
   skills: SkillDef[];
   grade?: TechniqueGrade;
   category?: TechniqueCategory;
@@ -890,10 +936,23 @@ export interface CombatEffectFloat {
   text: string;
   color?: string;
   variant?: 'damage' | 'action';
+  actionStyle?: 'default' | 'divine' | 'chant';
+  durationMs?: number;
+}
+
+/** 战斗地块警戒特效 */
+export interface CombatEffectWarningZone {
+  type: 'warning_zone';
+  cells: GridPoint[];
+  color?: string;
+  baseColor?: string;
+  originX?: number;
+  originY?: number;
+  durationMs?: number;
 }
 
 /** 战斗特效联合类型 */
-export type CombatEffect = CombatEffectAttack | CombatEffectFloat;
+export type CombatEffect = CombatEffectAttack | CombatEffectFloat | CombatEffectWarningZone;
 
 /** 场景实体类型 */
 export type EntityKind = 'npc' | 'monster' | 'container' | 'crowd';
@@ -1030,6 +1089,7 @@ export interface PlayerState {
   realm?: PlayerRealmState;
   questNavigation?: QuestNavigationState;
   questCrossMapNavCooldownUntilLifeTicks?: number;
+  alchemySkill?: AlchemySkillState;
 }
 
 /** 意见状态 */

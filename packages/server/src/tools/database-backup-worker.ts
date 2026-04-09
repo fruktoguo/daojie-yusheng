@@ -1,11 +1,7 @@
 import type { GmDatabaseBackupKind, GmDatabaseJobSnapshot } from '@mud/shared';
-import { spawn, spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
-import * as path from 'node:path';
-import type { Readable, Writable } from 'node:stream';
 import {
-  BACKUP_EXCLUDED_TABLES,
   type BackupManualRequestFile,
   type BackupRestoreRequestFile,
   type BackupWorkerStateFile,
@@ -13,43 +9,27 @@ import {
   createTimestampId,
   DAILY_BACKUP_HOUR,
   DAILY_BACKUP_MINUTE,
-  DAILY_BACKUP_RETENTION,
   ensureBackupWorkspace,
   findBackupById,
   getBackupScheduleSlotId,
-  HOURLY_BACKUP_RETENTION,
   listBackupManualRequests,
   listBackupRestoreRequests,
-  listBackupsForKind,
   planBackup,
   readBackupWorkerState,
   writeBackupWorkerHeartbeat,
   writeBackupWorkerState,
 } from '../game/database-backup-shared';
-
-interface DatabaseConnectionConfig {
-  host?: string;
-  port?: number;
-  username: string;
-  password?: string;
-  database: string;
-}
-
-interface ProcessSpec {
-  command: string;
-  args: string[];
-  env: NodeJS.ProcessEnv;
-}
+import { createBackupFile, restoreBackupFile } from '../game/database-backup-process';
 
 const LOOP_INTERVAL_MS = 10_000;
-
+const HEARTBEAT_INTERVAL_MS = 10_000;
 async function main(): Promise<void> {
   ensureBackupWorkspace();
   recoverInterruptedJob();
+  startHeartbeatLoop();
 
   for (;;) {
     try {
-      writeHeartbeat();
       const state = readBackupWorkerState();
       const restoreRequest = listBackupRestoreRequests()[0];
       const manualRequest = listBackupManualRequests()[0];
@@ -67,6 +47,18 @@ async function main(): Promise<void> {
     }
     await sleep(LOOP_INTERVAL_MS);
   }
+}
+
+function startHeartbeatLoop(): void {
+  writeHeartbeat();
+  const timer = setInterval(() => {
+    try {
+      writeHeartbeat();
+    } catch (error) {
+      console.error('[database-backup-worker] 写心跳失败', error);
+    }
+  }, HEARTBEAT_INTERVAL_MS);
+  timer.unref();
 }
 
 function recoverInterruptedJob(): void {
@@ -166,7 +158,7 @@ async function runBackupJob(
   writeBackupWorkerState(state);
 
   try {
-    await createBackupFile(planned.kind, planned.filePath);
+    await createBackupFile(planned);
     state.lastJob = {
       ...job,
       status: 'completed',
@@ -195,7 +187,7 @@ async function runRestoreJob(
   writeBackupWorkerState(state);
 
   try {
-    await createBackupFile(preImportBackup.kind, preImportBackup.filePath);
+    await createBackupFile(preImportBackup);
     await restoreBackupFile(sourceFilePath);
     state.lastJob = {
       ...job,
@@ -224,236 +216,6 @@ function createJobSnapshot(kind: GmDatabaseBackupKind, backupId: string, now: nu
     kind,
     backupId,
   };
-}
-
-async function createBackupFile(kind: GmDatabaseBackupKind, filePath: string): Promise<void> {
-  ensureBackupWorkspace();
-  await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
-  await runDumpProcess(filePath);
-  if (kind === 'hourly') {
-    await pruneBackups(kind, HOURLY_BACKUP_RETENTION);
-  } else if (kind === 'daily') {
-    await pruneBackups(kind, DAILY_BACKUP_RETENTION);
-  }
-}
-
-async function pruneBackups(kind: 'hourly' | 'daily', keep: number): Promise<void> {
-  const backups = listBackupsForKind(kind);
-  const stale = backups.slice(keep);
-  await Promise.all(stale.map(async (backup) => {
-    await fs.promises.rm(backup.filePath, { force: true });
-  }));
-}
-
-async function restoreBackupFile(filePath: string): Promise<void> {
-  if (!fs.existsSync(filePath)) {
-    throw new Error('目标备份文件不存在');
-  }
-  await runRestoreProcess(filePath);
-}
-
-async function runDumpProcess(filePath: string): Promise<void> {
-  const spec = resolveDumpProcessSpec();
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn(spec.command, spec.args, {
-      env: spec.env,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    const stdout = child.stdout as Readable;
-    const stderrStream = child.stderr as Readable;
-    const output = fs.createWriteStream(filePath);
-    let stderr = '';
-    let settled = false;
-
-    const fail = (error: Error): void => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      output.destroy();
-      void fs.promises.rm(filePath, { force: true }).catch(() => {});
-      reject(error);
-    };
-
-    stdout.on('data', (chunk) => {
-      output.write(chunk);
-    });
-    stdout.on('end', () => {
-      output.end();
-    });
-    stderrStream.on('data', (chunk) => {
-      stderr += String(chunk);
-    });
-    child.on('error', (error) => {
-      fail(error);
-    });
-    output.on('error', (error) => {
-      fail(error);
-    });
-    child.on('close', (code) => {
-      output.end();
-      if (settled) {
-        return;
-      }
-      if (code === 0) {
-        settled = true;
-        resolve();
-        return;
-      }
-      fail(new Error(stderr.trim() || `pg_dump 退出码 ${code ?? 'unknown'}`));
-    });
-  });
-}
-
-async function runRestoreProcess(filePath: string): Promise<void> {
-  const spec = resolveRestoreProcessSpec();
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn(spec.command, spec.args, {
-      env: spec.env,
-      stdio: ['pipe', 'ignore', 'pipe'],
-    });
-    const stdin = child.stdin as Writable;
-    const stderrStream = child.stderr as Readable;
-    const input = fs.createReadStream(filePath);
-    let stderr = '';
-    let settled = false;
-
-    const fail = (error: Error): void => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      input.destroy();
-      stdin.destroy();
-      reject(error);
-    };
-
-    stderrStream.on('data', (chunk) => {
-      stderr += String(chunk);
-    });
-    child.on('error', (error) => {
-      fail(error);
-    });
-    input.on('error', (error) => {
-      fail(error);
-    });
-    stdin.on('error', (error) => {
-      fail(error);
-    });
-    input.on('data', (chunk) => {
-      stdin.write(chunk);
-    });
-    input.on('end', () => {
-      stdin.end();
-    });
-    child.on('close', (code) => {
-      if (settled) {
-        return;
-      }
-      if (code === 0) {
-        settled = true;
-        resolve();
-        return;
-      }
-      fail(new Error(stderr.trim() || `pg_restore 退出码 ${code ?? 'unknown'}`));
-    });
-  });
-}
-
-function resolveDumpProcessSpec(): ProcessSpec {
-  const connection = getDatabaseConnectionConfig();
-  const dumpArgs = [
-    'pg_dump',
-    '--format=custom',
-    '--compress=0',
-    '--no-owner',
-    '--no-privileges',
-    ...BACKUP_EXCLUDED_TABLES.flatMap((tableName) => ['--exclude-table', tableName]),
-    '--username',
-    connection.username,
-    '--dbname',
-    connection.database,
-  ];
-  if (!commandExists('pg_dump')) {
-    throw new Error('当前环境未找到可用的 pg_dump，请检查独立备份 worker 镜像是否已安装 postgresql-client');
-  }
-  if (connection.host) {
-    dumpArgs.push('--host', connection.host);
-  }
-  if (connection.port) {
-    dumpArgs.push('--port', String(connection.port));
-  }
-  return wrapWithNice(dumpArgs[0]!, dumpArgs.slice(1), connection.password);
-}
-
-function resolveRestoreProcessSpec(): ProcessSpec {
-  const connection = getDatabaseConnectionConfig();
-  const restoreArgs = [
-    'pg_restore',
-    '--clean',
-    '--if-exists',
-    '--no-owner',
-    '--no-privileges',
-    '--single-transaction',
-    '--exit-on-error',
-    '--username',
-    connection.username,
-    '--dbname',
-    connection.database,
-  ];
-  if (!commandExists('pg_restore')) {
-    throw new Error('当前环境未找到可用的 pg_restore，请检查独立备份 worker 镜像是否已安装 postgresql-client');
-  }
-  if (connection.host) {
-    restoreArgs.push('--host', connection.host);
-  }
-  if (connection.port) {
-    restoreArgs.push('--port', String(connection.port));
-  }
-  return wrapWithNice(restoreArgs[0]!, restoreArgs.slice(1), connection.password);
-}
-
-function getDatabaseConnectionConfig(): DatabaseConnectionConfig {
-  const url = process.env.DATABASE_URL;
-  if (url) {
-    const parsed = new URL(url);
-    return {
-      host: parsed.hostname || undefined,
-      port: parsed.port ? Number(parsed.port) : 5432,
-      username: decodeURIComponent(parsed.username || 'postgres'),
-      password: parsed.password ? decodeURIComponent(parsed.password) : undefined,
-      database: decodeURIComponent(parsed.pathname.replace(/^\/+/u, '') || 'postgres'),
-    };
-  }
-  return {
-    host: process.env.DB_HOST ?? 'localhost',
-    port: Number(process.env.DB_PORT ?? 5432),
-    username: process.env.DB_USERNAME ?? 'postgres',
-    password: process.env.DB_PASSWORD ?? 'postgres',
-    database: process.env.DB_DATABASE ?? 'daojie_yusheng',
-  };
-}
-
-function wrapWithNice(command: string, args: string[], password?: string): ProcessSpec {
-  const env = {
-    ...process.env,
-    ...(password ? { PGPASSWORD: password } : {}),
-  };
-  if (!commandExists('nice')) {
-    return { command, args, env };
-  }
-  return {
-    command: 'nice',
-    args: ['-n', '19', command, ...args],
-    env,
-  };
-}
-
-function commandExists(command: string): boolean {
-  const result = spawnSync('sh', ['-lc', `command -v ${command}`], {
-    stdio: 'ignore',
-  });
-  return result.status === 0;
 }
 
 function sleep(ms: number): Promise<void> {

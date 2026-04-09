@@ -20,6 +20,7 @@ const node_url_1 = require("node:url");
 const pg_1 = require("pg");
 const legacy_database_restore_coordinator_service_1 = require("./legacy-database-restore-coordinator.service");
 const persistent_document_table_1 = require("../../../persistence/persistent-document-table");
+const env_alias_1 = require("../../../config/env-alias");
 const DEFAULT_AFDIAN_API_BASE_URL = 'https://afdian.net';
 const DEFAULT_AFDIAN_WEBHOOK_PATH = '/integrations/afdian/webhook';
 const AFDIAN_PING_PATH = '/api/open/ping';
@@ -85,8 +86,7 @@ let LegacyGmAdminCompatService = LegacyGmAdminCompatService_1 = class LegacyGmAd
     }
     async onModuleInit() {
         await node_fs_1.promises.mkdir(this.backupDirectory, { recursive: true });
-        const databaseUrl = process.env.SERVER_NEXT_DATABASE_URL
-            ?? '';
+        const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
         if (!databaseUrl.trim()) {
             return;
         }

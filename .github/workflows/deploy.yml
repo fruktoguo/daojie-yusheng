@@ -109,3 +109,10 @@ jobs:
           JWT_SECRET: ${{ secrets.PROD_JWT_SECRET }}
         run: |
           docker --context production stack deploy --with-registry-auth -c docker-stack.yml daojie-yusheng
+
+      - name: Verify backup worker
+        env:
+          DOCKER_CONTEXT: production
+          STACK_NAME: daojie-yusheng
+        run: |
+          bash scripts/verify-backup-worker.sh

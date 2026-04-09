@@ -162,8 +162,11 @@ export interface RenderEntity {
   name?: string;
   kind?: EntityKind | 'player';
   monsterTier?: MonsterTier;
+  monsterScale?: number;
   hp?: number;
   maxHp?: number;
+  respawnRemainingTicks?: number;
+  respawnTotalTicks?: number;
   qi?: number;
   maxQi?: number;
   npcQuestMarker?: NpcQuestMarker;
@@ -226,6 +229,7 @@ export interface VisibleBuffState {
   stats?: PartialNumericStats;
   statMode?: BuffModifierMode;
   qiProjection?: QiProjectionModifier[];
+  infiniteDuration?: boolean;
 }
 
 /** 时间段 ID */
@@ -359,6 +363,7 @@ export interface EquipmentBuffDef {
   visibility?: BuffVisibility;
   color?: string;
   duration: number;
+  stacks?: number;
   maxStacks?: number;
   attrs?: Partial<Attributes>;
   attrMode?: BuffModifierMode;
@@ -366,6 +371,14 @@ export interface EquipmentBuffDef {
   statMode?: BuffModifierMode;
   qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
+  presentationScale?: number;
+}
+
+/** Buff 维持代价定义 */
+export interface BuffSustainCostDef {
+  resource: 'hp' | 'qi';
+  baseCost: number;
+  growthRate?: number;
 }
 
 /** 消耗品施加的 Buff 定义 */
@@ -385,6 +398,11 @@ export interface ConsumableBuffDef {
   statMode?: BuffModifierMode;
   qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
+  presentationScale?: number;
+  infiniteDuration?: boolean;
+  sustainCost?: BuffSustainCostDef;
+  expireWithBuffId?: string;
+  sourceSkillId?: string;
 }
 
 /** 装备常驻数值效果 */
@@ -398,6 +416,7 @@ export interface EquipmentStatAuraEffectDef {
   statMode?: BuffModifierMode;
   qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
+  presentationScale?: number;
 }
 
 /** 装备成长推进效果 */
@@ -464,9 +483,79 @@ export interface ItemStack {
   qiPercent?: number;
   consumeBuffs?: ConsumableBuffDef[];
   tags?: string[];
+  alchemySuccessRate?: number;
+  alchemySpeedRate?: number;
   mapUnlockId?: string;
   tileAuraGainAmount?: number;
   allowBatchUse?: boolean;
+}
+
+export type AlchemyIngredientRole = 'main' | 'aux';
+
+export interface AlchemyIngredientSelection {
+  itemId: string;
+  count: number;
+}
+
+export interface AlchemyRecipeIngredientDef extends AlchemyIngredientSelection {
+  name: string;
+  role: AlchemyIngredientRole;
+  level: number;
+  grade: TechniqueGrade;
+  powerPerUnit: number;
+}
+
+export interface AlchemyRecipeCatalogEntry {
+  recipeId: string;
+  outputItemId: string;
+  outputName: string;
+  outputCount: number;
+  outputLevel: number;
+  baseBrewTicks: number;
+  fullPower: number;
+  ingredients: AlchemyRecipeIngredientDef[];
+}
+
+export interface PlayerAlchemyPreset {
+  presetId: string;
+  recipeId: string;
+  name: string;
+  ingredients: AlchemyIngredientSelection[];
+  updatedAt: number;
+}
+
+export interface AlchemySkillState {
+  level: number;
+  exp: number;
+  expToNext: number;
+}
+
+export interface PlayerAlchemyJob {
+  recipeId: string;
+  outputItemId: string;
+  outputCount: number;
+  quantity: number;
+  completedCount: number;
+  successCount: number;
+  failureCount: number;
+  ingredients: AlchemyIngredientSelection[];
+  phase: 'preparing' | 'brewing' | 'paused';
+  preparationTicks: number;
+  batchBrewTicks: number;
+  currentBatchRemainingTicks: number;
+  pausedTicks: number;
+  spiritStoneCost: number;
+  totalTicks: number;
+  remainingTicks: number;
+  successRate: number;
+  exactRecipe: boolean;
+  startedAt: number;
+}
+
+export interface SyncedAlchemyPanelState {
+  furnaceItemId?: string;
+  presets: PlayerAlchemyPreset[];
+  job: PlayerAlchemyJob | null;
 }
 
 /** 背包 */
@@ -562,6 +651,18 @@ export interface MarketOwnOrderView {
 /** 拾取来源类型 */
 export type LootSourceKind = 'ground' | 'container';
 
+/** 拾取来源变种 */
+export type LootSourceVariant = 'default' | 'herb';
+
+/** 草药采集元信息 */
+export interface LootWindowHerbMeta {
+  itemId: string;
+  name: string;
+  grade?: TechniqueGrade;
+  level?: number;
+  gatherTicks: number;
+}
+
 /** 地面物品条目视图 */
 export interface GroundItemEntryView {
   itemKey: string;
@@ -598,11 +699,14 @@ export interface LootWindowItemView {
 export interface LootWindowSourceView {
   sourceId: string;
   kind: LootSourceKind;
+  variant?: LootSourceVariant;
   title: string;
   desc?: string;
   grade?: TechniqueGrade;
   searchable: boolean;
   search?: LootSearchProgressView;
+  herb?: LootWindowHerbMeta;
+  destroyed?: boolean;
   items: LootWindowItemView[];
   emptyText?: string;
 }
@@ -781,8 +885,10 @@ export interface SkillTargetingDef {
   shape?: TargetingShape;
   range?: number;
   radius?: number;
+  innerRadius?: number;
   width?: number;
   height?: number;
+  checkerParity?: 'even' | 'odd';
   maxTargets?: number;
   requiresTarget?: boolean;
   targetMode?: 'any' | 'entity' | 'tile';
@@ -808,6 +914,7 @@ export interface SkillBuffEffectDef {
   visibility?: BuffVisibility;
   color?: string;
   duration: number;
+  stacks?: number;
   maxStacks?: number;
   attrs?: Partial<Attributes>;
   attrMode?: BuffModifierMode;
@@ -815,10 +922,62 @@ export interface SkillBuffEffectDef {
   statMode?: BuffModifierMode;
   qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
+  presentationScale?: number;
+  infiniteDuration?: boolean;
+  sustainCost?: BuffSustainCostDef;
+  expireWithBuffId?: string;
+}
+
+/** 怪物出生自带 Buff 配置 */
+export interface MonsterInitialBuffDef {
+  type?: 'buff';
+  target?: 'self';
+  buffRef?: string;
+  buffId: string;
+  name: string;
+  desc?: string;
+  shortMark?: string;
+  category?: BuffCategory;
+  visibility?: BuffVisibility;
+  color?: string;
+  duration: number;
+  maxStacks?: number;
+  stacks?: number;
+  attrs?: Partial<Attributes>;
+  attrMode?: BuffModifierMode;
+  stats?: PartialNumericStats;
+  statMode?: BuffModifierMode;
+  qiProjection?: QiProjectionModifier[];
+  valueStats?: PartialNumericStats;
+  presentationScale?: number;
+  infiniteDuration?: boolean;
+  sustainCost?: BuffSustainCostDef;
+  expireWithBuffId?: string;
+}
+
+/** 技能地形效果定义 */
+export interface SkillTerrainEffectDef {
+  type: 'terrain';
+  terrainType: TileType;
+  duration: number;
+  allowedOriginalTypes?: TileType[];
 }
 
 /** 技能效果联合类型 */
-export type SkillEffectDef = SkillDamageEffectDef | SkillBuffEffectDef;
+export type SkillEffectDef = SkillDamageEffectDef | SkillBuffEffectDef | SkillTerrainEffectDef;
+
+/** 怪物技能前摇定义 */
+export interface SkillMonsterCastDef {
+  windupTicks?: number;
+  warningColor?: string;
+  conditions?: EquipmentConditionGroup;
+}
+
+/** 玩家技能吟唱定义 */
+export interface SkillPlayerCastDef {
+  windupTicks?: number;
+  warningColor?: string;
+}
 
 /** 技能完整定义 */
 export interface SkillDef {
@@ -836,13 +995,31 @@ export interface SkillDef {
   unlockPlayerRealm?: PlayerRealmStage;
   requiresTarget?: boolean;
   targetMode?: 'any' | 'entity' | 'tile';
+  playerCast?: SkillPlayerCastDef;
+  monsterCast?: SkillMonsterCastDef;
+}
+
+export interface PendingPlayerSkillCast {
+  skillId: string;
+  targetX: number;
+  targetY: number;
+  targetRef?: string;
+  remainingTicks: number;
+  qiCost: number;
+  warningColor?: string;
+  skipProgressThisTick?: boolean;
 }
 
 /** 临时 Buff 状态（含属性和数值加成） */
 export interface TemporaryBuffState extends VisibleBuffState {
   sourceCasterId?: string;
+  baseDesc?: string;
   attrs?: Partial<Attributes>;
   stats?: PartialNumericStats;
+  presentationScale?: number;
+  sustainCost?: BuffSustainCostDef;
+  sustainTicksElapsed?: number;
+  expireWithBuffId?: string;
 }
 
 /** 功法状态 */
@@ -879,6 +1056,157 @@ export interface AutoBattleSkillConfig {
   skillEnabled?: boolean;
 }
 
+/** 自动丹药阈值条件支持的资源 */
+export type AutoUsePillResource = 'hp' | 'qi';
+
+/** 自动丹药阈值条件比较方式 */
+export type AutoUsePillConditionOperator = 'lt' | 'gt';
+
+/** 自动丹药条件：按当前资源百分比触发 */
+export interface AutoUsePillResourceCondition {
+  type: 'resource_ratio';
+  resource: AutoUsePillResource;
+  op: AutoUsePillConditionOperator;
+  thresholdPct: number;
+}
+
+/** 自动丹药条件：当前药品附带的持续效果未生效时触发 */
+export interface AutoUsePillBuffMissingCondition {
+  type: 'buff_missing';
+}
+
+/** 自动丹药触发条件 */
+export type AutoUsePillCondition = AutoUsePillResourceCondition | AutoUsePillBuffMissingCondition;
+
+/** 自动使用丹药配置 */
+export interface AutoUsePillConfig {
+  itemId: string;
+  conditions: AutoUsePillCondition[];
+}
+
+export const AUTO_USE_PILL_RESOURCES = ['hp', 'qi'] as const satisfies readonly AutoUsePillResource[];
+export const AUTO_USE_PILL_CONDITION_OPERATORS = ['lt', 'gt'] as const satisfies readonly AutoUsePillConditionOperator[];
+
+export function isAutoUsePillResource(value: unknown): value is AutoUsePillResource {
+  return typeof value === 'string' && (AUTO_USE_PILL_RESOURCES as readonly string[]).includes(value);
+}
+
+export function isAutoUsePillConditionOperator(value: unknown): value is AutoUsePillConditionOperator {
+  return typeof value === 'string' && (AUTO_USE_PILL_CONDITION_OPERATORS as readonly string[]).includes(value);
+}
+
+function isAutoUsePillConditionRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+export function normalizeAutoUsePillConditions(
+  value: unknown,
+  options?: {
+    allowBuffMissing?: boolean;
+    maxConditions?: number;
+  },
+): AutoUsePillCondition[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const maxConditions = Math.max(1, Math.floor(options?.maxConditions ?? 4));
+  const normalized: AutoUsePillCondition[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of value) {
+    if (!isAutoUsePillConditionRecord(entry)) {
+      continue;
+    }
+    if (entry.type === 'resource_ratio') {
+      const resource = isAutoUsePillResource(entry.resource) ? entry.resource : 'hp';
+      const op = isAutoUsePillConditionOperator(entry.op) ? entry.op : 'lt';
+      const rawThreshold = Number(entry.thresholdPct);
+      const thresholdPct = Number.isFinite(rawThreshold)
+        ? Math.max(0, Math.min(100, Math.round(rawThreshold)))
+        : 50;
+      const key = `resource_ratio:${resource}:${op}:${thresholdPct}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      normalized.push({
+        type: 'resource_ratio',
+        resource,
+        op,
+        thresholdPct,
+      });
+      seen.add(key);
+    } else if (entry.type === 'buff_missing' && options?.allowBuffMissing !== false) {
+      const key = 'buff_missing';
+      if (seen.has(key)) {
+        continue;
+      }
+      normalized.push({ type: 'buff_missing' });
+      seen.add(key);
+    }
+    if (normalized.length >= maxConditions) {
+      break;
+    }
+  }
+
+  return normalized;
+}
+
+export function normalizeAutoUsePillConfigs(
+  value: unknown,
+  options?: {
+    allowItemId?: (itemId: string) => boolean;
+    allowBuffMissing?: (itemId: string) => boolean;
+    maxItems?: number;
+    maxConditionsPerItem?: number;
+  },
+): AutoUsePillConfig[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const maxItems = Math.max(1, Math.floor(options?.maxItems ?? 12));
+  const normalized: AutoUsePillConfig[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of value) {
+    if (!isAutoUsePillConditionRecord(entry) || typeof entry.itemId !== 'string') {
+      continue;
+    }
+    const itemId = entry.itemId.trim();
+    if (!itemId || seen.has(itemId) || (options?.allowItemId && !options.allowItemId(itemId))) {
+      continue;
+    }
+    normalized.push({
+      itemId,
+      conditions: normalizeAutoUsePillConditions(entry.conditions, {
+        allowBuffMissing: options?.allowBuffMissing ? options.allowBuffMissing(itemId) : true,
+        maxConditions: options?.maxConditionsPerItem,
+      }),
+    });
+    seen.add(itemId);
+    if (normalized.length >= maxItems) {
+      break;
+    }
+  }
+
+  return normalized;
+}
+
+/** 自动战斗索敌方案 */
+export type AutoBattleTargetingMode = 'auto' | 'nearest' | 'low_hp' | 'full_hp' | 'boss' | 'player';
+
+export const AUTO_BATTLE_TARGETING_MODES = ['auto', 'nearest', 'low_hp', 'full_hp', 'boss', 'player'] as const satisfies readonly AutoBattleTargetingMode[];
+
+export function isAutoBattleTargetingMode(value: unknown): value is AutoBattleTargetingMode {
+  return typeof value === 'string' && (AUTO_BATTLE_TARGETING_MODES as readonly string[]).includes(value);
+}
+
+export function normalizeAutoBattleTargetingMode(
+  value: unknown,
+  fallback: AutoBattleTargetingMode = 'auto',
+): AutoBattleTargetingMode {
+  return isAutoBattleTargetingMode(value) ? value : fallback;
+}
+
 /** 行动定义 */
 export interface ActionDef {
   id: string;
@@ -912,10 +1240,23 @@ export interface CombatEffectFloat {
   text: string;
   color?: string;
   variant?: 'damage' | 'action';
+  actionStyle?: 'default' | 'divine' | 'chant';
+  durationMs?: number;
+}
+
+/** 战斗地块警戒特效 */
+export interface CombatEffectWarningZone {
+  type: 'warning_zone';
+  cells: GridPoint[];
+  color?: string;
+  baseColor?: string;
+  originX?: number;
+  originY?: number;
+  durationMs?: number;
 }
 
 /** 战斗特效联合类型 */
-export type CombatEffect = CombatEffectAttack | CombatEffectFloat;
+export type CombatEffect = CombatEffectAttack | CombatEffectFloat | CombatEffectWarningZone;
 
 /** 场景实体类型 */
 export type EntityKind = 'npc' | 'monster' | 'container' | 'crowd';
@@ -1048,8 +1389,11 @@ export interface PlayerState {
   quests: QuestState[];
   autoBattle: boolean;
   autoBattleSkills: AutoBattleSkillConfig[];
+  autoUsePills: AutoUsePillConfig[];
+  autoBattleTargetingMode: AutoBattleTargetingMode;
   combatTargetId?: string;
   combatTargetLocked?: boolean;
+  retaliatePlayerTargetId?: string;
   cultivatingTechId?: string;
   pendingLogbookMessages?: PendingLogbookMessage[];
   idleTicks?: number;
@@ -1059,6 +1403,10 @@ export interface PlayerState {
   realm?: PlayerRealmState;
   questNavigation?: QuestNavigationState;
   questCrossMapNavCooldownUntilLifeTicks?: number;
+  pendingSkillCast?: PendingPlayerSkillCast;
+  alchemySkill?: AlchemySkillState;
+  alchemyPresets?: PlayerAlchemyPreset[];
+  alchemyJob?: PlayerAlchemyJob | null;
 }
 
 /** 意见状态 */

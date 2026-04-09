@@ -1,0 +1,149 @@
+{
+  "meta": {
+    "realm": "凡人期",
+    "grade": "地阶",
+    "lv": 0
+  },
+  "reference": {
+    "base": {
+      "lower": 3.8,
+      "upper": 4.2,
+      "target": 4
+    },
+    "percent": {
+      "lower": 3,
+      "upper": 3,
+      "target": 3
+    },
+    "range": {
+      "lower": 3,
+      "upper": 4,
+      "target": 3.5
+    },
+    "area": {
+      "lower": 3,
+      "upper": 4,
+      "target": 3.5
+    }
+  },
+  "weightedBudget": 20,
+  "scores": {
+    "baseScore": 10,
+    "percentScore": 1.2,
+    "rangeScore": 2.5,
+    "areaScore": 0,
+    "totalScore": 161
+  },
+  "targetingHint": {
+    "shape": "single",
+    "desiredTargetCount": 1,
+    "suggestedTargeting": {
+      "shape": "single",
+      "maxTargets": 1
+    },
+    "approxTargetCount": 1
+  },
+  "suggested": {
+    "cooldown": 80,
+    "costMultiplier": 8
+  },
+  "resolvedTerms": {
+    "baseTerms": [
+      {
+        "var": "caster.stat.spellAtk",
+        "scale": 10
+      }
+    ],
+    "percentTerms": [
+      {
+        "var": "techLevel",
+        "scale": 0.05
+      },
+      {
+        "var": "caster.stat.hit",
+        "scale": 0.003
+      },
+      {
+        "var": "caster.stat.breakPower",
+        "scale": 0.003
+      },
+      {
+        "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+        "scale": 0.02
+      },
+      {
+        "var": "target.buff.terrain_molten_pool_burn.stacks",
+        "scale": 0.015
+      }
+    ]
+  },
+  "skill": {
+    "id": "skill.huanling_duanhun_ding",
+    "name": "断魂灵钉",
+    "desc": "认准被熔池烙开的裂口，把残丹灵识压成一根钉，沿着伤脉直接钉穿神魂。",
+    "cooldown": 80,
+    "costMultiplier": 8,
+    "range": 6,
+    "targeting": {
+      "shape": "single",
+      "maxTargets": 1
+    },
+    "effects": [
+      {
+        "type": "damage",
+        "damageKind": "spell",
+        "element": "earth",
+        "formula": {
+          "op": "mul",
+          "args": [
+            {
+              "var": "caster.stat.spellAtk",
+              "scale": 10
+            },
+            {
+              "op": "add",
+              "args": [
+                1,
+                {
+                  "var": "techLevel",
+                  "scale": 0.05
+                },
+                {
+                  "var": "caster.stat.hit",
+                  "scale": 0.003
+                },
+                {
+                  "var": "caster.stat.breakPower",
+                  "scale": 0.003
+                },
+                {
+                  "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                  "scale": 0.02
+                },
+                {
+                  "var": "target.buff.terrain_molten_pool_burn.stacks",
+                  "scale": 0.015
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "buff",
+        "target": "target",
+        "buffId": "buff.huanling_rongmai_yin",
+        "name": "熔脉阴痕",
+        "desc": "断魂灵钉沿着裂脉再补一记，后续沉印更容易整片压塌。",
+        "shortMark": "熔",
+        "category": "debuff",
+        "visibility": "public",
+        "duration": 6,
+        "stacks": 10,
+        "maxStacks": 100,
+        "color": "#ff8a54"
+      }
+    ],
+    "unlockLevel": 1
+  }
+}

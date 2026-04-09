@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository } from 'typeorm';
+import { isDuplicateFriendlyDisplayName } from '@mud/shared';
 import { PlayerEntity } from '../database/entities/player.entity';
 import { UserEntity } from '../database/entities/user.entity';
 import { normalizeRoleName, normalizeUsername, resolveDisplayName } from './account-validation';
@@ -31,6 +32,9 @@ export class NameUniquenessService {
     options: NameConflictCheckOptions = {},
   ): Promise<NameConflictEntry | null> {
     if (!value) {
+      return null;
+    }
+    if (requestedKind === 'display' && isDuplicateFriendlyDisplayName(value)) {
       return null;
     }
 
@@ -85,6 +89,10 @@ export class NameUniquenessService {
           .filter((player) => normalizeRoleName(player.name) === value)
           .map((player) => ({ kind: 'role' as const, userId: player.userId })),
       ];
+    }
+
+    if (isDuplicateFriendlyDisplayName(value)) {
+      return [];
     }
 
     const users = await this.userRepo.createQueryBuilder('user')

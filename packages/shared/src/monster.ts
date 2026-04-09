@@ -34,6 +34,7 @@ import type {
   ItemStack,
   ItemType,
   MonsterAggroMode,
+  MonsterInitialBuffDef,
   MonsterTier,
   NumericStatPercentages,
   PlayerRealmStage,
@@ -111,6 +112,7 @@ export interface MonsterTemplateConfiguredRecord {
   valueStats?: PartialNumericStats;
   attrs?: Partial<Attributes>;
   statPercents?: NumericStatPercentages;
+  initialBuffs?: MonsterInitialBuffDef[];
   equipment?: MonsterTemplateEquipmentRefs;
   skills?: string[];
   hp?: number;
@@ -157,6 +159,7 @@ export interface MonsterTemplateResolvedRecord extends MonsterTemplateConfigured
   valueStats?: PartialNumericStats;
   attrs?: Attributes;
   statPercents?: NumericStatPercentages;
+  initialBuffs?: MonsterInitialBuffDef[];
   equipment: MonsterTemplateEquipmentRefs;
   skills: string[];
   computedStats: NumericStats;

@@ -6,22 +6,29 @@
 import {
   ActionDef,
   AutoBattleSkillConfig,
+  AutoBattleTargetingMode,
+  AutoUsePillCondition,
+  AutoUsePillConfig,
   DEFAULT_PLAYER_REALM_STAGE,
   type ElementKey,
+  ItemStack,
   PlayerState,
   SkillDef,
   type SkillDamageKind,
   countEnabledSkillEntries,
   enforceSkillEnabledLimit,
+  normalizeAutoUsePillConfigs,
   resolvePlayerSkillSlotLimit,
   resolveSkillUnlockLevel,
 } from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
+import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { buildSkillTooltipContent, type SkillPreviewMetrics, summarizeSkillPreviewMetrics } from '../skill-tooltip';
 import { preserveSelection } from '../selection-preserver';
 import { getActionTypeLabel, getElementKeyLabel } from '../../domain-labels';
 import { ACTION_SHORTCUTS_KEY, ACTION_SKILL_PRESETS_KEY, RETURN_TO_SPAWN_ACTION_ID } from '../../constants/ui/action';
+import { getLocalItemTemplate, resolvePreviewItem } from '../../content/local-templates';
 import { formatDisplayNumber } from '../../utils/number';
 
 type ActionMainTab = 'dialogue' | 'skill' | 'toggle' | 'utility';
@@ -79,8 +86,35 @@ interface SkillPresetStatus {
   text: string;
 }
 
+interface AutoUsePillViewEntry {
+  itemId: string;
+  name: string;
+  desc: string;
+  count: number;
+  healAmount?: number;
+  healPercent?: number;
+  qiPercent?: number;
+  consumeBuffs?: Array<{ buffId?: string; name?: string }>;
+  selected: boolean;
+  conditions: AutoUsePillCondition[];
+}
+
+type AutoUsePillSubview = 'main' | 'picker' | 'conditions';
+
 const SKILL_PRESET_NAME_MAX_LENGTH = 24;
 const SKILL_PRESET_EXPORT_VERSION = 2;
+const AUTO_BATTLE_TARGETING_MODE_OPTIONS: Array<{
+  mode: AutoBattleTargetingMode;
+  label: string;
+  summary: string;
+}> = [
+  { mode: 'auto', label: '自动', summary: '按仇恨自动切换。' },
+  { mode: 'nearest', label: '优先更近', summary: '更偏向最近目标。' },
+  { mode: 'low_hp', label: '优先残血', summary: '更偏向血量低的目标。' },
+  { mode: 'full_hp', label: '优先满血', summary: '更偏向血量高的目标。' },
+  { mode: 'boss', label: '优先Boss', summary: '更偏向妖王目标。' },
+  { mode: 'player', label: '优先玩家', summary: '更偏向玩家目标。' },
+];
 
 function normalizeShortcutKey(key: string): string | null {
   if (key.length !== 1) return null;
@@ -204,10 +238,17 @@ function getSkillEnabledTechniques(player: PlayerState): PlayerState['techniques
 
 export class ActionPanel {
   private static readonly SKILL_MANAGEMENT_MODAL_OWNER = 'action-panel-skill-management';
+  private static readonly AUTO_USE_PILL_OVERVIEW_MODAL_OWNER = 'action-panel-auto-use-pill-overview';
+  private static readonly AUTO_USE_PILL_PICKER_MODAL_OWNER = 'action-panel-auto-use-pill-picker';
+  private static readonly AUTO_USE_PILL_CONDITION_MODAL_OWNER = 'action-panel-auto-use-pill-condition';
+  private static readonly AUTO_USE_PILL_SLOT_LIMIT = 12;
   private static readonly SKILL_PRESET_MODAL_OWNER = 'action-panel-skill-preset';
+  private static readonly TARGETING_PLAN_MODAL_OWNER = 'action-panel-targeting-plan';
   private pane = document.getElementById('pane-action')!;
   private onAction: ((actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string) => void) | null = null;
   private onUpdateAutoBattleSkills: ((skills: AutoBattleSkillConfig[]) => void) | null = null;
+  private onUpdateAutoUsePills: ((pills: AutoUsePillConfig[]) => void) | null = null;
+  private onUpdateAutoBattleTargetingMode: ((mode: AutoBattleTargetingMode) => void) | null = null;
   private activeTab: ActionMainTab = 'dialogue';
   private activeSkillTab: SkillSubTab = 'auto';
   private skillManagementTab: SkillManagementTab = 'auto';
@@ -217,8 +258,14 @@ export class ActionPanel {
   private skillManagementSortDirection: SkillManagementSortDirection = 'desc';
   private skillManagementFilterOpen = false;
   private skillManagementFilterToggles = new Set<SkillManagementFilterToggle>();
+  private autoUsePillDraft: AutoUsePillConfig[] | null = null;
+  private autoUsePillSelectedIndex = 0;
+  private autoUsePillSubview: AutoUsePillSubview = 'main';
+  private autoUsePillModalSwitching = false;
+  private autoUsePillExternalRevision: string | null = null;
   private skillManagementExternalRevision: string | null = null;
   private skillPresetExternalRevision: string | null = null;
+  private targetingPlanExternalRevision: string | null = null;
   private skillManagementListScrollTop = 0;
   private autoBattle = false;
   private autoRetaliate = true;
@@ -241,6 +288,8 @@ export class ActionPanel {
   private previewPlayer?: PlayerState;
   private skillLookup = new Map<string, { skill: SkillDef; techLevel: number; knownSkills: SkillDef[] }>();
   private tooltip = new FloatingTooltip();
+  private autoUsePillTooltip = new FloatingTooltip('floating-tooltip inventory-tooltip');
+  private autoUsePillTooltipNode: HTMLElement | null = null;
   private actionRowRefs = new Map<string, ActionRowRefs>();
 
   constructor() {
@@ -252,22 +301,36 @@ export class ActionPanel {
 
   clear(): void {
     this.tooltip.hide(true);
+    this.autoUsePillTooltip.hide(true);
+    this.autoUsePillTooltipNode = null;
     this.actionRowRefs.clear();
     this.skillManagementDraft = null;
+    this.autoUsePillDraft = null;
+    this.autoUsePillExternalRevision = null;
+    this.autoUsePillSelectedIndex = 0;
+    this.autoUsePillSubview = 'main';
     this.skillManagementExternalRevision = null;
     this.skillPresetExternalRevision = null;
     this.skillManagementListScrollTop = 0;
     detailModalHost.close(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER);
+    detailModalHost.close(ActionPanel.AUTO_USE_PILL_OVERVIEW_MODAL_OWNER);
+    detailModalHost.close(ActionPanel.AUTO_USE_PILL_PICKER_MODAL_OWNER);
+    detailModalHost.close(ActionPanel.AUTO_USE_PILL_CONDITION_MODAL_OWNER);
     detailModalHost.close(ActionPanel.SKILL_PRESET_MODAL_OWNER);
+    detailModalHost.close(ActionPanel.TARGETING_PLAN_MODAL_OWNER);
     this.pane.innerHTML = '<div class="empty-hint">暂无可用行动</div>';
   }
 
   setCallbacks(
     onAction: (actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string) => void,
     onUpdateAutoBattleSkills?: (skills: AutoBattleSkillConfig[]) => void,
+    onUpdateAutoUsePills?: (pills: AutoUsePillConfig[]) => void,
+    onUpdateAutoBattleTargetingMode?: (mode: AutoBattleTargetingMode) => void,
   ): void {
     this.onAction = onAction;
     this.onUpdateAutoBattleSkills = onUpdateAutoBattleSkills ?? null;
+    this.onUpdateAutoUsePills = onUpdateAutoUsePills ?? null;
+    this.onUpdateAutoBattleTargetingMode = onUpdateAutoBattleTargetingMode ?? null;
   }
 
   /** 全量更新行动列表并重新渲染 */
@@ -285,8 +348,10 @@ export class ActionPanel {
     if (_autoBattle !== undefined) this.autoBattle = _autoBattle;
     if (_autoRetaliate !== undefined) this.autoRetaliate = _autoRetaliate;
     this.render(this.currentActions);
+    this.renderAutoUsePillModalIfOpen();
     this.renderSkillManagementModalIfOpen();
     this.renderSkillPresetModalIfOpen();
+    this.renderTargetingPlanModalIfOpen();
   }
 
   /** 增量同步行动状态，优先 DOM patch 避免全量重绘 */
@@ -309,8 +374,10 @@ export class ActionPanel {
     if (skillSlotLimitChanged || !this.patchToggleCards() || !this.patchActionRows()) {
       this.render(this.currentActions);
     }
+    this.renderAutoUsePillModalIfOpen();
     this.renderSkillManagementModalIfOpen();
     this.renderSkillPresetModalIfOpen();
+    this.renderTargetingPlanModalIfOpen();
   }
 
   initFromPlayer(player: PlayerState): void {
@@ -325,8 +392,10 @@ export class ActionPanel {
     this.autoSwitchCultivation = player.autoSwitchCultivation === true;
     this.cultivationActive = player.cultivationActive === true;
     this.render(this.currentActions);
+    this.renderAutoUsePillModalIfOpen();
     this.renderSkillManagementModalIfOpen();
     this.renderSkillPresetModalIfOpen();
+    this.renderTargetingPlanModalIfOpen();
   }
 
   private syncPlayerContext(player: PlayerState): void {
@@ -485,9 +554,19 @@ export class ActionPanel {
         this.openSkillManagement();
       });
     });
+    this.pane.querySelectorAll<HTMLElement>('[data-action-combat-settings-open]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.openAutoUsePillModal();
+      });
+    });
     this.pane.querySelectorAll<HTMLElement>('[data-action-skill-preset-open]').forEach((button) => {
       button.addEventListener('click', () => {
         this.openSkillPresetModal();
+      });
+    });
+    this.pane.querySelectorAll<HTMLElement>('[data-action-targeting-plan-open]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.openTargetingPlanModal();
       });
     });
     this.bindActionCardEvents(this.pane);
@@ -1363,7 +1442,9 @@ export class ActionPanel {
         <div class="panel-section-title">技能 · ${slotSummary}</div>
         <div class="action-section-actions">
           <button class="small-btn ghost" data-action-skill-manage-open type="button">技能管理</button>
+          <button class="small-btn ghost" data-action-combat-settings-open type="button">战斗设置</button>
           <button class="small-btn ghost" data-action-skill-preset-open type="button">技能方案</button>
+          <button class="small-btn ghost" data-action-targeting-plan-open type="button">索敌方案 · ${escapeHtml(this.getAutoBattleTargetingModeLabel())}</button>
         </div>
       </div>
       <div class="action-skill-subtabs">
@@ -1832,6 +1913,365 @@ export class ActionPanel {
     this.renderSkillManagementModal();
   }
 
+  private cloneAutoUsePillConfigs(configs: AutoUsePillConfig[]): AutoUsePillConfig[] {
+    return configs.map((entry) => ({
+      itemId: entry.itemId,
+      conditions: entry.conditions.map((condition) => ({ ...condition })),
+    }));
+  }
+
+  private normalizeAutoUsePills(configs: AutoUsePillConfig[]): AutoUsePillConfig[] {
+    return normalizeAutoUsePillConfigs(configs, {
+      maxItems: ActionPanel.AUTO_USE_PILL_SLOT_LIMIT,
+      maxConditionsPerItem: 4,
+    });
+  }
+
+  private getAutoUsePills(): AutoUsePillConfig[] {
+    return this.previewPlayer?.autoUsePills ?? [];
+  }
+
+  private areAutoUsePillConfigsEqual(
+    left: AutoUsePillConfig[] | null | undefined,
+    right: AutoUsePillConfig[] | null | undefined,
+  ): boolean {
+    if ((left?.length ?? 0) !== (right?.length ?? 0)) {
+      return false;
+    }
+    for (let index = 0; index < (right?.length ?? 0); index += 1) {
+      const previous = left?.[index];
+      const next = right?.[index];
+      if (previous?.itemId !== next?.itemId || (previous?.conditions.length ?? 0) !== (next?.conditions.length ?? 0)) {
+        return false;
+      }
+      for (let conditionIndex = 0; conditionIndex < (next?.conditions.length ?? 0); conditionIndex += 1) {
+        const previousCondition = previous?.conditions[conditionIndex];
+        const nextCondition = next?.conditions[conditionIndex];
+        if (previousCondition?.type !== nextCondition?.type) {
+          return false;
+        }
+        if (nextCondition?.type === 'resource_ratio') {
+          if (
+            previousCondition?.type !== 'resource_ratio'
+            || nextCondition.type !== 'resource_ratio'
+            || previousCondition.resource !== nextCondition.resource
+            || previousCondition.op !== nextCondition.op
+            || previousCondition.thresholdPct !== nextCondition.thresholdPct
+          ) {
+            return false;
+          }
+        }
+      }
+    }
+    return true;
+  }
+
+  private buildAutoUsePillExternalRevision(): string {
+    const parts: string[] = [];
+    for (const config of this.getAutoUsePills()) {
+      parts.push(config.itemId);
+      for (const condition of config.conditions) {
+        if (condition.type === 'resource_ratio') {
+          parts.push(`r:${condition.resource}:${condition.op}:${condition.thresholdPct}`);
+        } else {
+          parts.push('b:missing');
+        }
+      }
+    }
+    for (const item of this.previewPlayer?.inventory.items ?? []) {
+      const previewItem = resolvePreviewItem(item);
+      if (previewItem.tags?.includes('战斗丹药') !== true) {
+        continue;
+      }
+      parts.push(`i:${item.itemId}:${item.count}:${previewItem.name}`);
+    }
+    return parts.join('\u0001');
+  }
+
+  private hasPendingAutoUsePillChanges(): boolean {
+    return !this.areAutoUsePillConfigsEqual(this.autoUsePillDraft, this.getAutoUsePills());
+  }
+
+  private confirmDiscardAutoUsePillChanges(): boolean {
+    if (!this.hasPendingAutoUsePillChanges()) {
+      return true;
+    }
+    return window.confirm('战斗设置里有未应用的丹药改动，关闭后会丢失这些改动。确定关闭吗？');
+  }
+
+  private requestAutoUsePillClose(): void {
+    if (!this.confirmDiscardAutoUsePillChanges()) {
+      return;
+    }
+    this.discardAutoUsePillDraft();
+    detailModalHost.close(ActionPanel.AUTO_USE_PILL_OVERVIEW_MODAL_OWNER);
+    detailModalHost.close(ActionPanel.AUTO_USE_PILL_PICKER_MODAL_OWNER);
+    detailModalHost.close(ActionPanel.AUTO_USE_PILL_CONDITION_MODAL_OWNER);
+  }
+
+  private syncAutoUsePillDraft(): AutoUsePillConfig[] {
+    const source = this.autoUsePillDraft ?? this.getAutoUsePills();
+    const nextDraft = this.normalizeAutoUsePills(this.cloneAutoUsePillConfigs(source));
+    this.autoUsePillDraft = nextDraft;
+    this.autoUsePillSelectedIndex = Math.max(0, Math.min(this.autoUsePillSelectedIndex, nextDraft.length));
+    return nextDraft;
+  }
+
+  private discardAutoUsePillDraft(): void {
+    this.autoUsePillDraft = null;
+    this.autoUsePillSelectedIndex = 0;
+    this.autoUsePillSubview = 'main';
+    this.autoUsePillExternalRevision = null;
+  }
+
+  private buildDefaultAutoUsePillConditions(entry: AutoUsePillViewEntry): AutoUsePillCondition[] {
+    if ((entry.consumeBuffs?.length ?? 0) > 0) {
+      return [{ type: 'buff_missing' }];
+    }
+    if ((entry.healAmount ?? 0) > 0 || (entry.healPercent ?? 0) > 0) {
+      return [{ type: 'resource_ratio', resource: 'hp', op: 'lt', thresholdPct: 60 }];
+    }
+    if ((entry.qiPercent ?? 0) > 0) {
+      return [{ type: 'resource_ratio', resource: 'qi', op: 'lt', thresholdPct: 60 }];
+    }
+    return [{ type: 'resource_ratio', resource: 'hp', op: 'lt', thresholdPct: 60 }];
+  }
+
+  private getAutoUsePillViewEntries(): AutoUsePillViewEntry[] {
+    const draft = this.syncAutoUsePillDraft();
+    const configMap = new Map(draft.map((entry) => [entry.itemId, entry] as const));
+    const entries = new Map<string, AutoUsePillViewEntry>();
+
+    for (const item of this.previewPlayer?.inventory.items ?? []) {
+      const previewItem = resolvePreviewItem(item);
+      if (previewItem.tags?.includes('战斗丹药') !== true) {
+        continue;
+      }
+      const config = configMap.get(item.itemId);
+      entries.set(item.itemId, {
+        itemId: item.itemId,
+        name: previewItem.name,
+        desc: previewItem.desc || '',
+        count: item.count,
+        healAmount: previewItem.healAmount,
+        healPercent: previewItem.healPercent,
+        qiPercent: previewItem.qiPercent,
+        consumeBuffs: previewItem.consumeBuffs?.map((buff) => ({ buffId: buff.buffId, name: buff.name })),
+        selected: Boolean(config),
+        conditions: config?.conditions ?? [],
+      });
+    }
+
+    for (const config of draft) {
+      if (entries.has(config.itemId)) {
+        continue;
+      }
+      const template = getLocalItemTemplate(config.itemId);
+      entries.set(config.itemId, {
+        itemId: config.itemId,
+        name: template?.name ?? config.itemId,
+        desc: template?.desc ?? '当前背包里没有这味丹药，配置会先保留。',
+        count: 0,
+        healAmount: template?.healAmount,
+        healPercent: template?.healPercent,
+        qiPercent: template?.qiPercent,
+        consumeBuffs: template?.consumeBuffs?.map((buff) => ({ buffId: buff.buffId, name: buff.name })),
+        selected: true,
+        conditions: config.conditions,
+      });
+    }
+
+    return [...entries.values()].sort((left, right) => {
+      if (left.selected !== right.selected) {
+        return left.selected ? -1 : 1;
+      }
+      if (left.count !== right.count) {
+        return right.count - left.count;
+      }
+      return left.name.localeCompare(right.name, 'zh-Hans-CN');
+    });
+  }
+
+  private applyAutoUsePillDraftMutation(
+    mutator: (draft: AutoUsePillConfig[]) => AutoUsePillConfig[],
+  ): void {
+    const next = this.normalizeAutoUsePills(mutator(this.cloneAutoUsePillConfigs(this.syncAutoUsePillDraft())));
+    this.autoUsePillDraft = next;
+    this.autoUsePillSelectedIndex = Math.max(0, Math.min(this.autoUsePillSelectedIndex, next.length));
+    this.renderAutoUsePillModal();
+  }
+
+  private getSelectedAutoUsePillConfig(): AutoUsePillConfig | null {
+    return this.syncAutoUsePillDraft()[this.autoUsePillSelectedIndex] ?? null;
+  }
+
+  private openAutoUsePillPicker(slotIndex: number): void {
+    this.syncAutoUsePillDraft();
+    this.autoUsePillSelectedIndex = Math.max(0, Math.min(slotIndex, ActionPanel.AUTO_USE_PILL_SLOT_LIMIT - 1));
+    this.autoUsePillSubview = 'picker';
+    this.renderAutoUsePillModal();
+  }
+
+  private openAutoUsePillConditionSettings(slotIndex = this.autoUsePillSelectedIndex): void {
+    this.autoUsePillSelectedIndex = Math.max(0, Math.min(slotIndex, ActionPanel.AUTO_USE_PILL_SLOT_LIMIT - 1));
+    if (!this.getSelectedAutoUsePillConfig()) {
+      return;
+    }
+    this.autoUsePillSubview = 'conditions';
+    this.renderAutoUsePillModal();
+  }
+
+  private closeAutoUsePillSubview(): void {
+    this.autoUsePillSubview = 'main';
+    this.renderAutoUsePillModal();
+  }
+
+  private getAutoUsePillPickerEntries(): AutoUsePillViewEntry[] {
+    const draft = this.syncAutoUsePillDraft();
+    const currentItemId = draft[this.autoUsePillSelectedIndex]?.itemId ?? null;
+    return this.getAutoUsePillViewEntries().filter((entry) => !entry.selected || entry.itemId === currentItemId);
+  }
+
+  private buildAutoUsePillTooltipItem(itemId: string): ItemStack | null {
+    const inventoryItem = this.previewPlayer?.inventory.items.find((item) => item.itemId === itemId);
+    if (inventoryItem) {
+      return resolvePreviewItem(inventoryItem);
+    }
+    const template = getLocalItemTemplate(itemId);
+    if (!template) {
+      return null;
+    }
+    return {
+      ...template,
+      count: 1,
+      name: template.name ?? itemId,
+      desc: template.desc ?? '',
+      type: template.type ?? 'consumable',
+    } as ItemStack;
+  }
+
+  private buildAutoUsePillSlotTooltipPayload(itemId: string): ReturnType<typeof buildItemTooltipPayload> | null {
+    const item = this.buildAutoUsePillTooltipItem(itemId);
+    if (!item) {
+      return null;
+    }
+    const payload = buildItemTooltipPayload(item);
+    const config = this.syncAutoUsePillDraft().find((entry) => entry.itemId === itemId);
+    if (config) {
+      payload.lines = [
+        ...payload.lines,
+        `<span class="skill-tooltip-detail">自动条件：${escapeHtml(this.renderAutoUsePillConditionSummary(config.conditions))}</span>`,
+      ];
+    }
+    return payload;
+  }
+
+  private assignAutoUsePillToSelectedSlot(itemId: string): void {
+    const entry = this.getAutoUsePillViewEntries().find((candidate) => candidate.itemId === itemId);
+    if (!entry) {
+      return;
+    }
+    const selectedIndex = this.autoUsePillSelectedIndex;
+    this.autoUsePillSubview = 'main';
+    this.applyAutoUsePillDraftMutation((draft) => {
+      const next = [...draft];
+      const existingIndex = next.findIndex((candidate) => candidate.itemId === itemId);
+      const existingConfig = existingIndex >= 0 ? next[existingIndex] : null;
+      if (existingIndex >= 0) {
+        next.splice(existingIndex, 1);
+      }
+      let insertIndex = Math.max(0, Math.min(selectedIndex, next.length));
+      if (existingIndex >= 0 && existingIndex < selectedIndex) {
+        insertIndex = Math.max(0, insertIndex - 1);
+      }
+      const replacement: AutoUsePillConfig = existingConfig
+        ? this.cloneAutoUsePillConfigs([existingConfig])[0]!
+        : {
+          itemId,
+          conditions: this.buildDefaultAutoUsePillConditions(entry),
+        };
+      if (insertIndex < next.length) {
+        next.splice(insertIndex, 1, replacement);
+      } else {
+        next.push(replacement);
+      }
+      return next;
+    });
+  }
+
+  private clearSelectedAutoUsePillSlot(): void {
+    const selectedIndex = this.autoUsePillSelectedIndex;
+    this.autoUsePillSubview = 'main';
+    this.applyAutoUsePillDraftMutation((draft) => draft.filter((_, index) => index !== selectedIndex));
+  }
+
+  private updateAutoUsePillCondition(
+    itemId: string,
+    conditionIndex: number,
+    updater: (condition: AutoUsePillCondition) => AutoUsePillCondition,
+  ): void {
+    this.applyAutoUsePillDraftMutation((draft) => draft.map((entry) => {
+      if (entry.itemId !== itemId) {
+        return entry;
+      }
+      return {
+        ...entry,
+        conditions: entry.conditions.map((condition, index) => (
+          index === conditionIndex ? updater(condition) : condition
+        )),
+      };
+    }));
+  }
+
+  private removeAutoUsePillCondition(itemId: string, conditionIndex: number): void {
+    this.applyAutoUsePillDraftMutation((draft) => draft.map((entry) => {
+      if (entry.itemId !== itemId) {
+        return entry;
+      }
+      return {
+        ...entry,
+        conditions: entry.conditions.filter((_, index) => index !== conditionIndex),
+      };
+    }));
+  }
+
+  private addAutoUsePillCondition(itemId: string, kind: 'hp' | 'qi' | 'buff_missing'): void {
+    this.applyAutoUsePillDraftMutation((draft) => draft.map((entry) => {
+      if (entry.itemId !== itemId) {
+        return entry;
+      }
+      const nextCondition: AutoUsePillCondition = kind === 'buff_missing'
+        ? { type: 'buff_missing' }
+        : { type: 'resource_ratio', resource: kind, op: 'lt', thresholdPct: 60 };
+      return {
+        ...entry,
+        conditions: [...entry.conditions, nextCondition],
+      };
+    }));
+  }
+
+  private applyAutoUsePillChanges(): void {
+    const next = this.syncAutoUsePillDraft();
+    if (this.previewPlayer) {
+      this.previewPlayer.autoUsePills = this.cloneAutoUsePillConfigs(next);
+    }
+    this.autoUsePillDraft = null;
+    this.autoUsePillSelectedIndex = 0;
+    this.autoUsePillSubview = 'main';
+    this.autoUsePillExternalRevision = null;
+    detailModalHost.close(ActionPanel.AUTO_USE_PILL_OVERVIEW_MODAL_OWNER);
+    detailModalHost.close(ActionPanel.AUTO_USE_PILL_PICKER_MODAL_OWNER);
+    detailModalHost.close(ActionPanel.AUTO_USE_PILL_CONDITION_MODAL_OWNER);
+    this.onUpdateAutoUsePills?.(next);
+  }
+
+  private openAutoUsePillModal(): void {
+    this.syncAutoUsePillDraft();
+    this.autoUsePillSelectedIndex = 0;
+    this.autoUsePillSubview = 'main';
+    this.renderAutoUsePillModal();
+  }
+
   private openSkillPresetModal(): void {
     if (!this.skillPresetNameDraft) {
       this.skillPresetNameDraft = this.buildDefaultSkillPresetName();
@@ -1841,6 +2281,18 @@ export class ActionPanel {
     }
     this.skillPresetStatus = null;
     this.renderSkillPresetModal();
+  }
+
+  private openTargetingPlanModal(): void {
+    this.renderTargetingPlanModal();
+  }
+
+  private getAutoBattleTargetingMode(): AutoBattleTargetingMode {
+    return this.previewPlayer?.autoBattleTargetingMode ?? 'auto';
+  }
+
+  private getAutoBattleTargetingModeLabel(mode = this.getAutoBattleTargetingMode()): string {
+    return AUTO_BATTLE_TARGETING_MODE_OPTIONS.find((entry) => entry.mode === mode)?.label ?? '自动';
   }
 
   private resetSkillPresetModalState(): void {
@@ -2423,6 +2875,454 @@ export class ActionPanel {
     this.renderSkillManagementModal();
   }
 
+  private renderAutoUsePillModalIfOpen(): void {
+    if (
+      !detailModalHost.isOpenFor(ActionPanel.AUTO_USE_PILL_OVERVIEW_MODAL_OWNER)
+      && !detailModalHost.isOpenFor(ActionPanel.AUTO_USE_PILL_PICKER_MODAL_OWNER)
+      && !detailModalHost.isOpenFor(ActionPanel.AUTO_USE_PILL_CONDITION_MODAL_OWNER)
+    ) {
+      return;
+    }
+    const nextRevision = this.buildAutoUsePillExternalRevision();
+    if (this.autoUsePillExternalRevision === nextRevision) {
+      return;
+    }
+    this.renderAutoUsePillModal();
+  }
+
+  private renderAutoUsePillConditionSummary(conditions: AutoUsePillCondition[]): string {
+    if (conditions.length === 0) {
+      return '未设置条件，不会自动使用。';
+    }
+    return conditions.map((condition) => {
+      if (condition.type === 'resource_ratio') {
+        return `当前${condition.resource === 'hp' ? '生命' : '灵力'}${condition.op === 'lt' ? '低于' : '高于'} ${condition.thresholdPct}%`;
+      }
+      return '当前药品效果未生效时使用';
+    }).join('；');
+  }
+
+  private renderAutoUsePillEffectSummary(entry: AutoUsePillViewEntry): string {
+    const parts: string[] = [];
+    if ((entry.healAmount ?? 0) > 0) {
+      parts.push(`恢复气血 ${formatDisplayNumber(entry.healAmount ?? 0)}`);
+    }
+    if ((entry.healPercent ?? 0) > 0) {
+      parts.push(`恢复生命 ${Math.round((entry.healPercent ?? 0) * 100)}%`);
+    }
+    if ((entry.qiPercent ?? 0) > 0) {
+      parts.push(`恢复灵力 ${Math.round((entry.qiPercent ?? 0) * 100)}%`);
+    }
+    if ((entry.consumeBuffs?.length ?? 0) > 0) {
+      parts.push(`附带 ${entry.consumeBuffs?.map((buff) => buff.name || buff.buffId || 'Buff').join('、')}`);
+    }
+    return parts.join('；') || '效果以物品真源配置为准。';
+  }
+
+  private renderAutoUsePillConditionRow(itemId: string, condition: AutoUsePillCondition, conditionIndex: number): string {
+    if (condition.type === 'resource_ratio') {
+      return `
+        <div class="auto-pill-condition-row">
+          <select data-auto-pill-condition-resource="${escapeHtml(itemId)}" data-condition-index="${conditionIndex}">
+            <option value="hp"${condition.resource === 'hp' ? ' selected' : ''}>生命值</option>
+            <option value="qi"${condition.resource === 'qi' ? ' selected' : ''}>灵力值</option>
+          </select>
+          <select data-auto-pill-condition-op="${escapeHtml(itemId)}" data-condition-index="${conditionIndex}">
+            <option value="lt"${condition.op === 'lt' ? ' selected' : ''}>小于</option>
+            <option value="gt"${condition.op === 'gt' ? ' selected' : ''}>大于</option>
+          </select>
+          <input
+            data-auto-pill-condition-threshold="${escapeHtml(itemId)}"
+            data-condition-index="${conditionIndex}"
+            type="number"
+            min="0"
+            max="100"
+            step="1"
+            value="${condition.thresholdPct}"
+          />
+          <span class="auto-pill-condition-unit">%</span>
+          <button class="small-btn ghost" data-auto-pill-condition-remove="${escapeHtml(itemId)}" data-condition-index="${conditionIndex}" type="button">删除</button>
+        </div>
+      `;
+    }
+    return `
+      <div class="auto-pill-condition-row auto-pill-condition-row--wide">
+        <div class="auto-pill-condition-static">当前药品附带的持续效果未生效时，自动使用该丹药。</div>
+        <button class="small-btn ghost" data-auto-pill-condition-remove="${escapeHtml(itemId)}" data-condition-index="${conditionIndex}" type="button">删除</button>
+      </div>
+    `;
+  }
+
+  private renderAutoUsePillModal(): void {
+    this.autoUsePillTooltip.hide(true);
+    this.autoUsePillTooltipNode = null;
+    const entries = this.getAutoUsePillViewEntries();
+    const draft = this.syncAutoUsePillDraft();
+    const selectedCount = draft.length;
+    const currentConfig = draft[this.autoUsePillSelectedIndex] ?? null;
+    const currentEntry = currentConfig
+      ? entries.find((entry) => entry.itemId === currentConfig.itemId) ?? null
+      : null;
+    const slotCount = ActionPanel.AUTO_USE_PILL_SLOT_LIMIT;
+    const slotMarkup = Array.from({ length: slotCount }, (_, index) => {
+      const slotConfig = draft[index] ?? null;
+      const slotEntry = slotConfig
+        ? entries.find((entry) => entry.itemId === slotConfig.itemId) ?? null
+        : null;
+      const conditionSummary = slotConfig
+        ? this.renderAutoUsePillConditionSummary(slotConfig.conditions)
+        : '未设置药品';
+      return `
+        <div class="auto-pill-slot-unit">
+          <button
+            class="auto-pill-slot ${index === this.autoUsePillSelectedIndex ? 'active' : ''} ${slotEntry ? 'filled' : 'empty'}"
+            data-auto-pill-slot="${index}"
+            ${slotEntry ? `data-auto-pill-slot-item-id="${escapeHtml(slotEntry.itemId)}"` : ''}
+            type="button"
+          >
+            ${slotEntry
+              ? `
+                <span class="auto-pill-slot-name">${escapeHtml(slotEntry.name)}</span>
+                <span class="auto-pill-slot-count">${slotEntry.count > 0 ? slotEntry.count : '-'}</span>
+              `
+              : `
+                <span class="auto-pill-slot-empty">+</span>
+                <span class="auto-pill-slot-label">空槽</span>
+              `}
+          </button>
+          <div class="auto-pill-slot-summary">${escapeHtml(conditionSummary)}</div>
+          <button
+            class="small-btn ghost auto-pill-slot-condition-btn"
+            data-auto-pill-open-slot-conditions="${index}"
+            type="button"
+            ${slotEntry ? '' : 'disabled'}
+          >条件</button>
+        </div>
+      `;
+    }).join('');
+    const pickerEntries = this.getAutoUsePillPickerEntries();
+    const pickerBody = pickerEntries.length === 0
+      ? '<div class="empty-hint">当前没有可选的战斗丹药。</div>'
+      : `<div class="auto-pill-picker-grid">
+        ${pickerEntries.map((entry) => `
+          <button
+            class="auto-pill-picker-card ${currentEntry?.itemId === entry.itemId ? 'selected' : ''}"
+            data-auto-pill-pick="${escapeHtml(entry.itemId)}"
+            type="button"
+          >
+            <span class="auto-pill-picker-title">${escapeHtml(entry.name)}</span>
+            <span class="auto-pill-picker-count">${entry.count > 0 ? `背包 ${entry.count}` : '背包暂无'}</span>
+            <span class="auto-pill-picker-meta">${escapeHtml(this.renderAutoUsePillEffectSummary(entry))}</span>
+          </button>
+        `).join('')}
+      </div>`;
+    const conditionBody = currentEntry
+      ? `
+        <div class="auto-pill-condition-editor">
+          <div class="auto-pill-condition-summary-card">
+            <div class="auto-pill-card-title-row">
+              <div class="auto-pill-card-title">${escapeHtml(currentEntry.name)}</div>
+              <span class="auto-pill-card-count">${currentEntry.count > 0 ? `背包 ${currentEntry.count}` : '背包暂无'}</span>
+            </div>
+            <div class="auto-pill-card-meta">${escapeHtml(this.renderAutoUsePillEffectSummary(currentEntry))}</div>
+            <div class="auto-pill-config-summary">${escapeHtml(this.renderAutoUsePillConditionSummary(currentConfig?.conditions ?? []))}</div>
+          </div>
+          <div class="auto-pill-condition-panel auto-pill-condition-panel--standalone">
+            <div class="auto-pill-condition-head">
+              <div class="skill-preset-card-title">触发条件</div>
+              <div class="skill-preset-list-meta">满足任一条件时就会尝试服用。</div>
+            </div>
+            ${(currentConfig?.conditions.length ?? 0) > 0
+              ? `<div class="auto-pill-condition-list">
+                ${currentConfig?.conditions.map((condition, conditionIndex) => this.renderAutoUsePillConditionRow(currentEntry.itemId, condition, conditionIndex)).join('')}
+              </div>`
+              : '<div class="empty-hint">还没有设置任何触发条件。</div>'}
+            <div class="auto-pill-condition-actions">
+              <button class="small-btn ghost" data-auto-pill-add-condition="${escapeHtml(currentEntry.itemId)}" data-condition-kind="hp" type="button">添加生命条件</button>
+              <button class="small-btn ghost" data-auto-pill-add-condition="${escapeHtml(currentEntry.itemId)}" data-condition-kind="qi" type="button">添加灵力条件</button>
+              ${(currentEntry.consumeBuffs?.length ?? 0) > 0
+                ? `<button class="small-btn ghost" data-auto-pill-add-condition="${escapeHtml(currentEntry.itemId)}" data-condition-kind="buff_missing" type="button">添加效果未生效条件</button>`
+                : ''}
+            </div>
+          </div>
+        </div>
+      `
+      : '<div class="empty-hint">当前槽位还没有选择药品，无法设置条件。</div>';
+    const overviewBody = `
+      <div class="auto-pill-shell">
+        <div class="auto-pill-topbar">
+          <div class="skill-preset-card auto-pill-hero-card">
+            <div class="skill-preset-card-title">自动丹药槽</div>
+            <div class="skill-preset-card-copy">战斗设置主弹窗会保持打开。点槽位会在上面弹出独立药品选择小窗，点槽位下方“条件”会弹出独立条件设置小窗。</div>
+          </div>
+          <div class="auto-pill-toolbar">
+            <button class="small-btn" data-auto-pill-apply type="button">应用</button>
+            <button class="small-btn ghost" data-auto-pill-cancel type="button">取消</button>
+          </div>
+        </div>
+        <div class="auto-pill-slot-grid">${slotMarkup}</div>
+        ${this.autoUsePillSubview === 'picker'
+          ? `
+            <div class="auto-pill-subdialog-backdrop">
+              <div class="auto-pill-subdialog auto-pill-subdialog--picker">
+                <div class="auto-pill-subdialog-head">
+                  <div>
+                    <div class="skill-preset-card-title">选择药品</div>
+                    <div class="skill-preset-list-meta">hover 可查看和背包一致的物品详情，点击后直接放入当前槽位。</div>
+                  </div>
+                  <div class="auto-pill-toolbar">
+                    ${currentConfig ? '<button class="small-btn ghost" data-auto-pill-clear-slot type="button">清空槽位</button>' : ''}
+                    <button class="small-btn ghost" data-auto-pill-back type="button">关闭</button>
+                  </div>
+                </div>
+                ${pickerBody}
+              </div>
+            </div>
+          `
+          : ''}
+        ${this.autoUsePillSubview === 'conditions'
+          ? `
+            <div class="auto-pill-subdialog-backdrop">
+              <div class="auto-pill-subdialog auto-pill-subdialog--condition">
+                <div class="auto-pill-subdialog-head">
+                  <div>
+                    <div class="skill-preset-card-title">条件设置</div>
+                    <div class="skill-preset-list-meta">${escapeHtml(currentEntry?.name ?? '当前槽位')} 的自动条件</div>
+                  </div>
+                  <div class="auto-pill-toolbar">
+                    <button class="small-btn ghost" data-auto-pill-back type="button">关闭</button>
+                  </div>
+                </div>
+                ${conditionBody}
+              </div>
+            </div>
+          `
+          : ''}
+      </div>
+    `;
+    detailModalHost.open({
+      ownerId: ActionPanel.AUTO_USE_PILL_OVERVIEW_MODAL_OWNER,
+      variantClass: 'detail-modal--combat-settings',
+      title: '战斗设置',
+      subtitle: `自动丹药 ${selectedCount} 种 · 槽位总览`,
+      bodyHtml: overviewBody,
+      onRequestClose: () => this.confirmDiscardAutoUsePillChanges(),
+      onClose: () => {
+        this.discardAutoUsePillDraft();
+      },
+      onAfterRender: (body) => {
+        this.bindAutoUsePillEvents(body);
+      },
+    });
+    this.autoUsePillExternalRevision = this.buildAutoUsePillExternalRevision();
+  }
+
+  private bindAutoUsePillEvents(root: HTMLElement): void {
+    root.querySelectorAll<HTMLElement>('[data-auto-pill-apply]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.applyAutoUsePillChanges();
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-auto-pill-cancel]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.requestAutoUsePillClose();
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-auto-pill-slot]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const slotIndex = Number(button.dataset.autoPillSlot);
+        if (!Number.isInteger(slotIndex)) {
+          return;
+        }
+        this.openAutoUsePillPicker(slotIndex);
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-auto-pill-open-slot-conditions]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const slotIndex = Number(button.dataset.autoPillOpenSlotConditions);
+        if (!Number.isInteger(slotIndex)) {
+          return;
+        }
+        this.openAutoUsePillConditionSettings(slotIndex);
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-auto-pill-back]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.closeAutoUsePillSubview();
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-auto-pill-pick]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const itemId = button.dataset.autoPillPick;
+        if (!itemId) {
+          return;
+        }
+        this.assignAutoUsePillToSelectedSlot(itemId);
+      });
+    });
+    this.bindAutoUsePillSlotTooltipEvents(root);
+    this.bindAutoUsePillPickerTooltipEvents(root);
+    root.querySelectorAll<HTMLElement>('[data-auto-pill-clear-slot]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.clearSelectedAutoUsePillSlot();
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-auto-pill-add-condition]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const itemId = button.dataset.autoPillAddCondition;
+        const kind = button.dataset.conditionKind as 'hp' | 'qi' | 'buff_missing' | undefined;
+        if (!itemId || !kind) {
+          return;
+        }
+        this.addAutoUsePillCondition(itemId, kind);
+      });
+    });
+    root.querySelectorAll<HTMLSelectElement>('[data-auto-pill-condition-resource]').forEach((input) => {
+      input.addEventListener('change', () => {
+        const itemId = input.dataset.autoPillConditionResource;
+        const conditionIndex = Number(input.dataset.conditionIndex);
+        const resource = input.value === 'qi' ? 'qi' : 'hp';
+        if (!itemId || !Number.isInteger(conditionIndex)) {
+          return;
+        }
+        this.updateAutoUsePillCondition(itemId, conditionIndex, (condition) => (
+          condition.type === 'resource_ratio'
+            ? { ...condition, resource }
+            : condition
+        ));
+      });
+    });
+    root.querySelectorAll<HTMLSelectElement>('[data-auto-pill-condition-op]').forEach((input) => {
+      input.addEventListener('change', () => {
+        const itemId = input.dataset.autoPillConditionOp;
+        const conditionIndex = Number(input.dataset.conditionIndex);
+        const op = input.value === 'gt' ? 'gt' : 'lt';
+        if (!itemId || !Number.isInteger(conditionIndex)) {
+          return;
+        }
+        this.updateAutoUsePillCondition(itemId, conditionIndex, (condition) => (
+          condition.type === 'resource_ratio'
+            ? { ...condition, op }
+            : condition
+        ));
+      });
+    });
+    root.querySelectorAll<HTMLInputElement>('[data-auto-pill-condition-threshold]').forEach((input) => {
+      input.addEventListener('change', () => {
+        const itemId = input.dataset.autoPillConditionThreshold;
+        const conditionIndex = Number(input.dataset.conditionIndex);
+        const thresholdPct = Math.max(0, Math.min(100, Math.round(Number(input.value) || 0)));
+        if (!itemId || !Number.isInteger(conditionIndex)) {
+          return;
+        }
+        this.updateAutoUsePillCondition(itemId, conditionIndex, (condition) => (
+          condition.type === 'resource_ratio'
+            ? { ...condition, thresholdPct }
+            : condition
+        ));
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-auto-pill-condition-remove]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const itemId = button.dataset.autoPillConditionRemove;
+        const conditionIndex = Number(button.dataset.conditionIndex);
+        if (!itemId || !Number.isInteger(conditionIndex)) {
+          return;
+        }
+        this.removeAutoUsePillCondition(itemId, conditionIndex);
+      });
+    });
+  }
+
+  private bindAutoUsePillSlotTooltipEvents(root: HTMLElement): void {
+    const slotButtons = root.querySelectorAll<HTMLElement>('[data-auto-pill-slot-item-id]');
+    if (slotButtons.length === 0) {
+      return;
+    }
+    root.addEventListener('pointermove', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      const button = target.closest<HTMLElement>('[data-auto-pill-slot-item-id]');
+      if (!button) {
+        if (this.autoUsePillTooltipNode) {
+          this.autoUsePillTooltipNode = null;
+          this.autoUsePillTooltip.hide();
+        }
+        return;
+      }
+      const itemId = button.dataset.autoPillSlotItemId;
+      if (!itemId) {
+        return;
+      }
+      if (this.autoUsePillTooltipNode !== button) {
+        const tooltip = this.buildAutoUsePillSlotTooltipPayload(itemId);
+        if (!tooltip) {
+          return;
+        }
+        this.autoUsePillTooltipNode = button;
+        this.autoUsePillTooltip.show(tooltip.title, tooltip.lines, event.clientX, event.clientY, {
+          allowHtml: tooltip.allowHtml,
+          asideCards: tooltip.asideCards,
+        });
+        return;
+      }
+      this.autoUsePillTooltip.move(event.clientX, event.clientY);
+    });
+  }
+
+  private bindAutoUsePillPickerTooltipEvents(root: HTMLElement): void {
+    const pickerCards = root.querySelectorAll<HTMLElement>('[data-auto-pill-pick]');
+    if (pickerCards.length === 0) {
+      this.autoUsePillTooltipNode = null;
+      this.autoUsePillTooltip.hide(true);
+      return;
+    }
+    root.addEventListener('pointermove', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      const card = target.closest<HTMLElement>('[data-auto-pill-pick]');
+      if (!card) {
+        if (this.autoUsePillTooltipNode) {
+          this.autoUsePillTooltipNode = null;
+          this.autoUsePillTooltip.hide();
+        }
+        return;
+      }
+      const itemId = card.dataset.autoPillPick;
+      if (!itemId) {
+        return;
+      }
+      if (this.autoUsePillTooltipNode !== card) {
+        const item = this.buildAutoUsePillTooltipItem(itemId);
+        if (!item) {
+          return;
+        }
+        const tooltip = buildItemTooltipPayload(item);
+        this.autoUsePillTooltipNode = card;
+        this.autoUsePillTooltip.show(tooltip.title, tooltip.lines, event.clientX, event.clientY, {
+          allowHtml: tooltip.allowHtml,
+          asideCards: tooltip.asideCards,
+        });
+        return;
+      }
+      this.autoUsePillTooltip.move(event.clientX, event.clientY);
+    });
+    root.addEventListener('pointerleave', () => {
+      this.autoUsePillTooltipNode = null;
+      this.autoUsePillTooltip.hide();
+    });
+    root.addEventListener('pointerdown', () => {
+      if (this.autoUsePillTooltipNode) {
+        this.autoUsePillTooltipNode = null;
+        this.autoUsePillTooltip.hide();
+      }
+    });
+  }
+
   private renderSkillPresetModalIfOpen(): void {
     if (!detailModalHost.isOpenFor(ActionPanel.SKILL_PRESET_MODAL_OWNER)) {
       return;
@@ -2432,6 +3332,80 @@ export class ActionPanel {
       return;
     }
     this.renderSkillPresetModal();
+  }
+
+  private renderTargetingPlanModalIfOpen(): void {
+    if (!detailModalHost.isOpenFor(ActionPanel.TARGETING_PLAN_MODAL_OWNER)) {
+      return;
+    }
+    const nextRevision = this.getAutoBattleTargetingMode();
+    if (this.targetingPlanExternalRevision === nextRevision) {
+      return;
+    }
+    this.renderTargetingPlanModal();
+  }
+
+  private renderTargetingPlanModal(): void {
+    const activeMode = this.getAutoBattleTargetingMode();
+    const activeOption = AUTO_BATTLE_TARGETING_MODE_OPTIONS.find((entry) => entry.mode === activeMode)
+      ?? AUTO_BATTLE_TARGETING_MODE_OPTIONS[0]!;
+    detailModalHost.open({
+      ownerId: ActionPanel.TARGETING_PLAN_MODAL_OWNER,
+      variantClass: 'detail-modal--targeting-plan',
+      title: '索敌方案',
+      subtitle: `当前 ${activeOption.label}`,
+      bodyHtml: `
+        <div class="targeting-plan-shell">
+          <div class="targeting-plan-hero">
+            <div class="targeting-plan-card">
+              <div class="skill-preset-card-title">当前方案</div>
+              <div class="targeting-plan-current">${escapeHtml(activeOption.label)}</div>
+              <div class="skill-preset-card-copy">${escapeHtml(activeOption.summary)}</div>
+            </div>
+          </div>
+          <div class="targeting-plan-card targeting-plan-options">
+            <div class="skill-preset-section-head">
+              <div class="skill-preset-card-title">方案切换</div>
+              <div class="skill-preset-list-meta">点击后立即切换。</div>
+            </div>
+            <div class="targeting-plan-grid">
+              ${AUTO_BATTLE_TARGETING_MODE_OPTIONS.map((entry) => `
+                <button
+                  class="targeting-plan-option ${entry.mode === activeMode ? 'active' : ''}"
+                  data-targeting-plan-mode="${escapeHtml(entry.mode)}"
+                  type="button"
+                >
+                  <span class="targeting-plan-option-title">${escapeHtml(entry.label)}</span>
+                  <span class="targeting-plan-option-copy">${escapeHtml(entry.summary)}</span>
+                </button>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `,
+      onAfterRender: (body) => {
+        this.bindTargetingPlanEvents(body);
+      },
+    });
+    this.targetingPlanExternalRevision = activeMode;
+  }
+
+  private bindTargetingPlanEvents(root: HTMLElement): void {
+    root.querySelectorAll<HTMLElement>('[data-targeting-plan-mode]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const mode = button.dataset.targetingPlanMode as AutoBattleTargetingMode | undefined;
+        if (!mode || mode === this.getAutoBattleTargetingMode()) {
+          return;
+        }
+        if (this.previewPlayer) {
+          this.previewPlayer.autoBattleTargetingMode = mode;
+        }
+        this.targetingPlanExternalRevision = null;
+        this.render(this.currentActions);
+        this.renderTargetingPlanModal();
+        this.onUpdateAutoBattleTargetingMode?.(mode);
+      });
+    });
   }
 
   private renderSkillManagementModal(): void {

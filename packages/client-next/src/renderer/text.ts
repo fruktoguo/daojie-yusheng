@@ -225,6 +225,7 @@ interface AnimEntity {
   name?: string;
   kind?: string;
   monsterTier?: MonsterTier;
+  monsterScale?: number;
   hp?: number;
   maxHp?: number;
   npcQuestMarker?: NpcQuestMarker;
@@ -267,6 +268,18 @@ interface AttackTrail {
   duration: number;
 }
 
+interface WarningZone {
+  id: number;
+  cells: Array<{ x: number; y: number; expandDistance: number }>;
+  color: string;
+  baseColor: string;
+  originX: number;
+  originY: number;
+  maxExpandDistance: number;
+  createdAt: number;
+  duration: number;
+}
+
 interface FloatingTextBurstOffset {
   offsetX: number;
   offsetY: number;
@@ -285,6 +298,8 @@ const DEFAULT_PATH_TRAIL_FADE_MS = 500;
 const PATH_TRAIL_FADE_ALPHA = 0.7;
 const MAX_FLOATING_TEXTS = 256;
 const MAX_ATTACK_TRAILS = 192;
+const MAX_WARNING_ZONES = 64;
+const DEFAULT_WARNING_ZONE_DURATION_MS = 1240;
 
 /** 文字渲染器，用汉字字符绘制地图地块、实体角色和战斗特效 */
 export class TextRenderer implements IRenderer {
@@ -303,8 +318,10 @@ export class TextRenderer implements IRenderer {
   private targetingAffectedKeys = new Set<string>();
   private floatingTexts: FloatingText[] = [];
   private attackTrails: AttackTrail[] = [];
+  private warningZones: WarningZone[] = [];
   private nextFloatingTextId = 1;
   private nextAttackTrailId = 1;
+  private nextWarningZoneId = 1;
   private lastMotionSyncToken?: number;
   private previousVisibleTileKeys = new Set<string>();
   private previousVisibleTileRevision = -1;
@@ -338,6 +355,7 @@ export class TextRenderer implements IRenderer {
     this.containerTileKeys.clear();
     this.floatingTexts = [];
     this.attackTrails = [];
+    this.warningZones = [];
     this.lastMotionSyncToken = undefined;
     this.previousVisibleTileKeys.clear();
     this.previousVisibleTileRevision = -1;
@@ -484,11 +502,11 @@ export class TextRenderer implements IRenderer {
             if (inCastRange || affected) {
               ctx.fillStyle = affected
                 ? (hovered ? 'rgba(208, 76, 56, 0.42)' : 'rgba(198, 72, 48, 0.3)')
-                : (hovered ? 'rgba(208, 76, 56, 0.34)' : 'rgba(212, 164, 71, 0.18)');
+                : (hovered ? 'rgba(66, 153, 225, 0.3)' : 'rgba(88, 180, 214, 0.18)');
               ctx.fillRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
               ctx.strokeStyle = affected
                 ? (hovered ? 'rgba(150, 28, 24, 0.98)' : 'rgba(171, 56, 36, 0.9)')
-                : (hovered ? 'rgba(166, 37, 31, 0.92)' : 'rgba(123, 91, 20, 0.55)');
+                : (hovered ? 'rgba(125, 211, 252, 0.94)' : 'rgba(151, 236, 255, 0.72)');
               ctx.lineWidth = hovered || affected ? 2 : 1;
               ctx.strokeRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3);
             }
@@ -574,7 +592,7 @@ export class TextRenderer implements IRenderer {
 
   /** 更新实体列表，记录旧位置用于插值动画 */
   updateEntities(
-    list: readonly { id: string; wx: number; wy: number; char: string; color: string; name?: string; kind?: string; monsterTier?: MonsterTier; hp?: number; maxHp?: number; npcQuestMarker?: NpcQuestMarker | null; buffs?: VisibleBuffState[] }[],
+    list: readonly { id: string; wx: number; wy: number; char: string; color: string; name?: string; kind?: string; monsterTier?: MonsterTier; monsterScale?: number; hp?: number; maxHp?: number; npcQuestMarker?: NpcQuestMarker | null; buffs?: VisibleBuffState[] }[],
     movedId?: string,
     shiftX = 0,
     shiftY = 0,
@@ -633,6 +651,7 @@ export class TextRenderer implements IRenderer {
         anim.name = e.name;
         anim.kind = e.kind;
         anim.monsterTier = e.monsterTier;
+        anim.monsterScale = e.monsterScale;
         anim.hp = e.hp;
         anim.maxHp = e.maxHp;
         anim.npcQuestMarker = e.npcQuestMarker ?? undefined;
@@ -651,6 +670,7 @@ export class TextRenderer implements IRenderer {
           name: e.name,
           kind: e.kind,
           monsterTier: e.monsterTier,
+          monsterScale: e.monsterScale,
           hp: e.hp,
           maxHp: e.maxHp,
           npcQuestMarker: e.npcQuestMarker ?? undefined,
@@ -686,7 +706,7 @@ export class TextRenderer implements IRenderer {
       const presentation = anim.kind === 'monster'
         ? getMonsterPresentation(anim.name, anim.monsterTier)
         : null;
-      const visualScale = presentation?.scale ?? 1;
+      const visualScale = (presentation?.scale ?? 1) * Math.max(1, anim.monsterScale ?? 1);
       const visualCellSize = cellSize * visualScale;
       const visualSx = sx - (visualCellSize - cellSize) / 2;
       const visualSy = sy - (visualCellSize - cellSize);
@@ -762,7 +782,7 @@ export class TextRenderer implements IRenderer {
         }
 
         if (!isCrowd) {
-          this.drawBuffRows(visualSx, visualSy, visualCellSize, anim.buffs);
+          this.drawBuffRows(sx, visualSy, renderedCellSize, anim.buffs);
         }
 
         if (!isCrowd && (anim.maxHp ?? 0) > 0) {
@@ -1102,6 +1122,7 @@ export class TextRenderer implements IRenderer {
     color = '#ffd27a',
     variant: 'damage' | 'action' = 'damage',
     actionStyle?: FloatingActionTextStyle,
+    durationMs?: number,
   ) {
     const now = performance.now();
     this.pruneExpiredFloatingTexts(now);
@@ -1114,7 +1135,15 @@ export class TextRenderer implements IRenderer {
       variant,
       actionStyle,
       createdAt: now,
-      duration: variant === 'action' && actionStyle === 'divine' ? 1000 : variant === 'action' ? 1000 : 850,
+      duration: durationMs !== undefined
+        ? Math.max(1, Math.round(durationMs))
+        : variant === 'action' && actionStyle === 'divine'
+          ? 1000
+          : variant === 'action' && actionStyle === 'chant'
+            ? 1240
+            : variant === 'action'
+              ? 1000
+              : 850,
     });
     this.trimFloatingTexts();
   }
@@ -1134,6 +1163,48 @@ export class TextRenderer implements IRenderer {
       duration: 260,
     });
     this.trimAttackTrails();
+  }
+
+  addWarningZone(
+    cells: Array<{ x: number; y: number }>,
+    color = '#ff2a2a',
+    durationMs = DEFAULT_WARNING_ZONE_DURATION_MS,
+    baseColor?: string,
+    originX?: number,
+    originY?: number,
+  ) {
+    if (cells.length === 0) {
+      return;
+    }
+    const now = performance.now();
+    this.pruneExpiredWarningZones(now);
+    const origin = this.resolveWarningZoneOrigin(cells, originX, originY);
+    const rawDistances = cells.map((cell) => Math.max(Math.abs(cell.x - origin.x), Math.abs(cell.y - origin.y)));
+    const minExpandDistance = rawDistances.reduce(
+      (minDistance, distance) => Math.min(minDistance, distance),
+      rawDistances[0] ?? 0,
+    );
+    const zoneCells = cells.map((cell, index) => ({
+      x: cell.x,
+      y: cell.y,
+      expandDistance: Math.max(0, rawDistances[index] - minExpandDistance),
+    }));
+    const maxExpandDistance = zoneCells.reduce(
+      (maxDistance, cell) => Math.max(maxDistance, cell.expandDistance),
+      0,
+    );
+    this.warningZones.push({
+      id: this.nextWarningZoneId++,
+      cells: zoneCells,
+      color,
+      baseColor: baseColor ?? color,
+      originX: origin.x,
+      originY: origin.y,
+      maxExpandDistance,
+      createdAt: now,
+      duration: Math.max(1, Math.round(durationMs)),
+    });
+    this.trimWarningZones();
   }
 
   /** 绘制所有浮动文字，自动清理过期条目 */
@@ -1204,6 +1275,32 @@ export class TextRenderer implements IRenderer {
             entry.color,
             'rgba(15,12,10,0.9)',
             lineHeight,
+          );
+        } else if (actionStyle === 'chant') {
+          const fontSize = Math.max(24, cellSize * 0.82);
+          const lineHeight = fontSize * 1.02;
+          const chars = [...entry.text.trim()].filter((char) => char.trim().length > 0);
+          const stackHeight = chars.length > 0 ? lineHeight * Math.max(0, chars.length - 1) + fontSize : fontSize;
+          const alpha = progress < 0.95 ? 1 : 1 - Math.max(0, (progress - 0.95) / 0.05);
+          ctx.globalAlpha = alpha;
+          ctx.translate(
+            sx - cellSize * 0.12 + burst.offsetX,
+            sy - cellSize * 0.48 - burst.offsetY - stackHeight,
+          );
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+          ctx.font = buildCanvasFont('floatingAction', fontSize);
+          ctx.shadowColor = 'rgba(120, 18, 12, 0.55)';
+          ctx.shadowBlur = Math.max(6, cellSize * 0.16);
+          this.drawChantText(
+            entry.text,
+            progress,
+            0,
+            0,
+            entry.color,
+            'rgba(24,8,6,0.98)',
+            lineHeight,
+            fontSize,
           );
         } else {
           const fontSize = Math.max(10, cellSize * 0.28);
@@ -1280,6 +1377,67 @@ export class TextRenderer implements IRenderer {
     }
   }
 
+  renderWarningZones(camera: Camera) {
+    if (!this.ctx || this.warningZones.length === 0) return;
+    const ctx = this.ctx;
+    const now = performance.now();
+    const sw = ctx.canvas.width;
+    const sh = ctx.canvas.height;
+    const cellSize = getCellSize();
+
+    this.pruneExpiredWarningZones(now);
+
+    for (const zone of this.warningZones) {
+      const progress = Math.min(1, (now - zone.createdAt) / zone.duration);
+      const fadeProgress = progress <= 0.72 ? 0 : Math.min(1, (progress - 0.72) / 0.28);
+      const pulse = 0.96 + Math.sin(progress * Math.PI * 3) * 0.04;
+      const baseFillAlpha = Math.max(0.02, (1 - fadeProgress * 0.9) * 0.1);
+      const baseStrokeAlpha = Math.max(0.08, (1 - fadeProgress * 0.84) * 0.32);
+      const expandFillAlpha = Math.max(0.045, (1 - fadeProgress * 0.9) * 0.18 * pulse);
+      const expandStrokeAlpha = Math.max(0.16, (1 - fadeProgress * 0.82) * 0.72);
+      const revealDistance = progress * (zone.maxExpandDistance + 1);
+      const settledDistance = Math.floor(revealDistance);
+      const frontierAlpha = Math.max(0, Math.min(1, revealDistance - settledDistance));
+
+      for (const cell of zone.cells) {
+        const { sx, sy } = camera.worldToScreen(cell.x * cellSize, cell.y * cellSize, sw, sh);
+        if (sx + cellSize < 0 || sx > sw || sy + cellSize < 0 || sy > sh) {
+          continue;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = baseFillAlpha;
+        ctx.fillStyle = zone.baseColor;
+        ctx.fillRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
+        ctx.globalAlpha = baseStrokeAlpha;
+        ctx.strokeStyle = zone.baseColor;
+        ctx.lineWidth = Math.max(1.25, cellSize * 0.08);
+        ctx.strokeRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3);
+        ctx.restore();
+
+        let overlayAlpha = 0;
+        if (cell.expandDistance < settledDistance) {
+          overlayAlpha = 1;
+        } else if (cell.expandDistance === settledDistance) {
+          overlayAlpha = frontierAlpha;
+        }
+        if (overlayAlpha <= 0.01) {
+          continue;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = expandFillAlpha * overlayAlpha;
+        ctx.fillStyle = zone.color;
+        ctx.fillRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
+        ctx.globalAlpha = expandStrokeAlpha * overlayAlpha;
+        ctx.strokeStyle = zone.color;
+        ctx.lineWidth = Math.max(1.35, cellSize * 0.09);
+        ctx.strokeRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3);
+        ctx.restore();
+      }
+    }
+  }
+
   destroy() {
     this.ctx = null;
     this.entities.clear();
@@ -1292,6 +1450,7 @@ export class TextRenderer implements IRenderer {
     this.fadingPath = null;
     this.floatingTexts = [];
     this.attackTrails = [];
+    this.warningZones = [];
     this.lastMotionSyncToken = undefined;
     this.previousVisibleTileRevision = -1;
     this.textMeasureCache.clear();
@@ -1311,12 +1470,101 @@ export class TextRenderer implements IRenderer {
     };
   }
 
+  private drawChantText(
+    text: string,
+    progress: number,
+    x: number,
+    y: number,
+    fill: string,
+    stroke: string,
+    lineHeight: number,
+    fontSize: number,
+  ): void {
+    if (!this.ctx) {
+      return;
+    }
+    const ctx = this.ctx;
+    const chars = [...text.trim()].filter((char) => char.trim().length > 0);
+    if (chars.length === 0) {
+      return;
+    }
+    const segment = 1 / chars.length;
+    const slamWindow = Math.max(segment * 0.45, 0.06);
+
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = Math.max(3.2, fontSize * 0.12);
+    ctx.strokeStyle = stroke;
+    ctx.fillStyle = fill;
+
+    chars.forEach((char, index) => {
+      const start = segment * index;
+      const localProgress = Math.max(0, Math.min(1, (progress - start) / slamWindow));
+      if (localProgress <= 0) {
+        return;
+      }
+      const fallPhase = Math.min(1, localProgress / 0.72);
+      const settlePhase = Math.max(0, (localProgress - 0.72) / 0.28);
+      const acceleratedFall = Math.pow(fallPhase, 2.6);
+      const impactDrop = (1 - acceleratedFall) * fontSize * 0.92;
+      const settle = easeOutCubic(settlePhase);
+      let impactScaleX = 1 - Math.min(1, fallPhase * 1.2) * 0.08;
+      let impactScaleY = 1 + Math.min(1, fallPhase * 1.2) * 0.16;
+      if (settlePhase > 0) {
+        impactScaleX = 1.22 - settle * 0.22;
+        impactScaleY = 0.76 + settle * 0.24;
+      }
+      const charAlpha = Math.min(1, localProgress * 1.8);
+      const offsetDirection = index % 2 === 0 ? -1 : 1;
+      const staggerOffsetX = offsetDirection * fontSize * 0.12;
+      const drawY = y + lineHeight * index - impactDrop;
+
+      ctx.save();
+      ctx.globalAlpha *= charAlpha;
+      ctx.translate(x + staggerOffsetX, drawY);
+      ctx.scale(impactScaleX, impactScaleY);
+      ctx.strokeText(char, 0, 0);
+      ctx.fillText(char, 0, 0);
+      ctx.restore();
+    });
+  }
+
+  private resolveWarningZoneOrigin(
+    cells: Array<{ x: number; y: number }>,
+    originX?: number,
+    originY?: number,
+  ): { x: number; y: number } {
+    if (Number.isFinite(originX) && Number.isFinite(originY)) {
+      return {
+        x: Math.round(originX ?? 0),
+        y: Math.round(originY ?? 0),
+      };
+    }
+    let minX = cells[0].x;
+    let maxX = cells[0].x;
+    let minY = cells[0].y;
+    let maxY = cells[0].y;
+    for (const cell of cells) {
+      if (cell.x < minX) minX = cell.x;
+      if (cell.x > maxX) maxX = cell.x;
+      if (cell.y < minY) minY = cell.y;
+      if (cell.y > maxY) maxY = cell.y;
+    }
+    return {
+      x: Math.round((minX + maxX) / 2),
+      y: Math.round((minY + maxY) / 2),
+    };
+  }
+
   private pruneExpiredFloatingTexts(now: number): void {
     this.floatingTexts = this.floatingTexts.filter((entry) => now - entry.createdAt < entry.duration);
   }
 
   private pruneExpiredAttackTrails(now: number): void {
     this.attackTrails = this.attackTrails.filter((entry) => now - entry.createdAt < entry.duration);
+  }
+
+  private pruneExpiredWarningZones(now: number): void {
+    this.warningZones = this.warningZones.filter((entry) => now - entry.createdAt < entry.duration);
   }
 
   private trimFloatingTexts(): void {
@@ -1330,6 +1578,13 @@ export class TextRenderer implements IRenderer {
     const overflow = this.attackTrails.length - MAX_ATTACK_TRAILS;
     if (overflow > 0) {
       this.attackTrails.splice(0, overflow);
+    }
+  }
+
+  private trimWarningZones(): void {
+    const overflow = this.warningZones.length - MAX_WARNING_ZONES;
+    if (overflow > 0) {
+      this.warningZones.splice(0, overflow);
     }
   }
 

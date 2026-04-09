@@ -6,10 +6,6 @@ import path from 'node:path';
 const BASE_ALLOWED_VARS = new Set([
   'caster.stat.physAtk',
   'caster.stat.spellAtk',
-  'caster.maxHp',
-  'caster.maxQi',
-  'caster.stat.maxHp',
-  'caster.stat.maxQi',
 ]);
 
 const GRADE_BONUS = {
@@ -261,12 +257,6 @@ function baseScalePerScore(variable) {
     case 'caster.stat.physAtk':
     case 'caster.stat.spellAtk':
       return 1;
-    case 'caster.maxHp':
-    case 'caster.stat.maxHp':
-      return 0.1;
-    case 'caster.maxQi':
-    case 'caster.stat.maxQi':
-      return 0.15;
     default:
       throw new Error(`不允许的基础伤害来源: ${variable}`);
   }
@@ -316,12 +306,6 @@ function percentScalePerScore(entry) {
 function prettifyBaseScale(variable, scale) {
   if (variable === 'caster.stat.physAtk' || variable === 'caster.stat.spellAtk') {
     return round(snap(scale, scale >= 3 ? 0.1 : 0.05));
-  }
-  if (variable === 'caster.maxHp' || variable === 'caster.stat.maxHp') {
-    return round(snap(scale, 0.01));
-  }
-  if (variable === 'caster.maxQi' || variable === 'caster.stat.maxQi') {
-    return round(snap(scale, 0.015));
   }
   return round(scale);
 }

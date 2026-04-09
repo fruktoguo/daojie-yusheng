@@ -78,6 +78,18 @@ let WorldClientEventService = class WorldClientEventService {
     emitGatewayError(client, code, error) {
         this.emitError(client, code, error instanceof Error ? error.message : 'unknown error');
     }
+    emitProtocolFailure(client, code, text) {
+        const protocol = this.getExplicitProtocol(client);
+        if (protocol !== 'legacy') {
+            client.emit(shared_1.NEXT_S2C.Error, { code, message: text });
+        }
+        if (protocol !== 'next') {
+            client.emit(shared_1.S2C.SystemMsg, {
+                text,
+                kind: 'system',
+            });
+        }
+    }
     emitNotReady(client) {
         this.emitError(client, 'NOT_READY', 'send hello before gameplay commands');
     }

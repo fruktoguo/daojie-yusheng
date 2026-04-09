@@ -2,8 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared-next");
-const SERVER_NEXT_URL = process.env.SERVER_NEXT_URL ?? 'http://127.0.0.1:3111';
-const playerId = process.env.SERVER_NEXT_SMOKE_PLAYER_ID ?? `monster_runtime_${Date.now().toString(36)}`;
+const env_alias_1 = require("../config/env-alias");
+const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
+let playerId = '';
 const instanceId = process.env.SERVER_NEXT_SMOKE_INSTANCE_ID ?? 'public:wildlands';
 async function main() {
     const initialMonsters = await fetchJson(`${SERVER_NEXT_URL}/runtime/instances/${instanceId}/monsters`);
@@ -22,14 +23,19 @@ async function main() {
     socket.on(shared_1.NEXT_S2C.WorldDelta, (payload) => {
         worldEvents.push(payload);
     });
+    socket.on(shared_1.NEXT_S2C.InitSession, (payload) => {
+        playerId = String(payload?.pid ?? '');
+    });
     await onceConnected(socket);
     socket.emit(shared_1.NEXT_C2S.Hello, {
-        playerId,
         mapId: instanceId.replace('public:', ''),
         preferredX: seedTarget.x,
         preferredY: seedTarget.y,
     });
     const target = await waitForState(async () => {
+        if (!playerId) {
+            return null;
+        }
         const view = await fetchJson(`${SERVER_NEXT_URL}/runtime/players/${playerId}/view`);
         if (!view.view?.localMonsters?.some((entry) => entry.runtimeId === seedTarget.runtimeId)) {
             return null;
@@ -54,7 +60,9 @@ async function main() {
     }, (target.respawnTicks + 3) * 1000);
     const finalMonster = await fetchJson(`${SERVER_NEXT_URL}/runtime/instances/${instanceId}/monsters/${target.runtimeId}`);
     socket.close();
-    await deletePlayer(playerId);
+    if (playerId) {
+        await deletePlayer(playerId);
+    }
     console.log(JSON.stringify({
         ok: true,
         url: SERVER_NEXT_URL,

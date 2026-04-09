@@ -13,13 +13,18 @@ const shared_1 = require("@mud/shared-next");
 const node_crypto_1 = require("node:crypto");
 const node_path_1 = require("node:path");
 const pg_1 = require("pg");
+const env_alias_1 = require("../../config/env-alias");
+const world_player_token_codec_service_1 = require("../../network/world-player-token-codec.service");
 let LegacyAuthService = LegacyAuthService_1 = class LegacyAuthService {
     logger = new common_1.Logger(LegacyAuthService_1.name);
-    jwtSecret = process.env.JWT_SECRET || 'daojie-yusheng-dev-secret';
+    worldPlayerTokenCodecService;
     pool = null;
     poolInitPromise = null;
     poolUnavailable = false;
     poolUnavailableLogged = false;
+    constructor(worldPlayerTokenCodecService) {
+        this.worldPlayerTokenCodecService = worldPlayerTokenCodecService;
+    }
     async onModuleInit() {
         await this.ensurePool();
     }
@@ -409,22 +414,7 @@ let LegacyAuthService = LegacyAuthService_1 = class LegacyAuthService {
         return result;
     }
     validateToken(token) {
-        try {
-            const payload = verifyLegacyJwt(token, this.jwtSecret);
-            if (!payload || payload.role === 'gm') {
-                return null;
-            }
-            if (payload.kind === 'refresh' || payload.scope === 'refresh') {
-                return null;
-            }
-            if (typeof payload.sub !== 'string' || typeof payload.username !== 'string') {
-                return null;
-            }
-            return payload;
-        }
-        catch {
-            return null;
-        }
+        return this.worldPlayerTokenCodecService.validateAccessToken(token);
     }
     async ensurePool() {
         if (this.poolUnavailable) {
@@ -436,13 +426,12 @@ let LegacyAuthService = LegacyAuthService_1 = class LegacyAuthService {
         if (this.poolInitPromise) {
             return this.poolInitPromise;
         }
-        const databaseUrl = process.env.SERVER_NEXT_DATABASE_URL
-            ?? '';
+        const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
         if (!databaseUrl.trim()) {
             this.poolUnavailable = true;
             if (!this.poolUnavailableLogged) {
                 this.poolUnavailableLogged = true;
-                this.logger.warn('Legacy auth degraded: no SERVER_NEXT_DATABASE_URL, fallback to token-only identity');
+                this.logger.warn('Legacy auth degraded: no SERVER_NEXT_DATABASE_URL/DATABASE_URL, fallback to token-only identity');
             }
             return null;
         }
@@ -450,6 +439,8 @@ let LegacyAuthService = LegacyAuthService_1 = class LegacyAuthService {
             const pool = new pg_1.Pool({ connectionString: databaseUrl });
             try {
                 await pool.query('SELECT 1');
+                await ensureDisplayNameUniquenessPolicy(pool);
+                await normalizePersistedLegacyNames(pool, this.logger);
                 this.pool = pool;
                 return pool;
             }
@@ -466,19 +457,7 @@ let LegacyAuthService = LegacyAuthService_1 = class LegacyAuthService {
         return this.poolInitPromise;
     }
     validateRefreshToken(token) {
-        try {
-            const payload = verifyLegacyJwt(token, this.jwtSecret);
-            if (!payload || payload.role === 'gm' || payload.kind !== 'refresh') {
-                return null;
-            }
-            if (typeof payload.sub !== 'string' || typeof payload.username !== 'string') {
-                return null;
-            }
-            return payload;
-        }
-        catch {
-            return null;
-        }
+        return this.worldPlayerTokenCodecService.validateRefreshToken(token);
     }
     async requirePoolForHttpAuth() {
         const pool = await this.ensurePool();
@@ -549,22 +528,31 @@ let LegacyAuthService = LegacyAuthService_1 = class LegacyAuthService {
     }
     issueAuthTokens(user) {
         const displayName = resolveDisplayName(user.displayName, user.username);
+        const playerId = typeof user.playerId === 'string' && user.playerId.trim()
+            ? user.playerId.trim()
+            : buildFallbackPlayerId(user.userId);
+        const playerName = resolvePlayerName(user.playerName ?? null, user.username, displayName);
         return {
-            accessToken: issueLegacyJwt(this.jwtSecret, {
+            accessToken: this.worldPlayerTokenCodecService.issueAccessToken({
                 sub: user.userId,
                 username: user.username,
                 displayName,
-                kind: 'access',
-            }, 15 * 60),
-            refreshToken: issueLegacyJwt(this.jwtSecret, {
+                playerId,
+                playerName,
+            }),
+            refreshToken: this.worldPlayerTokenCodecService.issueRefreshToken({
                 sub: user.userId,
                 username: user.username,
                 displayName,
-                kind: 'refresh',
-            }, 30 * 24 * 60 * 60),
+                playerId,
+                playerName,
+            }),
         };
     }
     async ensureNameAvailable(pool, value, requestedKind, options = {}) {
+        if (requestedKind === 'display' && (0, shared_1.isDuplicateFriendlyDisplayName)(value)) {
+            return null;
+        }
         const conflict = await this.findNameConflict(pool, value, requestedKind, options);
         if (!conflict) {
             return null;
@@ -631,6 +619,9 @@ let LegacyAuthService = LegacyAuthService_1 = class LegacyAuthService {
             }
         }
         else {
+            if ((0, shared_1.isDuplicateFriendlyDisplayName)(value)) {
+                return null;
+            }
             const users = await pool.query(`
           SELECT
             id,
@@ -656,17 +647,237 @@ let LegacyAuthService = LegacyAuthService_1 = class LegacyAuthService {
 };
 exports.LegacyAuthService = LegacyAuthService;
 exports.LegacyAuthService = LegacyAuthService = LegacyAuthService_1 = __decorate([
-    (0, common_1.Injectable)()
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [world_player_token_codec_service_1.WorldPlayerTokenCodecService])
 ], LegacyAuthService);
+async function ensureDisplayNameUniquenessPolicy(pool) {
+    try {
+        const result = await pool.query(`
+      SELECT con.conname
+      FROM pg_constraint con
+      INNER JOIN pg_class rel ON rel.oid = con.conrelid
+      INNER JOIN LATERAL unnest(con.conkey) WITH ORDINALITY AS key(attnum, ordinality) ON TRUE
+      INNER JOIN pg_attribute attr ON attr.attrelid = rel.oid AND attr.attnum = key.attnum
+      WHERE rel.relname = 'users'
+        AND con.contype = 'u'
+      GROUP BY con.conname
+      HAVING array_agg(attr.attname ORDER BY key.ordinality) = ARRAY['displayName']
+    `);
+        for (const row of result.rows) {
+            const constraintName = typeof row?.conname === 'string' ? row.conname.trim() : '';
+            if (!constraintName) {
+                continue;
+            }
+            await pool.query(`ALTER TABLE "users" DROP CONSTRAINT IF EXISTS ${quotePgIdentifier(constraintName)}`);
+        }
+        await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "idx_users_display_name_unique_except_person"
+      ON "users" ("displayName")
+      WHERE "displayName" IS NOT NULL AND "displayName" <> '${shared_1.DEFAULT_VISIBLE_DISPLAY_NAME}'
+    `);
+    }
+    catch (error) {
+        if (!isMissingLegacySchemaError(error)) {
+            throw error;
+        }
+    }
+}
+async function normalizePersistedLegacyNames(pool, logger) {
+    let usersResult;
+    let playersResult;
+    try {
+        [usersResult, playersResult] = await Promise.all([
+            pool.query('SELECT id, username, "displayName", "createdAt" FROM users'),
+            pool.query('SELECT id, "userId", name, "createdAt" FROM players'),
+        ]);
+    }
+    catch (error) {
+        if (isMissingLegacySchemaError(error)) {
+            return;
+        }
+        throw error;
+    }
+    const users = usersResult.rows;
+    const players = playersResult.rows;
+    const effectiveDisplayNameByUserId = new Map();
+    let defaultDisplayAssignedCount = 0;
+    let displayNameNormalizedCount = 0;
+    for (const row of users) {
+        const userId = typeof row?.id === 'string' ? row.id.trim() : '';
+        const username = normalizeUsername(row?.username);
+        if (!userId || !username) {
+            continue;
+        }
+        const currentDisplayName = typeof row?.displayName === 'string' ? row.displayName : null;
+        const normalizedStoredDisplayName = currentDisplayName ? normalizeDisplayName(currentDisplayName) : '';
+        let nextStoredDisplayName = currentDisplayName;
+        if (normalizedStoredDisplayName) {
+            const displayNameError = validateDisplayName(normalizedStoredDisplayName);
+            if (displayNameError) {
+                nextStoredDisplayName = shared_1.DEFAULT_VISIBLE_DISPLAY_NAME;
+                defaultDisplayAssignedCount += 1;
+            }
+            else if (normalizedStoredDisplayName !== currentDisplayName) {
+                nextStoredDisplayName = normalizedStoredDisplayName;
+                displayNameNormalizedCount += 1;
+            }
+        }
+        else if (resolveDisplayName(currentDisplayName, username) === shared_1.DEFAULT_VISIBLE_DISPLAY_NAME) {
+            nextStoredDisplayName = shared_1.DEFAULT_VISIBLE_DISPLAY_NAME;
+            defaultDisplayAssignedCount += 1;
+        }
+        if (nextStoredDisplayName !== currentDisplayName) {
+            await pool.query('UPDATE users SET "displayName" = $2 WHERE id = $1', [userId, nextStoredDisplayName]);
+        }
+        effectiveDisplayNameByUserId.set(userId, resolveDisplayName(nextStoredDisplayName, username));
+    }
+    const occupiedNames = new Set();
+    for (const row of users) {
+        const userId = typeof row?.id === 'string' ? row.id.trim() : '';
+        const username = normalizeUsername(row?.username);
+        if (!userId || !username) {
+            continue;
+        }
+        occupiedNames.add(username);
+        occupiedNames.add(effectiveDisplayNameByUserId.get(userId) ?? resolveDisplayName(row?.displayName ?? null, username));
+    }
+    const regularBuckets = new Map();
+    const anonymousEntries = [];
+    const allEntries = [];
+    for (const row of players) {
+        const playerId = typeof row?.id === 'string' ? row.id.trim() : '';
+        const userId = typeof row?.userId === 'string' ? row.userId.trim() : '';
+        const originalName = typeof row?.name === 'string' ? row.name : '';
+        if (!playerId || !userId) {
+            continue;
+        }
+        const trimmedName = originalName.normalize('NFC').trim();
+        const requiresAnonymousRename = !(0, shared_1.hasVisibleNameGrapheme)(trimmedName);
+        const normalizedName = requiresAnonymousRename
+            ? shared_1.DEFAULT_INVISIBLE_ROLE_NAME_BASE
+            : ((0, shared_1.truncateRoleName)(trimmedName) || originalName);
+        const entry = {
+            id: playerId,
+            userId,
+            originalName,
+            normalizedName,
+            createdAtSource: toTimestampMs(row?.createdAt),
+            requiresAnonymousRename,
+        };
+        allEntries.push(entry);
+        if (requiresAnonymousRename) {
+            anonymousEntries.push(entry);
+            continue;
+        }
+        const bucket = regularBuckets.get(normalizedName) ?? [];
+        bucket.push(entry);
+        regularBuckets.set(normalizedName, bucket);
+    }
+    for (const [, bucket] of regularBuckets.entries()) {
+        if (bucket.length === 1) {
+            occupiedNames.add(bucket[0].normalizedName);
+        }
+    }
+    const duplicateGroups = [...regularBuckets.entries()]
+        .filter(([, bucket]) => bucket.length > 1)
+        .sort(([left], [right]) => left.localeCompare(right, 'zh-Hans-CN'));
+    for (const [, bucket] of duplicateGroups) {
+        bucket.sort((left, right) => left.createdAtSource - right.createdAtSource || left.id.localeCompare(right.id));
+        occupiedNames.add(bucket[0].normalizedName);
+        let suffix = 2;
+        for (let index = 1; index < bucket.length; index += 1) {
+            const renamed = allocateDuplicateRoleName(bucket[index].normalizedName, suffix, occupiedNames, 2);
+            suffix = renamed.nextSuffix;
+            bucket[index].normalizedName = renamed.name;
+            occupiedNames.add(renamed.name);
+        }
+    }
+    anonymousEntries.sort((left, right) => left.createdAtSource - right.createdAtSource || left.id.localeCompare(right.id));
+    let anonymousSuffix = 1;
+    for (const entry of anonymousEntries) {
+        const renamed = allocateDuplicateRoleName(shared_1.DEFAULT_INVISIBLE_ROLE_NAME_BASE, anonymousSuffix, occupiedNames, 1);
+        anonymousSuffix = renamed.nextSuffix;
+        entry.normalizedName = renamed.name;
+        occupiedNames.add(renamed.name);
+    }
+    let normalizedCount = 0;
+    let duplicateRenamedCount = 0;
+    let anonymousRoleRenamedCount = 0;
+    for (const entry of allEntries) {
+        if (entry.normalizedName === entry.originalName) {
+            continue;
+        }
+        await pool.query('UPDATE players SET name = $2 WHERE id = $1', [entry.id, entry.normalizedName]);
+        if (entry.requiresAnonymousRename) {
+            anonymousRoleRenamedCount += 1;
+        }
+        else if ((0, shared_1.truncateRoleName)(entry.originalName.normalize('NFC').trim()) === entry.normalizedName) {
+            normalizedCount += 1;
+        }
+        else {
+            duplicateRenamedCount += 1;
+        }
+    }
+    if (defaultDisplayAssignedCount > 0) {
+        logger.warn(`启动时已将 ${defaultDisplayAssignedCount} 个无效显示名修正为 ${shared_1.DEFAULT_VISIBLE_DISPLAY_NAME}`);
+    }
+    if (displayNameNormalizedCount > 0) {
+        logger.log(`启动时已规范化 ${displayNameNormalizedCount} 个显示名的 Unicode 形式`);
+    }
+    if (normalizedCount > 0) {
+        logger.log(`启动时已裁切 ${normalizedCount} 个超长角色名`);
+    }
+    if (duplicateRenamedCount > 0) {
+        logger.warn(`启动时已为 ${duplicateRenamedCount} 个重名角色自动追加序号`);
+    }
+    if (anonymousRoleRenamedCount > 0) {
+        logger.warn(`启动时已将 ${anonymousRoleRenamedCount} 个透明角色自动改名为 ${shared_1.DEFAULT_INVISIBLE_ROLE_NAME_BASE}#序号`);
+    }
+}
+function quotePgIdentifier(value) {
+    return `"${value.replace(/"/g, '""')}"`;
+}
+function toTimestampMs(value) {
+    if (value instanceof Date && Number.isFinite(value.getTime())) {
+        return value.getTime();
+    }
+    if (typeof value === 'string' && value.trim()) {
+        const timestamp = Date.parse(value);
+        return Number.isFinite(timestamp) ? timestamp : 0;
+    }
+    return 0;
+}
+function allocateDuplicateRoleName(baseName, startSuffix, occupiedNames, minimumSuffix = 2) {
+    let suffix = Math.max(minimumSuffix, Math.floor(startSuffix));
+    while (true) {
+        const suffixText = `#${suffix}`;
+        const candidate = appendRoleNameSuffix(baseName, suffixText);
+        if (!occupiedNames.has(candidate)) {
+            return {
+                name: candidate,
+                nextSuffix: suffix + 1,
+            };
+        }
+        suffix += 1;
+    }
+}
+function appendRoleNameSuffix(baseName, suffix) {
+    let trimmedBase = baseName;
+    while (trimmedBase.length > 0 && !(0, shared_1.isRoleNameWithinLimit)(`${trimmedBase}${suffix}`)) {
+        trimmedBase = [...trimmedBase].slice(0, -1).join('');
+    }
+    return `${trimmedBase}${suffix}`;
+}
 function resolveDisplayName(displayName, username, fallback) {
     const normalized = typeof displayName === 'string' ? displayName.normalize('NFC') : '';
     if (normalized) {
-        return normalized;
+        return validateDisplayName(normalized) === null ? normalized : shared_1.DEFAULT_VISIBLE_DISPLAY_NAME;
     }
-    if (typeof fallback === 'string' && fallback.trim()) {
-        return fallback;
+    const normalizedFallback = typeof fallback === 'string' ? fallback.trim().normalize('NFC') : '';
+    if (validateDisplayName(normalizedFallback) === null) {
+        return normalizedFallback;
     }
-    return [...username.normalize('NFC')][0] ?? username;
+    return (0, shared_1.resolveDefaultVisibleDisplayName)(username.normalize('NFC'));
 }
 function resolvePlayerName(playerName, username, fallback) {
     const normalized = typeof playerName === 'string' ? playerName.trim().normalize('NFC') : '';
@@ -735,8 +946,11 @@ function validateDisplayName(displayName) {
     if (containsWhitespace(normalized)) {
         return '显示名称不支持空格';
     }
-    if ([...normalized].length !== 1) {
+    if ((0, shared_1.getGraphemeCount)(normalized) !== 1) {
         return '显示名称必须为 1 个字符';
+    }
+    if (!(0, shared_1.hasVisibleNameGrapheme)(normalized) || (0, shared_1.containsInvisibleOnlyNameGrapheme)(normalized)) {
+        return '显示名称必须为可见字符';
     }
     return null;
 }
@@ -744,6 +958,12 @@ function validateRoleName(roleName) {
     const normalized = normalizeRoleName(roleName);
     if (!normalized) {
         return '角色名称不能为空';
+    }
+    if (!(0, shared_1.hasVisibleNameGrapheme)(normalized)) {
+        return '角色名称必须包含可见字符';
+    }
+    if ((0, shared_1.containsInvisibleOnlyNameGrapheme)(normalized)) {
+        return '角色名称不支持不可见字符';
     }
     if (!(0, shared_1.isRoleNameWithinLimit)(normalized)) {
         return `角色名称${(0, shared_1.getRoleNameLimitText)()}`;
@@ -840,17 +1060,18 @@ function isMissingLegacySchemaError(error) {
     return Boolean(error && typeof error === 'object' && error.code === '42P01');
 }
 function toLegacyPlayerSnapshot(row) {
+    const currentMapId = resolveRequiredCompatMapId(row.mapId);
     const inventory = normalizeInventory(row.inventory);
     const buffs = normalizeTemporaryBuffs(row.temporaryBuffs);
     const equipment = normalizeEquipment(row.equipment);
     const techniques = normalizeTechniques(row.techniques);
     const quests = normalizeQuests(row.quests);
-    const unlockedMapIds = normalizeUnlockedMapIds(row.unlockedMinimapIds, row.mapId);
+    const unlockedMapIds = normalizeUnlockedMapIds(row.unlockedMinimapIds);
     return {
         version: 1,
         savedAt: Date.now(),
         placement: {
-            templateId: typeof row.mapId === 'string' && row.mapId.trim() ? row.mapId : 'yunlai_town',
+            templateId: currentMapId,
             x: toFiniteInt(row.x, 0),
             y: toFiniteInt(row.y, 0),
             facing: normalizeDirection(row.facing),
@@ -909,6 +1130,13 @@ function toLegacyPlayerSnapshot(row) {
             autoBattleSkills: normalizeAutoBattleSkills(row.autoBattleSkills),
         },
     };
+}
+function resolveRequiredCompatMapId(value) {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    if (!normalized) {
+        throw new Error('Compat player snapshot invalid mapId');
+    }
+    return normalized;
 }
 function normalizeInventory(value) {
     if (!value || typeof value !== 'object') {
@@ -1019,16 +1247,14 @@ function normalizeQuests(value) {
         rewards: Array.isArray(entry.rewards) ? entry.rewards.map((reward) => ({ ...reward })) : [],
     }));
 }
-function normalizeUnlockedMapIds(value, currentMapId) {
-    const result = new Set();
-    if (typeof currentMapId === 'string' && currentMapId.trim()) {
-        result.add(currentMapId);
+function normalizeUnlockedMapIds(value) {
+    if (!Array.isArray(value)) {
+        throw new Error('Compat player snapshot invalid unlockedMinimapIds');
     }
-    if (Array.isArray(value)) {
-        for (const entry of value) {
-            if (typeof entry === 'string' && entry.trim()) {
-                result.add(entry);
-            }
+    const result = new Set();
+    for (const entry of value) {
+        if (typeof entry === 'string' && entry.trim()) {
+            result.add(entry);
         }
     }
     return Array.from(result).sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));

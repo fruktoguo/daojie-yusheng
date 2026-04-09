@@ -3,7 +3,8 @@
     "itemId": "pill.minor_heal",
     "name": "回春散",
     "type": "consumable",
-    "level": 1,
+    "level": 2,
+    "tags": ["战斗丹药"],
     "desc": "草木药气温和，服下后立刻恢复 22% 气血。",
     "healPercent": 0.22
   },
@@ -37,54 +38,60 @@
     "itemId": "minor_qi_pill",
     "name": "小还灵丹",
     "type": "consumable",
-    "level": 2,
-    "desc": "药力柔和，立刻恢复 35% 气血与 25% 真气。",
-    "healPercent": 0.35,
-    "qiPercent": 0.25
+    "level": 4,
+    "tags": ["战斗丹药"],
+    "desc": "药力柔和，立刻恢复 30% 气血与 22% 真气。",
+    "healPercent": 0.3,
+    "qiPercent": 0.22
   },
   {
     "itemId": "major_qi_pill",
     "name": "大还灵丹",
     "type": "consumable",
-    "level": 3,
-    "desc": "药力浑厚，立刻恢复 55% 气血与 45% 真气。",
-    "healPercent": 0.55,
-    "qiPercent": 0.45
+    "level": 8,
+    "tags": ["战斗丹药"],
+    "desc": "药力更浑厚，立刻恢复 38% 气血与 32% 真气。",
+    "healPercent": 0.38,
+    "qiPercent": 0.32
   },
   {
     "itemId": "pure_yang_pill",
     "name": "纯阳丹",
     "type": "consumable",
-    "level": 4,
-    "desc": "烈阳药引直入气海，立刻恢复 30% 气血与 75% 真气。",
-    "healPercent": 0.3,
-    "qiPercent": 0.75
+    "level": 16,
+    "tags": ["战斗丹药"],
+    "desc": "烈阳药引直入气海，立刻恢复 34% 气血与 72% 真气。",
+    "healPercent": 0.34,
+    "qiPercent": 0.72
   },
   {
     "itemId": "frost_heart_paste",
     "name": "寒心膏",
     "type": "consumable",
-    "level": 3,
-    "desc": "寒性药膏可稳住伤处，立刻恢复 42% 气血与 30% 真气。",
+    "level": 10,
+    "tags": ["战斗丹药"],
+    "desc": "寒性药膏可稳住伤处，立刻恢复 42% 气血与 34% 真气。",
     "healPercent": 0.42,
-    "qiPercent": 0.3
+    "qiPercent": 0.34
   },
   {
     "itemId": "pill.crimson_bud_elixir",
     "name": "赤芽丹",
     "type": "consumable",
-    "level": 2,
-    "desc": "服后数千息内血勇更盛，即使身死药势也不会散，暴击明显提高。",
+    "level": 7,
+    "tags": ["战斗丹药"],
+    "desc": "服后 2400 息内血勇更盛，即使身死药势也不会散，暴击 +9%。",
     "consumeBuffs": [
       {
         "buffId": "item_buff.crimson_bud",
         "name": "赤芽生锋",
-        "desc": "药力催得血气躁动，暴击提高；即使身死，药势仍会残留到药尽为止。",
+        "desc": "药力催得血气躁动，2400 息内暴击 +9%；即使身死，药势仍会残留到药尽为止。",
         "shortMark": "赤",
-        "duration": 3600,
-        "valueStats": {
-          "crit": 6
-        }
+        "duration": 2400,
+        "stats": {
+          "crit": 9
+        },
+        "statMode": "percent"
       }
     ]
   },
@@ -92,19 +99,21 @@
     "itemId": "pill.break_array_elixir",
     "name": "破阵丹",
     "type": "consumable",
-    "level": 3,
-    "desc": "药力凝在手眼与发力节点，数千息内破招与命中提高，身死不散。",
+    "level": 12,
+    "tags": ["战斗丹药"],
+    "desc": "药力凝在手眼与发力节点，2400 息内破招 +14%、命中 +7%，身死不散。",
     "consumeBuffs": [
       {
         "buffId": "item_buff.break_array",
         "name": "破阵劲",
-        "desc": "下手更刁钻，破招与命中提高；此药势即使身死也不会立刻散去。",
+        "desc": "下手更刁钻，2400 息内破招 +14%、命中 +7%；此药势即使身死也不会立刻散去。",
         "shortMark": "破",
-        "duration": 3600,
-        "valueStats": {
-          "breakPower": 8,
-          "hit": 4
-        }
+        "duration": 2400,
+        "stats": {
+          "breakPower": 14,
+          "hit": 7
+        },
+        "statMode": "percent"
       }
     ]
   },
@@ -112,19 +121,21 @@
     "itemId": "pill.clear_eye_elixir",
     "name": "明目丹",
     "type": "consumable",
-    "level": 3,
-    "desc": "服后心神澄明，数千息内命中与视野提高，死亡不消失。",
+    "level": 13,
+    "tags": ["战斗丹药"],
+    "desc": "服后心神澄明，2400 息内命中 +9%、视野 +14%，死亡不消失。",
     "consumeBuffs": [
       {
         "buffId": "item_buff.clear_eye",
         "name": "澄目",
-        "desc": "目力与判断更清楚，命中提高，视野更远；身死也不会立刻散去。",
+        "desc": "目力与判断更清楚，2400 息内命中 +9%、视野 +14%；身死也不会立刻散去。",
         "shortMark": "明",
-        "duration": 3600,
-        "valueStats": {
-          "hit": 8,
-          "viewRange": 10
-        }
+        "duration": 2400,
+        "stats": {
+          "hit": 9,
+          "viewRange": 14
+        },
+        "statMode": "percent"
       }
     ]
   },
@@ -132,19 +143,21 @@
     "itemId": "pill.windstride_elixir",
     "name": "轻身丹",
     "type": "consumable",
-    "level": 3,
-    "desc": "药劲顺着经脉卸到脚下，数千息内移动速度与闪避提高，死亡不消失。",
+    "level": 11,
+    "tags": ["战斗丹药"],
+    "desc": "药劲顺着经脉卸到脚下，2400 息内移动速度 +22%、闪避 +7%，死亡不消失。",
     "consumeBuffs": [
       {
         "buffId": "item_buff.windstride",
         "name": "踏风",
-        "desc": "脚下更轻，移动与腾挪都更快；这股药劲即使身死也不会立刻散去。",
+        "desc": "脚下更轻，2400 息内移动速度 +22%、闪避 +7%；这股药劲即使身死也不会立刻散去。",
         "shortMark": "疾",
-        "duration": 3600,
-        "valueStats": {
-          "moveSpeed": 18,
-          "dodge": 3
-        }
+        "duration": 2400,
+        "stats": {
+          "moveSpeed": 22,
+          "dodge": 7
+        },
+        "statMode": "percent"
       }
     ]
   },
@@ -152,22 +165,24 @@
     "itemId": "pill.bitter_cultivation_elixir",
     "name": "苦修丹",
     "type": "consumable",
-    "level": 4,
-    "desc": "强行催运行功，3600 息内修炼速度明显提高，但灵力恢复与生命回复都会大幅衰减，脚程也会更沉。",
+    "level": 18,
+    "tags": ["修为丹药"],
+    "desc": "强行催运行功，3000 息内境界修为 +25%、功法经验 +25%，但生命回复 -420%、灵力回复 -420%、移动速度 -12%。",
     "consumeBuffs": [
       {
         "buffId": "item_buff.bitter_cultivation",
         "name": "苦修",
-        "desc": "境界修为与功法修炼速度提高，但经脉始终带着涩滞感，灵力恢复、生命回复与脚程都会明显下滑。",
+        "desc": "境界修为与功法经验获取效率提高，但经脉始终带着涩滞感；3000 息内生命回复 -420%、灵力回复 -420%、移动速度 -12%。",
         "shortMark": "苦",
-        "duration": 3600,
-        "valueStats": {
-          "realmExpPerTick": 25,
-          "techniqueExpPerTick": 25,
-          "hpRegenRate": -500,
-          "qiRegenRate": -500,
-          "moveSpeed": -10
-        }
+        "duration": 3000,
+        "stats": {
+          "playerExpRate": 25,
+          "techniqueExpRate": 25,
+          "hpRegenRate": -420,
+          "qiRegenRate": -420,
+          "moveSpeed": -12
+        },
+        "statMode": "percent"
       }
     ]
   },
@@ -261,14 +276,17 @@
     "itemId": "pill.shatter_spirit",
     "name": "碎灵丹",
     "type": "consumable",
+    "level": 29,
+    "tags": ["修为丹药"],
     "desc": "药力专碎命宫旧痕。使用后会立刻重置天门，清掉当前已开出的灵根结果，并额外增加 1 次逆天改命累计；同时消耗当前境界修为的 25%。至少需在叩仙门境界使用。"
   },
   {
     "itemId": "pill.wangsheng",
     "name": "往生丹",
     "type": "consumable",
-    "level": 10,
+    "level": 30,
     "grade": "heaven",
+    "tags": ["修为丹药"],
     "desc": "丹成如返照回光，服下后会散尽旧日修为，重归凡胎。使用后境界回到凡胎，境界修为与底蕴归零。"
   }
 ]

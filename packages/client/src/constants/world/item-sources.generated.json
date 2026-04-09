@@ -2301,6 +2301,7 @@
       "chapter": "第二章·青竹追线"
     }
   ],
+  "equip.copper_pill_furnace": [],
   "equip.counter_shock_iron_ring": [
     {
       "kind": "monster_drop",
@@ -5042,15 +5043,6 @@
   ],
   "frost_heart_paste": [
     {
-      "kind": "monster_drop",
-      "mapId": "wildlands",
-      "mapName": "荒野",
-      "monsterId": "m_mire_spider",
-      "monsterName": "阴沼毒蛛精英",
-      "chance": 0.1,
-      "count": 1
-    },
-    {
       "kind": "search",
       "mapId": "wildlands",
       "mapName": "荒野",
@@ -5577,6 +5569,16 @@
       "count": 1
     }
   ],
+  "mat.bitterheart_vine": [],
+  "mat.bloodbud_fruit": [],
+  "mat.breakarray_shard": [],
+  "mat.clear_mind_flower": [],
+  "mat.frost_lotus_petal": [],
+  "mat.green_spirit_stem": [],
+  "mat.moondew_grass": [],
+  "mat.red_flame_leaf": [],
+  "mat.sunmelt_seed": [],
+  "mat.swiftwind_reed": [],
   "mine_crystal_core": [
     {
       "kind": "monster_drop",
@@ -6000,32 +6002,7 @@
       "count": 1
     }
   ],
-  "pill.chiyang_draught": [
-    {
-      "kind": "monster_drop",
-      "mapId": "emberfall_court",
-      "mapName": "赤陨庭",
-      "monsterId": "m_ember_flame_guard",
-      "monsterName": "流火戍灵",
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "emberfall_court",
-      "mapName": "赤陨庭",
-      "monsterId": "m_ember_furnace_lord",
-      "monsterName": "离火炉君",
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "emberfall_court",
-      "mapName": "赤陨庭",
-      "monsterId": "m_ember_moth",
-      "monsterName": "焦土火蛾",
-      "count": 1
-    }
-  ],
+  "pill.chiyang_draught": [],
   "pill.clear_eye_elixir": [
     {
       "kind": "shop",
@@ -6120,32 +6097,7 @@
       "chapter": "第一章·粮路讨生"
     }
   ],
-  "pill.cleartide_powder": [
-    {
-      "kind": "monster_drop",
-      "mapId": "cold_tide_marsh",
-      "mapName": "寒汐泽",
-      "monsterId": "m_cold_abyss_drake",
-      "monsterName": "玄溟螭影",
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "cold_tide_marsh",
-      "mapName": "寒汐泽",
-      "monsterId": "m_cold_bridge_patrol",
-      "monsterName": "雾桥巡灵",
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "cold_tide_marsh",
-      "mapName": "寒汐泽",
-      "monsterId": "m_cold_tide_sprite",
-      "monsterName": "寒汐蜉灵",
-      "count": 1
-    }
-  ],
+  "pill.cleartide_powder": [],
   "pill.crimson_bud_elixir": [
     {
       "kind": "shop",
@@ -6197,84 +6149,9 @@
       "line": "side"
     }
   ],
-  "pill.earthrest_paste": [
-    {
-      "kind": "monster_drop",
-      "mapId": "deepvein_ridge",
-      "mapName": "厚脉岭",
-      "monsterId": "m_deepvein_croc",
-      "monsterName": "黄岩鼍兽",
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "deepvein_ridge",
-      "mapName": "厚脉岭",
-      "monsterId": "m_deepvein_earth_effigy",
-      "monsterName": "玄岳地傀",
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "deepvein_ridge",
-      "mapName": "厚脉岭",
-      "monsterId": "m_deepvein_ridge_warden",
-      "monsterName": "岳纹镇灵",
-      "count": 1
-    }
-  ],
-  "pill.edge_quenching_powder": [
-    {
-      "kind": "monster_drop",
-      "mapId": "cleft_blade_plain",
-      "mapName": "裂锋原",
-      "monsterId": "m_cleft_banner_general",
-      "monsterName": "残兵鸣将",
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "cleft_blade_plain",
-      "mapName": "裂锋原",
-      "monsterId": "m_cleft_blade_wraith",
-      "monsterName": "断刃游魂",
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "cleft_blade_plain",
-      "mapName": "裂锋原",
-      "monsterId": "m_cleft_gate_lord",
-      "monsterName": "庚金镇门将",
-      "count": 1
-    }
-  ],
-  "pill.fivephase_harmony_pellet": [
-    {
-      "kind": "monster_drop",
-      "mapId": "guizang_vein_cavern",
-      "mapName": "归藏脉窟",
-      "monsterId": "m_guizang_dualphase_beast",
-      "monsterName": "双相脉兽",
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "guizang_vein_cavern",
-      "mapName": "归藏脉窟",
-      "monsterId": "m_guizang_failed_foundation",
-      "monsterName": "未成道基",
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "guizang_vein_cavern",
-      "mapName": "归藏脉窟",
-      "monsterId": "m_guizang_fivephase_effigy",
-      "monsterName": "五炁砂偶",
-      "count": 1
-    }
-  ],
+  "pill.earthrest_paste": [],
+  "pill.edge_quenching_powder": [],
+  "pill.fivephase_harmony_pellet": [],
   "pill.guiding_powder": [
     {
       "kind": "quest",
@@ -6365,48 +6242,17 @@
       "chapter": "第一章·粮路讨生"
     }
   ],
-  "pill.nurturing_paste": [
+  "pill.ningxiang": [
     {
       "kind": "monster_drop",
-      "mapId": "verdant_vine_vale_01_entry",
-      "mapName": "青萝谷·01回渡药圃",
-      "monsterId": "m_verdant_lesser_sprite",
-      "monsterName": "青萝小妖",
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "verdant_vine_vale_02_slope",
-      "mapName": "青萝谷·02引藤坡",
-      "monsterId": "m_verdant_lesser_sprite",
-      "monsterName": "青萝小妖",
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "verdant_vine_vale_04_garden",
-      "mapName": "青萝谷·04噬灵妖圃",
-      "monsterId": "m_verdant_wither_guard",
-      "monsterName": "枯荣藤卫",
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "verdant_vine_vale_05_inner_hollow",
-      "mapName": "青萝谷·05盘根内坳",
-      "monsterId": "m_verdant_wither_guard",
-      "monsterName": "枯荣藤卫",
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "verdant_vine_vale_06_heart_gate",
-      "mapName": "青萝谷·06心藤坳口",
-      "monsterId": "m_verdant_vein_mother",
-      "monsterName": "噬脉藤母",
+      "mapId": "ruined_cavern_manor",
+      "mapName": "破败洞府",
+      "monsterId": "m_huanling_zhenren",
+      "monsterName": "重伤的唤灵真人",
       "count": 1
     }
   ],
+  "pill.nurturing_paste": [],
   "pill.shatter_spirit": [
     {
       "kind": "monster_drop",
@@ -6573,16 +6419,7 @@
       "count": 1
     }
   ],
-  "recovery_powder": [
-    {
-      "kind": "monster_drop",
-      "mapId": "sky_ruins",
-      "mapName": "天穹残宫",
-      "monsterId": "m_void_hunter",
-      "monsterName": "天宫猎者",
-      "count": 1
-    }
-  ],
+  "recovery_powder": [],
   "ridge_beast_claw": [
     {
       "kind": "monster_drop",
@@ -6859,16 +6696,7 @@
       "count": 2
     }
   ],
-  "stabilizing_pellet": [
-    {
-      "kind": "monster_drop",
-      "mapId": "sky_ruins",
-      "mapName": "天穹残宫",
-      "monsterId": "m_sky_puppet",
-      "monsterName": "残宫傀仪",
-      "count": 1
-    }
-  ],
+  "stabilizing_pellet": [],
   "star_metal": [
     {
       "kind": "monster_drop",

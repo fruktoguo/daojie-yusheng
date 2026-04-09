@@ -1,0 +1,34 @@
+{
+  "realm": "凡人期",
+  "grade": "地阶",
+  "lv": 0,
+  "skill": {
+    "id": "skill.huanling_difu_chenyin",
+    "name": "地府沉印",
+    "desc": "借洞府残阵把熔开的地脉整片往下按，阴痕越多、灼得越深，塌下去的那一刻就越重。",
+    "unlockLevel": 8,
+    "damageKind": "spell",
+    "element": "earth",
+    "range": 5,
+    "targeting": {
+      "shape": "box",
+      "width": 3,
+      "height": 3,
+      "maxTargets": 9
+    },
+    "baseScoreTarget": 12,
+    "percentScoreTarget": 1.6,
+    "areaScoreTarget": 0.8,
+    "baseWeights": [
+      { "var": "caster.stat.spellAtk", "weight": 1 }
+    ],
+    "percentWeights": [
+      { "var": "techLevel", "weight": 1 },
+      { "var": "caster.stat.hit", "weight": 1 },
+      { "var": "caster.stat.resolvePower", "weight": 1 },
+      { "var": "target.buff.buff.huanling_rongmai_yin.stacks", "weight": 1, "scalePerScore": 0.1 },
+      { "var": "target.buff.terrain_molten_pool_burn.stacks", "weight": 1, "scalePerScore": 0.09 }
+    ],
+    "buffEffects": []
+  }
+}

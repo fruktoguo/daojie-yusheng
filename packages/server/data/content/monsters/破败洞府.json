@@ -1,0 +1,95 @@
+[
+  {
+    "id": "m_huanling_zhenren",
+    "name": "重伤的唤灵真人",
+    "char": "真",
+    "color": "#f0d2a4",
+    "grade": "spirit",
+    "tier": "demon_king",
+    "level": 43,
+    "expMultiplier": 3,
+    "count": 1,
+    "maxAlive": 1,
+    "radius": 2,
+    "aggroRange": 10,
+    "viewRange": 11,
+    "respawnSec": 120,
+    "attrs": {
+      "constitution": 9999,
+      "spirit": 9999,
+      "perception": 9999,
+      "talent": 9999,
+      "comprehension": 999,
+      "luck": 999
+    },
+    "initialBuffs": [
+      {
+        "buffId": "buff.huanling_zhenren_wounded",
+        "name": "重伤",
+        "desc": "旧伤未愈，战斗属性被大幅压制。",
+        "category": "debuff",
+        "visibility": "public",
+        "duration": 999999,
+        "infiniteDuration": true,
+        "stacks": 1,
+        "maxStacks": 1,
+        "stats": {
+          "maxHp": -500,
+          "maxQi": -500,
+          "physAtk": -500,
+          "spellAtk": -500,
+          "physDef": -500,
+          "spellDef": -500,
+          "hit": -500,
+          "dodge": -500,
+          "crit": -500,
+          "critDamage": -500,
+          "breakPower": -500,
+          "resolvePower": -500,
+          "maxQiOutputPerTick": -500,
+          "qiRegenRate": -500,
+          "hpRegenRate": -500
+        },
+        "statMode": "percent",
+        "shortMark": "伤",
+        "color": "#b85c5c"
+      }
+    ],
+    "skills": [
+      "skill.huanling_difu_chenyin",
+      "skill.huanling_liefu_waihuan",
+      "skill.huanling_suogong_neihuan",
+      "skill.huanling_xingluo_canpan",
+      "skill.huanling_ronghe_guanmai",
+      "skill.huanling_lieqi_zhixian",
+      "skill.huanling_candan_faxiang",
+      "skill.huanling_duanhun_ding",
+      "skill.huanling_canpo_zhang"
+    ],
+    "drops": [
+      {
+        "itemId": "pill.ningxiang",
+        "name": "凝相丹",
+        "type": "consumable",
+        "count": 1
+      }
+    ],
+    "aggroMode": "always",
+    "statPercents": {
+      "maxHp": 10,
+      "maxQi": 10,
+      "physAtk": 10,
+      "spellAtk": 10,
+      "physDef": 10,
+      "spellDef": 10,
+      "hit": 10,
+      "dodge": 10,
+      "crit": 10,
+      "critDamage": 10,
+      "breakPower": 10,
+      "resolvePower": 10,
+      "qiRegenRate": 10,
+      "hpRegenRate": 10
+    }
+  }
+]

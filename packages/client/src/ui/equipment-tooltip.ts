@@ -47,6 +47,17 @@ function renderPlainLine(label: string, value: string): string {
   return renderLabelLine(label, escapeHtml(value));
 }
 
+function resolveMedicineCategoryLabel(item: ItemStack): string | null {
+  const tags = item.tags ?? [];
+  if (tags.includes('修为丹药')) {
+    return '修为丹药';
+  }
+  if (tags.includes('战斗丹药')) {
+    return '战斗丹药';
+  }
+  return null;
+}
+
 function normalizeBuffMark(name: string, shortMark?: string): string {
   const value = shortMark?.trim();
   if (value) return [...value][0] ?? value;
@@ -304,9 +315,9 @@ function buildConsumableEffectDetails(item: ItemStack): string[] {
     lines.push(`药效：${buff.name}${metaParts.length > 0 ? `，${metaParts.join('，')}` : ''}`);
     const bonusLines = describeBuffStats(buff.attrs, buff.stats, buff.valueStats, buff.attrMode ?? 'percent', buff.statMode ?? 'percent');
     if (bonusLines.length > 0) {
-      lines.push(`具体加成：${bonusLines.join('，')}`);
+      lines.push(`效果：${bonusLines.join('，')}`);
     }
-    if (buff.desc?.trim()) {
+    if (bonusLines.length === 0 && buff.desc?.trim()) {
       lines.push(`说明：${buff.desc.trim()}`);
     }
   }
@@ -396,6 +407,7 @@ export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipCo
   const previewItem = resolvePreviewItem(item);
   const sourceListHtml = renderItemSourceListHtml(previewItem.itemId, { maxEntries: 3, compact: true });
   const statusLabel = resolveItemStatusLabel(previewItem, context);
+  const medicineCategoryLabel = resolveMedicineCategoryLabel(previewItem);
   if (previewItem.type !== 'equipment') {
     const effectLines = describeItemEffectDetails(previewItem);
     const techniqueBookLines = previewItem.type === 'skill_book'
@@ -406,6 +418,7 @@ export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipCo
         ? []
         : [`<span class="skill-tooltip-desc">${escapeHtml(previewItem.desc ?? '')}</span>`]),
       renderPlainLine('类型', getItemTypeLabel(previewItem.type)),
+      ...(medicineCategoryLabel ? [renderPlainLine('分类', medicineCategoryLabel)] : []),
       ...(statusLabel ? [renderPlainLine('状态', statusLabel)] : []),
       ...techniqueBookLines,
       ...effectLines.map((line) => `<span class="skill-tooltip-detail">${escapeHtml(line)}</span>`),

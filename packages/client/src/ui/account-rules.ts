@@ -1,8 +1,10 @@
 import {
   ACCOUNT_MAX_LENGTH,
   ACCOUNT_MIN_LENGTH,
+  containsInvisibleOnlyNameGrapheme,
   getGraphemeCount,
   getRoleNameLimitText,
+  hasVisibleNameGrapheme,
   isRoleNameWithinLimit,
   PASSWORD_MIN_LENGTH,
 } from '@mud/shared';
@@ -53,6 +55,9 @@ export function validateDisplayName(displayName: string): string | null {
   if (getGraphemeCount(displayName) !== 1) {
     return '显示名称必须为 1 个字符';
   }
+  if (!hasVisibleNameGrapheme(displayName) || containsInvisibleOnlyNameGrapheme(displayName)) {
+    return '显示名称必须为可见字符';
+  }
   return null;
 }
 
@@ -61,6 +66,12 @@ export function validateRoleName(roleName: string): string | null {
   const normalized = roleName.normalize('NFC').trim();
   if (!normalized) {
     return '角色名称不能为空';
+  }
+  if (!hasVisibleNameGrapheme(normalized)) {
+    return '角色名称必须包含可见字符';
+  }
+  if (containsInvisibleOnlyNameGrapheme(normalized)) {
+    return '角色名称不支持不可见字符';
   }
   if (!isRoleNameWithinLimit(normalized)) {
     return `角色名称${getRoleNameLimitText()}`;

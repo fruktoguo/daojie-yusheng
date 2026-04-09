@@ -12,8 +12,12 @@
           "name": "崩界天陨",
           "desc": "以裂岳真意锁住落点，轰然震塌一片地脉；命中、破招、暴击与体魄越高，塌势越重。",
           "cooldown": 1800,
-          "costMultiplier": 6,
+          "costMultiplier": 8,
           "range": 8,
+          "playerCast": {
+            "windupTicks": 3,
+            "warningColor": "#ffb14a"
+          },
           "targeting": {
             "shape": "box",
             "width": 5,
@@ -29,7 +33,7 @@
                 "args": [
                   {
                     "var": "caster.stat.physAtk",
-                    "scale": 0.15
+                    "scale": 16
                   },
                   {
                     "op": "add",
@@ -62,7 +66,7 @@
             }
           ],
           "unlockLevel": 10,
-          "cost": 432
+          "cost": 576
         }
       ],
       "layers": [
@@ -413,6 +417,861 @@
             "constitution": 4,
             "perception": 4,
             "talent": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "monster_huanling_arts",
+      "name": "残丹唤灵诀",
+      "grade": "earth",
+      "category": "arts",
+      "realmLv": 1,
+      "skills": [
+        {
+          "id": "skill.huanling_candan_faxiang",
+          "name": "残丹法相虚影",
+          "desc": "气血跌入七成后，强行把碎裂金丹撑成法相虚影，借此把整座洞府重新拖回自己的残丹脉路里。",
+          "cooldown": 1800,
+          "costMultiplier": 6,
+          "range": 1,
+          "requiresTarget": false,
+          "monsterCast": {
+            "conditions": {
+              "mode": "all",
+              "items": [
+                {
+                  "type": "hp_ratio",
+                  "op": "<=",
+                  "value": 0.75
+                }
+              ]
+            }
+          },
+          "effects": [
+            {
+              "type": "buff",
+              "target": "self",
+              "buffId": "buff.huanling_candan_faxiang",
+              "name": "残丹法相虚影",
+              "desc": "重伤之下强撑残丹法相虚影，术势外翻，后续所有熔脉杀招都会跟着整座洞府一并扩开。",
+              "shortMark": "相",
+              "category": "buff",
+              "visibility": "public",
+              "duration": 1,
+              "infiniteDuration": true,
+              "sustainCost": {
+                "resource": "qi",
+                "baseCost": 100,
+                "growthRate": 0.2
+              },
+              "stats": {
+                "physAtk": 60,
+                "spellAtk": 80,
+                "cooldownSpeed": 120,
+                "viewRange": 30
+              },
+              "statMode": "percent",
+              "presentationScale": 4
+            },
+            {
+              "type": "buff",
+              "target": "self",
+              "buffId": "buff.huanling_candan_kuoyu",
+              "name": "虚影扩域",
+              "desc": "法相虚影外翻余波，术法的射程与杀域同时扩开。",
+              "shortMark": "域",
+              "category": "buff",
+              "visibility": "hidden",
+              "duration": 1,
+              "infiniteDuration": true,
+              "expireWithBuffId": "buff.huanling_candan_faxiang",
+              "stats": {
+                "extraRange": 3,
+                "extraArea": 1
+              },
+              "statMode": "flat"
+            }
+          ],
+          "unlockLevel": 8,
+          "cost": 24
+        },
+        {
+          "id": "skill.huanling_duanhun_ding",
+          "name": "断魂灵钉",
+          "desc": "认准被熔池烙开的裂口，把残丹灵识压成一根钉，沿着伤脉直接钉穿神魂。",
+          "cooldown": 80,
+          "costMultiplier": 8,
+          "range": 6,
+          "targeting": {
+            "shape": "single",
+            "maxTargets": 1
+          },
+          "monsterCast": {
+            "conditions": {
+              "mode": "all",
+              "items": [
+                {
+                  "type": "hp_ratio",
+                  "op": "<=",
+                  "value": 1
+                }
+              ]
+            },
+            "windupTicks": 1,
+            "warningColor": "#ff2a2a"
+          },
+          "effects": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "earth",
+              "formula": {
+                "op": "mul",
+                "args": [
+                  {
+                    "var": "caster.stat.spellAtk",
+                    "scale": 10
+                  },
+                  {
+                    "op": "add",
+                    "args": [
+                      1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.05
+                      },
+                      {
+                        "var": "caster.stat.hit",
+                        "scale": 0.003
+                      },
+                      {
+                        "var": "caster.stat.breakPower",
+                        "scale": 0.003
+                      },
+                      {
+                        "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                        "scale": 0.02
+                      },
+                      {
+                        "var": "target.buff.terrain_molten_pool_burn.stacks",
+                        "scale": 0.015
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "buff",
+              "target": "target",
+              "buffId": "buff.huanling_rongmai_yin",
+              "name": "熔脉阴痕",
+              "desc": "断魂灵钉沿着裂脉再补一记，阴痕会持续拖垮攻势与护体。",
+              "shortMark": "熔",
+              "category": "debuff",
+              "visibility": "public",
+              "duration": 60,
+              "stacks": 1,
+              "maxStacks": 100,
+              "stats": {
+                "physAtk": -10,
+                "spellAtk": -10,
+                "physDef": -10,
+                "spellDef": -10
+              },
+              "statMode": "percent",
+              "color": "#ff8a54"
+            }
+          ],
+          "unlockLevel": 1,
+          "cost": 32
+        },
+        {
+          "id": "skill.huanling_ronghe_guanmai",
+          "name": "熔河贯脉",
+          "desc": "把洞府残脉拧成一条赤河直贯出去，整线被拖开的地面都会化作熔流；被卷中的人脚下会被残脉绊住，下一轮更难脱出杀域。",
+          "cooldown": 80,
+          "costMultiplier": 8,
+          "range": 6,
+          "targeting": {
+            "shape": "line",
+            "width": 1,
+            "maxTargets": 6
+          },
+          "monsterCast": {
+            "conditions": {
+              "mode": "all",
+              "items": [
+                {
+                  "type": "hp_ratio",
+                  "op": "<=",
+                  "value": 0.5
+                },
+                {
+                  "type": "has_buff",
+                  "buffId": "buff.huanling_candan_faxiang"
+                }
+              ]
+            },
+            "windupTicks": 1,
+            "warningColor": "#ff7a33"
+          },
+          "effects": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "fire",
+              "formula": {
+                "op": "mul",
+                "args": [
+                  {
+                    "var": "caster.stat.spellAtk",
+                    "scale": 10.5
+                  },
+                  {
+                    "op": "add",
+                    "args": [
+                      1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.05
+                      },
+                      {
+                        "var": "caster.stat.hit",
+                        "scale": 0.004
+                      },
+                      {
+                        "var": "caster.stat.resolvePower",
+                        "scale": 0.004
+                      },
+                      {
+                        "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                        "scale": 0.025
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "buff",
+              "target": "target",
+              "buffId": "buff.huanling_canmai_suobu",
+              "name": "残脉锁步",
+              "desc": "脚下被熔流残脉死死拖住，身法几乎废掉。",
+              "shortMark": "锁",
+              "category": "debuff",
+              "visibility": "public",
+              "duration": 20,
+              "maxStacks": 1,
+              "color": "#ff954f",
+              "stats": {
+                "moveSpeed": -200,
+                "dodge": -200
+              },
+              "statMode": "percent"
+            },
+            {
+              "type": "buff",
+              "target": "target",
+              "buffId": "terrain_molten_pool_burn",
+              "name": "熔池灼烧",
+              "desc": "熔河当头卷过，火毒直接烙进经脉。每层灼烧每息造成 1% 最大气血的火系伤害，持续 10 息，最多 20 层。",
+              "shortMark": "灼",
+              "category": "debuff",
+              "visibility": "public",
+              "duration": 10,
+              "stacks": 10,
+              "maxStacks": 20,
+              "color": "#ff8e54"
+            },
+            {
+              "type": "terrain",
+              "terrainType": "molten_pool",
+              "duration": 30,
+              "allowedOriginalTypes": [
+                "floor",
+                "stone"
+              ]
+            }
+          ],
+          "unlockLevel": 2,
+          "cost": 32
+        },
+        {
+          "id": "skill.huanling_lieqi_zhixian",
+          "name": "移脉熔宫",
+          "desc": "拖着裂丹把洞府残脉猛然拽偏，落点一带尽数熔成赤池，后续杀招都会顺着熔痕灌进去。",
+          "cooldown": 80,
+          "costMultiplier": 8,
+          "range": 5,
+          "targeting": {
+            "shape": "box",
+            "width": 3,
+            "height": 3,
+            "maxTargets": 9
+          },
+          "monsterCast": {
+            "conditions": {
+              "mode": "all",
+              "items": [
+                {
+                  "type": "hp_ratio",
+                  "op": "<=",
+                  "value": 0.75
+                },
+                {
+                  "type": "has_buff",
+                  "buffId": "buff.huanling_candan_faxiang"
+                }
+              ]
+            },
+            "windupTicks": 1,
+            "warningColor": "#ff6a2f"
+          },
+          "effects": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "fire",
+              "formula": {
+                "op": "mul",
+                "args": [
+                  {
+                    "var": "caster.stat.spellAtk",
+                    "scale": 10.2
+                  },
+                  {
+                    "op": "add",
+                    "args": [
+                      1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.05
+                      },
+                      {
+                        "var": "caster.stat.hit",
+                        "scale": 0.004
+                      },
+                      {
+                        "var": "caster.stat.resolvePower",
+                        "scale": 0.004
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "buff",
+              "target": "target",
+              "buffId": "buff.huanling_rongmai_yin",
+              "name": "熔脉阴痕",
+              "desc": "被熔宫残脉烙开经络，阴痕会持续拖垮攻势与护体。",
+              "shortMark": "熔",
+              "category": "debuff",
+              "visibility": "public",
+              "duration": 60,
+              "stacks": 1,
+              "maxStacks": 100,
+              "stats": {
+                "physAtk": -10,
+                "spellAtk": -10,
+                "physDef": -10,
+                "spellDef": -10
+              },
+              "statMode": "percent",
+              "color": "#ff8a54"
+            },
+            {
+              "type": "buff",
+              "target": "target",
+              "buffId": "terrain_molten_pool_burn",
+              "name": "熔池灼烧",
+              "desc": "熔宫崩开时，赤池灼火会直接烙进经脉。每层灼烧每息造成 1% 最大气血的火系伤害，持续 10 息，最多 20 层。",
+              "shortMark": "灼",
+              "category": "debuff",
+              "visibility": "public",
+              "duration": 10,
+              "stacks": 10,
+              "maxStacks": 20,
+              "color": "#ff8e54"
+            },
+            {
+              "type": "terrain",
+              "terrainType": "molten_pool",
+              "duration": 30,
+              "allowedOriginalTypes": [
+                "floor",
+                "stone"
+              ]
+            }
+          ],
+          "unlockLevel": 4,
+          "cost": 32
+        },
+        {
+          "id": "skill.huanling_xingluo_canpan",
+          "name": "星罗残盘",
+          "desc": "借洞府残阵把落点周围拆成明灭交错的棋盘，错踩一格便会被残火与阴脉同时点穿。",
+          "cooldown": 80,
+          "costMultiplier": 8,
+          "range": 5,
+          "targeting": {
+            "shape": "checkerboard",
+            "width": 5,
+            "height": 5,
+            "maxTargets": 13
+          },
+          "monsterCast": {
+            "conditions": {
+              "mode": "all",
+              "items": [
+                {
+                  "type": "hp_ratio",
+                  "op": "<=",
+                  "value": 0.5
+                },
+                {
+                  "type": "has_buff",
+                  "buffId": "buff.huanling_candan_faxiang"
+                }
+              ]
+            },
+            "windupTicks": 1,
+            "warningColor": "#ffc16f"
+          },
+          "effects": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "earth",
+              "formula": {
+                "op": "mul",
+                "args": [
+                  {
+                    "var": "caster.stat.spellAtk",
+                    "scale": 10.8
+                  },
+                  {
+                    "op": "add",
+                    "args": [
+                      1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.05
+                      },
+                      {
+                        "var": "caster.stat.hit",
+                        "scale": 0.003
+                      },
+                      {
+                        "var": "caster.stat.resolvePower",
+                        "scale": 0.003
+                      },
+                      {
+                        "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                        "scale": 0.025
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "buff",
+              "target": "target",
+              "buffId": "buff.huanling_rongmai_yin",
+              "name": "熔脉阴痕",
+              "desc": "踩错残盘步位后，阴痕会持续拖垮攻势与护体。",
+              "shortMark": "熔",
+              "category": "debuff",
+              "visibility": "public",
+              "duration": 60,
+              "stacks": 1,
+              "maxStacks": 100,
+              "stats": {
+                "physAtk": -10,
+                "spellAtk": -10,
+                "physDef": -10,
+                "spellDef": -10
+              },
+              "statMode": "percent",
+              "color": "#ff8a54"
+            }
+          ],
+          "unlockLevel": 5,
+          "cost": 32
+        },
+        {
+          "id": "skill.huanling_suogong_neihuan",
+          "name": "锁宫内环",
+          "desc": "先把目标脚边一圈地脉瞬间勒紧，贴得太近的人会被内环直接绞住，必须立刻改步离位。",
+          "cooldown": 80,
+          "costMultiplier": 8,
+          "range": 5,
+          "targeting": {
+            "shape": "ring",
+            "innerRadius": 1,
+            "radius": 2,
+            "maxTargets": 8
+          },
+          "monsterCast": {
+            "conditions": {
+              "mode": "all",
+              "items": [
+                {
+                  "type": "hp_ratio",
+                  "op": "<=",
+                  "value": 0.25
+                },
+                {
+                  "type": "has_buff",
+                  "buffId": "buff.huanling_candan_faxiang"
+                }
+              ]
+            },
+            "windupTicks": 1,
+            "warningColor": "#ff9c64"
+          },
+          "effects": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "earth",
+              "formula": {
+                "op": "mul",
+                "args": [
+                  {
+                    "var": "caster.stat.spellAtk",
+                    "scale": 11
+                  },
+                  {
+                    "op": "add",
+                    "args": [
+                      1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.05
+                      },
+                      {
+                        "var": "caster.stat.hit",
+                        "scale": 0.003
+                      },
+                      {
+                        "var": "caster.stat.resolvePower",
+                        "scale": 0.003
+                      },
+                      {
+                        "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                        "scale": 0.02
+                      },
+                      {
+                        "var": "target.buff.terrain_molten_pool_burn.stacks",
+                        "scale": 0.015
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "buff",
+              "target": "target",
+              "buffId": "buff.huanling_canmai_suobu",
+              "name": "残脉锁步",
+              "desc": "内环绞到腿脚，整套身法几乎被当场压废。",
+              "shortMark": "锁",
+              "category": "debuff",
+              "visibility": "public",
+              "duration": 20,
+              "maxStacks": 1,
+              "color": "#ff954f",
+              "stats": {
+                "moveSpeed": -200,
+                "dodge": -200
+              },
+              "statMode": "percent"
+            }
+          ],
+          "unlockLevel": 6,
+          "cost": 32
+        },
+        {
+          "id": "skill.huanling_liefu_waihuan",
+          "name": "裂府外环",
+          "desc": "把更外层的洞府残脉整圈掀起，外环会晚半拍一齐压落；若前面已经沾了阴痕或灼伤，被卷入这一圈时伤势会被整片放大。",
+          "cooldown": 80,
+          "costMultiplier": 8,
+          "range": 6,
+          "targeting": {
+            "shape": "ring",
+            "innerRadius": 3,
+            "radius": 5,
+            "maxTargets": 18
+          },
+          "monsterCast": {
+            "conditions": {
+              "mode": "all",
+              "items": [
+                {
+                  "type": "hp_ratio",
+                  "op": "<=",
+                  "value": 0.25
+                },
+                {
+                  "type": "has_buff",
+                  "buffId": "buff.huanling_candan_faxiang"
+                }
+              ]
+            },
+            "windupTicks": 2,
+            "warningColor": "#ff4d36"
+          },
+          "effects": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "fire",
+              "formula": {
+                "op": "mul",
+                "args": [
+                  {
+                    "var": "caster.stat.spellAtk",
+                    "scale": 11.5
+                  },
+                  {
+                    "op": "add",
+                    "args": [
+                      1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.05
+                      },
+                      {
+                        "var": "caster.stat.hit",
+                        "scale": 0.003
+                      },
+                      {
+                        "var": "caster.stat.resolvePower",
+                        "scale": 0.003
+                      },
+                      {
+                        "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                        "scale": 0.03
+                      },
+                      {
+                        "var": "target.buff.terrain_molten_pool_burn.stacks",
+                        "scale": 0.025
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "buff",
+              "target": "target",
+              "buffId": "buff.huanling_rongmai_yin",
+              "name": "熔脉阴痕",
+              "desc": "被外环整片压过之后，阴痕会持续拖垮攻势与护体。",
+              "shortMark": "熔",
+              "category": "debuff",
+              "visibility": "public",
+              "duration": 60,
+              "stacks": 1,
+              "maxStacks": 100,
+              "stats": {
+                "physAtk": -10,
+                "spellAtk": -10,
+                "physDef": -10,
+                "spellDef": -10
+              },
+              "statMode": "percent",
+              "color": "#ff8a54"
+            }
+          ],
+          "unlockLevel": 7,
+          "cost": 32
+        },
+        {
+          "id": "skill.huanling_difu_chenyin",
+          "name": "地府沉印",
+          "desc": "借洞府残阵把熔开的地脉整片往下按，阴痕越多、灼得越深，塌下去的那一刻就越重。",
+          "cooldown": 80,
+          "costMultiplier": 8,
+          "range": 5,
+          "targeting": {
+            "shape": "box",
+            "width": 3,
+            "height": 3,
+            "maxTargets": 9
+          },
+          "monsterCast": {
+            "conditions": {
+              "mode": "all",
+              "items": [
+                {
+                  "type": "hp_ratio",
+                  "op": "<=",
+                  "value": 0.25
+                },
+                {
+                  "type": "has_buff",
+                  "buffId": "buff.huanling_candan_faxiang"
+                }
+              ]
+            },
+            "windupTicks": 1,
+            "warningColor": "#ff3838"
+          },
+          "effects": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "earth",
+              "formula": {
+                "op": "mul",
+                "args": [
+                  {
+                    "var": "caster.stat.spellAtk",
+                    "scale": 12
+                  },
+                  {
+                    "op": "add",
+                    "args": [
+                      1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.05
+                      },
+                      {
+                        "var": "caster.stat.hit",
+                        "scale": 0.003
+                      },
+                      {
+                        "var": "caster.stat.resolvePower",
+                        "scale": 0.003
+                      },
+                      {
+                        "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                        "scale": 0.03
+                      },
+                      {
+                        "var": "target.buff.terrain_molten_pool_burn.stacks",
+                        "scale": 0.03
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "unlockLevel": 8,
+          "cost": 32
+        },
+        {
+          "id": "skill.huanling_canpo_zhang",
+          "name": "残魄掌",
+          "desc": "随手把残丹余魄拍出一掌，当作最基础的索命手段。",
+          "cooldown": 0,
+          "costMultiplier": 0,
+          "range": 5,
+          "targeting": {
+            "shape": "single",
+            "maxTargets": 1
+          },
+          "monsterCast": {
+            "windupTicks": 1,
+            "warningColor": "#dca06a"
+          },
+          "effects": [
+            {
+              "type": "damage",
+              "damageKind": "physical",
+              "formula": {
+                "op": "add",
+                "args": [
+                  {
+                    "var": "caster.stat.physAtk",
+                    "scale": 5
+                  },
+                  {
+                    "var": "caster.stat.spellAtk",
+                    "scale": 5
+                  }
+                ]
+              }
+            }
+          ],
+          "unlockLevel": 1,
+          "cost": 0
+        }
+      ],
+      "layers": [
+        {
+          "level": 1,
+          "expToNext": 1800,
+          "attrs": {
+            "spirit": 6,
+            "perception": 5
+          }
+        },
+        {
+          "level": 2,
+          "expToNext": 2200,
+          "attrs": {
+            "spirit": 7,
+            "talent": 5
+          }
+        },
+        {
+          "level": 3,
+          "expToNext": 2800,
+          "attrs": {
+            "spirit": 6,
+            "perception": 6
+          }
+        },
+        {
+          "level": 4,
+          "expToNext": 3400,
+          "attrs": {
+            "talent": 7,
+            "constitution": 4
+          }
+        },
+        {
+          "level": 5,
+          "expToNext": 4200,
+          "attrs": {
+            "spirit": 7,
+            "talent": 6
+          }
+        },
+        {
+          "level": 6,
+          "expToNext": 5000,
+          "attrs": {
+            "perception": 7,
+            "constitution": 5
+          }
+        },
+        {
+          "level": 7,
+          "expToNext": 6000,
+          "attrs": {
+            "spirit": 8,
+            "talent": 6
+          }
+        },
+        {
+          "level": 8,
+          "expToNext": 0,
+          "attrs": {
+            "spirit": 8,
+            "perception": 7
           }
         }
       ]
@@ -8338,8 +9197,12 @@
           "name": "劫光灭域",
           "desc": "引太虚劫光覆落成域，命中、破招、暴击与神识越高，寂灭波就越深。",
           "cooldown": 1800,
-          "costMultiplier": 6,
+          "costMultiplier": 8,
           "range": 9,
+          "playerCast": {
+            "windupTicks": 3,
+            "warningColor": "#ff8c42"
+          },
           "targeting": {
             "shape": "box",
             "width": 7,
@@ -8356,7 +9219,7 @@
                 "args": [
                   {
                     "var": "caster.stat.spellAtk",
-                    "scale": 0.15
+                    "scale": 17
                   },
                   {
                     "op": "add",
@@ -8389,7 +9252,7 @@
             }
           ],
           "unlockLevel": 10,
-          "cost": 432
+          "cost": 576
         }
       ],
       "layers": [
@@ -14679,45 +15542,69 @@
       "grade": "yellow"
     },
     {
+      "itemId": "mat.red_flame_leaf",
+      "name": "赤火叶",
+      "type": "material",
+      "grade": "yellow",
+      "level": 2,
+      "desc": "叶脉似有火线流过，微温不烈，常用来提振炉火药性。"
+    },
+    {
       "itemId": "pill.crimson_bud_elixir",
       "name": "赤芽丹",
       "type": "consumable",
-      "level": 2,
-      "desc": "服后数千息内血勇更盛，即使身死药势也不会散，暴击明显提高。",
+      "level": 7,
+      "tags": [
+        "战斗丹药"
+      ],
+      "desc": "服后 2400 息内血勇更盛，即使身死药势也不会散，暴击 +9%。",
       "consumeBuffs": [
         {
           "buffId": "item_buff.crimson_bud",
           "name": "赤芽生锋",
-          "desc": "药力催得血气躁动，暴击提高；即使身死，药势仍会残留到药尽为止。",
+          "desc": "药力催得血气躁动，2400 息内暴击 +9%；即使身死，药势仍会残留到药尽为止。",
           "shortMark": "赤",
-          "duration": 3600,
-          "valueStats": {
-            "crit": 6
-          }
+          "duration": 2400,
+          "stats": {
+            "crit": 9
+          },
+          "statMode": "percent"
         }
       ]
+    },
+    {
+      "itemId": "mat.bloodbud_fruit",
+      "name": "赤芽果",
+      "type": "material",
+      "grade": "yellow",
+      "level": 2,
+      "desc": "果肉辛甜，药气偏热，最适合催发血气。"
     },
     {
       "itemId": "pill.chiyang_draught",
       "name": "赤阳液",
       "type": "consumable",
-      "level": 5,
-      "desc": "药液烈得像一口吞火，能短时把攻势和火炁都顶上去，适合硬压血线时一口闷下。",
-      "healPercent": 0.08,
-      "qiPercent": 0.26,
+      "level": 26,
+      "tags": [
+        "战斗丹药"
+      ],
+      "desc": "药液烈得像一口吞火，立刻恢复 30% 气血与 50% 真气，并在 3900 息内使物理攻击 +18%、法术攻击 +18%、暴击 +12%、灵力输出速率 +18%。",
+      "healPercent": 0.3,
+      "qiPercent": 0.5,
       "consumeBuffs": [
         {
           "buffId": "item_buff.chiyang_draught",
           "name": "赤阳",
-          "desc": "药势逼着火炁一起上涌，短时间内攻势会更烈更凶。",
+          "desc": "药势逼着火炁一起上涌，3900 息内物理攻击 +18%、法术攻击 +18%、暴击 +12%、灵力输出速率 +18%。",
           "shortMark": "阳",
-          "duration": 600,
-          "valueStats": {
-            "physAtk": 6,
-            "spellAtk": 6,
-            "crit": 4,
-            "maxQiOutputPerTick": 6
-          }
+          "duration": 3900,
+          "stats": {
+            "physAtk": 18,
+            "spellAtk": 18,
+            "crit": 12,
+            "maxQiOutputPerTick": 18
+          },
+          "statMode": "percent"
         }
       ],
       "grade": "mystic"
@@ -14748,31 +15635,38 @@
       "itemId": "pure_yang_pill",
       "name": "纯阳丹",
       "type": "consumable",
-      "level": 4,
-      "desc": "烈阳药引直入气海，立刻恢复 30% 气血与 75% 真气。",
-      "healPercent": 0.3,
-      "qiPercent": 0.75
+      "level": 16,
+      "tags": [
+        "战斗丹药"
+      ],
+      "desc": "烈阳药引直入气海，立刻恢复 34% 气血与 72% 真气。",
+      "healPercent": 0.34,
+      "qiPercent": 0.72
     },
     {
       "itemId": "pill.edge_quenching_powder",
       "name": "淬锋散",
       "type": "consumable",
-      "level": 5,
-      "desc": "金行药粉入口发涩，能在短时间内逼出更强的锋势与破势。",
-      "healPercent": 0.12,
-      "qiPercent": 0.32,
+      "level": 23,
+      "tags": [
+        "战斗丹药"
+      ],
+      "desc": "金行药粉入口发涩，立刻恢复 34% 气血与 52% 真气，并在 3900 息内使命中 +14%、暴击 +10%、破招 +15%。",
+      "healPercent": 0.34,
+      "qiPercent": 0.52,
       "consumeBuffs": [
         {
           "buffId": "item_buff.edge_quenching_powder",
           "name": "淬锋",
-          "desc": "锋势短暂拔高，更易命中要害与打穿护体。",
+          "desc": "锋势短暂拔高，3900 息内命中 +14%、暴击 +10%、破招 +15%。",
           "shortMark": "锋",
-          "duration": 900,
-          "valueStats": {
-            "hit": 4,
-            "crit": 3,
-            "breakPower": 4
-          }
+          "duration": 3900,
+          "stats": {
+            "hit": 14,
+            "crit": 10,
+            "breakPower": 15
+          },
+          "statMode": "percent"
         }
       ],
       "grade": "mystic"
@@ -14788,10 +15682,13 @@
       "itemId": "major_qi_pill",
       "name": "大还灵丹",
       "type": "consumable",
-      "level": 3,
-      "desc": "药力浑厚，立刻恢复 55% 气血与 45% 真气。",
-      "healPercent": 0.55,
-      "qiPercent": 0.45
+      "level": 8,
+      "tags": [
+        "战斗丹药"
+      ],
+      "desc": "药力更浑厚，立刻恢复 38% 气血与 32% 真气。",
+      "healPercent": 0.38,
+      "qiPercent": 0.32
     },
     {
       "itemId": "equip.stele_shell_armor",
@@ -15440,6 +16337,14 @@
       ]
     },
     {
+      "itemId": "mat.frost_lotus_petal",
+      "name": "寒莲瓣",
+      "type": "material",
+      "grade": "mystic",
+      "level": 3,
+      "desc": "带着寒雾水汽的薄瓣，能压住燥烈药势。"
+    },
+    {
       "itemId": "coldspirit_dew",
       "name": "寒魄露",
       "type": "material",
@@ -15473,10 +16378,13 @@
       "itemId": "frost_heart_paste",
       "name": "寒心膏",
       "type": "consumable",
-      "level": 3,
-      "desc": "寒性药膏可稳住伤处，立刻恢复 42% 气血与 30% 真气。",
+      "level": 10,
+      "tags": [
+        "战斗丹药"
+      ],
+      "desc": "寒性药膏可稳住伤处，立刻恢复 42% 气血与 34% 真气。",
       "healPercent": 0.42,
-      "qiPercent": 0.3
+      "qiPercent": 0.34
     },
     {
       "itemId": "map.black_iron_mine",
@@ -15746,22 +16654,26 @@
       "itemId": "pill.earthrest_paste",
       "name": "厚土膏",
       "type": "consumable",
-      "level": 5,
-      "desc": "药膏入口厚重，立刻回一口气血，并在短时间内把护体压得更稳。",
-      "healPercent": 0.24,
-      "qiPercent": 0.18,
+      "level": 27,
+      "tags": [
+        "战斗丹药"
+      ],
+      "desc": "药膏入口厚重，立刻恢复 60% 气血与 40% 真气，并在 3900 息内使物理防御 +16%、化解 +16%、生命回复 +150%。",
+      "healPercent": 0.6,
+      "qiPercent": 0.4,
       "consumeBuffs": [
         {
           "buffId": "item_buff.earthrest_paste",
           "name": "厚土",
-          "desc": "肉身与经脉都被药力压稳，更适合硬扛。",
+          "desc": "肉身与经脉都被药力压稳，3900 息内物理防御 +16%、化解 +16%、生命回复 +150%。",
           "shortMark": "土",
-          "duration": 900,
-          "valueStats": {
-            "physDef": 6,
-            "resolvePower": 6,
-            "hpRegenRate": 60
-          }
+          "duration": 3900,
+          "stats": {
+            "physDef": 16,
+            "resolvePower": 16,
+            "hpRegenRate": 150
+          },
+          "statMode": "percent"
         }
       ],
       "grade": "mystic"
@@ -15868,7 +16780,10 @@
       "itemId": "pill.minor_heal",
       "name": "回春散",
       "type": "consumable",
-      "level": 1,
+      "level": 2,
+      "tags": [
+        "战斗丹药"
+      ],
       "desc": "草木药气温和，服下后立刻恢复 22% 气血。",
       "healPercent": 0.22
     },
@@ -15876,21 +16791,25 @@
       "itemId": "recovery_powder",
       "name": "回灵散",
       "type": "consumable",
-      "level": 4,
-      "desc": "把散乱灵气压回经脉，立刻恢复 18% 气血与 42% 真气，并在短时间内加快气机回转。",
-      "healPercent": 0.18,
-      "qiPercent": 0.42,
+      "level": 21,
+      "tags": [
+        "战斗丹药"
+      ],
+      "desc": "把散乱灵气压回经脉，立刻恢复 40% 气血与 56% 真气，并在 3600 息内让生命回复 +110%、灵力回复 +160%。",
+      "healPercent": 0.4,
+      "qiPercent": 0.56,
       "consumeBuffs": [
         {
           "buffId": "item_buff.recovery_powder",
           "name": "回灵",
-          "desc": "药力沿经脉慢慢化开，气血与真气回复略有提升。",
+          "desc": "药力沿经脉慢慢化开，3600 息内生命回复 +110%、灵力回复 +160%。",
           "shortMark": "灵",
-          "duration": 900,
-          "valueStats": {
-            "hpRegenRate": 40,
-            "qiRegenRate": 80
-          }
+          "duration": 3600,
+          "stats": {
+            "hpRegenRate": 110,
+            "qiRegenRate": 160
+          },
+          "statMode": "percent"
         }
       ],
       "grade": "yellow"
@@ -15958,6 +16877,14 @@
         "maxQiOutputPerTick": 4,
         "resolvePower": 3
       }
+    },
+    {
+      "itemId": "mat.swiftwind_reed",
+      "name": "疾风苇",
+      "type": "material",
+      "grade": "mystic",
+      "level": 3,
+      "desc": "细长苇芯中藏着轻灵风息，常用来炼制轻身类丹药。"
     },
     {
       "itemId": "sword_pellet",
@@ -16149,25 +17076,37 @@
       }
     },
     {
+      "itemId": "mat.bitterheart_vine",
+      "name": "苦心藤",
+      "type": "material",
+      "grade": "earth",
+      "level": 4,
+      "desc": "入口极苦，药劲却最能逼出修者经脉里的勤修之意。"
+    },
+    {
       "itemId": "pill.bitter_cultivation_elixir",
       "name": "苦修丹",
       "type": "consumable",
-      "level": 4,
-      "desc": "强行催运行功，3600 息内修炼速度明显提高，但灵力恢复与生命回复都会大幅衰减，脚程也会更沉。",
+      "level": 18,
+      "tags": [
+        "修为丹药"
+      ],
+      "desc": "强行催运行功，3000 息内境界修为 +25%、功法经验 +25%，但生命回复 -420%、灵力回复 -420%、移动速度 -12%。",
       "consumeBuffs": [
         {
           "buffId": "item_buff.bitter_cultivation",
           "name": "苦修",
-          "desc": "境界修为与功法修炼速度提高，但经脉始终带着涩滞感，灵力恢复、生命回复与脚程都会明显下滑。",
+          "desc": "境界修为与功法经验获取效率提高，但经脉始终带着涩滞感；3000 息内生命回复 -420%、灵力回复 -420%、移动速度 -12%。",
           "shortMark": "苦",
-          "duration": 3600,
-          "valueStats": {
-            "realmExpPerTick": 25,
-            "techniqueExpPerTick": 25,
-            "hpRegenRate": -500,
-            "qiRegenRate": -500,
-            "moveSpeed": -10
-          }
+          "duration": 3000,
+          "stats": {
+            "playerExpRate": 25,
+            "techniqueExpRate": 25,
+            "hpRegenRate": -420,
+            "qiRegenRate": -420,
+            "moveSpeed": -12
+          },
+          "statMode": "percent"
         }
       ]
     },
@@ -16902,21 +17841,33 @@
       "itemId": "pill.clear_eye_elixir",
       "name": "明目丹",
       "type": "consumable",
-      "level": 3,
-      "desc": "服后心神澄明，数千息内命中与视野提高，死亡不消失。",
+      "level": 13,
+      "tags": [
+        "战斗丹药"
+      ],
+      "desc": "服后心神澄明，2400 息内命中 +9%、视野 +14%，死亡不消失。",
       "consumeBuffs": [
         {
           "buffId": "item_buff.clear_eye",
           "name": "澄目",
-          "desc": "目力与判断更清楚，命中提高，视野更远；身死也不会立刻散去。",
+          "desc": "目力与判断更清楚，2400 息内命中 +9%、视野 +14%；身死也不会立刻散去。",
           "shortMark": "明",
-          "duration": 3600,
-          "valueStats": {
-            "hit": 8,
-            "viewRange": 10
-          }
+          "duration": 2400,
+          "stats": {
+            "hit": 9,
+            "viewRange": 14
+          },
+          "statMode": "percent"
         }
       ]
+    },
+    {
+      "itemId": "mat.clear_mind_flower",
+      "name": "明心花",
+      "type": "material",
+      "grade": "mystic",
+      "level": 3,
+      "desc": "花香清冽，炼入丹中常能扶正心神、澄明五感。"
     },
     {
       "itemId": "fate_stone.qizhen_crossing",
@@ -16984,10 +17935,67 @@
       ]
     },
     {
+      "itemId": "pill.ningxiang",
+      "name": "凝相丹",
+      "type": "consumable",
+      "level": 30,
+      "grade": "earth",
+      "tags": [
+        "战斗丹药"
+      ],
+      "desc": "以重伤金丹真人的残丹法门逆炼成丸，服下后会强行凝出法相虚影。虚影若要维持，必须持续燃烧灵力，一旦后继无力便会当场崩散。",
+      "consumeBuffs": [
+        {
+          "buffId": "buff.huanling_candan_faxiang",
+          "name": "残丹法相虚影",
+          "desc": "丹力强行撑起残丹法相虚影，体型额外暴涨三倍，攻势与术势尽数失控。",
+          "sourceSkillId": "skill.huanling_candan_faxiang",
+          "shortMark": "相",
+          "category": "buff",
+          "visibility": "public",
+          "duration": 1,
+          "infiniteDuration": true,
+          "sustainCost": {
+            "resource": "qi",
+            "baseCost": 100,
+            "growthRate": 0.2
+          },
+          "stats": {
+            "physAtk": 100,
+            "spellAtk": 100,
+            "cooldownSpeed": 100,
+            "viewRange": 50
+          },
+          "statMode": "percent",
+          "presentationScale": 4
+        },
+        {
+          "buffId": "buff.huanling_candan_kuoyu",
+          "name": "虚影扩域",
+          "desc": "法相虚影外翻余波，术法的射程与杀域同时扩开。",
+          "sourceSkillId": "skill.huanling_candan_faxiang",
+          "shortMark": "域",
+          "category": "buff",
+          "visibility": "hidden",
+          "duration": 1,
+          "infiniteDuration": true,
+          "expireWithBuffId": "buff.huanling_candan_faxiang",
+          "stats": {
+            "extraRange": 5,
+            "extraArea": 1
+          },
+          "statMode": "flat"
+        }
+      ]
+    },
+    {
       "itemId": "pill.breakmirror_pellet",
       "name": "破镜丹",
       "type": "consumable",
-      "level": 10,
+      "level": 28,
+      "tags": [
+        "战斗丹药"
+      ],
       "desc": "药力会强行撬开六维潜势，短时间内把根骨、体魄与神识一并拔高，但也会压碎气血与灵力根基，只适合搏命时服下。",
       "consumeBuffs": [
         {
@@ -17015,22 +18023,34 @@
       "grade": "earth"
     },
     {
+      "itemId": "mat.breakarray_shard",
+      "name": "破纹砂",
+      "type": "material",
+      "grade": "mystic",
+      "level": 3,
+      "desc": "从旧阵裂缝里筛出的细砂，药性带着轻微撕裂感。"
+    },
+    {
       "itemId": "pill.break_array_elixir",
       "name": "破阵丹",
       "type": "consumable",
-      "level": 3,
-      "desc": "药力凝在手眼与发力节点，数千息内破招与命中提高，身死不散。",
+      "level": 12,
+      "tags": [
+        "战斗丹药"
+      ],
+      "desc": "药力凝在手眼与发力节点，2400 息内破招 +14%、命中 +7%，身死不散。",
       "consumeBuffs": [
         {
           "buffId": "item_buff.break_array",
           "name": "破阵劲",
-          "desc": "下手更刁钻，破招与命中提高；此药势即使身死也不会立刻散去。",
+          "desc": "下手更刁钻，2400 息内破招 +14%、命中 +7%；此药势即使身死也不会立刻散去。",
           "shortMark": "破",
-          "duration": 3600,
-          "valueStats": {
-            "breakPower": 8,
-            "hit": 4
-          }
+          "duration": 2400,
+          "stats": {
+            "breakPower": 14,
+            "hit": 7
+          },
+          "statMode": "percent"
         }
       ]
     },
@@ -17041,6 +18061,14 @@
       "level": 7,
       "desc": "记着栖真渡三重错台、行修街和五行出入口的主城街图。使用后可永久解锁栖真渡地图。",
       "mapUnlockId": "qizhen_crossing"
+    },
+    {
+      "itemId": "mat.green_spirit_stem",
+      "name": "青灵茎",
+      "type": "material",
+      "grade": "yellow",
+      "level": 2,
+      "desc": "蕴有淡薄灵机的草茎，常作聚气和缓冲药引。"
     },
     {
       "itemId": "map.verdant_vine_vale",
@@ -17120,19 +18148,23 @@
       "itemId": "pill.windstride_elixir",
       "name": "轻身丹",
       "type": "consumable",
-      "level": 3,
-      "desc": "药劲顺着经脉卸到脚下，数千息内移动速度与闪避提高，死亡不消失。",
+      "level": 11,
+      "tags": [
+        "战斗丹药"
+      ],
+      "desc": "药劲顺着经脉卸到脚下，2400 息内移动速度 +22%、闪避 +7%，死亡不消失。",
       "consumeBuffs": [
         {
           "buffId": "item_buff.windstride",
           "name": "踏风",
-          "desc": "脚下更轻，移动与腾挪都更快；这股药劲即使身死也不会立刻散去。",
+          "desc": "脚下更轻，2400 息内移动速度 +22%、闪避 +7%；这股药劲即使身死也不会立刻散去。",
           "shortMark": "疾",
-          "duration": 3600,
-          "valueStats": {
-            "moveSpeed": 18,
-            "dodge": 3
-          }
+          "duration": 2400,
+          "stats": {
+            "moveSpeed": 22,
+            "dodge": 7
+          },
+          "statMode": "percent"
         }
       ]
     },
@@ -17140,22 +18172,26 @@
       "itemId": "pill.cleartide_powder",
       "name": "清脉散",
       "type": "consumable",
-      "level": 5,
-      "desc": "药粉化开后会把杂气往外带，先回一口真气，再让经脉短时间内更干净顺手。",
-      "healPercent": 0.14,
-      "qiPercent": 0.48,
+      "level": 25,
+      "tags": [
+        "战斗丹药"
+      ],
+      "desc": "药粉化开后会把杂气往外带，立刻恢复 36% 气血与 60% 真气，并在 3900 息内使灵力回复 +155%、法术防御 +11%、化解 +14%。",
+      "healPercent": 0.36,
+      "qiPercent": 0.6,
       "consumeBuffs": [
         {
           "buffId": "item_buff.cleartide_powder",
           "name": "清脉",
-          "desc": "杂气暂时被冲淡，真气回转和法修出手都会更顺。",
+          "desc": "杂气暂时被冲淡，3900 息内灵力回复 +155%、法术防御 +11%、化解 +14%。",
           "shortMark": "清",
-          "duration": 900,
-          "valueStats": {
-            "qiRegenRate": 1,
-            "spellDef": 4,
-            "resolvePower": 4
-          }
+          "duration": 3900,
+          "stats": {
+            "qiRegenRate": 155,
+            "spellDef": 11,
+            "resolvePower": 14
+          },
+          "statMode": "percent"
         }
       ],
       "grade": "mystic"
@@ -17181,6 +18217,14 @@
         "dodge": 6,
         "qiRegenRate": 0.5
       }
+    },
+    {
+      "itemId": "mat.sunmelt_seed",
+      "name": "融阳子",
+      "type": "material",
+      "grade": "earth",
+      "level": 4,
+      "desc": "在炽热岩缝里长成的赤金种子，蕴着强横烈阳药引。"
     },
     {
       "itemId": "equip.sand_edge_headband",
@@ -17606,6 +18650,10 @@
       "itemId": "pill.shatter_spirit",
       "name": "碎灵丹",
       "type": "consumable",
+      "level": 29,
+      "tags": [
+        "修为丹药"
+      ],
       "desc": "药力专碎命宫旧痕。使用后会立刻重置天门，清掉当前已开出的灵根结果，并额外增加 1 次逆天改命累计；同时消耗当前境界修为的 25%。至少需在叩仙门境界使用。"
     },
     {
@@ -17701,7 +18749,7 @@
       "itemId": "root_seed.heaven",
       "name": "天品灵根幼苗",
       "type": "consumable",
-      "desc": "封着五行先天气机的幼苗。使用后会将五行灵根先定为 99，再逐系以 50% 概率催至 100，且至少保底一系为 100；同时逆天改命累计额外增加 20 次。至少需在叩仙门境界使用，基础消耗相当于 20 次逆天改命的底蕴，已有逆天改命积累会等额抵扣。",
+      "desc": "封着五行先天气机的幼苗。使用后会将五行灵根先定为 99，再逐系以 50% 概率催至 100，且至少保底一系为 100；同时逆天改命累计额外增加 10 次。至少需在叩仙门境界使用，基础消耗相当于 10 次逆天改命的底蕴，已有逆天改命积累会等额抵扣。",
       "spiritualRootSeedTier": "heaven"
     },
     {
@@ -17770,25 +18818,56 @@
       }
     },
     {
+      "itemId": "equip.copper_pill_furnace",
+      "name": "铜胎丹炉",
+      "type": "equipment",
+      "grade": "yellow",
+      "level": 2,
+      "desc": "小巧耐烧的铜胎丹炉，炉壁内侧刻着稳火与散药气的浅纹，正适合初学炼丹者随身携带。",
+      "equipSlot": "weapon",
+      "tags": [
+        "alchemy_furnace"
+      ],
+      "equipValueStats": {
+        "qiRegenRate": 40,
+        "resolvePower": 1
+      }
+    },
+    {
+      "itemId": "pill.wangsheng",
+      "name": "往生丹",
+      "type": "consumable",
+      "level": 30,
+      "grade": "heaven",
+      "tags": [
+        "修为丹药"
+      ],
+      "desc": "丹成如返照回光，服下后会散尽旧日修为，重归凡胎。使用后境界回到凡胎，境界修为与底蕴归零。"
+    },
+    {
       "itemId": "pill.fivephase_harmony_pellet",
       "name": "五和丸",
       "type": "consumable",
-      "level": 6,
-      "desc": "把几种温顺药性压成一丸，恢复 18% 气血与 36% 真气，并在较长时间内帮助修炼。",
-      "healPercent": 0.18,
-      "qiPercent": 0.36,
+      "level": 30,
+      "tags": [
+        "修为丹药"
+      ],
+      "desc": "把几种温顺药性压成一丸，恢复 68% 气血与 88% 真气，并在 4800 息内使法术防御 +18%、境界修为 +36%、功法经验 +36%。",
+      "healPercent": 0.68,
+      "qiPercent": 0.88,
       "consumeBuffs": [
         {
           "buffId": "item_buff.fivephase_harmony_pellet",
           "name": "五和",
-          "desc": "五行不再互相顶撞，修炼与真气运转都更平顺。",
+          "desc": "五行不再互相顶撞，4800 息内法术防御 +18%、境界修为与功法经验获取效率各提高 36%。",
           "shortMark": "和",
-          "duration": 1800,
-          "valueStats": {
-            "spellDef": 4,
-            "realmExpPerTick": 8,
-            "techniqueExpPerTick": 8
-          }
+          "duration": 4800,
+          "stats": {
+            "spellDef": 18,
+            "playerExpRate": 36,
+            "techniqueExpRate": 36
+          },
+          "statMode": "percent"
         }
       ],
       "grade": "earth"
@@ -17872,10 +18951,13 @@
       "itemId": "minor_qi_pill",
       "name": "小还灵丹",
       "type": "consumable",
-      "level": 2,
-      "desc": "药力柔和，立刻恢复 35% 气血与 25% 真气。",
-      "healPercent": 0.35,
-      "qiPercent": 0.25
+      "level": 4,
+      "tags": [
+        "战斗丹药"
+      ],
+      "desc": "药力柔和，立刻恢复 30% 气血与 22% 真气。",
+      "healPercent": 0.3,
+      "qiPercent": 0.22
     },
     {
       "itemId": "star_metal",
@@ -17974,22 +19056,26 @@
       "itemId": "pill.nurturing_paste",
       "name": "养脉膏",
       "type": "consumable",
-      "level": 5,
-      "desc": "膏体入口微苦，能把散开的木行药势慢慢贴回经脉，适合拖长作战时续住命。",
-      "healPercent": 0.22,
-      "qiPercent": 0.24,
+      "level": 24,
+      "tags": [
+        "战斗丹药"
+      ],
+      "desc": "膏体入口微苦，立刻恢复 54% 气血与 46% 真气，并在 3900 息内使生命回复 +170%、灵力回复 +136%、法术防御 +11%。",
+      "healPercent": 0.54,
+      "qiPercent": 0.46,
       "consumeBuffs": [
         {
           "buffId": "item_buff.nurturing_paste",
           "name": "养脉",
-          "desc": "药力贴脉而走，短时间内更容易稳住气血与回灵节奏。",
+          "desc": "药力贴脉而走，3900 息内生命回复 +170%、灵力回复 +136%、法术防御 +11%。",
           "shortMark": "脉",
-          "duration": 1200,
-          "valueStats": {
-            "hpRegenRate": 70,
-            "qiRegenRate": 60,
-            "spellDef": 4
-          }
+          "duration": 3900,
+          "stats": {
+            "hpRegenRate": 170,
+            "qiRegenRate": 136,
+            "spellDef": 11
+          },
+          "statMode": "percent"
         }
       ],
       "grade": "mystic"
@@ -18149,21 +19235,25 @@
       "itemId": "pill.guiding_powder",
       "name": "引基散",
       "type": "consumable",
-      "level": 4,
-      "desc": "药散入腹后会把乱气往气海底部慢慢拢住，立刻恢复 28% 气血与 65% 真气，并在一段时间内让修炼更稳。",
-      "healPercent": 0.28,
-      "qiPercent": 0.65,
+      "level": 20,
+      "tags": [
+        "修为丹药"
+      ],
+      "desc": "药散入腹后会把乱气往气海底部慢慢拢住，立刻恢复 48% 气血与 62% 真气，并在 3600 息内让境界修为 +30%、功法经验 +30%。",
+      "healPercent": 0.48,
+      "qiPercent": 0.62,
       "consumeBuffs": [
         {
           "buffId": "item_buff.guiding_powder",
           "name": "引基",
-          "desc": "气机被药势往下拢住，功法修炼与境界积累略有提升。",
+          "desc": "气机被药势往下拢住，3600 息内境界修为与功法经验获取效率各提高 30%。",
           "shortMark": "引",
-          "duration": 1800,
-          "valueStats": {
-            "realmExpPerTick": 12,
-            "techniqueExpPerTick": 12
-          }
+          "duration": 3600,
+          "stats": {
+            "playerExpRate": 30,
+            "techniqueExpRate": 30
+          },
+          "statMode": "percent"
         }
       ],
       "grade": "yellow"
@@ -18308,6 +19398,14 @@
         "dodge": 6,
         "viewRange": 1
       }
+    },
+    {
+      "itemId": "mat.moondew_grass",
+      "name": "月露草",
+      "type": "material",
+      "grade": "mortal",
+      "level": 1,
+      "desc": "清晨叶尖常挂月白露珠，是最常见的温和药底。"
     },
     {
       "itemId": "equip.yuepattern_pole",
@@ -18563,21 +19661,25 @@
       "itemId": "stabilizing_pellet",
       "name": "镇脉丸",
       "type": "consumable",
-      "level": 5,
-      "desc": "药势会贴着经脉走一圈，先恢复 10% 气血与 48% 真气，再暂时稳住护体与化解。",
-      "healPercent": 0.1,
-      "qiPercent": 0.48,
+      "level": 22,
+      "tags": [
+        "战斗丹药"
+      ],
+      "desc": "药势会贴着经脉走一圈，先恢复 39% 气血与 60% 真气，再在 3900 息内使法术防御 +14%、化解 +14%。",
+      "healPercent": 0.39,
+      "qiPercent": 0.6,
       "consumeBuffs": [
         {
           "buffId": "item_buff.stabilizing_pellet",
           "name": "镇脉",
-          "desc": "经脉被药力压稳，短时间内更不容易散乱。",
+          "desc": "经脉被药力压稳，3900 息内法术防御 +14%、化解 +14%。",
           "shortMark": "镇",
-          "duration": 1200,
-          "valueStats": {
-            "spellDef": 5,
-            "resolvePower": 5
-          }
+          "duration": 3900,
+          "stats": {
+            "spellDef": 14,
+            "resolvePower": 14
+          },
+          "statMode": "percent"
         }
       ],
       "grade": "yellow"
@@ -19895,6 +20997,49 @@
       "color": "#aa8155"
     },
     {
+      "buffId": "buff.huanling_candan_faxiang",
+      "name": "残丹法相虚影",
+      "desc": "重伤之下强撑残丹法相虚影，术势外翻，后续所有熔脉杀招都会跟着整座洞府一并扩开。",
+      "shortMark": "相",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill.huanling_candan_faxiang",
+      "sourceSkillName": "残丹法相虚影",
+      "realmLv": 1,
+      "stats": {
+        "physAtk": 60,
+        "spellAtk": 80,
+        "cooldownSpeed": 120,
+        "viewRange": 30
+      },
+      "statMode": "percent"
+    },
+    {
+      "buffId": "buff.huanling_canmai_suobu",
+      "name": "残脉锁步",
+      "desc": "脚下被熔流残脉死死拖住，身法几乎废掉。",
+      "shortMark": "锁",
+      "category": "debuff",
+      "visibility": "public",
+      "remainingTicks": 20,
+      "duration": 20,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill.huanling_ronghe_guanmai",
+      "sourceSkillName": "熔河贯脉",
+      "realmLv": 1,
+      "color": "#ff954f",
+      "stats": {
+        "moveSpeed": -200,
+        "dodge": -200
+      },
+      "statMode": "percent"
+    },
+    {
       "buffId": "buff.wood_vine_mark",
       "name": "缠脉",
       "desc": "木意缠脉，压低生命回复、灵力回复与命中。",
@@ -19978,62 +21123,84 @@
     {
       "buffId": "item_buff.clear_eye",
       "name": "澄目",
-      "desc": "目力与判断更清楚，命中提高，视野更远；身死也不会立刻散去。",
+      "desc": "目力与判断更清楚，2400 息内命中 +9%、视野 +14%；身死也不会立刻散去。",
       "shortMark": "明",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 3600,
-      "duration": 3600,
+      "remainingTicks": 2400,
+      "duration": 2400,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:pill.clear_eye_elixir",
       "sourceSkillName": "明目丹",
-      "realmLv": 1
+      "realmLv": 1,
+      "stats": {
+        "hit": 9,
+        "viewRange": 14
+      },
+      "statMode": "percent"
     },
     {
       "buffId": "item_buff.crimson_bud",
       "name": "赤芽生锋",
-      "desc": "药力催得血气躁动，暴击提高；即使身死，药势仍会残留到药尽为止。",
+      "desc": "药力催得血气躁动，2400 息内暴击 +9%；即使身死，药势仍会残留到药尽为止。",
       "shortMark": "赤",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 3600,
-      "duration": 3600,
+      "remainingTicks": 2400,
+      "duration": 2400,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:pill.crimson_bud_elixir",
       "sourceSkillName": "赤芽丹",
-      "realmLv": 1
+      "realmLv": 1,
+      "stats": {
+        "crit": 9
+      },
+      "statMode": "percent"
     },
     {
       "buffId": "item_buff.chiyang_draught",
       "name": "赤阳",
-      "desc": "药势逼着火炁一起上涌，短时间内攻势会更烈更凶。",
+      "desc": "药势逼着火炁一起上涌，3900 息内物理攻击 +18%、法术攻击 +18%、暴击 +12%、灵力输出速率 +18%。",
       "shortMark": "阳",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 600,
-      "duration": 600,
+      "remainingTicks": 3900,
+      "duration": 3900,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:pill.chiyang_draught",
       "sourceSkillName": "赤阳液",
-      "realmLv": 1
+      "realmLv": 1,
+      "stats": {
+        "physAtk": 18,
+        "spellAtk": 18,
+        "crit": 12,
+        "maxQiOutputPerTick": 18
+      },
+      "statMode": "percent"
     },
     {
       "buffId": "item_buff.edge_quenching_powder",
       "name": "淬锋",
-      "desc": "锋势短暂拔高，更易命中要害与打穿护体。",
+      "desc": "锋势短暂拔高，3900 息内命中 +14%、暴击 +10%、破招 +15%。",
       "shortMark": "锋",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 900,
-      "duration": 900,
+      "remainingTicks": 3900,
+      "duration": 3900,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:pill.edge_quenching_powder",
       "sourceSkillName": "淬锋散",
-      "realmLv": 1
+      "realmLv": 1,
+      "stats": {
+        "hit": 14,
+        "crit": 10,
+        "breakPower": 15
+      },
+      "statMode": "percent"
     },
     {
       "buffId": "buff.qi_breath_calm",
@@ -20248,17 +21415,23 @@
     {
       "buffId": "item_buff.earthrest_paste",
       "name": "厚土",
-      "desc": "肉身与经脉都被药力压稳，更适合硬扛。",
+      "desc": "肉身与经脉都被药力压稳，3900 息内物理防御 +16%、化解 +16%、生命回复 +150%。",
       "shortMark": "土",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 900,
-      "duration": 900,
+      "remainingTicks": 3900,
+      "duration": 3900,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:pill.earthrest_paste",
       "sourceSkillName": "厚土膏",
-      "realmLv": 1
+      "realmLv": 1,
+      "stats": {
+        "physDef": 16,
+        "resolvePower": 16,
+        "hpRegenRate": 150
+      },
+      "statMode": "percent"
     },
     {
       "buffId": "buff.listen_guard",
@@ -20297,17 +21470,22 @@
     {
       "buffId": "item_buff.recovery_powder",
       "name": "回灵",
-      "desc": "药力沿经脉慢慢化开，气血与真气回复略有提升。",
+      "desc": "药力沿经脉慢慢化开，3600 息内生命回复 +110%、灵力回复 +160%。",
       "shortMark": "灵",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 900,
-      "duration": 900,
+      "remainingTicks": 3600,
+      "duration": 3600,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:recovery_powder",
       "sourceSkillName": "回灵散",
-      "realmLv": 1
+      "realmLv": 1,
+      "stats": {
+        "hpRegenRate": 110,
+        "qiRegenRate": 160
+      },
+      "statMode": "percent"
     },
     {
       "buffId": "equip.cleft_armguard_rebound",
@@ -20407,17 +21585,25 @@
     {
       "buffId": "item_buff.bitter_cultivation",
       "name": "苦修",
-      "desc": "境界修为与功法修炼速度提高，但经脉始终带着涩滞感，灵力恢复、生命回复与脚程都会明显下滑。",
+      "desc": "境界修为与功法经验获取效率提高，但经脉始终带着涩滞感；3000 息内生命回复 -420%、灵力回复 -420%、移动速度 -12%。",
       "shortMark": "苦",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 3600,
-      "duration": 3600,
+      "remainingTicks": 3000,
+      "duration": 3000,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:pill.bitter_cultivation_elixir",
       "sourceSkillName": "苦修丹",
-      "realmLv": 1
+      "realmLv": 1,
+      "stats": {
+        "playerExpRate": 25,
+        "techniqueExpRate": 25,
+        "hpRegenRate": -420,
+        "qiRegenRate": -420,
+        "moveSpeed": -12
+      },
+      "statMode": "percent"
     },
     {
       "buffId": "buff.thunder_palm_force",
@@ -20607,17 +21793,22 @@
     {
       "buffId": "item_buff.break_array",
       "name": "破阵劲",
-      "desc": "下手更刁钻，破招与命中提高；此药势即使身死也不会立刻散去。",
+      "desc": "下手更刁钻，2400 息内破招 +14%、命中 +7%；此药势即使身死也不会立刻散去。",
       "shortMark": "破",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 3600,
-      "duration": 3600,
+      "remainingTicks": 2400,
+      "duration": 2400,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:pill.break_array_elixir",
       "sourceSkillName": "破阵丹",
-      "realmLv": 1
+      "realmLv": 1,
+      "stats": {
+        "breakPower": 14,
+        "hit": 7
+      },
+      "statMode": "percent"
     },
     {
       "buffId": "buff.monster_bamboo_bind",
@@ -20654,17 +21845,23 @@
     {
       "buffId": "item_buff.cleartide_powder",
       "name": "清脉",
-      "desc": "杂气暂时被冲淡，真气回转和法修出手都会更顺。",
+      "desc": "杂气暂时被冲淡，3900 息内灵力回复 +155%、法术防御 +11%、化解 +14%。",
       "shortMark": "清",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 900,
-      "duration": 900,
+      "remainingTicks": 3900,
+      "duration": 3900,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:pill.cleartide_powder",
       "sourceSkillName": "清脉散",
-      "realmLv": 1
+      "realmLv": 1,
+      "stats": {
+        "qiRegenRate": 155,
+        "spellDef": 11,
+        "resolvePower": 14
+      },
+      "statMode": "percent"
     },
     {
       "buffId": "buff.monster_blade_limb",
@@ -20681,6 +21878,45 @@
       "sourceSkillName": "裂刃前肢",
       "realmLv": 1,
       "color": "#89c46a"
+    },
+    {
+      "buffId": "terrain_molten_pool_burn",
+      "name": "熔池灼烧",
+      "desc": "熔河当头卷过，火毒直接烙进经脉。每层灼烧每息造成 1% 最大气血的火系伤害，持续 10 息，最多 20 层。",
+      "shortMark": "灼",
+      "category": "debuff",
+      "visibility": "public",
+      "remainingTicks": 10,
+      "duration": 10,
+      "stacks": 1,
+      "maxStacks": 20,
+      "sourceSkillId": "skill.huanling_ronghe_guanmai",
+      "sourceSkillName": "熔河贯脉",
+      "realmLv": 1,
+      "color": "#ff8e54"
+    },
+    {
+      "buffId": "buff.huanling_rongmai_yin",
+      "name": "熔脉阴痕",
+      "desc": "断魂灵钉沿着裂脉再补一记，阴痕会持续拖垮攻势与护体。",
+      "shortMark": "熔",
+      "category": "debuff",
+      "visibility": "public",
+      "remainingTicks": 60,
+      "duration": 60,
+      "stacks": 1,
+      "maxStacks": 100,
+      "sourceSkillId": "skill.huanling_duanhun_ding",
+      "sourceSkillName": "断魂灵钉",
+      "realmLv": 1,
+      "color": "#ff8a54",
+      "stats": {
+        "physAtk": -10,
+        "spellAtk": -10,
+        "physDef": -10,
+        "spellDef": -10
+      },
+      "statMode": "percent"
     },
     {
       "buffId": "buff.wood_nourish",
@@ -20801,17 +22037,22 @@
     {
       "buffId": "item_buff.windstride",
       "name": "踏风",
-      "desc": "脚下更轻，移动与腾挪都更快；这股药劲即使身死也不会立刻散去。",
+      "desc": "脚下更轻，2400 息内移动速度 +22%、闪避 +7%；这股药劲即使身死也不会立刻散去。",
       "shortMark": "疾",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 3600,
-      "duration": 3600,
+      "remainingTicks": 2400,
+      "duration": 2400,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:pill.windstride_elixir",
       "sourceSkillName": "轻身丹",
-      "realmLv": 1
+      "realmLv": 1,
+      "stats": {
+        "moveSpeed": 22,
+        "dodge": 7
+      },
+      "statMode": "percent"
     },
     {
       "buffId": "equip.burden_greaves_brace",
@@ -20831,17 +22072,23 @@
     {
       "buffId": "item_buff.fivephase_harmony_pellet",
       "name": "五和",
-      "desc": "五行不再互相顶撞，修炼与真气运转都更平顺。",
+      "desc": "五行不再互相顶撞，4800 息内法术防御 +18%、境界修为与功法经验获取效率各提高 36%。",
       "shortMark": "和",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 1800,
-      "duration": 1800,
+      "remainingTicks": 4800,
+      "duration": 4800,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:pill.fivephase_harmony_pellet",
       "sourceSkillName": "五和丸",
-      "realmLv": 1
+      "realmLv": 1,
+      "stats": {
+        "spellDef": 18,
+        "playerExpRate": 36,
+        "techniqueExpRate": 36
+      },
+      "statMode": "percent"
     },
     {
       "buffId": "buff.monster_bloodrush",
@@ -20858,6 +22105,26 @@
       "sourceSkillName": "裂喉扑杀",
       "realmLv": 1,
       "color": "#c96d56"
+    },
+    {
+      "buffId": "buff.huanling_candan_kuoyu",
+      "name": "虚影扩域",
+      "desc": "法相虚影外翻余波，术法的射程与杀域同时扩开。",
+      "shortMark": "域",
+      "category": "buff",
+      "visibility": "hidden",
+      "remainingTicks": 1,
+      "duration": 1,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "skill.huanling_candan_faxiang",
+      "sourceSkillName": "残丹法相虚影",
+      "realmLv": 1,
+      "stats": {
+        "extraRange": 3,
+        "extraArea": 1
+      },
+      "statMode": "flat"
     },
     {
       "buffId": "equip.iron_track_drive",
@@ -20938,17 +22205,23 @@
     {
       "buffId": "item_buff.nurturing_paste",
       "name": "养脉",
-      "desc": "药力贴脉而走，短时间内更容易稳住气血与回灵节奏。",
+      "desc": "药力贴脉而走，3900 息内生命回复 +170%、灵力回复 +136%、法术防御 +11%。",
       "shortMark": "脉",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 1200,
-      "duration": 1200,
+      "remainingTicks": 3900,
+      "duration": 3900,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:pill.nurturing_paste",
       "sourceSkillName": "养脉膏",
-      "realmLv": 1
+      "realmLv": 1,
+      "stats": {
+        "hpRegenRate": 170,
+        "qiRegenRate": 136,
+        "spellDef": 11
+      },
+      "statMode": "percent"
     },
     {
       "buffId": "equip.vineguide_sustain",
@@ -20968,17 +22241,22 @@
     {
       "buffId": "item_buff.guiding_powder",
       "name": "引基",
-      "desc": "气机被药势往下拢住，功法修炼与境界积累略有提升。",
+      "desc": "气机被药势往下拢住，3600 息内境界修为与功法经验获取效率各提高 30%。",
       "shortMark": "引",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 1800,
-      "duration": 1800,
+      "remainingTicks": 3600,
+      "duration": 3600,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:pill.guiding_powder",
       "sourceSkillName": "引基散",
-      "realmLv": 1
+      "realmLv": 1,
+      "stats": {
+        "playerExpRate": 30,
+        "techniqueExpRate": 30
+      },
+      "statMode": "percent"
     },
     {
       "buffId": "equip.yuepattern_rise",
@@ -21080,17 +22358,22 @@
     {
       "buffId": "item_buff.stabilizing_pellet",
       "name": "镇脉",
-      "desc": "经脉被药力压稳，短时间内更不容易散乱。",
+      "desc": "经脉被药力压稳，3900 息内法术防御 +14%、化解 +14%。",
       "shortMark": "镇",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 1200,
-      "duration": 1200,
+      "remainingTicks": 3900,
+      "duration": 3900,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:stabilizing_pellet",
       "sourceSkillName": "镇脉丸",
-      "realmLv": 1
+      "realmLv": 1,
+      "stats": {
+        "spellDef": 14,
+        "resolvePower": 14
+      },
+      "statMode": "percent"
     },
     {
       "buffId": "buff.earth_bulwark",

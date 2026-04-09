@@ -20,6 +20,7 @@ const mail_runtime_service_1 = require("../mail/mail-runtime.service");
 const market_runtime_service_1 = require("../market/market-runtime.service");
 const player_runtime_service_1 = require("../player/player-runtime.service");
 const suggestion_runtime_service_1 = require("../suggestion/suggestion-runtime.service");
+const world_player_token_service_1 = require("../../network/world-player-token.service");
 const runtime_http_access_guard_1 = require("./runtime-http-access.guard");
 const world_runtime_service_1 = require("./world-runtime.service");
 let WorldRuntimeController = class WorldRuntimeController {
@@ -130,6 +131,14 @@ let WorldRuntimeController = class WorldRuntimeController {
         return {
             player: this.playerRuntimeService.snapshot(playerId),
         };
+    }
+    getAuthTrace() {
+        return {
+            trace: (0, world_player_token_service_1.readAuthTrace)(),
+        };
+    }
+    clearAuthTrace() {
+        return (0, world_player_token_service_1.clearAuthTrace)();
     }
     queuePendingLogbookMessage(playerId, body) {
         return {
@@ -513,6 +522,18 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], WorldRuntimeController.prototype, "getPlayerState", null);
+__decorate([
+    (0, common_1.Get)('auth-trace'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], WorldRuntimeController.prototype, "getAuthTrace", null);
+__decorate([
+    (0, common_1.Delete)('auth-trace'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], WorldRuntimeController.prototype, "clearAuthTrace", null);
 __decorate([
     (0, common_1.Post)('players/:playerId/pending-logbook'),
     __param(0, (0, common_1.Param)('playerId')),

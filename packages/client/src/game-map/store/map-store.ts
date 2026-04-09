@@ -73,8 +73,11 @@ function toObservedEntity(entity: RenderEntity): ObservedMapEntity {
     name: entity.name,
     kind: entity.kind ?? 'player',
     monsterTier: entity.monsterTier,
+    monsterScale: entity.monsterScale,
     hp: entity.hp,
     maxHp: entity.maxHp,
+    respawnRemainingTicks: entity.respawnRemainingTicks,
+    respawnTotalTicks: entity.respawnTotalTicks,
     qi: entity.qi,
     maxQi: entity.maxQi,
     npcQuestMarker: entity.npcQuestMarker,
@@ -93,8 +96,11 @@ function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedMa
     name: applyNullablePatch(patch.name, previous?.name),
     kind: applyNullablePatch(patch.kind, previous?.kind),
     monsterTier: applyNullablePatch(patch.monsterTier, previous?.monsterTier),
+    monsterScale: applyNullablePatch(patch.monsterScale, previous?.monsterScale),
     hp: applyNullablePatch(patch.hp, previous?.hp),
     maxHp: applyNullablePatch(patch.maxHp, previous?.maxHp),
+    respawnRemainingTicks: applyNullablePatch(patch.respawnRemainingTicks, previous?.respawnRemainingTicks),
+    respawnTotalTicks: applyNullablePatch(patch.respawnTotalTicks, previous?.respawnTotalTicks),
     qi: applyNullablePatch(patch.qi, previous?.qi),
     maxQi: applyNullablePatch(patch.maxQi, previous?.maxQi),
     npcQuestMarker: applyNullablePatch(patch.npcQuestMarker, previous?.npcQuestMarker),
@@ -173,6 +179,7 @@ export class MapStore {
   private senseQi: MapSenseQiOverlayState | null = null;
   private threatArrows: Array<{ ownerId: string; targetId: string }> = [];
   private minimapMemoryVersion = 0;
+  private awaitingFullVisibilityMapId: string | null = null;
   private tickTiming = {
     startedAt: performance.now(),
     durationMs: 1000,
@@ -204,6 +211,7 @@ export class MapStore {
     this.visibleTiles.clear();
     hydrateTileCacheFromMemory(this.player.mapId, this.tileCache);
     this.cacheVisibleTiles(this.player.mapId, data.tiles, this.player.x - this.getViewRadius(), this.player.y - this.getViewRadius());
+    this.awaitingFullVisibilityMapId = null;
 
     this.entities = data.players.map(toObservedEntity);
     this.entityMap = new Map(this.entities.map((entry) => [entry.id, entry]));
@@ -288,6 +296,7 @@ export class MapStore {
           ? getCachedMapSnapshot(this.player.mapId)
           : null;
         hydrateTileCacheFromMemory(this.player.mapId, this.tileCache);
+        this.awaitingFullVisibilityMapId = this.player.mapId;
       }
     }
 
@@ -318,7 +327,7 @@ export class MapStore {
     if (data.v) {
       this.cacheVisibleTiles(this.player.mapId, data.v, this.player.x - this.getViewRadius(), this.player.y - this.getViewRadius());
     }
-    if (data.t) {
+    if (data.t && this.awaitingFullVisibilityMapId !== this.player.mapId) {
       this.applyVisibleTilePatches(this.player.mapId, data.t);
     }
     if (data.g) {
@@ -392,6 +401,7 @@ export class MapStore {
     this.senseQi = null;
     this.threatArrows = [];
     this.minimapMemoryVersion = 0;
+    this.awaitingFullVisibilityMapId = null;
     this.entityTransition = null;
     publishLatestObservedEntitiesSnapshot([]);
     this.tickTiming.startedAt = performance.now();
@@ -584,5 +594,8 @@ export class MapStore {
     }
     this.minimapMemoryVersion += 1;
     this.visibleTileRevision += 1;
+    if (this.awaitingFullVisibilityMapId === mapId) {
+      this.awaitingFullVisibilityMapId = null;
+    }
   }
 }

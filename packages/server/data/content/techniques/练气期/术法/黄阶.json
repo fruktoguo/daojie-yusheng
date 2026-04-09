@@ -1,330 +1,5 @@
 [
   {
-    "id": "dimai_fumai",
-    "name": "地脉覆脉术",
-    "category": "arts",
-    "realmLv": 26,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 72,
-        "attrs": {
-          "constitution": 2,
-          "spirit": 2
-        }
-      },
-      {
-        "level": 2,
-        "expFactor": 80,
-        "attrs": {
-          "constitution": 4,
-          "spirit": 4,
-          "talent": 1
-        }
-      },
-      {
-        "level": 3,
-        "expFactor": 88,
-        "attrs": {
-          "constitution": 2,
-          "spirit": 2
-        }
-      },
-      {
-        "level": 4,
-        "expFactor": 96,
-        "attrs": {
-          "constitution": 2,
-          "spirit": 2
-        }
-      },
-      {
-        "level": 5,
-        "expFactor": 108,
-        "attrs": {
-          "constitution": 4,
-          "spirit": 4,
-          "talent": 1
-        }
-      },
-      {
-        "level": 6,
-        "expFactor": 120,
-        "attrs": {
-          "constitution": 2,
-          "spirit": 2
-        }
-      },
-      {
-        "level": 7,
-        "expFactor": 132,
-        "attrs": {
-          "constitution": 2,
-          "spirit": 2
-        }
-      },
-      {
-        "level": 8,
-        "expFactor": 148,
-        "attrs": {
-          "constitution": 4,
-          "spirit": 4,
-          "talent": 1
-        }
-      },
-      {
-        "level": 9,
-        "expFactor": 164,
-        "attrs": {
-          "constitution": 2,
-          "spirit": 2
-        }
-      },
-      {
-        "level": 10,
-        "expFactor": 184,
-        "attrs": {
-          "constitution": 2,
-          "spirit": 2
-        }
-      },
-      {
-        "level": 11,
-        "expFactor": 208,
-        "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "talent": 1
-        }
-      },
-      {
-        "level": 12,
-        "expFactor": 0,
-        "attrs": {
-          "constitution": 2,
-          "spirit": 2
-        }
-      }
-    ],
-    "grade": "yellow",
-    "skills": [
-      {
-        "id": "skill.luoshan_zhenmai",
-        "name": "落山镇脉",
-        "desc": "地气如落山压下，对小范围敌手一并沉脉。",
-        "cooldown": 9,
-        "costMultiplier": 3,
-        "range": 3,
-        "targeting": {
-          "shape": "area",
-          "radius": 1,
-          "maxTargets": 3
-        },
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "physical",
-            "element": "earth",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "var": "caster.stat.physAtk",
-                  "scale": 0.9
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
-                    {
-                      "var": "techLevel",
-                      "scale": 0.05
-                    },
-                    {
-                      "var": "target.buff.buff.earth_seal_mark.stacks",
-                      "scale": 0.01
-                    },
-                    {
-                      "var": "caster.stat.resolvePower",
-                      "scale": 0.002
-                    }
-                  ]
-                }
-              ]
-            }
-          },
-          {
-            "type": "buff",
-            "buffRef": "lianqi.earth.seal_mark"
-          }
-        ],
-        "unlockLevel": 1
-      }
-    ]
-  },
-  {
-    "id": "duanjin_zhuixing",
-    "name": "断金追星术",
-    "category": "arts",
-    "realmLv": 26,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 72,
-        "attrs": {
-          "constitution": 2,
-          "talent": 2
-        }
-      },
-      {
-        "level": 2,
-        "expFactor": 80,
-        "attrs": {
-          "constitution": 4,
-          "talent": 4,
-          "perception": 1
-        }
-      },
-      {
-        "level": 3,
-        "expFactor": 88,
-        "attrs": {
-          "constitution": 2,
-          "talent": 2
-        }
-      },
-      {
-        "level": 4,
-        "expFactor": 96,
-        "attrs": {
-          "constitution": 2,
-          "talent": 2
-        }
-      },
-      {
-        "level": 5,
-        "expFactor": 108,
-        "attrs": {
-          "constitution": 4,
-          "talent": 4,
-          "perception": 1
-        }
-      },
-      {
-        "level": 6,
-        "expFactor": 120,
-        "attrs": {
-          "constitution": 2,
-          "talent": 2
-        }
-      },
-      {
-        "level": 7,
-        "expFactor": 132,
-        "attrs": {
-          "constitution": 2,
-          "talent": 2
-        }
-      },
-      {
-        "level": 8,
-        "expFactor": 148,
-        "attrs": {
-          "constitution": 4,
-          "talent": 4,
-          "perception": 1
-        }
-      },
-      {
-        "level": 9,
-        "expFactor": 164,
-        "attrs": {
-          "constitution": 2,
-          "talent": 2
-        }
-      },
-      {
-        "level": 10,
-        "expFactor": 184,
-        "attrs": {
-          "constitution": 2,
-          "talent": 2
-        }
-      },
-      {
-        "level": 11,
-        "expFactor": 208,
-        "attrs": {
-          "constitution": 3,
-          "talent": 3,
-          "perception": 1
-        }
-      },
-      {
-        "level": 12,
-        "expFactor": 0,
-        "attrs": {
-          "constitution": 2,
-          "talent": 2
-        }
-      }
-    ],
-    "grade": "yellow",
-    "skills": [
-      {
-        "id": "skill.xingmang_zhuiji",
-        "name": "星芒追击",
-        "desc": "碎星芒沿前路连点，对锋痕未散的敌手追出更深裂口。",
-        "cooldown": 9,
-        "costMultiplier": 3,
-        "range": 3,
-        "targeting": {
-          "shape": "line",
-          "maxTargets": 3
-        },
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "physical",
-            "element": "metal",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "var": "caster.stat.physAtk",
-                  "scale": 0.9
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
-                    {
-                      "var": "techLevel",
-                      "scale": 0.05
-                    },
-                    {
-                      "var": "target.buff.buff.metal_edge_mark.stacks",
-                      "scale": 0.01
-                    },
-                    {
-                      "var": "caster.stat.breakPower",
-                      "scale": 0.002
-                    }
-                  ]
-                }
-              ]
-            }
-          },
-          {
-            "type": "buff",
-            "buffRef": "lianqi.metal.edge_mark"
-          }
-        ],
-        "unlockLevel": 1
-      }
-    ]
-  },
-  {
     "id": "genghua_ningfeng",
     "name": "庚华凝锋诀",
     "grade": "yellow",
@@ -1316,169 +991,6 @@
     ]
   },
   {
-    "id": "manzhi_jiaoluo",
-    "name": "蔓织绞络术",
-    "category": "arts",
-    "realmLv": 26,
-    "layers": [
-      {
-        "level": 1,
-        "expFactor": 72,
-        "attrs": {
-          "spirit": 2,
-          "constitution": 2
-        }
-      },
-      {
-        "level": 2,
-        "expFactor": 80,
-        "attrs": {
-          "spirit": 4,
-          "constitution": 4,
-          "talent": 1
-        }
-      },
-      {
-        "level": 3,
-        "expFactor": 88,
-        "attrs": {
-          "spirit": 2,
-          "constitution": 2
-        }
-      },
-      {
-        "level": 4,
-        "expFactor": 96,
-        "attrs": {
-          "spirit": 2,
-          "constitution": 2
-        }
-      },
-      {
-        "level": 5,
-        "expFactor": 108,
-        "attrs": {
-          "spirit": 4,
-          "constitution": 4,
-          "talent": 1
-        }
-      },
-      {
-        "level": 6,
-        "expFactor": 120,
-        "attrs": {
-          "spirit": 2,
-          "constitution": 2
-        }
-      },
-      {
-        "level": 7,
-        "expFactor": 132,
-        "attrs": {
-          "spirit": 2,
-          "constitution": 2
-        }
-      },
-      {
-        "level": 8,
-        "expFactor": 148,
-        "attrs": {
-          "spirit": 4,
-          "constitution": 4,
-          "talent": 1
-        }
-      },
-      {
-        "level": 9,
-        "expFactor": 164,
-        "attrs": {
-          "spirit": 2,
-          "constitution": 2
-        }
-      },
-      {
-        "level": 10,
-        "expFactor": 184,
-        "attrs": {
-          "spirit": 2,
-          "constitution": 2
-        }
-      },
-      {
-        "level": 11,
-        "expFactor": 208,
-        "attrs": {
-          "spirit": 3,
-          "constitution": 3,
-          "talent": 1
-        }
-      },
-      {
-        "level": 12,
-        "expFactor": 0,
-        "attrs": {
-          "spirit": 2,
-          "constitution": 2
-        }
-      }
-    ],
-    "grade": "yellow",
-    "skills": [
-      {
-        "id": "skill.tengluo_manshen",
-        "name": "藤络蔓伸",
-        "desc": "藤络分织，向周身几处要穴同时补上缠脉。",
-        "cooldown": 9,
-        "costMultiplier": 3,
-        "range": 3,
-        "targeting": {
-          "shape": "area",
-          "radius": 1,
-          "maxTargets": 3
-        },
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "spell",
-            "element": "wood",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "var": "caster.stat.spellAtk",
-                  "scale": 0.9
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
-                    {
-                      "var": "techLevel",
-                      "scale": 0.05
-                    },
-                    {
-                      "var": "target.buff.buff.wood_vine_mark.stacks",
-                      "scale": 0.009
-                    },
-                    {
-                      "var": "caster.stat.hit",
-                      "scale": 0.002
-                    }
-                  ]
-                }
-              ]
-            }
-          },
-          {
-            "type": "buff",
-            "buffRef": "lianqi.wood.vine_mark"
-          }
-        ],
-        "unlockLevel": 1
-      }
-    ]
-  },
-  {
     "id": "qingmu_yangmai",
     "name": "青木养脉篇",
     "grade": "yellow",
@@ -1682,6 +1194,494 @@
           }
         ],
         "unlockLevel": 4
+      }
+    ]
+  },
+  {
+    "id": "dimai_fumai",
+    "name": "地脉覆脉术",
+    "category": "arts",
+    "realmLv": 26,
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 72,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 80,
+        "attrs": {
+          "constitution": 4,
+          "spirit": 4,
+          "talent": 1
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 88,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 96,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 108,
+        "attrs": {
+          "constitution": 4,
+          "spirit": 4,
+          "talent": 1
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 120,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 132,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 148,
+        "attrs": {
+          "constitution": 4,
+          "spirit": 4,
+          "talent": 1
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 164,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 184,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2
+        }
+      },
+      {
+        "level": 11,
+        "expFactor": 208,
+        "attrs": {
+          "constitution": 3,
+          "spirit": 3,
+          "talent": 1
+        }
+      },
+      {
+        "level": 12,
+        "expFactor": 0,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2
+        }
+      }
+    ],
+    "grade": "yellow",
+    "skills": [
+      {
+        "id": "skill.luoshan_zhenmai",
+        "name": "落山镇脉",
+        "desc": "地气如落山压下，对小范围敌手一并沉脉。",
+        "cooldown": 9,
+        "costMultiplier": 3,
+        "range": 3,
+        "targeting": {
+          "shape": "area",
+          "radius": 1,
+          "maxTargets": 3
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "element": "earth",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.physAtk",
+                  "scale": 0.9
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "target.buff.buff.earth_seal_mark.stacks",
+                      "scale": 0.01
+                    },
+                    {
+                      "var": "caster.stat.resolvePower",
+                      "scale": 0.002
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "buffRef": "lianqi.earth.seal_mark"
+          }
+        ],
+        "unlockLevel": 1
+      }
+    ]
+  },
+  {
+    "id": "duanjin_zhuixing",
+    "name": "断金追星术",
+    "category": "arts",
+    "realmLv": 26,
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 72,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 80,
+        "attrs": {
+          "constitution": 4,
+          "talent": 4,
+          "perception": 1
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 88,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 96,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 108,
+        "attrs": {
+          "constitution": 4,
+          "talent": 4,
+          "perception": 1
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 120,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 132,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 148,
+        "attrs": {
+          "constitution": 4,
+          "talent": 4,
+          "perception": 1
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 164,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 184,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 11,
+        "expFactor": 208,
+        "attrs": {
+          "constitution": 3,
+          "talent": 3,
+          "perception": 1
+        }
+      },
+      {
+        "level": 12,
+        "expFactor": 0,
+        "attrs": {
+          "constitution": 2,
+          "talent": 2
+        }
+      }
+    ],
+    "grade": "yellow",
+    "skills": [
+      {
+        "id": "skill.xingmang_zhuiji",
+        "name": "星芒追击",
+        "desc": "碎星芒沿前路连点，对锋痕未散的敌手追出更深裂口。",
+        "cooldown": 9,
+        "costMultiplier": 3,
+        "range": 3,
+        "targeting": {
+          "shape": "line",
+          "maxTargets": 3
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "element": "metal",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.physAtk",
+                  "scale": 0.9
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "target.buff.buff.metal_edge_mark.stacks",
+                      "scale": 0.01
+                    },
+                    {
+                      "var": "caster.stat.breakPower",
+                      "scale": 0.002
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "buffRef": "lianqi.metal.edge_mark"
+          }
+        ],
+        "unlockLevel": 1
+      }
+    ]
+  },
+  {
+    "id": "manzhi_jiaoluo",
+    "name": "蔓织绞络术",
+    "category": "arts",
+    "realmLv": 26,
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 72,
+        "attrs": {
+          "spirit": 2,
+          "constitution": 2
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 80,
+        "attrs": {
+          "spirit": 4,
+          "constitution": 4,
+          "talent": 1
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 88,
+        "attrs": {
+          "spirit": 2,
+          "constitution": 2
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 96,
+        "attrs": {
+          "spirit": 2,
+          "constitution": 2
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 108,
+        "attrs": {
+          "spirit": 4,
+          "constitution": 4,
+          "talent": 1
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 120,
+        "attrs": {
+          "spirit": 2,
+          "constitution": 2
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 132,
+        "attrs": {
+          "spirit": 2,
+          "constitution": 2
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 148,
+        "attrs": {
+          "spirit": 4,
+          "constitution": 4,
+          "talent": 1
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 164,
+        "attrs": {
+          "spirit": 2,
+          "constitution": 2
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 184,
+        "attrs": {
+          "spirit": 2,
+          "constitution": 2
+        }
+      },
+      {
+        "level": 11,
+        "expFactor": 208,
+        "attrs": {
+          "spirit": 3,
+          "constitution": 3,
+          "talent": 1
+        }
+      },
+      {
+        "level": 12,
+        "expFactor": 0,
+        "attrs": {
+          "spirit": 2,
+          "constitution": 2
+        }
+      }
+    ],
+    "grade": "yellow",
+    "skills": [
+      {
+        "id": "skill.tengluo_manshen",
+        "name": "藤络蔓伸",
+        "desc": "藤络分织，向周身几处要穴同时补上缠脉。",
+        "cooldown": 9,
+        "costMultiplier": 3,
+        "range": 3,
+        "targeting": {
+          "shape": "area",
+          "radius": 1,
+          "maxTargets": 3
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "wood",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 0.9
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.05
+                    },
+                    {
+                      "var": "target.buff.buff.wood_vine_mark.stacks",
+                      "scale": 0.009
+                    },
+                    {
+                      "var": "caster.stat.hit",
+                      "scale": 0.002
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "buffRef": "lianqi.wood.vine_mark"
+          }
+        ],
+        "unlockLevel": 1
       }
     ]
   },

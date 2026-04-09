@@ -2,8 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared-next");
-const SERVER_NEXT_URL = process.env.SERVER_NEXT_URL ?? 'http://127.0.0.1:3111';
-const playerId = process.env.SERVER_NEXT_SMOKE_PLAYER_ID ?? `monster_loot_${Date.now().toString(36)}`;
+const env_alias_1 = require("../config/env-alias");
+const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
+let playerId = '';
 const MONSTER_ID = process.env.SERVER_NEXT_SMOKE_MONSTER_ID ?? 'm_town_rat_south';
 const ROLLS = Number(process.env.SERVER_NEXT_SMOKE_MONSTER_ROLLS ?? 20);
 const TARGET_ITEM_ID = 'rat_tail';
@@ -23,15 +24,20 @@ async function main() {
     socket.on(shared_1.NEXT_S2C.PanelDelta, (payload) => {
         panelEvents.push(payload);
     });
+    socket.on(shared_1.NEXT_S2C.InitSession, (payload) => {
+        playerId = String(payload?.pid ?? '');
+    });
     try {
         await onceConnected(socket);
         socket.emit(shared_1.NEXT_C2S.Hello, {
-            playerId,
             mapId: 'yunlai_town',
             preferredX: 20,
             preferredY: 20,
         });
         const playerState = await waitForState(async () => {
+            if (!playerId) {
+                return null;
+            }
             const state = await fetchState();
             return state.player ? state : null;
         }, 5000);

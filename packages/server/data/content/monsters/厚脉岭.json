@@ -96,12 +96,6 @@
         "name": "《镇岳护元诀》",
         "type": "skill_book",
         "count": 1
-      },
-      {
-        "itemId": "pill.earthrest_paste",
-        "name": "厚土膏",
-        "type": "consumable",
-        "count": 1
       }
     ]
   },
@@ -434,12 +428,6 @@
         "itemId": "equip.mountainheart_token",
         "name": "山心符",
         "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "pill.earthrest_paste",
-        "name": "厚土膏",
-        "type": "consumable",
         "count": 1
       },
       {
@@ -804,12 +792,6 @@
         "itemId": "book.huangting_zaishan",
         "name": "《黄庭载山经》",
         "type": "skill_book",
-        "count": 1
-      },
-      {
-        "itemId": "pill.earthrest_paste",
-        "name": "厚土膏",
-        "type": "consumable",
         "count": 1
       }
     ]

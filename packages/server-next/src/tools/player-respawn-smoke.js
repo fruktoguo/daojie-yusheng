@@ -2,8 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared-next");
-const SERVER_NEXT_URL = process.env.SERVER_NEXT_URL ?? 'http://127.0.0.1:3111';
-const playerId = process.env.SERVER_NEXT_SMOKE_PLAYER_ID ?? `respawn_${Date.now().toString(36)}`;
+const env_alias_1 = require("../config/env-alias");
+const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
+let playerId = '';
 async function main() {
     const socket = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
         path: '/socket.io',
@@ -20,14 +21,16 @@ async function main() {
     socket.on(shared_1.NEXT_S2C.SelfDelta, (payload) => {
         selfEvents.push(payload);
     });
+    socket.on(shared_1.NEXT_S2C.InitSession, (payload) => {
+        playerId = String(payload?.pid ?? '');
+    });
     await onceConnected(socket);
     socket.emit('n:c:hello', {
-        playerId,
         mapId: 'wildlands',
         preferredX: 6,
         preferredY: 6,
     });
-    await waitFor(() => mapEnterEvents.some((entry) => entry.mid === 'wildlands'), 4000);
+    await waitFor(() => playerId.length > 0 && mapEnterEvents.some((entry) => entry.mid === 'wildlands'), 4000);
     await postJson(`/runtime/players/${playerId}/damage`, {
         amount: 999999,
     });
@@ -49,7 +52,9 @@ async function main() {
     await waitFor(() => mapEnterEvents.some((entry) => entry.mid === 'yunlai_town'), 4000);
     await waitFor(() => selfEvents.some((entry) => entry.mid === 'yunlai_town' && entry.hp === entry.maxHp && entry.qi === entry.maxQi), 4000);
     socket.close();
-    await deletePlayer(playerId);
+    if (playerId) {
+        await deletePlayer(playerId);
+    }
     console.log(JSON.stringify({
         ok: true,
         playerId,

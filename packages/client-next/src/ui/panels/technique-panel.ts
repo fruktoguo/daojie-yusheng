@@ -96,6 +96,31 @@ function resolveTechniqueCategory(tech: TechniqueState): TechniqueCategory {
   return tech.category ?? (tech.skills.length > 0 ? 'arts' : 'internal');
 }
 
+function areTechniqueSkillsEnabled(tech: TechniqueState, previewPlayer?: PlayerState): boolean {
+  if (typeof tech.skillsEnabled === 'boolean') {
+    return tech.skillsEnabled;
+  }
+  const unlockedSkillIds = tech.skills
+    .filter((skill) => (tech.level ?? 1) >= resolveSkillUnlockLevel(skill))
+    .map((skill) => skill.id);
+  if (unlockedSkillIds.length === 0 || !previewPlayer) {
+    return true;
+  }
+  const actions = previewPlayer.actions ?? [];
+  let hasResolvedSkill = false;
+  for (const skillId of unlockedSkillIds) {
+    const action = actions.find((entry) => entry.id === skillId);
+    if (!action) {
+      continue;
+    }
+    hasResolvedSkill = true;
+    if (action.skillEnabled !== false) {
+      return true;
+    }
+  }
+  return !hasResolvedSkill ? true : false;
+}
+
 function getTechniqueProgressRatio(tech: TechniqueState): number {
   if (tech.expToNext <= 0) {
     return 1;
@@ -212,6 +237,7 @@ export class TechniquePanel {
   private static readonly MODAL_OWNER = 'technique-panel';
   private pane = document.getElementById('pane-technique')!;
   private onCultivate: ((techId: string | null) => void) | null = null;
+  private onToggleTechniqueSkills: ((techId: string, enabled: boolean) => void) | null = null;
   private tooltip = new FloatingTooltip();
   private constellationCanvas: TechniqueConstellationCanvas | null = null;
   private openTechId: string | null = null;
@@ -219,19 +245,25 @@ export class TechniquePanel {
   private categoryFilter: TechniqueCategoryFilter = 'all';
   private statusFilter: TechniqueStatusFilter = 'in_progress';
   private lastState: TechniquePanelState = { techniques: [] };
+  private lastVisibleTechniqueIds: string[] | null = null;
 
   constructor() {
     this.bindPaneEvents();
   }
 
   clear(): void {
-    this.pane.innerHTML = '<div class="empty-hint">尚未习得功法</div>';
+    this.lastVisibleTechniqueIds = null;
+    this.pane.innerHTML = '<div class="empty-hint" data-tech-empty="true">尚未习得功法</div>';
     this.tooltip.hide(true);
     this.closeModal();
   }
 
-  setCallbacks(onCultivate: (techId: string | null) => void): void {
+  setCallbacks(
+    onCultivate: (techId: string | null) => void,
+    onToggleTechniqueSkills?: (techId: string, enabled: boolean) => void,
+  ): void {
     this.onCultivate = onCultivate;
+    this.onToggleTechniqueSkills = onToggleTechniqueSkills ?? null;
   }
 
   /** 更新功法列表与主修状态 */
@@ -244,7 +276,9 @@ export class TechniquePanel {
   /** 仅同步经验、进度条与主修状态，避免高频整块重绘 */
   syncDynamic(techniques: TechniqueState[], cultivatingTechId?: string, previewPlayer?: PlayerState): void {
     this.lastState = { techniques, cultivatingTechId, previewPlayer };
-    this.renderList();
+    if (!this.patchList()) {
+      this.renderList();
+    }
     if (!this.patchModal()) {
       this.renderModal();
     }
@@ -255,15 +289,13 @@ export class TechniquePanel {
   }
 
   private renderList(): void {
-    const techniques = resolvePreviewTechniques(this.lastState.techniques);
+    const techniques = this.getDisplayTechniques();
     if (techniques.length === 0) {
       this.clear();
       return;
     }
 
-    const filteredTechniques = techniques.filter((tech) => (
-      this.matchesCategoryFilter(tech) && this.matchesStatusFilter(tech)
-    ));
+    const filteredTechniques = this.getVisibleTechniques(techniques);
     const topTabsHtml = TECHNIQUE_CATEGORY_FILTERS.map((filter) => {
       const count = techniques.filter((tech) => (
         this.matchesStatusFilter(tech) && (filter.value === 'all' || resolveTechniqueCategory(tech) === filter.value)
@@ -272,7 +304,7 @@ export class TechniquePanel {
         class="tech-filter-tab ${this.categoryFilter === filter.value ? 'active' : ''}"
         data-tech-category-filter="${filter.value}"
         type="button"
-      >${escapeHtml(filter.label)}<span class="tech-filter-count">${formatDisplayInteger(count)}</span></button>`;
+      >${escapeHtml(filter.label)}<span class="tech-filter-count" data-tech-category-count="${filter.value}">${formatDisplayInteger(count)}</span></button>`;
     }).join('');
     const sideTabsHtml = TECHNIQUE_STATUS_FILTERS.map((filter) => {
       const count = techniques.filter((tech) => (
@@ -282,11 +314,11 @@ export class TechniquePanel {
         class="tech-side-tab ${this.statusFilter === filter.value ? 'active' : ''}"
         data-tech-status-filter="${filter.value}"
         type="button"
-      ><span>${escapeHtml(filter.label)}</span><span class="tech-filter-count">${formatDisplayInteger(count)}</span></button>`;
+      ><span>${escapeHtml(filter.label)}</span><span class="tech-filter-count" data-tech-status-count="${filter.value}">${formatDisplayInteger(count)}</span></button>`;
     }).join('');
     const listHtml = filteredTechniques.length > 0
       ? filteredTechniques.map((tech) => this.renderTechniqueCard(tech)).join('')
-      : `<div class="empty-hint">${escapeHtml(this.getFilteredEmptyHint())}</div>`;
+      : `<div class="empty-hint" data-tech-empty="true">${escapeHtml(this.getFilteredEmptyHint())}</div>`;
 
     preserveSelection(this.pane, () => {
       this.pane.innerHTML = `<div class="tech-panel-shell">
@@ -297,11 +329,13 @@ export class TechniquePanel {
         </div>
       </div>`;
     });
+    this.lastVisibleTechniqueIds = filteredTechniques.map((tech) => tech.techId);
   }
 
   private renderTechniqueCard(tech: TechniqueState): string {
     const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
     const isCultivating = this.lastState.cultivatingTechId === tech.techId;
+    const skillsEnabled = areTechniqueSkillsEnabled(tech, this.lastState.previewPlayer);
     const progressRatio = getTechniqueProgressRatio(tech);
     const progressText = formatTechniqueProgressText(tech);
     const remainText = formatTechniqueRemainText(tech);
@@ -325,6 +359,12 @@ export class TechniquePanel {
         <span class="tech-progress-remain" data-tech-progress-remain="${tech.techId}">${remainText}</span>
       </button>
       <div class="tech-card-actions">
+        <button
+          class="small-btn ghost ${skillsEnabled ? 'active' : ''}"
+          data-tech-skills-toggle="${tech.techId}"
+          data-tech-skills-enabled="${skillsEnabled ? '1' : '0'}"
+          type="button"
+        >技能 ${skillsEnabled ? '开' : '关'}</button>
         <button
           class="small-btn ${isCultivating ? 'danger' : ''}"
           data-tech-cultivate-button="${tech.techId}"
@@ -359,6 +399,53 @@ export class TechniquePanel {
       return '当前没有已圆满的功法';
     }
     return '当前筛选下没有符合条件的功法';
+  }
+
+  private getDisplayTechniques(): TechniqueState[] {
+    return resolvePreviewTechniques(this.lastState.techniques);
+  }
+
+  private getVisibleTechniques(techniques: TechniqueState[]): TechniqueState[] {
+    return techniques.filter((tech) => (
+      this.matchesCategoryFilter(tech) && this.matchesStatusFilter(tech)
+    ));
+  }
+
+  private isSameTechniqueIdSequence(nextIds: string[]): boolean {
+    if (!this.lastVisibleTechniqueIds || this.lastVisibleTechniqueIds.length !== nextIds.length) {
+      return false;
+    }
+    return nextIds.every((techId, index) => this.lastVisibleTechniqueIds?.[index] === techId);
+  }
+
+  private patchFilterTabs(techniques: TechniqueState[]): boolean {
+    for (const filter of TECHNIQUE_CATEGORY_FILTERS) {
+      const button = this.pane.querySelector<HTMLButtonElement>(`[data-tech-category-filter="${filter.value}"]`);
+      const countNode = this.pane.querySelector<HTMLElement>(`[data-tech-category-count="${filter.value}"]`);
+      if (!button || !countNode) {
+        return false;
+      }
+      const count = techniques.filter((tech) => (
+        this.matchesStatusFilter(tech) && (filter.value === 'all' || resolveTechniqueCategory(tech) === filter.value)
+      )).length;
+      button.classList.toggle('active', this.categoryFilter === filter.value);
+      countNode.textContent = formatDisplayInteger(count);
+    }
+
+    for (const filter of TECHNIQUE_STATUS_FILTERS) {
+      const button = this.pane.querySelector<HTMLButtonElement>(`[data-tech-status-filter="${filter.value}"]`);
+      const countNode = this.pane.querySelector<HTMLElement>(`[data-tech-status-count="${filter.value}"]`);
+      if (!button || !countNode) {
+        return false;
+      }
+      const count = techniques.filter((tech) => (
+        this.matchesCategoryFilter(tech) && this.matchesStatusFilter(tech, filter.value)
+      )).length;
+      button.classList.toggle('active', this.statusFilter === filter.value);
+      countNode.textContent = formatDisplayInteger(count);
+    }
+
+    return true;
   }
 
   private renderModal(): void {
@@ -639,6 +726,34 @@ export class TechniquePanel {
         return;
       }
 
+      const skillToggleButton = target.closest<HTMLElement>('[data-tech-skills-toggle]');
+      if (skillToggleButton) {
+        event.stopPropagation();
+        const techId = skillToggleButton.dataset.techSkillsToggle;
+        if (!techId) {
+          return;
+        }
+        const nextEnabled = skillToggleButton.dataset.techSkillsEnabled !== '1';
+        const targetTechnique = this.lastState.techniques.find((entry) => entry.techId === techId);
+        if (targetTechnique) {
+          targetTechnique.skillsEnabled = nextEnabled;
+        }
+        if (targetTechnique && this.lastState.previewPlayer) {
+          const unlockedSkillIds = targetTechnique.skills
+            .filter((skill) => (targetTechnique.level ?? 1) >= resolveSkillUnlockLevel(skill))
+            .map((skill) => skill.id);
+          for (const action of this.lastState.previewPlayer.actions ?? []) {
+            if (unlockedSkillIds.includes(action.id)) {
+              action.skillEnabled = nextEnabled;
+            }
+          }
+        }
+        this.onToggleTechniqueSkills?.(techId, nextEnabled);
+        this.renderList();
+        this.patchModal();
+        return;
+      }
+
       const openButton = target.closest<HTMLElement>('[data-tech-open]');
       if (!openButton) {
         return;
@@ -812,13 +927,34 @@ export class TechniquePanel {
   }
 
   private patchList(): boolean {
-    const techniques = resolvePreviewTechniques(this.lastState.techniques);
-    const { cultivatingTechId } = this.lastState;
+    const techniques = this.getDisplayTechniques();
     if (techniques.length === 0) {
       return false;
     }
+    if (!this.patchFilterTabs(techniques)) {
+      return false;
+    }
+    const filteredTechniques = this.getVisibleTechniques(techniques);
+    const visibleTechniqueIds = filteredTechniques.map((tech) => tech.techId);
+    const listRoot = this.pane.querySelector<HTMLElement>('[data-tech-list="true"]');
+    if (!listRoot) {
+      return false;
+    }
+    const emptyNode = listRoot.querySelector<HTMLElement>('[data-tech-empty="true"]');
+    if (filteredTechniques.length === 0) {
+      if (!emptyNode) {
+        return false;
+      }
+      emptyNode.textContent = this.getFilteredEmptyHint();
+      this.lastVisibleTechniqueIds = [];
+      return true;
+    }
+    if (emptyNode || !this.isSameTechniqueIdSequence(visibleTechniqueIds)) {
+      return false;
+    }
 
-    for (const tech of techniques) {
+    const { cultivatingTechId } = this.lastState;
+    for (const tech of filteredTechniques) {
       const card = this.pane.querySelector<HTMLElement>(`[data-tech-card="${CSS.escape(tech.techId)}"]`);
       const realmLevelNode = this.pane.querySelector<HTMLElement>(`[data-tech-realm-level="${CSS.escape(tech.techId)}"]`);
       const realmNode = this.pane.querySelector<HTMLElement>(`[data-tech-realm="${CSS.escape(tech.techId)}"]`);
@@ -827,12 +963,14 @@ export class TechniquePanel {
       const progressFillNode = this.pane.querySelector<HTMLElement>(`[data-tech-progress-fill="${CSS.escape(tech.techId)}"]`);
       const remainNode = this.pane.querySelector<HTMLElement>(`[data-tech-progress-remain="${CSS.escape(tech.techId)}"]`);
       const cultivateButton = this.pane.querySelector<HTMLButtonElement>(`[data-tech-cultivate-button="${CSS.escape(tech.techId)}"]`);
-      if (!card || !realmLevelNode || !realmNode || !layerNode || !progressTextNode || !progressFillNode || !remainNode || !cultivateButton) {
+      const skillToggleButton = this.pane.querySelector<HTMLButtonElement>(`[data-tech-skills-toggle="${CSS.escape(tech.techId)}"]`);
+      if (!card || !realmLevelNode || !realmNode || !layerNode || !progressTextNode || !progressFillNode || !remainNode || !cultivateButton || !skillToggleButton) {
         return false;
       }
 
       const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
       const isCultivating = cultivatingTechId === tech.techId;
+      const skillsEnabled = areTechniqueSkillsEnabled(tech, this.lastState.previewPlayer);
       const progressRatio = getTechniqueProgressRatio(tech);
       const progressText = formatTechniqueProgressText(tech);
       const remainText = formatTechniqueRemainText(tech);
@@ -846,12 +984,16 @@ export class TechniquePanel {
       progressTextNode.textContent = progressText;
       progressFillNode.style.width = `${(progressRatio * 100).toFixed(2)}%`;
       remainNode.textContent = remainText;
+      skillToggleButton.textContent = `技能 ${skillsEnabled ? '开' : '关'}`;
+      skillToggleButton.classList.toggle('active', skillsEnabled);
+      skillToggleButton.dataset.techSkillsEnabled = skillsEnabled ? '1' : '0';
       cultivateButton.textContent = isCultivating ? '取消主修' : '设为主修';
       cultivateButton.classList.toggle('danger', isCultivating);
       cultivateButton.dataset.cultivate = isCultivating ? '' : tech.techId;
       cultivateButton.dataset.cultivateStop = isCultivating ? tech.techId : '';
     }
 
+    this.lastVisibleTechniqueIds = visibleTechniqueIds;
     return true;
   }
 

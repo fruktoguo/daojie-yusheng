@@ -17,7 +17,10 @@ import {
 import {
   GmEditorCatalogRes,
   GmDatabaseStateRes,
+  GmListPlayersQuery,
   GmListSuggestionsQuery,
+  GmAddPlayerCombatExpReq,
+  GmAddPlayerFoundationReq,
   GmReplySuggestionReq,
   GmSuggestionListRes,
   GmRestoreDatabaseReq,
@@ -33,6 +36,7 @@ import {
   GmRedeemCodeGroupDetailRes,
   GmRedeemCodeGroupListRes,
   GmRemoveBotsReq,
+  GmSetPlayerBodyTrainingLevelReq,
   GmShortcutRunRes,
   GmSpawnBotsReq,
   GmStateRes,
@@ -67,8 +71,8 @@ export class GmController {
 
   /** 获取全局 GM 状态 */
   @Get('state')
-  getState(): Promise<GmStateRes> {
-    return this.gmService.getState();
+  getState(@Query() query: GmListPlayersQuery): Promise<GmStateRes> {
+    return this.gmService.getState(query);
   }
 
   @Get('editor-catalog')
@@ -360,6 +364,45 @@ export class GmController {
     return { ok: true };
   }
 
+  /** 快捷设置炼体等级 */
+  @Post('players/:playerId/body-training/level')
+  async setPlayerBodyTrainingLevel(
+    @Param('playerId') playerId: string,
+    @Body() body: GmSetPlayerBodyTrainingLevelReq,
+  ): Promise<{ ok: true }> {
+    const error = await this.gmService.setManagedPlayerBodyTrainingLevel(playerId, body?.level);
+    if (error) {
+      throw new BadRequestException(error);
+    }
+    return { ok: true };
+  }
+
+  /** 快捷增加底蕴 */
+  @Post('players/:playerId/foundation/add')
+  async addPlayerFoundation(
+    @Param('playerId') playerId: string,
+    @Body() body: GmAddPlayerFoundationReq,
+  ): Promise<{ ok: true }> {
+    const error = await this.gmService.addManagedPlayerFoundation(playerId, body?.amount);
+    if (error) {
+      throw new BadRequestException(error);
+    }
+    return { ok: true };
+  }
+
+  /** 快捷增加战斗经验 */
+  @Post('players/:playerId/combat-exp/add')
+  async addPlayerCombatExp(
+    @Param('playerId') playerId: string,
+    @Body() body: GmAddPlayerCombatExpReq,
+  ): Promise<{ ok: true }> {
+    const error = await this.gmService.addManagedPlayerCombatExp(playerId, body?.amount);
+    if (error) {
+      throw new BadRequestException(error);
+    }
+    return { ok: true };
+  }
+
   /** 重置玩家天门测试状态 */
   @Post('players/:playerId/heaven-gate/reset')
   async resetPlayerHeavenGate(@Param('playerId') playerId: string): Promise<{ ok: true }> {
@@ -374,6 +417,16 @@ export class GmController {
   @Post('shortcuts/players/return-all-to-default-spawn')
   async returnAllPlayersToDefaultSpawn(): Promise<GmShortcutRunRes> {
     return this.gmService.returnAllPlayersToDefaultSpawn();
+  }
+
+  @Post('shortcuts/compensation/combat-exp-2026-04-09')
+  async compensateAllPlayersCombatExp(): Promise<GmShortcutRunRes> {
+    return this.gmService.compensateAllPlayersCombatExp();
+  }
+
+  @Post('shortcuts/compensation/foundation-2026-04-09')
+  async compensateAllPlayersFoundation(): Promise<GmShortcutRunRes> {
+    return this.gmService.compensateAllPlayersFoundation();
   }
 
   /** 生成 Bot */

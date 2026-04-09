@@ -1,0 +1,117 @@
+{
+  "meta": {
+    "realm": "凡人期",
+    "grade": "地阶",
+    "lv": 0
+  },
+  "reference": {
+    "base": {
+      "lower": 3.8,
+      "upper": 4.2,
+      "target": 4
+    },
+    "percent": {
+      "lower": 3,
+      "upper": 3,
+      "target": 3
+    },
+    "range": {
+      "lower": 3,
+      "upper": 4,
+      "target": 3.5
+    },
+    "area": {
+      "lower": 3,
+      "upper": 4,
+      "target": 3.5
+    }
+  },
+  "weightedBudget": 20,
+  "scores": {
+    "baseScore": 20,
+    "percentScore": 0,
+    "rangeScore": 0,
+    "areaScore": 0,
+    "totalScore": 20
+  },
+  "targetingHint": {
+    "shape": "single",
+    "desiredTargetCount": 1,
+    "suggestedTargeting": {
+      "shape": "single",
+      "maxTargets": 1
+    },
+    "approxTargetCount": 1
+  },
+  "suggested": {
+    "cooldown": 60,
+    "costMultiplier": 6
+  },
+  "resolvedTerms": {
+    "baseTerms": [
+      {
+        "var": "caster.stat.spellAtk",
+        "scale": 20
+      }
+    ],
+    "percentTerms": []
+  },
+  "skill": {
+    "id": "skill.huanling_candan_faxiang",
+    "name": "残丹法相",
+    "desc": "残丹将裂时强行显化法相，妖躯骤涨，杀势更烈。",
+    "cooldown": 60,
+    "costMultiplier": 6,
+    "range": 1,
+    "targeting": {
+      "shape": "single",
+      "maxTargets": 1
+    },
+    "effects": [
+      {
+        "type": "damage",
+        "damageKind": "spell",
+        "element": "earth",
+        "formula": {
+          "var": "caster.stat.spellAtk",
+          "scale": 20
+        }
+      },
+      {
+        "type": "buff",
+        "target": "self",
+        "buffId": "buff.huanling_candan_faxiang",
+        "name": "残丹法相",
+        "desc": "强撑碎丹显化法相，形体暴涨，攻势疯长。",
+        "shortMark": "相",
+        "category": "buff",
+        "visibility": "public",
+        "duration": 600,
+        "stats": {
+          "physAtk": 100,
+          "spellAtk": 100,
+          "cooldownSpeed": 100
+        },
+        "statMode": "percent",
+        "presentationScale": 4
+      },
+      {
+        "type": "buff",
+        "target": "self",
+        "buffId": "buff.huanling_candan_kuoyu",
+        "name": "残丹扩域",
+        "desc": "残丹余波外翻，术法射程与杀域一并扩开。",
+        "shortMark": "域",
+        "category": "buff",
+        "visibility": "hidden",
+        "duration": 600,
+        "stats": {
+          "extraRange": 2,
+          "extraArea": 1
+        },
+        "statMode": "flat"
+      }
+    ],
+    "unlockLevel": 8
+  }
+}

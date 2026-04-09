@@ -11,14 +11,14 @@ exports.MapPersistenceService = void 0;
 const common_1 = require("@nestjs/common");
 const pg_1 = require("pg");
 const persistent_document_table_1 = require("./persistent-document-table");
+const env_alias_1 = require("../config/env-alias");
 const MAP_SNAPSHOT_SCOPE = 'server_next_map_aura_v1';
 let MapPersistenceService = MapPersistenceService_1 = class MapPersistenceService {
     logger = new common_1.Logger(MapPersistenceService_1.name);
     pool = null;
     enabled = false;
     async onModuleInit() {
-        const databaseUrl = process.env.SERVER_NEXT_DATABASE_URL
-            ?? '';
+        const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
         if (!databaseUrl.trim()) {
             return;
         }
