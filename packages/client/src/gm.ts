@@ -95,6 +95,7 @@ const passwordInput = document.getElementById('gm-password') as HTMLInputElement
 const loginSubmitBtn = document.getElementById('login-submit') as HTMLButtonElement;
 const loginErrorEl = document.getElementById('login-error') as HTMLDivElement;
 const statusBarEl = document.getElementById('status-bar') as HTMLDivElement;
+const statusToastEl = document.getElementById('status-toast') as HTMLDivElement;
 const playerSearchInput = document.getElementById('player-search') as HTMLInputElement;
 const playerSortSelect = document.getElementById('player-sort') as HTMLSelectElement;
 const playerListEl = document.getElementById('player-list') as HTMLDivElement;
@@ -277,6 +278,7 @@ let currentPlayerSort: GmPlayerSortMode = (playerSortSelect.value as GmPlayerSor
 let currentPlayerPage = 1;
 let currentPlayerTotalPages = 1;
 let playerSearchTimer: number | null = null;
+let statusToastTimer: number | null = null;
 let currentSuggestionPage = 1;
 let currentSuggestionTotalPages = 1;
 let currentSuggestionTotal = 0;
@@ -1618,9 +1620,56 @@ function switchEditorTab(tab: GmEditorTab): void {
   savePlayerBtn.disabled = tab === 'persisted' || tab === 'mail' || tab === 'shortcuts' || !selectedPlayerId;
 }
 
-function setStatus(message: string, isError = false): void {
+type StatusKind = 'idle' | 'pending' | 'success' | 'error';
+
+function applyStatusState(message: string, kind: StatusKind): void {
   statusBarEl.textContent = message;
-  statusBarEl.style.color = isError ? 'var(--stamp-red)' : 'var(--ink-grey)';
+  statusBarEl.dataset.kind = kind;
+}
+
+function hideStatusToast(): void {
+  if (statusToastTimer !== null) {
+    window.clearTimeout(statusToastTimer);
+    statusToastTimer = null;
+  }
+  statusToastEl.dataset.open = 'false';
+  statusToastEl.dataset.kind = 'idle';
+  statusToastEl.textContent = '';
+}
+
+function showStatusToast(message: string, kind: Exclude<StatusKind, 'idle'>): void {
+  if (!message) {
+    hideStatusToast();
+    return;
+  }
+  if (statusToastTimer !== null) {
+    window.clearTimeout(statusToastTimer);
+    statusToastTimer = null;
+  }
+  statusToastEl.textContent = message;
+  statusToastEl.dataset.kind = kind;
+  statusToastEl.dataset.open = 'true';
+  if (kind === 'pending') {
+    return;
+  }
+  statusToastTimer = window.setTimeout(() => {
+    statusToastEl.dataset.open = 'false';
+  }, kind === 'error' ? 5200 : 2800);
+}
+
+function setPendingStatus(message: string): void {
+  applyStatusState(message, message ? 'pending' : 'idle');
+  showStatusToast(message, 'pending');
+}
+
+function setStatus(message: string, isError = false): void {
+  const kind: StatusKind = !message ? 'idle' : isError ? 'error' : 'success';
+  applyStatusState(message, kind);
+  if (kind === 'idle') {
+    hideStatusToast();
+    return;
+  }
+  showStatusToast(message, kind);
 }
 
 const worldViewer = new GmWorldViewer(request, setStatus);
@@ -3555,14 +3604,14 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
           <div class="editor-card-head">
             <div>
               <div class="editor-card-title">增加底蕴</div>
-              <div class="editor-card-meta">当前为 ${Math.max(0, Math.floor(draft.foundation ?? 0))}。输入多少就直接加多少。</div>
+              <div class="editor-card-meta">当前为 ${Math.max(0, Math.floor(draft.foundation ?? 0))}。支持正负整数，负数会扣除到底蕴最低为 0。</div>
             </div>
             <div class="button-row">
               <label class="editor-field" style="min-width: 160px;">
-                <span>增加数值</span>
-                <input id="shortcut-foundation-amount" type="number" min="0" step="1" value="0" />
+                <span>调整数值</span>
+                <input id="shortcut-foundation-amount" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="例如 -100 / 100" value="0" />
               </label>
-              <button class="small-btn primary" type="button" data-action="add-foundation">确认增加</button>
+              <button class="small-btn primary" type="button" data-action="add-foundation">确认调整</button>
             </div>
           </div>
         </div>
@@ -3570,14 +3619,14 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
           <div class="editor-card-head">
             <div>
               <div class="editor-card-title">增加战斗经验</div>
-              <div class="editor-card-meta">当前为 ${Math.max(0, Math.floor(draft.combatExp ?? 0))}。输入多少就直接加多少。</div>
+              <div class="editor-card-meta">当前为 ${Math.max(0, Math.floor(draft.combatExp ?? 0))}。支持正负整数，负数会扣除到最低为 0。</div>
             </div>
             <div class="button-row">
               <label class="editor-field" style="min-width: 160px;">
-                <span>增加数值</span>
-                <input id="shortcut-combat-exp-amount" type="number" min="0" step="1" value="0" />
+                <span>调整数值</span>
+                <input id="shortcut-combat-exp-amount" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="例如 -100 / 100" value="0" />
               </label>
-              <button class="small-btn primary" type="button" data-action="add-combat-exp">确认增加</button>
+              <button class="small-btn primary" type="button" data-action="add-combat-exp">确认调整</button>
             </div>
           </div>
         </div>
@@ -4372,6 +4421,7 @@ async function saveSelectedPlayerSections(sections: GmPlayerUpdateSection[], mes
     setStatus('当前没有需要提交的快捷改动', true);
     return;
   }
+  setPendingStatus(`正在提交 ${selected.name} 的快捷修改...`);
   for (const section of uniqueSections) {
     const snapshot = buildSectionSnapshot(section, draftSnapshot);
     await request<{ ok: true }>(`/gm/players/${encodeURIComponent(selected.id)}`, {
@@ -4404,6 +4454,7 @@ async function setSelectedPlayerBodyTrainingLevel(): Promise<void> {
     button.disabled = true;
   }
   try {
+    setPendingStatus(`正在设置 ${detail.name} 的炼体等级...`);
     await request<BasicOkRes>(`/gm/players/${encodeURIComponent(detail.id)}/body-training/level`, {
       method: 'POST',
       body: JSON.stringify({ level } satisfies GmSetPlayerBodyTrainingLevelReq),
@@ -4429,10 +4480,11 @@ async function addSelectedPlayerFoundation(): Promise<void> {
   const input = editorContentEl.querySelector<HTMLInputElement>('#shortcut-foundation-amount');
   const button = editorContentEl.querySelector<HTMLButtonElement>('[data-action="add-foundation"]');
   const rawValue = input?.value.trim() ?? '';
-  const amount = Number(rawValue);
+  const isInteger = /^-?\d+$/.test(rawValue);
+  const amount = isInteger ? Number.parseInt(rawValue, 10) : Number.NaN;
 
-  if (!rawValue || !Number.isFinite(amount) || amount < 0 || !Number.isInteger(amount)) {
-    setStatus('请输入非负整数底蕴增量', true);
+  if (!rawValue || !Number.isFinite(amount) || !isInteger) {
+    setStatus('请输入整数底蕴调整值', true);
     return;
   }
 
@@ -4440,14 +4492,15 @@ async function addSelectedPlayerFoundation(): Promise<void> {
     button.disabled = true;
   }
   try {
+    setPendingStatus(`正在调整 ${detail.name} 的底蕴...`);
     await request<BasicOkRes>(`/gm/players/${encodeURIComponent(detail.id)}/foundation/add`, {
       method: 'POST',
       body: JSON.stringify({ amount } satisfies GmAddPlayerFoundationReq),
     });
     editorDirty = false;
-    await delayRefresh(`已给 ${detail.name} 增加 ${amount} 点底蕴`);
+    await delayRefresh(`已将 ${detail.name} 的底蕴调整 ${amount > 0 ? '+' : ''}${amount}`);
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '增加底蕴失败', true);
+    setStatus(error instanceof Error ? error.message : '调整底蕴失败', true);
   } finally {
     if (button) {
       button.disabled = false;
@@ -4465,10 +4518,11 @@ async function addSelectedPlayerCombatExp(): Promise<void> {
   const input = editorContentEl.querySelector<HTMLInputElement>('#shortcut-combat-exp-amount');
   const button = editorContentEl.querySelector<HTMLButtonElement>('[data-action="add-combat-exp"]');
   const rawValue = input?.value.trim() ?? '';
-  const amount = Number(rawValue);
+  const isInteger = /^-?\d+$/.test(rawValue);
+  const amount = isInteger ? Number.parseInt(rawValue, 10) : Number.NaN;
 
-  if (!rawValue || !Number.isFinite(amount) || amount < 0 || !Number.isInteger(amount)) {
-    setStatus('请输入非负整数战斗经验增量', true);
+  if (!rawValue || !Number.isFinite(amount) || !isInteger) {
+    setStatus('请输入整数战斗经验调整值', true);
     return;
   }
 
@@ -4476,14 +4530,15 @@ async function addSelectedPlayerCombatExp(): Promise<void> {
     button.disabled = true;
   }
   try {
+    setPendingStatus(`正在调整 ${detail.name} 的战斗经验...`);
     await request<BasicOkRes>(`/gm/players/${encodeURIComponent(detail.id)}/combat-exp/add`, {
       method: 'POST',
       body: JSON.stringify({ amount } satisfies GmAddPlayerCombatExpReq),
     });
     editorDirty = false;
-    await delayRefresh(`已给 ${detail.name} 增加 ${amount} 点战斗经验`);
+    await delayRefresh(`已将 ${detail.name} 的战斗经验调整 ${amount > 0 ? '+' : ''}${amount}`);
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '增加战斗经验失败', true);
+    setStatus(error instanceof Error ? error.message : '调整战斗经验失败', true);
   } finally {
     if (button) {
       button.disabled = false;
@@ -4653,6 +4708,7 @@ async function saveSelectedPlayer(): Promise<void> {
 
   savePlayerBtn.disabled = true;
   try {
+    setPendingStatus(`正在提交 ${selected.name} 的${getEditorTabLabel(section)}修改...`);
     const snapshot = buildSectionSnapshot(section, draftSnapshot);
     await request<{ ok: true }>(`/gm/players/${encodeURIComponent(selected.id)}`, {
       method: 'PUT',
@@ -4687,6 +4743,7 @@ async function saveSelectedPlayerPassword(): Promise<void> {
     button.disabled = true;
   }
   try {
+    setPendingStatus(`正在修改账号 ${detail.account.username} 的密码...`);
     await request<{ ok: true }>(`/gm/players/${encodeURIComponent(detail.id)}/password`, {
       method: 'POST',
       body: JSON.stringify({ newPassword } satisfies GmUpdateManagedPlayerPasswordReq),
@@ -4728,6 +4785,7 @@ async function saveSelectedPlayerAccount(): Promise<void> {
     button.disabled = true;
   }
   try {
+    setPendingStatus(`正在修改账号 ${detail.account.username}...`);
     await request<{ ok: true }>(`/gm/players/${encodeURIComponent(detail.id)}/account`, {
       method: 'PUT',
       body: JSON.stringify({ username } satisfies GmUpdateManagedPlayerAccountReq),
@@ -4751,6 +4809,7 @@ async function resetSelectedPlayer(): Promise<void> {
 
   resetPlayerBtn.disabled = true;
   try {
+    setPendingStatus(`正在让 ${selected.name} 返回出生点...`);
     await request<{ ok: true }>(`/gm/players/${encodeURIComponent(selected.id)}/reset`, {
       method: 'POST',
     });
@@ -4772,6 +4831,7 @@ async function resetSelectedPlayerHeavenGate(): Promise<void> {
 
   resetHeavenGateBtn.disabled = true;
   try {
+    setPendingStatus(`正在重置 ${selected.name} 的天门测试状态...`);
     await request<{ ok: true }>(`/gm/players/${encodeURIComponent(selected.id)}/heaven-gate/reset`, {
       method: 'POST',
     });
@@ -4793,6 +4853,7 @@ async function removeSelectedBot(): Promise<void> {
 
   removeBotBtn.disabled = true;
   try {
+    setPendingStatus(`正在移除机器人 ${selected.name}...`);
     await request<{ ok: true }>('/gm/bots/remove', {
       method: 'POST',
       body: JSON.stringify({ playerIds: [selected.id] } satisfies GmRemoveBotsReq),
@@ -4835,6 +4896,7 @@ async function spawnBots(): Promise<void> {
 
 async function removeAllBots(): Promise<void> {
   try {
+    setPendingStatus('正在移除全部机器人...');
     await request<{ ok: true }>('/gm/bots/remove', {
       method: 'POST',
       body: JSON.stringify({ all: true } satisfies GmRemoveBotsReq),
@@ -5128,13 +5190,13 @@ editorContentEl.addEventListener('click', (event) => {
   }
   if (action === 'add-foundation') {
     addSelectedPlayerFoundation().catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '增加底蕴失败', true);
+      setStatus(error instanceof Error ? error.message : '调整底蕴失败', true);
     });
     return;
   }
   if (action === 'add-combat-exp') {
     addSelectedPlayerCombatExp().catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '增加战斗经验失败', true);
+      setStatus(error instanceof Error ? error.message : '调整战斗经验失败', true);
     });
     return;
   }

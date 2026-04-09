@@ -258,7 +258,86 @@
     .status-bar {
       min-height: 22px;
       font-size: 13px;
+    }
+
+    .status-bar {
+      position: sticky;
+      top: 0;
+      z-index: 6;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      background: transparent;
+      color: var(--ink-grey);
+      transition: background 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease, padding 120ms ease;
+    }
+
+    .status-bar:not(:empty) {
+      padding: 10px 12px;
+      box-shadow: 0 6px 18px rgba(24, 24, 22, 0.08);
+      backdrop-filter: blur(6px);
+    }
+
+    .status-bar[data-kind="pending"] {
+      color: #7a4b00;
+      border-color: rgba(173, 120, 31, 0.28);
+      background: rgba(250, 240, 214, 0.94);
+    }
+
+    .status-bar[data-kind="success"] {
+      color: #24513c;
+      border-color: rgba(50, 108, 78, 0.22);
+      background: rgba(228, 241, 234, 0.94);
+    }
+
+    .status-bar[data-kind="error"] {
       color: var(--stamp-red);
+      border-color: rgba(150, 47, 47, 0.24);
+      background: rgba(255, 238, 235, 0.96);
+    }
+
+    .status-toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 40;
+      max-width: min(420px, calc(100vw - 24px));
+      padding: 12px 14px;
+      border: 1px solid transparent;
+      border-radius: 14px;
+      box-shadow: 0 12px 34px rgba(24, 24, 22, 0.22);
+      backdrop-filter: blur(10px);
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--ink-grey);
+      background: rgba(250, 248, 243, 0.96);
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 140ms ease, transform 140ms ease;
+    }
+
+    .status-toast[data-open="true"] {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .status-toast[data-kind="pending"] {
+      color: #7a4b00;
+      border-color: rgba(173, 120, 31, 0.28);
+      background: rgba(250, 240, 214, 0.97);
+    }
+
+    .status-toast[data-kind="success"] {
+      color: #24513c;
+      border-color: rgba(50, 108, 78, 0.22);
+      background: rgba(228, 241, 234, 0.97);
+    }
+
+    .status-toast[data-kind="error"] {
+      color: var(--stamp-red);
+      border-color: rgba(150, 47, 47, 0.24);
+      background: rgba(255, 238, 235, 0.98);
     }
 
     #gm-shell {
@@ -1496,7 +1575,8 @@
             <button id="refresh-state" class="small-btn" type="button">立即刷新</button>
             <button id="logout" class="small-btn" type="button">退出管理台</button>
           </div>
-          <div id="status-bar" class="status-bar"></div>
+          <div id="status-bar" class="status-bar" role="status" aria-live="polite" aria-atomic="true"></div>
+          <div id="status-toast" class="status-toast" role="alert" aria-live="assertive" aria-atomic="true"></div>
           <div class="note-card">
             在线玩家的修改会由服务端在下一息统一执行。离线玩家会直接更新存档。<br />
             默认编辑器展示的是完整运行态快照；高级区可切换查看真实存档态 JSON。像 `actions`、`finalAttrs`、`numericStats`、`realm` 这类派生字段，保存后仍以服务端重算结果为准。
