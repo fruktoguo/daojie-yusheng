@@ -13,6 +13,7 @@ import {
   EQUIP_SLOTS,
   MONSTER_GLOBAL_STAT_PERCENTS,
   MONSTER_GRADE_STAT_PERCENTS,
+  MONSTER_KILL_EXP_LEVEL_DELTA_CAP,
   MONSTER_TIER_EXP_MULTIPLIERS,
   MONSTER_TIER_OVERLEVEL_EXP_REDUCTION_RATES,
   MONSTER_TIER_STAT_PERCENTS,
@@ -141,12 +142,16 @@ export function getMonsterKillExpLevelAdjustment(
 ): number {
   const normalizedPlayerLevel = Math.max(1, Math.floor(playerRealmLv));
   const normalizedMonsterLevel = Math.max(1, Math.floor(monsterLevel));
+  const levelDelta = Math.min(
+    MONSTER_KILL_EXP_LEVEL_DELTA_CAP,
+    Math.abs(normalizedMonsterLevel - normalizedPlayerLevel),
+  );
   if (normalizedPlayerLevel < normalizedMonsterLevel) {
-    return 1.5 ** (normalizedMonsterLevel - normalizedPlayerLevel);
+    return 1.5 ** levelDelta;
   }
   if (normalizedPlayerLevel > normalizedMonsterLevel) {
     const reductionRate = MONSTER_TIER_OVERLEVEL_EXP_REDUCTION_RATES[normalizeMonsterTier(tier)] ?? 0.5;
-    return Math.max(0, 1 - reductionRate) ** (normalizedPlayerLevel - normalizedMonsterLevel);
+    return Math.max(0, 1 - reductionRate) ** levelDelta;
   }
   return 1;
 }

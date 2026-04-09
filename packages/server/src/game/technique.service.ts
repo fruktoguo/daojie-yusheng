@@ -202,6 +202,7 @@ interface RealmExpAdvanceResult {
 
 const FOUNDATION_EXP_MULTIPLIER = 3;
 const FOUNDATION_EXP_BONUS_MULTIPLIER = FOUNDATION_EXP_MULTIPLIER - 1;
+const SINGLE_COMBAT_REALM_EXP_CAP_MULTIPLIER = 5;
 const SPIRITUAL_ROOT_SEED_REROLL_EQUIVALENTS: Record<SpiritualRootSeedTier, number> = {
   heaven: 10,
   divine: 100,
@@ -956,7 +957,10 @@ export class TechniqueService {
       };
     }
 
-    const gain = this.applyRateBonus(baseGain, options.expBonus ?? 0, options.minimumGain ?? 1);
+    const uncappedGain = this.applyRateBonus(baseGain, options.expBonus ?? 0, options.minimumGain ?? 1);
+    const gain = options.trackCombatExp
+      ? this.capSingleCombatRealmExpGain(realm, uncappedGain)
+      : uncappedGain;
     const dirty = new Set<TechniqueDirtyFlag>();
     const messages: TechniqueMessage[] = [];
     const combatExpGained = options.trackCombatExp ? this.addCombatExp(player, gain) : 0;
@@ -1048,6 +1052,15 @@ export class TechniqueService {
       return guaranteed;
     }
     return guaranteed + (Math.random() < remainder ? 1 : 0);
+  }
+
+  private capSingleCombatRealmExpGain(realm: Pick<PlayerRealmState, 'progressToNext'>, gain: number): number {
+    const normalizedGain = this.normalizeCounter(gain);
+    const progressToNext = Math.max(0, Math.floor(realm.progressToNext ?? 0));
+    if (normalizedGain <= 0 || progressToNext <= 0) {
+      return normalizedGain;
+    }
+    return Math.min(normalizedGain, progressToNext * SINGLE_COMBAT_REALM_EXP_CAP_MULTIPLIER);
   }
 
   private advanceTechniqueCombatExp(player: PlayerState, baseGain: number, expBonus = 0, minimumGain = 1): TechniqueExpAdvanceResult {
