@@ -1,4 +1,13 @@
 "use strict";
+/**
+ * 玩家持久化服务
+ * 
+ * 负责管理玩家数据的持久化存储，包括：
+ * - 玩家快照的保存和加载
+ * - 数据库连接池管理
+ * - 持久化文档表管理
+ * - 玩家数据的刷新
+ */
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -12,38 +21,91 @@ const common_1 = require("@nestjs/common");
 const pg_1 = require("pg");
 const shared_1 = require("@mud/shared-next");
 const persistent_document_table_1 = require("./persistent-document-table");
+
+// ==================== 常量定义 ====================
+
+/** 玩家快照存储范围 */
 const PLAYER_SNAPSHOT_SCOPE = 'server_next_player_snapshots_v1';
+
+/**
+ * 玩家持久化服务类
+ * 
+ * 负责管理玩家数据的持久化存储
+ */
 let PlayerPersistenceService = PlayerPersistenceService_1 = class PlayerPersistenceService {
+    // ==================== 日志记录器 ====================
+    /** 日志记录器实例 */
     logger = new common_1.Logger(PlayerPersistenceService_1.name);
+    
+    // ==================== 数据库连接池 ====================
+    /** PostgreSQL连接池 */
     pool = null;
+    /** 持久化是否启用 */
     enabled = false;
+    /**
+     * 模块初始化回调
+     * 
+     * 初始化数据库连接池和持久化文档表
+     */
     async onModuleInit() {
+        // 获取数据库URL
         const databaseUrl = process.env.SERVER_NEXT_DATABASE_URL
             ?? '';
+        
+        // 检查数据库URL是否配置
         if (!databaseUrl.trim()) {
             this.logger.log('Persistence disabled: no SERVER_NEXT_DATABASE_URL');
             return;
         }
+        
+        // 创建PostgreSQL连接池
         this.pool = new pg_1.Pool({
             connectionString: databaseUrl,
         });
+        
         try {
+            // 确保持久化文档表存在
             await (0, persistent_document_table_1.ensurePersistentDocumentsTable)(this.pool);
+            
+            // 启用持久化
             this.enabled = true;
             this.logger.log('Persistence enabled via persistent_documents');
         }
         catch (error) {
+            // 处理初始化失败
             this.logger.error('Persistence init failed, fallback to disabled mode', error instanceof Error ? error.stack : String(error));
             await this.safeClosePool();
         }
     }
+    
+    /**
+     * 模块销毁回调
+     * 
+     * 关闭数据库连接池
+     */
     async onModuleDestroy() {
         await this.safeClosePool();
     }
+    
+    /**
+     * 检查持久化是否启用
+     * 
+     * @returns 如果持久化已启用且连接池存在则返回true
+     */
     isEnabled() {
         return this.enabled && this.pool !== null;
     }
+    
+    /**
+     * 加载玩家快照
+     * 
+     * 从数据库加载玩家的快照数据
+     * 
+     * @param playerId 玩家ID
+     * @returns 玩家快照对象，如果持久化未启用或连接池不存在则返回null
+     */
     async loadPlayerSnapshot(playerId) {
+        // 检查持久化是否启用
         if (!this.pool || !this.enabled) {
             return null;
         }

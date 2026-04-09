@@ -1,4 +1,13 @@
 "use strict";
+/**
+ * 玩家属性服务
+ * 
+ * 负责管理玩家的属性计算和更新，包括：
+ * - 创建初始属性状态
+ * - 重新计算玩家属性（基于装备、Buff、境界等）
+ * - 属性变更检测
+ * - 生命值和灵气值的调整
+ */
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -9,42 +18,87 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PlayerAttributesService = void 0;
 const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared-next");
+/**
+ * 玩家属性服务类
+ * 
+ * 负责管理玩家的属性计算和更新
+ */
 let PlayerAttributesService = class PlayerAttributesService {
+    /**
+     * 创建初始属性状态
+     * 
+     * 为新玩家创建初始的属性状态，包括：
+     * - 基础属性
+     * - 最终属性
+     * - 数值属性
+     * - 比率除数
+     * 
+     * @returns 初始属性状态
+     */
     createInitialState() {
+        // 获取默认玩家境界的数值模板
         const template = shared_1.PLAYER_REALM_NUMERIC_TEMPLATES[shared_1.DEFAULT_PLAYER_REALM_STAGE];
+        
+        // 返回初始属性状态
         return {
-            revision: 1,
-            stage: shared_1.DEFAULT_PLAYER_REALM_STAGE,
-            baseAttrs: createBaseAttributes(),
-            finalAttrs: createBaseAttributes(),
-            numericStats: (0, shared_1.cloneNumericStats)(template.stats),
-            ratioDivisors: (0, shared_1.cloneNumericRatioDivisors)(template.ratioDivisors),
+            revision: 1,                                              // 版本号
+            stage: shared_1.DEFAULT_PLAYER_REALM_STAGE,           // 境界阶段
+            baseAttrs: createBaseAttributes(),                      // 基础属性
+            finalAttrs: createBaseAttributes(),                     // 最终属性
+            numericStats: (0, shared_1.cloneNumericStats)(template.stats), // 数值属性
+            ratioDivisors: (0, shared_1.cloneNumericRatioDivisors)(template.ratioDivisors), // 比率除数
         };
     }
+    
+    /**
+     * 重新计算玩家属性
+     * 
+     * 基于玩家的当前状态（装备、Buff、境界等）重新计算所有属性，
+     * 如果属性发生变化则更新玩家状态，包括调整生命值和灵气值
+     * 
+     * @param player 玩家对象
+     * @returns 如果属性发生变化则返回true，否则返回false
+     */
     recalculate(player) {
+        // 保存当前最大生命值和灵气值
         const previousMaxHp = Math.max(1, Math.round(player.maxHp));
         const previousMaxQi = Math.max(0, Math.round(player.maxQi));
+        
+        // 构建新的属性状态
         const next = this.buildState(player);
+        
+        // 检查属性是否发生变化
         if (!hasAttrStateChanged(player.attrs, next)) {
             return false;
         }
+        
+        // 更新属性状态
         player.attrs.stage = next.stage;
         player.attrs.baseAttrs = next.baseAttrs;
         player.attrs.finalAttrs = next.finalAttrs;
         player.attrs.numericStats = next.numericStats;
         player.attrs.ratioDivisors = next.ratioDivisors;
         player.attrs.revision += 1;
+        
+        // 计算新的最大生命值和灵气值
         const nextMaxHp = Math.max(1, Math.round(next.numericStats.maxHp));
         const nextMaxQi = Math.max(0, Math.round(next.numericStats.maxQi));
         player.maxHp = nextMaxHp;
         player.maxQi = nextMaxQi;
+        
+        // 按比例调整当前生命值
         player.hp = previousMaxHp > 0
             ? clamp(Math.round(player.hp / previousMaxHp * nextMaxHp), 0, nextMaxHp)
             : nextMaxHp;
+        
+        // 按比例调整当前灵气值
         player.qi = previousMaxQi > 0
             ? clamp(Math.round(player.qi / previousMaxQi * nextMaxQi), 0, nextMaxQi)
             : nextMaxQi;
+        
+        // 更新自身版本号
         player.selfRevision += 1;
+        
         return true;
     }
     markPanelDirty(player) {

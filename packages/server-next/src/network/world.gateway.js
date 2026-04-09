@@ -1,4 +1,14 @@
 "use strict";
+/**
+ * 世界网关
+ * 
+ * 这是游戏世界的WebSocket网关，负责处理客户端与服务端之间的实时通信，包括：
+ * - 客户端连接和断开处理
+ * - 玩家身份验证和会话管理
+ * - GM权限验证
+ * - 客户端事件处理
+ * - 支持新旧两种协议版本（next和legacy）
+ */
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -31,22 +41,50 @@ const world_runtime_service_1 = require("../runtime/world/world-runtime.service"
 const world_client_event_service_1 = require("./world-client-event.service");
 const world_session_bootstrap_service_1 = require("./world-session-bootstrap.service");
 const world_session_service_1 = require("./world-session.service");
+/**
+ * 世界网关类
+ * 
+ * 负责处理客户端与服务端之间的WebSocket通信
+ */
 let WorldGateway = WorldGateway_1 = class WorldGateway {
+    // ==================== 依赖注入的服务 ====================
+    /** 旧版GM兼容服务 */
     legacyGmCompatService;
+    /** 旧版GM管理员兼容服务 */
     legacyGmAdminCompatService;
+    /** 旧版网关兼容服务 */
     legacyGatewayCompatService;
+    /** 会话引导服务 */
     sessionBootstrapService;
+    /** 健康检查就绪服务 */
     healthReadinessService;
+    /** 玩家持久化刷新服务 */
     playerPersistenceFlushService;
+    /** 玩家运行时服务 */
     playerRuntimeService;
+    /** 邮件运行时服务 */
     mailRuntimeService;
+    /** 市场运行时服务 */
     marketRuntimeService;
+    /** 建议运行时服务 */
     suggestionRuntimeService;
+    /** 世界运行时服务 */
     worldRuntimeService;
+    /** 世界客户端事件服务 */
     worldClientEventService;
+    /** 世界会话服务 */
     worldSessionService;
+    
+    // ==================== WebSocket服务器 ====================
+    /** WebSocket服务器实例 */
     server;
+    
+    // ==================== 日志记录器 ====================
+    /** 日志记录器实例 */
     logger = new common_1.Logger(WorldGateway_1.name);
+    
+    // ==================== 市场订阅管理 ====================
+    /** 订阅市场更新的玩家ID集合 */
     marketSubscriberPlayerIds = new Set();
     constructor(legacyGmCompatService, legacyGmAdminCompatService, legacyGatewayCompatService, sessionBootstrapService, healthReadinessService, playerPersistenceFlushService, playerRuntimeService, mailRuntimeService, marketRuntimeService, suggestionRuntimeService, worldRuntimeService, worldClientEventService, worldSessionService) {
         this.legacyGmCompatService = legacyGmCompatService;
@@ -63,43 +101,75 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.worldClientEventService = worldClientEventService;
         this.worldSessionService = worldSessionService;
     }
+    /**
+     * 处理客户端连接
+     * 
+     * 当客户端连接到WebSocket服务器时调用，负责：
+     * - 确定协议版本（next或legacy）
+     * - 验证GM权限
+     * - 验证玩家身份
+     * - 初始化玩家会话
+     * 
+     * @param client WebSocket客户端实例
+     */
     async handleConnection(client) {
+        // 记录连接日志
         this.logger.debug(`Socket connected: ${client.id}`);
+        
+        // 确定握手协议类型
         const handshakeProtocol = typeof client.handshake?.auth?.protocol === 'string'
             ? client.handshake.auth.protocol.trim().toLowerCase()
             : '';
+        
+        // 标记客户端协议类型
         if (handshakeProtocol === 'next' || handshakeProtocol === 'legacy') {
             this.markClientProtocol(client, handshakeProtocol);
         }
+        
+        // 检查服务器是否就绪，如果未就绪则拒绝连接
         if (this.rejectWhenNotReady(client)) {
             return;
         }
+        
+        // 获取玩家令牌和GM令牌
         const token = this.sessionBootstrapService.pickSocketToken(client);
         const gmToken = this.sessionBootstrapService.pickSocketGmToken(client);
+        
+        // 处理GM令牌验证
         if (gmToken) {
+            // 验证GM令牌
             if (!this.sessionBootstrapService.authenticateSocketGmToken(gmToken)) {
                 this.worldClientEventService.emitError(client, 'GM_AUTH_FAIL', 'GM 认证失败');
                 client.disconnect(true);
                 return;
             }
+            // GM socket必须同时提供玩家登录令牌
             if (!token) {
                 this.worldClientEventService.emitError(client, 'GM_PLAYER_AUTH_REQUIRED', 'GM socket 需要同时提供玩家登录令牌');
                 client.disconnect(true);
                 return;
             }
+            // 标记客户端为GM
             client.data.isGm = true;
             client.data.gmRole = 'gm';
         }
+        
+        // 如果没有令牌或已处理过玩家ID，直接返回
         if (!token || typeof client.data.playerId === 'string') {
             return;
         }
+        
+        // 验证玩家身份并初始化会话
         try {
+            // 验证玩家令牌
             const identity = await this.sessionBootstrapService.authenticateSocketToken(token);
             if (!identity) {
                 this.worldClientEventService.emitError(client, 'AUTH_FAIL', '认证失败');
                 client.disconnect(true);
                 return;
             }
+            
+            // 初始化玩家会话
             await this.sessionBootstrapService.bootstrapPlayerSession(client, {
                 playerId: identity.playerId,
                 name: identity.playerName,
@@ -109,9 +179,12 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
                 preferredY: undefined,
                 loadSnapshot: () => this.sessionBootstrapService.loadPlayerSnapshot(identity.playerId, true),
             });
+            
+            // 保存用户ID
             client.data.userId = identity.userId;
         }
         catch (error) {
+            // 处理认证失败错误
             this.worldClientEventService.emitGatewayError(client, 'LEGACY_AUTH_FAILED', error);
             client.disconnect(true);
         }

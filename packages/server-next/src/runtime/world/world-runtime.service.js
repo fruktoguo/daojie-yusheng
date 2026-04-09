@@ -1,4 +1,15 @@
 "use strict";
+/**
+ * 世界运行时服务
+ * 
+ * 这是游戏世界的核心服务，负责管理游戏世界的所有运行时状态，包括：
+ * - 地图实例的创建和管理
+ * - 玩家的连接、移动和交互
+ * - 怪物的生成、行为和战斗
+ * - 物品容器和掉落物的管理
+ * - 游戏世界的定时循环（tick）处理
+ * - 玩家上下文动作（如修炼、自动战斗等）的管理
+ */
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -26,21 +37,37 @@ const player_combat_service_1 = require("../combat/player-combat.service");
 const map_instance_runtime_1 = require("../instance/map-instance.runtime");
 const map_template_repository_1 = require("../map/map-template.repository");
 const player_runtime_service_1 = require("../player/player-runtime.service");
+
+// ==================== 常量定义 ====================
+
+/** 默认玩家复活地图ID */
 const DEFAULT_PLAYER_RESPAWN_MAP_ID = 'yunlai_town';
+
+/** NPC商店使用的货币物品ID（灵石） */
 const NPC_SHOP_CURRENCY_ITEM_ID = 'spirit_stone';
+
+/** 观察盲区比例：玩家视野范围外的观察比例为20% */
 const OBSERVATION_BLIND_RATIO = 0.2;
+
+/** 观察完整比例：玩家视野范围内的观察比例为120% */
 const OBSERVATION_FULL_RATIO = 1.2;
+
+/** Tick指标窗口大小：用于计算性能指标的窗口大小（60个tick） */
 const TICK_METRIC_WINDOW_SIZE = 60;
+
+/** 容器搜索所需的tick数，根据容器等级决定 */
 const CONTAINER_SEARCH_TICKS_BY_GRADE = {
-    mortal: 1,
-    yellow: 1,
-    mystic: 2,
-    earth: 2,
-    heaven: 3,
-    spirit: 3,
-    saint: 4,
-    emperor: 4,
+    mortal: 1,    // 凡人级：1 tick
+    yellow: 1,    // 黄阶：1 tick
+    mystic: 2,    // 玄阶：2 ticks
+    earth: 2,     // 地阶：2 ticks
+    heaven: 3,    // 天阶：3 ticks
+    spirit: 3,    // 灵阶：3 ticks
+    saint: 4,     // 圣阶：4 ticks
+    emperor: 4,   // 帝阶：4 ticks
 };
+
+/** 静态切换上下文动作列表：玩家可以随时切换的游戏行为 */
 const STATIC_TOGGLE_CONTEXT_ACTIONS = [{
         id: 'toggle:auto_battle',
         name: '自动战斗',
@@ -82,40 +109,103 @@ const STATIC_TOGGLE_CONTEXT_ACTIONS = [{
         type: 'toggle',
         desc: '切换感气视角，观察地块灵气层次与变化。',
     }];
+/**
+ * 世界运行时服务类
+ * 
+ * 负责管理游戏世界的核心逻辑和状态
+ */
 let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
+    // ==================== 依赖注入的服务 ====================
+    /** 内容模板仓库：管理游戏内容模板（物品、技能等） */
     contentTemplateRepository;
+    /** 地图模板仓库：管理地图模板数据 */
     templateRepository;
+    /** 地图持久化服务：负责地图数据的持久化 */
     mapPersistenceService;
+    /** 玩家运行时服务：管理玩家状态和逻辑 */
     playerRuntimeService;
+    /** 玩家战斗服务：处理玩家战斗逻辑 */
     playerCombatService;
+    /** 世界会话服务：管理玩家会话 */
     worldSessionService;
+    /** 世界客户端事件服务：处理客户端事件 */
     worldClientEventService;
+    /** 兑换码运行时服务：处理兑换码逻辑 */
     redeemCodeRuntimeService;
+    
+    // ==================== 日志记录器 ====================
+    /** 日志记录器实例 */
     logger = new common_1.Logger(WorldRuntimeService_1.name);
+    
+    // ==================== 地图实例管理 ====================
+    /** 所有地图实例的映射表：instanceId -> MapInstance */
     instances = new Map();
+    
+    // ==================== 玩家位置管理 ====================
+    /** 玩家位置映射表：playerId -> {instanceId, sessionId} */
     playerLocations = new Map();
+    
+    // ==================== 命令处理 ====================
+    /** 待处理的玩家命令：playerId -> Command[] */
     pendingCommands = new Map();
+    /** 待处理的系统命令 */
     pendingSystemCommands = [];
+    
+    // ==================== 复活管理 ====================
+    /** 待复活的玩家ID集合 */
     pendingRespawnPlayerIds = new Set();
+    
+    // ==================== 导航意图 ====================
+    /** 玩家导航意图：playerId -> NavigationIntent */
     navigationIntents = new Map();
+    
+    // ==================== 游戏循环 ====================
+    /** 当前游戏tick计数 */
     tick = 0;
+    /** 上一次tick的执行时间（毫秒） */
     lastTickDurationMs = 0;
+    /** 上一次同步刷新的执行时间（毫秒） */
     lastSyncFlushDurationMs = 0;
+    /** 各tick阶段的耗时统计（用于性能监控） */
     lastTickPhaseDurations = {
-        pendingCommandsMs: 0,
-        systemCommandsMs: 0,
-        instanceTicksMs: 0,
-        transfersMs: 0,
-        monsterActionsMs: 0,
-        playerAdvanceMs: 0,
+        pendingCommandsMs: 0,      // 处理待处理命令的时间
+        systemCommandsMs: 0,       // 处理系统命令的时间
+        instanceTicksMs: 0,        // 处理地图实例tick的时间
+        transfersMs: 0,            // 处理传送的时间
+        monsterActionsMs: 0,       // 处理怪物行动的时间
+        playerAdvanceMs: 0,        // 处理玩家进阶的时间
     };
+    /** tick执行时间历史记录（用于性能分析） */
     tickDurationHistoryMs = [];
+    /** 同步刷新时间历史记录 */
     syncFlushDurationHistoryMs = [];
+    /** 各地图实例的tick进度：instanceId -> progress */
     instanceTickProgressById = new Map();
+    
+    // ==================== 容器管理 ====================
+    /** 各地图实例的容器状态：instanceId -> ContainerState[] */
     containerStatesByInstanceId = new Map();
+    /** 需要持久化的容器实例ID集合 */
     dirtyContainerPersistenceInstanceIds = new Set();
+    
+    // ==================== 战斗效果 ====================
+    /** 各地图实例的最新战斗效果：instanceId -> CombatEffect[] */
     latestCombatEffectsByInstanceId = new Map();
+    
+    // ==================== 兼容性 ====================
+    /** 下一个兼容性bot序列号 */
     nextLegacyCompatBotSequence = 1;
+    /**
+     * 构造函数
+     * @param contentTemplateRepository 内容模板仓库
+     * @param templateRepository 地图模板仓库
+     * @param mapPersistenceService 地图持久化服务
+     * @param playerRuntimeService 玩家运行时服务
+     * @param playerCombatService 玩家战斗服务
+     * @param worldSessionService 世界会话服务
+     * @param worldClientEventService 世界客户端事件服务
+     * @param redeemCodeRuntimeService 兑换码运行时服务
+     */
     constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
@@ -126,27 +216,75 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldClientEventService = worldClientEventService;
         this.redeemCodeRuntimeService = redeemCodeRuntimeService;
     }
+    
+    /**
+     * 模块初始化回调
+     * 在模块初始化时调用，负责初始化公共地图实例
+     */
     async onModuleInit() {
         this.bootstrapPublicInstances();
     }
+    
+    /**
+     * 应用启动回调
+     * 在应用启动完成后调用，负责从持久化存储恢复运行时状态
+     */
     async onApplicationBootstrap() {
         await this.rebuildPersistentRuntimeAfterRestore();
     }
+    /**
+     * 列出所有地图模板
+     * @returns 地图模板摘要列表
+     */
     listMapTemplates() {
         return this.templateRepository.listSummaries();
     }
+    
+    /**
+     * 列出所有地图实例
+     * @returns 地图实例快照列表
+     */
     listInstances() {
         return Array.from(this.instances.values(), (instance) => instance.snapshot());
     }
+    
+    /**
+     * 获取指定地图实例的快照
+     * @param instanceId 地图实例ID
+     * @returns 地图实例快照，如果不存在则返回null
+     */
     getInstance(instanceId) {
         return this.instances.get(instanceId)?.snapshot() ?? null;
     }
+    
+    /**
+     * 列出指定地图实例中的所有怪物
+     * @param instanceId 地图实例ID
+     * @returns 怪物列表
+     * @throws 如果地图实例不存在则抛出异常
+     */
     listInstanceMonsters(instanceId) {
         return this.getInstanceRuntimeOrThrow(instanceId).listMonsters();
     }
+    
+    /**
+     * 获取指定地图实例中的特定怪物
+     * @param instanceId 地图实例ID
+     * @param runtimeId 怪物运行时ID
+     * @returns 怪物对象
+     * @throws 如果地图实例不存在则抛出异常
+     */
     getInstanceMonster(instanceId, runtimeId) {
         return this.getInstanceRuntimeOrThrow(instanceId).getMonster(runtimeId);
     }
+    
+    /**
+     * 获取指定地图实例中指定坐标的瓦片状态
+     * @param instanceId 地图实例ID
+     * @param x X坐标
+     * @param y Y坐标
+     * @returns 瓦片状态对象，包含灵气、安全区、容器、地面物品和战斗状态
+     */
     getInstanceTileState(instanceId, x, y) {
         const instance = this.instances.get(instanceId);
         if (!instance) {
@@ -157,45 +295,92 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             return null;
         }
         return {
-            aura,
-            safeZone: instance.getSafeZoneAtTile(x, y),
-            container: instance.getContainerAtTile(x, y),
-            groundPile: instance.getTileGroundPile(x, y),
-            combat: instance.getTileCombatState(x, y),
+            aura,                           // 瓦片灵气值
+            safeZone: instance.getSafeZoneAtTile(x, y),  // 是否为安全区
+            container: instance.getContainerAtTile(x, y), // 容器信息
+            groundPile: instance.getTileGroundPile(x, y), // 地面物品堆
+            combat: instance.getTileCombatState(x, y),    // 战斗状态
         };
     }
+    
+    /**
+     * 获取指定地图实例的最新战斗效果
+     * @param instanceId 地图实例ID
+     * @returns 战斗效果列表的副本
+     */
     getLegacyCombatEffects(instanceId) {
         const effects = this.latestCombatEffectsByInstanceId.get(instanceId);
         return effects ? effects.map((entry) => cloneCombatEffect(entry)) : [];
     }
+    /**
+     * 连接玩家到游戏世界
+     * 
+     * 此方法处理玩家连接到游戏世界的逻辑，包括：
+     * - 验证玩家ID
+     * - 确定目标地图
+     * - 从旧地图断开（如果存在）
+     * - 在新地图创建玩家实例
+     * - 更新玩家位置和移动速度
+     * 
+     * @param input 玩家连接参数
+     * @param input.playerId 玩家ID
+     * @param input.sessionId 会话ID（可选）
+     * @param input.mapId 目标地图ID（可选，默认为复活地图）
+     * @param input.preferredX 首选X坐标（可选）
+     * @param input.preferredY 首选Y坐标（可选）
+     * @returns 连接的玩家对象
+     * @throws 如果playerId为空则抛出BadRequestException
+     * @throws 如果找不到地图模板则抛出NotFoundException
+     */
     connectPlayer(input) {
+        // 验证并清理玩家ID
         const playerId = input.playerId.trim();
         if (!playerId) {
             throw new common_1.BadRequestException('playerId is required');
         }
+        
+        // 确定目标地图ID，如果未指定则使用默认复活地图
         const mapId = input.mapId?.trim() || this.resolveDefaultRespawnMapId();
         if (!mapId) {
             throw new common_1.NotFoundException('No map template available');
         }
+        
+        // 确定会话ID，如果未指定则使用默认格式
         const sessionId = input.sessionId?.trim() || `session:${playerId}`;
+        
+        // 获取或创建目标地图实例
         const targetInstance = this.getOrCreatePublicInstance(mapId);
+        
+        // 检查玩家是否在其他地图，如果是则从旧地图断开
         const previous = this.playerLocations.get(playerId);
         if (previous && previous.instanceId !== targetInstance.meta.instanceId) {
             this.instances.get(previous.instanceId)?.disconnectPlayer(playerId);
         }
+        
+        // 在目标地图实例中连接玩家
         const runtimePlayer = targetInstance.connectPlayer({
             playerId,
             sessionId,
             preferredX: input.preferredX,
             preferredY: input.preferredY,
         });
+        
+        // 确保玩家运行时状态存在
         const playerState = this.playerRuntimeService.ensurePlayer(playerId, sessionId);
+        
+        // 设置玩家移动速度
         targetInstance.setPlayerMoveSpeed(playerId, playerState.attrs.numericStats.moveSpeed);
+        
+        // 更新玩家位置记录
         this.playerLocations.set(playerId, {
             instanceId: targetInstance.meta.instanceId,
             sessionId: runtimePlayer.sessionId,
         });
+        
+        // 从待复活列表中移除该玩家
         this.pendingRespawnPlayerIds.delete(playerId);
+        
+        // 记录日志
         this.logger.debug(`Player ${playerId} attached to ${targetInstance.meta.instanceId}`);
         return this.getPlayerViewOrThrow(playerId);
     }

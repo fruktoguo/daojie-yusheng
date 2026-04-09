@@ -1,4 +1,14 @@
 "use strict";
+/**
+ * 世界投影服务
+ * 
+ * 负责将游戏世界的运行时状态投影为客户端视图，包括：
+ * - 创建初始同步数据包（完整状态）
+ * - 创建增量同步数据包（仅包含变化）
+ * - 管理玩家视图缓存
+ * - 计算状态差异（diff）
+ * - 构建各种同步数据结构（地图、玩家、怪物、NPC等）
+ */
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -9,66 +19,110 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldProjectorService = void 0;
 const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared-next");
+
+// ==================== 常量定义 ====================
+
+/** 属性增量补丁阈值：当属性变化超过此值时才发送增量 */
 const ATTR_DELTA_PATCH_THRESHOLD = 10;
+
+/** 基础属性键名列表 */
 const ATTRIBUTE_KEYS = ['constitution', 'spirit', 'perception', 'talent', 'comprehension', 'luck'];
+
+/** 数值属性键名列表 */
 const NUMERIC_STAT_KEYS = [
-    'maxHp',
-    'maxQi',
-    'physAtk',
-    'spellAtk',
-    'physDef',
-    'spellDef',
-    'hit',
-    'dodge',
-    'crit',
-    'critDamage',
-    'breakPower',
-    'resolvePower',
-    'maxQiOutputPerTick',
-    'qiRegenRate',
-    'hpRegenRate',
-    'cooldownSpeed',
-    'auraCostReduce',
-    'auraPowerRate',
-    'playerExpRate',
-    'techniqueExpRate',
-    'realmExpPerTick',
-    'techniqueExpPerTick',
-    'lootRate',
-    'rareLootRate',
-    'viewRange',
-    'moveSpeed',
-    'extraAggroRate',
+    'maxHp',                  // 最大生命值
+    'maxQi',                  // 最大灵气值
+    'physAtk',                // 物理攻击
+    'spellAtk',               // 法术攻击
+    'physDef',                // 物理防御
+    'spellDef',               // 法术防御
+    'hit',                    // 命中率
+    'dodge',                  // 闪避率
+    'crit',                   // 暴击率
+    'critDamage',             // 暴击伤害
+    'breakPower',             // 破防力
+    'resolvePower',           // 镇压力
+    'maxQiOutputPerTick',     // 每tick最大灵气输出
+    'qiRegenRate',            // 灵气回复率
+    'hpRegenRate',            // 生命回复率
+    'cooldownSpeed',           // 冷却速度
+    'auraCostReduce',         // 灵气消耗减少
+    'auraPowerRate',          // 灵气威力加成
+    'playerExpRate',          // 玩家经验加成
+    'techniqueExpRate',       // 功法经验加成
+    'realmExpPerTick',        // 每tick境界经验
+    'techniqueExpPerTick',    // 每tick功法经验
+    'lootRate',               // 掉落加成
+    'rareLootRate',           // 稀有掉落加成
+    'viewRange',              // 视野范围
+    'moveSpeed',              // 移动速度
+    'extraAggroRate',         // 额外仇恨率
 ];
+
+/** 需要除以100的比率属性键名列表 */
 const RATIO_DIVISOR_KEYS = [
-    'dodge',
-    'crit',
-    'breakPower',
-    'resolvePower',
-    'cooldownSpeed',
-    'moveSpeed',
+    'dodge',          // 闪避率
+    'crit',           // 暴击率
+    'breakPower',     // 破防力
+    'resolvePower',   // 镇压力
+    'cooldownSpeed',  // 冷却速度
+    'moveSpeed',     // 移动速度
 ];
+
+/** 五行元素键名列表 */
 const ELEMENT_GROUP_KEYS = ['metal', 'wood', 'water', 'fire', 'earth'];
+/**
+ * 世界投影服务类
+ * 
+ * 负责管理游戏世界到客户端视图的投影
+ */
 let WorldProjectorService = class WorldProjectorService {
+    /** 玩家视图缓存：playerId -> ViewSnapshot */
     cacheByPlayerId = new Map();
+    
+    /**
+     * 创建初始同步数据包
+     * 
+     * 为新连接的玩家创建完整的初始同步数据包，包含所有必要的状态信息
+     * 
+     * @param binding 会话绑定信息
+     * @param view 玩家视图
+     * @param player 玩家状态
+     * @returns 初始同步数据包
+     */
     createInitialEnvelope(binding, view, player) {
+        // 捕获并缓存当前视图
         this.cacheByPlayerId.set(binding.playerId, capture(view, player));
+        
+        // 返回初始同步数据包
         return {
             initSession: {
-                sid: binding.sessionId,
-                pid: binding.playerId,
-                t: view.tick,
-                resumed: binding.resumed || undefined,
+                sid: binding.sessionId,           // 会话ID
+                pid: binding.playerId,           // 玩家ID
+                t: view.tick,                   // 当前tick
+                resumed: binding.resumed || undefined, // 是否恢复会话
             },
-            mapEnter: buildMapEnter(view),
-            worldDelta: buildFullWorldDelta(view),
-            selfDelta: buildFullSelfDelta(player),
-            panelDelta: buildFullPanelDelta(player),
+            mapEnter: buildMapEnter(view),      // 地图进入信息
+            worldDelta: buildFullWorldDelta(view), // 完整世界状态
+            selfDelta: buildFullSelfDelta(player), // 完整玩家状态
+            panelDelta: buildFullPanelDelta(player), // 完整面板状态
         };
     }
+    
+    /**
+     * 创建增量同步数据包
+     * 
+     * 基于缓存的视图和当前视图，计算差异并创建增量同步数据包
+     * 
+     * @param view 当前玩家视图
+     * @param player 当前玩家状态
+     * @returns 增量同步数据包，如果没有变化则返回null
+     */
     createDeltaEnvelope(view, player) {
+        // 获取缓存的视图
         const previous = this.cacheByPlayerId.get(view.playerId);
         if (!previous) {
+            // 如果没有缓存，创建完整数据包
             this.cacheByPlayerId.set(view.playerId, capture(view, player));
             return {
                 mapEnter: buildMapEnter(view),
@@ -77,9 +131,14 @@ let WorldProjectorService = class WorldProjectorService {
                 panelDelta: buildFullPanelDelta(player),
             };
         }
+        
+        // 捕获当前视图
         const current = capture(view, player);
         this.cacheByPlayerId.set(view.playerId, current);
+        
+        // 检查是否切换了地图
         if (previous.instanceId !== current.instanceId) {
+            // 如果切换了地图，发送完整数据包
             return {
                 mapEnter: buildMapEnter(view),
                 worldDelta: buildFullWorldDelta(view),
@@ -87,14 +146,20 @@ let WorldProjectorService = class WorldProjectorService {
                 panelDelta: buildFullPanelDelta(player),
             };
         }
+        
+        // 计算各种实体的差异
         const playerPatch = diffPlayerEntries(previous.players, current.players);
         const monsterPatch = diffMonsterEntries(previous.monsters, current.monsters);
         const npcPatch = diffNpcEntries(previous.npcs, current.npcs);
         const portalPatch = diffPortalEntries(previous.portals, current.portals);
         const groundPatch = diffGroundPiles(previous.groundPiles, current.groundPiles);
         const containerPatch = diffContainerEntries(previous.containers, current.containers);
+        
+        // 计算玩家和面板的差异
         const selfDelta = buildSelfDelta(previous, player);
         const panelDelta = buildPanelDelta(previous, player);
+        
+        // 如果没有任何变化，返回null
         if (playerPatch.length === 0
             && monsterPatch.length === 0
             && npcPatch.length === 0
@@ -105,27 +170,41 @@ let WorldProjectorService = class WorldProjectorService {
             && !panelDelta) {
             return null;
         }
+        
+        // 返回增量同步数据包
         return {
             worldDelta: playerPatch.length > 0 || monsterPatch.length > 0 || npcPatch.length > 0 || portalPatch.length > 0 || groundPatch.length > 0 || containerPatch.length > 0
                 ? {
-                    t: view.tick,
-                    wr: view.worldRevision,
-                    sr: view.selfRevision,
-                    p: playerPatch.length > 0 ? playerPatch : undefined,
-                    m: monsterPatch.length > 0 ? monsterPatch : undefined,
-                    n: npcPatch.length > 0 ? npcPatch : undefined,
-                    o: portalPatch.length > 0 ? portalPatch : undefined,
-                    g: groundPatch.length > 0 ? groundPatch : undefined,
-                    c: containerPatch.length > 0 ? containerPatch : undefined,
+                    t: view.tick,                              // 当前tick
+                    wr: view.worldRevision,                    // 世界版本号
+                    sr: view.selfRevision,                     // 玩家版本号
+                    p: playerPatch.length > 0 ? playerPatch : undefined,      // 玩家差异
+                    m: monsterPatch.length > 0 ? monsterPatch : undefined,    // 怪物差异
+                    n: npcPatch.length > 0 ? npcPatch : undefined,          // NPC差异
+                    o: portalPatch.length > 0 ? portalPatch : undefined,    // 传送门差异
+                    g: groundPatch.length > 0 ? groundPatch : undefined,    // 地面物品差异
+                    c: containerPatch.length > 0 ? containerPatch : undefined, // 容器差异
                 }
                 : undefined,
-            selfDelta: selfDelta ?? undefined,
-            panelDelta: panelDelta ?? undefined,
+            selfDelta: selfDelta ?? undefined,      // 玩家状态差异
+            panelDelta: panelDelta ?? undefined,    // 面板状态差异
         };
     }
+    
+    /**
+     * 清除指定玩家的视图缓存
+     * 
+     * @param playerId 玩家ID
+     */
     clear(playerId) {
         this.cacheByPlayerId.delete(playerId);
     }
+    
+    /**
+     * 获取事件名称列表
+     * 
+     * @returns Next协议的服务器到客户端事件名称列表
+     */
     getEventNames() {
         return shared_1.NEXT_S2C;
     }

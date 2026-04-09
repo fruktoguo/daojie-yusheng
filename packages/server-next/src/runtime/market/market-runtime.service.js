@@ -1,4 +1,14 @@
 "use strict";
+/**
+ * 市场运行时服务
+ * 
+ * 负责管理游戏内的交易市场系统，包括：
+ * - 市场订单管理
+ * - 物品交易
+ * - 交易历史记录
+ * - 玩家存储管理
+ * - 市场操作队列
+ */
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -18,14 +28,36 @@ const content_template_repository_1 = require("../../content/content-template.re
 const market_1 = require("../../constants/gameplay/market");
 const market_persistence_service_1 = require("../../persistence/market-persistence.service");
 const player_runtime_service_1 = require("../player/player-runtime.service");
+/**
+ * 市场运行时服务类
+ * 
+ * 负责管理游戏内的交易市场系统
+ */
 let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
+    // ==================== 依赖注入的服务 ====================
+    /** 内容模板仓库 */
     contentTemplateRepository;
+    /** 玩家运行时服务 */
     playerRuntimeService;
+    /** 市场持久化服务 */
     marketPersistenceService;
+    
+    // ==================== 日志记录器 ====================
+    /** 日志记录器实例 */
     logger = new common_1.Logger(MarketRuntimeService_1.name);
+    
+    // ==================== 市场订单管理 ====================
+    /** 开放的市场订单列表 */
     openOrders = [];
+    /** 交易历史记录 */
     tradeHistory = [];
+    
+    // ==================== 玩家存储管理 ====================
+    /** 玩家市场存储：playerId -> MarketStorage */
     storageByPlayerId = new Map();
+    
+    // ==================== 市场操作队列 ====================
+    /** 市场操作队列（用于串行化市场操作） */
     marketOperationQueue = Promise.resolve();
     constructor(contentTemplateRepository, playerRuntimeService, marketPersistenceService) {
         this.contentTemplateRepository = contentTemplateRepository;

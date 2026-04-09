@@ -1,4 +1,16 @@
 "use strict";
+/**
+ * 玩家战斗服务
+ * 
+ * 负责处理玩家相关的战斗逻辑，包括：
+ * - 玩家对玩家释放技能
+ * - 玩家对怪物释放技能
+ * - 怪物对玩家释放技能
+ * - 技能效果计算和应用
+ * - 战斗伤害计算
+ * - 技能冷却管理
+ * - Buff效果应用
+ */
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -13,16 +25,43 @@ exports.PlayerCombatService = void 0;
 const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared-next");
 const player_runtime_service_1 = require("../player/player-runtime.service");
+/**
+ * 玩家战斗服务类
+ * 
+ * 负责处理玩家相关的战斗逻辑
+ */
 let PlayerCombatService = class PlayerCombatService {
+    /** 玩家运行时服务 */
     playerRuntimeService;
+    
+    /**
+     * 构造函数
+     * @param playerRuntimeService 玩家运行时服务
+     */
     constructor(playerRuntimeService) {
         this.playerRuntimeService = playerRuntimeService;
     }
+    /**
+     * 玩家对玩家释放技能
+     * 
+     * @param attacker 攻击者玩家
+     * @param target 目标玩家
+     * @param skillId 技能ID
+     * @param currentTick 当前tick
+     * @param distance 距离
+     * @returns 技能释放结果
+     * @throws 如果目标是自身则抛出BadRequestException
+     */
     castSkill(attacker, target, skillId, currentTick, distance) {
+        // 检查是否攻击自己
         if (attacker.playerId === target.playerId) {
             throw new common_1.BadRequestException('self target is not supported');
         }
+        
+        // 解析玩家技能
         const resolved = resolvePlayerSkill(attacker.techniques.techniques, attacker.combat.cooldownReadyTickBySkillId, skillId);
+        
+        // 执行技能释放
         const result = this.executeResolvedSkillCast(toCombatPlayerState(attacker), toCombatPlayerState(target), resolved, currentTick, distance, {
             spendQi: (amount) => {
                 this.playerRuntimeService.spendQi(attacker.playerId, amount);
@@ -37,16 +76,33 @@ let PlayerCombatService = class PlayerCombatService {
                 this.playerRuntimeService.applyTemporaryBuff(target.playerId, buff);
             },
         });
+        
+        // 应用伤害
         if (result.totalDamage > 0) {
             this.playerRuntimeService.applyDamage(target.playerId, result.totalDamage);
         }
+        
         return {
             ...result,
             targetPlayerId: target.playerId,
         };
     }
+    /**
+     * 玩家对怪物释放技能
+     * 
+     * @param attacker 攻击者玩家
+     * @param target 目标怪物
+     * @param skillId 技能ID
+     * @param currentTick 当前tick
+     * @param distance 距离
+     * @param applyTargetBuff 应用目标Buff的回调函数
+     * @returns 技能释放结果
+     */
     castSkillToMonster(attacker, target, skillId, currentTick, distance, applyTargetBuff) {
+        // 解析玩家技能
         const resolved = resolvePlayerSkill(attacker.techniques.techniques, attacker.combat.cooldownReadyTickBySkillId, skillId);
+        
+        // 执行技能释放
         const result = this.executeResolvedSkillCast(toCombatPlayerState(attacker), target, resolved, currentTick, distance, {
             spendQi: (amount) => {
                 this.playerRuntimeService.spendQi(attacker.playerId, amount);
@@ -59,13 +115,30 @@ let PlayerCombatService = class PlayerCombatService {
             },
             applyTargetBuff,
         });
+        
         return {
             ...result,
             targetMonsterId: target.runtimeId,
         };
     }
+    
+    /**
+     * 怪物对玩家释放技能
+     * 
+     * @param attacker 攻击者怪物
+     * @param target 目标玩家
+     * @param skillId 技能ID
+     * @param currentTick 当前tick
+     * @param distance 距离
+     * @param applySelfBuff 应用自身Buff的回调函数
+     * @param applyTargetBuff 应用目标Buff的回调函数
+     * @returns 技能释放结果
+     */
     castMonsterSkill(attacker, target, skillId, currentTick, distance, applySelfBuff, applyTargetBuff) {
+        // 解析怪物技能
         const resolved = resolveMonsterSkill(attacker, skillId);
+        
+        // 执行技能释放
         const result = this.executeResolvedSkillCast(attacker, toCombatPlayerState(target), resolved, currentTick, distance, {
             setCooldownReadyTick: () => undefined,
             applySelfBuff,
@@ -73,9 +146,12 @@ let PlayerCombatService = class PlayerCombatService {
                 this.playerRuntimeService.applyTemporaryBuff(target.playerId, buff);
             }),
         });
+        
+        // 应用伤害
         if (result.totalDamage > 0) {
             this.playerRuntimeService.applyDamage(target.playerId, result.totalDamage);
         }
+        
         return {
             ...result,
             targetPlayerId: target.playerId,
