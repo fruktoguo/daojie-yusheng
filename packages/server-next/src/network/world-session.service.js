@@ -19,7 +19,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldSessionService = void 0;
 const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared-next");
+/** 默认会话断开过期时间（毫秒）：15秒 */
 const DEFAULT_SESSION_DETACH_EXPIRE_MS = 15_000;
+/**
+ * 从环境变量解析会话断开过期时间
+ * @returns 会话断开过期时间（毫秒）
+ */
 function resolveSessionDetachExpireMs() {
     const raw = process.env.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS;
     const parsed = Number(raw);
@@ -36,7 +41,9 @@ let WorldSessionService = class WorldSessionService {
     bindingBySocketId = new Map();
     /** 玩家会话绑定缓存：playerId -> SessionBinding */
     bindingByPlayerId = new Map();
+    /** 会话ID绑定缓存：sessionId -> SessionBinding */
     bindingBySessionId = new Map();
+    /** 玩家过期定时器缓存：playerId -> Timer */
     expiryTimerByPlayerId = new Map();
     /** 已过期的会话绑定：playerId -> SessionBinding */
     expiredBindings = new Map();
@@ -48,7 +55,9 @@ let WorldSessionService = class WorldSessionService {
     // ==================== 会话序列 ====================
     /** 下一个会话序列号 */
     nextSessionSequence = 1;
+    /** 下一个访客玩家序列号 */
     nextGuestPlayerSequence = 1;
+    /** 会话断开过期时间（毫秒） */
     sessionDetachExpireMs = resolveSessionDetachExpireMs();
     /**
      * 注册WebSocket连接

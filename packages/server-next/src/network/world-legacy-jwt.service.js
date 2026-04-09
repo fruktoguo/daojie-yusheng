@@ -9,8 +9,19 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldLegacyJwtService = void 0;
 const common_1 = require("@nestjs/common");
 const node_crypto_1 = require("node:crypto");
+/**
+ * Legacy JWT（JSON Web Token）服务
+ *
+ * 负责验证Legacy系统的JWT令牌，支持HS256签名算法
+ */
 let WorldLegacyJwtService = class WorldLegacyJwtService {
+    /** JWT密钥，从环境变量读取，默认为开发环境密钥 */
     jwtSecret = process.env.JWT_SECRET || 'daojie-yusheng-dev-secret';
+    /**
+     * 验证JWT令牌载荷
+     * @param token JWT令牌
+     * @returns 验证结果，包含载荷和失败原因
+     */
     validateTokenPayload(token) {
         const segments = token.split('.');
         if (segments.length !== 3) {
@@ -47,6 +58,11 @@ exports.WorldLegacyJwtService = WorldLegacyJwtService;
 exports.WorldLegacyJwtService = WorldLegacyJwtService = __decorate([
     (0, common_1.Injectable)()
 ], WorldLegacyJwtService);
+/**
+ * 解析JWT分段
+ * @param segment JWT分段字符串
+ * @returns 解析后的对象，失败返回null
+ */
 function parseJwtSegment(segment) {
     try {
         const json = Buffer.from(base64UrlDecode(segment), 'base64').toString('utf8');
@@ -57,11 +73,21 @@ function parseJwtSegment(segment) {
         return null;
     }
 }
+/**
+ * Base64 URL安全解码
+ * @param value Base64 URL编码的字符串
+ * @returns 标准Base64编码的字符串
+ */
 function base64UrlDecode(value) {
     const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
     const padding = normalized.length % 4;
     return padding === 0 ? normalized : `${normalized}${'='.repeat(4 - padding)}`;
 }
+/**
+ * Base64 URL安全编码
+ * @param value Buffer对象
+ * @returns Base64 URL编码的字符串
+ */
 function base64UrlEncode(value) {
     return value
         .toString('base64')

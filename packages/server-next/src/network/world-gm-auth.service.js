@@ -12,11 +12,22 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldGmAuthService = void 0;
 const common_1 = require("@nestjs/common");
 const legacy_gm_http_auth_service_1 = require("../compat/legacy/http/legacy-gm-http-auth.service");
+/**
+ * GM（游戏管理员）认证服务
+ *
+ * 负责处理GM的Socket连接认证，通过兼容层调用legacy的认证服务
+ */
 let WorldGmAuthService = class WorldGmAuthService {
+    /** 兼容层认证服务 */
     compatAuthService;
     constructor(compatAuthService) {
         this.compatAuthService = compatAuthService;
     }
+    /**
+     * 验证GM的Socket连接令牌
+     * @param token 访问令牌
+     * @returns 验证结果
+     */
     validateSocketGmToken(token) {
         return this.compatAuthService.validateAccessToken(token);
     }
