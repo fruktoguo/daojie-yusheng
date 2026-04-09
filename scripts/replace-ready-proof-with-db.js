@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 'use strict';
 
+/**
+ * 用途：执行 server-next 替换链路的带数据库 proof流程。
+ */
+
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 
@@ -10,8 +14,17 @@ const {
   resolveServerNextDatabaseUrl,
 } = require('../packages/server-next/src/config/env-alias');
 
+/**
+ * 记录数据库地址。
+ */
 const databaseUrl = resolveServerNextDatabaseUrl();
+/**
+ * 记录数据库环境变量来源。
+ */
 const databaseEnvSource = resolveServerNextDatabaseEnvSource();
+/**
+ * 记录traceenabled价值。
+ */
 const traceEnabledValue = process.env.SERVER_NEXT_AUTH_TRACE_ENABLED || process.env.NEXT_AUTH_TRACE_ENABLED || '1';
 
 if (!databaseUrl) {
@@ -20,6 +33,9 @@ if (!databaseUrl) {
   process.exit(1);
 }
 
+/**
+ * 汇总子进程环境变量。
+ */
 const childEnv = {
   ...process.env,
   NEXT_AUTH_TRACE_ENABLED: traceEnabledValue,
@@ -30,6 +46,9 @@ const childEnv = {
 process.stdout.write('[replace-ready:proof:with-db] steps=verify:proof:with-db\n');
 process.stdout.write('[replace-ready:proof:with-db] start step=verify:proof:with-db\n');
 
+/**
+ * 累计当前结果。
+ */
 const result = spawnSync('pnpm', ['--filter', '@mud/server-next', 'verify:proof:with-db'], {
   cwd: repoRoot,
   stdio: 'inherit',

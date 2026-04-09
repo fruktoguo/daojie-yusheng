@@ -17,14 +17,26 @@ type ReportFileDef = {
   content: string;
 };
 
+/**
+ * 获取docs目录。
+ */
 function getDocsDir(): string {
   return path.join(process.cwd(), '..', '..', 'docs');
 }
 
+/**
+ * 写入报表文件列表。
+ */
 function writeReportFiles(): void {
+/**
+ * 记录输出目录。
+ */
   const outputDir = path.join(getDocsDir(), '量化分析');
   fs.mkdirSync(outputDir, { recursive: true });
 
+/**
+ * 记录reports。
+ */
   const reports: ReportFileDef[] = [
     {
       fileName: '装备价值报表.md',
@@ -52,6 +64,9 @@ function writeReportFiles(): void {
     fs.writeFileSync(path.join(outputDir, report.fileName), `${report.content}\n`, 'utf-8');
   }
 
+/**
+ * 记录索引。
+ */
   const index = [
     '# 量化分析',
     '',

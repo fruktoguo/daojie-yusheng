@@ -1,22 +1,59 @@
 "use strict";
+/**
+ * 用途：基准测试 combat 链路性能。
+ */
+
 Object.defineProperty(exports, "__esModule", { value: true });
 const shared_1 = require("@mud/shared-next");
 const player_combat_service_1 = require("../runtime/combat/player-combat.service");
+/**
+ * 记录iterations。
+ */
 const ITERATIONS = 20_000;
+/**
+ * 串联执行脚本主流程。
+ */
 function main() {
+/**
+ * 记录attacker。
+ */
     const attacker = createAttacker();
+/**
+ * 记录defender。
+ */
     const defender = createDefender();
+/**
+ * 记录combat服务。
+ */
     const combatService = new player_combat_service_1.PlayerCombatService(createRuntimeAdapter(attacker, defender));
+/**
+ * 记录durationsms。
+ */
     const durationsMs = [];
+/**
+ * 记录totaldamage。
+ */
     let totalDamage = 0;
+/**
+ * 记录totalqicost。
+ */
     let totalQiCost = 0;
+/**
+ * 记录tick。
+ */
     let tick = 1;
     for (let index = 0; index < ITERATIONS; index += 1) {
         attacker.qi = attacker.maxQi;
         attacker.selfRevision += 1;
         defender.hp = defender.maxHp;
         defender.selfRevision += 1;
+/**
+ * 记录startedat。
+ */
         const startedAt = performance.now();
+/**
+ * 累计当前结果。
+ */
         const result = combatService.castSkill(attacker, defender, 'skill.qingmu_slash', tick, 1);
         durationsMs.push(performance.now() - startedAt);
         totalDamage += result.totalDamage;
@@ -34,6 +71,9 @@ function main() {
         lastCooldownReadyTick: attacker.combat.cooldownReadyTickBySkillId['skill.qingmu_slash'],
     }, null, 2));
 }
+/**
+ * 创建attacker。
+ */
 function createAttacker() {
     return {
         playerId: 'bench_attacker',
@@ -178,6 +218,9 @@ function createAttacker() {
         vitalRecoveryDeferredUntilTick: -1,
     };
 }
+/**
+ * 创建defender。
+ */
 function createDefender() {
     return {
         playerId: 'bench_defender',
@@ -322,6 +365,9 @@ function createDefender() {
         vitalRecoveryDeferredUntilTick: -1,
     };
 }
+/**
+ * 创建功法。
+ */
 function createTechnique() {
     return {
         techId: 'qingmu_sword',
@@ -381,37 +427,73 @@ function createTechnique() {
         attrCurves: null,
     };
 }
+/**
+ * 处理average。
+ */
 function average(values) {
     return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
+/**
+ * 处理percentile。
+ */
 function percentile(values, ratio) {
+/**
+ * 记录sorted。
+ */
     const sorted = [...values].sort((left, right) => left - right);
+/**
+ * 记录索引。
+ */
     const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil(sorted.length * ratio) - 1));
     return sorted[index] ?? 0;
 }
+/**
+ * 处理round3。
+ */
 function round3(value) {
     return Number(value.toFixed(3));
 }
+/**
+ * 处理round6。
+ */
 function round6(value) {
     return Number(value.toFixed(6));
 }
+/**
+ * 创建运行态adapter。
+ */
 function createRuntimeAdapter(...players) {
+/**
+ * 记录playersbyID。
+ */
     const playersById = new Map(players.map((player) => [player.playerId, player]));
     return {
         spendQi(playerId, amount) {
+/**
+ * 记录玩家。
+ */
             const player = getPlayerOrThrow(playersById, playerId);
             player.qi = Math.max(0, player.qi - Math.max(0, Math.round(amount)));
             player.selfRevision += 1;
             return player;
         },
         setSkillCooldownReadyTick(playerId, skillId, readyTick, currentTick) {
+/**
+ * 记录玩家。
+ */
             const player = getPlayerOrThrow(playersById, playerId);
             player.combat.cooldownReadyTickBySkillId[skillId] = Math.max(0, Math.trunc(readyTick));
             rebuildBenchActions(player, currentTick);
             return player;
         },
         applyTemporaryBuff(playerId, buff) {
+/**
+ * 记录玩家。
+ */
             const player = getPlayerOrThrow(playersById, playerId);
+/**
+ * 记录existing。
+ */
             const existing = player.buffs.buffs.find((entry) => entry.buffId === buff.buffId);
             if (existing) {
                 existing.remainingTicks = Math.max(existing.remainingTicks, buff.remainingTicks);
@@ -430,6 +512,9 @@ function createRuntimeAdapter(...players) {
             return player;
         },
         applyDamage(playerId, amount) {
+/**
+ * 记录玩家。
+ */
             const player = getPlayerOrThrow(playersById, playerId);
             player.hp = Math.max(0, player.hp - Math.max(0, Math.round(amount)));
             player.selfRevision += 1;
@@ -437,14 +522,26 @@ function createRuntimeAdapter(...players) {
         },
     };
 }
+/**
+ * 获取玩家orthrow。
+ */
 function getPlayerOrThrow(playersById, playerId) {
+/**
+ * 记录玩家。
+ */
     const player = playersById.get(playerId);
     if (!player) {
         throw new Error(`Player ${playerId} not found`);
     }
     return player;
 }
+/**
+ * 处理rebuild压测actions。
+ */
 function rebuildBenchActions(player, currentTick) {
+/**
+ * 记录actions。
+ */
     const actions = [];
     for (const technique of player.techniques.techniques) {
         for (const skill of technique.skills ?? []) {

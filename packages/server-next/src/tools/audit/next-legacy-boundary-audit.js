@@ -1,11 +1,21 @@
 "use strict";
+/**
+ * 用途：审计 server-next 与 legacy 兼容边界依赖。
+ */
+
 const fs = require("node:fs");
 const path = require("node:path");
 
 const packageRoot = path.resolve(__dirname, "..", "..", "..");
 const repoRoot = path.resolve(packageRoot, "..", "..");
+/**
+ * 记录doc输出。
+ */
 const docOutput = path.join(repoRoot, "docs", "next-legacy-boundary-audit.md");
 
+/**
+ * 记录类别order。
+ */
 const CATEGORY_ORDER = [
   "P0 auth/bootstrap 真源",
   "P0 legacy HTTP/GM/admin",
@@ -14,6 +24,9 @@ const CATEGORY_ORDER = [
   "目标差距: 性能/扩展",
 ];
 
+/**
+ * 记录checks。
+ */
 const CHECKS = [
   {
     id: "auth.token.legacy_jwt",
@@ -183,21 +196,51 @@ const CHECKS = [
   },
 ];
 
+/**
+ * 串联执行脚本主流程。
+ */
 function main() {
+/**
+ * 汇总执行结果。
+ */
   const results = CHECKS.map(runCheck);
+/**
+ * 记录汇总。
+ */
   const summary = buildSummary(results);
+/**
+ * 记录markdown。
+ */
   const markdown = renderMarkdown(summary, results);
   fs.writeFileSync(docOutput, markdown, "utf8");
   process.stdout.write(`[next legacy boundary audit] report written to ${docOutput}\n`);
   process.stdout.write(`[next legacy boundary audit] matched ${summary.matchedChecks}/${summary.totalChecks} checks, ${summary.totalHits} code hits across ${summary.categories.length} categories\n`);
 }
 
+/**
+ * 运行check。
+ */
 function runCheck(entry) {
+/**
+ * 记录absolute路径。
+ */
   const absolutePath = path.join(repoRoot, entry.file);
+/**
+ * 记录来源。
+ */
   const source = fs.readFileSync(absolutePath, "utf8");
+/**
+ * 汇总输出行。
+ */
   const lines = source.split(/\r?\n/);
+/**
+ * 记录hits。
+ */
   const hits = [];
   for (let index = 0; index < lines.length; index += 1) {
+/**
+ * 记录line。
+ */
     const line = lines[index];
     if (!line.includes(entry.pattern)) {
       continue;
@@ -219,9 +262,21 @@ function runCheck(entry) {
   };
 }
 
+/**
+ * 构建汇总。
+ */
 function buildSummary(results) {
+/**
+ * 记录categories。
+ */
   const categories = CATEGORY_ORDER.map((name) => {
+/**
+ * 记录checks。
+ */
     const checks = results.filter((entry) => entry.category === name);
+/**
+ * 记录matched。
+ */
     const matched = checks.filter((entry) => entry.hits.length > 0);
     return {
       name,
@@ -239,7 +294,13 @@ function buildSummary(results) {
   };
 }
 
+/**
+ * 处理rendermarkdown。
+ */
 function renderMarkdown(summary, results) {
+/**
+ * 汇总输出行。
+ */
   const lines = [];
   lines.push("# server-next 剩余 legacy 边界自动审计");
   lines.push("");
@@ -259,6 +320,9 @@ function renderMarkdown(summary, results) {
     lines.push(`| ${category.name} | ${category.matchedChecks} / ${category.checks} | ${category.totalHits} |`);
   }
   for (const categoryName of CATEGORY_ORDER) {
+/**
+ * 记录类别checks。
+ */
     const categoryChecks = results.filter((entry) => entry.category === categoryName && entry.hits.length > 0);
     if (categoryChecks.length === 0) {
       continue;
@@ -267,6 +331,9 @@ function renderMarkdown(summary, results) {
     lines.push(`## ${categoryName}`);
     lines.push("");
     for (const entry of categoryChecks) {
+/**
+ * 记录firsthit。
+ */
       const firstHit = entry.hits[0];
       lines.push(`- ${entry.description}`);
       lines.push(`  - 文件：\`${entry.file}:${firstHit.line}\``);
@@ -284,6 +351,9 @@ function renderMarkdown(summary, results) {
   return `${lines.join("\n")}\n`;
 }
 
+/**
+ * 规整backticks。
+ */
 function escapeBackticks(value) {
   return String(value).replace(/`/g, "\\`");
 }

@@ -1,30 +1,82 @@
 "use strict";
+/**
+ * 用途：执行 session 链路的冒烟验证。
+ */
+
 Object.defineProperty(exports, "__esModule", { value: true });
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared-next");
 const env_alias_1 = require("../config/env-alias");
 const world_session_reaper_service_1 = require("../network/world-session-reaper.service");
 const world_session_service_1 = require("../network/world-session.service");
+/**
+ * 记录 server-next 访问地址。
+ */
 const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
+/**
+ * 记录会话断开后的保留时长。
+ */
 const SESSION_DETACH_EXPIRE_MS = Number.isFinite(Number(process.env.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS))
     ? Math.max(0, Math.trunc(Number(process.env.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS)))
     : 15_000;
+/**
+ * 串联执行脚本主流程。
+ */
 async function main() {
+/**
+ * 记录服务证明链。
+ */
     const serviceProof = verifyWorldSessionServiceMismatchProof();
+/**
+ * 记录reaper证明链。
+ */
     const reaperProof = await verifyWorldSessionReaperProof();
+/**
+ * 记录first。
+ */
     const first = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
         path: '/socket.io',
         transports: ['websocket'],
     });
+/**
+ * 记录ignoredrequested会话ID。
+ */
     const ignoredRequestedSessionId = `guest_requested_${Date.now().toString(36)}`;
+/**
+ * 记录forgedresume会话ID。
+ */
     const forgedResumeSessionId = `forged_resume_${Date.now().toString(36)}`;
+/**
+ * 记录运行态玩家ID。
+ */
     let runtimePlayerId = '';
+/**
+ * 记录会话ID。
+ */
     let sessionId = '';
+/**
+ * 记录resumedinit。
+ */
     let resumedInit = null;
+/**
+ * 记录rejectedresumeinit。
+ */
     let rejectedResumeInit = null;
+/**
+ * 记录rejected运行态玩家ID。
+ */
     let rejectedRuntimePlayerId = '';
+/**
+ * 记录forged玩家init。
+ */
     let forgedPlayerInit = null;
+/**
+ * 记录forged玩家运行态玩家ID。
+ */
     let forgedPlayerRuntimePlayerId = '';
+/**
+ * 记录events。
+ */
     const events = [];
     await onceConnected(first);
     first.on(shared_1.NEXT_S2C.InitSession, (payload) => {
@@ -44,6 +96,9 @@ async function main() {
     await waitFor(() => runtimePlayerId.length > 0 && sessionId.length > 0, 4000);
     first.close();
     await delay(1200);
+/**
+ * 记录second。
+ */
     const second = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
         path: '/socket.io',
         transports: ['websocket'],
@@ -59,6 +114,9 @@ async function main() {
     await waitFor(() => resumedInit !== null, 4000);
     second.close();
     await delay(1200);
+/**
+ * 记录third。
+ */
     const third = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
         path: '/socket.io',
         transports: ['websocket'],
@@ -75,6 +133,9 @@ async function main() {
     await waitFor(() => rejectedResumeInit !== null, 4000);
     third.close();
     await delay(1200);
+/**
+ * 记录fourth。
+ */
     const fourth = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
         path: '/socket.io',
         transports: ['websocket'],
@@ -91,11 +152,20 @@ async function main() {
     await waitFor(() => forgedPlayerInit !== null, 4000);
     fourth.close();
     await delay(SESSION_DETACH_EXPIRE_MS + 1200);
+/**
+ * 记录fifth。
+ */
     const fifth = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
         path: '/socket.io',
         transports: ['websocket'],
     });
+/**
+ * 记录expiredresumeinit。
+ */
     let expiredResumeInit = null;
+/**
+ * 记录expiredresume玩家ID。
+ */
     let expiredResumePlayerId = '';
     await onceConnected(fifth);
     fifth.on(shared_1.NEXT_S2C.InitSession, (payload) => {
@@ -120,9 +190,21 @@ async function main() {
     if (runtimePlayerId && runtimePlayerId !== rejectedRuntimePlayerId && runtimePlayerId !== forgedPlayerRuntimePlayerId) {
         await deletePlayer(runtimePlayerId);
     }
+/**
+ * 记录init。
+ */
     const init = resumedInit;
+/**
+ * 记录rejectedinit。
+ */
     const rejectedInit = rejectedResumeInit;
+/**
+ * 记录forged玩家payload。
+ */
     const forgedPlayerPayload = forgedPlayerInit;
+/**
+ * 记录expiredinit。
+ */
     const expiredInit = expiredResumeInit;
     if (init.pid !== runtimePlayerId) {
         throw new Error(`expected resumed init pid ${runtimePlayerId}, got ${JSON.stringify(init)}`);
@@ -183,24 +265,57 @@ async function main() {
         events,
     }, null, 2));
 }
+/**
+ * 处理校验world会话服务mismatch证明链。
+ */
 function verifyWorldSessionServiceMismatchProof() {
+/**
+ * 记录服务。
+ */
     const service = new world_session_service_1.WorldSessionService();
+/**
+ * 记录服务玩家ID。
+ */
     const servicePlayerId = `service_${Date.now().toString(36)}`;
+/**
+ * 记录firstsocket。
+ */
     const firstSocket = createMockSocket('first');
+/**
+ * 记录initialrequested会话ID。
+ */
     const initialRequestedSessionId = `initial_requested_${servicePlayerId}`;
+/**
+ * 记录initialbinding。
+ */
     const initialBinding = service.registerSocket(firstSocket, servicePlayerId, initialRequestedSessionId);
     if (initialBinding.sessionId === initialRequestedSessionId) {
         throw new Error(`expected fresh service binding to ignore requested sid, got ${initialBinding.sessionId}`);
     }
     service.unregisterSocket(firstSocket.id);
+/**
+ * 记录resumesocket。
+ */
     const resumeSocket = createMockSocket('resume');
+/**
+ * 记录resumedbinding。
+ */
     const resumedBinding = service.registerSocket(resumeSocket, servicePlayerId, initialBinding.sessionId);
     if (resumedBinding.sessionId !== initialBinding.sessionId || resumedBinding.resumed !== true) {
         throw new Error(`expected matched detached sid to resume, got ${JSON.stringify(resumedBinding)}`);
     }
     service.unregisterSocket(resumeSocket.id);
+/**
+ * 记录forgedsocket。
+ */
     const forgedSocket = createMockSocket('forged');
+/**
+ * 记录forgedrequested会话ID。
+ */
     const forgedRequestedSessionId = `forged_${servicePlayerId}`;
+/**
+ * 记录rejectedbinding。
+ */
     const rejectedBinding = service.registerSocket(forgedSocket, servicePlayerId, forgedRequestedSessionId);
     if (rejectedBinding.resumed !== false) {
         throw new Error(`expected mismatched detached sid to avoid resume, got ${JSON.stringify(rejectedBinding)}`);
@@ -211,6 +326,9 @@ function verifyWorldSessionServiceMismatchProof() {
     if (rejectedBinding.sessionId === initialBinding.sessionId) {
         throw new Error(`expected mismatched detached sid to rotate server sid, got ${JSON.stringify(rejectedBinding)}`);
     }
+/**
+ * 记录policy证明链。
+ */
     const policyProof = verifyWorldSessionServicePolicyProof();
     return {
         playerId: servicePlayerId,
@@ -220,12 +338,33 @@ function verifyWorldSessionServiceMismatchProof() {
         policyProof,
     };
 }
+/**
+ * 处理校验world会话服务policy证明链。
+ */
 function verifyWorldSessionServicePolicyProof() {
+/**
+ * 记录服务。
+ */
     const service = new world_session_service_1.WorldSessionService();
+/**
+ * 记录玩家ID。
+ */
     const playerId = `policy_${Date.now().toString(36)}`;
+/**
+ * 记录firstsocket。
+ */
     const firstSocket = createMockSocket('policy-first');
+/**
+ * 记录firstbinding。
+ */
     const firstBinding = service.registerSocket(firstSocket, playerId);
+/**
+ * 记录secondsocket。
+ */
     const secondSocket = createMockSocket('policy-second');
+/**
+ * 记录replacedbinding。
+ */
     const replacedBinding = service.registerSocket(secondSocket, playerId, undefined, {
         allowConnectedSessionReuse: false,
     });
@@ -233,7 +372,13 @@ function verifyWorldSessionServicePolicyProof() {
         throw new Error(`expected disabled connected session reuse to rotate sid, got ${JSON.stringify(replacedBinding)}`);
     }
     service.unregisterSocket(secondSocket.id);
+/**
+ * 记录detachedimplicitsocket。
+ */
     const detachedImplicitSocket = createMockSocket('policy-implicit');
+/**
+ * 记录implicitrejectedbinding。
+ */
     const implicitRejectedBinding = service.registerSocket(detachedImplicitSocket, playerId, undefined, {
         allowImplicitDetachedResume: false,
         allowRequestedDetachedResume: false,
@@ -242,7 +387,13 @@ function verifyWorldSessionServicePolicyProof() {
         throw new Error(`expected disabled implicit detached resume to rotate sid, got ${JSON.stringify(implicitRejectedBinding)}`);
     }
     service.unregisterSocket(detachedImplicitSocket.id);
+/**
+ * 记录detachedexplicitsocket。
+ */
     const detachedExplicitSocket = createMockSocket('policy-explicit');
+/**
+ * 记录explicitrejectedbinding。
+ */
     const explicitRejectedBinding = service.registerSocket(detachedExplicitSocket, playerId, implicitRejectedBinding.sessionId, {
         allowImplicitDetachedResume: false,
         allowRequestedDetachedResume: false,
@@ -257,20 +408,47 @@ function verifyWorldSessionServicePolicyProof() {
         explicitResumeBlockedSid: explicitRejectedBinding.sessionId,
     };
 }
+/**
+ * 处理校验world会话reaper证明链。
+ */
 async function verifyWorldSessionReaperProof() {
+/**
+ * 记录success证明链。
+ */
     const successProof = await runWorldSessionReaperSuccessProof();
+/**
+ * 记录retry证明链。
+ */
     const retryProof = await runWorldSessionReaperRetryProof();
     return {
         success: successProof,
         retry: retryProof,
     };
 }
+/**
+ * 运行world会话reapersuccess证明链。
+ */
 async function runWorldSessionReaperSuccessProof() {
+/**
+ * 记录服务。
+ */
     const service = new world_session_service_1.WorldSessionService();
     service.sessionDetachExpireMs = 0;
+/**
+ * 记录玩家ID。
+ */
     const playerId = `reaper_ok_${Date.now().toString(36)}`;
+/**
+ * 记录socket。
+ */
     const socket = createMockSocket('reaper-ok');
+/**
+ * 记录binding。
+ */
     const binding = service.registerSocket(socket, playerId);
+/**
+ * 记录detachedbinding。
+ */
     const detachedBinding = service.unregisterSocket(socket.id);
     if (!detachedBinding || detachedBinding.connected) {
         throw new Error(`expected detached binding for reaper success proof, got ${JSON.stringify(detachedBinding)}`);
@@ -279,8 +457,17 @@ async function runWorldSessionReaperSuccessProof() {
     if (service.getBinding(playerId) !== null) {
         throw new Error(`expected expired detached binding to leave active map before reap: playerId=${playerId}`);
     }
+/**
+ * 记录flushed。
+ */
     const flushed = [];
+/**
+ * 记录cleared。
+ */
     const cleared = [];
+/**
+ * 记录reaper。
+ */
     const reaper = new world_session_reaper_service_1.WorldSessionReaperService(service, {
         clearDetachedPlayerCaches(targetPlayerId) {
             cleared.push(targetPlayerId);
@@ -304,19 +491,46 @@ async function runWorldSessionReaperSuccessProof() {
         cleared,
     };
 }
+/**
+ * 运行world会话reaperretry证明链。
+ */
 async function runWorldSessionReaperRetryProof() {
+/**
+ * 记录服务。
+ */
     const service = new world_session_service_1.WorldSessionService();
     service.sessionDetachExpireMs = 0;
+/**
+ * 记录玩家ID。
+ */
     const playerId = `reaper_retry_${Date.now().toString(36)}`;
+/**
+ * 记录socket。
+ */
     const socket = createMockSocket('reaper-retry');
+/**
+ * 记录binding。
+ */
     const binding = service.registerSocket(socket, playerId);
+/**
+ * 记录detachedbinding。
+ */
     const detachedBinding = service.unregisterSocket(socket.id);
     if (!detachedBinding || detachedBinding.connected) {
         throw new Error(`expected detached binding for reaper retry proof, got ${JSON.stringify(detachedBinding)}`);
     }
     await delay(20);
+/**
+ * 记录flushattempts。
+ */
     let flushAttempts = 0;
+/**
+ * 记录cleared。
+ */
     const cleared = [];
+/**
+ * 记录reaper。
+ */
     const reaper = new world_session_reaper_service_1.WorldSessionReaperService(service, {
         clearDetachedPlayerCaches(targetPlayerId) {
             cleared.push(targetPlayerId);
@@ -353,6 +567,9 @@ async function runWorldSessionReaperRetryProof() {
         cleared,
     };
 }
+/**
+ * 创建mocksocket。
+ */
 function createMockSocket(id) {
     return {
         id,
@@ -362,11 +579,17 @@ function createMockSocket(id) {
         },
     };
 }
+/**
+ * 处理onceconnected。
+ */
 async function onceConnected(socket) {
     if (socket.connected) {
         return;
     }
     await new Promise((resolve, reject) => {
+/**
+ * 记录timer。
+ */
         const timer = setTimeout(() => reject(new Error('socket connect timeout')), 4000);
         socket.once('connect', () => {
             clearTimeout(timer);
@@ -378,7 +601,13 @@ async function onceConnected(socket) {
         });
     });
 }
+/**
+ * 等待for。
+ */
 async function waitFor(predicate, timeoutMs) {
+/**
+ * 记录startedat。
+ */
     const startedAt = Date.now();
     while (!predicate()) {
         if (Date.now() - startedAt > timeoutMs) {
@@ -387,12 +616,21 @@ async function waitFor(predicate, timeoutMs) {
         await delay(100);
     }
 }
+/**
+ * 处理delay。
+ */
 function delay(ms) {
     return new Promise((resolve) => {
         setTimeout(resolve, ms);
     });
 }
+/**
+ * 处理delete玩家。
+ */
 async function deletePlayer(playerIdToDelete) {
+/**
+ * 记录response。
+ */
     const response = await fetch(`${SERVER_NEXT_URL}/runtime/players/${playerIdToDelete}`, {
         method: 'DELETE',
     });

@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 'use strict';
 
+/**
+ * 用途：执行 server-next 替换链路的全量验证流程。
+ */
+
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 
@@ -15,14 +19,35 @@ const {
   resolveServerNextShadowUrlEnvSource,
 } = require('../packages/server-next/src/config/env-alias');
 
+/**
+ * 记录数据库地址。
+ */
 const databaseUrl = resolveServerNextDatabaseUrl();
+/**
+ * 记录数据库环境变量来源。
+ */
 const databaseEnvSource = resolveServerNextDatabaseEnvSource();
+/**
+ * 记录shadow 环境地址。
+ */
 const shadowUrl = resolveServerNextShadowUrl();
+/**
+ * 记录shadow 环境环境变量来源地址。
+ */
 const shadowUrlEnvSource = resolveServerNextShadowUrlEnvSource();
+/**
+ * 记录GMpassword。
+ */
 const gmPassword = resolveServerNextGmPassword();
+/**
+ * 记录GMpassword环境变量来源。
+ */
 const gmPasswordEnvSource = resolveServerNextGmPasswordEnvSource();
 
 if (!databaseUrl || !shadowUrl || !gmPassword) {
+/**
+ * 记录missing。
+ */
   const missing = [
     databaseUrl ? null : 'DATABASE_URL/SERVER_NEXT_DATABASE_URL',
     shadowUrl ? null : 'SERVER_NEXT_SHADOW_URL/SERVER_NEXT_URL',
@@ -33,6 +58,9 @@ if (!databaseUrl || !shadowUrl || !gmPassword) {
   process.exit(1);
 }
 
+/**
+ * 汇总需要串行执行的步骤。
+ */
 const steps = [
   { label: 'with-db', kind: 'node', args: ['scripts/replace-ready-with-db.js'] },
   {
@@ -55,6 +83,9 @@ const steps = [
     },
   },
 ];
+/**
+ * 汇总子进程环境变量。
+ */
 const childEnv = {
   ...process.env,
   ...(databaseEnvSource === 'SERVER_NEXT_DATABASE_URL' ? null : { SERVER_NEXT_DATABASE_URL: databaseUrl }),
@@ -65,8 +96,14 @@ const childEnv = {
 process.stdout.write('[replace-ready:full] steps=with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm-compat\n');
 
 for (const step of steps) {
+/**
+ * 记录命令。
+ */
   const command = step.kind === 'pnpm' ? 'pnpm' : nodeBin;
   process.stdout.write(`[replace-ready:full] start step=${step.label}\n`);
+/**
+ * 累计当前结果。
+ */
   const result = spawnSync(command, step.args, {
     cwd: repoRoot,
     stdio: 'inherit',

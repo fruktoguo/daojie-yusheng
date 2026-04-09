@@ -1,23 +1,57 @@
 "use strict";
+/**
+ * 用途：执行 combat 链路的冒烟验证。
+ */
+
 Object.defineProperty(exports, "__esModule", { value: true });
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared-next");
 const env_alias_1 = require("../config/env-alias");
+/**
+ * 记录 server-next 访问地址。
+ */
 const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
+/**
+ * 记录attackerID。
+ */
 let attackerId = '';
+/**
+ * 记录defenderID。
+ */
 let defenderId = '';
+/**
+ * 串联执行脚本主流程。
+ */
 async function main() {
+/**
+ * 记录attacker。
+ */
     const attacker = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
         path: '/socket.io',
         transports: ['websocket'],
     });
+/**
+ * 记录defender。
+ */
     const defender = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
         path: '/socket.io',
         transports: ['websocket'],
     });
+/**
+ * 记录attackerpanels。
+ */
     const attackerPanels = [];
+/**
+ * 记录defenderpanels。
+ */
     const defenderPanels = [];
+/**
+ * 记录attackerself。
+ */
     const attackerSelf = [];
+/**
+ * 记录defenderself。
+ */
     const defenderSelf = [];
     attacker.on(shared_1.NEXT_S2C.Error, (payload) => {
         throw new Error(`attacker socket error: ${JSON.stringify(payload)}`);
@@ -62,28 +96,61 @@ async function main() {
         return attackerState.player && defenderState.player;
     }, 5000);
     await ensurePlayersAdjacent(attacker, attackerId, defender, defenderId);
+/**
+ * 记录attacker状态。
+ */
     const attackerState = await fetchState(attackerId);
+/**
+ * 记录bookslot。
+ */
     const bookSlot = attackerState.player.inventory.items.findIndex((entry) => entry.itemId === 'book.qingmu_sword');
     if (bookSlot < 0) {
         throw new Error('combat smoke missing starter technique book');
     }
     attacker.emit(shared_1.NEXT_C2S.UseItem, { slotIndex: bookSlot });
     await waitFor(async () => {
+/**
+ * 记录状态。
+ */
         const state = await fetchState(attackerId);
         return state.player?.techniques?.techniques?.some((entry) => entry.techId === 'qingmu_sword')
             && state.player?.actions?.actions?.some((entry) => entry.id === 'skill.qingmu_slash');
     }, 5000);
+/**
+ * 记录learnedattacker。
+ */
     const learnedAttacker = await fetchState(attackerId);
+/**
+ * 记录preparedqi。
+ */
     const preparedQi = Math.max(30, learnedAttacker.player.maxQi);
     await postJson(`/runtime/players/${attackerId}/vitals`, { qi: preparedQi });
     await waitFor(async () => {
+/**
+ * 记录状态。
+ */
         const state = await fetchState(attackerId);
         return (state.player?.qi ?? 0) >= preparedQi;
     }, 5000);
+/**
+ * 记录attackerbeforecast。
+ */
     let attackerBeforeCast = null;
+/**
+ * 记录defenderbefore。
+ */
     let defenderBefore = null;
+/**
+ * 记录cast状态attacker。
+ */
     let castStateAttacker = null;
+/**
+ * 记录cast状态defender。
+ */
     let castStateDefender = null;
+/**
+ * 记录damagedetected。
+ */
     let damageDetected = false;
     for (let attempt = 0; attempt < 3; attempt += 1) {
         attackerBeforeCast = await fetchState(attackerId);
@@ -112,7 +179,13 @@ async function main() {
         await postJson(`/runtime/players/${attackerId}/vitals`, { qi: castStateAttacker.player.maxQi });
         await waitFor(async () => (await fetchState(attackerId)).player.qi >= castStateAttacker.player.maxQi, 5000);
     }
+/**
+ * 记录cooldownaftercast。
+ */
     const cooldownAfterCast = readCooldownLeft(castStateAttacker.player, 'skill.qingmu_slash');
+/**
+ * 记录Buffaftercast。
+ */
     const buffAfterCast = readBuffRemaining(castStateDefender.player, 'buff.qingmu_mark');
     if (!damageDetected) {
         throw new Error(`expected player skill damage after retries, attackerQi=${attackerBeforeCast.player.qi} defenderHp=${defenderBefore.player.hp} cooldown=${cooldownAfterCast} buff=${buffAfterCast}`);
@@ -128,7 +201,13 @@ async function main() {
         return readCooldownLeft(attackerAfterTick.player, 'skill.qingmu_slash') < cooldownAfterCast
             && readBuffRemaining(defenderAfterTick.player, 'buff.qingmu_mark') < buffAfterCast;
     }, 5000);
+/**
+ * 记录finalattacker。
+ */
     const finalAttacker = await fetchState(attackerId);
+/**
+ * 记录finaldefender。
+ */
     const finalDefender = await fetchState(defenderId);
     attacker.close();
     defender.close();
@@ -157,14 +236,26 @@ async function main() {
         finalDefender,
     }, null, 2));
 }
+/**
+ * 处理fetch状态。
+ */
 async function fetchState(playerId) {
+/**
+ * 记录response。
+ */
     const response = await fetch(`${SERVER_NEXT_URL}/runtime/players/${playerId}/state`);
     if (!response.ok) {
         throw new Error(`request failed: ${response.status} ${await response.text()}`);
     }
     return response.json();
 }
+/**
+ * 处理postjson。
+ */
 async function postJson(path, body) {
+/**
+ * 记录response。
+ */
     const response = await fetch(`${SERVER_NEXT_URL}${path}`, {
         method: 'POST',
         headers: {
@@ -176,7 +267,13 @@ async function postJson(path, body) {
         throw new Error(`request failed: ${response.status} ${await response.text()}`);
     }
 }
+/**
+ * 处理delete玩家。
+ */
 async function deletePlayer(playerId) {
+/**
+ * 记录response。
+ */
     const response = await fetch(`${SERVER_NEXT_URL}/runtime/players/${playerId}`, {
         method: 'DELETE',
     });
@@ -184,11 +281,17 @@ async function deletePlayer(playerId) {
         throw new Error(`request failed: ${response.status} ${await response.text()}`);
     }
 }
+/**
+ * 处理onceconnected。
+ */
 async function onceConnected(socket) {
     if (socket.connected) {
         return;
     }
     await new Promise((resolve, reject) => {
+/**
+ * 记录timer。
+ */
         const timer = setTimeout(() => reject(new Error('socket connect timeout')), 4000);
         socket.once('connect', () => {
             clearTimeout(timer);
@@ -200,7 +303,13 @@ async function onceConnected(socket) {
         });
     });
 }
+/**
+ * 等待for。
+ */
 async function waitFor(predicate, timeoutMs) {
+/**
+ * 记录startedat。
+ */
     const startedAt = Date.now();
     while (!(await predicate())) {
         if (Date.now() - startedAt > timeoutMs) {
@@ -209,17 +318,26 @@ async function waitFor(predicate, timeoutMs) {
         await new Promise((resolve) => setTimeout(resolve, 100));
     }
 }
+/**
+ * 确保playersadjacent。
+ */
 async function ensurePlayersAdjacent(attacker, attackerId, defender, defenderId) {
     for (let attempt = 0; attempt < 8; attempt += 1) {
         const [attackerState, defenderState] = await Promise.all([fetchState(attackerId), fetchState(defenderId)]);
         if (chebyshevDistance(attackerState.player, defenderState.player) <= 1) {
             return;
         }
+/**
+ * 记录attackermoved。
+ */
         const attackerMoved = await moveOneStepToward(attacker, attackerId, defenderState.player.x, defenderState.player.y);
         const [nextAttacker, nextDefender] = await Promise.all([fetchState(attackerId), fetchState(defenderId)]);
         if (chebyshevDistance(nextAttacker.player, nextDefender.player) <= 1) {
             return;
         }
+/**
+ * 记录defendermoved。
+ */
         const defenderMoved = await moveOneStepToward(defender, defenderId, nextAttacker.player.x, nextAttacker.player.y);
         const [finalAttacker, finalDefender] = await Promise.all([fetchState(attackerId), fetchState(defenderId)]);
         if (chebyshevDistance(finalAttacker.player, finalDefender.player) <= 1) {
@@ -232,11 +350,23 @@ async function ensurePlayersAdjacent(attacker, attackerId, defender, defenderId)
     const [attackerState, defenderState] = await Promise.all([fetchState(attackerId), fetchState(defenderId)]);
     throw new Error(`failed to align players for combat: attacker=${attackerState.player.x},${attackerState.player.y} defender=${defenderState.player.x},${defenderState.player.y}`);
 }
+/**
+ * 处理moveonesteptoward。
+ */
 async function moveOneStepToward(socket, playerId, targetX, targetY) {
+/**
+ * 记录状态。
+ */
     const state = await fetchState(playerId);
+/**
+ * 记录directions。
+ */
     const directions = buildPreferredDirections(state.player.x, state.player.y, targetX, targetY);
     for (const direction of directions) {
         socket.emit(shared_1.NEXT_C2S.Move, { d: direction });
+/**
+ * 记录moved。
+ */
         const moved = await waitForMove(playerId, state.player.x, state.player.y, 1800);
         if (moved) {
             return true;
@@ -244,9 +374,18 @@ async function moveOneStepToward(socket, playerId, targetX, targetY) {
     }
     return false;
 }
+/**
+ * 等待formove。
+ */
 async function waitForMove(playerId, startX, startY, timeoutMs) {
+/**
+ * 记录startedat。
+ */
     const startedAt = Date.now();
     while (Date.now() - startedAt <= timeoutMs) {
+/**
+ * 记录状态。
+ */
         const state = await fetchState(playerId);
         if (state.player.x !== startX || state.player.y !== startY) {
             return true;
@@ -255,9 +394,21 @@ async function waitForMove(playerId, startX, startY, timeoutMs) {
     }
     return false;
 }
+/**
+ * 构建优先值directions。
+ */
 function buildPreferredDirections(currentX, currentY, targetX, targetY) {
+/**
+ * 记录directions。
+ */
     const directions = [];
+/**
+ * 记录deltax。
+ */
     const deltaX = targetX - currentX;
+/**
+ * 记录deltay。
+ */
     const deltaY = targetY - currentY;
     if (Math.abs(deltaX) >= Math.abs(deltaY)) {
         pushDirectionByDeltaX(directions, deltaX);
@@ -274,6 +425,9 @@ function buildPreferredDirections(currentX, currentY, targetX, targetY) {
     }
     return directions;
 }
+/**
+ * 追加directionbydeltax。
+ */
 function pushDirectionByDeltaX(directions, deltaX) {
     if (deltaX < 0) {
         directions.push(shared_1.Direction.West);
@@ -282,6 +436,9 @@ function pushDirectionByDeltaX(directions, deltaX) {
         directions.push(shared_1.Direction.East);
     }
 }
+/**
+ * 追加directionbydeltay。
+ */
 function pushDirectionByDeltaY(directions, deltaY) {
     if (deltaY < 0) {
         directions.push(shared_1.Direction.North);
@@ -290,14 +447,29 @@ function pushDirectionByDeltaY(directions, deltaY) {
         directions.push(shared_1.Direction.South);
     }
 }
+/**
+ * 处理chebyshevdistance。
+ */
 function chebyshevDistance(left, right) {
     return Math.max(Math.abs(left.x - right.x), Math.abs(left.y - right.y));
 }
+/**
+ * 读取cooldownleft。
+ */
 function readCooldownLeft(player, actionId) {
+/**
+ * 记录entry。
+ */
     const entry = player.actions?.actions?.find((item) => item.id === actionId);
     return typeof entry?.cooldownLeft === 'number' ? entry.cooldownLeft : 0;
 }
+/**
+ * 读取Buffremaining。
+ */
 function readBuffRemaining(player, buffId) {
+/**
+ * 记录entry。
+ */
     const entry = player.buffs?.buffs?.find((item) => item.buffId === buffId);
     return typeof entry?.remainingTicks === 'number' ? entry.remainingTicks : 0;
 }

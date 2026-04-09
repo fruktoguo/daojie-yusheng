@@ -1,23 +1,30 @@
 #!/bin/bash
+# 用途：启动 legacy 本地开发环境并按需拉起依赖服务。
+
 set -e
 
 cd "$(dirname "$0")"
 
+# 保存启动模式参数，决定走本地开发还是 Docker 启动流程。
 MODE="${1:-local}"
 
+# 在脚本退出时回收本次拉起的服务端、客户端和共享监听进程。
 cleanup() {
   if [[ -n "${SERVER_PID:-}" ]]; then kill "$SERVER_PID" 2>/dev/null || true; fi
   if [[ -n "${CLIENT_PID:-}" ]]; then kill "$CLIENT_PID" 2>/dev/null || true; fi
   if [[ -n "${SHARED_WATCH_PID:-}" ]]; then kill "$SHARED_WATCH_PID" 2>/dev/null || true; fi
 }
 
+# 安全终止指定 PID 对应的进程，避免重复报错。
 kill_pid_if_running() {
+# 记录pid。
   local pid="$1"
   if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
     kill "$pid" 2>/dev/null || true
   fi
 }
 
+# 收集当前仓库残留的 legacy 开发相关进程 PID。
 collect_repo_dev_pids() {
   ps -eo pid=,args= | awk -v repo_root="$PWD" '
     index($0, repo_root) == 0 { next }
@@ -30,9 +37,13 @@ collect_repo_dev_pids() {
   '
 }
 
+# 清理指定端口上的残留监听进程，避免新实例启动冲突。
 kill_port_listener_if_needed() {
+# 记录端口。
   local port="$1"
+# 记录pid。
   local pid=""
+# 记录pid。
   pid="$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null | head -n 1 || true)"
   if [[ -z "$pid" ]]; then
     return 0
@@ -46,6 +57,7 @@ kill_port_listener_if_needed() {
   fi
 }
 
+# 批量清理本仓库已有的本地开发进程和常用端口占用。
 cleanup_existing_local_dev_processes() {
   echo "==> 清理本仓库残留的开发进程..."
 
@@ -66,7 +78,9 @@ cleanup_existing_local_dev_processes() {
   kill_port_listener_if_needed 5173
 }
 
+# 检查脚本依赖的外部命令是否可用，缺失时立即退出。
 require_command() {
+# 记录命令名称。
   local command_name="$1"
   if ! command -v "$command_name" >/dev/null 2>&1; then
     echo "!! 缺少命令: $command_name"
@@ -74,13 +88,18 @@ require_command() {
   fi
 }
 
+# 判断给定主机名是否属于本机地址。
 is_local_host() {
+# 记录主机。
   local host="${1:-localhost}"
   [[ "$host" == "localhost" || "$host" == "127.0.0.1" || "$host" == "::1" ]]
 }
 
+# 探测目标主机和端口是否已有 TCP 服务监听。
 is_tcp_port_open() {
+# 记录主机。
   local host="$1"
+# 记录端口。
   local port="$2"
   node -e "
     const net = require('node:net');
@@ -100,13 +119,18 @@ is_tcp_port_open() {
   " "$host" "$port" >/dev/null 2>&1
 }
 
+# 处理Dockercontainerexists。
 docker_container_exists() {
+# 记录container名称。
   local container_name="$1"
   docker container inspect "$container_name" >/dev/null 2>&1
 }
 
+# 优先复用并启动已有的本地基础设施容器。
 try_start_existing_container() {
+# 记录container名称。
   local container_name="$1"
+# 记录显示信息名称。
   local display_name="$2"
 
   if ! docker_container_exists "$container_name"; then
@@ -118,20 +142,29 @@ try_start_existing_container() {
   return 0
 }
 
+# 轮询等待 Docker Compose 服务进入可用状态。
 wait_for_service_healthy() {
+# 记录服务名称。
   local service_name="$1"
+# 记录显示信息名称。
   local display_name="$2"
+# 记录超时时间seconds。
   local timeout_seconds="${3:-60}"
+# 记录elapsed。
   local elapsed=0
 
   echo "==> 等待 ${display_name} 就绪..."
 
   while (( elapsed < timeout_seconds )); do
+# 记录containerID。
     local container_id=""
+# 记录containerID。
     container_id="$(docker compose ps -q "$service_name" 2>/dev/null || true)"
 
     if [[ -n "$container_id" ]]; then
+# 记录status。
       local status=""
+# 记录status。
       status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container_id" 2>/dev/null || true)"
 
       case "$status" in
@@ -147,6 +180,7 @@ wait_for_service_healthy() {
     fi
 
     sleep 1
+# 记录elapsed。
     elapsed=$((elapsed + 1))
   done
 
@@ -154,22 +188,28 @@ wait_for_service_healthy() {
   return 1
 }
 
+# 按需自动拉起本地 PostgreSQL 和 Redis 基础设施。
 ensure_local_infra() {
   if [[ "${SKIP_LOCAL_INFRA:-0}" == "1" ]]; then
     echo "==> 已跳过基础设施自动启动 (SKIP_LOCAL_INFRA=1)"
     return 0
   fi
 
+# 记录needspostgres。
   local needs_postgres=0
+# 记录needsredis。
   local needs_redis=0
+# 记录services。
   local services=()
 
   if is_local_host "${DB_HOST:-localhost}" && ! is_tcp_port_open "${DB_HOST:-localhost}" "${DB_PORT:-5432}"; then
+# 记录needspostgres。
     needs_postgres=1
     services+=("postgres")
   fi
 
   if is_local_host "${REDIS_HOST:-localhost}" && ! is_tcp_port_open "${REDIS_HOST:-localhost}" "${REDIS_PORT:-6379}"; then
+# 记录needsredis。
     needs_redis=1
     services+=("redis")
   fi
@@ -189,16 +229,19 @@ ensure_local_infra() {
 
   if (( needs_postgres == 1 )) && is_local_host "${DB_HOST:-localhost}"; then
     if try_start_existing_container "mud-local-postgres" "PostgreSQL"; then
+# 记录needspostgres。
       needs_postgres=0
     fi
   fi
 
   if (( needs_redis == 1 )) && is_local_host "${REDIS_HOST:-localhost}"; then
     if try_start_existing_container "mud-local-redis" "Redis"; then
+# 记录needsredis。
       needs_redis=0
     fi
   fi
 
+# 记录services。
   services=()
   if (( needs_postgres == 1 )); then
     services+=("postgres")
@@ -262,14 +305,17 @@ case "$MODE" in
 
     echo "==> 启动共享包监听构建..."
     (pnpm --filter @mud/shared build --watch) &
+# 记录共享包watchpid。
     SHARED_WATCH_PID=$!
 
     echo "==> 启动服务端 (port 3000, watch 模式)..."
     (cd packages/server && pnpm start:dev) &
+# 记录服务端pid。
     SERVER_PID=$!
 
     echo "==> 启动客户端 (port 5173)..."
     (cd packages/client && npx vite --host --strictPort) &
+# 记录客户端pid。
     CLIENT_PID=$!
 
     trap cleanup INT TERM EXIT

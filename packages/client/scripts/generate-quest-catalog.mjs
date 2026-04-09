@@ -1,17 +1,42 @@
+/**
+ * 用途：为 client 生成任务目录缓存。
+ */
+
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+/**
+ * 记录客户端包目录。
+ */
 const clientDir = path.resolve(__dirname, '..');
+/**
+ * 记录仓库根目录。
+ */
 const repoRoot = path.resolve(clientDir, '..', '..');
+/**
+ * 记录任务目录。
+ */
 const questsDir = path.join(repoRoot, 'packages/server/data/content/quests');
+/**
+ * 记录输出文件路径。
+ */
 const outputPath = path.join(clientDir, 'src/constants/world/quest-catalog.generated.json');
 
+/**
+ * 递归遍历json文件列表。
+ */
 function walkJsonFiles(dirPath) {
+/**
+ * 汇总待处理文件列表。
+ */
   const files = [];
   for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
+/**
+ * 记录entry路径。
+ */
     const entryPath = path.join(dirPath, entry.name);
     if (entry.isDirectory()) {
       files.push(...walkJsonFiles(entryPath));
@@ -24,17 +49,35 @@ function walkJsonFiles(dirPath) {
   return files.sort((left, right) => left.localeCompare(right, 'zh-CN'));
 }
 
+/**
+ * 读取json。
+ */
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
+/**
+ * 规范化奖励。
+ */
 function normalizeReward(entry) {
   if (!entry || typeof entry !== 'object') {
     return null;
   }
+/**
+ * 记录物品ID。
+ */
   const itemId = typeof entry.itemId === 'string' ? entry.itemId : '';
+/**
+ * 记录名称。
+ */
   const name = typeof entry.name === 'string' ? entry.name : itemId;
+/**
+ * 记录type。
+ */
   const type = typeof entry.type === 'string' ? entry.type : 'material';
+/**
+ * 记录数量。
+ */
   const count = Number.isInteger(entry.count) ? Number(entry.count) : 1;
   if (!itemId) {
     return null;
@@ -47,22 +90,40 @@ function normalizeReward(entry) {
   };
 }
 
+/**
+ * 规范化任务。
+ */
 function normalizeQuest(rawQuest) {
   if (!rawQuest || typeof rawQuest !== 'object' || typeof rawQuest.id !== 'string' || typeof rawQuest.title !== 'string') {
     return null;
   }
+/**
+ * 记录rewards。
+ */
   const rewards = Array.isArray(rawQuest.reward)
     ? rawQuest.reward.map((entry) => normalizeReward(entry)).filter(Boolean)
     : [];
+/**
+ * 记录奖励物品ids。
+ */
   const rewardItemIds = rewards.map((entry) => entry.itemId);
+/**
+ * 记录奖励物品ID。
+ */
   const rewardItemId = typeof rawQuest.rewardItemId === 'string'
     ? rawQuest.rewardItemId
     : (rewardItemIds[0] ?? '');
+/**
+ * 记录奖励text。
+ */
   const rewardText = typeof rawQuest.rewardText === 'string'
     ? rawQuest.rewardText
     : (rewards.length > 0
       ? rewards.map((entry) => `${entry.name} x${entry.count}`).join('、')
       : '无');
+/**
+ * 记录required。
+ */
   const required = Number.isInteger(rawQuest.required)
     ? Number(rawQuest.required)
     : (Number.isInteger(rawQuest.targetCount) ? Number(rawQuest.targetCount) : 1);
@@ -107,11 +168,23 @@ function normalizeQuest(rawQuest) {
   };
 }
 
+/**
+ * 构建任务目录。
+ */
 function buildQuestCatalog() {
+/**
+ * 记录目录。
+ */
   const catalog = {};
   for (const filePath of walkJsonFiles(questsDir)) {
+/**
+ * 记录文档。
+ */
     const document = readJson(filePath);
     for (const rawQuest of Array.isArray(document.quests) ? document.quests : []) {
+/**
+ * 记录任务。
+ */
       const quest = normalizeQuest(rawQuest);
       if (!quest) {
         continue;
@@ -122,8 +195,14 @@ function buildQuestCatalog() {
   return catalog;
 }
 
+/**
+ * 写入ifchanged。
+ */
 function writeIfChanged(filePath, content) {
   if (fs.existsSync(filePath)) {
+/**
+ * 记录当前值。
+ */
     const current = fs.readFileSync(filePath, 'utf8');
     if (current === content) {
       console.log('quest-catalog.generated.json 无变更');

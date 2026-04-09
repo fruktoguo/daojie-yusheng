@@ -1,4 +1,8 @@
 "use strict";
+/**
+ * 用途：执行 gm-database-backup-persistence 链路的冒烟验证。
+ */
+
 Object.defineProperty(exports, "__esModule", { value: true });
 const node_child_process_1 = require("node:child_process");
 const node_fs_1 = require("node:fs");
@@ -7,13 +11,37 @@ const node_path_1 = require("node:path");
 const pg_1 = require("pg");
 const env_alias_1 = require("../config/env-alias");
 const gm_database_proof_lib_1 = require("./gm-database-proof-lib");
+/**
+ * 记录包根目录。
+ */
 const packageRoot = (0, node_path_1.resolve)(__dirname, '..', '..');
+/**
+ * 记录服务端入口文件路径。
+ */
 const serverEntry = (0, node_path_1.join)(packageRoot, 'dist', 'main.js');
+/**
+ * 记录数据库地址。
+ */
 const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
+/**
+ * 记录GMpassword。
+ */
 const gmPassword = (0, env_alias_1.resolveServerNextGmPassword)('admin123');
+/**
+ * 记录备份directory。
+ */
 const backupDirectory = (0, node_path_1.join)(packageRoot, '.runtime', `gm-database-backup-persistence-${Date.now().toString(36)}`);
+/**
+ * 记录当前值端口。
+ */
 let currentPort = Number(process.env.SERVER_NEXT_SMOKE_PORT ?? 3212);
+/**
+ * 记录base地址。
+ */
 let baseUrl = `http://127.0.0.1:${currentPort}`;
+/**
+ * 串联执行脚本主流程。
+ */
 async function main() {
     if (!databaseUrl.trim()) {
         console.log(JSON.stringify({ ok: true, skipped: true, reason: 'SERVER_NEXT_DATABASE_URL/DATABASE_URL missing' }, null, 2));
@@ -21,22 +49,43 @@ async function main() {
     }
     await resetGmAuthPasswordRecord();
     await node_fs_1.promises.mkdir(backupDirectory, { recursive: true });
+/**
+ * 记录服务端。
+ */
     let server = await startServer();
+/**
+ * 记录original备份ID。
+ */
     let originalBackupId = '';
+/**
+ * 记录备份jobID。
+ */
     let backupJobId = '';
     try {
         await (0, gm_database_proof_lib_1.waitForHealth)(baseUrl, {
             expectedStatus: 200,
             expectMaintenance: false,
         });
+/**
+ * 记录令牌。
+ */
         const token = await (0, gm_database_proof_lib_1.loginGm)(baseUrl, gmPassword);
+/**
+ * 记录备份结果。
+ */
         const backupResult = await (0, gm_database_proof_lib_1.triggerBackup)(baseUrl, token);
         originalBackupId = String(backupResult?.job?.backupId ?? '').trim();
         backupJobId = String(backupResult?.job?.id ?? '').trim();
         if (!originalBackupId || !backupJobId) {
             throw new Error(`missing backup job identity: ${JSON.stringify(backupResult)}`);
         }
+/**
+ * 记录备份状态。
+ */
         const backupState = await (0, gm_database_proof_lib_1.waitForJobSettled)(baseUrl, token, backupJobId, 'backup');
+/**
+ * 记录备份record。
+ */
         const backupRecord = (0, gm_database_proof_lib_1.requireBackupRecord)(backupState, originalBackupId, 'backup persistence smoke');
         await (0, gm_database_proof_lib_1.assertBackupDownload)(baseUrl, token, originalBackupId, backupRecord, {
             expectedFilePath: (0, gm_database_proof_lib_1.buildBackupFilePath)(backupDirectory, originalBackupId),
@@ -51,7 +100,13 @@ async function main() {
             expectedStatus: 200,
             expectMaintenance: false,
         });
+/**
+ * 记录令牌。
+ */
         const token = await (0, gm_database_proof_lib_1.loginGm)(baseUrl, gmPassword);
+/**
+ * 记录persisted状态。
+ */
         const persistedState = await (0, gm_database_proof_lib_1.authedGetJson)(baseUrl, '/gm/database/state', token);
         if (persistedState.runningJob) {
             throw new Error(`expected no running job after restart, got ${JSON.stringify(persistedState.runningJob)}`);
@@ -62,6 +117,9 @@ async function main() {
         if (persistedState.lastJob?.status !== 'completed' || persistedState.lastJob?.phase !== 'completed') {
             throw new Error(`expected persisted lastJob completed, got ${JSON.stringify(persistedState.lastJob)}`);
         }
+/**
+ * 记录persistedrecord。
+ */
         const persistedRecord = (0, gm_database_proof_lib_1.requireBackupRecord)(persistedState, originalBackupId, 'persisted backup after restart');
         await (0, gm_database_proof_lib_1.assertBackupDownload)(baseUrl, token, originalBackupId, persistedRecord, {
             expectedFilePath: (0, gm_database_proof_lib_1.buildBackupFilePath)(backupDirectory, originalBackupId),
@@ -85,9 +143,15 @@ async function main() {
         await node_fs_1.promises.rm(backupDirectory, { recursive: true, force: true }).catch(() => undefined);
     }
 }
+/**
+ * 启动服务端。
+ */
 async function startServer() {
     currentPort = await allocateFreePort();
     baseUrl = `http://127.0.0.1:${currentPort}`;
+/**
+ * 记录子进程。
+ */
     const child = (0, node_child_process_1.spawn)('node', [serverEntry], {
         cwd: packageRoot,
         env: {
@@ -103,6 +167,9 @@ async function startServer() {
     child.stderr?.on('data', (chunk) => process.stderr.write(String(chunk)));
     return child;
 }
+/**
+ * 停止服务端。
+ */
 async function stopServer(child) {
     if (!child) {
         return;
@@ -112,6 +179,9 @@ async function stopServer(child) {
     }
     child.kill('SIGINT');
     await new Promise((resolve) => {
+/**
+ * 记录timer。
+ */
         const timer = setTimeout(() => {
             child.kill('SIGKILL');
             resolve();
@@ -122,7 +192,13 @@ async function stopServer(child) {
         });
     });
 }
+/**
+ * 处理resetGM认证passwordrecord。
+ */
 async function resetGmAuthPasswordRecord() {
+/**
+ * 记录客户端。
+ */
     const client = new pg_1.Client({ connectionString: databaseUrl });
     await client.connect();
     try {
@@ -141,13 +217,25 @@ async function resetGmAuthPasswordRecord() {
         await client.end().catch(() => undefined);
     }
 }
+/**
+ * 分配free端口。
+ */
 async function allocateFreePort() {
     return new Promise((resolve, reject) => {
+/**
+ * 记录服务端。
+ */
         const server = (0, node_net_1.createServer)();
         server.unref();
         server.once('error', reject);
         server.listen(0, '127.0.0.1', () => {
+/**
+ * 记录address。
+ */
             const address = server.address();
+/**
+ * 记录端口。
+ */
             const port = typeof address === 'object' && address ? address.port : 0;
             server.close((error) => {
                 if (error) {

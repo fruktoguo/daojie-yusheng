@@ -1,27 +1,70 @@
 "use strict";
+/**
+ * 用途：执行 monster-combat 链路的冒烟验证。
+ */
+
 Object.defineProperty(exports, "__esModule", { value: true });
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared-next");
 const env_alias_1 = require("../config/env-alias");
+/**
+ * 记录 server-next 访问地址。
+ */
 const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
+/**
+ * 记录玩家ID。
+ */
 let playerId = '';
+/**
+ * 记录instanceID。
+ */
 const instanceId = process.env.SERVER_NEXT_SMOKE_INSTANCE_ID ?? 'public:wildlands';
+/**
+ * 记录优先值怪物ID。
+ */
 const preferredMonsterId = process.env.SERVER_NEXT_SMOKE_MONSTER_ID ?? 'm_dust_vulture';
+/**
+ * 记录技能book物品ID。
+ */
 const skillBookItemId = 'book.redflame_art';
+/**
+ * 记录技能ID。
+ */
 const skillId = 'skill.fire_talisman';
+/**
+ * 记录技能range。
+ */
 const skillRange = 3;
+/**
+ * 记录boostedvitalcap。
+ */
 const boostedVitalCap = 999;
+/**
+ * 串联执行脚本主流程。
+ */
 async function main() {
+/**
+ * 记录initialmonsters。
+ */
     const initialMonsters = await fetchJson(`${SERVER_NEXT_URL}/runtime/instances/${instanceId}/monsters`);
+/**
+ * 记录目标。
+ */
     const target = initialMonsters.monsters.find((entry) => entry.alive && entry.monsterId === preferredMonsterId)
         ?? initialMonsters.monsters.find((entry) => entry.alive);
     if (!target) {
         throw new Error(`no alive monster found in ${instanceId}`);
     }
+/**
+ * 记录socket。
+ */
     const socket = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
         path: '/socket.io',
         transports: ['websocket'],
     });
+/**
+ * 记录worldevents。
+ */
     const worldEvents = [];
     socket.on(shared_1.NEXT_S2C.Error, (payload) => {
         throw new Error(`socket error: ${JSON.stringify(payload)}`);
@@ -45,6 +88,9 @@ async function main() {
             if (!playerId) {
                 return false;
             }
+/**
+ * 记录状态。
+ */
             const state = await fetchPlayerState(playerId);
             return Boolean(state.player);
         }, 5000);
@@ -55,27 +101,45 @@ async function main() {
             maxQi: boostedVitalCap,
         });
         await waitFor(async () => {
+/**
+ * 记录状态。
+ */
             const state = await fetchPlayerState(playerId);
             return state.player?.hp === boostedVitalCap
                 && state.player?.maxHp === boostedVitalCap
                 && state.player?.qi === boostedVitalCap
                 && state.player?.maxQi === boostedVitalCap;
         }, 5000);
+/**
+ * 记录initial状态。
+ */
         const initialState = await fetchPlayerState(playerId);
         await postJson(`/runtime/players/${playerId}/grant-item`, {
             itemId: skillBookItemId,
             count: 1,
         });
+/**
+ * 记录状态withbook。
+ */
         const stateWithBook = await fetchPlayerState(playerId);
+/**
+ * 记录bookslot。
+ */
         const bookSlot = stateWithBook.player.inventory.items.findIndex((entry) => entry.itemId === skillBookItemId);
         if (bookSlot < 0) {
             throw new Error(`monster combat smoke missing technique book ${skillBookItemId}`);
         }
         socket.emit(shared_1.NEXT_C2S.UseItem, { slotIndex: bookSlot });
         await waitFor(async () => {
+/**
+ * 记录状态。
+ */
             const state = await fetchPlayerState(playerId);
             return state.player?.actions?.actions?.some((entry) => entry.id === skillId);
         }, 5000);
+/**
+ * 记录learned状态。
+ */
         const learnedState = await fetchPlayerState(playerId);
         if (learnedState.player?.combat?.autoRetaliate) {
             socket.emit(shared_1.NEXT_C2S.UseAction, { actionId: 'toggle:auto_retaliate' });
@@ -92,6 +156,9 @@ async function main() {
             maxQi: boostedVitalCap,
         });
         await waitFor(async () => {
+/**
+ * 记录状态。
+ */
             const state = await fetchPlayerState(playerId);
             return state.player?.instanceId === instanceId
                 && state.player?.combat?.autoRetaliate === false
@@ -101,26 +168,53 @@ async function main() {
                 && state.player?.qi === boostedVitalCap
                 && state.player?.maxQi === boostedVitalCap;
         }, 5000);
+/**
+ * 记录resolved目标。
+ */
         const resolvedTarget = await waitForState(async () => {
             const [view, playerState] = await Promise.all([
                 fetchPlayerView(playerId),
                 fetchPlayerState(playerId),
             ]);
+/**
+ * 记录visiblemonsters。
+ */
             const visibleMonsters = (view.view?.localMonsters ?? []);
+/**
+ * 记录玩家。
+ */
             const player = playerState.player;
             if (!player) {
                 return null;
             }
+/**
+ * 记录inrangemonsters。
+ */
             const inRangeMonsters = visibleMonsters.filter((entry) => Math.max(Math.abs(entry.x - player.x), Math.abs(entry.y - player.y)) <= skillRange);
+/**
+ * 记录优先值目标。
+ */
             const preferredTarget = inRangeMonsters.find((entry) => entry.monsterId === target.monsterId);
+/**
+ * 记录fallback目标。
+ */
             const fallbackTarget = inRangeMonsters[0];
             return preferredTarget ?? fallbackTarget ?? null;
         }, 5000);
+/**
+ * 记录resolved怪物。
+ */
         const resolvedMonster = await fetchMonster(instanceId, resolvedTarget.runtimeId);
         if (!resolvedMonster.monster?.alive) {
             throw new Error(`resolved monster ${resolvedTarget.runtimeId} is not alive`);
         }
+/**
+ * 记录before玩家。
+ */
         const beforePlayer = await fetchPlayerState(playerId);
+/**
+ * 记录before怪物。
+ */
         const beforeMonster = resolvedMonster;
         socket.emit(shared_1.NEXT_C2S.CastSkill, {
             skillId,
@@ -136,7 +230,13 @@ async function main() {
                 && monsterState.monster.hp < beforeMonster.monster.hp
                 && worldEvents.some((payload) => payload.m?.some((entry) => entry.id === resolvedTarget.runtimeId && typeof entry.hp === 'number' && entry.hp < beforeMonster.monster.hp));
         }, 5000);
+/**
+ * 记录final玩家。
+ */
         const finalPlayer = await fetchPlayerState(playerId);
+/**
+ * 记录final怪物。
+ */
         const finalMonster = await fetchMonster(instanceId, resolvedTarget.runtimeId);
         console.log(JSON.stringify({
             ok: true,
@@ -157,23 +257,44 @@ async function main() {
         await deletePlayer(playerId);
     }
 }
+/**
+ * 处理fetch玩家状态。
+ */
 async function fetchPlayerState(playerIdValue) {
     return fetchJson(`${SERVER_NEXT_URL}/runtime/players/${playerIdValue}/state`);
 }
+/**
+ * 处理fetch怪物。
+ */
 async function fetchMonster(instanceIdValue, runtimeId) {
     return fetchJson(`${SERVER_NEXT_URL}/runtime/instances/${instanceIdValue}/monsters/${runtimeId}`);
 }
+/**
+ * 处理fetch玩家view。
+ */
 async function fetchPlayerView(playerIdValue) {
     return fetchJson(`${SERVER_NEXT_URL}/runtime/players/${playerIdValue}/view`);
 }
+/**
+ * 处理fetchjson。
+ */
 async function fetchJson(url) {
+/**
+ * 记录response。
+ */
     const response = await fetch(url);
     if (!response.ok) {
         throw new Error(`request failed: ${response.status} ${await response.text()}`);
     }
     return response.json();
 }
+/**
+ * 处理postjson。
+ */
 async function postJson(path, body) {
+/**
+ * 记录response。
+ */
     const response = await fetch(`${SERVER_NEXT_URL}${path}`, {
         method: 'POST',
         headers: {
@@ -185,11 +306,17 @@ async function postJson(path, body) {
         throw new Error(`request failed: ${response.status} ${await response.text()}`);
     }
 }
+/**
+ * 处理onceconnected。
+ */
 async function onceConnected(socket) {
     if (socket.connected) {
         return;
     }
     await new Promise((resolve, reject) => {
+/**
+ * 记录timer。
+ */
         const timer = setTimeout(() => reject(new Error('socket connect timeout')), 4000);
         socket.once('connect', () => {
             clearTimeout(timer);
@@ -201,7 +328,13 @@ async function onceConnected(socket) {
         });
     });
 }
+/**
+ * 处理delete玩家。
+ */
 async function deletePlayer(playerIdValue) {
+/**
+ * 记录response。
+ */
     const response = await fetch(`${SERVER_NEXT_URL}/runtime/players/${playerIdValue}`, {
         method: 'DELETE',
     });
@@ -209,7 +342,13 @@ async function deletePlayer(playerIdValue) {
         throw new Error(`request failed: ${response.status} ${await response.text()}`);
     }
 }
+/**
+ * 等待for。
+ */
 async function waitFor(predicate, timeoutMs) {
+/**
+ * 记录startedat。
+ */
     const startedAt = Date.now();
     while (!(await predicate())) {
         if (Date.now() - startedAt > timeoutMs) {
@@ -218,9 +357,18 @@ async function waitFor(predicate, timeoutMs) {
         await new Promise((resolve) => setTimeout(resolve, 100));
     }
 }
+/**
+ * 等待for状态。
+ */
 async function waitForState(loader, timeoutMs) {
+/**
+ * 记录startedat。
+ */
     const startedAt = Date.now();
     while (true) {
+/**
+ * 记录价值。
+ */
         const value = await loader();
         if (value) {
             return value;

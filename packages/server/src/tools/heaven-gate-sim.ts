@@ -31,6 +31,9 @@ interface SimulationSummary {
   allRootsEqualCount: number;
 }
 
+/**
+ * 记录heavengateaveragequalitysegments。
+ */
 const HEAVEN_GATE_AVERAGE_QUALITY_SEGMENTS: Record<number, Segment[]> = {
   5: [
     { min: 1, max: 15, weight: 35 },
@@ -80,6 +83,9 @@ const HEAVEN_GATE_AVERAGE_QUALITY_SEGMENTS: Record<number, Segment[]> = {
   ],
 };
 
+/**
+ * 记录heavengatedistributionspread。
+ */
 const HEAVEN_GATE_DISTRIBUTION_SPREAD: Record<number, number> = {
   5: 0.18,
   4: 0.28,
@@ -87,9 +93,18 @@ const HEAVEN_GATE_DISTRIBUTION_SPREAD: Record<number, number> = {
   2: 0.58,
   1: 0,
 };
+/**
+ * 记录heavengateextraperfect根目录softcap。
+ */
 const HEAVEN_GATE_EXTRA_PERFECT_ROOT_SOFT_CAP = 174;
 
+/**
+ * 解析参数。
+ */
 function parseArgs(argv: string[]): CliOptions {
+/**
+ * 记录values。
+ */
   const values = new Map<string, string>();
   for (const arg of argv) {
     if (!arg.startsWith('--')) {
@@ -107,6 +122,9 @@ function parseArgs(argv: string[]): CliOptions {
   };
 }
 
+/**
+ * 处理clampremaining。
+ */
 function clampRemaining(value: number): number {
   if (!Number.isFinite(value)) {
     return 5;
@@ -114,7 +132,13 @@ function clampRemaining(value: number): number {
   return Math.max(1, Math.min(5, Math.floor(value)));
 }
 
+/**
+ * 创建rng。
+ */
 function createRng(seed: number): () => number {
+/**
+ * 记录状态。
+ */
   let state = seed >>> 0;
   return () => {
     state = (state * 1664525 + 1013904223) >>> 0;
@@ -122,8 +146,17 @@ function createRng(seed: number): () => number {
   };
 }
 
+/**
+ * 处理weightedpicksegment。
+ */
 function weightedPickSegment(segments: Segment[], rng: () => number): Segment {
+/**
+ * 记录totalweight。
+ */
   const totalWeight = segments.reduce((sum, segment) => sum + segment.weight, 0);
+/**
+ * 记录cursor。
+ */
   let cursor = rng() * totalWeight;
   for (const segment of segments) {
     cursor -= segment.weight;
@@ -134,11 +167,20 @@ function weightedPickSegment(segments: Segment[], rng: () => number): Segment {
   return segments[segments.length - 1]!;
 }
 
+/**
+ * 处理randomint。
+ */
 function randomInt(min: number, max: number, rng: () => number): number {
   return Math.floor(rng() * (max - min + 1)) + min;
 }
 
+/**
+ * 处理distributeroots。
+ */
 function distributeRoots(total: number, remaining: ElementKey[], rng: () => number): HeavenGateRootValues {
+/**
+ * 累计当前结果。
+ */
   const result = ELEMENT_KEYS.reduce((state, key) => {
     state[key] = 0;
     return state;
@@ -164,20 +206,47 @@ function distributeRoots(total: number, remaining: ElementKey[], rng: () => numb
     return result;
   }
 
+/**
+ * 记录spread。
+ */
   const spread = HEAVEN_GATE_DISTRIBUTION_SPREAD[remaining.length] ?? 0.18;
+/**
+ * 记录scores。
+ */
   const scores = remaining.map(() => Math.max(0.08, 1 + (rng() * 2 - 1) * spread));
+/**
+ * 记录scoresum。
+ */
   const scoreSum = scores.reduce((sum, score) => sum + score, 0);
+/**
+ * 记录remainder。
+ */
   const remainder = Math.max(0, total - remaining.length);
+/**
+ * 记录allocations。
+ */
   const allocations = remaining.map((element, index) => ({
     element,
     extra: Math.min(99, Math.floor((remainder * scores[index]!) / scoreSum)),
     fraction: (remainder * scores[index]!) / scoreSum,
   }));
 
+/**
+ * 记录allocated。
+ */
   let allocated = allocations.reduce((sum, entry) => sum + entry.extra, 0);
+/**
+ * 记录sorted。
+ */
   const sorted = [...allocations].sort((left, right) => right.fraction - left.fraction);
+/**
+ * 记录cursor。
+ */
   let cursor = 0;
   while (allocated < remainder) {
+/**
+ * 记录目标。
+ */
     const target = sorted[cursor % sorted.length]!;
     if (target.extra < 99) {
       target.extra += 1;
@@ -192,18 +261,39 @@ function distributeRoots(total: number, remaining: ElementKey[], rng: () => numb
   return result;
 }
 
+/**
+ * 获取extraperfect根目录keepchance。
+ */
 function getExtraPerfectRootKeepChance(averageBonus: number): number {
+/**
+ * 记录bonus。
+ */
   const bonus = Math.max(0, averageBonus);
   if (bonus <= 0) {
     return 1;
   }
+/**
+ * 记录squaredbonus。
+ */
   const squaredBonus = bonus * bonus;
+/**
+ * 记录squaredsoftcap。
+ */
   const squaredSoftCap = HEAVEN_GATE_EXTRA_PERFECT_ROOT_SOFT_CAP * HEAVEN_GATE_EXTRA_PERFECT_ROOT_SOFT_CAP;
   return squaredBonus / (squaredBonus + squaredSoftCap);
 }
 
+/**
+ * 处理softenperfectroots。
+ */
 function softenPerfectRoots(roots: HeavenGateRootValues, averageBonus: number, rng: () => number): HeavenGateRootValues {
+/**
+ * 记录keepchance。
+ */
   const keepChance = getExtraPerfectRootKeepChance(averageBonus);
+/**
+ * 记录preservedperfect数量。
+ */
   let preservedPerfectCount = 0;
   for (const key of ELEMENT_KEYS) {
     if (roots[key] !== 100) {
@@ -222,10 +312,25 @@ function softenPerfectRoots(roots: HeavenGateRootValues, averageBonus: number, r
   return roots;
 }
 
+/**
+ * 处理rollroots。
+ */
 function rollRoots(remainingCount: number, averageBonus: number, rng: () => number): { roots: HeavenGateRootValues; averageQuality: number } {
+/**
+ * 记录remaining。
+ */
   const remaining = ELEMENT_KEYS.slice(0, remainingCount);
+/**
+ * 记录segments。
+ */
   const segments = HEAVEN_GATE_AVERAGE_QUALITY_SEGMENTS[remainingCount] ?? HEAVEN_GATE_AVERAGE_QUALITY_SEGMENTS[1];
+/**
+ * 记录segment。
+ */
   const segment = weightedPickSegment(segments, rng);
+/**
+ * 记录averagequality。
+ */
   const averageQuality = Math.min(100, randomInt(segment.min, segment.max, rng) + Math.max(0, averageBonus));
   return {
     roots: softenPerfectRoots(distributeRoots(averageQuality * remaining.length, remaining, rng), averageBonus, rng),
@@ -233,32 +338,80 @@ function rollRoots(remainingCount: number, averageBonus: number, rng: () => numb
   };
 }
 
+/**
+ * 获取expectedaveragequality。
+ */
 function getExpectedAverageQuality(remainingCount: number, averageBonus: number): number {
+/**
+ * 记录segments。
+ */
   const segments = HEAVEN_GATE_AVERAGE_QUALITY_SEGMENTS[remainingCount] ?? HEAVEN_GATE_AVERAGE_QUALITY_SEGMENTS[1];
   return segments.reduce((sum, segment) => {
+/**
+ * 记录expected。
+ */
     const expected = Math.min(100, ((segment.min + segment.max) / 2) + Math.max(0, averageBonus));
     return sum + expected * (segment.weight / 100);
   }, 0);
 }
 
+/**
+ * 处理simulate。
+ */
 function simulate(options: CliOptions): SimulationSummary {
+/**
+ * 记录rng。
+ */
   const rng = createRng(options.seed);
+/**
+ * 记录averagequalitysum。
+ */
   let averageQualitySum = 0;
+/**
+ * 记录totalsum。
+ */
   let totalSum = 0;
+/**
+ * 记录top根目录sum。
+ */
   let topRootSum = 0;
+/**
+ * 记录bottom根目录sum。
+ */
   let bottomRootSum = 0;
+/**
+ * 记录mintotal。
+ */
   let minTotal = Number.POSITIVE_INFINITY;
+/**
+ * 记录maxtotal。
+ */
   let maxTotal = Number.NEGATIVE_INFINITY;
+/**
+ * 记录totalperfect数量。
+ */
   let totalPerfectCount = 0;
+/**
+ * 记录anyperfect根目录数量。
+ */
   let anyPerfectRootCount = 0;
+/**
+ * 记录allrootsequal数量。
+ */
   let allRootsEqualCount = 0;
 
   for (let index = 0; index < options.runs; index += 1) {
     const { roots, averageQuality } = rollRoots(options.remaining, options.bonus, rng);
+/**
+ * 记录values。
+ */
     const values = ELEMENT_KEYS
       .map((key) => roots[key])
       .filter((value) => value > 0)
       .sort((left, right) => right - left);
+/**
+ * 记录total。
+ */
     const total = values.reduce((sum, value) => sum + value, 0);
 
     averageQualitySum += averageQuality;
@@ -291,15 +444,33 @@ function simulate(options: CliOptions): SimulationSummary {
   };
 }
 
+/**
+ * 格式化percent。
+ */
 function formatPercent(count: number, total: number): string {
   return `${((count / total) * 100).toFixed(4)}%`;
 }
 
+/**
+ * 串联执行脚本主流程。
+ */
 function main(): void {
+/**
+ * 保存解析后的选项。
+ */
   const options = parseArgs(process.argv.slice(2));
+/**
+ * 记录expectedaveragequality。
+ */
   const expectedAverageQuality = getExpectedAverageQuality(options.remaining, options.bonus);
+/**
+ * 记录汇总。
+ */
   const summary = simulate(options);
 
+/**
+ * 汇总输出行。
+ */
   const lines = [
     '开天门 Monte Carlo 模拟',
     `remaining: ${options.remaining}`,

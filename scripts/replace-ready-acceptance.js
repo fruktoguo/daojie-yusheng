@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 'use strict';
 
+/**
+ * 用途：执行 server-next 替换链路的验收验证流程。
+ */
+
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 
@@ -12,12 +16,27 @@ const {
   resolveServerNextShadowUrlEnvSource,
 } = require('../packages/server-next/src/config/env-alias');
 
+/**
+ * 记录shadow 环境地址。
+ */
 const shadowUrl = resolveServerNextShadowUrl();
+/**
+ * 记录shadow 环境环境变量来源地址。
+ */
 const shadowUrlEnvSource = resolveServerNextShadowUrlEnvSource();
+/**
+ * 记录GMpassword。
+ */
 const gmPassword = resolveServerNextGmPassword();
+/**
+ * 记录GMpassword环境变量来源。
+ */
 const gmPasswordEnvSource = resolveServerNextGmPasswordEnvSource();
 
 if (!shadowUrl || !gmPassword) {
+/**
+ * 记录missing。
+ */
   const missing = [
     shadowUrl ? null : 'SERVER_NEXT_SHADOW_URL/SERVER_NEXT_URL',
     gmPassword ? null : 'SERVER_NEXT_GM_PASSWORD/GM_PASSWORD',
@@ -27,7 +46,13 @@ if (!shadowUrl || !gmPassword) {
   process.exit(1);
 }
 
+/**
+ * 记录节点bin。
+ */
 const nodeBin = process.execPath;
+/**
+ * 汇总需要串行执行的步骤。
+ */
 const steps = [
   {
     label: 'replace-ready',
@@ -54,8 +79,14 @@ const steps = [
 process.stdout.write('[replace-ready:acceptance] steps=replace-ready -> shadow -> gm-compat\n');
 
 for (const step of steps) {
+/**
+ * 记录命令。
+ */
   const command = step.kind === 'pnpm' ? 'pnpm' : nodeBin;
   process.stdout.write(`[replace-ready:acceptance] start step=${step.label}\n`);
+/**
+ * 累计当前结果。
+ */
   const result = spawnSync(command, step.args, {
     cwd: repoRoot,
     stdio: 'inherit',

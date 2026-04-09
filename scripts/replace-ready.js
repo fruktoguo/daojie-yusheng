@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 'use strict';
 
+/**
+ * 用途：执行 server-next 替换链路的默认验证流程。
+ */
+
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 
@@ -10,12 +14,27 @@ const {
   resolveServerNextDatabaseUrl,
 } = require('../packages/server-next/src/config/env-alias');
 
+/**
+ * 记录数据库地址。
+ */
 const databaseUrl = resolveServerNextDatabaseUrl();
+/**
+ * 记录数据库环境变量来源。
+ */
 const databaseEnvSource = resolveServerNextDatabaseEnvSource();
+/**
+ * 记录校验script名称。
+ */
 const verifyScriptName = databaseUrl
   ? 'verify:replace-ready:with-db'
   : 'verify:replace-ready';
+/**
+ * 记录replace就绪状态mode。
+ */
 const replaceReadyMode = databaseUrl ? 'with-db' : 'local';
+/**
+ * 汇总子进程环境变量。
+ */
 const childEnv = {
   ...process.env,
   ...(databaseEnvSource === 'SERVER_NEXT_DATABASE_URL'
@@ -23,6 +42,9 @@ const childEnv = {
     : (databaseUrl ? { SERVER_NEXT_DATABASE_URL: databaseUrl } : null)),
 };
 
+/**
+ * 汇总需要串行执行的步骤。
+ */
 const steps = [
   { label: 'build:client-next', args: ['build:client-next'] },
   { label: verifyScriptName, args: ['--filter', '@mud/server-next', verifyScriptName] },
@@ -34,6 +56,9 @@ process.stdout.write(`[replace-ready] steps=${steps.map((step) => step.label).jo
 
 for (const step of steps) {
   process.stdout.write(`[replace-ready] start step=${step.label}\n`);
+/**
+ * 累计当前结果。
+ */
   const result = spawnSync('pnpm', step.args, {
     cwd: repoRoot,
     stdio: 'inherit',

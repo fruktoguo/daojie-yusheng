@@ -1,15 +1,31 @@
 #!/usr/bin/env node
 
+/**
+ * 用途：同步功法秘籍物品与功法内容的对应关系。
+ */
+
 import fs from 'node:fs';
 import path from 'node:path';
 
 const ROOT = process.cwd();
 const ITEMS_ROOT = path.join(ROOT, 'packages/server/data/content/items');
 const TECHNIQUES_ROOT = path.join(ROOT, 'packages/server/data/content/techniques/练气期');
+/**
+ * 记录monsters根目录。
+ */
 const MONSTERS_ROOT = path.join(ROOT, 'packages/server/data/content/monsters');
 
+/**
+ * 记录品阶order。
+ */
 const GRADE_ORDER = ['yellow', 'mystic', 'earth', 'heaven', 'spirit', 'saint', 'emperor'];
+/**
+ * 记录类别order。
+ */
 const CATEGORY_ORDER = ['arts', 'internal', 'body', 'movement', 'divine', 'secret', 'other'];
+/**
+ * 记录bookassignments。
+ */
 const BOOK_ASSIGNMENTS = [
   ['m_cleft_blade_wraith', 'genghua_ningfeng'],
   ['m_cleft_blade_wraith', 'jinluo_lifeng'],
@@ -66,6 +82,9 @@ const BOOK_ASSIGNMENTS = [
   ['m_guizang_failed_foundation', 'hunyuan_zaimai'],
 ];
 
+/**
+ * 汇总目标怪物文件列表。
+ */
 const TARGET_MONSTER_FILES = new Set([
   '裂锋原.json',
   '青萝谷.json',
@@ -75,10 +94,16 @@ const TARGET_MONSTER_FILES = new Set([
   '归藏脉窟.json',
 ]);
 
+/**
+ * 收集json文件列表。
+ */
 function collectJsonFiles(dirPath) {
   return fs.readdirSync(dirPath, { withFileTypes: true })
     .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'))
     .flatMap((entry) => {
+/**
+ * 记录entry路径。
+ */
       const entryPath = path.join(dirPath, entry.name);
       if (entry.isDirectory()) {
         return collectJsonFiles(entryPath);
@@ -87,17 +112,32 @@ function collectJsonFiles(dirPath) {
     });
 }
 
+/**
+ * 读取json。
+ */
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
+/**
+ * 写入json。
+ */
 function writeJson(filePath, value) {
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
 }
 
+/**
+ * 读取境界techniques。
+ */
 function readRealmTechniques() {
+/**
+ * 记录techniques。
+ */
   const techniques = [];
   for (const filePath of collectJsonFiles(TECHNIQUES_ROOT)) {
+/**
+ * 汇总当前条目列表。
+ */
     const entries = readJson(filePath);
     if (!Array.isArray(entries)) {
       throw new Error(`功法文件不是数组：${filePath}`);
@@ -109,16 +149,31 @@ function readRealmTechniques() {
   return techniques;
 }
 
+/**
+ * 比较功法。
+ */
 function compareTechnique(left, right) {
+/**
+ * 记录品阶diff。
+ */
   const gradeDiff = GRADE_ORDER.indexOf(left.grade) - GRADE_ORDER.indexOf(right.grade);
   if (gradeDiff !== 0) return gradeDiff;
+/**
+ * 记录类别diff。
+ */
   const categoryDiff = CATEGORY_ORDER.indexOf(left.category) - CATEGORY_ORDER.indexOf(right.category);
   if (categoryDiff !== 0) return categoryDiff;
+/**
+ * 记录境界diff。
+ */
   const realmDiff = (left.realmLv ?? 0) - (right.realmLv ?? 0);
   if (realmDiff !== 0) return realmDiff;
   return String(left.name).localeCompare(String(right.name), 'zh-CN');
 }
 
+/**
+ * 创建book物品。
+ */
 function createBookItem(technique) {
   return {
     itemId: `book.${technique.id}`,
@@ -129,23 +184,41 @@ function createBookItem(technique) {
   };
 }
 
+/**
+ * 规范化怪物kind。
+ */
 function normalizeMonsterKind(monster) {
   if (monster.tier === 'demon_king') return 'boss';
   if (monster.tier === 'variant') return 'elite';
   return 'normal';
 }
 
+/**
+ * 校验assignments。
+ */
 function validateAssignments(techniqueById, monsterIndex) {
+/**
+ * 记录assignedcounts。
+ */
   const assignedCounts = new Map();
   for (const [monsterId, techniqueId] of BOOK_ASSIGNMENTS) {
+/**
+ * 记录功法。
+ */
     const technique = techniqueById.get(techniqueId);
     if (!technique) {
       throw new Error(`未找到功法：${techniqueId}`);
     }
+/**
+ * 记录怪物。
+ */
     const monster = monsterIndex.get(monsterId);
     if (!monster) {
       throw new Error(`未找到怪物：${monsterId}`);
     }
+/**
+ * 记录kind。
+ */
     const kind = normalizeMonsterKind(monster.entry);
     if (technique.grade === 'yellow' && kind !== 'normal') {
       throw new Error(`黄阶功法 ${techniqueId} 被分配到了非普通怪：${monsterId}`);
@@ -166,19 +239,55 @@ function validateAssignments(techniqueById, monsterIndex) {
   }
 }
 
+/**
+ * 串联执行脚本主流程。
+ */
 function main() {
+/**
+ * 记录techniques。
+ */
   const techniques = readRealmTechniques();
+/**
+ * 记录功法byID。
+ */
   const techniqueById = new Map(techniques.map((entry) => [entry.id, entry]));
+/**
+ * 记录境界功法ids。
+ */
   const realmTechniqueIds = new Set(techniqueById.keys());
+/**
+ * 记录newbook物品ids。
+ */
   const newBookItemIds = new Set(techniques.map((entry) => `book.${entry.id}`));
 
+/**
+ * 记录mortalbooks路径。
+ */
   const mortalBooksPath = path.join(ITEMS_ROOT, '凡人期/书籍.json');
+/**
+ * 记录qibooks路径。
+ */
   const qiBooksPath = path.join(ITEMS_ROOT, '练气期/书籍.json');
+/**
+ * 记录mortalbooks。
+ */
   const mortalBooks = readJson(mortalBooksPath).filter((item) => !realmTechniqueIds.has(item.learnTechniqueId));
+/**
+ * 记录qibooks。
+ */
   const qiBooks = [...techniques].sort(compareTechnique).map(createBookItem);
 
+/**
+ * 汇总怪物文件列表。
+ */
   const monsterFiles = collectJsonFiles(MONSTERS_ROOT);
-  const monsterIndex = new Map();
+/**
+ * 记录怪物索引。
+ */
+  const monsterIndex = new Map();/**
+ * 保存怪物文件映射。
+ */
+
   const monsterFileMap = new Map();
   for (const filePath of monsterFiles) {
     const entries = readJson(filePath);
@@ -190,7 +299,10 @@ function main() {
 
   validateAssignments(techniqueById, monsterIndex);
 
-  for (const [filePath, monsters] of monsterFileMap.entries()) {
+  for (const [filePath, monsters] of monsterFileMap.entries()) {/**
+ * 标记是否目标文件。
+ */
+
     const isTargetFile = TARGET_MONSTER_FILES.has(path.basename(filePath));
     for (const monster of monsters) {
       const drops = Array.isArray(monster.drops) ? monster.drops : [];
@@ -207,7 +319,13 @@ function main() {
   }
 
   for (const [monsterId, techniqueId] of BOOK_ASSIGNMENTS) {
+/**
+ * 记录book。
+ */
     const book = createBookItem(techniqueById.get(techniqueId));
+/**
+ * 记录怪物。
+ */
     const monster = monsterIndex.get(monsterId)?.entry;
     if (!monster) {
       throw new Error(`掉落回填时未找到怪物：${monsterId}`);

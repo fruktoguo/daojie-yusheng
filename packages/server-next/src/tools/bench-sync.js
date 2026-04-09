@@ -1,9 +1,22 @@
 "use strict";
+/**
+ * 用途：基准测试 sync 链路性能。
+ */
+
 Object.defineProperty(exports, "__esModule", { value: true });
 const shared_1 = require("@mud/shared-next");
 const world_projector_service_1 = require("../network/world-projector.service");
+/**
+ * 记录iterations。
+ */
 const ITERATIONS = 20_000;
+/**
+ * 串联执行脚本主流程。
+ */
 function main() {
+/**
+ * 记录binding。
+ */
     const binding = {
         playerId: 'bench_player',
         sessionId: 'bench_session',
@@ -13,8 +26,17 @@ function main() {
         detachedAt: null,
         expireAt: null,
     };
+/**
+ * 记录baseview。
+ */
     const baseView = createBaseView();
+/**
+ * 记录base玩家。
+ */
     const basePlayer = createBasePlayer();
+/**
+ * 记录scenarios。
+ */
     const scenarios = [
         runIdleScenario(binding, baseView, basePlayer),
         runMoveScenario(binding, baseView, basePlayer),
@@ -28,12 +50,27 @@ function main() {
         scenarios,
     }, null, 2));
 }
+/**
+ * 运行idlescenario。
+ */
 function runIdleScenario(binding, baseView, basePlayer) {
+/**
+ * 记录projector。
+ */
     const projector = new world_projector_service_1.WorldProjectorService();
     projector.createInitialEnvelope(binding, baseView, basePlayer);
+/**
+ * 记录durationsms。
+ */
     const durationsMs = [];
     for (let index = 0; index < ITERATIONS; index += 1) {
+/**
+ * 记录startedat。
+ */
         const startedAt = performance.now();
+/**
+ * 记录envelope。
+ */
         const envelope = projector.createDeltaEnvelope(baseView, basePlayer);
         durationsMs.push(performance.now() - startedAt);
         if (envelope !== null) {
@@ -50,9 +87,18 @@ function runIdleScenario(binding, baseView, basePlayer) {
         maxBytes: 0,
     };
 }
+/**
+ * 运行movescenario。
+ */
 function runMoveScenario(binding, baseView, basePlayer) {
+/**
+ * 记录projector。
+ */
     const projector = new world_projector_service_1.WorldProjectorService();
     projector.createInitialEnvelope(binding, baseView, basePlayer);
+/**
+ * 记录movedview。
+ */
     const movedView = {
         ...baseView,
         tick: baseView.tick + 1,
@@ -63,6 +109,9 @@ function runMoveScenario(binding, baseView, basePlayer) {
             x: baseView.self.x + 1,
         },
     };
+/**
+ * 记录moved玩家。
+ */
     const movedPlayer = {
         ...basePlayer,
         x: basePlayer.x + 1,
@@ -73,13 +122,25 @@ function runMoveScenario(binding, baseView, basePlayer) {
         { view: baseView, player: basePlayer },
     ]);
 }
+/**
+ * 运行inventoryscenario。
+ */
 function runInventoryScenario(binding, baseView, basePlayer) {
+/**
+ * 记录projector。
+ */
     const projector = new world_projector_service_1.WorldProjectorService();
     projector.createInitialEnvelope(binding, baseView, basePlayer);
+/**
+ * 记录patched物品。
+ */
     const patchedItem = {
         ...basePlayer.inventory.items[1],
         count: basePlayer.inventory.items[1].count + 2,
     };
+/**
+ * 记录next玩家。
+ */
     const nextPlayer = {
         ...basePlayer,
         inventory: {
@@ -96,9 +157,18 @@ function runInventoryScenario(binding, baseView, basePlayer) {
         { view: baseView, player: basePlayer },
     ]);
 }
+/**
+ * 运行功法scenario。
+ */
 function runTechniqueScenario(binding, baseView, basePlayer) {
+/**
+ * 记录projector。
+ */
     const projector = new world_projector_service_1.WorldProjectorService();
     projector.createInitialEnvelope(binding, baseView, basePlayer);
+/**
+ * 记录功法entry。
+ */
     const techniqueEntry = {
         techId: 'bench.technique',
         level: 1,
@@ -113,6 +183,9 @@ function runTechniqueScenario(binding, baseView, basePlayer) {
         layers: [],
         attrCurves: null,
     };
+/**
+ * 记录next玩家。
+ */
     const nextPlayer = {
         ...basePlayer,
         techniques: {
@@ -127,9 +200,18 @@ function runTechniqueScenario(binding, baseView, basePlayer) {
         { view: baseView, player: basePlayer },
     ]);
 }
+/**
+ * 运行groundscenario。
+ */
 function runGroundScenario(binding, baseView, basePlayer) {
+/**
+ * 记录projector。
+ */
     const projector = new world_projector_service_1.WorldProjectorService();
     projector.createInitialEnvelope(binding, baseView, basePlayer);
+/**
+ * 记录nextview。
+ */
     const nextView = {
         ...baseView,
         tick: baseView.tick + 1,
@@ -164,12 +246,30 @@ function runGroundScenario(binding, baseView, basePlayer) {
         { view: baseView, player: basePlayer },
     ]);
 }
+/**
+ * 运行alternatingscenario。
+ */
 function runAlternatingScenario(name, projector, states) {
+/**
+ * 记录durationsms。
+ */
     const durationsMs = [];
+/**
+ * 记录payloadbytes。
+ */
     const payloadBytes = [];
     for (let index = 0; index < ITERATIONS; index += 1) {
+/**
+ * 记录状态。
+ */
         const state = states[index % states.length];
+/**
+ * 记录startedat。
+ */
         const startedAt = performance.now();
+/**
+ * 记录envelope。
+ */
         const envelope = projector.createDeltaEnvelope(state.view, state.player);
         durationsMs.push(performance.now() - startedAt);
         payloadBytes.push(estimateBytes(envelope));
@@ -184,6 +284,9 @@ function runAlternatingScenario(name, projector, states) {
         maxBytes: Math.max(...payloadBytes),
     };
 }
+/**
+ * 创建baseview。
+ */
 function createBaseView() {
     return {
         playerId: 'bench_player',
@@ -225,7 +328,13 @@ function createBaseView() {
         localGroundPiles: [],
     };
 }
+/**
+ * 创建base玩家。
+ */
 function createBasePlayer() {
+/**
+ * 记录inventoryitems。
+ */
     const inventoryItems = [
         {
             itemId: 'book.qingmu_sword',
@@ -244,6 +353,9 @@ function createBasePlayer() {
             count: 3,
         },
     ];
+/**
+ * 记录equipmentslots。
+ */
     const equipmentSlots = [
         { slot: 'weapon', item: null },
         { slot: 'head', item: null },
@@ -406,29 +518,50 @@ function createBasePlayer() {
         vitalRecoveryDeferredUntilTick: -1,
     };
 }
+/**
+ * 处理estimatebytes。
+ */
 function estimateBytes(value) {
     if (!value) {
         return 0;
     }
     return Buffer.byteLength(JSON.stringify(value), 'utf8');
 }
+/**
+ * 处理average。
+ */
 function average(values) {
     if (values.length === 0) {
         return 0;
     }
     return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
+/**
+ * 处理percentile。
+ */
 function percentile(values, ratio) {
     if (values.length === 0) {
         return 0;
     }
+/**
+ * 记录sorted。
+ */
     const sorted = [...values].sort((left, right) => left - right);
+/**
+ * 记录索引。
+ */
     const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil(sorted.length * ratio) - 1));
     return sorted[index];
 }
+/**
+ * 处理round3。
+ */
 function round3(value) {
     return Number(value.toFixed(3));
 }
+/**
+ * 处理round6。
+ */
 function round6(value) {
     return Number(value.toFixed(6));
 }

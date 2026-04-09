@@ -1,19 +1,50 @@
 "use strict";
+/**
+ * 用途：执行 readiness-gate 链路的冒烟验证。
+ */
+
 Object.defineProperty(exports, "__esModule", { value: true });
 const node_child_process_1 = require("node:child_process");
 const node_net_1 = require("node:net");
 const node_path_1 = require("node:path");
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared-next");
+/**
+ * 记录包根目录。
+ */
 const packageRoot = (0, node_path_1.resolve)(__dirname, '..', '..');
+/**
+ * 记录服务端入口文件路径。
+ */
 const serverEntry = (0, node_path_1.join)(packageRoot, 'dist', 'main.js');
+/**
+ * 记录当前值端口。
+ */
 let currentPort = Number(process.env.SERVER_NEXT_SMOKE_PORT ?? 3312);
+/**
+ * 记录base地址。
+ */
 let baseUrl = `http://127.0.0.1:${currentPort}`;
+/**
+ * 串联执行脚本主流程。
+ */
 async function main() {
+/**
+ * 记录服务端。
+ */
     let server = await startServer({ allowUnreadyTraffic: false });
+/**
+ * 记录bypass玩家ID。
+ */
     let bypassPlayerId = '';
     try {
+/**
+ * 记录健康状态。
+ */
         const health = await waitForHealth(503);
+/**
+ * 记录rejection。
+ */
         const rejection = await expectNextSocketRejected();
         if (health?.readiness?.maintenance?.active === true) {
             throw new Error(`expected maintenance inactive for not-ready gate, got ${JSON.stringify(health.readiness.maintenance)}`);
@@ -30,7 +61,13 @@ async function main() {
     }
     server = await startServer({ allowUnreadyTraffic: true });
     try {
+/**
+ * 记录健康状态。
+ */
         const health = await waitForHealth(503);
+/**
+ * 记录bypass。
+ */
         const bypass = await expectNextSocketBootstrapped();
         bypassPlayerId = bypass.playerId;
         if (health?.readiness?.ok !== false) {
@@ -57,9 +94,15 @@ async function main() {
         await stopServer(server);
     }
 }
+/**
+ * 启动服务端。
+ */
 async function startServer(options) {
     currentPort = await allocateFreePort();
     baseUrl = `http://127.0.0.1:${currentPort}`;
+/**
+ * 记录子进程。
+ */
     const child = (0, node_child_process_1.spawn)('node', [serverEntry], {
         cwd: packageRoot,
         env: {
@@ -84,12 +127,18 @@ async function startServer(options) {
     child.stderr?.on('data', (chunk) => process.stderr.write(String(chunk)));
     return child;
 }
+/**
+ * 停止服务端。
+ */
 async function stopServer(child) {
     if (child.killed || child.exitCode !== null) {
         return;
     }
     child.kill('SIGINT');
     await new Promise((resolve) => {
+/**
+ * 记录timer。
+ */
         const timer = setTimeout(() => {
             child.kill('SIGKILL');
             resolve();
@@ -100,10 +149,19 @@ async function stopServer(child) {
         });
     });
 }
+/**
+ * 等待for健康状态。
+ */
 async function waitForHealth(expectedStatus) {
+/**
+ * 记录last请求体。
+ */
     let lastBody = null;
     await waitForCondition(async () => {
         try {
+/**
+ * 记录response。
+ */
             const response = await fetch(`${baseUrl}/health`);
             lastBody = await response.json();
             return response.status === expectedStatus;
@@ -114,7 +172,13 @@ async function waitForHealth(expectedStatus) {
     }, 10000);
     return lastBody;
 }
+/**
+ * 处理expectnextsocketrejected。
+ */
 async function expectNextSocketRejected() {
+/**
+ * 记录socket。
+ */
     const socket = (0, socket_io_client_1.io)(baseUrl, {
         path: '/socket.io',
         transports: ['websocket'],
@@ -123,7 +187,13 @@ async function expectNextSocketRejected() {
             protocol: 'next',
         },
     });
+/**
+ * 记录errorpayload。
+ */
     let errorPayload = null;
+/**
+ * 记录disconnected。
+ */
     let disconnected = false;
     try {
         socket.on(shared_1.NEXT_S2C.Error, (payload) => {
@@ -143,7 +213,13 @@ async function expectNextSocketRejected() {
         socket.close();
     }
 }
+/**
+ * 处理expectnextsocketbootstrapped。
+ */
 async function expectNextSocketBootstrapped() {
+/**
+ * 记录socket。
+ */
     const socket = (0, socket_io_client_1.io)(baseUrl, {
         path: '/socket.io',
         transports: ['websocket'],
@@ -152,8 +228,17 @@ async function expectNextSocketBootstrapped() {
             protocol: 'next',
         },
     });
+/**
+ * 记录events。
+ */
     const events = [];
+/**
+ * 记录玩家ID。
+ */
     let playerId = '';
+/**
+ * 记录会话ID。
+ */
     let sessionId = '';
     try {
         socket.on(shared_1.NEXT_S2C.Error, (payload) => {
@@ -187,7 +272,13 @@ async function expectNextSocketBootstrapped() {
         socket.close();
     }
 }
+/**
+ * 处理delete玩家。
+ */
 async function deletePlayer(playerIdToDelete) {
+/**
+ * 记录response。
+ */
     const response = await fetch(`${baseUrl}/runtime/players/${playerIdToDelete}`, {
         method: 'DELETE',
     });
@@ -195,11 +286,17 @@ async function deletePlayer(playerIdToDelete) {
         throw new Error(`request failed: ${response.status} ${await response.text()}`);
     }
 }
+/**
+ * 处理onceconnected。
+ */
 async function onceConnected(socket) {
     if (socket.connected) {
         return;
     }
     await new Promise((resolve, reject) => {
+/**
+ * 记录timer。
+ */
         const timer = setTimeout(() => reject(new Error('socket connect timeout')), 5000);
         socket.once('connect', () => {
             clearTimeout(timer);
@@ -211,7 +308,13 @@ async function onceConnected(socket) {
         });
     });
 }
+/**
+ * 等待forcondition。
+ */
 async function waitForCondition(predicate, timeoutMs) {
+/**
+ * 记录startedat。
+ */
     const startedAt = Date.now();
     while (!(await predicate())) {
         if (Date.now() - startedAt > timeoutMs) {
@@ -220,12 +323,21 @@ async function waitForCondition(predicate, timeoutMs) {
         await delay(100);
     }
 }
+/**
+ * 分配free端口。
+ */
 async function allocateFreePort() {
     return new Promise((resolve, reject) => {
+/**
+ * 记录服务端。
+ */
         const server = (0, node_net_1.createServer)();
         server.unref();
         server.once('error', reject);
         server.listen(0, '127.0.0.1', () => {
+/**
+ * 记录address。
+ */
             const address = server.address();
             if (!address || typeof address === 'string') {
                 server.close(() => reject(new Error('failed to allocate free port')));
@@ -242,6 +354,9 @@ async function allocateFreePort() {
         });
     });
 }
+/**
+ * 处理delay。
+ */
 function delay(ms) {
     return new Promise((resolve) => {
         setTimeout(resolve, ms);

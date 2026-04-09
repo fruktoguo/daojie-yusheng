@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 'use strict';
 
+/**
+ * 用途：执行 server-next 替换链路的破坏性 shadow流程。
+ */
+
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 
@@ -13,10 +17,25 @@ const {
 } = require('../packages/server-next/src/config/env-alias');
 const { normalizeBooleanEnv } = require('../packages/server-next/src/tools/gm-database-proof-lib');
 
+/**
+ * 记录shadow 环境地址。
+ */
 const shadowUrl = resolveServerNextShadowUrl();
+/**
+ * 记录shadow 环境环境变量来源地址。
+ */
 const shadowUrlEnvSource = resolveServerNextShadowUrlEnvSource();
+/**
+ * 记录GMpassword。
+ */
 const gmPassword = resolveServerNextGmPassword();
+/**
+ * 记录GMpassword环境变量来源。
+ */
 const gmPasswordEnvSource = resolveServerNextGmPasswordEnvSource();
+/**
+ * 记录allowdestructive。
+ */
 const allowDestructive = normalizeBooleanEnv(process.env.SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE);
 
 if (!shadowUrl) {
@@ -40,6 +59,9 @@ if (!allowDestructive) {
 process.stdout.write('[replace-ready:shadow:destructive] steps=smoke:shadow:gm-database\n');
 process.stdout.write('[replace-ready:shadow:destructive] start step=smoke:shadow:gm-database\n');
 
+/**
+ * 累计当前结果。
+ */
 const result = spawnSync('pnpm', ['--filter', '@mud/server-next', 'smoke:shadow:gm-database'], {
   cwd: repoRoot,
   stdio: 'inherit',

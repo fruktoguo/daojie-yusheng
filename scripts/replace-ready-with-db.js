@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 'use strict';
 
+/**
+ * 用途：执行 server-next 替换链路的带数据库验证流程。
+ */
+
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 
@@ -10,7 +14,13 @@ const {
   resolveServerNextDatabaseUrl,
 } = require('../packages/server-next/src/config/env-alias');
 
+/**
+ * 记录数据库地址。
+ */
 const databaseUrl = resolveServerNextDatabaseUrl();
+/**
+ * 记录数据库环境变量来源。
+ */
 const databaseEnvSource = resolveServerNextDatabaseEnvSource();
 
 if (!databaseUrl) {
@@ -19,10 +29,16 @@ if (!databaseUrl) {
   process.exit(1);
 }
 
+/**
+ * 汇总子进程环境变量。
+ */
 const childEnv = {
   ...process.env,
   ...(databaseEnvSource === 'SERVER_NEXT_DATABASE_URL' ? null : { SERVER_NEXT_DATABASE_URL: databaseUrl }),
 };
+/**
+ * 汇总需要串行执行的步骤。
+ */
 const steps = [
   { label: 'build:client-next', args: ['build:client-next'] },
   { label: 'verify:replace-ready:with-db', args: ['--filter', '@mud/server-next', 'verify:replace-ready:with-db'] },
@@ -33,6 +49,9 @@ process.stdout.write('[replace-ready:with-db] steps=build:client-next -> verify:
 
 for (const step of steps) {
   process.stdout.write(`[replace-ready:with-db] start step=${step.label}\n`);
+/**
+ * 累计当前结果。
+ */
   const result = spawnSync('pnpm', step.args, {
     cwd: repoRoot,
     stdio: 'inherit',

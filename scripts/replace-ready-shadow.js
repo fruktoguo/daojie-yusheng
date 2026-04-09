@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 'use strict';
 
+/**
+ * 用途：执行 server-next 替换链路的shadow流程。
+ */
+
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 
@@ -12,9 +16,21 @@ const {
   resolveServerNextShadowUrlEnvSource,
 } = require('../packages/server-next/src/config/env-alias');
 
+/**
+ * 记录shadow 环境地址。
+ */
 const shadowUrl = resolveServerNextShadowUrl();
+/**
+ * 记录shadow 环境环境变量来源地址。
+ */
 const shadowUrlEnvSource = resolveServerNextShadowUrlEnvSource();
+/**
+ * 记录GMpassword。
+ */
 const gmPassword = resolveServerNextGmPassword();
+/**
+ * 记录GMpassword环境变量来源。
+ */
 const gmPasswordEnvSource = resolveServerNextGmPasswordEnvSource();
 
 if (!shadowUrl) {
@@ -32,6 +48,9 @@ if (!gmPassword) {
 process.stdout.write('[replace-ready:shadow] steps=smoke:shadow\n');
 process.stdout.write('[replace-ready:shadow] start step=smoke:shadow\n');
 
+/**
+ * 累计当前结果。
+ */
 const result = spawnSync('pnpm', ['--filter', '@mud/server-next', 'smoke:shadow'], {
   cwd: repoRoot,
   stdio: 'inherit',

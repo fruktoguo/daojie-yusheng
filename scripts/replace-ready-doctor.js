@@ -1,15 +1,28 @@
 #!/usr/bin/env node
 'use strict';
 
+/**
+ * 用途：执行 server-next 替换链路的环境自检流程。
+ */
+
 const {
   resolveServerNextDatabaseUrl,
   resolveServerNextGmPassword,
   resolveServerNextShadowUrl,
-} = require('../packages/server-next/src/config/env-alias');
+} = require('../packages/server-next/src/config/env-alias');/**
+ * 标记是否已数据库。
+ */
+
 
 const hasDatabase = Boolean(resolveServerNextDatabaseUrl());
-const hasShadowUrl = Boolean(resolveServerNextShadowUrl());
-const hasGmPassword = Boolean(resolveServerNextGmPassword());
+const hasShadowUrl = Boolean(resolveServerNextShadowUrl());/**
+ * 标记是否已GMpassword。
+ */
+
+const hasGmPassword = Boolean(resolveServerNextGmPassword());/**
+ * 标记是否已shadow 环境destructivegate。
+ */
+
 const hasShadowDestructiveGate = process.env.SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE === '1';
 
 const lines = [];

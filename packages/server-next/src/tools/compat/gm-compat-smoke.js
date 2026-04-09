@@ -1,19 +1,59 @@
 "use strict";
+/**
+ * 用途：执行 gm-compat 兼容链路的冒烟验证。
+ */
+
 Object.defineProperty(exports, "__esModule", { value: true });
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared-next");
 const env_alias_1 = require("../../config/env-alias");
+/**
+ * 指定烟测要连接的 server-next 地址。
+ */
 const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
+/**
+ * 读取 GM 登录密码，供兼容链路验证使用。
+ */
 const GM_PASSWORD = (0, env_alias_1.resolveServerNextGmPassword)('admin123');
+/**
+ * 生成本次烟测专用的唯一后缀，避免账号和数据冲突。
+ */
 const suffix = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+/**
+ * 本次 GM 兼容烟测使用的临时账号名。
+ */
 const accountName = `gc_${suffix.slice(-10)}`;
+/**
+ * 记录password。
+ */
 const password = `Pass_${suffix}`;
+/**
+ * 本次烟测注册角色使用的临时角色名。
+ */
 const roleName = `兼烟${suffix.slice(-4)}`;
+/**
+ * 记录显示信息名称。
+ */
 const displayName = suffix[suffix.length - 1] ?? '测';
+/**
+ * 预留给 GM 改密验证链路使用的新密码。
+ */
 const gmChangedPassword = `${password}_gmchg${suffix.slice(-4)}`;
+/**
+ * 串联 socket GM、HTTP GM、邮件、建议和地图控制等兼容验证流程。
+ */
 async function main() {
+/**
+ * 记录认证。
+ */
     let auth = null;
+/**
+ * 记录GM令牌。
+ */
     let gmToken = '';
+/**
+ * 记录socket。
+ */
     let socket = null;
     auth = await registerAndLoginPlayer();
     gmToken = await loginGm();
@@ -27,8 +67,17 @@ async function main() {
             protocol: 'legacy',
         },
     });
+/**
+ * 记录GM状态events。
+ */
     const gmStateEvents = [];
+/**
+ * 记录legacyinit。
+ */
     let legacyInit = null;
+/**
+ * 记录socketerror。
+ */
     let socketError = null;
     socket.on(shared_1.S2C.Error, (payload) => {
         socketError = new Error(`legacy socket error: ${JSON.stringify(payload)}`);
@@ -51,24 +100,63 @@ async function main() {
             throwIfSocketError(socketError);
             return legacyInit !== null;
         }, 5000, 'legacy init');
+/**
+ * 记录initial运行态。
+ */
         const initialRuntime = await waitForPlayerState(auth.playerId, () => true, 5000);
+/**
+ * 记录initialmaps。
+ */
         const initialMaps = await authedGetJson('/gm/maps', gmToken);
+/**
+ * 记录当前值地图汇总。
+ */
         const currentMapSummary = assertGmMapsShape(initialMaps, initialRuntime.templateId);
+/**
+ * 记录编辑器目录。
+ */
         const editorCatalog = await authedGetJson('/gm/editor-catalog', gmToken);
+/**
+ * 记录编辑器目录汇总。
+ */
         const editorCatalogSummary = assertEditorCatalogShape(editorCatalog);
+/**
+ * 记录运行态inspection。
+ */
         const runtimeInspection = await inspectMapRuntime(gmToken, auth.playerId, initialRuntime.templateId, initialRuntime.x, initialRuntime.y);
+/**
+ * 记录initialsocketGM状态。
+ */
         const initialSocketGmState = await emitAndWaitForGmState(socket, gmStateEvents, socketError, shared_1.C2S.GmGetState, {}, (entry) => {
             return Array.isArray(entry?.payload?.players) && Array.isArray(entry?.payload?.mapIds);
         }, 5000, 'socket gmGetState');
         assertLegacyGmState(initialSocketGmState, 'socket gmGetState');
+/**
+ * 记录socketbotbaseline。
+ */
         const socketBotBaseline = Number(initialSocketGmState?.payload?.botCount ?? 0);
+/**
+ * 记录socket目标position。
+ */
         const socketTargetPosition = await findNearbyWalkablePosition(gmToken, auth.playerId, initialRuntime.templateId, initialRuntime.x, initialRuntime.y);
+/**
+ * 记录socket目标hp。
+ */
         const socketTargetHp = computeReducedHp(initialRuntime.hp, initialRuntime.maxHp, 7);
+/**
+ * 记录socket目标autobattle。
+ */
         const socketTargetAutoBattle = !Boolean(initialRuntime.combat?.autoBattle);
+/**
+ * 记录socket出生点状态。
+ */
         const socketSpawnState = await emitAndWaitForGmState(socket, gmStateEvents, socketError, shared_1.C2S.GmSpawnBots, {
             count: 1,
         }, (entry) => Number(entry?.payload?.botCount ?? 0) >= socketBotBaseline + 1, 8000, 'socket gmSpawnBots');
         assertLegacyGmState(socketSpawnState, 'socket gmSpawnBots');
+/**
+ * 记录socket出生点bot数量。
+ */
         const socketSpawnBotCount = Number(socketSpawnState?.payload?.botCount ?? 0);
         socket.emit(shared_1.C2S.GmUpdatePlayer, {
             playerId: auth.playerId,
@@ -78,6 +166,9 @@ async function main() {
             hp: socketTargetHp,
             autoBattle: socketTargetAutoBattle,
         });
+/**
+ * 记录socketupdated运行态。
+ */
         const socketUpdatedRuntime = await waitForPlayerState(auth.playerId, (player) => {
             return isUpdatedPositionState(player, {
                 previousMapId: initialRuntime.templateId,
@@ -88,6 +179,9 @@ async function main() {
                 autoBattle: socketTargetAutoBattle,
             });
         }, 8000);
+/**
+ * 记录socketupdate状态。
+ */
         const socketUpdateState = await waitForSocketGmState(gmStateEvents, socketError, auth.playerId, {
             previousMapId: initialRuntime.templateId,
             previousX: initialRuntime.x,
@@ -99,6 +193,9 @@ async function main() {
             expectedY: socketUpdatedRuntime.y,
         }, 8000, 'socket gmUpdatePlayer');
         assertLegacyGmState(socketUpdateState, 'socket gmUpdatePlayer');
+/**
+ * 记录socketreset状态。
+ */
         const socketResetState = await emitAndWaitForGmState(socket, gmStateEvents, socketError, shared_1.C2S.GmResetPlayer, {
             playerId: auth.playerId,
         }, (entry) => hasGmPlayerSummary(entry?.payload, auth.playerId, (player) => {
@@ -107,20 +204,41 @@ async function main() {
                 && player.dead === false;
         }), 8000, 'socket gmResetPlayer');
         assertLegacyGmState(socketResetState, 'socket gmResetPlayer');
+/**
+ * 记录socketreset运行态。
+ */
         const socketResetRuntime = await waitForPlayerState(auth.playerId, (player) => {
             return player.templateId === 'yunlai_town'
                 && player.hp === player.maxHp
                 && player.combat?.autoBattle === false;
         }, 8000);
+/**
+ * 记录socketremove状态。
+ */
         const socketRemoveState = await emitAndWaitForGmState(socket, gmStateEvents, socketError, shared_1.C2S.GmRemoveBots, {
             all: true,
         }, (entry) => Number(entry?.payload?.botCount ?? 0) === 0, 8000, 'socket gmRemoveBots');
         assertLegacyGmState(socketRemoveState, 'socket gmRemoveBots');
+/**
+ * 记录initialhttp状态。
+ */
         const initialHttpState = await authedGetJson('/gm/state', gmToken);
         assertGmStateShape(initialHttpState, 'initial http gm state');
+/**
+ * 记录http运行态before。
+ */
         const httpRuntimeBefore = await waitForPlayerState(auth.playerId, () => true, 5000);
+/**
+ * 记录http目标position。
+ */
         const httpTargetPosition = await findNearbyWalkablePosition(gmToken, auth.playerId, httpRuntimeBefore.templateId, httpRuntimeBefore.x, httpRuntimeBefore.y);
+/**
+ * 记录http目标hp。
+ */
         const httpTargetHp = computeReducedHp(httpRuntimeBefore.hp, httpRuntimeBefore.maxHp, 11);
+/**
+ * 记录http目标autobattle。
+ */
         const httpTargetAutoBattle = false;
         await authedRequestJson(`/gm/players/${auth.playerId}`, {
             method: 'PUT',
@@ -136,6 +254,9 @@ async function main() {
                 },
             },
         });
+/**
+ * 记录httpupdated。
+ */
         const httpUpdated = await waitForRuntimeAndGmPlayerState(auth.playerId, gmToken, (runtime, summary) => {
             return runtime.templateId === httpRuntimeBefore.templateId
                 && summary.mapId === httpRuntimeBefore.templateId
@@ -148,18 +269,30 @@ async function main() {
                     || runtime.hp !== httpRuntimeBefore.hp
                     || Boolean(runtime.combat?.autoBattle) !== Boolean(httpRuntimeBefore.combat?.autoBattle));
         }, 8000, 'http gmUpdatePlayer');
+/**
+ * 记录httpupdated运行态。
+ */
         const httpUpdatedRuntime = httpUpdated.runtime;
+/**
+ * 记录httpupdatedGM状态。
+ */
         const httpUpdatedGmState = httpUpdated.gmState;
         await authedRequestJson(`/gm/players/${auth.playerId}/reset`, {
             method: 'POST',
             token: gmToken,
             body: {},
         });
+/**
+ * 记录httpreset运行态。
+ */
         const httpResetRuntime = await waitForPlayerState(auth.playerId, (player) => {
             return player.templateId === 'yunlai_town'
                 && player.hp === player.maxHp
                 && player.combat?.autoBattle === false;
         }, 8000);
+/**
+ * 记录httpresetGM状态。
+ */
         const httpResetGmState = await waitForGmState(gmToken, (payload) => hasGmPlayerSummary(payload, auth.playerId, (player) => {
             return player.mapId === 'yunlai_town'
                 && player.autoBattle === false
@@ -173,6 +306,9 @@ async function main() {
                 count: 1,
             },
         });
+/**
+ * 记录http出生点状态。
+ */
         const httpSpawnState = await waitForGmState(gmToken, (payload) => Number(payload?.botCount ?? 0) >= 1, 8000, 'http gmSpawnBots');
         await authedRequestJson('/gm/bots/remove', {
             method: 'POST',
@@ -181,8 +317,17 @@ async function main() {
                 all: true,
             },
         });
+/**
+ * 记录httpremove状态。
+ */
         const httpRemoveState = await waitForGmState(gmToken, (payload) => Number(payload?.botCount ?? 0) === 0, 8000, 'http gmRemoveBots');
+/**
+ * 记录mail汇总before。
+ */
         const mailSummaryBefore = await fetchMailSummary(auth.playerId);
+/**
+ * 记录directmail。
+ */
         const directMail = await authedRequestJson(`/gm/players/${auth.playerId}/mail`, {
             method: 'POST',
             token: gmToken,
@@ -192,6 +337,9 @@ async function main() {
                 attachments: [{ itemId: 'spirit_stone', count: 1 }],
             },
         });
+/**
+ * 记录broadcastmail。
+ */
         const broadcastMail = await authedRequestJson('/gm/mail/broadcast', {
             method: 'POST',
             token: gmToken,
@@ -201,10 +349,19 @@ async function main() {
                 attachments: [{ itemId: 'pill.minor_heal', count: 1 }],
             },
         });
+/**
+ * 记录mail汇总after。
+ */
         const mailSummaryAfter = await waitForMailSummary(auth.playerId, (summary) => summary.unreadCount >= mailSummaryBefore.unreadCount + 2
             && summary.claimableCount >= mailSummaryBefore.claimableCount + 2, 8000, 'gm mail summary');
+/**
+ * 记录mailpage。
+ */
         const mailPage = await waitForMailPage(auth.playerId, (page) => page.items.some((entry) => entry?.mailId === directMail?.mailId)
             && page.items.some((entry) => typeof entry?.title === 'string' && entry.title.includes('GM群邮')), 8000, 'gm mail page');
+/**
+ * 记录createdsuggestion。
+ */
         const createdSuggestion = await requestJson(`/runtime/players/${auth.playerId}/suggestions`, {
             method: 'POST',
             body: {
@@ -212,6 +369,9 @@ async function main() {
                 description: `gm-compat suggestion ${suffix}`,
             },
         });
+/**
+ * 记录suggestionID。
+ */
         const suggestionId = String(createdSuggestion?.suggestion?.id ?? '').trim();
         if (!suggestionId) {
             throw new Error(`unexpected suggestion create payload: ${JSON.stringify(createdSuggestion)}`);
@@ -229,7 +389,13 @@ async function main() {
             token: gmToken,
             body: {},
         });
+/**
+ * 记录completedsuggestions。
+ */
         const completedSuggestions = await waitForGmSuggestions(gmToken, (payload) => {
+/**
+ * 记录suggestion。
+ */
             const suggestion = findSuggestion(payload, suggestionId);
             return suggestion?.status === 'completed'
                 && Array.isArray(suggestion?.replies)
@@ -240,9 +406,21 @@ async function main() {
             token: gmToken,
         });
         await waitForGmSuggestions(gmToken, (payload) => findSuggestion(payload, suggestionId) === null, 8000, 'gm suggestions remove');
+/**
+ * 记录地图运行态before。
+ */
         const mapRuntimeBefore = await fetchGmMapRuntime(gmToken, httpResetRuntime.templateId, auth.playerId, httpResetRuntime.x, httpResetRuntime.y);
+/**
+ * 记录nexttickspeed。
+ */
         const nextTickSpeed = Math.max(1, Number(mapRuntimeBefore?.tickSpeed ?? 1) + 2);
+/**
+ * 记录nexttimescale。
+ */
         const nextTimeScale = Math.max(1, Number(mapRuntimeBefore?.timeConfig?.scale ?? 1) + 1);
+/**
+ * 记录nextoffsetticks。
+ */
         const nextOffsetTicks = Math.trunc(Number(mapRuntimeBefore?.timeConfig?.offsetTicks ?? 0) + 60);
         await authedRequestJson(`/gm/maps/${httpResetRuntime.templateId}/tick`, {
             method: 'PUT',
@@ -260,6 +438,9 @@ async function main() {
                 offsetTicks: nextOffsetTicks,
             },
         });
+/**
+ * 记录地图运行态updated。
+ */
         const mapRuntimeUpdated = await waitForGmMapRuntime(gmToken, httpResetRuntime.templateId, auth.playerId, httpResetRuntime.x, httpResetRuntime.y, (runtime) => Number(runtime?.tickSpeed ?? 0) === nextTickSpeed
             && runtime?.tickPaused === false
             && Number(runtime?.timeConfig?.scale ?? 0) === nextTimeScale
@@ -269,6 +450,9 @@ async function main() {
             token: gmToken,
             body: {},
         });
+/**
+ * 记录地图运行态reloaded。
+ */
         const mapRuntimeReloaded = await waitForGmMapRuntime(gmToken, httpResetRuntime.templateId, auth.playerId, httpResetRuntime.x, httpResetRuntime.y, (runtime) => Number(runtime?.tickSpeed ?? 0) === nextTickSpeed
             && Number(runtime?.timeConfig?.scale ?? 0) === nextTimeScale
             && Number(runtime?.timeConfig?.offsetTicks ?? 0) === nextOffsetTicks, 8000, 'gm tick reload');
@@ -279,6 +463,9 @@ async function main() {
                 password: gmChangedPassword,
             },
         });
+/**
+ * 记录reloginpayload。
+ */
         const reloginPayload = await requestJson('/auth/login', {
             method: 'POST',
             body: {
@@ -286,11 +473,20 @@ async function main() {
                 password: gmChangedPassword,
             },
         });
+/**
+ * 记录reloginaccess令牌。
+ */
         const reloginAccessToken = typeof reloginPayload?.accessToken === 'string' ? reloginPayload.accessToken : '';
         if (!reloginAccessToken) {
             throw new Error(`gm password change login missing token: ${JSON.stringify(reloginPayload)}`);
         }
+/**
+ * 记录relogindecoded。
+ */
         const reloginDecoded = parseJwtPayload(reloginAccessToken);
+/**
+ * 记录relogin玩家ID。
+ */
         const reloginPlayerId = reloginDecoded?.sub ? `p_${String(reloginDecoded.sub).trim()}` : '';
         if (reloginPlayerId !== auth.playerId) {
             throw new Error(`gm password change login player mismatch: expected ${auth.playerId} but got ${reloginPlayerId}`);
@@ -383,6 +579,9 @@ async function main() {
         await cleanup(gmToken, auth?.playerId ?? '').catch(() => undefined);
     }
 }
+/**
+ * 在烟测结束后清理临时角色和遗留测试数据。
+ */
 async function cleanup(gmToken, playerId) {
     if (gmToken) {
         await authedRequestJson('/gm/bots/remove', {
@@ -393,9 +592,21 @@ async function cleanup(gmToken, playerId) {
     }
     await deletePlayer(playerId).catch(() => undefined);
 }
+/**
+ * 计算用于状态变更验证的目标血量。
+ */
 function computeReducedHp(currentHp, maxHp, preferredDelta) {
+/**
+ * 记录safemaxhp。
+ */
     const safeMaxHp = Math.max(1, Math.trunc(maxHp || currentHp || 1));
+/**
+ * 记录safe当前值hp。
+ */
     const safeCurrentHp = Math.max(1, Math.min(safeMaxHp, Math.trunc(currentHp || safeMaxHp)));
+/**
+ * 记录delta。
+ */
     const delta = Math.max(1, Math.trunc(preferredDelta || 1));
     if (safeCurrentHp - delta >= 1) {
         return safeCurrentHp - delta;
@@ -405,6 +616,9 @@ function computeReducedHp(currentHp, maxHp, preferredDelta) {
     }
     return 1;
 }
+/**
+ * 注册并登录一个临时玩家，作为 GM 操作目标。
+ */
 async function registerAndLoginPlayer() {
     await requestJson('/auth/register', {
         method: 'POST',
@@ -415,6 +629,9 @@ async function registerAndLoginPlayer() {
             roleName,
         },
     });
+/**
+ * 记录login。
+ */
     const login = await requestJson('/auth/login', {
         method: 'POST',
         body: {
@@ -422,6 +639,9 @@ async function registerAndLoginPlayer() {
             password,
         },
     });
+/**
+ * 记录payload。
+ */
     const payload = parseJwtPayload(login?.accessToken);
     if (!payload?.sub || typeof login?.accessToken !== 'string') {
         throw new Error(`unexpected login payload: ${JSON.stringify(login)}`);
@@ -431,25 +651,46 @@ async function registerAndLoginPlayer() {
         playerId: `p_${String(payload.sub).trim()}`,
     };
 }
+/**
+ * 登录 GM 接口并获取后续请求所需令牌。
+ */
 async function loginGm() {
+/**
+ * 记录payload。
+ */
     const payload = await requestJson('/auth/gm/login', {
         method: 'POST',
         body: {
             password: GM_PASSWORD,
         },
     });
+/**
+ * 记录令牌。
+ */
     const token = typeof payload?.accessToken === 'string' ? payload.accessToken.trim() : '';
     if (!token) {
         throw new Error(`unexpected GM login payload: ${JSON.stringify(payload)}`);
     }
     return token;
 }
+/**
+ * 统一发送 JSON 请求并校验基础响应格式。
+ */
 async function requestJson(path, init = {}) {
+/**
+ * 记录请求体。
+ */
     const body = init.body === undefined ? undefined : JSON.stringify(init.body);
+/**
+ * 记录headers。
+ */
     const headers = {
         ...(body === undefined ? {} : { 'content-type': 'application/json' }),
         ...(init.token ? { authorization: `Bearer ${init.token}` } : {}),
     };
+/**
+ * 记录response。
+ */
     const response = await fetch(`${SERVER_NEXT_URL}${path}`, {
         method: init.method ?? 'GET',
         headers: Object.keys(headers).length > 0 ? headers : undefined,
@@ -463,35 +704,65 @@ async function requestJson(path, init = {}) {
     }
     return response.json();
 }
+/**
+ * 处理authedgetjson。
+ */
 async function authedGetJson(path, token) {
     return requestJson(path, {
         method: 'GET',
         token,
     });
 }
+/**
+ * 附带 GM 令牌发送授权请求。
+ */
 async function authedRequestJson(path, init) {
     return requestJson(path, init);
 }
+/**
+ * 处理fetch玩家状态。
+ */
 async function fetchPlayerState(playerId) {
     return requestJson(`/runtime/players/${playerId}/state`, {
         method: 'GET',
     });
 }
+/**
+ * 处理fetchmail汇总。
+ */
 async function fetchMailSummary(playerId) {
+/**
+ * 记录payload。
+ */
     const payload = await requestJson(`/runtime/players/${playerId}/mail/summary`, {
         method: 'GET',
     });
     return payload?.summary ?? null;
 }
+/**
+ * 处理fetchmailpage。
+ */
 async function fetchMailPage(playerId) {
+/**
+ * 记录payload。
+ */
     const payload = await requestJson(`/runtime/players/${playerId}/mail/page?page=1&pageSize=10`, {
         method: 'GET',
     });
     return payload?.page ?? null;
 }
+/**
+ * 等待formail汇总。
+ */
 async function waitForMailSummary(playerId, predicate, timeoutMs, label) {
+/**
+ * 记录resolved。
+ */
     let resolved = null;
     await waitFor(async () => {
+/**
+ * 记录汇总。
+ */
         const summary = await fetchMailSummary(playerId);
         if (!summary || !(await predicate(summary))) {
             return false;
@@ -501,9 +772,18 @@ async function waitForMailSummary(playerId, predicate, timeoutMs, label) {
     }, timeoutMs, label);
     return resolved;
 }
+/**
+ * 等待formailpage。
+ */
 async function waitForMailPage(playerId, predicate, timeoutMs, label) {
+/**
+ * 记录resolved。
+ */
     let resolved = null;
     await waitFor(async () => {
+/**
+ * 记录page。
+ */
         const page = await fetchMailPage(playerId);
         if (!page || !(await predicate(page))) {
             return false;
@@ -513,10 +793,22 @@ async function waitForMailPage(playerId, predicate, timeoutMs, label) {
     }, timeoutMs, label);
     return resolved;
 }
+/**
+ * 轮询玩家运行态，直到满足指定断言。
+ */
 async function waitForPlayerState(playerId, predicate, timeoutMs) {
+/**
+ * 记录resolved。
+ */
     let resolved = null;
     await waitFor(async () => {
+/**
+ * 记录payload。
+ */
         const payload = await fetchPlayerState(playerId);
+/**
+ * 记录玩家。
+ */
         const player = payload?.player ?? null;
         if (!player) {
             return false;
@@ -529,11 +821,29 @@ async function waitForPlayerState(playerId, predicate, timeoutMs) {
     }, timeoutMs, `player state ${playerId}`);
     return resolved;
 }
+/**
+ * 为 GM 改位测试寻找附近可落点坐标。
+ */
 async function findNearbyWalkablePosition(token, playerId, mapId, x, y) {
+/**
+ * 记录startx。
+ */
     const startX = Math.max(0, Math.trunc(x) - 2);
+/**
+ * 记录starty。
+ */
     const startY = Math.max(0, Math.trunc(y) - 2);
+/**
+ * 记录运行态。
+ */
     const runtime = await authedGetJson(`/gm/maps/${mapId}/runtime?x=${startX}&y=${startY}&w=5&h=5&viewerId=${encodeURIComponent(playerId)}`, token);
+/**
+ * 记录tiles。
+ */
     const tiles = Array.isArray(runtime?.tiles) ? runtime.tiles : [];
+/**
+ * 记录occupiedkeys。
+ */
     const occupiedKeys = new Set((Array.isArray(runtime?.entities) ? runtime.entities : [])
         .filter((entry) => entry
         && entry.id !== playerId
@@ -541,13 +851,25 @@ async function findNearbyWalkablePosition(token, playerId, mapId, x, y) {
         && Number.isFinite(entry.y))
         .map((entry) => `${Math.trunc(entry.x)},${Math.trunc(entry.y)}`));
     for (let row = 0; row < tiles.length; row += 1) {
+/**
+ * 记录line。
+ */
         const line = Array.isArray(tiles[row]) ? tiles[row] : [];
         for (let column = 0; column < line.length; column += 1) {
+/**
+ * 记录tile。
+ */
             const tile = line[column];
             if (!tile || tile.walkable !== true) {
                 continue;
             }
+/**
+ * 记录candidatex。
+ */
             const candidateX = startX + column;
+/**
+ * 记录candidatey。
+ */
             const candidateY = startY + row;
             if (candidateX === x && candidateY === y) {
                 continue;
@@ -560,19 +882,43 @@ async function findNearbyWalkablePosition(token, playerId, mapId, x, y) {
     }
     return { x, y };
 }
+/**
+ * 处理inspect地图运行态。
+ */
 async function inspectMapRuntime(token, playerId, mapId, x, y) {
+/**
+ * 记录startx。
+ */
     const startX = Math.max(0, Math.trunc(x) - 2);
+/**
+ * 记录starty。
+ */
     const startY = Math.max(0, Math.trunc(y) - 2);
+/**
+ * 记录运行态。
+ */
     const runtime = await authedGetJson(`/gm/maps/${mapId}/runtime?x=${startX}&y=${startY}&w=5&h=5&viewerId=${encodeURIComponent(playerId)}`, token);
     return assertMapRuntimeShape(runtime, mapId, playerId);
 }
+/**
+ * 发出 GM socket 事件并等待匹配的状态回包。
+ */
 async function emitAndWaitForGmState(socket, gmStateEvents, socketError, event, payload, predicate, timeoutMs, label) {
+/**
+ * 记录before数量。
+ */
     const beforeCount = gmStateEvents.length;
     socket.emit(event, payload);
+/**
+ * 记录resolved。
+ */
     let resolved = null;
     await waitFor(() => {
         throwIfSocketError(socketError);
         for (let index = beforeCount; index < gmStateEvents.length; index += 1) {
+/**
+ * 记录当前值。
+ */
             const current = gmStateEvents[index];
             if (predicate(current)) {
                 resolved = current;
@@ -583,9 +929,18 @@ async function emitAndWaitForGmState(socket, gmStateEvents, socketError, event, 
     }, timeoutMs, label);
     return resolved;
 }
+/**
+ * 等待forGM状态。
+ */
 async function waitForGmState(token, predicate, timeoutMs, label) {
+/**
+ * 记录resolved。
+ */
     let resolved = null;
     await waitFor(async () => {
+/**
+ * 记录payload。
+ */
         const payload = await authedGetJson('/gm/state', token);
         assertGmStateShape(payload, label);
         if (!(await predicate(payload))) {
@@ -596,12 +951,24 @@ async function waitForGmState(token, predicate, timeoutMs, label) {
     }, timeoutMs, label);
     return resolved;
 }
+/**
+ * 处理fetchGMsuggestions。
+ */
 async function fetchGmSuggestions(token) {
     return authedGetJson('/gm/suggestions?page=1&pageSize=20', token);
 }
+/**
+ * 轮询 GM 建议列表直到建议状态满足预期。
+ */
 async function waitForGmSuggestions(token, predicate, timeoutMs, label) {
+/**
+ * 记录resolved。
+ */
     let resolved = null;
     await waitFor(async () => {
+/**
+ * 记录payload。
+ */
         const payload = await fetchGmSuggestions(token);
         if (!Array.isArray(payload?.items) || !(await predicate(payload))) {
             return false;
@@ -611,14 +978,32 @@ async function waitForGmSuggestions(token, predicate, timeoutMs, label) {
     }, timeoutMs, label);
     return resolved;
 }
+/**
+ * 处理fetchGM地图运行态。
+ */
 async function fetchGmMapRuntime(token, mapId, viewerId, x, y) {
+/**
+ * 记录startx。
+ */
     const startX = Math.max(0, Math.trunc(x) - 2);
+/**
+ * 记录starty。
+ */
     const startY = Math.max(0, Math.trunc(y) - 2);
     return authedGetJson(`/gm/maps/${mapId}/runtime?x=${startX}&y=${startY}&w=5&h=5&viewerId=${encodeURIComponent(viewerId)}`, token);
 }
+/**
+ * 等待forGM地图运行态。
+ */
 async function waitForGmMapRuntime(token, mapId, viewerId, x, y, predicate, timeoutMs, label) {
+/**
+ * 记录resolved。
+ */
     let resolved = null;
     await waitFor(async () => {
+/**
+ * 记录运行态。
+ */
         const runtime = await fetchGmMapRuntime(token, mapId, viewerId, x, y);
         if (!runtime || !(await predicate(runtime))) {
             return false;
@@ -628,7 +1013,13 @@ async function waitForGmMapRuntime(token, mapId, viewerId, x, y, predicate, time
     }, timeoutMs, label);
     return resolved;
 }
+/**
+ * 同时校验运行态和 GM 摘要中的玩家状态是否已一致更新。
+ */
 async function waitForRuntimeAndGmPlayerState(playerId, token, predicate, timeoutMs, label) {
+/**
+ * 记录resolved。
+ */
     let resolved = null;
     await waitFor(async () => {
         const [runtimePayload, gmPayload] = await Promise.all([
@@ -636,7 +1027,13 @@ async function waitForRuntimeAndGmPlayerState(playerId, token, predicate, timeou
             authedGetJson('/gm/state', token),
         ]);
         assertGmStateShape(gmPayload, label);
+/**
+ * 记录运行态。
+ */
         const runtime = runtimePayload?.player ?? null;
+/**
+ * 记录汇总。
+ */
         const summary = summarizeGmPlayer(gmPayload, playerId);
         if (!runtime || !summary) {
             return false;
@@ -653,11 +1050,20 @@ async function waitForRuntimeAndGmPlayerState(playerId, token, predicate, timeou
     }, timeoutMs, label);
     return resolved;
 }
+/**
+ * 等待forsocketGM状态。
+ */
 async function waitForSocketGmState(gmStateEvents, socketError, playerId, expected, timeoutMs, label) {
+/**
+ * 记录resolved。
+ */
     let resolved = null;
     await waitFor(() => {
         throwIfSocketError(socketError);
         for (let index = 0; index < gmStateEvents.length; index += 1) {
+/**
+ * 记录当前值。
+ */
             const current = gmStateEvents[index];
             if (!hasGmPlayerSummary(current?.payload, playerId, (player) => matchesUpdatedSummary(player, expected))) {
                 continue;
@@ -669,25 +1075,49 @@ async function waitForSocketGmState(gmStateEvents, socketError, playerId, expect
     }, timeoutMs, label);
     return resolved;
 }
+/**
+ * 断言GM状态shape。
+ */
 function assertGmStateShape(payload, label) {
     if (!Array.isArray(payload?.players) || !Array.isArray(payload?.mapIds)) {
         throw new Error(`unexpected ${label} payload: ${JSON.stringify(payload)}`);
     }
 }
+/**
+ * 校验 GM 地图列表返回结构是否符合兼容预期。
+ */
 function assertGmMapsShape(payload, expectedMapId) {
     if (!Array.isArray(payload?.maps) || payload.maps.length === 0) {
         throw new Error(`unexpected gm maps payload: ${JSON.stringify(payload)}`);
     }
+/**
+ * 记录汇总。
+ */
     const summary = payload.maps.find((entry) => entry?.id === expectedMapId);
     if (!summary || !Number.isFinite(summary.width) || !Number.isFinite(summary.height)) {
         throw new Error(`missing current map summary for ${expectedMapId}: ${JSON.stringify(payload)}`);
     }
     return summary;
 }
+/**
+ * 断言编辑器目录shape。
+ */
 function assertEditorCatalogShape(payload) {
+/**
+ * 记录items。
+ */
     const items = Array.isArray(payload?.items) ? payload.items : null;
+/**
+ * 记录techniques。
+ */
     const techniques = Array.isArray(payload?.techniques) ? payload.techniques : null;
+/**
+ * 记录境界levels。
+ */
     const realmLevels = Array.isArray(payload?.realmLevels) ? payload.realmLevels : null;
+/**
+ * 记录buffs。
+ */
     const buffs = Array.isArray(payload?.buffs) ? payload.buffs : null;
     if (!items || !techniques || !realmLevels || !buffs) {
         throw new Error(`unexpected gm editor catalog payload: ${JSON.stringify(payload)}`);
@@ -707,14 +1137,23 @@ function assertEditorCatalogShape(payload) {
         buffCount: buffs.length,
     };
 }
+/**
+ * 校验 GM 地图运行态详情返回结构是否完整可用。
+ */
 function assertMapRuntimeShape(payload, expectedMapId, playerId) {
     if (payload?.mapId !== expectedMapId || !Array.isArray(payload?.tiles) || !Array.isArray(payload?.entities)) {
         throw new Error(`unexpected gm map runtime payload: ${JSON.stringify(payload)}`);
     }
+/**
+ * 汇总tile行数据。
+ */
     const tileRows = payload.tiles;
     if (tileRows.length === 0 || !Array.isArray(tileRows[0]) || tileRows[0].length === 0) {
         throw new Error(`gm map runtime tiles unexpectedly empty: ${JSON.stringify(payload)}`);
     }
+/**
+ * 记录玩家entity。
+ */
     const playerEntity = payload.entities.find((entry) => entry?.id === playerId);
     if (!playerEntity || playerEntity.kind !== 'player') {
         throw new Error(`gm map runtime missing player entity ${playerId}: ${JSON.stringify(payload.entities)}`);
@@ -727,28 +1166,46 @@ function assertMapRuntimeShape(payload, expectedMapId, playerId) {
         playerEntityKind: playerEntity.kind,
     };
 }
+/**
+ * 确认收到的是 legacy GM 状态包而不是异常格式。
+ */
 function assertLegacyGmState(entry, label) {
     if (entry?.kind !== 'legacy') {
         throw new Error(`expected legacy gm state for ${label}, got ${entry?.kind ?? 'none'}`);
     }
 }
+/**
+ * 判断是否已GM玩家汇总。
+ */
 function hasGmPlayerSummary(payload, playerId, predicate) {
+/**
+ * 记录玩家。
+ */
     const player = summarizeGmPlayer(payload, playerId);
     if (!player) {
         return false;
     }
     return predicate(player);
 }
+/**
+ * 处理summarizeGM玩家。
+ */
 function summarizeGmPlayer(payload, playerId) {
     return Array.isArray(payload?.players)
         ? payload.players.find((entry) => entry?.id === playerId) ?? null
         : null;
 }
+/**
+ * 查找suggestion。
+ */
 function findSuggestion(payload, suggestionId) {
     return Array.isArray(payload?.items)
         ? payload.items.find((entry) => entry?.id === suggestionId) ?? null
         : null;
 }
+/**
+ * 判断是否updatedposition状态。
+ */
 function isUpdatedPositionState(player, expected) {
     return player.templateId === expected.nextMapId
         && player.hp === expected.hp
@@ -757,6 +1214,9 @@ function isUpdatedPositionState(player, expected) {
         && (expected.expectedX === undefined || player.x === expected.expectedX)
         && (expected.expectedY === undefined || player.y === expected.expectedY);
 }
+/**
+ * 判断是否匹配updated汇总。
+ */
 function matchesUpdatedSummary(player, expected) {
     return player.mapId === expected.nextMapId
         && player.hp === expected.hp
@@ -765,13 +1225,22 @@ function matchesUpdatedSummary(player, expected) {
         && (expected.expectedX === undefined || player.x === expected.expectedX)
         && (expected.expectedY === undefined || player.y === expected.expectedY);
 }
+/**
+ * 判断是否已relocatedposition。
+ */
 function hasRelocatedPosition(x, y, previousX, previousY) {
     return x !== previousX || y !== previousY;
 }
+/**
+ * 解析jwtpayload。
+ */
 function parseJwtPayload(token) {
     if (typeof token !== 'string') {
         return null;
     }
+/**
+ * 记录segments。
+ */
     const segments = token.split('.');
     if (segments.length < 2) {
         return null;
@@ -783,11 +1252,17 @@ function parseJwtPayload(token) {
         return null;
     }
 }
+/**
+ * 处理onceconnected。
+ */
 async function onceConnected(socket) {
     if (socket.connected) {
         return;
     }
     await new Promise((resolve, reject) => {
+/**
+ * 记录timer。
+ */
         const timer = setTimeout(() => reject(new Error('socket connect timeout')), 5000);
         socket.once('connect', () => {
             clearTimeout(timer);
@@ -799,7 +1274,13 @@ async function onceConnected(socket) {
         });
     });
 }
+/**
+ * 等待for。
+ */
 async function waitFor(predicate, timeoutMs, label) {
+/**
+ * 记录startedat。
+ */
     const startedAt = Date.now();
     while (true) {
         if (await predicate()) {
@@ -811,17 +1292,29 @@ async function waitFor(predicate, timeoutMs, label) {
         await delay(100);
     }
 }
+/**
+ * 处理delay。
+ */
 function delay(ms) {
     return new Promise((resolve) => {
         setTimeout(resolve, ms);
     });
 }
+/**
+ * 处理throwifsocketerror。
+ */
 function throwIfSocketError(error) {
     if (error instanceof Error) {
         throw error;
     }
 }
+/**
+ * 处理delete玩家。
+ */
 async function deletePlayer(playerId) {
+/**
+ * 记录response。
+ */
     const response = await fetch(`${SERVER_NEXT_URL}/runtime/players/${playerId}`, {
         method: 'DELETE',
     });

@@ -1,4 +1,8 @@
 "use strict";
+/**
+ * 用途：执行 next-auth-bootstrap 链路的冒烟验证。
+ */
+
 Object.defineProperty(exports, "__esModule", { value: true });
 const pg_1 = require("pg");
 const socket_io_client_1 = require("socket.io-client");
@@ -6,14 +10,32 @@ const shared_1 = require("@mud/shared-next");
 const env_alias_1 = require("../config/env-alias");
 const world_player_auth_service_1 = require("../network/world-player-auth.service");
 const world_session_bootstrap_service_1 = require("../network/world-session-bootstrap.service");
+/**
+ * 目标 server-next 服务地址。
+ */
 const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
+/**
+ * 当前 smoke 使用的数据库连接串。
+ */
 const SERVER_NEXT_DATABASE_URL = (0, env_alias_1.resolveServerNextDatabaseUrl)();
+/**
+ * 标记本次验证是否启用了数据库持久化链路。
+ */
 const DATABASE_ENABLED = Boolean((0, env_alias_1.resolveServerNextDatabaseUrl)().trim());
+/**
+ * 标记是否开启认证追踪，便于校验身份来源与落盘路径。
+ */
 const AUTH_TRACE_ENABLED = process.env.NEXT_AUTH_TRACE_ENABLED === '1'
     || process.env.SERVER_NEXT_AUTH_TRACE_ENABLED === '1';
+/**
+ * 断线会话保活窗口，用于验证续连与过期行为。
+ */
 const SESSION_DETACH_EXPIRE_MS = Number.isFinite(Number(process.env.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS))
     ? Math.max(0, Math.trunc(Number(process.env.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS)))
     : 15_000;
+/**
+ * 记录 legacy 下行事件集合，用于断言 next socket 没有串出旧协议消息。
+ */
 const LEGACY_S2C_EVENTS = new Set([
     's:init',
     's:tick',
@@ -53,7 +75,13 @@ const LEGACY_S2C_EVENTS = new Set([
     's:leaderboard',
     's:npcShop',
 ]);
+/**
+ * 为本次 smoke 生成唯一后缀，避免账号和玩家标识冲突。
+ */
 const suffix = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+/**
+ * 编排 next 认证引导 smoke 的完整校验流程并输出证明结果。
+ */
 async function main() {
     if (DATABASE_ENABLED && !AUTH_TRACE_ENABLED) {
         throw new Error('next auth bootstrap with database requires NEXT_AUTH_TRACE_ENABLED=1 or SERVER_NEXT_AUTH_TRACE_ENABLED=1');
@@ -64,19 +92,40 @@ async function main() {
     if (AUTH_TRACE_ENABLED) {
         await clearAuthTrace();
     }
+/**
+ * 记录认证。
+ */
     const auth = await registerAndLoginPlayer(`na_${suffix.slice(-6)}`, buildUniqueDisplayName(`next-auth-bootstrap:${suffix}`), `鉴角${suffix.slice(-4)}`);
     if (DATABASE_ENABLED) {
         await seedLegacyCompatPlayerSnapshot(auth.identity);
     }
+/**
+ * 记录legacybackfillfallbackcontract。
+ */
     const legacyBackfillFallbackContract = await verifyLegacyBackfillSnapshotFallbackContract();
+/**
+ * 记录令牌seedidentitycontract。
+ */
     const tokenSeedIdentityContract = await verifyTokenSeedIdentityContract();
+/**
+ * 记录令牌seedpersistfailurecontract。
+ */
     const tokenSeedPersistFailureContract = await verifyTokenSeedPersistFailureContract();
     await expectNextSocketAuthFailure('invalid.next.token');
     await expectNextSocketAuthFailure(auth.refreshToken);
+/**
+ * 记录运行态玩家ID。
+ */
     let runtimePlayerId = null;
     try {
+/**
+ * 记录firstbootstrap。
+ */
         const firstBootstrap = await runNextBootstrap(auth.accessToken, auth.identity);
         runtimePlayerId = firstBootstrap.playerId;
+/**
+ * 记录认证trace。
+ */
         const authTrace = AUTH_TRACE_ENABLED
             ? await waitForAuthTrace(runtimePlayerId, firstBootstrap.sessionId ?? null)
             : null;
@@ -86,7 +135,13 @@ async function main() {
         if (DATABASE_ENABLED && authTrace?.identityPersistedSource !== 'legacy_sync') {
             throw new Error(`expected with-db first identity persisted source to be legacy_sync, got ${authTrace?.identityPersistedSource ?? 'unknown'}`);
         }
+/**
+ * 记录authenticated会话证明链。
+ */
         const authenticatedSessionProof = await verifyAuthenticatedSessionContract(auth.accessToken, auth.identity, runtimePlayerId, authTrace?.identitySource ?? null);
+/**
+ * 记录snapshotsequence。
+ */
         const snapshotSequence = AUTH_TRACE_ENABLED
             ? await verifySnapshotSequence(auth.accessToken, runtimePlayerId, authTrace)
             : null;
@@ -132,7 +187,13 @@ async function main() {
         }
     }
 }
+/**
+ * 验证无效或错误令牌在 next socket 上会按预期失败。
+ */
 async function expectNextSocketAuthFailure(token, expectedCode = 'AUTH_FAIL') {
+/**
+ * 记录socket。
+ */
     const socket = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
         path: '/socket.io',
         transports: ['websocket'],
@@ -142,11 +203,29 @@ async function expectNextSocketAuthFailure(token, expectedCode = 'AUTH_FAIL') {
             protocol: 'next',
         },
     });
+/**
+ * 记录legacyevents。
+ */
     const legacyEvents = [];
+/**
+ * 记录nexterrorpayload。
+ */
     let nextErrorPayload = null;
+/**
+ * 记录disconnected。
+ */
     let disconnected = false;
+/**
+ * 记录init会话数量。
+ */
     let initSessionCount = 0;
+/**
+ * 记录bootstrap数量。
+ */
     let bootstrapCount = 0;
+/**
+ * 记录地图enter数量。
+ */
     let mapEnterCount = 0;
     try {
         socket.onAny((event) => {
@@ -170,6 +249,9 @@ async function expectNextSocketAuthFailure(token, expectedCode = 'AUTH_FAIL') {
             disconnected = true;
         });
         await new Promise((resolve, reject) => {
+/**
+ * 记录timer。
+ */
             const timer = setTimeout(() => reject(new Error('invalid next token socket connect timeout')), 5000);
             socket.once('connect', () => {
                 clearTimeout(timer);
@@ -181,6 +263,9 @@ async function expectNextSocketAuthFailure(token, expectedCode = 'AUTH_FAIL') {
             });
         });
         await waitFor(() => nextErrorPayload !== null && disconnected, 5000, 'nextAuthFailure');
+/**
+ * 记录code。
+ */
         const code = typeof nextErrorPayload?.code === 'string' ? nextErrorPayload.code : '';
         if (code !== expectedCode) {
             throw new Error(`expected next socket to fail with ${expectedCode}, got ${JSON.stringify(nextErrorPayload)}`);
@@ -196,7 +281,13 @@ async function expectNextSocketAuthFailure(token, expectedCode = 'AUTH_FAIL') {
         socket.close();
     }
 }
+/**
+ * 创建带事件计数与等待能力的 next 协议测试 socket 包装器。
+ */
 function createNextSocket(token, options = undefined) {
+/**
+ * 记录socket。
+ */
     const socket = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
         path: '/socket.io',
         transports: ['websocket'],
@@ -207,17 +298,50 @@ function createNextSocket(token, options = undefined) {
             sessionId: typeof options?.sessionId === 'string' ? options.sessionId : undefined,
         },
     });
+/**
+ * 记录byevent。
+ */
     const byEvent = new Map();
+/**
+ * 记录legacyevents。
+ */
     const legacyEvents = [];
+/**
+ * 记录fatalerror。
+ */
     let fatalError = null;
+/**
+ * 记录地图enter数量。
+ */
     let mapEnterCount = 0;
+/**
+ * 记录bootstrap数量。
+ */
     let bootstrapCount = 0;
+/**
+ * 记录地图static数量。
+ */
     let mapStaticCount = 0;
+/**
+ * 记录境界数量。
+ */
     let realmCount = 0;
+/**
+ * 记录worlddelta数量。
+ */
     let worldDeltaCount = 0;
+/**
+ * 记录selfdelta数量。
+ */
     let selfDeltaCount = 0;
+/**
+ * 记录paneldelta数量。
+ */
     let panelDeltaCount = 0;
     socket.onAny((event, payload) => {
+/**
+ * 记录existing。
+ */
         const existing = byEvent.get(event) ?? [];
         existing.push(payload);
         byEvent.set(event, existing);
@@ -226,6 +350,9 @@ function createNextSocket(token, options = undefined) {
         }
     });
     socket.on(shared_1.NEXT_S2C.Error, (payload) => {
+/**
+ * 记录code。
+ */
         const code = typeof payload?.code === 'string' ? payload.code : '';
         if (code === 'PLAYER_ID_MISMATCH') {
             return;
@@ -259,6 +386,9 @@ function createNextSocket(token, options = undefined) {
     socket.on(shared_1.NEXT_S2C.PanelDelta, () => {
         panelDeltaCount += 1;
     });
+/**
+ * 在继续测试前抛出 socket 侧已捕获的致命错误。
+ */
     function throwIfFatal() {
         if (fatalError) {
             throw fatalError;
@@ -293,6 +423,9 @@ function createNextSocket(token, options = undefined) {
                 return;
             }
             await new Promise((resolve, reject) => {
+/**
+ * 记录timer。
+ */
                 const timer = setTimeout(() => reject(new Error('next socket connect timeout')), 5000);
                 socket.once('connect', () => {
                     clearTimeout(timer);
@@ -314,8 +447,14 @@ function createNextSocket(token, options = undefined) {
         async waitForEvent(event, predicate = () => true, timeoutMs = 5000) {
             return waitForValue(async () => {
                 throwIfFatal();
+/**
+ * 记录payloads。
+ */
                 const payloads = byEvent.get(event) ?? [];
                 for (let index = payloads.length - 1; index >= 0; index -= 1) {
+/**
+ * 记录payload。
+ */
                     const payload = payloads[index];
                     if (await predicate(payload)) {
                         return payload;
@@ -329,17 +468,35 @@ function createNextSocket(token, options = undefined) {
         },
     };
 }
+/**
+ * 断言当前 next 验证链路没有收到任何 legacy 协议事件。
+ */
 function assertNoLegacyEvents(target, label) {
     if (target.legacyEvents.length > 0) {
         throw new Error(`${label} received legacy events: ${target.legacyEvents.join(', ')}`);
     }
 }
+/**
+ * 验证 access token 直连后能完整收到 next 首包与基础同步事件。
+ */
 async function runNextBootstrap(token, expectedIdentity = null) {
+/**
+ * 记录successsocket。
+ */
     const successSocket = createNextSocket(token);
+/**
+ * 记录运行态玩家ID。
+ */
     let runtimePlayerId = null;
     try {
         await successSocket.onceConnected();
+/**
+ * 记录init会话。
+ */
         const initSession = await successSocket.waitForEvent(shared_1.NEXT_S2C.InitSession, (payload) => typeof payload?.pid === 'string' && payload.pid.trim().length > 0, 5000);
+/**
+ * 记录bootstrap。
+ */
         const bootstrap = await successSocket.waitForEvent(shared_1.NEXT_S2C.Bootstrap, (payload) => typeof payload?.self?.id === 'string' && payload.self.id.trim().length > 0, 5000);
         await waitFor(() => successSocket.mapEnterCount > 0
             && successSocket.mapStaticCount > 0
@@ -351,8 +508,17 @@ async function runNextBootstrap(token, expectedIdentity = null) {
         if (initSession.pid !== runtimePlayerId) {
             throw new Error(`init/bootstrap player mismatch: init=${initSession.pid} bootstrap=${runtimePlayerId}`);
         }
+/**
+ * 记录init会话数量beforehello。
+ */
         const initSessionCountBeforeHello = successSocket.getEventCount(shared_1.NEXT_S2C.InitSession);
+/**
+ * 记录bootstrap数量beforehello。
+ */
         const bootstrapCountBeforeHello = successSocket.bootstrapCount;
+/**
+ * 记录地图enter数量beforehello。
+ */
         const mapEnterCountBeforeHello = successSocket.mapEnterCount;
         successSocket.emit(shared_1.NEXT_C2S.Hello, {
             playerId: runtimePlayerId,
@@ -370,6 +536,9 @@ async function runNextBootstrap(token, expectedIdentity = null) {
         if (successSocket.mapEnterCount !== mapEnterCountBeforeHello) {
             throw new Error('next hello should not emit duplicate MapEnter after token bootstrap');
         }
+/**
+ * 记录状态。
+ */
         const state = await fetchPlayerState(runtimePlayerId);
         if (!state?.player || state.player.playerId !== runtimePlayerId) {
             throw new Error(`runtime state missing expected player ${runtimePlayerId}`);
@@ -404,23 +573,53 @@ async function runNextBootstrap(token, expectedIdentity = null) {
         successSocket.close();
     }
 }
+/**
+ * 根据身份来源判断断线后是否应隐式续用既有会话。
+ */
 function shouldExpectImplicitDetachedResume(identitySource) {
     return identitySource === 'next'
         || identitySource === 'token'
         || identitySource === 'legacy_backfill';
 }
+/**
+ * 根据身份来源判断顶号替换时是否应复用当前会话编号。
+ */
 function shouldExpectConnectedSessionReuse(identitySource) {
     return shouldExpectImplicitDetachedResume(identitySource);
 }
+/**
+ * 验证认证玩家在顶号、断线续连、显式续连和过期后的会话契约。
+ */
 async function verifyAuthenticatedSessionContract(token, expectedIdentity, expectedPlayerId, identitySource = null) {
+/**
+ * 记录first。
+ */
     const first = createNextSocket(token);
+/**
+ * 记录second。
+ */
     let second = null;
+/**
+ * 记录third。
+ */
     let third = null;
+/**
+ * 记录fourth。
+ */
     let fourth = null;
+/**
+ * 记录fifth。
+ */
     let fifth = null;
     try {
         await first.onceConnected();
+/**
+ * 记录firstinit。
+ */
         const firstInit = await first.waitForEvent(shared_1.NEXT_S2C.InitSession, (payload) => typeof payload?.pid === 'string' && payload.pid.trim().length > 0, 5000);
+/**
+ * 记录firstbootstrap。
+ */
         const firstBootstrap = await first.waitForEvent(shared_1.NEXT_S2C.Bootstrap, (payload) => typeof payload?.self?.id === 'string' && payload.self.id.trim().length > 0, 5000);
         if (firstBootstrap.self.id !== expectedPlayerId || firstInit.pid !== expectedPlayerId) {
             throw new Error(`authenticated session proof first bootstrap player mismatch: expected=${expectedPlayerId} init=${firstInit.pid} bootstrap=${firstBootstrap.self.id}`);
@@ -433,8 +632,17 @@ async function verifyAuthenticatedSessionContract(token, expectedIdentity, expec
         });
         second = createNextSocket(token);
         await second.onceConnected();
+/**
+ * 记录replacedkick。
+ */
         const replacedKick = await first.waitForEvent(shared_1.NEXT_S2C.Kick, (payload) => payload?.reason === 'replaced', 5000);
+/**
+ * 记录secondinit。
+ */
         const secondInit = await second.waitForEvent(shared_1.NEXT_S2C.InitSession, (payload) => typeof payload?.pid === 'string' && payload.pid.trim().length > 0, 5000);
+/**
+ * 记录secondbootstrap。
+ */
         const secondBootstrap = await second.waitForEvent(shared_1.NEXT_S2C.Bootstrap, (payload) => typeof payload?.self?.id === 'string' && payload.self.id.trim().length > 0, 5000);
         if (replacedKick?.reason !== 'replaced') {
             throw new Error(`expected authenticated replacement kick, got ${JSON.stringify(replacedKick)}`);
@@ -457,7 +665,13 @@ async function verifyAuthenticatedSessionContract(token, expectedIdentity, expec
         await delay(1200);
         third = createNextSocket(token);
         await third.onceConnected();
+/**
+ * 记录resumedinit。
+ */
         const resumedInit = await third.waitForEvent(shared_1.NEXT_S2C.InitSession, (payload) => typeof payload?.pid === 'string' && payload.pid.trim().length > 0, 5000);
+/**
+ * 记录resumedbootstrap。
+ */
         const resumedBootstrap = await third.waitForEvent(shared_1.NEXT_S2C.Bootstrap, (payload) => typeof payload?.self?.id === 'string' && payload.self.id.trim().length > 0, 5000);
         if (resumedInit.pid !== expectedPlayerId || resumedBootstrap.self.id !== expectedPlayerId) {
             throw new Error(`authenticated session proof resumed bootstrap player mismatch: ${JSON.stringify(resumedInit)}`);
@@ -479,7 +693,13 @@ async function verifyAuthenticatedSessionContract(token, expectedIdentity, expec
         await delay(1200);
         fourth = createNextSocket(token, { sessionId: resumedInit.sid });
         await fourth.onceConnected();
+/**
+ * 记录explicitrequestedinit。
+ */
         const explicitRequestedInit = await fourth.waitForEvent(shared_1.NEXT_S2C.InitSession, (payload) => typeof payload?.pid === 'string' && payload.pid.trim().length > 0, 5000);
+/**
+ * 记录explicitrequestedbootstrap。
+ */
         const explicitRequestedBootstrap = await fourth.waitForEvent(shared_1.NEXT_S2C.Bootstrap, (payload) => typeof payload?.self?.id === 'string' && payload.self.id.trim().length > 0, 5000);
         if (explicitRequestedInit.pid !== expectedPlayerId || explicitRequestedBootstrap.self.id !== expectedPlayerId) {
             throw new Error(`authenticated session proof explicit-request bootstrap player mismatch: ${JSON.stringify(explicitRequestedInit)}`);
@@ -501,7 +721,13 @@ async function verifyAuthenticatedSessionContract(token, expectedIdentity, expec
         await delay(SESSION_DETACH_EXPIRE_MS + 1200);
         fifth = createNextSocket(token);
         await fifth.onceConnected();
+/**
+ * 记录expiredinit。
+ */
         const expiredInit = await fifth.waitForEvent(shared_1.NEXT_S2C.InitSession, (payload) => typeof payload?.pid === 'string' && payload.pid.trim().length > 0, 5000);
+/**
+ * 记录expiredbootstrap。
+ */
         const expiredBootstrap = await fifth.waitForEvent(shared_1.NEXT_S2C.Bootstrap, (payload) => typeof payload?.self?.id === 'string' && payload.self.id.trim().length > 0, 5000);
         if (expiredInit.pid !== expectedPlayerId || expiredBootstrap.self.id !== expectedPlayerId) {
             throw new Error(`authenticated session proof expired bootstrap player mismatch: ${JSON.stringify(expiredInit)}`);
@@ -542,11 +768,20 @@ async function verifyAuthenticatedSessionContract(token, expectedIdentity, expec
         fifth?.close();
     }
 }
+/**
+ * 验证 legacy 回填快照在不同持久化开关下的回退契约。
+ */
 async function verifyLegacyBackfillSnapshotFallbackContract() {
+/**
+ * 记录payload。
+ */
     const payload = {
         sub: 'proof_user_legacy_backfill',
         playerId: 'proof_player_legacy_backfill',
     };
+/**
+ * 记录compatidentity。
+ */
     const compatIdentity = {
         userId: payload.sub,
         username: 'proof_legacy_backfill',
@@ -554,6 +789,9 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         playerId: payload.playerId,
         playerName: 'proof legacy backfill',
     };
+/**
+ * 记录认证服务。
+ */
     const authService = new world_player_auth_service_1.WorldPlayerAuthService({
         validatePlayerToken: () => payload,
         resolvePlayerIdentityFromPayload: () => compatIdentity,
@@ -579,10 +817,16 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
             },
         }),
     });
+/**
+ * 记录blockedidentity。
+ */
     const blockedIdentity = await authService.authenticatePlayerToken('proof.token.legacy_backfill');
     if (blockedIdentity !== null) {
         throw new Error(`expected persistence-enabled compat backfill preseed failure to reject auth before bootstrap, got ${JSON.stringify(blockedIdentity)}`);
     }
+/**
+ * 记录no持久化认证服务。
+ */
     const noPersistenceAuthService = new world_player_auth_service_1.WorldPlayerAuthService({
         validatePlayerToken: () => payload,
         resolvePlayerIdentityFromPayload: () => compatIdentity,
@@ -606,11 +850,20 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
             },
         }),
     });
+/**
+ * 记录legacy运行态identity。
+ */
     const legacyRuntimeIdentity = await noPersistenceAuthService.authenticatePlayerToken('proof.token.legacy_backfill');
     if (!legacyRuntimeIdentity || legacyRuntimeIdentity.authSource !== 'legacy_runtime') {
         throw new Error(`expected non-persistence compat backfill auth to remain legacy_runtime, got ${JSON.stringify(legacyRuntimeIdentity)}`);
     }
+/**
+ * 记录持久化enabledcalls。
+ */
     const persistenceEnabledCalls = [];
+/**
+ * 记录持久化enabledbootstrap服务。
+ */
     const persistenceEnabledBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService(null, {
         isPersistenceEnabled: () => true,
         loadPlayerSnapshot: async (playerId, allowLegacyFallback, fallbackReason) => {
@@ -622,6 +875,9 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
             return null;
         },
     }, null, null, null, null, null, null, null, null);
+/**
+ * 记录blockederror。
+ */
     let blockedError = null;
     try {
         await persistenceEnabledBootstrapService.loadAuthenticatedPlayerSnapshot(legacyRuntimeIdentity);
@@ -634,7 +890,13 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         || persistenceEnabledCalls[0]?.fallbackReason !== 'persistence_enabled_blocked:legacy_runtime') {
         throw new Error(`expected persistence-enabled legacy_runtime identity to block compat snapshot fallback, got error=${blockedError instanceof Error ? blockedError.message : String(blockedError)} call=${JSON.stringify(persistenceEnabledCalls[0] ?? null)}`);
     }
+/**
+ * 记录no持久化calls。
+ */
     const noPersistenceCalls = [];
+/**
+ * 记录no持久化bootstrap服务。
+ */
     const noPersistenceBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService(null, {
         isPersistenceEnabled: () => false,
         loadPlayerSnapshot: async (playerId, allowLegacyFallback, fallbackReason) => {
@@ -657,13 +919,22 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
             };
         },
     }, null, null, null, null, null, null, null, null);
+/**
+ * 记录no持久化snapshot。
+ */
     const noPersistenceSnapshot = await noPersistenceBootstrapService.loadAuthenticatedPlayerSnapshot(legacyRuntimeIdentity);
     if (!noPersistenceSnapshot
         || noPersistenceCalls[0]?.allowLegacyFallback !== true
         || noPersistenceCalls[0]?.fallbackReason !== 'identity_source:legacy_runtime') {
         throw new Error(`expected non-persistence legacy_runtime identity to keep compat snapshot fallback enabled, got snapshot=${JSON.stringify(noPersistenceSnapshot ?? null)} call=${JSON.stringify(noPersistenceCalls[0] ?? null)}`);
     }
+/**
+ * 记录stricterror。
+ */
     let strictError = null;
+/**
+ * 记录previousstrictnativesnapshot。
+ */
     const previousStrictNativeSnapshot = process.env.SERVER_NEXT_AUTH_REQUIRE_NATIVE_SNAPSHOT;
     process.env.SERVER_NEXT_AUTH_REQUIRE_NATIVE_SNAPSHOT = '1';
     try {
@@ -700,7 +971,13 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         strictError: strictError.message,
     };
 }
+/**
+ * 验证 token 直连时玩家身份的种子构造与来源标记。
+ */
 async function verifyTokenSeedIdentityContract() {
+/**
+ * 记录payload。
+ */
     const payload = {
         sub: 'proof_user_token_seed',
         username: 'proof_token_seed',
@@ -708,8 +985,17 @@ async function verifyTokenSeedIdentityContract() {
         playerId: 'proof_player_token_seed',
         playerName: 'proof token seed',
     };
+/**
+ * 记录compatidentitycalls。
+ */
     let compatIdentityCalls = 0;
+/**
+ * 记录compatsnapshotcalls。
+ */
     let compatSnapshotCalls = 0;
+/**
+ * 记录认证服务。
+ */
     const authService = new world_player_auth_service_1.WorldPlayerAuthService({
         validatePlayerToken: () => payload,
         resolvePlayerIdentityFromPayload: () => ({
@@ -749,6 +1035,9 @@ async function verifyTokenSeedIdentityContract() {
             return null;
         },
     });
+/**
+ * 记录identity。
+ */
     const identity = await authService.authenticatePlayerToken('proof.token.token_seed');
     if (!identity || identity.authSource !== 'token') {
         throw new Error(`expected persistence-enabled token identity to seed next auth without compat identity lookup, got ${JSON.stringify(identity)}`);
@@ -763,7 +1052,13 @@ async function verifyTokenSeedIdentityContract() {
         compatSnapshotCalls,
     };
 }
+/**
+ * 验证 token 种子身份在持久化失败时的拒绝或回退行为。
+ */
 async function verifyTokenSeedPersistFailureContract() {
+/**
+ * 记录payload。
+ */
     const payload = {
         sub: 'proof_user_token_persist_blocked',
         username: 'proof_token_persist_blocked',
@@ -771,7 +1066,13 @@ async function verifyTokenSeedPersistFailureContract() {
         playerId: 'proof_player_token_persist_blocked',
         playerName: 'proof token persist blocked',
     };
+/**
+ * 记录compatidentitycalls。
+ */
     let compatIdentityCalls = 0;
+/**
+ * 记录认证服务。
+ */
     const authService = new world_player_auth_service_1.WorldPlayerAuthService({
         validatePlayerToken: () => payload,
         resolvePlayerIdentityFromPayload: () => ({
@@ -816,6 +1117,9 @@ async function verifyTokenSeedPersistFailureContract() {
         },
         loadCompatPlayerSnapshot: async () => null,
     });
+/**
+ * 记录identity。
+ */
     const identity = await authService.authenticatePlayerToken('proof.token.token_persist_blocked');
     if (identity !== null) {
         throw new Error(`expected token-seed persist failure to reject auth before compat fallback, got ${JSON.stringify(identity)}`);
@@ -829,13 +1133,28 @@ async function verifyTokenSeedPersistFailureContract() {
         persistFailureStage: 'token_seed_save_failed',
     };
 }
+/**
+ * 处理校验snapshotsequence。
+ */
 async function verifySnapshotSequence(token, playerId, firstAuthTrace) {
     if (!firstAuthTrace) {
         return null;
     }
+/**
+ * 记录firstsnapshot来源。
+ */
     const firstSnapshotSource = firstAuthTrace.snapshotSource ?? null;
+/**
+ * 记录firstsnapshotpersisted来源。
+ */
     const firstSnapshotPersistedSource = firstAuthTrace.snapshotPersistedSource ?? null;
+/**
+ * 记录firstsnapshotwascompatseed。
+ */
     const firstSnapshotWasCompatSeed = firstSnapshotSource === 'legacy_seeded';
+/**
+ * 记录firstsnapshotwaspreseedednext。
+ */
     const firstSnapshotWasPreseededNext = firstSnapshotSource === 'next'
         && firstSnapshotPersistedSource === 'legacy_seeded';
     if (!firstSnapshotWasCompatSeed && !firstSnapshotWasPreseededNext) {
@@ -859,10 +1178,16 @@ async function verifySnapshotSequence(token, playerId, firstAuthTrace) {
     await deletePlayer(playerId);
     await waitForPlayerState(playerId, false);
     await clearAuthTrace();
+/**
+ * 记录secondbootstrap。
+ */
     const secondBootstrap = await runNextBootstrap(token);
     if (secondBootstrap.playerId !== playerId) {
         throw new Error(`next bootstrap second pass player mismatch: second=${secondBootstrap.playerId} first=${playerId}`);
     }
+/**
+ * 记录second认证trace。
+ */
     const secondAuthTrace = await waitForAuthTrace(playerId, secondBootstrap.sessionId ?? null, {
         requireReject: false,
     });
@@ -878,39 +1203,75 @@ async function verifySnapshotSequence(token, playerId, firstAuthTrace) {
     if (DATABASE_ENABLED && secondAuthTrace.snapshotPersistedSource !== 'native') {
         throw new Error(`expected second snapshot persisted source to be native, got ${secondAuthTrace.snapshotPersistedSource ?? 'unknown'}`);
     }
+/**
+ * 记录compatbackfillsavefailed。
+ */
     const compatBackfillSaveFailed = DATABASE_ENABLED
         ? await verifyCompatBackfillSaveFailure(token, playerId)
         : null;
+/**
+ * 记录compatbackfillsavefailedmissingsnapshotrejected。
+ */
     const compatBackfillSaveFailedMissingSnapshotRejected = DATABASE_ENABLED
         ? await verifyCompatBackfillSaveFailureMissingSnapshotRejection(token, playerId)
         : null;
+/**
+ * 记录compatidentitybackfillsnapshotpreseed。
+ */
     const compatIdentityBackfillSnapshotPreseed = DATABASE_ENABLED
         ? await verifyCompatIdentityBackfillSnapshotPreseed(token, playerId)
         : null;
+/**
+ * 记录compatidentitybackfillsnapshotseedfailurerejected。
+ */
     const compatIdentityBackfillSnapshotSeedFailureRejected = DATABASE_ENABLED
         ? await verifyCompatIdentityBackfillSnapshotSeedFailureRejection(token, playerId)
         : null;
+/**
+ * 记录invalidsnapshotmetapersisted来源normalized。
+ */
     const invalidSnapshotMetaPersistedSourceNormalized = DATABASE_ENABLED
         ? await verifyInvalidPersistedSnapshotMetaPersistedSourceNormalization(token, playerId)
         : null;
+/**
+ * 记录invalidsnapshotunlocked地图idsnormalized。
+ */
     const invalidSnapshotUnlockedMapIdsNormalized = DATABASE_ENABLED
         ? await verifyInvalidPersistedSnapshotUnlockedMapIdsNormalization(token, playerId)
         : null;
+/**
+ * 记录invalidsnapshotrejected。
+ */
     const invalidSnapshotRejected = DATABASE_ENABLED
         ? await verifyInvalidPersistedSnapshotRejection(token, playerId)
         : null;
+/**
+ * 记录nextidentitycompatsnapshotignored。
+ */
     const nextIdentityCompatSnapshotIgnored = DATABASE_ENABLED
         ? await verifyNextIdentityCompatSnapshotIgnored(token, playerId)
-        : null;
+        : null;/**
+ * 按 ID 组织nextidentityinvalidcompatignored映射。
+ */
+
     const nextIdentityInvalidCompatMapIdIgnored = DATABASE_ENABLED
         ? await verifyNextIdentityInvalidCompatMapIdIgnored(token, playerId)
         : null;
+/**
+ * 记录nextidentityinvalidunlocked地图idsignored。
+ */
     const nextIdentityInvalidUnlockedMapIdsIgnored = DATABASE_ENABLED
         ? await verifyNextIdentityInvalidUnlockedMapIdsIgnored(token, playerId)
         : null;
+/**
+ * 记录missingsnapshotrejected。
+ */
     const missingSnapshotRejected = DATABASE_ENABLED
         ? await verifyMissingSnapshotRejection(token, playerId)
         : null;
+/**
+ * 记录invalididentityrejected。
+ */
     const invalidIdentityRejected = DATABASE_ENABLED
         ? await verifyInvalidPersistedIdentityRejection(token)
         : null;
@@ -939,8 +1300,17 @@ async function verifySnapshotSequence(token, playerId, firstAuthTrace) {
         invalidIdentityRejected,
     };
 }
+/**
+ * 处理校验compatidentitybackfillsnapshotpreseed。
+ */
 async function verifyCompatIdentityBackfillSnapshotPreseed(token, playerId) {
+/**
+ * 记录payload。
+ */
     const payload = parseJwtPayload(token);
+/**
+ * 记录userID。
+ */
     const userId = typeof payload?.sub === 'string' ? payload.sub.trim() : '';
     if (!userId) {
         throw new Error(`next auth token missing sub for compat-identity-backfill snapshot-preseed proof: ${JSON.stringify(payload)}`);
@@ -955,10 +1325,16 @@ async function verifyCompatIdentityBackfillSnapshotPreseed(token, playerId) {
     await expectPersistedIdentityDocument(userId, false);
     await expectPersistedPlayerSnapshotDocument(playerId, false);
     await clearAuthTrace();
+/**
+ * 记录bootstrap。
+ */
     const bootstrap = await runNextBootstrap(token);
     if (bootstrap.playerId !== playerId) {
         throw new Error(`compat-identity-backfill snapshot-preseed player mismatch: expected=${playerId} actual=${bootstrap.playerId}`);
     }
+/**
+ * 记录认证trace。
+ */
     const authTrace = await waitForAuthTrace(playerId, bootstrap.sessionId ?? null, {
         requireReject: false,
     });
@@ -975,8 +1351,17 @@ async function verifyCompatIdentityBackfillSnapshotPreseed(token, playerId) {
     await expectPersistedPlayerSnapshotDocument(playerId, true);
     return authTrace;
 }
+/**
+ * 处理校验compatidentitybackfillsnapshotseedfailurerejection。
+ */
 async function verifyCompatIdentityBackfillSnapshotSeedFailureRejection(token, playerId) {
+/**
+ * 记录payload。
+ */
     const payload = parseJwtPayload(token);
+/**
+ * 记录userID。
+ */
     const userId = typeof payload?.sub === 'string' ? payload.sub.trim() : '';
     if (!userId) {
         throw new Error(`next auth token missing sub for compat-identity-backfill snapshot-seed-failure rejection proof: ${JSON.stringify(payload)}`);
@@ -990,10 +1375,16 @@ async function verifyCompatIdentityBackfillSnapshotSeedFailureRejection(token, p
     await dropPersistedPlayerSnapshot(playerId);
     await expectPersistedIdentityDocument(userId, false);
     await expectPersistedPlayerSnapshotDocument(playerId, false);
+/**
+ * 记录injection。
+ */
     const injection = await installSnapshotSeedSaveFailure(playerId);
     try {
         await clearAuthTrace();
         await expectNextSocketAuthFailure(token, 'AUTH_FAIL');
+/**
+ * 记录failure认证trace。
+ */
         const failureAuthTrace = await waitForFailedIdentitySourceAuthTrace(userId, playerId, 'legacy_preseed_blocked');
         if (failureAuthTrace.identityPersistFailureStage !== 'compat_snapshot_preseed_failed') {
             throw new Error(`expected compat-identity-backfill snapshot-seed-failure rejection stage to be compat_snapshot_preseed_failed, got ${failureAuthTrace.identityPersistFailureStage ?? 'unknown'}`);
@@ -1018,8 +1409,17 @@ async function verifyCompatIdentityBackfillSnapshotSeedFailureRejection(token, p
         await uninstallSnapshotSeedSaveFailure(injection).catch(() => undefined);
     }
 }
+/**
+ * 处理校验missingsnapshotrejection。
+ */
 async function verifyMissingSnapshotRejection(token, playerId) {
+/**
+ * 记录payload。
+ */
     const payload = parseJwtPayload(token);
+/**
+ * 记录userID。
+ */
     const userId = typeof payload?.sub === 'string' ? payload.sub.trim() : '';
     if (!userId) {
         throw new Error(`next auth token missing sub for snapshot-miss rejection proof: ${JSON.stringify(payload)}`);
@@ -1033,6 +1433,9 @@ async function verifyMissingSnapshotRejection(token, playerId) {
     await expectPersistedIdentityDocument(userId, true);
     await clearAuthTrace();
     await expectNextSocketAuthFailure(token, 'AUTH_FAIL');
+/**
+ * 记录failure认证trace。
+ */
     const failureAuthTrace = await waitForFailedSnapshotAuthTrace(playerId, 'miss');
     if (failureAuthTrace.identitySource !== 'next') {
         throw new Error(`expected missing-snapshot rejection identity source to stay next, got ${failureAuthTrace.identitySource ?? 'unknown'}`);
@@ -1045,7 +1448,13 @@ async function verifyMissingSnapshotRejection(token, playerId) {
     }
     return failureAuthTrace;
 }
+/**
+ * 处理校验nextidentityinvalidunlocked地图idsignored。
+ */
 async function verifyNextIdentityInvalidUnlockedMapIdsIgnored(token, playerId) {
+/**
+ * 记录persistedidentity。
+ */
     const persistedIdentity = parseTokenIdentity(token);
     if (!persistedIdentity?.userId) {
         throw new Error(`next auth token missing persisted identity fields for next-identity-invalid-unlockedMapIds ignored proof: ${JSON.stringify(parseJwtPayload(token))}`);
@@ -1061,6 +1470,9 @@ async function verifyNextIdentityInvalidUnlockedMapIdsIgnored(token, playerId) {
     await writeInvalidLegacyCompatUnlockedMinimapIds(playerId);
     await clearAuthTrace();
     await expectNextSocketAuthFailure(token, 'AUTH_FAIL');
+/**
+ * 记录failure认证trace。
+ */
     const failureAuthTrace = await waitForFailedSnapshotAuthTrace(playerId, 'miss');
     if (failureAuthTrace.identitySource !== 'next') {
         throw new Error(`expected next-identity-invalid-unlockedMapIds ignored identity source to stay next, got ${failureAuthTrace.identitySource ?? 'unknown'}`);
@@ -1075,7 +1487,13 @@ async function verifyNextIdentityInvalidUnlockedMapIdsIgnored(token, playerId) {
     await expectPersistedPlayerSnapshotDocument(playerId, false);
     return failureAuthTrace;
 }
+/**
+ * 处理校验nextidentityinvalidcompat地图IDignored。
+ */
 async function verifyNextIdentityInvalidCompatMapIdIgnored(token, playerId) {
+/**
+ * 记录persistedidentity。
+ */
     const persistedIdentity = parseTokenIdentity(token);
     if (!persistedIdentity?.userId) {
         throw new Error(`next auth token missing persisted identity fields for next-identity-invalid-compat-mapId ignored proof: ${JSON.stringify(parseJwtPayload(token))}`);
@@ -1091,6 +1509,9 @@ async function verifyNextIdentityInvalidCompatMapIdIgnored(token, playerId) {
     await writeInvalidLegacyCompatMapId(playerId);
     await clearAuthTrace();
     await expectNextSocketAuthFailure(token, 'AUTH_FAIL');
+/**
+ * 记录failure认证trace。
+ */
     const failureAuthTrace = await waitForFailedSnapshotAuthTrace(playerId, 'miss');
     if (failureAuthTrace.identitySource !== 'next') {
         throw new Error(`expected next-identity-invalid-compat-mapId ignored identity source to stay next, got ${failureAuthTrace.identitySource ?? 'unknown'}`);
@@ -1105,8 +1526,17 @@ async function verifyNextIdentityInvalidCompatMapIdIgnored(token, playerId) {
     await expectPersistedPlayerSnapshotDocument(playerId, false);
     return failureAuthTrace;
 }
+/**
+ * 处理校验compatbackfillsavefailure。
+ */
 async function verifyCompatBackfillSaveFailure(token, playerId) {
+/**
+ * 记录payload。
+ */
     const payload = parseJwtPayload(token);
+/**
+ * 记录userID。
+ */
     const userId = typeof payload?.sub === 'string' ? payload.sub.trim() : '';
     if (!userId) {
         throw new Error(`next auth token missing sub for compat-backfill-save-failed proof: ${JSON.stringify(payload)}`);
@@ -1118,10 +1548,16 @@ async function verifyCompatBackfillSaveFailure(token, playerId) {
     await expectLegacyCompatPlayerSnapshotDocument(playerId, true);
     await dropPersistedIdentityDocument(userId);
     await expectPersistedIdentityDocument(userId, false);
+/**
+ * 记录injection。
+ */
     const injection = await installIdentityBackfillSaveFailure(userId);
     try {
         await clearAuthTrace();
         await expectNextSocketAuthFailure(token, 'AUTH_FAIL');
+/**
+ * 记录failure认证trace。
+ */
         const failureAuthTrace = await waitForFailedIdentitySourceAuthTrace(userId, playerId, 'legacy_persist_blocked');
         if (failureAuthTrace.identityPersistAttempted !== true) {
             throw new Error(`expected compat-backfill-save-failed to attempt persistence, got ${JSON.stringify(failureAuthTrace)}`);
@@ -1152,8 +1588,17 @@ async function verifyCompatBackfillSaveFailure(token, playerId) {
         await uninstallIdentityBackfillSaveFailure(injection).catch(() => undefined);
     }
 }
+/**
+ * 处理校验compatbackfillsavefailuremissingsnapshotrejection。
+ */
 async function verifyCompatBackfillSaveFailureMissingSnapshotRejection(token, playerId) {
+/**
+ * 记录payload。
+ */
     const payload = parseJwtPayload(token);
+/**
+ * 记录userID。
+ */
     const userId = typeof payload?.sub === 'string' ? payload.sub.trim() : '';
     if (!userId) {
         throw new Error(`next auth token missing sub for compat-backfill-save-failed snapshot-miss proof: ${JSON.stringify(payload)}`);
@@ -1168,10 +1613,16 @@ async function verifyCompatBackfillSaveFailureMissingSnapshotRejection(token, pl
     await dropPlayerSnapshotSourcesButKeepIdentity(playerId);
     await expectLegacyCompatPlayerSnapshotDocument(playerId, false);
     await expectPersistedPlayerSnapshotDocument(playerId, false);
+/**
+ * 记录injection。
+ */
     const injection = await installIdentityBackfillSaveFailure(userId);
     try {
         await clearAuthTrace();
         await expectNextSocketAuthFailure(token, 'AUTH_FAIL');
+/**
+ * 记录failure认证trace。
+ */
         const failureAuthTrace = await waitForFailedIdentitySourceAuthTrace(userId, playerId, 'legacy_persist_blocked');
         if (failureAuthTrace.identityPersistAttempted !== true) {
             throw new Error(`expected compat-backfill-save-failed snapshot-miss to attempt persistence, got ${JSON.stringify(failureAuthTrace)}`);
@@ -1202,7 +1653,13 @@ async function verifyCompatBackfillSaveFailureMissingSnapshotRejection(token, pl
         await uninstallIdentityBackfillSaveFailure(injection).catch(() => undefined);
     }
 }
+/**
+ * 处理校验nextidentitycompatsnapshotignored。
+ */
 async function verifyNextIdentityCompatSnapshotIgnored(token, playerId) {
+/**
+ * 记录persistedidentity。
+ */
     const persistedIdentity = parseTokenIdentity(token);
     if (!persistedIdentity?.userId) {
         throw new Error(`next auth token missing persisted identity fields for next-identity-compat-snapshot-ignored proof: ${JSON.stringify(parseJwtPayload(token))}`);
@@ -1219,6 +1676,9 @@ async function verifyNextIdentityCompatSnapshotIgnored(token, playerId) {
     await expectPersistedPlayerSnapshotDocument(playerId, false);
     await clearAuthTrace();
     await expectNextSocketAuthFailure(token, 'AUTH_FAIL');
+/**
+ * 记录failure认证trace。
+ */
     const failureAuthTrace = await waitForFailedSnapshotAuthTrace(playerId, 'miss');
     if (failureAuthTrace.identitySource !== 'next') {
         throw new Error(`expected next-identity-compat-snapshot-ignored identity source to stay next, got ${failureAuthTrace.identitySource ?? 'unknown'}`);
@@ -1233,7 +1693,13 @@ async function verifyNextIdentityCompatSnapshotIgnored(token, playerId) {
     await expectPersistedPlayerSnapshotDocument(playerId, false);
     return failureAuthTrace;
 }
+/**
+ * 处理校验invalidpersistedsnapshotrejection。
+ */
 async function verifyInvalidPersistedSnapshotRejection(token, playerId) {
+/**
+ * 记录persistedidentity。
+ */
     const persistedIdentity = parseTokenIdentity(token);
     if (!persistedIdentity?.userId) {
         throw new Error(`next auth token missing persisted identity fields for invalid-snapshot rejection proof: ${JSON.stringify(parseJwtPayload(token))}`);
@@ -1248,6 +1714,9 @@ async function verifyInvalidPersistedSnapshotRejection(token, playerId) {
     await writeInvalidPersistedSnapshotDocument(playerId);
     await clearAuthTrace();
     await expectNextSocketAuthFailure(token, 'AUTH_FAIL');
+/**
+ * 记录failure认证trace。
+ */
     const failureAuthTrace = await waitForFailedSnapshotAuthTrace(playerId, 'next_invalid');
     if (failureAuthTrace.identitySource !== 'next') {
         throw new Error(`expected invalid-snapshot rejection identity source to stay next, got ${failureAuthTrace.identitySource ?? 'unknown'}`);
@@ -1260,7 +1729,13 @@ async function verifyInvalidPersistedSnapshotRejection(token, playerId) {
     }
     return failureAuthTrace;
 }
+/**
+ * 处理校验invalidpersistedsnapshotmetapersisted来源normalization。
+ */
 async function verifyInvalidPersistedSnapshotMetaPersistedSourceNormalization(token, playerId) {
+/**
+ * 记录persistedidentity。
+ */
     const persistedIdentity = parseTokenIdentity(token);
     if (!persistedIdentity?.userId) {
         throw new Error(`next auth token missing persisted identity fields for invalid-snapshot-meta normalization proof: ${JSON.stringify(parseJwtPayload(token))}`);
@@ -1274,10 +1749,16 @@ async function verifyInvalidPersistedSnapshotMetaPersistedSourceNormalization(to
     await expectPersistedPlayerSnapshotDocument(playerId, true);
     await writeInvalidPersistedSnapshotMetaPersistedSource(playerId);
     await clearAuthTrace();
+/**
+ * 记录bootstrap。
+ */
     const bootstrap = await runNextBootstrap(token);
     if (bootstrap.playerId !== playerId) {
         throw new Error(`invalid-snapshot-meta normalization bootstrap player mismatch: expected=${playerId} actual=${bootstrap.playerId}`);
     }
+/**
+ * 记录认证trace。
+ */
     const authTrace = await waitForAuthTrace(playerId, bootstrap.sessionId ?? null, {
         requireReject: false,
     });
@@ -1293,7 +1774,13 @@ async function verifyInvalidPersistedSnapshotMetaPersistedSourceNormalization(to
     await expectPersistedPlayerSnapshotDocument(playerId, true);
     return authTrace;
 }
+/**
+ * 处理校验invalidpersistedsnapshotunlocked地图idsnormalization。
+ */
 async function verifyInvalidPersistedSnapshotUnlockedMapIdsNormalization(token, playerId) {
+/**
+ * 记录persistedidentity。
+ */
     const persistedIdentity = parseTokenIdentity(token);
     if (!persistedIdentity?.userId) {
         throw new Error(`next auth token missing persisted identity fields for invalid-snapshot-unlockedMapIds normalization proof: ${JSON.stringify(parseJwtPayload(token))}`);
@@ -1307,10 +1794,16 @@ async function verifyInvalidPersistedSnapshotUnlockedMapIdsNormalization(token, 
     await expectPersistedPlayerSnapshotDocument(playerId, true);
     await writeInvalidPersistedSnapshotUnlockedMapIds(playerId);
     await clearAuthTrace();
+/**
+ * 记录bootstrap。
+ */
     const bootstrap = await runNextBootstrap(token);
     if (bootstrap.playerId !== playerId) {
         throw new Error(`invalid-snapshot-unlockedMapIds normalization bootstrap player mismatch: expected=${playerId} actual=${bootstrap.playerId}`);
     }
+/**
+ * 记录认证trace。
+ */
     const authTrace = await waitForAuthTrace(playerId, bootstrap.sessionId ?? null, {
         requireReject: false,
     });
@@ -1323,7 +1816,13 @@ async function verifyInvalidPersistedSnapshotUnlockedMapIdsNormalization(token, 
     if (authTrace.snapshotPersistedSource !== 'native') {
         throw new Error(`expected invalid-snapshot-unlockedMapIds normalization persisted source to stay native, got ${authTrace.snapshotPersistedSource ?? 'unknown'}`);
     }
+/**
+ * 记录状态。
+ */
     const state = await fetchPlayerState(playerId);
+/**
+ * 记录运行态unlocked地图ids。
+ */
     const runtimeUnlockedMapIds = state?.player?.unlockedMapIds;
     if (!Array.isArray(runtimeUnlockedMapIds)) {
         throw new Error(`expected invalid-snapshot-unlockedMapIds normalization to expose runtime array unlockedMapIds, got ${JSON.stringify(runtimeUnlockedMapIds)}`);
@@ -1333,9 +1832,21 @@ async function verifyInvalidPersistedSnapshotUnlockedMapIdsNormalization(token, 
     }
     return authTrace;
 }
+/**
+ * 处理校验invalidpersistedidentityrejection。
+ */
 async function verifyInvalidPersistedIdentityRejection(token) {
+/**
+ * 记录payload。
+ */
     const payload = parseJwtPayload(token);
+/**
+ * 记录userID。
+ */
     const userId = typeof payload?.sub === 'string' ? payload.sub.trim() : '';
+/**
+ * 记录玩家ID。
+ */
     const playerId = typeof payload?.playerId === 'string' ? payload.playerId.trim() : '';
     if (!userId || !playerId) {
         throw new Error(`next auth token missing identity fields for invalid-identity rejection proof: ${JSON.stringify(payload)}`);
@@ -1343,6 +1854,9 @@ async function verifyInvalidPersistedIdentityRejection(token) {
     await writeInvalidPersistedIdentityDocument(userId);
     await clearAuthTrace();
     await expectNextSocketAuthFailure(token, 'AUTH_FAIL');
+/**
+ * 记录failure认证trace。
+ */
     const failureAuthTrace = await waitForFailedIdentityAuthTrace(userId, playerId);
     if (failureAuthTrace.identitySource !== 'next_invalid') {
         throw new Error(`expected invalid-identity rejection source to be next_invalid, got ${failureAuthTrace.identitySource ?? 'unknown'}`);
@@ -1355,8 +1869,17 @@ async function verifyInvalidPersistedIdentityRejection(token) {
     }
     return failureAuthTrace;
 }
+/**
+ * 处理registerandlogin玩家。
+ */
 async function registerAndLoginPlayer(accountSuffix, displayName, roleName) {
+/**
+ * 记录account名称。
+ */
     const accountName = `acct_${accountSuffix}`;
+/**
+ * 记录password。
+ */
     const password = `Pass_${accountSuffix}`;
     await requestJson('/auth/register', {
         method: 'POST',
@@ -1367,6 +1890,9 @@ async function registerAndLoginPlayer(accountSuffix, displayName, roleName) {
             roleName,
         },
     });
+/**
+ * 记录login。
+ */
     const login = await requestJson('/auth/login', {
         method: 'POST',
         body: {
@@ -1374,11 +1900,20 @@ async function registerAndLoginPlayer(accountSuffix, displayName, roleName) {
             password,
         },
     });
+/**
+ * 记录access令牌。
+ */
     const accessToken = typeof login?.accessToken === 'string' ? login.accessToken : '';
+/**
+ * 记录refresh令牌。
+ */
     const refreshToken = typeof login?.refreshToken === 'string' ? login.refreshToken : '';
     if (!accessToken || !refreshToken) {
         throw new Error(`unexpected login payload: ${JSON.stringify(login)}`);
     }
+/**
+ * 记录payload。
+ */
     const payload = parseJwtPayload(accessToken);
     if (typeof payload?.playerId !== 'string' || !payload.playerId.trim()) {
         throw new Error(`next auth token missing playerId: ${JSON.stringify(payload)}`);
@@ -1392,9 +1927,21 @@ async function registerAndLoginPlayer(accountSuffix, displayName, roleName) {
         identity: parseTokenIdentity(accessToken),
     };
 }
+/**
+ * 解析令牌identity。
+ */
 function parseTokenIdentity(token) {
+/**
+ * 记录payload。
+ */
     const payload = parseJwtPayload(token);
+/**
+ * 记录玩家ID。
+ */
     const playerId = typeof payload?.playerId === 'string' ? payload.playerId.trim() : '';
+/**
+ * 记录玩家名称。
+ */
     const playerName = typeof payload?.playerName === 'string' ? payload.playerName.trim() : '';
     return {
         userId: typeof payload?.sub === 'string' ? payload.sub.trim() : '',
@@ -1404,6 +1951,9 @@ function parseTokenIdentity(token) {
         playerName,
     };
 }
+/**
+ * 断言bootstrapmatchesexpectedidentity。
+ */
 function assertBootstrapMatchesExpectedIdentity(expectedIdentity, actual) {
     if (!expectedIdentity) {
         return;
@@ -1421,14 +1971,26 @@ function assertBootstrapMatchesExpectedIdentity(expectedIdentity, actual) {
         throw new Error(`token/runtime player name mismatch: token=${expectedIdentity.playerName} runtime=${actual.runtimePlayerName ?? ''}`);
     }
 }
+/**
+ * 处理fetch玩家状态。
+ */
 async function fetchPlayerState(playerId) {
+/**
+ * 记录response。
+ */
     const response = await fetch(`${SERVER_NEXT_URL}/runtime/players/${playerId}/state`);
     if (!response.ok) {
         throw new Error(`request failed: ${response.status} ${await response.text()}`);
     }
     return response.json();
 }
+/**
+ * 处理delete玩家。
+ */
 async function deletePlayer(playerId) {
+/**
+ * 记录response。
+ */
     const response = await fetch(`${SERVER_NEXT_URL}/runtime/players/${playerId}`, {
         method: 'DELETE',
     });
@@ -1436,7 +1998,13 @@ async function deletePlayer(playerId) {
         throw new Error(`request failed: ${response.status} ${await response.text()}`);
     }
 }
+/**
+ * 刷新持久化。
+ */
 async function flushPersistence() {
+/**
+ * 记录response。
+ */
     const response = await fetch(`${SERVER_NEXT_URL}/runtime/persistence/flush`, {
         method: 'POST',
     });
@@ -1444,14 +2012,26 @@ async function flushPersistence() {
         throw new Error(`request failed: POST /runtime/persistence/flush: ${response.status} ${await response.text()}`);
     }
 }
+/**
+ * 处理fetch认证trace。
+ */
 async function fetchAuthTrace() {
+/**
+ * 记录response。
+ */
     const response = await fetch(`${SERVER_NEXT_URL}/runtime/auth-trace`);
     if (!response.ok) {
         throw new Error(`request failed: /runtime/auth-trace: ${response.status} ${await response.text()}`);
     }
     return response.json();
 }
+/**
+ * 处理clear认证trace。
+ */
 async function clearAuthTrace() {
+/**
+ * 记录response。
+ */
     const response = await fetch(`${SERVER_NEXT_URL}/runtime/auth-trace`, {
         method: 'DELETE',
     });
@@ -1459,18 +2039,42 @@ async function clearAuthTrace() {
         throw new Error(`request failed: DELETE /runtime/auth-trace: ${response.status} ${await response.text()}`);
     }
 }
+/**
+ * 等待forfailedsnapshot认证trace。
+ */
 async function waitForFailedSnapshotAuthTrace(playerId, expectedSnapshotSource) {
+/**
+ * 记录trace。
+ */
     const trace = await waitForValue(async () => {
+/**
+ * 记录payload。
+ */
         const payload = await fetchAuthTrace();
+/**
+ * 记录trace。
+ */
         const trace = payload?.trace;
         if (!trace?.enabled || !Array.isArray(trace.records)) {
             throw new Error(`unexpected auth trace payload: ${JSON.stringify(payload)}`);
         }
+/**
+ * 记录accept索引。
+ */
         const acceptIndex = trace.records.findIndex((entry) => entry?.type === 'token' && entry?.outcome === 'accept');
+/**
+ * 记录identity索引。
+ */
         const identityIndex = trace.records.findIndex((entry) => entry?.type === 'identity' && entry?.playerId === playerId);
+/**
+ * 记录snapshot索引。
+ */
         const snapshotIndex = trace.records.findIndex((entry) => entry?.type === 'snapshot'
             && entry?.playerId === playerId
             && entry?.source === expectedSnapshotSource);
+/**
+ * 记录bootstrap索引。
+ */
         const bootstrapIndex = trace.records.findIndex((entry) => entry?.type === 'bootstrap' && entry?.playerId === playerId);
         if (!(acceptIndex >= 0
             && identityIndex > acceptIndex
@@ -1480,7 +2084,13 @@ async function waitForFailedSnapshotAuthTrace(playerId, expectedSnapshotSource) 
         }
         return trace;
     }, 5000, 'nextAuthTraceFailure');
+/**
+ * 记录identity。
+ */
     const identity = trace.records.find((entry) => entry?.type === 'identity' && entry?.playerId === playerId);
+/**
+ * 记录snapshot。
+ */
     const snapshot = trace.records.find((entry) => entry?.type === 'snapshot' && entry?.playerId === playerId);
     return {
         enabled: trace.enabled,
@@ -1491,22 +2101,49 @@ async function waitForFailedSnapshotAuthTrace(playerId, expectedSnapshotSource) 
         bootstrapPresent: trace.records.some((entry) => entry?.type === 'bootstrap' && entry?.playerId === playerId),
     };
 }
+/**
+ * 等待forfailedidentity认证trace。
+ */
 async function waitForFailedIdentityAuthTrace(userId, playerId) {
     return waitForFailedIdentitySourceAuthTrace(userId, playerId, 'next_invalid');
 }
+/**
+ * 等待forfailedidentity来源认证trace。
+ */
 async function waitForFailedIdentitySourceAuthTrace(userId, playerId, expectedSource) {
+/**
+ * 记录trace。
+ */
     const trace = await waitForValue(async () => {
+/**
+ * 记录payload。
+ */
         const payload = await fetchAuthTrace();
+/**
+ * 记录trace。
+ */
         const trace = payload?.trace;
         if (!trace?.enabled || !Array.isArray(trace.records)) {
             throw new Error(`unexpected auth trace payload: ${JSON.stringify(payload)}`);
         }
+/**
+ * 记录accept索引。
+ */
         const acceptIndex = trace.records.findIndex((entry) => entry?.type === 'token' && entry?.outcome === 'accept');
+/**
+ * 记录identity索引。
+ */
         const identityIndex = trace.records.findIndex((entry) => entry?.type === 'identity'
             && entry?.userId === userId
             && entry?.playerId === playerId
             && entry?.source === expectedSource);
+/**
+ * 记录snapshot索引。
+ */
         const snapshotIndex = trace.records.findIndex((entry) => entry?.type === 'snapshot' && entry?.playerId === playerId);
+/**
+ * 记录bootstrap索引。
+ */
         const bootstrapIndex = trace.records.findIndex((entry) => entry?.type === 'bootstrap' && entry?.playerId === playerId);
         if (!(acceptIndex >= 0
             && identityIndex > acceptIndex
@@ -1516,6 +2153,9 @@ async function waitForFailedIdentitySourceAuthTrace(userId, playerId, expectedSo
         }
         return trace;
     }, 5000, 'nextAuthTraceIdentityFailure');
+/**
+ * 记录identity。
+ */
     const identity = trace.records.find((entry) => entry?.type === 'identity'
         && entry?.userId === userId
         && entry?.playerId === playerId
@@ -1531,34 +2171,76 @@ async function waitForFailedIdentitySourceAuthTrace(userId, playerId, expectedSo
         bootstrapPresent: trace.records.some((entry) => entry?.type === 'bootstrap' && entry?.playerId === playerId),
     };
 }
+/**
+ * 读取汇总数量。
+ */
 function readSummaryCount(bucket, key) {
+/**
+ * 记录normalizedkey。
+ */
     const normalizedKey = typeof key === 'string' && key ? key : 'unknown';
+/**
+ * 记录价值。
+ */
     const value = bucket?.[normalizedKey];
     return Number.isFinite(value) ? Number(value) : 0;
 }
+/**
+ * 轮询认证追踪接口，等待指定玩家的认证记录落出。
+ */
 async function waitForAuthTrace(playerId, sessionId, options = undefined) {
+/**
+ * 记录requirereject。
+ */
     const requireReject = options?.requireReject !== false;
+/**
+ * 记录trace。
+ */
     const trace = await waitForValue(async () => {
+/**
+ * 记录payload。
+ */
         const payload = await fetchAuthTrace();
+/**
+ * 记录trace。
+ */
         const trace = payload?.trace;
         if (!trace?.enabled || !Array.isArray(trace.records)) {
             throw new Error(`unexpected auth trace payload: ${JSON.stringify(payload)}`);
         }
+/**
+ * 记录reject索引。
+ */
         const rejectIndex = trace.records.findIndex((entry) => entry?.type === 'token' && entry?.outcome === 'reject');
+/**
+ * 记录accept索引。
+ */
         const acceptIndex = trace.records.findIndex((entry) => entry?.type === 'token' && entry?.outcome === 'accept');
+/**
+ * 记录identity索引。
+ */
         const identityIndex = trace.records.findIndex((entry) => entry?.type === 'identity'
             && entry?.playerId === playerId
             && (entry?.source === 'next'
                 || entry?.source === 'token'
                 || entry?.source === 'legacy_runtime'
                 || entry?.source === 'legacy_backfill'));
+/**
+ * 记录snapshot索引。
+ */
         const snapshotIndex = trace.records.findIndex((entry) => entry?.type === 'snapshot'
             && entry?.playerId === playerId
             && (entry?.source === 'next'
                 || entry?.source === 'legacy_runtime'
                 || entry?.source === 'legacy_seeded'
                 || entry?.source === 'miss'));
+/**
+ * 记录bootstrap索引。
+ */
         const bootstrapIndex = trace.records.findIndex((entry) => entry?.type === 'bootstrap' && entry?.playerId === playerId);
+/**
+ * 记录令牌ordering就绪状态。
+ */
         const tokenOrderingReady = requireReject
             ? rejectIndex >= 0 && acceptIndex > rejectIndex
             : acceptIndex >= 0;
@@ -1570,11 +2252,29 @@ async function waitForAuthTrace(playerId, sessionId, options = undefined) {
         }
         return trace;
     }, 5000, 'nextAuthTrace');
+/**
+ * 记录reject。
+ */
     const reject = trace.records.find((entry) => entry?.type === 'token' && entry?.outcome === 'reject');
+/**
+ * 记录accept。
+ */
     const accept = trace.records.find((entry) => entry?.type === 'token' && entry?.outcome === 'accept');
+/**
+ * 记录identity。
+ */
     const identity = trace.records.find((entry) => entry?.type === 'identity' && entry?.playerId === playerId);
+/**
+ * 记录snapshot。
+ */
     const snapshot = trace.records.find((entry) => entry?.type === 'snapshot' && entry?.playerId === playerId);
+/**
+ * 记录bootstrap。
+ */
     const bootstrap = trace.records.find((entry) => entry?.type === 'bootstrap' && entry?.playerId === playerId);
+/**
+ * 记录汇总。
+ */
     const summary = trace.summary;
     if ((!reject && requireReject) || !accept || !identity || !snapshot || !bootstrap) {
         throw new Error(`unexpected auth trace payload: ${JSON.stringify(trace)}`);
@@ -1625,6 +2325,9 @@ async function waitForAuthTrace(playerId, sessionId, options = undefined) {
     if (readSummaryCount(summary.bootstrap.identitySourceCounts, bootstrap.identitySource) < 1) {
         throw new Error(`auth trace summary missing bootstrap identity source count: ${JSON.stringify(summary)}`);
     }
+/**
+ * 记录linked来源key。
+ */
     const linkedSourceKey = `${identity.source ?? 'unknown'}|${snapshot.source ?? 'unknown'}`;
     if (readSummaryCount(summary.bootstrap.linkedSourceCounts, linkedSourceKey) < 1) {
         throw new Error(`auth trace summary missing linked source count for ${linkedSourceKey}: ${JSON.stringify(summary)}`);
@@ -1669,7 +2372,13 @@ async function waitForAuthTrace(playerId, sessionId, options = undefined) {
         traceSummaryBootstrapLinkedPersistedSourceCounts: summary.bootstrap.linkedPersistedSourceCounts,
     };
 }
+/**
+ * 确保legacycompatschema。
+ */
 async function ensureLegacyCompatSchema() {
+/**
+ * 记录pool。
+ */
     const pool = new pg_1.Pool({
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
@@ -1749,10 +2458,16 @@ async function ensureLegacyCompatSchema() {
         await pool.end().catch(() => undefined);
     }
 }
+/**
+ * 处理seedlegacycompat玩家snapshot。
+ */
 async function seedLegacyCompatPlayerSnapshot(identity) {
     if (!identity?.userId || !identity.playerId || !identity.playerName) {
         throw new Error(`invalid identity for legacy compat seed: ${JSON.stringify(identity)}`);
     }
+/**
+ * 记录pool。
+ */
     const pool = new pg_1.Pool({
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
@@ -1820,7 +2535,13 @@ async function seedLegacyCompatPlayerSnapshot(identity) {
         await pool.end().catch(() => undefined);
     }
 }
+/**
+ * 处理drop玩家snapshotsourcesbutkeepidentity。
+ */
 async function dropPlayerSnapshotSourcesButKeepIdentity(playerId) {
+/**
+ * 记录pool。
+ */
     const pool = new pg_1.Pool({
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
@@ -1832,7 +2553,13 @@ async function dropPlayerSnapshotSourcesButKeepIdentity(playerId) {
         await pool.end().catch(() => undefined);
     }
 }
+/**
+ * 处理droppersisted玩家snapshot。
+ */
 async function dropPersistedPlayerSnapshot(playerId) {
+/**
+ * 记录pool。
+ */
     const pool = new pg_1.Pool({
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
@@ -1843,7 +2570,13 @@ async function dropPersistedPlayerSnapshot(playerId) {
         await pool.end().catch(() => undefined);
     }
 }
+/**
+ * 处理droppersistedidentity文档。
+ */
 async function dropPersistedIdentityDocument(userId) {
+/**
+ * 记录pool。
+ */
     const pool = new pg_1.Pool({
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
@@ -1854,12 +2587,24 @@ async function dropPersistedIdentityDocument(userId) {
         await pool.end().catch(() => undefined);
     }
 }
+/**
+ * 处理expectlegacycompat玩家snapshot文档。
+ */
 async function expectLegacyCompatPlayerSnapshotDocument(playerId, shouldExist) {
+/**
+ * 记录pool。
+ */
     const pool = new pg_1.Pool({
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
     try {
+/**
+ * 累计当前结果。
+ */
         const result = await pool.query('SELECT 1 FROM players WHERE id = $1 LIMIT 1', [playerId]).catch(ignoreMissingCompatCleanupError);
+/**
+ * 记录exists。
+ */
         const exists = Array.isArray(result?.rows) && result.rows.length > 0;
         if (exists !== shouldExist) {
             throw new Error(`expected compat player snapshot shouldExist=${shouldExist} for playerId=${playerId}, got exists=${exists}`);
@@ -1869,12 +2614,24 @@ async function expectLegacyCompatPlayerSnapshotDocument(playerId, shouldExist) {
         await pool.end().catch(() => undefined);
     }
 }
+/**
+ * 处理expectpersisted玩家snapshot文档。
+ */
 async function expectPersistedPlayerSnapshotDocument(playerId, shouldExist) {
+/**
+ * 记录pool。
+ */
     const pool = new pg_1.Pool({
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
     try {
+/**
+ * 累计当前结果。
+ */
         const result = await pool.query('SELECT 1 FROM persistent_documents WHERE scope = $1 AND key = $2 LIMIT 1', ['server_next_player_snapshots_v1', playerId]).catch(ignoreMissingCompatCleanupError);
+/**
+ * 记录exists。
+ */
         const exists = Array.isArray(result?.rows) && result.rows.length > 0;
         if (exists !== shouldExist) {
             throw new Error(`expected persisted snapshot document shouldExist=${shouldExist} for playerId=${playerId}, got exists=${exists}`);
@@ -1884,12 +2641,24 @@ async function expectPersistedPlayerSnapshotDocument(playerId, shouldExist) {
         await pool.end().catch(() => undefined);
     }
 }
+/**
+ * 处理expectpersistedidentity文档。
+ */
 async function expectPersistedIdentityDocument(userId, shouldExist) {
+/**
+ * 记录pool。
+ */
     const pool = new pg_1.Pool({
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
     try {
+/**
+ * 累计当前结果。
+ */
         const result = await pool.query('SELECT 1 FROM persistent_documents WHERE scope = $1 AND key = $2 LIMIT 1', ['server_next_player_identities_v1', userId]).catch(ignoreMissingCompatCleanupError);
+/**
+ * 记录exists。
+ */
         const exists = Array.isArray(result?.rows) && result.rows.length > 0;
         if (exists !== shouldExist) {
             throw new Error(`expected persisted identity document shouldExist=${shouldExist} for userId=${userId}, got exists=${exists}`);
@@ -1899,12 +2668,24 @@ async function expectPersistedIdentityDocument(userId, shouldExist) {
         await pool.end().catch(() => undefined);
     }
 }
+/**
+ * 读取persisted玩家snapshotpayload。
+ */
 async function readPersistedPlayerSnapshotPayload(playerId, errorContext) {
+/**
+ * 记录pool。
+ */
     const pool = new pg_1.Pool({
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
     try {
+/**
+ * 累计当前结果。
+ */
         const result = await pool.query('SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2 LIMIT 1', ['server_next_player_snapshots_v1', playerId]).catch(ignoreMissingCompatCleanupError);
+/**
+ * 记录payload。
+ */
         const payload = result?.rows?.[0]?.payload;
         if (!payload || typeof payload !== 'object') {
             throw new Error(`missing persisted snapshot payload for ${errorContext}: playerId=${playerId}`);
@@ -1915,7 +2696,13 @@ async function readPersistedPlayerSnapshotPayload(playerId, errorContext) {
         await pool.end().catch(() => undefined);
     }
 }
+/**
+ * 写入invalidpersistedidentity文档。
+ */
 async function writeInvalidPersistedIdentityDocument(userId) {
+/**
+ * 记录pool。
+ */
     const pool = new pg_1.Pool({
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
@@ -1936,7 +2723,13 @@ async function writeInvalidPersistedIdentityDocument(userId) {
         await pool.end().catch(() => undefined);
     }
 }
+/**
+ * 写入invalidpersistedsnapshot文档。
+ */
 async function writeInvalidPersistedSnapshotDocument(playerId) {
+/**
+ * 记录pool。
+ */
     const pool = new pg_1.Pool({
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
@@ -1956,15 +2749,30 @@ async function writeInvalidPersistedSnapshotDocument(playerId) {
         await pool.end().catch(() => undefined);
     }
 }
+/**
+ * 写入invalidpersistedsnapshotmetapersisted来源。
+ */
 async function writeInvalidPersistedSnapshotMetaPersistedSource(playerId) {
+/**
+ * 记录payload。
+ */
     const payload = await readPersistedPlayerSnapshotPayload(playerId, 'invalid meta normalization proof');
+/**
+ * 记录pool。
+ */
     const pool = new pg_1.Pool({
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
     try {
+/**
+ * 记录snapshotmeta。
+ */
         const snapshotMeta = payload.__snapshotMeta && typeof payload.__snapshotMeta === 'object'
             ? payload.__snapshotMeta
             : {};
+/**
+ * 记录nextpayload。
+ */
         const nextPayload = {
             ...payload,
             __snapshotMeta: {
@@ -1983,12 +2791,24 @@ async function writeInvalidPersistedSnapshotMetaPersistedSource(playerId) {
         await pool.end().catch(() => undefined);
     }
 }
+/**
+ * 写入invalidpersistedsnapshotunlocked地图ids。
+ */
 async function writeInvalidPersistedSnapshotUnlockedMapIds(playerId) {
+/**
+ * 记录payload。
+ */
     const payload = await readPersistedPlayerSnapshotPayload(playerId, 'invalid unlockedMapIds normalization proof');
+/**
+ * 记录pool。
+ */
     const pool = new pg_1.Pool({
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
     try {
+/**
+ * 记录nextpayload。
+ */
         const nextPayload = {
             ...payload,
             unlockedMapIds: 'invalid_unlocked_map_ids',
@@ -2004,11 +2824,20 @@ async function writeInvalidPersistedSnapshotUnlockedMapIds(playerId) {
         await pool.end().catch(() => undefined);
     }
 }
+/**
+ * 写入persistedidentity文档。
+ */
 async function writePersistedIdentityDocument(identity) {
+/**
+ * 记录normalizedidentity。
+ */
     const normalizedIdentity = normalizePersistedIdentity(identity);
     if (!normalizedIdentity) {
         throw new Error(`invalid persisted identity seed payload: ${JSON.stringify(identity)}`);
     }
+/**
+ * 记录pool。
+ */
     const pool = new pg_1.Pool({
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
@@ -2024,14 +2853,32 @@ async function writePersistedIdentityDocument(identity) {
         await pool.end().catch(() => undefined);
     }
 }
+/**
+ * 处理installidentitybackfillsavefailure。
+ */
 async function installIdentityBackfillSaveFailure(userId) {
+/**
+ * 记录normalizeduserID。
+ */
     const normalizedUserId = typeof userId === 'string' ? userId.trim() : '';
     if (!normalizedUserId) {
         throw new Error('missing userId for identity backfill failure injection');
     }
+/**
+ * 为本次 smoke 生成唯一后缀，避免账号和玩家标识冲突。
+ */
     const suffix = normalizedUserId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 24) || 'proof';
+/**
+ * 记录trigger名称。
+ */
     const triggerName = `server_next_fail_identity_backfill_${suffix}`;
+/**
+ * 记录function名称。
+ */
     const functionName = `server_next_fail_identity_backfill_fn_${suffix}`;
+/**
+ * 记录pool。
+ */
     const pool = new pg_1.Pool({
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
@@ -2066,14 +2913,32 @@ async function installIdentityBackfillSaveFailure(userId) {
         await pool.end().catch(() => undefined);
     }
 }
+/**
+ * 处理installsnapshotseedsavefailure。
+ */
 async function installSnapshotSeedSaveFailure(playerId) {
+/**
+ * 记录normalized玩家ID。
+ */
     const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
     if (!normalizedPlayerId) {
         throw new Error('missing playerId for snapshot seed failure injection');
     }
+/**
+ * 为本次 smoke 生成唯一后缀，避免账号和玩家标识冲突。
+ */
     const suffix = normalizedPlayerId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 24) || 'proof';
+/**
+ * 记录trigger名称。
+ */
     const triggerName = `server_next_fail_snapshot_seed_${suffix}`;
+/**
+ * 记录function名称。
+ */
     const functionName = `server_next_fail_snapshot_seed_fn_${suffix}`;
+/**
+ * 记录pool。
+ */
     const pool = new pg_1.Pool({
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
@@ -2108,10 +2973,16 @@ async function installSnapshotSeedSaveFailure(playerId) {
         await pool.end().catch(() => undefined);
     }
 }
+/**
+ * 处理uninstallidentitybackfillsavefailure。
+ */
 async function uninstallIdentityBackfillSaveFailure(injection) {
     if (!injection?.triggerName || !injection?.functionName) {
         return;
     }
+/**
+ * 记录pool。
+ */
     const pool = new pg_1.Pool({
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
@@ -2123,10 +2994,16 @@ async function uninstallIdentityBackfillSaveFailure(injection) {
         await pool.end().catch(() => undefined);
     }
 }
+/**
+ * 处理uninstallsnapshotseedsavefailure。
+ */
 async function uninstallSnapshotSeedSaveFailure(injection) {
     if (!injection?.triggerName || !injection?.functionName) {
         return;
     }
+/**
+ * 记录pool。
+ */
     const pool = new pg_1.Pool({
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
@@ -2138,11 +3015,20 @@ async function uninstallSnapshotSeedSaveFailure(injection) {
         await pool.end().catch(() => undefined);
     }
 }
+/**
+ * 写入invalidlegacycompatunlockedminimapids。
+ */
 async function writeInvalidLegacyCompatUnlockedMinimapIds(playerId) {
+/**
+ * 记录pool。
+ */
     const pool = new pg_1.Pool({
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
     try {
+/**
+ * 累计当前结果。
+ */
         const result = await pool.query('UPDATE players SET "unlockedMinimapIds" = $2::jsonb, "updatedAt" = now() WHERE id = $1', [playerId, JSON.stringify({
                 invalid: true,
                 playerId,
@@ -2155,11 +3041,20 @@ async function writeInvalidLegacyCompatUnlockedMinimapIds(playerId) {
         await pool.end().catch(() => undefined);
     }
 }
+/**
+ * 写入invalidlegacycompat地图ID。
+ */
 async function writeInvalidLegacyCompatMapId(playerId) {
+/**
+ * 记录pool。
+ */
     const pool = new pg_1.Pool({
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
     try {
+/**
+ * 累计当前结果。
+ */
         const result = await pool.query('UPDATE players SET "mapId" = $2, "updatedAt" = now() WHERE id = $1', [playerId, '']).catch(ignoreMissingCompatCleanupError);
         if (!result || result.rowCount === 0) {
             throw new Error(`missing compat player row for invalid mapId proof: playerId=${playerId}`);
@@ -2169,10 +3064,16 @@ async function writeInvalidLegacyCompatMapId(playerId) {
         await pool.end().catch(() => undefined);
     }
 }
+/**
+ * 清理legacycompat玩家snapshot。
+ */
 async function cleanupLegacyCompatPlayerSnapshot(identity) {
     if (!identity?.userId || !identity.playerId) {
         return;
     }
+/**
+ * 记录pool。
+ */
     const pool = new pg_1.Pool({
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
@@ -2186,25 +3087,46 @@ async function cleanupLegacyCompatPlayerSnapshot(identity) {
         await pool.end().catch(() => undefined);
     }
 }
+/**
+ * 处理ignoremissingcompatcleanuperror。
+ */
 function ignoreMissingCompatCleanupError(error) {
     if (error && typeof error === 'object' && error.code === '42P01') {
         return;
     }
     throw error;
 }
+/**
+ * 规范化persistedidentity。
+ */
 function normalizePersistedIdentity(identity) {
     if (!identity || typeof identity !== 'object') {
         return null;
     }
+/**
+ * 记录userID。
+ */
     const userId = typeof identity.userId === 'string' ? identity.userId.trim() : '';
+/**
+ * 记录username。
+ */
     const username = typeof identity.username === 'string' ? identity.username.trim() : '';
+/**
+ * 记录玩家ID。
+ */
     const playerId = typeof identity.playerId === 'string' ? identity.playerId.trim() : '';
     if (!userId || !username || !playerId) {
         return null;
     }
+/**
+ * 记录显示信息名称。
+ */
     const displayName = typeof identity.displayName === 'string' && identity.displayName.trim()
         ? identity.displayName.trim()
         : username;
+/**
+ * 记录玩家名称。
+ */
     const playerName = typeof identity.playerName === 'string' && identity.playerName.trim()
         ? identity.playerName.trim()
         : username;
@@ -2221,8 +3143,17 @@ function normalizePersistedIdentity(identity) {
         updatedAt: Date.now(),
     };
 }
+/**
+ * 处理requestjson。
+ */
 async function requestJson(path, init) {
+/**
+ * 记录请求体。
+ */
     const body = init?.body === undefined ? undefined : JSON.stringify(init.body);
+/**
+ * 记录response。
+ */
     const response = await fetch(`${SERVER_NEXT_URL}${path}`, {
         method: init?.method ?? 'GET',
         headers: body === undefined ? undefined : {
@@ -2238,7 +3169,13 @@ async function requestJson(path, init) {
     }
     return response.json();
 }
+/**
+ * 等待for。
+ */
 async function waitFor(predicate, timeoutMs, label = 'waitFor') {
+/**
+ * 记录startedat。
+ */
     const startedAt = Date.now();
     while (true) {
         if (await predicate()) {
@@ -2250,7 +3187,13 @@ async function waitFor(predicate, timeoutMs, label = 'waitFor') {
         await delay(100);
     }
 }
+/**
+ * 等待for价值。
+ */
 async function waitForValue(producer, timeoutMs, label = 'waitForValue') {
+/**
+ * 记录resolved。
+ */
     let resolved = null;
     await waitFor(async () => {
         resolved = await producer();
@@ -2258,28 +3201,49 @@ async function waitForValue(producer, timeoutMs, label = 'waitForValue') {
     }, timeoutMs, label);
     return resolved;
 }
+/**
+ * 等待for玩家状态。
+ */
 async function waitForPlayerState(playerId, shouldExist) {
     await waitFor(async () => {
+/**
+ * 记录状态。
+ */
         const state = await fetchPlayerState(playerId);
         return shouldExist ? Boolean(state?.player) : !state?.player;
     }, 5000, shouldExist ? 'waitForPlayerStatePresent' : 'waitForPlayerStateMissing');
 }
+/**
+ * 处理delay。
+ */
 function delay(ms) {
     return new Promise((resolve) => {
         setTimeout(resolve, ms);
     });
 }
+/**
+ * 构建unique显示信息名称。
+ */
 function buildUniqueDisplayName(seed) {
+/**
+ * 记录hash。
+ */
     let hash = 0;
     for (let index = 0; index < seed.length; index += 1) {
         hash = (hash * 33 + seed.charCodeAt(index)) >>> 0;
     }
     return String.fromCodePoint(0x4E00 + (hash % (0x9FFF - 0x4E00 + 1)));
 }
+/**
+ * 解析jwtpayload。
+ */
 function parseJwtPayload(token) {
     if (typeof token !== 'string') {
         return null;
     }
+/**
+ * 记录segments。
+ */
     const segments = token.split('.');
     if (segments.length < 2) {
         return null;

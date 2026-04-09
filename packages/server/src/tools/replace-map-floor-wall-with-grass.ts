@@ -19,7 +19,13 @@ interface EditableMapFile {
   tiles?: string[];
 }
 
+/**
+ * 解析参数。
+ */
 function parseArgs(argv: string[]): CliOptions {
+/**
+ * 汇总当前条目列表。
+ */
   const entries = new Map<string, string>();
   for (const arg of argv) {
     if (!arg.startsWith('--')) {
@@ -27,7 +33,10 @@ function parseArgs(argv: string[]): CliOptions {
     }
     const [key, rawValue] = arg.slice(2).split('=');
     entries.set(key, rawValue ?? '1');
-  }
+  }/**
+ * 按 ID 组织mapId映射。
+ */
+
 
   const mapId = entries.get('map')?.trim() || '';
   if (!mapId) {
@@ -38,10 +47,19 @@ function parseArgs(argv: string[]): CliOptions {
 }
 
 function collectJsonFiles(dirPath: string): string[] {
+/**
+ * 汇总当前条目列表。
+ */
   const entries = fs.readdirSync(dirPath, { withFileTypes: true })
     .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'));
+/**
+ * 汇总待处理文件列表。
+ */
   const files: string[] = [];
   for (const entry of entries) {
+/**
+ * 记录entry路径。
+ */
     const entryPath = path.join(dirPath, entry.name);
     if (entry.isDirectory()) {
       files.push(...collectJsonFiles(entryPath));
@@ -54,7 +72,13 @@ function collectJsonFiles(dirPath: string): string[] {
   return files;
 }
 
+/**
+ * 查找地图文件路径。
+ */
 function findMapFilePath(mapsDir: string, mapId: string): string {
+/**
+ * 记录matched。
+ */
   const matched = collectJsonFiles(mapsDir).filter((filePath) => path.basename(filePath, '.json') === mapId);
   if (matched.length === 0) {
     throw new Error(`未找到地图: ${mapId}`);
@@ -65,16 +89,37 @@ function findMapFilePath(mapsDir: string, mapId: string): string {
   return matched[0]!;
 }
 
+/**
+ * 处理replacetileswithgrass。
+ */
 function replaceTilesWithGrass(rawMap: EditableMapFile): { nextTiles: string[]; replacedWall: number; replacedFloor: number } {
   if (!Array.isArray(rawMap.tiles)) {
     throw new Error('地图 tiles 缺失或格式非法');
   }
+/**
+ * 记录grasschar。
+ */
   const grassChar = getMapCharFromTileType(TileType.Grass);
+/**
+ * 记录replacedwall。
+ */
   let replacedWall = 0;
+/**
+ * 记录replacedfloor。
+ */
   let replacedFloor = 0;
+/**
+ * 记录nexttiles。
+ */
   const nextTiles = rawMap.tiles.map((row) => {
+/**
+ * 记录nextrow。
+ */
     let nextRow = '';
     for (const char of row) {
+/**
+ * 记录type。
+ */
       const type = getTileTypeFromMapChar(char);
       if (type === TileType.Wall) {
         nextRow += grassChar;
@@ -93,10 +138,25 @@ function replaceTilesWithGrass(rawMap: EditableMapFile): { nextTiles: string[]; 
   return { nextTiles, replacedWall, replacedFloor };
 }
 
+/**
+ * 串联执行脚本主流程。
+ */
 function main(): void {
+/**
+ * 保存解析后的选项。
+ */
   const options = parseArgs(process.argv.slice(2));
+/**
+ * 记录地图目录。
+ */
   const mapsDir = path.resolve(__dirname, '../../data/maps');
-  const mapPath = findMapFilePath(mapsDir, options.mapId);
+/**
+ * 记录地图路径。
+ */
+  const mapPath = findMapFilePath(mapsDir, options.mapId);/**
+ * 保存raw映射。
+ */
+
   const rawMap = JSON.parse(fs.readFileSync(mapPath, 'utf-8')) as EditableMapFile;
   const { nextTiles, replacedWall, replacedFloor } = replaceTilesWithGrass(rawMap);
   rawMap.tiles = nextTiles;

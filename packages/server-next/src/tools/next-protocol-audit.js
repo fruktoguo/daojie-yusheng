@@ -1,14 +1,36 @@
 "use strict";
+/**
+ * 用途：执行 server-next 协议审计。
+ */
+
 var fs = require("node:fs");
 var path = require("node:path");
 var shared = require("@mud/shared-next");
 var envAlias = require("../config/env-alias");
 var lib = require("./next-protocol-audit-lib");
+/**
+ * next 协议上行事件枚举快捷引用。
+ */
 var NEXT_C2S = shared.NEXT_C2S;
+/**
+ * next 协议下行事件枚举快捷引用。
+ */
 var NEXT_S2C = shared.NEXT_S2C;
+/**
+ * 记录direction。
+ */
 var Direction = shared.Direction;
+/**
+ * 用于快速校验事件名是否合法的 next 上行事件集合。
+ */
 var NEXT_C2S_SET = new Set(Object.values(NEXT_C2S));
+/**
+ * 用于快速校验事件名是否合法的 next 下行事件集合。
+ */
 var NEXT_S2C_SET = new Set(Object.values(NEXT_S2C));
+/**
+ * 用于审计 next 连接是否误混出 legacy 下行事件的黑名单集合。
+ */
 var LEGACY_S2C_SET = new Set([
   's:init',
   's:tick',
@@ -48,8 +70,14 @@ var LEGACY_S2C_SET = new Set([
   's:leaderboard',
   's:npcShop',
 ]);
-var DOC_OUTPUT = path.join(lib.repoRoot, "docs", "next-protocol-audit.md");
+/**
+ * 协议审计 Markdown 报告的输出路径。
+ */
+
 var HAS_DATABASE = Boolean(envAlias.resolveServerNextDatabaseUrl());
+/**
+ * 本次审计预期应该覆盖到的 next 上行事件清单。
+ */
 var EXPECTED_C2S = [
   NEXT_C2S.Hello,
   NEXT_C2S.Ping,
@@ -105,6 +133,9 @@ var EXPECTED_C2S = [
   NEXT_C2S.AckSystemMessages,
   NEXT_C2S.HeavenGateAction,
 ];
+/**
+ * 本次审计预期应该覆盖到的 next 下行事件清单。
+ */
 var EXPECTED_S2C = [
   NEXT_S2C.Bootstrap,
   NEXT_S2C.InitSession,
@@ -139,30 +170,60 @@ if (HAS_DATABASE) {
   EXPECTED_C2S.push(NEXT_C2S.RedeemCodes);
   EXPECTED_S2C.push(NEXT_S2C.RedeemCodesResult);
 }
+/**
+ * 为审计过程生成唯一玩家或实体标识。
+ */
 function pid(prefix) {
   return prefix + "_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
 }
+/**
+ * 查找玩家背包中指定物品所在的槽位索引。
+ */
 function slot(player, itemId) {
+/**
+ * 记录索引。
+ */
   var index = player.inventory.items.findIndex(function (entry) { return entry.itemId === itemId; });
   if (index < 0) {
     throw new Error("missing inventory slot for item: " + itemId);
   }
   return index;
 }
+/**
+ * 统计玩家背包里指定物品的数量。
+ */
 function count(player, itemId) {
+/**
+ * 记录entry。
+ */
   var entry = player.inventory.items.find(function (item) { return item.itemId === itemId; });
   return entry ? entry.count : 0;
 }
+/**
+ * 发送一个上行事件并等待对应下行响应出现。
+ */
 async function emitAndWait(socket, emitEvent, payload, responseEvent, predicate, timeoutMs) {
+/**
+ * 记录after数量。
+ */
   var afterCount = socket.getEventCount(responseEvent);
   socket.emit(emitEvent, payload);
   return socket.waitForEventAfter(responseEvent, afterCount, predicate, timeoutMs);
 }
+/**
+ * 轮询市场成交历史，直到查询结果出现有效记录。
+ */
 async function requestMarketTradeHistoryUntilVisible(socket, timeoutMs) {
   return lib.waitForValue(async function () {
+/**
+ * 记录after数量。
+ */
     var afterCount = socket.getEventCount(NEXT_S2C.MarketTradeHistory);
     socket.emit(NEXT_C2S.RequestMarketTradeHistory, { page: 1 });
     try {
+/**
+ * 记录payload。
+ */
       var payload = await socket.waitForEventAfter(NEXT_S2C.MarketTradeHistory, afterCount, function (entry) {
         return entry && Array.isArray(entry.records);
       }, Math.min(timeoutMs, 1000));
@@ -173,14 +234,29 @@ async function requestMarketTradeHistoryUntilVisible(socket, timeoutMs) {
     }
   }, timeoutMs, 'marketTradeHistoryVisible');
 }
+/**
+ * 轮询运行时市场状态，直到满足指定断言。
+ */
 async function waitForMarket(runtime, playerId, predicate, timeoutMs, label) {
   return lib.waitForValue(async function () {
+/**
+ * 记录market。
+ */
     var market = await runtime.api.fetchMarket(playerId);
     return predicate(market) ? market : null;
   }, timeoutMs, label);
 }
+/**
+ * 封装审计用 HTTP JSON 请求并统一处理错误。
+ */
 async function requestJson(baseUrl, pathname, init) {
+/**
+ * 记录请求体。
+ */
   var body = init?.body === undefined ? undefined : JSON.stringify(init.body);
+/**
+ * 记录response。
+ */
   var response = await fetch(baseUrl + pathname, {
     method: init?.method ?? 'GET',
     headers: body === undefined ? undefined : {
@@ -197,10 +273,16 @@ async function requestJson(baseUrl, pathname, init) {
   }
   return response.json();
 }
+/**
+ * 解析 JWT 的 payload 以提取审计所需身份字段。
+ */
 function parseJwtPayload(token) {
   if (typeof token !== 'string') {
     return null;
   }
+/**
+ * 记录parts。
+ */
   var parts = token.split('.');
   if (parts.length < 2) {
     return null;
@@ -212,20 +294,44 @@ function parseJwtPayload(token) {
     return null;
   }
 }
+/**
+ * 在令牌缺少玩家编号时推导兜底玩家 ID。
+ */
 function buildFallbackPlayerId(userId) {
+/**
+ * 记录normalized。
+ */
   var normalized = typeof userId === 'string' ? userId.trim() : '';
   return normalized ? 'p_' + normalized : 'p_guest';
 }
+/**
+ * 根据种子稳定生成唯一显示名，避免注册冲突。
+ */
 function buildUniqueDisplayName(seed) {
+/**
+ * 记录hash。
+ */
   var hash = 0;
   for (var index = 0; index < seed.length; index += 1) {
     hash = (hash * 33 + seed.charCodeAt(index)) >>> 0;
   }
   return String.fromCodePoint(0x4E00 + (hash % (0x9FFF - 0x4E00 + 1)));
 }
+/**
+ * 注册并登录审计账号，返回访问令牌与玩家标识。
+ */
 async function registerAndLoginPlayer(baseUrl, suffix) {
+/**
+ * 记录short。
+ */
   var short = suffix.slice(-8);
+/**
+ * 记录account名称。
+ */
   var accountName = 'acct_' + short;
+/**
+ * 记录password。
+ */
   var password = 'Pass_' + short;
   await requestJson(baseUrl, '/auth/register', {
     method: 'POST',
@@ -236,6 +342,9 @@ async function registerAndLoginPlayer(baseUrl, suffix) {
       roleName: '审角' + short.slice(-4),
     },
   });
+/**
+ * 记录login。
+ */
   var login = await requestJson(baseUrl, '/auth/login', {
     method: 'POST',
     body: {
@@ -243,10 +352,16 @@ async function registerAndLoginPlayer(baseUrl, suffix) {
       password: password,
     },
   });
+/**
+ * 记录payload。
+ */
   var payload = parseJwtPayload(login?.accessToken);
   if (!payload?.sub || typeof login?.accessToken !== 'string') {
     throw new Error('unexpected login payload: ' + JSON.stringify(login));
   }
+/**
+ * 记录玩家ID。
+ */
   var playerId = typeof payload?.playerId === 'string' && payload.playerId.trim()
     ? payload.playerId.trim()
     : buildFallbackPlayerId(payload.sub);
@@ -255,8 +370,17 @@ async function registerAndLoginPlayer(baseUrl, suffix) {
     playerId: playerId,
   };
 }
+/**
+ * 处理loginGM。
+ */
 async function loginGm(baseUrl) {
+/**
+ * 记录password。
+ */
   var password = envAlias.resolveServerNextGmPassword('admin123');
+/**
+ * 记录payload。
+ */
   var payload = await requestJson(baseUrl, '/auth/gm/login', {
     method: 'POST',
     body: { password: password },
@@ -266,10 +390,19 @@ async function loginGm(baseUrl) {
   }
   return payload.accessToken;
 }
+/**
+ * 处理hello。
+ */
 async function hello(runtime, socket, payload) {
   await socket.onceConnected();
   socket.emit(NEXT_C2S.Hello, payload);
+/**
+ * 记录init会话。
+ */
   var initSession = await socket.waitForEvent(NEXT_S2C.InitSession);
+/**
+ * 记录玩家ID。
+ */
   var playerId = typeof initSession?.pid === 'string' && initSession.pid.trim()
     ? initSession.pid.trim()
     : (typeof payload?.playerId === 'string' ? payload.playerId.trim() : '');
@@ -291,7 +424,13 @@ async function hello(runtime, socket, payload) {
     initSession: initSession,
   };
 }
+/**
+ * 收集legacys2cevents。
+ */
 function collectLegacyS2CEvents(runtime) {
+/**
+ * 汇总执行结果。
+ */
   var results = [];
   for (const socket of runtime.getSockets()) {
     for (const entry of socket.history) {
@@ -306,19 +445,40 @@ function collectLegacyS2CEvents(runtime) {
   }
   return results;
 }
+/**
+ * 断言nolegacys2cevents。
+ */
 function assertNoLegacyS2CEvents(runtime, caseName) {
+/**
+ * 记录legacyevents。
+ */
   var legacyEvents = collectLegacyS2CEvents(runtime);
   if (legacyEvents.length === 0) {
     return;
   }
+/**
+ * 记录detail。
+ */
   var detail = legacyEvents
     .map(function (entry) { return caseName + ":" + entry.socket + ":" + entry.event; })
     .join(", ");
   throw new Error("next socket received legacy S2C events: " + detail);
 }
+/**
+ * 处理bootstrapcase。
+ */
 async function bootstrapCase(runtime) {
+/**
+ * 记录socket。
+ */
   var socket = runtime.createSocket("runtime");
+/**
+ * 记录会话。
+ */
   var session = await hello(runtime, socket, { mapId: "yunlai_town", preferredX: 32, preferredY: 5 });
+/**
+ * 记录玩家ID。
+ */
   var playerId = session.playerId;
   await socket.waitForEvent(NEXT_S2C.PanelDelta, function (payload) {
     return !!(payload?.attr
@@ -328,29 +488,62 @@ async function bootstrapCase(runtime) {
       && Object.prototype.hasOwnProperty.call(payload.attr, 'lifeElapsedTicks')
       && Object.prototype.hasOwnProperty.call(payload.attr, 'realmProgressToNext'));
   }, 5000);
+/**
+ * 记录before。
+ */
   var before = (await runtime.api.fetchState(playerId)).player;
   await emitAndWait(socket, NEXT_C2S.Ping, { clientAt: 1001 }, NEXT_S2C.Pong, function (payload) {
     return payload && payload.clientAt === 1001;
   }, 5000);
   socket.emit(NEXT_C2S.Move, { d: Direction.North });
   await lib.waitForState(runtime.api, playerId, function (player) { return player.x !== before.x || player.y !== before.y; }, 4000, "move");
+/**
+ * 记录moved。
+ */
   var moved = (await runtime.api.fetchState(playerId)).player;
   await emitAndWait(socket, NEXT_C2S.RequestTileDetail, { x: moved.x, y: moved.y }, NEXT_S2C.TileDetail, function (payload) {
     return payload && payload.x === moved.x && payload.y === moved.y;
   }, 5000);
 }
+/**
+ * 处理心跳chatcase。
+ */
 async function heartbeatChatCase(runtime) {
+/**
+ * 记录sender。
+ */
   var sender = runtime.createSocket("chat:sender");
+/**
+ * 记录receiver。
+ */
   var receiver = runtime.createSocket("chat:receiver");
+/**
+ * 记录sender会话。
+ */
   var senderSession = await hello(runtime, sender, { mapId: "yunlai_town", preferredX: 32, preferredY: 5 });
+/**
+ * 记录receiver会话。
+ */
   var receiverSession = await hello(runtime, receiver, { mapId: "yunlai_town", preferredX: 33, preferredY: 5 });
+/**
+ * 记录senderID。
+ */
   var senderId = senderSession.playerId;
+/**
+ * 记录receiverID。
+ */
   var receiverId = receiverSession.playerId;
   sender.emit(NEXT_C2S.Heartbeat, { clientAt: 2002 });
   await emitAndWait(sender, NEXT_C2S.Ping, { clientAt: 2003 }, NEXT_S2C.Pong, function (payload) {
     return payload && payload.clientAt === 2003;
   }, 5000);
+/**
+ * 记录noticeafter。
+ */
   var noticeAfter = receiver.getEventCount(NEXT_S2C.Notice);
+/**
+ * 记录message。
+ */
   var message = "协议审计聊天 " + senderId;
   sender.emit(NEXT_C2S.Chat, { message: message });
   await receiver.waitForEventAfter(NEXT_S2C.Notice, noticeAfter, function (payload) {
@@ -359,52 +552,115 @@ async function heartbeatChatCase(runtime) {
     });
   }, 5000);
 }
+/**
+ * 处理navigatecase。
+ */
 async function navigateCase(runtime) {
+/**
+ * 记录socket。
+ */
   var socket = runtime.createSocket("navigate");
+/**
+ * 记录任务ID。
+ */
   var questId = "__audit_missing_quest__";
   await hello(runtime, socket, { mapId: "yunlai_town", preferredX: 32, preferredY: 5 });
   await emitAndWait(socket, NEXT_C2S.NavigateQuest, { questId: questId }, NEXT_S2C.QuestNavigateResult, function (payload) {
     return payload && payload.questId === questId;
   }, 5000);
 }
+/**
+ * 处理传送点case。
+ */
 async function portalCase(runtime) {
+/**
+ * 记录socket。
+ */
   var socket = runtime.createSocket("portal");
   await hello(runtime, socket, { mapId: "yunlai_town", preferredX: 31, preferredY: 54 });
   await emitAndWait(socket, NEXT_C2S.UsePortal, {}, NEXT_S2C.MapEnter, function (payload) {
     return payload && payload.mid === "wildlands";
   }, 5000);
 }
+/**
+ * 处理kickcase。
+ */
 async function kickCase(runtime) {
+/**
+ * 记录认证。
+ */
   var auth = await registerAndLoginPlayer(runtime.baseUrl, pid("audit_kick"));
+/**
+ * 记录socket。
+ */
   var socket = runtime.createSocket("kick", { token: auth.accessToken, protocol: 'next' });
+/**
+ * 记录会话。
+ */
   var session = await hello(runtime, socket, {});
+/**
+ * 记录玩家ID。
+ */
   var playerId = session.playerId;
+/**
+ * 记录kickafter。
+ */
   var kickAfter = socket.getEventCount(NEXT_S2C.Kick);
   await runtime.api.deletePlayer(playerId);
   await socket.waitForEventAfter(NEXT_S2C.Kick, kickAfter, function (payload) {
     return payload && typeof payload.reason === 'string' && payload.reason.length > 0;
   }, 5000);
 }
+/**
+ * 处理errorcase。
+ */
 async function errorCase(runtime) {
+/**
+ * 记录socket。
+ */
   var socket = runtime.createSocket("error");
   await hello(runtime, socket, { mapId: "yunlai_town", preferredX: 32, preferredY: 5 });
   await emitAndWait(socket, NEXT_C2S.RequestNpcShop, { npcId: "" }, NEXT_S2C.Error, function (payload) {
     return !!(payload && payload.message);
   }, 5000);
 }
+/**
+ * 处理shopcase。
+ */
 async function shopCase(runtime) {
+/**
+ * 记录socket。
+ */
   var socket = runtime.createSocket("shop");
+/**
+ * 记录会话。
+ */
   var session = await hello(runtime, socket, { mapId: "yunlai_town", preferredX: 39, preferredY: 33 });
+/**
+ * 记录玩家ID。
+ */
   var playerId = session.playerId;
   await runtime.api.grantItem(playerId, "spirit_stone", 30);
+/**
+ * 记录shop。
+ */
   var shop = await emitAndWait(socket, NEXT_C2S.RequestNpcShop, { npcId: "npc_herbalist_lan" }, NEXT_S2C.NpcShop, function (payload) {
     return payload && payload.npcId === "npc_herbalist_lan" && payload.shop && Array.isArray(payload.shop.items) && payload.shop.items.length > 0;
   }, 5000);
+/**
+ * 记录物品ID。
+ */
   var itemId = shop.shop.items[0].itemId;
   await emitAndWait(socket, NEXT_C2S.UseAction, { actionId: "npc_shop:npc_herbalist_lan" }, NEXT_S2C.NpcShop, function (payload) {
     return payload && payload.npcId === "npc_herbalist_lan" && payload.shop && Array.isArray(payload.shop.items) && payload.shop.items.length > 0;
   }, 5000);
+/**
+ * 记录before。
+ */
   var before = count((await runtime.api.fetchState(playerId)).player, itemId);
+/**
+ * 记录noticeafter。
+ */
   var noticeAfter = socket.getEventCount(NEXT_S2C.Notice);
   socket.emit(NEXT_C2S.BuyNpcShopItem, { npcId: "npc_herbalist_lan", itemId: itemId, quantity: 1 });
   await lib.waitForState(runtime.api, playerId, function (player) { return count(player, itemId) >= before + 1; }, 5000, "npcBuy");
@@ -412,7 +668,13 @@ async function shopCase(runtime) {
     return Array.isArray(payload && payload.items) && payload.items.length > 0;
   }, 5000);
 }
+/**
+ * 处理detail任务case。
+ */
 async function detailQuestCase(runtime) {
+/**
+ * 记录socket。
+ */
   var socket = runtime.createSocket("detail");
   await hello(runtime, socket, { mapId: "yunlai_town", preferredX: 39, preferredY: 33 });
   await emitAndWait(socket, NEXT_C2S.RequestDetail, { kind: "npc", id: "npc_herbalist_lan" }, NEXT_S2C.Detail, function (payload) {
@@ -424,7 +686,13 @@ async function detailQuestCase(runtime) {
   await emitAndWait(socket, NEXT_C2S.RequestNpcQuests, { npcId: "npc_herbalist_lan" }, NEXT_S2C.NpcQuests, function (payload) {
     return payload && payload.npcId === "npc_herbalist_lan" && Array.isArray(payload.quests);
   }, 5000);
+/**
+ * 记录npc任务after。
+ */
   var npcQuestAfter = socket.getEventCount(NEXT_S2C.NpcQuests);
+/**
+ * 记录任务refreshafter。
+ */
   var questRefreshAfter = socket.getEventCount(NEXT_S2C.Quests);
   socket.emit(NEXT_C2S.UseAction, { actionId: "npc_quests:npc_herbalist_lan" });
   await socket.waitForEventAfter(NEXT_S2C.NpcQuests, npcQuestAfter, function (payload) {
@@ -434,9 +702,21 @@ async function detailQuestCase(runtime) {
     return Array.isArray(payload && payload.quests);
   }, 5000);
 }
+/**
+ * 处理pendinglogbookackcase。
+ */
 async function pendingLogbookAckCase(runtime) {
+/**
+ * 记录认证。
+ */
   var auth = await registerAndLoginPlayer(runtime.baseUrl, pid("audit_logbook"));
+/**
+ * 记录玩家ID。
+ */
   var playerId = auth.playerId;
+/**
+ * 记录messageID。
+ */
   var messageId = "logbook_" + playerId;
   runtime.trackPlayer(playerId);
   await runtime.api.connectPlayer({
@@ -452,6 +732,9 @@ async function pendingLogbookAckCase(runtime) {
     from: "系统审计",
       at: 1711929600000,
   });
+/**
+ * 记录socket。
+ */
   var socket = runtime.createSocket("logbook", { token: auth.accessToken, protocol: 'next' });
   await socket.onceConnected();
   await socket.waitForEvent(NEXT_S2C.InitSession, function (payload) {
@@ -471,30 +754,69 @@ async function pendingLogbookAckCase(runtime) {
       || player.pendingLogbookMessages.every(function (entry) { return entry.id !== messageId; });
   }, 5000, "ackPendingLogbook");
 }
+/**
+ * 处理inventoryopscase。
+ */
 async function inventoryOpsCase(runtime) {
+/**
+ * 记录socket。
+ */
   var socket = runtime.createSocket("inventory");
+/**
+ * 记录会话。
+ */
   var session = await hello(runtime, socket, { mapId: "yunlai_town", preferredX: 32, preferredY: 5 });
+/**
+ * 记录玩家ID。
+ */
   var playerId = session.playerId;
   await runtime.api.grantItem(playerId, "spirit_stone", 2);
   await runtime.api.grantItem(playerId, "rat_tail", 1);
+/**
+ * 记录状态。
+ */
   var state = (await runtime.api.fetchState(playerId)).player;
+/**
+ * 记录spiritbefore索引。
+ */
   var spiritBeforeIndex = slot(state, "spirit_stone");
+/**
+ * 记录ratbefore索引。
+ */
   var ratBeforeIndex = slot(state, "rat_tail");
   socket.emit(NEXT_C2S.SortInventory, {});
   await lib.waitForState(runtime.api, playerId, function (player) {
     return slot(player, "rat_tail") < slot(player, "spirit_stone") && slot(player, "spirit_stone") !== spiritBeforeIndex && slot(player, "rat_tail") !== ratBeforeIndex;
   }, 5000, "sortInventory");
   state = (await runtime.api.fetchState(playerId)).player;
+/**
+ * 记录before数量。
+ */
   var beforeCount = count(state, "spirit_stone");
   socket.emit(NEXT_C2S.DestroyItem, { slotIndex: slot(state, "spirit_stone"), count: 1 });
   await lib.waitForState(runtime.api, playerId, function (player) {
     return count(player, "spirit_stone") === Math.max(0, beforeCount - 1);
   }, 5000, "destroyItem");
 }
+/**
+ * 处理玩家controlcase。
+ */
 async function playerControlCase(runtime) {
+/**
+ * 记录socket。
+ */
   var socket = runtime.createSocket("controls");
+/**
+ * 记录会话。
+ */
   var session = await hello(runtime, socket, { mapId: "yunlai_town", preferredX: 31, preferredY: 54 });
+/**
+ * 记录玩家ID。
+ */
   var playerId = session.playerId;
+/**
+ * 记录玩家。
+ */
   var player = (await runtime.api.fetchState(playerId)).player;
   socket.emit(NEXT_C2S.UseItem, { slotIndex: slot(player, "book.qingmu_sword") });
   await lib.waitForState(runtime.api, playerId, function (current) {
@@ -507,6 +829,9 @@ async function playerControlCase(runtime) {
     return Array.isArray(current.combat.autoBattleSkills)
       && current.combat.autoBattleSkills.some(function (entry) { return entry.skillId === "skill.qingmu_slash" && entry.enabled === true; });
   }, 5000, "updateAutoBattleSkills");
+/**
+ * 记录paneldeltaafter。
+ */
   var panelDeltaAfter = socket.getEventCount(NEXT_S2C.PanelDelta);
   socket.emit(NEXT_C2S.UpdateTechniqueSkillAvailability, {
     techId: "qingmu_sword",
@@ -517,7 +842,13 @@ async function playerControlCase(runtime) {
       && current.combat.autoBattleSkills.some(function (entry) { return entry.skillId === "skill.qingmu_slash" && entry.skillEnabled === false; });
   }, 5000, "updateTechniqueSkillAvailability");
   await socket.waitForEventAfter(NEXT_S2C.PanelDelta, panelDeltaAfter, function (payload) {
+/**
+ * 记录功法patched。
+ */
     var techniquePatched = payload?.tech?.techniques?.some(function (entry) { return entry.techId === "qingmu_sword" && entry.skillsEnabled === false; });
+/**
+ * 记录actionpatched。
+ */
     var actionPatched = payload?.act?.actions?.some(function (entry) { return entry.id === "skill.qingmu_slash" && entry.skillEnabled === false; });
     return techniquePatched === true && actionPatched === true;
   }, 5000);
@@ -528,6 +859,9 @@ async function playerControlCase(runtime) {
   await lib.waitForState(runtime.api, playerId, function (current) {
     return current.templateId === "yunlai_town";
   }, 5000, "debugResetSpawn");
+/**
+ * 记录noticeafter。
+ */
   var noticeAfter = socket.getEventCount(NEXT_S2C.Notice);
   socket.emit(NEXT_C2S.HeavenGateAction, { action: "open" });
   await socket.waitForEventAfter(NEXT_S2C.Notice, noticeAfter, function (payload) {
@@ -536,8 +870,17 @@ async function playerControlCase(runtime) {
     });
   }, 5000);
 }
+/**
+ * 处理redeemcodescase。
+ */
 async function redeemCodesCase(runtime) {
+/**
+ * 记录GM令牌。
+ */
   var gmToken = await loginGm(runtime.baseUrl);
+/**
+ * 记录created。
+ */
   var created = await requestJson(runtime.baseUrl, '/gm/redeem-code-groups', {
     method: 'POST',
     token: gmToken,
@@ -547,13 +890,28 @@ async function redeemCodesCase(runtime) {
       count: 1,
     },
   });
+/**
+ * 记录code。
+ */
   var code = Array.isArray(created?.codes) ? created.codes[0] : '';
   if (!code) {
     throw new Error('unexpected redeem create payload: ' + JSON.stringify(created));
   }
+/**
+ * 记录socket。
+ */
   var socket = runtime.createSocket('redeem');
+/**
+ * 记录会话。
+ */
   var session = await hello(runtime, socket, { mapId: 'yunlai_town', preferredX: 32, preferredY: 5 });
+/**
+ * 记录玩家ID。
+ */
   var playerId = session.playerId;
+/**
+ * 记录before。
+ */
   var before = count((await runtime.api.fetchState(playerId)).player, 'spirit_stone');
   socket.emit(NEXT_C2S.RedeemCodes, { codes: [code] });
   await socket.waitForEvent(NEXT_S2C.RedeemCodesResult, function (payload) {
@@ -565,19 +923,46 @@ async function redeemCodesCase(runtime) {
     return count(current, 'spirit_stone') === before + 4;
   }, 5000, 'redeemCode');
 }
+/**
+ * 处理GMcase。
+ */
 async function gmCase(runtime) {
+/**
+ * 记录认证。
+ */
   var auth = await registerAndLoginPlayer(runtime.baseUrl, pid('audit_gm_auth'));
+/**
+ * 记录GM令牌。
+ */
   var gmToken = await loginGm(runtime.baseUrl);
+/**
+ * 记录socket。
+ */
   var socket = runtime.createSocket('gm', { token: auth.accessToken, gmToken: gmToken, protocol: 'next' });
+/**
+ * 记录会话。
+ */
   var session = await hello(runtime, socket, { mapId: 'yunlai_town', preferredX: 32, preferredY: 5 });
+/**
+ * 记录玩家ID。
+ */
   var playerId = session.playerId;
+/**
+ * 记录GM状态。
+ */
   var gmState = await emitAndWait(socket, NEXT_C2S.GmGetState, {}, NEXT_S2C.GmState, function (payload) {
     return Array.isArray(payload?.players) && Array.isArray(payload?.mapIds);
   }, 5000);
+/**
+ * 记录bot数量。
+ */
   var botCount = Number(gmState?.botCount ?? 0);
   gmState = await emitAndWait(socket, NEXT_C2S.GmSpawnBots, { count: 1 }, NEXT_S2C.GmState, function (payload) {
     return Number(payload?.botCount ?? 0) >= botCount + 1;
   }, 8000);
+/**
+ * 记录当前值。
+ */
   var current = (await runtime.api.fetchState(playerId)).player;
   await emitAndWait(socket, NEXT_C2S.GmUpdatePlayer, {
     playerId: playerId,
@@ -596,15 +981,36 @@ async function gmCase(runtime) {
     return Number(payload?.botCount ?? 0) === 0;
   }, 8000);
 }
+/**
+ * 处理suggestioncase。
+ */
 async function suggestionCase(runtime) {
+/**
+ * 记录socket。
+ */
   var socket = runtime.createSocket("suggestion");
+/**
+ * 记录会话。
+ */
   var session = await hello(runtime, socket, { mapId: "yunlai_town", preferredX: 32, preferredY: 5 });
+/**
+ * 记录玩家ID。
+ */
   var playerId = session.playerId;
   await emitAndWait(socket, NEXT_C2S.RequestSuggestions, {}, NEXT_S2C.SuggestionUpdate, function () { return true; }, 5000);
+/**
+ * 记录title。
+ */
   var title = "协议审计 " + playerId;
+/**
+ * 记录created。
+ */
   var created = await emitAndWait(socket, NEXT_C2S.CreateSuggestion, { title: title, description: "protocol audit" }, NEXT_S2C.SuggestionUpdate, function (payload) {
     return payload && payload.suggestions && payload.suggestions.some(function (entry) { return entry.title === title; });
   }, 5000);
+/**
+ * 记录suggestionID。
+ */
   var suggestionId = created.suggestions.find(function (entry) { return entry.title === title; }).id;
   await emitAndWait(socket, NEXT_C2S.VoteSuggestion, { suggestionId: suggestionId, vote: "up" }, NEXT_S2C.SuggestionUpdate, function (payload) {
     return payload && payload.suggestions && payload.suggestions.some(function (entry) { return entry.id === suggestionId; });
@@ -619,17 +1025,35 @@ async function suggestionCase(runtime) {
     return payload && payload.suggestions && payload.suggestions.some(function (entry) { return entry.id === suggestionId; });
   }, 5000);
 }
+/**
+ * 处理mailcase。
+ */
 async function mailCase(runtime) {
+/**
+ * 记录socket。
+ */
   var socket = runtime.createSocket("mail");
+/**
+ * 记录会话。
+ */
   var session = await hello(runtime, socket, { mapId: "yunlai_town", preferredX: 32, preferredY: 5 });
+/**
+ * 记录玩家ID。
+ */
   var playerId = session.playerId;
   await runtime.api.createDirectMail(playerId, { fallbackTitle: "审计邮件", fallbackBody: "next protocol audit", senderLabel: "system", attachments: [{ itemId: "rat_tail", count: 2 }] });
   await emitAndWait(socket, NEXT_C2S.RequestMailSummary, {}, NEXT_S2C.MailSummary, function (payload) {
     return payload && payload.summary && (payload.summary.unreadCount >= 1 || payload.summary.claimableCount >= 1 || payload.summary.revision >= 1);
   }, 5000);
+/**
+ * 记录page。
+ */
   var page = await emitAndWait(socket, NEXT_C2S.RequestMailPage, { page: 1, pageSize: 20 }, NEXT_S2C.MailPage, function (payload) {
     return payload && payload.page && payload.page.items && payload.page.items.length > 0;
   }, 5000);
+/**
+ * 记录mailID。
+ */
   var mailId = page.page.items[0].mailId;
   await emitAndWait(socket, NEXT_C2S.RequestMailDetail, { mailId: mailId }, NEXT_S2C.MailDetail, function (payload) {
     return payload && payload.detail && payload.detail.mailId === mailId;
@@ -645,13 +1069,37 @@ async function mailCase(runtime) {
     return payload && payload.mailIds && payload.mailIds.indexOf(mailId) >= 0;
   }, 5000);
 }
+/**
+ * 处理progressioncase。
+ */
 async function progressionCase(runtime) {
+/**
+ * 记录attacker。
+ */
   var attacker = runtime.createSocket("combat:attacker");
+/**
+ * 记录defender。
+ */
   var defender = runtime.createSocket("combat:defender");
+/**
+ * 记录attacker会话。
+ */
   var attackerSession = await hello(runtime, attacker, { mapId: "yunlai_town", preferredX: 24, preferredY: 5 });
+/**
+ * 记录defender会话。
+ */
   var defenderSession = await hello(runtime, defender, { mapId: "yunlai_town", preferredX: 25, preferredY: 5 });
+/**
+ * 记录attackerID。
+ */
   var attackerId = attackerSession.playerId;
+/**
+ * 记录defenderID。
+ */
   var defenderId = defenderSession.playerId;
+/**
+ * 记录玩家。
+ */
   var player = (await runtime.api.fetchState(attackerId)).player;
   attacker.emit(NEXT_C2S.UseItem, { slotIndex: slot(player, "book.qingmu_sword") });
   await lib.waitForState(runtime.api, attackerId, function (current) { return current.techniques.techniques.some(function (entry) { return entry.techId === "qingmu_sword"; }); }, 5000, "learn");
@@ -670,21 +1118,57 @@ async function progressionCase(runtime) {
   attacker.emit(NEXT_C2S.CastSkill, { skillId: "skill.qingmu_slash", targetPlayerId: defenderId });
   await lib.waitForState(runtime.api, defenderId, function (current) { return current.hp < 120; }, 8000, "cast");
 }
+/**
+ * 处理掉落case。
+ */
 async function lootCase(runtime) {
+/**
+ * 记录dropper。
+ */
   var dropper = runtime.createSocket("loot:dropper");
+/**
+ * 记录looter。
+ */
   var looter = runtime.createSocket("loot:looter");
+/**
+ * 记录dropper会话。
+ */
   var dropperSession = await hello(runtime, dropper, { mapId: "yunlai_town", preferredX: 32, preferredY: 5 });
+/**
+ * 记录looter会话。
+ */
   var looterSession = await hello(runtime, looter, { mapId: "yunlai_town", preferredX: 33, preferredY: 5 });
+/**
+ * 记录dropperID。
+ */
   var dropperId = dropperSession.playerId;
+/**
+ * 记录looterID。
+ */
   var looterId = looterSession.playerId;
   await runtime.api.grantItem(dropperId, "rat_tail", 2);
+/**
+ * 记录dropper状态。
+ */
   var dropperState = (await runtime.api.fetchState(dropperId)).player;
+/**
+ * 记录looter状态。
+ */
   var looterState = (await runtime.api.fetchState(looterId)).player;
+/**
+ * 记录worlddeltaafter。
+ */
   var worldDeltaAfter = looter.getEventCount(NEXT_S2C.WorldDelta);
   dropper.emit(NEXT_C2S.DropItem, { slotIndex: slot(dropperState, "rat_tail"), count: 2 });
+/**
+ * 记录pileevent。
+ */
   var pileEvent = await looter.waitForEventAfter(NEXT_S2C.WorldDelta, worldDeltaAfter, function (payload) {
     return Array.isArray(payload && payload.g) && payload.g.some(function (entry) { return entry.x === dropperState.x && entry.y === dropperState.y; });
   }, 5000);
+/**
+ * 记录pile。
+ */
   var pile = pileEvent.g.find(function (entry) { return entry.x === dropperState.x && entry.y === dropperState.y && Array.isArray(entry.items); });
   dropper.emit(NEXT_C2S.Move, { d: Direction.North });
   await lib.waitForState(runtime.api, dropperId, function (player) { return player.x !== dropperState.x || player.y !== dropperState.y; }, 5000, "lootDropperMoveAway");
@@ -693,29 +1177,80 @@ async function lootCase(runtime) {
   looter.emit(NEXT_C2S.TakeGround, { sourceId: pile.sourceId, itemKey: "rat_tail" });
   await lib.waitForState(runtime.api, looterId, function (player) { return count(player, "rat_tail") >= count(looterState, "rat_tail") + 2; }, 5000, "takeGround");
 }
+/**
+ * 处理marketcase。
+ */
 async function marketCase(runtime) {
+/**
+ * 记录seller。
+ */
   var seller = runtime.createSocket("market:seller");
+/**
+ * 记录buyer。
+ */
   var buyer = runtime.createSocket("market:buyer");
+/**
+ * 记录storageseller。
+ */
   var storageSeller = runtime.createSocket("market:storage-seller");
+/**
+ * 记录storagebuyer。
+ */
   var storageBuyer = runtime.createSocket("market:storage-buyer");
+/**
+ * 记录storage物品ID。
+ */
   var storageItemId = "serpent_gall";
+/**
+ * 记录seller会话。
+ */
   var sellerSession = await hello(runtime, seller, { mapId: "yunlai_town", preferredX: 39, preferredY: 33 });
+/**
+ * 记录buyer会话。
+ */
   var buyerSession = await hello(runtime, buyer, { mapId: "yunlai_town", preferredX: 39, preferredY: 33 });
+/**
+ * 记录storageseller会话。
+ */
   var storageSellerSession = await hello(runtime, storageSeller, { mapId: "yunlai_town", preferredX: 39, preferredY: 33 });
+/**
+ * 记录storagebuyer会话。
+ */
   var storageBuyerSession = await hello(runtime, storageBuyer, { mapId: "yunlai_town", preferredX: 39, preferredY: 33 });
+/**
+ * 记录sellerID。
+ */
   var sellerId = sellerSession.playerId;
+/**
+ * 记录buyerID。
+ */
   var buyerId = buyerSession.playerId;
+/**
+ * 记录storagesellerID。
+ */
   var storageSellerId = storageSellerSession.playerId;
+/**
+ * 记录storagebuyerID。
+ */
   var storageBuyerId = storageBuyerSession.playerId;
   await emitAndWait(seller, NEXT_C2S.RequestMarket, {}, NEXT_S2C.MarketUpdate, function () { return true; }, 5000);
   await emitAndWait(buyer, NEXT_C2S.RequestMarket, {}, NEXT_S2C.MarketUpdate, function () { return true; }, 5000);
   await emitAndWait(storageBuyer, NEXT_C2S.RequestMarket, {}, NEXT_S2C.MarketUpdate, function () { return true; }, 5000);
   await runtime.api.grantItem(sellerId, "rat_tail", 4);
   await runtime.api.grantItem(buyerId, "spirit_stone", 40);
+/**
+ * 记录seller状态。
+ */
   var sellerState = (await runtime.api.fetchState(sellerId)).player;
+/**
+ * 记录listed。
+ */
   var listed = await emitAndWait(seller, NEXT_C2S.CreateMarketSellOrder, { slotIndex: slot(sellerState, "rat_tail"), quantity: 1, unitPrice: 1 }, NEXT_S2C.MarketUpdate, function (payload) {
     return payload && payload.myOrders && payload.myOrders.some(function (entry) { return entry.side === "sell" && entry.item && entry.item.itemId === "rat_tail"; });
   }, 5000);
+/**
+ * 记录物品key。
+ */
   var itemKey = listed.myOrders.find(function (entry) { return entry.side === "sell" && entry.item && entry.item.itemId === "rat_tail"; }).itemKey;
   await emitAndWait(buyer, NEXT_C2S.RequestMarketItemBook, { itemKey: itemKey }, NEXT_S2C.MarketItemBook, function (payload) {
     return payload && payload.itemKey === itemKey;
@@ -728,26 +1263,50 @@ async function marketCase(runtime) {
   }, 5000);
   await runtime.api.grantItem(sellerId, "rat_tail", 1);
   sellerState = (await runtime.api.fetchState(sellerId)).player;
+/**
+ * 记录buyfulfilledat。
+ */
   var buyFulfilledAt = count((await runtime.api.fetchState(buyerId)).player, "rat_tail");
   seller.emit(NEXT_C2S.SellMarketItem, { slotIndex: slot(sellerState, "rat_tail"), quantity: 1 });
   await lib.waitForState(runtime.api, buyerId, function (player) { return count(player, "rat_tail") >= buyFulfilledAt + 1; }, 5000, "sellNow");
   sellerState = (await runtime.api.fetchState(sellerId)).player;
+/**
+ * 记录own。
+ */
   var own = await emitAndWait(seller, NEXT_C2S.CreateMarketSellOrder, { slotIndex: slot(sellerState, "rat_tail"), quantity: 1, unitPrice: 1 }, NEXT_S2C.MarketUpdate, function (payload) {
     return payload && payload.myOrders && payload.myOrders.some(function (entry) { return entry.side === "sell" && entry.item && entry.item.itemId === "rat_tail"; });
   }, 5000);
+/**
+ * 记录orderID。
+ */
   var orderId = own.myOrders.find(function (entry) { return entry.side === "sell" && entry.item && entry.item.itemId === "rat_tail"; }).id;
   await emitAndWait(seller, NEXT_C2S.CancelMarketOrder, { orderId: orderId }, NEXT_S2C.MarketUpdate, function (payload) {
     return payload && payload.myOrders && payload.myOrders.every(function (entry) { return entry.id !== orderId; });
   }, 5000);
   await runtime.api.grantItem(storageBuyerId, "spirit_stone", 20);
+/**
+ * 记录storagebuyer状态。
+ */
   var storageBuyerState = (await runtime.api.fetchState(storageBuyerId)).player;
+/**
+ * 记录storagebuyercapacity。
+ */
   var storageBuyerCapacity = Math.max(1, Math.trunc(storageBuyerState.inventory.capacity || 0));
+/**
+ * 记录fill数量。
+ */
   var fillCount = storageBuyerCapacity - storageBuyerState.inventory.items.length;
   if (fillCount <= 0) {
     throw new Error("expected storage buyer inventory to have free slots before fill");
   }
+/**
+ * 记录blockedids。
+ */
   var blockedIds = new Set(storageBuyerState.inventory.items.map(function (entry) { return entry.itemId; }));
   blockedIds.add(storageItemId);
+/**
+ * 记录fillerids。
+ */
   var fillerIds = lib.loadUniqueItemIds().filter(function (itemId) { return !blockedIds.has(itemId); }).slice(0, fillCount);
   if (fillerIds.length !== fillCount) {
     throw new Error("not enough unique filler items to fill storage buyer inventory");
@@ -755,13 +1314,22 @@ async function marketCase(runtime) {
   for (var i = 0; i < fillerIds.length; i += 1) {
     await runtime.api.grantItem(storageBuyerId, fillerIds[i], 1);
   }
+/**
+ * 收集fillerID集合。
+ */
   var fillerIdSet = new Set(fillerIds);
   await lib.waitForState(runtime.api, storageBuyerId, function (player) { return player.inventory.items.length >= storageBuyerCapacity; }, 10000, "fillInventory");
   await emitAndWait(storageBuyer, NEXT_C2S.CreateMarketBuyOrder, { itemId: storageItemId, quantity: 1, unitPrice: 1 }, NEXT_S2C.MarketUpdate, function (payload) {
     return payload && payload.myOrders && payload.myOrders.some(function (entry) { return entry.side === "buy" && entry.item && entry.item.itemId === storageItemId; });
   }, 5000);
   await runtime.api.grantItem(storageSellerId, storageItemId, 1);
+/**
+ * 记录storageseller状态。
+ */
   var storageSellerState = (await runtime.api.fetchState(storageSellerId)).player;
+/**
+ * 记录storageupdateafter。
+ */
   var storageUpdateAfter = storageBuyer.getEventCount(NEXT_S2C.MarketUpdate);
   storageSeller.emit(NEXT_C2S.SellMarketItem, { slotIndex: slot(storageSellerState, storageItemId), quantity: 1 });
   await storageBuyer.waitForEventAfter(NEXT_S2C.MarketUpdate, storageUpdateAfter, function (payload) {
@@ -771,12 +1339,18 @@ async function marketCase(runtime) {
     return market && market.storage && Array.isArray(market.storage.items) && market.storage.items.some(function (entry) { return entry.itemId === storageItemId; });
   }, 8000, "marketStorageDeliver");
   storageBuyerState = (await runtime.api.fetchState(storageBuyerId)).player;
+/**
+ * 记录fillerslot。
+ */
   var fillerSlot = storageBuyerState.inventory.items.findIndex(function (entry) { return fillerIdSet.has(entry.itemId); });
   if (fillerSlot < 0) {
     throw new Error("failed to find filler slot for market storage claim");
   }
   storageBuyer.emit(NEXT_C2S.DropItem, { slotIndex: fillerSlot, count: 1 });
   await lib.waitForState(runtime.api, storageBuyerId, function (player) { return player.inventory.items.length <= storageBuyerCapacity - 1; }, 5000, "freeSlot");
+/**
+ * 记录claimupdateafter。
+ */
   var claimUpdateAfter = storageBuyer.getEventCount(NEXT_S2C.MarketUpdate);
   storageBuyer.emit(NEXT_C2S.ClaimMarketStorage, {});
   await storageBuyer.waitForEventAfter(NEXT_S2C.MarketUpdate, claimUpdateAfter, function (payload) {
@@ -787,6 +1361,9 @@ async function marketCase(runtime) {
   }, 8000, "marketStorageClaimed");
   await lib.waitForState(runtime.api, storageBuyerId, function (player) { return count(player, storageItemId) >= 1; }, 5000, "claimStorage");
 }
+/**
+ * 格式化bytes。
+ */
 function formatBytes(bytes) {
   if (!Number.isFinite(bytes) || bytes <= 0) {
     return "0 B";
@@ -796,7 +1373,13 @@ function formatBytes(bytes) {
   }
   return (bytes / 1024).toFixed(2) + " KB";
 }
+/**
+ * 处理render。
+ */
 function render(report) {
+/**
+ * 汇总输出行。
+ */
   var lines = [
     "# Next 协议审计报告",
     "",
@@ -840,10 +1423,25 @@ function render(report) {
 }
 async function main() {
   var externalBaseUrl = envAlias.resolveServerNextShadowUrl();
+/**
+ * 记录requested端口。
+ */
   var requestedPort = externalBaseUrl ? null : await lib.allocateFreePort();
+/**
+ * 记录base地址。
+ */
   var baseUrl = externalBaseUrl || '';
+/**
+ * 记录auditor。
+ */
   var auditor = lib.createAuditor({ c2s: NEXT_C2S, s2c: NEXT_S2C, expectedC2S: EXPECTED_C2S, expectedS2C: EXPECTED_S2C });
+/**
+ * 记录API。
+ */
   var api = null;
+/**
+ * 记录cases。
+ */
   var cases = [
     { name: "bootstrap-runtime", run: bootstrapCase },
     { name: "heartbeat-chat", run: heartbeatChatCase },
@@ -864,7 +1462,13 @@ async function main() {
     { name: "loot", run: lootCase },
     { name: "market", run: marketCase },
   ];
+/**
+ * 汇总caseresults。
+ */
   var caseResults = [];
+/**
+ * 记录服务端。
+ */
   var server = null;
   try {
     if (!externalBaseUrl) {
@@ -877,9 +1481,18 @@ async function main() {
       api = lib.createRuntimeApi(baseUrl);
     }
     for (var i = 0; i < cases.length; i += 1) {
+/**
+ * 记录entry。
+ */
       var entry = cases[i];
       process.stdout.write("[next audit] running " + entry.name + "\n");
+/**
+ * 记录startedat。
+ */
       var startedAt = Date.now();
+/**
+ * 记录运行态。
+ */
       var runtime = lib.createCaseRuntime({ baseUrl: baseUrl, api: api, auditor: auditor, caseName: entry.name });
       try {
         await entry.run(runtime);
@@ -899,10 +1512,22 @@ async function main() {
   finally {
     await lib.stopServer(server);
   }
+/**
+ * 汇总c2s行数据。
+ */
   var c2sRows = auditor.buildCoverageRows("c2s");
+/**
+ * 汇总s2c行数据。
+ */
   var s2cRows = auditor.buildCoverageRows("s2c");
+/**
+ * 记录missing。
+ */
   var missing = auditor.buildMissing("c2s").map(function (entry) { return Object.assign({ direction: "c2s" }, entry); })
     .concat(auditor.buildMissing("s2c").map(function (entry) { return Object.assign({ direction: "s2c" }, entry); }));
+/**
+ * 记录markdown。
+ */
   var markdown = render({
     generatedAt: new Date().toISOString(),
     baseUrl: baseUrl,
