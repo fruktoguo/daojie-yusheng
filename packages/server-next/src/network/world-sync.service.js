@@ -43,57 +43,113 @@ let WorldSyncService = class WorldSyncService {
         this.worldSyncProtocolService = worldSyncProtocolService;
         this.worldLegacySyncService = worldLegacySyncService;
     }
+    
+    /**
+     * 发送初始同步数据
+     * 
+     * 向新连接的玩家发送完整的初始游戏状态，包括：
+     * - 会话初始化信息
+     * - 地图进入信息
+     * - 世界状态（玩家、怪物、NPC等）
+     * - 玩家自身状态
+     * - 面板状态
+     * - 任务状态
+     * - 待处理通知
+     * 
+     * @param playerId 玩家ID
+     */
     emitInitialSync(playerId) {
+        // 获取玩家会话绑定
         const binding = this.worldSessionService.getBinding(playerId);
         if (!binding) {
             return;
         }
+        
+        // 获取玩家socket和视图
         const socket = this.worldSessionService.getSocketByPlayerId(playerId);
         const view = this.worldRuntimeService.getPlayerView(playerId);
         if (!socket || !view) {
             return;
         }
+        
+        // 刷新玩家上下文动作
         this.worldRuntimeService.refreshPlayerContextActions(playerId, view);
+        
+        // 从世界视图同步玩家状态
         const player = this.playerRuntimeService.syncFromWorldView(binding.playerId, binding.sessionId, view);
+        
+        // 创建初始同步数据包
         const envelope = this.worldProjectorService.createInitialEnvelope(binding, view, player);
         const { protocol, emitNext } = this.worldSyncProtocolService.resolveEmission(socket);
         if (emitNext) {
             this.emitNextEnvelope(socket, envelope);
         }
+        
+        // 根据协议类型发送初始同步数据
         if (protocol === 'next') {
             this.emitNextInitialSync(binding.playerId, socket, view, player);
         }
         else {
             this.worldLegacySyncService.emitInitialSync(this.buildLegacySyncContext(binding.playerId, socket, view, player));
         }
+        
+        // 发送任务同步数据
         this.emitQuestSync(socket, binding.playerId, player.quests.revision);
+        
+        // 发送待处理通知
         this.emitPendingNotices(binding.playerId, socket);
     }
+    /**
+     * 刷新所有连接玩家的同步数据
+     * 
+     * 此方法定期调用，向所有连接的玩家发送状态变化（增量同步），包括：
+     * - 世界状态变化（玩家、怪物、NPC等）
+     * - 玩家自身状态变化
+     * - 面板状态变化
+     * - 任务状态变化
+     * - 待处理通知
+     */
     flushConnectedPlayers() {
+        // 清理已断开连接的玩家缓存
         this.clearPurgedPlayerCaches();
+        
+        // 遍历所有连接的玩家
         for (const binding of this.worldSessionService.listBindings()) {
+            // 获取玩家socket和视图
             const socket = this.worldSessionService.getSocketByPlayerId(binding.playerId);
             const view = this.worldRuntimeService.getPlayerView(binding.playerId);
             if (!socket || !view) {
                 continue;
             }
+            
+            // 刷新玩家上下文动作
             this.worldRuntimeService.refreshPlayerContextActions(binding.playerId, view);
+            
+            // 从世界视图同步玩家状态
             const player = this.playerRuntimeService.syncFromWorldView(binding.playerId, binding.sessionId, view);
+            
+            // 创建增量同步数据包
             const envelope = this.worldProjectorService.createDeltaEnvelope(view, player);
             const { protocol, emitNext } = this.worldSyncProtocolService.resolveEmission(socket);
             if (emitNext) {
                 this.emitNextEnvelope(socket, envelope);
             }
+            
+            // 根据协议类型发送增量同步数据
             if (protocol === 'next') {
                 this.emitNextDeltaSync(binding.playerId, socket, view, player);
             }
             else {
                 this.worldLegacySyncService.emitDeltaSync(this.buildLegacySyncContext(binding.playerId, socket, view, player));
             }
+            
+            // 检查任务状态是否变化，如果变化则发送任务同步数据
             const lastQuestRevision = this.lastQuestRevisionByPlayerId.get(binding.playerId) ?? 0;
             if (lastQuestRevision !== player.quests.revision) {
                 this.emitQuestSync(socket, binding.playerId, player.quests.revision);
             }
+            
+            // 发送待处理通知
             this.emitPendingNotices(binding.playerId, socket);
         }
     }
@@ -121,30 +177,72 @@ let WorldSyncService = class WorldSyncService {
         this.worldSyncProtocolService.sendQuestSync(socket, payload);
         this.lastQuestRevisionByPlayerId.set(playerId, revision);
     }
+    /**
+     * 清理已断开连接的玩家缓存
+     * 
+     * @param playerId 玩家ID
+     */
     clearDetachedPlayerCaches(playerId) {
         this.clearPlayerCaches(playerId, true);
     }
+    
+    /**
+     * 清理所有已断开连接的玩家缓存
+     * 
+     * 从会话服务获取所有已断开连接的玩家ID，并清理相关缓存
+     */
     clearPurgedPlayerCaches() {
+        // 获取所有已断开连接的玩家ID
         const purgedPlayerIds = this.worldSessionService.consumePurgedPlayerIds();
+        
+        // 遍历并清理每个玩家的缓存
         for (const playerId of purgedPlayerIds) {
             this.clearPlayerCaches(playerId, false);
         }
     }
+    
+    /**
+     * 清理指定玩家的所有缓存
+     * 
+     * @param playerId 玩家ID
+     * @param detachRuntimeSession 是否断开运行时会话
+     */
     clearPlayerCaches(playerId, detachRuntimeSession) {
+        // 清理投影缓存
         this.worldProjectorService.clear(playerId);
+        
+        // 如果需要，断开运行时会话
         if (detachRuntimeSession) {
             this.playerRuntimeService.detachSession(playerId);
         }
+        
+        // 清理任务版本缓存
         this.lastQuestRevisionByPlayerId.delete(playerId);
+        
+        // 清理同步状态缓存
         this.syncStateByPlayerId.delete(playerId);
+        
+        // 清理拾取窗口缓存
         this.lootWindowByPlayerId.delete(playerId);
+        
+        // 清理Next协议辅助状态缓存
         this.nextAuxStateByPlayerId.delete(playerId);
     }
+    /**
+     * 发送拾取窗口更新
+     * 
+     * 向玩家发送拾取窗口的更新数据，包括地面物品和容器内容
+     * 
+     * @param playerId 玩家ID
+     */
     emitLootWindowUpdate(playerId) {
+        // 获取玩家socket
         const socket = this.worldSessionService.getSocketByPlayerId(playerId);
         if (!socket) {
             return;
         }
+        
+        // 构建拾取窗口同步状态
         const payload = {
             window: this.buildLootWindowSyncState(playerId),
         };
@@ -160,12 +258,28 @@ let WorldSyncService = class WorldSyncService {
             }
         }
     }
+    
+    /**
+     * 打开拾取窗口
+     * 
+     * 打开指定位置的拾取窗口，显示地面物品和容器内容
+     * 
+     * @param playerId 玩家ID
+     * @param x X坐标
+     * @param y Y坐标
+     * @returns 拾取窗口同步状态
+     */
     openLootWindow(playerId, x, y) {
+        // 保存拾取窗口位置
         this.lootWindowByPlayerId.set(playerId, {
             tileX: Math.trunc(x),
             tileY: Math.trunc(y),
         });
+        
+        // 更新玩家运行时状态
         this.playerRuntimeService.openLootWindow(playerId, Math.trunc(x), Math.trunc(y));
+        
+        // 返回拾取窗口同步状态
         return {
             window: this.buildLootWindowSyncState(playerId),
         };

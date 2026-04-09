@@ -16,19 +16,37 @@ const pg_1 = require("pg");
 const legacy_auth_http_service_1 = require("../compat/legacy/http/legacy-auth-http.service");
 const env_alias_1 = require("../config/env-alias");
 const world_legacy_player_repository_1 = require("./world-legacy-player-repository");
+/**
+ * Legacy玩家数据源服务
+ *
+ * 负责从Legacy系统加载玩家身份和快照数据，支持数据库和HTTP两种数据源
+ * 当数据库不可用时，自动回退到HTTP接口
+ */
 let WorldLegacyPlayerSourceService = class WorldLegacyPlayerSourceService {
+    /** 日志记录器 */
     logger = new common_1.Logger(WorldLegacyPlayerSourceService.name);
+    /** Legacy认证HTTP服务 */
     legacyAuthHttpService;
+    /** 数据库连接池 */
     pool = null;
+    /** 数据库连接池初始化Promise */
     poolInitPromise = null;
+    /** 数据库连接池是否不可用 */
     poolUnavailable = false;
+    /** 是否已记录数据库不可用日志 */
     poolUnavailableLogged = false;
     constructor(legacyAuthHttpService) {
         this.legacyAuthHttpService = legacyAuthHttpService;
     }
+    /**
+     * 模块初始化钩子
+     */
     async onModuleInit() {
         await this.ensurePool();
     }
+    /**
+     * 模块销毁钩子
+     */
     async onModuleDestroy() {
         const pool = this.pool;
         this.pool = null;
@@ -37,6 +55,11 @@ let WorldLegacyPlayerSourceService = class WorldLegacyPlayerSourceService {
             await pool.end().catch(() => undefined);
         }
     }
+    /**
+     * 从兼容源解析玩家身份
+     * @param payload JWT载荷
+     * @returns 玩家身份信息
+     */
     async resolvePlayerIdentityFromCompatSource(payload) {
         const pool = await this.ensurePool();
         if (!pool) {
@@ -64,6 +87,11 @@ let WorldLegacyPlayerSourceService = class WorldLegacyPlayerSourceService {
             playerName: resolvePlayerName(row?.playerName ?? row?.pendingRoleName ?? null, row?.username ?? payload.username, payload.displayName),
         };
     }
+    /**
+     * 从Legacy HTTP接口解析玩家身份
+     * @param payload JWT载荷
+     * @returns 玩家身份信息，未找到返回null
+     */
     async resolveLegacyHttpPlayerIdentity(payload) {
         const user = await this.legacyAuthHttpService.findUserById(payload.sub);
         if (!user?.id || !user?.username) {
@@ -79,6 +107,11 @@ let WorldLegacyPlayerSourceService = class WorldLegacyPlayerSourceService {
             playerName: resolvePlayerName(user?.pendingRoleName ?? null, username, payload.displayName),
         };
     }
+    /**
+     * 从兼容源加载玩家快照
+     * @param playerId 玩家ID
+     * @returns 玩家快照，未找到返回null
+     */
     async loadPlayerSnapshotFromCompatSource(playerId) {
         const pool = await this.ensurePool();
         if (!pool) {
@@ -101,6 +134,10 @@ let WorldLegacyPlayerSourceService = class WorldLegacyPlayerSourceService {
         }
         return toPlayerSnapshotFromCompatRow(row);
     }
+    /**
+     * 确保数据库连接池已初始化
+     * @returns 数据库连接池，不可用时返回null
+     */
     async ensurePool() {
         if (this.poolUnavailable) {
             return null;
@@ -146,9 +183,21 @@ exports.WorldLegacyPlayerSourceService = WorldLegacyPlayerSourceService = __deco
     ,
     __metadata("design:paramtypes", [legacy_auth_http_service_1.LegacyAuthHttpService])
 ], WorldLegacyPlayerSourceService);
+/**
+ * 判断是否为缺少Legacy模式的错误
+ * @param error 错误对象
+ * @returns 是否为缺少模式错误
+ */
 function isMissingLegacySchemaError(error) {
     return Boolean(error && typeof error === 'object' && error.code === '42P01');
 }
+/**
+ * 解析显示名称
+ * @param displayName 显示名称
+ * @param username 用户名
+ * @param fallback 备用名称
+ * @returns 有效的显示名称
+ */
 function resolveDisplayName(displayName, username, fallback) {
     const normalized = typeof displayName === 'string' ? displayName.normalize('NFC') : '';
     if (isValidVisibleDisplayName(normalized)) {
@@ -160,6 +209,13 @@ function resolveDisplayName(displayName, username, fallback) {
     }
     return (0, shared_1.resolveDefaultVisibleDisplayName)(username.normalize('NFC'));
 }
+/**
+ * 解析玩家名称
+ * @param playerName 玩家名称
+ * @param username 用户名
+ * @param fallback 备用名称
+ * @returns 有效的玩家名称
+ */
 function resolvePlayerName(playerName, username, fallback) {
     const normalized = typeof playerName === 'string' ? playerName.trim().normalize('NFC') : '';
     if (normalized) {
@@ -170,10 +226,20 @@ function resolvePlayerName(playerName, username, fallback) {
     }
     return username.normalize('NFC');
 }
+/**
+ * 构建备用的玩家ID
+ * @param userId 用户ID
+ * @returns 备用玩家ID
+ */
 function buildFallbackPlayerId(userId) {
     const normalized = userId.trim();
     return normalized ? `p_${normalized}` : 'p_guest';
 }
+/**
+ * 验证是否为有效的可见显示名称
+ * @param value 待验证的值
+ * @returns 是否为有效的可见显示名称
+ */
 function isValidVisibleDisplayName(value) {
     return typeof value === 'string'
         && value.length > 0
@@ -181,6 +247,11 @@ function isValidVisibleDisplayName(value) {
         && (0, shared_1.hasVisibleNameGrapheme)(value)
         && !(0, shared_1.containsInvisibleOnlyNameGrapheme)(value);
 }
+/**
+ * 将兼容行数据转换为玩家快照
+ * @param row 兼容行数据
+ * @returns 玩家快照
+ */
 function toPlayerSnapshotFromCompatRow(row) {
     const currentMapId = resolveRequiredCompatMapId(row.mapId);
     const inventory = normalizeInventory(row.inventory);
@@ -254,6 +325,12 @@ function toPlayerSnapshotFromCompatRow(row) {
     };
 }
 exports.toPlayerSnapshotFromCompatRow = toPlayerSnapshotFromCompatRow;
+/**
+ * 解析必需的兼容地图ID
+ * @param value 地图ID值
+ * @returns 地图ID
+ * @throws 无效地图ID时抛出错误
+ */
 function resolveRequiredCompatMapId(value) {
     const normalized = typeof value === 'string' ? value.trim() : '';
     if (!normalized) {
@@ -261,6 +338,11 @@ function resolveRequiredCompatMapId(value) {
     }
     return normalized;
 }
+/**
+ * 规范化背包数据
+ * @param value 背包数据
+ * @returns 规范化的背包数据
+ */
 function normalizeInventory(value) {
     if (!value || typeof value !== 'object') {
         return {
@@ -278,6 +360,11 @@ function normalizeInventory(value) {
             : [],
     };
 }
+/**
+ * 规范化装备数据
+ * @param value 装备数据
+ * @returns 规范化的装备数据
+ */
 function normalizeEquipment(value) {
     const equipment = value && typeof value === 'object'
         ? value
@@ -294,6 +381,11 @@ function normalizeEquipment(value) {
         slots,
     };
 }
+/**
+ * 规范化临时增益数据
+ * @param value 临时增益数据
+ * @returns 规范化的临时增益数组
+ */
 function normalizeTemporaryBuffs(value) {
     if (!Array.isArray(value)) {
         return [];
@@ -321,6 +413,11 @@ function normalizeTemporaryBuffs(value) {
     }
     return buffs;
 }
+/**
+ * 规范化功法数据
+ * @param value 功法数据
+ * @returns 规范化的功法数组
+ */
 function normalizeTechniques(value) {
     if (!Array.isArray(value)) {
         return [];
@@ -359,6 +456,11 @@ function normalizeTechniques(value) {
     techniques.sort((left, right) => left.techId.localeCompare(right.techId, 'zh-Hans-CN'));
     return techniques;
 }
+/**
+ * 规范化任务数据
+ * @param value 任务数据
+ * @returns 规范化的任务数组
+ */
 function normalizeQuests(value) {
     if (!Array.isArray(value)) {
         return [];
@@ -370,6 +472,11 @@ function normalizeQuests(value) {
         rewards: Array.isArray(entry.rewards) ? entry.rewards.map((reward) => ({ ...reward })) : [],
     }));
 }
+/**
+ * 规范化已解锁地图ID列表
+ * @param value 地图ID列表数据
+ * @returns 规范化的地图ID数组
+ */
 function normalizeUnlockedMapIds(value) {
     if (!Array.isArray(value)) {
         throw new Error('Compat player snapshot invalid unlockedMinimapIds');
@@ -382,6 +489,11 @@ function normalizeUnlockedMapIds(value) {
     }
     return Array.from(result).sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
 }
+/**
+ * 规范化自动战斗技能
+ * @param value 自动战斗技能数据
+ * @returns 规范化的自动战斗技能数组
+ */
 function normalizeAutoBattleSkills(value) {
     if (!Array.isArray(value)) {
         return [];
@@ -478,6 +590,11 @@ function normalizeLegacyRealmState(value) {
         heavenGate: normalizeHeavenGateState(null),
     };
 }
+/**
+ * 规范化待处理日志消息
+ * @param value 待处理日志消息数据
+ * @returns 规范化的待处理日志消息数组
+ */
 function normalizePendingLogbookMessages(value) {
     if (!Array.isArray(value)) {
         return [];
@@ -511,6 +628,11 @@ function normalizePendingLogbookMessages(value) {
     }
     return normalized;
 }
+/**
+ * 规范化运行时增益数据
+ * @param value 运行时增益数据
+ * @returns 规范化的运行时增益对象
+ */
 function normalizeRuntimeBonuses(value) {
     if (!Array.isArray(value)) {
         return [];

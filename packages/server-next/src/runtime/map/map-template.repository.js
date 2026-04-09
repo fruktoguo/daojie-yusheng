@@ -1,4 +1,13 @@
 "use strict";
+/**
+ * 地图模板仓库
+ * 
+ * 负责管理游戏地图的模板数据，包括：
+ * - 地图模板的加载和缓存
+ * - 地图瓦片数据的解析
+ * - 地图配置的管理
+ * - 地图实例的创建
+ */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -47,25 +56,49 @@ const shared_1 = require("@mud/shared-next");
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const project_path_1 = require("../../common/project-path");
+/**
+ * 地图模板仓库类
+ * 
+ * 负责管理游戏地图的模板数据
+ */
 let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepository {
+    // ==================== 日志记录器 ====================
+    /** 日志记录器实例 */
     logger = new common_1.Logger(MapTemplateRepository_1.name);
+    
+    // ==================== 模板缓存 ====================
+    /** 地图模板缓存：templateId -> MapTemplate */
     templates = new Map();
+    /** NPC位置缓存：npcId -> {x, y} */
     npcLocationById = new Map();
+    /** 任务来源缓存：questSourceId -> QuestSource */
     questSourceById = new Map();
+    
+    /**
+     * 模块初始化回调
+     * 
+     * 加载所有地图模板
+     */
     onModuleInit() {
         this.loadAll();
     }
+    
+    /**
+     * 列出所有地图模板摘要
+     * 
+     * @returns 地图模板摘要列表，包含ID、名称、尺寸、传送门数量、安全区数量、地标数量、容器数量
+     */
     listSummaries() {
         return Array.from(this.templates.values(), (template) => ({
-            id: template.id,
-            name: template.name,
-            width: template.width,
-            height: template.height,
-            routeDomain: template.routeDomain,
-            portalCount: template.portals.length,
-            safeZoneCount: template.safeZones.length,
-            landmarkCount: template.landmarks.length,
-            containerCount: template.containers.length,
+            id: template.id,                    // 地图ID
+            name: template.name,                // 地图名称
+            width: template.width,              // 地图宽度
+            height: template.height,            // 地图高度
+            routeDomain: template.routeDomain,  // 路由域
+            portalCount: template.portals.length,  // 传送门数量
+            safeZoneCount: template.safeZones.length, // 安全区数量
+            landmarkCount: template.landmarks.length, // 地标数量
+            containerCount: template.containers.length, // 容器数量
         }));
     }
     list() {

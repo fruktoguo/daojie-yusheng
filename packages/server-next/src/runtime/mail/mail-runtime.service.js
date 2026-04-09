@@ -1,4 +1,14 @@
 "use strict";
+/**
+ * 邮件运行时服务
+ * 
+ * 负责管理游戏内的邮件系统，包括：
+ * - 邮箱管理
+ * - 邮件发送
+ * - 邮件读取
+ * - 邮件附件处理
+ * - 邮件模板渲染
+ */
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -15,37 +25,90 @@ const shared_1 = require("@mud/shared-next");
 const content_template_repository_1 = require("../../content/content-template.repository");
 const mail_persistence_service_1 = require("../../persistence/mail-persistence.service");
 const player_runtime_service_1 = require("../player/player-runtime.service");
+
+// ==================== 常量定义 ====================
+
+/** 欢迎邮件模板ID */
 const MAIL_WELCOME_TEMPLATE_ID = 'mail.welcome.v1';
+
+/** 默认发件人标签 */
 const MAIL_DEFAULT_SENDER_LABEL = '司命台';
+
+/**
+ * 邮件运行时服务类
+ * 
+ * 负责管理游戏内的邮件系统
+ */
 let MailRuntimeService = class MailRuntimeService {
+    // ==================== 依赖注入的服务 ====================
+    /** 内容模板仓库 */
     contentTemplateRepository;
+    /** 玩家运行时服务 */
     playerRuntimeService;
+    /** 邮件持久化服务 */
     mailPersistenceService;
+    
+    // ==================== 邮箱管理 ====================
+    /** 玩家邮箱缓存：playerId -> Mailbox */
     mailboxByPlayerId = new Map();
+    /** 正在加载的邮箱：playerId -> Promise<Mailbox> */
     loadingMailboxByPlayerId = new Map();
+    /**
+     * 构造函数
+     * @param contentTemplateRepository 内容模板仓库
+     * @param playerRuntimeService 玩家运行时服务
+     * @param mailPersistenceService 邮件持久化服务
+     */
     constructor(contentTemplateRepository, playerRuntimeService, mailPersistenceService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
         this.mailPersistenceService = mailPersistenceService;
     }
+    
+    /**
+     * 清除运行时缓存
+     * 
+     * 清除所有玩家的邮箱缓存
+     */
     clearRuntimeCache() {
         this.mailboxByPlayerId.clear();
         this.loadingMailboxByPlayerId.clear();
     }
+    
+    /**
+     * 确保玩家邮箱已加载
+     * 
+     * 如果玩家邮箱未加载，则从持久化存储加载
+     * 
+     * @param playerId 玩家ID
+     * @returns 邮箱对象（可能是已缓存的或正在加载的）
+     */
     async ensurePlayerMailbox(playerId) {
+        // 检查缓存
         const cached = this.mailboxByPlayerId.get(playerId);
         if (cached) {
             return cached;
         }
+        
+        // 检查是否正在加载
         const existingLoad = this.loadingMailboxByPlayerId.get(playerId);
         if (existingLoad) {
             return existingLoad;
         }
+        
+        // 创建加载任务
         const loading = (async () => {
+            // 从持久化存储加载邮箱
             const loaded = await this.mailPersistenceService.loadMailbox(playerId);
             const mailbox = loaded ?? createEmptyMailbox();
+            
+            // 压缩邮箱（删除过期邮件）
             this.compactMailbox(mailbox);
+            
+            // 缓存邮箱
             this.mailboxByPlayerId.set(playerId, mailbox);
+            
+            // 移除加载标记
             this.loadingMailboxByPlayerId.delete(playerId);
             return mailbox;
         })();

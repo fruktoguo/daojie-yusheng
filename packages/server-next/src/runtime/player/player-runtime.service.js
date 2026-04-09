@@ -1,4 +1,16 @@
 "use strict";
+/**
+ * 玩家运行时服务
+ * 
+ * 负责管理游戏玩家的所有运行时状态和逻辑，包括：
+ * - 玩家的创建、加载和移除
+ * - 玩家基本属性（生命值、灵气等）的管理
+ * - 玩家物品栏和装备的管理
+ * - 玩家功法和技能的管理
+ * - 玩家战斗状态的管理
+ * - 玩家通知和日志的管理
+ * - 玩家任务状态的管理
+ */
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -16,127 +28,231 @@ const legacy_gm_compat_constants_1 = require("../../compat/legacy/legacy-gm-comp
 const content_template_repository_1 = require("../../content/content-template.repository");
 const player_attributes_service_1 = require("./player-attributes.service");
 const player_progression_service_1 = require("./player-progression.service");
+
+// ==================== 常量定义 ====================
+
+/** 最大待处理日志消息数量 */
 const MAX_PENDING_LOGBOOK_MESSAGES = 200;
+
+/** 生命值基线加成来源标识符 */
 const VITAL_BASELINE_BONUS_SOURCE = 'runtime:vitals_baseline';
+/**
+ * 玩家运行时服务类
+ * 
+ * 负责管理游戏玩家的所有运行时状态和逻辑
+ */
 let PlayerRuntimeService = class PlayerRuntimeService {
+    // ==================== 依赖注入的服务 ====================
+    /** 内容模板仓库：管理游戏内容模板（物品、技能等） */
     contentTemplateRepository;
+    /** 玩家属性服务：管理玩家属性计算 */
     playerAttributesService;
+    /** 玩家进阶服务：管理玩家修炼和进阶 */
     playerProgressionService;
+    
+    // ==================== 玩家数据管理 ====================
+    /** 所有在线玩家的映射表：playerId -> Player */
     players = new Map();
+    /** 待处理的战斗效果：playerId -> CombatEffect[] */
     pendingCombatEffectsByPlayerId = new Map();
+    /**
+     * 构造函数
+     * @param contentTemplateRepository 内容模板仓库
+     * @param playerAttributesService 玩家属性服务
+     * @param playerProgressionService 玩家进阶服务
+     */
     constructor(contentTemplateRepository, playerAttributesService, playerProgressionService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerAttributesService = playerAttributesService;
         this.playerProgressionService = playerProgressionService;
     }
+    
+    /**
+     * 加载或创建玩家
+     * 
+     * 首先尝试从内存中获取玩家，如果不存在则从持久化存储加载或创建新玩家
+     * 
+     * @param playerId 玩家ID
+     * @param sessionId 会话ID
+     * @param loader 加载器函数，用于从持久化存储加载玩家数据
+     * @returns 玩家对象
+     */
     async loadOrCreatePlayer(playerId, sessionId, loader) {
+        // 检查玩家是否已在内存中
         const existing = this.players.get(playerId);
         if (existing) {
+            // 更新会话ID并清除待处理的战斗效果
             existing.sessionId = sessionId;
             this.pendingCombatEffectsByPlayerId.delete(playerId);
             return existing;
         }
+        // 从持久化存储加载玩家快照
         const snapshot = await loader();
+        // 从快照恢复玩家或创建新玩家
         const player = snapshot
             ? this.hydrateFromSnapshot(playerId, sessionId, snapshot)
             : this.createFreshPlayer(playerId, sessionId);
+        // 将玩家添加到内存
         this.players.set(playerId, player);
         return player;
     }
+    
+    /**
+     * 确保玩家存在
+     * 
+     * 如果玩家不存在则创建新玩家，如果存在则更新会话ID
+     * 
+     * @param playerId 玩家ID
+     * @param sessionId 会话ID
+     * @returns 玩家对象
+     */
     ensurePlayer(playerId, sessionId) {
+        // 检查玩家是否已在内存中
         const existing = this.players.get(playerId);
         if (existing) {
+            // 更新会话ID
             existing.sessionId = sessionId;
             return existing;
         }
+        // 创建新玩家
         const player = this.createFreshPlayer(playerId, sessionId);
+        // 将玩家添加到内存
         this.players.set(playerId, player);
+        // 清除待处理的战斗效果
         this.pendingCombatEffectsByPlayerId.delete(playerId);
         return player;
     }
+    /**
+     * 创建新玩家
+     * 
+     * 创建一个新的玩家对象，初始化所有默认值和初始状态
+     * 
+     * @param playerId 玩家ID
+     * @param sessionId 会话ID
+     * @returns 新创建的玩家对象
+     */
     createFreshPlayer(playerId, sessionId) {
+        // 创建初始物品栏
         const starterInventory = this.contentTemplateRepository.createStarterInventory();
+        
+        // 创建玩家对象
         const player = {
-            playerId,
-            sessionId,
-            name: playerId,
-            displayName: playerId,
-            persistentRevision: 1,
-            persistedRevision: 0,
-            instanceId: '',
-            templateId: '',
-            x: 0,
-            y: 0,
-            facing: shared_1.Direction.South,
-            hp: 100,
-            maxHp: 100,
-            qi: 0,
-            maxQi: 100,
-            foundation: 0,
-            combatExp: 0,
-            bodyTraining: (0, shared_1.normalizeBodyTrainingState)(),
-            boneAgeBaseYears: shared_1.DEFAULT_BONE_AGE_YEARS,
-            lifeElapsedTicks: 0,
-            lifespanYears: null,
-            realm: createDefaultRealmState(),
-            heavenGate: null,
-            spiritualRoots: null,
-            unlockedMapIds: [],
-            selfRevision: 1,
+            // ==================== 基本信息 ====================
+            playerId,                      // 玩家ID
+            sessionId,                     // 会话ID
+            name: playerId,                 // 玩家名称
+            displayName: playerId,         // 显示名称
+            
+            // ==================== 版本控制 ====================
+            persistentRevision: 1,          // 持久化版本号
+            persistedRevision: 0,          // 已持久化版本号
+            selfRevision: 1,               // 自身版本号
+            
+            // ==================== 位置信息 ====================
+            instanceId: '',               // 当前地图实例ID
+            templateId: '',               // 当前地图模板ID
+            x: 0,                          // X坐标
+            y: 0,                          // Y坐标
+            facing: shared_1.Direction.South, // 朝向（默认南）
+            
+            // ==================== 基本属性 ====================
+            hp: 100,                       // 当前生命值
+            maxHp: 100,                    // 最大生命值
+            qi: 0,                         // 当前灵气值
+            maxQi: 100,                    // 最大灵气值
+            foundation: 0,                 // 基础修为
+            combatExp: 0,                  // 战斗经验
+            
+            // ==================== 修炼相关 ====================
+            bodyTraining: (0, shared_1.normalizeBodyTrainingState)(), // 体修状态
+            boneAgeBaseYears: shared_1.DEFAULT_BONE_AGE_YEARS,       // 骨龄基准年数
+            lifeElapsedTicks: 0,          // 已存活tick数
+            lifespanYears: null,           // 寿命（年）
+            realm: createDefaultRealmState(), // 境界状态
+            heavenGate: null,              // 开天门状态
+            spiritualRoots: null,         // 灵根
+            
+            // ==================== 地图相关 ====================
+            unlockedMapIds: [],            // 已解锁的地图ID列表
+            
+            // ==================== 物品栏 ====================
             inventory: {
-                revision: 1,
-                capacity: starterInventory.capacity,
-                items: starterInventory.items,
+                revision: 1,               // 版本号
+                capacity: starterInventory.capacity, // 容量
+                items: starterInventory.items,      // 物品列表
             },
+            
+            // ==================== 装备 ====================
             equipment: {
-                revision: 1,
-                slots: buildEquipmentSnapshot(this.contentTemplateRepository.createDefaultEquipment()),
+                revision: 1,               // 版本号
+                slots: buildEquipmentSnapshot(this.contentTemplateRepository.createDefaultEquipment()), // 装备槽位
             },
+            
+            // ==================== 功法 ====================
             techniques: {
-                revision: 1,
-                techniques: [],
-                cultivatingTechId: null,
+                revision: 1,               // 版本号
+                techniques: [],            // 功法列表
+                cultivatingTechId: null,    // 当前修炼的功法ID
             },
-            attrs: this.playerAttributesService.createInitialState(),
+            
+            // ==================== 属性 ====================
+            attrs: this.playerAttributesService.createInitialState(), // 属性状态
+            
+            // ==================== 动作 ====================
             actions: {
-                revision: 1,
-                contextActions: [],
-                actions: [],
+                revision: 1,               // 版本号
+                contextActions: [],        // 上下文动作
+                actions: [],               // 动作列表
             },
+            
+            // ==================== Buff ====================
             buffs: {
-                revision: 1,
-                buffs: [],
+                revision: 1,               // 版本号
+                buffs: [],                 // Buff列表
             },
+            
+            // ==================== 战斗 ====================
             combat: {
-                cooldownReadyTickBySkillId: {},
-                autoBattle: false,
-                autoRetaliate: true,
-                autoBattleStationary: false,
-                combatTargetId: null,
-                combatTargetLocked: false,
-                allowAoePlayerHit: false,
-                autoIdleCultivation: true,
-                autoSwitchCultivation: false,
-                senseQiActive: false,
-                autoBattleSkills: [],
-                cultivationActive: false,
-                lastActiveTick: 0,
+                cooldownReadyTickBySkillId: {}, // 技能冷却就绪tick
+                autoBattle: false,         // 自动战斗
+                autoRetaliate: true,       // 自动反击
+                autoBattleStationary: false, // 原地战斗
+                combatTargetId: null,      // 战斗目标ID
+                combatTargetLocked: false, // 战斗目标锁定
+                allowAoePlayerHit: false,  // 允许AOE击中玩家
+                autoIdleCultivation: true, // 闲置自动修炼
+                autoSwitchCultivation: false, // 修满自动切换
+                senseQiActive: false,     // 感气视角激活
+                autoBattleSkills: [],      // 自动战斗技能列表
+                cultivationActive: false, // 修炼激活
+                lastActiveTick: 0,        // 最后活跃tick
             },
+            
+            // ==================== 通知 ====================
             notices: {
-                nextId: 1,
-                queue: [],
+                nextId: 1,                 // 下一个通知ID
+                queue: [],                 // 通知队列
             },
+            
+            // ==================== 任务 ====================
             quests: {
-                revision: 1,
-                quests: [],
+                revision: 1,               // 版本号
+                quests: [],                // 任务列表
             },
-            lootWindowTarget: null,
-            pendingLogbookMessages: [],
-            vitalRecoveryDeferredUntilTick: -1,
-            runtimeBonuses: [],
+            
+            // ==================== 其他 ====================
+            lootWindowTarget: null,       // 拾取窗口目标
+            pendingLogbookMessages: [],   // 待处理日志消息
+            vitalRecoveryDeferredUntilTick: -1, // 生命值恢复延迟到指定tick
+            runtimeBonuses: [],           // 运行时加成
         };
+        
+        // 初始化玩家进阶状态
         this.playerProgressionService.initializePlayer(player);
+        
+        // 重建动作状态
         this.rebuildActionState(player, 0);
+        
         return player;
     }
     setIdentity(playerId, input) {

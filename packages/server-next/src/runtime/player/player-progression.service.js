@@ -1,4 +1,16 @@
 "use strict";
+/**
+ * 玩家进阶服务
+ * 
+ * 负责管理玩家的修炼和进阶系统，包括：
+ * - 玩家初始化
+ * - 境界进阶
+ * - 功法修炼
+ * - 修炼经验计算
+ * - 灵根系统
+ * - 开天门系统
+ * - 修炼奖励计算
+ */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -50,8 +62,16 @@ const shared_1 = require("@mud/shared-next");
 const project_path_1 = require("../../common/project-path");
 const content_template_repository_1 = require("../../content/content-template.repository");
 const player_attributes_service_1 = require("./player-attributes.service");
+
+// ==================== 常量定义 ====================
+
+/** 境界等级配置文件路径 */
 const REALM_LEVELS_PATH = ['packages', 'server', 'data', 'content', 'realm-levels.json'];
+
+/** 五行元素键名列表 */
 const ELEMENT_KEYS = ['metal', 'wood', 'water', 'fire', 'earth'];
+
+/** 五行元素中文名称映射 */
 const ELEMENT_KEY_LABELS = {
     metal: '金',
     wood: '木',
@@ -59,10 +79,20 @@ const ELEMENT_KEY_LABELS = {
     fire: '火',
     earth: '土',
 };
+
+/** 开天门所需境界等级 */
 const HEAVEN_GATE_REALM_LEVEL = 18;
+
+/** 开天门最大裂痕数量 */
 const HEAVEN_GATE_MAX_SEVERED = 4;
+
+/** 开天门重掷平均加成 */
 const HEAVEN_GATE_REROLL_AVERAGE_BONUS = 2;
+
+/** 开天门完美灵根软上限 */
 const HEAVEN_GATE_EXTRA_PERFECT_ROOT_SOFT_CAP = 174;
+
+/** 开天门平均质量分段配置 */
 const HEAVEN_GATE_AVERAGE_QUALITY_SEGMENTS = {
     5: [
         { min: 1, max: 15, weight: 35 },
@@ -118,33 +148,100 @@ const HEAVEN_GATE_DISTRIBUTION_SPREAD = {
     2: 0.58,
     1: 0,
 };
+/**
+ * 玩家进阶服务类
+ * 
+ * 负责管理玩家的修炼和进阶系统
+ */
 let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgressionService {
+    // ==================== 依赖注入的服务 ====================
+    /** 内容模板仓库 */
     contentTemplateRepository;
+    /** 玩家属性服务 */
     playerAttributesService;
+    
+    // ==================== 日志记录器 ====================
+    /** 日志记录器实例 */
     logger = new common_1.Logger(PlayerProgressionService_1.name);
+    
+    // ==================== 境界系统 ====================
+    /** 境界等级配置：levelId -> RealmLevelConfig */
     realmLevels = new Map();
+    /** 最大境界等级 */
     maxRealmLevel = 1;
+    
+    /**
+     * 构造函数
+     * @param contentTemplateRepository 内容模板仓库
+     * @param playerAttributesService 玩家属性服务
+     */
     constructor(contentTemplateRepository, playerAttributesService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerAttributesService = playerAttributesService;
     }
+    
+    /**
+     * 模块初始化回调
+     * 加载境界等级配置
+     */
     onModuleInit() {
         this.loadRealmLevels();
     }
+    
+    /**
+     * 初始化玩家境界状态
+     * 
+     * 为新玩家设置初始境界状态
+     * 
+     * @param player 玩家对象
+     */
     initializePlayer(player) {
+        // 解析初始境界状态
         const resolved = this.resolveInitialRealmState(player);
+        
+        // 应用境界展示
         this.applyRealmPresentation(player, resolved);
+        
+        // 重新计算玩家属性
         this.playerAttributesService.recalculate(player);
+        
+        // 确保生命值和灵气值在有效范围内
         player.hp = clamp(player.hp, 0, player.maxHp);
         player.qi = clamp(player.qi, 0, player.maxQi);
     }
+    
+    /**
+     * 刷新境界预览
+     * 
+     * 更新玩家境界的预览状态
+     * 
+     * @param player 玩家对象
+     */
     refreshPreview(player) {
+        // 规范化境界状态
         const resolved = this.normalizeRealmState(player.realm);
+        
+        // 应用境界展示
         this.applyRealmPresentation(player, resolved);
     }
+    
+    /**
+     * 增加境界进度
+     * 
+     * 为玩家增加境界修炼进度，处理进阶逻辑
+     * 
+     * @param player 玩家对象
+     * @param amount 增加的进度值
+     * @param options 选项对象
+     * @returns 进度增加结果
+     */
     gainRealmProgress(player, amount, options = {}) {
+        // 内部处理境界进度增加
         const result = this.gainRealmProgressInternal(player, amount, options);
+        
+        // 完成进阶变更处理
         this.finalizeProgressionMutation(player, result);
+        
         return {
             changed: result.changed,
             notices: result.notices,

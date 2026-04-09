@@ -1,4 +1,14 @@
 "use strict";
+/**
+ * 世界网关
+ * 
+ * 这是游戏世界的WebSocket网关，负责处理客户端与服务端之间的实时通信，包括：
+ * - 客户端连接和断开处理
+ * - 玩家身份验证和会话管理
+ * - GM权限验证
+ * - 客户端事件处理
+ * - 支持新旧两种协议版本（next和legacy）
+ */
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -30,21 +40,44 @@ const world_gm_socket_service_1 = require("./world-gm-socket.service");
 const world_protocol_projection_service_1 = require("./world-protocol-projection.service");
 const world_session_bootstrap_service_1 = require("./world-session-bootstrap.service");
 const world_session_service_1 = require("./world-session.service");
+/**
+ * 世界网关类
+ * 
+ * 负责处理客户端与服务端之间的WebSocket通信
+ */
 let WorldGateway = WorldGateway_1 = class WorldGateway {
     worldGmSocketService;
     worldProtocolProjectionService;
     sessionBootstrapService;
+    /** 健康检查就绪服务 */
     healthReadinessService;
+    /** 玩家持久化刷新服务 */
     playerPersistenceFlushService;
+    /** 玩家运行时服务 */
     playerRuntimeService;
+    /** 邮件运行时服务 */
     mailRuntimeService;
+    /** 市场运行时服务 */
     marketRuntimeService;
+    /** 建议运行时服务 */
     suggestionRuntimeService;
+    /** 世界运行时服务 */
     worldRuntimeService;
+    /** 世界客户端事件服务 */
     worldClientEventService;
+    /** 世界会话服务 */
     worldSessionService;
+    
+    // ==================== WebSocket服务器 ====================
+    /** WebSocket服务器实例 */
     server;
+    
+    // ==================== 日志记录器 ====================
+    /** 日志记录器实例 */
     logger = new common_1.Logger(WorldGateway_1.name);
+    
+    // ==================== 市场订阅管理 ====================
+    /** 订阅市场更新的玩家ID集合 */
     marketSubscriberPlayerIds = new Set();
     constructor(worldGmSocketService, worldProtocolProjectionService, sessionBootstrapService, healthReadinessService, playerPersistenceFlushService, playerRuntimeService, mailRuntimeService, marketRuntimeService, suggestionRuntimeService, worldRuntimeService, worldClientEventService, worldSessionService) {
         this.worldGmSocketService = worldGmSocketService;
@@ -133,17 +166,22 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         const allowGuest = options?.allowGuest === true;
         const token = this.sessionBootstrapService.pickSocketToken(client);
         const gmToken = this.sessionBootstrapService.pickSocketGmToken(client);
+        
+        // 处理GM令牌验证
         if (gmToken) {
+            // 验证GM令牌
             if (!this.sessionBootstrapService.authenticateSocketGmToken(gmToken)) {
                 this.worldClientEventService.emitError(client, 'GM_AUTH_FAIL', 'GM 认证失败');
                 client.disconnect(true);
                 return null;
             }
+            // GM socket必须同时提供玩家登录令牌
             if (!token) {
                 this.worldClientEventService.emitError(client, 'GM_PLAYER_AUTH_REQUIRED', 'GM socket 需要同时提供玩家登录令牌');
                 client.disconnect(true);
                 return null;
             }
+            // 标记客户端为GM
             client.data.isGm = true;
             client.data.gmRole = 'gm';
         }
@@ -176,6 +214,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         if (typeof client.data.playerId === 'string') {
             return;
         }
+        
+        // 验证玩家身份并初始化会话
         try {
             const authContext = await this.resolveBootstrapAuthContext(client);
             if (!authContext?.identity) {
