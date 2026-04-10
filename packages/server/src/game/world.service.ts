@@ -431,6 +431,11 @@ interface MonsterExpParticipant {
   contribution: number;
 }
 
+interface MonsterLootRecipient {
+  player: PlayerState;
+  weight: number;
+}
+
 type ResolvedTarget =
   | { kind: 'monster'; x: number; y: number; monster: RuntimeMonster }
   | { kind: 'player'; x: number; y: number; player: PlayerState }
@@ -4087,11 +4092,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
     this.distributeMonsterKillExp(monster, killer, expParticipants, highestSettlementRealmLv, localDirty, messages);
 
-    for (const drop of monster.drops) {
-      if (Math.random() > this.getEffectiveDropChance(killer, monster, drop)) continue;
-      const loot = this.createItemFromDrop(drop);
-      if (!loot) continue;
-      this.deliverMonsterLoot(killer, monster, loot, localDirty, messages);
+    const monsterLootRecipients = this.resolveMonsterLootRecipients(expParticipants, killer);
+    for (const loot of this.rollMonsterDrops(killer, monster)) {
+      const recipient = this.pickMonsterLootRecipient(monsterLootRecipients, killer);
+      this.deliverMonsterLoot(recipient, monster, loot, killer.id, localDirty, messages);
     }
 
     if (this.refreshQuestStatuses(killer)) {
@@ -4193,6 +4197,60 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
   private getNormalizedPlayerRealmLv(player: PlayerState): number {
     return Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
+  }
+
+  private resolveMonsterLootRecipients(
+    participants: MonsterExpParticipant[],
+    killer: PlayerState,
+  ): MonsterLootRecipient[] {
+    const totalContribution = participants.reduce((sum, participant) => sum + participant.contribution, 0);
+    if (totalContribution <= 0) {
+      return [{ player: killer, weight: 1 }];
+    }
+
+    const recipients: MonsterLootRecipient[] = [];
+    for (const participant of participants) {
+      const contributionWeight = 0.7 * (participant.contribution / totalContribution);
+      const weight = participant.player.id === killer.id
+        ? 0.3 + contributionWeight
+        : contributionWeight;
+      if (weight > 0) {
+        recipients.push({
+          player: participant.player,
+          weight,
+        });
+      }
+    }
+
+    if (recipients.length > 0) {
+      return recipients;
+    }
+
+    return [{ player: killer, weight: 1 }];
+  }
+
+  private pickMonsterLootRecipient(recipients: MonsterLootRecipient[], killer: PlayerState): PlayerState {
+    if (recipients.length === 0) {
+      return killer;
+    }
+
+    let totalWeight = 0;
+    for (const recipient of recipients) {
+      totalWeight += recipient.weight;
+    }
+    if (!Number.isFinite(totalWeight) || totalWeight <= 0) {
+      return killer;
+    }
+
+    let roll = Math.random() * totalWeight;
+    for (const recipient of recipients) {
+      roll -= recipient.weight;
+      if (roll <= 0) {
+        return recipient.player;
+      }
+    }
+
+    return recipients[recipients.length - 1]!.player;
   }
 
   private distributeMonsterKillExp(
@@ -6079,26 +6137,45 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  private rollMonsterDrops(killer: PlayerState, monster: RuntimeMonster): ItemStack[] {
+    const loots: ItemStack[] = [];
+    for (const drop of monster.drops) {
+      if (Math.random() > this.getEffectiveDropChance(killer, monster, drop)) {
+        continue;
+      }
+      const loot = this.createItemFromDrop(drop);
+      if (loot) {
+        loots.push(loot);
+      }
+    }
+    return loots;
+  }
+
   private deliverMonsterLoot(
     player: PlayerState,
     monster: RuntimeMonster,
     loot: ItemStack,
+    killerId: string,
     dirty: Set<WorldDirtyFlag>,
     messages: WorldMessage[],
   ): void {
     if (this.inventoryService.addItem(player, loot)) {
       messages.push({
         playerId: player.id,
-        text: `你拾取了 ${loot.name} x${loot.count}。`,
+        text: `你获得了 ${loot.name} x${loot.count}。`,
         kind: 'loot',
       });
-      dirty.add('inv');
+      if (player.id === killerId) {
+        dirty.add('inv');
+      } else {
+        this.playerService.markDirty(player.id, 'inv');
+      }
       return;
     }
     this.lootService.dropToGround(monster.mapId, monster.x, monster.y, loot);
     messages.push({
       playerId: player.id,
-      text: `${loot.name} 掉落在 (${monster.x}, ${monster.y}) 的地面上，但你的背包已满。`,
+      text: `${loot.name} 分配给你时背包已满，已掉落在 (${monster.x}, ${monster.y}) 的地面上。`,
       kind: 'loot',
     });
   }
