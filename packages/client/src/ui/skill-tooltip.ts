@@ -11,7 +11,7 @@ import { getLocalBuffTemplate, resolvePreviewSkill, resolvePreviewSkills } from 
 import { describePreviewBonuses } from './stat-preview';
 import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../utils/number';
 
-type SkillTooltipPreviewPlayer = Pick<PlayerState, 'hp' | 'maxHp' | 'qi' | 'numericStats' | 'finalAttrs' | 'temporaryBuffs'>;
+type SkillTooltipPreviewPlayer = Pick<PlayerState, 'x' | 'y' | 'hp' | 'maxHp' | 'qi' | 'numericStats' | 'finalAttrs' | 'temporaryBuffs'>;
 
 export interface SkillTooltipPreviewContext {
   techLevel?: number;
@@ -188,10 +188,11 @@ function buildBuffInlineBadgeFromMeta(meta: ResolvedBuffMeta): string {
 }
 
 function buildBuffAsideCard(effect: Extract<SkillDef['effects'][number], { type: 'buff' }>): SkillTooltipAsideCard {
+  const targetLabel = effect.target === 'target' ? '目标' : effect.target === 'allies' ? '友方' : '自身';
   const effectLines = describeBuffEffect(effect);
   const stackLimit = formatBuffMaxStacks(effect.maxStacks);
   const lines = [
-    `${effect.target === 'target' ? '目标' : '自身'} · ${formatDisplayInteger(effect.duration)} 息${stackLimit ? ` · 最多 ${stackLimit} 层` : ''}`,
+    `${targetLabel} · ${formatDisplayInteger(effect.duration)} 息${stackLimit ? ` · 最多 ${stackLimit} 层` : ''}`,
     ...(effectLines.length > 0 ? [`效果：${effectLines.join('，')}`] : []),
     ...(effect.desc ? [effect.desc] : []),
   ];
@@ -296,6 +297,14 @@ function resolvePreviewValue(varName: SkillFormulaVar, context: SkillTooltipPrev
       return { value: player?.qi ?? 0, known: Boolean(player) };
     case 'caster.maxQi':
       return player?.numericStats ? { value: player.numericStats.maxQi ?? 0, known: true } : { value: 0, known: false };
+    case 'target.debuffCount':
+      return target
+        ? { value: (target.temporaryBuffs ?? []).filter((entry) => entry.remainingTicks > 0 && entry.category === 'debuff').length, known: true }
+        : { value: 0, known: false };
+    case 'target.distance':
+      return player && target
+        ? { value: Math.abs(player.x - target.x) + Math.abs(player.y - target.y), known: true }
+        : { value: 0, known: false };
     case 'target.maxHp':
       return { value: target?.maxHp ?? 0, known: Boolean(target) };
     case 'target.hp':
@@ -794,6 +803,17 @@ export function buildSkillTooltipContent(skill: SkillDef, context: SkillTooltipP
         ? (effect.element ? `${getElementKeyLabel(effect.element)}行物理伤害` : '物理伤害')
         : `${effect.element ? `${getElementKeyLabel(effect.element)}行` : ''}法术伤害`;
       lines.push(renderLabelLine(damageLabel, formatDamageFormula(effect.formula, context, damageKind)));
+      continue;
+    }
+    if (effect.type === 'heal') {
+      const targetLabel = effect.target === 'allies' ? '友方治疗' : effect.target === 'target' ? '目标治疗' : '自身治疗';
+      lines.push(renderLabelLine(targetLabel, formatDamageFormula(effect.formula, context, 'spell')));
+      continue;
+    }
+    if (effect.type === 'cleanse') {
+      const targetLabel = effect.target === 'target' ? '目标' : '自身';
+      const categoryLabel = effect.category === 'buff' ? '增益' : '减益';
+      lines.push(renderPlainLine('净化', `${targetLabel}，移除 ${formatDisplayInteger(effect.removeCount ?? 1)} 个${categoryLabel}`));
     }
   }
   for (const aggregated of aggregateBuffEffects(previewSkill.effects)) {
@@ -802,7 +822,7 @@ export function buildSkillTooltipContent(skill: SkillDef, context: SkillTooltipP
     const stackText = stackLimit ? `，最多 ${stackLimit} 层` : '';
     const applyText = aggregated.applications > 1 ? `，施加 ${formatDisplayInteger(aggregated.applications)} 层` : '';
     const categoryLabel = effect.category === 'debuff' ? '减益' : '增益';
-    const targetLabel = effect.target === 'target' ? '目标' : '自身';
+    const targetLabel = effect.target === 'target' ? '目标' : effect.target === 'allies' ? '友方' : '自身';
     const badge = buildBuffInlineBadge(effect);
     lines.push(renderLabelLine(categoryLabel, `${badge}<span class="skill-tooltip-buff-meta">${escapeHtml(` ${targetLabel} · ${formatDisplayInteger(effect.duration)} 息${stackText}${applyText}`)}</span>`));
     const effectLines = describeBuffEffect(effect);

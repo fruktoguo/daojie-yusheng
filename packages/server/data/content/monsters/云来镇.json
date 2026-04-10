@@ -189,7 +189,7 @@
       "moveSpeed": 102.32
     },
     "skills": [
-      "skill.iron_bone_strike"
+      "skill.houtu_chengyuan"
     ]
   },
   {
@@ -281,8 +281,7 @@
       "moveSpeed": 148.64
     },
     "skills": [
-      "skill.cloud_cut",
-      "skill.rift_step_slash"
+      "skill.cloud_blade"
     ]
   }
 ]

@@ -754,6 +754,8 @@ export type SkillFormulaVar =
   | 'caster.maxHp'
   | 'caster.qi'
   | 'caster.maxQi'
+  | 'target.debuffCount'
+  | 'target.distance'
   | 'target.hp'
   | 'target.maxHp'
   | 'target.qi'
@@ -805,10 +807,17 @@ export interface SkillDamageEffectDef {
   formula: SkillFormula;
 }
 
+/** 技能治疗效果定义 */
+export interface SkillHealEffectDef {
+  type: 'heal';
+  target: 'self' | 'target' | 'allies';
+  formula: SkillFormula;
+}
+
 /** 技能 Buff 效果定义 */
 export interface SkillBuffEffectDef {
   type: 'buff';
-  target: 'self' | 'target';
+  target: 'self' | 'target' | 'allies';
   buffId: string;
   name: string;
   desc?: string;
@@ -829,8 +838,16 @@ export interface SkillBuffEffectDef {
   expireWithBuffId?: string;
 }
 
+/** 技能净化效果定义 */
+export interface SkillCleanseEffectDef {
+  type: 'cleanse';
+  target: 'self' | 'target';
+  category?: BuffCategory;
+  removeCount?: number;
+}
+
 /** 技能效果联合类型 */
-export type SkillEffectDef = SkillDamageEffectDef | SkillBuffEffectDef;
+export type SkillEffectDef = SkillDamageEffectDef | SkillHealEffectDef | SkillBuffEffectDef | SkillCleanseEffectDef;
 
 /** 怪物技能前摇定义 */
 export interface SkillMonsterCastDef {
@@ -1020,7 +1037,7 @@ export interface QuestNavigationState {
 
 export interface PendingLogbookMessage {
   id: string;
-  kind: 'grudge';
+  kind: 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge';
   text: string;
   from?: string;
   at: number;

@@ -433,11 +433,8 @@
       "moveSpeed": 147.8
     },
     "skills": [
-      "skill.huomai_cuxing",
-      "skill.yunhuo_laomai",
-      "skill.fenxi_jue",
-      "skill.liebo_fenmai",
-      "skill.chiyao_laoxin"
+      "skill.liyan_duanxi",
+      "skill.chiyao_fenmai"
     ],
     "equipment": {
       "weapon": "equip.ember_scorch_spear",
@@ -536,12 +533,8 @@
       "moveSpeed": 193.6
     },
     "skills": [
-      "skill.huomai_cuxing",
-      "skill.yunhuo_laomai",
-      "skill.fenxi_jue",
-      "skill.liebo_fenmai",
-      "skill.chiyao_laoxin",
-      "skill.yaohuo_huiran"
+      "skill.liyan_duanxi",
+      "skill.chiyao_fenmai"
     ],
     "equipment": {
       "weapon": {
@@ -658,14 +651,9 @@
       "moveSpeed": 164.1
     },
     "skills": [
-      "skill.huomai_cuxing",
-      "skill.yunhuo_laomai",
-      "skill.fenxi_jue",
-      "skill.liebo_fenmai",
-      "skill.chiyao_laoxin",
-      "skill.yaohuo_huiran",
-      "skill.zhuming_dianmai",
-      "skill.jintian_liexi"
+      "skill.liyan_duanxi",
+      "skill.chiyao_fenmai",
+      "skill.zhuming_jintian"
     ],
     "equipment": {
       "weapon": "equip.ember_scorch_spear",

@@ -1,7 +1,7 @@
 [
   {
-    "id": "taichu_baoyuan",
-    "name": "太初抱元章",
+    "id": "hunyuan_zaimai",
+    "name": "混元载脉图",
     "grade": "earth",
     "category": "internal",
     "realmLv": 27,
@@ -10,249 +10,143 @@
         "level": 1,
         "expFactor": 224,
         "attrs": {
-          "talent": 9,
-          "spirit": 9,
-          "constitution": 9
+          "constitution": 53,
+          "spirit": 56,
+          "perception": 31,
+          "talent": 51
         }
       },
       {
         "level": 2,
         "expFactor": 248,
         "attrs": {
-          "talent": 17,
-          "spirit": 17
+          "constitution": 53,
+          "spirit": 56,
+          "perception": 31,
+          "talent": 51
         }
       },
       {
         "level": 3,
         "expFactor": 276,
         "attrs": {
-          "talent": 8,
-          "spirit": 8,
-          "constitution": 8
+          "constitution": 53,
+          "spirit": 56,
+          "perception": 31,
+          "talent": 51
         }
       },
       {
         "level": 4,
         "expFactor": 308,
         "attrs": {
-          "talent": 8,
-          "spirit": 8,
-          "constitution": 8
+          "constitution": 53,
+          "spirit": 56,
+          "perception": 31,
+          "talent": 51
         }
       },
       {
         "level": 5,
         "expFactor": 344,
         "attrs": {
-          "talent": 8,
-          "spirit": 8,
-          "constitution": 8
+          "constitution": 53,
+          "spirit": 55,
+          "perception": 31,
+          "talent": 51
         }
       },
       {
         "level": 6,
         "expFactor": 384,
         "attrs": {
-          "talent": 17,
-          "spirit": 17
+          "constitution": 53,
+          "spirit": 55,
+          "perception": 31,
+          "talent": 51
         }
       },
       {
         "level": 7,
         "expFactor": 428,
         "attrs": {
-          "talent": 8,
-          "spirit": 8,
-          "constitution": 8
+          "constitution": 53,
+          "spirit": 55,
+          "perception": 31,
+          "talent": 51
         }
       },
       {
         "level": 8,
         "expFactor": 476,
         "attrs": {
-          "talent": 8,
-          "spirit": 8,
-          "constitution": 8
+          "constitution": 53,
+          "spirit": 55,
+          "perception": 31,
+          "talent": 51
         }
       },
       {
         "level": 9,
         "expFactor": 532,
         "attrs": {
-          "talent": 17,
-          "spirit": 17
+          "constitution": 53,
+          "spirit": 55,
+          "perception": 31,
+          "talent": 51
         }
       },
       {
         "level": 10,
         "expFactor": 592,
         "attrs": {
-          "talent": 8,
-          "spirit": 8,
-          "constitution": 8
+          "constitution": 53,
+          "spirit": 55,
+          "perception": 31,
+          "talent": 51
         }
       },
       {
         "level": 11,
         "expFactor": 656,
         "attrs": {
-          "talent": 8,
-          "spirit": 8,
-          "constitution": 8
+          "constitution": 52,
+          "spirit": 55,
+          "perception": 30,
+          "talent": 51
         }
       },
       {
         "level": 12,
         "expFactor": 728,
         "attrs": {
-          "talent": 8,
-          "spirit": 8,
-          "constitution": 8
+          "constitution": 52,
+          "spirit": 55,
+          "perception": 30,
+          "talent": 50
         }
       },
       {
         "level": 13,
         "expFactor": 808,
         "attrs": {
-          "talent": 17,
-          "spirit": 17
+          "constitution": 52,
+          "spirit": 55,
+          "perception": 30,
+          "talent": 50
         }
       },
       {
         "level": 14,
         "expFactor": 0,
         "attrs": {
-          "talent": 8,
-          "spirit": 8,
-          "constitution": 8
+          "constitution": 52,
+          "spirit": 55,
+          "perception": 30,
+          "talent": 50
         }
       }
     ],
-    "skills": [
-      {
-        "id": "skill.taichu_guilun",
-        "name": "太初归轮",
-        "desc": "抱元归轮，令气血与灵息一并回稳。",
-        "cooldown": 11,
-        "costMultiplier": 3,
-        "range": 0,
-        "requiresTarget": false,
-        "effects": [
-          {
-            "type": "buff",
-            "target": "self",
-            "buffId": "buff.qi_breath_calm",
-            "name": "定息",
-            "desc": "气息归平，持续提高灵力回复、法防与化解。",
-            "shortMark": "息",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#7da8c7",
-            "duration": 24,
-            "maxStacks": 21,
-            "statMode": "percent",
-            "valueStats": {
-              "qiRegenRate": 20,
-              "spellDef": 12,
-              "resolvePower": 10
-            }
-          },
-          {
-            "type": "buff",
-            "target": "self",
-            "buffId": "buff.qi_breath_calm",
-            "name": "定息",
-            "desc": "气息归平，持续提高灵力回复、法防与化解。",
-            "shortMark": "息",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#7da8c7",
-            "duration": 24,
-            "maxStacks": 21,
-            "statMode": "percent",
-            "valueStats": {
-              "qiRegenRate": 20,
-              "spellDef": 12,
-              "resolvePower": 10
-            }
-          },
-          {
-            "type": "buff",
-            "target": "self",
-            "buffId": "buff.origin_center",
-            "name": "守中",
-            "desc": "抱元守中，提高回复和承压。",
-            "shortMark": "元",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#9cb0c8",
-            "duration": 20,
-            "maxStacks": 3,
-            "statMode": "percent",
-            "valueStats": {
-              "physDef": 20,
-              "spellDef": 20,
-              "resolvePower": 18,
-              "hpRegenRate": 24,
-              "qiRegenRate": 28
-            }
-          }
-        ],
-        "unlockLevel": 1
-      },
-      {
-        "id": "skill.wulou_shouzhong",
-        "name": "无漏守中",
-        "desc": "无漏守中，借高层定息稳定全身。",
-        "cooldown": 21,
-        "costMultiplier": 5,
-        "range": 0,
-        "requiresTarget": false,
-        "effects": [
-          {
-            "type": "buff",
-            "target": "self",
-            "buffId": "buff.qi_breath_calm",
-            "name": "定息",
-            "desc": "气息归平，持续提高灵力回复、法防与化解。",
-            "shortMark": "息",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#7da8c7",
-            "duration": 24,
-            "maxStacks": 21,
-            "statMode": "percent",
-            "valueStats": {
-              "qiRegenRate": 20,
-              "spellDef": 12,
-              "resolvePower": 10
-            }
-          },
-          {
-            "type": "buff",
-            "target": "self",
-            "buffId": "buff.origin_center",
-            "name": "守中",
-            "desc": "抱元守中，提高回复和承压。",
-            "shortMark": "元",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#9cb0c8",
-            "duration": 20,
-            "maxStacks": 3,
-            "statMode": "percent",
-            "valueStats": {
-              "physDef": 20,
-              "spellDef": 20,
-              "resolvePower": 18,
-              "hpRegenRate": 24,
-              "qiRegenRate": 28
-            }
-          }
-        ],
-        "unlockLevel": 8
-      }
-    ]
+    "skills": []
   }
 ]

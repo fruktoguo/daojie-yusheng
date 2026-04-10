@@ -851,6 +851,8 @@ export type SkillFormulaVar =
   | 'caster.maxHp'
   | 'caster.qi'
   | 'caster.maxQi'
+  | 'target.debuffCount'
+  | 'target.distance'
   | 'target.hp'
   | 'target.maxHp'
   | 'target.qi'
@@ -902,10 +904,17 @@ export interface SkillDamageEffectDef {
   formula: SkillFormula;
 }
 
+/** 技能治疗效果定义 */
+export interface SkillHealEffectDef {
+  type: 'heal';
+  target: 'self' | 'target' | 'allies';
+  formula: SkillFormula;
+}
+
 /** 技能 Buff 效果定义 */
 export interface SkillBuffEffectDef {
   type: 'buff';
-  target: 'self' | 'target';
+  target: 'self' | 'target' | 'allies';
   buffId: string;
   name: string;
   desc?: string;
@@ -963,8 +972,16 @@ export interface SkillTerrainEffectDef {
   allowedOriginalTypes?: TileType[];
 }
 
+/** 技能净化效果定义 */
+export interface SkillCleanseEffectDef {
+  type: 'cleanse';
+  target: 'self' | 'target';
+  category?: BuffCategory;
+  removeCount?: number;
+}
+
 /** 技能效果联合类型 */
-export type SkillEffectDef = SkillDamageEffectDef | SkillBuffEffectDef | SkillTerrainEffectDef;
+export type SkillEffectDef = SkillDamageEffectDef | SkillHealEffectDef | SkillBuffEffectDef | SkillTerrainEffectDef | SkillCleanseEffectDef;
 
 /** 怪物技能前摇定义 */
 export interface SkillMonsterCastDef {
@@ -1322,9 +1339,19 @@ export interface QuestNavigationState {
   lastBlockedRemainingTicks?: number;
 }
 
+export interface MapNavigationState {
+  targetMapId: string;
+  targetMapName?: string;
+  targetX: number;
+  targetY: number;
+  pendingConfirmation?: boolean;
+  pausedForCrossMapCooldown?: boolean;
+  lastBlockedRemainingTicks?: number;
+}
+
 export interface PendingLogbookMessage {
   id: string;
-  kind: 'grudge';
+  kind: 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge';
   text: string;
   from?: string;
   at: number;
@@ -1402,6 +1429,7 @@ export interface PlayerState {
   respawnMapId?: string;
   realm?: PlayerRealmState;
   questNavigation?: QuestNavigationState;
+  mapNavigation?: MapNavigationState;
   questCrossMapNavCooldownUntilLifeTicks?: number;
   pendingSkillCast?: PendingPlayerSkillCast;
   alchemySkill?: AlchemySkillState;

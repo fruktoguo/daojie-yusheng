@@ -228,6 +228,8 @@ export const SKILL_FORMULA_BASE_VAR_LABELS: Partial<Record<SkillFormulaVar, stri
   'caster.maxHp': '自身最大生命',
   'caster.qi': '自身当前灵力',
   'caster.maxQi': '自身最大灵力',
+  'target.debuffCount': '目标减益数量',
+  'target.distance': '目标距离',
   'caster.attr.constitution': '自身体魄',
   'caster.attr.spirit': '自身神识',
   'caster.attr.perception': '自身感知',

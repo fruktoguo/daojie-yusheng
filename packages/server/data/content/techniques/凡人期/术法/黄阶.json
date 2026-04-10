@@ -1085,101 +1085,80 @@
     "layers": [
       {
         "level": 1,
-        "expFactor": 18,
-        "attrs": {
-          "spirit": 3
-        }
+        "expFactor": 18
       },
       {
         "level": 2,
-        "expFactor": 19,
-        "attrs": {
-          "spirit": 3
-        }
+        "expFactor": 19
       },
       {
         "level": 3,
-        "expFactor": 21,
-        "attrs": {
-          "spirit": 3
-        }
+        "expFactor": 21
       },
       {
         "level": 4,
-        "expFactor": 23,
-        "attrs": {
-          "spirit": 3
-        }
+        "expFactor": 23
       },
       {
         "level": 5,
-        "expFactor": 25,
-        "attrs": {
-          "spirit": 4
-        }
+        "expFactor": 25
       },
       {
         "level": 6,
-        "expFactor": 28,
-        "attrs": {
-          "spirit": 4
-        }
+        "expFactor": 28
       },
       {
         "level": 7,
-        "expFactor": 31,
-        "attrs": {
-          "spirit": 4
-        }
+        "expFactor": 31
       },
       {
         "level": 8,
-        "expFactor": 34,
-        "attrs": {
-          "spirit": 4
-        }
+        "expFactor": 34
       },
       {
         "level": 9,
-        "expFactor": 38,
-        "attrs": {
-          "spirit": 4
-        }
+        "expFactor": 38
       },
       {
         "level": 10,
-        "expFactor": 43,
-        "attrs": {
-          "spirit": 4
-        }
+        "expFactor": 43
       },
       {
         "level": 11,
-        "expFactor": 0,
-        "attrs": {
-          "spirit": 5
-        }
+        "expFactor": 0
       }
     ],
     "skills": [
       {
-        "id": "skill.fire_talisman",
-        "name": "离火符",
-        "desc": "离火先灼其表，再把灼印烙进经脉，方便后续火线顺着旧印穿透。",
-        "cooldown": 15,
-        "costMultiplier": 3,
+        "id": "skill.redflame_art",
+        "name": "赤焰诀",
+        "desc": "离火化网罩落，灼脉缠身不绝。",
+        "cooldown": 12,
+        "costMultiplier": 8,
         "range": 3,
+        "targeting": {
+          "shape": "box",
+          "maxTargets": 9,
+          "width": 3,
+          "height": 3
+        },
+        "targetMode": "tile",
         "effects": [
           {
             "type": "damage",
             "damageKind": "spell",
-            "element": "fire",
             "formula": {
               "op": "mul",
               "args": [
                 {
-                  "var": "caster.stat.spellAtk",
-                  "scale": 1.85
+                  "op": "add",
+                  "args": [
+                    50,
+                    {
+                      "var": "caster.stat.spellAtk",
+                      "scale": 3
+                    }
+                  ]
                 },
                 {
                   "op": "add",
@@ -1187,103 +1166,154 @@
                     1,
                     {
                       "var": "techLevel",
-                      "scale": 0.05
+                      "scale": 0.1
                     },
                     {
-                      "var": "caster.stat.crit",
-                      "scale": 0.002
+                      "var": "target.buff.buff.fire_burn_mark.stacks",
+                      "scale": 0.01
                     }
                   ]
                 }
               ]
-            }
+            },
+            "element": "fire"
           },
           {
             "type": "buff",
-            "target": "target",
-            "buffId": "buff.fire_talisman_burn",
-            "name": "灼印",
-            "desc": "火印未熄，法抗与化解被持续灼穿。",
-            "shortMark": "灼",
-            "category": "debuff",
-            "visibility": "public",
-            "color": "#ef6b3b",
-            "duration": 28,
-            "maxStacks": 30,
-            "valueStats": {
-              "spellDef": -3,
-              "resolvePower": -4
-            }
+            "buffRef": "lianqi.fire.burn_mark",
+            "stacks": 5
           }
         ],
         "unlockLevel": 1
-      },
-      {
-        "id": "skill.blazing_thread",
-        "name": "赤线灼脉",
-        "desc": "把离火牵成一线贯进敌阵，被灼印缠住的目标会被这一线烧得更深。",
-        "cooldown": 27,
-        "costMultiplier": 3,
-        "range": 4,
-        "targeting": {
-          "shape": "line",
-          "maxTargets": 3
-        },
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "spell",
-            "element": "fire",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "var": "caster.stat.spellAtk",
-                  "scale": 1.95
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
-                    {
-                      "var": "techLevel",
-                      "scale": 0.05
-                    },
-                    {
-                      "var": "target.buff.buff.fire_talisman_burn.stacks",
-                      "scale": 0.025
-                    },
-                    {
-                      "var": "caster.stat.crit",
-                      "scale": 0.002
-                    }
-                  ]
-                }
-              ]
-            }
-          },
-          {
-            "type": "buff",
-            "target": "target",
-            "buffId": "buff.fire_talisman_burn",
-            "name": "灼印",
-            "desc": "火印未熄，法抗与化解被持续灼穿。",
-            "shortMark": "灼",
-            "category": "debuff",
-            "visibility": "public",
-            "color": "#ef6b3b",
-            "duration": 28,
-            "maxStacks": 30,
-            "valueStats": {
-              "spellDef": -3,
-              "resolvePower": -4
-            }
-          }
-        ],
-        "unlockLevel": 5
       }
     ],
     "realmLv": 10,
+    "category": "arts"
+  },
+  {
+    "id": "wind_step",
+    "name": "踏风步",
+    "grade": "yellow",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 16
+      },
+      {
+        "level": 2,
+        "expFactor": 18
+      },
+      {
+        "level": 3,
+        "expFactor": 20
+      },
+      {
+        "level": 4,
+        "expFactor": 22
+      },
+      {
+        "level": 5,
+        "expFactor": 25
+      },
+      {
+        "level": 6,
+        "expFactor": 29
+      },
+      {
+        "level": 7,
+        "expFactor": 33
+      },
+      {
+        "level": 8,
+        "expFactor": 38
+      },
+      {
+        "level": 9,
+        "expFactor": 44
+      },
+      {
+        "level": 10,
+        "expFactor": 0
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.wind_step",
+        "name": "踏风步",
+        "desc": "借风提身，轻灵游走。",
+        "cooldown": 12,
+        "costMultiplier": 1,
+        "range": 0,
+        "requiresTarget": false,
+        "effects": [
+          {
+            "type": "buff",
+            "buffRef": "fanren.shufa.yellow.tafeng_step"
+          }
+        ],
+        "unlockLevel": 1
+      }
+    ],
+    "realmLv": 11,
+    "category": "arts"
+  },
+  {
+    "id": "iron_bone_art",
+    "name": "铁骨功",
+    "grade": "yellow",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 16
+      },
+      {
+        "level": 2,
+        "expFactor": 19
+      },
+      {
+        "level": 3,
+        "expFactor": 24
+      },
+      {
+        "level": 4,
+        "expFactor": 32
+      },
+      {
+        "level": 5,
+        "expFactor": 38
+      },
+      {
+        "level": 6,
+        "expFactor": 48
+      },
+      {
+        "level": 7,
+        "expFactor": 58
+      },
+      {
+        "level": 8,
+        "expFactor": 0
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.iron_bone_art",
+        "name": "铁骨功",
+        "desc": "铁息贯骨，护体续命。",
+        "cooldown": 12,
+        "costMultiplier": 1,
+        "range": 0,
+        "requiresTarget": false,
+        "effects": [
+          {
+            "type": "buff",
+            "buffRef": "fanren.shufa.yellow.tiegu_guard"
+          }
+        ],
+        "unlockLevel": 1
+      }
+    ],
+    "realmLv": 12,
     "category": "arts"
   },
   {
@@ -1293,165 +1323,62 @@
     "layers": [
       {
         "level": 1,
-        "expFactor": 18,
-        "attrs": {
-          "perception": 3,
-          "constitution": 1
-        }
+        "expFactor": 18
       },
       {
         "level": 2,
-        "expFactor": 20,
-        "attrs": {
-          "perception": 3,
-          "constitution": 1
-        }
+        "expFactor": 20
       },
       {
         "level": 3,
-        "expFactor": 22,
-        "attrs": {
-          "perception": 3,
-          "constitution": 1
-        }
+        "expFactor": 22
       },
       {
         "level": 4,
-        "expFactor": 24,
-        "attrs": {
-          "perception": 3,
-          "constitution": 2
-        }
+        "expFactor": 24
       },
       {
         "level": 5,
-        "expFactor": 27,
-        "attrs": {
-          "perception": 4,
-          "constitution": 2
-        }
+        "expFactor": 27
       },
       {
         "level": 6,
-        "expFactor": 30,
-        "attrs": {
-          "perception": 4,
-          "constitution": 2
-        }
+        "expFactor": 30
       },
       {
         "level": 7,
-        "expFactor": 33,
-        "attrs": {
-          "perception": 4,
-          "constitution": 2
-        }
+        "expFactor": 33
       },
       {
         "level": 8,
-        "expFactor": 39,
-        "attrs": {
-          "perception": 4,
-          "constitution": 2
-        }
+        "expFactor": 39
       },
       {
         "level": 9,
-        "expFactor": 43,
-        "attrs": {
-          "perception": 4,
-          "constitution": 2
-        }
+        "expFactor": 43
       },
       {
         "level": 10,
-        "expFactor": 48,
-        "attrs": {
-          "perception": 4,
-          "constitution": 2
-        }
+        "expFactor": 48
       },
       {
         "level": 11,
-        "expFactor": 0,
-        "attrs": {
-          "perception": 5,
-          "constitution": 2
-        }
+        "expFactor": 0
       }
     ],
     "skills": [
       {
-        "id": "skill.cloud_cut",
-        "name": "流云断",
-        "desc": "先借步法起刀切入一线，斩中后身法自然续成风行。",
-        "cooldown": 15,
-        "costMultiplier": 3,
-        "range": 2,
-        "targeting": {
-          "shape": "line",
-          "maxTargets": 3
-        },
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "physical",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "var": "caster.stat.physAtk",
-                  "scale": 1.85
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
-                    {
-                      "var": "techLevel",
-                      "scale": 0.05
-                    },
-                    {
-                      "var": "caster.stat.moveSpeed",
-                      "scale": 0.005
-                    }
-                  ]
-                }
-              ]
-            }
-          },
-          {
-            "type": "buff",
-            "target": "self",
-            "buffId": "buff.mobility_flow",
-            "name": "风行",
-            "desc": "身法入势，大幅提高移速，并少量带动闪避与暴击。",
-            "shortMark": "行",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#95c5a4",
-            "duration": 24,
-            "maxStacks": 18,
-            "valueStats": {
-              "moveSpeed": 10,
-              "dodge": 5,
-              "crit": 4
-            }
-          }
-        ],
-        "unlockLevel": 1
-      },
-      {
-        "id": "skill.rift_step_slash",
-        "name": "踏隙斩",
-        "desc": "借风行余势一脚踏进刀隙，整道刀光会沿着空档继续往前追。",
-        "cooldown": 23,
-        "costMultiplier": 3,
+        "id": "skill.cloud_blade",
+        "name": "流云刀谱",
+        "desc": "身随刀走，刀随风掠，一线截开前路。",
+        "cooldown": 12,
+        "costMultiplier": 8,
         "range": 3,
         "targeting": {
           "shape": "line",
           "maxTargets": 3
         },
+        "targetMode": "tile",
         "effects": [
           {
             "type": "damage",
@@ -1460,8 +1387,14 @@
               "op": "mul",
               "args": [
                 {
-                  "var": "caster.stat.physAtk",
-                  "scale": 2
+                  "op": "add",
+                  "args": [
+                    50,
+                    {
+                      "var": "caster.stat.physAtk",
+                      "scale": 3.25
+                    }
+                  ]
                 },
                 {
                   "op": "add",
@@ -1469,45 +1402,19 @@
                     1,
                     {
                       "var": "techLevel",
-                      "scale": 0.05
-                    },
-                    {
-                      "var": "caster.buff.buff.mobility_flow.stacks",
-                      "scale": 0.01
+                      "scale": 0.1
                     },
                     {
                       "var": "caster.stat.moveSpeed",
-                      "scale": 0.005
-                    },
-                    {
-                      "var": "caster.stat.crit",
-                      "scale": 0.002
+                      "scale": 0.001
                     }
                   ]
                 }
               ]
             }
-          },
-          {
-            "type": "buff",
-            "target": "self",
-            "buffId": "buff.mobility_flow",
-            "name": "风行",
-            "desc": "身法入势，大幅提高移速，并少量带动闪避与暴击。",
-            "shortMark": "行",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#95c5a4",
-            "duration": 24,
-            "maxStacks": 18,
-            "valueStats": {
-              "moveSpeed": 10,
-              "dodge": 5,
-              "crit": 4
-            }
           }
         ],
-        "unlockLevel": 5
+        "unlockLevel": 1
       }
     ],
     "realmLv": 13,

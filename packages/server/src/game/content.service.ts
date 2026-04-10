@@ -552,7 +552,16 @@ export class ContentService implements OnModuleInit {
     this.loadMonsters();
     this.loadStarterInventory();
     this.loadBreakthroughConfigs();
-    this.logger.log(`内容已加载：功法 ${this.techniques.size} 条，物品 ${this.items.size} 条，怪物 ${this.monsters.size} 条，境界 ${this.realmLevels.size} 条，突破配置 ${this.breakthroughConfigs.size} 条`);
+    let monsterTechniqueCount = 0;
+    for (const techniqueId of this.techniques.keys()) {
+      if (techniqueId.startsWith('monster_')) {
+        monsterTechniqueCount += 1;
+      }
+    }
+    const playerTechniqueCount = this.techniques.size - monsterTechniqueCount;
+    this.logger.log(
+      `内容已加载：玩家功法 ${playerTechniqueCount} 条，怪物功法 ${monsterTechniqueCount} 条，总功法 ${this.techniques.size} 条，物品 ${this.items.size} 条，怪物 ${this.monsters.size} 条，境界 ${this.realmLevels.size} 条，突破配置 ${this.breakthroughConfigs.size} 条`,
+    );
   }
 
   private loadTechniques(): void {
@@ -562,7 +571,7 @@ export class ContentService implements OnModuleInit {
       const layers = [...(raw.layers ?? [])]
         .map((layer) => ({
           ...layer,
-          attrs: this.normalizeTechniqueLayerAttrs(layer.attrs, category, raw.id),
+          attrs: this.normalizeTechniqueLayerAttrs(layer.attrs),
           expToNext: layer.expFactor === undefined
             ? Math.max(0, layer.expToNext ?? 0)
             : scaleTechniqueExp(layer.expFactor, realmLv),
@@ -646,18 +655,8 @@ export class ContentService implements OnModuleInit {
     return skills.length > 0 ? 'arts' : 'internal';
   }
 
-  private normalizeTechniqueLayerAttrs(
-    attrs: TechniqueLayerDef['attrs'],
-    category: TechniqueCategory,
-    techniqueId: string,
-  ): TechniqueLayerDef['attrs'] {
+  private normalizeTechniqueLayerAttrs(attrs: TechniqueLayerDef['attrs']): TechniqueLayerDef['attrs'] {
     if (!attrs) return attrs;
-    if (category !== 'secret' && (attrs.luck ?? 0) > 0) {
-      throw new Error(`功法 ${techniqueId} 不是秘术，不能提供气运加成`);
-    }
-    if (category !== 'secret' && category !== 'divine' && (attrs.comprehension ?? 0) > 0) {
-      throw new Error(`功法 ${techniqueId} 不是秘术或神通，不能提供悟性加成`);
-    }
     return { ...attrs };
   }
 
@@ -1627,6 +1626,15 @@ export class ContentService implements OnModuleInit {
           element: ELEMENT_KEYS.includes(input.element as typeof ELEMENT_KEYS[number]) ? input.element as typeof ELEMENT_KEYS[number] : undefined,
           formula: input.formula as SkillFormula,
         }];
+      case 'heal':
+        if (input.formula === undefined) {
+          return [];
+        }
+        return [{
+          type: 'heal',
+          target: input.target === 'target' || input.target === 'allies' ? input.target : 'self',
+          formula: input.formula as SkillFormula,
+        }];
       case 'buff': {
         const resolvedInput = this.resolveSharedTechniqueBuffInput(input);
         const effect = this.normalizeRawSkillBuffEffect(resolvedInput);
@@ -1653,6 +1661,13 @@ export class ContentService implements OnModuleInit {
           ...(allowedOriginalTypes.length > 0 ? { allowedOriginalTypes } : {}),
         }];
       }
+      case 'cleanse':
+        return [{
+          type: 'cleanse',
+          target: input.target === 'target' ? 'target' : 'self',
+          category: input.category === 'buff' ? 'buff' : 'debuff',
+          removeCount: Number.isFinite(input.removeCount) ? Math.max(1, Math.floor(Number(input.removeCount))) : 1,
+        }];
       default:
         return [];
     }
@@ -1678,7 +1693,7 @@ export class ContentService implements OnModuleInit {
 
   private normalizeRawSkillBuffEffect(input: Record<string, unknown>): Extract<SkillEffectDef, { type: 'buff' }> | null {
     if (
-      (input.target !== 'self' && input.target !== 'target')
+      (input.target !== 'self' && input.target !== 'target' && input.target !== 'allies')
       || typeof input.buffId !== 'string'
       || input.buffId.trim().length === 0
       || typeof input.name !== 'string'

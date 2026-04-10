@@ -214,15 +214,6 @@ function resolveTypeFolder(technique) {
  * 记录来源文件名称。
  */
   const sourceFileName = path.basename(technique.__sourceFile ?? '');
-  if (BODY_NAME_PATTERNS.some((pattern) => pattern.test(name))) {
-    return '炼体';
-  }
-  if (sourceFileName.includes('炼体') && technique.category !== 'secret') {
-    return '炼体';
-  }
-  if (MOVEMENT_NAME_PATTERNS.some((pattern) => pattern.test(name)) || sourceFileName.includes('身法')) {
-    return '身法';
-  }
   switch (technique.category) {
     case 'internal':
       return '内功';
@@ -233,8 +224,18 @@ function resolveTypeFolder(technique) {
     case 'secret':
       return '秘术';
     default:
-      return '其他';
+      break;
   }
+  if (BODY_NAME_PATTERNS.some((pattern) => pattern.test(name))) {
+    return '炼体';
+  }
+  if (sourceFileName.includes('炼体') && technique.category !== 'secret') {
+    return '炼体';
+  }
+  if (MOVEMENT_NAME_PATTERNS.some((pattern) => pattern.test(name)) || sourceFileName.includes('身法')) {
+    return '身法';
+  }
+  return '其他';
 }
 
 /**

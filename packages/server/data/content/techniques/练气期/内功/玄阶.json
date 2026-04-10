@@ -1,5 +1,155 @@
 [
   {
+    "id": "wuqi_guiliu",
+    "name": "五炁归流篇",
+    "grade": "mystic",
+    "category": "internal",
+    "realmLv": 23,
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 136,
+        "attrs": {
+          "constitution": 7,
+          "spirit": 9,
+          "perception": 5,
+          "talent": 7
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 152,
+        "attrs": {
+          "constitution": 7,
+          "spirit": 9,
+          "perception": 5,
+          "talent": 7
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 168,
+        "attrs": {
+          "constitution": 7,
+          "spirit": 9,
+          "perception": 5,
+          "talent": 7
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 188,
+        "attrs": {
+          "constitution": 7,
+          "spirit": 9,
+          "perception": 5,
+          "talent": 7
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 208,
+        "attrs": {
+          "constitution": 7,
+          "spirit": 9,
+          "perception": 5,
+          "talent": 7
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 232,
+        "attrs": {
+          "constitution": 7,
+          "spirit": 9,
+          "perception": 4,
+          "talent": 7
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 260,
+        "attrs": {
+          "constitution": 7,
+          "spirit": 9,
+          "perception": 4,
+          "talent": 7
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 292,
+        "attrs": {
+          "constitution": 7,
+          "spirit": 9,
+          "perception": 4,
+          "talent": 7
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 328,
+        "attrs": {
+          "constitution": 7,
+          "spirit": 9,
+          "perception": 4,
+          "talent": 6
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 368,
+        "attrs": {
+          "constitution": 7,
+          "spirit": 9,
+          "perception": 4,
+          "talent": 6
+        }
+      },
+      {
+        "level": 11,
+        "expFactor": 412,
+        "attrs": {
+          "constitution": 7,
+          "spirit": 9,
+          "perception": 4,
+          "talent": 6
+        }
+      },
+      {
+        "level": 12,
+        "expFactor": 460,
+        "attrs": {
+          "constitution": 7,
+          "spirit": 8,
+          "perception": 4,
+          "talent": 6
+        }
+      },
+      {
+        "level": 13,
+        "expFactor": 516,
+        "attrs": {
+          "constitution": 7,
+          "spirit": 8,
+          "perception": 4,
+          "talent": 6
+        }
+      },
+      {
+        "level": 14,
+        "expFactor": 0,
+        "attrs": {
+          "constitution": 7,
+          "spirit": 8,
+          "perception": 4,
+          "talent": 6
+        }
+      }
+    ],
+    "skills": []
+  },
+  {
     "id": "zhoutian_xihai",
     "name": "周天息海篇",
     "grade": "mystic",
@@ -10,236 +160,143 @@
         "level": 1,
         "expFactor": 136,
         "attrs": {
-          "spirit": 6,
-          "talent": 6
+          "constitution": 7,
+          "spirit": 9,
+          "perception": 5,
+          "talent": 7
         }
       },
       {
         "level": 2,
         "expFactor": 152,
         "attrs": {
-          "spirit": 6,
-          "talent": 6
+          "constitution": 7,
+          "spirit": 9,
+          "perception": 5,
+          "talent": 7
         }
       },
       {
         "level": 3,
         "expFactor": 168,
         "attrs": {
-          "spirit": 5,
-          "talent": 5
+          "constitution": 7,
+          "spirit": 9,
+          "perception": 5,
+          "talent": 7
         }
       },
       {
         "level": 4,
         "expFactor": 188,
         "attrs": {
-          "spirit": 5,
-          "talent": 5
+          "constitution": 7,
+          "spirit": 9,
+          "perception": 5,
+          "talent": 7
         }
       },
       {
         "level": 5,
         "expFactor": 208,
         "attrs": {
-          "spirit": 5,
-          "talent": 5
+          "constitution": 7,
+          "spirit": 9,
+          "perception": 5,
+          "talent": 7
         }
       },
       {
         "level": 6,
         "expFactor": 232,
         "attrs": {
-          "spirit": 5,
-          "talent": 5
+          "constitution": 7,
+          "spirit": 9,
+          "perception": 4,
+          "talent": 7
         }
       },
       {
         "level": 7,
         "expFactor": 260,
         "attrs": {
-          "spirit": 5,
-          "talent": 5
+          "constitution": 7,
+          "spirit": 9,
+          "perception": 4,
+          "talent": 7
         }
       },
       {
         "level": 8,
         "expFactor": 292,
         "attrs": {
-          "spirit": 5,
-          "talent": 5
+          "constitution": 7,
+          "spirit": 9,
+          "perception": 4,
+          "talent": 6
         }
       },
       {
         "level": 9,
         "expFactor": 328,
         "attrs": {
-          "spirit": 5,
-          "talent": 5
+          "constitution": 7,
+          "spirit": 9,
+          "perception": 4,
+          "talent": 6
         }
       },
       {
         "level": 10,
         "expFactor": 368,
         "attrs": {
-          "spirit": 5,
-          "talent": 5
+          "constitution": 7,
+          "spirit": 9,
+          "perception": 4,
+          "talent": 6
         }
       },
       {
         "level": 11,
         "expFactor": 412,
         "attrs": {
-          "spirit": 5,
-          "talent": 5
+          "constitution": 7,
+          "spirit": 9,
+          "perception": 4,
+          "talent": 6
         }
       },
       {
         "level": 12,
         "expFactor": 460,
         "attrs": {
-          "spirit": 5,
-          "talent": 5
+          "constitution": 7,
+          "spirit": 8,
+          "perception": 4,
+          "talent": 6
         }
       },
       {
         "level": 13,
         "expFactor": 516,
         "attrs": {
-          "spirit": 5,
-          "talent": 5
+          "constitution": 7,
+          "spirit": 8,
+          "perception": 4,
+          "talent": 6
         }
       },
       {
         "level": 14,
         "expFactor": 0,
         "attrs": {
-          "spirit": 5,
-          "talent": 5
+          "constitution": 6,
+          "spirit": 8,
+          "perception": 4,
+          "talent": 6
         }
       }
     ],
-    "skills": [
-      {
-        "id": "skill.zhouliu_dinghai",
-        "name": "周流定海",
-        "desc": "周流一气，迅速抬高定息层数。",
-        "cooldown": 9,
-        "costMultiplier": 3,
-        "range": 0,
-        "requiresTarget": false,
-        "effects": [
-          {
-            "type": "buff",
-            "target": "self",
-            "buffId": "buff.qi_breath_calm",
-            "name": "定息",
-            "desc": "气息归平，持续提高灵力回复、法防与化解。",
-            "shortMark": "息",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#7da8c7",
-            "duration": 24,
-            "maxStacks": 21,
-            "statMode": "percent",
-            "valueStats": {
-              "qiRegenRate": 16,
-              "spellDef": 10,
-              "resolvePower": 8
-            }
-          },
-          {
-            "type": "buff",
-            "target": "self",
-            "buffId": "buff.qi_breath_calm",
-            "name": "定息",
-            "desc": "气息归平，持续提高灵力回复、法防与化解。",
-            "shortMark": "息",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#7da8c7",
-            "duration": 24,
-            "maxStacks": 21,
-            "statMode": "percent",
-            "valueStats": {
-              "qiRegenRate": 16,
-              "spellDef": 10,
-              "resolvePower": 8
-            }
-          },
-          {
-            "type": "buff",
-            "target": "self",
-            "buffId": "buff.qi_breath_calm",
-            "name": "定息",
-            "desc": "气息归平，持续提高灵力回复、法防与化解。",
-            "shortMark": "息",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#7da8c7",
-            "duration": 24,
-            "maxStacks": 21,
-            "statMode": "percent",
-            "valueStats": {
-              "qiRegenRate": 16,
-              "spellDef": 10,
-              "resolvePower": 8
-            }
-          }
-        ],
-        "unlockLevel": 1
-      },
-      {
-        "id": "skill.huyuan_zhoushen",
-        "name": "护元周身",
-        "desc": "周天气海外扩，令护元覆盖周身。",
-        "cooldown": 17,
-        "costMultiplier": 4,
-        "range": 0,
-        "requiresTarget": false,
-        "effects": [
-          {
-            "type": "buff",
-            "target": "self",
-            "buffId": "buff.qi_breath_calm",
-            "name": "定息",
-            "desc": "气息归平，持续提高灵力回复、法防与化解。",
-            "shortMark": "息",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#7da8c7",
-            "duration": 24,
-            "maxStacks": 21,
-            "statMode": "percent",
-            "valueStats": {
-              "qiRegenRate": 16,
-              "spellDef": 10,
-              "resolvePower": 8
-            }
-          },
-          {
-            "type": "buff",
-            "target": "self",
-            "buffId": "buff.cycle_guard",
-            "name": "周护",
-            "desc": "周天护体，提高双防与冷却速度。",
-            "shortMark": "周",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#90aac6",
-            "duration": 16,
-            "maxStacks": 3,
-            "statMode": "percent",
-            "valueStats": {
-              "physDef": 14,
-              "spellDef": 14,
-              "resolvePower": 12,
-              "cooldownSpeed": 8
-            }
-          }
-        ],
-        "unlockLevel": 6
-      }
-    ]
+    "skills": []
   }
 ]

@@ -439,11 +439,9 @@
       "moveSpeed": 152.9
     },
     "skills": [
-      "skill.hanliu_fuxing",
-      "skill.hanxi_yin",
-      "skill.jingchao_fengmai",
-      "skill.jingbo_suoyin",
-      "skill.xuanjin_luoyin"
+      "skill.hanxi_ximai",
+      "skill.xuanjin_huilan",
+      "skill.taiyin_guichao"
     ],
     "equipment": {
       "weapon": "equip.hanxi_flow_ruler",
@@ -542,12 +540,9 @@
       "moveSpeed": 167.3
     },
     "skills": [
-      "skill.hanliu_fuxing",
-      "skill.hanxi_yin",
-      "skill.jingchao_fengmai",
-      "skill.jingbo_suoyin",
-      "skill.xuanjin_luoyin",
-      "skill.hanjing_suoliu"
+      "skill.hanxi_ximai",
+      "skill.xuanjin_huilan",
+      "skill.taiyin_guichao"
     ],
     "equipment": {
       "weapon": {
@@ -664,14 +659,9 @@
       "moveSpeed": 142.9
     },
     "skills": [
-      "skill.hanliu_fuxing",
-      "skill.hanxi_yin",
-      "skill.jingchao_fengmai",
-      "skill.jingbo_suoyin",
-      "skill.xuanjin_luoyin",
-      "skill.hanjing_suoliu",
-      "skill.taiyin_chuiyin",
-      "skill.guichao_suojie"
+      "skill.hanxi_ximai",
+      "skill.xuanjin_huilan",
+      "skill.taiyin_guichao"
     ],
     "equipment": {
       "weapon": "equip.hanxi_flow_ruler",

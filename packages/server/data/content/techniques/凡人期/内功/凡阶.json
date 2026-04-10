@@ -9,7 +9,9 @@
         "level": 1,
         "expFactor": 18,
         "attrs": {
-          "constitution": 2,
+          "constitution": 1,
+          "spirit": 2,
+          "perception": 3,
           "talent": 2
         }
       },
@@ -17,7 +19,9 @@
         "level": 2,
         "expFactor": 22,
         "attrs": {
-          "constitution": 2,
+          "constitution": 1,
+          "spirit": 1,
+          "perception": 3,
           "talent": 2
         }
       },
@@ -25,7 +29,9 @@
         "level": 3,
         "expFactor": 27,
         "attrs": {
-          "constitution": 2,
+          "constitution": 1,
+          "spirit": 1,
+          "perception": 3,
           "talent": 2
         }
       },
@@ -33,7 +39,9 @@
         "level": 4,
         "expFactor": 32,
         "attrs": {
-          "constitution": 2,
+          "constitution": 1,
+          "spirit": 1,
+          "perception": 2,
           "talent": 2
         }
       },
@@ -41,7 +49,9 @@
         "level": 5,
         "expFactor": 38,
         "attrs": {
-          "constitution": 2,
+          "constitution": 1,
+          "spirit": 1,
+          "perception": 2,
           "talent": 2
         }
       },
@@ -49,7 +59,9 @@
         "level": 6,
         "expFactor": 45,
         "attrs": {
-          "constitution": 2,
+          "constitution": 1,
+          "spirit": 1,
+          "perception": 2,
           "talent": 2
         }
       },
@@ -57,7 +69,9 @@
         "level": 7,
         "expFactor": 53,
         "attrs": {
-          "constitution": 2,
+          "constitution": 1,
+          "spirit": 1,
+          "perception": 2,
           "talent": 2
         }
       },
@@ -65,7 +79,9 @@
         "level": 8,
         "expFactor": 62,
         "attrs": {
-          "constitution": 2,
+          "constitution": 1,
+          "spirit": 1,
+          "perception": 2,
           "talent": 2
         }
       },
@@ -73,7 +89,9 @@
         "level": 9,
         "expFactor": 72,
         "attrs": {
-          "constitution": 2,
+          "constitution": 1,
+          "spirit": 1,
+          "perception": 2,
           "talent": 2
         }
       },
@@ -81,7 +99,9 @@
         "level": 10,
         "expFactor": 0,
         "attrs": {
-          "constitution": 2,
+          "constitution": 1,
+          "spirit": 1,
+          "perception": 2,
           "talent": 2
         }
       }
@@ -98,34 +118,49 @@
         "level": 1,
         "expFactor": 60,
         "attrs": {
-          "talent": 2
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 3,
+          "talent": 3
         }
       },
       {
         "level": 2,
         "expFactor": 66,
         "attrs": {
-          "talent": 2
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 3,
+          "talent": 3
         }
       },
       {
         "level": 3,
         "expFactor": 72.5,
         "attrs": {
-          "talent": 2
+          "constitution": 1,
+          "spirit": 2,
+          "perception": 3,
+          "talent": 3
         }
       },
       {
         "level": 4,
         "expFactor": 79.5,
         "attrs": {
-          "talent": 2
+          "constitution": 1,
+          "spirit": 2,
+          "perception": 3,
+          "talent": 3
         }
       },
       {
         "level": 5,
         "expFactor": 87,
         "attrs": {
+          "constitution": 1,
+          "spirit": 1,
+          "perception": 3,
           "talent": 3
         }
       },
@@ -133,21 +168,30 @@
         "level": 6,
         "expFactor": 95,
         "attrs": {
-          "talent": 3
+          "constitution": 1,
+          "spirit": 1,
+          "perception": 3,
+          "talent": 2
         }
       },
       {
         "level": 7,
         "expFactor": 103.5,
         "attrs": {
-          "talent": 3
+          "constitution": 1,
+          "spirit": 1,
+          "perception": 3,
+          "talent": 2
         }
       },
       {
         "level": 8,
         "expFactor": 0,
         "attrs": {
-          "talent": 4
+          "constitution": 1,
+          "spirit": 1,
+          "perception": 2,
+          "talent": 2
         }
       }
     ],

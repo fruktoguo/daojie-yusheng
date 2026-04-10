@@ -70,8 +70,7 @@
       "moveSpeed": 140.48
     },
     "skills": [
-      "skill.starfall_thrust",
-      "skill.chasing_star"
+      "skill.starfall_spear"
     ]
   },
   {
@@ -341,9 +340,7 @@
       "moveSpeed": 113.44
     },
     "skills": [
-      "skill.starfall_thrust",
-      "skill.chasing_star",
-      "skill.skybreaker_lance"
+      "skill.starfall_spear"
     ]
   }
 ]

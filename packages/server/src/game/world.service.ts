@@ -1536,7 +1536,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return this.castSkillAtAnchor(
       player,
       skill,
-      primaryTarget ? { x: primaryTarget.x, y: primaryTarget.y } : undefined,
+      primaryTarget
+        ? { x: primaryTarget.x, y: primaryTarget.y }
+        : skill.requiresTarget === false
+          ? { x: player.x, y: player.y }
+          : undefined,
       {
         primaryTarget,
         playerStats,
@@ -1652,8 +1656,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       }
 
       const update = effect.type === 'buff'
-        ? this.applyBuffEffect(player, skill, effect, selectedTargets, options?.primaryTarget)
-        : this.applyPlayerTerrainEffect(player, skill, effect, anchor);
+        ? this.applyBuffEffect(player, skill, effect, selectedTargets, options?.primaryTarget, anchor, casterStats)
+        : effect.type === 'heal'
+          ? this.applyHealEffect(player, skill, effect, techLevel, casterStats, casterAttrs, anchor, options?.primaryTarget)
+          : effect.type === 'cleanse'
+            ? this.applyCleanseEffect(player, skill, effect, selectedTargets, options?.primaryTarget)
+            : this.applyPlayerTerrainEffect(player, skill, effect, anchor);
       result.messages.push(...update.messages);
       for (const flag of update.dirty) {
         dirty.add(flag);
@@ -1777,6 +1785,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
     this.navigationService.clearMoveTarget(player.id);
     player.questNavigation = undefined;
+    player.mapNavigation = undefined;
     this.faceToward(player, anchor.x, anchor.y);
     const geometry = this.buildEffectiveSkillGeometry(skill, playerStats ?? this.attrService.getPlayerNumericStats(player));
     const warningOrigin = (geometry.shape ?? 'single') === 'line'
@@ -2092,6 +2101,39 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return resolved;
   }
 
+  private collectFriendlyPlayersFromCells(
+    player: PlayerState,
+    cells: Array<{ x: number; y: number }>,
+    maxTargets: number,
+  ): Array<Extract<ResolvedTarget, { kind: 'player' }>> {
+    const resolved: Array<Extract<ResolvedTarget, { kind: 'player' }>> = [];
+    const seen = new Set<string>();
+    const players = this.playerService.getPlayersByMap(player.mapId)
+      .filter((entry) => !entry.dead);
+
+    for (const cell of cells) {
+      const targetPlayer = players.find((entry) => (
+        entry.x === cell.x
+        && entry.y === cell.y
+        && (entry.id === player.id || !this.canPlayerDealDamageToPlayer(player, entry))
+      ));
+      if (!targetPlayer) {
+        continue;
+      }
+      const key = `player:${targetPlayer.id}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      resolved.push({ kind: 'player', x: targetPlayer.x, y: targetPlayer.y, player: targetPlayer });
+      seen.add(key);
+      if (resolved.length >= maxTargets) {
+        return resolved;
+      }
+    }
+
+    return resolved;
+  }
+
   private pickDamageTargets(selectedTargets: ResolvedTarget[], primaryTarget?: ResolvedTarget): ResolvedTarget[] {
     if (selectedTargets.length > 0) {
       return selectedTargets;
@@ -2141,7 +2183,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       desc: effect.desc,
       baseDesc: effect.desc,
       shortMark: this.normalizeBuffShortMark(effect),
-      category: effect.category ?? (effect.target === 'self' ? 'buff' : 'debuff'),
+      category: effect.category ?? (effect.target === 'target' ? 'debuff' : 'buff'),
       visibility: effect.visibility ?? 'public',
       remainingTicks: infiniteDuration ? 1 : duration + 1,
       duration,
@@ -2398,6 +2440,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     effect: Extract<SkillEffectDef, { type: 'buff' }>,
     selectedTargets: ResolvedTarget[],
     primaryTarget?: ResolvedTarget,
+    anchor?: { x: number; y: number },
+    playerStats?: NumericStats,
   ): WorldUpdate {
     const affected: Array<{ target: BuffTargetEntity; buff: TemporaryBuffState }> = [];
     const sourceRealmLv = Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
@@ -2406,6 +2450,21 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       const current = this.applyBuffState(player.temporaryBuffs, this.buildTemporaryBuffState(skill, effect, sourceRealmLv, player.id));
       this.attrService.recalcPlayer(player);
       affected.push({ target: { kind: 'player', player }, buff: current });
+    } else if (effect.target === 'allies') {
+      const targets = this.collectFriendlyPlayersFromCells(
+        player,
+        this.buildPlayerSkillAffectedCells(player, skill, anchor ?? { x: player.x, y: player.y }, playerStats),
+        Number.isFinite(skill.targeting?.maxTargets) ? Math.max(1, Number(skill.targeting?.maxTargets)) : 99,
+      );
+      if (targets.length === 0) {
+        return { ...EMPTY_UPDATE, error: '当前技能没有可施加状态的友方目标' };
+      }
+      for (const target of targets) {
+        target.player.temporaryBuffs ??= [];
+        const current = this.applyBuffState(target.player.temporaryBuffs, this.buildTemporaryBuffState(skill, effect, sourceRealmLv, player.id));
+        this.attrService.recalcPlayer(target.player);
+        affected.push({ target: { kind: 'player', player: target.player }, buff: current });
+      }
     } else {
       const targets = this.pickDamageTargets(selectedTargets, primaryTarget)
         .filter((entry): entry is Extract<ResolvedTarget, { kind: 'monster' | 'player' }> => entry.kind === 'monster' || entry.kind === 'player');
@@ -2453,6 +2512,177 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       }],
       dirty: selfDirty ? ['attr'] : [],
       dirtyPlayers,
+    };
+  }
+
+  private applyHealEffect(
+    player: PlayerState,
+    skill: SkillDef,
+    effect: Extract<SkillEffectDef, { type: 'heal' }>,
+    techLevel: number,
+    casterStats: NumericStats,
+    casterAttrs: Attributes,
+    anchor?: { x: number; y: number },
+    primaryTarget?: ResolvedTarget,
+  ): WorldUpdate {
+    const targets = effect.target === 'self'
+      ? [{ kind: 'player', x: player.x, y: player.y, player }] as Array<Extract<ResolvedTarget, { kind: 'player' }>>
+      : effect.target === 'allies'
+        ? this.collectFriendlyPlayersFromCells(
+          player,
+          this.buildPlayerSkillAffectedCells(player, skill, anchor ?? { x: player.x, y: player.y }, casterStats),
+          Number.isFinite(skill.targeting?.maxTargets) ? Math.max(1, Number(skill.targeting?.maxTargets)) : 99,
+        )
+        : (primaryTarget?.kind === 'player' ? [primaryTarget] : []);
+    if (targets.length === 0) {
+      return { ...EMPTY_UPDATE, error: '当前技能没有可治疗的有效目标' };
+    }
+
+    const dirtyPlayers = new Set<string>();
+    const healedNames: string[] = [];
+    let selfHealed = false;
+    let totalHeal = 0;
+
+    for (const target of targets) {
+      const targetCombat = this.getPlayerCombatSnapshot(target.player);
+      const context: SkillFormulaContext = {
+        player,
+        skill,
+        techLevel,
+        targetCount: targets.length,
+        casterStats,
+        casterAttrs,
+        target,
+        targetStats: targetCombat.stats,
+        targetAttrs: this.attrService.getPlayerFinalAttrs(target.player),
+      };
+      const amount = Math.max(1, Math.round(this.evaluateSkillFormula(effect.formula, context)));
+      const previousHp = target.player.hp;
+      target.player.hp = Math.min(target.player.maxHp, target.player.hp + amount);
+      const actualHeal = target.player.hp - previousHp;
+      if (actualHeal <= 0) {
+        continue;
+      }
+      totalHeal += actualHeal;
+      healedNames.push(target.player.id === player.id ? '你' : target.player.name);
+      if (target.player.id === player.id) {
+        selfHealed = true;
+      } else {
+        dirtyPlayers.add(target.player.id);
+      }
+    }
+
+    if (totalHeal <= 0) {
+      return { ...EMPTY_UPDATE, error: '目标气血已满，未产生治疗效果' };
+    }
+
+    return {
+      messages: [{
+        playerId: player.id,
+        text: `${skill.name}生效，${[...new Set(healedNames)].join('、')}恢复了 ${totalHeal} 点气血。`,
+        kind: 'combat',
+      }],
+      dirty: selfHealed ? ['attr'] : [],
+      dirtyPlayers: [...dirtyPlayers],
+    };
+  }
+
+  private removeBuffsByCategory(
+    buffs: TemporaryBuffState[] | undefined,
+    category: 'buff' | 'debuff',
+    removeCount: number,
+  ): TemporaryBuffState[] {
+    if (!buffs || buffs.length === 0 || removeCount <= 0) {
+      return [];
+    }
+    const removable = buffs
+      .filter((entry) => entry.remainingTicks > 0 && entry.category === category)
+      .sort((left, right) => {
+        if (right.remainingTicks !== left.remainingTicks) {
+          return right.remainingTicks - left.remainingTicks;
+        }
+        if (right.stacks !== left.stacks) {
+          return right.stacks - left.stacks;
+        }
+        return left.buffId.localeCompare(right.buffId, 'zh-CN');
+      })
+      .slice(0, removeCount);
+    if (removable.length === 0) {
+      return [];
+    }
+    const buffIds = new Set(removable.map((entry) => entry.buffId));
+    for (let index = buffs.length - 1; index >= 0; index -= 1) {
+      if (buffIds.has(buffs[index].buffId)) {
+        buffs.splice(index, 1);
+      }
+    }
+    return removable;
+  }
+
+  private applyCleanseEffect(
+    player: PlayerState,
+    skill: SkillDef,
+    effect: Extract<SkillEffectDef, { type: 'cleanse' }>,
+    selectedTargets: ResolvedTarget[],
+    primaryTarget?: ResolvedTarget,
+  ): WorldUpdate {
+    const removeCount = Math.max(1, effect.removeCount ?? 1);
+    const category = effect.category === 'buff' ? 'buff' : 'debuff';
+    const targets = effect.target === 'self'
+      ? [{ kind: 'player', x: player.x, y: player.y, player }] as Array<Extract<ResolvedTarget, { kind: 'player' | 'monster' }>>
+      : this.pickDamageTargets(selectedTargets, primaryTarget)
+        .filter((entry): entry is Extract<ResolvedTarget, { kind: 'player' | 'monster' }> => (
+          entry.kind === 'player' || entry.kind === 'monster'
+        ));
+    if (targets.length === 0) {
+      return { ...EMPTY_UPDATE, error: '当前技能没有可净化的有效目标' };
+    }
+
+    const dirtyPlayers = new Set<string>();
+    const cleanedNames: string[] = [];
+    const removedBuffNames: string[] = [];
+    let selfChanged = false;
+
+    for (const target of targets) {
+      if (target.kind === 'monster') {
+        const previousHp = target.monster.hp;
+        const previousQi = target.monster.qi;
+        const removed = this.removeBuffsByCategory(target.monster.temporaryBuffs, category, removeCount);
+        if (removed.length === 0) {
+          continue;
+        }
+        this.syncMonsterRuntimeResources(target.monster, { previousHp, previousQi });
+        cleanedNames.push(target.monster.name);
+        removedBuffNames.push(...removed.map((entry) => entry.name));
+        continue;
+      }
+
+      const removed = this.removeBuffsByCategory(target.player.temporaryBuffs, category, removeCount);
+      if (removed.length === 0) {
+        continue;
+      }
+      this.attrService.recalcPlayer(target.player);
+      cleanedNames.push(target.player.id === player.id ? '你' : target.player.name);
+      removedBuffNames.push(...removed.map((entry) => entry.name));
+      if (target.player.id === player.id) {
+        selfChanged = true;
+      } else {
+        dirtyPlayers.add(target.player.id);
+      }
+    }
+
+    if (cleanedNames.length === 0) {
+      return { ...EMPTY_UPDATE, error: category === 'debuff' ? '目标没有可移除的减益' : '目标没有可移除的增益' };
+    }
+
+    return {
+      messages: [{
+        playerId: player.id,
+        text: `${skill.name}生效，${[...new Set(cleanedNames)].join('、')}被净去 ${removedBuffNames.join('、')}。`,
+        kind: 'combat',
+      }],
+      dirty: selfChanged ? ['attr'] : [],
+      dirtyPlayers: [...dirtyPlayers],
     };
   }
 
@@ -2516,6 +2746,15 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         return context.player?.qi ?? context.monsterCaster?.qi ?? 0;
       case 'caster.maxQi':
         return Math.max(0, Math.round(context.casterStats.maxQi));
+      case 'target.debuffCount':
+        return Math.max(0, (context.target?.kind === 'player'
+          ? context.target.player.temporaryBuffs
+          : context.target?.kind === 'monster'
+            ? context.target.monster.temporaryBuffs
+            : []
+        )?.filter((buff) => buff.remainingTicks > 0 && buff.category === 'debuff').length ?? 0);
+      case 'target.distance':
+        return context.target ? gridDistance(context.player ?? context.monsterCaster ?? { x: 0, y: 0 }, context.target) : 0;
       case 'target.hp':
         return context.target?.kind === 'monster'
           ? context.target.monster.hp
@@ -3404,7 +3643,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
       const update = effect.type === 'buff'
         ? this.applyMonsterBuffEffect(monster, skill, effect, selectedTargets, selectedTargets[0])
-        : this.applyMonsterTerrainEffect(monster, skill, effect, anchor, mapId, selectedTargets[0]);
+        : effect.type === 'heal'
+          ? this.applyMonsterHealEffect(monster, skill, effect, techLevel, casterStats, casterAttrs, selectedTargets)
+          : effect.type === 'cleanse'
+            ? this.applyMonsterCleanseEffect(monster, skill, effect, selectedTargets)
+            : this.applyMonsterTerrainEffect(monster, skill, effect, anchor, mapId, selectedTargets[0]);
       messages.push(...update.messages);
       for (const playerId of update.dirtyPlayers ?? []) {
         dirtyPlayers.add(playerId);
@@ -4115,6 +4358,105 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (!killerDirty) {
       this.markDirtyFlagsForPlayer(killer.id, localDirty);
     }
+  }
+
+  private applyMonsterHealEffect(
+    monster: RuntimeMonster,
+    skill: SkillDef,
+    effect: Extract<SkillEffectDef, { type: 'heal' }>,
+    techLevel: number,
+    casterStats: NumericStats,
+    casterAttrs: Attributes,
+    selectedTargets: ResolvedTarget[],
+  ): WorldUpdate {
+    const targets = effect.target === 'self'
+      ? [{ kind: 'monster', x: monster.x, y: monster.y, monster }] as Array<Extract<ResolvedTarget, { kind: 'monster' | 'player' }>>
+      : selectedTargets.filter((entry): entry is Extract<ResolvedTarget, { kind: 'player' }> => entry.kind === 'player');
+    if (targets.length === 0) {
+      return { messages: [], dirty: [], dirtyPlayers: [] };
+    }
+
+    const dirtyPlayers = new Set<string>();
+    const messages: WorldMessage[] = [];
+    const healedNames: string[] = [];
+    let totalHeal = 0;
+
+    for (const target of targets) {
+      const context: SkillFormulaContext = {
+        monsterCaster: monster,
+        skill,
+        techLevel,
+        targetCount: targets.length,
+        casterStats,
+        casterAttrs,
+        target,
+        targetStats: target.kind === 'monster'
+          ? this.getMonsterCombatSnapshot(target.monster).stats
+          : this.getPlayerCombatSnapshot(target.player).stats,
+        targetAttrs: target.kind === 'monster'
+          ? this.getMonsterCombatSnapshot(target.monster).attrs
+          : this.attrService.getPlayerFinalAttrs(target.player),
+      };
+      const amount = Math.max(1, Math.round(this.evaluateSkillFormula(effect.formula, context)));
+      if (target.kind === 'monster') {
+        target.monster.hp = Math.min(target.monster.maxHp, target.monster.hp + amount);
+        totalHeal += amount;
+        healedNames.push(monster.name);
+        continue;
+      }
+      const previousHp = target.player.hp;
+      target.player.hp = Math.min(target.player.maxHp, target.player.hp + amount);
+      const actualHeal = target.player.hp - previousHp;
+      if (actualHeal <= 0) {
+        continue;
+      }
+      totalHeal += actualHeal;
+      healedNames.push(target.player.name);
+      dirtyPlayers.add(target.player.id);
+    }
+
+    if (totalHeal <= 0) {
+      return { messages, dirty: [], dirtyPlayers: [...dirtyPlayers] };
+    }
+    const targetPlayer = selectedTargets.find((entry): entry is Extract<ResolvedTarget, { kind: 'player' }> => entry.kind === 'player');
+    if (targetPlayer) {
+      messages.push({
+        playerId: targetPlayer.player.id,
+        text: `${monster.name}施展${skill.name}，${[...new Set(healedNames)].join('、')}恢复了 ${totalHeal} 点气血。`,
+        kind: 'combat',
+      });
+    }
+    return { messages, dirty: [], dirtyPlayers: [...dirtyPlayers] };
+  }
+
+  private applyMonsterCleanseEffect(
+    monster: RuntimeMonster,
+    skill: SkillDef,
+    effect: Extract<SkillEffectDef, { type: 'cleanse' }>,
+    selectedTargets: ResolvedTarget[],
+  ): WorldUpdate {
+    const category = effect.category === 'buff' ? 'buff' : 'debuff';
+    const removeCount = Math.max(1, effect.removeCount ?? 1);
+    if (effect.target === 'self') {
+      const previousHp = monster.hp;
+      const previousQi = monster.qi;
+      const removed = this.removeBuffsByCategory(monster.temporaryBuffs, category, removeCount);
+      if (removed.length === 0) {
+        return { messages: [], dirty: [], dirtyPlayers: [] };
+      }
+      this.syncMonsterRuntimeResources(monster, { previousHp, previousQi });
+      const targetPlayer = selectedTargets.find((entry): entry is Extract<ResolvedTarget, { kind: 'player' }> => entry.kind === 'player');
+      return {
+        messages: targetPlayer ? [{
+          playerId: targetPlayer.player.id,
+          text: `${monster.name}施展${skill.name}，净去 ${removed.map((entry) => entry.name).join('、')}。`,
+          kind: 'combat',
+        }] : [],
+        dirty: [],
+        dirtyPlayers: [],
+      };
+    }
+    return { messages: [], dirty: [], dirtyPlayers: [] };
   }
 
   private markDirtyFlagsForPlayer(playerId: string, flags: Iterable<WorldDirtyFlag>): void {
@@ -6399,6 +6741,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     player.pendingSkillCast = undefined;
     this.navigationService.clearMoveTarget(player.id);
     player.questNavigation = undefined;
+    player.mapNavigation = undefined;
     if (player.temporaryBuffs?.length) {
       player.temporaryBuffs = player.temporaryBuffs.filter((buff) => buff.category !== 'debuff');
     }

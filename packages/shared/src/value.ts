@@ -614,6 +614,8 @@ function getFormulaVarLabel(variable: SkillFormulaVar): string {
     'caster.maxHp': '自身最大生命',
     'caster.qi': '自身当前灵力',
     'caster.maxQi': '自身最大灵力',
+    'target.debuffCount': '目标减益数量',
+    'target.distance': '目标距离',
     'target.hp': '目标当前生命',
     'target.maxHp': '目标最大生命',
     'target.qi': '目标当前灵力',
@@ -664,6 +666,7 @@ function quantifyFormulaVar(variable: SkillFormulaVar, scale: number): FormulaQu
   if (
     variable === 'target.maxHp'
     || variable === 'target.hp'
+    || variable === 'target.distance'
     || variable.startsWith('target.stat.')
     || variable.startsWith('target.attr.')
   ) {
@@ -673,7 +676,7 @@ function quantifyFormulaVar(variable: SkillFormulaVar, scale: number): FormulaQu
     };
   }
 
-  if (variable === 'techLevel' || variable === 'targetCount' || variable === 'caster.hp' || variable === 'caster.qi') {
+  if (variable === 'techLevel' || variable === 'targetCount' || variable === 'caster.hp' || variable === 'caster.qi' || variable === 'target.debuffCount') {
     return {
       quantifiedValue: 0,
       unquantified: [describeFormulaVar(variable, scale)],

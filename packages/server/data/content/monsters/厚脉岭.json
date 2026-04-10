@@ -52,7 +52,7 @@
     },
     "skills": [
       "skill.predator_pounce",
-      "skill.iron_bone_strike"
+      "skill.houtu_chengyuan"
     ],
     "drops": [
       {
@@ -255,7 +255,7 @@
       "moveSpeed": 64.4
     },
     "skills": [
-      "skill.iron_bone_strike",
+      "skill.houtu_chengyuan",
       "skill.core_smash"
     ],
     "drops": [
@@ -385,7 +385,7 @@
     },
     "skills": [
       "skill.guardian_quake",
-      "skill.kunyuan_fumai"
+      "skill.huangting_zaishan"
     ],
     "drops": [
       {
@@ -483,11 +483,8 @@
       "moveSpeed": 70.6
     },
     "skills": [
-      "skill.yuepo_zhendao",
-      "skill.zhenmai_yin",
-      "skill.chengyuan_luobei",
-      "skill.luoshan_zhenmai",
-      "skill.kunyue_zhenxing"
+      "skill.houtu_chengyuan",
+      "skill.kunyue_zhenhai"
     ],
     "drops": [
       {
@@ -604,12 +601,9 @@
       "moveSpeed": 82.7
     },
     "skills": [
-      "skill.yuepo_zhendao",
-      "skill.zhenmai_yin",
-      "skill.chengyuan_luobei",
-      "skill.luoshan_zhenmai",
-      "skill.kunyue_zhenxing",
-      "skill.yuedong_huizhen"
+      "skill.houtu_chengyuan",
+      "skill.kunyue_zhenhai",
+      "skill.huangting_zaishan"
     ],
     "drops": [
       {
@@ -736,14 +730,9 @@
       "moveSpeed": 70.6
     },
     "skills": [
-      "skill.yuepo_zhendao",
-      "skill.zhenmai_yin",
-      "skill.chengyuan_luobei",
-      "skill.luoshan_zhenmai",
-      "skill.kunyue_zhenxing",
-      "skill.yuedong_huizhen",
-      "skill.huangting_dingyue",
-      "skill.kunyuan_fumai"
+      "skill.houtu_chengyuan",
+      "skill.kunyue_zhenhai",
+      "skill.huangting_zaishan"
     ],
     "drops": [
       {

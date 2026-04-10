@@ -6,90 +6,53 @@
     "layers": [
       {
         "level": 1,
-        "expFactor": 13,
-        "attrs": {
-          "perception": 5,
-          "spirit": 2
-        }
+        "expFactor": 13
       },
       {
         "level": 2,
-        "expFactor": 14,
-        "attrs": {
-          "perception": 5,
-          "spirit": 2
-        }
+        "expFactor": 14
       },
       {
         "level": 3,
-        "expFactor": 16,
-        "attrs": {
-          "perception": 5,
-          "spirit": 2
-        }
+        "expFactor": 16
       },
       {
         "level": 4,
-        "expFactor": 18,
-        "attrs": {
-          "perception": 5,
-          "spirit": 2
-        }
+        "expFactor": 18
       },
       {
         "level": 5,
-        "expFactor": 21,
-        "attrs": {
-          "perception": 5,
-          "spirit": 3
-        }
+        "expFactor": 21
       },
       {
         "level": 6,
-        "expFactor": 23,
-        "attrs": {
-          "perception": 5,
-          "spirit": 3
-        }
+        "expFactor": 23
       },
       {
         "level": 7,
-        "expFactor": 27,
-        "attrs": {
-          "perception": 5,
-          "spirit": 3
-        }
+        "expFactor": 27
       },
       {
         "level": 8,
-        "expFactor": 31,
-        "attrs": {
-          "perception": 5,
-          "spirit": 3
-        }
+        "expFactor": 31
       },
       {
         "level": 9,
-        "expFactor": 0,
-        "attrs": {
-          "perception": 6,
-          "spirit": 3
-        }
+        "expFactor": 0
       }
     ],
     "skills": [
       {
-        "id": "skill.qingmu_slash",
-        "name": "青木斩",
-        "desc": "木脉剑气先划开气口，再把青痕压进经络，方便后招顺着破口继续深扎。",
-        "cooldown": 6,
-        "costMultiplier": 3,
-        "range": 1,
+        "id": "skill.qingmu_sword",
+        "name": "青木剑诀",
+        "desc": "青木剑气凝作一线，专取单体破敌。",
+        "cooldown": 10,
+        "costMultiplier": 4,
+        "range": 2,
         "effects": [
           {
             "type": "damage",
             "damageKind": "physical",
-            "element": "wood",
             "formula": {
               "op": "mul",
               "args": [
@@ -99,7 +62,7 @@
                     30,
                     {
                       "var": "caster.stat.physAtk",
-                      "scale": 1.25
+                      "scale": 3
                     }
                   ]
                 },
@@ -109,100 +72,16 @@
                     1,
                     {
                       "var": "techLevel",
-                      "scale": 0.05
+                      "scale": 0.1
                     }
                   ]
                 }
               ]
-            }
-          },
-          {
-            "type": "buff",
-            "target": "target",
-            "buffId": "buff.qingmu_mark",
-            "name": "青痕",
-            "desc": "木灵缠入经络，削弱法抗、闪避与化解。",
-            "shortMark": "青",
-            "category": "debuff",
-            "visibility": "public",
-            "color": "#68b96c",
-            "duration": 28,
-            "maxStacks": 18,
-            "valueStats": {
-              "spellDef": -3,
-              "dodge": -2,
-              "resolvePower": -2
-            }
+            },
+            "element": "wood"
           }
         ],
         "unlockLevel": 1
-      },
-      {
-        "id": "skill.qingmu_pierce",
-        "name": "穿林式",
-        "desc": "沿青痕切开的气脉追刺而入，前排被破开后，后方也会被连成一线。",
-        "cooldown": 6,
-        "costMultiplier": 3,
-        "range": 2,
-        "targeting": {
-          "shape": "line",
-          "maxTargets": 2
-        },
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "physical",
-            "element": "wood",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "op": "add",
-                  "args": [
-                    30,
-                    {
-                      "var": "caster.stat.physAtk",
-                      "scale": 1.45
-                    }
-                  ]
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
-                    {
-                      "var": "techLevel",
-                      "scale": 0.05
-                    },
-                    {
-                      "var": "target.buff.buff.qingmu_mark.stacks",
-                      "scale": 0.015
-                    }
-                  ]
-                }
-              ]
-            }
-          },
-          {
-            "type": "buff",
-            "target": "target",
-            "buffId": "buff.qingmu_mark",
-            "name": "青痕",
-            "desc": "木灵缠入经络，削弱法抗、闪避与化解。",
-            "shortMark": "青",
-            "category": "debuff",
-            "visibility": "public",
-            "color": "#68b96c",
-            "duration": 28,
-            "maxStacks": 18,
-            "valueStats": {
-              "spellDef": -3,
-              "dodge": -2,
-              "resolvePower": -2
-            }
-          }
-        ],
-        "unlockLevel": 5
       }
     ],
     "realmLv": 1,

@@ -341,11 +341,9 @@
       "moveSpeed": 102.5
     },
     "skills": [
-      "skill.huisheng_panluo",
-      "skill.qianluo_chanmai",
-      "skill.kurong_nichou",
-      "skill.tengluo_manshen",
-      "skill.qianzhi_raomai"
+      "skill.qingmu_yangmai",
+      "skill.wanzhi_huichun",
+      "skill.changsheng_chanyuan"
     ],
     "equipment": {
       "weapon": "equip.vineguide_staff",
@@ -444,12 +442,9 @@
       "moveSpeed": 108.8
     },
     "skills": [
-      "skill.huisheng_panluo",
-      "skill.qianluo_chanmai",
-      "skill.kurong_nichou",
-      "skill.tengluo_manshen",
-      "skill.qianzhi_raomai",
-      "skill.qingsheng_fanbu"
+      "skill.qingmu_yangmai",
+      "skill.wanzhi_huichun",
+      "skill.changsheng_chanyuan"
     ],
     "equipment": {
       "weapon": {
@@ -567,14 +562,9 @@
       "moveSpeed": 102.3
     },
     "skills": [
-      "skill.huisheng_panluo",
-      "skill.qianluo_chanmai",
-      "skill.kurong_nichou",
-      "skill.tengluo_manshen",
-      "skill.qianzhi_raomai",
-      "skill.qingsheng_fanbu",
-      "skill.changsheng_yinmai",
-      "skill.duomai_guiyuan"
+      "skill.qingmu_yangmai",
+      "skill.wanzhi_huichun",
+      "skill.changsheng_chanyuan"
     ],
     "equipment": {
       "weapon": "equip.vineguide_staff",

@@ -483,11 +483,8 @@
       "moveSpeed": 80.6
     },
     "skills": [
-      "skill.pojin_linghen",
-      "skill.xingmang_zhuiji",
-      "skill.ningfeng_ci",
-      "skill.duanbei_zhan",
-      "skill.baihong_lieyue"
+      "skill.genghua_ningfeng",
+      "skill.baihong_duanyue"
     ],
     "drops": [
       {
@@ -604,12 +601,9 @@
       "moveSpeed": 108.8
     },
     "skills": [
-      "skill.pojin_linghen",
-      "skill.xingmang_zhuiji",
-      "skill.ningfeng_ci",
-      "skill.duanbei_zhan",
-      "skill.baihong_lieyue",
-      "skill.xuefeng_jueshi"
+      "skill.genghua_ningfeng",
+      "skill.baihong_duanyue",
+      "skill.taibai_zhuxing"
     ],
     "drops": [
       {
@@ -736,14 +730,9 @@
       "moveSpeed": 98.8
     },
     "skills": [
-      "skill.pojin_linghen",
-      "skill.xingmang_zhuiji",
-      "skill.ningfeng_ci",
-      "skill.duanbei_zhan",
-      "skill.baihong_lieyue",
-      "skill.xuefeng_jueshi",
-      "skill.taibai_liuhen",
-      "skill.zhuxing_duanpo"
+      "skill.genghua_ningfeng",
+      "skill.baihong_duanyue",
+      "skill.taibai_zhuxing"
     ],
     "drops": [
       {

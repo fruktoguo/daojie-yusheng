@@ -1,79 +1,20 @@
 [
   {
-    "id": "lianqi.shufa.earth.earth_court",
+    "id": "lianqi.common.baoyuan_guard",
     "target": "self",
-    "buffId": "buff.earth_court",
-    "name": "定岳",
-    "desc": "黄庭载山，稳固自身。",
-    "shortMark": "庭",
+    "buffId": "buff.baoyuan_guard",
+    "name": "抱元",
+    "desc": "抱元守一，双抗短时暴涨。",
+    "shortMark": "元",
     "category": "buff",
     "visibility": "public",
-    "color": "#99845f",
-    "duration": 16,
-    "maxStacks": 3,
+    "color": "#d6c07a",
+    "duration": 6,
+    "maxStacks": 1,
     "statMode": "percent",
     "valueStats": {
-      "physDef": 20,
-      "spellDef": 16,
-      "resolvePower": 18
-    }
-  },
-  {
-    "id": "lianqi.shufa.earth.hybrid_mixed_mark",
-    "target": "target",
-    "buffId": "buff.hybrid_mixed_mark",
-    "name": "杂相",
-    "desc": "杂相缠体，持续削弱物防、法防与化解。",
-    "shortMark": "杂",
-    "category": "debuff",
-    "visibility": "public",
-    "color": "#8aa39f",
-    "duration": 28,
-    "maxStacks": 21,
-    "statMode": "percent",
-    "valueStats": {
-      "physDef": -10,
-      "spellDef": -10,
-      "resolvePower": -8
-    }
-  },
-  {
-    "id": "lianqi.shufa.earth.water_domain_lock",
-    "target": "target",
-    "buffId": "buff.water_domain_lock",
-    "name": "潮锁",
-    "desc": "归潮锁界，进一步压制命中与闪避。",
-    "shortMark": "潮",
-    "category": "debuff",
-    "visibility": "public",
-    "color": "#699fbc",
-    "duration": 20,
-    "maxStacks": 3,
-    "statMode": "percent",
-    "valueStats": {
-      "hit": -18,
-      "dodge": -18,
-      "moveSpeed": -24
-    }
-  },
-  {
-    "id": "lianqi.shufa.earth.wood_longevity",
-    "target": "self",
-    "buffId": "buff.wood_longevity",
-    "name": "长生",
-    "desc": "长生之息回返己身。",
-    "shortMark": "长",
-    "category": "buff",
-    "visibility": "public",
-    "color": "#66ae62",
-    "duration": 20,
-    "maxStacks": 3,
-    "statMode": "percent",
-    "valueStats": {
-      "hpRegenRate": 26,
-      "qiRegenRate": 18,
-      "spellDef": 12,
-      "resolvePower": 10
+      "physDef": 200,
+      "spellDef": 200
     }
   }
 ]
