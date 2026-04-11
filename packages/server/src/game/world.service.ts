@@ -20,6 +20,7 @@ import {
   calcQiCostWithOutputLimit,
   cloneNumericStats,
   CombatEffect,
+  resolveTargetingGeometry,
   computeAffectedCellsFromAnchor,
   createItemStackSignature,
   createNumericStats,
@@ -1926,14 +1927,19 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   }
 
   private buildEffectiveSkillGeometry(skill: SkillDef, stats: NumericStats | undefined) {
-    return buildEffectiveTargetingGeometry({
+    const baseGeometry = {
       range: skill.range,
       shape: skill.targeting?.shape ?? 'single',
       radius: skill.targeting?.radius,
       innerRadius: skill.targeting?.innerRadius,
       width: skill.targeting?.width,
       height: skill.targeting?.height,
-    }, this.getSkillTargetingModifiers(stats));
+    };
+    const modifiers = this.getSkillTargetingModifiers(stats);
+    return resolveTargetingGeometry(baseGeometry, {
+      finalRange: Math.max(0, Math.floor(baseGeometry.range) + modifiers.extraRange),
+      extraArea: modifiers.extraArea,
+    });
   }
 
   private getEffectiveDamageTargetLimit(

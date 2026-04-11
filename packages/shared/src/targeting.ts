@@ -10,7 +10,7 @@ export interface GridPoint {
 }
 
 /** 目标选取形状 */
-export type TargetingShape = 'single' | 'line' | 'area' | 'box' | 'ring' | 'checkerboard';
+export type TargetingShape = 'single' | 'line' | 'area' | 'box' | 'orientedBox' | 'ring' | 'checkerboard';
 
 /** 目标选取几何参数 */
 export interface TargetingGeometrySpec {
@@ -25,6 +25,11 @@ export interface TargetingGeometrySpec {
 
 export interface TargetingGeometryModifiers {
   extraRange?: number;
+  extraArea?: number;
+}
+
+export interface TargetingGeometryResolution {
+  finalRange?: number;
   extraArea?: number;
 }
 
@@ -109,6 +114,48 @@ export function getBoxCells(center: GridPoint, width: number, height: number): G
   return cells;
 }
 
+function getOrientedBoxCells(origin: GridPoint, anchor: GridPoint, width: number, height: number): GridPoint[] {
+  const normalizedWidth = Math.max(1, Math.floor(width));
+  const normalizedHeight = Math.max(1, Math.floor(height));
+  const dirX = anchor.x - origin.x;
+  const dirY = anchor.y - origin.y;
+  if (dirX === 0 && dirY === 0) {
+    return getBoxCells(anchor, normalizedWidth, normalizedHeight);
+  }
+  const forwardLength = Math.hypot(dirX, dirY);
+  const forwardX = dirX / forwardLength;
+  const forwardY = dirY / forwardLength;
+  const lateralX = -forwardY;
+  const lateralY = forwardX;
+  const halfWidth = normalizedWidth / 2;
+  const halfHeight = normalizedHeight / 2;
+  const padding = Math.ceil(halfWidth + halfHeight) + 1;
+  const minX = anchor.x - padding;
+  const maxX = anchor.x + padding;
+  const minY = anchor.y - padding;
+  const maxY = anchor.y + padding;
+  const cells: GridPoint[] = [];
+  const epsilon = 1e-9;
+
+  for (let y = minY; y <= maxY; y += 1) {
+    for (let x = minX; x <= maxX; x += 1) {
+      const offsetX = x - anchor.x;
+      const offsetY = y - anchor.y;
+      const lateralProjection = offsetX * lateralX + offsetY * lateralY;
+      const forwardProjection = offsetX * forwardX + offsetY * forwardY;
+      if (Math.abs(lateralProjection) > halfWidth - epsilon) {
+        continue;
+      }
+      if (Math.abs(forwardProjection) > halfHeight - epsilon) {
+        continue;
+      }
+      cells.push({ x, y });
+    }
+  }
+
+  return cells;
+}
+
 /** 计算交错棋盘格范围 */
 export function getCheckerboardCells(
   center: GridPoint,
@@ -128,38 +175,146 @@ export function getCheckerboardCells(
   });
 }
 
-function getLinePerpendicularOffsets(width: number, dx: number, dy: number): GridPoint[] {
-  const normalizedWidth = Math.max(1, Math.floor(width));
-  const negative = Math.floor((normalizedWidth - 1) / 2);
-  const positive = normalizedWidth - 1 - negative;
-  const offsets: GridPoint[] = [];
-  const expandAlongX = Math.abs(dy) > Math.abs(dx);
-  for (let step = -negative; step <= positive; step += 1) {
-    offsets.push(expandAlongX ? { x: step, y: 0 } : { x: 0, y: step });
+function getDistanceSquaredToSegment(point: GridPoint, start: GridPoint, end: GridPoint): number {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  if (dx === 0 && dy === 0) {
+    const px = point.x - start.x;
+    const py = point.y - start.y;
+    return px * px + py * py;
   }
-  return offsets;
+  const t = Math.max(
+    0,
+    Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy)),
+  );
+  const closestX = start.x + dx * t;
+  const closestY = start.y + dy * t;
+  const offsetX = point.x - closestX;
+  const offsetY = point.y - closestY;
+  return offsetX * offsetX + offsetY * offsetY;
 }
 
 function getWideLineCells(start: GridPoint, end: GridPoint, width: number): GridPoint[] {
-  const line = getLineCells(start, end).slice(1);
-  if (line.length === 0) {
+  const line = getLineCells(start, end);
+  if (line.length <= 1) {
     return [];
   }
-  const offsets = getLinePerpendicularOffsets(width, end.x - start.x, end.y - start.y);
+  const normalizedWidth = Math.max(1, Math.floor(width));
+  if (normalizedWidth <= 1) {
+    return line.slice(1);
+  }
+  const halfThickness = (normalizedWidth - 1) / 2;
+  const padding = Math.ceil(halfThickness);
   const cells: GridPoint[] = [];
   const seen = new Set<string>();
-  for (const point of line) {
-    for (const offset of offsets) {
-      const cell = { x: point.x + offset.x, y: point.y + offset.y };
-      const key = `${cell.x},${cell.y}`;
+  const minX = Math.min(start.x, end.x) - padding;
+  const maxX = Math.max(start.x, end.x) + padding;
+  const minY = Math.min(start.y, end.y) - padding;
+  const maxY = Math.max(start.y, end.y) + padding;
+  const maxDistanceSquared = halfThickness * halfThickness + 1e-9;
+
+  for (let y = minY; y <= maxY; y += 1) {
+    for (let x = minX; x <= maxX; x += 1) {
+      if (x === start.x && y === start.y) {
+        continue;
+      }
+      if (getDistanceSquaredToSegment({ x, y }, start, end) > maxDistanceSquared) {
+        continue;
+      }
+      const key = `${x},${y}`;
       if (seen.has(key)) {
         continue;
       }
       seen.add(key);
-      cells.push(cell);
+      cells.push({ x, y });
     }
   }
   return cells;
+}
+
+function normalizeTargetingShape(spec: TargetingGeometrySpec): TargetingShape {
+  return spec.shape ?? 'single';
+}
+
+function resolveSingleTargetingGeometry(range: number, extraArea: number): TargetingGeometrySpec {
+  if (extraArea <= 0) {
+    return { range, shape: 'single' };
+  }
+  return {
+    range,
+    shape: 'box',
+    width: 1 + extraArea * 2,
+    height: 1 + extraArea * 2,
+  };
+}
+
+function resolveLineTargetingGeometry(spec: TargetingGeometrySpec, range: number, extraArea: number): TargetingGeometrySpec {
+  return {
+    range,
+    shape: 'line',
+    width: Math.max(1, Math.floor(spec.width ?? 1) + extraArea * 2),
+  };
+}
+
+function resolveAreaTargetingGeometry(spec: TargetingGeometrySpec, range: number, extraArea: number): TargetingGeometrySpec {
+  return {
+    range,
+    shape: 'area',
+    radius: Math.max(0, Math.floor(spec.radius ?? 1) + extraArea),
+  };
+}
+
+function resolveRingTargetingGeometry(spec: TargetingGeometrySpec, range: number, extraArea: number): TargetingGeometrySpec {
+  return {
+    range,
+    shape: 'ring',
+    radius: Math.max(0, Math.floor(spec.radius ?? 1) + extraArea),
+    innerRadius: Math.max(
+      0,
+      Math.floor(spec.innerRadius ?? Math.max((spec.radius ?? 1) - 1, 0)) - extraArea,
+    ),
+  };
+}
+
+function resolveBoxLikeTargetingGeometry(
+  spec: TargetingGeometrySpec,
+  range: number,
+  extraArea: number,
+  shape: 'box' | 'orientedBox' | 'checkerboard',
+): TargetingGeometrySpec {
+  return {
+    range,
+    shape,
+    width: Math.max(1, Math.floor(spec.width ?? 1) + extraArea * 2),
+    height: Math.max(1, Math.floor(spec.height ?? spec.width ?? 1) + extraArea * 2),
+    checkerParity: spec.checkerParity,
+  };
+}
+
+export function resolveTargetingGeometry(
+  spec: TargetingGeometrySpec,
+  resolution?: TargetingGeometryResolution,
+): TargetingGeometrySpec {
+  const shape = normalizeTargetingShape(spec);
+  const range = Math.max(0, Math.floor(resolution?.finalRange ?? spec.range));
+  const extraArea = Math.max(0, Math.floor(resolution?.extraArea ?? 0));
+
+  if (shape === 'single') {
+    return resolveSingleTargetingGeometry(range, extraArea);
+  }
+  if (shape === 'line') {
+    return resolveLineTargetingGeometry(spec, range, extraArea);
+  }
+  if (shape === 'area') {
+    return resolveAreaTargetingGeometry(spec, range, extraArea);
+  }
+  if (shape === 'ring') {
+    return resolveRingTargetingGeometry(spec, range, extraArea);
+  }
+  if (shape === 'box' || shape === 'orientedBox' || shape === 'checkerboard') {
+    return resolveBoxLikeTargetingGeometry(spec, range, extraArea, shape);
+  }
+  return { ...spec, shape, range };
 }
 
 export function buildEffectiveTargetingGeometry(
@@ -167,42 +322,11 @@ export function buildEffectiveTargetingGeometry(
   modifiers?: TargetingGeometryModifiers,
 ): TargetingGeometrySpec {
   const extraRange = Math.max(0, Math.floor(modifiers?.extraRange ?? 0));
-  const extraArea = Math.max(0, Math.floor(modifiers?.extraArea ?? 0));
   const shape = spec.shape ?? 'single';
-  const effective: TargetingGeometrySpec = {
-    ...spec,
-    shape,
-    range: Math.max(0, Math.floor(spec.range) + extraRange),
-  };
-
-  if (extraArea <= 0) {
-    return effective;
-  }
-  if (shape === 'single') {
-    effective.shape = 'box';
-    effective.width = 1 + extraArea * 2;
-    effective.height = 1 + extraArea * 2;
-    return effective;
-  }
-  if (shape === 'line') {
-    effective.width = Math.max(1, Math.floor(spec.width ?? 1) + extraArea * 2);
-    return effective;
-  }
-  if (shape === 'area') {
-    effective.radius = Math.max(0, Math.floor(spec.radius ?? 1) + extraArea);
-    return effective;
-  }
-  if (shape === 'ring') {
-    effective.radius = Math.max(0, Math.floor(spec.radius ?? 1) + extraArea);
-    effective.innerRadius = Math.max(
-      0,
-      Math.floor(spec.innerRadius ?? Math.max((spec.radius ?? 1) - 1, 0)) - extraArea,
-    );
-    return effective;
-  }
-  effective.width = Math.max(1, Math.floor(spec.width ?? 1) + extraArea * 2);
-  effective.height = Math.max(1, Math.floor(spec.height ?? spec.width ?? 1) + extraArea * 2);
-  return effective;
+  return resolveTargetingGeometry({ ...spec, shape }, {
+    finalRange: Math.max(0, Math.floor(spec.range) + extraRange),
+    extraArea: modifiers?.extraArea,
+  });
 }
 
 /** 根据施法者位置、锚点和几何参数，计算受影响的格子列表 */
@@ -225,6 +349,9 @@ export function computeAffectedCellsFromAnchor(
   }
   if (spec.shape === 'box') {
     return getBoxCells(anchor, spec.width ?? 1, spec.height ?? spec.width ?? 1);
+  }
+  if (spec.shape === 'orientedBox') {
+    return getOrientedBoxCells(origin, anchor, spec.width ?? 1, spec.height ?? spec.width ?? 1);
   }
   if (spec.shape === 'checkerboard') {
     return getCheckerboardCells(anchor, spec.width ?? 1, spec.height ?? spec.width ?? 1, spec.checkerParity ?? 'even');

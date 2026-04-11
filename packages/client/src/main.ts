@@ -74,6 +74,7 @@ import {
   ActionDef,
   AccountRedeemCodesRes,
   buildEffectiveTargetingGeometry,
+  resolveTargetingGeometry,
   computeAffectedCellsFromAnchor,
   CONNECTION_RECOVERY_RETRY_MS,
   CURRENT_TIME_REFRESH_MS,
@@ -612,8 +613,13 @@ new ChangelogPanel();
 new TutorialPanel();
 const panelSystem = createClientPanelSystem(window);
 mapRuntime.attach(canvasHost);
-mapRuntime.setMoveHandler((x, y) => {
-  planPathTo({ x, y });
+mapRuntime.setMoveHandler((target) => {
+  if (target.isCurrentMap || myPlayer?.mapId === target.mapId) {
+    planPathTo({ x: target.x, y: target.y });
+    return;
+  }
+  clearCurrentPath();
+  socket.sendNavigateMapPoint(target.mapId, target.x, target.y);
 });
 const targetingBadgeEl = document.getElementById('map-targeting-indicator');
 const observeModalEl = document.getElementById('observe-modal');
@@ -841,6 +847,8 @@ function syncTargetingOverlay() {
         ? ` · 棋盘 ${Math.max(1, geometry.width ?? 1)}x${Math.max(1, geometry.height ?? geometry.width ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
       : geometry.shape === 'box'
         ? ` · 矩形 ${Math.max(1, geometry.width ?? 1)}x${Math.max(1, geometry.height ?? geometry.width ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
+      : geometry.shape === 'orientedBox'
+        ? ` · 定向矩形 ${Math.max(1, geometry.width ?? 1)}x${Math.max(1, geometry.height ?? geometry.width ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
       : geometry.shape === 'area'
         ? ` · 范围半径 ${Math.max(0, geometry.radius ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
         : '';
@@ -896,7 +904,11 @@ function getEffectiveTargetingGeometry(
   if (!skill) {
     return baseSpec;
   }
-  return buildEffectiveTargetingGeometry(baseSpec, getPlayerTargetingModifiers());
+  const modifiers = getPlayerTargetingModifiers();
+  return resolveTargetingGeometry(baseSpec, {
+    finalRange: Math.max(0, Math.floor(baseSpec.range) + Math.max(0, Math.floor(modifiers?.extraRange ?? 0))),
+    extraArea: Math.max(0, Math.floor(modifiers?.extraArea ?? 0)),
+  });
 }
 
 function resolveCurrentTargetingRange(

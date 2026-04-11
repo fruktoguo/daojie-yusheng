@@ -172,7 +172,9 @@
           "costMultiplier": 7,
           "range": 1,
           "targeting": {
-            "shape": "line",
+            "shape": "orientedBox",
+            "width": 3,
+            "height": 1,
             "maxTargets": 3
           },
           "targetMode": "tile",
@@ -4542,7 +4544,9 @@
           "costMultiplier": 8,
           "range": 3,
           "targeting": {
-            "shape": "line",
+            "shape": "orientedBox",
+            "width": 3,
+            "height": 1,
             "maxTargets": 3
           },
           "targetMode": "tile",
@@ -8467,6 +8471,10 @@
           "cooldown": 16,
           "costMultiplier": 8,
           "range": 4,
+          "targeting": {
+            "shape": "line",
+            "maxTargets": 4
+          },
           "effects": [
             {
               "type": "damage",

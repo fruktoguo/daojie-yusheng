@@ -1375,7 +1375,9 @@
         "costMultiplier": 8,
         "range": 3,
         "targeting": {
-          "shape": "line",
+          "shape": "orientedBox",
+          "width": 3,
+          "height": 1,
           "maxTargets": 3
         },
         "targetMode": "tile",

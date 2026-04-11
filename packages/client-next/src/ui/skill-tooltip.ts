@@ -666,6 +666,11 @@ function formatTargeting(skill: SkillDef): string {
     const height = skill.targeting?.height ?? width;
     return `矩形，范围 ${formatDisplayInteger(width)}x${formatDisplayInteger(height)}，最多命中 ${formatDisplayInteger(skill.targeting?.maxTargets ?? 99)} 个目标`;
   }
+  if (shape === 'orientedBox') {
+    const width = skill.targeting?.width ?? 1;
+    const height = skill.targeting?.height ?? width;
+    return `定向矩形，范围 ${formatDisplayInteger(width)}x${formatDisplayInteger(height)}，最多命中 ${formatDisplayInteger(skill.targeting?.maxTargets ?? 99)} 个目标`;
+  }
   return skill.targetMode === 'tile' ? '单体地块' : '单体';
 }
 
