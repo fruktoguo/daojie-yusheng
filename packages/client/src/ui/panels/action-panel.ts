@@ -1230,7 +1230,7 @@ export class ActionPanel {
     const rowAttrs = isAutoBattleSkill && options?.showDragHandle
       ? ` data-auto-battle-skill-row="${action.id}"`
       : '';
-    const clickableCardAttrs = action.id === 'alchemy:open'
+    const clickableCardAttrs = action.id === 'alchemy:open' || action.id === 'enhancement:open'
       ? ` data-action-card="${action.id}" role="button" tabindex="0"`
       : '';
     const autoBattleMeta = isAutoBattleSkill

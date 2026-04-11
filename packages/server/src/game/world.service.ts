@@ -107,6 +107,7 @@ import { TechniqueService } from './technique.service';
 import { ThreatService } from './threat.service';
 import { TimeService } from './time.service';
 import { AlchemyService } from './alchemy.service';
+import { EnhancementService } from './enhancement.service';
 import {
   buildMonsterInitialBuffSourceId,
   dehydrateTemporaryBuff,
@@ -507,6 +508,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     private readonly threatService: ThreatService,
     private readonly persistentDocumentService: PersistentDocumentService,
     private readonly alchemyService: AlchemyService,
+    private readonly enhancementService: EnhancementService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -822,6 +824,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (alchemyAction) {
       actions.push(alchemyAction);
     }
+    const enhancementAction = this.enhancementService.getEnhancementAction(player);
+    if (enhancementAction) {
+      actions.push(enhancementAction);
+    }
 
     const portal = this.mapService.getPortalNear(player.mapId, player.x, player.y, 1, { trigger: 'manual' });
     if (portal && !portal.hidden) {
@@ -930,8 +936,14 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       return {
         itemId: item.itemId,
         count: Math.max(1, Math.floor(item.count)),
+        name: item.enhanceLevel && item.enhanceLevel > 0 ? item.name : undefined,
+        equipAttrs: item.enhanceLevel && item.enhanceLevel > 0 && item.equipAttrs ? structuredClone(item.equipAttrs) : undefined,
+        equipStats: item.enhanceLevel && item.enhanceLevel > 0 && item.equipStats ? structuredClone(item.equipStats) : undefined,
+        equipValueStats: item.enhanceLevel && item.enhanceLevel > 0 && item.equipValueStats ? structuredClone(item.equipValueStats) : undefined,
+        enhanceLevel: item.enhanceLevel,
         alchemySuccessRate: item.alchemySuccessRate,
         alchemySpeedRate: item.alchemySpeedRate,
+        enhancementSpeedRate: item.enhancementSpeedRate,
         mapUnlockId: item.mapUnlockId,
         tileAuraGainAmount: item.tileAuraGainAmount,
         allowBatchUse: item.allowBatchUse,
@@ -952,8 +964,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       equipValueStats: item.equipValueStats ? structuredClone(item.equipValueStats) : undefined,
       effects: item.effects ? structuredClone(item.effects) : undefined,
       tags: item.tags ? [...item.tags] : undefined,
+      enhanceLevel: item.enhanceLevel,
       alchemySuccessRate: item.alchemySuccessRate,
       alchemySpeedRate: item.alchemySpeedRate,
+      enhancementSpeedRate: item.enhancementSpeedRate,
       mapUnlockId: item.mapUnlockId,
       tileAuraGainAmount: item.tileAuraGainAmount,
       allowBatchUse: item.allowBatchUse,

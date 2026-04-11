@@ -484,8 +484,10 @@ export interface ItemStack {
   cooldown?: number;
   consumeBuffs?: ConsumableBuffDef[];
   tags?: string[];
+  enhanceLevel?: number;
   alchemySuccessRate?: number;
   alchemySpeedRate?: number;
+  enhancementSpeedRate?: number;
   mapUnlockId?: string;
   tileAuraGainAmount?: number;
   allowBatchUse?: boolean;
@@ -506,10 +508,13 @@ export interface AlchemyRecipeIngredientDef extends AlchemyIngredientSelection {
   powerPerUnit: number;
 }
 
+export type AlchemyRecipeCategory = 'recovery' | 'buff';
+
 export interface AlchemyRecipeCatalogEntry {
   recipeId: string;
   outputItemId: string;
   outputName: string;
+  category: AlchemyRecipeCategory;
   outputCount: number;
   outputLevel: number;
   baseBrewTicks: number;
@@ -557,6 +562,75 @@ export interface SyncedAlchemyPanelState {
   furnaceItemId?: string;
   presets: PlayerAlchemyPreset[];
   job: PlayerAlchemyJob | null;
+}
+
+export interface EnhancementMaterialRequirement {
+  itemId: string;
+  count: number;
+}
+
+export interface EquipmentEnhancementStepConfig {
+  targetEnhanceLevel: number;
+  materials?: EnhancementMaterialRequirement[];
+}
+
+export interface EquipmentEnhancementConfig {
+  targetItemId: string;
+  protectionItemId?: string;
+  steps: EquipmentEnhancementStepConfig[];
+}
+
+export interface EnhancementTargetRef {
+  source: 'inventory' | 'equipment';
+  slotIndex?: number;
+  slot?: EquipSlot;
+}
+
+export interface PlayerEnhancementLevelRecord {
+  targetLevel: number;
+  successCount: number;
+  failureCount: number;
+}
+
+export interface PlayerEnhancementRecord {
+  itemId: string;
+  highestLevel: number;
+  levels: PlayerEnhancementLevelRecord[];
+}
+
+export interface SyncedEnhancementProtectionCandidate {
+  ref: EnhancementTargetRef;
+  item: ItemStack;
+}
+
+export interface SyncedEnhancementRequirementView {
+  itemId: string;
+  name: string;
+  count: number;
+  ownedCount: number;
+}
+
+export interface SyncedEnhancementCandidateView {
+  ref: EnhancementTargetRef;
+  item: ItemStack;
+  currentLevel: number;
+  nextLevel: number | null;
+  maxLevel: number;
+  spiritStoneCost: number;
+  successRate?: number;
+  actionCooldownTicks: number;
+  materials: SyncedEnhancementRequirementView[];
+  protectionItemId?: string;
+  protectionItemName?: string;
+  allowSelfProtection: boolean;
+  protectionCandidates: SyncedEnhancementProtectionCandidate[];
+}
+
+export interface SyncedEnhancementPanelState {
+  hammerItemId?: string;
+  actionCooldownLeft: number;
+  candidates: SyncedEnhancementCandidateView[];
+  records: PlayerEnhancementRecord[];
 }
 
 /** 背包 */
@@ -1546,6 +1620,7 @@ export interface PlayerState {
   alchemySkill?: AlchemySkillState;
   alchemyPresets?: PlayerAlchemyPreset[];
   alchemyJob?: PlayerAlchemyJob | null;
+  enhancementRecords?: PlayerEnhancementRecord[];
 }
 
 /** 意见状态 */

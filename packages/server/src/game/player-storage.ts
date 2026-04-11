@@ -31,6 +31,7 @@ import {
   WORLD_DARKNESS_BUFF_DURATION,
   WORLD_DARKNESS_BUFF_ID,
   WORLD_TIME_SOURCE_ID,
+  normalizeEnhanceLevel,
   normalizeBodyTrainingState,
 } from '@mud/shared';
 import {
@@ -56,10 +57,12 @@ import {
 interface PersistedInventoryItem {
   itemId: string;
   count: number;
+  enhanceLevel?: number;
 }
 
 interface PersistedEquipmentItem {
   itemId: string;
+  enhanceLevel?: number;
 }
 
 interface PersistedTechniqueItem {
@@ -175,7 +178,10 @@ function hydrateItemStack(snapshot: unknown, contentService: ContentService, cou
   const count = countOverride ?? normalizePositiveInt(snapshot.count, 1);
   const hydrated = contentService.createItem(snapshot.itemId, count);
   if (hydrated) {
-    return hydrated;
+    return contentService.normalizeItemStack({
+      ...hydrated,
+      enhanceLevel: normalizeEnhanceLevel(snapshot.enhanceLevel),
+    });
   }
 
   return {
@@ -192,20 +198,27 @@ function hydrateItemStack(snapshot: unknown, contentService: ContentService, cou
     equipStats: isPlainObject(snapshot.equipStats) ? snapshot.equipStats as ItemStack['equipStats'] : undefined,
     effects: Array.isArray(snapshot.effects) ? snapshot.effects as ItemStack['effects'] : undefined,
     tags: Array.isArray(snapshot.tags) ? snapshot.tags.filter((entry): entry is string => typeof entry === 'string' && entry.length > 0) : undefined,
+    enhanceLevel: normalizeEnhanceLevel(snapshot.enhanceLevel),
   };
 }
 
 function dehydrateInventoryItem(item: ItemStack, contentService: ContentService): PersistedInventoryEntry {
   const count = normalizePositiveInt(item.count, 1);
   if (contentService.getItem(item.itemId)) {
-    return { itemId: item.itemId, count };
+    const enhanceLevel = normalizeEnhanceLevel(item.enhanceLevel);
+    return enhanceLevel > 0
+      ? { itemId: item.itemId, count, enhanceLevel }
+      : { itemId: item.itemId, count };
   }
   return { ...item, count };
 }
 
 function dehydrateEquipmentItem(item: ItemStack, contentService: ContentService): PersistedEquipmentEntry {
   if (contentService.getItem(item.itemId)) {
-    return { itemId: item.itemId };
+    const enhanceLevel = normalizeEnhanceLevel(item.enhanceLevel);
+    return enhanceLevel > 0
+      ? { itemId: item.itemId, enhanceLevel }
+      : { itemId: item.itemId };
   }
   return { ...item, count: 1 };
 }

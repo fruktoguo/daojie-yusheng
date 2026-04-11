@@ -1,0 +1,28 @@
+[
+  {
+    "targetItemId": "equip.copper_enhancement_hammer",
+    "steps": [
+      { "targetEnhanceLevel": 1 },
+      { "targetEnhanceLevel": 2 },
+      { "targetEnhanceLevel": 3 },
+      { "targetEnhanceLevel": 4 },
+      { "targetEnhanceLevel": 5 },
+      { "targetEnhanceLevel": 6 },
+      { "targetEnhanceLevel": 7 },
+      { "targetEnhanceLevel": 8 }
+    ]
+  },
+  {
+    "targetItemId": "equip.copper_pill_furnace",
+    "steps": [
+      { "targetEnhanceLevel": 1 },
+      { "targetEnhanceLevel": 2 },
+      { "targetEnhanceLevel": 3 },
+      { "targetEnhanceLevel": 4 },
+      { "targetEnhanceLevel": 5 },
+      { "targetEnhanceLevel": 6 },
+      { "targetEnhanceLevel": 7 },
+      { "targetEnhanceLevel": 8 }
+    ]
+  }
+]

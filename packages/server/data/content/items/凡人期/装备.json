@@ -1171,6 +1171,23 @@
     ]
   },
   {
+    "itemId": "equip.copper_enhancement_hammer",
+    "name": "铜强化锤",
+    "type": "equipment",
+    "grade": "yellow",
+    "level": 2,
+    "desc": "锤头嵌着稳灵铜片，敲击时能短暂收束器物灵纹，正适合初学者用来打底强化。",
+    "equipSlot": "weapon",
+    "tags": [
+      "enhancement_hammer"
+    ],
+    "equipValueStats": {
+      "physAtk": 4,
+      "hit": 1
+    },
+    "enhancementSpeedRate": 0.2
+  },
+  {
     "itemId": "equip.copper_pill_furnace",
     "name": "铜胎丹炉",
     "type": "equipment",
@@ -1184,6 +1201,8 @@
     "equipValueStats": {
       "qiRegenRate": 40,
       "resolvePower": 1
-    }
+    },
+    "alchemySuccessRate": 0.1,
+    "alchemySpeedRate": 0.2
   }
 ]

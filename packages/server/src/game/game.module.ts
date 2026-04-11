@@ -50,6 +50,7 @@ import { RedeemCodeEntity } from '../database/entities/redeem-code.entity';
 import { RedeemCodeService } from './redeem-code.service';
 import { LeaderboardService } from './leaderboard.service';
 import { AlchemyService } from './alchemy.service';
+import { EnhancementService } from './enhancement.service';
 
 @Module({
   imports: [
@@ -99,6 +100,7 @@ import { AlchemyService } from './alchemy.service';
     RedeemCodeService,
     LeaderboardService,
     AlchemyService,
+    EnhancementService,
     PathRequestSchedulerService,
     PathWorkerPoolService,
     DatabaseBackupService,

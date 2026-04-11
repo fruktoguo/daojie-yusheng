@@ -175,6 +175,10 @@ export class PlayerEntity {
   @Column({ type: 'jsonb', default: () => '\'null\'' })
   alchemyJob!: unknown | null;
 
+  /** 装备强化历史记录 */
+  @Column({ type: 'jsonb', default: () => '\'[]\'' })
+  enhancementRecords!: unknown[];
+
   /** 是否开启自动战斗 */
   @Column({ type: 'boolean', default: false })
   autoBattle!: boolean;

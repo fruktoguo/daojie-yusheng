@@ -12,12 +12,14 @@ import {
   AutoBattleSkillConfig,
   AutoUsePillConfig,
   buildDefaultCombatTargetingRules,
+  C2S_StartEnhancement,
   DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS,
   CombatEffect,
   DEFAULT_AURA_LEVEL_BASE_VALUE,
   DEFAULT_PLAYER_MAP_ID,
   DEFAULT_OFFLINE_PLAYER_TIMEOUT_SEC,
   Direction,
+  ENHANCEMENT_ACTION_ID,
   EQUIP_SLOTS,
   EquipmentSlots,
   EquipmentSlotUpdateEntry,
@@ -118,6 +120,7 @@ import {
   MOLTEN_POOL_BURN_SOURCE_ID,
 } from '../constants/gameplay/terrain-effects';
 import { AlchemyService } from './alchemy.service';
+import { EnhancementService } from './enhancement.service';
 
 /** 上一次发送给各玩家的 tick 快照，用于增量比对 */
 interface LastSentTickState {
@@ -218,6 +221,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   private lastSentVisibleTiles: Map<string, Map<string, VisibleTile>> = new Map();
   private lastSentRenderEntities: Map<string, Map<string, RenderEntity>> = new Map();
   private pendingAlchemyPanelPushPlayers: Set<string> = new Set();
+  private pendingEnhancementPanelPushPlayers: Set<string> = new Set();
   private lastPeriodicSyncAt: Map<string, number> = new Map();
   private forcedTickSyncPlayers: Set<string> = new Set();
   private autoUsePillInstantCooldowns: Map<string, Partial<Record<'hp' | 'qi', number>>> = new Map();
@@ -248,6 +252,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     private readonly lootService: LootService,
     private readonly worldService: WorldService,
     private readonly alchemyService: AlchemyService,
+    private readonly enhancementService: EnhancementService,
     private readonly timeService: TimeService,
     private readonly qiProjectionService: QiProjectionService,
     private readonly mailService: MailService,
@@ -279,6 +284,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     this.lastSentEquipmentStates.delete(playerId);
     this.cooldownOnlyActionDirtyPlayers.delete(playerId);
     this.pendingAlchemyPanelPushPlayers.delete(playerId);
+    this.pendingEnhancementPanelPushPlayers.delete(playerId);
   }
 
   /** 切图时仅重置地图可见性与 AOI 相关缓存，避免面板差量缓存回退到整包 */
@@ -1072,6 +1078,41 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           });
           break;
         }
+        case 'startEnhancement': {
+          this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+            const result = this.enhancementService.enhance(
+              player,
+              cmd.data as C2S_StartEnhancement,
+            );
+            if (result.error) {
+              messages.push({ playerId: player.id, text: result.error, kind: 'system' });
+              return;
+            }
+            if (result.equipmentChanged) {
+              this.equipmentService.rebuildBonuses(player);
+            }
+            if (result.inventoryChanged) {
+              this.playerService.markDirty(player.id, 'inv');
+            }
+            if (result.equipmentChanged) {
+              this.playerService.markDirty(player.id, 'equip');
+            }
+            if (result.attrChanged) {
+              this.playerService.markDirty(player.id, 'attr');
+            }
+            if (result.panelChanged) {
+              this.pendingEnhancementPanelPushPlayers.add(player.id);
+            }
+            if (typeof result.cooldownTicks === 'number' && result.cooldownTicks > 0) {
+              this.actionService.beginFixedCooldown(player, ENHANCEMENT_ACTION_ID, result.cooldownTicks);
+              this.markActionCooldownDirty(player.id);
+            }
+            for (const message of result.messages) {
+              messages.push({ playerId: player.id, text: message.text, kind: message.kind ?? 'system' });
+            }
+          });
+          break;
+        }
         case 'mailRead': {
           this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
             this.mailService.applyPreparedMarkRead(
@@ -1322,6 +1363,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
     this.flushDirtyUpdates([...affectedPlayers.values()]);
     this.flushAlchemyPanels();
+    this.flushEnhancementPanels();
     this.measureCpuSection('broadcast_messages', '广播: 系统消息分发', () => {
       this.flushMessages(messages);
     });
@@ -2603,6 +2645,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         const equipErr = this.equipmentService.equip(player, slotIndex);
         if (!equipErr) {
           this.markDirty(player.id, ['inv', 'equip', 'attr']);
+          this.markActionsDirty(player.id);
         } else {
           messages.push({ playerId: player.id, text: equipErr, kind: 'system' });
         }
@@ -2621,6 +2664,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         const unequipErr = this.equipmentService.unequip(player, slot as any);
         if (!unequipErr) {
           this.markDirty(player.id, ['inv', 'equip', 'attr']);
+          this.markActionsDirty(player.id);
         } else {
           messages.push({ playerId: player.id, text: unequipErr, kind: 'system' });
         }
@@ -2742,6 +2786,22 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       return;
     }
     socket.emit(S2C.AlchemyPanel, this.alchemyService.buildPanelPayload(player, this.alchemyService.getCatalogVersion()));
+  }
+
+  private flushEnhancementPanels(): void {
+    for (const playerId of [...this.pendingEnhancementPanelPushPlayers]) {
+      this.flushPlayerEnhancementPanel(playerId);
+    }
+  }
+
+  private flushPlayerEnhancementPanel(playerId: string): void {
+    this.pendingEnhancementPanelPushPlayers.delete(playerId);
+    const player = this.playerService.getPlayer(playerId);
+    const socket = player ? this.playerService.getSocket(playerId) : null;
+    if (!player || !socket) {
+      return;
+    }
+    socket.emit(S2C.EnhancementPanel, this.enhancementService.buildPanelPayload(player));
   }
 
   /** 推送单个玩家的脏标记数据并清除标记 */
@@ -3719,9 +3779,15 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       return {
         itemId: item.itemId,
         count,
+        name: item.enhanceLevel && item.enhanceLevel > 0 ? item.name : undefined,
+        equipAttrs: item.enhanceLevel && item.enhanceLevel > 0 && item.equipAttrs ? this.cloneStructured(item.equipAttrs) : undefined,
+        equipStats: item.enhanceLevel && item.enhanceLevel > 0 && item.equipStats ? this.cloneStructured(item.equipStats) : undefined,
+        equipValueStats: item.enhanceLevel && item.enhanceLevel > 0 && item.equipValueStats ? this.cloneStructured(item.equipValueStats) : undefined,
         cooldown: item.cooldown,
+        enhanceLevel: item.enhanceLevel,
         alchemySuccessRate: item.alchemySuccessRate,
         alchemySpeedRate: item.alchemySpeedRate,
+        enhancementSpeedRate: item.enhancementSpeedRate,
         mapUnlockId: item.mapUnlockId,
         tileAuraGainAmount: item.tileAuraGainAmount,
         allowBatchUse: item.allowBatchUse,
@@ -3743,8 +3809,10 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       effects: item.effects ? this.cloneStructured(item.effects) : undefined,
       tags: item.tags ? [...item.tags] : undefined,
       cooldown: item.cooldown,
+      enhanceLevel: item.enhanceLevel,
       alchemySuccessRate: item.alchemySuccessRate,
       alchemySpeedRate: item.alchemySpeedRate,
+      enhancementSpeedRate: item.enhancementSpeedRate,
       mapUnlockId: item.mapUnlockId,
       tileAuraGainAmount: item.tileAuraGainAmount,
       allowBatchUse: item.allowBatchUse,

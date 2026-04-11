@@ -49,19 +49,26 @@ function renderPlainLine(label: string, value: string): string {
 
 function resolveMedicineCategoryLabel(item: ItemStack): string | null {
   const tags = item.tags ?? [];
+  const labels: string[] = [];
   if (tags.includes('生命回复')) {
-    return '生命回复';
+    labels.push('生命回复');
   }
-  if (tags.includes('灵力回复')) {
-    return '灵力回复';
+  if (tags.includes('灵力回复') && !labels.includes('灵力回复')) {
+    labels.push('灵力回复');
   }
-  if (tags.includes('增益')) {
-    return '增益';
+  if (tags.includes('增益') && !labels.includes('增益')) {
+    labels.push('增益');
   }
-  if (tags.includes('特殊')) {
-    return '特殊';
+  if (tags.includes('特殊') && !labels.includes('特殊')) {
+    labels.push('特殊');
   }
-  return null;
+  if (tags.includes('药材') && !labels.includes('药材')) {
+    labels.push('药材');
+  }
+  if (tags.includes('异材') && !labels.includes('异材')) {
+    labels.push('异材');
+  }
+  return labels.length > 0 ? labels.join(' / ') : null;
 }
 
 function normalizeBuffMark(name: string, shortMark?: string): string {
@@ -368,9 +375,24 @@ export function describeItemEffectDetails(item: ItemStack): string[] {
   return buildConsumableEffectDetails(previewItem);
 }
 
+function describeEquipmentUtilityBonuses(item: ItemStack): string[] {
+  const lines: string[] = [];
+  if (typeof item.alchemySpeedRate === 'number' && item.alchemySpeedRate !== 0) {
+    lines.push(`炼丹速度 ${item.alchemySpeedRate > 0 ? '+' : ''}${formatDisplayPercent(item.alchemySpeedRate * 100)}`);
+  }
+  if (typeof item.alchemySuccessRate === 'number' && item.alchemySuccessRate !== 0) {
+    lines.push(`炼丹成功 ${item.alchemySuccessRate > 0 ? '+' : ''}${formatDisplayPercent(item.alchemySuccessRate * 100)}`);
+  }
+  if (typeof item.enhancementSpeedRate === 'number' && item.enhancementSpeedRate !== 0) {
+    lines.push(`强化速度 ${item.enhancementSpeedRate > 0 ? '+' : ''}${formatDisplayPercent(item.enhancementSpeedRate * 100)}`);
+  }
+  return lines;
+}
+
 function buildEquipmentComparisonAsideCard(item: ItemStack): SkillTooltipAsideCard {
   const previewItem = resolvePreviewItem(item);
   const staticLines = describeBuffStats(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats);
+  const utilityLines = describeEquipmentUtilityBonuses(previewItem);
   const effectLines = (previewItem.effects ?? []).flatMap((effect) => buildPlainEffectSummary(effect));
   return {
     mark: '装',
@@ -379,6 +401,7 @@ function buildEquipmentComparisonAsideCard(item: ItemStack): SkillTooltipAsideCa
       previewItem.name,
       ...(previewItem.equipSlot ? [`部位：${getEquipSlotLabel(previewItem.equipSlot)}`] : []),
       ...(staticLines.length > 0 ? [`静态词条：${staticLines.join('，')}`] : []),
+      ...utilityLines,
       ...effectLines,
     ],
     tone: 'buff',
@@ -464,6 +487,7 @@ export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipCo
 
   const staticLines = [
     ...describeBuffStats(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats),
+    ...describeEquipmentUtilityBonuses(previewItem),
   ];
   const effectSummaries = (previewItem.effects ?? []).map((effect) => buildEffectSummary(effect));
   const lines: string[] = [

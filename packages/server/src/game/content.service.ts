@@ -5,6 +5,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
+  applyEnhancementToItemStack,
   compileValueStatsToActualStats,
   createItemStackSignature,
   ATTR_KEYS,
@@ -65,6 +66,7 @@ import {
   resolveMonsterNumericStatsFromAttributes,
   resolveSkillUnlockLevel,
   resolveMonsterNumericStatsFromValueStats,
+  normalizeEnhanceLevel,
 } from '@mud/shared';
 import {
   EQUIPMENT_TRIGGERS,
@@ -123,8 +125,10 @@ export interface EditorItemCatalogEntry {
   qiPercent?: number;
   cooldown?: number;
   consumeBuffs?: ConsumableBuffDef[];
+  enhanceLevel?: number;
   alchemySuccessRate?: number;
   alchemySpeedRate?: number;
+  enhancementSpeedRate?: number;
   respawnBindMapId?: string;
   mapUnlockId?: string;
   tileAuraGainAmount?: number;
@@ -741,7 +745,7 @@ export class ContentService implements OnModuleInit {
   }
 
   private createItemStackFromTemplate(item: ItemTemplate, count = 1): ItemStack {
-    return {
+    return applyEnhancementToItemStack({
       itemId: item.itemId,
       name: item.name,
       type: item.type,
@@ -761,12 +765,14 @@ export class ContentService implements OnModuleInit {
       cooldown: item.cooldown,
       consumeBuffs: item.consumeBuffs,
       tags: item.tags,
+      enhanceLevel: normalizeEnhanceLevel(item.enhanceLevel),
       alchemySuccessRate: item.alchemySuccessRate,
       alchemySpeedRate: item.alchemySpeedRate,
+      enhancementSpeedRate: item.enhancementSpeedRate,
       mapUnlockId: item.mapUnlockId,
       tileAuraGainAmount: item.tileAuraGainAmount,
       allowBatchUse: item.allowBatchUse,
-    };
+    });
   }
 
   private normalizeMonsterEquipment(rawEquipment: unknown, monsterId: string): EquipmentSlots {
@@ -1292,11 +1298,15 @@ export class ContentService implements OnModuleInit {
           ? Math.max(0, Math.floor(Number(raw.cooldown)))
           : undefined,
         consumeBuffs: this.normalizeConsumableBuffs(raw.consumeBuffs),
+        enhanceLevel: 0,
         alchemySuccessRate: Number.isFinite(raw.alchemySuccessRate)
           ? Math.max(-0.95, Number(raw.alchemySuccessRate))
           : undefined,
         alchemySpeedRate: Number.isFinite(raw.alchemySpeedRate)
           ? Math.max(-0.95, Number(raw.alchemySpeedRate))
+          : undefined,
+        enhancementSpeedRate: Number.isFinite(raw.enhancementSpeedRate)
+          ? Math.max(-0.95, Number(raw.enhancementSpeedRate))
           : undefined,
         respawnBindMapId: typeof raw.respawnBindMapId === 'string' && raw.respawnBindMapId.trim().length > 0
           ? raw.respawnBindMapId.trim()
@@ -1476,8 +1486,10 @@ export class ContentService implements OnModuleInit {
         qiPercent: item.qiPercent,
         cooldown: item.cooldown,
         consumeBuffs: item.consumeBuffs ? JSON.parse(JSON.stringify(item.consumeBuffs)) as ConsumableBuffDef[] : undefined,
+        enhanceLevel: item.enhanceLevel,
         alchemySuccessRate: item.alchemySuccessRate,
         alchemySpeedRate: item.alchemySpeedRate,
+        enhancementSpeedRate: item.enhancementSpeedRate,
         mapUnlockId: item.mapUnlockId,
         tileAuraGainAmount: item.tileAuraGainAmount,
         allowBatchUse: item.allowBatchUse,
@@ -1976,13 +1988,17 @@ export class ContentService implements OnModuleInit {
   normalizeItemStack(item: ItemStack): ItemStack {
     const normalized = this.createItem(item.itemId, item.count);
     if (!normalized) {
-      return { ...item };
+      return applyEnhancementToItemStack({
+        ...item,
+        enhanceLevel: normalizeEnhanceLevel(item.enhanceLevel),
+      });
     }
-    return {
+    return applyEnhancementToItemStack({
       ...item,
       ...normalized,
       count: normalized.count,
-    };
+      enhanceLevel: normalizeEnhanceLevel(item.enhanceLevel),
+    });
   }
 
   /** 规范化背包：合并同类物品、补全模板数据 */
@@ -2116,8 +2132,10 @@ export class ContentService implements OnModuleInit {
           : undefined,
         tags: item.tags ? [...item.tags] : undefined,
         effects: item.effects ? JSON.parse(JSON.stringify(item.effects)) as EquipmentEffectDef[] : undefined,
+        enhanceLevel: item.enhanceLevel,
         alchemySuccessRate: item.alchemySuccessRate,
         alchemySpeedRate: item.alchemySpeedRate,
+        enhancementSpeedRate: item.enhancementSpeedRate,
       }))
       .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'));
   }

@@ -37,6 +37,7 @@ import { LeaderboardModal } from './ui/leaderboard-modal';
 import { getMonsterPresentation } from './monster-presentation';
 import { NpcShopModal } from './ui/npc-shop-modal';
 import { AlchemyModal } from './ui/alchemy-modal';
+import { EnhancementModal } from './ui/enhancement-modal';
 import { getHeavenGateHudAction, openHeavenGateModal, refreshHeavenGateModal } from './ui/heaven-gate-modal';
 import { initializeUiStyleConfig } from './ui/ui-style-config';
 import { createClientPanelSystem } from './ui/panel-system/bootstrap';
@@ -605,6 +606,7 @@ const marketPanel = new MarketPanel();
 const actionPanel = new ActionPanel();
 const npcShopModal = new NpcShopModal();
 const alchemyModal = new AlchemyModal();
+const enhancementModal = new EnhancementModal();
 const lootPanel = new LootPanel();
 const worldPanel = new WorldPanel();
 const leaderboardModal = new LeaderboardModal();
@@ -1555,7 +1557,10 @@ function mergeTechniquePatch(patch: TechniqueUpdateEntry, previous?: TechniqueSt
 }
 
 function hydrateSyncedItemStack(item: SyncedItemStack, previous?: Inventory['items'][number]): Inventory['items'][number] {
-  const previousSameItem = previous?.itemId === item.itemId ? previous : undefined;
+  const nextEnhanceLevel = item.enhanceLevel ?? 0;
+  const previousSameItem = previous?.itemId === item.itemId && (previous.enhanceLevel ?? 0) === nextEnhanceLevel
+    ? previous
+    : undefined;
   const template = getLocalItemTemplate(item.itemId);
   return {
     itemId: item.itemId,
@@ -1603,8 +1608,10 @@ function hydrateSyncedItemStack(item: SyncedItemStack, previous?: Inventory['ite
           ? [...template.tags]
           : undefined,
     cooldown: item.cooldown ?? previousSameItem?.cooldown ?? template?.cooldown,
+    enhanceLevel: item.enhanceLevel ?? previousSameItem?.enhanceLevel ?? 0,
     alchemySuccessRate: item.alchemySuccessRate ?? previousSameItem?.alchemySuccessRate ?? template?.alchemySuccessRate,
     alchemySpeedRate: item.alchemySpeedRate ?? previousSameItem?.alchemySpeedRate ?? template?.alchemySpeedRate,
+    enhancementSpeedRate: item.enhancementSpeedRate ?? previousSameItem?.enhancementSpeedRate ?? template?.enhancementSpeedRate,
     mapUnlockId: item.mapUnlockId ?? previousSameItem?.mapUnlockId,
     tileAuraGainAmount: item.tileAuraGainAmount ?? previousSameItem?.tileAuraGainAmount,
     allowBatchUse: item.allowBatchUse ?? previousSameItem?.allowBatchUse,
@@ -2282,6 +2289,10 @@ alchemyModal.setCallbacks({
   onStartAlchemy: (payload) => socket.sendStartAlchemy(payload),
   onCancelAlchemy: () => socket.sendCancelAlchemy(),
 });
+enhancementModal.setCallbacks({
+  onRequestPanel: () => socket.sendRequestEnhancementPanel(),
+  onStartEnhancement: (payload) => socket.sendStartEnhancement(payload),
+});
 actionPanel.setCallbacks(
   (actionId, requiresTarget, targetMode, range, actionName) => {
     if (actionId === 'client:take') {
@@ -2304,6 +2315,12 @@ actionPanel.setCallbacks(
       cancelTargeting();
       hideObserveModal();
       alchemyModal.open();
+      return;
+    }
+    if (actionId === 'enhancement:open') {
+      cancelTargeting();
+      hideObserveModal();
+      enhancementModal.open();
       return;
     }
     if (requiresTarget) {
@@ -2500,6 +2517,7 @@ socket.onInventoryUpdate((data) => {
   marketPanel.syncInventory(mergedInventory);
   npcShopModal.syncInventory(mergedInventory);
   alchemyModal.syncInventory(mergedInventory);
+  enhancementModal.syncInventory(mergedInventory);
 });
 socket.onEquipmentUpdate((data) => {
   const mergedEquipment = mergeEquipmentUpdate(myPlayer?.equipment, data);
@@ -2509,6 +2527,7 @@ socket.onEquipmentUpdate((data) => {
   }
   equipmentPanel.update(mergedEquipment);
   alchemyModal.syncEquipment(mergedEquipment);
+  enhancementModal.syncEquipment(mergedEquipment);
 });
 socket.onTechniqueUpdate((data) => {
   const mergedTechniques = resolvePreviewTechniques(
@@ -2605,6 +2624,7 @@ socket.onActionsUpdate((data) => {
   } else {
     actionPanel.syncDynamic(mergedActions, nextAutoBattle, nextAutoRetaliate, myPlayer ?? undefined);
   }
+  enhancementModal.syncActions(mergedActions);
   syncSenseQiOverlay();
 });
 socket.onLootWindowUpdate((data) => {
@@ -3339,6 +3359,7 @@ function resetGameState() {
   actionPanel.clear();
   npcShopModal.clear();
   alchemyModal.clear();
+  enhancementModal.clear();
   lootPanel.clear();
   worldPanel.clear();
   mailPanel.clear();
@@ -3631,6 +3652,7 @@ socket.onInit((data: S2C_Init) => {
   questPanel.initFromPlayer(myPlayer);
   npcShopModal.initFromPlayer(myPlayer);
   alchemyModal.initFromPlayer(myPlayer);
+  enhancementModal.initFromPlayer(myPlayer);
   actionPanel.initFromPlayer(myPlayer);
   refreshUiChrome();
   mailPanel.setPlayerId(myPlayer.id);
@@ -3703,6 +3725,9 @@ socket.onNpcShop((data) => {
 });
 socket.onAlchemyPanel((data) => {
   alchemyModal.updatePanel(data);
+});
+socket.onEnhancementPanel((data) => {
+  enhancementModal.updatePanel(data);
 });
 
 // Tick 更新

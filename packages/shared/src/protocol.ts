@@ -3,7 +3,7 @@
  * C2S = 客户端→服务端，S2C = 服务端→客户端。
  */
 import type { ElementKey } from './numeric';
-import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerSpecialStats, QuestState, CombatEffect, AutoBattleSkillConfig, AutoBattleTargetingMode, AutoUsePillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, MonsterInitialBuffDef, MonsterTier, NumericStatPercentages, TechniqueCategory, TechniqueGrade, GroundItemPileView, LootSearchProgressView, VisibleBuffState, TemporaryBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, LootSourceKind, LootSourceVariant, LootWindowHerbMeta, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, ConsumableBuffDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MarketPriceLevelView, MarketOrderSide, MapRouteDomain, PortalRouteDomain, MailSummaryView, MailPageView, MailDetailView, MailFilter, MailTemplateArg, MailAttachment, BodyTrainingState, AlchemyIngredientSelection, AlchemyRecipeCatalogEntry, SyncedAlchemyPanelState } from './types';
+import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerSpecialStats, QuestState, CombatEffect, AutoBattleSkillConfig, AutoBattleTargetingMode, AutoUsePillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, MonsterInitialBuffDef, MonsterTier, NumericStatPercentages, TechniqueCategory, TechniqueGrade, GroundItemPileView, LootSearchProgressView, VisibleBuffState, TemporaryBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, LootSourceKind, LootSourceVariant, LootWindowHerbMeta, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, ConsumableBuffDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MarketPriceLevelView, MarketOrderSide, MapRouteDomain, PortalRouteDomain, MailSummaryView, MailPageView, MailDetailView, MailFilter, MailTemplateArg, MailAttachment, BodyTrainingState, AlchemyIngredientSelection, AlchemyRecipeCatalogEntry, SyncedAlchemyPanelState, EnhancementTargetRef, SyncedEnhancementPanelState } from './types';
 import { NumericRatioDivisors, NumericStatBreakdownMap, NumericStats } from './numeric';
 
 // ===== 事件名 =====
@@ -72,6 +72,8 @@ export const C2S = {
   DeleteAlchemyPreset: 'c:deleteAlchemyPreset',
   StartAlchemy: 'c:startAlchemy',
   CancelAlchemy: 'c:cancelAlchemy',
+  RequestEnhancementPanel: 'c:requestEnhancementPanel',
+  StartEnhancement: 'c:startEnhancement',
   HeavenGateAction: 'c:heavenGateAction',
 } as const;
 
@@ -117,6 +119,7 @@ export const S2C = {
   Leaderboard: 's:leaderboard',
   NpcShop: 's:npcShop',
   AlchemyPanel: 's:alchemyPanel',
+  EnhancementPanel: 's:enhancementPanel',
 } as const;
 
 /** server-next 客户端 → 服务端 */
@@ -488,6 +491,13 @@ export interface C2S_StartAlchemy {
 
 export interface C2S_CancelAlchemy {}
 
+export interface C2S_RequestEnhancementPanel {}
+
+export interface C2S_StartEnhancement {
+  target: EnhancementTargetRef;
+  protection?: EnhancementTargetRef | null;
+}
+
 export interface C2S_HeavenGateAction {
   action: 'sever' | 'restore' | 'open' | 'reroll' | 'enter';
   element?: ElementKey;
@@ -836,8 +846,10 @@ export interface SyncedItemStack {
   cooldown?: number;
   consumeBuffs?: ConsumableBuffDef[];
   tags?: string[];
+  enhanceLevel?: number;
   alchemySuccessRate?: number;
   alchemySpeedRate?: number;
+  enhancementSpeedRate?: number;
   mapUnlockId?: string;
   tileAuraGainAmount?: number;
   allowBatchUse?: boolean;
@@ -1083,6 +1095,11 @@ export interface S2C_AlchemyPanel {
   state: SyncedAlchemyPanelState | null;
   catalogVersion: number;
   catalog?: AlchemyRecipeCatalogEntry[];
+  error?: string;
+}
+
+export interface S2C_EnhancementPanel {
+  state: SyncedEnhancementPanelState | null;
   error?: string;
 }
 
@@ -1640,8 +1657,10 @@ export interface GmEditorItemOption {
   qiPercent?: number;
   cooldown?: number;
   consumeBuffs?: ConsumableBuffDef[];
+  enhanceLevel?: number;
   alchemySuccessRate?: number;
   alchemySpeedRate?: number;
+  enhancementSpeedRate?: number;
   mapUnlockId?: string;
   tileAuraGainAmount?: number;
   allowBatchUse?: boolean;

@@ -72,9 +72,12 @@ import {
   C2S_DeleteAlchemyPreset,
   C2S_StartAlchemy,
   C2S_CancelAlchemy,
+  C2S_RequestEnhancementPanel,
+  C2S_StartEnhancement,
   C2S_HeavenGateAction,
   PlayerState,
   S2C_AlchemyPanel,
+  S2C_EnhancementPanel,
   S2C_Init,
   S2C_MailDetail,
   S2C_MailOpResult,
@@ -121,6 +124,7 @@ import { AttrService } from './attr.service';
 import { LeaderboardService } from './leaderboard.service';
 import { REALM_STATE_SOURCE } from '../constants/gameplay/technique';
 import { AlchemyService } from './alchemy.service';
+import { EnhancementService } from './enhancement.service';
 
 @WebSocketGateway({ cors: true })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
@@ -155,6 +159,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     private readonly redeemCodeService: RedeemCodeService,
     private readonly databaseBackupService: DatabaseBackupService,
     private readonly alchemyService: AlchemyService,
+    private readonly enhancementService: EnhancementService,
   ) {}
 
   afterInit(server: Server): void {
@@ -309,6 +314,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       },
       alchemyPresets: [],
       alchemyJob: null,
+      enhancementRecords: [],
       autoBattle: false,
       autoBattleSkills: [],
       autoUsePills: [],
@@ -581,6 +587,28 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       playerId,
       type: 'cancelAlchemy',
       data: {},
+      timestamp: Date.now(),
+    });
+  }
+
+  @SubscribeMessage(C2S.RequestEnhancementPanel)
+  handleRequestEnhancementPanel(client: Socket, _data: C2S_RequestEnhancementPanel) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+    client.emit(S2C.EnhancementPanel, this.enhancementService.buildPanelPayload(player) satisfies S2C_EnhancementPanel);
+  }
+
+  @SubscribeMessage(C2S.StartEnhancement)
+  handleStartEnhancement(client: Socket, data: C2S_StartEnhancement) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+
+    this.playerService.enqueueCommand(player.mapId, {
+      playerId,
+      type: 'startEnhancement',
+      data,
       timestamp: Date.now(),
     });
   }

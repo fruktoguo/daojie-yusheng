@@ -75,7 +75,7 @@ export type ImmediateCommandType = 'equip' | 'unequip' | 'sortInventory' | 'useI
 /** 玩家指令，由客户端消息转化后入队，在 tick 中统一执行 */
 export interface PlayerCommand {
   playerId: string;
-  type: 'move' | 'moveTo' | 'navigateQuest' | 'navigateMapPoint' | 'action' | 'takeLoot' | 'debugResetSpawn' | 'buyNpcShopItem' | 'saveAlchemyPreset' | 'deleteAlchemyPreset' | 'startAlchemy' | 'cancelAlchemy' | 'mailRead' | 'mailClaim' | 'mailDelete' | 'redeemCodes';
+  type: 'move' | 'moveTo' | 'navigateQuest' | 'navigateMapPoint' | 'action' | 'takeLoot' | 'debugResetSpawn' | 'buyNpcShopItem' | 'saveAlchemyPreset' | 'deleteAlchemyPreset' | 'startAlchemy' | 'cancelAlchemy' | 'startEnhancement' | 'mailRead' | 'mailClaim' | 'mailDelete' | 'redeemCodes';
   data: unknown;
   timestamp: number;
 }
@@ -264,6 +264,7 @@ export class PlayerService implements OnModuleInit {
       alchemySkill: state.alchemySkill as any,
       alchemyPresets: (state.alchemyPresets ?? []) as any,
       alchemyJob: this.toNullableJsonbValue(state.alchemyJob),
+      enhancementRecords: (state.enhancementRecords ?? []) as any,
       autoBattle: state.autoBattle,
       autoBattleSkills: state.autoBattleSkills as any,
       autoUsePills: (state.autoUsePills ?? []) as any,
@@ -1339,6 +1340,9 @@ export class PlayerService implements OnModuleInit {
       ),
       alchemyPresets: normalizePlayerAlchemyPresets(entity.alchemyPresets),
       alchemyJob: normalizePlayerAlchemyJob(entity.alchemyJob),
+      enhancementRecords: Array.isArray(entity.enhancementRecords)
+        ? entity.enhancementRecords as PlayerState['enhancementRecords']
+        : [],
       autoBattle: entity.autoBattle ?? false,
       autoBattleSkills: (entity.autoBattleSkills ?? []) as AutoBattleSkillConfig[],
       autoUsePills: normalizeAutoUsePillConfigs(entity.autoUsePills),

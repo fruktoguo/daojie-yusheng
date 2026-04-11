@@ -36,6 +36,8 @@ import {
   C2S_DeleteAlchemyPreset,
   C2S_StartAlchemy,
   C2S_CancelAlchemy,
+  C2S_RequestEnhancementPanel,
+  C2S_StartEnhancement,
   C2S_HeavenGateAction,
   S2C_Tick, S2C_Init, S2C_MapStaticSync, S2C_RealmUpdate, S2C_AttrUpdate, S2C_InventoryUpdate,
   S2C_EquipmentUpdate, S2C_TechniqueUpdate, S2C_ActionsUpdate, S2C_LootWindowUpdate, S2C_QuestUpdate, S2C_QuestNavigateResult, S2C_SystemMsg, S2C_GmState,
@@ -55,6 +57,7 @@ import {
   S2C_Leaderboard,
   S2C_NpcShop,
   S2C_AlchemyPanel,
+  S2C_EnhancementPanel,
   S2C_Pong,
   S2C_TileRuntimeDetail,
   S2C_Error, decodeServerEventPayload, encodeClientEventPayload,
@@ -101,6 +104,7 @@ export class SocketManager {
   private onLeaderboardCallbacks: Array<(data: S2C_Leaderboard) => void> = [];
   private onNpcShopCallbacks: Array<(data: S2C_NpcShop) => void> = [];
   private onAlchemyPanelCallbacks: Array<(data: S2C_AlchemyPanel) => void> = [];
+  private onEnhancementPanelCallbacks: Array<(data: S2C_EnhancementPanel) => void> = [];
   private onPongCallbacks: Array<(data: S2C_Pong) => void> = [];
   private onDisconnectCallbacks: Array<(reason: string) => void> = [];
   private onConnectErrorCallbacks: Array<(message: string) => void> = [];
@@ -156,6 +160,7 @@ export class SocketManager {
     this.bindServerEvent(S2C.Leaderboard, this.onLeaderboardCallbacks);
     this.bindServerEvent(S2C.NpcShop, this.onNpcShopCallbacks);
     this.bindServerEvent(S2C.AlchemyPanel, this.onAlchemyPanelCallbacks);
+    this.bindServerEvent(S2C.EnhancementPanel, this.onEnhancementPanelCallbacks);
     this.bindServerEvent(S2C.Pong, this.onPongCallbacks);
     this.bindServerEvent(S2C.Error, this.onErrorCallbacks);
     this.bindServerEvent(S2C.GmState, this.onGmStateCallbacks);
@@ -439,6 +444,14 @@ export class SocketManager {
     this.emitServer(C2S.CancelAlchemy, {} satisfies C2S_CancelAlchemy);
   }
 
+  sendRequestEnhancementPanel() {
+    this.emitServer(C2S.RequestEnhancementPanel, {} satisfies C2S_RequestEnhancementPanel);
+  }
+
+  sendStartEnhancement(payload: C2S_StartEnhancement) {
+    this.emitServer(C2S.StartEnhancement, payload);
+  }
+
   sendHeavenGateAction(action: C2S_HeavenGateAction['action'], element?: C2S_HeavenGateAction['element']) {
     this.emitServer(C2S.HeavenGateAction, { action, element } satisfies C2S_HeavenGateAction);
   }
@@ -514,6 +527,7 @@ export class SocketManager {
   onLeaderboard(cb: (data: S2C_Leaderboard) => void) { this.onLeaderboardCallbacks.push(cb); }
   onNpcShop(cb: (data: S2C_NpcShop) => void) { this.onNpcShopCallbacks.push(cb); }
   onAlchemyPanel(cb: (data: S2C_AlchemyPanel) => void) { this.onAlchemyPanelCallbacks.push(cb); }
+  onEnhancementPanel(cb: (data: S2C_EnhancementPanel) => void) { this.onEnhancementPanelCallbacks.push(cb); }
   onPong(cb: (data: S2C_Pong) => void) { this.onPongCallbacks.push(cb); }
   onError(cb: (data: S2C_Error) => void) { this.onErrorCallbacks.push(cb); }
   onGmState(cb: (data: S2C_GmState) => void) { this.onGmStateCallbacks.push(cb); }

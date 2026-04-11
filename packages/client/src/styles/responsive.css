@@ -810,6 +810,78 @@
   .detail-modal-card.detail-modal--alchemy .detail-modal-hint {
     display: none;
   }
+  .detail-modal.detail-modal--enhancement {
+    --detail-modal-padding: 4px;
+    --detail-modal-safe-gap: 4px;
+    padding: var(--detail-modal-padding-top) var(--detail-modal-padding) var(--detail-modal-padding-bottom);
+  }
+  .detail-modal-card.detail-modal--enhancement {
+    width: calc(100vw - 8px);
+    height: min(92dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - 28px));
+    max-height: none;
+    padding: 10px 8px 8px;
+  }
+  .detail-modal-card.detail-modal--enhancement .detail-modal-head {
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    padding-bottom: 6px;
+    margin-bottom: 8px;
+  }
+  .detail-modal-card.detail-modal--enhancement .detail-modal-title {
+    font-size: var(--font-size-18);
+    line-height: 1.15;
+  }
+  .detail-modal-card.detail-modal--enhancement .detail-modal-subtitle {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    max-width: 100%;
+    padding: 0 8px;
+    border: 1px solid rgba(111, 70, 37, 0.16);
+    background: rgba(255, 251, 244, 0.82);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--font-size-11);
+  }
+  .detail-modal-card.detail-modal--enhancement .detail-modal-hint {
+    display: none;
+  }
+  .detail-modal-card.detail-modal--enhancement .enhancement-modal-shell {
+    gap: 8px;
+  }
+  .detail-modal-card.detail-modal--enhancement .enhancement-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .detail-modal-card.detail-modal--enhancement .enhancement-candidate-list {
+    order: 2;
+  }
+  .detail-modal-card.detail-modal--enhancement .enhancement-workbench {
+    order: 1;
+  }
+  .detail-modal-card.detail-modal--enhancement .enhancement-history-panel {
+    order: 3;
+  }
+  .detail-modal-card.detail-modal--enhancement .enhancement-summary-metrics,
+  .detail-modal-card.detail-modal--enhancement .enhancement-preview-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .detail-modal-card.detail-modal--enhancement .enhancement-toolbar,
+  .detail-modal-card.detail-modal--enhancement .enhancement-summary-head,
+  .detail-modal-card.detail-modal--enhancement .enhancement-action-row,
+  .detail-modal-card.detail-modal--enhancement .enhancement-material-row,
+  .detail-modal-card.detail-modal--enhancement .enhancement-history-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .detail-modal-card.detail-modal--enhancement .enhancement-protection-option {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .detail-modal-card.detail-modal--enhancement .enhancement-protection-option em {
+    margin-left: 0;
+  }
   .detail-modal-card.detail-modal--alchemy .alchemy-modal-shell {
     gap: 8px;
   }
