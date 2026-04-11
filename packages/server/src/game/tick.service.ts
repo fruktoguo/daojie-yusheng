@@ -672,6 +672,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     this.measureCpuSection('gm_commands', 'GM 指令处理', () => {
       this.processGmCommands(gmCommands, affectedPlayers, activePlayerIds, messages);
     });
+    this.worldService.setMapTickDurationMs(mapId, this.getEffectiveInterval(mapId));
     this.measureCpuSection('gm_observe_buffs', 'GM 观察 Buff 同步', () => {
       this.syncGmObservedPlayerBuffs(mapId, affectedPlayers);
     });

@@ -484,6 +484,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   private readonly persistedMonsterSpawnAccelerationStatesByMap =
     new Map<string, Map<string, PersistedMonsterSpawnAccelerationRecord>>();
   private readonly effectsByMap = new Map<string, CombatEffect[]>();
+  private readonly tickDurationMsByMap = new Map<string, number>();
   private readonly npcShopRuntimeStates = new Map<string, PersistedNpcShopRuntimeRecord>();
   private readonly logger = new Logger(WorldService.name);
   private readonly monsterRuntimeStatePath = resolveServerDataPath('runtime', 'map-monster-runtime-state.json');
@@ -557,6 +558,18 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       }
       return projected;
     });
+  }
+
+  setMapTickDurationMs(mapId: string, durationMs: number): void {
+    if (!Number.isFinite(durationMs) || durationMs <= 0) {
+      this.tickDurationMsByMap.delete(mapId);
+      return;
+    }
+    this.tickDurationMsByMap.set(mapId, Math.max(1, Math.round(durationMs)));
+  }
+
+  private getMapTickDurationMs(mapId: string): number {
+    return this.tickDurationMsByMap.get(mapId) ?? 1000;
   }
 
   private getVisibleEntitiesForMap(
@@ -1815,9 +1828,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       warningColor: this.getPlayerSkillWarningColor(skill),
       skipProgressThisTick,
     };
+    const tickDurationMs = this.getMapTickDurationMs(player.mapId);
     this.pushActionLabelEffect(player.mapId, player.x, player.y, skill.name, {
       actionStyle: 'chant',
-      durationMs: windupTicks * 1000 + 240,
+      durationMs: windupTicks * tickDurationMs + 240,
     });
     this.pushEffect(player.mapId, {
       type: 'warning_zone',
@@ -1826,7 +1840,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       baseColor: '#ffe0a6',
       originX: warningOrigin.x,
       originY: warningOrigin.y,
-      durationMs: windupTicks * 1000,
+      durationMs: windupTicks * tickDurationMs,
     });
     return { messages: [], dirty: [], consumedAction: true };
   }
@@ -3551,9 +3565,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       qiCost,
       warningColor: this.getMonsterSkillWarningColor(skill),
     };
+    const tickDurationMs = this.getMapTickDurationMs(mapId);
     this.pushActionLabelEffect(mapId, monster.x, monster.y, skill.name, {
       actionStyle: 'chant',
-      durationMs: windupTicks * 1000 + 240,
+      durationMs: windupTicks * tickDurationMs + 240,
     });
     this.pushEffect(mapId, {
       type: 'warning_zone',
@@ -3562,7 +3577,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       baseColor: '#ff8a8a',
       originX: warningOrigin.x,
       originY: warningOrigin.y,
-      durationMs: windupTicks * 1000,
+      durationMs: windupTicks * tickDurationMs,
     });
     return { messages: [], dirty: [], dirtyPlayers: [] };
   }
