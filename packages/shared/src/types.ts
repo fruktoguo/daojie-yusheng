@@ -564,13 +564,14 @@ export interface Inventory {
   items: ItemStack[];
   capacity: number;
   cooldowns?: InventoryItemCooldownState[];
+  serverTick?: number;
 }
 
 /** 背包内物品的运行时冷却态 */
 export interface InventoryItemCooldownState {
   itemId: string;
   cooldown: number;
-  cooldownLeft: number;
+  startedAtTick: number;
 }
 
 /** 坊市订单方向 */
@@ -1217,6 +1218,106 @@ export function normalizeAutoUsePillConfigs(
   return normalized;
 }
 
+export type CombatTargetingRuleScope = 'hostile' | 'friendly';
+export type CombatTargetingRuleKey =
+  | 'monster'
+  | 'all_players'
+  | 'retaliators'
+  | 'non_hostile_players'
+  | 'terrain'
+  | 'party'
+  | 'sect';
+
+export interface CombatTargetingRules {
+  hostile: CombatTargetingRuleKey[];
+  friendly: CombatTargetingRuleKey[];
+}
+
+export const HOSTILE_COMBAT_TARGETING_RULE_KEYS = [
+  'monster',
+  'all_players',
+  'retaliators',
+  'terrain',
+  'party',
+  'sect',
+] as const satisfies readonly CombatTargetingRuleKey[];
+
+export const FRIENDLY_COMBAT_TARGETING_RULE_KEYS = [
+  'monster',
+  'all_players',
+  'retaliators',
+  'non_hostile_players',
+  'terrain',
+  'party',
+  'sect',
+] as const satisfies readonly CombatTargetingRuleKey[];
+
+export const DEFAULT_HOSTILE_COMBAT_TARGETING_RULES = [
+  'monster',
+  'retaliators',
+  'terrain',
+] as const satisfies readonly CombatTargetingRuleKey[];
+
+export const DEFAULT_FRIENDLY_COMBAT_TARGETING_RULES = [
+  'non_hostile_players',
+] as const satisfies readonly CombatTargetingRuleKey[];
+
+function normalizeCombatTargetingRuleList(
+  value: unknown,
+  allowedKeys: readonly CombatTargetingRuleKey[],
+  fallback: readonly CombatTargetingRuleKey[],
+): CombatTargetingRuleKey[] {
+  const source = Array.isArray(value) ? value : fallback;
+  const normalized: CombatTargetingRuleKey[] = [];
+  const seen = new Set<CombatTargetingRuleKey>();
+  for (const entry of source) {
+    if (typeof entry !== 'string') {
+      continue;
+    }
+    const rule = entry as CombatTargetingRuleKey;
+    if (!allowedKeys.includes(rule) || seen.has(rule)) {
+      continue;
+    }
+    normalized.push(rule);
+    seen.add(rule);
+  }
+  return normalized;
+}
+
+export function buildDefaultCombatTargetingRules(options?: {
+  includeAllPlayersHostile?: boolean;
+}): CombatTargetingRules {
+  const hostile: CombatTargetingRuleKey[] = [...DEFAULT_HOSTILE_COMBAT_TARGETING_RULES];
+  if (options?.includeAllPlayersHostile === true && !hostile.includes('all_players')) {
+    hostile.push('all_players');
+  }
+  return {
+    hostile,
+    friendly: [...DEFAULT_FRIENDLY_COMBAT_TARGETING_RULES],
+  };
+}
+
+export function normalizeCombatTargetingRules(
+  value: unknown,
+  fallback: CombatTargetingRules = buildDefaultCombatTargetingRules(),
+): CombatTargetingRules {
+  const record = typeof value === 'object' && value !== null
+    ? value as Partial<Record<CombatTargetingRuleScope, unknown>>
+    : {};
+  return {
+    hostile: normalizeCombatTargetingRuleList(record.hostile, HOSTILE_COMBAT_TARGETING_RULE_KEYS, fallback.hostile),
+    friendly: normalizeCombatTargetingRuleList(record.friendly, FRIENDLY_COMBAT_TARGETING_RULE_KEYS, fallback.friendly),
+  };
+}
+
+export function hasCombatTargetingRule(
+  rules: CombatTargetingRules | null | undefined,
+  scope: CombatTargetingRuleScope,
+  rule: CombatTargetingRuleKey,
+): boolean {
+  return (rules?.[scope] ?? []).includes(rule);
+}
+
 /** 自动战斗索敌方案 */
 export type AutoBattleTargetingMode = 'auto' | 'nearest' | 'low_hp' | 'full_hp' | 'boss' | 'player';
 
@@ -1426,6 +1527,7 @@ export interface PlayerState {
   autoBattle: boolean;
   autoBattleSkills: AutoBattleSkillConfig[];
   autoUsePills: AutoUsePillConfig[];
+  combatTargetingRules?: CombatTargetingRules;
   autoBattleTargetingMode: AutoBattleTargetingMode;
   combatTargetId?: string;
   combatTargetLocked?: boolean;

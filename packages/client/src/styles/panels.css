@@ -74,6 +74,31 @@
     .chat-kind-loot { color: #1d6e42; }
     .chat-kind-combat { color: #9c2c2c; }
     .chat-kind-grudge { color: #8d2141; }
+    .chat-damage-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 52px;
+      margin: 0 4px;
+      padding: 1px 10px;
+      border: 1px solid var(--chat-damage-pill-border, currentColor);
+      border-radius: 999px;
+      background: var(--chat-damage-pill-bg, rgba(255, 255, 255, 0.12));
+      color: var(--chat-damage-pill-color, currentColor);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 1px 2px var(--chat-damage-pill-shadow, rgba(0, 0, 0, 0.12));
+      font-size: 0.92em;
+      font-weight: 700;
+      line-height: 1.45;
+      letter-spacing: 0.02em;
+      vertical-align: baseline;
+      white-space: nowrap;
+      cursor: help;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+    .chat-damage-pill:hover {
+      transform: translateY(-1px);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 2px 6px var(--chat-damage-pill-shadow, rgba(0, 0, 0, 0.16));
+    }
     .chat-compose {
       display: flex;
       gap: 8px;
@@ -562,6 +587,57 @@
         inset 0 0 0 1px color-mix(in srgb, var(--inventory-grade-border) 82%, transparent),
         0 8px 18px rgba(0,0,0,0.08),
         0 0 20px rgba(var(--inventory-grade-rgb), 0.1);
+    }
+    .inventory-cell--cooldown {
+      border-color: color-mix(in srgb, var(--inventory-grade-border) 54%, rgba(139, 48, 35, 0.38));
+    }
+    .inventory-cell-cooldown {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      z-index: 4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 42px;
+      height: 42px;
+      transform: translate(-50%, -56%);
+      pointer-events: none;
+    }
+    .inventory-cell-cooldown[hidden] {
+      display: none;
+    }
+    .inventory-cell-cooldown-pie {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      border: 1px solid rgba(46, 32, 22, 0.18);
+      background:
+        conic-gradient(
+          from -90deg,
+          rgba(56, 38, 27, 0.8) calc(var(--inventory-cooldown-progress, 0) * 1turn),
+          rgba(56, 38, 27, 0.12) 0turn
+        );
+      box-shadow:
+        0 4px 12px rgba(0, 0, 0, 0.14),
+        inset 0 1px 0 rgba(255,255,255,0.25);
+      opacity: 0.92;
+    }
+    .inventory-cell-cooldown-label {
+      position: relative;
+      z-index: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 24px;
+      height: 24px;
+      padding: 0 5px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--paper-light) 88%, rgba(56, 38, 27, 0.18));
+      color: var(--stamp-red);
+      font-size: var(--font-size-11);
+      font-weight: var(--font-weight-strong);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
     }
     .inventory-cell-head {
       display: flex;
@@ -1489,6 +1565,7 @@
     }
     @supports not (zoom: 1) {
       .detail-modal-card.detail-modal--technique,
+      .detail-modal-card.detail-modal--combat-settings,
       .detail-modal-card.detail-modal--alchemy,
       .detail-modal-card.detail-modal--auto-pill-picker,
       .detail-modal-card.detail-modal--auto-pill-condition,
@@ -6325,6 +6402,136 @@
       gap: 6px;
       flex: 0 0 auto;
     }
+    .combat-settings-hero-card {
+      flex: 1 1 auto;
+    }
+    .combat-settings-tabs {
+      flex: 0 0 auto;
+    }
+    .combat-settings-panel-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .combat-settings-panel-body .auto-pill-slot-grid {
+      flex: 1 1 auto;
+    }
+    .combat-settings-targeting-shell {
+      display: grid;
+      gap: 10px;
+      min-height: 0;
+      padding: 12px;
+      border: 1px solid rgba(34, 26, 19, 0.12);
+      background: rgba(255, 251, 244, 0.72);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+    .combat-settings-targeting-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px 10px;
+    }
+    .combat-settings-targeting-badge {
+      padding: 3px 8px;
+      border: 1px dashed rgba(34, 26, 19, 0.16);
+      background: rgba(214, 188, 142, 0.12);
+      font-size: var(--font-size-11);
+      color: var(--ink-grey);
+      white-space: nowrap;
+    }
+    .combat-settings-targeting-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .combat-settings-targeting-card {
+      display: grid;
+      gap: 10px;
+      min-height: 0;
+      padding: 12px;
+      border: 1px solid rgba(34, 26, 19, 0.1);
+      background: var(--surface-muted-strong);
+    }
+    .combat-settings-toggle-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .combat-settings-toggle-chip {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      width: 100%;
+      min-height: 76px;
+      padding: 10px;
+      border: 1px solid rgba(34, 26, 19, 0.12);
+      background: var(--paper-white);
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+      transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+    }
+    .combat-settings-toggle-chip:hover {
+      border-color: rgba(125, 27, 27, 0.18);
+      background: rgba(255, 251, 244, 0.94);
+      box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.04);
+      transform: translate(-1px, -1px);
+    }
+    .combat-settings-toggle-chip.active {
+      border-color: rgba(125, 27, 27, 0.26);
+      background: linear-gradient(180deg, rgba(197, 60, 60, 0.08), rgba(255, 251, 244, 0.96));
+      box-shadow: inset 0 -2px 0 rgba(125, 27, 27, 0.5);
+    }
+    .combat-settings-toggle-chip:disabled {
+      color: inherit;
+      opacity: 0.72;
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+    }
+    .combat-settings-toggle-chip-box {
+      flex: 0 0 16px;
+      width: 16px;
+      height: 16px;
+      margin-top: 1px;
+      border: 1px solid rgba(34, 26, 19, 0.2);
+      background: rgba(243, 236, 226, 0.88);
+      box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.52);
+    }
+    .combat-settings-toggle-chip.active .combat-settings-toggle-chip-box {
+      border-color: rgba(125, 27, 27, 0.26);
+      background: rgba(125, 27, 27, 0.12);
+      box-shadow: inset 0 0 0 3px rgba(125, 27, 27, 0.4);
+    }
+    .combat-settings-toggle-chip-content {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+    .combat-settings-toggle-chip-title {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      font-size: var(--font-size-12);
+      color: var(--ink-black);
+    }
+    .combat-settings-toggle-chip-disabled-tag {
+      padding: 1px 6px;
+      border: 1px dashed rgba(34, 26, 19, 0.16);
+      background: rgba(214, 188, 142, 0.12);
+      font-size: var(--font-size-10);
+      color: var(--ink-grey);
+      line-height: 1.3;
+    }
+    .combat-settings-toggle-chip-copy {
+      font-size: var(--font-size-11);
+      line-height: 1.5;
+      color: var(--ink-grey);
+    }
     .auto-pill-slot-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(92px, 92px));
@@ -6595,6 +6802,48 @@
       background: linear-gradient(180deg, rgba(125, 40, 40, 0.22), rgba(44, 36, 31, 0.94));
       box-shadow: inset 0 -2px 0 rgba(196, 92, 92, 0.6);
     }
+    :root[data-color-mode="dark"] .combat-settings-targeting-shell {
+      border-color: rgba(212, 176, 137, 0.16);
+      background: rgba(44, 36, 31, 0.66);
+    }
+    :root[data-color-mode="dark"] .combat-settings-targeting-badge {
+      border-color: rgba(212, 176, 137, 0.24);
+      background: rgba(212, 176, 137, 0.08);
+      color: var(--ink-light);
+    }
+    :root[data-color-mode="dark"] .combat-settings-targeting-card,
+    :root[data-color-mode="dark"] .combat-settings-toggle-chip {
+      border-color: rgba(212, 176, 137, 0.14);
+      background: rgba(55, 46, 40, 0.92);
+    }
+    :root[data-color-mode="dark"] .combat-settings-toggle-chip:hover {
+      border-color: rgba(196, 92, 92, 0.24);
+      background: rgba(58, 48, 42, 0.96);
+      box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.12);
+    }
+    :root[data-color-mode="dark"] .combat-settings-toggle-chip.active {
+      border-color: rgba(196, 92, 92, 0.3);
+      background: linear-gradient(180deg, rgba(125, 40, 40, 0.24), rgba(55, 46, 40, 0.96));
+      box-shadow: inset 0 -2px 0 rgba(196, 92, 92, 0.62);
+    }
+    :root[data-color-mode="dark"] .combat-settings-toggle-chip-box {
+      border-color: rgba(212, 176, 137, 0.22);
+      background: rgba(70, 60, 52, 0.96);
+      box-shadow: inset 0 0 0 2px rgba(30, 24, 20, 0.42);
+    }
+    :root[data-color-mode="dark"] .combat-settings-toggle-chip.active .combat-settings-toggle-chip-box {
+      border-color: rgba(196, 92, 92, 0.3);
+      background: rgba(125, 40, 40, 0.3);
+      box-shadow: inset 0 0 0 3px rgba(196, 92, 92, 0.44);
+    }
+    :root[data-color-mode="dark"] .combat-settings-toggle-chip-title {
+      color: var(--ink-black);
+    }
+    :root[data-color-mode="dark"] .combat-settings-toggle-chip-disabled-tag {
+      border-color: rgba(212, 176, 137, 0.2);
+      background: rgba(212, 176, 137, 0.08);
+      color: var(--ink-light);
+    }
     :root[data-color-mode="dark"] .auto-pill-subdialog {
       border-color: rgba(212, 176, 137, 0.2);
       background:
@@ -6602,6 +6851,12 @@
         radial-gradient(circle at left bottom, rgba(84, 119, 55, 0.12), transparent 32%),
         rgba(44, 36, 31, 0.98);
       box-shadow: 12px 12px 0 rgba(0, 0, 0, 0.22);
+    }
+    @media (max-width: 900px) {
+      .combat-settings-targeting-grid,
+      .combat-settings-toggle-grid {
+        grid-template-columns: 1fr;
+      }
     }
 
     .world-hero {

@@ -16,6 +16,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldRuntimeService = void 0;
 const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared-next");
+const movement_debug_1 = require("../../debug/movement-debug");
 const legacy_gm_compat_constants_1 = require("../../compat/legacy/legacy-gm-compat.constants");
 const content_template_repository_1 = require("../../content/content-template.repository");
 const world_session_service_1 = require("../../network/world-session.service");
@@ -231,11 +232,23 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     enqueueMove(playerId, directionInput) {
         const direction = parseDirection(directionInput);
         this.getPlayerLocationOrThrow(playerId);
+        const player = this.playerRuntimeService.getPlayer(playerId);
         this.navigationIntents.delete(playerId);
         this.pendingCommands.set(playerId, {
             kind: 'move',
             direction,
             continuous: true,
+        });
+        (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.enqueue.move', {
+            playerId,
+            direction,
+            from: player
+                ? {
+                    mapId: player.templateId,
+                    x: player.x,
+                    y: player.y,
+                }
+                : null,
         });
         return this.getPlayerViewOrThrow(playerId);
     }
@@ -247,10 +260,27 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         if (!isInBounds(x, y, instance.template.width, instance.template.height)) {
             throw new common_1.BadRequestException('目标超出地图范围');
         }
+        const player = this.playerRuntimeService.getPlayer(playerId);
         this.pendingCommands.set(playerId, {
             kind: 'moveTo',
             x,
             y,
+            allowNearestReachable: allowNearestReachableInput === true,
+        });
+        (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.enqueue.moveTo', {
+            playerId,
+            from: player
+                ? {
+                    mapId: player.templateId,
+                    x: player.x,
+                    y: player.y,
+                }
+                : null,
+            target: {
+                mapId: instance.template.mapId,
+                x,
+                y,
+            },
             allowNearestReachable: allowNearestReachableInput === true,
         });
         return this.getPlayerViewOrThrow(playerId);
@@ -1533,6 +1563,38 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     advanceFrame(frameDurationMs = 1000, getInstanceTickSpeed = null) {
         const startedAt = performance.now();
         this.latestCombatEffectsByInstanceId.clear();
+        const instanceStepPlans = [];
+        let plannedLogicalTicks = 0;
+        for (const instance of this.instances.values()) {
+            const speed = getInstanceTickSpeed
+                ? Math.max(0, Number(getInstanceTickSpeed(instance.template.id) ?? 1))
+                : 1;
+            if (!Number.isFinite(speed) || speed <= 0) {
+                continue;
+            }
+            const previousProgress = this.instanceTickProgressById.get(instance.meta.instanceId) ?? 0;
+            const accumulated = previousProgress + speed * (Math.max(0, frameDurationMs) / 1000);
+            const steps = Math.floor(accumulated);
+            this.instanceTickProgressById.set(instance.meta.instanceId, accumulated - steps);
+            if (steps <= 0) {
+                continue;
+            }
+            instanceStepPlans.push({ instance, steps });
+            plannedLogicalTicks += steps;
+        }
+        if (plannedLogicalTicks <= 0) {
+            this.lastTickPhaseDurations = {
+                pendingCommandsMs: 0,
+                systemCommandsMs: 0,
+                instanceTicksMs: 0,
+                transfersMs: 0,
+                monsterActionsMs: 0,
+                playerAdvanceMs: 0,
+            };
+            this.lastTickDurationMs = roundDurationMs(performance.now() - startedAt);
+            pushDurationMetric(this.tickDurationHistoryMs, this.lastTickDurationMs);
+            return 0;
+        }
         this.processPendingRespawns();
         this.materializeNavigationCommands();
         this.materializeAutoCombatCommands();
@@ -1548,20 +1610,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             : undefined;
         let totalLogicalTicks = 0;
         const instanceTicksStartedAt = performance.now();
-        for (const instance of this.instances.values()) {
-            const speed = getInstanceTickSpeed
-                ? Math.max(0, Number(getInstanceTickSpeed(instance.template.id) ?? 1))
-                : 1;
-            if (!Number.isFinite(speed) || speed <= 0) {
-                continue;
-            }
-            const previousProgress = this.instanceTickProgressById.get(instance.meta.instanceId) ?? 0;
-            const accumulated = previousProgress + speed * (Math.max(0, frameDurationMs) / 1000);
-            const steps = Math.floor(accumulated);
-            this.instanceTickProgressById.set(instance.meta.instanceId, accumulated - steps);
-            if (steps <= 0) {
-                continue;
-            }
+        for (const { instance, steps } of instanceStepPlans) {
             for (let index = 0; index < steps; index += 1) {
                 this.tick += 1;
                 totalLogicalTicks += 1;
@@ -1744,6 +1793,15 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         if (!source) {
             return;
         }
+        (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.transfer.apply', {
+            playerId: transfer.playerId,
+            sessionId: transfer.sessionId,
+            fromInstanceId: transfer.fromInstanceId,
+            toMapId: transfer.targetMapId,
+            targetX: transfer.targetX,
+            targetY: transfer.targetY,
+            reason: transfer.reason,
+        });
         source.disconnectPlayer(transfer.playerId);
         const target = this.getOrCreatePublicInstance(transfer.targetMapId);
         target.connectPlayer({
@@ -1779,6 +1837,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             }
             try {
                 const step = this.resolveNavigationStep(playerId, intent);
+                (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.navigation.step', {
+                    playerId,
+                    intent,
+                    step,
+                });
                 if (step.kind === 'done') {
                     this.navigationIntents.delete(playerId);
                     continue;
@@ -1792,11 +1855,17 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                         kind: 'move',
                         direction: step.direction,
                         continuous: true,
+                        maxSteps: step.maxSteps,
                     });
                 }
             }
             catch (error) {
                 const message = error instanceof Error ? error.message : String(error);
+                (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.navigation.error', {
+                    playerId,
+                    intent,
+                    message,
+                });
                 this.navigationIntents.delete(playerId);
                 this.queuePlayerNotice(playerId, message, 'warn');
             }
@@ -1818,8 +1887,18 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 throw new common_1.BadRequestException(`当前地图没有通往 ${nextMapId} 的界门`);
             }
             if (player.x === portal.x && player.y === portal.y) {
+                (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.navigation.crossMap.atPortal', {
+                    playerId,
+                    fromMapId: player.templateId,
+                    destinationMapId: destination.mapId,
+                    route,
+                    portal,
+                });
                 return { kind: 'portal' };
             }
+            const previewPath = (0, movement_debug_1.isServerNextMovementDebugEnabled)()
+                ? findPathPointsOnMap(instance, player.playerId, player.x, player.y, [{ x: portal.x, y: portal.y }])
+                : null;
             const direction = findNextDirectionOnMap(instance, player.playerId, player.x, player.y, [{
                     x: portal.x,
                     y: portal.y,
@@ -1827,16 +1906,43 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             if (direction === null) {
                 throw new common_1.BadRequestException('前往界门的路径不可达');
             }
-            return { kind: 'move', direction };
+            (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.navigation.crossMap.path', {
+                playerId,
+                fromMapId: player.templateId,
+                destinationMapId: destination.mapId,
+                from: { x: player.x, y: player.y },
+                route,
+                portal,
+                direction,
+                previewPath: previewPath ? previewPath.map((entry) => ({ x: entry.x, y: entry.y })) : null,
+            });
+            return { kind: 'move', direction, maxSteps: resolveInitialRunLength(previewPath, player.x, player.y, direction) };
         }
         if (destination.goals.some((goal) => goal.x === player.x && goal.y === player.y)) {
+            (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.navigation.arrived', {
+                playerId,
+                mapId: destination.mapId,
+                at: { x: player.x, y: player.y },
+                goals: destination.goals,
+            });
             return { kind: 'done' };
         }
+        const previewPath = (0, movement_debug_1.isServerNextMovementDebugEnabled)()
+            ? findPathPointsOnMap(instance, player.playerId, player.x, player.y, destination.goals)
+            : null;
         const direction = findNextDirectionOnMap(instance, player.playerId, player.x, player.y, destination.goals);
         if (direction === null) {
             throw new common_1.BadRequestException(intent.kind === 'quest' ? '任务目标当前不可达' : '无法到达该位置');
         }
-        return { kind: 'move', direction };
+        (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.navigation.local.path', {
+            playerId,
+            mapId: destination.mapId,
+            from: { x: player.x, y: player.y },
+            goals: destination.goals,
+            direction,
+            previewPath: previewPath ? previewPath.map((entry) => ({ x: entry.x, y: entry.y })) : null,
+        });
+        return { kind: 'move', direction, maxSteps: resolveInitialRunLength(previewPath, player.x, player.y, direction) };
     }
     resolveNavigationDestination(playerId, intent) {
         if (intent.kind === 'point') {
@@ -2123,6 +2229,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 playerId,
                 direction: command.direction,
                 continuous: command.continuous === true,
+                maxSteps: command.maxSteps,
             });
             return;
         }
@@ -2569,6 +2676,21 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             y,
             allowNearestReachable,
         });
+        (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.dispatch.moveTo', {
+            playerId,
+            from: {
+                mapId: player.templateId,
+                x: player.x,
+                y: player.y,
+            },
+            target: {
+                mapId: player.templateId,
+                x,
+                y,
+            },
+            allowNearestReachable,
+            previewPath: this.getLegacyNavigationPath(playerId),
+        });
     }
     dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY) {
         const attacker = this.playerRuntimeService.getPlayerOrThrow(playerId);
@@ -2580,7 +2702,10 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             throw new common_1.BadRequestException(`Player ${playerId} not attached to instance`);
         }
         this.ensureAttackAllowed(attacker);
-        const baseDamage = Math.max(1, Math.round(Math.max(attacker.attrs.numericStats.physAtk, attacker.attrs.numericStats.spellAtk)));
+        const damageKind = attacker.attrs.numericStats.spellAtk > attacker.attrs.numericStats.physAtk ? 'spell' : 'physical';
+        const baseDamage = Math.max(1, Math.round(damageKind === 'spell'
+            ? attacker.attrs.numericStats.spellAtk
+            : attacker.attrs.numericStats.physAtk));
         if (targetMonsterId) {
             const instance = this.getInstanceRuntimeOrThrow(attacker.instanceId);
             const monster = instance.getMonster(targetMonsterId);
@@ -2590,16 +2715,16 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             if (chebyshevDistance(attacker.x, attacker.y, monster.x, monster.y) > 1) {
                 throw new common_1.BadRequestException('目标超出攻击距离');
             }
-            const damage = computeResolvedDamage(baseDamage, 'physical', attacker.attrs.numericStats, attacker.attrs.ratioDivisors, monster.numericStats, monster.ratioDivisors);
-            const effectColor = (0, shared_1.getDamageTrailColor)('physical');
+            const resolvedDamage = computeResolvedDamage(baseDamage, damageKind, attacker.attrs.numericStats, attacker.attrs.ratioDivisors, monster.numericStats, monster.ratioDivisors);
+            const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
             this.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, '攻击');
             this.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, monster.x, monster.y, effectColor);
-            this.pushDamageFloatEffect(attacker.instanceId, monster.x, monster.y, damage, effectColor);
-            const outcome = instance.applyDamageToMonster(targetMonsterId, damage, attacker.playerId);
+            this.pushDamageFloatEffect(attacker.instanceId, monster.x, monster.y, resolvedDamage.damage, effectColor);
+            const outcome = instance.applyDamageToMonster(targetMonsterId, resolvedDamage.damage, attacker.playerId);
             if (outcome?.defeated) {
                 this.handlePlayerMonsterKill(instance, outcome.monster, attacker.playerId);
             }
-            this.queuePlayerNotice(playerId, `你攻击命中 ${monster.name}，造成 ${damage} 点伤害`, 'combat');
+            this.queuePlayerNotice(playerId, `${formatCombatActionClause('你', monster.name, '攻击')}，造成 ${formatCombatDamageBreakdown(resolvedDamage.rawDamage, resolvedDamage.damage, damageKind)} 伤害`, 'combat');
             return;
         }
         if (targetPlayerId) {
@@ -2610,20 +2735,20 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             if (chebyshevDistance(attacker.x, attacker.y, target.x, target.y) > 1) {
                 throw new common_1.BadRequestException('目标超出攻击距离');
             }
-            const damage = computeResolvedDamage(baseDamage, 'physical', attacker.attrs.numericStats, attacker.attrs.ratioDivisors, target.attrs.numericStats, target.attrs.ratioDivisors);
-            const effectColor = (0, shared_1.getDamageTrailColor)('physical');
+            const resolvedDamage = computeResolvedDamage(baseDamage, damageKind, attacker.attrs.numericStats, attacker.attrs.ratioDivisors, target.attrs.numericStats, target.attrs.ratioDivisors);
+            const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
             this.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, '攻击');
             this.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, target.x, target.y, effectColor);
-            this.pushDamageFloatEffect(attacker.instanceId, target.x, target.y, damage, effectColor);
-            const updated = this.playerRuntimeService.applyDamage(target.playerId, damage);
+            this.pushDamageFloatEffect(attacker.instanceId, target.x, target.y, resolvedDamage.damage, effectColor);
+            const updated = this.playerRuntimeService.applyDamage(target.playerId, resolvedDamage.damage);
             this.playerRuntimeService.recordActivity(target.playerId, currentTick, {
                 interruptCultivation: true,
             });
             if (updated.hp <= 0) {
                 this.handlePlayerDefeat(updated.playerId);
             }
-            this.queuePlayerNotice(playerId, `你攻击命中 ${target.playerId}，造成 ${damage} 点伤害`, 'combat');
-            this.queuePlayerNotice(target.playerId, `你受到 ${attacker.playerId} 攻击，损失 ${damage} 点气血`, 'combat');
+            this.queuePlayerNotice(playerId, `${formatCombatActionClause('你', target.name ?? target.playerId, '攻击')}，造成 ${formatCombatDamageBreakdown(resolvedDamage.rawDamage, resolvedDamage.damage, damageKind)} 伤害`, 'combat');
+            this.queuePlayerNotice(target.playerId, `${formatCombatActionClause(attacker.name ?? attacker.playerId, '你', '攻击')}，造成 ${formatCombatDamageBreakdown(resolvedDamage.rawDamage, resolvedDamage.damage, damageKind)} 伤害`, 'combat');
             return;
         }
         if (targetX !== null && targetY !== null) {
@@ -2635,13 +2760,13 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             if (!result) {
                 throw new common_1.BadRequestException('该目标无法被攻击');
             }
-            const effectColor = (0, shared_1.getDamageTrailColor)('physical');
+            const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
             this.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, '攻击');
             this.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, targetX, targetY, effectColor);
             if (result.appliedDamage > 0) {
                 this.pushDamageFloatEffect(attacker.instanceId, targetX, targetY, result.appliedDamage, effectColor);
             }
-            this.queuePlayerNotice(playerId, `你攻击命中地块，造成 ${result.appliedDamage} 点伤害`, 'combat');
+            this.queuePlayerNotice(playerId, `${formatCombatActionClause('你', '地块', '攻击')}，造成 ${formatCombatDamageBreakdown(baseDamage, result.appliedDamage, damageKind)} 伤害`, 'combat');
             return;
         }
         throw new common_1.BadRequestException('target is required');
@@ -4501,6 +4626,32 @@ function dedupeGoalPoints(goals) {
     }
     return result;
 }
+function resolveInitialRunLength(path, startX, startY, direction) {
+    if (!Array.isArray(path) || path.length === 0) {
+        return 1;
+    }
+    const offset = DIRECTION_OFFSET[direction];
+    if (!offset) {
+        return 1;
+    }
+    let previousX = startX;
+    let previousY = startY;
+    let length = 0;
+    for (const step of path) {
+        if (!step || typeof step.x !== 'number' || typeof step.y !== 'number') {
+            break;
+        }
+        const deltaX = step.x - previousX;
+        const deltaY = step.y - previousY;
+        if (deltaX !== offset.x || deltaY !== offset.y) {
+            break;
+        }
+        length += 1;
+        previousX = step.x;
+        previousY = step.y;
+    }
+    return Math.max(1, length);
+}
 function findNextDirectionOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals = true) {
     if (goals.length === 0) {
         return null;
@@ -4667,16 +4818,34 @@ const DIRECTION_OFFSET = {
 function computeResolvedDamage(baseDamage, damageKind, attackerStats, attackerRatios, targetStats, targetRatios) {
     const hitGap = Math.max(0, targetStats.dodge - attackerStats.hit);
     if (hitGap > 0 && Math.random() < (0, shared_1.ratioValue)(hitGap, targetRatios.dodge)) {
-        return 0;
+        return { rawDamage: 0, damage: 0 };
     }
     const defense = damageKind === 'physical' ? targetStats.physDef : targetStats.spellDef;
     const reduction = Math.max(0, (0, shared_1.ratioValue)(defense, 100));
     const crit = attackerStats.crit > 0 && Math.random() < (0, shared_1.ratioValue)(attackerStats.crit, attackerRatios.crit);
-    let damage = Math.max(1, Math.round(baseDamage * (1 - Math.min(0.95, reduction))));
+    let rawDamage = Math.max(1, Math.round(baseDamage));
+    let damage = Math.max(1, Math.round(rawDamage * (1 - Math.min(0.95, reduction))));
     if (crit) {
-        damage = Math.max(1, Math.round(damage * ((200 + Math.max(0, attackerStats.critDamage) / 10) / 100)));
+        const critMultiplier = (200 + Math.max(0, attackerStats.critDamage) / 10) / 100;
+        rawDamage = Math.max(1, Math.round(rawDamage * critMultiplier));
+        damage = Math.max(1, Math.round(damage * critMultiplier));
     }
-    return Math.max(1, damage);
+    return {
+        rawDamage,
+        damage: Math.max(1, damage),
+    };
+}
+function formatCombatDamageBreakdown(rawDamage, actualDamage, damageKind, element) {
+    return `原始 ${Math.max(0, Math.round(rawDamage))} - 实际 ${Math.max(0, Math.round(actualDamage))} - ${formatCombatDamageType(damageKind, element)}`;
+}
+function formatCombatActionClause(casterLabel, targetLabel, actionLabel) {
+    return actionLabel === '攻击'
+        ? `${casterLabel}对${targetLabel}发起攻击`
+        : `${casterLabel}对${targetLabel}施展${actionLabel}`;
+}
+function formatCombatDamageType(damageKind, element) {
+    const elementLabel = element ? `${shared_1.ELEMENT_KEY_LABELS[element] ?? element}行` : '';
+    return damageKind === 'physical' ? `${elementLabel}物理` : `${elementLabel}法术`;
 }
 function cloneVisibleBuff(source) {
     return {

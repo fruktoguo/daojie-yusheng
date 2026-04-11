@@ -17,6 +17,7 @@ import {
   S2C,
   C2S_Move,
   C2S_MoveTo,
+  C2S_NavigateMapPoint,
   C2S_NavigateQuest,
   C2S_Heartbeat,
   C2S_InspectTileRuntime,
@@ -41,6 +42,7 @@ import {
   C2S_Action,
   C2S_UpdateAutoBattleSkills,
   C2S_UpdateAutoUsePills,
+  C2S_UpdateCombatTargetingRules,
   C2S_UpdateAutoBattleTargetingMode,
   C2S_UpdateTechniqueSkillAvailability,
   C2S_Chat,
@@ -310,6 +312,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       autoBattle: false,
       autoBattleSkills: [],
       autoUsePills: [],
+      combatTargetingRules: { hostile: ['monster', 'retaliators', 'terrain'], friendly: ['non_hostile_players'] },
       autoBattleTargetingMode: 'auto',
       autoRetaliate: true,
       autoBattleStationary: false,
@@ -429,6 +432,20 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     this.playerService.enqueueCommand(player.mapId, {
       playerId,
       type: 'navigateQuest',
+      data,
+      timestamp: Date.now(),
+    });
+  }
+
+  @SubscribeMessage(C2S.NavigateMapPoint)
+  handleNavigateMapPoint(client: Socket, data: C2S_NavigateMapPoint) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+
+    this.playerService.enqueueCommand(player.mapId, {
+      playerId,
+      type: 'navigateMapPoint',
       data,
       timestamp: Date.now(),
     });
@@ -582,6 +599,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     this.tickService.executeImmediate(player, 'updateAutoUsePills', data);
+  }
+
+  @SubscribeMessage(C2S.UpdateCombatTargetingRules)
+  handleUpdateCombatTargetingRules(client: Socket, data: C2S_UpdateCombatTargetingRules) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+    this.tickService.executeImmediate(player, 'updateCombatTargetingRules', data);
   }
 
   @SubscribeMessage(C2S.UpdateAutoBattleTargetingMode)

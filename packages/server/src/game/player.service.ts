@@ -6,6 +6,9 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import {
+  buildDefaultCombatTargetingRules,
+  hasCombatTargetingRule,
+  normalizeCombatTargetingRules,
   PlayerState,
   PendingLogbookMessage,
   Attributes,
@@ -67,12 +70,12 @@ import {
 } from './player-storage';
 
 /** 即时执行的操作类型（不入队，gateway 收到后直接执行） */
-export type ImmediateCommandType = 'equip' | 'unequip' | 'sortInventory' | 'useItem' | 'dropItem' | 'destroyItem' | 'cultivate' | 'updateAutoBattleSkills' | 'updateAutoUsePills' | 'updateAutoBattleTargetingMode' | 'updateTechniqueSkillAvailability';
+export type ImmediateCommandType = 'equip' | 'unequip' | 'sortInventory' | 'useItem' | 'dropItem' | 'destroyItem' | 'cultivate' | 'updateAutoBattleSkills' | 'updateAutoUsePills' | 'updateCombatTargetingRules' | 'updateAutoBattleTargetingMode' | 'updateTechniqueSkillAvailability';
 
 /** 玩家指令，由客户端消息转化后入队，在 tick 中统一执行 */
 export interface PlayerCommand {
   playerId: string;
-  type: 'move' | 'moveTo' | 'navigateQuest' | 'action' | 'takeLoot' | 'debugResetSpawn' | 'buyNpcShopItem' | 'saveAlchemyPreset' | 'deleteAlchemyPreset' | 'startAlchemy' | 'cancelAlchemy' | 'mailRead' | 'mailClaim' | 'mailDelete' | 'redeemCodes';
+  type: 'move' | 'moveTo' | 'navigateQuest' | 'navigateMapPoint' | 'action' | 'takeLoot' | 'debugResetSpawn' | 'buyNpcShopItem' | 'saveAlchemyPreset' | 'deleteAlchemyPreset' | 'startAlchemy' | 'cancelAlchemy' | 'mailRead' | 'mailClaim' | 'mailDelete' | 'redeemCodes';
   data: unknown;
   timestamp: number;
 }
@@ -264,6 +267,7 @@ export class PlayerService implements OnModuleInit {
       autoBattle: state.autoBattle,
       autoBattleSkills: state.autoBattleSkills as any,
       autoUsePills: (state.autoUsePills ?? []) as any,
+      combatTargetingRules: state.combatTargetingRules as any,
       autoBattleTargetingMode: state.autoBattleTargetingMode,
       combatTargetId: state.combatTargetId ?? null,
       combatTargetLocked: state.combatTargetLocked === true,
@@ -411,6 +415,11 @@ export class PlayerService implements OnModuleInit {
     if (state.autoRetaliate === undefined) state.autoRetaliate = true;
     if (state.autoBattleStationary === undefined) state.autoBattleStationary = false;
     if (state.allowAoePlayerHit === undefined) state.allowAoePlayerHit = false;
+    state.combatTargetingRules = normalizeCombatTargetingRules(
+      state.combatTargetingRules,
+      buildDefaultCombatTargetingRules({ includeAllPlayersHostile: state.allowAoePlayerHit === true }),
+    );
+    state.allowAoePlayerHit = hasCombatTargetingRule(state.combatTargetingRules, 'hostile', 'all_players');
     if (state.autoIdleCultivation === undefined) state.autoIdleCultivation = true;
     if (state.autoSwitchCultivation === undefined) state.autoSwitchCultivation = false;
     if (state.online === undefined) state.online = false;
@@ -1333,12 +1342,23 @@ export class PlayerService implements OnModuleInit {
       autoBattle: entity.autoBattle ?? false,
       autoBattleSkills: (entity.autoBattleSkills ?? []) as AutoBattleSkillConfig[],
       autoUsePills: normalizeAutoUsePillConfigs(entity.autoUsePills),
+      combatTargetingRules: normalizeCombatTargetingRules(
+        entity.combatTargetingRules,
+        buildDefaultCombatTargetingRules({ includeAllPlayersHostile: entity.allowAoePlayerHit === true }),
+      ),
       autoBattleTargetingMode: normalizeAutoBattleTargetingMode(entity.autoBattleTargetingMode),
       combatTargetId: entity.combatTargetId ?? undefined,
       combatTargetLocked: entity.combatTargetLocked === true,
       autoRetaliate: entity.autoRetaliate ?? true,
       autoBattleStationary: entity.autoBattleStationary === true,
-      allowAoePlayerHit: entity.allowAoePlayerHit === true,
+      allowAoePlayerHit: hasCombatTargetingRule(
+        normalizeCombatTargetingRules(
+          entity.combatTargetingRules,
+          buildDefaultCombatTargetingRules({ includeAllPlayersHostile: entity.allowAoePlayerHit === true }),
+        ),
+        'hostile',
+        'all_players',
+      ),
       autoIdleCultivation: entity.autoIdleCultivation ?? true,
       autoSwitchCultivation: entity.autoSwitchCultivation === true,
       cultivationActive: false,

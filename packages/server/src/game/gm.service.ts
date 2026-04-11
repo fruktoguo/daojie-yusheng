@@ -9,6 +9,7 @@ import {
   AttrBonus,
   Attributes,
   AutoBattleSkillConfig,
+  buildDefaultCombatTargetingRules,
   CULTIVATE_EXP_PER_TICK,
   CULTIVATION_REALM_EXP_PER_TICK,
   DEFAULT_BASE_ATTRS,
@@ -33,6 +34,8 @@ import {
   GmStateRes,
   GmUpdateMapTimeReq,
   Inventory,
+  hasCombatTargetingRule,
+  normalizeCombatTargetingRules,
   normalizeAutoBattleTargetingMode,
   normalizeAutoUsePillConfigs,
   normalizeBodyTrainingState,
@@ -1236,10 +1239,14 @@ export class GmService {
     player.quests = this.cloneArray<QuestState>(snapshot.quests);
     player.autoBattleSkills = this.cloneArray<AutoBattleSkillConfig>(snapshot.autoBattleSkills);
     player.autoUsePills = normalizeAutoUsePillConfigs(snapshot.autoUsePills ?? player.autoUsePills);
+    player.combatTargetingRules = normalizeCombatTargetingRules(
+      snapshot.combatTargetingRules ?? player.combatTargetingRules,
+      buildDefaultCombatTargetingRules({ includeAllPlayersHostile: (snapshot.allowAoePlayerHit ?? player.allowAoePlayerHit) === true }),
+    );
     player.autoBattleTargetingMode = normalizeAutoBattleTargetingMode(snapshot.autoBattleTargetingMode, player.autoBattleTargetingMode);
     player.autoRetaliate = snapshot.autoRetaliate !== false;
     player.autoBattleStationary = snapshot.autoBattleStationary === true;
-    player.allowAoePlayerHit = snapshot.allowAoePlayerHit === true;
+    player.allowAoePlayerHit = hasCombatTargetingRule(player.combatTargetingRules, 'hostile', 'all_players');
     player.autoIdleCultivation = snapshot.autoIdleCultivation !== undefined
       ? snapshot.autoIdleCultivation !== false
       : player.autoIdleCultivation !== false;
@@ -1353,6 +1360,7 @@ export class GmService {
       autoBattle: player.autoBattle,
       autoBattleSkills: player.autoBattleSkills as any,
       autoUsePills: (player.autoUsePills ?? []) as any,
+      combatTargetingRules: player.combatTargetingRules as any,
       autoBattleTargetingMode: player.autoBattleTargetingMode,
       combatTargetId: player.combatTargetId ?? null,
       combatTargetLocked: player.combatTargetLocked === true,
@@ -1542,10 +1550,14 @@ export class GmService {
         merged.dead = snapshot.dead ?? merged.dead;
         merged.autoBattle = snapshot.autoBattle ?? merged.autoBattle;
         merged.autoUsePills = normalizeAutoUsePillConfigs(snapshot.autoUsePills ?? merged.autoUsePills);
+        merged.combatTargetingRules = normalizeCombatTargetingRules(
+          snapshot.combatTargetingRules ?? merged.combatTargetingRules,
+          buildDefaultCombatTargetingRules({ includeAllPlayersHostile: (snapshot.allowAoePlayerHit ?? merged.allowAoePlayerHit) === true }),
+        );
         merged.autoBattleTargetingMode = snapshot.autoBattleTargetingMode ?? merged.autoBattleTargetingMode;
         merged.autoRetaliate = snapshot.autoRetaliate;
         merged.autoBattleStationary = snapshot.autoBattleStationary;
-        merged.allowAoePlayerHit = snapshot.allowAoePlayerHit;
+        merged.allowAoePlayerHit = hasCombatTargetingRule(merged.combatTargetingRules, 'hostile', 'all_players');
         merged.autoIdleCultivation = snapshot.autoIdleCultivation;
         merged.autoSwitchCultivation = snapshot.autoSwitchCultivation;
         merged.combatTargetId = snapshot.combatTargetId;
@@ -1575,6 +1587,11 @@ export class GmService {
         merged.techniques = this.cloneArray<TechniqueState>(snapshot.techniques);
         merged.autoBattleSkills = this.cloneArray<AutoBattleSkillConfig>(snapshot.autoBattleSkills);
         merged.autoUsePills = normalizeAutoUsePillConfigs(snapshot.autoUsePills ?? merged.autoUsePills);
+        merged.combatTargetingRules = normalizeCombatTargetingRules(
+          snapshot.combatTargetingRules ?? merged.combatTargetingRules,
+          buildDefaultCombatTargetingRules({ includeAllPlayersHostile: (snapshot.allowAoePlayerHit ?? merged.allowAoePlayerHit) === true }),
+        );
+        merged.allowAoePlayerHit = hasCombatTargetingRule(merged.combatTargetingRules, 'hostile', 'all_players');
         merged.cultivatingTechId = snapshot.cultivatingTechId;
         break;
       case 'items':

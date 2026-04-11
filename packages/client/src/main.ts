@@ -56,6 +56,7 @@ import {
 import { scheduleDeferredLocalContentPreload } from './content/deferred-local-content';
 import { hydrateQuestStates } from './content/local-quests';
 import { assessMapDanger } from './utils/map-danger';
+import { syncEstimatedServerTick, syncEstimatedServerTickInterval } from './runtime/server-tick';
 
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './ui/floating-tooltip';
 import { detailModalHost } from './ui/detail-modal-host';
@@ -410,6 +411,7 @@ function syncCurrentTimeTickInterval(dtMs: number | null | undefined): void {
   }
   currentTimeTickIntervalMs = dtMs;
   currentTimeTickIntervalUpdatedAt = performance.now();
+  syncEstimatedServerTickInterval(dtMs);
 }
 
 function renderPingLatency(latencyMs: number | null, status = '毫秒') {
@@ -1600,6 +1602,7 @@ function hydrateSyncedItemStack(item: SyncedItemStack, previous?: Inventory['ite
         : template?.tags
           ? [...template.tags]
           : undefined,
+    cooldown: item.cooldown ?? previousSameItem?.cooldown ?? template?.cooldown,
     alchemySuccessRate: item.alchemySuccessRate ?? previousSameItem?.alchemySuccessRate ?? template?.alchemySuccessRate,
     alchemySpeedRate: item.alchemySpeedRate ?? previousSameItem?.alchemySpeedRate ?? template?.alchemySpeedRate,
     mapUnlockId: item.mapUnlockId ?? previousSameItem?.mapUnlockId,
@@ -1613,6 +1616,10 @@ function mergeInventoryUpdate(previous: Inventory | undefined, patch: S2C_Invent
     return {
       capacity: patch.inventory.capacity,
       items: patch.inventory.items.map((item) => hydrateSyncedItemStack(item)),
+      cooldowns: patch.inventory.cooldowns
+        ? cloneJson(patch.inventory.cooldowns)
+        : undefined,
+      serverTick: patch.inventory.serverTick,
     };
   }
 
@@ -1624,6 +1631,12 @@ function mergeInventoryUpdate(previous: Inventory | undefined, patch: S2C_Invent
   }
   if (patch.size !== undefined) {
     next.items.length = Math.max(0, patch.size);
+  }
+  if (patch.cooldowns !== undefined) {
+    next.cooldowns = cloneJson(patch.cooldowns);
+  }
+  if (patch.serverTick !== undefined) {
+    next.serverTick = patch.serverTick;
   }
   for (const slotPatch of patch.slots ?? []) {
     if (slotPatch.item) {
@@ -2307,6 +2320,9 @@ actionPanel.setCallbacks(
   (pills) => {
     socket.sendUpdateAutoUsePills(pills);
   },
+  (combatTargetingRules) => {
+    socket.sendUpdateCombatTargetingRules(combatTargetingRules);
+  },
   (mode) => {
     socket.sendUpdateAutoBattleTargetingMode(mode);
   },
@@ -2472,6 +2488,9 @@ socket.onLeaderboard((data) => {
 });
 socket.onInventoryUpdate((data) => {
   const mergedInventory = mergeInventoryUpdate(myPlayer?.inventory, data);
+  if (mergedInventory.serverTick !== undefined) {
+    syncEstimatedServerTick(mergedInventory.serverTick);
+  }
   if (myPlayer) {
     myPlayer.inventory = mergedInventory;
     actionPanel.syncDynamic(myPlayer.actions, myPlayer.autoBattle, myPlayer.autoRetaliate, myPlayer);
@@ -2530,11 +2549,13 @@ socket.onActionsUpdate((data) => {
   const previousAutoRetaliate = myPlayer?.autoRetaliate ?? true;
   const previousAutoBattleStationary = myPlayer?.autoBattleStationary ?? false;
   const previousAllowAoePlayerHit = myPlayer?.allowAoePlayerHit ?? false;
+  const previousCombatTargetingRules = myPlayer?.combatTargetingRules;
   const previousAutoIdleCultivation = myPlayer?.autoIdleCultivation ?? true;
   const previousAutoSwitchCultivation = myPlayer?.autoSwitchCultivation ?? false;
   const previousCultivationActive = myPlayer?.cultivationActive ?? false;
   const nextAutoBattle = data.autoBattle ?? myPlayer?.autoBattle ?? false;
   const nextAutoUsePills = data.autoUsePills ?? myPlayer?.autoUsePills ?? [];
+  const nextCombatTargetingRules = data.combatTargetingRules ?? myPlayer?.combatTargetingRules;
   const nextAutoBattleTargetingMode = data.autoBattleTargetingMode ?? myPlayer?.autoBattleTargetingMode ?? 'auto';
   const nextAutoRetaliate = data.autoRetaliate ?? myPlayer?.autoRetaliate ?? true;
   const nextAutoBattleStationary = data.autoBattleStationary ?? myPlayer?.autoBattleStationary ?? false;
@@ -2549,6 +2570,7 @@ socket.onActionsUpdate((data) => {
     || previousAutoRetaliate !== nextAutoRetaliate
     || previousAutoBattleStationary !== nextAutoBattleStationary
     || previousAllowAoePlayerHit !== nextAllowAoePlayerHit
+    || !isPlainEqual(previousCombatTargetingRules ?? null, nextCombatTargetingRules ?? null)
     || previousAutoIdleCultivation !== nextAutoIdleCultivation
     || previousAutoSwitchCultivation !== nextAutoSwitchCultivation
     || previousCultivationActive !== nextCultivationActive
@@ -2564,6 +2586,7 @@ socket.onActionsUpdate((data) => {
       }));
     myPlayer.autoBattle = data.autoBattle ?? myPlayer.autoBattle;
     myPlayer.autoUsePills = nextAutoUsePills;
+    myPlayer.combatTargetingRules = nextCombatTargetingRules;
     myPlayer.autoBattleTargetingMode = nextAutoBattleTargetingMode;
     myPlayer.autoRetaliate = data.autoRetaliate ?? (myPlayer.autoRetaliate !== false);
     myPlayer.autoBattleStationary = nextAutoBattleStationary;
@@ -3291,6 +3314,7 @@ function buildClientPreviewPath(
 function resetGameState() {
   myPlayer = null;
   currentTimeTickIntervalMs = 1000;
+  syncEstimatedServerTick(null);
   syncCurrentTimeState(null);
   latestAttrUpdate = null;
   clearCurrentPath();
@@ -3566,6 +3590,7 @@ socket.onInit((data: S2C_Init) => {
   latestAttrUpdate = buildAttrStateFromPlayer(myPlayer);
   myPlayer.senseQiActive = myPlayer.senseQiActive === true;
   myPlayer.autoBattleStationary = myPlayer.autoBattleStationary === true;
+  myPlayer.combatTargetingRules = myPlayer.combatTargetingRules ?? { hostile: ['monster', 'retaliators', 'terrain'], friendly: ['non_hostile_players'] };
   myPlayer.autoBattleTargetingMode = myPlayer.autoBattleTargetingMode ?? 'auto';
   myPlayer.allowAoePlayerHit = myPlayer.allowAoePlayerHit === true;
   myPlayer.autoIdleCultivation = myPlayer.autoIdleCultivation !== false;

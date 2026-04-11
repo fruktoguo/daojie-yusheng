@@ -11,6 +11,8 @@ import {
   AlchemyIngredientSelection,
   AutoBattleSkillConfig,
   AutoUsePillConfig,
+  buildDefaultCombatTargetingRules,
+  DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS,
   CombatEffect,
   DEFAULT_AURA_LEVEL_BASE_VALUE,
   DEFAULT_PLAYER_MAP_ID,
@@ -26,7 +28,9 @@ import {
   MapMeta,
   MapMinimapMarker,
   MapRouteDomain,
+  hasCombatTargetingRule,
   normalizeAutoBattleTargetingMode,
+  normalizeCombatTargetingRules,
   normalizeAutoUsePillConfigs,
   normalizeAuraLevelBaseValue,
   parseTileTargetRef,
@@ -48,6 +52,7 @@ import {
   S2C_SystemMsg,
   S2C_TechniqueUpdate,
   S2C_Tick,
+  SyncedInventoryCooldownState,
   SyncedInventorySnapshot,
   SyncedItemStack,
   TechniqueState,
@@ -151,6 +156,7 @@ interface ActionSyncStateEntry {
 interface ActionPanelSyncState {
   autoBattle: boolean;
   autoUsePills: PlayerState['autoUsePills'];
+  combatTargetingRules: NonNullable<PlayerState['combatTargetingRules']>;
   autoBattleTargetingMode: PlayerState['autoBattleTargetingMode'];
   autoRetaliate: boolean;
   autoBattleStationary: boolean;
@@ -177,7 +183,6 @@ const TICK_CONFIG_DOCUMENT_KEY = 'tick_runtime';
 const DEFAULT_SYSTEM_ROUTE_DOMAINS: readonly MapRouteDomain[] = ['system'];
 const PERIODIC_SYNC_INTERVAL_MS = 60_000;
 const PERIODIC_SYNC_DIRTY_FLAGS: readonly DirtyFlag[] = ['attr', 'inv', 'equip', 'tech', 'actions', 'loot', 'quest'];
-const AUTO_USE_PILL_INSTANT_EFFECT_COOLDOWN_TICKS = 60;
 type PersistTrigger = 'interval' | 'interval_catchup' | 'maintenance' | 'shutdown';
 
 function normalizeConsumableBuffShortMark(raw: string | undefined, fallbackName: string): string {
@@ -206,6 +211,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   private lastSentActionStates: Map<string, Map<string, ActionSyncStateEntry>> = new Map();
   private lastSentActionPanelStates: Map<string, ActionPanelSyncState> = new Map();
   private lastSentInventoryStates: Map<string, Inventory> = new Map();
+  private lastSentInventoryCooldownStates: Map<string, SyncedInventoryCooldownState[]> = new Map();
   private lastSentEquipmentStates: Map<string, EquipmentSlots> = new Map();
   private cooldownOnlyActionDirtyPlayers: Set<string> = new Set();
   private lastSentGroundPiles: Map<string, Map<string, GroundItemPileView>> = new Map();
@@ -214,7 +220,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   private pendingAlchemyPanelPushPlayers: Set<string> = new Set();
   private lastPeriodicSyncAt: Map<string, number> = new Map();
   private forcedTickSyncPlayers: Set<string> = new Set();
-  private autoUsePillInstantCooldowns: Map<string, number> = new Map();
+  private autoUsePillInstantCooldowns: Map<string, Partial<Record<'hp' | 'qi', number>>> = new Map();
   private persistTimer: ReturnType<typeof setInterval> | null = null;
   private persistInFlight: Promise<void> | null = null;
   private persistFollowupRequested = false;
@@ -269,6 +275,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     this.lastSentActionStates.delete(playerId);
     this.lastSentActionPanelStates.delete(playerId);
     this.lastSentInventoryStates.delete(playerId);
+    this.lastSentInventoryCooldownStates.delete(playerId);
     this.lastSentEquipmentStates.delete(playerId);
     this.cooldownOnlyActionDirtyPlayers.delete(playerId);
     this.pendingAlchemyPanelPushPlayers.delete(playerId);
@@ -317,6 +324,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     this.lastSentSpecialStatsAt.set(player.id, Date.now());
     this.pendingSpecialStatsPlayers.delete(player.id);
     this.lastSentInventoryStates.set(player.id, this.cloneStructured(player.inventory));
+    this.lastSentInventoryCooldownStates.set(player.id, this.captureInventoryCooldownStates(player));
     this.lastSentEquipmentStates.set(player.id, this.cloneStructured(player.equipment));
     this.lastSentTechniqueStates.set(player.id, new Map(
       player.techniques.map((technique) => [technique.techId, this.cloneStructured(technique)] as const),
@@ -630,6 +638,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     this.lastSentActionStates.clear();
     this.lastSentActionPanelStates.clear();
     this.lastSentInventoryStates.clear();
+    this.lastSentInventoryCooldownStates.clear();
     this.lastSentEquipmentStates.clear();
     this.cooldownOnlyActionDirtyPlayers.clear();
     this.lastSentGroundPiles.clear();
@@ -696,6 +705,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           this.measureCpuSection('pathfinding', '寻路与移动', () => {
             this.navigationService.clearMoveTarget(player.id);
             player.questNavigation = undefined;
+            player.mapNavigation = undefined;
             if (player.autoBattle) {
               player.autoBattle = false;
               player.combatTargetId = undefined;
@@ -722,6 +732,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         case 'moveTo': {
           this.measureCpuSection('pathfinding', '寻路与移动', () => {
             player.questNavigation = undefined;
+            player.mapNavigation = undefined;
             if (player.autoBattle) {
               player.autoBattle = false;
               player.combatTargetId = undefined;
@@ -763,9 +774,50 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
               messages.push({ playerId: player.id, text: error, kind: 'system' });
               this.rejectQuestNavigation(player, questId, error);
               player.questNavigation = undefined;
+              player.mapNavigation = undefined;
               return;
             }
+            player.mapNavigation = undefined;
             player.questNavigation = { questId, pendingConfirmation: true };
+            if (player.autoBattle) {
+              player.autoBattle = false;
+              player.combatTargetId = undefined;
+              player.combatTargetLocked = false;
+              player.retaliatePlayerTargetId = undefined;
+              this.markActionsDirty(player.id);
+            }
+          });
+          break;
+        }
+        case 'navigateMapPoint': {
+          this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+            const { mapId, x, y } = cmd.data as { mapId: string; x: number; y: number };
+            const mapMeta = this.mapService.getMapMeta(mapId);
+            if (!mapMeta) {
+              messages.push({ playerId: player.id, text: '目标地图不存在', kind: 'system' });
+              player.mapNavigation = undefined;
+              return;
+            }
+            if (
+              !Number.isInteger(x)
+              || !Number.isInteger(y)
+              || x < 0
+              || y < 0
+              || x >= mapMeta.width
+              || y >= mapMeta.height
+            ) {
+              messages.push({ playerId: player.id, text: '目标坐标超出地图范围', kind: 'system' });
+              player.mapNavigation = undefined;
+              return;
+            }
+            player.questNavigation = undefined;
+            player.mapNavigation = {
+              targetMapId: mapId,
+              targetMapName: mapMeta.name,
+              targetX: x,
+              targetY: y,
+              pendingConfirmation: true,
+            };
             if (player.autoBattle) {
               player.autoBattle = false;
               player.combatTargetId = undefined;
@@ -991,6 +1043,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
             }
             this.navigationService.clearMoveTarget(player.id);
             player.questNavigation = undefined;
+            player.mapNavigation = undefined;
             if (player.autoBattle) {
               player.autoBattle = false;
               player.combatTargetId = undefined;
@@ -1100,6 +1153,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       }
 
       if (!player.autoBattle) {
+        this.measureCpuSection('pathfinding', '寻路与移动', () => {
+          this.processMapNavigation(player, messages);
+        });
         this.measureCpuSection('pathfinding', '寻路与移动', () => {
           this.processQuestNavigation(player, messages);
         });
@@ -1631,7 +1687,11 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   private isBattlePillItem(itemId: string): boolean {
-    return this.contentService.getItem(itemId)?.tags?.includes('战斗丹药') === true;
+    const item = this.contentService.getItem(itemId);
+    if (!item || item.type !== 'consumable') {
+      return false;
+    }
+    return (item.healAmount ?? 0) > 0 || (item.healPercent ?? 0) > 0 || (item.qiPercent ?? 0) > 0;
   }
 
   private normalizeAutoUsePills(input: unknown): AutoUsePillConfig[] {
@@ -1702,6 +1762,11 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         return false;
       }
     }
+    const cooldownLeft = this.getItemUseCooldownRemainingTicks(player, item.itemId);
+    if (cooldownLeft > 0) {
+      pushError(`${item.name}冷却中，还需 ${cooldownLeft} 息。`);
+      return false;
+    }
     const useErr = this.inventoryService.useItem(player, slotIndex, requestedCount);
     if (useErr) {
       pushError(useErr);
@@ -1709,6 +1774,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
     this.playerService.markDirty(player.id, 'inv');
     this.applyItemEffect(player, item.itemId, messages, requestedCount);
+    this.markItemUseCooldown(player, item.itemId);
     return true;
   }
 
@@ -1721,37 +1787,133 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       );
   }
 
-  private getAutoUsePillCooldownTicks(itemId: string): number {
+  private getItemUseCooldownTicks(itemId: string): number {
     const item = this.contentService.getItem(itemId);
     if (!item) {
       return 0;
     }
+    if (typeof item.cooldown === 'number' && Number.isFinite(item.cooldown) && item.cooldown > 0) {
+      return Math.max(1, Math.floor(item.cooldown));
+    }
     return (item.healAmount ?? 0) > 0 || (item.healPercent ?? 0) > 0 || (item.qiPercent ?? 0) > 0
-      ? AUTO_USE_PILL_INSTANT_EFFECT_COOLDOWN_TICKS
+      ? DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS
       : 0;
   }
 
-  private isAutoUsePillOnCooldown(player: PlayerState, itemId: string): boolean {
-    if (this.getAutoUsePillCooldownTicks(itemId) <= 0) {
-      return false;
-    }
-    const readyAtMs = this.autoUsePillInstantCooldowns.get(player.id);
-    if (typeof readyAtMs !== 'number' || !Number.isFinite(readyAtMs) || readyAtMs <= 0) {
-      return false;
-    }
-    if (Date.now() >= readyAtMs) {
-      this.autoUsePillInstantCooldowns.delete(player.id);
-      return false;
-    }
-    return true;
+  private getCurrentServerTick(now = Date.now()): number {
+    return Math.max(0, Math.floor(now / this.minTickInterval));
   }
 
-  private markAutoUsePillCooldown(player: PlayerState, itemId: string): void {
-    const cooldownTicks = this.getAutoUsePillCooldownTicks(itemId);
+  private getItemUseCooldownGroups(itemId: string): Array<'hp' | 'qi'> {
+    const item = this.contentService.getItem(itemId);
+    if (!item) {
+      return [];
+    }
+    const groups: Array<'hp' | 'qi'> = [];
+    if ((item.healAmount ?? 0) > 0 || (item.healPercent ?? 0) > 0) {
+      groups.push('hp');
+    }
+    if ((item.qiPercent ?? 0) > 0) {
+      groups.push('qi');
+    }
+    return groups;
+  }
+
+  private getItemUseCooldownRemainingTicks(player: PlayerState, itemId: string): number {
+    const cooldownTicks = this.getItemUseCooldownTicks(itemId);
+    if (cooldownTicks <= 0) {
+      return 0;
+    }
+    const cooldownGroups = this.getItemUseCooldownGroups(itemId);
+    if (cooldownGroups.length === 0) {
+      return 0;
+    }
+    const startedAtTicks = this.autoUsePillInstantCooldowns.get(player.id);
+    if (!startedAtTicks) {
+      return 0;
+    }
+    const currentTick = this.getCurrentServerTick();
+    let maxRemainingTicks = 0;
+    let hasActiveGroup = false;
+    for (const group of cooldownGroups) {
+      const startedAtTick = startedAtTicks[group];
+      if (typeof startedAtTick !== 'number' || !Number.isFinite(startedAtTick) || startedAtTick < 0) {
+        continue;
+      }
+      hasActiveGroup = true;
+      const elapsedTicks = Math.max(0, currentTick - Math.floor(startedAtTick));
+      const remainingTicks = Math.max(0, cooldownTicks - elapsedTicks);
+      if (remainingTicks > 0) {
+        maxRemainingTicks = Math.max(maxRemainingTicks, remainingTicks);
+        continue;
+      }
+      delete startedAtTicks[group];
+    }
+    if (!startedAtTicks.hp && !startedAtTicks.qi) {
+      this.autoUsePillInstantCooldowns.delete(player.id);
+    } else {
+      this.autoUsePillInstantCooldowns.set(player.id, startedAtTicks);
+    }
+    return hasActiveGroup ? maxRemainingTicks : 0;
+  }
+
+  private isAutoUsePillOnCooldown(player: PlayerState, itemId: string): boolean {
+    return this.getItemUseCooldownRemainingTicks(player, itemId) > 0;
+  }
+
+  private markItemUseCooldown(player: PlayerState, itemId: string): void {
+    const cooldownTicks = this.getItemUseCooldownTicks(itemId);
     if (cooldownTicks <= 0) {
       return;
     }
-    this.autoUsePillInstantCooldowns.set(player.id, Date.now() + cooldownTicks * this.minTickInterval);
+    const cooldownGroups = this.getItemUseCooldownGroups(itemId);
+    if (cooldownGroups.length === 0) {
+      return;
+    }
+    const nextState = { ...(this.autoUsePillInstantCooldowns.get(player.id) ?? {}) };
+    const currentServerTick = this.getCurrentServerTick();
+    for (const group of cooldownGroups) {
+      nextState[group] = currentServerTick;
+    }
+    this.autoUsePillInstantCooldowns.set(player.id, nextState);
+    this.playerService.markDirty(player.id, 'inv');
+  }
+
+  private captureInventoryCooldownStates(player: PlayerState): SyncedInventoryCooldownState[] {
+    const startedAtTicks = this.autoUsePillInstantCooldowns.get(player.id);
+    if (!startedAtTicks) {
+      return [];
+    }
+    const cooldowns = new Map<string, SyncedInventoryCooldownState>();
+    for (const item of player.inventory.items) {
+      const cooldown = this.getItemUseCooldownTicks(item.itemId);
+      const cooldownLeft = this.getItemUseCooldownRemainingTicks(player, item.itemId);
+      const startedAtTick = this.getItemUseCooldownGroups(item.itemId)
+        .map((group) => startedAtTicks[group])
+        .filter((entry): entry is number => typeof entry === 'number' && Number.isFinite(entry) && entry >= 0)
+        .sort((left, right) => right - left)[0];
+      if (cooldown <= 0 || cooldowns.has(item.itemId)) {
+        continue;
+      }
+      if (cooldownLeft <= 0 || startedAtTick === undefined) {
+        continue;
+      }
+      cooldowns.set(item.itemId, {
+        itemId: item.itemId,
+        cooldown,
+        startedAtTick: Math.max(0, Math.floor(startedAtTick)),
+      });
+    }
+    return [...cooldowns.values()].sort((left, right) => left.itemId.localeCompare(right.itemId));
+  }
+
+  private shouldSyncInventoryCooldown(player: PlayerState): boolean {
+    const nextCooldowns = this.captureInventoryCooldownStates(player);
+    const previousCooldowns = this.lastSentInventoryCooldownStates.get(player.id) ?? [];
+    if (nextCooldowns.length === 0 && previousCooldowns.length === 0) {
+      return false;
+    }
+    return !this.isStructuredEqual(previousCooldowns, nextCooldowns);
   }
 
   private shouldAutoUsePill(player: PlayerState, config: AutoUsePillConfig): boolean {
@@ -1804,7 +1966,6 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         continue;
       }
       if (this.tryUseInventoryItem(player, slotIndex, 1, messages, { silent: true })) {
-        this.markAutoUsePillCooldown(player, config.itemId);
         return true;
       }
     }
@@ -1870,6 +2031,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       return false;
     }
     if (player.questNavigation?.questId) {
+      this.applyQuestCrossMapCooldown(player);
+    }
+    if (player.mapNavigation) {
       this.applyQuestCrossMapCooldown(player);
     }
     this.applyWorldUpdate(player.id, update, messages);
@@ -1979,6 +2143,94 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       player.questNavigation = undefined;
     } else {
       this.confirmQuestNavigation(player, navigation);
+    }
+  }
+
+  private processMapNavigation(player: PlayerState, messages: WorldMessage[]): void {
+    const navigation = player.mapNavigation;
+    if (!navigation) {
+      return;
+    }
+
+    const targetMapMeta = this.mapService.getMapMeta(navigation.targetMapId);
+    if (!targetMapMeta) {
+      messages.push({ playerId: player.id, text: '目标地图不存在', kind: 'system' });
+      player.mapNavigation = undefined;
+      this.navigationService.clearMoveTarget(player.id);
+      return;
+    }
+
+    if (
+      navigation.targetX < 0
+      || navigation.targetY < 0
+      || navigation.targetX >= targetMapMeta.width
+      || navigation.targetY >= targetMapMeta.height
+    ) {
+      messages.push({ playerId: player.id, text: '目标坐标超出地图范围', kind: 'system' });
+      player.mapNavigation = undefined;
+      this.navigationService.clearMoveTarget(player.id);
+      return;
+    }
+
+    if (player.mapId === navigation.targetMapId) {
+      navigation.pendingConfirmation = undefined;
+      navigation.pausedForCrossMapCooldown = false;
+      navigation.lastBlockedRemainingTicks = undefined;
+      if (player.x === navigation.targetX && player.y === navigation.targetY) {
+        this.navigationService.clearMoveTarget(player.id);
+        player.mapNavigation = undefined;
+        return;
+      }
+      const error = this.navigationService.setMoveTarget(player, navigation.targetX, navigation.targetY, { allowNearestReachable: true });
+      if (error) {
+        messages.push({ playerId: player.id, text: error, kind: 'system' });
+        player.mapNavigation = undefined;
+      }
+      return;
+    }
+
+    const nextPortal = this.findNextPortalTowardsMap(player.mapId, navigation.targetMapId);
+    const targetMapLabel = navigation.targetMapName ?? targetMapMeta.name ?? navigation.targetMapId;
+    if (!nextPortal) {
+      messages.push({ playerId: player.id, text: `无法从当前地图前往 ${targetMapLabel}`, kind: 'system' });
+      player.mapNavigation = undefined;
+      this.navigationService.clearMoveTarget(player.id);
+      return;
+    }
+
+    const remainingTicks = this.getQuestCrossMapCooldownRemaining(player);
+    if (remainingTicks > 0) {
+      navigation.pendingConfirmation = undefined;
+      if (navigation.pausedForCrossMapCooldown !== true) {
+        messages.push({ playerId: player.id, text: `跨图导航冷却中，还需 ${remainingTicks} 息。`, kind: 'system' });
+      }
+      navigation.pausedForCrossMapCooldown = true;
+      navigation.lastBlockedRemainingTicks = remainingTicks;
+      this.navigationService.clearMoveTarget(player.id);
+      return;
+    }
+    navigation.pendingConfirmation = undefined;
+    navigation.pausedForCrossMapCooldown = false;
+    navigation.lastBlockedRemainingTicks = undefined;
+
+    if (player.x === nextPortal.x && player.y === nextPortal.y) {
+      const update = nextPortal.trigger === 'manual'
+        ? this.worldService.travelThroughManualPortalAtCurrentPosition(player, nextPortal.targetMapId)
+        : this.worldService.tryAutoTravel(player);
+      if (!update) {
+        messages.push({ playerId: player.id, text: '当前传送点无法使用', kind: 'system' });
+        player.mapNavigation = undefined;
+        return;
+      }
+      this.applyQuestCrossMapCooldown(player);
+      this.applyWorldUpdate(player.id, update, messages);
+      return;
+    }
+
+    const error = this.navigationService.setMoveTarget(player, nextPortal.x, nextPortal.y, { allowNearestReachable: true });
+    if (error) {
+      messages.push({ playerId: player.id, text: error, kind: 'system' });
+      player.mapNavigation = undefined;
     }
   }
 
@@ -2136,6 +2388,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       || player.autoIdleCultivation === false
       || this.navigationService.hasMoveTarget(player.id)
       || Boolean(player.questNavigation?.questId)
+      || Boolean(player.mapNavigation)
       || this.alchemyService.hasActiveAlchemyJob(player)
       || this.techniqueService.hasCultivationBuff(player)
     ) {
@@ -2420,6 +2673,19 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         }
         break;
       }
+      case 'updateCombatTargetingRules': {
+        const { combatTargetingRules } = data as { combatTargetingRules: PlayerState['combatTargetingRules'] };
+        const nextRules = normalizeCombatTargetingRules(
+          combatTargetingRules,
+          buildDefaultCombatTargetingRules({ includeAllPlayersHostile: player.allowAoePlayerHit === true }),
+        );
+        if (!isPlainEqual(player.combatTargetingRules ?? null, nextRules)) {
+          player.combatTargetingRules = nextRules;
+          player.allowAoePlayerHit = hasCombatTargetingRule(nextRules, 'hostile', 'all_players');
+          this.markActionsDirty(player.id);
+        }
+        break;
+      }
       case 'updateAutoBattleTargetingMode': {
         const { mode } = data as { mode: PlayerState['autoBattleTargetingMode'] };
         const nextMode = normalizeAutoBattleTargetingMode(mode, player.autoBattleTargetingMode);
@@ -2479,6 +2745,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
   /** 推送单个玩家的脏标记数据并清除标记 */
   private flushPlayerDirtyUpdates(player: PlayerState) {
+    if (this.shouldSyncInventoryCooldown(player)) {
+      this.playerService.markDirty(player.id, 'inv');
+    }
     if (this.shouldFlushPendingSpecialStats(player.id)) {
       this.playerService.markDirty(player.id, 'attr');
     }
@@ -2519,7 +2788,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
     if (flags.has('inv')) {
       this.measureCpuSection('state_sync_inventory', '状态同步: 背包与装备', () => {
-        const update = this.buildSparseInventoryUpdate(player.id, player.inventory);
+        const update = this.buildSparseInventoryUpdate(player);
         if (update) {
           socket.emit(S2C.InventoryUpdate, update);
         }
@@ -2948,9 +3217,14 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   private captureActionPanelSyncState(player: PlayerState): ActionPanelSyncState {
+    const combatTargetingRules = normalizeCombatTargetingRules(
+      player.combatTargetingRules,
+      buildDefaultCombatTargetingRules({ includeAllPlayersHostile: player.allowAoePlayerHit === true }),
+    );
     return {
       autoBattle: player.autoBattle,
       autoUsePills: this.cloneStructured(player.autoUsePills ?? []),
+      combatTargetingRules: this.cloneStructured(combatTargetingRules),
       autoBattleTargetingMode: player.autoBattleTargetingMode,
       autoRetaliate: player.autoRetaliate !== false,
       autoBattleStationary: player.autoBattleStationary === true,
@@ -3024,12 +3298,17 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   /** 构建背包增量包，仅发送与上次不同的槽位 */
-  private buildSparseInventoryUpdate(playerId: string, nextInventory: Inventory): S2C_InventoryUpdate | null {
+  private buildSparseInventoryUpdate(player: PlayerState): S2C_InventoryUpdate | null {
+    const playerId = player.id;
+    const nextInventory = player.inventory;
+    const nextCooldowns = this.captureInventoryCooldownStates(player);
+    const currentServerTick = this.getCurrentServerTick();
     const previous = this.lastSentInventoryStates.get(playerId);
     const cachedInventory = this.cloneStructured(nextInventory);
     if (!previous) {
       this.lastSentInventoryStates.set(playerId, cachedInventory);
-      return { inventory: this.toSyncedInventorySnapshot(nextInventory) };
+      this.lastSentInventoryCooldownStates.set(playerId, this.cloneStructured(nextCooldowns));
+      return { inventory: this.toSyncedInventorySnapshot(nextInventory, nextCooldowns, currentServerTick) };
     }
 
     const slots: InventorySlotUpdateEntry[] = [];
@@ -3056,9 +3335,18 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     if (slots.length > 0) {
       update.slots = slots;
     }
+    const previousCooldowns = this.lastSentInventoryCooldownStates.get(playerId) ?? [];
+    if (!this.isStructuredEqual(previousCooldowns, nextCooldowns)) {
+      update.cooldowns = this.cloneStructured(nextCooldowns);
+      update.serverTick = currentServerTick;
+    }
 
     this.lastSentInventoryStates.set(playerId, cachedInventory);
-    return update.capacity !== undefined || update.size !== undefined || update.slots !== undefined
+    this.lastSentInventoryCooldownStates.set(playerId, this.cloneStructured(nextCooldowns));
+    return update.capacity !== undefined
+      || update.size !== undefined
+      || update.slots !== undefined
+      || update.cooldowns !== undefined
       ? update
       : null;
   }
@@ -3106,6 +3394,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     if (!previousPanelState || !this.isStructuredEqual(previousPanelState.autoUsePills, nextPanelState.autoUsePills)) {
       update.autoUsePills = this.cloneStructured(nextPanelState.autoUsePills);
     }
+    if (!previousPanelState || !this.isStructuredEqual(previousPanelState.combatTargetingRules, nextPanelState.combatTargetingRules)) {
+      update.combatTargetingRules = this.cloneStructured(nextPanelState.combatTargetingRules);
+    }
     if (!previousPanelState || previousPanelState.autoBattleTargetingMode !== nextPanelState.autoBattleTargetingMode) {
       update.autoBattleTargetingMode = nextPanelState.autoBattleTargetingMode;
     }
@@ -3136,6 +3427,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       || (update.actionOrder?.length ?? 0) > 0
       || update.autoBattle !== undefined
       || update.autoUsePills !== undefined
+      || update.combatTargetingRules !== undefined
       || update.autoBattleTargetingMode !== undefined
       || update.autoRetaliate !== undefined
       || update.autoBattleStationary !== undefined
@@ -3406,10 +3698,16 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     };
   }
 
-  private toSyncedInventorySnapshot(inventory: Inventory): SyncedInventorySnapshot {
+  private toSyncedInventorySnapshot(
+    inventory: Inventory,
+    cooldowns?: SyncedInventoryCooldownState[],
+    serverTick?: number,
+  ): SyncedInventorySnapshot {
     return {
       capacity: inventory.capacity,
       items: inventory.items.map((item) => this.toSyncedItemStack(item)),
+      cooldowns: cooldowns ? this.cloneStructured(cooldowns) : undefined,
+      serverTick,
     };
   }
 
@@ -3420,6 +3718,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       return {
         itemId: item.itemId,
         count,
+        cooldown: item.cooldown,
         alchemySuccessRate: item.alchemySuccessRate,
         alchemySpeedRate: item.alchemySpeedRate,
         mapUnlockId: item.mapUnlockId,
@@ -3442,6 +3741,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       equipValueStats: item.equipValueStats ? this.cloneStructured(item.equipValueStats) : undefined,
       effects: item.effects ? this.cloneStructured(item.effects) : undefined,
       tags: item.tags ? [...item.tags] : undefined,
+      cooldown: item.cooldown,
       alchemySuccessRate: item.alchemySuccessRate,
       alchemySpeedRate: item.alchemySpeedRate,
       mapUnlockId: item.mapUnlockId,

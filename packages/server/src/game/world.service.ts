@@ -9,6 +9,7 @@ import {
   ActionDef,
   Attributes,
   basisPointModifierToMultiplier,
+  buildDefaultCombatTargetingRules,
   buildEffectiveTargetingGeometry,
   BuffModifierMode,
   calculateDispersedAuraGainPerTile,
@@ -29,6 +30,7 @@ import {
   Direction,
   ElementKey,
   ELEMENT_KEYS,
+  ELEMENT_KEY_LABELS,
   estimateMonsterSpiritFromStats,
   gameplayConstants,
   GameTimeState,
@@ -36,6 +38,7 @@ import {
   getFirstGrapheme,
   getDamageTrailColor,
   getBuffRealmEffectivenessMultiplier,
+  hasCombatTargetingRule,
   gridDistance,
   isOffsetInRange,
   getRealmGapDamageMultiplier,
@@ -50,6 +53,7 @@ import {
   NpcQuestMarker,
   ObservationInsight,
   ObservationLootPreview,
+  normalizeCombatTargetingRules,
   parseTileTargetRef,
   PendingLogbookMessage,
   PlayerState,
@@ -68,6 +72,7 @@ import {
   SyncedItemStack,
   SyncedNpcShopView,
   TemporaryBuffState,
+  TILE_TYPE_LABELS,
   TileType,
   VisibleBuffState,
   signedRatioValue,
@@ -419,6 +424,7 @@ interface CombatSnapshot {
 
 interface ResolvedHit {
   hit: boolean;
+  rawDamage: number;
   damage: number;
   effectiveDamage: number;
   crit: boolean;
@@ -1156,11 +1162,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (actionId === 'toggle:allow_aoe_player_hit') {
-      player.allowAoePlayerHit = player.allowAoePlayerHit === true ? false : true;
+      const enabled = player.allowAoePlayerHit !== true;
+      this.setPlayerHostileAllPlayersEnabled(player, enabled);
       return {
         messages: [{
           playerId: player.id,
-          text: player.allowAoePlayerHit === true
+          text: enabled
             ? '已开启全体攻击，现在可以主动攻击其他玩家。'
             : '已关闭全体攻击，现在只会反击主动攻击你的玩家。',
           kind: 'combat',
@@ -1581,7 +1588,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     const selectedTargets = anchor
       ? this.selectSkillTargetsFromAnchor(player, skill, anchor, casterStats, options?.primaryTarget)
       : this.selectSkillTargets(player, skill, options?.primaryTarget, casterStats);
-    if (skill.requiresTarget !== false && selectedTargets.length === 0 && options?.allowMiss !== true) {
+    const hasFriendlyPrimaryTarget = options?.primaryTarget?.kind === 'player'
+      && this.canPlayerTreatPlayer(player, options.primaryTarget.player);
+    if (skill.requiresTarget !== false && selectedTargets.length === 0 && !hasFriendlyPrimaryTarget && options?.allowMiss !== true) {
       return { ...EMPTY_UPDATE, error: '没有可命中的目标' };
     }
 
@@ -1634,7 +1643,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
               ? this.attackPlayer(player, target.player, baseDamage, `${skill.name}击中`, effect.damageKind ?? 'spell', effect.element, qiCost)
               : target.kind === 'container'
                 ? this.attackContainer(player, target.container, baseDamage, skill.name, target.container.name, effect.damageKind ?? 'spell', effect.element)
-              : this.attackTerrain(player, target.x, target.y, baseDamage, skill.name, target.tileType ?? '目标', effect.damageKind ?? 'spell', effect.element);
+              : this.attackTerrain(player, target.x, target.y, baseDamage, skill.name, this.formatCombatTileLabel(target.tileType), effect.damageKind ?? 'spell', effect.element);
           result.messages.push(...update.messages);
           for (const flag of update.dirty) {
             dirty.add(flag);
@@ -2007,30 +2016,24 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     const shape = geometry.shape ?? 'single';
     if (shape === 'single') {
       if (primaryTarget) {
-        return [primaryTarget];
+        return this.canPlayerUseHostileEffectOnTarget(player, primaryTarget) ? [primaryTarget] : [];
       }
       const monsters = this.monstersByMap.get(player.mapId) ?? [];
-      const canHitPlayersWithGroupSkill = player.allowAoePlayerHit === true;
-      const players = canHitPlayersWithGroupSkill
-        ? this.playerService.getPlayersByMap(player.mapId)
-          .filter((entry) => entry.id !== player.id && !entry.dead)
-        : [];
+      const players = this.playerService.getPlayersByMap(player.mapId)
+        .filter((entry) => entry.id !== player.id && !entry.dead);
       return this.collectTargetsFromCells(player, monsters, players, [{ x: anchor.x, y: anchor.y }], 1);
     }
 
     const monsters = this.monstersByMap.get(player.mapId) ?? [];
-    const canHitPlayersWithGroupSkill = player.allowAoePlayerHit === true;
-    const players = canHitPlayersWithGroupSkill
-      ? this.playerService.getPlayersByMap(player.mapId)
-        .filter((entry) => entry.id !== player.id && !entry.dead)
-      : [];
+    const players = this.playerService.getPlayersByMap(player.mapId)
+      .filter((entry) => entry.id !== player.id && !entry.dead);
     const maxTargets = this.getEffectiveDamageTargetLimit(skill, player.temporaryBuffs);
     const cells = this.buildPlayerSkillAffectedCells(player, skill, anchor, playerStats);
     const targets = this.collectTargetsFromCells(player, monsters, players, cells, maxTargets);
     if (
-      primaryTarget?.kind === 'player'
-      && this.canPlayerDealDamageToPlayer(player, primaryTarget.player)
-      && !targets.some((entry) => entry.kind === 'player' && entry.player.id === primaryTarget.player.id)
+      primaryTarget
+      && this.canPlayerUseHostileEffectOnTarget(player, primaryTarget)
+      && !targets.some((entry) => this.getTargetRef(entry) === this.getTargetRef(primaryTarget))
     ) {
       targets.unshift(primaryTarget);
       if (targets.length > maxTargets) {
@@ -2052,7 +2055,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
     for (const cell of cells) {
       const monster = monsters.find((entry) => entry.alive && entry.x === cell.x && entry.y === cell.y);
-      if (monster) {
+      if (monster && this.canPlayerDealDamageToMonster(player)) {
         const key = `monster:${monster.runtimeId}`;
         if (!seen.has(key)) {
           resolved.push({ kind: 'monster', x: monster.x, y: monster.y, monster });
@@ -2064,7 +2067,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       }
 
       const targetPlayer = players.find((entry) => entry.x === cell.x && entry.y === cell.y);
-      if (targetPlayer) {
+      if (targetPlayer && this.canPlayerDealDamageToPlayer(player, targetPlayer)) {
         const key = `player:${targetPlayer.id}`;
         if (!seen.has(key)) {
           resolved.push({ kind: 'player', x: targetPlayer.x, y: targetPlayer.y, player: targetPlayer });
@@ -2076,7 +2079,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       }
 
       const container = this.mapService.getContainerAt(player.mapId, cell.x, cell.y);
-      if (container?.variant === 'herb') {
+      if (container?.variant === 'herb' && this.canPlayerDealDamageToEnvironment(player)) {
         const runtime = this.lootService.getContainerRuntimeView(player.mapId, container);
         if (!runtime.destroyed && !runtime.respawning) {
           const key = `container:${container.id}`;
@@ -2092,6 +2095,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
       const tile = this.mapService.getTile(player.mapId, cell.x, cell.y);
       if (!tile || !tile.hp || !tile.maxHp) {
+        continue;
+      }
+      if (!this.canPlayerDealDamageToEnvironment(player)) {
         continue;
       }
       const key = `tile:${cell.x}:${cell.y}`;
@@ -2122,7 +2128,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       const targetPlayer = players.find((entry) => (
         entry.x === cell.x
         && entry.y === cell.y
-        && (entry.id === player.id || !this.canPlayerDealDamageToPlayer(player, entry))
+        && this.canPlayerTreatPlayer(player, entry)
       ));
       if (!targetPlayer) {
         continue;
@@ -2142,10 +2148,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   }
 
   private pickDamageTargets(selectedTargets: ResolvedTarget[], primaryTarget?: ResolvedTarget): ResolvedTarget[] {
-    if (selectedTargets.length > 0) {
-      return selectedTargets;
-    }
-    return primaryTarget ? [primaryTarget] : [];
+    return selectedTargets.length > 0 ? selectedTargets : [];
   }
 
   private toEquipmentEffectTarget(target: ResolvedTarget | undefined):
@@ -2540,14 +2543,15 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           this.buildPlayerSkillAffectedCells(player, skill, anchor ?? { x: player.x, y: player.y }, casterStats),
           Number.isFinite(skill.targeting?.maxTargets) ? Math.max(1, Number(skill.targeting?.maxTargets)) : 99,
         )
-        : (primaryTarget?.kind === 'player' ? [primaryTarget] : []);
+        : (primaryTarget?.kind === 'player' && this.canPlayerTreatPlayer(player, primaryTarget.player) ? [primaryTarget] : []);
     if (targets.length === 0) {
       return { ...EMPTY_UPDATE, error: '当前技能没有可治疗的有效目标' };
     }
 
     const dirtyPlayers = new Set<string>();
-    const healedNames: string[] = [];
+    const healedTargets: PlayerState[] = [];
     let selfHealed = false;
+    let rawTotalHeal = 0;
     let totalHeal = 0;
 
     for (const target of targets) {
@@ -2570,8 +2574,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       if (actualHeal <= 0) {
         continue;
       }
+      rawTotalHeal += amount;
       totalHeal += actualHeal;
-      healedNames.push(target.player.id === player.id ? '你' : target.player.name);
+      healedTargets.push(target.player);
       if (target.player.id === player.id) {
         selfHealed = true;
       } else {
@@ -2582,13 +2587,21 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (totalHeal <= 0) {
       return { ...EMPTY_UPDATE, error: '目标气血已满，未产生治疗效果' };
     }
+    const messageViewerIds = new Set<string>([player.id, ...healedTargets.map((target) => target.id)]);
+    const messages: WorldMessage[] = [...messageViewerIds].map((viewerId) => {
+      const visibleTargetNames = [...new Set(healedTargets.map((target) => this.formatCombatPlayerLabel(target, viewerId)))];
+      const visibleHpStates = [...new Set(healedTargets.map((target) => (
+        `${this.formatCombatPlayerLabel(target, viewerId)} ${this.formatCombatHp(target.hp, target.maxHp)}`
+      )))];
+      return {
+        playerId: viewerId,
+        text: `${this.formatCombatActionClause(viewerId === player.id ? '你' : player.name, visibleTargetNames.join('、'), skill.name)}${this.buildCombatTag([`目标气血 ${visibleHpStates.join('；')}`])}，造成 ${this.formatCombatHealBreakdown(rawTotalHeal, totalHeal)}。`,
+        kind: 'combat',
+      };
+    });
 
     return {
-      messages: [{
-        playerId: player.id,
-        text: `${skill.name}生效，${[...new Set(healedNames)].join('、')}恢复了 ${totalHeal} 点气血。`,
-        kind: 'combat',
-      }],
+      messages,
       dirty: selfHealed ? ['attr'] : [],
       dirtyPlayers: [...dirtyPlayers],
     };
@@ -3032,13 +3045,6 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           const resolved = this.resolveMonsterAttack(monster, target);
           const monsterElement = this.inferMonsterElement(monster);
           const effectColor = getDamageTrailColor(monsterElement ? 'spell' : 'physical', monsterElement);
-          for (const message of cultivation.messages) {
-            allMessages.push({
-              playerId: target.id,
-              text: message.text,
-              kind: message.kind,
-            });
-          }
           if (cultivation.changed) {
             dirtyPlayers.add(target.id);
           }
@@ -3081,7 +3087,15 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
             text: resolved.hit ? `-${resolved.damage}` : '闪',
             color: effectColor,
           });
-          allMessages.push(this.buildMonsterAttackMessage(monster, target, resolved, effectColor));
+          allMessages.push(this.buildMonsterAttackMessage(
+            monster,
+            target,
+            resolved,
+            effectColor,
+            monsterElement ? 'spell' : 'physical',
+            monsterElement,
+            cultivation.changed ? ['打断修炼'] : [],
+          ));
           return target.hp <= 0;
         });
         if (defeated) {
@@ -3830,11 +3844,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       },
     );
     const floatColor = getDamageTrailColor(damageKind, element);
-    const messages: WorldMessage[] = cultivation.messages.map((message) => ({
-      playerId: target.id,
-      text: message.text,
-      kind: message.kind,
-    }));
+    const messages: WorldMessage[] = [];
     const dirtyPlayers = new Set<string>();
     if (cultivation.changed) {
       dirtyPlayers.add(target.id);
@@ -3878,7 +3888,16 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       text: resolved.hit ? `-${resolved.damage}` : '闪',
       color: floatColor,
     });
-    messages.push(this.buildMonsterSkillAttackMessage(monster, target, skill, resolved, floatColor));
+    messages.push(this.buildMonsterSkillAttackMessage(
+      monster,
+      target,
+      skill,
+      resolved,
+      floatColor,
+      damageKind,
+      element,
+      cultivation.changed ? ['打断修炼'] : [],
+    ));
 
     if (target.hp <= 0) {
       this.registerPlayerDefeat(target);
@@ -4297,12 +4316,16 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       color: effectColor,
     });
     const messages: WorldMessage[] = [
-      ...cultivation.messages.map((message) => ({
-        playerId: player.id,
-        text: message.text,
-        kind: message.kind,
-      })),
-      this.buildPlayerAttackMessage(player, monster, prefix, resolved, effectColor),
+      this.buildPlayerAttackMessage(
+        player,
+        monster,
+        prefix,
+        resolved,
+        effectColor,
+        damageKind,
+        element,
+        cultivation.changed ? ['打断修炼'] : [],
+      ),
     ];
     const dirty = new Set<WorldDirtyFlag>(cultivation.dirty as WorldDirtyFlag[]);
     const attackEquipment = this.equipmentEffectService.dispatch(player, {
@@ -4397,7 +4420,14 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
     const dirtyPlayers = new Set<string>();
     const messages: WorldMessage[] = [];
-    const healedNames: string[] = [];
+    const healedEntries: Array<{
+      kind: 'monster' | 'player';
+      playerId?: string;
+      name: string;
+      hp: number;
+      maxHp: number;
+    }> = [];
+    let rawTotalHeal = 0;
     let totalHeal = 0;
 
     for (const target of targets) {
@@ -4418,9 +4448,20 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       };
       const amount = Math.max(1, Math.round(this.evaluateSkillFormula(effect.formula, context)));
       if (target.kind === 'monster') {
+        const previousHp = target.monster.hp;
         target.monster.hp = Math.min(target.monster.maxHp, target.monster.hp + amount);
-        totalHeal += amount;
-        healedNames.push(monster.name);
+        const actualHeal = target.monster.hp - previousHp;
+        if (actualHeal <= 0) {
+          continue;
+        }
+        rawTotalHeal += amount;
+        totalHeal += actualHeal;
+        healedEntries.push({
+          kind: 'monster',
+          name: target.monster.name,
+          hp: target.monster.hp,
+          maxHp: target.monster.maxHp,
+        });
         continue;
       }
       const previousHp = target.player.hp;
@@ -4429,19 +4470,37 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       if (actualHeal <= 0) {
         continue;
       }
+      rawTotalHeal += amount;
       totalHeal += actualHeal;
-      healedNames.push(target.player.name);
+      healedEntries.push({
+        kind: 'player',
+        playerId: target.player.id,
+        name: target.player.name,
+        hp: target.player.hp,
+        maxHp: target.player.maxHp,
+      });
       dirtyPlayers.add(target.player.id);
     }
 
     if (totalHeal <= 0) {
       return { messages, dirty: [], dirtyPlayers: [...dirtyPlayers] };
     }
-    const targetPlayer = selectedTargets.find((entry): entry is Extract<ResolvedTarget, { kind: 'player' }> => entry.kind === 'player');
-    if (targetPlayer) {
+    const messageViewerIds = new Set<string>();
+    for (const entry of healedEntries) {
+      if (entry.kind === 'player' && typeof entry.playerId === 'string') {
+        messageViewerIds.add(entry.playerId);
+      }
+    }
+    for (const viewerId of messageViewerIds) {
+      const visibleTargetNames = [...new Set(healedEntries.map((entry) => (
+        entry.kind === 'player' && entry.playerId === viewerId ? '你' : entry.name
+      )))];
+      const visibleHpStates = [...new Set(healedEntries.map((entry) => (
+        `${entry.kind === 'player' && entry.playerId === viewerId ? '你' : entry.name} ${this.formatCombatHp(entry.hp, entry.maxHp)}`
+      )))];
       messages.push({
-        playerId: targetPlayer.player.id,
-        text: `${monster.name}施展${skill.name}，${[...new Set(healedNames)].join('、')}恢复了 ${totalHeal} 点气血。`,
+        playerId: viewerId,
+        text: `${this.formatCombatActionClause(monster.name, visibleTargetNames.join('、'), skill.name)}${this.buildCombatTag([`目标气血 ${visibleHpStates.join('；')}`])}，造成 ${this.formatCombatHealBreakdown(rawTotalHeal, totalHeal)}。`,
         kind: 'combat',
       });
     }
@@ -4760,18 +4819,26 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       dirtyPlayers.add(target.id);
     }
     const messages: WorldMessage[] = [
-      ...attackerCultivation.messages.map((message) => ({
-        playerId: attacker.id,
-        text: message.text,
-        kind: message.kind,
-      })),
-      ...targetCultivation.messages.map((message) => ({
-        playerId: target.id,
-        text: message.text,
-        kind: message.kind,
-      })),
-      this.buildPlayerVsPlayerAttackMessage(attacker, target, prefix, resolved, effectColor),
-      this.buildPlayerUnderAttackMessage(attacker, target, resolved, effectColor),
+      this.buildPlayerVsPlayerAttackMessage(
+        attacker,
+        target,
+        prefix,
+        resolved,
+        effectColor,
+        damageKind,
+        element,
+        attackerCultivation.changed ? ['打断修炼'] : [],
+      ),
+      this.buildPlayerUnderAttackMessage(
+        attacker,
+        target,
+        prefix,
+        resolved,
+        effectColor,
+        damageKind,
+        element,
+        targetCultivation.changed ? ['打断修炼'] : [],
+      ),
     ];
 
     if (resolved.hit && resolved.damage > 0) {
@@ -4936,6 +5003,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (dodged) {
       return {
         hit: false,
+        rawDamage: 0,
         damage: 0,
         effectiveDamage: 0,
         crit: false,
@@ -4963,6 +5031,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (resolved) {
       defense *= 2;
     }
+    let rawDamage = damage;
     let reduction = this.getDefenseReductionRate(defense, damage);
     if (element) {
       const elementReduce = Math.max(0, ratioValue(defender.stats.elementDamageReduce[element], defender.ratios.elementDamageReduce[element]));
@@ -4971,14 +5040,20 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     damage = Math.max(1, Math.round(damage * (1 - reduction)));
 
     if (crit) {
-      damage = Math.max(1, Math.round(damage * ((200 + Math.max(0, attacker.stats.critDamage) / 10) / 100)));
+      const critMultiplier = (200 + Math.max(0, attacker.stats.critDamage) / 10) / 100;
+      rawDamage = Math.max(1, Math.round(rawDamage * critMultiplier));
+      damage = Math.max(1, Math.round(damage * critMultiplier));
     }
-    damage = Math.max(1, Math.round(damage * getRealmGapDamageMultiplier(attacker.realmLv, defender.realmLv)));
+    const realmGapMultiplier = getRealmGapDamageMultiplier(attacker.realmLv, defender.realmLv);
+    rawDamage = Math.max(1, Math.round(rawDamage * realmGapMultiplier));
+    damage = Math.max(1, Math.round(damage * realmGapMultiplier));
+    rawDamage = Math.max(1, Math.round(rawDamage * damageMultiplier));
     damage = Math.max(1, Math.round(damage * damageMultiplier));
 
     const effectiveDamage = Math.max(0, applyDamage(damage));
     return {
       hit: true,
+      rawDamage,
       damage,
       effectiveDamage,
       crit,
@@ -5196,11 +5271,15 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     prefix: string,
     resolved: ResolvedHit,
     floatColor: string,
+    damageKind: SkillDamageKind,
+    element?: ElementKey,
+    extraDetails: string[] = [],
   ): WorldMessage {
-    const tag = this.buildCombatDetailTag(resolved, `目标气血 ${this.formatCombatHp(monster.hp, monster.maxHp)}`);
+    const tag = this.buildCombatDetailTag(resolved, `目标气血 ${this.formatCombatHp(monster.hp, monster.maxHp)}`, extraDetails);
+    const actionLabel = this.resolveCombatActionLabel(prefix) ?? '攻击';
     const text = resolved.hit
-      ? `${prefix} ${monster.name}${tag}，造成 ${resolved.damage} 点伤害。`
-      : `${monster.name}身形一晃，避开了你的攻势${tag}。`;
+      ? `${this.formatCombatActionClause('你', monster.name, actionLabel)}${tag}，造成 ${this.formatCombatDamageBreakdown(resolved.rawDamage, resolved.effectiveDamage, damageKind, element)} 伤害。`
+      : `${this.formatCombatActionClause('你', monster.name, actionLabel)}${tag}，结果 闪避。`;
     return {
       playerId: player.id,
       text,
@@ -5219,11 +5298,15 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     player: PlayerState,
     resolved: ResolvedHit,
     floatColor: string,
+    damageKind: SkillDamageKind,
+    element?: ElementKey,
+    extraDetails: string[] = [],
   ): WorldMessage {
-    const tag = this.buildCombatDetailTag(resolved, `你剩余气血 ${this.formatCombatHp(player.hp, player.maxHp)}`);
+    const tag = this.buildCombatDetailTag(resolved, `你剩余气血 ${this.formatCombatHp(player.hp, player.maxHp)}`, extraDetails);
+    const actionLabel = '攻击';
     const text = resolved.hit
-      ? `${monster.name}扑击你${tag}，造成 ${resolved.damage} 点伤害。`
-      : `${monster.name}扑了个空，你险险避开${tag}。`;
+      ? `${this.formatCombatActionClause(monster.name, '你', actionLabel)}${tag}，造成 ${this.formatCombatDamageBreakdown(resolved.rawDamage, resolved.effectiveDamage, damageKind, element)} 伤害。`
+      : `${this.formatCombatActionClause(monster.name, '你', actionLabel)}${tag}，结果 闪避。`;
     return {
       playerId: player.id,
       text,
@@ -5243,11 +5326,14 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     skill: SkillDef,
     resolved: ResolvedHit,
     floatColor: string,
+    damageKind: SkillDamageKind,
+    element?: ElementKey,
+    extraDetails: string[] = [],
   ): WorldMessage {
-    const tag = this.buildCombatDetailTag(resolved, `你剩余气血 ${this.formatCombatHp(player.hp, player.maxHp)}`);
+    const tag = this.buildCombatDetailTag(resolved, `你剩余气血 ${this.formatCombatHp(player.hp, player.maxHp)}`, extraDetails);
     const text = resolved.hit
-      ? `${monster.name}施展${skill.name}${tag}，造成 ${resolved.damage} 点伤害。`
-      : `${monster.name}施展${skill.name}，却被你险险避开${tag}。`;
+      ? `${this.formatCombatActionClause(monster.name, '你', skill.name)}${tag}，造成 ${this.formatCombatDamageBreakdown(resolved.rawDamage, resolved.effectiveDamage, damageKind, element)} 伤害。`
+      : `${this.formatCombatActionClause(monster.name, '你', skill.name)}${tag}，结果 闪避。`;
     return {
       playerId: player.id,
       text,
@@ -5267,11 +5353,16 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     prefix: string,
     resolved: ResolvedHit,
     floatColor: string,
+    damageKind: SkillDamageKind,
+    element?: ElementKey,
+    extraDetails: string[] = [],
   ): WorldMessage {
-    const tag = this.buildCombatDetailTag(resolved, `对方气血 ${this.formatCombatHp(target.hp, target.maxHp)}`);
+    const tag = this.buildCombatDetailTag(resolved, `对方气血 ${this.formatCombatHp(target.hp, target.maxHp)}`, extraDetails);
+    const actionLabel = this.resolveCombatActionLabel(prefix) ?? '攻击';
+    const targetLabel = this.formatCombatPlayerLabel(target, attacker.id);
     const text = resolved.hit
-      ? `${prefix} ${target.name}${tag}，造成 ${resolved.damage} 点伤害。`
-      : `${target.name}身形一晃，避开了你的攻势${tag}。`;
+      ? `${this.formatCombatActionClause('你', targetLabel, actionLabel)}${tag}，造成 ${this.formatCombatDamageBreakdown(resolved.rawDamage, resolved.effectiveDamage, damageKind, element)} 伤害。`
+      : `${this.formatCombatActionClause('你', targetLabel, actionLabel)}${tag}，结果 闪避。`;
     return {
       playerId: attacker.id,
       text,
@@ -5288,13 +5379,18 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   private buildPlayerUnderAttackMessage(
     attacker: PlayerState,
     target: PlayerState,
+    prefix: string,
     resolved: ResolvedHit,
     floatColor: string,
+    damageKind: SkillDamageKind,
+    element?: ElementKey,
+    extraDetails: string[] = [],
   ): WorldMessage {
-    const tag = this.buildCombatDetailTag(resolved, `你剩余气血 ${this.formatCombatHp(target.hp, target.maxHp)}`);
+    const tag = this.buildCombatDetailTag(resolved, `你剩余气血 ${this.formatCombatHp(target.hp, target.maxHp)}`, extraDetails);
+    const actionLabel = this.resolveCombatActionLabel(prefix) ?? '攻击';
     const text = resolved.hit
-      ? `${attacker.name}袭向你${tag}，造成 ${resolved.damage} 点伤害。`
-      : `${attacker.name}的攻势被你险险避开${tag}。`;
+      ? `${this.formatCombatActionClause(attacker.name, '你', actionLabel)}${tag}，造成 ${this.formatCombatDamageBreakdown(resolved.rawDamage, resolved.effectiveDamage, damageKind, element)} 伤害。`
+      : `${this.formatCombatActionClause(attacker.name, '你', actionLabel)}${tag}，结果 闪避。`;
     return {
       playerId: target.id,
       text,
@@ -5308,14 +5404,71 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  private buildCombatDetailTag(resolved: ResolvedHit, hpText: string): string {
+  private buildCombatTag(details: string[]): string {
+    const normalized = details
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0);
+    return normalized.length > 0 ? `（${normalized.join(' / ')}）` : '';
+  }
+
+  private buildCombatDetailTag(resolved: ResolvedHit, hpText: string, extraDetails: string[] = []): string {
     const details: string[] = [];
     if (resolved.broken) details.push('破招');
     if (resolved.crit) details.push('暴击');
     if (resolved.resolved) details.push('化解');
     if (resolved.qiCost > 0) details.push(`耗气 ${resolved.qiCost}`);
     details.push(hpText);
-    return `（${details.join(' / ')}）`;
+    details.push(...extraDetails);
+    return this.buildCombatTag(details);
+  }
+
+  private formatCombatActionClause(casterLabel: string, targetLabel: string, actionLabel: string): string {
+    return actionLabel === '攻击'
+      ? `${casterLabel}对${targetLabel}发起攻击`
+      : `${casterLabel}对${targetLabel}施展${actionLabel}`;
+  }
+
+  private formatCombatDamageBreakdown(
+    rawDamage: number,
+    actualDamage: number,
+    damageKind: SkillDamageKind,
+    element?: ElementKey,
+  ): string {
+    return `原始 ${Math.max(0, Math.round(rawDamage))} - 实际 ${Math.max(0, Math.round(actualDamage))} - ${this.formatCombatDamageType(damageKind, element)}`;
+  }
+
+  private formatCombatDamageType(damageKind: SkillDamageKind, element?: ElementKey): string {
+    const elementLabel = element ? `${ELEMENT_KEY_LABELS[element] ?? element}行` : '';
+    return damageKind === 'physical' ? `${elementLabel}物理` : `${elementLabel}法术`;
+  }
+
+  private formatCombatHealBreakdown(rawHeal: number, actualHeal: number): string {
+    return `原始 ${Math.max(0, Math.round(rawHeal))} - 实际 ${Math.max(0, Math.round(actualHeal))} 治疗`;
+  }
+
+  private formatCombatPlayerLabel(player: PlayerState, viewerPlayerId?: string): string {
+    return viewerPlayerId && player.id === viewerPlayerId ? '你' : player.name;
+  }
+
+  private formatCombatTileLabel(tileType?: string): string {
+    if (!tileType) {
+      return '地块';
+    }
+    return TILE_TYPE_LABELS[tileType as TileType] ?? tileType;
+  }
+
+  private resolveCombatActionLabel(prefix: string): string | null {
+    const normalized = prefix.trim();
+    if (!normalized) {
+      return null;
+    }
+    if (normalized === '你攻击命中') {
+      return '攻击';
+    }
+    if (normalized.endsWith('击中') || normalized.endsWith('命中')) {
+      return normalized.slice(0, -2).trim() || null;
+    }
+    return normalized;
   }
 
   private formatCombatHp(current: number, max: number): string {
@@ -7391,7 +7544,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     effectiveViewRange: number,
     skills: AutoBattleSkillCandidate[],
   ): boolean {
-    if (target.kind === 'tile') {
+    if (!this.canPlayerUseHostileEffectOnTarget(player, target) || target.kind === 'tile') {
       return false;
     }
     if (!this.canPlayerSeeTarget(player, target, effectiveViewRange)) {
@@ -7439,7 +7592,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     effectiveViewRange: number,
     range: number,
   ): boolean {
-    if (target.kind === 'tile') {
+    if (!this.canPlayerUseHostileEffectOnTarget(player, target)) {
       return false;
     }
     if (!this.canPlayerSeeTarget(player, target, effectiveViewRange)) {
@@ -7669,14 +7822,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     });
 
     const messages: WorldMessage[] = [
-      ...cultivation.messages.map((message) => ({
-        playerId: player.id,
-        text: message.text,
-        kind: message.kind,
-      })),
       {
         playerId: player.id,
-        text: `${skillName}击中${targetName}，造成 ${rawDamage} 点伤害。`,
+        text: `${this.formatCombatActionClause('你', targetName, skillName)}${this.buildCombatTag(cultivation.changed ? ['打断修炼'] : [])}，造成 ${this.formatCombatDamageBreakdown(rawDamage, appliedDamage, damageKind, element)} 伤害。`,
         kind: 'combat',
       },
     ];
@@ -7734,14 +7882,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     });
 
     const messages: WorldMessage[] = [
-      ...cultivation.messages.map((message) => ({
-        playerId: player.id,
-        text: message.text,
-        kind: message.kind,
-      })),
       {
         playerId: player.id,
-        text: `${skillName}击中${targetName}，造成 ${rawDamage} 点伤害。`,
+        text: `${this.formatCombatActionClause('你', targetName, skillName)}${this.buildCombatTag(cultivation.changed ? ['打断修炼'] : [])}，造成 ${this.formatCombatDamageBreakdown(rawDamage, result.appliedDamage, damageKind, element)} 伤害。`,
         kind: 'combat',
       },
     ];
@@ -7875,18 +8018,27 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     const baseDamage = Math.max(1, Math.round(useSpellAttack ? combat.stats.spellAtk : combat.stats.physAtk));
     this.pushActionLabelEffect(player.mapId, player.x, player.y, '攻击');
     if (target.kind === 'monster') {
+      if (!this.canPlayerDealDamageToMonster(player)) {
+        return { ...EMPTY_UPDATE, error: '当前敌对判定未包含妖兽单位。' };
+      }
       return this.attackMonster(player, target.monster, baseDamage, '你攻击命中', damageKind, undefined, 0, true, true);
     }
     if (target.kind === 'player') {
       if (!this.canPlayerDealDamageToPlayer(player, target.player)) {
-        return { ...EMPTY_UPDATE, error: '已关闭全体攻击，当前不会主动攻击其他玩家。' };
+        return { ...EMPTY_UPDATE, error: '当前敌对判定未包含该玩家。' };
       }
       return this.attackPlayer(player, target.player, baseDamage, '你攻击命中', damageKind, undefined, 0, true, true);
     }
     if (target.kind === 'container') {
+      if (!this.canPlayerDealDamageToEnvironment(player)) {
+        return { ...EMPTY_UPDATE, error: '当前敌对判定未包含场景地块。' };
+      }
       return this.attackContainer(player, target.container, baseDamage, '你攻击', target.container.name, damageKind, undefined, true);
     }
-    return this.attackTerrain(player, target.x, target.y, baseDamage, '你攻击', target.tileType ?? '目标', damageKind, undefined, true);
+    if (!this.canPlayerDealDamageToEnvironment(player)) {
+      return { ...EMPTY_UPDATE, error: '当前敌对判定未包含场景地块。' };
+    }
+    return this.attackTerrain(player, target.x, target.y, baseDamage, '你攻击', this.formatCombatTileLabel(target.tileType), damageKind, undefined, true);
   }
 
   private formatRespawnTicks(ticks: number | undefined): string {
@@ -7918,8 +8070,74 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     player.retaliatePlayerTargetId = undefined;
   }
 
+  private getPlayerCombatTargetingRules(player: PlayerState) {
+    return normalizeCombatTargetingRules(
+      player.combatTargetingRules,
+      buildDefaultCombatTargetingRules({ includeAllPlayersHostile: player.allowAoePlayerHit === true }),
+    );
+  }
+
+  private setPlayerCombatTargetingRules(player: PlayerState, nextRules: PlayerState['combatTargetingRules']): void {
+    const normalized = normalizeCombatTargetingRules(
+      nextRules,
+      buildDefaultCombatTargetingRules({ includeAllPlayersHostile: player.allowAoePlayerHit === true }),
+    );
+    player.combatTargetingRules = normalized;
+    player.allowAoePlayerHit = hasCombatTargetingRule(normalized, 'hostile', 'all_players');
+  }
+
+  private setPlayerHostileAllPlayersEnabled(player: PlayerState, enabled: boolean): void {
+    const rules = this.getPlayerCombatTargetingRules(player);
+    const hostile = rules.hostile.filter((entry) => entry !== 'all_players') as typeof rules.hostile;
+    if (enabled) {
+      hostile.push('all_players');
+    }
+    this.setPlayerCombatTargetingRules(player, {
+      ...rules,
+      hostile,
+    });
+  }
+
+  private canPlayerDealDamageToMonster(player: PlayerState): boolean {
+    return hasCombatTargetingRule(this.getPlayerCombatTargetingRules(player), 'hostile', 'monster');
+  }
+
+  private canPlayerDealDamageToEnvironment(player: PlayerState): boolean {
+    return hasCombatTargetingRule(this.getPlayerCombatTargetingRules(player), 'hostile', 'terrain');
+  }
+
   private canPlayerDealDamageToPlayer(attacker: PlayerState, target: PlayerState): boolean {
-    return attacker.allowAoePlayerHit === true || attacker.retaliatePlayerTargetId === target.id;
+    if (attacker.id === target.id) {
+      return false;
+    }
+    const rules = this.getPlayerCombatTargetingRules(attacker);
+    return hasCombatTargetingRule(rules, 'hostile', 'all_players')
+      || (hasCombatTargetingRule(rules, 'hostile', 'retaliators') && attacker.retaliatePlayerTargetId === target.id);
+  }
+
+  private canPlayerTreatPlayer(player: PlayerState, target: PlayerState): boolean {
+    if (target.id === player.id) {
+      return true;
+    }
+    const rules = this.getPlayerCombatTargetingRules(player);
+    if (hasCombatTargetingRule(rules, 'friendly', 'all_players')) {
+      return true;
+    }
+    if (hasCombatTargetingRule(rules, 'friendly', 'retaliators') && player.retaliatePlayerTargetId === target.id) {
+      return true;
+    }
+    return hasCombatTargetingRule(rules, 'friendly', 'non_hostile_players')
+      && !this.canPlayerDealDamageToPlayer(player, target);
+  }
+
+  private canPlayerUseHostileEffectOnTarget(player: PlayerState, target: ResolvedTarget): boolean {
+    if (target.kind === 'monster') {
+      return this.canPlayerDealDamageToMonster(player);
+    }
+    if (target.kind === 'player') {
+      return this.canPlayerDealDamageToPlayer(player, target.player);
+    }
+    return this.canPlayerDealDamageToEnvironment(player);
   }
 
   private ensurePlayerCanStartSkillAttack(player: PlayerState, skill: SkillDef): string | undefined {

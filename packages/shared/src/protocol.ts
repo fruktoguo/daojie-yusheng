@@ -24,6 +24,7 @@ export const C2S = {
   Action: 'c:action',
   UpdateAutoBattleSkills: 'c:updateAutoBattleSkills',
   UpdateAutoUsePills: 'c:updateAutoUsePills',
+  UpdateCombatTargetingRules: 'c:updateCombatTargetingRules',
   UpdateAutoBattleTargetingMode: 'c:updateAutoBattleTargetingMode',
   UpdateTechniqueSkillAvailability: 'c:updateTechniqueSkillAvailability',
   DebugResetSpawn: 'c:debugResetSpawn',
@@ -174,6 +175,8 @@ export const NEXT_C2S = {
   BuyNpcShopItem: 'n:c:buyNpcShopItem',
   UpdateAutoBattleSkills: 'n:c:updateAutoBattleSkills',
   UpdateAutoUsePills: 'n:c:updateAutoUsePills',
+  UpdateCombatTargetingRules: 'n:c:updateCombatTargetingRules',
+  UpdateAutoBattleTargetingMode: 'n:c:updateAutoBattleTargetingMode',
   DebugResetSpawn: 'n:c:debugResetSpawn',
   Chat: 'n:c:chat',
   AckSystemMessages: 'n:c:ackSystemMessages',
@@ -347,6 +350,10 @@ export interface C2S_UpdateAutoBattleSkills {
 
 export interface C2S_UpdateAutoUsePills {
   pills: AutoUsePillConfig[];
+}
+
+export interface C2S_UpdateCombatTargetingRules {
+  combatTargetingRules: NonNullable<PlayerState['combatTargetingRules']>;
 }
 
 export interface C2S_UpdateAutoBattleTargetingMode {
@@ -840,12 +847,13 @@ export interface SyncedInventorySnapshot {
   items: SyncedItemStack[];
   capacity: number;
   cooldowns?: SyncedInventoryCooldownState[];
+  serverTick?: number;
 }
 
 export interface SyncedInventoryCooldownState {
   itemId: string;
   cooldown: number;
-  cooldownLeft: number;
+  startedAtTick: number;
 }
 
 /** 背包更新 */
@@ -860,6 +868,7 @@ export interface S2C_InventoryUpdate {
   size?: number;
   slots?: InventorySlotUpdateEntry[];
   cooldowns?: SyncedInventoryCooldownState[];
+  serverTick?: number;
 }
 
 /** 装备更新 */
@@ -923,6 +932,7 @@ export interface S2C_ActionsUpdate {
   actionOrder?: string[];
   autoBattle?: boolean;
   autoUsePills?: AutoUsePillConfig[];
+  combatTargetingRules?: PlayerState['combatTargetingRules'];
   autoBattleTargetingMode?: AutoBattleTargetingMode;
   combatTargetId?: string | null;
   combatTargetLocked?: boolean;

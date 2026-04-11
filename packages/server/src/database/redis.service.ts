@@ -72,6 +72,7 @@ export class RedisService implements OnModuleDestroy {
       autoBattle: state.autoBattle ? '1' : '0',
       autoBattleSkills: JSON.stringify(state.autoBattleSkills),
       autoUsePills: JSON.stringify(state.autoUsePills ?? []),
+      combatTargetingRules: JSON.stringify(state.combatTargetingRules ?? { hostile: ['monster', 'retaliators', 'terrain'], friendly: ['non_hostile_players'] }),
       autoBattleTargetingMode: state.autoBattleTargetingMode ?? 'auto',
       combatTargetId: state.combatTargetId ?? '',
       combatTargetLocked: state.combatTargetLocked === true ? '1' : '0',

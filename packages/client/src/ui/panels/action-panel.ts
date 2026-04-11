@@ -7,6 +7,10 @@ import {
   ActionDef,
   AutoBattleSkillConfig,
   AutoBattleTargetingMode,
+  buildDefaultCombatTargetingRules,
+  type CombatTargetingRuleKey,
+  type CombatTargetingRuleScope,
+  type CombatTargetingRules,
   AutoUsePillCondition,
   AutoUsePillConfig,
   DEFAULT_PLAYER_REALM_STAGE,
@@ -17,6 +21,7 @@ import {
   type SkillDamageKind,
   countEnabledSkillEntries,
   enforceSkillEnabledLimit,
+  normalizeCombatTargetingRules,
   normalizeAutoUsePillConfigs,
   resolvePlayerSkillSlotLimit,
   resolveSkillUnlockLevel,
@@ -39,6 +44,7 @@ type SkillManagementSortField = 'custom' | 'actualDamage' | 'qiCost' | 'range' |
 type SkillManagementSortDirection = 'asc' | 'desc';
 type SkillManagementFilterToggle = 'melee' | 'ranged' | 'physical' | 'spell' | 'single' | 'aoe';
 type SkillPresetStatusTone = 'success' | 'error' | 'info';
+type CombatSettingsTab = 'auto_pills' | 'targeting';
 
 interface ActionRowRefs {
   row: HTMLElement;
@@ -101,6 +107,20 @@ interface AutoUsePillViewEntry {
 
 type AutoUsePillSubview = 'main' | 'picker' | 'conditions';
 
+interface CombatTargetingOption {
+  key: CombatTargetingRuleKey;
+  label: string;
+  summary: string;
+  disabled?: boolean;
+}
+
+interface CombatTargetingGroup {
+  scope: CombatTargetingRuleScope;
+  title: string;
+  summary: string;
+  options: CombatTargetingOption[];
+}
+
 const SKILL_PRESET_NAME_MAX_LENGTH = 24;
 const SKILL_PRESET_EXPORT_VERSION = 2;
 const AUTO_BATTLE_TARGETING_MODE_OPTIONS: Array<{
@@ -114,6 +134,33 @@ const AUTO_BATTLE_TARGETING_MODE_OPTIONS: Array<{
   { mode: 'full_hp', label: '优先满血', summary: '更偏向血量高的目标。' },
   { mode: 'boss', label: '优先Boss', summary: '更偏向妖王目标。' },
   { mode: 'player', label: '优先玩家', summary: '更偏向玩家目标。' },
+];
+const COMBAT_TARGETING_GROUPS: CombatTargetingGroup[] = [
+  {
+    scope: 'hostile',
+    title: '敌对判定',
+    summary: '勾选后，这些单位会被你视为敌方目标，可多选组合。',
+    options: [
+      { key: 'monster', label: '妖兽单位', summary: '把野外与副本中的妖兽视为敌方目标。' },
+      { key: 'all_players', label: '全部玩家', summary: '把所有玩家都纳入敌方目标。' },
+      { key: 'retaliators', label: '反击对象', summary: '把主动攻击过你的玩家纳入敌方目标。' },
+      { key: 'party', label: '协同行列', summary: '预留给队伍、同行等协作关系的敌友识别。', disabled: true },
+      { key: 'sect', label: '同道关系', summary: '预留给宗门、阵营等长期关系的敌友识别。', disabled: true },
+      { key: 'terrain', label: '场景地块', summary: '把墙体、山崖、容器等场景地块纳入敌方目标。' },
+    ],
+  },
+  {
+    scope: 'friendly',
+    title: '友方判定',
+    summary: '勾选后，这些单位会被你视为友方目标，可多选组合。',
+    options: [
+      { key: 'non_hostile_players', label: '非敌对玩家', summary: '把当前不属于敌对范围的玩家视为友方目标。' },
+      { key: 'all_players', label: '全部玩家', summary: '把所有玩家都纳入友方目标。' },
+      { key: 'retaliators', label: '反击对象', summary: '把主动攻击过你的玩家也纳入友方目标。' },
+      { key: 'party', label: '协同行列', summary: '预留给队伍、同行等协作关系的敌友识别。', disabled: true },
+      { key: 'sect', label: '同道关系', summary: '预留给宗门、阵营等长期关系的敌友识别。', disabled: true },
+    ],
+  },
 ];
 
 function normalizeShortcutKey(key: string): string | null {
@@ -151,6 +198,10 @@ function readBoolean(...values: unknown[]): boolean {
     }
   }
   return true;
+}
+
+function isAutoUseConsumableCandidate(item: Pick<ItemStack, 'healAmount' | 'healPercent' | 'qiPercent'>): boolean {
+  return (item.healAmount ?? 0) > 0 || (item.healPercent ?? 0) > 0 || (item.qiPercent ?? 0) > 0;
 }
 
 function decodePresetTextValue(value: string): string {
@@ -248,6 +299,7 @@ export class ActionPanel {
   private onAction: ((actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string) => void) | null = null;
   private onUpdateAutoBattleSkills: ((skills: AutoBattleSkillConfig[]) => void) | null = null;
   private onUpdateAutoUsePills: ((pills: AutoUsePillConfig[]) => void) | null = null;
+  private onUpdateCombatTargetingRules: ((combatTargetingRules: CombatTargetingRules) => void) | null = null;
   private onUpdateAutoBattleTargetingMode: ((mode: AutoBattleTargetingMode) => void) | null = null;
   private activeTab: ActionMainTab = 'dialogue';
   private activeSkillTab: SkillSubTab = 'auto';
@@ -259,6 +311,8 @@ export class ActionPanel {
   private skillManagementFilterOpen = false;
   private skillManagementFilterToggles = new Set<SkillManagementFilterToggle>();
   private autoUsePillDraft: AutoUsePillConfig[] | null = null;
+  private combatTargetingDraft: CombatTargetingRules | null = null;
+  private combatSettingsActiveTab: CombatSettingsTab = 'auto_pills';
   private autoUsePillSelectedIndex = 0;
   private autoUsePillSubview: AutoUsePillSubview = 'main';
   private autoUsePillModalSwitching = false;
@@ -306,7 +360,9 @@ export class ActionPanel {
     this.actionRowRefs.clear();
     this.skillManagementDraft = null;
     this.autoUsePillDraft = null;
+    this.combatTargetingDraft = null;
     this.autoUsePillExternalRevision = null;
+    this.combatSettingsActiveTab = 'auto_pills';
     this.autoUsePillSelectedIndex = 0;
     this.autoUsePillSubview = 'main';
     this.skillManagementExternalRevision = null;
@@ -325,11 +381,13 @@ export class ActionPanel {
     onAction: (actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string) => void,
     onUpdateAutoBattleSkills?: (skills: AutoBattleSkillConfig[]) => void,
     onUpdateAutoUsePills?: (pills: AutoUsePillConfig[]) => void,
+    onUpdateCombatTargetingRules?: (combatTargetingRules: CombatTargetingRules) => void,
     onUpdateAutoBattleTargetingMode?: (mode: AutoBattleTargetingMode) => void,
   ): void {
     this.onAction = onAction;
     this.onUpdateAutoBattleSkills = onUpdateAutoBattleSkills ?? null;
     this.onUpdateAutoUsePills = onUpdateAutoUsePills ?? null;
+    this.onUpdateCombatTargetingRules = onUpdateCombatTargetingRules ?? null;
     this.onUpdateAutoBattleTargetingMode = onUpdateAutoBattleTargetingMode ?? null;
   }
 
@@ -695,6 +753,14 @@ export class ActionPanel {
     return this.isUtilityActionId(action.id);
   }
 
+  private isHiddenAction(action: ActionDef): boolean {
+    return this.isHiddenActionId(action.id);
+  }
+
+  private isHiddenActionId(actionId: string): boolean {
+    return actionId === 'toggle:allow_aoe_player_hit';
+  }
+
   private isUtilityActionId(actionId: string): boolean {
     return actionId === RETURN_TO_SPAWN_ACTION_ID || actionId === 'battle:force_attack';
   }
@@ -703,7 +769,6 @@ export class ActionPanel {
     return actionId === 'toggle:auto_battle'
       || actionId === 'toggle:auto_retaliate'
       || actionId === 'toggle:auto_battle_stationary'
-      || actionId === 'toggle:allow_aoe_player_hit'
       || actionId === 'toggle:auto_idle_cultivation'
       || actionId === 'toggle:auto_switch_cultivation'
       || actionId === 'cultivation:toggle'
@@ -718,8 +783,6 @@ export class ActionPanel {
         return '自动反击';
       case 'toggle:auto_battle_stationary':
         return '原地战斗';
-      case 'toggle:allow_aoe_player_hit':
-        return '全体攻击';
       case 'toggle:auto_idle_cultivation':
         return '闲置自动修炼';
       case 'toggle:auto_switch_cultivation':
@@ -741,8 +804,6 @@ export class ActionPanel {
         return { active: this.autoRetaliate, label: this.autoRetaliate ? '开' : '关' };
       case 'toggle:auto_battle_stationary':
         return { active: this.autoBattleStationary, label: this.autoBattleStationary ? '开' : '关' };
-      case 'toggle:allow_aoe_player_hit':
-        return { active: this.allowAoePlayerHit, label: this.allowAoePlayerHit ? '开' : '关' };
       case 'toggle:auto_idle_cultivation':
         return { active: this.autoIdleCultivation, label: this.autoIdleCultivation ? '开' : '关' };
       case 'toggle:auto_switch_cultivation':
@@ -1099,7 +1160,7 @@ export class ActionPanel {
         targetMode: 'tile',
       });
     }
-    return result;
+    return result.filter((action) => !this.isHiddenAction(action));
   }
 
   private buildTechniqueFallbackActions(player: PlayerState, currentActions: ActionDef[]): ActionDef[] {
@@ -1994,23 +2055,71 @@ export class ActionPanel {
     }
     for (const item of this.previewPlayer?.inventory.items ?? []) {
       const previewItem = resolvePreviewItem(item);
-      if (previewItem.tags?.includes('战斗丹药') !== true) {
+      if (!isAutoUseConsumableCandidate(previewItem)) {
         continue;
       }
       parts.push(`i:${item.itemId}:${item.count}:${previewItem.name}`);
     }
+    const combatTargetingRules = this.getCombatTargetingRules();
+    parts.push(`h:${combatTargetingRules.hostile.join(',')}`);
+    parts.push(`f:${combatTargetingRules.friendly.join(',')}`);
     return parts.join('\u0001');
+  }
+
+  private cloneCombatTargetingRules(rules: CombatTargetingRules): CombatTargetingRules {
+    return {
+      hostile: [...rules.hostile],
+      friendly: [...rules.friendly],
+    };
+  }
+
+  private normalizeCombatTargetingRulesLocal(rules: CombatTargetingRules | null | undefined): CombatTargetingRules {
+    return normalizeCombatTargetingRules(
+      rules,
+      buildDefaultCombatTargetingRules({ includeAllPlayersHostile: this.allowAoePlayerHit }),
+    );
+  }
+
+  private getCombatTargetingRules(): CombatTargetingRules {
+    return this.normalizeCombatTargetingRulesLocal(this.previewPlayer?.combatTargetingRules ?? null);
+  }
+
+  private areCombatTargetingRulesEqual(
+    left: CombatTargetingRules | null | undefined,
+    right: CombatTargetingRules | null | undefined,
+  ): boolean {
+    const normalizedLeft = this.normalizeCombatTargetingRulesLocal(left ?? null);
+    const normalizedRight = this.normalizeCombatTargetingRulesLocal(right ?? null);
+    if (normalizedLeft.hostile.length !== normalizedRight.hostile.length || normalizedLeft.friendly.length !== normalizedRight.friendly.length) {
+      return false;
+    }
+    return normalizedLeft.hostile.every((entry, index) => entry === normalizedRight.hostile[index])
+      && normalizedLeft.friendly.every((entry, index) => entry === normalizedRight.friendly[index]);
+  }
+
+  private syncCombatTargetingDraft(): CombatTargetingRules {
+    const nextDraft = this.cloneCombatTargetingRules(this.normalizeCombatTargetingRulesLocal(this.combatTargetingDraft ?? this.getCombatTargetingRules()));
+    this.combatTargetingDraft = nextDraft;
+    return nextDraft;
+  }
+
+  private discardCombatTargetingDraft(): void {
+    this.combatTargetingDraft = null;
   }
 
   private hasPendingAutoUsePillChanges(): boolean {
     return !this.areAutoUsePillConfigsEqual(this.autoUsePillDraft, this.getAutoUsePills());
   }
 
+  private hasPendingCombatTargetingChanges(): boolean {
+    return !this.areCombatTargetingRulesEqual(this.combatTargetingDraft, this.getCombatTargetingRules());
+  }
+
   private confirmDiscardAutoUsePillChanges(): boolean {
-    if (!this.hasPendingAutoUsePillChanges()) {
+    if (!this.hasPendingAutoUsePillChanges() && !this.hasPendingCombatTargetingChanges()) {
       return true;
     }
-    return window.confirm('战斗设置里有未应用的丹药改动，关闭后会丢失这些改动。确定关闭吗？');
+    return window.confirm('战斗设置里有未应用的改动，关闭后会丢失这些改动。确定关闭吗？');
   }
 
   private requestAutoUsePillClose(): void {
@@ -2033,6 +2142,8 @@ export class ActionPanel {
 
   private discardAutoUsePillDraft(): void {
     this.autoUsePillDraft = null;
+    this.discardCombatTargetingDraft();
+    this.combatSettingsActiveTab = 'auto_pills';
     this.autoUsePillSelectedIndex = 0;
     this.autoUsePillSubview = 'main';
     this.autoUsePillExternalRevision = null;
@@ -2058,7 +2169,7 @@ export class ActionPanel {
 
     for (const item of this.previewPlayer?.inventory.items ?? []) {
       const previewItem = resolvePreviewItem(item);
-      if (previewItem.tags?.includes('战斗丹药') !== true) {
+      if (!isAutoUseConsumableCandidate(previewItem)) {
         continue;
       }
       const config = configMap.get(item.itemId);
@@ -2266,23 +2377,63 @@ export class ActionPanel {
 
   private applyAutoUsePillChanges(): void {
     const next = this.syncAutoUsePillDraft();
+    const nextCombatTargetingRules = this.syncCombatTargetingDraft();
+    const pillsChanged = !this.areAutoUsePillConfigsEqual(next, this.getAutoUsePills());
+    const targetingChanged = !this.areCombatTargetingRulesEqual(nextCombatTargetingRules, this.getCombatTargetingRules());
     if (this.previewPlayer) {
       this.previewPlayer.autoUsePills = this.cloneAutoUsePillConfigs(next);
+      this.previewPlayer.combatTargetingRules = this.cloneCombatTargetingRules(nextCombatTargetingRules);
+      this.previewPlayer.allowAoePlayerHit = nextCombatTargetingRules.hostile.includes('all_players');
     }
     this.autoUsePillDraft = null;
+    this.combatTargetingDraft = null;
+    this.combatSettingsActiveTab = 'auto_pills';
     this.autoUsePillSelectedIndex = 0;
     this.autoUsePillSubview = 'main';
     this.autoUsePillExternalRevision = null;
     detailModalHost.close(ActionPanel.AUTO_USE_PILL_OVERVIEW_MODAL_OWNER);
     detailModalHost.close(ActionPanel.AUTO_USE_PILL_PICKER_MODAL_OWNER);
     detailModalHost.close(ActionPanel.AUTO_USE_PILL_CONDITION_MODAL_OWNER);
-    this.onUpdateAutoUsePills?.(next);
+    if (pillsChanged) {
+      this.onUpdateAutoUsePills?.(next);
+    }
+    if (targetingChanged) {
+      this.onUpdateCombatTargetingRules?.(nextCombatTargetingRules);
+    }
   }
 
   private openAutoUsePillModal(): void {
     this.syncAutoUsePillDraft();
+    this.syncCombatTargetingDraft();
+    this.combatSettingsActiveTab = 'auto_pills';
     this.autoUsePillSelectedIndex = 0;
     this.autoUsePillSubview = 'main';
+    this.renderAutoUsePillModal();
+  }
+
+  private setCombatSettingsTab(tab: CombatSettingsTab): void {
+    if (this.combatSettingsActiveTab === tab) {
+      return;
+    }
+    this.combatSettingsActiveTab = tab;
+    if (tab !== 'auto_pills') {
+      this.autoUsePillSubview = 'main';
+    }
+    this.renderAutoUsePillModal();
+  }
+
+  private toggleCombatTargetingRule(scope: CombatTargetingRuleScope, key: CombatTargetingRuleKey): void {
+    const draft = this.syncCombatTargetingDraft();
+    const current = new Set(draft[scope]);
+    if (current.has(key)) {
+      current.delete(key);
+    } else {
+      current.add(key);
+    }
+    this.combatTargetingDraft = this.normalizeCombatTargetingRulesLocal({
+      ...draft,
+      [scope]: [...current],
+    });
     this.renderAutoUsePillModal();
   }
 
@@ -2967,6 +3118,53 @@ export class ActionPanel {
     `;
   }
 
+  private renderCombatTargetingSection(): string {
+    const draft = this.syncCombatTargetingDraft();
+    return `
+      <div class="combat-settings-targeting-shell">
+        <div class="combat-settings-targeting-head">
+          <div>
+            <div class="skill-preset-card-title">目标判定</div>
+            <div class="skill-preset-list-meta">这里是在定义你会把哪些单位视为敌方目标、哪些单位视为友方目标。伤害默认使用敌对判定，治疗默认使用友方判定；队伍与宗门关系暂未接入，先保留禁用态。</div>
+          </div>
+          <span class="combat-settings-targeting-badge">应用后生效</span>
+        </div>
+        <div class="combat-settings-targeting-grid">
+          ${COMBAT_TARGETING_GROUPS.map((group) => this.renderCombatTargetingGroup(group, draft)).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderCombatTargetingGroup(group: CombatTargetingGroup, draft: CombatTargetingRules): string {
+    return `
+      <div class="combat-settings-targeting-card combat-settings-targeting-card--${group.scope}">
+        <div class="skill-preset-section-head">
+          <div class="skill-preset-card-title">${escapeHtml(group.title)}</div>
+          <div class="skill-preset-list-meta">${escapeHtml(group.summary)}</div>
+        </div>
+        <div class="combat-settings-toggle-grid">
+          ${group.options.map((option) => `
+            <button
+              class="combat-settings-toggle-chip ${draft[group.scope].includes(option.key) ? 'active' : ''}"
+              type="button"
+              ${option.disabled ? 'disabled' : `data-combat-targeting-toggle="${group.scope}:${option.key}"`}
+            >
+              <span class="combat-settings-toggle-chip-box" aria-hidden="true"></span>
+              <span class="combat-settings-toggle-chip-content">
+                <span class="combat-settings-toggle-chip-title">
+                  ${escapeHtml(option.label)}
+                  ${option.disabled ? '<span class="combat-settings-toggle-chip-disabled-tag">未开放</span>' : ''}
+                </span>
+                <span class="combat-settings-toggle-chip-copy">${escapeHtml(option.summary)}</span>
+              </span>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
   private renderAutoUsePillModal(): void {
     this.autoUsePillTooltip.hide(true);
     this.autoUsePillTooltipNode = null;
@@ -3016,7 +3214,7 @@ export class ActionPanel {
     }).join('');
     const pickerEntries = this.getAutoUsePillPickerEntries();
     const pickerBody = pickerEntries.length === 0
-      ? '<div class="empty-hint">当前没有可选的战斗丹药。</div>'
+      ? '<div class="empty-hint">当前没有可选的生命/灵力回复药品。</div>'
       : `<div class="auto-pill-picker-grid">
         ${pickerEntries.map((entry) => `
           <button
@@ -3062,20 +3260,34 @@ export class ActionPanel {
         </div>
       `
       : '<div class="empty-hint">当前槽位还没有选择药品，无法设置条件。</div>';
+    const autoPillBody = `
+      <div class="skill-preset-card auto-pill-hero-card">
+        <div class="skill-preset-card-title">自动丹药槽</div>
+        <div class="skill-preset-card-copy">点槽位会在上面弹出独立药品选择小窗，点槽位下方“条件”会弹出独立条件设置小窗。改动会与目标选择一起在“应用”时提交。</div>
+      </div>
+      <div class="auto-pill-slot-grid">${slotMarkup}</div>
+    `;
+    const targetingBody = this.renderCombatTargetingSection();
     const overviewBody = `
       <div class="auto-pill-shell">
         <div class="auto-pill-topbar">
-          <div class="skill-preset-card auto-pill-hero-card">
-            <div class="skill-preset-card-title">自动丹药槽</div>
-            <div class="skill-preset-card-copy">战斗设置主弹窗会保持打开。点槽位会在上面弹出独立药品选择小窗，点槽位下方“条件”会弹出独立条件设置小窗。</div>
+          <div class="skill-preset-card auto-pill-hero-card combat-settings-hero-card">
+            <div class="skill-preset-card-title">战斗设置</div>
+            <div class="skill-preset-card-copy">把战斗补给和目标判定收在同一个面板里管理。所有改动都只在点击“应用”后才会提交到服务端。</div>
           </div>
           <div class="auto-pill-toolbar">
             <button class="small-btn" data-auto-pill-apply type="button">应用</button>
             <button class="small-btn ghost" data-auto-pill-cancel type="button">取消</button>
           </div>
         </div>
-        <div class="auto-pill-slot-grid">${slotMarkup}</div>
-        ${this.autoUsePillSubview === 'picker'
+        <div class="action-skill-subtabs combat-settings-tabs">
+          <button class="action-skill-subtab-btn ${this.combatSettingsActiveTab === 'auto_pills' ? 'active' : ''}" data-combat-settings-tab="auto_pills" type="button">丹药自动服用</button>
+          <button class="action-skill-subtab-btn ${this.combatSettingsActiveTab === 'targeting' ? 'active' : ''}" data-combat-settings-tab="targeting" type="button">目标选择</button>
+        </div>
+        <div class="combat-settings-panel-body">
+          ${this.combatSettingsActiveTab === 'auto_pills' ? autoPillBody : targetingBody}
+        </div>
+        ${this.combatSettingsActiveTab === 'auto_pills' && this.autoUsePillSubview === 'picker'
           ? `
             <div class="auto-pill-subdialog-backdrop">
               <div class="auto-pill-subdialog auto-pill-subdialog--picker">
@@ -3094,7 +3306,7 @@ export class ActionPanel {
             </div>
           `
           : ''}
-        ${this.autoUsePillSubview === 'conditions'
+        ${this.combatSettingsActiveTab === 'auto_pills' && this.autoUsePillSubview === 'conditions'
           ? `
             <div class="auto-pill-subdialog-backdrop">
               <div class="auto-pill-subdialog auto-pill-subdialog--condition">
@@ -3118,7 +3330,7 @@ export class ActionPanel {
       ownerId: ActionPanel.AUTO_USE_PILL_OVERVIEW_MODAL_OWNER,
       variantClass: 'detail-modal--combat-settings',
       title: '战斗设置',
-      subtitle: `自动丹药 ${selectedCount} 种 · 槽位总览`,
+      subtitle: `自动丹药 ${selectedCount} 种 · ${this.combatSettingsActiveTab === 'auto_pills' ? '丹药自动服用' : '目标选择'}`,
       bodyHtml: overviewBody,
       onRequestClose: () => this.confirmDiscardAutoUsePillChanges(),
       onClose: () => {
@@ -3140,6 +3352,25 @@ export class ActionPanel {
     root.querySelectorAll<HTMLElement>('[data-auto-pill-cancel]').forEach((button) => {
       button.addEventListener('click', () => {
         this.requestAutoUsePillClose();
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-combat-settings-tab]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const tab = button.dataset.combatSettingsTab === 'targeting' ? 'targeting' : 'auto_pills';
+        this.setCombatSettingsTab(tab);
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-combat-targeting-toggle]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const raw = button.dataset.combatTargetingToggle;
+        if (!raw) {
+          return;
+        }
+        const [scope, key] = raw.split(':') as [CombatTargetingRuleScope, CombatTargetingRuleKey];
+        if (!scope || !key) {
+          return;
+        }
+        this.toggleCombatTargetingRule(scope, key);
       });
     });
     root.querySelectorAll<HTMLElement>('[data-auto-pill-slot]').forEach((button) => {
