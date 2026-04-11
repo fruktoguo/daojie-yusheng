@@ -12,8 +12,7 @@
         "itemId": "wolf_fang",
         "name": "狼牙",
         "type": "material",
-        "count": 1,
-        "chance": 0.58
+        "count": 1
       },
       {
         "itemId": "book_wind_step",
@@ -91,8 +90,7 @@
         "itemId": "serpent_gall",
         "name": "竹蛇胆",
         "type": "material",
-        "count": 1,
-        "chance": 0.5
+        "count": 1
       },
       {
         "itemId": "equip.snakeshed_vest",
@@ -163,8 +161,7 @@
         "itemId": "bamboo_heart",
         "name": "翠竹心",
         "type": "material",
-        "count": 1,
-        "chance": 0.45
+        "count": 1
       },
       {
         "itemId": "book.qingmu_sword",
@@ -249,8 +246,7 @@
         "itemId": "mantis_blade",
         "name": "螳锋",
         "type": "material",
-        "count": 1,
-        "chance": 1
+        "count": 1
       },
       {
         "itemId": "equip.rust_saber",
@@ -335,15 +331,13 @@
         "itemId": "mantis_blade",
         "name": "螳锋",
         "type": "material",
-        "count": 2,
-        "chance": 1
+        "count": 2
       },
       {
         "itemId": "bamboo_heart",
         "name": "翠竹心",
         "type": "material",
-        "count": 1,
-        "chance": 1
+        "count": 1
       },
       {
         "itemId": "equip.rust_saber",

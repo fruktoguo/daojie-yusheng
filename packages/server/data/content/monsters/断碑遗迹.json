@@ -12,8 +12,7 @@
         "itemId": "rune_shard",
         "name": "断纹石片",
         "type": "material",
-        "count": 1,
-        "chance": 0.57
+        "count": 1
       },
       {
         "itemId": "book.mountain_insight_chart",
@@ -98,8 +97,7 @@
         "itemId": "soul_ink",
         "name": "魂墨",
         "type": "material",
-        "count": 1,
-        "chance": 0.4
+        "count": 1
       },
       {
         "itemId": "equip.soul_devour_token",
@@ -184,8 +182,7 @@
         "itemId": "rune_shard",
         "name": "断纹石片",
         "type": "material",
-        "count": 1,
-        "chance": 1
+        "count": 1
       },
       {
         "itemId": "book.spirit_anchor",
@@ -278,15 +275,13 @@
         "itemId": "rune_shard",
         "name": "断纹石片",
         "type": "material",
-        "count": 2,
-        "chance": 1
+        "count": 2
       },
       {
         "itemId": "soul_ink",
         "name": "魂墨",
         "type": "material",
-        "count": 2,
-        "chance": 1
+        "count": 2
       },
       {
         "itemId": "book.spirit_anchor",
@@ -385,15 +380,13 @@
         "itemId": "soul_ink",
         "name": "魂墨",
         "type": "material",
-        "count": 1,
-        "chance": 0.58
+        "count": 1
       },
       {
         "itemId": "rune_shard",
         "name": "断纹石片",
         "type": "material",
-        "count": 1,
-        "chance": 0.42
+        "count": 1
       },
       {
         "itemId": "book.hidden_fortune_record",

@@ -12,8 +12,7 @@
         "itemId": "rat_tail",
         "name": "鼠尾",
         "type": "material",
-        "count": 1,
-        "chance": 0.6
+        "count": 1
       },
       {
         "itemId": "equip.scavenger_crest",
@@ -76,8 +75,7 @@
         "itemId": "rat_tail",
         "name": "鼠尾",
         "type": "material",
-        "count": 1,
-        "chance": 0.62
+        "count": 1
       },
       {
         "itemId": "equip.scavenger_crest",
@@ -140,8 +138,7 @@
         "itemId": "bandit_insignia",
         "name": "匪徒腰牌",
         "type": "material",
-        "count": 1,
-        "chance": 0.55
+        "count": 1
       },
       {
         "itemId": "equip.porter_jacket",
@@ -205,8 +202,7 @@
         "itemId": "bandit_insignia",
         "name": "匪徒腰牌",
         "type": "material",
-        "count": 1,
-        "chance": 0.72
+        "count": 1
       },
       {
         "itemId": "book.iron_bone_art",

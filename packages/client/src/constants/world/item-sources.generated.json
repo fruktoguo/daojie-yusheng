@@ -2,20 +2,18 @@
   "bamboo_heart": [
     {
       "kind": "monster_drop",
-      "mapId": "bamboo_forest_mantis_court",
-      "mapName": "青竹林·青螂巢庭",
-      "monsterId": "m_green_emperor_mantis",
-      "monsterName": "青皇竹螂",
-      "chance": 1,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
       "mapId": "bamboo_forest",
       "mapName": "青竹林",
       "monsterId": "m_bamboo_sprite",
       "monsterName": "竹心灵",
-      "chance": 0.45,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "bamboo_forest_mantis_court",
+      "mapName": "青竹林·青螂巢庭",
+      "monsterId": "m_green_emperor_mantis",
+      "monsterName": "青皇竹螂",
       "count": 1
     },
     {
@@ -24,27 +22,16 @@
       "mapName": "荒野",
       "monsterId": "m_swamp_lizard",
       "monsterName": "泽鳞蜥",
-      "chance": 0.18,
       "count": 1
     }
   ],
   "bandit_insignia": [
     {
       "kind": "monster_drop",
-      "mapId": "yunlai_town",
-      "mapName": "云来镇",
-      "monsterId": "m_night_blade",
-      "monsterName": "夜行刀客",
-      "chance": 0.72,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
       "mapId": "wildlands",
       "mapName": "荒野",
       "monsterId": "m_wild_bandit",
       "monsterName": "荒野匪徒",
-      "chance": 0.6,
       "count": 1
     },
     {
@@ -53,7 +40,14 @@
       "mapName": "云来镇",
       "monsterId": "m_gate_thug",
       "monsterName": "断路暴徒",
-      "chance": 0.55,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "monsterId": "m_night_blade",
+      "monsterName": "夜行刀客",
       "count": 1
     },
     {
@@ -72,9 +66,24 @@
       "kind": "monster_drop",
       "mapId": "black_iron_mine",
       "mapName": "玄铁矿洞",
+      "monsterId": "m_mine_ghoul",
+      "monsterName": "矿魈",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "black_iron_mine",
+      "mapName": "玄铁矿洞",
       "monsterId": "m_ore_colossus",
       "monsterName": "玄矿巨像精英",
-      "chance": 1,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "black_iron_mine",
+      "mapName": "玄铁矿洞",
+      "monsterId": "m_tunnel_stalker",
+      "monsterName": "隧影潜猎者",
       "count": 1
     },
     {
@@ -83,26 +92,7 @@
       "mapName": "玄铁矿洞·玄脉熔心",
       "monsterId": "m_iron_devour_lord",
       "monsterName": "噬铁矿君",
-      "chance": 1,
       "count": 2
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "black_iron_mine",
-      "mapName": "玄铁矿洞",
-      "monsterId": "m_tunnel_stalker",
-      "monsterName": "隧影潜猎者",
-      "chance": 0.58,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "black_iron_mine",
-      "mapName": "玄铁矿洞",
-      "monsterId": "m_mine_ghoul",
-      "monsterName": "矿魈",
-      "chance": 0.52,
-      "count": 1
     },
     {
       "kind": "mining",
@@ -188,30 +178,19 @@
   "blood_feather": [
     {
       "kind": "monster_drop",
-      "mapId": "beast_valley_blood_altar",
-      "mapName": "噬魂兽谷·血祭坛",
-      "monsterId": "m_soul_wolf_ancestor",
-      "monsterName": "噬魂狼祖",
-      "chance": 1,
-      "count": 2
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "wildlands_gale_den",
-      "mapName": "荒野·荒骨风穴",
-      "monsterId": "m_gale_bone_king",
-      "monsterName": "裂风荒王",
-      "chance": 1,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
       "mapId": "beast_valley",
       "mapName": "噬魂兽谷",
       "monsterId": "m_blood_crow",
       "monsterName": "血羽鸦",
-      "chance": 0.53,
       "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "beast_valley_blood_altar",
+      "mapName": "噬魂兽谷·血祭坛",
+      "monsterId": "m_soul_wolf_ancestor",
+      "monsterName": "噬魂狼祖",
+      "count": 2
     },
     {
       "kind": "monster_drop",
@@ -219,7 +198,14 @@
       "mapName": "荒野",
       "monsterId": "m_dust_vulture",
       "monsterName": "裂喙秃鹫",
-      "chance": 0.42,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "wildlands_gale_den",
+      "mapName": "荒野·荒骨风穴",
+      "monsterId": "m_gale_bone_king",
+      "monsterName": "裂风荒王",
       "count": 1
     }
   ],
@@ -230,7 +216,6 @@
       "mapName": "荒野",
       "monsterId": "m_wild_boar",
       "monsterName": "獠牙野彘",
-      "chance": 0.45,
       "count": 1
     }
   ],
@@ -1656,21 +1641,19 @@
   "crystal_dust": [
     {
       "kind": "monster_drop",
-      "mapId": "black_iron_mine_molten_heart",
-      "mapName": "玄铁矿洞·玄脉熔心",
-      "monsterId": "m_iron_devour_lord",
-      "monsterName": "噬铁矿君",
-      "chance": 1,
-      "count": 2
-    },
-    {
-      "kind": "monster_drop",
       "mapId": "black_iron_mine",
       "mapName": "玄铁矿洞",
       "monsterId": "m_crystal_bat",
       "monsterName": "晶背蝠",
-      "chance": 0.6,
       "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "black_iron_mine_molten_heart",
+      "mapName": "玄铁矿洞·玄脉熔心",
+      "monsterId": "m_iron_devour_lord",
+      "monsterName": "噬铁矿君",
+      "count": 2
     },
     {
       "kind": "search",
@@ -1690,7 +1673,6 @@
       "mapName": "噬魂兽谷",
       "monsterId": "m_valley_alpha",
       "monsterName": "裂渊狼主",
-      "chance": 1,
       "count": 2
     },
     {
@@ -1699,7 +1681,14 @@
       "mapName": "噬魂兽谷",
       "monsterId": "m_valley_emperor",
       "monsterName": "裂渊谷皇精英",
-      "chance": 1,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "beast_valley",
+      "mapName": "噬魂兽谷",
+      "monsterId": "m_valley_wolf",
+      "monsterName": "裂齿妖狼",
       "count": 1
     },
     {
@@ -1708,17 +1697,7 @@
       "mapName": "噬魂兽谷·血祭坛",
       "monsterId": "m_soul_wolf_ancestor",
       "monsterName": "噬魂狼祖",
-      "chance": 1,
       "count": 2
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "beast_valley",
-      "mapName": "噬魂兽谷",
-      "monsterId": "m_valley_wolf",
-      "monsterName": "裂齿妖狼",
-      "chance": 0.62,
-      "count": 1
     }
   ],
   "earthbearing_stone": [
@@ -5014,21 +4993,19 @@
   "frost_essence": [
     {
       "kind": "monster_drop",
-      "mapId": "spirit_ridge_old_gate",
-      "mapName": "灵脊岭·悬门旧关",
-      "monsterId": "m_spine_gate_lord",
-      "monsterName": "镇脊关主",
-      "chance": 1,
-      "count": 2
-    },
-    {
-      "kind": "monster_drop",
       "mapId": "spirit_ridge",
       "mapName": "灵脊岭",
       "monsterId": "m_frost_crane",
       "monsterName": "寒翎鹤",
-      "chance": 0.52,
       "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "spirit_ridge_old_gate",
+      "mapName": "灵脊岭·悬门旧关",
+      "monsterId": "m_spine_gate_lord",
+      "monsterName": "镇脊关主",
+      "count": 2
     },
     {
       "kind": "search",
@@ -5202,7 +5179,6 @@
       "mapName": "荒野",
       "monsterId": "m_swamp_lizard",
       "monsterName": "泽鳞蜥",
-      "chance": 0.5,
       "count": 1
     }
   ],
@@ -5324,7 +5300,6 @@
       "mapName": "青竹林",
       "monsterId": "m_bamboo_mantis",
       "monsterName": "刃竹螳精英",
-      "chance": 1,
       "count": 1
     },
     {
@@ -5333,7 +5308,6 @@
       "mapName": "青竹林·青螂巢庭",
       "monsterId": "m_green_emperor_mantis",
       "monsterName": "青皇竹螂",
-      "chance": 1,
       "count": 2
     }
   ],
@@ -6406,7 +6380,6 @@
       "mapName": "云来镇",
       "monsterId": "m_town_rat_refuse",
       "monsterName": "废棚灰尾鼠",
-      "chance": 0.62,
       "count": 1
     },
     {
@@ -6415,7 +6388,6 @@
       "mapName": "云来镇",
       "monsterId": "m_town_rat_south",
       "monsterName": "南沟灰尾鼠",
-      "chance": 0.6,
       "count": 1
     }
   ],
@@ -6423,21 +6395,19 @@
   "ridge_beast_claw": [
     {
       "kind": "monster_drop",
-      "mapId": "spirit_ridge_old_gate",
-      "mapName": "灵脊岭·悬门旧关",
-      "monsterId": "m_spine_gate_lord",
-      "monsterName": "镇脊关主",
-      "chance": 1,
-      "count": 2
-    },
-    {
-      "kind": "monster_drop",
       "mapId": "spirit_ridge",
       "mapName": "灵脊岭",
       "monsterId": "m_spirit_tiger",
       "monsterName": "灵脊虎",
-      "chance": 0.6,
       "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "spirit_ridge_old_gate",
+      "mapName": "灵脊岭·悬门旧关",
+      "monsterId": "m_spine_gate_lord",
+      "monsterName": "镇脊关主",
+      "count": 2
     },
     {
       "kind": "search",
@@ -6468,9 +6438,24 @@
       "kind": "monster_drop",
       "mapId": "ancient_ruins",
       "mapName": "断碑遗迹",
+      "monsterId": "m_ghost_scribe",
+      "monsterName": "执墨残魂",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "ancient_ruins",
+      "mapName": "断碑遗迹",
+      "monsterId": "m_ruin_guardian",
+      "monsterName": "石卫傀",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "ancient_ruins",
+      "mapName": "断碑遗迹",
       "monsterId": "m_rune_watcher",
       "monsterName": "残纹看守精英",
-      "chance": 1,
       "count": 1
     },
     {
@@ -6479,26 +6464,7 @@
       "mapName": "断碑遗迹·断碑主殿",
       "monsterId": "m_stele_arbiter",
       "monsterName": "裂碑司命",
-      "chance": 1,
       "count": 2
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "ancient_ruins",
-      "mapName": "断碑遗迹",
-      "monsterId": "m_ruin_guardian",
-      "monsterName": "石卫傀",
-      "chance": 0.57,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "ancient_ruins",
-      "mapName": "断碑遗迹",
-      "monsterId": "m_ghost_scribe",
-      "monsterName": "执墨残魂",
-      "chance": 0.42,
-      "count": 1
     }
   ],
   "serpent_gall": [
@@ -6508,7 +6474,6 @@
       "mapName": "青竹林",
       "monsterId": "m_bamboo_serpent",
       "monsterName": "青鳞竹蛇",
-      "chance": 0.5,
       "count": 1
     }
   ],
@@ -6519,7 +6484,6 @@
       "mapName": "噬魂兽谷",
       "monsterId": "m_valley_serpent",
       "monsterName": "赤脊谷蛇",
-      "chance": 0.54,
       "count": 1
     }
   ],
@@ -6530,7 +6494,6 @@
       "mapName": "天穹残宫",
       "monsterId": "m_sky_puppet",
       "monsterName": "残宫傀仪",
-      "chance": 0.58,
       "count": 1
     }
   ],
@@ -6548,12 +6511,11 @@
   "soul_ink": [
     {
       "kind": "monster_drop",
-      "mapId": "ancient_ruins_monument_hall",
-      "mapName": "断碑遗迹·断碑主殿",
-      "monsterId": "m_stele_arbiter",
-      "monsterName": "裂碑司命",
-      "chance": 1,
-      "count": 2
+      "mapId": "ancient_ruins",
+      "mapName": "断碑遗迹",
+      "monsterId": "m_bone_owl",
+      "monsterName": "骨翎夜鸮",
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -6561,17 +6523,15 @@
       "mapName": "断碑遗迹",
       "monsterId": "m_ghost_scribe",
       "monsterName": "执墨残魂",
-      "chance": 0.58,
       "count": 1
     },
     {
       "kind": "monster_drop",
-      "mapId": "ancient_ruins",
-      "mapName": "断碑遗迹",
-      "monsterId": "m_bone_owl",
-      "monsterName": "骨翎夜鸮",
-      "chance": 0.4,
-      "count": 1
+      "mapId": "ancient_ruins_monument_hall",
+      "mapName": "断碑遗迹·断碑主殿",
+      "monsterId": "m_stele_arbiter",
+      "monsterName": "裂碑司命",
+      "count": 2
     }
   ],
   "spider_silk": [
@@ -6581,7 +6541,6 @@
       "mapName": "荒野",
       "monsterId": "m_mire_spider",
       "monsterName": "阴沼毒蛛精英",
-      "chance": 1,
       "count": 1
     },
     {
@@ -6590,28 +6549,25 @@
       "mapName": "荒野·荒骨风穴",
       "monsterId": "m_gale_bone_king",
       "monsterName": "裂风荒王",
-      "chance": 1,
       "count": 2
     }
   ],
   "spirit_iron_fragment": [
     {
       "kind": "monster_drop",
-      "mapId": "black_iron_mine_molten_heart",
-      "mapName": "玄铁矿洞·玄脉熔心",
-      "monsterId": "m_iron_devour_lord",
-      "monsterName": "噬铁矿君",
-      "chance": 1,
-      "count": 2
-    },
-    {
-      "kind": "monster_drop",
       "mapId": "black_iron_mine",
       "mapName": "玄铁矿洞",
       "monsterId": "m_ore_colossus",
       "monsterName": "玄矿巨像精英",
-      "chance": 0.35,
       "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "black_iron_mine_molten_heart",
+      "mapName": "玄铁矿洞·玄脉熔心",
+      "monsterId": "m_iron_devour_lord",
+      "monsterName": "噬铁矿君",
+      "count": 2
     },
     {
       "kind": "quest",
@@ -6704,7 +6660,14 @@
       "mapName": "天穹残宫",
       "monsterId": "m_star_devourer",
       "monsterName": "噬星残兽精英",
-      "chance": 1,
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "sky_ruins",
+      "mapName": "天穹残宫",
+      "monsterId": "m_void_hunter",
+      "monsterName": "天宫猎者",
       "count": 1
     },
     {
@@ -6713,17 +6676,7 @@
       "mapName": "天穹残宫·封天核心井",
       "monsterId": "m_fallen_palace_lord",
       "monsterName": "坠星宫主",
-      "chance": 1,
       "count": 2
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "sky_ruins",
-      "mapName": "天穹残宫",
-      "monsterId": "m_void_hunter",
-      "monsterName": "天宫猎者",
-      "chance": 0.52,
-      "count": 1
     },
     {
       "kind": "search",
@@ -6978,11 +6931,18 @@
   "void_shard": [
     {
       "kind": "monster_drop",
+      "mapId": "sky_ruins",
+      "mapName": "天穹残宫",
+      "monsterId": "m_void_hunter",
+      "monsterName": "天宫猎者",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
       "mapId": "sky_ruins_core_well",
       "mapName": "天穹残宫·封天核心井",
       "monsterId": "m_fallen_palace_lord",
       "monsterName": "坠星宫主",
-      "chance": 1,
       "count": 2
     },
     {
@@ -6991,16 +6951,6 @@
       "mapName": "灵脊岭",
       "monsterId": "m_ridge_ghost",
       "monsterName": "守岭残魂精英",
-      "chance": 1,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "sky_ruins",
-      "mapName": "天穹残宫",
-      "monsterId": "m_void_hunter",
-      "monsterName": "天宫猎者",
-      "chance": 0.44,
       "count": 1
     },
     {
@@ -7021,7 +6971,6 @@
       "mapName": "青竹林",
       "monsterId": "m_spirit_wolf",
       "monsterName": "噬灵狼",
-      "chance": 0.58,
       "count": 1
     }
   ]

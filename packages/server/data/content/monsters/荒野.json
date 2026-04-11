@@ -12,8 +12,7 @@
         "itemId": "boar_tusk",
         "name": "彘牙",
         "type": "material",
-        "count": 1,
-        "chance": 0.45
+        "count": 1
       },
       {
         "itemId": "equip.scavenger_fang",
@@ -83,15 +82,13 @@
         "itemId": "lizard_scale",
         "name": "泽鳞",
         "type": "material",
-        "count": 1,
-        "chance": 0.5
+        "count": 1
       },
       {
         "itemId": "bamboo_heart",
         "name": "翠竹心",
         "type": "material",
-        "count": 1,
-        "chance": 0.18
+        "count": 1
       },
       {
         "itemId": "equip.scrap_hide",
@@ -162,8 +159,7 @@
         "itemId": "bandit_insignia",
         "name": "匪徒腰牌",
         "type": "material",
-        "count": 1,
-        "chance": 0.6
+        "count": 1
       },
       {
         "itemId": "equip.rust_saber",
@@ -235,8 +231,7 @@
         "itemId": "spider_silk",
         "name": "阴沼丝",
         "type": "material",
-        "count": 1,
-        "chance": 1
+        "count": 1
       },
       {
         "itemId": "equip.step_boots",
@@ -328,15 +323,13 @@
         "itemId": "spider_silk",
         "name": "阴沼丝",
         "type": "material",
-        "count": 2,
-        "chance": 1
+        "count": 2
       },
       {
         "itemId": "blood_feather",
         "name": "血羽",
         "type": "material",
-        "count": 1,
-        "chance": 1
+        "count": 1
       },
       {
         "itemId": "equip.step_boots",
@@ -436,8 +429,7 @@
         "itemId": "blood_feather",
         "name": "血羽",
         "type": "material",
-        "count": 1,
-        "chance": 0.42
+        "count": 1
       },
       {
         "itemId": "book.cloud_blade",

@@ -12,8 +12,7 @@
         "itemId": "demon_wolf_bone",
         "name": "妖狼骨",
         "type": "material",
-        "count": 1,
-        "chance": 0.62
+        "count": 1
       },
       {
         "itemId": "book.hundred_temper_body",
@@ -91,8 +90,7 @@
         "itemId": "blood_feather",
         "name": "血羽",
         "type": "material",
-        "count": 1,
-        "chance": 0.53
+        "count": 1
       },
       {
         "itemId": "book.redflame_art",
@@ -183,8 +181,7 @@
         "itemId": "demon_wolf_bone",
         "name": "妖狼骨",
         "type": "material",
-        "count": 2,
-        "chance": 1
+        "count": 2
       },
       {
         "itemId": "valley_core",
@@ -278,8 +275,7 @@
         "itemId": "serpent_scale",
         "name": "谷蛇逆鳞",
         "type": "material",
-        "count": 1,
-        "chance": 0.54
+        "count": 1
       },
       {
         "itemId": "equip.beastbone_mail",
@@ -357,8 +353,7 @@
         "itemId": "demon_wolf_bone",
         "name": "妖狼骨",
         "type": "material",
-        "count": 1,
-        "chance": 1
+        "count": 1
       },
       {
         "itemId": "equip.rift_guard_armor",
@@ -447,15 +442,13 @@
         "itemId": "demon_wolf_bone",
         "name": "妖狼骨",
         "type": "material",
-        "count": 2,
-        "chance": 1
+        "count": 2
       },
       {
         "itemId": "blood_feather",
         "name": "血羽",
         "type": "material",
-        "count": 2,
-        "chance": 1
+        "count": 2
       },
       {
         "itemId": "book_stillheart",

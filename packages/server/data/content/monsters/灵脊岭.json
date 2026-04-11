@@ -12,8 +12,7 @@
         "itemId": "ridge_beast_claw",
         "name": "岭兽爪",
         "type": "material",
-        "count": 1,
-        "chance": 0.6
+        "count": 1
       },
       {
         "itemId": "equip.spirit_ring",
@@ -93,8 +92,7 @@
         "itemId": "frost_essence",
         "name": "霜华精粹",
         "type": "material",
-        "count": 1,
-        "chance": 0.52
+        "count": 1
       },
       {
         "itemId": "book.frost_sutra",
@@ -168,8 +166,7 @@
         "itemId": "void_shard",
         "name": "虚蚀碎片",
         "type": "material",
-        "count": 1,
-        "chance": 1
+        "count": 1
       },
       {
         "itemId": "book.lightshadow_art",
@@ -255,15 +252,13 @@
         "itemId": "ridge_beast_claw",
         "name": "岭兽爪",
         "type": "material",
-        "count": 2,
-        "chance": 1
+        "count": 2
       },
       {
         "itemId": "frost_essence",
         "name": "霜华精粹",
         "type": "material",
-        "count": 2,
-        "chance": 1
+        "count": 2
       },
       {
         "itemId": "equip.spirit_ring",

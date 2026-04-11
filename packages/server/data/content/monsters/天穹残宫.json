@@ -12,15 +12,13 @@
         "itemId": "star_metal",
         "name": "星陨金",
         "type": "material",
-        "count": 1,
-        "chance": 0.52
+        "count": 1
       },
       {
         "itemId": "void_shard",
         "name": "虚蚀碎片",
         "type": "material",
-        "count": 1,
-        "chance": 0.44
+        "count": 1
       },
       {
         "itemId": "equip.ridge_calm_robe",
@@ -86,8 +84,7 @@
         "itemId": "sky_pattern_page",
         "name": "天纹残页",
         "type": "material",
-        "count": 1,
-        "chance": 0.58
+        "count": 1
       },
       {
         "itemId": "book.spirit_anchor",
@@ -167,8 +164,7 @@
         "itemId": "star_metal",
         "name": "星陨金",
         "type": "material",
-        "count": 1,
-        "chance": 1
+        "count": 1
       },
       {
         "itemId": "equip.starfall_spear",
@@ -249,15 +245,13 @@
         "itemId": "star_metal",
         "name": "星陨金",
         "type": "material",
-        "count": 2,
-        "chance": 1
+        "count": 2
       },
       {
         "itemId": "void_shard",
         "name": "虚蚀碎片",
         "type": "material",
-        "count": 2,
-        "chance": 1
+        "count": 2
       },
       {
         "itemId": "equip.starfall_spear",

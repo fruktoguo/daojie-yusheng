@@ -19,8 +19,7 @@
         "itemId": "black_iron_chunk",
         "name": "玄铁矿块",
         "type": "material",
-        "count": 1,
-        "chance": 0.52
+        "count": 1
       },
       {
         "itemId": "mine_crystal_core",
@@ -97,8 +96,7 @@
         "itemId": "crystal_dust",
         "name": "晶尘",
         "type": "material",
-        "count": 1,
-        "chance": 0.6
+        "count": 1
       },
       {
         "itemId": "book_thunder_palm",
@@ -176,8 +174,7 @@
         "itemId": "black_iron_chunk",
         "name": "玄铁矿块",
         "type": "material",
-        "count": 1,
-        "chance": 0.58
+        "count": 1
       },
       {
         "itemId": "equip.miner_helmet",
@@ -263,15 +260,13 @@
         "itemId": "black_iron_chunk",
         "name": "玄铁矿块",
         "type": "material",
-        "count": 1,
-        "chance": 1
+        "count": 1
       },
       {
         "itemId": "spirit_iron_fragment",
         "name": "灵铁碎片",
         "type": "material",
-        "count": 1,
-        "chance": 0.35
+        "count": 1
       },
       {
         "itemId": "equip.rift_guard_armor",
@@ -363,22 +358,19 @@
         "itemId": "black_iron_chunk",
         "name": "玄铁矿块",
         "type": "material",
-        "count": 2,
-        "chance": 1
+        "count": 2
       },
       {
         "itemId": "crystal_dust",
         "name": "晶尘",
         "type": "material",
-        "count": 2,
-        "chance": 1
+        "count": 2
       },
       {
         "itemId": "spirit_iron_fragment",
         "name": "灵铁碎片",
         "type": "material",
-        "count": 2,
-        "chance": 1
+        "count": 2
       },
       {
         "itemId": "colossus_heart",
