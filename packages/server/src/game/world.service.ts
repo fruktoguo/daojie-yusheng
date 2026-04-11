@@ -51,6 +51,7 @@ import {
   ObservationInsight,
   ObservationLootPreview,
   parseTileTargetRef,
+  PendingLogbookMessage,
   PlayerState,
   PlayerRealmStage,
   Portal,
@@ -3086,6 +3087,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         if (defeated) {
           this.measureCpuSection('monster_death_post', '怪物: 死亡后处理', () => {
             this.registerPlayerDefeat(target);
+            if (target.online === false) {
+              const mapName = this.mapService.getMapMeta(target.mapId)?.name ?? target.mapId;
+              this.queueOfflineCombatLogbookMessage(target, `你在离线期间被${monster.name}在${mapName}击倒。`, {
+                from: monster.name,
+              });
+            }
             allMessages.push({
               playerId: target.id,
               text: target.online === false
@@ -3875,6 +3882,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
     if (target.hp <= 0) {
       this.registerPlayerDefeat(target);
+      if (target.online === false) {
+        const mapName = this.mapService.getMapMeta(target.mapId)?.name ?? target.mapId;
+        this.queueOfflineCombatLogbookMessage(target, `你在离线期间被${monster.name}以${skill.name}在${mapName}击倒。`, {
+          from: monster.name,
+        });
+      }
       messages.push({
         playerId: target.id,
         text: target.online === false
@@ -4494,6 +4507,34 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return bestPlayer;
   }
 
+  private resolvePlayerDotKiller(player: PlayerState, sourceCasterId?: string): PlayerState | null {
+    if (typeof sourceCasterId !== 'string' || sourceCasterId.length === 0) {
+      return null;
+    }
+    const directSource = this.playerService.getPlayer(sourceCasterId);
+    if (!directSource || directSource.id === player.id) {
+      return null;
+    }
+    return directSource;
+  }
+
+  private queueOfflineCombatLogbookMessage(
+    player: PlayerState,
+    text: string,
+    options?: { from?: string; kind?: PendingLogbookMessage['kind'] },
+  ): void {
+    if (player.online !== false || player.isBot) {
+      return;
+    }
+    this.playerService.queuePendingLogbookMessage(player.id, {
+      id: randomUUID(),
+      kind: options?.kind ?? 'combat',
+      from: options?.from,
+      at: Date.now(),
+      text,
+    });
+  }
+
   private recordMonsterDamage(monster: RuntimeMonster, playerId: string, damage: number): void {
     if (damage <= 0) {
       return;
@@ -5034,6 +5075,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     baseDamage: number,
     element: ElementKey,
     sourceName: string,
+    sourceCasterId?: string,
   ): WorldUpdate {
     if (baseDamage <= 0 || player.inWorld === false || player.hp <= 0) {
       return EMPTY_UPDATE;
@@ -5070,7 +5112,38 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     let playerDefeated = false;
 
     if (player.hp <= 0) {
-      this.registerPlayerDefeat(player);
+      const killer = this.resolvePlayerDotKiller(player, sourceCasterId);
+      this.registerPlayerDefeat(player, killer ?? undefined);
+      if (killer) {
+        const mapName = this.mapService.getMapMeta(player.mapId)?.name ?? player.mapId;
+        if (!killer.isBot && !player.isBot) {
+          this.playerService.queuePendingLogbookMessage(player.id, {
+            id: randomUUID(),
+            kind: 'grudge',
+            from: killer.name,
+            at: Date.now(),
+            text: player.online === false
+              ? `你在离线期间被${killer.name}以${sourceName}在${mapName}击倒。`
+              : `你被${killer.name}以${sourceName}在${mapName}击倒。`,
+          });
+        }
+        messages.push({
+          playerId: killer.id,
+          text: `${player.name} 被你击倒。`,
+          kind: 'combat',
+        });
+        messages.push({
+          playerId: player.id,
+          text: player.online === false
+            ? `你在离线期间被${killer.name}以${sourceName}在${mapName}击倒。`
+            : `你被${killer.name}以${sourceName}在${mapName}击倒。`,
+          kind: 'combat',
+        });
+      }
+      if (!killer && player.online === false) {
+        const mapName = this.mapService.getMapMeta(player.mapId)?.name ?? player.mapId;
+        this.queueOfflineCombatLogbookMessage(player, `你在离线期间被${sourceName}在${mapName}击倒。`);
+      }
       messages.push({
         playerId: player.id,
         text: player.online === false

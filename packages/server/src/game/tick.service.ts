@@ -3888,6 +3888,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       baseDamage,
       'fire',
       burnBuff.sourceSkillName ?? burnBuff.name,
+      burnBuff.sourceCasterId,
     );
     return {
       update,
