@@ -539,6 +539,45 @@
       overflow: hidden;
       overscroll-behavior: contain;
     }
+    .map-minimap-modal-source-switch {
+      position: absolute;
+      left: 12px;
+      top: 12px;
+      z-index: 2;
+      display: inline-flex;
+      gap: 6px;
+      padding: 6px;
+      border: 1px solid rgba(235, 220, 184, 0.18);
+      background: rgba(8, 9, 12, 0.68);
+      box-shadow:
+        0 10px 24px rgba(0, 0, 0, 0.24),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+      backdrop-filter: blur(4px);
+      pointer-events: auto;
+    }
+    .map-minimap-modal-source-toggle {
+      min-width: 56px;
+      height: 28px;
+      padding: 0 10px;
+      border: 1px solid rgba(235, 220, 184, 0.2);
+      background: rgba(255, 255, 255, 0.04);
+      color: rgba(245, 235, 216, 0.78);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-12);
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, color 0.2s;
+    }
+    .map-minimap-modal-source-toggle:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(245, 227, 185, 0.26);
+      color: rgba(255, 244, 221, 0.92);
+    }
+    .map-minimap-modal-source-toggle.active {
+      background: rgba(234, 210, 158, 0.16);
+      border-color: rgba(245, 227, 185, 0.34);
+      color: rgba(255, 244, 221, 0.96);
+    }
     @media (max-width: 900px) {
       .map-minimap-modal-body {
         grid-template-columns: 1fr;
@@ -549,6 +588,13 @@
       }
       .map-minimap-modal-list {
         max-height: none;
+      }
+      .map-minimap-modal-source-switch {
+        left: 10px;
+        top: 10px;
+      }
+      .map-minimap-modal-source-toggle {
+        min-width: 52px;
       }
     }
     .observe-modal {

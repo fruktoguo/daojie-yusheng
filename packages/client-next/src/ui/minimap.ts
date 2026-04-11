@@ -19,6 +19,12 @@ import { buildCanvasFont } from '../constants/ui/text';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../utils/number';
 
 type CatalogFilter = 'all' | 'memory' | 'unlock';
+type MinimapDisplayMode = 'memory' | 'unlock';
+
+interface DisplaySourceAvailability {
+  hasMemory: boolean;
+  hasUnlock: boolean;
+}
 
 interface MinimapScene {
   mapMeta: MapMeta | null;
@@ -67,6 +73,9 @@ interface DisplayMapScene {
   viewRadius: number;
   isCurrent: boolean;
   memoryVersion: number;
+  displayMode: MinimapDisplayMode;
+  hasMemory: boolean;
+  hasUnlock: boolean;
 }
 
 interface ViewportMetrics {
@@ -178,6 +187,9 @@ export class Minimap {
   private readonly modalCatalogToggleBtn = document.getElementById('map-minimap-modal-catalog-toggle') as HTMLButtonElement | null;
   private readonly modalCloseBtn = document.getElementById('map-minimap-modal-close') as HTMLButtonElement | null;
   private readonly modalCanvas = document.getElementById('map-minimap-modal-canvas') as HTMLCanvasElement | null;
+  private readonly modalSourceSwitch = document.getElementById('map-minimap-modal-source-switch') as HTMLElement | null;
+  private readonly modalSourceMemoryBtn = document.getElementById('map-minimap-modal-source-memory') as HTMLButtonElement | null;
+  private readonly modalSourceUnlockBtn = document.getElementById('map-minimap-modal-source-unlock') as HTMLButtonElement | null;
   private readonly modalList = document.getElementById('map-minimap-modal-list') as HTMLElement | null;
   private readonly modalTabAll = document.getElementById('map-minimap-filter-all') as HTMLButtonElement | null;
   private readonly modalTabMemory = document.getElementById('map-minimap-filter-memory') as HTMLButtonElement | null;
@@ -192,6 +204,7 @@ export class Minimap {
   private modalOpen = false;
   private baseKey: string | null = null;
   private selectedMapId: string | null = null;
+  private modalDisplayMode: MinimapDisplayMode = 'unlock';
   private catalogFilter: CatalogFilter = 'all';
   private moveHandler: ((x: number, y: number) => void) | null = null;
   private pendingMovePoint: { x: number; y: number } | null = null;
@@ -235,6 +248,18 @@ export class Minimap {
       event.stopPropagation();
       this.mobileCatalogOpen = !this.mobileCatalogOpen;
       this.syncResponsiveModalChrome();
+    });
+
+    this.modalSourceMemoryBtn?.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.setModalDisplayMode('memory');
+    });
+
+    this.modalSourceUnlockBtn?.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.setModalDisplayMode('unlock');
     });
 
     this.modal?.addEventListener('click', () => {
@@ -547,6 +572,7 @@ export class Minimap {
     if (this.modalList) {
       this.modalList.innerHTML = '';
     }
+    this.modalDisplayMode = 'unlock';
   }
 
   resize(): void {
@@ -583,6 +609,7 @@ export class Minimap {
     const hasScene = !!(this.scene?.mapMeta && this.scene.player);
     this.shell?.classList.toggle('hidden', !hasScene);
     this.overlayRoot?.classList.toggle('hidden', !hasScene || !this.overlayVisible);
+    this.syncModalDisplaySwitch();
     if (this.toggleBtn) {
       this.toggleBtn.textContent = this.overlayVisible ? '隐' : '显';
       this.toggleBtn.title = this.overlayVisible ? '隐藏小地图' : '显示小地图';
@@ -714,6 +741,8 @@ export class Minimap {
       this.closeMoveConfirm();
       this.resetModalViewport();
     }
+
+    this.syncModalDisplaySwitch();
 
     this.modalTabAll?.classList.toggle('active', this.catalogFilter === 'all');
     this.modalTabMemory?.classList.toggle('active', this.catalogFilter === 'memory');
@@ -852,10 +881,95 @@ export class Minimap {
     return '仅保留本地探索记忆，未获得完整地图。';
   }
 
+  private getCurrentDisplayAvailability(): DisplaySourceAvailability {
+    if (!this.scene) {
+      return { hasMemory: false, hasUnlock: false };
+    }
+    return {
+      hasMemory: this.scene.tileCache.size > 0
+        || this.scene.visibleTiles.size > 0
+        || this.scene.rememberedMarkers.length > 0
+        || this.scene.visibleMarkers.length > 0,
+      hasUnlock: !!this.scene.snapshot,
+    };
+  }
+
+  private getDisplayAvailability(selectedMapId: string | null, current: DisplayMapScene | null): DisplaySourceAvailability {
+    if (!selectedMapId) {
+      return { hasMemory: false, hasUnlock: false };
+    }
+    if (current && selectedMapId === current.mapId) {
+      return {
+        hasMemory: current.hasMemory,
+        hasUnlock: current.hasUnlock,
+      };
+    }
+    const snapshot = getCachedMapSnapshot(selectedMapId);
+    const rememberedMarkers = getRememberedMarkers(selectedMapId);
+    const tileCache = getRememberedTiles(selectedMapId);
+    return {
+      hasMemory: tileCache.size > 0 || rememberedMarkers.length > 0,
+      hasUnlock: !!snapshot,
+    };
+  }
+
+  private resolveModalDisplayMode(availability: DisplaySourceAvailability): MinimapDisplayMode {
+    if (this.modalDisplayMode === 'unlock' && availability.hasUnlock) {
+      return 'unlock';
+    }
+    if (this.modalDisplayMode === 'memory' && availability.hasMemory) {
+      return 'memory';
+    }
+    return availability.hasUnlock ? 'unlock' : 'memory';
+  }
+
+  private syncModalDisplaySwitch(): void {
+    const current = this.getCurrentDisplayScene();
+    const selectedMapId = this.selectedMapId ?? current?.mapId ?? null;
+    const availability = this.getDisplayAvailability(selectedMapId, current);
+    const showSwitch = availability.hasMemory && availability.hasUnlock;
+    const nextMode = this.resolveModalDisplayMode(availability);
+    this.modalDisplayMode = nextMode;
+
+    this.modalSourceSwitch?.classList.toggle('hidden', !showSwitch);
+
+    if (this.modalSourceMemoryBtn) {
+      const active = nextMode === 'memory';
+      this.modalSourceMemoryBtn.classList.toggle('active', active);
+      this.modalSourceMemoryBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
+      this.modalSourceMemoryBtn.title = '显示本地记忆地图';
+    }
+    if (this.modalSourceUnlockBtn) {
+      const active = nextMode === 'unlock';
+      this.modalSourceUnlockBtn.classList.toggle('active', active);
+      this.modalSourceUnlockBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
+      this.modalSourceUnlockBtn.title = '显示已解锁整图';
+    }
+  }
+
+  private setModalDisplayMode(mode: MinimapDisplayMode): void {
+    const current = this.getCurrentDisplayScene();
+    const selectedMapId = this.selectedMapId ?? current?.mapId ?? null;
+    const availability = this.getDisplayAvailability(selectedMapId, current);
+    if ((mode === 'memory' && !availability.hasMemory) || (mode === 'unlock' && !availability.hasUnlock)) {
+      return;
+    }
+    if (this.modalDisplayMode === mode) {
+      return;
+    }
+    this.modalDisplayMode = mode;
+    this.baseKey = null;
+    this.hoveredModalPoint = null;
+    this.closeMoveConfirm();
+    this.syncModalDisplaySwitch();
+    this.scheduleRender();
+  }
+
   private getCurrentDisplayScene(): DisplayMapScene | null {
     if (!this.scene?.mapMeta) {
       return null;
     }
+    const availability = this.getCurrentDisplayAvailability();
     return {
       mapId: this.scene.mapMeta.id,
       mapMeta: this.scene.mapMeta,
@@ -870,6 +984,9 @@ export class Minimap {
       viewRadius: this.scene.viewRadius,
       isCurrent: true,
       memoryVersion: this.scene.memoryVersion,
+      displayMode: availability.hasUnlock ? 'unlock' : 'memory',
+      hasMemory: availability.hasMemory,
+      hasUnlock: availability.hasUnlock,
     };
   }
 
@@ -883,21 +1000,34 @@ export class Minimap {
       return current;
     }
     if (current && selectedMapId === current.mapId) {
-      return current;
+      const mode = this.resolveModalDisplayMode({
+        hasMemory: current.hasMemory,
+        hasUnlock: current.hasUnlock,
+      });
+      this.modalDisplayMode = mode;
+      return {
+        ...current,
+        snapshot: mode === 'unlock' ? current.snapshot : null,
+        displayMode: mode,
+      };
     }
 
     const snapshot = getCachedMapSnapshot(selectedMapId);
     const rememberedMarkers = getRememberedMarkers(selectedMapId);
     const tileCache = getRememberedTiles(selectedMapId);
-    if (!snapshot && tileCache.size === 0 && rememberedMarkers.length === 0) {
+    const hasMemory = tileCache.size > 0 || rememberedMarkers.length > 0;
+    const hasUnlock = !!snapshot;
+    if (!hasUnlock && !hasMemory) {
       return current;
     }
 
+    const mode = this.resolveModalDisplayMode({ hasMemory, hasUnlock });
+    this.modalDisplayMode = mode;
     const mapMeta = getCachedMapMeta(selectedMapId) ?? buildFallbackMapMeta(selectedMapId, snapshot, tileCache);
     return {
       mapId: selectedMapId,
       mapMeta,
-      snapshot,
+      snapshot: mode === 'unlock' ? snapshot : null,
       rememberedMarkers,
       visibleMarkers: [],
       tileCache,
@@ -908,6 +1038,9 @@ export class Minimap {
       viewRadius: 0,
       isCurrent: false,
       memoryVersion: tileCache.size,
+      displayMode: mode,
+      hasMemory,
+      hasUnlock,
     };
   }
 
@@ -1015,7 +1148,7 @@ export class Minimap {
     this.modalPanX = metrics.panX;
     this.modalPanY = metrics.panY;
     if (this.modalTitle) {
-      this.modalTitle.textContent = `${display.mapMeta.name}${display.snapshot ? ' · 已解锁图鉴' : ' · 本地记忆'}`;
+      this.modalTitle.textContent = `${display.mapMeta.name}${display.displayMode === 'unlock' ? ' · 已解锁图鉴' : ' · 本地记忆'}`;
     }
     if (!display.isCurrent) {
       this.closeMoveConfirm();
