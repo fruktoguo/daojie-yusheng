@@ -461,6 +461,7 @@ export interface ItemStack {
   healAmount?: number;
   healPercent?: number;
   qiPercent?: number;
+  cooldown?: number;
   consumeBuffs?: ConsumableBuffDef[];
   tags?: string[];
   alchemySuccessRate?: number;
@@ -480,6 +481,14 @@ export interface AlchemySkillState {
 export interface Inventory {
   items: ItemStack[];
   capacity: number;
+  cooldowns?: InventoryItemCooldownState[];
+}
+
+/** 背包内物品的运行时冷却态 */
+export interface InventoryItemCooldownState {
+  itemId: string;
+  cooldown: number;
+  cooldownLeft: number;
 }
 
 /** 坊市订单方向 */

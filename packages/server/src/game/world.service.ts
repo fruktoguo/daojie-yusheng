@@ -4921,15 +4921,18 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     applyDamage: (damage: number) => number,
     damageMultiplier = 1,
   ): ResolvedHit {
-    const breakOverflow = Math.max(0, attacker.stats.breakPower - defender.stats.resolvePower);
-    const breakChance = ratioValue(breakOverflow, attacker.ratios.breakPower);
-    const broken = breakOverflow > 0 && Math.random() < breakChance;
+    const breakWins = attacker.stats.breakPower > defender.stats.resolvePower;
+    const resolveWins = defender.stats.resolvePower > attacker.stats.breakPower;
+    const breakChance = breakWins
+      ? this.getOpposedCombatRate(attacker.stats.breakPower, defender.stats.resolvePower)
+      : 0;
+    const broken = breakChance > 0 && Math.random() < breakChance;
 
     const combatAdvantage = this.getCombatExperienceAdvantage(attacker.combatExp, defender.combatExp);
     const hitStat = attacker.stats.hit * (broken ? 2 : 1) * (1 + combatAdvantage.attackerBonus);
     const defenderDodge = defender.stats.dodge * (1 + combatAdvantage.defenderBonus);
-    const dodgeGap = Math.max(0, defenderDodge - hitStat);
-    const dodged = dodgeGap > 0 && Math.random() < ratioValue(dodgeGap, defender.ratios.dodge);
+    const dodgeChance = this.getOpposedCombatRate(defenderDodge, hitStat);
+    const dodged = dodgeChance > 0 && Math.random() < dodgeChance;
     if (dodged) {
       return {
         hit: false,
@@ -4943,10 +4946,13 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       };
     }
 
-    const resolveGap = Math.max(0, defender.stats.resolvePower - attacker.stats.breakPower);
-    const resolved = !broken && resolveGap > 0 && Math.random() < ratioValue(resolveGap, defender.ratios.resolvePower);
+    const resolveChance = resolveWins
+      ? this.getOpposedCombatRate(defender.stats.resolvePower, attacker.stats.breakPower)
+      : 0;
+    const resolved = resolveChance > 0 && Math.random() < resolveChance;
     const critStat = attacker.stats.crit * (broken ? 2 : 1);
-    const crit = critStat > 0 && Math.random() < ratioValue(critStat, attacker.ratios.crit);
+    const critChance = this.getOpposedCombatRate(critStat, defender.stats.antiCrit);
+    const crit = critChance > 0 && Math.random() < critChance;
 
     let damage = Math.max(1, Math.round(baseDamage));
     if (element) {
@@ -4957,12 +4963,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (resolved) {
       defense *= 2;
     }
-    let reduction = Math.max(0, ratioValue(defense, DEFAULT_RATIO_DIVISOR));
+    let reduction = this.getDefenseReductionRate(defense, damage);
     if (element) {
       const elementReduce = Math.max(0, ratioValue(defender.stats.elementDamageReduce[element], defender.ratios.elementDamageReduce[element]));
       reduction = 1 - (1 - reduction) * (1 - elementReduce);
     }
-    damage = Math.max(1, Math.round(damage * (1 - Math.min(0.95, reduction))));
+    damage = Math.max(1, Math.round(damage * (1 - reduction)));
 
     if (crit) {
       damage = Math.max(1, Math.round(damage * ((200 + Math.max(0, attacker.stats.critDamage) / 10) / 100)));
@@ -4981,6 +4987,22 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       broken,
       qiCost,
     };
+  }
+
+  private getOpposedCombatRate(value: number, opposingValue: number): number {
+    const normalizedValue = Math.max(0, value);
+    if (normalizedValue <= 0) {
+      return 0;
+    }
+    return Math.max(0, ratioValue(normalizedValue, Math.max(1, Math.max(0, opposingValue) + DEFAULT_RATIO_DIVISOR)));
+  }
+
+  private getDefenseReductionRate(defense: number, damage: number): number {
+    const normalizedDefense = Math.max(0, defense);
+    if (normalizedDefense <= 0) {
+      return 0;
+    }
+    return Math.max(0, ratioValue(normalizedDefense, Math.max(1, damage / 4)));
   }
 
   private resolveElementalDotDamage(
@@ -5544,6 +5566,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       stats.hit = 12 + level * 8;
       stats.dodge = level * 4;
       stats.crit = level * 2;
+      stats.antiCrit = level * 2;
       stats.critDamage = level * 6;
       stats.breakPower = level * 3;
       stats.resolvePower = level * 3;
@@ -5597,6 +5620,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       'hit',
       'dodge',
       'crit',
+      'antiCrit',
       'critDamage',
       'breakPower',
       'resolvePower',
@@ -5877,6 +5901,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     stats.hit = Math.max(8, Math.round(profile.spirit * 0.9));
     stats.dodge = Math.max(0, Math.round(profile.spirit * 0.45));
     stats.crit = Math.max(0, Math.round(profile.spirit * 0.28));
+    stats.antiCrit = Math.max(0, Math.round(profile.spirit * 0.28));
     stats.critDamage = Math.max(0, Math.round(profile.spirit * 5));
     stats.breakPower = Math.max(0, Math.round(profile.spirit * 0.35));
     stats.resolvePower = Math.max(0, Math.round(profile.spirit * 0.42));
@@ -5915,11 +5940,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       { threshold: 0.4, label: '法术攻击', value: this.formatWhole(snapshot.stats.spellAtk) },
       { threshold: 0.44, label: '法术防御', value: this.formatWhole(snapshot.stats.spellDef) },
       { threshold: 0.52, label: '命中', value: this.formatWhole(snapshot.stats.hit) },
-      { threshold: 0.56, label: '闪避', value: this.formatRatio(snapshot.stats.dodge, snapshot.ratios.dodge) },
-      { threshold: 0.64, label: '暴击', value: this.formatRatio(snapshot.stats.crit, snapshot.ratios.crit) },
-      { threshold: 0.68, label: '暴击伤害', value: this.formatCritDamage(snapshot.stats.critDamage) },
-      { threshold: 0.74, label: '破招', value: this.formatRatio(snapshot.stats.breakPower, snapshot.ratios.breakPower) },
-      { threshold: 0.78, label: '化解', value: this.formatRatio(snapshot.stats.resolvePower, snapshot.ratios.resolvePower) },
+      { threshold: 0.56, label: '闪避', value: this.formatWhole(snapshot.stats.dodge) },
+      { threshold: 0.62, label: '暴击', value: this.formatWhole(snapshot.stats.crit) },
+      { threshold: 0.66, label: '免爆', value: this.formatWhole(snapshot.stats.antiCrit) },
+      { threshold: 0.7, label: '暴击伤害', value: this.formatCritDamage(snapshot.stats.critDamage) },
+      { threshold: 0.76, label: '破招', value: this.formatWhole(snapshot.stats.breakPower) },
+      { threshold: 0.8, label: '化解', value: this.formatWhole(snapshot.stats.resolvePower) },
       { threshold: 0.84, label: '最大灵力输出速率', value: `${this.formatWhole(snapshot.stats.maxQiOutputPerTick)} / 息` },
       { threshold: 0.87, label: '灵力回复', value: `${this.formatRate(snapshot.stats.qiRegenRate)} / 息` },
       { threshold: 0.89, label: '生命回复', value: `${this.formatRate(snapshot.stats.hpRegenRate)} / 息` },
@@ -6071,10 +6097,6 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   private formatCritDamage(value: number): string {
     const total = 200 + Math.max(0, value) / 10;
     return `${total.toFixed(total % 1 === 0 ? 0 : total % 0.1 === 0 ? 1 : 2)}%`;
-  }
-
-  private formatRatio(value: number, divisor: number): string {
-    return `${(signedRatioValue(value, divisor) * 100).toFixed(2)}%`;
   }
 
   private consumeQiForSkill(player: PlayerState, skill: SkillDef): number | string {

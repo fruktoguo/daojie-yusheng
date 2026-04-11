@@ -13,6 +13,7 @@ export const C2S = {
   Move: 'c:move',
   MoveTo: 'c:moveTo',
   NavigateQuest: 'c:navigateQuest',
+  NavigateMapPoint: 'c:navigateMapPoint',
   Heartbeat: 'c:heartbeat',
   Ping: 'c:ping',
   GmGetState: 'c:gmGetState',
@@ -279,6 +280,13 @@ export interface C2S_MoveTo {
 /** 以任务为目标启动自动导航 */
 export interface C2S_NavigateQuest {
   questId: string;
+}
+
+/** 以地图坐标为目标启动自动导航，可跨图前往 */
+export interface C2S_NavigateMapPoint {
+  mapId: string;
+  x: number;
+  y: number;
 }
 
 /** 在线心跳 */
@@ -818,6 +826,7 @@ export interface SyncedItemStack {
   healAmount?: number;
   healPercent?: number;
   qiPercent?: number;
+  cooldown?: number;
   consumeBuffs?: ConsumableBuffDef[];
   tags?: string[];
   alchemySuccessRate?: number;
@@ -830,6 +839,13 @@ export interface SyncedItemStack {
 export interface SyncedInventorySnapshot {
   items: SyncedItemStack[];
   capacity: number;
+  cooldowns?: SyncedInventoryCooldownState[];
+}
+
+export interface SyncedInventoryCooldownState {
+  itemId: string;
+  cooldown: number;
+  cooldownLeft: number;
 }
 
 /** 背包更新 */
@@ -843,6 +859,7 @@ export interface S2C_InventoryUpdate {
   capacity?: number;
   size?: number;
   slots?: InventorySlotUpdateEntry[];
+  cooldowns?: SyncedInventoryCooldownState[];
 }
 
 /** 装备更新 */
@@ -1611,6 +1628,7 @@ export interface GmEditorItemOption {
   healAmount?: number;
   healPercent?: number;
   qiPercent?: number;
+  cooldown?: number;
   consumeBuffs?: ConsumableBuffDef[];
   alchemySuccessRate?: number;
   alchemySpeedRate?: number;

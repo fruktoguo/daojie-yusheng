@@ -359,8 +359,8 @@ const MONSTER_VALUE_STAT_GROUPS: Array<{ title: string; note: string; keys: Nume
   },
   {
     title: '暴击与对抗',
-    note: '控制暴击强度和破招、化解这类对抗属性。',
-    keys: ['crit', 'critDamage', 'breakPower', 'resolvePower'],
+    note: '控制暴击、免爆以及破招、化解这类对抗属性。',
+    keys: ['crit', 'antiCrit', 'critDamage', 'breakPower', 'resolvePower'],
   },
   {
     title: '回复与节奏',

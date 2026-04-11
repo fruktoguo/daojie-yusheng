@@ -72,6 +72,7 @@ export const NUMERIC_SCALAR_STAT_KEYS = [
   'hit',
   'dodge',
   'crit',
+  'antiCrit',
   'critDamage',
   'breakPower',
   'resolvePower',
@@ -115,30 +116,30 @@ export const ATTR_TO_PERCENT_NUMERIC_WEIGHTS: Record<AttrKey, PartialNumericStat
   constitution: {
     maxHp: 1,
     physAtk: 1,
-    physDef: 0.1,
+    physDef: 1,
   },
   spirit: {
     maxQi: 1,
     spellAtk: 1,
-    spellDef: 0.1,
+    spellDef: 1,
   },
   perception: {
-    hit: 0.1,
-    dodge: 0.1,
-    moveSpeed: 0.1,
+    hit: 1,
+    dodge: 1,
+    moveSpeed: 0.5,
   },
   talent: {
     maxHp: 1,
     maxQi: 1,
-    resolvePower: 0.1,
+    resolvePower: 1,
   },
   comprehension: {
-    breakPower: 0.1,
+    breakPower: 1,
   },
   luck: {
-    crit: 0.1,
-    hit: 0.1,
-    dodge: 0.1,
+    crit: 1,
+    hit: 1,
+    dodge: 1,
   },
 };
 
@@ -153,6 +154,7 @@ function createScalarMultiplierFloorStats(): Omit<NumericStats, 'elementDamageBo
     hit: 100,
     dodge: DEFAULT_RATIO_DIVISOR,
     crit: DEFAULT_RATIO_DIVISOR,
+    antiCrit: DEFAULT_RATIO_DIVISOR,
     // critDamage 只表示额外暴伤加成；基础 200% 暴伤不应被百分比乘区当成底座放大。
     critDamage: 0,
     breakPower: DEFAULT_RATIO_DIVISOR,
@@ -199,6 +201,7 @@ export const NUMERIC_SCALAR_STAT_VALUE_TYPES = {
   hit: 'flat',
   dodge: 'ratio_value',
   crit: 'ratio_value',
+  antiCrit: 'ratio_value',
   critDamage: 'rate_bp',
   breakPower: 'ratio_value',
   resolvePower: 'ratio_value',

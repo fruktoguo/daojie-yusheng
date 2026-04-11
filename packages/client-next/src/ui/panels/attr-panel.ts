@@ -11,7 +11,6 @@ import {
   AttrKey,
   Attributes,
   BASE_MOVE_POINTS_PER_TICK,
-  DEFAULT_RATIO_DIVISOR,
   ELEMENT_KEYS,
   HeavenGateRootValues,
   NumericRatioDivisors,
@@ -140,10 +139,6 @@ function formatCritDamageDisplay(value: number): string {
   return formatDisplayPercent(total);
 }
 
-function formatDefenseReduction(value: number): string {
-  return formatRatioPercent(value, DEFAULT_RATIO_DIVISOR);
-}
-
 function formatMoveSpeedEffect(value: number): string {
   const safeValue = Math.max(0, value);
   const movePoints = BASE_MOVE_POINTS_PER_TICK + safeValue;
@@ -158,14 +153,67 @@ function formatMoveSpeedDisplay(value: number): string {
   return formatDisplayInteger(BASE_MOVE_POINTS_PER_TICK + Math.max(0, value));
 }
 
+function buildCombatFormulaLines(key: NumericCardKey): string[] {
+  switch (key) {
+    case 'physDef':
+      return [
+        '计算公式：物理减伤 = 物理防御 / (物理防御 + 本次伤害 / 4)',
+        '化解触发时，本次物理防御按双倍参与减伤结算。',
+      ];
+    case 'spellDef':
+      return [
+        '计算公式：法术减伤 = 法术防御 / (法术防御 + 本次伤害 / 4)',
+        '元素伤害会再与元素减伤按乘算合并；化解触发时本次法术防御按双倍参与结算。',
+      ];
+    case 'hit':
+      return [
+        '你的命中不单独转概率，而是作为对手闪避公式里的对抗基数。',
+        '对手闪避率 = 对手闪避 / (对手闪避 + 你的命中 + 100)',
+        '战斗经验会提高你的有效命中；若本次先触发破招，则命中按双倍参与判定。',
+      ];
+    case 'dodge':
+      return [
+        '闪避率 = 闪避 / (闪避 + 对方命中 + 100)',
+        '战斗经验会提高你的有效闪避；若对方先触发破招，则其命中按双倍参与判定。',
+      ];
+    case 'crit':
+      return [
+        '暴击率 = 暴击 / (暴击 + 对方免爆 + 100)',
+        '若本次先触发破招，则暴击按双倍参与判定。',
+      ];
+    case 'antiCrit':
+      return [
+        '对手对你的暴击率 = 对手暴击 / (对手暴击 + 你的免爆 + 100)',
+        '免爆越高，对手暴击率越低。',
+      ];
+    case 'critDamage':
+      return [
+        '最终暴击伤害倍率 = 200% + 暴击伤害 / 10',
+      ];
+    case 'breakPower':
+      return [
+        '只有当你的破招高于对方化解时，才会计算破招率；若两边相等，则本次既不判破招也不判化解。',
+        '破招率 = 破招 / (破招 + 对方化解 + 100)',
+        '破招触发后，本次命中与暴击都按双倍攻击方数值重新判定。',
+      ];
+    case 'resolvePower':
+      return [
+        '只有当你的化解高于对方破招时，才会计算化解率；若两边相等，则本次既不判化解也不判破招。',
+        '化解率 = 化解 / (化解 + 对方破招 + 100)',
+        '破招与化解只能触发一个；化解触发后，本次防御按双倍参与减伤结算。',
+      ];
+    default:
+      return [];
+  }
+}
+
 function buildNumericTooltip(label: string, key: NumericCardKey, numericValue: number, ratioValueText?: string): string {
   const lines = [
     NUMERIC_TOOLTIP_DESCRIPTIONS[key] ?? '该属性影响角色的实际战斗表现。',
     `当前数值：${key === 'critDamage' ? formatCritDamageDisplay(numericValue) : key === 'moveSpeed' ? formatMoveSpeedDisplay(numericValue) : RATE_BP_KEYS.has(key) ? formatRateBp(numericValue) : formatDisplayInteger(numericValue)}`,
   ];
-  if (key === 'physDef' || key === 'spellDef') {
-    lines.push(`实际减伤：${formatDefenseReduction(numericValue)}`);
-  } else if (key === 'moveSpeed') {
+  lines.push(...buildCombatFormulaLines(key));
+  if (key === 'moveSpeed') {
     lines.push(`实际效果：${formatMoveSpeedEffect(numericValue)}`);
   } else if (ratioValueText && key !== 'critDamage') {
     lines.push(ratioValueText);
@@ -359,8 +407,8 @@ export class AttrPanel {
           ? this.buildVeinPaneSnapshot(stats, bonuses)
           : { kind: 'placeholder', message: '灵脉信息尚未同步' },
         combat: this.buildNumericPaneSnapshot('斗法数值', stats, ratioDivisors, {
-          keys: ['maxHp', 'physAtk', 'spellAtk', 'physDef', 'spellDef', 'hit', 'dodge', 'crit', 'critDamage', 'breakPower', 'resolvePower'],
-          ratioKeys: ['dodge', 'crit', 'breakPower', 'resolvePower'],
+          keys: ['maxHp', 'physAtk', 'spellAtk', 'physDef', 'spellDef', 'hit', 'dodge', 'crit', 'antiCrit', 'critDamage', 'breakPower', 'resolvePower'],
+          ratioKeys: [],
           legends: {
             maxHp: '最大生命值',
             physAtk: '物理攻击',
@@ -370,6 +418,7 @@ export class AttrPanel {
             hit: '命中',
             dodge: '闪避',
             crit: '暴击',
+            antiCrit: '免爆',
             critDamage: '暴击伤害',
             breakPower: '破招',
             resolvePower: '化解',
@@ -596,10 +645,7 @@ export class AttrPanel {
         const ratioKey = meta.ratioKeys.find((ratio) => ratio === key as keyof NumericRatioDivisors);
         let sub: string | undefined;
         let actualLine: string | undefined;
-        if (key === 'physDef' || key === 'spellDef') {
-          actualLine = `实际减伤：${formatDefenseReduction(numericValue)}`;
-          sub = actualLine;
-        } else if (ratioKey && ratioKey !== 'elementDamageReduce') {
+        if (ratioKey && ratioKey !== 'elementDamageReduce') {
           actualLine = `实际：${formatRatioPercent(numericValue, ratios[ratioKey])}`;
           sub = actualLine;
         } else if (RATE_BP_KEYS.has(key) && key !== 'critDamage') {

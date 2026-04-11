@@ -968,6 +968,7 @@ export interface SyncedItemStack {
   healAmount?: number;
   healPercent?: number;
   qiPercent?: number;
+  cooldown?: number;
   consumeBuffs?: ConsumableBuffDef[];
   tags?: string[];
   alchemySuccessRate?: number;
@@ -980,6 +981,13 @@ export interface SyncedItemStack {
 export interface SyncedInventorySnapshot {
   items: SyncedItemStack[];
   capacity: number;
+  cooldowns?: SyncedInventoryCooldownState[];
+}
+
+export interface SyncedInventoryCooldownState {
+  itemId: string;
+  cooldown: number;
+  cooldownLeft: number;
 }
 
 /** 背包更新 */
@@ -993,6 +1001,7 @@ export interface S2C_InventoryUpdate {
   capacity?: number;
   size?: number;
   slots?: InventorySlotUpdateEntry[];
+  cooldowns?: SyncedInventoryCooldownState[];
 }
 
 /** 装备更新 */
@@ -1725,6 +1734,7 @@ export interface GmEditorItemOption {
   healAmount?: number;
   healPercent?: number;
   qiPercent?: number;
+  cooldown?: number;
   consumeBuffs?: ConsumableBuffDef[];
   alchemySuccessRate?: number;
   alchemySpeedRate?: number;

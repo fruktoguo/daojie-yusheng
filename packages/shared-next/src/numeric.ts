@@ -49,6 +49,7 @@ export interface NumericStats {
   hit: number;
   dodge: number;
   crit: number;
+  antiCrit: number;
   critDamage: number;
   breakPower: number;
   resolvePower: number;
@@ -149,6 +150,7 @@ export const NUMERIC_STATS_KEYS: (keyof NumericStats)[] = [
   'hit',
   'dodge',
   'crit',
+  'antiCrit',
   'critDamage',
   'breakPower',
   'resolvePower',
@@ -210,6 +212,7 @@ export function createNumericStats(): NumericStats {
     hit: 0,
     dodge: 0,
     crit: 0,
+    antiCrit: 0,
     critDamage: 0,
     breakPower: 0,
     resolvePower: 0,
@@ -247,6 +250,7 @@ export function cloneNumericStats(source: NumericStats): NumericStats {
     hit: source.hit,
     dodge: source.dodge,
     crit: source.crit,
+    antiCrit: source.antiCrit,
     critDamage: source.critDamage,
     breakPower: source.breakPower,
     resolvePower: source.resolvePower,
@@ -283,6 +287,7 @@ export function resetNumericStats(target: NumericStats): NumericStats {
   target.hit = 0;
   target.dodge = 0;
   target.crit = 0;
+  target.antiCrit = 0;
   target.critDamage = 0;
   target.breakPower = 0;
   target.resolvePower = 0;
@@ -320,6 +325,7 @@ export function addPartialNumericStats(target: NumericStats, patch?: PartialNume
   if (patch.hit !== undefined) target.hit += patch.hit;
   if (patch.dodge !== undefined) target.dodge += patch.dodge;
   if (patch.crit !== undefined) target.crit += patch.crit;
+  if (patch.antiCrit !== undefined) target.antiCrit += patch.antiCrit;
   if (patch.critDamage !== undefined) target.critDamage += patch.critDamage;
   if (patch.breakPower !== undefined) target.breakPower += patch.breakPower;
   if (patch.resolvePower !== undefined) target.resolvePower += patch.resolvePower;

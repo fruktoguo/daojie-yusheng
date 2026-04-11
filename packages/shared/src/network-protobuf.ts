@@ -298,6 +298,7 @@ message NumericStatsPayload {
   optional sint32 extraArea = 29;
   optional ElementStatGroupPayload elementDamageBonus = 30;
   optional ElementStatGroupPayload elementDamageReduce = 31;
+  optional sint32 antiCrit = 32;
 }
 
 message NumericRatioDivisorsPayload {

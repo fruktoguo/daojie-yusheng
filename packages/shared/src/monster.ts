@@ -58,24 +58,49 @@ const {
   MONSTER_TIER_UNDERLEVEL_EXP_BONUS_RATES,
 } = monsterGameplayConstants;
 
-const MONSTER_EXPONENTIAL_NUMERIC_KEYS = ['maxHp', 'maxQi', 'physAtk', 'spellAtk'] as const satisfies readonly NumericScalarStatKey[];
-const MONSTER_LINEAR_NUMERIC_KEYS = [
+const MONSTER_EXPONENTIAL_NUMERIC_KEYS = [
+  'maxHp',
+  'maxQi',
+  'physAtk',
+  'spellAtk',
   'physDef',
   'spellDef',
   'hit',
   'dodge',
   'crit',
-  'critDamage',
+  'antiCrit',
   'breakPower',
   'resolvePower',
-  'maxQiOutputPerTick',
-  'qiRegenRate',
-  'hpRegenRate',
   'cooldownSpeed',
   'moveSpeed',
   'extraAggroRate',
   'viewRange',
 ] as const satisfies readonly NumericScalarStatKey[];
+const MONSTER_LINEAR_NUMERIC_KEYS = [
+  'critDamage',
+  'maxQiOutputPerTick',
+  'qiRegenRate',
+  'hpRegenRate',
+] as const satisfies readonly NumericScalarStatKey[];
+const MONSTER_LINEAR_NUMERIC_GROWTH_RATES: Record<typeof MONSTER_LINEAR_NUMERIC_KEYS[number], number> = {
+  critDamage: 0.1,
+  maxQiOutputPerTick: 0.1,
+  qiRegenRate: 0.02,
+  hpRegenRate: 0.02,
+};
+
+function getMonsterLinearGrowthRate(key: NumericScalarStatKey): number | null {
+  switch (key) {
+    case 'critDamage':
+    case 'maxQiOutputPerTick':
+      return 0.1;
+    case 'qiRegenRate':
+    case 'hpRegenRate':
+      return 0.02;
+    default:
+      return null;
+  }
+}
 
 export interface LegacyMonsterNumericProfile {
   maxHp: number;
@@ -464,6 +489,7 @@ function applyMonsterLevelFlatGrowth(target: NumericStats, level: number): Numer
   target.hit += (MONSTER_LEVEL_FLAT_GROWTH_STATS.hit ?? 0) * levelDelta;
   target.dodge += (MONSTER_LEVEL_FLAT_GROWTH_STATS.dodge ?? 0) * levelDelta;
   target.crit += (MONSTER_LEVEL_FLAT_GROWTH_STATS.crit ?? 0) * levelDelta;
+  target.antiCrit += (MONSTER_LEVEL_FLAT_GROWTH_STATS.antiCrit ?? 0) * levelDelta;
   target.breakPower += (MONSTER_LEVEL_FLAT_GROWTH_STATS.breakPower ?? 0) * levelDelta;
   target.resolvePower += (MONSTER_LEVEL_FLAT_GROWTH_STATS.resolvePower ?? 0) * levelDelta;
   target.cooldownSpeed += (MONSTER_LEVEL_FLAT_GROWTH_STATS.cooldownSpeed ?? 0) * levelDelta;
@@ -500,9 +526,9 @@ export function applyMonsterLevelScaling(stats: NumericStats, level?: number): N
     }
   }
 
-  const linearMultiplier = getRealmLinearGrowthMultiplier(normalizedLevel);
-  if (linearMultiplier !== 1) {
-    for (const key of MONSTER_LINEAR_NUMERIC_KEYS) {
+  for (const key of MONSTER_LINEAR_NUMERIC_KEYS) {
+    const linearMultiplier = getRealmLinearGrowthMultiplier(normalizedLevel, MONSTER_LINEAR_NUMERIC_GROWTH_RATES[key]);
+    if (linearMultiplier !== 1) {
       scaled[key] = Math.max(0, Math.round(scaled[key] * linearMultiplier));
     }
   }
@@ -580,6 +606,7 @@ export function inferMonsterAttrsFromNumericStats(stats: NumericStats): Attribut
   ) * MONSTER_SECONDARY_ATTR_RATIO));
   const luck = Math.max(0, Math.round(Math.max(
     stats.crit,
+    stats.antiCrit,
     Math.min(stats.hit, stats.dodge),
   ) * MONSTER_SECONDARY_ATTR_RATIO));
   return {
@@ -622,6 +649,7 @@ export function buildLegacyMonsterNumericStats(profile: LegacyMonsterNumericProf
   stats.hit = 12 + level * 8;
   stats.dodge = level * 4;
   stats.crit = level * 2;
+  stats.antiCrit = level * 2;
   stats.critDamage = level * 6;
   stats.breakPower = level * 3;
   stats.resolvePower = level * 3;
@@ -639,10 +667,11 @@ export function inferMonsterValueStatsFromLegacy(profile: LegacyMonsterNumericPr
     if (!actual) {
       return;
     }
+    const linearGrowthRate = getMonsterLinearGrowthRate(key);
     const multiplier = (MONSTER_EXPONENTIAL_NUMERIC_KEYS as readonly string[]).includes(key)
       ? getRealmAttributeMultiplier(level)
-      : (MONSTER_LINEAR_NUMERIC_KEYS as readonly string[]).includes(key)
-        ? getRealmLinearGrowthMultiplier(level)
+      : linearGrowthRate !== null
+        ? getRealmLinearGrowthMultiplier(level, linearGrowthRate)
         : 1;
     const configUnit = NUMERIC_STAT_ACTUAL_POINTS_PER_CONFIG_VALUE[key];
     const baseValue = actual / multiplier / configUnit;
@@ -661,6 +690,7 @@ export function inferMonsterValueStatsFromLegacy(profile: LegacyMonsterNumericPr
   applyScalar('hit');
   applyScalar('dodge');
   applyScalar('crit');
+  applyScalar('antiCrit');
   applyScalar('critDamage');
   applyScalar('breakPower');
   applyScalar('resolvePower');

@@ -330,6 +330,7 @@ function normalizeMonsterValueStats(rawValueStats) {
     'hit',
     'dodge',
     'crit',
+    'antiCrit',
     'critDamage',
     'breakPower',
     'resolvePower',

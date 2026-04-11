@@ -82,6 +82,7 @@ export const NUMERIC_SCALAR_STAT_LABELS: Record<NumericScalarStatKey, string> = 
   hit: '命中',
   dodge: '闪避',
   crit: '暴击',
+  antiCrit: '免爆',
   critDamage: '暴击伤害',
   breakPower: '破招',
   resolvePower: '化解',

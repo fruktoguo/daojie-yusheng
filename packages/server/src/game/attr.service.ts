@@ -33,7 +33,11 @@ import {
   percentModifierToMultiplier,
   resetNumericStats,
 } from '@mud/shared';
-import { REALM_EXPONENTIAL_NUMERIC_KEYS, REALM_LINEAR_NUMERIC_KEYS } from '../constants/gameplay/attr';
+import {
+  REALM_EXPONENTIAL_NUMERIC_KEYS,
+  REALM_LINEAR_NUMERIC_GROWTH_RATES,
+  REALM_LINEAR_NUMERIC_KEYS,
+} from '../constants/gameplay/attr';
 import { SOUL_DEVOUR_EROSION_BUFF_ID } from '../constants/gameplay/equipment';
 import { getSoulDevourErosionRatio } from './buff-presentation';
 import { QiProjectionService } from './qi-projection.service';
@@ -52,6 +56,19 @@ const SIGNED_NUMERIC_STAT_KEYS = new Set<NumericScalarStatKey>([
   'rareLootRate',
   'extraAggroRate',
 ]);
+
+function getRealmLinearGrowthRate(key: NumericScalarStatKey): number | null {
+  switch (key) {
+    case 'critDamage':
+    case 'maxQiOutputPerTick':
+      return 0.1;
+    case 'qiRegenRate':
+    case 'hpRegenRate':
+      return 0.02;
+    default:
+      return null;
+  }
+}
 
 function createAttributeSnapshot(initial = 0): Attributes {
   return {
@@ -414,6 +431,7 @@ export class AttrService {
     if (weight.hit !== undefined) target.hit += weight.hit * value;
     if (weight.dodge !== undefined) target.dodge += weight.dodge * value;
     if (weight.crit !== undefined) target.crit += weight.crit * value;
+    if (weight.antiCrit !== undefined) target.antiCrit += weight.antiCrit * value;
     if (weight.critDamage !== undefined) target.critDamage += weight.critDamage * value;
     if (weight.breakPower !== undefined) target.breakPower += weight.breakPower * value;
     if (weight.resolvePower !== undefined) target.resolvePower += weight.resolvePower * value;
@@ -448,11 +466,11 @@ export class AttrService {
       }
     }
 
-    const linearMultiplier = getRealmLinearGrowthMultiplier(realmLv);
-    if (linearMultiplier === 1) {
-      return;
-    }
     for (const key of REALM_LINEAR_NUMERIC_KEYS) {
+      const linearMultiplier = getRealmLinearGrowthMultiplier(realmLv, REALM_LINEAR_NUMERIC_GROWTH_RATES[key]);
+      if (linearMultiplier === 1) {
+        continue;
+      }
       target[key] = Math.max(0, Math.round(target[key] * linearMultiplier));
     }
   }
@@ -499,7 +517,8 @@ export class AttrService {
       return getRealmAttributeMultiplier(realmLv);
     }
     if (REALM_LINEAR_NUMERIC_KEY_SET.has(key)) {
-      return getRealmLinearGrowthMultiplier(realmLv);
+      const linearGrowthRate = getRealmLinearGrowthRate(key);
+      return linearGrowthRate === null ? 1 : getRealmLinearGrowthMultiplier(realmLv, linearGrowthRate);
     }
     return 1;
   }

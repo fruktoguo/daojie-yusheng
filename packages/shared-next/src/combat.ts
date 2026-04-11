@@ -47,9 +47,9 @@ export function getRealmAttributeMultiplier(realmLv: number): number {
 }
 
 /** 按境界等级计算战斗线性成长倍率 */
-export function getRealmLinearGrowthMultiplier(realmLv: number): number {
+export function getRealmLinearGrowthMultiplier(realmLv: number, growthRate = REALM_COMBAT_LINEAR_GROWTH_RATE): number {
   const normalizedRealmLv = Math.max(1, Math.floor(realmLv));
-  return 1 + REALM_COMBAT_LINEAR_GROWTH_RATE * (normalizedRealmLv - 1);
+  return 1 + Math.max(0, growthRate) * (normalizedRealmLv - 1);
 }
 
 /** 根据攻守双方境界差计算伤害倍率（高打低加成，低打高衰减） */
