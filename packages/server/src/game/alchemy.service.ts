@@ -8,6 +8,7 @@ import {
   AlchemySkillState,
   AlchemyIngredientSelection,
   AlchemyRecipeCatalogEntry,
+  AlchemyRecipeCategory,
   C2S_DeleteAlchemyPreset,
   C2S_SaveAlchemyPreset,
   C2S_StartAlchemy,
@@ -80,7 +81,7 @@ interface AlchemyGrantResolution {
 
 const ALCHEMY_ACTION_ID = 'alchemy:open';
 const ALCHEMY_FURNACE_TAG = 'alchemy_furnace';
-const ALCHEMY_CATALOG_VERSION = 1;
+const ALCHEMY_CATALOG_VERSION = 2;
 const ALCHEMY_MAX_NAME_LENGTH = 24;
 const DEFAULT_ALCHEMY_EXP_TO_NEXT = 60;
 const ALCHEMY_BUFF_ID = 'system.alchemy';
@@ -679,9 +680,22 @@ export class AlchemyService implements OnModuleInit {
     return this.contentService.getItem(itemId)?.name ?? itemId;
   }
 
+  private resolveRecipeCategory(outputItemId: string, recipeId: string): AlchemyRecipeCategory {
+    const outputItem = this.contentService.getItem(outputItemId);
+    if (!outputItem) {
+      throw new Error(`炼丹配方 ${recipeId} 的产出物 ${outputItemId} 不存在`);
+    }
+    if ((outputItem.consumeBuffs?.length ?? 0) > 0) {
+      return 'buff';
+    }
+    if (typeof outputItem.healAmount === 'number' || typeof outputItem.healPercent === 'number' || typeof outputItem.qiPercent === 'number') {
+      return 'recovery';
+    }
+    throw new Error(`炼丹配方 ${recipeId} 的产出物 ${outputItemId} 既不是瞬回药，也不是增益药`);
+  }
+
   private recipeConsumesSpiritStone(recipe: AlchemyRecipeCatalogEntry): boolean {
-    const tags = this.contentService.getItem(recipe.outputItemId)?.tags ?? [];
-    return tags.includes('修为丹药');
+    return recipe.category === 'buff';
   }
 
   private getRecipeSpiritStoneCost(recipe: AlchemyRecipeCatalogEntry, quantity: number): number {
@@ -689,7 +703,7 @@ export class AlchemyService implements OnModuleInit {
   }
 
   private getRecipeBatchOutputSize(recipe: AlchemyRecipeCatalogEntry): number {
-    return this.recipeConsumesSpiritStone(recipe) ? 1 : 6;
+    return recipe.category === 'buff' ? 1 : 6;
   }
 
   private grantAlchemyRefundItem(player: PlayerState, itemId: string, count: number): AlchemyGrantResolution {
@@ -816,6 +830,7 @@ export class AlchemyService implements OnModuleInit {
       if (!outputItem) {
         throw new Error(`炼丹配方 ${recipeId} 的产出物 ${outputItemId} 不存在`);
       }
+      const category = this.resolveRecipeCategory(outputItemId, recipeId);
       const ingredients = (Array.isArray(entry.ingredients) ? entry.ingredients : []).map((ingredient) => {
         const itemId = String(ingredient.itemId ?? '').trim();
         const item = this.contentService.getItem(itemId);
@@ -839,6 +854,7 @@ export class AlchemyService implements OnModuleInit {
         recipeId,
         outputItemId,
         outputName: outputItem.name,
+        category,
         outputCount: normalizePositiveInt(entry.outputCount, 1),
         outputLevel: normalizePositiveInt(outputItem.level, 1),
         baseBrewTicks: normalizePositiveInt(entry.baseBrewTicks, 1),

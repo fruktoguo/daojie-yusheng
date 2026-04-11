@@ -3,6 +3,7 @@ import {
   ALCHEMY_PREPARATION_TICKS,
   AlchemyIngredientSelection,
   AlchemyRecipeCatalogEntry,
+  AlchemyRecipeCategory,
   C2S_SaveAlchemyPreset,
   C2S_StartAlchemy,
   EquipmentSlots,
@@ -22,14 +23,12 @@ import {
   isExactAlchemyRecipe,
   normalizeAlchemyQuantity,
 } from '@mud/shared';
-import { getLocalItemTemplate } from '../content/local-templates';
 import { hasLoadedItemSourceCatalog, preloadItemSourceCatalog } from '../content/item-sources';
 import { confirmModalHost } from './confirm-modal-host';
 import { detailModalHost } from './detail-modal-host';
 import { bindInlineItemTooltips, renderInlineItemChip } from './item-inline-tooltip';
 
 type AlchemyTab = 'simple' | 'full';
-type AlchemyRecipeCategory = 'combat' | 'cultivation';
 
 interface AlchemyModalCallbacks {
   onRequestPanel: (knownCatalogVersion?: number) => void;
@@ -96,7 +95,7 @@ export class AlchemyModal {
   private catalog: AlchemyRecipeCatalogEntry[] = [];
   private catalogByRecipeId = new Map<string, AlchemyRecipeCatalogEntry>();
   private activeTab: AlchemyTab = 'full';
-  private activeCategory: AlchemyRecipeCategory = 'combat';
+  private activeCategory: AlchemyRecipeCategory = 'recovery';
   private selectedRecipeId: string | null = null;
   private selectedPresetId: string | null = null;
   private draftByRecipeId = new Map<string, Map<string, number>>();
@@ -220,7 +219,7 @@ export class AlchemyModal {
     }
     let visibleCatalog = this.getVisibleCatalog();
     if (visibleCatalog.length === 0) {
-      const fallbackCategory = this.activeCategory === 'combat' ? 'cultivation' : 'combat';
+      const fallbackCategory = this.activeCategory === 'recovery' ? 'buff' : 'recovery';
       const fallbackCatalog = this.getCatalogByCategory(fallbackCategory);
       if (fallbackCatalog.length > 0) {
         this.activeCategory = fallbackCategory;
@@ -450,7 +449,7 @@ export class AlchemyModal {
 
   private patchCategoryButtons(host: HTMLElement): void {
     host.querySelectorAll<HTMLElement>('.alchemy-category-btn[data-action="switch-category"][data-category]').forEach((node) => {
-      const category = node.dataset.category === 'cultivation' ? 'cultivation' : 'combat';
+      const category = node.dataset.category === 'buff' ? 'buff' : 'recovery';
       node.classList.toggle('active', category === this.activeCategory);
       const countNode = node.querySelector<HTMLElement>('.alchemy-category-count');
       if (countNode) {
@@ -464,8 +463,7 @@ export class AlchemyModal {
   }
 
   private resolveRecipeCategory(recipe: AlchemyRecipeCatalogEntry): AlchemyRecipeCategory {
-    const tags = getLocalItemTemplate(recipe.outputItemId)?.tags ?? [];
-    return tags.includes('修为丹药') ? 'cultivation' : 'combat';
+    return recipe.category;
   }
 
   private getCatalogByCategory(category: AlchemyRecipeCategory): AlchemyRecipeCatalogEntry[] {
@@ -487,7 +485,7 @@ export class AlchemyModal {
         return this.resolveRecipeCategory(recipe);
       }
     }
-    return 'combat';
+    return 'recovery';
   }
 
   private renderBody(): string {
@@ -638,8 +636,8 @@ export class AlchemyModal {
 
   private renderCategoryTabs(): string {
     const tabs: Array<{ category: AlchemyRecipeCategory; label: string }> = [
-      { category: 'combat', label: '战斗丹药' },
-      { category: 'cultivation', label: '修为丹药' },
+      { category: 'recovery', label: '回复' },
+      { category: 'buff', label: '增益' },
     ];
     return tabs.map((tab) => `
       <button
@@ -983,7 +981,7 @@ export class AlchemyModal {
         return;
       }
       if (action === 'switch-category') {
-        const category = actionNode.dataset.category === 'cultivation' ? 'cultivation' : 'combat';
+        const category = actionNode.dataset.category === 'buff' ? 'buff' : 'recovery';
         if (category !== this.activeCategory) {
           this.activeCategory = category;
           this.selectedPresetId = null;
@@ -1182,7 +1180,7 @@ export class AlchemyModal {
   }
 
   private getAlchemySpiritStoneCost(recipe: AlchemyRecipeCatalogEntry, quantity: number): number {
-    return getAlchemySpiritStoneCost(recipe.outputLevel, this.resolveRecipeCategory(recipe) === 'cultivation') * normalizeAlchemyQuantity(quantity);
+    return getAlchemySpiritStoneCost(recipe.outputLevel, this.resolveRecipeCategory(recipe) === 'buff') * normalizeAlchemyQuantity(quantity);
   }
 
   private getBatchOutputCount(recipe: AlchemyRecipeCatalogEntry): number {
@@ -1190,7 +1188,7 @@ export class AlchemyModal {
   }
 
   private getBatchOutputSize(recipe: AlchemyRecipeCatalogEntry): number {
-    return this.resolveRecipeCategory(recipe) === 'cultivation' ? 1 : ALCHEMY_FURNACE_OUTPUT_COUNT;
+    return this.resolveRecipeCategory(recipe) === 'buff' ? 1 : ALCHEMY_FURNACE_OUTPUT_COUNT;
   }
 
   private getMaxCraftQuantity(
