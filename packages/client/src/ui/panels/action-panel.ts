@@ -662,9 +662,19 @@ export class ActionPanel {
     const actionId = [...this.shortcutBindings.entries()].find(([, binding]) => binding === normalized)?.[0];
     if (!actionId) return;
     const action = this.currentActions.find((entry) => entry.id === actionId);
-    if (!action || action.cooldownLeft > 0) return;
+    if (!action || !this.canExecuteAction(action)) return;
     event.preventDefault();
     this.onAction?.(action.id, action.requiresTarget, action.targetMode, action.range, action.name);
+  }
+
+  private canExecuteAction(action: ActionDef): boolean {
+    if (action.cooldownLeft > 0) {
+      return false;
+    }
+    if (action.type === 'skill' && action.skillEnabled === false) {
+      return false;
+    }
+    return true;
   }
 
   private renderShortcutBadge(actionId: string): string {
@@ -1507,6 +1517,10 @@ export class ActionPanel {
     root.querySelectorAll<HTMLElement>('[data-action]').forEach((button) => {
       button.addEventListener('click', () => {
         const actionId = button.dataset.action!;
+        const action = this.currentActions.find((entry) => entry.id === actionId);
+        if (!action || !this.canExecuteAction(action)) {
+          return;
+        }
         const actionName = button.dataset.actionName || actionId;
         const requiresTarget = button.dataset.actionTarget === '1';
         const targetMode = button.dataset.actionTargetMode || undefined;

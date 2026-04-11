@@ -868,6 +868,10 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
             messages.push({ playerId: player.id, text: '行动不存在', kind: 'system' });
             break;
           }
+          if (action.type === 'skill' && action.skillEnabled === false) {
+            messages.push({ playerId: player.id, text: '该技能当前未启用', kind: 'system' });
+            break;
+          }
           if (action.cooldownLeft > 0) {
             const actionLabel = action.type === 'skill' || action.type === 'battle' ? '招式' : '行动';
             messages.push({ playerId: player.id, text: `${actionLabel}尚在调息中，还需 ${action.cooldownLeft} 息`, kind: 'system' });
