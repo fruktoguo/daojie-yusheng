@@ -89,7 +89,7 @@
               "args": [
                 {
                   "var": "caster.stat.spellAtk",
-                  "scale": 2.1
+                  "scale": 4.2
                 },
                 {
                   "op": "add",
@@ -98,10 +98,6 @@
                     {
                       "var": "techLevel",
                       "scale": 0.1
-                    },
-                    {
-                      "var": "caster.stat.hit",
-                      "scale": 0.003
                     }
                   ]
                 }
@@ -150,7 +146,7 @@
               "args": [
                 {
                   "var": "caster.stat.spellAtk",
-                  "scale": 2.15
+                  "scale": 4.3
                 },
                 {
                   "op": "add",
@@ -158,15 +154,11 @@
                     1,
                     {
                       "var": "techLevel",
-                      "scale": 0.05
+                      "scale": 0.1
                     },
                     {
                       "var": "target.buff.buff.monster_soulbind.stacks",
-                      "scale": 0.025
-                    },
-                    {
-                      "var": "caster.stat.hit",
-                      "scale": 0.002
+                      "scale": 0.05
                     }
                   ]
                 }
@@ -285,7 +277,7 @@
               "args": [
                 {
                   "var": "caster.stat.physAtk",
-                  "scale": 1.4
+                  "scale": 2.8
                 },
                 {
                   "op": "add",
@@ -293,15 +285,7 @@
                     1,
                     {
                       "var": "techLevel",
-                      "scale": 0.05
-                    },
-                    {
-                      "var": "caster.stat.physDef",
-                      "scale": 0.003
-                    },
-                    {
-                      "var": "caster.stat.resolvePower",
-                      "scale": 0.002
+                      "scale": 0.1
                     }
                   ]
                 }
@@ -350,7 +334,7 @@
               "args": [
                 {
                   "var": "caster.stat.physAtk",
-                  "scale": 1.55
+                  "scale": 3.1
                 },
                 {
                   "op": "add",
@@ -358,19 +342,11 @@
                     1,
                     {
                       "var": "techLevel",
-                      "scale": 0.05
+                      "scale": 0.1
                     },
                     {
                       "var": "caster.buff.buff.monster_stonehide.stacks",
-                      "scale": 0.015
-                    },
-                    {
-                      "var": "caster.stat.physDef",
-                      "scale": 0.003
-                    },
-                    {
-                      "var": "caster.stat.resolvePower",
-                      "scale": 0.002
+                      "scale": 0.1
                     }
                   ]
                 }
@@ -497,7 +473,7 @@
               "args": [
                 {
                   "var": "caster.stat.physAtk",
-                  "scale": 1.6
+                  "scale": 3.2
                 },
                 {
                   "op": "add",
@@ -505,15 +481,7 @@
                     1,
                     {
                       "var": "techLevel",
-                      "scale": 0.05
-                    },
-                    {
-                      "var": "caster.stat.hit",
-                      "scale": 0.002
-                    },
-                    {
-                      "var": "caster.stat.crit",
-                      "scale": 0.002
+                      "scale": 0.1
                     }
                   ]
                 }
@@ -563,7 +531,7 @@
               "args": [
                 {
                   "var": "caster.stat.spellAtk",
-                  "scale": 2.2
+                  "scale": 4.4
                 },
                 {
                   "op": "add",
@@ -571,19 +539,11 @@
                     1,
                     {
                       "var": "techLevel",
-                      "scale": 0.05
+                      "scale": 0.1
                     },
                     {
                       "var": "caster.buff.buff.monster_star_hunger.stacks",
-                      "scale": 0.015
-                    },
-                    {
-                      "var": "caster.stat.hit",
-                      "scale": 0.002
-                    },
-                    {
-                      "var": "caster.stat.crit",
-                      "scale": 0.002
+                      "scale": 0.1
                     }
                   ]
                 }
@@ -1046,6 +1006,10 @@
         "cooldown": 16,
         "costMultiplier": 8,
         "range": 4,
+        "targeting": {
+          "shape": "line",
+          "maxTargets": 4
+        },
         "effects": [
           {
             "type": "damage",

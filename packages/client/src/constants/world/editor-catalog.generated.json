@@ -306,7 +306,7 @@
           "id": "skill.huanling_candan_faxiang",
           "name": "残丹法相虚影",
           "desc": "气血跌入七成后，强行把碎裂金丹撑成法相虚影，借此把整座洞府重新拖回自己的残丹脉路里。",
-          "cooldown": 1800,
+          "cooldown": 300,
           "costMultiplier": 6,
           "range": 1,
           "requiresTarget": false,
@@ -374,7 +374,7 @@
           "id": "skill.huanling_duanhun_ding",
           "name": "断魂灵钉",
           "desc": "认准被熔池烙开的裂口，把残丹灵识压成一根钉，沿着伤脉直接钉穿神魂。",
-          "cooldown": 80,
+          "cooldown": 35,
           "costMultiplier": 8,
           "range": 6,
           "targeting": {
@@ -413,23 +413,15 @@
                       1,
                       {
                         "var": "techLevel",
-                        "scale": 0.05
-                      },
-                      {
-                        "var": "caster.stat.hit",
-                        "scale": 0.003
-                      },
-                      {
-                        "var": "caster.stat.breakPower",
-                        "scale": 0.003
+                        "scale": 0.1
                       },
                       {
                         "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                        "scale": 0.02
+                        "scale": 0.05
                       },
                       {
                         "var": "target.buff.terrain_molten_pool_burn.stacks",
-                        "scale": 0.015
+                        "scale": 0.1
                       }
                     ]
                   }
@@ -465,7 +457,7 @@
           "id": "skill.huanling_ronghe_guanmai",
           "name": "熔河贯脉",
           "desc": "把洞府残脉拧成一条赤河直贯出去，整线被拖开的地面都会化作熔流；被卷中的人脚下会被残脉绊住，下一轮更难脱出杀域。",
-          "cooldown": 80,
+          "cooldown": 60,
           "costMultiplier": 8,
           "range": 6,
           "targeting": {
@@ -509,19 +501,11 @@
                       1,
                       {
                         "var": "techLevel",
-                        "scale": 0.05
-                      },
-                      {
-                        "var": "caster.stat.hit",
-                        "scale": 0.004
-                      },
-                      {
-                        "var": "caster.stat.resolvePower",
-                        "scale": 0.004
+                        "scale": 0.1
                       },
                       {
                         "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                        "scale": 0.025
+                        "scale": 0.05
                       }
                     ]
                   }
@@ -577,7 +561,7 @@
           "id": "skill.huanling_lieqi_zhixian",
           "name": "移脉熔宫",
           "desc": "拖着裂丹把洞府残脉猛然拽偏，落点一带尽数熔成赤池，后续杀招都会顺着熔痕灌进去。",
-          "cooldown": 80,
+          "cooldown": 55,
           "costMultiplier": 8,
           "range": 5,
           "targeting": {
@@ -622,15 +606,7 @@
                       1,
                       {
                         "var": "techLevel",
-                        "scale": 0.05
-                      },
-                      {
-                        "var": "caster.stat.hit",
-                        "scale": 0.004
-                      },
-                      {
-                        "var": "caster.stat.resolvePower",
-                        "scale": 0.004
+                        "scale": 0.1
                       }
                     ]
                   }
@@ -689,7 +665,7 @@
           "id": "skill.huanling_xingluo_canpan",
           "name": "星罗残盘",
           "desc": "借洞府残阵把落点周围拆成明灭交错的棋盘，错踩一格便会被残火与阴脉同时点穿。",
-          "cooldown": 80,
+          "cooldown": 45,
           "costMultiplier": 8,
           "range": 5,
           "targeting": {
@@ -734,19 +710,11 @@
                       1,
                       {
                         "var": "techLevel",
-                        "scale": 0.05
-                      },
-                      {
-                        "var": "caster.stat.hit",
-                        "scale": 0.003
-                      },
-                      {
-                        "var": "caster.stat.resolvePower",
-                        "scale": 0.003
+                        "scale": 0.1
                       },
                       {
                         "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                        "scale": 0.025
+                        "scale": 0.05
                       }
                     ]
                   }
@@ -782,7 +750,7 @@
           "id": "skill.huanling_suogong_neihuan",
           "name": "锁宫内环",
           "desc": "先把目标脚边一圈地脉瞬间勒紧，贴得太近的人会被内环直接绞住，必须立刻改步离位。",
-          "cooldown": 80,
+          "cooldown": 50,
           "costMultiplier": 8,
           "range": 5,
           "targeting": {
@@ -827,23 +795,15 @@
                       1,
                       {
                         "var": "techLevel",
-                        "scale": 0.05
-                      },
-                      {
-                        "var": "caster.stat.hit",
-                        "scale": 0.003
-                      },
-                      {
-                        "var": "caster.stat.resolvePower",
-                        "scale": 0.003
+                        "scale": 0.1
                       },
                       {
                         "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                        "scale": 0.02
+                        "scale": 0.05
                       },
                       {
                         "var": "target.buff.terrain_molten_pool_burn.stacks",
-                        "scale": 0.015
+                        "scale": 0.1
                       }
                     ]
                   }
@@ -876,7 +836,7 @@
           "id": "skill.huanling_liefu_waihuan",
           "name": "裂府外环",
           "desc": "把更外层的洞府残脉整圈掀起，外环会晚半拍一齐压落；若前面已经沾了阴痕或灼伤，被卷入这一圈时伤势会被整片放大。",
-          "cooldown": 80,
+          "cooldown": 60,
           "costMultiplier": 8,
           "range": 6,
           "targeting": {
@@ -921,23 +881,15 @@
                       1,
                       {
                         "var": "techLevel",
-                        "scale": 0.05
-                      },
-                      {
-                        "var": "caster.stat.hit",
-                        "scale": 0.003
-                      },
-                      {
-                        "var": "caster.stat.resolvePower",
-                        "scale": 0.003
+                        "scale": 0.1
                       },
                       {
                         "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                        "scale": 0.03
+                        "scale": 0.05
                       },
                       {
                         "var": "target.buff.terrain_molten_pool_burn.stacks",
-                        "scale": 0.025
+                        "scale": 0.1
                       }
                     ]
                   }
@@ -973,7 +925,7 @@
           "id": "skill.huanling_difu_chenyin",
           "name": "地府沉印",
           "desc": "借洞府残阵把熔开的地脉整片往下按，阴痕越多、灼得越深，塌下去的那一刻就越重。",
-          "cooldown": 80,
+          "cooldown": 55,
           "costMultiplier": 8,
           "range": 5,
           "targeting": {
@@ -1018,23 +970,15 @@
                       1,
                       {
                         "var": "techLevel",
-                        "scale": 0.05
-                      },
-                      {
-                        "var": "caster.stat.hit",
-                        "scale": 0.003
-                      },
-                      {
-                        "var": "caster.stat.resolvePower",
-                        "scale": 0.003
+                        "scale": 0.1
                       },
                       {
                         "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                        "scale": 0.03
+                        "scale": 0.05
                       },
                       {
                         "var": "target.buff.terrain_molten_pool_burn.stacks",
-                        "scale": 0.03
+                        "scale": 0.1
                       }
                     ]
                   }
@@ -1065,15 +1009,30 @@
               "type": "damage",
               "damageKind": "physical",
               "formula": {
-                "op": "add",
+                "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 5
+                    "op": "add",
+                    "args": [
+                      {
+                        "var": "caster.stat.physAtk",
+                        "scale": 5
+                      },
+                      {
+                        "var": "caster.stat.spellAtk",
+                        "scale": 5
+                      }
+                    ]
                   },
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 5
+                    "op": "add",
+                    "args": [
+                      1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.1
+                      }
+                    ]
                   }
                 ]
               }
@@ -1174,7 +1133,7 @@
                 "args": [
                   {
                     "var": "caster.stat.spellAtk",
-                    "scale": 2.1
+                    "scale": 4.2
                   },
                   {
                     "op": "add",
@@ -1183,10 +1142,6 @@
                       {
                         "var": "techLevel",
                         "scale": 0.1
-                      },
-                      {
-                        "var": "caster.stat.hit",
-                        "scale": 0.003
                       }
                     ]
                   }
@@ -1236,7 +1191,7 @@
                 "args": [
                   {
                     "var": "caster.stat.spellAtk",
-                    "scale": 2.15
+                    "scale": 4.3
                   },
                   {
                     "op": "add",
@@ -1244,15 +1199,11 @@
                       1,
                       {
                         "var": "techLevel",
-                        "scale": 0.05
+                        "scale": 0.1
                       },
                       {
                         "var": "target.buff.buff.monster_soulbind.stacks",
-                        "scale": 0.025
-                      },
-                      {
-                        "var": "caster.stat.hit",
-                        "scale": 0.002
+                        "scale": 0.05
                       }
                     ]
                   }
@@ -4088,7 +4039,7 @@
                 "args": [
                   {
                     "var": "caster.stat.physAtk",
-                    "scale": 1.4
+                    "scale": 2.8
                   },
                   {
                     "op": "add",
@@ -4096,15 +4047,7 @@
                       1,
                       {
                         "var": "techLevel",
-                        "scale": 0.05
-                      },
-                      {
-                        "var": "caster.stat.physDef",
-                        "scale": 0.003
-                      },
-                      {
-                        "var": "caster.stat.resolvePower",
-                        "scale": 0.002
+                        "scale": 0.1
                       }
                     ]
                   }
@@ -4154,7 +4097,7 @@
                 "args": [
                   {
                     "var": "caster.stat.physAtk",
-                    "scale": 1.55
+                    "scale": 3.1
                   },
                   {
                     "op": "add",
@@ -4162,19 +4105,11 @@
                       1,
                       {
                         "var": "techLevel",
-                        "scale": 0.05
+                        "scale": 0.1
                       },
                       {
                         "var": "caster.buff.buff.monster_stonehide.stacks",
-                        "scale": 0.015
-                      },
-                      {
-                        "var": "caster.stat.physDef",
-                        "scale": 0.003
-                      },
-                      {
-                        "var": "caster.stat.resolvePower",
-                        "scale": 0.002
+                        "scale": 0.1
                       }
                     ]
                   }
@@ -5804,7 +5739,7 @@
                 "args": [
                   {
                     "var": "caster.stat.physAtk",
-                    "scale": 1.6
+                    "scale": 3.2
                   },
                   {
                     "op": "add",
@@ -5812,11 +5747,7 @@
                       1,
                       {
                         "var": "techLevel",
-                        "scale": 0.05
-                      },
-                      {
-                        "var": "caster.stat.breakPower",
-                        "scale": 0.003
+                        "scale": 0.1
                       }
                     ]
                   }
@@ -5865,7 +5796,7 @@
                 "args": [
                   {
                     "var": "caster.stat.physAtk",
-                    "scale": 1.7
+                    "scale": 3.4
                   },
                   {
                     "op": "add",
@@ -5873,15 +5804,11 @@
                       1,
                       {
                         "var": "techLevel",
-                        "scale": 0.05
+                        "scale": 0.1
                       },
                       {
                         "var": "caster.buff.buff.monster_blade_limb.stacks",
-                        "scale": 0.015
-                      },
-                      {
-                        "var": "caster.stat.breakPower",
-                        "scale": 0.003
+                        "scale": 0.1
                       }
                     ]
                   }
@@ -6000,7 +5927,7 @@
                 "args": [
                   {
                     "var": "caster.stat.physAtk",
-                    "scale": 1.6
+                    "scale": 3.2
                   },
                   {
                     "op": "add",
@@ -6008,15 +5935,7 @@
                       1,
                       {
                         "var": "techLevel",
-                        "scale": 0.05
-                      },
-                      {
-                        "var": "caster.stat.hit",
-                        "scale": 0.002
-                      },
-                      {
-                        "var": "caster.stat.crit",
-                        "scale": 0.002
+                        "scale": 0.1
                       }
                     ]
                   }
@@ -6067,7 +5986,7 @@
                 "args": [
                   {
                     "var": "caster.stat.spellAtk",
-                    "scale": 2.2
+                    "scale": 4.4
                   },
                   {
                     "op": "add",
@@ -6075,19 +5994,11 @@
                       1,
                       {
                         "var": "techLevel",
-                        "scale": 0.05
+                        "scale": 0.1
                       },
                       {
                         "var": "caster.buff.buff.monster_star_hunger.stacks",
-                        "scale": 0.015
-                      },
-                      {
-                        "var": "caster.stat.hit",
-                        "scale": 0.002
-                      },
-                      {
-                        "var": "caster.stat.crit",
-                        "scale": 0.002
+                        "scale": 0.1
                       }
                     ]
                   }
@@ -7653,7 +7564,7 @@
                 "args": [
                   {
                     "var": "caster.stat.spellAtk",
-                    "scale": 1.55
+                    "scale": 3.1
                   },
                   {
                     "op": "add",
@@ -7661,11 +7572,7 @@
                       1,
                       {
                         "var": "techLevel",
-                        "scale": 0.05
-                      },
-                      {
-                        "var": "caster.stat.hit",
-                        "scale": 0.002
+                        "scale": 0.1
                       }
                     ]
                   }
@@ -7715,7 +7622,7 @@
                 "args": [
                   {
                     "var": "caster.stat.spellAtk",
-                    "scale": 1.7
+                    "scale": 3.4
                   },
                   {
                     "op": "add",
@@ -7723,15 +7630,11 @@
                       1,
                       {
                         "var": "techLevel",
-                        "scale": 0.05
+                        "scale": 0.1
                       },
                       {
                         "var": "target.buff.buff.monster_toxin.stacks",
-                        "scale": 0.015
-                      },
-                      {
-                        "var": "caster.stat.hit",
-                        "scale": 0.002
+                        "scale": 0.05
                       }
                     ]
                   }
@@ -7851,7 +7754,7 @@
                 "args": [
                   {
                     "var": "caster.stat.physAtk",
-                    "scale": 1.7
+                    "scale": 3.4
                   },
                   {
                     "op": "add",
@@ -7859,11 +7762,7 @@
                       1,
                       {
                         "var": "techLevel",
-                        "scale": 0.05
-                      },
-                      {
-                        "var": "caster.stat.moveSpeed",
-                        "scale": 0.005
+                        "scale": 0.1
                       }
                     ]
                   }
@@ -7912,7 +7811,7 @@
                 "args": [
                   {
                     "var": "caster.stat.physAtk",
-                    "scale": 1.85
+                    "scale": 3.7
                   },
                   {
                     "op": "add",
@@ -7920,15 +7819,11 @@
                       1,
                       {
                         "var": "techLevel",
-                        "scale": 0.05
+                        "scale": 0.1
                       },
                       {
                         "var": "caster.buff.buff.monster_bloodrush.stacks",
-                        "scale": 0.015
-                      },
-                      {
-                        "var": "caster.stat.crit",
-                        "scale": 0.002
+                        "scale": 0.1
                       }
                     ]
                   }
@@ -7973,7 +7868,7 @@
                 "args": [
                   {
                     "var": "caster.stat.physAtk",
-                    "scale": 1.55
+                    "scale": 3.1
                   },
                   {
                     "op": "add",
@@ -7981,15 +7876,11 @@
                       1,
                       {
                         "var": "techLevel",
-                        "scale": 0.05
+                        "scale": 0.1
                       },
                       {
                         "var": "caster.buff.buff.monster_bloodrush.stacks",
-                        "scale": 0.015
-                      },
-                      {
-                        "var": "caster.stat.breakPower",
-                        "scale": 0.003
+                        "scale": 0.1
                       }
                     ]
                   }
@@ -8222,7 +8113,7 @@
                 "args": [
                   {
                     "var": "caster.stat.spellAtk",
-                    "scale": 1.55
+                    "scale": 3.1
                   },
                   {
                     "op": "add",
@@ -8230,11 +8121,7 @@
                       1,
                       {
                         "var": "techLevel",
-                        "scale": 0.05
-                      },
-                      {
-                        "var": "caster.stat.hit",
-                        "scale": 0.002
+                        "scale": 0.1
                       }
                     ]
                   }
@@ -8283,7 +8170,7 @@
                 "args": [
                   {
                     "var": "caster.stat.spellAtk",
-                    "scale": 1.7
+                    "scale": 3.4
                   },
                   {
                     "op": "add",
@@ -8291,15 +8178,11 @@
                       1,
                       {
                         "var": "techLevel",
-                        "scale": 0.05
+                        "scale": 0.1
                       },
                       {
                         "var": "caster.buff.buff.monster_skyline.stacks",
-                        "scale": 0.01
-                      },
-                      {
-                        "var": "caster.stat.hit",
-                        "scale": 0.003
+                        "scale": 0.1
                       }
                     ]
                   }
@@ -8344,7 +8227,7 @@
                 "args": [
                   {
                     "var": "caster.stat.spellAtk",
-                    "scale": 1.95
+                    "scale": 3.9
                   },
                   {
                     "op": "add",
@@ -8352,15 +8235,11 @@
                       1,
                       {
                         "var": "techLevel",
-                        "scale": 0.05
+                        "scale": 0.1
                       },
                       {
                         "var": "caster.buff.buff.monster_skyline.stacks",
-                        "scale": 0.015
-                      },
-                      {
-                        "var": "caster.stat.crit",
-                        "scale": 0.002
+                        "scale": 0.1
                       }
                     ]
                   }
@@ -9816,7 +9695,7 @@
                 "args": [
                   {
                     "var": "caster.stat.spellAtk",
-                    "scale": 1.6
+                    "scale": 3.2
                   },
                   {
                     "op": "add",
@@ -9824,11 +9703,7 @@
                       1,
                       {
                         "var": "techLevel",
-                        "scale": 0.05
-                      },
-                      {
-                        "var": "caster.stat.hit",
-                        "scale": 0.002
+                        "scale": 0.1
                       }
                     ]
                   }
@@ -9877,7 +9752,7 @@
                 "args": [
                   {
                     "var": "caster.stat.spellAtk",
-                    "scale": 1.8
+                    "scale": 3.6
                   },
                   {
                     "op": "add",
@@ -9885,15 +9760,11 @@
                       1,
                       {
                         "var": "techLevel",
-                        "scale": 0.05
+                        "scale": 0.1
                       },
                       {
                         "var": "target.buff.buff.monster_bamboo_bind.stacks",
-                        "scale": 0.015
-                      },
-                      {
-                        "var": "caster.stat.hit",
-                        "scale": 0.002
+                        "scale": 0.05
                       }
                     ]
                   }
