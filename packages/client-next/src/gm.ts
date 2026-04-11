@@ -5066,6 +5066,32 @@ async function returnAllPlayersToDefaultSpawn(): Promise<void> {
   }
 }
 
+async function cleanupAllPlayersInvalidItems(): Promise<void> {
+  if (!window.confirm('这会手动清理所有非机器人角色背包、坊市托管仓和装备栏里的无效物品。在线角色将在下一息处理并落盘，离线角色会直接改存档。确认继续吗？')) {
+    return;
+  }
+
+  const button = document.getElementById('shortcut-cleanup-invalid-items') as HTMLButtonElement | null;
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    const result = await request<GmShortcutRunRes>('/gm/shortcuts/players/cleanup-invalid-items', {
+      method: 'POST',
+    });
+    editorDirty = false;
+    await delayRefresh(
+      `已提交无效物品清理，共 ${result.totalPlayers} 个角色，运行态 ${result.queuedRuntimePlayers} 个，离线 ${result.updatedOfflinePlayers} 个，移除背包堆叠 ${Math.floor(result.totalInvalidInventoryStacksRemoved ?? 0)} 个、托管仓堆叠 ${Math.floor(result.totalInvalidMarketStorageStacksRemoved ?? 0)} 个、装备栏 ${Math.floor(result.totalInvalidEquipmentRemoved ?? 0)} 件`,
+    );
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '执行无效物品清理失败', true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
 async function compensateAllPlayersCombatExp(): Promise<void> {
   if (!window.confirm('这会给所有非机器人角色补偿战斗经验。每个角色获得的数值 = 当前境界升级所需经验 + 当前炼体境界升级所需经验。在线角色下一息生效，离线角色会直接改存档。确认继续吗？')) {
     return;
@@ -5709,6 +5735,9 @@ document.getElementById('remove-all-bots')?.addEventListener('click', () => {
 });
 document.getElementById('shortcut-return-all-to-default-spawn')?.addEventListener('click', () => {
   returnAllPlayersToDefaultSpawn().catch(() => {});
+});
+document.getElementById('shortcut-cleanup-invalid-items')?.addEventListener('click', () => {
+  cleanupAllPlayersInvalidItems().catch(() => {});
 });
 document.getElementById('shortcut-compensate-combat-exp-2026-04-09')?.addEventListener('click', () => {
   compensateAllPlayersCombatExp().catch(() => {});

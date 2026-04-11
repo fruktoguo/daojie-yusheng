@@ -1802,6 +1802,9 @@ export interface GmShortcutRunRes {
   totalPlayers: number;
   queuedRuntimePlayers: number;
   updatedOfflinePlayers: number;
+  totalInvalidInventoryStacksRemoved?: number;
+  totalInvalidMarketStorageStacksRemoved?: number;
+  totalInvalidEquipmentRemoved?: number;
   totalCombatExpGranted?: number;
   totalFoundationGranted?: number;
   targetMapId?: string;

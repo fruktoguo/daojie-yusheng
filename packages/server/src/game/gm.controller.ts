@@ -419,6 +419,12 @@ export class GmController {
     return this.gmService.returnAllPlayersToDefaultSpawn();
   }
 
+  /** 清理全部玩家背包/仓库/装备中的无效物品 */
+  @Post('shortcuts/players/cleanup-invalid-items')
+  async cleanupAllPlayersInvalidItems(): Promise<GmShortcutRunRes> {
+    return this.gmService.cleanupAllPlayersInvalidItems();
+  }
+
   @Post('shortcuts/compensation/combat-exp-2026-04-09')
   async compensateAllPlayersCombatExp(): Promise<GmShortcutRunRes> {
     return this.gmService.compensateAllPlayersCombatExp();

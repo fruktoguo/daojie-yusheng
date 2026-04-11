@@ -18,6 +18,7 @@ import {
   DEFAULT_PLAYER_MAP_ID,
   Direction,
   EquipmentSlots,
+  EQUIP_SLOTS,
   GmEditorBuffOption,
   GmEditorCatalogRes,
   GmListPlayersQuery,
@@ -153,6 +154,10 @@ type GmCommand =
       amount: number;
     }
   | {
+      type: 'cleanupInvalidItems';
+      playerId: string;
+    }
+  | {
       type: 'removeBots';
       playerIds?: string[];
       all?: boolean;
@@ -171,6 +176,12 @@ interface GmWorldObservationSession {
   endX: number;
   endY: number;
   lastSeenAt: number;
+}
+
+interface InvalidItemCleanupSummary {
+  inventoryStacksRemoved: number;
+  marketStorageStacksRemoved: number;
+  equipmentRemoved: number;
 }
 
 @Injectable()
@@ -768,6 +779,58 @@ export class GmService {
     };
   }
 
+  async cleanupAllPlayersInvalidItems(): Promise<GmShortcutRunRes> {
+    const runtimePlayers = this.playerService.getAllPlayers().filter((player) => !player.isBot);
+    const runtimeIds = new Set(runtimePlayers.map((player) => player.id));
+    let queuedRuntimePlayers = 0;
+    let updatedOfflinePlayers = 0;
+    let totalInvalidInventoryStacksRemoved = 0;
+    let totalInvalidMarketStorageStacksRemoved = 0;
+    let totalInvalidEquipmentRemoved = 0;
+
+    for (const player of runtimePlayers) {
+      const summary = this.inspectInvalidItems(player);
+      if (!this.hasInvalidItems(summary)) {
+        continue;
+      }
+      this.enqueue(player.mapId, { type: 'cleanupInvalidItems', playerId: player.id });
+      queuedRuntimePlayers += 1;
+      totalInvalidInventoryStacksRemoved += summary.inventoryStacksRemoved;
+      totalInvalidMarketStorageStacksRemoved += summary.marketStorageStacksRemoved;
+      totalInvalidEquipmentRemoved += summary.equipmentRemoved;
+    }
+
+    const entities = await this.playerRepo.find();
+    for (const entity of entities) {
+      if (runtimeIds.has(entity.id)) {
+        continue;
+      }
+      const player = this.hydrateStoredPlayer(entity);
+      if (player.isBot) {
+        continue;
+      }
+      const summary = this.cleanupInvalidItems(player);
+      if (!this.hasInvalidItems(summary)) {
+        continue;
+      }
+      await this.persistOfflinePlayer(entity, player);
+      updatedOfflinePlayers += 1;
+      totalInvalidInventoryStacksRemoved += summary.inventoryStacksRemoved;
+      totalInvalidMarketStorageStacksRemoved += summary.marketStorageStacksRemoved;
+      totalInvalidEquipmentRemoved += summary.equipmentRemoved;
+    }
+
+    return {
+      ok: true,
+      totalPlayers: queuedRuntimePlayers + updatedOfflinePlayers,
+      queuedRuntimePlayers,
+      updatedOfflinePlayers,
+      totalInvalidInventoryStacksRemoved,
+      totalInvalidMarketStorageStacksRemoved,
+      totalInvalidEquipmentRemoved,
+    };
+  }
+
   async compensateAllPlayersCombatExp(): Promise<GmShortcutRunRes> {
     const runtimePlayers = this.playerService.getAllPlayers().filter((player) => !player.isBot && player.inWorld !== false);
     const runtimeIds = new Set(runtimePlayers.map((player) => player.id));
@@ -967,6 +1030,8 @@ export class GmService {
         return this.applyQueuedGrantCombatExpCompensation(command.playerId, command.amount);
       case 'grantFoundationCompensation':
         return this.applyQueuedGrantFoundationCompensation(command.playerId, command.amount);
+      case 'cleanupInvalidItems':
+        return this.applyQueuedCleanupInvalidItems(command.playerId);
       case 'removeBots':
         return this.applyQueuedRemoveBots(command.playerIds, command.all);
     }
@@ -1072,6 +1137,20 @@ export class GmService {
     this.markDirty(player.id, ['attr']);
     void this.playerService.savePlayer(player.id).catch((error: Error) => {
       this.logger.error(`GM 补偿底蕴落盘失败: ${player.id} ${error.message}`);
+    });
+    return null;
+  }
+
+  private applyQueuedCleanupInvalidItems(playerId: string): string | null {
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return '目标玩家不存在';
+    const summary = this.cleanupInvalidItems(player);
+    if (!this.hasInvalidItems(summary)) {
+      return null;
+    }
+    this.markDirty(player.id, ['inv', 'equip', 'attr']);
+    void this.playerService.savePlayer(player.id).catch((error: Error) => {
+      this.logger.error(`GM 清理无效物品落盘失败: ${player.id} ${error.message}`);
     });
     return null;
   }
@@ -1478,6 +1557,66 @@ export class GmService {
 
   private applyCounterDelta(currentValue: unknown, amount: number): number {
     return Math.max(0, this.normalizeNonNegativeInt(currentValue) + amount);
+  }
+
+  private hasInvalidItems(summary: InvalidItemCleanupSummary): boolean {
+    return summary.inventoryStacksRemoved > 0
+      || summary.marketStorageStacksRemoved > 0
+      || summary.equipmentRemoved > 0;
+  }
+
+  private inspectInvalidItems(player: Pick<PlayerState, 'inventory' | 'marketStorage' | 'equipment'>): InvalidItemCleanupSummary {
+    const inventoryStacksRemoved = (player.inventory?.items ?? []).filter((item) => !this.contentService.getItem(item.itemId)).length;
+    const marketStorageStacksRemoved = (player.marketStorage?.items ?? []).filter((item) => !this.contentService.getItem(item.itemId)).length;
+    let equipmentRemoved = 0;
+    for (const slot of EQUIP_SLOTS) {
+      const item = player.equipment?.[slot];
+      if (item && !this.contentService.getItem(item.itemId)) {
+        equipmentRemoved += 1;
+      }
+    }
+    return {
+      inventoryStacksRemoved,
+      marketStorageStacksRemoved,
+      equipmentRemoved,
+    };
+  }
+
+  private cleanupInvalidItems(player: PlayerState): InvalidItemCleanupSummary {
+    const summary = this.inspectInvalidItems(player);
+    if (!this.hasInvalidItems(summary)) {
+      return summary;
+    }
+
+    player.inventory = {
+      ...player.inventory,
+      items: (player.inventory?.items ?? []).filter((item) => this.contentService.getItem(item.itemId)),
+    };
+    player.marketStorage = {
+      ...player.marketStorage,
+      items: (player.marketStorage?.items ?? []).filter((item) => this.contentService.getItem(item.itemId)),
+    };
+
+    if (summary.equipmentRemoved > 0) {
+      const nextEquipment = { ...player.equipment };
+      for (const slot of EQUIP_SLOTS) {
+        const item = nextEquipment[slot];
+        if (item && !this.contentService.getItem(item.itemId)) {
+          nextEquipment[slot] = null;
+        }
+      }
+      player.equipment = nextEquipment;
+      this.equipmentService.rebuildBonuses(player);
+      player.hp = Math.min(player.maxHp, this.normalizeNonNegativeInt(player.hp));
+      const maxQi = Math.max(0, Math.round(player.numericStats?.maxQi ?? player.qi ?? 0));
+      player.qi = Math.min(maxQi, Math.max(0, Math.round(player.qi ?? 0)));
+      if (player.hp <= 0) {
+        player.hp = 0;
+        player.dead = true;
+      }
+    }
+
+    return summary;
   }
 
   private async validateManagedPlayerRoleNameUpdate(
