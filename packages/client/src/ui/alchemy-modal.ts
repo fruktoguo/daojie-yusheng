@@ -260,14 +260,13 @@ export class AlchemyModal {
       ownerId: AlchemyModal.MODAL_OWNER,
       variantClass: 'detail-modal--alchemy',
       title: '炉中炼丹',
-      subtitle: this.panelState?.furnaceItemId
-        ? `当前丹炉：${this.equipment.weapon?.name ?? this.panelState.furnaceItemId}`
-        : '未检测到已装备丹炉',
+      subtitle: this.getAlchemyHeaderSubtitle(),
       bodyHtml: this.renderBody(),
       onClose: () => {
         this.stopCountdown();
       },
       onAfterRender: (body) => {
+        this.patchModalChrome();
         bindInlineItemTooltips(body);
         this.bindEvents(body);
         if (scrollState) {
@@ -336,17 +335,29 @@ export class AlchemyModal {
     const hintNode = document.getElementById('detail-modal-hint');
     if (titleNode) {
       titleNode.textContent = '炉中炼丹';
+      titleNode.setAttribute('data-alchemy-level', `LV ${this.getAlchemySkillLevel()}`);
     }
-    const subtitle = this.panelState?.furnaceItemId
-      ? `当前丹炉：${this.equipment.weapon?.name ?? this.panelState.furnaceItemId}`
-      : '未检测到已装备丹炉';
+    const subtitle = this.getAlchemyHeaderSubtitle();
     if (subtitleNode) {
       subtitleNode.textContent = subtitle;
       subtitleNode.classList.toggle('hidden', !subtitle);
     }
     if (hintNode) {
-      hintNode.textContent = '点击空白处关闭';
+      hintNode.textContent = '';
     }
+  }
+
+  private getAlchemyHeaderSubtitle(): string {
+    const job = this.panelState?.job;
+    if (job) {
+      const recipe = this.catalogByRecipeId.get(job.recipeId);
+      const recipeName = recipe?.outputName ?? job.outputItemId;
+      return `当前任务：${recipeName} · ${this.getAlchemyJobProgressLabel(job)} ${this.getAlchemyJobProgressText(job)}`;
+    }
+    if (this.panelState?.furnaceItemId) {
+      return `当前任务：空闲 · 丹炉 ${this.equipment.weapon?.name ?? this.panelState.furnaceItemId}`;
+    }
+    return '当前任务：空闲';
   }
 
   private patchTopbar(topbar: HTMLElement): void {

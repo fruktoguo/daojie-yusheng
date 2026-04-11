@@ -1230,6 +1230,9 @@ export class ActionPanel {
     const rowAttrs = isAutoBattleSkill && options?.showDragHandle
       ? ` data-auto-battle-skill-row="${action.id}"`
       : '';
+    const clickableCardAttrs = action.id === 'alchemy:open'
+      ? ` data-action-card="${action.id}" role="button" tabindex="0"`
+      : '';
     const autoBattleMeta = isAutoBattleSkill
       ? `<span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${autoBattleEnabled ? '自动已启用' : '自动已停用'}</span>
          ${autoBattleOrder ? `<span class="action-type">顺位 ${autoBattleOrder}</span>` : ''}`
@@ -1240,7 +1243,7 @@ export class ActionPanel {
       : '';
     const affinityChip = skillContext ? this.renderActionSkillAffinityChip(skillContext.skill) : '';
 
-    return `<div class="action-item ${onCd ? 'cooldown' : ''} ${isAutoBattleSkill ? 'action-item-draggable' : ''}" data-action-row="${action.id}"${rowAttrs}>
+    return `<div class="action-item ${onCd ? 'cooldown' : ''} ${isAutoBattleSkill ? 'action-item-draggable' : ''}" data-action-row="${action.id}"${rowAttrs}${clickableCardAttrs}>
       <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''} ${affinityChip ? 'action-copy--with-affinity' : ''}"${tooltipAttrs}>
         <div>
           <span class="action-name">${escapeHtml(action.name)}</span>
@@ -1576,7 +1579,8 @@ export class ActionPanel {
 
   private bindActionExecEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>('[data-action]').forEach((button) => {
-      button.addEventListener('click', () => {
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
         const actionId = button.dataset.action!;
         const action = this.currentActions.find((entry) => entry.id === actionId);
         if (!action || !this.canExecuteAction(action)) {

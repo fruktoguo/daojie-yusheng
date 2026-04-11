@@ -760,10 +760,186 @@
     height: min(84dvh, calc(100dvh - 8px));
     padding: 12px 10px 10px;
   }
+  .detail-modal.detail-modal--alchemy {
+    --detail-modal-padding: 4px;
+    --detail-modal-safe-gap: 4px;
+    padding: var(--detail-modal-padding-top) var(--detail-modal-padding) var(--detail-modal-padding-bottom);
+  }
   .detail-modal-card.detail-modal--alchemy {
     width: calc(100vw - 8px);
-    height: min(84dvh, calc(100dvh - 8px));
-    padding: 12px 10px 10px;
+    height: min(92dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - 28px));
+    max-height: none;
+    padding: 10px 8px 8px;
+  }
+  .detail-modal-card.detail-modal--alchemy .detail-modal-head {
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    padding-bottom: 6px;
+    margin-bottom: 8px;
+  }
+  .detail-modal-card.detail-modal--alchemy .detail-modal-title {
+    font-size: var(--font-size-18);
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    line-height: 1.15;
+  }
+  .detail-modal-card.detail-modal--alchemy .detail-modal-title::after {
+    content: attr(data-alchemy-level);
+    display: inline-block;
+    color: var(--ink-grey);
+    font-family: var(--font-role-body);
+    font-size: var(--font-size-11);
+    font-weight: var(--font-weight-medium);
+    letter-spacing: 0.04em;
+  }
+  .detail-modal-card.detail-modal--alchemy .detail-modal-subtitle {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    max-width: 100%;
+    padding: 0 8px;
+    border: 1px solid rgba(111, 70, 37, 0.16);
+    background: rgba(255, 251, 244, 0.82);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--font-size-11);
+  }
+  .detail-modal-card.detail-modal--alchemy .detail-modal-hint {
+    display: none;
+  }
+  .detail-modal-card.detail-modal--alchemy .alchemy-modal-shell {
+    gap: 8px;
+  }
+  .detail-modal-card.detail-modal--alchemy [data-alchemy-job-card-host="true"] {
+    display: none;
+  }
+  .detail-modal-card.detail-modal--alchemy .alchemy-topbar {
+    display: none;
+  }
+  .detail-modal-card.detail-modal--alchemy .alchemy-control-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 8px;
+  }
+  .detail-modal-card.detail-modal--alchemy .alchemy-control-group,
+  .detail-modal-card.detail-modal--alchemy .alchemy-control-group--tabs {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    min-width: 0;
+    justify-content: flex-start;
+  }
+  .detail-modal-card.detail-modal--alchemy .alchemy-control-label {
+    font-size: var(--font-size-11);
+  }
+  .detail-modal-card.detail-modal--alchemy .alchemy-modal-tabs,
+  .detail-modal-card.detail-modal--alchemy .alchemy-category-tabs {
+    width: 100%;
+    min-width: 0;
+    justify-self: stretch;
+  }
+  .detail-modal-card.detail-modal--alchemy .alchemy-tab-btn,
+  .detail-modal-card.detail-modal--alchemy .alchemy-category-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-left: 8px;
+    padding-right: 8px;
+    font-size: var(--font-size-11);
+  }
+  .detail-modal-card.detail-modal--alchemy .alchemy-category-count {
+    min-width: 16px;
+    min-height: 16px;
+    padding: 0 4px;
+  }
+  .detail-modal-card.detail-modal--alchemy .alchemy-layout {
+    gap: 8px;
+  }
+  .detail-modal-card.detail-modal--alchemy .alchemy-recipe-list {
+    max-height: 168px;
+  }
+  .detail-modal-card.detail-modal--alchemy .alchemy-summary-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .detail-modal-card.detail-modal--alchemy .alchemy-summary-card {
+    display: grid;
+    grid-template-columns: minmax(88px, 0.95fr) minmax(0, 2.05fr);
+    align-items: stretch;
+    gap: 6px;
+    padding: 8px;
+  }
+  .detail-modal-card.detail-modal--alchemy .alchemy-summary-head {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 4px;
+    min-width: 0;
+  }
+  .detail-modal-card.detail-modal--alchemy .alchemy-summary-title {
+    width: 100%;
+    min-width: 0;
+    font-size: var(--font-size-12);
+    line-height: 1.2;
+  }
+  .detail-modal-card.detail-modal--alchemy .alchemy-summary-title > * {
+    min-width: 0;
+  }
+  .detail-modal-card.detail-modal--alchemy .alchemy-summary-title .item-inline-trigger,
+  .detail-modal-card.detail-modal--alchemy .alchemy-summary-title .item-ref-link,
+  .detail-modal-card.detail-modal--alchemy .alchemy-summary-title .item-name-inline {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .detail-modal-card.detail-modal--alchemy .alchemy-summary-mode {
+    min-height: 20px;
+    padding: 0 6px;
+    font-size: var(--font-size-10);
+  }
+  .detail-modal-card.detail-modal--alchemy .alchemy-summary-metric {
+    gap: 3px;
+    padding: 8px 6px;
+  }
+  .detail-modal-card.detail-modal--alchemy .alchemy-summary-metric-label {
+    font-size: var(--font-size-10);
+    line-height: 1.2;
+  }
+  .detail-modal-card.detail-modal--alchemy .alchemy-summary-metric-value {
+    font-size: var(--font-size-14);
+    line-height: 1.1;
+  }
+  .detail-modal-card.detail-modal--alchemy .alchemy-ingredient-section {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    padding-right: 0;
+    align-content: start;
+  }
+  .detail-modal-card.detail-modal--alchemy .alchemy-ingredient-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 8px;
+  }
+  .detail-modal-card.detail-modal--alchemy .alchemy-ingredient-main,
+  .detail-modal-card.detail-modal--alchemy .alchemy-ingredient-editor,
+  .detail-modal-card.detail-modal--alchemy .alchemy-ingredient-meta {
+    justify-content: flex-start;
+    gap: 6px;
+  }
+  .detail-modal-card.detail-modal--alchemy .alchemy-ingredient-name,
+  .detail-modal-card.detail-modal--alchemy .alchemy-ingredient-owned,
+  .detail-modal-card.detail-modal--alchemy .alchemy-ingredient-lock,
+  .detail-modal-card.detail-modal--alchemy .alchemy-ingredient-count,
+  .detail-modal-card.detail-modal--alchemy .alchemy-ingredient-meta {
+    font-size: var(--font-size-11);
+    line-height: 1.25;
   }
   .detail-modal-card.detail-modal--herb-gather {
     width: calc(100vw - 8px);
