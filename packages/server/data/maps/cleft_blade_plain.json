@@ -511,5 +511,85 @@
       "x": 9,
       "y": 9
     }
+  ],
+  "resourceNodeGroups": [
+    {
+      "resourceNodeId": "landmark.herb.goldthread_briar",
+      "idPrefix": "lm_cleft_goldthread",
+      "name": "金芒棘",
+      "placements": [
+        {
+          "x": 166,
+          "y": 9
+        },
+        {
+          "x": 150,
+          "y": 9
+        },
+        {
+          "x": 132,
+          "y": 9
+        },
+        {
+          "x": 114,
+          "y": 9
+        },
+        {
+          "x": 86,
+          "y": 8
+        },
+        {
+          "x": 64,
+          "y": 10
+        },
+        {
+          "x": 48,
+          "y": 9
+        },
+        {
+          "x": 16,
+          "y": 10
+        }
+      ]
+    },
+    {
+      "resourceNodeId": "landmark.herb.ironvein_caltrop",
+      "idPrefix": "lm_cleft_ironvein",
+      "name": "铁脉蒺",
+      "placements": [
+        {
+          "x": 160,
+          "y": 11
+        },
+        {
+          "x": 140,
+          "y": 12
+        },
+        {
+          "x": 108,
+          "y": 12
+        },
+        {
+          "x": 80,
+          "y": 10
+        },
+        {
+          "x": 52,
+          "y": 14
+        },
+        {
+          "x": 38,
+          "y": 9
+        },
+        {
+          "x": 18,
+          "y": 14
+        },
+        {
+          "x": 10,
+          "y": 8
+        }
+      ]
+    }
   ]
 }

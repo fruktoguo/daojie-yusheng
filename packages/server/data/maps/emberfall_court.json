@@ -381,6 +381,84 @@
           "y": 52
         }
       ]
+    },
+    {
+      "resourceNodeId": "landmark.herb.scorchheart_petal",
+      "idPrefix": "lm_ember_scorchheart",
+      "name": "灼心瓣",
+      "placements": [
+        {
+          "x": 18,
+          "y": 8
+        },
+        {
+          "x": 42,
+          "y": 12
+        },
+        {
+          "x": 24,
+          "y": 20
+        },
+        {
+          "x": 10,
+          "y": 28
+        },
+        {
+          "x": 30,
+          "y": 30
+        },
+        {
+          "x": 20,
+          "y": 38
+        },
+        {
+          "x": 44,
+          "y": 38
+        },
+        {
+          "x": 28,
+          "y": 46
+        }
+      ]
+    },
+    {
+      "resourceNodeId": "landmark.herb.flamegrain_spike",
+      "idPrefix": "lm_ember_flamegrain",
+      "name": "炎穗芒",
+      "placements": [
+        {
+          "x": 32,
+          "y": 8
+        },
+        {
+          "x": 14,
+          "y": 18
+        },
+        {
+          "x": 36,
+          "y": 24
+        },
+        {
+          "x": 22,
+          "y": 32
+        },
+        {
+          "x": 8,
+          "y": 42
+        },
+        {
+          "x": 30,
+          "y": 42
+        },
+        {
+          "x": 48,
+          "y": 28
+        },
+        {
+          "x": 40,
+          "y": 46
+        }
+      ]
     }
   ]
 }

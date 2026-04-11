@@ -236,6 +236,84 @@
           "y": 54
         }
       ]
+    },
+    {
+      "resourceNodeId": "landmark.herb.longvein_vine",
+      "idPrefix": "lm_verdant_longvein",
+      "name": "长脉藤",
+      "placements": [
+        {
+          "x": 6,
+          "y": 4
+        },
+        {
+          "x": 18,
+          "y": 10
+        },
+        {
+          "x": 42,
+          "y": 9
+        },
+        {
+          "x": 12,
+          "y": 24
+        },
+        {
+          "x": 30,
+          "y": 28
+        },
+        {
+          "x": 46,
+          "y": 34
+        },
+        {
+          "x": 15,
+          "y": 45
+        },
+        {
+          "x": 50,
+          "y": 50
+        }
+      ]
+    },
+    {
+      "resourceNodeId": "landmark.herb.returnspring_leaf",
+      "idPrefix": "lm_verdant_returnspring",
+      "name": "回春叶",
+      "placements": [
+        {
+          "x": 3,
+          "y": 14
+        },
+        {
+          "x": 24,
+          "y": 8
+        },
+        {
+          "x": 40,
+          "y": 16
+        },
+        {
+          "x": 8,
+          "y": 32
+        },
+        {
+          "x": 26,
+          "y": 40
+        },
+        {
+          "x": 38,
+          "y": 48
+        },
+        {
+          "x": 54,
+          "y": 22
+        },
+        {
+          "x": 20,
+          "y": 54
+        }
+      ]
     }
   ]
 }

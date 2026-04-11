@@ -5525,6 +5525,7 @@
       "chapter": "序章·断道入镇"
     }
   ],
+  "mat.bearingroot_ginseng": [],
   "mat.beast_bone": [
     {
       "kind": "monster_drop",
@@ -5547,10 +5548,19 @@
   "mat.bloodbud_fruit": [],
   "mat.breakarray_shard": [],
   "mat.clear_mind_flower": [],
+  "mat.coldmarrow_reed": [],
+  "mat.flamegrain_spike": [],
   "mat.frost_lotus_petal": [],
+  "mat.goldthread_briar": [],
   "mat.green_spirit_stem": [],
+  "mat.ironvein_caltrop": [],
+  "mat.longvein_vine": [],
   "mat.moondew_grass": [],
+  "mat.moonwell_stamen": [],
   "mat.red_flame_leaf": [],
+  "mat.returnspring_leaf": [],
+  "mat.scorchheart_petal": [],
+  "mat.stonecore_lingzhi": [],
   "mat.sunmelt_seed": [],
   "mat.swiftwind_reed": [],
   "mine_crystal_core": [

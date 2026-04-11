@@ -66,6 +66,11 @@ const sharedTechniqueBuffs = loadSharedTechniqueBuffs(path.join(contentDir, 'tec
  * 记录items。
  */
 const items = loadItems(path.join(contentDir, 'items'));
+applyDerivedMaterialTags(
+  items,
+  collectAlchemyRoleMaterialItemIds(path.join(contentDir, 'alchemy', 'recipes.json'), items, 'main'),
+  collectAlchemyRoleMaterialItemIds(path.join(contentDir, 'alchemy', 'recipes.json'), items, 'aux'),
+);
 /**
  * 记录techniques。
  */
@@ -197,6 +202,47 @@ function loadItems(itemsDir) {
     .filter((item) => typeof item?.itemId === 'string' && typeof item?.name === 'string' && typeof item?.type === 'string')
     .map((item) => ({ ...item }))
     .sort((left, right) => sortByNameThenId(left.name, right.name, left.itemId, right.itemId));
+}
+
+function applyDerivedMaterialTags(items, herbMaterialItemIds, exoticMaterialItemIds) {
+  for (const item of items) {
+    if (item.type !== 'material') {
+      continue;
+    }
+    const tags = new Set(
+      Array.isArray(item.tags)
+        ? item.tags.filter((tag) => typeof tag === 'string' && tag !== '药材' && tag !== '异材')
+        : [],
+    );
+    if (herbMaterialItemIds.has(item.itemId)) {
+      tags.add('药材');
+    }
+    if (exoticMaterialItemIds.has(item.itemId)) {
+      tags.add('异材');
+    }
+    if (tags.size > 0) {
+      item.tags = [...tags];
+      continue;
+    }
+    delete item.tags;
+  }
+}
+
+function collectAlchemyRoleMaterialItemIds(recipesPath, items, role) {
+  const materialItemIds = new Set(items.filter((item) => item.type === 'material').map((item) => item.itemId));
+  const itemIds = new Set();
+  const recipes = readJson(recipesPath);
+  for (const recipe of Array.isArray(recipes) ? recipes : []) {
+    for (const ingredient of Array.isArray(recipe?.ingredients) ? recipe.ingredients : []) {
+      if (ingredient?.role !== role || typeof ingredient.itemId !== 'string') {
+        continue;
+      }
+      if (materialItemIds.has(ingredient.itemId)) {
+        itemIds.add(ingredient.itemId);
+      }
+    }
+  }
+  return itemIds;
 }
 
 /**

@@ -313,6 +313,216 @@
           }
         ]
       }
+    },
+    {
+      "id": "landmark.herb.longvein_vine",
+      "kind": "landmark_container",
+      "name": "长脉藤",
+      "container": {
+        "variant": "herb",
+        "grade": "yellow",
+        "refreshTicksMin": 80,
+        "refreshTicksMax": 120,
+        "char": "藤",
+        "color": "#5d8d58",
+        "drops": [
+          {
+            "itemId": "mat.longvein_vine",
+            "name": "长脉藤",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.returnspring_leaf",
+      "kind": "landmark_container",
+      "name": "回春叶",
+      "container": {
+        "variant": "herb",
+        "grade": "yellow",
+        "refreshTicksMin": 80,
+        "refreshTicksMax": 120,
+        "char": "叶",
+        "color": "#8bb06b",
+        "drops": [
+          {
+            "itemId": "mat.returnspring_leaf",
+            "name": "回春叶",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.coldmarrow_reed",
+      "kind": "landmark_container",
+      "name": "寒髓苇",
+      "container": {
+        "variant": "herb",
+        "grade": "yellow",
+        "refreshTicksMin": 80,
+        "refreshTicksMax": 120,
+        "char": "苇",
+        "color": "#91c6c7",
+        "drops": [
+          {
+            "itemId": "mat.coldmarrow_reed",
+            "name": "寒髓苇",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.moonwell_stamen",
+      "kind": "landmark_container",
+      "name": "月井蕊",
+      "container": {
+        "variant": "herb",
+        "grade": "yellow",
+        "refreshTicksMin": 80,
+        "refreshTicksMax": 120,
+        "char": "蕊",
+        "color": "#c7d9ef",
+        "drops": [
+          {
+            "itemId": "mat.moonwell_stamen",
+            "name": "月井蕊",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.scorchheart_petal",
+      "kind": "landmark_container",
+      "name": "灼心瓣",
+      "container": {
+        "variant": "herb",
+        "grade": "yellow",
+        "refreshTicksMin": 80,
+        "refreshTicksMax": 120,
+        "char": "瓣",
+        "color": "#cf6845",
+        "drops": [
+          {
+            "itemId": "mat.scorchheart_petal",
+            "name": "灼心瓣",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.flamegrain_spike",
+      "kind": "landmark_container",
+      "name": "炎穗芒",
+      "container": {
+        "variant": "herb",
+        "grade": "yellow",
+        "refreshTicksMin": 80,
+        "refreshTicksMax": 120,
+        "char": "芒",
+        "color": "#a8583f",
+        "drops": [
+          {
+            "itemId": "mat.flamegrain_spike",
+            "name": "炎穗芒",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.bearingroot_ginseng",
+      "kind": "landmark_container",
+      "name": "承脉参",
+      "container": {
+        "variant": "herb",
+        "grade": "yellow",
+        "refreshTicksMin": 80,
+        "refreshTicksMax": 120,
+        "char": "参",
+        "color": "#8d7b63",
+        "drops": [
+          {
+            "itemId": "mat.bearingroot_ginseng",
+            "name": "承脉参",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.stonecore_lingzhi",
+      "kind": "landmark_container",
+      "name": "岩髓芝",
+      "container": {
+        "variant": "herb",
+        "grade": "yellow",
+        "refreshTicksMin": 80,
+        "refreshTicksMax": 120,
+        "char": "芝",
+        "color": "#6f6558",
+        "drops": [
+          {
+            "itemId": "mat.stonecore_lingzhi",
+            "name": "岩髓芝",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.goldthread_briar",
+      "kind": "landmark_container",
+      "name": "金芒棘",
+      "container": {
+        "variant": "herb",
+        "grade": "yellow",
+        "refreshTicksMin": 80,
+        "refreshTicksMax": 120,
+        "char": "棘",
+        "color": "#b69a55",
+        "drops": [
+          {
+            "itemId": "mat.goldthread_briar",
+            "name": "金芒棘",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.ironvein_caltrop",
+      "kind": "landmark_container",
+      "name": "铁脉蒺",
+      "container": {
+        "variant": "herb",
+        "grade": "yellow",
+        "refreshTicksMin": 80,
+        "refreshTicksMax": 120,
+        "char": "蒺",
+        "color": "#7e7064",
+        "drops": [
+          {
+            "itemId": "mat.ironvein_caltrop",
+            "name": "铁脉蒺",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
     }
   ]
 }

@@ -385,6 +385,84 @@
           "y": 59
         }
       ]
+    },
+    {
+      "resourceNodeId": "landmark.herb.coldmarrow_reed",
+      "idPrefix": "lm_cold_coldmarrow",
+      "name": "寒髓苇",
+      "placements": [
+        {
+          "x": 8,
+          "y": 6
+        },
+        {
+          "x": 18,
+          "y": 14
+        },
+        {
+          "x": 30,
+          "y": 12
+        },
+        {
+          "x": 48,
+          "y": 18
+        },
+        {
+          "x": 10,
+          "y": 30
+        },
+        {
+          "x": 25,
+          "y": 38
+        },
+        {
+          "x": 42,
+          "y": 46
+        },
+        {
+          "x": 55,
+          "y": 28
+        }
+      ]
+    },
+    {
+      "resourceNodeId": "landmark.herb.moonwell_stamen",
+      "idPrefix": "lm_cold_moonwell_stamen",
+      "name": "月井蕊",
+      "placements": [
+        {
+          "x": 4,
+          "y": 18
+        },
+        {
+          "x": 16,
+          "y": 26
+        },
+        {
+          "x": 28,
+          "y": 8
+        },
+        {
+          "x": 38,
+          "y": 24
+        },
+        {
+          "x": 50,
+          "y": 34
+        },
+        {
+          "x": 20,
+          "y": 44
+        },
+        {
+          "x": 32,
+          "y": 54
+        },
+        {
+          "x": 58,
+          "y": 16
+        }
+      ]
     }
   ]
 }

@@ -518,7 +518,6 @@ const ITEM_NAME_TAG_RULES: Array<{ tag: string; test: (item: ItemTemplate) => bo
   { tag: '灵石', test: (item) => item.itemId === 'spirit_stone' || item.name.includes('灵石') },
   { tag: '凭证', test: (item) => /牌|令|钥石/.test(item.name) },
   { tag: '矿材', test: (item) => item.type === 'material' && /(矿|铁|晶|金)/.test(item.name) },
-  { tag: '药材', test: (item) => item.type === 'material' && /(胆|草|花|叶|果|根|芝|丝|药|墨)/.test(item.name) },
   { tag: '兽材', test: (item) => item.type === 'material' && /(骨|牙|爪|鳞|羽|尾)/.test(item.name) },
   { tag: '刀', test: (item) => item.type === 'equipment' && /刀/.test(item.name) },
   { tag: '剑', test: (item) => item.type === 'equipment' && /剑/.test(item.name) },
@@ -582,6 +581,7 @@ export class ContentService implements OnModuleInit {
     this.loadTechniques();
     this.loadItems();
     this.loadMonsters();
+    this.applyDerivedAlchemyMaterialTags();
     this.loadStarterInventory();
     this.loadBreakthroughConfigs();
     let monsterTechniqueCount = 0;
@@ -1341,6 +1341,42 @@ export class ContentService implements OnModuleInit {
       }
     }
     return [...tags];
+  }
+
+  private applyDerivedAlchemyMaterialTags(): void {
+    const herbMaterialItemIds = this.collectAlchemyRoleMaterialItemIds('main');
+    const exoticMaterialItemIds = this.collectAlchemyRoleMaterialItemIds('aux');
+
+    for (const item of this.items.values()) {
+      if (item.type !== 'material') {
+        continue;
+      }
+      const tags = new Set((item.tags ?? []).filter((tag) => tag !== '药材' && tag !== '异材'));
+      if (herbMaterialItemIds.has(item.itemId)) {
+        tags.add('药材');
+      }
+      if (exoticMaterialItemIds.has(item.itemId)) {
+        tags.add('异材');
+      }
+      item.tags = [...tags];
+    }
+  }
+
+  private collectAlchemyRoleMaterialItemIds(role: 'main' | 'aux'): Set<string> {
+    const recipesPath = path.join(this.contentDir, 'alchemy', 'recipes.json');
+    const entries = JSON.parse(fs.readFileSync(recipesPath, 'utf8')) as Array<{ ingredients?: Array<{ itemId?: string; role?: 'main' | 'aux' }> }>;
+    const itemIds = new Set<string>();
+    for (const entry of entries) {
+      for (const ingredient of entry.ingredients ?? []) {
+        if (ingredient?.role !== role || typeof ingredient.itemId !== 'string') {
+          continue;
+        }
+        if (this.items.get(ingredient.itemId)?.type === 'material') {
+          itemIds.add(ingredient.itemId);
+        }
+      }
+    }
+    return itemIds;
   }
 
   private getEffectiveItemLevel(item: Pick<ItemTemplate, 'level' | 'healAmount' | 'grade'>): number {

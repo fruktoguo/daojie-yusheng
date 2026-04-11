@@ -337,5 +337,85 @@
       "y": 12
     }
   ],
-  "terrainRealmLv": 19
+  "terrainRealmLv": 19,
+  "resourceNodeGroups": [
+    {
+      "resourceNodeId": "landmark.herb.bearingroot_ginseng",
+      "idPrefix": "lm_deepvein_bearingroot",
+      "name": "承脉参",
+      "placements": [
+        {
+          "x": 55,
+          "y": 29
+        },
+        {
+          "x": 48,
+          "y": 25
+        },
+        {
+          "x": 42,
+          "y": 28
+        },
+        {
+          "x": 34,
+          "y": 24
+        },
+        {
+          "x": 28,
+          "y": 18
+        },
+        {
+          "x": 20,
+          "y": 30
+        },
+        {
+          "x": 14,
+          "y": 17
+        },
+        {
+          "x": 10,
+          "y": 12
+        }
+      ]
+    },
+    {
+      "resourceNodeId": "landmark.herb.stonecore_lingzhi",
+      "idPrefix": "lm_deepvein_stonecore",
+      "name": "岩髓芝",
+      "placements": [
+        {
+          "x": 52,
+          "y": 32
+        },
+        {
+          "x": 45,
+          "y": 22
+        },
+        {
+          "x": 38,
+          "y": 26
+        },
+        {
+          "x": 30,
+          "y": 15
+        },
+        {
+          "x": 24,
+          "y": 24
+        },
+        {
+          "x": 16,
+          "y": 28
+        },
+        {
+          "x": 12,
+          "y": 20
+        },
+        {
+          "x": 8,
+          "y": 9
+        }
+      ]
+    }
+  ]
 }

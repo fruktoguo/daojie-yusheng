@@ -10725,6 +10725,17 @@
       ]
     },
     {
+      "itemId": "mat.bearingroot_ginseng",
+      "name": "承脉参",
+      "type": "material",
+      "level": 20,
+      "desc": "深扎裂岩的厚根，嚼之微涩，却最能稳住下沉地气。",
+      "grade": "yellow",
+      "tags": [
+        "药材"
+      ]
+    },
+    {
       "itemId": "earthbearing_stone",
       "name": "承脉石",
       "type": "material",
@@ -10738,7 +10749,10 @@
       "type": "material",
       "grade": "yellow",
       "level": 2,
-      "desc": "叶脉似有火线流过，微温不烈，常用来提振炉火药性。"
+      "desc": "叶脉似有火线流过，微温不烈，常用来提振炉火药性。",
+      "tags": [
+        "药材"
+      ]
     },
     {
       "itemId": "pill.crimson_bud_elixir",
@@ -10769,7 +10783,10 @@
       "type": "material",
       "grade": "yellow",
       "level": 2,
-      "desc": "果肉辛甜，药气偏热，最适合催发血气。"
+      "desc": "果肉辛甜，药气偏热，最适合催发血气。",
+      "tags": [
+        "药材"
+      ]
     },
     {
       "itemId": "pill.chiyang_draught",
@@ -10853,7 +10870,10 @@
       "name": "翠竹心",
       "type": "material",
       "level": 5,
-      "desc": "竹灵聚气形成的核心髓结。"
+      "desc": "竹灵聚气形成的核心髓结。",
+      "tags": [
+        "异材"
+      ]
     },
     {
       "itemId": "major_qi_pill",
@@ -11250,7 +11270,10 @@
       "type": "material",
       "level": 26,
       "desc": "断兵锋气在碑纹与砂金间凝成的碎晶，常用于金行器胚重铸。",
-      "grade": "mystic"
+      "grade": "mystic",
+      "tags": [
+        "异材"
+      ]
     },
     {
       "itemId": "equip.burden_stele_staff",
@@ -11515,7 +11538,10 @@
       "type": "material",
       "grade": "mystic",
       "level": 3,
-      "desc": "带着寒雾水汽的薄瓣，能压住燥烈药势。"
+      "desc": "带着寒雾水汽的薄瓣，能压住燥烈药势。",
+      "tags": [
+        "药材"
+      ]
     },
     {
       "itemId": "coldspirit_dew",
@@ -11524,6 +11550,17 @@
       "level": 20,
       "desc": "寒汐泽夜露凝成的冷滴，入手清寒，常被拿去压杂气和做回灵药。",
       "grade": "yellow"
+    },
+    {
+      "itemId": "mat.coldmarrow_reed",
+      "name": "寒髓苇",
+      "type": "material",
+      "level": 20,
+      "desc": "生在寒汐浅滩的青白苇芯，内里一缕冷意直入髓海。",
+      "grade": "yellow",
+      "tags": [
+        "药材"
+      ]
     },
     {
       "itemId": "equip.hanxi_flow_ruler",
@@ -11938,6 +11975,17 @@
       "healPercent": 0.22
     },
     {
+      "itemId": "mat.returnspring_leaf",
+      "name": "回春叶",
+      "type": "material",
+      "level": 20,
+      "desc": "叶背常藏一线回生青气，晒干后仍能缓慢吐纳木息。",
+      "grade": "yellow",
+      "tags": [
+        "药材"
+      ]
+    },
+    {
       "itemId": "recovery_powder",
       "name": "回灵散",
       "type": "consumable",
@@ -11993,7 +12041,10 @@
       "name": "魂墨",
       "type": "material",
       "level": 9,
-      "desc": "古碑残魂凝结出的墨色灵液。"
+      "desc": "古碑残魂凝结出的墨色灵液。",
+      "tags": [
+        "异材"
+      ]
     },
     {
       "itemId": "equip.soul_ink_pendant",
@@ -12016,7 +12067,10 @@
       "type": "material",
       "grade": "mystic",
       "level": 3,
-      "desc": "细长苇芯中藏着轻灵风息，常用来炼制轻身类丹药。"
+      "desc": "细长苇芯中藏着轻灵风息，常用来炼制轻身类丹药。",
+      "tags": [
+        "药材"
+      ]
     },
     {
       "itemId": "sword_pellet",
@@ -12077,11 +12131,25 @@
       ]
     },
     {
+      "itemId": "mat.goldthread_briar",
+      "name": "金芒棘",
+      "type": "material",
+      "level": 20,
+      "desc": "棘藤细刺泛着淡金光，轻折便能闻到锋锐药香。",
+      "grade": "yellow",
+      "tags": [
+        "药材"
+      ]
+    },
+    {
       "itemId": "crystal_dust",
       "name": "晶尘",
       "type": "material",
       "level": 6,
-      "desc": "晶背蝠掉落的微光粉末。"
+      "desc": "晶背蝠掉落的微光粉末。",
+      "tags": [
+        "异材"
+      ]
     },
     {
       "itemId": "equip.crystal_maw_spike",
@@ -12131,7 +12199,10 @@
       "type": "material",
       "level": 26,
       "desc": "多层寒潮反复淘洗后留下的净水精华，是洗脉与寒性法衣的核心炼材。",
-      "grade": "mystic"
+      "grade": "mystic",
+      "tags": [
+        "异材"
+      ]
     },
     {
       "itemId": "equip.bound_chest",
@@ -12213,7 +12284,10 @@
       "type": "material",
       "grade": "earth",
       "level": 4,
-      "desc": "入口极苦，药劲却最能逼出修者经脉里的勤修之意。"
+      "desc": "入口极苦，药劲却最能逼出修者经脉里的勤修之意。",
+      "tags": [
+        "药材"
+      ]
     },
     {
       "itemId": "pill.bitter_cultivation_elixir",
@@ -12325,7 +12399,10 @@
       "name": "狼牙",
       "type": "material",
       "level": 8,
-      "desc": "噬灵狼的利牙。"
+      "desc": "噬灵狼的利牙。",
+      "tags": [
+        "异材"
+      ]
     },
     {
       "itemId": "equip.rampart_plate",
@@ -12887,7 +12964,10 @@
       "type": "material",
       "level": 26,
       "desc": "炉心台深处结出的赤色晶核，常被拿来压成烈性器坠或爆发药引。",
-      "grade": "mystic"
+      "grade": "mystic",
+      "tags": [
+        "异材"
+      ]
     },
     {
       "itemId": "equip.full_edge_blade",
@@ -12994,7 +13074,10 @@
       "type": "material",
       "grade": "mystic",
       "level": 3,
-      "desc": "花香清冽，炼入丹中常能扶正心神、澄明五感。"
+      "desc": "花香清冽，炼入丹中常能扶正心神、澄明五感。",
+      "tags": [
+        "药材"
+      ]
     },
     {
       "itemId": "fate_stone.qizhen_crossing",
@@ -13149,7 +13232,10 @@
       "type": "material",
       "grade": "mystic",
       "level": 3,
-      "desc": "从旧阵裂缝里筛出的细砂，药性带着轻微撕裂感。"
+      "desc": "从旧阵裂缝里筛出的细砂，药性带着轻微撕裂感。",
+      "tags": [
+        "药材"
+      ]
     },
     {
       "itemId": "pill.break_array_elixir",
@@ -13189,7 +13275,10 @@
       "type": "material",
       "grade": "yellow",
       "level": 2,
-      "desc": "蕴有淡薄灵机的草茎，常作聚气和缓冲药引。"
+      "desc": "蕴有淡薄灵机的草茎，常作聚气和缓冲药引。",
+      "tags": [
+        "药材"
+      ]
     },
     {
       "itemId": "map.verdant_vine_vale",
@@ -13326,7 +13415,10 @@
       "type": "material",
       "grade": "earth",
       "level": 4,
-      "desc": "在炽热岩缝里长成的赤金种子，蕴着强横烈阳药引。"
+      "desc": "在炽热岩缝里长成的赤金种子，蕴着强横烈阳药引。",
+      "tags": [
+        "药材"
+      ]
     },
     {
       "itemId": "equip.sand_edge_headband",
@@ -13508,7 +13600,10 @@
       "type": "material",
       "level": 26,
       "desc": "老藤与木魅在地脉交汇处凝出的木心，最适合做续航与养脉法器。",
-      "grade": "mystic"
+      "grade": "mystic",
+      "tags": [
+        "异材"
+      ]
     },
     {
       "itemId": "equip.lifepulse_pendant",
@@ -13739,7 +13834,10 @@
       "name": "鼠尾",
       "type": "material",
       "level": 2,
-      "desc": "灰尾鼠的尾巴。"
+      "desc": "灰尾鼠的尾巴。",
+      "tags": [
+        "异材"
+      ]
     },
     {
       "itemId": "frost_essence",
@@ -13865,6 +13963,17 @@
       "type": "material",
       "level": 16,
       "desc": "记录古天宫阵纹的残页。"
+    },
+    {
+      "itemId": "mat.ironvein_caltrop",
+      "name": "铁脉蒺",
+      "type": "material",
+      "level": 20,
+      "desc": "生在埋锋砂地的硬刺草，药性紧收，最宜淬锋。",
+      "grade": "yellow",
+      "tags": [
+        "药材"
+      ]
     },
     {
       "itemId": "equip.iron_track_boots",
@@ -14118,12 +14227,34 @@
       "desc": "血羽鸦留下的邪异翎羽。"
     },
     {
+      "itemId": "mat.stonecore_lingzhi",
+      "name": "岩髓芝",
+      "type": "material",
+      "level": 20,
+      "desc": "贴石而生的灰芝，内蕴绵长土息，是护脉丹常见主材。",
+      "grade": "yellow",
+      "tags": [
+        "药材"
+      ]
+    },
+    {
       "itemId": "embershard_char",
       "name": "炎髓炭",
       "type": "material",
       "level": 20,
       "desc": "火脉熬出来的深色炭芯，最适合做淬体和爆发类耗材。",
       "grade": "yellow"
+    },
+    {
+      "itemId": "mat.flamegrain_spike",
+      "name": "炎穗芒",
+      "type": "material",
+      "level": 20,
+      "desc": "火穗结出的细芒，入炉后能把火行药势拉成一线。",
+      "grade": "yellow",
+      "tags": [
+        "药材"
+      ]
     },
     {
       "itemId": "equip.spirit_ring",
@@ -14204,7 +14335,10 @@
       "name": "妖兽骨",
       "type": "material",
       "level": 1,
-      "desc": "山野妖兽遗骨，可留作后用。"
+      "desc": "山野妖兽遗骨，可留作后用。",
+      "tags": [
+        "异材"
+      ]
     },
     {
       "itemId": "equip.herb_basket_charm",
@@ -14297,7 +14431,10 @@
       "name": "阴沼丝",
       "type": "material",
       "level": 3,
-      "desc": "沼泽妖蛛吐出的坚韧蛛丝。"
+      "desc": "沼泽妖蛛吐出的坚韧蛛丝。",
+      "tags": [
+        "异材"
+      ]
     },
     {
       "itemId": "pill.guiding_powder",
@@ -14446,6 +14583,17 @@
       "grade": "yellow"
     },
     {
+      "itemId": "mat.moonwell_stamen",
+      "name": "月井蕊",
+      "type": "material",
+      "level": 20,
+      "desc": "月井寒莲退花后留下的细蕊，最善收束散乱水气。",
+      "grade": "yellow",
+      "tags": [
+        "药材"
+      ]
+    },
+    {
       "itemId": "equip.moonwell_gauze_crown",
       "name": "月井纱冠",
       "type": "equipment",
@@ -14468,7 +14616,10 @@
       "type": "material",
       "grade": "mortal",
       "level": 1,
-      "desc": "清晨叶尖常挂月白露珠，是最常见的温和药底。"
+      "desc": "清晨叶尖常挂月白露珠，是最常见的温和药底。",
+      "tags": [
+        "药材"
+      ]
     },
     {
       "itemId": "equip.yuepattern_pole",
@@ -14631,7 +14782,21 @@
       "name": "泽鳞",
       "type": "material",
       "level": 4,
-      "desc": "泽鳞蜥脱落的鳞片。"
+      "desc": "泽鳞蜥脱落的鳞片。",
+      "tags": [
+        "异材"
+      ]
+    },
+    {
+      "itemId": "mat.longvein_vine",
+      "name": "长脉藤",
+      "type": "material",
+      "level": 20,
+      "desc": "沿谷壁攀出的韧藤，藤芯温润，最擅长牵引木行药力深入经脉。",
+      "grade": "yellow",
+      "tags": [
+        "药材"
+      ]
     },
     {
       "itemId": "equip.marsh_poison_gland",
@@ -14847,7 +15012,10 @@
       "type": "material",
       "level": 26,
       "desc": "石胆久受土行重压而成，最适合做稳脉、镇岳一类的核心炼材。",
-      "grade": "mystic"
+      "grade": "mystic",
+      "tags": [
+        "异材"
+      ]
     },
     {
       "itemId": "equip.quakeheart_stone",
@@ -14892,7 +15060,10 @@
       "name": "彘牙",
       "type": "material",
       "level": 3,
-      "desc": "獠牙野彘的尖牙。"
+      "desc": "獠牙野彘的尖牙。",
+      "tags": [
+        "异材"
+      ]
     },
     {
       "itemId": "equip.heavystele_helm",
@@ -15006,7 +15177,10 @@
       "name": "竹蛇胆",
       "type": "material",
       "level": 6,
-      "desc": "青鳞竹蛇的胆囊。"
+      "desc": "青鳞竹蛇的胆囊。",
+      "tags": [
+        "异材"
+      ]
     },
     {
       "itemId": "equip.bamboo_heart_charm",
@@ -15120,6 +15294,17 @@
             }
           }
         }
+      ]
+    },
+    {
+      "itemId": "mat.scorchheart_petal",
+      "name": "灼心瓣",
+      "type": "material",
+      "level": 20,
+      "desc": "贴着地火边缘生出的赤瓣，药性炽而不躁，适合做烈性主药。",
+      "grade": "yellow",
+      "tags": [
+        "药材"
       ]
     }
   ],
