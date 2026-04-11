@@ -10,6 +10,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MarketPersistenceService = void 0;
 const common_1 = require("@nestjs/common");
 const pg_1 = require("pg");
+const shared_1 = require("@mud/shared-next");
 const persistent_document_table_1 = require("./persistent-document-table");
 const env_alias_1 = require("../config/env-alias");
 const MARKET_ORDER_SCOPE = 'server_next_market_orders_v1';
@@ -171,7 +172,7 @@ function normalizeMarketOrder(raw) {
             count: 1,
         },
         remainingQuantity: Number.isFinite(candidate.remainingQuantity) ? Math.max(0, Math.trunc(Number(candidate.remainingQuantity ?? 0))) : 0,
-        unitPrice: Number.isFinite(candidate.unitPrice) ? Math.max(1, Math.trunc(Number(candidate.unitPrice ?? 1))) : 1,
+        unitPrice: normalizeUnitPrice(candidate.unitPrice),
         createdAt: Number.isFinite(candidate.createdAt) ? Math.trunc(Number(candidate.createdAt ?? Date.now())) : Date.now(),
         updatedAt: Number.isFinite(candidate.updatedAt) ? Math.trunc(Number(candidate.updatedAt ?? Date.now())) : Date.now(),
     };
@@ -195,9 +196,16 @@ function normalizeTradeRecord(raw) {
         sellerId: candidate.sellerId,
         itemId: candidate.itemId,
         quantity: Number.isFinite(candidate.quantity) ? Math.max(1, Math.trunc(Number(candidate.quantity ?? 1))) : 1,
-        unitPrice: Number.isFinite(candidate.unitPrice) ? Math.max(1, Math.trunc(Number(candidate.unitPrice ?? 1))) : 1,
+        unitPrice: normalizeUnitPrice(candidate.unitPrice),
         createdAt: Number.isFinite(candidate.createdAt) ? Math.trunc(Number(candidate.createdAt ?? Date.now())) : Date.now(),
     };
+}
+function normalizeUnitPrice(value) {
+    const unitPrice = Number(value ?? 1);
+    if (!(0, shared_1.isValidMarketPrice)(unitPrice)) {
+        return 1;
+    }
+    return unitPrice;
 }
 function normalizeStorage(raw) {
     const source = (typeof raw === 'object' && raw !== null ? raw : {});

@@ -4,7 +4,7 @@ import {
   PrimaryColumn,
 } from 'typeorm';
 
-const BIGINT_NUMBER_TRANSFORMER = {
+const NUMERIC_NUMBER_TRANSFORMER = {
   to: (value: number): number => value,
   from: (value: string | number): number => Number(value),
 };
@@ -26,9 +26,9 @@ export class MarketTradeHistoryEntity {
   @Column({ type: 'int' })
   quantity!: number;
 
-  @Column({ type: 'bigint', transformer: BIGINT_NUMBER_TRANSFORMER })
+  @Column({ type: 'numeric', precision: 20, scale: 1, transformer: NUMERIC_NUMBER_TRANSFORMER })
   unitPrice!: number;
 
-  @Column({ type: 'bigint', transformer: BIGINT_NUMBER_TRANSFORMER })
+  @Column({ type: 'bigint', transformer: NUMERIC_NUMBER_TRANSFORMER })
   createdAt!: number;
 }

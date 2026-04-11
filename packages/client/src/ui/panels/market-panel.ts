@@ -1,6 +1,8 @@
 import {
+  calculateMarketTradeTotalCost,
   EQUIP_SLOTS,
   EquipSlot,
+  getMarketMinimumTradeQuantity,
   Inventory,
   ITEM_TYPES,
   ItemStack,
@@ -34,7 +36,7 @@ import { detailModalHost } from '../detail-modal-host';
 import { confirmModalHost } from '../confirm-modal-host';
 import { preserveSelection } from '../selection-preserver';
 import { MARKET_MODAL_TABS, MARKET_PANE_HINT, MarketModalTab } from '../../constants/ui/market';
-import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
+import { formatDisplayCountBadge, formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
 import { getEquipSlotLabel, getItemTypeLabel, getTechniqueCategoryLabel } from '../../domain-labels';
 
 function escapeHtml(value: string): string {
@@ -539,7 +541,7 @@ export class MarketPanel {
           if (!kind || !selected) {
             return;
           }
-          const presetPrice = this.readDatasetInt(button.dataset.marketOpenDialogPrice);
+          const presetPrice = this.readDatasetNumber(button.dataset.marketOpenDialogPrice);
           const confirmPurchase = button.dataset.marketOpenDialogConfirmPurchase === 'true';
           this.openTradeDialog(selected, kind, presetPrice, confirmPurchase);
         }));
@@ -635,8 +637,8 @@ export class MarketPanel {
           ${ownedLabel}
         </div>
         <div class="market-item-cell-prices">
-          <span>卖 ${entry.lowestSellPrice !== undefined ? formatDisplayInteger(entry.lowestSellPrice) : '--'}</span>
-          <span>买 ${entry.highestBuyPrice !== undefined ? formatDisplayInteger(entry.highestBuyPrice) : '--'}</span>
+          <span>卖 ${entry.lowestSellPrice !== undefined ? this.formatMarketUnitPrice(entry.lowestSellPrice) : '--'}</span>
+          <span>买 ${entry.highestBuyPrice !== undefined ? this.formatMarketUnitPrice(entry.highestBuyPrice) : '--'}</span>
         </div>
       </button>
     `;
@@ -715,7 +717,7 @@ export class MarketPanel {
     return levels.map((level, index) => `
       <div class="market-book-level">
         <div class="market-book-level-main">
-          <span class="market-book-level-price">${formatDisplayInteger(level.unitPrice)} ${escapeHtml(currencyName)}</span>
+          <span class="market-book-level-price">${this.formatMarketUnitPrice(level.unitPrice)} ${escapeHtml(currencyName)}</span>
           <span class="market-book-level-qty">总量 ${formatDisplayCountBadge(level.quantity)}</span>
         </div>
         ${quickAction && index === 0
@@ -791,7 +793,7 @@ export class MarketPanel {
                   <span class="market-order-name">${escapeHtml(this.buildLocalMarketItem(record.itemId).name)}</span>
                   <span class="market-order-side ${record.side === 'buy' ? 'buy' : 'sell'}">${record.side === 'buy' ? '购入' : '售出'}</span>
                 </div>
-                <div class="market-order-meta">数量 ${formatDisplayCountBadge(record.quantity)} · 单价 ${formatDisplayInteger(record.unitPrice)} ${escapeHtml(currencyName)}</div>
+                <div class="market-order-meta">数量 ${formatDisplayCountBadge(record.quantity)} · 单价 ${this.formatMarketUnitPrice(record.unitPrice)} ${escapeHtml(currencyName)}</div>
               </div>
             `).join('')
             : `<div class="empty-hint">${this.tradeHistoryLoading ? '交易记录同步中……' : '最近还没有你的成交记录。'}</div>`}
@@ -807,7 +809,7 @@ export class MarketPanel {
           <span class="market-order-name">${escapeHtml(order.item.name)}</span>
           <span class="market-order-side ${order.side === 'buy' ? 'buy' : 'sell'}">${order.side === 'buy' ? '求购' : '挂售'}</span>
         </div>
-        <div class="market-order-meta">剩余 ${formatDisplayCountBadge(order.remainingQuantity)} · 单价 ${formatDisplayInteger(order.unitPrice)} ${escapeHtml(currencyName)}</div>
+        <div class="market-order-meta">剩余 ${formatDisplayCountBadge(order.remainingQuantity)} · 单价 ${this.formatMarketUnitPrice(order.unitPrice)} ${escapeHtml(currencyName)}</div>
         <button class="small-btn ghost" data-market-cancel-order="${order.id}" type="button">取消订单</button>
       </div>
     `;
@@ -851,12 +853,15 @@ export class MarketPanel {
     const isBuy = dialog.kind === 'buy';
     const conflictOrder = this.findConflictingOwnOrder(entry.itemKey, dialog.kind);
     const ownedCurrency = this.findInventoryItemCountByItemId(currencyItemId);
-    const insufficientCurrency = isBuy && dialog.quantity * dialog.unitPrice > ownedCurrency;
+    const quantityStep = this.getTradeDialogQuantityStep(dialog.unitPrice);
+    const quantityMax = this.getTradeDialogQuantityMax(entry, dialog.kind, dialog.unitPrice);
+    const totalCost = this.getMarketTradeTotalCost(dialog.quantity, dialog.unitPrice);
+    const insufficientCurrency = isBuy && totalCost !== null && totalCost > ownedCurrency;
+    const insufficientStepQuantity = quantityMax <= 0;
     const title = isBuy ? '发起求购' : '发起挂售';
     const actionLabel = isBuy ? '确认求购' : '确认挂售';
     const disabled = Boolean(conflictOrder)
-      || ((!isBuy && (matchedSlotIndex === null || matchedInventoryCount <= 0)) || insufficientCurrency);
-    const quantityMax = this.getTradeDialogQuantityMax(entry, dialog.kind);
+      || ((!isBuy && (matchedSlotIndex === null || matchedInventoryCount <= 0)) || insufficientCurrency || insufficientStepQuantity || totalCost === null);
     return `
       <div class="market-trade-modal-shell">
         <div class="market-trade-modal-backdrop" data-market-close-dialog></div>
@@ -891,7 +896,7 @@ export class MarketPanel {
                   <button class="small-btn ghost" data-market-price-action="decrease" type="button">-</button>
                 </div>
                 <div class="market-price-display">
-                  <strong>${formatDisplayInteger(dialog.unitPrice)}</strong>
+                  <strong>${this.formatMarketUnitPrice(dialog.unitPrice)}</strong>
                   <span>${escapeHtml(currencyName)}</span>
                 </div>
                 <div class="market-price-control-side">
@@ -911,8 +916,9 @@ export class MarketPanel {
                   data-market-dialog-quantity
                   type="number"
                   inputmode="numeric"
-                  min="1"
-                  max="${quantityMax}"
+                  min="${quantityStep}"
+                  step="${quantityStep}"
+                  max="${Math.max(quantityStep, quantityMax > 0 ? quantityMax : quantityStep)}"
                   value="${dialog.quantity}"
                 />
                 <button
@@ -925,13 +931,19 @@ export class MarketPanel {
             </div>
             <div class="market-trade-dialog-total ${insufficientCurrency ? 'error' : ''}">
               <span>${isBuy ? '总价' : '总额'}</span>
-              <strong>${formatDisplayInteger(dialog.quantity * dialog.unitPrice)} ${escapeHtml(currencyName)}</strong>
+              <strong>${totalCost === null ? '--' : `${formatDisplayInteger(totalCost)} ${escapeHtml(currencyName)}`}</strong>
             </div>
           </div>
+          ${quantityStep > 1
+            ? `<div class="market-action-hint">当前单价下必须按 ${formatDisplayInteger(quantityStep)} 件的倍数交易，${escapeHtml(currencyName)} x1 可买 ${formatDisplayInteger(quantityStep)} 件。</div>`
+            : ''}
           ${conflictOrder
             ? `<div class="market-action-hint market-action-hint--error">${escapeHtml(dialog.kind === 'buy' ? '你已在挂售这件物品，不能再求购。' : '你已在求购这件物品，不能再挂售。')}</div>`
             : ''}
-          ${insufficientCurrency ? `<div class="market-action-hint market-action-hint--error">${escapeHtml(currencyName)}不足，当前需要 ${formatDisplayInteger(dialog.quantity * dialog.unitPrice)}。</div>` : ''}
+          ${insufficientStepQuantity
+            ? `<div class="market-action-hint market-action-hint--error">${escapeHtml(isBuy ? `当前 ${currencyName} 或数量上限不足以按该单价成交至少 ${quantityStep} 件。` : `当前持有数量不足 ${quantityStep} 件，不能按该单价挂售。`)}</div>`
+            : ''}
+          ${insufficientCurrency && totalCost !== null ? `<div class="market-action-hint market-action-hint--error">${escapeHtml(currencyName)}不足，当前需要 ${formatDisplayInteger(totalCost)}。</div>` : ''}
         </div>
         <div class="market-trade-dialog-actions">
           <button class="small-btn ghost" data-market-close-dialog type="button">取消</button>
@@ -1159,10 +1171,11 @@ export class MarketPanel {
     preferredPrice?: number | null,
     confirmPurchase = false,
   ): void {
+    const unitPrice = this.getDefaultTradeDialogPrice(entry, kind, preferredPrice);
     this.tradeDialog = {
       kind,
-      quantity: 1,
-      unitPrice: this.getDefaultTradeDialogPrice(entry, kind, preferredPrice),
+      quantity: this.normalizeTradeDialogQuantity(1, entry, kind, unitPrice),
+      unitPrice,
       confirmPurchase: kind === 'buy' && confirmPurchase,
     };
     this.syncTradeDialogOverlay();
@@ -1170,7 +1183,7 @@ export class MarketPanel {
 
   private renderBuyConfirmBody(entry: MarketListedItemView, currencyName: string, quantity: number, unitPrice: number): string {
     const estimate = this.estimateImmediateBuy(entry, quantity, unitPrice);
-    const maxReservedCost = quantity * unitPrice;
+    const maxReservedCost = this.getMarketTradeTotalCost(quantity, unitPrice);
     const summary = estimate.immediateQuantity > 0
       ? estimate.pendingQuantity > 0
         ? `预计先按当前卖盘成交 ${formatDisplayInteger(estimate.immediateQuantity)} 件，剩余 ${formatDisplayInteger(estimate.pendingQuantity)} 件会继续挂为求购单。`
@@ -1182,12 +1195,12 @@ export class MarketPanel {
           <span>购买数量</span>
           <div class="market-price-display">
             <strong>${formatDisplayInteger(quantity)}</strong>
-            <span>单价 ${formatDisplayInteger(unitPrice)} ${escapeHtml(currencyName)}</span>
+            <span>单价 ${this.formatMarketUnitPrice(unitPrice)} ${escapeHtml(currencyName)}</span>
           </div>
         </div>
         <div class="market-trade-dialog-total">
           <span>最高占用</span>
-          <strong>${formatDisplayInteger(maxReservedCost)} ${escapeHtml(currencyName)}</strong>
+          <strong>${maxReservedCost === null ? '--' : `${formatDisplayInteger(maxReservedCost)} ${escapeHtml(currencyName)}`}</strong>
         </div>
       </div>
       <div class="market-trade-dialog-section">
@@ -1310,7 +1323,7 @@ export class MarketPanel {
         }
         this.tradeDialog = {
           ...this.tradeDialog,
-          quantity: this.normalizeTradeDialogQuantity(input.value, selected, this.tradeDialog.kind),
+          quantity: this.normalizeTradeDialogQuantity(input.value, selected, this.tradeDialog.kind, this.tradeDialog.unitPrice),
         };
       });
 
@@ -1320,7 +1333,7 @@ export class MarketPanel {
         }
         this.tradeDialog = {
           ...this.tradeDialog,
-          quantity: this.normalizeTradeDialogQuantity(input.value, selected, this.tradeDialog.kind),
+          quantity: this.normalizeTradeDialogQuantity(input.value, selected, this.tradeDialog.kind, this.tradeDialog.unitPrice),
         };
         this.syncTradeDialogOverlay();
       });
@@ -1334,10 +1347,12 @@ export class MarketPanel {
       if (!action) {
         return;
       }
-      const preset = this.readDatasetInt(button.dataset.marketPricePreset);
+      const preset = this.readDatasetNumber(button.dataset.marketPricePreset);
+      const nextUnitPrice = this.getNextTradeDialogPrice(this.tradeDialog.unitPrice, action, preset);
       this.tradeDialog = {
         ...this.tradeDialog,
-        unitPrice: this.getNextTradeDialogPrice(this.tradeDialog.unitPrice, action, preset),
+        unitPrice: nextUnitPrice,
+        quantity: this.normalizeTradeDialogQuantity(this.tradeDialog.quantity, selected, this.tradeDialog.kind, nextUnitPrice),
       };
       this.syncTradeDialogOverlay();
     }));
@@ -1349,10 +1364,10 @@ export class MarketPanel {
       const action = button.dataset.marketQuantityAction;
       const quantity = action === 'max'
         ? this.getTradeDialogMaxButtonQuantity(selected, update.currencyItemId, this.tradeDialog)
-        : 1;
+        : this.getTradeDialogQuantityStep(this.tradeDialog.unitPrice);
       this.tradeDialog = {
         ...this.tradeDialog,
-        quantity: Math.max(1, quantity),
+        quantity: this.normalizeTradeDialogQuantity(quantity, selected, this.tradeDialog.kind, this.tradeDialog.unitPrice),
       };
       this.syncTradeDialogOverlay();
     }));
@@ -1362,7 +1377,7 @@ export class MarketPanel {
       if (!kind || !this.tradeDialog || this.tradeDialog.kind !== kind) {
         return;
       }
-      const quantity = this.normalizeTradeDialogQuantity(this.tradeDialog.quantity, selected, kind);
+      const quantity = this.normalizeTradeDialogQuantity(this.tradeDialog.quantity, selected, kind, this.tradeDialog.unitPrice);
       const unitPrice = this.normalizeTradeDialogPrice(this.tradeDialog.unitPrice, kind === 'buy' ? 'up' : 'down');
       if (kind === 'buy') {
         if (this.tradeDialog.confirmPurchase) {
@@ -1422,20 +1437,38 @@ export class MarketPanel {
     value: string | number,
     entry: MarketListedItemView,
     kind: MarketTradeDialogKind,
+    unitPrice = this.tradeDialog?.unitPrice ?? MARKET_DIALOG_MIN_PRICE,
   ): number {
     const parsed = typeof value === 'number' ? value : Number.parseInt(value, 10);
-    const max = this.getTradeDialogQuantityMax(entry, kind);
-    if (!Number.isFinite(parsed)) {
-      return 1;
+    const quantityStep = this.getTradeDialogQuantityStep(unitPrice);
+    const max = this.getTradeDialogQuantityMax(entry, kind, unitPrice);
+    if (max <= 0) {
+      return quantityStep;
     }
-    return Math.max(1, Math.min(max, Math.floor(parsed)));
+    if (!Number.isFinite(parsed)) {
+      return quantityStep;
+    }
+    const bounded = Math.max(quantityStep, Math.min(max, Math.floor(parsed)));
+    return Math.max(quantityStep, Math.floor(bounded / quantityStep) * quantityStep);
   }
 
-  private getTradeDialogQuantityMax(entry: MarketListedItemView, kind: MarketTradeDialogKind): number {
-    if (kind === 'sell') {
-      return Math.max(1, this.findMatchingInventoryCount(entry.item));
+  private getTradeDialogQuantityStep(unitPrice: number): number {
+    return Math.max(1, getMarketMinimumTradeQuantity(unitPrice));
+  }
+
+  private getTradeDialogQuantityMax(
+    entry: MarketListedItemView,
+    kind: MarketTradeDialogKind,
+    unitPrice: number,
+  ): number {
+    const quantityStep = this.getTradeDialogQuantityStep(unitPrice);
+    const cap = kind === 'sell'
+      ? this.findMatchingInventoryCount(entry.item)
+      : this.getAffordableBuyQuantity(unitPrice, this.marketUpdate?.currencyItemId ?? '');
+    if (cap <= 0) {
+      return 0;
     }
-    return MARKET_DIALOG_MAX_QUANTITY;
+    return Math.floor(Math.min(cap, MARKET_DIALOG_MAX_QUANTITY) / quantityStep) * quantityStep;
   }
 
   private getTradeDialogMaxButtonQuantity(
@@ -1444,7 +1477,7 @@ export class MarketPanel {
     dialog: MarketTradeDialogState,
   ): number {
     if (dialog.kind === 'sell') {
-      return this.findMatchingInventoryCount(entry.item);
+      return this.getTradeDialogQuantityMax(entry, dialog.kind, dialog.unitPrice);
     }
     return this.getAffordableBuyQuantity(dialog.unitPrice, currencyItemId);
   }
@@ -1453,7 +1486,14 @@ export class MarketPanel {
     if (unitPrice <= 0) {
       return 0;
     }
-    return Math.max(0, Math.min(MARKET_DIALOG_MAX_QUANTITY, Math.floor(this.findInventoryItemCountByItemId(currencyItemId) / unitPrice)));
+    const ownedCurrency = this.findInventoryItemCountByItemId(currencyItemId);
+    const quantityStep = this.getTradeDialogQuantityStep(unitPrice);
+    const stepCost = this.getMarketTradeTotalCost(quantityStep, unitPrice);
+    if (!stepCost || stepCost <= 0) {
+      return 0;
+    }
+    const affordableSteps = Math.floor(ownedCurrency / stepCost);
+    return Math.min(MARKET_DIALOG_MAX_QUANTITY, affordableSteps * quantityStep);
   }
 
   private getNextTradeDialogPrice(currentPrice: number, action: MarketPriceAction, preset?: number | null): number {
@@ -1483,6 +1523,9 @@ export class MarketPanel {
   }
 
   private formatPricePresetLabel(value: number): string {
+    if (value < 1) {
+      return this.formatMarketUnitPrice(value);
+    }
     if (value >= 1_000_000) {
       return '一百万';
     }
@@ -1492,9 +1535,20 @@ export class MarketPanel {
     return formatDisplayInteger(value);
   }
 
-  private readDatasetInt(value: string | undefined): number | null {
-    const parsed = Number.parseInt(value ?? '', 10);
+  private readDatasetNumber(value: string | undefined): number | null {
+    const parsed = Number.parseFloat(value ?? '');
     return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  private formatMarketUnitPrice(value: number): string {
+    return formatDisplayNumber(value, {
+      maximumFractionDigits: value < 1 ? 1 : 0,
+      compactMaximumFractionDigits: value < 1 ? 1 : 0,
+    });
+  }
+
+  private getMarketTradeTotalCost(quantity: number, unitPrice: number): number | null {
+    return calculateMarketTradeTotalCost(quantity, unitPrice);
   }
 
   private findMatchingInventorySlot(item: ItemStack): number | null {

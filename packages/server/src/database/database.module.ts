@@ -41,6 +41,9 @@ const PRESYNC_BIGINT_COLUMNS = [
   { table: 'players', column: 'eliteMonsterKillCount' },
   { table: 'players', column: 'bossMonsterKillCount' },
   { table: 'players', column: 'deathCount' },
+ ] as const;
+
+const PRESYNC_MARKET_PRICE_COLUMNS = [
   { table: 'market_orders', column: 'unitPrice' },
   { table: 'market_trade_history', column: 'unitPrice' },
 ] as const;
@@ -171,6 +174,42 @@ async function applyPreSynchronizeCompatibilityFixes(connectionOptions: PgBootst
           ALTER TABLE ${quotePgIdentifier(entry.table)}
           ALTER COLUMN ${quotePgIdentifier(entry.column)} TYPE bigint
           USING COALESCE(${quotePgIdentifier(entry.column)}, 0)::bigint
+        `);
+      }
+    }
+
+    for (const entry of PRESYNC_MARKET_PRICE_COLUMNS) {
+      const row = await client.query<{
+        data_type: string;
+        numeric_scale: number | null;
+      }>(
+        `
+          SELECT data_type, numeric_scale
+          FROM information_schema.columns
+          WHERE table_schema = current_schema()
+            AND table_name = $1
+            AND column_name = $2
+          LIMIT 1
+        `,
+        [entry.table, entry.column],
+      );
+      if (row.rowCount === 0) {
+        continue;
+      }
+
+      await client.query(`
+        UPDATE ${quotePgIdentifier(entry.table)}
+        SET ${quotePgIdentifier(entry.column)} = 0
+        WHERE ${quotePgIdentifier(entry.column)} IS NULL
+      `);
+
+      const dataType = row.rows[0]?.data_type;
+      const numericScale = Number(row.rows[0]?.numeric_scale ?? 0);
+      if (dataType !== 'numeric' || numericScale !== 1) {
+        await client.query(`
+          ALTER TABLE ${quotePgIdentifier(entry.table)}
+          ALTER COLUMN ${quotePgIdentifier(entry.column)} TYPE numeric(20, 1)
+          USING COALESCE(${quotePgIdentifier(entry.column)}, 0)::numeric(20, 1)
         `);
       }
     }

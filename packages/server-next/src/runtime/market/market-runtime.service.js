@@ -90,6 +90,9 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             if (!quantity || !unitPrice) {
                 return this.singleMessage(playerId, '挂售数量或单价无效。');
             }
+            if (!(0, shared_1.isValidMarketTradeQuantity)(unitPrice, quantity)) {
+                return this.singleMessage(playerId, this.buildTradeQuantityError(unitPrice));
+            }
             if (item.count < quantity) {
                 return this.singleMessage(playerId, '挂售数量超过了当前持有数量。');
             }
@@ -104,19 +107,15 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             this.captureOnlinePlayerState(playerId, context);
             const removed = this.playerRuntimeService.splitInventoryItem(playerId, payload.slotIndex, quantity);
             const result = this.createEmptyResult(playerId);
-            let remaining = removed.count;
             const buyOrders = this.getSortedOrders(itemKey, 'buy').filter((order) => order.ownerId !== playerId && order.unitPrice >= unitPrice);
-            for (const buyOrder of buyOrders) {
-                if (remaining <= 0) {
-                    break;
-                }
-                const tradeQuantity = Math.min(remaining, buyOrder.remainingQuantity);
-                if (tradeQuantity <= 0) {
-                    continue;
-                }
+            const matchPlan = this.planOrderMatches(buyOrders, removed.count, unitPrice);
+            let remaining = matchPlan.remainingQuantity;
+            for (const match of matchPlan.matches) {
+                const buyOrder = match.order;
+                const tradeQuantity = match.quantity;
                 const tradePrice = buyOrder.unitPrice;
                 this.deliverItemToPlayer(buyOrder.ownerId, { ...orderItem, count: tradeQuantity }, context);
-                this.deliverItemToPlayer(playerId, this.createCurrencyItem(tradeQuantity * tradePrice), context);
+                this.deliverItemToPlayer(playerId, this.createCurrencyItem(match.totalCost), context);
                 this.recordTrade({
                     buyerId: buyOrder.ownerId,
                     sellerId: playerId,
@@ -124,13 +123,12 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                     quantity: tradeQuantity,
                     unitPrice: tradePrice,
                 }, context);
-                remaining -= tradeQuantity;
                 buyOrder.remainingQuantity -= tradeQuantity;
                 buyOrder.updatedAt = Date.now();
                 this.markOrderDirty(buyOrder.id, context);
                 this.touchAffectedPlayer(result, buyOrder.ownerId);
                 this.pushNotice(result, buyOrder.ownerId, `你的求购已成交：${orderItem.name} x${tradeQuantity}。`, 'loot');
-                this.pushNotice(result, playerId, `你卖出了 ${orderItem.name} x${tradeQuantity}，入账 ${this.getCurrencyItemName()} x${tradeQuantity * tradePrice}。`, 'loot');
+                this.pushNotice(result, playerId, `你卖出了 ${orderItem.name} x${tradeQuantity}，入账 ${this.getCurrencyItemName()} x${match.totalCost}。`, 'loot');
                 if (buyOrder.remainingQuantity <= 0) {
                     buyOrder.status = 'filled';
                     this.deleteOrder(buyOrder.id, context);
@@ -153,7 +151,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                 };
                 this.openOrders.push(order);
                 this.markOrderDirty(order.id, context);
-                this.pushNotice(result, playerId, `已挂售 ${orderItem.name} x${remaining}，单价 ${unitPrice} ${this.getCurrencyItemName()}。`, 'success');
+                this.pushNotice(result, playerId, `已挂售 ${orderItem.name} x${remaining}，单价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()}。`, 'success');
             }
             this.compactOpenOrders();
             return result;
@@ -173,31 +171,33 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             if (!quantity || !unitPrice) {
                 return this.singleMessage(playerId, '求购数量或单价无效。');
             }
+            if (!(0, shared_1.isValidMarketTradeQuantity)(unitPrice, quantity)) {
+                return this.singleMessage(playerId, this.buildTradeQuantityError(unitPrice));
+            }
             const orderItem = this.toOrderItem(item);
             const itemKey = this.buildItemKey(orderItem);
             if (this.hasConflictingOpenOrder(playerId, itemKey, 'buy')) {
                 return this.singleMessage(playerId, '同一种物品已在挂售中，不能同时求购。');
             }
-            const totalCost = quantity * unitPrice;
+            const totalCost = (0, shared_1.calculateMarketTradeTotalCost)(quantity, unitPrice);
+            if (totalCost === null) {
+                return this.singleMessage(playerId, this.buildTradeQuantityError(unitPrice));
+            }
             if (this.playerRuntimeService.getInventoryCountByItemId(playerId, market_1.MARKET_CURRENCY_ITEM_ID) < totalCost) {
                 return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，无法挂出求购。`);
             }
             this.captureOnlinePlayerState(playerId, context);
             this.playerRuntimeService.consumeInventoryItemByItemId(playerId, market_1.MARKET_CURRENCY_ITEM_ID, totalCost);
             const result = this.createEmptyResult(playerId);
-            let remaining = quantity;
             const sellOrders = this.getSortedOrders(itemKey, 'sell').filter((order) => order.ownerId !== playerId && order.unitPrice <= unitPrice);
-            for (const sellOrder of sellOrders) {
-                if (remaining <= 0) {
-                    break;
-                }
-                const tradeQuantity = Math.min(remaining, sellOrder.remainingQuantity);
-                if (tradeQuantity <= 0) {
-                    continue;
-                }
+            const matchPlan = this.planOrderMatches(sellOrders, quantity, unitPrice);
+            let remaining = matchPlan.remainingQuantity;
+            for (const match of matchPlan.matches) {
+                const sellOrder = match.order;
+                const tradeQuantity = match.quantity;
                 const tradePrice = sellOrder.unitPrice;
                 this.deliverItemToPlayer(playerId, { ...orderItem, count: tradeQuantity }, context);
-                this.deliverItemToPlayer(sellOrder.ownerId, this.createCurrencyItem(tradeQuantity * tradePrice), context);
+                this.deliverItemToPlayer(sellOrder.ownerId, this.createCurrencyItem(match.totalCost), context);
                 this.recordTrade({
                     buyerId: playerId,
                     sellerId: sellOrder.ownerId,
@@ -205,17 +205,17 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                     quantity: tradeQuantity,
                     unitPrice: tradePrice,
                 }, context);
-                const refund = tradeQuantity * Math.max(0, unitPrice - tradePrice);
+                const reservedCost = (0, shared_1.calculateMarketTradeTotalCost)(tradeQuantity, unitPrice) ?? match.totalCost;
+                const refund = Math.max(0, reservedCost - match.totalCost);
                 if (refund > 0) {
                     this.deliverItemToPlayer(playerId, this.createCurrencyItem(refund), context);
                 }
-                remaining -= tradeQuantity;
                 sellOrder.remainingQuantity -= tradeQuantity;
                 sellOrder.updatedAt = Date.now();
                 this.markOrderDirty(sellOrder.id, context);
                 this.touchAffectedPlayer(result, sellOrder.ownerId);
-                this.pushNotice(result, playerId, `你买入了 ${orderItem.name} x${tradeQuantity}，成交价 ${tradePrice}。`, 'loot');
-                this.pushNotice(result, sellOrder.ownerId, `你的挂售已成交：${orderItem.name} x${tradeQuantity}，入账 ${this.getCurrencyItemName()} x${tradeQuantity * tradePrice}。`, 'loot');
+                this.pushNotice(result, playerId, `你买入了 ${orderItem.name} x${tradeQuantity}，成交价 ${this.formatUnitPrice(tradePrice)}。`, 'loot');
+                this.pushNotice(result, sellOrder.ownerId, `你的挂售已成交：${orderItem.name} x${tradeQuantity}，入账 ${this.getCurrencyItemName()} x${match.totalCost}。`, 'loot');
                 if (sellOrder.remainingQuantity <= 0) {
                     sellOrder.status = 'filled';
                     this.deleteOrder(sellOrder.id, context);
@@ -238,7 +238,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                 };
                 this.openOrders.push(order);
                 this.markOrderDirty(order.id, context);
-                this.pushNotice(result, playerId, `已挂出求购 ${orderItem.name} x${remaining}，单价 ${unitPrice} ${this.getCurrencyItemName()}。`, 'success');
+                this.pushNotice(result, playerId, `已挂出求购 ${orderItem.name} x${remaining}，单价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()}。`, 'success');
             }
             this.compactOpenOrders();
             return result;
@@ -254,29 +254,23 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             if (sells.length === 0) {
                 return this.singleMessage(playerId, '当前没有可买入的挂售。');
             }
-            const available = sells.reduce((sum, order) => sum + order.remainingQuantity, 0);
-            if (available < quantity) {
-                return this.singleMessage(playerId, `当前最多只能买到 ${available} 件。`);
+            const plan = this.planOrderMatches(sells, quantity);
+            if (plan.fulfilledQuantity < quantity) {
+                return this.singleMessage(playerId, `当前最多只能买到 ${plan.fulfilledQuantity} 件。`);
             }
-            const totalCost = this.calculateImmediateTotalCost(sells, quantity);
+            const totalCost = plan.totalCost;
             if (this.playerRuntimeService.getInventoryCountByItemId(playerId, market_1.MARKET_CURRENCY_ITEM_ID) < totalCost) {
                 return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，无法完成买入。`);
             }
             this.captureOnlinePlayerState(playerId, context);
             this.playerRuntimeService.consumeInventoryItemByItemId(playerId, market_1.MARKET_CURRENCY_ITEM_ID, totalCost);
             const result = this.createEmptyResult(playerId);
-            let remaining = quantity;
             const item = { ...sells[0].item };
-            for (const sellOrder of sells) {
-                if (remaining <= 0) {
-                    break;
-                }
-                const tradeQuantity = Math.min(remaining, sellOrder.remainingQuantity);
-                if (tradeQuantity <= 0) {
-                    continue;
-                }
+            for (const match of plan.matches) {
+                const sellOrder = match.order;
+                const tradeQuantity = match.quantity;
                 this.deliverItemToPlayer(playerId, { ...item, count: tradeQuantity }, context);
-                this.deliverItemToPlayer(sellOrder.ownerId, this.createCurrencyItem(tradeQuantity * sellOrder.unitPrice), context);
+                this.deliverItemToPlayer(sellOrder.ownerId, this.createCurrencyItem(match.totalCost), context);
                 this.recordTrade({
                     buyerId: playerId,
                     sellerId: sellOrder.ownerId,
@@ -287,7 +281,6 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                 sellOrder.remainingQuantity -= tradeQuantity;
                 sellOrder.updatedAt = Date.now();
                 this.markOrderDirty(sellOrder.id, context);
-                remaining -= tradeQuantity;
                 this.touchAffectedPlayer(result, sellOrder.ownerId);
                 this.pushNotice(result, sellOrder.ownerId, `你的挂售已成交：${item.name} x${tradeQuantity}。`, 'loot');
                 if (sellOrder.remainingQuantity <= 0) {
@@ -321,25 +314,19 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             if (buys.length === 0) {
                 return this.singleMessage(playerId, '当前没有可直接成交的求购。');
             }
-            const available = buys.reduce((sum, order) => sum + order.remainingQuantity, 0);
-            if (available < quantity) {
-                return this.singleMessage(playerId, `当前求购盘最多只能接下 ${available} 件。`);
+            const plan = this.planOrderMatches(buys, quantity);
+            if (plan.fulfilledQuantity < quantity) {
+                return this.singleMessage(playerId, `当前求购盘最多只能接下 ${plan.fulfilledQuantity} 件。`);
             }
             this.captureOnlinePlayerState(playerId, context);
             this.playerRuntimeService.splitInventoryItem(playerId, payload.slotIndex, quantity);
             const result = this.createEmptyResult(playerId);
-            let remaining = quantity;
-            let totalIncome = 0;
-            for (const buyOrder of buys) {
-                if (remaining <= 0) {
-                    break;
-                }
-                const tradeQuantity = Math.min(remaining, buyOrder.remainingQuantity);
-                if (tradeQuantity <= 0) {
-                    continue;
-                }
+            const totalIncome = plan.totalCost;
+            for (const match of plan.matches) {
+                const buyOrder = match.order;
+                const tradeQuantity = match.quantity;
                 this.deliverItemToPlayer(buyOrder.ownerId, { ...orderItem, count: tradeQuantity }, context);
-                this.deliverItemToPlayer(playerId, this.createCurrencyItem(tradeQuantity * buyOrder.unitPrice), context);
+                this.deliverItemToPlayer(playerId, this.createCurrencyItem(match.totalCost), context);
                 this.recordTrade({
                     buyerId: buyOrder.ownerId,
                     sellerId: playerId,
@@ -350,8 +337,6 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                 buyOrder.remainingQuantity -= tradeQuantity;
                 buyOrder.updatedAt = Date.now();
                 this.markOrderDirty(buyOrder.id, context);
-                remaining -= tradeQuantity;
-                totalIncome += tradeQuantity * buyOrder.unitPrice;
                 this.touchAffectedPlayer(result, buyOrder.ownerId);
                 this.pushNotice(result, buyOrder.ownerId, `你的求购已成交：${orderItem.name} x${tradeQuantity}。`, 'loot');
                 if (buyOrder.remainingQuantity <= 0) {
@@ -375,7 +360,10 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                 this.deliverItemToPlayer(playerId, { ...order.item, count: order.remainingQuantity }, context);
             }
             else {
-                this.deliverItemToPlayer(playerId, this.createCurrencyItem(order.remainingQuantity * order.unitPrice), context);
+                const refund = (0, shared_1.calculateMarketTradeTotalCost)(order.remainingQuantity, order.unitPrice);
+                if (refund) {
+                    this.deliverItemToPlayer(playerId, this.createCurrencyItem(refund), context);
+                }
             }
             order.status = 'cancelled';
             order.remainingQuantity = 0;
@@ -542,18 +530,66 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             && order.status === 'open'
             && order.remainingQuantity > 0);
     }
-    calculateImmediateTotalCost(orders, quantity) {
+    planOrderMatches(orders, quantity, takerUnitPrice) {
         let remaining = quantity;
         let total = 0;
+        const matches = [];
         for (const order of orders) {
             if (remaining <= 0) {
                 break;
             }
-            const traded = Math.min(remaining, order.remainingQuantity);
-            total += traded * order.unitPrice;
+            const maxTradable = Math.min(remaining, order.remainingQuantity);
+            const traded = this.getCompatibleTradeQuantity(maxTradable, order.unitPrice, takerUnitPrice);
+            if (traded <= 0) {
+                continue;
+            }
+            const tradeTotal = (0, shared_1.calculateMarketTradeTotalCost)(traded, order.unitPrice);
+            if (!tradeTotal) {
+                continue;
+            }
+            total += tradeTotal;
             remaining -= traded;
+            matches.push({
+                order,
+                quantity: traded,
+                totalCost: tradeTotal,
+            });
         }
-        return total;
+        return {
+            matches,
+            fulfilledQuantity: quantity - remaining,
+            remainingQuantity: remaining,
+            totalCost: total,
+        };
+    }
+    getCompatibleTradeQuantity(maxQuantity, ...unitPrices) {
+        if (maxQuantity <= 0) {
+            return 0;
+        }
+        let quantityStep = 1;
+        for (const unitPrice of unitPrices) {
+            if (!unitPrice || !(0, shared_1.isValidMarketPrice)(unitPrice)) {
+                continue;
+            }
+            quantityStep = this.leastCommonMultiple(quantityStep, (0, shared_1.getMarketMinimumTradeQuantity)(unitPrice));
+        }
+        return Math.floor(maxQuantity / quantityStep) * quantityStep;
+    }
+    leastCommonMultiple(left, right) {
+        if (left <= 0 || right <= 0) {
+            return 0;
+        }
+        return (left / this.greatestCommonDivisor(left, right)) * right;
+    }
+    greatestCommonDivisor(left, right) {
+        let currentLeft = Math.abs(Math.trunc(left));
+        let currentRight = Math.abs(Math.trunc(right));
+        while (currentRight !== 0) {
+            const next = currentLeft % currentRight;
+            currentLeft = currentRight;
+            currentRight = next;
+        }
+        return Math.max(1, currentLeft);
     }
     buildItemKey(item) {
         return (0, shared_1.createItemStackSignature)({
@@ -624,14 +660,24 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         return quantity;
     }
     normalizeUnitPrice(value) {
-        if (!Number.isFinite(value) || !Number.isInteger(value)) {
+        if (!Number.isFinite(value)) {
             return null;
         }
-        const unitPrice = Math.trunc(value);
+        const unitPrice = value;
         if (unitPrice <= 0 || unitPrice > shared_1.MARKET_MAX_UNIT_PRICE || !(0, shared_1.isValidMarketPrice)(unitPrice)) {
             return null;
         }
         return unitPrice;
+    }
+    buildTradeQuantityError(unitPrice) {
+        const minimumQuantity = (0, shared_1.getMarketMinimumTradeQuantity)(unitPrice);
+        if (minimumQuantity <= 1) {
+            return '挂售数量或单价无效。';
+        }
+        return `当前单价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()} 时，数量必须是 ${minimumQuantity} 的倍数，才能按整灵石结算。`;
+    }
+    formatUnitPrice(value) {
+        return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '');
     }
     deliverItemToPlayer(playerId, item, context) {
         const player = this.playerRuntimeService.getPlayer(playerId);

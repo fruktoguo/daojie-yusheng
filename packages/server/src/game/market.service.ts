@@ -3,9 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'crypto';
 import { EntityManager, Repository } from 'typeorm';
 import {
+  calculateMarketTradeTotalCost,
   createItemStackSignature,
   DEFAULT_INVENTORY_CAPACITY,
   EquipSlot,
+  getMarketMinimumTradeQuantity,
   ItemStack,
   ItemType,
   MarketListedItemView,
@@ -22,6 +24,7 @@ import {
   S2C_MarketUpdate,
   TechniqueCategory,
   isValidMarketPrice,
+  isValidMarketTradeQuantity,
 } from '@mud/shared';
 import { PlayerEntity } from '../database/entities/player.entity';
 import { MarketOrderEntity } from '../database/entities/market-order.entity';
@@ -65,7 +68,7 @@ export interface MarketActionResult {
 @Injectable()
 export class MarketService implements OnModuleInit {
   private readonly logger = new Logger(MarketService.name);
-  private static readonly MARKET_BIGINT_COLUMN_TABLES = [
+  private static readonly MARKET_PRICE_COLUMN_TABLES = [
     { table: 'market_orders', column: 'unitPrice' },
     { table: 'market_trade_history', column: 'unitPrice' },
   ] as const;
@@ -266,6 +269,9 @@ export class MarketService implements OnModuleInit {
     if (!quantity || !unitPrice) {
       return this.singleMessage(player.id, '挂售数量或单价无效。');
     }
+    if (!isValidMarketTradeQuantity(unitPrice, quantity)) {
+      return this.singleMessage(player.id, this.buildTradeQuantityError(unitPrice));
+    }
     if (item.count < quantity) {
       return this.singleMessage(player.id, '挂售数量超过了当前持有数量。');
     }
@@ -288,21 +294,17 @@ export class MarketService implements OnModuleInit {
     const result = this.createEmptyResult(player.id);
     this.touchPrivateStatePlayer(result, player.id);
     this.touchItem(result, orderItem.itemId);
-    let remaining = removed.count;
     const buyOrders = this.getSortedOrders(itemKey, 'buy')
       .filter((order) => order.ownerId !== player.id && order.unitPrice >= unitPrice);
+    const matchPlan = this.planOrderMatches(buyOrders, removed.count, unitPrice);
+    let remaining = matchPlan.remainingQuantity;
 
-    for (const buyOrder of buyOrders) {
-      if (remaining <= 0) {
-        break;
-      }
-      const tradeQuantity = Math.min(remaining, buyOrder.remainingQuantity);
-      if (tradeQuantity <= 0) {
-        continue;
-      }
+    for (const match of matchPlan.matches) {
+      const buyOrder = match.order;
+      const tradeQuantity = match.quantity;
       const tradePrice = buyOrder.unitPrice;
       await this.deliverItemToPlayer(buyOrder.ownerId, { ...orderItem, count: tradeQuantity }, context);
-      await this.deliverItemToPlayer(player.id, this.createCurrencyItem(tradeQuantity * tradePrice), context);
+      await this.deliverItemToPlayer(player.id, this.createCurrencyItem(match.totalCost), context);
       await this.recordTrade({
         buyerId: buyOrder.ownerId,
         sellerId: player.id,
@@ -313,12 +315,11 @@ export class MarketService implements OnModuleInit {
       this.touchPrivateStatePlayer(result, buyOrder.ownerId);
       this.touchTradeHistoryPlayer(result, buyOrder.ownerId);
       this.touchTradeHistoryPlayer(result, player.id);
-      remaining -= tradeQuantity;
       buyOrder.remainingQuantity -= tradeQuantity;
       buyOrder.updatedAt = Date.now();
       this.touchAffectedPlayer(result, buyOrder.ownerId);
       this.pushMessage(result, buyOrder.ownerId, `你的求购已成交：${orderItem.name} x${tradeQuantity}。`, 'loot');
-      this.pushMessage(result, player.id, `你卖出了 ${orderItem.name} x${tradeQuantity}，入账 ${this.getCurrencyItemName()} x${tradeQuantity * tradePrice}。`, 'loot');
+      this.pushMessage(result, player.id, `你卖出了 ${orderItem.name} x${tradeQuantity}，入账 ${this.getCurrencyItemName()} x${match.totalCost}。`, 'loot');
       await this.persistOrderState(buyOrder, buyOrder.remainingQuantity <= 0 ? 'filled' : 'open', context);
     }
 
@@ -339,7 +340,7 @@ export class MarketService implements OnModuleInit {
       });
       await context.orderRepo.save(order);
       this.openOrders.push(order);
-      this.pushMessage(result, player.id, `已挂售 ${orderItem.name} x${remaining}，单价 ${unitPrice} ${this.getCurrencyItemName()}。`);
+      this.pushMessage(result, player.id, `已挂售 ${orderItem.name} x${remaining}，单价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()}。`);
     }
 
     this.compactOpenOrders();
@@ -370,13 +371,19 @@ export class MarketService implements OnModuleInit {
     if (!quantity || !unitPrice) {
       return this.singleMessage(player.id, '求购数量或单价无效。');
     }
+    if (!isValidMarketTradeQuantity(unitPrice, quantity)) {
+      return this.singleMessage(player.id, this.buildTradeQuantityError(unitPrice));
+    }
     const orderItem = this.toOrderItem(item);
     const itemKey = this.buildItemKey(orderItem);
     if (this.hasConflictingOpenOrder(player.id, itemKey, 'buy')) {
       return this.singleMessage(player.id, '同一种物品已在挂售中，不能同时求购。');
     }
 
-    const totalCost = quantity * unitPrice;
+    const totalCost = calculateMarketTradeTotalCost(quantity, unitPrice);
+    if (totalCost === null) {
+      return this.singleMessage(player.id, this.buildTradeQuantityError(unitPrice));
+    }
     if (!this.consumeCurrencyFromInventory(player, totalCost)) {
       return this.singleMessage(player.id, `${this.getCurrencyItemName()}不足，无法挂出求购。`);
     }
@@ -386,21 +393,17 @@ export class MarketService implements OnModuleInit {
     const result = this.createEmptyResult(player.id);
     this.touchPrivateStatePlayer(result, player.id);
     this.touchItem(result, orderItem.itemId);
-    let remaining = quantity;
     const sellOrders = this.getSortedOrders(itemKey, 'sell')
       .filter((order) => order.ownerId !== player.id && order.unitPrice <= unitPrice);
+    const matchPlan = this.planOrderMatches(sellOrders, quantity, unitPrice);
+    let remaining = matchPlan.remainingQuantity;
 
-    for (const sellOrder of sellOrders) {
-      if (remaining <= 0) {
-        break;
-      }
-      const tradeQuantity = Math.min(remaining, sellOrder.remainingQuantity);
-      if (tradeQuantity <= 0) {
-        continue;
-      }
+    for (const match of matchPlan.matches) {
+      const sellOrder = match.order;
+      const tradeQuantity = match.quantity;
       const tradePrice = sellOrder.unitPrice;
       await this.deliverItemToPlayer(player.id, { ...orderItem, count: tradeQuantity }, context);
-      await this.deliverItemToPlayer(sellOrder.ownerId, this.createCurrencyItem(tradeQuantity * tradePrice), context);
+      await this.deliverItemToPlayer(sellOrder.ownerId, this.createCurrencyItem(match.totalCost), context);
       await this.recordTrade({
         buyerId: player.id,
         sellerId: sellOrder.ownerId,
@@ -411,16 +414,16 @@ export class MarketService implements OnModuleInit {
       this.touchPrivateStatePlayer(result, sellOrder.ownerId);
       this.touchTradeHistoryPlayer(result, player.id);
       this.touchTradeHistoryPlayer(result, sellOrder.ownerId);
-      const refund = tradeQuantity * Math.max(0, unitPrice - tradePrice);
+      const reservedCost = calculateMarketTradeTotalCost(tradeQuantity, unitPrice) ?? match.totalCost;
+      const refund = Math.max(0, reservedCost - match.totalCost);
       if (refund > 0) {
         await this.deliverItemToPlayer(player.id, this.createCurrencyItem(refund), context);
       }
-      remaining -= tradeQuantity;
       sellOrder.remainingQuantity -= tradeQuantity;
       sellOrder.updatedAt = Date.now();
       this.touchAffectedPlayer(result, sellOrder.ownerId);
-      this.pushMessage(result, player.id, `你买入了 ${orderItem.name} x${tradeQuantity}，成交价 ${tradePrice}。`, 'loot');
-      this.pushMessage(result, sellOrder.ownerId, `你的挂售已成交：${orderItem.name} x${tradeQuantity}，入账 ${this.getCurrencyItemName()} x${tradeQuantity * tradePrice}。`, 'loot');
+      this.pushMessage(result, player.id, `你买入了 ${orderItem.name} x${tradeQuantity}，成交价 ${this.formatUnitPrice(tradePrice)}。`, 'loot');
+      this.pushMessage(result, sellOrder.ownerId, `你的挂售已成交：${orderItem.name} x${tradeQuantity}，入账 ${this.getCurrencyItemName()} x${match.totalCost}。`, 'loot');
       await this.persistOrderState(sellOrder, sellOrder.remainingQuantity <= 0 ? 'filled' : 'open', context);
     }
 
@@ -441,7 +444,7 @@ export class MarketService implements OnModuleInit {
       });
       await context.orderRepo.save(order);
       this.openOrders.push(order);
-      this.pushMessage(result, player.id, `已挂出求购 ${orderItem.name} x${remaining}，单价 ${unitPrice} ${this.getCurrencyItemName()}。`);
+      this.pushMessage(result, player.id, `已挂出求购 ${orderItem.name} x${remaining}，单价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()}。`);
     }
 
     this.compactOpenOrders();
@@ -469,11 +472,11 @@ export class MarketService implements OnModuleInit {
     if (sells.length === 0) {
       return this.singleMessage(player.id, '当前没有可买入的挂售。');
     }
-    const available = sells.reduce((sum, order) => sum + order.remainingQuantity, 0);
-    if (available < quantity) {
-      return this.singleMessage(player.id, `当前最多只能买到 ${available} 件。`);
+    const plan = this.planOrderMatches(sells, quantity);
+    if (plan.fulfilledQuantity < quantity) {
+      return this.singleMessage(player.id, `当前最多只能买到 ${plan.fulfilledQuantity} 件。`);
     }
-    const totalCost = this.calculateImmediateTotalCost(sells, quantity);
+    const totalCost = plan.totalCost;
     if (!this.consumeCurrencyFromInventory(player, totalCost)) {
       return this.singleMessage(player.id, `${this.getCurrencyItemName()}不足，无法完成买入。`);
     }
@@ -482,34 +485,26 @@ export class MarketService implements OnModuleInit {
 
     const result = this.createEmptyResult(player.id);
     this.touchPrivateStatePlayer(result, player.id);
-    let remaining = quantity;
     const item = this.cloneOrderItem(sells[0]);
     this.touchItem(result, item.itemId);
 
-    for (const sellOrder of sells) {
-      if (remaining <= 0) {
-        break;
-      }
-      const tradeQuantity = Math.min(remaining, sellOrder.remainingQuantity);
-      if (tradeQuantity <= 0) {
-        continue;
-      }
-      const tradePrice = sellOrder.unitPrice;
+    for (const match of plan.matches) {
+      const sellOrder = match.order;
+      const tradeQuantity = match.quantity;
       await this.deliverItemToPlayer(player.id, { ...item, count: tradeQuantity }, context);
-      await this.deliverItemToPlayer(sellOrder.ownerId, this.createCurrencyItem(tradeQuantity * tradePrice), context);
+      await this.deliverItemToPlayer(sellOrder.ownerId, this.createCurrencyItem(match.totalCost), context);
       await this.recordTrade({
         buyerId: player.id,
         sellerId: sellOrder.ownerId,
         itemId: item.itemId,
         quantity: tradeQuantity,
-        unitPrice: tradePrice,
+        unitPrice: sellOrder.unitPrice,
       }, context);
       this.touchPrivateStatePlayer(result, sellOrder.ownerId);
       this.touchTradeHistoryPlayer(result, player.id);
       this.touchTradeHistoryPlayer(result, sellOrder.ownerId);
       sellOrder.remainingQuantity -= tradeQuantity;
       sellOrder.updatedAt = Date.now();
-      remaining -= tradeQuantity;
       this.touchAffectedPlayer(result, sellOrder.ownerId);
       this.pushMessage(result, sellOrder.ownerId, `你的挂售已成交：${item.name} x${tradeQuantity}。`, 'loot');
       await this.persistOrderState(sellOrder, sellOrder.remainingQuantity <= 0 ? 'filled' : 'open', context);
@@ -552,9 +547,9 @@ export class MarketService implements OnModuleInit {
     if (buys.length === 0) {
       return this.singleMessage(player.id, '当前没有可直接成交的求购。');
     }
-    const available = buys.reduce((sum, order) => sum + order.remainingQuantity, 0);
-    if (available < quantity) {
-      return this.singleMessage(player.id, `当前求购盘最多只能接下 ${available} 件。`);
+    const plan = this.planOrderMatches(buys, quantity);
+    if (plan.fulfilledQuantity < quantity) {
+      return this.singleMessage(player.id, `当前求购盘最多只能接下 ${plan.fulfilledQuantity} 件。`);
     }
 
     const removed = this.inventoryService.removeItem(player, payload.slotIndex, quantity);
@@ -566,35 +561,26 @@ export class MarketService implements OnModuleInit {
 
     const result = this.createEmptyResult(player.id);
     this.touchPrivateStatePlayer(result, player.id);
-    let remaining = quantity;
-    let totalIncome = 0;
+    const totalIncome = plan.totalCost;
     this.touchItem(result, orderItem.itemId);
 
-    for (const buyOrder of buys) {
-      if (remaining <= 0) {
-        break;
-      }
-      const tradeQuantity = Math.min(remaining, buyOrder.remainingQuantity);
-      if (tradeQuantity <= 0) {
-        continue;
-      }
-      const tradePrice = buyOrder.unitPrice;
+    for (const match of plan.matches) {
+      const buyOrder = match.order;
+      const tradeQuantity = match.quantity;
       await this.deliverItemToPlayer(buyOrder.ownerId, { ...orderItem, count: tradeQuantity }, context);
-      await this.deliverItemToPlayer(player.id, this.createCurrencyItem(tradeQuantity * tradePrice), context);
+      await this.deliverItemToPlayer(player.id, this.createCurrencyItem(match.totalCost), context);
       await this.recordTrade({
         buyerId: buyOrder.ownerId,
         sellerId: player.id,
         itemId: orderItem.itemId,
         quantity: tradeQuantity,
-        unitPrice: tradePrice,
+        unitPrice: buyOrder.unitPrice,
       }, context);
       this.touchPrivateStatePlayer(result, buyOrder.ownerId);
       this.touchTradeHistoryPlayer(result, buyOrder.ownerId);
       this.touchTradeHistoryPlayer(result, player.id);
       buyOrder.remainingQuantity -= tradeQuantity;
       buyOrder.updatedAt = Date.now();
-      remaining -= tradeQuantity;
-      totalIncome += tradeQuantity * tradePrice;
       this.touchAffectedPlayer(result, buyOrder.ownerId);
       this.pushMessage(result, buyOrder.ownerId, `你的求购已成交：${orderItem.name} x${tradeQuantity}。`, 'loot');
       await this.persistOrderState(buyOrder, buyOrder.remainingQuantity <= 0 ? 'filled' : 'open', context);
@@ -625,7 +611,10 @@ export class MarketService implements OnModuleInit {
     if (order.side === 'sell') {
       await this.deliverItemToPlayer(player.id, { ...this.cloneOrderItem(order), count: order.remainingQuantity }, context);
     } else {
-      await this.deliverItemToPlayer(player.id, this.createCurrencyItem(order.remainingQuantity * order.unitPrice), context);
+      const refund = calculateMarketTradeTotalCost(order.remainingQuantity, order.unitPrice);
+      if (refund) {
+        await this.deliverItemToPlayer(player.id, this.createCurrencyItem(refund), context);
+      }
     }
 
     const result = this.singleMessage(player.id, '订单已取消，剩余托管物已退回你的坊市托管仓。');
@@ -918,18 +907,78 @@ export class MarketService implements OnModuleInit {
       && this.canTradeItemOnMarket(this.cloneOrderItem(order)));
   }
 
-  private calculateImmediateTotalCost(orders: MarketOrderEntity[], quantity: number): number {
+  private planOrderMatches(
+    orders: MarketOrderEntity[],
+    quantity: number,
+    takerUnitPrice?: number,
+  ): {
+    matches: Array<{ order: MarketOrderEntity; quantity: number; totalCost: number }>;
+    fulfilledQuantity: number;
+    remainingQuantity: number;
+    totalCost: number;
+  } {
     let remaining = quantity;
     let total = 0;
+    const matches: Array<{ order: MarketOrderEntity; quantity: number; totalCost: number }> = [];
     for (const order of orders) {
       if (remaining <= 0) {
         break;
       }
-      const traded = Math.min(remaining, order.remainingQuantity);
-      total += traded * order.unitPrice;
+      const maxTradable = Math.min(remaining, order.remainingQuantity);
+      const traded = this.getCompatibleTradeQuantity(maxTradable, order.unitPrice, takerUnitPrice);
+      if (traded <= 0) {
+        continue;
+      }
+      const tradeTotal = calculateMarketTradeTotalCost(traded, order.unitPrice);
+      if (!tradeTotal) {
+        continue;
+      }
+      total += tradeTotal;
       remaining -= traded;
+      matches.push({
+        order,
+        quantity: traded,
+        totalCost: tradeTotal,
+      });
     }
-    return total;
+    return {
+      matches,
+      fulfilledQuantity: quantity - remaining,
+      remainingQuantity: remaining,
+      totalCost: total,
+    };
+  }
+
+  private getCompatibleTradeQuantity(maxQuantity: number, ...unitPrices: Array<number | undefined>): number {
+    if (maxQuantity <= 0) {
+      return 0;
+    }
+    let quantityStep = 1;
+    for (const unitPrice of unitPrices) {
+      if (!unitPrice || !isValidMarketPrice(unitPrice)) {
+        continue;
+      }
+      quantityStep = this.leastCommonMultiple(quantityStep, getMarketMinimumTradeQuantity(unitPrice));
+    }
+    return Math.floor(maxQuantity / quantityStep) * quantityStep;
+  }
+
+  private leastCommonMultiple(left: number, right: number): number {
+    if (left <= 0 || right <= 0) {
+      return 0;
+    }
+    return (left / this.greatestCommonDivisor(left, right)) * right;
+  }
+
+  private greatestCommonDivisor(left: number, right: number): number {
+    let currentLeft = Math.abs(Math.trunc(left));
+    let currentRight = Math.abs(Math.trunc(right));
+    while (currentRight !== 0) {
+      const next = currentLeft % currentRight;
+      currentLeft = currentRight;
+      currentRight = next;
+    }
+    return Math.max(1, currentLeft);
   }
 
   private buildItemKey(item: ItemStack): string {
@@ -981,7 +1030,7 @@ export class MarketService implements OnModuleInit {
   }
 
   private normalizeUnitPrice(value: number): number | null {
-    if (!Number.isFinite(value) || !Number.isInteger(value)) {
+    if (!Number.isFinite(value)) {
       return null;
     }
     const unitPrice = value;
@@ -995,10 +1044,10 @@ export class MarketService implements OnModuleInit {
   }
 
   private async ensureMarketUnitPriceCapacity(): Promise<void> {
-    const tableNames = [...new Set(MarketService.MARKET_BIGINT_COLUMN_TABLES.map((entry) => entry.table))];
-    const columnNames = [...new Set(MarketService.MARKET_BIGINT_COLUMN_TABLES.map((entry) => entry.column))];
+    const tableNames = [...new Set(MarketService.MARKET_PRICE_COLUMN_TABLES.map((entry) => entry.table))];
+    const columnNames = [...new Set(MarketService.MARKET_PRICE_COLUMN_TABLES.map((entry) => entry.column))];
     const rows = await this.marketOrderRepo.query(`
-      SELECT table_name, column_name, data_type
+      SELECT table_name, column_name, data_type, numeric_scale
       FROM information_schema.columns
       WHERE table_schema = current_schema()
         AND table_name = ANY($1::text[])
@@ -1006,8 +1055,8 @@ export class MarketService implements OnModuleInit {
     `, [tableNames, columnNames]);
 
     const columnsNeedingUpgrade = new Set<string>();
-    for (const row of rows as Array<{ table_name?: unknown; column_name?: unknown; data_type?: unknown }>) {
-      if (row.data_type === 'integer'
+    for (const row of rows as Array<{ table_name?: unknown; column_name?: unknown; data_type?: unknown; numeric_scale?: unknown }>) {
+      if ((row.data_type !== 'numeric' || Number(row.numeric_scale ?? 0) !== 1)
         && typeof row.table_name === 'string'
         && typeof row.column_name === 'string') {
         columnsNeedingUpgrade.add(`${row.table_name}.${row.column_name}`);
@@ -1018,22 +1067,37 @@ export class MarketService implements OnModuleInit {
       return;
     }
 
-    for (const entry of MarketService.MARKET_BIGINT_COLUMN_TABLES) {
+    for (const entry of MarketService.MARKET_PRICE_COLUMN_TABLES) {
       const key = `${entry.table}.${entry.column}`;
       if (!columnsNeedingUpgrade.has(key)) {
         continue;
       }
       await this.marketOrderRepo.query(`
         ALTER TABLE ${this.quotePgIdentifier(entry.table)}
-        ALTER COLUMN ${this.quotePgIdentifier(entry.column)} TYPE bigint
+        ALTER COLUMN ${this.quotePgIdentifier(entry.column)} TYPE numeric(20, 1)
+        USING COALESCE(${this.quotePgIdentifier(entry.column)}, 0)::numeric(20, 1)
       `);
     }
 
-    this.logger.warn(`已将市场表 unitPrice 字段升级为 bigint: ${[...columnsNeedingUpgrade].join(', ')}`);
+    this.logger.warn(`已将市场表 unitPrice 字段升级为 numeric(20,1): ${[...columnsNeedingUpgrade].join(', ')}`);
   }
 
   private quotePgIdentifier(value: string): string {
     return `"${value.replace(/"/g, '""')}"`;
+  }
+
+  private buildTradeQuantityError(unitPrice: number): string {
+    const minimumQuantity = getMarketMinimumTradeQuantity(unitPrice);
+    if (minimumQuantity <= 1) {
+      return '挂售数量或单价无效。';
+    }
+    return `当前单价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()} 时，数量必须是 ${minimumQuantity} 的倍数，才能按整灵石结算。`;
+  }
+
+  private formatUnitPrice(value: number): string {
+    return Number.isInteger(value)
+      ? String(value)
+      : value.toFixed(1).replace(/\.0$/, '');
   }
 
   private consumeCurrencyFromInventory(player: PlayerState, count: number): boolean {
@@ -1197,9 +1261,17 @@ export class MarketService implements OnModuleInit {
         for (const order of this.openOrders) {
           const orderItem = this.cloneOrderItem(order);
           const canonicalKey = this.getOrderItemKey(order);
-          if (!this.canTradeItemOnMarket(orderItem)) {
+          const validUnitPrice = this.normalizeUnitPrice(order.unitPrice);
+          if (!this.canTradeItemOnMarket(orderItem)
+            || !validUnitPrice
+            || !isValidMarketTradeQuantity(validUnitPrice, order.remainingQuantity)) {
             await this.refundInvalidOrder(order, context);
             continue;
+          }
+          if (order.unitPrice !== validUnitPrice) {
+            order.unitPrice = validUnitPrice;
+            order.updatedAt = Date.now();
+            await context.orderRepo.save(order);
           }
           if (order.itemKey !== canonicalKey) {
             order.itemKey = canonicalKey;
@@ -1217,15 +1289,18 @@ export class MarketService implements OnModuleInit {
 
   private async refundInvalidOrder(order: MarketOrderEntity, context: MarketMutationContext): Promise<void> {
     if (order.side === 'sell') {
-      await this.deliverItemToPlayer(order.ownerId, this.createCurrencyItem(order.remainingQuantity), context);
+      await this.deliverItemToPlayer(order.ownerId, { ...this.cloneOrderItem(order), count: order.remainingQuantity }, context);
     } else {
-      await this.deliverItemToPlayer(order.ownerId, this.createCurrencyItem(order.remainingQuantity * order.unitPrice), context);
+      const refund = calculateMarketTradeTotalCost(order.remainingQuantity, order.unitPrice);
+      if (refund) {
+        await this.deliverItemToPlayer(order.ownerId, this.createCurrencyItem(refund), context);
+      }
     }
     order.status = 'cancelled';
     order.remainingQuantity = 0;
     order.updatedAt = Date.now();
     await context.orderRepo.save(order);
-    this.logger.warn(`已自动取消非法坊市订单 ${order.id}，原因：坊市货币不可交易`);
+    this.logger.warn(`已自动取消非法坊市订单 ${order.id}，原因：价格或数量不再满足坊市结算规则`);
   }
 
   private compactOpenOrders(): void {
