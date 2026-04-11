@@ -76,7 +76,7 @@
     ],
     "aggroMode": "always",
     "statPercents": {
-      "maxHp": 10,
+      "maxHp": 430,
       "maxQi": 10,
       "physAtk": 10,
       "spellAtk": 10,

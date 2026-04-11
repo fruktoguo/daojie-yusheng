@@ -59,7 +59,7 @@
       "luck": 14
     },
     "statPercents": {
-      "maxHp": 85,
+      "maxHp": 120,
       "maxQi": 50,
       "physAtk": 98,
       "spellAtk": 40,
@@ -127,7 +127,7 @@
       "luck": 16
     },
     "statPercents": {
-      "maxHp": 65,
+      "maxHp": 130,
       "maxQi": 99,
       "physAtk": 75,
       "spellAtk": 92,
@@ -222,7 +222,7 @@
       "luck": 20
     },
     "statPercents": {
-      "maxHp": 84,
+      "maxHp": 140,
       "maxQi": 115,
       "physAtk": 74,
       "spellAtk": 111,
@@ -305,7 +305,7 @@
       "luck": 25
     },
     "statPercents": {
-      "maxHp": 126,
+      "maxHp": 160,
       "maxQi": 141,
       "physAtk": 104,
       "spellAtk": 133,
