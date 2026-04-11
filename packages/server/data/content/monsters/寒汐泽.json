@@ -412,7 +412,7 @@
     "count": 8,
     "maxAlive": 8,
     "radius": 8,
-    "aggroRange": 11,
+    "aggroRange": 9,
     "viewRange": 12,
     "respawnSec": 24,
     "attrs": {
@@ -513,7 +513,7 @@
     "count": 4,
     "maxAlive": 4,
     "radius": 5,
-    "aggroRange": 12,
+    "aggroRange": 10,
     "viewRange": 12,
     "respawnSec": 28,
     "attrs": {

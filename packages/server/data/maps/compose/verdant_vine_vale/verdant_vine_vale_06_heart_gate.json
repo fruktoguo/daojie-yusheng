@@ -112,7 +112,11 @@
       "id": "spawn_verdant_06_sprite_a",
       "templateId": "m_verdant_marrow_sprite",
       "x": 24,
-      "y": 13
+      "y": 13,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
     },
     {
       "id": "spawn_verdant_06_mother",
@@ -123,8 +127,12 @@
     {
       "id": "spawn_verdant_06_sprite_b",
       "templateId": "m_verdant_marrow_sprite",
-      "x": 19,
-      "y": 12
+      "x": 12,
+      "y": 13,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
     }
   ],
   "terrainRealmLv": 29

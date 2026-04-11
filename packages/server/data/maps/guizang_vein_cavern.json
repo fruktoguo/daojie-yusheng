@@ -323,12 +323,60 @@
     {
       "id": "m_guizang_dualphase_beast",
       "x": 21,
-      "y": 40
+      "y": 40,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
+    },
+    {
+      "id": "spawn_guizang_dualphase_beast_b",
+      "templateId": "m_guizang_dualphase_beast",
+      "x": 25,
+      "y": 30,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
+    },
+    {
+      "id": "spawn_guizang_dualphase_beast_c",
+      "templateId": "m_guizang_dualphase_beast",
+      "x": 31,
+      "y": 22,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
     },
     {
       "id": "m_guizang_ruined_relic",
       "x": 15,
-      "y": 48
+      "y": 48,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
+    },
+    {
+      "id": "spawn_guizang_ruined_relic_b",
+      "templateId": "m_guizang_ruined_relic",
+      "x": 12,
+      "y": 45,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
+    },
+    {
+      "id": "spawn_guizang_ruined_relic_c",
+      "templateId": "m_guizang_ruined_relic",
+      "x": 34,
+      "y": 24,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
     },
     {
       "id": "m_guizang_failed_foundation",

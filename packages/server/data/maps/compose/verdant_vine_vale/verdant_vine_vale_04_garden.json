@@ -136,7 +136,11 @@
       "id": "spawn_verdant_04_guard_a",
       "templateId": "m_verdant_wither_guard",
       "x": 8,
-      "y": 7
+      "y": 7,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
     }
   ],
   "terrainRealmLv": 25

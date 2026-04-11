@@ -277,12 +277,60 @@
     {
       "id": "m_cold_moonscale",
       "x": 24,
-      "y": 31
+      "y": 31,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
+    },
+    {
+      "id": "spawn_cold_moonscale_b",
+      "templateId": "m_cold_moonscale",
+      "x": 18,
+      "y": 23,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
+    },
+    {
+      "id": "spawn_cold_moonscale_c",
+      "templateId": "m_cold_moonscale",
+      "x": 37,
+      "y": 30,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
     },
     {
       "id": "m_cold_bridge_patrol",
       "x": 34,
-      "y": 41
+      "y": 41,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
+    },
+    {
+      "id": "spawn_cold_bridge_patrol_b",
+      "templateId": "m_cold_bridge_patrol",
+      "x": 48,
+      "y": 24,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
+    },
+    {
+      "id": "spawn_cold_bridge_patrol_c",
+      "templateId": "m_cold_bridge_patrol",
+      "x": 34,
+      "y": 54,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
     },
     {
       "id": "m_cold_abyss_drake",

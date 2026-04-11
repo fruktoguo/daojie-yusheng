@@ -451,12 +451,60 @@
     {
       "id": "m_cleft_stele_puppet",
       "x": 80,
-      "y": 10
+      "y": 10,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
+    },
+    {
+      "id": "spawn_cleft_stele_puppet_b",
+      "templateId": "m_cleft_stele_puppet",
+      "x": 66,
+      "y": 10,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
+    },
+    {
+      "id": "spawn_cleft_stele_puppet_c",
+      "templateId": "m_cleft_stele_puppet",
+      "x": 51,
+      "y": 8,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
     },
     {
       "id": "m_cleft_iron_guard",
       "x": 14,
-      "y": 9
+      "y": 9,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
+    },
+    {
+      "id": "spawn_cleft_iron_guard_b",
+      "templateId": "m_cleft_iron_guard",
+      "x": 36,
+      "y": 9,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
+    },
+    {
+      "id": "spawn_cleft_iron_guard_c",
+      "templateId": "m_cleft_iron_guard",
+      "x": 44,
+      "y": 14,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
     },
     {
       "id": "m_cleft_gate_lord",

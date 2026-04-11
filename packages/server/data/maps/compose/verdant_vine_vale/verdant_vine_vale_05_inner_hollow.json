@@ -112,19 +112,31 @@
       "id": "spawn_verdant_05_guard_a",
       "templateId": "m_verdant_wither_guard",
       "x": 26,
-      "y": 9
+      "y": 9,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
     },
     {
       "id": "spawn_verdant_05_sprite_a",
       "templateId": "m_verdant_marrow_sprite",
       "x": 14,
-      "y": 9
+      "y": 9,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
     },
     {
       "id": "spawn_verdant_05_guard_b",
       "templateId": "m_verdant_wither_guard",
       "x": 8,
-      "y": 15
+      "y": 15,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
     }
   ],
   "terrainRealmLv": 27

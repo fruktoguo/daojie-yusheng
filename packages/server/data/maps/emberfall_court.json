@@ -272,12 +272,60 @@
     {
       "id": "m_ember_bone_patrol",
       "x": 14,
-      "y": 24
+      "y": 24,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
+    },
+    {
+      "id": "spawn_ember_bone_patrol_b",
+      "templateId": "m_ember_bone_patrol",
+      "x": 24,
+      "y": 18,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
+    },
+    {
+      "id": "spawn_ember_bone_patrol_c",
+      "templateId": "m_ember_bone_patrol",
+      "x": 28,
+      "y": 22,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
     },
     {
       "id": "m_ember_flame_guard",
       "x": 19,
-      "y": 42
+      "y": 42,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
+    },
+    {
+      "id": "spawn_ember_flame_guard_b",
+      "templateId": "m_ember_flame_guard",
+      "x": 35,
+      "y": 39,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
+    },
+    {
+      "id": "spawn_ember_flame_guard_c",
+      "templateId": "m_ember_flame_guard",
+      "x": 29,
+      "y": 42,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
     },
     {
       "id": "m_ember_furnace_lord",

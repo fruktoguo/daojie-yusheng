@@ -276,12 +276,60 @@
     {
       "id": "m_deepvein_stele_bearer",
       "x": 30,
-      "y": 18
+      "y": 18,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
+    },
+    {
+      "id": "spawn_deepvein_stele_bearer_b",
+      "templateId": "m_deepvein_stele_bearer",
+      "x": 36,
+      "y": 25,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
+    },
+    {
+      "id": "spawn_deepvein_stele_bearer_c",
+      "templateId": "m_deepvein_stele_bearer",
+      "x": 21,
+      "y": 20,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
     },
     {
       "id": "m_deepvein_heavy_guard",
       "x": 23,
-      "y": 24
+      "y": 24,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
+    },
+    {
+      "id": "spawn_deepvein_heavy_guard_b",
+      "templateId": "m_deepvein_heavy_guard",
+      "x": 18,
+      "y": 29,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
+    },
+    {
+      "id": "spawn_deepvein_heavy_guard_c",
+      "templateId": "m_deepvein_heavy_guard",
+      "x": 13,
+      "y": 16,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
     },
     {
       "id": "m_deepvein_earth_effigy",
