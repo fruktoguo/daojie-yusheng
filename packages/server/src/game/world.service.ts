@@ -434,6 +434,9 @@ interface ResolvedHit {
   qiCost: number;
 }
 
+const DEFENSE_REDUCTION_ATTACK_RATIO = 0.25;
+const DEFENSE_REDUCTION_BASELINE = 100;
+
 interface MonsterExpParticipant {
   player: PlayerState;
   contribution: number;
@@ -5032,7 +5035,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       defense *= 2;
     }
     let rawDamage = damage;
-    let reduction = this.getDefenseReductionRate(defense, damage);
+    const defenseAttackBasis = damageKind === 'physical' ? attacker.stats.physAtk : attacker.stats.spellAtk;
+    let reduction = this.getDefenseReductionRate(defense, defenseAttackBasis);
     if (element) {
       const elementReduce = Math.max(0, ratioValue(defender.stats.elementDamageReduce[element], defender.ratios.elementDamageReduce[element]));
       reduction = 1 - (1 - reduction) * (1 - elementReduce);
@@ -5072,12 +5076,14 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return Math.max(0, ratioValue(normalizedValue, Math.max(1, Math.max(0, opposingValue) + DEFAULT_RATIO_DIVISOR)));
   }
 
-  private getDefenseReductionRate(defense: number, damage: number): number {
+  private getDefenseReductionRate(defense: number, attackBasis: number): number {
     const normalizedDefense = Math.max(0, defense);
     if (normalizedDefense <= 0) {
       return 0;
     }
-    return Math.max(0, ratioValue(normalizedDefense, Math.max(1, damage / 4)));
+    const normalizedAttackBasis = Math.max(0, attackBasis);
+    const reductionBasis = Math.max(1, normalizedAttackBasis * DEFENSE_REDUCTION_ATTACK_RATIO + DEFENSE_REDUCTION_BASELINE);
+    return Math.max(0, ratioValue(normalizedDefense, reductionBasis));
   }
 
   private resolveElementalDotDamage(
