@@ -54,6 +54,7 @@ import {
   TECHNIQUE_GRADE_ORDER,
   createMonsterAutoStatPercents,
   ConsumableBuffDef,
+  DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS,
   inferMonsterAttrsFromNumericStats,
   inferMonsterValueStatsFromLegacy,
   normalizeMonsterAttrs,
@@ -120,6 +121,7 @@ export interface EditorItemCatalogEntry {
   healAmount?: number;
   healPercent?: number;
   qiPercent?: number;
+  cooldown?: number;
   consumeBuffs?: ConsumableBuffDef[];
   alchemySuccessRate?: number;
   alchemySpeedRate?: number;
@@ -462,25 +464,55 @@ function isCultivationPill(item: ItemTemplate): boolean {
   });
 }
 
+function isHealthRestoreMedicine(item: ItemTemplate): boolean {
+  return isMedicineItem(item)
+    && (item.healAmount ?? 0) + (item.healPercent ?? 0) > 0
+    && (item.qiPercent ?? 0) <= 0
+    && (item.consumeBuffs?.length ?? 0) === 0;
+}
+
+function isQiRestoreMedicine(item: ItemTemplate): boolean {
+  return isMedicineItem(item)
+    && (item.qiPercent ?? 0) > 0
+    && (item.healAmount ?? 0) + (item.healPercent ?? 0) <= 0
+    && (item.consumeBuffs?.length ?? 0) === 0;
+}
+
+function isBuffMedicine(item: ItemTemplate): boolean {
+  return isMedicineItem(item)
+    && (item.consumeBuffs?.length ?? 0) > 0
+    && (item.healAmount ?? 0) + (item.healPercent ?? 0) <= 0
+    && (item.qiPercent ?? 0) <= 0
+    && !isCultivationPill(item);
+}
+
+function isSpecialMedicine(item: ItemTemplate): boolean {
+  return isMedicineItem(item)
+    && !isHealthRestoreMedicine(item)
+    && !isQiRestoreMedicine(item)
+    && !isBuffMedicine(item);
+}
+
 const ITEM_NAME_TAG_RULES: Array<{ tag: string; test: (item: ItemTemplate) => boolean }> = [
   {
     tag: '药品',
     test: (item) => isMedicineItem(item),
   },
   {
-    tag: '恢复',
-    test: (item) => (
-      typeof item.healAmount === 'number'
-      || typeof item.healPercent === 'number'
-      || typeof item.qiPercent === 'number'
-    ),
+    tag: '生命回复',
+    test: (item) => isHealthRestoreMedicine(item),
   },
-  { tag: '增益', test: (item) => item.type === 'consumable' && (item.consumeBuffs?.length ?? 0) > 0 },
+  {
+    tag: '灵力回复',
+    test: (item) => isQiRestoreMedicine(item),
+  },
+  { tag: '增益', test: (item) => isBuffMedicine(item) },
+  { tag: '特殊', test: (item) => isSpecialMedicine(item) },
   { tag: '丹药', test: (item) => /丹/.test(item.name) },
   { tag: '药散', test: (item) => /散/.test(item.name) },
   { tag: '药膏', test: (item) => /膏/.test(item.name) },
   { tag: '修为丹药', test: (item) => isCultivationPill(item) },
-  { tag: '战斗丹药', test: (item) => isMedicineItem(item) && !isCultivationPill(item) },
+  { tag: '战斗丹药', test: (item) => isHealthRestoreMedicine(item) || isQiRestoreMedicine(item) },
   { tag: '地图', test: (item) => typeof item.mapUnlockId === 'string' || item.itemId.startsWith('map.') },
   { tag: '功能物品', test: (item) => typeof item.mapUnlockId === 'string' },
   { tag: '灵石', test: (item) => item.itemId === 'spirit_stone' || item.name.includes('灵石') },
@@ -726,6 +758,7 @@ export class ContentService implements OnModuleInit {
       healAmount: item.healAmount,
       healPercent: item.healPercent,
       qiPercent: item.qiPercent,
+      cooldown: item.cooldown,
       consumeBuffs: item.consumeBuffs,
       tags: item.tags,
       alchemySuccessRate: item.alchemySuccessRate,
@@ -1255,6 +1288,9 @@ export class ContentService implements OnModuleInit {
         qiPercent: Number.isFinite(raw.qiPercent)
           ? Math.max(0.01, Math.min(1, Number(raw.qiPercent)))
           : undefined,
+        cooldown: Number.isFinite(raw.cooldown)
+          ? Math.max(0, Math.floor(Number(raw.cooldown)))
+          : undefined,
         consumeBuffs: this.normalizeConsumableBuffs(raw.consumeBuffs),
         alchemySuccessRate: Number.isFinite(raw.alchemySuccessRate)
           ? Math.max(-0.95, Number(raw.alchemySuccessRate))
@@ -1274,13 +1310,17 @@ export class ContentService implements OnModuleInit {
           : undefined,
         allowBatchUse: raw.allowBatchUse === true,
       };
+      if ((item.cooldown ?? 0) <= 0 && ((item.healAmount ?? 0) > 0 || (item.healPercent ?? 0) > 0 || (item.qiPercent ?? 0) > 0)) {
+        item.cooldown = DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS;
+      }
       item.tags = this.buildItemTags(item, normalizeStringArray(raw.tags));
       this.items.set(item.itemId, item);
     }
   }
 
   private buildItemTags(item: ItemTemplate, explicitTags?: string[]): string[] {
-    const tags = new Set<string>(explicitTags ?? []);
+    const derivedTags = new Set(['药品', '恢复', '生命回复', '灵力回复', '增益', '特殊', '修为丹药', '战斗丹药']);
+    const tags = new Set<string>((explicitTags ?? []).filter((tag) => !derivedTags.has(tag)));
     for (const tag of ITEM_TAG_OVERRIDES[item.itemId] ?? []) {
       tags.add(tag);
     }
@@ -1398,6 +1438,7 @@ export class ContentService implements OnModuleInit {
         healAmount: item.healAmount,
         healPercent: item.healPercent,
         qiPercent: item.qiPercent,
+        cooldown: item.cooldown,
         consumeBuffs: item.consumeBuffs ? JSON.parse(JSON.stringify(item.consumeBuffs)) as ConsumableBuffDef[] : undefined,
         alchemySuccessRate: item.alchemySuccessRate,
         alchemySpeedRate: item.alchemySpeedRate,

@@ -49,11 +49,17 @@ function renderPlainLine(label: string, value: string): string {
 
 function resolveMedicineCategoryLabel(item: ItemStack): string | null {
   const tags = item.tags ?? [];
-  if (tags.includes('修为丹药')) {
-    return '修为丹药';
+  if (tags.includes('生命回复')) {
+    return '生命回复';
   }
-  if (tags.includes('战斗丹药')) {
-    return '战斗丹药';
+  if (tags.includes('灵力回复')) {
+    return '灵力回复';
+  }
+  if (tags.includes('增益')) {
+    return '增益';
+  }
+  if (tags.includes('特殊')) {
+    return '特殊';
   }
   return null;
 }
@@ -222,13 +228,26 @@ export interface ItemTooltipPayload {
   allowHtml: boolean;
 }
 
+export interface ItemTooltipCooldownState {
+  cooldown: number;
+  cooldownLeft: number;
+}
+
 export interface ItemTooltipContext {
   learnedTechniqueIds?: ReadonlySet<string>;
   unlockedMinimapIds?: ReadonlySet<string>;
   equippedItem?: ItemStack | null;
+  itemCooldown?: ItemTooltipCooldownState | null;
 }
 
 function resolveItemStatusLabel(item: ItemStack, context?: ItemTooltipContext): string | null {
+  const itemCooldown = context?.itemCooldown;
+  const activeCooldown: ItemTooltipCooldownState | null = itemCooldown !== null && itemCooldown !== undefined && itemCooldown.cooldownLeft > 0
+    ? itemCooldown
+    : null;
+  if (activeCooldown) {
+    return `冷却 ${formatDisplayInteger(activeCooldown.cooldownLeft)} 息`;
+  }
   if (item.type === 'skill_book') {
     const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
     if (techniqueId && context?.learnedTechniqueIds?.has(techniqueId)) {
@@ -286,13 +305,22 @@ function buildPlainEffectSummary(effect: EquipmentEffectDef): string[] {
   }
 }
 
-function buildConsumableEffectDetails(item: ItemStack): string[] {
+function buildConsumableEffectDetails(item: ItemStack, itemCooldown?: ItemTooltipCooldownState | null): string[] {
   const previewItem = resolvePreviewItem(item);
   if (previewItem.type !== 'consumable') {
     return [];
   }
 
   const lines: string[] = [];
+  const activeCooldown: ItemTooltipCooldownState | null = itemCooldown !== null && itemCooldown !== undefined && itemCooldown.cooldownLeft > 0
+    ? itemCooldown
+    : null;
+  if (activeCooldown) {
+    lines.push(`当前冷却：${formatDisplayInteger(activeCooldown.cooldownLeft)} / ${formatDisplayInteger(activeCooldown.cooldown)} 息`);
+  }
+  if (typeof previewItem.cooldown === 'number' && previewItem.cooldown > 0) {
+    lines.push(`使用冷却：${formatDisplayInteger(previewItem.cooldown)} 息`);
+  }
   const instantParts: string[] = [];
   if (typeof previewItem.healAmount === 'number' && previewItem.healAmount > 0) {
     instantParts.push(`恢复 ${formatDisplayInteger(previewItem.healAmount)} 点气血`);
@@ -409,7 +437,9 @@ export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipCo
   const statusLabel = resolveItemStatusLabel(previewItem, context);
   const medicineCategoryLabel = resolveMedicineCategoryLabel(previewItem);
   if (previewItem.type !== 'equipment') {
-    const effectLines = describeItemEffectDetails(previewItem);
+    const effectLines = previewItem.effects?.length
+      ? previewItem.effects.flatMap((effect) => buildPlainEffectSummary(effect))
+      : buildConsumableEffectDetails(previewItem, context?.itemCooldown);
     const techniqueBookLines = previewItem.type === 'skill_book'
       ? buildTechniqueBookTooltipLines(previewItem)
       : [];

@@ -982,12 +982,13 @@ export interface SyncedInventorySnapshot {
   items: SyncedItemStack[];
   capacity: number;
   cooldowns?: SyncedInventoryCooldownState[];
+  serverTick?: number;
 }
 
 export interface SyncedInventoryCooldownState {
   itemId: string;
   cooldown: number;
-  cooldownLeft: number;
+  startedAtTick: number;
 }
 
 /** 背包更新 */
@@ -1002,6 +1003,7 @@ export interface S2C_InventoryUpdate {
   size?: number;
   slots?: InventorySlotUpdateEntry[];
   cooldowns?: SyncedInventoryCooldownState[];
+  serverTick?: number;
 }
 
 /** 装备更新 */

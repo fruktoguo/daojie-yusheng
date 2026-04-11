@@ -39,9 +39,7 @@
     "name": "小还灵丹",
     "type": "consumable",
     "level": 4,
-    "tags": ["战斗丹药"],
-    "desc": "药力柔和，立刻恢复 30% 气血与 22% 真气。",
-    "healPercent": 0.3,
+    "desc": "药力柔和，立刻恢复 22% 真气。",
     "qiPercent": 0.22
   },
   {
@@ -49,9 +47,7 @@
     "name": "大还灵丹",
     "type": "consumable",
     "level": 8,
-    "tags": ["战斗丹药"],
-    "desc": "药力更浑厚，立刻恢复 38% 气血与 32% 真气。",
-    "healPercent": 0.38,
+    "desc": "药力更浑厚，立刻恢复 32% 真气。",
     "qiPercent": 0.32
   },
   {
@@ -59,9 +55,7 @@
     "name": "纯阳丹",
     "type": "consumable",
     "level": 16,
-    "tags": ["战斗丹药"],
-    "desc": "烈阳药引直入气海，立刻恢复 34% 气血与 72% 真气。",
-    "healPercent": 0.34,
+    "desc": "烈阳药引直入气海，立刻恢复 72% 真气。",
     "qiPercent": 0.72
   },
   {
@@ -69,10 +63,8 @@
     "name": "寒心膏",
     "type": "consumable",
     "level": 10,
-    "tags": ["战斗丹药"],
-    "desc": "寒性药膏可稳住伤处，立刻恢复 42% 气血与 34% 真气。",
-    "healPercent": 0.42,
-    "qiPercent": 0.34
+    "desc": "寒性药膏可稳住伤处，立刻恢复 42% 气血。",
+    "healPercent": 0.42
   },
   {
     "itemId": "pill.crimson_bud_elixir",
@@ -166,20 +158,17 @@
     "name": "苦修丹",
     "type": "consumable",
     "level": 18,
-    "tags": ["修为丹药"],
-    "desc": "强行催运行功，3000 息内境界修为 +25%、功法经验 +25%，但生命回复 -420%、灵力回复 -420%、移动速度 -12%。",
+    "desc": "强行催运行功，3000 息内境界修为 +25%、功法经验 +25%，但移动速度 -12%。",
     "consumeBuffs": [
       {
         "buffId": "item_buff.bitter_cultivation",
         "name": "苦修",
-        "desc": "境界修为与功法经验获取效率提高，但经脉始终带着涩滞感；3000 息内生命回复 -420%、灵力回复 -420%、移动速度 -12%。",
+        "desc": "境界修为与功法经验获取效率提高，但经脉始终带着涩滞感；3000 息内移动速度 -12%。",
         "shortMark": "苦",
         "duration": 3000,
         "stats": {
           "playerExpRate": 25,
           "techniqueExpRate": 25,
-          "hpRegenRate": -420,
-          "qiRegenRate": -420,
           "moveSpeed": -12
         },
         "statMode": "percent"
@@ -277,7 +266,6 @@
     "name": "碎灵丹",
     "type": "consumable",
     "level": 29,
-    "tags": ["修为丹药"],
     "desc": "药力专碎命宫旧痕。使用后会立刻重置天门，清掉当前已开出的灵根结果，并额外增加 1 次逆天改命累计；同时消耗当前境界修为的 25%。至少需在叩仙门境界使用。"
   },
   {
@@ -286,7 +274,6 @@
     "type": "consumable",
     "level": 30,
     "grade": "heaven",
-    "tags": ["修为丹药"],
     "desc": "丹成如返照回光，服下后会散尽旧日修为，重归凡胎。使用后境界回到凡胎，境界修为与底蕴归零。"
   }
 ]

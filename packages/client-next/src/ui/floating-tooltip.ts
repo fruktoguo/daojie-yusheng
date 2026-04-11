@@ -67,6 +67,13 @@ export class FloatingTooltip {
     this.render(title, lines, clientX, clientY, options);
   }
 
+  updateContent(title: string, lines: string[], options?: FloatingTooltipShowOptions): void {
+    if (!this.el.classList.contains('visible')) {
+      return;
+    }
+    this.render(title, lines, this.lastPoint.x, this.lastPoint.y, options);
+  }
+
   isPinned(): boolean {
     return this.pinned;
   }

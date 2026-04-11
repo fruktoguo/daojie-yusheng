@@ -10,6 +10,9 @@ export const DEFAULT_INVENTORY_CAPACITY = 200;
 /** 地面物品保留时间，单位为息。 */
 export const GROUND_ITEM_EXPIRE_TICKS = 7200;
 
+/** 瞬回类药品默认共享冷却，单位为息。 */
+export const DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS = 5;
+
 /** 物品类型集合。 */
 export const ITEM_TYPES: ItemType[] = ['consumable', 'equipment', 'material', 'quest_item', 'skill_book'];
 

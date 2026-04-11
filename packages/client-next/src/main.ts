@@ -55,6 +55,7 @@ import {
 } from './content/local-templates';
 import { scheduleDeferredLocalContentPreload } from './content/deferred-local-content';
 import { assessMapDanger } from './utils/map-danger';
+import { syncEstimatedServerTick, syncEstimatedServerTickInterval } from './runtime/server-tick';
 
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './ui/floating-tooltip';
 import { detailModalHost } from './ui/detail-modal-host';
@@ -420,6 +421,7 @@ function syncCurrentTimeTickInterval(dtMs: number | null | undefined): void {
     return;
   }
   currentTimeTickIntervalMs = dtMs;
+  syncEstimatedServerTickInterval(dtMs);
 }
 
 function renderPingLatency(latencyMs: number | null, status = '毫秒') {
@@ -1432,6 +1434,7 @@ function hydrateSyncedItemStack(item: SyncedItemStack, previous?: Inventory['ite
         : template?.tags
           ? [...template.tags]
           : undefined,
+    cooldown: item.cooldown ?? previousSameItem?.cooldown ?? template?.cooldown,
     alchemySuccessRate: item.alchemySuccessRate ?? previousSameItem?.alchemySuccessRate ?? template?.alchemySuccessRate,
     alchemySpeedRate: item.alchemySpeedRate ?? previousSameItem?.alchemySpeedRate ?? template?.alchemySpeedRate,
     mapUnlockId: item.mapUnlockId ?? previousSameItem?.mapUnlockId,
@@ -1445,6 +1448,10 @@ function mergeInventoryUpdate(previous: Inventory | undefined, patch: S2C_Invent
     return {
       capacity: patch.inventory.capacity,
       items: patch.inventory.items.map((item) => hydrateSyncedItemStack(item)),
+      cooldowns: patch.inventory.cooldowns
+        ? cloneJson(patch.inventory.cooldowns)
+        : undefined,
+      serverTick: patch.inventory.serverTick,
     };
   }
 
@@ -1456,6 +1463,12 @@ function mergeInventoryUpdate(previous: Inventory | undefined, patch: S2C_Invent
   }
   if (patch.size !== undefined) {
     next.items.length = Math.max(0, patch.size);
+  }
+  if (patch.cooldowns !== undefined) {
+    next.cooldowns = cloneJson(patch.cooldowns);
+  }
+  if (patch.serverTick !== undefined) {
+    next.serverTick = patch.serverTick;
   }
   for (const slotPatch of patch.slots ?? []) {
     if (slotPatch.item) {
@@ -2620,6 +2633,9 @@ function handleAttrUpdate(data: S2C_AttrUpdate): void {
 
 function handleInventoryUpdate(data: S2C_InventoryUpdate): void {
   const mergedInventory = mergeInventoryUpdate(myPlayer?.inventory, data);
+  if (mergedInventory.serverTick !== undefined) {
+    syncEstimatedServerTick(mergedInventory.serverTick);
+  }
   if (myPlayer) {
     myPlayer.inventory = mergedInventory;
   }
@@ -3580,6 +3596,7 @@ function resetGameState() {
   pendingNextSelfDelta = null;
   pendingNextPanelDelta = null;
   currentTimeTickIntervalMs = 1000;
+  syncEstimatedServerTick(null);
   syncCurrentTimeState(null);
   latestAttrUpdate = null;
   clearCurrentPath();

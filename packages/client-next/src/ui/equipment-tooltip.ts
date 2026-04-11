@@ -13,7 +13,7 @@ import {
   getItemTypeLabel,
 } from '../domain-labels';
 import { renderItemSourceListHtml } from '../content/item-sources';
-import { getLocalItemTemplate, resolvePreviewItem, resolveTechniqueIdFromBookItemId } from '../content/local-templates';
+import { resolvePreviewItem, resolveTechniqueIdFromBookItemId } from '../content/local-templates';
 import { SkillTooltipAsideCard, SkillTooltipContent } from './skill-tooltip';
 import { describePreviewBonuses } from './stat-preview';
 import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../utils/number';
@@ -33,6 +33,23 @@ function renderLabelLine(label: string, value: string): string {
 
 function renderPlainLine(label: string, value: string): string {
   return renderLabelLine(label, escapeHtml(value));
+}
+
+function resolveMedicineCategoryLabel(item: ItemStack): string | null {
+  const tags = item.tags ?? [];
+  if (tags.includes('生命回复')) {
+    return '生命回复';
+  }
+  if (tags.includes('灵力回复')) {
+    return '灵力回复';
+  }
+  if (tags.includes('增益')) {
+    return '增益';
+  }
+  if (tags.includes('特殊')) {
+    return '特殊';
+  }
+  return null;
 }
 
 function normalizeBuffMark(name: string, shortMark?: string): string {
@@ -182,13 +199,26 @@ export interface ItemTooltipPayload {
   allowHtml: boolean;
 }
 
+export interface ItemTooltipCooldownState {
+  cooldown: number;
+  cooldownLeft: number;
+}
+
 export interface ItemTooltipContext {
   learnedTechniqueIds?: ReadonlySet<string>;
   unlockedMinimapIds?: ReadonlySet<string>;
   equippedItem?: ItemStack | null;
+  itemCooldown?: ItemTooltipCooldownState | null;
 }
 
 function resolveItemStatusLabel(item: ItemStack, context?: ItemTooltipContext): string | null {
+  const itemCooldown = context?.itemCooldown;
+  const activeCooldown: ItemTooltipCooldownState | null = itemCooldown !== null && itemCooldown !== undefined && itemCooldown.cooldownLeft > 0
+    ? itemCooldown
+    : null;
+  if (activeCooldown) {
+    return `冷却 ${formatDisplayInteger(activeCooldown.cooldownLeft)} 息`;
+  }
   if (item.type === 'skill_book') {
     const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
     if (techniqueId && context?.learnedTechniqueIds?.has(techniqueId)) {
@@ -246,31 +276,37 @@ function buildPlainEffectSummary(effect: EquipmentEffectDef): string[] {
   }
 }
 
-function buildConsumableEffectDetails(item: ItemStack): string[] {
-  if (item.type !== 'consumable') {
-    return [];
-  }
-  const template = getLocalItemTemplate(item.itemId);
-  if (!template) {
+function buildConsumableEffectDetails(item: ItemStack, itemCooldown?: ItemTooltipCooldownState | null): string[] {
+  const previewItem = resolvePreviewItem(item);
+  if (previewItem.type !== 'consumable') {
     return [];
   }
 
   const lines: string[] = [];
+  const activeCooldown: ItemTooltipCooldownState | null = itemCooldown !== null && itemCooldown !== undefined && itemCooldown.cooldownLeft > 0
+    ? itemCooldown
+    : null;
+  if (activeCooldown) {
+    lines.push(`当前冷却：${formatDisplayInteger(activeCooldown.cooldownLeft)} / ${formatDisplayInteger(activeCooldown.cooldown)} 息`);
+  }
+  if (typeof previewItem.cooldown === 'number' && previewItem.cooldown > 0) {
+    lines.push(`使用冷却：${formatDisplayInteger(previewItem.cooldown)} 息`);
+  }
   const instantParts: string[] = [];
-  if (typeof template.healAmount === 'number' && template.healAmount > 0) {
-    instantParts.push(`恢复 ${formatDisplayInteger(template.healAmount)} 点气血`);
+  if (typeof previewItem.healAmount === 'number' && previewItem.healAmount > 0) {
+    instantParts.push(`恢复 ${formatDisplayInteger(previewItem.healAmount)} 点气血`);
   }
-  if (typeof template.healPercent === 'number' && template.healPercent > 0) {
-    instantParts.push(`恢复 ${formatDisplayPercent(template.healPercent * 100)} 气血`);
+  if (typeof previewItem.healPercent === 'number' && previewItem.healPercent > 0) {
+    instantParts.push(`恢复 ${formatDisplayPercent(previewItem.healPercent * 100)} 气血`);
   }
-  if (typeof template.qiPercent === 'number' && template.qiPercent > 0) {
-    instantParts.push(`恢复 ${formatDisplayPercent(template.qiPercent * 100)} 真气`);
+  if (typeof previewItem.qiPercent === 'number' && previewItem.qiPercent > 0) {
+    instantParts.push(`恢复 ${formatDisplayPercent(previewItem.qiPercent * 100)} 真气`);
   }
   if (instantParts.length > 0) {
     lines.push(`立即效果：${instantParts.join('，')}`);
   }
 
-  for (const buff of template.consumeBuffs ?? []) {
+  for (const buff of previewItem.consumeBuffs ?? []) {
     const metaParts = [`持续 ${formatDisplayInteger(buff.duration)} 息`];
     if (typeof buff.maxStacks === 'number' && buff.maxStacks > 1) {
       metaParts.push(`最多 ${formatDisplayInteger(buff.maxStacks)} 层`);
@@ -285,10 +321,10 @@ function buildConsumableEffectDetails(item: ItemStack): string[] {
     }
   }
 
-  if (typeof template.tileAuraGainAmount === 'number' && template.tileAuraGainAmount > 0) {
-    lines.push(`立即效果：当前地块灵力 +${formatDisplayInteger(template.tileAuraGainAmount)}`);
+  if (typeof previewItem.tileAuraGainAmount === 'number' && previewItem.tileAuraGainAmount > 0) {
+    lines.push(`立即效果：当前地块灵力 +${formatDisplayInteger(previewItem.tileAuraGainAmount)}`);
   }
-  if (template.mapUnlockId) {
+  if (previewItem.mapUnlockId) {
     lines.push('使用效果：永久解锁对应地图');
   }
 
@@ -324,11 +360,15 @@ export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipCo
   const previewItem = resolvePreviewItem(item);
   const sourceListHtml = renderItemSourceListHtml(previewItem.itemId, { maxEntries: 3, compact: true });
   const statusLabel = resolveItemStatusLabel(previewItem, context);
+  const medicineCategoryLabel = resolveMedicineCategoryLabel(previewItem);
   if (previewItem.type !== 'equipment') {
-    const effectLines = describeItemEffectDetails(previewItem);
+    const effectLines = previewItem.effects?.length
+      ? previewItem.effects.flatMap((effect) => buildPlainEffectSummary(effect))
+      : buildConsumableEffectDetails(previewItem, context?.itemCooldown);
     const lines = [
       `<span class="skill-tooltip-desc">${escapeHtml(previewItem.desc ?? '')}</span>`,
       renderPlainLine('类型', getItemTypeLabel(previewItem.type)),
+      ...(medicineCategoryLabel ? [renderPlainLine('分类', medicineCategoryLabel)] : []),
       ...(statusLabel ? [renderPlainLine('状态', statusLabel)] : []),
       ...effectLines.map((line) => `<span class="skill-tooltip-detail">${escapeHtml(line)}</span>`),
       `<div class="inventory-source-block"><span class="skill-tooltip-label">来源：</span>${sourceListHtml}</div>`,

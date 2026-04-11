@@ -8,6 +8,7 @@ import {
   HeavenGateState,
   HEAVEN_GATE_REROLL_COST_RATIO,
   Inventory,
+  InventoryItemCooldownState,
   ItemStack,
   PlayerState,
   PlayerRealmState,
@@ -31,12 +32,13 @@ import {
 import { getLocalTechniqueTemplate, resolvePreviewItem, resolveTechniqueIdFromBookItemId } from '../../content/local-templates';
 import { detailModalHost } from '../detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
-import { buildItemTooltipPayload, describeItemEffectDetails } from '../equipment-tooltip';
+import { buildItemTooltipPayload, describeItemEffectDetails, ItemTooltipCooldownState } from '../equipment-tooltip';
 import { getItemAffixTypeLabel, getItemDecorClassName, getItemDisplayMeta } from '../item-display';
 import { preserveSelection } from '../selection-preserver';
 import { describePreviewBonuses } from '../stat-preview';
 import { INVENTORY_FILTER_TABS, InventoryFilter } from '../../constants/ui/inventory';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
+import { resolveInventoryCooldownLeft } from '../../runtime/server-tick';
 import {
   INVENTORY_PANEL_TOOLTIP_STYLE_ID,
   INVENTORY_PANEL_USABLE_ITEM_TYPES,
@@ -103,6 +105,7 @@ export class InventoryPanel {
   private playerFoundation = 0;
   private renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
   private pendingLoadMoreFrame: number | null = null;
+  private cooldownRefreshTimer: number | null = null;
   private handleScrollCapture = (event: Event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
@@ -143,6 +146,10 @@ export class InventoryPanel {
       cancelAnimationFrame(this.pendingLoadMoreFrame);
       this.pendingLoadMoreFrame = null;
     }
+    if (this.cooldownRefreshTimer !== null) {
+      window.clearTimeout(this.cooldownRefreshTimer);
+      this.cooldownRefreshTimer = null;
+    }
     this.tooltip.hide(true);
     this.pane.innerHTML = '<div class="empty-hint">背包空空如也</div>';
     detailModalHost.close(InventoryPanel.MODAL_OWNER);
@@ -174,6 +181,7 @@ export class InventoryPanel {
       this.renderModal();
     }
     this.scheduleLoadMoreCheck();
+    this.syncCooldownRefresh();
   }
 
   initFromPlayer(player: PlayerState): void {
@@ -220,6 +228,7 @@ export class InventoryPanel {
   private render(inventory: Inventory): void {
     this.lastInventory = inventory;
     const visibleItems = this.getVisibleItems(inventory);
+    const cooldownStateMap = this.getCooldownStateMap(inventory);
     this.syncRenderedVisibleCount(visibleItems.length);
     const renderedItems = visibleItems.slice(0, this.renderedVisibleCount);
     this.lastStructureState = this.buildStructureStateFromVisibleItems(renderedItems);
@@ -254,7 +263,12 @@ export class InventoryPanel {
       const itemMeta = getItemDisplayMeta(item);
       const cellClassName = this.getItemCellClassName(item);
       const gradeAttr = this.getItemDecorGrade(item);
-      html += `<div class="${cellClassName}" data-open-item="${slotIndex}" data-item-slot="${slotIndex}" data-item-key="${this.escapeHtml(this.getItemIdentity(item))}"${gradeAttr ? ` data-item-grade="${gradeAttr}"` : ''}>
+      const cooldownState = cooldownStateMap.get(item.itemId) ?? null;
+      html += `<div class="${cellClassName}${cooldownState ? ' inventory-cell--cooldown' : ''}" data-open-item="${slotIndex}" data-item-slot="${slotIndex}" data-item-key="${this.escapeHtml(this.getItemIdentity(item))}"${gradeAttr ? ` data-item-grade="${gradeAttr}"` : ''}>
+        <div class="inventory-cell-cooldown" data-item-cooldown="true"${cooldownState ? ` title="${this.escapeHtml(this.getItemCooldownTitle(cooldownState))}"` : ' hidden'}>
+          <span class="inventory-cell-cooldown-pie" data-item-cooldown-pie="true" style="--inventory-cooldown-progress:${this.getItemCooldownRatio(cooldownState).toFixed(4)};"></span>
+          <span class="inventory-cell-cooldown-label" data-item-cooldown-label="true">${cooldownState ? formatDisplayInteger(this.getItemCooldownRemainingTicks(cooldownState)) : ''}</span>
+        </div>
         <div class="inventory-cell-head">
           <span class="inventory-cell-type" data-item-type="true">${this.escapeHtml(getItemAffixTypeLabel(item, getItemTypeLabel(item.type)))}</span>
           <span class="inventory-cell-count" data-item-count="true">${formatDisplayCountBadge(item.count)}</span>
@@ -844,6 +858,7 @@ export class InventoryPanel {
     if (!grid) {
       return false;
     }
+    const cooldownStateMap = this.getCooldownStateMap(inventory);
     const loadHint = this.pane.querySelector<HTMLElement>('[data-inventory-load-hint="true"]');
     if (renderedItems.length < visibleItems.length) {
       if (!loadHint) {
@@ -864,7 +879,10 @@ export class InventoryPanel {
       const countNode = cell.querySelector<HTMLElement>('[data-item-count="true"]');
       const nameNode = cell.querySelector<HTMLElement>('[data-item-name="true"]');
       const affinityNode = cell.querySelector<HTMLElement>('[data-item-affinity="true"]');
-      if (!typeNode || !countNode || !nameNode) {
+      const cooldownNode = cell.querySelector<HTMLElement>('[data-item-cooldown="true"]');
+      const cooldownPieNode = cell.querySelector<HTMLElement>('[data-item-cooldown-pie="true"]');
+      const cooldownLabelNode = cell.querySelector<HTMLElement>('[data-item-cooldown-label="true"]');
+      if (!typeNode || !countNode || !nameNode || !cooldownNode || !cooldownPieNode || !cooldownLabelNode) {
         return false;
       }
       const levelNode = cell.querySelector<HTMLElement>('[data-item-level="true"]');
@@ -892,11 +910,23 @@ export class InventoryPanel {
         delete cell.dataset.itemGrade;
       }
       cell.className = this.getItemCellClassName(item);
+      const cooldownState = cooldownStateMap.get(item.itemId) ?? null;
+      cell.classList.toggle('inventory-cell--cooldown', cooldownState !== null);
       typeNode.textContent = getItemAffixTypeLabel(item, getItemTypeLabel(item.type));
       countNode.textContent = formatDisplayCountBadge(item.count);
       nameNode.textContent = item.name;
       nameNode.title = item.name;
       nameNode.className = `inventory-cell-name ${this.getNameClass(item.name)}`.trim();
+      cooldownNode.hidden = cooldownState === null;
+      if (cooldownState) {
+        cooldownNode.title = this.getItemCooldownTitle(cooldownState);
+        cooldownPieNode.style.setProperty('--inventory-cooldown-progress', this.getItemCooldownRatio(cooldownState).toFixed(4));
+        cooldownLabelNode.textContent = formatDisplayInteger(this.getItemCooldownRemainingTicks(cooldownState));
+      } else {
+        cooldownNode.removeAttribute('title');
+        cooldownPieNode.style.setProperty('--inventory-cooldown-progress', '0');
+        cooldownLabelNode.textContent = '';
+      }
       if (levelNode) {
         levelNode.textContent = itemMeta.levelLabel ?? '';
       }
@@ -1157,6 +1187,11 @@ export class InventoryPanel {
   }
 
   private getItemStatusLabel(item: ItemStack): string | null {
+    const cooldownState = this.getItemCooldownState(item);
+    const cooldownLeft = this.getItemCooldownRemainingTicks(cooldownState);
+    if (cooldownLeft > 0) {
+      return `冷却 ${formatDisplayInteger(cooldownLeft)} 息`;
+    }
     if (item.type === 'skill_book') {
       const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
       if (techniqueId && this.learnedTechniqueIds.has(techniqueId)) {
@@ -1179,6 +1214,49 @@ export class InventoryPanel {
 
   private getItemLevelLabel(item: ItemStack): string | null {
     return getItemDisplayMeta(item).levelLabel;
+  }
+
+  private getCooldownStateMap(inventory: Inventory): Map<string, InventoryItemCooldownState> {
+    return new Map(
+      (inventory.cooldowns ?? [])
+        .filter((entry) => this.getItemCooldownRemainingTicks(entry) > 0)
+        .map((entry) => [entry.itemId, entry] as const),
+    );
+  }
+
+  private getItemCooldownState(item: ItemStack, inventory: Inventory | null = this.lastInventory): InventoryItemCooldownState | null {
+    const cooldownState = inventory?.cooldowns?.find((entry) => entry.itemId === item.itemId) ?? null;
+    return this.getItemCooldownRemainingTicks(cooldownState) > 0 ? cooldownState : null;
+  }
+
+  private getItemCooldownRemainingTicks(cooldownState: InventoryItemCooldownState | null): number {
+    if (!cooldownState) {
+      return 0;
+    }
+    return resolveInventoryCooldownLeft(cooldownState.cooldown, cooldownState.startedAtTick);
+  }
+
+  private getItemTooltipCooldownState(item: ItemStack): ItemTooltipCooldownState | null {
+    const cooldownState = this.getItemCooldownState(item);
+    if (!cooldownState) {
+      return null;
+    }
+    const cooldownLeft = this.getItemCooldownRemainingTicks(cooldownState);
+    return cooldownLeft > 0
+      ? { cooldown: cooldownState.cooldown, cooldownLeft }
+      : null;
+  }
+
+  private getItemCooldownRatio(cooldownState: InventoryItemCooldownState | null): number {
+    if (!cooldownState) {
+      return 0;
+    }
+    const cooldown = Math.max(1, cooldownState.cooldown);
+    return Math.max(0, Math.min(1, this.getItemCooldownRemainingTicks(cooldownState) / cooldown));
+  }
+
+  private getItemCooldownTitle(cooldownState: InventoryItemCooldownState): string {
+    return `使用冷却 ${formatDisplayInteger(this.getItemCooldownRemainingTicks(cooldownState))} / ${formatDisplayInteger(cooldownState.cooldown)} 息`;
   }
 
   private getEquippedItemForCompare(item: ItemStack): ItemStack | null {
@@ -1330,7 +1408,55 @@ export class InventoryPanel {
       learnedTechniqueIds: this.learnedTechniqueIds,
       unlockedMinimapIds: this.unlockedMinimapIds,
       equippedItem: this.getEquippedItemForCompare(item),
+      itemCooldown: this.getItemTooltipCooldownState(item),
     });
+  }
+
+  private hasActiveCooldowns(inventory: Inventory | null = this.lastInventory): boolean {
+    return (inventory?.cooldowns ?? []).some((entry) => this.getItemCooldownRemainingTicks(entry) > 0);
+  }
+
+  private refreshTooltipContent(): void {
+    if (!this.tooltipCell || !this.lastInventory) {
+      return;
+    }
+    const rawIndex = this.tooltipCell.dataset.itemSlot;
+    if (!rawIndex) {
+      return;
+    }
+    const item = this.lastInventory.items[parseInt(rawIndex, 10)];
+    if (!item) {
+      return;
+    }
+    const tooltip = this.buildTooltipPayload(item);
+    this.tooltip.updateContent(tooltip.title, tooltip.lines, {
+      allowHtml: tooltip.allowHtml,
+      asideCards: tooltip.asideCards,
+    });
+  }
+
+  private syncCooldownRefresh(): void {
+    if (this.cooldownRefreshTimer !== null) {
+      window.clearTimeout(this.cooldownRefreshTimer);
+      this.cooldownRefreshTimer = null;
+    }
+    if (!this.hasActiveCooldowns()) {
+      return;
+    }
+    this.cooldownRefreshTimer = window.setTimeout(() => {
+      this.cooldownRefreshTimer = null;
+      if (!this.lastInventory) {
+        return;
+      }
+      if (!this.patchList(this.lastInventory)) {
+        this.render(this.lastInventory);
+      }
+      if (!this.patchModal()) {
+        this.renderModal();
+      }
+      this.refreshTooltipContent();
+      this.syncCooldownRefresh();
+    }, 100);
   }
 
   private closeModal(): void {

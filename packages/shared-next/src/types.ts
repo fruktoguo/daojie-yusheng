@@ -482,13 +482,14 @@ export interface Inventory {
   items: ItemStack[];
   capacity: number;
   cooldowns?: InventoryItemCooldownState[];
+  serverTick?: number;
 }
 
 /** 背包内物品的运行时冷却态 */
 export interface InventoryItemCooldownState {
   itemId: string;
   cooldown: number;
-  cooldownLeft: number;
+  startedAtTick: number;
 }
 
 /** 坊市订单方向 */
