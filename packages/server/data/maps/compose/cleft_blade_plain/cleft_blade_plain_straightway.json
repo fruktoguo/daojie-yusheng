@@ -57,7 +57,7 @@
     {
       "x": 1,
       "y": 8,
-      "targetMa​pId": "cleft_blade_plain_plateau",
+      "targetMapId": "cleft_blade_plain_plateau",
       "targetX": 29,
       "targetY": 9,
       "kind": "portal",
@@ -69,7 +69,7 @@
     {
       "x": 1,
       "y": 9,
-      "targetMa​pId": "cleft_blade_plain_plateau",
+      "targetMapId": "cleft_blade_plain_plateau",
       "targetX": 29,
       "targetY": 10,
       "kind": "portal",

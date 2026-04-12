@@ -35,7 +35,7 @@
     {
       "x": 30,
       "y": 9,
-      "targetMa​pId": "cleft_blade_plain_straightway",
+      "targetMapId": "cleft_blade_plain_straightway",
       "targetX": 2,
       "targetY": 8,
       "kind": "portal",
@@ -47,7 +47,7 @@
     {
       "x": 30,
       "y": 10,
-      "targetMa​pId": "cleft_blade_plain_straightway",
+      "targetMapId": "cleft_blade_plain_straightway",
       "targetX": 2,
       "targetY": 9,
       "kind": "portal",
@@ -128,37 +128,37 @@
     {
       "x": 25,
       "y": 9,
-      "resourceK​ey": "aura.refined.metal",
+      "resourceKey": "aura.refined.metal",
       "value": 5
     },
     {
       "x": 18,
       "y": 10,
-      "resourceK​ey": "aura.refined.metal",
+      "resourceKey": "aura.refined.metal",
       "value": 5
     },
     {
       "x": 16,
       "y": 7,
-      "resourceK​ey": "aura.refined.metal",
+      "resourceKey": "aura.refined.metal",
       "value": 5
     },
     {
       "x": 8,
       "y": 11,
-      "resourceK​ey": "aura.refined.metal",
+      "resourceKey": "aura.refined.metal",
       "value": 6
     },
     {
       "x": 22,
       "y": 14,
-      "resourceK​ey": "aura.refined.earth",
+      "resourceKey": "aura.refined.earth",
       "value": 1
     },
     {
       "x": 11,
       "y": 15,
-      "resourceK​ey": "aura.refined.earth",
+      "resourceKey": "aura.refined.earth",
       "value": 1
     }
   ],
