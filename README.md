@@ -39,7 +39,7 @@
 - 多地图传送：地图之间通过 portal 连接，支持跨图推进
 - 断线恢复与顶号：支持会话恢复，同账号新连接会接管旧连接角色状态
 
-更多完整设计与技术细节见 [docs/design.md](./docs/design.md)、[docs/architecture.md](./docs/architecture.md) 和 [docs/numeric-design.md](./docs/numeric-design.md)。
+更多完整设计与技术细节见 [docs/design.md](./docs/design.md)、[docs/architecture.md](./docs/architecture.md)、[docs/numeric-design.md](./docs/numeric-design.md) 和 [docs/反多开方案.md](./docs/反多开方案.md)。
 
 ## 技术栈
 
@@ -148,7 +148,7 @@ pnpm dev:server
 - `pnpm verify:server-next*` 当前只是兼容别名；需要独立 CI 带库补证时，可触发 [verify-server-next-with-db.yml](/home/yuohira/mud-mmo/.github/workflows/verify-server-next-with-db.yml)
 - 这些验证只说明 replace-ready 主证明链已覆盖到当前范围，不等于 `next` 已完整替换整体游戏
 - 手工 workflow 现在也应只视为 shadow / 备份线工具，不代表已经建立了 next 的正式生产发布流
-- 详细口径见 [packages/server-next/TESTING.md](/home/yuohira/mud-mmo/packages/server-next/TESTING.md)、[packages/server-next/REPLACE-RUNBOOK.md](/home/yuohira/mud-mmo/packages/server-next/REPLACE-RUNBOOK.md) 和 [docs/next-gap-analysis.md](/home/yuohira/mud-mmo/docs/next-gap-analysis.md)
+- 详细口径见 [docs/server-next-operations.md](/home/yuohira/mud-mmo/docs/server-next-operations.md)、[docs/next-gap-analysis.md](/home/yuohira/mud-mmo/docs/next-gap-analysis.md) 和 [docs/next-remaining-execution-plan.md](/home/yuohira/mud-mmo/docs/next-remaining-execution-plan.md)
 
 ## 自动部署
 
