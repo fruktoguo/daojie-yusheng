@@ -1214,19 +1214,20 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
   @SubscribeMessage(C2S.RequestMarket)
 /** handleRequestMarket：处理当前场景中的对应操作。 */
-  handleRequestMarket(client: Socket, _data: C2S_RequestMarket) {
+  async handleRequestMarket(client: Socket, _data: C2S_RequestMarket) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     this.marketSubscriberPlayerIds.add(playerId);
     const request = this.marketListingRequests.get(playerId) ?? { page: 1 };
     this.marketListingRequests.set(playerId, request);
+    await this.flushMarketResult(await this.marketService.refreshInvalidOrders());
     this.emitMarketPanelSnapshot(client, player, request);
   }
 
   @SubscribeMessage(C2S.RequestMarketListings)
 /** handleRequestMarketListings：处理当前场景中的对应操作。 */
-  handleRequestMarketListings(client: Socket, data: C2S_RequestMarketListings) {
+  async handleRequestMarketListings(client: Socket, data: C2S_RequestMarketListings) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
@@ -1239,6 +1240,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     };
     this.marketSubscriberPlayerIds.add(playerId);
     this.marketListingRequests.set(playerId, request);
+    await this.flushMarketResult(await this.marketService.refreshInvalidOrders());
     client.emit(S2C.MarketListings, this.marketService.buildListingsPage(request));
   }
 
@@ -1541,4 +1543,3 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     }
   }
 }
-

@@ -111,6 +111,25 @@ export class MarketService implements OnModuleInit {
     this.compactOpenOrders();
   }
 
+  async refreshInvalidOrders(): Promise<MarketActionResult> {
+    return this.runExclusive(async () => {
+      const context = this.createMutationContext();
+      try {
+        return await this.marketOrderRepo.manager.transaction(async (manager) => {
+          this.bindTransactionRepos(context, manager);
+          const result = await this.sanitizeOpenOrdersInContext(context);
+          await this.persistTouchedOnlinePlayers(context);
+          return result;
+        });
+      } catch (error) {
+        this.restoreMutationContext(context);
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error(`坊市无效订单清理失败，已回滚: ${message}`);
+        return this.createBaseResult();
+      }
+    });
+  }
+
   getCurrencyItemId(): string {
     return MARKET_CURRENCY_ITEM_ID;
   }
@@ -200,10 +219,13 @@ export class MarketService implements OnModuleInit {
   }
 
   buildItemBook(itemId: string): { itemId: string; sells: MarketPriceLevelView[]; buys: MarketPriceLevelView[] } | null {
-    const orders = this.openOrders.filter((order) =>
-      order.remainingQuantity > 0
-      && this.canTradeItemOnMarket(this.cloneOrderItem(order))
-      && this.cloneOrderItem(order).itemId === itemId);
+    const orders = this.openOrders.filter((order) => {
+      const orderItem = this.cloneOrderItem(order);
+      return order.remainingQuantity > 0
+        && this.canTradeItemOnMarket(orderItem)
+        && this.isOrderItemDefined(orderItem)
+        && orderItem.itemId === itemId;
+    });
     if (orders.length === 0) {
       return null;
     }
@@ -704,7 +726,7 @@ export class MarketService implements OnModuleInit {
         continue;
       }
       const item = this.cloneOrderItem(order);
-      if (!this.canTradeItemOnMarket(item)) {
+      if (!this.canTradeItemOnMarket(item) || !this.isOrderItemDefined(item)) {
         continue;
       }
       const itemKey = this.buildItemKey(item);
@@ -764,7 +786,13 @@ export class MarketService implements OnModuleInit {
 
   private buildOwnOrders(playerId: string): MarketOwnOrderView[] {
     return this.openOrders
-      .filter((order) => order.ownerId === playerId && order.remainingQuantity > 0 && this.canTradeItemOnMarket(this.cloneOrderItem(order)))
+      .filter((order) => {
+        const orderItem = this.cloneOrderItem(order);
+        return order.ownerId === playerId
+          && order.remainingQuantity > 0
+          && this.canTradeItemOnMarket(orderItem)
+          && this.isOrderItemDefined(orderItem);
+      })
       .sort((left, right) => right.createdAt - left.createdAt || left.id.localeCompare(right.id))
       .map((order) => ({
         id: order.id,
@@ -787,6 +815,7 @@ export class MarketService implements OnModuleInit {
         || order.side !== side
         || order.remainingQuantity <= 0
         || !this.canTradeItemOnMarket(orderItem)
+        || !this.isOrderItemDefined(orderItem)
       ) {
         continue;
       }
@@ -815,6 +844,7 @@ export class MarketService implements OnModuleInit {
         || order.side !== side
         || order.remainingQuantity <= 0
         || !this.canTradeItemOnMarket(orderItem)
+        || !this.isOrderItemDefined(orderItem)
       ) {
         continue;
       }
@@ -888,7 +918,9 @@ export class MarketService implements OnModuleInit {
           return false;
         }
         const orderItem = this.cloneOrderItem(order);
-        return this.canTradeItemOnMarket(orderItem) && this.getOrderItemKey(order) === itemKey;
+        return this.canTradeItemOnMarket(orderItem)
+          && this.isOrderItemDefined(orderItem)
+          && this.getOrderItemKey(order) === itemKey;
       })
       .sort((left, right) => {
         if (side === 'sell' && left.unitPrice !== right.unitPrice) {
@@ -909,7 +941,8 @@ export class MarketService implements OnModuleInit {
       && order.side === oppositeSide
       && order.remainingQuantity > 0
       && order.status === 'open'
-      && this.canTradeItemOnMarket(this.cloneOrderItem(order)));
+      && this.canTradeItemOnMarket(this.cloneOrderItem(order))
+      && this.isOrderItemDefined(this.cloneOrderItem(order)));
   }
 
   private planOrderMatches(
@@ -1021,6 +1054,10 @@ export class MarketService implements OnModuleInit {
 
   private canTradeItemOnMarket(item: Pick<ItemStack, 'itemId'>): boolean {
     return item.itemId !== MARKET_CURRENCY_ITEM_ID;
+  }
+
+  private isOrderItemDefined(item: Pick<ItemStack, 'itemId'>): boolean {
+    return Boolean(this.contentService.getItem(item.itemId));
   }
 
   private normalizeQuantity(value: number): number | null {
@@ -1263,27 +1300,7 @@ export class MarketService implements OnModuleInit {
     try {
       await this.marketOrderRepo.manager.transaction(async (manager) => {
         this.bindTransactionRepos(context, manager);
-        for (const order of this.openOrders) {
-          const orderItem = this.cloneOrderItem(order);
-          const canonicalKey = this.getOrderItemKey(order);
-          const validUnitPrice = this.normalizeUnitPrice(order.unitPrice);
-          if (!this.canTradeItemOnMarket(orderItem)
-            || !validUnitPrice
-            || !isValidMarketTradeQuantity(validUnitPrice, order.remainingQuantity)) {
-            await this.refundInvalidOrder(order, context);
-            continue;
-          }
-          if (order.unitPrice !== validUnitPrice) {
-            order.unitPrice = validUnitPrice;
-            order.updatedAt = Date.now();
-            await context.orderRepo.save(order);
-          }
-          if (order.itemKey !== canonicalKey) {
-            order.itemKey = canonicalKey;
-            order.updatedAt = Date.now();
-            await context.orderRepo.save(order);
-          }
-        }
+        await this.sanitizeOpenOrdersInContext(context);
         await this.persistTouchedOnlinePlayers(context);
       });
     } catch (error) {
@@ -1292,14 +1309,54 @@ export class MarketService implements OnModuleInit {
     }
   }
 
-  private async refundInvalidOrder(order: MarketOrderEntity, context: MarketMutationContext): Promise<void> {
+  private async sanitizeOpenOrdersInContext(context: MarketMutationContext): Promise<MarketActionResult> {
+    const result = this.createBaseResult();
+    for (const order of this.openOrders) {
+      const orderItem = this.cloneOrderItem(order);
+      const canonicalKey = this.getOrderItemKey(order);
+      const validUnitPrice = this.normalizeUnitPrice(order.unitPrice);
+      if (!this.isOrderItemDefined(orderItem)) {
+        await this.removeDeletedItemOrder(order, orderItem, context, result);
+        continue;
+      }
+      if (!this.canTradeItemOnMarket(orderItem)
+        || !validUnitPrice
+        || !isValidMarketTradeQuantity(validUnitPrice, order.remainingQuantity)) {
+        await this.refundInvalidOrder(order, orderItem, context, result);
+        continue;
+      }
+      if (order.unitPrice !== validUnitPrice) {
+        order.unitPrice = validUnitPrice;
+        order.updatedAt = Date.now();
+        await context.orderRepo.save(order);
+      }
+      if (order.itemKey !== canonicalKey) {
+        order.itemKey = canonicalKey;
+        order.updatedAt = Date.now();
+        await context.orderRepo.save(order);
+      }
+    }
+    return result;
+  }
+
+  private async refundInvalidOrder(
+    order: MarketOrderEntity,
+    orderItem: ItemStack,
+    context: MarketMutationContext,
+    result?: MarketActionResult,
+  ): Promise<void> {
     if (order.side === 'sell') {
-      await this.deliverItemToPlayer(order.ownerId, { ...this.cloneOrderItem(order), count: order.remainingQuantity }, context);
+      await this.deliverItemToPlayer(order.ownerId, { ...orderItem, count: order.remainingQuantity }, context);
     } else {
       const refund = calculateMarketTradeTotalCost(order.remainingQuantity, order.unitPrice);
       if (refund) {
         await this.deliverItemToPlayer(order.ownerId, this.createCurrencyItem(refund), context);
       }
+    }
+    if (result) {
+      this.touchPrivateStatePlayer(result, order.ownerId);
+      this.touchAffectedPlayer(result, order.ownerId);
+      this.touchItem(result, orderItem.itemId);
     }
     order.status = 'cancelled';
     order.remainingQuantity = 0;
@@ -1308,18 +1365,68 @@ export class MarketService implements OnModuleInit {
     this.logger.warn(`已自动取消非法坊市订单 ${order.id}，原因：价格或数量不再满足坊市结算规则`);
   }
 
+  private async removeDeletedItemOrder(
+    order: MarketOrderEntity,
+    orderItem: ItemStack,
+    context: MarketMutationContext,
+    result: MarketActionResult,
+  ): Promise<void> {
+    if (order.side === 'buy') {
+      const refund = calculateMarketTradeTotalCost(order.remainingQuantity, order.unitPrice);
+      if (refund) {
+        await this.deliverItemToPlayer(order.ownerId, this.createCurrencyItem(refund), context);
+      }
+      this.pushMessage(result, order.ownerId, `你的求购单 ${orderItem.itemId} 已自动取消，托管${this.getCurrencyItemName()}已退回坊市托管仓。`);
+    } else {
+      this.pushMessage(result, order.ownerId, `你的挂售单 ${orderItem.itemId} 已自动移除，原因：对应物品已被删除。`);
+    }
+    this.touchPrivateStatePlayer(result, order.ownerId);
+    this.touchItem(result, orderItem.itemId);
+    order.status = 'cancelled';
+    order.remainingQuantity = 0;
+    order.updatedAt = Date.now();
+    await context.orderRepo.save(order);
+    this.logger.warn(`已自动移除已删除物品的坊市订单 ${order.id}，side=${order.side} itemId=${orderItem.itemId}`);
+  }
+
   private compactOpenOrders(): void {
     this.openOrders = this.openOrders.filter((order) => order.status === 'open' && order.remainingQuantity > 0);
   }
 
-  private createEmptyResult(playerId: string): MarketActionResult {
+  private createBaseResult(): MarketActionResult {
     return {
-      affectedPlayerIds: [playerId],
+      affectedPlayerIds: [],
       messages: [],
       privateStatePlayerIds: [],
       touchedItemIds: [],
       tradeHistoryPlayerIds: [],
     };
+  }
+
+  private createEmptyResult(playerId: string): MarketActionResult {
+    const result = this.createBaseResult();
+    result.affectedPlayerIds.push(playerId);
+    return result;
+  }
+
+  private mergeResults(...results: MarketActionResult[]): MarketActionResult {
+    const merged = this.createBaseResult();
+    for (const result of results) {
+      for (const playerId of result.affectedPlayerIds) {
+        this.touchAffectedPlayer(merged, playerId);
+      }
+      merged.messages.push(...result.messages);
+      for (const playerId of result.privateStatePlayerIds) {
+        this.touchPrivateStatePlayer(merged, playerId);
+      }
+      for (const itemId of result.touchedItemIds) {
+        this.touchItem(merged, itemId);
+      }
+      for (const playerId of result.tradeHistoryPlayerIds) {
+        this.touchTradeHistoryPlayer(merged, playerId);
+      }
+    }
+    return merged;
   }
 
   private singleMessage(playerId: string, text: string, kind: 'system' | 'loot' = 'system'): MarketActionResult {
@@ -1370,9 +1477,10 @@ export class MarketService implements OnModuleInit {
       try {
         const result = await this.marketOrderRepo.manager.transaction(async (manager) => {
           this.bindTransactionRepos(context, manager);
+          const cleanupResult = await this.sanitizeOpenOrdersInContext(context);
           const nextResult = await action(context);
           await this.persistTouchedOnlinePlayers(context);
-          return nextResult;
+          return this.mergeResults(cleanupResult, nextResult);
         });
         return result;
       } catch (error) {
@@ -1471,4 +1579,3 @@ export class MarketService implements OnModuleInit {
     }));
   }
 }
-
