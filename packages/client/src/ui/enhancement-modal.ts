@@ -469,7 +469,7 @@ export class EnhancementModal {
             </div>
             <div class="enhancement-action-row enhancement-action-row--stacked">
               <button class="small-btn ghost" type="button" data-enhancement-cancel="1">取消强化</button>
-              <span class="enhancement-action-note">取消后会返还当前装备，已投入的材料与保护物不会退回，灵石仅在本阶成功时扣除。</span>
+              <span class="enhancement-action-note">取消后会返还当前装备，已投入的材料不会退回；保护物仅在失败且保护生效时扣除，灵石仅在本阶成功时扣除。</span>
             </div>
           </div>
         </div>

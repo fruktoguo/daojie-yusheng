@@ -216,7 +216,6 @@ export class EnhancementService implements OnModuleInit {
     const inventorySnapshot = player.inventory.items.map((entry) => cloneItem(entry));
     const equipmentSnapshot = structuredClone(player.equipment);
     const recordSnapshot = this.getSessionRecordArray(player);
-    let adjustedProtectionRef = protection?.ref ?? null;
     this.prepareSessionRecord(player, target.item.itemId, currentLevel);
 
     try {
@@ -227,26 +226,6 @@ export class EnhancementService implements OnModuleInit {
         throw new Error('强化目标不存在。');
       }
 
-      if (
-        adjustedProtectionRef?.source === 'inventory'
-        && target.source === 'inventory'
-        && target.item.count === 1
-        && typeof adjustedProtectionRef.slotIndex === 'number'
-        && adjustedProtectionRef.slotIndex > target.slotIndex
-      ) {
-        adjustedProtectionRef = {
-          ...adjustedProtectionRef,
-          slotIndex: adjustedProtectionRef.slotIndex - 1,
-        };
-      }
-
-      if (
-        adjustedProtectionRef
-        && this.shouldUseProtectionForStep(targetLevel, protectionStartLevel)
-        && !this.consumeProtection(player, adjustedProtectionRef)
-      ) {
-        throw new Error('保护物不存在或数量不足。');
-      }
       for (const requirement of requirements) {
         if (!this.consumeInventoryItemById(player, requirement.itemId, requirement.count)) {
           throw new Error(`${requirement.itemId} 数量不足。`);
@@ -332,7 +311,7 @@ export class EnhancementService implements OnModuleInit {
       player,
       job,
       job.currentLevel,
-      `你停止了 ${job.item.name} 的强化，当前这一阶已投入的材料与保护物不会退回，灵石将在本阶成功后结算。`,
+      `你停止了 ${job.item.name} 的强化，当前这一阶已投入的材料不会退回；保护物仅在失败且保护生效时扣除，灵石将在本阶成功后结算。`,
       'system',
     );
   }
@@ -404,6 +383,27 @@ export class EnhancementService implements OnModuleInit {
     }
 
     const protectionActiveForStep = this.shouldUseProtectionForStep(job.targetLevel, job.protectionStartLevel);
+    if (
+      !success
+      && protectionActiveForStep
+      && !this.consumeProtectionItemForFailure(player, job)
+    ) {
+      return {
+        ...this.finishEnhancementJob(
+          player,
+          job,
+          job.currentLevel,
+          `${job.item.name} 强化失败，保护物不足，本阶已终止。`,
+          'system',
+        ),
+        panelChanged: true,
+        messages: [{
+          text: `${job.item.name} 强化失败，保护物不足，本阶已终止。`,
+          kind: 'system',
+        }],
+        error: '本阶保护物不足，任务已终止。',
+      };
+    }
     const resultingLevel = success
       ? job.targetLevel
       : protectionActiveForStep
@@ -612,7 +612,10 @@ export class EnhancementService implements OnModuleInit {
     protectionItemId: string | undefined,
     requirements: EnhancementMaterialRequirement[],
   ): boolean {
-    if (protectionItemId && !this.consumeInventoryItemById(player, protectionItemId, 1)) {
+    if (
+      protectionItemId
+      && !player.inventory.items.some((item) => item?.itemId === protectionItemId && Math.max(0, Math.floor(item.count)) >= 1)
+    ) {
       return false;
     }
     for (const requirement of requirements) {
@@ -923,11 +926,9 @@ export class EnhancementService implements OnModuleInit {
     };
   }
 
-  private consumeProtection(player: PlayerState, ref: EnhancementTargetRef): boolean {
-    if (ref.source !== 'inventory' || !Number.isInteger(ref.slotIndex)) {
-      return false;
-    }
-    return Boolean(this.inventoryService.removeItem(player, Number(ref.slotIndex), 1));
+  private consumeProtectionItemForFailure(player: PlayerState, job: PlayerEnhancementJob): boolean {
+    const protectionItemId = job.protectionItemId ?? job.targetItemId;
+    return this.consumeInventoryItemById(player, protectionItemId, 1);
   }
 
   private consumeInventoryItemById(player: PlayerState, itemId: string, count: number): boolean {
