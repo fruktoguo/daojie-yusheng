@@ -67,7 +67,7 @@
       {
         "id": "skill.huangting_zaishan",
         "name": "载山",
-        "desc": "黄庭借山成势，以护甲压垮敌身。",
+        "desc": "黄庭借山成势，以厚土重压敌身。",
         "cooldown": 24,
         "costMultiplier": 7,
         "range": 1,
@@ -95,10 +95,6 @@
                     {
                       "var": "techLevel",
                       "scale": 0.1
-                    },
-                    {
-                      "var": "caster.stat.physDef",
-                      "scale": 0.01
                     }
                   ]
                 }

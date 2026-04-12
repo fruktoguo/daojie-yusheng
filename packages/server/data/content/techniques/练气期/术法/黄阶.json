@@ -383,7 +383,7 @@
       {
         "id": "skill.houtu_chengyuan",
         "name": "承岳",
-        "desc": "土劲随甲势递增，一击之后再叠山岳之护。",
+        "desc": "土劲厚重沉实，一击之后再叠山岳之护。",
         "cooldown": 18,
         "costMultiplier": 4,
         "range": 1,
@@ -411,10 +411,6 @@
                     {
                       "var": "techLevel",
                       "scale": 0.1
-                    },
-                    {
-                      "var": "caster.stat.physDef",
-                      "scale": 0.01
                     }
                   ]
                 }

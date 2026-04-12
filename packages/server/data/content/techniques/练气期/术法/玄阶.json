@@ -346,10 +346,6 @@
                     {
                       "var": "techLevel",
                       "scale": 0.1
-                    },
-                    {
-                      "var": "caster.stat.physDef",
-                      "scale": 0.01
                     }
                   ]
                 }
