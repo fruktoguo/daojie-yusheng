@@ -174,15 +174,17 @@ export function calculateMarketTradeTotalCost(quantity: number, unitPrice: numbe
     return null;
   }
   if (unitPrice >= 1) {
-    return quantity * unitPrice;
+    const total = quantity * unitPrice;
+    return Number.isSafeInteger(total) ? total : null;
   }
   const scaled = normalizeFractionalPriceUnits(unitPrice);
   if (scaled === null) {
     return null;
   }
   const totalScaled = quantity * scaled;
-  if (totalScaled % MARKET_FRACTIONAL_PRICE_SCALE !== 0) {
+  if (!Number.isSafeInteger(totalScaled) || totalScaled % MARKET_FRACTIONAL_PRICE_SCALE !== 0) {
     return null;
   }
-  return totalScaled / MARKET_FRACTIONAL_PRICE_SCALE;
+  const total = totalScaled / MARKET_FRACTIONAL_PRICE_SCALE;
+  return Number.isSafeInteger(total) ? total : null;
 }

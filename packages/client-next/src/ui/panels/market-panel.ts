@@ -83,7 +83,7 @@ const MARKET_DESKTOP_COMPACT_PAGE_SIZE = 28;
 const MARKET_MOBILE_COMPACT_PAGE_SIZE = 10;
 const MARKET_DIALOG_MIN_PRICE = MARKET_PRICE_PRESET_VALUES[0];
 const MARKET_DIALOG_MAX_PRICE = MARKET_MAX_UNIT_PRICE;
-const MARKET_DIALOG_MAX_QUANTITY = 9999;
+const MARKET_DIALOG_MAX_QUANTITY = 999_900_000_000;
 const MARKET_TECHNIQUE_FILTERS: Array<{ id: MarketTechniqueFilter; label: string }> = [
   { id: 'all', label: '全部功法' },
   { id: 'arts', label: getTechniqueCategoryLabel('arts') },
