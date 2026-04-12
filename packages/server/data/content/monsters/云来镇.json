@@ -13,18 +13,6 @@
         "name": "鼠尾",
         "type": "material",
         "count": 1
-      },
-      {
-        "itemId": "equip.scavenger_crest",
-        "name": "拾荒翎冠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.gutter_paws",
-        "name": "沟行爪套",
-        "type": "equipment",
-        "count": 1
       }
     ],
     "grade": "mortal",
@@ -76,18 +64,6 @@
         "name": "鼠尾",
         "type": "material",
         "count": 1
-      },
-      {
-        "itemId": "equip.scavenger_crest",
-        "name": "拾荒翎冠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.gutter_paws",
-        "name": "沟行爪套",
-        "type": "equipment",
-        "count": 1
       }
     ],
     "grade": "mortal",
@@ -138,18 +114,6 @@
         "itemId": "bandit_insignia",
         "name": "匪徒腰牌",
         "type": "material",
-        "count": 1
-      },
-      {
-        "itemId": "equip.porter_jacket",
-        "name": "扛包短褂",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.leather_vest",
-        "name": "硬皮护衣",
-        "type": "equipment",
         "count": 1
       }
     ],
@@ -212,32 +176,8 @@
         "chance": 0.01
       },
       {
-        "itemId": "equip.wasteland_cap",
-        "name": "荒路皮帽",
-        "type": "equipment",
-        "count": 1
-      },
-      {
         "itemId": "equip.trench_runner_boots",
         "name": "越沟快靴",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.herb_basket_charm",
-        "name": "药篓挂坠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.crow_night_mask",
-        "name": "夜鸦面",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.wellward_talisman",
-        "name": "井语避邪符",
         "type": "equipment",
         "count": 1
       }

@@ -65,24 +65,6 @@
         "count": 1
       },
       {
-        "itemId": "equip.fiveqi_watch_crown",
-        "name": "五炁观脉冠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.guizang_aperture_robe",
-        "name": "归窍法衣",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.halfbase_ring",
-        "name": "半基灵环",
-        "type": "equipment",
-        "count": 1
-      },
-      {
         "itemId": "book.tingmai_dingxi",
         "name": "《听脉定息诀》",
         "type": "skill_book",
@@ -158,18 +140,6 @@
       {
         "itemId": "equip.guizang_conflux_blade",
         "name": "归藏合流刃",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.fiveqi_watch_crown",
-        "name": "五炁观脉冠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.halfbase_ring",
-        "name": "半基灵环",
         "type": "equipment",
         "count": 1
       },
@@ -253,12 +223,6 @@
         "count": 1
       },
       {
-        "itemId": "equip.guizang_aperture_robe",
-        "name": "归窍法衣",
-        "type": "equipment",
-        "count": 1
-      },
-      {
         "itemId": "equip.returnarray_boots",
         "name": "回阵行履",
         "type": "equipment",
@@ -334,18 +298,6 @@
       {
         "itemId": "equip.guizang_conflux_blade",
         "name": "归藏合流刃",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.fiveqi_watch_crown",
-        "name": "五炁观脉冠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.guizang_aperture_robe",
-        "name": "归窍法衣",
         "type": "equipment",
         "count": 1
       }
@@ -427,20 +379,8 @@
         "count": 1
       },
       {
-        "itemId": "equip.guizang_aperture_robe",
-        "name": "归窍法衣",
-        "type": "equipment",
-        "count": 1
-      },
-      {
         "itemId": "equip.returnarray_boots",
         "name": "回阵行履",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.halfbase_ring",
-        "name": "半基灵环",
         "type": "equipment",
         "count": 1
       },
@@ -516,24 +456,6 @@
         "itemId": "guizang_vein_core",
         "name": "归藏脉核",
         "type": "material",
-        "count": 1
-      },
-      {
-        "itemId": "equip.fiveqi_watch_crown",
-        "name": "五炁观脉冠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.guizang_aperture_robe",
-        "name": "归窍法衣",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.halfbase_ring",
-        "name": "半基灵环",
-        "type": "equipment",
         "count": 1
       }
     ]
@@ -617,26 +539,8 @@
         "count": 1
       },
       {
-        "itemId": "equip.fiveqi_watch_crown",
-        "name": "五炁观脉冠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.guizang_aperture_robe",
-        "name": "归窍法衣",
-        "type": "equipment",
-        "count": 1
-      },
-      {
         "itemId": "equip.returnarray_boots",
         "name": "回阵行履",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.halfbase_ring",
-        "name": "半基灵环",
         "type": "equipment",
         "count": 1
       },

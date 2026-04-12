@@ -15,18 +15,6 @@
         "count": 1
       },
       {
-        "itemId": "equip.scavenger_fang",
-        "name": "拾荒尖牙",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.scrap_hide",
-        "name": "杂皮护层",
-        "type": "equipment",
-        "count": 1
-      },
-      {
         "itemId": "mat.beast_bone",
         "name": "妖兽骨",
         "type": "material",
@@ -89,24 +77,6 @@
         "name": "翠竹心",
         "type": "material",
         "count": 1
-      },
-      {
-        "itemId": "equip.scrap_hide",
-        "name": "杂皮护层",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.gutter_paws",
-        "name": "沟行爪套",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.marsh_poison_gland",
-        "name": "沼毒囊结",
-        "type": "equipment",
-        "count": 1
       }
     ],
     "grade": "mortal",
@@ -162,21 +132,8 @@
         "count": 1
       },
       {
-        "itemId": "equip.rust_saber",
-        "name": "旧铁长刀",
-        "type": "equipment",
-        "count": 1,
-        "chance": 0.01
-      },
-      {
         "itemId": "equip.gate_headcloth",
         "name": "门丁裹头巾",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.bound_chest",
-        "name": "旧皮绑胸",
         "type": "equipment",
         "count": 1
       }
@@ -234,42 +191,11 @@
         "count": 1
       },
       {
-        "itemId": "equip.step_boots",
-        "name": "游侠靴",
-        "type": "equipment",
-        "count": 1,
-        "chance": 0.2
-      },
-      {
         "itemId": "book.cloudchase_steps",
         "name": "《分光步》",
         "type": "skill_book",
         "count": 1,
         "chance": 0.2
-      },
-      {
-        "itemId": "equip.scavenger_fang",
-        "name": "拾荒尖牙",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.scavenger_crest",
-        "name": "拾荒翎冠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.gutter_paws",
-        "name": "沟行爪套",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.marsh_poison_gland",
-        "name": "沼毒囊结",
-        "type": "equipment",
-        "count": 1
       }
     ],
     "grade": "mortal",
@@ -332,48 +258,11 @@
         "count": 1
       },
       {
-        "itemId": "equip.step_boots",
-        "name": "游侠靴",
-        "type": "equipment",
-        "count": 1,
-        "chance": 0.5
-      },
-      {
         "itemId": "book.cloud_blade",
         "name": "《流云刀谱》",
         "type": "skill_book",
         "count": 1,
         "chance": 0.5
-      },
-      {
-        "itemId": "equip.scavenger_fang",
-        "name": "拾荒尖牙",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.scavenger_crest",
-        "name": "拾荒翎冠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.scrap_hide",
-        "name": "杂皮护层",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.gutter_paws",
-        "name": "沟行爪套",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.marsh_poison_gland",
-        "name": "沼毒囊结",
-        "type": "equipment",
-        "count": 1
       }
     ],
     "grade": "mortal",
@@ -437,24 +326,6 @@
         "type": "skill_book",
         "count": 1,
         "chance": 0.01
-      },
-      {
-        "itemId": "equip.scavenger_crest",
-        "name": "拾荒翎冠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.gutter_paws",
-        "name": "沟行爪套",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.marsh_poison_gland",
-        "name": "沼毒囊结",
-        "type": "equipment",
-        "count": 1
       }
     ],
     "grade": "mortal",

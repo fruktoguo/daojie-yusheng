@@ -20,24 +20,6 @@
         "type": "skill_book",
         "count": 1,
         "chance": 0.01
-      },
-      {
-        "itemId": "equip.bamboo_fang_blade",
-        "name": "竹牙短刃",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.leafshadow_crest",
-        "name": "叶隐翎冠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.windjoint_boots",
-        "name": "风节行靴",
-        "type": "equipment",
-        "count": 1
       }
     ],
     "grade": "mortal",
@@ -90,24 +72,6 @@
         "itemId": "serpent_gall",
         "name": "竹蛇胆",
         "type": "material",
-        "count": 1
-      },
-      {
-        "itemId": "equip.snakeshed_vest",
-        "name": "蛇蜕灵甲",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.windjoint_boots",
-        "name": "风节行靴",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.bamboo_heart_charm",
-        "name": "竹心灵坠",
-        "type": "equipment",
         "count": 1
       }
     ],
@@ -178,12 +142,6 @@
         "chance": 0.01
       },
       {
-        "itemId": "equip.bamboo_hat",
-        "name": "竹骨斗笠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
         "itemId": "equip.herb_mist_robe",
         "name": "药烟轻袍",
         "type": "equipment",
@@ -249,36 +207,11 @@
         "count": 1
       },
       {
-        "itemId": "equip.rust_saber",
-        "name": "旧铁长刀",
-        "type": "equipment",
-        "count": 1,
-        "chance": 0.2
-      },
-      {
         "itemId": "book.cloudchase_steps",
         "name": "《分光步》",
         "type": "skill_book",
         "count": 1,
         "chance": 0.2
-      },
-      {
-        "itemId": "equip.bamboo_split_blade",
-        "name": "青竹分水刃",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.leafshadow_crest",
-        "name": "叶隐翎冠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.dewstep_boots",
-        "name": "引露行靴",
-        "type": "equipment",
-        "count": 1
       }
     ],
     "grade": "mortal",
@@ -340,48 +273,11 @@
         "count": 1
       },
       {
-        "itemId": "equip.rust_saber",
-        "name": "旧铁长刀",
-        "type": "equipment",
-        "count": 1,
-        "chance": 0.5
-      },
-      {
         "itemId": "book.iron_bone_art",
         "name": "《铁骨功》",
         "type": "skill_book",
         "count": 1,
         "chance": 0.5
-      },
-      {
-        "itemId": "equip.bamboo_split_blade",
-        "name": "青竹分水刃",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.bamboo_hat",
-        "name": "竹骨斗笠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.snakeshed_vest",
-        "name": "蛇蜕灵甲",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.dewstep_boots",
-        "name": "引露行靴",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.bamboo_heart_charm",
-        "name": "竹心灵坠",
-        "type": "equipment",
-        "count": 1
       }
     ],
     "grade": "mortal",

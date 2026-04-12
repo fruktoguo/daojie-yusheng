@@ -77,18 +77,6 @@
         "count": 1
       },
       {
-        "itemId": "equip.moonwell_gauze_crown",
-        "name": "月井纱冠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.dew_tide_pendant",
-        "name": "凝露潮佩",
-        "type": "equipment",
-        "count": 1
-      },
-      {
         "itemId": "book.hanxi_ximai",
         "name": "《寒汐洗脉法》",
         "type": "skill_book",
@@ -168,20 +156,8 @@
         "count": 1
       },
       {
-        "itemId": "equip.moonwell_gauze_crown",
-        "name": "月井纱冠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
         "itemId": "equip.cleantide_robe",
         "name": "净潮法衣",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.mistwalker_boots",
-        "name": "雾行履",
         "type": "equipment",
         "count": 1
       },
@@ -273,12 +249,6 @@
       {
         "itemId": "equip.cleantide_robe",
         "name": "净潮法衣",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.dew_tide_pendant",
-        "name": "凝露潮佩",
         "type": "equipment",
         "count": 1
       },
@@ -375,24 +345,6 @@
         "count": 1
       },
       {
-        "itemId": "equip.moonwell_gauze_crown",
-        "name": "月井纱冠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.mistwalker_boots",
-        "name": "雾行履",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.dew_tide_pendant",
-        "name": "凝露潮佩",
-        "type": "equipment",
-        "count": 1
-      },
-      {
         "itemId": "pill.breakmirror_pellet",
         "name": "破镜丹",
         "type": "consumable",
@@ -471,18 +423,6 @@
       {
         "itemId": "equip.cleantide_robe",
         "name": "净潮法衣",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.mistwalker_boots",
-        "name": "雾行履",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.dew_tide_pendant",
-        "name": "凝露潮佩",
         "type": "equipment",
         "count": 1
       },
@@ -578,20 +518,8 @@
         "count": 1
       },
       {
-        "itemId": "equip.moonwell_gauze_crown",
-        "name": "月井纱冠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
         "itemId": "equip.cleantide_robe",
         "name": "净潮法衣",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.dew_tide_pendant",
-        "name": "凝露潮佩",
         "type": "equipment",
         "count": 1
       },
@@ -690,26 +618,8 @@
         "count": 1
       },
       {
-        "itemId": "equip.moonwell_gauze_crown",
-        "name": "月井纱冠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
         "itemId": "equip.cleantide_robe",
         "name": "净潮法衣",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.mistwalker_boots",
-        "name": "雾行履",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.dew_tide_pendant",
-        "name": "凝露潮佩",
         "type": "equipment",
         "count": 1
       },

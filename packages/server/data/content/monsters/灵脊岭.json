@@ -13,31 +13,6 @@
         "name": "岭兽爪",
         "type": "material",
         "count": 1
-      },
-      {
-        "itemId": "equip.spirit_ring",
-        "name": "凝灵戒",
-        "type": "equipment",
-        "count": 1,
-        "chance": 0.01
-      },
-      {
-        "itemId": "equip.windhear_crown",
-        "name": "听风兽皮冠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.beastbone_mail",
-        "name": "兽骨玄甲",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.predator_tendon_boots",
-        "name": "猎脉疾靴",
-        "type": "equipment",
-        "count": 1
       }
     ],
     "grade": "mortal",
@@ -100,12 +75,6 @@
         "type": "skill_book",
         "count": 1,
         "chance": 0.01
-      },
-      {
-        "itemId": "equip.ridge_calm_robe",
-        "name": "灵脊镇息袍",
-        "type": "equipment",
-        "count": 1
       }
     ],
     "grade": "yellow",
@@ -181,24 +150,6 @@
         "type": "equipment",
         "count": 1,
         "chance": 0.2
-      },
-      {
-        "itemId": "equip.ridge_calm_robe",
-        "name": "灵脊镇息袍",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.threshold_boots",
-        "name": "叩门行靴",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.guiding_marrow_pendant",
-        "name": "引灵髓坠",
-        "type": "equipment",
-        "count": 1
       }
     ],
     "grade": "yellow",
@@ -261,24 +212,11 @@
         "count": 2
       },
       {
-        "itemId": "equip.spirit_ring",
-        "name": "凝灵戒",
-        "type": "equipment",
-        "count": 1,
-        "chance": 0.5
-      },
-      {
         "itemId": "book.frost_sutra",
         "name": "《寒魄经》",
         "type": "skill_book",
         "count": 1,
         "chance": 0.5
-      },
-      {
-        "itemId": "equip.threshold_boots",
-        "name": "叩门行靴",
-        "type": "equipment",
-        "count": 1
       }
     ],
     "grade": "yellow",

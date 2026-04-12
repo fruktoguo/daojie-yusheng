@@ -68,24 +68,6 @@
         "count": 1
       },
       {
-        "itemId": "equip.yellow_stone_browguard",
-        "name": "黄岩额护",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.ridgehide_vest",
-        "name": "岭皮坎肩",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.heavy_claw_boots",
-        "name": "重爪靴",
-        "type": "equipment",
-        "count": 1
-      },
-      {
         "itemId": "book.houtu_chengyuan",
         "name": "《厚土承元功》",
         "type": "skill_book",
@@ -165,24 +147,6 @@
         "itemId": "thickrock_core",
         "name": "厚岩核",
         "type": "material",
-        "count": 1
-      },
-      {
-        "itemId": "equip.sinking_vein_hammer",
-        "name": "沉脉锤",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.deepvein_plate",
-        "name": "厚脉板甲",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.burden_greaves",
-        "name": "负岳胫甲",
-        "type": "equipment",
         "count": 1
       },
       {
@@ -272,20 +236,8 @@
         "count": 1
       },
       {
-        "itemId": "equip.deepvein_kneeguards",
-        "name": "厚脉护膝",
-        "type": "equipment",
-        "count": 1
-      },
-      {
         "itemId": "equip.fallrock_maul",
         "name": "坠岩槌",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.stone_ridge_helm",
-        "name": "石岭盔",
         "type": "equipment",
         "count": 1
       },
@@ -401,32 +353,8 @@
         "count": 1
       },
       {
-        "itemId": "equip.deepvein_chestguard",
-        "name": "厚脉护胸",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.yuepattern_pole",
-        "name": "岳纹杆",
-        "type": "equipment",
-        "count": 1
-      },
-      {
         "itemId": "equip.yuetown_mask",
         "name": "御土面",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.terrace_guard_armor",
-        "name": "台垣守甲",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.mountainheart_token",
-        "name": "山心符",
         "type": "equipment",
         "count": 1
       },
@@ -497,36 +425,6 @@
         "itemId": "stonegall_core",
         "name": "镇岳石胆",
         "type": "material",
-        "count": 1
-      },
-      {
-        "itemId": "equip.deepvein_gauntlets",
-        "name": "厚脉护手",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.burden_stele_staff",
-        "name": "负碑杖",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.heavystele_helm",
-        "name": "重碑盔",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.loadstone_plate",
-        "name": "载山甲",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.quakeheart_stone",
-        "name": "震心石",
-        "type": "equipment",
         "count": 1
       },
       {
@@ -619,12 +517,6 @@
         "count": 1
       },
       {
-        "itemId": "equip.deepvein_relic_shard",
-        "name": "厚脉遗片",
-        "type": "equipment",
-        "count": 1
-      },
-      {
         "itemId": "equip.ridgecleft_halberd",
         "name": "裂岭戟",
         "type": "equipment",
@@ -633,18 +525,6 @@
       {
         "itemId": "equip.mount_guard_helm",
         "name": "镇岭盔",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.rampart_plate",
-        "name": "垒垣甲",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.sealridge_iron_ring",
-        "name": "封岭铁环",
         "type": "equipment",
         "count": 1
       },
@@ -746,24 +626,6 @@
         "name": "承脉石",
         "type": "material",
         "count": 4
-      },
-      {
-        "itemId": "equip.deepvein_relic",
-        "name": "厚脉遗器",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.darkpeak_fist_seal",
-        "name": "黯峰拳印",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.earthlord_helm",
-        "name": "镇岳君盔",
-        "type": "equipment",
-        "count": 1
       },
       {
         "itemId": "equip.mountainseal_plate",

@@ -68,18 +68,6 @@
         "count": 1
       },
       {
-        "itemId": "equip.cleft_short_blade",
-        "name": "裂痕短刃",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.sand_edge_headband",
-        "name": "砂锋束额",
-        "type": "equipment",
-        "count": 1
-      },
-      {
         "itemId": "equip.scar_tread_boots",
         "name": "裂痕踏靴",
         "type": "equipment",
@@ -165,24 +153,6 @@
         "itemId": "cleft_iron_fragment",
         "name": "残兵铁片",
         "type": "material",
-        "count": 1
-      },
-      {
-        "itemId": "equip.cleft_long_halberd",
-        "name": "裂原长戟",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.gold_sand_cuirass",
-        "name": "砂金胸甲",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.iron_track_boots",
-        "name": "铁辙靴",
-        "type": "equipment",
         "count": 1
       },
       {
@@ -272,12 +242,6 @@
         "count": 1
       },
       {
-        "itemId": "equip.cleft_edge_ring",
-        "name": "裂锋指环",
-        "type": "equipment",
-        "count": 1
-      },
-      {
         "itemId": "equip.full_edge_blade",
         "name": "满锋刀",
         "type": "equipment",
@@ -292,12 +256,6 @@
       {
         "itemId": "equip.chasing_edge_boots",
         "name": "逐锋履",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.gold_sand_talisman",
-        "name": "砂金符坠",
         "type": "equipment",
         "count": 1
       },
@@ -407,30 +365,6 @@
         "count": 1
       },
       {
-        "itemId": "equip.banner_war_halberd",
-        "name": "残旗战戟",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.remnant_banner_helm",
-        "name": "残旗盔",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.cleft_scale_armor",
-        "name": "裂鳞甲",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.edge_command_token",
-        "name": "锋令牌",
-        "type": "equipment",
-        "count": 1
-      },
-      {
         "itemId": "pill.breakmirror_pellet",
         "name": "破镜丹",
         "type": "consumable",
@@ -497,36 +431,6 @@
         "itemId": "blade_pattern_crystal",
         "name": "锋纹残晶",
         "type": "material",
-        "count": 1
-      },
-      {
-        "itemId": "equip.cleft_blade_armguard",
-        "name": "裂锋护臂",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.stele_edge_blade",
-        "name": "碑锋刃",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.stele_pattern_helm",
-        "name": "碑纹盔",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.edge_core_shell",
-        "name": "锋核壳甲",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.sealed_edge_stoneheart",
-        "name": "封锋石心",
-        "type": "equipment",
         "count": 1
       },
       {
@@ -616,36 +520,6 @@
         "itemId": "blade_pattern_crystal",
         "name": "锋纹残晶",
         "type": "material",
-        "count": 1
-      },
-      {
-        "itemId": "equip.cleft_blade_shoulder",
-        "name": "裂锋肩甲",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.remnant_banner_spear",
-        "name": "残旌枪",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.bent_flag_heavy_helm",
-        "name": "折旗重盔",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.old_guard_iron_armor",
-        "name": "旧卫铁甲",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.counter_shock_iron_ring",
-        "name": "反震铁环",
-        "type": "equipment",
         "count": 1
       },
       {
@@ -748,26 +622,8 @@
         "count": 4
       },
       {
-        "itemId": "equip.cleft_blade_relic_armor",
-        "name": "裂锋遗甲",
-        "type": "equipment",
-        "count": 1
-      },
-      {
         "itemId": "equip.geng_gate_blade",
         "name": "庚门断锋",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.tomb_gate_general_helm",
-        "name": "镇门将盔",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.gold_coffin_plate",
-        "name": "金棺重甲",
         "type": "equipment",
         "count": 1
       },

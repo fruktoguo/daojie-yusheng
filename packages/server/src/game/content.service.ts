@@ -159,6 +159,7 @@ interface MonsterDropContext {
   grade: TechniqueGrade;
   tier: MonsterTier;
   level?: number;
+  monsterId?: string;
 }
 
 /** MonsterTemplate：定义该接口的能力与字段约束。 */
@@ -847,21 +848,32 @@ export class ContentService implements OnModuleInit {
     equipment: EquipmentSlots,
     context: MonsterDropContext,
   ): MonsterTemplateDrop[] {
-    const drops = Array.isArray(configuredDrops)
-      ? configuredDrops.flatMap((drop) => (
-        typeof drop?.itemId === 'string'
-        && typeof drop?.name === 'string'
-        && typeof drop?.type === 'string'
-          ? [{
-              itemId: drop.itemId,
-              name: drop.name,
-              type: drop.type,
-              count: Number.isFinite(drop.count) ? Math.max(1, Math.floor(Number(drop.count))) : 1,
-              chance: Number.isFinite(drop.chance) ? Number(drop.chance) : undefined,
-            }]
-          : []
-      ))
-      : [];
+    const drops: MonsterTemplateDrop[] = [];
+    if (Array.isArray(configuredDrops)) {
+      for (const drop of configuredDrops) {
+        if (!isPlainObject(drop) || typeof drop.itemId !== 'string') {
+          continue;
+        }
+        const itemId = drop.itemId.trim();
+        const item = this.items.get(itemId);
+        if (!item) {
+          this.logger.warn(
+            `怪物 ${context.monsterId ?? 'unknown'} 配置了不存在的掉落物品 ${itemId}，已忽略`,
+          );
+          continue;
+        }
+        if (typeof drop.name !== 'string' || typeof drop.type !== 'string') {
+          continue;
+        }
+        drops.push({
+          itemId,
+          name: drop.name,
+          type: drop.type,
+          count: Number.isFinite(drop.count) ? Math.max(1, Math.floor(Number(drop.count))) : 1,
+          chance: Number.isFinite(drop.chance) ? Number(drop.chance) : undefined,
+        });
+      }
+    }
 
     let spiritStoneOverride: MonsterTemplateDrop | undefined;
     const nonSpiritDrops: MonsterTemplateDrop[] = [];
@@ -1606,6 +1618,7 @@ export class ContentService implements OnModuleInit {
         grade,
         tier,
         level,
+        monsterId: raw.id,
       });
       const valueStats = configuredValueStats
         ?? (hasConfiguredAttrs
@@ -2249,4 +2262,3 @@ export class ContentService implements OnModuleInit {
     return undefined;
   }
 }
-

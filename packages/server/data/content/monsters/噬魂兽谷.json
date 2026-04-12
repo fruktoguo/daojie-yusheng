@@ -22,18 +22,6 @@
         "chance": 0.01
       },
       {
-        "itemId": "equip.windhear_crown",
-        "name": "听风兽皮冠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.predator_tendon_boots",
-        "name": "猎脉疾靴",
-        "type": "equipment",
-        "count": 1
-      },
-      {
         "itemId": "mat.beast_bone",
         "name": "妖兽骨",
         "type": "material",
@@ -98,30 +86,6 @@
         "type": "skill_book",
         "count": 1,
         "chance": 0.01
-      },
-      {
-        "itemId": "equip.windhear_crown",
-        "name": "听风兽皮冠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.predator_tendon_boots",
-        "name": "猎脉疾靴",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.bloodcore_talisman",
-        "name": "血核妖符",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.blood_burn_rope",
-        "name": "焚脉黑绳",
-        "type": "equipment",
-        "count": 1
       }
     ],
     "grade": "mortal",
@@ -196,30 +160,6 @@
         "type": "equipment",
         "count": 1,
         "chance": 0.5
-      },
-      {
-        "itemId": "equip.windhear_crown",
-        "name": "听风兽皮冠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.beastbone_mail",
-        "name": "兽骨玄甲",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.predator_tendon_boots",
-        "name": "猎脉疾靴",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.bloodcore_talisman",
-        "name": "血核妖符",
-        "type": "equipment",
-        "count": 1
       }
     ],
     "grade": "mortal",
@@ -275,24 +215,6 @@
         "itemId": "serpent_scale",
         "name": "谷蛇逆鳞",
         "type": "material",
-        "count": 1
-      },
-      {
-        "itemId": "equip.beastbone_mail",
-        "name": "兽骨玄甲",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.predator_tendon_boots",
-        "name": "猎脉疾靴",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.bloodcore_talisman",
-        "name": "血核妖符",
-        "type": "equipment",
         "count": 1
       }
     ],
@@ -375,18 +297,6 @@
         "type": "equipment",
         "count": 1,
         "chance": 0.1
-      },
-      {
-        "itemId": "equip.beastbone_mail",
-        "name": "兽骨玄甲",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.predator_tendon_boots",
-        "name": "猎脉疾靴",
-        "type": "equipment",
-        "count": 1
       }
     ],
     "grade": "yellow",
@@ -463,18 +373,6 @@
         "type": "equipment",
         "count": 1,
         "chance": 0.5
-      },
-      {
-        "itemId": "equip.beastbone_mail",
-        "name": "兽骨玄甲",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.predator_tendon_boots",
-        "name": "猎脉疾靴",
-        "type": "equipment",
-        "count": 1
       }
     ],
     "grade": "yellow",

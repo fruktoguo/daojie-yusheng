@@ -19,18 +19,6 @@
         "name": "虚蚀碎片",
         "type": "material",
         "count": 1
-      },
-      {
-        "itemId": "equip.ridge_calm_robe",
-        "name": "灵脊镇息袍",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.threshold_boots",
-        "name": "叩门行靴",
-        "type": "equipment",
-        "count": 1
       }
     ],
     "grade": "yellow",
@@ -92,18 +80,6 @@
         "type": "skill_book",
         "count": 1,
         "chance": 0.01
-      },
-      {
-        "itemId": "equip.threshold_boots",
-        "name": "叩门行靴",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.guiding_marrow_pendant",
-        "name": "引灵髓坠",
-        "type": "equipment",
-        "count": 1
       }
     ],
     "grade": "yellow",
@@ -167,30 +143,11 @@
         "count": 1
       },
       {
-        "itemId": "equip.starfall_spear",
-        "name": "陨星枪",
-        "type": "equipment",
-        "count": 1,
-        "chance": 0.2
-      },
-      {
         "itemId": "book.starfall_spear",
         "name": "《陨星枪诀》",
         "type": "skill_book",
         "count": 1,
         "chance": 0.2
-      },
-      {
-        "itemId": "equip.windhear_crown",
-        "name": "听风兽皮冠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.threshold_boots",
-        "name": "叩门行靴",
-        "type": "equipment",
-        "count": 1
       }
     ],
     "grade": "yellow",
@@ -254,13 +211,6 @@
         "count": 2
       },
       {
-        "itemId": "equip.starfall_spear",
-        "name": "残星乌铁枪",
-        "type": "equipment",
-        "count": 1,
-        "chance": 0.25
-      },
-      {
         "itemId": "book.starfall_spear",
         "name": "《陨星枪诀》",
         "type": "skill_book",
@@ -273,19 +223,6 @@
         "type": "skill_book",
         "count": 1,
         "chance": 0.25
-      },
-      {
-        "itemId": "equip.void_talisman",
-        "name": "镇脉玄纹佩",
-        "type": "equipment",
-        "count": 1,
-        "chance": 0.25
-      },
-      {
-        "itemId": "equip.threshold_boots",
-        "name": "叩门行靴",
-        "type": "equipment",
-        "count": 1
       },
       {
         "itemId": "pill.shatter_spirit",

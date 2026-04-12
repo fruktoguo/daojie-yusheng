@@ -71,18 +71,6 @@
         "count": 1
       },
       {
-        "itemId": "equip.returnvine_robe",
-        "name": "回藤法衣",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.lifepulse_pendant",
-        "name": "生脉木佩",
-        "type": "equipment",
-        "count": 1
-      },
-      {
         "itemId": "book.qingmu_yangmai",
         "name": "《青木养脉篇》",
         "type": "skill_book",
@@ -168,18 +156,6 @@
         "count": 1
       },
       {
-        "itemId": "equip.vale_stride_boots",
-        "name": "绕谷轻履",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.lifepulse_pendant",
-        "name": "生脉木佩",
-        "type": "equipment",
-        "count": 1
-      },
-      {
         "itemId": "book.qingteng_huixi",
         "name": "《青藤回息诀》",
         "type": "skill_book",
@@ -261,18 +237,6 @@
       {
         "itemId": "equip.vineguide_staff",
         "name": "养枝引脉杖",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.returnvine_robe",
-        "name": "回藤法衣",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.lifepulse_pendant",
-        "name": "生脉木佩",
         "type": "equipment",
         "count": 1
       },
@@ -377,18 +341,6 @@
         "count": 1
       },
       {
-        "itemId": "equip.returnvine_robe",
-        "name": "回藤法衣",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.lifepulse_pendant",
-        "name": "生脉木佩",
-        "type": "equipment",
-        "count": 1
-      },
-      {
         "itemId": "book.wanzhi_huichun",
         "name": "《万枝回春卷》",
         "type": "skill_book",
@@ -482,18 +434,6 @@
       {
         "itemId": "equip.verdant_crown",
         "name": "青萝束冠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.returnvine_robe",
-        "name": "回藤法衣",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.vale_stride_boots",
-        "name": "绕谷轻履",
         "type": "equipment",
         "count": 1
       },
@@ -595,24 +535,6 @@
       {
         "itemId": "equip.verdant_crown",
         "name": "青萝束冠",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.returnvine_robe",
-        "name": "回藤法衣",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.vale_stride_boots",
-        "name": "绕谷轻履",
-        "type": "equipment",
-        "count": 1
-      },
-      {
-        "itemId": "equip.lifepulse_pendant",
-        "name": "生脉木佩",
         "type": "equipment",
         "count": 1
       },
