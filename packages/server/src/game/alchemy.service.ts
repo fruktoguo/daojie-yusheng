@@ -25,9 +25,8 @@ import {
   buildAlchemyIngredientCountMap,
   computeAlchemyBatchOutputCountWithSize,
   computeAlchemyMaterialPower,
+  computeCraftSkillExpGain,
   computeAlchemySuccessRate,
-  computeTimedCraftSkillExp,
-  getCraftSkillEarlyLevelExpMultiplier,
   getAlchemySpiritStoneCost,
   isExactAlchemyRecipe,
   normalizeAlchemyIngredientSelections,
@@ -984,26 +983,16 @@ export class AlchemyService implements OnModuleInit {
     if (totalAttempts <= 0) {
       return { changed: false, messages: [], dirtyFlags: [] };
     }
-    const successGain = computeTimedCraftSkillExp(
-      this.getAlchemySkillExpToNext(recipeLevel),
-      recipeLevel,
-      recipeBaseBrewTicks,
-    );
-    const failureReferenceLevel = Math.min(
-      Math.max(1, Math.floor(recipeLevel || 1)),
-      Math.max(1, Math.floor(skill.level || 1)),
-    );
-    const failureGain = computeTimedCraftSkillExp(
-      this.getAlchemySkillExpToNext(failureReferenceLevel),
-      failureReferenceLevel,
-      recipeBaseBrewTicks,
-      0.25,
-    );
-    const baseGain = Math.max(
-      0,
-      Math.round(((successGain * Math.max(0, successCount)) + (failureGain * Math.max(0, failureCount))) / totalAttempts),
-    );
-    const gain = Math.max(0, Math.round(baseGain * getCraftSkillEarlyLevelExpMultiplier(skill.level)));
+    const gainResult = computeCraftSkillExpGain({
+      skillLevel: skill.level,
+      targetLevel: recipeLevel,
+      baseActionTicks: recipeBaseBrewTicks,
+      successCount,
+      failureCount,
+      successMultiplier: 1,
+      getExpToNextByLevel: (level) => this.getAlchemySkillExpToNext(level),
+    });
+    const gain = gainResult.finalGain;
     if (gain <= 0) {
       return { changed: false, messages: [], dirtyFlags: [] };
     }

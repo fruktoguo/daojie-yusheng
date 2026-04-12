@@ -26,12 +26,11 @@ import {
   SyncedEnhancementRequirementView,
   VisibleBuffState,
   applyEnhancementToItemStack,
+  computeCraftSkillExpGain,
   computeEnhancementAdjustedSuccessRate,
   computeEnhancementJobBaseTicks,
   computeEnhancementJobTicks,
   computeEnhancementToolSpeedRate,
-  computeTimedCraftSkillExp,
-  getCraftSkillEarlyLevelExpMultiplier,
   getEnhancementSpiritStoneCost,
   normalizeAlchemySkillState,
   normalizeEnhanceLevel,
@@ -1012,24 +1011,16 @@ export class EnhancementService implements OnModuleInit {
     if (skill.expToNext <= 0) {
       return { changed: false, messages: [], dirtyFlags: [] };
     }
-    const successGain = computeTimedCraftSkillExp(
-      this.getEnhancementSkillExpToNext(targetItemLevel),
-      targetItemLevel,
-      computeEnhancementJobBaseTicks(targetItemLevel),
-    );
-    const failureReferenceLevel = Math.min(
-      Math.max(1, Math.floor(Number(targetItemLevel) || 1)),
-      Math.max(1, Math.floor(Number(skill.level) || 1)),
-    );
-    const baseGain = success
-      ? successGain
-      : computeTimedCraftSkillExp(
-        this.getEnhancementSkillExpToNext(failureReferenceLevel),
-        failureReferenceLevel,
-        computeEnhancementJobBaseTicks(targetItemLevel),
-        0.25,
-      );
-    const gain = Math.max(0, Math.round(baseGain * getCraftSkillEarlyLevelExpMultiplier(skill.level)));
+    const gainResult = computeCraftSkillExpGain({
+      skillLevel: skill.level,
+      targetLevel: targetItemLevel,
+      baseActionTicks: computeEnhancementJobBaseTicks(targetItemLevel),
+      successCount: success ? 1 : 0,
+      failureCount: success ? 0 : 1,
+      successMultiplier: 1,
+      getExpToNextByLevel: (level) => this.getEnhancementSkillExpToNext(level),
+    });
+    const gain = gainResult.finalGain;
     if (gain <= 0) {
       return { changed: false, messages: [], dirtyFlags: [] };
     }
